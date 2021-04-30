@@ -3,10 +3,10 @@
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM hh_virtio_frontend
+#define TRACE_SYSTEM gh_virtio_frontend
 
-#if !defined(_TRACE_HH_VIRTIO_FRONTEND_H) || defined(TRACE_HEADER_MULTI_READ)
-#define _TRACE_HH_VIRTIO_FRONTEND_H
+#if !defined(_TRACE_GH_VIRTIO_FRONTEND_H) || defined(TRACE_HEADER_MULTI_READ)
+#define _TRACE_GH_VIRTIO_FRONTEND_H
 
 #include <linux/tracepoint.h>
 
@@ -173,7 +173,7 @@ TRACE_EVENT(virtio_block_submit,
 			__entry->ioprio, __entry->num, __entry->err)
 );
 
-#endif /* _TRACE_HH_VIRTIO_FRONTEND_H */
+#endif /* _TRACE_GH_VIRTIO_FRONTEND_H */
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>

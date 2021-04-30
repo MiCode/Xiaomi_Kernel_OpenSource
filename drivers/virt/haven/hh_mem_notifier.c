@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
-#include <linux/haven/hh_mem_notifier.h>
+#include <linux/gunyah/gh_mem_notifier.h>
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -12,22 +12,22 @@
 #include <linux/slab.h>
 
 struct mem_notifier_entry {
-	hh_mem_notifier_handler handler;
+	gh_mem_notifier_handler handler;
 	void *data;
 };
 
 static DEFINE_MUTEX(mem_notifier_entries_lock);
-static struct mem_notifier_entry mem_notifier_entries[HH_MEM_NOTIFIER_TAG_MAX];
+static struct mem_notifier_entry mem_notifier_entries[GH_MEM_NOTIFIER_TAG_MAX];
 
-static bool hh_mem_notifier_tag_valid(enum hh_mem_notifier_tag tag)
+static bool gh_mem_notifier_tag_valid(enum gh_mem_notifier_tag tag)
 {
-	return tag >= 0 && tag < HH_MEM_NOTIFIER_TAG_MAX;
+	return tag >= 0 && tag < GH_MEM_NOTIFIER_TAG_MAX;
 }
 
 /**
- * hh_mem_notifier_register: Bind a callback and arbitrary data to a particular
+ * gh_mem_notifier_register: Bind a callback and arbitrary data to a particular
  *                           notification tag. The callback will be invoked when
- *                           the Haven MEM_SHARED and MEM_RELEASED notifications
+ *                           the Gunyah MEM_SHARED and MEM_RELEASED notifications
  *                           involving the tag that was registered with arrive
  *                           at the VM.
  * @tag: The tag for which the caller would like to receive MEM_SHARED and
@@ -44,12 +44,12 @@ static bool hh_mem_notifier_tag_valid(enum hh_mem_notifier_tag tag)
  * errors. The cookie must be used when unregistering the handler from the
  * tag.
  */
-void *hh_mem_notifier_register(enum hh_mem_notifier_tag tag,
-			       hh_mem_notifier_handler handler, void *data)
+void *gh_mem_notifier_register(enum gh_mem_notifier_tag tag,
+			       gh_mem_notifier_handler handler, void *data)
 {
 	struct mem_notifier_entry *entry;
 
-	if (!hh_mem_notifier_tag_valid(tag) || !handler)
+	if (!gh_mem_notifier_tag_valid(tag) || !handler)
 		return ERR_PTR(-EINVAL);
 
 	mutex_lock(&mem_notifier_entries_lock);
@@ -64,19 +64,19 @@ void *hh_mem_notifier_register(enum hh_mem_notifier_tag tag,
 
 	return entry;
 }
-EXPORT_SYMBOL(hh_mem_notifier_register);
+EXPORT_SYMBOL(gh_mem_notifier_register);
 
 /**
- * hh_mem_notifier_unregister: Unregister for memory notifier notifications
+ * gh_mem_notifier_unregister: Unregister for memory notifier notifications
  *                             with respect to a particular tag.
- * @cookie: The cookie returned by hh_mem_notifier_register
+ * @cookie: The cookie returned by gh_mem_notifier_register
  *
  * On success, the function will unbind the handler specified in
- * hh_mem_notifier_register from the tag, preventing the handler from being
+ * gh_mem_notifier_register from the tag, preventing the handler from being
  * invoked when subsequent MEM_SHARED/MEM_RELEASED notifications pertaining
  * to the tag arrive.
  */
-void hh_mem_notifier_unregister(void *cookie)
+void gh_mem_notifier_unregister(void *cookie)
 {
 	struct mem_notifier_entry *entry = cookie;
 
@@ -88,36 +88,36 @@ void hh_mem_notifier_unregister(void *cookie)
 	entry->data = NULL;
 	mutex_unlock(&mem_notifier_entries_lock);
 }
-EXPORT_SYMBOL(hh_mem_notifier_unregister);
+EXPORT_SYMBOL(gh_mem_notifier_unregister);
 
-static enum hh_mem_notifier_tag hh_mem_notifier_get_tag(unsigned long action,
+static enum gh_mem_notifier_tag gh_mem_notifier_get_tag(unsigned long action,
 							void *msg)
 {
-	if (action == HH_RM_NOTIF_MEM_SHARED)
+	if (action == GH_RM_NOTIF_MEM_SHARED)
 		return
-		((struct hh_rm_notif_mem_shared_payload *)msg)->mem_info_tag;
-	else if (action == HH_RM_NOTIF_MEM_RELEASED)
+		((struct gh_rm_notif_mem_shared_payload *)msg)->mem_info_tag;
+	else if (action == GH_RM_NOTIF_MEM_RELEASED)
 		return
-		((struct hh_rm_notif_mem_released_payload *)msg)->mem_info_tag;
+		((struct gh_rm_notif_mem_released_payload *)msg)->mem_info_tag;
 
-	return ((struct hh_rm_notif_mem_accepted_payload *)msg)->mem_info_tag;
+	return ((struct gh_rm_notif_mem_accepted_payload *)msg)->mem_info_tag;
 }
 
-static int hh_mem_notifier_call(struct notifier_block *nb, unsigned long action,
+static int gh_mem_notifier_call(struct notifier_block *nb, unsigned long action,
 				void *msg)
 {
 	struct mem_notifier_entry *entry;
-	enum hh_mem_notifier_tag tag;
-	hh_mem_notifier_handler handler = NULL;
+	enum gh_mem_notifier_tag tag;
+	gh_mem_notifier_handler handler = NULL;
 	void *data;
 
-	if ((action != HH_RM_NOTIF_MEM_SHARED) &&
-	    (action != HH_RM_NOTIF_MEM_RELEASED) &&
-	    (action != HH_RM_NOTIF_MEM_ACCEPTED))
+	if ((action != GH_RM_NOTIF_MEM_SHARED) &&
+	    (action != GH_RM_NOTIF_MEM_RELEASED) &&
+	    (action != GH_RM_NOTIF_MEM_ACCEPTED))
 		return NOTIFY_DONE;
 
-	tag = hh_mem_notifier_get_tag(action, msg);
-	if (!hh_mem_notifier_tag_valid(tag))
+	tag = gh_mem_notifier_get_tag(action, msg);
+	if (!gh_mem_notifier_tag_valid(tag))
 		return NOTIFY_DONE;
 
 	mutex_lock(&mem_notifier_entries_lock);
@@ -132,26 +132,26 @@ static int hh_mem_notifier_call(struct notifier_block *nb, unsigned long action,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block hh_mem_notifier_blk = {
-	.notifier_call = hh_mem_notifier_call,
+static struct notifier_block gh_mem_notifier_blk = {
+	.notifier_call = gh_mem_notifier_call,
 };
 
-static int __init hh_mem_notifier_init(void)
+static int __init gh_mem_notifier_init(void)
 {
-	int ret = hh_rm_register_notifier(&hh_mem_notifier_blk);
+	int ret = gh_rm_register_notifier(&gh_mem_notifier_blk);
 
 	if (ret)
 		pr_err("%s: registration with RM notifier failed rc: %d\n",
 		       __func__, ret);
 	return ret;
 }
-module_init(hh_mem_notifier_init);
+module_init(gh_mem_notifier_init);
 
-static void __exit hh_mem_notifier_exit(void)
+static void __exit gh_mem_notifier_exit(void)
 {
-	hh_rm_unregister_notifier(&hh_mem_notifier_blk);
+	gh_rm_unregister_notifier(&gh_mem_notifier_blk);
 }
-module_exit(hh_mem_notifier_exit);
+module_exit(gh_mem_notifier_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Haven Memory Notifier");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Gunyah Memory Notifier");

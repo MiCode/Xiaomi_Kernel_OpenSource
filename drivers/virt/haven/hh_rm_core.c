@@ -20,24 +20,24 @@
 #include <linux/sched.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-#include <linux/haven/hh_dbl.h>
-#include <linux/haven/hh_msgq.h>
-#include <linux/haven/hh_errno.h>
-#include <linux/haven/hh_common.h>
-#include <linux/haven/hh_rm_drv.h>
+#include <linux/gunyah/gh_dbl.h>
+#include <linux/gunyah/gh_msgq.h>
+#include <linux/gunyah/gh_errno.h>
+#include <linux/gunyah/gh_common.h>
+#include <linux/gunyah/gh_rm_drv.h>
 
-#include "hh_rm_drv_private.h"
+#include "gh_rm_drv_private.h"
 
-#define HH_RM_MAX_NUM_FRAGMENTS	62
+#define GH_RM_MAX_NUM_FRAGMENTS	62
 
 #define GIC_V3_SPI_MAX		1019
 
-#define HH_RM_NO_IRQ_ALLOC	-1
+#define GH_RM_NO_IRQ_ALLOC	-1
 
-#define HH_RM_MAX_MSG_SIZE_BYTES \
-	(HH_MSGQ_MAX_MSG_SIZE_BYTES - sizeof(struct hh_rm_rpc_hdr))
+#define GH_RM_MAX_MSG_SIZE_BYTES \
+	(GH_MSGQ_MAX_MSG_SIZE_BYTES - sizeof(struct gh_rm_rpc_hdr))
 
-struct hh_rm_connection {
+struct gh_rm_connection {
 	u32 msg_id;
 	u16 seq;
 	void *recv_buff;
@@ -51,33 +51,33 @@ struct hh_rm_connection {
 	void *current_recv_buff;
 };
 
-static struct task_struct *hh_rm_drv_recv_task;
-static struct hh_msgq_desc *hh_rm_msgq_desc;
-static hh_virtio_mmio_cb_t hh_virtio_mmio_fn;
-static hh_vcpu_affinity_cb_t hh_vcpu_affinity_fn;
+static struct task_struct *gh_rm_drv_recv_task;
+static struct gh_msgq_desc *gh_rm_msgq_desc;
+static gh_virtio_mmio_cb_t gh_virtio_mmio_fn;
+static gh_vcpu_affinity_cb_t gh_vcpu_affinity_fn;
 
-static DEFINE_MUTEX(hh_rm_call_idr_lock);
+static DEFINE_MUTEX(gh_rm_call_idr_lock);
 static DEFINE_MUTEX(gh_virtio_mmio_fn_lock);
-static DEFINE_IDR(hh_rm_call_idr);
-static struct hh_rm_connection *curr_connection;
-static DEFINE_MUTEX(hh_rm_send_lock);
+static DEFINE_IDR(gh_rm_call_idr);
+static struct gh_rm_connection *curr_connection;
+static DEFINE_MUTEX(gh_rm_send_lock);
 
-static DEFINE_IDA(hh_rm_free_virq_ida);
-static struct device_node *hh_rm_intc;
-static struct irq_domain *hh_rm_irq_domain;
-static u32 hh_rm_base_virq;
+static DEFINE_IDA(gh_rm_free_virq_ida);
+static struct device_node *gh_rm_intc;
+static struct irq_domain *gh_rm_irq_domain;
+static u32 gh_rm_base_virq;
 
-SRCU_NOTIFIER_HEAD_STATIC(hh_rm_notifier);
+SRCU_NOTIFIER_HEAD_STATIC(gh_rm_notifier);
 
-/* non-static: used by hh_rm_iface */
-bool hh_rm_core_initialized;
+/* non-static: used by gh_rm_iface */
+bool gh_rm_core_initialized;
 
-static void hh_rm_get_svm_res_work_fn(struct work_struct *work);
-static DECLARE_WORK(hh_rm_get_svm_res_work, hh_rm_get_svm_res_work_fn);
+static void gh_rm_get_svm_res_work_fn(struct work_struct *work);
+static DECLARE_WORK(gh_rm_get_svm_res_work, gh_rm_get_svm_res_work_fn);
 
-static struct hh_rm_connection *hh_rm_alloc_connection(u32 msg_id)
+static struct gh_rm_connection *gh_rm_alloc_connection(u32 msg_id)
 {
-	struct hh_rm_connection *connection;
+	struct gh_rm_connection *connection;
 
 	connection = kzalloc(sizeof(*connection), GFP_KERNEL);
 	if (!connection)
@@ -91,11 +91,11 @@ static struct hh_rm_connection *hh_rm_alloc_connection(u32 msg_id)
 }
 
 static int
-hh_rm_init_connection_buff(struct hh_rm_connection *connection,
+gh_rm_init_connection_buff(struct gh_rm_connection *connection,
 				void *recv_buff, size_t hdr_size,
 				size_t payload_size)
 {
-	struct hh_rm_rpc_hdr *hdr = recv_buff;
+	struct gh_rm_rpc_hdr *hdr = recv_buff;
 
 	/* Some of the 'reply' types doesn't contain any payload */
 	if (!payload_size)
@@ -105,7 +105,7 @@ hh_rm_init_connection_buff(struct hh_rm_connection *connection,
 	 * enough buffer to hold the payloads for all the fragments.
 	 */
 	connection->recv_buff = connection->current_recv_buff =
-		kzalloc((HH_MSGQ_MAX_MSG_SIZE_BYTES - hdr_size) *
+		kzalloc((GH_MSGQ_MAX_MSG_SIZE_BYTES - hdr_size) *
 			(hdr->fragments + 1),
 			GFP_KERNEL);
 	if (!connection->recv_buff)
@@ -119,34 +119,34 @@ hh_rm_init_connection_buff(struct hh_rm_connection *connection,
 	return 0;
 }
 
-int hh_rm_register_notifier(struct notifier_block *nb)
+int gh_rm_register_notifier(struct notifier_block *nb)
 {
-	return srcu_notifier_chain_register(&hh_rm_notifier, nb);
+	return srcu_notifier_chain_register(&gh_rm_notifier, nb);
 }
-EXPORT_SYMBOL(hh_rm_register_notifier);
+EXPORT_SYMBOL(gh_rm_register_notifier);
 
-int hh_rm_unregister_notifier(struct notifier_block *nb)
+int gh_rm_unregister_notifier(struct notifier_block *nb)
 {
-	return srcu_notifier_chain_unregister(&hh_rm_notifier, nb);
+	return srcu_notifier_chain_unregister(&gh_rm_notifier, nb);
 }
-EXPORT_SYMBOL(hh_rm_unregister_notifier);
+EXPORT_SYMBOL(gh_rm_unregister_notifier);
 
-static struct hh_rm_connection *
-hh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
+static struct gh_rm_connection *
+gh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
 {
-	struct hh_rm_rpc_hdr *hdr = recv_buff;
-	struct hh_rm_connection *connection;
+	struct gh_rm_rpc_hdr *hdr = recv_buff;
+	struct gh_rm_connection *connection;
 	size_t payload_size;
 	int ret = 0;
 
-	connection = hh_rm_alloc_connection(hdr->msg_id);
+	connection = gh_rm_alloc_connection(hdr->msg_id);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
 	payload_size = recv_buff_size - sizeof(*hdr);
 	curr_connection = connection;
 
-	ret = hh_rm_init_connection_buff(connection, recv_buff,
+	ret = gh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*hdr), payload_size);
 	if (ret < 0)
 		goto out;
@@ -163,10 +163,10 @@ out:
 	return ERR_PTR(ret);
 }
 
-static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
+static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 {
-	struct hh_rm_connection *connection = NULL;
-	struct hh_rm_rpc_hdr *hdr = recv_buff;
+	struct gh_rm_connection *connection = NULL;
+	struct gh_rm_rpc_hdr *hdr = recv_buff;
 	u32 notification = hdr->msg_id;
 	void *payload = NULL;
 	int ret = 0;
@@ -185,7 +185,7 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 	 * fragments, wait until all them arrive.
 	 */
 	if (hdr->fragments) {
-		connection = hh_rm_wait_for_notif_fragments(recv_buff,
+		connection = gh_rm_wait_for_notif_fragments(recv_buff,
 								recv_buff_size);
 		if (IS_ERR_OR_NULL(connection))
 			return PTR_ERR(connection);
@@ -198,73 +198,73 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 	}
 
 	switch (notification) {
-	case HH_RM_NOTIF_VM_STATUS:
+	case GH_RM_NOTIF_VM_STATUS:
 		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct hh_rm_notif_vm_status_payload)) {
+			sizeof(struct gh_rm_notif_vm_status_payload)) {
 			pr_err("%s: Invalid size for VM_STATUS notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
 		}
 		break;
-	case HH_RM_NOTIF_VM_IRQ_LENT:
+	case GH_RM_NOTIF_VM_IRQ_LENT:
 		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct hh_rm_notif_vm_irq_lent_payload)) {
+			sizeof(struct gh_rm_notif_vm_irq_lent_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_LENT notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
 		}
 		break;
-	case HH_RM_NOTIF_VM_IRQ_RELEASED:
+	case GH_RM_NOTIF_VM_IRQ_RELEASED:
 		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct hh_rm_notif_vm_irq_released_payload)) {
+			sizeof(struct gh_rm_notif_vm_irq_released_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_REL notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
 		}
 		break;
-	case HH_RM_NOTIF_VM_IRQ_ACCEPTED:
+	case GH_RM_NOTIF_VM_IRQ_ACCEPTED:
 		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct hh_rm_notif_vm_irq_accepted_payload)) {
+			sizeof(struct gh_rm_notif_vm_irq_accepted_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_ACCEPTED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
 		}
 		break;
-	case HH_RM_NOTIF_MEM_SHARED:
+	case GH_RM_NOTIF_MEM_SHARED:
 		if (recv_buff_size < sizeof(*hdr) +
-			sizeof(struct hh_rm_notif_mem_shared_payload)) {
+			sizeof(struct gh_rm_notif_mem_shared_payload)) {
 			pr_err("%s: Invalid size for MEM_SHARED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
 		}
 		break;
-	case HH_RM_NOTIF_MEM_RELEASED:
+	case GH_RM_NOTIF_MEM_RELEASED:
 		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct hh_rm_notif_mem_released_payload)) {
+			sizeof(struct gh_rm_notif_mem_released_payload)) {
 			pr_err("%s: Invalid size for MEM_RELEASED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
 		}
 		break;
-	case HH_RM_NOTIF_MEM_ACCEPTED:
+	case GH_RM_NOTIF_MEM_ACCEPTED:
 		if (recv_buff_size != sizeof(*hdr) +
-			sizeof(struct hh_rm_notif_mem_accepted_payload)) {
+			sizeof(struct gh_rm_notif_mem_accepted_payload)) {
 			pr_err("%s: Invalid size for MEM_ACCEPTED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
 		}
 		break;
-	case HH_RM_NOTIF_VM_CONSOLE_CHARS:
+	case GH_RM_NOTIF_VM_CONSOLE_CHARS:
 		if (recv_buff_size < sizeof(*hdr) +
-			sizeof(struct hh_rm_notif_vm_console_chars)) {
-			struct hh_rm_notif_vm_console_chars *console_chars;
+			sizeof(struct gh_rm_notif_vm_console_chars)) {
+			struct gh_rm_notif_vm_console_chars *console_chars;
 			u16 num_bytes;
 
 			console_chars = recv_buff + sizeof(*hdr);
@@ -286,7 +286,7 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 		goto err;
 	}
 
-	srcu_notifier_call_chain(&hh_rm_notifier, notification, payload);
+	srcu_notifier_call_chain(&gh_rm_notifier, notification, payload);
 
 err:
 	if (connection) {
@@ -297,11 +297,11 @@ err:
 	return ret;
 }
 
-static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
+static int gh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 {
-	struct hh_rm_rpc_reply_hdr *reply_hdr = recv_buff;
-	struct hh_rm_rpc_hdr *hdr = recv_buff;
-	struct hh_rm_connection *connection;
+	struct gh_rm_rpc_reply_hdr *reply_hdr = recv_buff;
+	struct gh_rm_rpc_hdr *hdr = recv_buff;
+	struct gh_rm_connection *connection;
 	size_t payload_size;
 	int ret = 0;
 
@@ -310,13 +310,13 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 		return -EINVAL;
 	}
 
-	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
+	if (mutex_lock_interruptible(&gh_rm_call_idr_lock)) {
 		ret = -ERESTARTSYS;
 		goto out;
 	}
 
-	connection = idr_find(&hh_rm_call_idr, hdr->seq);
-	mutex_unlock(&hh_rm_call_idr_lock);
+	connection = idr_find(&gh_rm_call_idr, hdr->seq);
+	mutex_unlock(&gh_rm_call_idr_lock);
 
 	if (!connection || connection->seq != hdr->seq ||
 	    connection->msg_id != hdr->msg_id) {
@@ -329,7 +329,7 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	payload_size = recv_buff_size - sizeof(*reply_hdr);
 	curr_connection = connection;
 
-	ret = hh_rm_init_connection_buff(connection, recv_buff,
+	ret = gh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*reply_hdr), payload_size);
 	if (ret < 0)
 		return ret;
@@ -352,10 +352,10 @@ out:
 	return ret;
 }
 
-static int hh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
+static int gh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 {
-	struct hh_rm_rpc_hdr *hdr = recv_buff;
-	struct hh_rm_connection *connection = curr_connection;
+	struct gh_rm_rpc_hdr *hdr = recv_buff;
+	struct gh_rm_connection *connection = curr_connection;
 	size_t payload_size;
 
 	if (!connection) {
@@ -396,30 +396,30 @@ static int hh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 	return 0;
 }
 
-struct hh_rm_msgq_data {
+struct gh_rm_msgq_data {
 	void *recv_buff;
 	size_t recv_buff_size;
 	struct work_struct recv_work;
 };
 
-static void hh_rm_process_recv_work(struct work_struct *work)
+static void gh_rm_process_recv_work(struct work_struct *work)
 {
-	struct hh_rm_msgq_data *msgq_data;
-	struct hh_rm_rpc_hdr *hdr;
+	struct gh_rm_msgq_data *msgq_data;
+	struct gh_rm_rpc_hdr *hdr;
 	void *recv_buff;
 
-	msgq_data = container_of(work, struct hh_rm_msgq_data, recv_work);
+	msgq_data = container_of(work, struct gh_rm_msgq_data, recv_work);
 	recv_buff = hdr = msgq_data->recv_buff;
 
 	switch (hdr->type) {
-	case HH_RM_RPC_TYPE_NOTIF:
-		hh_rm_process_notif(recv_buff, msgq_data->recv_buff_size);
+	case GH_RM_RPC_TYPE_NOTIF:
+		gh_rm_process_notif(recv_buff, msgq_data->recv_buff_size);
 		break;
-	case HH_RM_RPC_TYPE_RPLY:
-		hh_rm_process_rply(recv_buff, msgq_data->recv_buff_size);
+	case GH_RM_RPC_TYPE_RPLY:
+		gh_rm_process_rply(recv_buff, msgq_data->recv_buff_size);
 		break;
-	case HH_RM_RPC_TYPE_CONT:
-		hh_rm_process_cont(recv_buff, msgq_data->recv_buff_size);
+	case GH_RM_RPC_TYPE_CONT:
+		gh_rm_process_cont(recv_buff, msgq_data->recv_buff_size);
 		break;
 	default:
 		pr_err("%s: Invalid message type (%d) received\n",
@@ -434,28 +434,28 @@ static void hh_rm_process_recv_work(struct work_struct *work)
 	kfree(msgq_data);
 }
 
-static int hh_rm_recv_task_fn(void *data)
+static int gh_rm_recv_task_fn(void *data)
 {
-	struct hh_rm_msgq_data *msgq_data;
+	struct gh_rm_msgq_data *msgq_data;
 	size_t recv_buff_size;
 	void *recv_buff;
 	int ret;
 
 	while (!kthread_should_stop()) {
-		recv_buff = kzalloc(HH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
+		recv_buff = kzalloc(GH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
 		if (!recv_buff)
 			continue;
 
 		/* Block until a new message is received */
-		ret = hh_msgq_recv(hh_rm_msgq_desc, recv_buff,
-					HH_MSGQ_MAX_MSG_SIZE_BYTES,
+		ret = gh_msgq_recv(gh_rm_msgq_desc, recv_buff,
+					GH_MSGQ_MAX_MSG_SIZE_BYTES,
 					&recv_buff_size, 0);
 		if (ret < 0) {
 			pr_err("%s: Failed to receive the message: %d\n",
 				__func__, ret);
 			kfree(recv_buff);
 			continue;
-		} else if (recv_buff_size <= sizeof(struct hh_rm_rpc_hdr)) {
+		} else if (recv_buff_size <= sizeof(struct gh_rm_rpc_hdr)) {
 			pr_err("%s: Invalid message size received\n", __func__);
 			kfree(recv_buff);
 			continue;
@@ -470,12 +470,12 @@ static int hh_rm_recv_task_fn(void *data)
 			continue;
 		}
 
-		print_hex_dump_debug("hh_rm_recv: ", DUMP_PREFIX_OFFSET,
+		print_hex_dump_debug("gh_rm_recv: ", DUMP_PREFIX_OFFSET,
 				     4, 1, recv_buff, recv_buff_size, false);
 
 		msgq_data->recv_buff = recv_buff;
 		msgq_data->recv_buff_size = recv_buff_size;
-		INIT_WORK(&msgq_data->recv_work, hh_rm_process_recv_work);
+		INIT_WORK(&msgq_data->recv_work, gh_rm_process_recv_work);
 
 		schedule_work(&msgq_data->recv_work);
 	}
@@ -483,21 +483,21 @@ static int hh_rm_recv_task_fn(void *data)
 	return 0;
 }
 
-static int hh_rm_send_request(u32 message_id,
+static int gh_rm_send_request(u32 message_id,
 				const void *req_buff, size_t req_buff_size,
-				struct hh_rm_connection *connection)
+				struct gh_rm_connection *connection)
 {
 	size_t buff_size_remaining = req_buff_size;
 	const void *req_buff_curr = req_buff;
-	struct hh_rm_rpc_hdr *hdr;
+	struct gh_rm_rpc_hdr *hdr;
 	unsigned long tx_flags;
 	u8 num_fragments = 0;
 	size_t payload_size;
 	void *send_buff;
 	int i, ret;
 
-	num_fragments = (req_buff_size + HH_RM_MAX_MSG_SIZE_BYTES - 1) /
-			HH_RM_MAX_MSG_SIZE_BYTES;
+	num_fragments = (req_buff_size + GH_RM_MAX_MSG_SIZE_BYTES - 1) /
+			GH_RM_MAX_MSG_SIZE_BYTES;
 
 	/* The above calculation also includes the count
 	 * for the 'request' packet. Exclude it as the
@@ -505,20 +505,20 @@ static int hh_rm_send_request(u32 message_id,
 	 */
 	num_fragments--;
 
-	if (num_fragments > HH_RM_MAX_NUM_FRAGMENTS) {
+	if (num_fragments > GH_RM_MAX_NUM_FRAGMENTS) {
 		pr_err("%s: Limit exceeded for the number of fragments: %u\n",
 			__func__, num_fragments);
 		return -E2BIG;
 	}
 
-	if (mutex_lock_interruptible(&hh_rm_send_lock)) {
+	if (mutex_lock_interruptible(&gh_rm_send_lock)) {
 		return -ERESTARTSYS;
 	}
 
 	/* Consider also the 'request' packet for the loop count */
 	for (i = 0; i <= num_fragments; i++) {
-		if (buff_size_remaining > HH_RM_MAX_MSG_SIZE_BYTES) {
-			payload_size = HH_RM_MAX_MSG_SIZE_BYTES;
+		if (buff_size_remaining > GH_RM_MAX_MSG_SIZE_BYTES) {
+			payload_size = GH_RM_MAX_MSG_SIZE_BYTES;
 			buff_size_remaining -= payload_size;
 		} else {
 			payload_size = buff_size_remaining;
@@ -526,14 +526,14 @@ static int hh_rm_send_request(u32 message_id,
 
 		send_buff = kzalloc(sizeof(*hdr) + payload_size, GFP_KERNEL);
 		if (!send_buff) {
-			mutex_unlock(&hh_rm_send_lock);
+			mutex_unlock(&gh_rm_send_lock);
 			return -ENOMEM;
 		}
 
 		hdr = send_buff;
-		hdr->version = HH_RM_RPC_HDR_VERSION_ONE;
-		hdr->hdr_words = HH_RM_RPC_HDR_WORDS;
-		hdr->type = i == 0 ? HH_RM_RPC_TYPE_REQ : HH_RM_RPC_TYPE_CONT;
+		hdr->version = GH_RM_RPC_HDR_VERSION_ONE;
+		hdr->hdr_words = GH_RM_RPC_HDR_WORDS;
+		hdr->type = i == 0 ? GH_RM_RPC_TYPE_REQ : GH_RM_RPC_TYPE_CONT;
 		hdr->fragments = num_fragments;
 		hdr->seq = connection->seq;
 		hdr->msg_id = message_id;
@@ -544,14 +544,14 @@ static int hh_rm_send_request(u32 message_id,
 		/* Force the last fragment (or the request type)
 		 * to be sent immediately to the receiver
 		 */
-		tx_flags = (i == num_fragments) ? HH_MSGQ_TX_PUSH : 0;
+		tx_flags = (i == num_fragments) ? GH_MSGQ_TX_PUSH : 0;
 
 		/* delay sending console characters to RM */
-		if (message_id == HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE ||
-		    message_id == HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH)
+		if (message_id == GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE ||
+		    message_id == GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH)
 			udelay(800);
 
-		ret = hh_msgq_send(hh_rm_msgq_desc, send_buff,
+		ret = gh_msgq_send(gh_rm_msgq_desc, send_buff,
 					sizeof(*hdr) + payload_size, tx_flags);
 
 		/*
@@ -563,22 +563,22 @@ static int hh_rm_send_request(u32 message_id,
 		kfree(send_buff);
 
 		if (ret) {
-			mutex_unlock(&hh_rm_send_lock);
+			mutex_unlock(&gh_rm_send_lock);
 			return ret;
 		}
 	}
 
-	mutex_unlock(&hh_rm_send_lock);
+	mutex_unlock(&gh_rm_send_lock);
 	return 0;
 }
 
 /**
- * hh_rm_call: Achieve request-response type communication with RPC
+ * gh_rm_call: Achieve request-response type communication with RPC
  * @message_id: The RM RPC message-id
  * @req_buff: Request buffer that contains the payload
  * @req_buff_size: Total size of the payload
  * @resp_buff_size: Size of the response buffer
- * @reply_err_code: Returns Haven standard error code for the response
+ * @reply_err_code: Returns Gunyah standard error code for the response
  *
  * Make a request to the RM-VM and expect a reply back. For a successful
  * response, the function returns the payload and its size for the response.
@@ -588,36 +588,36 @@ static int hh_rm_send_request(u32 message_id,
  * (if applicable). Also, the caller should kfree the returned pointer
  * when done.
  */
-void *hh_rm_call(hh_rm_msgid_t message_id,
+void *gh_rm_call(gh_rm_msgid_t message_id,
 			void *req_buff, size_t req_buff_size,
 			size_t *resp_buff_size, int *reply_err_code)
 {
-	struct hh_rm_connection *connection;
+	struct gh_rm_connection *connection;
 	int req_ret;
 	void *ret;
 
 	if (!message_id || !req_buff || !resp_buff_size || !reply_err_code)
 		return ERR_PTR(-EINVAL);
 
-	connection = hh_rm_alloc_connection(message_id);
+	connection = gh_rm_alloc_connection(message_id);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
 	/* Allocate a new seq number for this connection */
-	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
+	if (mutex_lock_interruptible(&gh_rm_call_idr_lock)) {
 		kfree(connection);
 		return ERR_PTR(-ERESTARTSYS);
 	}
 
-	connection->seq = idr_alloc_cyclic(&hh_rm_call_idr, connection,
+	connection->seq = idr_alloc_cyclic(&gh_rm_call_idr, connection,
 					0, U16_MAX, GFP_KERNEL);
-	mutex_unlock(&hh_rm_call_idr_lock);
+	mutex_unlock(&gh_rm_call_idr_lock);
 
 	pr_debug("%s TX msg_id: %x\n", __func__, message_id);
-	print_hex_dump_debug("hh_rm_call TX: ", DUMP_PREFIX_OFFSET, 4, 1,
+	print_hex_dump_debug("gh_rm_call TX: ", DUMP_PREFIX_OFFSET, 4, 1,
 			     req_buff, req_buff_size, false);
 	/* Send the request to the Resource Manager VM */
-	req_ret = hh_rm_send_request(message_id,
+	req_ret = gh_rm_send_request(message_id,
 					req_buff, req_buff_size,
 					connection);
 	if (req_ret < 0) {
@@ -635,17 +635,17 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 	if (connection->reply_err_code) {
 		pr_err("%s: Reply for seq:%d failed with RM err: %d\n",
 			__func__, connection->seq, connection->reply_err_code);
-		ret = ERR_PTR(hh_remap_error(connection->reply_err_code));
+		ret = ERR_PTR(gh_remap_error(connection->reply_err_code));
 		goto out;
 	}
 
-	print_hex_dump_debug("hh_rm_call RX: ", DUMP_PREFIX_OFFSET, 4, 1,
+	print_hex_dump_debug("gh_rm_call RX: ", DUMP_PREFIX_OFFSET, 4, 1,
 			     connection->recv_buff, connection->recv_buff_size,
 			     false);
 
-	mutex_lock(&hh_rm_call_idr_lock);
-	idr_remove(&hh_rm_call_idr, connection->seq);
-	mutex_unlock(&hh_rm_call_idr_lock);
+	mutex_lock(&gh_rm_call_idr_lock);
+	idr_remove(&gh_rm_call_idr, connection->seq);
+	mutex_unlock(&gh_rm_call_idr_lock);
 
 	ret = connection->recv_buff;
 	*resp_buff_size = connection->recv_buff_size;
@@ -656,13 +656,13 @@ out:
 }
 
 /**
- * hh_rm_virq_to_irq: Get a Linux IRQ from a Haven-compatible vIRQ
- * @virq: Haven-compatible vIRQ
+ * gh_rm_virq_to_irq: Get a Linux IRQ from a Gunyah-compatible vIRQ
+ * @virq: Gunyah-compatible vIRQ
  * @type: IRQ trigger type (IRQ_TYPE_EDGE_RISING)
  *
- * Returns the mapped Linux IRQ# at Haven's IRQ domain (i.e. GIC SPI)
+ * Returns the mapped Linux IRQ# at Gunyah's IRQ domain (i.e. GIC SPI)
  */
-int hh_rm_virq_to_irq(u32 virq, u32 type)
+int gh_rm_virq_to_irq(u32 virq, u32 type)
 {
 	struct irq_fwspec fwspec = {};
 
@@ -671,7 +671,7 @@ int hh_rm_virq_to_irq(u32 virq, u32 type)
 			__func__, virq);
 	}
 
-	fwspec.fwnode = of_node_to_fwnode(hh_rm_intc);
+	fwspec.fwnode = of_node_to_fwnode(gh_rm_intc);
 	fwspec.param_count = 3;
 	fwspec.param[0] = GIC_SPI;
 	fwspec.param[1] = virq - 32;
@@ -679,21 +679,21 @@ int hh_rm_virq_to_irq(u32 virq, u32 type)
 
 	return irq_create_fwspec_mapping(&fwspec);
 }
-EXPORT_SYMBOL(hh_rm_virq_to_irq);
+EXPORT_SYMBOL(gh_rm_virq_to_irq);
 
 /**
- * hh_rm_irq_to_virq: Get a Haven-compatible vIRQ from a Linux IRQ
+ * gh_rm_irq_to_virq: Get a Gunyah-compatible vIRQ from a Linux IRQ
  * @irq: Linux-assigned IRQ#
- * @virq: out value where Haven-compatible vIRQ is stored
+ * @virq: out value where Gunyah-compatible vIRQ is stored
  *
  * Returns 0 upon success, -EINVAL if the Linux IRQ could not be mapped to
- * a Haven vIRQ (i.e., the IRQ does not correspond to any GIC-level IRQ)
+ * a Gunyah vIRQ (i.e., the IRQ does not correspond to any GIC-level IRQ)
  */
-int hh_rm_irq_to_virq(int irq, u32 *virq)
+int gh_rm_irq_to_virq(int irq, u32 *virq)
 {
 	struct irq_data *irq_data;
 
-	irq_data = irq_domain_get_irq_data(hh_rm_irq_domain, irq);
+	irq_data = irq_domain_get_irq_data(gh_rm_irq_domain, irq);
 	if (!irq_data)
 		return -EINVAL;
 
@@ -702,9 +702,9 @@ int hh_rm_irq_to_virq(int irq, u32 *virq)
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_rm_irq_to_virq);
+EXPORT_SYMBOL(gh_rm_irq_to_virq);
 
-static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
+static int gh_rm_get_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry)
 {
 	int ret, virq = res_entry->virq;
 
@@ -715,12 +715,12 @@ static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 		return 0;
 
 	/* Allocate and bind a new IRQ if RM-VM hasn't already done already */
-	if (virq == HH_RM_NO_IRQ_ALLOC) {
+	if (virq == GH_RM_NO_IRQ_ALLOC) {
 		/* Get the next free vIRQ.
 		 * Subtract 32 from the base virq to get the base SPI.
 		 */
-		ret = virq = ida_alloc_range(&hh_rm_free_virq_ida,
-					hh_rm_base_virq - 32,
+		ret = virq = ida_alloc_range(&gh_rm_free_virq_ida,
+					gh_rm_base_virq - 32,
 					GIC_V3_SPI_MAX, GFP_KERNEL);
 		if (ret < 0)
 			return ret;
@@ -729,7 +729,7 @@ static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 		virq += 32;
 
 		/* Bind the vIRQ */
-		ret = hh_rm_vm_irq_accept(res_entry->virq_handle, virq);
+		ret = gh_rm_vm_irq_accept(res_entry->virq_handle, virq);
 		if (ret < 0)
 			goto err;
 	} else if ((virq - 32) < 0) {
@@ -739,29 +739,29 @@ static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 		return -EINVAL;
 	}
 
-	return hh_rm_virq_to_irq(virq, IRQ_TYPE_EDGE_RISING);
+	return gh_rm_virq_to_irq(virq, IRQ_TYPE_EDGE_RISING);
 
 err:
-	ida_free(&hh_rm_free_virq_ida, virq - 32);
+	ida_free(&gh_rm_free_virq_ida, virq - 32);
 	return ret;
 }
 
 /**
- * hh_rm_get_vm_id_info: Query Resource Manager VM to get vm identification info.
+ * gh_rm_get_vm_id_info: Query Resource Manager VM to get vm identification info.
  * @vmid: The vmid of VM whose id information needs to be queried.
  *
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int hh_rm_get_vm_id_info(enum hh_vm_names vm_name, hh_vmid_t vmid)
+int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
 {
-	struct hh_vm_get_id_resp_entry *id_entries = NULL;
-	struct hh_vm_property vm_prop = {0};
+	struct gh_vm_get_id_resp_entry *id_entries = NULL;
+	struct gh_vm_property vm_prop = {0};
 	void *info = NULL;
 	int ret = 0;
 	u32 n_id, i;
 
-	id_entries = hh_rm_vm_get_id(vmid, &n_id);
+	id_entries = gh_rm_vm_get_id(vmid, &n_id);
 	if (IS_ERR_OR_NULL(id_entries))
 		return PTR_ERR(id_entries);
 
@@ -786,16 +786,16 @@ int hh_rm_get_vm_id_info(enum hh_vm_names vm_name, hh_vmid_t vmid)
 		}
 
 		switch (id_entries[i].id_type) {
-		case HH_RM_ID_TYPE_GUID:
+		case GH_RM_ID_TYPE_GUID:
 			vm_prop.guid = info;
 		break;
-		case HH_RM_ID_TYPE_URI:
+		case GH_RM_ID_TYPE_URI:
 			vm_prop.uri = info;
 		break;
-		case HH_RM_ID_TYPE_NAME:
+		case GH_RM_ID_TYPE_NAME:
 			vm_prop.name = info;
 		break;
-		case HH_RM_ID_TYPE_SIGN_AUTH:
+		case GH_RM_ID_TYPE_SIGN_AUTH:
 			vm_prop.sign_auth = info;
 		break;
 		default:
@@ -807,30 +807,30 @@ int hh_rm_get_vm_id_info(enum hh_vm_names vm_name, hh_vmid_t vmid)
 	}
 
 	if (!ret)
-		ret = hh_update_vm_prop_table(vm_name, &vm_prop);
+		ret = gh_update_vm_prop_table(vm_name, &vm_prop);
 
 	kfree(id_entries);
 	return ret;
 }
-EXPORT_SYMBOL(hh_rm_get_vm_id_info);
+EXPORT_SYMBOL(gh_rm_get_vm_id_info);
 
 /**
- * hh_rm_populate_hyp_res: Query Resource Manager VM to get hyp resources.
+ * gh_rm_populate_hyp_res: Query Resource Manager VM to get hyp resources.
  * @vmid: The vmid of resources to be queried.
  *
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
+int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 {
-	struct hh_vm_get_hyp_res_resp_entry *res_entries = NULL;
+	struct gh_vm_get_hyp_res_resp_entry *res_entries = NULL;
 	int linux_irq, ret = 0;
-	hh_capid_t cap_id;
-	hh_label_t label;
+	gh_capid_t cap_id;
+	gh_label_t label;
 	u32 n_res, i;
 	u64 base = 0, size = 0;
 
-	res_entries = hh_rm_vm_get_hyp_res(vmid, &n_res);
+	res_entries = gh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
 		return PTR_ERR(res_entries);
 
@@ -853,7 +853,7 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
 			res_entries[i].size_high,
 			res_entries[i].size_low);
 
-		ret = linux_irq = hh_rm_get_irq(&res_entries[i]);
+		ret = linux_irq = gh_rm_get_irq(&res_entries[i]);
 		if (ret < 0)
 			goto out;
 
@@ -868,38 +868,38 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
 		/* Populate MessageQ, DBL and vCPUs cap tables */
 		do {
 			switch (res_entries[i].res_type) {
-			case HH_RM_RES_TYPE_MQ_TX:
-				ret = hh_msgq_populate_cap_info(label, cap_id,
-					HH_MSGQ_DIRECTION_TX, linux_irq);
+			case GH_RM_RES_TYPE_MQ_TX:
+				ret = gh_msgq_populate_cap_info(label, cap_id,
+					GH_MSGQ_DIRECTION_TX, linux_irq);
 				break;
-			case HH_RM_RES_TYPE_MQ_RX:
-				ret = hh_msgq_populate_cap_info(label, cap_id,
-					HH_MSGQ_DIRECTION_RX, linux_irq);
+			case GH_RM_RES_TYPE_MQ_RX:
+				ret = gh_msgq_populate_cap_info(label, cap_id,
+					GH_MSGQ_DIRECTION_RX, linux_irq);
 				break;
-			case HH_RM_RES_TYPE_VCPU:
-				if (!hh_vcpu_affinity_fn)
+			case GH_RM_RES_TYPE_VCPU:
+				if (!gh_vcpu_affinity_fn)
 					break;
 
-				ret = (*hh_vcpu_affinity_fn)(label, cap_id);
+				ret = (*gh_vcpu_affinity_fn)(label, cap_id);
 				break;
-			case HH_RM_RES_TYPE_DB_TX:
-				ret = hh_dbl_populate_cap_info(label, cap_id,
-					HH_MSGQ_DIRECTION_TX, linux_irq);
+			case GH_RM_RES_TYPE_DB_TX:
+				ret = gh_dbl_populate_cap_info(label, cap_id,
+					GH_MSGQ_DIRECTION_TX, linux_irq);
 				break;
-			case HH_RM_RES_TYPE_DB_RX:
-				ret = hh_dbl_populate_cap_info(label, cap_id,
-					HH_MSGQ_DIRECTION_RX, linux_irq);
+			case GH_RM_RES_TYPE_DB_RX:
+				ret = gh_dbl_populate_cap_info(label, cap_id,
+					GH_MSGQ_DIRECTION_RX, linux_irq);
 				break;
-			case HH_RM_RES_TYPE_VPMGRP:
+			case GH_RM_RES_TYPE_VPMGRP:
 				break;
-			case HH_RM_RES_TYPE_VIRTIO_MMIO:
+			case GH_RM_RES_TYPE_VIRTIO_MMIO:
 				mutex_lock(&gh_virtio_mmio_fn_lock);
-				if (!hh_virtio_mmio_fn) {
+				if (!gh_virtio_mmio_fn) {
 					mutex_unlock(&gh_virtio_mmio_fn_lock);
 					break;
 				}
 
-				ret = (*hh_virtio_mmio_fn)(vmid, vm_name, label,
+				ret = (*gh_virtio_mmio_fn)(vmid, vm_name, label,
 						cap_id, linux_irq, base, size);
 				mutex_unlock(&gh_virtio_mmio_fn_lock);
 				break;
@@ -918,13 +918,13 @@ out:
 	kfree(res_entries);
 	return ret;
 }
-EXPORT_SYMBOL(hh_rm_populate_hyp_res);
+EXPORT_SYMBOL(gh_rm_populate_hyp_res);
 
 /**
- * hh_rm_set_virtio_mmio_cb: Set callback that handles virtio MMIO resource
+ * gh_rm_set_virtio_mmio_cb: Set callback that handles virtio MMIO resource
  * @fnptr: Pointer to callback function
  *
- * hh_rm_populate_hyp_res() queries RM-VM for all resources assigned to a VM and
+ * gh_rm_populate_hyp_res() queries RM-VM for all resources assigned to a VM and
  * as part of that response RM-VM will indicate resources assigned exclusively
  * to handle virtio communication between the two VMs. @fnptr callback is
  * invoked providing details of the virtio resource allocated for a particular
@@ -936,23 +936,23 @@ EXPORT_SYMBOL(hh_rm_populate_hyp_res);
  *	-EINVAL -> Indicates invalid input argument
  *	-EBUSY	-> Indicates that a callback is already set
  */
-int hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_cb_t fnptr)
+int gh_rm_set_virtio_mmio_cb(gh_virtio_mmio_cb_t fnptr)
 {
 	if (!fnptr)
 		return -EINVAL;
 
 	mutex_lock(&gh_virtio_mmio_fn_lock);
-	if (hh_virtio_mmio_fn) {
+	if (gh_virtio_mmio_fn) {
 		mutex_unlock(&gh_virtio_mmio_fn_lock);
 		return -EBUSY;
 	}
 
-	hh_virtio_mmio_fn = fnptr;
+	gh_virtio_mmio_fn = fnptr;
 	mutex_unlock(&gh_virtio_mmio_fn_lock);
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_rm_set_virtio_mmio_cb);
+EXPORT_SYMBOL(gh_rm_set_virtio_mmio_cb);
 
 /**
  * gh_rm_unset_virtio_mmio_cb: Unset callback that handles virtio MMIO resource
@@ -960,13 +960,13 @@ EXPORT_SYMBOL(hh_rm_set_virtio_mmio_cb);
 void gh_rm_unset_virtio_mmio_cb(void)
 {
 	mutex_lock(&gh_virtio_mmio_fn_lock);
-	hh_virtio_mmio_fn = NULL;
+	gh_virtio_mmio_fn = NULL;
 	mutex_unlock(&gh_virtio_mmio_fn_lock);
 }
 EXPORT_SYMBOL(gh_rm_unset_virtio_mmio_cb);
 
 /**
- * hh_rm_set_vcpu_affinity_cb: Set callback that handles vcpu affinity
+ * gh_rm_set_vcpu_affinity_cb: Set callback that handles vcpu affinity
  * @fnptr: Pointer to callback function
  *
  * @fnptr callback is invoked providing details of the vcpu resource.
@@ -976,37 +976,37 @@ EXPORT_SYMBOL(gh_rm_unset_virtio_mmio_cb);
  *	-EINVAL -> Indicates invalid input argument
  *	-EBUSY	-> Indicates that a callback is already set
  */
-int hh_rm_set_vcpu_affinity_cb(hh_vcpu_affinity_cb_t fnptr)
+int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_cb_t fnptr)
 {
 	if (!fnptr)
 		return -EINVAL;
 
-	if (hh_vcpu_affinity_fn)
+	if (gh_vcpu_affinity_fn)
 		return -EBUSY;
 
-	hh_vcpu_affinity_fn = fnptr;
+	gh_vcpu_affinity_fn = fnptr;
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_rm_set_vcpu_affinity_cb);
+EXPORT_SYMBOL(gh_rm_set_vcpu_affinity_cb);
 
-static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
+static void gh_rm_get_svm_res_work_fn(struct work_struct *work)
 {
-	hh_vmid_t vmid;
+	gh_vmid_t vmid;
 	int ret;
 
-	ret = hh_rm_get_vmid(HH_PRIMARY_VM, &vmid);
+	ret = gh_rm_get_vmid(GH_PRIMARY_VM, &vmid);
 	if (ret)
 		pr_err("%s: Unable to get VMID for VM label %d\n",
-						__func__, HH_PRIMARY_VM);
+						__func__, GH_PRIMARY_VM);
 	else
-		hh_rm_populate_hyp_res(vmid, NULL);
+		gh_rm_populate_hyp_res(vmid, NULL);
 }
 
-static int hh_vm_probe(struct device *dev, struct device_node *hyp_root)
+static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 {
 	struct device_node *node;
-	struct hh_vm_property temp_property = {0};
+	struct gh_vm_property temp_property = {0};
 	int vmid, owner_vmid, ret;
 
 	node = of_find_compatible_node(hyp_root, NULL, "qcom,haven-vm-id-1.0");
@@ -1023,103 +1023,103 @@ static int hh_vm_probe(struct device *dev, struct device_node *hyp_root)
 
 	ret = of_property_read_u32(node, "qcom,owner-vmid", &owner_vmid);
 	if (ret) {
-		/* We must be HH_PRIMARY_VM */
+		/* We must be GH_PRIMARY_VM */
 		temp_property.vmid = vmid;
-		hh_update_vm_prop_table(HH_PRIMARY_VM, &temp_property);
+		gh_update_vm_prop_table(GH_PRIMARY_VM, &temp_property);
 	} else {
-		/* We must be HH_TRUSTED_VM */
+		/* We must be GH_TRUSTED_VM */
 		temp_property.vmid = vmid;
-		hh_update_vm_prop_table(HH_TRUSTED_VM, &temp_property);
+		gh_update_vm_prop_table(GH_TRUSTED_VM, &temp_property);
 		temp_property.vmid = owner_vmid;
-		hh_update_vm_prop_table(HH_PRIMARY_VM, &temp_property);
+		gh_update_vm_prop_table(GH_PRIMARY_VM, &temp_property);
 
 		/* Query RM for available resources */
-		schedule_work(&hh_rm_get_svm_res_work);
+		schedule_work(&gh_rm_get_svm_res_work);
 	}
 
 	return 0;
 }
 
-static const struct of_device_id hh_rm_drv_of_match[] = {
+static const struct of_device_id gh_rm_drv_of_match[] = {
 	{ .compatible = "qcom,resource-manager-1-0" },
 	{ }
 };
 
-static int hh_rm_drv_probe(struct platform_device *pdev)
+static int gh_rm_drv_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 	int ret;
 
-	ret = hh_msgq_probe(pdev, HH_MSGQ_LABEL_RM);
+	ret = gh_msgq_probe(pdev, GH_MSGQ_LABEL_RM);
 	if (ret) {
 		dev_err(dev, "Failed to probe message queue: %d\n", ret);
 		return ret;
 	}
 
 	if (of_property_read_u32(node, "qcom,free-irq-start",
-				 &hh_rm_base_virq)) {
+				 &gh_rm_base_virq)) {
 		dev_err(dev, "Failed to get the vIRQ base\n");
 		return -ENXIO;
 	}
 
-	hh_rm_intc = of_irq_find_parent(node);
-	if (!hh_rm_intc) {
+	gh_rm_intc = of_irq_find_parent(node);
+	if (!gh_rm_intc) {
 		dev_err(dev, "Failed to get the IRQ parent node\n");
 		return -ENXIO;
 	}
-	hh_rm_irq_domain = irq_find_host(hh_rm_intc);
-	if (!hh_rm_irq_domain) {
+	gh_rm_irq_domain = irq_find_host(gh_rm_intc);
+	if (!gh_rm_irq_domain) {
 		dev_err(dev, "Failed to get IRQ domain associated with RM\n");
 		return -ENXIO;
 	}
 
-	hh_rm_msgq_desc = hh_msgq_register(HH_MSGQ_LABEL_RM);
-	if (IS_ERR_OR_NULL(hh_rm_msgq_desc))
-		return PTR_ERR(hh_rm_msgq_desc);
+	gh_rm_msgq_desc = gh_msgq_register(GH_MSGQ_LABEL_RM);
+	if (IS_ERR_OR_NULL(gh_rm_msgq_desc))
+		return PTR_ERR(gh_rm_msgq_desc);
 
 	/* As we don't have a callback for message reception yet,
 	 * spawn a kthread and always listen to incoming messages.
 	 */
-	hh_rm_drv_recv_task = kthread_run(hh_rm_recv_task_fn,
-						NULL, "hh_rm_recv_task");
-	if (IS_ERR_OR_NULL(hh_rm_drv_recv_task)) {
-		ret = PTR_ERR(hh_rm_drv_recv_task);
+	gh_rm_drv_recv_task = kthread_run(gh_rm_recv_task_fn,
+						NULL, "gh_rm_recv_task");
+	if (IS_ERR_OR_NULL(gh_rm_drv_recv_task)) {
+		ret = PTR_ERR(gh_rm_drv_recv_task);
 		goto err_recv_task;
 	}
 
 	/* Probe the vmid */
-	ret = hh_vm_probe(dev, node->parent);
+	ret = gh_vm_probe(dev, node->parent);
 	if (ret < 0 && ret != -ENODEV)
 		goto err_recv_task;
 
-	hh_rm_core_initialized = true;
+	gh_rm_core_initialized = true;
 	return 0;
 
 err_recv_task:
-	hh_msgq_unregister(hh_rm_msgq_desc);
+	gh_msgq_unregister(gh_rm_msgq_desc);
 	return ret;
 }
 
-static int hh_rm_drv_remove(struct platform_device *pdev)
+static int gh_rm_drv_remove(struct platform_device *pdev)
 {
-	kthread_stop(hh_rm_drv_recv_task);
-	hh_msgq_unregister(hh_rm_msgq_desc);
-	idr_destroy(&hh_rm_call_idr);
+	kthread_stop(gh_rm_drv_recv_task);
+	gh_msgq_unregister(gh_rm_msgq_desc);
+	idr_destroy(&gh_rm_call_idr);
 
 	return 0;
 }
 
-static struct platform_driver hh_rm_driver = {
-	.probe = hh_rm_drv_probe,
-	.remove = hh_rm_drv_remove,
+static struct platform_driver gh_rm_driver = {
+	.probe = gh_rm_drv_probe,
+	.remove = gh_rm_drv_remove,
 	.driver = {
-		.name = "hh_rm_driver",
-		.of_match_table = hh_rm_drv_of_match,
+		.name = "gh_rm_driver",
+		.of_match_table = gh_rm_drv_of_match,
 	},
 };
 
-module_platform_driver(hh_rm_driver);
+module_platform_driver(gh_rm_driver);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Haven Resource Mgr. Driver");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Gunyah Resource Mgr. Driver");

@@ -23,9 +23,9 @@
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
 
-#include <linux/haven/hcall.h>
-#include <linux/haven/hh_errno.h>
-#include <linux/haven/hh_rm_drv.h>
+#include <linux/gunyah/hcall.h>
+#include <linux/gunyah/gh_errno.h>
+#include <linux/gunyah/gh_rm_drv.h>
 
 #include <linux/sched/walt.h>
 
@@ -44,9 +44,9 @@ static DEFINE_PER_CPU(unsigned int, qos_min_freq);
  *
  */
 struct hyp_core_ctl_cpu_map {
-	hh_capid_t cap_id;
-	hh_label_t pcpu;
-	hh_label_t curr_pcpu;
+	gh_capid_t cap_id;
+	gh_label_t pcpu;
+	gh_label_t curr_pcpu;
 };
 
 /**
@@ -80,7 +80,7 @@ struct hyp_core_ctl_data {
 #include "hyp_core_ctl_trace.h"
 
 static struct hyp_core_ctl_data *the_hcd;
-static struct hyp_core_ctl_cpu_map hh_cpumap[NR_CPUS];
+static struct hyp_core_ctl_cpu_map gh_cpumap[NR_CPUS];
 static bool is_vcpu_info_populated;
 static bool init_done;
 static int nr_vcpus;
@@ -194,7 +194,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 	 * maintained in vcpu_adjust_mask and processed in the 2nd pass.
 	 */
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].cap_id == HH_CAPID_INVAL)
+		if (hcd->cpumap[i].cap_id == GH_CAPID_INVAL)
 			break;
 
 		orig_cpu = hcd->cpumap[i].pcpu;
@@ -211,9 +211,9 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 			 * is available in final_reserved_cpus. so restore
 			 * the assignment.
 			 */
-			err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
+			err = gh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 								orig_cpu);
-			if (err != HH_ERROR_OK) {
+			if (err != GH_ERROR_OK) {
 				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d cap_id=%llu cpu=%d\n",
 					i, err, hcd->cpumap[i].cap_id, orig_cpu);
 				continue;
@@ -256,9 +256,9 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 		replacement_cpu = cpumask_any(temp);
 		cpumask_clear_cpu(replacement_cpu, temp);
 
-		err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
+		err = gh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 							replacement_cpu);
-		if (err != HH_ERROR_OK) {
+		if (err != GH_ERROR_OK) {
 			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d cap_id=%llu cpu=%d\n",
 				i, err, hcd->cpumap[i].cap_id, replacement_cpu);
 			continue;
@@ -666,12 +666,12 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	cpumask_clear(&hcd->reserve_cpus);
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hh_cpumap[i].cap_id == HH_CAPID_INVAL)
+		if (gh_cpumap[i].cap_id == GH_CAPID_INVAL)
 			break;
 
-		hcd->cpumap[i].cap_id = hh_cpumap[i].cap_id;
-		hcd->cpumap[i].pcpu = hh_cpumap[i].pcpu;
-		hcd->cpumap[i].curr_pcpu = hh_cpumap[i].curr_pcpu;
+		hcd->cpumap[i].cap_id = gh_cpumap[i].cap_id;
+		hcd->cpumap[i].pcpu = gh_cpumap[i].pcpu;
+		hcd->cpumap[i].curr_pcpu = gh_cpumap[i].curr_pcpu;
 		cpumask_set_cpu(hcd->cpumap[i].pcpu, &hcd->reserve_cpus);
 		pr_debug("vcpu%u map to pcpu%u\n", i, hcd->cpumap[i].pcpu);
 	}
@@ -685,7 +685,7 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
  * Called when vm_status is STATUS_READY, multiple times before status
  * moves to STATUS_RUNNING
  */
-static int hh_vcpu_populate_affinity_info(hh_label_t cpu_idx, hh_capid_t cap_id)
+static int gh_vcpu_populate_affinity_info(gh_label_t cpu_idx, gh_capid_t cap_id)
 {
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
@@ -693,9 +693,9 @@ static int hh_vcpu_populate_affinity_info(hh_label_t cpu_idx, hh_capid_t cap_id)
 	}
 
 	if (!is_vcpu_info_populated) {
-		hh_cpumap[nr_vcpus].cap_id = cap_id;
-		hh_cpumap[nr_vcpus].pcpu = cpu_idx;
-		hh_cpumap[nr_vcpus].curr_pcpu = cpu_idx;
+		gh_cpumap[nr_vcpus].cap_id = cap_id;
+		gh_cpumap[nr_vcpus].pcpu = cpu_idx;
+		gh_cpumap[nr_vcpus].curr_pcpu = cpu_idx;
 
 		nr_vcpus++;
 		pr_debug("cpu_index:%u vcpu_cap_id:%llu nr_vcpus:%d\n",
@@ -705,14 +705,14 @@ static int hh_vcpu_populate_affinity_info(hh_label_t cpu_idx, hh_capid_t cap_id)
 	return 0;
 }
 
-static int hh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
+static int gh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 						unsigned long cmd, void *data)
 {
-	struct hh_rm_notif_vm_status_payload *vm_status_payload = data;
+	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
 	u8 vm_status = vm_status_payload->vm_status;
 
-	if (cmd == HH_RM_NOTIF_VM_STATUS &&
-			vm_status == HH_RM_VM_STATUS_RUNNING &&
+	if (cmd == GH_RM_NOTIF_VM_STATUS &&
+			vm_status == GH_RM_VM_STATUS_RUNNING &&
 			!is_vcpu_info_populated) {
 		mutex_lock(&the_hcd->reservation_mutex);
 		hyp_core_ctl_init_reserve_cpus(the_hcd);
@@ -723,8 +723,8 @@ static int hh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block hh_vcpu_nb = {
-	.notifier_call = hh_vcpu_done_populate_affinity_info,
+static struct notifier_block gh_vcpu_nb = {
+	.notifier_call = gh_vcpu_done_populate_affinity_info,
 };
 
 static void hyp_core_ctl_enable(bool enable)
@@ -814,7 +814,7 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 			   "Vcpu to Pcpu mappings:\n");
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].cap_id == HH_CAPID_INVAL)
+		if (hcd->cpumap[i].cap_id == GH_CAPID_INVAL)
 			break;
 
 		count += scnprintf(buf + count, PAGE_SIZE - count,
@@ -1023,15 +1023,15 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
-	ret = hh_rm_set_vcpu_affinity_cb(&hh_vcpu_populate_affinity_info);
+	ret = gh_rm_set_vcpu_affinity_cb(&gh_vcpu_populate_affinity_info);
 	if (ret) {
 		pr_err("fail to set the vcpu affinity callback\n");
 		return ret;
 	}
 
-	ret = hh_rm_register_notifier(&hh_vcpu_nb);
+	ret = gh_rm_register_notifier(&gh_vcpu_nb);
 	if (ret) {
-		pr_err("fail to register hh_rm_notifier\n");
+		pr_err("fail to register gh_rm_notifier\n");
 		goto reset_cb;
 	}
 
@@ -1077,9 +1077,9 @@ stop_task:
 free_hcd:
 	kfree(hcd);
 unregister_rm_notifier:
-	hh_rm_unregister_notifier(&hh_vcpu_nb);
+	gh_rm_unregister_notifier(&gh_vcpu_nb);
 reset_cb:
-	hh_rm_set_vcpu_affinity_cb(NULL);
+	gh_rm_set_vcpu_affinity_cb(NULL);
 
 	return ret;
 }

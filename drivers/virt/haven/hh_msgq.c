@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -12,23 +12,23 @@
 #include <linux/interrupt.h>
 #include <linux/ratelimit.h>
 
-#include <linux/haven/hcall.h>
-#include <linux/haven/hh_msgq.h>
-#include <linux/haven/hh_errno.h>
+#include <linux/gunyah/hcall.h>
+#include <linux/gunyah/gh_msgq.h>
+#include <linux/gunyah/gh_errno.h>
 
 /* HVC call specific mask: 0 to 31 */
-#define HH_MSGQ_HVC_FLAGS_MASK GENMASK_ULL(31, 0)
+#define GH_MSGQ_HVC_FLAGS_MASK GENMASK_ULL(31, 0)
 
-struct hh_msgq_desc {
-	enum hh_msgq_label label;
+struct gh_msgq_desc {
+	enum gh_msgq_label label;
 };
 
-struct hh_msgq_cap_table {
-	struct hh_msgq_desc *client_desc;
+struct gh_msgq_cap_table {
+	struct gh_msgq_desc *client_desc;
 	spinlock_t cap_entry_lock;
 
-	hh_capid_t tx_cap_id;
-	hh_capid_t rx_cap_id;
+	gh_capid_t tx_cap_id;
+	gh_capid_t rx_cap_id;
 	int tx_irq;
 	int rx_irq;
 	const char *tx_irq_name;
@@ -42,12 +42,12 @@ struct hh_msgq_cap_table {
 	wait_queue_head_t rx_wq;
 };
 
-static bool hh_msgq_initialized;
-static struct hh_msgq_cap_table hh_msgq_cap_table[HH_MSGQ_LABEL_MAX];
+static bool gh_msgq_initialized;
+static struct gh_msgq_cap_table gh_msgq_cap_table[GH_MSGQ_LABEL_MAX];
 
-static irqreturn_t hh_msgq_rx_isr(int irq, void *dev)
+static irqreturn_t gh_msgq_rx_isr(int irq, void *dev)
 {
-	struct hh_msgq_cap_table *cap_table_entry = dev;
+	struct gh_msgq_cap_table *cap_table_entry = dev;
 
 	spin_lock(&cap_table_entry->rx_lock);
 	cap_table_entry->rx_empty = false;
@@ -58,9 +58,9 @@ static irqreturn_t hh_msgq_rx_isr(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t hh_msgq_tx_isr(int irq, void *dev)
+static irqreturn_t gh_msgq_tx_isr(int irq, void *dev)
 {
-	struct hh_msgq_cap_table *cap_table_entry = dev;
+	struct gh_msgq_cap_table *cap_table_entry = dev;
 
 	spin_lock(&cap_table_entry->tx_lock);
 	cap_table_entry->tx_full = false;
@@ -71,53 +71,53 @@ static irqreturn_t hh_msgq_tx_isr(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
+static int __gh_msgq_recv(struct gh_msgq_cap_table *cap_table_entry,
 				void *buff, size_t buff_size,
 				size_t *recv_size, u64 rx_flags)
 {
-	struct hh_hcall_msgq_recv_resp resp = {};
+	struct gh_hcall_msgq_recv_resp resp = {};
 	unsigned long flags;
-	int hh_ret;
+	int gh_ret;
 	int ret = 0;
 
 	/* Discard the driver specific flags, and keep only HVC specifics */
-	rx_flags &= HH_MSGQ_HVC_FLAGS_MASK;
+	rx_flags &= GH_MSGQ_HVC_FLAGS_MASK;
 
 	spin_lock_irqsave(&cap_table_entry->rx_lock, flags);
-	hh_ret = hh_hcall_msgq_recv(cap_table_entry->rx_cap_id, buff,
+	gh_ret = gh_hcall_msgq_recv(cap_table_entry->rx_cap_id, buff,
 					buff_size, &resp);
 
-	switch (hh_ret) {
-	case HH_ERROR_OK:
+	switch (gh_ret) {
+	case GH_ERROR_OK:
 		*recv_size = resp.recv_size;
 		cap_table_entry->rx_empty = !resp.not_empty;
 		ret = 0;
 		break;
-	case HH_ERROR_MSGQUEUE_EMPTY:
+	case GH_ERROR_MSGQUEUE_EMPTY:
 		cap_table_entry->rx_empty = true;
 		ret = -EAGAIN;
 		break;
 	default:
-		ret = hh_remap_error(hh_ret);
+		ret = gh_remap_error(gh_ret);
 	}
 
 	spin_unlock_irqrestore(&cap_table_entry->rx_lock, flags);
 
 	if (ret != 0 && ret != -EAGAIN)
 		pr_err("%s: Failed to recv from msgq. Hypercall error: %d\n",
-			__func__, hh_ret);
+			__func__, gh_ret);
 
 	return ret;
 }
 
 /**
- * hh_msgq_recv: Receive a message from the client running on a different VM
- * @client_desc: The client descriptor that was obtained via hh_msgq_register()
+ * gh_msgq_recv: Receive a message from the client running on a different VM
+ * @client_desc: The client descriptor that was obtained via gh_msgq_register()
  * @buff: Pointer to the buffer where the received data must be placed
  * @buff_size: The size of the buffer space available
  * @recv_size: The actual amount of data that is copied into buff
  * @flags: Optional flags to pass to receive the data. For the list of flags,
- *         see linux/haven/hh_msgq.h
+ *         see linux/gunyah/gh_msgq.h
  *
  * The function returns 0 if the data is successfully received and recv_size
  * would contain the actual amount of data copied into buff.
@@ -129,21 +129,21 @@ static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
  * Note: this function may sleep and should not be called from interrupt
  *       context
  */
-int hh_msgq_recv(void *msgq_client_desc,
+int gh_msgq_recv(void *msgq_client_desc,
 			void *buff, size_t buff_size,
 			size_t *recv_size, unsigned long flags)
 {
-	struct hh_msgq_desc *client_desc = msgq_client_desc;
-	struct hh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_desc *client_desc = msgq_client_desc;
+	struct gh_msgq_cap_table *cap_table_entry;
 	int ret;
 
 	if (!client_desc || !buff || !buff_size || !recv_size)
 		return -EINVAL;
 
-	if (buff_size > HH_MSGQ_MAX_MSG_SIZE_BYTES)
+	if (buff_size > GH_MSGQ_MAX_MSG_SIZE_BYTES)
 		return -E2BIG;
 
-	cap_table_entry = &hh_msgq_cap_table[client_desc->label];
+	cap_table_entry = &gh_msgq_cap_table[client_desc->label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -153,8 +153,8 @@ int hh_msgq_recv(void *msgq_client_desc,
 		goto err;
 	}
 
-	if ((cap_table_entry->rx_cap_id == HH_CAPID_INVAL) &&
-		(flags & HH_MSGQ_NONBLOCK)) {
+	if ((cap_table_entry->rx_cap_id == GH_CAPID_INVAL) &&
+		(flags & GH_MSGQ_NONBLOCK)) {
 		pr_err_ratelimited(
 			"%s: Recv info for label %d not yet initialized\n",
 			__func__, client_desc->label);
@@ -165,7 +165,7 @@ int hh_msgq_recv(void *msgq_client_desc,
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	if (wait_event_interruptible(cap_table_entry->rx_wq,
-				cap_table_entry->rx_cap_id != HH_CAPID_INVAL))
+				cap_table_entry->rx_cap_id != GH_CAPID_INVAL))
 		return -ERESTARTSYS;
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
@@ -180,19 +180,19 @@ int hh_msgq_recv(void *msgq_client_desc,
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	do {
-		if (cap_table_entry->rx_empty && (flags & HH_MSGQ_NONBLOCK))
+		if (cap_table_entry->rx_empty && (flags & GH_MSGQ_NONBLOCK))
 			return -EAGAIN;
 
 		if (wait_event_interruptible(cap_table_entry->rx_wq,
 					!cap_table_entry->rx_empty))
 			return -ERESTARTSYS;
 
-		ret = __hh_msgq_recv(cap_table_entry, buff, buff_size,
+		ret = __gh_msgq_recv(cap_table_entry, buff, buff_size,
 					recv_size, flags);
 	} while (ret == -EAGAIN);
 
 	if (!ret)
-		print_hex_dump_debug("hh_msgq_recv: ", DUMP_PREFIX_OFFSET,
+		print_hex_dump_debug("gh_msgq_recv: ", DUMP_PREFIX_OFFSET,
 				     4, 1, buff, *recv_size, false);
 
 	return ret;
@@ -201,75 +201,75 @@ err:
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ret;
 }
-EXPORT_SYMBOL(hh_msgq_recv);
+EXPORT_SYMBOL(gh_msgq_recv);
 
-static int __hh_msgq_send(struct hh_msgq_cap_table *cap_table_entry,
+static int __gh_msgq_send(struct gh_msgq_cap_table *cap_table_entry,
 				void *buff, size_t size, u64 tx_flags)
 {
-	struct hh_hcall_msgq_send_resp resp = {};
+	struct gh_hcall_msgq_send_resp resp = {};
 	unsigned long flags;
-	int hh_ret;
+	int gh_ret;
 	int ret = 0;
 
 	/* Discard the driver specific flags, and keep only HVC specifics */
-	tx_flags &= HH_MSGQ_HVC_FLAGS_MASK;
+	tx_flags &= GH_MSGQ_HVC_FLAGS_MASK;
 
-	print_hex_dump_debug("hh_msgq_send: ", DUMP_PREFIX_OFFSET,
+	print_hex_dump_debug("gh_msgq_send: ", DUMP_PREFIX_OFFSET,
 			     4, 1, buff, size, false);
 
 	spin_lock_irqsave(&cap_table_entry->tx_lock, flags);
-	hh_ret = hh_hcall_msgq_send(cap_table_entry->tx_cap_id,
+	gh_ret = gh_hcall_msgq_send(cap_table_entry->tx_cap_id,
 					size, buff, tx_flags, &resp);
 
-	switch (hh_ret) {
-	case HH_ERROR_OK:
+	switch (gh_ret) {
+	case GH_ERROR_OK:
 		cap_table_entry->tx_full = !resp.not_full;
 		ret = 0;
 		break;
-	case HH_ERROR_MSGQUEUE_FULL:
+	case GH_ERROR_MSGQUEUE_FULL:
 		cap_table_entry->tx_full = true;
 		ret = -EAGAIN;
 		break;
 	default:
-		ret = hh_remap_error(hh_ret);
+		ret = gh_remap_error(gh_ret);
 	}
 
 	spin_unlock_irqrestore(&cap_table_entry->tx_lock, flags);
 
 	if (ret != 0 && ret != -EAGAIN)
 		pr_err("%s: Failed to send on msgq. Hypercall error: %d\n",
-			__func__, hh_ret);
+			__func__, gh_ret);
 
 	return ret;
 }
 
 /**
- * hh_msgq_send: Send a message to the client on a different VM
- * @client_desc: The client descriptor that was obtained via hh_msgq_register()
+ * gh_msgq_send: Send a message to the client on a different VM
+ * @client_desc: The client descriptor that was obtained via gh_msgq_register()
  * @buff: Pointer to the buffer that needs to be sent
  * @size: The size of the buffer
  * @flags: Optional flags to pass to send the data. For the list of flags,
- *         see linux/haven/hh_msgq.h
+ *         see linux/gunyah/gh_msgq.h
  *
  * The function returns -EINVAL if the caller passes invalid arguments,
  * -EAGAIN if the message queue is not yet ready to communicate, and -EPERM if
  * the caller doesn't have permissions to send the data.
  *
  */
-int hh_msgq_send(void *msgq_client_desc,
+int gh_msgq_send(void *msgq_client_desc,
 			void *buff, size_t size, unsigned long flags)
 {
-	struct hh_msgq_desc *client_desc = msgq_client_desc;
-	struct hh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_desc *client_desc = msgq_client_desc;
+	struct gh_msgq_cap_table *cap_table_entry;
 	int ret;
 
 	if (!client_desc || !buff || !size)
 		return -EINVAL;
 
-	if (size > HH_MSGQ_MAX_MSG_SIZE_BYTES)
+	if (size > GH_MSGQ_MAX_MSG_SIZE_BYTES)
 		return -E2BIG;
 
-	cap_table_entry = &hh_msgq_cap_table[client_desc->label];
+	cap_table_entry = &gh_msgq_cap_table[client_desc->label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -279,8 +279,8 @@ int hh_msgq_send(void *msgq_client_desc,
 		goto err;
 	}
 
-	if ((cap_table_entry->tx_cap_id == HH_CAPID_INVAL) &&
-		(flags & HH_MSGQ_NONBLOCK)) {
+	if ((cap_table_entry->tx_cap_id == GH_CAPID_INVAL) &&
+		(flags & GH_MSGQ_NONBLOCK)) {
 		pr_err_ratelimited(
 			"%s: Send info for label %d not yet initialized\n",
 			__func__, client_desc->label);
@@ -291,7 +291,7 @@ int hh_msgq_send(void *msgq_client_desc,
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	if (wait_event_interruptible(cap_table_entry->tx_wq,
-				cap_table_entry->tx_cap_id != HH_CAPID_INVAL))
+				cap_table_entry->tx_cap_id != GH_CAPID_INVAL))
 		return -ERESTARTSYS;
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
@@ -306,14 +306,14 @@ int hh_msgq_send(void *msgq_client_desc,
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	do {
-		if (cap_table_entry->tx_full && (flags & HH_MSGQ_NONBLOCK))
+		if (cap_table_entry->tx_full && (flags & GH_MSGQ_NONBLOCK))
 			return -EAGAIN;
 
 		if (wait_event_interruptible(cap_table_entry->tx_wq,
 					!cap_table_entry->tx_full))
 			return -ERESTARTSYS;
 
-		ret = __hh_msgq_send(cap_table_entry, buff, size, flags);
+		ret = __gh_msgq_send(cap_table_entry, buff, size, flags);
 	} while (ret == -EAGAIN);
 
 	return ret;
@@ -321,10 +321,10 @@ err:
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ret;
 }
-EXPORT_SYMBOL(hh_msgq_send);
+EXPORT_SYMBOL(gh_msgq_send);
 
 /**
- * hh_msgq_register: Register as a client to the use the message queue
+ * gh_msgq_register: Register as a client to the use the message queue
  * @label: The label associated to the message queue that the client wants
  *         to communicate
  *
@@ -334,18 +334,18 @@ EXPORT_SYMBOL(hh_msgq_send);
  * the return value using IS_ERR_OR_NULL() and PTR_ERR() to extract the error
  * code.
  */
-void *hh_msgq_register(enum hh_msgq_label label)
+void *gh_msgq_register(enum gh_msgq_label label)
 {
-	struct hh_msgq_cap_table *cap_table_entry;
-	struct hh_msgq_desc *client_desc;
+	struct gh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_desc *client_desc;
 
-	if (!hh_msgq_initialized)
+	if (!gh_msgq_initialized)
 		return ERR_PTR(-EPROBE_DEFER);
 
-	if (label < 0 || label >= HH_MSGQ_LABEL_MAX)
+	if (label < 0 || label >= GH_MSGQ_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
 
-	cap_table_entry = &hh_msgq_cap_table[label];
+	cap_table_entry = &gh_msgq_cap_table[label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -367,28 +367,28 @@ void *hh_msgq_register(enum hh_msgq_label label)
 	cap_table_entry->client_desc = client_desc;
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 
-	pr_info("hh_msgq: Registered client for label: %d\n", label);
+	pr_info("gh_msgq: Registered client for label: %d\n", label);
 
 	return client_desc;
 }
-EXPORT_SYMBOL(hh_msgq_register);
+EXPORT_SYMBOL(gh_msgq_register);
 
 /**
- * hh_msgq_unregister: Unregister as a client to the use the message queue
- * @client_desc: The descriptor that was passed via hh_msgq_register()
+ * gh_msgq_unregister: Unregister as a client to the use the message queue
+ * @client_desc: The descriptor that was passed via gh_msgq_register()
  *
  * The function returns 0 is the client was unregistered successfully. Else,
  * -EINVAL for invalid arguments.
  */
-int hh_msgq_unregister(void *msgq_client_desc)
+int gh_msgq_unregister(void *msgq_client_desc)
 {
-	struct hh_msgq_desc *client_desc = msgq_client_desc;
-	struct hh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_desc *client_desc = msgq_client_desc;
+	struct gh_msgq_cap_table *cap_table_entry;
 
 	if (!client_desc)
 		return -EINVAL;
 
-	cap_table_entry = &hh_msgq_cap_table[client_desc->label];
+	cap_table_entry = &gh_msgq_cap_table[client_desc->label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -411,18 +411,18 @@ int hh_msgq_unregister(void *msgq_client_desc)
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_msgq_unregister);
+EXPORT_SYMBOL(gh_msgq_unregister);
 
-int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
+int gh_msgq_populate_cap_info(enum gh_msgq_label label, u64 cap_id,
 				int direction, int irq)
 {
-	struct hh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_cap_table *cap_table_entry;
 	int ret;
 
-	if (!hh_msgq_initialized)
+	if (!gh_msgq_initialized)
 		return -EAGAIN;
 
-	if (label < 0 || label >= HH_MSGQ_LABEL_MAX) {
+	if (label < 0 || label >= GH_MSGQ_LABEL_MAX) {
 		pr_err("%s: Invalid label passed\n", __func__);
 		return -EINVAL;
 	}
@@ -432,10 +432,10 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 		return -ENXIO;
 	}
 
-	cap_table_entry = &hh_msgq_cap_table[label];
+	cap_table_entry = &gh_msgq_cap_table[label];
 
-	if (direction == HH_MSGQ_DIRECTION_TX) {
-		ret = request_irq(irq, hh_msgq_tx_isr, 0,
+	if (direction == GH_MSGQ_DIRECTION_TX) {
+		ret = request_irq(irq, gh_msgq_tx_isr, 0,
 				cap_table_entry->tx_irq_name, cap_table_entry);
 		if (ret < 0)
 			goto err;
@@ -446,8 +446,8 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 		spin_unlock(&cap_table_entry->cap_entry_lock);
 
 		wake_up_interruptible(&cap_table_entry->tx_wq);
-	} else if (direction == HH_MSGQ_DIRECTION_RX) {
-		ret = request_irq(irq, hh_msgq_rx_isr, 0,
+	} else if (direction == GH_MSGQ_DIRECTION_RX) {
+		ret = request_irq(irq, gh_msgq_rx_isr, 0,
 				cap_table_entry->rx_irq_name, cap_table_entry);
 		if (ret < 0)
 			goto err;
@@ -475,10 +475,10 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 err:
 	return ret;
 }
-EXPORT_SYMBOL(hh_msgq_populate_cap_info);
+EXPORT_SYMBOL(gh_msgq_populate_cap_info);
 
-static int hh_msgq_probe_direction(struct platform_device *pdev,
-			enum hh_msgq_label label, int direction, int idx)
+static int gh_msgq_probe_direction(struct platform_device *pdev,
+			enum gh_msgq_label label, int direction, int idx)
 {
 	int irq, ret;
 	u64 capid;
@@ -496,10 +496,10 @@ static int hh_msgq_probe_direction(struct platform_device *pdev,
 		return ret;
 	}
 
-	return hh_msgq_populate_cap_info(label, capid, direction, irq);
+	return gh_msgq_populate_cap_info(label, capid, direction, irq);
 }
 
-int hh_msgq_probe(struct platform_device *pdev, enum hh_msgq_label label)
+int gh_msgq_probe(struct platform_device *pdev, enum gh_msgq_label label)
 {
 	int ret, idx = 0;
 	struct device_node *node = pdev->dev.of_node;
@@ -508,7 +508,7 @@ int hh_msgq_probe(struct platform_device *pdev, enum hh_msgq_label label)
 	duplex = of_property_read_bool(node, "qcom,is-full-duplex");
 
 	if (duplex || of_property_read_bool(node, "qcom,is-sender")) {
-		ret = hh_msgq_probe_direction(pdev, label, HH_MSGQ_DIRECTION_TX,
+		ret = gh_msgq_probe_direction(pdev, label, GH_MSGQ_DIRECTION_TX,
 					      idx);
 		if (ret)
 			return ret;
@@ -516,7 +516,7 @@ int hh_msgq_probe(struct platform_device *pdev, enum hh_msgq_label label)
 	}
 
 	if (duplex || of_property_read_bool(node, "qcom,is-receiver")) {
-		ret = hh_msgq_probe_direction(pdev, label, HH_MSGQ_DIRECTION_RX,
+		ret = gh_msgq_probe_direction(pdev, label, GH_MSGQ_DIRECTION_RX,
 					      idx);
 		if (ret)
 			return ret;
@@ -524,35 +524,35 @@ int hh_msgq_probe(struct platform_device *pdev, enum hh_msgq_label label)
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_msgq_probe);
+EXPORT_SYMBOL(gh_msgq_probe);
 
-static void hh_msgq_cleanup(int begin_idx)
+static void gh_msgq_cleanup(int begin_idx)
 {
-	struct hh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_cap_table *cap_table_entry;
 	int i;
 
-	if (begin_idx >= HH_MSGQ_LABEL_MAX)
-		begin_idx = HH_MSGQ_LABEL_MAX - 1;
+	if (begin_idx >= GH_MSGQ_LABEL_MAX)
+		begin_idx = GH_MSGQ_LABEL_MAX - 1;
 
 	for (i = begin_idx; i >= 0; i--) {
-		cap_table_entry = &hh_msgq_cap_table[i];
+		cap_table_entry = &gh_msgq_cap_table[i];
 
 		kfree(cap_table_entry->tx_irq_name);
 		kfree(cap_table_entry->rx_irq_name);
 	}
 }
 
-static int __init hh_msgq_init(void)
+static int __init gh_msgq_init(void)
 {
-	struct hh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_cap_table *cap_table_entry;
 	int ret;
 	int i;
 
-	for (i = 0; i < HH_MSGQ_LABEL_MAX; i++) {
-		cap_table_entry = &hh_msgq_cap_table[i];
+	for (i = 0; i < GH_MSGQ_LABEL_MAX; i++) {
+		cap_table_entry = &gh_msgq_cap_table[i];
 
-		cap_table_entry->tx_cap_id = HH_CAPID_INVAL;
-		cap_table_entry->rx_cap_id = HH_CAPID_INVAL;
+		cap_table_entry->tx_cap_id = GH_CAPID_INVAL;
+		cap_table_entry->rx_cap_id = GH_CAPID_INVAL;
 		cap_table_entry->tx_full = false;
 		cap_table_entry->rx_empty = true;
 		init_waitqueue_head(&cap_table_entry->tx_wq);
@@ -562,34 +562,34 @@ static int __init hh_msgq_init(void)
 		spin_lock_init(&cap_table_entry->cap_entry_lock);
 
 		cap_table_entry->tx_irq_name = kasprintf(GFP_KERNEL,
-							"hh_msgq_tx_%d", i);
+							"gh_msgq_tx_%d", i);
 		if (!cap_table_entry->tx_irq_name) {
 			ret = -ENOMEM;
 			goto err;
 		}
 
 		cap_table_entry->rx_irq_name = kasprintf(GFP_KERNEL,
-							"hh_msgq_rx_%d", i);
+							"gh_msgq_rx_%d", i);
 		if (!cap_table_entry->rx_irq_name) {
 			ret = -ENOMEM;
 			goto err;
 		}
 	}
 
-	hh_msgq_initialized = true;
+	gh_msgq_initialized = true;
 	return 0;
 
 err:
-	hh_msgq_cleanup(i);
+	gh_msgq_cleanup(i);
 	return ret;
 }
-module_init(hh_msgq_init);
+module_init(gh_msgq_init);
 
-static void __exit hh_msgq_exit(void)
+static void __exit gh_msgq_exit(void)
 {
-	hh_msgq_cleanup(HH_MSGQ_LABEL_MAX - 1);
+	gh_msgq_cleanup(GH_MSGQ_LABEL_MAX - 1);
 }
-module_exit(hh_msgq_exit);
+module_exit(gh_msgq_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Haven Message Queue Driver");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Gunyah Message Queue Driver");

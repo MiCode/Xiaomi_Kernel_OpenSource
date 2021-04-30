@@ -3,7 +3,7 @@
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
-#define pr_fmt(fmt) "haven: " fmt
+#define pr_fmt(fmt) "gunyah: " fmt
 
 #include <linux/arm-smccc.h>
 #include <linux/debugfs.h>
@@ -12,8 +12,8 @@
 #include <linux/of.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
-#include <linux/haven/hcall.h>
-#include <linux/haven/hh_errno.h>
+#include <linux/gunyah/hcall.h>
+#include <linux/gunyah/gh_errno.h>
 
 #define QC_HYP_SMCCC_CALL_UID                                                  \
 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
@@ -27,29 +27,29 @@
 #define QC_HYP_UID2 0x946f609b
 #define QC_HYP_UID3 0x54539de6
 
-#define HH_API_INFO_API_VERSION(x)	(((x) >> 0) & 0x3fff)
-#define HH_API_INFO_BIG_ENDIAN(x)	(((x) >> 14) & 1)
-#define HH_API_INFO_IS_64BIT(x)		(((x) >> 15) & 1)
-#define HH_API_INFO_VARIANT(x)		(((x) >> 56) & 0xff)
+#define GH_API_INFO_API_VERSION(x)	(((x) >> 0) & 0x3fff)
+#define GH_API_INFO_BIG_ENDIAN(x)	(((x) >> 14) & 1)
+#define GH_API_INFO_IS_64BIT(x)		(((x) >> 15) & 1)
+#define GH_API_INFO_VARIANT(x)		(((x) >> 56) & 0xff)
 
-#define HH_IDENTIFY_PARTITION_CSPACE(x)	(((x) >> 0) & 1)
-#define HH_IDENTIFY_DOORBELL(x)		(((x) >> 1) & 1)
-#define HH_IDENTIFY_MSGQUEUE(x)		(((x) >> 2) & 1)
-#define HH_IDENTIFY_VIC(x)		(((x) >> 3) & 1)
-#define HH_IDENTIFY_VPM(x)		(((x) >> 4) & 1)
-#define HH_IDENTIFY_VCPU(x)		(((x) >> 5) & 1)
-#define HH_IDENTIFY_MEMEXTENT(x)	(((x) >> 6) & 1)
-#define HH_IDENTIFY_TRACE_CTRL(x)	(((x) >> 7) & 1)
-#define HH_IDENTIFY_ROOTVM_CHANNEL(x)	(((x) >> 16) & 1)
-#define HH_IDENTIFY_SCHEDULER(x)	(((x) >> 28) & 0xf)
+#define GH_IDENTIFY_PARTITION_CSPACE(x)	(((x) >> 0) & 1)
+#define GH_IDENTIFY_DOORBELL(x)		(((x) >> 1) & 1)
+#define GH_IDENTIFY_MSGQUEUE(x)		(((x) >> 2) & 1)
+#define GH_IDENTIFY_VIC(x)		(((x) >> 3) & 1)
+#define GH_IDENTIFY_VPM(x)		(((x) >> 4) & 1)
+#define GH_IDENTIFY_VCPU(x)		(((x) >> 5) & 1)
+#define GH_IDENTIFY_MEMEXTENT(x)	(((x) >> 6) & 1)
+#define GH_IDENTIFY_TRACE_CTRL(x)	(((x) >> 7) & 1)
+#define GH_IDENTIFY_ROOTVM_CHANNEL(x)	(((x) >> 16) & 1)
+#define GH_IDENTIFY_SCHEDULER(x)	(((x) >> 28) & 0xf)
 
 static bool qc_hyp_calls;
-static struct hh_hcall_hyp_identify_resp haven_api;
+static struct gh_hcall_hyp_identify_resp gunyah_api;
 
 static ssize_t type_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buffer)
 {
-	return scnprintf(buffer, PAGE_SIZE, "haven\n");
+	return scnprintf(buffer, PAGE_SIZE, "gunyah\n");
 }
 static struct kobj_attribute type_attr = __ATTR_RO(type);
 
@@ -57,7 +57,7 @@ static ssize_t api_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buffer)
 {
 	return scnprintf(buffer, PAGE_SIZE, "%d\n",
-		(int)HH_API_INFO_API_VERSION(haven_api.api_info));
+		(int)GH_API_INFO_API_VERSION(gunyah_api.api_info));
 }
 static struct kobj_attribute api_attr = __ATTR_RO(api);
 
@@ -65,7 +65,7 @@ static ssize_t variant_show(struct kobject *kobj, struct kobj_attribute *attr,
 			    char *buffer)
 {
 	return scnprintf(buffer, PAGE_SIZE, "%d\n",
-		(int)HH_API_INFO_VARIANT(haven_api.api_info));
+		(int)GH_API_INFO_VARIANT(gunyah_api.api_info));
 }
 static struct kobj_attribute variant_attr = __ATTR_RO(variant);
 
@@ -77,7 +77,7 @@ static const struct attribute_group version_group = {
 	.attrs = version_attrs,
 };
 
-static int __init hh_sysfs_register(void)
+static int __init gh_sysfs_register(void)
 {
 	int ret;
 
@@ -88,7 +88,7 @@ static int __init hh_sysfs_register(void)
 	return sysfs_create_group(hypervisor_kobj, &version_group);
 }
 
-static void __exit hh_sysfs_unregister(void)
+static void __exit gh_sysfs_unregister(void)
 {
 	sysfs_remove_file(hypervisor_kobj, &type_attr.attr);
 	sysfs_remove_group(hypervisor_kobj, &version_group);
@@ -105,99 +105,99 @@ static void __exit hh_sysfs_unregister(void)
 #define ENABLE 1
 #define DISABLE 0
 
-static struct dentry *hh_dbgfs_dir;
+static struct dentry *gh_dbgfs_dir;
 static int hyp_uart_enable;
 
-static void hh_control_hyp_uart(int val)
+static void gh_control_hyp_uart(int val)
 {
 	switch (val) {
 	case ENABLE:
 	if (!hyp_uart_enable) {
 		hyp_uart_enable = val;
-		pr_info("Haven: enabling HYP UART\n");
+		pr_info("Gunyah: enabling HYP UART\n");
 		arm_smccc_1_1_smc(QC_HYP_SMCCC_UART_ENABLE, NULL);
 	} else {
-		pr_info("Haven: HYP UART already enabled\n");
+		pr_info("Gunyah: HYP UART already enabled\n");
 	}
 	break;
 	case DISABLE:
 	if (hyp_uart_enable) {
 		hyp_uart_enable = val;
-		pr_info("Haven: disabling HYP UART\n");
+		pr_info("Gunyah: disabling HYP UART\n");
 		arm_smccc_1_1_smc(QC_HYP_SMCCC_UART_DISABLE, NULL);
 	} else {
-		pr_info("Haven: HYP UART already disabled\n");
+		pr_info("Gunyah: HYP UART already disabled\n");
 	}
 	break;
 	default:
-		pr_info("Haven: supported values disable(0)/enable(1)\n");
+		pr_info("Gunyah: supported values disable(0)/enable(1)\n");
 	}
 }
 
-static int hh_dbgfs_trace_class_set(void *data, u64 val)
+static int gh_dbgfs_trace_class_set(void *data, u64 val)
 {
-	return hh_remap_error(hh_hcall_trace_update_class_flags(val, 0, NULL));
+	return gh_remap_error(gh_hcall_trace_update_class_flags(val, 0, NULL));
 }
 
-static int hh_dbgfs_trace_class_clear(void *data, u64 val)
+static int gh_dbgfs_trace_class_clear(void *data, u64 val)
 {
-	return hh_remap_error(hh_hcall_trace_update_class_flags(0, val, NULL));
+	return gh_remap_error(gh_hcall_trace_update_class_flags(0, val, NULL));
 }
 
-static int hh_dbgfs_trace_class_get(void *data, u64 *val)
+static int gh_dbgfs_trace_class_get(void *data, u64 *val)
 {
 	*val = 0;
-	return hh_remap_error(hh_hcall_trace_update_class_flags(0, 0, val));
+	return gh_remap_error(gh_hcall_trace_update_class_flags(0, 0, val));
 }
 
-static int hh_dbgfs_hyp_uart_set(void *data, u64 val)
+static int gh_dbgfs_hyp_uart_set(void *data, u64 val)
 {
-	hh_control_hyp_uart(val);
+	gh_control_hyp_uart(val);
 	return 0;
 }
 
-static int hh_dbgfs_hyp_uart_get(void *data, u64 *val)
+static int gh_dbgfs_hyp_uart_get(void *data, u64 *val)
 {
 	*val = hyp_uart_enable;
 	return 0;
 }
 
-DEFINE_DEBUGFS_ATTRIBUTE(hh_dbgfs_trace_class_set_fops,
-			 hh_dbgfs_trace_class_get,
-			 hh_dbgfs_trace_class_set,
+DEFINE_DEBUGFS_ATTRIBUTE(gh_dbgfs_trace_class_set_fops,
+			 gh_dbgfs_trace_class_get,
+			 gh_dbgfs_trace_class_set,
 			 "0x%llx\n");
 
-DEFINE_DEBUGFS_ATTRIBUTE(hh_dbgfs_trace_class_clear_fops,
-			 hh_dbgfs_trace_class_get,
-			 hh_dbgfs_trace_class_clear,
+DEFINE_DEBUGFS_ATTRIBUTE(gh_dbgfs_trace_class_clear_fops,
+			 gh_dbgfs_trace_class_get,
+			 gh_dbgfs_trace_class_clear,
 			 "0x%llx\n");
 
-DEFINE_DEBUGFS_ATTRIBUTE(hh_dbgfs_hyp_uart_ctrl_fops,
-			 hh_dbgfs_hyp_uart_get,
-			 hh_dbgfs_hyp_uart_set,
+DEFINE_DEBUGFS_ATTRIBUTE(gh_dbgfs_hyp_uart_ctrl_fops,
+			 gh_dbgfs_hyp_uart_get,
+			 gh_dbgfs_hyp_uart_set,
 			 "0x%llx\n");
 
-static int __init hh_dbgfs_register(void)
+static int __init gh_dbgfs_register(void)
 {
 	struct dentry *dentry;
 
-	hh_dbgfs_dir = debugfs_create_dir("haven", NULL);
-	if (IS_ERR_OR_NULL(hh_dbgfs_dir))
-		return PTR_ERR(hh_dbgfs_dir);
+	gh_dbgfs_dir = debugfs_create_dir("gunyah", NULL);
+	if (IS_ERR_OR_NULL(gh_dbgfs_dir))
+		return PTR_ERR(gh_dbgfs_dir);
 
-	if (HH_IDENTIFY_TRACE_CTRL(haven_api.flags[0])) {
-		dentry = debugfs_create_file("trace_set", 0600, hh_dbgfs_dir,
-					NULL, &hh_dbgfs_trace_class_set_fops);
+	if (GH_IDENTIFY_TRACE_CTRL(gunyah_api.flags[0])) {
+		dentry = debugfs_create_file("trace_set", 0600, gh_dbgfs_dir,
+					NULL, &gh_dbgfs_trace_class_set_fops);
 		if (IS_ERR(dentry))
 			return PTR_ERR(dentry);
 
-		dentry = debugfs_create_file("trace_clear", 0600, hh_dbgfs_dir,
-					NULL, &hh_dbgfs_trace_class_clear_fops);
+		dentry = debugfs_create_file("trace_clear", 0600, gh_dbgfs_dir,
+					NULL, &gh_dbgfs_trace_class_clear_fops);
 		if (IS_ERR(dentry))
 			return PTR_ERR(dentry);
 
-		dentry = debugfs_create_file("hyp_uart_ctrl", 0600, hh_dbgfs_dir,
-					NULL, &hh_dbgfs_hyp_uart_ctrl_fops);
+		dentry = debugfs_create_file("hyp_uart_ctrl", 0600, gh_dbgfs_dir,
+					NULL, &gh_dbgfs_hyp_uart_ctrl_fops);
 		if (IS_ERR(dentry))
 			return PTR_ERR(dentry);
 	}
@@ -205,16 +205,16 @@ static int __init hh_dbgfs_register(void)
 	return 0;
 }
 
-static void __exit hh_dbgfs_unregister(void)
+static void __exit gh_dbgfs_unregister(void)
 {
-	debugfs_remove_recursive(hh_dbgfs_dir);
+	debugfs_remove_recursive(gh_dbgfs_dir);
 }
 #else /* !defined (CONFIG_DEBUG_FS) */
-static inline int hh_dbgfs_register(void) { return 0; }
-static inline int hh_dbgfs_unregister(void) { return 0; }
+static inline int gh_dbgfs_register(void) { return 0; }
+static inline int gh_dbgfs_unregister(void) { return 0; }
 #endif
 
-static int __init hh_ctrl_init(void)
+static int __init gh_ctrl_init(void)
 {
 	int ret;
 	struct device_node *hyp;
@@ -227,9 +227,9 @@ static int __init hh_ctrl_init(void)
 		return 0;
 	}
 
-	(void)hh_hcall_hyp_identify(&haven_api);
+	(void)gh_hcall_hyp_identify(&gunyah_api);
 
-	if (HH_API_INFO_API_VERSION(haven_api.api_info) != 1) {
+	if (GH_API_INFO_API_VERSION(gunyah_api.api_info) != 1) {
 		pr_err("unknown version\n");
 		return 0;
 	}
@@ -241,27 +241,27 @@ static int __init hh_ctrl_init(void)
 		qc_hyp_calls = true;
 
 	if (qc_hyp_calls) {
-		ret = hh_sysfs_register();
+		ret = gh_sysfs_register();
 		if (ret)
 			return ret;
 
-		ret = hh_dbgfs_register();
+		ret = gh_dbgfs_register();
 		if (ret)
 			pr_warn("failed to register dbgfs: %d\n", ret);
 	} else {
-		pr_info("Haven: no QC HYP interface detected\n");
+		pr_info("Gunyah: no QC HYP interface detected\n");
 	}
 
 	return 0;
 }
-module_init(hh_ctrl_init);
+module_init(gh_ctrl_init);
 
-static void __exit hh_ctrl_exit(void)
+static void __exit gh_ctrl_exit(void)
 {
-	hh_sysfs_unregister();
-	hh_dbgfs_unregister();
+	gh_sysfs_unregister();
+	gh_dbgfs_unregister();
 }
-module_exit(hh_ctrl_exit);
+module_exit(gh_ctrl_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Haven Hypervisor Control Driver");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Gunyah Hypervisor Control Driver");

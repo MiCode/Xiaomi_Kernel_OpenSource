@@ -1,23 +1,23 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
-#ifndef __ASM_HH_HCALL_H
-#define __ASM_HH_HCALL_H
+#ifndef __ASM_GH_HCALL_H
+#define __ASM_GH_HCALL_H
 
 #include <linux/types.h>
 
-#include <linux/haven/hcall_common.h>
+#include <linux/gunyah/hcall_common.h>
 
 /**
- * _hh_hcall: Performs an AArch64-specific call into hypervisor using Haven ABI
+ * _gh_hcall: Performs an AArch64-specific call into hypervisor using Gunyah ABI
  * @hcall_num: Hypercall function ID to invoke
  * @args: Hypercall argument registers
  * @resp: Pointer to location to store response
  */
-static inline int _hh_hcall(const hh_hcall_fnid_t hcall_num,
-	const struct hh_hcall_args args,
-	struct hh_hcall_resp *resp)
+static inline int _gh_hcall(const gh_hcall_fnid_t hcall_num,
+	const struct gh_hcall_args args,
+	struct gh_hcall_resp *resp)
 {
 	uint64_t _x18;
 

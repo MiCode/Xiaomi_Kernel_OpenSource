@@ -3,14 +3,14 @@
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM hh_virtio_backend
+#define TRACE_SYSTEM gh_virtio_backend
 
-#if !defined(_TRACE_HH_VIRTIO_BACKEND_H) || defined(TRACE_HEADER_MULTI_READ)
-#define _TRACE_HH_VIRTIO_BACKEND_H
+#if !defined(_TRACE_GH_VIRTIO_BACKEND_H) || defined(TRACE_HEADER_MULTI_READ)
+#define _TRACE_GH_VIRTIO_BACKEND_H
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(hh_virtio_backend_irq_inj,
+TRACE_EVENT(gh_virtio_backend_irq_inj,
 
 	TP_PROTO(int label, int rc),
 
@@ -29,7 +29,7 @@ TRACE_EVENT(hh_virtio_backend_irq_inj,
 	TP_printk("device %d inj_irq rc %d", __entry->label, __entry->rc)
 );
 
-TRACE_EVENT(hh_virtio_backend_queue_notify,
+TRACE_EVENT(gh_virtio_backend_queue_notify,
 
 	TP_PROTO(int label, int qno),
 
@@ -48,7 +48,7 @@ TRACE_EVENT(hh_virtio_backend_queue_notify,
 	TP_printk("device %d queue_notify on %d", __entry->label, __entry->qno)
 );
 
-TRACE_EVENT(hh_virtio_backend_wait_event,
+TRACE_EVENT(gh_virtio_backend_wait_event,
 
 	TP_PROTO(int label, int cur_event, int org_event, int cur_event_data, int org_event_data),
 
@@ -75,7 +75,7 @@ TRACE_EVENT(hh_virtio_backend_wait_event,
 		__entry->cur_event_data, __entry->org_event_data)
 );
 
-TRACE_EVENT(hh_virtio_backend_irq,
+TRACE_EVENT(gh_virtio_backend_irq,
 
 	TP_PROTO(int label, int event, int event_data, int rc),
 
@@ -100,7 +100,7 @@ TRACE_EVENT(hh_virtio_backend_irq,
 );
 
 
-#endif /* _TRACE_HH_VIRTIO_BACKEND_H */
+#endif /* _TRACE_GH_VIRTIO_BACKEND_H */
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>

@@ -7,7 +7,7 @@
 #define _MEM_BUF_EXPORTER_H
 
 #include <linux/dma-buf.h>
-#include <linux/haven/hh_rm_drv.h>
+#include <linux/gunyah/gh_rm_drv.h>
 #include <soc/qcom/secure_buffer.h>
 
 int mem_buf_dma_buf_attach(struct dma_buf *dmabuf,
@@ -59,7 +59,7 @@ struct mem_buf_vmperm *mem_buf_vmperm_alloc_staticvm(struct sg_table *sgt, int *
  * A dmabuf in the "MEMACCEPT" state.
  */
 struct mem_buf_vmperm *mem_buf_vmperm_alloc_accept(struct sg_table *sgt,
-	hh_memparcel_handle_t memparcel_hdl);
+	gh_memparcel_handle_t memparcel_hdl);
 
 
 /*

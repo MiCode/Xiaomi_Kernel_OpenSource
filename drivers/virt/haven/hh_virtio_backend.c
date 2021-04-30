@@ -24,36 +24,36 @@
 #include <linux/eventfd.h>
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
-#include <linux/hh_virtio_backend.h>
+#include <linux/gh_virtio_backend.h>
 #include <linux/of_irq.h>
 #include <uapi/linux/virtio_mmio.h>
-#include <linux/haven/hcall.h>
-#include <linux/haven/hh_rm_drv.h>
+#include <linux/gunyah/hcall.h>
+#include <linux/gunyah/gh_rm_drv.h>
 #include <linux/pgtable.h>
 #include <soc/qcom/secure_buffer.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #define CREATE_TRACE_POINTS
-#include <trace/events/hh_virtio_backend.h>
+#include <trace/events/gh_virtio_backend.h>
 #undef CREATE_TRACE_POINTS
 
 #define MAX_DEVICE_NAME		32
 #define MAX_VM_NAME		32
 #define MAX_CDEV_NAME		64
 #define MAX_VM_DEVICES		32
-#define VIRTIO_BE_CLASS		"hh_virtio_backend"
+#define VIRTIO_BE_CLASS		"gh_virtio_backend"
 #define MAX_QUEUES		4
 #define MAX_IO_CONTEXTS		MAX_QUEUES
 
 #define VIRTIO_PRINT_MARKER	"virtio_backend"
 
-#define assert_virq		hh_hcall_virtio_mmio_backend_assert_virq
-#define set_dev_features	hh_hcall_virtio_mmio_backend_set_dev_features
-#define set_queue_num_max	hh_hcall_virtio_mmio_backend_set_queue_num_max
-#define get_drv_features	hh_hcall_virtio_mmio_backend_get_drv_features
-#define get_queue_info		hh_hcall_virtio_mmio_backend_get_queue_info
-#define get_event		hh_hcall_virtio_mmio_backend_get_event
-#define ack_reset		hh_hcall_virtio_mmio_backend_ack_reset
+#define assert_virq		gh_hcall_virtio_mmio_backend_assert_virq
+#define set_dev_features	gh_hcall_virtio_mmio_backend_set_dev_features
+#define set_queue_num_max	gh_hcall_virtio_mmio_backend_set_queue_num_max
+#define get_drv_features	gh_hcall_virtio_mmio_backend_get_drv_features
+#define get_queue_info		gh_hcall_virtio_mmio_backend_get_queue_info
+#define get_event		gh_hcall_virtio_mmio_backend_get_event
+#define ack_reset		gh_hcall_virtio_mmio_backend_ack_reset
 
 static DEFINE_MUTEX(vm_mutex);
 static DEFINE_IDA(vm_minor_id);
@@ -64,7 +64,7 @@ static dev_t vbe_dev;
 
 struct shared_memory {
 	struct resource r;
-	u32 haven_label, shm_memparcel;
+	u32 gunyah_label, shm_memparcel;
 };
 
 struct virt_machine {
@@ -124,7 +124,7 @@ struct virtio_backend_device {
 	u32 features[2];
 	u32 queue_num_max[MAX_QUEUES];
 	struct mutex mutex;
-	hh_capid_t cap_id;
+	gh_capid_t cap_id;
 	/* Backend program supplied config data */
 	char *config_data;
 	u32 config_size;
@@ -197,7 +197,7 @@ static int vb_dev_irqfd_wakeup(wait_queue_entry_t *wait, unsigned int mode,
 	if (flags & EPOLLIN) {
 		int rc = assert_virq(vb_dev->cap_id, 1);
 
-		trace_hh_virtio_backend_irq_inj(vb_dev->label, rc);
+		trace_gh_virtio_backend_irq_inj(vb_dev->label, rc);
 	}
 
 	if (flags & EPOLLHUP)
@@ -306,7 +306,7 @@ static void signal_vqs(struct virtio_backend_device *vb_dev)
 		if ((vb_dev->vdev_event_data & flags) && vb_dev->ioctx[i].ctx) {
 			eventfd_signal(vb_dev->ioctx[i].ctx, 1);
 			vb_dev->vdev_event_data &= ~flags;
-			trace_hh_virtio_backend_queue_notify(vb_dev->label, i);
+			trace_gh_virtio_backend_queue_notify(vb_dev->label, i);
 		}
 	}
 }
@@ -324,7 +324,7 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 	struct virtio_ack_reset r;
 	struct virtio_config_data d;
 	struct virtio_queue_info qi;
-	struct hh_hcall_virtio_queue_info qinfo;
+	struct gh_hcall_virtio_queue_info qinfo;
 	struct virtio_driver_features df;
 	struct virtio_event ve;
 	u64 features;
@@ -338,7 +338,7 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 		return -EINVAL;
 
 	switch (cmd) {
-	case HH_SET_APP_READY:
+	case GH_SET_APP_READY:
 		spin_lock(&vm->vb_dev_lock);
 		vm->app_ready = 1;
 		if (vm->waiting_for_app_ready)
@@ -347,13 +347,13 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 		pr_debug("%s: App is ready!!\n", VIRTIO_PRINT_MARKER);
 		break;
 
-	case HH_GET_SHARED_MEMORY_SIZE:
+	case GH_GET_SHARED_MEMORY_SIZE:
 		if (copy_to_user(argp, &vm->shmem_size,
 					sizeof(vm->shmem_size)))
 			return -EFAULT;
 		break;
 
-	case HH_IOEVENTFD:
+	case GH_IOEVENTFD:
 		if (copy_from_user(&efd, argp, sizeof(efd)))
 			return -EFAULT;
 
@@ -373,7 +373,7 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 
 		return ret;
 
-	case HH_IRQFD:
+	case GH_IRQFD:
 		if (copy_from_user(&ifd, argp, sizeof(ifd)))
 			return -EFAULT;
 
@@ -393,7 +393,7 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 
 		return ret;
 
-	case HH_WAIT_FOR_EVENT:
+	case GH_WAIT_FOR_EVENT:
 		if (copy_from_user(&ve, argp, sizeof(ve)))
 			return -EFAULT;
 
@@ -459,7 +459,7 @@ loop_back:
 
 		spin_unlock_irqrestore(&vb_dev->lock, flags);
 
-		trace_hh_virtio_backend_wait_event(vb_dev->label, vb_dev->cur_event,
+		trace_gh_virtio_backend_wait_event(vb_dev->label, vb_dev->cur_event,
 				org_event, vb_dev->cur_event_data, org_data);
 
 		if (!vb_dev->cur_event)
@@ -475,7 +475,7 @@ loop_back:
 
 		break;
 
-	case HH_GET_DRIVER_FEATURES:
+	case GH_GET_DRIVER_FEATURES:
 		if (copy_from_user(&df, argp, sizeof(df)))
 			return -EFAULT;
 
@@ -506,7 +506,7 @@ loop_back:
 
 		break;
 
-	case HH_GET_QUEUE_INFO:
+	case GH_GET_QUEUE_INFO:
 		if (copy_from_user(&qi, argp, sizeof(qi)))
 			return -EFAULT;
 
@@ -545,7 +545,7 @@ loop_back:
 
 		break;
 
-	case HH_ACK_DRIVER_OK:
+	case GH_ACK_DRIVER_OK:
 		label = (u32) arg;
 
 		if (!label)
@@ -561,7 +561,7 @@ loop_back:
 
 		break;
 
-	case HH_ACK_RESET:
+	case GH_ACK_RESET:
 		if (copy_from_user(&r, argp, sizeof(r)))
 			return -EFAULT;
 
@@ -578,7 +578,7 @@ loop_back:
 		pr_debug("%s: ack_reset for label %x!\n", VIRTIO_PRINT_MARKER, r.label);
 		break;
 
-	case HH_SET_DEVICE_FEATURES:
+	case GH_SET_DEVICE_FEATURES:
 		if (copy_from_user(&f, argp, sizeof(f)))
 			return -EFAULT;
 
@@ -596,7 +596,7 @@ loop_back:
 				f.label, f.features_sel, f.features);
 		break;
 
-	case HH_SET_QUEUE_NUM_MAX:
+	case GH_SET_QUEUE_NUM_MAX:
 		if (copy_from_user(&q, argp, sizeof(q)))
 			return -EFAULT;
 
@@ -616,7 +616,7 @@ loop_back:
 
 		break;
 
-	case HH_GET_DRIVER_CONFIG_DATA:
+	case GH_GET_DRIVER_CONFIG_DATA:
 		if (copy_from_user(&d, argp, sizeof(d)))
 			return -EFAULT;
 
@@ -639,7 +639,7 @@ loop_back:
 		vb_dev_put(vb_dev);
 		return ret;
 
-	case HH_SET_DEVICE_CONFIG_DATA:
+	case GH_SET_DEVICE_CONFIG_DATA:
 		if (copy_from_user(&d, argp, sizeof(d)))
 			return -EFAULT;
 
@@ -971,12 +971,12 @@ note_shared_buffers(struct device_node *np, struct virt_machine *vm)
 			return -EINVAL;
 		}
 
-		ret = of_property_read_u32(snp, "haven-label",
-					&vm->shmem[idx].haven_label);
+		ret = of_property_read_u32(snp, "gunyah-label",
+					&vm->shmem[idx].gunyah_label);
 		if (ret) {
 			of_node_put(snp);
 			kfree(vm->shmem);
-			pr_err("%s: haven-label property absent at index %d\n",
+			pr_err("%s: gunyah-label property absent at index %d\n",
 					 VIRTIO_PRINT_MARKER, idx);
 			return -EINVAL;
 		}
@@ -1063,7 +1063,7 @@ static struct virt_machine *find_vm_by_name(const char *vm_name)
 	return v;
 }
 
-static int hh_virtio_backend_probe(struct platform_device *pdev)
+static int gh_virtio_backend_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device_node *np = pdev->dev.of_node, *vm_np;
@@ -1159,7 +1159,7 @@ static int hh_virtio_backend_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __exit hh_virtio_backend_remove(struct platform_device *pdev)
+static int __exit gh_virtio_backend_remove(struct platform_device *pdev)
 {
 	struct virtio_backend_device *vb_dev = platform_get_drvdata(pdev);
 	struct virt_machine *vm;
@@ -1247,7 +1247,7 @@ static irqreturn_t vdev_interrupt(int irq, void *data)
 	unsigned long flags;
 
 	ret = get_event(vb_dev->cap_id, &event_data, &event);
-	trace_hh_virtio_backend_irq(vb_dev->label, event, event_data, ret);
+	trace_gh_virtio_backend_irq(vb_dev->label, event, event_data, ret);
 	if (ret || !event)
 		return IRQ_HANDLED;
 
@@ -1268,7 +1268,7 @@ done:
 }
 
 static int
-unshare_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, struct resource *r)
+unshare_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, struct resource *r)
 {
 	u32 src_vmlist[2] = {self, peer};
 	int dst_vmlist[1] = {self};
@@ -1284,20 +1284,20 @@ unshare_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, struct resource *r)
 	return ret;
 }
 
-static int share_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, int haven_label,
+static int share_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, int gunyah_label,
 				struct resource *r, u32 *shm_memparcel)
 {
 	u32 src_vmlist[1] = {self};
 	int dst_vmlist[2] = {self, peer};
 	int dst_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
-	struct hh_acl_desc *acl;
-	struct hh_sgl_desc *sgl;
+	struct gh_acl_desc *acl;
+	struct gh_sgl_desc *sgl;
 	int ret;
 
-	acl = kzalloc(offsetof(struct hh_acl_desc, acl_entries[2]), GFP_KERNEL);
+	acl = kzalloc(offsetof(struct gh_acl_desc, acl_entries[2]), GFP_KERNEL);
 	if (!acl)
 		return -ENOMEM;
-	sgl = kzalloc(offsetof(struct hh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
+	sgl = kzalloc(offsetof(struct gh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
 	if (!sgl) {
 		kfree(acl);
 		return -ENOMEM;
@@ -1315,15 +1315,15 @@ static int share_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, int haven_label,
 
 	acl->n_acl_entries = 2;
 	acl->acl_entries[0].vmid = (u16)self;
-	acl->acl_entries[0].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[0].perms = GH_RM_ACL_R | GH_RM_ACL_W;
 	acl->acl_entries[1].vmid = (u16)peer;
-	acl->acl_entries[1].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[1].perms = GH_RM_ACL_R | GH_RM_ACL_W;
 
 	sgl->n_sgl_entries = 1;
 	sgl->sgl_entries[0].ipa_base = r->start;
 	sgl->sgl_entries[0].size = resource_size(r);
-	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL,
-			haven_label, acl, sgl, NULL, shm_memparcel);
+	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL,
+			gunyah_label, acl, sgl, NULL, shm_memparcel);
 	if (ret) {
 		pr_err("%s: lookup_sgl failed %d\n", VIRTIO_PRINT_MARKER, ret);
 		unshare_a_vm_buffer(self, peer, r);
@@ -1335,17 +1335,17 @@ static int share_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, int haven_label,
 	return ret;
 }
 
-static int share_vm_buffers(struct virt_machine *vm, hh_vmid_t peer)
+static int share_vm_buffers(struct virt_machine *vm, gh_vmid_t peer)
 {
 	int i, ret;
-	hh_vmid_t self_vmid;
+	gh_vmid_t self_vmid;
 
-	ret = hh_rm_get_vmid(HH_PRIMARY_VM, &self_vmid);
+	ret = gh_rm_get_vmid(GH_PRIMARY_VM, &self_vmid);
 	if (ret)
 		return ret;
 
 	for (i = 0; i < vm->shmem_entries; ++i) {
-		ret = share_a_vm_buffer(self_vmid, peer, vm->shmem[i].haven_label,
+		ret = share_a_vm_buffer(self_vmid, peer, vm->shmem[i].gunyah_label,
 				&vm->shmem[i].r, &vm->shmem[i].shm_memparcel);
 		if (ret) {
 			i--;
@@ -1363,8 +1363,8 @@ unshare:
 	return ret;
 }
 
-static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t label,
-			hh_capid_t cap_id, int linux_irq, u64 base, u64 size)
+static int gh_virtio_mmio_init(gh_vmid_t vmid, const char *vm_name, gh_label_t label,
+			gh_capid_t cap_id, int linux_irq, u64 base, u64 size)
 {
 	struct virt_machine *vm;
 	struct virtio_backend_device *vb_dev;
@@ -1496,21 +1496,21 @@ VIRTIO_PRINT_MARKER, label);
 	return 0;
 }
 
-static const struct of_device_id hh_virtio_backend_match_table[] = {
+static const struct of_device_id gh_virtio_backend_match_table[] = {
 	{ .compatible = "qcom,virtio_backend" },
 	{ },
 };
 
-static struct platform_driver hh_virtio_backend_driver = {
-	.probe = hh_virtio_backend_probe,
-	.remove = hh_virtio_backend_remove,
+static struct platform_driver gh_virtio_backend_driver = {
+	.probe = gh_virtio_backend_probe,
+	.remove = gh_virtio_backend_remove,
 	.driver = {
-		.name = "hh_virtio_backend",
-		.of_match_table = hh_virtio_backend_match_table,
+		.name = "gh_virtio_backend",
+		.of_match_table = gh_virtio_backend_match_table,
 	},
 };
 
-static int __init hh_virtio_backend_init(void)
+static int __init gh_virtio_backend_init(void)
 {
 	int ret;
 
@@ -1518,13 +1518,13 @@ static int __init hh_virtio_backend_init(void)
 	if (ret)
 		return ret;
 
-	ret = hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_init);
+	ret = gh_rm_set_virtio_mmio_cb(gh_virtio_mmio_init);
 	if (ret) {
 		vb_devclass_deinit();
 		return ret;
 	}
 
-	ret = platform_driver_register(&hh_virtio_backend_driver);
+	ret = platform_driver_register(&gh_virtio_backend_driver);
 	if (ret) {
 		gh_rm_unset_virtio_mmio_cb();
 		vb_devclass_deinit();
@@ -1532,15 +1532,15 @@ static int __init hh_virtio_backend_init(void)
 
 	return ret;
 }
-module_init(hh_virtio_backend_init);
+module_init(gh_virtio_backend_init);
 
-static void __exit hh_virtio_backend_exit(void)
+static void __exit gh_virtio_backend_exit(void)
 {
 	gh_rm_unset_virtio_mmio_cb();
-	platform_driver_unregister(&hh_virtio_backend_driver);
+	platform_driver_unregister(&gh_virtio_backend_driver);
 	vb_devclass_deinit();
 }
-module_exit(hh_virtio_backend_exit);
+module_exit(gh_virtio_backend_exit);
 
-MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Haven Virtio Backend driver");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Gunyah Virtio Backend driver");
 MODULE_LICENSE("GPL v2");

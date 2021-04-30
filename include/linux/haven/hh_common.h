@@ -4,40 +4,40 @@
  *
  */
 
-#ifndef __HH_COMMON_H
-#define __HH_COMMON_H
+#ifndef __GH_COMMON_H
+#define __GH_COMMON_H
 
 #include <linux/types.h>
 
-/* Common Haven types */
-typedef u16 hh_vmid_t;
-typedef u32 hh_rm_msgid_t;
-typedef u32 hh_virq_handle_t;
-typedef u32 hh_label_t;
-typedef u32 hh_memparcel_handle_t;
-typedef u64 hh_capid_t;
-typedef u64 hh_dbl_flags_t;
+/* Common Gunyah types */
+typedef u16 gh_vmid_t;
+typedef u32 gh_rm_msgid_t;
+typedef u32 gh_virq_handle_t;
+typedef u32 gh_label_t;
+typedef u32 gh_memparcel_handle_t;
+typedef u64 gh_capid_t;
+typedef u64 gh_dbl_flags_t;
 
-struct hh_vminfo {
+struct gh_vminfo {
 	u8 *guid;
 	char *uri;
 	char *name;
 	char *sign_auth;
 };
 
-/* Common Haven macros */
-#define HH_CAPID_INVAL	U64_MAX
+/* Common Gunyah macros */
+#define GH_CAPID_INVAL	U64_MAX
 
-enum hh_vm_names {
+enum gh_vm_names {
 	/*
-	 * HH_SELF_VM is an alias for VMID 0. Useful for RM APIs which allow
+	 * GH_SELF_VM is an alias for VMID 0. Useful for RM APIs which allow
 	 * operations on current VM such as console
 	 */
-	HH_SELF_VM,
-	HH_PRIMARY_VM,
-	HH_TRUSTED_VM,
-	HH_CPUSYS_VM,
-	HH_VM_MAX
+	GH_SELF_VM,
+	GH_PRIMARY_VM,
+	GH_TRUSTED_VM,
+	GH_CPUSYS_VM,
+	GH_VM_MAX
 };
 
 #endif

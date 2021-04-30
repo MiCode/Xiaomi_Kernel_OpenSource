@@ -2,7 +2,7 @@
  *
  * FocalTech TouchScreen driver.
  *
- * Copyright (c) 2012-2019, Focaltech Ltd. All rights reserved.
+ * Copyright (c) 2012-2019, 2021, Focaltech Ltd. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -61,7 +61,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
-#include <linux/haven/hh_irq_lend.h>
+#include <linux/gunyah/gh_irq_lend.h>
 #include "focaltech_common.h"
 
 /*****************************************************************************
@@ -209,10 +209,10 @@ enum trusted_touch_tvm_states {
 #define	TRUSTED_TOUCH_EVENT_NOTIFICATIONS_PENDING 5
 
 struct trusted_touch_vm_info {
-	enum hh_irq_label irq_label;
-	enum hh_vm_names vm_name;
+	enum gh_irq_label irq_label;
+	enum gh_vm_names vm_name;
 	u32 hw_irq;
-	hh_memparcel_handle_t vm_mem_handle;
+	gh_memparcel_handle_t vm_mem_handle;
 	u32 *iomem_bases;
 	u32 *iomem_sizes;
 	u32 iomem_list_size;

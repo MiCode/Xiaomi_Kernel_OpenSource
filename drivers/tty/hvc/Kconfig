@@ -108,21 +108,21 @@ config HVC_DCC_SERIALIZE_SMP
 	  output FIFOs that all cores will use. Reads and writes from/to DCC
 	  are handled by a workqueue that runs only core 0.
 
-config HVC_HAVEN
-	tristate "Haven tty support"
-	depends on HH_RM_DRV
+config HVC_GUNYAH
+	tristate "Gunyah tty support"
+	depends on GH_RM_DRV
 	select HVC_DRIVER
 	help
 	  This console exposes communication with other
-	  virtual machines in the Haven hypervisor. This
+	  virtual machines in the Gunyah hypervisor. This
 	  option may also be used as an early console
 	  to another VM.
 
-config HVC_HAVEN_CONSOLE
-	bool "Haven console support"
-	depends on HVC_HAVEN
+config HVC_GUNYAH_CONSOLE
+	bool "Gunyah console support"
+	depends on HVC_GUNYAH
 	help
-	  Select this option to allow Haven tty
+	  Select this option to allow Gunyah tty
 	  as an boot console communicating with
 	  the primary VM. Still need to specify
 	  earlycon and console parameters.

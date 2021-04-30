@@ -11,17 +11,17 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <linux/skbuff.h>
-#include <linux/haven/hh_rm_drv.h>
-#include <linux/haven/hh_dbl.h>
+#include <linux/gunyah/gh_rm_drv.h>
+#include <linux/gunyah/gh_dbl.h>
 #include <soc/qcom/secure_buffer.h>
 #include "qrtr.h"
 
-#define HAVEN_MAGIC_KEY	0x24495043 /* "$IPC" */
+#define GUNYAH_MAGIC_KEY	0x24495043 /* "$IPC" */
 #define FIFO_SIZE	0x4000
 #define FIFO_FULL_RESERVE 8
 #define FIFO_0_START	0x1000
 #define FIFO_1_START	(FIFO_0_START + FIFO_SIZE)
-#define HAVEN_MAGIC_IDX	0x0
+#define GUNYAH_MAGIC_IDX	0x0
 #define TAIL_0_IDX	0x1
 #define HEAD_0_IDX	0x2
 #define TAIL_1_IDX	0x3
@@ -32,13 +32,13 @@
 
 #define MAX_PKT_SZ	SZ_64K
 
-struct haven_ring {
+struct gunyah_ring {
 	void *buf;
 	size_t len;
 	u32 offset;
 };
 
-struct haven_pipe {
+struct gunyah_pipe {
 	__le32 *tail;
 	__le32 *head;
 	__le32 *read_notify;
@@ -48,7 +48,7 @@ struct haven_pipe {
 };
 
 /**
- * qrtr_haven_dev - qrtr haven transport structure
+ * qrtr_gunyah_dev - qrtr gunyah transport structure
  * @ep: qrtr endpoint specific info.
  * @dev: device from platform_device.
  * @pkt: buf for reading from fifo.
@@ -59,16 +59,16 @@ struct haven_pipe {
  * @master: primary vm indicator.
  * @peer_name: name of vm peer.
  * @rm_nb: notifier block for vm status from rm
- * @label: label for haven resources
+ * @label: label for gunyah resources
  * @tx_dbl: doorbell for tx notifications.
  * @rx_dbl: doorbell for rx notifications.
- * @tx_pipe: TX haven specific info.
- * @rx_pipe: RX haven specific info.
+ * @tx_pipe: TX gunyah specific info.
+ * @rx_pipe: RX gunyah specific info.
  */
-struct qrtr_haven_dev {
+struct qrtr_gunyah_dev {
 	struct qrtr_endpoint ep;
 	struct device *dev;
-	struct haven_ring ring;
+	struct gunyah_ring ring;
 
 	struct resource res;
 	u32 memparcel;
@@ -83,19 +83,19 @@ struct qrtr_haven_dev {
 	void *rx_dbl;
 	struct work_struct work;
 
-	struct haven_pipe tx_pipe;
-	struct haven_pipe rx_pipe;
+	struct gunyah_pipe tx_pipe;
+	struct gunyah_pipe rx_pipe;
 	wait_queue_head_t tx_avail_notify;
 };
 
-static void qrtr_haven_read(struct qrtr_haven_dev *qdev);
+static void qrtr_gunyah_read(struct qrtr_gunyah_dev *qdev);
 
-static void qrtr_haven_kick(struct qrtr_haven_dev *qdev)
+static void qrtr_gunyah_kick(struct qrtr_gunyah_dev *qdev)
 {
-	hh_dbl_flags_t dbl_mask = QRTR_DBL_MASK;
+	gh_dbl_flags_t dbl_mask = QRTR_DBL_MASK;
 	int ret;
 
-	ret = hh_dbl_send(qdev->tx_dbl, &dbl_mask, HH_DBL_NONBLOCK);
+	ret = gh_dbl_send(qdev->tx_dbl, &dbl_mask, GH_DBL_NONBLOCK);
 	if (ret) {
 		dev_err(qdev->dev, "failed to raise doorbell %d\n", ret);
 		if (!qdev->master)
@@ -103,21 +103,21 @@ static void qrtr_haven_kick(struct qrtr_haven_dev *qdev)
 	}
 }
 
-static void qrtr_haven_retry_work(struct work_struct *work)
+static void qrtr_gunyah_retry_work(struct work_struct *work)
 {
-	struct qrtr_haven_dev *qdev = container_of(work, struct qrtr_haven_dev,
+	struct qrtr_gunyah_dev *qdev = container_of(work, struct qrtr_gunyah_dev,
 						   work);
-	hh_dbl_flags_t dbl_mask = QRTR_DBL_MASK;
+	gh_dbl_flags_t dbl_mask = QRTR_DBL_MASK;
 
-	hh_dbl_send(qdev->tx_dbl, &dbl_mask, 0);
+	gh_dbl_send(qdev->tx_dbl, &dbl_mask, 0);
 }
 
-static void qrtr_haven_cb(int irq, void *data)
+static void qrtr_gunyah_cb(int irq, void *data)
 {
-	qrtr_haven_read((struct qrtr_haven_dev *)data);
+	qrtr_gunyah_read((struct qrtr_gunyah_dev *)data);
 }
 
-static size_t haven_rx_avail(struct haven_pipe *pipe)
+static size_t gunyah_rx_avail(struct gunyah_pipe *pipe)
 {
 	size_t len;
 	u32 head;
@@ -137,8 +137,8 @@ static size_t haven_rx_avail(struct haven_pipe *pipe)
 	return len;
 }
 
-static void haven_rx_peak(struct haven_pipe *pipe, void *data,
-			  unsigned int offset, size_t count)
+static void gunyah_rx_peak(struct gunyah_pipe *pipe, void *data,
+			   unsigned int offset, size_t count)
 {
 	size_t len;
 	u32 tail;
@@ -156,7 +156,7 @@ static void haven_rx_peak(struct haven_pipe *pipe, void *data,
 		memcpy_fromio(data + len, pipe->fifo, (count - len));
 }
 
-static void haven_rx_advance(struct haven_pipe *pipe, size_t count)
+static void gunyah_rx_advance(struct gunyah_pipe *pipe, size_t count)
 {
 	u32 tail;
 
@@ -169,7 +169,7 @@ static void haven_rx_advance(struct haven_pipe *pipe, size_t count)
 	*pipe->tail = cpu_to_le32(tail);
 }
 
-static size_t haven_tx_avail(struct haven_pipe *pipe)
+static size_t gunyah_tx_avail(struct gunyah_pipe *pipe)
 {
 	u32 avail;
 	u32 head;
@@ -191,8 +191,8 @@ static size_t haven_tx_avail(struct haven_pipe *pipe)
 	return avail;
 }
 
-static void haven_tx_write(struct haven_pipe *pipe,
-			   const void *data, size_t count)
+static void gunyah_tx_write(struct gunyah_pipe *pipe, const void *data,
+			    size_t count)
 {
 	size_t len;
 	u32 head;
@@ -216,32 +216,32 @@ static void haven_tx_write(struct haven_pipe *pipe,
 	*pipe->head = cpu_to_le32(head);
 }
 
-static void haven_set_tx_notify(struct qrtr_haven_dev *qdev)
+static void gunyah_set_tx_notify(struct qrtr_gunyah_dev *qdev)
 {
 	*qdev->tx_pipe.read_notify = cpu_to_le32(1);
 }
 
-static void haven_clr_tx_notify(struct qrtr_haven_dev *qdev)
+static void gunyah_clr_tx_notify(struct qrtr_gunyah_dev *qdev)
 {
 	*qdev->tx_pipe.read_notify = 0;
 }
 
-static bool haven_get_read_notify(struct qrtr_haven_dev *qdev)
+static bool gunyah_get_read_notify(struct qrtr_gunyah_dev *qdev)
 {
 	return le32_to_cpu(*qdev->rx_pipe.read_notify);
 }
 
-static void haven_wait_for_tx_avail(struct qrtr_haven_dev *qdev)
+static void gunyah_wait_for_tx_avail(struct qrtr_gunyah_dev *qdev)
 {
-	haven_set_tx_notify(qdev);
+	gunyah_set_tx_notify(qdev);
 	wait_event_timeout(qdev->tx_avail_notify,
-			   haven_tx_avail(&qdev->tx_pipe), 10 * HZ);
+			   gunyah_tx_avail(&qdev->tx_pipe), 10 * HZ);
 }
 
-/* from qrtr to haven */
-static int qrtr_haven_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
+/* from qrtr to gunyah */
+static int qrtr_gunyah_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 {
-	struct qrtr_haven_dev *qdev;
+	struct qrtr_gunyah_dev *qdev;
 	size_t tx_avail;
 	int chunk_size;
 	int left_size;
@@ -249,7 +249,7 @@ static int qrtr_haven_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 
 	int rc;
 
-	qdev = container_of(ep, struct qrtr_haven_dev, ep);
+	qdev = container_of(ep, struct qrtr_gunyah_dev, ep);
 
 	rc = skb_linearize(skb);
 	if (rc) {
@@ -260,9 +260,9 @@ static int qrtr_haven_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 	left_size = skb->len;
 	offset = 0;
 	while (left_size > 0) {
-		tx_avail = haven_tx_avail(&qdev->tx_pipe);
+		tx_avail = gunyah_tx_avail(&qdev->tx_pipe);
 		if (!tx_avail) {
-			haven_wait_for_tx_avail(qdev);
+			gunyah_wait_for_tx_avail(qdev);
 			continue;
 		}
 		if (tx_avail < left_size)
@@ -270,40 +270,40 @@ static int qrtr_haven_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 		else
 			chunk_size = left_size;
 
-		haven_tx_write(&qdev->tx_pipe, skb->data + offset, chunk_size);
+		gunyah_tx_write(&qdev->tx_pipe, skb->data + offset, chunk_size);
 		offset += chunk_size;
 		left_size -= chunk_size;
 
-		qrtr_haven_kick(qdev);
+		qrtr_gunyah_kick(qdev);
 	}
-	haven_clr_tx_notify(qdev);
+	gunyah_clr_tx_notify(qdev);
 	kfree_skb(skb);
 
 	return 0;
 }
 
-static void qrtr_haven_read_new(struct qrtr_haven_dev *qdev)
+static void qrtr_gunyah_read_new(struct qrtr_gunyah_dev *qdev)
 {
-	struct haven_ring *ring = &qdev->ring;
+	struct gunyah_ring *ring = &qdev->ring;
 	size_t rx_avail;
 	size_t pkt_len;
 	u32 hdr[8];
 	int rc;
 	size_t hdr_len = sizeof(hdr);
 
-	haven_rx_peak(&qdev->rx_pipe, &hdr, 0, hdr_len);
+	gunyah_rx_peak(&qdev->rx_pipe, &hdr, 0, hdr_len);
 	pkt_len = qrtr_peek_pkt_size((void *)&hdr);
 	if ((int)pkt_len < 0 || pkt_len > MAX_PKT_SZ) {
 		dev_err(qdev->dev, "invalid pkt_len %zu\n", pkt_len);
 		return;
 	}
 
-	rx_avail = haven_rx_avail(&qdev->rx_pipe);
+	rx_avail = gunyah_rx_avail(&qdev->rx_pipe);
 	if (rx_avail > pkt_len)
 		rx_avail = pkt_len;
 
-	haven_rx_peak(&qdev->rx_pipe, ring->buf, 0, rx_avail);
-	haven_rx_advance(&qdev->rx_pipe, rx_avail);
+	gunyah_rx_peak(&qdev->rx_pipe, ring->buf, 0, rx_avail);
+	gunyah_rx_advance(&qdev->rx_pipe, rx_avail);
 
 	if (rx_avail == pkt_len) {
 		rc = qrtr_endpoint_post(&qdev->ep, ring->buf, pkt_len);
@@ -315,18 +315,18 @@ static void qrtr_haven_read_new(struct qrtr_haven_dev *qdev)
 	}
 }
 
-static void qrtr_haven_read_frag(struct qrtr_haven_dev *qdev)
+static void qrtr_gunyah_read_frag(struct qrtr_gunyah_dev *qdev)
 {
-	struct haven_ring *ring = &qdev->ring;
+	struct gunyah_ring *ring = &qdev->ring;
 	size_t rx_avail;
 	int rc;
 
-	rx_avail = haven_rx_avail(&qdev->rx_pipe);
+	rx_avail = gunyah_rx_avail(&qdev->rx_pipe);
 	if (rx_avail + ring->offset > ring->len)
 		rx_avail = ring->len - ring->offset;
 
-	haven_rx_peak(&qdev->rx_pipe, ring->buf + ring->offset, 0, rx_avail);
-	haven_rx_advance(&qdev->rx_pipe, rx_avail);
+	gunyah_rx_peak(&qdev->rx_pipe, ring->buf + ring->offset, 0, rx_avail);
+	gunyah_rx_advance(&qdev->rx_pipe, rx_avail);
 
 	if (rx_avail + ring->offset == ring->len) {
 		rc = qrtr_endpoint_post(&qdev->ep, ring->buf, ring->len);
@@ -339,29 +339,29 @@ static void qrtr_haven_read_frag(struct qrtr_haven_dev *qdev)
 	}
 }
 
-static void qrtr_haven_read(struct qrtr_haven_dev *qdev)
+static void qrtr_gunyah_read(struct qrtr_gunyah_dev *qdev)
 {
 	wake_up_all(&qdev->tx_avail_notify);
 
-	while (haven_rx_avail(&qdev->rx_pipe)) {
+	while (gunyah_rx_avail(&qdev->rx_pipe)) {
 		if (qdev->ring.offset)
-			qrtr_haven_read_frag(qdev);
+			qrtr_gunyah_read_frag(qdev);
 		else
-			qrtr_haven_read_new(qdev);
+			qrtr_gunyah_read_new(qdev);
 
-		if (haven_get_read_notify(qdev))
-			qrtr_haven_kick(qdev);
+		if (gunyah_get_read_notify(qdev))
+			qrtr_gunyah_kick(qdev);
 	}
 }
 
-static int qrtr_haven_share_mem(struct qrtr_haven_dev *qdev,
-				hh_vmid_t self, hh_vmid_t peer)
+static int qrtr_gunyah_share_mem(struct qrtr_gunyah_dev *qdev, gh_vmid_t self,
+				 gh_vmid_t peer)
 {
 	u32 src_vmlist[1] = {self};
 	int dst_vmlist[2] = {self, peer};
 	int dst_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
-	struct hh_acl_desc *acl;
-	struct hh_sgl_desc *sgl;
+	struct gh_acl_desc *acl;
+	struct gh_sgl_desc *sgl;
 	int ret;
 
 	ret = hyp_assign_phys(qdev->res.start, resource_size(&qdev->res),
@@ -373,24 +373,24 @@ static int qrtr_haven_share_mem(struct qrtr_haven_dev *qdev,
 		return ret;
 	}
 
-	acl = kzalloc(offsetof(struct hh_acl_desc, acl_entries[2]), GFP_KERNEL);
+	acl = kzalloc(offsetof(struct gh_acl_desc, acl_entries[2]), GFP_KERNEL);
 	if (!acl)
 		return -ENOMEM;
-	sgl = kzalloc(offsetof(struct hh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
+	sgl = kzalloc(offsetof(struct gh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
 	if (!sgl) {
 		kfree(acl);
 		return -ENOMEM;
 	}
 	acl->n_acl_entries = 2;
 	acl->acl_entries[0].vmid = (u16)self;
-	acl->acl_entries[0].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[0].perms = GH_RM_ACL_R | GH_RM_ACL_W;
 	acl->acl_entries[1].vmid = (u16)peer;
-	acl->acl_entries[1].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[1].perms = GH_RM_ACL_R | GH_RM_ACL_W;
 
 	sgl->n_sgl_entries = 1;
 	sgl->sgl_entries[0].ipa_base = qdev->res.start;
 	sgl->sgl_entries[0].size = resource_size(&qdev->res);
-	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL,
+	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL,
 					qdev->label,
 					acl, sgl, NULL,
 					&qdev->memparcel);
@@ -400,44 +400,44 @@ static int qrtr_haven_share_mem(struct qrtr_haven_dev *qdev,
 	return ret;
 }
 
-static int qrtr_haven_rm_cb(struct notifier_block *nb, unsigned long cmd,
-			    void *data)
+static int qrtr_gunyah_rm_cb(struct notifier_block *nb, unsigned long cmd,
+			     void *data)
 {
-	struct hh_rm_notif_vm_status_payload *vm_status_payload;
-	struct qrtr_haven_dev *qdev;
-	hh_vmid_t peer_vmid;
-	hh_vmid_t self_vmid;
+	struct gh_rm_notif_vm_status_payload *vm_status_payload;
+	struct qrtr_gunyah_dev *qdev;
+	gh_vmid_t peer_vmid;
+	gh_vmid_t self_vmid;
 
-	qdev = container_of(nb, struct qrtr_haven_dev, rm_nb);
+	qdev = container_of(nb, struct qrtr_gunyah_dev, rm_nb);
 
-	if (cmd != HH_RM_NOTIF_VM_STATUS)
+	if (cmd != GH_RM_NOTIF_VM_STATUS)
 		return NOTIFY_DONE;
 
 	vm_status_payload = data;
-	if (vm_status_payload->vm_status != HH_RM_VM_STATUS_READY)
+	if (vm_status_payload->vm_status != GH_RM_VM_STATUS_READY)
 		return NOTIFY_DONE;
-	if (hh_rm_get_vmid(qdev->peer_name, &peer_vmid))
+	if (gh_rm_get_vmid(qdev->peer_name, &peer_vmid))
 		return NOTIFY_DONE;
-	if (hh_rm_get_vmid(HH_PRIMARY_VM, &self_vmid))
+	if (gh_rm_get_vmid(GH_PRIMARY_VM, &self_vmid))
 		return NOTIFY_DONE;
 	if (peer_vmid != vm_status_payload->vmid)
 		return NOTIFY_DONE;
 
-	if (qrtr_haven_share_mem(qdev, self_vmid, peer_vmid))
+	if (qrtr_gunyah_share_mem(qdev, self_vmid, peer_vmid))
 		pr_err("%s: failed to share memory\n", __func__);
 
 	return NOTIFY_DONE;
 }
 
 /**
- * qrtr_haven_fifo_init() - init haven xprt configs
+ * qrtr_gunyah_fifo_init() - init gunyah xprt configs
  *
  * @return: 0 on success, standard Linux error codes on error.
  *
- * This function is called to initialize the haven XPRT pointer with
- * the haven XPRT configurations either from device tree or static arrays.
+ * This function is called to initialize the gunyah XPRT pointer with
+ * the gunyah XPRT configurations either from device tree or static arrays.
  */
-static void qrtr_haven_fifo_init(struct qrtr_haven_dev *qdev)
+static void qrtr_gunyah_fifo_init(struct qrtr_gunyah_dev *qdev)
 {
 	__le32 *descs;
 
@@ -445,7 +445,7 @@ static void qrtr_haven_fifo_init(struct qrtr_haven_dev *qdev)
 		memset(qdev->base, 0, sizeof(*descs) * 10);
 
 	descs = qdev->base;
-	descs[HAVEN_MAGIC_IDX] = HAVEN_MAGIC_KEY;
+	descs[GUNYAH_MAGIC_IDX] = GUNYAH_MAGIC_KEY;
 
 	if (qdev->master) {
 		qdev->tx_pipe.tail = &descs[TAIL_0_IDX];
@@ -479,9 +479,9 @@ static void qrtr_haven_fifo_init(struct qrtr_haven_dev *qdev)
 	*qdev->rx_pipe.tail = 0;
 }
 
-static struct device_node *qrtr_haven_svm_of_parse(struct qrtr_haven_dev *qdev)
+static struct device_node *qrtr_gunyah_svm_of_parse(struct qrtr_gunyah_dev *qdev)
 {
-	const char *compat = "qcom,qrtr-haven-gen";
+	const char *compat = "qcom,qrtr-gunyah-gen";
 	struct device_node *np = NULL;
 	struct device_node *shm_np;
 	u32 label;
@@ -509,7 +509,7 @@ static struct device_node *qrtr_haven_svm_of_parse(struct qrtr_haven_dev *qdev)
 	return shm_np;
 }
 
-static int qrtr_haven_map_memory(struct qrtr_haven_dev *qdev)
+static int qrtr_gunyah_map_memory(struct qrtr_gunyah_dev *qdev)
 {
 	struct device *dev = qdev->dev;
 	struct device_node *np;
@@ -518,7 +518,7 @@ static int qrtr_haven_map_memory(struct qrtr_haven_dev *qdev)
 
 	np = of_parse_phandle(dev->of_node, "shared-buffer", 0);
 	if (!np) {
-		np = qrtr_haven_svm_of_parse(qdev);
+		np = qrtr_gunyah_svm_of_parse(qdev);
 		if (!np) {
 			dev_err(dev, "cant parse shared mem node!\n");
 			return -EINVAL;
@@ -544,20 +544,20 @@ static int qrtr_haven_map_memory(struct qrtr_haven_dev *qdev)
 }
 
 /**
- * qrtr_haven_probe() - Probe a haven xprt
+ * qrtr_gunyah_probe() - Probe a gunyah xprt
  *
- * @pdev: Platform device corresponding to haven xprt.
+ * @pdev: Platform device corresponding to gunyah xprt.
  *
  * @return: 0 on success, standard Linux error codes on error.
  *
  * This function is called when the underlying device tree driver registers
- * a platform device, mapped to a haven transport.
+ * a platform device, mapped to a gunyah transport.
  */
-static int qrtr_haven_probe(struct platform_device *pdev)
+static int qrtr_gunyah_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
-	struct qrtr_haven_dev *qdev;
-	enum hh_dbl_label dbl_label;
+	struct qrtr_gunyah_dev *qdev;
+	enum gh_dbl_label dbl_label;
 	int ret;
 
 	qdev = devm_kzalloc(&pdev->dev, sizeof(*qdev), GFP_KERNEL);
@@ -570,90 +570,90 @@ static int qrtr_haven_probe(struct platform_device *pdev)
 	if (!qdev->ring.buf)
 		return -ENOMEM;
 
-	ret = of_property_read_u32(node, "haven-label", &qdev->label);
+	ret = of_property_read_u32(node, "gunyah-label", &qdev->label);
 	if (ret) {
 		dev_err(qdev->dev, "failed to read label info %d\n", ret);
 		return ret;
 	}
 	qdev->master = of_property_read_bool(node, "qcom,master");
 
-	ret = qrtr_haven_map_memory(qdev);
+	ret = qrtr_gunyah_map_memory(qdev);
 	if (ret)
 		return ret;
 
-	qrtr_haven_fifo_init(qdev);
+	qrtr_gunyah_fifo_init(qdev);
 	init_waitqueue_head(&qdev->tx_avail_notify);
 
 	if (qdev->master) {
 		ret = of_property_read_u32(node, "peer-name", &qdev->peer_name);
 		if (ret)
-			qdev->peer_name = HH_SELF_VM;
+			qdev->peer_name = GH_SELF_VM;
 
-		qdev->rm_nb.notifier_call = qrtr_haven_rm_cb;
+		qdev->rm_nb.notifier_call = qrtr_gunyah_rm_cb;
 		qdev->rm_nb.priority = INT_MAX;
-		hh_rm_register_notifier(&qdev->rm_nb);
+		gh_rm_register_notifier(&qdev->rm_nb);
 	}
 
 	dbl_label = qdev->label;
-	qdev->tx_dbl = hh_dbl_tx_register(dbl_label);
+	qdev->tx_dbl = gh_dbl_tx_register(dbl_label);
 	if (IS_ERR_OR_NULL(qdev->tx_dbl)) {
 		ret = PTR_ERR(qdev->tx_dbl);
-		dev_err(qdev->dev, "failed to get haven tx dbl %d\n", ret);
+		dev_err(qdev->dev, "failed to get gunyah tx dbl %d\n", ret);
 		return ret;
 	}
-	INIT_WORK(&qdev->work, qrtr_haven_retry_work);
+	INIT_WORK(&qdev->work, qrtr_gunyah_retry_work);
 
-	qdev->rx_dbl = hh_dbl_rx_register(dbl_label, qrtr_haven_cb, qdev);
+	qdev->rx_dbl = gh_dbl_rx_register(dbl_label, qrtr_gunyah_cb, qdev);
 	if (IS_ERR_OR_NULL(qdev->rx_dbl)) {
 		ret = PTR_ERR(qdev->rx_dbl);
-		dev_err(qdev->dev, "failed to get haven rx dbl %d\n", ret);
+		dev_err(qdev->dev, "failed to get gunyah rx dbl %d\n", ret);
 		goto fail_rx_dbl;
 	}
 
-	qdev->ep.xmit = qrtr_haven_send;
+	qdev->ep.xmit = qrtr_gunyah_send;
 	ret = qrtr_endpoint_register(&qdev->ep, QRTR_EP_NET_ID_AUTO, false);
 	if (ret)
 		goto register_fail;
 
-	if (haven_rx_avail(&qdev->rx_pipe))
-		qrtr_haven_read(qdev);
+	if (gunyah_rx_avail(&qdev->rx_pipe))
+		qrtr_gunyah_read(qdev);
 
 	return 0;
 
 register_fail:
-	hh_dbl_rx_unregister(qdev->rx_dbl);
+	gh_dbl_rx_unregister(qdev->rx_dbl);
 fail_rx_dbl:
 	cancel_work_sync(&qdev->work);
-	hh_dbl_tx_unregister(qdev->tx_dbl);
+	gh_dbl_tx_unregister(qdev->tx_dbl);
 
 	return ret;
 }
 
-static int qrtr_haven_remove(struct platform_device *pdev)
+static int qrtr_gunyah_remove(struct platform_device *pdev)
 {
-	struct qrtr_haven_dev *qdev = dev_get_drvdata(&pdev->dev);
+	struct qrtr_gunyah_dev *qdev = dev_get_drvdata(&pdev->dev);
 
 	cancel_work_sync(&qdev->work);
-	hh_dbl_tx_unregister(qdev->tx_dbl);
-	hh_dbl_rx_unregister(qdev->rx_dbl);
+	gh_dbl_tx_unregister(qdev->tx_dbl);
+	gh_dbl_rx_unregister(qdev->rx_dbl);
 
 	return 0;
 }
 
-static const struct of_device_id qrtr_haven_match_table[] = {
-	{ .compatible = "qcom,qrtr-haven" },
+static const struct of_device_id qrtr_gunyah_match_table[] = {
+	{ .compatible = "qcom,qrtr-gunyah" },
 	{}
 };
 
-static struct platform_driver qrtr_haven_driver = {
+static struct platform_driver qrtr_gunyah_driver = {
 	.driver = {
-		.name = "qcom_haven_qrtr",
-		.of_match_table = qrtr_haven_match_table,
+		.name = "qcom_gunyah_qrtr",
+		.of_match_table = qrtr_gunyah_match_table,
 	 },
-	.probe = qrtr_haven_probe,
-	.remove = qrtr_haven_remove,
+	.probe = qrtr_gunyah_probe,
+	.remove = qrtr_gunyah_remove,
 };
-module_platform_driver(qrtr_haven_driver);
+module_platform_driver(qrtr_gunyah_driver);
 
-MODULE_DESCRIPTION("QTI IPC-Router Haven interface driver");
+MODULE_DESCRIPTION("QTI IPC-Router Gunyah interface driver");
 MODULE_LICENSE("GPL v2");

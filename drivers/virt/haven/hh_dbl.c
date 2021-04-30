@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -9,26 +9,26 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 
-#include <linux/haven/hh_dbl.h>
-#include <linux/haven/hh_errno.h>
-#include <linux/haven/hcall.h>
+#include <linux/gunyah/gh_dbl.h>
+#include <linux/gunyah/gh_errno.h>
+#include <linux/gunyah/hcall.h>
 
-struct hh_dbl_desc {
-	enum hh_dbl_label label;
+struct gh_dbl_desc {
+	enum gh_dbl_label label;
 };
 
-enum hh_dbl_dir {
-	HH_DBL_DIRECTION_TX,
-	HH_DBL_DIRECTION_RX
+enum gh_dbl_dir {
+	GH_DBL_DIRECTION_TX,
+	GH_DBL_DIRECTION_RX
 };
 
-struct hh_dbl_cap_table {
-	struct hh_dbl_desc *client_desc;
+struct gh_dbl_cap_table {
+	struct gh_dbl_desc *client_desc;
 	spinlock_t cap_entry_lock;
-	hh_capid_t tx_cap_id;
+	gh_capid_t tx_cap_id;
 	int tx_reg_done;
 
-	hh_capid_t rx_cap_id;
+	gh_capid_t rx_cap_id;
 	int rx_irq;
 	int rx_reg_done;
 	const char *rx_irq_name;
@@ -37,26 +37,26 @@ struct hh_dbl_cap_table {
 	wait_queue_head_t cap_wq;
 };
 
-static bool hh_dbl_initialized;
-static struct hh_dbl_cap_table hh_dbl_cap_table[HH_DBL_LABEL_MAX];
+static bool gh_dbl_initialized;
+static struct gh_dbl_cap_table gh_dbl_cap_table[GH_DBL_LABEL_MAX];
 
 /**
- * hh_dbl_validate_params - Validate doorbell common parameters
+ * gh_dbl_validate_params - Validate doorbell common parameters
  */
-static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
-			enum hh_dbl_dir dir, const unsigned long flags)
+static int gh_dbl_validate_params(struct gh_dbl_desc *client_desc,
+			enum gh_dbl_dir dir, const unsigned long flags)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_cap_table *cap_table_entry;
 	int ret;
 
 	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
 
 	/* Check if the client has manipulated the label */
-	if (client_desc->label < 0 || client_desc->label >= HH_DBL_LABEL_MAX)
+	if (client_desc->label < 0 || client_desc->label >= GH_DBL_LABEL_MAX)
 		return -EINVAL;
 
-	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
+	cap_table_entry = &gh_dbl_cap_table[client_desc->label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -68,18 +68,18 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 
 	/*
 	 * rx_cap_id == NULL and tx_cap_id == NULL means TWO things
-	 * either "hh_dbl_populate_cap_info()" call from RM is not over
+	 * either "gh_dbl_populate_cap_info()" call from RM is not over
 	 * or
 	 * There are no doorbell setup for Tx or Rx
 	 */
-	if (dir == HH_DBL_DIRECTION_RX) {
+	if (dir == GH_DBL_DIRECTION_RX) {
 		if (!cap_table_entry->rx_reg_done) {
 			ret = -EINVAL;
 			goto err;
 		}
 
-		if ((cap_table_entry->rx_cap_id == HH_CAPID_INVAL) &&
-			(flags & HH_DBL_NONBLOCK)) {
+		if ((cap_table_entry->rx_cap_id == GH_CAPID_INVAL) &&
+			(flags & GH_DBL_NONBLOCK)) {
 			ret = -EAGAIN;
 			goto err;
 		}
@@ -87,7 +87,7 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 		spin_unlock(&cap_table_entry->cap_entry_lock);
 
 		if (wait_event_interruptible(cap_table_entry->cap_wq,
-				cap_table_entry->rx_cap_id != HH_CAPID_INVAL))
+				cap_table_entry->rx_cap_id != GH_CAPID_INVAL))
 			return -ERESTARTSYS;
 
 	} else {
@@ -96,8 +96,8 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 			goto err;
 		}
 
-		if ((cap_table_entry->tx_cap_id == HH_CAPID_INVAL) &&
-			(flags & HH_DBL_NONBLOCK)) {
+		if ((cap_table_entry->tx_cap_id == GH_CAPID_INVAL) &&
+			(flags & GH_DBL_NONBLOCK)) {
 			ret = -EAGAIN;
 			goto err;
 		}
@@ -105,7 +105,7 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 		spin_unlock(&cap_table_entry->cap_entry_lock);
 
 		if (wait_event_interruptible(cap_table_entry->cap_wq,
-				cap_table_entry->tx_cap_id != HH_CAPID_INVAL))
+				cap_table_entry->tx_cap_id != GH_CAPID_INVAL))
 			return -ERESTARTSYS;
 
 	}
@@ -117,11 +117,11 @@ err:
 }
 
 /**
- * hh_dbl_read_and_clean - Automatically read and clear the flags in doorbell
+ * gh_dbl_read_and_clean - Automatically read and clear the flags in doorbell
  * @client_desc: client handle to indetify the doorbell object
  * @clear_flags: clear the bits mentioned in the clear_flags
  * @flags: Optional flags to pass to send the data. For the list of flags,
- *         see linux/haven/hh_dbl.h
+ *         see linux/gunyah/gh_dbl.h
  *
  * Reads and clears the flags of the Doorbell object. If there is a pending
  * bound virtual interrupt, it will be de-asserted
@@ -130,45 +130,45 @@ err:
  * 0 on success, @clear_flags contains the doorbell’s previous unmasked flags
  * before the @clear_flags were removed.
  */
-int hh_dbl_read_and_clean(void *dbl_client_desc, hh_dbl_flags_t *clear_flags,
+int gh_dbl_read_and_clean(void *dbl_client_desc, gh_dbl_flags_t *clear_flags,
 			  const unsigned long flags)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
-	struct hh_hcall_dbl_recv_resp recv_resp;
-	struct hh_dbl_desc *client_desc = dbl_client_desc;
-	int ret, hh_ret;
+	struct gh_dbl_cap_table *cap_table_entry;
+	struct gh_hcall_dbl_recv_resp recv_resp;
+	struct gh_dbl_desc *client_desc = dbl_client_desc;
+	int ret, gh_ret;
 
 	if (!clear_flags)
 		return -EINVAL;
 
-	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX, flags);
+	ret = gh_dbl_validate_params(client_desc, GH_DBL_DIRECTION_RX, flags);
 	if (ret)
 		return ret;
 
-	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
+	cap_table_entry = &gh_dbl_cap_table[client_desc->label];
 
-	hh_ret = hh_hcall_dbl_recv(cap_table_entry->rx_cap_id,
+	gh_ret = gh_hcall_dbl_recv(cap_table_entry->rx_cap_id,
 					*clear_flags, &recv_resp);
 
-	ret = hh_remap_error(hh_ret);
+	ret = gh_remap_error(gh_ret);
 	if (ret != 0)
-		pr_err("%s: Hypercall failed, ret = %d\n", __func__, hh_ret);
+		pr_err("%s: Hypercall failed, ret = %d\n", __func__, gh_ret);
 	else
 		*clear_flags = recv_resp.old_flags;
 
 	return ret;
 }
-EXPORT_SYMBOL(hh_dbl_read_and_clean);
+EXPORT_SYMBOL(gh_dbl_read_and_clean);
 
 /**
- * hh_dbl_set_mask - Set doorbell object mask
+ * gh_dbl_set_mask - Set doorbell object mask
  * @client_desc: client handle to indetify the doorbell object
  * @enable_mask: The mask of flags that will cause an assertion of
  *				 the doorbell's bound virtual interrupt
  * @ack_mask: Controls which flags should be automatically cleared
  *			  when the interrupt is asserted
  * @flags: Optional flags to pass to send the data. For the list of flags,
- *         see linux/haven/hh_dbl.h
+ *         see linux/gunyah/gh_dbl.h
  *
  * Sets the Doorbell object’s masks. A doorbell object has two masks
  * which are configured by the receiver to control which flags it is
@@ -177,37 +177,37 @@ EXPORT_SYMBOL(hh_dbl_read_and_clean);
  * Returns:
  * 0 on success
  */
-int hh_dbl_set_mask(void *dbl_client_desc, hh_dbl_flags_t enable_mask,
-		    hh_dbl_flags_t ack_mask, const unsigned long flags)
+int gh_dbl_set_mask(void *dbl_client_desc, gh_dbl_flags_t enable_mask,
+		    gh_dbl_flags_t ack_mask, const unsigned long flags)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
-	struct hh_dbl_desc *client_desc = dbl_client_desc;
-	int ret, hh_ret;
+	struct gh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_desc *client_desc = dbl_client_desc;
+	int ret, gh_ret;
 
-	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX, flags);
+	ret = gh_dbl_validate_params(client_desc, GH_DBL_DIRECTION_RX, flags);
 	if (ret)
 		return ret;
 
-	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
+	cap_table_entry = &gh_dbl_cap_table[client_desc->label];
 
-	hh_ret = hh_hcall_dbl_mask(cap_table_entry->rx_cap_id,
+	gh_ret = gh_hcall_dbl_mask(cap_table_entry->rx_cap_id,
 						enable_mask, ack_mask);
 
-	ret = hh_remap_error(hh_ret);
+	ret = gh_remap_error(gh_ret);
 	if (ret != 0)
-		pr_err("%s: Hypercall failed ret = %d\n", __func__, hh_ret);
+		pr_err("%s: Hypercall failed ret = %d\n", __func__, gh_ret);
 
 	return ret;
 }
-EXPORT_SYMBOL(hh_dbl_set_mask);
+EXPORT_SYMBOL(gh_dbl_set_mask);
 
 /**
- * hh_dbl_send - Set flags in the doorbell
+ * gh_dbl_send - Set flags in the doorbell
  * @client_desc: client handle to indetify the doorbell object
  * @newflags: flags to set in the doorbell. This flag along with enable_mask
  *			  in the doorbell decide whehter to raise vIRQ are not.
  * @flags: Optional flags to pass to send the data. For the list of flags,
- *         see linux/haven/hh_dbl.h
+ *         see linux/gunyah/gh_dbl.h
  *
  * Set flags in the doorbell. If following the send, the set of enabled flags
  * as defined by the bitwise-AND of the doorbell flags with the EnableMask,
@@ -217,42 +217,42 @@ EXPORT_SYMBOL(hh_dbl_set_mask);
  * 0 on success, @newflags contains the doorbell’s previous unmasked flags
  * before the @newflags were added.
  */
-int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags,
+int gh_dbl_send(void *dbl_client_desc, gh_dbl_flags_t *newflags,
 		unsigned long flags)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
-	struct hh_hcall_dbl_send_resp send_resp;
-	struct hh_dbl_desc *client_desc = dbl_client_desc;
-	int ret, hh_ret;
+	struct gh_dbl_cap_table *cap_table_entry;
+	struct gh_hcall_dbl_send_resp send_resp;
+	struct gh_dbl_desc *client_desc = dbl_client_desc;
+	int ret, gh_ret;
 
 	if (!newflags)
 		return -EINVAL;
 
-	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_TX, flags);
+	ret = gh_dbl_validate_params(client_desc, GH_DBL_DIRECTION_TX, flags);
 	if (ret)
 		return ret;
 
-	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
+	cap_table_entry = &gh_dbl_cap_table[client_desc->label];
 
-	hh_ret = hh_hcall_dbl_send(cap_table_entry->tx_cap_id, *newflags,
+	gh_ret = gh_hcall_dbl_send(cap_table_entry->tx_cap_id, *newflags,
 								&send_resp);
 
-	ret = hh_remap_error(hh_ret);
+	ret = gh_remap_error(gh_ret);
 	if (ret != 0)
-		pr_err("%s: Hypercall failed ret = %d\n", __func__, hh_ret);
+		pr_err("%s: Hypercall failed ret = %d\n", __func__, gh_ret);
 	else
 		*newflags = send_resp.old_flags;
 
 	return ret;
 }
-EXPORT_SYMBOL(hh_dbl_send);
+EXPORT_SYMBOL(gh_dbl_send);
 
 /**
- * hh_dbl_reset - clear all the flags of the doorbell and sets all bits in
+ * gh_dbl_reset - clear all the flags of the doorbell and sets all bits in
  *				  the Doorbell’s mask.
  * @client_desc: client handle to indetify the doorbell object
  * @flags: Optional flags to pass to send the data. For the list of flags,
- *         see linux/haven/hh_dbl.h
+ *         see linux/gunyah/gh_dbl.h
  *
  * Clears all the flags of the doorbell and sets all bits in the doorbell’s
  * mask. If there is a pending bound virtual interrupt, it will be de-asserted.
@@ -260,31 +260,31 @@ EXPORT_SYMBOL(hh_dbl_send);
  * Returns:
  * 0 on success
  */
-int hh_dbl_reset(void *dbl_client_desc, const unsigned long flags)
+int gh_dbl_reset(void *dbl_client_desc, const unsigned long flags)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
-	struct hh_dbl_desc *client_desc = dbl_client_desc;
-	int ret, hh_ret;
+	struct gh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_desc *client_desc = dbl_client_desc;
+	int ret, gh_ret;
 
-	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX, flags);
+	ret = gh_dbl_validate_params(client_desc, GH_DBL_DIRECTION_RX, flags);
 	if (ret)
 		return ret;
 
-	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
+	cap_table_entry = &gh_dbl_cap_table[client_desc->label];
 
-	hh_ret = hh_hcall_dbl_reset(cap_table_entry->rx_cap_id);
+	gh_ret = gh_hcall_dbl_reset(cap_table_entry->rx_cap_id);
 
-	ret = hh_remap_error(hh_ret);
+	ret = gh_remap_error(gh_ret);
 	if (ret != 0)
-		pr_err("%s: Hypercall failed ret = %d\n", __func__, hh_ret);
+		pr_err("%s: Hypercall failed ret = %d\n", __func__, gh_ret);
 
 	return ret;
 }
-EXPORT_SYMBOL(hh_dbl_reset);
+EXPORT_SYMBOL(gh_dbl_reset);
 
-static irqreturn_t hh_dbl_rx_callback_thread(int irq, void *data)
+static irqreturn_t gh_dbl_rx_callback_thread(int irq, void *data)
 {
-	struct hh_dbl_cap_table *cap_table_entry = data;
+	struct gh_dbl_cap_table *cap_table_entry = data;
 
 	if (!cap_table_entry->rx_callback)
 		return IRQ_HANDLED;
@@ -294,7 +294,7 @@ static irqreturn_t hh_dbl_rx_callback_thread(int irq, void *data)
 }
 
 /**
- * hh_dbl_tx_register: Register as a Tx client to use the doorbell
+ * gh_dbl_tx_register: Register as a Tx client to use the doorbell
  * @label: The label associated to the doorbell that the client wants
  *	   to send a message to other VM.
  *
@@ -304,19 +304,19 @@ static irqreturn_t hh_dbl_rx_callback_thread(int irq, void *data)
  * the return value using IS_ERR_OR_NULL() and PTR_ERR() to extract the error
  * code.
  */
-void *hh_dbl_tx_register(enum hh_dbl_label label)
+void *gh_dbl_tx_register(enum gh_dbl_label label)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
-	struct hh_dbl_desc *client_desc;
+	struct gh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_desc *client_desc;
 	int ret;
 
-	if (label < 0 || label >= HH_DBL_LABEL_MAX)
+	if (label < 0 || label >= GH_DBL_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
 
-	if (!hh_dbl_initialized)
+	if (!gh_dbl_initialized)
 		return ERR_PTR(-EPROBE_DEFER);
 
-	cap_table_entry = &hh_dbl_cap_table[label];
+	cap_table_entry = &gh_dbl_cap_table[label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -350,10 +350,10 @@ err:
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL(hh_dbl_tx_register);
+EXPORT_SYMBOL(gh_dbl_tx_register);
 
 /**
- * hh_dbl_rx_register: Register as a Rx client to use the doorbell
+ * gh_dbl_rx_register: Register as a Rx client to use the doorbell
  * @label: The label associated to the doorbell that the client wants
  *	   to read a message.
  * @rx_cb: Callback of the client when there is a vIRQ on doorbell
@@ -366,19 +366,19 @@ EXPORT_SYMBOL(hh_dbl_tx_register);
  * code.
  */
 
-void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
+void *gh_dbl_rx_register(enum gh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
-	struct hh_dbl_desc *client_desc;
+	struct gh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_desc *client_desc;
 	int ret;
 
-	if (label < 0 || label >= HH_DBL_LABEL_MAX)
+	if (label < 0 || label >= GH_DBL_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
 
-	if (!hh_dbl_initialized)
+	if (!gh_dbl_initialized)
 		return ERR_PTR(-EPROBE_DEFER);
 
-	cap_table_entry = &hh_dbl_cap_table[label];
+	cap_table_entry = &gh_dbl_cap_table[label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -417,29 +417,29 @@ err:
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL(hh_dbl_rx_register);
+EXPORT_SYMBOL(gh_dbl_rx_register);
 
 /**
- * hh_dbl_tx_unregister: Unregister Tx client to use the doorbell
- * @client_desc: The descriptor that was passed via hh_dbl_tx_register() or
- *		 hh_dbl_rx_register()
+ * gh_dbl_tx_unregister: Unregister Tx client to use the doorbell
+ * @client_desc: The descriptor that was passed via gh_dbl_tx_register() or
+ *		 gh_dbl_rx_register()
  *
  * The function returns 0 is the client was unregistered successfully. Else,
  * -EINVAL for invalid arguments.
  */
-int hh_dbl_tx_unregister(void *dbl_client_desc)
+int gh_dbl_tx_unregister(void *dbl_client_desc)
 {
-	struct hh_dbl_desc *client_desc = dbl_client_desc;
-	struct hh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_desc *client_desc = dbl_client_desc;
+	struct gh_dbl_cap_table *cap_table_entry;
 
 	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
 
 	/* Check if the client has manipulated the label */
-	if (client_desc->label < 0 || client_desc->label >= HH_DBL_LABEL_MAX)
+	if (client_desc->label < 0 || client_desc->label >= GH_DBL_LABEL_MAX)
 		return -EINVAL;
 
-	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
+	cap_table_entry = &gh_dbl_cap_table[client_desc->label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -467,29 +467,29 @@ int hh_dbl_tx_unregister(void *dbl_client_desc)
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_dbl_tx_unregister);
+EXPORT_SYMBOL(gh_dbl_tx_unregister);
 
 /**
- * hh_dbl_rx_unregister: Unregister Rx client to use the doorbell
- * @client_desc: The descriptor that was passed via hh_dbl_tx_register() or
- *				 hh_dbl_rx_register()
+ * gh_dbl_rx_unregister: Unregister Rx client to use the doorbell
+ * @client_desc: The descriptor that was passed via gh_dbl_tx_register() or
+ *				 gh_dbl_rx_register()
  *
  * The function returns 0 is the client was unregistered successfully. Else,
  * -EINVAL for invalid arguments.
  */
-int hh_dbl_rx_unregister(void *dbl_client_desc)
+int gh_dbl_rx_unregister(void *dbl_client_desc)
 {
-	struct hh_dbl_desc *client_desc = dbl_client_desc;
-	struct hh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_desc *client_desc = dbl_client_desc;
+	struct gh_dbl_cap_table *cap_table_entry;
 
 	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
 
 	/* Check if the client has manipulated the label */
-	if (client_desc->label < 0 || client_desc->label >= HH_DBL_LABEL_MAX)
+	if (client_desc->label < 0 || client_desc->label >= GH_DBL_LABEL_MAX)
 		return -EINVAL;
 
-	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
+	cap_table_entry = &gh_dbl_cap_table[client_desc->label];
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -520,29 +520,29 @@ int hh_dbl_rx_unregister(void *dbl_client_desc)
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_dbl_rx_unregister);
+EXPORT_SYMBOL(gh_dbl_rx_unregister);
 
 /**
  * This API is called by RM driver to populate doorbell objects
  */
-int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
+int gh_dbl_populate_cap_info(enum gh_dbl_label label, u64 cap_id,
 				int direction, int rx_irq)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_cap_table *cap_table_entry;
 	int ret = 0;
 
-	if (!hh_dbl_initialized)
+	if (!gh_dbl_initialized)
 		return -EAGAIN;
 
-	if (label < 0 || label >= HH_DBL_LABEL_MAX) {
+	if (label < 0 || label >= GH_DBL_LABEL_MAX) {
 		pr_err("%s: Invalid label passed\n", __func__);
 		return -EINVAL;
 	}
 
-	cap_table_entry = &hh_dbl_cap_table[label];
+	cap_table_entry = &gh_dbl_cap_table[label];
 
 	switch (direction) {
-	case HH_DBL_DIRECTION_TX:
+	case GH_DBL_DIRECTION_TX:
 		/* No interrupt should associated with Tx doorbell*/
 		if (rx_irq > 0) {
 			pr_err("%s: No IRQ associated for Tx doorbell!\n",
@@ -560,7 +560,7 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 		pr_debug("%s: label: %d; tx_cap_id: %llu; dir: %d; rx_irq: %d\n",
 			__func__, label, cap_id, direction, rx_irq);
 		break;
-	case HH_DBL_DIRECTION_RX:
+	case GH_DBL_DIRECTION_RX:
 		if (rx_irq <= 0) {
 			pr_err("%s: Invalid IRQ number for Rx doorbell\n",
 				__func__);
@@ -571,7 +571,7 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 		cap_table_entry->rx_irq = rx_irq;
 		ret = request_threaded_irq(cap_table_entry->rx_irq,
 				   NULL,
-				   hh_dbl_rx_callback_thread,
+				   gh_dbl_rx_callback_thread,
 				   IRQF_ONESHOT | IRQF_TRIGGER_RISING,
 				   cap_table_entry->rx_irq_name,
 				   cap_table_entry);
@@ -601,56 +601,56 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 err:
 	return ret;
 }
-EXPORT_SYMBOL(hh_dbl_populate_cap_info);
+EXPORT_SYMBOL(gh_dbl_populate_cap_info);
 
-static void hh_dbl_cleanup(int begin_idx)
+static void gh_dbl_cleanup(int begin_idx)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
+	struct gh_dbl_cap_table *cap_table_entry;
 	int i;
 
-	if (begin_idx >= HH_DBL_LABEL_MAX)
-		begin_idx = HH_DBL_LABEL_MAX - 1;
+	if (begin_idx >= GH_DBL_LABEL_MAX)
+		begin_idx = GH_DBL_LABEL_MAX - 1;
 
 	for (i = begin_idx; i >= 0; i--) {
-		cap_table_entry = &hh_dbl_cap_table[i];
+		cap_table_entry = &gh_dbl_cap_table[i];
 		kfree(cap_table_entry->rx_irq_name);
 	}
 }
 
-static int __init hh_dbl_init(void)
+static int __init gh_dbl_init(void)
 {
-	struct hh_dbl_cap_table *entry;
+	struct gh_dbl_cap_table *entry;
 	int ret;
 	int i;
 
-	for (i = 0; i < HH_DBL_LABEL_MAX; i++) {
-		entry = &hh_dbl_cap_table[i];
+	for (i = 0; i < GH_DBL_LABEL_MAX; i++) {
+		entry = &gh_dbl_cap_table[i];
 		spin_lock_init(&entry->cap_entry_lock);
 		init_waitqueue_head(&entry->cap_wq);
-		entry->tx_cap_id = HH_CAPID_INVAL;
-		entry->rx_cap_id = HH_CAPID_INVAL;
-		entry->rx_irq_name = kasprintf(GFP_KERNEL, "hh_dbl_rx_%d", i);
+		entry->tx_cap_id = GH_CAPID_INVAL;
+		entry->rx_cap_id = GH_CAPID_INVAL;
+		entry->rx_irq_name = kasprintf(GFP_KERNEL, "gh_dbl_rx_%d", i);
 		if (!entry->rx_irq_name) {
 			ret = -ENOMEM;
 			goto err;
 		}
 	}
 
-	hh_dbl_initialized = true;
+	gh_dbl_initialized = true;
 
 	return 0;
 
 err:
-	hh_dbl_cleanup(i);
+	gh_dbl_cleanup(i);
 	return ret;
 }
-module_init(hh_dbl_init);
+module_init(gh_dbl_init);
 
-static void __exit hh_dbl_exit(void)
+static void __exit gh_dbl_exit(void)
 {
-	hh_dbl_cleanup(HH_DBL_LABEL_MAX - 1);
+	gh_dbl_cleanup(GH_DBL_LABEL_MAX - 1);
 }
-module_exit(hh_dbl_exit);
+module_exit(gh_dbl_exit);
 
-MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Haven Doorbell Driver");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Gunyah Doorbell Driver");
 MODULE_LICENSE("GPL v2");

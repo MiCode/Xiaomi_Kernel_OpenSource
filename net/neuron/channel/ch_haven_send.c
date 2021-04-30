@@ -19,8 +19,8 @@
 #include <linux/kthread.h>
 #include <linux/neuron.h>
 #include <asm-generic/barrier.h>
-#include <linux/haven/hh_rm_drv.h>
-#include <linux/haven/hh_dbl.h>
+#include <linux/gunyah/gh_rm_drv.h>
+#include <linux/gunyah/gh_dbl.h>
 #include <soc/qcom/secure_buffer.h>
 #include "ch_mq_shmem_common.h"
 
@@ -65,19 +65,19 @@ static inline void ring_write_msg(struct neuron_msg_queue *msgq,
 	msgq->offset = offset;
 }
 
-static inline int channel_hh_kick(struct neuron_mq_data_priv *priv)
+static inline int channel_gh_kick(struct neuron_mq_data_priv *priv)
 {
-	hh_dbl_flags_t dbl_mask = CH_DBL_MASK;
+	gh_dbl_flags_t dbl_mask = CH_DBL_MASK;
 	int ret;
 
-	ret = hh_dbl_send(priv->tx_dbl, &dbl_mask, 0);
+	ret = gh_dbl_send(priv->tx_dbl, &dbl_mask, 0);
 	if (ret)
 		pr_err("failed to raise virq to the sender %d\n", ret);
 
 	return ret;
 }
 
-static int channel_hh_sendv(struct neuron_channel *channel_dev,
+static int channel_gh_sendv(struct neuron_channel *channel_dev,
 			    struct buffer_list buf)
 {
 	size_t space, space_needed, len;
@@ -141,12 +141,12 @@ static int channel_hh_sendv(struct neuron_channel *channel_dev,
 	smp_store_release(msgq->headp, msgq->offset);
 
 	if (prev_empty)
-		channel_hh_kick(priv);
+		channel_gh_kick(priv);
 
 	return 0;
 }
 
-static int channel_hh_send(struct neuron_channel *channel_dev,
+static int channel_gh_send(struct neuron_channel *channel_dev,
 			   struct sk_buff *skb)
 {
 	struct buffer_list buf = {
@@ -155,10 +155,10 @@ static int channel_hh_send(struct neuron_channel *channel_dev,
 		.size = skb->len
 	};
 
-	return channel_hh_sendv(channel_dev, buf);
+	return channel_gh_sendv(channel_dev, buf);
 }
 
-static void channel_hh_cb(int irq, void *data)
+static void channel_gh_cb(int irq, void *data)
 {
 	struct neuron_mq_data_priv *priv = data;
 
@@ -250,7 +250,7 @@ static int channel_sync_thread(void *data)
 	/* Make sure the memory writing is in order. */
 	mb();
 	hdr->head = -1;
-	channel_hh_kick(priv);
+	channel_gh_kick(priv);
 
 	/* Waiting for tail_offset being updated by the send. */
 	wait_event_killable(priv->wait_q, kthread_should_stop() ||
@@ -276,21 +276,21 @@ static int channel_sync_thread(void *data)
 		return -EINVAL;
 	}
 
-	channel_hh_kick(priv);
+	channel_gh_kick(priv);
 
 	neuron_channel_wakeup(priv->dev);
 
 	return 0;
 }
 
-static int channel_hh_share_mem(struct neuron_mq_data_priv *priv,
-				hh_vmid_t self, hh_vmid_t peer)
+static int channel_gh_share_mem(struct neuron_mq_data_priv *priv,
+				gh_vmid_t self, gh_vmid_t peer)
 {
 	u32 src_vmlist[1] = {self};
 	int dst_vmlist[2] = {self, peer};
 	int dst_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
-	struct hh_acl_desc *acl;
-	struct hh_sgl_desc *sgl;
+	struct gh_acl_desc *acl;
+	struct gh_sgl_desc *sgl;
 	int ret;
 
 	ret = hyp_assign_phys(priv->buffer.start, resource_size(&priv->buffer),
@@ -302,10 +302,10 @@ static int channel_hh_share_mem(struct neuron_mq_data_priv *priv,
 		return ret;
 	}
 
-	acl = kzalloc(offsetof(struct hh_acl_desc, acl_entries[2]), GFP_KERNEL);
+	acl = kzalloc(offsetof(struct gh_acl_desc, acl_entries[2]), GFP_KERNEL);
 	if (!acl)
 		return -ENOMEM;
-	sgl = kzalloc(offsetof(struct hh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
+	sgl = kzalloc(offsetof(struct gh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
 	if (!sgl) {
 		kfree(acl);
 		return -ENOMEM;
@@ -313,15 +313,15 @@ static int channel_hh_share_mem(struct neuron_mq_data_priv *priv,
 
 	acl->n_acl_entries = 2;
 	acl->acl_entries[0].vmid = (u16)self;
-	acl->acl_entries[0].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[0].perms = GH_RM_ACL_R | GH_RM_ACL_W;
 	acl->acl_entries[1].vmid = (u16)peer;
-	acl->acl_entries[1].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[1].perms = GH_RM_ACL_R | GH_RM_ACL_W;
 
 	sgl->n_sgl_entries = 1;
 	sgl->sgl_entries[0].ipa_base = priv->buffer.start;
 	sgl->sgl_entries[0].size = resource_size(&priv->buffer);
-	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL,
-					priv->haven_label,
+	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL,
+					priv->gunyah_label,
 					acl, sgl, NULL,
 					&priv->shm_memparcel);
 	kfree(acl);
@@ -330,37 +330,37 @@ static int channel_hh_share_mem(struct neuron_mq_data_priv *priv,
 	return ret;
 }
 
-static int channel_hh_rm_cb(struct notifier_block *nb, unsigned long cmd,
+static int channel_gh_rm_cb(struct notifier_block *nb, unsigned long cmd,
 			    void *data)
 {
-	struct hh_rm_notif_vm_status_payload *vm_status_payload = data;
+	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
 	struct neuron_mq_data_priv *priv;
-	hh_vmid_t peer_vmid;
-	hh_vmid_t self_vmid;
+	gh_vmid_t peer_vmid;
+	gh_vmid_t self_vmid;
 
 	priv = container_of(nb, struct neuron_mq_data_priv, rm_nb);
-	if (cmd != HH_RM_NOTIF_VM_STATUS)
+	if (cmd != GH_RM_NOTIF_VM_STATUS)
 		return NOTIFY_DONE;
 
-	if (vm_status_payload->vm_status != HH_RM_VM_STATUS_READY)
+	if (vm_status_payload->vm_status != GH_RM_VM_STATUS_READY)
 		return NOTIFY_DONE;
-	if (hh_rm_get_vmid(priv->peer_name, &peer_vmid))
+	if (gh_rm_get_vmid(priv->peer_name, &peer_vmid))
 		return NOTIFY_DONE;
-	if (hh_rm_get_vmid(HH_PRIMARY_VM, &self_vmid))
+	if (gh_rm_get_vmid(GH_PRIMARY_VM, &self_vmid))
 		return NOTIFY_DONE;
 	if (peer_vmid != vm_status_payload->vmid)
 		return NOTIFY_DONE;
 
-	if (channel_hh_share_mem(priv, self_vmid, peer_vmid))
+	if (channel_gh_share_mem(priv, self_vmid, peer_vmid))
 		pr_err("%s: failed to share memory\n", __func__);
 
 	return NOTIFY_DONE;
 }
 
 static struct device_node *
-channel_hh_svm_of_parse(struct neuron_mq_data_priv *priv, struct device *dev)
+channel_gh_svm_of_parse(struct neuron_mq_data_priv *priv, struct device *dev)
 {
-	const char *compat = "qcom,neuron-channel-haven-shmem-gen";
+	const char *compat = "qcom,neuron-channel-gunyah-shmem-gen";
 	struct device_node *np = NULL;
 	struct device_node *shm_np;
 	u32 label;
@@ -372,7 +372,7 @@ channel_hh_svm_of_parse(struct neuron_mq_data_priv *priv, struct device *dev)
 			of_node_put(np);
 			continue;
 		}
-		if (label == priv->haven_label)
+		if (label == priv->gunyah_label)
 			break;
 
 		of_node_put(np);
@@ -388,7 +388,7 @@ channel_hh_svm_of_parse(struct neuron_mq_data_priv *priv, struct device *dev)
 	return shm_np;
 }
 
-static int channel_hh_map_memory(struct neuron_mq_data_priv *priv,
+static int channel_gh_map_memory(struct neuron_mq_data_priv *priv,
 				 struct device *dev)
 {
 	struct device_node *np;
@@ -398,7 +398,7 @@ static int channel_hh_map_memory(struct neuron_mq_data_priv *priv,
 
 	np = of_parse_phandle(dev->of_node, "shared-buffer", 0);
 	if (!np) {
-		np = channel_hh_svm_of_parse(priv, dev);
+		np = channel_gh_svm_of_parse(priv, dev);
 		if (!np) {
 			dev_err(dev, "cant parse shared mem node!\n");
 			return -EINVAL;
@@ -439,22 +439,22 @@ static int channel_hh_map_memory(struct neuron_mq_data_priv *priv,
 		ret = of_property_read_u32(dev->of_node, "peer-name",
 					   &priv->peer_name);
 		if (ret)
-			priv->peer_name = HH_SELF_VM;
+			priv->peer_name = GH_SELF_VM;
 
-		priv->rm_nb.notifier_call = channel_hh_rm_cb;
+		priv->rm_nb.notifier_call = channel_gh_rm_cb;
 		priv->rm_nb.priority = INT_MAX;
-		hh_rm_register_notifier(&priv->rm_nb);
+		gh_rm_register_notifier(&priv->rm_nb);
 	}
 
 	return 0;
 }
 
-static int channel_hh_probe(struct neuron_channel *cdev)
+static int channel_gh_probe(struct neuron_channel *cdev)
 {
 	struct device_node *node = cdev->dev.of_node;
 	struct device *dev = &cdev->dev;
 	struct neuron_mq_data_priv *priv;
-	enum hh_dbl_label dbl_label;
+	enum gh_dbl_label dbl_label;
 	int ret;
 
 	if (!node)
@@ -466,29 +466,29 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 	priv->dev = cdev;
 	init_waitqueue_head(&priv->wait_q);
 
-	ret = of_property_read_u32(node, "haven-label", &priv->haven_label);
+	ret = of_property_read_u32(node, "gunyah-label", &priv->gunyah_label);
 	if (ret) {
 		dev_err(dev, "failed to read label info %d\n", ret);
 		return ret;
 	}
 
-	ret = channel_hh_map_memory(priv, dev);
+	ret = channel_gh_map_memory(priv, dev);
 	if (ret)
 		return ret;
 
-	/* Get outgoing haven doorbell information */
-	dbl_label = priv->haven_label;
-	priv->tx_dbl = hh_dbl_tx_register(dbl_label);
+	/* Get outgoing gunyah doorbell information */
+	dbl_label = priv->gunyah_label;
+	priv->tx_dbl = gh_dbl_tx_register(dbl_label);
 	if (IS_ERR_OR_NULL(priv->tx_dbl)) {
 		ret = PTR_ERR(priv->tx_dbl);
-		dev_err(dev, "failed to get haven tx dbl %d\n", ret);
+		dev_err(dev, "failed to get gunyah tx dbl %d\n", ret);
 		goto fail_tx_dbl;
 	}
 
-	priv->rx_dbl = hh_dbl_rx_register(dbl_label, channel_hh_cb, priv);
+	priv->rx_dbl = gh_dbl_rx_register(dbl_label, channel_gh_cb, priv);
 	if (IS_ERR_OR_NULL(priv->rx_dbl)) {
 		ret = PTR_ERR(priv->rx_dbl);
-		dev_err(dev, "failed to get haven rx dbl %d\n", ret);
+		dev_err(dev, "failed to get gunyah rx dbl %d\n", ret);
 		goto fail_rx_dbl;
 	}
 	/* Start the thread for syncing with the receiver. */
@@ -499,13 +499,13 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 	return 0;
 
 fail_rx_dbl:
-	hh_dbl_tx_unregister(priv->tx_dbl);
+	gh_dbl_tx_unregister(priv->tx_dbl);
 fail_tx_dbl:
 	iounmap(priv->base);
 	return ret;
 }
 
-static void channel_hh_remove(struct neuron_channel *cdev)
+static void channel_gh_remove(struct neuron_channel *cdev)
 {
 	struct neuron_mq_data_priv *priv = dev_get_drvdata(&cdev->dev);
 
@@ -515,34 +515,34 @@ static void channel_hh_remove(struct neuron_channel *cdev)
 	devm_release_mem_region(&cdev->dev, priv->buffer.start,
 				resource_size(&priv->buffer));
 
-	hh_dbl_tx_unregister(priv->tx_dbl);
-	hh_dbl_rx_unregister(priv->rx_dbl);
+	gh_dbl_tx_unregister(priv->tx_dbl);
+	gh_dbl_rx_unregister(priv->rx_dbl);
 }
 
-static const struct of_device_id channel_hh_match[] = {
-	{ .compatible = "qcom,neuron-channel-haven-shmem" },
+static const struct of_device_id channel_gh_match[] = {
+	{ .compatible = "qcom,neuron-channel-gunyah-shmem" },
 	{},
 };
-MODULE_DEVICE_TABLE(of, channel_hh_match);
+MODULE_DEVICE_TABLE(of, channel_gh_match);
 
-static struct neuron_channel_driver channel_hh_send_driver = {
+static struct neuron_channel_driver channel_gh_send_driver = {
 	.driver = {
-		.name = "ch_haven_send",
-		.of_match_table = channel_hh_match,
+		.name = "ch_gunyah_send",
+		.of_match_table = channel_gh_match,
 	},
 	.type = NEURON_CHANNEL_MESSAGE_QUEUE,
 	.direction = NEURON_CHANNEL_SEND,
-	.send_msgv = channel_hh_sendv,
-	.send_msg = channel_hh_send,
-	.probe  = channel_hh_probe,
-	.remove = channel_hh_remove,
+	.send_msgv = channel_gh_sendv,
+	.send_msg = channel_gh_send,
+	.probe  = channel_gh_probe,
+	.remove = channel_gh_remove,
 };
 
-static int __init channel_hh_init(void)
+static int __init channel_gh_init(void)
 {
 	int ret;
 
-	ret = neuron_register_channel_driver(&channel_hh_send_driver);
+	ret = neuron_register_channel_driver(&channel_gh_send_driver);
 	if (ret < 0) {
 		pr_err("Failed to register driver: %d\n", ret);
 		return ret;
@@ -551,12 +551,12 @@ static int __init channel_hh_init(void)
 	return 0;
 }
 
-static void __exit channel_hh_exit(void)
+static void __exit channel_gh_exit(void)
 {
-	neuron_unregister_channel_driver(&channel_hh_send_driver);
+	neuron_unregister_channel_driver(&channel_gh_send_driver);
 }
-module_init(channel_hh_init);
-module_exit(channel_hh_exit);
+module_init(channel_gh_init);
+module_exit(channel_gh_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Neuron channel haven shared memory send driver");
+MODULE_DESCRIPTION("Neuron channel gunyah shared memory send driver");

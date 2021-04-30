@@ -19,7 +19,7 @@ struct mem_buf_vmperm {
 	unsigned int max_acl_entries;
 	struct dma_buf *dmabuf;
 	struct sg_table *sgt;
-	hh_memparcel_handle_t memparcel_hdl;
+	gh_memparcel_handle_t memparcel_hdl;
 	struct mutex lock;
 	mem_buf_dma_buf_destructor dtor;
 	void *dtor_data;
@@ -136,7 +136,7 @@ err_resize_state:
 
 /* Must be freed via mem_buf_vmperm_release. */
 struct mem_buf_vmperm *mem_buf_vmperm_alloc_accept(struct sg_table *sgt,
-	hh_memparcel_handle_t memparcel_hdl)
+	gh_memparcel_handle_t memparcel_hdl)
 {
 	int vmids[1];
 	int perms[1];
@@ -195,33 +195,33 @@ static int __mem_buf_vmperm_reclaim(struct mem_buf_vmperm *vmperm)
 	return 0;
 }
 
-static struct hh_sgl_desc *dup_sgt_to_hh_sgl_desc(struct sg_table *sgt)
+static struct gh_sgl_desc *dup_sgt_to_gh_sgl_desc(struct sg_table *sgt)
 {
-	struct hh_sgl_desc *hh_sgl;
+	struct gh_sgl_desc *gh_sgl;
 	size_t size;
 	int i;
 	struct scatterlist *sg;
 
-	size = offsetof(struct hh_sgl_desc, sgl_entries[sgt->orig_nents]);
-	hh_sgl = kvmalloc(size, GFP_KERNEL);
-	if (!hh_sgl)
+	size = offsetof(struct gh_sgl_desc, sgl_entries[sgt->orig_nents]);
+	gh_sgl = kvmalloc(size, GFP_KERNEL);
+	if (!gh_sgl)
 		return ERR_PTR(-ENOMEM);
 
-	hh_sgl->n_sgl_entries = sgt->orig_nents;
+	gh_sgl->n_sgl_entries = sgt->orig_nents;
 	for_each_sgtable_sg(sgt, sg, i) {
-		hh_sgl->sgl_entries[i].ipa_base = sg_phys(sg);
-		hh_sgl->sgl_entries[i].size = sg->length;
+		gh_sgl->sgl_entries[i].ipa_base = sg_phys(sg);
+		gh_sgl->sgl_entries[i].size = sg->length;
 	}
 
-	return hh_sgl;
+	return gh_sgl;
 }
 
 static int mem_buf_vmperm_relinquish(struct mem_buf_vmperm *vmperm)
 {
 	int ret;
-	struct hh_sgl_desc *sgl_desc;
+	struct gh_sgl_desc *sgl_desc;
 
-	sgl_desc = dup_sgt_to_hh_sgl_desc(vmperm->sgt);
+	sgl_desc = dup_sgt_to_gh_sgl_desc(vmperm->sgt);
 	if (IS_ERR(sgl_desc))
 		return PTR_ERR(sgl_desc);
 
@@ -453,7 +453,7 @@ int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	if (api < 0)
 		return -EINVAL;
 
-	if (api == MEM_BUF_API_HAVEN) {
+	if (api == MEM_BUF_API_GUNYAH) {
 		/* Due to hyp-assign batching */
 		if (sgt->nents > 1) {
 			pr_err_ratelimited("Operation requires physically contiguous memory\n");
@@ -517,7 +517,7 @@ int mem_buf_lend_internal(struct dma_buf *dmabuf,
 		goto err_assign;
 	}
 
-	if (api == MEM_BUF_API_HAVEN) {
+	if (api == MEM_BUF_API_GUNYAH) {
 		ret = mem_buf_retrieve_memparcel_hdl(vmperm->sgt, arg->vmids,
 				arg->perms, arg->nr_acl_entries,
 				&arg->memparcel_hdl);

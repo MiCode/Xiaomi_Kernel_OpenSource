@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_LINUX_VIRTIO_BACKEND_H
@@ -28,28 +28,28 @@
 /*
  *  IOCTLs supported by virtio backend driver
  */
-#define HH_GET_SHARED_MEMORY_SIZE	_IOR(VIRTIO_BE_IOC_MAGIC, 1, __u64)
-#define HH_IOEVENTFD		_IOW(VIRTIO_BE_IOC_MAGIC, 2, \
+#define GH_GET_SHARED_MEMORY_SIZE	_IOR(VIRTIO_BE_IOC_MAGIC, 1, __u64)
+#define GH_IOEVENTFD		_IOW(VIRTIO_BE_IOC_MAGIC, 2, \
 						struct virtio_eventfd)
-#define HH_IRQFD			_IOW(VIRTIO_BE_IOC_MAGIC, 3, \
+#define GH_IRQFD			_IOW(VIRTIO_BE_IOC_MAGIC, 3, \
 						struct virtio_irqfd)
-#define HH_WAIT_FOR_EVENT        _IOWR(VIRTIO_BE_IOC_MAGIC, 4, \
+#define GH_WAIT_FOR_EVENT        _IOWR(VIRTIO_BE_IOC_MAGIC, 4, \
 						struct virtio_event)
-#define HH_SET_DEVICE_FEATURES        _IOW(VIRTIO_BE_IOC_MAGIC, 5, \
+#define GH_SET_DEVICE_FEATURES        _IOW(VIRTIO_BE_IOC_MAGIC, 5, \
 						struct virtio_dev_features)
-#define HH_SET_QUEUE_NUM_MAX        _IOW(VIRTIO_BE_IOC_MAGIC, 6, \
+#define GH_SET_QUEUE_NUM_MAX        _IOW(VIRTIO_BE_IOC_MAGIC, 6, \
 						struct virtio_queue_max)
-#define HH_SET_DEVICE_CONFIG_DATA        _IOW(VIRTIO_BE_IOC_MAGIC, 7, \
+#define GH_SET_DEVICE_CONFIG_DATA        _IOW(VIRTIO_BE_IOC_MAGIC, 7, \
 						struct virtio_config_data)
-#define HH_GET_DRIVER_CONFIG_DATA        _IOWR(VIRTIO_BE_IOC_MAGIC, 8, \
+#define GH_GET_DRIVER_CONFIG_DATA        _IOWR(VIRTIO_BE_IOC_MAGIC, 8, \
 						struct virtio_config_data)
-#define HH_GET_QUEUE_INFO        _IOWR(VIRTIO_BE_IOC_MAGIC, 9, \
+#define GH_GET_QUEUE_INFO        _IOWR(VIRTIO_BE_IOC_MAGIC, 9, \
 						struct virtio_queue_info)
-#define HH_GET_DRIVER_FEATURES        _IOWR(VIRTIO_BE_IOC_MAGIC, 10, \
+#define GH_GET_DRIVER_FEATURES        _IOWR(VIRTIO_BE_IOC_MAGIC, 10, \
 						struct virtio_driver_features)
-#define HH_ACK_DRIVER_OK        _IOWR(VIRTIO_BE_IOC_MAGIC, 11, __u32)
-#define HH_SET_APP_READY	_IO(VIRTIO_BE_IOC_MAGIC, 12)
-#define HH_ACK_RESET		_IOW(VIRTIO_BE_IOC_MAGIC, 13, struct virtio_ack_reset)
+#define GH_ACK_DRIVER_OK        _IOWR(VIRTIO_BE_IOC_MAGIC, 11, __u32)
+#define GH_SET_APP_READY	_IO(VIRTIO_BE_IOC_MAGIC, 12)
+#define GH_ACK_RESET		_IOW(VIRTIO_BE_IOC_MAGIC, 13, struct virtio_ack_reset)
 
 struct virtio_ack_reset {
 	__u32 label;
