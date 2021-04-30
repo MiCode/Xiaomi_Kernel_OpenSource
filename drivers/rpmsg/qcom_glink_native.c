@@ -309,6 +309,8 @@ static void qcom_glink_channel_release(struct kref *ref)
 	int iid;
 
 	CH_INFO(channel, "\n");
+	channel->intent_req_result = false;
+	atomic_inc(&channel->intent_req_comp);
 	wake_up(&channel->intent_req_event);
 
 	/* cancel pending rx_done work */
