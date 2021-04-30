@@ -276,6 +276,7 @@ void *esoc_get_drv_data(struct esoc_clink *esoc_clink)
 void esoc_clink_unregister(struct esoc_clink *esoc_clink)
 {
 	if (get_device(&esoc_clink->dev) != NULL) {
+		esoc_clink_del_device(&esoc_clink->dev, NULL);
 		device_unregister(&esoc_clink->dev);
 		put_device(&esoc_clink->dev);
 	}
@@ -308,9 +309,17 @@ int esoc_clink_register(struct esoc_clink *esoc_clink)
 	err = device_register(dev);
 	if (err) {
 		dev_err(esoc_clink->parent, "esoc device register failed\n");
+		put_device(dev);
 		goto exit_ida;
 	}
+
+	err = esoc_clink_add_device(&esoc_clink->dev, NULL);
+	if (err)
+		goto exit_dev_add;
+
 	return 0;
+exit_dev_add:
+	device_unregister(dev);
 exit_ida:
 	ida_simple_remove(&esoc_ida, id);
 	pr_err("unable to register %s, err = %d\n", esoc_clink->name, err);

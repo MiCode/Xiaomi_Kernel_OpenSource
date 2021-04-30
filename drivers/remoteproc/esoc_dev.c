@@ -412,23 +412,6 @@ int esoc_clink_del_device(struct device *dev, void *dummy)
 	return 0;
 }
 
-static int esoc_dev_notifier_call(struct notifier_block *nb, unsigned long action, void *data)
-{
-	struct device *dev = data;
-
-	switch (action) {
-	case BUS_NOTIFY_ADD_DEVICE:
-		return esoc_clink_add_device(dev, NULL);
-	case BUS_NOTIFY_DEL_DEVICE:
-		return esoc_clink_del_device(dev, NULL);
-	}
-	return 0;
-}
-
-static struct notifier_block esoc_dev_notifier = {
-	.notifier_call = esoc_dev_notifier_call,
-};
-
 int esoc_dev_init(void)
 {
 	int ret = 0;
@@ -444,13 +427,8 @@ int esoc_dev_init(void)
 		ret = esoc_major;
 		goto class_unreg;
 	}
-	ret = bus_register_notifier(&esoc_bus_type, &esoc_dev_notifier);
-	if (ret)
-		goto chrdev_unreg;
 	esoc_for_each_dev(NULL, esoc_clink_add_device);
 	return ret;
-chrdev_unreg:
-	unregister_chrdev(esoc_major, "esoc");
 class_unreg:
 	class_destroy(esoc_class);
 	return 0;
@@ -459,7 +437,6 @@ EXPORT_SYMBOL(esoc_dev_init);
 
 void esoc_dev_exit(void)
 {
-	bus_unregister_notifier(&esoc_bus_type, &esoc_dev_notifier);
 	class_destroy(esoc_class);
 	unregister_chrdev(esoc_major, "esoc");
 }

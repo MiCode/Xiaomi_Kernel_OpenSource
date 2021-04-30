@@ -172,6 +172,8 @@ void esoc_clink_unregister_req_eng(struct esoc_clink *esoc_clink, struct esoc_en
 int esoc_drv_register(struct esoc_drv *driver);
 void esoc_set_drv_data(struct esoc_clink *esoc_clink, void *data);
 void *esoc_get_drv_data(struct esoc_clink *esoc_clink);
+int esoc_clink_add_device(struct device *dev, void *dummy);
+int esoc_clink_del_device(struct device *dev, void *dummy);
 /* ssr operations */
 int esoc_clink_register_rproc(struct esoc_clink *esoc_clink);
 int esoc_clink_request_ssr(struct esoc_clink *esoc_clink);
