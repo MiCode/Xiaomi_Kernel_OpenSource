@@ -82,9 +82,9 @@
 		};
 	};
 
-	qrtr-haven {
-		compatible = "qcom,qrtr-haven";
-		haven-label = <3>;
+	qrtr-gunyah {
+		compatible = "qcom,qrtr-gunyah";
+		gunyah-label = <3>;
 	};
 
 	qcom,vm-config {
@@ -205,7 +205,7 @@
 			qrtr-shm {
 				vdevice-type = "shm-doorbell";
 				generate = "/hypervisor/qrtr-shm";
-				push-compatible = "qcom,qrtr-haven-gen";
+				push-compatible = "qcom,qrtr-gunyah-gen";
 				peer-default;
 				memory {
 					qcom,label = <0x3>;

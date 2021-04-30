@@ -1,6 +1,6 @@
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/haven/qcom,hypervisor.yaml#
+$id: http://devicetree.org/schemas/gunyah/qcom,hypervisor.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Hypervisor node to define virtual devices and other services.
@@ -152,7 +152,7 @@ examples:
                      "simple-bus";
         name = "hypervisor";
 
-        qcom,haven-vm {
+        qcom,gunyah-vm {
             compatible = "qcom,haven-vm-id-1.0", "qcom,haven-vm-id";
             qcom,vendor = "Qualcomm Technologies, Inc.";
             qcom,vmid = <45>;

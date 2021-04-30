@@ -1,9 +1,9 @@
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/bindings/arm/msm/hh_watchdog.yaml#
+$id: http://devicetree.org/schemas/bindings/arm/msm/gh_watchdog.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: QTI HH Watchdog
+title: QTI GH Watchdog
 
 maintainers:
 
@@ -32,7 +32,7 @@ properties:
 
 example:
   - |
-    wdog_hh: qcom,wdt_hh {
+    wdog_gh: qcom,wdt_gh {
 		    compatible = "qcom,hh-watchdog";
 		    interrupts = <0 0 IRQ_TYPE_LEVEL_HIGH>;
 	    };

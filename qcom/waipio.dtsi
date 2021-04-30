@@ -518,19 +518,19 @@
 	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e85fc000 {
 		no-map;
 		reg = <0x0 0xe85fc000 0x0 0x4000>;
-		haven-label = <0x10>;
+		gunyah-label = <0x10>;
 	};
 
 	trust_ui_vm_vblk1_ring: trust_ui_vm_vblk1_ring@e8600000 {
 		no-map;
 		reg = <0x0 0xe8600000 0x0 0x4000>;
-		haven-label = <0x11>;
+		gunyah-label = <0x11>;
 	};
 
 	trust_ui_vm_swiotlb: trust_ui_vm_swiotlb@e8604000 {
 		no-map;
 		reg = <0x0 0xe8604000 0x0 0x1fc000>;
-		haven-label = <0x12>;
+		gunyah-label = <0x12>;
 	};
 
 	trust_ui_vm_qrtr: trust_ui_vm_qrtr@e8500000 {
@@ -1642,10 +1642,10 @@
 		};
 	};
 
-	qrtr-haven {
-		compatible = "qcom,qrtr-haven";
+	qrtr-gunyah {
+		compatible = "qcom,qrtr-gunyah";
 		qcom,master;
-		haven-label = <3>;
+		gunyah-label = <3>;
 		peer-name = <2>;
 		shared-buffer = <&trust_ui_vm_qrtr>;
 	};
