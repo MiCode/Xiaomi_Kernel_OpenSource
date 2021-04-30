@@ -1118,6 +1118,14 @@ static const struct arm_smmu_impl qsmmuv500_adreno_impl = {
 	.def_domain_type = qsmmuv500_def_domain_type,
 };
 
+/* We only have access to arm-architected registers */
+static const struct arm_smmu_impl qsmmuv500_virt_impl = {
+	.cfg_probe = qsmmuv500_cfg_probe,
+	.init_context_bank = qsmmuv500_init_cb,
+	.device_group = qsmmuv500_device_group,
+	.def_domain_type = qsmmuv500_def_domain_type,
+};
+
 struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
 		const struct arm_smmu_impl *impl)
 {
@@ -1158,6 +1166,9 @@ struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
 {
 	if (of_device_is_compatible(smmu->dev->of_node, "qcom,adreno-smmu"))
 		return qsmmuv500_create(smmu, &qsmmuv500_adreno_impl);
+
+	if (of_device_is_compatible(smmu->dev->of_node, "qcom,virt-smmu"))
+		return qsmmuv500_create(smmu, &qsmmuv500_virt_impl);
 
 	return qsmmuv500_create(smmu, &qsmmuv500_impl);
 }
