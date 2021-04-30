@@ -1901,10 +1901,10 @@ static void sip_tcp_skb_combined_processing(bool skb_is_combined, struct sk_buff
 					    enum ip_conntrack_dir dir, struct sk_buff *combined_skb,
 					    struct nf_conn *ct, unsigned int protoff,
 					    struct sip_list *sip_entry, s16 tdiff,
-					    unsigned int dataoff_orig)
+					    unsigned int dataoff_orig, unsigned int oldlen1)
 {
 	if (skb_is_combined) {
-		unsigned int splitlen, oldlen, oldlen1;
+		unsigned int splitlen = 0, oldlen = 0;
 		/* once combined skb is processed, split the skbs again The
 		 * length to split at is the same as length of first skb. Any
 		 * changes in the combined skb length because of SIP processing
@@ -1913,7 +1913,6 @@ static void sip_tcp_skb_combined_processing(bool skb_is_combined, struct sk_buff
 		splitlen = (dir == IP_CT_DIR_ORIGINAL) ?
 				ct->segment.skb_len[0] : ct->segment.skb_len[1];
 		oldlen = combined_skb->len - protoff;
-		oldlen1 = skb->len - protoff;
 		skb_split(combined_skb, skb, splitlen);
 		/* Headers need to be recalculated since during SIP processing
 		 * headers are calculated based on the change in length of the
@@ -1961,7 +1960,7 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	unsigned int datalen = 0, msglen = 0, origlen = 0;
 #ifdef CONFIG_NF_CONNTRACK_SIP_SEGMENTATION
 	unsigned int dataoff_orig = 0;
-	unsigned int splitlen, oldlen, oldlen1;
+	unsigned int oldlen1 = 0;
 	struct sip_list *sip_entry = NULL;
 	bool skip_sip_process = false;
 	bool do_not_process = false;
@@ -1970,6 +1969,7 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	enum ip_conntrack_dir dir = IP_CT_DIR_MAX;
 	struct sk_buff *combined_skb = NULL;
 	bool content_len_exists = true;
+	bool sip_frag_in_queue = false;
 
 	packet_count++;
 	pr_debug("packet count %d\n", packet_count);
@@ -1988,6 +1988,9 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	if (dataoff >= skb->len)
 		return NF_ACCEPT;
 
+	if (!ct)
+		return NF_DROP;
+
 	nf_ct_refresh(ct, skb, sip_timeout * HZ);
 
 	if (unlikely(skb_linearize(skb)))
@@ -1995,6 +1998,24 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 
 	dptr = skb->data + dataoff;
 	datalen = skb->len - dataoff;
+
+#ifdef CONFIG_NF_CONNTRACK_SIP_SEGMENTATION
+	if (nf_ct_enable_sip_segmentation && ct->sip_segment_list.next != &ct->sip_segment_list)
+		sip_frag_in_queue = true;
+
+	if (datalen < strlen("SIP/2.0 200") && !sip_frag_in_queue)
+		return NF_ACCEPT;
+
+	if (!strnstr(dptr, "SIP/2.0", datalen) && !sip_frag_in_queue)
+		return NF_ACCEPT;
+
+	/* here we save the original datalength and data offset of the skb, this
+	 * is needed later to split combined skbs
+	 */
+	oldlen1 = skb->len - protoff;
+	dataoff_orig = dataoff;
+
+#else
 	if (datalen < strlen("SIP/2.0 200"))
 		return NF_ACCEPT;
 
@@ -2002,15 +2023,6 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	if (!strnstr(dptr, "SIP/2.0", datalen))
 		return NF_ACCEPT;
 
-#ifdef CONFIG_NF_CONNTRACK_SIP_SEGMENTATION
-	/* here we save the original datalength and data offset of the skb, this
-	 * is needed later to split combined skbs
-	 */
-	oldlen1 = skb->len - protoff;
-	dataoff_orig = dataoff;
-
-	if (!ct)
-		return NF_DROP;
 #endif
 	while (1) {
 		if (ct_sip_get_header(ct, dptr, 0, datalen,
@@ -2104,11 +2116,13 @@ destination:
 #ifdef CONFIG_NF_CONNTRACK_SIP_SEGMENTATION
 		if (nf_ct_enable_sip_segmentation && skb_is_combined)
 			break;
+		else
+			goto here;
 #endif
 	}
 #ifdef CONFIG_NF_CONNTRACK_SIP_SEGMENTATION
 	sip_tcp_skb_combined_processing(skb_is_combined, skb, dir, combined_skb,
-					ct, protoff, sip_entry, tdiff, dataoff_orig);
+					ct, protoff, sip_entry, tdiff, dataoff_orig, oldlen1);
 
 here:
 #endif
