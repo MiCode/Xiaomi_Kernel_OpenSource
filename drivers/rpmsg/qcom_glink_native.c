@@ -164,6 +164,7 @@ struct qcom_glink {
 	bool sent_read_notify;
 
 	void *ilc;
+	struct cpumask cpu_mask;
 };
 
 enum {
@@ -2004,17 +2005,16 @@ static int qcom_glink_create_chrdev(struct qcom_glink *glink)
 static void qcom_glink_set_affinity(struct qcom_glink *glink, u32 *arr,
 				    size_t size)
 {
-	struct cpumask cpumask;
 	int i;
 
-	cpumask_clear(&cpumask);
+	cpumask_clear(&glink->cpu_mask);
 	for (i = 0; i < size; i++) {
 		if (arr[i] < num_possible_cpus())
-			cpumask_set_cpu(arr[i], &cpumask);
+			cpumask_set_cpu(arr[i], &glink->cpu_mask);
 	}
-	if (irq_set_affinity_hint(glink->irq, &cpumask))
+	if (irq_set_affinity_hint(glink->irq, &glink->cpu_mask))
 		dev_err(glink->dev, "failed to set irq affinity\n");
-	if (set_cpus_allowed_ptr(glink->task, &cpumask))
+	if (set_cpus_allowed_ptr(glink->task, &glink->cpu_mask))
 		dev_err(glink->dev, "failed to set task affinity\n");
 }
 
