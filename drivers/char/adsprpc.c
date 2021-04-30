@@ -2249,8 +2249,15 @@ static void fastrpc_ramdump_collection(int cid)
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
-		if (fl->cid == cid && fl->init_mem)
-			hlist_add_head(&fl->init_mem->hn_init, &chan->initmems);
+		if (fl->cid == cid && fl->init_mem) {
+			/* process exit state condition should */
+			/* checked in spin lock to avoid race conditions */
+			spin_lock(&fl->hlock);
+				if (fl->file_close == FASTRPC_PROCESS_DEFAULT_STATE)
+					hlist_add_head(&fl->init_mem->hn_init,
+						&chan->initmems);
+			spin_unlock(&fl->hlock);
+		}
 	}
 	spin_unlock(&me->hlock);
 
@@ -3272,7 +3279,7 @@ static int fastrpc_wait_on_async_queue(
 read_async_job:
 	interrupted = wait_event_interruptible(fl->async_wait_queue,
 				atomic_read(&fl->async_queue_job_count));
-	if (!fl || fl->file_close == 1) {
+	if (!fl || fl->file_close == FASTRPC_PROCESS_EXIT_START) {
 		err = -EBADF;
 		goto bail;
 	}
@@ -4171,6 +4178,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.perf_kernel = NULL;
 	ioctl.perf_dsp = NULL;
 	ioctl.job = NULL;
+	spin_lock(&fl->hlock);
+	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_INIT;
+	spin_unlock(&fl->hlock);
 	/*
 	 * Pass 2 for "kernel" arg to send kernel msg to DSP
 	 * with non-zero msg PID for the DSP to directly use
@@ -4178,6 +4188,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	 */
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_NONZERO_PID, &ioctl)));
+	spin_lock(&fl->hlock);
+	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_COMPLETE;
+	spin_unlock(&fl->hlock);
 	if (err && fl->dsp_proc_init)
 		ADSPRPC_ERR(
 			"releasing DSP process failed with %d (0x%x) for %s\n",
@@ -5108,6 +5121,9 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	if (!fl)
 		return 0;
 	cid = fl->cid;
+	spin_lock(&fl->hlock);
+	fl->file_close = FASTRPC_PROCESS_EXIT_START;
+	spin_unlock(&fl->hlock);
 
 	(void)fastrpc_release_current_dsp_process(fl);
 
@@ -5122,16 +5138,16 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		kfree(fl);
 		return 0;
 	}
-	spin_lock(&fl->hlock);
-	fl->file_close = 1;
-	spin_unlock(&fl->hlock);
+
 	//Dummy wake up to exit Async worker thread
 	spin_lock_irqsave(&fl->aqlock, flags);
 	atomic_add(1, &fl->async_queue_job_count);
 	wake_up_interruptible(&fl->async_wait_queue);
 	spin_unlock_irqrestore(&fl->aqlock, flags);
-	if (!IS_ERR_OR_NULL(fl->init_mem))
+	if (!IS_ERR_OR_NULL(fl->init_mem)) {
 		fastrpc_buf_free(fl->init_mem, 0);
+		fl->init_mem = NULL;
+	}
 	fastrpc_context_list_dtor(fl);
 	fastrpc_cached_buf_list_free(fl);
 	if (!IS_ERR_OR_NULL(fl->hdr_bufs))
@@ -5520,6 +5536,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->init_mem = NULL;
 	fl->qos_request = 0;
 	fl->dsp_proc_init = 0;
+	fl->file_close = FASTRPC_PROCESS_DEFAULT_STATE;
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
 	mutex_init(&fl->map_mutex);
@@ -6024,7 +6041,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		goto bail;
 
 	spin_lock(&fl->hlock);
-	if (fl->file_close == 1) {
+	if (fl->file_close == FASTRPC_PROCESS_EXIT_START) {
 		err = -ESHUTDOWN;
 		pr_warn("adsprpc: fastrpc_device_release is happening, So not sending any new requests to DSP\n");
 		spin_unlock(&fl->hlock);
