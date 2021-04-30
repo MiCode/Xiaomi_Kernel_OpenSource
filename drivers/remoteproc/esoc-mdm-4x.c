@@ -1215,23 +1215,28 @@ static int mdm_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(mdm))
 		return PTR_ERR(mdm);
 
-	ipc_log = ipc_log_context_create(ESOC_MDM_IPC_PAGES, "esoc-mdm", 0);
-	if (!ipc_log)
-		dev_err(&pdev->dev, "Failed to setup IPC logging\n");
-
-	ret = esoc_bus_init();
-	if (ret)
-		dev_err(&pdev->dev, "Failed to initialize esoc bus\n");
-
 	ret = mdm_ops->config_hw(mdm, mdm_ops, pdev);
-	if (ret)
-		ipc_log_context_destroy(ipc_log);
+
+	platform_set_drvdata(pdev, mdm);
 
 	return ret;
 }
 
+static int mdm_remove(struct platform_device *pdev)
+{
+	struct mdm_ctrl *mdm = platform_get_drvdata(pdev);
+
+	if (mdm->mdm_queue)
+		destroy_workqueue(mdm->mdm_queue);
+
+	esoc_clink_unregister(mdm->esoc);
+
+	return 0;
+}
+
 static struct platform_driver mdm_driver = {
 	.probe		= mdm_probe,
+	.remove		= mdm_remove,
 	.driver = {
 		.name	= "ext-mdm",
 		.of_match_table = of_match_ptr(mdm_dt_match),
@@ -1240,6 +1245,18 @@ static struct platform_driver mdm_driver = {
 
 static int __init mdm_register(void)
 {
+	int ret;
+
+	ipc_log = ipc_log_context_create(ESOC_MDM_IPC_PAGES, "esoc-mdm", 0);
+	if (!ipc_log)
+		pr_err("Failed to setup esoc-mdm IPC logging\n");
+
+	ret = esoc_bus_init();
+	if (ret) {
+		pr_err("Failed to initialize esoc bus\n");
+		return ret;
+	}
+
 	return platform_driver_register(&mdm_driver);
 }
 module_init(mdm_register);
@@ -1247,6 +1264,8 @@ module_init(mdm_register);
 static void __exit mdm_unregister(void)
 {
 	platform_driver_unregister(&mdm_driver);
+	esoc_bus_exit();
+	ipc_log_context_destroy(ipc_log);
 }
 module_exit(mdm_unregister);
 MODULE_LICENSE("GPL v2");

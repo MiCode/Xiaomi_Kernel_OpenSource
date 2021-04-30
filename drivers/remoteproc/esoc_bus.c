@@ -67,11 +67,21 @@ static int esoc_bus_probe(struct device *dev)
 	struct esoc_drv *esoc_drv = to_esoc_drv(dev->driver);
 
 	ret = esoc_drv->probe(esoc_clink, esoc_drv);
-	if (ret) {
+	if (ret)
 		pr_err("failed to probe %s dev\n", esoc_clink->name);
-		return ret;
-	}
-	return 0;
+	return ret;
+}
+
+static int esoc_bus_remove(struct device *dev)
+{
+	int ret;
+	struct esoc_clink *esoc_clink = to_esoc_clink(dev);
+	struct esoc_drv *esoc_drv = to_esoc_drv(dev->driver);
+
+	ret = esoc_drv->remove(esoc_clink, esoc_drv);
+	if (ret)
+		pr_err("failed to remove %s dev\n", esoc_clink->name);
+	return ret;
 }
 
 struct bus_type esoc_bus_type = {
@@ -279,6 +289,7 @@ void esoc_clink_unregister(struct esoc_clink *esoc_clink)
 		esoc_clink_del_device(&esoc_clink->dev, NULL);
 		device_unregister(&esoc_clink->dev);
 		put_device(&esoc_clink->dev);
+		ida_simple_remove(&esoc_ida, esoc_clink->id);
 	}
 }
 
@@ -364,19 +375,25 @@ void esoc_clink_unregister_cmd_eng(struct esoc_clink *esoc_clink,
 	esoc_clink_evt_notify(ESOC_CMD_ENG_OFF, esoc_clink);
 }
 
-int esoc_drv_register(struct esoc_drv *driver)
+int esoc_driver_register(struct esoc_drv *driver)
 {
 	int ret;
 
 	driver->driver.bus = &esoc_bus_type;
 	driver->driver.probe = esoc_bus_probe;
+	driver->driver.remove = esoc_bus_remove;
 	ret = driver_register(&driver->driver);
 	if (ret)
 		return ret;
 	return 0;
 }
 
-int esoc_bus_init(void)
+void esoc_driver_unregister(struct esoc_drv *driver)
+{
+	driver_unregister(&driver->driver);
+}
+
+int __init esoc_bus_init(void)
 {
 	int ret;
 
@@ -394,13 +411,21 @@ int esoc_bus_init(void)
 	//TODO: add cleanup path
 	ret = esoc_dev_init();
 	if (ret) {
-		pr_err("esoc userspace driver registration failed\n");
+		pr_err("esoc userspace driver initialization failed\n");
 		return ret;
 	}
-	ret = esoc_drv_register(&esoc_ssr_drv);
+	ret = mdm_drv_init();
 	if (ret) {
-		pr_err("esoc ssr driver registration failed\n");
+		pr_err("esoc failed to initialize ssr driver\n");
 		return ret;
 	}
 	return 0;
+}
+
+void __exit esoc_bus_exit(void)
+{
+	mdm_drv_exit();
+	esoc_dev_exit();
+	bus_unregister(&esoc_bus_type);
+	device_unregister(&esoc_bus);
 }

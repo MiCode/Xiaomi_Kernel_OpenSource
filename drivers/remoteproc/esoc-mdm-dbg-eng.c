@@ -199,7 +199,6 @@ static const struct file_operations esoc_notifier_mask_fops = {
 	.llseek = generic_file_llseek,
 };
 
-#ifdef CONFIG_QCOM_ESOC_DBG_REQ_ENG
 /* Last recorded request from esoc */
 static enum esoc_req last_req;
 static DEFINE_SPINLOCK(req_lock);
@@ -383,14 +382,14 @@ dbg_req_err:
 	clink->dbg_dir = NULL;
 	return ret;
 }
-#else
-int register_dbg_req_eng(struct esoc_clink *clink)
-{
-	return 0;
-}
-#endif
 
-int mdm_dbg_eng_init(struct esoc_drv *esoc_drv, struct esoc_clink *clink)
+void unregister_dbg_req_eng(struct esoc_clink *clink)
+{
+	esoc_clink_unregister_req_eng(clink, &dbg_req_eng);
+	debugfs_remove(clink->dbg_dir);
+}
+
+int __init mdm_dbg_eng_init(void)
 {
 	int ret;
 	struct dentry *file;
@@ -421,12 +420,6 @@ int mdm_dbg_eng_init(struct esoc_drv *esoc_drv, struct esoc_clink *clink)
 		ret = PTR_ERR(file);
 		goto dbg_eng_fail;
 	}
-
-	ret = register_dbg_req_eng(clink);
-	if (ret) {
-		pr_err("Failed to register esoc dbg req eng\n");
-		goto dbg_eng_fail;
-	}
 	return 0;
 dbg_eng_fail:
 	debugfs_remove(esoc_dbg);
@@ -434,4 +427,11 @@ dbg_eng_fail:
 	return ret;
 }
 EXPORT_SYMBOL(mdm_dbg_eng_init);
+
+void __exit mdm_dbg_eng_exit(void)
+{
+	debugfs_remove(esoc_dbg);
+}
+EXPORT_SYMBOL(mdm_dbg_eng_exit);
+
 MODULE_LICENSE("GPL v2");
