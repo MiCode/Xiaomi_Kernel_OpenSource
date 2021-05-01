@@ -3062,9 +3062,6 @@ static void adreno_regwrite(struct kgsl_device *device,
 void adreno_read_gmu_wrapper(struct adreno_device *adreno_dev,
 		u32 offsetwords, u32 *val)
 {
-	if (!adreno_dev->gmu_wrapper_virt)
-		return;
-
 	*val = __raw_readl(adreno_dev->gmu_wrapper_virt +
 			(offsetwords << 2) - adreno_dev->gmu_wrapper_base);
 	/* Order this read with respect to the following memory accesses */
@@ -3074,9 +3071,6 @@ void adreno_read_gmu_wrapper(struct adreno_device *adreno_dev,
 void adreno_write_gmu_wrapper(struct adreno_device *adreno_dev,
 		u32 offsetwords, u32 value)
 {
-	if (!adreno_dev->gmu_wrapper_virt)
-		return;
-
 	/*
 	 * ensure previous writes post before this one,
 	 * i.e. act like normal writel()
