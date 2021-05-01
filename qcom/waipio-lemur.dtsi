@@ -1,0 +1,8 @@
+&mdm0 {
+	compatible = "qcom,ext-lemur";
+	qcom,mdm-link-info = "0308_01.01.00";
+};
+
+&modem_pas {
+	status = "disabled";
+};
