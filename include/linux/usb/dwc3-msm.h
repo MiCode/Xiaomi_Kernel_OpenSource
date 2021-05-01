@@ -116,14 +116,6 @@ struct gsi_channel_info {
 	struct usb_gsi_request *ch_req;
 };
 
-#if IS_ENABLED(CONFIG_MSM_QUSB_PHY)
-extern void usb_phy_drive_dp_pulse(void *phy,
-					unsigned int interval_ms);
-#else
-static inline void usb_phy_drive_dp_pulse(void *phy, unsigned int interval_ms)
-{ }
-#endif
-
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
 struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,
 		struct usb_endpoint_descriptor *desc, const char *ep_name);

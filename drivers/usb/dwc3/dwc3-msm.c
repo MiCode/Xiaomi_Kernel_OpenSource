@@ -3933,7 +3933,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	if (get_chg_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
 			mdwc->vbus_active && !mdwc->check_eud_state) {
 		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
-		usb_phy_drive_dp_pulse(mdwc->hs_phy, DP_PULSE_WIDTH_MSEC);
+		mdwc->hs_phy->charger_detect(mdwc->hs_phy);
 	}
 
 	mdwc->ext_idx = enb->idx;
