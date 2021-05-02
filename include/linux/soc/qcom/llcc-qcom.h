@@ -39,6 +39,7 @@
 #define LLCC_CPUHWT      36
 #define LLCC_MDMCLAD2    37
 #define LLCC_CAMEXP1     38
+#define LLCC_AENPU       45
 
 /**
  * llcc_slice_desc - Cache slice descriptor
