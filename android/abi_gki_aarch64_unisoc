@@ -46,6 +46,7 @@
   __class_create
   class_destroy
   class_find_device
+  clear_nlink
   clk_bulk_disable
   clk_bulk_enable
   clk_bulk_prepare
@@ -94,6 +95,7 @@
   __crypto_xor
   csum_ipv6_magic
   csum_partial
+  d_splice_alias
   default_llseek
   delayed_work_timer_fn
   del_timer
@@ -271,6 +273,7 @@
   ieee80211_freq_khz_to_channel
   ieee80211_get_channel_khz
   ignore_console_lock_warning
+  igrab
   inet_proto_csum_replace4
   init_net
   __init_rwsem
@@ -571,8 +574,10 @@
   seq_putc
   seq_puts
   seq_read
+  set_nlink
   set_normalized_timespec64
   set_user_nice
+  setattr_prepare
   sg_init_table
   sg_miter_next
   sg_miter_start
@@ -679,6 +684,7 @@
   trace_handle_return
   trace_raw_output_prep
   trace_seq_printf
+  truncate_setsize
   try_module_get
   __tty_alloc_driver
   tty_flip_buffer_push
@@ -1558,6 +1564,7 @@
   dev_pm_opp_init_cpufreq_table
 
 # required by sprd-drm.ko
+  adjust_managed_page_count
   component_add
   component_bind_all
   component_del
