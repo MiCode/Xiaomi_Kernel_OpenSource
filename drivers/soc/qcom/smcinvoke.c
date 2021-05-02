@@ -1194,15 +1194,14 @@ out:
 	}
 	--cb_reqs_inflight;
 	memcpy(buf, cb_req, buf_len);
+	IPC_LOG("result=%d tzhandle=0x%08x op=0x%02x counts=0x%04x, cb_reqs_inflight=%d",
+			cb_req->result,
+			cb_req->hdr.tzhandle, cb_req->hdr.op, cb_req->hdr.counts,
+			cb_reqs_inflight);
 	kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 	if (srvr_info)
 		kref_put(&srvr_info->ref_cnt, destroy_cb_server);
 	mutex_unlock(&g_smcinvoke_lock);
-
-	IPC_LOG("result=%d tzhandle=0x%08x op=0x%02x counts=0x%04x, cb_reqs_inflight=%d",
-					cb_req->result,
-					cb_req->hdr.tzhandle, cb_req->hdr.op, cb_req->hdr.counts,
-					cb_reqs_inflight);
 
 }
 
