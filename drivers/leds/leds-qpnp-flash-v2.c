@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"flashv2: %s: " fmt, __func__
@@ -84,6 +84,14 @@
 
 #define	FLASH_LED_REG_THERMAL_DEBOUNCE(base)	(base + 0x5A)
 #define	FLASH_LED_THERMAL_DEBOUNCE_MASK		GENMASK(1, 0)
+
+#define	FLASH_LED_REG_RGLR_RAMP_RATE(base)	(base + 0x5B)
+#define	FLASH_LED_RAMP_UP_STEP_MASK		GENMASK(6, 4)
+#define	FLASH_LED_RAMP_UP_STEP_SHIFT		4
+#define	FLASH_LED_RAMP_DOWN_STEP_MASK		GENMASK(2, 0)
+#define	FLASH_LED_RAMP_STEP_MIN_NS		200
+#define	FLASH_LED_RAMP_STEP_MAX_NS		25600
+#define	FLASH_LED_RAMP_STEP_DEFAULT_NS		6400
 
 #define	FLASH_LED_REG_VPH_DROOP_THRESHOLD(base)	(base + 0x61)
 #define	FLASH_LED_VPH_DROOP_HYSTERESIS_MASK	GENMASK(5, 4)
@@ -278,6 +286,8 @@ struct flash_led_platform_data {
 	int			thermal_thrsh1;
 	int			thermal_thrsh2;
 	int			thermal_thrsh3;
+	int			ramp_up_step;
+	int			ramp_down_step;
 	int			hw_strobe_option;
 	u32			led1n2_iclamp_low_ma;
 	u32			led1n2_iclamp_mid_ma;
@@ -628,6 +638,16 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		return rc;
 
 	rc = qpnp_flash_led_thermal_config(led);
+	if (rc < 0)
+		return rc;
+
+	val = led->pdata->ramp_up_step << FLASH_LED_RAMP_UP_STEP_SHIFT;
+	val |= led->pdata->ramp_down_step;
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_RGLR_RAMP_RATE(led->base),
+			FLASH_LED_RAMP_UP_STEP_MASK |
+			FLASH_LED_RAMP_DOWN_STEP_MASK,
+			val);
 	if (rc < 0)
 		return rc;
 
@@ -2873,6 +2893,30 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		pr_err("Unable to parse vled_max voltage, rc=%d\n", rc);
 		return rc;
 	}
+
+	val = FLASH_LED_RAMP_STEP_DEFAULT_NS;
+	rc = of_property_read_u32(node, "qcom,ramp-up-step", &val);
+	if (!rc && (val < FLASH_LED_RAMP_STEP_MIN_NS ||
+				val > FLASH_LED_RAMP_STEP_MAX_NS)) {
+		pr_err("Invalid ramp-up-step %d\n", val);
+		return -EINVAL;
+	} else if (rc && rc != -EINVAL) {
+		pr_err("Unable to read ramp-up-step, rc=%d\n", rc);
+		return rc;
+	}
+	led->pdata->ramp_up_step = ilog2(val / 100) - 1;
+
+	val = FLASH_LED_RAMP_STEP_DEFAULT_NS;
+	rc = of_property_read_u32(node, "qcom,ramp-down-step", &val);
+	if (!rc && (val < FLASH_LED_RAMP_STEP_MIN_NS ||
+				val > FLASH_LED_RAMP_STEP_MAX_NS)) {
+		pr_err("Invalid ramp-down-step %d\n", val);
+		return -EINVAL;
+	} else if (rc && rc != -EINVAL) {
+		pr_err("Unable to read ramp-down-step, rc=%d\n", rc);
+		return rc;
+	}
+	led->pdata->ramp_down_step = ilog2(val / 100) - 1;
 
 	rc = qpnp_flash_led_parse_battery_prop_dt(led, node);
 	if (rc < 0)
