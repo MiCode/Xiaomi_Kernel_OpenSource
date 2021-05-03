@@ -2675,6 +2675,7 @@ static void gsi_suspend(struct usb_function *f)
 		return;
 	}
 
+	gsi->c_port.is_suspended = true;
 	/*
 	 * GPS doesn't use any data interface, hence bail out as there is no
 	 * GSI specific handling needed.
@@ -2684,7 +2685,6 @@ static void gsi_suspend(struct usb_function *f)
 		return;
 	}
 
-	gsi->c_port.is_suspended = true;
 	block_db = true;
 	usb_gsi_ep_op(gsi->d_port.in_ep, (void *)&block_db,
 			GSI_EP_OP_SET_CLR_BLOCK_DBL);
@@ -2735,6 +2735,8 @@ static void gsi_resume(struct usb_function *f)
 	/* Check any pending cpkt, and queue immediately on resume */
 	gsi_ctrl_send_notification(gsi);
 
+	gsi->rwake_inprogress = false;
+
 	if (gsi->prot_id == IPA_USB_GPS) {
 		log_event_dbg("%s: resume done\n", __func__);
 		return;
@@ -2753,8 +2755,6 @@ static void gsi_resume(struct usb_function *f)
 			gsi_rndis_flow_ctrl_enable(false, gsi->params);
 		gsi->params->state = RNDIS_DATA_INITIALIZED;
 	}
-
-	gsi->rwake_inprogress = false;
 
 	post_event(&gsi->d_port, EVT_RESUMED);
 	queue_delayed_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w, 0);
