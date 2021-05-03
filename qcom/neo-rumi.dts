@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "neo.dtsi"
+#include "neo-rumi.dtsi"
+
+/ {
+/** DUMMY DEVICE TREE - Place holder only **/
+	model = "Qualcomm Technologies, Inc. NEO RUMI DUMMY DT";
+	compatible = "qcom,neo-rumi", "qcom,neo", "qcom,rumi";
+};

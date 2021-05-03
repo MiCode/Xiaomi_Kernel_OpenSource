@@ -126,6 +126,14 @@ dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_NEO) += neo-rumi-overlay.dtbo
+
+neo-rumi-overlay.dtbo-base := neo.dtb
+else
+dtb-$(CONFIG_ARCH_NEO) += neo-rumi.dtb
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_DIWALI) += diwali-rumi-overlay.dtbo
 
 diwali-rumi-overlay.dtbo-base := diwali.dtb
