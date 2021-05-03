@@ -3314,7 +3314,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	 * Remove proxy vote from QUP core which was kept from common driver
 	 * probe on behalf of earlycon
 	 */
-	if (uart_console(uport))
+	if (dev_port->is_console)
 		geni_se_remove_earlycon_icc_vote(dev_port->wrapper_dev);
 	else
 		spin_lock_init(&dev_port->rx_lock);
