@@ -221,6 +221,12 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 			TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 			TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
+	if (mhi_cntrl->ee == MHI_EE_PBL) {
+		MHI_CNTRL_LOG("Aborting RDDM dumps as device is in %s state\n",
+				 TO_MHI_EXEC_STR(mhi_cntrl->ee));
+		return -EACCES;
+	}
+
 	/*
 	 * This should only be executing during a kernel panic, we expect all
 	 * other cores to shutdown while we're collecting rddm buffer. After
