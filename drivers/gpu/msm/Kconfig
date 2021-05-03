@@ -31,8 +31,7 @@ config DEVFREQ_GOV_QCOM_GPUBW_MON
 
 config QCOM_ADRENO_DEFAULT_GOVERNOR
 	string "devfreq governor for the adreno core"
-	default "msm-adreno-tz" if DEVFREQ_GOV_QCOM_ADRENO_TZ
-	default "simple_ondemand"
+	default "msm-adreno-tz"
 	depends on QCOM_KGSL
 
 config QCOM_KGSL_CORESIGHT
