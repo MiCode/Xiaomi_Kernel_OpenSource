@@ -92,6 +92,9 @@ SoCs:
 - DIWALI
   compatible = "qcom,diwali"
 
+- NEO
+  compatible = "qcom,neo"
+
 Generic board variants:
 
 - CDP device:
@@ -254,3 +257,4 @@ compatible = "qcom,waipiop-mtp"
 compatible = "qcom,waipiop-cdp"
 compatible = "qcom,waipiop-qrd"
 compatible = "qcom,diwali-rumi"
+compatible = "qcom,neo-rumi"
