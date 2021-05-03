@@ -3055,6 +3055,15 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		if (!check_and_warn_secured(device))
 			return -EOPNOTSUPP;
 
+		/*
+		 * On 64 bit kernel, secure memory region is expanded and
+		 * moved to 64 bit address, 32 bit apps can not access it from
+		 * this IOCTL.
+		 */
+		if (is_compat_task() &&
+				test_bit(KGSL_MMU_64BIT, &device->mmu.features))
+			return -EOPNOTSUPP;
+
 		/* Can't use CPU map with secure buffers */
 		if (param->flags & KGSL_MEMFLAGS_USE_CPU_MAP)
 			return -EINVAL;
@@ -3638,9 +3647,19 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
 {
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_gpumem_alloc *param = data;
 	struct kgsl_mem_entry *entry;
 	uint64_t flags = param->flags;
+
+	/*
+	 * On 64 bit kernel, secure memory region is expanded and
+	 * moved to 64 bit address, 32 bit apps can not access it from
+	 * this IOCTL.
+	 */
+	if ((param->flags & KGSL_MEMFLAGS_SECURE) && is_compat_task()
+			&& test_bit(KGSL_MMU_64BIT, &device->mmu.features))
+		return -EOPNOTSUPP;
 
 	/* Legacy functions doesn't support these advanced features */
 	flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
@@ -3666,9 +3685,19 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 			unsigned int cmd, void *data)
 {
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_gpumem_alloc_id *param = data;
 	struct kgsl_mem_entry *entry;
 	uint64_t flags = param->flags;
+
+	/*
+	 * On 64 bit kernel, secure memory region is expanded and
+	 * moved to 64 bit address, 32 bit apps can not access it from
+	 * this IOCTL.
+	 */
+	if ((param->flags & KGSL_MEMFLAGS_SECURE) && is_compat_task()
+			&& test_bit(KGSL_MMU_64BIT, &device->mmu.features))
+		return -EOPNOTSUPP;
 
 	if (is_compat_task())
 		flags |= KGSL_MEMFLAGS_FORCE_32BIT;
