@@ -404,6 +404,9 @@ static int configure_pmu_event(u32 event_id, int cpu)
 	struct perf_event_attr *attr = alloc_attr();
 	int ret = 0;
 
+	if (!attr)
+		return -ENOMEM;
+
 	if (!event_id || cpu >= num_possible_cpus()) {
 		ret = -EINVAL;
 		goto out;
