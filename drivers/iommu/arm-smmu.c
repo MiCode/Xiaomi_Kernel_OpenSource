@@ -1361,6 +1361,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 	phys_addr_t phys_soft;
 	uint64_t pte;
+	unsigned int ias = smmu_domain->pgtbl_info[0].pgtbl_cfg.ias;
 	bool non_fatal_fault = test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS,
 					smmu_domain->attributes);
 
@@ -1399,6 +1400,16 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		flags |= IOMMU_FAULT_TRANSACTION_STALLED;
 
 	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
+
+	/*
+	 * The address in the CB's FAR is not sign-extended, so lets perform the
+	 * sign extension here, as arm_smmu_iova_to_phys() expects the
+	 * IOVA to be sign extended.
+	 */
+	if ((iova & BIT_ULL(ias)) &&
+	    (test_bit(DOMAIN_ATTR_SPLIT_TABLES, smmu_domain->attributes)))
+		iova |= GENMASK_ULL(63, ias + 1);
+
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
 	frsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
 	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
