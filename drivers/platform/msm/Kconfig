@@ -32,6 +32,16 @@ config SPS_SUPPORT_NDP_BAM
 	  to do the actual data transfer themselves, instead of the
 	  BAM.
 
+config EP_PCIE
+	tristate "PCIe Endpoint mode support"
+	select GENERIC_ALLOCATOR
+	help
+	  PCIe controller is in endpoint mode.
+	  It supports the APIs to clients as a service layer, and allows
+	  clients to enable/disable PCIe link, configure the address
+	  mapping for the access to host memory, trigger wake interrupt
+	  on host side to wake up host, and trigger MSI to host side.
+
 config IPA3
 	tristate "IPA3 support"
 	depends on NET
