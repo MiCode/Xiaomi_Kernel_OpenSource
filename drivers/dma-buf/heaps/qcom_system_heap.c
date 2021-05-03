@@ -223,7 +223,7 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 						   unsigned long size,
 						   unsigned int max_order)
 {
-	struct page *page;
+	struct page *page = NULL;
 	int i;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
