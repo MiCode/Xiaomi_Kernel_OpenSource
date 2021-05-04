@@ -45,7 +45,7 @@ static const struct proc_ops name ## _proc_fops = {		\
 #define PROC_ENTRY_DATA(name)	\
 {__stringify(name), &name ## _proc_fops, g_ ## name}
 #define LAST_LL_CORE	3
-#define CLUSTER_NRS	2
+#define MAX_CLUSTER_NRS	3
 #define _BITMASK_(_bits_)               \
 (((unsigned int) -1 >> (31 - ((1) ? _bits_))) & ~((1U << ((0) ? _bits_)) - 1))
 #define _GET_BITS_VAL_(_bits_, _val_)   \
