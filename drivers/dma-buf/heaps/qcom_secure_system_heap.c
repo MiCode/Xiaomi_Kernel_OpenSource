@@ -441,7 +441,7 @@ static struct page *alloc_largest_available(struct dynamic_page_pool **pools,
 					    unsigned int max_order,
 					    bool *page_from_secure_pool)
 {
-	struct page *page;
+	struct page *page = NULL;
 	int i;
 	struct dynamic_page_pool **qcom_sys_heap_pools = get_sys_heap_page_pool();
 
