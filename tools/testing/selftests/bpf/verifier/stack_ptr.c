@@ -291,8 +291,6 @@
 	BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1, 0),
 	BPF_EXIT_INSN(),
 	},
-	.result_unpriv = REJECT,
-	.errstr_unpriv = "invalid stack off=0 size=1",
 	.result = ACCEPT,
 	.retval = 42,
 },
