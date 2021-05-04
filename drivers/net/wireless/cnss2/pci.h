@@ -117,6 +117,7 @@ struct cnss_pci_data {
 	unsigned long mhi_state;
 	u32 remap_window;
 	struct timer_list dev_rddm_timer;
+	struct timer_list boot_debug_timer;
 	struct delayed_work time_sync_work;
 	u8 disable_pc;
 	struct mutex bus_lock; /* mutex for suspend and resume bus */

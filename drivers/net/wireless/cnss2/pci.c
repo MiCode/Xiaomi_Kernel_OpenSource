@@ -82,6 +82,8 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define LINK_TRAINING_RETRY_MAX_TIMES		3
 #define LINK_TRAINING_RETRY_DELAY_MS		500
 
+#define BOOT_DEBUG_TIMEOUT_MS			7000
+
 #define HANG_DATA_LENGTH		384
 #define HST_HANG_DATA_OFFSET		((3 * 1024 * 1024) - HANG_DATA_LENGTH)
 #define HSP_HANG_DATA_OFFSET		((2 * 1024 * 1024) - HANG_DATA_LENGTH)
@@ -1817,7 +1819,12 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 	else /* For perf builds the timeout is 10 (default) * 3 seconds */
 		pci_priv->mhi_ctrl->timeout_ms *= 3;
 
+	/* Start the timer to dump MHI/PBL/SBL debug data periodically */
+	mod_timer(&pci_priv->boot_debug_timer,
+		  jiffies + msecs_to_jiffies(BOOT_DEBUG_TIMEOUT_MS));
+
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_ON);
+	del_timer(&pci_priv->boot_debug_timer);
 	if (ret == 0)
 		cnss_wlan_adsp_pc_enable(pci_priv, false);
 
@@ -5168,6 +5175,35 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
 }
 
+static void cnss_boot_debug_timeout_hdlr(struct timer_list *t)
+{
+	struct cnss_pci_data *pci_priv =
+		from_timer(pci_priv, t, boot_debug_timer);
+
+	if (!pci_priv)
+		return;
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
+
+	if (cnss_pci_is_device_down(&pci_priv->pci_dev->dev))
+		return;
+
+	if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state))
+		return;
+
+	if (mhi_scan_rddm_cookie(pci_priv->mhi_ctrl, DEVICE_RDDM_COOKIE))
+		return;
+
+	cnss_pr_dbg("Dump MHI/PBL/SBL debug data every %ds during MHI power on\n",
+		    BOOT_DEBUG_TIMEOUT_MS / 1000);
+	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_pci_dump_bl_sram_mem(pci_priv);
+
+	mod_timer(&pci_priv->boot_debug_timer,
+		  jiffies + msecs_to_jiffies(BOOT_DEBUG_TIMEOUT_MS));
+}
+
 static int cnss_mhi_link_status(struct mhi_controller *mhi_ctrl, void *priv)
 {
 	struct cnss_pci_data *pci_priv = priv;
@@ -5764,6 +5800,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, false, false);
 		timer_setup(&pci_priv->dev_rddm_timer,
 			    cnss_dev_rddm_timeout_hdlr, 0);
+		timer_setup(&pci_priv->boot_debug_timer,
+			    cnss_boot_debug_timeout_hdlr, 0);
 		INIT_DELAYED_WORK(&pci_priv->time_sync_work,
 				  cnss_pci_time_sync_work_hdlr);
 		cnss_pci_get_link_status(pci_priv);
@@ -5827,6 +5865,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	case QCA6490_DEVICE_ID:
 	case WCN7850_DEVICE_ID:
 		cnss_pci_wake_gpio_deinit(pci_priv);
+		del_timer(&pci_priv->boot_debug_timer);
 		del_timer(&pci_priv->dev_rddm_timer);
 		break;
 	default:
