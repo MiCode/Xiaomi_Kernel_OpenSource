@@ -1,6 +1,7 @@
 /dts-v1/;
 
 #include "waipio-vm.dtsi"
+#include "waipio-vm-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Waipio SVM CDP";
