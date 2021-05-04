@@ -292,7 +292,8 @@ static int in_sched_bug;
 })
 
 static inline void
-fixup_cumulative_runnable_avg(struct task_struct *p,
+fixup_cumulative_runnable_avg(struct rq *rq,
+			      struct task_struct *p,
 			      struct walt_sched_stats *stats,
 			      s64 demand_scaled_delta,
 			      s64 pred_demand_scaled_delta)
@@ -302,6 +303,14 @@ fixup_cumulative_runnable_avg(struct task_struct *p,
 		stats->cumulative_runnable_avg_scaled + demand_scaled_delta;
 	s64 pred_demands_sum_scaled =
 		stats->pred_demands_sum_scaled + pred_demand_scaled_delta;
+
+	lockdep_assert_held(&rq->lock);
+
+	if (task_rq(p) != rq) {
+		printk_deferred("WALT-BUG task not on rq\n");
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
 
 	if (cumulative_runnable_avg_scaled < 0) {
 		printk_deferred("WALT-BUG task ds=%llu is higher than cra=%llu\n",
@@ -331,7 +340,7 @@ static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 				wts->pred_demand_scaled;
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 
-	fixup_cumulative_runnable_avg(p, &wrq->walt_stats, task_load_delta,
+	fixup_cumulative_runnable_avg(rq, p, &wrq->walt_stats, task_load_delta,
 				      pred_demand_delta);
 }
 
@@ -974,6 +983,9 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 		double_rq_lock(src_rq, dest_rq);
 
 	wallclock = sched_ktime_clock();
+
+	lockdep_assert_held(src_rq->lock);
+	lockdep_assert_held(dest_rq->lock);
 
 	walt_update_task_ravg(task_rq(p)->curr, task_rq(p),
 			 TASK_UPDATE,
@@ -2205,6 +2217,8 @@ static void init_new_task_load(struct task_struct *p)
 	wts->curr_window = 0;
 	wts->prev_window = 0;
 	wts->active_time = 0;
+	wts->prev_on_rq = 0;
+
 	for (i = 0; i < NUM_BUSY_BUCKETS; ++i)
 		wts->busy_buckets[i] = 0;
 
@@ -3625,7 +3639,7 @@ walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	fixup_cumulative_runnable_avg(p, &wrq->walt_stats, wts->demand_scaled,
+	fixup_cumulative_runnable_avg(rq, p, &wrq->walt_stats, wts->demand_scaled,
 					wts->pred_demand_scaled);
 }
 
@@ -3635,7 +3649,7 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	fixup_cumulative_runnable_avg(p, &wrq->walt_stats,
+	fixup_cumulative_runnable_avg(rq, p, &wrq->walt_stats,
 				      -(s64)wts->demand_scaled,
 				      -(s64)wts->pred_demand_scaled);
 }
@@ -3787,6 +3801,15 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 
 	if (unlikely(walt_disabled))
 		return;
+
+	/* catch double enqueue */
+	if (wts->prev_on_rq == 1) {
+		printk_deferred("WALT-BUG double enqueue detected\n");
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
+	wts->prev_on_rq = 1;
+
 	wts->last_enqueued_ts = wallclock;
 	sched_update_nr_prod(rq->cpu, 1);
 
@@ -3802,9 +3825,19 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 static void android_rvh_dequeue_task(void *unused, struct rq *rq, struct task_struct *p, int flags)
 {
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
+
+	/* catch double deq */
+	if (wts->prev_on_rq == 2) {
+		printk_deferred("WALT-BUG double dequeue detected\n");
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
+
+	wts->prev_on_rq = 2;
 	if (p == wrq->ed_task)
 		is_ed_task_present(rq, sched_ktime_clock(), p);
 
