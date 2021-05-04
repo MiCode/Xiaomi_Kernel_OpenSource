@@ -326,6 +326,7 @@ struct fastrpc_file;
 struct fastrpc_buf {
 	struct hlist_node hn;
 	struct hlist_node hn_rem;
+	struct hlist_node hn_init;
 	struct fastrpc_file *fl;
 	void *virt;
 	uint64_t phys;
@@ -503,6 +504,7 @@ struct fastrpc_channel_ctx {
 	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
 	spinlock_t ctxlock;
 	struct fastrpc_rpmsg_log gmsg_log;
+	struct hlist_head initmems;
 };
 
 struct fastrpc_apps {
@@ -629,6 +631,10 @@ struct fastrpc_file {
 	uint32_t ws_timeout;
 	bool untrusted_process;
 	struct fastrpc_device *device;
+	/* Process kill will wait on work when ram dump collection in progress */
+	struct completion work;
+	/* Flag to indicate ram dump collection status*/
+	bool is_ramdump_pend;
 };
 
 static struct fastrpc_apps gfa;
@@ -855,6 +861,28 @@ static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 		(rx_index > (GLINK_MSG_HISTORY_LEN - 1)) ? 0 : rx_index;
 
 	spin_unlock_irqrestore(&chan->gmsg_log.lock, flags);
+}
+
+/**
+ * fastrpc_ramdump - Dump given ram dump entry
+ * @dev       : Device handle
+ * @ramdump_segment   : Dump region entry
+ * @type              : ram dump type like elf or binary
+ * Returns int
+ */
+static int fastrpc_ramdump(struct device *dev, struct qcom_dump_segment *ramdump_seg, bool type)
+{
+	int err = 0;
+	struct list_head head;
+
+	INIT_LIST_HEAD(&head);
+	list_add(&ramdump_seg->node, &head);
+	if (type)
+		err = qcom_elf_dump(&head, dev);
+	else
+		err = qcom_dump(&head, dev);
+
+	return err;
 }
 
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
@@ -2154,6 +2182,42 @@ static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 	spin_unlock(&me->hlock);
 }
 
+static void fastrpc_ramdump_collection(int cid)
+{
+	struct fastrpc_file *fl = NULL;
+	struct hlist_node *n = NULL;
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	struct qcom_dump_segment ramdump_entry;
+	struct fastrpc_buf *buf = NULL;
+	int ret = 0;
+
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if (fl->cid == cid && fl->init_mem) {
+			hlist_add_head(&fl->init_mem->hn_init, &chan->initmems);
+			fl->is_ramdump_pend = true;
+		}
+	}
+	spin_unlock(&me->hlock);
+
+	hlist_for_each_entry_safe(buf, n, &chan->initmems, hn_init) {
+		fl = buf->fl;
+		memset(&ramdump_entry, 0, sizeof(ramdump_entry));
+		ramdump_entry.da = buf->phys;
+		ramdump_entry.va = (void *)buf->virt;
+		ramdump_entry.size = buf->size;
+
+		if (fl && fl->sctx && fl->sctx->smmu.dev)
+			ret = fastrpc_ramdump(fl->sctx->smmu.dev, &ramdump_entry, true);
+		if (ret < 0)
+			ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
+				__func__, ret);
+		if (fl)
+			complete(&fl->work);
+		hlist_del_init(&buf->hn_init);
+	}
+}
 
 static void fastrpc_notify_drivers(struct fastrpc_apps *me, int cid)
 {
@@ -2818,6 +2882,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		mutex_init(&me->channel[i].rpmsg_mutex);
 		spin_lock_init(&me->channel[i].ctxlock);
 		spin_lock_init(&me->channel[i].gmsg_log.lock);
+		INIT_HLIST_HEAD(&me->channel[i].initmems);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
@@ -4867,7 +4932,6 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 {
 	int err = 0;
 	int cid = -1;
-	struct fastrpc_apps *me = &gfa;
 
 	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
 	if (err) {
@@ -4884,7 +4948,6 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 	mutex_lock(&gcinfo[cid].rpmsg_mutex);
 	gcinfo[cid].rpdev = NULL;
 	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
-	fastrpc_notify_drivers(me, cid);
 	ADSPRPC_INFO("closed rpmsg channel of %s\n",
 		gcinfo[cid].subsys);
 bail:
@@ -5012,10 +5075,18 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	(void)fastrpc_release_current_dsp_process(fl);
 
 	spin_lock(&fl->apps->hlock);
-	hlist_del_init(&fl->hn);
+	if (!fl->is_ramdump_pend) {
+		spin_unlock(&fl->apps->hlock);
+		goto skip_dump_wait;
+	}
 	spin_unlock(&fl->apps->hlock);
-	kfree(fl->debug_buf);
-	kfree(fl->gidlist.gids);
+	wait_for_completion(&fl->work);
+
+skip_dump_wait:
+	spin_lock(&fl->apps->hlock);
+	hlist_del_init(&fl->hn);
+	fl->is_ramdump_pend = false;
+	spin_unlock(&fl->apps->hlock);
 
 	if (!fl->sctx) {
 		kfree(fl);
@@ -5433,6 +5504,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->init_mem = NULL;
 	fl->qos_request = 0;
 	fl->dsp_proc_init = 0;
+	fl->is_ramdump_pend = false;
+	init_completion(&fl->work);
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
 	mutex_init(&fl->map_mutex);
@@ -6118,6 +6191,9 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 				me->channel[RH_CID].ramdumpenabled = 0;
 			}
 		}
+		if (cid == CDSP_DOMAIN_ID && dump_enabled())
+			fastrpc_ramdump_collection(cid);
+		fastrpc_notify_drivers(me, cid);
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
 		pr_info("adsprpc: %s: %s subsystem is up\n",
