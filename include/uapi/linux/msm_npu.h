@@ -103,19 +103,17 @@
 struct msm_npu_patch_info {
 	/* chunk id */
 	__u32 chunk_id;
-	/* location offset */
-	__u32 loc_offset;
 	/* instruction size in bytes */
 	__u16 instruction_size_in_bytes;
 	/* variable size in bits */
 	__u16 variable_size_in_bits;
 	/* shift value in bits */
 	__u16 shift_value_in_bits;
+	/* location offset */
+	__u32 loc_offset;
 };
 
 struct msm_npu_layer {
-	/* physical address */
-	__u64 buf_phys_addr;
 	/* layer id */
 	__u32 layer_id;
 	/* patch information*/
@@ -124,6 +122,8 @@ struct msm_npu_layer {
 	__s32 buf_hdl;
 	/* buffer size */
 	__u32 buf_size;
+	/* physical address */
+	__u64 buf_phys_addr;
 };
 
 struct msm_npu_patch_info_v2 {
@@ -153,19 +153,19 @@ struct msm_npu_patch_buf_info {
  * -------------------------------------------------------------------------
  */
 struct msm_npu_map_buf_ioctl {
-	/* iommu mapped physical address */
-	__u64 npu_phys_addr;
 	/* buffer ion handle */
 	__s32 buf_ion_hdl;
 	/* buffer size */
 	__u32 size;
+	/* iommu mapped physical address */
+	__u64 npu_phys_addr;
 };
 
 struct msm_npu_unmap_buf_ioctl {
-	/* iommu mapped physical address */
-	__u64 npu_phys_addr;
 	/* buffer ion handle */
 	__s32 buf_ion_hdl;
+	/* iommu mapped physical address */
+	__u64 npu_phys_addr;
 };
 
 struct msm_npu_get_info_ioctl {
@@ -176,10 +176,10 @@ struct msm_npu_get_info_ioctl {
 };
 
 struct msm_npu_load_network_ioctl {
-	/* physical address */
-	__u64 buf_phys_addr;
 	/* buffer ion handle */
 	__s32 buf_ion_hdl;
+	/* physical address */
+	__u64 buf_phys_addr;
 	/* buffer size */
 	__u32 buf_size;
 	/* first block size */
