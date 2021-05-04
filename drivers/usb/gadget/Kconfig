@@ -598,7 +598,6 @@ config USB_CONFIGFS_F_GSI
 
 config USB_FUNC_WAKEUP_SUPPORTED
 	bool "USB Function Remote Wakeup support"
-	depends on QGKI
 	help
 	  USB 3.x allows functions to be independently suspended for better
 	  power management on a per-interface basis. Additionally a function
