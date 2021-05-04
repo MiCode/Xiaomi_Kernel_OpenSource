@@ -10,6 +10,7 @@
 #include <linux/sync_file.h>
 
 #include "kgsl_device.h"
+#include "kgsl_eventlog.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_timeline.h"
 #include "kgsl_trace.h"
@@ -184,6 +185,7 @@ static void timeline_fence_release(struct dma_fence *fence)
 	spin_unlock(&fence_lock);
 	spin_unlock_irqrestore(&timeline->lock, flags);
 	trace_kgsl_timeline_fence_release(f->timeline->id, fence->seqno);
+	log_kgsl_timeline_fence_release_event(f->timeline->id, fence->seqno);
 
 	kgsl_timeline_put(f->timeline);
 	dma_fence_free(fence);
@@ -307,6 +309,7 @@ struct dma_fence *kgsl_timeline_fence_alloc(struct kgsl_timeline *timeline,
 		kgsl_timeline_add_fence(timeline, fence);
 
 	trace_kgsl_timeline_fence_alloc(timeline->id, seqno);
+	log_kgsl_timeline_fence_alloc_event(timeline->id, seqno);
 
 	return &fence->base;
 }

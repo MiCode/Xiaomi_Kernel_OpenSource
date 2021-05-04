@@ -13,6 +13,7 @@
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_device.h"
+#include "kgsl_eventlog.h"
 #include "kgsl_pwrctrl.h"
 #include "kgsl_trace.h"
 
@@ -151,6 +152,10 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 	info.retired_on_gmu = cmd->retired_on_gmu;
 
 	trace_adreno_cmdbatch_retired(context, &info, 0, 0, 0);
+
+	log_kgsl_cmdbatch_retired_event(context->id, cmd->ts, context->priority,
+		0, cmd->sop, cmd->eop);
+
 	kgsl_context_put(context);
 }
 
@@ -1038,6 +1043,9 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 
 	trace_adreno_cmdbatch_submitted(drawobj, &info, time->ticks,
 		(unsigned long) time_in_s, time_in_ns / 1000, 0);
+
+	log_kgsl_cmdbatch_submitted_event(context->id, drawobj->timestamp,
+		context->priority, drawobj->flags);
 }
 
 static u32 get_next_dq(u32 priority)
