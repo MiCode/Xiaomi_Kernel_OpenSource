@@ -2862,7 +2862,6 @@ exit:
 	mutex_unlock(&ch->ch_lock);
 	return rc;
 }
-EXPORT_SYMBOL(mhi_dev_open_channel);
 
 int mhi_dev_channel_isempty(struct mhi_dev_client *handle)
 {
@@ -2882,7 +2881,6 @@ int mhi_dev_channel_isempty(struct mhi_dev_client *handle)
 
 	return rc;
 }
-EXPORT_SYMBOL(mhi_dev_channel_isempty);
 
 bool mhi_dev_channel_has_pending_write(struct mhi_dev_client *handle)
 {
@@ -2899,7 +2897,6 @@ bool mhi_dev_channel_has_pending_write(struct mhi_dev_client *handle)
 
 	return ch->pend_wr_count ? true : false;
 }
-EXPORT_SYMBOL(mhi_dev_channel_has_pending_write);
 
 void mhi_dev_close_channel(struct mhi_dev_client *handle)
 {
@@ -2945,7 +2942,6 @@ void mhi_dev_close_channel(struct mhi_dev_client *handle)
 
 	mutex_unlock(&ch->ch_lock);
 }
-EXPORT_SYMBOL(mhi_dev_close_channel);
 
 static int mhi_dev_check_tre_bytes_left(struct mhi_dev_channel *ch,
 		struct mhi_dev_ring *ring, union mhi_dev_ring_element_type *el,
@@ -3107,7 +3103,6 @@ exit:
 	mutex_unlock(&ch->ch_lock);
 	return bytes_read;
 }
-EXPORT_SYMBOL(mhi_dev_read_channel);
 
 static void skip_to_next_td(struct mhi_dev_channel *ch)
 {
@@ -3302,7 +3297,17 @@ exit:
 	mutex_unlock(&mhi_ctx->mhi_write_test);
 	return bytes_written;
 }
-EXPORT_SYMBOL(mhi_dev_write_channel);
+
+struct mhi_dev_ops dev_ops = {
+	.register_state_cb	= mhi_register_state_cb,
+	.ctrl_state_info	= mhi_ctrl_state_info,
+	.open_channel		= mhi_dev_open_channel,
+	.close_channel		= mhi_dev_close_channel,
+	.write_channel		= mhi_dev_write_channel,
+	.read_channel		= mhi_dev_read_channel,
+	.is_channel_empty	= mhi_dev_channel_isempty,
+	.channel_write_pending	= mhi_dev_channel_has_pending_write,
+};
 
 static int mhi_dev_recover(struct mhi_dev *mhi)
 {
@@ -3494,7 +3499,7 @@ static void mhi_dev_enable(struct work_struct *work)
 		mhi_update_state_info(MHI_STATE_CONFIGURED);
 
 	/*Enable MHI dev network stack Interface*/
-	rc = mhi_dev_net_interface_init();
+	rc = mhi_dev_net_interface_init(&dev_ops);
 	if (rc)
 		pr_err("%s Failed to initialize mhi_dev_net iface\n", __func__);
 }
@@ -3552,7 +3557,6 @@ int mhi_register_state_cb(void (*mhi_state_cb)
 
 	return 0;
 }
-EXPORT_SYMBOL(mhi_register_state_cb);
 
 static void mhi_update_state_info_ch(uint32_t ch_id, enum mhi_ctrl_info info)
 {
@@ -3590,7 +3594,6 @@ int mhi_ctrl_state_info(uint32_t idx, uint32_t *info)
 
 	return 0;
 }
-EXPORT_SYMBOL(mhi_ctrl_state_info);
 
 static int get_device_tree_data(struct platform_device *pdev)
 {
@@ -4108,7 +4111,7 @@ static int mhi_dev_probe(struct platform_device *pdev)
 		INIT_LIST_HEAD(&mhi_ctx->client_cb_list);
 		mutex_init(&mhi_ctx->mhi_lock);
 
-		mhi_uci_init();
+		mhi_uci_init(&dev_ops);
 		mhi_update_state_info(MHI_STATE_CONFIGURED);
 	}
 
