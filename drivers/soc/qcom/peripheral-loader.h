@@ -8,7 +8,9 @@
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
 #include "minidump_private.h"
-
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+#include <soc/qcom/boot_stats.h>
+#endif
 #define SECURE_PAGE_MAGIC 0xEEEEEEEE
 struct device;
 struct module;
