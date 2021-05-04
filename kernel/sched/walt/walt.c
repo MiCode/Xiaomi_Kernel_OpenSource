@@ -189,8 +189,11 @@ static inline void walt_task_dump(struct task_struct *p)
 	int i, j = 0;
 	int buffsz = WALT_NR_CPUS * 16;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+	bool is_32bit_thread = is_compat_thread(task_thread_info(p));
 
-	SCHED_PRINT(p->pid);
+	printk_deferred("Task: %.16s-%d\n", p->comm, p->pid);
+	SCHED_PRINT(p->policy);
+	SCHED_PRINT(p->prio);
 	SCHED_PRINT(wts->mark_start);
 	SCHED_PRINT(wts->demand);
 	SCHED_PRINT(wts->coloc_demand);
@@ -213,6 +216,10 @@ static inline void walt_task_dump(struct task_struct *p)
 	SCHED_PRINT(wts->last_enqueued_ts);
 	SCHED_PRINT(wts->misfit);
 	SCHED_PRINT(wts->unfilter);
+	SCHED_PRINT(is_32bit_thread);
+	SCHED_PRINT(wts->grp);
+	SCHED_PRINT(p->on_cpu);
+	SCHED_PRINT(p->on_rq);
 }
 
 static inline void walt_rq_dump(int cpu)
@@ -285,15 +292,32 @@ static int in_sched_bug;
 })
 
 static inline void
-fixup_cumulative_runnable_avg(struct walt_sched_stats *stats,
+fixup_cumulative_runnable_avg(struct task_struct *p,
+			      struct walt_sched_stats *stats,
 			      s64 demand_scaled_delta,
 			      s64 pred_demand_scaled_delta)
 {
-	stats->cumulative_runnable_avg_scaled += demand_scaled_delta;
-	BUG_ON((s64)stats->cumulative_runnable_avg_scaled < 0);
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+	s64 cumulative_runnable_avg_scaled =
+		stats->cumulative_runnable_avg_scaled + demand_scaled_delta;
+	s64 pred_demands_sum_scaled =
+		stats->pred_demands_sum_scaled + pred_demand_scaled_delta;
 
-	stats->pred_demands_sum_scaled += pred_demand_scaled_delta;
-	BUG_ON((s64)stats->pred_demands_sum_scaled < 0);
+	if (cumulative_runnable_avg_scaled < 0) {
+		printk_deferred("WALT-BUG task ds=%llu is higher than cra=%llu\n",
+				wts->demand_scaled, stats->cumulative_runnable_avg_scaled);
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
+	stats->cumulative_runnable_avg_scaled = (u64)cumulative_runnable_avg_scaled;
+
+	if (pred_demands_sum_scaled < 0) {
+		printk_deferred("WALT-BUG task pds=%llu is higher than pds_sum=%llu\n",
+				wts->pred_demand_scaled, stats->pred_demands_sum_scaled);
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
+	stats->pred_demands_sum_scaled = (u64)pred_demands_sum_scaled;
 }
 
 static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
@@ -307,7 +331,7 @@ static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 				wts->pred_demand_scaled;
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 
-	fixup_cumulative_runnable_avg(&wrq->walt_stats, task_load_delta,
+	fixup_cumulative_runnable_avg(p, &wrq->walt_stats, task_load_delta,
 				      pred_demand_delta);
 }
 
@@ -3601,7 +3625,7 @@ walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	fixup_cumulative_runnable_avg(&wrq->walt_stats, wts->demand_scaled,
+	fixup_cumulative_runnable_avg(p, &wrq->walt_stats, wts->demand_scaled,
 					wts->pred_demand_scaled);
 }
 
@@ -3611,7 +3635,7 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	fixup_cumulative_runnable_avg(&wrq->walt_stats,
+	fixup_cumulative_runnable_avg(p, &wrq->walt_stats,
 				      -(s64)wts->demand_scaled,
 				      -(s64)wts->pred_demand_scaled);
 }
