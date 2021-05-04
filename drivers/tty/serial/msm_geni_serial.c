@@ -3542,13 +3542,17 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to Read FW ver: %d\n", ret);
 		goto exit_geni_serial_probe;
 	}
+	/*
+	 * In abrupt kill scenarios, previous state of the uart causing runtime
+	 * resume, lead to spinlock bug in stop_rx_sequencer, so initializing it
+	 * before
+	 */
+	if (!dev_port->is_console)
+		spin_lock_init(&dev_port->rx_lock);
 
 	ret = uart_add_one_port(drv, uport);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to register uart_port: %d\n", ret);
-
-	if (!dev_port->is_console)
-		spin_lock_init(&dev_port->rx_lock);
 
 exit_geni_serial_probe:
 	PRINT_LOG(6, LOG_LEVEL, dev_port->ipc_log_misc, __func__, INT, "ret", ret);
