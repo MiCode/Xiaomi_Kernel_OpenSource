@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
+
+#include <linux/types.h>
 
 #ifndef _UAPI_QBT_HANDLER_H_
 #define _UAPI_QBT_HANDLER_H_
@@ -20,6 +22,8 @@
 
 #define QBT_GET_TOUCH_FD_VERSION  109
 #define QBT_CONFIGURE_TOUCH_FD_V2 110
+
+#define QBT_INTR2_TEST            111
 
 /*
  * enum qbt_finger_events -
@@ -114,4 +118,12 @@ struct qbt_touch_config_v2 {
 	int rad_y;
 };
 
+/*
+ * struct qbt_intr2_test -
+ *		used for INTR2 factory test
+ * @state: state to toggle INTR2 pin
+ */
+struct qbt_intr2_test {
+	__s32 state;
+};
 #endif /* _UAPI_QBT_HANDLER_H_ */
