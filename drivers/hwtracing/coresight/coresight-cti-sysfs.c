@@ -170,7 +170,12 @@ static ssize_t name##_show(struct device *dev,				\
 {									\
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);	\
 	u32 val = 0;							\
-	pm_runtime_get_sync(dev->parent);				\
+	int ret;							\
+	ret = pm_runtime_get_sync(dev->parent);				\
+	if (ret < 0) {							\
+		pm_runtime_put_noidle(dev->parent);			\
+		return ret;						\
+	}								\
 	spin_lock(&drvdata->spinlock);					\
 	if (drvdata->config.hw_powered)					\
 		val = readl_relaxed(drvdata->base + offset);		\
@@ -473,7 +478,12 @@ static ssize_t name##_show(struct device *dev,				\
 {									\
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);	\
 	u32 val = 0;							\
-	pm_runtime_get_sync(dev->parent);				\
+	int ret;							\
+	ret = pm_runtime_get_sync(dev->parent);				\
+	if (ret < 0) {							\
+		pm_runtime_put_noidle(dev->parent);			\
+		return ret;						\
+	}								\
 	spin_lock(&drvdata->spinlock);					\
 	if (drvdata->config.hw_powered)					\
 		val = readl_relaxed(drvdata->base + offset);		\
@@ -488,10 +498,15 @@ static ssize_t name##_store(struct device *dev,				\
 {									\
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);	\
 	unsigned long val = 0;						\
+	int ret;							\
 	if (kstrtoul(buf, 0, &val))					\
 		return -EINVAL;						\
 									\
-	pm_runtime_get_sync(dev->parent);				\
+	ret = pm_runtime_get_sync(dev->parent);				\
+	if (ret < 0) {							\
+		pm_runtime_put_noidle(dev->parent);			\
+		return ret;						\
+	}								\
 	spin_lock(&drvdata->spinlock);					\
 	if (drvdata->config.hw_powered)					\
 		cti_write_single_reg(drvdata, offset, val);		\
@@ -509,10 +524,15 @@ static ssize_t name##_store(struct device *dev,				\
 {									\
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);	\
 	unsigned long val = 0;						\
+	int ret;							\
 	if (kstrtoul(buf, 0, &val))					\
 		return -EINVAL;						\
 									\
-	pm_runtime_get_sync(dev->parent);				\
+	ret = pm_runtime_get_sync(dev->parent);				\
+	if (ret < 0) {							\
+		pm_runtime_put_noidle(dev->parent);			\
+		return ret;						\
+	}								\
 	spin_lock(&drvdata->spinlock);					\
 	if (drvdata->config.hw_powered)					\
 		cti_write_single_reg(drvdata, offset, val);		\
