@@ -3305,6 +3305,13 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to Read FW ver: %d\n", ret);
 		goto exit_geni_serial_probe;
 	}
+	/*
+	 * In abrupt kill scenarios, previous state of the uart causing runtime
+	 * resume, lead to spinlock bug in stop_rx_sequencer, so initializing it
+	 * before
+	 */
+	if (!is_console)
+		spin_lock_init(&dev_port->rx_lock);
 
 	ret = uart_add_one_port(drv, uport);
 	if (ret)
@@ -3316,8 +3323,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	 */
 	if (uart_console(uport))
 		geni_se_remove_earlycon_icc_vote(dev_port->wrapper_dev);
-	else
-		spin_lock_init(&dev_port->rx_lock);
 
 	if (strcmp(id->compatible, "qcom,msm-geni-console") == 0)
 		snprintf(boot_marker, sizeof(boot_marker),
