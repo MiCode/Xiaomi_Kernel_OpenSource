@@ -641,6 +641,10 @@ struct fastrpc_file {
 	spinlock_t aqlock;
 	uint32_t ws_timeout;
 	bool untrusted_process;
+	/* Process kill will wait on work when ram dump collection in progress */
+	struct completion work;
+	/* Flag to indicate ram dump collection status*/
+	bool is_ramdump_pend;
 };
 
 static struct fastrpc_apps gfa;
@@ -904,8 +908,7 @@ static int fastrpc_elf_ramdump(void *rh_dump_dev, struct ramdump_segment *ramdum
 {
 	int err = 0;
 
-	err = do_elf_ramdump(
-		rh_dump_dev,
+	err = do_minidump(rh_dump_dev,
 			ramdump_seg, 1);
 
 	return err;
@@ -2244,25 +2247,21 @@ static void fastrpc_ramdump_collection(int cid)
 	struct fastrpc_channel_ctx *chan = &me->channel[cid];
 	struct ramdump_segment ramdump_entry;
 	struct fastrpc_buf *buf = NULL;
-	int ret;
+	int ret = 0;
 	char ramdump_name[RAMDUMP_NAME_MAX_LENGTH];
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (fl->cid == cid && fl->init_mem) {
-			/* process exit state condition should */
-			/* checked in spin lock to avoid race conditions */
-			spin_lock(&fl->hlock);
-				if (fl->file_close == FASTRPC_PROCESS_DEFAULT_STATE)
-					hlist_add_head(&fl->init_mem->hn_init,
-						&chan->initmems);
-			spin_unlock(&fl->hlock);
+			hlist_add_head(&fl->init_mem->hn_init, &chan->initmems);
+			fl->is_ramdump_pend = true;
 		}
 	}
 	spin_unlock(&me->hlock);
 
 	if (chan->rh_dump_dev) {
 		hlist_for_each_entry_safe(buf, n, &chan->initmems, hn_init) {
+			memset(&ramdump_entry, 0, sizeof(ramdump_entry));
 			ramdump_entry.address = buf->phys;
 			ramdump_entry.v_address = (void __iomem *)buf->virt;
 			ramdump_entry.size = buf->size;
@@ -2273,8 +2272,10 @@ static void fastrpc_ramdump_collection(int cid)
 			}
 			ret = fastrpc_elf_ramdump(chan->rh_dump_dev, &ramdump_entry);
 			if (ret < 0)
-				pr_err("adsprpc: %s: unable to dump PD memory (err %d)\n",
+				ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
 					__func__, ret);
+			if (buf->fl)
+				complete(&buf->fl->work);
 			hlist_del_init(&buf->hn_init);
 		}
 	}
@@ -5128,7 +5129,17 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	(void)fastrpc_release_current_dsp_process(fl);
 
 	spin_lock(&fl->apps->hlock);
+	if (!fl->is_ramdump_pend) {
+		spin_unlock(&fl->apps->hlock);
+		goto skip_dump_wait;
+	}
+	spin_unlock(&fl->apps->hlock);
+	wait_for_completion(&fl->work);
+
+skip_dump_wait:
+	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
+	fl->is_ramdump_pend = false;
 	spin_unlock(&fl->apps->hlock);
 	kfree(fl->debug_buf);
 	kfree(fl->gidlist.gids);
@@ -5536,6 +5547,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->init_mem = NULL;
 	fl->qos_request = 0;
 	fl->dsp_proc_init = 0;
+	fl->is_ramdump_pend = false;
+	init_completion(&fl->work);
 	fl->file_close = FASTRPC_PROCESS_DEFAULT_STATE;
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
