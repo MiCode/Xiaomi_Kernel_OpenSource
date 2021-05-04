@@ -1356,6 +1356,13 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 			map->refs = 2;
 		}
 		if (mflags == ADSP_MMAP_DMA_BUFFER) {
+			VERIFY(err, !IS_ERR_OR_NULL(map->buf));
+			if (err) {
+				ADSPRPC_ERR("Invalid DMA buffer address %pK\n",
+					map->buf);
+				err = -EFAULT;
+				goto bail;
+			}
 			/* Increment DMA buffer ref count,
 			 * so that client cannot unmap DMA buffer, before freeing buffer
 			 */
