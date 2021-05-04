@@ -15,6 +15,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/trace.h>
 
 #include "adreno.h"
 #include "adreno_a3xx.h"
@@ -1107,6 +1108,8 @@ int adreno_device_probe(struct platform_device *pdev,
 	if (status)
 		goto err;
 
+	adreno_fence_trace_array_init(device);
+
 	/* Probe for the optional CX_DBGC block */
 	adreno_cx_dbgc_probe(device);
 
@@ -1206,6 +1209,8 @@ static void adreno_unbind(struct device *dev)
 
 	adreno_dev = ADRENO_DEVICE(device);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	trace_array_put(device->fence_trace_array);
 
 	if (gpudev->remove != NULL)
 		gpudev->remove(adreno_dev);

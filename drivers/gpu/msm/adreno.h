@@ -1745,4 +1745,12 @@ static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
 	adreno_dev->dispatch_ops = ops;
 }
 
+/**
+ * adreno_fence_trace_array_init - Initialize an always on trace array
+ * @device: A GPU device handle
+ *
+ * Register an always-on trace array to for fence timeout debugging
+ */
+void adreno_fence_trace_array_init(struct kgsl_device *device);
+
 #endif /*__ADRENO_H */
