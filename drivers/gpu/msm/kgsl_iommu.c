@@ -680,13 +680,17 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		no_page_fault_log = kgsl_mmu_log_fault_addr(mmu, ptbase, addr);
 
 	if (!no_page_fault_log && __ratelimit(&_rs)) {
+		struct kgsl_context *context = kgsl_context_get(device,
+							contextidr);
+
 		dev_crit(ctx->kgsldev->dev,
-			"GPU PAGE FAULT: addr = %lX pid= %d name=%s\n", addr,
-			ptname, comm);
+			"GPU PAGE FAULT: addr = %lX pid= %d name=%s drawctxt=%d context pid = %d\n",
+			addr, ptname, comm, contextidr, context ? context->tid : 0);
 		dev_crit(ctx->kgsldev->dev,
-			"context=%s TTBR0=0x%llx CIDR=0x%x (%s %s fault)\n",
-			ctx->name, ptbase, contextidr,
-			write ? "write" : "read", fault_type);
+			"context=%s TTBR0=0x%llx (%s %s fault)\n",
+			ctx->name, ptbase, write ? "write" : "read", fault_type);
+
+		kgsl_context_put(context);
 
 		if (gpudev->iommu_fault_block) {
 			unsigned int fsynr1;
