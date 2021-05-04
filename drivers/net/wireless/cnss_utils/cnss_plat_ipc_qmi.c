@@ -9,11 +9,14 @@
 #include <linux/limits.h>
 #include <linux/slab.h>
 #include <linux/cnss_plat_ipc_qmi.h>
+#include <linux/delay.h>
 #include "cnss_plat_ipc_service_v01.h"
 
 #define CNSS_MAX_FILE_SIZE (32 * 1024 * 1024)
 #define CNSS_PLAT_IPC_MAX_CLIENTS 1
 #define CNSS_PLAT_IPC_QMI_FILE_TXN_TIMEOUT 10000
+#define QMI_INIT_RETRY_MAX_TIMES 60
+#define QMI_INIT_RETRY_DELAY_MS 1000
 
 /**
  * struct cnss_plat_ipc_file_data: File transfer context data
@@ -652,18 +655,25 @@ EXPORT_SYMBOL(cnss_plat_ipc_unregister);
  */
 int __init cnss_plat_ipc_qmi_svc_init(void)
 {
-	int ret = 0;
+	int ret = 0, retry = 0;
 	struct cnss_plat_ipc_qmi_svc_ctx *svc = &plat_ipc_qmi_svc;
 
 	svc->svc_hdl = kzalloc(sizeof(*svc->svc_hdl), GFP_KERNEL);
 	if (!svc->svc_hdl)
 		return -ENOMEM;
 
+retry:
 	ret = qmi_handle_init(svc->svc_hdl,
 			      CNSS_PLAT_IPC_QMI_MAX_MSG_SIZE_V01,
 			      &cnss_plat_ipc_qmi_ops,
 			      cnss_plat_ipc_qmi_req_handlers);
 	if (ret < 0) {
+		/* If QMI is probe deferred, retry for total 60 seconds */
+		if (ret == -EPROBE_DEFER &&
+		    retry++ < QMI_INIT_RETRY_MAX_TIMES) {
+			msleep(QMI_INIT_RETRY_DELAY_MS);
+			goto retry;
+		}
 		pr_err("%s: Handle init fail: %d\n", __func__, ret);
 		goto free_svc_hdl;
 	}
