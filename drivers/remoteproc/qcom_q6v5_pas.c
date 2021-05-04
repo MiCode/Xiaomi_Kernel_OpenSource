@@ -101,6 +101,15 @@ struct qcom_adsp {
 	struct qcom_sysmon *sysmon;
 };
 
+static ssize_t txn_id_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	struct qcom_adsp *adsp = (struct qcom_adsp *)platform_get_drvdata(pdev);
+
+	return sysfs_emit(buf, "%zu\n", qcom_sysmon_get_txn_id(adsp->sysmon));
+}
+static DEVICE_ATTR_RO(txn_id);
+
 static void adsp_minidump(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
@@ -691,12 +700,19 @@ static int adsp_probe(struct platform_device *pdev)
 		goto detach_proxy_pds;
 	}
 
+	ret = device_create_file(adsp->dev, &dev_attr_txn_id);
+	if (ret)
+		goto remove_subdevs;
+
 	ret = rproc_add(rproc);
 	if (ret)
-		goto detach_proxy_pds;
+		goto remove_attr_txn_id;
 
 	return 0;
-
+remove_attr_txn_id:
+	device_remove_file(adsp->dev, &dev_attr_txn_id);
+remove_subdevs:
+	qcom_remove_sysmon_subdev(adsp->sysmon);
 detach_proxy_pds:
 	adsp_pds_detach(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
 detach_active_pds:
@@ -712,7 +728,7 @@ static int adsp_remove(struct platform_device *pdev)
 	struct qcom_adsp *adsp = platform_get_drvdata(pdev);
 
 	rproc_del(adsp->rproc);
-
+	device_remove_file(adsp->dev, &dev_attr_txn_id);
 	qcom_remove_glink_subdev(adsp->rproc, &adsp->glink_subdev);
 	qcom_remove_sysmon_subdev(adsp->sysmon);
 	qcom_remove_smd_subdev(adsp->rproc, &adsp->smd_subdev);

@@ -63,6 +63,12 @@ struct qcom_sysmon {
 static DEFINE_MUTEX(sysmon_lock);
 static LIST_HEAD(sysmon_list);
 
+uint32_t qcom_sysmon_get_txn_id(struct qcom_sysmon *sysmon)
+{
+	return sysmon->transaction_id;
+}
+EXPORT_SYMBOL(qcom_sysmon_get_txn_id);
+
 /**
  * sysmon_send_event() - send notification of other remote's SSR event
  * @sysmon:	sysmon context
