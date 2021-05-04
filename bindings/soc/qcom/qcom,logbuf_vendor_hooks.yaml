@@ -1,0 +1,25 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/soc/qcom/qcom,logbuf_vendor_hooks.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. Logbuf Vendor Hooks Binding
+
+description: |
+  Logbuf Vendor Hook driver is used to register logbuf specific vendor hooks
+  with core kernel to copy initial kernel log to a separate buffer even though
+  kernel log gets overflowed.
+
+properties:
+  compatible:
+    items:
+      - const: qcom,logbuf-vendor-hooks
+
+required:
+  - compatible
+
+examples:
+  - |
+    logbuf: qcom,logbuf-vendor-hooks {
+        compatible = "qcom,logbuf-vendor-hooks";
+    };
