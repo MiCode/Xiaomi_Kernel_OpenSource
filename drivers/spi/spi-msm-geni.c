@@ -1153,7 +1153,6 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 		}
 	}
 setup_ipc:
-	mas->ipc = ipc_log_context_create(4, dev_name(mas->dev), 0);
 	dev_info(mas->dev, "tx_fifo %d rx_fifo %d tx_width %d\n",
 		mas->tx_fifo_depth, mas->rx_fifo_depth,
 		mas->tx_fifo_width);
@@ -2004,6 +2003,11 @@ static int spi_geni_probe(struct platform_device *pdev)
 		pm_runtime_use_autosuspend(&pdev->dev);
 	}
 	pm_runtime_enable(&pdev->dev);
+
+	geni_mas->ipc = ipc_log_context_create(4, dev_name(geni_mas->dev), 0);
+	if (!geni_mas->ipc && IS_ENABLED(CONFIG_IPC_LOGGING))
+		dev_err(&pdev->dev, "Error creating IPC logs\n");
+
 	ret = spi_register_master(spi);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register SPI master\n");
