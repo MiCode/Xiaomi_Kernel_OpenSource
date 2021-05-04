@@ -2321,6 +2321,22 @@
 		};
 	};
 
+	sdhc2_opp_table: sdhc2-opp-table {
+		compatible = "operating-points-v2";
+
+		opp-100000000 {
+			opp-hz = /bits/ 64 <100000000>;
+			opp-peak-kBps = <160000 100000>;
+			opp-avg-kBps = <80000 50000>;
+		};
+
+		opp-202000000 {
+			opp-hz = /bits/ 64 <202000000>;
+			opp-peak-kBps = <200000 120000>;
+			opp-avg-kBps = <80000 50000>;
+		};
+	};
+
 	sdhc_2: sdhci@8804000 {
 		status = "disabled";
 
@@ -2355,20 +2371,14 @@
 		interconnect-names = "sdhc-ddr","cpu-sdhc";
 		operating-points-v2 = <&sdhc2_opp_table>;
 
-		sdhc2_opp_table: sdhc2-opp-table {
-			 compatible = "operating-points-v2";
+		qos0 {
+			mask = <0xf0>;
+			vote = <44>;
+		};
 
-			 opp-100000000 {
-				 opp-hz = /bits/ 64 <100000000>;
-				 opp-peak-kBps = <160000 100000>;
-				 opp-avg-kBps = <80000 50000>;
-			 };
-
-			 opp-202000000 {
-				 opp-hz = /bits/ 64 <202000000>;
-				 opp-peak-kBps = <200000 120000>;
-				 opp-avg-kBps = <80000 50000>;
-			 };
+		qos1 {
+			mask = <0x0f>;
+			vote = <44>;
 		};
 	};
 
