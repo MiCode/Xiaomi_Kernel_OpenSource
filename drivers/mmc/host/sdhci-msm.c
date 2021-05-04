@@ -3947,7 +3947,6 @@ static void sdhci_msm_qos_init(struct sdhci_msm_host *msm_host)
 	struct qos_cpu_group *qcg;
 	int i, err, mask = 0;
 
-	return;
 	qr = kzalloc(sizeof(*qr), GFP_KERNEL);
 	if (!qr)
 		return;
@@ -4560,7 +4559,7 @@ static __maybe_unused int sdhci_msm_runtime_suspend(struct device *dev)
 skip_qos:
 	queue_delayed_work(msm_host->workq,
 			&msm_host->clk_gating_work,
-			msecs_to_jiffies(msm_host->pm_qos_delay));
+			msecs_to_jiffies(msm_host->clk_gating_delay));
 	return 0;
 }
 
@@ -4571,7 +4570,6 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	struct sdhci_msm_qos_req *qos_req = msm_host->sdhci_qos;
 	int ret;
-
 
 	ret = cancel_delayed_work_sync(&msm_host->clk_gating_work);
 	if (!ret) {
@@ -4602,7 +4600,7 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 		sdhci_msm_vote_pmqos(msm_host->mmc,
 					msm_host->sdhci_qos->active_mask);
 
-	return ret;
+	return 0;
 }
 
 static int sdhci_msm_suspend_late(struct device *dev)
