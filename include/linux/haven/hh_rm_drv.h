@@ -220,6 +220,7 @@ int hh_rm_vm_irq_release_notify(hh_vmid_t vmid, hh_virq_handle_t virq_handle);
 int hh_rm_vm_irq_reclaim(hh_virq_handle_t virq_handle);
 
 int hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_cb_t fnptr);
+void gh_rm_unset_virtio_mmio_cb(void);
 int hh_rm_set_vcpu_affinity_cb(hh_vcpu_affinity_cb_t fnptr);
 
 /* Client APIs for VM management */
@@ -443,6 +444,11 @@ static inline int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
 static inline int hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_cb_t fnptr)
 {
 	return -EINVAL;
+}
+
+static inline void gh_rm_unset_virtio_mmio_cb(void)
+{
+
 }
 
 static inline int hh_rm_set_vcpu_affinity_cb(hh_vcpu_affinity_cb fnptr)
