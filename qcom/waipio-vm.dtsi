@@ -246,6 +246,25 @@
 		qcom,bus-id = <0>;
 	};
 
+	vm_tlmm_irq: vm-tlmm-irq@0 {
+		compatible = "qcom,tlmm-vm-irq";
+		reg = <0x0 0x0>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	tlmm: pinctrl@f000000 {
+		compatible = "qcom,waipio-vm-pinctrl";
+		reg = <0x0F000000 0x1000000>;
+		interrupts-extended = <&vm_tlmm_irq 1 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		/* Valid pins */
+		gpios = /bits/ 16 <0 1>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
