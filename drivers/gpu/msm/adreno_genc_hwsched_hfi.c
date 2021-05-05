@@ -723,6 +723,26 @@ static void enable_async_hfi(struct adreno_device *adreno_dev)
 		(u32)~hfi->irq_mask);
 }
 
+static int enable_preemption(struct adreno_device *adreno_dev)
+{
+	u32 data;
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return 0;
+
+	/*
+	 * Bits [0:1] contains the preemption level
+	 * Bit 2 is to enable/disable gmem save/restore
+	 * Bit 3 is to enable/disable skipsaverestore
+	 */
+	data = FIELD_PREP(GENMASK(1, 0), adreno_dev->preempt.preempt_level) |
+			FIELD_PREP(BIT(2), adreno_dev->preempt.usesgmem) |
+			FIELD_PREP(BIT(3), adreno_dev->preempt.skipsaverestore);
+
+	return genc_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_PREEMPTION, 1,
+			data);
+}
+
 int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
@@ -754,6 +774,10 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 		goto err;
 
 	ret = genc_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_KPROF, 1, 0);
+	if (ret)
+		goto err;
+
+	ret = enable_preemption(adreno_dev);
 	if (ret)
 		goto err;
 
