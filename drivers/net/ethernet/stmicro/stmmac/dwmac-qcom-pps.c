@@ -453,3 +453,17 @@ fail_alloc_cdev:
 alloc_chrdev1_region_fail:
 		return ret;
 }
+
+int ethqos_remove_pps_dev(struct qcom_ethqos *ethqos)
+{
+	device_destroy(ethqos->avb_class_a_class, ethqos->avb_class_a_dev_t);
+	class_destroy(ethqos->avb_class_a_class);
+	cdev_del(ethqos->avb_class_a_cdev);
+	unregister_chrdev_region(ethqos->avb_class_a_dev_t, 1);
+
+	device_destroy(ethqos->avb_class_b_class, ethqos->avb_class_b_dev_t);
+	class_destroy(ethqos->avb_class_b_class);
+	cdev_del(ethqos->avb_class_b_cdev);
+	unregister_chrdev_region(ethqos->avb_class_b_dev_t, 1);
+	return 0;
+}

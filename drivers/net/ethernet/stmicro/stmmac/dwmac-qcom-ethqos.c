@@ -1522,6 +1522,20 @@ fail:
 	return -ENOMEM;
 }
 
+static int ethqos_cleanup_debugfs(struct qcom_ethqos *ethqos)
+{
+	if (!ethqos) {
+		ETHQOSERR("Null Param");
+		return -ENODEV;
+	}
+
+	debugfs_remove_recursive(ethqos->debugfs_dir);
+	ethqos->debugfs_dir = NULL;
+
+	ETHQOSDBG("debugfs Deleted Successfully");
+	return 0;
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1704,6 +1718,11 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 	struct qcom_ethqos *ethqos;
 	int ret;
 
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,emac-smmu-embedded")) {
+		of_platform_depopulate(&pdev->dev);
+		return 0;
+	}
+
 	ethqos = get_stmmac_bsp_priv(&pdev->dev);
 	if (!ethqos)
 		return -ENODEV;
@@ -1717,8 +1736,16 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 	if (phy_intr_en)
 		cancel_work_sync(&ethqos->emac_phy_work);
 
+	if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG)
+		ethqos_remove_pps_dev(ethqos);
+
+	ethqos_cleanup_debugfs(ethqos);
+	ethqos_free_gpios(ethqos);
 	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
+
+	platform_set_drvdata(pdev, NULL);
+	of_platform_depopulate(&pdev->dev);
 
 	return ret;
 }
