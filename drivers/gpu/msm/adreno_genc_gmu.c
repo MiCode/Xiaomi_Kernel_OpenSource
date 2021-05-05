@@ -2243,10 +2243,6 @@ static int genc_first_boot(struct adreno_device *adreno_dev)
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return genc_boot(adreno_dev);
 
-	ret = adreno_dispatcher_init(adreno_dev);
-	if (ret)
-		return ret;
-
 	ret = genc_ringbuffer_init(adreno_dev);
 	if (ret)
 		return ret;
@@ -2562,6 +2558,10 @@ int genc_gmu_device_probe(struct platform_device *pdev,
 	adreno_dev = &genc_dev->adreno_dev;
 
 	ret = genc_probe_common(pdev, adreno_dev, chipid, gpucore);
+	if (ret)
+		return ret;
+
+	ret = adreno_dispatcher_init(adreno_dev);
 	if (ret)
 		return ret;
 

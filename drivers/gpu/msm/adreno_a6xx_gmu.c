@@ -2943,10 +2943,6 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_boot(adreno_dev);
 
-	ret = adreno_dispatcher_init(adreno_dev);
-	if (ret)
-		return ret;
-
 	ret = a6xx_ringbuffer_init(adreno_dev);
 	if (ret)
 		return ret;
@@ -3298,6 +3294,10 @@ int a6xx_gmu_device_probe(struct platform_device *pdev,
 	adreno_dev = &a6xx_dev->adreno_dev;
 
 	ret = a6xx_probe_common(pdev, adreno_dev, chipid, gpucore);
+	if (ret)
+		return ret;
+
+	ret = adreno_dispatcher_init(adreno_dev);
 	if (ret)
 		return ret;
 
