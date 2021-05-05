@@ -6,3 +6,8 @@
 &modem_pas {
 	status = "disabled";
 };
+
+&mhi0 {
+	esoc-names = "mdm";
+	esoc-0 = <&mdm0>;
+};
