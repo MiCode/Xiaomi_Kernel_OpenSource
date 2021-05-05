@@ -347,7 +347,7 @@ def run_headers_install(verbose, gen_dir, headers_install, unifdef, prefix, h):
 
   env = os.environ.copy()
   env["LOC_UNIFDEF"] = unifdef
-  result = subprocess.call(['sh', headers_install, h, out_h], env=env)
+  result = subprocess.call(['sh', headers_install, out_h_dirname, h_dirname, out_h_basename], env=env)
 
   if result != 0:
     print('error: run_headers_install: cmd %s failed %d' % (cmd, result))
