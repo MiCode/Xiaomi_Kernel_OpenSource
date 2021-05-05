@@ -3722,7 +3722,7 @@ static void dwc3_resume_work(struct work_struct *w)
 			dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
 	}
 
-	if (dwc->maximum_speed >= USB_SPEED_SUPER)
+	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER)
 		dwc3_set_ssphy_orientation_flag(mdwc);
 
 skip_update:
