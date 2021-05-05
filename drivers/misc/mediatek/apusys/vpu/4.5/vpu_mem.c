@@ -22,7 +22,8 @@
 
 static void vpu_iova_free(struct device *dev, struct vpu_iova *i);
 
-static int vpu_iova_cmp(void *priv, struct list_head *a, struct list_head *b)
+static int vpu_iova_cmp(void *priv, const struct list_head *a,
+		const struct list_head *b)
 {
 	struct vpu_iova *ia, *ib;
 

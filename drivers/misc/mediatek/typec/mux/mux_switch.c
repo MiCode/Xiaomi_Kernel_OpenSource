@@ -12,6 +12,7 @@
 #include <linux/usb/typec.h>
 #include <linux/usb/typec_mux.h>
 #include <linux/sysfs.h>
+#include <mux.h>
 
 #include "bus.h"
 #include "mux_switch.h"

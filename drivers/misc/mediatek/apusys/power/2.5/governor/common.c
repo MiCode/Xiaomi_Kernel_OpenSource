@@ -48,7 +48,7 @@ void get_datas(struct apu_gov_data *gov_data, struct apu_gov_data **pgov_data,
 		*dev = pdev;
 }
 
-int apu_cmp(void *priv, struct list_head *a, struct list_head *b)
+int apu_cmp(void *priv, const struct list_head *a, const struct list_head *b)
 {
 	struct apu_req *ta, *tb;
 

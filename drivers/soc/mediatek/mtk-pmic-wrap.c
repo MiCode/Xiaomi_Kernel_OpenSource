@@ -26,11 +26,12 @@
 /* macro for wrapper status */
 #define PWRAP_GET_SWINF_2_FSM(x)	(((x) >> 1) & 0x00000007)
 #define PWRAP_GET_WACS_RDATA(x)		(((x) >> 0) & 0x0000ffff)
+#define PWRAP_GET_WACS_ARB_FSM(x)	(((x) >> 1) & 0x00000007)
 #define PWRAP_GET_WACS_FSM(x)		(((x) >> 16) & 0x00000007)
 #define PWRAP_GET_WACS_REQ(x)		(((x) >> 19) & 0x00000001)
-#define PWRAP_STATE_SYNC_IDLE0		(1 << 20)
-#define PWRAP_STATE_INIT_DONE0		(1 << 21)
-#define PWRAP_STATE_INIT_DONE1		(1 << 15)
+#define PWRAP_STATE_SYNC_IDLE0		BIT(20)
+#define PWRAP_STATE_INIT_DONE0		BIT(21)
+#define PWRAP_STATE_INIT_DONE1		BIT(15)
 
 /* macro for WACS FSM */
 #define PWRAP_WACS_FSM_IDLE		0x00
@@ -358,6 +359,8 @@ enum pwrap_regs {
 	PWRAP_DCM_DBC_PRD,
 	PWRAP_EINT_STA0_ADR,
 	PWRAP_EINT_STA1_ADR,
+	PWRAP_SWINF_2_WDATA_31_0,
+	PWRAP_SWINF_2_RDATA_31_0,
 
 	/* MT2701 only regs */
 	PWRAP_ADC_CMD_ADDR,
@@ -365,10 +368,6 @@ enum pwrap_regs {
 	PWRAP_ADC_RDY_ADDR,
 	PWRAP_ADC_RDATA_ADDR1,
 	PWRAP_ADC_RDATA_ADDR2,
-
-	/* MT6873 only regs */
-	PWRAP_SWINF_2_WDATA_31_0,
-	PWRAP_SWINF_2_RDATA_31_0,
 
 	/* MT7622 only regs */
 	PWRAP_STA,
@@ -1170,32 +1169,25 @@ static void pwrap_swinf_info(struct pmic_wrapper *wrp)
 	}
 }
 
-static bool pwrap_is_fsm_idle(struct pmic_wrapper *wrp)
+static u32 pwrap_get_fsm_state(struct pmic_wrapper *wrp)
 {
 	u32 val;
-	int ret;
 
 	val = pwrap_readl(wrp, PWRAP_WACS2_RDATA);
 	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
-		ret = (PWRAP_GET_SWINF_2_FSM(val) == PWRAP_WACS_FSM_IDLE);
+		return PWRAP_GET_WACS_ARB_FSM(val);
 	else
-		ret = (PWRAP_GET_WACS_FSM(val) == PWRAP_WACS_FSM_IDLE);
+		return PWRAP_GET_WACS_FSM(val);
+}
 
-	return ret;
+static bool pwrap_is_fsm_idle(struct pmic_wrapper *wrp)
+{
+	return pwrap_get_fsm_state(wrp) == PWRAP_WACS_FSM_IDLE;
 }
 
 static bool pwrap_is_fsm_vldclr(struct pmic_wrapper *wrp)
 {
-	u32 val;
-	int ret;
-
-	val = pwrap_readl(wrp, PWRAP_WACS2_RDATA);
-	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
-		ret = (PWRAP_GET_SWINF_2_FSM(val) == PWRAP_WACS_FSM_WFVLDCLR);
-	else
-		ret = (PWRAP_GET_WACS_FSM(val) == PWRAP_WACS_FSM_WFVLDCLR);
-
-	return ret;
+	return pwrap_get_fsm_state(wrp) == PWRAP_WACS_FSM_WFVLDCLR;
 }
 
 /*
@@ -1249,6 +1241,7 @@ static int pwrap_wait_for_state(struct pmic_wrapper *wrp,
 static int pwrap_read16(struct pmic_wrapper *wrp, u32 adr, u32 *rdata)
 {
 	int ret;
+	u32 val;
 
 	ret = pwrap_wait_for_state(wrp, pwrap_is_fsm_idle);
 	if (ret) {
@@ -1257,21 +1250,20 @@ static int pwrap_read16(struct pmic_wrapper *wrp, u32 adr, u32 *rdata)
 	}
 
 	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
-		pwrap_writel(wrp, adr, PWRAP_WACS2_CMD);
+		val = adr;
 	else
-		pwrap_writel(wrp, (adr >> 1) << 16, PWRAP_WACS2_CMD);
-
+		val = (adr >> 1) << 16;
+	pwrap_writel(wrp, val, PWRAP_WACS2_CMD);
 
 	ret = pwrap_wait_for_state(wrp, pwrap_is_fsm_vldclr);
 	if (ret)
 		return ret;
 
 	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
-		*rdata = PWRAP_GET_WACS_RDATA(pwrap_readl(wrp,
-					      PWRAP_SWINF_2_RDATA_31_0));
+		val = pwrap_readl(wrp, PWRAP_SWINF_2_RDATA_31_0);
 	else
-		*rdata = PWRAP_GET_WACS_RDATA(pwrap_readl(wrp,
-					      PWRAP_WACS2_RDATA));
+		val = pwrap_readl(wrp, PWRAP_WACS2_RDATA);
+	*rdata = PWRAP_GET_WACS_RDATA(val);
 
 	pwrap_writel(wrp, 1, PWRAP_WACS2_VLDCLR);
 
@@ -1323,9 +1315,9 @@ static int pwrap_write16(struct pmic_wrapper *wrp, u32 adr, u32 wdata)
 
 	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB)) {
 		pwrap_writel(wrp, wdata, PWRAP_SWINF_2_WDATA_31_0);
-		pwrap_writel(wrp, (1 << 29) | adr, PWRAP_WACS2_CMD);
+		pwrap_writel(wrp, BIT(29) | adr, PWRAP_WACS2_CMD);
 	} else {
-		pwrap_writel(wrp, (1 << 31) | ((adr >> 1) << 16) | wdata,
+		pwrap_writel(wrp, BIT(31) | ((adr >> 1) << 16) | wdata,
 			     PWRAP_WACS2_CMD);
 	}
 
@@ -2033,7 +2025,7 @@ static const struct pmic_wrapper_type pwrap_mt6797 = {
 	.init_soc_specific = NULL,
 };
 
-static struct pmic_wrapper_type pwrap_mt6853 = {
+static const struct pmic_wrapper_type pwrap_mt6853 = {
 	.regs = mt6853_regs,
 	.type = PWRAP_MT6853,
 	.arb_en_all = 0x777f,
@@ -2046,7 +2038,7 @@ static struct pmic_wrapper_type pwrap_mt6853 = {
 	.init_soc_specific = NULL,
 };
 
-static struct pmic_wrapper_type pwrap_mt6873 = {
+static const struct pmic_wrapper_type pwrap_mt6873 = {
 	.regs = mt6873_regs,
 	.type = PWRAP_MT6873,
 	.arb_en_all = 0x777f,
@@ -2166,7 +2158,7 @@ MODULE_DEVICE_TABLE(of, of_pwrap_match_tbl);
 static int pwrap_probe(struct platform_device *pdev)
 {
 	int ret, irq;
-	u32 rdata;
+	u32 mask_done;
 	struct pmic_wrapper *wrp;
 	struct device_node *np = pdev->dev.of_node;
 	const struct of_device_id *of_slave_id = NULL;
@@ -2261,20 +2253,19 @@ static int pwrap_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (!HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
-		rdata = pwrap_readl(wrp, PWRAP_WACS2_RDATA) &
-				    PWRAP_STATE_INIT_DONE0;
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
+		mask_done = PWRAP_STATE_INIT_DONE1;
 	else
-		rdata = pwrap_readl(wrp, PWRAP_WACS2_RDATA) &
-				    PWRAP_STATE_INIT_DONE1;
-	if (!rdata) {
+		mask_done = PWRAP_STATE_INIT_DONE0;
+
+	if (!(pwrap_readl(wrp, PWRAP_WACS2_RDATA) & mask_done)) {
 		dev_dbg(wrp->dev, "initialization isn't finished\n");
 		ret = -ENODEV;
 		goto err_out2;
 	}
 
 	/* Initialize watchdog, may not be done by the bootloader */
-	if (!(HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB)))
+	if (!HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
 		pwrap_writel(wrp, 0xf, PWRAP_WDT_UNIT);
 
 	/*

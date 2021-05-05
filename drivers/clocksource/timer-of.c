@@ -212,10 +212,10 @@ out_fail:
 EXPORT_SYMBOL_GPL(timer_of_init);
 
 /**
- * timer_of_cleanup - release timer_of ressources
+ * timer_of_cleanup - release timer_of resources
  * @to: timer_of structure
  *
- * Release the ressources that has been used in timer_of_init().
+ * Release the resources that has been used in timer_of_init().
  * This function should be called in init error cases
  */
 void timer_of_cleanup(struct timer_of *to)

@@ -101,7 +101,7 @@ struct apu_gov_data {
 void get_datas(struct apu_gov_data *gov_data,
 	       struct apu_gov_data **pgov_data, struct apu_dev **ad,
 	       struct device **dev);
-int apu_cmp(void *priv, struct list_head *a, struct list_head *b);
+int apu_cmp(void *priv, const struct list_head *a, const struct list_head *b);
 struct apu_gov_data *apu_gov_init(struct device *dev,
 				  struct devfreq_dev_profile *pf, const char **gov_name);
 int apu_gov_setup(struct apu_dev *ad, void *data);

@@ -7,6 +7,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/kfifo_buf.h>
+#include <linux/iio/triggered_buffer.h>
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/kernel.h>
@@ -300,10 +301,10 @@ static const struct iio_buffer_setup_ops mt6360_adc_iio_setup_ops = {
 	.predisable = mt6360_adc_iio_pre_disable,
 };
 
+static irqreturn_t mt6360_pmu_adc_donei_handler(int irq, void *data);
 static int mt6360_adc_iio_device_register(struct iio_dev *indio_dev)
 {
 	struct mt6360_adc_info *mai = iio_priv(indio_dev);
-	struct iio_buffer *buffer;
 	int ret;
 
 	dev_dbg(mai->dev, "%s ++\n", __func__);
@@ -315,10 +316,11 @@ static int mt6360_adc_iio_device_register(struct iio_dev *indio_dev)
 	indio_dev->num_channels = ARRAY_SIZE(mt6360_adc_channels);
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
 	indio_dev->setup_ops = &mt6360_adc_iio_setup_ops;
-	buffer = devm_iio_kfifo_allocate(mai->dev);
-	if (!buffer)
-		return -ENOMEM;
-	iio_device_attach_buffer(indio_dev, buffer);
+	ret = devm_iio_triggered_buffer_setup(mai->dev, indio_dev, NULL,
+			mt6360_pmu_adc_donei_handler, NULL);
+	if (ret)
+		return ret;
+
 	ret = devm_iio_device_register(mai->dev, indio_dev);
 	if (ret < 0) {
 		dev_err(mai->dev, "iio device  register fail\n");
