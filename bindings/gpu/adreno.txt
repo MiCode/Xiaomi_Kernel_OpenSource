@@ -97,6 +97,7 @@ Optional Properties:
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
 - qcom,gpu-model:	   If it exists this property is used for GPU model name.
+- qcom,vk-device-id:	   If it exists this property is used to specify vulkan device ID.
 - qcom,disable-wake-on-touch:   Boolean. Disables the GPU power up on a touch input event.
 - qcom,disable-busy-time-burst:
 				Boolean. Disables the busy time burst to avoid switching
@@ -272,6 +273,8 @@ Properties:
 - qcom,gpu-model:
 		GPU model name for a specific GPU hardware.
 
+- qcom,vk-device-id:
+		Vulkan device id unique for specific GPU hardware model.
 SOC Hardware revisions:
 - qcom,soc-hw-revisions:
 		Container of sets of SOC hardware revisions specified by
@@ -427,6 +430,7 @@ Example of A330 GPU in MSM8916:
 			qcom,gpu-model@0 {
 				qcom,gpu-model-id = <0>;
 				qcom,gpu-model = "Adreno642Lv1";
+				qcom,vk-device-id= <0x06030500>;
 			};
 		}
 
