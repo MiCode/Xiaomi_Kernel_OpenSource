@@ -39,6 +39,12 @@ enum  cnss_rtpm_id {
 	RTPM_ID_MAX,
 };
 
+enum cnss_pci_reg_dev_mask {
+	REG_MASK_QCA6390,
+	REG_MASK_QCA6490,
+	REG_MASK_WCN7850,
+};
+
 struct cnss_msi_user {
 	char *name;
 	int num_vectors;
@@ -62,6 +68,7 @@ struct cnss_pci_debug_reg {
 };
 
 struct cnss_misc_reg {
+	unsigned long dev_mask;
 	u8 wr;
 	u32 offset;
 	u32 val;
@@ -122,11 +129,10 @@ struct cnss_pci_data {
 	struct mutex bus_lock; /* mutex for suspend and resume bus */
 	struct cnss_pci_debug_reg *debug_reg;
 	struct cnss_misc_reg *wcss_reg;
-	u32 wcss_reg_size;
 	struct cnss_misc_reg *pcie_reg;
-	u32 pcie_reg_size;
 	struct cnss_misc_reg *wlaon_reg;
-	u32 wlaon_reg_size;
+	struct cnss_misc_reg *syspm_reg;
+	unsigned long misc_reg_dev_mask;
 	u8 iommu_geometry;
 	bool drv_supported;
 };
