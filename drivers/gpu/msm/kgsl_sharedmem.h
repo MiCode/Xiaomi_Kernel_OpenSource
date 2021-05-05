@@ -16,6 +16,8 @@
 struct kgsl_device;
 struct kgsl_process_private;
 
+extern bool kgsl_sharedmem_noretry_flag;
+
 #define KGSL_CACHE_OP_INV       0x01
 #define KGSL_CACHE_OP_FLUSH     0x02
 #define KGSL_CACHE_OP_CLEAN     0x03
@@ -71,6 +73,28 @@ void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
 void kgsl_free_secure_page(struct page *page);
 
 struct page *kgsl_alloc_secure_page(void);
+
+/**
+ * kgsl_zero_page() - zero out a page
+ * @p: pointer to the struct page
+ * @order: order of the page
+ * @dev: A &struct device pointer
+ *
+ * Map a page into kernel and zero it out
+ */
+void kgsl_zero_page(struct page *p, unsigned int order,
+		struct device *dev);
+
+/**
+ * kgsl_gfp_mask() - get gfp_mask to be used
+ * @page_order: order of the page
+ *
+ * Get the gfp_mask to be used for page allocation
+ * based on the order of the page
+ *
+ * Return appropriate gfp_mask
+ */
+gfp_t kgsl_gfp_mask(int page_order);
 
 /**
  * kgsl_allocate_user - Allocate user visible GPU memory

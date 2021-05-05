@@ -87,3 +87,12 @@ config QCOM_KGSL_QDSS_STM
 	  When enabled, the Adreno GPU QDSS STM support is enabled. GPU QDSS STM
 	  memory will be mapped to GPU and QDSS clock needed to access this memory
 	  is voted. Debug kernels should say 'Y' here.
+
+config QCOM_KGSL_USE_SHMEM
+	bool "Enable using shmem for memory allocations"
+	depends on QCOM_KGSL
+	help
+	  Say 'Y' to enable using shmem for memory allocations. If enabled,
+	  there will be no support for the memory pools and higher order pages.
+	  But using shmem will help in making kgsl pages available for
+	  reclaiming.
