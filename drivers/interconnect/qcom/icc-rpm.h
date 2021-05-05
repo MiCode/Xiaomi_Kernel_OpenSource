@@ -46,8 +46,6 @@ enum qcom_icc_rpm_context {
  * struct qcom_icc_provider - QTI specific interconnect provider
  * @provider: generic interconnect provider
  * @dev: reference to the NoC device
- * @qos_clks: the clk_bulk_data table of QoS clocks
- * @num_qos_clks: the total number of clk_bulk_data entries
  * @bus_clks: the clk_bulk_data table of bus clocks
  * @num_clks: the total number of clk_bulk_data entries
  * @bus_clk_cur_rate: current frequency of bus clock
@@ -59,8 +57,6 @@ struct qcom_icc_provider {
 	struct device *dev;
 	struct regmap *regmap;
 	struct list_head probe_list;
-	struct clk_bulk_data *qos_clks;
-	int num_qos_clks;
 	struct clk_bulk_data *bus_clks;
 	int num_clks;
 	u32 util_factor;
