@@ -636,7 +636,7 @@ static int compat_get_fastrpc_ioctl_control(
 
 	err = get_user(p, &ctrl32->req);
 	err |= put_user(p, &ctrl->req);
-	if (p == FASTRPC_CONTROL_LATENCY) {
+	if ((p == FASTRPC_CONTROL_LATENCY) || (p == FASTRPC_CONTROL_RPC_POLL)) {
 		err |= get_user(p, &ctrl32->lp.enable);
 		err |= put_user(p, &ctrl->lp.enable);
 		err |= get_user(p, &ctrl32->lp.latency);
