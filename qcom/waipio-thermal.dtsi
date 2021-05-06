@@ -990,9 +990,15 @@
 		};
 
 		cooling-maps {
-			cpu_voltage_cdev {
+			gold_cdev {
 				trip = <&ddr_config0>;
-				cooling-device = <&apc1_cluster
+				cooling-device = <&CPU4
+					THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+
+			gold_plus_cdev {
+				trip = <&ddr_config0>;
+				cooling-device = <&CPU7
 					THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 			};
 
