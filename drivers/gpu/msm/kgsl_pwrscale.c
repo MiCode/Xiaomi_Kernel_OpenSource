@@ -5,14 +5,11 @@
 
 #include <linux/devfreq_cooling.h>
 #include <linux/slab.h>
-#include <linux/pm_qos.h>
 
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
-
-#define KHZ_TO_HZ(_freq) (_freq * 1000)
 
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 	.bus = {
@@ -290,8 +287,7 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	struct kgsl_pwrctrl *pwr;
 	int level;
 	unsigned int i;
-	unsigned long cur_freq, rec_freq, cur_thermal_freq;
-	s32 qos_max_freq = dev_pm_qos_read_value(dev, DEV_PM_QOS_MAX_FREQUENCY);
+	unsigned long cur_freq, rec_freq;
 
 	if (device == NULL)
 		return -ENODEV;
@@ -299,11 +295,6 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 		return -EINVAL;
 
 	pwr = &device->pwrctrl;
-	cur_thermal_freq = pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq;
-
-	if ((!device->pwrscale.enabled) &&
-		(KHZ_TO_HZ(qos_max_freq) == cur_thermal_freq))
-		return 0;
 
 	if (_check_maxfreq(flags)) {
 		/*
@@ -320,20 +311,7 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
 	level = pwr->active_pwrlevel;
 
-	/*
-	 * As thermal constraints flow through devfreq as recommended frequency,
-	 * we need to explicitly track the constraint to prevent any overrides.
-	 */
-	if ((qos_max_freq != PM_QOS_MAX_FREQUENCY_DEFAULT_VALUE) &&
-		(KHZ_TO_HZ(qos_max_freq) != cur_thermal_freq)) {
-		for (i = 0; i < pwr->num_pwrlevels; i++) {
-			if (pwr->pwrlevels[i].gpu_freq == KHZ_TO_HZ(qos_max_freq)) {
-				pwr->thermal_pwrlevel = i;
-				trace_kgsl_thermal_constraint(KHZ_TO_HZ(qos_max_freq));
-				break;
-			}
-		}
-	}
+	kgsl_pwrctrl_update_thermal_pwrlevel(device);
 
 	/* If the governor recommends a new frequency, update it here */
 	if (rec_freq != cur_freq) {

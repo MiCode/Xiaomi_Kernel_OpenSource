@@ -285,21 +285,20 @@ void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 	}
 }
 
-static void kgsl_pwrctrl_set_thermal_pwrlevel(struct kgsl_device *device,
+static int kgsl_pwrctrl_set_thermal_limit(struct kgsl_device *device,
 		u32 level)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	mutex_lock(&device->mutex);
+	int ret = -EINVAL;
 
 	if (level >= pwr->num_pwrlevels)
 		level = pwr->num_pwrlevels - 1;
 
-	pwr->thermal_pwrlevel = level;
+	if (dev_pm_qos_request_active(&pwr->sysfs_thermal_req))
+		ret = dev_pm_qos_update_request(&pwr->sysfs_thermal_req,
+			(pwr->pwrlevels[level].gpu_freq / 1000));
 
-	/* Update the current level using the new limit */
-	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
-	mutex_unlock(&device->mutex);
+	return (ret < 0) ? ret : 0;
 }
 
 static ssize_t thermal_pwrlevel_store(struct device *dev,
@@ -314,7 +313,9 @@ static ssize_t thermal_pwrlevel_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	kgsl_pwrctrl_set_thermal_pwrlevel(device, level);
+	ret = kgsl_pwrctrl_set_thermal_limit(device, level);
+	if (ret)
+		return ret;
 
 	return count;
 }
@@ -459,7 +460,10 @@ static ssize_t max_gpuclk_store(struct device *dev,
 	 * is that it set thermal_pwrlevel instead so we don't want to mess with
 	 * that.
 	 */
-	kgsl_pwrctrl_set_thermal_pwrlevel(device, level);
+	ret = kgsl_pwrctrl_set_thermal_limit(device, level);
+	if (ret)
+		return ret;
+
 	return count;
 }
 
@@ -890,7 +894,7 @@ static ssize_t _max_clock_mhz_show(struct kgsl_device *device, char *buf)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n",
-		pwr->pwrlevels[pwr->max_pwrlevel].gpu_freq / 1000000);
+		pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq / 1000000);
 }
 
 static ssize_t max_clock_mhz_show(struct device *dev,
@@ -906,7 +910,6 @@ static ssize_t _max_clock_mhz_store(struct kgsl_device *device,
 {
 	u32 freq;
 	int ret, level;
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	ret = kstrtou32(buf, 0, &freq);
 	if (ret)
@@ -916,10 +919,14 @@ static ssize_t _max_clock_mhz_store(struct kgsl_device *device,
 	if (level < 0)
 		return level;
 
-	mutex_lock(&device->mutex);
-	pwr->max_pwrlevel = min_t(unsigned int, level, pwr->min_pwrlevel);
-	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
-	mutex_unlock(&device->mutex);
+	/*
+	 * You would think this would set max_pwrlevel but the legacy behavior
+	 * is that it set thermal_pwrlevel instead so we don't want to mess with
+	 * that.
+	 */
+	ret = kgsl_pwrctrl_set_thermal_limit(device, level);
+	if (ret)
+		return ret;
 
 	return count;
 }
@@ -1524,6 +1531,12 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pwr->wakeup_maxpwrlevel = 0;
 
+	result = dev_pm_qos_add_request(&pdev->dev, &pwr->sysfs_thermal_req,
+			DEV_PM_QOS_MAX_FREQUENCY,
+			PM_QOS_MAX_FREQUENCY_DEFAULT_VALUE);
+	if (result < 0)
+		dev_err(device->dev, "PM QoS thermal request failed:\n", result);
+
 	for (i = 0; i < pwr->num_pwrlevels; i++) {
 		freq = pwr->pwrlevels[i].gpu_freq;
 
@@ -1584,6 +1597,9 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	pwr->power_flags = 0;
 
 	kgsl_bus_close(device);
+
+	if (dev_pm_qos_request_active(&pwr->sysfs_thermal_req))
+		dev_pm_qos_remove_request(&pwr->sysfs_thermal_req);
 
 	pm_runtime_disable(&device->pdev->dev);
 
@@ -2212,4 +2228,29 @@ int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device)
 
 	/* Request adjusted DCVS level */
 	return device->ftbl->gpu_clock_set(device, pwr->active_pwrlevel);
+}
+
+/**
+ * kgsl_pwrctrl_update_thermal_pwrlevel() - Update GPU thermal power level
+ * @device: Pointer to the kgsl_device struct
+ */
+void kgsl_pwrctrl_update_thermal_pwrlevel(struct kgsl_device *device)
+{
+	s32 qos_max_freq = dev_pm_qos_read_value(&device->pdev->dev,
+				DEV_PM_QOS_MAX_FREQUENCY);
+	int level = 0;
+
+	if (qos_max_freq != PM_QOS_MAX_FREQUENCY_DEFAULT_VALUE) {
+		level = _get_nearest_pwrlevel(&device->pwrctrl,
+				qos_max_freq * 1000);
+		if (level < 0)
+			return;
+	}
+
+	if (level != device->pwrctrl.thermal_pwrlevel) {
+		trace_kgsl_thermal_constraint(
+			device->pwrctrl.pwrlevels[level].gpu_freq);
+
+		device->pwrctrl.thermal_pwrlevel = level;
+	}
 }
