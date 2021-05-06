@@ -54,7 +54,8 @@ static const struct diag_ssid_range_t msg_mask_tbl[] = {
 	{ .ssid_first = MSG_SSID_22, .ssid_last = MSG_SSID_22_LAST },
 	{ .ssid_first = MSG_SSID_23, .ssid_last = MSG_SSID_23_LAST },
 	{ .ssid_first = MSG_SSID_24, .ssid_last = MSG_SSID_24_LAST },
-	{ .ssid_first = MSG_SSID_25, .ssid_last = MSG_SSID_25_LAST }
+	{ .ssid_first = MSG_SSID_25, .ssid_last = MSG_SSID_25_LAST },
+	{ .ssid_first = MSG_SSID_26, .ssid_last = MSG_SSID_26_LAST }
 };
 
 static int diag_save_user_msg_mask(struct diag_md_session_t *info);
