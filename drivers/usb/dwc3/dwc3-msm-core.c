@@ -1913,6 +1913,8 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 			req->dma, len);
 
 	buffer_addr = req->dma;
+	dbg_log_string("TRB buffer_addr = %pad buf_len = %d\n", &buffer_addr,
+				req->buf_len);
 
 	/* Allocate and configgure TRBs */
 
