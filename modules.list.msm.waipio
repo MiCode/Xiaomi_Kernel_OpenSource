@@ -70,6 +70,7 @@ qcom-reboot-reason.ko
 qcom_rpmh.ko
 qcom-scm.ko
 qcom_wdt_core.ko
+qnoc-diwali.ko
 qnoc-qos.ko
 qrtr.ko
 qti-regmap-debugfs.ko
