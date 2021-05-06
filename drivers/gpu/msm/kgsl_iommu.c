@@ -1171,12 +1171,16 @@ static void kgsl_iommu_enable_ttbr0(struct kgsl_iommu_context *context,
 		struct kgsl_iommu_pt *pt)
 {
 	struct adreno_smmu_priv *adreno_smmu = dev_get_drvdata(&context->pdev->dev);
+	struct kgsl_mmu *mmu = pt->base.mmu;
 
 	/* Quietly return if the context doesn't have a domain */
 	if (!context->domain)
 		return;
 
+	/* Enable CX and clocks before we call into SMMU to setup registers */
+	kgsl_iommu_enable_clk(mmu);
 	adreno_smmu->set_ttbr0_cfg(adreno_smmu->cookie, &pt->cfg);
+	kgsl_iommu_disable_clk(mmu);
 }
 
 static struct kgsl_pagetable *kgsl_iommu_default_pagetable(struct kgsl_mmu *mmu)
