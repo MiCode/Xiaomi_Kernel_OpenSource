@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011, 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2021, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -86,7 +86,7 @@ struct cserial {
 
 struct f_cdev {
 	struct cdev		fcdev_cdev;
-	struct device		*dev;
+	struct device		dev;
 	unsigned int		port_num;
 	char			name[sizeof(DEVICE_NAME) + 2];
 	int			minor;
@@ -875,13 +875,16 @@ static void cser_free_inst(struct usb_function_instance *fi)
 	opts = container_of(fi, struct f_cdev_opts, func_inst);
 
 	if (opts->port) {
-		device_destroy(fcdev_classp, MKDEV(major, opts->port->minor));
-		cdev_del(&opts->port->fcdev_cdev);
+		cdev_device_del(&opts->port->fcdev_cdev, &opts->port->dev);
+		mutex_lock(&chardev_ida_lock);
+		ida_simple_remove(&chardev_ida, opts->port->minor);
+		mutex_unlock(&chardev_ida_lock);
 		usb_cser_debugfs_exit(opts->port);
+		put_device(&opts->port->dev);
 	}
+
 	usb_cser_chardev_deinit();
 	kfree(opts->func_name);
-	kfree(opts->port);
 	kfree(opts);
 }
 
@@ -1108,13 +1111,10 @@ int f_cdev_open(struct inode *inode, struct file *file)
 	struct f_cdev *port;
 
 	port = container_of(inode->i_cdev, struct f_cdev, fcdev_cdev);
-	if (!port) {
-		pr_err("Port is NULL.\n");
-		return -EINVAL;
-	}
-
-	if (port && port->port_open) {
+	get_device(&port->dev);
+	if (port->port_open) {
 		pr_err("port is already opened.\n");
+		put_device(&port->dev);
 		return -EBUSY;
 	}
 
@@ -1124,6 +1124,7 @@ int f_cdev_open(struct inode *inode, struct file *file)
 					port->is_connected);
 	if (ret) {
 		pr_debug("open interrupted.\n");
+		put_device(&port->dev);
 		return ret;
 	}
 
@@ -1143,16 +1144,12 @@ int f_cdev_release(struct inode *inode, struct file *file)
 	struct f_cdev *port;
 
 	port = file->private_data;
-	if (!port) {
-		pr_err("port is NULL.\n");
-		return -EINVAL;
-	}
-
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_open = false;
 	port->cbits_updated = false;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 	pr_debug("port(%s)(%pK) is closed.\n", port->name, port);
+	put_device(&port->dev);
 
 	return 0;
 }
@@ -1719,11 +1716,17 @@ static void usb_cser_debugfs_exit(struct f_cdev *port)
 	debugfs_remove_recursive(port->debugfs_root);
 }
 
+static void cdev_device_release(struct device *dev)
+{
+	struct f_cdev *port = container_of(dev, struct f_cdev, dev);
+
+	pr_debug("Free cdev port(%d)\n", port->port_num);
+	kfree(port);
+}
+
 static struct f_cdev *f_cdev_alloc(char *func_name, int portno)
 {
 	int ret;
-	dev_t dev;
-	struct device *device;
 	struct f_cdev *port;
 
 	port = kzalloc(sizeof(struct f_cdev), GFP_KERNEL);
@@ -1773,17 +1776,16 @@ static struct f_cdev *f_cdev_alloc(char *func_name, int portno)
 
 	/* create char device */
 	cdev_init(&port->fcdev_cdev, &f_cdev_fops);
-	dev = MKDEV(major, port->minor);
-	ret = cdev_add(&port->fcdev_cdev, dev, 1);
+	device_initialize(&port->dev);
+	port->dev.class = fcdev_classp;
+	port->dev.parent = NULL;
+	port->dev.release = cdev_device_release;
+	port->dev.devt = MKDEV(major, port->minor);
+	dev_set_name(&port->dev, port->name);
+	ret = cdev_device_add(&port->fcdev_cdev, &port->dev);
 	if (ret) {
 		pr_err("Failed to add cdev for port(%s)\n", port->name);
 		goto err_cdev_add;
-	}
-
-	device = device_create(fcdev_classp, NULL, dev, NULL, port->name);
-	if (IS_ERR(device)) {
-		ret = PTR_ERR(device);
-		goto err_create_dev;
 	}
 
 	usb_cser_debugfs_init(port);
@@ -1792,8 +1794,6 @@ static struct f_cdev *f_cdev_alloc(char *func_name, int portno)
 			port->name, port, port->port_num);
 	return port;
 
-err_create_dev:
-	cdev_del(&port->fcdev_cdev);
 err_cdev_add:
 	destroy_workqueue(port->fcdev_wq);
 err_get_ida:
