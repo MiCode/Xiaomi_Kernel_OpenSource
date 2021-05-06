@@ -412,7 +412,8 @@ void a6xx_gmu_handle_watchdog(struct adreno_device *adreno_dev);
 /**
  * a6xx_gmu_send_nmi - Send NMI to GMU
  * @adreno_dev: Pointer to the adreno device
+ * @force: Boolean to forcefully send NMI irrespective of GMU state
  */
-void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev);
+void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev, bool force);
 
 #endif
