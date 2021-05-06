@@ -109,7 +109,7 @@ static bool ili210x_touchdata_to_coords(struct ili210x *priv, u8 *touchdata,
 	if (finger >= ILI210X_TOUCHES)
 		return false;
 
-	if (touchdata[0] & BIT(finger))
+	if (!(touchdata[0] & BIT(finger)))
 		return false;
 
 	*x = get_unaligned_be16(touchdata + 1 + (finger * 4) + 0);
