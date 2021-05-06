@@ -34,6 +34,7 @@ config SPS_SUPPORT_NDP_BAM
 
 config EP_PCIE
 	tristate "PCIe Endpoint mode support"
+	depends on QCOM_PCI_EDMA
 	select GENERIC_ALLOCATOR
 	help
 	  PCIe controller is in endpoint mode.
