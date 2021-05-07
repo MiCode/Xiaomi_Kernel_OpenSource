@@ -190,10 +190,6 @@ static int a6xx_nogmu_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	ret = adreno_dispatcher_init(adreno_dev);
-	if (ret)
-		return ret;
-
 	ret = a6xx_ringbuffer_init(adreno_dev);
 	if (ret)
 		return ret;
@@ -2245,6 +2241,10 @@ static int a6xx_probe(struct platform_device *pdev,
 	memset(adreno_dev, 0, sizeof(*adreno_dev));
 
 	ret = a6xx_probe_common(pdev, adreno_dev, chipid, gpucore);
+	if (ret)
+		return ret;
+
+	ret = adreno_dispatcher_init(adreno_dev);
 	if (ret)
 		return ret;
 

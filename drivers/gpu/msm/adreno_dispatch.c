@@ -2710,6 +2710,8 @@ static void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 	kobject_put(&dispatcher->kobj);
 
 	kmem_cache_destroy(jobs_cache);
+
+	clear_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
 }
 
 struct dispatcher_attribute {
@@ -2865,6 +2867,12 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
+	dispatcher->worker = kthread_create_worker(0, "kgsl_dispatcher");
+	if (IS_ERR(dispatcher->worker)) {
+		kobject_put(&dispatcher->kobj);
+		return PTR_ERR(dispatcher->worker);
+	}
+
 	sysfs_create_files(&device->dev->kobj, _preempt_attr_list);
 
 	mutex_init(&dispatcher->mutex);
@@ -2883,15 +2891,11 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 		init_llist_head(&dispatcher->requeue[i]);
 	}
 
-	set_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
-
 	adreno_set_dispatch_ops(adreno_dev, &swsched_ops);
 
-	dispatcher->worker = kthread_create_worker(0, "kgsl_dispatcher");
-	if (IS_ERR(dispatcher->worker))
-		return PTR_ERR(dispatcher->worker);
-
 	sched_set_fifo(dispatcher->worker->task);
+
+	set_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
 
 	return 0;
 }
