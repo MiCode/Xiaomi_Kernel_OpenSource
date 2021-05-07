@@ -1,15 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <linux/debugfs.h>
@@ -1009,8 +1000,15 @@ static void veth_ipa_offload_event_handler(
 						   __func__,
 						   __LINE__);
 
-			if (!pdata->veth_emac_dev_ready)
-				break;
+			VETH_IPA_INFO("Export buffers", __func__, __LINE__);
+			ret = veth_emac_open_notify(
+					&(pdata->veth_emac_mem),
+					pdata);
+			if (ret < 0) {
+				pr_err("%s: veth_emac_open_notify failed error %d\n",
+					__func__,
+					ret);
+			}
 		}
 		break;
 	case EV_IPA_EMAC_INIT:{
@@ -1151,7 +1149,7 @@ static void  veth_ipa_emac_deinit_wq(struct work_struct *work)
 {
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
 						   struct veth_ipa_client_data,
-						   ntn_ipa_rdy_work);
+						   ntn_emac_de_init_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
 					 struct veth_ipa_dev,
 					 prv_ipa);
@@ -1168,16 +1166,16 @@ static void veth_ipa_emac_deinit_cb(void *user_data)
 		VETH_IPA_ERROR("%s Null Param pdata\n", __func__);
 		return;
 	}
-	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_deinit_wq);
-	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+	INIT_WORK(&ntn_ipa->ntn_emac_de_init_rdy_work, veth_ipa_emac_deinit_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_emac_de_init_rdy_work);
 }
 
 
 static void  veth_ipa_emac_start_offload_wq(struct work_struct *work)
 {
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
-						   struct veth_ipa_client_data,
-						   ntn_ipa_rdy_work);
+					struct veth_ipa_client_data,
+					ntn_emac_start_offload_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
 					 struct veth_ipa_dev,
 					 prv_ipa);
@@ -1195,8 +1193,10 @@ static void veth_ipa_emac_start_offload_cb(void *user_data)
 		return;
 	}
 
-	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_start_offload_wq);
-	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+	INIT_WORK(&ntn_ipa->ntn_emac_start_offload_rdy_work,
+			veth_ipa_emac_start_offload_wq);
+	queue_work(system_unbound_wq,
+			&ntn_ipa->ntn_emac_start_offload_rdy_work);
 }
 
 
@@ -1206,7 +1206,7 @@ static void  veth_ipa_emac_link_up_wq(struct work_struct *work)
 
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
 						   struct veth_ipa_client_data,
-						   ntn_ipa_rdy_work);
+						   ntn_emac_link_up_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
 					 struct veth_ipa_dev,
 					 prv_ipa);
@@ -1224,8 +1224,9 @@ static void veth_ipa_emac_link_up_cb(void *user_data)
 		return;
 	}
 
-	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_link_up_wq);
-	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+	INIT_WORK(&ntn_ipa->ntn_emac_link_up_rdy_work,
+			veth_ipa_emac_link_up_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_emac_link_up_rdy_work);
 }
 
 
@@ -1233,7 +1234,7 @@ static void  veth_ipa_emac_setup_done_wq(struct work_struct *work)
 {
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
 						   struct veth_ipa_client_data,
-						   ntn_ipa_rdy_work);
+						   ntn_emac_setup_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
 					 struct veth_ipa_dev,
 					 prv_ipa);
@@ -1253,15 +1254,16 @@ static void veth_ipa_emac_setup_done_cb(void *user_data)
 		return;
 	}
 
-	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_setup_done_wq);
-	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+	INIT_WORK(&ntn_ipa->ntn_emac_setup_rdy_work,
+			veth_ipa_emac_setup_done_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_emac_setup_rdy_work);
 }
 
 static void  veth_ipa_open_wq(struct work_struct *work)
 {
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
 						   struct veth_ipa_client_data,
-						   ntn_ipa_rdy_work);
+						   ntn_emac_open_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
 					 struct veth_ipa_dev,
 					 prv_ipa);
@@ -1279,8 +1281,8 @@ static void veth_ipa_open_cb(void *user_data)
 		return;
 	}
 
-	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_open_wq);
-	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+	INIT_WORK(&ntn_ipa->ntn_emac_open_rdy_work, veth_ipa_open_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_emac_open_rdy_work);
 }
 
 
@@ -1288,7 +1290,7 @@ static void  veth_ipa_emac_init_done_wq(struct work_struct *work)
 {
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
 						   struct veth_ipa_client_data,
-						   ntn_ipa_rdy_work);
+						   ntn_emac_init_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
 					 struct veth_ipa_dev,
 					 prv_ipa);
@@ -1305,8 +1307,9 @@ static void veth_ipa_emac_init_done_cb(void *user_data)
 		VETH_IPA_ERROR("%s Null Param pdata\n", __func__);
 		return;
 	}
-	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_init_done_wq);
-	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+	VETH_IPA_INFO("%s IPA ready wq callback\n", __func__);
+	INIT_WORK(&ntn_ipa->ntn_emac_init_rdy_work, veth_ipa_emac_init_done_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_emac_init_rdy_work);
 }
 
 
@@ -1320,6 +1323,7 @@ static void veth_ipa_ready_wq(struct work_struct *work)
 					 prv_ipa);
 
 	VETH_IPA_DEBUG("%s:%d\n", __func__, __LINE__);
+	VETH_IPA_INFO("%s IPA ready wq callback\n", __func__);
 	veth_ipa_offload_event_handler(pdata, EV_IPA_READY);
 }
 
@@ -1327,12 +1331,13 @@ static void veth_ipa_uc_ready_wq(struct work_struct *work)
 {
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
 					   struct veth_ipa_client_data,
-					   ntn_ipa_rdy_work);
+					   ntn_ipa_uc_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
 					 struct veth_ipa_dev,
 					 prv_ipa);
 
 	VETH_IPA_DEBUG("%s:%d veth_ipa_ready_wq\n", __func__, __LINE__);
+	VETH_IPA_INFO("%s IPA UC ready wq callback\n", __func__);
 	veth_ipa_offload_event_handler(pdata, EV_IPA_UC_READY);
 }
 
@@ -1351,7 +1356,7 @@ static void veth_ipa_ready_cb(void *user_data)
 		return;
 	}
 
-	VETH_IPA_DEBUG("%s Received IPA ready callback\n", __func__);
+	VETH_IPA_INFO("%s Received IPA ready callback\n", __func__);
 
 	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_ready_wq);
 	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
@@ -1374,9 +1379,9 @@ static void veth_ipa_uc_ready_cb(void *user_data)
 		return;
 	}
 
-	VETH_IPA_DEBUG("%s Received IPA UC ready callback\n", __func__);
-	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_uc_ready_wq);
-	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+	VETH_IPA_INFO("%s Received IPA UC ready callback\n", __func__);
+	INIT_WORK(&ntn_ipa->ntn_ipa_uc_rdy_work, veth_ipa_uc_ready_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_uc_rdy_work);
 
 	return;
 
@@ -1392,7 +1397,7 @@ static int veth_ipa_ready(struct veth_ipa_dev *pdata)
 	veth_ipa_ready_cb(pdata);
 	ret = 1;
 #else
-	ret = ipa_register_ipa_ready_cb(veth_ipa_ready_cb, (void *)&pdata);
+	ret = ipa_register_ipa_ready_cb(veth_ipa_ready_cb, (void *)pdata);
 #endif
 
 	if (ret == -ENXIO) {
