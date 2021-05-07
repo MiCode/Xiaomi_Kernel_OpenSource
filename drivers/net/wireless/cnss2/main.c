@@ -284,6 +284,9 @@ int cnss_wlan_enable(struct device *dev,
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	int ret = 0;
 
+	if (!plat_priv)
+		return -ENODEV;
+
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
 
@@ -319,6 +322,9 @@ int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	int ret = 0;
+
+	if (!plat_priv)
+		return -ENODEV;
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
@@ -395,6 +401,9 @@ int cnss_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
+	if (!plat_priv)
+		return -ENODEV;
+
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
 
@@ -436,6 +445,8 @@ static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (ret)
 		goto out;
 
+	if (plat_priv->hds_enabled)
+		cnss_wlfw_bdf_dnld_send_sync(plat_priv, CNSS_BDF_HDS);
 	cnss_wlfw_bdf_dnld_send_sync(plat_priv, CNSS_BDF_REGDB);
 
 	if (plat_priv->device_id == QCN7605_DEVICE_ID)
@@ -2648,6 +2659,32 @@ static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv) {}
 #endif /* CONFIG_INTERCONNECT */
 
+static ssize_t enable_hds_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	unsigned int enable_hds = 0;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	if (sscanf(buf, "%du", &enable_hds) != 1) {
+		cnss_pr_err("Invalid enable_hds sysfs command\n");
+		return -EINVAL;
+	}
+
+	if (enable_hds)
+		plat_priv->hds_enabled = true;
+	else
+		plat_priv->hds_enabled = false;
+
+	cnss_pr_dbg("%s HDS file download, count is %zu\n",
+		    plat_priv->hds_enabled ? "Enable" : "Disable", count);
+
+	return count;
+}
+
 static ssize_t recovery_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -2791,6 +2828,7 @@ static ssize_t hw_trace_override_store(struct device *dev,
 static DEVICE_ATTR_WO(fs_ready);
 static DEVICE_ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(recovery);
+static DEVICE_ATTR_WO(enable_hds);
 static DEVICE_ATTR_WO(qdss_trace_start);
 static DEVICE_ATTR_WO(qdss_trace_stop);
 static DEVICE_ATTR_WO(qdss_conf_download);
@@ -2800,6 +2838,7 @@ static struct attribute *cnss_attrs[] = {
 	&dev_attr_fs_ready.attr,
 	&dev_attr_shutdown.attr,
 	&dev_attr_recovery.attr,
+	&dev_attr_enable_hds.attr,
 	&dev_attr_qdss_trace_start.attr,
 	&dev_attr_qdss_trace_stop.attr,
 	&dev_attr_qdss_conf_download.attr,

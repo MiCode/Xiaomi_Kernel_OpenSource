@@ -248,6 +248,15 @@ config QCOM_LLCC_PERFMON
 	  interface. sysfs interface is used to configure and dump the LLCC
 	  performance events.
 
+config QCOM_DIREWOLF_LLCC
+	tristate "Qualcomm Technologies, Inc. Direwolf LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say y or m here to enable the LLCC driver for Direwolf platform.
+	  This provides data required to configure LLCC so that clients
+	  can start using the LLCC slices.
+	  If unsure, say n.
+
 config QCOM_MDT_LOADER
 	tristate
 	select QCOM_SCM
@@ -395,9 +404,9 @@ config MSM_BOOT_STATS
 	  This figures are reported in mpm sleep clock cycles and have a
 	  resolution of 31 bits as 1 bit is used as an overflow check.
 
-config MSM_BOOT_TIME_MARKER
+config QGKI_MSM_BOOT_TIME_MARKER
 	bool "Use MSM boot time marker reporting"
-	depends on MSM_BOOT_STATS
+	depends on MSM_BOOT_STATS && QGKI
 	help
 	  Use this to mark msm boot kpi for measurement.
 	  An instrumentation for boot time measurement.
@@ -1302,4 +1311,6 @@ config DUMP_XBL_LOG
 		cat /sys/module/xbl_log/xbl_log
 
 source "drivers/soc/qcom/icnss2/Kconfig"
+
+source "drivers/soc/qcom/gnsssirf/Kconfig"
 endmenu

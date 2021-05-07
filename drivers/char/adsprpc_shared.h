@@ -268,6 +268,17 @@ enum fastrpc_invoke2_type {
 	FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS,
 };
 
+enum fastrpc_process_exit_states {
+	/* Process Default State */
+	FASTRPC_PROCESS_DEFAULT_STATE				= 0,
+	/* Process exit initiated */
+	FASTRPC_PROCESS_EXIT_START				= 1,
+	/* Process exit issued to DSP */
+	FASTRPC_PROCESS_DSP_EXIT_INIT				= 2,
+	/* Process exit in DSP complete */
+	FASTRPC_PROCESS_DSP_EXIT_COMPLETE			= 3,
+};
+
 struct fastrpc_ioctl_invoke2 {
 	uint32_t req;       /* type of invocation request */
 	uintptr_t invparam; /* invocation request param */

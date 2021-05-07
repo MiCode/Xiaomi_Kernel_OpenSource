@@ -22,7 +22,7 @@
 #include <linux/net_tstamp.h>
 #include <linux/reset.h>
 #include <net/page_pool.h>
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 #include <soc/qcom/boot_stats.h>
 #endif
 

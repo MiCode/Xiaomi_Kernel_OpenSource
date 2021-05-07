@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/devfreq_cooling.h>
@@ -654,7 +654,8 @@ static int opp_notify(struct notifier_block *nb,
 			min_level = level;
 	}
 
-	pwr->thermal_pwrlevel = max_level;
+	pwr->cooling_thermal_pwrlevel = max_level;
+	pwr->thermal_pwrlevel = max(pwr->cooling_thermal_pwrlevel, pwr->sysfs_thermal_pwrlevel);
 	pwr->thermal_pwrlevel_floor = min_level;
 
 	/* Update the current level using the new limit */
@@ -855,6 +856,10 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 			adreno_tz_data.bus.floating = false;
 	}
 
+	pwrscale->devfreq_wq = create_freezable_workqueue("kgsl_devfreq_wq");
+	if (!pwrscale->devfreq_wq)
+		return -ENOMEM;
+
 	devfreq = devfreq_add_device(&pdev->dev, &gpu_profile->profile,
 			governor, &adreno_tz_data);
 	if (IS_ERR(devfreq)) {
@@ -876,7 +881,6 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	ret = sysfs_create_link(&device->dev->kobj,
 			&devfreq->dev.kobj, "devfreq");
 
-	pwrscale->devfreq_wq = create_freezable_workqueue("kgsl_devfreq_wq");
 	INIT_WORK(&pwrscale->devfreq_suspend_ws, do_devfreq_suspend);
 	INIT_WORK(&pwrscale->devfreq_resume_ws, do_devfreq_resume);
 	INIT_WORK(&pwrscale->devfreq_notify_ws, do_devfreq_notify);
@@ -923,8 +927,13 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 		devfreq_cooling_unregister(pwrscale->cooling_dev);
 
 	kgsl_pwrscale_midframe_timer_cancel(device);
-	flush_workqueue(pwrscale->devfreq_wq);
-	destroy_workqueue(pwrscale->devfreq_wq);
+
+	if (pwrscale->devfreq_wq) {
+		flush_workqueue(pwrscale->devfreq_wq);
+		destroy_workqueue(pwrscale->devfreq_wq);
+		pwrscale->devfreq_wq = NULL;
+	}
+
 	devfreq_remove_device(device->pwrscale.devfreqptr);
 	kfree(kgsl_midframe);
 	kgsl_midframe = NULL;

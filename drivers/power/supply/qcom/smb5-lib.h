@@ -593,6 +593,7 @@ struct smb_charger {
 	bool			dpdm_enabled;
 	bool			apsd_ext_timeout;
 	bool			qc3p5_detected;
+	int			qc3p5_detected_mw;
 
 	/* workaround flag */
 	int		real_charger_type;

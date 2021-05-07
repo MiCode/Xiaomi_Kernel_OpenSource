@@ -29,8 +29,6 @@
 #define RESTORE_PCI_CONFIG_SPACE	0
 
 #define PM_OPTIONS_DEFAULT		0
-#define PM_OPTIONS_LINK_DOWN \
-	(MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN)
 
 #define PCI_BAR_NUM			0
 
@@ -375,7 +373,7 @@ static struct cnss_misc_reg wlaon_reg_access_seq[] = {
 
 #if IS_ENABLED(CONFIG_PCI_MSM)
 /**
- * cnss_pci_enumerate() - Enumerate PCIe endpoints
+ * _cnss_pci_enumerate() - Enumerate PCIe endpoints
  * @plat_priv: driver platform context pointer
  * @rc_num: root complex index that an endpoint connects to
  *
@@ -384,7 +382,7 @@ static struct cnss_misc_reg wlaon_reg_access_seq[] = {
  *
  * Return: 0 for success, negative value for error
  */
-static int cnss_pci_enumerate(struct cnss_plat_data *plat_priv, int rc_num)
+static int _cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num)
 {
 	return msm_pcie_enumerate(rc_num);
 }
@@ -571,7 +569,7 @@ static int _cnss_pci_get_reg_dump(struct cnss_pci_data *pci_priv,
 	return msm_pcie_reg_dump(pci_priv->pci_dev, buf, len);
 }
 #else
-static int cnss_pci_enumerate(struct cnss_plat_data *plat_priv, int rc_num)
+static int _cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num)
 {
 	return -EOPNOTSUPP;
 }
@@ -1222,6 +1220,17 @@ void cnss_pci_allow_l1(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_pci_allow_l1);
 
+static void cnss_pci_update_link_event(struct cnss_pci_data *pci_priv,
+				       enum cnss_bus_event_type type,
+				       void *data)
+{
+	struct cnss_bus_event bus_event;
+
+	bus_event.etype = type;
+	bus_event.event_data = data;
+	cnss_pci_call_driver_uevent(pci_priv, CNSS_BUS_EVENT, &bus_event);
+}
+
 static void cnss_pci_handle_linkdown(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
@@ -1243,6 +1252,12 @@ static void cnss_pci_handle_linkdown(struct cnss_pci_data *pci_priv)
 
 	if (pci_dev->device == QCA6174_DEVICE_ID)
 		disable_irq(pci_dev->irq);
+
+	/* Notify bus related event. Now for all supported chips.
+	 * Here PCIe LINK_DOWN notification taken care.
+	 * uevent buffer can be extended later, to cover more bus info.
+	 */
+	cnss_pci_update_link_event(pci_priv, BUS_EVENT_PCI_LINK_DOWN, NULL);
 
 	cnss_fatal_err("PCI link down, schedule recovery\n");
 	cnss_schedule_recovery(&pci_dev->dev, CNSS_REASON_LINK_DOWN);
@@ -2917,6 +2932,7 @@ static bool cnss_pci_is_drv_supported(struct cnss_pci_data *pci_priv)
 
 	if (!root_port) {
 		cnss_pr_err("PCIe DRV is not supported as root port is null\n");
+		pci_priv->drv_supported = false;
 		return drv_supported;
 	}
 
@@ -2928,6 +2944,7 @@ static bool cnss_pci_is_drv_supported(struct cnss_pci_data *pci_priv)
 
 	cnss_pr_dbg("PCIe DRV is %s\n",
 		    drv_supported ? "supported" : "not supported");
+	pci_priv->drv_supported = drv_supported;
 
 	return drv_supported;
 }
@@ -3165,7 +3182,7 @@ static int cnss_pci_suspend(struct device *dev)
 		goto out;
 
 	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks) &&
-	    cnss_pci_get_drv_connected(pci_priv)) {
+	    pci_priv->drv_supported) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
 		if (!pci_priv->drv_connected_last) {
@@ -3308,7 +3325,7 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 	}
 
 	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks) &&
-	    cnss_pci_get_drv_connected(pci_priv)) {
+	    pci_priv->drv_supported) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
 		if (!pci_priv->drv_connected_last) {
@@ -4754,8 +4771,8 @@ static void cnss_pci_remove_dump_seg(struct cnss_pci_data *pci_priv,
 	cnss_minidump_remove_region(plat_priv, type, seg_no, va, pa, size);
 }
 
-int cnss_call_driver_uevent(struct cnss_pci_data *pci_priv,
-			    enum cnss_driver_status status, void *data)
+int cnss_pci_call_driver_uevent(struct cnss_pci_data *pci_priv,
+				enum cnss_driver_status status, void *data)
 {
 	struct cnss_uevent_data uevent_data;
 	struct cnss_wlan_driver *driver_ops;
@@ -4816,7 +4833,7 @@ static void cnss_pci_send_hang_event(struct cnss_pci_data *pci_priv)
 		}
 	}
 
-	cnss_call_driver_uevent(pci_priv, CNSS_HANG_EVENT, &hang_event);
+	cnss_pci_call_driver_uevent(pci_priv, CNSS_HANG_EVENT, &hang_event);
 
 	kfree(hang_event.hang_event_data);
 	hang_event.hang_event_data = NULL;
@@ -5859,20 +5876,9 @@ struct pci_driver cnss_pci_driver = {
 	},
 };
 
-int cnss_pci_init(struct cnss_plat_data *plat_priv)
+static int cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num)
 {
-	int ret = 0;
-	struct device *dev = &plat_priv->plat_dev->dev;
-	u32 rc_num;
-	int retry = 0;
-
-	ret = of_property_read_u32(dev->of_node, "qcom,wlan-rc-num", &rc_num);
-	if (ret) {
-		cnss_pr_err("Failed to find PCIe RC number, err = %d\n", ret);
-		goto out;
-	}
-
-	plat_priv->rc_num = rc_num;
+	int ret, retry = 0;
 
 	/* Always set initial target PCIe link speed to Gen2 for QCA6490 device
 	 * since there may be link issues if it boots up with Gen3 link speed.
@@ -5882,14 +5888,19 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 	if (plat_priv->device_id == QCA6490_DEVICE_ID) {
 		ret = cnss_pci_set_max_link_speed(plat_priv->bus_priv, rc_num,
 						  PCI_EXP_LNKSTA_CLS_5_0GB);
-		if (ret)
-			cnss_pr_err("Failed to set target PCIe link speed to Gen2, err = %d\n",
-				    ret);
+		if (ret && ret != -EPROBE_DEFER)
+			cnss_pr_err("Failed to set max PCIe RC%x link speed to Gen2, err = %d\n",
+				    rc_num, ret);
 	}
 
+	cnss_pr_err("Trying to enumerate with PCIe RC%x\n", rc_num);
 retry:
-	ret = cnss_pci_enumerate(plat_priv, rc_num);
+	ret = _cnss_pci_enumerate(plat_priv, rc_num);
 	if (ret) {
+		if (ret == -EPROBE_DEFER) {
+			cnss_pr_dbg("PCIe RC driver is not ready, defer probe\n");
+			goto out;
+		}
 		cnss_pr_err("Failed to enable PCIe RC%x, err = %d\n",
 			    rc_num, ret);
 		if (retry++ < LINK_TRAINING_RETRY_MAX_TIMES) {
@@ -5898,6 +5909,33 @@ retry:
 		} else {
 			goto out;
 		}
+	}
+
+	plat_priv->rc_num = rc_num;
+
+out:
+	return ret;
+}
+
+int cnss_pci_init(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	const __be32 *prop;
+	int ret = 0, prop_len = 0, rc_count, i;
+
+	prop = of_get_property(dev->of_node, "qcom,wlan-rc-num", &prop_len);
+	if (!prop || !prop_len) {
+		cnss_pr_err("Failed to get PCIe RC number from DT\n");
+		goto out;
+	}
+
+	rc_count = prop_len / sizeof(__be32);
+	for (i = 0; i < rc_count; i++) {
+		ret = cnss_pci_enumerate(plat_priv, be32_to_cpup(&prop[i]));
+		if (!ret)
+			break;
+		else if (ret == -EPROBE_DEFER || (ret && i == rc_count - 1))
+			goto out;
 	}
 
 	ret = pci_register_driver(&cnss_pci_driver);

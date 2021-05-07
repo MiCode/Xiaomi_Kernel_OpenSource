@@ -30,19 +30,19 @@ size_t llcc_tcm_get_slice_size(struct llcc_tcm_data *tcm_data);
 
 void llcc_tcm_deactivate(struct llcc_tcm_data *tcm_data);
 #else
-static struct llcc_tcm_data *llcc_tcm_activate(void)
+static __maybe_unused struct llcc_tcm_data *llcc_tcm_activate(void)
 { return NULL; }
 
-static phys_addr_t llcc_tcm_get_phys_addr(struct llcc_tcm_data *tcm_data)
+static __maybe_unused phys_addr_t llcc_tcm_get_phys_addr(struct llcc_tcm_data *tcm_data)
 { return 0; }
 
-static void __iomem *llcc_tcm_get_virt_addr(struct llcc_tcm_data *tcm_data)
+static __maybe_unused void __iomem *llcc_tcm_get_virt_addr(struct llcc_tcm_data *tcm_data)
 { return NULL; }
 
-static size_t llcc_tcm_get_slice_size(struct llcc_tcm_data *tcm_data)
+static __maybe_unused size_t llcc_tcm_get_slice_size(struct llcc_tcm_data *tcm_data)
 { return 0; }
 
-static void llcc_tcm_deactivate(struct llcc_tcm_data *tcm_data)
+static __maybe_unused void llcc_tcm_deactivate(struct llcc_tcm_data *tcm_data)
 { }
 #endif
 

@@ -40,7 +40,7 @@
 /* indicates smmu passthrough is supported */
 #define VIRTIO_FASTRPC_F_SMMU_PASSTHROUGH		5
 
-#define NUM_CHANNELS			4 /* adsp, mdsp, slpi, cdsp*/
+#define NUM_CHANNELS			5 /* adsp, mdsp, slpi, cdsp0, cdsp1*/
 #define NUM_DEVICES			2 /* adsprpc-smd, adsprpc-smd-secure */
 #define M_FDLIST			16
 #define MINOR_NUM_DEV			0

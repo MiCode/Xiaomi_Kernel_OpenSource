@@ -30,13 +30,17 @@ struct boot_stats {
 	uint32_t bootloader_end;
 	uint32_t bootloader_display;
 	uint32_t bootloader_load_kernel;
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+	uint32_t bootloader_load_kernel_start;
+	uint32_t bootloader_load_kernel_end;
+#endif
 };
 
 static void __iomem *mpm_counter_base;
 static uint32_t mpm_counter_freq;
 static struct boot_stats __iomem *boot_stats;
 
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 
 struct boot_marker {
 	char marker_name[BOOT_MARKER_MAX_LEN];
@@ -152,6 +156,25 @@ void destroy_marker(const char *name)
 }
 EXPORT_SYMBOL(destroy_marker);
 
+static void set_bootloader_stats(void)
+{
+	if (IS_ERR_OR_NULL(boot_stats)) {
+		pr_err("boot_marker: imem not initialized!\n");
+		return;
+	}
+
+	_create_boot_marker("M - APPSBL Start - ",
+		readl_relaxed(&boot_stats->bootloader_start));
+	_create_boot_marker("M - APPSBL Kernel Load Start - ",
+		readl_relaxed(&boot_stats->bootloader_load_kernel_start));
+	_create_boot_marker("M - APPSBL Kernel Load End - ",
+		readl_relaxed(&boot_stats->bootloader_load_kernel_end));
+	_create_boot_marker("D - APPSBL Kernel Load Time - ",
+		readl_relaxed(&boot_stats->bootloader_load_kernel));
+	_create_boot_marker("M - APPSBL End - ",
+		readl_relaxed(&boot_stats->bootloader_end));
+}
+
 static ssize_t bootkpi_reader(struct kobject *obj, struct kobj_attribute *attr,
 		char *user_buffer)
 {
@@ -189,7 +212,7 @@ static ssize_t bootkpi_writer(struct kobject *obj, struct kobj_attribute *attr,
 	if (count >= MAX_STRING_LEN)
 		return -EINVAL;
 
-	rc = scnprintf(buf, count, "%s", user_buffer);
+	rc = scnprintf(buf, sizeof(buf) - 1, "%s", user_buffer);
 	if (rc < 0)
 		return rc;
 
@@ -353,6 +376,9 @@ static int __init boot_stats_init(void)
 			pr_err("boot_stats: BootKPI init failed %d\n");
 			return ret;
 		}
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+		set_bootloader_stats();
+#endif
 	} else {
 		iounmap(boot_stats);
 		iounmap(mpm_counter_base);

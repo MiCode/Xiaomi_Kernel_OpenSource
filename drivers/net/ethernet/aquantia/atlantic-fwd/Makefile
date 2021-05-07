@@ -27,6 +27,4 @@ atlantic-fwd-$(CONFIG_ATLFWD_FWD_NETLINK) += atl_fwdnl.o \
 					      atl_fwdnl_params.o
 atlantic-fwd-$(CONFIG_MACSEC) += atl_macsec.o macsec/macsec_api.o
 
-atlantic-fwd-$(CONFIG_AQFWD_QCOM_IPA) += atl_ipa.o
-
 ccflags-y += -I$(src)

@@ -33,6 +33,13 @@ ENTRY(_text)
 
 jiffies = jiffies_64;
 
+
+#define HYPERVISOR_EXTABLE					\
+	. = ALIGN(SZ_8);					\
+	__start___kvm_ex_table = .;				\
+	*(__kvm_ex_table)					\
+	__stop___kvm_ex_table = .;
+
 #define HYPERVISOR_TEXT					\
 	/*						\
 	 * Align to 4 KB so that			\
@@ -48,6 +55,7 @@ jiffies = jiffies_64;
 	__hyp_idmap_text_end = .;			\
 	__hyp_text_start = .;				\
 	*(.hyp.text)					\
+	HYPERVISOR_EXTABLE				\
 	__hyp_text_end = .;
 
 #define IDMAP_TEXT					\
@@ -171,9 +179,12 @@ SECTIONS
 	__inittext_begin = .;
 
 	INIT_TEXT_SECTION(8)
+
+	__exittext_begin = .;
 	.exit.text : {
 		ARM_EXIT_KEEP(EXIT_TEXT)
 	}
+	__exittext_end = .;
 
 	. = ALIGN(4);
 	.altinstructions : {

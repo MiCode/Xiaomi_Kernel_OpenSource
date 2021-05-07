@@ -125,6 +125,7 @@ static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
 
 	return dep->trb_pool_dma + offset;
 }
+void dwc3_ep0_send_delayed_status(struct dwc3 *dwc);
 
 /**
  * dwc3_gadget_ep_get_transfer_index - Gets transfer index from HW
