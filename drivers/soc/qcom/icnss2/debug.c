@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/err.h>
 #include <linux/seq_file.h>
@@ -14,6 +14,7 @@
 
 void *icnss_ipc_log_context;
 void *icnss_ipc_log_long_context;
+void *icnss_ipc_log_long1_context;
 
 static ssize_t icnss_regwrite_write(struct file *fp,
 				    const char __user *user_buf,
@@ -770,6 +771,12 @@ void icnss_debug_init(void)
 						       "icnss_long", 0);
 	if (!icnss_ipc_log_long_context)
 		icnss_pr_err("Unable to create log long context\n");
+
+	icnss_ipc_log_long1_context = ipc_log_context_create(NUM_LOG_LONG_PAGES,
+						       "icnss_long1", 0);
+	if (!icnss_ipc_log_long1_context)
+		icnss_pr_err("Unable to create log long context\n");
+
 }
 
 void icnss_debug_deinit(void)
@@ -783,4 +790,9 @@ void icnss_debug_deinit(void)
 		ipc_log_context_destroy(icnss_ipc_log_long_context);
 		icnss_ipc_log_long_context = NULL;
 	}
+	if (icnss_ipc_log_long1_context) {
+		ipc_log_context_destroy(icnss_ipc_log_long1_context);
+		icnss_ipc_log_long1_context = NULL;
+	}
+
 }
