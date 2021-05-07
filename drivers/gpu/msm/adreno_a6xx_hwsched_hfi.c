@@ -725,8 +725,11 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 
 	entry->desc.size = entry->gpu_md->size;
 
+	if (!(desc->flags & HFI_MEMFLAG_GMU_ACC))
+		goto done;
+
 	 /*
-	  * Map all buffers in GMU. If this fails, then we have to live with
+	  * If gmu mapping fails, then we have to live with
 	  * leaking the gpu global buffer allocated above.
 	  */
 	ret = gmu_import_buffer(adreno_dev, entry, desc->flags);
