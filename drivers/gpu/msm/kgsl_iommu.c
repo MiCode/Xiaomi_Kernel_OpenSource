@@ -912,7 +912,8 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 /*
  * Return true if the IOMMU should stall and trigger a snasphot on a pagefault
  */
-static bool kgsl_iommu_check_stall_on_fault(struct kgsl_mmu *mmu, int flags)
+static bool kgsl_iommu_check_stall_on_fault(struct kgsl_iommu_context *ctx,
+	struct kgsl_mmu *mmu, int flags)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 
@@ -920,6 +921,13 @@ static bool kgsl_iommu_check_stall_on_fault(struct kgsl_mmu *mmu, int flags)
 		return false;
 
 	if (!test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE, &mmu->pfpolicy))
+		return false;
+
+	/*
+	 * Sometimes, there can be multiple invocations of the fault handler.
+	 * Make sure we trigger reset/recovery only once.
+	 */
+	if (ctx->stalled_on_fault)
 		return false;
 
 	if (!mutex_trylock(&device->mutex))
@@ -954,7 +962,7 @@ static int kgsl_iommu_fault_handler(struct kgsl_mmu *mmu,
 	private = kgsl_iommu_get_process(ptbase);
 	context = kgsl_context_get(device, contextidr);
 
-	stall = kgsl_iommu_check_stall_on_fault(mmu, flags);
+	stall = kgsl_iommu_check_stall_on_fault(ctx, mmu, flags);
 
 	kgsl_iommu_print_fault(mmu, ctx, addr, ptbase, contextidr, flags, private,
 		context);
