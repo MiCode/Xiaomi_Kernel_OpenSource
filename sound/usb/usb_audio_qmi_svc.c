@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1313,8 +1313,12 @@ static void uaudio_qmi_bye_cb(struct qmi_handle *handle, unsigned int node)
 static void uaudio_qmi_svc_disconnect_cb(struct qmi_handle *handle,
 				  unsigned int node, unsigned int port)
 {
-	struct uaudio_qmi_svc *svc = uaudio_svc;
+	struct uaudio_qmi_svc *svc;
 
+	if (uaudio_svc == NULL)
+		return;
+
+	svc = uaudio_svc;
 	if (svc->uaudio_svc_hdl != handle) {
 		uaudio_err("handle mismatch\n");
 		return;
@@ -1457,6 +1461,8 @@ static int uaudio_qmi_svc_init(void)
 		goto free_svc_hdl;
 	}
 
+	uaudio_svc = svc;
+	INIT_WORK(&svc->qmi_disconnect_work, uaudio_qmi_disconnect_work);
 	ret = qmi_add_server(svc->uaudio_svc_hdl, UAUDIO_STREAM_SERVICE_ID_V01,
 					UAUDIO_STREAM_SERVICE_VERS_V01, 0);
 	if (ret < 0) {
@@ -1465,10 +1471,6 @@ static int uaudio_qmi_svc_init(void)
 		goto release_uaudio_svs_hdl;
 	}
 
-	INIT_WORK(&svc->qmi_disconnect_work, uaudio_qmi_disconnect_work);
-
-	uaudio_svc = svc;
-
 	svc->uaudio_ipc_log = ipc_log_context_create(NUM_LOG_PAGES, "usb_audio",
 			0);
 
@@ -1476,6 +1478,7 @@ static int uaudio_qmi_svc_init(void)
 
 release_uaudio_svs_hdl:
 	qmi_handle_release(svc->uaudio_svc_hdl);
+	uaudio_svc = NULL;
 free_svc_hdl:
 	kfree(svc->uaudio_svc_hdl);
 destroy_uaudio_wq:
