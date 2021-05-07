@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -1069,6 +1069,11 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 		return;
 	}
 
+	if (token != entry->client_info.token) {
+		mutex_unlock(&driver->dci_mutex);
+		return;
+	}
+
 	mutex_lock(&entry->buffers[data_source].buf_mutex);
 	rsp_buf = entry->buffers[data_source].buf_cmd;
 
@@ -1740,7 +1745,16 @@ static int diag_send_dci_pkt_remote(unsigned char *data, int len, int tag,
 	write_len += dci_header_size;
 	*(int *)(buf + write_len) = tag;
 	write_len += sizeof(int);
-	memcpy(buf + write_len, data, len);
+	if ((write_len + len) < DIAG_MDM_BUF_SIZE) {
+		memcpy(buf + write_len, data, len);
+	} else {
+		pr_err("diag: skip writing invalid length packet, token: %d, pkt_len: %d\n",
+			token, (write_len + len));
+		spin_lock_irqsave(&driver->dci_mempool_lock, flags);
+		diagmem_free(driver, buf, dci_ops_tbl[token].mempool);
+		spin_unlock_irqrestore(&driver->dci_mempool_lock, flags);
+		return -EAGAIN;
+	}
 	write_len += len;
 	*(buf + write_len) = CONTROL_CHAR; /* End Terminator */
 	write_len += sizeof(uint8_t);

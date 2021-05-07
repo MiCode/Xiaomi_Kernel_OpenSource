@@ -272,6 +272,23 @@ static const struct adreno_reglist a50x_hwcg_regs[] = {
 	{A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222}
 };
 
+static const struct adreno_a5xx_core adreno_gpu_core_a504 = {
+	.base = {
+		DEFINE_ADRENO_REV(ADRENO_REV_A504, 5, 0, 4, ANY_ID),
+		.features = ADRENO_PREEMPTION | ADRENO_64BIT,
+		.gpudev = &adreno_a5xx_gpudev,
+		.gmem_size = (SZ_128K + SZ_8K),
+		.busy_mask = 0xfffffffe,
+		.bus_width = 16,
+	},
+	.pm4fw_name = "a530_pm4.fw",
+	.pfpfw_name = "a530_pfp.fw",
+	.hwcg = a50x_hwcg_regs,
+	.hwcg_count = ARRAY_SIZE(a50x_hwcg_regs),
+	.vbif = a530_vbif_regs,
+	.vbif_count = ARRAY_SIZE(a530_vbif_regs),
+};
+
 static const struct adreno_a5xx_core adreno_gpu_core_a505 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A505, 5, 0, 5, ANY_ID),
@@ -1498,6 +1515,7 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a540v2.base,
 	&adreno_gpu_core_a512.base,
 	&adreno_gpu_core_a508.base,
+	&adreno_gpu_core_a504.base,
 	&adreno_gpu_core_a630v1,	/* Deprecated */
 	&adreno_gpu_core_a630v2.base,
 	&adreno_gpu_core_a615.base,
