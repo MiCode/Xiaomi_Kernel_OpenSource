@@ -5993,7 +5993,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	case FASTRPC_IOCTL_INVOKE_PERF:
 		if (!size)
 			size = sizeof(struct fastrpc_ioctl_invoke_perf);
-		trace_fastrpc_msg("ioctl invoke: begin");
+		trace_fastrpc_msg("invoke: begin");
 		K_COPY_FROM_USER(err, 0, &p.inv, param, size);
 		if (err) {
 			err = -EFAULT;
@@ -6001,7 +6001,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		}
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl, fl->mode,
 						USER_MSG, &p.inv)));
-		trace_fastrpc_msg("ioctl invoke: end");
+		trace_fastrpc_msg("invoke: end");
 		if (err)
 			goto bail;
 		break;
