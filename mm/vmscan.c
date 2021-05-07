@@ -670,6 +670,11 @@ static unsigned long shrink_slab(gfp_t gfp_mask, int nid,
 {
 	unsigned long ret, freed = 0;
 	struct shrinker *shrinker;
+	bool bypass = false;
+
+	trace_android_vh_shrink_slab_bypass(gfp_mask, nid, memcg, priority, &bypass);
+	if (bypass)
+		return 0;
 
 	/*
 	 * The root memcg might be allocated even though memcg is disabled
@@ -2232,6 +2237,8 @@ static bool inactive_is_low(struct lruvec *lruvec, enum lru_list inactive_lru)
 		inactive_ratio = int_sqrt(10 * gb);
 	else
 		inactive_ratio = 1;
+
+	trace_android_vh_tune_inactive_ratio(&inactive_ratio, is_file_lru(inactive_lru));
 
 	return inactive * inactive_ratio < active;
 }

@@ -967,7 +967,7 @@ EXPORT_SYMBOL_GPL(sched_uclamp_used);
 
 static inline unsigned int uclamp_bucket_id(unsigned int clamp_value)
 {
-	return clamp_value / UCLAMP_BUCKET_DELTA;
+	return min_t(unsigned int, clamp_value / UCLAMP_BUCKET_DELTA, UCLAMP_BUCKETS - 1);
 }
 
 static inline unsigned int uclamp_none(enum uclamp_id clamp_id)
@@ -6931,6 +6931,11 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf, bool force)
 	 * value of rq->clock[_task]
 	 */
 	update_rq_clock(rq);
+
+#ifdef CONFIG_SCHED_DEBUG
+	/* note the clock update in orf */
+	orf.clock_update_flags |= RQCF_UPDATED;
+#endif
 
 	for (;;) {
 		/*

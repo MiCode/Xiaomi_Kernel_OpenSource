@@ -669,6 +669,7 @@ drivers/clk/hisilicon/reset.h
 drivers/clocksource/arm_arch_timer.c
 drivers/clocksource/dummy_timer.c
 drivers/clocksource/mmio.c
+drivers/clocksource/timer-mediatek.c
 drivers/clocksource/timer-of.c
 drivers/clocksource/timer-of.h
 drivers/clocksource/timer-probe.c
@@ -1567,12 +1568,15 @@ drivers/usb/gadget/function/f_midi.c
 drivers/usb/gadget/function/f_ncm.c
 drivers/usb/gadget/function/f_rndis.c
 drivers/usb/gadget/function/f_serial.c
+drivers/usb/gadget/function/f_uac2.c
 drivers/usb/gadget/function/ndis.h
 drivers/usb/gadget/function/rndis.c
 drivers/usb/gadget/function/rndis.h
 drivers/usb/gadget/functions.c
 drivers/usb/gadget/function/storage_common.c
 drivers/usb/gadget/function/storage_common.h
+drivers/usb/gadget/function/u_audio.c
+drivers/usb/gadget/function/u_audio.h
 drivers/usb/gadget/function/u_ether.c
 drivers/usb/gadget/function/u_ether_configfs.h
 drivers/usb/gadget/function/u_ether.h
@@ -1583,6 +1587,7 @@ drivers/usb/gadget/function/u_ncm.h
 drivers/usb/gadget/function/u_rndis.h
 drivers/usb/gadget/function/u_serial.c
 drivers/usb/gadget/function/u_serial.h
+drivers/usb/gadget/function/u_uac2.h
 drivers/usb/gadget/udc/core.c
 drivers/usb/gadget/udc/dummy_hcd.c
 drivers/usb/gadget/udc/trace.c
@@ -1730,6 +1735,18 @@ fs/drop_caches.c
 fs/eventfd.c
 fs/eventpoll.c
 fs/exec.c
+fs/exfat/balloc.c
+fs/exfat/cache.c
+fs/exfat/dir.c
+fs/exfat/exfat_fs.h
+fs/exfat/exfat_raw.h
+fs/exfat/fatent.c
+fs/exfat/file.c
+fs/exfat/inode.c
+fs/exfat/misc.c
+fs/exfat/namei.c
+fs/exfat/nls.c
+fs/exfat/super.c
 fs/exportfs/expfs.c
 fs/ext4/acl.c
 fs/ext4/acl.h
@@ -2971,6 +2988,7 @@ include/linux/page_idle.h
 include/linux/page-isolation.h
 include/linux/pagemap.h
 include/linux/page_owner.h
+include/linux/page_pinner.h
 include/linux/page_ref.h
 include/linux/page_reporting.h
 include/linux/pagevec.h
@@ -3864,6 +3882,7 @@ include/trace/hooks/printk.h
 include/trace/hooks/psi.h
 include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
+include/trace/hooks/selinux.h
 include/trace/hooks/signal.h
 include/trace/hooks/softlockup.h
 include/trace/hooks/sys.h
@@ -4945,6 +4964,7 @@ mm/page_ext.c
 mm/page_io.c
 mm/page_isolation.c
 mm/page_owner.c
+mm/page_pinner.c
 mm/page_reporting.c
 mm/page_reporting.h
 mm/page_vma_mapped.c
