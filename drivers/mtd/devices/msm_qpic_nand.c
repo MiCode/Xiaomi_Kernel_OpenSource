@@ -2000,14 +2000,14 @@ static int msm_nand_read_pagescope(struct mtd_info *mtd, loff_t from,
 	}
 
 	cmd_list = (struct msm_nand_rw_cmd_desc *)&dma_buffer->cmd_list;
-	status_desc =
-		(struct msm_nand_read_status_desc *)&dma_buffer->result[0];
 	ecc_capability = flash_dev->ecc_capability;
 
 	while (rw_params.page_count-- > 0) {
 
 		uint32_t cw_desc_cnt = 1;
 		struct sps_command_element *curr_ce, *start_ce;
+		status_desc =
+			(struct msm_nand_read_status_desc *)&dma_buffer->result[0];
 		erased_page = false;
 		data.addr0 = (rw_params.page << 16) | rw_params.oob_col;
 		data.addr1 = (rw_params.page >> 16) & 0xff;
@@ -4499,6 +4499,7 @@ static int msm_nand_probe(struct platform_device *pdev)
 	info->nand_chip.qpic_min_version = qpic_version.qpic_minor;
 	if (info->nand_chip.qpic_version >= 2 &&
 			info->nand_chip.qpic_min_version >= 1) {
+		info->nand_chip.caps = MSM_NAND_CAP_PAGE_SCOPE_READ;
 		mutex_lock(&info->lock);
 		err = msm_nand_get_device(info->nand_chip.dev);
 		if (err) {
