@@ -48,6 +48,11 @@
 #define SYN_I2C_RETRY_TIMES 10
 #define rd_msgs  1
 
+#ifdef CONFIG_DRM
+#include <drm/drm_panel.h>
+struct drm_panel *active_panel;
+#endif
+
 static unsigned char *wr_buf;
 
 static struct synaptics_dsx_hw_interface hw_if;
@@ -451,6 +456,7 @@ exit:
 	return retval;
 }
 
+#ifdef CONFIG_DRM
 static int check_dt(struct device_node *np)
 {
 	int i;
@@ -472,8 +478,9 @@ static int check_dt(struct device_node *np)
 		}
 	}
 
-	return -ENODEV;
+	return PTR_ERR(panel);
 }
+#endif
 
 static int check_default_tp(struct device_node *dt, const char *prop)
 {
@@ -521,7 +528,12 @@ static int synaptics_rmi4_i2c_probe(struct i2c_client *client,
 	int retval;
 	struct device_node *dp = client->dev.of_node;
 
-	if (check_dt(dp)) {
+#ifdef CONFIG_DRM
+	retval = check_dt(dp);
+	if (retval == -EPROBE_DEFER)
+		return retval;
+
+	if (retval) {
 		if (!check_default_tp(dp, "qcom,i2c-touch-active"))
 			retval = -EPROBE_DEFER;
 		else
@@ -529,6 +541,7 @@ static int synaptics_rmi4_i2c_probe(struct i2c_client *client,
 
 		return retval;
 	}
+#endif
 
 	if (!i2c_check_functionality(client->adapter,
 			I2C_FUNC_SMBUS_BYTE_DATA)) {
