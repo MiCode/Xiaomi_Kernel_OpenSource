@@ -931,7 +931,7 @@ static bool kgsl_iommu_check_stall_on_fault(struct kgsl_iommu_context *ctx,
 		return false;
 
 	if (!mutex_trylock(&device->mutex))
-		return false;
+		return true;
 
 	/*
 	 * Turn off GPU IRQ so we don't get faults from it too.
