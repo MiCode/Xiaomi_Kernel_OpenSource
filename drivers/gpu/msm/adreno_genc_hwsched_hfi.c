@@ -1082,9 +1082,15 @@ static int send_switch_to_unsecure(struct adreno_device *adreno_dev)
 int genc_hwsched_cp_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	genc_unhalt_sqe(adreno_dev);
+	/* Program the ucode base for CP */
+	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_LO,
+		lower_32_bits(fw->memdesc->gpuaddr));
+	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_HI,
+		upper_32_bits(fw->memdesc->gpuaddr));
 
 	ret = cp_init(adreno_dev);
 	if (ret)
