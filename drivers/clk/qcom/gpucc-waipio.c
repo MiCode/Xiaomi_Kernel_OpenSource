@@ -488,7 +488,7 @@ static struct clk_branch gpu_cc_cxo_clk = {
 				.hw = &gpu_cc_xo_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
