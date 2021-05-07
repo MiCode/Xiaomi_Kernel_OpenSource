@@ -495,7 +495,7 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	LIST_HEAD(non_secure_pages);
 	struct page *page, *tmp_page;
 	int total_pages = 0, num_non_secure_pages = 0;
-	int ret = -ENOMEM;
+	int ret = -ENOMEM, hyp_ret = 0;
 	int perms;
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
@@ -555,7 +555,8 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 		dma_map_sgtable(dma_heap_get_dev(heap), &non_secure_table, DMA_BIDIRECTIONAL, 0);
 		dma_unmap_sgtable(dma_heap_get_dev(heap), &non_secure_table, DMA_BIDIRECTIONAL, 0);
 
-		if (hyp_assign_sg_from_flags(&non_secure_table, sys_heap->vmid, true))
+		hyp_ret = hyp_assign_sg_from_flags(&non_secure_table, sys_heap->vmid, true);
+		if (hyp_ret)
 			goto free_non_secure_sg;
 	}
 
@@ -589,7 +590,7 @@ vmperm_release:
 
 hyp_unassign:
 	/* We check PagePrivate() below to see if we've reclaimed a particular page */
-	hyp_unassign_sg_from_flags(&non_secure_table, sys_heap->vmid, true);
+	hyp_ret = hyp_unassign_sg_from_flags(&non_secure_table, sys_heap->vmid, true);
 
 free_non_secure_sg:
 	if (num_non_secure_pages)
@@ -599,9 +600,8 @@ free_sg:
 free_buffer:
 	list_for_each_entry_safe(page, tmp_page, &secure_pages, lru)
 		dynamic_page_pool_free(sys_heap->pool_list[page_to_pool_ind(page)], page);
-	list_for_each_entry_safe(page, tmp_page, &non_secure_pages, lru)
-		/* PagePrivate(page) returns true if we've hyp-assigned the page */
-		if (!PagePrivate(page))
+	if (!hyp_ret)
+		list_for_each_entry_safe(page, tmp_page, &non_secure_pages, lru)
 			__free_pages(page, compound_order(page));
 
 	kfree(buffer);
