@@ -2,6 +2,7 @@
 | :-: | :-: | :-: | :-: | :-: |
 | alioth-r-oss | Mi 10S, Redmi K40 | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [alioth-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/alioth-r-oss) |   
 | andromeda-p-oss | Mi MIX 3 5G | Android P | LA.UM.7.1.r1-13000-sm8150.0 | [andromeda-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/andromeda-p-oss) |
+| ares-r-oss | Redmi K40 Gaming | Android R | MTK | [ares-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ares-r-oss) |    
 | armani-jb-oss | Redmi 1S | Android JB | LNX.LA.3.2-09720-8x26.0 | [armani-jb-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/armani-jb-oss) |
 | armani-kk-oss | Redmi 1S, Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | [armani-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/armani-kk-oss) |
 | apollo-q-oss | Redmi K30S Ultra | Android Q | LA.UM.8.12.r1-10600-sm8250.0 | [apollo-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/apollo-q-oss) |
