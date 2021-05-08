@@ -94,6 +94,7 @@
 | raphael-p-oss | Redmi K20 Pro | Android P | LA.UM.7.1.r1-12100-sm8150.0 | [raphael-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/raphael-p-oss) |
 | riva-n-oss | Redmi 4A, Redmi 5, Redmi 5A | Android N | LA.UM.5.6.r1-05900-89xx.0 | [riva-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/riva-n-oss) |
 | riva-o-oss | Redmi 5, Redmi 5A | Android O | LA.UM.6.6.r1-09900-89xx.0 | [riva-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/riva-o-oss) |
+| rosemary-r-oss | Redmi Note 10S | Android R | MTK | [rosemary-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/rosemary-r-oss) |   
 | sagit-n-oss | Mi 6, Mi MIX 2 | Android N | MSM8998.LA.1.1.r1-00232-STD.PROD-3 | [sagit-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sagit-n-oss) |
 | sagit-o-oss | Mi 6, Mi MIX 2 | Android O | LA.UM.6.4.r1-04900-8x98.0 | [sagit-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sagit-o-oss) |
 | sagit-p-oss | Mi 6, Mi MIX 2 | Android P | LA.UM.7.4.r1-04700-8x98.0 | [sagit-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sagit-p-oss) |
