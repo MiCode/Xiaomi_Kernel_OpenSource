@@ -1,0 +1,8 @@
+config MTK_LIGHTSECONDARY_HUB
+	bool "lightsecondaryhub for MediaTek package"
+	default n
+	help
+	  A lightsecondary is a device,
+	  usually portable and electronic
+	  or electromechanical,
+	  that detect distance between the body and device .

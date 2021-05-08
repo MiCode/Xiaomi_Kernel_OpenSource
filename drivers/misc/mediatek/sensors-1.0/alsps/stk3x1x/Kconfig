@@ -1,0 +1,7 @@
+config MTK_STK3X1X_NEW
+	bool "STK3X1X for MediaTek package"
+	help
+	  It support different type sensor
+	  in this platform. If this option
+	  is set, it will support ambient
+	  and light sensor STK3X1X.

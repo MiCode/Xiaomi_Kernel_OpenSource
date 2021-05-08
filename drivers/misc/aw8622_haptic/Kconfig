@@ -1,0 +1,10 @@
+#
+# mediatek AW8622 Driver
+#
+config AW8622_HAPTIC 
+	tristate "Awinic Aw8622 haptic driver"
+	help
+	  Say y here if you have Awinic AW8622 haptic controller 
+	  chip in yours system
+
+	  If unsure, say y.
