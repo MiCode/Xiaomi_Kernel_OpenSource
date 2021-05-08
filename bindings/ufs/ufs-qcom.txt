@@ -13,14 +13,13 @@ Required properties:
 			"qcom,msm8996-ufs-phy-qmp-14nm" for 14nm ufs phy
 			 present on MSM8996 chipset.
 			"qcom,ufs-phy-qmp-v4-lahaina" for ufs phy
-			 present on SM8350, SM8450 chipsets.
+			 present on SM8350 chipset.
 			"qcom,ufs-phy-qrbtc-sdm845" for phy support
 			 for sdm845 emulation.
-			 for sdm845 emulation,
-			"qcom,ufs-phy-qmp-v4-lahaina" for V4 ufs phy
-			 present on Lahaina chipset.
 			"qcom,ufs-phy-qmp-v3" for V3 ufs phy
 			 present on holi chipset.
+			"qcom,ufs-phy-qmp-v4-waipio" for V4 ufs phy
+			 present on SM8450 chipset.
 - reg               : should contain PHY register address space (mandatory),
 - reg-names         : indicates various resources passed to driver (via reg proptery) by name.
                       Required "reg-names" is "phy_mem".
