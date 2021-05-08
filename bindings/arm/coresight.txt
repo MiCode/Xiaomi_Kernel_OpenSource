@@ -264,6 +264,10 @@ its hardware characteristcs.
 	  will lose register context when AMBA clock is removed which is observed
 	  in some replicator designs.
 
+* Optional property for CTIs:
+
+	* qcom,extended_cti: boolean. Indicates that cti is an extended cti.
+
 * Optional property for all source components:
 	* atid: atid for the trace data of the source. If the data has two atids, configure
 	  two ids for the source. This is for multi ETR sink.
