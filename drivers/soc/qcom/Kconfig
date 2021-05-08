@@ -1310,6 +1310,23 @@ config DUMP_XBL_LOG
 	  reserved memory region:
 		cat /sys/module/xbl_log/xbl_log
 
+config MSM_SEB
+	tristate "Provide APIs to send and receive events from Slate chipset"
+	help
+	  SEB(Slate event bridge) communicates to Slate over rpmsg driver to
+	  send or receive events from Slate. The button events received from
+	  Slate are send to input framework. The driver provides functionality
+	  for a client to register a callback to receive events from a group.
+
+config MSM_SEB_RPMSG
+	tristate "Provide support for slate event GLINK channel"
+	depends on MSM_SEB
+	help
+	  SEB_RPMSG informs SEB driver if GLINK channel has been
+	  opened by remote processor. It doesn't maintain state machine
+	  and is probed when Slate opens channel and removed when the
+	  channel is closed by remote processor.
+
 source "drivers/soc/qcom/icnss2/Kconfig"
 
 source "drivers/soc/qcom/gnsssirf/Kconfig"
