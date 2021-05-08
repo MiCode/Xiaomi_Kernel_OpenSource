@@ -40,7 +40,7 @@
 /* indicates smmu passthrough is supported */
 #define VIRTIO_FASTRPC_F_SMMU_PASSTHROUGH		5
 
-#define NUM_CHANNELS			4 /* adsp, mdsp, slpi, cdsp*/
+#define NUM_CHANNELS			5 /* adsp, mdsp, slpi, cdsp0, cdsp1*/
 #define NUM_DEVICES			2 /* adsprpc-smd, adsprpc-smd-secure */
 #define M_FDLIST			16
 #define MINOR_NUM_DEV			0
@@ -2338,6 +2338,12 @@ static int virt_fastrpc_probe(struct virtio_device *vdev)
 	if (IS_ERR_OR_NULL(secure_dev))
 		goto device_create_bail;
 
+	err = register_pm_notifier(&virtio_fastrpc_pm_nb);
+	if (err) {
+		pr_err("virtio_fastrpc: power state notifier error\n");
+		goto device_create_bail;
+	}
+
 	virtio_device_ready(vdev);
 
 	/* set up the receive buffers */
@@ -2381,6 +2387,7 @@ static void virt_fastrpc_remove(struct virtio_device *vdev)
 {
 	struct fastrpc_apps *me = &gfa;
 
+	unregister_pm_notifier(&virtio_fastrpc_pm_nb);
 	device_destroy(me->class, MKDEV(MAJOR(me->dev_no), MINOR_NUM_DEV));
 	device_destroy(me->class, MKDEV(MAJOR(me->dev_no),
 					MINOR_NUM_SECURE_DEV));
@@ -2418,12 +2425,6 @@ static struct virtio_driver virtio_fastrpc_driver = {
 
 static int __init virtio_fastrpc_init(void)
 {
-	int ret;
-
-	ret = register_pm_notifier(&virtio_fastrpc_pm_nb);
-	if (ret)
-		pr_err("virtio_fastrpc: power state notif error\n");
-
 	return register_virtio_driver(&virtio_fastrpc_driver);
 }
 

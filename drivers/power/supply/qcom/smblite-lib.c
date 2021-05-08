@@ -523,6 +523,40 @@ static int smblite_lib_register_notifier(struct smb_charger *chg)
 	return 0;
 }
 
+bool is_concurrent_mode_supported(struct smb_charger *chg)
+{
+	return (chg->concurrent_mode_supported && chg->subtype == PM5100);
+}
+
+static int smblite_lib_concurrent_mode_config(struct smb_charger *chg, bool enable)
+{
+	int rc;
+
+	if (!is_concurrent_mode_supported(chg))
+		return 0;
+
+	rc = smblite_lib_write(chg, CONCURRENT_MODE_CFG_REG(chg->base),
+			(enable ? CONCURRENT_MODE_EN_BIT : 0));
+	if (rc < 0)
+		smblite_lib_err(chg, "Failed to write CONCURRENT_MODE_CFG_REG rc=%d\n",
+				rc);
+
+	if (!enable) {
+		/* Remove usb_icl_vote when concurrency mode is disabled */
+		rc = vote(chg->usb_icl_votable, CONCURRENT_MODE_VOTER, false,
+				0);
+		if (rc < 0)
+			smblite_lib_err(chg, "Failed to vote on ICL rc=%d\n", rc);
+
+		/* Remove chg_disable_vote when concurrency mode is disabled */
+		rc = vote(chg->chg_disable_votable, CONCURRENT_MODE_VOTER, false, 0);
+		if (rc < 0)
+			smblite_lib_err(chg, "Failed to vote on ICL rc=%d\n", rc);
+	}
+
+	return rc;
+}
+
 static void smblite_lib_uusb_removal(struct smb_charger *chg)
 {
 	int rc;
@@ -563,6 +597,8 @@ static void smblite_lib_uusb_removal(struct smb_charger *chg)
 
 	chg->uusb_apsd_rerun_done = false;
 	chg->hvdcp3_detected = false;
+	/* Disable concurrent mode on USB removal. */
+	smblite_lib_concurrent_mode_config(chg, false);
 }
 
 void smblite_lib_suspend_on_debug_battery(struct smb_charger *chg)
@@ -1299,7 +1335,52 @@ static int smblite_lib_dp_pulse(struct smb_charger *chg)
 	return rc;
 }
 
-int smblite_lib_force_vbus_voltage(struct smb_charger *chg, u8 val)
+#define HVDCP3_QUALIFICATION_UV (PM5100_MAX_HVDCP3_PULSES * \
+					(HVDCP3_STEP_SIZE_UV / 2))
+static int smblite_lib_hvdcp3_force_max_vbus(struct smb_charger *chg)
+{
+	union power_supply_propval pval = {0, };
+	int cnt = 0, rc, prev_vbus;
+	bool qc3_detected = false;
+
+	rc = smblite_lib_get_prop_usb_voltage_now(chg, &pval);
+	if (rc < 0) {
+		smblite_lib_err(chg, "Couldn't read voltage_now rc=%d\n",
+		rc);
+		return rc;
+	}
+
+	prev_vbus = pval.intval;
+
+	/*
+	 * Statically increase voltage till 6V.
+	 * ( i.e : 1V / 200mV = 5 pulses ).
+	 */
+	while (cnt++ < PM5100_MAX_HVDCP3_PULSES) {
+		smblite_lib_dp_pulse(chg);
+		/* wait for 100ms for vbus to settle. */
+		msleep(100);
+	}
+
+	rc = smblite_lib_get_prop_usb_voltage_now(chg, &pval);
+	if (rc < 0) {
+		smblite_lib_err(chg, "Couldn't read voltage_now rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* Check if voltage incremented. (i.e if QC3 ) */
+	if (pval.intval >= (prev_vbus + HVDCP3_QUALIFICATION_UV))
+		qc3_detected = true;
+
+	smblite_lib_dbg(chg, PR_MISC, "HVDCP3 : detected=%s, prev_vbus=%d, vbus_now=%d\n",
+			(qc3_detected ? "True" : "False"), prev_vbus,
+			pval.intval);
+
+	return qc3_detected;
+}
+
+static int smblite_lib_force_vbus_voltage(struct smb_charger *chg, u8 val)
 {
 	int rc;
 
@@ -1354,6 +1435,111 @@ int smblite_lib_run_aicl(struct smb_charger *chg, int type)
 		smblite_lib_err(chg, "Couldn't write to AICL_CMD_REG rc=%d\n",
 				rc);
 	return 0;
+}
+
+#define CONCURRENCY_REDUCED_ICL_UA 300000
+int smblite_lib_set_concurrent_config(struct smb_charger *chg, bool enable)
+{
+	int rc = 0, icl_ua = 0, settled_icl_ua = 0, usb_present = 0;
+	union power_supply_propval pval = {0, };
+
+	if (!is_concurrent_mode_supported(chg)) {
+		smblite_lib_dbg(chg, PR_MISC, "Concurrent Mode supported disabled\n");
+		return 0;
+	}
+
+	/* Exit if there is no change in state */
+	if (chg->concurrent_mode_status == enable)
+		goto out;
+
+	rc = smblite_lib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		smblite_lib_dbg(chg, PR_MISC,
+			"Couldn't get USB preset status rc=%d\n", rc);
+		goto failure;
+	}
+	usb_present = pval.intval;
+
+	if (enable) {
+		/* Check if USB is connected */
+		if (!usb_present) {
+			smblite_lib_dbg(chg, PR_MISC,
+				"Failed to enable concurrent mode USB disconnected\n", rc);
+			goto failure;
+		}
+
+		/* Get AICL Result */
+		rc = smblite_lib_get_prop_input_current_settled(chg, &settled_icl_ua);
+		if (rc) {
+			smblite_lib_err(chg, "Failed read AICL Result rc=%d\n", rc);
+			goto failure;
+		}
+
+		/* Return if AICL result is less than 300mA. */
+		if (settled_icl_ua <= CONCURRENCY_REDUCED_ICL_UA) {
+			smblite_lib_dbg(chg, PR_MISC,
+				"AICL Result too less to enable concurreny mode\n");
+			goto failure;
+		}
+
+		icl_ua = settled_icl_ua - CONCURRENCY_REDUCED_ICL_UA;
+
+		rc = vote(chg->usb_icl_votable, CONCURRENT_MODE_VOTER, true,
+				icl_ua);
+		if (rc < 0) {
+			smblite_lib_err(chg, "Failed to vote on ICL rc=%d\n", rc);
+			goto failure;
+		}
+
+		if (chg->hvdcp3_detected) {
+			/* Force Vbus to 5V. */
+			rc = smblite_lib_force_vbus_voltage(chg, FORCE_5V_BIT);
+			if (rc < 0)
+				smblite_lib_err(chg, "Failed to force vbus to 5V rc=%d\n",
+					rc);
+		}
+
+		/* Enable charger if already disabled */
+		rc = vote(chg->chg_disable_votable, CONCURRENT_MODE_VOTER, false, 0);
+		if (rc < 0) {
+			smblite_lib_err(chg, "Failed to Enable charger rc=%d\n",
+					rc);
+			goto failure;
+		}
+
+		/* Enable concurrent mode */
+		rc = smblite_lib_concurrent_mode_config(chg, true);
+		if (rc < 0)
+			goto failure;
+
+		chg->concurrent_mode_status = true;
+		smblite_lib_dbg(chg, PR_MISC, "Concurrent Mode enabled successfully: settled_icl_ua=%duA, icl_ua=%duA, is_hvdcp3=%d\n",
+					settled_icl_ua, icl_ua,
+					chg->hvdcp3_detected);
+		goto out;
+	} else {
+		/* Disable concurrent mode */
+		rc = smblite_lib_concurrent_mode_config(chg, false);
+		if (rc < 0)
+			goto failure;
+
+		/* Restore vbus to MAX(6V) if QC3P5 is connected */
+		if (chg->hvdcp3_detected && usb_present)
+			smblite_lib_hvdcp3_force_max_vbus(chg);
+
+		chg->concurrent_mode_status = false;
+		smblite_lib_dbg(chg, PR_MISC, "Concurrent Mode disabled successfully: is_hvdcp3=%d\n",
+			chg->hvdcp3_detected);
+		goto out;
+	}
+
+failure:
+	rc = -EINVAL;
+	smblite_lib_dbg(chg, PR_MISC, "Failed to %s concurrent mode\n",
+			(enable ? "Enable" : "Disable"));
+
+out:
+	return rc;
 }
 
 /*******************
@@ -2397,12 +2583,30 @@ static void smblite_lib_micro_usb_plugin(struct smb_charger *chg,
 					bool vbus_rising)
 {
 	int rc = 0;
-
+	u8 stat;
 	if (vbus_rising) {
 		rc = typec_partner_register(chg);
 		if (rc < 0)
 			smblite_lib_err(chg, "Couldn't register partner rc =%d\n",
 					rc);
+
+		/*
+		 * For PM5100 check if concurrent mode support is enabled and
+		 * charging is paused in hardware due to boost being enabled,
+		 * force charging to be disabled in SW.
+		 */
+		if (is_concurrent_mode_supported(chg)) {
+			rc = smblite_lib_read(chg, CHGR_CHG_EN_STATUS_REG(chg->base), &stat);
+			if (rc < 0)
+				smblite_lib_err(chg, "Couldn't read CHGR_EN_STATUS_REG rc=%d\n",
+					rc);
+
+			vote(chg->chg_disable_votable, CONCURRENT_MODE_VOTER,
+				(stat & CHARGING_DISABLED_FROM_BOOST_BIT), 0);
+
+			smblite_lib_dbg(chg, PR_MISC,
+				"charger_en_status=%x, Charging disable by boost\n", stat);
+		}
 	} else {
 		smblite_lib_notify_device_mode(chg, false);
 		smblite_lib_uusb_removal(chg);
@@ -2695,54 +2899,22 @@ static void smblite_lib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		   apsd_result->name);
 }
 
-#define HVDCP3_QUALIFICATION_UV (PM5100_MAX_HVDCP3_PULSES * \
-					(HVDCP3_STEP_SIZE_UV / 2))
 static void smblite_lib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 					      bool rising, bool qc_charger)
 {
-	union power_supply_propval pval = {0, };
-	int rc = 0, cnt = 0, prev_vbus;
+	int rc = 0;
 
 	if (rising) {
-
 		if (qc_charger) {
-			rc = smblite_lib_get_prop_usb_voltage_now(chg, &pval);
-			if (rc < 0) {
-				smblite_lib_err(chg, "Couldn't read voltage_now rc=%d\n",
-					rc);
-				goto failure;
-			}
-
-			prev_vbus = pval.intval;
-
-			/*
-			 * Statically increase voltage till 6V.
-			 * ( i.e : 1V / 200mV = 5 pulses ).
-			 */
-			while (cnt++ < PM5100_MAX_HVDCP3_PULSES) {
-				smblite_lib_dp_pulse(chg);
-				/* wait for 100ms for vbus to settle. */
-				msleep(100);
-			}
-
-			rc = smblite_lib_get_prop_usb_voltage_now(chg, &pval);
-			if (rc < 0) {
-				smblite_lib_err(chg, "Couldn't read voltage_now rc=%d\n",
-					rc);
-				goto failure;
-			}
-
-			/* Check if voltage incremented. (i.e if QC3 )*/
-			if (pval.intval >= (prev_vbus + HVDCP3_QUALIFICATION_UV))
+			/* Increase vbus to MAX(6V), if incremented HVDCP_3 is detected */
+			rc = smblite_lib_hvdcp3_force_max_vbus(chg);
+			if (rc < 0)
+				smblite_lib_err(chg, "HVDCP3 detection failure\n");
+			if (rc > 0)
 				chg->hvdcp3_detected = true;
-
-			smblite_lib_dbg(chg, PR_MISC, "HVDCP3 : detected=%s, prev_vbus=%d, vbus_now=%d\n",
-					(chg->hvdcp3_detected ? "True" : "False"),
-					prev_vbus, pval.intval);
 		}
 	}
 
-failure:
 	smblite_lib_dbg(chg, PR_INTERRUPT, "IRQ: %s %s\n", __func__,
 		   rising ? "rising" : "falling");
 }

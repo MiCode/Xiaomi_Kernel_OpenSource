@@ -8,6 +8,7 @@
 
 #include <linux/scatterlist.h>
 #include <linux/usb/gadget.h>
+#include <linux/soc/qcom/llcc-tcm.h>
 
 /* used for struct usb_phy flags */
 #define PHY_HOST_MODE			BIT(0)
@@ -85,6 +86,8 @@ struct usb_gsi_request {
 	struct sg_table sgt_trb_xfer_ring;
 	struct sg_table sgt_data_buff;
 	struct device *dev;
+	bool use_tcm_mem;
+	struct llcc_tcm_data *tcm_mem;
 };
 
 /*
@@ -115,14 +118,6 @@ struct gsi_channel_info {
 	u64 xfer_ring_base_addr;
 	struct usb_gsi_request *ch_req;
 };
-
-#if IS_ENABLED(CONFIG_MSM_QUSB_PHY)
-extern void usb_phy_drive_dp_pulse(void *phy,
-					unsigned int interval_ms);
-#else
-static inline void usb_phy_drive_dp_pulse(void *phy, unsigned int interval_ms)
-{ }
-#endif
 
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
 struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,

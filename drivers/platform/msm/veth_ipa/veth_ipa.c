@@ -54,6 +54,8 @@
 
 #define PAGE_SIZE_1 4096
 
+MODULE_LICENSE("GPL v2");
+
 static int veth_ipa_open(struct net_device *net);
 static void veth_ipa_packet_receive_notify
 	(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
@@ -163,10 +165,6 @@ static int veth_ipa_offload_init(struct veth_ipa_dev *pdata)
 	emac_emb_smmu_ctx.valid = true;
 
 	VETH_IPA_DEBUG("veth_ipa_offload_init");
-	if (!pdata) {
-		VETH_IPA_ERROR("%s: Null Param\n", __func__);
-		return -EINVAL;
-	}
 
 	ret = ipa_is_vlan_mode(IPA_VLAN_IF_EMAC, &ipa_vlan_mode);
 	if (ret) {
@@ -306,6 +304,7 @@ int veth_ipa_offload_disconnect(struct veth_ipa_dev *pdata)
 	return 0;
 }
 
+
 /**
  * veth_set_ul_dl_smmu_ipa_params() - This will set the UL
  * params in ipa_ntn_setup_info structure to be used in the IPA
@@ -338,7 +337,7 @@ int veth_set_ul_dl_smmu_ipa_params(struct veth_ipa_dev *pdata,
 	}
 
 	/*Configure SGT for UL ring base*/
-	ul->ring_base_sgt = kzalloc(sizeof(ul->ring_base_sgt), GFP_KERNEL);
+	ul->ring_base_sgt = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!ul->ring_base_sgt)
 		return -ENOMEM;
 
@@ -366,7 +365,7 @@ int veth_set_ul_dl_smmu_ipa_params(struct veth_ipa_dev *pdata,
 
 	/*configure SGT for UL buff pool base*/
 	ul->buff_pool_base_sgt = kzalloc(
-		sizeof(ul->buff_pool_base_sgt), GFP_KERNEL);
+		sizeof(struct sg_table), GFP_KERNEL);
 
 	if (!ul->buff_pool_base_sgt) {
 		kfree(ul->ring_base_sgt);
@@ -399,7 +398,7 @@ int veth_set_ul_dl_smmu_ipa_params(struct veth_ipa_dev *pdata,
 		ul->buff_pool_base_pa);
 
 	/*Configure SGT for DL ring base*/
-	dl->ring_base_sgt = kzalloc(sizeof(dl->ring_base_sgt), GFP_KERNEL);
+	dl->ring_base_sgt = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!dl->ring_base_sgt)
 		return -ENOMEM;
 
@@ -427,7 +426,7 @@ int veth_set_ul_dl_smmu_ipa_params(struct veth_ipa_dev *pdata,
 
 	/*configure SGT for DL buff pool base*/
 	dl->buff_pool_base_sgt = kzalloc(
-		sizeof(dl->buff_pool_base_sgt), GFP_KERNEL);
+		sizeof(struct sg_table), GFP_KERNEL);
 
 	if (!dl->buff_pool_base_sgt)
 		return -ENOMEM;
@@ -447,14 +446,16 @@ int veth_set_ul_dl_smmu_ipa_params(struct veth_ipa_dev *pdata,
 		ret = -EAGAIN;
 	}
 
-	dl->buff_pool_base_pa = sg_phys(dl->buff_pool_base_sgt->sgl);
-	veth_emac_mem->tx_buff_pool_base_pa = dl->buff_pool_base_pa;
+	if (dl->buff_pool_base_sgt != NULL) {
+		dl->buff_pool_base_pa = sg_phys(dl->buff_pool_base_sgt->sgl);
+		veth_emac_mem->tx_buff_pool_base_pa = dl->buff_pool_base_pa;
 
-	VETH_IPA_INFO(
+		VETH_IPA_INFO(
 		"%s:dl->buff_pool_base_sgt = 0x%p , dl->buff_pool_base_pa =0x%lx",
 		__func__,
 		dl->buff_pool_base_sgt,
 		dl->buff_pool_base_pa);
+	}
 	return ret;
 }
 
@@ -1141,7 +1142,9 @@ static void veth_ipa_offload_event_handler(
 	}
 
 	VETH_IPA_UNLOCK();
-	VETH_IPA_DEBUG("Exit: event=%s\n", IPA_OFFLOAD_EVENT_string[ev]);
+	if (ev < 9)
+		VETH_IPA_DEBUG("Exit: event=%s\n",
+			IPA_OFFLOAD_EVENT_string[ev]);
 }
 
 static void  veth_ipa_emac_deinit_wq(struct work_struct *work)
@@ -2259,7 +2262,7 @@ static int veth_ipa_remove(struct platform_device *pdev)
 		pr_err("%s: failed\n");
 		return ret;
 	}
-
+	habmm_socket_close(pdata->veth_emac_mem.vc_id);
 	veth_ipa_cleanup(pdata);
 	return 0;
 }

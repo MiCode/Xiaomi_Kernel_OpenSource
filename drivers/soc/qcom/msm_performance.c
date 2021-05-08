@@ -512,7 +512,7 @@ static void free_pmu_counters(unsigned int cpu)
 static int init_pmu_counter(void)
 {
 	int cpu;
-	unsigned long cpu_capacity[NR_CPUS];
+	unsigned long cpu_capacity[NR_CPUS] = {0};
 	unsigned long min_cpu_capacity = ULONG_MAX;
 	int ret = 0;
 
@@ -814,7 +814,7 @@ static int msm_perf_core_ctl_notify(struct notifier_block *nb,
 					void *data)
 {
 	static unsigned int tld, nrb, i;
-	static unsigned int top_ld[CLUSTER_MAX], curr_cp[CLUSTER_MAX];
+	static unsigned int top_ld[CLUSTER_MAX] = {0}, curr_cp[CLUSTER_MAX] = {0};
 	static DECLARE_WORK(sysfs_notify_work, nr_notify_userspace);
 	struct core_ctl_notif_data *d = data;
 	int cluster = 0;
@@ -986,7 +986,7 @@ module_param_cb(plh_log_level, &param_ops_plh_log_level, &plh_log_level, 0644);
 static int init_splh_notif(const char *buf)
 {
 	int i, j, ret;
-	u16 tmp[SPLH_INIT_IPC_FREQ_TBL_PARAMS];
+	u16 tmp[SPLH_INIT_IPC_FREQ_TBL_PARAMS] = {0};
 	u16 *ptmp = tmp, ntokens, nfps, n_ipc_freq_pair, tmp_valid_len = 0;
 	const char *cp, *cp1;
 	struct scmi_plh_vendor_ops *ops;

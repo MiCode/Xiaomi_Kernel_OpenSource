@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -142,6 +142,27 @@ struct ipa_route_tbl_info_type_v01 {
 	 *	(5 bits used to specify the routing table index), unless there
 	 *	is a change in the hardware.
 	 */
+};  /* Type */
+
+#define IPA_RQOS_FILTER_STATS_INFO
+struct ipa_filter_stats_info_type_v01 {
+	__u32 hw_filter_stats_start_addr;
+	/*	Identifies the start of the filter stats. Denotes the offset
+	 *	from the start of the IPA Shared Mem
+	 */
+
+	__u32 hw_filter_stats_size;
+	/*	Identifies size in bytes of the HW filter statistics table. */
+
+	__u8 hw_filter_stats_start_index;
+	/* Identifies the start index of the modem driver managed
+	 * indices in the hw filter statistics table.
+	 */
+
+	__u8 hw_filter_stats_end_index;
+	 /* Identifies the end index os the modem driver managed
+	  * indices in the hw filter statistics table.
+	  */
 };  /* Type */
 
 struct ipa_modem_mem_info_type_v01 {
@@ -356,6 +377,14 @@ struct ipa_init_modem_driver_req_msg_v01 {
 	 */
 	__u8 hw_drop_stats_table_size_valid;
 	__u32 hw_drop_stats_table_size;
+
+	/* optional
+	 * Modem HW flt stats info
+	 * Must be set to true if filter_stats_info
+	 * is being passed
+	 */
+	__u8 hw_fiter_stats_info_valid;
+	struct ipa_filter_stats_info_type_v01 hw_filter_stats_info;
 };  /* Message */
 
 /* Response Message; Requests the modem IPA driver about initialization */
@@ -2688,6 +2717,54 @@ struct ipa_bw_change_ind_msg_v01 {
 }; /* Message */
 #define IPA_BW_CHANGE_IND_MSG_V01_MAX_MSG_LEN 14
 
+enum ipa_move_nat_type_enum_v01 {
+	QMI_IPA_MOVE_NAT_TO_DDR_V01 = 0,
+	QMI_IPA_MOVE_NAT_TO_SRAM_V01 = 1,
+};
+
+/*
+ * Request Message; Requestes remote IPA driver to move IPA NAT table
+ * according to requested direction TO_DDR\TO_SRAM.
+ */
+struct ipa_move_nat_req_msg_v01 {
+	enum ipa_move_nat_type_enum_v01 nat_move_direction;
+};
+#define IPA_MOVE_NAT_REQ_MSG_V01_MAX_MSG_LEN 8
+
+/*
+ * Response Message; Requestes remote IPA driver to move IPA NAT table
+ * according to requested direction TO_DDR\TO_SRAM.
+ */
+struct ipa_move_nat_resp_msg_v01 {
+
+	/* Mandatory */
+	/* Result Code */
+	struct ipa_qmi_response_type_v01 resp;
+	/*
+	 * Standard response type.
+	 * Standard response type. Contains the following data members:
+	 * qmi_result_type -- QMI_RESULT_SUCCESS or QMI_RESULT_FAILURE
+	 * qmi_error_type  -- Error code. Possible error code values are
+	 * described in the error codes section of each message definition.
+	 */
+};  /* Message */
+#define IPA_MOVE_NAT_RESP_MSG_V01_MAX_MSG_LEN 7
+
+    /*	Indication Message; Indication sent to the Modem IPA driver from
+     *	master IPA driver about NAT table move result.
+     */
+struct ipa_move_nat_table_complt_ind_msg_v01 {
+	/* Mandatory */
+	/*  Master driver initialization completion status */
+	struct ipa_qmi_response_type_v01 nat_table_move_status;
+	/*	Indicates the status of nat table mvoe. If everything went
+	 *	as expected, this field is set to SUCCESS. ERROR is set
+	 *	otherwise. Extended error info may be used to convey
+	 *	additional information about the error
+	 */
+};  /* Message */
+#define QMI_IPA_NAT_TABLE_MOVE_COMPLETE_IND_MAX_MSG_LEN_V01 7
+
 /*Service Message Definition*/
 #define QMI_IPA_INDICATION_REGISTER_REQ_V01 0x0020
 #define QMI_IPA_INDICATION_REGISTER_RESP_V01 0x0020
@@ -2743,9 +2820,12 @@ struct ipa_bw_change_ind_msg_v01 {
 #define QMI_IPA_REMOVE_OFFLOAD_CONNECTION_REQ_V01 0x0042
 #define QMI_IPA_REMOVE_OFFLOAD_CONNECTION_RESP_V01 0x0042
 #define QMI_IPA_BW_CHANGE_INDICATION_V01 0x0044
+#define QMI_IPA_MOVE_NAT_REQ_V01 0x0046
+#define QMI_IPA_MOVE_NAT_RESP_V01 0x0046
+#define QMI_IPA_MOVE_NAT_COMPLETE_IND_V01 0x0046
 
 /* add for max length*/
-#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 162
+#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 186
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 25
 #define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 16
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -2977,7 +2977,7 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	sysfs_create_files(&device->dev->kobj, _preempt_attr_list);
+	WARN_ON(sysfs_create_files(&device->dev->kobj, _preempt_attr_list));
 
 	mutex_init(&dispatcher->mutex);
 

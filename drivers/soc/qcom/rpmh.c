@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/atomic.h>
 #include <linux/bug.h>
@@ -450,7 +450,10 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 	req->rpm_msgs = rpm_msgs;
 
 	for (i = 0; i < count; i++) {
-		__fill_rpmh_msg(rpm_msgs + i, state, cmd, n[i]);
+		ret = __fill_rpmh_msg(rpm_msgs + i, state, cmd, n[i]);
+		if (ret)
+			goto exit;
+
 		cmd += n[i];
 	}
 

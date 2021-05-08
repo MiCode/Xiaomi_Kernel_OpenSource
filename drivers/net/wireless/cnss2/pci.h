@@ -39,6 +39,12 @@ enum  cnss_rtpm_id {
 	RTPM_ID_MAX,
 };
 
+enum cnss_pci_reg_dev_mask {
+	REG_MASK_QCA6390,
+	REG_MASK_QCA6490,
+	REG_MASK_WCN7850,
+};
+
 struct cnss_msi_user {
 	char *name;
 	int num_vectors;
@@ -62,6 +68,7 @@ struct cnss_pci_debug_reg {
 };
 
 struct cnss_misc_reg {
+	unsigned long dev_mask;
 	u8 wr;
 	u32 offset;
 	u32 val;
@@ -122,12 +129,12 @@ struct cnss_pci_data {
 	struct mutex bus_lock; /* mutex for suspend and resume bus */
 	struct cnss_pci_debug_reg *debug_reg;
 	struct cnss_misc_reg *wcss_reg;
-	u32 wcss_reg_size;
 	struct cnss_misc_reg *pcie_reg;
-	u32 pcie_reg_size;
 	struct cnss_misc_reg *wlaon_reg;
-	u32 wlaon_reg_size;
+	struct cnss_misc_reg *syspm_reg;
+	unsigned long misc_reg_dev_mask;
 	u8 iommu_geometry;
+	bool drv_supported;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)
@@ -236,8 +243,8 @@ void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv,
 void cnss_pci_pm_runtime_mark_last_busy(struct cnss_pci_data *pci_priv);
 int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
 			   enum cnss_driver_status status);
-int cnss_call_driver_uevent(struct cnss_pci_data *pci_priv,
-			    enum cnss_driver_status status, void *data);
+int cnss_pci_call_driver_uevent(struct cnss_pci_data *pci_priv,
+				enum cnss_driver_status status, void *data);
 int cnss_pcie_is_device_down(struct cnss_pci_data *pci_priv);
 int cnss_pci_suspend_bus(struct cnss_pci_data *pci_priv);
 int cnss_pci_resume_bus(struct cnss_pci_data *pci_priv);

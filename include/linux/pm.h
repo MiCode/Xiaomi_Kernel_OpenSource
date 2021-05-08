@@ -598,7 +598,16 @@ struct dev_pm_info {
 #endif
 #ifdef CONFIG_PM
 	struct hrtimer		suspend_timer;
+
+/*
+ * See https://android-review.googlesource.com/c/kernel/common/+/1483579
+ * for more info as to why this #ifdef is here...
+ */
+#ifdef __GENKSYMS__
 	unsigned long		timer_expires;
+#else
+	u64			timer_expires;
+#endif
 	struct work_struct	work;
 	wait_queue_head_t	wait_queue;
 	struct wake_irq		*wakeirq;

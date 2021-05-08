@@ -122,6 +122,19 @@ struct ipa_core_data {
 	int (*ipa_disconnect_wdi_pipe)(u32 clnt_hdl);
 	int (*ipa_uc_reg_rdyCB)(struct ipa_wdi_uc_ready_params *param);
 	int (*ipa_uc_dereg_rdyCB)(void);
+
+	int (*ipa_rmnet_ll_xmit)(struct sk_buff *skb);
+
+	int (*ipa_register_rmnet_ll_cb)(
+		void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+		void *user_data1,
+		void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+		void *user_data2,
+		void (*ipa_rmnet_ll_rx_notify_cb)(
+			void *user_data3, void *rx_data),
+		void *user_data3);
+
+	int (*ipa_unregister_rmnet_ll_cb)(void);
 };
 
 struct ipa_usb_data {

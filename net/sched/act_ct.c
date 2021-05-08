@@ -186,7 +186,7 @@ static int tcf_ct_handle_fragments(struct net *net, struct sk_buff *skb,
 		memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
 		err = nf_ct_frag6_gather(net, skb, user);
 		if (err && err != -EINPROGRESS)
-			goto out_free;
+			return err;
 #else
 		err = -EOPNOTSUPP;
 		goto out_free;
@@ -740,8 +740,6 @@ static int tcf_ct_init(struct net *net, struct nlattr *nla,
 		tcf_chain_put_by_act(goto_ch);
 	if (params)
 		call_rcu(&params->rcu, tcf_ct_params_free);
-	if (res == ACT_P_CREATED)
-		tcf_idr_insert(tn, *a);
 
 	return res;
 

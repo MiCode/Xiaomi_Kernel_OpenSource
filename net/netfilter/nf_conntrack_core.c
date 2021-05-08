@@ -1888,8 +1888,8 @@ acct:
 					[CTINFO2DIR(ctinfo)].bytes);
 
 			pkts =
-			atomic64_read(&counter[CTINFO2DIR(ctinfo)].packets) +
-			atomic64_read(&counter[!CTINFO2DIR(ctinfo)].packets);
+			((u64)atomic64_read(&counter[CTINFO2DIR(ctinfo)].packets)) +
+			((u64)atomic64_read(&counter[!CTINFO2DIR(ctinfo)].packets));
 			/* Report if the packet threshold is reached. */
 			if (nf_conntrack_pkt_threshold > 0 &&
 			    pkts == nf_conntrack_pkt_threshold) {

@@ -1181,7 +1181,7 @@ static void a6xx_rgmu_pm_resume(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 
-	if (WARN(!test_bit(GMU_PRIV_PM_SUSPEND, &rgmu->flags),
+	if (WARN(!test_bit(RGMU_PRIV_PM_SUSPEND, &rgmu->flags),
 		"resume invoked without a suspend\n"))
 		return;
 

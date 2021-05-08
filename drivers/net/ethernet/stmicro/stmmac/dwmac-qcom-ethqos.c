@@ -113,7 +113,6 @@
 #define AUTONEG_STATE_MASK 0x20
 #define MICREL_LINK_UP_INTR_STATUS BIT(0)
 
-bool phy_intr_en;
 void *ipc_emac_log_ctxt;
 
 struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
@@ -405,7 +404,7 @@ static int qcom_ethqos_add_ipaddr(struct ip_params *ip_info,
 		} else {
 			ETHQOSINFO("Assigned IPv4 address: %s\r\n",
 				   ip_info->ipv4_addr_str);
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 place_marker("M - Etherent Assigned IPv4 address");
 #endif
 		}
@@ -453,7 +452,7 @@ static int qcom_ethqos_add_ipv6addr(struct ip_params *ip_info,
 		} else {
 			ETHQOSDBG("Assigned IPv6 address: %s\r\n",
 				  ip_info->ipv6_addr_str);
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 		place_marker("M - Ethernet Assigned IPv6 address");
 #endif
 		}
@@ -1011,6 +1010,7 @@ static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
 
 	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
 	init_completion(&ethqos->clk_enable_done);
@@ -1022,7 +1022,7 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 			  ethqos->phy_intr);
 		return ret;
 	}
-	phy_intr_en = true;
+	priv->plat->phy_intr_en_extn_stm = true;
 	return ret;
 }
 
@@ -1103,7 +1103,7 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 
 	ETHQOSINFO("Enter\n");
 
-	if (phy_intr_en)
+	if (priv->plat->phy_intr_en_extn_stm)
 		reinit_completion(&ethqos->clk_enable_done);
 
 	ethqos->clks_suspended = 1;
@@ -1170,17 +1170,26 @@ static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 
 	ethqos->clks_suspended = 0;
 
-	if (phy_intr_en)
+	if (priv->plat->phy_intr_en_extn_stm)
 		complete_all(&ethqos->clk_enable_done);
 
 	ETHQOSINFO("Exit\n");
 }
 
-void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
+static void qcom_ethqos_request_phy_wol(void *plat_n)
 {
-	struct qcom_ethqos *ethqos = plat->bsp_priv;
-	struct platform_device *pdev = ethqos->pdev;
-	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct plat_stmmacenet_data *plat = plat_n;
+	struct qcom_ethqos *ethqos;
+	struct platform_device *pdev;
+	struct net_device *ndev;
+
+	if (!plat)
+		return;
+
+	ethqos = plat->bsp_priv;
+
+	pdev = ethqos->pdev;
+	ndev = platform_get_drvdata(pdev);
 
 	ethqos->phy_wol_supported = 0;
 	ethqos->phy_wol_wolopts = 0;
@@ -1522,6 +1531,20 @@ fail:
 	return -ENOMEM;
 }
 
+static int ethqos_cleanup_debugfs(struct qcom_ethqos *ethqos)
+{
+	if (!ethqos) {
+		ETHQOSERR("Null Param");
+		return -ENODEV;
+	}
+
+	debugfs_remove_recursive(ethqos->debugfs_dir);
+	ethqos->debugfs_dir = NULL;
+
+	ETHQOSDBG("debugfs Deleted Successfully");
+	return 0;
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1537,7 +1560,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 				    "qcom,emac-smmu-embedded"))
 		return emac_emb_smmu_cb_probe(pdev);
 
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 	place_marker("M - Ethernet probe start");
 #endif
 
@@ -1615,6 +1638,9 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
 	plat_dat->early_eth = ethqos->early_eth_enabled;
+	plat_dat->handle_prv_ioctl = ethqos_handle_prv_ioctl;
+	plat_dat->request_phy_wol = qcom_ethqos_request_phy_wol;
+	plat_dat->init_pps = ethqos_init_pps;
 
 	if (of_property_read_bool(pdev->dev.of_node,
 				  "emac-core-version")) {
@@ -1646,6 +1672,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 			emac_emb_smmu_ctx.ret = 0;
 		}
 	}
+
+	plat_dat->stmmac_emb_smmu_ctx = emac_emb_smmu_ctx;
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
@@ -1684,7 +1712,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		/*Set early eth parameters*/
 		ethqos_set_early_eth_param(priv, ethqos);
 	}
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 	place_marker("M - Ethernet probe end");
 #endif
 
@@ -1703,22 +1731,38 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 {
 	struct qcom_ethqos *ethqos;
 	int ret;
+	struct stmmac_priv *priv;
+
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,emac-smmu-embedded")) {
+		of_platform_depopulate(&pdev->dev);
+		return 0;
+	}
 
 	ethqos = get_stmmac_bsp_priv(&pdev->dev);
 	if (!ethqos)
 		return -ENODEV;
 
+	priv = qcom_ethqos_get_priv(pethqos);
+
 	ret = stmmac_pltfr_remove(pdev);
 	clk_disable_unprepare(ethqos->rgmii_clk);
 
-	if (phy_intr_en)
+	if (priv->plat->phy_intr_en_extn_stm)
 		free_irq(ethqos->phy_intr, ethqos);
 
-	if (phy_intr_en)
+	if (priv->plat->phy_intr_en_extn_stm)
 		cancel_work_sync(&ethqos->emac_phy_work);
 
+	if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG)
+		ethqos_remove_pps_dev(ethqos);
+
+	ethqos_cleanup_debugfs(ethqos);
+	ethqos_free_gpios(ethqos);
 	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
+
+	platform_set_drvdata(pdev, NULL);
+	of_platform_depopulate(&pdev->dev);
 
 	return ret;
 }

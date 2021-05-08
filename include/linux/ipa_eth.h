@@ -895,6 +895,18 @@ enum ipa_eth_pipe_direction {
 #define IPA_ETH_INST_ID_MAX (2)
 
 /**
+ * struct ipa_eth_ntn_setup_info - parameters for ntn ethernet
+ * offloading
+ *
+ * @bar_addr: bar PA to access NTN register
+ * @tail_ptr_offs: tail ptr offset
+ */
+struct ipa_eth_ntn_setup_info {
+	phys_addr_t bar_addr;
+	phys_addr_t tail_ptr_offs;
+};
+
+/**
  * struct ipa_eth_aqc_setup_info - parameters for aqc ethernet
  * offloading
  *
@@ -980,6 +992,7 @@ struct ipa_eth_pipe_setup_info {
 	union {
 		struct ipa_eth_aqc_setup_info aqc;
 		struct ipa_eth_realtek_setup_info rtk;
+		struct ipa_eth_ntn_setup_info ntn;
 	} client_info;
 
 	/* output params */
@@ -1013,6 +1026,7 @@ struct ipa_eth_client_pipe_info {
  * @traffic_type: traffic type
  * @pipe_list: list of pipes with same traffic type
  * @priv: private data for client
+ * @test: is test client
  */
 struct ipa_eth_client {
 	/* vendor driver */
@@ -1025,6 +1039,7 @@ struct ipa_eth_client {
 
 	/* client specific priv data*/
 	void *priv;
+	bool test;
 };
 
 /**

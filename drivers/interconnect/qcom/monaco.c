@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -22,6 +22,11 @@
 #include "icc-rpm.h"
 #include "qnoc-qos.h"
 #include "rpm-ids.h"
+
+static LIST_HEAD(qnoc_probe_list);
+static DEFINE_MUTEX(probe_list_lock);
+
+static int probe_count;
 
 static const struct clk_bulk_data bus_clocks[] = {
 	{ .id = "bus" },
@@ -983,6 +988,7 @@ static struct qcom_icc_node qxs_snoc_bimc = {
 	.mas_rpm_id = -1,
 	.slv_rpm_id = ICBID_SLAVE_SNOC_BIMC,
 	.num_links = 1,
+	.links = { SNOC_BIMC_MAS },
 };
 
 static struct qcom_icc_node srvc_snoc = {
@@ -1154,19 +1160,28 @@ static struct qcom_icc_desc monaco_sys_noc = {
 	.num_nodes = ARRAY_SIZE(sys_noc_nodes),
 };
 
-static void qcom_icc_stub_pre_aggregate(struct icc_node *node)
-{
-}
+static const struct regmap_config icc_regmap_config = {
+	.reg_bits       = 32,
+	.reg_stride     = 4,
+	.val_bits       = 32,
+};
 
-static int qcom_icc_stub_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
-			u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
+static struct regmap *
+qcom_icc_map(struct platform_device *pdev, const struct qcom_icc_desc *desc)
 {
-	return 0;
-}
+	void __iomem *base;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
 
-static int qcom_icc_stub_set(struct icc_node *src, struct icc_node *dst)
-{
-	return 0;
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return NULL;
+
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base))
+		return ERR_CAST(base);
+
+	return devm_regmap_init_mmio(dev, base, &icc_regmap_config);
 }
 
 static int qnoc_probe(struct platform_device *pdev)
@@ -1197,11 +1212,25 @@ static int qnoc_probe(struct platform_device *pdev)
 	if (!data)
 		return -ENOMEM;
 
+	qp->bus_clks = devm_kmemdup(dev, bus_clocks, sizeof(bus_clocks),
+				    GFP_KERNEL);
+	if (!qp->bus_clks)
+		return -ENOMEM;
+
+	qp->num_clks = ARRAY_SIZE(bus_clocks);
+	ret = devm_clk_bulk_get(dev, qp->num_clks, qp->bus_clks);
+	if (ret)
+		return ret;
+
+	ret = clk_bulk_prepare_enable(qp->num_clks, qp->bus_clks);
+	if (ret)
+		return ret;
+
 	provider = &qp->provider;
 	provider->dev = dev;
-	provider->set = qcom_icc_stub_set;
-	provider->pre_aggregate = qcom_icc_stub_pre_aggregate;
-	provider->aggregate = qcom_icc_stub_aggregate;
+	provider->set = qcom_icc_rpm_set;
+	provider->pre_aggregate = qcom_icc_rpm_pre_aggregate;
+	provider->aggregate = qcom_icc_rpm_aggregate;
 	provider->xlate = of_icc_xlate_onecell;
 	INIT_LIST_HEAD(&provider->nodes);
 	provider->data = data;
@@ -1214,9 +1243,14 @@ static int qnoc_probe(struct platform_device *pdev)
 				 &qp->util_factor))
 		qp->util_factor = DEFAULT_UTIL_FACTOR;
 
+	qp->regmap = qcom_icc_map(pdev, desc);
+	if (IS_ERR(qp->regmap))
+		return PTR_ERR(qp->regmap);
+
 	ret = icc_provider_add(provider);
 	if (ret) {
 		dev_err(dev, "error adding interconnect provider: %d\n", ret);
+		clk_bulk_disable_unprepare(qp->num_clks, qp->bus_clks);
 		return ret;
 	}
 
@@ -1225,6 +1259,8 @@ static int qnoc_probe(struct platform_device *pdev)
 
 		if (!qnodes[i])
 			continue;
+
+		qnodes[i]->regmap = dev_get_regmap(qp->dev, NULL);
 
 		node = icc_node_create(qnodes[i]->id);
 		if (IS_ERR(node)) {
@@ -1245,7 +1281,11 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, qp);
 
-	dev_info(dev, "Registered monaco ICC\n");
+	dev_info(dev, "Registered Monaco ICC\n");
+
+	mutex_lock(&probe_list_lock);
+	list_add_tail(&qp->probe_list, &qnoc_probe_list);
+	mutex_unlock(&probe_list_lock);
 
 	return 0;
 err:
@@ -1254,6 +1294,7 @@ err:
 		icc_node_destroy(node->id);
 	}
 
+	clk_bulk_disable_unprepare(qp->num_clks, qp->bus_clks);
 	icc_provider_del(provider);
 	return ret;
 }
@@ -1268,6 +1309,8 @@ static int qnoc_remove(struct platform_device *pdev)
 		icc_node_del(n);
 		icc_node_destroy(n->id);
 	}
+
+	clk_bulk_disable_unprepare(qp->num_clks, qp->bus_clks);
 
 	return icc_provider_del(provider);
 }
@@ -1289,12 +1332,54 @@ static const struct of_device_id qnoc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
+static void qnoc_sync_state(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
+	int ret = 0, i;
+
+	mutex_lock(&probe_list_lock);
+	probe_count++;
+
+	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
+		mutex_unlock(&probe_list_lock);
+		return;
+	}
+
+	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
+		qp->init = false;
+
+		if (!qp->keepalive)
+			continue;
+
+		for (i = 0; i < RPM_NUM_CXT; i++) {
+			if (i == RPM_ACTIVE_CXT) {
+				if (qp->bus_clk_cur_rate[i] == 0)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+						RPM_CLK_MIN_LEVEL);
+				else
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+						qp->bus_clk_cur_rate[i]);
+
+				if (ret)
+					pr_err("%s clk_set_rate error: %d\n",
+						qp->bus_clks[i].id, ret);
+			}
+		}
+	}
+
+	mutex_unlock(&probe_list_lock);
+
+	pr_err("Monaco ICC Sync State done\n");
+}
+
 static struct platform_driver qnoc_driver = {
 	.probe = qnoc_probe,
 	.remove = qnoc_remove,
 	.driver = {
 		.name = "qnoc-monaco",
 		.of_match_table = qnoc_of_match,
+		.sync_state = qnoc_sync_state,
 	},
 };
 
