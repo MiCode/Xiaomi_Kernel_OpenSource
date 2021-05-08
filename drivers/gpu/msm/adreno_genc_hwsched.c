@@ -96,19 +96,124 @@ static void snapshot_preemption_records(struct kgsl_device *device,
 			offset);
 }
 
+static u32 genc_copy_gpu_global(struct adreno_device *adreno_dev,
+	void *out, u64 gpuaddr, u32 size)
+{
+	struct genc_hwsched_hfi *hw_hfi = to_genc_hwsched_hfi(adreno_dev);
+	u64 offset;
+	u32 i;
+
+	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
+		struct kgsl_memdesc *md = hw_hfi->mem_alloc_table[i].gpu_md;
+
+		if (gpuaddr >= md->gpuaddr &&
+			((gpuaddr + size) <= (md->gpuaddr + md->size))) {
+			offset = gpuaddr - md->gpuaddr;
+			memcpy(out, md->hostptr + offset, size);
+			return size;
+		}
+	}
+
+	return 0;
+}
+
+static size_t adreno_hwsched_snapshot_rb_payload(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_rb_v2 *header = (struct kgsl_snapshot_rb_v2 *)buf;
+	u32 *data = (u32 *)(buf + sizeof(*header));
+	struct payload_section *payload = (struct payload_section *)priv;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 size = genc_hwsched_parse_payload(payload, KEY_RB_SIZEDWORDS) << 2;
+	u64 lo, hi, gpuaddr;
+
+	lo = genc_hwsched_parse_payload(payload, KEY_RB_GPUADDR_LO);
+	hi = genc_hwsched_parse_payload(payload, KEY_RB_GPUADDR_HI);
+	gpuaddr = hi << 32 | lo;
+
+	/* If the gpuaddress and size don't match any allocation, then abort */
+	if ((remain < size + sizeof(*header)) ||
+		!genc_copy_gpu_global(adreno_dev, data, gpuaddr, size)) {
+		SNAPSHOT_ERR_NOMEM(device, "RB");
+		return 0;
+	}
+
+	header->start = 0;
+	header->end = size >> 2;
+	header->rptr = genc_hwsched_parse_payload(payload, KEY_RB_RPTR);
+	header->wptr = genc_hwsched_parse_payload(payload, KEY_RB_WPTR);
+	header->rbsize = size >> 2;
+	header->count = size >> 2;
+	header->timestamp_queued = genc_hwsched_parse_payload(payload,
+			KEY_RB_QUEUED_TS);
+	header->timestamp_retired = genc_hwsched_parse_payload(payload,
+			KEY_RB_RETIRED_TS);
+	header->gpuaddr = gpuaddr;
+	header->id = genc_hwsched_parse_payload(payload, KEY_RB_ID);
+
+	return size + sizeof(*header);
+}
+
+static bool parse_payload_rb(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot)
+{
+	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
+	struct hfi_context_bad_cmd *cmd = hfi->ctxt_bad;
+	u32 i = 0, payload_bytes;
+	void *start;
+	bool ret = false;
+
+	/* Skip if we didn't receive a context bad HFI */
+	if (!cmd->hdr)
+		return false;
+
+	payload_bytes = (MSG_HDR_GET_SIZE(cmd->hdr) << 2) -
+			offsetof(struct hfi_context_bad_cmd, payload);
+
+	start = &cmd->payload[0];
+
+	while (i < payload_bytes) {
+		struct payload_section *payload = start + i;
+
+		if (payload->type == PAYLOAD_RB) {
+			kgsl_snapshot_add_section(KGSL_DEVICE(adreno_dev),
+				KGSL_SNAPSHOT_SECTION_RB_V2,
+				snapshot, adreno_hwsched_snapshot_rb_payload,
+				payload);
+			ret = true;
+		}
+
+		i += sizeof(*payload) + (payload->dwords << 2);
+	}
+
+	return ret;
+}
+
 void genc_hwsched_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct genc_hwsched_hfi *hw_hfi = to_genc_hwsched_hfi(adreno_dev);
+	bool skip_memkind_rb = false;
 	u32 i;
 
 	genc_gmu_snapshot(adreno_dev, snapshot);
 
+	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
+
+	/*
+	 * First try to dump ringbuffers using context bad HFI payloads
+	 * because they have all the ringbuffer parameters. If ringbuffer
+	 * payloads are not present, fall back to dumping ringbuffers
+	 * based on MEMKIND_RB
+	 */
+	if (parse_payload_rb(adreno_dev, snapshot))
+		skip_memkind_rb = true;
+
 	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
 		struct hfi_mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
 
-		if (entry->desc.mem_kind == HFI_MEMKIND_RB)
+		if (entry->desc.mem_kind == HFI_MEMKIND_RB && !skip_memkind_rb)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_RB_V2,
 				snapshot, adreno_hwsched_snapshot_rb,
@@ -757,13 +862,8 @@ static int genc_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 		 * If this was a dcvs request along side an active gpu, request
 		 * dispatcher based reset and recovery.
 		 */
-		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
-
-			adreno_get_gpu_halt(adreno_dev);
-
+		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 			adreno_hwsched_set_fault(adreno_dev);
-		}
-
 	}
 
 	return ret;
@@ -913,7 +1013,6 @@ void genc_hwsched_handle_watchdog(struct adreno_device *adreno_dev)
 	dev_err_ratelimited(&gmu->pdev->dev,
 			"GMU watchdog expired interrupt received\n");
 
-	adreno_get_gpu_halt(adreno_dev);
 	adreno_hwsched_set_fault(adreno_dev);
 }
 
@@ -935,7 +1034,10 @@ static void genc_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
 int genc_hwsched_reset(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
 	int ret;
+
+	memset(&hfi->ctxt_bad, 0x0, sizeof(hfi->ctxt_bad));
 
 	/*
 	 * Any pending context unregister packets will be lost
@@ -965,6 +1067,19 @@ int genc_hwsched_reset(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static bool genc_hwsched_drawobj_fault(struct adreno_device *adreno_dev,
+	struct kgsl_drawobj *drawobj)
+{
+	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
+	struct hfi_context_bad_cmd *bad = hfi->ctxt_bad;
+
+	if ((bad->ctxt_id == drawobj->context->id) &&
+		(bad->ts == drawobj->timestamp))
+		return true;
+
+	return false;
+}
+
 const struct adreno_power_ops genc_hwsched_power_ops = {
 	.first_open = genc_hwsched_first_open,
 	.last_close = genc_hwsched_power_off,
@@ -980,6 +1095,7 @@ const struct adreno_power_ops genc_hwsched_power_ops = {
 const struct adreno_hwsched_ops genc_hwsched_ops = {
 	.submit_cmdobj = genc_hwsched_submit_cmdobj,
 	.preempt_count = genc_hwsched_preempt_count_get,
+	.is_drawobj_fault = genc_hwsched_drawobj_fault,
 };
 
 int genc_hwsched_probe(struct platform_device *pdev,

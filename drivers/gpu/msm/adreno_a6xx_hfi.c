@@ -19,9 +19,6 @@
 #define HFIMEM_SIZE (sizeof(struct hfi_queue_table) + 16 + \
 		(HFI_QUEUE_SIZE * HFI_QUEUE_MAX))
 
-#define HOST_QUEUE_START_ADDR(hfi_mem, i) \
-	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
-
 struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);

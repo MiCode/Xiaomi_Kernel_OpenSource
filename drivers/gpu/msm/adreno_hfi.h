@@ -300,6 +300,9 @@ struct hfi_queue_table {
 #define GMU_QUEUE_START_ADDR(gmuaddr, i) \
 	(gmuaddr + HFI_QUEUE_OFFSET(i))
 
+#define HOST_QUEUE_START_ADDR(hfi_mem, i) \
+	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
+
 #define MSG_HDR_GET_ID(hdr) ((hdr) & 0xFF)
 #define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
 #define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
@@ -669,6 +672,7 @@ struct hfi_context_bad_cmd {
 	u32 policy;
 	u32 ts;
 	u32 error;
+	u32 payload[];
 } __packed;
 
 /* H2F */
@@ -726,4 +730,76 @@ static inline int _CMD_MSG_HDR(u32 *hdr, int id, size_t size)
 #define HWSCHED_MAX_NUMIBS \
 	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
 		/ sizeof(struct hfi_issue_ib))
+
+/**
+ * struct payload_section - Container of keys values
+ *
+ * There may be a variable number of payload sections appended
+ * to the context bad HFI message. Each payload section contains
+ * a variable number of key-value pairs, both key and value being
+ * single dword each.
+ */
+struct payload_section {
+	/** @type: Type of the payload */
+	u16 type;
+	/** @dwords: Number of dwords in the data array. */
+	u16 dwords;
+	/** @data: A sequence of key-value pairs. Each pair is 2 dwords. */
+	u32 data[];
+} __packed;
+
+/* IDs for context bad hfi payloads */
+#define PAYLOAD_FAULT_REGS 1
+#define PAYLOAD_RB 2
+#define PAYLOAD_PREEMPT_TIMEOUT 3
+
+/* Keys for PAYLOAD_FAULT_REGS type payload */
+#define KEY_CP_OPCODE_ERROR 1
+#define KEY_CP_PROTECTED_ERROR 2
+#define KEY_CP_HW_FAULT 3
+#define KEY_CP_BV_OPCODE_ERROR 4
+#define KEY_CP_BV_PROTECTED_ERROR 5
+#define KEY_CP_BV_HW_FAULT 6
+
+/* Keys for PAYLOAD_RB type payload */
+#define KEY_RB_ID 1
+#define KEY_RB_RPTR 2
+#define KEY_RB_WPTR 3
+#define KEY_RB_SIZEDWORDS 4
+#define KEY_RB_QUEUED_TS 5
+#define KEY_RB_RETIRED_TS 6
+#define KEY_RB_GPUADDR_LO 7
+#define KEY_RB_GPUADDR_HI 8
+
+/* Keys for PAYLOAD_PREEMPT_TIMEOUT type payload */
+#define KEY_PREEMPT_TIMEOUT_CUR_RB_ID 1
+#define KEY_PREEMPT_TIMEOUT_NEXT_RB_ID 2
+
+/* Types of errors that trigger context bad HFI */
+
+/* GPU encountered a CP HW error */
+#define GMU_CP_HW_ERROR 600
+/* GPU encountered a GPU Hang interrupt */
+#define GMU_GPU_HW_HANG 601
+/* Preemption didn't complete in given time */
+#define GMU_GPU_PREEMPT_TIMEOUT 602
+/* Fault due to Long IB timeout */
+#define GMU_GPU_SW_HANG 603
+/* GPU encountered a bad opcode */
+#define GMU_CP_OPCODE_ERROR 604
+/* GPU encountered protected mode error */
+#define GMU_CP_PROTECTED_ERROR 605
+/* GPU encountered an illegal instruction */
+#define GMU_CP_ILLEGAL_INST_ERROR 606
+/* GPU encountered a CP ucode error */
+#define GMU_CP_UCODE_ERROR 607
+/* GPU encountered a CP hw fault error */
+#define GMU_CP_HW_FAULT_ERROR 608
+/* GPU BV encountered a bad opcode */
+#define GMU_CP_BV_OPCODE_ERROR 609
+/* GPU BV encountered protected mode error */
+#define GMU_CP_BV_PROTECTED_ERROR 610
+/* GPU BV encountered a CP hw fault error */
+#define GMU_CP_BV_HW_FAULT_ERROR 611
+
 #endif

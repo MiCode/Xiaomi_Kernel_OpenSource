@@ -28,6 +28,8 @@ struct genc_hwsched_hfi {
 	struct llist_head f2h_secondary_list;
 	/** @f2h_wq: Waitqueue for the f2h_task */
 	wait_queue_head_t f2h_wq;
+	/** @ctxt_bad: Container for the context bad hfi packet */
+	void *ctxt_bad;
 };
 
 struct kgsl_drawobj_cmd;
@@ -127,4 +129,16 @@ struct genc_hwsched_hfi *to_genc_hwsched_hfi(struct adreno_device *adreno_dev);
  * Return: Preemption count
  */
 u32 genc_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
+
+/**
+ * genc_hwsched_parse_payload - Parse payload to look up a key
+ * @payload: Pointer to a payload section
+ * @key: The key who's value is to be looked up
+ *
+ * This function parses the payload data which is a sequence
+ * of key-value pairs.
+ *
+ * Return: The value of the key or 0 if key is not found
+ */
+u32 genc_hwsched_parse_payload(struct payload_section *payload, u32 key);
 #endif
