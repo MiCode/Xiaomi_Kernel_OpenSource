@@ -74,6 +74,7 @@
 				<&apps_smmu 0x21a0 0x400>;
 			buffer-types = <0xfff>;
 			dma-coherent;
+			qcom,iommu-faults = "non-fatal";
 			qcom,iommu-dma-addr-pool = <0x4b000000 0x90000000>;
 		};
 
@@ -84,6 +85,7 @@
 			iommus =
 				<&apps_smmu 0x21a4 0x400>;
 			buffer-types = <0x741>;
+			qcom,iommu-faults = "non-fatal";
 			qcom,iommu-dma-addr-pool = <0x01000000 0x25800000>;
 			qcom,iommu-vmid = <0xB>;
 		};
@@ -94,6 +96,7 @@
 			iommus =
 				<&apps_smmu 0x21a3 0x400>;
 			buffer-types = <0x106>;
+			qcom,iommu-faults = "non-fatal";
 			qcom,iommu-dma-addr-pool = <0x26800000 0x24800000>;
 			qcom,iommu-vmid = <0xA>;
 		};
