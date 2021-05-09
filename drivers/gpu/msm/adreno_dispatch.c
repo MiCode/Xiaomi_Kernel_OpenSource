@@ -1701,9 +1701,9 @@ static void process_cmdobj_fault(struct kgsl_device *device,
 	 * won't disable GFT and invalidate the context.
 	 */
 	if (test_bit(KGSL_FT_THROTTLE, &cmdobj->fault_policy)) {
-		if (time_after(jiffies, (drawobj->context->fault_time
-				+ msecs_to_jiffies(_fault_throttle_time)))) {
-			drawobj->context->fault_time = jiffies;
+		if (ktime_ms_delta(ktime_get(), drawobj->context->fault_time) >
+				_fault_throttle_time) {
+			drawobj->context->fault_time = ktime_get();
 			drawobj->context->fault_count = 1;
 		} else {
 			drawobj->context->fault_count++;

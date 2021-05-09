@@ -203,8 +203,7 @@ u32 genc_hwsched_parse_payload(struct payload_section *payload, u32 key)
 static u32 genc_hwsched_lookup_key_value(struct adreno_device *adreno_dev,
 	u32 type, u32 key)
 {
-	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
-	struct hfi_context_bad_cmd *cmd = hfi->ctxt_bad;
+	struct hfi_context_bad_cmd *cmd = adreno_dev->hwsched.ctxt_bad;
 	u32 i = 0, payload_bytes;
 	void *start;
 
@@ -231,8 +230,7 @@ static u32 genc_hwsched_lookup_key_value(struct adreno_device *adreno_dev,
 static u32 get_payload_rb_key(struct adreno_device *adreno_dev,
 	u32 rb_id, u32 key)
 {
-	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
-	struct hfi_context_bad_cmd *cmd = hfi->ctxt_bad;
+	struct hfi_context_bad_cmd *cmd = adreno_dev->hwsched.ctxt_bad;
 	u32 i = 0, payload_bytes;
 	void *start;
 
@@ -264,8 +262,7 @@ static void log_gpu_fault(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	struct device *dev = &gmu->pdev->dev;
-	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
-	struct hfi_context_bad_cmd *cmd = hfi->ctxt_bad;
+	struct hfi_context_bad_cmd *cmd = adreno_dev->hwsched.ctxt_bad;
 
 	switch (cmd->error) {
 	case GMU_GPU_HW_HANG:
@@ -389,7 +386,8 @@ static void process_msgq_irq(struct adreno_device *adreno_dev)
 
 		if (MSG_HDR_GET_ID(next_hdr) == F2H_MSG_CONTEXT_BAD) {
 			genc_hfi_queue_read(gmu, HFI_MSG_ID,
-				(u32 *)hfi->ctxt_bad, HFI_MAX_MSG_SIZE);
+				(u32 *)adreno_dev->hwsched.ctxt_bad,
+				HFI_MAX_MSG_SIZE);
 			process_ctx_bad(adreno_dev);
 			continue;
 		}
@@ -1164,11 +1162,6 @@ int genc_hwsched_hfi_probe(struct adreno_device *adreno_dev)
 
 	if (gmu->hfi.irq < 0)
 		return gmu->hfi.irq;
-
-	hw_hfi->ctxt_bad = devm_kzalloc(&gmu->pdev->dev, HFI_MAX_MSG_SIZE,
-		GFP_KERNEL);
-	if (!hw_hfi->ctxt_bad)
-		return -ENOMEM;
 
 	hw_hfi->irq_mask = HFI_IRQ_MASK;
 

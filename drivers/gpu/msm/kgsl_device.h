@@ -359,7 +359,7 @@ struct kgsl_context {
 	struct kgsl_pwr_constraint pwr_constraint;
 	struct kgsl_pwr_constraint l3_pwr_constraint;
 	unsigned int fault_count;
-	unsigned long fault_time;
+	ktime_t fault_time;
 	struct kgsl_mem_entry *user_ctxt_record;
 	unsigned int total_fault_count;
 	unsigned int last_faulted_cmd_ts;

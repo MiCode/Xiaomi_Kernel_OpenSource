@@ -20,6 +20,15 @@ struct cmd_list_obj {
 /* Number of milliseconds to wait for the context queue to clear */
 static unsigned int _context_queue_wait = 10000;
 
+/*
+ * GFT throttle parameters. If GFT recovered more than
+ * X times in Y ms invalidate the context and do not attempt recovery.
+ * X -> _fault_throttle_burst
+ * Y -> _fault_throttle_time
+ */
+static unsigned int _fault_throttle_time = 2000;
+static unsigned int _fault_throttle_burst = 3;
+
 /* Use a kmem cache to speed up allocations for dispatcher jobs */
 static struct kmem_cache *jobs_cache;
 /* Use a kmem cache to speed up allocations for inflight command objects */
@@ -1085,6 +1094,8 @@ static void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
 	kmem_cache_destroy(obj_cache);
 
 	sysfs_remove_files(&device->dev->kobj, _hwsched_attr_list);
+
+	kfree(hwsched->ctxt_bad);
 }
 
 static void force_retire_timestamp(struct kgsl_device *device,
@@ -1172,12 +1183,13 @@ static struct cmd_list_obj *get_fault_cmdobj(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
 	struct cmd_list_obj *obj, *tmp;
-	const struct adreno_hwsched_ops *ops = hwsched->hwsched_ops;
+	struct hfi_context_bad_cmd *bad = hwsched->ctxt_bad;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
 		struct kgsl_drawobj *drawobj = DRAWOBJ(obj->cmdobj);
 
-		if (ops->is_drawobj_fault(adreno_dev, drawobj)) {
+		if ((bad->ctxt_id == drawobj->context->id) &&
+			(bad->ts == drawobj->timestamp)) {
 			if (kref_get_unless_zero(&drawobj->refcount)) {
 				set_bit(CMDOBJ_FAULT, &obj->cmdobj->priv);
 				return obj;
@@ -1188,6 +1200,27 @@ static struct cmd_list_obj *get_fault_cmdobj(struct adreno_device *adreno_dev)
 	return NULL;
 }
 
+static bool context_is_throttled(struct kgsl_device *device,
+	struct kgsl_context *context)
+{
+	if (ktime_ms_delta(ktime_get(), context->fault_time) >
+		_fault_throttle_time) {
+		context->fault_time = ktime_get();
+		context->fault_count = 1;
+		return false;
+	}
+
+	context->fault_count++;
+
+	if (context->fault_count > _fault_throttle_burst) {
+		pr_context(device, context,
+			"gpu fault threshold exceeded %d faults in %d msecs\n",
+			_fault_throttle_burst, _fault_throttle_time);
+		return true;
+	}
+
+	return false;
+}
 static void reset_and_snapshot(struct adreno_device *adreno_dev)
 {
 	struct kgsl_drawobj *drawobj = NULL;
@@ -1195,6 +1228,7 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev)
 	struct kgsl_context *context = NULL;
 	struct cmd_list_obj *obj = get_fault_cmdobj(adreno_dev);
 	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct hfi_context_bad_cmd *cmd = adreno_dev->hwsched.ctxt_bad;
 
 	if (device->state != KGSL_STATE_ACTIVE)
 		return;
@@ -1215,13 +1249,16 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev)
 	force_retire_timestamp(device, drawobj);
 
 	if ((context->flags & KGSL_CONTEXT_INVALIDATE_ON_FAULT) ||
-		(context->flags & KGSL_CONTEXT_NO_FAULT_TOLERANCE)) {
+		(context->flags & KGSL_CONTEXT_NO_FAULT_TOLERANCE) ||
+		(cmd->error == GMU_GPU_SW_HANG) ||
+		context_is_throttled(device, context)) {
 		adreno_drawctxt_set_guilty(device, context);
 	}
 
 	/* Put back the reference which we incremented in get_fault_cmdobj */
 	kgsl_drawobj_put(drawobj);
 done:
+	memset(adreno_dev->hwsched.ctxt_bad, 0x0, HFI_MAX_MSG_SIZE);
 	gpudev->reset(adreno_dev);
 }
 
@@ -1310,9 +1347,15 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev,
 
 	memset(hwsched, 0, sizeof(*hwsched));
 
+	hwsched->ctxt_bad = kzalloc(HFI_MAX_MSG_SIZE, GFP_KERNEL);
+	if (!hwsched->ctxt_bad)
+		return -ENOMEM;
+
 	hwsched->worker = kthread_create_worker(0, "kgsl_hwsched");
-	if (IS_ERR(hwsched->worker))
+	if (IS_ERR(hwsched->worker)) {
+		kfree(hwsched->ctxt_bad);
 		return PTR_ERR(hwsched->worker);
+	}
 
 	mutex_init(&hwsched->mutex);
 
