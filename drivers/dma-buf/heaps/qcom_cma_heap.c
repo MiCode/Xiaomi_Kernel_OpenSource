@@ -28,7 +28,6 @@
 #include "qcom_sg_ops.h"
 
 struct cma_heap {
-	struct dma_heap *heap;
 	struct cma *cma;
 	/* max_align is in units of page_order, similar to CONFIG_CMA_ALIGNMENT */
 	u32 max_align;
@@ -148,6 +147,7 @@ static int __add_cma_heap(struct platform_heap *heap_data, void *data)
 {
 	struct cma_heap *cma_heap;
 	struct dma_heap_export_info exp_info;
+	struct dma_heap *heap;
 
 	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
 	if (!cma_heap)
@@ -161,9 +161,9 @@ static int __add_cma_heap(struct platform_heap *heap_data, void *data)
 	exp_info.ops = &cma_heap_ops;
 	exp_info.priv = cma_heap;
 
-	cma_heap->heap = dma_heap_add(&exp_info);
-	if (IS_ERR(cma_heap->heap)) {
-		int ret = PTR_ERR(cma_heap->heap);
+	heap = dma_heap_add(&exp_info);
+	if (IS_ERR(heap)) {
+		int ret = PTR_ERR(heap);
 
 		kfree(cma_heap);
 		return ret;
