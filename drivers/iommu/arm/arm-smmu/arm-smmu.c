@@ -144,6 +144,7 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
 static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
+static void arm_smmu_free_pgtable(void *cookie, void *virt, int order);
 
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
@@ -2387,7 +2388,7 @@ static void __arm_smmu_iotlb_sync(struct iommu_domain *domain,
 
 	list_for_each_entry_safe(page, tmp, &list, lru) {
 		list_del(&page->lru);
-		__free_pages(page, 0);
+		arm_smmu_free_pgtable(smmu_domain, page_address(page), 0);
 	}
 }
 
