@@ -930,7 +930,8 @@ void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev,
 		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
-		adreno_dev->cur_rb->id, rptr, wptr, status, status3, intstatus);
+		adreno_dev->cur_rb ? adreno_dev->cur_rb->id : -1, rptr, wptr,
+		status, status3, intstatus);
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
