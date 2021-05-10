@@ -103,16 +103,21 @@ def main(**args):
               line_strip = 'CC=\"${CC_WRAPPER} %s\"' % (result.group(1).strip())
           line_strip = line_strip.replace("$$","$")
           file_text.append(line_strip)
-          pattern_kernel_dir = re.compile('^KERENL_DIR\s*=\s*(.+)$')
+          pattern_kernel_dir = re.compile('^KERNEL_DIR\s*=\s*(.+)$')
           result = pattern_kernel_dir.match(line_strip)
           if result:
               kernel_dir = result.group(1).strip('')
+      file_handle.close()
     else:
       print 'Error: cannot get build.config under ' + abs_kernel_dir + '.'
       print 'Please check whether ' + project_defconfig + ' defined CONFIG_BUILD_CONFIG_FILE.'
       sys.exit(2)
 
     file_text.append("PATH=${ROOT_DIR}/prebuilts/perl/linux-x86/bin:/usr/bin:/bin:$PATH")
+    file_text.append("HERMETIC_TOOLCHAIN=")
+    file_text.append("DTC='${OUT_DIR}/scripts/dtc/dtc'")
+    file_text.append("DEPMOD=")
+    file_text.append("IN_KERNEL_MODULES=")
 
     all_defconfig = ''
     pre_defconfig_cmds = ''
@@ -136,6 +141,7 @@ def main(**args):
           line_strip = line.strip()
           ext_modules_list = '%s %s' % (ext_modules_list, line_strip)
       ext_modules_list = 'EXT_MODULES=\"%s\"' % (ext_modules_list.strip())
+      file_handle.close()
     if ext_modules:
         ext_modules_list = 'EXT_MODULES=\"%s\"' % (ext_modules.strip())
     file_text.append(ext_modules_list)
@@ -163,10 +169,19 @@ def main(**args):
         file_text.append(clean_empty_folder_func)
 
     gen_build_config = out_file
-    (gen_build_config_dir, gen_build_config_name) = os.path.split(gen_build_config)
+    gen_build_config_dir = os.path.dirname(gen_build_config)
     if not os.path.exists(gen_build_config_dir):
         os.makedirs(gen_build_config_dir)
+    gen_build_config_mtk = '%s.mtk' % (gen_build_config)
     file_handle = open(gen_build_config, 'w')
+    kernel_dir_line = 'KERNEL_DIR=%s' % (kernel_dir)
+    file_handle.write(kernel_dir_line + '\n')
+    rel_gen_build_config_dir = 'REL_GEN_BUILD_CONFIG_DIR=$(rel_path %s ${ROOT_DIR})' % (gen_build_config_dir)
+    file_handle.write(rel_gen_build_config_dir + '\n')
+    build_config_fragments = 'BUILD_CONFIG_FRAGMENTS="${KERNEL_DIR}/build.config.common ${REL_GEN_BUILD_CONFIG_DIR}/%s"' % (os.path.basename(gen_build_config_mtk))
+    file_handle.write(build_config_fragments)
+    file_handle.close()
+    file_handle = open(gen_build_config_mtk, 'w')
     for line in file_text:
         file_handle.write(line + '\n')
     file_handle.close()
