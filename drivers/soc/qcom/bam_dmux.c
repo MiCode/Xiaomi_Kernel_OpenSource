@@ -1122,6 +1122,12 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 		kfree(hdr);
 		return -ENODEV;
 	}
+	if (in_global_reset) {
+		BAM_DMUX_LOG("%s: In SSR... ch_id[%d]\n", __func__, id);
+		spin_unlock_irqrestore(&bam_ch[id].lock, flags);
+		kfree(hdr);
+		return -ENODEV;
+	}
 
 	bam_ch[id].notify = notify;
 	bam_ch[id].priv = priv;
@@ -1197,6 +1203,12 @@ int msm_bam_dmux_close(uint32_t id)
 	if (bam_ch_is_in_reset(id)) {
 		read_unlock(&ul_wakeup_lock);
 		bam_ch[id].status &= ~BAM_CH_IN_RESET;
+		return 0;
+	}
+
+	if (in_global_reset) {
+		BAM_DMUX_LOG("%s: In SSR... ch_id[%d]\n", __func__, id);
+		read_unlock(&ul_wakeup_lock);
 		return 0;
 	}
 
