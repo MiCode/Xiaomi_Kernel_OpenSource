@@ -1,0 +1,9 @@
+config MTK_BMP380_SUPPORT
+	bool " MTK_BMP380_SUPPORT for MediaTek package"
+	default n
+	help
+	  Enable MTK BMP380 support.
+	  BMP380 is a low-power and low-noise
+	  barometric pressure sensor.
+	  If in doubt, say N here.
+
