@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef _ICNSS_WLAN_H_
 #define _ICNSS_WLAN_H_
@@ -191,4 +191,8 @@ extern int icnss_get_curr_therm_cdev_state(struct device *dev,
 					    unsigned long *thermal_state,
 					    int tcdev_id);
 extern int icnss_exit_power_save(struct device *dev);
+extern int icnss_prevent_l1(struct device *dev);
+extern void icnss_allow_l1(struct device *dev);
+extern int icnss_get_mhi_state(struct device *dev);
+extern int icnss_is_pci_ep_awake(struct device *dev);
 #endif /* _ICNSS_WLAN_H_ */
