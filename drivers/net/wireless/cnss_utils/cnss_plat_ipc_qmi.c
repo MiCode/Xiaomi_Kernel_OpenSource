@@ -10,13 +10,14 @@
 #include <linux/slab.h>
 #include <linux/cnss_plat_ipc_qmi.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
 #include "cnss_plat_ipc_service_v01.h"
 
 #define CNSS_MAX_FILE_SIZE (32 * 1024 * 1024)
 #define CNSS_PLAT_IPC_MAX_CLIENTS 1
 #define CNSS_PLAT_IPC_QMI_FILE_TXN_TIMEOUT 10000
-#define QMI_INIT_RETRY_MAX_TIMES 60
-#define QMI_INIT_RETRY_DELAY_MS 1000
+#define QMI_INIT_RETRY_MAX_TIMES 240
+#define QMI_INIT_RETRY_DELAY_MS 250
 
 /**
  * struct cnss_plat_ipc_file_data: File transfer context data
@@ -647,20 +648,20 @@ void cnss_plat_ipc_unregister(void *cb_ctx)
 EXPORT_SYMBOL(cnss_plat_ipc_unregister);
 
 /**
- * cnss_plat_ipc_qmi_svc_init() - CNSS Platform qmi service init function
+ * cnss_plat_ipc_init_fn() - CNSS Platform qmi service init function
  *
  * Initialize a QMI client handle and register new QMI service for CNSS Platform
  *
- * Return: 0 on success, negative error value otherwise
+ * Return: None
  */
-int __init cnss_plat_ipc_qmi_svc_init(void)
+static void cnss_plat_ipc_init_fn(struct work_struct *work)
 {
 	int ret = 0, retry = 0;
 	struct cnss_plat_ipc_qmi_svc_ctx *svc = &plat_ipc_qmi_svc;
 
 	svc->svc_hdl = kzalloc(sizeof(*svc->svc_hdl), GFP_KERNEL);
 	if (!svc->svc_hdl)
-		return -ENOMEM;
+		return;
 
 retry:
 	ret = qmi_handle_init(svc->svc_hdl,
@@ -668,13 +669,16 @@ retry:
 			      &cnss_plat_ipc_qmi_ops,
 			      cnss_plat_ipc_qmi_req_handlers);
 	if (ret < 0) {
-		/* If QMI is probe deferred, retry for total 60 seconds */
-		if (ret == -EPROBE_DEFER &&
-		    retry++ < QMI_INIT_RETRY_MAX_TIMES) {
+		/* If QMI fails to init, retry for total
+		 * QMI_INIT_RETRY_DELAY_MS * QMI_INIT_RETRY_MAX_TIMES ms.
+		 */
+		if (retry++ < QMI_INIT_RETRY_MAX_TIMES) {
 			msleep(QMI_INIT_RETRY_DELAY_MS);
 			goto retry;
 		}
-		pr_err("%s: Handle init fail: %d\n", __func__, ret);
+		pr_err("%s: Failed to init QMI handle after %d ms * %d, err = %d\n",
+		       __func__, ret, QMI_INIT_RETRY_DELAY_MS,
+		       QMI_INIT_RETRY_MAX_TIMES);
 		goto free_svc_hdl;
 	}
 
@@ -689,14 +693,21 @@ retry:
 	pr_info("%s: CNSS Platform IPC QMI Service is started\n", __func__);
 	idr_init(&svc->file_idr);
 	mutex_init(&svc->file_idr_lock);
-	return 0;
+	return;
 
 release_svc_hdl:
 	qmi_handle_release(svc->svc_hdl);
 free_svc_hdl:
 	kfree(svc->svc_hdl);
+}
 
-	return ret;
+static DECLARE_WORK(cnss_plat_ipc_init_work, cnss_plat_ipc_init_fn);
+
+static int __init cnss_plat_ipc_qmi_svc_init(void)
+{
+	/* Schedule a work to do real init to avoid blocking here */
+	schedule_work(&cnss_plat_ipc_init_work);
+	return 0;
 }
 
 /**
@@ -706,13 +717,17 @@ free_svc_hdl:
  *
  * Return: None
  */
-void __exit cnss_plat_ipc_qmi_svc_exit(void)
+static void __exit cnss_plat_ipc_qmi_svc_exit(void)
 {
 	struct cnss_plat_ipc_qmi_svc_ctx *svc = &plat_ipc_qmi_svc;
 
-	qmi_handle_release(svc->svc_hdl);
-	kfree(svc->svc_hdl);
-	idr_destroy(&svc->file_idr);
+	cancel_work_sync(&cnss_plat_ipc_init_work);
+
+	if (svc->svc_hdl) {
+		qmi_handle_release(svc->svc_hdl);
+		kfree(svc->svc_hdl);
+		idr_destroy(&svc->file_idr);
+	}
 }
 
 module_init(cnss_plat_ipc_qmi_svc_init);
