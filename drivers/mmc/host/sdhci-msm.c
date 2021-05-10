@@ -1666,6 +1666,16 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 		sdhci_msm_hs400(host, &mmc->ios);
 }
 
+/*
+ * Ensure larger discard size by always setting max_busy_timeout to zero.
+ * This will always return max_busy_timeout as zero to the sdhci layer.
+ */
+
+static unsigned int sdhci_msm_get_max_timeout_count(struct sdhci_host *host)
+{
+	return 0;
+}
+
 #define MAX_PROP_SIZE 32
 static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 		struct sdhci_msm_reg_data **vreg_data, const char *vreg_name)
@@ -3561,6 +3571,7 @@ static const struct sdhci_ops sdhci_msm_ops = {
 	.get_max_clock = sdhci_msm_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
+	.get_max_timeout_count = sdhci_msm_get_max_timeout_count,
 	.write_w = sdhci_msm_writew,
 	.write_b = sdhci_msm_writeb,
 	.irq	= sdhci_msm_cqe_irq,
@@ -4450,13 +4461,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	 */
 	if (core_major == 1 && core_minor >= 0x6B)
 		msm_host->cqhci_offset_changed = true;
-
-	/*
-	 * Ensure larger discard size by setting max_busy_timeout.
-	 * This has to set only after sdhci_add_host so that our
-	 * value won't be over-written.
-	 */
-	host->mmc->max_busy_timeout = 0;
 
 	/*
 	 * Set platfm_init_done only after sdhci_add_host().
