@@ -448,6 +448,7 @@ struct kgsl_process_private {
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;
 	struct kobject kobj;
+	struct kobject kobj_memtype;
 	struct dentry *debug_root;
 	struct {
 		atomic64_t cur;
