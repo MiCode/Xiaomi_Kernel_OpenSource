@@ -781,10 +781,9 @@ static void a3xx_soft_fault_timer(struct timer_list *t)
 	 * so mark the dispatcher as faulted and schedule the work loop.
 	 */
 
-	if (!a3xx_soft_fault_detect_read_compare(adreno_dev)) {
-		adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
-		adreno_dispatcher_schedule(device);
-	} else if (dispatcher->inflight > 0)
+	if (!a3xx_soft_fault_detect_read_compare(adreno_dev))
+		adreno_dispatcher_fault(adreno_dev, ADRENO_SOFT_FAULT);
+	else if (dispatcher->inflight > 0)
 		adreno_dispatcher_start_fault_timer(adreno_dev);
 }
 

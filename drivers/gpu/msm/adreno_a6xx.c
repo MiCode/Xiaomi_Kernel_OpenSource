@@ -1670,8 +1670,7 @@ static void a6xx_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_irqctrl(adreno_dev, 0);
 
 	/* Trigger a fault in the dispatcher - this will effect a restart */
-	adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
-	adreno_dispatcher_schedule(device);
+	adreno_dispatcher_fault(adreno_dev, ADRENO_SOFT_FAULT);
 }
 
 static const struct adreno_irq_funcs a6xx_irq_funcs[32] = {
@@ -1771,8 +1770,7 @@ static irqreturn_t a6xx_irq_handler(struct adreno_device *adreno_dev)
 	a6xx_gpu_keepalive(adreno_dev, true);
 
 	if (a6xx_irq_poll_fence(adreno_dev)) {
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
+		adreno_dispatcher_fault(adreno_dev, ADRENO_GMU_FAULT);
 		goto done;
 	}
 

@@ -2257,7 +2257,7 @@ static void a5x_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_irqctrl(adreno_dev, 0);
 
 	/* Trigger a fault in the dispatcher - this will effect a restart */
-	adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
+	adreno_dispatcher_fault(adreno_dev, ADRENO_SOFT_FAULT);
 	adreno_dispatcher_schedule(device);
 }
 

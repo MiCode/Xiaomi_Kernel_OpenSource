@@ -66,9 +66,8 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer,
 		/* If WPTR update fails, set the fault and trigger recovery */
 		if (ret) {
 			gmu_core_fault_snapshot(device);
-			adreno_set_gpu_fault(adreno_dev,
+			adreno_dispatcher_fault(adreno_dev,
 				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
-			adreno_dispatcher_schedule(device);
 		}
 	}
 }
@@ -107,8 +106,7 @@ static void _genc_preemption_done(struct adreno_device *adreno_dev)
 			adreno_dev->next_rb->wptr);
 
 		/* Set a fault and restart */
-		adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
-		adreno_dispatcher_schedule(device);
+		adreno_dispatcher_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
 
 		return;
 	}
@@ -168,8 +166,7 @@ static void _genc_preemption_fault(struct adreno_device *adreno_dev)
 		adreno_get_rptr(adreno_dev->next_rb),
 		adreno_dev->next_rb->wptr);
 
-	adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
-	adreno_dispatcher_schedule(device);
+	adreno_dispatcher_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
 }
 
 static void _genc_preemption_worker(struct work_struct *work)
@@ -388,13 +385,12 @@ err:
 	/* If fenced write fails, take inline snapshot and trigger recovery */
 	if (!in_interrupt()) {
 		gmu_core_fault_snapshot(device);
-		adreno_set_gpu_fault(adreno_dev,
+		adreno_dispatcher_fault(adreno_dev,
 			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 	} else {
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_fault(adreno_dev, ADRENO_GMU_FAULT);
 	}
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
-	adreno_dispatcher_schedule(device);
 	/* Clear the keep alive */
 	_power_collapse_set(adreno_dev, false);
 

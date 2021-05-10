@@ -270,18 +270,6 @@ void adreno_hwsched_flush(struct adreno_device *adreno_dev)
 	kthread_flush_worker(hwsched->worker);
 }
 
-void adreno_hwsched_set_fault(struct adreno_device *adreno_dev)
-{
-	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
-
-	atomic_set(&hwsched->fault, ADRENO_HWSCHED_FAULT_RESTART);
-
-	/* make sure fault is written before triggering dispatcher */
-	smp_wmb();
-
-	adreno_hwsched_trigger(adreno_dev);
-}
-
 static bool hwsched_in_fault(struct adreno_hwsched *hwsched)
 {
 	/* make sure we're reading the latest value */
@@ -1345,10 +1333,17 @@ static void adreno_hwsched_work(struct kthread_work *work)
 	mutex_unlock(&hwsched->mutex);
 }
 
-static void adreno_hwsched_fault(struct adreno_device *adreno_dev,
+void adreno_hwsched_fault(struct adreno_device *adreno_dev,
 		u32 fault)
 {
-	adreno_hwsched_set_fault(adreno_dev);
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+
+	atomic_set(&hwsched->fault, fault);
+
+	/* make sure fault is written before triggering dispatcher */
+	smp_wmb();
+
+	adreno_hwsched_trigger(adreno_dev);
 }
 
 static const struct adreno_dispatch_ops hwsched_ops = {
