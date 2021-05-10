@@ -975,6 +975,14 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
+	/* Enable the long ib timeout detection */
+	if (adreno_long_ib_detect(adreno_dev)) {
+		ret = genc_hfi_send_feature_ctrl(adreno_dev,
+			HFI_FEATURE_BAIL_OUT_TIMER, 1, 0);
+		if (ret)
+			goto err;
+	}
+
 	ret = enable_preemption(adreno_dev);
 	if (ret)
 		goto err;
@@ -1445,6 +1453,11 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 	u32 seqnum;
 	int rc, ret;
 
+	/* Only send HFI if device is not in SLUMBER */
+	if (!context->gmu_registered ||
+		!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		return 0;
+
 	ret = CMD_MSG_HDR(cmd, H2F_MSG_UNREGISTER_CONTEXT);
 	if (ret)
 		return ret;
@@ -1456,6 +1469,14 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
 
 	add_waiter(hfi, cmd.hdr, &pending_ack);
+
+	/*
+	 * Although we know device is powered on, we can still enter SLUMBER
+	 * because the wait for ack below is done without holding the mutex. So
+	 * take an active count before releasing the mutex so as to avoid a
+	 * concurrent SLUMBER sequence while GMU is un-registering this context.
+	 */
+	genc_hwsched_active_count_get(adreno_dev);
 
 	rc = genc_hfi_cmdq_write(adreno_dev, (u32 *)&cmd);
 	if (rc)
@@ -1492,6 +1513,8 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 
 	rc = check_ack_failure(adreno_dev, &pending_ack);
 done:
+	genc_hwsched_active_count_put(adreno_dev);
+
 	del_waiter(hfi, &pending_ack);
 
 	return rc;
@@ -1502,16 +1525,12 @@ void genc_hwsched_context_detach(struct adreno_context *drawctxt)
 	struct kgsl_context *context = &drawctxt->base;
 	struct kgsl_device *device = context->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	int ret = 0;
 
 	mutex_lock(&device->mutex);
 
-	/* Only send HFI if device is not in SLUMBER */
-	if (context->gmu_registered &&
-		test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
-		ret = send_context_unregister_hfi(adreno_dev, context,
-			drawctxt->internal_timestamp);
+	ret = send_context_unregister_hfi(adreno_dev, context,
+		drawctxt->internal_timestamp);
 
 	if (!ret) {
 		kgsl_sharedmem_writel(device->memstore,

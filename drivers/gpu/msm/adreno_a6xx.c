@@ -2632,6 +2632,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.power_ops = &a6xx_hwsched_power_ops,
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
+		.hw_isidle = a6xx_hw_isidle,
 	},
 	.hfi_probe = a6xx_hwsched_hfi_probe,
 	.handle_watchdog = a6xx_hwsched_handle_watchdog,

@@ -2664,18 +2664,31 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 	return adreno_dev->preempt.count;
 }
 
+static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev, bool val)
+{
+	adreno_dev->long_ib_detect = val ? true : false;
+	return 0;
+}
+
+static bool _ft_long_ib_detect_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->long_ib_detect;
+}
+
 static ADRENO_SYSFS_BOOL(preemption);
 static ADRENO_SYSFS_U32(preempt_level);
 static ADRENO_SYSFS_BOOL(usesgmem);
 static ADRENO_SYSFS_BOOL(skipsaverestore);
 static ADRENO_SYSFS_RO_U32(preempt_count);
+static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
 
-static const struct attribute *_preempt_attr_list[] = {
+static const struct attribute *_dispatch_attr_list[] = {
 	&adreno_attr_preemption.attr.attr,
 	&adreno_attr_preempt_level.attr.attr,
 	&adreno_attr_usesgmem.attr.attr,
 	&adreno_attr_skipsaverestore.attr.attr,
 	&adreno_attr_preempt_count.attr.attr,
+	&adreno_attr_ft_long_ib_detect.attr.attr,
 	NULL,
 };
 
@@ -2873,7 +2886,7 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 		return PTR_ERR(dispatcher->worker);
 	}
 
-	sysfs_create_files(&device->dev->kobj, _preempt_attr_list);
+	sysfs_create_files(&device->dev->kobj, _dispatch_attr_list);
 
 	mutex_init(&dispatcher->mutex);
 
