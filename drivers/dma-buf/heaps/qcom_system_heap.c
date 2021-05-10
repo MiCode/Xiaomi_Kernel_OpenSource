@@ -381,8 +381,21 @@ static int system_heap_refill_worker(void *data)
 	return 0;
 }
 
+static long get_pool_size_bytes(struct dma_heap *heap)
+{
+	long total_size = 0;
+	int i;
+	struct qcom_system_heap *sys_heap = dma_heap_get_drvdata(heap);
+
+	for (i = 0; i < NUM_ORDERS; i++)
+		total_size += dynamic_page_pool_total(sys_heap->pool_list[i], true);
+
+	return total_size << PAGE_SHIFT;
+}
+
 static const struct dma_heap_ops system_heap_ops = {
 	.allocate = system_heap_allocate,
+	.get_pool_size = get_pool_size_bytes,
 };
 
 int qcom_system_heap_create(char *name, bool uncached)
