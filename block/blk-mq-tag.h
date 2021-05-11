@@ -21,6 +21,21 @@ struct blk_mq_tags {
 	struct list_head page_list;
 };
 
+/*
+ * Extended tag address space map. This was needed
+ * to add a spinlock to blk_mq_tags in a KMI compliant
+ * way (no changes could be made to struct blk_mq_tags).
+ */
+struct ext_blk_mq_tags {
+	struct blk_mq_tags tags;
+
+	 /*
+	  * used to clear request reference in rqs[] before freeing one
+	  * request pool
+	  */
+	spinlock_t lock;
+};
+
 
 extern struct blk_mq_tags *blk_mq_init_tags(unsigned int nr_tags, unsigned int reserved_tags, int node, int alloc_policy);
 extern void blk_mq_free_tags(struct blk_mq_tags *tags);
