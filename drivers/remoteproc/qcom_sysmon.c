@@ -487,6 +487,7 @@ static inline void send_event(struct qcom_sysmon *sysmon, struct qcom_sysmon *so
 	unsigned long timeout;
 
 	source->timeout_data.timer.function = sysmon_notif_timeout_handler;
+	source->timeout_data.dest = sysmon;
 	timeout = jiffies + msecs_to_jiffies(SYSMON_NOTIF_TIMEOUT);
 	mod_timer(&source->timeout_data.timer, timeout);
 
