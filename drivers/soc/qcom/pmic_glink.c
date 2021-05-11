@@ -165,16 +165,10 @@ static void pmic_glink_pdr_notifier_cb(int state, char *service_name,
 	pr_debug("PDR state: %x\n", state);
 
 	switch (state) {
-	case SERVREG_SERVICE_STATE_EARLY_DOWN:
+	case SERVREG_SERVICE_STATE_DOWN:
 		pr_debug("PD state down for %s\n", pgdev->pdr_service_name);
 		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_DOWN);
 		atomic_set(&pgdev->pdr_state, state);
-		break;
-	case SERVREG_SERVICE_STATE_DOWN:
-		/*
-		 * PMIC Glink clients have been notified already. So do
-		 * nothing here.
-		 */
 		break;
 	case SERVREG_SERVICE_STATE_UP:
 		/*
@@ -537,8 +531,7 @@ static void pmic_glink_init_work(struct work_struct *work)
 	struct device *dev = pgdev->dev;
 	int rc;
 
-	if (atomic_read(&pgdev->pdr_state) ==
-	    SERVREG_SERVICE_STATE_EARLY_DOWN ||
+	if (atomic_read(&pgdev->pdr_state) == SERVREG_SERVICE_STATE_DOWN ||
 	    atomic_read(&pgdev->prev_state) == QCOM_SSR_BEFORE_SHUTDOWN) {
 		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_UP);
 		atomic_set(&pgdev->pdr_state, SERVREG_SERVICE_STATE_UP);
