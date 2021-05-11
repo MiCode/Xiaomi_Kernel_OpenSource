@@ -172,6 +172,10 @@
 		compatible = "qcom,ipa-mpm";
 		qcom,iova-mapping = <0x10000000 0x0FFFFFFF>;
 	};
+
+	qcom,qbt_handler {
+		status = "disabled";
+	};
 };
 
 &ipa_hw {
@@ -183,6 +187,10 @@
 	qcom,non-tn-collection-on-crash;
 	qcom,ram-collection-on-crash;
 	qcom,secure-debug-check-action = <0>;
+};
+
+&tlmm {
+	qcom,gpios-reserved = <28 29 30 31>;
 };
 
 &pcie1_rp {
