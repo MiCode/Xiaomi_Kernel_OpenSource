@@ -295,12 +295,11 @@ static int spss_attach(struct rproc *rproc)
 	unmask_scsr_irqs(spss);
 
 	ret = wait_for_completion_timeout(&spss->start_done, msecs_to_jiffies(SPSS_TIMEOUT));
-	if (rproc->recovery_disabled && !ret) {
+	if (rproc->recovery_disabled && !ret)
 		panic("Panicking, %s attach timed out\n", rproc->name);
-	} else if (!ret) {
+	else if (!ret)
 		dev_err(spss->dev, "start timed out\n");
-		rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
-	}
+
 	ret = ret ? 0 : -ETIMEDOUT;
 
 	return ret;
@@ -340,18 +339,13 @@ static int spss_start(struct rproc *rproc)
 		goto disable_cx_supply;
 	}
 
-	/* at this point the spss should be in the process of booting up */
-	rproc->state = RPROC_RUNNING;
-
 	unmask_scsr_irqs(spss);
 
 	ret = wait_for_completion_timeout(&spss->start_done, msecs_to_jiffies(SPSS_TIMEOUT));
-	if (rproc->recovery_disabled && !ret) {
+	if (rproc->recovery_disabled && !ret)
 		panic("Panicking, %s start timed out\n", rproc->name);
-	} else if (!ret) {
+	else if (!ret)
 		dev_err(spss->dev, "start timed out\n");
-		rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
-	}
 	ret = ret ? 0 : -ETIMEDOUT;
 
 disable_cx_supply:
