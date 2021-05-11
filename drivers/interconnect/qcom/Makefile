@@ -22,6 +22,7 @@ qnoc-waipio-objs			:= waipio.o
 icc-smd-rpm-objs			:= smd-rpm.o
 qnoc-qos-obj				:= qnoc-qos.o
 qnoc-kalama-objs			:= kalama.o
+qnoc-bengal-objs			:= bengal.o
 
 obj-$(CONFIG_INTERCONNECT_QCOM_BCM_VOTER) += icc-bcm-voter.o
 obj-$(CONFIG_INTERCONNECT_QCOM_KALAMA) += qnoc-kalama.o
@@ -42,6 +43,7 @@ obj-$(CONFIG_INTERCONNECT_QCOM_SM8250) += qnoc-sm8250.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SM8350) += qnoc-sm8350.o
 obj-$(CONFIG_INTERCONNECT_QCOM_CINDER) += qnoc-cinder.o
 obj-$(CONFIG_INTERCONNECT_QCOM_WAIPIO) += qnoc-waipio.o
+obj-$(CONFIG_INTERCONNECT_QCOM_BENGAL) += qnoc-bengal.o
 obj-$(CONFIG_INTERCONNECT_QCOM_RPM) += icc-rpm.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SMD_RPM) += icc-smd-rpm.o
 obj-$(CONFIG_INTERCONNECT_QCOM_QOS) += qnoc-qos.o
