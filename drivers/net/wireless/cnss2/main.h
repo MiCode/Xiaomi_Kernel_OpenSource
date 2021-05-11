@@ -502,6 +502,7 @@ struct cnss_plat_data {
 	u32 hw_trc_override;
 	u32 is_converged_dt;
 	struct device_node *dev_node;
+	u64 feature_list;
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -573,4 +574,8 @@ int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 				 const char *filename);
 void cnss_disable_redundant_vreg(struct cnss_plat_data *plat_priv);
 int cnss_gpio_get_value(struct cnss_plat_data *plat_priv, int gpio_num);
+int cnss_set_feature_list(struct cnss_plat_data *plat_priv,
+			  enum cnss_feature_v01 feature);
+int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
+			  u64 *feature_list);
 #endif /* _CNSS_MAIN_H */

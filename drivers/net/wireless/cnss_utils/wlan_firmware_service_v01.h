@@ -243,6 +243,13 @@ enum wlfw_m3_segment_type_v01 {
 	WLFW_M3_SEGMENT_TYPE_MAX_VAL_V01 = INT_MAX,
 };
 
+enum cnss_feature_v01 {
+	CNSS_FEATURE_MIN_VAL_V01 = INT_MIN,
+	BOOTSTRAP_CLOCK_SELECT_V01 = 0,
+	CNSS_MAX_FEATURE_V01 = 64,
+	CNSS_FEATURE_MAX_VAL_V01 = INT_MAX,
+};
+
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
 #define QMI_WLFW_CE_ATTR_NO_SNOOP_V01 ((u32)0x01)
 #define QMI_WLFW_CE_ATTR_BYTE_SWAP_DATA_V01 ((u32)0x02)
@@ -786,9 +793,11 @@ struct wlfw_host_cap_req_msg_v01 {
 	u8 mlo_num_chips;
 	u8 mlo_chip_info_valid;
 	struct wlfw_host_mlo_chip_info_s_v01 mlo_chip_info[QMI_WLFW_MAX_NUM_MLO_CHIPS_V01];
+	u8 feature_list_valid;
+	u64 feature_list;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 362
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 373
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
