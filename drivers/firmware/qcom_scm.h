@@ -241,6 +241,27 @@ extern int __qcom_scm_qseecom_do(struct device *dev, u32 cmd_id,
 #define QCOM_SCM_TSENS_INIT_ID		0x5
 extern int __qcom_scm_tsens_reinit(struct device *dev, int *tsens_ret);
 
+//SMMU Paravirt driver
+#define SMMU_PARAVIRT_OP_ATTACH         0
+#define SMMU_PARAVIRT_OP_DETACH		1
+#define SMMU_PARAVIRT_OP_INVAL_ASID     2
+#define SMMU_PARAVIRT_OP_INVAL_VA       3
+#define SMMU_PARAVIRT_OP_ALL_S1_BYPASS  4
+#define SMMU_PARAVIRT_OP_CFGI_CD_ALL    5
+#define SMMU_PARAVIRT_OP_TLBI_NH_ALL    6
+
+#define ARM_SMMU_PARAVIRT_CMD		0x6
+#define ARM_SMMU_PARAVIRT_DESCARG	0x22200a
+
+extern int __qcom_scm_paravirt_smmu_attach(struct device *dev, u64 sid,
+				    u64 asid, u64 ste_pa, u64 ste_size,
+				    u64 cd_pa, u64 cd_size);
+
+extern int __qcom_scm_paravirt_tlb_inv(struct device *dev, u64 asid);
+
+extern int __qcom_scm_paravirt_smmu_detach(struct device *dev,
+						u64 sid);
+
 // OEM Services and Function IDs
 #define QCOM_SCM_SVC_OEM_POWER		0x09
 #define QCOM_SCM_OEM_POWER_REBOOT	0x22
