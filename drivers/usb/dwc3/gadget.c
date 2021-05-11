@@ -1805,11 +1805,6 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 	unsigned long			flags;
 	int				ret = 0;
 
-	if (atomic_read(&dwc->in_lpm)) {
-		dev_err(dwc->dev, "Unable to dequeue while in LPM\n");
-		return -EAGAIN;
-	}
-
 	trace_dwc3_ep_dequeue(req);
 	dbg_ep_dequeue(dep->number, req);
 
@@ -3536,6 +3531,11 @@ int dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt)
 	struct dwc3_gadget_ep_cmd_params params;
 	u32 cmd;
 	int ret;
+
+	if (atomic_read(&dwc->in_lpm)) {
+		dev_err(dwc->dev, "cannot stop transfers while in LPM\n");
+		return -EINVAL;
+	}
 
 	if (!(dep->flags & DWC3_EP_TRANSFER_STARTED) ||
 	    (dep->flags & DWC3_EP_END_TRANSFER_PENDING))
