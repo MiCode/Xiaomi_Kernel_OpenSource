@@ -3035,8 +3035,12 @@ static void arm_smmu_get_resv_regions(struct device *dev,
 static int arm_smmu_def_domain_type(struct device *dev)
 {
 	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
-	const struct arm_smmu_impl *impl = cfg->smmu->impl;
+	const struct arm_smmu_impl *impl;
 
+	if (!cfg)
+		return 0;
+
+	impl = cfg->smmu->impl;
 	if (impl && impl->def_domain_type)
 		return impl->def_domain_type(dev);
 
