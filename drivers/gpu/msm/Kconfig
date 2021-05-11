@@ -96,3 +96,14 @@ config QCOM_KGSL_USE_SHMEM
 	  there will be no support for the memory pools and higher order pages.
 	  But using shmem will help in making kgsl pages available for
 	  reclaiming.
+
+config QCOM_KGSL_PROCESS_RECLAIM
+	bool "Make driver pages available for reclaim"
+	depends on QCOM_KGSL
+	select QCOM_KGSL_USE_SHMEM
+	help
+	  Say 'Y' to make driver pages available for reclaiming. If enabled,
+	  shmem will be used for allocation. kgsl would know the process
+	  foreground/background activity through the sysfs entry exposed per
+	  process. Based on this kgsl can unpin given number of pages from
+	  background processes and make them available to the shrinker.

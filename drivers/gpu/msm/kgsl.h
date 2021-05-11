@@ -184,6 +184,12 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_RANDOM BIT(8)
 /* Allocate memory from the system instead of the pools */
 #define KGSL_MEMDESC_SYSMEM BIT(9)
+/* The memdesc pages can be reclaimed */
+#define KGSL_MEMDESC_CAN_RECLAIM BIT(10)
+/* The memdesc pages were reclaimed */
+#define KGSL_MEMDESC_RECLAIMED BIT(11)
+/* Skip reclaim of the memdesc pages */
+#define KGSL_MEMDESC_SKIP_RECLAIM BIT(12)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor
