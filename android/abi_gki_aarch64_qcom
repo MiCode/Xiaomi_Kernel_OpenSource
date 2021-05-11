@@ -45,10 +45,12 @@
   backlight_device_unregister
   bin2hex
   __bitmap_clear
+  bitmap_find_free_region
   bitmap_find_next_zero_area_off
   bitmap_free
   bitmap_parselist
   bitmap_print_to_pagebuf
+  bitmap_release_region
   __bitmap_set
   __bitmap_subset
   bitmap_zalloc
@@ -1802,6 +1804,7 @@
   __pm_runtime_use_autosuspend
   __pm_stay_awake
   pm_stay_awake
+  pm_system_cancel_wakeup
   pm_system_wakeup
   pm_wakeup_dev_event
   pm_wakeup_ws_event
@@ -2022,6 +2025,7 @@
   rpmsg_set_signals
   rpmsg_trysend
   rpmsg_unregister_device
+  rtc_add_group
   rtc_class_close
   rtc_class_open
   rtc_read_time
