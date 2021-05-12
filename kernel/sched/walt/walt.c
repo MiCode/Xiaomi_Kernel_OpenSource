@@ -500,10 +500,10 @@ void clear_walt_request(int cpu)
 
 		raw_spin_lock_irqsave(&rq->lock, flags);
 		if (rq->wrq.push_task) {
-			clear_reserved(rq->push_cpu);
 			push_task = rq->wrq.push_task;
 			rq->wrq.push_task = NULL;
 		}
+		clear_reserved(rq->push_cpu);
 		rq->active_balance = 0;
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 		if (push_task)
