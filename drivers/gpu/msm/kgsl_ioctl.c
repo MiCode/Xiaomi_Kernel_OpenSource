@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2019, 2021, The Linux Foundation. All rights reserved.
  */
 
 #include "kgsl_device.h"
@@ -167,8 +167,6 @@ long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			return device->ftbl->compat_ioctl(dev_priv, cmd, arg);
 		else if (device->ftbl->ioctl != NULL)
 			return device->ftbl->ioctl(dev_priv, cmd, arg);
-
-		dev_err(device->dev, "invalid ioctl code 0x%08X\n", cmd);
 	}
 
 	return ret;
