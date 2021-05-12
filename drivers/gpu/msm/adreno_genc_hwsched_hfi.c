@@ -94,9 +94,6 @@ static void genc_receive_ack_async(struct adreno_device *adreno_dev, void *rcvd)
 	u32 req_hdr = ack[1];
 	u32 size_bytes = MSG_HDR_GET_SIZE(hdr) << 2;
 
-	trace_kgsl_hfi_receive(MSG_HDR_GET_ID(req_hdr),
-		MSG_HDR_GET_SIZE(req_hdr), MSG_HDR_GET_SEQNUM(req_hdr));
-
 	if (size_bytes > sizeof(cmd->results))
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"Ack result too big: %d Truncating to: %ld\n",
@@ -401,33 +398,14 @@ static void process_msgq_irq(struct adreno_device *adreno_dev)
 		 */
 		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
 			genc_receive_ack_async(adreno_dev, rcvd);
+		} else if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_TS_RETIRE) {
+			log_profiling_info(adreno_dev, rcvd);
+			adreno_hwsched_trigger(adreno_dev);
 		} else {
 			add_f2h_packet(adreno_dev, rcvd);
 			wake_up_interruptible(&hfi->f2h_wq);
 		}
 	}
-}
-
-static void adreno_genc_add_log_block(struct adreno_device *adreno_dev,
-		u32 *msg)
-{
-	struct f2h_packet *pkt = kmem_cache_alloc(f2h_cache, GFP_ATOMIC);
-	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
-	u32 size = MSG_HDR_GET_SIZE(msg[0]) << 2;
-
-	if (!pkt)
-		return;
-
-	memcpy(pkt->rcvd, msg, min_t(u32, size, sizeof(pkt->rcvd)));
-
-	/*
-	 * Add the log block packets from GMU to a secondary list to ensure
-	 * the time critical TS_RETIRE packet processing on the primary list
-	 * is not delayed
-	 */
-	llist_add(&pkt->node, &hfi->f2h_secondary_list);
-
-	wake_up_interruptible(&hfi->f2h_wq);
 }
 
 static void process_dbgq_irq(struct adreno_device *adreno_dev)
@@ -448,7 +426,7 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 			adreno_genc_receive_debug_req(gmu, rcvd);
 
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK)
-			adreno_genc_add_log_block(adreno_dev, rcvd);
+			add_f2h_packet(adreno_dev, rcvd);
 	}
 
 	if (!recovery)
@@ -788,6 +766,7 @@ static int mem_alloc_reply(struct adreno_device *adreno_dev, void *rcvd)
 {
 	struct hfi_mem_alloc_cmd *in = (struct hfi_mem_alloc_cmd *)rcvd;
 	struct hfi_mem_alloc_reply_cmd out = {0};
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	int ret;
 
 	ret = process_mem_alloc(adreno_dev, &in->desc);
@@ -797,6 +776,9 @@ static int mem_alloc_reply(struct adreno_device *adreno_dev, void *rcvd)
 	memcpy(&out.desc, &in->desc, sizeof(out.desc));
 
 	out.hdr = ACK_MSG_HDR(F2H_MSG_MEM_ALLOC, sizeof(out));
+	out.hdr = MSG_HDR_SET_SEQNUM(out.hdr,
+			atomic_inc_return(&gmu->hfi.seqnum));
+
 	out.req_hdr = in->hdr;
 
 	return genc_hfi_cmdq_write(adreno_dev, (u32 *)&out);
@@ -1090,12 +1072,6 @@ int genc_hwsched_cp_init(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-static void process_ts_retire(struct adreno_device *adreno_dev, u32 *rcvd)
-{
-	log_profiling_info(adreno_dev, rcvd);
-	adreno_hwsched_trigger(adreno_dev);
-}
-
 static void process_log_block(struct adreno_device *adreno_dev, void *data)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
@@ -1127,9 +1103,6 @@ static void process_f2h_list(struct adreno_device *adreno_dev,
 	list = llist_reverse_order(list);
 
 	llist_for_each_entry_safe(pkt, tmp, list, node) {
-		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_TS_RETIRE)
-			process_ts_retire(adreno_dev, pkt->rcvd);
-
 		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_LOG_BLOCK)
 			process_log_block(adreno_dev, pkt->rcvd);
 
@@ -1144,17 +1117,13 @@ static int hfi_f2h_main(void *arg)
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(hfi->f2h_wq,
-			((!llist_empty(&hfi->f2h_msglist) ||
-			  !llist_empty(&hfi->f2h_secondary_list))
-			 && !kthread_should_stop()));
+			!llist_empty(&hfi->f2h_msglist)
+			 && !kthread_should_stop());
 
 		if (kthread_should_stop())
 			break;
 
 		process_f2h_list(adreno_dev, &hfi->f2h_msglist);
-
-		/* Process packets on the secondary list after the primary list */
-		process_f2h_list(adreno_dev, &hfi->f2h_secondary_list);
 	}
 
 	return 0;
@@ -1413,6 +1382,8 @@ int genc_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	}
 
 skipib:
+	adreno_drawobj_set_constraint(KGSL_DEVICE(adreno_dev), drawobj);
+
 	ret = genc_hfi_queue_write(adreno_dev,
 		HFI_DSP_ID_0 + drawobj->context->gmu_dispatch_queue,
 		(u32 *)cmd);

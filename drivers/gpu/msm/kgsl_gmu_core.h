@@ -91,7 +91,8 @@ enum gmu_pwrctrl_mode {
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
-#define GMU_FREQUENCY   200000000
+#define GMU_FREQ_MIN   200000000
+#define GMU_FREQ_MAX   500000000
 
 #define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
 #define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)

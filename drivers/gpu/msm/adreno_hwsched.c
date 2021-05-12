@@ -1187,6 +1187,55 @@ static void do_fault_header(struct adreno_device *adreno_dev,
 		adreno_get_level(drawobj->context->priority));
 }
 
+static struct cmd_list_obj *get_active_cmdobj(
+	struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct cmd_list_obj *obj, *tmp, *active_obj = NULL;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 consumed = 0, retired = 0, prio = UINT_MAX;
+	struct kgsl_drawobj *drawobj = NULL;
+
+	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
+		drawobj = DRAWOBJ(obj->cmdobj);
+
+		kgsl_readtimestamp(device, drawobj->context,
+			KGSL_TIMESTAMP_CONSUMED, &consumed);
+		kgsl_readtimestamp(device, drawobj->context,
+			KGSL_TIMESTAMP_RETIRED, &retired);
+
+		if (!consumed)
+			continue;
+
+		if (consumed == retired)
+			continue;
+
+		/* Find the first submission that started but didn't finish */
+		if (!active_obj) {
+			active_obj = obj;
+			prio = adreno_get_level(drawobj->context->priority);
+			continue;
+		}
+
+		/* Find the highest priority active submission */
+		if (adreno_get_level(drawobj->context->priority) < prio) {
+			active_obj = obj;
+			prio = adreno_get_level(drawobj->context->priority);
+		}
+	}
+
+	if (active_obj) {
+		drawobj = DRAWOBJ(active_obj->cmdobj);
+
+		if (kref_get_unless_zero(&drawobj->refcount)) {
+			set_bit(CMDOBJ_FAULT, &active_obj->cmdobj->priv);
+			return active_obj;
+		}
+	}
+
+	return NULL;
+}
+
 static struct cmd_list_obj *get_fault_cmdobj(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
@@ -1229,17 +1278,28 @@ static bool context_is_throttled(struct kgsl_device *device,
 
 	return false;
 }
-static void reset_and_snapshot(struct adreno_device *adreno_dev)
+static void reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
 {
 	struct kgsl_drawobj *drawobj = NULL;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_context *context = NULL;
-	struct cmd_list_obj *obj = get_fault_cmdobj(adreno_dev);
+	struct cmd_list_obj *obj;
 	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct hfi_context_bad_cmd *cmd = adreno_dev->hwsched.ctxt_bad;
 
 	if (device->state != KGSL_STATE_ACTIVE)
 		return;
+
+	/*
+	 * First, try to see if the faulted command object is marked
+	 * in case there was a context bad hfi. But, with stall-on-fault,
+	 * we know that GMU cannot send context bad hfi. Hence, attempt
+	 * to walk the list of active submissions to find the one that
+	 * faulted.
+	 */
+	obj = get_fault_cmdobj(adreno_dev);
+	if (!obj && (fault & ADRENO_IOMMU_PAGE_FAULT))
+		obj = get_active_cmdobj(adreno_dev);
 
 	if (!obj) {
 		kgsl_device_snapshot(device, NULL, false);
@@ -1263,7 +1323,10 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev)
 		adreno_drawctxt_set_guilty(device, context);
 	}
 
-	/* Put back the reference which we incremented in get_fault_cmdobj */
+	/*
+	 * Put back the reference which we incremented while trying to find
+	 * faulted command object
+	 */
 	kgsl_drawobj_put(drawobj);
 done:
 	memset(adreno_dev->hwsched.ctxt_bad, 0x0, HFI_MAX_MSG_SIZE);
@@ -1282,7 +1345,7 @@ static bool adreno_hwsched_do_fault(struct adreno_device *adreno_dev)
 
 	mutex_lock(&device->mutex);
 
-	reset_and_snapshot(adreno_dev);
+	reset_and_snapshot(adreno_dev, fault);
 
 	adreno_hwsched_replay(adreno_dev);
 
@@ -1337,8 +1400,9 @@ void adreno_hwsched_fault(struct adreno_device *adreno_dev,
 		u32 fault)
 {
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	u32 curr = atomic_read(&hwsched->fault);
 
-	atomic_set(&hwsched->fault, fault);
+	atomic_set(&hwsched->fault, curr | fault);
 
 	/* make sure fault is written before triggering dispatcher */
 	smp_wmb();

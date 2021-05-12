@@ -1487,7 +1487,7 @@ int genc_gmu_enable_clks(struct adreno_device *adreno_dev)
 	int ret;
 
 	ret = kgsl_clk_set_rate(gmu->clks, gmu->num_clks, "gmu_clk",
-			GMU_FREQUENCY);
+			GMU_FREQ_MIN);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "Unable to set the GMU clock\n");
 		return ret;
@@ -2000,6 +2000,9 @@ int genc_gmu_probe(struct kgsl_device *device,
 
 	/* GMU sysfs nodes setup */
 	kobject_init_and_add(&gmu->log_kobj, &log_kobj_type, &dev->kobj, "log");
+
+	of_property_read_u32(gmu->pdev->dev.of_node, "qcom,gmu-perf-ddr-bw",
+		&gmu->perf_ddr_bw);
 
 	gmu->irq = kgsl_request_irq(gmu->pdev, "gmu",
 		genc_gmu_irq_handler, device);

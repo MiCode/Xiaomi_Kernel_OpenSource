@@ -136,10 +136,44 @@ unsigned int kgsl_pwrctrl_adjust_pwrlevel(struct kgsl_device *device,
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	unsigned int old_level = pwr->active_pwrlevel;
+	bool reset = false;
 
 	/* If a pwr constraint is expired, remove it */
 	if ((pwr->constraint.type != KGSL_CONSTRAINT_NONE) &&
 		(time_after(jiffies, pwr->constraint.expires))) {
+
+		struct kgsl_context *context = kgsl_context_get(device,
+				pwr->constraint.owner_id);
+
+		/* We couldn't get a reference, clear the constraint */
+		if (!context) {
+			reset = true;
+			goto done;
+		}
+
+		/*
+		 * If the last timestamp that set the constraint has retired,
+		 * clear the constraint
+		 */
+		if (kgsl_check_timestamp(device, context,
+			pwr->constraint.owner_timestamp)) {
+			reset = true;
+			kgsl_context_put(context);
+			goto done;
+		}
+
+		/*
+		 * Increase the timeout to keep the constraint at least till
+		 * the timestamp retires
+		 */
+		pwr->constraint.expires = jiffies +
+			msecs_to_jiffies(device->pwrctrl.interval_timeout);
+
+		kgsl_context_put(context);
+	}
+
+done:
+	if (reset) {
 		/* Trace the constraint being un-set by the driver */
 		trace_kgsl_constraint(device, pwr->constraint.type,
 						old_level, 0);
@@ -240,19 +274,8 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 }
 
-/**
- * kgsl_pwrctrl_set_constraint() - Validate and change enforced constraint
- * @device: Pointer to the kgsl_device struct
- * @pwrc: Pointer to requested constraint
- * @id: Context id which owns the constraint
- *
- * Accept the new constraint if no previous constraint existed or if the
- * new constraint is faster than the previous one.  If the new and previous
- * constraints are equal, update the timestamp and ownership to make sure
- * the constraint expires at the correct time.
- */
 void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
-			struct kgsl_pwr_constraint *pwrc, uint32_t id)
+			struct kgsl_pwr_constraint *pwrc, uint32_t id, u32 ts)
 {
 	unsigned int constraint;
 	struct kgsl_pwr_constraint *pwrc_old;
@@ -274,14 +297,18 @@ void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 		pwrc_old->sub_type = pwrc->sub_type;
 		pwrc_old->hint.pwrlevel.level = constraint;
 		pwrc_old->owner_id = id;
-		pwrc_old->expires = jiffies + msecs_to_jiffies(device->pwrctrl.interval_timeout);
+		pwrc_old->expires = jiffies +
+			msecs_to_jiffies(device->pwrctrl.interval_timeout);
+		pwrc_old->owner_timestamp = ts;
 		kgsl_pwrctrl_pwrlevel_change(device, constraint);
 		/* Trace the constraint being set by the driver */
 		trace_kgsl_constraint(device, pwrc_old->type, constraint, 1);
 	} else if ((pwrc_old->type == pwrc->type) &&
 		(pwrc_old->hint.pwrlevel.level == constraint)) {
 		pwrc_old->owner_id = id;
-		pwrc_old->expires = jiffies + msecs_to_jiffies(device->pwrctrl.interval_timeout);
+		pwrc_old->owner_timestamp = ts;
+		pwrc_old->expires = jiffies +
+			msecs_to_jiffies(device->pwrctrl.interval_timeout);
 	}
 }
 

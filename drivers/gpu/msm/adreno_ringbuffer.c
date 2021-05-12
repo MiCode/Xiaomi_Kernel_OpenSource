@@ -177,7 +177,7 @@ void adreno_preemption_timer(struct timer_list *t)
 	queue_work(system_unbound_wq, &adreno_dev->preempt.work);
 }
 
-void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
+void adreno_drawobj_set_constraint(struct kgsl_device *device,
 			struct kgsl_drawobj *drawobj)
 {
 	struct kgsl_context *context = drawobj->context;
@@ -191,7 +191,7 @@ void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
 			(drawobj->flags & KGSL_CONTEXT_PWR_CONSTRAINT)))
 		kgsl_pwrctrl_set_constraint(device, &context->pwr_constraint,
-						context->id);
+					context->id, drawobj->timestamp);
 
 	if (context->l3_pwr_constraint.type &&
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
