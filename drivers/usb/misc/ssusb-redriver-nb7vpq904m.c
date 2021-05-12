@@ -587,12 +587,10 @@ int redriver_notify_disconnect(struct device_node *node)
 	    (redriver->op_mode == OP_MODE_NONE))
 		return 0;
 
-	dev_dbg(redriver->dev, "op mode %s -> %s\n",
-		OPMODESTR(redriver->op_mode), OPMODESTR(OP_MODE_NONE));
+	dev_dbg(redriver->dev, "disconnect op mode %s\n",
+		OPMODESTR(redriver->op_mode));
 
-	redriver->op_mode = OP_MODE_NONE;
-
-	ssusb_redriver_gen_dev_set(redriver);
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, 0);
 
 	return 0;
 }
