@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -37,8 +37,7 @@
 #endif
 
 struct ddr_stats_platform_data {
-	phys_addr_t phys_addr_base;
-	u32 phys_size;
+	void __iomem *reg;
 };
 
 struct stats_entry {
@@ -58,6 +57,8 @@ struct ddr_stats_kobj_attr {
 	struct kobj_attribute ka;
 	struct ddr_stats_platform_data *pd;
 };
+
+static struct ddr_stats_platform_data *ddr_pdata;
 
 static inline u64 get_time_in_msec(u64 counter)
 {
@@ -147,22 +148,10 @@ static ssize_t ddr_stats_show(struct kobject *kobj,
 	struct ddr_stats_platform_data *pdata = NULL;
 	void __iomem *reg;
 	ssize_t length;
-	u32 key, entry_count;
+	u32 entry_count;
 
 	pdata = GET_PDATA_OF_ATTR(attr);
-
-	reg = ioremap_nocache(pdata->phys_addr_base, pdata->phys_size);
-	if (!reg) {
-		pr_err("ERROR could not ioremap start=%pa, len=%u\n",
-		       &pdata->phys_addr_base, pdata->phys_size);
-		return 0;
-	}
-
-	key = readl_relaxed(reg + offsetof(struct ddr_stats_data, key));
-	if (key != MAGIC_KEY1) {
-		pr_err("Invalid key\n");
-		return 0;
-	}
+	reg = pdata->reg;
 
 	entry_count = readl_relaxed(reg + offsetof(struct ddr_stats_data,
 				    entry_count));
@@ -172,7 +161,6 @@ static ssize_t ddr_stats_show(struct kobject *kobj,
 	}
 
 	length = ddr_stats_copy_stats(buf, PAGE_SIZE, reg, entry_count);
-	iounmap(reg);
 
 	return length;
 }
@@ -212,13 +200,14 @@ static int ddr_stats_create_sysfs(struct platform_device *pdev,
 
 static int ddr_stats_probe(struct platform_device *pdev)
 {
-	struct ddr_stats_platform_data *pdata;
 	struct resource *res = NULL, *offset = NULL;
 	u32 offset_addr = 0;
 	void __iomem *phys_ptr = NULL;
+	phys_addr_t phys_addr_base;
+	u32 phys_size, key;
 
-	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
+	ddr_pdata = devm_kzalloc(&pdev->dev, sizeof(*ddr_pdata), GFP_KERNEL);
+	if (!ddr_pdata)
 		return -ENOMEM;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -242,10 +231,23 @@ static int ddr_stats_probe(struct platform_device *pdev)
 	if (!offset_addr)
 		return -ENODEV;
 
-	pdata->phys_addr_base  = res->start + offset_addr;
-	pdata->phys_size = resource_size(res);
+	phys_addr_base = res->start + offset_addr;
+	phys_size = resource_size(res);
 
-	return ddr_stats_create_sysfs(pdev, pdata);
+	ddr_pdata->reg = devm_ioremap(&pdev->dev, phys_addr_base, phys_size);
+	if (!ddr_pdata->reg) {
+		pr_err("ERROR could not ioremap start=%pa, len=%u\n",
+		       phys_addr_base, phys_size);
+		return -ENODEV;
+	}
+
+	key = readl_relaxed(ddr_pdata->reg + offsetof(struct ddr_stats_data, key));
+	if (key != MAGIC_KEY1) {
+		pr_err("Invalid key\n");
+		return -EINVAL;
+	}
+
+	return ddr_stats_create_sysfs(pdev, ddr_pdata);
 }
 
 static int ddr_stats_remove(struct platform_device *pdev)
