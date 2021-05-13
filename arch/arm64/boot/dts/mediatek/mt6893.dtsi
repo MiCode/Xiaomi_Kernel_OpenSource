@@ -800,7 +800,7 @@
 
 			trips {
 				soc_max_crit: soc_max_crit@0 {
-					temperature = <120000>;
+					temperature = <113500>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
