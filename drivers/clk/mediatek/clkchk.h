@@ -80,14 +80,20 @@ struct mtk_vf {
 
 struct clkchk_ops {
 	const struct regname *(*get_all_regnames)(void);
+	u32 *(*get_spm_pwr_status_array)(void);
 	struct pvd_msk *(*get_pvd_pwr_mask)(void);
 	const char * const *(*get_off_pll_names)(void);
 	const char * const *(*get_notice_pll_names)(void);
 	bool (*is_pll_chk_bug_on)(void);
 	struct mtk_vf *(*get_vf_table)(void);
 	int (*get_vcore_opp)(void);
+	bool (*is_pwr_on)(struct provider_clk *pvdck);
 };
 
+int clkchk_pvdck_is_on(struct provider_clk *pvdck);
+bool clkchk_pvdck_is_prepared(struct provider_clk *pvdck);
+bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck);
+bool is_valid_reg(void __iomem *addr);
 void set_clkchk_ops(const struct clkchk_ops *ops);
 void clkchk_set_cfg(void);
 

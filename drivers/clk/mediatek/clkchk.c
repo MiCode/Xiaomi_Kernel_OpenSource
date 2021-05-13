@@ -45,6 +45,20 @@ void set_clkchk_ops(const struct clkchk_ops *ops)
 	clkchk_ops = ops;
 }
 
+/*
+ * for mtcmos debug
+ */
+bool is_valid_reg(void __iomem *addr)
+{
+#if IS_ENABLED(CONFIG_64BIT)
+	return ((u64)addr & 0xf0000000) != 0UL ||
+			(((u64)addr >> 32U) & 0xf0000000) != 0UL;
+#else
+	return ((u32)addr & 0xf0000000) != 0U;
+#endif
+}
+EXPORT_SYMBOL(is_valid_reg);
+
 const struct regname *get_all_regnames(void)
 {
 	if (clkchk_ops == NULL || clkchk_ops->get_all_regnames == NULL)
@@ -159,39 +173,142 @@ struct provider_clk *get_all_provider_clks(void)
 }
 EXPORT_SYMBOL(get_all_provider_clks);
 
-static struct clk *__clk_chk_lookup(const char *name)
+static struct provider_clk *__clk_chk_lookup_pvdck(const char *name)
 {
 	struct provider_clk *pvdck = get_all_provider_clks();
 
 	for (; pvdck->ck != NULL; pvdck++) {
 		if (!strcmp(pvdck->ck_name, name))
-			return pvdck->ck;
+			return pvdck;
 	}
 
 	return NULL;
 }
 
-const char *ccf_state(struct clk_hw *hw)
+static struct clk *__clk_chk_lookup(const char *name)
 {
-	if (clk_hw_is_enabled(hw))
+	struct provider_clk *pvdck = __clk_chk_lookup_pvdck(name);
+
+	if (!pvdck)
+		return pvdck->ck;
+
+	return NULL;
+}
+
+static s32 *read_spm_pwr_status_array(void)
+{
+	if (clkchk_ops == NULL || clkchk_ops->get_spm_pwr_status_array  == NULL)
+		return  ERR_PTR(-EINVAL);
+
+	return clkchk_ops->get_spm_pwr_status_array();
+}
+
+static int clk_hw_pwr_is_on(struct clk_hw *c_hw, u32 *spm_pwr_status,
+		struct provider_clk *pvdck)
+{
+	if (!pvdck || !pvdck->pwr_mask)
+		return 0;
+
+	if (pvdck->sta_type == PWR_STA) {
+		if ((spm_pwr_status[PWR_STA] & pvdck->pwr_mask) != pvdck->pwr_mask &&
+				(spm_pwr_status[PWR_STA2] & pvdck->pwr_mask) != pvdck->pwr_mask)
+			return 0;
+		else if ((spm_pwr_status[PWR_STA] & pvdck->pwr_mask) == pvdck->pwr_mask &&
+				(spm_pwr_status[PWR_STA2] & pvdck->pwr_mask) == pvdck->pwr_mask)
+			return 1;
+		else
+			return -1;
+	} else if (pvdck->sta_type == OTHER_STA) {
+		if ((spm_pwr_status[OTHER_STA] & pvdck->pwr_mask) != pvdck->pwr_mask)
+			return 0;
+		else
+			return 1;
+	}
+
+	return -1;
+}
+
+static int pvdck_pwr_is_on(struct provider_clk *pvdck, u32 *spm_pwr_status)
+{
+	struct clk *c = pvdck->ck;
+	struct clk_hw *c_hw = __clk_get_hw(c);
+
+	return clk_hw_pwr_is_on(c_hw, spm_pwr_status, pvdck);
+}
+
+int clkchk_pvdck_is_on(struct provider_clk *pvdck)
+{
+	u32 *pval;
+
+	if (!pvdck || !pvdck->pwr_mask)
+		return -1;
+
+	if (clkchk_ops == NULL || clkchk_ops->is_pwr_on == NULL) {
+		pval = read_spm_pwr_status_array();
+
+		return pvdck_pwr_is_on(pvdck, pval);
+	}
+
+	return clkchk_ops->is_pwr_on(pvdck);
+}
+EXPORT_SYMBOL(clkchk_pvdck_is_on);
+
+bool clkchk_pvdck_is_prepared(struct provider_clk *pvdck)
+{
+	struct clk_hw *hw;
+
+	if (clkchk_pvdck_is_on(pvdck) == 1) {
+		hw = __clk_get_hw(pvdck->ck);
+
+		if (IS_ERR_OR_NULL(hw))
+			return false;
+
+		return clk_hw_is_prepared(hw);
+	}
+
+	return false;
+}
+EXPORT_SYMBOL(clkchk_pvdck_is_prepared);
+
+bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck)
+{
+	struct clk_hw *hw;
+
+	if (clkchk_pvdck_is_on(pvdck) == 1) {
+		hw = __clk_get_hw(pvdck->ck);
+
+		if (IS_ERR_OR_NULL(hw))
+			return false;
+
+		return clk_hw_is_enabled(hw);
+	}
+
+	return false;
+}
+EXPORT_SYMBOL(clkchk_pvdck_is_enabled);
+
+static const char *ccf_state(struct provider_clk *pvdck)
+{
+	if (clkchk_pvdck_is_enabled(pvdck))
 		return "enabled";
 
-	if (clk_hw_is_prepared(hw))
+	if (clkchk_pvdck_is_prepared(pvdck))
 		return "prepared";
 
 	return "disabled";
 }
 
-static void dump_enabled_clks(struct clk_hw *c_hw)
+static void dump_enabled_clks(struct provider_clk *pvdck)
 {
 	const char * const *pll_names;
 	const char *p_name;
+	struct clk_hw *c_hw = __clk_get_hw(pvdck->ck);
 	struct clk_hw *p_hw;
 
 	if (IS_ERR_OR_NULL(c_hw))
 		return;
 
-	if (!clk_hw_is_prepared(c_hw) && !clk_hw_is_enabled(c_hw))
+	if (!clkchk_pvdck_is_prepared(pvdck) && !clkchk_pvdck_is_enabled(pvdck))
 		return;
 
 	if (clkchk_ops == NULL || clkchk_ops->get_off_pll_names == NULL)
@@ -213,10 +330,11 @@ static void dump_enabled_clks(struct clk_hw *c_hw)
 	for (; *pll_names != NULL && p_name != NULL; pll_names++) {
 		if (!strncmp(p_name, *pll_names, PLL_LEN)) {
 			p_hw = clk_hw_get_parent(c_hw);
-			pr_notice("[%-21s: %8s, %3d, %10ld, %21s]\n",
+			pr_notice("[%-21s: %8s, %3d, %3d, %10ld, %21s]\n",
 					clk_hw_get_name(c_hw),
-					ccf_state(c_hw),
-					clk_hw_is_prepared(c_hw),
+					ccf_state(pvdck),
+					clkchk_pvdck_is_prepared(pvdck),
+					clkchk_pvdck_is_enabled(pvdck),
 					clk_hw_get_rate(c_hw),
 					p_hw ? clk_hw_get_name(p_hw) : "None");
 			break;
@@ -224,49 +342,17 @@ static void dump_enabled_clks(struct clk_hw *c_hw)
 	}
 }
 
-static bool check_pll_off(void)
+static bool __check_pll_off(const char * const *name)
 {
-	const char * const *name;
 	int invalid = 0;
 
-	if (clkchk_ops == NULL || clkchk_ops->get_off_pll_names == NULL)
-		return false;
-
-	name = clkchk_ops->get_off_pll_names();
-
 	for (; *name != NULL; name++) {
-		struct clk *c = __clk_chk_lookup(*name);
-		struct clk_hw *c_hw = __clk_get_hw(c);
+		struct provider_clk *pvdck = __clk_chk_lookup_pvdck(*name);
 
-		if (IS_ERR_OR_NULL(c_hw))
+		if (!clkchk_pvdck_is_enabled(pvdck))
 			continue;
 
-		if (!clk_hw_is_enabled(c_hw))
-			continue;
-
-		pr_notice("suspend warning[0m: %s is on\n",
-				clk_hw_get_name(c_hw));
-
-		invalid++;
-	}
-
-	if (clkchk_ops == NULL || clkchk_ops->get_notice_pll_names == NULL)
-		return false;
-
-	name = clkchk_ops->get_notice_pll_names();
-
-	for (; *name != NULL; name++) {
-		struct clk *c = __clk_chk_lookup(*name);
-		struct clk_hw *c_hw = __clk_get_hw(c);
-
-		if (!c_hw)
-			continue;
-
-		if (!clk_hw_is_enabled(c_hw))
-			continue;
-
-		pr_notice("suspend warning[0m: %s is on\n",
-				clk_hw_get_name(c_hw));
+		pr_notice("suspend warning[0m: %s is on\n", *name);
 
 		invalid++;
 	}
@@ -277,12 +363,37 @@ static bool check_pll_off(void)
 	return false;
 }
 
+static bool check_pll_off(void)
+{
+	const char * const *name;
+	int ret = 0;
+
+	if (clkchk_ops == NULL || clkchk_ops->get_off_pll_names == NULL)
+		return false;
+
+	name = clkchk_ops->get_off_pll_names();
+
+	ret = __check_pll_off(name);
+
+	if (clkchk_ops == NULL || clkchk_ops->get_notice_pll_names == NULL)
+		return false;
+
+	name = clkchk_ops->get_notice_pll_names();
+
+	ret += __check_pll_off(name);
+
+	if (ret)
+		return true;
+
+	return false;
+}
+
 static bool is_pll_chk_bug_on(void)
 {
 	if (clkchk_ops == NULL || clkchk_ops->is_pll_chk_bug_on == NULL)
 		return false;
 
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
 	return clkchk_ops->is_pll_chk_bug_on();
 #endif
 	return false;
@@ -412,11 +523,8 @@ static int clk_chk_dev_pm_suspend(struct device *dev)
 	struct provider_clk *pvdck = get_all_provider_clks();
 
 	if (check_pll_off()) {
-		for (; pvdck->ck != NULL; pvdck++) {
-			struct clk_hw *c_hw = __clk_get_hw(pvdck->ck);
-
-			dump_enabled_clks(c_hw);
-		}
+		for (; pvdck->ck != NULL; pvdck++)
+			dump_enabled_clks(pvdck);
 
 		if (is_pll_chk_bug_on())
 			BUG_ON(1);

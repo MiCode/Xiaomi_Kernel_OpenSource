@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-mtk.o clk-pll.o clk-gate.o clk-apmixed.o clk-cpumux.o reset.o clk-mux.o
+obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-mtk.o clk-pll.o clk-gate.o clk-apmixed.o clk-cpumux.o reset.o clk-mux.o clk-disable-unused.o
 
 obj-$(CONFIG_COMMON_CLK_MT6765) += clk-mt6765.o
 obj-$(CONFIG_COMMON_CLK_MT6765_AUDIOSYS) += clk-mt6765-audio.o
@@ -164,13 +164,20 @@ ccflags-y += -DUSE_FHCTL_MCUPM
 endif
 fhctl-$(CONFIG_DEBUG_FS) += clk-fhctl-debug.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/include/linux/soc/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-chk.o
 clk-chk-$(CONFIG_COMMON_CLK_MT6853) += clkchk.o clkchk-mt6853.o
+obj-$(CONFIG_COMMON_CLK_MT6893) += clk-chk.o
+clk-chk-$(CONFIG_COMMON_CLK_MT6893) += clkchk.o clkchk-mt6893.o
+obj-$(CONFIG_COMMON_CLK_MT6893) += clk-fmeter.o
+clk-fmeter-$(CONFIG_COMMON_CLK_MT6893) += clk-fmeter-mt6893.o
 ifeq ($(CONFIG_DEBUG_FS), y)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-dbg.o
 clk-dbg-$(CONFIG_COMMON_CLK_MT6853) += clkdbg.o clkdbg-mt6853.o
+obj-$(CONFIG_COMMON_CLK_MT6893) += clk-dbg.o
+clk-dbg-$(CONFIG_COMMON_CLK_MT6893) += clkdbg.o clkdbg-mt6893.o
 endif
 endif

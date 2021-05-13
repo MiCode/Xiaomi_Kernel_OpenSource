@@ -446,34 +446,6 @@ static const char * const *get_all_clk_names(void)
 }
 
 /*
- * clkdbg pwr_status
- */
-static u32 pwr_ofs[STA_NUM] = {
-	[PWR_STA] = 0x16C,
-	[PWR_STA2] = 0x170,
-	[OTHER_STA] = 0x178,
-};
-
-u32 *get_spm_pwr_status(void)
-{
-	static void __iomem *scpsys_base, *pwr_addr[STA_NUM];
-	static u32 pwr_sta[STA_NUM];
-	int i;
-
-	for (i = 0; i < STA_NUM; i++) {
-		if (!scpsys_base)
-			scpsys_base = ioremap(0x10006000, PAGE_SIZE);
-
-		if (pwr_ofs[i] && !pwr_sta[i]) {
-			pwr_addr[i] = scpsys_base + pwr_ofs[i];
-			pwr_sta[i] = clk_readl(pwr_addr[i]);
-		}
-	}
-
-	return pwr_sta;
-}
-
-/*
  * init functions
  */
 
@@ -483,7 +455,6 @@ static struct clkdbg_ops clkdbg_mt6853_ops = {
 	.unprepare_fmeter = NULL,
 	.fmeter_freq = NULL,
 	.get_all_clk_names = get_all_clk_names,
-	.get_spm_pwr_status = get_spm_pwr_status,
 };
 
 void clkdbg_set_cfg(void)

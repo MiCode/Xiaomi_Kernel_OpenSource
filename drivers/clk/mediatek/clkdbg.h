@@ -22,7 +22,8 @@ struct clkdbg_ops {
 	void (*unprepare_fmeter)(void *data);
 	u32 (*fmeter_freq)(const struct fmeter_clk *fclk);
 	const char * const *(*get_all_clk_names)(void);
-	u32 *(*get_spm_pwr_status)(void);
+	const char * const *(*get_pwr_names)(void);
+	u32 (*get_spm_pwr_status)(void);
 };
 
 void set_clkdbg_ops(const struct clkdbg_ops *ops);
