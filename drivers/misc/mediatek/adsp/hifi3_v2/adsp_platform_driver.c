@@ -35,6 +35,7 @@ struct workqueue_struct *adsp_wq;
 void __iomem *adsp_secure_base;
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
 static u32 adsp_load;
+struct completion adsp_driver_probe_done;
 
 static int adsp_core0_init(struct adsp_priv *pdata);
 static int adsp_core0_suspend(void);
@@ -627,6 +628,14 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	pdata->dev = dev;
 	init_completion(&pdata->done);
 
+	/* ADSP_B need to wait for ADSP_A finished */
+	/* because multithread will probe A & B at the same time */
+	if (pdata->id == ADSP_B_ID) {
+		if (!wait_for_completion_timeout(&adsp_driver_probe_done, HZ)) {
+			pr_info("%s(), wait for ADSP_A probe timeout\n", __func__);
+			return -ETIMEDOUT;
+		}
+	}
 	/* get resource from platform_device */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	pdata->cfg = devm_ioremap_resource(dev, res);
@@ -688,6 +697,11 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 
 	/* add to adsp_core list */
 	adsp_cores[desc->id] = pdata;
+
+	/* ADSP_A finished, send complete */
+	if (pdata->id == ADSP_A_ID) {
+		complete(&adsp_driver_probe_done);
+	}
 
 	pr_info("%s, id:%d success\n", __func__, pdata->id);
 	return 0;
@@ -787,6 +801,7 @@ int create_adsp_drivers(void)
 {
 	int ret = 0;
 
+	init_completion(&adsp_driver_probe_done);
 	ret = platform_register_drivers(drivers, ARRAY_SIZE(drivers));
 	if (ret) {
 		pr_err("%s, fail register drivers ret:%d", __func__, ret);
