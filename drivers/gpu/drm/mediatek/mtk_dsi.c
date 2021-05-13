@@ -1604,7 +1604,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				wakeup_dsi_wq(&dsi->te_rdy);
 
 			if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-				mtk_crtc && mtk_crtc->vblank_en) {
+				mtk_crtc) {
 				panel_ext = dsi->ext;
 
 				if (dsi->encoder.crtc)
@@ -1614,14 +1614,22 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 					doze_enabled) {
 					doze_wait =
 						panel_ext->params->doze_delay;
+					if (te_cnt % doze_wait == 0 && mtk_crtc->vblank_en)
+						mtk_crtc_vblank_irq(&mtk_crtc->base);
 					if (te_cnt % doze_wait == 0) {
-						mtk_crtc_vblank_irq(
-							&mtk_crtc->base);
-						te_cnt = 1;
+						atomic_set(&mtk_crtc->pf_event, 1);
+						wake_up_interruptible(&mtk_crtc->present_fence_wq);
+						te_cnt = 0;
 					}
 					te_cnt++;
-				} else
-					mtk_crtc_vblank_irq(&mtk_crtc->base);
+				} else {
+					if (mtk_crtc->vblank_en)
+						mtk_crtc_vblank_irq(&mtk_crtc->base);
+					if (doze_enabled) {
+						atomic_set(&mtk_crtc->pf_event, 1);
+						wake_up_interruptible(&mtk_crtc->present_fence_wq);
+					}
+				}
 			}
 		}
 
