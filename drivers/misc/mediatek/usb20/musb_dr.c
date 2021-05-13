@@ -74,7 +74,6 @@ int mt_usb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 }
 EXPORT_SYMBOL(mt_usb_set_vbus);
 
-/* Todo: Phase out */
 static void mt_usb_gadget_disconnect(struct musb *musb)
 {
 	/* notify gadget driver */
@@ -104,13 +103,13 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	switch (status) {
 	case MUSB_ID_GROUND:
 		mt_usb_set_vbus(otg_sx, 1);
-		mtk_musb->is_ready = true;
+		musb->is_ready = true;
 		otg_sx->sw_state |= MUSB_ID_GROUND;
 		mt_usb_host_connect(0);
 		break;
 	case MUSB_ID_FLOAT:
 		mt_usb_host_disconnect(0);
-		mtk_musb->is_ready = false;
+		musb->is_ready = false;
 		mt_usb_set_vbus(otg_sx, 0);
 		otg_sx->sw_state &= ~MUSB_ID_GROUND;
 		break;
@@ -119,8 +118,9 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		mt_usb_set_vbus(otg_sx, false);
 		musb->usb_connected = 0;
 		musb->is_host = 0;
+		mt_usb_disconnect();
+		mt_usb_gadget_disconnect(musb); /* sync to UI */
 		otg_sx->sw_state &= ~MUSB_VBUS_VALID;
-		mt_usb_gadget_disconnect(musb);
 		break;
 	case MUSB_VBUS_VALID:
 		mt_usb_set_vbus(otg_sx, true);
@@ -256,6 +256,7 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 	struct musb *musb = glue->mtk_musb;
 	bool id_event, vbus_event;
 	static bool first_init = true;
+	static bool boot_init = true;
 
 	dev_info(dev, "role_sx_set role %d\n", role);
 
@@ -278,18 +279,21 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 		return 0;
 	}
 #endif
+	/* skip mac and phy setting during driver init */
+	if (boot_init && otg_sx->latest_role == USB_ROLE_NONE) {
+		boot_init = false;
+		return 0;
+	}
 
 	if (!!(otg_sx->sw_state & MUSB_VBUS_VALID) ^ vbus_event) {
 		if (vbus_event) {
 			dev_info(dev, "%s: if vbus_event true\n", __func__);
 			phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
 			phy_power_on(glue->phy);
-			udelay(50);
 			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_VALID);
 		} else {
 			dev_info(dev, "%s: if vbus_event false\n", __func__);
 			phy_power_off(glue->phy);
-			/* ToDo: need handle VBUS_OFF when booting */
 			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_OFF);
 		}
 	}
@@ -340,7 +344,6 @@ static int mt_usb_role_sw_register(struct otg_switch_mtk *otg_sx)
 	struct mt_usb_glue *glue =
 		container_of(otg_sx, struct mt_usb_glue, otg_sx);
 	struct musb *musb = glue->mtk_musb;
-
 
 	if (!otg_sx->role_sw_used)
 		return 0;
