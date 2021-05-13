@@ -160,7 +160,6 @@ void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 	} else {
 		dev_notice(dev, "set common set bwl fail reg:%#x, port:%d, val:%u\n",
 			common->base + SMI_L1ARB(port), port, val);
-		dump_stack();
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_common_bw_set);
@@ -175,7 +174,6 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 		} else {
 			dev_notice(dev, "set larb bw fail larb:%d, port:%d, val:%u\n",
 				larb->larbid, port, val);
-			dump_stack();
 		}
 	}
 }
