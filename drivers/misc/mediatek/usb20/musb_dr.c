@@ -74,7 +74,6 @@ int mt_usb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 }
 EXPORT_SYMBOL(mt_usb_set_vbus);
 
-#ifdef NEVER
 /* Todo: Phase out */
 static void mt_usb_gadget_disconnect(struct musb *musb)
 {
@@ -89,7 +88,6 @@ static void mt_usb_gadget_disconnect(struct musb *musb)
 
 	usb_gadget_set_state(&musb->g, USB_STATE_NOTATTACHED);
 }
-#endif
 
 /*
  * switch to host: -> MUSB_VBUS_OFF --> MUSB_ID_GROUND
@@ -121,8 +119,9 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		mt_usb_set_vbus(otg_sx, false);
 		musb->usb_connected = 0;
 		musb->is_host = 0;
-		mt_usb_disconnect();
 		otg_sx->sw_state &= ~MUSB_VBUS_VALID;
+		mt_usb_gadget_disconnect(musb);
+		__pm_relax(musb->usb_lock);
 		break;
 	case MUSB_VBUS_VALID:
 		mt_usb_set_vbus(otg_sx, true);
