@@ -1144,9 +1144,22 @@
 		reg = <0 0x10211000 0 0x1000>;
 	};
 
-	cq_dma@10212000 {
-		compatible = "mediatek,cq_dma";
-		reg = <0 0x10212000 0 0x1000>;
+	cqdma-controller@10212000 {
+		compatible = "mediatek,cqdma";
+		reg = <0 0x10212000 0 0x80>,
+			<0 0x10212100 0 0x80>,
+			<0 0x10212200 0 0x80>,
+			<0 0x10212300 0 0x80>;
+		interrupts = <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH>;
+		nr_channel = <4>;
+		clocks = <&infracfg_ao INFRACFG_AO_CQ_DMA_CG>;
+		clock-names = "cqdma";
+		dma-channel-mask = <63>;
+		dma-requests = <10>;
+		#dma-cells = <1>;
 	};
 
 	mcupm_sram3@10213000 {
