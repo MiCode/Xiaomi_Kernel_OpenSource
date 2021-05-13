@@ -681,6 +681,18 @@ void fpsgo_notify_swap_buffer(int pid)
 	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
 }
 
+int fpsgo_get_fps(void)
+{
+	int fps = -1;
+
+	fps = fpsgo_ctrl2fstb_get_fps();
+
+	FPSGO_LOGI("[FPSGO_CTRL] get_fps %d\n", fps);
+
+	return fps;
+}
+
+
 void fpsgo_notify_cpufreq(int cid, unsigned long freq)
 {
 	FPSGO_LOGI("[FPSGO_CTRL] cid %d, cpufreq %lu\n", cid, freq);
@@ -873,6 +885,7 @@ static int __init fpsgo_init(void)
 #endif
 
 	fpsgo_notify_vsync_fp = fpsgo_notify_vsync;
+	fpsgo_get_fps_fp = fpsgo_get_fps;
 
 	fpsgo_notify_qudeq_fp = fpsgo_notify_qudeq;
 	fpsgo_notify_connect_fp = fpsgo_notify_connect;
