@@ -2060,6 +2060,14 @@ void cmdq_mbox_enable(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
+	struct cmdq_thread *thread = ((struct mbox_chan *)chan)->con_priv;
+	s32 user_usage = -1;
+
+	if (!thread) {
+		cmdq_err("thread is NULL");
+		dump_stack();
+		return;
+	}
 
 	WARN_ON(cmdq->suspended);
 	if (cmdq->suspended) {
@@ -2082,6 +2090,11 @@ void cmdq_mbox_enable(void *chan)
 		return;
 	}
 	atomic_inc(&cmdq->user);
+
+	user_usage = atomic_inc_return(&thread->user_usage);
+	WARN_ON(user_usage <= 0);
+	if (user_usage <= 0)
+		cmdq_util_user_err(chan, "user_usage:%d", user_usage);
 	cmdq_clk_enable(cmdq);
 }
 
@@ -2089,6 +2102,14 @@ void cmdq_mbox_disable(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
+	struct cmdq_thread *thread = ((struct mbox_chan *)chan)->con_priv;
+	s32 user_usage = -1;
+
+	if (!thread) {
+		cmdq_err("thread is NULL");
+		dump_stack();
+		return;
+	}
 
 	WARN_ON(cmdq->suspended);
 	if (cmdq->suspended) {
@@ -2111,6 +2132,14 @@ void cmdq_mbox_disable(void *chan)
 		return;
 	}
 	atomic_dec(&cmdq->user);
+	user_usage = atomic_dec_return(&thread->user_usage);
+	WARN_ON(user_usage < 0);
+	if (user_usage < 0) {
+		atomic_inc(&thread->user_usage);
+		cmdq_util_user_err(chan, "%s thd%d, usage:%d, cannot disable",
+				__func__, thread->idx, user_usage);
+		return;
+	}
 	cmdq_clk_disable(cmdq);
 }
 
