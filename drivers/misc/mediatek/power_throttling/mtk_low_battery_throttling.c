@@ -93,29 +93,31 @@ static ssize_t low_battery_protect_ut_store(
 		struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	int ret = 0;
-	char *pvalue = NULL;
 	unsigned int val = 0;
 	unsigned int thd = 0;
+	char cmd[20];
 
 	dev_info(dev, "[%s]\n", __func__);
 
-	if (buf != NULL && size != 0) {
-		dev_info(dev, "buf is %s and size is %zu\n", buf, size);
-		pvalue = (char *)buf;
-		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
-		if (val <= 2) {
-			if (val == LOW_BATTERY_LEVEL_0)
-				thd = low_bat_thl_data->hv_thd_volt;
-			else if (val == LOW_BATTERY_LEVEL_1)
-				thd = low_bat_thl_data->lv1_thd_volt;
-			else if (val == LOW_BATTERY_LEVEL_2)
-				thd = low_bat_thl_data->lv2_thd_volt;
-			exec_low_battery_callback(thd);
-			dev_info(dev, "your input is %d(%d)\n", val, thd);
-		} else {
-			dev_info(dev, "wrong number (%d)\n", val);
-		}
+	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
+		dev_info(dev, "parameter number not correct\n");
+		return -EINVAL;
+	}
+
+	if (strncmp(cmd, "Utest", 5))
+		return -EINVAL;
+
+	if (val <= LOW_BATTERY_LEVEL_NUM) {
+		if (val == LOW_BATTERY_LEVEL_0)
+			thd = low_bat_thl_data->hv_thd_volt;
+		else if (val == LOW_BATTERY_LEVEL_1)
+			thd = low_bat_thl_data->lv1_thd_volt;
+		else if (val == LOW_BATTERY_LEVEL_2)
+			thd = low_bat_thl_data->lv2_thd_volt;
+		exec_low_battery_callback(thd);
+		dev_info(dev, "your input is %d(%d)\n", val, thd);
+	} else {
+		dev_info(dev, "wrong number (%d)\n", val);
 	}
 	return size;
 }
@@ -137,22 +139,25 @@ static ssize_t low_battery_protect_stop_show(
 static ssize_t low_battery_protect_stop_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
-	int ret = 0;
-	char *pvalue = NULL;
 	unsigned int val = 0;
+	char cmd[20];
 
 	dev_info(dev, "[%s]\n", __func__);
 
-	if (buf != NULL && size != 0) {
-		dev_info(dev, "buf is %s and size is %zu\n", buf, size);
-		pvalue = (char *)buf;
-		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
-		if ((val != 0) && (val != 1))
-			val = 0;
-		low_bat_thl_data->low_bat_thl_stop = val;
-		dev_info(dev, "low_bat_thl_stop=%d\n",
-			 low_bat_thl_data->low_bat_thl_stop);
+	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
+		dev_info(dev, "parameter number not correct\n");
 	}
+
+	if (strncmp(cmd, "stop", 4))
+		return -EINVAL;
+
+	if ((val != 0) && (val != 1))
+		val = 0;
+
+	low_bat_thl_data->low_bat_thl_stop = val;
+	dev_info(dev, "low_bat_thl_stop=%d\n",
+		 low_bat_thl_data->low_bat_thl_stop);
+
 	return size;
 }
 

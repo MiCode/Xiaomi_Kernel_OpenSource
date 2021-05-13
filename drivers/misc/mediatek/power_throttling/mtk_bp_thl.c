@@ -90,23 +90,24 @@ static ssize_t bp_thl_ut_store(
 		struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	int ret = 0;
-	char *pvalue = NULL;
 	unsigned int val = 0;
-	/*store_battery_percent_protect_ut*/
+	char cmd[20];
+
 	pr_info("[%s]\n", __func__);
 
-	if (buf != NULL && size != 0) {
-		pr_info("[%s] buf is %s and size is %zu\n",
-			__func__, buf, size);
-		pvalue = (char *)buf;
-		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
-		if (val <= 1) {
-			pr_info("[%s] your input is %d\n", __func__, val);
-			exec_bp_thl_callback(val);
-		} else {
-			pr_info("[%s] wrong number (%d)\n", __func__, val);
-		}
+	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
+		dev_info(dev, "parameter number not correct\n");
+		return -EINVAL;
+	}
+
+	if (strncmp(cmd, "Utest", 5))
+		return -EINVAL;
+
+	if (val < BATTERY_PERCENT_LEVEL_NUM) {
+		pr_info("[%s] your input is %d\n", __func__, val);
+		exec_bp_thl_callback(val);
+	} else {
+		pr_info("[%s] wrong number (%d)\n", __func__, val);
 	}
 	return size;
 }
@@ -127,23 +128,25 @@ static ssize_t bp_thl_stop_store(
 		struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	int ret = 0;
-	char *pvalue = NULL;
 	unsigned int val = 0;
-	/*store_battery_percent_protect_stop */
+	char cmd[20];
+
 	pr_info("[%s]\n", __func__);
 
-	if (buf != NULL && size != 0) {
-		pr_info("[%s] buf is %s and size is %zu\n",
-			__func__, buf, size);
-		pvalue = (char *)buf;
-		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
-		if ((val != 0) && (val != 1))
-			val = 0;
-		bp_thl_data->bp_thl_stop = val;
-		pr_info("[%s] bp_thl_data->bp_thl_stop=%d\n",
-			__func__, bp_thl_data->bp_thl_stop);
+	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
+		dev_info(dev, "parameter number not correct\n");
 	}
+
+	if (strncmp(cmd, "stop", 4))
+		return -EINVAL;
+
+	if ((val != 0) && (val != 1))
+		val = 0;
+
+	bp_thl_data->bp_thl_stop = val;
+	pr_info("[%s] bp_thl_data->bp_thl_stop=%d\n",
+		__func__, bp_thl_data->bp_thl_stop);
+
 	return size;
 }
 

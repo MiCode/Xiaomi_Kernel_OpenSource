@@ -117,22 +117,26 @@ static ssize_t battery_oc_protect_ut_store(
 		struct device *pdev, struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	int ret = 0;
-	char *pvalue = NULL;
 	unsigned int val = 0;
+	char cmd[20];
 
-	if (buf != NULL && size != 0) {
-		pr_info("[%s] buf is %s and size is %zu\n",
-			__func__, buf, size);
-		pvalue = (char *)buf;
-		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
-		if (val <= 1) {
-			pr_info("[%s] your input is %d\n", __func__, val);
-			exec_battery_oc_callback(val);
-		} else {
-			pr_info("[%s] wrong number (%d)\n", __func__, val);
-		}
+	dev_info(pdev, "[%s]\n", __func__);
+
+	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
+		dev_info(pdev, "parameter number not correct\n");
+		return -EINVAL;
 	}
+
+	if (strncmp(cmd, "Utest", 5))
+		return -EINVAL;
+
+	if (val < BATTERY_OC_LEVEL_NUM) {
+		dev_info(pdev, "[%s] your input is %d\n", __func__, val);
+		exec_battery_oc_callback(val);
+	} else {
+		dev_info(pdev, "[%s] wrong number (%d)\n", __func__, val);
+	}
+
 	return size;
 }
 
@@ -151,21 +155,25 @@ static ssize_t battery_oc_protect_stop_store(
 		struct device *pdev, struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	int ret = 0;
-	char *pvalue = NULL;
 	unsigned int val = 0;
+	char cmd[20];
 
-	if (buf != NULL && size != 0) {
-		pr_info("[%s] buf is %s and size is %zu\n",
-			__func__, buf, size);
-		pvalue = (char *)buf;
-		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
-		if ((val != 0) && (val != 1))
-			val = 0;
-		g_battery_oc_stop = val;
-		pr_info("[%s] g_battery_oc_stop=%d\n",
-			__func__, g_battery_oc_stop);
+	dev_info(pdev, "[%s]\n", __func__);
+
+	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
+		dev_info(pdev, "parameter number not correct\n");
 	}
+
+	if (strncmp(cmd, "stop", 4))
+		return -EINVAL;
+
+	if ((val != 0) && (val != 1))
+		val = 0;
+
+	g_battery_oc_stop = val;
+	dev_info(pdev, "g_battery_oc_stop=%d\n",
+		 g_battery_oc_stop);
+
 	return size;
 }
 
