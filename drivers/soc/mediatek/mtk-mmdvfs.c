@@ -45,6 +45,7 @@ struct mmdvfs_drv_data {
 	u32 action;
 	struct notifier_block nb;
 	u32 voltages[MAX_OPP_NUM];
+	u32 num_voltages;
 };
 
 static BLOCKING_NOTIFIER_HEAD(mmdvfs_notifier_list);
@@ -126,19 +127,18 @@ static void set_all_hoppings(struct mmdvfs_drv_data *drv_data, u32 opp_level)
 static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 			u32 voltage, bool vol_inc)
 {
-	u32 i;
+	s32 i;
 	u32 opp_level;
 
-	for (i = 0; i < MAX_OPP_NUM; i++) {
-		if (drv_data->voltages[i] == voltage) {
+	for (i = drv_data->num_voltages - 1; i >= 0; i--) {
+		if (voltage >= drv_data->voltages[i]) {
 			opp_level = i;
 			break;
 		}
 	}
-	if (i == MAX_OPP_NUM) {
-		pr_notice("voltage(%d) is not found\n", voltage);
-		return;
-	}
+	if (i < 0)
+		opp_level = 0;
+
 	switch (drv_data->action) {
 	/* Voltage Increase: Hopping First, Decrease: MUX First*/
 	case ACTION_IHDM:
@@ -173,7 +173,7 @@ static int regulator_event_notify(struct notifier_block *nb,
 		if (uV < pvc_data->old_uV) {
 			set_all_clk(drv_data, uV, false);
 			drv_data->request_voltage = uV;
-		} else if (uV > pvc_data->old_uV) {
+		} else if (uV > pvc_data->old_uV || unlikely(drv_data->request_voltage == 0)) {
 			drv_data->need_change_voltage = true;
 		}
 		pr_debug("regulator event=PRE_VOLTAGE_CHANGE old=%lu new=%lu\n",
@@ -303,7 +303,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 #endif
 	struct regulator *reg;
 	u32 num_mux = 0, num_hopping = 0;
-	u32 num_clksrc, index, hopping_rate, num_hopping_rate;
+	u32 num_clksrc, hopping_rate, num_hopping_rate;
 	struct property *mux_prop, *clksrc_prop;
 	struct property *hopping_prop, *hopping_rate_prop;
 	const char *mux_name, *clksrc_name, *hopping_name;
@@ -372,11 +372,11 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	/* Get voltage info from opp table */
 	dev_pm_opp_of_add_table(dev);
 	freq = 0;
-	index = 0;
 	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
-		drv_data->voltages[index] = dev_pm_opp_get_voltage(opp);
+		drv_data->voltages[drv_data->num_voltages] =
+			dev_pm_opp_get_voltage(opp);
 		freq++;
-		index++;
+		drv_data->num_voltages++;
 		dev_pm_opp_put(opp);
 	}
 	reg = devm_regulator_get(dev, "dvfsrc-vcore");
@@ -397,7 +397,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	dbg_data->drv_data = drv_data;
 	dbg_data->reg = reg;
-	dbg_data->max_voltage = drv_data->voltages[index-1];
+	dbg_data->max_voltage = drv_data->voltages[drv_data->num_voltages-1];
 	dentry = debugfs_create_file("force_clk", 0200,
 			mmdvfs_debugfs_dir, dbg_data, &force_clk_ops);
 	if (IS_ERR(dentry))
