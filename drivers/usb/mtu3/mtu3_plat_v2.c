@@ -480,10 +480,9 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int i;
-
-#ifdef CONFIG_FPGA_EARLY_PORTING
 	int ret;
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
 	ret = of_property_read_u32(node, "fpga_phy_ver", &ssusb->fpga_phy_ver);
 	if (ret)
 		dev_info(dev, "unknown FPGA phy version\n");
@@ -569,6 +568,13 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 
 	if (ssusb->dr_mode == USB_DR_MODE_PERIPHERAL)
 		return 0;
+
+	/* if host role is supported */
+	ret = ssusb_wakeup_of_property_parse(ssusb, node);
+	if (ret) {
+		dev_err(dev, "failed to parse uwk property\n");
+		return ret;
+	}
 
 	if (ssusb->dr_mode != USB_DR_MODE_OTG)
 		return 0;
@@ -765,6 +771,7 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	/* ssusb_phy_power_off(ssusb); */
 	ssusb_clk_off(ssusb, ssusb->is_host);
 	ssusb_wakeup_mode_enable(ssusb);
+	ssusb_wakeup_set(ssusb, true);
 	ssusb_dpidle_request(USB_DPIDLE_SUSPEND);
 	return 0;
 }
@@ -780,6 +787,7 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 		return 0;
 
 	ssusb_dpidle_request(USB_DPIDLE_RESUME);
+	ssusb_wakeup_set(ssusb, false);
 	ssusb_wakeup_mode_disable(ssusb);
 	ssusb_clk_on(ssusb, ssusb->is_host);
 	/* ssusb_phy_power_on(ssusb); */

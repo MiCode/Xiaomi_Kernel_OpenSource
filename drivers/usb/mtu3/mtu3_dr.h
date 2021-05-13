@@ -82,6 +82,8 @@ extern u32 upmu_get_rgs_chrdet(void);
 
 void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	enum mtu3_vbus_id_state status);
+
+void ssusb_wakeup_set(struct ssusb_mtk *ssusb, bool enable);
 #endif
 
 #if IS_ENABLED(CONFIG_USB_MTU3_GADGET) || IS_ENABLED(CONFIG_USB_MTU3_DUAL_ROLE)

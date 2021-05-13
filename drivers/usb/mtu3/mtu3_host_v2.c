@@ -22,9 +22,96 @@
 
 #include "mtu3.h"
 #include "mtu3_hal.h"
+#include "mtu3_dr.h"
 
 #include <linux/phy/mediatek/mtk_usb_phy.h>
 
+/* mt8173 etc */
+#define PERI_WK_CTRL1	0x4
+#define WC1_IS_C(x)	(((x) & 0xf) << 26)  /* cycle debounce */
+#define WC1_IS_EN	BIT(25)
+#define WC1_IS_P	BIT(6)  /* polarity for ip sleep */
+
+/* mt8183 */
+#define PERI_WK_CTRL0	0x0
+#define WC0_IS_C(x)	(((x) & 0xfU) << 28) /* cycle debounce */
+#define WC0_IS_P	BIT(12) /* polarity */
+#define WC0_IS_EN	BIT(6)
+
+/* mt2712 etc */
+#define PERI_SSUSB_SPM_CTRL	0x0
+#define SSC_IP_SLEEP_EN	BIT(4)
+#define SSC_SPM_INT_EN		BIT(1)
+
+enum ssusb_uwk_vers {
+	SSUSB_UWK_V1 = 1,
+	SSUSB_UWK_V2,
+	SSUSB_UWK_V1_1 = 101, /* specific revision 1.01 */
+};
+
+/*
+ * ip-sleep wakeup mode:
+ * all clocks can be turn off, but power domain should be kept on
+ */
+static void ssusb_wakeup_ip_sleep_set(struct ssusb_mtk *ssusb, bool enable)
+{
+	u32 reg, msk, val;
+
+	dev_info(ssusb->dev, "%s %d\n", __func__, enable);
+
+	switch (ssusb->uwk_vers) {
+	case SSUSB_UWK_V1:
+		reg = ssusb->uwk_reg_base + PERI_WK_CTRL1;
+		msk = WC1_IS_EN | WC1_IS_C(0xf) | WC1_IS_P;
+		val = enable ? (WC1_IS_EN | WC1_IS_C(0x8)) : 0;
+		break;
+	case SSUSB_UWK_V2:
+		reg = ssusb->uwk_reg_base + PERI_SSUSB_SPM_CTRL;
+		msk = SSC_IP_SLEEP_EN | SSC_SPM_INT_EN;
+		val = enable ? msk : 0;
+		break;
+	case SSUSB_UWK_V1_1:
+		reg = ssusb->uwk_reg_base + PERI_WK_CTRL0;
+		msk = WC0_IS_EN | WC0_IS_C(0xf) | WC0_IS_P;
+		val = enable ? (WC0_IS_EN | WC0_IS_C(0x8)) : 0;
+		break;
+	default:
+		return;
+	}
+	regmap_update_bits(ssusb->uwk, reg, msk, val);
+}
+
+int ssusb_wakeup_of_property_parse(struct ssusb_mtk *ssusb,
+				struct device_node *dn)
+{
+	struct of_phandle_args args;
+	int ret;
+
+	/* wakeup function is optional */
+	ssusb->wakeup_en = of_property_read_bool(dn, "wakeup-source");
+	if (!ssusb->wakeup_en)
+		return 0;
+
+	ret = of_parse_phandle_with_fixed_args(dn,
+				"mediatek,syscon-wakeup", 2, 0, &args);
+	if (ret)
+		return ret;
+
+	ssusb->uwk_reg_base = args.args[0];
+	ssusb->uwk_vers = args.args[1];
+	ssusb->uwk = syscon_node_to_regmap(args.np);
+	of_node_put(args.np);
+	dev_info(ssusb->dev, "uwk - reg:0x%x, version:%d\n",
+			ssusb->uwk_reg_base, ssusb->uwk_vers);
+
+	return PTR_ERR_OR_ZERO(ssusb->uwk);
+}
+
+void ssusb_wakeup_set(struct ssusb_mtk *ssusb, bool enable)
+{
+	if (ssusb->wakeup_en)
+		ssusb_wakeup_ip_sleep_set(ssusb, enable);
+}
 
 static void host_ports_num_get(struct ssusb_mtk *ssusb)
 {
