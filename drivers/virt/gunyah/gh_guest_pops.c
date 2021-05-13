@@ -49,6 +49,8 @@ gh_guest_pops_vm_shutdown(struct gh_rm_notif_vm_shutdown_payload *vm_shutdown)
 		return gh_guest_pops_handle_stop_shutdown();
 	case GH_VM_STOP_CRASH:
 		return gh_guest_pops_handle_stop_crash();
+	case GH_VM_STOP_RESTART:
+		return gh_guest_pops_handle_stop_shutdown();
 	};
 
 	return 0;
