@@ -213,7 +213,8 @@ struct frame_queue_head_t *get_frame_queue_head(int session_id)
 	mutex_lock(&frame_q_head_lock);
 
 	for (i = 0; i < ARRAY_SIZE(frame_q_head); i++) {
-		if (frame_q_head[i].session_id == session_id) {
+		if (frame_q_head[i].session_id == session_id &&
+		    frame_q_head[i].inited == 1) {
 			/* found */
 			head = &frame_q_head[i];
 			break;
