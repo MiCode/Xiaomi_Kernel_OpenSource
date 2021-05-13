@@ -240,8 +240,21 @@
 			led-bits = <8>;
 			trans-bits = <11>;
 			pwm-names = "lcd-backlight";
+			default-state = "on";
 		};
 	};
+
+	i2c_leds {
+		compatible = "mediatek,i2c-leds";
+		backlight {
+			label = "lcd-backlight";
+			max-brightness = <255>;
+			led-bits = <8>;
+			trans-bits = <11>;
+			default-state = "on";
+		};
+	};
+
 	mtk_lpm: mtk_lpm {
 		compatible = "mediatek,mtk-lpm";
 		#address-cells = <2>;
@@ -6163,6 +6176,12 @@
 		reg = <0x5c>;
 		status = "okay";
 	};
+	gate_ic: gate_ic@11 {
+		compatible = "mediatek,gate-ic-i2c";
+		gate-power-gpios = <&pio 107 0>;
+		reg = <0x11>;
+		status = "okay";
+	};
 };
 
 &pio {
@@ -6351,15 +6370,6 @@
 		status = "disabled";
 	};
 
-	backlight0: backlight0@11 {
-		compatible = "mediatek,i2c-leds";
-		reg = <0x11>;
-		label = "lcd-backlight";
-		trans-bits = <11>;
-		led-bits = <8>;
-		default-state = "full";
-		status = "okay";
-	};
 };
 
 #include "mediatek/mt6315_s6.dtsi"
