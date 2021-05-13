@@ -1194,7 +1194,6 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 	unsigned int Dpe_InBuf_ValidMap_L = 0, Dpe_InBuf_ValidMap_R = 0;
 	unsigned int Dpe_OutBuf_OCC = 0, Dpe_OutBuf_OCC_Ext = 0;
 	unsigned int Dpe_OutBuf_CONF = 0;
-	unsigned int Dpe_InBuf_SrcImg_YL_fd = 0;
 	/*TODO: define engine request struct */
 	struct DPE_Request *_req;
 	struct DPE_Config *pDpeConfig;
@@ -1218,10 +1217,6 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_ValidMap_R;
 			Dpe_OutBuf_OCC =
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC;
-			//!
-			Dpe_InBuf_SrcImg_YL_fd =
-			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_YL_fd;
-			//!
 			if (_req->m_pDpeConfig[ucnt].Dpe_is16BitMode) {
 				Dpe_OutBuf_OCC_Ext =
 				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Ext;
@@ -1366,7 +1361,7 @@ void DPE_Config_DVS(struct DPE_Config *pDpeConfig,
 	// pitch / 16
 	unsigned int pitch = pDpeConfig->Dpe_DVSSettings.pitch >> 4;
 	LOG_INF(
-	"DVS param: frm w/h(%d/%d), engStart X_L/X_R/Y(%d/%d/%d), eng w/h(%d/%d), occ w(%d), occ startX(%d), pitch(%d), main eye(%d), 16bit mode(%d), sbf/conf/occ_en(%d/%d/%d), Dpe_InBuf_SrcImg_Y_L: (0x%08x), Dpe_InBuf_SrcImg_Y_R(0x%08x), Dpe_InBuf_ValidMap_L(0x%08x), Dpe_InBuf_ValidMap_R(0x%08x), Dpe_OutBuf_CONF(0x%08x), Dpe_OutBuf_OCC(0x%08x)\n",
+	"DVS param: frm w/h(%d/%d), engStart X_L/X_R/Y(%d/%d/%d), eng w/h(%d/%d), occ w(%d), occ startX(%d), pitch(%d), main eye(%d), 16bit mode(%d), sbf/conf/occ_en(%d/%d/%d), Dpe_InBuf_SrcImg_Y_L: (0x%08x), Dpe_InBuf_SrcImg_Y_R(0x%08x), Dpe_InBuf_ValidMap_L(0x%08x), Dpe_InBuf_ValidMap_R(0x%08x), Dpe_OutBuf_CONF(0x%08x), Dpe_OutBuf_OCC(0x%08x), use_fd(%d)\n",
 	frmWidth, frmHeight, L_engStartX, R_engStartX, engStartY,
 	engWidth, engHeight, occWidth, occStartX, pitch,
 	pDpeConfig->Dpe_DVSSettings.mainEyeSel, pDpeConfig->Dpe_is16BitMode,
@@ -1375,7 +1370,7 @@ void DPE_Config_DVS(struct DPE_Config *pDpeConfig,
 	pDpeConfig->Dpe_DVSSettings.SubModule_EN.occ_en,
 	pDpeConfig->Dpe_InBuf_SrcImg_Y_L, pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
 	pDpeConfig->Dpe_InBuf_ValidMap_L, pDpeConfig->Dpe_InBuf_ValidMap_R,
-	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC);
+	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC, pDpeConfig->use_fd);
 	LOG_DBG(
 	"Dpe_InBuf_SrcImg_Y_L: (0x%08x), Dpe_InBuf_SrcImg_Y_R(0x%08x), Dpe_InBuf_ValidMap_L(0x%08x), Dpe_InBuf_ValidMap_R(0x%08x), Dpe_OutBuf_CONF(0x%08x), Dpe_OutBuf_OCC(0x%08x)\n",
 	pDpeConfig->Dpe_InBuf_SrcImg_Y_L, pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
@@ -1933,8 +1928,8 @@ void cmdq_cb_destroy(struct cmdq_cb_data data)
 	if (data.data) {
 		for (i = 0; i < NUM_BASEADDR; i++)
 			mmu_release(((struct tee_mmu *)(data.data))+i);
-	kfree((struct tee_mmu *)data.data);
-}
+		kfree((struct tee_mmu *)data.data);
+	}
 }
 struct sg_table *dpe_dma_buf_map_attachment(struct dma_buf_attachment *attach,
 					enum dma_data_direction direction)
@@ -2006,176 +2001,179 @@ signed int CmdqDPEHW(struct frame *frame)
 	domain = iommu_get_domain_for_dev(gdev);
 #endif
 /************** Pass User info to DPE_Kernel_Config **************/
-	records = kzalloc(sizeof(struct tee_mmu)*NUM_BASEADDR, GFP_KERNEL);
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YL_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_InBuf_SrcImg_Y_L = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YL_Ofs));
-		memcpy(&records[0], &mmu, sizeof(struct tee_mmu));
-		#ifdef IOVA_TO_PA
-		iova_temp = pDpeUserConfig->Dpe_InBuf_SrcImg_Y_L | iova_temp;
-		pgpa = iommu_iova_to_phys(domain, iova_temp);
-		iova_temp = 0x200000000;
-		#endif
+	if (pDpeUserConfig->use_fd == 0) {
+		records = kzalloc(sizeof(struct tee_mmu)*NUM_BASEADDR, GFP_KERNEL);
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YL_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_InBuf_SrcImg_Y_L = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YL_Ofs));
+			memcpy(&records[0], &mmu, sizeof(struct tee_mmu));
+			#ifdef IOVA_TO_PA
+			iova_temp = pDpeUserConfig->Dpe_InBuf_SrcImg_Y_L | iova_temp;
+			pgpa = iommu_iova_to_phys(domain, iova_temp);
+			iova_temp = 0x200000000;
+			#endif
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YR_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_InBuf_SrcImg_Y_R = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YR_Ofs));
+			#ifdef IOVA_TO_PA
+			iova_temp = pDpeUserConfig->Dpe_InBuf_SrcImg_Y_R | iova_temp;
+			pgpa = iommu_iova_to_phys(domain, iova_temp);
+			iova_temp = 0x200000000;
+			#endif
+			memcpy(&records[1], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_Yfd);
+		if (success) {
+			pDpeUserConfig->Dpe_InBuf_SrcImg_Y = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YOfs));
+			memcpy(&records[2], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_Cfd);
+		if (success) {
+			pDpeUserConfig->Dpe_InBuf_SrcImg_C = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_COfs));
+			memcpy(&records[3], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_ValidMapL_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_InBuf_ValidMap_L = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_ValidMapL_Ofs));
+			memcpy(&records[4], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_ValidMapR_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_InBuf_ValidMap_R = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_ValidMapR_Ofs));
+			memcpy(&records[5], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_CONF_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_CONF = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_CONF_Ofs));
+			memcpy(&records[5], &mmu, sizeof(struct tee_mmu));
+			#ifdef IOVA_TO_PA
+			iova_temp = pDpeUserConfig->Dpe_OutBuf_CONF | iova_temp;
+			pgpa = iommu_iova_to_phys(domain, iova_temp);
+			iova_temp = 0x200000000;
+			#endif
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_OCC_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_OCC = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs));
+			memcpy(&records[6], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_OCCExt_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_OCC_Ext = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_OCCExt_Ofs));
+			memcpy(&records[7], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_InBufOCC_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_InBuf_OCC = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_InBufOCC_Ofs));
+			memcpy(&records[8], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_OCCExt_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_InBuf_OCC_Ext = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_OCCExt_Ofs));
+			memcpy(&records[9], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBufCRM_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_CRM = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBufCRM_Ofs));
+			memcpy(&records[10], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFRD_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_ASF_RD = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFRD_Ofs));
+			memcpy(&records[11], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFRD_Ext_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_ASF_RD_Ext = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFRD_Ext_Ofs));
+			memcpy(&records[12], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFHF_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_ASF_HF = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFHF_Ofs));
+			memcpy(&records[13], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASF_HFExt_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_ASF_HF_Ext = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASF_HFExt_Ofs));
+			memcpy(&records[14], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_WMFFILT_fd);
+		if (success) {
+			pDpeUserConfig->Dpe_OutBuf_WMF_FILT = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_WMFFILT_Ofs));
+			memcpy(&records[15], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.DVS_SRC_21_INTER_MEDV_fd);
+		if (success) {
+			pDpeUserConfig->DVS_SRC_21_INTER_MEDV = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.DVS_SRC_21_INTER_MEDV_Ofs));
+			memcpy(&records[16], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.DVS_SRC_34_DCV_L_FRM0_fd);
+		if (success) {
+			pDpeUserConfig->DVS_SRC_34_DCV_L_FRM0 = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.DVS_SRC_34_DCV_L_FRM0_Ofs));
+			memcpy(&records[17], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.DVP_SRC_18_ASF_RMDV_fd);
+		if (success) {
+			pDpeUserConfig->DVP_SRC_18_ASF_RMDV = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.DVP_SRC_18_ASF_RMDV_Ofs));
+			memcpy(&records[18], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.DVP_SRC_24_WMF_HFDV_fd);
+		if (success) {
+			pDpeUserConfig->DVP_SRC_24_WMF_HFDV = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.DVP_SRC_24_WMF_HFDV_Ofs));
+			memcpy(&records[19], &mmu, sizeof(struct tee_mmu));
+		}
+		success = dpe_get_dma_buffer(&mmu,
+		pDpeUserConfig->DPE_DMapSettings.DVP_EXT_SRC_18_ASF_RMDV_fd);
+		if (success) {
+			pDpeUserConfig->DVP_EXT_SRC_18_ASF_RMDV = (sg_dma_address(mmu.sgt->sgl) +
+			(pDpeUserConfig->DPE_DMapSettings.DVP_EXT_SRC_18_ASF_RMDV_Ofs));
+			memcpy(&records[20], &mmu, sizeof(struct tee_mmu));
+		}
 	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YR_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_InBuf_SrcImg_Y_R = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YR_Ofs));
-		#ifdef IOVA_TO_PA
-		iova_temp = pDpeUserConfig->Dpe_InBuf_SrcImg_Y_R | iova_temp;
-		pgpa = iommu_iova_to_phys(domain, iova_temp);
-		iova_temp = 0x200000000;
-		#endif
-		memcpy(&records[1], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_Yfd);
-	if (success) {
-		pDpeUserConfig->Dpe_InBuf_SrcImg_Y = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YOfs));
-		memcpy(&records[2], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_Cfd);
-	if (success) {
-		pDpeUserConfig->Dpe_InBuf_SrcImg_C = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_COfs));
-		memcpy(&records[3], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_ValidMapL_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_InBuf_ValidMap_L = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_ValidMapL_Ofs));
-		memcpy(&records[4], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_ValidMapR_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_InBuf_ValidMap_R = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_ValidMapR_Ofs));
-		memcpy(&records[5], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_CONF_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_CONF = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_CONF_Ofs));
-		memcpy(&records[5], &mmu, sizeof(struct tee_mmu));
-		#ifdef IOVA_TO_PA
-		iova_temp = pDpeUserConfig->Dpe_OutBuf_CONF | iova_temp;
-		pgpa = iommu_iova_to_phys(domain, iova_temp);
-		iova_temp = 0x200000000;
-		#endif
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_OCC_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_OCC = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs));
-		memcpy(&records[6], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_OCCExt_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_OCC_Ext = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_OCCExt_Ofs));
-		memcpy(&records[7], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_InBufOCC_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_InBuf_OCC = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_InBufOCC_Ofs));
-		memcpy(&records[8], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_OCCExt_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_InBuf_OCC_Ext = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_OCCExt_Ofs));
-		memcpy(&records[9], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBufCRM_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_CRM = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBufCRM_Ofs));
-		memcpy(&records[10], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFRD_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_ASF_RD = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFRD_Ofs));
-		memcpy(&records[11], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFRD_Ext_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_ASF_RD_Ext = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFRD_Ext_Ofs));
-		memcpy(&records[12], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFHF_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_ASF_HF = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASFHF_Ofs));
-		memcpy(&records[13], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASF_HFExt_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_ASF_HF_Ext = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_ASF_HFExt_Ofs));
-		memcpy(&records[14], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_WMFFILT_fd);
-	if (success) {
-		pDpeUserConfig->Dpe_OutBuf_WMF_FILT = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.Dpe_OutBuf_WMFFILT_Ofs));
-		memcpy(&records[15], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.DVS_SRC_21_INTER_MEDV_fd);
-	if (success) {
-		pDpeUserConfig->DVS_SRC_21_INTER_MEDV = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.DVS_SRC_21_INTER_MEDV_Ofs));
-		memcpy(&records[16], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.DVS_SRC_34_DCV_L_FRM0_fd);
-	if (success) {
-		pDpeUserConfig->DVS_SRC_34_DCV_L_FRM0 = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.DVS_SRC_34_DCV_L_FRM0_Ofs));
-		memcpy(&records[17], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.DVP_SRC_18_ASF_RMDV_fd);
-	if (success) {
-		pDpeUserConfig->DVP_SRC_18_ASF_RMDV = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.DVP_SRC_18_ASF_RMDV_Ofs));
-		memcpy(&records[18], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.DVP_SRC_24_WMF_HFDV_fd);
-	if (success) {
-		pDpeUserConfig->DVP_SRC_24_WMF_HFDV = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.DVP_SRC_24_WMF_HFDV_Ofs));
-		memcpy(&records[19], &mmu, sizeof(struct tee_mmu));
-	}
-	success = dpe_get_dma_buffer(&mmu,
-	pDpeUserConfig->DPE_DMapSettings.DVP_EXT_SRC_18_ASF_RMDV_fd);
-	if (success) {
-		pDpeUserConfig->DVP_EXT_SRC_18_ASF_RMDV = (sg_dma_address(mmu.sgt->sgl) +
-		(pDpeUserConfig->DPE_DMapSettings.DVP_EXT_SRC_18_ASF_RMDV_Ofs));
-		memcpy(&records[20], &mmu, sizeof(struct tee_mmu));
-	}
+
 	if (pDpeUserConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
 		DPE_Config_DVS(pDpeUserConfig, pDpeConfig);
 		DPE_Config_DVP(pDpeUserConfig, pDpeConfig);
@@ -2439,9 +2437,15 @@ cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x00000000, 0x20000000);
 #ifdef CMdq_en
 	//cmdq_pkt_flush_threaded(handle,
 	//cmdq_cb_destroy, (void *)handle);
-	cmdq_pkt_flush_threaded(handle,
-	cmdq_cb_destroy, (void *)records);
+	if (pDpeUserConfig->use_fd == 0) {
+		cmdq_pkt_flush(handle);
+		cmdq_pkt_destroy(handle);
+	} else {
+		cmdq_pkt_flush_threaded(handle,
+		cmdq_cb_destroy, (void *)records);
+	}
 #endif
+
 	return 0;
 }
 signed int dpe_feedback(struct frame *frame)
@@ -5275,7 +5279,6 @@ static signed int __init DPE_Init(void)
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
 	struct proc_dir_entry *isp_dpe_dir;
-	struct DPE_Config_map Cnfigmap;
 	int i;
 
 
@@ -5347,29 +5350,7 @@ static signed int __init DPE_Init(void)
 							DPE_ClockOffCallback);
 #endif
 
-	Cnfigmap.Dpe_InBuf_SrcImg_YL_fd = -1;
-	Cnfigmap.Dpe_InBuf_SrcImg_YR_fd = -1;
-	Cnfigmap.Dpe_InBuf_SrcImg_Yfd = -1;
-	Cnfigmap.Dpe_InBuf_SrcImg_Cfd = -1;
-	Cnfigmap.Dpe_InBuf_ValidMapL_fd = -1;
-	Cnfigmap.Dpe_InBuf_ValidMapR_fd = -1;
-	Cnfigmap.Dpe_OutBuf_CONF_fd = -1;
-	Cnfigmap.Dpe_OutBuf_OCC_fd = -1;
-	Cnfigmap.Dpe_OutBuf_OCCExt_fd = -1;
-	Cnfigmap.Dpe_InBufOCC_fd = -1;
-	Cnfigmap.Dpe_InBuf_OCCExt_fd = -1;
-	Cnfigmap.Dpe_OutBufCRM_fd = -1;
-	Cnfigmap.Dpe_OutBuf_ASFRD_fd = -1;
-	Cnfigmap.Dpe_OutBuf_ASFRD_Ext_fd = -1;
-	Cnfigmap.Dpe_OutBuf_ASFHF_fd = -1;
-	Cnfigmap.Dpe_OutBuf_ASF_HFExt_fd = -1;
-	Cnfigmap.Dpe_OutBuf_WMFFILT_fd = -1;
-	Cnfigmap.DVS_SRC_21_INTER_MEDV_fd = -1;
-	Cnfigmap.DVS_SRC_34_DCV_L_FRM0_fd = -1;
-	Cnfigmap.DVP_SRC_18_ASF_RMDV_fd = -1;
-	Cnfigmap.DVP_SRC_24_WMF_HFDV_fd = -1;
-	Cnfigmap.DVP_EXT_SRC_18_ASF_RMDV_fd = -1;
-	NUM_BASEADDR = 20;
+	NUM_BASEADDR = 21; // allocate buffer count
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
 }

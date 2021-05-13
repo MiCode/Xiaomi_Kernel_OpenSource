@@ -476,6 +476,7 @@ struct DPE_Config {
 	struct DVS_Settings	Dpe_DVSSettings;
 	struct DVP_Settings	Dpe_DVPSettings;
 	struct DPE_Config_map DPE_DMapSettings;
+	unsigned int use_fd;
 	unsigned int Dpe_InBuf_SrcImg_Y_L;
 	unsigned int Dpe_InBuf_SrcImg_Y_R;
 	unsigned int Dpe_InBuf_SrcImg_Y;
