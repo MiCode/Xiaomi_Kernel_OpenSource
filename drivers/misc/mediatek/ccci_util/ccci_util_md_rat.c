@@ -326,10 +326,17 @@ int set_soc_md_rt_rat_str(int md_id, char str[])
 		set_soc_md_rt_rat(md_id, cap);
 		return -1;
 	}
+
+	if (strlen(str) == 0) {
+		pr_info("CCCI: %s str empty, set default value!\n", __func__);
+		set_soc_md_rt_rat(md_id, cap);
+		return -1;
+	}
+
 	rat_bitmap = ccci_rat_str_to_bitmap(str);
 	prefer = find_prefer_val(rat_bitmap);
 
-	if ((prefer & cap) != prefer) {
+	if ((prefer == 0) || ((prefer & cap) != prefer)) {
 		pr_info("CCCI:%s:rat[%s](r:0x%x|p:0x%x|c:0x%x) not support!\n",
 				__func__, str, rat_bitmap, prefer, cap);
 		set_soc_md_rt_rat(md_id, cap);
