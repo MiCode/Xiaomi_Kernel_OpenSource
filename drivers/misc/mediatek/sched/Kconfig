@@ -63,3 +63,12 @@ config MTK_SCHED_BIG_TASK_ROTATE
 	   equally distributed runtime for each misfit task.
 	   It can use for parallel thread at multi-core to reduce
 	   execution time.
+
+config MTK_CPUFREQ_SUGOV_EXT
+	tristate "mediatek sugov governor"
+	depends on CPU_FREQ && SMP
+	help
+	   Choose this option to provide vendor cpufreq governor build
+	   by mediatek. This governor support non-linear freq control and
+	   vary optimizations. This config should be enable when
+	   you want full mtk solution.
