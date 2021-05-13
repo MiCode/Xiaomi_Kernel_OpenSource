@@ -965,12 +965,14 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 	mtk_ddp_write_mask(comp, 0,
 			DISP_REG_WDMA_CFG, WDMA_CT_EN, handle);
 
-	mtk_ddp_write(comp, comp->fb->pitches[0],
+	mtk_ddp_write(comp, clip_w * 3,
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
 
 	gsc = addon_config->addon_wdma_config.p_golden_setting_context;
 	mtk_wdma_golden_setting(comp, gsc, handle);
 
+	DDPMSG("[capture] config addr:0x%x, roi:(%d,%d,%d,%d)\n",
+		addr, clip_x, clip_y, clip_w, clip_h);
 	cfg_info->width = clip_w;
 	cfg_info->height = clip_h;
 	cfg_info->fmt = comp->fb->format->format;
@@ -1287,7 +1289,21 @@ static int mtk_wdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		mtk_ddp_write(comp, addr & 0xFFFFFFFFU,
 			DISP_REG_WDMA_DST_ADDR0, handle);
+		DDPMSG("[capture] update addr:0x%x\n", addr);
 		wdma->cfg_info.addr = addr;
+	}
+		break;
+	case WDMA_READ_DST_SIZE:
+	{
+		unsigned int val, w, h;
+		struct mtk_cwb_info *cwb_info = (struct mtk_cwb_info *)params;
+
+		val = readl(comp->regs + DISP_REG_WDMA_CLIP_SIZE);
+		w = val & 0x3fff;
+		h = (val >> 16) & 0x3fff;
+		cwb_info->copy_w = w;
+		cwb_info->copy_h = h;
+		DDPDBG("[capture] sof get (w,h)=(%d,%d)\n", w, h);
 	}
 		break;
 	case IRQ_LEVEL_IDLE: {

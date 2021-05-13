@@ -6618,8 +6618,8 @@ static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
 		cwb_info->user_buffer = 0;
 	}
 
-	width = cwb_info->buffer[buf_idx].dst_roi.width;
-	height = cwb_info->buffer[buf_idx].dst_roi.height;
+	width = cwb_info->copy_w;
+	height = cwb_info->copy_h;
 	pitch = width * 3;
 	size = pitch * height;
 
@@ -6636,8 +6636,8 @@ static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
 		tmp->meta.timestamp = cwb_info->buffer[buf_idx].timestamp;
 		memcpy(tmp->data.image, (void *)addr_va, size);
 	}
-	DDPMSG("[capture] copy buffer from b[%u]=0x%x, timestamp:%llu, done",
-			buf_idx, addr_va, time);
+	DDPMSG("[capture] copy buf from 0x%x, (w,h)=(%d,%d), ts:%llu done\n",
+			addr_va, width, height, time);
 
 	return 0;
 }

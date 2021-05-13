@@ -5408,6 +5408,7 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		if (val & (0x1 << m_id)) {
 			DDPIRQ("[IRQ] mutex%d sof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 0);
+			mtk_drm_cwb_backup_copy_size();
 			disp_aal_on_start_of_frame();
 		}
 		if (val & (0x1 << (m_id + DISP_MUTEX_TOTAL))) {

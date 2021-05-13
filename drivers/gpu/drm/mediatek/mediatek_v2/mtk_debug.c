@@ -52,6 +52,7 @@
 #define SMI_LARB_VC_PRI_MODE (0x020)
 #define SMI_LARB_NON_SEC_CON(port) (0x380 + 4 * (port))
 #define GET_M4U_PORT 0x1F
+#define MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH 128
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
@@ -1261,16 +1262,18 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 
 	if (!cwb_info->buffer[0].dst_roi.width ||
 		!cwb_info->buffer[0].dst_roi.height) {
-		mtk_rect_make(&cwb_info->buffer[0].dst_roi,
-				0, 0, 128, 128);
-		mtk_rect_make(&cwb_info->buffer[1].dst_roi,
-				0, 0, 128, 128);
+		mtk_rect_make(&cwb_info->buffer[0].dst_roi, 0, 0,
+			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH,
+			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH);
+		mtk_rect_make(&cwb_info->buffer[1].dst_roi, 0, 0,
+			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH,
+			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH);
 	}
 
 	/*alloc && config two fb*/
 	if (!cwb_info->buffer[0].fb) {
-		mode.width = cwb_info->buffer[0].dst_roi.width;
-		mode.height = cwb_info->buffer[0].dst_roi.height;
+		mode.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		mode.height = cwb_info->src_roi.height;
 		mode.pixel_format = DRM_FORMAT_RGB888;
 		mode.pitches[0] = mode.width * 3;
 
@@ -1356,7 +1359,6 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
 	struct mtk_cwb_info *cwb_info;
-	int old_width, old_height;
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct drm_mode_fb_cmd2 mode = {0};
 
@@ -1392,28 +1394,43 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 			return false;
 	}
 
-	if (rect.width > 128)
-		rect.width = 128;
+	if (rect.width > MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH)
+		rect.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
 
 	if (rect.x + rect.width > cwb_info->src_roi.width)
 		rect.width = cwb_info->src_roi.width - rect.x;
 	if (rect.y + rect.height > cwb_info->src_roi.height)
 		rect.height = cwb_info->src_roi.height - rect.y;
 
-	if (cwb_info->buffer[0].fb) {
-		old_width = cwb_info->buffer[0].fb->width;
-		old_height = cwb_info->buffer[0].fb->height;
-		if (old_width == rect.width && old_height == rect.height) {
-			mtk_rect_make(&cwb_info->buffer[0].dst_roi,
-			rect.x, rect.y, rect.width, rect.height);
-			mtk_rect_make(&cwb_info->buffer[1].dst_roi,
-				rect.x, rect.y, rect.width, rect.height);
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			return true;
-		}
-		/* free old*/
-		drm_framebuffer_put(cwb_info->buffer[0].fb);
-		drm_framebuffer_put(cwb_info->buffer[1].fb);
+	if (!cwb_info->buffer[0].fb) {
+		mode.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		mode.height = cwb_info->src_roi.height;
+		mode.pixel_format = DRM_FORMAT_RGB888;
+		mode.pitches[0] = mode.width * 3;
+
+		mtk_gem = mtk_drm_gem_create(
+			crtc->dev, mode.width * mode.height * 3, true);
+		cwb_info->buffer[0].addr_mva = (u32)mtk_gem->dma_addr;
+		cwb_info->buffer[0].addr_va = (u64)mtk_gem->kvaddr;
+
+		cwb_info->buffer[0].fb  =
+			mtk_drm_framebuffer_create(
+			crtc->dev, &mode, &mtk_gem->base);
+		DDPMSG("[capture] b[0].addr_mva:0x%x, addr_va:0x%llx\n",
+			cwb_info->buffer[0].addr_mva,
+			cwb_info->buffer[0].addr_va);
+
+		mtk_gem = mtk_drm_gem_create(
+			crtc->dev, mode.width * mode.height * 3, true);
+		cwb_info->buffer[1].addr_mva = (u32)mtk_gem->dma_addr;
+		cwb_info->buffer[1].addr_va = (u64)mtk_gem->kvaddr;
+
+		cwb_info->buffer[1].fb  =
+			mtk_drm_framebuffer_create(
+			crtc->dev, &mode, &mtk_gem->base);
+		DDPMSG("[capture] b[0].addr_mva:0x%x, addr_va:0x%llx\n",
+			cwb_info->buffer[1].addr_mva,
+			cwb_info->buffer[1].addr_va);
 	}
 
 	/* update roi */
@@ -1422,37 +1439,43 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 	mtk_rect_make(&cwb_info->buffer[1].dst_roi,
 		rect.x, rect.y, rect.width, rect.height);
 
-	/* create new */
-	mode.width = rect.width;
-	mode.height = rect.height;
-	mode.pixel_format = DRM_FORMAT_RGB888;
-	mode.pitches[0] = mode.width * 3;
-
-	mtk_gem = mtk_drm_gem_create(
-		crtc->dev, mode.width * mode.height * 3, true);
-	cwb_info->buffer[0].addr_mva = (u32)mtk_gem->dma_addr;
-	cwb_info->buffer[0].addr_va = (u64)mtk_gem->kvaddr;
-	cwb_info->buffer[0].fb =
-		mtk_drm_framebuffer_create(
-		crtc->dev, &mode, &mtk_gem->base);
-	DDPMSG("[capture] b[0].addr_mva:0x%x, addr_va:0x%llx\n",
-			cwb_info->buffer[0].addr_mva,
-			cwb_info->buffer[0].addr_va);
-
-	mtk_gem = mtk_drm_gem_create(
-		crtc->dev, mode.width * mode.height * 3, true);
-	cwb_info->buffer[1].addr_mva = (u32)mtk_gem->dma_addr;
-	cwb_info->buffer[1].addr_va = (u64)mtk_gem->kvaddr;
-	cwb_info->buffer[1].fb =
-		mtk_drm_framebuffer_create(
-		crtc->dev, &mode, &mtk_gem->base);
-	DDPMSG("[capture] b[1].addr_mva:0x%x, addr_va:0x%llx\n",
-			cwb_info->buffer[1].addr_mva,
-			cwb_info->buffer[1].addr_va);
+	DDPMSG("[capture] change roi:(%d,%d,%d,%d)\n",
+		cwb_info->buffer[0].dst_roi.x,
+		cwb_info->buffer[0].dst_roi.y,
+		cwb_info->buffer[0].dst_roi.width,
+		cwb_info->buffer[0].dst_roi.height);
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return true;
 
+}
+
+void mtk_drm_cwb_backup_copy_size(void)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_cwb_info *cwb_info;
+	struct mtk_ddp_comp *comp;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+	mtk_crtc = to_mtk_crtc(crtc);
+	cwb_info = mtk_crtc->cwb_info;
+
+	if (!cwb_info)
+		return;
+
+	if (!cwb_info->comp) {
+		DDPPR_ERR("[capture] cwb enable, but has not comp\n");
+		return;
+	}
+
+	comp = cwb_info->comp;
+	mtk_ddp_comp_io_cmd(comp, NULL, WDMA_READ_DST_SIZE, cwb_info);
 }
 
 bool mtk_drm_set_cwb_user_buf(void *user_buffer, enum CWB_BUFFER_TYPE type)
@@ -2053,8 +2076,8 @@ static void process_dbg_opt(const char *opt)
 			return;
 
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-		width = cwb_info->buffer[0].dst_roi.width;
-		height = cwb_info->buffer[0].dst_roi.height;
+		width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		height = cwb_info->src_roi.height;
 		size = sizeof(u8) * width * height * 3;
 		user_buffer = kzalloc(size, GFP_KERNEL);
 		mtk_drm_set_cwb_user_buf((void *)user_buffer, IMAGE_ONLY);

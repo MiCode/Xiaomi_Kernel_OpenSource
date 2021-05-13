@@ -443,8 +443,8 @@ int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 
 	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));
 	bitmap.data1 = buf_idx;
-	bitmap.width = cwb_info->buffer[0].dst_roi.width;
-	bitmap.height = cwb_info->buffer[0].dst_roi.height;
+	bitmap.width = cwb_info->copy_w;
+	bitmap.height = cwb_info->copy_h;
 
 	bitmap.format = MMPROFILE_BITMAP_RGB888;
 	bitmap.bpp = 24;
