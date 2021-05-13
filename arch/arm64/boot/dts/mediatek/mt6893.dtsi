@@ -5135,6 +5135,7 @@
 			compatible = "mediatek,camsv1_legacy";
 			reg = <0 0x1a090000 0 0x1000>;
 			interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH 0>;
+			iommus = <&iommu0 M4U_PORT_L14_CAM_CAMSV0_DISP>;
 		};
 
 		camsv2_legacy@1a091000 {
@@ -5142,6 +5143,7 @@
 			compatible = "mediatek,camsv2_legacy";
 			reg = <0 0x1a091000 0 0x1000>;
 			interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH 0>;
+			iommus = <&iommu1 M4U_PORT_L13_CAM_CAMSV1_MDP>;
 		};
 
 		camsv3_legacy@1a092000 {
@@ -5149,6 +5151,7 @@
 			compatible = "mediatek,camsv3_legacy";
 			reg = <0 0x1a092000 0 0x1000>;
 			interrupts = <GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH 0>;
+			iommus = <&iommu1 M4U_PORT_L13_CAM_CAMSV2_MDP>;
 		};
 
 		camsv4_legacy@1a093000 {
@@ -5156,6 +5159,7 @@
 			compatible = "mediatek,camsv4_legacy";
 			reg = <0 0x1a093000 0 0x1000>;
 			interrupts = <GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH 0>;
+			iommus = <&iommu1 M4U_PORT_L13_CAM_CAMSV3_MDP>;
 		};
 
 		camsv5_legacy@1a094000 {
@@ -5163,6 +5167,7 @@
 			compatible = "mediatek,camsv5_legacy";
 			reg = <0 0x1a094000 0 0x1000>;
 			interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH 0>;
+			iommus = <&iommu1 M4U_PORT_L13_CAM_CAMSV4_MDP>;
 		};
 
 		camsv6_legacy@1a095000 {
@@ -5170,6 +5175,7 @@
 			compatible = "mediatek,camsv6_legacy";
 			reg = <0 0x1a095000 0 0x1000>;
 			interrupts = <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH 0>;
+			iommus = <&iommu1 M4U_PORT_L13_CAM_CAMSV5_MDP>;
 		};
 
 		camsv7_legacy@1a096000 {
@@ -5177,6 +5183,7 @@
 			compatible = "mediatek,camsv7_legacy";
 			reg = <0 0x1a096000 0 0x1000>;
 			interrupts = <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH 0>;
+			iommus = <&iommu1 M4U_PORT_L13_CAM_CAMSV6_MDP>;
 		};
 
 		camsv8_legacy@1a097000 {
