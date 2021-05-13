@@ -288,7 +288,7 @@ extern struct atomic_notifier_head panic_notifier_list;
 extern int ksysfs_bootinfo_init(void);
 extern void ksysfs_bootinfo_exit(void);
 extern int aee_dump_ccci_debug_info(int md_id, void **addr, int *size);
-extern int aee_mode;
+extern int aee_get_mode(void);
 extern void aee_kernel_RT_Monitor_api(int lParam);
 extern void show_task_mem(void);
 void show_native_bt_by_pid(int task_pid);

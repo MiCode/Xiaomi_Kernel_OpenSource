@@ -253,6 +253,7 @@ void aed_common_exception_api(const char *assert_type, const int *log, int
 			log_size, const int *phy, int phy_size, const char
 			*detail, const int db_opt);
 
+int aed_get_status(void);
 int aee_is_printk_too_much(const char *module);
 void aee_sram_printk(const char *fmt, ...);
 int aee_is_enable(void);
