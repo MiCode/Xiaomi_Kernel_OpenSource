@@ -2002,7 +2002,7 @@ static void __exit dram_test_exit(void)
 	platform_driver_unregister(&dram_test_drv);
 }
 
-late_initcall(dram_test_init);
+device_initcall_sync(dram_test_init);
 module_exit(dram_test_exit);
 
 void *mt_dramc_chn_base_get(int channel)
