@@ -55,12 +55,18 @@
 /* #pragma GCC optimize ("O0") */
 #define MMP_DEVNAME "mmp"
 
-#define MMPROFILE_DEFAULT_BUFFER_SIZE 0x18000
+#define MMPROFILE_DEFAULT_BUFFER_SIZE (0x18000)
 #ifdef CONFIG_MTK_ENG_BUILD
-#define MMPROFILE_DEFAULT_META_BUFFER_SIZE 0x800000
+#define MTK_MMP_LAYER_DUMP
+#define MMPROFILE_DEFAULT_META_BUFFER_SIZE (0x800000)
 static unsigned int mmprofile_meta_datacookie = 1;
 #else
-#define MMPROFILE_DEFAULT_META_BUFFER_SIZE 0x0
+#ifdef MTK_MMP_LAYER_DUMP
+#define MMPROFILE_DEFAULT_META_BUFFER_SIZE (0x800000)
+static unsigned int mmprofile_meta_datacookie = 1;
+#else
+#define MMPROFILE_DEFAULT_META_BUFFER_SIZE (0)
+#endif
 #endif
 
 #define MMPROFILE_DUMP_BLOCK_SIZE (1024*4)
@@ -119,7 +125,7 @@ static DEFINE_MUTEX(mmprofile_buffer_init_mutex);
 static DEFINE_MUTEX(mmprofile_regtable_mutex);
 static DEFINE_MUTEX(mmprofile_meta_buffer_mutex);
 static struct mmprofile_event_t *p_mmprofile_ring_buffer;
-#ifdef CONFIG_MTK_ENG_BUILD
+#ifdef MTK_MMP_LAYER_DUMP
 static unsigned char *p_mmprofile_meta_buffer;
 #endif
 
@@ -323,7 +329,7 @@ void mmprofile_get_dump_buffer(unsigned int start, unsigned long *p_addr,
 static void mmprofile_init_buffer(void)
 {
 	unsigned int b_reset_ring_buffer = 0;
-#ifdef CONFIG_MTK_ENG_BUILD
+#ifdef MTK_MMP_LAYER_DUMP
 	unsigned int b_reset_meta_buffer = 0;
 #endif
 
@@ -377,8 +383,7 @@ static void mmprofile_init_buffer(void)
 	}
 	MMP_LOG(ANDROID_LOG_DEBUG, "p_mmprofile_ring_buffer=0x%08lx",
 		(unsigned long)p_mmprofile_ring_buffer);
-
-#ifdef CONFIG_MTK_ENG_BUILD
+#ifdef MTK_MMP_LAYER_DUMP
 	if (!p_mmprofile_meta_buffer) {
 		mmprofile_globals.meta_buffer_size =
 			mmprofile_globals.new_meta_buffer_size;
@@ -431,7 +436,7 @@ static void mmprofile_init_buffer(void)
 	if (b_reset_ring_buffer)
 		memset((void *)(p_mmprofile_ring_buffer), 0,
 		       mmprofile_globals.buffer_size_bytes);
-#ifdef CONFIG_MTK_ENG_BUILD
+#ifdef MTK_MMP_LAYER_DUMP
 	if (b_reset_meta_buffer) {
 		struct mmprofile_meta_datablock_t *p_block;
 
@@ -453,8 +458,7 @@ static void mmprofile_init_buffer(void)
 
 static void mmprofile_reset_buffer(void)
 {
-#ifdef CONFIG_MTK_ENG_BUILD
-
+#ifdef MTK_MMP_LAYER_DUMP
 	if (!mmprofile_globals.enable ||
 		(mmprofile_globals.buffer_size_record !=
 			mmprofile_globals.new_buffer_size_record))
@@ -917,7 +921,7 @@ static void mmprofile_log_int(mmp_event event, enum mmp_log_type type,
 static long mmprofile_log_meta_int(mmp_event event, enum mmp_log_type type,
 	struct mmp_metadata_t *p_meta_data, long b_from_user)
 {
-#ifdef CONFIG_MTK_ENG_BUILD
+#ifdef MTK_MMP_LAYER_DUMP
 	unsigned long retn;
 	void __user *p_data;
 	struct mmprofile_meta_datablock_t *p_node = NULL;
@@ -925,6 +929,7 @@ static long mmprofile_log_meta_int(mmp_event event, enum mmp_log_type type,
 
 	if (!mmprofile_globals.enable)
 		return 0;
+
 	if ((event >= MMPROFILE_MAX_EVENT_COUNT) ||
 		(event == MMP_INVALID_EVENT))
 		return -3;
@@ -934,11 +939,13 @@ static long mmprofile_log_meta_int(mmp_event event, enum mmp_log_type type,
 
 	if (unlikely(!p_meta_data))
 		return -1;
+
 	block_size =
 	    ((offsetof(struct mmprofile_meta_datablock_t, meta_data) +
 	    p_meta_data->size) + 3) & (~3);
 	if (block_size > mmprofile_globals.meta_buffer_size)
 		return -2;
+
 	mutex_lock(&mmprofile_meta_buffer_mutex);
 	p_node = list_entry(mmprofile_meta_buffer_list.prev,
 		struct mmprofile_meta_datablock_t, list);
@@ -1292,6 +1299,8 @@ long mmprofile_log_meta_bitmap(mmp_event event, enum mmp_log_type type,
 		return 0;
 	if (!is_mmp_valid(event))
 		return 0;
+	if (!p_meta_data->p_data)
+		return 0;
 
 	meta_data.data1 = p_meta_data->data1;
 	meta_data.data2 = p_meta_data->data2;
@@ -1329,11 +1338,11 @@ long mmprofile_log_meta_bitmap(mmp_event event, enum mmp_log_type type,
 			p_meta_data->bpp);
 		for (y = 0, y0 = 0; y < p_meta_data->height;
 		     y0++, y += p_meta_data->down_sample_y) {
-			if (p_meta_data->down_sample_x == 1)
+			if (p_meta_data->down_sample_x == 1) {
 				memcpy(p_dst + new_width * bpp * y0,
 					p_src + p_meta_data->pitch * y,
 					p_meta_data->width * bpp);
-			else {
+			} else {
 				for (x = 0, x0 = 0; x < p_meta_data->width;
 				     x0++, x += p_meta_data->down_sample_x) {
 					dst_offset =
@@ -1373,7 +1382,8 @@ long mmprofile_log_meta_yuv_bitmap(mmp_event event, enum mmp_log_type type,
 		return 0;
 	if (!is_mmp_valid(event))
 		return 0;
-
+	if (!p_meta_data->p_data)
+		return 0;
 
 	meta_data.data1 = p_meta_data->data1;
 	meta_data.data2 = p_meta_data->data2;
@@ -1852,8 +1862,7 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd,
 	break;
 	case MMP_IOC_DUMPMETADATA:
 	{
-#ifdef CONFIG_MTK_ENG_BUILD
-
+#ifdef MTK_MMP_LAYER_DUMP
 		unsigned int meta_data_count = 0;
 		unsigned int offset = 0;
 		unsigned int index;
@@ -2140,8 +2149,7 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd,
 	break;
 	case COMPAT_MMP_IOC_DUMPMETADATA:
 	{
-#ifdef CONFIG_MTK_ENG_BUILD
-
+#ifdef MTK_MMP_LAYER_DUMP
 		unsigned int meta_data_count = 0;
 		unsigned int offset = 0;
 		unsigned int index;

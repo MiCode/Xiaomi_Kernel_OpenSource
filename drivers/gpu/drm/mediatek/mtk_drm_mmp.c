@@ -319,12 +319,17 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 	int yuv = 0;
 
 	if (!pending->enable) {
-		DDPINFO("[MMP]layer is not disable\n");
+		DDPINFO("[MMP]layer is disabled\n");
 		return -1;
 	}
 
 	if (pending->prop_val[PLANE_PROP_COMPRESS]) {
 		DDPINFO("[MMP]layer is compress\n");
+		return -1;
+	}
+
+	if (!pending->addr) {
+		DDPINFO("[MMP] invalid iova:0x%lx\n", pending->addr);
 		return -1;
 	}
 
@@ -399,6 +404,10 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 			DDPINFO("%s,fail to dump rgb\n", __func__);
 			goto end;
 		}
+		if (!bitmap.p_data) {
+			DDPINFO("%s,fail to dump rgb\n", __func__);
+			goto end;
+		}
 
 		event_base = g_CRTC_MMP_Events[crtc_idx].layer_dump;
 		if (event_base) {
@@ -423,6 +432,10 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 		if (crtc_mva_map_kernel(pending->addr, bitmap.data_size,
 					(unsigned long *)&meta.p_data,
 					&meta.size) != 0) {
+			DDPINFO("%s,fail to dump rgb\n", __func__);
+			goto end;
+		}
+		if (!meta.p_data) {
 			DDPINFO("%s,fail to dump rgb\n", __func__);
 			goto end;
 		}
