@@ -495,6 +495,7 @@ struct hfi_mem_alloc_desc {
 struct hfi_mem_alloc_entry {
 	struct hfi_mem_alloc_desc desc;
 	struct kgsl_memdesc *gpu_md;
+	struct gmu_memdesc *gmu_md;
 };
 
 /* F2H */
@@ -635,6 +636,8 @@ struct hfi_ts_notify_cmd {
 #define CMDBATCH_RETIRED	1
 #define CMDBATCH_ERROR		2
 #define CMDBATCH_SKIP		3
+
+#define CMDBATCH_PROFILING  BIT(4)
 
 /* F2H */
 struct hfi_ts_retire_cmd {

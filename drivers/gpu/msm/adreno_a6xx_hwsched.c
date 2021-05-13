@@ -107,7 +107,7 @@ static u32 a6xx_copy_gpu_global(struct adreno_device *adreno_dev,
 	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
 		struct kgsl_memdesc *md = hw_hfi->mem_alloc_table[i].gpu_md;
 
-		if (gpuaddr >= md->gpuaddr &&
+		if (md && (gpuaddr >= md->gpuaddr) &&
 			((gpuaddr + size) <= (md->gpuaddr + md->size))) {
 			offset = gpuaddr - md->gpuaddr;
 			memcpy(out, md->hostptr + offset, size);
