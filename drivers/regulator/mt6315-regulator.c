@@ -36,6 +36,7 @@ struct mt6315_init_data {
 	u32 id;
 	u32 size;
 	u32 buck1_modeset_mask;
+	u32 buck3_modeset_mask;
 };
 
 struct mt6315_chip {
@@ -86,15 +87,16 @@ static unsigned int mt6315_map_mode(u32 mode)
 	case MT6315_BUCK_MODE_LP:
 		return REGULATOR_MODE_IDLE;
 	default:
-		return -EINVAL;
+		return REGULATOR_MODE_INVALID;
 	}
 }
 
 static int mt6315_regulator_get_voltage_sel(struct regulator_dev *rdev)
 {
-	struct mt6315_regulator_info *info = rdev_get_drvdata(rdev);
+	struct mt6315_regulator_info *info;
 	int ret = 0, reg_addr = 0, reg_val = 0, reg_en = 0;
 
+	info = container_of(rdev->desc, struct mt6315_regulator_info, desc);
 	ret = regmap_read(rdev->regmap, info->da_reg, &reg_en);
 	if (ret != 0) {
 		dev_notice(&rdev->dev, "Failed to get enable reg: %d\n", ret);
@@ -119,11 +121,12 @@ static int mt6315_regulator_get_voltage_sel(struct regulator_dev *rdev)
 
 static unsigned int mt6315_regulator_get_mode(struct regulator_dev *rdev)
 {
-	struct mt6315_regulator_info *info = rdev_get_drvdata(rdev);
-	struct mt6315_init_data *pdata = dev_get_drvdata(rdev->dev.parent);
+	struct mt6315_init_data *pdata = rdev_get_drvdata(rdev);
+	struct mt6315_regulator_info *info;
 	int ret = 0, regval = 0;
 	u32 modeset_mask;
 
+	info = container_of(rdev->desc, struct mt6315_regulator_info, desc);
 	ret = regmap_read(rdev->regmap, info->modeset_reg, &regval);
 	if (ret != 0) {
 		dev_err(&rdev->dev,
@@ -133,6 +136,8 @@ static unsigned int mt6315_regulator_get_mode(struct regulator_dev *rdev)
 
 	if (rdev_get_id(rdev) == MT6315_ID_VBUCK1)
 		modeset_mask = pdata->buck1_modeset_mask;
+	else if (rdev_get_id(rdev) == MT6315_ID_VBUCK3)
+		modeset_mask = pdata->buck3_modeset_mask;
 	else
 		modeset_mask = info->modeset_mask;
 
@@ -155,13 +160,16 @@ static unsigned int mt6315_regulator_get_mode(struct regulator_dev *rdev)
 static int mt6315_regulator_set_mode(struct regulator_dev *rdev,
 				     u32 mode)
 {
-	struct mt6315_regulator_info *info = rdev_get_drvdata(rdev);
-	struct mt6315_init_data *pdata = dev_get_drvdata(rdev->dev.parent);
+	struct mt6315_init_data *pdata = rdev_get_drvdata(rdev);
+	struct mt6315_regulator_info *info;
 	int ret = 0, val, curr_mode;
 	u32 modeset_mask;
 
+	info = container_of(rdev->desc, struct mt6315_regulator_info, desc);
 	if (rdev_get_id(rdev) == MT6315_ID_VBUCK1)
 		modeset_mask = pdata->buck1_modeset_mask;
+	else if (rdev_get_id(rdev) == MT6315_ID_VBUCK3)
+		modeset_mask = pdata->buck3_modeset_mask;
 	else
 		modeset_mask = info->modeset_mask;
 
@@ -214,8 +222,9 @@ static int mt6315_get_status(struct regulator_dev *rdev)
 {
 	int ret = 0;
 	u32 regval = 0;
-	struct mt6315_regulator_info *info = rdev_get_drvdata(rdev);
+	struct mt6315_regulator_info *info;
 
+	info = container_of(rdev->desc, struct mt6315_regulator_info, desc);
 	ret = regmap_read(rdev->regmap, info->da_reg, &regval);
 	if (ret != 0) {
 		dev_notice(&rdev->dev, "Failed to get enable reg: %d\n", ret);
@@ -252,18 +261,21 @@ static struct mt6315_init_data mt6315_3_init_data = {
 	.id = MT6315_SLAVE_ID_3,
 	.size = MT6315_ID_3_MAX,
 	.buck1_modeset_mask = 0x3,
+	.buck3_modeset_mask = 0x4,
 };
 
 static struct mt6315_init_data mt6315_6_init_data = {
 	.id = MT6315_SLAVE_ID_6,
 	.size = MT6315_ID_6_MAX,
 	.buck1_modeset_mask = 0xB,
+	.buck3_modeset_mask = 0x4,
 };
 
 static struct mt6315_init_data mt6315_7_init_data = {
 	.id = MT6315_SLAVE_ID_7,
 	.size = MT6315_ID_7_MAX,
 	.buck1_modeset_mask = 0x3,
+	.buck3_modeset_mask = 0x4,
 };
 
 static const struct of_device_id mt6315_of_match[] = {
@@ -313,6 +325,8 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 		pdata->size = val;
 	if (!of_property_read_u32(node, "buck1-modeset-mask", &val))
 		pdata->buck1_modeset_mask = val;
+	if (!of_property_read_u32(node, "buck3-modeset-mask", &val))
+		pdata->buck3_modeset_mask = val;
 	chip->dev = dev;
 	chip->regmap = regmap;
 	dev_set_drvdata(dev, chip);
@@ -321,10 +335,10 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 	if (dev->fwnode && !dev->fwnode->dev)
 		dev->fwnode->dev = dev;
 
+	config.dev = dev;
+	config.driver_data = pdata;
+	config.regmap = regmap;
 	for (i = 0; i < pdata->size; i++) {
-		config.dev = dev;
-		config.driver_data = (mt6315_regulators + i);
-		config.regmap = regmap;
 		rdev = devm_regulator_register(dev,
 					       &(mt6315_regulators + i)->desc, &config);
 		if (IS_ERR(rdev)) {
