@@ -3074,7 +3074,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		wfd-size = <0 0x4000000>;
 #endif
 #ifdef CONFIG_MTK_PROT_MEM_SUPPORT
-		prot-sharedmem-size = <0 0x8000000>;
+		prot-region-based-size = <0 0x8000000>;
 #endif
 #ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
 		ta-elf-size = <0 0x1000000>;
