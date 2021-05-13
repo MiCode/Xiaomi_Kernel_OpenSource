@@ -119,10 +119,12 @@ gh_vm_loader_wait_for_os_status(struct gh_sec_vm_struct *sec_vm_struct,
 	return 0;
 }
 
-static int gh_vm_loader_get_wait_for_stop_reason(u32 stop_reason)
+static int gh_vm_loader_get_wait_for_stop_reason(u32 stop_reason, u8 stop_flags)
 {
 	switch (stop_reason) {
 	case GH_VM_STOP_SHUTDOWN:
+		if (stop_flags)
+			return GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED;
 		return GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF;
 	case GH_VM_STOP_RESTART:
 		return GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET;
@@ -248,11 +250,15 @@ gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
 	u32 ioc_exit_reason = GH_VM_EXIT_REASON_UNKNOWN;
 
 	if (sec_vm_struct->vmid != vm_exited->vmid) {
-		dev_warn(dev, "VM_EXITED notification not for this vmid\n");
+		dev_warn(dev, "VM_EXITED:%d notif not for this vm\n",
+				vm_exited->exit_type);
 		return;
 	}
 
 	mutex_lock(&sec_vm_struct->vm_lock);
+
+	sec_vm_struct->exit_type = vm_exited->exit_type;
+	wake_up_interruptible(&sec_vm_struct->vm_exited_wait);
 
 	switch (vm_exited->exit_type) {
 	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF:
@@ -281,9 +287,6 @@ gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
 		break;
 	}
 
-	sec_vm_struct->exit_type = vm_exited->exit_type;
-	wake_up_interruptible(&sec_vm_struct->vm_exited_wait);
-
 	sec_vm_struct->ioc_exit_reason = ioc_exit_reason;
 	complete(&sec_vm_struct->ioc_vm_exit_wait);
 
@@ -299,7 +302,8 @@ gh_vm_loader_sec_notif_vm_status(struct gh_sec_vm_struct *sec_vm_struct,
 	int vmid = sec_vm_struct->vmid;
 
 	if (vmid != vm_status->vmid) {
-		dev_warn(dev, "VM_STATUS notification not for this vmid\n");
+		dev_warn(dev, "VM_STATUS:%d notif not for this vm\n",
+				vm_status->vm_status);
 		return;
 	}
 
@@ -477,7 +481,7 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 	if (stop_reason >= GH_VM_STOP_MAX)
 		return -EINVAL;
 
-	wait_status = gh_vm_loader_get_wait_for_stop_reason(stop_reason);
+	wait_status = gh_vm_loader_get_wait_for_stop_reason(stop_reason, stop_flags);
 	if (wait_status < 0)
 		return -EINVAL;
 
