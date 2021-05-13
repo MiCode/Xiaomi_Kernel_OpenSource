@@ -267,10 +267,12 @@ struct mtk_panel_funcs {
 		void *handle, unsigned int level);
 	int (*reset)(struct drm_panel *panel, int on);
 	int (*ata_check)(struct drm_panel *panel);
-	int (*ext_param_set)(struct drm_panel *panel, unsigned int mode);
+	int (*ext_param_set)(struct drm_panel *panel,
+		struct drm_connector *connector, unsigned int mode);
 	int (*ext_param_get)(struct mtk_panel_params *ext_para,
 		unsigned int mode);
-	int (*mode_switch)(struct drm_panel *panel, unsigned int cur_mode,
+	int (*mode_switch)(struct drm_panel *panel,
+		struct drm_connector *connector, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
 	int (*get_virtual_heigh)(void);
 	int (*get_virtual_width)(void);

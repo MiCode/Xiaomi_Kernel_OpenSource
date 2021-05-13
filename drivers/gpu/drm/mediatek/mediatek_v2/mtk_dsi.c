@@ -1929,7 +1929,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 				dsi->ext->funcs->mode_switch) {
 				DDPMSG("%s do lcm mode_switch to %u\n",
 					__func__, mode_id);
-				dsi->ext->funcs->mode_switch(dsi->panel, 0,
+				dsi->ext->funcs->mode_switch(dsi->panel, &dsi->conn, 0,
 					mode_id, AFTER_DSI_POWERON);
 			}
 		}
@@ -2723,7 +2723,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 		panel_ext->funcs->ext_param_set) {
 		DDPINFO("old ext_param_set\n");
 		old_get_sta = panel_ext->funcs->ext_param_set(
-			dsi->panel, src_mode_idx);
+			dsi->panel, &dsi->conn ,src_mode_idx);
 	}
 	if (old_get_sta)
 		DDPINFO("%s,error:not support src MODE:(%d)\n", __func__,
@@ -2738,7 +2738,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 		panel_ext->funcs->ext_param_set) {
 		DDPINFO("new ext_param_set\n");
 		new_get_sta = panel_ext->funcs->ext_param_set(
-			dsi->panel, dst_mode_idx);
+			dsi->panel, &dsi->conn, dst_mode_idx);
 	}
 	if (new_get_sta)
 		DDPINFO("%s,error:not support dst MODE:(%d)\n", __func__,
@@ -4786,7 +4786,7 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	/*  send lcm cmd before DSI power down if needed */
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->mode_switch)
-		dsi->ext->funcs->mode_switch(dsi->panel, src_mode,
+		dsi->ext->funcs->mode_switch(dsi->panel, &dsi->conn, src_mode,
 			dst_mode, BEFORE_DSI_POWERDOWN);
 
 	if (need_mipi_change == 0)
@@ -4800,7 +4800,7 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->ext_param_set)
-		dsi->ext->funcs->ext_param_set(dsi->panel,
+		dsi->ext->funcs->ext_param_set(dsi->panel, &dsi->conn,
 			state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
 	/* Power on DSI */
@@ -4815,7 +4815,7 @@ skip_change_mipi:
 	/*  send lcm cmd after DSI power on if needed */
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->mode_switch)
-		dsi->ext->funcs->mode_switch(dsi->panel, src_mode,
+		dsi->ext->funcs->mode_switch(dsi->panel, &dsi->conn, src_mode,
 			dst_mode, AFTER_DSI_POWERON);
 
 	/* set frame done */
@@ -4873,7 +4873,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->ext_param_set)
-		dsi->ext->funcs->ext_param_set(dsi->panel,
+		dsi->ext->funcs->ext_param_set(dsi->panel, &dsi->conn,
 			state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 	//1.fps change index
 	fps_chg_index = mtk_crtc->fps_change_index;
