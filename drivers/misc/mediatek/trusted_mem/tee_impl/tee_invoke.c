@@ -100,6 +100,21 @@ int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type)
 
 	return tee_directly_invoke_cmd(&cmd_params);
 }
+
+int secmem_fr_set_wfd_region(u64 pa, u32 size, int remote_region_type)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_SEC_MEM_SET_WFD_REGION;
+	cmd_params.param0 = pa;
+	cmd_params.param1 = size;
+	cmd_params.param2 = remote_region_type;
+
+	if (pa == 0 & size == 0)
+		return TMEM_OK;
+
+	return tee_directly_invoke_cmd(&cmd_params);
+}
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT) && \

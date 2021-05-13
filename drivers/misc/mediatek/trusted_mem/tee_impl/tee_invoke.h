@@ -27,6 +27,7 @@ int secmem_force_hw_protection(void);
 #if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 	extern int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type);
+	extern int secmem_fr_set_wfd_region(u64 pa, u32 size, int remote_region_type);
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)

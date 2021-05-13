@@ -509,6 +509,8 @@ bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 	switch (mem_type) {
 	case TRUSTED_MEM_SVP_REGION:
 		return is_svp_on_mtee();
+	case TRUSTED_MEM_WFD:
+		return is_svp_on_mtee();
 	case TRUSTED_MEM_PROT:
 	case TRUSTED_MEM_HAPP:
 	case TRUSTED_MEM_HAPP_EXTRA:
