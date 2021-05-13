@@ -254,12 +254,20 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	int cpu, best_energy_cpu = prev_cpu;
 	struct cpuidle_state *idle;
 	struct perf_domain *pd;
+	int select_reason = -1;
 
 
 	rcu_read_lock();
+	if (!uclamp_min_ls)
+		latency_sensitive = uclamp_latency_sensitive(p);
+	else
+		latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
+
 	pd = rcu_dereference(rd->pd);
-	if (!pd || READ_ONCE(rd->overutilized))
+	if (!pd || READ_ONCE(rd->overutilized)) {
+		select_reason = LB_FAIL;
 		goto fail;
+	}
 
 	cpu = smp_processor_id();
 	if (sync && cpu_rq(cpu)->nr_running == 1 &&
@@ -267,16 +275,14 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	    task_fits_capacity(p, capacity_of(cpu))) {
 		rcu_read_unlock();
 		*new_cpu = cpu;
-		return;
+		select_reason = LB_SYNC;
+		goto done;
 	}
 
-	if (!task_util_est(p))
+	if (!task_util_est(p)) {
+		select_reason = LB_ZERO_UTIL;
 		goto unlock;
-
-	if (!uclamp_min_ls)
-		latency_sensitive = uclamp_latency_sensitive(p);
-	else
-		latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
+	}
 
 	for (; pd; pd = pd->next) {
 		unsigned long cur_delta, spare_cap, max_spare_cap = 0;
@@ -405,7 +411,8 @@ unlock:
 
 	if (latency_sensitive){
 		*new_cpu = best_idle_cpu >= 0 ? best_idle_cpu : max_spare_cap_cpu_ls;
-		return;
+		select_reason = LB_LATENCY_SENSITIVE;
+		goto done;
 	}
 
 	/*
@@ -414,23 +421,30 @@ unlock:
 	 */
 	if (prev_delta == ULONG_MAX){
 		*new_cpu = best_energy_cpu;
-		return;
+		select_reason = LB_NOT_PREV;
+		goto done;
 
 	}
 
 	if (prev_delta > best_delta){
 		*new_cpu = best_energy_cpu;
-		return;
+		select_reason = LB_BEST_ENERGY_CPU;
+		goto done;
 	}
 
 	*new_cpu = prev_cpu;
-	return;
+	select_reason = LB_PREV;
+	goto done;
 
 
 fail:
 	rcu_read_unlock();
 
 	*new_cpu = -1;
+done:
+	trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
+			task_util(p), uclamp_task_util(p),
+			latency_sensitive , sync);
 
 	return;
 }

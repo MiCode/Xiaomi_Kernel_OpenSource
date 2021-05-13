@@ -12,6 +12,14 @@
 #include <linux/types.h>
 #include <linux/tracepoint.h>
 
+#define LB_FAIL                   (0x01)
+#define LB_SYNC                   (0x02)
+#define LB_ZERO_UTIL              (0x04)
+#define LB_PREV                   (0x08)
+#define LB_LATENCY_SENSITIVE      (0x10)
+#define LB_NOT_PREV               (0x20)
+#define LB_BEST_ENERGY_CPU        (0x40)
+
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
 /*
  * Tracepoint for big task rotation
@@ -45,6 +53,53 @@ TRACE_EVENT(sched_big_task_rotation,
 		__entry->fin)
 );
 #endif
+
+TRACE_EVENT(sched_select_task_rq,
+
+	TP_PROTO(struct task_struct *tsk,
+		int policy, int prev_cpu, int target_cpu,
+		int task_util, int boost, bool prefer, int sync_flag),
+
+	TP_ARGS(tsk, policy, prev_cpu, target_cpu, task_util, boost,
+		prefer, sync_flag),
+
+	TP_STRUCT__entry(
+		__field(pid_t, pid)
+		__field(int, policy)
+		__field(int, prev_cpu)
+		__field(int, target_cpu)
+		__field(int, task_util)
+		__field(int, boost)
+		__field(long, task_mask)
+		__field(bool, prefer)
+		__field(int, sync_flag)
+		),
+
+	TP_fast_assign(
+		__entry->pid        = tsk->pid;
+		__entry->policy     = policy;
+		__entry->prev_cpu   = prev_cpu;
+		__entry->target_cpu = target_cpu;
+		__entry->task_util      = task_util;
+		__entry->boost          = boost;
+		__entry->task_mask      = tsk->cpus_ptr->bits[0];
+		__entry->prefer         = prefer;
+		__entry->sync_flag     = sync_flag;
+		),
+
+	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d uclamp=%d mask=0x%lx latency_sensitive=%d sync=%d",
+		__entry->pid,
+		__entry->policy,
+		__entry->prev_cpu,
+		__entry->target_cpu,
+		__entry->task_util,
+		__entry->boost,
+		__entry->task_mask,
+		__entry->prefer,
+		__entry->sync_flag)
+);
+
+
 
 /*
  * Tracepoint for task force migrations.
