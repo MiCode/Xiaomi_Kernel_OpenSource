@@ -209,8 +209,8 @@ rewait:
 	if (ret < 0) {
 		mdw_dbg_aee("apusys midware wait timeout");
 	} else {
+		ret = ac->ret;
 		mdw_ap_cmd_delete(ac);
-		ret = (0 | ac->ret);
 	}
 
 	return ret;
