@@ -1808,6 +1808,17 @@
 			interrupts = <GIC_SPI 505 IRQ_TYPE_EDGE_RISING 0>;
 		};
 
+		/* Microtrust SW IRQ number 506(538) ~ 511(543) */
+		utos {
+			compatible = "microtrust,utos";
+			interrupts = <GIC_SPI 506 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 507 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		utos_tester {
+			compatible = "microtrust,tester-v1";
+		};
+
 		ssram1@10450000 {
 			compatible = "mmio-sram_1";
 			reg = <0x0 0x10450000 0x0 0x80>;
