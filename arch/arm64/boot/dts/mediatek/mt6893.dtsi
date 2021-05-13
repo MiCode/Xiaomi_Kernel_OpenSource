@@ -2257,8 +2257,7 @@
 			interrupts = <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH 0>;
 
-			/* TODO: change 10 to CLK_INFRA_THERM after clk.h defined */
-			clocks = <&infracfg_ao_clk 10>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_THERM>;
 			clock-names = "lvts_clk";
 
 			resets = <&infracfg_rst 0>,
