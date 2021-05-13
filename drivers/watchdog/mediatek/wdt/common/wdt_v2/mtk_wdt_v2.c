@@ -168,7 +168,7 @@ static void mtk_wdt_update_last_restart(void *last, int cpu_id)
 static int mtk_rgu_pause_dvfsrc(int enable)
 {
 #if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6768) \
-	|| defined(CONFIG_MACH_MT6785)
+	|| defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6781)
 	unsigned int tmp;
 	unsigned int count = 100;
 
