@@ -3614,7 +3614,7 @@
 
 		mmqos: interconnect {
 			compatible = "mediatek,mt6893-mmqos";
-			#interconnect-cells = <1>;
+			#mtk-interconnect-cells = <1>;
 			mediatek,larbs = <&larb0 &larb1 &larb2 &larb3
 					  &larb4 &larb5 &larb7 &larb8 &larb9
 					  &larb11 &larb13 &larb14 &larb15
