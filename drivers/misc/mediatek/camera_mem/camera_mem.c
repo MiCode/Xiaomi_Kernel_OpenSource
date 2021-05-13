@@ -1131,7 +1131,8 @@ static int cam_mem_resume(struct platform_device *pDev)
 static const struct of_device_id cam_mem_of_ids[] = {
 	{
 		.compatible = "mediatek,cam_mem",
-	}
+	},
+	{}
 };
 
 static struct platform_driver CamMemDriver = {
