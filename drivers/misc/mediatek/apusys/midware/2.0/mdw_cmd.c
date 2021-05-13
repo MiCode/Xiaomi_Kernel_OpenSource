@@ -47,7 +47,7 @@ static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *cmd)
 	if (!cmd->cmdbufs)
 		return;
 
-	mdw_mem_free(mpriv, cmd->cmdbufs->handle);
+	mdw_mem_free(mpriv, cmd->cmdbufs);
 	cmd->cmdbufs = NULL;
 }
 
@@ -65,8 +65,7 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *cmd)
 		MDW_DEFAULT_ALIGN, true);
 	if (!cmd->cmdbufs)
 		return -ENOMEM;
-	ret = mdw_mem_map(mpriv, cmd->cmdbufs->handle);
-	if (ret)
+	if (mdw_mem_map(mpriv, cmd->cmdbufs))
 		goto free_cmdbufs;
 
 	/* TODO, should ref++ for output */
@@ -106,7 +105,7 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *cmd)
 	goto out;
 
 free_cmdbufs:
-	mdw_mem_free(mpriv, cmd->cmdbufs->handle);
+	mdw_mem_free(mpriv, cmd->cmdbufs);
 	cmd->cmdbufs = NULL;
 out:
 	mdw_cmd_debug("ret(%d)\n", ret);

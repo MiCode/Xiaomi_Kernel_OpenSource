@@ -56,9 +56,12 @@ struct mdw_mem {
 
 	uint64_t flags;
 	uint8_t cacheable;
-	struct kref ref;
 	struct list_head u_item;
 	struct list_head m_item;
+
+	bool is_alloced;
+	struct kref ref;
+	struct mdw_fpriv *mpriv;
 
 	void *priv;
 };
@@ -167,9 +170,9 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	uint32_t align, uint8_t cacheable);
-void mdw_mem_free(struct mdw_fpriv *mpriv, int handle);
-int mdw_mem_map(struct mdw_fpriv *mpriv, int handle);
-int mdw_mem_unmap(struct mdw_fpriv *mpriv, int handle);
+int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
+int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
+int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
 
 int mdw_sysfs_init(struct mdw_device *mdev);
 void mdw_sysfs_deinit(struct mdw_device *mdev);

@@ -18,8 +18,12 @@ struct mdw_mem_mgr {
 };
 
 struct mdw_mem_mgr mmgr;
+struct device_dma_parameters mdw_dma_params;
 
-struct device_dma_parameters mdw_dma_parms;
+#define mdw_mem_show(m) \
+	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%u/%d/%p)\n", \
+	m, m->handle, (uint64_t)m->vaddr, m->size, m->device_va, \
+	m->align, m->flags, m->cacheable, kref_read(&m->ref), m->priv)
 
 static struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 {
@@ -28,91 +32,116 @@ static struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 
 	list_for_each_safe(list_ptr, tmp, &mpriv->mems) {
 		mem = list_entry(list_ptr, struct mdw_mem, u_item);
-		if (mem->handle == handle) {
-			mdw_mem_debug("map mem (%d/0x%llx/%u/0x%llx)\n",
-				mem->handle, (uint64_t)mem->vaddr,
-				mem->size, mem->device_va);
+		if (mem->handle == handle)
 			break;
-		}
+
 		mem = NULL;
 	}
 
 	return mem;
 }
 
+static void mdw_mem_delete(struct kref *ref)
+{
+	struct mdw_mem *m = container_of(ref, struct mdw_mem, ref);
+
+	mdw_mem_debug("delete mem(%p)\n", m);
+	list_del(&m->u_item);
+	list_del(&m->m_item);
+
+	if (m->is_alloced)
+		mdw_mem_dma_free(m->mpriv, m);
+	else
+		mdw_mem_dma_unmap(m->mpriv, m);
+
+	vfree(m);
+}
+
+static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
+{
+	struct mdw_mem *m = NULL;
+
+	m = vzalloc(sizeof(*m));
+	if (m) {
+		mdw_mem_debug("create mem(%p)\n", m);
+		m->mpriv = mpriv;
+		kref_init(&m->ref);
+		list_add_tail(&m->u_item, &mpriv->mems);
+		list_add_tail(&m->m_item, &mmgr.mems);
+	}
+
+	return m;
+}
+
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	uint32_t align, uint8_t cacheable)
 {
-	struct mdw_mem *mem = NULL;
+	struct mdw_mem *m = NULL;
 	int ret = 0;
 
-	mem = vzalloc(sizeof(*mem));
-	if (!mem)
+	m = mdw_mem_create(mpriv);
+	if (!m)
 		return NULL;
 
-	mem->size = size;
-	mem->align = align;
-	mem->cacheable = cacheable; /* TODO */
-
-	mdw_mem_debug("alloc mem(%u/%u/0x%llx)...\n",
-		mem->size, mem->align, mem->cacheable);
-
-	ret = mdw_mem_dma_alloc(mpriv, mem);
+	m->size = size;
+	m->align = align;
+	m->cacheable = cacheable; /* TODO */
+	m->is_alloced = true;
+	ret = mdw_mem_dma_alloc(mpriv, m);
 	if (ret)
 		goto free_mem;
 
-	mutex_lock(&mmgr.mtx);
-	mutex_lock(&mpriv->mtx);
-	list_add_tail(&mem->u_item, &mpriv->mems);
-	list_add_tail(&mem->m_item, &mmgr.mems);
-	mutex_unlock(&mpriv->mtx);
-	mutex_unlock(&mmgr.mtx);
-
-	mdw_mem_debug("alloc mem (%p/%d/0x%llx/%u/0x%llx)\n",
-		mem, mem->handle, (uint64_t)mem->vaddr,
-		mem->size, mem->device_va);
+	mdw_mem_show(m);
 
 	goto out;
 
 free_mem:
-	vfree(mem);
-	mem = NULL;
+	kref_put(&m->ref, mdw_mem_delete);
+	m = NULL;
 out:
-	return mem;
+	return m;
 }
 
-void mdw_mem_free(struct mdw_fpriv *mpriv, int handle)
+int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
-	struct mdw_mem *mem = NULL;
+	int ret = 0;
+
+	mdw_mem_show(m);
+	if (!m->is_alloced && !m->device_va)
+		ret = mdw_mem_dma_map(mpriv, m);
+	else
+		kref_get(&m->ref);
+
+	return ret;
+}
+
+int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+{
+	mdw_mem_show(m);
+	kref_put(&m->ref, mdw_mem_delete);
+
+	return 0;
+}
+
+static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,
+	union mdw_mem_args *args)
+{
+	struct mdw_mem_in *in = (struct mdw_mem_in *)args;
+	struct mdw_mem *m = NULL;
+	int ret = 0;
 
 	mutex_lock(&mmgr.mtx);
 	mutex_lock(&mpriv->mtx);
 
-	mem = mdw_mem_get(mpriv, handle);
-	if (mem) {
-		list_del(&mem->u_item);
-		list_del(&mem->m_item);
-		mdw_mem_dma_free(mpriv, mem);
-		vfree(mem);
+	m = mdw_mem_alloc(mpriv, in->alloc.size,
+		in->alloc.align, in->alloc.flags);
+	if (!m) {
+		ret = -ENOMEM;
+		goto out;
 	}
 
-	mutex_unlock(&mpriv->mtx);
-	mutex_unlock(&mmgr.mtx);
-}
-
-int mdw_mem_map(struct mdw_fpriv *mpriv, int handle)
-{
-	struct mdw_mem *mem = NULL;
-	int ret = -ENOMEM;
-
-	mutex_lock(&mmgr.mtx);
-	mutex_lock(&mpriv->mtx);
-
-	mem = mdw_mem_get(mpriv, handle);
-	if (!mem)
-		goto out;
-
-	ret = mdw_mem_dma_map(mpriv, mem);
+	memset(args, 0, sizeof(*args));
+	args->out.alloc.handle = m->handle;
 
 out:
 	mutex_unlock(&mpriv->mtx);
@@ -121,23 +150,96 @@ out:
 	return ret;
 }
 
-int mdw_mem_unmap(struct mdw_fpriv *mpriv, int handle)
+static int mdw_mem_ioctl_free(struct mdw_fpriv *mpriv,
+	union mdw_mem_args *args)
 {
-	struct mdw_mem *mem = NULL;
+	struct mdw_mem_in *in = (struct mdw_mem_in *)args;
+	struct mdw_mem *m = NULL;
+	int ret = -ENOMEM;
+
+	mutex_lock(&mmgr.mtx);
+	mutex_lock(&mpriv->mtx);
+	m = mdw_mem_get(mpriv, in->free.handle);
+	if (!m)
+		goto out;
+
+	ret = mdw_mem_free(mpriv, m);
+
+out:
+	memset(args, 0, sizeof(*args));
+	mutex_unlock(&mpriv->mtx);
+	mutex_unlock(&mmgr.mtx);
+
+	return ret;
+}
+
+static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
+	union mdw_mem_args *args)
+{
+	struct mdw_mem_in *in = (struct mdw_mem_in *)args;
+	struct mdw_mem *m = NULL;
 	int ret = -ENOMEM;
 
 	mutex_lock(&mmgr.mtx);
 	mutex_lock(&mpriv->mtx);
 
-	mem = mdw_mem_get(mpriv, handle);
-	if (!mem)
-		goto out;
+	m = mdw_mem_get(mpriv, in->map.handle);
+	if (!m) {
+		m = mdw_mem_create(mpriv);
+		if (!m) {
+			mdw_drv_err("alloc mdw mem fail\n");
+			goto out;
+		}
 
-	ret = mdw_mem_dma_unmap(mpriv, mem);
+		m->handle = in->map.handle;
+		ret = mdw_mem_map(mpriv, m);
+		/* delete mem */
+		if (ret) {
+			kref_put(&m->ref, mdw_mem_delete);
+			goto out;
+		}
+	} else {
+		ret = mdw_mem_map(mpriv, m);
+		if (ret)
+			goto out;
+	}
+
+	memset(args, 0, sizeof(*args));
+	args->out.map.device_va = m->device_va;
+	ret = 0;
 
 out:
 	mutex_unlock(&mpriv->mtx);
 	mutex_unlock(&mmgr.mtx);
+
+	return ret;
+}
+
+int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data)
+{
+	union mdw_mem_args *args = (union mdw_mem_args *)data;
+	int ret = 0;
+
+	mdw_flw_debug("op:%d\n", args->in.op);
+
+	switch (args->in.op) {
+	case MDW_MEM_IOCTL_ALLOC:
+		ret = mdw_mem_ioctl_alloc(mpriv, args);
+		break;
+
+	case MDW_MEM_IOCTL_MAP:
+		ret = mdw_mem_ioctl_map(mpriv, args);
+		break;
+
+	case MDW_MEM_IOCTL_FREE:
+	case MDW_MEM_IOCTL_UNMAP:
+		ret = mdw_mem_ioctl_free(mpriv, args);
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
 
 	return ret;
 }
@@ -152,8 +254,8 @@ int mdw_mem_init(struct mdw_device *mdev)
 	INIT_LIST_HEAD(&mmgr.mems);
 
 	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
-	memset(&mdw_dma_parms, 0, sizeof(mdw_dma_parms));
-	dev->dma_parms = &mdw_dma_parms;
+	memset(&mdw_dma_params, 0, sizeof(mdw_dma_params));
+	dev->dma_parms = &mdw_dma_params;
 	ret = dma_set_max_seg_size(dev, (unsigned int)DMA_BIT_MASK(32));
 	if (ret)
 		mdw_drv_err("set dma param fail\n");
@@ -167,43 +269,6 @@ void mdw_mem_deinit(struct mdw_device *mdev)
 {
 }
 
-int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data)
-{
-	union mdw_mem_args *args = (union mdw_mem_args *)data;
-	struct mdw_mem *m = NULL;
-	int ret = 0;
-
-	mdw_flw_debug("op:%d\n", args->in.op);
-
-	switch (args->in.op) {
-	case MDW_MEM_IOCTL_ALLOC:
-		m = mdw_mem_alloc(mpriv, args->in.alloc.size,
-			args->in.alloc.align, args->in.alloc.flags);
-		memset(args, 0, sizeof(*args));
-		if (m)
-			args->out.alloc.handle = m->handle;
-		else
-			ret = -ENOMEM;
-
-		break;
-
-	case MDW_MEM_IOCTL_FREE:
-		mdw_mem_free(mpriv, args->in.free.handle);
-		break;
-
-	case MDW_MEM_IOCTL_MAP:
-		break;
-
-	case MDW_MEM_IOCTL_UNMAP:
-		break;
-
-	default:
-		ret = -EINVAL;
-		break;
-	}
-
-	return ret;
-}
 
 uint64_t apusys_mem_query_kva(uint64_t iova)
 {
@@ -218,6 +283,9 @@ uint64_t apusys_mem_query_kva(uint64_t iova)
 		m = list_entry(list_ptr, struct mdw_mem, m_item);
 		if (iova >= m->device_va &&
 			iova < m->device_va + m->size) {
+			if (m->vaddr == NULL)
+				break;
+
 			kva = (uint64_t)m->vaddr + (iova - m->device_va);
 			mdw_mem_debug("query kva (0x%llx->0x%llx)\n",
 				iova, kva);
@@ -245,6 +313,9 @@ uint64_t apusys_mem_query_iova(uint64_t kva)
 
 		if (kva >= (uint64_t)m->vaddr &&
 			kva < (uint64_t)m->vaddr + m->size) {
+			if (!m->device_va)
+				break;
+
 			iova = m->device_va + (kva - (uint64_t)m->vaddr);
 			mdw_mem_debug("query iova (0x%llx->0x%llx)\n",
 				kva, iova);

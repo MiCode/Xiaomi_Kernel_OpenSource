@@ -106,7 +106,7 @@ static int mdw_rv_cmd_delete(struct mdw_fpriv *mpriv, struct mdw_rv_cmd *rc)
 	if (!rc)
 		return -EINVAL;
 
-	mdw_mem_free(mpriv, rc->cb->handle);
+	mdw_mem_free(mpriv, rc->cb);
 	vfree(rc);
 
 	return 0;
