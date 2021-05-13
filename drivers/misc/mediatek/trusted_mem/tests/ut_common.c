@@ -32,6 +32,7 @@
 #include "private/tmem_priv.h"
 #include "private/ut_cmd.h"
 #include "tests/ut_common.h"
+#include "ssmr/memory_ssmr.h"
 
 static enum UT_RET_STATE regmgr_state_check(int mem_idx, int region_final_state)
 {
@@ -304,6 +305,7 @@ mem_alloc_saturation_variant(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 	int max_pool_size = tmem_core_get_max_pool_size(mem_type);
 	int max_items;
 	u32 min_chunk_sz = get_saturation_test_min_chunk_size(mem_type);
+	uint64_t phy_addr;
 
 	for (chunk_size = min_chunk_sz; chunk_size <= SZ_16M; chunk_size *= 2) {
 		max_items = (max_pool_size / chunk_size);
@@ -320,6 +322,25 @@ mem_alloc_saturation_variant(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 			ASSERT_EQ(1, ref_count, "reference count check");
 			ASSERT_NE(0, g_mem_handle_list[chunk_num],
 				  "handle check");
+
+			if (mem_type == TRUSTED_MEM_SVP_REGION) {
+				/* test trusted_mem_api_query_pa() iff svp enable */
+				if (is_svp_on_mtee()) {
+					tmem_query_gz_handle_to_pa(mem_type, alignment, chunk_size,
+						&ref_count, &g_mem_handle_list[chunk_num],
+						mem_owner, 0, 0, &phy_addr);
+					pr_info("trusted_mem_api_query_pa(): \
+						gz_handle=0x%x, pa=0x%lx\n",
+						g_mem_handle_list[chunk_num], phy_addr);
+                                } else {
+					tmem_query_sec_handle_to_pa(mem_type, alignment, chunk_size,
+						&ref_count, &g_mem_handle_list[chunk_num],
+						mem_owner, 0, 0, &phy_addr);
+					pr_info("trusted_mem_api_query_pa(): \
+						sec_handle=0x%x, pa=0x%lx\n",
+						g_mem_handle_list[chunk_num], phy_addr);
+				}
+			}
 		}
 
 		/* one more allocation (expect fail) */

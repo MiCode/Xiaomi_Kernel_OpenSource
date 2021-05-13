@@ -33,7 +33,10 @@ u32 tmem_core_get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type);
 bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 			       u32 *size);
 int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
-			      u32 size, u32 *refcount, u32 *gz_handle,
-			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);
+			u32 size, u32 *refcount, u32 *gz_handle,
+			u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);
 
+int tmem_query_sec_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+			u32 size, u32 *refcount, u32 *sec_handle,
+			u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);
 #endif /* end of TMEM_ENTRY_H */
