@@ -106,7 +106,7 @@ static int init_cpufreq_table(void)
 
 		for (opp_ids = 0; opp_ids < opp_nr; opp_ids++)
 			ppm_main_info.cluster_info[i].dvfs_tbl[opp_ids] =
-				policy->freq_table[(opp_nr - 1) - opp_ids];
+				policy->freq_table[opp_ids];
 	}
 	return ret;
 
