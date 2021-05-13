@@ -35,8 +35,8 @@
 #include "include/panel-tianma-nt36672e-vdo-120hz-hfp.h"
 #endif
 
-#if defined(CONFIG_LEDS_MTK_I2C)
-#include "../../../misc/mediatek/leds/leds-mtk-i2c.h"
+#if defined(CONFIG_RT4831A_I2C)
+#include "../../../misc/mediatek/gate_ic/gate_i2c.h"
 #endif
 
 /* enable this to check panel self -bist pattern */
@@ -556,19 +556,10 @@ static int tianma_unprepare(struct drm_panel *panel)
 	tianma_dcs_write_seq_static(ctx, 0x10);
 	msleep(120);
 
-#if defined(CONFIG_LEDS_MTK_I2C)
+#if defined(CONFIG_RT4831A_I2C)
 	/*this is rt4831a*/
-	mtk_leds_deinit_power();
-	lcm_i2c_write_bytes(0x09, 0x18);
-	ctx->pm_enable_gpio = devm_gpiod_get(ctx->dev,
-		"pm-enable", GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->pm_enable_gpio)) {
-		dev_err(ctx->dev, "%s: cannot get pm-enable %ld\n",
-			__func__, PTR_ERR(ctx->pm_enable_gpio));
-		return PTR_ERR(ctx->pm_enable_gpio);
-	}
-	gpiod_set_value(ctx->pm_enable_gpio, 0);
-	devm_gpiod_put(ctx->dev, ctx->pm_enable_gpio);
+	_gate_ic_i2c_panel_bias_enable(0);
+	_gate_ic_Power_off();
 #endif
 	ctx->error = 0;
 	ctx->prepared = false;
@@ -583,29 +574,10 @@ static int tianma_prepare(struct drm_panel *panel)
 	pr_info("%s\n", __func__);
 	if (ctx->prepared)
 		return 0;
-#if defined(CONFIG_LEDS_MTK_I2C)
+#if defined(CONFIG_RT4831A_I2C)
+	_gate_ic_Power_on();
 	/*rt4831a co-work with leds_i2c*/
-	ctx->pm_enable_gpio = devm_gpiod_get(ctx->dev,
-		"pm-enable", GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->pm_enable_gpio)) {
-		dev_err(ctx->dev, "%s: cannot get pm-enable %ld\n",
-			__func__, PTR_ERR(ctx->pm_enable_gpio));
-		return PTR_ERR(ctx->pm_enable_gpio);
-	}
-	gpiod_set_value(ctx->pm_enable_gpio, 1);
-	devm_gpiod_put(ctx->dev, ctx->pm_enable_gpio);
-	mtk_leds_init_power();
-	lcm_i2c_write_bytes(0x0a, 0x11);
-	lcm_i2c_write_bytes(0x0b, 0x00);
-	/*set bias to 5.4v*/
-	lcm_i2c_write_bytes(0x0c, 0x24);
-	lcm_i2c_write_bytes(0x0d, 0x1c);
-	lcm_i2c_write_bytes(0x0e, 0x1c);
-	/* set FPWM mode */
-	lcm_i2c_write_bytes(0xF0, 0x69);
-	lcm_i2c_write_bytes(0xB1, 0x6C);
-	/*bias enable*/
-	lcm_i2c_write_bytes(0x09, 0x9e);
+	_gate_ic_i2c_panel_bias_enable(1);
 #endif
 	tianma_panel_init(ctx);
 
