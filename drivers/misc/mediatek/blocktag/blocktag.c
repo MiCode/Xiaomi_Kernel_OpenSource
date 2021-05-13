@@ -1714,10 +1714,11 @@ static void mtk_btag_mictx_init(const char *name,
 
 		/* Enable mictx by default for EARA-IO */
 		if (vops->earaio_enabled) {
+			if (!snprintf(wq_name, ARRAY_SIZE(wq_name),
+				"mtk_btag_uevt_%d", boot_type))
+				return;
 			mtk_btag_mictx_enable(1);
 			btag->mictx.earaio_enabled = true;
-			snprintf(wq_name, ARRAY_SIZE(wq_name),
-				"mtk_btag_uevt_%d", boot_type);
 			btag->mictx.uevt_workq =
 				alloc_ordered_workqueue(wq_name,
 				WQ_MEM_RECLAIM);
