@@ -634,9 +634,10 @@ int ccu_power(struct ccu_power_s *power)
 
 	} else if (power->bON == 4) {
 		/*CCU boot fail, just enable CG*/
-
-		ccu_clock_disable();
-		ccuInfo.IsCcuPoweredOn = 0;
+		if (ccuInfo.IsCcuPoweredOn == 1) {
+			ccu_clock_disable();
+			ccuInfo.IsCcuPoweredOn = 0;
+		}
 
 	} else {
 		LOG_ERR("invalid power option: %d\n", power->bON);
