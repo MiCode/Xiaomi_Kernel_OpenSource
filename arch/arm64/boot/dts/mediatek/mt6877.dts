@@ -797,8 +797,8 @@
 		reg = <0 0x10002000 0 0x1000>;
 	};
 
-	pericfg@10003000 {
-		compatible = "mediatek,pericfg";
+	pericfg: pericfg@10003000 {
+		compatible = "mediatek,pericfg", "syscon";
 		reg = <0 0x10003000 0 0x1000>;
 	};
 
@@ -5674,6 +5674,8 @@
 		phy-names = "port0_phy";
 		extcon = <&extcon_usb>;
 		dr_mode = "otg";
+		mediatek,syscon-wakeup = <&pericfg 0x420 101>;
+		wakeup-source;
 	};
 
 	xhci0: usb_xhci@11200000 {
