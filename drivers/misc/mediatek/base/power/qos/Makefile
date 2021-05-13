@@ -41,9 +41,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
 obj-y += mtk_qos_ipi.o
 endif
 
-
 ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/mt6877
+else ifeq($(CONFIG_MACH_MT6781),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(CONFIG_MTK_PLATFORM)
 endif
