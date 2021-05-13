@@ -28,6 +28,8 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 		crash_record = &mrdump_cblock->crash_record;
 		local_irq_disable();
 		cpu = get_HW_cpuid();
+		if (cpu < 0 || cpu >= nr_cpu_ids)
+			return;
 		switch (sizeof(unsigned long)) {
 		case 4:
 			reg = (elf_gregset_t *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_regs;
