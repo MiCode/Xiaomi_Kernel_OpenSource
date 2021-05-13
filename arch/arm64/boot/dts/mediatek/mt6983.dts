@@ -6,6 +6,7 @@
 /dts-v1/;
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gce/mt6983-gce.h>
 
 / {
 	model = "MT6983";
@@ -630,26 +631,6 @@ timer: timer {
 		reg = <0 0x10226000 0 0x1000>;
 	};
 
-	gce@10228000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x10228000 0 0x1000>;
-	};
-
-	gce@10229000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x10229000 0 0x1000>;
-	};
-
-	gce@1022a000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x1022a000 0 0x1000>;
-	};
-
-	gce@1022b000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x1022b000 0 0x1000>;
-	};
-
 	infra_dpmaif@1022c000 {
 		compatible = "mediatek,infra_dpmaif";
 		reg = <0 0x1022c000 0 0x1000>;
@@ -953,26 +934,6 @@ timer: timer {
 	sys_cirq@10356000 {
 		compatible = "mediatek,sys_cirq";
 		reg = <0 0x10356000 0 0x1000>;
-	};
-
-	gce@10318000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x10318000 0 0x1000>;
-	};
-
-	gce@10319000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x10319000 0 0x1000>;
-	};
-
-	gce@1031a000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x1031a000 0 0x1000>;
-	};
-
-	gce@1031b000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x1031b000 0 0x1000>;
 	};
 
 	dramc_ch1_rsv@10900000 {
@@ -1993,6 +1954,55 @@ timer: timer {
 	mbist@17860000 {
 		compatible = "mediatek,mbist";
 		reg = <0 0x17860000 0 0x10000>;
+	};
+
+	gce: gce@1e980000 {
+		compatible = "mediatek,mt6983-gce";
+		reg = <0 0x1e980000 0 0x4000>;
+		interrupts = <GIC_SPI 465 IRQ_TYPE_LEVEL_HIGH 0>;
+		#mbox-cells = <3>;
+		#gce-event-cells = <1>;
+		#gce-subsys-cells = <2>;
+		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
+		// clocks = <&infracfg_ao_clk CLK_IFRAO_GCE>,
+		//	 <&infracfg_ao_clk CLK_IFRAO_GCE_26M>;
+		// clock-names = "gce", "gce-timer";
+	};
+
+	gce_m: gce@1e990000 {
+		compatible = "mediatek,mt6983-gce";
+		reg = <0 0x1e990000 0 0x4000>;
+		interrupts = <GIC_SPI 464 IRQ_TYPE_LEVEL_HIGH 0>;
+		#mbox-cells = <3>;
+		#gce-event-cells = <1>;
+		#gce-subsys-cells = <2>;
+		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
+		// clocks = <&infracfg_ao_clk CLK_IFRAO_GCE2>,
+		//	 <&infracfg_ao_clk CLK_IFRAO_GCE_26M>;
+		// clock-names = "gce", "gce-timer";
+	};
+
+	cmdq-test {
+		compatible = "mediatek,cmdq-test";
+		mediatek,gce = <&gce>;
+		// mmsys_config = <&mmsys_config>;
+		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
+		mboxes = <&gce 23 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 23 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
 
 	mdpsys_config@1f000000 {
