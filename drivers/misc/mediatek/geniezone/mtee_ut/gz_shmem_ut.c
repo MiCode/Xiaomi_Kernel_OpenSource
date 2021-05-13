@@ -46,7 +46,7 @@
 #define mem_srv_name  "com.mediatek.geniezone.srv.mem"
 #define echo_srv_name  "com.mediatek.geniezone.srv.echo"
 
-#define KREE_DEBUG(fmt...) pr_debug("[SM_kUT]" fmt)
+#define KREE_DEBUG(fmt...) pr_info("[SM_kUT]" fmt)
 #define KREE_INFO(fmt...) pr_info("[SM_kUT]" fmt)
 #define KREE_ERR(fmt...) pr_info("[SM_kUT][ERR]" fmt)
 
@@ -54,7 +54,7 @@
 #define test_case_discontinuous 1
 
 #define debugFg 0
-#define enableFg 0
+#define enableFg 1
 
 /*declaration fun*/
 
@@ -435,16 +435,29 @@ out:
 	return TZ_RESULT_SUCCESS;
 
 }
-
+DEFINE_MUTEX(mutex_shmem_ut);
 int gz_test_shm(void *arg)
 {
 #if enableFg
+	int locktry;
+
+	do {
+		locktry = mutex_lock_interruptible(&mutex_shmem_ut);
+		if (locktry && locktry != -EINTR) {
+			KREE_ERR("mutex_c fail(0x%x)\n", locktry);
+			return TZ_RESULT_ERROR_GENERIC;
+		}
+	} while (locktry);
+
 	/*case 1: continuous region */
 	_shmem_test_main(test_case_continuous);
 
 
 	/*case 2: discontinuous region */
 	_shmem_test_main(test_case_discontinuous);
+
+	mutex_unlock(&mutex_shmem_ut);
+
 #endif
 
 	return TZ_RESULT_SUCCESS;
