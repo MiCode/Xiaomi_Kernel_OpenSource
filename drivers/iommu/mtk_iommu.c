@@ -327,7 +327,7 @@ static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
 static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = dev_id;
-	u32 int_state, regval, va34_32, pa34_32;
+	u32 int_state, regval, va34_32, pa34_32, table_base;
 	u64 fault_iova, fault_pa;
 	bool layer, write;
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
@@ -340,7 +340,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	struct mtk_iommu_domain *dom = data->m4u_dom;
 	unsigned int fault_larb, fault_port, sub_comm = 0;
 #endif
-
+	table_base = readl_relaxed(data->base + REG_MMU_PT_BASE_ADDR);
 	/* Read error info from registers */
 	int_state = readl_relaxed(data->base + REG_MMU_FAULT_ST1);
 	if (int_state & F_REG_MMU0_FAULT_MASK) {
@@ -376,8 +376,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		if (fault_iova) /* skip dump when fault iova = 0 */
 			mtk_iova_map_dump(fault_iova);
 		report_custom_iommu_fault(fault_iova, fault_pa, regval, type, 0);
-		dev_info(data->dev, "fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
-			int_state, fault_iova, fault_pa, layer, write ? "write" : "read");
+		dev_warn(data->dev, "base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
+			table_base, int_state, fault_iova, fault_pa, layer, write ? "write" : "read");
 #else
 	fault_port = F_MMU_INT_ID_PORT_ID(regval);
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_SUB_COMM)) {
@@ -490,13 +490,16 @@ static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 				     unsigned int domid)
 {
 	const struct mtk_iommu_iova_region *region;
+	struct mtk_iommu_data *data_temp;
 
-	/* Use the exist domain as there is only one pgtable here. */
-	if (data->m4u_dom) {
-		dom->iop = data->m4u_dom->iop;
-		dom->cfg = data->m4u_dom->cfg;
-		dom->domain.pgsize_bitmap = data->m4u_dom->cfg.pgsize_bitmap;
-		goto update_iova_region;
+	for_each_m4u(data_temp) {
+		/* Use the exist domain as there is only one pgtable here. */
+		if (data_temp->m4u_dom) {
+			dom->iop = data_temp->m4u_dom->iop;
+			dom->cfg = data_temp->m4u_dom->cfg;
+			dom->domain.pgsize_bitmap = data_temp->m4u_dom->cfg.pgsize_bitmap;
+			goto update_iova_region;
+		}
 	}
 
 	dom->cfg = (struct io_pgtable_cfg) {
@@ -589,7 +592,8 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		data->m4u_dom = dom;
 		writel(dom->cfg.arm_v7s_cfg.ttbr & MMU_PT_ADDR_MASK,
 		       data->base + REG_MMU_PT_BASE_ADDR);
-
+		pr_info("%s, iommu_dev:%s, user:%s, pa:0x%x\n",
+			__func__, dev_name(data->dev), dev_name(dev), dom->cfg.arm_v7s_cfg.ttbr);
 		pm_runtime_put(m4udev);
 	}
 
