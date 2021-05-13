@@ -1765,14 +1765,14 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.name = "adsp_dormant",
 		.sta_mask = BIT(22),
 		.ctl_offs = 0x358,
-		.sram_pdn_bits = GENMASK(9, 9),
-		.sram_pdn_ack_bits = GENMASK(13, 13),
+		.sram_slp_bits = GENMASK(9, 9),
+		.sram_slp_ack_bits = GENMASK(13, 13),
 		.basic_clk_name = {"adsp"},
 		.bp_table = {
 			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6893_TOP_AXI_PROT_EN_2_ADSP_DORMANT),
 		},
-		.caps = MTK_SCPD_SRAM_ISO,
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
 	},
 	[MT6893_POWER_DOMAIN_CAM] = {
 		.name = "cam",
