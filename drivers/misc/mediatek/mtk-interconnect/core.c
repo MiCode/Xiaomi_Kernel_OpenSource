@@ -336,7 +336,7 @@ struct icc_path *of_mtk_icc_get(struct device *dev, const char *name)
 	}
 
 	ret = of_parse_phandle_with_args(np, "interconnects",
-					 "#interconnect-cells", idx * 2,
+					 "#mtk-interconnect-cells", idx * 2,
 					 &src_args);
 	if (ret)
 		return ERR_PTR(ret);
@@ -344,7 +344,7 @@ struct icc_path *of_mtk_icc_get(struct device *dev, const char *name)
 	of_node_put(src_args.np);
 
 	ret = of_parse_phandle_with_args(np, "interconnects",
-					 "#interconnect-cells", idx * 2 + 1,
+					 "#mtk-interconnect-cells", idx * 2 + 1,
 					 &dst_args);
 	if (ret)
 		return ERR_PTR(ret);
