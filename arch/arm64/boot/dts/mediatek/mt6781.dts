@@ -1371,35 +1371,6 @@
 		clock-names = "gce";
 	};
 
-	gce_mbox: gce_mbox@1022c000 {
-		compatible = "mediatek,mt6781-gce";
-		reg = <0 0x1022c000 0 0x4000>;
-		interrupts = <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
-		#mbox-cells = <3>;
-		#gce-event-cells = <1>;
-		#gce-subsys-cells = <2>;
-		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
-				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
-				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
-				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
-				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
-				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
-				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
-		 clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
-			 <&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
-		 clock-names = "gce", "gce-timer";
-	};
-
-	gce_mbox_sec: gce_mbox_sec@1022c000 {
-		compatible = "mediatek,mailbox-gce-sec";
-		reg = <0 0x1022c000 0 0x4000>;
-		#mbox-cells = <3>;
-		mboxes = <&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>;
-		clock-names = "gce";
-	};
-
 	cmdq-test {
 		compatible = "mediatek,cmdq-test";
 		mediatek,gce = <&gce_mbox>;
