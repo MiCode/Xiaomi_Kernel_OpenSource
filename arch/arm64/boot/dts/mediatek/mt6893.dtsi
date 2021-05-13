@@ -5354,7 +5354,7 @@
  				 <&ipesys_clk CLK_IPE_LARB20>;
 			clock-names = "aie",
 				 "FDVT_CLK_IPE_LARB20";
-			mboxes = <&gce 17 0 CMDQ_THR_PRIO_1>;
+			mboxes = <&gce_m 17 0 CMDQ_THR_PRIO_1>;
 			iommus = <&iommu0 M4U_PORT_L20_IPE_FDVT_RDA_DISP>,
 				 <&iommu0 M4U_PORT_L20_IPE_FDVT_RDB_DISP>,
 				 <&iommu0 M4U_PORT_L20_IPE_FDVT_WRA_DISP>,
@@ -5372,7 +5372,7 @@
 				 <&iommu0 M4U_PORT_L20_IPE_RSC_WDMA_DISP>;
 			reg = <0 0x1b003000 0 0x1000>;
 			interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH 0>;
-			mboxes = <&gce 18 0 CMDQ_THR_PRIO_1>;
+			mboxes = <&gce_m 18 0 CMDQ_THR_PRIO_1>;
 			gce-event-names = "rsc_eof";
 			gce-events = <&gce CMDQ_EVENT_RSC_EOF>;
 			clocks = <&ipesys_clk CLK_IPE_RSC>,
