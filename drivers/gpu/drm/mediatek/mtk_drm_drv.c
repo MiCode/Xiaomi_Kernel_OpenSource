@@ -3590,8 +3590,13 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	if (private->data->bypass_infra_ddr_control) {
 		struct device_node *infra_node;
-		struct platform_device *infra_pdev;
+#if defined(CONFIG_MACH_MT6781)
+		struct resource infra_mem_res;
+#endif
+
+#if (defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877))
 		struct device *infra_dev;
+		struct platform_device *infra_pdev;
 		struct resource *infra_mem;
 
 		infra_node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao_mem");
@@ -3616,6 +3621,27 @@ static int mtk_drm_probe(struct platform_device *pdev)
 					__func__, (void *)private->infra_regs,
 					private->infra_regs_pa);
 		}
+#elif defined(CONFIG_MACH_MT6781)
+		infra_node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao");
+		if (infra_node == NULL) {
+			DDPPR_ERR("mediatek,infracfg_ao is not found\n");
+		} else {
+			if (of_address_to_resource(infra_node, 0, &infra_mem_res) != 0) {
+				DDPPR_ERR("%s: missing reg in %s node\n",
+						__func__, infra_node->full_name);
+				of_node_put(infra_node);
+				return -EPROBE_DEFER;
+			}
+			private->infra_regs_pa = infra_mem_res.start;
+			private->infra_regs = of_iomap(infra_node, 0);
+			if (IS_ERR(private->infra_regs))
+				DDPPR_ERR("%s: infra_ao_base of_iomap failed\n", __func__);
+			else
+				DDPMSG("%s, infra_regs:0x%p, infra_regs_pa:0x%lx\n",
+					__func__, (void *)private->infra_regs,
+					private->infra_regs_pa);
+		}
+#endif
 		of_node_put(infra_node);
 	}
 
