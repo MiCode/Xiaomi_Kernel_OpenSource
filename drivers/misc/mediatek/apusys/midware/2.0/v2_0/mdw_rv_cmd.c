@@ -126,20 +126,7 @@ int mdw_rv_cmd_exec(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	ret = mdw_rv_dev_run_cmd(rc);
 
 	mdw_flw_debug("\n");
-	return ret;
-}
-
-int mdw_rv_cmd_wait(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
-{
-	int ret = 0;
-
-	ret = mdw_rv_dev_wait_cmd(c->priv);
-	if (ret)
-		mdw_drv_err("wait cmd(0x%llx) fail(%d)\n", c->kid, ret);
-
-	if (mdw_rv_cmd_delete(mpriv, c->priv))
-		mdw_drv_warn("delete cmd(0x%llx) fail\n", c->kid);
-
+	ret = mdw_rv_cmd_delete(mpriv, rc);
 	mdw_flw_debug("\n");
 	return ret;
 }

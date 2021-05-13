@@ -16,6 +16,7 @@
 #include <linux/hashtable.h>
 #include <linux/types.h>
 #include <linux/slab.h>
+#include <linux/dma-fence.h>
 
 #include "apusys_drv.h"
 #include "apusys_core.h"
@@ -105,11 +106,18 @@ struct mdw_subcmd_kinfo {
 	void *priv; //mdw_ap_sc
 };
 
+enum mdw_cmd_state {
+	MDW_CMD_STATE_IDLE,
+	MDW_CMD_STATE_RUN,
+	MDW_CMD_STATE_DONE,
+	MDW_CMD_STATE_ABORT,
+};
+
 struct mdw_cmd {
 	int id;
 	uint64_t kid;
-	pid_t pid;
-	uint64_t cmd_uid;
+	pid_t exec_pid;
+	uint64_t uid;
 	uint32_t priority;
 	uint32_t hardlimit;
 	uint32_t softlimit;
@@ -119,13 +127,18 @@ struct mdw_cmd {
 	struct mdw_subcmd_kinfo *ksubcmds;
 	uint32_t num_cmdbufs;
 	uint32_t size_cmdbufs;
-	struct kref ref;
+	int state;
+	//struct kref ref;
 	struct mutex mtx;
 	bool is_executed;
 	uint8_t *adj_matrix;
 	struct mdw_mem *cmdbufs;
 	void *priv;
 	struct mdw_fpriv *mpriv;
+	int (*complete)(struct mdw_cmd *c, int ret);
+
+	struct dma_fence base_fence;
+	spinlock_t lock;
 };
 
 struct mdw_dev_func {
@@ -135,9 +148,10 @@ struct mdw_dev_func {
 	void (*late_deinit)(struct mdw_device *mdev);
 
 	int (*run_cmd)(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
-	int (*wait_cmd)(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
 	int (*lock)(void);
 	int (*unlock)(void);
+	int (*set_power)(uint32_t type, uint32_t idx, uint32_t boost);
+	int (*ucmd)(uint32_t type, void *vaddr, uint32_t size);
 	int (*set_param)(uint32_t idx, uint32_t val);
 	uint32_t (*get_param)(uint32_t idx);
 };
@@ -149,10 +163,13 @@ long mdw_ioctl(struct file *filep, unsigned int cmd, unsigned long arg);
 int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data);
+int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	uint32_t align, uint8_t cacheable);
 void mdw_mem_free(struct mdw_fpriv *mpriv, int handle);
+int mdw_mem_map(struct mdw_fpriv *mpriv, int handle);
+int mdw_mem_unmap(struct mdw_fpriv *mpriv, int handle);
 
 int mdw_sysfs_init(struct mdw_device *mdev);
 void mdw_sysfs_deinit(struct mdw_device *mdev);

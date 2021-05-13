@@ -52,8 +52,10 @@ static void mdw_ap_sw_deinit(struct mdw_device *mdev)
 	unsigned int i = 0;
 
 	for (i = 0; i < MDW_DEV_MAX; i++) {
-		if (mdev->dinfos[i] != NULL)
+		if (mdev->dinfos[i] != NULL) {
 			vfree(&mdev->dinfos[i]);
+			mdev->dinfos[i] = NULL;
+		}
 	}
 }
 
@@ -74,9 +76,26 @@ static int mdw_ap_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	return mdw_ap_cmd_exec(c);
 }
 
-static int mdw_ap_wait_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
+static int mdw_ap_set_power(uint32_t type, uint32_t idx, uint32_t boost)
 {
-	return mdw_ap_cmd_wait(c, 0);
+	struct mdw_dev_info *d = NULL;
+
+	d = mdw_rsc_get_dinfo(type, idx);
+	if (!d)
+		return -ENODEV;
+
+	return d->pwr_on(d, boost, MDW_RSC_SET_PWR_TIMEOUT);
+}
+
+static int mdw_ap_ucmd(uint32_t type, void *vaddr, uint32_t size)
+{
+	struct mdw_dev_info *d = NULL;
+
+	d = mdw_rsc_get_dinfo(type, 0);
+	if (!d)
+		return -ENODEV;
+
+	return d->ucmd(d, (uint64_t)vaddr, 0, size);
 }
 
 static int mdw_ap_lock(void)
@@ -109,7 +128,8 @@ static const struct mdw_dev_func mdw_ap_func = {
 	.late_init = mdw_ap_late_init,
 	.late_deinit = mdw_ap_late_deinit,
 	.run_cmd = mdw_ap_run_cmd,
-	.wait_cmd = mdw_ap_wait_cmd,
+	.set_power = mdw_ap_set_power,
+	.ucmd = mdw_ap_ucmd,
 	.lock = mdw_ap_lock,
 	.unlock = mdw_ap_unlock,
 	.set_param = mdw_ap_set_param,

@@ -271,16 +271,22 @@ struct mdw_mem_in {
 		struct {
 			uint64_t handle;
 			uint32_t size;
-		} import;
+		} map;
 		struct {
 			uint64_t handle;
-		} unimport;
+		} unmap;
 	};
 };
 
 struct mdw_mem_out {
-	uint64_t handle;
-	uint64_t device_va;
+	union {
+		struct {
+			uint64_t handle;
+		} alloc;
+		struct {
+			uint64_t device_va;
+		} map;
+	};
 };
 
 union mdw_mem_args {
@@ -356,14 +362,10 @@ struct mdw_cmd_in {
 			uint32_t hardlimit;
 			uint32_t softlimit;
 			uint32_t power_save;
-			uint32_t num_subcmds;
-			uint64_t subcmd_infos;
 		} exec;
 
 		struct {
 			uint64_t id;
-			uint32_t num_subcmds;
-			uint64_t subcmd_infos;
 		} wait;
 	};
 };
@@ -379,6 +381,10 @@ struct mdw_cmd_out {
 			uint32_t mdw_duration;
 			uint32_t driver_duration;
 		} done;
+
+		struct {
+			uint64_t fence;
+		} fence;
 	};
 };
 
@@ -389,4 +395,34 @@ union mdw_cmd_args {
 
 #define APU_MDW_IOCTL_CMD \
 	_IOWR(APUSYS_MAGICNO, 34, union mdw_cmd_args)
+
+enum mdw_util_ioctl_op {
+	MDW_UTIL_IOCTL_SETPOWER,
+	MDW_UTIL_IOCTL_UCMD,
+};
+
+struct mdw_util_in {
+	enum mdw_util_ioctl_op op;
+	union {
+		struct {
+			uint32_t dev_type;
+			uint32_t core_idx;
+			uint32_t boost;
+			uint64_t reserve;
+		} power;
+		struct {
+			uint32_t dev_type;
+			uint32_t size;
+			uint64_t handle;
+		} ucmd;
+	};
+};
+
+union mdw_util_args {
+	struct mdw_util_in in;
+};
+
+#define APU_MDW_IOCTL_UTIL \
+	_IOWR(APUSYS_MAGICNO, 35, union mdw_util_args)
+
 #endif

@@ -176,7 +176,7 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 
 	/* access data to mdw_mem */
 	mem->priv = mdbuf;
-	mem->device_va = mdbuf->dma_addr;
+	//mem->device_va = mdbuf->dma_addr;
 	mem->handle = mdbuf->handle;
 	mem->vaddr = mdbuf->vaddr;
 
@@ -201,4 +201,25 @@ void mdw_mem_dma_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	struct mdw_mem_dma *mdbuf = (struct mdw_mem_dma *)mem->priv;
 
 	dma_buf_put(mdbuf->dbuf);
+}
+
+int mdw_mem_dma_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+{
+	struct mdw_mem_dma *mdbuf = (struct mdw_mem_dma *)mem->priv;
+
+	/* TODO */
+	dma_buf_get(mdbuf->handle);
+	mem->device_va = mdbuf->dma_addr;
+
+	return 0;
+}
+
+int mdw_mem_dma_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+{
+	struct mdw_mem_dma *mdbuf = (struct mdw_mem_dma *)mem->priv;
+
+	mem->device_va = 0;
+	/* TODO */
+	dma_buf_put(mdbuf->dbuf);
+	return 0;
 }

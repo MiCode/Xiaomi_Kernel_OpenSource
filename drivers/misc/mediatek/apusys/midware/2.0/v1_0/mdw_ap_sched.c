@@ -217,7 +217,7 @@ static void mdw_sched_trace(struct mdw_ap_sc *sc,
 
 static int mdw_sched_sc_done(void)
 {
-	struct mdw_ap_cmd *c = NULL;
+	struct mdw_ap_cmd *ac = NULL;
 	struct mdw_ap_sc *sc = NULL, *s = NULL;
 	int ret = 0;
 
@@ -240,13 +240,13 @@ static int mdw_sched_sc_done(void)
 	}
 	/* recv finished subcmd */
 	while (1) {
-		c = s->parent;
+		ac = s->parent;
 		ret = mdw_ap_parser.end_sc(s, &sc);
 		mdw_flw_debug("\n");
 		/* check return value */
 		if (ret) {
 			mdw_drv_err("parse done sc fail(%d)\n", ret);
-			complete(&c->cmplt);
+			ac->c->complete(ac->c, ret);
 			break;
 		}
 		/* check parsed sc */

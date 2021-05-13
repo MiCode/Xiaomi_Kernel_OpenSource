@@ -79,7 +79,6 @@ void mdw_rv_dev_deinit(void);
 struct mdw_rv_dev *mdw_rv_dev_get(void);
 int mdw_rv_dev_handshake(void);
 int mdw_rv_dev_run_cmd(struct mdw_rv_cmd *rc);
-int mdw_rv_dev_wait_cmd(struct mdw_rv_cmd *rc);
 int mdw_rv_dev_lock(void);
 int mdw_rv_dev_unlock(void);
 int mdw_rv_dev_set_param(uint32_t idx, uint32_t val);

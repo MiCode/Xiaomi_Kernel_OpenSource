@@ -53,16 +53,10 @@ static int mdw_dev_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static int mdw_dev_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	return -EINVAL;
-}
-
 static const struct file_operations mdw_fops = {
 	.owner = THIS_MODULE,
 	.open = mdw_dev_open,
 	.release = mdw_dev_release,
-	.mmap = mdw_dev_mmap,
 	.unlocked_ioctl = mdw_ioctl,
 	.compat_ioctl = mdw_ioctl,
 };

@@ -528,6 +528,5 @@ int sample_device_destroy(void)
 		kfree(sample_private[i]);
 	}
 
-
 	return 0;
 }

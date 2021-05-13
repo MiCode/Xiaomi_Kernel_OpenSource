@@ -23,6 +23,8 @@
 
 #define SAMPLE_USERCMD_IDX 0x66
 #define SAMPLE_USERCMD_MAGIC 0x15556
+#define SAMPLE_USERCMD_UWRITE 0x1234
+#define SAMPLE_META_DATA "0x15556"
 
 struct sample_fw {
 	char name[32];
@@ -332,7 +334,7 @@ static int _sample_usercmd(void *hnd,
 	u = (struct apusys_usercmd_hnd *)hnd;
 
 	/* check hnd */
-	if (u->kva == 0 || u->iova == 0 || u->size == 0) {
+	if (u->kva == 0 || u->size == 0) {
 		spl_drv_err("invalid argument(0x%llx/0x%x/%u)\n",
 			u->kva, u->iova, u->size);
 		return -EINVAL;
@@ -354,13 +356,8 @@ static int _sample_usercmd(void *hnd,
 		return -EINVAL;
 	}
 
-	if (info->idx != s->u_write) {
-		spl_drv_err("user write error (%d/%d)\n",
-			s->u_write, info->idx);
-		return -EINVAL;
-	}
-
-	spl_drv_dbg("get user cmd: %d ok\n", s->u_write);
+	s->u_write = SAMPLE_USERCMD_UWRITE;
+	spl_drv_dbg("get user cm ok\n");
 
 	return ret;
 }
@@ -469,7 +466,8 @@ int sample_device_init(void)
 		sample_private[i]->dev->preempt_type = APUSYS_PREEMPT_NONE;
 		sample_private[i]->dev->preempt_level = 0;
 		snprintf(sample_private[i]->dev->meta_data,
-			sizeof(sample_private[i]->dev->meta_data), "0x15556");
+			sizeof(sample_private[i]->dev->meta_data),
+			SAMPLE_META_DATA);
 		sample_private[i]->dev->private = sample_private[i];
 		sample_private[i]->dev->send_cmd = sample_send_cmd;
 		sample_private[i]->dev->idx = i;
@@ -510,7 +508,6 @@ int sample_device_destroy(void)
 		kfree(sample_private[i]->dev);
 		kfree(sample_private[i]);
 	}
-
 
 	return 0;
 }

@@ -305,11 +305,11 @@ static void mdw_rsc_dump_tab(struct seq_file *s, struct mdw_rsc_tab *tab)
 				tab->type,
 				" device idx",
 				d->idx);
-			mdw_con_info(s, "|%-14s(%7d) |%-18s= 0x%-39llx|\n",
+			mdw_con_info(s, "|%-14s(%7d) |%-18s= 0x%-39x|\n",
 				" core num ",
 				tab->dev_num,
 				" cmd id",
-				sc == NULL ? 0 : sc->parent->c->kid);
+				sc == NULL ? 0 : sc->parent->c->id);
 			mdw_con_info(s, "|%-14s(%7u) |%-18s= 0x%-39d|\n",
 				" available",
 				tab->avl_num,
@@ -331,10 +331,10 @@ static void mdw_rsc_dump_tab(struct seq_file *s, struct mdw_rsc_tab *tab)
 				"",
 				" device idx",
 				d->idx);
-			mdw_con_info(s, "|%-24s|%-18s= 0x%-39llx|\n",
+			mdw_con_info(s, "|%-24s|%-18s= 0x%-39x|\n",
 				"",
 				" cmd id",
-				sc == NULL ? 0 : sc->parent->c->kid);
+				sc == NULL ? 0 : sc->parent->c->id);
 			mdw_con_info(s, "|%-24s|%-18s= 0x%-39d|\n",
 				"",
 				" subcmd idx",
@@ -443,6 +443,8 @@ static int mdw_rsc_ucmd(struct mdw_dev_info *d,
 	h.kva = kva;
 	h.iova = iova;
 	h.size = size;
+	mdw_flw_debug("dev(%d-#%d) ucmd(0x%llx/%u)\n",
+		d->type, d->idx, kva, size);
 
 	return d->dev->send_cmd(APUSYS_CMD_USER, &h, d->dev);
 }

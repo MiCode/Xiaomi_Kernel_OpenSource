@@ -53,5 +53,5 @@ int mdw_dbg_init(struct apusys_core_info *info)
 
 void mdw_dbg_deinit(void)
 {
-	debugfs_remove_recursive(mdw_dbg_root);
+	//debugfs_remove_recursive(mdw_dbg_root);
 }

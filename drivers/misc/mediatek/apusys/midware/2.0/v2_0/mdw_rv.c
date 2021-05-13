@@ -76,9 +76,14 @@ static int mdw_rv_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	return mdw_rv_cmd_exec(mpriv, c);
 }
 
-static int mdw_rv_wait_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
+static int mdw_rv_set_power(uint32_t type, uint32_t idx, uint32_t boost)
 {
-	return mdw_rv_cmd_wait(mpriv, c);
+	return -EINVAL;
+}
+
+static int mdw_rv_ucmd(uint32_t type, void *vaddr, uint32_t size)
+{
+	return -EINVAL;
 }
 
 static int mdw_rv_lock(void)
@@ -107,7 +112,8 @@ static const struct mdw_dev_func mdw_rv_func = {
 	.late_init = mdw_rv_late_init,
 	.late_deinit = mdw_rv_late_deinit,
 	.run_cmd = mdw_rv_run_cmd,
-	.wait_cmd = mdw_rv_wait_cmd,
+	.set_power = mdw_rv_set_power,
+	.ucmd = mdw_rv_ucmd,
 	.lock = mdw_rv_lock,
 	.unlock = mdw_rv_unlock,
 	.set_param = mdw_rv_set_param,

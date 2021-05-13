@@ -233,6 +233,8 @@ int apusys_unregister_device(struct apusys_device *dev);
 
 uint64_t apusys_mem_query_kva(uint64_t iova);
 uint64_t apusys_mem_query_iova(uint64_t kva);
+int apusys_mem_flush_kva(void *kva, uint32_t size);
+int apusys_mem_invalidate_kva(void *kva, uint32_t size);
 
 int apusys_mem_flush(struct apusys_kmem *mem);
 int apusys_mem_invalidate(struct apusys_kmem *mem);

@@ -39,6 +39,9 @@ long mdw_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	case APU_MDW_IOCTL_CMD:
 		ret = mdw_cmd_ioctl(mpriv, kdata);
 		break;
+	case APU_MDW_IOCTL_UTIL:
+		ret = mdw_util_ioctl(mpriv, kdata);
+		break;
 	default:
 		ret = -EFAULT;
 		goto out;

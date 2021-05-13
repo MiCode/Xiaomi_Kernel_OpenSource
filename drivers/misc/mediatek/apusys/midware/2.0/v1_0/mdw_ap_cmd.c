@@ -20,7 +20,7 @@ static void mdw_ap_cmd_print(struct mdw_ap_cmd *ac)
 
 	mdw_cmd_debug("-------------------------\n");
 	mdw_cmd_debug("ac(0x%llx)\n", ac->c->kid);
-	mdw_cmd_debug(" cmd uid = 0x%llx\n", ac->c->cmd_uid);
+	mdw_cmd_debug(" uid = 0x%llx\n", ac->c->uid);
 	mdw_cmd_debug(" priority = %u\n", ac->c->priority);
 	mdw_cmd_debug(" hardlimit = %u\n", ac->c->hardlimit);
 	mdw_cmd_debug(" softlimit = %u\n", ac->c->softlimit);
@@ -65,7 +65,7 @@ static int mdw_ap_sc_ready(struct mdw_ap_sc *sc)
 	return 0;
 }
 
-static struct mdw_ap_sc *mdw_cmd_get_avilable_sc(struct mdw_ap_cmd *ac)
+static struct mdw_ap_sc *mdw_ap_cmd_get_avilable_sc(struct mdw_ap_cmd *ac)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct mdw_ap_sc *sc = NULL;
@@ -97,7 +97,6 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 	mutex_init(&ac->mtx);
 	INIT_LIST_HEAD(&ac->sc_list);
 	INIT_LIST_HEAD(&ac->di_list);
-	init_completion(&ac->cmplt);
 	ac->c = c;
 	mdw_flw_debug("cmd(0x%llx) create\n", ac->c->kid);
 	memset(ac->ctx_repo, MDW_CMD_EMPTY_NUM, sizeof(ac->ctx_repo));
@@ -166,56 +165,6 @@ static void mdw_ap_cmd_delete(struct mdw_ap_cmd *ac)
 	mutex_unlock(&c->mtx);
 }
 
-int mdw_ap_cmd_wait(struct mdw_cmd *c, unsigned int ms)
-{
-	struct mdw_ap_cmd *ac = (struct mdw_ap_cmd *)c->priv;
-	int ret = 0, retry = 100, retry_time = 50;
-	unsigned long timeout = 0;
-
-	/* TODO wakelock */
-
-	/* setup timeout */
-	if (ac->c->hardlimit &&
-		ac->c->hardlimit < MDW_DEFAULT_TIMEOUT_MS)
-		timeout = msecs_to_jiffies(ac->c->hardlimit);
-	else
-		timeout = msecs_to_jiffies(MDW_DEFAULT_TIMEOUT_MS);
-
-rewait:
-	ret = wait_for_completion_interruptible_timeout(&ac->cmplt, timeout);
-	if (ret == -ERESTARTSYS) { //restart
-		if (retry) {
-			if (!(retry % 20))
-				mdw_drv_warn("cmd(0x%llx) rewait(%d)\n",
-					ac->c->kid, retry);
-
-			retry--;
-			msleep(retry_time);
-			goto rewait;
-		} else {
-			mdw_drv_warn("cmd(0x%llx) leak\n", ac->c->kid);
-		}
-
-	} else if (ret == 0) { //timeout
-		mdw_drv_err("cmd(0x%llx) timeout ms(%u)\n",
-			ac->c->kid, jiffies_to_msecs(timeout));
-		ret = -ETIME;
-
-	} else if (ret < 0) { //error
-		mdw_drv_err("cmd(0x%llx) fail(%d)\n", ac->c->kid, ret);
-	}
-
-	/* TODO, aee if timeout */
-	if (ret < 0) {
-		mdw_dbg_aee("apusys midware wait timeout");
-	} else {
-		ret = ac->ret;
-		mdw_ap_cmd_delete(ac);
-	}
-
-	return ret;
-}
-
 int mdw_ap_cmd_exec(struct mdw_cmd *c)
 {
 	struct mdw_ap_cmd *ac = NULL;
@@ -234,7 +183,7 @@ int mdw_ap_cmd_exec(struct mdw_cmd *c)
 
 	mutex_lock(&ac->mtx);
 	while (1) {
-		sc = mdw_cmd_get_avilable_sc(ac);
+		sc = mdw_ap_cmd_get_avilable_sc(ac);
 		if (sc)
 			mdw_sched(sc);
 		else
@@ -249,21 +198,24 @@ out:
 }
 
 //-------------------------------------------
-static void mdw_cmd_done(struct kref *ref)
+static void mdw_ap_cmd_done(struct kref *ref)
 {
 	struct mdw_ap_cmd *ac =
 			container_of(ref, struct mdw_ap_cmd, ref);
+	struct mdw_cmd *c = ac->c;
+	int ret = ac->ret;
 
 	if (ac->sc_bitmask || ac->state) {
 		mdw_drv_warn("cmd(0x%llx) abort\n", ac->c->kid);
 		mdw_ap_cmd_delete(ac);
 	} else {
 		mdw_flw_debug("cmd(0x%llx) complete\n", ac->c->kid);
-		complete(&ac->cmplt);
+		mdw_ap_cmd_delete(ac);
+		c->complete(c, ret);
 	}
 }
 
-static int mdw_cmd_end_sc(struct mdw_ap_sc *in, struct mdw_ap_sc **out)
+static int mdw_ap_cmd_end_sc(struct mdw_ap_sc *in, struct mdw_ap_sc **out)
 {
 	struct mdw_ap_cmd *ac = in->parent;
 	struct mdw_cmd *c = ac->c;
@@ -287,16 +239,16 @@ static int mdw_cmd_end_sc(struct mdw_ap_sc *in, struct mdw_ap_sc **out)
 		ac->ret |= in->ret;
 	}
 
-	*out = mdw_cmd_get_avilable_sc(ac);
+	*out = mdw_ap_cmd_get_avilable_sc(ac);
 	mutex_unlock(&ac->mtx);
 
 	if (need_clear)
-		kref_put(&ac->ref, mdw_cmd_done);
+		kref_put(&ac->ref, mdw_ap_cmd_done);
 
 	return 0;
 }
 
-static int mdw_cmd_get_ctx(struct mdw_ap_sc *sc)
+static int mdw_ap_cmd_get_ctx(struct mdw_ap_sc *sc)
 {
 	struct mdw_ap_cmd *ac = sc->parent;
 	uint32_t ctx_idx = sc->hdr->info->vlm_ctx_id;
@@ -334,7 +286,7 @@ out:
 	return ret;
 }
 
-static void mdw_cmd_put_ctx(struct mdw_ap_sc *sc)
+static void mdw_ap_cmd_put_ctx(struct mdw_ap_sc *sc)
 {
 	struct mdw_ap_cmd *ac = sc->parent;
 	uint32_t ctx_idx = sc->hdr->info->vlm_ctx_id;
@@ -359,7 +311,7 @@ out:
 	mutex_unlock(&ac->mtx);
 }
 
-static int mdw_cmd_set_hnd(struct mdw_ap_sc *sc, int d_idx, void *h)
+static int mdw_ap_cmd_set_hnd(struct mdw_ap_sc *sc, int d_idx, void *h)
 {
 	struct apusys_cmd_handle *hnd = (struct apusys_cmd_handle *)h;
 	struct mdw_subcmd_kinfo *hdr = sc->hdr;
@@ -386,7 +338,7 @@ static int mdw_cmd_set_hnd(struct mdw_ap_sc *sc, int d_idx, void *h)
 	return 0;
 }
 
-static void mdw_cmd_clear_hnd(void *h)
+static void mdw_ap_cmd_clear_hnd(void *h)
 {
 	struct apusys_cmd_handle *hnd = (struct apusys_cmd_handle *)h;
 
@@ -394,7 +346,7 @@ static void mdw_cmd_clear_hnd(void *h)
 	memset(hnd, 0, sizeof(*hnd));
 }
 
-static bool mdw_cmd_is_deadline(struct mdw_ap_sc *sc)
+static bool mdw_ap_cmd_is_deadline(struct mdw_ap_sc *sc)
 {
 	if (sc->parent->c->softlimit)
 		return true;
@@ -402,10 +354,10 @@ static bool mdw_cmd_is_deadline(struct mdw_ap_sc *sc)
 }
 
 struct mdw_parser mdw_ap_parser = {
-	.end_sc = mdw_cmd_end_sc,
-	.set_hnd = mdw_cmd_set_hnd,
-	.clear_hnd = mdw_cmd_clear_hnd,
-	.get_ctx = mdw_cmd_get_ctx,
-	.put_ctx = mdw_cmd_put_ctx,
-	.is_deadline = mdw_cmd_is_deadline,
+	.end_sc = mdw_ap_cmd_end_sc,
+	.set_hnd = mdw_ap_cmd_set_hnd,
+	.clear_hnd = mdw_ap_cmd_clear_hnd,
+	.get_ctx = mdw_ap_cmd_get_ctx,
+	.put_ctx = mdw_ap_cmd_put_ctx,
+	.is_deadline = mdw_ap_cmd_is_deadline,
 };

@@ -142,47 +142,6 @@ int mdw_rv_dev_run_cmd(struct mdw_rv_cmd *rc)
 	return ret;
 }
 
-int mdw_rv_dev_wait_cmd(struct mdw_rv_cmd *rc)
-{
-	int ret = 0, retry = 100, retry_time = 50;
-	unsigned long timeout = msecs_to_jiffies(MDW_DEFAULT_TIMEOUT_MS);
-
-rewait:
-	ret = wait_for_completion_interruptible_timeout(
-		&rc->s_msg.cmplt, timeout);
-	if (ret == -ERESTARTSYS) { //restart
-		if (retry) {
-			if (!(retry % 20))
-				mdw_drv_warn("cmd(0x%llx) rewait(%d)\n",
-					rc->c->kid, retry);
-
-			retry--;
-			msleep(retry_time);
-			goto rewait;
-		} else {
-			mdw_drv_warn("cmd(0x%llx) leak\n", rc->c->kid);
-		}
-
-	} else if (ret == 0) { //timeout
-		mdw_drv_err("pid(%d) cmd(0x%llx) timeout ms(%u)\n",
-			current->pid, rc->c->kid, jiffies_to_msecs(timeout));
-		ret = -ETIME;
-
-	} else if (ret < 0) { //error
-		mdw_drv_err("pid(%d) cmd(0x%llx) fail(%d)\n",
-			current->pid, rc->c->kid, ret);
-	} else { //success
-		mdw_drv_debug("pid(%d) wait cmd(0x%llx) ok\n",
-			current->pid, rc->c->kid);
-		ret = 0;
-	}
-
-	if (!ret && rc->s_msg.msg.c.status)
-		ret = -ETIME;
-
-	return ret;
-}
-
 int mdw_rv_dev_lock(void)
 {
 	int ret = 0;
@@ -257,6 +216,7 @@ static void mdw_ipi_callback(u32 id, void *priv, void *data, u32 len)
 {
 	struct mdw_ipi_msg *msg = (struct mdw_ipi_msg *)data;
 	struct mdw_ipi_msg_sync *s_msg = NULL;
+	struct mdw_cmd *c = NULL;
 
 	mdw_drv_debug("callback msg(%d/0x%llx)\n", msg->id, msg->sync_id);
 
@@ -268,6 +228,7 @@ static void mdw_ipi_callback(u32 id, void *priv, void *data, u32 len)
 		mutex_lock(&rdev.msg_mtx);
 		list_del(&s_msg->ud_item);
 		mutex_unlock(&rdev.msg_mtx);
+
 		complete(&s_msg->cmplt);
 	}
 }

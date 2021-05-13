@@ -16,7 +16,6 @@ struct mdw_ap_cmd {
 	struct mdw_ap_sc *sc_arr;
 	uint8_t *adj_matrix;
 	struct list_head di_list; //for dispr item
-	struct completion cmplt;
 	struct mutex mtx;
 	struct kref ref;
 	pid_t pid;

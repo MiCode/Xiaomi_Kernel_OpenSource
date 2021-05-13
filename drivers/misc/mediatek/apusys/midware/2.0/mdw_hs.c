@@ -13,7 +13,7 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 	unsigned int type = 0;
 	int ret = 0;
 
-	mdw_drv_debug("%s:%d\n", __func__, __LINE__);
+	mdw_flw_debug("op:%d\n", args->in.op);
 
 	switch (args->in.op) {
 	case MDW_HS_IOCTL_OP_BASIC:
@@ -45,8 +45,9 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 		args->out.dev.num = mdev->dinfos[type]->num;
 		memcpy(args->out.dev.meta, mdev->dinfos[type]->meta,
 			sizeof(args->out.dev.meta));
-		mdw_drv_debug("dev(%u) num(%u)\n",
-			args->out.dev.type, args->out.dev.num);
+		mdw_drv_debug("dev(%u) num(%u) meta(%s)\n",
+			args->out.dev.type, args->out.dev.num,
+			mdev->dinfos[type]->meta);
 		break;
 
 	default:
