@@ -223,6 +223,11 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 				if (t_avg > irq_count_plist[i].period)
 					skip = 1;
 		}
+
+		/* Temporarily exclude IPI */
+		if (!strcmp(irq_to_name(irq), "IPI"))
+			skip = 1;
+
 		if (skip)
 			continue;
 
