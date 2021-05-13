@@ -331,8 +331,7 @@ void cmdq_sec_mbox_disable(void *chan)
 		return;
 	}
 
-	if (user_usage == 0)
-		cmdq_sec_clk_disable(cmdq);
+	cmdq_sec_clk_disable(cmdq);
 }
 
 s32 cmdq_sec_mbox_chan_id(void *chan)
