@@ -102,6 +102,30 @@ struct mml_task {
 	struct cmdq_pkt pkts[MML_PIPE_CNT];
 };
 
+struct mml_comp_tile_ops {
+
+};
+
+struct mml_comp_config_ops {
+
+};
+
+struct mml_comp_hw_ops {
+
+};
+
+struct mml_comp_debug_ops {
+
+};
+
+struct mml_comp {
+	u32 comp_id;
+	const struct mml_comp_tile_ops *tile_ops;
+	const struct mml_comp_config_ops *config_ops;
+	const struct mml_comp_hw_ops *hw_ops;
+	const struct mml_comp_debug_ops *debug_ops;
+};
+
 /**
  * mml_core_create_task -
  *

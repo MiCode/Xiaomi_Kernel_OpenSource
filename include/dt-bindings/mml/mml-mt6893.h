@@ -7,6 +7,11 @@
 #define _DT_BINDINGS_MML_MT6893_H
 
 /* MML engines in mt6893 */
+/* Temp for early development */
+#define MML_RSZ0		0
+#define MML_RSZ1		1
+#define MML_ENGINE_TOTAL	2
+/*
 #define MML_MMLSYS		0
 #define MML_MUTEX		1
 #define MML_RDMA0		2
@@ -42,6 +47,6 @@
 #define MML_WROT2		32
 #define MML_WROT3		33
 #define MML_ENGINE_TOTAL	34
-
+*/
 
 #endif	/* _DT_BINDINGS_MML_MT6893_H */

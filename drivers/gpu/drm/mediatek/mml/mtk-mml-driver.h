@@ -12,8 +12,11 @@
 
 struct mml_dev;
 struct mml_drm_ctx;
+struct mml_comp;
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev);
+s32 mml_register_comp(struct device *master_dev, struct mml_comp *comp);
+void mml_unregister_comp(struct device *master_dev, struct mml_comp *comp);
 
 struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
 	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml));
