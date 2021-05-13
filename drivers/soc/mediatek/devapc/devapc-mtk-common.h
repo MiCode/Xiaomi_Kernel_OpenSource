@@ -87,6 +87,7 @@ enum SRAMROM_VIO {
 
 struct mtk_devapc_dbg_status {
 	bool enable_ut;
+	bool enable_KE;
 	bool enable_WARN;
 	bool enable_dapc; /* dump APC */
 };
@@ -153,6 +154,7 @@ struct mtk_devapc_soc {
 	const uint32_t *devapc_pds;
 
 	/* platform specific operations */
+	const char* (*subsys_get)(uint32_t index);
 	const char* (*master_get)(int bus_id, uint32_t vio_addr,
 			int vio_idx);
 };

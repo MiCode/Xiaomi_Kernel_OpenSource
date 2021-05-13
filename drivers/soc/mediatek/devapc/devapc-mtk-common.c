@@ -63,19 +63,21 @@ static void __iomem *mtk_devapc_pd_get(enum DEVAPC_PD_REG_TYPE pd_type,
 static void handle_sramrom_vio(void)
 {
 	const struct mtk_sramrom_sec_vio_desc *sramrom_vios;
-	size_t sramrom_vio_sta, sramrom_vio_addr;
-	uint32_t master_id, domain_id, dbg1;
+	struct mtk_devapc_vio_info *vio_info;
+	size_t sramrom_vio_sta;
 	struct arm_smccc_res res;
-	int rw, sramrom_vio;
+	int sramrom_vio;
+	uint32_t rw;
 
 	sramrom_vios = mtk_devapc_ctx->soc->sramrom_sec_vios;
+	vio_info = mtk_devapc_ctx->soc->vio_info;
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CLR_SRAMROM_VIO,
 			0, 0, 0, 0, 0, 0, 0, &res);
 
 	sramrom_vio = res.a0;
 	sramrom_vio_sta = res.a1;
-	sramrom_vio_addr = res.a2;
+	vio_info->vio_dbg1 = res.a2;
 
 	if (sramrom_vio == SRAM_VIOLATION)
 		pr_info(PFX "%s, SRAM violation is triggered\n", __func__);
@@ -86,19 +88,18 @@ static void handle_sramrom_vio(void)
 		return;
 	}
 
-	master_id = (sramrom_vio_sta & sramrom_vios->vio_id_mask) >>
+	vio_info->master_id = (sramrom_vio_sta & sramrom_vios->vio_id_mask) >>
 			sramrom_vios->vio_id_shift;
-	domain_id = (sramrom_vio_sta & sramrom_vios->vio_domain_mask) >>
+	vio_info->domain_id = (sramrom_vio_sta & sramrom_vios->vio_domain_mask) >>
 			sramrom_vios->vio_domain_shift;
 	rw = (sramrom_vio_sta & sramrom_vios->vio_rw_mask) >>
 			sramrom_vios->vio_rw_shift;
-	dbg1 = sramrom_vio_addr;
 
 	pr_info(PFX "%s, %s: 0x%x, %s: 0x%x, rw: %s, vio addr: 0x%x\n",
-		__func__, "master_id", master_id,
-		"domain_id", domain_id,
+		__func__, "master_id", vio_info->master_id,
+		"domain_id", vio_info->domain_id,
 		rw ? "Write" : "Read",
-		dbg1);
+		vio_info->vio_dbg1);
 }
 
 static void mask_infra_module_irq(uint32_t module, bool mask)
@@ -415,6 +416,53 @@ static void mtk_devapc_dump_vio_dbg(void)
 
 }
 
+static void devapc_violation_triggered(uint32_t vio_idx,
+				       uint32_t vio_addr,
+				       const char *vio_master)
+{
+	char subsys_str[48] = {0};
+	const struct mtk_device_info *device_info;
+	struct mtk_devapc_dbg_status *dbg_stat;
+
+	device_info = mtk_devapc_ctx->soc->device_info;
+	dbg_stat = mtk_devapc_ctx->soc->dbg_stat;
+
+	if (unlikely(dbg_stat == NULL || device_info == NULL)) {
+		pr_info(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
+		return;
+	}
+
+	pr_info(PFX "%s, count=%d\n", __func__,
+		mtk_devapc_ctx->soc->vio_info->devapc_vio_trigger_times++);
+
+	/* Dispatch slave owner if APMCU access. Others, dispatch master. */
+	if (!strncmp(vio_master, "APMCU", 5)) {
+		strncpy(subsys_str, mtk_devapc_ctx->soc->subsys_get(vio_idx),
+			sizeof(subsys_str));
+	} else {
+		strncpy(subsys_str, vio_master,
+			sizeof(subsys_str));
+	}
+
+	subsys_str[sizeof(subsys_str) - 1] = '\0';
+
+	if (dbg_stat->enable_KE) {
+		pr_info(PFX "Violation master: %s access %s\n", vio_master,
+			device_info[vio_idx].device);
+		pr_info(PFX "Device APC Violation Issue/%s", subsys_str);
+
+		/* Connsys will trigger EE instead of AP KE */
+		if (!strncasecmp(vio_master, "CONNSYS", 7))
+			pr_info(PFX "bypass KE for CONNSYS violation\n");
+		else
+			BUG();
+	} else if (dbg_stat->enable_WARN) {
+		WARN(1, "Violation master: %s access %s\n",
+					vio_master,
+					device_info[vio_idx].device);
+	}
+}
+
 /*
  * devapc_violation_irq - the devapc Interrupt Service Routine (ISR) will dump
  *			  violation information including which master violates
@@ -469,11 +517,8 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			pr_info(PFX "Permission: %s\n",
 				perm_to_string(perm));
 
-			if (dbg_stat->enable_WARN) {
-				WARN(1, "Violation master: %s access %s\n",
-						vio_master,
-						device_info[i].device);
-			}
+			devapc_violation_triggered(i, vio_info->vio_dbg1,
+							vio_master);
 
 			mask_infra_module_irq(i, false);
 			break;
@@ -526,9 +571,11 @@ static void devapc_ut(uint32_t cmd)
  * mtk_devapc_dbg_read - dump status of struct mtk_devapc_dbg_status.
  * Currently, we have four debug status:
  * 1. enable_ut: enable/disable devapc ut commands
- * 2. enable_WARN: enable/disable trigger kernel warning while violation
+ * 2. enable_KE: enable/disable trigger kernel panic while violation
  *    is triggered.
- * 3. enable_dapc: enable/disable dump access permission control
+ * 3. enable_WARN: enable/disable trigger kernel warning while violation
+ *    is triggered.
+ * 4. enable_dapc: enable/disable dump access permission control
  *
  */
 ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
@@ -541,6 +588,7 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
 
 	devapc_log(p, msg_buf, "DEVAPC debug status:\n");
 	devapc_log(p, msg_buf, "\tenable_ut = %d\n", dbg_stat->enable_ut);
+	devapc_log(p, msg_buf, "\tenable_KE = %d\n", dbg_stat->enable_KE);
 	devapc_log(p, msg_buf, "\tenable_WARN = %d\n", dbg_stat->enable_WARN);
 	devapc_log(p, msg_buf, "\tenable_dapc = %d\n", dbg_stat->enable_dapc);
 	devapc_log(p, msg_buf, "\n");
@@ -554,10 +602,11 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
  * mtk_devapc_dbg_write - control status of struct mtk_devapc_dbg_status.
  * There are five nodes we can control:
  * 1. enable_ut
- * 2. enable_WARN
- * 3. enable_dapc
- * 4. devapc_ut
- * 5. dump_apc
+ * 2. enable_KE
+ * 3. enable_WARN
+ * 4. enable_dapc
+ * 5. devapc_ut
+ * 6. dump_apc
  */
 ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 	size_t count, loff_t *data)
@@ -607,6 +656,12 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 		dbg_stat->enable_ut = (param != 0);
 		pr_info(PFX "debapc_dbg_stat->enable_ut = %s\n",
 			dbg_stat->enable_ut ? "enable" : "disable");
+		return count;
+
+	} else if (!strncmp(cmd_str, "enable_KE", sizeof("enable_KE"))) {
+		dbg_stat->enable_KE = (param != 0);
+		pr_info(PFX "debapc_dbg_stat->enable_KE = %s\n",
+			dbg_stat->enable_KE ? "enable" : "disable");
 		return count;
 
 	} else if (!strncmp(cmd_str, "enable_WARN", sizeof("enable_WARN"))) {

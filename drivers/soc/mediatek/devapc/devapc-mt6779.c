@@ -765,6 +765,41 @@ static const char *paxi_int_mi_trans(int bus_id)
 	return master;
 }
 
+/* violation index corresponds to subsys */
+static const char *mt6779_index_to_subsys(uint32_t index)
+{
+	if (index >= MFGSYS_START && index <= MFGSYS_END)
+		return "MFGSYS";
+	else if (index == SMI_LARB0 || index == SMI_LARB1 ||
+			index == SMI_COMMON || index == SMI_LARB5 ||
+			index == SMI_LARB6 || index == VENCSYS_SMI_LARB ||
+			index == VDECSYS_SMI_LARB || index == CAMSYS_SMI_LARB ||
+			index == IPESYS_SMI_LARB || index == IPESYS_SMI_LARB8 ||
+			index == IPESYS_SMI_LARB7)
+		return "SMI";
+	else if ((index >= MMSYS_MDP_START && index <= MMSYS_MDP_END) ||
+			(index >= MMSYS_MDP2_START && index <= MMSYS_MDP2_END))
+		return "MMSYS_MDP";
+	else if (index >= MMSYS_DISP_START && index <= MMSYS_DISP_END)
+		return "MMSYS_DISP";
+	else if (index >= IMGSYS_START && index <= IMGSYS_END)
+		return "IMGSYS";
+	else if (index >= VENCSYS_START && index <= VENCSYS_END)
+		return "VENCSYS";
+	else if (index >= VDECSYS_START && index <= VDECSYS_END)
+		return "VDECSYS";
+	else if (index >= CAMSYS_START && index <= CAMSYS_END)
+		return "CAMSYS";
+	else if (index >= APUSYS_START && index <= APUSYS_END)
+		return "APUSYS";
+	else if (index >= IPESYS_START && index <= IPESYS_END)
+		return "IPESYS";
+	else if (index < ARRAY_SIZE(mt6779_infra_devices))
+		return mt6779_infra_devices[index].device;
+	else
+		return "OUT_OF_BOUND";
+}
+
 static const char *mt6779_bus_id_to_master(int bus_id, uint32_t vio_addr,
 					   int vio_idx)
 {
@@ -780,6 +815,15 @@ static const char *mt6779_bus_id_to_master(int bus_id, uint32_t vio_addr,
 	if (vio_idx == TOPAXI_SI0_DECERR) {
 		pr_debug(PFX "[DEVAPC] vio is from TOPAXI_SI0_DECERR\n");
 		master = topaxi_mi0_trans(bus_id);
+		return master;
+
+	} else if (vio_idx == SRAMROM_VIO_INDEX) {
+		pr_debug(PFX "vio is from SRAMROM\n");
+		if ((bus_id & 0x1) == 0x0)
+			master = topaxi_mi0_trans(bus_id >> 1);
+		else
+			pr_debug(PFX "[FAILED] Cannot decode bus_id: 0x%x\n",
+				bus_id);
 
 		return master;
 	}
@@ -835,6 +879,7 @@ static const char *mt6779_bus_id_to_master(int bus_id, uint32_t vio_addr,
 
 static struct mtk_devapc_dbg_status mt6779_devapc_dbg_stat = {
 	.enable_ut = PLAT_DBG_UT_DEFAULT,
+	.enable_KE = PLAT_DBG_KE_DEFAULT,
 	.enable_WARN = PLAT_DBG_WARN_DEFAULT,
 	.enable_dapc = PLAT_DBG_DAPC_DEFAULT,
 };
@@ -888,6 +933,7 @@ static struct mtk_devapc_soc mt6779_data = {
 	.vio_dbgs = &mt6779_vio_dbgs,
 	.sramrom_sec_vios = &mt6779_sramrom_sec_vios,
 	.devapc_pds = mt6779_devapc_pds,
+	.subsys_get = &mt6779_index_to_subsys,
 	.master_get = &mt6779_bus_id_to_master,
 };
 

@@ -12,6 +12,7 @@
 
 /* dbg status default setting */
 #define PLAT_DBG_UT_DEFAULT		false
+#define PLAT_DBG_KE_DEFAULT		true
 #define PLAT_DBG_WARN_DEFAULT		false
 #define PLAT_DBG_DAPC_DEFAULT		false
 
@@ -23,6 +24,64 @@
 /******************************************************************************
  * DATA STRUCTURE
  ******************************************************************************/
+/* violation index corresponds to subsys */
+enum MFGSYS_INDEX {
+	MFGSYS_START = 232,
+	MFGSYS_END = 244,
+};
+
+enum SMI_INDEX {
+	SMI_LARB0 = 268,
+	SMI_LARB1 = 269,
+	SMI_COMMON = 270,
+	SMI_LARB5 = 294,
+	SMI_LARB6 = 295,
+	VENCSYS_SMI_LARB = 298,
+	VDECSYS_SMI_LARB = 307,
+	CAMSYS_SMI_LARB = 325,
+	IPESYS_SMI_LARB = 460,
+	IPESYS_SMI_LARB8 = 461,
+	IPESYS_SMI_LARB7 = 477,
+};
+
+enum MMSYS_INDEX {
+	MMSYS_MDP_START = 245,
+	MMSYS_MDP_END = 252,
+	MMSYS_DISP_START = 253,
+	MMSYS_DISP_END = 271,
+	MMSYS_MDP2_START = 272,
+	MMSYS_MDP2_END = 279,
+};
+
+enum IMGSYS_INDEX {
+	IMGSYS_START = 280,
+	IMGSYS_END = 296,
+};
+
+enum VENCSYS_INDEX {
+	VENCSYS_START = 297,
+	VENCSYS_END = 305,
+};
+
+enum VDECSYS_INDEX {
+	VDECSYS_START = 306,
+	VDECSYS_END = 312,
+};
+
+enum CAMSYS_INDEX {
+	CAMSYS_START = 313,
+	CAMSYS_END = 423,
+};
+
+enum APUSYS_INDEX {
+	APUSYS_START = 424,
+	APUSYS_END = 445,
+};
+
+enum IPESYS_INDEX {
+	IPESYS_START = 446,
+	IPESYS_END = 478,
+};
 
 enum OTHER_TYPES_INDEX {
 	SRAMROM_VIO_INDEX = 511,
