@@ -1287,6 +1287,11 @@ has_cpuid_feature(const struct arm64_cpu_capabilities *entry, int scope)
 	return feature_matches(val, entry);
 }
 
+
+#if defined(CONFIG_FAKE_ASYM32_CPU)
+static cpumask_t fake_cpu_32bit_el0_mask;
+#endif
+
 static int enable_mismatched_32bit_el0(unsigned int cpu)
 {
 	static int lucky_winner = -1;
@@ -1295,6 +1300,10 @@ static int enable_mismatched_32bit_el0(unsigned int cpu)
 	bool cpu_32bit = id_aa64pfr0_32bit_el0(info->reg_id_aa64pfr0);
 
 	if (cpu_32bit) {
+#if defined(CONFIG_FAKE_ASYM32_CPU)
+		if (!cpumask_test_cpu(cpu, &fake_cpu_32bit_el0_mask))
+			return 0;
+#endif
 		cpumask_set_cpu(cpu, cpu_32bit_el0_mask);
 		static_branch_enable_cpuslocked(&arm64_mismatched_32bit_el0);
 	}
@@ -1343,6 +1352,27 @@ const struct cpumask *system_32bit_el0_cpumask(void)
 	return cpu_possible_mask;
 }
 EXPORT_SYMBOL_GPL(system_32bit_el0_cpumask);
+
+#if defined(CONFIG_FAKE_ASYM32_CPU)
+static int __init parse_fake_cpu_32bit_el0_mask(char *str)
+{
+	int ret;
+	int i;
+	unsigned long val;
+
+	ret = kstrtoul(str, 16, &val);
+	if (ret)
+		return 0;
+
+	for (i = 0; i < sizeof(unsigned long) * 8; i++) {
+		if ((val >> i) & 0x1)
+			cpumask_set_cpu(i, &fake_cpu_32bit_el0_mask);
+	}
+
+	return 0;
+}
+early_param("fake_cpu_32bit_el0_mask", parse_fake_cpu_32bit_el0_mask);
+#endif
 
 static int __init parse_32bit_el0_param(char *str)
 {

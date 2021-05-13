@@ -1972,3 +1972,11 @@ source "arch/arm64/kvm/Kconfig"
 if CRYPTO
 source "arch/arm64/crypto/Kconfig"
 endif
+
+config FAKE_ASYM32_CPU
+	bool "simulate only partial cpus support 32bit application"
+	help
+	  This feature simulate that the cpus in fake_cpu_32bit_el0_mask have
+	  the capability to run 32bit user space program.
+	  This feature should not be enabled in MP project. If you don't know,
+	  say N.
