@@ -289,6 +289,7 @@ int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	return ret;
 }
 
+#ifndef MODULE
 static int __init set_early_ethernet_ipv4(char *ipv4_addr_in)
 {
 	int ret = 1;
@@ -368,6 +369,7 @@ fail:
 }
 
 __setup("ermac=", set_early_ethernet_mac);
+#endif
 
 static int qcom_ethqos_add_ipaddr(struct ip_params *ip_info,
 				  struct net_device *dev)
