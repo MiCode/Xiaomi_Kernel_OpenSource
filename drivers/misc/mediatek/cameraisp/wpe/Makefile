@@ -12,60 +12,12 @@
 #
 
 obj-y := camerawpe_dummy.o
-MTK_WPE_COUNT := 1
 
-ifeq ($(CONFIG_MACH_MT6775),y)
-  obj-y += $(subst ",,isp_50)/
+ifeq ($(CONFIG_MTK_CAMERA_WPE_ISP6S),m)
+	obj-y += $(subst ",,isp_6s)/
 endif
 
-ifeq ($(CONFIG_MACH_MT6771),y)
-  obj-y += $(subst ",,isp_50)/
+ifeq ($(CONFIG_MTK_CAMERA_WPE_ISP50),m)
+ 	obj-y += $(subst ",,isp_50)/
 endif
-
-ifeq ($(CONFIG_MACH_MT6779),y)
-  obj-y += $(subst ",,mt6779)/
-endif
-
-ifeq ($(CONFIG_MACH_MT6785),y)
-  obj-y += $(subst ",,isp_50)/
-endif
-ifeq ($(CONFIG_MACH_MT6885),y)
-  obj-y += $(subst ",,isp_6s)/
-  MTK_WPE_COUNT := 2
-endif
-
-ifeq ($(CONFIG_MTK_CAMERA_ISP_VER),"isp50")
-  obj-y += $(subst ",,isp_50)/
-endif
-
-
-ifeq ($(CONFIG_MTK_CAMERA_ISP_VER),"isp6s")
-    obj-y += $(subst ",,isp_6s)/
-    ifeq ($(CONFIG_MTK_CAMERA_DUAL_DIP_ISP6S),m)
-        MTK_WPE_COUNT := 2
-        subdir-ccflags-y += -DWPE_GKI_IMG1_LARB_ON
-    else
-        TK_WPE_COUNT := 1
-        subdir-ccflags-y += -DWPE_B_ONLY
-    endif
-
-  ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6853")
-    subdir-ccflags-y += -DWPE_GKI_IMG1_LARB_ON
-  endif
-endif
-
-ifeq ($(CONFIG_MACH_MT6873),y)
-  obj-y += $(subst ",,isp_6s)/
-  MTK_WPE_COUNT := 1
-  subdir-ccflags-y += -DWPE_B_ONLY
-endif
-
-ifeq ($(CONFIG_MACH_MT6853),y)
-  obj-y += $(subst ",,isp_6s)/
-  MTK_WPE_COUNT := 1
-  subdir-ccflags-y += -DWPE_B_ONLY
-  subdir-ccflags-y += -DFORCE_IMG1_ON
-endif
-
-subdir-ccflags-y += -DMTK_WPE_COUNT=$(MTK_WPE_COUNT)
 
