@@ -234,10 +234,6 @@ static unsigned long virt_2_pfn(unsigned long addr)
 	pte_t *ptep, _pte_val = {0};
 	unsigned long pfn = ~0UL;
 
-#ifdef CONFIG_ARM64
-	if (addr < PAGE_OFFSET)
-		goto OUT;
-#endif
 	if (get_kernel_nofault(_pgd_val, pgd) || pgd_none(_pgd_val))
 		goto OUT;
 	p4d = p4d_offset(pgd, addr);
@@ -408,7 +404,7 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo)
 #define __pa_nodebug __pa
 #endif
 #endif
-static void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
+void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 		unsigned long size, unsigned long start, char *name)
 {
 	int i;
@@ -445,6 +441,9 @@ static void mrdump_mini_add_misc(unsigned long addr, unsigned long size,
 
 int kernel_addr_valid(unsigned long addr)
 {
+#ifdef __aarch64__
+	addr = __tag_reset(addr);
+#endif
 	if (addr < MIN_MARGIN)
 		return 0;
 

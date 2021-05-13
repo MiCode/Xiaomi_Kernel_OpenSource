@@ -41,6 +41,8 @@ static unsigned int *mrdump_km;
 static u8 *mrdump_ktt;
 static u16 *mrdump_kti;
 
+static int retry_nm = 100;
+
 static void *kinfo_vaddr;
 static char mrdump_ver[16];
 
@@ -55,6 +57,18 @@ int mrdump_ka_init(void *vaddr, const char *version)
 	strlcpy(mrdump_ver, version, sizeof(mrdump_ver));
 	schedule_delayed_work(&ka_work, 0);
 	return 0;
+}
+
+static bool mrdump_is_kinfo_ready(void)
+{
+	if (!mrdump_virt_addr_valid(_mrdump_krb) ||
+		!mrdump_virt_addr_valid(mrdump_ko) ||
+		!mrdump_virt_addr_valid(mrdump_kn) ||
+		!mrdump_virt_addr_valid(mrdump_ktt) ||
+		!mrdump_virt_addr_valid(mrdump_kti) ||
+		!mrdump_virt_addr_valid(mrdump_km))
+		return false;
+	return true;
 }
 
 static void mrdump_ka_work_func(struct work_struct *work)
@@ -72,6 +86,22 @@ static void mrdump_ka_work_func(struct work_struct *work)
 		mrdump_ktt = (void *)(kinfo->_token_table_pa + kimage_voffset);
 		mrdump_kti = (void *)(kinfo->_token_index_pa + kimage_voffset);
 		mrdump_km = (void *)(kinfo->_markers_pa + kimage_voffset);
+		if (!mrdump_is_kinfo_ready()) {
+			if (--retry_nm >= 0) {
+				pr_info("%s: retry again in 0.1 second", __func__);
+				_mrdump_kns = 0;
+				_mrdump_krb = 0;
+				mrdump_ko = NULL;
+				mrdump_kn = NULL;
+				mrdump_ktt = NULL;
+				mrdump_kti = NULL;
+				mrdump_km = NULL;
+				schedule_delayed_work(&ka_work, HZ / 10);
+			} else {
+				pr_info("%s failed 0x%lx\n", __func__, kimage_voffset);
+			}
+			return;
+		}
 		aee_base_addrs_init();
 		mrdump_cblock_late_init();
 		init_ko_addr_list_late();
@@ -80,7 +110,10 @@ static void mrdump_ka_work_func(struct work_struct *work)
 		mrdump_full_init(mrdump_ver);
 	} else {
 		pr_info("%s: retry in 0.1 second", __func__);
-		schedule_delayed_work(&ka_work, HZ / 10);
+		if (--retry_nm >= 0)
+			schedule_delayed_work(&ka_work, HZ / 10);
+		else
+			pr_info("%s failed\n", __func__);
 	}
 }
 

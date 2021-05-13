@@ -56,6 +56,8 @@ uint64_t mrdump_get_mpt(void);
 void mrdump_save_control_register(void *creg);
 
 extern void mrdump_mini_ke_cpu_regs(struct pt_regs *regs);
+extern void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
+		unsigned long size, unsigned long start, char *name);
 
 #if defined(__arm__)
 static inline void crash_setup_regs(struct pt_regs *newregs,

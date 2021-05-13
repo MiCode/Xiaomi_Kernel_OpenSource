@@ -370,6 +370,8 @@ static int __init mrdump_panic_init(void)
 	mrdump_mini_init(&mparams);
 
 #ifdef MODULE
+	mrdump_mini_add_misc_pa((unsigned long)rmem->priv, rmem->base,
+			rmem->size, 0, "_KINFO_");
 	mrdump_ka_init(rmem->priv, mparams.lk_version);
 #else
 	mrdump_full_init(mparams.lk_version);
