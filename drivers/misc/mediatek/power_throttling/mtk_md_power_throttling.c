@@ -5,12 +5,20 @@
  */
 
 #include <linux/module.h>
-
+#include <linux/of.h>
 #include "mtk_ccci_common.h"
 #include "mtk_md_power_throttling.h"
 #include "mtk_low_battery_throttling.h"
 #include "mtk_battery_oc_throttling.h"
 
+struct cpu_md_priv {
+	u32 lbat_md_reduce_tx;
+	u32 oc_md_reduce_tx;
+};
+
+static struct cpu_md_priv md_priv;
+
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 {
 	unsigned int md_throttle_cmd;
@@ -18,7 +26,7 @@ static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 
 	if (level <= LOW_BATTERY_LEVEL_2 && level >= LOW_BATTERY_LEVEL_0) {
 		if (level != LOW_BATTERY_LEVEL_0)
-			intensity = LBAT_REDUCE_TX_POWER;
+			intensity = md_priv.lbat_md_reduce_tx;
 		else
 			intensity = 0;
 
@@ -31,7 +39,9 @@ static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 				md_throttle_cmd, level);
 	}
 }
+#endif
 
+#if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 {
 	unsigned int md_throttle_cmd;
@@ -39,7 +49,7 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 
 	if (level <= BATTERY_OC_LEVEL_1 && level >= BATTERY_OC_LEVEL_0) {
 		if (level != BATTERY_OC_LEVEL_0)
-			intensity = OC_REDUCE_TX_POWER;
+			intensity = md_priv.oc_md_reduce_tx;
 		else
 			intensity = 0;
 
@@ -52,11 +62,39 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 				md_throttle_cmd, level);
 	}
 }
+#endif
 
 static int __init mtk_md_power_throttling_module_init(void)
 {
-	register_low_battery_notify(&md_pt_low_battery_cb, LOW_BATTERY_PRIO_MD);
-	register_battery_oc_notify(&md_pt_over_current_cb, BATTERY_OC_PRIO_MD);
+	struct device_node *np;
+	int ret;
+
+	np = of_find_compatible_node(NULL, NULL, "mediatek,power_throttling");
+
+	if (!np) {
+		pr_notice("get power_throttling node fail\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "lbat_md_reduce_tx", &md_priv.lbat_md_reduce_tx);
+	if (ret) {
+		pr_notice("get lbat_md_reduce_tx fail ret=%d\n", ret);
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "oc_md_reduce_tx", &md_priv.oc_md_reduce_tx);
+	if (ret) {
+		pr_notice("get oc_md_reduce_tx fail  ret=%d\n", ret);
+		return -EINVAL;
+	}
+
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
+		register_low_battery_notify(&md_pt_low_battery_cb, LOW_BATTERY_PRIO_MD);
+#endif
+	
+#if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
+		register_battery_oc_notify(&md_pt_over_current_cb, BATTERY_OC_PRIO_MD);
+#endif
 
 	return 0;
 }

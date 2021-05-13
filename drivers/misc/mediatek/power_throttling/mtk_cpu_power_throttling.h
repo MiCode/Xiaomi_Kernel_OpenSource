@@ -16,6 +16,7 @@ enum cpu_pt_type {
 struct cpu_pt_policy {
 	enum cpu_pt_type           pt_type;
 	unsigned int               cpu;
+	s32                        cpu_limit;
 	struct freq_qos_request    qos_req;
 	struct cpufreq_policy      *policy;
 	struct list_head           cpu_pt_list;
