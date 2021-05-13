@@ -149,7 +149,6 @@ void PMIC_LP_INIT_SETTING(void)
 #if LP_INIT_SETTING_VERIFIED
 	/*SODI3*/
 	pmic_buck_vproc11_lp(SW, 1, SW_OFF);
-	pmic_buck_vcore_lp(SRCLKEN0, 1, HW_LP);
 	pmic_buck_vgpu_lp(SW, 1, SW_OFF);
 	pmic_buck_vmodem_lp(SRCLKEN0, 1, HW_LP);
 	pmic_buck_vs1_lp(SRCLKEN0, 1, HW_LP);
@@ -170,11 +169,13 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vmddr_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vsram_proc12_lp(SW, 1, SW_OFF);
 	if (is_pmic_new_power_grid()) {
+		pmic_buck_vcore_lp(SRCLKEN0, 1, HW_LP);
 		pmic_ldo_vsram_others_lp(SRCLKEN0, 1, HW_LP);
 		pmic_ldo_vsram_core_lp(SW, 1, SW_ON);
 	} else {
 		pmic_ldo_vsram_others_lp(SW, 1, SW_ON);
 		/* disable HW LP mode (wk_sshub) */
+		pmic_buck_vcore_lp(SW, 1, SW_ON);
 		pmic_ldo_vsram_core_lp(SW, 1, SW_ON);
 	}
 	pmic_ldo_va12_lp(SRCLKEN0, 1, HW_LP);
@@ -195,7 +196,6 @@ void PMIC_LP_INIT_SETTING(void)
 
 	/*Deepidle*/
 	pmic_buck_vproc11_lp(SW, 1, SW_OFF);
-	pmic_buck_vcore_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vgpu_lp(SW, 1, SW_OFF);
 	pmic_buck_vmodem_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vs1_lp(SRCLKEN2, 1, HW_LP);
@@ -216,11 +216,13 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vmddr_lp(SRCLKEN2, 1, HW_LP);
 	pmic_ldo_vsram_proc12_lp(SW, 1, SW_OFF);
 	if (is_pmic_new_power_grid()) {
+		pmic_buck_vcore_lp(SRCLKEN2, 1, HW_LP);
 		pmic_ldo_vsram_others_lp(SRCLKEN2, 1, HW_LP);
 		pmic_ldo_vsram_core_lp(SW, 1, SW_ON);
 	} else {
 		pmic_ldo_vsram_others_lp(SW, 1, SW_ON);
 		/* disable HW LP mode (wk_sshub) */
+		pmic_buck_vcore_lp(SW, 1, SW_ON);
 		pmic_ldo_vsram_core_lp(SW, 1, SW_ON);
 	}
 	pmic_ldo_va12_lp(SRCLKEN2, 1, HW_LP);
