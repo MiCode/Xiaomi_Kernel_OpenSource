@@ -82,8 +82,7 @@ static struct tmem_device_description mtee_mchunks[] = {
 	},
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT) && \
-	IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_WFD,
 		.tee_smem_type = TEE_SMEM_WFD,
@@ -176,8 +175,9 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
 
-	/* skip svp on TEE */
-	if (mem_type == TRUSTED_MEM_SVP_REGION && !is_svp_on_mtee())
+	/* skip svp or wfd on TEE */
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD) &&
+		!is_svp_on_mtee())
 		return NULL;
 
 	t_device = create_trusted_mem_device(mem_type, cfg);

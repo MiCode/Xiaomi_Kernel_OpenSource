@@ -152,8 +152,9 @@ create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
 
-	/* skip svp on MTEE */
-	if (mem_type == TRUSTED_MEM_SVP_REGION && is_svp_on_mtee())
+	/* skip svp or wfd on MTEE */
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD) &&
+		is_svp_on_mtee())
 		return NULL;
 
 	t_device = create_trusted_mem_device(mem_type, cfg);
