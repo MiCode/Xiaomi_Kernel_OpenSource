@@ -784,6 +784,8 @@ IS_ENABLED(CONFIG_MACH_MT6785))
 				cmdq_sec_mbox_switch_normal(vcu->clt_venc_sec[0]);
 #endif
 #endif
+			venc_unlock(vcu->gce_info[j].v4l2_ctx,
+				buff->cmdq_buff.core_id);
 		}
 	}
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
