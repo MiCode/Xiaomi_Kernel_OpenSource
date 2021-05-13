@@ -7,6 +7,7 @@
 #include <trace/hooks/sched.h>
 #include "../../../../kernel/sched/sched.h"
 #include "../../../../kernel/sched/pelt.h"
+#include "sched_main.h"
 
 MODULE_LICENSE("GPL");
 
@@ -227,12 +228,23 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 		int max_spare_cap_cpu = -1;
 		int max_spare_cap_cpu_ls_idle = -1;
 		int max_spare_cap_cpu_ls_active = -1;
+#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
+		int cpu_order[NR_CPUS], cnt, i;
+#endif
 
 		/* Compute the 'base' energy of the pd, without @p */
 		base_energy_pd = compute_energy(p, -1, pd);
 		base_energy += base_energy_pd;
 
+#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
+		cnt = sort_thermal_headroom(perf_domain_span(pd), cpu_order);
+
+		for(i = 0; i < cnt; i++) {
+			cpu = cpu_order[i];	
+#else
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_online_mask) {
+#endif
+
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
 				continue;
 
@@ -274,9 +286,15 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			if (idle_cpu(cpu)) {
 				cpu_cap = capacity_orig_of(cpu);
 				idle = idle_get_state(cpu_rq(cpu));
+#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
+				if (idle && idle->exit_latency >= min_exit_lat &&
+						cpu_cap == target_cap)
+					continue;
+#else
 				if (idle && idle->exit_latency > min_exit_lat &&
 						cpu_cap == target_cap)
 					continue;
+#endif
 
 				if (spare_cap < max_spare_cap_ls_idle)
 					continue;

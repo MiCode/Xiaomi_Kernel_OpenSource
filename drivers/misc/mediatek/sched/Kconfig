@@ -31,8 +31,20 @@ config MTK_EAS
 	help
 	  MTK EAS enhancement features.
 	  These featues include
-		load balance in the same frequency domain
-		hint aware in idle balance
+	   1. load balance in the same frequency domain
+	   2. hint aware in idle balance
+	   3. Notify thermal ceiling to scheduler by reading thermal
+		ceiling in SRAM and updating thermal pressure.
+
+config MTK_THERMAL_AWARE_SCHEDULING
+	bool "thermal aware scheduling"
+	depends on MTK_EAS
+	help
+	  CPU leakage optimization by temperature balance in the
+	  same frequency domain. 
+	  Task placement consider temperature for leakage.
+	  Use current Per-core temperature (per-10'c, per-die).
+	  Favor tasks to CPU with lowest thermal pressure.
 
 config MTK_CORE_PAUSE
 	bool "core pause driver"
@@ -42,3 +54,4 @@ config MTK_CORE_PAUSE
 	   core pause intends to have a way to force a CPU to go idle
 	   and to resume as quickly as possible, with as little
 	   disruption as possible on the system.
+

@@ -5,6 +5,8 @@
 #include <linux/module.h>
 #include "../../../../kernel/sched/sched.h"
 #include "sched_main.h"
+#include <linux/sort.h>
+#include "../../../../drivers/thermal/mediatek/thermal_interface.h"
 
 MODULE_LICENSE("GPL");
 
@@ -37,4 +39,43 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 				*out_balance = 0;
 	}
 }
+
+#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
+
+struct thermal_struct{
+	int cpu_id;
+	int headroom;
+};
+
+static int cmp(const void *a, const void *b)
+{
+
+	const struct thermal_struct *a1=a;
+	const struct thermal_struct *b1=b;
+
+	return b1->headroom - a1->headroom;
+}
+
+int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
+{
+	int i, cpu, cnt=0;
+	struct thermal_struct thermal_order[NR_CPUS];
+
+	for_each_cpu_and(cpu, cpus, cpu_online_mask) {
+		thermal_order[cnt].cpu_id = cpu;
+		thermal_order[cnt].headroom = get_thermal_headroom(cpu);
+		cnt++;
+	}
+
+	sort(thermal_order, cnt, sizeof(struct thermal_struct), cmp, NULL);
+
+	for(i = 0; i < cnt; i++) {
+		*cpu_order++ = thermal_order[i].cpu_id;
+	}
+
+	return cnt;
+
+}
+
+#endif
 

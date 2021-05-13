@@ -33,6 +33,9 @@ extern void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 		struct rq *dst_rq, int *out_balance);
 extern void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p,
 		int prev_cpu, int sync, int *new_cpu);
+#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
+extern int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order);
 #endif
 
+#endif
 #endif
