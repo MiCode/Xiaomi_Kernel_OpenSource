@@ -74,7 +74,6 @@ int mt_usb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 }
 EXPORT_SYMBOL(mt_usb_set_vbus);
 
-#ifdef NEVER
 /* Todo: Phase out */
 static void mt_usb_gadget_disconnect(struct musb *musb)
 {
@@ -89,7 +88,6 @@ static void mt_usb_gadget_disconnect(struct musb *musb)
 
 	usb_gadget_set_state(&musb->g, USB_STATE_NOTATTACHED);
 }
-#endif
 
 /*
  * switch to host: -> MUSB_VBUS_OFF --> MUSB_ID_GROUND
@@ -122,7 +120,7 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		musb->usb_connected = 0;
 		musb->is_host = 0;
 		otg_sx->sw_state &= ~MUSB_VBUS_VALID;
-		mt_usb_disconnect();
+		mt_usb_gadget_disconnect(musb);
 		break;
 	case MUSB_VBUS_VALID:
 		mt_usb_set_vbus(otg_sx, true);
@@ -291,11 +289,8 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 		} else {
 			dev_info(dev, "%s: if vbus_event false\n", __func__);
 			phy_power_off(glue->phy);
-			/* work around: need handle VBUS_OFF when booting */
-			if (first_init)
-				first_init = false;
-			else
-				mt_usb_set_mailbox(otg_sx, MUSB_VBUS_OFF);
+			/* ToDo: need handle VBUS_OFF when booting */
+			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_OFF);
 		}
 	}
 
