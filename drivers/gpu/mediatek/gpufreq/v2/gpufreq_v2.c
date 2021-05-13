@@ -34,9 +34,6 @@
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 #include <mtk_low_battery_throttling.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_PBM)
-#include <mtk_pbm.h>
-#endif
 
 /**
  * ===============================================
@@ -133,104 +130,30 @@ void gpufreq_dump_infra_status(void)
 }
 EXPORT_SYMBOL(gpufreq_dump_infra_status);
 
-void gpufreq_resume_dvfs(void)
-{
-	GPUFREQ_TRACE_START();
-
-	if (gpufreq_fp->resume_dvfs)
-		gpufreq_fp->resume_dvfs();
-
-	GPUFREQ_TRACE_END();
-}
-EXPORT_SYMBOL(gpufreq_resume_dvfs);
-
-int gpufreq_pause_dvfs(void)
-{
-	int ret = GPUFREQ_SUCCESS;
-
-	GPUFREQ_TRACE_START();
-
-	if (gpufreq_fp->pause_dvfs)
-		ret = gpufreq_fp->pause_dvfs();
-	else
-		ret = GPUFREQ_ENOENT;
-
-	GPUFREQ_TRACE_END();
-
-	return ret;
-}
-EXPORT_SYMBOL(gpufreq_pause_dvfs);
-
-int gpufreq_map_avs_idx(int avsidx)
-{
-	if (gpufreq_fp->pause_dvfs)
-		return gpufreq_fp->map_avs_idx(avsidx);
-	else
-		return -1;
-}
-EXPORT_SYMBOL(gpufreq_map_avs_idx);
-
-void gpufreq_adjust_volt_by_avs(
-	unsigned int avs_volt[], unsigned int array_size)
-{
-	GPUFREQ_TRACE_START("avs_volt=0x%x, array_size=%d",
-		avs_volt, array_size);
-
-	if (gpufreq_fp->adjust_volt_by_avs)
-		gpufreq_fp->adjust_volt_by_avs(avs_volt, array_size);
-
-	GPUFREQ_TRACE_END();
-}
-EXPORT_SYMBOL(gpufreq_adjust_volt_by_avs);
-
-void gpufreq_restore_opp(enum gpufreq_target target)
-{
-	GPUFREQ_TRACE_START("target=%d", target);
-
-	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck))
-		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
-
-	if (target == TARGET_DEFAULT) {
-		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
-		else
-			target = TARGET_GPU;
-	}
-
-	if (target == TARGET_GPUSTACK && gpufreq_fp->restore_opp_gstack)
-		gpufreq_fp->restore_opp_gstack();
-	else if (target == TARGET_GPU && gpufreq_fp->restore_opp_gpu)
-		gpufreq_fp->restore_opp_gpu();
-
-	GPUFREQ_TRACE_END();
-}
-EXPORT_SYMBOL(gpufreq_restore_opp);
-
 unsigned int gpufreq_get_cur_freq(enum gpufreq_target target)
 {
 	unsigned int freq = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_cur_fgstack)
-		freq = gpufreq_fp->get_cur_fgstack();
+	if (target == TARGET_STACK && gpufreq_fp->get_cur_fstack)
+		freq = gpufreq_fp->get_cur_fstack();
 	else if (target == TARGET_GPU && gpufreq_fp->get_cur_fgpu)
 		freq = gpufreq_fp->get_cur_fgpu();
 
 	GPUFREQ_LOGD("target: %s, current freq: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		freq);
 
 done:
@@ -243,25 +166,25 @@ unsigned int gpufreq_get_cur_volt(enum gpufreq_target target)
 	unsigned int volt = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_cur_vgstack)
-		volt = gpufreq_fp->get_cur_vgstack();
+	if (target == TARGET_STACK && gpufreq_fp->get_cur_vstack)
+		volt = gpufreq_fp->get_cur_vstack();
 	else if (target == TARGET_GPU && gpufreq_fp->get_cur_vgpu)
 		volt = gpufreq_fp->get_cur_vgpu();
 
 	GPUFREQ_LOGD("target: %s, current volt: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		volt);
 
 done:
@@ -269,30 +192,61 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_cur_volt);
 
-int gpufreq_get_cur_oppidx(enum gpufreq_target target)
+unsigned int gpufreq_get_cur_power(enum gpufreq_target target)
 {
-	int oppidx = -1;
+	unsigned int power = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_cur_idx_gstack)
-		oppidx = gpufreq_fp->get_cur_idx_gstack();
+	if (target == TARGET_STACK && gpufreq_fp->get_cur_pstack)
+		power = gpufreq_fp->get_cur_pstack();
+	else if (target == TARGET_GPU && gpufreq_fp->get_cur_pgpu)
+		power = gpufreq_fp->get_cur_pgpu();
+
+	GPUFREQ_LOGD("target: %s, current power: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		power);
+
+done:
+	return power;
+}
+EXPORT_SYMBOL(gpufreq_get_cur_power);
+
+int gpufreq_get_cur_oppidx(enum gpufreq_target target)
+{
+	int oppidx = -1;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp->get_cur_idx_stack)
+		oppidx = gpufreq_fp->get_cur_idx_stack();
 	else if (target == TARGET_GPU && gpufreq_fp->get_cur_idx_gpu)
 		oppidx = gpufreq_fp->get_cur_idx_gpu();
 
 	GPUFREQ_LOGD("target: %s, current OPP index: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		oppidx);
 
 done:
@@ -305,25 +259,25 @@ int gpufreq_get_max_oppidx(enum gpufreq_target target)
 	int oppidx = -1;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_max_idx_gstack)
-		oppidx = gpufreq_fp->get_max_idx_gstack();
+	if (target == TARGET_STACK && gpufreq_fp->get_max_idx_stack)
+		oppidx = gpufreq_fp->get_max_idx_stack();
 	else if (target == TARGET_GPU && gpufreq_fp->get_max_idx_gpu)
 		oppidx = gpufreq_fp->get_max_idx_gpu();
 
 	GPUFREQ_LOGD("target: %s, max OPP index: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		oppidx);
 
 done:
@@ -336,25 +290,25 @@ int gpufreq_get_min_oppidx(enum gpufreq_target target)
 	int oppidx = -1;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_min_idx_gstack)
-		oppidx = gpufreq_fp->get_min_idx_gstack();
+	if (target == TARGET_STACK && gpufreq_fp->get_min_idx_stack)
+		oppidx = gpufreq_fp->get_min_idx_stack();
 	else if (target == TARGET_GPU && gpufreq_fp->get_min_idx_gpu)
 		oppidx = gpufreq_fp->get_min_idx_gpu();
 
 	GPUFREQ_LOGD("target: %s, min OPP index: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		oppidx);
 
 done:
@@ -367,25 +321,25 @@ unsigned int gpufreq_get_opp_num(enum gpufreq_target target)
 	unsigned int opp_num = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_opp_num_gstack)
-		opp_num = gpufreq_fp->get_opp_num_gstack();
+	if (target == TARGET_STACK && gpufreq_fp->get_opp_num_stack)
+		opp_num = gpufreq_fp->get_opp_num_stack();
 	else if (target == TARGET_GPU && gpufreq_fp->get_opp_num_gpu)
 		opp_num = gpufreq_fp->get_opp_num_gpu();
 
 	GPUFREQ_LOGD("target: %s, # of OPP index: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		opp_num);
 
 done:
@@ -393,31 +347,30 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_opp_num);
 
-unsigned int gpufreq_get_freq_by_idx(
-	enum gpufreq_target target, int oppidx)
+unsigned int gpufreq_get_freq_by_idx(enum gpufreq_target target, int oppidx)
 {
 	unsigned int freq = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_fgstack_by_idx)
-		freq = gpufreq_fp->get_fgstack_by_idx(oppidx);
+	if (target == TARGET_STACK && gpufreq_fp->get_fstack_by_idx)
+		freq = gpufreq_fp->get_fstack_by_idx(oppidx);
 	else if (target == TARGET_GPU && gpufreq_fp->get_fgpu_by_idx)
 		freq = gpufreq_fp->get_fgpu_by_idx(oppidx);
 
 	GPUFREQ_LOGD("target: %s, freq[%d]: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		oppidx, freq);
 
 done:
@@ -425,31 +378,30 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_freq_by_idx);
 
-unsigned int gpufreq_get_volt_by_idx(
-	enum gpufreq_target target, int oppidx)
+unsigned int gpufreq_get_volt_by_idx(enum gpufreq_target target, int oppidx)
 {
 	unsigned int volt = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_vgstack_by_idx)
-		volt = gpufreq_fp->get_vgstack_by_idx(oppidx);
+	if (target == TARGET_STACK && gpufreq_fp->get_vstack_by_idx)
+		volt = gpufreq_fp->get_vstack_by_idx(oppidx);
 	else if (target == TARGET_GPU && gpufreq_fp->get_vgpu_by_idx)
 		volt = gpufreq_fp->get_vgpu_by_idx(oppidx);
 
 	GPUFREQ_LOGD("target: %s, volt[%d]: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		oppidx, volt);
 
 done:
@@ -457,31 +409,30 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_volt_by_idx);
 
-unsigned int gpufreq_get_power_by_idx(
-	enum gpufreq_target target, int oppidx)
+unsigned int gpufreq_get_power_by_idx(enum gpufreq_target target, int oppidx)
 {
 	unsigned int power = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_pgstack_by_idx)
-		power = gpufreq_fp->get_pgstack_by_idx(oppidx);
+	if (target == TARGET_STACK && gpufreq_fp->get_pstack_by_idx)
+		power = gpufreq_fp->get_pstack_by_idx(oppidx);
 	else if (target == TARGET_GPU && gpufreq_fp->get_pgpu_by_idx)
 		power = gpufreq_fp->get_pgpu_by_idx(oppidx);
 
 	GPUFREQ_LOGD("target: %s, power[%d]: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		oppidx, power);
 
 done:
@@ -489,31 +440,30 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_power_by_idx);
 
-int gpufreq_get_oppidx_by_freq(
-	enum gpufreq_target target, unsigned int freq)
+int gpufreq_get_oppidx_by_freq(enum gpufreq_target target, unsigned int freq)
 {
 	int oppidx = -1;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_idx_by_fgstack)
-		oppidx = gpufreq_fp->get_idx_by_fgstack(freq);
+	if (target == TARGET_STACK && gpufreq_fp->get_idx_by_fstack)
+		oppidx = gpufreq_fp->get_idx_by_fstack(freq);
 	else if (target == TARGET_GPU && gpufreq_fp->get_idx_by_fgpu)
 		oppidx = gpufreq_fp->get_idx_by_fgpu(freq);
 
 	GPUFREQ_LOGD("target: %s, oppidx[%d]: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		freq, oppidx);
 
 done:
@@ -521,31 +471,61 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_oppidx_by_freq);
 
-int gpufreq_get_oppidx_by_power(
-	enum gpufreq_target target, unsigned int power)
+int gpufreq_get_oppidx_by_volt(enum gpufreq_target target, unsigned int volt)
 {
 	int oppidx = -1;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_idx_by_pgstack)
-		oppidx = gpufreq_fp->get_idx_by_pgstack(power);
+	if (target == TARGET_STACK && gpufreq_fp->get_idx_by_vstack)
+		oppidx = gpufreq_fp->get_idx_by_vstack(volt);
+	else if (target == TARGET_GPU && gpufreq_fp->get_idx_by_vgpu)
+		oppidx = gpufreq_fp->get_idx_by_vgpu(volt);
+
+	GPUFREQ_LOGD("target: %s, oppidx[%d]: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		volt, oppidx);
+
+done:
+	return oppidx;
+}
+EXPORT_SYMBOL(gpufreq_get_oppidx_by_volt);
+
+int gpufreq_get_oppidx_by_power(enum gpufreq_target target, unsigned int power)
+{
+	int oppidx = -1;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp->get_idx_by_pstack)
+		oppidx = gpufreq_fp->get_idx_by_pstack(power);
 	else if (target == TARGET_GPU && gpufreq_fp->get_idx_by_pgpu)
 		oppidx = gpufreq_fp->get_idx_by_pgpu(power);
 
 	GPUFREQ_LOGD("target: %s, oppidx[%d]: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		power, oppidx);
 
 done:
@@ -553,31 +533,30 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_oppidx_by_power);
 
-unsigned int gpufreq_get_leakage_power(
-	enum gpufreq_target target, unsigned int volt)
+unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int volt)
 {
 	unsigned int p_leakage = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_lkg_pgstack)
-		p_leakage = gpufreq_fp->get_lkg_pgstack(volt);
+	if (target == TARGET_STACK && gpufreq_fp->get_lkg_pstack)
+		p_leakage = gpufreq_fp->get_lkg_pstack(volt);
 	else if (target == TARGET_GPU && gpufreq_fp->get_lkg_pgpu)
 		p_leakage = gpufreq_fp->get_lkg_pgpu(volt);
 
 	GPUFREQ_LOGD("target: %s, p_leakage[v=%d]: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		volt, p_leakage);
 
 done:
@@ -585,31 +564,31 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_leakage_power);
 
-unsigned int gpufreq_get_dynamic_power(
-	enum gpufreq_target target, unsigned int freq, unsigned int volt)
+unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
+	unsigned int freq, unsigned int volt)
 {
 	unsigned int p_dynamic = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK && gpufreq_fp->get_dyn_pgstack)
-		p_dynamic = gpufreq_fp->get_dyn_pgstack(freq, volt);
+	if (target == TARGET_STACK && gpufreq_fp->get_dyn_pstack)
+		p_dynamic = gpufreq_fp->get_dyn_pstack(freq, volt);
 	else if (target == TARGET_GPU && gpufreq_fp->get_dyn_pgpu)
 		p_dynamic = gpufreq_fp->get_dyn_pgpu(freq, volt);
 
 	GPUFREQ_LOGD("target: %s, p_dynamic[f=%d, v=%d]: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		freq, volt, p_dynamic);
 
 done:
@@ -617,14 +596,20 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_dynamic_power);
 
-int gpufreq_power_control(
-	enum gpufreq_power_state power, enum gpufreq_cg_state cg,
-	enum gpufreq_mtcmos_state mtcmos, enum gpufreq_buck_state buck)
+/***********************************************************************************
+ Function Name      : gpufreq_power_control
+ Inputs             : power          - Target power state
+ Outputs            : -
+ Returns            : power_count    - Success
+                      GPUFREQ_EINVAL - Failed
+                      GPUFREQ_ENOENT - No implementation
+ Description        : Control power state of whole MFG system
+************************************************************************************/
+int gpufreq_power_control(enum gpufreq_power_state power)
 {
 	int ret = GPUFREQ_SUCCESS;
 
-	GPUFREQ_TRACE_START("power=%d, cg=%d, mtcmos=%d, buck=%d",
-		power, cg, mtcmos, buck);
+	GPUFREQ_TRACE_START("power=%d", power);
 
 	if (!gpufreq_power_ctrl_enable()) {
 		GPUFREQ_LOGD("power control is disabled");
@@ -633,12 +618,12 @@ int gpufreq_power_control(
 	}
 
 	if (gpufreq_fp->power_control)
-		ret = gpufreq_fp->power_control(power, cg, mtcmos, buck);
+		ret = gpufreq_fp->power_control(power);
 	else
 		ret = GPUFREQ_ENOENT;
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to control power state (p=%d, c=%d, m=%d, b=%d) (%d)",
-			power, cg, mtcmos, buck, ret);
+	if (unlikely(ret < 0)) {
+		GPUFREQ_LOGE("fail to control power state: %s (%d)",
+			power ? "POWER_ON" : "POWER_OFF", ret);
 	}
 
 done:
@@ -655,7 +640,7 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx)
 	GPUFREQ_TRACE_START("target=%d, oppidx=%d", target, oppidx);
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		ret = GPUFREQ_EINVAL;
 		goto done;
@@ -663,22 +648,22 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx)
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
 	GPUFREQ_LOGD("target: %s, oppidx: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		oppidx);
 
-	if (target == TARGET_GPUSTACK) {
-		if (gpuppm_fp->limited_commit_gstack)
-			ret = gpuppm_fp->limited_commit_gstack(oppidx);
+	if (target == TARGET_STACK) {
+		if (gpuppm_fp->limited_commit_stack)
+			ret = gpuppm_fp->limited_commit_stack(oppidx);
 		else
 			ret = GPUFREQ_ENOENT;
 		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to commit GPUSTACK OPP index: %d (%d)",
+			GPUFREQ_LOGE("fail to commit STACK OPP index: %d (%d)",
 				oppidx, ret);
 	} else if (target == TARGET_GPU) {
 		if (gpuppm_fp->limited_commit_gpu)
@@ -697,9 +682,8 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_commit);
 
-int gpufreq_set_limit(
-	enum gpufreq_target target, unsigned int limiter,
-	int ceiling, int floor)
+int gpufreq_set_limit(enum gpufreq_target target,
+	unsigned int limiter, int ceiling, int floor)
 {
 	int ret = GPUFREQ_SUCCESS;
 
@@ -707,7 +691,7 @@ int gpufreq_set_limit(
 		target, limiter, ceiling, floor);
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		ret = GPUFREQ_EINVAL;
 		goto done;
@@ -715,22 +699,22 @@ int gpufreq_set_limit(
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, ceiling: %d, floor: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		limiter, ceiling, floor);
 
-	if (target == TARGET_GPUSTACK) {
-		if (gpuppm_fp->set_limit_gstack)
-			ret = gpuppm_fp->set_limit_gstack(limiter, ceiling, floor);
+	if (target == TARGET_STACK) {
+		if (gpuppm_fp->set_limit_stack)
+			ret = gpuppm_fp->set_limit_stack(limiter, ceiling, floor);
 		else
 			ret = GPUFREQ_ENOENT;
 		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPUSTACK limit (%d)", ret);
+			GPUFREQ_LOGE("fail to set STACK limit (%d)", ret);
 	} else if (target == TARGET_GPU) {
 		if (gpuppm_fp->set_limit_gpu)
 			ret = gpuppm_fp->set_limit_gpu(limiter, ceiling, floor);
@@ -747,13 +731,12 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_set_limit);
 
-int gpufreq_get_cur_limit_idx(
-	enum gpufreq_target target, enum gpuppm_limit_type limit)
+int gpufreq_get_cur_limit_idx(enum gpufreq_target target, enum gpuppm_limit_type limit)
 {
 	int limit_idx = -1;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
@@ -765,16 +748,16 @@ int gpufreq_get_cur_limit_idx(
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp->get_ceiling_gstack)
-			limit_idx = gpuppm_fp->get_ceiling_gstack();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp->get_floor_gstack)
-			limit_idx = gpuppm_fp->get_floor_gstack();
+	if (target == TARGET_STACK) {
+		if (limit == GPUPPM_CEILING && gpuppm_fp->get_ceiling_stack)
+			limit_idx = gpuppm_fp->get_ceiling_stack();
+		else if (limit == GPUPPM_FLOOR && gpuppm_fp->get_floor_stack)
+			limit_idx = gpuppm_fp->get_floor_stack();
 	} else if (target == TARGET_GPU) {
 		if (limit == GPUPPM_CEILING && gpuppm_fp->get_ceiling_gpu)
 			limit_idx = gpuppm_fp->get_ceiling_gpu();
@@ -783,7 +766,7 @@ int gpufreq_get_cur_limit_idx(
 	}
 
 	GPUFREQ_LOGD("target: %s, current %s index: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		limit == GPUPPM_CEILING ? "ceiling" : "floor",
 		limit_idx);
 
@@ -792,13 +775,12 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_cur_limit_idx);
 
-unsigned int gpufreq_get_cur_limiter(
-	enum gpufreq_target target, enum gpuppm_limit_type limit)
+unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit)
 {
 	unsigned int limiter = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
-		(target == TARGET_GPUSTACK && !g_dual_buck)) {
+		(target == TARGET_STACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
@@ -810,16 +792,16 @@ unsigned int gpufreq_get_cur_limiter(
 
 	if (target == TARGET_DEFAULT) {
 		if (g_dual_buck)
-			target = TARGET_GPUSTACK;
+			target = TARGET_STACK;
 		else
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_GPUSTACK) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp->get_c_limiter_gstack)
-			limiter = gpuppm_fp->get_c_limiter_gstack();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp->get_f_limiter_gstack)
-			limiter = gpuppm_fp->get_f_limiter_gstack();
+	if (target == TARGET_STACK) {
+		if (limit == GPUPPM_CEILING && gpuppm_fp->get_c_limiter_stack)
+			limiter = gpuppm_fp->get_c_limiter_stack();
+		else if (limit == GPUPPM_FLOOR && gpuppm_fp->get_f_limiter_stack)
+			limiter = gpuppm_fp->get_f_limiter_stack();
 	} else if (target == TARGET_GPU) {
 		if (limit == GPUPPM_CEILING && gpuppm_fp->get_c_limiter_gpu)
 			limiter = gpuppm_fp->get_c_limiter_gpu();
@@ -828,7 +810,7 @@ unsigned int gpufreq_get_cur_limiter(
 	}
 
 	GPUFREQ_LOGD("target: %s, current %s limiter: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		limit == GPUPPM_CEILING ? "ceiling" : "floor",
 		limiter);
 
@@ -840,36 +822,32 @@ EXPORT_SYMBOL(gpufreq_get_cur_limiter);
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 {
-	int ceiling = 0;
+	int ceiling = GPUPPM_DEFAULT_IDX;
 	int ret = GPUFREQ_SUCCESS;
 	enum gpufreq_target target = TARGET_DEFAULT;
 
 	GPUFREQ_TRACE_START("batt_oc_level=%d", batt_oc_level);
 
 	if (g_dual_buck)
-		target = TARGET_GPUSTACK;
+		target = TARGET_STACK;
 	else
 		target = TARGET_GPU;
 
 	if (gpufreq_fp->get_batt_oc_idx)
 		ceiling = gpufreq_fp->get_batt_oc_idx(batt_oc_level);
-	else
-		ceiling = GPUPPM_RESET_IDX;
 
-	if (target == TARGET_GPUSTACK && gpuppm_fp->set_limit_gstack) {
-		ret = gpuppm_fp->set_limit_gstack(LIMIT_BATT_OC,
-			ceiling, GPUPPM_KEEP_IDX);
+	if (target == TARGET_STACK && gpuppm_fp->set_limit_stack) {
+		ret = gpuppm_fp->set_limit_stack(LIMIT_BATT_OC, ceiling, GPUPPM_KEEP_IDX);
 		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPUSTACK limit (%d)", ret);
+			GPUFREQ_LOGE("fail to set STACK limit (%d)", ret);
 	} else if (target == TARGET_GPU && gpuppm_fp->set_limit_gpu) {
-		ret = gpuppm_fp->set_limit_gpu(LIMIT_BATT_OC,
-			ceiling, GPUPPM_KEEP_IDX);
+		ret = gpuppm_fp->set_limit_gpu(LIMIT_BATT_OC, ceiling, GPUPPM_KEEP_IDX);
 		if (unlikely(ret))
 			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
 	}
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, battery_oc_level: %d, ceiling: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		LIMIT_BATT_OC, batt_oc_level, ceiling);
 
 	GPUFREQ_TRACE_END();
@@ -877,39 +855,34 @@ static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 #endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
-static void gpufreq_batt_percent_callback(
-	enum BATTERY_PERCENT_LEVEL_TAG batt_percent_level)
+static void gpufreq_batt_percent_callback(enum BATTERY_PERCENT_LEVEL_TAG batt_percent_level)
 {
-	int ceiling = 0;
+	int ceiling = GPUPPM_DEFAULT_IDX;
 	int ret = GPUFREQ_SUCCESS;
 	enum gpufreq_target target = TARGET_DEFAULT;
 
 	GPUFREQ_TRACE_START("batt_percent_level=%d", batt_percent_level);
 
 	if (g_dual_buck)
-		target = TARGET_GPUSTACK;
+		target = TARGET_STACK;
 	else
 		target = TARGET_GPU;
 
 	if (gpufreq_fp->get_batt_percent_idx)
 		ceiling = gpufreq_fp->get_batt_percent_idx(batt_percent_level);
-	else
-		ceiling = GPUPPM_RESET_IDX;
 
-	if (target == TARGET_GPUSTACK && gpuppm_fp->set_limit_gstack) {
-		ret = gpuppm_fp->set_limit_gstack(LIMIT_BATT_PERCENT,
-			ceiling, GPUPPM_KEEP_IDX);
+	if (target == TARGET_STACK && gpuppm_fp->set_limit_stack) {
+		ret = gpuppm_fp->set_limit_stack(LIMIT_BATT_PERCENT, ceiling, GPUPPM_KEEP_IDX);
 		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPUSTACK limit (%d)", ret);
+			GPUFREQ_LOGE("fail to set STACK limit (%d)", ret);
 	} else if (target == TARGET_GPU && gpuppm_fp->set_limit_gpu) {
-		ret = gpuppm_fp->set_limit_gpu(LIMIT_BATT_PERCENT,
-			ceiling, GPUPPM_KEEP_IDX);
+		ret = gpuppm_fp->set_limit_gpu(LIMIT_BATT_PERCENT, ceiling, GPUPPM_KEEP_IDX);
 		if (unlikely(ret))
 			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
 	}
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, battery_percent_level: %d, ceiling: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		LIMIT_BATT_PERCENT, batt_percent_level, ceiling);
 
 	GPUFREQ_TRACE_END();
@@ -919,84 +892,37 @@ static void gpufreq_batt_percent_callback(
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 {
-	int ceiling = 0;
+	int ceiling = GPUPPM_DEFAULT_IDX;
 	int ret = GPUFREQ_SUCCESS;
 	enum gpufreq_target target = TARGET_DEFAULT;
 
 	GPUFREQ_TRACE_START("low_batt_level=%d", low_batt_level);
 
 	if (g_dual_buck)
-		target = TARGET_GPUSTACK;
+		target = TARGET_STACK;
 	else
 		target = TARGET_GPU;
 
 	if (gpufreq_fp->get_low_batt_idx)
 		ceiling = gpufreq_fp->get_low_batt_idx(low_batt_level);
-	else
-		ceiling = GPUPPM_RESET_IDX;
 
-	if (target == TARGET_GPUSTACK && gpuppm_fp->set_limit_gstack) {
-		ret = gpuppm_fp->set_limit_gstack(LIMIT_LOW_BATT,
-			ceiling, GPUPPM_KEEP_IDX);
+	if (target == TARGET_STACK && gpuppm_fp->set_limit_stack) {
+		ret = gpuppm_fp->set_limit_stack(LIMIT_LOW_BATT, ceiling, GPUPPM_KEEP_IDX);
 		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPUSTACK limit (%d)", ret);
+			GPUFREQ_LOGE("fail to set STACK limit (%d)", ret);
 	} else if (target == TARGET_GPU && gpuppm_fp->set_limit_gpu) {
-		ret = gpuppm_fp->set_limit_gpu(LIMIT_LOW_BATT,
-			ceiling, GPUPPM_KEEP_IDX);
+		ret = gpuppm_fp->set_limit_gpu(LIMIT_LOW_BATT, ceiling, GPUPPM_KEEP_IDX);
 		if (unlikely(ret))
 			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
 	}
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, low_battery_level: %d, ceiling: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		target == TARGET_STACK ? "STACK" : "GPU",
 		LIMIT_LOW_BATT, low_batt_level, ceiling);
 
 	GPUFREQ_TRACE_END();
 }
 #endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
-
-#if IS_ENABLED(CONFIG_MTK_PBM)
-static void gpufreq_pbm_callback(unsigned int limited_power)
-{
-	int ceiling = 0;
-	int ret = GPUFREQ_SUCCESS;
-	enum gpufreq_target target = TARGET_DEFAULT;
-
-	GPUFREQ_TRACE_START("limited_power=%d", limited_power);
-
-	if (g_dual_buck)
-		target = TARGET_GPUSTACK;
-	else
-		target = TARGET_GPU;
-
-	if (limited_power && target == TARGET_GPUSTACK &&
-		gpufreq_fp->get_idx_by_pgstack)
-		ceiling = gpufreq_fp->get_idx_by_pgstack(limited_power);
-	else if (limited_power && target == TARGET_GPU &&
-		gpufreq_fp->get_idx_by_pgpu)
-		ceiling = gpufreq_fp->get_idx_by_pgpu(limited_power);
-	else
-		ceiling = GPUPPM_RESET_IDX;
-
-	if (target == TARGET_GPUSTACK && gpuppm_fp->set_limit_gstack) {
-		ret = gpuppm_fp->set_limit_gstack(LIMIT_PBM,
-			ceiling, GPUPPM_KEEP_IDX);
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPUSTACK limit (%d)", ret);
-	} else if (target == TARGET_GPU && gpuppm_fp->set_limit_gpu) {
-		ret = gpuppm_fp->set_limit_gpu(LIMIT_PBM,
-			ceiling, GPUPPM_KEEP_IDX);
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
-	}
-
-	GPUFREQ_LOGD("target: %s, limiter: %d, limited_power: %d, ceiling: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
-		LIMIT_PBM, limited_power, ceiling);
-
-	GPUFREQ_TRACE_END();
-}
-#endif /* CONFIG_MTK_PBM */
 
 static void gpufreq_gpuhal_init(void)
 {
@@ -1106,10 +1032,6 @@ static int __init gpufreq_wrapper_init(void)
 	register_battery_oc_notify(&gpufreq_batt_oc_callback,
 		BATTERY_OC_PRIO_GPU);
 #endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
-
-#if IS_ENABLED(CONFIG_MTK_PBM)
-	register_pbm_notify(&gpufreq_pbm_callback, PBM_PRIO_GPU);
-#endif /* CONFIG_MTK_PBM */
 
 	GPUFREQ_LOGI("gpufreq wrapper driver init done");
 

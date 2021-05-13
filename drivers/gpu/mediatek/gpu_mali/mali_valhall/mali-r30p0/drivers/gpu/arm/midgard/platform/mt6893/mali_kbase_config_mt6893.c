@@ -110,7 +110,7 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 
 	/* on,off/ SWCG(BG3D)/ MTCMOS/ BUCK */
 #if defined(CONFIG_MTK_GPUFREQ_V2)
-	if (gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON)) {
+	if (gpufreq_power_control(POWER_ON) < 0) {
 		mali_pr_info("@%s: fail to power on\n", __func__);
 		return 0;
 	}
@@ -195,7 +195,7 @@ static void pm_callback_power_off_nolock(struct kbase_device *kbdev)
 
 	/* on,off/ SWCG(BG3D)/ MTCMOS/ BUCK */
 #if defined(CONFIG_MTK_GPUFREQ_V2)
-	if (gpufreq_power_control(POWER_OFF, CG_OFF, MTCMOS_OFF, BUCK_OFF)) {
+	if (gpufreq_power_control(POWER_OFF) < 0) {
 		mali_pr_info("@%s: fail to power off\n", __func__);
 		return;
 	}
