@@ -53,6 +53,9 @@ obj-y				+= ../common/$(COMMON_VERSION)/seninf.o
 ifneq ($(ARCH_MTK_PROJECT), k6833v1_64_mt6317)
 obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_pwr_seq.o
 endif
+ifeq ($(CONFIG_MACH_MT6781),y)
+obj-y				+= ../common/v1_1/n3d_fsync/
+endif
 
 define FILTER_DRV
 ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(CONFIG_MTK_PLATFORM_SENSOR)/camera_project/$(ARCH_MTK_PROJECT)/$(1)),)
@@ -102,6 +105,11 @@ subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/camera_
 
 # Enable parallelism
 subdir-ccflags-y += -DSENSOR_PARALLEISM
+
+ifeq ($(CONFIG_MACH_MT6781),y)
+# Seninf N3D support
+subdir-ccflags-y += -DSENINF_N3D_SUPPORT
+endif
 
 
 ifneq (,$(wildcard $(IMGSENSOR_DRIVER_PATH)/$(CONFIG_MTK_PLATFORM_SENSOR)/seninf_$(MTK_DERIVED_PLATFORM)))
