@@ -6662,6 +6662,7 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 	struct mtk_cmdq_cb_data *cb_data;
 	const struct mtk_cwb_funcs *funcs;
+	int ubuf_px = 0, write_done_px = 0;
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (!mtk_crtc->enabled) {
@@ -6670,6 +6671,9 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 	}
 	cwb_info = mtk_crtc->cwb_info;
 	user_buffer = 0;
+	ubuf_px = cwb_info->buffer[0].dst_roi.width *
+			cwb_info->buffer[0].dst_roi.height;
+	write_done_px = cwb_info->copy_w * cwb_info->copy_h;
 	funcs = cwb_info->funcs;
 	if (funcs && funcs->get_buffer)
 		funcs->get_buffer(&user_buffer);
@@ -6677,6 +6681,11 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 		user_buffer = cwb_info->user_buffer;
 
 	if (!user_buffer) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return;
+	} else if (ubuf_px != write_done_px) {
+		DDPMSG("[capture] ubuf_px:%d != done_px:%d, wait new frame\n",
+			ubuf_px, write_done_px);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return;
 	}
