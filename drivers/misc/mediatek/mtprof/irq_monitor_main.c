@@ -178,9 +178,8 @@ static DEFINE_PER_CPU(struct preemptirq_stat, preempt_pi_stat);
 
 static void irq_mon_save_stack_trace(struct preemptirq_stat *pi_stat)
 {
-	/* init, should move to other place */
 	pi_stat->nr_entries = stack_trace_save(pi_stat->trace_entries,
-						MAX_STACK_TRACE_DEPTH * sizeof(unsigned long), 2);
+						ARRAY_SIZE(pi_stat->trace_entries), 2);
 }
 
 static void irq_mon_dump_stack_trace(unsigned int out, struct preemptirq_stat *pi_stat)
