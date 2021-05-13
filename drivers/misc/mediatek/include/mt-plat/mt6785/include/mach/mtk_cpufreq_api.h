@@ -85,5 +85,6 @@ extern void mt_cpufreq_set_governor_freq_registerCB(cpuFreqsampler_func pCB);
 
 /* CPUFREQ */
 extern void aee_record_cpufreq_cb(unsigned int step);
+extern void mt_cpufreq_update_cci_mode(unsigned int mode, unsigned int use_id);
 
 #endif	/* __MTK_CPUFREQ_API_H__ */
