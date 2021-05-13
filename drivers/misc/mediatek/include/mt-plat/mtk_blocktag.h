@@ -309,6 +309,13 @@ void ufs_mtk_biolog_clk_gating(bool gated);
 #define mtk_btag_mictx_get_data(...)
 #define mtk_btag_mictx_update_ctx(...)
 
+#define ufs_mtk_biolog_init(...)
+#define ufs_mtk_biolog_exit(...)
+#define ufs_mtk_biolog_send_command(...)
+#define ufs_mtk_biolog_transfer_req_compl(...)
+#define ufs_mtk_biolog_check(...)
+#define ufs_mtk_biolog_clk_gating(...)
+
 #endif
 
 #endif
