@@ -2046,7 +2046,7 @@ static void cmdq_buf_print_read(char *text, u32 txt_sz,
 }
 
 static void cmdq_buf_print_write(char *text, u32 txt_sz,
-	u32 offset, struct cmdq_instruction *cmdq_inst)
+	u32 offset, struct cmdq_instruction *cmdq_inst, u16 *spr_cache)
 {
 	u32 addr, len;
 
@@ -2055,14 +2055,28 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 		/* 48bit format case */
 		addr = cmdq_inst->arg_a & 0xfffc;
 
-		len = snprintf(text, txt_sz,
-			"%#06x %#018llx [Write] addr(low) %#06x = %s%#010x%s",
-			offset, *((u64 *)cmdq_inst),
-			addr, CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
-			cmdq_inst->arg_b_type ? cmdq_inst->arg_b :
-			CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c),
-			cmdq_inst->op == CMDQ_CODE_WRITE_S_W_MASK ?
-			" with mask" : "");
+		if (cmdq_inst->s_op < 4) {
+			addr = (spr_cache[cmdq_inst->s_op] << 16) | addr;
+			len = snprintf(text, txt_sz,
+				"%#06x %#018llx [Write] addr %#010x = %s%#010x%s",
+				offset, *((u64 *)cmdq_inst), addr,
+				CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
+				cmdq_inst->arg_b_type ? cmdq_inst->arg_b :
+				CMDQ_GET_32B_VALUE(cmdq_inst->arg_b,
+					cmdq_inst->arg_c),
+				cmdq_inst->op == CMDQ_CODE_WRITE_S_W_MASK ?
+				" with mask" : "");
+		} else {
+			len = snprintf(text, txt_sz,
+				"%#06x %#018llx [Write] addr(low) %#06x = %s%#010x%s",
+				offset, *((u64 *)cmdq_inst), addr,
+				CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
+				cmdq_inst->arg_b_type ? cmdq_inst->arg_b :
+				CMDQ_GET_32B_VALUE(cmdq_inst->arg_b,
+					cmdq_inst->arg_c),
+				cmdq_inst->op == CMDQ_CODE_WRITE_S_W_MASK ?
+				" with mask" : "");
+		}
 	} else {
 		addr = ((u32)(cmdq_inst->arg_a |
 			(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
@@ -2189,7 +2203,7 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 }
 
 static void cmdq_buf_print_logic(char *text, u32 txt_sz,
-	u32 offset, struct cmdq_instruction *cmdq_inst)
+	u32 offset, struct cmdq_instruction *cmdq_inst, u16 *spr_cache)
 {
 	u32 len;
 
@@ -2201,6 +2215,9 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 			cmdq_parse_logic_sop(cmdq_inst->s_op),
 			CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
 			CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c));
+
+			if (cmdq_inst->arg_a < 4)
+				spr_cache[cmdq_inst->arg_a] = cmdq_inst->arg_c;
 		break;
 	case CMDQ_LOGIC_NOT:
 		len = snprintf(text, txt_sz,
@@ -2304,13 +2321,14 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 	static char text[txt_sz];
 	struct cmdq_instruction *cmdq_inst = (struct cmdq_instruction *)buf;
 	u32 i;
+	u16 spr_cache[4] = {0};
 
 	for (i = 0; i < cmd_nr; i++) {
 		switch (cmdq_inst[i].op) {
 		case CMDQ_CODE_WRITE_S:
 		case CMDQ_CODE_WRITE_S_W_MASK:
 			cmdq_buf_print_write(text, txt_sz, (u32)buf_pa,
-				&cmdq_inst[i]);
+				&cmdq_inst[i], spr_cache);
 			break;
 		case CMDQ_CODE_WFE:
 			cmdq_buf_print_wfe(text, txt_sz, (u32)buf_pa,
@@ -2326,7 +2344,7 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 			break;
 		case CMDQ_CODE_LOGIC:
 			cmdq_buf_print_logic(text, txt_sz, (u32)buf_pa,
-				&cmdq_inst[i]);
+				&cmdq_inst[i], spr_cache);
 			break;
 		case CMDQ_CODE_JUMP_C_ABSOLUTE:
 		case CMDQ_CODE_JUMP_C_RELATIVE:
