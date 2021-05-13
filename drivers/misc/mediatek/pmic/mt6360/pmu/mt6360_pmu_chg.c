@@ -2878,7 +2878,6 @@ static int mt6360_set_shipping_mode(struct mt6360_pmu_chg_info *mpci)
 	if (ret < 0)
 		dev_err(mpci->dev,
 			"%s: fail to enter shipping mode\n", __func__);
-	return 0;
 out:
 	mutex_unlock(&mpi->io_lock);
 	return ret;
