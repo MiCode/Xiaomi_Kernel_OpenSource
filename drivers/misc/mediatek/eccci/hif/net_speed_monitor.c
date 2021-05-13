@@ -29,6 +29,8 @@
 #include "ccci_hif_internal.h"
 #include "ccci_platform.h"
 #include "ccci_core.h"
+#include "ccci_hif_dpmaif_comm.h"
+
 
 #define TAG "Speed"
 
@@ -47,6 +49,7 @@ static struct dvfs_ref const *s_dl_dvfs_tbl;
 static int s_dl_dvfs_items_num;
 static struct dvfs_ref const *s_ul_dvfs_tbl;
 static int s_ul_dvfs_items_num;
+
 
 struct dvfs_ref {
 	u64 speed;
@@ -184,17 +187,6 @@ int mtk_ccci_toggle_net_speed_log(void)
 	return s_show_speed_inf;
 }
 
-void __weak mtk_ccci_affinity_rta(u32 irq_cpus, u32 task_cpus, int cpu_nr)
-{
-	static int show_cnt = 10;
-
-	if (show_cnt) {
-		show_cnt--;
-		CCCI_REPEAT_LOG(-1, "Speed", "%s w-\r\n", __func__);
-	}
-}
-
-
 /* CPU frequency adjust */
 static void cpu_freq_rta_action(int update, const int tbl[], int cnum)
 {
@@ -295,7 +287,11 @@ static int dl_speed_hint(u64 speed, int *in_idx, struct common_cfg_para *cfg)
 	/* DRAM freq hint*/
 	dram_frq_lvl = s_dl_dvfs_tbl[new_idx].dram_lvl;
 	/* CPU affinity */
-	mtk_ccci_affinity_rta(s_dl_dvfs_tbl[new_idx].irq_affinity,
+	if (g_md_gen == 6298)
+		mtk_ccci_affinity_rta_v3(s_dl_dvfs_tbl[new_idx].irq_affinity,
+					s_dl_dvfs_tbl[new_idx].task_affinity, 8);
+	else
+		mtk_ccci_affinity_rta_v2(s_dl_dvfs_tbl[new_idx].irq_affinity,
 				s_dl_dvfs_tbl[new_idx].task_affinity, 8);
 	/* RPS */
 	set_ccmni_rps(s_dl_dvfs_tbl[new_idx].rps);

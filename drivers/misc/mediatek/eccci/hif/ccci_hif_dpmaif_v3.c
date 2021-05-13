@@ -37,20 +37,23 @@
 #include "modem_sys.h"
 #include "ccci_bm.h"
 #include "ccci_platform.h"
-#include "ccci_hif_dpmaif.h"
+#include "ccci_hif_dpmaif_v3.h"
 #include "md_sys1_platform.h"
-#include "dpmaif_drv.h"
+#include "dpmaif_drv_v3.h"
 #include "modem_reg_base.h"
 #include "ccci_fsm.h"
 #include "ccci_port.h"
 #else
-#include "ccci_hif_dpmaif.h"
-#include "dpmaif_drv.h"
+#include "ccci_hif_dpmaif_v3.h"
+#include "dpmaif_drv_v3.h"
 #endif
-#ifdef MT6297
-#include "dpmaif_reg_v2.h"
-#else
-#include "dpmaif_reg.h"
+
+#include "dpmaif_arch_v3.h"
+
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/skbuff.h>
 #endif
 
 #include "ccci_hif_dpmaif_comm.h"
@@ -67,7 +70,9 @@
 #define UIDMASK 0x80000000
 #define TAG "dpmaif"
 
-struct hif_dpmaif_ctrl *dpmaif_ctrl;
+struct hif_dpmaif_ctrl *dpmaif_ctrl_v3;
+#define dpmaif_ctrl dpmaif_ctrl_v3
+
 static void __iomem *infra_ao_mem;
 
 #ifdef CCCI_KMODULE_ENABLE
@@ -79,7 +84,6 @@ static void __iomem *infra_ao_mem;
 #ifndef CCCI_LOG_LEVEL /* for platform override */
 #define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
 #endif
-unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
 
 static inline struct device *ccci_md_get_dev_by_id(int md_id)
 {
@@ -173,6 +177,7 @@ static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 		0x184);
 }
 
+#if 0
 void dpmaif_dump_reg(void)
 {
 	if (!dpmaif_ctrl)
@@ -180,6 +185,7 @@ void dpmaif_dump_reg(void)
 	dpmaif_dump_register(dpmaif_ctrl, CCCI_DUMP_REGISTER);
 }
 EXPORT_SYMBOL(dpmaif_dump_reg);
+#endif
 
 static void dpmaif_dump_rxq_history(struct hif_dpmaif_ctrl *hif_ctrl,
 	unsigned int qno, int dump_multi)
@@ -580,7 +586,119 @@ static unsigned int ringbuf_releasable(unsigned int  total_cnt,
  *
  * ========================================================
  */
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+//void ccmni_clr_flush_timer(void);
+int my_skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
+{
+	struct skb_shared_info *pinfo, *skbinfo = skb_shinfo(skb);
+	unsigned int offset = skb_gro_offset(skb);
+	unsigned int headlen = skb_headlen(skb);
+	unsigned int len = skb_gro_len(skb);
+	unsigned int delta_truesize;
+	struct sk_buff *lp;
 
+	if (unlikely(p->len + len >= 65536 || NAPI_GRO_CB(skb)->flush))
+		return -E2BIG;
+
+	lp = NAPI_GRO_CB(p)->last;
+	pinfo = skb_shinfo(lp);
+
+	if (headlen <= offset) {
+		skb_frag_t *frag;
+		skb_frag_t *frag2;
+		int i = skbinfo->nr_frags;
+		int nr_frags = pinfo->nr_frags + i;
+
+		if (nr_frags > MAX_SKB_FRAGS)
+			goto merge;
+
+		offset -= headlen;
+		pinfo->nr_frags = nr_frags;
+		skbinfo->nr_frags = 0;
+
+		frag = pinfo->frags + nr_frags;
+		frag2 = skbinfo->frags + i;
+		do {
+			*--frag = *--frag2;
+		} while (--i);
+
+		skb_frag_off_add(frag, offset);
+		skb_frag_size_sub(frag, offset);
+
+		/* all fragments truesize : remove (head size + sk_buff) */
+		delta_truesize = skb->truesize -
+				 SKB_TRUESIZE(skb_end_offset(skb));
+
+		skb->truesize -= skb->data_len;
+		skb->len -= skb->data_len;
+		skb->data_len = 0;
+
+		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE;
+		goto done;
+	} else if (skb->head_frag) {
+		int nr_frags = pinfo->nr_frags;
+		skb_frag_t *frag = pinfo->frags + nr_frags;
+		struct page *page = virt_to_head_page(skb->head);
+		unsigned int first_size = headlen - offset;
+		unsigned int first_offset;
+
+		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS)
+			goto merge;
+
+		first_offset = skb->data -
+			       (unsigned char *)page_address(page) +
+			       offset;
+
+		pinfo->nr_frags = nr_frags + 1 + skbinfo->nr_frags;
+
+		__skb_frag_set_page(frag, page);
+		skb_frag_off_set(frag, first_offset);
+		skb_frag_size_set(frag, first_size);
+
+		memcpy(frag + 1, skbinfo->frags, sizeof(*frag) * skbinfo->nr_frags);
+		/* We dont need to clear skbinfo->nr_frags here */
+
+		delta_truesize = skb->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
+		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
+		goto done;
+	}
+
+merge:
+	delta_truesize = skb->truesize;
+	if (offset > headlen) {
+		unsigned int eat = offset - headlen;
+
+		skb_frag_off_add(&skbinfo->frags[0], eat);
+		skb_frag_size_sub(&skbinfo->frags[0], eat);
+		skb->data_len -= eat;
+		skb->len -= eat;
+		offset = headlen;
+	}
+
+	__skb_pull(skb, offset);
+
+	if (NAPI_GRO_CB(p)->last == p)
+		skb_shinfo(p)->frag_list = skb;
+	else
+		NAPI_GRO_CB(p)->last->next = skb;
+	NAPI_GRO_CB(p)->last = skb;
+	__skb_header_release(skb);
+	lp = p;
+
+done:
+	NAPI_GRO_CB(p)->count++;
+	p->data_len += len;
+	p->truesize += delta_truesize;
+	p->len += len;
+	if (lp != p) {
+		lp->data_len += len;
+		lp->truesize += delta_truesize;
+		lp->len += len;
+	}
+	NAPI_GRO_CB(skb)->same_flow = 1;
+	return 0;
+}
+#endif
 static int dpmaif_net_rx_push_thread(void *arg)
 {
 	struct sk_buff *skb = NULL;
@@ -602,6 +720,9 @@ static int dpmaif_net_rx_push_thread(void *arg)
 			ret = wait_event_interruptible(queue->rx_wq,
 				(!skb_queue_empty(&queue->skb_list.skb_list) ||
 				kthread_should_stop()));
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+//			ccmni_clr_flush_timer();
+#endif
 			if (ret == -ERESTARTSYS)
 				continue;	/* FIXME */
 		}
@@ -610,15 +731,18 @@ static int dpmaif_net_rx_push_thread(void *arg)
 		skb = ccci_skb_dequeue(&queue->skb_list);
 		if (!skb)
 			continue;
-#ifdef MT6297
+
 		mtk_ccci_add_dl_pkt_size(skb->len);
-#endif
+
 #ifndef CCCI_KMODULE_ENABLE
 #ifdef CCCI_SKB_TRACE
 		per_md_data->netif_rx_profile[6] = sched_clock();
 		if (count > 0)
 			skb->tstamp = sched_clock();
 #endif
+#endif
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
 #endif
 		ccci_port_recv_skb(hif_ctrl->md_id, hif_ctrl->hif_id, skb,
 			CLDMA_NET_DATA);
@@ -680,12 +804,8 @@ static int dpmaifq_rel_rx_pit_entry(struct dpmaif_rx_queue *rxq,
 	}
 
 	rxq->pit_rel_rd_idx = new_sw_rel_idx;
+	ret = drv3_dpmaif_dl_add_pit_remain_cnt(rxq->index, rel_entry_num);
 
-#ifdef _E1_SB_SW_WORKAROUND_
-	/*update to HW: in full interrupt*/
-#else
-	ret = drv_dpmaif_dl_add_pit_remain_cnt(rxq->index, rel_entry_num);
-#endif
 	return ret;
 }
 
@@ -788,12 +908,43 @@ static int dpmaif_alloc_rx_frag(struct dpmaif_bat_request *bat_req,
 	}
 	bat_req->bat_wr_idx = cur_bat_idx;
 
-#if !defined(_E1_SB_SW_WORKAROUND_) && !defined(BAT_CNT_BURST_UPDATE)
-	ret_hw = drv_dpmaif_dl_add_frg_bat_cnt(q_num, i);
+#if !defined(BAT_CNT_BURST_UPDATE)
+	ret_hw = drv3_dpmaif_dl_add_frg_bat_cnt(q_num, i);
 #endif
 
 	return ret;
 }
+
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+static int dpmaif_rx_set_lro_info(struct dpmaif_rx_queue *rxq,
+	struct dpmaifq_normal_pit *pkt_inf_t, struct sk_buff *new_skb)
+{
+	unsigned int idx;
+
+	if ((rxq->lro_tbl_num < MAX_LRO_BID_NUM) &&
+		(rxq->lro_skb_num < MAX_LRO_SKB_NUM)) {
+
+		idx = (pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13));
+
+		rxq->lro_bid_tbl[rxq->lro_tbl_num] = idx;
+		rxq->lro_tbl_num++;
+
+		if (new_skb) {
+			rxq->lro_skb_tbl[rxq->lro_skb_num].skb = new_skb;
+			rxq->lro_skb_tbl[rxq->lro_skb_num].idx = idx;
+			rxq->lro_skb_num++;
+		}
+
+		return 0;
+	}
+
+	CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+		"[%s] error: lro tbl is tool small: (%u,%u).",
+		__func__, rxq->lro_tbl_num, rxq->lro_skb_num);
+
+	return DATA_CHECK_FAIL;
+}
+#endif
 
 static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 	unsigned int skb_idx, struct dpmaifq_normal_pit *pkt_inf_t)
@@ -802,7 +953,9 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 		rxq->bat_req.bat_skb_ptr + skb_idx);
 	struct sk_buff *base_skb = cur_skb_info->skb;
 	struct dpmaif_bat_page_t *cur_page_info = ((struct dpmaif_bat_page_t *)
-		rxq->bat_frag.bat_skb_ptr + pkt_inf_t->buffer_id);
+			rxq->bat_frag.bat_skb_ptr +
+			(pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13)));
+
 	struct page *page = cur_page_info->page;
 #ifndef REFINE_BAT_OFFSET_REMOVE
 	unsigned long long data_phy_addr, data_base_addr;
@@ -818,9 +971,15 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 		DMA_FROM_DEVICE);
 	if (!page) {
 		CCCI_ERROR_LOG(-1, TAG, "frag check fail: 0x%x, 0x%x",
-			pkt_inf_t->buffer_id, skb_idx);
+			pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13),
+			skb_idx);
+
 		return DATA_CHECK_FAIL;
 	}
+
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+	return dpmaif_rx_set_lro_info(rxq, pkt_inf_t, NULL);
+#endif
 
 #ifndef REFINE_BAT_OFFSET_REMOVE
 	/* 2. calculate data address && data len. */
@@ -856,9 +1015,10 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 	unsigned long loop = 0;
 	unsigned long bid_cnt = 0;
 	unsigned long pkt_cnt = 0;
-	int frg_idx;
+	unsigned int frg_idx;
 
-	frg_idx = pkt_inf_t->buffer_id;
+	frg_idx = (pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13));
+
 	/*1.check btable alloc before or double release*/
 	/*error handler*/
 	if (bat_req->bid_btable[frg_idx] == 0) {
@@ -898,7 +1058,7 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 		return bid_cnt;
 
 	/*re-alloc SKB to DPMAIF*/
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_frg_bat_ridx(rxq->index);
+	bat_req->bat_rd_idx = drv3_dpmaif_dl_get_frg_bat_ridx(rxq->index);
 	for (loop = 0; loop < bid_cnt; loop++) {
 		bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
 		bat_req->bat_rel_rd_idx =
@@ -920,10 +1080,11 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 	/* 1. check if last rx buffer can be re-alloc,
 	 * on the hif layer.
 	 */
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_frg_bat_ridx(rxq->index);
+	bat_req->bat_rd_idx = drv3_dpmaif_dl_get_frg_bat_ridx(rxq->index);
 	bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
 	bat_req->bat_rel_rd_idx = ringbuf_get_next_idx(bat_req->bat_size_cnt,
-		pkt_inf_t->buffer_id, 1);
+		pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13), 1);
+
 	ret = dpmaif_alloc_rx_frag(bat_req, rxq->index, 1, blocking);
 	if (ret < 0) {
 #ifdef DPMAIF_DEBUG_LOG
@@ -1124,9 +1285,9 @@ fast_retry:
 		__func__, bat_req->pkt_buf_sz, new_skb->len,
 		new_skb->truesize, cur_bat_idx, sizeof(struct skb_shared_info));
 #endif
-#if !defined(_E1_SB_SW_WORKAROUND_) && !defined(BAT_CNT_BURST_UPDATE)
+#if !defined(BAT_CNT_BURST_UPDATE)
 	/* update to HW: alloc a/bat_entry_num new skb, and HW can use */
-	ret_hw = drv_dpmaif_dl_add_bat_cnt(q_num, bat_cnt);
+	ret_hw = drv3_dpmaif_dl_add_bat_cnt(q_num, bat_cnt);
 	return ret_hw < 0 ? ret_hw : ret;
 #else
 	return ret;
@@ -1138,13 +1299,16 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 {
 	struct sk_buff *new_skb = NULL;
 	struct dpmaif_bat_skb_t *cur_skb_info = ((struct dpmaif_bat_skb_t *)
-		rxq->bat_req.bat_skb_ptr + pkt_inf_t->buffer_id);
+		rxq->bat_req.bat_skb_ptr +
+		(pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13)));
+
 	#ifndef REFINE_BAT_OFFSET_REMOVE
 	unsigned long long data_phy_addr, data_base_addr;
 	int data_offset = 0;
 	#endif
 	unsigned int data_len;
 	unsigned int *temp_u32 = NULL;
+	unsigned int buffer_id;
 
 	/* rx current skb data unmapping */
 	dma_unmap_single(ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
@@ -1164,10 +1328,13 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	/* 3. record to skb for user: wapper, enqueue */
 	 /* get skb which data contained pkt data */
 	new_skb = cur_skb_info->skb;
+
+	buffer_id = pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13);
+
 	if (new_skb == NULL) {
 		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
 			"get null skb(0x%x) from skb table",
-			pkt_inf_t->buffer_id);
+			buffer_id);
 		return DATA_CHECK_FAIL;
 	}
 	new_skb->len = 0;
@@ -1183,14 +1350,14 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 		#ifndef REFINE_BAT_OFFSET_REMOVE
 		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
 			"pkt(%d/%d): len = 0x%x, offset=0x%llx-0x%llx, skb(%p, %p, 0x%x, 0x%x)\n",
-			rxq->pit_rd_idx, pkt_inf_t->buffer_id, data_len,
+			rxq->pit_rd_idx, buffer_id, data_len,
 			data_phy_addr, data_base_addr, new_skb->head,
 			new_skb->data, (unsigned int)new_skb->tail,
 			(unsigned int)new_skb->end);
 		#else
 		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
 			"pkt(%d/%d): len = 0x%x, skb(%p, %p, 0x%x, 0x%x)\n",
-			rxq->pit_rd_idx, pkt_inf_t->buffer_id, data_len,
+			rxq->pit_rd_idx, buffer_id, data_len,
 			new_skb->head, new_skb->data,
 			(unsigned int)new_skb->tail,
 			(unsigned int)new_skb->end);
@@ -1217,9 +1384,15 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 		 */
 		return DATA_CHECK_FAIL;
 	}
+
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+	return dpmaif_rx_set_lro_info(rxq, pkt_inf_t, new_skb);
+#endif
+
 	skb_put(new_skb, data_len);
 	new_skb->ip_summed = (rxq->check_sum == 0) ?
 		CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
+
 	return 0;
 }
 
@@ -1246,7 +1419,7 @@ static int dpmaif_get_rx_pkt(struct dpmaif_rx_queue *rxq,
 		return ret;
 	}
 
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_bat_ridx(rxq->index);
+	bat_req->bat_rd_idx = drv3_dpmaif_dl_get_bat_ridx(rxq->index);
 
 	for (loop = 0; loop < bid_cnt; loop++) {
 		/* check if last rx buff can be re-alloc, on the hif layer. */
@@ -1280,7 +1453,7 @@ static int dpmaif_get_rx_pkt(struct dpmaif_rx_queue *rxq,
 		return ret;
 	}
 	/* 1. check if last rx buffer can be re-alloc, on the hif layer. */
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_bat_ridx(rxq->index);
+	bat_req->bat_rd_idx = drv3_dpmaif_dl_get_bat_ridx(rxq->index);
 	bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
 	bat_req->bat_rel_rd_idx = ringbuf_get_next_idx(bat_req->bat_size_cnt,
 		skb_idx, 1);
@@ -1323,6 +1496,174 @@ static int ccci_skb_to_list(struct ccci_skb_queue *queue, struct sk_buff *newsk)
 	spin_unlock_irqrestore(&queue->skb_list.lock, flags);
 	return 0;
 }
+
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+//void dump_sk_info(const char buf[], struct sk_buff *sk);
+
+static inline int dpmaif_get_skb_header_len(struct sk_buff *skb)
+{
+	struct iphdr *iph = (struct iphdr *)skb->data;
+	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	struct tcphdr *tcph;
+	int ip_len = 0;
+
+	if (iph->version == 4) {
+		if(iph->protocol != IPPROTO_TCP)
+			return 0;
+
+		ip_len = (iph->ihl << 2);
+		tcph = (struct tcphdr *)((void *)iph + ip_len);
+
+	} else if (iph->version == 6) {
+		if (ip6h->nexthdr != IPPROTO_TCP)
+			return 0;
+
+		ip_len = 40;
+		tcph = (struct tcphdr *)((void *)ip6h + 40);
+
+	} else
+		return 0;
+
+	return (ip_len + (tcph->doff << 2));
+}
+
+static inline void dpmaif_set_skb_tcp_checksum(struct sk_buff *skb,
+		unsigned int total_len, unsigned int gro_skb_num)
+{
+	struct iphdr *iph = (struct iphdr *)skb->data;
+	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+//	struct tcphdr *tcph;
+//	int ip_len;
+
+	if (iph->version == 4) {
+		iph->tot_len = total_len;
+		iph->check = 0;
+		iph->check = ip_fast_csum((unsigned char*)iph, iph->ihl);
+
+//		tcph = (struct tcphdr *)((void *)iph + (iph->ihl << 2));
+
+	} else if (iph->version == 6) {
+		ip6h->payload_len = total_len;
+
+//		tcph = (struct tcphdr *)((void *)iph + 40);
+
+	} else
+		return;
+
+//	len_old = uh->len;
+//	total_len -= 20;
+//	len_new = ((total_len>>8) & 0xFF) + ((total_len << 8) & 0xFF00);
+//	uh->len = len_new;
+//	csum_replace2(&uh->check, len_old, len_new);
+
+//	skb_shinfo(skb)->gso_type |= SKB_GSO_TCP;
+//	skb_shinfo(skb)->gso_size = 1472;//tcp: mss; udp: packet size
+	skb_shinfo(skb)->gso_segs = gro_skb_num;
+}
+
+static inline int dpmaif_handle_lro_skb(struct dpmaif_rx_queue *rxq)
+{
+	struct sk_buff *first_skb, *follow_skb;
+	int i, header_len, ret;
+	unsigned int total_len;
+
+	if (rxq->lro_skb_num == 0)
+		return -1;
+
+	first_skb = rxq->lro_skb_tbl[0].skb;
+	header_len = dpmaif_get_skb_header_len(first_skb);
+	if (header_len == 0)
+		return -2;
+
+	NAPI_GRO_CB(first_skb)->data_offset = header_len;
+	NAPI_GRO_CB(first_skb)->last = first_skb;
+
+	total_len = first_skb->len;
+
+	for (i = 1; i < rxq->lro_skb_num; i++) {
+		follow_skb = rxq->lro_skb_tbl[i].skb;
+
+		header_len = dpmaif_get_skb_header_len(follow_skb);
+		if (header_len == 0)
+			break;
+
+		NAPI_GRO_CB(follow_skb)->data_offset = header_len;
+
+		ret = my_skb_gro_receive(first_skb, follow_skb);
+		if (ret) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] warning: skb_gro_receive() fail: %d;",
+				__func__, ret);
+
+			break;
+		}
+
+		total_len += (follow_skb->len - header_len);
+		rxq->lro_skb_tbl[i].skb = NULL;
+	}
+
+	if (i > 1) {
+		dpmaif_set_skb_tcp_checksum(first_skb, total_len, i);
+		return 0;
+	}
+
+	return -3;
+}
+
+static int dpmaif_send_lro_skb_to_net(struct dpmaif_rx_queue *rxq)
+{
+	struct sk_buff *new_skb;
+	struct lhif_header *lhif_h; /* for uplayer: port/ccmni */
+	//struct ccci_header ccci_h; /* for collect debug info. */
+	int i, ret = 0, once;
+	struct dpmaif_bat_skb_t *bat_skb;
+
+	once = dpmaif_handle_lro_skb(rxq);
+
+	for (i = 0; i < rxq->lro_skb_num; i++) {
+		if (rxq->lro_skb_tbl[i].skb == NULL)
+			continue;
+
+		new_skb = rxq->lro_skb_tbl[i].skb;
+
+		lhif_h = (struct lhif_header *)(skb_push(new_skb,
+				sizeof(struct lhif_header)));
+		lhif_h->netif = rxq->cur_chn_idx;
+
+		ret = ccci_skb_to_list(&rxq->skb_list, new_skb);
+		if (ret < 0)
+			break;
+
+		rxq->lro_skb_tbl[i].skb = NULL;
+
+		if (once)
+			break;
+	}
+
+	if (ret) {
+		for (i = 0; i < rxq->lro_skb_num; i++) {
+			if (rxq->lro_skb_tbl[i].skb) {
+				ccci_free_skb(rxq->lro_skb_tbl[i].skb);
+				rxq->lro_skb_tbl[i].skb = NULL;
+			}
+
+			bat_skb = (struct dpmaif_bat_skb_t *)
+					(rxq->bat_req.bat_skb_ptr +
+						rxq->lro_skb_tbl[i].idx);
+
+			bat_skb->skb = NULL;
+		}
+	}
+	rxq->lro_skb_num = 0;
+
+	for (i = 0; i < rxq->lro_tbl_num; i++)
+		rxq->bat_req.bid_btable[rxq->lro_bid_tbl[i]] = 0;
+
+	rxq->lro_tbl_num = 0;
+
+	return ret;
+}
+#endif
 
 static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	unsigned int skb_idx)
@@ -1387,7 +1728,7 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 		if (notify_cnt->frag_cnt != 0)
 #endif
 		{
-			ret = drv_dpmaif_dl_add_frg_bat_cnt(rxq->index,
+			ret = drv3_dpmaif_dl_add_frg_bat_cnt(rxq->index,
 				notify_cnt->frag_cnt);
 			if (ret < 0) {
 				CCCI_MEM_LOG_TAG(0, TAG,
@@ -1403,7 +1744,7 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 		if (notify_cnt->bat_cnt != 0)
 #endif
 		{
-			ret = drv_dpmaif_dl_add_bat_cnt(rxq->index,
+			ret = drv3_dpmaif_dl_add_bat_cnt(rxq->index,
 				notify_cnt->bat_cnt);
 			if (ret < 0) {
 				CCCI_MEM_LOG_TAG(0, TAG,
@@ -1423,8 +1764,8 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 	}
 
 	if (notify_cnt->bat_cnt) {
-#if !defined(_E1_SB_SW_WORKAROUND_) && !defined(BAT_CNT_BURST_UPDATE)
-		ret = drv_dpmaif_dl_add_bat_cnt(rxq->index,
+#if !defined(BAT_CNT_BURST_UPDATE)
+		ret = drv3_dpmaif_dl_add_bat_cnt(rxq->index,
 			notify_cnt->bat_cnt);
 		if (ret < 0) {
 			CCCI_MEM_LOG_TAG(0, TAG,
@@ -1436,8 +1777,8 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 	}
 #ifdef HW_FRG_FEATURE_ENABLE
 	if (notify_cnt->frag_cnt) {
-#if !defined(_E1_SB_SW_WORKAROUND_) && !defined(BAT_CNT_BURST_UPDATE)
-		ret = drv_dpmaif_dl_add_frg_bat_cnt(rxq->index,
+#if !defined(BAT_CNT_BURST_UPDATE)
+		ret = drv3_dpmaif_dl_add_frg_bat_cnt(rxq->index,
 			notify_cnt->frag_cnt);
 		if (ret < 0) {
 			CCCI_MEM_LOG_TAG(0, TAG,
@@ -1449,26 +1790,6 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 	}
 #endif
 
-#ifdef _HW_REORDER_SW_WORKAROUND_
-	if (rxq->pit_reload_en) {
-		ret = drv_dpmaif_dl_add_apit_num(rxq->pit_dummy_cnt);
-
-		if (ret < 0) {
-			CCCI_MEM_LOG_TAG(0, TAG,
-				"dpmaif: update dummy pit fail(128)\n");
-			return ret;
-		}
-		/*reset dummy cnt and update dummy idx*/
-		if (ret != 0) {
-			rxq->pit_dummy_idx += rxq->pit_dummy_cnt;
-			if (rxq->pit_dummy_idx >= DPMAIF_DUMMY_PIT_MAX_NUM)
-				rxq->pit_dummy_idx -= DPMAIF_DUMMY_PIT_MAX_NUM;
-			rxq->pit_dummy_cnt = 0;
-			ret = 0;
-			rxq->pit_reload_en = 0;
-		}
-	}
-#endif
 	return ret;
 }
 
@@ -1505,7 +1826,7 @@ static int dpmaif_check_rel_cnt(struct dpmaif_rx_queue *rxq)
 		bat_rel_rd_cur = ringbuf_get_next_idx(bat_req->bat_size_cnt,
 					bat_rel_rd_cur, 1);
 	}
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_bat_ridx(rxq->index);
+	bat_req->bat_rd_idx = drv3_dpmaif_dl_get_bat_ridx(rxq->index);
 
 	for (i = 0; i < bid_cnt; i++) {
 		bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
@@ -1531,7 +1852,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		int blocking, unsigned long time_limit)
 {
 	struct dpmaif_rx_hw_notify notify_hw = {0};
-#ifndef PIT_USING_CACHE_MEM
+#if (!defined(PIT_USING_CACHE_MEM))
 	struct dpmaifq_normal_pit pkt_inf_s;
 #endif
 	struct dpmaifq_normal_pit *pkt_inf_t = NULL;
@@ -1540,6 +1861,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 	unsigned int cur_pit;
 	unsigned short recv_skb_cnt = 0;
 	int ret = 0, ret_hw = 0;
+	unsigned int buffer_id;
 
 #ifdef PIT_USING_CACHE_MEM
 	dma_addr_t cache_start_addr;
@@ -1591,9 +1913,6 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		pkt_inf_t = (struct dpmaifq_normal_pit *)rxq->pit_base +
 			cur_pit;
 #endif
-#ifdef _HW_REORDER_SW_WORKAROUND_
-		if (pkt_inf_t->ig == 0) {
-#endif
 			if (pkt_inf_t->packet_type == DES_PT_MSG) {
 				dpmaif_rx_msg_pit(rxq,
 					(struct dpmaifq_msg_pit *)pkt_inf_t);
@@ -1601,6 +1920,8 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 				rxq->pit_dp =
 				((struct dpmaifq_msg_pit *)pkt_inf_t)->dp;
 			} else if (pkt_inf_t->packet_type == DES_PT_PD) {
+				buffer_id = (pkt_inf_t->buffer_id |
+						((pkt_inf_t->h_bid) << 13));
 #ifdef HW_FRG_FEATURE_ENABLE
 				if (pkt_inf_t->buffer_type == PKT_BUF_FRAG
 					&& rxq->skb_idx < 0) {
@@ -1608,19 +1929,19 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 					/* pkt received. */
 					CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 					"skb_idx < 0 pit/bat/frag = %d, %d; buf: %d; %d, %d\n",
-					cur_pit, pkt_inf_t->buffer_id,
+					cur_pit, buffer_id,
 					pkt_inf_t->buffer_type, rx_cnt,
 					pit_cnt);
 #ifdef DPMAIF_DEBUG_LOG
 				CCCI_HISTORY_TAG_LOG(dpmaif_ctrl->md_id, TAG,
 					"skb_idx < 0 pit/bat/frag = %d, %d; buf: %d; %d, %d\n",
-					cur_pit, pkt_inf_t->buffer_id,
+					cur_pit, buffer_id,
 					pkt_inf_t->buffer_type, rx_cnt,
 					pit_cnt);
 #endif
 				CCCI_MEM_LOG_TAG(dpmaif_ctrl->md_id, TAG,
 					"skb_idx < 0 pit/bat/frag = %d, %d; buf: %d; %d, %d\n",
-					cur_pit, pkt_inf_t->buffer_id,
+					cur_pit, buffer_id,
 					pkt_inf_t->buffer_type, rx_cnt,
 					pit_cnt);
 				dpmaif_dump_rxq_remain(dpmaif_ctrl,
@@ -1634,7 +1955,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 #endif
 					/* skb->data: add to skb ptr */
 					/* && record ptr. */
-					rxq->skb_idx = pkt_inf_t->buffer_id;
+					rxq->skb_idx = (int)buffer_id;
 					ret = dpmaif_get_rx_pkt(rxq,
 						(unsigned int)rxq->skb_idx,
 						blocking, pkt_inf_t);
@@ -1667,6 +1988,11 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 #endif
 			if (pkt_inf_t->c_bit == 0) {
 				/* last one, not msg pit, && data had rx. */
+#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+				if (rxq->lro_skb_num > 1)
+					ret = dpmaif_send_lro_skb_to_net(rxq);
+				else
+#endif
 				ret = dpmaif_send_skb_to_net(rxq,
 					rxq->skb_idx);
 				if (ret < 0)
@@ -1682,16 +2008,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 					notify_hw.bat_cnt += ret;
 				}
 			}
-#ifdef _HW_REORDER_SW_WORKAROUND_
-		} else {
-			/*resv PIT IG=1 bit*/
-			if (pkt_inf_t->reserved2 & (1<<6))
-				rxq->pit_reload_en = 1;
-			else
-				rxq->pit_reload_en = 0;
-			rxq->pit_dummy_cnt++;
-		}
-#endif
+
 		/* get next pointer to get pkt data */
 		cur_pit = ringbuf_get_next_idx(pit_len, cur_pit, 1);
 		rxq->pit_rd_idx = cur_pit;
@@ -1740,68 +2057,13 @@ static unsigned int dpmaifq_poll_rx_pit(struct dpmaif_rx_queue *rxq)
 #ifdef DPMAIF_NOT_ACCESS_HW
 	hw_wr_idx = rxq->pit_size_cnt - 1;
 #else
-	hw_wr_idx = drv_dpmaif_dl_get_wridx(rxq->index);
+	hw_wr_idx = drv3_dpmaif_dl_get_wridx(rxq->index);
 #endif
 	pit_cnt = ringbuf_readable(rxq->pit_size_cnt, sw_rd_idx, hw_wr_idx);
 
 	rxq->pit_wr_idx = hw_wr_idx;
 	return pit_cnt;
 }
-
-/*
- * DPMAIF E1 SW Workaround: add pit/bat in full interrupt
- */
-#ifdef _E1_SB_SW_WORKAROUND_
-static void dpmaifq_rel_dl_pit_hw_entry(unsigned char q_num)
-{
-	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
-	struct dpmaif_rx_queue *rxq = &hif_ctrl->rxq[q_num];
-	unsigned int cnt = 0, max_cnt = 0;
-	unsigned short old_sw_rd_idx = 0, hw_rd_idx = 0;
-
-	if (rxq->que_started == false)
-		return;
-
-	hw_rd_idx = (unsigned short)drv_dpmaif_dl_get_pit_ridx(rxq->index);
-	old_sw_rd_idx = rxq->pit_rel_rd_idx;
-	max_cnt = rxq->pit_size_cnt;
-
-	if (hw_rd_idx > old_sw_rd_idx)
-		cnt = max_cnt - hw_rd_idx + old_sw_rd_idx;
-	else if (hw_rd_idx < old_sw_rd_idx)
-		cnt = old_sw_rd_idx - hw_rd_idx;
-	else
-		return;
-
-	drv_dpmaif_dl_add_pit_remain_cnt(rxq->index, cnt);
-}
-
-void dpmaifq_set_dl_bat_hw_entry(unsigned char q_num)
-{
-	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
-	struct dpmaif_rx_queue *rxq = &hif_ctrl->rxq[q_num];
-	struct dpmaif_bat_request *bat_req;
-	unsigned short old_sw_wr_idx = 0, hw_wr_idx = 0;
-	unsigned int cnt = 0, max_cnt = 0;
-
-	bat_req = &rxq->bat_req;
-
-	if (rxq->que_started == false)
-		return;
-
-	hw_wr_idx = (unsigned short)drv_dpmaif_dl_get_bat_wridx(rxq->index);
-	old_sw_wr_idx = bat_req->bat_wr_idx;
-	max_cnt = bat_req->bat_size_cnt;
-
-	if (hw_wr_idx > old_sw_wr_idx)
-		cnt = max_cnt - hw_wr_idx + old_sw_wr_idx;
-	else if (hw_wr_idx < old_sw_wr_idx)
-		cnt = old_sw_wr_idx - hw_wr_idx;
-	else
-		return;
-	drv_dpmaif_dl_add_bat_cnt(rxq->index, cnt);
-}
-#endif
 
 /*
  * may be called from workqueue or NAPI or tasklet context,
@@ -1842,15 +2104,12 @@ static int dpmaif_rx_data_collect(struct hif_dpmaif_ctrl *hif_ctrl,
 	/* hw ack. */
 	if (ret == ONCE_MORE) {
 		/* hw interrupt ack. */
-		L2RISAR0 = drv_dpmaif_get_dl_isr_event();
+		L2RISAR0 = drv3_dpmaif_get_dl_isr_event();
 		L2RISAR0 &= DPMAIF_DL_INT_QDONE_MSK;
 		if (L2RISAR0)
 			DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0,
 				L2RISAR0&DPMAIF_DL_INT_QDONE_MSK);
-#ifdef _E1_SB_SW_WORKAROUND_
-		/* unmask bat+pitcnt len err. */
-		drv_dpmaif_unmask_dl_full_intr(q_num);
-#endif
+
 	}
 	return ret;
 }
@@ -1885,8 +2144,8 @@ static void dpmaif_rxq0_work(struct work_struct *work)
 			NULL, 0);
 	} else {
 		/* clear IP busy register wake up cpu case */
-		drv_dpmaif_clear_ip_busy();
-		drv_dpmaif_unmask_dl_interrupt(rxq->index);
+		drv3_dpmaif_clear_ip_busy();
+		drv3_dpmaif_unmask_dl_interrupt(rxq->index);
 	}
 	atomic_set(&rxq->rx_processing, 0);
 }
@@ -1922,8 +2181,8 @@ static void dpmaif_rxq0_tasklet(unsigned long data)
 			NULL, 0);
 	} else {
 		/* clear IP busy register wake up cpu case */
-		drv_dpmaif_clear_ip_busy();
-		drv_dpmaif_unmask_dl_interrupt(rxq->index);
+		drv3_dpmaif_clear_ip_busy();
+		drv3_dpmaif_unmask_dl_interrupt(rxq->index);
 	}
 	atomic_set(&rxq->rx_processing, 0);
 
@@ -1950,7 +2209,7 @@ static unsigned int dpmaifq_poll_tx_drb(unsigned char q_num)
 
 	old_sw_rd_idx = txq->drb_rd_idx;
 
-	new_hw_rd_idx = (drv_dpmaif_ul_get_ridx(q_num) /
+	new_hw_rd_idx = (drv3_dpmaif_ul_get_ridx(q_num) /
 		DPMAIF_UL_DRB_ENTRY_WORD);
 	if (old_sw_rd_idx <= new_hw_rd_idx)
 		drb_cnt = new_hw_rd_idx - old_sw_rd_idx;
@@ -2004,9 +2263,9 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 				CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 					"drb pd: 0x%x, 0x%x (0x%x, 0x%x, 0x%x)\n",
 					temp[0], temp[1],
-					drv_dpmaif_ul_get_rwidx(0),
-					drv_dpmaif_ul_get_rwidx(1),
-					drv_dpmaif_ul_get_rwidx(3));
+					drv3_dpmaif_ul_get_rwidx(0),
+					drv3_dpmaif_ul_get_rwidx(1),
+					drv3_dpmaif_ul_get_rwidx(3));
 				dpmaif_dump_register(dpmaif_ctrl,
 					CCCI_DUMP_MEM_DUMP);
 				dpmaif_dump_txq_history(dpmaif_ctrl,
@@ -2062,6 +2321,7 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 	return idx;
 }
 
+#if 0
 int hif_empty_query(int qno)
 {
 	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[qno];
@@ -2074,6 +2334,7 @@ int hif_empty_query(int qno)
 	return atomic_read(&txq->tx_budget) >
 				txq->drb_size_cnt / 8;
 }
+#endif
 
 static atomic_t s_tx_busy_assert_on;
 static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
@@ -2131,9 +2392,9 @@ static void dpmaif_tx_done(struct work_struct *work)
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"txq%d done/resume: 0x%x, 0x%x, 0x%x\n",
 			txq->index,
-			drv_dpmaif_ul_get_rwidx(0),
-			drv_dpmaif_ul_get_rwidx(1),
-			drv_dpmaif_ul_get_rwidx(3));
+			drv3_dpmaif_ul_get_rwidx(0),
+			drv3_dpmaif_ul_get_rwidx(1),
+			drv3_dpmaif_ul_get_rwidx(3));
 		return;
 	}
 	if (!txq->que_started) {
@@ -2149,7 +2410,7 @@ static void dpmaif_tx_done(struct work_struct *work)
 
 	ret = dpmaif_tx_release(txq->index, txq->drb_size_cnt);
 
-	L2TISAR0 = drv_dpmaif_get_ul_isr_event();
+	L2TISAR0 = drv3_dpmaif_get_ul_isr_event();
 	L2TISAR0 &= (DPMAIF_UL_INT_QDONE_MSK & (1 << (txq->index +
 		UL_INT_DONE_OFFSET)));
 	if (unlikely(ret == ERROR_STOP)) {
@@ -2162,9 +2423,9 @@ static void dpmaif_tx_done(struct work_struct *work)
 			DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, L2TISAR0);
 	} else {
 		/* clear IP busy register wake up cpu case */
-		drv_dpmaif_clear_ip_busy();
+		drv3_dpmaif_clear_ip_busy();
 		/* enable tx done interrupt */
-		drv_dpmaif_unmask_ul_interrupt(txq->index);
+		drv3_dpmaif_unmask_ul_interrupt(txq->index);
 	}
 }
 
@@ -2464,12 +2725,12 @@ retry:
 		CCCI_NOTICE_LOG(0, TAG,
 			"tx%d_resume_tx: 0x%x, 0x%x, 0x%x\n",
 			txq->index,
-			drv_dpmaif_ul_get_rwidx(0),
-			drv_dpmaif_ul_get_rwidx(1),
-			drv_dpmaif_ul_get_rwidx(3));
+			drv3_dpmaif_ul_get_rwidx(0),
+			drv3_dpmaif_ul_get_rwidx(1),
+			drv3_dpmaif_ul_get_rwidx(3));
 		atomic_set(&txq->tx_resume_tx, 0);
 	}
-	ret = drv_dpmaif_ul_add_wcnt(txq->index,
+	ret = drv3_dpmaif_ul_add_wcnt(txq->index,
 		send_cnt * DPMAIF_UL_DRB_ENTRY_WORD);
 	if (ret == HW_REG_CHK_FAIL) {
 		tx_force_md_assert("HW_REG_CHK_FAIL");
@@ -2530,21 +2791,7 @@ static void dpmaif_irq_rx_lenerr_handler(unsigned int rx_int_isr)
 		DPMAIF_DL_INT_BATCNT_LEN_ERR(0)))
 		dpmaif_ctrl->traffic_info.rx_full_cnt++;
 #endif
-	/*PIT table full interrupt*/
-	if (rx_int_isr & DPMAIF_DL_INT_PITCNT_LEN_ERR(0)) {
-#ifdef _E1_SB_SW_WORKAROUND_
-		dpmaifq_rel_dl_pit_hw_entry(0);
-		dpmaif_mask_pitcnt_len_error_intr(0);
-#endif
-	}
 
-	/*BAT table full interrupt*/
-	if (rx_int_isr & DPMAIF_DL_INT_BATCNT_LEN_ERR(0)) {
-#ifdef _E1_SB_SW_WORKAROUND_
-		dpmaifq_set_dl_bat_hw_entry(0);
-		dpmaif_mask_batcnt_len_error_intr(0);
-#endif
-	}
 }
 
 static void dpmaif_irq_rx_done(unsigned int rx_done_isr)
@@ -2553,7 +2800,7 @@ static void dpmaif_irq_rx_done(unsigned int rx_done_isr)
 	dpmaif_ctrl->traffic_info.latest_q_rx_isr_time[0] = local_clock();
 
 	/* disable RX_DONE  interrupt */
-	drv_dpmaif_mask_dl_interrupt(0);
+	drv3_dpmaif_mask_dl_interrupt(0);
 	/*always start work due to no napi*/
 	/*for (i = 0; i < DPMAIF_HW_MAX_DLQ_NUM; i++)*/
 	tasklet_hi_schedule(&dpmaif_ctrl->rxq[0].dpmaif_rxq0_task);
@@ -2573,11 +2820,11 @@ static void dpmaif_irq_tx_done(unsigned int tx_done_isr)
 					0);
 				CCCI_NOTICE_LOG(0, TAG,
 					"clear txq%d_resume_done: 0x%x, 0x%x, 0x%x\n",
-					i, drv_dpmaif_ul_get_rwidx(0),
-					drv_dpmaif_ul_get_rwidx(1),
-					drv_dpmaif_ul_get_rwidx(3));
+					i, drv3_dpmaif_ul_get_rwidx(0),
+					drv3_dpmaif_ul_get_rwidx(1),
+					drv3_dpmaif_ul_get_rwidx(3));
 			}
-			drv_dpmaif_mask_ul_que_interrupt(i);
+			drv3_dpmaif_mask_ul_que_interrupt(i);
 			ret = queue_delayed_work(dpmaif_ctrl->txq[i].worker,
 					&dpmaif_ctrl->txq[i].dpmaif_tx_work,
 					msecs_to_jiffies(1000 / HZ));
@@ -2597,14 +2844,14 @@ static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 #endif
 
 	/* RX interrupt */
-	L2RISAR0 = drv_dpmaif_get_dl_isr_event();
-	L2RIMR0 = drv_dpmaif_get_dl_interrupt_mask();
+	L2RISAR0 = drv3_dpmaif_get_dl_isr_event();
+	L2RIMR0 = drv3_dpmaif_get_dl_interrupt_mask();
 	/* TX interrupt */
-	L2TISAR0 = drv_dpmaif_get_ul_isr_event();
-	L2TIMR0 = drv_dpmaif_ul_get_ul_interrupt_mask();
+	L2TISAR0 = drv3_dpmaif_get_ul_isr_event();
+	L2TIMR0 = drv3_dpmaif_ul_get_ul_interrupt_mask();
 
 	/* clear IP busy register wake up cpu case */
-	drv_dpmaif_clear_ip_busy();
+	drv3_dpmaif_clear_ip_busy();
 
 	if (atomic_read(&hif_ctrl->wakeup_src) == 1)
 		CCCI_NOTICE_LOG(hif_ctrl->md_id, TAG,
@@ -2725,7 +2972,7 @@ static irqreturn_t dpmaif_isr(int irq, void *data)
 
 #ifdef ENABLE_CPU_AFFINITY
 #include <linux/sched.h>
-void mtk_ccci_affinity_rta_v2(u32 irq_cpus, u32 push_cpus, int cpu_nr)
+void mtk_ccci_affinity_rta_v3(u32 irq_cpus, u32 push_cpus, int cpu_nr)
 {
 	struct cpumask imask, tmask;
 	unsigned int i;
@@ -2865,90 +3112,79 @@ static void dpmaif_rx_hw_init(struct dpmaif_rx_queue *rxq)
 
 	if (rxq->que_started == true) {
 		/* 1. BAT buffer parameters setting */
-		drv_dpmaif_dl_set_remain_minsz(rxq->index,
+		drv3_dpmaif_dl_set_remain_minsz(rxq->index,
 			DPMAIF_HW_BAT_REMAIN);
-		drv_dpmaif_dl_set_bat_bufsz(rxq->index, DPMAIF_HW_BAT_PKTBUF);
-		drv_dpmaif_dl_set_bat_rsv_len(rxq->index,
+		drv3_dpmaif_dl_set_bat_bufsz(rxq->index, DPMAIF_HW_BAT_PKTBUF);
+		drv3_dpmaif_dl_set_bat_rsv_len(rxq->index,
 			DPMAIF_HW_BAT_RSVLEN);
-		drv_dpmaif_dl_set_bid_maxcnt(rxq->index, DPMAIF_HW_PKT_BIDCNT);
+		drv3_dpmaif_dl_set_bid_maxcnt(rxq->index, DPMAIF_HW_PKT_BIDCNT);
 		pkt_alignment = DPMAIF_HW_PKT_ALIGN;
 		if (pkt_alignment == 64) {
-			drv_dpmaif_dl_set_pkt_align(rxq->index, true,
+			drv3_dpmaif_dl_set_pkt_align(rxq->index, true,
 				DPMAIF_PKT_ALIGN64_MODE);
 		} else if (pkt_alignment == 128) {
-			drv_dpmaif_dl_set_pkt_align(rxq->index, true,
+			drv3_dpmaif_dl_set_pkt_align(rxq->index, true,
 				DPMAIF_PKT_ALIGN128_MODE);
 		} else {
-			drv_dpmaif_dl_set_pkt_align(rxq->index, false, 0);
+			drv3_dpmaif_dl_set_pkt_align(rxq->index, false, 0);
 		}
-		drv_dpmaif_dl_set_mtu(DPMAIF_HW_MTU_SIZE);
+		drv3_dpmaif_dl_set_mtu(DPMAIF_HW_MTU_SIZE);
 		/* 2. bat && pit threadhold, addr, len, enable */
-		drv_dpmaif_dl_set_pit_chknum(rxq->index,
+		drv3_dpmaif_dl_set_pit_chknum(rxq->index,
 			DPMAIF_HW_CHK_PIT_NUM);
-		drv_dpmaif_dl_set_bat_chk_thres(rxq->index,
+		drv3_dpmaif_dl_set_bat_chk_thres(rxq->index,
 			DPMAIF_HW_CHK_BAT_NUM);
 
-		#ifdef MT6297
-		drv_dpmaif_dl_set_chk_rbnum(rxq->index,
+		drv3_dpmaif_dl_set_chk_rbnum(rxq->index,
 			DPMAIF_HW_CHK_RB_PIT_NUM);
-		drv_dpmaif_dl_set_performance();
-		#ifdef _HW_REORDER_SW_WORKAROUND_
-		drv_dpmaif_dl_set_apit_idx(rxq->index,
-			DPMAIF_DUMMY_PIT_AIDX);
+		drv3_dpmaif_dl_set_performance();
 
-		rxq->pit_dummy_idx = DPMAIF_DUMMY_PIT_AIDX;
-		rxq->pit_dummy_cnt = 0;
-		#endif
-		#endif
 		/*
-		 * drv_dpmaif_dl_set_ao_frag_check_thres(que_cnt,
+		 * drv3_dpmaif_dl_set_ao_frag_check_thres(que_cnt,
 		 *	p_dl_hw->chk_frg_num);
 		 */
 
-		drv_dpmaif_dl_set_bat_base_addr(rxq->index,
+		drv3_dpmaif_dl_set_bat_base_addr(rxq->index,
 				rxq->bat_req.bat_phy_addr);
-		drv_dpmaif_dl_set_pit_base_addr(rxq->index,
+		drv3_dpmaif_dl_set_pit_base_addr(rxq->index,
 					rxq->pit_phy_addr);
 
-		drv_dpmaif_dl_set_bat_size(rxq->index,
+		drv3_dpmaif_dl_set_bat_size(rxq->index,
 			rxq->bat_req.bat_size_cnt);
-		drv_dpmaif_dl_set_pit_size(rxq->index, rxq->pit_size_cnt);
+		drv3_dpmaif_dl_set_pit_size(rxq->index, rxq->pit_size_cnt);
 
 		/*Enable PIT*/
-		drv_dpmaif_dl_pit_en(rxq->index, true);
+		drv3_dpmaif_dl_pit_en(rxq->index, true);
 
 		/*
 		 * Disable BAT in init and Enable BAT,
 		 * when buffer submit to HW first time
 		 */
-		drv_dpmaif_dl_bat_en(rxq->index, false);
+		drv3_dpmaif_dl_bat_en(rxq->index, false);
 
 		/* 3. notify HW init/setting done*/
-		drv_dpmaif_dl_bat_init_done(rxq->index, false);
-		drv_dpmaif_dl_pit_init_done(rxq->index);
+		drv3_dpmaif_dl_bat_init_done(rxq->index, false);
+		drv3_dpmaif_dl_pit_init_done(rxq->index);
 #ifdef HW_FRG_FEATURE_ENABLE
 		/* 4. init frg buffer feature*/
-		drv_dpmaif_dl_set_ao_frg_bat_feature(rxq->index, true);
-		drv_dpmaif_dl_set_ao_frg_bat_bufsz(rxq->index,
+		drv3_dpmaif_dl_set_ao_frg_bat_feature(rxq->index, true);
+		drv3_dpmaif_dl_set_ao_frg_bat_bufsz(rxq->index,
 			DPMAIF_HW_FRG_PKTBUF);
-		drv_dpmaif_dl_set_ao_frag_check_thres(rxq->index,
+		drv3_dpmaif_dl_set_ao_frag_check_thres(rxq->index,
 			DPMAIF_HW_CHK_FRG_NUM);
 
-		drv_dpmaif_dl_set_bat_base_addr(rxq->index,
+		drv3_dpmaif_dl_set_bat_base_addr(rxq->index,
 			rxq->bat_frag.bat_phy_addr);
-		drv_dpmaif_dl_set_bat_size(rxq->index,
+		drv3_dpmaif_dl_set_bat_size(rxq->index,
 			rxq->bat_frag.bat_size_cnt);
 
-		drv_dpmaif_dl_bat_en(rxq->index, false);
-		drv_dpmaif_dl_bat_init_done(rxq->index, true);
+		drv3_dpmaif_dl_bat_en(rxq->index, false);
+		drv3_dpmaif_dl_bat_init_done(rxq->index, true);
 #endif
 #ifdef HW_CHECK_SUM_ENABLE
-		drv_dpmaif_dl_set_ao_chksum_en(rxq->index, true);
+		drv3_dpmaif_dl_set_ao_chksum_en(rxq->index, true);
 #endif
-#ifdef _E1_SB_SW_WORKAROUND_
-		DPMA_WRITE_PD_DL(DPMAIF_PD_DL_EMI_ENH1, 0x00);
-		DPMA_WRITE_PD_DL(DPMAIF_PD_DL_EMI_ENH2, 0x80000000);
-#endif
+
 	}
 }
 /* =======================================================
@@ -3046,7 +3282,7 @@ static void dpmaif_tx_hw_init(struct dpmaif_tx_queue *txq)
 	if (p_ul_que->que_started == true) {
 		/* 1. BAT buffer parameters setting */
 
-		drv_dpmaif_ul_update_drb_size(p_ul_que->index,
+		drv3_dpmaif_ul_update_drb_size(p_ul_que->index,
 		(p_ul_que->drb_size_cnt * sizeof(struct dpmaif_drb_pd)));
 
 		base_addr = (unsigned long long)p_ul_que->drb_phy_addr;
@@ -3057,13 +3293,13 @@ static void dpmaif_tx_hw_init(struct dpmaif_tx_queue *txq)
 		txq->index, p_ul_que->drb_base, (unsigned int)base_addr);
 #endif
 
-		drv_dpmaif_ul_update_drb_base_addr(p_ul_que->index,
+		drv3_dpmaif_ul_update_drb_base_addr(p_ul_que->index,
 			(base_addr&0xFFFFFFFF), ((base_addr>>32)&0xFFFFFFFF));
-		drv_dpmaif_ul_rdy_en(p_ul_que->index, true);
+		drv3_dpmaif_ul_rdy_en(p_ul_que->index, true);
 
-		drv_dpmaif_ul_arb_en(p_ul_que->index, true);
+		drv3_dpmaif_ul_arb_en(p_ul_que->index, true);
 	} else {
-		drv_dpmaif_ul_arb_en(p_ul_que->index, false);
+		drv3_dpmaif_ul_arb_en(p_ul_que->index, false);
 	}
 }
 
@@ -3111,7 +3347,7 @@ static int dpmaif_txq_init(struct dpmaif_tx_queue *txq)
  */
 
 /* we put initializations which takes too much time here: SW init only */
-int dpmaif_late_init(unsigned char hif_id)
+static int dpmaif_late_init(unsigned char hif_id)
 {
 	struct dpmaif_rx_queue *rx_q = NULL;
 	struct dpmaif_tx_queue *tx_q = NULL;
@@ -3216,7 +3452,7 @@ int dpmaif_late_init(unsigned char hif_id)
  *
  * ========================================================
  */
-void ccci_hif_dpmaif_set_clk(unsigned int on)
+static void ccci_hif_dpmaif_set_clk(unsigned int on)
 {
 	int ret = 0;
 
@@ -3240,7 +3476,7 @@ void ccci_hif_dpmaif_set_clk(unsigned int on)
 	}
 }
 
-int dpmaif_start(unsigned char hif_id)
+static int dpmaif_start(unsigned char hif_id)
 {
 	struct dpmaif_rx_queue *rxq = NULL;
 	struct dpmaif_tx_queue *txq = NULL;
@@ -3260,16 +3496,14 @@ int dpmaif_start(unsigned char hif_id)
 	/* cg set */
 	ccci_hif_dpmaif_set_clk(1);
 
-#ifdef MT6297
 	reg_value = ccci_read32(infra_ao_mem, 0);
 	reg_value |= INFRA_PROT_DPMAIF_BIT;
 	ccci_write32(infra_ao_mem, 0, reg_value);
 	CCCI_REPEAT_LOG(-1, TAG, "%s:clr prot:0x%x\n", __func__, reg_value);
 
-	drv_dpmaif_common_hw_init();
-#endif
+	drv3_dpmaif_common_hw_init();
 
-	ret = drv_dpmaif_intr_hw_init();
+	ret = drv3_dpmaif_intr_hw_init();
 	if (ret < 0) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning("ccci",
@@ -3299,20 +3533,10 @@ int dpmaif_start(unsigned char hif_id)
 			return LOW_MEMORY;
 		}
 #endif
-#ifdef _E1_SB_SW_WORKAROUND_
-		/*first init: update to HW and enable BAT*/
-		/*others: update to HW in full interrupt*/
-		drv_dpmaif_dl_add_bat_cnt(rxq->index,
-			rxq->bat_req.bat_size_cnt - 1);
-#ifdef HW_FRG_FEATURE_ENABLE
-		drv_dpmaif_dl_add_frg_bat_cnt(i,
-			(rxq->bat_frag.bat_size_cnt - 1));
-#endif
-		drv_dpmaif_dl_all_queue_en(true);
-#else
+
 #ifdef BAT_CNT_BURST_UPDATE
 #ifdef HW_FRG_FEATURE_ENABLE
-		ret = drv_dpmaif_dl_add_frg_bat_cnt(i,
+		ret = drv3_dpmaif_dl_add_frg_bat_cnt(i,
 			(rxq->bat_frag.bat_size_cnt - 1));
 		if (ret < 0) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -3322,7 +3546,7 @@ int dpmaif_start(unsigned char hif_id)
 			return ret;
 		}
 #endif
-		ret = drv_dpmaif_dl_add_bat_cnt(i,
+		ret = drv3_dpmaif_dl_add_bat_cnt(i,
 				(rxq->bat_req.bat_size_cnt - 1));
 		if (ret < 0) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -3333,7 +3557,7 @@ int dpmaif_start(unsigned char hif_id)
 		}
 #endif
 #ifdef HW_FRG_FEATURE_ENABLE
-		ret = drv_dpmaif_dl_all_frg_queue_en(true);
+		ret = drv3_dpmaif_dl_all_frg_queue_en(true);
 		if (ret < 0) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
@@ -3342,7 +3566,7 @@ int dpmaif_start(unsigned char hif_id)
 			return ret;
 		}
 #endif
-		ret = drv_dpmaif_dl_all_queue_en(true);
+		ret = drv3_dpmaif_dl_all_queue_en(true);
 		if (ret < 0) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
@@ -3350,7 +3574,7 @@ int dpmaif_start(unsigned char hif_id)
 #endif
 			return ret;
 		}
-#endif
+
 		rxq->budget = rxq->bat_req.bat_size_cnt - 1;
 		rxq->bat_req.check_bid_fail_cnt = 0;
 	}
@@ -3361,6 +3585,10 @@ int dpmaif_start(unsigned char hif_id)
 		txq->que_started = true;
 		dpmaif_tx_hw_init(txq);
 	}
+
+	drv3_dpmaif_hw_init_done();
+	drv3_dpmaif_clear_ip_busy();
+
 	/* debug */
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 	dpmaif_clear_traffic_data(DPMAIF_HIF_ID);
@@ -3383,7 +3611,7 @@ int dpmaif_start(unsigned char hif_id)
  *
  * ========================================================
  */
-void dpmaif_stop_hw(void)
+static void dpmaif_stop_hw(void)
 {
 	struct dpmaif_rx_queue *rxq = NULL;
 	struct dpmaif_tx_queue *txq = NULL;
@@ -3422,8 +3650,8 @@ void dpmaif_stop_hw(void)
 	count = 0;
 	do {
 		/*Disable HW arb and check idle*/
-		drv_dpmaif_ul_all_queue_en(false);
-		ret = drv_dpmaif_ul_idle_check();
+		drv3_dpmaif_ul_all_queue_en(false);
+		ret = drv3_dpmaif_ul_idle_check();
 
 		/*retry handler*/
 		if ((++count) % 100000 == 0) {
@@ -3465,14 +3693,14 @@ void dpmaif_stop_hw(void)
 	count = 0;
 	do {
 		/*Disable HW arb and check idle*/
-		ret = drv_dpmaif_dl_all_queue_en(false);
+		ret = drv3_dpmaif_dl_all_queue_en(false);
 		if (ret < 0) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"dpmaif stop failed to enable dl queue\n");
 #endif
 		}
-		ret = drv_dpmaif_dl_idle_check();
+		ret = drv3_dpmaif_dl_idle_check();
 
 		/*retry handler*/
 		if (++count >= 1600000) {
@@ -3612,7 +3840,7 @@ static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 	return 0;
 }
 
-int dpmaif_stop_rx_sw(unsigned char hif_id)
+static int dpmaif_stop_rx_sw(unsigned char hif_id)
 {
 	struct dpmaif_rx_queue *rxq = NULL;
 	int i;
@@ -3625,7 +3853,7 @@ int dpmaif_stop_rx_sw(unsigned char hif_id)
 	return 0;
 }
 
-int dpmaif_stop_tx_sw(unsigned char hif_id)
+static int dpmaif_stop_tx_sw(unsigned char hif_id)
 {
 	struct dpmaif_tx_queue *txq = NULL;
 	int i;
@@ -3644,12 +3872,8 @@ static void dpmaif_hw_reset(void)
 	unsigned char md_id = 0;
 	unsigned int reg_value;
 	int ret;
-#ifndef MT6297
-	int count = 0;
-#endif
 
 	/* pre- DPMAIF HW reset: bus-protect */
-#ifdef MT6297
 	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base, 0, &reg_value);
 	if (ret) {
 		CCCI_ERROR_LOG(0, TAG, "read infra_ao_base ret=%d\n", ret);
@@ -3658,37 +3882,7 @@ static void dpmaif_hw_reset(void)
 	reg_value &= ~INFRA_PROT_DPMAIF_BIT;
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base, 0, reg_value);
 	CCCI_REPEAT_LOG(md_id, TAG, "%s:set prot:0x%x\n", __func__, reg_value);
-#else
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_TOPAXI_PROTECTEN_1_SET,
-		DPMAIF_SLEEP_PROTECT_CTRL);
 
-	while (1) {
-		ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
-			INFRA_TOPAXI_PROTECT_READY_STA1_1, &reg_value);
-		if (ret) {
-			CCCI_ERROR_LOG(0, TAG,
-			"read INFRA_TOPAXI_PROTECT_READY_STA1_1 ret=%d\n",
-			ret);
-			break;
-		}
-		if (reg_value&(1<<4) == (1 << 4))
-			break;
-		udelay(1);
-		if (++count >= 1000) {
-			CCCI_ERROR_LOG(0, TAG, "DPMAIF pre-reset timeout\n");
-			break;
-		}
-	}
-	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_TOPAXI_PROTECTEN_1, &reg_value);
-	if (ret) {
-		CCCI_ERROR_LOG(0, TAG, "read INFRA_TOPAXI_PROTECTEN_1 ret=%d\n", ret);
-		return;
-	}
-	CCCI_NORMAL_LOG(md_id, TAG,
-		"infra_topaxi_protecten_1: 0x%x\n", reg_value);
-#endif
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: AO Domain */
@@ -3741,15 +3935,9 @@ static void dpmaif_hw_reset(void)
 		INFRA_RST1_REG_PD, reg_value);
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
 
-#ifndef MT6297
-	/* post- DPMAIF HW reset: bus-protect */
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_TOPAXI_PROTECTEN_1_CLR,
-		DPMAIF_SLEEP_PROTECT_CTRL);
-#endif
 }
 
-static void dpmaif_hw_reset_6893(void)
+static void dpmaif_hw_reset_6983(void)
 {
 	unsigned char md_id = 0;
 	unsigned int reg_value;
@@ -3786,7 +3974,7 @@ static void dpmaif_hw_reset_6893(void)
 
 }
 
-int dpmaif_stop(unsigned char hif_id)
+static int dpmaif_stop(unsigned char hif_id)
 {
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
 		|| dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_MIN)
@@ -3811,15 +3999,10 @@ int dpmaif_stop(unsigned char hif_id)
 	del_timer(&dpmaif_ctrl->traffic_monitor);
 
 	/* 3. todo: reset IP */
-#ifdef MT6297
 	/* CG set */
 	ccci_hif_dpmaif_set_clk(0);
 	g_plt_ops.hw_reset();
-#else
-	g_plt_ops.hw_reset();
-	/* CG set */
-	ccci_hif_dpmaif_set_clk(0);
-#endif
+
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop end\n");
 #endif
@@ -3858,15 +4041,15 @@ static int dpmaif_resume(unsigned char hif_id)
 	unsigned int rel_cnt = 0;
 
 	/*IP don't power down before*/
-	if (drv_dpmaif_check_power_down() == false) {
+	if (drv3_dpmaif_check_power_down() == false) {
 		CCCI_DEBUG_LOG(0, TAG, "sys_resume no need restore\n");
 	} else {
 		/*IP power down before and need to restore*/
 		CCCI_NORMAL_LOG(0, TAG,
 			"sys_resume need to restore(0x%x, 0x%x, 0x%x)\n",
-			drv_dpmaif_ul_get_rwidx(0),
-			drv_dpmaif_ul_get_rwidx(1),
-			drv_dpmaif_ul_get_rwidx(3));
+			drv3_dpmaif_ul_get_rwidx(0),
+			drv3_dpmaif_ul_get_rwidx(1),
+			drv3_dpmaif_ul_get_rwidx(3));
 		/*flush and release UL descriptor*/
 		for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 			queue = &hif_ctrl->txq[i];
@@ -3875,9 +4058,9 @@ static int dpmaif_resume(unsigned char hif_id)
 					"resume(%d): pkt force release: rd(0x%x), wr(0x%x), 0x%x, 0x%x, 0x%x\n",
 					i, queue->drb_rd_idx,
 					queue->drb_wr_idx,
-					drv_dpmaif_ul_get_rwidx(0),
-					drv_dpmaif_ul_get_rwidx(1),
-					drv_dpmaif_ul_get_rwidx(3));
+					drv3_dpmaif_ul_get_rwidx(0),
+					drv3_dpmaif_ul_get_rwidx(1),
+					drv3_dpmaif_ul_get_rwidx(3));
 				/*queue->drb_rd_idx = queue->drb_wr_idx;*/
 			}
 			if (queue->drb_wr_idx != queue->drb_rel_rd_idx)
@@ -3894,17 +4077,17 @@ static int dpmaif_resume(unsigned char hif_id)
 			atomic_set(&queue->tx_resume_tx, 1);
 		}
 		/* there are some inter for init para. check. */
-		/* maybe need changed to drv_dpmaif_intr_hw_init();*/
-		ret = drv_dpmaif_dl_restore(
+		/* maybe need changed to drv3_dpmaif_intr_hw_init();*/
+		ret = drv3_dpmaif_dl_restore(
 			dpmaif_ctrl->rxq[0].reg_int_mask_bak);
 		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"dpmaif resume failed\n");
 #endif
 			return ret;
 		}
-		drv_dpmaif_init_ul_intr();
+		drv3_dpmaif_init_ul_intr();
 		/*flush and release UL descriptor*/
 		for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 			queue = &hif_ctrl->txq[i];
@@ -3936,7 +4119,7 @@ static int dpmaif_suspend(unsigned char hif_id __maybe_unused)
 		return 0;
 	/* dpmaif clock on: backup int mask. */
 	dpmaif_ctrl->rxq[0].reg_int_mask_bak =
-		drv_dpmaif_get_dl_interrupt_mask();
+		drv3_dpmaif_get_dl_interrupt_mask();
 	return 0;
 }
 
@@ -3998,7 +4181,7 @@ static struct syscore_ops dpmaif_sysops = {
  * ========================================================
  */
 static u64 dpmaif_dmamask = DMA_BIT_MASK(36);
-int ccci_dpmaif_hif_init(struct device *dev)
+static int ccci_dpmaif_hif_init(struct device *dev)
 {
 	struct device_node *node = NULL;
 	struct device_node *node_md = NULL;
@@ -4049,7 +4232,7 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		ret = -5;
 		goto DPMAIF_INIT_FAIL;
 	}
-#ifdef MT6297
+
 	hif_ctrl->clk_ref1 = devm_clk_get(dev, "infra-dpmaif-blk-clk");
 	if (IS_ERR(hif_ctrl->clk_ref1)) {
 		CCCI_ERROR_LOG(md_id, TAG,
@@ -4058,7 +4241,7 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		ret = -6;
 		goto DPMAIF_INIT_FAIL;
 	}
-#endif
+
 	if (!dpmaif_ctrl->plat_val.infra_ao_base) {
 		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
 		ret = -4;
@@ -4088,6 +4271,11 @@ int ccci_dpmaif_hif_init(struct device *dev)
 	hif_ctrl->dpmaif_pd_rdma_base = hif_ctrl->dpmaif_pd_ul_base + 0x200;
 	hif_ctrl->dpmaif_pd_wdma_base = hif_ctrl->dpmaif_pd_ul_base + 0x300;
 	hif_ctrl->dpmaif_pd_misc_base = hif_ctrl->dpmaif_pd_ul_base + 0x400;
+
+	hif_ctrl->dpmaif_ao_dl_sram_base =
+		hif_ctrl->dpmaif_pd_ul_base + 0xC00;
+	hif_ctrl->dpmaif_ao_ul_sram_base =
+		hif_ctrl->dpmaif_pd_ul_base + 0xD00;
 
 	hif_ctrl->dpmaif_pd_md_misc_base = of_iomap(node, 2);
 	if (hif_ctrl->dpmaif_pd_md_misc_base == 0) {
@@ -4119,7 +4307,7 @@ int ccci_dpmaif_hif_init(struct device *dev)
 	hif_ctrl->dpmaif_irq_flags = IRQF_TRIGGER_NONE;
 	CCCI_DEBUG_LOG(md_id, TAG, "dpmaif_irq_id:%d\n",
 			hif_ctrl->dpmaif_irq_id);
-#ifdef MT6297
+
 	node = of_find_compatible_node(NULL, NULL,
 		"mediatek,infracfg_ao_mem");
 	if (!node) {
@@ -4134,7 +4322,7 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		goto DPMAIF_INIT_FAIL;
 
 	}
-#endif
+
 	dev->dma_mask = &dpmaif_dmamask;
 	dev->coherent_dma_mask = dpmaif_dmamask;
 	/* hook up to device */
@@ -4162,14 +4350,14 @@ DPMAIF_INIT_FAIL:
 
 static void dpmaif_init_plat_ops(void)
 {
-	if (g_ap_palt == 6893)
-		g_plt_ops.hw_reset = dpmaif_hw_reset_6893;
+	if (g_ap_palt == 6983)
+		g_plt_ops.hw_reset = dpmaif_hw_reset_6983;
 	else
 		g_plt_ops.hw_reset = dpmaif_hw_reset;
 
 }
 
-int ccci_dpmaif_hif_init_v2(struct platform_device *pdev)
+int ccci_dpmaif_hif_init_v3(struct platform_device *pdev)
 {
 	int ret;
 
