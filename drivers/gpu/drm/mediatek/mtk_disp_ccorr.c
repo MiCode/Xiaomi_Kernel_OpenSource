@@ -249,7 +249,8 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
 	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	// For 6885 need to left shift one bit
 	for (i = 0; i < 3; i++)
 		for (j = 0; j < 3; j++)
@@ -717,7 +718,8 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
 	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	// offset part
 	if ((matrix[12] != 0) || (matrix[13] != 0) || (matrix[14] != 0))
 		need_offset = true;
@@ -859,7 +861,8 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
 	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	 || defined(CONFIG_MACH_MT6781)
 	// Support matrix:
 	// AOSP is 4x3 matrix. Offset is located at 4th row (not zero)
 
@@ -1027,7 +1030,8 @@ static void mtk_ccorr_prepare(struct mtk_ddp_comp *comp)
 	}
 #else
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, CCORR_BYPASS_SHADOW,
 		DISP_REG_CCORR_SHADOW, CCORR_BYPASS_SHADOW);
@@ -1192,6 +1196,10 @@ static const struct mtk_disp_ccorr_data mt6833_ccorr_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_ccorr_data mt6781_ccorr_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-ccorr",
 	  .data = &mt6779_ccorr_driver_data},
@@ -1205,6 +1213,8 @@ static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	  .data = &mt6877_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6833-disp-ccorr",
 	  .data = &mt6833_ccorr_driver_data},
+	{ .compatible = "mediatek,mt6781-disp-ccorr",
+	  .data = &mt6781_ccorr_driver_data},
 	{},
 };
 
