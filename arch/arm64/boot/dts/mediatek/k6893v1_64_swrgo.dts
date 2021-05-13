@@ -9,7 +9,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
 #include <dt-bindings/clock/mt6893-clk.h>
-#include "mediatek/rt9759.dtsi"
 
 &gpio_usage_mapping {
 	GPIO_SIM1_HOT_PLUG = <&pio 43 0>;
