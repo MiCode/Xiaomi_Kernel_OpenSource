@@ -465,6 +465,7 @@ static int mt6358_probe(struct platform_device *pdev)
 					   0, chip->irq_domain);
 		break;
 	case MT6358_CID_CODE:
+	case MT6366_CID_CODE:
 		chip->top_int_status_reg = PMIC_INT_STATUS_TOP_RSV_ADDR;
 		ret = mt6358_irq_init(chip);
 		if (ret)
