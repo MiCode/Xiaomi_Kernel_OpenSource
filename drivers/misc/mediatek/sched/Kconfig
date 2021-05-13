@@ -38,10 +38,10 @@ config MTK_EAS
 
 config MTK_THERMAL_AWARE_SCHEDULING
 	bool "thermal aware scheduling"
-	depends on MTK_EAS
+	depends on MTK_EAS && MTK_THERMAL
 	help
 	  CPU leakage optimization by temperature balance in the
-	  same frequency domain. 
+	  same frequency domain.
 	  Task placement consider temperature for leakage.
 	  Use current Per-core temperature (per-10'c, per-die).
 	  Favor tasks to CPU with lowest thermal pressure.
