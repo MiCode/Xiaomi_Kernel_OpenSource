@@ -316,7 +316,10 @@ start:
 	if (quit)
 		return;
 
-	snprintf(event_string, string_size, "boost=%d", boost ? 1 : 0);
+	ret = snprintf(event_string,
+		string_size, "boost=%d", boost ? 1 : 0);
+	if (!ret)
+		return;
 
 	ret = kobject_uevent_env(
 			&earaio_obj.this_device->kobj,
