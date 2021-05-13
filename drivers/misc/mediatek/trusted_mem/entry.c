@@ -282,7 +282,7 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 		return ret;
 	}
 
-	pr_debug("[%d] allocated handle is 0x%x\n", mem_type, *sec_handle);
+	pr_info("[%d] allocated handle is 0x%x\n", mem_type, *sec_handle);
 	regmgr_region_ref_inc(mem_device->reg_mgr, mem_device->mem_type);
 	return TMEM_OK;
 }
@@ -399,7 +399,7 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 		return TMEM_OPERATION_NOT_REGISTERED;
 	}
 
-	pr_debug("[%d] free handle is 0x%x\n", mem_type, sec_handle);
+	pr_info("[%d] free handle is 0x%x\n", mem_type, sec_handle);
 
 	if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
 		pr_err("[%d] regmgr region is still not online!\n", mem_type);
