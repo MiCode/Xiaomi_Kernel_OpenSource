@@ -3681,10 +3681,10 @@ static struct snd_soc_dai_driver mt6359_dai_driver[] = {
 };
 
 /* dc trim */
-#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 static int mt6359_get_hpofs_auxadc(struct mt6359_priv *priv)
 {
 	int value = 0;
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	int ret;
 	struct iio_channel *auxadc = priv->hpofs_cal_auxadc;
 
@@ -3696,7 +3696,7 @@ static int mt6359_get_hpofs_auxadc(struct mt6359_priv *priv)
 			return ret;
 		}
 	}
-
+#endif /* #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) */
 	return value;
 }
 
@@ -3721,6 +3721,7 @@ static void enable_trim_buf(struct mt6359_priv *priv, bool enable)
 			   (enable ? 1 : 0) << RG_AUDTRIMBUF_EN_VAUDP32_SFT);
 }
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 static void enable_trim_circuit(struct mt6359_priv *priv, bool enable)
 {
 	if (enable) {
@@ -4465,9 +4466,11 @@ EXIT:
 	dev_info(priv->dev, "%s(), result hp_trim_code(R/L) = (0x%x/0x%x)\n",
 		 __func__, hpr_trim_code, hpl_trim_code);
 }
+#endif /* #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) */
 
 static void get_hp_trim_offset(struct mt6359_priv *priv, bool force)
 {
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	struct dc_trim_data *dc_trim = &priv->dc_trim;
 	struct hp_trim_data *hp_trim_3_pole = &priv->hp_trim_3_pole;
 	unsigned int reg_value;
@@ -4496,6 +4499,9 @@ static void get_hp_trim_offset(struct mt6359_priv *priv, bool force)
 		 __func__,
 		 hp_trim_3_pole->hp_fine_trim_r, hp_trim_3_pole->hp_trim_r,
 		 hp_trim_3_pole->hp_fine_trim_l, hp_trim_3_pole->hp_trim_l);
+#else
+	dev_info(priv->dev, "%s(), bypass while FPGA", __func__);
+#endif
 }
 
 static int dc_trim_thread(void *arg)
@@ -4511,8 +4517,6 @@ static int dc_trim_thread(void *arg)
 
 	return 0;
 }
-#endif /* #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) */
-
 /* Headphone Impedance Detection */
 int mt6359_set_codec_ops(struct snd_soc_component *cmpnt,
 			 struct mt6359_codec_ops *ops)
@@ -5201,11 +5205,8 @@ static int mt6359_codec_init_reg(struct snd_soc_component *cmpnt)
 	regmap_update_bits(priv->regmap, MT6359_DCXO_CW12,
 			   0x1 << RG_XO_AUDIO_EN_M_SFT,
 			   0x0 << RG_XO_AUDIO_EN_M_SFT);
-
-#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	/* this will trigger widget "DC trim" power down event */
 	enable_trim_buf(priv, true);
-#endif
 	return 0;
 }
 
