@@ -2097,21 +2097,23 @@ static int32_t nvt_ts_resume(struct device *dev)
 static int nvt_disp_notifier_callback(struct notifier_block *nb,
 	unsigned long value, void *v)
 {
-	struct nvt_ts_data *ts = container_of(nb, struct nvt_ts_data, disp_notifier);	
+	struct nvt_ts_data *ts = container_of(nb, struct nvt_ts_data, disp_notifier);
 	int *data = (int *)v;
 
 	if (ts && v) {
+		NVT_LOG("%s IN", __func__);
 		if (value == MTK_DISP_EARLY_EVENT_BLANK) {
-			NVT_LOG("%s IN", __func__);
-			if (*data == MTK_DISP_BLANK_UNBLANK) {
-				nvt_ts_resume(&ts->client->dev);
-			} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
+			if (*data == MTK_DISP_BLANK_POWERDOWN) {
 				nvt_ts_suspend(&ts->client->dev);
 			}
-			NVT_LOG("%s OUT", __func__);
+		} else if (value == MTK_DISP_EVENT_BLANK) {
+			if (*data == MTK_DISP_BLANK_UNBLANK) {
+				nvt_ts_resume(&ts->client->dev);
+			}
 		}
+		NVT_LOG("%s OUT", __func__);
 	} else {
-		NVT_LOG("gt9896s touch IC can not suspend or resume");
+		NVT_LOG("NT36672 touch IC can not suspend or resume");
 		return -1;
 	}
 
