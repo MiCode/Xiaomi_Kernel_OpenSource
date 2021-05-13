@@ -193,8 +193,7 @@ static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 				continue;
 
 			layer_cnt++;
-			if (layer_cnt > max_layer_cnt ||
-				(layer_cnt == max_layer_cnt && layer_cnt < disp_info->layer_num[i]))
+			if (layer_cnt >= max_layer_cnt)
 				mtk_rollback_layer_to_GPU(disp_info, i, j);
 		}
 	}
