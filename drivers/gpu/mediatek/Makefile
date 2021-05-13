@@ -29,10 +29,6 @@ subdir-ccflags-y += -DCONFIG_GPU_MT6893
 else ifeq ($(MTK_PLATFORM),mt6853)
 subdir-ccflags-y += -DCONFIG_GPU_MT6853
 endif
-
-else
-export MTK_PLATFORM = mt6893
-subdir-ccflags-y += -DCONFIG_GPU_MT6893
 endif
 
 ifneq ($(CONFIG_MTK_GPU_SUPPORT),)
@@ -51,9 +47,6 @@ else ifneq ($(word 1,$(MTK_GPU_VERSION)),)
 else
     obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
-
-else
-    obj-y += gpu_mali_mt6893/
 endif
 
 endif
