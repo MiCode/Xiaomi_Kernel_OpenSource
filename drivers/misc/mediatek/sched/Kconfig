@@ -84,7 +84,7 @@ config MTK_CPUFREQ_SUGOV_EXT
 
 config MTK_OPP_MIN
 	bool "mediatek sugov governor"
-	depends on MTK_CPUFREQ_SUGOV_EXT
+	depends on MTK_CPUFREQ_SUGOV_EXT && MTK_THERMAL_INTERFACE
 	help
 	   To improve critical task performance under same power budget
 	   On-time deliver critical task frequency boost hint to thermal.
