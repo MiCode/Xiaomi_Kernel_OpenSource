@@ -623,7 +623,7 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	}
 
 	len += snprintf(buf + len, bufLen - len,
-			"%03d: %1d%1d%1d%1d%",
+			"%03d: %1d%1d%1d%1d",
 			gpio,
 			pinmux,
 			mtk_pctrl_get_direction(hw, gpio),
