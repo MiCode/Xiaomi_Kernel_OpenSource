@@ -13,10 +13,31 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
+
+enum {
+	MTU3_SMC_INFRA_REQUEST = 0,
+	MTU3_SMC_INFRA_RELEASE,
+	MTU3_SMC_INFRA_NUM,
+};
+
+static void ssusb_smc_request(struct ssusb_mtk *ssusb, int op)
+{
+	struct arm_smccc_res res;
+
+	if (op >= MTU3_SMC_INFRA_NUM)
+		return;
+
+	dev_info(ssusb->dev, "%s op = %d\n", __func__, op);
+
+	arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL,
+		op, 0, 0, 0, 0, 0, 0, &res);
+}
 
 void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on)
 {
@@ -489,6 +510,7 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	ssusb_phy_power_off(ssusb);
 	ssusb_clks_disable(ssusb);
 	ssusb_wakeup_set(ssusb, true);
+	ssusb_smc_request(ssusb, MTU3_SMC_INFRA_REQUEST);
 
 	return 0;
 }
@@ -503,6 +525,7 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
+	ssusb_smc_request(ssusb, MTU3_SMC_INFRA_RELEASE);
 	ssusb_wakeup_set(ssusb, false);
 	ret = ssusb_clks_enable(ssusb);
 	if (ret)
