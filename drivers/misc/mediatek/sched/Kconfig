@@ -72,3 +72,10 @@ config MTK_CPUFREQ_SUGOV_EXT
 	   by mediatek. This governor support non-linear freq control and
 	   vary optimizations. This config should be enable when
 	   you want full mtk solution.
+
+config MTK_OPP_MIN
+	bool "mediatek sugov governor"
+	depends on MTK_CPUFREQ_SUGOV_EXT
+	help
+	   To improve critical task performance under same power budget
+	   On-time deliver critical task frequency boost hint to thermal.

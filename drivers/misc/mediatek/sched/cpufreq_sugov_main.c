@@ -22,6 +22,7 @@
 #include <trace/hooks/sched.h>
 #include <linux/sched/cpufreq.h>
 #include <linux/kthread.h>
+#include "../../../../drivers/thermal/mediatek/thermal_interface.h"
 
 #define IOWAIT_BOOST_MIN	(SCHED_CAPACITY_SCALE / 8)
 
@@ -446,6 +447,84 @@ static inline void ignore_dl_rate_limit(struct sugov_cpu *sg_cpu, struct sugov_p
 		sg_policy->limits_changed = true;
 }
 
+#if IS_ENABLED(CONFIG_MTK_OPP_MIN)
+void mtk_set_cpu_min_opp(int cpu, unsigned long min_util)
+{
+	int gear_id, min_opp, i;
+	unsigned long scale_cpu, freq;
+	struct em_perf_domain *pd;
+	struct em_perf_state *ps;
+
+	gear_id = topology_physical_package_id(cpu);
+
+	if (min_util == 0){
+		set_cpu_min_opp(gear_id, -1);
+		return;
+	}
+
+	pd = em_cpu_get(cpu);
+	scale_cpu = arch_scale_cpu_capacity(cpu);
+	ps = &pd->table[pd->nr_perf_states - 1];
+	freq = map_util_freq(min_util, ps->frequency, scale_cpu);
+
+	/*
+	 * Find the lowest performance state of the Energy Model
+	 * above the
+	 * requested frequency.
+	 */
+	for (i = 0; i < pd->nr_perf_states; i++) {
+		ps = &pd->table[i];
+		if (ps->frequency >= freq)
+			break;
+	}
+
+	i = min(i, pd->nr_perf_states - 1);
+	min_opp = pd->nr_perf_states - i -1;
+	set_cpu_min_opp(gear_id, min_opp);
+}
+
+void mtk_set_cpu_min_opp_single(struct sugov_cpu *sg_cpu)
+{
+	int cpu = sg_cpu->cpu;
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long min_util;
+
+	min_util = READ_ONCE(rq->uclamp[UCLAMP_MIN].value);
+	mtk_set_cpu_min_opp(cpu, min_util);
+}
+
+void mtk_set_cpu_min_opp_shared(struct sugov_cpu *sg_cpu)
+{
+	int cpu, i;
+	unsigned long min_util = 0, util;
+	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
+	struct cpufreq_policy *policy = sg_policy->policy;
+
+	for_each_cpu(i, policy->cpus) {
+		struct rq *rq = cpu_rq(i);
+
+		util = READ_ONCE(rq->uclamp[UCLAMP_MIN].value);
+		min_util = max(min_util, util);
+	}
+
+
+	cpu = cpumask_first(policy->cpus);
+	mtk_set_cpu_min_opp(cpu, min_util);
+}
+#else
+
+void mtk_set_cpu_min_opp_single(struct sugov_cpu *sg_cpu)
+{
+	return;
+}
+
+void mtk_set_cpu_min_opp_shared(struct sugov_cpu *sg_cpu)
+{
+	return;
+}
+
+#endif
+
 static void sugov_update_single(struct update_util_data *hook, u64 time,
 				unsigned int flags)
 {
@@ -462,6 +541,9 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 
 	if (!sugov_should_update_freq(sg_policy, time))
 		return;
+
+	/* Critical Task aware thermal throttling, notify thermal */
+	mtk_set_cpu_min_opp_single(sg_cpu);
 
 	/* Limits may have changed, don't skip frequency update */
 	busy = !sg_policy->need_freq_update && sugov_cpu_is_busy(sg_cpu);
@@ -541,6 +623,9 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 		else
 			sugov_deferred_update(sg_policy, time, next_f);
 	}
+
+	/* Critical Task aware thermal throttling, notify thermal */
+	mtk_set_cpu_min_opp_shared(sg_cpu);
 
 	raw_spin_unlock(&sg_policy->update_lock);
 }
@@ -891,7 +976,7 @@ static void sugov_limits(struct cpufreq_policy *policy)
 }
 
 struct cpufreq_governor mtk_gov = {
-	.name			= "cpufreq_sugov_ext",
+	.name			= "sugov_ext",
 	.owner			= THIS_MODULE,
 	.init			= sugov_init,
 	.exit			= sugov_exit,
