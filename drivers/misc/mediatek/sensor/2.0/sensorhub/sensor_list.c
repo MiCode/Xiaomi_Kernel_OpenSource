@@ -50,16 +50,16 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 	}
 
 	/*
-	 * NOTE: must init_completion before sensor_comm_notify
+	 * NOTE: must reinit_completion before sensor_comm_notify
 	 * wrong sequence:
-	 * sensor_comm_notify -----> init_completion -> wait_for_completion
-	 *                      |
-	 *                   complete
-	 * complete before init_completion, lose this complete
+	 * sensor_comm_notify ---> reinit_completion -> wait_for_completion
+	 *                     |
+	 *                  complete
+	 * complete before reinit_completion, lose this complete
 	 * right sequence:
-	 * init_completion -> sensor_comm_notify -> wait_for_completion
+	 * reinit_completion -> sensor_comm_notify -> wait_for_completion
 	 */
-	init_completion(&sensor_list_done);
+	reinit_completion(&sensor_list_done);
 
 	/* safe sequence given by atomic, round from 0 to 255 */
 	notify.sequence = atomic_inc_return(&sensor_list_sequence);

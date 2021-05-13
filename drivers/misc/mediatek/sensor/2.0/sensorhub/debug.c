@@ -49,16 +49,16 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	}
 
 	/*
-	 * NOTE: must init_completion before sensor_comm_notify
+	 * NOTE: must reinit_completion before sensor_comm_notify
 	 * wrong sequence:
-	 * sensor_comm_ctrl_send -----> init_completion -> wait_for_completion
-	 *                         |
-	 *                     complete
-	 * complete before init_completion, lose this complete
+	 * sensor_comm_ctrl_send ---> reinit_completion -> wait_for_completion
+	 *                        |
+	 *                    complete
+	 * complete before reinit_completion, lose this complete
 	 * right sequence:
-	 * init_completion -> sensor_comm_ctrl_send -> wait_for_completion
+	 * reinit_completion -> sensor_comm_ctrl_send -> wait_for_completion
 	 */
-	init_completion(&debug_done);
+	reinit_completion(&debug_done);
 
 	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
 	ctrl->sensor_type = sensor_type;

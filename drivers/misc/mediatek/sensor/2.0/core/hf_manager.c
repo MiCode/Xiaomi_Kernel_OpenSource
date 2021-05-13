@@ -1484,7 +1484,7 @@ static int __init hf_manager_init(void)
 		goto err_class;
 	}
 
-	if (!proc_create_data("hf_manager", 0444, NULL,
+	if (!proc_create_data("hf_manager", 0440, NULL,
 			&hf_manager_proc_fops, &hfcore))
 		pr_err("Failed to create proc\n");
 

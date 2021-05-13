@@ -57,7 +57,7 @@ static int ipi_transfer_buffer(struct ipi_transfer *t)
 	hw->tx_len = t->tx_len;
 	hw->rx_len = t->rx_len;
 
-	init_completion(&hw->done);
+	reinit_completion(&hw->done);
 	hw->context = &hw->done;
 	spin_unlock_irqrestore(&hw_transfer_lock, flags);
 	do {
@@ -283,6 +283,7 @@ int ipi_comm_init(void)
 {
 	int ret = 0;
 
+	init_completion(&hw_transfer.done);
 	INIT_WORK(&controller.work, ipi_work);
 	INIT_LIST_HEAD(&controller.head);
 	spin_lock_init(&controller.lock);

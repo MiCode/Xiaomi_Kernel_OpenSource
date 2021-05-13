@@ -36,8 +36,11 @@ struct lsm6dsm_device {
 	uint32_t direction;
 };
 
-static unsigned char support_sensors[] = {
-	SENSOR_TYPE_GYRO_SECONDARY,
+static sensor_info support_sensors[] = {
+	.sensor_type = SENSOR_TYPE_GYRO_SECONDARY,
+	.gain = 1,
+	.name = {'a', 'c', 'c', 'e', 'l'},
+	.vendor = {'m', 't', 'k'},
 };
 
 static int lsm6dsm_enable(struct hf_device *hfdev, int sensor_type, int en)
