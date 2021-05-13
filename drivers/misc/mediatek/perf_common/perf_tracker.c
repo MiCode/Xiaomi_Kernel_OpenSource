@@ -65,14 +65,18 @@ static unsigned int gpu_pmu_period = 8000000; //8ms
 #define OFFS_CUR_FREQ_S	0x98
 unsigned int cpudvfs_get_cur_dvfs_freq_idx(int cluster_id)
 {
-	int idx = 0;
-	struct ppm_data *p = &ppm_main_info;
+	u32 idx = 0;
+	struct ppm_data *p = &cluster_ppm_info[cluster_id];
 
 	if (IS_ERR_OR_NULL((void *)csram_base))
 		return 0;
 
 	idx = __raw_readl(csram_base + (OFFS_CUR_FREQ_S + (cluster_id * 0x120)));
-	return p->cluster_info[cluster_id].dvfs_tbl[idx].frequency;
+
+	if (p->init && idx < p->opp_nr)
+		return p->dvfs_tbl[idx].frequency;
+
+	return 0;
 }
 
 int perf_tracer_enable(int on)

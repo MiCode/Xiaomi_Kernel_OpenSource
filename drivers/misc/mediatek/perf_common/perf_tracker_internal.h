@@ -10,17 +10,17 @@
 #include <linux/module.h>
 #include <linux/cpufreq.h>
 
-/* get OPP table */
-struct ppm_cluster_info {
-	struct cpufreq_frequency_table *dvfs_tbl;
-};
+#define MAX_CLUSTER_NR  3
 
+/* get OPP table */
 struct ppm_data {
-	struct ppm_cluster_info *cluster_info;
+	struct cpufreq_frequency_table *dvfs_tbl;
+	unsigned int opp_nr;
+	bool init;
 };
 
 extern void __iomem *csram_base;
-extern struct ppm_data ppm_main_info;
+extern struct ppm_data cluster_ppm_info[MAX_CLUSTER_NR];
 extern int cluster_nr;
 
 #if IS_ENABLED(CONFIG_MTK_PERF_TRACKER)
