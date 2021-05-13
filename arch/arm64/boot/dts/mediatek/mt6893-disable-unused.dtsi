@@ -141,13 +141,6 @@
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_ISP>;
 	};
 
-	disable-unused-clk-mfgcfg {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&mfgcfg_clk CLK_MFGCFG_BG3D>;
-			power-domains = <&scpsys MT6893_POWER_DOMAIN_MFG6>;
-	};
-
 	disable-unused-clk-imp_iic_wrap_n {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
@@ -261,7 +254,6 @@
 			<&topckgen_clk CLK_TOP_APLL12_CK_DIV9>,
 			<&topckgen_clk CLK_TOP_AXI_SEL>,
 			<&topckgen_clk CLK_TOP_SPM_SEL>,
-			<&topckgen_clk CLK_TOP_SCP_SEL>,
 			<&topckgen_clk CLK_TOP_BUS_AXIMEM_SEL>,
 			<&topckgen_clk CLK_TOP_DISP_SEL>,
 			<&topckgen_clk CLK_TOP_MDP_SEL>,
