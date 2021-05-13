@@ -15,8 +15,6 @@
 #define __MTK_PLATFORM_COMMON_H__
 
 #include <linux/platform_device.h>
-#include "mtk_mfg_counter.h"
-
 
 struct kbase_device *mtk_common_get_kbdev(void);
 
