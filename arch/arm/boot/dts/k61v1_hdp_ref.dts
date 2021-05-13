@@ -549,8 +549,9 @@
 	cd-gpios = <&pio 0 0>;
 };
 
-&usb {
+&extcon_usb {
 	charger = <&mtk_charger_type>;
+	vbus-supply;
 };
 
 #include <k61v1_hdp_ref/cust.dtsi>
