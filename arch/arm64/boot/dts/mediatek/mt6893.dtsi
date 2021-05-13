@@ -3472,6 +3472,14 @@
 			};
 		};
 
+		mmdvfs-debug {
+			compatible = "mediatek,mmdvfs-debug";
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			disp-dev = <&dispsys_config>;
+			force-step0 = <1>;
+			release-step0 = <0>;
+		};
+
 		mmdvfs {
 			compatible = "mediatek,mmdvfs";
 
@@ -3868,7 +3876,7 @@
 	 		reg = <0 0x15011000 0 0x1000>;
 	 		mediatek,larb = <&larb9>,<&larb11>;
 	 		interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH 0>;
-	 		clocks = 
+	 		clocks =
 	 		  <&imgsys1_clk CLK_IMGSYS1_LARB9>,
 				<&imgsys1_clk CLK_IMGSYS1_WPE>;
 			clock-names =
