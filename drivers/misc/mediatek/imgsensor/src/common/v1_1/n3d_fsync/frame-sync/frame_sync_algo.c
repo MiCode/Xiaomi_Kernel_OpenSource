@@ -240,43 +240,6 @@ static unsigned int check_vsync_valid(unsigned int solveIdxs[], unsigned int len
 }
 
 
-unsigned int
-check_mix_fl_delay(unsigned int solveIdxs[], unsigned int len)
-{
-	unsigned int i = 0;
-
-	for (i = 0; i < len-1; ++i) {
-		unsigned int idx_1 = solveIdxs[i];
-		unsigned int idx_2 = solveIdxs[i+1];
-
-		unsigned int fdelay_1 = fs_inst[idx_1].fl_active_delay;
-		unsigned int fdelay_2 = fs_inst[idx_2].fl_active_delay;
-
-
-		/* error handle show msg */
-		if (fdelay_1 < 2 || fdelay_2 < 2) {
-			LOG_PR_WARN(
-				"ERROR: fl_active_delay is not valid, fdelay_1:%u, fdelay_2:%u\n",
-				fdelay_1,
-				fdelay_2);
-		}
-
-
-		if (fdelay_1 != fdelay_2) {
-			/* mix framelength delay type */
-			/* prinf mix_fdelay in adjust_vsync_diff() */
-#ifndef REDUCE_FS_ALGO_LOG
-			LOG_INF("Mix fl_active_delay\n");
-#endif
-			return 1;
-		}
-	}
-
-	/* same framelength delay type */
-	return 0;
-}
-
-
 /*******************************************************************************
  * all framelength operation must use this API
  ******************************************************************************/
@@ -840,7 +803,8 @@ static void do_fps_sync(unsigned int solveIdxs[], unsigned int len)
 		LOG_PR_ERR("ERROR: log_buf allocate memory failed\n");
 
 		return;
-	}
+	} else
+		log_buf[0] = '\0';
 
 
 	/* 1. calc each fl_us for each sensor, take max fl_us as target_fl_us */
@@ -885,10 +849,10 @@ static void do_fps_sync(unsigned int solveIdxs[], unsigned int len)
 	}
 
 
-	ret = snprintf(log_buf, LOG_BUF_STR_LEN,
-		"FL sync to %u (us). ( %s)",
-		target_fl_us,
-		log_buf);
+	ret = snprintf(log_buf + strlen(log_buf),
+		LOG_BUF_STR_LEN - strlen(log_buf),
+		"FL sync to %u (us)",
+		target_fl_us);
 
 	if (ret < 0)
 		LOG_INF("ERROR: LOG encoding error, ret:%d\n", ret);
@@ -931,14 +895,15 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 					GFP_KERNEL);
 #endif // FS_UT
 
-		if (log_buf == NULL) {
+		if (log_buf[idx] == NULL) {
 			LOG_PR_ERR(
 				"ERROR: [%u] log_buf allocate memory failed\n",
 				idx);
 
 			/* return, and free alloc memory */
 			goto free_alloc_mem;
-		}
+		} else
+			log_buf[idx][0] = '\0';
 	}
 
 

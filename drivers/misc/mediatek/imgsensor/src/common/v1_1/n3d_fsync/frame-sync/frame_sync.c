@@ -22,12 +22,14 @@
 /******************************************************************************/
 #ifdef FS_UT
 #include <pthread.h>
+static pthread_mutex_t gRegisterLocker = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t gBitLocker = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t gStatusLocker = PTHREAD_MUTEX_INITIALIZER;
 #else
 #include <linux/mutex.h>
-static struct mutex gBitLocker;
-static struct mutex gStatusLocker;
+static DEFINE_MUTEX(gRegisterLocker);
+static DEFINE_MUTEX(gBitLocker);
+static DEFINE_MUTEX(gStatusLocker);
 #endif // FS_UT
 /******************************************************************************/
 
@@ -64,12 +66,6 @@ struct SensorInfo {
 struct SensorTable {
 	unsigned int reg_cnt;
 	struct SensorInfo sensors[SENSOR_MAX_NUM];
-
-#ifdef FS_UT
-	pthread_mutex_t gRegisterLocker;
-#else
-	struct mutex gRegisterLocker;
-#endif // FS_UT
 };
 //----------------------------------------------------------------------------//
 
@@ -98,6 +94,11 @@ struct FrameSyncMgr {
 	unsigned int validSync_bits;            // for checking PF status
 	unsigned int pf_ctrl_bits;              // for checking PF status
 	unsigned int last_pf_ctrl_bits;         // for checking PF status
+
+
+#ifdef USING_CCU
+	unsigned int power_on_ccu_bits;         // for checking CCU pw ON/OFF
+#endif
 
 
 	/* ctrl needed by FS have been setup */
@@ -393,9 +394,9 @@ static unsigned int fs_push_sensor(struct SensorInfo (*sensor_info))
 	struct SensorTable (*pSensorTable) = &fs_mgr.reg_table;
 
 #ifdef FS_UT
-	pthread_mutex_lock(&pSensorTable->gRegisterLocker);
+	pthread_mutex_lock(&gRegisterLocker);
 #else
-	mutex_lock(&pSensorTable->gRegisterLocker);
+	mutex_lock(&gRegisterLocker);
 #endif // FS_UT
 
 
@@ -409,9 +410,9 @@ static unsigned int fs_push_sensor(struct SensorInfo (*sensor_info))
 
 
 #ifdef FS_UT
-	pthread_mutex_unlock(&pSensorTable->gRegisterLocker);
+	pthread_mutex_unlock(&gRegisterLocker);
 #else
-	mutex_unlock(&pSensorTable->gRegisterLocker);
+	mutex_unlock(&gRegisterLocker);
 #endif // FS_UT
 
 
@@ -421,9 +422,9 @@ static unsigned int fs_push_sensor(struct SensorInfo (*sensor_info))
 error_sensor_max_count:
 
 #ifdef FS_UT
-	pthread_mutex_unlock(&pSensorTable->gRegisterLocker);
+	pthread_mutex_unlock(&gRegisterLocker);
 #else
-	mutex_unlock(&pSensorTable->gRegisterLocker);
+	mutex_unlock(&gRegisterLocker);
 #endif // FS_UT
 
 	return 0xffffffff;
@@ -1027,6 +1028,8 @@ static unsigned int fs_update_status(unsigned int idx, unsigned int flag)
 #endif // FS_UT
 
 
+
+#ifndef USING_CCU
 	LOG_INF(
 		"stat:%u, ready:%u, streaming:%u, enSync:%u, validSync:%u, pf_ctrl:%u, setup_complete:%u [idx:%u, en:%u]\n",
 		status,
@@ -1038,6 +1041,20 @@ static unsigned int fs_update_status(unsigned int idx, unsigned int flag)
 		fs_mgr.setup_complete_bits,
 		idx,
 		flag);
+#else
+	LOG_INF(
+		"stat:%u, ready:%u, streaming:%u, enSync:%u, validSync:%u, pf_ctrl:%u, setup_complete:%u, pw_ccu:%u [idx:%u, en:%u]\n",
+		status,
+		cnt,
+		fs_mgr.streaming_bits,
+		fs_mgr.enSync_bits,
+		fs_mgr.validSync_bits,
+		fs_mgr.pf_ctrl_bits,
+		fs_mgr.setup_complete_bits,
+		fs_mgr.power_on_ccu_bits,
+		idx,
+		flag);
+#endif
 
 
 	return cnt;
@@ -1065,9 +1082,8 @@ static inline void fs_set_stream(unsigned int idx, unsigned int flag)
 
 static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 {
-// #ifndef REDUCE_FS_DRV_LOG
 	struct SensorInfo info = {0}; // for log using
-// #endif
+	info = fs_get_reg_sensor_info(idx);
 
 
 	/* unset sync => reset pf_ctrl_bits data of this idx */
@@ -1075,21 +1091,57 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 	if (flag == 0) {
 		write_bit(idx, flag, &fs_mgr.pf_ctrl_bits);
 		write_bit(idx, flag, &fs_mgr.setup_complete_bits);
+
+
+#ifdef USING_CCU
+#ifdef DELAY_CCU_OP
+		if (check_bit(idx, fs_mgr.power_on_ccu_bits) == 1) {
+			write_bit(idx, 0, &fs_mgr.power_on_ccu_bits);
+
+			LOG_INF("[%u] ID:%#x(sidx:%u), pw_ccu:%u (OFF)\n",
+				idx,
+				info.sensor_id,
+				info.sensor_idx,
+				fs_mgr.power_on_ccu_bits);
+
+			/* power off CCU */
+			frm_power_on_ccu(0);
+		}
+#endif // DELAY_CCU_OP
+#endif // USING_CCU
 	}
+
+
+#ifdef USING_CCU
+#ifdef DELAY_CCU_OP
+	if (flag > 0 && check_bit(idx, fs_mgr.power_on_ccu_bits) == 0) {
+		write_bit(idx, 1, &fs_mgr.power_on_ccu_bits);
+
+		LOG_INF("[%u] ID:%#x(sidx:%u), pw_ccu:%u (ON)\n",
+			idx,
+			info.sensor_id,
+			info.sensor_idx,
+			fs_mgr.power_on_ccu_bits);
+
+		/* power on CCU and get device handle */
+		frm_power_on_ccu(1);
+
+		frm_reset_ccu_vsync_timestamp(idx);
+	}
+#endif // DELAY_CCU_OP
+#endif // USING_CCU
+
 
 	fs_set_status_bits(idx, flag, &fs_mgr.enSync_bits);
 
 
-// #ifndef REDUCE_FS_DRV_LOG
 	/* log print info */
-	info = fs_get_reg_sensor_info(idx);
 	LOG_INF("en:%u [%u] ID:%#x(sidx:%u)   [enSync_bits:%u]\n",
 		flag,
 		idx,
 		info.sensor_id,
 		info.sensor_idx,
 		fs_mgr.enSync_bits);
-// #endif // REDUCE_FS_DRV_LOG
 }
 
 
@@ -1273,9 +1325,22 @@ fs_streaming(unsigned int flag, struct fs_streaming_st (*sensor_info))
 
 
 #ifdef USING_CCU
-		/* power on CCU and get device handle */
-		frm_power_on_ccu(1);
+#ifndef DELAY_CCU_OP
+		if (check_bit(idx, fs_mgr.power_on_ccu_bits) == 0) {
+			write_bit(idx, 1, &fs_mgr.power_on_ccu_bits);
+
+			LOG_INF("[%u] ID:%#x(sidx:%u), pw_ccu:%u (ON)\n",
+				idx,
+				sensor_info->sensor_id,
+				sensor_info->sensor_idx,
+				fs_mgr.power_on_ccu_bits);
+
+			/* power on CCU and get device handle */
+			frm_power_on_ccu(1);
+		}
+#endif // DELAY_CCU_OP
 #endif // USING_CCU
+
 
 		/* set data to frm, fs algo, and frame recorder */
 		frm_init_frame_info_st_data(idx,
@@ -1306,8 +1371,20 @@ fs_streaming(unsigned int flag, struct fs_streaming_st (*sensor_info))
 
 
 #ifdef USING_CCU
-		/* power off CCU */
-		frm_power_on_ccu(0);
+#ifndef DELAY_CCU_OP
+		if (check_bit(idx, fs_mgr.power_on_ccu_bits) == 1) {
+			write_bit(idx, flag, &fs_mgr.power_on_ccu_bits);
+
+			LOG_INF("[%u] ID:%#x(sidx:%u), pw_ccu:%u (OFF)\n",
+				idx,
+				sensor_info->sensor_id,
+				sensor_info->sensor_idx,
+				fs_mgr.power_on_ccu_bits);
+
+			/* power off CCU */
+			frm_power_on_ccu(0);
+		}
+#endif // DELAY_CCU_OP
 #endif // USING_CCU
 	}
 
@@ -1667,7 +1744,7 @@ unsigned int fs_try_trigger_frame_sync(void)
 
 		/* 1 pick up validSync sensor information correctlly */
 		for (i = 0; i < SENSOR_MAX_NUM; ++i) {
-			if (check_bit(i, fs_mgr.validSync_bits)) {
+			if (check_bit(i, fs_mgr.validSync_bits) == 1) {
 				/* pick up sensor registered location */
 				solveIdxs[len++] = i;
 			}

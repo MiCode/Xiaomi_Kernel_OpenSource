@@ -12,6 +12,11 @@
 
 /* get timestamp by using bellow method */
 // #define USING_CCU
+#ifdef USING_CCU
+/* delay power ON/OFF and operate CCU to fs_set_sync() */
+#define DELAY_CCU_OP
+#endif // USING_CCU
+
 #define USING_N3D
 
 

@@ -627,11 +627,14 @@ void frm_power_on_ccu(unsigned int flag)
  * this function will be called at streaming on / off
  * uses ccu_rproc_ipc_send function send command data to ccu
  ******************************************************************************/
-void frm_reset_ccu_vsync_timestamp(unsigned int tg)
+void frm_reset_ccu_vsync_timestamp(unsigned int idx)
 {
+	unsigned int tg = 0;
 	uint32_t selbits = 0;
 	int ret = 0;
 
+
+	tg = frm_inst.info[idx].tg;
 
 	/* bit 0 no use, so "bit 1" --> means 2 */
 	/* TG_1 -> bit 1, TG_2 -> bit 2, TG_3 -> bit 3 */
@@ -687,7 +690,9 @@ void frm_init_frame_info_st_data(
 
 
 #ifdef USING_CCU
-	frm_reset_ccu_vsync_timestamp(frm_inst.info[idx].tg);
+#ifndef DELAY_CCU_OP
+	frm_reset_ccu_vsync_timestamp(idx);
+#endif
 #endif
 
 
@@ -825,14 +830,14 @@ frm_query_vsync_data(unsigned int tgs[], unsigned int len)
 }
 
 
-void frm_get_vsync_data(struct vsync_rec *data)
+void frm_get_vsync_data(struct vsync_rec *pData)
 {
 	unsigned int i = 0;
 
-	data->cur_tick = frm_inst.cur_tick;
-	data->tick_factor = frm_inst.tick_factor;
+	pData->cur_tick = frm_inst.cur_tick;
+	pData->tick_factor = frm_inst.tick_factor;
 	for (i = 0; i < TG_MAX_NUM; ++i)
-		data->recs[i] = frm_inst.recs[i];
+		pData->recs[i] = frm_inst.recs[i];
 
 
 	if (frm_inst.wait_for_getting_vsyncs_data) {
