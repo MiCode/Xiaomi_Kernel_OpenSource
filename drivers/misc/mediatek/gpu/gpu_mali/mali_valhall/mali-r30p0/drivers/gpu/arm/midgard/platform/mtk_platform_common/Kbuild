@@ -4,5 +4,6 @@ curr := platform/mtk_platform_common
 
 obj-y += $(curr)/mtk_platform_common.o
 obj-y += $(curr)/mtk_gpu_dvfs.o
+obj-y += $(curr)/mtk_mfg_counter.o
 
 ccflags-y += -I$(srctree)/drivers/devfreq/

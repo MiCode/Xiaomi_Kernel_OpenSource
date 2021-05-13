@@ -190,6 +190,8 @@ int mtk_common_device_init(struct kbase_device *kbdev)
 	ged_dvfs_gpu_freq_commit_fp = mtk_common_ged_dvfs_commit;
 #endif
 
+	mtk_mfg_counter_init();
+
 	return 0;
 }
 
@@ -214,4 +216,7 @@ void mtk_common_device_term(struct kbase_device *kbdev)
 #endif
 	ged_dvfs_gpu_freq_commit_fp = NULL;
 #endif
+
+	mtk_mfg_counter_destroy();
+
 }
