@@ -102,6 +102,9 @@ struct cmdq_util_controller_fp *cmdq_util_controller;
 int gce_shift_bit;
 EXPORT_SYMBOL(gce_shift_bit);
 
+int gce_mminfra;
+EXPORT_SYMBOL(gce_mminfra);
+
 /* CMDQ log flag */
 int mtk_cmdq_log;
 EXPORT_SYMBOL(mtk_cmdq_log);
@@ -165,6 +168,7 @@ struct cmdq {
 struct gce_plat {
 	u32 thread_nr;
 	u8 shift;
+	u32 mminfra;
 };
 
 #if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
@@ -1798,9 +1802,11 @@ static int cmdq_probe(struct platform_device *pdev)
 	}
 
 	gce_shift_bit = plat_data->shift;
+	gce_mminfra = plat_data->mminfra;
 
-	dev_notice(dev, "cmdq thread:%u shift:%u base:0x%lx pa:0x%lx\n",
-		plat_data->thread_nr, plat_data->shift,
+	dev_notice(dev,
+		"cmdq thread:%u shift:%u mminfra:%#x base:0x%lx pa:0x%lx\n",
+		plat_data->thread_nr, plat_data->shift, plat_data->mminfra,
 		(unsigned long)cmdq->base,
 		(unsigned long)cmdq->base_pa);
 
@@ -1895,6 +1901,8 @@ static const struct dev_pm_ops cmdq_pm_ops = {
 
 static const struct gce_plat gce_plat_v2 = {.thread_nr = 16};
 static const struct gce_plat gce_plat_v4 = {.thread_nr = 24, .shift = 3};
+static const struct gce_plat gce_plat_v5 = {
+	.thread_nr = 32, .shift = 3, .mminfra = BIT(30)};
 
 static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt8173-gce", .data = (void *)&gce_plat_v2},
@@ -1911,6 +1919,7 @@ static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt6873-gce", .data = (void *)&gce_plat_v4},
 	{.compatible = "mediatek,mt6877-gce", .data = (void *)&gce_plat_v4},
 	{.compatible = "mediatek,mt6885-gce", .data = (void *)&gce_plat_v4},
+	{.compatible = "mediatek,mt6983-gce", .data = (void *)&gce_plat_v5},
 	{}
 };
 

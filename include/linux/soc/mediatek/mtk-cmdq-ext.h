@@ -66,8 +66,9 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #define CMDQ_TICK_TO_US(_t)		(do_div(_t, 26))
 
 extern int gce_shift_bit;
-#define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> gce_shift_bit)
-#define CMDQ_REG_REVERT_ADDR(addr)	((addr) << gce_shift_bit)
+extern int gce_mminfra;
+#define CMDQ_REG_SHIFT_ADDR(addr) (((addr) + gce_mminfra) >> gce_shift_bit)
+#define CMDQ_REG_REVERT_ADDR(addr) (((addr) << gce_shift_bit) - gce_mminfra)
 
 
 
