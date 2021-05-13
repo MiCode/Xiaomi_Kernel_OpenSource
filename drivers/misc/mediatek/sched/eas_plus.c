@@ -126,4 +126,24 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	arch_set_thermal_pressure(to_cpumask(pd->cpus), max_capacity - capacity);
 }
 
+/*
+ * Enable/Disable honoring sync flag in energy-aware wakeups
+ */
+unsigned int sched_sync_hint_enable = 1;
+void set_wake_sync(unsigned int sync)
+{
+	sched_sync_hint_enable = sync;
+}
+
+unsigned int get_wake_sync(void)
+{
+	return sched_sync_hint_enable;
+}
+
+void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode)
+{
+	if (!sched_sync_hint_enable)
+		*wake_flags &= ~WF_SYNC;
+}
+
 
