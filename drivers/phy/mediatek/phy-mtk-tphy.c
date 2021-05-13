@@ -1278,45 +1278,18 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 	struct device *dev = &instance->phy->dev;
 	u32 tmp;
 
+	tmp = readl(u2_banks->com + U3P_U2PHYDTM1);
 	switch (mode) {
 	case PHY_MODE_UART:
 		u2_phy_instance_set_mode_2uart(u2_banks);
 		return;
-	case PHY_MODE_USB_OTG:
-		u2_phy_instance_set_mode_2usb(u2_banks);
-		return;
-	default:
-		break;
-	}
-
-#ifdef	CONFIG_USB_MTK_HDRC
-	tmp = readl(u2_banks->com + U3P_U2PHYDTM1);
-	switch (mode) {
 	case PHY_MODE_USB_DEVICE:
+		tmp |= P2C_FORCE_IDDIG | P2C_RG_IDDIG;
+#ifdef	CONFIG_USB_MTK_HDRC
 		tmp &= ~(P2C_RG_SESSEND);
 		tmp |= 0x2f;
 		tmp |= (0x3f << 8);
-		break;
-	case PHY_MODE_USB_HOST:
-		tmp &= ~(P2C_RG_SESSEND);
-		tmp |= 0x2d;
-		tmp |= (0x3f << 8);
-		break;
-	case PHY_MODE_INVALID:
-		tmp &= ~(P2C_RG_SESSEND | P2C_RG_IDDIG);
-		tmp |= 0x2e;
-		tmp |= (0x3f << 8);
-		break;
-	default:
-		return;
-	}
-	writel(tmp, u2_banks->com + U3P_U2PHYDTM1);
 #endif
-
-	tmp = readl(u2_banks->com + U3P_U2PHYDTM1);
-	switch (mode) {
-	case PHY_MODE_USB_DEVICE:
-		tmp |= P2C_FORCE_IDDIG | P2C_RG_IDDIG;
 		device_property_read_u32(dev, "mediatek,eye-src",
 				 &instance->eye_src);
 		device_property_read_u32(dev, "mediatek,eye-vrt",
@@ -1332,6 +1305,11 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 	case PHY_MODE_USB_HOST:
 		tmp |= P2C_FORCE_IDDIG;
 		tmp &= ~P2C_RG_IDDIG;
+#ifdef	CONFIG_USB_MTK_HDRC
+		tmp &= ~(P2C_RG_SESSEND);
+		tmp |= 0x2d;
+		tmp |= (0x3f << 8);
+#endif
 		device_property_read_u32(dev, "mediatek,host-eye-src",
 				 &instance->eye_src);
 		device_property_read_u32(dev, "mediatek,host-eye-vrt",
@@ -1345,7 +1323,13 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 		u2_phy_props_set(tphy, instance);
 		break;
 	case PHY_MODE_USB_OTG:
+		u2_phy_instance_set_mode_2usb(u2_banks);
 		tmp &= ~(P2C_FORCE_IDDIG | P2C_RG_IDDIG);
+		break;
+	case PHY_MODE_INVALID: /* Used by HDRC */
+		tmp &= ~(P2C_RG_SESSEND | P2C_RG_IDDIG);
+		tmp |= 0x2e;
+		tmp |= (0x3f << 8);
 		break;
 	default:
 		return;
