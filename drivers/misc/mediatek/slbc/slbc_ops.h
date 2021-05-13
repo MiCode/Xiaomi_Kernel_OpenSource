@@ -30,17 +30,19 @@
 
 /* need to modify slbc_uid_str  */
 enum slbc_uid {
-	UID_MM_VENC = 1,
+	UID_ZERO = 0,
+	UID_MM_VENC,
 	UID_MM_DISP,
 	UID_MM_MDP,
 	UID_MM_VDEC,
-	UID_MD_DPMAIF,
 	UID_AI_MDLA,
 	UID_AI_ISP,
 	UID_GPU,
 	UID_HIFI3,
 	UID_CPU,
-	UID_TEST,
+	UID_TEST_BUFFER,
+	UID_TEST_CACHE,
+	UID_TEST_ACP,
 	UID_MAX,
 };
 
@@ -50,6 +52,7 @@ enum slbc_uid {
 enum slbc_type {
 	TP_BUFFER = 0,
 	TP_CACHE,
+	TP_ACP,
 };
 
 #define ACP_ONLY_BIT	2
@@ -69,9 +72,9 @@ enum slbc_flag {
 
 struct slbc_data {
 	unsigned int uid;
-	int type;
+	unsigned int type;
 	ssize_t size;
-	int flag;
+	unsigned int flag;
 	/* below used by slbc driver */
 	void __iomem *paddr;
 	void __iomem *vaddr;
@@ -80,7 +83,22 @@ struct slbc_data {
 	void *config;
 	int ref;
 	int pwr_ref;
+	struct slbc_data *private;
 };
+
+#define ui_to_slbc_data(d, ui) \
+	do { \
+		(d)->uid = ((ui) >> 28 & 0xf); \
+		(d)->type = ((ui) >> 24 & 0xf); \
+		(d)->size = ((ui) >> 0 & 0xffff); \
+		(d)->flag = ((ui) >> 16 & 0xff); \
+	} while (0)
+
+#define slbc_data_to_ui(d) \
+	((((d)->uid) & 0xf) << 28 | \
+	(((d)->type) & 0xf) << 24 | \
+	(((d)->size) & 0xffff) << 0 | \
+	(((d)->flag) & 0xff) << 16)
 
 struct slbc_ops {
 	struct list_head node;
@@ -92,12 +110,12 @@ struct slbc_ops {
 #if IS_ENABLED(CONFIG_MTK_SLBC)
 extern int register_slbc_ops(struct slbc_ops *ops);
 extern int unregister_slbc_ops(struct slbc_ops *ops);
-extern int slbc_request(struct slbc_data *data);
-extern int slbc_release(struct slbc_data *data);
-extern int slbc_power_on(struct slbc_data *data);
-extern int slbc_power_off(struct slbc_data *data);
-extern int slbc_secure_on(struct slbc_data *data);
-extern int slbc_secure_off(struct slbc_data *data);
+extern int slbc_request(struct slbc_data *d);
+extern int slbc_release(struct slbc_data *d);
+extern int slbc_power_on(struct slbc_data *d);
+extern int slbc_power_off(struct slbc_data *d);
+extern int slbc_secure_on(struct slbc_data *d);
+extern int slbc_secure_off(struct slbc_data *d);
 #else
 __attribute__ ((weak))
 int register_slbc_ops(struct slbc_ops *ops)
@@ -110,32 +128,32 @@ int unregister_slbc_ops(struct slbc_ops *ops)
 	return -EDISABLED;
 };
 __attribute__ ((weak))
-int slbc_request(struct slbc_data *data)
+int slbc_request(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
 __attribute__ ((weak))
-int slbc_release(struct slbc_data *data)
+int slbc_release(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
 __attribute__ ((weak))
-int slbc_power_on(struct slbc_data *data)
+int slbc_power_on(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
 __attribute__ ((weak))
-int slbc_power_off(struct slbc_data *data)
+int slbc_power_off(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
 __attribute__ ((weak))
-int slbc_secure_on(struct slbc_data *data)
+int slbc_secure_on(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
 __attribute__ ((weak))
-int slbc_secure_off(struct slbc_data *data)
+int slbc_secure_off(struct slbc_data *d)
 {
 	return -EDISABLED;
 };

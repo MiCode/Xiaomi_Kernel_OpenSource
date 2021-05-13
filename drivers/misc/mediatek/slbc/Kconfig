@@ -6,6 +6,14 @@ config MTK_SLBC
 	  and power.
 	  If unsure, say N.
 
+config MTK_SLBC_IPI
+	tristate "MTK SLBC use IPI"
+	help
+	  This kernel config can be used to enable SLBC IPI. When enable
+	  this option, we will use ipi on system buffer to improve
+	  performance and power.
+	  If unsure, say N.
+
 config MTK_SLBC_MMSRAM
 	tristate "MTK SLBC use MMSRAM"
 	select MTK_SLBC

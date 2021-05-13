@@ -15,6 +15,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
+	-I$(srctree)/drivers/misc/mediatek/tinysys_scmi/ \
 	-I$(srctree)/include \
 
 ifeq ($(CONFIG_MTK_L3C_PART),y)
@@ -26,5 +27,6 @@ obj-${CONFIG_MTK_SLBC} += mtk_slbc.o
 mtk_slbc-y += slbc.o
 endif
 
-obj-$(CONFIG_MTK_SLBC_MMSRAM) += mmsram.o
+obj-${CONFIG_MTK_SLBC_IPI} += slbc_ipi.o
+obj-${CONFIG_MTK_SLBC_MMSRAM} += mmsram.o
 
