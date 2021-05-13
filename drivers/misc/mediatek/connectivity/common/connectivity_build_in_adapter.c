@@ -135,6 +135,18 @@ void connectivity_export_tracing_record_cmdline(struct task_struct *tsk)
 }
 EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
 
+void connectivity_export_conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
+{
+}
+EXPORT_SYMBOL(connectivity_export_conap_scp_init);
+
+
+void connectivity_export_conap_scp_deinit(void)
+{
+}
+EXPORT_SYMBOL(connectivity_export_conap_scp_deinit);
+
+
 #ifdef CPU_BOOST
 bool connectivity_export_spm_resource_req(unsigned int user,
 					  unsigned int req_mask)
