@@ -90,6 +90,38 @@
 		};
 	};
 
+	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO108__FUNC_GPIO108>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO108__FUNC_GPIO108>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO111__FUNC_GPIO111>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO111__FUNC_GPIO111>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
 	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO40__FUNC_GPIO40>;
@@ -114,13 +146,19 @@
 
 &mtkfb {
 	pinctrl-names = "lcm_led_en1_gpio", "lcm_led_en0_gpio",
+		"lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
+		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
 		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
 		"mode_te_te";
 	pinctrl-0 = <&mtkfb_pins_lcm_led_en1>;
 	pinctrl-1 = <&mtkfb_pins_lcm_led_en0>;
-	pinctrl-2 = <&mtkfb_pins_lcm_rst_out1_gpio>;
-	pinctrl-3 = <&mtkfb_pins_lcm_rst_out0_gpio>;
-	pinctrl-4 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-2 = <&mtkfb_pins_lcd_bias_enp1>;
+	pinctrl-3 = <&mtkfb_pins_lcd_bias_enp0>;
+	pinctrl-4 = <&mtkfb_pins_lcd_bias_enn1>;
+	pinctrl-5 = <&mtkfb_pins_lcd_bias_enn0>;
+	pinctrl-6 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-7 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-8 = <&mtkfb_pins_lcm_dsi_te>;
 	status = "okay";
 };
 &dispsys_config {
@@ -142,6 +180,8 @@
 		reg = <0>;
 		pm-enable-gpios = <&pio 107 0>;
 		reset-gpios = <&pio 40 0>;
+		bias-gpios = <&pio 108 0>,
+			<&pio 111 0>;
 		pinctrl-names = "default";
 		port {
 			panel_in1: endpoint {
@@ -154,6 +194,8 @@
 		reg = <1>;
 		pm-enable-gpios = <&pio 107 0>;
 		reset-gpios = <&pio 40 0>;
+		bias-gpios = <&pio 108 0>,
+			<&pio 111 0>;
 		pinctrl-names = "default";
 		port {
 			panel_in2: endpoint {
@@ -162,10 +204,12 @@
 		};
 	};
 	panel3@0 {
-		compatible = "truly,td4330,cmd";
+		compatible = "truly,td4330,vdo";
 		reg = <2>;
 		pm-enable-gpios = <&pio 107 0>;
 		reset-gpios = <&pio 40 0>;
+		bias-gpios = <&pio 108 0>,
+			<&pio 111 0>;
 		pinctrl-names = "default";
 		port {
 			panel_in3: endpoint {
