@@ -152,7 +152,7 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 					 dsp->dai_drivers,
 					 dsp->num_dai_drivers);
 	if (ret) {
-		dev_warn(&pdev->dev, "err_platform\n");
+		dev_info(&pdev->dev, "%s() err_platform: %d\n", __func__, ret);
 		goto err_platform;
 	}
 
@@ -162,7 +162,8 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 
 	ret = init_mtk_adsp_dram_segment();
 	if (ret) {
-		pr_info("init_mtk_adsp_dram_segment fail\n");
+		pr_info("%s(), init_mtk_adsp_dram_segment fail: %d\n",
+			__func__, ret);
 		goto err_platform;
 	}
 	dump_all_adsp_dram();
@@ -187,13 +188,8 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 
 	mtk_audio_register_notify();
 
-	return 0;
-
 err_platform:
-	pr_err("%s\n", __func__);
-	snd_soc_unregister_component(&pdev->dev);
-
-	return ret;
+	return 0;
 }
 
 static const struct of_device_id dsp_pcm_dt_match[] = {
