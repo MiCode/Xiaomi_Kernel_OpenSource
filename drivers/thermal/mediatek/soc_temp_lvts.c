@@ -22,6 +22,7 @@
 #include <linux/string.h>
 #include <linux/iopoll.h>
 #include "soc_temp_lvts.h"
+#include "../thermal_core.h"
 /*==================================================
  * LVTS local common code
  *==================================================
@@ -101,10 +102,6 @@ static int soc_temp_lvts_read_temp(void *data, int *temperature)
 
 	return 0;
 }
-
-static const struct thermal_zone_of_device_ops soc_temp_lvts_ops = {
-	.get_temp = soc_temp_lvts_read_temp,
-};
 
 static void lvts_write_device(struct lvts_data *lvts_data, unsigned int data,
 	int tc_id)
@@ -425,12 +422,48 @@ static void set_all_tc_hw_reboot(struct lvts_data *lvts_data)
 		if (tc[i].num_sensor == 0)
 			continue;
 
-		if (trip_point == DISABLE_THERMAL_HW_REBOOT)
+		if (trip_point == DISABLE_THERMAL_HW_REBOOT) {
+			disable_hw_reboot_interrupt(lvts_data, i);
 			continue;
+		}
 
 		set_tc_hw_reboot_threshold(lvts_data, trip_point, i);
 	}
 }
+
+static void update_all_tc_hw_reboot_point(struct lvts_data *lvts_data,
+	int trip_point)
+{
+	struct tc_settings *tc = lvts_data->tc;
+	int i;
+
+	for (i = 0; i < lvts_data->num_tc; i++)
+		tc[i].hw_reboot_trip_point = trip_point;
+}
+
+static int soc_temp_lvts_set_trip_temp(void *data, int trip, int temp)
+{
+	struct soc_temp_tz *lvts_tz = (struct soc_temp_tz *) data;
+	struct lvts_data *lvts_data = lvts_tz->lvts_data;
+	const struct thermal_trip *trip_points;
+
+	trip_points = of_thermal_get_trip_points(lvts_data->tz_dev);
+	if (!trip_points)
+		return -EINVAL;
+
+	if (trip_points[trip].type != THERMAL_TRIP_CRITICAL || lvts_tz->id != 0)
+		return 0;
+
+	update_all_tc_hw_reboot_point(lvts_data, temp);
+	set_all_tc_hw_reboot(lvts_data);
+
+	return 0;
+}
+
+static const struct thermal_zone_of_device_ops soc_temp_lvts_ops = {
+	.get_temp = soc_temp_lvts_read_temp,
+	.set_trip_temp = soc_temp_lvts_set_trip_temp,
+};
 
 static int lvts_init(struct lvts_data *lvts_data)
 {
@@ -766,6 +799,9 @@ static int lvts_register_thermal_zones(struct lvts_data *lvts_data)
 			lvts_close(lvts_data);
 			return ret;
 		}
+
+		if (i == 0)
+			lvts_data->tz_dev = tzdev;
 	}
 
 	return 0;
@@ -1583,7 +1619,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
-		.hw_reboot_trip_point = 117000,
+		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(1),
 	},
 	[MT6893_LVTS_MCU_CTRL1] = {
@@ -1594,7 +1630,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
-		.hw_reboot_trip_point = 117000,
+		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(2),
 	},
 	[MT6893_LVTS_MCU_CTRL2] = {
@@ -1605,7 +1641,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
-		.hw_reboot_trip_point = 117000,
+		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(3),
 	},
 	[MT6893_LVTS_AP_CTRL0] = {
@@ -1616,7 +1652,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
-		.hw_reboot_trip_point = 117000,
+		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(1),
 	},
 	[MT6893_LVTS_AP_CTRL1] = {
@@ -1627,7 +1663,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
-		.hw_reboot_trip_point = 117000,
+		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(2),
 	},
 	[MT6893_LVTS_AP_CTRL2] = {
@@ -1638,7 +1674,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
-		.hw_reboot_trip_point = 117000,
+		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(3),
 	},
 	[MT6893_LVTS_AP_CTRL3] = {
@@ -1649,7 +1685,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
-		.hw_reboot_trip_point = 117000,
+		.hw_reboot_trip_point = 113500,
 		.irq_bit = BIT(4),
 	}
 };

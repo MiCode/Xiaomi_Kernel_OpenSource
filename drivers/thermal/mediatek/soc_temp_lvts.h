@@ -186,6 +186,7 @@ struct lvts_data {
 
 	int num_sensor;			/* Number of sensors in this platform */
 	struct sensor_data *sen_data;
+	struct thermal_zone_device *tz_dev; /* tz_dev of id 0 for HW reboot trip point update */
 
 	struct platform_ops ops;
 	int feature_bitmap;		/* Show what features are enabled */
