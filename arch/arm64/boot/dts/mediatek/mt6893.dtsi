@@ -6918,7 +6918,7 @@
 
 		fm: fm@18000000 {
 			compatible = "mediatek,fm";
-			interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		gps: gps@18C00000 {
