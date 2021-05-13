@@ -15,7 +15,7 @@
 #include "mt6873-afe-common.h"
 #include "mt6873-afe-clk.h"
 #include "mt6873-afe-gpio.h"
-#include "../../codecs/mt6359p.h"
+#include "../../codecs/mt6359.h"
 #include "../../codecs/mt6359p-accdet.h"
 
 /*
