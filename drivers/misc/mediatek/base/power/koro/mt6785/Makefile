@@ -19,7 +19,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach	\
 	-I$(srctree)/include/linux/	\
 	-I$(srctree)/include/linux/soc/mediatek/	\
-	-I$(KORO_ROOT_DIR)/mt6781/inc	\
+	-I$(KORO_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
 
 obj-y += mtk_koro.o
 
