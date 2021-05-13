@@ -103,6 +103,14 @@ obj-y += 5.0/
 endif
 
 #FDVT 5.1
+ifeq ($(CONFIG_MACH_MT6893),y)
+  $(info FDVT: Drv use 5.1 folder)
+  MTKCAM_FDVT_VERSION := 5.1
+  MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1
+  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1/inc
+  obj-y += 5.1/
+endif
+
 ifeq ($(CONFIG_MACH_MT6885),y)
   $(info FDVT: Drv use 5.1 folder)
   MTKCAM_FDVT_VERSION := 5.1
@@ -128,6 +136,14 @@ ifeq ($(CONFIG_MACH_MT6853),y)
 endif
 
 ifeq ($(CONFIG_MACH_MT6833),y)
+  $(info FDVT: Drv use 5.1 folder)
+  MTKCAM_FDVT_VERSION := 5.1
+  MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1
+  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1/inc
+  obj-y += 5.1/
+endif
+
+ifeq ($(CONFIG_MACH_MT6877),y)
   $(info FDVT: Drv use 5.1 folder)
   MTKCAM_FDVT_VERSION := 5.1
   MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1
