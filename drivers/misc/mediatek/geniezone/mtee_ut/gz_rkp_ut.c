@@ -15,388 +15,324 @@
  *    ecosystem, ex: M-TEE, Trusty, GlobalPlatform, ...)
  */
 
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/miscdevice.h>
-#include <linux/device.h>
-#include <linux/fs.h>
 #include <linux/io.h>
-#include <linux/sysfs.h>
 #include <linux/kthread.h>
-#include <linux/of.h>
 #include <linux/printk.h>
 #include <linux/string.h>
 #include <linux/slab.h>
-#include <linux/compat.h>
-#include <linux/kdev_t.h>
-#include <linux/uaccess.h>
-#include <linux/random.h>
-#include <linux/sizes.h>
+#include <linux/platform_device.h>
 
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/trusty.h>
 
-#include <gz-trusty/trusty_ipc.h>
 #include <tz_cross/trustzone.h>
-#include <tz_cross/ta_test.h>
 #include <tz_cross/ta_system.h>
-#include <kree/system.h>
-#include <kree/mem.h>
-#include <kree/tz_mod.h>
-#include "unittest.h"
 
 #include "gz_rkp_ut.h"
 
-#define KREE_DEBUG(fmt...) pr_debug("[CM_kUT]" fmt)
-#define KREE_INFO(fmt...) pr_info("[CM_kUT]" fmt)
-#define KREE_ERR(fmt...) pr_info("[CM_kUT][ERR]" fmt)
+#define KREE_DEBUG(fmt...) pr_info("[RKP_UT]" fmt)
+#define KREE_INFO(fmt...) pr_info("[RKP_UT]" fmt)
+#define KREE_ERR(fmt...) pr_info("[RKP_UT][ERR]" fmt)
 
+#define echo_6 1
+#define echo_7 1
+#define echo_8 1
+#define echo_9 1
+#define echo_a 1
+#define echo_b 1
+#define echo_c 1
 
-/*vreg test UT items*/
-#define test_vreg_basic 0
-#define test_vreg_dyn_ipa_mmu_basic 1
-#define test_vreg_dyn_ipa_mmu_threads 1
-/*not supported now*/
-#define test_vreg_from_gzha 0
-#define test_Vmemory 0
-
-
-/*the same in vm-common.h*/
-enum vm_type_t {
-	vm_invalid = 0,    /* invalid */
-	vm_ram_rw,         /* RAM, read/write */
-	vm_ram_ro,         /* RAM, read-only */
-	vm_io_direct,      /* Device, read/write */
-	vm_map_foreign,    /* RAM from foreign domain */
-	vm_grant_map_rw,   /* Read/write grant mapping */
-	vm_grant_map_ro,   /* Read-only grant mapping */
-	/* set attribute only */
-	vm_iommu_map_rw,   /* Read/write iommu mapping */
-	vm_iommu_map_ro,   /* Read-only iommu mapping */
-	vm_ram_rw_xn,      /* RAM, read/write, no execution*/
-	vm_ram_ro_xn,      /* RAM, read only, no execution*/
-	vm_ram_wo,         /* RAM, write-only */
-	vm_io_rw,          /* Device, read/write, execute(xn=0) */
-	vm_io_ro,          /* Device, read-only , execute(xn=0) */
-	vm_io_rw_xn,       /* Device, read/write, no execute(xn=1) */
-	vm_io_ro_xn,       /* Device, read-only , no execute(xn=1) */
-	vm_max_real_type,  /* type end */
-};
-
-enum s1_attrs_t {
-	MM_MEM_ATTRIB_INVALID = 0x0,
-	MM_MEMATTRIB_READONLY = 0x1,
-	MM_MEMATTRIB_WRITEONLY = 0x2,
-	MM_MEM_ATTRIB_EXECUTE = 0x4,
-	MM_MEM_ATTRIB_NORMAL = 0x8,
-	MM_MEM_ATTRIB_DEVICE = 0x10,
-	MM_MEM_ATTRIB_NONCACHEABLE = 0x20,
-};
-
-/*the same setting in gz*/
-#define test_vreg_src_pa  0x1070A000  /*can modify*/
-#define test_vreg_basic_size  0x1000  /*can modify*/
-
-#define VREG_BASE_dyn_map (test_vreg_src_pa + 1 * test_vreg_basic_size)
-#define VREG_BASE_gzha    (test_vreg_src_pa + 2 * test_vreg_basic_size)
-#define VREG_BASE_basic   (test_vreg_src_pa + 3 * test_vreg_basic_size)
-#define VREG_BASE_vmem    (test_vreg_src_pa + 4 * test_vreg_basic_size)
-
-#define WORD_WIDTH 4 /*32-bit*/
-
-
-
-#if test_vreg_from_gzha
-/*trap a vreg by a GZ HA*/
-int _vreg_test_from_gzha(void)
+#if echo_6
+/*call RKP basic UT*/
+int test_rkp_basic_by_smc(void *args)
 {
-	KREE_SESSION echo_sn;
-	int ret;
-	union MTEEC_PARAM p[4];
-	uint32_t paramTypes;
+	if (!tz_system_dev->dev.parent)
+		return TZ_RESULT_ERROR_NO_DATA;
 
-	/*session: echo svr */
-	ret = _create_session(echo_srv_name, &echo_sn);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("echo_sn create fail\n");
-		return ret;
-	}
-
-	paramTypes = TZ_ParamTypes2(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT);
-
-	/*TZCMD_TEST_VREG_FROM_HA*/
-	ret = KREE_TeeServiceCall(echo_sn, 0x9004, paramTypes, p);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("[%s] Fail(0x%x)\n", __func__, ret);
-		return ret;
-	}
-
-	/*close session */
-	ret = _close_session(echo_sn);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("echo_sn close fail\n");
-		return ret;
-	}
+	/* test smc */
+	trusty_std_call32(tz_system_dev->dev.parent,
+		MTEE_SMCNR(MT_SMCF_FC_HEAP_DUMP, tz_system_dev->dev.parent),
+		0x1, 0x1, 0x0);
 
 	return TZ_RESULT_SUCCESS;
 }
+
 #endif
 
-
-#if test_Vmemory
-int vmemory_test(void)
+#if echo_7
+/*call RKP stress UT*/
+int test_rkp_stress_by_smc_body(void *args)
 {
-	/*test data register*/
-	int i;
-	char *ptr;
-	void __iomem *data_io = ioremap(VREG_BASE_vmem, test_vreg_basic_size);
+	if (!tz_system_dev->dev.parent)
+		return TZ_RESULT_ERROR_NO_DATA;
 
-	ptr = (char *) data_io;
-
-	if (ptr) {
-		for (i = 0; i < 4; i++)
-			KREE_INFO("[%d]r[%d] = %c\n", __LINE__, i, ptr[i]);
-	}
-
-	if (data_io)
-		iounmap(data_io);
+	/* test smc */
+	trusty_std_call32(tz_system_dev->dev.parent,
+		MTEE_SMCNR(MT_SMCF_FC_HEAP_DUMP, tz_system_dev->dev.parent),
+		0x2, 0x2, 0x0);
 
 	return TZ_RESULT_SUCCESS;
 }
-#endif
 
-#if test_vreg_basic
-int _vreg_test_basic(void)
+int test_rkp_stress_by_smc(void *args)
 {
-	uint32_t v;
-	int i;
+	struct task_struct *thread1, *thread2, *thread3;
 
-	void __iomem *io = ioremap(VREG_BASE_basic, test_vreg_basic_size);
+	thread1 = kthread_create(test_rkp_stress_by_smc_body, NULL, "test_rkp_t1");
+	if (IS_ERR(thread1))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread1, 0);
+	wake_up_process(thread1);
 
-	KREE_INFO("[%s][%d] runs...\n", __func__, __LINE__);
-	if (io) {
-		KREE_INFO("[%d]vreg: write control reg:io\n", __LINE__);
-		writel(0x00000002, io + (1 * WORD_WIDTH));
-		writel(0x00000001, io + (2 * WORD_WIDTH));
+	/*thread 2: write 1000 times*/
+	thread2 = kthread_create(test_rkp_stress_by_smc_body, NULL, "test_rkp_t2");
+	if (IS_ERR(thread2))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread2, 5);
+	wake_up_process(thread2);
 
-		KREE_INFO("[%d]check write data\n", __LINE__);
-		for (i = 0; i <= 4; i++) {
-			v = readl(io + (i * WORD_WIDTH));
-			KREE_INFO("[%d] read offset word[%d]=0x%x\n",
-				__LINE__, i, v);
-		}
+	thread3 = kthread_create(test_rkp_stress_by_smc_body, NULL, "test_rkp_t3");
+	if (IS_ERR(thread3))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread3, 3);
+	wake_up_process(thread3);
 
-	} else
-		KREE_ERR("[%d]vreg: null io_1\n", __LINE__);
-
-	if (io)
-		iounmap(io);
-
-	return TZ_RESULT_SUCCESS;
+	return 1;
 }
 #endif
 
-#if test_vreg_dyn_ipa_mmu_basic
+#if echo_8
 
-/*Test: dynamic ipa mmu unmap/map/change type operations
- * Detail:
- * (1) alloc a buffer (buf) with size 64KB and update
- *     ipa type to vm_ram_ro_xn (read-only, no execution).
- * (2) because the test buffer is allocated in the test fun,
- *     the ipa type needs to update back to vm_ram_rw before
- *     freeing the test buffer. (Or data abort will occur)
+/*Test: test changing mmu type/read/write memory concurrently
+ * (1) alloc a buffer (buf) with size 4KB and update
+ *     ipa type to (RW +EXEC).
+ * (2) use three threads concurrently:
+ *     one: changing mmu type; one: reading the buffer; one: write the buffer
  */
-int _vreg_test_dyn_ipa_mmu_basic(void)
+
+#define test_thread_num 3
+struct completion _comp[test_thread_num];
+
+char *buf_rkp;
+uint32_t pa_high, pa_low;
+uint32_t buf_size = 4096; /*4KB*/
+
+DEFINE_MUTEX(mutex_8);
+int _init_test_buf(void)
+{
+	uint64_t pa = 0;
+	int ret = TZ_RESULT_SUCCESS;
+	int locktry;
+
+	do {
+		locktry = mutex_lock_interruptible(&mutex_8);
+		if (locktry && locktry != -EINTR) {
+			KREE_ERR("mutex_c fail(0x%x)\n", locktry);
+			return TZ_RESULT_ERROR_GENERIC;
+		}
+	} while (locktry);
+
+	/*alloc test buffer*/
+	buf_rkp = kmalloc(buf_size, GFP_KERNEL);
+	if (!buf_rkp) {
+		KREE_ERR("[%s]buf_rkp kmalloc Fail.\n", __func__);
+		ret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		goto out;
+	}
+
+	/*memset(buf_rkp, 'a', size);*/	/*will data abort*/
+
+	pa = (uint64_t) virt_to_phys((void *)buf_rkp);
+	KREE_INFO("[%s]test buf_rkp pa:0x%llx\n", __func__, pa);
+
+	pa_high = (uint32_t) (pa >> 32);
+	pa_low = (uint32_t) (pa & (0x00000000ffffffff));
+	KREE_INFO("[%s][%d] pa=0x%llx, high=0x%x, low=0x%x\n",
+		__func__, __LINE__, pa, pa_high, pa_low);
+
+	if ((pa % PAGE_SIZE) != 0) {
+		KREE_INFO("[%s][%d] pa = 0x%llx not aligned 4KB.\n",
+			__func__, __LINE__, pa);
+		ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
+		goto out;
+	}
+
+out:
+	mutex_unlock(&mutex_8);
+
+	return ret;
+}
+
+int _init_thread_completion(void)
 {
 	int i;
-	uint32_t v;
-	uint64_t pa = 0;
-	uint32_t pa_high, pa_low;
-	void __iomem *io;
-	enum vm_type_t type = vm_ram_ro_xn;
-	enum vm_type_t type_rw = vm_ram_rw;
-	char *buf = NULL;
 
-	int size = 64 * 1024; /*64KB*/
+	for (i = 0; i < test_thread_num; i++)
+		init_completion(&_comp[i]);
+
+	return 0;
+}
+
+int _wait_thread_completion(void)
+{
+	int i;
+
+	for (i = 0; i < test_thread_num; i++)
+		wait_for_completion(&_comp[i]);
+
+	return 0;
+}
+
+int _thread_change_type(void *data)
+{
+	/* test smc */
+	int i;
+
+	if (!tz_system_dev->dev.parent)
+		return TZ_RESULT_ERROR_NO_DATA;
+
+	for (i = 0; i < 100; i++) {
+		trusty_std_call32(tz_system_dev->dev.parent,
+			MTEE_SMCNR(MT_SMCF_FC_HEAP_DUMP, tz_system_dev->dev.parent),
+			pa_high, pa_low, buf_size);
+	}
+	complete(&_comp[0]);
+	return TZ_RESULT_SUCCESS;
+}
+
+int _thread_write(void *data)
+{
+	int i;
+	for (i = 0; i < 1000; i++) {
+		if (buf_rkp) {
+			buf_rkp[10] = 'c';
+			//memset(buf_rkp, 'c', 4096);
+		}
+	}
+	complete(&_comp[1]);
+	return 0;
+}
+
+int _thread_read(void *data)
+{
+	int i, j;
+	char m;
+
+	for (i = 0; i < 1000; i++)
+		for (j = 0; j < 4096; j++)
+			if (buf_rkp)
+				m = (char) buf_rkp[j];
+
+	complete(&_comp[2]);
+	return 0;
+}
+
+/*echo 8: one-thread: chage mmu type, one-thread: read, one-thread: write*/
+int test_rkp_mix_op(void *args)
+{
+	struct task_struct *thread_mmu, *thread_wrt, *thread_rd;
+	int ret = 0x0;
+
+	ret = _init_test_buf();
+	if ((!buf_rkp) || (ret != TZ_RESULT_SUCCESS))
+		goto out;
+
+	KREE_INFO("[%s][%d] high=0x%x, low=0x%x\n",
+		__func__, __LINE__, pa_high, pa_low);
+
+	_init_thread_completion();
+
+	/*thread 1: do map/unmap 1000 times*/
+	thread_mmu = kthread_create(_thread_change_type, NULL, "T_1");
+	if (IS_ERR(thread_mmu))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread_mmu, 3);
+	wake_up_process(thread_mmu);
+
+	/*thread 2: write 1000 times*/
+	thread_wrt = kthread_create(_thread_write, NULL, "T_W");
+	if (IS_ERR(thread_wrt))
+		return TZ_RESULT_ERROR_GENERIC;
+
+	kthread_bind(thread_wrt, 4);
+	wake_up_process(thread_wrt);
+
+	/*thread 3: read 1000 times*/
+	thread_rd = kthread_create(_thread_read, NULL, "T_R");
+	if (IS_ERR(thread_rd))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread_rd, 3);
+	wake_up_process(thread_rd);
+
+	_wait_thread_completion();
+
+out:
+	kfree(buf_rkp);
+
+	return 0;
+}
+
+#endif
+
+#if echo_9
+DEFINE_MUTEX(mutex_9);
+
+//extern struct miscdevice gz_device;
+int malloc_buffer_by_smc(void *args)
+{
+	char *buf;
+	int size = 4096; /*can update */
+	uint64_t pa;
+	uint32_t high, low;
+	int ret = TZ_RESULT_SUCCESS;
+	int locktry;
+
+	if (!tz_system_dev->dev.parent)
+		return TZ_RESULT_ERROR_NO_DATA;
+
+	do {
+		locktry = mutex_lock_interruptible(&mutex_9);
+		if (locktry && locktry != -EINTR) {
+			KREE_ERR("mutex_c fail(0x%x)\n", locktry);
+			return TZ_RESULT_ERROR_GENERIC;
+		}
+	} while (locktry);
 
 	buf = kmalloc(size, GFP_KERNEL);
 	if (!buf) {
-		KREE_ERR("[%s][%d] buf kmalloc Fail.\n", __func__, __LINE__);
-		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		KREE_INFO("[%s] buf kmalloc Fail.\n", __func__);
+		ret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		goto out;
 	}
 
-	/*memset(buf, 0, size);*/ /*will data abort*/
+	memset(buf, 'a', size);	/*init data */
 
 	pa = (uint64_t) virt_to_phys((void *)buf);
-	KREE_INFO("[%s][%d]test buf pa:0x%llx\n", __func__, __LINE__, pa);
+	high = (uint32_t) ((uint64_t) pa >> 32);
+	low = (uint32_t) ((uint64_t) pa & (0x00000000ffffffff));
 
-	pa_high = (uint32_t) (pa >> 32);
-	pa_low = (uint32_t) (pa & (0x00000000ffffffff));
+	KREE_INFO("[%s][%d] pa=0x%llx, high=0x%x, low=0x%x\n",
+		__func__, __LINE__, pa, high, low);
 
-	io = ioremap(VREG_BASE_dyn_map, test_vreg_basic_size);
+	if ((pa % PAGE_SIZE) != 0) {
+		KREE_INFO("[%s][%d] pa = 0x%llx not aligned 4KB.\n",
+			__func__, __LINE__, pa);
+		ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
+		goto out;
+	}
 
-	if (io) {
-		/*write test ipa info*/
-		writel(0x0, io + (0 * WORD_WIDTH));     /*clear vreg data*/
-		KREE_INFO("[%d]write dynamic IPA memory range data\n",
-			__LINE__);
-		writel(pa_high, io + (1 * WORD_WIDTH)); /*pa_high*/
-		writel(pa_low, io + (2 * WORD_WIDTH));  /*pa_low */
-		writel(size, io + (3 * WORD_WIDTH));    /*size   */
-		writel(type, io + (4 * WORD_WIDTH));    /*type   */
-
-		/*check test ipa info*/
-		KREE_INFO("[%d]check if test ipa info ready\n", __LINE__);
-		for (i = 0; i <= 4; i++) {
-			v = readl(io + (i * WORD_WIDTH));
-			KREE_INFO("[%d] read offset word[%d]=0x%x\n",
-				__LINE__, i, v);
-		}
-
-		/*control bit: 0:clear data; 1:map; 2:unmap; 3:update type*/
-
-		/*update type: vm_ram_ro_xn*/
-		KREE_INFO("[%d]update ipa type (vm_ram_ro_xn)\n", __LINE__);
-		writel(0x00000003, io + (0 * WORD_WIDTH)); /*type: ro_xn*/
-		v = readl(io + (0 * WORD_WIDTH));
-		KREE_INFO("[%d]read control bit[0]=0x%x\n", __LINE__, v);
-
-		/*update type: vm_ram_rw*/
-		KREE_INFO("[%d]update ipa type (vm_ram_rw)\n", __LINE__);
-		writel(type_rw, io + (4 * WORD_WIDTH)); /*type: rw*/
-		v = readl(io + (4 * WORD_WIDTH));
-		KREE_INFO("[%d] read offset word[4](type)=0x%x\n", __LINE__, v);
-
-		KREE_INFO("[%d]update ipa type (vm_ram_rw)\n", __LINE__);
-		writel(0x00000003, io + (0 * WORD_WIDTH));
-		v = readl(io + (0 * WORD_WIDTH));
-		KREE_INFO("[%d]read control bit[0]=0x%x\n", __LINE__, v);
-
-		/*clean vreg data*/
-		KREE_INFO("[%d]clean vreg (control bit+data)\n", __LINE__);
-		writel(0x00000000, io + (0 * WORD_WIDTH));
-
-		/*read vreg to check if data clean*/
-		KREE_INFO("[%d]check if data clean\n", __LINE__);
-		for (i = 0; i <= 4; i++) {
-			v = readl(io + (i * WORD_WIDTH));
-			KREE_INFO("[%d] read offset word[%d]=0x%x\n",
-				__LINE__, i, v);
-		}
-
-	} else
-		KREE_ERR("[%d]vreg: null io\n", __LINE__);
-
-	if (io)
-		iounmap(io);
-
+	/* test smc */
+	trusty_std_call32(tz_system_dev->dev.parent,
+		MTEE_SMCNR(MT_SMCF_FC_HEAP_DUMP, tz_system_dev->dev.parent),
+		high, low, size);
+out:
 	kfree(buf);
-	KREE_INFO("[%s][%d]done.\n", __func__, __LINE__);
-	return TZ_RESULT_SUCCESS;
-}
-#endif
-
-int vreg_test(void *args)
-{
-
-#if test_vreg_dyn_ipa_mmu_basic
-	_vreg_test_dyn_ipa_mmu_basic();   /*case 1: dynamic ipa map/unmap*/
-#endif
-
-#if test_vreg_from_gzha         /*disable now*/
-	_vreg_test_from_gzha();     /*case 2: trap vreg from gz HA*/
-#endif
-
-#if test_vreg_basic             /*disable now*/
-	_vreg_test_basic();         /*case 3: basic vreg test*/
-#endif
-
-#if test_Vmemory                /*disable now*/
-	vmemory_test();         /*case 4: basic vmem test*/
-#endif
-
-	return TZ_RESULT_SUCCESS;
+	mutex_unlock(&mutex_9);
+	return ret;
 }
 
-int _thread_mmu_gzdriver_body(uint64_t pa, int size, enum s1_attrs_t type)
-{
-	uint32_t pa_high, pa_low;
-	uint32_t v;
-	void __iomem *io;
-	int i;
-
-	KREE_INFO("[%s][%d]gz driver pa:0x%llx, size=0x%x, type=0x%x\n",
-		__func__, __LINE__, pa, size, type);
-
-	if (pa == 0 || size == 0 || type == MM_MEM_ATTRIB_INVALID) {
-		KREE_INFO("[%d]Invalid param\n", __LINE__);
-		return TZ_RESULT_ERROR_BAD_PARAMETERS;
-	}
-
-	pa_high = (uint32_t) (pa >> 32);
-	pa_low = (uint32_t) (pa & (0x00000000ffffffff));
-
-	io = ioremap(VREG_BASE_dyn_map, test_vreg_basic_size);
-	if (!io) {
-		KREE_ERR("[%d]vreg: null io\n", __LINE__);
-		return TZ_RESULT_ERROR_GENERIC;
-	}
-
-	/*write test ipa info*/
-	writel(0x0, io + (0 * WORD_WIDTH)); /*clear vreg data*/
-	KREE_INFO("[%d]write dynamic IPA memory range data\n", __LINE__);
-	writel(pa_high, io + (1 * WORD_WIDTH)); /*pa_high*/
-	writel(pa_low, io + (2 * WORD_WIDTH));	/*pa_low */
-	writel(size, io + (3 * WORD_WIDTH));	/*size	 */
-	writel(type, io + (4 * WORD_WIDTH));	/*type	 */
-
-	/*check test ipa info*/
-	KREE_INFO("[%d]check if test ipa info ready\n", __LINE__);
-	for (i = 0; i <= 4; i++) {
-		v = readl(io + (i * WORD_WIDTH));
-		KREE_INFO("[%d] read offset word[%d]=0x%x\n", __LINE__, i, v);
-
-		if (((i > 1) && (i <= 4)) && (v == 0)) {
-			KREE_INFO("[%d] writel fail [%u]=0x%x\n",
-				__LINE__, i, v);
-			if (io)
-				iounmap(io);
-			return TZ_RESULT_ERROR_BAD_PARAMETERS;
-		}
-	}
-
-	KREE_INFO("[%d]test dynamic update ipa type\n", __LINE__);
-	/*for (i = 0; i < 100; i++)*/
-	for (i = 0; i < 1; i++)
-		writel(0x00000003, io + (0 * WORD_WIDTH));
-
-	if (io)
-		iounmap(io);
-
-	return TZ_RESULT_SUCCESS;
-}
-/*map/unmap GZ kernel memory with RO and RW types*/
-int test_rkp_gzkernel_memory(void *args)
-{
-	void __iomem *io;
-
-	io = ioremap(VREG_BASE_dyn_map, test_vreg_basic_size);
-
-	/*unmap/map RO*/
-	writel(0x00000004, io + (0 * WORD_WIDTH));
-
-	/*unmap/map RW*/
-	writel(0x00000005, io + (0 * WORD_WIDTH));
-
-	if (io)
-		iounmap(io);
-
-	return TZ_RESULT_SUCCESS;
-}
-
-/*map/unmap Linux kernel memory*/
-int test_rkp(void *args)
+/*echo 9:test RKP UT by allocated buffer in CA*/
+int test_rkp_by_malloc_buf(void *args)
 {
 /*fix me. _text, _etext cannot use in .ko. disable UT first*/
 
@@ -410,6 +346,196 @@ int test_rkp(void *args)
 //	return _thread_mmu_gzdriver_body((uint64_t)pa, (uint64_t)size,
 //		0x2); /*RO, EXECUTE*/
 
-	return 1;
+	struct task_struct *thread1, *thread2;
+
+	thread1 = kthread_create(malloc_buffer_by_smc, NULL, "test_rkp_t1");
+	if (IS_ERR(thread1))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread1, 0);
+	wake_up_process(thread1);
+
+	thread2 = kthread_create(malloc_buffer_by_smc, NULL, "test_rkp_t2");
+	if (IS_ERR(thread2))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread2, 5);
+	wake_up_process(thread2);
+
+	return TZ_RESULT_SUCCESS;
+}
+#endif
+
+
+#if echo_a
+
+extern int64_t va_gz_test_store;
+DEFINE_MUTEX(mutex_a);
+
+int test_rkp_by_gz_driver_body(void)
+{
+	int size = 4096; /*can update */
+	uint64_t pa;
+	uint32_t high, low;
+
+	int64_t test_va = 0x0;
+	int64_t test_pa = 0x0;
+	int64_t align_test_pa = 0x0;
+
+	if (!tz_system_dev->dev.parent)
+		return TZ_RESULT_ERROR_NO_DATA;
+
+	test_va = va_gz_test_store;
+	test_pa = (uint64_t) virt_to_phys((void *)test_va);
+	align_test_pa = test_pa & 0xfffffffffffff000;
+
+	pa = (uint64_t) align_test_pa;
+	high = (uint32_t) ((uint64_t) pa >> 32);
+	low = (uint32_t) ((uint64_t) pa & (0x00000000ffffffff));
+
+	KREE_INFO("[%s][%d] pa=0x%llx, high=0x%x, low=0x%x\n",
+		__func__, __LINE__, pa, high, low);
+
+	if ((pa % PAGE_SIZE) != 0) {
+		KREE_INFO("[%s][%d] pa = 0x%llx not aligned 4KB.\n",
+			__func__, __LINE__, pa);
+		goto out;
+	}
+
+	/* test smc */
+	trusty_std_call32(tz_system_dev->dev.parent,
+		MTEE_SMCNR(MT_SMCF_FC_HEAP_DUMP, tz_system_dev->dev.parent),
+		high, low, size);
+out:
+	return TZ_RESULT_SUCCESS;
 }
 
+int test_rkp_by_gz_driver(void *args)
+{
+	int ret = TZ_RESULT_SUCCESS;
+	int locktry;
+
+	do {
+		locktry = mutex_lock_interruptible(&mutex_a);
+		if (locktry && locktry != -EINTR) {
+			KREE_ERR("mutex_c fail(0x%x)\n", locktry);
+			return TZ_RESULT_ERROR_GENERIC;
+		}
+	} while (locktry);
+
+	test_rkp_by_gz_driver_body();
+
+	mutex_unlock(&mutex_a);
+
+	return ret;
+}
+#endif
+
+#if echo_b
+
+/*vreg: the same setting in gz*/
+#define test_vreg_src_pa  0x1070A000  /*can modify*/
+#define test_vreg_basic_size  0x1000  /*can modify*/
+
+#define VREG_BASE_dyn_map (test_vreg_src_pa + 1 * test_vreg_basic_size)
+
+#define WORD_WIDTH 4 /*32-bit*/
+DEFINE_MUTEX(mutex_b);
+/*call RKP basic UT*/
+int test_rkp_basic_by_vreg(void *args)
+{
+	void __iomem *io;
+	int ret = TZ_RESULT_SUCCESS;
+	int locktry;
+
+	do {
+		locktry = mutex_lock_interruptible(&mutex_b);
+		if (locktry && locktry != -EINTR) {
+			KREE_ERR("mutex_c fail(0x%x)\n", locktry);
+			return TZ_RESULT_ERROR_GENERIC;
+		}
+	} while (locktry);
+
+	io = ioremap(VREG_BASE_dyn_map, test_vreg_basic_size);
+	if (!io) {
+		ret = TZ_RESULT_ERROR_GENERIC;
+		goto out;
+	}
+
+	writel(0x00000001, io + (0 * WORD_WIDTH));
+
+	if (io)
+		iounmap(io);
+
+out:
+	mutex_unlock(&mutex_b);
+
+	return ret;
+}
+
+#endif
+
+
+#if echo_c
+DEFINE_MUTEX(mutex_c);
+/*call RKP stress UT*/
+int call_rkp_stressUT_by_vreg(void *args)
+{
+	void __iomem *io;
+	uint32_t v;
+	int ret = TZ_RESULT_SUCCESS;
+	int locktry;
+
+	do {
+		locktry = mutex_lock_interruptible(&mutex_c);
+		if (locktry && locktry != -EINTR) {
+			KREE_ERR("mutex_c fail(0x%x)\n", locktry);
+			return TZ_RESULT_ERROR_GENERIC;
+		}
+	} while (locktry);
+
+	io = ioremap(VREG_BASE_dyn_map, test_vreg_basic_size);
+	if (!io) {
+		ret = TZ_RESULT_ERROR_GENERIC;
+		goto out;
+	}
+
+	writel(0x00000002, io + (0 * WORD_WIDTH));
+
+	v = readl(io + (0 * WORD_WIDTH));
+	KREE_INFO("[%s] read [%d]=0x%x\n",
+		__func__, (io + (0 * WORD_WIDTH)), v);
+
+	if (io)
+		iounmap(io);
+
+out:
+	mutex_unlock(&mutex_c);
+
+	return ret;
+}
+
+int test_rkp_stress_by_vreg(void *args)
+{
+	struct task_struct *thread1, *thread2, *thread3;
+
+	thread1 = kthread_create(call_rkp_stressUT_by_vreg, NULL, "test_rkp_t1");
+	if (IS_ERR(thread1))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread1, 0);
+	wake_up_process(thread1);
+
+	/*thread 2: write 1000 times*/
+	thread2 = kthread_create(call_rkp_stressUT_by_vreg, NULL, "test_rkp_t2");
+	if (IS_ERR(thread2))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread2, 5);
+	wake_up_process(thread2);
+
+	thread3 = kthread_create(call_rkp_stressUT_by_vreg, NULL, "test_rkp_t3");
+	if (IS_ERR(thread3))
+		return TZ_RESULT_ERROR_GENERIC;
+	kthread_bind(thread3, 3);
+	wake_up_process(thread3);
+
+	return TZ_RESULT_SUCCESS;
+}
+#endif

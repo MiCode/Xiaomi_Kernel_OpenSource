@@ -158,16 +158,32 @@ static ssize_t gz_test_store(struct device *dev,
 		th = kthread_run(chunk_memory_ut, NULL, "MCM UT");
 		break;
 	case '6':
-		KREE_DEBUG("test VReg\n");
-		th = kthread_run(vreg_test, NULL, "VReg test");
+		KREE_DEBUG("test RKP Basic UT by smc\n");
+		th = kthread_run(test_rkp_basic_by_smc, NULL, "RKP_UT");
+		break;
+	case '7':
+		KREE_DEBUG("stress test RKP UT by vreg\n");
+		th = kthread_run(test_rkp_stress_by_smc, NULL, "RKP_ST");
+		break;
+	case '8':
+		KREE_DEBUG("test RKP by malloc buffer/UPT/RD/WR.\n");
+		th = kthread_run(test_rkp_mix_op, NULL, "RKP_MIX_OP");
 		break;
 	case '9':
-		KREE_DEBUG("test RKP_GZKM\n");
-		th = kthread_run(test_rkp_gzkernel_memory, NULL, "RKP_GZKM");
+		KREE_DEBUG("test RKP: malloc buffer w/ 2 threads\n");
+		th = kthread_run(test_rkp_by_malloc_buf, NULL, "RKP_multi_smc");
 		break;
 	case 'a':
-		KREE_DEBUG("test RKP\n");
-		th = kthread_run(test_rkp, NULL, "RKP_LinuxKM");
+		KREE_DEBUG("test RKP by GZ driver\n");
+		th = kthread_run(test_rkp_by_gz_driver, NULL, "RKP_gz_drv");
+		break;
+	case 'b':
+		KREE_DEBUG("test RKP Basic UT by vreg\n");
+		th = kthread_run(test_rkp_basic_by_vreg, NULL, "RKP_UT");
+		break;
+	case 'c':
+		KREE_DEBUG("stress test RKP UT by vreg\n");
+		th = kthread_run(test_rkp_stress_by_vreg, NULL, "RKP_STRESS");
 		break;
 	case 'C':
 		KREE_DEBUG("test GZ Secure Storage\n");
@@ -1467,6 +1483,7 @@ static struct devapc_vio_callbacks gz_devapc_vio_handle = {
 #endif
 
 #endif
+uint64_t va_gz_test_store;
 
 /************ kernel module init entry ***************/
 static int __init gz_init(void)
@@ -1474,6 +1491,9 @@ static int __init gz_init(void)
 	int res;
 
 	tz_system_dev = NULL;
+
+	va_gz_test_store = (uint64_t) &gz_test_store;
+	//KREE_DEBUG("[gz_main.c]====> gz_test_store VA=0x%llx\n", va_gz_test_store);
 
 	res = create_files();
 	if (res) {
