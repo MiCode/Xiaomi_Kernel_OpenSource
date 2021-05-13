@@ -14,5 +14,3 @@
 
 obj-y += isp_6s/
 
-subdir-ccflags-y += -DDISABLE_CAMSV_TOP0=0
-

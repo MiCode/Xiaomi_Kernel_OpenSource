@@ -192,10 +192,8 @@ static irqreturn_t ISP_Irq_CAM_C(int Irq, void *DeviceId);
 static irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 				 enum ISP_DEV_NODE_ENUM cam_idx,
 				 const char *str);
-#if (DISABLE_CAMSV_TOP0 == 0)
 static irqreturn_t ISP_Irq_CAMSV_0(int Irq, void *DeviceId);
 static irqreturn_t ISP_Irq_CAMSV_1(int Irq, void *DeviceId);
-#endif
 static irqreturn_t ISP_Irq_CAMSV_2(int Irq, void *DeviceId);
 static irqreturn_t ISP_Irq_CAMSV_3(int Irq, void *DeviceId);
 static irqreturn_t ISP_Irq_CAMSV_4(int Irq, void *DeviceId);
@@ -216,11 +214,8 @@ const struct ISR_TABLE IRQ_CB_TBL[ISP_IRQ_TYPE_AMOUNT] = {
 	{ISP_Irq_CAM_A, CAM0_IRQ_BIT_ID, "CAM_A"},
 	{NULL, 0, "CAM_B"},
 
-#if (DISABLE_CAMSV_TOP0 == 0)
-
 	{ISP_Irq_CAMSV_0, CAM_SV0_IRQ_BIT_ID, "CAMSV_0"},
 	{ISP_Irq_CAMSV_1, CAM_SV1_IRQ_BIT_ID, "CAMSV_1"},
-#endif
 	{NULL, 0, "UNI"} };
 
 #else
@@ -233,11 +228,8 @@ const struct ISR_TABLE IRQ_CB_TBL[ISP_IRQ_TYPE_AMOUNT] = {
 	{ISP_Irq_CAM_B, 0, "cam2-dummy"},
 	{ISP_Irq_CAM_C, 0, "cam3-dummy"},
 
-#if (DISABLE_CAMSV_TOP0 == 0)
-
 	{ISP_Irq_CAMSV_0, 0, "camsv1-dummy"},
 	{ISP_Irq_CAMSV_1, 0, "camsv2-dummy"},
-#endif
 	{ISP_Irq_CAMSV_2, 0, "camsv3-dummy"},
 	{ISP_Irq_CAMSV_3, 0, "camsv4-dummy"},
 	{ISP_Irq_CAMSV_4, 0, "camsv5-dummy"},
@@ -251,10 +243,8 @@ const struct ISR_TABLE IRQ_CB_TBL[ISP_IRQ_TYPE_AMOUNT] = {
 	{ISP_Irq_CAM_A, 0, "cam1_legacy"},
 	{ISP_Irq_CAM_B, 0, "cam2_legacy"},
 	{ISP_Irq_CAM_C, 0, "cam3_legacy"},
-#if (DISABLE_CAMSV_TOP0 == 0)
 	{ISP_Irq_CAMSV_0, 0, "camsv1_legacy"},
 	{ISP_Irq_CAMSV_1, 0, "camsv2_legacy"},
-#endif
 	{ISP_Irq_CAMSV_2, 0, "camsv3_legacy"},
 	{ISP_Irq_CAMSV_3, 0, "camsv4_legacy"},
 	{ISP_Irq_CAMSV_4, 0, "camsv5_legacy"},
@@ -308,15 +298,12 @@ static const struct of_device_id isp_of_ids[] = {
 		.compatible = "mediatek,camsys_rawc_legacy",
 	},
 
-#if (DISABLE_CAMSV_TOP0 == 0)
-
 	{
 		.compatible = "mediatek,camsv1_legacy",
 	},
 	{
 		.compatible = "mediatek,camsv2_legacy",
 	},
-#endif
 	{
 		.compatible = "mediatek,camsv3_legacy",
 	},
@@ -352,9 +339,7 @@ static void ISP_BH_Workqueue(struct work_struct *pWork);
 static struct IspWorkqueTable isp_workque[ISP_IRQ_TYPE_AMOUNT] = {
 	{ISP_IRQ_TYPE_INT_CAM_A_ST},   {ISP_IRQ_TYPE_INT_CAM_B_ST},
 	{ISP_IRQ_TYPE_INT_CAM_C_ST},
-#if (DISABLE_CAMSV_TOP0 == 0)
 	{ISP_IRQ_TYPE_INT_CAMSV_0_ST}, {ISP_IRQ_TYPE_INT_CAMSV_1_ST},
-#endif
 	{ISP_IRQ_TYPE_INT_CAMSV_2_ST}, {ISP_IRQ_TYPE_INT_CAMSV_3_ST},
 	{ISP_IRQ_TYPE_INT_CAMSV_4_ST}, {ISP_IRQ_TYPE_INT_CAMSV_5_ST},
 	{ISP_IRQ_TYPE_INT_CAMSV_6_ST}, {ISP_IRQ_TYPE_INT_CAMSV_7_ST},
@@ -452,10 +437,8 @@ static struct mutex open_isp_mutex;
 #define ISP_CAM_A_INNER_BASE (isp_devs[ISP_CAM_A_INNER_IDX].regs)
 #define ISP_CAM_B_INNER_BASE (isp_devs[ISP_CAM_B_INNER_IDX].regs)
 #define ISP_CAM_C_INNER_BASE (isp_devs[ISP_CAM_C_INNER_IDX].regs)
-#if (DISABLE_CAMSV_TOP0 == 0)
 #define ISP_CAMSV0_BASE (isp_devs[ISP_CAMSV0_IDX].regs)
 #define ISP_CAMSV1_BASE (isp_devs[ISP_CAMSV1_IDX].regs)
-#endif
 #define ISP_CAMSV2_BASE (isp_devs[ISP_CAMSV2_IDX].regs)
 #define ISP_CAMSV3_BASE (isp_devs[ISP_CAMSV3_IDX].regs)
 #define ISP_CAMSV4_BASE (isp_devs[ISP_CAMSV4_IDX].regs)
@@ -512,6 +495,9 @@ int pr_detect_count;
 
 /* use to prevent CQ recovery when in-complete frame occurs*/
 static unsigned int pre_magic_num;
+
+static int RUNTIME_ISP_CAMSV_START_ST = 0;
+static int RUNTIME_ISP_CAMSV_START_IDX = 0;
 
 /******************************************************************************
  *
@@ -963,10 +949,8 @@ void __iomem *CAMX_REG_TG_INTER_ST(int reg_module)
 	case ISP_CAM_C_IDX:
 		_regVal = CAM_REG_TG_INTER_ST(reg_module);
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 	case ISP_CAMSV1_IDX:
-#endif
 	case ISP_CAMSV2_IDX:
 	case ISP_CAMSV3_IDX:
 	case ISP_CAMSV4_IDX:
@@ -992,10 +976,8 @@ void __iomem *CAMX_REG_TG_VF_CON(int reg_module)
 	case ISP_CAM_C_IDX:
 		_regVal = CAM_REG_TG_VF_CON(reg_module);
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 	case ISP_CAMSV1_IDX:
-#endif
 	case ISP_CAMSV2_IDX:
 	case ISP_CAMSV3_IDX:
 	case ISP_CAMSV4_IDX:
@@ -1021,10 +1003,8 @@ void __iomem *CAMX_REG_TG_SEN_MODE(int reg_module)
 	case ISP_CAM_C_IDX:
 		_regVal = CAM_REG_TG_SEN_MODE(reg_module);
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 	case ISP_CAMSV1_IDX:
-#endif
 	case ISP_CAMSV2_IDX:
 	case ISP_CAMSV3_IDX:
 	case ISP_CAMSV4_IDX:
@@ -1051,10 +1031,8 @@ unsigned int ISP_RD32_TG_CAMX_FRM_CNT(unsigned int IrqType, int reg_module)
 	case ISP_CAM_C_IDX:
 		_regVal = ISP_RD32(CAM_REG_TG_INTER_ST(reg_module));
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 	case ISP_CAMSV1_IDX:
-#endif
 	case ISP_CAMSV2_IDX:
 	case ISP_CAMSV3_IDX:
 	case ISP_CAMSV4_IDX:
@@ -2835,10 +2813,8 @@ static inline void ISP_Reset(int module)
 
 		break;
 	}
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 	case ISP_CAMSV1_IDX:
-#endif
 	case ISP_CAMSV2_IDX:
 	case ISP_CAMSV3_IDX:
 	case ISP_CAMSV4_IDX:
@@ -2849,7 +2825,6 @@ static inline void ISP_Reset(int module)
 		ISP_WR32(CAMSV_REG_SW_CTL(module), 0x1); /* IMGO_RST_TRIG: 1 */
 
 		while ((ISP_RD32(CAMSV_REG_SW_CTL(module)) & 0x3) != 0x3) {
-#if (DISABLE_CAMSV_TOP0 == 0)
 			/* camsv_top0 DMA2, camsv_2 need additional polling */
 			/* register DMA_SOFT_RSTSTAT with IMGO and FUEO */
 			if ((module == ISP_CAMSV1_IDX) &&
@@ -2857,7 +2832,6 @@ static inline void ISP_Reset(int module)
 			      ISP_RD32(CAMSV_REG_DMA_SOF_RSTSTAT(module))) ==
 			     DMA_ST_MASK_CAMSV_IMGO_OR_UFO))
 				break;
-#endif
 			/* Polling IMGO_RST_ST to 1 */
 			LOG_DBG("CAMSV resetting... module:%d\n", module);
 		}
@@ -2922,14 +2896,12 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	case ISP_CAM_C_IDX:
 		regBase = ISP_CAM_C_BASE;
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 		regBase = ISP_CAMSV0_BASE;
 		break;
 	case ISP_CAMSV1_IDX:
 		regBase = ISP_CAMSV1_BASE;
 		break;
-#endif
 	case ISP_CAMSV2_IDX:
 		regBase = ISP_CAMSV2_BASE;
 		break;
@@ -2953,17 +2925,12 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 		Ret = -EFAULT;
 		goto EXIT;
 	}
-#if (DISABLE_CAMSV_TOP0 == 0)
+
 	if (regBase < ISP_CAMSV0_BASE)
 		ispRange = ISP_REG_RANGE;
 	else
 		ispRange = PAGE_SIZE;
-#else
-	if (regBase < ISP_CAMSV2_BASE)
-		ispRange = ISP_REG_RANGE;
-	else
-		ispRange = PAGE_SIZE;
-#endif
+
 	for (i = 0; i < pRegIo->Count; i++) {
 		if (get_user(reg.Addr, (unsigned int *)&pReg->Addr) != 0) {
 			LOG_NOTICE("get_user failed\n");
@@ -3027,14 +2994,12 @@ static int ISP_WriteRegToHw(struct ISP_REG_STRUCT *pReg, unsigned int Count)
 	case ISP_CAM_C_IDX:
 		regBase = ISP_CAM_C_BASE;
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 		regBase = ISP_CAMSV0_BASE;
 		break;
 	case ISP_CAMSV1_IDX:
 		regBase = ISP_CAMSV1_BASE;
 		break;
-#endif
 	case ISP_CAMSV2_IDX:
 		regBase = ISP_CAMSV2_BASE;
 		break;
@@ -3061,17 +3026,12 @@ static int ISP_WriteRegToHw(struct ISP_REG_STRUCT *pReg, unsigned int Count)
 	/*  */
 	if (dbgWriteReg)
 		LOG_DBG("- E.\n");
-#if (DISABLE_CAMSV_TOP0 == 0)
+
 	if (regBase < ISP_CAMSV0_BASE)
 		ispRange = ISP_REG_RANGE;
 	else
 		ispRange = PAGE_SIZE;
-#else
-	if (regBase < ISP_CAMSV2_BASE)
-		ispRange = ISP_REG_RANGE;
-	else
-		ispRange = PAGE_SIZE;
-#endif
+
 	/*  */
 	for (i = 0; i < Count; i++) {
 		if (dbgWriteReg)
@@ -3299,10 +3259,8 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 				       0, sizeof(unsigned int) * _cam_max_);
 
 				break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 			case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 			case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 			case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 			case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 			case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -4287,14 +4245,12 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			case ISP_CAM_C_IDX:
 				module = ISP_IRQ_TYPE_INT_CAM_C_ST;
 				break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 			case ISP_CAMSV0_IDX:
 				module = ISP_IRQ_TYPE_INT_CAMSV_0_ST;
 				break;
 			case ISP_CAMSV1_IDX:
 				module = ISP_IRQ_TYPE_INT_CAMSV_1_ST;
 				break;
-#endif
 			case ISP_CAMSV2_IDX:
 				module = ISP_IRQ_TYPE_INT_CAMSV_2_ST;
 				break;
@@ -4322,10 +4278,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				/*0x3b04 */
 				vf = ISP_RD32(CAM_REG_TG_VF_CON(DebugFlag[1]));
 				break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 			case ISP_CAMSV0_IDX:
 			case ISP_CAMSV1_IDX:
-#endif
 			case ISP_CAMSV2_IDX:
 			case ISP_CAMSV3_IDX:
 			case ISP_CAMSV4_IDX:
@@ -4532,10 +4486,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						"Get Buf sof timestamp fail");
 				}
 				break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 			case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 			case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 			case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 			case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 			case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -5816,7 +5768,6 @@ static inline void ISP_StopSVHW(int module)
 
 	/* wait TG idle */
 	switch (module) {
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 		strncpy(moduleName, "CAMSV0", 7);
 		waitirq.Type = ISP_IRQ_TYPE_INT_CAMSV_0_ST;
@@ -5825,7 +5776,6 @@ static inline void ISP_StopSVHW(int module)
 		strncpy(moduleName, "CAMSV1", 7);
 		waitirq.Type = ISP_IRQ_TYPE_INT_CAMSV_1_ST;
 		break;
-#endif
 	case ISP_CAMSV2_IDX:
 		strncpy(moduleName, "CAMSV2", 7);
 		waitirq.Type = ISP_IRQ_TYPE_INT_CAMSV_2_ST;
@@ -5921,7 +5871,6 @@ static inline void ISP_StopSVHW(int module)
 	ISP_WR32(CAMSV_REG_SW_CTL(module), 0x0);
 	ISP_WR32(CAMSV_REG_SW_CTL(module), 0x1);
 	while ((ISP_RD32(CAMSV_REG_SW_CTL(module)) & 0x3) != 0x3) {
-#if (DISABLE_CAMSV_TOP0 == 0)
 		/* camsv_top0 DMA2, camsv_2 need additional polling */
 		/* register DMA_SOFT_RSTSTAT with IMGO and FUEO */
 		if ((module == ISP_CAMSV1_IDX) &&
@@ -5930,7 +5879,6 @@ static inline void ISP_StopSVHW(int module)
 		     DMA_ST_MASK_CAMSV_IMGO_OR_UFO)) {
 			break;
 		}
-#endif
 		/*LOG_DBG("%s resetting...\n", moduleName); */
 		/*timer */
 		time = ktime_get();
@@ -6029,7 +5977,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		ISP_WR32(CAM_REG_CTL_TWIN_STATUS(i), 0x0);
 	}
 
-	for (i = ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++) {
+	for (i = RUNTIME_ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++) {
 		Reg = ISP_RD32(CAMSV_REG_TG_VF_CON(i));
 		Reg &= 0xfffffffE; /* close Vfinder */
 		ISP_WR32(CAMSV_REG_TG_VF_CON(i), Reg);
@@ -6070,7 +6018,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	memset(g_BkReg, 0, sizeof(struct _isp_bk_reg_t) * ISP_IRQ_TYPE_AMOUNT);
 
 	/*  */
-	for (i = ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++)
+	for (i = RUNTIME_ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++)
 		ISP_StopSVHW(i);
 
 	ISP_StopHW(ISP_CAM_A_IDX);
@@ -6273,12 +6221,10 @@ static unsigned int NodeName_to_DevIdx(const char *name)
 		return ISP_CAM_B_IDX;
 	else if (strncmp(name, "cam3_legacy", strlen("cam3_legacy")) == 0)
 		return ISP_CAM_C_IDX;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	else if (strncmp(name, "camsv1_legacy", strlen("camsv1_legacy")) == 0)
 		return ISP_CAMSV0_IDX;
 	else if (strncmp(name, "camsv2_legacy", strlen("camsv2_legacy")) == 0)
 		return ISP_CAMSV1_IDX;
-#endif
 	else if (strncmp(name, "camsv3_legacy", strlen("camsv3_legacy")) == 0)
 		return ISP_CAMSV2_IDX;
 	else if (strncmp(name, "camsv4_legacy", strlen("camsv4_legacy")) == 0)
@@ -6359,6 +6305,7 @@ static int ISP_probe(struct platform_device *pDev)
 
 #ifdef CONFIG_OF
 	struct device *dev = NULL;
+	int camsv_shift = 0;
 #endif
 
 	LOG_INF("- E. ISP driver probe.\n");
@@ -6431,6 +6378,16 @@ static int ISP_probe(struct platform_device *pDev)
 			if ((strcmp(pDev->dev.of_node->name,
 				    IRQ_CB_TBL[i].device_name) == 0) &&
 			    (IRQ_CB_TBL[i].isr_fp != NULL)) {
+
+				if(RUNTIME_ISP_CAMSV_START_ST == 0 && i >= ISP_IRQ_TYPE_INT_CAMSV_START_ST){
+					RUNTIME_ISP_CAMSV_START_ST = i;
+					camsv_shift = RUNTIME_ISP_CAMSV_START_ST - ISP_IRQ_TYPE_INT_CAMSV_START_ST;
+					RUNTIME_ISP_CAMSV_START_IDX = ISP_CAMSV_START_IDX + camsv_shift;
+
+					LOG_INF("RUNTIME_ISP_CAMSV_START_ST=%d, RUNTIME_ISP_CAMSV_START_IDX=%d, dev_name=%s\n",
+						RUNTIME_ISP_CAMSV_START_ST, RUNTIME_ISP_CAMSV_START_IDX, IRQ_CB_TBL[i].device_name);
+
+				}
 
 				Ret = request_irq(
 					isp_devs[dev_idx].irq,
@@ -6757,13 +6714,11 @@ static int ISP_probe(struct platform_device *pDev)
 		IspInfo.IrqInfo.Mask[ISP_IRQ_TYPE_INT_CAM_C_ST][SIGNAL_INT] =
 			INT_ST_MASK_CAM;
 
-#if (DISABLE_CAMSV_TOP0 == 0)
 		IspInfo.IrqInfo.Mask[ISP_IRQ_TYPE_INT_CAMSV_0_ST][SIGNAL_INT] =
 			INT_ST_MASK_CAMSV;
 
 		IspInfo.IrqInfo.Mask[ISP_IRQ_TYPE_INT_CAMSV_1_ST][SIGNAL_INT] =
 			INT_ST_MASK_CAMSV;
-#endif
 		IspInfo.IrqInfo.Mask[ISP_IRQ_TYPE_INT_CAMSV_2_ST][SIGNAL_INT] =
 			INT_ST_MASK_CAMSV;
 
@@ -6814,7 +6769,6 @@ static int ISP_probe(struct platform_device *pDev)
 		IspInfo.IrqInfo.ErrMask[ISP_IRQ_TYPE_INT_CAM_C_ST][SIGNAL_INT] =
 			INT_ST_MASK_CAM_ERR;
 
-#if (DISABLE_CAMSV_TOP0 == 0)
 		IspInfo.IrqInfo
 			.ErrMask[ISP_IRQ_TYPE_INT_CAMSV_0_ST][SIGNAL_INT] =
 			INT_ST_MASK_CAMSV_ERR;
@@ -6822,7 +6776,6 @@ static int ISP_probe(struct platform_device *pDev)
 		IspInfo.IrqInfo
 			.ErrMask[ISP_IRQ_TYPE_INT_CAMSV_1_ST][SIGNAL_INT] =
 			INT_ST_MASK_CAMSV_ERR;
-#endif
 
 		IspInfo.IrqInfo
 			.ErrMask[ISP_IRQ_TYPE_INT_CAMSV_2_ST][SIGNAL_INT] =
@@ -6968,14 +6921,12 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
 		module = ISP_CAM_C_IDX;
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 		module = ISP_CAMSV0_IDX;
 		break;
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
 		module = ISP_CAMSV1_IDX;
 		break;
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 		module = ISP_CAMSV2_IDX;
 		break;
@@ -7149,14 +7100,12 @@ static int ISP_resume(struct platform_device *pDev)
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
 		module = ISP_CAM_C_IDX;
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 		module = ISP_CAMSV0_IDX;
 		break;
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
 		module = ISP_CAMSV1_IDX;
 		break;
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 		module = ISP_CAMSV2_IDX;
 		break;
@@ -7436,10 +7385,8 @@ static int __init ISP_Init(void)
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
-#if (DISABLE_CAMSV_TOP0 == 0)
 		case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 		case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 		case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 		case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 		case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -7562,7 +7509,7 @@ static int __init ISP_Init(void)
 
 	ISP_SetPMQOS(E_CLK_ADD, ISP_IRQ_TYPE_INT_CAM_A_ST, NULL);
 
-	for (j = ISP_IRQ_TYPE_INT_CAMSV_START_ST;
+	for (j = RUNTIME_ISP_CAMSV_START_ST;
 			j <= ISP_IRQ_TYPE_INT_CAMSV_END_ST;
 			j++)
 		SV_SetPMQOS(E_BW_ADD, j, NULL);
@@ -7584,7 +7531,7 @@ static void __exit ISP_Exit(void)
 	/*  */
 	platform_driver_unregister(&IspDriver);
 	/*  */
-	for (i = ISP_IRQ_TYPE_INT_CAMSV_START_ST;
+	for (i = RUNTIME_ISP_CAMSV_START_ST;
 			i <= ISP_IRQ_TYPE_INT_CAMSV_END_ST;
 			i++)
 		SV_SetPMQOS(E_BW_REMOVE, i, NULL);
@@ -7702,7 +7649,6 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				ISP_DumpDmaDeepDbg(module, ErrStatus);
 
 			break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 		case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 			g_ISPIntStatus[ISP_IRQ_TYPE_INT_CAMSV_0_ST].ispIntErr |=
 				(ErrStatus | WarnStatus);
@@ -7730,7 +7676,6 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				       "CAMSV1:int_err:0x%x_0x%x\n", WarnStatus,
 				       ErrStatus);
 			break;
-#endif
 		case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 			g_ISPIntStatus[ISP_IRQ_TYPE_INT_CAMSV_2_ST].ispIntErr |=
 				(ErrStatus | WarnStatus);
@@ -8595,10 +8540,8 @@ static int32_t ISP_PopBufTimestamp(unsigned int module, unsigned int dma_id,
 			return -EFAULT;
 		}
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -8805,10 +8748,8 @@ static int32_t ISP_CompensateMissingSofTime(enum ISP_DEV_NODE_ENUM reg_module,
 			return -EFAULT;
 		}
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -9045,7 +8986,6 @@ static int32_t ISP_PatchTimestamp(unsigned int module, unsigned int dma_id,
 
 #endif
 
-#if (DISABLE_CAMSV_TOP0 == 0)
 irqreturn_t ISP_Irq_CAMSV_0(int Irq, void *DeviceId)
 {
 	return ISP_Irq_CAMSV(ISP_IRQ_TYPE_INT_CAMSV_0_ST, ISP_CAMSV0_IDX,
@@ -9057,7 +8997,6 @@ irqreturn_t ISP_Irq_CAMSV_1(int Irq, void *DeviceId)
 	return ISP_Irq_CAMSV(ISP_IRQ_TYPE_INT_CAMSV_1_ST, ISP_CAMSV1_IDX,
 			     "CAMSV1");
 }
-#endif
 
 irqreturn_t ISP_Irq_CAMSV_2(int Irq, void *DeviceId)
 {
@@ -12017,10 +11956,8 @@ EXIT_CQ_RECOVER:
 				g_ISPIntStatus_SMI[irq_module].ispInt5Err = 0;
 		}
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:

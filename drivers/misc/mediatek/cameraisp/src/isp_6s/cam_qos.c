@@ -110,10 +110,8 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -139,10 +137,8 @@ bool check_module_and_portID(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 			return false;
 		}
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -700,10 +696,8 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		break;
 	}
 	break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -769,10 +763,8 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 		}
 	}
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -1036,15 +1028,10 @@ int SV_SetPMQOS(
 		struct ISP_BW *ptr;
 
 		for (; i < _camsv_max_; i++) {
-#if (DISABLE_CAMSV_TOP0 == 0)
 			if ((i == _camsv_ufeo_) &&
 				(module < ISP_IRQ_TYPE_INT_CAMSV_0_ST ||
 				module > ISP_IRQ_TYPE_INT_CAMSV_1_ST))
 				continue;
-#else
-			if (i == _camsv_ufeo_)
-				continue;
-#endif
 			ptr = (struct ISP_BW *)pvalue;
 			mtk_pmqos_set(module, i, ptr[i]);
 		}
