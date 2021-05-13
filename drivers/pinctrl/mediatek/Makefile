@@ -38,11 +38,21 @@ obj-$(CONFIG_PINCTRL_MT8127)	+= pinctrl-mt8127.o
 obj-$(CONFIG_PINCTRL_MT6765)	+= pinctrl-mt6765.o
 obj-$(CONFIG_PINCTRL_MT6779)	+= pinctrl-mt6779.o
 obj-$(CONFIG_PINCTRL_MT6797)	+= pinctrl-mt6797.o
+ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6853.c),)
 obj-$(CONFIG_PINCTRL_MT6853)	+= pinctrl-mt6853.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6873.c),)
 obj-$(CONFIG_PINCTRL_MT6873)	+= pinctrl-mt6873.o
-obj-$(CONFIG_PINCTRL_MT6879)	+= pinctrl-mt6885.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6879.c),)
+obj-$(CONFIG_PINCTRL_MT6879)	+= pinctrl-mt6879.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6885.c),)
 obj-$(CONFIG_PINCTRL_MT6885)	+= pinctrl-mt6885.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6983.c),)
 obj-$(CONFIG_PINCTRL_MT6983)	+= pinctrl-mt6983.o
+endif
 obj-$(CONFIG_PINCTRL_MT7622)	+= pinctrl-mt7622.o
 obj-$(CONFIG_PINCTRL_MT7623)	+= pinctrl-mt7623.o
 obj-$(CONFIG_PINCTRL_MT7629)	+= pinctrl-mt7629.o
