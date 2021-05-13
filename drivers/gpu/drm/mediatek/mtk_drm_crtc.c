@@ -7354,6 +7354,7 @@ int mtk_drm_crtc_get_sf_fence_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_fence *args = data;
 	struct mtk_drm_private *private;
 	struct fence_data fence;
+	struct mtk_crtc_state *crtc_state;
 	unsigned int fence_idx;
 	struct mtk_fence_info *l_info = NULL;
 	int tl, idx;
@@ -7401,6 +7402,13 @@ int mtk_drm_crtc_get_sf_fence_ioctl(struct drm_device *dev, void *data,
 
 		args->fence_fd = fence.fence;
 		args->fence_idx = fence.value;
+		crtc_state = to_mtk_crtc_state(crtc->state);
+
+		if (crtc_state && crtc_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+			DDPINFO("%s:%d DOZE mode not support SF rensent fence\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	} else {
 		args->fence_fd = MTK_INVALID_FENCE_FD;
 		args->fence_idx = fence_idx;
