@@ -1474,8 +1474,10 @@ bool mtk_drm_set_cwb_user_buf(void *user_buffer, enum CWB_BUFFER_TYPE type)
 	if (!cwb_info)
 		return false;
 
+	DDP_MUTEX_LOCK(&mtk_crtc->cwb_lock, __func__, __LINE__);
 	cwb_info->type = type;
 	cwb_info->user_buffer = user_buffer;
+	DDP_MUTEX_UNLOCK(&mtk_crtc->cwb_lock, __func__, __LINE__);
 	DDPMSG("[capture] User set buffer:0x%x, type:%d\n",
 			user_buffer, type);
 

@@ -711,6 +711,7 @@ struct mtk_drm_crtc {
 	atomic_t sf_pf_event;
 
 	/*capture write back ctx*/
+	struct mutex cwb_lock;
 	struct mtk_cwb_info *cwb_info;
 	struct task_struct *cwb_task;
 	wait_queue_head_t cwb_wq;

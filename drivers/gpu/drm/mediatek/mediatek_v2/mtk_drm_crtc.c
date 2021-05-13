@@ -6610,6 +6610,14 @@ static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
 	int width, height, pitch, size;
 	unsigned long long time = sched_clock();
 
+	//double confirm user_buffer still exists
+	if (!cwb_info->funcs || !cwb_info->funcs->get_buffer) {
+		if (!cwb_info->user_buffer)
+			return -1;
+		buffer = cwb_info->user_buffer;
+		cwb_info->user_buffer = 0;
+	}
+
 	width = cwb_info->buffer[buf_idx].dst_roi.width;
 	height = cwb_info->buffer[buf_idx].dst_roi.height;
 	pitch = width * 3;
@@ -6665,10 +6673,8 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 	funcs = cwb_info->funcs;
 	if (funcs && funcs->get_buffer)
 		funcs->get_buffer(&user_buffer);
-	else {
+	else
 		user_buffer = cwb_info->user_buffer;
-		cwb_info->user_buffer = 0;
-	}
 
 	if (!user_buffer) {
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -6704,8 +6710,10 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	//3. copy target_buf_idx context
+	DDP_MUTEX_LOCK(&mtk_crtc->cwb_lock, __func__, __LINE__);
 	mtk_drm_cwb_copy_buf(crtc, cwb_info, user_buffer, target_idx);
 	mtk_dprec_mmp_dump_cwb_buffer(crtc, user_buffer, target_idx);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->cwb_lock, __func__, __LINE__);
 
 	//4. notify user
 	if (funcs && funcs->copy_done)
@@ -6969,6 +6977,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		mtk_crtc->layer_nr = MEMORY_INPUT_LAYER_NR;
 
 	mutex_init(&mtk_crtc->lock);
+	mutex_init(&mtk_crtc->cwb_lock);
 	mtk_crtc->config_regs = priv->config_regs;
 	mtk_crtc->config_regs_pa = priv->config_regs_pa;
 	mtk_crtc->mmsys_reg_data = priv->reg_data;
