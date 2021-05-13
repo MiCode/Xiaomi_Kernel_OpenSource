@@ -16,10 +16,10 @@
 #include "md_sys1_platform.h"
 #include "cldma_reg.h"
 #include "modem_reg_base.h"
+#include "modem_secure_base.h"
+#include "ap_md_reg_dump_6781.h"
 
 #define TAG "mcd"
-
-#define RAnd2W(a, b, c)  ccci_write32(a, b, (ccci_read32(a, b)&c))
 
 /*
  * This file is generated.
@@ -50,7 +50,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 		return;
 	}
 	/* Stop PCMon */
-	ccci_write32(dump_reg0, 0x1000, 0x222);
+	mdreg_write32(MD_REG_PC_MONITOR, 0x222);
 	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump MD PC monitor\n");
 	CCCI_MEM_LOG_TAG(md_index, TAG,
@@ -72,7 +72,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000800), 0x400);
 	/* Re-Start PCMon */
-	ccci_write32(dump_reg0, 0x1000, 0x111);
+	mdreg_write32(MD_REG_PC_MONITOR, 0x111);
 	iounmap(dump_reg0);
 
 	/* PLL reg (clock control) */
@@ -183,49 +183,49 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000400), 0x51C);
 	/* [Pre-Action] Disable bus his rec & select entry 0 */
-	ccci_write32(dump_reg0, 0x408, 0x0);
+	mdreg_write32(MD_REG_MDMCU_BUSMON, 0x0);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000860), 0xC);
 	/* [Pre-Action] Select entry 1 */
-	ccci_write32(dump_reg0, 0x408, 0x100010);
+	mdreg_write32(MD_REG_MDMCU_BUSMON, 0x100010);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000860), 0xC);
 	/* [Pre-Action] Select entry 2 */
-	ccci_write32(dump_reg0, 0x408, 0x200020);
+	mdreg_write32(MD_REG_MDMCU_BUSMON, 0x200020);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000860), 0xC);
 	/* [Pre-Action] Select entry 3 */
-	ccci_write32(dump_reg0, 0x408, 0x300030);
+	mdreg_write32(MD_REG_MDMCU_BUSMON, 0x300030);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000860), 0xC);
 	/* [Pre-Action] Select entry 4 */
-	ccci_write32(dump_reg0, 0x408, 0x400040);
+	mdreg_write32(MD_REG_MDMCU_BUSMON, 0x400040);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000860), 0xC);
 	/* [Pre-Action] Select entry 5 */
-	ccci_write32(dump_reg0, 0x408, 0x500050);
+	mdreg_write32(MD_REG_MDMCU_BUSMON, 0x500050);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000860), 0xC);
 	/* [Pre-Action] Select entry 6 */
-	ccci_write32(dump_reg0, 0x408, 0x600060);
+	mdreg_write32(MD_REG_MDMCU_BUSMON, 0x600060);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000860), 0xC);
 	/* [Pre-Action] Select entry 7 */
-	ccci_write32(dump_reg0, 0x408, 0x700070);
+	mdreg_write32(MD_REG_MDMCU_BUSMON, 0x700070);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
@@ -243,49 +243,49 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002400), 0x51C);
 	/* [Pre-Action] Disable bus his rec & select entry 0 */
-	ccci_write32(dump_reg0, 0x2408, 0x0);
+	mdreg_write32(MD_REG_MDINFRA_BUSMON, 0x0);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002860), 0xC);
 	/* [Pre-Action] Select entry 1 */
-	ccci_write32(dump_reg0, 0x2408, 0x100010);
+	mdreg_write32(MD_REG_MDINFRA_BUSMON, 0x100010);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002860), 0xC);
 	/* [Pre-Action] Select entry 2 */
-	ccci_write32(dump_reg0, 0x2408, 0x200020);
+	mdreg_write32(MD_REG_MDINFRA_BUSMON, 0x200020);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002860), 0xC);
 	/* [Pre-Action] Select entry 3 */
-	ccci_write32(dump_reg0, 0x2408, 0x300030);
+	mdreg_write32(MD_REG_MDINFRA_BUSMON, 0x300030);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002860), 0xC);
 	/* [Pre-Action] Select entry 4 */
-	ccci_write32(dump_reg0, 0x2408, 0x400040);
+	mdreg_write32(MD_REG_MDINFRA_BUSMON, 0x400040);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002860), 0xC);
 	/* [Pre-Action] Select entry 5 */
-	ccci_write32(dump_reg0, 0x2408, 0x500050);
+	mdreg_write32(MD_REG_MDINFRA_BUSMON, 0x500050);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002860), 0xC);
 	/* [Pre-Action] Select entry 6 */
-	ccci_write32(dump_reg0, 0x2408, 0x600060);
+	mdreg_write32(MD_REG_MDINFRA_BUSMON, 0x600060);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002860), 0xC);
 	/* [Pre-Action] Select entry 7 */
-	ccci_write32(dump_reg0, 0x2408, 0x700070);
+	mdreg_write32(MD_REG_MDINFRA_BUSMON, 0x700070);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00002830), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
@@ -409,63 +409,63 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0x100);
 	/* [Pre-Action] config usip bus dbg sel 1 */
-	ccci_write32(dump_reg0, 0x3400, 0x4001F);
+	mdreg_write32(MD_REG_USIP, 0x4001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 2 */
-	ccci_write32(dump_reg0, 0x3400, 0x8001F);
+	mdreg_write32(MD_REG_USIP, 0x8001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 3 */
-	ccci_write32(dump_reg0, 0x3400, 0xC001F);
+	mdreg_write32(MD_REG_USIP, 0xC001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 4 */
-	ccci_write32(dump_reg0, 0x3400, 0x10001F);
+	mdreg_write32(MD_REG_USIP, 0x10001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 5 */
-	ccci_write32(dump_reg0, 0x3400, 0x14001F);
+	mdreg_write32(MD_REG_USIP, 0x14001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 6 */
-	ccci_write32(dump_reg0, 0x3400, 0x18001F);
+	mdreg_write32(MD_REG_USIP, 0x18001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 7 */
-	ccci_write32(dump_reg0, 0x3400, 0x1C001F);
+	mdreg_write32(MD_REG_USIP, 0x1C001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 8 */
-	ccci_write32(dump_reg0, 0x3400, 0x20001F);
+	mdreg_write32(MD_REG_USIP, 0x20001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 9 */
-	ccci_write32(dump_reg0, 0x3400, 0x24001F);
+	mdreg_write32(MD_REG_USIP, 0x24001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 10 */
-	ccci_write32(dump_reg0, 0x3400, 0x28001F);
+	mdreg_write32(MD_REG_USIP, 0x28001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 11 */
-	ccci_write32(dump_reg0, 0x3400, 0x2C001F);
+	mdreg_write32(MD_REG_USIP, 0x2C001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 12 */
-	ccci_write32(dump_reg0, 0x3400, 0x30001F);
+	mdreg_write32(MD_REG_USIP, 0x30001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 13 */
-	ccci_write32(dump_reg0, 0x3400, 0x34001F);
+	mdreg_write32(MD_REG_USIP, 0x34001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 14 */
-	ccci_write32(dump_reg0, 0x3400, 0x38001F);
+	mdreg_write32(MD_REG_USIP, 0x38001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	/* [Pre-Action] config usip bus dbg sel 15 */
-	ccci_write32(dump_reg0, 0x3400, 0x3C001F);
+	mdreg_write32(MD_REG_USIP, 0x3C001F);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	iounmap(dump_reg0);
