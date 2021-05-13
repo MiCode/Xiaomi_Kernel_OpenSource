@@ -83,6 +83,8 @@ u64 vfp_backup;
 static atomic_t lfr_dbg;
 static atomic_t lfr_params;
 
+static struct completion cwb_cmp;
+
 struct logger_buffer {
 	char **buffer_ptr;
 	unsigned int len;
@@ -1226,8 +1228,9 @@ int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,
 static void user_copy_done_function(void *buffer,
 	enum CWB_BUFFER_TYPE type)
 {
-	DDPINFO("[capture] I get buffer:0x%x, type:%d\n",
+	DDPMSG("[capture] I get buffer:0x%x, type:%d\n",
 			buffer, type);
+	complete(&cwb_cmp);
 }
 
 static const struct mtk_cwb_funcs user_cwb_funcs = {
@@ -2060,7 +2063,7 @@ static void process_dbg_opt(const char *opt)
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
 		struct mtk_cwb_info *cwb_info;
-		int width, height, size;
+		int width, height, size, ret;
 
 		/* this debug cmd only for crtc0 */
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
@@ -2082,6 +2085,19 @@ static void process_dbg_opt(const char *opt)
 		user_buffer = kzalloc(size, GFP_KERNEL);
 		mtk_drm_set_cwb_user_buf((void *)user_buffer, IMAGE_ONLY);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDPMSG("[capture] wait frame complete\n");
+		ret = wait_for_completion_interruptible_timeout(&cwb_cmp,
+			msecs_to_jiffies(3000));
+		if (ret > 0)
+			DDPMSG("[capture] frame complete done\n");
+		else {
+			DDPMSG("[capture] wait frame timeout(3s)\n");
+			DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mtk_drm_set_cwb_user_buf((void *)NULL, IMAGE_ONLY);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		}
+		kfree(user_buffer);
+		reinit_completion(&cwb_cmp);
 	}
 
 }
@@ -2575,6 +2591,7 @@ out:
 void disp_dbg_init(struct drm_device *dev)
 {
 	drm_dev = dev;
+	init_completion(&cwb_cmp);
 }
 
 void disp_dbg_deinit(void)
