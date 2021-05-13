@@ -1906,15 +1906,13 @@ static s32 cmdq_sec_insert_handle_from_thread_array_by_cookie(
 		err = -EMSGSIZE;
 	}
 
-	thread->task_list[cookie % cmdq_max_task_in_secure_thread[
-		thread->idx - CMDQ_MIN_SECURE_THREAD_ID]] = task;
+	thread->task_list[cookie % max_task] = task;
 	task->handle->secData.waitCookie = cookie;
 	task->handle->secData.resetExecCnt = reset_thread;
 
 	CMDQ_MSG("%s leave task:0x%p handle:0x%p insert with idx:%d\n",
 		__func__, task, task->handle,
-		cookie % cmdq_max_task_in_secure_thread[
-		thread->idx - CMDQ_MIN_SECURE_THREAD_ID]);
+		cookie % max_task);
 
 	return 0;
 }
