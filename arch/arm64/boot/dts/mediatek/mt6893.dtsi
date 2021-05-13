@@ -3723,35 +3723,7 @@
 				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA2_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA3_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA4_MDP>,
-				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA5_MDP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_IMGI_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_IMGBI_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_DMGI_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_DEPI_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_ICE_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_SMTI_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_SMTO_D2_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_SMTO_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_CRZO_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_IMG3O_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_VIPI_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_SMTI_D5_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_TIMGO_D1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_UFBC_W0_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_UFBC_R0_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA0_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA2_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA3_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA4_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA5_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA1_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA0_DISP>,
-				<&iommu0 M4U_PORT_L11_IMG_WPE_WDMA_DISP>;
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA5_MDP>;
 
 			clocks =
 					<&imgsys1_clk CLK_IMGSYS1_LARB9>,
@@ -3941,12 +3913,42 @@
 			compatible = "mediatek,mt6893-imgsys2", "syscon";
 			reg = <0 0x15820000 0 0x1000>;
 			#clock-cells = <1>;
+
 		};
 
 		imgsys2_config: imgsys2_config@15820000 {
 			compatible = "mediatek,imgsys2", "syscon";
 			reg = <0 0x15820000 0 0x1000>;
+                        dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			#clock-cells = <1>;
+
+			iommus =
+				<&iommu0 M4U_PORT_L11_IMG_IMGI_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_IMGBI_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_DMGI_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_DEPI_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_ICE_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_SMTI_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_SMTO_D2_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_SMTO_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_CRZO_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_IMG3O_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_VIPI_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_SMTI_D5_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_TIMGO_D1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_UFBC_W0_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_UFBC_R0_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA0_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA2_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA3_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA4_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA5_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA1_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA0_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_WDMA_DISP>;
 		};
 
 
