@@ -636,6 +636,17 @@ static int transceiver_debug(struct hf_device *hfdev, int sensor_type,
 	return debug_get_debug(sensor_type, buffer, len);
 }
 
+static int transceiver_custom_cmd(struct hf_device *hfdev, int sensor_type,
+		struct custom_cmd *cust_cmd)
+{
+	/*
+	 * implement by custom to define your's job.
+	 * you can use sensor_comm_notify or share_memory_xxx API to
+	 * communicate with sensorhub
+	 */
+	return 0;
+}
+
 static void transceiver_restore_sensor(struct transceiver_device *dev)
 {
 	int ret = 0, index = 0, flush = 0;
@@ -834,7 +845,7 @@ static int __init transceiver_init(void)
 	dev->hf_dev.selftest = transceiver_selftest;
 	dev->hf_dev.rawdata = transceiver_rawdata;
 	dev->hf_dev.debug = transceiver_debug;
-	//dev->hf_dev.custom_cmd = transceiver_custom_cmd;
+	dev->hf_dev.custom_cmd = transceiver_custom_cmd;
 	dev->hf_dev.private_data = dev;
 	ret = hf_device_register(&dev->hf_dev);
 	if (ret < 0) {
