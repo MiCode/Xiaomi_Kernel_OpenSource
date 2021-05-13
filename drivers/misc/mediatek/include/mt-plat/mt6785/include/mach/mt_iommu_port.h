@@ -11,6 +11,10 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#if IS_ENABLED(CONFIG_MACH_MT6781)
+#include "../../../mt6781/include/mach/mt_iommu_port.h"
+#else
+
 #ifndef __MT_IOMMU_PORT_H__
 #define __MT_IOMMU_PORT_H__
 /*
@@ -352,4 +356,5 @@ static char *vpu_axi_bus_name[IOMMU_APU_AXI_PORT_NR] = {
 #define M4U_PORT_NR (115)
 #endif
 
+#endif
 #endif

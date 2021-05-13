@@ -11,6 +11,10 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#if IS_ENABLED(CONFIG_MACH_MT6781)
+#include "../../../mt6781/include/mach/mt_iommu_plat.h"
+#else
+
 #ifndef __MT_IOMMU_PLAT_H__
 #define __MT_IOMMU_PLAT_H__
 
@@ -564,4 +568,5 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
 
+#endif
 #endif

@@ -11,6 +11,10 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#if IS_ENABLED(CONFIG_MACH_MT6781)
+#include "../../../mt6781/include/mach/pseudo_m4u_plat.h"
+#else
+
 #ifndef __PSEUDO_M4U_PLAT_H__
 #define __PSEUDO_M4U_PLAT_H__
 
@@ -73,4 +77,5 @@ static inline int  m4u_port_id_of_mdp(
 	else
 		return 0;
 }
+#endif
 #endif
