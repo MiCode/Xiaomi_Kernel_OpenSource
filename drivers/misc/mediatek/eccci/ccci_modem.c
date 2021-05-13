@@ -1357,8 +1357,11 @@ int ccci_md_register(struct ccci_modem *md)
 
 int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
 {
-	int ret = 0;
 	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	unsigned int rat_flag;
+	unsigned int rat_str_int[MD_CFG_RAT_STR5 - MD_CFG_RAT_STR0 + 1];
+	char *rat_str;
+	int i;
 
 	if (len < 0 || data == NULL)
 		return -1;
@@ -1369,7 +1372,35 @@ int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
 		data[MD_CFG_DUMP_FLAG] == MD_DBG_DUMP_INVALID ?
 		md->per_md_data.md_dbg_dump_flag : data[MD_CFG_DUMP_FLAG];
 
-	return ret;
+	rat_flag = data[MD_CFG_RAT_CHK_FLAG];
+	if (MD_RAT_FLAG_C2K_DEP & rat_flag) {
+		if (check_rat_at_md_img(md_id, "C") == 0) {
+			char aee_info[32];
+
+			i = scnprintf(aee_info, sizeof(aee_info),
+				"C2K DEP check fail(0x%x)",
+				get_md_bin_capability(md_id));
+			if (i >= (sizeof(aee_info) - 1))
+				CCCI_ERROR_LOG(md_id, TAG, "buf not enough\n");
+			CCCI_ERROR_LOG(md_id, TAG, "C2K DEP check fail\n");
+#ifdef CONFIG_MTK_AEE_FEATURE
+			aed_md_exception_api(NULL, 0, NULL,
+				0, aee_info, DB_OPT_DEFAULT);
+#endif
+			return -1;
+		}
+	}
+
+	for (i = 0; i < (MD_CFG_RAT_STR5 - MD_CFG_RAT_STR0 + 1); i++)
+		rat_str_int[i] = data[MD_CFG_RAT_STR0 + i];
+	rat_str = (char *)rat_str_int;
+	rat_str[sizeof(rat_str_int) - 1] = 0;
+
+	if (set_soc_md_rt_rat_str(md_id, rat_str) < 0)
+		CCCI_ERROR_LOG(md_id, TAG,
+			"runtime rat setting abnormal, using default!!\n");
+
+	return 0;
 }
 
 struct ccci_mem_layout *ccci_md_get_mem(int md_id)
@@ -2277,12 +2308,8 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				rt_feature.data_len =
 				sizeof(struct ccci_misc_info_element);
 				rt_f_element.feature[0] = md->sbp_code;
-				if (md->per_md_data.config.load_type
-					< modem_ultg)
-					rt_f_element.feature[1] = 0;
-				else
-					rt_f_element.feature[1] =
-					get_wm_bitmap_for_ubin();
+				rt_f_element.feature[1] =
+						get_soc_md_rt_rat(MD_SYS1);
 				CCCI_BOOTUP_LOG(md->index, TAG,
 					"sbp=0x%x,wmid[%d]\n",
 					rt_f_element.feature[0],
@@ -2322,15 +2349,8 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				sizeof(struct ccci_misc_info_element);
 				c2k_flags = 0;
 
-
-				if (is_cdma2000_enable(MD_SYS1)) {
+				if (check_rat_at_rt_setting(MD_SYS1, "C"))
 					c2k_flags |= (1 << 2);
-
-#if (MD_GENERATION == 6290 || MD_GENERATION == 6291)
-					c2k_flags |= (1 << 0);
-					c2k_flags |= (1 << 3);
-#endif
-				}
 				CCCI_NORMAL_LOG(md_id, TAG,
 					"c2k_flags 0x%X; MD_GENERATION: %d\n",
 					c2k_flags, MD_GENERATION);

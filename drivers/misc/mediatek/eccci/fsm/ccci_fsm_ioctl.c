@@ -26,7 +26,7 @@ signed int __weak battery_get_bat_voltage(void)
 
 static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0, retry;
+	int ret = 0;
 	int data;
 	char buffer[64];
 	unsigned int sim_slot_cfg[4];
@@ -207,26 +207,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case CCCI_IOC_RELOAD_MD_TYPE:
-		data = 0;
-		if (copy_from_user(&data, (void __user *)arg,
-				sizeof(unsigned int))) {
-			CCCI_NORMAL_LOG(md_id, FSM,
-				"CCCI_IOC_RELOAD_MD_TYPE: copy_from_user fail\n");
-			ret = -EFAULT;
-		} else {
-			CCCI_NORMAL_LOG(md_id, FSM,
-				"CCCI_IOC_RELOAD_MD_TYPE: 0x%x\n", data);
-			/* add md type check to
-			 * avoid it being changed to illegal value
-			 */
-			if (check_md_type(data) > 0) {
-				if (set_modem_support_cap(md_id, data) == 0)
-					per_md_data->config.load_type = data;
-			} else {
-				CCCI_ERROR_LOG(md_id, FSM,
-				"invalid MD TYPE: 0x%x\n", data);
-			}
-		}
+		/* Phase out */
 		break;
 	case CCCI_IOC_SET_MD_IMG_EXIST:
 		if (copy_from_user(&per_md_data->md_img_exist,
@@ -241,7 +222,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			"CCCI_IOC_SET_MD_IMG_EXIST: set done!\n");
 		break;
 	case CCCI_IOC_GET_MD_IMG_EXIST:
-		data = get_md_type_from_lk(md_id);
+		data = get_md_img_type(md_id);
 		if (data) {
 			memset(&per_md_data->md_img_exist, 0,
 				sizeof(per_md_data->md_img_exist));
@@ -265,14 +246,9 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case CCCI_IOC_GET_MD_TYPE:
-		retry = 600;
-		do {
-			data = get_legacy_md_type(md_id);
-			if (data)
-				break;
-			msleep(500);
-			retry--;
-		} while (retry);
+		data = get_md_img_type(md_id);
+		if (!data)
+			data = 3; //MT6580 using this
 		CCCI_NORMAL_LOG(md_id, FSM,
 			"CCCI_IOC_GET_MD_TYPE: %d!\n", data);
 		ret = put_user((unsigned int)data,

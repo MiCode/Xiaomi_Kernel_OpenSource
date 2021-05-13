@@ -91,7 +91,6 @@ static char *get_md_img_cap_str(int md_img_type)
 	return md_img_type_str[md_img_type];
 }
 
-int curr_ubin_id;
 static char *product_str[] = {[INVALID_VARSION] = INVALID_STR,
 	[DEBUG_VERSION] = DEBUG_STR,
 	[RELEASE_VERSION] = RELEASE_STR
@@ -192,10 +191,6 @@ static int check_md_header_v3(int md_id, void *parse_addr,
 	md_size_check = true;
 #endif
 
-	if ((md_id == MD_SYS1)
-		&& (head->image_type >= modem_ultg)
-		&& (head->image_type <= MAX_IMG_NUM))
-		curr_ubin_id = head->image_type;
 	image->ap_info.image_type = get_md_img_cap_str(head->image_type);
 	image->ap_info.platform = ccci_get_ap_platform();
 	image->img_info.image_type = get_md_img_cap_str(head->image_type);
@@ -467,10 +462,7 @@ static int md_check_header_parser(int md_id, void *parse_addr,
 #else
 	md_size_check = true;
 #endif
-	if ((md_id == MD_SYS1)
-		&& (head->image_type >= modem_ultg)
-		&& (head->image_type <= MAX_IMG_NUM))
-		curr_ubin_id = head->image_type;
+
 	image->ap_info.image_type = get_md_img_cap_str(head->image_type);
 	image->ap_info.platform = ccci_get_ap_platform();
 	image->img_info.image_type = get_md_img_cap_str(head->image_type);
@@ -840,6 +832,7 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 	char YY_K[IMG_POSTFIX_LEN];
 	unsigned int feature_val = 0;
 	int ret = 0;
+	int img_type;
 
 	if ((md_id < 0) || (md_id > MAX_MD_NUM)) {
 		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
@@ -847,13 +840,14 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 		return;
 	}
 
+	img_type = get_md_img_type(md_id);
 	/* X */
 	X = md_id + 1;
 
-	if ((curr_ubin_id != 0) && (md_id == MD_SYS1)) {
+	if ((img_type != 0) && (md_id == MD_SYS1)) {
 		if (buf) {
 			ret = snprintf(buf, IMG_POSTFIX_LEN,
-				"%d_%s_n", X, get_md_img_cap_str(curr_ubin_id));
+				"%d_%s_n", X, get_md_img_cap_str(img_type));
 			if (ret < 0 || ret >= IMG_POSTFIX_LEN)
 				CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
 					"%s-%d:snprintf fail,ret=%d\n",
@@ -866,7 +860,7 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 		if (buf_ex) {
 			ret = snprintf(buf_ex, IMG_POSTFIX_LEN,
 				"%d_%s_n_E%d", X,
-				get_md_img_cap_str(curr_ubin_id), Ex);
+				get_md_img_cap_str(img_type), Ex);
 			if (ret < 0 || ret >= IMG_POSTFIX_LEN)
 				CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
 					"%s-%d:snprintf fail,ret=%d\n",
@@ -881,16 +875,7 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 	YY_K[0] = '\0';
 	switch (md_id) {
 	case MD_SYS1:
-		feature_val = get_md_img_type(MD_SYS1);
-		break;
-	case MD_SYS2:
-		feature_val = get_md_img_type(MD_SYS2);
-		break;
-	case MD_SYS3:
-		feature_val = get_md_img_type(MD_SYS3);
-		break;
-	case MD_SYS5:
-		feature_val = get_md_img_type(MD_SYS5);
+		feature_val = 3;//get_md_img_type(MD_SYS1); MT6580 using this
 		break;
 	default:
 		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
@@ -1016,7 +1001,7 @@ int ccci_load_firmware(int md_id, void *img_inf,
 		goto out;
 	}
 
-	md_type_val = get_modem_support_cap(md_id);
+	md_type_val = 3;//get_modem_support_cap(md_id); only MT6580 using this
 	if ((md_type_val > 0)
 			&& (md_type_val < modem_ultg)) {
 		i = md_type_val;
@@ -1271,7 +1256,6 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 	struct ccci_image_info *img_ptr = (struct ccci_image_info *)img_inf;
 	char *img_str;
 	char *buf;
-	unsigned int md_type = 0;
 	int has_write = 0;
 
 	buf = kmalloc(1024, GFP_KERNEL);
@@ -1300,9 +1284,6 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 		return -1;
 	}
 
-	/* Get modem capability */
-	md_type = get_md_type_from_lk(md_id);
-
 	kfree(buf);
 
 	/* Construct image information string */
@@ -1320,12 +1301,6 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 
 	CCCI_UTIL_INF_MSG_WITH_ID(md_id,
 		"check header str[%s]!\n", img_str);
-
-	if (md_id == MD_SYS1) {
-		curr_ubin_id = md_type;
-		CCCI_UTIL_INF_MSG_WITH_ID(md_id,
-			"type @ header(%d)!\n", curr_ubin_id);
-	}
 
 	has_write = snprintf(post_fix, IMG_POSTFIX_LEN,
 		"%d_%s_n", md_id+1, img_ptr->img_info.image_type);
