@@ -51,18 +51,23 @@ endif
         ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6877"))
             export MTK_COMBO_CHIP=CONNAC2X2_SOC5_0
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/conninfra
+            export CONNAC_VER=2_0
         else ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6885" "CONSYS_6893"))
             export MTK_COMBO_CHIP=CONNAC2X2_SOC3_0
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/conninfra
+            export CONNAC_VER=2_0
         else ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6833"))
             export MTK_COMBO_CHIP=SOC2_1X1
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/common
+            export CONNAC_VER=1_0
         else ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6779" "CONSYS_6873" "CONSYS_6853"))
             export MTK_COMBO_CHIP=SOC2_2X2
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/common
+            export CONNAC_VER=1_0
         else
             export MTK_COMBO_CHIP=CONNAC
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/common
+            export CONNAC_VER=1_0
         endif
 
         export MTK_PLATFORM_WMT=$(MTK_PLATFORM)
@@ -103,7 +108,6 @@ endif
         export WLAN_CHIP_ID=$(MTK_PLATFORM_ID)
         export MTK_ANDROID_WMT=y
         export MTK_ANDROID_EMI=y
-        export ADAPTOR_OPTS=$(MTK_COMBO_CHIP)
 
         WLAN_IP_SET_1_SERIES := 6765 6761 6885 6893
         WLAN_IP_SET_2_SERIES := 3967 6785
