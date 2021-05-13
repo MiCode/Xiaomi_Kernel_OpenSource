@@ -19,6 +19,11 @@
 #include <asm/memory.h>
 #include <asm/stacktrace.h>
 #include <asm/system_misc.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_fdt.h>
+#include <linux/of_reserved_mem.h>
 
 #include <mrdump.h>
 #include <mt-plat/mboot_params.h>
@@ -36,6 +41,8 @@ static struct pt_regs saved_regs;
 #define PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT   31
 #define PSCI_1_1_RESET2_TYPE_VENDOR     \
 	(1 << PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT)
+
+#define DEBUG_COMPATIBLE "mediatek,reserve-memory-mrdump_share"
 
 static void aee_exception_reboot(void)
 {
@@ -321,12 +328,35 @@ static int __init mrdump_panic_init(void)
 {
 	struct mrdump_params mparams = {};
 
-#ifdef MODULE
-	if (mrdump_ka_init()) {
-		pr_notice("%s: mrdump helper not available\n", __func__);
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
+
+	/* Get reserved memory */
+	rmem_node = of_find_compatible_node(NULL, NULL, DEBUG_COMPATIBLE);
+	if (!rmem_node) {
+		pr_info("[mrdump] no node for reserved memory\n");
 		return -EINVAL;
 	}
-#endif
+
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		pr_info("[mrdump] cannot lookup reserved memory\n");
+		return -EINVAL;
+	}
+
+	pr_info("[mrdump] phys:0x%llx - 0x%llx (0x%llx)\n",
+		(unsigned long long)rmem->base,
+		(unsigned long long)rmem->base + (unsigned long long)rmem->size,
+		(unsigned long long)rmem->size);
+
+	rmem->priv = memremap(rmem->base, rmem->size, MEMREMAP_WB);
+	if (!rmem->priv) {
+		pr_info("[mrdump] failed to map debug-kinfo\n");
+		return -ENOMEM;
+	} else {
+		pr_info("[mrdump] rmem->priv = %px\n", rmem->priv);
+	}
+
 	mrdump_parse_chosen(&mparams);
 #ifdef MODULE
 	mrdump_module_init_mboot_params();
@@ -339,12 +369,11 @@ static int __init mrdump_panic_init(void)
 	}
 	mrdump_mini_init(&mparams);
 
-	if (strcmp(mparams.lk_version, MRDUMP_GO_DUMP) == 0) {
-		mrdump_full_init();
-	} else {
-		pr_notice("%s: Full ramdump disabled, version %s not matched.\n",
-			  __func__, mparams.lk_version);
-	}
+#ifdef MODULE
+	mrdump_ka_init(rmem->priv, mparams.lk_version);
+#else
+	mrdump_full_init(mparams.lk_version);
+#endif
 
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	register_die_notifier(&die_blk);

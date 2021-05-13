@@ -33,7 +33,7 @@ static struct attribute_group attr_group = {
 	.attrs = attrs,
 };
 
-static int __init mrdump_sysfs_init(void)
+static int mrdump_sysfs_init(void)
 {
 	struct kobject *kobj;
 	struct kset *p_module_kset = aee_get_module_kset();
@@ -60,8 +60,14 @@ static int __init mrdump_sysfs_init(void)
 }
 #endif
 
-int __init mrdump_full_init(void)
+int mrdump_full_init(const char *version)
 {
+	if (strcmp(version, MRDUMP_GO_DUMP) != 0) {
+		pr_notice("%s: Full ramdump disabled, version %s not matched.\n",
+			  __func__, version);
+		return 0;
+	}
+
 	mrdump_cblock->enabled = MRDUMP_ENABLE_COOKIE;
 #if IS_ENABLED(CONFIG_SYSFS)
 	mrdump_sysfs_init();

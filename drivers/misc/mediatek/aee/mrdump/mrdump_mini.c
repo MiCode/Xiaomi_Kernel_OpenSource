@@ -70,6 +70,8 @@ static struct ko_info *ko_info_list;
 
 #define KO_INFO_SIZE (MAX_KO_NUM * sizeof(struct ko_info))
 
+static spinlock_t kolist_lock;
+
 static void fill_ko_list(unsigned int idx, struct module *mod)
 {
 	unsigned long text_addr = 0;
@@ -94,20 +96,77 @@ static void fill_ko_list(unsigned int idx, struct module *mod)
 			break;
 	}
 
-	snprintf(ko_info_list[idx].name, MAX_KO_NAME_LEN, "%s", mod->name);
-	ko_info_list[idx].text_addr = text_addr;
-	ko_info_list[idx].init_text_addr = init_addr;
-	ko_info_list[idx].core_size = mod->core_layout.size;
-	ko_info_list[idx].init_size = mod->init_layout.size;
+	if(snprintf(ko_info_list[idx].name,
+		    MAX_KO_NAME_LEN, "%s", mod->name) > 0) {
+		ko_info_list[idx].text_addr = text_addr;
+		ko_info_list[idx].init_text_addr = init_addr;
+		ko_info_list[idx].core_size = mod->core_layout.size;
+		ko_info_list[idx].init_size = mod->init_layout.size;
+	} else {
+		memset(&ko_info_list[i], 0, sizeof(struct ko_info));
+	}
 }
 
 static void init_ko_addr_list(void)
 {
-	struct module *mod;
-	unsigned int list_idx = 0;
-	struct list_head *p_modules = aee_get_modules();
-
 	ko_info_list = kzalloc(KO_INFO_SIZE, GFP_KERNEL);
+	if (!ko_info_list)
+		return;
+}
+
+void load_ko_addr_list(struct module *module)
+{
+	unsigned int i;
+
+	if (!ko_info_list)
+		return;
+
+	spin_lock(&kolist_lock);
+	for (i = 0; i < MAX_KO_NUM; i++) {
+		if (!ko_info_list[i].text_addr)
+			break;
+		if (!strcmp(ko_info_list[i].name, module->name))
+			break;
+	}
+
+	if (i >= MAX_KO_NUM) {
+		spin_unlock(&kolist_lock);
+		pr_info("no spare room for new ko: %s", module->name);
+		return;
+	}
+
+	fill_ko_list(i, module);
+	spin_unlock(&kolist_lock);
+}
+
+void unload_ko_addr_list(struct module *module)
+{
+	unsigned int i;
+
+	if (!ko_info_list)
+		return;
+
+	spin_lock(&kolist_lock);
+	for (i = 0; i < MAX_KO_NUM; i++)
+		if (!strcmp(ko_info_list[i].name, module->name))
+			break;
+
+	if (i >= MAX_KO_NUM) {
+		spin_unlock(&kolist_lock);
+		pr_info("un-recorded module: %s", module->name);
+		return;
+	}
+
+	memset(&ko_info_list[i], 0, sizeof(struct ko_info));
+	spin_unlock(&kolist_lock);
+}
+
+void init_ko_addr_list_late(void)
+{
+	struct module *mod;
+	struct list_head *p_modules = aee_get_modules();
+	int start = 0;
+
 	if (!ko_info_list)
 		return;
 
@@ -119,55 +178,14 @@ static void init_ko_addr_list(void)
 	list_for_each_entry_rcu(mod, p_modules, list) {
 		if (mod->state == MODULE_STATE_UNFORMED)
 			continue;
-		if (list_idx >= MAX_KO_NUM) {
-			pr_info("mrdump: ko info list full(idx:%d)\n",
-					list_idx);
-			break;
+		if (!start) {
+			/* only update the early KOs */
+			if (!strcmp(mod->name, "mrdump"))
+				start = 1;
+			continue;
 		}
-		fill_ko_list(list_idx, mod);
-		list_idx++;
+		load_ko_addr_list(mod);
 	}
-}
-
-void load_ko_addr_list(struct module *module)
-{
-	unsigned int i;
-
-	if (!ko_info_list)
-		return;
-
-	for (i = 0; i < MAX_KO_NUM; i++) {
-		if (!ko_info_list[i].text_addr)
-			break;
-		if (!strcmp(ko_info_list[i].name, module->name))
-			break;
-	}
-
-	if (i >= MAX_KO_NUM) {
-		pr_info("no spare room for new ko: %s", module->name);
-		return;
-	}
-
-	fill_ko_list(i, module);
-}
-
-void unload_ko_addr_list(struct module *module)
-{
-	unsigned int i;
-
-	if (!ko_info_list)
-		return;
-
-	for (i = 0; i < MAX_KO_NUM; i++)
-		if (!strcmp(ko_info_list[i].name, module->name))
-			break;
-
-	if (i >= MAX_KO_NUM) {
-		pr_info("un-recorded module: %s", module->name);
-		return;
-	}
-
-	memset(&ko_info_list[i], 0, sizeof(struct ko_info));
 }
 #endif
 
@@ -207,7 +225,9 @@ __weak void get_pidmap_aee_buffer(unsigned long *addr, unsigned long *size)
 #ifdef __aarch64__
 static unsigned long virt_2_pfn(unsigned long addr)
 {
-	pgd_t *pgd = aee_pgd_offset_k(addr), _pgd_val = {0};
+	u64 mpt = mrdump_get_mpt() + kimage_voffset;
+	pgd_t *pgd = pgd_offset_pgd((pgd_t *)mpt, addr);
+	pgd_t _pgd_val = {0};
 	p4d_t *p4d, _p4d_val = {0};
 	pud_t *pud, _pud_val = {0};
 	pmd_t *pmd, _pmd_val = {0};
@@ -262,7 +282,7 @@ OUT:
 #endif
 static unsigned long virt_2_pfn(unsigned long addr)
 {
-	pgd_t *pgd = aee_pgd_offset_k(addr), _pgd_val = {0};
+	pgd_t *pgd = pgd_offset_k(addr), _pgd_val = {0};
 #ifdef CONFIG_ARM_LPAE
 	pud_t *pud, _pud_val = {0};
 #else
@@ -451,16 +471,7 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		return;
 	}
 
-	if (!mrdump_virt_addr_valid(current_thread_info())) {
-		pr_notice("mrdump: current thread info invalid\n");
-		return;
-	}
 	tsk = current;
-
-	if (!mrdump_virt_addr_valid(tsk)) {
-		pr_notice("mrdump: tsk invalid\n");
-		return;
-	}
 	cur_proc = (struct aee_process_info *)((void *)mrdump_mini_ehdr +
 			MRDUMP_MINI_HEADER_SIZE);
 	/* Current panic user tasks */
@@ -478,8 +489,8 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		previous = tsk;
 		tsk = tsk->real_parent;
 		if (!mrdump_virt_addr_valid(tsk)) {
-			pr_notice("tsk(%p) invalid (previous: [%s, %d])\n", tsk,
-					previous->comm, previous->pid);
+			pr_notice("tsk(0x%lx) invalid (previous: [%s, %d])\n",
+					tsk, previous->comm, previous->pid);
 			break;
 		}
 	} while (tsk && (tsk->pid != 0) && (tsk->pid != 1));
@@ -635,7 +646,7 @@ void mrdump_mini_set_addr_size(unsigned int addr, unsigned int size)
 }
 EXPORT_SYMBOL(mrdump_mini_set_addr_size);
 
-static void mrdump_mini_add_klog(void)
+void mrdump_mini_add_klog(void)
 {
 	struct mrdump_mini_elf_misc misc;
 	struct printk_ringbuffer **pprb;
@@ -669,6 +680,19 @@ static void mrdump_mini_add_klog(void)
 			     0, "_KERNEL_LOG_TP_");
 }
 
+void mrdump_mini_add_kallsyms(void)
+{
+	unsigned long size, vaddr;
+
+	vaddr = aee_get_kallsyms_addresses();
+	vaddr = round_down(vaddr, PAGE_SIZE);
+	size = aee_get_kti_addresses() - vaddr;
+	size = round_up(size, PAGE_SIZE);
+	if (vaddr)
+		mrdump_mini_add_misc_pa(vaddr, __pa_nodebug(vaddr),
+				size, 0, MRDUMP_MINI_MISC_LOAD);
+}
+
 static void mrdump_mini_build_elf_misc(void)
 {
 	struct mrdump_mini_elf_misc misc;
@@ -690,7 +714,9 @@ static void mrdump_mini_build_elf_misc(void)
 	mrdump_mini_add_misc_pa(task_info_va, task_info_pa,
 			sizeof(struct aee_process_info), 0, "PROC_CUR_TSK");
 	/* could also use the kernel log in pstore for LKM case */
+#ifndef MODULE
 	mrdump_mini_add_klog();
+#endif
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	get_mbootlog_buffer(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_LAST_KMSG");
@@ -717,13 +743,13 @@ static void mrdump_mini_build_elf_misc(void)
 	get_disp_dbg_buffer(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_DISP_DBG_");
 #ifdef CONFIG_MODULES
+	spin_lock_init(&kolist_lock);
 	init_ko_addr_list();
 	if (ko_info_list)
 		mrdump_mini_add_misc_pa((unsigned long)ko_info_list,
 			(unsigned long)__pa_nodebug(
 					(unsigned long)ko_info_list),
 			KO_INFO_SIZE, 0, "SYS_MODULES_INFO_RAW");
-
 #endif
 
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
@@ -865,14 +891,9 @@ int __init mrdump_mini_init(const struct mrdump_params *mparams)
 		mrdump_mini_add_misc_pa((unsigned long)mrdump_cblock,
 				mparams->cb_addr, mparams->cb_size,
 				0, MRDUMP_MINI_MISC_LOAD);
-
-		vaddr = aee_get_kallsyms_addresses();
-		vaddr = round_down(vaddr, PAGE_SIZE);
-		size = aee_get_kti_addresses() - vaddr;
-		size = round_up(size, PAGE_SIZE);
-		if (vaddr)
-			mrdump_mini_add_misc_pa(vaddr, __pa_nodebug(vaddr),
-					size, 0, MRDUMP_MINI_MISC_LOAD);
+#ifndef MODULE
+		mrdump_mini_add_kallsyms();
+#endif
 	}
 
 	vaddr = round_down((unsigned long)__per_cpu_offset, PAGE_SIZE);

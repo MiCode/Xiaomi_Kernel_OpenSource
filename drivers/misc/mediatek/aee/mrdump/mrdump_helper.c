@@ -12,7 +12,7 @@
 #include <linux/percpu.h>
 #include <linux/sched/signal.h>
 #include <linux/string.h>
-#include "../../../../kernel/sched/sched.h"
+#include <linux/workqueue.h>
 
 #include <asm/memory.h>
 #include <asm/pgtable.h>
@@ -21,145 +21,67 @@
 #include <asm/stacktrace.h>
 #include <asm/system_misc.h>
 
+#include <debug_kinfo.h>
 #include <mt-plat/aee.h>
 #include <mt-plat/mboot_params.h>
+#include <sched/sched.h>
 #include "mrdump_private.h"
 
 #ifdef MODULE
 
 #define KV		kimage_vaddr
-#define S_MAX		SZ_128M
-#define SM_SIZE		28
-#define TT_SIZE		256
 #define NAME_LEN	128
 
 static unsigned long *mrdump_ka;
 static int *mrdump_ko;
-static unsigned long *mrdump_krb;
-static unsigned int *mrdump_kns;
+static unsigned long _mrdump_krb;
+static unsigned int _mrdump_kns;
 static u8 *mrdump_kn;
 static unsigned int *mrdump_km;
 static u8 *mrdump_ktt;
 static u16 *mrdump_kti;
 
-static void *mrdump_abt_addr(void *ssa)
-{
-	void *pos;
-	u8 abt[SM_SIZE];
-	int i;
-	unsigned long s_left;
+static void *kinfo_vaddr;
+static char mrdump_ver[16];
 
-	for (i = 0; i < SM_SIZE; i++) {
-		if (i % 2)
-			abt[i] = 0;
-		else
-			abt[i] = 0x61 + i / 2;
-	}
-
-	if ((unsigned long)ssa >= KV + S_MAX) {
-		pr_info("out of range: 0x%lx\n", ssa);
-		return NULL;
-	}
-
-	pos = ssa;
-	s_left = KV + S_MAX - (unsigned long)ssa;
-	while ((u64)pos < (u64)(KV + S_MAX)) {
-		pos = memchr(pos, 'a', s_left);
-
-		if (!pos) {
-			pr_info("fail at: 0x%lx @ 0x%x\n", ssa, s_left);
-			return NULL;
-		}
-		s_left = KV + S_MAX - (unsigned long)pos;
-
-		if (!memcmp(pos, (const void *)abt, sizeof(abt)))
-			return pos;
-
-		pos += 1;
-	}
-
-	pr_info("fail at end: 0x%lx @ 0x%lx\n", ssa, s_left);
-	return NULL;
-}
-
-static unsigned long *mrdump_krb_addr(void)
-{
-	void *abt_addr = (void *)KV;
-	void *ssa = (void *)KV;
-	unsigned long *pos;
-
-	while ((u64)ssa < KV + S_MAX) {
-		abt_addr = mrdump_abt_addr(ssa);
-		if (!abt_addr) {
-			pr_info("krb not found: 0x%lx\n", ssa);
-			return NULL;
-		}
-
-		abt_addr = (void *)round_up((unsigned long)abt_addr, 8);
-		for (pos = (unsigned long *)abt_addr;
-		     (u64)pos > (u64)ssa ; pos--) {
-			if ((u64)pos == (u64)&kimage_vaddr)
-				break;
-			if (*pos == KV)
-				return pos;
-		}
-		ssa = abt_addr + 1;
-	}
-
-	pr_info("krb not found: 0x%lx\n", ssa);
-	return NULL;
-}
-
-static unsigned int *mrdump_km_addr(void)
-{
-	const u8 *name = mrdump_kn;
-	unsigned int loop = *mrdump_kns;
-
-	while (loop--)
-		name = name + (*name) + 1;
-
-	return (unsigned int *)round_up((unsigned long)name, 8);
-}
-
-static u16 *mrdump_kti_addr(void)
-{
-	const u8 *pch = mrdump_ktt;
-	int loop = TT_SIZE;
-
-	while (loop--) {
-		for (; *pch; pch++)
-			;
-		pch++;
-	}
-
-	return (u16 *)round_up((unsigned long)pch, 8);
-}
-
+static void mrdump_ka_work_func(struct work_struct *work);
 static void aee_base_addrs_init(void);
-int mrdump_ka_init(void)
+
+static DECLARE_DELAYED_WORK(ka_work,mrdump_ka_work_func);
+
+int mrdump_ka_init(void *vaddr, const char *version)
 {
-	unsigned int kns;
-
-#if IS_ENABLED(CONFIG_KASAN_GENERIC) || IS_ENABLED(CONFIG_KASAN_SW_TAGS)
-	current->kasan_depth--;
-#endif
-	mrdump_krb = mrdump_krb_addr();
-	if (!mrdump_krb)
-		return -EINVAL;
-
-	mrdump_kns = (unsigned int *)(mrdump_krb + 1);
-	mrdump_kn = (u8 *)(mrdump_krb + 2);
-	kns = *mrdump_kns;
-	mrdump_ko = (int *)(mrdump_krb - (round_up(kns, 2) / 2));
-	mrdump_km = mrdump_km_addr();
-	mrdump_ktt = (u8 *)round_up((unsigned long)(mrdump_km +
-				    (round_up(kns, 256) / 256)), 8);
-	mrdump_kti = mrdump_kti_addr();
-#if IS_ENABLED(CONFIG_KASAN_GENERIC) || IS_ENABLED(CONFIG_KASAN_SW_TAGS)
-	current->kasan_depth++;
-#endif
-	aee_base_addrs_init();
+	kinfo_vaddr = vaddr;
+	strlcpy(mrdump_ver, version, sizeof(mrdump_ver));
+	schedule_delayed_work(&ka_work, 0);
 	return 0;
+}
+
+static void mrdump_ka_work_func(struct work_struct *work)
+{
+	struct kernel_all_info *dbg_kinfo;
+	struct kernel_info *kinfo;
+
+	dbg_kinfo = (struct kernel_all_info *)kinfo_vaddr;
+	kinfo = &(dbg_kinfo->info);
+	if (kinfo->thread_size == THREAD_SIZE) {
+		_mrdump_kns = kinfo->num_syms;
+		_mrdump_krb = kinfo->_relative_pa + kimage_voffset;
+		mrdump_ko = (void *)(kinfo->_offsets_pa + kimage_voffset);
+		mrdump_kn = (void *)(kinfo->_names_pa + kimage_voffset);
+		mrdump_ktt = (void *)(kinfo->_token_table_pa + kimage_voffset);
+		mrdump_kti = (void *)(kinfo->_token_index_pa + kimage_voffset);
+		mrdump_km = (void *)(kinfo->_markers_pa + kimage_voffset);
+		aee_base_addrs_init();
+		mrdump_cblock_late_init();
+		init_ko_addr_list_late();
+		mrdump_mini_add_klog();
+		mrdump_mini_add_kallsyms();
+		mrdump_full_init(mrdump_ver);
+	} else {
+		pr_info("%s: retry in 0.1 second", __func__);
+		schedule_delayed_work(&ka_work, HZ / 10);
+	}
 }
 
 static unsigned int mrdump_checking_names(unsigned int off,
@@ -204,12 +126,12 @@ static unsigned long mrdump_idx2addr(int idx)
 		return *(mrdump_ka + idx);
 
 	if (!IS_ENABLED(CONFIG_KALLSYMS_ABSOLUTE_PERCPU))
-		return *mrdump_krb + (u32)(*(mrdump_ko + idx));
+		return _mrdump_krb + (u32)(*(mrdump_ko + idx));
 
 	if (*(mrdump_ko + idx) >= 0)
 		return *(mrdump_ko + idx);
 
-	return *mrdump_krb - 1 - *(mrdump_ko + idx);
+	return _mrdump_krb - 1 - *(mrdump_ko + idx);
 }
 
 static unsigned long aee_addr_find(const char *name)
@@ -218,7 +140,7 @@ static unsigned long aee_addr_find(const char *name)
 	unsigned long i;
 	unsigned int off;
 
-	for (i = 0, off = 0; i < *mrdump_kns; i++) {
+	for (i = 0, off = 0; i < _mrdump_kns; i++) {
 		off = mrdump_checking_names(off, strbuf, ARRAY_SIZE(strbuf));
 
 		if (strcmp(strbuf, name) == 0)
@@ -421,22 +343,6 @@ phys_addr_t aee_memblock_start_of_DRAM(void)
 	return memblockp->memory.regions[0].base;
 }
 
-phys_addr_t aee_memblock_end_of_DRAM(void)
-{
-	struct memblock *memblockp = aee_memblock();
-	int idx;
-
-	if (!memblockp) {
-		pr_info("%s failed", __func__);
-		return 0;
-	}
-
-	idx = memblockp->memory.cnt - 1;
-
-	return (memblockp->memory.regions[idx].base +
-		memblockp->memory.regions[idx].size);
-}
-
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;
 struct list_head *aee_get_modules(void)
@@ -469,32 +375,6 @@ void *aee_log_buf_addr_get(void)
 
 	pr_info("%s failed", __func__);
 	return NULL;
-}
-EXPORT_SYMBOL(aee_log_buf_addr_get);
-
-static struct mm_struct *p_init_mm;
-static struct mm_struct *aee_init_mm(void)
-{
-	if (p_init_mm)
-		return p_init_mm;
-
-	p_init_mm = (void *)(aee_addr_find("init_mm"));
-
-	if (!p_init_mm) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-
-	return p_init_mm;
-}
-
-pgd_t *aee_pgd_offset_k(unsigned long addr)
-{
-	struct mm_struct *pim = aee_init_mm();
-
-	if (!pim)
-		return NULL;
-	return (pgd_t *)pgd_offset(pim, addr);
 }
 
 unsigned long aee_get_kallsyms_addresses(void)
@@ -600,7 +480,7 @@ static void aee_base_addrs_init(void)
 	char strbuf[NAME_LEN];
 	unsigned long i;
 	unsigned int off;
-	unsigned int search_num = 8;
+	unsigned int search_num = 7;
 
 #ifndef CONFIG_SYSFS
 	search_num--;
@@ -609,7 +489,7 @@ static void aee_base_addrs_init(void)
 	search_num--;
 #endif
 
-	for (i = 0, off = 0; i < *mrdump_kns; i++) {
+	for (i = 0, off = 0; i < _mrdump_kns; i++) {
 		if (!search_num)
 			return;
 		off = mrdump_checking_names(off, strbuf, ARRAY_SIZE(strbuf));
@@ -652,12 +532,6 @@ static void aee_base_addrs_init(void)
 			continue;
 		}
 
-		if (!p_init_mm && strcmp(strbuf, "init_mm") == 0) {
-			p_init_mm = (void *)mrdump_idx2addr(i);
-			search_num--;
-			continue;
-		}
-
 		if (!p_log_ptr&& strcmp(strbuf, "prb") == 0) {
 			p_log_ptr = (void *)mrdump_idx2addr(i);
 			search_num--;
@@ -667,7 +541,6 @@ static void aee_base_addrs_init(void)
 	if (search_num)
 		pr_info("mrdump addr init incomplete %d\n", search_num);
 }
-
 #else /* #ifdef MODULE*/
 /* for mrdump.ko */
 void aee_show_regs(struct pt_regs *regs)
@@ -712,11 +585,6 @@ phys_addr_t aee_memblock_start_of_DRAM(void)
 	return memblock_start_of_DRAM();
 }
 
-phys_addr_t aee_memblock_end_of_DRAM(void)
-{
-	return memblock_end_of_DRAM();
-}
-
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;
 struct list_head *aee_get_modules(void)
@@ -749,11 +617,6 @@ void *aee_log_buf_addr_get(void)
 
 	pr_info("%s failed", __func__);
 	return NULL;
-}
-
-pgd_t *aee_pgd_offset_k(unsigned long addr)
-{
-	return (pgd_t *)pgd_offset_k(addr);
 }
 
 unsigned long aee_get_kallsyms_addresses(void)
