@@ -53,8 +53,6 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #define TURBO_DISABLE		0
 #define INHERIT_THRESHOLD	4
 #define UTIL_AVG_UNCHANGED	0x1
-#define RWSEM_ANONYMOUSLY_OWNED	(1UL << 0)
-#define RWSEM_READER_OWNED	((struct task_struct *)RWSEM_ANONYMOUSLY_OWNED)
 #define type_offset(type)		 (type * 4)
 #define task_turbo_nice(nice) (nice == 0xbeef || nice == 0xbeee)
 #define type_number(type)		 (1U << type_offset(type))
@@ -67,6 +65,14 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 	typeof(_ptr) ptr = (_ptr);			\
 	*ptr -= min_t(typeof(*ptr), *ptr, _val);	\
 } while (0)
+
+#define RWSEM_READER_OWNED	(1UL << 0)
+#define RWSEM_RD_NONSPINNABLE	(1UL << 1)
+#define RWSEM_WR_NONSPINNABLE	(1UL << 2)
+#define RWSEM_NONSPINNABLE	(RWSEM_RD_NONSPINNABLE | RWSEM_WR_NONSPINNABLE)
+#define RWSEM_OWNER_FLAGS_MASK	(RWSEM_READER_OWNED | RWSEM_NONSPINNABLE)
+#define RWSEM_WRITER_LOCKED	(1UL << 0)
+#define RWSEM_WRITER_MASK	RWSEM_WRITER_LOCKED
 
 DEFINE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
 DEFINE_PER_CPU(unsigned long, cpu_scale) = SCHED_CAPACITY_SCALE;
@@ -87,12 +93,14 @@ static void rwsem_list_add(struct task_struct *task, struct list_head *entry,
 static bool binder_start_turbo_inherit(struct task_struct *from,
 					struct task_struct *to);
 static void binder_stop_turbo_inherit(struct task_struct *p);
+static inline struct task_struct *rwsem_owner(struct rw_semaphore *sem);
+static inline bool rwsem_test_oflags(struct rw_semaphore *sem, long flags);
+static inline bool is_rwsem_reader_owned(struct rw_semaphore *sem);
 static void rwsem_start_turbo_inherit(struct rw_semaphore *sem);
 static bool sub_feat_enable(int type);
 static bool start_turbo_inherit(struct task_struct *task, int type, int cnt);
 static bool stop_turbo_inherit(struct task_struct *task, int type);
 static inline bool should_set_inherit_turbo(struct task_struct *task);
-static inline bool rwsem_owner_is_writer(struct task_struct *owner);
 static inline void add_inherit_types(struct task_struct *task, int type);
 static inline void sub_inherit_types(struct task_struct *task, int type);
 static inline void set_scheduler_tuning(struct task_struct *task);
@@ -280,6 +288,31 @@ static void probe_android_rvh_select_task_rq_fair(void *ignore, struct task_stru
 							int wake_flags, int *target_cpu)
 {
 	*target_cpu = select_turbo_cpu(p);
+}
+
+static inline struct task_struct *rwsem_owner(struct rw_semaphore *sem)
+{
+	return (struct task_struct *)
+		(atomic_long_read(&sem->owner) & ~RWSEM_OWNER_FLAGS_MASK);
+}
+
+static inline bool rwsem_test_oflags(struct rw_semaphore *sem, long flags)
+{
+	return atomic_long_read(&sem->owner) & flags;
+}
+
+static inline bool is_rwsem_reader_owned(struct rw_semaphore *sem)
+{
+#if IS_ENABLED(CONFIG_DEBUG_RWSEMS)
+	/*
+	 * Check the count to see if it is write-locked.
+	 */
+	long count = atomic_long_read(&sem->count);
+
+	if (count & RWSEM_WRITER_MASK)
+		return false;
+#endif
+	return rwsem_test_oflags(sem, RWSEM_READER_OWNED);
 }
 
 static unsigned long cpu_runnable_load(struct rq *rq)
@@ -498,35 +531,27 @@ static void rwsem_list_add(struct task_struct *task,
 static void rwsem_start_turbo_inherit(struct rw_semaphore *sem)
 {
 	bool should_inherit;
-	struct task_struct *owner, *turbo_owner;
-	struct task_struct *cur = current;
+	struct task_struct *owner, *inherited_owner;
 	struct task_turbo_t *turbo_data;
-	unsigned long read_owner;
 
 	if (!sub_feat_enable(SUB_FEAT_LOCK))
 		return;
 
-	read_owner = atomic_long_read(&sem->owner);
-	should_inherit = should_set_inherit_turbo(cur);
+	owner = rwsem_owner(sem);
+	should_inherit = should_set_inherit_turbo(current);
 	if (should_inherit) {
-		turbo_owner = get_inherit_task(sem);
-		turbo_data = get_task_turbo_t(cur);
-		owner = (struct task_struct *)read_owner;
-		if (rwsem_owner_is_writer(owner) &&
-				!is_turbo_task(owner) &&
-				!turbo_owner) {
+		inherited_owner = get_inherit_task(sem);
+		turbo_data = get_task_turbo_t(current);
+		if (!is_rwsem_reader_owned(sem) &&
+		    !is_turbo_task(owner) &&
+		    !inherited_owner) {
 			start_turbo_inherit(owner,
 					    RWSEM_INHERIT,
 					    turbo_data->inherit_cnt);
-			sem->android_vendor_data1 = read_owner;
-			trace_turbo_inherit_start(cur, owner);
+			sem->android_vendor_data1 = (u64)owner;
+			trace_turbo_inherit_start(current, owner);
 		}
 	}
-}
-
-static inline bool rwsem_owner_is_writer(struct task_struct *owner)
-{
-	return owner && owner != RWSEM_READER_OWNED;
 }
 
 static bool start_turbo_inherit(struct task_struct *task,
