@@ -375,6 +375,11 @@ static kal_uint16 imx576_table_write_cmos_sensor(kal_uint16 *para,
 #endif
 	}
 
+#if 0 /*for debug*/
+	for (int i = 0; i < len/2; i++)
+		LOG_INF("readback addr(0x%x)=0x%x\n",
+			para[2*i], read_cmos_sensor_8(para[2*i]));
+#endif
 	return 0;
 }
 
@@ -582,6 +587,36 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	return gain;
 }	/*	set_gain  */
 
+#if 0
+static void set_mirror_flip(kal_uint8 image_mirror)
+{
+	kal_uint8 itemp;
+
+	LOG_INF("image_mirror = %d\n", image_mirror);
+	itemp = read_cmos_sensor_8(0x0101);
+	itemp &= ~0x03;
+
+	switch (image_mirror) {
+
+	case IMAGE_NORMAL:
+	write_cmos_sensor_8(0x0101, itemp);
+	break;
+
+	case IMAGE_V_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x02);
+	break;
+
+	case IMAGE_H_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x01);
+	break;
+
+	case IMAGE_HV_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x03);
+	break;
+	}
+}
+#endif
+
 /*************************************************************************
  * FUNCTION
  *	night_mode
@@ -598,6 +633,12 @@ static kal_uint16 set_gain(kal_uint16 gain)
  * GLOBALS AFFECTED
  *
  *************************************************************************/
+#if 0
+static void night_mode(kal_bool enable)
+{
+/*No Need to implement this function*/
+}	/*	night_mode	*/
+#endif
 
 static kal_uint16 imx576_init_setting[] = {
 	0x0136, 0x18,
@@ -1100,6 +1141,24 @@ static void preview_setting_3HDR(void)
 
 	imx576_table_write_cmos_sensor(imx576_preview_setting_3HDR,
 		sizeof(imx576_preview_setting_3HDR) / sizeof(kal_uint16));
+
+#if 0
+	/* AEHIST_LINER_AUTO_THRESH 0:manual 1:auto */
+	write_cmos_sensor_8(0xB734, 0x01);
+	/* AEHIST_LOG_AUTO_THRESH 0:manual 1:auto */
+	write_cmos_sensor_8(0xB73A, 0x00);
+	write_cmos_sensor_8(0x37EC, 0x00); /*AEHIST_LOG_LOWER_TH*/
+	write_cmos_sensor_8(0x37ED, 0x00); /*AEHIST_LOG_LOWER_TH*/
+	write_cmos_sensor_8(0x37EE, 0x03); /*AEHIST_LOG_UPPER_TH*/
+	write_cmos_sensor_8(0x37EF, 0xFF); /*AEHIST_LOG_UPPER_TH*/
+	LOG_INF(
+	"AEHIST_LOG 0xB73A:0x%x 0x37EC:0x%x 0x37ED:0x%x 0x37EE:0x%x 0x37EF:0x%x\n",
+		read_cmos_sensor_8(0xB73A),
+		read_cmos_sensor_8(0x37EC),
+		read_cmos_sensor_8(0x37ED),
+		read_cmos_sensor_8(0x37EE),
+		read_cmos_sensor_8(0x37EF));
+#endif
 }
 
 static kal_uint16 imx576_preview_setting[] = {
@@ -1191,6 +1250,52 @@ static void preview_setting(void)
 	LOG_INF("using binning_3hdr_setting\n");
 	preview_setting_3HDR();
 	/*3hdr aec initial setting*/
+	#if 0
+	write_cmos_sensor_8(0x323A, 0x01);
+	write_cmos_sensor_8(0x323B, 0x01);
+	write_cmos_sensor_8(0x323C, 0x01);
+	write_cmos_sensor_8(0x37E0, 0x00);
+	write_cmos_sensor_8(0x37E1, 0x00);
+	write_cmos_sensor_8(0x37E2, 0x00);
+	write_cmos_sensor_8(0x37E3, 0x00);
+	write_cmos_sensor_8(0x37E4, 0x0A);
+	write_cmos_sensor_8(0x37E5, 0x20);
+	write_cmos_sensor_8(0x37E6, 0x07);
+	write_cmos_sensor_8(0x37E7, 0x94);
+	write_cmos_sensor_8(0x37F0, 0x00);
+	write_cmos_sensor_8(0x37F1, 0x00);
+	write_cmos_sensor_8(0x37F2, 0x00);
+	write_cmos_sensor_8(0x37F3, 0x00);
+	write_cmos_sensor_8(0x37F4, 0x0A);
+	write_cmos_sensor_8(0x37F5, 0x20);
+	write_cmos_sensor_8(0x37F6, 0x07);
+	write_cmos_sensor_8(0x37F7, 0x94);
+	write_cmos_sensor_8(0x37F8, 0x03);
+	write_cmos_sensor_8(0x0202, 0x12);
+	write_cmos_sensor_8(0x0203, 0x84);
+	write_cmos_sensor_8(0x0204, 0x03);
+	write_cmos_sensor_8(0x0205, 0xc0);
+	write_cmos_sensor_8(0x020E, 0x01);
+	write_cmos_sensor_8(0x020F, 0x5c);
+	write_cmos_sensor_8(0x0210, 0x01);
+	write_cmos_sensor_8(0x0211, 0x5c);
+	write_cmos_sensor_8(0x0212, 0x01);
+	write_cmos_sensor_8(0x0213, 0x5c);
+	write_cmos_sensor_8(0x0214, 0x01);
+	write_cmos_sensor_8(0x0215, 0x5c);
+	write_cmos_sensor_8(0x3fe0, 0x11);
+	write_cmos_sensor_8(0x3fe1, 0xa8);
+	write_cmos_sensor_8(0x3fe2, 0x02);
+	write_cmos_sensor_8(0x3fe3, 0x99);
+	write_cmos_sensor_8(0x3fe4, 0x01);
+	write_cmos_sensor_8(0x3fe5, 0x00);
+	write_cmos_sensor_8(0x0224, 0x06);
+	write_cmos_sensor_8(0x0225, 0x4d);
+	write_cmos_sensor_8(0x0216, 0x00);
+	write_cmos_sensor_8(0x0217, 0x00);
+	write_cmos_sensor_8(0x0218, 0x01);
+	write_cmos_sensor_8(0x0219, 0x00);
+	#endif
 	#endif
 }	/* preview_setting  */
 /* ==================================================== */
@@ -2258,6 +2363,12 @@ static void imx576_set_lsc_reg_setting(
 	int startAddr[4] = {0x9D88, 0x9CB0, 0x9BD8, 0x9B00};
 	/*0:B,1:Gb,2:Gr,3:R*/
 
+#if 0
+	int R_startAddr  = 0x9B00; /*0x9B00-0x9BD7*/
+	int GR_startAddr = 0x9BD8; /*0x9BD8-0x9CAF*/
+	int GB_startAddr = 0x9CB0; /*0x9CB0-0x9D87*/
+	int B_startAddr  = 0x9D88; /*0x9D88-0x9E5F*/
+#endif
 	LOG_INF("E! index:%d, regNum:%d\n", index, regNum);
 
 	if (write_cmos_sensor_8(0x0B00, 0x01) != 0) { /*lsc enable*/
@@ -2333,6 +2444,14 @@ static kal_uint32 imx576_awb_gain(struct SET_SENSOR_AWB_GAIN *pSetSensorAWB)
 	rgain_32 = (pSetSensorAWB->ABS_GAIN_R + 1) >> 1;
 	bgain_32 = (pSetSensorAWB->ABS_GAIN_B + 1) >> 1;
 	gbgain_32 = (pSetSensorAWB->ABS_GAIN_GB + 1) >> 1;
+
+#if 0
+	LOG_INF("ABS_GAIN_GR:%d,ABS_GAIN_R:%d,ABS_GAIN_B:%d,ABS_GAIN_GB:%d\n",
+		pSetSensorAWB->ABS_GAIN_GR,
+		pSetSensorAWB->ABS_GAIN_R,
+		pSetSensorAWB->ABS_GAIN_B,
+		pSetSensorAWB->ABS_GAIN_GB);
+#endif
 
 	write_cmos_sensor_8(0x0104, 0x01);
 
@@ -2598,6 +2717,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
+	#if 0
+		LOG_INF(
+		"SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n",
+		(UINT32)*feature_data);
+	#endif
 		wininfo =
 			(struct SENSOR_WINSIZE_INFO_STRUCT *)
 			(uintptr_t)(*(feature_data+1));
@@ -2651,6 +2775,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		LOG_INF(
 			"SENSOR_FEATURE_SET_HDR_SHUTTER LE=%d, SE=%d, no support\n",
 			(UINT16) *feature_data,	(UINT16) *(feature_data + 1));
+		#if 0
+		hdr_write_shutter((UINT16) *feature_data,
+				  (UINT16) *(feature_data + 1),
+				  (UINT16) *(feature_data + 2));
+		#endif
 		break;
 	case SENSOR_FEATURE_SET_HDR_TRI_SHUTTER:
 		LOG_INF(
@@ -2673,6 +2802,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				   (UINT16)*(feature_data+2));
 		break;
 	case SENSOR_FEATURE_GET_VC_INFO:
+	#if 0
+		LOG_INF("SENSOR_FEATURE_GET_VC_INFO %d\n",
+			(UINT16) *feature_data);
+	#endif
 		pvcinfo =
 	     (struct SENSOR_VC_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
 		switch (*feature_data_32) {
@@ -2767,6 +2900,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	}
 	break;
 	case SENSOR_FEATURE_GET_PDAF_INFO:
+		#if 0
+		LOG_INF(
+			"SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n",
+			*feature_data);
+		#endif
 		PDAFinfo =
 		(struct SET_PD_BLOCK_INFO_T *)(uintptr_t)(*(feature_data+1));
 		switch (*feature_data) {
@@ -2843,6 +2981,26 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 
 		*feature_para_len = 4;
 		break;
+#if 0
+	case SENSOR_FEATURE_GET_HDR_SYNTHESIS:
+		if (imx576_HDR_synthesis)
+			sprintf(feature_para,
+			    "%d:IMX576 HDR synthesis", imx576_HDR_synthesis);
+		else
+			sprintf(feature_para,
+			"%d:IMX576 HDR synthesis BYPASS", imx576_HDR_synthesis);
+		LOG_INF(
+		    "get imx576_HDR_synthesis = %d\n", imx576_HDR_synthesis);
+		break;
+	case SENSOR_FEATURE_SET_HDR_SYNTHESIS:
+		if ((*feature_para) == 1)
+			imx576_HDR_synthesis = 1;
+		else
+			imx576_HDR_synthesis = 0;
+		LOG_INF("set imx576_HDR_synthesis_bypass = %d\n",
+			imx576_HDR_synthesis);
+		break;
+#endif
 	default:
 		break;
 	}

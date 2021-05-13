@@ -52,7 +52,7 @@ static DEFINE_SPINLOCK(imgsensor_drv_lock);
 
 #define MULTI_WRITE 1
 #if MULTI_WRITE
-#define I2C_BUFFER_LEN 1020
+#define I2C_BUFFER_LEN 1020 /*trans# max is 255, each 4 bytes*/
 #else
 #define I2C_BUFFER_LEN 4
 #endif
@@ -157,6 +157,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.ae_sensor_gain_delay_frame = 0,
 	.ae_ispGain_delay_frame = 2,	/* isp gain delay frame for AE cycle */
 	.ihdr_support = HDR_SUPPORT_STAGGER,	/* 1, support; 0,not support */
+	//.ihdr_support = 0,	/* 1, support; 0,not support */
 	.ihdr_le_firstline = 0,	/* 1,le first ; 0, se first */
 	.sensor_mode_num = 7,	/* support sensor mode num */
 
@@ -198,7 +199,7 @@ static struct imgsensor_struct imgsensor = {
 /* Sensor output window information */
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[7] = {
 	/* Preview */
-	{6560, 4920, 0, 0, 6560, 4920, 6560, 4920,
+	{6560, 4920, 0, 0, 6560, 4920, 3280, 2460,
 	    0,   0, 3280, 2460, 0, 0, 3280, 2460},
 	/* capture */
 	{6560, 4920, 0, 0, 6560, 4920, 6560, 4920,
@@ -217,7 +218,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[7] = {
 	   0,   0, 3280, 2460, 0, 0, 3280, 2460},
 	/* custom2 normal video staggered HDR */
 	{6560, 4920, 0, 0, 6560, 4920, 3280, 2460,
-	   0,   0, 1920, 1080, 0, 0, 1920, 1080}
+	   0,   0, 1920, 1080, 0, 0, 1920, 1080},
 };
 
 static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[5] = {
@@ -257,9 +258,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[5] = {
 	{//custom2 1080p stagger HDR 3exp
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 0x0780, 0x438},
-			{VC_STAGGER_ME, 0x01, 0x2b, 0x0780, 0x438},
-			{VC_STAGGER_SE, 0x02, 0x2b, 0x0780, 0x438},
+			{VC_STAGGER_NE, 0x00, 0x2b, 0x0780, 0x0438},
+			{VC_STAGGER_ME, 0x01, 0x2b, 0x0780, 0x0438},
+			{VC_STAGGER_SE, 0x02, 0x2b, 0x0780, 0x0438},
 		},//custom2
 		1
 	},
@@ -4999,7 +5000,10 @@ static kal_uint32 normal_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
 
-	normal_video_setting();
+	if (1)
+		normal_video_setting();
+	else
+		preview_setting();
 
 	return ERROR_NONE;
 }				/*    normal_video   */
@@ -5083,7 +5087,10 @@ static kal_uint32 Custom2(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.dummy_pixel = 0;
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
-	custom2_setting();
+	if (1)
+		custom2_setting();
+	else
+		custom1_setting();
 	/* set_mirror_flip(sensor_config_data->SensorImageMirror); */
 
 	return ERROR_NONE;
@@ -6243,19 +6250,15 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 			*pScenarios = MSDK_SCENARIO_ID_CUSTOM1;
-			*(pScenarios + 1) = MSDK_SCENARIO_ID_CUSTOM2;
 			break;
 		case MSDK_SCENARIO_ID_CUSTOM1:
 			*pScenarios = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
-			*(pScenarios + 1) = MSDK_SCENARIO_ID_CUSTOM2;
 			break;
 		case MSDK_SCENARIO_ID_CUSTOM2:
 			*pScenarios = MSDK_SCENARIO_ID_VIDEO_PREVIEW;
-			*(pScenarios + 1) = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
 			break;
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 			*pScenarios = MSDK_SCENARIO_ID_CUSTOM2;
-			*(pScenarios + 1) = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
 			break;
 		case MSDK_SCENARIO_ID_SLIM_VIDEO:
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:

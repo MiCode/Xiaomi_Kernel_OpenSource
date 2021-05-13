@@ -620,6 +620,29 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	return gain;
 } /* set_gain */
 
+#if 0
+static void set_mirror_flip(kal_uint8 image_mirror)
+{
+	switch (image_mirror) {
+	case IMAGE_NORMAL:
+		write_cmos_sensor(0x0101, image_mirror);
+		break;
+
+	case IMAGE_V_MIRROR:
+		write_cmos_sensor(0x0101, image_mirror);
+		break;
+
+	case IMAGE_H_MIRROR:
+		write_cmos_sensor(0x0101, image_mirror);
+		break;
+
+	case IMAGE_HV_MIRROR:
+		write_cmos_sensor(0x0101, image_mirror);
+		break;
+	}
+}
+#endif
+
 /************************************************************************
  * FUNCTION
  *    night_mode
@@ -2287,6 +2310,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
+	#if 0
+		pr_debug("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n",
+			(UINT32) *feature_data);
+	#endif
+
 		wininfo =
 	(struct SENSOR_WINSIZE_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
 
