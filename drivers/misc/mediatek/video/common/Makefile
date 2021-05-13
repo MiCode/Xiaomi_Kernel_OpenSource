@@ -111,7 +111,3 @@ ifeq ($(CONFIG_MTK_DITHERING_SUPPORT), y)
 ccflags-y += -DDITHERING_SUPPORT
 endif
 
-#ifeq ($(MTK_DX_HDCP_SUPPORT), yes)
-subdir-ccflags-y += -DFT_HDCP_FEATURE
-#endif
-
