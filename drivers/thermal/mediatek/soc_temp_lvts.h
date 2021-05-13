@@ -9,6 +9,8 @@
  * Definition or macro function
  *==================================================
  */
+#define LK_LVTS_MAGIC (0x0000555)
+
 #define DISABLE_THERMAL_HW_REBOOT (-274000)
 
 #define CLOCK_26MHZ_CYCLE_NS	(38)
@@ -99,6 +101,8 @@ enum lvts_sensing_point {
 	SENSING_POINT3,
 	ALL_SENSING_POINTS
 };
+
+
 /*==================================================
  * Data structure
  *==================================================
@@ -148,6 +152,7 @@ struct sensor_cal_data {
 	unsigned int *count_r;
 	unsigned int *count_rc;
 	unsigned int *count_rc_now;
+	unsigned int *efuse_data;
 
 	unsigned int default_golden_temp;
 	unsigned int default_count_r;
@@ -196,6 +201,7 @@ struct lvts_data {
 	unsigned int num_efuse_block;	/* Number of contiguous efuse indexes */
 	struct sensor_cal_data cal_data;
 	struct formula_coeff coeff;
+	bool init_done; /*lvts driver init finish*/
 };
 
 struct soc_temp_tz {
@@ -219,6 +225,7 @@ struct lvts_id {
 	unsigned int hw_version;
 	char	chip[32];
 };
+
 /*==================================================
  * LVTS device register
  *==================================================

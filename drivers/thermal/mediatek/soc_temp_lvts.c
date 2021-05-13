@@ -465,17 +465,89 @@ static const struct thermal_zone_of_device_ops soc_temp_lvts_ops = {
 	.set_trip_temp = soc_temp_lvts_set_trip_temp,
 };
 
+static bool lvts_lk_init_check(struct lvts_data *lvts_data)
+{
+	struct device *dev = lvts_data->dev;
+	unsigned int i, data;
+	void __iomem *base;
+        bool ret = false;
+
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+
+		/* Check LVTS device ID */
+		data = (readl(LVTSSPARE0_0 + base) & GENMASK(11, 0));
+
+		if (data == LK_LVTS_MAGIC) {
+			writel(0x0, LVTSSPARE0_0 + base);
+                        ret = true;
+		} else {
+                        dev_info(dev, "%s, %d\n", __func__, i);
+                	ret = false;
+                        break;
+                }
+	}
+        return ret;
+}
+
+static int read_calibration_data(struct lvts_data *lvts_data)
+{
+	struct tc_settings *tc = lvts_data->tc;
+	unsigned int i, j, s_index;
+	void __iomem *base;
+        struct device *dev = lvts_data->dev;
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+
+
+
+	cal_data->efuse_data = devm_kcalloc(dev, lvts_data->num_sensor,
+				sizeof(*cal_data->efuse_data), GFP_KERNEL);
+	if (!cal_data->efuse_data)
+		return -ENOMEM;
+
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+
+		for (j = 0; j < tc[i].num_sensor; j++) {
+                        s_index = tc[i].sensor_map[j];
+
+                        cal_data->efuse_data[s_index] =
+                                readl(LVTSEDATA00_0 + base + 0x4 * j);
+
+			dev_info(dev, "%s,efuse_data: 0x%x\n", __func__,
+                                cal_data->efuse_data[s_index] );
+		}
+	}
+
+	return 0;
+}
+
+
 static int lvts_init(struct lvts_data *lvts_data)
 {
 	struct platform_ops *ops = &lvts_data->ops;
 	struct device *dev = lvts_data->dev;
 	int ret;
+        bool lk_init = false;
 
 	ret = clk_prepare_enable(lvts_data->clk);
 	if (ret)
 		dev_err(dev,
 			"Error: Failed to enable lvts controller clock: %d\n",
 			ret);
+
+
+	lk_init = lvts_lk_init_check(lvts_data);
+
+	if (lk_init == true) {
+		ret = read_calibration_data(lvts_data);
+        	set_all_tc_hw_reboot(lvts_data);
+                lvts_data->init_done = true;
+
+                return ret;
+	}
 
 	lvts_reset(lvts_data);
 
@@ -500,7 +572,10 @@ static int lvts_init(struct lvts_data *lvts_data)
 		ops->init_controller(lvts_data);
 	enable_all_sensing_points(lvts_data);
 
-	set_all_tc_hw_reboot(lvts_data);
+        set_all_tc_hw_reboot(lvts_data);
+
+        lvts_data->init_done = true;
+
 
 	return 0;
 }
@@ -813,6 +888,7 @@ static int lvts_probe(struct platform_device *pdev)
 	struct lvts_data *lvts_data;
 	int ret;
 
+
 	lvts_data = (struct lvts_data *) of_device_get_match_data(dev);
 
 	if (!lvts_data)	{
@@ -943,9 +1019,24 @@ static int device_read_count_rc_n_v4(struct lvts_data *lvts_data)
 	int ret, i, j;
 	char buffer[512];
 
+
+	if (lvts_data->init_done) {
+
+		for (i = 0; i < lvts_data->num_tc; i++) {
+			lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
+			lvts_write_device(lvts_data, SET_DEVICE_LOW_POWER_SINGLE_MODE_V4, i);
+                }
+		return 0;
+	}
+
+
 	cal_data->count_rc_now = devm_kcalloc(dev, lvts_data->num_sensor,
-					sizeof(*cal_data->count_rc_now), GFP_KERNEL);
-	if (!cal_data->count_rc_now)
+				sizeof(*cal_data->count_rc_now), GFP_KERNEL);
+
+	cal_data->efuse_data = devm_kcalloc(dev, lvts_data->num_sensor,
+				sizeof(*cal_data->efuse_data), GFP_KERNEL);
+
+	if ((!cal_data->count_rc_now) || (!cal_data->efuse_data))
 		return -ENOMEM;
 
 
@@ -972,6 +1063,11 @@ static int device_read_count_rc_n_v4(struct lvts_data *lvts_data)
 			data = lvts_read_device(lvts_data, 0x00, i);
 
 			cal_data->count_rc_now[s_index] = (data & GENMASK(23, 0));
+
+			/*count data here that want to set to efuse later*/
+			cal_data->efuse_data[s_index] = (((unsigned long long)
+				cal_data->count_rc_now[s_index]) *
+				cal_data->count_r[s_index]) >> 14;
 		}
 
 		/* Recover Setting for Normal Access on
@@ -993,6 +1089,7 @@ static int device_read_count_rc_n_v4(struct lvts_data *lvts_data)
 	return 0;
 }
 
+
 static void set_calibration_data_v4(struct lvts_data *lvts_data)
 {
 	struct tc_settings *tc = lvts_data->tc;
@@ -1008,14 +1105,13 @@ static void set_calibration_data_v4(struct lvts_data *lvts_data)
 			if (IS_ENABLE(FEATURE_DEVICE_AUTO_RCK))
 				e_data = cal_data->count_r[s_index];
 			else
-				e_data = (((unsigned long long)
-					cal_data->count_rc_now[s_index]) *
-					cal_data->count_r[s_index]) >> 14;
+				e_data = cal_data->efuse_data[s_index];
 
 			writel(e_data, LVTSEDATA00_0 + base + 0x4 * j);
 		}
 	}
 }
+
 
 static void init_controller_v4(struct lvts_data *lvts_data)
 {
@@ -1342,6 +1438,7 @@ static struct lvts_data mt6873_lvts_data = {
 		.a = -250460,
 		.b = 250460,
 	},
+	.init_done = false,
 };
 
 static struct lvts_data mt6853_lvts_data = {
@@ -1369,6 +1466,7 @@ static struct lvts_data mt6853_lvts_data = {
 		.a = -250460,
 		.b = 250460,
 	},
+	.init_done = false,
 };
 
 /*==================================================
@@ -1421,14 +1519,25 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 	unsigned int  rc_data;
 	int refine_data_idx[4] = {0};
 	int count_rc_delta = 0;
-	static bool count_rc_initialized;
 
-	if (count_rc_initialized)
+	if (lvts_data->init_done) {
+
+		for (i = 0; i < lvts_data->num_tc; i++)
+			lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
+
 		return 0;
+	}
 
-	cal_data->count_rc_now = devm_kcalloc(dev, lvts_data->num_sensor,
-					sizeof(*cal_data->count_rc_now), GFP_KERNEL);
-	if (!cal_data->count_rc_now)
+
+	cal_data->count_rc_now =
+		devm_kcalloc(dev, lvts_data->num_sensor,
+			sizeof(*cal_data->count_rc_now), GFP_KERNEL);
+
+	cal_data->efuse_data =
+		devm_kcalloc(dev, lvts_data->num_sensor,
+			sizeof(*cal_data->efuse_data), GFP_KERNEL);
+
+	if ((!cal_data->count_rc_now) || (!cal_data->efuse_data))
 		return -ENOMEM;
 
 
@@ -1495,6 +1604,11 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 				cal_data->count_rc_now[s_index] = cal_data->count_rc[i];
 			} else
 				cal_data->count_rc_now[s_index] = (rc_data & GENMASK(23, 0));
+
+			/*count data here that want to set to efuse later*/
+			cal_data->efuse_data[s_index] = (((unsigned long long)
+				cal_data->count_rc_now[s_index]) *
+				cal_data->count_r[s_index]) >> 14;
 		}
 
 		/* Recover Setting for Normal Access on
@@ -1502,6 +1616,7 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 		 */
 		lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
 	}
+
 
 	size = sizeof(buffer);
 	offset = snprintf(buffer, size, "[COUNT_RC_NOW] ");
@@ -1512,11 +1627,8 @@ static int mt6893_device_read_count_rc_n(struct lvts_data *lvts_data)
 	buffer[offset] = '\0';
 	dev_info(dev, "%s\n", buffer);
 
-	count_rc_initialized = true;
-
 	return 0;
 }
-
 
 #define MT6893_NUM_LVTS (ARRAY_SIZE(mt6893_tc_settings))
 
@@ -1716,6 +1828,7 @@ static struct lvts_data mt6893_lvts_data = {
 		.a = -252500,
 		.b = 252500,
 	},
+	.init_done = false,
 };
 
 /*==================================================
