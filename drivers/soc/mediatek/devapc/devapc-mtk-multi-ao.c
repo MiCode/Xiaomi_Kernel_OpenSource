@@ -1369,6 +1369,10 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		pr_info(PFX "create SWP sysfs file failed, ret:%d\n", ret);
 #endif
 
+	mtk_devapc_ctx->sramrom_base = of_iomap(node, slave_type_num + 3);
+	if (unlikely(mtk_devapc_ctx->sramrom_base == NULL))
+		pr_info(PFX "parse sramrom_base failed\n");
+
 	if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
 		pr_err(PFX " Cannot enable devapc clock\n");
 		return -EINVAL;
