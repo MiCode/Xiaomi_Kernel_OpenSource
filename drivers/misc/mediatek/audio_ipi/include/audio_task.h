@@ -28,6 +28,7 @@ enum {
 	TASK_SCENE_FAST                 = 15,
 	TASK_SCENE_KTV                  = 16,
 	TASK_SCENE_CAPTURE_RAW          = 17,
+	TASK_SCENE_FM_ADSP              = 18,
 
 	/* control for driver */
 	TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A,

@@ -101,7 +101,7 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 	}
 
 	if (get_task_attr(get_dspdaiid_by_dspscene(task_scene),
-			  ADSP_TASK_ATTR_DEFAULT) == 0) {
+			  ADSP_TASK_ATTR_DEFAULT) <= 0) {
 		pr_info("%s() task_scene[%d] not enable\n",
 			__func__, task_scene);
 		return -1;
@@ -561,7 +561,8 @@ int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
 	int task_scene;
 
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
-	task_scene = mtk_get_speech_status() ?
+	task_scene = get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+				   ADSP_TASK_ATTR_RUMTIME) ?
 		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
 
 	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
@@ -581,7 +582,8 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 	int task_scene;
 
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
-	task_scene = mtk_get_speech_status() ?
+	task_scene = get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+				   ADSP_TASK_ATTR_RUMTIME) ?
 		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
 
 	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,

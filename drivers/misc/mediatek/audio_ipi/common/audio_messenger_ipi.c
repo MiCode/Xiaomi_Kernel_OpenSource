@@ -471,7 +471,7 @@ int audio_send_ipi_buf_to_dsp(
 		       0,
 		       data_buffer);
 }
-
+EXPORT_SYMBOL_GPL(audio_send_ipi_buf_to_dsp);
 
 int audio_recv_ipi_buf_from_dsp(
 	struct ipi_msg_t *p_ipi_msg,
@@ -570,6 +570,6 @@ RECV_BUF_EXIT:
 
 	return ret;
 }
-
+EXPORT_SYMBOL_GPL(audio_recv_ipi_buf_from_dsp);
 
 

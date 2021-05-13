@@ -301,14 +301,3 @@ void mtk_audio_free_sram(void *user)
 		 __func__, request_sram_count);
 }
 EXPORT_SYMBOL(mtk_audio_free_sram);
-
-bool mtk_get_speech_status(void)
-{
-	int speech_en = 0;
-
-	regmap_read(local_afe->regmap,
-		    PCM2_INTF_CON, &speech_en);
-
-	return (speech_en & PCM2_EN_MASK_SFT) ? true : false;
-}
-EXPORT_SYMBOL(mtk_get_speech_status);

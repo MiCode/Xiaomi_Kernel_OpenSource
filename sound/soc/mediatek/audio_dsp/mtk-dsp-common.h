@@ -9,8 +9,6 @@
 #ifndef AUDIO_DSP_COMMON_H
 #define AUDIO_DSP_COMMON_H
 
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <sound/pcm.h>
@@ -119,5 +117,5 @@ int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size);
 int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 				  int16_t size,
 				  uint32_t *buf_len);
-#endif
+
 #endif

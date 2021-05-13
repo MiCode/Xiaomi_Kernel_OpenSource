@@ -542,9 +542,6 @@ int dsp_daiid_to_scp_reservedid(int task_dai_id)
 
 static struct mtk_adsp_task_attr *mtk_get_adsp_task_attr(int adsp_id)
 {
-	if (adsp_id >= AUDIO_TASK_DAI_NUM)
-		pr_info("%s adsp_id = %d\n", __func__, adsp_id);
-
 	switch (adsp_id) {
 	case AUDIO_TASK_VOIP_ID:
 		return &adsp_task_attr[AUDIO_TASK_VOIP_ID];
@@ -573,6 +570,7 @@ static struct mtk_adsp_task_attr *mtk_get_adsp_task_attr(int adsp_id)
 	case AUDIO_TASK_CAPTURE_RAW_ID:
 		return &adsp_task_attr[AUDIO_TASK_CAPTURE_RAW_ID];
 	default:
+		pr_info("%s() adsp_id error %d\n", __func__, adsp_id);
 		break;
 	}
 
@@ -582,20 +580,22 @@ static struct mtk_adsp_task_attr *mtk_get_adsp_task_attr(int adsp_id)
 int set_task_attr(int dsp_id, int task_enum, int param)
 {
 
-	struct mtk_adsp_task_attr *task_attr =
-		mtk_get_adsp_task_attr(dsp_id);
-
-	if (!task_attr) {
-		pr_warn("%s get task NULL  dsp_id %d\n", __func__, dsp_id);
-		return -1;
-	}
+	struct mtk_adsp_task_attr *task_attr;
 
 	if (dsp_id >= AUDIO_TASK_DAI_NUM) {
-		pr_warn("%s dspid %d\n", __func__, dsp_id);
+		pr_warn("%s() dspid over max: %d\n", __func__, dsp_id);
 		return -1;
 	}
+
 	if (task_enum >= ADSP_TASK_ATTR_NUM) {
-		pr_warn("%s task_enum %d\n", __func__, task_enum);
+		pr_warn("%s() task_enum over max: %d\n", __func__, task_enum);
+		return -1;
+	}
+
+	task_attr = mtk_get_adsp_task_attr(dsp_id);
+	if (!task_attr) {
+		pr_warn("%s() task_attr NULL dsp_id %d, return\n",
+			__func__, dsp_id);
 		return -1;
 	}
 
@@ -627,19 +627,22 @@ int set_task_attr(int dsp_id, int task_enum, int param)
 
 int get_task_attr(int dsp_id, int task_enum)
 {
-	struct mtk_adsp_task_attr *task_attr =
-		mtk_get_adsp_task_attr(dsp_id);
+	struct mtk_adsp_task_attr *task_attr;
 
 	if (dsp_id >= AUDIO_TASK_DAI_NUM) {
-		pr_warn("%s dsp_id %d\n", __func__, dsp_id);
+		pr_warn("%s() dsp_id over max %d, return\n", __func__, dsp_id);
 		return -1;
 	}
+
 	if (task_enum >= ADSP_TASK_ATTR_NUM) {
-		pr_warn("%s task_enum %d\n", __func__, task_enum);
+		pr_warn("%s() task_enum %d over max, return\n",
+			__func__, task_enum);
 		return -1;
 	}
-	if (task_attr == NULL) {
-		pr_warn("%s task_attr NULL\n", __func__);
+
+	task_attr = mtk_get_adsp_task_attr(dsp_id);
+	if (!task_attr) {
+		pr_warn("%s() task_attr NULL, return\n", __func__);
 		return -1;
 	}
 
@@ -663,6 +666,7 @@ int get_task_attr(int dsp_id, int task_enum)
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(get_task_attr);
 
 int get_featureid_by_dsp_daiid(int task_id)
 {
@@ -671,7 +675,8 @@ int get_featureid_by_dsp_daiid(int task_id)
 		mtk_get_adsp_task_attr(task_id);
 
 	if (task_id > AUDIO_TASK_DAI_NUM || !task_attr) {
-		pr_info("%s task_id = %d\n", __func__, task_id);
+		pr_info("%s() task_id %d error or task_attr NULL, return\n",
+			__func__, task_id);
 		return -1;
 	}
 	ret = task_attr->adsp_feature_id;
@@ -685,7 +690,8 @@ int get_afememdl_by_afe_taskid(int task_id)
 		mtk_get_adsp_task_attr(task_id);
 
 	if (task_id > AUDIO_TASK_DAI_NUM || !task_attr) {
-		pr_info("%s id = %d\n", __func__, task_id);
+		pr_info("%s() task_id %d error or task_attr NULL, return\n",
+			__func__, task_id);
 		return -1;
 	}
 	ret = task_attr->afe_memif_dl;
@@ -700,7 +706,8 @@ int get_afememul_by_afe_taskid(int task_id)
 		mtk_get_adsp_task_attr(task_id);
 
 	if (task_id > AUDIO_TASK_DAI_NUM || !task_attr) {
-		pr_info("%s id = %d\n", __func__, task_id);
+		pr_info("%s() task_id %d error or task_attr NULL, return\n",
+			__func__, task_id);
 		return -1;
 	}
 	ret = task_attr->afe_memif_ul;
@@ -714,7 +721,8 @@ int get_afememref_by_afe_taskid(int task_id)
 		mtk_get_adsp_task_attr(task_id);
 
 	if (task_id > AUDIO_TASK_DAI_NUM || !task_attr) {
-		pr_info("%s id = %d\n", __func__, task_id);
+		pr_info("%s() task_id %d error or task_attr NULL, return\n",
+			__func__, task_id);
 		return -1;
 	}
 	ret = task_attr->afe_memif_ref;
@@ -728,7 +736,8 @@ int get_taskid_by_afe_daiid(int task_dai_id)
 	struct mtk_base_afe *afe = get_afe_base();
 
 	if (task_dai_id >= afe->memif_size) {
-		pr_warn("%s afe_dai_id = %d\n", __func__, task_dai_id);
+		pr_warn("%s() afe_dai_id over max %d, return\n",
+			__func__, task_dai_id);
 		return -1;
 	}
 

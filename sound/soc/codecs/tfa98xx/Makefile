@@ -14,7 +14,10 @@
 # additional debugging
 #TFA_DEBUG=1
 
+# MTK include path
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 
 # debugging support (also enables trace_printk)
 ccflags-y += -I$(srctree)/sound/soc/codecs/tfa98xx/inc
