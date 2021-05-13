@@ -6997,10 +6997,10 @@
 		interrupts = <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH>;
 		power-domains = <&scpsys MT6893_POWER_DOMAIN_MDP>;
 
-		clocks = <&mdpsys_config CLK_MDP_APMCU_GALS>,
-			<&mdpsys_config CLK_MDP_SMI0>, <&mdpsys_config CLK_MDP_SMI1>,
-			<&mdpsys_config CLK_MDP_SMI2>,
-			<&mdpsys_config CLK_MDP_MMSYSRAM>;
+		clocks = <&mdpsys CLK_MDP_APMCU_GALS>,
+			<&mdpsys CLK_MDP_SMI0>, <&mdpsys CLK_MDP_SMI1>,
+			<&mdpsys CLK_MDP_SMI2>,
+			<&mdpsys CLK_MDP_MMSYSRAM>;
 		clock-names = "mdp_apmcu_gals",
 				"mdp_smi0", "mdp_smi1",
 				"mdp_smi2", "mdp_mmsysram";
