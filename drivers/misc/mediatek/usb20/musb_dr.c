@@ -271,6 +271,16 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 	id_event = (role == USB_ROLE_HOST);
 	vbus_event = (role == USB_ROLE_DEVICE);
 
+#ifdef CONFIG_MTK_UART_USB_SWITCH
+	in_uart_mode = usb_phy_check_in_uart_mode();
+	if (in_uart_mode) {
+		DBG(0, "At UART mode. Switch to USB is not support\n");
+		mt_usb_set_mailbox(otg_sx, MUSB_VBUS_OFF);
+		phy_set_mode(glue->phy, PHY_MODE_INVALID);
+		return 0;
+	}
+#endif
+
 	if (!!(otg_sx->sw_state & MUSB_VBUS_VALID) ^ vbus_event) {
 		if (vbus_event) {
 			dev_info(dev, "%s: if vbus_event true\n", __func__);
