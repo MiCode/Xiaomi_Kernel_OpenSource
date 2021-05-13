@@ -706,8 +706,11 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_lo      =  DSC_RC_TGT_OFFSET_LO,
 	},
 	.dyn = {
-		.switch_en = 0,
-		.data_rate = MODE_0_DATA_RATE,
+		.switch_en = 1,
+		.pll_clk = 580,
+		.vfp_lp_dyn = 888,
+		.hfp = 800,
+		.vfp = 54,
 	},
 	.dyn_fps = {
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
@@ -771,8 +774,11 @@ static struct mtk_panel_params ext_params_mode_1 = {
 		.rc_tgt_offset_lo      =  DSC_RC_TGT_OFFSET_LO,
 	},
 	.dyn = {
-		.switch_en = 0,
-		.data_rate = MODE_1_DATA_RATE,
+		.switch_en = 1,
+		.pll_clk = 580,
+		.vfp_lp_dyn = 1300,
+		.hfp = 372,
+		.vfp = 54,
 	},
 	.dyn_fps = {
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
@@ -835,8 +841,11 @@ static struct mtk_panel_params ext_params_mode_2 = {
 		.rc_tgt_offset_lo      =  DSC_RC_TGT_OFFSET_LO,
 	},
 	.dyn = {
-		.switch_en = 0,
-		.data_rate = MODE_2_DATA_RATE,
+		.switch_en = 1,
+		.pll_clk = 580,
+		.vfp_lp_dyn = 2540,
+		.hfp = 157,
+		.vfp = 54,
 	},
 	.dyn_fps = {
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
