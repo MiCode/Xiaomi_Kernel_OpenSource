@@ -1,0 +1,8 @@
+config MTK_ATF_LOGGER
+	tristate "atf logger kernel driver"
+	depends on HAVE_ARM_SMCCC && ARCH_MEDIATEK && OF
+	help
+	  ARM Trusted Firmwear Logger which is designed by Mediatek.
+	  The logger provide a /proc interface for reading from
+	  user space. We can obtain live TF-A log through
+	  atf logger driver
