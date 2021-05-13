@@ -9,6 +9,9 @@
 #include <linux/seq_file.h>
 #include <linux/proc_fs.h>
 #include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+
 
 #ifdef MTK_QOS_FRAMEWORK
 #include <mtk_qos_ipi.h>
@@ -175,13 +178,13 @@ uint32_t MTKGPUQoS_getBW(uint32_t offset)
 }
 EXPORT_SYMBOL(MTKGPUQoS_getBW);
 
-static int mtk_gpu_qos_init(void)
+static int __init mtk_gpu_qos_init(void)
 {
 	/*Do Nothing*/
 	return 0;
 }
 
-static void mtk_gpu_qos_exit(void)
+static void __exit mtk_gpu_qos_exit(void)
 {
 	/*Do Nothing*/
 	;
