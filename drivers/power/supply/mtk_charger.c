@@ -490,6 +490,9 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 		info->data.max_dmivr_charger_current =
 					MAX_DMIVR_CHARGER_CURRENT;
 	}
+	/* fast charging algo support indicator */
+	info->enable_fast_charging_indicator =
+			of_property_read_bool(np, "enable_fast_charging_indicator");
 }
 
 static void mtk_charger_start_timer(struct mtk_charger *info)
@@ -795,6 +798,31 @@ static ssize_t Pump_Express_show(struct device *dev,
 }
 
 static DEVICE_ATTR_RO(Pump_Express);
+
+static ssize_t fast_chg_indicator_show(struct device *dev, struct device_attribute *attr,
+					       char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_err("%s: %d\n", __func__, pinfo->fast_charging_indicator);
+	return sprintf(buf, "%d\n", pinfo->fast_charging_indicator);
+}
+
+static ssize_t fast_chg_indicator_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t size)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	unsigned int temp;
+
+	if (kstrtouint(buf, 10, &temp) == 0)
+		pinfo->fast_charging_indicator = temp;
+	else
+		chr_err("%s: format error!\n", __func__);
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(fast_chg_indicator);
 
 static ssize_t ADC_Charger_Voltage_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -1407,6 +1435,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pe5 success\n");
 		alg->config = info->config;
+		alg->alg_id = PE5_ID;
 		chg_alg_init_algo(alg);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
@@ -1419,6 +1448,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pe4 success\n");
 		alg->config = info->config;
+		alg->alg_id = PE4_ID;
 		chg_alg_init_algo(alg);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
@@ -1431,6 +1461,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pd success\n");
 		alg->config = info->config;
+		alg->alg_id = PDC_ID;
 		chg_alg_init_algo(alg);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
@@ -1443,6 +1474,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pe2 success\n");
 		alg->config = info->config;
+		alg->alg_id = PE2_ID;
 		chg_alg_init_algo(alg);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
@@ -1455,6 +1487,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pe success\n");
 		alg->config = info->config;
+		alg->alg_id = PE_ID;
 		chg_alg_init_algo(alg);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
@@ -1817,6 +1850,10 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 		goto _out;
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_chr_type);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_fast_chg_indicator);
 	if (ret)
 		goto _out;
 
@@ -2288,6 +2325,8 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	}
 
 	info->chg_alg_nb.notifier_call = chg_alg_event;
+
+	info->fast_charging_indicator = 0;
 
 	kthread_run(charger_routine_thread, info, "charger_thread");
 

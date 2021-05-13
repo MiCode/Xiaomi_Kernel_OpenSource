@@ -371,8 +371,8 @@ int pe_hal_set_cv(struct chg_alg_device *alg,
 		return -EINVAL;
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	charger_dev_set_constant_voltage(hal->chg1_dev,
-								uv);
+	charger_dev_set_constant_voltage(hal->chg1_dev, uv);
+
 	return 0;
 }
 

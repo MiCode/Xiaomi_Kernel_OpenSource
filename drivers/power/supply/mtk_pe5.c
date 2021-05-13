@@ -1317,7 +1317,7 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 		return ret;
 	}
 
-	ret = pe50_hal_set_aicr(info->alg, CHG1, 100);
+	ret = pe50_hal_set_aicr(info->alg, CHG1, 300);
 	if (ret < 0) {
 		PE50_ERR("set aicr fail(%d)\n", ret);
 		return ret;
@@ -1354,9 +1354,8 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 		}
 		vbus1 += val_vbus;
 		ibus1 += val_ibus;
-
-		PE50_ERR("[Gerard1] vbus=%d ibus=%d vbus(max,min)=(%d,%d) ibus(max,min)=(%d,%d) vbus1=%d ibus1=%d",
-			val_vbus, val_ibus, vbus_max, vbus_min, ibus_max, ibus_min, vbus1, ibus1);
+		PE50_ERR("vbus=%d ibus=%d vbus(max,min)=(%d,%d) ibus(max,min)=(%d,%d) vbus1=%d ibus1=%d",
+				val_vbus, val_ibus, vbus_max, vbus_min, ibus_max, ibus_min, vbus1, ibus1);
 	}
 
 	vbus1 -= (vbus_min + vbus_max);
@@ -1365,7 +1364,7 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 	ibus1 -= (ibus_min + ibus_max);
 	ibus1 = precise_div(ibus1, PE50_MEASURE_R_AVG_TIMES);
 
-	ret = pe50_hal_set_aicr(info->alg, CHG1, 200);
+	ret = pe50_hal_set_aicr(info->alg, CHG1, 400);
 	if (ret < 0) {
 		PE50_ERR("set aicr fail(%d)\n", ret);
 		return ret;
@@ -1394,9 +1393,8 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 		}
 		vbus2 += val_vbus;
 		ibus2 += val_ibus;
-
-		PE50_ERR("[Gerard2] vbus=%d ibus=%d vbus(max,min)=(%d,%d) ibus(max,min)=(%d,%d) vbus2=%d ibus2=%d",
-			val_vbus, val_ibus, vbus_max, vbus_min, ibus_max, ibus_min, vbus2, ibus2);
+		PE50_ERR("vbus=%d ibus=%d vbus(max,min)=(%d,%d) ibus(max,min)=(%d,%d) vbus2=%d ibus2=%d",
+				val_vbus, val_ibus, vbus_max, vbus_min, ibus_max, ibus_min, vbus2, ibus2);
 	}
 
 	vbus2 -= (vbus_min + vbus_max);
@@ -3728,7 +3726,7 @@ static int pe50_is_algo_ready(struct chg_alg_device *alg)
 	}
 
 	if (!pe50_is_ta_rdy(info)) {
-		ret = ALG_TA_CHECKING;
+		ret = pe50_hal_is_pd_adapter_ready(alg);
 		goto out;
 	}
 	ret = ALG_READY;

@@ -334,6 +334,10 @@ struct mtk_charger {
 	bool water_detected;
 
 	bool enable_dynamic_mivr;
+
+	/* fast charging algo support indicator */
+	bool enable_fast_charging_indicator;
+	unsigned int fast_charging_indicator;
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,

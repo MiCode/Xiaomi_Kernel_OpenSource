@@ -17,6 +17,12 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 
+#define PE_ID    1 << 0
+#define PE2_ID   1 << 1
+#define PDC_ID   1 << 2
+#define PE4_ID   1 << 3
+#define PE5_ID   1 << 4
+
 struct chg_alg_properties {
 	const char *alias_name;
 };
@@ -66,6 +72,7 @@ struct chg_alg_device {
 	void	*driver_data;
 	void	*driver_hal_data;
 	bool is_polling_mode;
+	int alg_id;
 };
 
 enum chg_alg_notifier_events {

@@ -477,6 +477,36 @@ int pe50_hal_get_soc(struct chg_alg_device *alg, u32 *soc)
 	return 0;
 }
 
+int pe50_hal_is_pd_adapter_ready(struct chg_alg_device *alg)
+{
+	struct pe50_hal *hal;
+	int type, i;
+
+	if (alg == NULL) {
+		pr_notice("%s: alg is null\n", __func__);
+		return -EINVAL;
+	}
+
+	hal = chg_alg_dev_get_drv_hal_data(alg);
+	for (i = 0; i < hal->support_ta_cnt; i++) {
+		if (!hal->adapters[i])
+			continue;
+		type = adapter_dev_get_property(hal->adapters[i], PD_TYPE);
+		if (type < 0)
+			continue;
+	}
+
+	pr_notice("%s type:%d\n", __func__, type);
+
+	if (type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+		return ALG_READY;
+	else if (type == MTK_PD_CONNECT_TYPEC_ONLY_SNK ||
+			 type == MTK_PD_CONNECT_PE_READY_SNK ||
+			 type == MTK_PD_CONNECT_PE_READY_SNK_PD30)
+		return ALG_TA_NOT_SUPPORT;
+	return ALG_TA_CHECKING;
+}
+
 int pe50_hal_set_ichg(struct chg_alg_device *alg, enum chg_idx chgidx, u32 mA)
 {
 	int chgtyp = to_chgtyp(chgidx);

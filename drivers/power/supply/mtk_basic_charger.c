@@ -106,6 +106,10 @@ static bool support_fast_charging(struct mtk_charger *info)
 		if (alg == NULL)
 			continue;
 
+		if (info->enable_fast_charging_indicator &&
+		    ((alg->alg_id & info->fast_charging_indicator) == 0))
+			continue;
+
 		chg_alg_set_current_limit(alg, &info->setting);
 		state = chg_alg_is_algo_ready(alg);
 		chr_debug("%s %s ret:%s\n", __func__, dev_name(&alg->dev),
@@ -300,11 +304,6 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	info->setting.input_current_limit_dvchg1 =
 		pdata_dvchg->thermal_input_current_limit;
 
-	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
-		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
-		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
-		is_basic = false;
-
 done:
 
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
@@ -374,6 +373,10 @@ static int do_algorithm(struct mtk_charger *info)
 		for (i = 0; i < MAX_ALG_NO; i++) {
 			alg = info->alg[i];
 			if (alg == NULL)
+				continue;
+
+			if (info->enable_fast_charging_indicator &&
+			    ((alg->alg_id & info->fast_charging_indicator) == 0))
 				continue;
 
 			if (!info->enable_hv_charging ||
