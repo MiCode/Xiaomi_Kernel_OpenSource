@@ -176,6 +176,7 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	return ret;
 }
 
+#ifdef CONFIG_TCPC_CLASS
 static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 							bool is_on)
 {
@@ -222,7 +223,6 @@ static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 	return 0;
 }
 
-#ifdef CONFIG_TCPC_CLASS
 static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
