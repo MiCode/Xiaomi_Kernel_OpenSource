@@ -15,6 +15,7 @@ void fpsgo_comp2fstb_queue_time_update(
 int fpsgo_comp2fstb_enq_end(int pid,
 	unsigned long long bufID, unsigned long long enq);
 int fpsgo_ctrl2fstb_gblock(int tid, int start);
+int fpsgo_ctrl2fstb_get_fps(void);
 void fpsgo_comp2fstb_camera_active(int pid);
 
 #if defined(CONFIG_MTK_FPSGO) || defined(CONFIG_MTK_FPSGO_V3)

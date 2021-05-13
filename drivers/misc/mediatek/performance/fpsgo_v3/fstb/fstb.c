@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/wait.h>
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -58,6 +59,10 @@ static int margin_mode;
 static int margin_mode_dbnc_a = 9;
 static int margin_mode_dbnc_b = 1;
 static int JUMP_CHECK_NUM = DEFAULT_JUMP_CHECK_NUM;
+static int powerhal_fps = -1;
+static int condition_get_fps;
+
+DECLARE_WAIT_QUEUE_HEAD(queue);
 
 static void fstb_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
@@ -131,6 +136,18 @@ int is_fstb_active(long long time_diff)
 	return active;
 }
 
+int fpsgo_ctrl2fstb_get_fps(void)
+{
+	int fps = -1;
+
+	wait_event_interruptible(queue, condition_get_fps);
+	mutex_lock(&fstb_lock);
+	fps = powerhal_fps;
+	condition_get_fps = 0;
+	mutex_unlock(&fstb_lock);
+	return fps;
+}
+
 int fpsgo_ctrl2fstb_gblock(int tid, int start)
 {
 	struct FSTB_FRAME_INFO *iter;
@@ -187,6 +204,8 @@ int fpsgo_ctrl2fstb_switch_fstb(int enable)
 
 	mtk_fstb_dprintk_always("%s %d\n", __func__, fstb_enable);
 	if (!fstb_enable) {
+		powerhal_fps = -1;
+		condition_get_fps = 1;
 		hlist_for_each_entry_safe(iter, t,
 				&fstb_frame_infos, hlist) {
 			hlist_del(&iter->hlist);
@@ -1397,7 +1416,7 @@ static void fstb_fps_stats(struct work_struct *work)
 	int target_fps = max_fps_limit;
 	int idle = 1;
 	int fstb_active2xgf;
-	int max_target_fps = min_fps_limit;
+	int max_target_fps = -1;
 
 	if (work != &fps_stats_work)
 		kfree(work);
@@ -1453,6 +1472,8 @@ static void fstb_fps_stats(struct work_struct *work)
 		}
 	}
 
+	powerhal_fps = max_target_fps;
+	condition_get_fps = 1;
 
 	/* check idle twice to avoid fstb_active ping-pong */
 	if (idle)
@@ -1483,6 +1504,7 @@ static void fstb_fps_stats(struct work_struct *work)
 	fpsgo_check_thread_status();
 	fpsgo_fstb2xgf_do_recycle(fstb_active2xgf);
 	fpsgo_create_render_dep();
+	wake_up_interruptible(&queue);
 }
 
 static int set_soft_fps_level(int nr_level, struct fps_level *level)
