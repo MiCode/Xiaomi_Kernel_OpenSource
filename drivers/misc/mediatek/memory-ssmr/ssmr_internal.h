@@ -173,7 +173,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #endif
 #ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 	[SSMR_FEAT_PROT_SHAREDMEM] = {
-		.dt_prop_name = "prot-sharedmem-size",
+		.dt_prop_name = "prot-region-based-size",
 		.feat_name = "prot-sharedmem",
 		.cmd_online = "prot_sharedmem=on",
 		.cmd_offline = "prot_sharedmem=off",
