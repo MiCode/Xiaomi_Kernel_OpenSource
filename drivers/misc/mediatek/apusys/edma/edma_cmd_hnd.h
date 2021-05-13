@@ -55,7 +55,6 @@ int edma_sync_ext_mode(struct edma_device *edma_device,
 int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext);
 void edma_power_time_up(struct timer_list *power_timer);
 void edma_start_power_off(struct work_struct *work);
-void edma_sw_reset(struct edma_sub *edma_sub);
 
 
 #endif /* __EDMA_CMD_HND_H__ */

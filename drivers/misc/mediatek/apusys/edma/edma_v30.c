@@ -71,7 +71,6 @@ void printV30_error_status(struct edma_sub *edma_sub,
 		else
 			pr_notice("not support ext_reg dump!!\n");
 	}
-	edma_sw_reset(edma_sub);
 }
 
 irqreturn_t edmaV30_isr_handler(int irq, void *edma_sub_info)
@@ -117,7 +116,7 @@ irqreturn_t edmaV30_isr_handler(int irq, void *edma_sub_info)
 
 }
 
-void edmaV30_sw_reset(struct edma_sub *edma_sub)
+static void edmaV30_sw_reset(struct edma_sub *edma_sub)
 {
 	unsigned long flags;
 

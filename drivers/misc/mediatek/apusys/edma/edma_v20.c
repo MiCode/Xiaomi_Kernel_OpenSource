@@ -29,6 +29,7 @@
 #define NO_INTERRUPT		0
 #define EDMA_POWEROFF_TIME_DEFAULT 2000
 
+static void edma_sw_reset(struct edma_sub *edma_sub);
 
 void print_error_status(struct edma_sub *edma_sub,
 				struct edma_request *req)
@@ -128,7 +129,7 @@ void edma_enable_sequence(struct edma_sub *edma_sub)
 	edma_clear_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
 }
 
-void edma_sw_reset(struct edma_sub *edma_sub)
+static void edma_sw_reset(struct edma_sub *edma_sub)
 {
 	u32 value = 0, count = 0;
 	unsigned long flags;
