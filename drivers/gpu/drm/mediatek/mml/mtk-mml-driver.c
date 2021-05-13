@@ -120,16 +120,17 @@ static int mml_probe(struct platform_device *pdev)
 err_mbox_create:
 	comp_sys_deinit(dev);
 err_init_comp:
-	devm_kfree(mml);
+	devm_kfree(dev, mml);
 	return ret;
 }
 
 static int mml_remove(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct mml_dev *mml = platform_get_drvdata(pdev);
 
-	comp_sys_deinit(&pdev->dev);
-	devm_kfree(mml);
+	comp_sys_deinit(dev);
+	devm_kfree(dev, mml);
 	return 0;
 }
 
