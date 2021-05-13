@@ -3088,3 +3088,5 @@ void cmdq_mdp_platform_function_setting(void)
 }
 EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 
+MODULE_LICENSE("GPL");
+
