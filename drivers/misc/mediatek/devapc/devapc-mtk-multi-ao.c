@@ -998,22 +998,11 @@ static void devapc_ut(uint32_t cmd)
 
 	} else if (cmd == DEVAPC_UT_SRAM_VIO) {
 		if (unlikely(sramrom_base == NULL)) {
-			unsigned int reg;
-			void __iomem *test_va = NULL;
-			phys_addr_t test_pa = 0x0;
+			pr_info(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
+			return;
+		}
 
-			pr_info(PFX "%s sramrom_vio test\n", __func__);
-
-			test_va = ioremap(test_pa, SZ_4K);
-			if (test_va) {
-				pr_info(PFX "%s test_pa:%pa, test_va:0x%px\n",
-							__func__, &test_pa, test_va);
-
-				reg = readl(test_va + RANDOM_OFFSET);
-				pr_info(PFX "%s readl:0x%x\n", __func__, reg);
-			}
-		} else
-			pr_info(PFX "%s, sramrom_base:0x%x\n", __func__,
+		pr_info(PFX "%s, sramrom_base:0x%x\n", __func__,
 				readl(sramrom_base + RANDOM_OFFSET));
 
 		pr_info(PFX "test done, it should generate violation!\n");
@@ -1421,6 +1410,10 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	if (ret)
 		pr_info(PFX "create SWP sysfs file failed, ret:%d\n", ret);
 #endif
+
+	mtk_devapc_ctx->sramrom_base = of_iomap(node, slave_type_num + 3);
+	if (unlikely(mtk_devapc_ctx->sramrom_base == NULL))
+		pr_info(PFX "parse sramrom_base failed\n");
 
 /* Enable devapc-infra-clock in preloader */
 #ifndef CONFIG_DEVAPC_MT6877
