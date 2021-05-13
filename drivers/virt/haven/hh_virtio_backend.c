@@ -1519,15 +1519,24 @@ static int __init hh_virtio_backend_init(void)
 		return ret;
 
 	ret = hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_init);
-	if (ret)
+	if (ret) {
+		vb_devclass_deinit();
 		return ret;
+	}
 
-	return platform_driver_register(&hh_virtio_backend_driver);
+	ret = platform_driver_register(&hh_virtio_backend_driver);
+	if (ret) {
+		gh_rm_unset_virtio_mmio_cb();
+		vb_devclass_deinit();
+	}
+
+	return ret;
 }
 module_init(hh_virtio_backend_init);
 
 static void __exit hh_virtio_backend_exit(void)
 {
+	gh_rm_unset_virtio_mmio_cb();
 	platform_driver_unregister(&hh_virtio_backend_driver);
 	vb_devclass_deinit();
 }
