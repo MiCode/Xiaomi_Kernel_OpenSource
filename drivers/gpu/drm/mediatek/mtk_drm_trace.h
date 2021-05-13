@@ -21,7 +21,6 @@
 #define DRM_TRACE_FENCE_ID (DRM_TRACE_ID + 2)
 #define DRM_TRACE_VSYNC_ID (DRM_TRACE_ID + 3)
 
-extern int hwc_pid;
 
 /* MTK_DRM FTRACE */
 extern bool g_trace_log;

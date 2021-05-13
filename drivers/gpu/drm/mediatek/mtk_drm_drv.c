@@ -57,7 +57,6 @@
 #include "mtk_disp_gamma.h"
 #include "mtk_disp_aal.h"
 #include "mtk_drm_mmp.h"
-#include "mtk_drm_trace.h"
 /* *******Panel Master******** */
 #include "mtk_fbconfig_kdebug.h"
 #ifdef CONFIG_MTK_HDMI_SUPPORT
@@ -2773,8 +2772,6 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 
 	if (s_type == MTK_SESSION_PRIMARY) {
 		ret = mtk_drm_primary_get_info(dev, info);
-		if (hwc_pid == 0)
-			hwc_pid = current->tgid;
 #if (defined CONFIG_MTK_HDMI_SUPPORT)
 	} else if (s_type == MTK_SESSION_EXTERNAL) {
 		ret = mtk_drm_dp_get_info(dev, info);

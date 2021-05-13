@@ -29,7 +29,6 @@
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
 
-
 #include "mtk_drm_arr.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
@@ -2335,9 +2334,6 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	fps_src = crtc->state->mode.vrefresh;
 	fps_dst = mode->vrefresh;
 
-	mtk_drm_trace_begin("%s from %dFPS to %dFPS\n",
-		__func__, fps_src, fps_dst);
-
 	copy_drm_disp_mode(mode, &crtc->state->mode);
 	drm_mode_set_crtcinfo(&crtc->state->mode, 0);
 
@@ -2389,8 +2385,6 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		mtk_drm_set_idle_check_interval(crtc, _idle_timeout);
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
-
-	mtk_drm_trace_end();
 }
 
 bool already_free;
@@ -6435,18 +6429,14 @@ void mtk_crtc_ddp_irq(struct drm_crtc *crtc, struct mtk_ddp_comp *comp)
 void mtk_crtc_vblank_irq(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-/*	char tag_name[100] = {'\0'}; */
+	char tag_name[100] = {'\0'};
 	ktime_t ktime = ktime_get();
 
 	mtk_crtc->vblank_time = ktime_to_timeval(ktime);
 
-/*
- *	sprintf(tag_name, "%d|HW_VSYNC|%lld",
- *		hwc_pid, ktime);
- *	mtk_drm_trace_c("%s", tag_name);
- */
-	mtk_drm_trace_c("%d|DISP-HW_Vsync|%lld",
-		hwc_pid, ktime);
+	sprintf(tag_name, "%d|HW_VSYNC|%lld",
+		DRM_TRACE_VSYNC_ID, ktime);
+	mtk_drm_trace_c("%s", tag_name);
 
 /*
  *	DDPMSG("%s CRTC%d %s\n", __func__,
@@ -6454,13 +6444,10 @@ void mtk_crtc_vblank_irq(struct drm_crtc *crtc)
  */
 	drm_crtc_handle_vblank(&mtk_crtc->base);
 
-/*
- *	sprintf(tag_name, "%d|HW_Vsync|%d",
- *		hwc_pid, 0);
- *	mtk_drm_trace_c("%s", tag_name);
- */
-	mtk_drm_trace_c("%d|DISP-HW_Vsync|%lld",
-		hwc_pid, 0);
+	sprintf(tag_name, "%d|HW_VSYNC|%d",
+		DRM_TRACE_VSYNC_ID, 0);
+	mtk_drm_trace_c("%s", tag_name);
+
 }
 
 static void mtk_crtc_get_output_comp_name(struct mtk_drm_crtc *mtk_crtc,
