@@ -9,7 +9,7 @@
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/mt6893-clkitg.dtsi"
 #include "mediatek/mt6893-disable-unused.dtsi"
-#include "mediatek/cust_mt6873_msdc.dtsi"
+#include "mediatek/cust_mt6893_msdc.dtsi"
 #include "mediatek/bat_setting/mt6873_battery_prop.dtsi"
 
 / {

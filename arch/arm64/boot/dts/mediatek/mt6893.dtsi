@@ -2943,30 +2943,22 @@
 			#clock-cells = <1>;
 		};
 
-		msdc_top: msdc_top@11f10000 {
-			compatible = "mediatek,mt8192-msdc_top", "syscon";
-			reg = <0 0x11f10000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
-		msdc: msdc@11f60000 {
-			compatible = "mediatek,mt8192-msdc", "syscon";
-			reg = <0 0x11f60000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
-		mmc0: mmc@11f60000 {
-			compatible = "mediatek,mt6873-mmc", "mediatek,mt2712-mmc";
-			reg = <0 0x11f60000 0 0x10000>,
+		mmc0: mmc@11230000 {
+			compatible = "mediatek,mt6893-mmc", "mediatek,mt2712-mmc";
+			reg = <0 0x11230000 0 0x10000>,
 			      <0 0x11f50000 0 0x1000>;
 			interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		mmc1: mmc@11f70000 {
-			compatible = "mediatek,mt6873-mmc", "mediatek,mt2712-mmc";
-			reg = <0 0x11f70000 0 0x1000>,
-			      <0 0x11c70000 0 0x1000>;
+		mmc1: mmc@11240000 {
+			compatible = "mediatek,mt6893-mmc", "mediatek,mt2712-mmc";
+			reg = <0 0x11240000 0 0x1000>,
+			      <0 0x11e10000 0 0x1000>;
 			interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
+				 <&infracfg_ao_clk CLK_IFRAO_MSDC1>,
+				 <&infracfg_ao_clk CLK_IFRAO_MSDC1_SRC>;
+			clock-names = "source", "hclk", "source_cg";
 		};
 
 		mali: mali@13000000 {
