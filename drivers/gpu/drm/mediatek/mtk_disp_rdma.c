@@ -263,7 +263,6 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	struct mtk_disp_rdma *priv = dev_id;
 	struct mtk_ddp_comp *rdma = &priv->ddp_comp;
 	struct mtk_drm_crtc *mtk_crtc = rdma->mtk_crtc;
-	struct mtk_crtc_state *state;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
@@ -314,24 +313,22 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 					   priv->ddp_comp.mtk_crtc->base.index,
 					   1);
 		}
-		mtk_drm_refresh_tag_end(&priv->ddp_comp);
+		if (!mtk_drm_is_idle(&(rdma->mtk_crtc->base)))
+			mtk_drm_refresh_tag_end(&priv->ddp_comp);
 	}
 
 	if (val & (1 << 1)) {
 		if (rdma->id == DDP_COMPONENT_RDMA0)
 			DRM_MMP_EVENT_START(rdma0, val, 0);
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
-
+#ifdef MTK_DRM_DELAY_PRESENT_FENCE_SOF
 		if (mtk_crtc) {
-			state = to_mtk_crtc_state(mtk_crtc->base.state);
-			if (state &&
-				!state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
-				atomic_set(&mtk_crtc->pf_event, 1);
-				wake_up_interruptible(&mtk_crtc->present_fence_wq);
-			}
+			atomic_set(&mtk_crtc->pf_event, 1);
+			wake_up_interruptible(&mtk_crtc->present_fence_wq);
 		}
-
-		mtk_drm_refresh_tag_start(&priv->ddp_comp);
+#endif
+		if (!mtk_drm_is_idle(&(rdma->mtk_crtc->base)))
+			mtk_drm_refresh_tag_start(&priv->ddp_comp);
 		MMPathTraceDRM(rdma);
 	}
 

@@ -23,6 +23,7 @@
 #include "mtk_drm_ddp.h"
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_mmp.h"
+#include "mtk_drm_trace.h"
 
 #define MAX_ENTER_IDLE_RSZ_RATIO 300
 
@@ -130,10 +131,16 @@ static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
 	mode = mtk_dsi_is_cmd_mode(output_comp);
 	CRTC_MMP_EVENT_START(index, enter_idle, mode, 0);
 
+	mtk_drm_trace_c("%d|DISP:idle_enter|%d",
+			hwc_pid, 1);
+
 	if (mode)
 		mtk_drm_cmd_mode_enter_idle(crtc);
 	else
 		mtk_drm_vdo_mode_enter_idle(crtc);
+
+	mtk_drm_trace_c("%d|DISP:idle_enter|%d",
+			hwc_pid, 0);
 
 	CRTC_MMP_EVENT_END(index, enter_idle, mode, 0);
 }
@@ -153,10 +160,16 @@ static void mtk_drm_idlemgr_leave_idle_nolock(struct drm_crtc *crtc)
 	mode = mtk_dsi_is_cmd_mode(output_comp);
 	CRTC_MMP_EVENT_START(index, leave_idle, mode, 0);
 
+	mtk_drm_trace_c("%d|DISP:idle_leave|%d",
+			hwc_pid, 1);
+
 	if (mode)
 		mtk_drm_cmd_mode_leave_idle(crtc);
 	else
 		mtk_drm_vdo_mode_leave_idle(crtc);
+
+	mtk_drm_trace_c("%d|DISP:idle_leave|%d",
+			hwc_pid, 0);
 
 	CRTC_MMP_EVENT_END(index, leave_idle, mode, 0);
 }
