@@ -12,5 +12,4 @@
 #
 
 export CPUFREQ_ROOT_DIR ?= $(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1
-
 obj-y += src/

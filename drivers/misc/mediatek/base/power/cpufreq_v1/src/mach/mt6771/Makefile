@@ -19,6 +19,12 @@ ccflags-y +=	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)
 
+ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6771
+ccflags-y += -DUSE_SSPM_VER_V1
+endif
+
 ifeq ($(findstring k71v1_bsp_2g,$(PROJECT_DTB_NAMES)),k71v1_bsp_2g)
 subdir-ccflags-y = -DLV
 endif
