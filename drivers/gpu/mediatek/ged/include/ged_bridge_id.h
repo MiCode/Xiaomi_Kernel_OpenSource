@@ -57,6 +57,9 @@ struct GED_BRIDGE_PACKAGE {
 #define GED_BRIDGE_COMMAND_TARGET_FPS         104
 #define GED_BRIDGE_COMMAND_GE_INFO            105
 #define GED_BRIDGE_COMMAND_GPU_TUNER_STATUS   106
+
+#define GED_BRIDGE_COMMAND_CREATE_TIMELINE    200
+
 #define GED_BRIDGE_COMMAND_ID                 int
 
 #define GED_BRIDGE_IO_LOG_BUF_GET \
@@ -102,6 +105,8 @@ struct GED_BRIDGE_PACKAGE {
 	GED_IOWR(GED_BRIDGE_COMMAND_GE_INFO)
 #define GED_BRIDGE_IO_GPU_TUNER_STATUS \
 	GED_IOWR(GED_BRIDGE_COMMAND_GPU_TUNER_STATUS)
+#define GED_BRIDGE_IO_CREATE_TIMELINE \
+	GED_IOWR(GED_BRIDGE_COMMAND_CREATE_TIMELINE)
 
 /******************************************************************************
  *  LOG_BUF_GET
@@ -398,6 +403,16 @@ struct GED_BRIDGE_IN_GPU_TUNER_STATUS {
 /* Bridge out structure for GPU_TUNER_STATUS */
 struct GED_BRIDGE_OUT_GPU_TUNER_STATUS {
 	int feature;
+};
+
+/* Bridge in structure for CREATE_TIMELINE */
+struct GED_BRIDGE_IN_CREATE_TIMELINE {
+	char name[GED_LOG_BUF_NAME_LENGTH];
+};
+
+/* Bridge out structure for CREATE_TIMELINE */
+struct GED_BRIDGE_OUT_CREATE_TIMELINE {
+	int timeline_fd;
 };
 
 #endif

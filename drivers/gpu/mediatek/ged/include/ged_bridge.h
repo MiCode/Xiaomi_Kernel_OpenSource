@@ -93,4 +93,8 @@ int ged_bridge_gpu_tuner_status(
 int ged_bridge_vsync_wait(void *IN, void *OUT);
 #endif
 
+int ged_bridge_create_timeline(
+	struct GED_BRIDGE_IN_CREATE_TIMELINE *in,
+	struct GED_BRIDGE_OUT_CREATE_TIMELINE *out);
+
 #endif

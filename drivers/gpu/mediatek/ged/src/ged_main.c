@@ -295,6 +295,12 @@ static long ged_dispatch(struct file *pFile,
 			VALIDATE_ARG(GPU_TUNER_STATUS);
 			ret = ged_bridge_gpu_tuner_status(pvIn, pvOut);
 			break;
+#ifdef CONFIG_SYNC_FILE
+		case GED_BRIDGE_COMMAND_CREATE_TIMELINE:
+			VALIDATE_ARG(CREATE_TIMELINE);
+			ret = ged_bridge_create_timeline(pvIn, pvOut);
+			break;
+#endif
 		default:
 			GED_LOGE("Unknown Bridge ID: %u\n",
 			GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID));

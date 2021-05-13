@@ -89,3 +89,5 @@ ged-y += \
 	src/ged_dvfs.o \
 	src/ged_gpu_tuner.o \
 	src/ged_kpi.o
+
+ged-$(CONFIG_SYNC_FILE) += src/ged_sync.o
