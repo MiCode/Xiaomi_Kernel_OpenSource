@@ -139,18 +139,6 @@ enum {
 	MT6885_IRQ_NUM,
 };
 
-enum {
-	MTKAIF_PROTOCOL_1 = 0,
-	MTKAIF_PROTOCOL_2,
-	MTKAIF_PROTOCOL_2_CLK_P2,
-};
-
-enum {
-	MTK_AFE_ADDA_DL_GAIN_MUTE = 0,
-	MTK_AFE_ADDA_DL_GAIN_NORMAL = 0xf74f,
-	/* SA suggest apply -0.3db to audio/speech path */
-};
-
 /* MCLK */
 enum {
 	MT6885_I2S0_MCK = 0,
@@ -165,18 +153,6 @@ enum {
 	MT6885_I2S8_MCK,
 	MT6885_I2S9_MCK,
 	MT6885_MCK_NUM,
-};
-
-/* SMC CALL Operations */
-enum mtk_audio_smc_call_op {
-	MTK_AUDIO_SMC_OP_INIT = 0,
-	MTK_AUDIO_SMC_OP_DRAM_REQUEST,
-	MTK_AUDIO_SMC_OP_DRAM_RELEASE,
-	MTK_AUDIO_SMC_OP_FM_REQUEST,
-	MTK_AUDIO_SMC_OP_FM_RELEASE,
-	MTK_AUDIO_SMC_OP_ADSP_REQUEST,
-	MTK_AUDIO_SMC_OP_ADSP_RELEASE,
-	MTK_AUDIO_SMC_OP_NUM
 };
 
 struct snd_pcm_substream;

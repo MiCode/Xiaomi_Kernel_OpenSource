@@ -20,39 +20,6 @@ int mt6873_set_local_afe(struct mtk_base_afe *afe)
 	return 0;
 }
 
-enum {
-	MTK_AFE_RATE_8K = 0,
-	MTK_AFE_RATE_11K = 1,
-	MTK_AFE_RATE_12K = 2,
-	MTK_AFE_RATE_384K = 3,
-	MTK_AFE_RATE_16K = 4,
-	MTK_AFE_RATE_22K = 5,
-	MTK_AFE_RATE_24K = 6,
-	MTK_AFE_RATE_352K = 7,
-	MTK_AFE_RATE_32K = 8,
-	MTK_AFE_RATE_44K = 9,
-	MTK_AFE_RATE_48K = 10,
-	MTK_AFE_RATE_88K = 11,
-	MTK_AFE_RATE_96K = 12,
-	MTK_AFE_RATE_176K = 13,
-	MTK_AFE_RATE_192K = 14,
-	MTK_AFE_RATE_260K = 15,
-};
-
-enum {
-	MTK_AFE_DAI_MEMIF_RATE_8K = 0,
-	MTK_AFE_DAI_MEMIF_RATE_16K = 1,
-	MTK_AFE_DAI_MEMIF_RATE_32K = 2,
-	MTK_AFE_DAI_MEMIF_RATE_48K = 3,
-};
-
-enum {
-	MTK_AFE_PCM_RATE_8K = 0,
-	MTK_AFE_PCM_RATE_16K = 1,
-	MTK_AFE_PCM_RATE_32K = 2,
-	MTK_AFE_PCM_RATE_48K = 3,
-};
-
 unsigned int mt6873_general_rate_transform(struct device *dev,
 					   unsigned int rate)
 {
@@ -255,49 +222,3 @@ int mt6873_adda_dl_gain_control(bool mute)
 	return 0;
 }
 EXPORT_SYMBOL(mt6873_adda_dl_gain_control);
-
-/* api for other modules */
-static int request_sram_count;
-int mtk_audio_request_sram(dma_addr_t *phys_addr,
-			   unsigned char **virt_addr,
-			   unsigned int length,
-			   void *user)
-{
-	int ret;
-
-	dev_info(local_afe->dev, "%s(), user = %p, length = %d, count = %d\n",
-		 __func__, user, length, request_sram_count);
-
-	pm_runtime_get_sync(local_afe->dev);
-
-	ret = mtk_audio_sram_allocate(local_afe->sram, phys_addr, virt_addr,
-				      length, user,
-				      SNDRV_PCM_FORMAT_S16_LE, true);
-	if (ret) {
-		dev_warn(local_afe->dev, "%s(), allocate sram fail, ret %d\n",
-			 __func__, ret);
-		pm_runtime_put(local_afe->dev);
-		return ret;
-	}
-
-	request_sram_count++;
-
-	dev_info(local_afe->dev, "%s(), return 0, count = %d\n",
-		 __func__, request_sram_count);
-	return 0;
-}
-EXPORT_SYMBOL(mtk_audio_request_sram);
-
-void mtk_audio_free_sram(void *user)
-{
-	dev_info(local_afe->dev, "%s(), user = %p, count = %d\n",
-		 __func__, user, request_sram_count);
-
-	mtk_audio_sram_free(local_afe->sram, user);
-	pm_runtime_put(local_afe->dev);
-	request_sram_count--;
-
-	dev_info(local_afe->dev, "%s(), return, count = %d\n",
-		 __func__, request_sram_count);
-}
-EXPORT_SYMBOL(mtk_audio_free_sram);
