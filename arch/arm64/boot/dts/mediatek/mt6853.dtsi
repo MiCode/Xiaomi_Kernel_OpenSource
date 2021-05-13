@@ -1315,70 +1315,73 @@
 
 		fhctl: fhctl@1000ce00 {
 			compatible = "mediatek,mt6853-fhctl";
-			reg = <0 0x1000ce00 0 0x200>;
-			mediatek,apmixed = <&apmixedsys_clk>;
-
-			armpll_ll {
-				mediatek,fh-id = <0>;
-				mediatek,fh-cpu-pll;
-			};
-
-			armpll_bl0 {
-				mediatek,fh-id = <1>;
-				mediatek,fh-cpu-pll;
-			};
-
-			armpll_bl1 {
-				mediatek,fh-id = <2>;
-				mediatek,fh-cpu-pll;
-			};
-
-			armpll_bl2 {
-				mediatek,fh-id = <3>;
-				mediatek,fh-cpu-pll;
-			};
-
-			armpll_bl3 {
-				mediatek,fh-id = <4>;
-				mediatek,fh-cpu-pll;
-			};
-
-			ccipll {
-				mediatek,fh-id = <5>;
-				mediatek,fh-cpu-pll;
-			};
-
-			mfgpll {
-				mediatek,fh-id = <6>;
-				mediatek,fh-pll-id = <CLK_APMIXED_MFGPLL>;
-			};
-
-			mpll {
-				mediatek,fh-id = <8>;
-			};
-
-			mmpll {
-				mediatek,fh-id = <9>;
-			};
-
-			mainpll {
-				mediatek,fh-id = <10>;
-				mediatek,fh-pll-id = <CLK_APMIXED_MAINPLL>;
-			};
-
-			msdcpll {
-				mediatek,fh-id = <11>;
-				mediatek,fh-pll-id = <CLK_APMIXED_MSDCPLL>;
-			};
-
-			adsppll {
-				mediatek,fh-id = <12>;
-				mediatek,fh-pll-id = <CLK_APMIXED_ADSPPLL>;
-			};
-
-			tvdpll {
-				mediatek,fh-id = <14>;
-				mediatek,fh-pll-id = <CLK_APMIXED_TVDPLL>;
+			reg = <0 0x1000ce00 0 0x200>,
+				<0 0x1000c000 0 0xe00>;
+			map0 {
+				domain = "top";
+				method = "fhctl-mcupm";
+				armpll_ll {
+					fh-id = <0>;
+					pll-id = <999>;
+					perms = <0x1C>;
+				};
+				armpll_bl0 {
+					fh-id = <1>;
+					pll-id = <999>;
+					perms = <0x1C>;
+				};
+				armpll_bl1 {
+					fh-id = <2>;
+					pll-id = <999>;
+					perms = <0x1C>;
+				};
+				armpll_bl2 {
+					fh-id = <3>;
+					pll-id = <999>;
+					perms = <0x1C>;
+				};
+				npupll {
+					fh-id = <4>;
+					pll-id = <CLK_APMIXED_NPUPLL>;
+				};
+				ccipll {
+					fh-id = <5>;
+					pll-id = <999>;
+					perms = <0x1C>;
+				};
+				mfgpll {
+					fh-id = <6>;
+					pll-id = <CLK_APMIXED_MFGPLL>;
+				};
+				mpll {
+					fh-id = <8>;
+					pll-id = <999>;
+					perms = <0x1C>;
+				};
+				mmpll {
+					fh-id = <9>;
+					pll-id = <CLK_APMIXED_MMPLL>;
+				};
+				mainpll {
+					fh-id = <10>;
+					pll-id = <CLK_APMIXED_MAINPLL>;
+					perms = <0x1C>;
+				};
+				msdcpll {
+					fh-id = <11>;
+					pll-id = <CLK_APMIXED_MSDCPLL>;
+					perms = <0x1C>;
+				};
+				adsppll {
+					fh-id = <12>;
+					pll-id = <CLK_APMIXED_ADSPPLL>;
+					perms = <0x1C>;
+				};
+				tvdpll {
+					fh-id = <14>;
+					pll-id = <CLK_APMIXED_TVDPLL>;
+					perms = <0x1C>;
+				};
 			};
 		};
 
