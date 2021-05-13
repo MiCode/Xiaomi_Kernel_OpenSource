@@ -29,11 +29,10 @@
 #include <linux/uaccess.h>
 #include <mboot_params.h>
 
-#include "gpueb_common_helper.h"
-#include "gpueb_common_ipi.h"
-#include "gpueb_common_logger.h"
-#include "gpueb_common_reserved_mem.h"
-#include "gpueb_plat_config.h"
+#include "gpueb_helper.h"
+#include "gpueb_ipi.h"
+#include "gpueb_logger.h"
+#include "gpueb_reserved_mem.h"
 
 /*
  * ===============================================
@@ -81,7 +80,7 @@ static struct miscdevice gpueb_device = {
     .fops = &gpueb_log_file_ops
 };
 
-static int gpueb_common_create_files(void)
+static int gpueb_create_files(void)
 {
     int ret = 0;
 
@@ -104,36 +103,41 @@ static int gpueb_common_create_files(void)
 static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 {
     int ret = 0;
+    unsigned int gpueb_support = 0;
     struct device_node *node;
 
     gpueb_pr_info("@%s: GPUEB driver probe start\n", __func__);
 
     node = of_find_matching_node(NULL, g_gpueb_of_match);
     if (!node)
-        gpueb_pr_info("@%s: find GPU node failed\n", __func__);
+        gpueb_pr_info("@%s: find GPUEB node failed\n", __func__);
 
-    ret = gpueb_common_ipi_init(pdev);
+    of_property_read_u32(pdev->dev.of_node, "gpueb-support"
+                        , &gpueb_support);
+    if (gpueb_support == 0) {
+        gpueb_pr_info("Bypass the GPUEB driver probe\n");
+        return 0;
+    }
+
+    ret = gpueb_ipi_init(pdev);
     if (ret != 0)
         gpueb_pr_info("@%s: ipi init fail\n", __func__);
 
-    ret = gpueb_common_reserved_mem_init(pdev);
+    ret = gpueb_reserved_mem_init(pdev);
     if (ret != 0)
         gpueb_pr_info("@%s: ipi init fail\n", __func__);
 
-    if (gpueb_plat_is_logger_support()) {
-        gpueb_pr_info("@%s: logger init\n", __func__);
-        gpueb_logger_workqueue = create_singlethread_workqueue("GPUEB_LOG_WQ");
-        if (gpueb_common_logger_init(pdev,
-                    gpueb_common_get_reserve_mem_virt(GPUEB_LOGGER_MEM_ID),
-                    gpueb_common_get_reserve_mem_size(GPUEB_LOGGER_MEM_ID)) == -1) {
-            gpueb_pr_info("@%s: gpueb_common_logger_init\n", __func__);
-            goto err;
-        }
+    gpueb_logger_workqueue = create_singlethread_workqueue("GPUEB_LOG_WQ");
+    if (gpueb_logger_init(pdev,
+                gpueb_get_reserve_mem_virt(0),
+                gpueb_get_reserve_mem_size(0)) == -1) {
+        gpueb_pr_info("@%s: logger init fail\n", __func__);
+        goto err;
     }
     
-    ret = gpueb_common_create_files();
+    ret = gpueb_create_files();
     if (unlikely(ret != 0)) {
-        gpueb_pr_info("@%s: create files failed\n", __func__);
+        gpueb_pr_info("@%s: create files fail\n", __func__);
         goto err;
     }
 
@@ -153,11 +157,6 @@ err:
 static int __init __mt_gpueb_init(void)
 {
     int ret = 0;
-
-    if (gpueb_plat_is_bringup()) {
-        gpueb_pr_info("skip driver init when bringup\n");
-        return 0;
-    }
 
     gpueb_pr_debug("start to initialize gpueb driver\n");
 

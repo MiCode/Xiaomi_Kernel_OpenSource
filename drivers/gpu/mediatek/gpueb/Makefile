@@ -12,27 +12,22 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/common/v1/include/
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/platform/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/include/
 
 #subdir-ccflags-y += -Wno-error
 
 obj-m += gpueb_mt6893.o
 gpueb_mt6893-y += \
-    common/v1/gpueb_common_init.o \
-    common/v1/gpueb_common_ipi_init.o \
-    common/v1/gpueb_common_ipi_test.o \
-    common/v1/gpueb_common_logger.o \
-    common/v1/gpueb_common_plat_service_init.o \
-    common/v1/gpueb_common_reserved_mem.o \
-    platform/gpueb_mt6893_config.o
+    gpueb_init.o \
+    gpueb_ipi.o \
+    gpueb_logger.o \
+    gpueb_plat_service.o \
+    gpueb_reserved_mem.o
 
 obj-m += gpueb_mt6983.o
 gpueb_mt6983-y += \
-    common/v1/gpueb_common_init.o \
-    common/v1/gpueb_common_ipi_init.o \
-    common/v1/gpueb_common_ipi_test.o \
-    common/v1/gpueb_common_logger.o \
-    common/v1/gpueb_common_plat_service_init.o \
-    common/v1/gpueb_common_reserved_mem.o \
-    platform/gpueb_mt6983_config.o
+    gpueb_init.o \
+    gpueb_ipi.o \
+    gpueb_logger.o \
+    gpueb_plat_service.o \
+    gpueb_reserved_mem.o

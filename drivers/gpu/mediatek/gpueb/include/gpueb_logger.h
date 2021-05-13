@@ -3,8 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef __GPUEB_COMMON_LOGGER_H__
-#define __GPUEB_COMMON_LOGGER_H__
+#ifndef __GPUEB_LOGGER_H__
+#define __GPUEB_LOGGER_H__
 
 #include <linux/poll.h>
 
@@ -30,7 +30,7 @@ struct gpueb_work_struct {
     unsigned int id;
 };
 
-int gpueb_common_logger_init(struct platform_device *pdev,
+int gpueb_logger_init(struct platform_device *pdev,
                     phys_addr_t start, phys_addr_t limit);
 
 unsigned int gpueb_log_if_poll(struct file *file, poll_table *wait);
@@ -41,4 +41,4 @@ int gpueb_log_if_open(struct inode *inode, struct file *file);
 
 extern struct device_attribute dev_attr_gpueb_mobile_log;
 
-#endif /* __GPUEB_COMMON_LOGGER_H__ */
+#endif /* __GPUEB_LOGGER_H__ */

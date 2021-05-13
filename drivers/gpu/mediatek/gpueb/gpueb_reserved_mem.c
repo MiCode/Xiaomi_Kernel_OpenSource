@@ -4,7 +4,7 @@
  */
 
 /**
- * @file    gpueb_common_reserved_mem.c
+ * @file    gpueb_reserved_mem.c
  * @brief   Reserved memory info init for GPUEB
  */
 
@@ -23,15 +23,17 @@
 #include <mboot_params.h>
 #include <linux/of_reserved_mem.h>
 
-#include "gpueb_common_helper.h"
-#include "gpueb_common_reserved_mem.h"
-#include "gpueb_plat_config.h"
+#include "gpueb_helper.h"
+#include "gpueb_reserved_mem.h"
 
 phys_addr_t gpueb_mem_base_phys;
 phys_addr_t gpueb_mem_base_virt;
 phys_addr_t gpueb_mem_size;
+unsigned int gpueb_mem_num = 0;
 
-int gpueb_common_reserve_mem_of_init(struct reserved_mem *rmem)
+struct gpueb_reserve_mblock *gpueb_reserve_mblock_ary;
+
+int gpueb_reserve_mem_of_init(struct reserved_mem *rmem)
 {
     gpueb_pr_debug("@%s: %pa %pa\n", __func__, &rmem->base, &rmem->size);
     gpueb_mem_base_phys = (phys_addr_t) rmem->base;
@@ -40,13 +42,13 @@ int gpueb_common_reserve_mem_of_init(struct reserved_mem *rmem)
     return 0;
 }
 RESERVEDMEM_OF_DECLARE(gpueb_reserve_mem_init,
-                GPUEB_MEM_RESERVED_KEY, gpueb_common_reserve_mem_of_init);
+                GPUEB_MEM_RESERVED_KEY, gpueb_reserve_mem_of_init);
 
 
 
-phys_addr_t gpueb_common_get_reserve_mem_phys(enum gpueb_reserve_mem_id_t id)
+phys_addr_t gpueb_get_reserve_mem_phys(unsigned int id)
 {
-    if (id >= NUMS_MEM_ID) {
+    if (id >= gpueb_mem_num) {
         gpueb_pr_debug("@%s: no reserve memory for %d", __func__, id);
         return 0;
     } else
@@ -54,27 +56,26 @@ phys_addr_t gpueb_common_get_reserve_mem_phys(enum gpueb_reserve_mem_id_t id)
 }
 
 
-phys_addr_t gpueb_common_get_reserve_mem_virt(enum gpueb_reserve_mem_id_t id)
+phys_addr_t gpueb_get_reserve_mem_virt(unsigned int id)
 {
-    if (id >= NUMS_MEM_ID) {
+    if (id >= gpueb_mem_num) {
         gpueb_pr_debug("@%s: no reserve memory for %d", __func__, id);
         return 0;
     } else
         return gpueb_reserve_mblock_ary[id].start_virt;
 }
 
-phys_addr_t gpueb_common_get_reserve_mem_size(enum gpueb_reserve_mem_id_t id)
+phys_addr_t gpueb_get_reserve_mem_size(unsigned int id)
 {
-    if (id >= NUMS_MEM_ID) {
+    if (id >= gpueb_mem_num) {
         gpueb_pr_debug("@%s: no reserve memory for %d", __func__, id);
         return 0;
     } else
         return gpueb_reserve_mblock_ary[id].size;
 }
 
-int gpueb_common_reserved_mem_init(struct platform_device *pdev)
+int gpueb_reserved_mem_init(struct platform_device *pdev)
 {
-    unsigned int gpueb_mem_num = 0;
     struct device_node *rmem_node;
     struct reserved_mem *rmem;
     unsigned int i, m_idx, m_size;
@@ -136,6 +137,8 @@ int gpueb_common_reserved_mem_init(struct platform_device *pdev)
         gpueb_mem_num = 0;
     }
 
+    gpueb_reserve_mblock_ary = (struct gpueb_reserve_mblock *)vzalloc(sizeof(struct gpueb_reserve_mblock) * gpueb_mem_num);
+
     for (i = 0; i < gpueb_mem_num; i++) {
         // Get reserved block's ID
         ret = of_property_read_u32_index(pdev->dev.of_node,
@@ -146,6 +149,7 @@ int gpueb_common_reserved_mem_init(struct platform_device *pdev)
             gpueb_pr_debug("@%s: Cannot get memory index(%d)\n", __func__, i);
             return -1;
         }
+        gpueb_reserve_mblock_ary[m_idx].num = m_idx;
 
         // Get reserved block's size
         ret = of_property_read_u32_index(pdev->dev.of_node,
@@ -157,7 +161,7 @@ int gpueb_common_reserved_mem_init(struct platform_device *pdev)
             return -1;
         }
 
-        if (m_idx >= NUMS_MEM_ID) {
+        if (m_idx >= gpueb_mem_num) {
             gpueb_pr_debug("@%s: Skip unexpected index, %d\n", __func__, m_idx);
             continue;
         }
@@ -177,7 +181,7 @@ int gpueb_common_reserved_mem_init(struct platform_device *pdev)
                     (uint64_t)gpueb_mem_base_virt);
 
     // Init the access address for each block
-    for (i = 0; i < NUMS_MEM_ID; i++) {
+    for (i = 0; i < gpueb_mem_num; i++) {
         gpueb_reserve_mblock_ary[i].start_phys = gpueb_mem_base_phys +
             accumlate_memory_size;
         gpueb_reserve_mblock_ary[i].start_virt = gpueb_mem_base_virt +

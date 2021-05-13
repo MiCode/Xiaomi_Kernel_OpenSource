@@ -4,7 +4,7 @@
  */
 
 /**
- * @file    gpueb_common_logger.c
+ * @file    gpueb_logger.c
  * @brief   Mobile log for GPUEB
  */
 
@@ -23,11 +23,14 @@
 #include <linux/seq_file.h>
 #include <mboot_params.h>
 
-#include "gpueb_common_helper.h"
-#include "gpueb_common_ipi.h"
-#include "gpueb_common_logger.h"
-#include "gpueb_common_reserved_mem.h"
-#include "gpueb_plat_config.h"
+// MTK common IPI/MBOX
+#include <linux/soc/mediatek/mtk_tinysys_ipi.h>
+#include <linux/soc/mediatek/mtk-mbox.h>
+
+#include "gpueb_helper.h"
+#include "gpueb_ipi.h"
+#include "gpueb_logger.h"
+#include "gpueb_reserved_mem.h"
 
 static unsigned int gpueb_logger_inited;
 static struct buffer_info_s *gpueb_buf_info;
@@ -49,7 +52,7 @@ static unsigned int gpueb_log_enable_set(unsigned int enable)
 
     if (gpueb_logger_inited) {
         // Send ipi to invoke gpueb logger
-        channel_id = gpueb_plat_get_channelID_by_name("CH_PLATFORM");
+        channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_PLATFORM");
         if (channel_id == -1) {
             gpueb_pr_debug("get channel ID fail!");
             return -1;
@@ -113,8 +116,9 @@ ssize_t gpueb_log_read(char __user *data, size_t len)
     unsigned int datalen = 0;
     char *buf;
 
-    if (!gpueb_logger_inited)
-        return 0;
+    if (!gpueb_logger_inited) {
+        gpueb_pr_info("@%s: !gpueb_logger_inited", __func__);
+    }
 
     mutex_lock(&gpueb_logger_mutex);
 
@@ -146,7 +150,7 @@ ssize_t gpueb_log_read(char __user *data, size_t len)
 
     len = datalen;
     /* Memory copy from log buf */
-    if (copy_to_user(data, buf, len))
+    if (copy_to_user(data, "gozilla", 7))
         gpueb_pr_info("@%s: copy to user buf failed..\n", __func__);
 
     r_pos += datalen;
@@ -158,7 +162,7 @@ ssize_t gpueb_log_read(char __user *data, size_t len)
 error:
     mutex_unlock(&gpueb_logger_mutex);
 
-    return datalen;
+    return 7;
 }
 
 ssize_t gpueb_log_if_read(struct file *file,
@@ -203,7 +207,7 @@ unsigned int gpueb_log_if_poll(struct file *file, poll_table *wait)
     return ret;
 }
 
-int gpueb_common_logger_init(struct platform_device *pdev,
+int gpueb_logger_init(struct platform_device *pdev,
     phys_addr_t start, phys_addr_t limit)
 {
     int buffer_offset = 0;

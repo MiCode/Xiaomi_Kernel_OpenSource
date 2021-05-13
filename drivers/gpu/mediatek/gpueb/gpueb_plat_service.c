@@ -4,7 +4,7 @@
  */
 
 /**
- * @file    gpueb_common_ipi.c
+ * @file    gpueb_ipi.c
  * @brief   IPI init flow for gpueb
  */
 
@@ -22,9 +22,8 @@
 #include <linux/pm_runtime.h>
 #include <mboot_params.h>
 
-#include "gpueb_common_ipi.h"
-#include "gpueb_common_helper.h"
-#include "gpueb_plat_config.h"
+#include "gpueb_ipi.h"
+#include "gpueb_helper.h"
 
 // MTK common IPI/MBOX
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
@@ -32,12 +31,12 @@
 
 int plat_service_ack_data;
 
-int gpueb_common_plat_service_init(struct platform_device *pdev)
+int gpueb_plat_service_init(struct platform_device *pdev)
 {
     int ret = 0;
     int channel_id = 0;
 
-    channel_id = gpueb_plat_get_channelID_by_name("CH_PLATFORM");
+    channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_PLATFORM");
     if (channel_id == -1) {
         gpueb_pr_debug("get channel ID fail!");
         return -1;
@@ -53,12 +52,6 @@ int gpueb_common_plat_service_init(struct platform_device *pdev)
     if (ret != IPI_ACTION_DONE) {
         gpueb_pr_debug("ipi register fail!");
         return ret;
-    }
-
-    if (gpueb_plat_is_ipi_test_support()) {
-        ret = gpueb_plat_ipi_send_testing();
-        if (ret != 0)
-            gpueb_pr_info("@%s: ipi send testing fail\n", __func__);
     }
 
     return 0;
