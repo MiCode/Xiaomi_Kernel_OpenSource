@@ -361,7 +361,7 @@ unlock:
 
 	}
 
-	if ((prev_delta - best_delta) > ((prev_delta + base_energy) >> 4)){
+	if (prev_delta > best_delta){
 		*new_cpu = best_energy_cpu;
 		return;
 	}
