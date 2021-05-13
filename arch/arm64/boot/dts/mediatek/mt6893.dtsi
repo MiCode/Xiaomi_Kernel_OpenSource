@@ -7013,7 +7013,7 @@
 		compatible = "mediatek,mmsram";
 		reg = <0 0x1f005000 0 0x1000>,
 			<0 0x1e000000 0 0x160000>;
-		interrupts = <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6893_POWER_DOMAIN_MDP>;
 
 		clocks = <&mdpsys CLK_MDP_APMCU_GALS>,
