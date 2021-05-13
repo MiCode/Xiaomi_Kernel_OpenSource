@@ -117,7 +117,8 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		/* ToDo or fix: killing any outstanding requests */
 		mt_usb_set_vbus(otg_sx, false);
 		musb->usb_connected = 0;
-		musb->is_host = 0;
+		musb->is_host = false;
+		mt_usb_disconnect(); /* sync to UI */
 		mt_usb_gadget_disconnect(musb); /* sync to UI */
 		otg_sx->sw_state &= ~MUSB_VBUS_VALID;
 		break;
@@ -285,9 +286,9 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 			phy_power_on(glue->phy);
 			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_VALID);
 		} else {
+			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_OFF);
 			dev_info(dev, "%s: if vbus_event false\n", __func__);
 			phy_power_off(glue->phy);
-			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_OFF);
 		}
 	}
 

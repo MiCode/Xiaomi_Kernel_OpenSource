@@ -2549,16 +2549,21 @@ static int musb_init_controller
 #endif
 
 #ifdef CONFIG_MTK_MUSB_DUAL_ROLE
+	/*
+	 * Dual-role-switch will turn off USB after initialize done.
+	 * Therefore, no need to power off MUSB when Dual-role-switch is
+	 * enabled.
+	 */
 	status = mt_usb_otg_switch_init(glue);
 	if (status < 0) {
 		DBG(0, "failed to initialize switch\n");
 		goto fail3;
 	}
-#endif
-
-	/*initial done, turn off usb */
+#else
+	/* initial done, turn off usb */
 	musb_platform_disable(musb);
 	musb_platform_unprepare_clk(musb);
+#endif
 
 	if (status < 0)
 		goto fail3;
