@@ -235,6 +235,88 @@ void Charger_Detect_Release(void)
 }
 EXPORT_SYMBOL(Charger_Detect_Release);
 
+#ifdef CONFIG_MTK_UART_USB_SWITCH
+bool in_uart_mode;
+bool usb_phy_check_in_uart_mode(void)
+{
+	int mode;
+
+	usb_enable_clock(true);
+	udelay(50);
+
+	/* get phy mode */
+	mode = phy_get_mode_ext(glue->phy);
+
+	/* usb_port_mode = USBPHY_READ32(0x68); */
+	usb_enable_clock(false);
+
+	if (mode == PHY_MODE_UART) {
+		DBG(0, "%s:%d - IN UART MODE : 0x%x\n",
+				__func__, __LINE__, mode);
+		mode = true;
+	} else {
+		DBG(0, "%s:%d - NOT IN UART MODE : 0x%x\n",
+				__func__, __LINE__, mode);
+		mode = false;
+	}
+	return mode;
+}
+
+void usb_phy_switch_to_uart(void)
+{
+	unsigned int val = 0;
+
+	in_uart_mode = usb_phy_check_in_uart_mode();
+	if (in_uart_mode) {
+		DBG(0, "Already in UART mode.\n");
+		return;
+	}
+
+	udelay(50);
+
+	/* set PHY UART mode */
+	phy_set_mode(glue->phy, PHY_MODE_UART);
+
+	/* GPIO Selection */
+	val = readl(ap_gpio_base);
+	writel(val & (~(GPIO_SEL_MASK)), ap_gpio_base);
+
+	val = readl(ap_gpio_base);
+	writel(val | (GPIO_SEL_UART0), ap_gpio_base);
+
+	in_uart_mode = true;
+}
+
+void usb_phy_switch_to_usb(void)
+{
+	unsigned int val = 0;
+
+	/* GPIO Selection */
+	val = readl(ap_gpio_base);
+	writel(val & (~(GPIO_SEL_MASK)), ap_gpio_base);
+
+	/* set UART mode to USB */
+	phy_set_mode(glue->phy, PHY_MODE_USB_OTG);
+
+	in_uart_mode = false;
+
+	phy_power_on(glue->phy);
+}
+
+void usb_phy_context_save(void)
+{
+	in_uart_mode = usb_phy_check_in_uart_mode();
+}
+EXPORT_SYMBOL(usb_phy_context_save);
+
+void usb_phy_context_restore(void)
+{
+	if (in_uart_mode)
+		usb_phy_switch_to_uart();
+}
+EXPORT_SYMBOL(usb_phy_context_restore);
+#endif
+
 #ifdef CONFIG_USB_MTK_OTG
 static struct regmap *pericfg;
 
@@ -661,10 +743,10 @@ static void mt_usb_enable(struct musb *musb)
 	usb_enable_clock(true);
 
 	mdelay(10);
-	#ifdef CONFIG_MTK_UART_USB_SWITCH
+#ifdef CONFIG_MTK_UART_USB_SWITCH
 	if (!is_check) {
-		usb_phy_check_in_uart_mode();
-	    is_check = 1;
+		in_uart_mode = usb_phy_check_in_uart_mode();
+		is_check = 1;
 	}
 	#endif
 
@@ -845,7 +927,6 @@ void do_connection_work(struct work_struct *data)
 	if (cmode_effect_on())
 		usb_on = false;
 	/* additional check operation done */
-
 	spin_lock_irqsave(&mtk_musb->lock, flags);
 
 	if (mtk_musb->is_host) {
@@ -1212,6 +1293,7 @@ static void uart_usb_switch_dump_register(void)
 	usb_enable_clock(true);
 
 #ifdef CONFIG_MTK_MUSB_PHY
+	/* Todo: should phase out: not supported by tphy */
 	DBG(0, "[MUSB]addr: 0x68, value: %x\n"
 			"[MUSB]addr: 0x6C, value: %x\n"
 			"[MUSB]addr: 0x20, value: %x\n"
@@ -1236,7 +1318,8 @@ static ssize_t portmode_show(struct device *dev,
 	}
 	usb_prepare_enable_clock(true);
 
-	if (usb_phy_check_in_uart_mode())
+	in_uart_mode = usb_phy_check_in_uart_mode();
+	if (in_uart_mode)
 		port_mode = PORT_MODE_UART;
 	else
 		port_mode = PORT_MODE_USB;
@@ -1258,6 +1341,10 @@ static ssize_t portmode_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	unsigned int portmode;
+
+	in_uart_mode = usb_phy_check_in_uart_mode();
+	if (in_uart_mode)
+		port_mode = PORT_MODE_UART;
 
 	if (!dev) {
 		DBG(0, "dev is null!!\n");
@@ -1712,11 +1799,20 @@ static int __init mt_usb_init(struct musb *musb)
 	if (ret)
 		goto err_phy_init;
 
-	ret = phy_power_on(glue->phy);
+#ifdef CONFIG_MTK_UART_USB_SWITCH
+	in_uart_mode = usb_phy_check_in_uart_mode();
+	if (in_uart_mode) {
+		glue->phy_mode = PHY_MODE_UART;
+		DBG(0, "At UART mode. Switch to USB is not support\n");
+	}
+#endif
+	phy_set_mode(glue->phy, glue->phy_mode);
+
+	if (glue->phy_mode != PHY_MODE_UART)
+		ret = phy_power_on(glue->phy);
+
 	if (ret)
 		goto err_phy_power_on;
-
-	phy_set_mode(glue->phy, glue->phy_mode);
 
 #ifndef FPGA_PLATFORM
 	reg_vusb = regulator_get(musb->controller, "vusb");
