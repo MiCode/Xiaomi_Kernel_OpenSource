@@ -15,10 +15,10 @@
 #define PHYSICAL_HEIGHT             152300
 
 #define DATA_RATE                   1174
-#define HSA                         16
+#define HSA                         18
 #define HBP                         22
-#define VSA                         10
-#define VBP                         25
+#define VSA                         8
+#define VBP                         20
 
 /*Parameter setting for mode 0 Start*/
 #define MODE_0_FPS                  60
