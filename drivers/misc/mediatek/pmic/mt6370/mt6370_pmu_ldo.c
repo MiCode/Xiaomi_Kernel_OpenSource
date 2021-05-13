@@ -193,7 +193,7 @@ static inline int mt_parse_dt(struct device *dev,
 		struct mt6370_pmu_ldo_platform_data *mask)
 {
 	struct device_node *np = dev->of_node;
-	uint32_t val;
+	uint32_t val = 0;
 
 	if (of_property_read_u32(np, "ldo_oms", &val) == 0) {
 		mask->cfg |= (0x1  <<  6);

@@ -366,7 +366,7 @@ static inline int mt_parse_dt(struct device *dev,
 {
 	struct device_node *np = dev->of_node;
 	int i;
-	uint32_t val;
+	uint32_t val = 0;
 
 	for (i = 0; i < ARRAY_SIZE(dbctrl1_desc); i++) {
 		if (of_property_read_u32(np, dbctrl1_desc[i].name, &val) == 0) {
