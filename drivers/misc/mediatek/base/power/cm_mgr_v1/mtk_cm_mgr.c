@@ -49,7 +49,7 @@
 #include <mtk_cm_mgr.h>
 #include <mtk_cm_mgr_platform_data.h>
 #ifdef CONFIG_MTK_CPU_FREQ
-//#include <mtk_cpufreq_common_api.h>
+#include <mtk_cpufreq_api.h>
 #endif /* CONFIG_MTK_CPU_FREQ */
 
 #include <linux/pm_qos.h>
@@ -942,7 +942,12 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, " %d", cm_mgr_cpu_opp_to_dram[i]);
 	seq_puts(m, "\n");
 #endif /* USE_CPU_TO_DRAM_MAP_NEW */
-
+#ifdef USE_STEP_PERF_OPP
+	seq_printf(m, "cm_mgr_dram_perf_opp %d\n",
+			cm_mgr_dram_perf_opp);
+	seq_printf(m, "cm_mgr_dram_step_opp %d\n",
+			cm_mgr_dram_step_opp);
+#endif /* USE_STEP_PERF_OPP */
 	seq_printf(m, "cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
 	seq_printf(m, "light_load_cps %d\n", light_load_cps);
 	seq_printf(m, "total_bw_value %d\n", total_bw_value);
@@ -1311,6 +1316,8 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "cm_mgr_perf_force_enable")) {
 		cm_mgr_perf_force_enable = val_1;
 		cm_mgr_perf_set_force_status(val_1);
+	} else if (!strcmp(cmd, "cm_mgr_perf_set_status")) {
+		cm_mgr_perf_set_status(!!val_1);
 	} else if (!strcmp(cmd, "cm_mgr_disable_fb")) {
 		cm_mgr_disable_fb = val_1;
 		if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1)
@@ -1516,6 +1523,14 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		cm_mgr_cpu_map_emi_opp = val_1;
 		cm_mgr_cpu_map_update_table();
 #endif /* USE_CPU_TO_DRAM_MAP_NEW */
+#ifdef USE_STEP_PERF_OPP
+	} else if (!strcmp(cmd, "cm_mgr_dram_perf_opp")) {
+		cm_mgr_dram_perf_opp = val_1;
+	} else if (!strcmp(cmd, "cm_mgr_dram_step_opp")) {
+		if (val_1 < 0)
+			val_1 = 0;
+		cm_mgr_dram_step_opp = val_1;
+#endif /* USE_STEP_PERF_OPP */
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
