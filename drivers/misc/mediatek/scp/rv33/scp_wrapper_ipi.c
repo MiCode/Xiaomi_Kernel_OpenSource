@@ -226,7 +226,7 @@ void mbox_setup_pin_table(unsigned int mbox)
 {
 	int i, last_ofs = 0, last_idx = 0, last_slot = 0, last_sz = 0;
 
-	for (i = 0; i < scp_mboxdev.recv_count; i++) {
+	for (i = 0; i < scp_mboxdev.send_count; i++) {
 		if (mbox == scp_mbox_pin_send[i].mbox) {
 			scp_mbox_pin_send[i].offset = last_ofs + last_slot;
 			scp_mbox_pin_send[i].pin_index = last_idx + last_sz;
