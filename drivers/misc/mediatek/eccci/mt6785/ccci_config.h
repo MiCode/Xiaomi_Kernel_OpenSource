@@ -17,7 +17,11 @@
 /* platform info */
 #define MD_GENERATION       (6295)
 #define MD_PLATFORM_INFO    "6295"
+#ifdef CCCI_PLATFORM_MT6781
+#define AP_PLATFORM_INFO    "MT6781"
+#else
 #define AP_PLATFORM_INFO    "MT6785"
+#endif
 #define CCCI_DRIVER_VER     0x20110118
 
 /* buffer management customization */
@@ -48,6 +52,11 @@
 #define CCCI_SMEM_SIZE_DBM_GUARD (8)
 
 #define IPC_L4C_MSG_ID_LEN   (0x40)
+
+#ifdef CCCI_PLATFORM_MT6781
+/* only bringup need BY_PASS_MD_BROM, normal load no need */
+//#define BY_PASS_MD_BROM
+#endif
 
 /* feature option, always try using platform info first! */
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT

@@ -2742,20 +2742,6 @@ static void record_drb_skb(unsigned char q_num, unsigned short cur_idx,
 #endif
 }
 
-static int tx_fifo_ptr_check(int r, int w, int rel)
-{
-	if ((r == w) && (w == rel))
-		return 1;
-	if (r <= w) {
-		if ((rel <= r) || (w < rel))
-			return 1;
-	} else {
-		if ((rel <= r) && (w < rel))
-			return 1;
-	}
-	return 0;
-}
-
 static void tx_force_md_assert(char buf[])
 {
 	if (atomic_inc_return(&s_tx_busy_assert_on) <= 1) {
@@ -2877,22 +2863,6 @@ retry:
 			atomic_set(&s_tx_busy_num[qno], 0);
 			/* tx_force_md_assert("TX busy 20s"); */
 			dump_drb_record_by_que(qno);
-			ret = -EBUSY;
-			goto __EXIT_FUN;
-		}
-		if (tx_fifo_ptr_check(txq->drb_rd_idx, txq->drb_wr_idx,
-			txq->drb_rel_rd_idx) == 0) {
-			if (atomic_read(&s_tx_busy_assert_on) == 0)
-				CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
-					"send_skb(%d): fifo check: %d, w(%d), r(%d), rel(%d) b(%d) rw_reg(0x%x) mask(0x%x)\n",
-					qno, txq->drb_size_cnt,
-					txq->drb_wr_idx,
-					txq->drb_rd_idx, txq->drb_rel_rd_idx,
-					atomic_read(&txq->tx_budget),
-					drv_dpmaif_ul_get_rwidx(qno),
-					drv_dpmaif_ul_get_ul_interrupt_mask());
-
-			tx_force_md_assert("FIFO ptr abnormal");
 			ret = -EBUSY;
 			goto __EXIT_FUN;
 		}

@@ -1545,12 +1545,51 @@ static void ccif_hif_hw_init(struct md_ccif_ctrl *md_ctrl)
 			md_ctrl->ccif_irq_id, ret);
 		return;
 	}
+	atomic_set(&md_ctrl->ccif_ap_data_enabled, 1);
 
 	ret = irq_set_irq_wake(md_ctrl->ccif_irq_id, 1);
 	if (ret)
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 			"irq_set_irq_wake ccif irq0(%d) error %d\n",
 			md_ctrl->ccif_irq_id, ret);
+}
+
+/* open clk->enable irq */
+void ccif_set_irq_on_poweron(unsigned char hif_id)
+{
+	struct md_ccif_ctrl *md_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+
+	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s:CCIF_AP_DATA id=%d\n",
+		__func__, md_ctrl->ccif_irq_id);
+
+	if (atomic_cmpxchg(&md_ctrl->ccif_ap_data_enabled, 0, 1) == 0) {
+		enable_irq(md_ctrl->ccif_irq_id);
+		CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "enable ccif_ap_data irq\n");
+	}
+}
+
+/* disable irq->ack CCIF_RXCH->close clk*/
+void ccif_set_irq_on_poweroff(unsigned char hif_id)
+{
+	struct md_ccif_ctrl *md_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	unsigned int ch_id;
+
+	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s:CCIF_AP_DATA id=%d\n",
+		__func__, md_ctrl->ccif_irq_id);
+
+	/* disable irq */
+	if (atomic_cmpxchg(&md_ctrl->ccif_ap_data_enabled, 1, 0) == 1) {
+		disable_irq_nosync(md_ctrl->ccif_irq_id);
+		CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "disable ccif_ap_data irq\n");
+	}
+
+	ch_id = ccif_read32(md_ctrl->ccif_ap_base, APCCIF_RCHNUM);
+	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "disable ccif irq,ch_id=%d\n", ch_id);
+
+	ccif_write32(md_ctrl->ccif_ap_base,
+		APCCIF_ACK, 0xFFFF);
 }
 
 int ccci_ccif_hif_init(unsigned char hif_id, unsigned char md_id)

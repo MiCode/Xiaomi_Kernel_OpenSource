@@ -39,7 +39,9 @@ struct md_hw_info {
 	unsigned long md_ccif_base;
 	unsigned int sram_size;
 	void __iomem *md_ccif4_base;
-
+#ifdef CCCI_PLATFORM_MT6781
+	unsigned long spm_sleep_base;
+#endif
 	/* HW info - Interrutpt ID */
 	unsigned int ap_ccif_irq0_id;
 	unsigned int ap_ccif_irq1_id;
@@ -100,4 +102,7 @@ extern unsigned long infra_ao_base;
 extern unsigned int devapc_check_flag;
 extern void ccci_mem_dump(int md_id, void *start_addr, int len);
 extern void dump_emi_outstanding(void);
+extern void ccif_set_irq_on_poweron(unsigned char hif_id);
+extern void ccif_set_irq_on_poweroff(unsigned char hif_id);
+
 #endif				/* __MD_SYS1_PLATFORM_H__ */
