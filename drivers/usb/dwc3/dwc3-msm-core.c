@@ -2290,6 +2290,13 @@ int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op)
 		ret = gsi_check_ready_to_suspend(mdwc);
 		break;
 	case GSI_EP_OP_DISABLE:
+		/*
+		 * Explicitly stop active transfers, as DWC3 core no longer
+		 * knows about the DEP flags for GSI based EPs.
+		 */
+		spin_lock_irqsave(&dwc->lock, flags);
+		dwc3_core_stop_active_transfer(dep, true);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		ret = ep->ops->disable(ep);
 		break;
 	default:
