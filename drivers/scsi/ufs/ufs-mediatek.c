@@ -17,6 +17,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/tracepoint.h>
 
 #include "mtk_blocktag.h"
 #include "ufshcd.h"
@@ -611,6 +612,104 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 	return ret;
 }
 
+static bool ufs_mtk_is_data_cmd(struct scsi_cmnd *cmd)
+{
+	char cmd_op = cmd->cmnd[0];
+
+	if (cmd_op == WRITE_10 || cmd_op == READ_10 ||
+	    cmd_op == WRITE_16 || cmd_op == READ_16 ||
+	    cmd_op == WRITE_6 || cmd_op == READ_6)
+		return true;
+
+	return false;
+}
+
+struct tracepoints_table {
+	const char *name;
+	void *func;
+	struct tracepoint *tp;
+	bool init;
+};
+
+static void ufs_mtk_trace_android_vh_ufs_compl_command(void *data,
+				struct ufs_hba *hba,
+				struct ufshcd_lrb *lrbp)
+{
+	struct scsi_cmnd *cmd = lrbp->cmd;
+	int tag = lrbp->task_tag;
+	unsigned long req_mask;
+
+	if (!cmd)
+		return;
+
+	if (!ufs_mtk_is_data_cmd(cmd))
+		return;
+
+	req_mask = hba->outstanding_reqs & ~(1 << tag);
+	ufs_mtk_biolog_transfer_req_compl(tag, req_mask);
+	ufs_mtk_biolog_check(req_mask);
+}
+
+static struct tracepoints_table interests[] = {
+	{
+		.name = "android_vh_ufs_compl_command",
+		.func = ufs_mtk_trace_android_vh_ufs_compl_command
+	},
+};
+
+#define FOR_EACH_INTEREST(i) \
+	for (i = 0; i < sizeof(interests) / sizeof(struct tracepoints_table); \
+	i++)
+
+static void ufs_mtk_lookup_tracepoints(struct tracepoint *tp,
+				       void *ignore)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (strcmp(interests[i].name, tp->name) == 0)
+			interests[i].tp = tp;
+	}
+}
+
+static void ufs_mtk_uninstall_tracepoints(void)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (interests[i].init) {
+			tracepoint_probe_unregister(interests[i].tp,
+						    interests[i].func,
+						    NULL);
+		}
+	}
+}
+
+static int ufs_mtk_install_tracepoints(void)
+{
+	int i;
+
+	/* Install the tracepoints */
+	for_each_kernel_tracepoint(ufs_mtk_lookup_tracepoints, NULL);
+
+	FOR_EACH_INTEREST(i) {
+		if (interests[i].tp == NULL) {
+			pr_info("Error: %s not found\n",
+				interests[i].name);
+			/* Unload previously loaded */
+			ufs_mtk_uninstall_tracepoints();
+			return -EINVAL;
+		}
+
+		tracepoint_probe_register(interests[i].tp,
+					  interests[i].func,
+					  NULL);
+		interests[i].init = true;
+	}
+
+	return 0;
+}
+
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -686,6 +785,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	host->pm_qos_init = true;
 
 	ufs_mtk_biolog_init(host->qos_allowed, host->boot_device);
+	ufs_mtk_install_tracepoints();
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	ufs_mtk_dbg_register(hba);
@@ -1031,18 +1131,6 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 }
 
-static bool ufs_mtk_is_data_cmd(struct scsi_cmnd *cmd)
-{
-	char cmd_op = cmd->cmnd[0];
-
-	if (cmd_op == WRITE_10 || cmd_op == READ_10 ||
-	    cmd_op == WRITE_16 || cmd_op == READ_16 ||
-	    cmd_op == WRITE_6 || cmd_op == READ_6)
-		return true;
-
-	return false;
-}
-
 static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
 				   bool is_scsi)
 {
@@ -1115,6 +1203,7 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(&(pdev)->dev);
 	ufshcd_remove(hba);
 	ufs_mtk_biolog_exit();
+	ufs_mtk_uninstall_tracepoints();
 	return 0;
 }
 
