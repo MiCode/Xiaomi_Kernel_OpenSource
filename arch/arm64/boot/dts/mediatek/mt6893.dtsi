@@ -5425,8 +5425,7 @@
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_IPE>;
 			interrupts = <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH 0>;
 			EVENT_IPE_DVS_DONE = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_3>;
-			mediatek,smi = <&smi_common>;
-			mboxes = <&gce 16 0 CMDQ_THR_PRIO_1>;
+			mboxes = <&gce_m 16 0 CMDQ_THR_PRIO_1>;
 			clocks =  <&topckgen_clk CLK_TOP_DPE_SEL>,
 			<&ipesys_clk CLK_IPE_SMI_SUBCOM>,
 			<&ipesys_clk CLK_IPE_DPE>,
@@ -5447,9 +5446,8 @@
 			mediatek,larbs = <&larb19 &larb20>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_IPE>;
 			interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH 0>;
-			mediatek,smi = <&smi_common>;
 			EVENT_IPE_DVP_DONE = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_4>;
-			mboxes = <&gce 16 0 CMDQ_THR_PRIO_1>;
+			mboxes = <&gce_m 16 0 CMDQ_THR_PRIO_1>;
 			clocks =  <&topckgen_clk CLK_TOP_DPE_SEL>,
 			<&ipesys_clk CLK_IPE_SMI_SUBCOM>,
 			<&ipesys_clk CLK_IPE_DPE>,
