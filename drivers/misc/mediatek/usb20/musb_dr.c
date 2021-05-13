@@ -118,7 +118,6 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		mt_usb_set_vbus(otg_sx, false);
 		musb->usb_connected = 0;
 		musb->is_host = 0;
-		mt_usb_disconnect();
 		mt_usb_gadget_disconnect(musb); /* sync to UI */
 		otg_sx->sw_state &= ~MUSB_VBUS_VALID;
 		break;
@@ -256,7 +255,6 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 	struct musb *musb = glue->mtk_musb;
 	bool id_event, vbus_event;
 	static bool first_init = true;
-	static bool boot_init = true;
 
 	dev_info(dev, "role_sx_set role %d\n", role);
 
@@ -279,11 +277,6 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 		return 0;
 	}
 #endif
-	/* skip mac and phy setting during driver init */
-	if (boot_init && otg_sx->latest_role == USB_ROLE_NONE) {
-		boot_init = false;
-		return 0;
-	}
 
 	if (!!(otg_sx->sw_state & MUSB_VBUS_VALID) ^ vbus_event) {
 		if (vbus_event) {
