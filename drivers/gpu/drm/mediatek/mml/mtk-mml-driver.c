@@ -8,10 +8,22 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/atomic.h>
 #include <linux/pm_runtime.h>
 
 #include "mtk-mml-driver.h"
 #include "mtk-mml-core.h"
+
+struct mml_dev {
+	struct platform_device *pdev;
+	/* struct mml_comp *comp[MML_ENGINE_TOTAL]; */
+	struct cmdq_base *cmdq_base;
+	struct cmdq_client *cmdq_clt;
+
+	atomic_t drm_cnt;
+	struct mml_drm_ctx *drm_ctx;
+	struct mutex drm_ctx_mutex;
+};
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev)
 {
@@ -35,6 +47,37 @@ struct platform_device *mml_get_plat_device(struct platform_device *pdev)
 	return mml_pdev;
 }
 EXPORT_SYMBOL_GPL(mml_get_plat_device);
+
+struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
+	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml))
+{
+	struct mml_drm_ctx *ctx;
+
+	mutex_lock(&mml->drm_ctx_mutex);
+	if (atomic_inc_return(&mml->drm_cnt) == 1)
+		mml->drm_ctx = ctx_create(mml);
+	ctx = mml->drm_ctx;
+	mutex_unlock(&mml->drm_ctx_mutex);
+	return ctx;
+}
+
+void mml_dev_put_drm_ctx(struct mml_dev *mml,
+	void (*ctx_release)(struct mml_drm_ctx *ctx))
+{
+	struct mml_drm_ctx *ctx;
+	int cnt;
+
+	mutex_lock(&mml->drm_ctx_mutex);
+	ctx = mml->drm_ctx;
+	cnt = atomic_dec_if_positive(&mml->drm_cnt);
+	if (cnt == 0)
+		mml->drm_ctx = NULL;
+	mutex_unlock(&mml->drm_ctx_mutex);
+	if (cnt == 0)
+		ctx_release(ctx);
+
+	WARN_ON(cnt < 0);
+}
 
 
 static int comp_sys_init(struct device *dev, struct mml_dev *mml)
@@ -77,7 +120,7 @@ static int mml_probe(struct platform_device *pdev)
 err_mbox_create:
 	comp_sys_deinit(dev);
 err_init_comp:
-	kfree(mml);
+	devm_kfree(mml);
 	return ret;
 }
 
@@ -86,19 +129,19 @@ static int mml_remove(struct platform_device *pdev)
 	struct mml_dev *mml = platform_get_drvdata(pdev);
 
 	comp_sys_deinit(&pdev->dev);
-	kfree(mml);
+	devm_kfree(mml);
 	return 0;
 }
 
 static int __maybe_unused mml_pm_suspend(struct device *dev)
 {
-	mml_msg("%s ignore\n", __func__);
+	mml_msg("%s ignore", __func__);
 	return 0;
 }
 
 static int __maybe_unused mml_pm_resume(struct device *dev)
 {
-	mml_msg("%s ignore\n", __func__);
+	mml_msg("%s ignore", __func__);
 	return 0;
 }
 
@@ -146,7 +189,7 @@ static int __init mml_driver_init(void)
 
 	ret = platform_driver_register(&mml_driver);
 	if (ret) {
-		mml_err("failed to register %s driver\n",
+		mml_err("failed to register %s driver",
 			mml_driver.driver.name);
 		return ret;
 	}

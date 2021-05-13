@@ -260,20 +260,9 @@ const static struct mml_task_ops drm_task_ops = {
 	.frame_done = task_frame_done,
 };
 
-struct mml_drm_ctx *mml_drm_create_context(struct platform_device *pdev)
+static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)
 {
-	struct mml_dev *mml = platform_get_drvdata(pdev);
 	struct mml_drm_ctx *ctx;
-
-	mml_log("%s", __func__);
-
-	if (!mml) {
-		mml_err("%s not init mml", __func__);
-		return ERR_PTR(-EPERM);
-	}
-
-	if (mml->drm_ctx)
-		return mml->drm_ctx;
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -281,23 +270,25 @@ struct mml_drm_ctx *mml_drm_create_context(struct platform_device *pdev)
 
 	mutex_init(&ctx->config_mutex);
 	ctx->task_ops = &drm_task_ops;
-
-	mutex_lock(&mml->drm_ctx_mutex);
-	mml->drm_ctx = (void *)ctx;
-	mutex_unlock(&mml->drm_ctx_mutex);
 	return ctx;
 }
 
-void mml_drm_destroy_context(struct mml_drm_ctx *ctx)
+struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev)
 {
-	struct mml_dev *mml = ctx->mml;
-	struct mml_frame_config *cfg, *tmp;
+	struct mml_dev *mml = platform_get_drvdata(pdev);
 
 	mml_log("%s", __func__);
+	if (!mml) {
+		mml_err("%s not init mml", __func__);
+		return ERR_PTR(-EPERM);
+	}
+	return mml_dev_get_drm_ctx(mml, drm_ctx_create);
+}
+EXPORT_SYMBOL_GPL(mml_drm_get_context);
 
-	mutex_lock(&mml->drm_ctx_mutex);
-	ctx->mml->drm_ctx = NULL;
-	mutex_unlock(&mml->drm_ctx_mutex);
+static void drm_ctx_release(struct mml_drm_ctx *ctx)
+{
+	struct mml_frame_config *cfg, *tmp;
 
 	mutex_lock(&ctx->config_mutex);
 	list_for_each_entry_safe(cfg, tmp, &ctx->configs, entry) {
@@ -305,6 +296,13 @@ void mml_drm_destroy_context(struct mml_drm_ctx *ctx)
 		frame_config_destroy(cfg);
 	}
 
-	kfree(ctx);
 	mutex_unlock(&ctx->config_mutex);
+	kfree(ctx);
 }
+
+void mml_drm_put_context(struct mml_drm_ctx *ctx)
+{
+	mml_log("%s", __func__);
+	mml_dev_put_drm_ctx(ctx->mml, drm_ctx_release);
+}
+EXPORT_SYMBOL_GPL(mml_drm_put_context);

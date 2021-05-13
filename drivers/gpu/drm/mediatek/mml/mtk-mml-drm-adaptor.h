@@ -25,7 +25,7 @@ struct mml_drm_ctx;
 struct mml_cap mml_drm_query_cap(struct mml_frame_info *info);
 
 /*
- * mml_drm_create_context - Create mml drm context to control mml.
+ * mml_drm_get_context - Get mml drm context to control mml.
  *
  * pdev:	The mml driver platform device pointer. Client driver must call
  *		mml_get_plat_device by giving user client driver platoform
@@ -35,14 +35,14 @@ struct mml_cap mml_drm_query_cap(struct mml_frame_info *info);
  * Return:	The drm context pointer to represent mml driver instance.
  *
  */
-struct mml_drm_ctx *mml_drm_create_context(struct platform_device *pdev);
+struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev);
 
 /*
- * mml_drm_destroy_context - Destroy mml drm context and related cached info
+ * mml_drm_put_context - Release mml drm context and related cached info
  * inside this context.
  *
  * @ctx:	The drm context instance.
  */
-void mml_drm_destroy_context(struct mml_drm_ctx *ctx);
+void mml_drm_put_context(struct mml_drm_ctx *ctx);
 
 #endif	/* __MTK_MML_DRM_ADAPTOR_H__ */

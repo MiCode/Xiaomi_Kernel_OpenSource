@@ -10,18 +10,14 @@
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
+struct mml_dev;
 struct mml_drm_ctx;
 
-struct mml_dev {
-	struct platform_device *pdev;
-	/* struct mml_comp *comp[MML_ENGINE_TOTAL]; */
-	struct cmdq_base *cmdq_base;
-	struct cmdq_client *cmdq_clt;
-
-	struct mml_drm_ctx *drm_ctx;
-	struct mutex drm_ctx_mutex;
-};
-
 struct platform_device *mml_get_plat_device(struct platform_device *pdev);
+
+struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
+	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml));
+void mml_dev_put_drm_ctx(struct mml_dev *mml,
+	void (*ctx_release)(struct mml_drm_ctx *ctx));
 
 #endif	/* __MTK_MML_DRIVER_H__ */
