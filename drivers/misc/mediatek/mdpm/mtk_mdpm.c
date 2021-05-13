@@ -9,6 +9,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include "mtk_pbm.h"
 #include "mtk_mdpm.h"
 #include "mtk_mdpm_platform.h"
@@ -652,6 +654,120 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 }
 EXPORT_SYMBOL(get_md1_power);
 
+static int mt_mdpm_debug_proc_show(struct seq_file *m, void *v)
+{
+	if (mt_mdpm_debug)
+		seq_printf(m, "mdpm debug enabled mt_mdpm_debug=%d\n",
+			mt_mdpm_debug);
+	else
+		seq_puts(m, "mdpm debug disabled\n");
+
+	return 0;
+}
+
+/*
+ * enable debug message
+ */
+static ssize_t mt_mdpm_debug_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[32];
+	int len = 0;
+	int debug = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+
+	len = (len < 0) ? 0 : len;
+	desc[len] = '\0';
+
+	/* if (sscanf(desc, "%d", &debug) == 1) { */
+	if (kstrtoint(desc, 10, &debug) == 0) {
+		if (debug >= 0 && debug <= 2)
+			mt_mdpm_debug = debug;
+		else
+			pr_notice("should be [0:disable, 1,2:enable level]\n");
+	} else
+		pr_notice("should be [0:disable, 1,2:enable level]\n");
+
+	return count;
+}
+
+static int mt_mdpm_power_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "MAX power: scenario=%dmW dbm=%dmW total=%dmW\n scenario name=%s(%d) section=%d, rat=%d, power_type=%d\n",
+		mdpm_power_sta.scanario_power, mdpm_power_sta.tx_power,
+		mdpm_power_sta.total_power,
+		mdpm_power_sta.scenario_name, mdpm_power_sta.scenario_id,
+		mdpm_power_sta.dbm_section, mdpm_power_sta.rat,
+		mdpm_power_sta.power_type);
+
+	return 0;
+}
+
+#define PROC_FOPS_RW(name)						\
+static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mt_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct proc_ops mt_ ## name ## _proc_fops = {	\
+	.proc_open		= mt_ ## name ## _proc_open,			\
+	.proc_read		= seq_read,					\
+	.proc_lseek		= seq_lseek,					\
+	.proc_release		= single_release,				\
+	.proc_write		= mt_ ## name ## _proc_write,			\
+}
+
+#define PROC_FOPS_RO(name)						\
+static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mt_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct proc_ops mt_ ## name ## _proc_fops = {	\
+	.proc_open		= mt_ ## name ## _proc_open,		\
+	.proc_read		= seq_read,				\
+	.proc_lseek		= seq_lseek,				\
+	.proc_release	= single_release,			\
+}
+
+#define PROC_ENTRY(name)	{__stringify(name), &mt_ ## name ## _proc_fops}
+
+PROC_FOPS_RW(mdpm_debug);
+PROC_FOPS_RO(mdpm_power);
+
+static int mt_mdpm_create_procfs(void)
+{
+	struct proc_dir_entry *dir = NULL;
+	int i;
+
+	struct pentry {
+		const char *name;
+		const struct proc_ops *fops;
+	};
+
+	const struct pentry entries[] = {
+		PROC_ENTRY(mdpm_debug),
+		PROC_ENTRY(mdpm_power),
+	};
+
+	dir = proc_mkdir("mdpm", NULL);
+
+	if (!dir) {
+		pr_notice("fail to create /proc/mdpm @ %s()\n", __func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create
+		    (entries[i].name, 0660, dir, entries[i].fops))
+			pr_notice("@%s: create /proc/mdpm/%s failed\n", __func__,
+				    entries[i].name);
+	}
+
+	return 0;
+}
+
 static int get_md1_scenario_internal(u32 share_reg)
 {
 	int hit = -1;
@@ -1118,30 +1234,6 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 	else
 		return 0;
 
-/*
-	if (rfhw_sel != rf_ret) {
-		switch (rf_ret) {
-		case 0:
-			for (i = 0; i < TX_DBM_NUM; i++)
-				mdpm_tx_pwr[i].rfhw = &rfhw0[i];
-
-			rfhw_sel = rf_ret;
-			break;
-
-		case 1:
-			for (i = 0; i < TX_DBM_NUM; i++)
-				mdpm_tx_pwr[i].rfhw = &rfhw1[i];
-
-			rfhw_sel = rf_ret;
-			break;
-
-		default:
-			pr_notice("wrong rf_ret %d\n", rf_ret);
-			break;
-		}
-	}
-*/
-
 	if (mt_mdpm_debug == 2)
 		for (i = 0; i < SHARE_MEM_SIZE; i++) {
 			usedBytes += sprintf(log_buffer + usedBytes, "0x%x ",
@@ -1221,6 +1313,8 @@ static int mdpm_probe(struct platform_device *pdev)
 	mdpm_tx_pwr = mdpm_data->tx_power_t;
 	mdpm_scen = mdpm_data->scenario_power_t;
 	scen_priority = mdpm_data->prority_t;
+
+	mt_mdpm_create_procfs();
 
 	return 0;
 }

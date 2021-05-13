@@ -11,6 +11,7 @@
 #include <linux/mutex.h>
 #include <linux/pm_qos.h>
 #include <linux/power_supply.h>
+#include <linux/proc_fs.h>
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <trace/events/power.h>
@@ -32,7 +33,6 @@
 static LIST_HEAD(pbm_policy_list);
 
 static bool mt_pbm_debug;
-static int pbm_drv_done;
 
 #define DLPTCB_MAX_NUM 16
 static struct pbm_callback_table pbmcb_tb[DLPTCB_MAX_NUM] = { {0} };
@@ -41,17 +41,31 @@ static struct hpf hpf_ctrl = {
 	.switch_md1 = 1,
 	.switch_gpu = 0,
 	.switch_flash = 0,
-
-	.cpu_volt = 1000,
-	.gpu_volt = 0,
-	.cpu_num = 1,
-
 	.loading_dlpt = 0,
 	.loading_md1 = 0,
 	.loading_cpu = 0,
 	.loading_gpu = 0,
 	.loading_flash = MAX_FLASH_POWER,
 	.to_cpu_budget = 0,
+	.to_gpu_budget = 0,
+};
+
+static struct hpf hpf_ctrl_manual = {
+	.loading_dlpt = 0,
+	.loading_md1 = 0,
+	.loading_cpu = 0,
+	.loading_gpu = 0,
+	.loading_flash = 0,
+	.to_cpu_budget = 0,
+	.to_gpu_budget = 0,
+};
+
+static struct pbm pbm_ctrl = {
+	/* feature key */
+	.feature_en = 1,
+	.pbm_drv_done = 0,
+	.hpf_en = 63,/* bin: 111111 (Flash, GPU, CPU, MD3, MD1, DLPT) */
+	.manual_mode = 0, /*normal=0, UT(throttle)=1, UT(NO throttle)=2 */
 };
 
 static int g_dlpt_need_do = 1;
@@ -200,11 +214,20 @@ static void pbm_allocate_budget_manager(void)
 	int cpu_lower_bound = MIN_CPU_POWER;
 	static int pre_tocpu, pre_togpu;
 
-	md1 = hpf_get_power_md1();
-	dlpt = hpf_get_power_dlpt();
-	cpu = hpf_get_power_cpu();
-	gpu = hpf_get_power_gpu();
-	flash = hpf_get_power_flash();
+	if (pbm_ctrl.manual_mode == 1 || pbm_ctrl.manual_mode == 2) {
+		dlpt = hpf_ctrl_manual.loading_dlpt;
+		md1 = hpf_ctrl_manual.loading_md1;
+		cpu = hpf_ctrl_manual.loading_cpu;
+		gpu = hpf_ctrl_manual.loading_gpu;
+		flash = hpf_ctrl_manual.loading_flash;
+
+	} else {
+		md1 = hpf_get_power_md1();
+		dlpt = hpf_get_power_dlpt();
+		cpu = hpf_get_power_cpu();
+		gpu = hpf_get_power_gpu();
+		flash = hpf_get_power_flash();
+	}
 
 	if (dlpt == 0) {
 		if (mt_pbm_debug)
@@ -228,7 +251,8 @@ static void pbm_allocate_budget_manager(void)
 		if (tocpu <= 0)
 			tocpu = 1;
 
-		mtk_cpu_dlpt_set_limit_by_pbm(tocpu);
+		if (pbm_ctrl.manual_mode != 2)
+			mtk_cpu_dlpt_set_limit_by_pbm(tocpu);
 	} else {
 		multiple = (_dlpt * 1000) / (cpu + gpu);
 
@@ -250,8 +274,10 @@ static void pbm_allocate_budget_manager(void)
 		if (togpu <= 0)
 			togpu = 1;
 
-		mtk_cpu_dlpt_set_limit_by_pbm(tocpu);
-		mtk_gpufreq_set_power_limit_by_pbm(togpu);
+		if (pbm_ctrl.manual_mode != 2) {
+			mtk_cpu_dlpt_set_limit_by_pbm(tocpu);
+			mtk_gpufreq_set_power_limit_by_pbm(togpu);
+		}
 	}
 
 	hpf_ctrl.to_cpu_budget = tocpu;
@@ -283,8 +309,10 @@ static void pbm_allocate_budget_manager(void)
 
 static bool pbm_func_enable_check(void)
 {
-	if (!pbm_drv_done) {
-		pr_info("pbm_drv_done: %d\n", pbm_drv_done);
+	struct pbm *pwrctrl = &pbm_ctrl;
+
+	if (!pwrctrl->pbm_drv_done) {
+		pr_info("pwrctrl->pbm_drv_done: %d\n", pwrctrl->pbm_drv_done);
 		return false;
 	}
 
@@ -294,7 +322,7 @@ static bool pbm_func_enable_check(void)
 static bool pbm_update_table_info(enum pbm_kicker kicker, struct mrp *mrpmgr)
 {
 	struct hpf *hpfmgr = &hpf_ctrl;
-	bool is_update = true;
+	bool is_update = false;
 
 	switch (kicker) {
 	case KR_DLPT:
@@ -313,16 +341,12 @@ static bool pbm_update_table_info(enum pbm_kicker kicker, struct mrp *mrpmgr)
 		pr_info("should not kicker KR_MD3\n");
 		break;
 	case KR_CPU:
-		hpfmgr->cpu_volt = mrpmgr->cpu_volt;
-		if (hpfmgr->loading_cpu != mrpmgr->loading_cpu
-		    || hpfmgr->cpu_num != mrpmgr->cpu_num) {
+		if (hpfmgr->loading_cpu != mrpmgr->loading_cpu) {
 			hpfmgr->loading_cpu = mrpmgr->loading_cpu;
-			hpfmgr->cpu_num = mrpmgr->cpu_num;
 			is_update = true;
 		}
 		break;
 	case KR_GPU:
-		hpfmgr->gpu_volt = mrpmgr->gpu_volt;
 		if (hpfmgr->switch_gpu != mrpmgr->switch_gpu
 		    || hpfmgr->loading_gpu != mrpmgr->loading_gpu) {
 			hpfmgr->switch_gpu = mrpmgr->switch_gpu;
@@ -368,7 +392,7 @@ static void mtk_power_budget_manager(enum pbm_kicker kicker, struct mrp *mrpmgr)
 		return;
 
 	pbm_enable = pbm_func_enable_check();
-	if (!pbm_drv_done)
+	if (!pbm_enable)
 		return;
 
 	if (kicker != KR_CPU)
@@ -392,14 +416,11 @@ void kicker_pbm_by_md(enum pbm_kicker kicker, bool status)
 }
 EXPORT_SYMBOL(kicker_pbm_by_md);
 
-void kicker_pbm_by_cpu(unsigned int loading, int core, int voltage)
+void kicker_pbm_by_cpu(unsigned int loading)
 {
 	struct mrp mrpmgr = {0};
 
 	mrpmgr.loading_cpu = loading;
-	mrpmgr.cpu_num = core;
-	mrpmgr.cpu_volt = voltage;
-
 	mtk_power_budget_manager(KR_CPU, &mrpmgr);
 }
 
@@ -409,7 +430,6 @@ void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
 
 	mrpmgr.switch_gpu = status;
 	mrpmgr.loading_gpu = loading;
-	mrpmgr.gpu_volt = voltage;
 
 	mtk_power_budget_manager(KR_GPU, &mrpmgr);
 }
@@ -454,12 +474,14 @@ static int pbm_thread_handle(void *data)
 
 static int create_pbm_kthread(void)
 {
+	struct pbm *pwrctrl = &pbm_ctrl;
+
 	pbm_thread = kthread_create(pbm_thread_handle, (void *)NULL, "pbm");
 	if (IS_ERR(pbm_thread))
 		return PTR_ERR(pbm_thread);
 
 	wake_up_process(pbm_thread);
-	pbm_drv_done = 1;
+	pwrctrl->pbm_drv_done = 1;
 
 	return 0;
 }
@@ -533,10 +555,9 @@ static void pbm_cpu_frequency_tracer(void *ignore, unsigned int frequency, unsig
 
 		num_cpus = cpumask_weight(pbm_policy->policy->cpus);
 		req_total_power += cpu_freq_to_power(pbm_policy, freq) * num_cpus;
-
 	}
 
-	kicker_pbm_by_cpu(req_total_power, 0, 0);
+	kicker_pbm_by_cpu(req_total_power);
 }
 
 struct tracepoints_table pbm_tracepoints[] = {
@@ -576,12 +597,176 @@ void register_pbm_notify(void *oc_cb, enum PBM_PRIO_TAG prio_val)
 }
 EXPORT_SYMBOL(register_pbm_notify);
 
+static int mt_pbm_debug_proc_show(struct seq_file *m, void *v)
+{
+	if (mt_pbm_debug)
+		seq_puts(m, "pbm debug enabled\n");
+	else
+		seq_puts(m, "pbm debug disabled\n");
+
+	return 0;
+}
+
+/*
+ * enable debug message
+ */
+static ssize_t mt_pbm_debug_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[32];
+	int len = 0;
+	int debug = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	/* if (sscanf(desc, "%d", &debug) == 1) { */
+	if (kstrtoint(desc, 10, &debug) == 0) {
+		if (debug == 0)
+			mt_pbm_debug = 0;
+		else if (debug == 1)
+			mt_pbm_debug = 1;
+		else
+			pr_notice("should be [0:disable,1:enable]\n");
+	} else
+		pr_notice("should be [0:disable,1:enable]\n");
+
+	return count;
+}
+
+static int mt_pbm_manual_mode_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "manual_mode: %d\n", pbm_ctrl.manual_mode);
+	if (pbm_ctrl.manual_mode > 0) {
+		seq_printf(m, "request (C/G)=%lu,%lu=>(D/M1/F)=%lu,%lu,%lu\n",
+			hpf_ctrl_manual.loading_cpu,
+			hpf_ctrl_manual.loading_gpu,
+			hpf_ctrl_manual.loading_dlpt,
+			hpf_ctrl_manual.loading_md1,
+			hpf_ctrl_manual.loading_flash);
+	} else {
+		seq_printf(m, "request (C/G)=%lu,%lu=>(D/M1/F)=%lu,%lu,%lu\n",
+			hpf_ctrl.loading_cpu,
+			hpf_ctrl.loading_gpu,
+			hpf_ctrl.loading_dlpt,
+			hpf_ctrl.loading_md1,
+			hpf_ctrl.loading_flash);
+	}
+	seq_printf(m, "budget (C/G)=%lu,%lu\n",
+		hpf_ctrl.to_cpu_budget,
+		hpf_ctrl.to_gpu_budget);
+
+	return 0;
+}
+
+static ssize_t mt_pbm_manual_mode_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[64], cmd[20];
+	int len = 0, manual_mode = 0;
+	int loading_dlpt, loading_md1;
+	int loading_cpu, loading_gpu, loading_flash;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	if (sscanf(desc, "%20s %d %d %d %d %d %d", cmd, &manual_mode, &loading_dlpt,
+		&loading_md1, &loading_cpu, &loading_gpu, &loading_flash) != 7) {
+		pr_notice("parameter number not correct\n");
+		return -EPERM;
+	}
+
+	if (strncmp(cmd, "manual", 6))
+		return -EINVAL;
+
+	if (manual_mode == 1 || manual_mode == 2) {
+		hpf_ctrl_manual.loading_dlpt = loading_dlpt;
+		hpf_ctrl_manual.loading_md1 = loading_md1;
+		hpf_ctrl_manual.loading_cpu = loading_cpu;
+		hpf_ctrl_manual.loading_gpu = loading_gpu;
+		hpf_ctrl_manual.loading_flash = loading_flash;
+		pbm_ctrl.manual_mode = manual_mode;
+		pbm_allocate_budget_manager();
+	} else if (manual_mode == 0)
+		pbm_ctrl.manual_mode = 0;
+	else
+		pr_notice("pbm manual setting should be 0 or 1 or 2\n");
+
+	return count;
+}
+
+#define PROC_FOPS_RW(name)						\
+static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mt_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct proc_ops mt_ ## name ## _proc_fops = {	\
+	.proc_open		= mt_ ## name ## _proc_open,			\
+	.proc_read		= seq_read,					\
+	.proc_lseek		= seq_lseek,					\
+	.proc_release		= single_release,				\
+	.proc_write		= mt_ ## name ## _proc_write,			\
+}
+
+#define PROC_FOPS_RO(name)						\
+static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mt_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct proc_ops mt_ ## name ## _proc_fops = {	\
+	.proc_open		= mt_ ## name ## _proc_open,		\
+	.proc_read		= seq_read,				\
+	.proc_lseek		= seq_lseek,				\
+	.proc_release	= single_release,			\
+}
+
+#define PROC_ENTRY(name)	{__stringify(name), &mt_ ## name ## _proc_fops}
+PROC_FOPS_RW(pbm_debug);
+PROC_FOPS_RW(pbm_manual_mode);
+
+static int mt_pbm_create_procfs(void)
+{
+	struct proc_dir_entry *dir = NULL;
+	int i;
+
+	struct pentry {
+		const char *name;
+		const struct proc_ops *fops;
+	};
+
+	const struct pentry entries[] = {
+		PROC_ENTRY(pbm_debug),
+		PROC_ENTRY(pbm_manual_mode),
+	};
+
+	dir = proc_mkdir("pbm", NULL);
+
+	if (!dir) {
+		pr_notice("fail to create /proc/pbm @ %s()\n", __func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create(entries[i].name, 0660, dir, entries[i].fops))
+			pr_notice("@%s: create /proc/pbm/%s failed\n", __func__,
+				    entries[i].name);
+	}
+
+	return 0;
+}
+
 static int __init pbm_module_init(void)
 {
 	struct cpufreq_policy *policy;
 	struct cpu_pbm_policy *pbm_policy;
 	unsigned int i;
 	int cpu, ret;
+
+	mt_pbm_create_procfs();
 
 	pm_notifier(_mt_pbm_pm_callback, 0);
 
