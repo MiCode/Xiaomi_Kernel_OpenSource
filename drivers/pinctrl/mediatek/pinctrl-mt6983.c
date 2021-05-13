@@ -1288,7 +1288,6 @@ static const struct mtk_eh_pin_pinmux mt6983_eh_pin_pinmux_list[] = {
 	{184, 1},
 	{185, 1},
 	{186, 1},
-	{0xffff, 0}, /* indicate end of array */
 };
 
 static const struct mtk_eint_hw mt6983_eint_hw = {
@@ -1315,28 +1314,19 @@ static const struct mtk_pin_reg_calc mt6983_reg_cals[PINCTRL_PIN_REG_MAX] = {
 	[PINCTRL_PIN_REG_DRV_EH] = MTK_RANGE(mt6983_pin_eh_range),
 };
 
-static const char * const mt6983_pinctrl_register_base_names[] = {
-	"gpio", "iocfg_rm", "iocfg_rt", "iocfg_rmm", "iocfg_bl",
-	"iocfg_bm", "iocfg_br", "iocfg_brr",  "iocfg_lm",
-	 "iocfg_lb",  "iocfg_rtt",  "iocfg_tl",  "iocfg_lt",
-};
-
 static const struct mtk_pin_soc mt6983_data = {
 	.reg_cal = mt6983_reg_cals,
 	.pins = mtk_pins_mt6983,
 	.npins = ARRAY_SIZE(mtk_pins_mt6983),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt6983),
-	.base_names = mt6983_pinctrl_register_base_names,
-	.nbase_names = ARRAY_SIZE(mt6983_pinctrl_register_base_names),
 	.eint_hw = &mt6983_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
-	.race_free_access = true,
+	.capability_flags = FLAG_RACE_FREE_ACCESS
+				| FLAG_DRIVE_SET_RAW,
 	.eh_pin_pinmux = mt6983_eh_pin_pinmux_list,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
-	.drive_set = mtk_pinconf_drive_set_raw,
-	.drive_get = mtk_pinconf_drive_get_raw,
 	.adv_pull_get = mtk_pinconf_adv_pull_get,
 	.adv_pull_set = mtk_pinconf_adv_pull_set,
 	.adv_drive_get = mtk_pinconf_adv_drive_get,

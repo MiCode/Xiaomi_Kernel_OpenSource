@@ -1296,28 +1296,20 @@ static const struct mtk_pin_reg_calc mt6879_reg_cals[PINCTRL_PIN_REG_MAX] = {
 	[PINCTRL_PIN_REG_DRV_EH] = MTK_RANGE(mt6879_pin_eh_range),
 };
 
-static const char * const mt6879_pinctrl_register_base_names[] = {
-	"gpio", "iocfg_lb", "iocfg_rm", "iocfg_rb", "iocfg_bm",
-	"iocfg_br", "iocfg_lm", "iocfg_lt",  "iocfg_rt",
-};
-
 static const struct mtk_pin_soc mt6879_data = {
 	.reg_cal = mt6879_reg_cals,
 	.pins = mtk_pins_mt6879,
 	.npins = ARRAY_SIZE(mtk_pins_mt6879),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt6879),
-	.base_names = mt6879_pinctrl_register_base_names,
-	.nbase_names = ARRAY_SIZE(mt6879_pinctrl_register_base_names),
 	.eint_hw = &mt6879_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
-	.race_free_access = true,
+	.capability_flags = FLAG_RACE_FREE_ACCESS
+				| FLAG_DRIVE_SET_RAW,
 	.eh_pin_pinmux = mt6879_eh_pin_pinmux_list,
 	.neh_pins = ARRAY_SIZE(mt6879_eh_pin_pinmux_list),
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
-	.drive_set = mtk_pinconf_drive_set_raw,
-	.drive_get = mtk_pinconf_drive_get_raw,
 	.adv_pull_get = mtk_pinconf_adv_pull_get,
 	.adv_pull_set = mtk_pinconf_adv_pull_set,
 	.adv_drive_get = mtk_pinconf_adv_drive_get,

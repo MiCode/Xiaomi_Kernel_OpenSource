@@ -200,6 +200,9 @@ struct mtk_pinctrl_group {
 
 struct mtk_pinctrl;
 
+#define FLAG_RACE_FREE_ACCESS	0x00000001
+#define FLAG_DRIVE_SET_RAW	0x00000002
+
 /* struct mtk_pin_soc - the structure that holds SoC-specific data */
 struct mtk_pin_soc {
 	const struct mtk_pin_reg_calc	*reg_cal;
@@ -215,7 +218,7 @@ struct mtk_pin_soc {
 	/* Specific parameters per SoC */
 	u8				gpio_m;
 	bool				ies_present;
-	bool				race_free_access;
+	u32				capability_flags;
 	const char * const		*base_names;
 	unsigned int			nbase_names;
 	const struct mtk_eh_pin_pinmux  *eh_pin_pinmux;
@@ -315,11 +318,6 @@ int mtk_pinconf_drive_get(struct mtk_pinctrl *hw,
 int mtk_pinconf_drive_set_rev1(struct mtk_pinctrl *hw,
 			       const struct mtk_pin_desc *desc, u32 arg);
 int mtk_pinconf_drive_get_rev1(struct mtk_pinctrl *hw,
-			       const struct mtk_pin_desc *desc, int *val);
-
-int mtk_pinconf_drive_set_raw(struct mtk_pinctrl *hw,
-			       const struct mtk_pin_desc *desc, u32 arg);
-int mtk_pinconf_drive_get_raw(struct mtk_pinctrl *hw,
 			       const struct mtk_pin_desc *desc, int *val);
 
 int mtk_pinconf_adv_pull_set(struct mtk_pinctrl *hw,

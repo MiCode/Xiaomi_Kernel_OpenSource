@@ -239,7 +239,7 @@ int mtk_hw_set_value(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 		return -EINVAL;
 
 	if (!pf.next) {
-		if (hw->soc->race_free_access) {
+		if (hw->soc->capability_flags & FLAG_RACE_FREE_ACCESS) {
 			if (field == PINCTRL_PIN_REG_MODE)
 				mtk_hw_set_mode_race_free(hw, &pf, value);
 			else
@@ -982,20 +982,6 @@ int mtk_pinconf_drive_get_rev1(struct mtk_pinctrl *hw,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_pinconf_drive_get_rev1);
-
-int mtk_pinconf_drive_set_raw(struct mtk_pinctrl *hw,
-			       const struct mtk_pin_desc *desc, u32 arg)
-{
-	return mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV, arg);
-}
-EXPORT_SYMBOL_GPL(mtk_pinconf_drive_set_raw);
-
-int mtk_pinconf_drive_get_raw(struct mtk_pinctrl *hw,
-			       const struct mtk_pin_desc *desc, int *val)
-{
-	return mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV, val);
-}
-EXPORT_SYMBOL_GPL(mtk_pinconf_drive_get_raw);
 
 int mtk_pinconf_adv_pull_set(struct mtk_pinctrl *hw,
 			     const struct mtk_pin_desc *desc, bool pullup,

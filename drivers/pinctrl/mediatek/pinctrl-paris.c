@@ -162,10 +162,14 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
-		if (hw->soc->drive_get)
+		if (hw->soc->capability_flags & FLAG_DRIVE_SET_RAW)
+			err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV,
+				       &ret);
+		else if (hw->soc->drive_get)
 			err = hw->soc->drive_get(hw, desc, &ret);
 		else
 			err = -ENOTSUPP;
+
 		break;
 	case MTK_PIN_CONFIG_TDSEL:
 	case MTK_PIN_CONFIG_RDSEL:
@@ -278,10 +282,14 @@ static int mtk_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_SMT, !!arg);
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
-		if (hw->soc->drive_set)
+		if (hw->soc->capability_flags & FLAG_DRIVE_SET_RAW)
+			err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV,
+				       arg);
+		else if (hw->soc->drive_set)
 			err = hw->soc->drive_set(hw, desc, arg);
 		else
 			err = -ENOTSUPP;
+
 		break;
 	case MTK_PIN_CONFIG_TDSEL:
 	case MTK_PIN_CONFIG_RDSEL:
@@ -590,13 +598,18 @@ static int mtk_hw_get_value_wrap(struct mtk_pinctrl *hw, unsigned int gpio, int 
 ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	unsigned int gpio, char *buf, unsigned int bufLen)
 {
-	int pinmux, pullup, pullen, len = 0, r1 = -1, r0 = -1;
+	int pinmux, pullup = 0, pullen = 0, r1 = -1, r0 = -1, len = 0, val;
 	const struct mtk_pin_desc *desc;
 
 	if (gpio >= hw->soc->npins)
 		return -EINVAL;
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
+
+	if (desc->eint.eint_m != NO_EINT_SUPPORT
+	 && desc->funcs[desc->eint.eint_m].name == 0)
+		return 0;
+
 	pinmux = mtk_pctrl_get_pinmux(hw, gpio);
 	if (pinmux >= hw->soc->nfuncs)
 		pinmux -= hw->soc->nfuncs;
@@ -621,25 +634,39 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	} else if (pullen != MTK_DISABLE && pullen != MTK_ENABLE) {
 		pullen = 0;
 	}
-	len += scnprintf(buf + len, bufLen - len,
-			"%03d: %1d%1d%1d%1d%02d%1d%1d%1d%1d",
+
+	len += snprintf(buf + len, bufLen - len,
+			"%03d: %1d%1d%1d%1d",
 			gpio,
 			pinmux,
 			mtk_pctrl_get_direction(hw, gpio),
 			mtk_pctrl_get_out(hw, gpio),
-			mtk_pctrl_get_in(hw, gpio),
-			mtk_pctrl_get_driving(hw, gpio),
-			mtk_pctrl_get_smt(hw, gpio),
-			mtk_pctrl_get_ies(hw, gpio),
-			pullen,
-			pullup);
+			mtk_pctrl_get_in(hw, gpio));
 
-	if (r1 != -1) {
-		len += scnprintf(buf + len, bufLen - len, " (%1d %1d)\n",
-			r1, r0);
-	} else {
-		len += scnprintf(buf + len, bufLen - len, "\n");
-	}
+	val = mtk_pctrl_get_driving(hw, gpio);
+	if (val >= 0)
+		len += snprintf(buf + len, bufLen - len, "%02d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "XX");
+
+	val = mtk_pctrl_get_smt(hw, gpio);
+	if (val >= 0)
+		len += snprintf(buf + len, bufLen - len, "%1d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "X");
+
+	val = mtk_pctrl_get_ies(hw, gpio);
+	if (val >= 0)
+		len += snprintf(buf + len, bufLen - len, "%1d", val);
+	else
+		len += snprintf(buf + len, bufLen - len, "X");
+
+	if (r1 != -1)
+		len += snprintf(buf + len, bufLen - len, "%1d%1d (%1d %1d)\n",
+			pullen, pullup, r1, r0);
+	else
+		len += snprintf(buf + len, bufLen - len, "%1d%1d\n",
+			pullen, pullup);
 
 	return len;
 }
@@ -964,8 +991,10 @@ static int mtk_pctrl_build_state(struct platform_device *pdev)
 int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 			    const struct mtk_pin_soc *soc)
 {
+	struct device_node *np = pdev->dev.of_node;
 	struct pinctrl_pin_desc *pins;
 	struct mtk_pinctrl *hw;
+	struct property *prop;
 	int err, i;
 
 	hw = devm_kzalloc(&pdev->dev, sizeof(*hw), GFP_KERNEL);
@@ -976,25 +1005,24 @@ int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 	hw->soc = soc;
 	hw->dev = &pdev->dev;
 
-	if (!hw->soc->nbase_names) {
-		dev_err(&pdev->dev,
-			"SoC should be assigned at least one register base\n");
+	prop = of_find_property(np, "reg", NULL);
+	if (!prop)
+		return -ENXIO;
+	i = prop->length / (sizeof(unsigned int) * 4);
+	if (i < 1)
 		return -EINVAL;
-	}
-
-	hw->base = devm_kmalloc_array(&pdev->dev, hw->soc->nbase_names,
-				      sizeof(*hw->base), GFP_KERNEL);
-	if (!hw->base)
-		return -ENOMEM;
-
-	for (i = 0; i < hw->soc->nbase_names; i++) {
-		hw->base[i] = devm_platform_ioremap_resource_byname(pdev,
-					hw->soc->base_names[i]);
+	if (of_property_read_bool(np, "interrupt-controller"))
+		i--;
+	hw->nbase = i;
+	hw->base = devm_kmalloc_array(&pdev->dev, i, sizeof(*hw->base),
+		GFP_KERNEL | __GFP_ZERO);
+	if (IS_ERR(hw->base))
+		return PTR_ERR(hw->base);
+	for (i = 0; i < hw->nbase; i++) {
+		hw->base[i] = of_iomap(np, i);
 		if (IS_ERR(hw->base[i]))
 			return PTR_ERR(hw->base[i]);
 	}
-
-	hw->nbase = hw->soc->nbase_names;
 
 	err = mtk_pctrl_build_state(pdev);
 	if (err) {
