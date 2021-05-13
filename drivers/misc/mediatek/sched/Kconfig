@@ -38,7 +38,7 @@ config MTK_EAS
 
 config MTK_THERMAL_AWARE_SCHEDULING
 	bool "thermal aware scheduling"
-	depends on MTK_EAS && MTK_THERMAL
+	depends on MTK_EAS && MTK_THERMAL_INTERFACE
 	help
 	  CPU leakage optimization by temperature balance in the
 	  same frequency domain.
