@@ -1688,6 +1688,10 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 	}
 	clk_disable_unprepare(dsi->engine_clk);
 	clk_disable_unprepare(dsi->digital_clk);
+
+	writel(0, dsi->regs + DSI_START);
+	writel(0, dsi->regs + DSI_CMDQ0);
+
 	phy_power_off(dsi->phy);
 	DDPDBG("%s -\n", __func__);
 }
@@ -4939,13 +4943,10 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 		goto skip_change_mipi;
 
 	/* Power off DSI */
-	mtk_dsi_mask(dsi, DSI_INTEN, ~0, 0);
-
-	mtk_dsi_reset_engine(dsi);
-
-	clk_cnt = dsi->clk_refcnt;
-	while (dsi->clk_refcnt > 0)
-		mtk_dsi_poweroff(dsi);
+	clk_cnt  = dsi->clk_refcnt;
+	while (dsi->clk_refcnt != 1)
+		mtk_dsi_ddp_unprepare(&dsi->ddp_comp);
+	mtk_dsi_enter_idle(dsi);
 
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->ext_param_set)
@@ -4953,20 +4954,9 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 			state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
 	/* Power on DSI */
-	while (dsi->clk_refcnt < clk_cnt)
-		mtk_dsi_poweron(dsi);
-
-	mtk_dsi_enable(dsi);
-	mtk_dsi_phy_timconfig(dsi, NULL);
-
-	mtk_dsi_rxtx_control(dsi);
-	mtk_dsi_ps_control_vact(dsi);
-	mtk_dsi_set_interrupt_enable(dsi);
-	//[FIXME] sw control enable will be set to 1 by mipi_tx_pll_prepare,
-	//and it needs to clear to 0
-	mtk_mipi_tx_sw_control_en(dsi->phy, 0);
-	//[FIXME] It's a temp workaround for cmd mode.
-	writel(0x0001023c, dsi->regs + DSI_TXRX_CTRL);
+	mtk_dsi_leave_idle(dsi);
+	while (dsi->clk_refcnt != clk_cnt)
+		mtk_dsi_ddp_prepare(&dsi->ddp_comp);
 
 	mtk_dsi_set_mode(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 1);
