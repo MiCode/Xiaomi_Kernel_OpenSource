@@ -9,6 +9,7 @@
 #include "../../../../kernel/sched/sched.h"
 #include "../../../../kernel/sched/pelt.h"
 #include "sched_main.h"
+#include "sched_trace.h"
 
 MODULE_LICENSE("GPL");
 
@@ -19,6 +20,19 @@ MODULE_LICENSE("GPL");
  * (default: ~20%)
  */
 #define fits_capacity(cap, max)	((cap) * 1280 < (max) * 1024)
+
+#ifdef CONFIG_FAIR_GROUP_SCHED
+static inline struct task_struct *task_of(struct sched_entity *se)
+{
+	SCHED_WARN_ON(!entity_is_task(se));
+	return container_of(se, struct task_struct, se);
+}
+#else
+static inline struct task_struct *task_of(struct sched_entity *se)
+{
+	return container_of(se, struct task_struct, se);
+}
+#endif
 
 static unsigned long capacity_of(int cpu);
 #endif
@@ -201,6 +215,32 @@ unsigned int get_uclamp_min_ls(void)
 	return uclamp_min_ls;
 }
 EXPORT_SYMBOL_GPL(get_uclamp_min_ls);
+
+/*
+ * attach_task() -- attach the task detached by detach_task() to its new rq.
+ */
+static void attach_task(struct rq *rq, struct task_struct *p)
+{
+	lockdep_assert_held(&rq->lock);
+
+	BUG_ON(task_rq(p) != rq);
+	activate_task(rq, p, ENQUEUE_NOCLOCK);
+	check_preempt_curr(rq, p, 0);
+}
+
+/*
+ * attach_one_task() -- attaches the task returned from detach_one_task() to
+ * its new rq.
+ */
+static void attach_one_task(struct rq *rq, struct task_struct *p)
+{
+	struct rq_flags rf;
+
+	rq_lock(rq, &rf);
+	update_rq_clock(rq);
+	attach_task(rq, p);
+	rq_unlock(rq, &rf);
+}
 
 void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_cpu, int sync, int *new_cpu)
 {
@@ -396,3 +436,121 @@ fail:
 }
 
 #endif
+
+/* must hold runqueue lock for queue se is currently on */
+static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
+{
+	struct task_struct *p;
+	int dst_capacity;
+	unsigned int util_min;
+	bool latency_sensitive = false;
+
+	lockdep_assert_held(&src_rq->lock);
+
+	dst_capacity = capacity_orig_of(dst_cpu);
+	list_for_each_entry_reverse(p,
+			&src_rq->cfs_tasks, se.group_node) {
+
+		if (!cpumask_test_cpu(dst_cpu, p->cpus_ptr))
+			continue;
+
+		if (task_running(src_rq, p))
+			continue;
+
+		util_min = uclamp_boosted(p);
+
+		if (!uclamp_min_ls)
+			latency_sensitive = uclamp_latency_sensitive(p);
+		else
+			latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
+
+		if (latency_sensitive &&
+			util_min <= dst_capacity &&
+			src_rq->nr_running > 1) {
+
+			/* detach_task */
+			deactivate_task(src_rq, p, DEQUEUE_NOCLOCK);
+			set_task_cpu(p, dst_cpu);
+			/*
+			 * Right now, this is only the second place where
+			 * lb_gained[env->idle] is updated (other is detach_tasks)
+			 * so we can safely collect stats here rather than
+			 * inside detach_tasks().
+			 */
+			return p;
+		}
+	 }
+	return NULL;
+}
+
+void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *rf,
+		int *pulled_task, int *done)
+{
+	int cpu;
+	struct rq *src_rq;
+	struct task_struct *p = NULL;
+	struct rq_flags src_rf;
+	int this_cpu = this_rq->cpu;
+
+	/*
+	 * We must set idle_stamp _before_ calling idle_balance(), such that we
+	 * measure the duration of idle_balance() as idle time.
+	 */
+	this_rq->idle_stamp = rq_clock(this_rq);
+
+	/*
+	 * Do not pull tasks towards !active CPUs...
+	 */
+	if (!cpu_active(this_cpu))
+		return;
+
+	/*
+	 * This is OK, because current is on_cpu, which avoids it being picked
+	 * for load-balance and preemption/IRQs are still disabled avoiding
+	 * further scheduler activity on it and we're being very careful to
+	 * re-start the picking loop.
+	 */
+	rq_unpin_lock(this_rq, rf);
+	raw_spin_unlock(&this_rq->lock);
+
+	this_cpu = this_rq->cpu;
+	for_each_cpu(cpu, cpu_online_mask) {
+		if (cpu == this_cpu)
+			continue;
+
+		src_rq = cpu_rq(cpu);
+		if (src_rq->nr_running <= 1)
+			continue;
+
+		rq_lock_irqsave(src_rq, &src_rf);
+		p = detach_a_hint_task(src_rq, this_cpu);
+
+		rq_unlock_irqrestore(src_rq, &src_rf);
+
+		if (p) {
+			trace_sched_force_migrate(p, this_cpu, MIGR_IDLE_BALANCE);
+			attach_one_task(this_rq, p);
+			break;
+		}
+	}
+
+	raw_spin_lock(&this_rq->lock);
+	/*
+	 * While browsing the domains, we released the rq lock, a task could
+	 * have been enqueued in the meantime. Since we're not going idle,
+	 * pretend we pulled a task.
+	 */
+	if (this_rq->cfs.h_nr_running && !*pulled_task)
+		*pulled_task = 1;
+
+	/* Is there a task of a high priority class? */
+	if (this_rq->nr_running != this_rq->cfs.h_nr_running)
+		*pulled_task = -1;
+
+	if (*pulled_task)
+		this_rq->idle_stamp = 0;
+
+	rq_repin_lock(this_rq, rf);
+
+	return;
+}

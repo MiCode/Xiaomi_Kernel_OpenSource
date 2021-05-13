@@ -17,6 +17,8 @@
 #define CAPACITY_TBL_SIZE 0x100
 #define CAPACITY_ENTRY_SIZE 0x2
 
+#define MIGR_IDLE_BALANCE 1
+
 struct pd_capacity_info {
 	int nr_caps;
 	unsigned long *caps;
@@ -40,5 +42,8 @@ extern int init_sram_info(void);
 extern void mtk_tick_entry(void *data, struct rq *rq);
 extern void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode);
 
+#if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
+extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *rf, int *pulled_task, int *done);
+#endif
 #endif
 #endif

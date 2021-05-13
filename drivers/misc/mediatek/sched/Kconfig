@@ -46,6 +46,15 @@ config MTK_THERMAL_AWARE_SCHEDULING
 	  Use current Per-core temperature (per-10'c, per-die).
 	  Favor tasks to CPU with lowest thermal pressure.
 
+config MTK_NEWIDLE_BALANCE
+	bool "new idle balance for hint task"
+	depends on MTK_EAS
+	help
+	  When a CPU is newly IDLE, pull the runnable task
+	  with Latency-sensitive hint in other CPUs to this IDLE CPU.
+	  This feature enhances the latency of the task with
+	  latency-sensitive hint.
+
 config MTK_CORE_PAUSE
 	bool "core pause driver"
 	depends on MTK_SCHEDULER

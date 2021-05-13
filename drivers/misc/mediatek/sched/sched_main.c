@@ -18,6 +18,9 @@
 #include <trace/hooks/sched.h>
 #include "sched_main.h"
 
+#define CREATE_TRACE_POINTS
+#include "sched_trace.h"
+
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 static void __iomem *sram_base_addr;
 static struct pd_capacity_info *pd_capacity_tbl;
@@ -351,6 +354,13 @@ static int __init mtk_scheduler_init(void)
 			mtk_set_wake_flags, NULL);
 	if (ret)
 		pr_info("register android_vh_set_wake_flags failed\n");
+
+#if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
+	ret = register_trace_android_rvh_sched_newidle_balance(
+			mtk_sched_newidle_balance, NULL);
+	if (ret)
+		pr_info("register android_rvh_sched_newidle_balance failed\n");
+#endif
 #endif
 
 	return ret;

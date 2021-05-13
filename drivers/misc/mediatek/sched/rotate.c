@@ -18,8 +18,6 @@
 #include <trace/hooks/sched.h>
 #include "../../../../kernel/sched/sched.h"
 #include "sched_sys_common.h"
-
-#define CREATE_TRACE_POINTS
 #include <sched_trace.h>
 
 DEFINE_PER_CPU(struct task_rotate_work, task_rotate_works);

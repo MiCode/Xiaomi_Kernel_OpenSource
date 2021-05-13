@@ -46,6 +46,34 @@ TRACE_EVENT(sched_big_task_rotation,
 );
 #endif
 
+/*
+ * Tracepoint for task force migrations.
+ */
+TRACE_EVENT(sched_force_migrate,
+
+	TP_PROTO(struct task_struct *tsk, int dest, int force),
+
+	TP_ARGS(tsk, dest, force),
+
+	TP_STRUCT__entry(
+		__array(char, comm, TASK_COMM_LEN)
+		__field(pid_t, pid)
+		__field(int,  dest)
+		__field(int,  force)
+		),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		__entry->pid   = tsk->pid;
+		__entry->dest  = dest;
+		__entry->force = force;
+		),
+
+	TP_printk("comm=%s pid=%d dest=%d force=%d",
+		__entry->comm, __entry->pid,
+		__entry->dest, __entry->force)
+);
+
 #endif /* _TRACE_SCHEDULER_H */
 
 #undef TRACE_INCLUDE_PATH
