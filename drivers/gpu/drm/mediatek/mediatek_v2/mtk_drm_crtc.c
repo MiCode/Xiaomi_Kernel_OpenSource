@@ -6608,6 +6608,7 @@ static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
 	unsigned long addr_va = cwb_info->buffer[buf_idx].addr_va;
 	enum CWB_BUFFER_TYPE type = cwb_info->type;
 	int width, height, pitch, size;
+	unsigned long long time = sched_clock();
 
 	width = cwb_info->buffer[buf_idx].dst_roi.width;
 	height = cwb_info->buffer[buf_idx].dst_roi.height;
@@ -6627,7 +6628,8 @@ static int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
 		tmp->meta.timestamp = cwb_info->buffer[buf_idx].timestamp;
 		memcpy(tmp->data.image, (void *)addr_va, size);
 	}
-	DDPDBG("[capture] copy buffer to buffer:0x%x done", buffer);
+	DDPMSG("[capture] copy buffer from b[%u]=0x%x, timestamp:%llu, done",
+			buf_idx, addr_va, time);
 
 	return 0;
 }

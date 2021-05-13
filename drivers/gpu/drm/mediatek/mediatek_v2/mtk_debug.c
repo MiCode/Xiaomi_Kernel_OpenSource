@@ -1333,6 +1333,10 @@ bool mtk_drm_cwb_enable(int en,
 	}
 
 	cwb_info = mtk_crtc->cwb_info;
+	if (cwb_info->enable == en) {
+		DDPMSG("[capture] en:%d already effective\n", en);
+		return true;
+	}
 	cwb_info->funcs = funcs;
 	cwb_info->type = type;
 
