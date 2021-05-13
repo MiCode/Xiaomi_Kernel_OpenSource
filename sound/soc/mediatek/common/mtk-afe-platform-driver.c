@@ -212,6 +212,10 @@ int mtk_afe_pcm_new(struct snd_soc_component *component,
 	size = afe->mtk_afe_hardware->buffer_bytes_max;
 	snd_pcm_set_managed_buffer_all(pcm, SNDRV_DMA_TYPE_DEV,
 				       afe->dev, size, size);
+
+	rtd->ops.ack = mtk_afe_pcm_ack;
+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &rtd->ops);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_afe_pcm_new);
