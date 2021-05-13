@@ -718,7 +718,7 @@ static int __apply_to_new_mapping(struct seq_file *s,
 out:
 	mutex_unlock(&ddev->state_lock);
 	seq_printf(s, "%s\n", ret ? "FAIL" : "SUCCESS");
-	return 0;
+	return ret;
 }
 
 static const char * const _size_to_string(unsigned long size)
