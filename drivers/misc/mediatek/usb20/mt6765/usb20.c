@@ -1211,6 +1211,7 @@ static void uart_usb_switch_dump_register(void)
 {
 	usb_enable_clock(true);
 
+#ifdef CONFIG_MTK_MUSB_PHY
 	DBG(0, "[MUSB]addr: 0x68, value: %x\n"
 			"[MUSB]addr: 0x6C, value: %x\n"
 			"[MUSB]addr: 0x20, value: %x\n"
@@ -1219,6 +1220,7 @@ static void uart_usb_switch_dump_register(void)
 			USBPHY_READ32(0x6C),
 			USBPHY_READ32(0x20),
 			USBPHY_READ32(0x18));
+#endif
 
 	usb_enable_clock(false);
 	DBG(0, "[MUSB]GPIO_SEL=%x\n", GET_GPIO_SEL_VAL(readl(ap_gpio_base)));
