@@ -5062,7 +5062,7 @@ page_owner=on loop.max_part=7";
 
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
-		svp-size = <0 0x10000000>;
+		svp-region-based-size = <0 0x10000000>;
 		iris-recognition-size = <0 0x10000000>;
 		2d_fr-size = <0 0>;
 		tui-size = <0 0x4000000>;
