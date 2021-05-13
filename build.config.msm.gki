@@ -18,9 +18,22 @@ KMI_SYMBOL_LIST_ADD_ONLY=1
 KMI_ENFORCED=1
 
 MAKE_GOALS="modules dtbs"
-GKI_BUILD_CONFIG=common/build.config.gki.aarch64
+GKI_KERNEL_DIR=common
+GKI_BUILD_CONFIG=${GKI_KERNEL_DIR}/build.config.gki.aarch64
 GKI_SKIP_IF_VERSION_MATCHES=1
 GKI_SKIP_CP_KERNEL_HDR=1
+
+function sanity_check_abi() {
+	[ -z "${GKI_BUILD_CONFIG}" ] && return
+
+	if ! diff -q "${ROOT_DIR}/${KERNEL_DIR}/android/abi_gki_aarch64.xml" \
+		     "${ROOT_DIR}/${GKI_KERNEL_DIR}/android/abi_gki_aarch64.xml" ; then
+		echo "Suspected ABI differences between ${BRANCH} and GKI kernel tree."
+		echo "Are trees in sync?"
+		exit 1
+	fi
+}
+append_cmd POST_DEFCONFIG_CMDS 'sanity_check_abi'
 
 function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then
