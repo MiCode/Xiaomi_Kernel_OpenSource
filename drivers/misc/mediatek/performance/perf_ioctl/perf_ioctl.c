@@ -363,13 +363,12 @@ static long device_ioctl(struct file *filp,
 	}
 
 ret_ioctl:
-	pr_debug(TAG "%s %d: unknown cmd %x\n",
-		__FILE__, __LINE__, cmd);
 	return ret;
 }
 
 static const struct proc_ops Fops = {
 	.proc_compat_ioctl = device_ioctl,
+	.proc_ioctl = device_ioctl,
 	.proc_open = device_open,
 	.proc_read = seq_read,
 	.proc_lseek = seq_lseek,
