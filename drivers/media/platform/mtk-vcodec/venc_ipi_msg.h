@@ -208,6 +208,9 @@ struct venc_ap_ipi_msg_enc {
 	__s16 bs_fd;
 	__u8 fb_num_planes;
 	__u8 bs_mode;
+	__u32 meta_size;
+	__s16 meta_fd;
+	__u32 qpmap;
 };
 
 /**
@@ -393,6 +396,11 @@ struct venc_vcu_config {
 	__u32 b_qp;
 	__u32 svp_mode;
 	__u32 tsvc;
+	__u32 max_qp;
+	__u32 min_qp;
+	__u32 i_p_qp_delta;
+	__u32 qp_control_mode;
+	__u32 frame_level_qp;
 };
 
 /**
@@ -429,6 +437,7 @@ struct venc_info {
 	__u32 index;
 	__u64 timestamp;
 	__u32 roimap;
+	__u32 qpmap;
 };
 
 /**
