@@ -195,6 +195,9 @@ static int ssusb_rscs_init(struct ssusb_mtk *ssusb)
 {
 	int ret = 0;
 
+	if (ssusb->plat_type == PLAT_FPGA)
+		goto phy_init;
+
 	ret = regulator_enable(ssusb->vusb33);
 	if (ret) {
 		dev_err(ssusb->dev, "failed to enable vusb33\n");
@@ -205,6 +208,7 @@ static int ssusb_rscs_init(struct ssusb_mtk *ssusb)
 	if (ret)
 		goto clks_err;
 
+phy_init:
 	ret = ssusb_phy_init(ssusb);
 	if (ret) {
 		dev_err(ssusb->dev, "failed to init phy\n");
@@ -263,6 +267,17 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	int i;
 	int ret;
 
+	ret = of_property_read_u32(node, "plat_type", &ssusb->plat_type);
+	if (!ret && ssusb->plat_type == PLAT_FPGA) {
+		dev_info(ssusb->dev, "platform is fpga\n");
+
+		of_property_read_u32(node, "fpga_phy",
+				&ssusb->fpga_phy);
+
+		dev_info(ssusb->dev, "fpga phy is %d\n", ssusb->fpga_phy);
+		goto get_phy;
+	}
+
 	ssusb->vusb33 = devm_regulator_get(dev, "vusb33");
 	if (IS_ERR(ssusb->vusb33)) {
 		dev_err(dev, "failed to get vusb33\n");
@@ -287,6 +302,7 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	if (IS_ERR(ssusb->dma_clk))
 		return PTR_ERR(ssusb->dma_clk);
 
+get_phy:
 	ssusb->num_phys = of_count_phandle_with_args(node,
 			"phys", "#phy-cells");
 	if (ssusb->num_phys > 0) {
