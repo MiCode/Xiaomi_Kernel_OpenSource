@@ -2921,6 +2921,7 @@ static int __init musb_init(void)
 
 	pr_info("%s: version " MUSB_VERSION ", ?dma?, otg (peripheral+host)\n"
 		, musb_driver_name);
+	/* Could be removed here if musb_core and musb_plat built-in together */
 	return platform_driver_register(&musb_driver);
 }
 module_init(musb_init);

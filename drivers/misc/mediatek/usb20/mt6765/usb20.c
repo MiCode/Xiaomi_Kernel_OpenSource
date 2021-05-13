@@ -2033,17 +2033,25 @@ static int mt_usb_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_USB_MTK_OTG
-	pdata->dr_mode = usb_get_dr_mode(&musb_pdev->dev);
+	pdata->dr_mode = usb_get_dr_mode(&pdev->dev);
 #else
-	of_property_read_u32(np, "mode", (u32 *) &pdata->mode);
+	of_property_read_u32(np, "dr_mode", (u32 *) &pdata->dr_mode);
 #endif
 
-	if (pdata->dr_mode == USB_DR_MODE_UNKNOWN)
-		pdata->dr_mode = USB_DR_MODE_OTG;
-	if (pdata->dr_mode == USB_DR_MODE_PERIPHERAL)
-		goto err2;
-	if (pdata->dr_mode == USB_DR_MODE_HOST)
-		goto err2;
+	switch (pdata->dr_mode) {
+	case USB_DR_MODE_HOST:
+		glue->phy_mode = PHY_MODE_USB_HOST;
+		break;
+	case USB_DR_MODE_PERIPHERAL:
+		glue->phy_mode = PHY_MODE_USB_DEVICE;
+		break;
+	case USB_DR_MODE_OTG:
+		glue->phy_mode = PHY_MODE_USB_OTG;
+		break;
+	default:
+		dev_err(&pdev->dev, "Error 'dr_mode' property\n");
+		return -EINVAL;
+	}
 
 	DBG(0, "get dr_mode: %d\n", pdata->dr_mode);
 
