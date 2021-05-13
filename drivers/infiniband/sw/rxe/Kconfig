@@ -3,6 +3,7 @@ config RDMA_RXE
 	depends on INET && PCI && INFINIBAND
 	depends on !64BIT || ARCH_DMA_ADDR_T_64BIT
 	select NET_UDP_TUNNEL
+	select CRYPTO
 	select CRYPTO_CRC32
 	select DMA_VIRT_OPS
 	---help---
