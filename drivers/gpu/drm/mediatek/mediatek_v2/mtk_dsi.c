@@ -5646,8 +5646,9 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 			dsi->bridge = of_drm_find_bridge(remote_node);
 			dsi->panel = of_drm_find_panel(remote_node);
 			of_node_put(remote_node);
-			if (!dsi->bridge && !dsi->panel) {
+			if (!dsi->bridge && IS_ERR(dsi->panel)) {
 				dev_info(dev, "Waiting for bridge or panel driver\n");
+				dsi->panel = NULL;
 				ret = -EPROBE_DEFER;
 				goto error;
 			}
