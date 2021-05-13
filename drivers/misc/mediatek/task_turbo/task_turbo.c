@@ -17,14 +17,12 @@
 #include <trace/hooks/vendor_hooks.h>
 #include <trace/hooks/sched.h>
 #include <trace/hooks/dtask.h>
-#include <trace/hooks/net.h>
 #include <trace/hooks/binder.h>
 #include <trace/hooks/rwsem.h>
 #include <trace/hooks/futex.h>
 #include <trace/hooks/fpsimd.h>
 #include <trace/hooks/topology.h>
 #include <trace/hooks/debug.h>
-#include <trace/hooks/minidump.h>
 #include <trace/hooks/wqlockup.h>
 #include <trace/hooks/sysrqcrash.h>
 #include <trace/hooks/cgroup.h>
@@ -81,7 +79,7 @@ static uint32_t latency_turbo = SUB_FEAT_LOCK | SUB_FEAT_BINDER |
 				SUB_FEAT_SCHED;
 static uint32_t launch_turbo =  SUB_FEAT_LOCK | SUB_FEAT_BINDER |
 				SUB_FEAT_SCHED | SUB_FEAT_FLAVOR_BIGCORE;
-static DEFINE_MUTEX(TURBO_MUTEX_LOCK);
+static DEFINE_SPINLOCK(TURBO_SPIN_LOCK);
 static pid_t turbo_pid[TURBO_PID_COUNT] = {0};
 static unsigned int task_turbo_feats;
 
@@ -806,7 +804,7 @@ static int set_task_turbo_feats(const char *buf,
 	ret = kstrtouint(buf, 0, &val);
 
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	if (val == latency_turbo ||
 	    val == launch_turbo  || val == 0)
 		ret = param_set_uint(buf, kp);
@@ -814,7 +812,7 @@ static int set_task_turbo_feats(const char *buf,
 		ret = -EINVAL;
 
 	/* if disable turbo, remove all turbo tasks */
-	/* mutex_lock(&TURBO_MUTEX_LOCK); */
+	/* spin_lock(&TURBO_SPIN_LOCK); */
 	if (val == 0) {
 		for (i = 0; i < TURBO_PID_COUNT; i++) {
 			if (turbo_pid[i]) {
@@ -823,7 +821,7 @@ static int set_task_turbo_feats(const char *buf,
 			}
 		}
 	}
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 
 	if (!ret)
 		pr_info("task_turbo_feats is change to %d successfully",
@@ -856,13 +854,13 @@ static int add_turbo_list_by_pid(pid_t pid)
 	if (pid < 0 || pid > PID_MAX_DEFAULT)
 		return retval;
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	if (!add_turbo_list_locked(pid))
 		goto unlock;
 
 	retval = set_turbo_task(pid, TURBO_ENABLE);
 unlock:
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 	return retval;
 }
 
@@ -900,10 +898,10 @@ static int unset_turbo_list_by_pid(pid_t pid)
 	if (pid < 0 || pid > PID_MAX_DEFAULT)
 		return retval;
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	remove_turbo_list_locked(pid);
 	retval = unset_turbo_task(pid);
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 	return retval;
 }
 
@@ -1001,7 +999,7 @@ static void add_turbo_list(struct task_struct *p)
 {
 	struct task_turbo_t *turbo_data;
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	if (add_turbo_list_locked(p->pid)) {
 		turbo_data = get_task_turbo_t(p);
 		turbo_data->turbo = TURBO_ENABLE;
@@ -1009,7 +1007,7 @@ static void add_turbo_list(struct task_struct *p)
 		set_scheduler_tuning(p);
 		trace_turbo_set(p);
 	}
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 }
 
 /*
@@ -1031,13 +1029,13 @@ static void remove_turbo_list(struct task_struct *p)
 {
 	struct task_turbo_t *turbo_data;
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	turbo_data = get_task_turbo_t(p);
 	remove_turbo_list_locked(p->pid);
 	turbo_data->turbo = TURBO_DISABLE;
 	unset_scheduler_tuning(p);
 	trace_turbo_set(p);
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 }
 
 static void probe_android_vh_cgroup_set_task(void *ignore, int ret, struct task_struct *p)
