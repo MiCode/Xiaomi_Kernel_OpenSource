@@ -152,6 +152,10 @@ struct mtk_charger_algorithm {
 	int (*do_algorithm)(struct mtk_charger *info);
 	int (*enable_charging)(struct mtk_charger *info, bool en);
 	int (*do_event)(struct notifier_block *nb, unsigned long ev, void *v);
+	int (*do_dvchg1_event)(struct notifier_block *nb, unsigned long ev,
+			       void *v);
+	int (*do_dvchg2_event)(struct notifier_block *nb, unsigned long ev,
+			       void *v);
 	int (*change_current_setting)(struct mtk_charger *info);
 	void *algo_data;
 };
@@ -216,6 +220,8 @@ struct charger_data {
 enum chg_data_idx_enum {
 	CHG1_SETTING,
 	CHG2_SETTING,
+	DVCHG1_SETTING,
+	DVCHG2_SETTING,
 	CHGS_SETTING_MAX,
 };
 
@@ -224,6 +230,10 @@ struct mtk_charger {
 	struct charger_device *chg1_dev;
 	struct notifier_block chg1_nb;
 	struct charger_device *chg2_dev;
+	struct charger_device *dvchg1_dev;
+	struct notifier_block dvchg1_nb;
+	struct charger_device *dvchg2_dev;
+	struct notifier_block dvchg2_nb;
 
 	struct charger_data chg_data[CHGS_SETTING_MAX];
 	struct chg_limit_setting setting;
@@ -237,6 +247,14 @@ struct mtk_charger {
 	struct power_supply_config psy_cfg2;
 	struct power_supply *psy2;
 
+	struct power_supply_desc psy_dvchg_desc1;
+	struct power_supply_config psy_dvchg_cfg1;
+	struct power_supply *psy_dvchg1;
+
+	struct power_supply_desc psy_dvchg_desc2;
+	struct power_supply_config psy_dvchg_cfg2;
+	struct power_supply *psy_dvchg2;
+
 	struct adapter_device *pd_adapter;
 	struct notifier_block pd_nb;
 	struct mutex pd_lock;
@@ -247,6 +265,7 @@ struct mtk_charger {
 	u32 boottype;
 
 	int chr_type;
+	int usb_type;
 	int usb_state;
 
 	struct mutex cable_out_lock;
@@ -317,6 +336,23 @@ struct mtk_charger {
 	bool enable_dynamic_mivr;
 };
 
+static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,
+					  enum chg_alg_notifier_events evt,
+					  int value)
+{
+	int i;
+	struct chg_alg_notify notify = {
+		.evt = evt,
+		.value = value,
+	};
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		if (info->alg[i])
+			chg_alg_notifier_call(info->alg[i], &notify);
+	}
+	return 0;
+}
+
 /* functions which framework needs*/
 extern int mtk_basic_charger_init(struct mtk_charger *info);
 extern int mtk_pulse_charger_init(struct mtk_charger *info);
@@ -328,6 +364,7 @@ extern int get_vbus(struct mtk_charger *info);
 extern int get_ibus(struct mtk_charger *info);
 extern bool is_battery_exist(struct mtk_charger *info);
 extern int get_charger_type(struct mtk_charger *info);
+extern int get_usb_type(struct mtk_charger *info);
 extern int disable_hw_ovp(struct mtk_charger *info, int en);
 extern bool is_charger_exist(struct mtk_charger *info);
 extern int get_charger_temperature(struct mtk_charger *info,

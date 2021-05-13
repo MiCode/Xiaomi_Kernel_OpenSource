@@ -1244,6 +1244,7 @@ static void mtk_chg_get_tchg(struct mtk_charger *info)
 	int ret;
 	int tchg_min = -127, tchg_max = -127;
 	struct charger_data *pdata;
+	bool en;
 
 	pdata = &info->chg_data[CHG1_SETTING];
 	ret = charger_dev_get_temperature(info->chg1_dev, &tchg_min, &tchg_max);
@@ -1266,6 +1267,38 @@ static void mtk_chg_get_tchg(struct mtk_charger *info)
 		} else {
 			pdata->junction_temp_min = tchg_min;
 			pdata->junction_temp_max = tchg_max;
+		}
+	}
+
+	if (info->dvchg1_dev) {
+		pdata = &info->chg_data[DVCHG1_SETTING];
+		pdata->junction_temp_min = -127;
+		pdata->junction_temp_max = -127;
+		ret = charger_dev_is_enabled(info->dvchg1_dev, &en);
+		if (ret >= 0 && en) {
+			ret = charger_dev_get_adc(info->dvchg1_dev,
+						  ADC_CHANNEL_TEMP_JC,
+						  &tchg_min, &tchg_max);
+			if (ret >= 0) {
+				pdata->junction_temp_min = tchg_min;
+				pdata->junction_temp_max = tchg_max;
+			}
+		}
+	}
+
+	if (info->dvchg2_dev) {
+		pdata = &info->chg_data[DVCHG2_SETTING];
+		pdata->junction_temp_min = -127;
+		pdata->junction_temp_max = -127;
+		ret = charger_dev_is_enabled(info->dvchg2_dev, &en);
+		if (ret >= 0 && en) {
+			ret = charger_dev_get_adc(info->dvchg2_dev,
+						  ADC_CHANNEL_TEMP_JC,
+						  &tchg_min, &tchg_max);
+			if (ret >= 0) {
+				pdata->junction_temp_min = tchg_min;
+				pdata->junction_temp_max = tchg_max;
+			}
 		}
 	}
 }
@@ -1367,6 +1400,18 @@ static bool charger_init_algo(struct mtk_charger *info)
 	struct chg_alg_device *alg;
 	int idx = 0;
 
+	alg = get_chg_alg_by_name("pe5");
+	info->alg[idx] = alg;
+	if (alg == NULL)
+		chr_err("get pe5 fail\n");
+	else {
+		chr_err("get pe5 success\n");
+		alg->config = info->config;
+		chg_alg_init_algo(alg);
+		register_chg_alg_notifier(alg, &info->chg_alg_nb);
+	}
+	idx++;
+
 	alg = get_chg_alg_by_name("pe4");
 	info->alg[idx] = alg;
 	if (alg == NULL)
@@ -1431,6 +1476,25 @@ static bool charger_init_algo(struct mtk_charger *info)
 			chr_err("*** Error : can't find secondary charger ***\n");
 			return false;
 		}
+	} else if (info->config == DIVIDER_CHARGER ||
+		   info->config == DUAL_DIVIDER_CHARGERS) {
+		info->dvchg1_dev = get_charger_by_name("primary_dvchg");
+		if (info->dvchg1_dev)
+			chr_err("Found primary divider charger\n");
+		else {
+			chr_err("*** Error : can't find primary divider charger ***\n");
+			return false;
+		}
+		if (info->config == DUAL_DIVIDER_CHARGERS) {
+			info->dvchg2_dev =
+				get_charger_by_name("secondary_dvchg");
+			if (info->dvchg2_dev)
+				chr_err("Found secondary divider charger\n");
+			else {
+				chr_err("*** Error : can't find secondary divider charger ***\n");
+				return false;
+			}
+		}
 	}
 
 	chr_err("register chg1 notifier %d %d\n",
@@ -1441,6 +1505,26 @@ static bool charger_init_algo(struct mtk_charger *info)
 		register_charger_device_notifier(info->chg1_dev,
 						&info->chg1_nb);
 		charger_dev_set_drvdata(info->chg1_dev, info);
+	}
+
+	chr_err("register dvchg chg1 notifier %d %d\n",
+		info->dvchg1_dev != NULL, info->algo.do_dvchg1_event != NULL);
+	if (info->dvchg1_dev != NULL && info->algo.do_dvchg1_event != NULL) {
+		chr_err("register dvchg chg1 notifier done\n");
+		info->dvchg1_nb.notifier_call = info->algo.do_dvchg1_event;
+		register_charger_device_notifier(info->dvchg1_dev,
+						&info->dvchg1_nb);
+		charger_dev_set_drvdata(info->dvchg1_dev, info);
+	}
+
+	chr_err("register dvchg chg2 notifier %d %d\n",
+		info->dvchg2_dev != NULL, info->algo.do_dvchg2_event != NULL);
+	if (info->dvchg2_dev != NULL && info->algo.do_dvchg2_event != NULL) {
+		chr_err("register dvchg chg2 notifier done\n");
+		info->dvchg2_nb.notifier_call = info->algo.do_dvchg2_event;
+		register_charger_device_notifier(info->dvchg2_dev,
+						 &info->dvchg2_nb);
+		charger_dev_set_drvdata(info->dvchg2_dev, info);
 	}
 
 	return true;
@@ -1487,6 +1571,7 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 		__func__);
 
 	info->chr_type = chr_type;
+	info->usb_type = get_usb_type(info);
 	info->charger_thread_polling = true;
 
 	info->can_charging = true;
@@ -1526,8 +1611,10 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 	} else {
 		if (info->chr_type == POWER_SUPPLY_TYPE_UNKNOWN)
 			mtk_charger_plug_in(info, chr_type);
-		else
+		else {
 			info->chr_type = chr_type;
+			info->usb_type = get_usb_type(info);
+		}
 
 		if (info->cable_out_cnt > 0) {
 			mtk_charger_plug_out(info);
@@ -1544,6 +1631,22 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 	return true;
 }
 
+static void kpoc_power_off_check(struct mtk_charger *info)
+{
+	unsigned int boot_mode = info->bootmode;
+	int vbus = 0;
+
+	/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
+	/* 9 = LOW_POWER_OFF_CHARGING_BOOT */
+	if (boot_mode == 8 || boot_mode == 9) {
+		vbus = get_vbus(info);
+		if (vbus >= 0 && vbus < 2500 && !mtk_is_charger_on(info)) {
+			chr_err("Unplug Charger/USB in KPOC mode, vbus=%d, shutdown\n", vbus);
+			kernel_power_off();
+		}
+	}
+}
+
 static char *dump_charger_type(int type)
 {
 	switch (type) {
@@ -1555,6 +1658,8 @@ static char *dump_charger_type(int type)
 		return "usb-h";
 	case POWER_SUPPLY_TYPE_USB_DCP:
 		return "std";
+	//case POWER_SUPPLY_TYPE_USB_FLOAT:
+	//	return "nonstd";
 	default:
 		return "unknown";
 	}
@@ -1607,6 +1712,7 @@ static int charger_routine_thread(void *arg)
 		check_battery_exist(info);
 		check_dynamic_mivr(info);
 		charger_check_status(info);
+		kpoc_power_off_check(info);
 
 		if (is_disable_charger(info) == false &&
 			is_charger_on == true &&
@@ -1825,6 +1931,7 @@ static int psy_charger_get_property(struct power_supply *psy,
 {
 	struct mtk_charger *info;
 	struct charger_device *chg;
+	struct charger_data *pdata;
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
 
@@ -1838,6 +1945,10 @@ static int psy_charger_get_property(struct power_supply *psy,
 	else if (info->psy2 != NULL &&
 		info->psy2 == psy)
 		chg = info->chg2_dev;
+	else if (info->psy_dvchg1 != NULL && info->psy_dvchg1 == psy)
+		chg = info->dvchg1_dev;
+	else if (info->psy_dvchg2 != NULL && info->psy_dvchg2 == psy)
+		chg = info->dvchg2_dev;
 	else {
 		chr_err("%s fail\n", __func__);
 		return 0;
@@ -1866,7 +1977,13 @@ static int psy_charger_get_property(struct power_supply *psy,
 		else if (chg == info->chg2_dev)
 			val->intval =
 				info->chg_data[CHG2_SETTING].junction_temp_max * 10;
-		else
+		else if (chg == info->dvchg1_dev) {
+			pdata = &info->chg_data[DVCHG1_SETTING];
+			val->intval = pdata->junction_temp_max;
+		} else if (chg == info->dvchg2_dev) {
+			pdata = &info->chg_data[DVCHG2_SETTING];
+			val->intval = pdata->junction_temp_max;
+		} else
 			val->intval = -127;
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
@@ -1905,6 +2022,10 @@ int psy_charger_set_property(struct power_supply *psy,
 	else if (info->psy2 != NULL &&
 		info->psy2 == psy)
 		idx = CHG2_SETTING;
+	else if (info->psy_dvchg1 != NULL && info->psy_dvchg1 == psy)
+		idx = DVCHG1_SETTING;
+	else if (info->psy_dvchg2 != NULL && info->psy_dvchg2 == psy)
+		idx = DVCHG2_SETTING;
 	else {
 		chr_err("%s fail\n", __func__);
 		return 0;
@@ -1975,6 +2096,7 @@ int notify_adapter_event(struct notifier_block *notifier,
 		chr_err("PD Notify Detach\n");
 		pinfo->pd_type = MTK_PD_CONNECT_NONE;
 		mutex_unlock(&pinfo->pd_lock);
+		mtk_chg_alg_notify_call(pinfo, EVT_DETACH, 0);
 		/* reset PE40 */
 		break;
 
@@ -1984,6 +2106,7 @@ int notify_adapter_event(struct notifier_block *notifier,
 		pinfo->pd_type = MTK_PD_CONNECT_NONE;
 		pinfo->pd_reset = true;
 		mutex_unlock(&pinfo->pd_lock);
+		mtk_chg_alg_notify_call(pinfo, EVT_HARDRESET, 0);
 		_wake_up_charger(pinfo);
 		/* reset PE40 */
 		break;
@@ -2118,6 +2241,40 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (IS_ERR(info->psy2))
 		chr_err("register psy2 fail:%d\n",
 			PTR_ERR(info->psy2));
+
+	info->psy_dvchg_desc1.name = "mtk-master-divider-charger";
+	info->psy_dvchg_desc1.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	info->psy_dvchg_desc1.properties = charger_psy_properties;
+	info->psy_dvchg_desc1.num_properties =
+		ARRAY_SIZE(charger_psy_properties);
+	info->psy_dvchg_desc1.get_property = psy_charger_get_property;
+	info->psy_dvchg_desc1.set_property = psy_charger_set_property;
+	info->psy_dvchg_desc1.property_is_writeable =
+		psy_charger_property_is_writeable;
+	info->psy_dvchg_cfg1.drv_data = info;
+	info->psy_dvchg1 = power_supply_register(&pdev->dev,
+						 &info->psy_dvchg_desc1,
+						 &info->psy_dvchg_cfg1);
+	if (IS_ERR(info->psy_dvchg1))
+		chr_err("register psy dvchg1 fail:%d\n",
+			PTR_ERR(info->psy_dvchg1));
+
+	info->psy_dvchg_desc2.name = "mtk-slave-divider-charger";
+	info->psy_dvchg_desc2.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	info->psy_dvchg_desc2.properties = charger_psy_properties;
+	info->psy_dvchg_desc2.num_properties =
+		ARRAY_SIZE(charger_psy_properties);
+	info->psy_dvchg_desc2.get_property = psy_charger_get_property;
+	info->psy_dvchg_desc2.set_property = psy_charger_set_property;
+	info->psy_dvchg_desc2.property_is_writeable =
+		psy_charger_property_is_writeable;
+	info->psy_dvchg_cfg2.drv_data = info;
+	info->psy_dvchg2 = power_supply_register(&pdev->dev,
+						 &info->psy_dvchg_desc2,
+						 &info->psy_dvchg_cfg2);
+	if (IS_ERR(info->psy_dvchg2))
+		chr_err("register psy dvchg2 fail:%d\n",
+			PTR_ERR(info->psy_dvchg2));
 
 	info->log_level = CHRLOG_DEBUG_LEVEL;
 

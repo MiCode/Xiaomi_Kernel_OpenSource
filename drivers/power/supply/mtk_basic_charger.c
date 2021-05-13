@@ -122,7 +122,7 @@ static bool support_fast_charging(struct mtk_charger *info)
 static bool select_charging_current_limit(struct mtk_charger *info,
 	struct chg_limit_setting *setting)
 {
-	struct charger_data *pdata, *pdata2;
+	struct charger_data *pdata, *pdata2, *pdata_dvchg, *pdata_dvchg2;
 	bool is_basic = false;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret;
@@ -131,6 +131,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 
 	pdata = &info->chg_data[CHG1_SETTING];
 	pdata2 = &info->chg_data[CHG2_SETTING];
+	pdata_dvchg = &info->chg_data[DVCHG1_SETTING];
+	pdata_dvchg2 = &info->chg_data[DVCHG2_SETTING];
 	if (info->usb_unlimited) {
 		pdata->input_current_limit =
 					info->data.ac_charger_input_current;
@@ -163,7 +165,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		goto done;
 	}
 
-	if (info->chr_type == POWER_SUPPLY_TYPE_USB) {
+	if (info->chr_type == POWER_SUPPLY_TYPE_USB &&
+	    info->usb_type == POWER_SUPPLY_USB_TYPE_SDP) {
 		pdata->input_current_limit =
 				info->data.usb_charger_current;
 		/* it can be larger */
@@ -186,6 +189,49 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 			pdata2->input_current_limit =
 				pdata->input_current_limit;
 			pdata2->charging_current_limit = 2000000;
+		}
+	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB &&
+	    info->usb_type == POWER_SUPPLY_USB_TYPE_DCP) {
+		/* NONSTANDARD_CHARGER */
+		pdata->input_current_limit =
+			info->data.usb_charger_current;
+		pdata->charging_current_limit =
+			info->data.usb_charger_current;
+		is_basic = true;
+	}
+
+	if (support_fast_charging(info))
+		is_basic = false;
+	else {
+		is_basic = true;
+		/* AICL */
+		charger_dev_run_aicl(info->chg1_dev,
+			&pdata->input_current_limit_by_aicl);
+		if (info->enable_dynamic_mivr) {
+			if (pdata->input_current_limit_by_aicl >
+				info->data.max_dmivr_charger_current)
+				pdata->input_current_limit_by_aicl =
+					info->data.max_dmivr_charger_current;
+		}
+		if (is_typec_adapter(info)) {
+			if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
+				== 3000) {
+				pdata->input_current_limit = 3000000;
+				pdata->charging_current_limit = 3000000;
+			} else if (adapter_dev_get_property(info->pd_adapter,
+				TYPEC_RP_LEVEL) == 1500) {
+				pdata->input_current_limit = 1500000;
+				pdata->charging_current_limit = 2000000;
+			} else {
+				chr_err("type-C: inquire rp error\n");
+				pdata->input_current_limit = 500000;
+				pdata->charging_current_limit = 500000;
+			}
+
+			chr_err("type-C:%d current:%d\n",
+				info->pd_type,
+				adapter_dev_get_property(info->pd_adapter,
+					TYPEC_RP_LEVEL));
 		}
 	}
 
@@ -245,47 +291,20 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	} else
 		info->setting.input_current_limit2 = -1;
 
-	if (support_fast_charging(info))
-		is_basic = false;
-	else {
-		is_basic = true;
-		/* AICL */
-		charger_dev_run_aicl(info->chg1_dev,
-			&pdata->input_current_limit_by_aicl);
-		if (info->enable_dynamic_mivr) {
-			if (pdata->input_current_limit_by_aicl >
-				info->data.max_dmivr_charger_current)
-				pdata->input_current_limit_by_aicl =
-					info->data.max_dmivr_charger_current;
-		}
-		if (is_typec_adapter(info)) {
-			if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
-				== 3000) {
-				pdata->input_current_limit = 3000000;
-				pdata->charging_current_limit = 3000000;
-			} else if (adapter_dev_get_property(info->pd_adapter,
-				TYPEC_RP_LEVEL) == 1500) {
-				pdata->input_current_limit = 1500000;
-				pdata->charging_current_limit = 2000000;
-			} else {
-				chr_err("type-C: inquire rp error\n");
-				pdata->input_current_limit = 500000;
-				pdata->charging_current_limit = 500000;
-			}
-
-			chr_err("type-C:%d current:%d\n",
-				info->pd_type,
-				adapter_dev_get_property(info->pd_adapter,
-					TYPEC_RP_LEVEL));
-		}
-	}
-
 	if (is_basic == true && pdata->input_current_limit_by_aicl != -1) {
 		if (pdata->input_current_limit_by_aicl <
 		    pdata->input_current_limit)
 			pdata->input_current_limit =
 					pdata->input_current_limit_by_aicl;
 	}
+	info->setting.input_current_limit_dvchg1 =
+		pdata_dvchg->thermal_input_current_limit;
+
+	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
+		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
+		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+		is_basic = false;
+
 done:
 
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
@@ -304,7 +323,7 @@ done:
 		is_basic = true;
 	}
 
-	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
+	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d dvchg1:%d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
 		info->config,
 		_uA_to_mA(pdata->thermal_input_current_limit),
 		_uA_to_mA(pdata->thermal_charging_current_limit),
@@ -314,6 +333,7 @@ done:
 		_uA_to_mA(pdata2->thermal_charging_current_limit),
 		_uA_to_mA(pdata2->input_current_limit),
 		_uA_to_mA(pdata2->charging_current_limit),
+		_uA_to_mA(pdata_dvchg->thermal_input_current_limit),
 		info->chr_type, info->pd_type,
 		info->usb_unlimited,
 		IS_ENABLED(CONFIG_USBIF_COMPLIANCE), info->usb_state,
@@ -432,11 +452,15 @@ static int do_algorithm(struct mtk_charger *info)
 			pdata->charging_current_limit);
 		charger_dev_set_constant_voltage(info->chg1_dev,
 			info->setting.cv);
+	}
 
-		if (pdata->input_current_limit == 0 ||
-		    pdata->charging_current_limit == 0)
-			charger_dev_enable(info->chg1_dev, false);
-		else
+	if (pdata->input_current_limit == 0 ||
+	    pdata->charging_current_limit == 0)
+		charger_dev_enable(info->chg1_dev, false);
+	else {
+		alg = get_chg_alg_by_name("pe5");
+		ret = chg_alg_is_algo_ready(alg);
+		if (!(ret == ALG_READY || ret == ALG_RUNNING))
 			charger_dev_enable(info->chg1_dev, true);
 	}
 
@@ -518,6 +542,59 @@ static int charger_dev_event(struct notifier_block *nb, unsigned long event,
 	return NOTIFY_DONE;
 }
 
+static int to_alg_notify_evt(unsigned long evt)
+{
+	switch (evt) {
+	case CHARGER_DEV_NOTIFY_VBUS_OVP:
+		return EVT_VBUSOVP;
+	case CHARGER_DEV_NOTIFY_IBUSOCP:
+		return EVT_IBUSOCP;
+	case CHARGER_DEV_NOTIFY_IBUSUCP_FALL:
+		return EVT_IBUSUCP_FALL;
+	case CHARGER_DEV_NOTIFY_BAT_OVP:
+		return EVT_VBATOVP;
+	case CHARGER_DEV_NOTIFY_IBATOCP:
+		return EVT_IBATOCP;
+	case CHARGER_DEV_NOTIFY_VBATOVP_ALARM:
+		return EVT_VBATOVP_ALARM;
+	case CHARGER_DEV_NOTIFY_VBUSOVP_ALARM:
+		return EVT_VBUSOVP_ALARM;
+	case CHARGER_DEV_NOTIFY_VOUTOVP:
+		return EVT_VOUTOVP;
+	case CHARGER_DEV_NOTIFY_VDROVP:
+		return EVT_VDROVP;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int dvchg1_dev_event(struct notifier_block *nb, unsigned long event,
+			    void *data)
+{
+	struct mtk_charger *info =
+		container_of(nb, struct mtk_charger, dvchg1_nb);
+	int alg_evt = to_alg_notify_evt(event);
+
+	chr_info("%s %ld", __func__, event);
+	if (alg_evt < 0)
+		return NOTIFY_DONE;
+	mtk_chg_alg_notify_call(info, alg_evt, 0);
+	return NOTIFY_OK;
+}
+
+static int dvchg2_dev_event(struct notifier_block *nb, unsigned long event,
+			    void *data)
+{
+	struct mtk_charger *info =
+		container_of(nb, struct mtk_charger, dvchg1_nb);
+	int alg_evt = to_alg_notify_evt(event);
+
+	chr_info("%s %ld", __func__, event);
+	if (alg_evt < 0)
+		return NOTIFY_DONE;
+	mtk_chg_alg_notify_call(info, alg_evt, 0);
+	return NOTIFY_OK;
+}
 
 
 int mtk_basic_charger_init(struct mtk_charger *info)
@@ -526,6 +603,8 @@ int mtk_basic_charger_init(struct mtk_charger *info)
 	info->algo.do_algorithm = do_algorithm;
 	info->algo.enable_charging = enable_charging;
 	info->algo.do_event = charger_dev_event;
+	info->algo.do_dvchg1_event = dvchg1_dev_event;
+	info->algo.do_dvchg2_event = dvchg2_dev_event;
 	//info->change_current_setting = mtk_basic_charging_current;
 	return 0;
 }

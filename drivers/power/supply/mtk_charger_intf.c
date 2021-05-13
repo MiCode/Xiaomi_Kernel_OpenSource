@@ -284,6 +284,28 @@ int get_charger_type(struct mtk_charger *info)
 	return prop2.intval;
 }
 
+int get_usb_type(struct mtk_charger *info)
+{
+	union power_supply_propval prop, prop2;
+	static struct power_supply *chg_psy;
+	int ret;
+	if (chg_psy == NULL)
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
+						       "charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		pr_notice("%s Couldn't get chg_psy\n", __func__);
+	} else {
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_ONLINE, &prop);
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_USB_TYPE, &prop2);
+	}
+	pr_notice("%s online:%d usb_type:%d\n", __func__,
+		prop.intval,
+		prop2.intval);
+	return prop2.intval;
+}
+
 int get_charger_temperature(struct mtk_charger *info,
 	struct charger_device *chg)
 {

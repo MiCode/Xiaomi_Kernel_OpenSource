@@ -43,6 +43,8 @@ enum chg_alg_state {
 enum chg_idx {
 	CHG1,
 	CHG2,
+	DVCHG1,
+	DVCHG2,
 	CHG_MAX,
 };
 
@@ -50,6 +52,8 @@ enum charger_configuration {
 	SINGLE_CHARGER,
 	DUAL_CHARGERS_IN_SERIES,
 	DUAL_CHARGERS_IN_PARALLEL,
+	DIVIDER_CHARGER,
+	DUAL_DIVIDER_CHARGERS,
 };
 
 struct chg_alg_device {
@@ -68,7 +72,20 @@ enum chg_alg_notifier_events {
 	EVT_PLUG_IN,
 	EVT_PLUG_OUT,
 	EVT_FULL,
-	EVT_RECHARGE
+	EVT_RECHARGE,
+	EVT_DETACH,
+	EVT_HARDRESET,
+	EVT_VBUSOVP,
+	EVT_IBUSOCP,
+	EVT_IBUSUCP_FALL,
+	EVT_VBATOVP,
+	EVT_IBATOCP,
+	EVT_VOUTOVP,
+	EVT_VDROVP,
+	EVT_VBATOVP_ALARM,
+	EVT_VBUSOVP_ALARM,
+	EVT_ALGO_STOP,
+	EVT_MAX,
 };
 
 struct chg_alg_notify {
@@ -80,6 +97,7 @@ struct chg_limit_setting {
 	int cv;
 	int input_current_limit1;
 	int input_current_limit2;
+	int input_current_limit_dvchg1;
 	int charging_current_limit1;
 	int charging_current_limit2;
 };
@@ -159,5 +177,6 @@ extern int chg_alg_set_current_limit(struct chg_alg_device *alg_dev,
 extern int chg_alg_notifier_call(struct chg_alg_device *alg_dev,
 	struct chg_alg_notify *notify);
 extern char *chg_alg_state_to_str(int state);
-
+extern const char *const
+chg_alg_notify_evt_tostring(enum chg_alg_notifier_events evt);
 #endif /* __MTK_CHARGER_ALGORITHM_CLASS_H__ */
