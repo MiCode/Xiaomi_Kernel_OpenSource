@@ -22,7 +22,8 @@
 #if IS_ENABLED(CONFIG_MTK_MDPM)
 #include "mtk_mdpm.h"
 #endif
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+#define PBM_ENABLE_GPU (0)
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
 #include "mtk_gpufreq.h"
 #endif
 
@@ -220,7 +221,7 @@ static void mtk_cpu_dlpt_unlimit_by_pbm(void)
 
 static void mtk_gpufreq_set_power_limit_by_pbm(unsigned int limit_power)
 {
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
 	int oppidx;
 	if (limit_power) {
 		oppidx = gpufreq_get_oppidx_by_power(TARGET_DEFAULT, limit_power);
@@ -521,7 +522,7 @@ static void pbm_thread_handle(struct work_struct *work)
 	int g_dlpt_state_sync = 0;
 	unsigned int gpu_cur_pb = 0, gpu_cur_volt = 0;
 
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
 	gpu_cur_volt = gpufreq_get_cur_volt(TARGET_DEFAULT);
 	gpu_cur_pb = gpufreq_get_cur_power(TARGET_DEFAULT);
 #endif
@@ -909,7 +910,7 @@ static int __init pbm_module_init(void)
 {
 	unsigned int i;
 	int ret;
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
 	int gpu_max_opp, gpu_min_opp;
 #endif
 
@@ -946,7 +947,7 @@ static int __init pbm_module_init(void)
 
 	cpufreq_register_notifier(&mtk_cpu_policy_notifier_block, CPUFREQ_POLICY_NOTIFIER);
 
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
 	gpu_max_opp = gpufreq_get_max_oppidx(TARGET_DEFAULT);
 	gpu_min_opp = gpufreq_get_min_oppidx(TARGET_DEFAULT);
 	gpu_max_pb = gpufreq_get_power_by_idx(TARGET_DEFAULT, gpu_max_opp);
