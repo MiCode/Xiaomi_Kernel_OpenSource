@@ -539,19 +539,39 @@ static void setHpGainZero(void)
 	Ana_Set_Reg(ZCD_CON2, DL_GAIN_0DB, 0x001f);
 }
 #endif
-static void Hp_Zcd_Enable(bool _enable)
+static void Zcd_Enable(bool _enable, int device)
 {
 	if (_enable) {
+		switch (device) {
+		case AUDIO_ANALOG_DEVICE_OUT_EARPIECEL:
+		case AUDIO_ANALOG_DEVICE_OUT_EARPIECER:
+			Ana_Set_Reg(AUDDEC_ANA_CON8, 0x2, 0x7);
+			break;
+		case AUDIO_ANALOG_DEVICE_OUT_SPEAKERL:
+		case AUDIO_ANALOG_DEVICE_OUT_SPEAKERR:
+			Ana_Set_Reg(AUDDEC_ANA_CON8, 0x0, 0x7);
+			break;
+		case AUDIO_ANALOG_DEVICE_OUT_SPEAKER_HEADSET_L:
+		case AUDIO_ANALOG_DEVICE_OUT_SPEAKER_HEADSET_R:
+			Ana_Set_Reg(AUDDEC_ANA_CON8, 0x1, 0x7);
+			break;
+		case AUDIO_ANALOG_DEVICE_OUT_HEADSETL:
+		case AUDIO_ANALOG_DEVICE_OUT_HEADSETR:
+		default:
+			Ana_Set_Reg(AUDDEC_ANA_CON8, 0x1, 0x7);
+			break;
+		}
 		/* Enable ZCD, for minimize pop noise */
 		/* when adjust gain during HP buffer on */
 		Ana_Set_Reg(ZCD_CON0, 0x1 << 8, 0x7 << 8);
 		Ana_Set_Reg(ZCD_CON0, 0x0 << 7, 0x1 << 7);
 		/* timeout, 1=5ms, 0=30ms */
-		Ana_Set_Reg(ZCD_CON0, 0x1 << 6, 0x1 << 6);
+		Ana_Set_Reg(ZCD_CON0, 0x0 << 6, 0x1 << 6);
 		Ana_Set_Reg(ZCD_CON0, 0x0 << 4, 0x3 << 4);
 		Ana_Set_Reg(ZCD_CON0, 0x5 << 1, 0x7 << 1);
 		Ana_Set_Reg(ZCD_CON0, 0x1 << 0, 0x1 << 0);
 	} else {
+		Ana_Set_Reg(AUDDEC_ANA_CON8, 0x4, 0x7);
 		Ana_Set_Reg(ZCD_CON0, 0x0000, 0xffff);
 	}
 }
@@ -709,7 +729,7 @@ static void OpenTrimBufferHardware(bool enable, bool buffer_on)
 		Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0001, 0xffff);
 		udelay(100);
 		/* Disable AUD_ZCD */
-		Hp_Zcd_Enable(false);
+		Zcd_Enable(false, AUDIO_ANALOG_DEVICE_OUT_HEADSETL);
 		/* Enable IBIST */
 		Ana_Set_Reg(AUDDEC_ANA_CON10, 0x0055, 0xffff);
 		/* Set HP DR bias current optimization, 010: 6uA */
@@ -857,7 +877,7 @@ static void open_trim_bufferhardware_withspk(bool enable, bool buffer_on)
 		Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0001, 0xffff);
 		udelay(100);
 		/* Disable AUD_ZCD */
-		Hp_Zcd_Enable(false);
+		Zcd_Enable(false, AUDIO_ANALOG_DEVICE_OUT_HEADSETL);
 		/* Enable IBIST */
 		Ana_Set_Reg(AUDDEC_ANA_CON10, 0x0055, 0xffff);
 		/* Set HP DR bias current optimization, 010: 6uA */
@@ -1005,7 +1025,7 @@ static bool OpenHeadPhoneImpedanceSetting(bool bEnable)
 		Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0001, 0xffff);
 		udelay(100);
 		/* Disable AUD_ZCD */
-		Hp_Zcd_Enable(false);
+		Zcd_Enable(false, AUDIO_ANALOG_DEVICE_OUT_HEADSETL);
 		/* Enable IBIST */
 		Ana_Set_Reg(AUDDEC_ANA_CON10, 0x0055, 0xffff);
 		/* Disable HPR/L STB enhance circuits */
@@ -3006,8 +3026,8 @@ static void Audio_Amp_Change(int channels, bool enable)
 			/* Enable NV regulator (-1.2V) */
 			Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0001, 0xffff);
 			udelay(100);
-			/* Disable AUD_ZCD */
-			Hp_Zcd_Enable(false);
+			/* Enable AUD_ZCD */
+			Zcd_Enable(true, AUDIO_ANALOG_DEVICE_OUT_HEADSETL);
 			/* Enable IBIST */
 			Ana_Set_Reg(AUDDEC_ANA_CON10, 0x0055, 0xffff);
 			/* Set HP DR bias current optimization, 010: 6uA */
@@ -3130,7 +3150,7 @@ static void Audio_Amp_Change(int channels, bool enable)
 			/* Disable IBIST */
 			Ana_Set_Reg(AUDDEC_ANA_CON10, 0x1 << 8, 0x1 << 8);
 			/* Disable AUD_ZCD */
-			Hp_Zcd_Enable(false);
+			Zcd_Enable(false, AUDIO_ANALOG_DEVICE_OUT_HEADSETL);
 			/* Disable NV regulator (-1.2V) */
 			Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0, 0x1);
 			/* Disable cap-less LDOs (1.5V) */
@@ -3291,7 +3311,7 @@ static int PMIC_REG_CLEAR_Set(struct snd_kcontrol *kcontrol,
 	Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0001, 0xffff);
 	udelay(100);
 	/* Disable AUD_ZCD */
-	Hp_Zcd_Enable(false);
+	Zcd_Enable(false, AUDIO_ANALOG_DEVICE_OUT_HEADSETL);
 	/* Enable IBIST */
 	Ana_Set_Reg(AUDDEC_ANA_CON10, 0x0055, 0xffff);
 	/* Set HP DR bias current optimization, 010: 6uA */
@@ -3418,8 +3438,8 @@ static void Voice_Amp_Change(bool enable)
 			/* Enable NV regulator (-1.2V) */
 			Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0001, 0xffff);
 			udelay(100);
-			/* Disable AUD_ZCD */
-			Hp_Zcd_Enable(false);
+			/* Enable AUD_ZCD */
+			Zcd_Enable(true, AUDIO_ANALOG_DEVICE_OUT_EARPIECEL);
 			/* Enable IBIST */
 			Ana_Set_Reg(AUDDEC_ANA_CON10, 0x0055, 0xffff);
 			/* Set HP DR bias current optimization, 010: 6uA */
@@ -3477,6 +3497,8 @@ static void Voice_Amp_Change(bool enable)
 			Ana_Set_Reg(AUDDEC_ANA_CON7, 0xa8, 0xff);
 			/* Disable IBIST */
 			Ana_Set_Reg(AUDDEC_ANA_CON10, 0x1 << 8, 0x1 << 8);
+			/* Disable AUD_ZCD */
+			Zcd_Enable(false, AUDIO_ANALOG_DEVICE_OUT_EARPIECEL);
 			/* Disable NV regulator (-1.2V) */
 			Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0, 0x1);
 			/* Disable cap-less LDOs (1.5V) */
@@ -3556,8 +3578,8 @@ static void Speaker_Amp_Change(bool enable)
 		/* Enable NV regulator (-1.2V) */
 		Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0001, 0xffff);
 		udelay(100);
-		/* Disable AUD_ZCD */
-		Hp_Zcd_Enable(false);
+		/* Enable AUD_ZCD */
+		Zcd_Enable(true, AUDIO_ANALOG_DEVICE_OUT_SPEAKERL);
 		/* Enable IBIST */
 		Ana_Set_Reg(AUDDEC_ANA_CON10, 0x0055, 0xffff);
 		/* Set HP DR bias current optimization, 010: 6uA */
@@ -3613,6 +3635,8 @@ static void Speaker_Amp_Change(bool enable)
 			Ana_Set_Reg(AUDDEC_ANA_CON7, 0xa8, 0xff);
 			/* Disable IBIST */
 			Ana_Set_Reg(AUDDEC_ANA_CON10, 0x1 << 8, 0x1 << 8);
+			/* Disable AUD_ZCD */
+			Zcd_Enable(false, AUDIO_ANALOG_DEVICE_OUT_SPEAKERL);
 			/* Disable NV regulator (-1.2V) */
 			Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0, 0x1);
 			/* Disable cap-less LDOs (1.5V) */
@@ -3801,8 +3825,8 @@ static void Headset_Speaker_Amp_Change(bool enable)
 		/* Enable NV regulator (-1.2V) */
 		Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0001, 0xffff);
 		udelay(100);
-		/* Disable AUD_ZCD */
-		Hp_Zcd_Enable(false);
+		/* Enable AUD_ZCD */
+		Zcd_Enable(true, AUDIO_ANALOG_DEVICE_OUT_SPEAKER_HEADSET_L);
 		/* Enable IBIST */
 		Ana_Set_Reg(AUDDEC_ANA_CON10, 0x0055, 0xffff);
 		/* Set HP DR bias current optimization, 010: 6uA */
@@ -3912,6 +3936,9 @@ static void Headset_Speaker_Amp_Change(bool enable)
 			Ana_Set_Reg(AUDDEC_ANA_CON7, 0xa8, 0xff);
 			/* Disable IBIST */
 			Ana_Set_Reg(AUDDEC_ANA_CON10, 0x1 << 8, 0x1 << 8);
+			/* Disable AUD_ZCD */
+			Zcd_Enable(false,
+				   AUDIO_ANALOG_DEVICE_OUT_SPEAKER_HEADSET_L);
 			/* Disable NV regulator (-1.2V) */
 			Ana_Set_Reg(AUDDEC_ANA_CON13, 0x0, 0x1);
 			/* Disable cap-less LDOs (1.5V) */
