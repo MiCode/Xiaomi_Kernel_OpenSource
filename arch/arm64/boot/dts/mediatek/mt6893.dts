@@ -560,18 +560,12 @@
 			mutt_pa1: mutt-pa1 {
 				#cooling-cells = <2>;
 			};
-			mutt_pa1_no_ims: mutt-pa1-no-ims {
-				#cooling-cells = <2>;
-			};
 			tx_pwr_pa1: tx-pwr-pa1 {
 				#cooling-cells = <2>;
 			};
 		};
 		pa2: pa2 {
 			mutt_pa2: mutt-pa2 {
-				#cooling-cells = <2>;
-			};
-			mutt_pa2_no_ims: mutt-pa2-no-ims {
 				#cooling-cells = <2>;
 			};
 			tx_pwr_pa2: tx-pwr-pa2 {
@@ -583,103 +577,32 @@
 		};
 	};
 
+	charger_cooler: charger-cooler {
+		compatible = "mediatek,mt6360-charger-cooler";
+		#cooling-cells = <2>;
+	};
+
 	thermal_zones: thermal-zones {
 		ap_ntc: ap_ntc {
-			polling-delay = <1000>; /* milliseconds */
-			polling-delay-passive = <1000>; /* milliseconds */
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tboard_thermistor1>;
-
-			trips {
-				ap_ntc_crit: ap_ntc_crit@0 {
-					temperature = <100000>;
-					hysteresis = <2000>;
-					type = "critical";
-				};
-			};
 		};
 		ltepa_ntc: ltepa_ntc {
-			polling-delay = <1000>; /* milliseconds */
-			polling-delay-passive = <1000>; /* milliseconds */
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tboard_thermistor2>;
-
-			trips {
-				ltepa_ntc_target: ltepa_ntc_trip@0 {
-					temperature = <68000>;
-					hysteresis = <2000>;
-					type = "passive";
-				};
-				ltepa_ntc_no_ims: ltepa_ntc_trip@1 {
-					temperature = <90000>;
-					hysteresis = <2000>;
-					type = "passive";
-				};
-				ltepa_ntc_crit: ltepa_ntc_trip@2 {
-					temperature = <100000>;
-					hysteresis = <2000>;
-					type = "critical";
-				};
-			};
-			cooling-maps {
-				map0 {
-					trip = <&ltepa_ntc_target>;
-					cooling-device = <&mutt_pa1
-						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-				};
-				map1 {
-					trip = <&ltepa_ntc_no_ims>;
-					cooling-device = <&mutt_pa1_no_ims
-						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-				};
-			};
 		};
 		nrpa_ntc: nrpa_ntc {
-			polling-delay = <1000>; /* milliseconds */
-			polling-delay-passive = <1000>; /* milliseconds */
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tboard_thermistor3>;
-
-			trips {
-				nrpa_ntc_target: nrpa_ntc_trip@0 {
-					temperature = <68000>;
-					hysteresis = <2000>;
-					type = "passive";
-				};
-				nrpa_ntc_no_ims: nrpa_ntc_trip@1 {
-					temperature = <90000>;
-					hysteresis = <2000>;
-					type = "passive";
-				};
-				nrpa_ntc_crit: nrpa_ntc_trip@2 {
-					temperature = <100000>;
-					hysteresis = <2000>;
-					type = "critical";
-				};
-			};
-			cooling-maps {
-				map0 {
-					trip = <&nrpa_ntc_target>;
-					cooling-device = <&mutt_pa2
-						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-				};
-				map1 {
-					trip = <&nrpa_ntc_no_ims>;
-					cooling-device = <&mutt_pa2_no_ims
-						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-				};
-			};
 		};
 
 		pmic_temp {
-			polling-delay = <1000>; /* milliseconds */
-			polling-delay-passive = <1000>; /* milliseconds */
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&pmic_temp 0>;
-
-			trips {
-				pmic_temp_crit: pmic_temp_crit@0 {
-					temperature = <130000>;
-					hysteresis = <2000>;
-					type = "critical";
-				};
-			};
 		};
 		pmic_vcore {
 			polling-delay = <0>; /* milliseconds */
