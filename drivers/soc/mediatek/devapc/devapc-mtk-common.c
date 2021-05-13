@@ -731,6 +731,11 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
+	mtk_devapc_ctx->sramrom_base = devm_of_iomap(&pdev->dev, node,
+			DT_SRAMROM_IDX, NULL);
+	if (unlikely(mtk_devapc_ctx->sramrom_base == NULL))
+		pr_info(PFX "Failed to parse sramrom_base.\n");
+
 	mtk_devapc_ctx->devapc_irq = irq_of_parse_and_map(node, 0);
 	if (!mtk_devapc_ctx->devapc_irq) {
 		pr_err(PFX "Failed to parse and map the interrupt.\n");
