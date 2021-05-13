@@ -698,6 +698,13 @@
 		};
 	};
 
+	power_throttling: power_throttling {
+		compatible = "mediatek,power_throttling";
+		lbat_cpu_limit = <900000 900000 900000>;
+		lbat_md_reduce_tx = <6>;
+		oc_cpu_limit = <900000 900000 900000>;
+		oc_md_reduce_tx = <6>;
+	};
 
 	bp_thl: bp_thl {
 		compatible = "mediatek,mtk-bp-thl";
