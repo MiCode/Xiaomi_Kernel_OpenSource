@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
@@ -176,7 +177,6 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	return ret;
 }
 
-#ifdef CONFIG_TCPC_CLASS
 static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 							bool is_on)
 {
@@ -223,6 +223,7 @@ static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 	return 0;
 }
 
+#ifdef CONFIG_TCPC_CLASS
 static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
@@ -306,6 +307,36 @@ static int mtk_usb_extcon_tcpc_init(struct mtk_extcon_info *extcon)
 }
 #endif
 
+static void mtk_usb_extcon_detect_cable(struct work_struct *work)
+{
+	struct mtk_extcon_info *extcon = container_of(to_delayed_work(work),
+						    struct mtk_extcon_info,
+						    wq_detcable);
+	int id;
+
+	/* check ID and update cable state */
+	id = extcon->id_gpiod ?
+		gpiod_get_value_cansleep(extcon->id_gpiod) : 1;
+
+	/* at first we clean states which are no longer active */
+	if (id) {
+		mtk_usb_extcon_set_vbus(extcon, false);
+		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
+	} else {
+		mtk_usb_extcon_set_vbus(extcon, true);
+		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
+	}
+}
+
+static irqreturn_t mtk_usb_idpin_handle(int irq, void *dev_id)
+{
+	struct mtk_extcon_info *extcon = dev_id;
+
+	/* issue detection work */
+	queue_delayed_work(system_power_efficient_wq, &extcon->wq_detcable, 0);
+
+	return IRQ_HANDLED;
+}
 static int mtk_usb_extcon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -377,6 +408,26 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 		of_property_read_bool(dev->of_node,
 			"mediatek,bypss-typec-sink");
 
+	/*get id resources*/
+	extcon->id_gpiod = devm_gpiod_get(dev, "id", GPIOD_IN);
+	if (!extcon->id_gpiod || IS_ERR(extcon->id_gpiod))
+		dev_err(dev, "failed to get id gpio\n");
+	else {
+		extcon->id_irq = gpiod_to_irq(extcon->id_gpiod);
+		if (extcon->id_irq < 0)
+			dev_err(dev, "failed to get ID IRQ\n");
+		else {
+			ret = devm_request_threaded_irq(dev, extcon->id_irq, NULL,
+					mtk_usb_idpin_handle,
+					IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					pdev->name,
+					extcon);
+		}
+	}
+	if (ret < 0)
+		dev_err(dev, "failed to request handler for ID IRQ\n");
+	else
+		INIT_DELAYED_WORK(&extcon->wq_detcable, mtk_usb_extcon_detect_cable);
 	/* power psy */
 	ret = mtk_usb_extcon_psy_init(extcon);
 	if (ret < 0)
