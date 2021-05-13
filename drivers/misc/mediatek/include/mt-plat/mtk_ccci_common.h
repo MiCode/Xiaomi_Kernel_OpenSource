@@ -664,8 +664,10 @@ void clear_meta_1st_boot_arg(int md_id);
 
 /* CCCI dump */
 #define CCCI_DUMP_TIME_FLAG		(1<<0)
-#define CCCI_DUMP_CLR_BUF_FLAG	(1<<1)
+#define CCCI_DUMP_CLR_BUF_FLAG		(1<<1)
 #define CCCI_DUMP_CURR_FLAG		(1<<2)
+#define CCCI_DUMP_ANDROID_TIME_FLAG	(1<<3)
+
 enum {
 	CCCI_DUMP_INIT = 0,
 	CCCI_DUMP_BOOTUP,
@@ -675,6 +677,7 @@ enum {
 	CCCI_DUMP_HISTORY,
 	CCCI_DUMP_REGISTER,
 	CCCI_DUMP_DPMA_DRB,
+	CCCI_DUMP_MD_INIT,
 	CCCI_DUMP_MAX,
 };
 void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len);
