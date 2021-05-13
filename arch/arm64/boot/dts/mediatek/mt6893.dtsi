@@ -2242,7 +2242,6 @@
 			mediatek,cali-efuse-reg-offset = <0x1c4>;
 			nvmem = <&efuse>;
 			nvmem-names = "mtk_efuse";
-			#interconnect-cells = <1>;
 		};
 
 		uart0: serial@11002000 {
