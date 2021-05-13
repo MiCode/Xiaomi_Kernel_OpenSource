@@ -1047,7 +1047,7 @@ static ssize_t clk_buf_capid_show(struct kobject *kobj,
 	if (check_pmic_clkbuf_op())
 		pmic_op->pmic_clk_buf_get_cap_id(&cap_id);
 	pr_info("default cap id(%#x), cap id(%#x)\n", default_cap_id, cap_id);
-	len = snprintf(buf, PAGE_SIZE, "default cap id(%#x), cap id(%#x)\n",
+	len += snprintf(buf, PAGE_SIZE, "default cap id(%#x), cap id(%#x)\n",
 		default_cap_id, cap_id);
 	return len;
 }
