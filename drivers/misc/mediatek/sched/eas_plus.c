@@ -79,3 +79,51 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 
 #endif
 
+#define CSRAM_BASE 0x0011BC00
+#define OFFS_THERMAL_LIMIT_S 0x1208
+#define THERMAL_INFO_SIZE 200
+static void __iomem *sram_base_addr;
+int init_sram_info(void)
+{
+	sram_base_addr = ioremap(CSRAM_BASE + OFFS_THERMAL_LIMIT_S, THERMAL_INFO_SIZE);
+
+	if (!sram_base_addr) {
+		pr_info("Remap thermal info failed\n");
+
+		return -EIO;
+	}
+	return 0;
+}
+
+void mtk_tick_entry(void *data, struct rq *rq)
+{
+	void __iomem *base = sram_base_addr;
+	struct em_perf_domain *pd;
+	int this_cpu, gear_id, opp_idx, offset;
+	unsigned int frequency;
+	unsigned long max_capacity, capacity;
+	u32 opp_ceiling;
+
+	this_cpu = cpu_of(rq);
+	pd = em_cpu_get(this_cpu);
+
+	if (!pd)
+		return;
+
+	if (this_cpu != cpumask_first(to_cpumask(pd->cpus)))
+		return;
+
+	gear_id = topology_physical_package_id(this_cpu);
+	offset = gear_id << 2;
+
+	opp_ceiling = ioread32(base + offset);
+	opp_idx = pd->nr_perf_states - opp_ceiling - 1;
+	frequency = pd->table[opp_idx].frequency;
+
+	max_capacity = arch_scale_cpu_capacity(this_cpu);
+	capacity = frequency * max_capacity;
+	capacity /= pd->table[pd->nr_perf_states-1].frequency;
+	arch_set_thermal_pressure(to_cpumask(pd->cpus), max_capacity - capacity);
+}
+
+

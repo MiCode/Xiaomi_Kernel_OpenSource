@@ -36,6 +36,8 @@ extern void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p,
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 extern int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order);
 #endif
+extern int init_sram_info(void);
+extern void mtk_tick_entry(void *data, struct rq *rq);
 
 #endif
 #endif

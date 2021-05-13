@@ -286,6 +286,10 @@ static int __init mtk_scheduler_init(void)
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
+	ret = init_sram_info();
+	if (ret)
+		return ret;
+
 	ret = register_trace_android_rvh_find_busiest_group(
 			mtk_find_busiest_group, NULL);
 	if (ret)
@@ -295,6 +299,11 @@ static int __init mtk_scheduler_init(void)
 			mtk_find_energy_efficient_cpu, NULL);
 	if (ret)
 		pr_info("register android_rvh_find_energy_efficient_cpu failed\n");
+
+	ret = register_trace_android_rvh_tick_entry(
+			mtk_tick_entry, NULL);
+	if (ret)
+		pr_info("register android_rvh_tick_entry failed\n");
 #endif
 
 	return ret;
