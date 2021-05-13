@@ -6,7 +6,7 @@
 #include <linux/clk.h>
 
 #include "seninf_clk.h"
-
+#include "platform_common.h"
 
 
 #ifdef DFS_CTRL_BY_OPP
@@ -219,8 +219,10 @@ static inline void seninf_clk_check(struct SENINF_CLK *pclk)
 {
 	int i;
 
-	for (i = 0; i < SENINF_CLK_IDX_MAX_NUM; i++)
-		WARN_ON(IS_ERR(pclk->mclk_sel[i]));
+	for (i = 0; i < SENINF_CLK_IDX_MAX_NUM; i++) {
+		if (pclk->mclk_sel[i] != NULL)
+			WARN_ON(IS_ERR(pclk->mclk_sel[i]));
+	}
 }
 
 /**********************************************************
@@ -240,16 +242,16 @@ enum SENINF_RETURN seninf_clk_init(struct SENINF_CLK *pclk)
 						gseninf_mclk_name[i].pctrl);
 		atomic_set(&pclk->enable_cnt[i], 0);
 
-		if (IS_ERR(pclk->mclk_sel[i])) {
+		if ((pclk->mclk_sel[i] == NULL) || IS_ERR(pclk->mclk_sel[i])) {
 			PK_DBG("cannot get %d clock\n", i);
-			return SENINF_RETURN_ERROR;
+			pclk->mclk_sel[i] = NULL;
 		}
 	}
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 	pclk->seninf_wake_lock = wakeup_source_register(
 			NULL, "seninf_lock_wakelock");
 	if (!pclk->seninf_wake_lock) {
-		pr_info("failed to get seninf_wake_lock\n");
+		PK_DBG("failed to get seninf_wake_lock\n");
 		return SENINF_RETURN_ERROR;
 	}
 #endif
@@ -292,50 +294,69 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 	idx_freq = i + SENINF_CLK_IDX_FREQ_MIN_NUM;
 
 	if (pmclk->on) {
-#ifdef TG1_ALWAYS_ON
-		/* Workaround for timestamp: TG1 always ON */
-		if (clk_prepare_enable(
-			pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]))
-			PK_DBG("[CAMERA SENSOR] failed tg=%d\n",
-				  SENINF_CLK_IDX_TG_TOP_MUX_CAMTG);
-		else
-			atomic_inc(
-			&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
-#endif
+		if (!IS_MT6853(pclk->g_platform_id)) {
+			/* Workaround for timestamp: TG1 always ON */
+			if (pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]
+				!= NULL) {
+				if (clk_prepare_enable(
+					pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]))
+					PK_DBG("[CAMERA SENSOR] failed tg=%d\n",
+						SENINF_CLK_IDX_TG_TOP_MUX_CAMTG);
+				else
+					atomic_inc(
+					&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
+			}
+		}
 
-		if (clk_prepare_enable(pclk->mclk_sel[idx_tg]))
-			PK_DBG("[CAMERA SENSOR] failed tg=%d\n", pmclk->TG);
-		else
-			atomic_inc(&pclk->enable_cnt[idx_tg]);
+		if (pclk->mclk_sel[idx_tg] != NULL) {
+			if (clk_prepare_enable(pclk->mclk_sel[idx_tg]))
+				PK_DBG("[CAMERA SENSOR] failed tg=%d\n",
+					pmclk->TG);
+			else
+				atomic_inc(&pclk->enable_cnt[idx_tg]);
+		}
 
-		if (clk_prepare_enable(pclk->mclk_sel[idx_freq]))
-			PK_DBG("[CAMERA SENSOR] failed freq idx= %d\n", i);
-		else
-			atomic_inc(&pclk->enable_cnt[idx_freq]);
+		if (pclk->mclk_sel[idx_freq] != NULL) {
+			if (clk_prepare_enable(pclk->mclk_sel[idx_freq]))
+				PK_DBG("[CAMERA SENSOR] failed freq idx= %d\n",
+					i);
+			else
+				atomic_inc(&pclk->enable_cnt[idx_freq]);
+		}
 
-		ret = clk_set_parent(
-			pclk->mclk_sel[idx_tg], pclk->mclk_sel[idx_freq]);
+		if ((pclk->mclk_sel[idx_tg] != NULL) &&
+			(pclk->mclk_sel[idx_freq] != NULL))
+			ret = clk_set_parent(
+				pclk->mclk_sel[idx_tg],
+				pclk->mclk_sel[idx_freq]);
 	} else {
-		if (atomic_read(&pclk->enable_cnt[idx_freq]) > 0) {
-			clk_disable_unprepare(pclk->mclk_sel[idx_freq]);
-			atomic_dec(&pclk->enable_cnt[idx_freq]);
+		if (pclk->mclk_sel[idx_freq] != NULL) {
+			if (atomic_read(&pclk->enable_cnt[idx_freq]) > 0) {
+				clk_disable_unprepare(pclk->mclk_sel[idx_freq]);
+				atomic_dec(&pclk->enable_cnt[idx_freq]);
+			}
 		}
 
-		if (atomic_read(&pclk->enable_cnt[idx_tg]) > 0) {
-			clk_disable_unprepare(pclk->mclk_sel[idx_tg]);
-			atomic_dec(&pclk->enable_cnt[idx_tg]);
+		if (pclk->mclk_sel[idx_tg] != NULL) {
+			if (atomic_read(&pclk->enable_cnt[idx_tg]) > 0) {
+				clk_disable_unprepare(pclk->mclk_sel[idx_tg]);
+				atomic_dec(&pclk->enable_cnt[idx_tg]);
+			}
 		}
-#ifdef TG1_ALWAYS_ON
-		/* Workaround for timestamp: TG1 always ON */
-		if (atomic_read(
-			&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG])
-			> 0) {
-			clk_disable_unprepare(
-			pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
-			atomic_dec(
-			&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
+
+		if (!IS_MT6853(pclk->g_platform_id)) {
+			/* Workaround for timestamp: TG1 always ON */
+			if (pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG] != NULL) {
+				if (atomic_read(
+					&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG])
+					> 0) {
+					clk_disable_unprepare(
+					pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
+					atomic_dec(
+					&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
+				}
+			}
 		}
-#endif
 	}
 
 	return ret;
@@ -356,10 +377,13 @@ void seninf_clk_open(struct SENINF_CLK *pclk)
 	for (i = SENINF_CLK_IDX_SYS_MIN_NUM;
 		i < SENINF_CLK_IDX_SYS_MAX_NUM;
 		i++) {
-		if (clk_prepare_enable(pclk->mclk_sel[i]))
-			PK_DBG("[CAMERA SENSOR] failed sys idx= %d\n", i);
-		else
-			atomic_inc(&pclk->enable_cnt[i]);
+		if (pclk->mclk_sel[i] != NULL) {
+			if (clk_prepare_enable(pclk->mclk_sel[i]))
+				PK_DBG("[CAMERA SENSOR] failed sys idx= %d\n",
+					i);
+			else
+				atomic_inc(&pclk->enable_cnt[i]);
+		}
 	}
 }
 
@@ -371,9 +395,11 @@ void seninf_clk_release(struct SENINF_CLK *pclk)
 
 	do {
 		i--;
-		for (; atomic_read(&pclk->enable_cnt[i]) > 0;) {
-			clk_disable_unprepare(pclk->mclk_sel[i]);
-			atomic_dec(&pclk->enable_cnt[i]);
+		if (pclk->mclk_sel[i] != NULL) {
+			for (; atomic_read(&pclk->enable_cnt[i]) > 0;) {
+				clk_disable_unprepare(pclk->mclk_sel[i]);
+				atomic_dec(&pclk->enable_cnt[i]);
+			}
 		}
 	} while (i);
 

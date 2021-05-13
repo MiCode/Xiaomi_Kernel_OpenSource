@@ -44,6 +44,7 @@
 #include "imgsensor_oc.h"
 #endif
 #include "imgsensor.h"
+#include "platform_common.h"
 
 #if defined(CONFIG_MTK_CAM_SECURE_I2C)
 #include "imgsensor_ca.h"
@@ -647,7 +648,7 @@ unsigned int Get_Camera_Temperature(
 
 	return ret;
 }
-// EXPORT_SYMBOL(Get_Camera_Temperature);
+EXPORT_SYMBOL(Get_Camera_Temperature);
 
 static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 {
@@ -2148,6 +2149,15 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
 	struct IMGSENSOR_HW *phw = &pimgsensor->hw;
 	struct device *pdevice;
+
+	/* Get the platform id */
+	phw->g_platform_id = GET_PLATFORM_ID("mediatek,seninf_top");
+	if (!(phw->g_platform_id)) {
+		PK_DBG("get platform id failed: %x\n", phw->g_platform_id);
+		return -ENODEV;
+	} else {
+		PK_DBG("get platform id success: %x\n", phw->g_platform_id);
+	}
 
 	/* Register char driver */
 	if (alloc_chrdev_region(&pimgsensor->dev_no, 0, 1,

@@ -30,7 +30,7 @@ enum GPIO_CTRL_STATE_CAM {
 	GPIO_CTRL_STATE_MAX_NUM_CAM,
 };
 
-#ifdef MIPI_SWITCH
+/* for mipi switch platform */
 enum GPIO_CTRL_STATE_SWITCH {
 	GPIO_CTRL_STATE_MIPI_SWITCH_EN_H,
 	GPIO_CTRL_STATE_MIPI_SWITCH_EN_L,
@@ -38,7 +38,6 @@ enum GPIO_CTRL_STATE_SWITCH {
 	GPIO_CTRL_STATE_MIPI_SWITCH_SEL_L,
 	GPIO_CTRL_STATE_MAX_NUM_SWITCH,
 };
-#endif
 
 
 enum GPIO_STATE {
@@ -54,11 +53,10 @@ struct GPIO {
 	struct pinctrl       *ppinctrl;
 	struct pinctrl_state *ppinctrl_state_cam[
 		IMGSENSOR_SENSOR_IDX_MAX_NUM][GPIO_CTRL_STATE_MAX_NUM_CAM];
-#ifdef MIPI_SWITCH
+	/* for mipi switch platform */
 	struct pinctrl       *ppinctrl_switch;
 	struct pinctrl_state *ppinctrl_state_switch[
 		GPIO_CTRL_STATE_MAX_NUM_SWITCH];
-#endif
 	struct mutex         *pgpio_mutex;
 };
 

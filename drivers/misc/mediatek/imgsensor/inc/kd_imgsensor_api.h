@@ -9,11 +9,11 @@
 #include "kd_camera_feature.h"
 
 /* API for termal driver use*/
-unsigned int Get_Camera_Temperature(
+extern unsigned int Get_Camera_Temperature(
 	enum CAMERA_DUAL_CAMERA_SENSOR_ENUM senDevId,
 	unsigned char *valid,
 	unsigned int *temp);
-unsigned int Switch_Tg_For_Stagger(unsigned int camtg);
+extern unsigned int Switch_Tg_For_Stagger(unsigned int camtg);
 
 
 #endif

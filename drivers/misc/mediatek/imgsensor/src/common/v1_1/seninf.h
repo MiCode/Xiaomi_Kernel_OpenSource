@@ -26,6 +26,7 @@ struct SENINF {
 
 	struct mutex seninf_mutex;
 	atomic_t seninf_open_cnt;
+	unsigned int g_seninf_max_num_id;
 
 #ifdef DFS_CTRL_BY_OPP
 	struct seninf_dfs_ctx dfs_ctx;
@@ -36,8 +37,8 @@ extern MINT32 seninf_dump_reg(void);
 extern MINT32 _seninf_irq(MINT32 Irq, void *DeviceId, struct SENINF *pseninf);
 #endif
 #ifdef _CAM_MUX_SWITCH
-MINT32 _switch_tg_for_stagger(unsigned int cam_tg, struct SENINF *pseninf);
-MINT32 _seninf_set_tg_for_switch(unsigned int tg, unsigned int camsv);
+extern MINT32 _switch_tg_for_stagger(unsigned int cam_tg, struct SENINF *pseninf);
+extern MINT32 _seninf_set_tg_for_switch(unsigned int tg, unsigned int camsv);
 #endif
 
 #endif

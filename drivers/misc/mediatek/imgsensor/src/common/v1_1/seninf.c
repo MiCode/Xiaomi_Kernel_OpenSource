@@ -32,6 +32,7 @@
 #include "kd_imgsensor_errcode.h"
 #include "imgsensor_ca.h"
 #include <linux/delay.h>
+#include "platform_common.h"
 
 
 #define SENINF_WR32(addr, data) \
@@ -53,14 +54,16 @@ unsigned int Switch_Tg_For_Stagger(unsigned int camtg)
 	return 0;
 #endif
 }
-// EXPORT_SYMBOL(Switch_Tg_For_Stagger);
+EXPORT_SYMBOL(Switch_Tg_For_Stagger);
 
 
 #if 1
 MINT32 seninf_dump_reg(void)
 {
+	struct SENINF *pseninf = &gseninf;
 	int i = 0;
 	int k = 0;
+	unsigned int seninf_max_num = 0;
 	PK_PR_ERR("- E.");
 	/*Sensor interface Top mux and Package counter */
 	PK_PR_ERR(
@@ -92,8 +95,9 @@ MINT32 seninf_dump_reg(void)
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0598),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x05A8));
 
+	seninf_max_num = pseninf->g_seninf_max_num_id;
 	for (k = 0; k < 2; k++) {
-		for (i = 0; i < SENINF_MAX_NUM ; i++) {
+		for (i = 0; i < seninf_max_num ; i++) {
 			PK_DBG(
 		"seninf%d: SENINF%d_CTRL(0x%x) SENINF%d_CSI2_CTRL(0x%x)\n",
 			i + 1,
@@ -482,6 +486,28 @@ static MINT32 seninf_probe(struct platform_device *pDev)
 	atomic_set(&pseninf->seninf_open_cnt, 0);
 	pseninf->dev = &pDev->dev;
 
+	/* Get the seninf max num id */
+	pseninf->g_seninf_max_num_id =
+		GET_SENINF_MAX_NUM_ID("mediatek,seninf_top");
+	if (!(pseninf->g_seninf_max_num_id)) {
+		PK_DBG("get seninf_max_num_id failed: %d\n",
+			pseninf->g_seninf_max_num_id);
+		return -ENODEV;
+	} else {
+		PK_DBG("get seninf_max_num_id success: %d\n",
+			pseninf->g_seninf_max_num_id);
+	}
+	/* Get the platform id */
+	pseninf->clk.g_platform_id = GET_PLATFORM_ID("mediatek,seninf_top");
+	if (!(pseninf->clk.g_platform_id)) {
+		PK_DBG("get platform id failed: %x\n",
+			pseninf->clk.g_platform_id);
+		return -ENODEV;
+	} else {
+		PK_DBG("get platform id success: %x\n",
+			pseninf->clk.g_platform_id);
+	}
+
 #ifdef SENINF_USE_RPM
 	pm_runtime_enable(pseninf->dev);
 #endif
@@ -591,9 +617,11 @@ static inline MINT32 seninf_reg_of_dev(struct SENINF *pseninf)
 	int i;
 	char pdev_name[64];
 	struct device_node *node = NULL;
+	unsigned int seninf_max_num = 0;
 
 	/* Map seninf */
-	for (i = 0; i < SENINF_MAX_NUM; i++) {
+	seninf_max_num = pseninf->g_seninf_max_num_id;
+	for (i = 0; i < seninf_max_num; i++) {
 		snprintf(pdev_name, 64, "mediatek,seninf%d", i + 1);
 		node = of_find_compatible_node(NULL, NULL, pdev_name);
 		if (!node) {

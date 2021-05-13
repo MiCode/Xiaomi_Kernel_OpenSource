@@ -20,10 +20,8 @@ char * const imgsensor_hw_pin_names[] = {
 	"vcama",
 	"vcamd",
 	"vcamio",
-#ifdef MIPI_SWITCH
 	"mipi_switch_en",
 	"mipi_switch_sel",
-#endif
 	"mclk"
 };
 
@@ -50,7 +48,10 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	/* update the imgsensor_custom_cfg by dts */
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		PK_DBG("IMGSENSOR_SENSOR_IDX: %d\n", i);
-		pcust_pwr_cfg = imgsensor_custom_config;
+		if (IS_MT6853(phw->g_platform_id))
+			pcust_pwr_cfg = imgsensor_custom_config_mt6853;
+		else
+			pcust_pwr_cfg = imgsensor_custom_config;
 		while (pcust_pwr_cfg->sensor_idx != i &&
 		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)
 			pcust_pwr_cfg++;
@@ -98,7 +99,10 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		psensor_pwr = &phw->sensor_pwr[i];
 
-		pcust_pwr_cfg = imgsensor_custom_config;
+		if (IS_MT6853(phw->g_platform_id))
+			pcust_pwr_cfg = imgsensor_custom_config_mt6853;
+		else
+			pcust_pwr_cfg = imgsensor_custom_config;
 		while (pcust_pwr_cfg->sensor_idx != i &&
 		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)
 			pcust_pwr_cfg++;

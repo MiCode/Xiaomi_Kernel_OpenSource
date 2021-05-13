@@ -4,6 +4,7 @@
  */
 
 #include "gpio.h"
+#include "platform_common.h"
 
 struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 			GPIO_CTRL_STATE_MAX_NUM_CAM] = {
@@ -20,7 +21,7 @@ struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 	{"ldo_vcamio_0"},
 };
 
-#ifdef MIPI_SWITCH
+/* for mipi switch platform */
 struct GPIO_PINCTRL gpio_pinctrl_list_switch[
 			GPIO_CTRL_STATE_MAX_NUM_SWITCH] = {
 	{"cam_mipi_switch_en_1"},
@@ -28,7 +29,6 @@ struct GPIO_PINCTRL gpio_pinctrl_list_switch[
 	{"cam_mipi_switch_sel_1"},
 	{"cam_mipi_switch_sel_0"}
 };
-#endif
 
 static struct GPIO gpio_instance;
 
@@ -71,15 +71,15 @@ static enum IMGSENSOR_RETURN gpio_init(
 
 			if (pgpio->ppinctrl_state_cam[j][i] == NULL ||
 				IS_ERR(pgpio->ppinctrl_state_cam[j][i])) {
-				pr_info(
+				PK_DBG(
 					"ERROR: %s : pinctrl err, %s\n",
 					__func__,
 					str_pinctrl_name);
-				ret = IMGSENSOR_RETURN_ERROR;
+				pgpio->ppinctrl_state_cam[j][i] = NULL;
 			}
 		}
 	}
-#ifdef MIPI_SWITCH
+	/* for mipi switch platform */
 	for (i = 0; i < GPIO_CTRL_STATE_MAX_NUM_SWITCH; i++) {
 		if (gpio_pinctrl_list_switch[i].ppinctrl_lookup_names) {
 			pgpio->ppinctrl_state_switch[i] =
@@ -90,12 +90,11 @@ static enum IMGSENSOR_RETURN gpio_init(
 
 		if (pgpio->ppinctrl_state_switch[i] == NULL ||
 			IS_ERR(pgpio->ppinctrl_state_switch[i])) {
-			PK_DBG("%s : pinctrl err, %s\n", __func__,
+			PK_DBG("ERROR: %s : pinctrl err, %s\n", __func__,
 			gpio_pinctrl_list_switch[i].ppinctrl_lookup_names);
-			ret = IMGSENSOR_RETURN_ERROR;
+			pgpio->ppinctrl_state_switch[i] = NULL;
 		}
 	}
-#endif
 
 	return ret;
 }
@@ -120,11 +119,8 @@ static enum IMGSENSOR_RETURN gpio_set(
 	 */
 
 	if (pin < IMGSENSOR_HW_PIN_PDN ||
-#ifdef MIPI_SWITCH
-	    pin > IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL ||
-#else
+		pin > IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL ||
 		pin > IMGSENSOR_HW_PIN_DOVDD ||
-#endif
 		pin_state < IMGSENSOR_HW_PIN_STATE_LEVEL_0 ||
 		pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH ||
 		sensor_idx < 0)
@@ -133,7 +129,6 @@ static enum IMGSENSOR_RETURN gpio_set(
 	gpio_state = (pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0)
 		? GPIO_STATE_H : GPIO_STATE_L;
 
-#ifdef MIPI_SWITCH
 	if (pin == IMGSENSOR_HW_PIN_MIPI_SWITCH_EN)
 		ppinctrl_state = pgpio->ppinctrl_state_switch[
 			GPIO_CTRL_STATE_MIPI_SWITCH_EN_H + gpio_state];
@@ -141,12 +136,9 @@ static enum IMGSENSOR_RETURN gpio_set(
 		ppinctrl_state = pgpio->ppinctrl_state_switch[
 			GPIO_CTRL_STATE_MIPI_SWITCH_SEL_H + gpio_state];
 	else
-#endif
-	{
 		ppinctrl_state =
 			pgpio->ppinctrl_state_cam[sensor_idx][
 			((pin - IMGSENSOR_HW_PIN_PDN) << 1) + gpio_state];
-	}
 
 	mutex_lock(pgpio->pgpio_mutex);
 
