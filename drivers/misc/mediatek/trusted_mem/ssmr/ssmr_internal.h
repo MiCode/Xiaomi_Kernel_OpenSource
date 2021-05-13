@@ -146,11 +146,11 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.req_size = 0,
 		.is_page_based = false
 	},
-	[SSMR_FEAT_PROT_SHAREDMEM] = {
-		.dt_prop_name = "prot-sharedmem-size",
-		.feat_name = "prot-sharedmem",
-		.cmd_online = "prot_sharedmem=on",
-		.cmd_offline = "prot_sharedmem=off",
+	[SSMR_FEAT_PROT_REGION] = {
+		.dt_prop_name = "prot-region-based-size",
+		.feat_name = "prot_region_based",
+		.cmd_online = "prot_region=on",
+		.cmd_offline = "prot_region=off",
 #if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 		.enable = "on",
 #else
@@ -277,6 +277,21 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.enable = "off",
 #endif
 		.scheme_flag = SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = true
+	},
+	[SSMR_FEAT_PROT_PAGE] = {
+		.dt_prop_name = "prot-page-based-size",
+		.feat_name = "prot_page_based",
+		.cmd_online = "prot_page=on",
+		.cmd_offline = "prot_page=off",
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS | SVP_FLAGS,
 		.req_size = 0,
 		.is_page_based = true
 	},

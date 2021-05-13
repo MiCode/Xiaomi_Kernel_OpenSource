@@ -281,9 +281,15 @@ static int tmem_core_region_based_alloc(enum TRUSTED_MEM_TYPE mem_type,
 }
 
 static int tmem_core_page_based_alloc(enum TRUSTED_MEM_TYPE mem_type,
-					  u32 size, u32 *sec_iova)
+				u32 size, u32 *sec_iova)
 {
-		return 1;
+	return 1;
+}
+
+static int tmem_core_page_based_free(enum TRUSTED_MEM_TYPE mem_type,
+				u32 *sec_iova)
+{
+	return 1;
 }
 
 static inline enum TRUSTED_MEM_TYPE
@@ -343,24 +349,29 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 		return TMEM_OPERATION_NOT_REGISTERED;
 	}
 
-	pr_info("[%d] free handle = 0x%x\n", mem_type, sec_handle);
+	if (is_page_based_memory(mem_type)) {
+		return tmem_core_page_based_free(mem_type, &sec_handle);
+	} else {
+		pr_info("[%d] free handle = 0x%x\n", mem_type, sec_handle);
 
-	if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
-		pr_err("[%d] regmgr region is still not online!\n", mem_type);
-		return TMEM_REGION_IS_NOT_READY_BEFORE_MEM_FREE_OPERATION;
+		if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
+			pr_info("[%d] regmgr region is still not online!\n", mem_type);
+			return TMEM_REGION_IS_NOT_READY_BEFORE_MEM_FREE_OPERATION;
+		}
+
+		ret = mem_device->peer_mgr->mgr_sess_mem_free(
+			sec_handle, owner, id, mem_device->peer_ops,
+			&mem_device->peer_mgr->peer_mgr_data, mem_device->dev_desc);
+		if (unlikely(ret)) {
+			pr_info("[%d] free chunk failed!\n", mem_type);
+			return ret;
+		}
+
+		regmgr_region_ref_dec(mem_device->reg_mgr);
+		regmgr_offline(mem_device->reg_mgr);
+
+		return TMEM_OK;
 	}
-
-	ret = mem_device->peer_mgr->mgr_sess_mem_free(
-		sec_handle, owner, id, mem_device->peer_ops,
-		&mem_device->peer_mgr->peer_mgr_data, mem_device->dev_desc);
-	if (unlikely(ret)) {
-		pr_err("[%d] free chunk failed!\n", mem_type);
-		return ret;
-	}
-
-	regmgr_region_ref_dec(mem_device->reg_mgr);
-	regmgr_offline(mem_device->reg_mgr);
-	return TMEM_OK;
 }
 
 bool tmem_core_is_regmgr_region_on(enum TRUSTED_MEM_TYPE mem_type)
@@ -455,7 +466,9 @@ static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
 		return SZ_256M;
 	case TRUSTED_MEM_SVP_PAGE:
 		return SZ_256M;
-	case TRUSTED_MEM_PROT:
+	case TRUSTED_MEM_PROT_REGION:
+		return SZ_128M;
+	case TRUSTED_MEM_PROT_PAGE:
 		return SZ_128M;
 	case TRUSTED_MEM_WFD:
 		return SZ_64M;
@@ -512,7 +525,7 @@ bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 		return is_svp_on_mtee();
 	case TRUSTED_MEM_WFD:
 		return is_svp_on_mtee();
-	case TRUSTED_MEM_PROT:
+	case TRUSTED_MEM_PROT_REGION:
 	case TRUSTED_MEM_HAPP:
 	case TRUSTED_MEM_HAPP_EXTRA:
 	case TRUSTED_MEM_SDSP:

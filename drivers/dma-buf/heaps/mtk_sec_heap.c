@@ -217,7 +217,7 @@ static const struct dma_buf_ops svp_heap_buf_ops = {
 
 static inline void prot_free(struct dma_buf *dmabuf)
 {
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_PROT;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_PROT_REGION;
 
 	tmem_free(tmem_type, dmabuf);
 }
@@ -360,7 +360,7 @@ static inline struct dma_buf *prot_allocate(struct dma_heap *heap,
 					    unsigned long fd_flags,
 					    unsigned long heap_flags)
 {
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_PROT;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_PROT_REGION;
 
 	return tmem_allocate(tmem_type, &prot_heap_buf_ops,
 			     heap, len, fd_flags, heap_flags);

@@ -64,11 +64,11 @@ static struct tmem_device_description mtee_mchunks[] = {
 #endif
 #if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	{
-		.kern_tmem_type = TRUSTED_MEM_PROT,
+		.kern_tmem_type = TRUSTED_MEM_PROT_REGION,
 		.tee_smem_type = TEE_SMEM_PROT,
 		.mtee_chunks_id = MTEE_MCHUNKS_PROT,
-		.ssmr_feature_id = SSMR_FEAT_PROT_SHAREDMEM,
-		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_PROT},
+		.ssmr_feature_id = SSMR_FEAT_PROT_REGION,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_PROT_REGION},
 #if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT) && \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		.notify_remote = true,
@@ -78,7 +78,7 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.notify_remote_fn = NULL,
 #endif
 		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "MTEE_ProtSharedMem",
+		.dev_name = "MTEE_PROT",
 	},
 #endif
 
