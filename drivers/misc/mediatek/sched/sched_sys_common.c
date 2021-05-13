@@ -25,6 +25,11 @@
 #define CREATE_TRACE_POINTS
 
 static struct attribute *sched_ctl_attrs[] = {
+#if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
+	&sched_core_pause_info_attr.attr,
+	&set_sched_pause_cpu_attr.attr,
+	&set_sched_resume_cpu_attr.attr,
+#endif
 	NULL,
 };
 

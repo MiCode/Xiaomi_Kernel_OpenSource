@@ -33,3 +33,12 @@ config MTK_EAS
 	  These featues include
 		load balance in the same frequency domain
 		hint aware in idle balance
+
+config MTK_CORE_PAUSE
+	bool "core pause driver"
+	depends on MTK_SCHEDULER
+	help
+	   Choose this option to provide core pause related API.
+	   core pause intends to have a way to force a CPU to go idle
+	   and to resume as quickly as possible, with as little
+	   disruption as possible on the system.
