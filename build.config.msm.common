@@ -46,6 +46,8 @@ append_cmd POST_DEFCONFIG_CMDS 'clean_dtbs'
 
 FILES+="
 arch/${ARCH}/boot/dts/${DTB_DIR}/*.dtb*
+.config
+Module.symvers
 "
 
 ################################################################################
