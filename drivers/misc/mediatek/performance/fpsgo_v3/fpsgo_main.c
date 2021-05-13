@@ -623,7 +623,7 @@ static int __init fpsgo_init(void)
 	/* touch boost */
 	init_utch_mod();
 
-	fpsgo_switch_enable(1);
+	//fpsgo_switch_enable(1);
 
 	//cpufreq_notifier_fp = fpsgo_notify_cpufreq;
 
