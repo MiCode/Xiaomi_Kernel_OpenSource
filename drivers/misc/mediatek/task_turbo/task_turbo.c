@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <uapi/linux/sched/types.h>
+#include <uapi/linux/prctl.h>
 #include <linux/futex.h>
 #include <linux/plist.h>
 #include <linux/percpu-defs.h>
@@ -47,6 +48,7 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #define TOP_APP_GROUP_ID	4
 #define TURBO_PID_COUNT		8
 #define RENDER_THREAD_NAME	"RenderThread"
+#define TAG			"Task-Turbo"
 #define TURBO_ENABLE		1
 #define TURBO_DISABLE		0
 #define INHERIT_THRESHOLD	4
@@ -120,7 +122,7 @@ static unsigned long capacity_of(int cpu);
 static unsigned long cpu_runnable_load(struct rq *rq);
 static unsigned long cpu_util_without(int cpu, struct task_struct *p);
 static void init_turbo_attr(struct task_struct *p);
-static inline unsigned long cfs_rq_runnable_load_avg(struct cfs_rq *cfs_rq);
+static inline unsigned long cfs_rq_runnable_avg(struct cfs_rq *cfs_rq);
 static inline unsigned long cpu_util(int cpu);
 static inline unsigned long task_util(struct task_struct *p);
 static inline unsigned long _task_util_est(struct task_struct *p);
@@ -168,12 +170,16 @@ static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_
 	}
 }
 
-static void probe_android_rvh_set_user_nice(void *ignore, struct task_struct *p, long *nice)
+static void probe_android_rvh_set_user_nice(void *ignore, struct task_struct *p, long *nice, bool *allowed)
 {
 	struct task_turbo_t *turbo_data;
 
-	if ((*nice < MIN_NICE || *nice > MAX_NICE) && !task_turbo_nice(*nice))
+	if ((*nice < MIN_NICE || *nice > MAX_NICE) && !task_turbo_nice(*nice)) {
+                *allowed = false;
 		return;
+	} else
+                *allowed = true;
+
 
 	turbo_data = get_task_turbo_t(p);
 	/* for general use, backup it */
@@ -183,8 +189,8 @@ static void probe_android_rvh_set_user_nice(void *ignore, struct task_struct *p,
 	if (is_turbo_task(p)) {
 		*nice = rlimit_to_nice(task_rlimit(p, RLIMIT_NICE));
 		if (unlikely(*nice > MAX_NICE)) {
-			pr_warning("{name:task-turbo&]pid=%d RLIMIT_NICE=%ld is not set\n",
-				p->pid, *nice);
+			pr_warn("%s: pid=%d RLIMIT_NICE=%ld is not set\n",
+				TAG, p->pid, *nice);
 			*nice = turbo_data->nice_backup;
 		}
 	} else
@@ -315,12 +321,12 @@ static inline bool is_rwsem_reader_owned(struct rw_semaphore *sem)
 
 static unsigned long cpu_runnable_load(struct rq *rq)
 {
-	return cfs_rq_runnable_load_avg(&rq->cfs);
+	return cfs_rq_runnable_avg(&rq->cfs);
 }
 
-static inline unsigned long cfs_rq_runnable_load_avg(struct cfs_rq *cfs_rq)
+static inline unsigned long cfs_rq_runnable_avg(struct cfs_rq *cfs_rq)
 {
-	return cfs_rq->avg.runnable_load_avg;
+	return cfs_rq->avg.runnable_avg;
 }
 
 static unsigned long capacity_of(int cpu)
@@ -479,11 +485,11 @@ int idle_cpu(int cpu)
 		return 0;
 
 #if IS_ENABLED(CONFIG_SMP)
-	if (!llist_empty(&rq->wake_list))
+	if (rq->ttwu_pending)
 		return 0;
 #endif
 
-	return -1;
+	return 1;
 }
 
 static void rwsem_stop_turbo_inherit(struct rw_semaphore *sem)
@@ -558,7 +564,7 @@ static bool start_turbo_inherit(struct task_struct *task,
 {
 	struct task_turbo_t *turbo_data;
 
-	if (type <= START_INHERIT && type >= END_INHERIT)
+	if (type <= START_INHERIT || type >= END_INHERIT)
 		return false;
 
 	add_inherit_types(task, type);
@@ -578,7 +584,7 @@ static bool stop_turbo_inherit(struct task_struct *task,
 	bool ret = false;
 	struct task_turbo_t *turbo_data;
 
-	if (type <= START_INHERIT && type >= END_INHERIT)
+	if (type <= START_INHERIT || type >= END_INHERIT)
 		goto done;
 
 	turbo_data = get_task_turbo_t(task);
@@ -824,8 +830,8 @@ static int set_task_turbo_feats(const char *buf,
 	spin_unlock(&TURBO_SPIN_LOCK);
 
 	if (!ret)
-		pr_info("task_turbo_feats is change to %d successfully",
-				task_turbo_feats);
+		pr_info("%s: task_turbo_feats is change to %d successfully",
+				TAG, task_turbo_feats);
 	return ret;
 }
 
@@ -942,7 +948,7 @@ static inline int get_st_group_id(struct task_struct *task)
 	rcu_read_lock();
 	grp = task_cgroup(task, subsys_id);
 	rcu_read_unlock();
-	return grp->id;
+	return grp->kn->id;
 #else
 	return 0;
 #endif
@@ -1056,17 +1062,10 @@ static void probe_android_vh_cgroup_set_task(void *ignore, int ret, struct task_
 	}
 }
 
-static void probe_android_vh_sys_set_task(void *ignore, struct task_struct *p)
+static void probe_android_vh_syscall_prctl_finished(void *ignore, int option, struct task_struct *p)
 {
-	sys_set_turbo_task(p);
-}
-
-static void probe_android_vh_nice_check(void *ignore, long *nice, bool *allowed)
-{
-	if ((*nice < MIN_NICE || *nice > MAX_NICE) && !task_turbo_nice(*nice))
-		*allowed = false;
-	else
-		*allowed = true;
+	if (option == PR_SET_NAME)
+		sys_set_turbo_task(p);
 }
 
 static inline void fillin_cluster(struct cluster_info *cinfo,
@@ -1086,8 +1085,8 @@ static inline void fillin_cluster(struct cluster_info *cinfo,
 	cinfo->cpu_perf = cpu_perf;
 
 	if (cpu_perf == 0)
-		pr_info("Uninitialized CPU performance (CPU mask: %lx)",
-				cpumask_bits(&hmpd->possible_cpus)[0]);
+		pr_info("%s: Uninitialized CPU performance (CPU mask: %lx)",
+				TAG, cpumask_bits(&hmpd->possible_cpus)[0]);
 }
 
 int hmp_compare(void *priv, struct list_head *a, struct list_head *b)
@@ -1320,15 +1319,8 @@ static int __init init_task_turbo(void)
 		goto failed;
 	}
 
-	ret = register_trace_android_vh_sys_set_task(
-			probe_android_vh_sys_set_task, NULL);
-	if (ret) {
-		ret_erri_line = __LINE__;
-		goto failed;
-	}
-
-	ret = register_trace_android_vh_nice_check(
-			probe_android_vh_nice_check, NULL);
+	ret = register_trace_android_vh_syscall_prctl_finished(
+			probe_android_vh_syscall_prctl_finished, NULL);
 	if (ret) {
 		ret_erri_line = __LINE__;
 		goto failed;
