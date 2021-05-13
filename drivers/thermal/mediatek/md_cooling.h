@@ -14,7 +14,6 @@
  */
 #define MAX_MD_COOLER_NAME_LEN		(20)
 
-#define MAX_NUM_NO_IMS_STATE		(1)
 #define MAX_NUM_TX_PWR_STATE		(3)
 #define MAX_NUM_SCG_OFF_STATE		(1)
 
@@ -40,7 +39,6 @@ enum md_cooling_status {
 
 enum md_cooling_type {
 	MD_COOLING_TYPE_MUTT,
-	MD_COOLING_TYPE_NO_IMS,
 	MD_COOLING_TYPE_TX_PWR,
 	MD_COOLING_TYPE_SCG_OFF,
 
