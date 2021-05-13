@@ -643,7 +643,7 @@ static int jdi_unprepare(struct drm_panel *panel)
 	    devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->bias_pos, 0);
 	devm_gpiod_put(ctx->dev, ctx->bias_pos);
-
+#endif
 	ctx->error = 0;
 	ctx->prepared = false;
 
@@ -679,6 +679,7 @@ static int jdi_prepare(struct drm_panel *panel)
 	    devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->bias_neg, 1);
 	devm_gpiod_put(ctx->dev, ctx->bias_neg);
+#endif
 	_lcm_i2c_write_bytes(0x0, 0xf);
 	_lcm_i2c_write_bytes(0x1, 0xf);
 	jdi_panel_init(ctx);
@@ -1269,6 +1270,7 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->bias_neg);
 	}
 	devm_gpiod_put(dev, ctx->bias_neg);
+#endif
 	ctx->prepared = true;
 	ctx->enabled = true;
 	drm_panel_init(&ctx->panel);

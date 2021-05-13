@@ -310,7 +310,7 @@ static int lcm_unprepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->bias_gpio, 0);
 	usleep_range(10 * 1000, 15 * 1000);
 	devm_gpiod_put(ctx->dev, ctx->bias_gpio);
-
+#endif
 	ctx->hbm_en = false;
 
 	return 0;
@@ -329,6 +329,7 @@ static int lcm_panel_poweron(struct drm_panel *panel)
 		"bias", GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->bias_gpio, 1);
 	devm_gpiod_put(ctx->dev, ctx->bias_gpio);
+#endif
 	usleep_range(10 * 1000, 10 * 1000);
 	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->reset_gpio, 1);
