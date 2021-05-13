@@ -1376,13 +1376,19 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 		return false;
 	}
 	cwb_info = mtk_crtc->cwb_info;
+	cwb_info->src_roi.width =
+				crtc->state->adjusted_mode.hdisplay;
+	cwb_info->src_roi.height  =
+				crtc->state->adjusted_mode.vdisplay;
 
-	if (!rect.width || !rect.height) {
-		rect.x = 0;
-		rect.y = 0;
-		rect.width = 128;
-		rect.height = 128;
-	} else if (rect.width > 128)
+	if (rect.x >= cwb_info->src_roi.width ||
+		rect.y >= cwb_info->src_roi.height ||
+		!rect.width || !rect.height) {
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			return false;
+	}
+
+	if (rect.width > 128)
 		rect.width = 128;
 
 	if (rect.x + rect.width > cwb_info->src_roi.width)
