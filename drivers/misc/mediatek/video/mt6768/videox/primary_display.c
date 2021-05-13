@@ -6792,9 +6792,13 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	/* check last ovl status: should be idle when config */
 	if (primary_display_is_video_mode() &&
 		!primary_display_is_decouple_mode()) {
+#ifdef FT_HDCP_FEATURE
+		/* last OVL is DISP_MODULE_OVL0_2L */
+		unsigned long ovl_base = ovl_base_addr(DISP_MODULE_OVL0);
+#else
 		/* last OVL is DISP_MODULE_OVL0_2L */
 		unsigned long ovl_base = ovl_base_addr(DISP_MODULE_OVL0_2L);
-
+#endif
 		cmdqRecBackupRegisterToSlot(cmdq_handle, pgc->ovl_status_info,
 			0, disp_addr_convert(DISP_REG_OVL_STA + ovl_base));
 	}

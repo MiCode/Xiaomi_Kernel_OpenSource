@@ -673,11 +673,16 @@ wdma_golden_setting(enum DISP_MODULE_ENUM module,
 		res = p_golden_setting->dst_width *
 			p_golden_setting->dst_height;
 	} else {
+#ifdef FT_HDCP_FEATURE
+		res = 1920 * 1080;
+		frame_rate = 60;
+#else
 		res = p_golden_setting->ext_dst_width *
 				p_golden_setting->ext_dst_height;
 		if ((p_golden_setting->ext_dst_width == 3840 &&
 			p_golden_setting->ext_dst_height == 2160))
 			frame_rate = 30;
+#endif
 	}
 
 	/* DISP_REG_WDMA_SMI_CON */
