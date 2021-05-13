@@ -2473,6 +2473,9 @@
 			clocks = <&clk26m>;
 			clock-names = "ref";
 			#phy-cells = <1>;
+			nvmem-cells = <&u2_phy_data>;
+			nvmem-cell-names = "intr_cal";
+			nvmem-cell-masks = <0x1f>;
 			status = "okay";
 		};
 	};
@@ -2639,6 +2642,9 @@
 		};
 		thermal_efuse: segment@190 {
 			reg = <0x190 0xc>;
+		};
+		u2_phy_data: u2_phy_data@1ac {
+			reg = <0x1ac 0x4>;
 		};
 		efuse_ly: ly@210 {
 			reg = <0x210 0x4>;
