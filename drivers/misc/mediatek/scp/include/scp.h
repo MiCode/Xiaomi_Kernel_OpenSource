@@ -60,6 +60,8 @@
 #define PIN_IN_SIZE_SENSOR_CTRL          2 /* core0 mbox 2 */
 #define PIN_OUT_SIZE_SENSOR_NOTIFY       7 /* core0 mbox 2 */
 #define PIN_IN_SIZE_SENSOR_NOTIFY        7 /* core0 mbox 2 */
+#define PIN_OUT_SIZE_SCP_CONNSYS         3 /* core0 mbox 4 */
+#define PIN_IN_SIZE_SCP_CONNSYS          3 /* core0 mbox 4 */
 
 /* scp Core ID definition */
 enum scp_core_id {
@@ -116,6 +118,8 @@ enum {
 	IPI_IN_SENSOR_CTRL        = 30,
 	IPI_OUT_SENSOR_NOTIFY     = 31,
 	IPI_IN_SENSOR_NOTIFY      = 32,
+	IPI_OUT_SCP_CONNSYS       = 33,
+	IPI_IN_SCP_CONNSYS        = 34,
 	SCP_IPI_COUNT
 };
 
