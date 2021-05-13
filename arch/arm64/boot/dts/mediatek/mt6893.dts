@@ -626,6 +626,19 @@
 		reg = <0 0x0010F000 0 0x400>;
 	};
 
+	mdpm: mdpm {
+		compatible = "mediatek,mt6893-mdpm";
+	};
+
+	power_throttling: power_throttling {
+		compatible = "mediatek,power_throttling";
+		lbat_cpu_limit = <900000 900000 900000>;
+		lbat_md_reduce_tx = <6>;
+		oc_cpu_limit = <900000 900000 900000>;
+		oc_md_reduce_tx = <6>;
+	};
+
+
 	bp_thl: bp_thl {
 		compatible = "mediatek,mtk-bp-thl";
 		soc_limit = <15>;
@@ -638,10 +651,6 @@
 		hv_thd_volt = <3400>;
 		lv1_thd_volt = <3250>;
 		lv2_thd_volt = <3100>;
-	};
-
-	mdpm: mdpm {
-		compatible = "mediatek,mt6893-mdpm";
 	};
 
 	lk_charger: lk_charger {
