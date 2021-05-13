@@ -1746,7 +1746,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "mediatek,mt_soc_pcm_voice_usb_echoref";
 	};
 
-	wifi@180f0000 {
+	wifi: wifi@18000000 {
 		compatible = "mediatek,wifi";
 		reg = <0 0x180f0000 0 0x005c>;
 		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_LOW>;
