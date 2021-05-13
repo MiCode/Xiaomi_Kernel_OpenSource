@@ -58,13 +58,9 @@ static void probe_ccci_event(void *data, char *string, char *sub_string,
 }
 
 static struct tracepoints_table interests[] = {
-        {.name = "ufs_mtk_event", .mod_name = NULL, .module = false, .func = probe_ufs_mtk_event},
-        {.name = "ccci_event", .mod_name = "NULL", .module = false, .func = probe_ccci_event},
+	{.name = "ufs_mtk_event", .mod_name = NULL, .module = false, .func = probe_ufs_mtk_event},
+	{.name = "ccci_event", .mod_name = NULL, .module = false, .func = probe_ccci_event},
 };
-
-#define FOR_EACH_INTEREST(i) \
-	for (i = 0; i < sizeof(interests) / sizeof(struct tracepoints_table); \
-	i++)
 
 /**
  * Find the struct tracepoint* associated with a given tracepoint
@@ -74,9 +70,12 @@ static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
 {
 	int i;
 
-	FOR_EACH_INTEREST(i) {
-		if (strcmp(interests[i].name, tp->name) == 0)
+	for (i = 0; i < ARRAY_SIZE(interests); i++) {
+		if ((interests[i].module == false) && (strcmp(interests[i].name, tp->name) == 0)) {
 			interests[i].tp = tp;
+			tracepoint_probe_register(interests[i].tp, interests[i].func, NULL);
+			interests[i].init = true;
+		}
 	}
 }
 
@@ -84,7 +83,7 @@ static void cleanup(void)
 {
 	int i;
 
-	FOR_EACH_INTEREST(i) {
+	for (i = 0; i < ARRAY_SIZE(interests); i++) {
 		if (interests[i].init) {
 			tracepoint_probe_unregister(interests[i].tp,
 						    interests[i].func, NULL);
@@ -93,31 +92,38 @@ static void cleanup(void)
 }
 
 #ifdef MODULE
-static void for_each_modlist_tracepoint(
-	void (*fct)(struct tracepoint *tp, void *priv),
-	void *priv)
+static int slog_module_callback(struct notifier_block *nb,
+                                unsigned long val, void *data)
 {
-#if IS_ENABLED(CONFIG_TRACEPOINTS)
-	struct module *mod;
+	struct module *mod = data;
 	tracepoint_ptr_t *iter, *begin, *end;
+	struct tracepoint *tp;
 	int i;
-	if (!fct)
-		return;
+
+	if (val !=MODULE_STATE_LIVE)
+		return NOTIFY_DONE;
+
 	for (i = 0; i < ARRAY_SIZE(interests); i++) {
-		if (interests[i].module == true) {
-			mod = find_module(interests[i].mod_name);
-
-			if (!mod)
-				continue;
-
+		if ((interests[i].module == true) && (interests[i].init == false)) {
 			begin = mod->tracepoints_ptrs;
 			end = mod->tracepoints_ptrs + mod->num_tracepoints;
-			for (iter = begin; iter < end; iter++)
-				fct(tracepoint_ptr_deref(iter), NULL);
+			for (iter = begin; iter < end; iter++) {
+				tp = tracepoint_ptr_deref(iter);
+				if (strcmp(interests[i].name, tp->name) == 0) {
+					interests[i].tp = tp;
+					tracepoint_probe_register(interests[i].tp, interests[i].func, NULL);
+					interests[i].init = true;
+				}
+			}
 		}
 	}
-#endif
+
+	return NOTIFY_OK;
 }
+
+static struct notifier_block slog_module_nb = {
+	.notifier_call = slog_module_callback,
+};
 #endif
 
 static int slog_threshold_proc_show(struct seq_file *m, void *v)
@@ -220,30 +226,20 @@ int slog_procfs_init(void)
 
 int mtk_slog_init(void)
 {
-	int i;
 #ifdef MODULE
-	for_each_modlist_tracepoint(lookup_tracepoints, NULL);
+	register_module_notifier(&slog_module_nb);
 #endif
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
-
-	FOR_EACH_INTEREST(i) {
-		for (i = 0; i < ARRAY_SIZE(interests); i++) {
-			if (interests[i].tp == NULL) {
-				pr_info("Error: %s\n", interests[i].name);
-				continue;
-			}
-			tracepoint_probe_register(interests[i].tp, interests[i].func,
-						  NULL);
-
-			interests[i].init = true;
-		}
-	}
 	slog_procfs_init();
+
 	return 0;
 }
 
 void mtk_slog_exit(void)
 {
+#ifdef MODULE
+	unregister_module_notifier(&slog_module_nb);
+#endif
 	remove_proc_entry("slog_threshold", dir);
 	cleanup();
 }
