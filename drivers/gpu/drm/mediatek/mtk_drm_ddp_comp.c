@@ -711,9 +711,17 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 				comp->larb_dev->of_node->full_name);
 			return;
 		}
-		cmdq_pkt_write(handle, NULL,
-			       res.start + SMI_LARB_NON_SEC_CON + port * 4, 0x1,
-			       0x1);
+#ifndef CONFIG_MTK_DISPLAY_M4U
+//bypass m4u
+	cmdq_pkt_write(handle, NULL,
+		res.start + SMI_LARB_NON_SEC_CON + port * 4, 0,
+		0x1);
+#else
+	cmdq_pkt_write(handle, NULL,
+		res.start + SMI_LARB_NON_SEC_CON + port * 4, 0x1,
+		0x1);
+#endif
+
 		index++;
 	}
 }
