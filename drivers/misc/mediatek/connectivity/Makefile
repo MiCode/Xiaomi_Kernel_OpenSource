@@ -24,12 +24,31 @@ ifneq ($(KERNELRELEASE),)
     subdir-ccflags-y += -I$(srctree)/drivers/clk/mediatek/
     subdir-ccflags-y += -I$(srctree)/drivers/pinctrl/mediatek/
 
+    ifneq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),)
+        # SCP
+        subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/scp/include
+        subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/connectivity/conap_scp
+    endif
+
     # Do Nothing, move to standalone repo
     MODULE_NAME := connadp
     obj-$(CONFIG_MTK_COMBO) += $(MODULE_NAME).o
 
     $(MODULE_NAME)-objs += common/connectivity_build_in_adapter.o
     $(MODULE_NAME)-objs += common/wmt_build_in_adapter.o
+
+    ifneq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),)
+        ###########################################################################
+        # SCP
+        $(MODULE_NAME)-objs += conap_scp/msg_thread.o
+        $(MODULE_NAME)-objs += conap_scp/ring_buffer.o
+        $(MODULE_NAME)-objs += conap_scp/conap_scp_shm.o
+        $(MODULE_NAME)-objs += conap_scp/conap_scp_core.o
+        $(MODULE_NAME)-objs += conap_scp/conap_scp_ipi.o
+        $(MODULE_NAME)-objs += conap_scp/conap_platform_data.o
+        $(MODULE_NAME)-objs += conap_scp/conap_scp_test.o
+        ###########################################################################
+    endif
 
     ifeq ($(CONFIG_MTK_COMBO), y)
         ccflags-y += -D CFG_CONNADP_BUILD_IN

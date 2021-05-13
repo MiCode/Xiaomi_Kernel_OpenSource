@@ -185,6 +185,10 @@ extern void v7_flush_kern_dcache_area(void *addr, size_t len);
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp);
 void connectivity_export_dump_thread_state(const char *name);
 void connectivity_export_tracing_record_cmdline(struct task_struct *tsk);
+
+void connectivity_export_conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr);
+void connectivity_export_conap_scp_deinit(void);
+
 #ifdef CPU_BOOST
 void connectivity_export_mt_ppm_sysboost_freq(enum ppm_sysboost_user user,
 					      unsigned int freq);

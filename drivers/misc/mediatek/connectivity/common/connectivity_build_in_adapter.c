@@ -60,6 +60,10 @@
 #define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPNn"
 #endif
 
+//#include "conap_scp.h"
+#include "conap_scp_priv.h"
+//#include "conap_scp_test.h"
+
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
 {
 #ifdef CFG_CONNADP_BUILD_IN
@@ -81,6 +85,27 @@ void connectivity_export_tracing_record_cmdline(struct task_struct *tsk)
 #endif
 }
 EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
+
+void connectivity_export_conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
+{
+	conap_scp_init(chip_info, emi_phy_addr);
+
+#ifdef AOLTEST_SUPPORT
+	aoltest_core_init();
+#endif
+}
+EXPORT_SYMBOL(connectivity_export_conap_scp_init);
+
+
+void connectivity_export_conap_scp_deinit(void)
+{
+	conap_scp_deinit();
+
+#ifdef AOLTEST_SUPPORT
+	aoltest_core_deinit();
+#endif
+}
+EXPORT_SYMBOL(connectivity_export_conap_scp_deinit);
 
 #ifdef CPU_BOOST
 bool connectivity_export_spm_resource_req(unsigned int user,
