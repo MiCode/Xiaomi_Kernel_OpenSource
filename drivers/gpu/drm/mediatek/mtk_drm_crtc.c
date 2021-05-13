@@ -5263,7 +5263,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 		sec_disp_type,
 		CMDQ_METAEX_NONE);
 #ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
-	cmdq_sec_pkt_set_mtee(cmdq_handle, true);
+	cmdq_sec_pkt_set_mtee(cmdq_handle, true, SEC_ID_SVP);
 #endif
 
 	if (idx == 2)
@@ -5320,7 +5320,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 			sec_disp_port, sec_disp_type,
 			CMDQ_METAEX_NONE);
 #ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
-		cmdq_sec_pkt_set_mtee(cmdq_handle, true);
+		cmdq_sec_pkt_set_mtee(cmdq_handle, true, SEC_ID_SVP);
 #endif
 	#endif
 		DDPDBG("%s:%d crtc:0x%p, sec_on:%d +\n",
