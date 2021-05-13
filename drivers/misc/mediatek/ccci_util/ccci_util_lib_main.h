@@ -2,6 +2,8 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
  */
+#ifndef __CCCI_UTIL_LIB_MAIN_H__
+#define __CCCI_UTIL_LIB_MAIN_H__
 #include "mt-plat/mtk_ccci_common.h"
 
 struct md_check_header_v3 {
@@ -282,22 +284,6 @@ struct md_check_header_v6 {
 	unsigned int  size;
 };
 
-/* Meta parsing section */
-#define MD1_EN (1<<0)
-#define MD2_EN (1<<1)
-#define MD3_EN (1<<2)
-#define MD5_EN (1<<4)
-
-#define MD_2G_FLAG    (1<<0)
-#define MD_FDD_FLAG   (1<<1)
-#define MD_TDD_FLAG   (1<<2)
-#define MD_LTE_FLAG   (1<<3)
-#define MD_SGLTE_FLAG (1<<4)
-
-#define MD_WG_FLAG  (MD_FDD_FLAG|MD_2G_FLAG)
-#define MD_TG_FLAG  (MD_TDD_FLAG|MD_2G_FLAG)
-#define MD_LWG_FLAG (MD_LTE_FLAG|MD_FDD_FLAG|MD_2G_FLAG)
-#define MD_LTG_FLAG (MD_LTE_FLAG|MD_TDD_FLAG|MD_2G_FLAG)
 
 extern int ccci_common_sysfs_init(void);
 extern void ccci_log_init(void);
@@ -305,3 +291,7 @@ extern int __init ccci_util_fo_init(void);
 extern void ccci_timer_for_md_init(void);
 extern const char *ld_md_errno_to_str(int errno);
 extern int ccci_util_broadcast_init(void);
+
+#define MAX_MD_NUM_AT_LK	(4)
+
+#endif

@@ -682,11 +682,12 @@ struct _mpu_cfg *get_mpu_region_cfg_info(int region_id);
 int ccci_get_opt_val(char *opt_name);
 
 /* RAT configure relate */
-unsigned int get_wm_bitmap_for_ubin(void); /* Universal bin */
-void update_rat_bit_map_to_drv(int md_id, unsigned int val);
 int get_md_img_type(int md_id);
-int get_legacy_md_type(int md_id);
-int check_md_type(int data);
+int check_rat_at_md_img(int md_id, char str[]);
+unsigned int get_md_bin_capability(int md_id);
+int set_soc_md_rt_rat_str(int md_id, char str[]);
+unsigned int get_soc_md_rt_rat(int md_id);
+int check_rat_at_rt_setting(int md_id, char str[]);
 
 int get_md_resv_csmem_info(int md_id, phys_addr_t *buf_base,
 	unsigned int *buf_size);

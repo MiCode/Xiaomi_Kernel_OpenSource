@@ -147,8 +147,6 @@ static ssize_t boot_status_store(const char *buf, size_t count)
 	if (md_id < MAX_MD_NUM) {
 		if (trigger_md_boot(md_id) != 0)
 			CCCI_UTIL_INF_MSG("md%d n/a\n", md_id + 1);
-		else
-			clear_meta_1st_boot_arg(md_id);
 	} else
 		CCCI_UTIL_INF_MSG("invalid id(%d)\n", md_id + 1);
 	return count;
@@ -266,35 +264,6 @@ static ssize_t ccci_ft_inf_show(char *buf)
 
 CCCI_ATTR(ft_info, 0444, &ccci_ft_inf_show, NULL);
 
-static int get_md_image_type(void)
-{
-	struct md_check_header *buf;
-	int ret, type = 0;
-
-	if (!curr_ubin_id) {
-		buf = kmalloc(1024, GFP_KERNEL);
-		if (buf == NULL) {
-			CCCI_UTIL_INF_MSG_WITH_ID(-1,
-				"fail to allocate memor for md_check_header\n");
-			return -1;
-		}
-
-		ret = get_raw_check_hdr(MD_SYS1, (char *)buf, 1024);
-		if (ret < 0) {
-			CCCI_UTIL_INF_MSG_WITH_ID(-1,
-				"fail to load header(%d)!\n", ret);
-			kfree(buf);
-			return -1;
-		}
-
-		type = buf->image_type;
-		kfree(buf);
-	} else if (curr_ubin_id <= MAX_IMG_NUM)
-		type = curr_ubin_id;
-
-	return type;
-}
-
 static ssize_t kcfg_setting_show(char *buf)
 {
 	unsigned int curr = 0;
@@ -302,6 +271,7 @@ static ssize_t kcfg_setting_show(char *buf)
 	char md_en[MAX_MD_NUM];
 	unsigned int md_num = 0;
 	int i;
+	char c_en;
 
 	for (i = 0; i < MAX_MD_NUM; i++) {
 		if (get_modem_is_enabled(MD_SYS1 + i)) {
@@ -338,18 +308,22 @@ static ssize_t kcfg_setting_show(char *buf)
 		actual_write = 4096 - 16 - curr - 1;
 	curr += actual_write;
 
-	if (ccci_get_opt_val("opt_eccci_c2k") > 0) {
-		actual_write = snprintf(&buf[curr],
-			4096 - curr, "[MTK_ECCCI_C2K]:1\n");
-		if (actual_write < 0) {
-			CCCI_UTIL_ERR_MSG(
-				"%s-%d:snprintf fail,actual_write=%d\n",
-				__func__, __LINE__, actual_write);
-			actual_write = 0;
-		} else if (actual_write >= 4096 - curr)
-			actual_write = 4096 - curr - 1;
-		curr += actual_write;
-	}
+	/* ECCCI_C2K */
+	if (check_rat_at_md_img(MD_SYS1, "C"))
+		c_en = '1';
+	else
+		c_en = '0';
+	actual_write = snprintf(&buf[curr],
+			4096 - curr, "[MTK_ECCCI_C2K]:%c\n", c_en);
+	if (actual_write < 0) {
+		CCCI_UTIL_ERR_MSG(
+			"%s-%d:snprintf fail,actual_write=%d\n",
+			__func__, __LINE__, actual_write);
+		actual_write = 0;
+	} else if (actual_write >= 4096 - curr)
+		actual_write = 4096 - curr - 1;
+	curr += actual_write;
+
 	/* ECCCI_FSM */
 	if (ccci_port_ver == 6)
 		/* FSM using v2 */
@@ -368,7 +342,7 @@ static ssize_t kcfg_setting_show(char *buf)
 	curr += actual_write;
 
 	actual_write = snprintf(&buf[curr],
-			4096 - curr, "[MTK_MD_CAP]:%d\n", get_md_image_type());
+		4096 - curr, "[MTK_MD_CAP]:%d\n", get_md_img_type(MD_SYS1));
 	if (actual_write > 0 && actual_write < (4096 - curr))
 		curr += actual_write;
 
