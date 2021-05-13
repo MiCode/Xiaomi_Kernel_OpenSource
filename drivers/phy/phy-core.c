@@ -377,6 +377,23 @@ int phy_set_mode_ext(struct phy *phy, enum phy_mode mode, int submode)
 }
 EXPORT_SYMBOL_GPL(phy_set_mode_ext);
 
+int phy_get_mode_ext(struct phy *phy)
+{
+	int ret;
+
+	if (!phy || !phy->ops->get_mode_ext)
+		return 0;
+
+	mutex_lock(&phy->mutex);
+	ret = phy->ops->get_mode_ext(phy);
+	if (!ret)
+		ret = phy->attrs.mode;
+	mutex_unlock(&phy->mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(phy_get_mode_ext);
+
 int phy_reset(struct phy *phy)
 {
 	int ret;
