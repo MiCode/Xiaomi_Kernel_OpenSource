@@ -736,7 +736,8 @@ static const struct of_device_id mtk_dpi_of_ids[] = {
 	},
 	{ .compatible = "mediatek,mt6779-dpi",
 	  .data = &mt2712_conf,
-	}
+	},
+	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_dpi_of_ids);
 
