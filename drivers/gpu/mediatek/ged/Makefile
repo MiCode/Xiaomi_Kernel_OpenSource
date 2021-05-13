@@ -48,7 +48,7 @@ ccflags-y += \
 	     -I$(GPU_TOP)/hal/ \
 	     -I$(GPU_TOP)/ \
 	     -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
-	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/ \
+	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/ \
 		 -I$(srctree)/drivers/gpu/mediatek/gpufreq/v1/include/ \
 		 -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/ \
 	     -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3
