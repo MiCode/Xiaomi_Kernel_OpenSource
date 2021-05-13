@@ -55,3 +55,11 @@ config MTK_CORE_PAUSE
 	   and to resume as quickly as possible, with as little
 	   disruption as possible on the system.
 
+config MTK_SCHED_BIG_TASK_ROTATE
+	bool "scheduling big task rotate"
+	depends on MTK_SCHEDULER
+	help
+	   Swap two misfit tasks between big cores and little core,
+	   equally distributed runtime for each misfit task.
+	   It can use for parallel thread at multi-core to reduce
+	   execution time.

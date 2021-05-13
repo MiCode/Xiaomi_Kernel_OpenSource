@@ -16,4 +16,10 @@ extern struct kobj_attribute set_sched_pause_cpu_attr;
 extern struct kobj_attribute set_sched_resume_cpu_attr;
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
+extern void task_rotate_init(void);
+extern void check_for_migration(struct task_struct *p);
+extern struct kobj_attribute set_sched_big_task_rotation_attr;
+#endif
+
 #endif
