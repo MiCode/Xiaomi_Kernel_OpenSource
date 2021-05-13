@@ -1419,7 +1419,7 @@ void DPE_Config_DVS(struct DPE_Config *pDpeConfig,
 	unsigned int pitch = pDpeConfig->Dpe_DVSSettings.pitch >> 4;
 
 	LOG_INF(
-	"DVS param: frm w/h(%d/%d), engStart X_L/X_R/Y(%d/%d/%d), eng w/h(%d/%d), occ w(%d), occ startX(%d), pitch(%d), main eye(%d), 16bit mode(%d), sbf/conf/occ_en(%d/%d/%d), Dpe_InBuf_SrcImg_Y_L: (0x%08x), Dpe_InBuf_SrcImg_Y_R(0x%08x), Dpe_InBuf_ValidMap_L(0x%08x), Dpe_InBuf_ValidMap_R(0x%08x), Dpe_OutBuf_CONF(0x%08x), Dpe_OutBuf_OCC(0x%08x)\n",
+	"DVS param: frm w/h(%d/%d), engStart X_L/X_R/Y(%d/%d/%d), eng w/h(%d/%d), occ w(%d), occ startX(%d), pitch(%d), main eye(%d), 16bit mode(%d), sbf/conf/occ_en(%d/%d/%d), Dpe_InBuf_SrcImg_Y_L: (0x%08x), Dpe_InBuf_SrcImg_Y_R(0x%08x), Dpe_InBuf_ValidMap_L(0x%08x), Dpe_InBuf_ValidMap_R(0x%08x), Dpe_OutBuf_CONF(0x%08x), Dpe_OutBuf_OCC(0x%08x), use_fd(%d)\n",
 	frmWidth, frmHeight, L_engStartX, R_engStartX, engStartY,
 	engWidth, engHeight, occWidth, occStartX, pitch,
 	pDpeConfig->Dpe_DVSSettings.mainEyeSel, pDpeConfig->Dpe_is16BitMode,
@@ -1428,8 +1428,7 @@ void DPE_Config_DVS(struct DPE_Config *pDpeConfig,
 	pDpeConfig->Dpe_DVSSettings.SubModule_EN.occ_en,
 	pDpeConfig->Dpe_InBuf_SrcImg_Y_L, pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
 	pDpeConfig->Dpe_InBuf_ValidMap_L, pDpeConfig->Dpe_InBuf_ValidMap_R,
-	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC);
-
+	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC, pDpeConfig->use_fd);
 	LOG_DBG(
 	"Dpe_InBuf_SrcImg_Y_L: (0x%08x), Dpe_InBuf_SrcImg_Y_R(0x%08x), Dpe_InBuf_ValidMap_L(0x%08x), Dpe_InBuf_ValidMap_R(0x%08x), Dpe_OutBuf_CONF(0x%08x), Dpe_OutBuf_OCC(0x%08x)\n",
 	pDpeConfig->Dpe_InBuf_SrcImg_Y_L, pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
