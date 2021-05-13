@@ -191,7 +191,7 @@ static struct clk *__clk_dbg_lookup(const char *name)
 {
 	struct provider_clk *pvdck = __clk_dbg_lookup_pvdck(name);
 
-	if (!pvdck)
+	if (pvdck)
 		return pvdck->ck;
 
 	return NULL;

@@ -189,7 +189,7 @@ static struct clk *__clk_chk_lookup(const char *name)
 {
 	struct provider_clk *pvdck = __clk_chk_lookup_pvdck(name);
 
-	if (!pvdck)
+	if (pvdck)
 		return pvdck->ck;
 
 	return NULL;
