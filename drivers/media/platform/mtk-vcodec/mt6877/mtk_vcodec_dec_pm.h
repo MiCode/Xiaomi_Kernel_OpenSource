@@ -19,6 +19,7 @@
 
 #define DEC_DVFS	1
 #define DEC_EMI_BW	1
+#define DEC_TF_CALLBACK	1
 #define VIDEO_USE_IOVA
 
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx);
@@ -30,6 +31,7 @@ void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id);
 void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id);
 void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id);
 void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id);
+void mtk_vdec_translation_fault_callback_setting(struct mtk_vcodec_dev *dev);
 
 void mtk_prepare_vdec_dvfs(void);
 void mtk_unprepare_vdec_dvfs(void);
