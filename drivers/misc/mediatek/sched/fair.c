@@ -4,6 +4,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/sched.h>
 #include <trace/hooks/sched.h>
 #include "../../../../kernel/sched/sched.h"
 #include "../../../../kernel/sched/pelt.h"
@@ -188,6 +189,19 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 	return energy;
 }
 
+static unsigned int uclamp_min_ls;
+void set_uclamp_min_ls(unsigned int val)
+{
+	uclamp_min_ls = val;
+}
+EXPORT_SYMBOL_GPL(set_uclamp_min_ls);
+
+unsigned int get_uclamp_min_ls(void)
+{
+	return uclamp_min_ls;
+}
+EXPORT_SYMBOL_GPL(get_uclamp_min_ls);
+
 void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_cpu, int sync, int *new_cpu)
 {
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX, best_delta_active = ULONG_MAX;
@@ -219,7 +233,10 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	if (!task_util_est(p))
 		goto unlock;
 
-	latency_sensitive = uclamp_latency_sensitive(p);
+	if (!uclamp_min_ls)
+		latency_sensitive = uclamp_latency_sensitive(p);
+	else
+		latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
 
 	for (; pd; pd = pd->next) {
 		unsigned long cur_delta, spare_cap, max_spare_cap = 0;
