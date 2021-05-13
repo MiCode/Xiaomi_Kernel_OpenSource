@@ -2735,7 +2735,10 @@
 			vcc-supply = <&mt6359p_vemc_reg>;
 			vcc-supply-2p5;
 
+			bootmode = <&chosen>;
+
 			mediatek,ufs-disable-ah8;
+			mediatek,ufs-qos;
 
 			/* Reference clock control mode */
 			/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
