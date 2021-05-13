@@ -1118,6 +1118,16 @@ void ufstw_reset_work_fn(struct work_struct *work)
 
 	ufsf = container_of(work, struct ufsf_feature, tw_reset_work);
 
+	/*
+	 * If down eh_sem and runtime resume fail, it will block eh_work and
+	 * cause deadlock.
+	 * 1. eh_work wait eh_sem
+	 * 2. tw_reset_work wait runtime resume
+	 * 3. rumtime resume wait eh_work do link recovery
+	 * Here make sure runtime resume success.
+	 */
+	pm_runtime_get_sync(ufsf->hba->dev);
+
 	down(&ufsf->hba->eh_sem);
 	TW_DEBUG(ufsf, "reset tw_kref.refcount=%d",
 		 atomic_read(&ufsf->tw_kref.refcount.refs));
@@ -1131,6 +1141,8 @@ void ufstw_reset_work_fn(struct work_struct *work)
 		ERR_MSG("UFSTW kref is not init_value(=1). kref count = %d ret = %d. So, TW_RESET_FAIL",
 			atomic_read(&ufsf->tw_kref.refcount.refs), ret);
 		up(&ufsf->hba->eh_sem);
+
+		pm_runtime_put_sync(ufsf->hba->dev);
 		return;
 	}
 
@@ -1138,6 +1150,8 @@ void ufstw_reset_work_fn(struct work_struct *work)
 
 	ufstw_reset(ufsf);
 	up(&ufsf->hba->eh_sem);
+
+	pm_runtime_put_sync(ufsf->hba->dev);
 }
 
 /* protected by mutex mode_lock  */
