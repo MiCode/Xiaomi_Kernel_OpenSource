@@ -4765,6 +4765,8 @@
 			interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_LOW>;
 	#endif
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM>;
+			mediatek,platform = "mt6893";
+			mediatek,seninf_max_num = "8";
 			clocks = <&camsys_main_clk CLK_CAM_M_SENINF>,
 				<&topckgen_clk CLK_TOP_SENINF_SEL>,
 				<&topckgen_clk CLK_TOP_SENINF1_SEL>,

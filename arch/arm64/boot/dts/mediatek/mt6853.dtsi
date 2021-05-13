@@ -4170,13 +4170,15 @@
 			reg = <0 0x1a00b000 0 0x1000>;
 		};
 
-		seninf_top@1a004000 {
+		seninf_top:seninf_top@1a004000 {
 			compatible = "mediatek,seninf_top";
 			reg = <0 0x1a004000 0 0x1000>;
 	#if 0
 			interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_LOW>;
 	#endif
 			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM>;
+			mediatek,platform = "mt6853";
+			mediatek,seninf_max_num = "6";
 			clocks = <&camsys_main_clk CLK_CAM_M_SENINF>,
 					<&topckgen_clk CLK_TOP_SENINF_SEL>,
 					<&topckgen_clk CLK_TOP_SENINF1_SEL>,
