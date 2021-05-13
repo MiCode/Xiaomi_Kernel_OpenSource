@@ -1541,6 +1541,44 @@ static void reset_fps_level(void)
 	set_soft_fps_level(1, level);
 }
 
+static ssize_t set_render_max_fps_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return 0;
+}
+
+static ssize_t set_render_max_fps_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+	int ret = 0;
+	struct fps_level level[1];
+
+	level[0].start = dfps_ceiling;
+	level[0].end = dfps_ceiling;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) != 0)
+				goto out;
+			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
+			fpsgo_systrace_c_fstb(arg > 0 ? arg : -arg, 0, arg > 0, "force_max_fps");
+			if (arg > 0)
+				ret = switch_thread_fps_range(arg, 1, level);
+			else
+				ret = switch_thread_fps_range(-arg, 0, NULL);
+		}
+	}
+
+out:
+	return count;
+}
+
+static KOBJ_ATTR_RW(set_render_max_fps);
+
 static ssize_t jump_check_num_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -2061,6 +2099,8 @@ int mtk_fstb_init(void)
 				&kobj_attr_fstb_soft_level);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_jump_check_num);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_set_render_max_fps);
 	}
 
 	reset_fps_level();
@@ -2108,6 +2148,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_fstb_soft_level);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_jump_check_num);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_set_render_max_fps);
 
 	fpsgo_sysfs_remove_dir(&fstb_kobj);
 
