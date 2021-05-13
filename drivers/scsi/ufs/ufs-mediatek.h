@@ -124,6 +124,21 @@ struct ufs_mtk_host {
 	u16 ref_clk_gating_wait_us;
 	bool pm_qos_init;
 	struct pm_qos_request pm_qos_req;
+	bool qos_allowed;
+	bool qos_enabled;
+	bool boot_device;
+};
+
+enum {
+	BOOTDEV_SDMMC = 1,
+	BOOTDEV_UFS   = 2
+};
+
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
 };
 
 #endif /* !_UFS_MEDIATEK_H */

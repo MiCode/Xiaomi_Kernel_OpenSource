@@ -519,6 +519,8 @@ static void ufs_mtk_init_host_caps(struct ufs_hba *hba)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct device_node *np = hba->dev->of_node;
+	struct device_node *boot_node = NULL;
+	struct tag_bootmode *tag = NULL;
 
 	if (of_property_read_bool(np, "mediatek,ufs-boost-crypt"))
 		ufs_mtk_init_boost_crypt(hba);
@@ -529,7 +531,23 @@ static void ufs_mtk_init_host_caps(struct ufs_hba *hba)
 	if (of_property_read_bool(np, "mediatek,ufs-disable-ah8"))
 		host->caps |= UFS_MTK_CAP_DISABLE_AH8;
 
+	if (of_property_read_bool(np, "mediatek,ufs-qos"))
+		host->qos_enabled = host->qos_allowed = true;
+
 	dev_info(hba->dev, "caps: 0x%x", host->caps);
+
+	boot_node = of_parse_phandle(np, "bootmode", 0);
+
+	if (!boot_node)
+		dev_info(hba->dev, "failed to get bootmode phandle\n");
+	else {
+		tag = (struct tag_bootmode *)of_get_property(boot_node,
+							"atag,boot", NULL);
+		if (!tag)
+			dev_info(hba->dev, "failed to get atag,boot\n");
+		else if (tag->boottype == BOOTDEV_UFS)
+			host->boot_device = true;
+	}
 }
 
 /**
@@ -578,12 +596,16 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 			ufs_mtk_boost_crypt(hba, on);
 			ufs_mtk_setup_ref_clk(hba, on);
 			phy_power_off(host->mphy);
+			if (host->qos_enabled)
+				ufs_mtk_biolog_clk_gating(on);
 		}
 	} else if (on && status == POST_CHANGE) {
 		phy_power_on(host->mphy);
 		ufs_mtk_setup_ref_clk(hba, on);
 		ufs_mtk_boost_crypt(hba, on);
 		ufs_mtk_pm_qos(hba, on);
+		if (host->qos_enabled)
+			ufs_mtk_biolog_clk_gating(on);
 	}
 
 	return ret;
@@ -658,10 +680,12 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_mphy_power_on(hba, true);
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
-	
+
 	cpu_latency_qos_add_request(&host->pm_qos_req,
 	     	   PM_QOS_DEFAULT_VALUE);
 	host->pm_qos_init = true;
+
+	ufs_mtk_biolog_init(host->qos_allowed, host->boot_device);
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	ufs_mtk_dbg_register(hba);
@@ -1007,14 +1031,32 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 }
 
+static bool ufs_mtk_is_data_cmd(struct scsi_cmnd *cmd)
+{
+	char cmd_op = cmd->cmnd[0];
+
+	if (cmd_op == WRITE_10 || cmd_op == READ_10 ||
+	    cmd_op == WRITE_16 || cmd_op == READ_16 ||
+	    cmd_op == WRITE_6 || cmd_op == READ_6)
+		return true;
+
+	return false;
+}
+
 static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
 				   bool is_scsi)
 {
 	struct ufshcd_lrb *lrbp;
+	struct scsi_cmnd *cmd;
 
 	if (is_scsi) {
 		lrbp = &hba->lrb[tag];
-		ufs_mtk_biolog_send_command(tag, lrbp->cmd);
+		cmd = lrbp->cmd;
+
+		if (!ufs_mtk_is_data_cmd(cmd))
+			return;
+
+		ufs_mtk_biolog_send_command(tag, cmd);
 		ufs_mtk_biolog_check(hba->outstanding_reqs | (1 << tag));
 	}
 }
@@ -1051,8 +1093,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 {
 	int err;
 	struct device *dev = &pdev->dev;
-
-	ufs_mtk_biolog_init();
 
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);
