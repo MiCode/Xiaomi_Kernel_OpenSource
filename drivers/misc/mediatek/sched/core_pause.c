@@ -105,41 +105,5 @@ static ssize_t show_sched_core_pause_info(struct kobject *kobj,
 	return len;
 }
 
-static ssize_t set_sched_pause_cpu(struct kobject *kobj,
-				struct kobj_attribute *attr,
-				const char *ubuf,
-				size_t cnt)
-{
-	unsigned int cpu_id = -1;
-
-	if (sscanf(ubuf, "%iu", &cpu_id) != 0) {
-		if (cpu_id < nr_cpu_ids)
-			sched_pause_cpu(cpu_id);
-	}
-
-	return cnt;
-}
-
-static ssize_t set_sched_resume_cpu(struct kobject *kobj,
-				struct kobj_attribute *attr,
-				const char *ubuf,
-				size_t cnt)
-{
-	unsigned int cpu_id = -1;
-
-	if (sscanf(ubuf, "%iu", &cpu_id) != 0) {
-		if (cpu_id < nr_cpu_ids)
-			sched_resume_cpu(cpu_id);
-	}
-
-	return cnt;
-}
-
 struct kobj_attribute sched_core_pause_info_attr =
 __ATTR(sched_core_pause_info, 0400, show_sched_core_pause_info, NULL);
-
-struct kobj_attribute set_sched_pause_cpu_attr =
-__ATTR(sched_pause_cpu, 0200, NULL, set_sched_pause_cpu);
-
-struct kobj_attribute set_sched_resume_cpu_attr =
-__ATTR(sched_resume_cpu, 0200, NULL, set_sched_resume_cpu);

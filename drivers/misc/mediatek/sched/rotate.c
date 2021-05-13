@@ -329,37 +329,3 @@ void set_big_task_rotation(bool enable)
 	big_task_rotation_enable = enable;
 }
 EXPORT_SYMBOL_GPL(set_big_task_rotation);
-
-static ssize_t show_sched_big_task_rotation(struct kobject *kobj,
-					struct kobj_attribute *attr,
-					char *buf)
-{
-	unsigned int len = 0;
-	unsigned int max_len = 4096;
-
-	len += snprintf(buf+len, max_len-len,
-			"%d\n", big_task_rotation_enable);
-
-	return len;
-}
-
-static ssize_t store_sched_big_task_rotation(struct kobject *kobj,
-				struct kobj_attribute *attr,
-				const char *ubuf,
-				size_t cnt)
-{
-	int tmp;
-
-	if (kstrtouint(ubuf, 10, &tmp) == 0) {
-		if(tmp > 0)
-			set_big_task_rotation(true);
-		else
-			set_big_task_rotation(false);
-	}
-
-	return cnt;
-}
-
-struct kobj_attribute set_sched_big_task_rotation_attr =
-__ATTR(sched_big_task_rotation, 0600, show_sched_big_task_rotation,
-	store_sched_big_task_rotation);

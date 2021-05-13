@@ -35,11 +35,6 @@ static void hook_scheduler_tick(void *data, struct rq *rq)
 static struct attribute *sched_ctl_attrs[] = {
 #if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
 	&sched_core_pause_info_attr.attr,
-	&set_sched_pause_cpu_attr.attr,
-	&set_sched_resume_cpu_attr.attr,
-#endif
-#if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
-	&set_sched_big_task_rotation_attr.attr,
 #endif
 	NULL,
 };
