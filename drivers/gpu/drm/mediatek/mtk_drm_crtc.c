@@ -8023,9 +8023,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 				cmdq_sec_pkt_set_data(cmdq_handle, 0, 0,
 					CMDQ_SEC_PRIMARY_DISP, CMDQ_METAEX_NONE);
-#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
-				cmdq_sec_pkt_set_mtee(cmdq_handle, true, SEC_ID_SVP);
-#endif
+
 #endif
 				DDPMSG("Switch vds: Primary display is sec\n");
 			} else {
@@ -8112,9 +8110,6 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 				cmdq_sec_pkt_set_data(cmdq_handle, 0, 0,
 					CMDQ_SEC_PRIMARY_DISP, CMDQ_METAEX_NONE);
-#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
-				cmdq_sec_pkt_set_mtee(cmdq_handle, true, SEC_ID_SVP);
-#endif
 #endif
 				DDPMSG("Switch vds: Primary display is sec\n");
 			} else {
@@ -8123,11 +8118,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 
 				DDPMSG("Switch vds: Primary display is not sec\n");
 			}
-			if (IS_ERR_OR_NULL(cmdq_handle)) {
-				DDPMSG("Switch vds: cmdq_handle is null or err\n");
-				CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled, 0);
-				return;
-			}
+
 			if (atomic_read(&mtk_crtc->already_config))
 				mtk_crtc_wait_frame_done(mtk_crtc,
 				cmdq_handle, DDP_FIRST_PATH, 0);
