@@ -126,9 +126,6 @@ static void ftrace_events_enable(int enable)
 	}
 }
 
-#ifdef CONFIG_MTK_PERF_TRACKER
-extern int perf_tracker_enable(int on);
-#endif
 static __init int boot_ftrace(void)
 {
 	struct trace_array *tr;
@@ -141,9 +138,6 @@ static __init int boot_ftrace(void)
 			return 0;
 		}
 
-#ifdef CONFIG_MTK_PERF_TRACKER
-		perf_tracker_enable(1);
-#endif
 		ret = tracing_update_buffers();
 		if (ret != 0)
 			pr_debug("unable to expand buffer, ret=%d\n", ret);
