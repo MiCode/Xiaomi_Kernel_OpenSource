@@ -1146,7 +1146,6 @@ static unsigned int _calc_new_opp_idx(struct mt_cpu_dvfs *p, int new_opp_idx)
 	return new_opp_idx;
 }
 
-
 static void ppm_limit_callback(struct ppm_client_req req)
 {
 	struct ppm_client_req *ppm = (struct ppm_client_req *)&req;
@@ -1651,9 +1650,7 @@ static int cpuhp_cpufreq_offline(unsigned int cpu)
 static enum cpuhp_state hp_online;
 static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 {
-
 	unsigned int lv = _mt_cpufreq_get_cpu_level();
-
 	unsigned int ret;
 	struct mt_cpu_dvfs *p;
 	int j;
@@ -1710,7 +1707,9 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 		}
 #endif
 	}
+
 	cpufreq_register_driver(&_mt_cpufreq_driver);
+
 	hp_online = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 						   "cpu_dvfs:online",
 						   cpuhp_cpufreq_online,
@@ -1722,9 +1721,10 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 		if (j != MT_CPU_DVFS_CCI)
 			mt_ppm_set_dvfs_table(p->cpu_id,
 			p->freq_tbl_for_cpufreq, p->nr_opp_tbl, lv);
-
 	}
+
 	mt_ppm_register_client(PPM_CLIENT_DVFS, &ppm_limit_callback);
+
 	pm_notifier(_mt_cpufreq_pm_callback, 0);
 
 	FUNC_EXIT(FUNC_LV_MODULE);

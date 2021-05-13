@@ -18,7 +18,7 @@ ccflags-y +=	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(CONFIG_MTK_PLATFORM)/inc	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)
-SSPM_VER := v1
+
 ifeq ($(findstring k71v1_bsp_2g,$(PROJECT_DTB_NAMES)),k71v1_bsp_2g)
 subdir-ccflags-y = -DLV
 endif
