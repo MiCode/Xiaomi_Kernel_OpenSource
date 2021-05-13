@@ -47,7 +47,7 @@
 #include <kree/mem.h>
 #include <kree/system.h>
 
-#define TZ_TA_SECMEM_UUID   "charcom.mediatek.geniezone.srv.mem"
+#define TZ_TA_SECMEM_UUID   "com.mediatek.geniezone.srv.mem"
 #endif
 
 static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
