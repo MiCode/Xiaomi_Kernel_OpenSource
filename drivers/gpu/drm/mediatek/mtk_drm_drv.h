@@ -67,6 +67,15 @@
 #define CONFIG_MTK_DYN_SWITCH_BY_CMD
 #endif
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#define CONFIG_MTK_DISPLAY_M4U
+#endif
+
+#ifdef CONFIG_MTK_CMDQ_MBOX
+#define MTK_DRM_CMDQ_ASYNC
+#define CONFIG_MTK_DISPLAY_CMDQ
+#endif
+
 struct device;
 struct device_node;
 struct drm_crtc;
