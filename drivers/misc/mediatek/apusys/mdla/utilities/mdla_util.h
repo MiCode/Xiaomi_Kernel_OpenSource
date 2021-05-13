@@ -19,11 +19,7 @@ enum MDLA_PRIORITY {
 };
 
 /* apusys MDLA device priority level */
-#if IS_ENABLED(CONFIG_MTK_APUSYS_RT_SUPPORT)
 #define PRIORITY_LEVEL      2
-#else
-#define PRIORITY_LEVEL      1
-#endif
 
 /* platform */
 const struct of_device_id *mdla_util_get_device_id(void);

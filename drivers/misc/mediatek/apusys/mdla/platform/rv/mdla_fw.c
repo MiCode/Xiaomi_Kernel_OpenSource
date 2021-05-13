@@ -12,7 +12,7 @@
 #include <linux/of_device.h>
 
 #define DRAM_BOOT_SIZE 0x400
-#define DRAM_MAIN_SIZE 0xD000
+#define DRAM_MAIN_SIZE 0xFF00
 
 enum LOAD_FW_METHOD {
 	LOAD_NONE,
@@ -160,6 +160,7 @@ static int mdla_plat_load_fw_elf(struct device *dev, unsigned int *bootcode, uns
 	*maincode = (unsigned int)code.da;
 
 	kfree(shdr);
+	dev_info(dev, "load fw done\n");
 out:
 	filp_close(elf, NULL);
 	return ret;

@@ -495,7 +495,8 @@ static int mdla_pmu_ioctl(struct file *filp,
 					core_id, perf_data.handle);
 		break;
 	case IOCTL_PERF_GET_CNT:
-		perf_data.counter = pmu_info->data.l_counters[perf_data.handle];
+		if (perf_data.handle < MDLA_PMU_COUNTERS)
+			perf_data.counter = pmu_info->data.l_counters[perf_data.handle];
 		break;
 	case IOCTL_PERF_GET_START:
 		perf_data.start = pmu_info->data.l_start_t;

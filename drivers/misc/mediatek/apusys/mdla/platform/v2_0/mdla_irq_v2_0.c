@@ -234,14 +234,48 @@ unlock:
 }
 
 /* IRQ handler for SW pre-emption */
+
+/*
+ * Return smp_cmd_id
+ * smp_cmd_id = 0 => single cmd, issue directly
+ * smp_cmd_id != 0 => SMP cmd, return and issue SMP later
+ */
+static uint64_t mdla_sw_issue_next(struct mdla_dev *mdla_device)
+{
+	struct mdla_scheduler *sched = mdla_device->sched;
+	u32 core_id = mdla_device->mdla_id;
+	struct command_entry *new_ce;
+	uint64_t smp_cmd_id = 0;
+
+	/* get the next CE to be processed */
+	new_ce = sched->dequeue_ce(core_id);
+
+	if (new_ce) {
+		if (sched->pro_ce) {
+			sched->preempt_ce(core_id, new_ce);
+			sched->issue_ce(core_id);
+		} else if ((new_ce->multicore_total > 1)
+				&& (new_ce->priority == MDLA_LOW_PRIORITY)) {
+			sched->enqueue_ce(core_id, new_ce, 1);
+			smp_cmd_id = new_ce->cmd_id;
+		} else {
+			sched->pro_ce = new_ce;
+			sched->issue_ce(core_id);
+		}
+	} else if (sched->pro_ce) {
+		sched->issue_ce(core_id);
+	}
+
+	return smp_cmd_id;
+}
+
 static void mdla_irq_sw_sched(struct mdla_dev *mdla_device)
 {
 	struct mdla_scheduler *sched = mdla_device->sched;
 	unsigned long flags;
 	u32 status, core_id, cdma4 = 0, irq_status = 0;
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
-	struct command_entry *new_ce;
-	bool issue_smp = false;
+	u64 smp_cmd_id = 0;
 	u64 ts;
 
 	ts = sched_clock();
@@ -319,29 +353,13 @@ static void mdla_irq_sw_sched(struct mdla_dev *mdla_device)
 	}
 
 	/* get the next CE to be processed */
-	new_ce = sched->dequeue_ce(core_id);
-
-	if (new_ce) {
-		if (sched->pro_ce) {
-			sched->preempt_ce(core_id, new_ce);
-			sched->issue_ce(core_id);
-		} else if ((new_ce->multicore_total > 1)
-				&& (new_ce->priority == MDLA_LOW_PRIORITY)) {
-			sched->enqueue_ce(core_id, new_ce, 1);
-			issue_smp = true;
-		} else {
-			sched->pro_ce = new_ce;
-			sched->issue_ce(core_id);
-		}
-	} else if (sched->pro_ce) {
-		sched->issue_ce(core_id);
-	}
+	smp_cmd_id = mdla_sw_issue_next(mdla_device);
 
 unlock:
 	spin_unlock_irqrestore(&sched->lock, flags);
 
-	if (issue_smp)
-		sched->issue_dual_lowce(core_id, new_ce->cmd_id);
+	if (smp_cmd_id)
+		sched->issue_dual_lowce(core_id, smp_cmd_id);
 }
 
 /* IRQ handler w/o preemption */

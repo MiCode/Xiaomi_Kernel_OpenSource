@@ -558,8 +558,6 @@ static void mdla_v1_x_reset(u32 core_id, const char *str)
 	io->cmde.write(core_id, MREG_TOP_ENG0, mdla_dbg_read_u32(FS_CFG_ENG0));
 	io->cmde.write(core_id, MREG_TOP_ENG1, mdla_dbg_read_u32(FS_CFG_ENG1));
 	io->cmde.write(core_id, MREG_TOP_ENG2, mdla_dbg_read_u32(FS_CFG_ENG2));
-
-	/* TODO, 0x0 after verification */
 	io->cmde.write(core_id, MREG_TOP_ENG11, mdla_dbg_read_u32(FS_CFG_ENG11));
 
 	if (mdla_plat_iommu_enable()) {

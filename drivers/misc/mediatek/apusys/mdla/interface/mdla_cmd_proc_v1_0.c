@@ -88,7 +88,7 @@ static void mdla_cmd_ut_prepare_v1_0(struct ioctl_run_cmd *cd,
 int mdla_cmd_run_sync_v1_0(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
-				int priority)
+				uint32_t priority)
 {
 	u64 deadline = 0;
 	struct mdla_run_cmd *cd = &cmd_data->req;

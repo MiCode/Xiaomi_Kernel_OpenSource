@@ -96,6 +96,7 @@ static void mdla_plat_v2_dbgfs_usage(struct seq_file *s, void *data)
 	seq_printf(s, "\tMDLA_DBG_ERROR       = 0x%x\n", V2_DBG_ERROR);
 }
 
+
 static void mdla_plat_v3_dbgfs_usage(struct seq_file *s, void *data)
 {
 	seq_puts(s, "\n---- Set uP debug log mask ----\n");
@@ -108,6 +109,9 @@ static void mdla_plat_v3_dbgfs_usage(struct seq_file *s, void *data)
 	seq_printf(s, "\tMDLA_DBG_PWR     = 0x%x\n", 1U << V3_DBG_PWR);
 	seq_printf(s, "\tMDLA_DBG_MEM     = 0x%x\n", 1U << V3_DBG_MEM);
 	seq_printf(s, "\tMDLA_DBG_IPI     = 0x%x\n", 1U << V3_DBG_IPI);
+	seq_printf(s, "\tMDLA_DBG_QUEUE   = 0x%x\n", 1U << V3_DBG_QUEUE);
+	seq_printf(s, "\tMDLA_DBG_LOCK    = 0x%x\n", 1U << V3_DBG_LOCK);
+	seq_printf(s, "\tMDLA_DBG_TMR     = 0x%x\n", 1U << V3_DBG_TMR);
 	seq_printf(s, "\tMDLA_DBG_FW      = 0x%x\n", 1U << V3_DBG_FW);
 }
 

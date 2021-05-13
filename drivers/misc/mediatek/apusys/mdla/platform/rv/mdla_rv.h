@@ -35,11 +35,11 @@ enum V3_DBG_LOG_MASK {
 	V3_DBG_IPI,
 	V3_DBG_QUEUE,
 	V3_DBG_LOCK,
+	V3_DBG_TMR,
 	V3_DBG_FW,
 
 	NR_V3_DBG_LOG_MASK
 };
-
 
 int mdla_plat_load_fw(struct device *dev, unsigned int *bootcode, unsigned int *maincode);
 void mdla_plat_unload_fw(struct device *dev);

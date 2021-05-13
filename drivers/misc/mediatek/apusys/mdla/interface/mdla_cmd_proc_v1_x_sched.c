@@ -59,13 +59,7 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	apusys_hd->ip_time = 0;
 	ce->cmdbuf = apusys_hd->cmdbuf;
 	ce->priority = priority;
-
-	if (cd->offset_code_buf == 0)
-		/* for mdla UT */
-		ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
-	else
-		ce->kva = (void *)(apusys_hd->cmd_entry + cd->offset_code_buf);
-
+	ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
 
 	if (apusys_hd->multicore_total == 2) {
 		ce->cmd_id = apusys_hd->cmd_id;
@@ -77,11 +71,9 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 
 	init_completion(&ce->swcmd_done_wait);
 
-	mdla_cmd_debug("%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x(0x%08x+0x%x) cnt=%u sz=0x%x\n",
+	mdla_cmd_debug("%s: kva=0x%llx mva=0x%08x(0x%08x+0x%x) cnt=%u sz=0x%x\n",
 			__func__,
 			(u64)ce->kva,
-			apusys_hd->cmd_entry,
-			cd->offset_code_buf,
 			ce->mva,
 			cd->mva,
 			cd->offset,
@@ -169,7 +161,7 @@ static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
 int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
-				int priority)
+				uint32_t priority)
 {
 	int ret = REASON_MDLA_SUCCESS;
 	unsigned long flags;

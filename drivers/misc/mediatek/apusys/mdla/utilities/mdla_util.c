@@ -50,7 +50,7 @@ int mdla_util_plat_init(struct platform_device *pdev)
 	if (mdla_plat_micro_p_support())
 		return 1;
 
-	mdla_drv_create_device_node(&pdev->dev);
+	//mdla_drv_create_device_node(&pdev->dev);
 	mdla_prof_init(mdla_plat_get_prof_ver());
 
 	return 0;
