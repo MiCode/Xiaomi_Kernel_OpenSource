@@ -375,6 +375,7 @@ static inline int aee_kernel_Powerkey_is_press(void)
 void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 			int cpu);
 
+int aed_get_status(void);
 int aee_is_printk_too_much(const char *module);
 
 /* QHQ RT Monitor */

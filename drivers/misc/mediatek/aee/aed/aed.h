@@ -236,7 +236,7 @@ extern int ksysfs_bootinfo_init(void);
 extern void ksysfs_bootinfo_exit(void);
 extern int aee_dump_ccci_debug_info(int md_id, void **addr, int *size);
 extern void show_stack(struct task_struct *tsk, unsigned long *sp);
-extern int aee_mode;
+extern int aee_get_mode(void);
 extern void aee_kernel_RT_Monitor_api(int lParam);
 extern void mlog_get_buffer(char **ptr, int *size)__attribute__((weak));
 extern void get_msdc_aee_buffer(unsigned long *buff,

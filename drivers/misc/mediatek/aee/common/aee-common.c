@@ -33,6 +33,7 @@
 #include <mtk_wd_api.h>
 #endif
 #include "aee-common.h"
+#include "aed.h"
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 #include <linux/vmalloc.h>
@@ -335,6 +336,17 @@ int aee_is_enable(void)
 	return ret;
 }
 EXPORT_SYMBOL(aee_is_enable);
+
+int aed_get_status(void)
+{
+	int mode;
+
+	mode = aee_get_mode();
+	if ((mode >= AEE_MODE_MTK_ENG) && (mode <= AEE_MODE_CUSTOMER_USER))
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(aed_get_status);
 
 static int __init aee_common_init(void)
 {
