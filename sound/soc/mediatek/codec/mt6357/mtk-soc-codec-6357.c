@@ -2307,7 +2307,7 @@ static void set_l_trim_code_spk(void)
 	pr_debug("%s(), step1 floor AUDDEC_ELR_0 = 0x%x  trimcode_floor = %d\n",
 		 __func__, Ana_Get_Reg(AUDDEC_ELR_0), trimcode_floor);
 	hpl_floor = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
-	mdelay(10);
+	usleep_range(10*1000, 15*1000);
 
 	/* Get ceiling trim code */
 	Ana_Set_Reg(AUDDEC_ELR_0,
@@ -2315,7 +2315,7 @@ static void set_l_trim_code_spk(void)
 	pr_debug("%s(), step1 floor AUDDEC_ELR_0 = 0x%x  trimcode_ceiling = %d\n",
 		 __func__, Ana_Get_Reg(AUDDEC_ELR_0), trimcode_ceiling);
 	hpl_ceiling = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
-	mdelay(10);
+	usleep_range(10*1000, 15*1000);
 
 	/* Choose the best */
 	if (abs(hpl_ceiling) < abs(hpl_floor)) {
