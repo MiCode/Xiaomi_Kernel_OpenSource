@@ -28,6 +28,7 @@
 #include "deferred-free-helper.h"
 
 #include <public/trusted_mem_api.h>
+#include "mtk_heap_debug.h"
 
 static struct dma_heap *mtk_svp_heap;
 static struct dma_heap *mtk_prot_heap;
@@ -57,11 +58,12 @@ struct sec_heap_dev_info {
 };
 
 /* No domain concept in secure memory, set array count as 1 */
+#define BUF_PRIV_MAX_CNT             1
 struct sec_heap_priv {
-	bool                     mapped[1];
-	struct sec_heap_dev_info dev_info[1];
+	bool                     mapped[BUF_PRIV_MAX_CNT];
+	struct sec_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
 	/* secure heap will not strore sgtable here */
-	struct sg_table          *mapped_table[1];
+	struct sg_table          *mapped_table[BUF_PRIV_MAX_CNT];
 	struct mutex             lock; /* map iova lock */
 	pid_t                    pid;
 	pid_t                    tid;
@@ -321,8 +323,9 @@ static struct dma_buf *tmem_allocate(enum TRUSTED_MEM_REQ_TYPE tmem_type,
 	info->tid = task_pid_nr(current);
 
 	sec_heap_total_memory += len;
-	pr_debug("[%s][%d] %s: priv 0x%lx, size 0x%lx\n",
+	pr_debug("[%s][%d] %s: dmabuf:%p, sec_handle 0x%lx, size 0x%lx\n",
 		 dma_heap_get_name(heap), tmem_type, __func__,
+		 dmabuf,
 		 sg_dma_address(buffer->sg_table.sgl),
 		 buffer->len);
 	return dmabuf;
@@ -367,6 +370,221 @@ static const struct dma_heap_ops prot_heap_ops = {
 	.allocate = prot_allocate,
 };
 
+/* no '\n' at end of str */
+static char *sec_get_buf_dump_str(const struct dma_buf *dmabuf,
+				  const struct dma_heap *heap) {
+	struct mtk_sec_heap_buffer *buf = dmabuf->priv;
+	struct sec_heap_priv *buf_priv = NULL;
+	struct dma_heap *buf_heap = NULL;
+	//int i;
+	char *info_str;
+	int len = 0;
+
+	/* buffer check */
+	if (dmabuf->ops != &svp_heap_buf_ops &&
+	    dmabuf->ops != &prot_heap_buf_ops)
+		return NULL;
+
+	buf_priv = buf->priv;
+	buf_heap = buf->heap;
+
+	/* heap check */
+	if (heap != buf_heap)
+		return NULL;
+
+	info_str = kzalloc(sizeof(char) * (DUMP_INFO_LEN_MAX + 1), GFP_KERNEL);
+	if (!info_str)
+		return NULL;
+
+	len += scnprintf(info_str + len,
+			 DUMP_INFO_LEN_MAX - len,
+			 "%s \t%p \t0x%lx \t%s \t%s \t%d \t%x \t%x \t%ld \t%lu \t%d(%s) \t%d(%s)",
+			 dma_heap_get_name(buf_heap),
+			 dmabuf,
+			 dmabuf->size, dmabuf->exp_name,
+			 dmabuf->name ?: "NULL",
+			 !!buf->uncached,
+			 dmabuf->file->f_flags,
+			 dmabuf->file->f_mode,
+			 file_count(dmabuf->file),
+			 file_inode(dmabuf->file)->i_ino,
+			 /* after this is private part */
+			 buf_priv->pid, buf_priv->pid_name,
+			 buf_priv->tid, buf_priv->tid_name);
+
+#if 0
+	for(i = 0; i < BUF_PRIV_MAX_CNT; i++) {
+		if (len >= BUF_PRIV_MAX_CNT) {
+			pr_info("%s #%d: out of dump mem %d-%d\n",
+				__func__, __LINE__, len, BUF_PRIV_MAX_CNT);
+			break;
+		}
+		len += scnprintf(info_str + len,
+				 DUMP_INFO_LEN_MAX - len,
+				 " \t%d \t%s \t%d \t%lu \t%p",
+				 buf_priv->mapped[i],
+				 dev_name(buf_priv->dev_info[i].dev),
+				 buf_priv->dev_info[i].direction,
+				 buf_priv->dev_info[i].map_attrs,
+				 buf_priv->mapped_table[i]);
+	}
+#endif
+	return info_str;
+
+}
+
+/* no '\n' at end of str */
+static char *sec_get_buf_dump_fmt(const struct dma_heap *heap) {
+	//int i;
+	char *fmt_str = NULL;
+	int len = 0;
+
+	if (heap != mtk_svp_heap &&
+	    heap != mtk_prot_heap)
+		return NULL;
+
+	fmt_str = kzalloc(sizeof(char) * (DUMP_INFO_LEN_MAX + 1), GFP_KERNEL);
+	if (!fmt_str)
+		return NULL;
+
+	len += scnprintf(fmt_str + len,
+			 DUMP_INFO_LEN_MAX - len,
+			 "heap_name \tdmabuf \tsize(hex) \texp_name \tdmabuf_name \tuncached \tf_flag \tf_mode \tf_count \tino \tpid(name) \ttid(name)");
+
+#if 0
+	for(i = 0; i < BUF_PRIV_MAX_CNT; i++) {
+		len += scnprintf(fmt_str + len,
+				 DUMP_INFO_LEN_MAX - len,
+				 " \tmapped-%d \tdev_name-%d \tdir-%d \tmap_attrs-%d \tsgt-%d",
+				 i, i, i, i, i);
+	}
+#endif
+	return fmt_str;
+
+}
+
+static int sec_dump_buf_attach_cb(const struct dma_buf *dmabuf,
+				  void *priv) {
+	int attach_count = 0;
+	struct mtk_heap_dump_t *dump_param = priv;
+	struct seq_file *s = dump_param->file;
+	struct dma_heap *dump_heap = dump_param->heap;
+	struct mtk_sec_heap_buffer *buf;
+	struct dma_heap *buf_heap;
+	struct mtk_heap_priv_info *heap_priv = NULL;
+	struct dma_buf_attachment *attach_obj;
+
+	if (dump_heap != mtk_svp_heap &&
+	    dump_heap != mtk_prot_heap)
+		return 0;
+
+	buf = dmabuf->priv;
+	buf_heap = buf->heap;
+	heap_priv = mtk_heap_priv_get(buf_heap);
+
+	if (buf_heap != dump_heap)
+		return 0;
+
+	dmabuf_dump(s, "\tdmabuf=%p, size:0x%lx, exp_name:%s, dbg_name:%s, file_cnt:%d\n",
+		    dmabuf, dmabuf->size,
+		    dmabuf->exp_name,
+		    dmabuf->name ?: "NULL",
+		    file_count(dmabuf->file));
+	dmabuf_dump(s, "\t\tDevice \tdma_map_attrs \tdma_data_dir\n");
+	list_for_each_entry(attach_obj, &dmabuf->attachments, node) {
+		dmabuf_dump(s, "\t\t%s \t%lu \t%d\n",
+			    dev_name(attach_obj->dev),
+			    attach_obj->dma_map_attrs,
+			    attach_obj->dir);
+		attach_count++;
+	}
+	dmabuf_dump(s, "\t--Total %d devices attached.\n\n",
+		    attach_count);
+
+	return 0;
+}
+
+static int sec_dump_buf_info_cb(const struct dma_buf *dmabuf,
+			       void *priv) {
+	struct mtk_heap_dump_t *dump_param = priv;
+	struct seq_file *s = dump_param->file;
+	struct dma_heap *dump_heap = dump_param->heap;
+	struct mtk_sec_heap_buffer *buf;
+	struct dma_heap *buf_heap;
+	struct mtk_heap_priv_info *heap_priv = NULL;
+	char *buf_dump_str = NULL;
+
+	if (dump_heap != mtk_prot_heap &&
+	    dump_heap != mtk_svp_heap)
+		return 0;
+
+	buf = dmabuf->priv;
+	buf_heap = buf->heap;
+	heap_priv = mtk_heap_priv_get(buf_heap);
+
+	if (buf_heap != dump_heap)
+		return 0;
+
+	buf_dump_str = heap_priv->get_buf_dump_str(dmabuf, dump_heap);
+	dmabuf_dump(s, "%s\n", buf_dump_str);
+
+	kfree(buf_dump_str);
+
+	return 0;
+}
+
+static void sec_dmaheap_show(struct dma_heap *heap,
+			     void* seq_file) {
+	struct seq_file *s = seq_file;
+	long pool_sz = -1;
+	const char *heap_name = dma_heap_get_name(heap);
+	struct mtk_heap_dump_t dump_param;
+	struct dma_heap_export_info *exp_info = (typeof(exp_info))heap;
+	struct mtk_heap_priv_info *heap_priv = NULL;
+	const char * dump_fmt = NULL;
+
+	if (heap != mtk_prot_heap &&
+	    heap != mtk_svp_heap)
+		return;
+
+	dump_param.heap = heap;
+	dump_param.file = seq_file;
+
+	dmabuf_dump(s, "------[%s] dmabuf heap show START @ %llu ms------\n",
+		    heap_name, get_current_time_ms());
+	dmabuf_dump(s, "\t------heap_total------\n");
+	dmabuf_dump(s, "\tNEED updated\n");
+
+	dmabuf_dump(s, "\t------page_pool show------\n");
+	heap_priv = mtk_heap_priv_get(heap);
+	if (exp_info->ops->get_pool_size)
+		pool_sz = exp_info->ops->get_pool_size(heap);
+
+	dmabuf_dump(s, "\tpool size(Byte): %ld\n", pool_sz);
+
+	//mtk_dmabuf_heap_buffer_dump(s);
+	dmabuf_dump(s, "\t------buffer dump start @%llu ms------\n", get_current_time_ms());
+
+	dump_fmt = heap_priv->get_buf_dump_fmt(heap);
+	dmabuf_dump(s, "\t%s\n", dump_fmt);
+	kfree(dump_fmt);
+
+	get_each_dmabuf(sec_dump_buf_info_cb, &dump_param);
+
+	dmabuf_dump(s, "\tattachment list dump\n");
+	get_each_dmabuf(sec_dump_buf_attach_cb, &dump_param);
+
+	dmabuf_dump(s, "------[%s] dmabuf heap show END @ %llu ms------\n",
+		    heap_name, get_current_time_ms());
+
+}
+
+static const struct mtk_heap_priv_info mtk_sec_heap_priv = {
+	.get_buf_dump_str = sec_get_buf_dump_str,
+	.get_buf_dump_fmt = sec_get_buf_dump_fmt,
+	.show =             sec_dmaheap_show,
+};
+
 static int mtk_sec_heap_create(void)
 {
 	struct dma_heap_export_info exp_info;
@@ -375,7 +593,7 @@ static int mtk_sec_heap_create(void)
 
 	exp_info.name = "mtk_svp_region-uncached";
 	exp_info.ops = &svp_heap_ops;
-	exp_info.priv = NULL;
+	exp_info.priv = (void *)&mtk_sec_heap_priv;
 
 	mtk_svp_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(mtk_svp_heap))
@@ -384,7 +602,7 @@ static int mtk_sec_heap_create(void)
 
 	exp_info.name = "mtk_prot_region-uncached";
 	exp_info.ops = &prot_heap_ops;
-	exp_info.priv = NULL;
+	exp_info.priv = (void *)&mtk_sec_heap_priv;
 
 	mtk_prot_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(mtk_prot_heap))
