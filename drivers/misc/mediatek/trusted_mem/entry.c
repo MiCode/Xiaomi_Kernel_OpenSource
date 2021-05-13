@@ -564,6 +564,9 @@ bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 	switch (mem_type) {
 #if defined(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 	case TRUSTED_MEM_SVP:
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+	case TRUSTED_MEM_WFD:
+#endif
 #endif
 	case TRUSTED_MEM_PROT:
 	case TRUSTED_MEM_HAPP:

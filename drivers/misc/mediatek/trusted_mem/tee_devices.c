@@ -105,6 +105,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 	},
 #endif
 
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 #ifdef CONFIG_MTK_WFD_SMEM_SUPPORT
 	{
 		.kern_tmem_type = TRUSTED_MEM_WFD,
@@ -127,6 +128,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 		.mem_cfg = &tee_smem_general_configs,
 		.dev_name = "SECMEM_WFD",
 	},
+#endif
 #endif
 
 #if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                                \
