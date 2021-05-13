@@ -36,6 +36,7 @@ int ged_bridge_log_buf_write(
 	struct GED_BRIDGE_IN_LOGBUFWRITE *psLogBufWriteIN,
 	struct GED_BRIDGE_OUT_LOGBUFWRITE *psLogBufWriteOUT)
 {
+	psLogBufWriteIN->acLogBuf[GED_BRIDGE_IN_LOGBUF_SIZE - 1] = '\0';
 	psLogBufWriteOUT->eError =
 		ged_log_buf_print2(psLogBufWriteIN->hLogBuf,
 		psLogBufWriteIN->attrs, "%s", psLogBufWriteIN->acLogBuf);
