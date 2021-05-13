@@ -215,6 +215,7 @@ static struct platform_driver mdw_driver = {
 
 static const struct of_device_id mdw_of_match[] = {
 	{ .compatible = "mediatek, apu_mdw", },
+	{},
 };
 
 int mdw_init(struct apusys_core_info *info)
