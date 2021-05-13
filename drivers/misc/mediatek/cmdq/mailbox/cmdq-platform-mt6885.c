@@ -26,6 +26,24 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 			return "CMDQ";
 		}
 	}
+	if (gce_pa == GCE_M_PA) {
+		switch (thread) {
+		case 10:
+			return "MDP";
+		case 11:
+			return "ISP";
+		case 12 ... 14:
+			return "MDP";
+		case 15:
+			return "CMDQ";
+		case 16 ... 20:
+			return "ISP";
+		case 21 ... 22:
+			return "MDP";
+		default:
+			return "CMDQ";
+		}
+	}
 
 	return "CMDQ";
 }
