@@ -1,0 +1,8 @@
+config VIDEO_MEDIATEK_VCODEC_MT6885
+	bool "Specify Mediatek Video Vcodec Platform is MT6885"
+	depends on MTK_LOW_POWER_MODULE
+	help
+	  Select MediaTek Video Vcodec Platform is MT6885
+	  v2 folder is dvfs setting for MT6885
+	  Set Y to select this feature for specific platform-MT6885.
+	  If unsure, set N to disable.
