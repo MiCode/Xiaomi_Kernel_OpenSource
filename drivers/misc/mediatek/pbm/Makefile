@@ -14,7 +14,7 @@
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq_v1/include/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdpm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
 

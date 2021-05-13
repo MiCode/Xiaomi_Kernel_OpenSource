@@ -3,10 +3,8 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#include <linux/atomic.h>
 #include <linux/cpufreq.h>
 #include <linux/energy_model.h>
-#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/pm_qos.h>
@@ -24,11 +22,16 @@
 #if IS_ENABLED(CONFIG_MTK_MDPM)
 #include "mtk_mdpm.h"
 #endif
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+#include "mtk_gpufreq.h"
+#endif
 
 #define DEFAULT_PBM_WEIGHT 1024
 #define MAX_FLASH_POWER 3500
 #define MAX_MD1_POWER 4000
 #define MIN_CPU_POWER 600
+#define BAT_PERCENT_LIMIT (15)
+#define TIMER_INTERVAL_MS (200)
 
 static LIST_HEAD(pbm_policy_list);
 
@@ -62,16 +65,21 @@ static struct hpf hpf_ctrl_manual = {
 
 static struct pbm pbm_ctrl = {
 	/* feature key */
-	.feature_en = 1,
+	.pbm_stop = 0,
 	.pbm_drv_done = 0,
 	.hpf_en = 63,/* bin: 111111 (Flash, GPU, CPU, MD3, MD1, DLPT) */
 	.manual_mode = 0, /*normal=0, UT(throttle)=1, UT(NO throttle)=2 */
 };
 
 static int g_dlpt_need_do = 1;
+static int g_start_polling = 0;
 static DEFINE_MUTEX(pbm_mutex);
-static struct task_struct *pbm_thread;
-static atomic_t kthread_nreq = ATOMIC_INIT(0);
+static struct delayed_work poll_queue;
+static struct notifier_block pbm_nb;
+static bool g_pbm_update = false;
+static unsigned int gpu_max_pb = 0;
+static unsigned int gpu_min_pb = 0;
+static int uisoc = -1;
 
 static unsigned int ma_to_mw(unsigned int bat_cur)
 {
@@ -201,10 +209,28 @@ static void mtk_cpu_dlpt_set_limit_by_pbm(unsigned int limit_power)
 	}
 }
 
+static void mtk_cpu_dlpt_unlimit_by_pbm(void)
+{
+	struct cpu_pbm_policy *pbm_policy;
+
+	list_for_each_entry(pbm_policy, &pbm_policy_list, cpu_pbm_list) {
+		freq_qos_update_request(&pbm_policy->qos_req, FREQ_QOS_MAX_DEFAULT_VALUE);
+	}
+}
+
 static void mtk_gpufreq_set_power_limit_by_pbm(unsigned int limit_power)
 {
-	if (pbmcb_tb[PBM_PRIO_GPU].pbmcb != NULL)
-		pbmcb_tb[PBM_PRIO_GPU].pbmcb(limit_power);
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+	int oppidx;
+	if (limit_power) {
+		oppidx = gpufreq_get_oppidx_by_power(TARGET_DEFAULT, limit_power);
+		gpufreq_set_limit(TARGET_DEFAULT, LIMIT_PBM, oppidx, GPUPPM_KEEP_IDX);
+	} else {
+		gpufreq_set_limit(TARGET_DEFAULT, LIMIT_PBM, GPUPPM_RESET_IDX, GPUPPM_KEEP_IDX);
+	}
+#else
+	return;
+#endif
 }
 
 static void pbm_allocate_budget_manager(void)
@@ -248,11 +274,10 @@ static void pbm_allocate_budget_manager(void)
 		if (tocpu < cpu_lower_bound)
 			tocpu = cpu_lower_bound;
 
-		if (tocpu <= 0)
-			tocpu = 1;
-
-		if (pbm_ctrl.manual_mode != 2)
+		if (pbm_ctrl.manual_mode != 2) {
 			mtk_cpu_dlpt_set_limit_by_pbm(tocpu);
+			mtk_gpufreq_set_power_limit_by_pbm(togpu);
+		}
 	} else {
 		multiple = (_dlpt * 1000) / (cpu + gpu);
 
@@ -274,6 +299,11 @@ static void pbm_allocate_budget_manager(void)
 		if (togpu <= 0)
 			togpu = 1;
 
+		if (togpu > gpu_max_pb)
+			togpu = gpu_max_pb;
+		if (togpu < gpu_min_pb)
+			togpu = gpu_min_pb;
+
 		if (pbm_ctrl.manual_mode != 2) {
 			mtk_cpu_dlpt_set_limit_by_pbm(tocpu);
 			mtk_gpufreq_set_power_limit_by_pbm(togpu);
@@ -282,7 +312,6 @@ static void pbm_allocate_budget_manager(void)
 
 	hpf_ctrl.to_cpu_budget = tocpu;
 	hpf_ctrl.to_gpu_budget = togpu;
-	mtk_gpufreq_set_power_limit_by_pbm(togpu);
 
 	if (mt_pbm_debug) {
 		pr_info("(C/G)=%d,%d=>(D/M1/F/C/G)=%d,%d,%d,%d,%d(Multi:%d),%d\n",
@@ -369,19 +398,6 @@ static bool pbm_update_table_info(enum pbm_kicker kicker, struct mrp *mrpmgr)
 	return is_update;
 }
 
-static void pbm_wake_up_thread(enum pbm_kicker kicker, struct mrp *mrpmgr)
-{
-	if (atomic_read(&kthread_nreq) <= 0) {
-		atomic_inc(&kthread_nreq);
-		wake_up_process(pbm_thread);
-	}
-
-	while (kicker == KR_FLASH && mrpmgr->switch_flash == 1) {
-		if (atomic_read(&kthread_nreq) == 0)
-			return;
-	}
-}
-
 static void mtk_power_budget_manager(enum pbm_kicker kicker, struct mrp *mrpmgr)
 {
 	bool pbm_enable = false;
@@ -390,13 +406,69 @@ static void mtk_power_budget_manager(enum pbm_kicker kicker, struct mrp *mrpmgr)
 	pbm_update = pbm_update_table_info(kicker, mrpmgr);
 	if (!pbm_update)
 		return;
+	else
+		g_pbm_update = pbm_update;
 
 	pbm_enable = pbm_func_enable_check();
 	if (!pbm_enable)
 		return;
+}
 
-	if (kicker != KR_CPU)
-		pbm_wake_up_thread(kicker, mrpmgr);
+static void pbm_timer_add(int enable)
+{
+	if (enable)
+		mod_delayed_work(system_freezable_power_efficient_wq,
+			&poll_queue,
+			msecs_to_jiffies(TIMER_INTERVAL_MS));
+	else
+		cancel_delayed_work(&poll_queue);
+
+}
+
+
+void pbm_check_and_run_polling(int uisoc, int pbm_stop)
+{
+	if ((uisoc <= BAT_PERCENT_LIMIT && uisoc >= 0) &&
+		g_start_polling == 0 && pbm_stop == 0) {
+		mutex_lock(&pbm_mutex);
+		g_start_polling = 1;
+		pbm_timer_add(g_start_polling);
+		mutex_unlock(&pbm_mutex);
+		pr_info("[DLPT] pbm polling, soc=%d polling=%d stop=%d\n", uisoc,
+			g_start_polling, pbm_ctrl.pbm_stop);
+	} else if ((uisoc > BAT_PERCENT_LIMIT || pbm_stop == 1)
+		&& (g_start_polling == 1)) {
+		mutex_lock(&pbm_mutex);
+		g_start_polling = 0;
+		pbm_timer_add(g_start_polling);
+		mutex_unlock(&pbm_mutex);
+
+		//unlimit CG
+		mtk_cpu_dlpt_unlimit_by_pbm();
+		mtk_gpufreq_set_power_limit_by_pbm(0);
+
+		pr_info("[DLPT] pbm release polling, soc=%d polling=%d stop=%d\n",
+			uisoc, g_start_polling, pbm_ctrl.pbm_stop);
+	}
+}
+
+int pbm_psy_event(struct notifier_block *nb, unsigned long event, void *v)
+{
+	struct power_supply *psy = v;
+	union power_supply_propval val;
+	int ret;
+
+	if (strcmp(psy->desc->name, "battery") != 0)
+		return NOTIFY_DONE;
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (ret)
+		return NOTIFY_DONE;
+
+	uisoc = val.intval;
+	pbm_check_and_run_polling(uisoc, pbm_ctrl.pbm_stop);
+
+	return NOTIFY_DONE;
 }
 
 void kicker_pbm_by_dlpt(int i_max)
@@ -424,7 +496,7 @@ void kicker_pbm_by_cpu(unsigned int loading)
 	mtk_power_budget_manager(KR_CPU, &mrpmgr);
 }
 
-void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
+static void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
 {
 	struct mrp mrpmgr = {0};
 
@@ -433,7 +505,6 @@ void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
 
 	mtk_power_budget_manager(KR_GPU, &mrpmgr);
 }
-EXPORT_SYMBOL(kicker_pbm_by_gpu);
 
 void kicker_pbm_by_flash(bool status)
 {
@@ -445,45 +516,28 @@ void kicker_pbm_by_flash(bool status)
 }
 EXPORT_SYMBOL(kicker_pbm_by_flash);
 
-static int pbm_thread_handle(void *data)
+static void pbm_thread_handle(struct work_struct *work)
 {
 	int g_dlpt_state_sync = 0;
+	unsigned int gpu_cur_pb = 0, gpu_cur_volt = 0;
 
-	while (1) {
-		set_current_state(TASK_INTERRUPTIBLE);
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+	gpu_cur_volt = gpufreq_get_cur_volt(TARGET_DEFAULT);
+	gpu_cur_pb = gpufreq_get_cur_power(TARGET_DEFAULT);
+#endif
+	if (gpu_cur_volt)
+		kicker_pbm_by_gpu(true, gpu_cur_pb, gpu_cur_volt);
+	else
+		kicker_pbm_by_gpu(false, gpu_cur_pb, gpu_cur_volt);
 
-		if (kthread_should_stop())
-			break;
-
-		if (atomic_read(&kthread_nreq) <= 0) {
-			schedule();
-			continue;
-		}
-		set_current_state(TASK_RUNNING);
-		mutex_lock(&pbm_mutex);
-		if (g_dlpt_need_do == 1) {
-			pbm_allocate_budget_manager();
-			g_dlpt_state_sync = 0;
-		}
-		atomic_dec(&kthread_nreq);
-		mutex_unlock(&pbm_mutex);
+	mutex_lock(&pbm_mutex);
+	if (g_dlpt_need_do == 1 && g_pbm_update == true) {
+		g_pbm_update = false;
+		pbm_allocate_budget_manager();
+		g_dlpt_state_sync = 0;
 	}
-
-	return 0;
-}
-
-static int create_pbm_kthread(void)
-{
-	struct pbm *pwrctrl = &pbm_ctrl;
-
-	pbm_thread = kthread_create(pbm_thread_handle, (void *)NULL, "pbm");
-	if (IS_ERR(pbm_thread))
-		return PTR_ERR(pbm_thread);
-
-	wake_up_process(pbm_thread);
-	pwrctrl->pbm_drv_done = 1;
-
-	return 0;
+	pbm_timer_add(g_start_polling);
+	mutex_unlock(&pbm_mutex);
 }
 
 static int _mt_pbm_pm_callback(struct notifier_block *nb, unsigned long action, void *ptr)
@@ -699,6 +753,40 @@ static ssize_t mt_pbm_manual_mode_proc_write
 	return count;
 }
 
+static int mt_pbm_stop_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "pbm stop: %d\n", pbm_ctrl.pbm_stop);
+	return 0;
+}
+
+static ssize_t mt_pbm_stop_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[64], cmd[20];
+	int len = 0, stop = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	if (sscanf(desc, "%20s %d", cmd, &stop) != 2) {
+		pr_notice("parameter number not correct\n");
+		return -EPERM;
+	}
+
+	if (strncmp(cmd, "stop", 4))
+		return -EINVAL;
+
+	if (stop == 0 || stop == 1) {
+		pbm_ctrl.pbm_stop = stop;
+		pbm_check_and_run_polling(uisoc, pbm_ctrl.pbm_stop);
+	} else
+		pr_notice("pbm stop should be 0 or 1\n");
+
+	return count;
+}
+
 #define PROC_FOPS_RW(name)						\
 static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
 {									\
@@ -727,6 +815,7 @@ static const struct proc_ops mt_ ## name ## _proc_fops = {	\
 #define PROC_ENTRY(name)	{__stringify(name), &mt_ ## name ## _proc_fops}
 PROC_FOPS_RW(pbm_debug);
 PROC_FOPS_RW(pbm_manual_mode);
+PROC_FOPS_RW(pbm_stop);
 
 static int mt_pbm_create_procfs(void)
 {
@@ -741,6 +830,7 @@ static int mt_pbm_create_procfs(void)
 	const struct pentry entries[] = {
 		PROC_ENTRY(pbm_debug),
 		PROC_ENTRY(pbm_manual_mode),
+		PROC_ENTRY(pbm_stop),
 	};
 
 	dir = proc_mkdir("pbm", NULL);
@@ -759,16 +849,79 @@ static int mt_pbm_create_procfs(void)
 	return 0;
 }
 
+void cpu_pbm_policy_update(struct cpufreq_policy *policy)
+{
+	int ret;
+	struct cpu_pbm_policy *pbm_policy, *pbm_policy_t;
+
+	list_for_each_entry_safe(pbm_policy, pbm_policy_t, &pbm_policy_list, cpu_pbm_list) {
+		if (pbm_policy->policy == policy) {
+			pr_info("already in list, cpu=%d\n", policy->cpu);
+			return;
+		}
+	}
+
+	pbm_policy = kzalloc(sizeof(*pbm_policy), GFP_KERNEL);
+	if (!pbm_policy) {
+		pr_info("%s: pbm_policy not found\n", __func__);
+		return;
+	}
+
+	ret = cpufreq_table_count_valid_entries(policy);
+	if (!ret) {
+		pr_info("%s: CPUFreq table not found or has no valid entries\n", __func__);
+		kfree(pbm_policy);
+		return;
+	}
+
+	pbm_policy->em = em_cpu_get(policy->cpu);
+	pbm_policy->max_perf_state = pbm_policy->em->nr_perf_states;
+	pbm_policy->policy = policy;
+	pbm_policy->cpu = policy->cpu;
+	pbm_policy->power_weight = DEFAULT_PBM_WEIGHT;
+
+	ret = freq_qos_add_request(&policy->constraints,
+		   &pbm_policy->qos_req,
+		   FREQ_QOS_MAX, FREQ_QOS_MAX_DEFAULT_VALUE);
+
+	if (ret < 0)
+		pr_notice("Failed to add freq constraint for CPU%d (%d)\n", pbm_policy->cpu, ret);
+
+	list_add_tail(&pbm_policy->cpu_pbm_list, &pbm_policy_list);
+	pr_info("pbm policy update pbm_policy->cpu=%d\n", pbm_policy->cpu);
+}
+
+static int cpu_policy_notifier(struct notifier_block *nb, unsigned long event, void *data)
+{
+	struct cpufreq_policy *policy = data;
+
+	if (event == CPUFREQ_CREATE_POLICY)
+		cpu_pbm_policy_update(policy);
+
+	return 0;
+}
+
+static struct notifier_block mtk_cpu_policy_notifier_block = {
+	.notifier_call = cpu_policy_notifier,
+};
+
 static int __init pbm_module_init(void)
 {
-	struct cpufreq_policy *policy;
-	struct cpu_pbm_policy *pbm_policy;
 	unsigned int i;
-	int cpu, ret;
+	int ret;
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+	int gpu_max_opp, gpu_min_opp;
+#endif
 
 	mt_pbm_create_procfs();
 
 	pm_notifier(_mt_pbm_pm_callback, 0);
+	pbm_nb.notifier_call = pbm_psy_event;
+	ret = power_supply_reg_notifier(&pbm_nb);
+	if (ret) {
+		pr_notice("pbm power_supply_reg_notifier fail\n");
+		return ret;
+	}
 
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
 
@@ -791,47 +944,17 @@ static int __init pbm_module_init(void)
 	register_dlpt_notify(&kicker_pbm_by_dlpt, DLPT_PRIO_PBM);
 #endif
 
-	for_each_possible_cpu(cpu) {
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy)
-			continue;
+	cpufreq_register_notifier(&mtk_cpu_policy_notifier_block, CPUFREQ_POLICY_NOTIFIER);
 
-		if (policy->cpu == cpu) {
-			pbm_policy = kzalloc(sizeof(*pbm_policy), GFP_KERNEL);
-			if (!pbm_policy)
-				return -ENOMEM;
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+	gpu_max_opp = gpufreq_get_max_oppidx(TARGET_DEFAULT);
+	gpu_min_opp = gpufreq_get_min_oppidx(TARGET_DEFAULT);
+	gpu_max_pb = gpufreq_get_power_by_idx(TARGET_DEFAULT, gpu_max_opp);
+	gpu_min_pb = gpufreq_get_power_by_idx(TARGET_DEFAULT, gpu_min_opp);
+#endif
 
-			i = cpufreq_table_count_valid_entries(policy);
-			if (!i) {
-				pr_info("%s: CPUFreq table not found or has no valid entries\n",
-					 __func__);
-				return -ENODEV;
-			}
-
-			pbm_policy->em = em_cpu_get(policy->cpu);
-			pbm_policy->max_perf_state = pbm_policy->em->nr_perf_states;
-			pbm_policy->policy = policy;
-			pbm_policy->cpu = cpu;
-			pbm_policy->power_weight = DEFAULT_PBM_WEIGHT;
-
-			ret = freq_qos_add_request(&policy->constraints,
-				&pbm_policy->qos_req, FREQ_QOS_MAX,
-				FREQ_QOS_MAX_DEFAULT_VALUE);
-
-			if (ret < 0) {
-				pr_notice("%s: Fail to add freq constraint (%d)\n",
-					__func__, ret);
-				return ret;
-			}
-			list_add_tail(&pbm_policy->cpu_pbm_list, &pbm_policy_list);
-		}
-	}
-
-	ret = create_pbm_kthread();
-	if (ret) {
-		pr_notice("FAILED TO CREATE PBM KTHREAD\n");
-		return ret;
-	}
+	INIT_DELAYED_WORK(&poll_queue, pbm_thread_handle);
+	pbm_ctrl.pbm_drv_done = 1;
 
 	return ret;
 }
@@ -839,6 +962,11 @@ static int __init pbm_module_init(void)
 static void __exit pbm_module_exit(void)
 {
 	struct cpu_pbm_policy *pbm_policy, *pbm_policy_t;
+
+	cancel_delayed_work_sync(&poll_queue);
+	//unlimit CG
+	mtk_cpu_dlpt_unlimit_by_pbm();
+	mtk_gpufreq_set_power_limit_by_pbm(0);
 
 	list_for_each_entry_safe(pbm_policy, pbm_policy_t, &pbm_policy_list, cpu_pbm_list) {
 		freq_qos_remove_request(&pbm_policy->qos_req);
