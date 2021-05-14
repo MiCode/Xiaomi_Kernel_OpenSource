@@ -15,6 +15,7 @@
 #include <linux/mm.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/soc/qcom/ddr_stats.h>
 #include <linux/uaccess.h>
 #include <asm/arch_timer.h>
 
@@ -38,6 +39,9 @@
 
 struct ddr_stats_platform_data {
 	void __iomem *reg;
+	int freq_count;
+	int entry_count;
+	struct mutex ddr_stats_lock;
 };
 
 struct stats_entry {
@@ -104,15 +108,10 @@ static ssize_t ddr_stats_append_data_to_buf(char *buf, int length, int *count,
 	return 0;
 }
 
-static ssize_t ddr_stats_copy_stats(char *buf, int size, void __iomem *reg,
-							u32 entry_count)
+static void ddr_stats_fill_data(void __iomem *reg, u32 entry_count,
+			 struct stats_entry *data, u64 *accumulated_duration)
 {
-	struct stats_entry data[MAX_NUM_MODES];
-	u64 accumulated_duration = 0;
-	int lpm_count = 0, i;
-	ssize_t length, op_length;
-
-	reg += offsetofend(struct ddr_stats_data, entry_count);
+	int i;
 
 	for (i = 0; i < entry_count; i++) {
 		data[i].count = readl_relaxed(reg + offsetof(
@@ -125,9 +124,21 @@ static ssize_t ddr_stats_copy_stats(char *buf, int size, void __iomem *reg,
 						 struct stats_entry, duration));
 
 		data[i].duration = get_time_in_msec(data[i].duration);
-		accumulated_duration += data[i].duration;
+		*accumulated_duration += data[i].duration;
 		reg += sizeof(struct stats_entry);
 	}
+}
+
+static ssize_t ddr_stats_copy_stats(char *buf, int size, void __iomem *reg, u32 entry_count)
+{
+	struct stats_entry data[MAX_NUM_MODES];
+	u64 accumulated_duration = 0;
+	int lpm_count = 0, i;
+	ssize_t length, op_length;
+
+	reg += offsetofend(struct ddr_stats_data, entry_count);
+
+	ddr_stats_fill_data(reg, entry_count, data, &accumulated_duration);
 
 	for (i = 0, length = 0; i < entry_count; i++) {
 		op_length = ddr_stats_append_data_to_buf(buf + length,
@@ -142,25 +153,60 @@ static ssize_t ddr_stats_copy_stats(char *buf, int size, void __iomem *reg,
 	return length;
 }
 
+int ddr_stats_get_freq_count(void)
+{
+	if (!ddr_pdata)
+		return -ENODEV;
+
+	return ddr_pdata->freq_count;
+}
+EXPORT_SYMBOL(ddr_stats_get_freq_count);
+
+int ddr_stats_get_residency(int freq_count, struct ddr_freq_residency *data)
+{
+	void __iomem *reg;
+	u32 name;
+	int i, j, num;
+	uint64_t duration = 0;
+	struct stats_entry stats_data[MAX_NUM_MODES];
+
+	if (freq_count < 0 || !data || !ddr_pdata || !ddr_pdata->reg)
+		return -EINVAL;
+
+	if (!ddr_pdata->entry_count)
+		return -EINVAL;
+
+	mutex_lock(&ddr_pdata->ddr_stats_lock);
+	num = freq_count > ddr_pdata->freq_count ? ddr_pdata->freq_count : freq_count;
+	reg = ddr_pdata->reg + offsetofend(struct ddr_stats_data, entry_count);
+
+	ddr_stats_fill_data(reg, ddr_pdata->entry_count, stats_data, &duration);
+
+	for (i = 0, j = 0; i < ddr_pdata->entry_count; i++) {
+		name = stats_data[i].name;
+		if (((name >> 8) & 0xFF) == 0x1) {
+			data[j].freq = name >> 16;
+			data[j].residency = stats_data[i].duration;
+			if (++j > num)
+				break;
+		}
+		reg += sizeof(struct stats_entry);
+	}
+
+	mutex_unlock(&ddr_pdata->ddr_stats_lock);
+
+	return j;
+}
+EXPORT_SYMBOL(ddr_stats_get_residency);
+
 static ssize_t ddr_stats_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
 	struct ddr_stats_platform_data *pdata = NULL;
-	void __iomem *reg;
 	ssize_t length;
-	u32 entry_count;
 
 	pdata = GET_PDATA_OF_ATTR(attr);
-	reg = pdata->reg;
-
-	entry_count = readl_relaxed(reg + offsetof(struct ddr_stats_data,
-				    entry_count));
-	if (entry_count > MAX_NUM_MODES) {
-		pr_err("Invalid entry count\n");
-		return 0;
-	}
-
-	length = ddr_stats_copy_stats(buf, PAGE_SIZE, reg, entry_count);
+	length = ddr_stats_copy_stats(buf, PAGE_SIZE, pdata->reg, pdata->entry_count);
 
 	return length;
 }
@@ -201,15 +247,16 @@ static int ddr_stats_create_sysfs(struct platform_device *pdev,
 static int ddr_stats_probe(struct platform_device *pdev)
 {
 	struct resource *res = NULL, *offset = NULL;
-	u32 offset_addr = 0;
-	void __iomem *phys_ptr = NULL;
+	u32 offset_addr = 0, phys_size, key, name;
+	void __iomem *phys_ptr = NULL, *reg;
 	phys_addr_t phys_addr_base;
-	u32 phys_size, key;
+	int i;
 
 	ddr_pdata = devm_kzalloc(&pdev->dev, sizeof(*ddr_pdata), GFP_KERNEL);
 	if (!ddr_pdata)
 		return -ENOMEM;
 
+	mutex_init(&ddr_pdata->ddr_stats_lock);
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "phys_addr_base");
 	if (!res)
@@ -245,6 +292,24 @@ static int ddr_stats_probe(struct platform_device *pdev)
 	if (key != MAGIC_KEY1) {
 		pr_err("Invalid key\n");
 		return -EINVAL;
+	}
+
+	ddr_pdata->entry_count = readl_relaxed(ddr_pdata->reg + offsetof(struct ddr_stats_data,
+				    entry_count));
+	if (ddr_pdata->entry_count > MAX_NUM_MODES) {
+		pr_err("Invalid entry count\n");
+		return 0;
+	}
+
+	reg = ddr_pdata->reg + offsetofend(struct ddr_stats_data, entry_count);
+
+	for (i = 0; i < ddr_pdata->entry_count; i++) {
+		name = readl_relaxed(reg + offsetof(struct stats_entry, name));
+		name = (name >> 8) & 0xFF;
+		if (name == 0x1)
+			ddr_pdata->freq_count++;
+
+		reg += sizeof(struct stats_entry);
 	}
 
 	return ddr_stats_create_sysfs(pdev, ddr_pdata);
