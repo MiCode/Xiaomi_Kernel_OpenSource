@@ -390,4 +390,13 @@ config ARCH_ZYNQMP
 	help
 	  This enables support for Xilinx ZynqMP Family
 
+config ARCH_SA2150P
+	bool "Enable Support for Qualcomm Technologies, Inc. SA2150P"
+	depends on ARCH_QCOM
+	help
+	  This configuration option enables support to build kernel for
+	  SA2150P SoC.
+	  If you do not wish to build a kernel that runs on this chipset,
+	  say 'N' here.
+
 endmenu
