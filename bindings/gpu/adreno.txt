@@ -96,6 +96,7 @@ Optional Properties:
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
+- qcom,gpu-model:	   If it exists this property is used for GPU model name.
 - qcom,disable-wake-on-touch:   Boolean. Disables the GPU power up on a touch input event.
 - qcom,disable-busy-time-burst:
 				Boolean. Disables the busy time burst to avoid switching
@@ -209,10 +210,10 @@ Optional Properties:
 				the threshold set by KGSL_GOVERNOR_CALL_INTERVAL. Enable only if
 				target has NAP state enabled.
  nvmem-cells:
-				A phandle to the configuration data such as gpu speed bin, gpu gaming mode
-				provided by a nvmem device. If unspecified default values shall be used.
+				A phandle to the configuration data such as gpu speed bin, gpu gaming mode,
+				gpu model name provided by a nvmem device. If unspecified default values shall be used.
  nvmem-cell-names:
-				Should be "speed_bin", "gaming_bin"
+				Should be "speed_bin", "gaming_bin", "gpu_model"
 
 GPU Quirks:
 - qcom,gpu-quirk-two-pass-use-wfi:
@@ -254,6 +255,22 @@ Properties:
 - qcom,mempool-reserved:	Number of pages reserved at init time for a pool.
 - qcom,mempool-allocate:	Allocate memory from the system memory when the
 				reserved pool exhausted.
+GPU model configuration:
+- qcom,gpu-models:
+		Container of sets of GPU model names specified by qcom,gpu-models.
+Properties:
+- compatible:
+		Must be qcom,gpu-models.
+
+- qcom,gpu-model:
+		Defines a GPU model name for specific GPU model ID.
+
+Properties:
+-  qcom,gpu-model-id:
+		Identifier for the specific GPU hardware configuration  - must match the value read
+		from the hardware.
+- qcom,gpu-model:
+		GPU model name for a specific GPU hardware.
 
 SOC Hardware revisions:
 - qcom,soc-hw-revisions:
@@ -357,8 +374,8 @@ Example of A330 GPU in MSM8916:
 		/* GDSC oxili regulators */
 		vdd-supply = <&gdsc_oxili_gx>;
 
-		nvmem-cells = <&gpu_speed_bin>, <&gpu_gaming_bin>;
-		nvmem-cell-names = "speed_bin", "gaming_bin";
+		nvmem-cells = <&gpu_speed_bin>, <&gpu_gaming_bin>, <&gpu_model_bin>;
+		nvmem-cell-names = "speed_bin", "gaming_bin","gpu_model";
 
 		/* IOMMU Data */
 		iommu = <&gfx_iommu>;
@@ -401,6 +418,17 @@ Example of A330 GPU in MSM8916:
 				qcom,gpu-quirk-hfi-use-reg;
 			};
 		};
+
+		qcom,gpu-models {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible="qcom,gpu-models";
+
+			qcom,gpu-model@0 {
+				qcom,gpu-model-id = <0>;
+				qcom,gpu-model = "Adreno642Lv1";
+			};
+		}
 
 		/* GPU Mempools */
 		qcom,gpu-mempools {
