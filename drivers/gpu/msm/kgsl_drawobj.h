@@ -83,6 +83,8 @@ struct kgsl_drawobj_cmd {
 	uint64_t profiling_buffer_gpuaddr;
 	unsigned int profile_index;
 	uint64_t submit_ticks;
+	/* @numibs: Number of ibs in this cmdobj */
+	u32 numibs;
 };
 
 /**
