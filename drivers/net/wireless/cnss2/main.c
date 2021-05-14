@@ -3214,27 +3214,9 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto reset_ctx;
 
-	/* In GKI, qrtr module might return EPROBE_DEFER due to vendor DLKM
-	 * parallel loading. Since PCIE does not support re-enumeration move
-	 * QMI init first to avoid re-enumeration on cnss_probe retry
-	 */
-	ret = cnss_qmi_init(plat_priv);
-	if (ret)
-		goto free_res;
-
-	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks)) {
-		ret = cnss_power_on_device(plat_priv);
-		if (ret)
-			goto deinit_qmi;
-
-		ret = cnss_bus_init(plat_priv);
-		if (ret)
-			goto power_off;
-	}
-
 	ret = cnss_register_esoc(plat_priv);
 	if (ret)
-		goto deinit_bus;
+		goto free_res;
 
 	ret = cnss_register_bus_scale(plat_priv);
 	if (ret)
@@ -3248,9 +3230,13 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto remove_sysfs;
 
-	ret = cnss_dms_init(plat_priv);
+	ret = cnss_qmi_init(plat_priv);
 	if (ret)
 		goto deinit_event_work;
+
+	ret = cnss_dms_init(plat_priv);
+	if (ret)
+		goto deinit_qmi;
 
 	ret = cnss_debugfs_create(plat_priv);
 	if (ret)
@@ -3259,6 +3245,19 @@ static int cnss_probe(struct platform_device *plat_dev)
 	ret = cnss_misc_init(plat_priv);
 	if (ret)
 		goto destroy_debugfs;
+
+	/* Make sure all platform related init are done before
+	 * device power on and bus init.
+	 */
+	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks)) {
+		ret = cnss_power_on_device(plat_priv);
+		if (ret)
+			goto deinit_misc;
+
+		ret = cnss_bus_init(plat_priv);
+		if (ret)
+			goto power_off;
+	}
 
 	cnss_register_coex_service(plat_priv);
 	cnss_register_ims_service(plat_priv);
@@ -3271,10 +3270,17 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 	return 0;
 
+power_off:
+	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks))
+		cnss_power_off_device(plat_priv);
+deinit_misc:
+	cnss_misc_deinit(plat_priv);
 destroy_debugfs:
 	cnss_debugfs_destroy(plat_priv);
 deinit_dms:
 	cnss_dms_deinit(plat_priv);
+deinit_qmi:
+	cnss_qmi_deinit(plat_priv);
 deinit_event_work:
 	cnss_event_work_deinit(plat_priv);
 remove_sysfs:
@@ -3283,14 +3289,6 @@ unreg_bus_scale:
 	cnss_unregister_bus_scale(plat_priv);
 unreg_esoc:
 	cnss_unregister_esoc(plat_priv);
-deinit_bus:
-	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks))
-		cnss_bus_deinit(plat_priv);
-power_off:
-	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks))
-		cnss_power_off_device(plat_priv);
-deinit_qmi:
-	cnss_qmi_deinit(plat_priv);
 free_res:
 	cnss_put_resources(plat_priv);
 reset_ctx:
@@ -3307,15 +3305,15 @@ static int cnss_remove(struct platform_device *plat_dev)
 	cnss_genl_exit();
 	cnss_unregister_ims_service(plat_priv);
 	cnss_unregister_coex_service(plat_priv);
+	cnss_bus_deinit(plat_priv);
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
-	cnss_qmi_deinit(plat_priv);
 	cnss_dms_deinit(plat_priv);
+	cnss_qmi_deinit(plat_priv);
 	cnss_event_work_deinit(plat_priv);
 	cnss_remove_sysfs(plat_priv);
 	cnss_unregister_bus_scale(plat_priv);
 	cnss_unregister_esoc(plat_priv);
-	cnss_bus_deinit(plat_priv);
 	cnss_put_resources(plat_priv);
 	platform_set_drvdata(plat_dev, NULL);
 	plat_env = NULL;
