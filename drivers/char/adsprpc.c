@@ -98,7 +98,15 @@
 #define M_DSP_PERF_LIST (12)
 
 #define SESSION_ID_INDEX (30)
+#define SESSION_ID_MASK (1 << SESSION_ID_INDEX)
+#define PROCESS_ID_MASK ((2^SESSION_ID_INDEX) - 1)
 #define FASTRPC_CTX_MAGIC (0xbeeddeed)
+
+/* Process status notifications from DSP will be sent with this unique context */
+#define FASTRPC_NOTIF_CTX_RESERVED 0xABCDABCD
+
+/* Notification worker thread device cid */
+#define NOTIF_DEV_CID 0x10000
 
 /*
  * Fastrpc context ID bit-map:
@@ -388,6 +396,13 @@ struct fastrpc_perf {
 	uint64_t tid;
 };
 
+struct smq_notif_rsp {
+	struct list_head notifn;
+	int domain;
+	int session;
+	enum fastrpc_status_flags status;
+};
+
 struct smq_invoke_ctx {
 	struct hlist_node hn;
 	/* Async node to add to async job ctx list */
@@ -439,6 +454,8 @@ struct fastrpc_ctx_lst {
 	uint32_t num_active_ctxs;
 	/* Queue which holds all async job contexts of process */
 	struct list_head async_queue;
+	/* Queue which holds all status notifications of process */
+	struct list_head notif_queue;
 };
 
 struct fastrpc_smmu {
@@ -578,6 +595,17 @@ enum fastrpc_perfkeys {
 	PERF_KEY_MAX = 10,
 };
 
+struct fastrpc_notif_queue {
+	/* Number of pending status notifications in queue */
+	atomic_t notif_queue_count;
+
+	/* Wait queue to synchronize notifier thread and response */
+	wait_queue_head_t notif_wait_queue;
+
+	/* IRQ safe spin lock for protecting notif queue */
+	spinlock_t nqlock;
+};
+
 struct fastrpc_file {
 	struct hlist_node hn;
 	spinlock_t hlock;
@@ -628,6 +656,8 @@ struct fastrpc_file {
 	wait_queue_head_t async_wait_queue;
 	/* IRQ safe spin lock for protecting async queue */
 	spinlock_t aqlock;
+	/* Process status notification queue */
+	struct fastrpc_notif_queue proc_state_notif;
 	uint32_t ws_timeout;
 	bool untrusted_process;
 	struct fastrpc_device *device;
@@ -2082,6 +2112,55 @@ bail:
 	spin_unlock_irqrestore(&fl->aqlock, flags);
 }
 
+static void fastrpc_queue_pd_status(struct fastrpc_file *fl, int domain, int status, int sessionid)
+{
+	struct smq_notif_rsp *notif_rsp = NULL;
+	unsigned long flags;
+	int err = 0;
+
+	VERIFY(err, NULL != (notif_rsp = kzalloc(sizeof(*notif_rsp), GFP_ATOMIC)));
+	if (err) {
+		ADSPRPC_ERR(
+			"allocation failed for size 0x%zx\n",
+								sizeof(*notif_rsp));
+		return;
+	}
+	notif_rsp->status = status;
+	notif_rsp->domain = domain;
+	notif_rsp->session = sessionid;
+
+	spin_lock_irqsave(&fl->proc_state_notif.nqlock, flags);
+	list_add_tail(&notif_rsp->notifn, &fl->clst.notif_queue);
+	atomic_add(1, &fl->proc_state_notif.notif_queue_count);
+	wake_up_interruptible(&fl->proc_state_notif.notif_wait_queue);
+	spin_unlock_irqrestore(&fl->proc_state_notif.nqlock, flags);
+}
+
+static void fastrpc_notif_find_process(int domain, struct smq_notif_rspv3 *notif)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_file *fl = NULL;
+	struct hlist_node *n;
+	bool is_process_found = false;
+	int sessionid = 0;
+
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if ((fl->tgid == notif->pid || (fl->tgid == (notif->pid & PROCESS_ID_MASK)))
+						&& (fl->cid == NOTIF_DEV_CID)) {
+			is_process_found = true;
+			break;
+		}
+	}
+	spin_unlock(&me->hlock);
+
+	if (!is_process_found)
+		return;
+	if (notif->pid & SESSION_ID_MASK)
+		sessionid = 1;
+	fastrpc_queue_pd_status(fl, domain, notif->status, sessionid);
+}
+
 static void context_notify_user(struct smq_invoke_ctx *ctx,
 		int retval, uint32_t rsp_flags, uint32_t early_wake_time)
 {
@@ -2148,7 +2227,6 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 	}
 	spin_unlock(&me->hlock);
 }
-
 
 static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 {
@@ -2228,6 +2306,8 @@ static void fastrpc_notify_drivers(struct fastrpc_apps *me, int cid)
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (fl->cid == cid)
 			fastrpc_notify_users(fl);
+		else if (fl->cid == NOTIF_DEV_CID)
+			fastrpc_queue_pd_status(fl, cid, FASTRPC_DSP_SSR, 0);
 	}
 	spin_unlock(&me->hlock);
 }
@@ -2252,6 +2332,7 @@ static void context_list_ctor(struct fastrpc_ctx_lst *me)
 	INIT_HLIST_HEAD(&me->pending);
 	me->num_active_ctxs = 0;
 	INIT_LIST_HEAD(&me->async_queue);
+	INIT_LIST_HEAD(&me->notif_queue);
 }
 
 static void fastrpc_context_list_dtor(struct fastrpc_file *fl)
@@ -2830,7 +2911,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	msg->pid = fl->tgid;
 	msg->tid = current->pid;
 	if (fl->sessionid)
-		msg->tid |= (1 << SESSION_ID_INDEX);
+		msg->tid |= SESSION_ID_MASK;
 	if (kernel == KERNEL_MSG_WITH_ZERO_PID)
 		msg->pid = 0;
 	msg->invoke.header.ctx = ctx->ctxid | fl->pd;
@@ -3263,7 +3344,7 @@ read_async_job:
 		PERF_END);
 		if (ierr)
 			goto bail;
-	} else {//Retry again if ctx is NULL
+	} else { // Go back to wait if ctx is invalid
 		ADSPRPC_ERR("Invalid async job wake up\n");
 		goto read_async_job;
 	}
@@ -3286,6 +3367,47 @@ bail:
 	return err;
 }
 
+static int fastrpc_wait_on_notif_queue(
+			struct fastrpc_ioctl_notif_rsp *notif_rsp,
+			struct fastrpc_file *fl)
+{
+	int err = 0, interrupted = 0;
+	unsigned long flags;
+	struct smq_notif_rsp  *notif = NULL, *inotif = NULL, *n = NULL;
+
+read_notif_status:
+	interrupted = wait_event_interruptible(fl->proc_state_notif.notif_wait_queue,
+				atomic_read(&fl->proc_state_notif.notif_queue_count));
+	if (!fl || fl->file_close == 1) {
+		err = -EBADF;
+		goto bail;
+	}
+	VERIFY(err, 0 == (err = interrupted));
+	if (err)
+		goto bail;
+
+	spin_lock_irqsave(&fl->proc_state_notif.nqlock, flags);
+	list_for_each_entry_safe(inotif, n, &fl->clst.notif_queue, notifn) {
+		list_del_init(&inotif->notifn);
+		atomic_sub(1, &fl->proc_state_notif.notif_queue_count);
+		notif = inotif;
+		break;
+	}
+	spin_unlock_irqrestore(&fl->proc_state_notif.nqlock, flags);
+
+	if (notif) {
+		notif_rsp->status = notif->status;
+		notif_rsp->domain = notif->domain;
+		notif_rsp->session = notif->session;
+	} else {// Go back to wait if ctx is invalid
+		ADSPRPC_ERR("Invalid status notification response\n");
+		goto read_notif_status;
+	}
+bail:
+	kfree(notif);
+	return err;
+}
+
 static int fastrpc_get_async_response(
 		struct fastrpc_ioctl_async_response *async_res,
 			void *param, struct fastrpc_file *fl)
@@ -3297,6 +3419,21 @@ static int fastrpc_get_async_response(
 		goto bail;
 	K_COPY_TO_USER(err, 0, param, async_res,
 			sizeof(struct fastrpc_ioctl_async_response));
+bail:
+	return err;
+}
+
+static int fastrpc_get_notif_response(
+		struct fastrpc_ioctl_notif_rsp *notif,
+			void *param, struct fastrpc_file *fl)
+{
+	int err = 0;
+
+	err = fastrpc_wait_on_notif_queue(notif, fl);
+	if (err)
+		goto bail;
+	K_COPY_TO_USER(err, 0, param, notif,
+			sizeof(struct fastrpc_ioctl_notif_rsp));
 bail:
 	return err;
 }
@@ -3377,6 +3514,7 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 		struct fastrpc_ioctl_invoke_async_no_perf inv3;
 		struct fastrpc_ioctl_async_response async_res;
 		uint32_t user_concurrency;
+		struct fastrpc_ioctl_notif_rsp notif;
 	} p;
 	struct fastrpc_dsp_capabilities *dsp_cap_ptr = NULL;
 	uint32_t size = 0;
@@ -3442,6 +3580,16 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 			goto bail;
 		err = fastrpc_create_persistent_headers(fl,
 				p.user_concurrency);
+		break;
+	case FASTRPC_INVOKE2_STATUS_NOTIF:
+		VERIFY(err,
+		sizeof(struct fastrpc_ioctl_notif_rsp) >= inv2->size);
+		if (err) {
+			err = -EBADE;
+			goto bail;
+		}
+		err = fastrpc_get_notif_response(&p.notif,
+						(void *)inv2->invparam, fl);
 		break;
 	default:
 		err = -ENOTTY;
@@ -4960,6 +5108,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	int len, void *priv, u32 addr)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)data;
+	struct smq_notif_rspv3 *notif = (struct smq_notif_rspv3 *)data;
 	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_apps *me = &gfa;
@@ -4978,6 +5127,14 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	}
 
 	chan = &me->channel[cid];
+	if (notif && notif->ctx == FASTRPC_NOTIF_CTX_RESERVED) {
+		VERIFY(err, (notif->type == STATUS_RESPONSE &&
+					 len >= sizeof(*notif)));
+		if (err)
+			goto bail;
+		fastrpc_notif_find_process(cid, notif);
+		goto bail;
+	}
 	VERIFY(err, (rsp && len >= sizeof(*rsp)));
 	if (err)
 		goto bail;
@@ -5111,6 +5268,13 @@ skip_dump_wait:
 	atomic_add(1, &fl->async_queue_job_count);
 	wake_up_interruptible(&fl->async_wait_queue);
 	spin_unlock_irqrestore(&fl->aqlock, flags);
+
+	// Dummy wake up to exit notification worker thread
+	spin_lock_irqsave(&fl->proc_state_notif.nqlock, flags);
+	atomic_add(1, &fl->proc_state_notif.notif_queue_count);
+	wake_up_interruptible(&fl->proc_state_notif.notif_wait_queue);
+	spin_unlock_irqrestore(&fl->proc_state_notif.nqlock, flags);
+
 	if (!IS_ERR_OR_NULL(fl->init_mem))
 		fastrpc_buf_free(fl->init_mem, 0);
 	fastrpc_context_list_dtor(fl);
@@ -5489,11 +5653,13 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	context_list_ctor(&fl->clst);
 	spin_lock_init(&fl->hlock);
 	spin_lock_init(&fl->aqlock);
+	spin_lock_init(&fl->proc_state_notif.nqlock);
 	INIT_HLIST_HEAD(&fl->maps);
 	INIT_HLIST_HEAD(&fl->cached_bufs);
 	fl->num_cached_buf = 0;
 	INIT_HLIST_HEAD(&fl->remote_bufs);
 	init_waitqueue_head(&fl->async_wait_queue);
+	init_waitqueue_head(&fl->proc_state_notif.notif_wait_queue);
 	INIT_HLIST_NODE(&fl->hn);
 	fl->sessionid = 0;
 	fl->tgid_open = current->tgid;
@@ -5637,6 +5803,11 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 	VERIFY(err, !fastrpc_session_exists(me, cid, fl->tgid));
 	if (err) {
 		err = -EEXIST;
+		goto bail;
+	}
+
+	if (cid == NOTIF_DEV_CID) {
+		fl->cid = cid;
 		goto bail;
 	}
 
@@ -5818,7 +5989,7 @@ static int fastrpc_setmode(unsigned long ioctl_param,
 			goto bail;
 		}
 		fl->sessionid = 1;
-		fl->tgid |= (1 << SESSION_ID_INDEX);
+		fl->tgid |= SESSION_ID_MASK;
 		break;
 	default:
 		err = -ENOTTY;
