@@ -98,15 +98,18 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *host)
 	struct ufs_hba *hba = host->hba;
 	struct device *dev = hba->dev;
 	struct platform_device *pdev = to_platform_device(dev);
-	struct resource *res;
+	struct resource *ice_base_res;
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+	struct resource *ice_hwkm_res;
+#endif
 	int err;
 
 	if (!(ufshcd_readl(hba, REG_CONTROLLER_CAPABILITIES) &
 	      MASK_CRYPTO_SUPPORT))
 		return 0;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ufs_ice");
-	if (!res) {
+	ice_base_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ufs_ice");
+	if (!ice_base_res) {
 		dev_warn(dev, "ICE registers not found\n");
 		goto disable;
 	}
@@ -116,12 +119,26 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *host)
 		goto disable;
 	}
 
-	host->ice_mmio = devm_ioremap_resource(dev, res);
+	host->ice_mmio = devm_ioremap_resource(dev, ice_base_res);
 	if (IS_ERR(host->ice_mmio)) {
 		err = PTR_ERR(host->ice_mmio);
 		dev_err(dev, "Failed to map ICE registers; err=%d\n", err);
 		return err;
 	}
+
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+	ice_hwkm_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ufs_ice_hwkm");
+	if (!ice_hwkm_res) {
+		dev_warn(dev, "ICE HWKM registers not found\n");
+		goto disable;
+	}
+	host->ice_hwkm_mmio = devm_ioremap_resource(dev, ice_hwkm_res);
+	if (IS_ERR(host->ice_hwkm_mmio)) {
+		err = PTR_ERR(host->ice_hwkm_mmio);
+		dev_err(dev, "Failed to map ICE HWKM registers; err=%d\n", err);
+		return err;
+	}
+#endif
 
 	if (!qcom_ice_supported(host))
 		goto disable;
@@ -175,7 +192,7 @@ void ufs_qcom_ice_disable(struct ufs_qcom_host *host)
 	if (!(host->hba->caps & UFSHCD_CAP_CRYPTO))
 		return;
 	if (host->hba->quirks & UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER)
-		return crypto_qti_disable(host->ice_mmio);
+		return crypto_qti_disable();
 }
 
 /* Poll until all BIST bits are reset */

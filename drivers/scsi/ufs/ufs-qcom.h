@@ -364,6 +364,9 @@ struct ufs_qcom_host {
 #ifdef CONFIG_SCSI_UFS_CRYPTO
 	void __iomem *ice_mmio;
 #endif
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+	void __iomem *ice_hwkm_mmio;
+#endif
 
 	u32 dev_ref_clk_en_mask;
 

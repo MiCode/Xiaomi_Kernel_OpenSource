@@ -17,7 +17,7 @@
 #define SDCC_CE 20
 #define UFS_CARD_CE 30
 
-int crypto_qti_program_key(void __iomem *ice_mmio,
+int crypto_qti_program_key(const struct ice_mmio_data *mmio_data,
 			   const struct blk_crypto_key *key, unsigned int slot,
 			   unsigned int data_unit_mask, int capid)
 {
@@ -45,7 +45,7 @@ int crypto_qti_program_key(void __iomem *ice_mmio,
 }
 EXPORT_SYMBOL(crypto_qti_program_key);
 
-int crypto_qti_invalidate_key(void __iomem *ice_mmio,
+int crypto_qti_invalidate_key(const struct ice_mmio_data *mmio_data,
 			      unsigned int slot)
 {
 	int err = 0;
@@ -59,7 +59,6 @@ int crypto_qti_invalidate_key(void __iomem *ice_mmio,
 EXPORT_SYMBOL(crypto_qti_invalidate_key);
 
 int crypto_qti_derive_raw_secret_platform(
-				void __iomem *ice_mmio,
 				const u8 *wrapped_key,
 				unsigned int wrapped_key_size, u8 *secret,
 				unsigned int secret_size)

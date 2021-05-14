@@ -26,6 +26,15 @@ static const struct ufs_crypto_alg_entry {
 	},
 };
 
+static void get_mmio_data(struct ice_mmio_data *data,
+						struct ufs_qcom_host *host)
+{
+	data->ice_base_mmio = host->ice_mmio;
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+	data->ice_hwkm_mmio = host->ice_hwkm_mmio;
+#endif
+}
+
 static int ufshcd_crypto_qti_keyslot_program(struct blk_keyslot_manager *ksm,
 					     const struct blk_crypto_key *key,
 					     unsigned int slot)
@@ -38,6 +47,7 @@ static int ufshcd_crypto_qti_keyslot_program(struct blk_keyslot_manager *ksm,
 	const struct ufs_crypto_alg_entry *alg;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int i = 0;
+	struct ice_mmio_data mmio_data;
 
 	if (!key) {
 		pr_err("Invalid/no key present\n");
@@ -65,7 +75,8 @@ static int ufshcd_crypto_qti_keyslot_program(struct blk_keyslot_manager *ksm,
 		goto out;
 	}
 
-	err = crypto_qti_keyslot_program(host->ice_mmio, key, slot,
+	get_mmio_data(&mmio_data, host);
+	err = crypto_qti_keyslot_program(&mmio_data, key, slot,
 					data_unit_mask, cap_idx);
 	if (err)
 		pr_err("%s: failed with error %d\n", __func__, err);
@@ -83,6 +94,7 @@ static int ufshcd_crypto_qti_keyslot_evict(struct blk_keyslot_manager *ksm,
 	int err = 0;
 	struct ufs_hba *hba = container_of(ksm, struct ufs_hba, ksm);
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct ice_mmio_data mmio_data;
 
 	err = ufshcd_hold(hba, false);
 	if (err) {
@@ -90,7 +102,8 @@ static int ufshcd_crypto_qti_keyslot_evict(struct blk_keyslot_manager *ksm,
 		return err;
 	}
 
-	err = crypto_qti_keyslot_evict(host->ice_mmio, slot);
+	get_mmio_data(&mmio_data, host);
+	err = crypto_qti_keyslot_evict(&mmio_data, slot);
 	if (err) {
 		pr_err("%s: failed with error %d\n", __func__, err);
 	}
@@ -107,7 +120,6 @@ static int ufshcd_crypto_qti_derive_raw_secret(struct blk_keyslot_manager *ksm,
 {
 	int err = 0;
 	struct ufs_hba *hba = container_of(ksm, struct ufs_hba, ksm);
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	err = ufshcd_hold(hba, false);
 	if (err) {
@@ -115,8 +127,7 @@ static int ufshcd_crypto_qti_derive_raw_secret(struct blk_keyslot_manager *ksm,
 		return err;
 	}
 
-	err =  crypto_qti_derive_raw_secret(host->ice_mmio,
-				wrapped_key, wrapped_key_size,
+	err =  crypto_qti_derive_raw_secret(wrapped_key, wrapped_key_size,
 				secret, secret_size);
 	if (err)
 		pr_err("%s: failed with error %d\n", __func__, err);
