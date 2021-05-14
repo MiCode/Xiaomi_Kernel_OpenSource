@@ -23,6 +23,7 @@ icc-debug.ko
 icc-rpmh.ko
 iommu-logger.ko
 kryo_arm64_edac.ko
+llcc-qcom.ko
 mem_buf_dev.ko
 mem_buf.ko
 mem-hooks.ko
