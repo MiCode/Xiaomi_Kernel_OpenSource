@@ -994,9 +994,9 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	struct wlfw_qdss_trace_config_download_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	const struct firmware *fw_entry = NULL;
-	const u8 *fw_buf = NULL;
+	const u8 *temp;
 	char qdss_cfg_filename[MAX_FIRMWARE_NAME_LEN];
-	unsigned int remaining = 0;
+	unsigned int remaining;
 	int ret = 0;
 
 	cnss_pr_dbg("Sending QDSS config download message, state: 0x%lx\n",
@@ -1018,15 +1018,16 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	if (ret) {
 		cnss_pr_err("Failed to load QDSS: %s\n",
 			    qdss_cfg_filename);
-	} else {
-		fw_buf = fw_entry->data;
-		remaining = fw_entry->size;
+		goto err_req_fw;
 	}
+
+	temp = fw_entry->data;
+	remaining = fw_entry->size;
 
 	cnss_pr_dbg("Downloading QDSS: %s, size: %u\n",
 		    qdss_cfg_filename, remaining);
 
-	do {
+	while (remaining) {
 		req->total_size_valid = 1;
 		req->total_size = remaining;
 		req->seg_id_valid = 1;
@@ -1035,14 +1036,12 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 
 		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
 			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
-			req->end = 0;
 		} else {
 			req->data_len = remaining;
 			req->end = 1;
 		}
 
-		if (fw_buf)
-			memcpy(req->data, fw_buf, req->data_len);
+		memcpy(req->data, temp, req->data_len);
 
 		ret = qmi_txn_init
 			(&plat_priv->qmi_wlfw, &txn,
@@ -1081,13 +1080,19 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		}
 
 		remaining -= req->data_len;
-		fw_buf += req->data_len;
+		temp += req->data_len;
 		req->seg_id++;
-	} while (remaining);
+	}
+
+	release_firmware(fw_entry);
+	kfree(req);
+	kfree(resp);
+	return 0;
 
 err_send:
-	if (fw_buf)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
+err_req_fw:
+
 	kfree(req);
 	kfree(resp);
 	return ret;
