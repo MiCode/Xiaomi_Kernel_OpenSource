@@ -73,6 +73,7 @@ int null_zone_init(struct nullb_device *dev)
 void null_zone_exit(struct nullb_device *dev)
 {
 	kvfree(dev->zones);
+	dev->zones = NULL;
 }
 
 int null_report_zones(struct gendisk *disk, sector_t sector,
