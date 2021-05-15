@@ -1764,4 +1764,12 @@ void adreno_fence_trace_array_init(struct kgsl_device *device);
  */
 void adreno_drawobj_set_constraint(struct kgsl_device *device,
 		struct kgsl_drawobj *drawobj);
+
+/**
+ * adreno_get_gpu_model - Gets gpu model name from device tree (or) chipid
+ * @device: A GPU device handle
+ *
+ * Return: GPU model name string
+ */
+const char *adreno_get_gpu_model(struct kgsl_device *device);
 #endif /*__ADRENO_H */
