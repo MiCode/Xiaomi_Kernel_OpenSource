@@ -705,7 +705,6 @@ static int __apply_to_new_mapping(struct seq_file *s,
 	struct iommu_debug_device *ddev = s->private;
 	struct device *dev;
 	int ret = -EINVAL;
-	phys_addr_t pt_phys;
 
 	mutex_lock(&ddev->state_lock);
 	if (!iommu_debug_usecase_reset(ddev))
@@ -714,19 +713,12 @@ static int __apply_to_new_mapping(struct seq_file *s,
 	domain = ddev->domain;
 	dev = ddev->test_dev;
 
-	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_CONTEXT_BANK,
-				  &pt_phys)) {
-		ps_printf(dev_name(dev), s, "Couldn't get page table base address\n");
-		goto out;
-	}
-
-	dev_err_ratelimited(dev, "testing with pgtables at %pa\n", &pt_phys);
 	ret = fn(dev, s, domain, priv);
 
 out:
 	mutex_unlock(&ddev->state_lock);
 	seq_printf(s, "%s\n", ret ? "FAIL" : "SUCCESS");
-	return 0;
+	return ret;
 }
 
 static const char * const _size_to_string(unsigned long size)
