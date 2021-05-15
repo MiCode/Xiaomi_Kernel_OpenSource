@@ -3395,6 +3395,26 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.ei_array      = wlfw_host_mlo_chip_info_s_v01_ei,
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x27,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   feature_list_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u64),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x27,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   feature_list),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.array_type       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,

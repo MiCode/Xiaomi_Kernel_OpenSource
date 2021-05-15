@@ -157,6 +157,26 @@ int cnss_get_mem_segment_info(enum cnss_remote_mem_type type,
 }
 EXPORT_SYMBOL(cnss_get_mem_segment_info);
 
+int cnss_set_feature_list(struct cnss_plat_data *plat_priv,
+			  enum cnss_feature_v01 feature)
+{
+	if (unlikely(!plat_priv || feature >= CNSS_MAX_FEATURE_V01))
+		return -EINVAL;
+
+	plat_priv->feature_list |= 1 << feature;
+	return 0;
+}
+
+int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
+			  u64 *feature_list)
+{
+	if (unlikely(!plat_priv))
+		return -EINVAL;
+
+	*feature_list = plat_priv->feature_list;
+	return 0;
+}
+
 static int cnss_pm_notify(struct notifier_block *b,
 			  unsigned long event, void *p)
 {
