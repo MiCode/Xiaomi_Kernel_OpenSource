@@ -3220,7 +3220,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	 */
 	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks)) {
 retry:
-		ret = cnss_power_on_device(plat_priv);
+		ret = cnss_power_on_device(plat_priv, true);
 		if (ret)
 			goto deinit_misc;
 
