@@ -199,6 +199,7 @@ struct nvt_ts_data {
 	const char *touch_environment;
 	struct completion trusted_touch_powerdown;
 	struct completion touch_suspend_resume;
+	struct completion trusted_touch_interrupt;
 	struct clk *core_clk;
 	struct clk *iface_clk;
 	atomic_t trusted_touch_initialized;
@@ -209,6 +210,7 @@ struct nvt_ts_data {
 	atomic_t trusted_touch_abort_status;
 	atomic_t delayed_vm_probe_pending;
 	atomic_t trusted_touch_mode;
+	atomic_t pvm_interrupt_underway;
 #endif
 };
 
