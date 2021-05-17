@@ -13,13 +13,13 @@
 
 TRACE_EVENT(lpm_gov_select,
 
-	TP_PROTO(int idx, u64 qos, u64 sleep, u64 reason),
+	TP_PROTO(int idx, s64 qos, u64 sleep, u64 reason),
 
 	TP_ARGS(idx, qos, sleep, reason),
 
 	TP_STRUCT__entry(
 			 __field(int, idx)
-			 __field(u64, qos)
+			 __field(s64, qos)
 			 __field(u64, sleep)
 			 __field(u64, reason)
 	),
@@ -31,7 +31,7 @@ TRACE_EVENT(lpm_gov_select,
 		       __entry->reason = reason;
 	),
 
-	TP_printk("state:%d qos-us:%llu sleep-us:%llu reason:%#x",
+	TP_printk("state:%d qos-us:%lld sleep-us:%llu reason:%#x",
 		  __entry->idx, __entry->qos, __entry->sleep, __entry->reason)
 );
 

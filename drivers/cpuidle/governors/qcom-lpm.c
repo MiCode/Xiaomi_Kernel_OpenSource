@@ -457,10 +457,10 @@ static void ipi_entry(void *ignore, const char *unused)
  * get_cpus_qos() - Returns the aggrigated PM QoS request.
  * @mask: cpumask of the cpus
  */
-static inline uint32_t get_cpus_qos(const struct cpumask *mask)
+static inline s64 get_cpus_qos(const struct cpumask *mask)
 {
 	int cpu;
-	uint32_t n, latency = ~0U;
+	s64 n, latency = ~0U;
 
 	for_each_cpu(cpu, mask) {
 		if (!check_cpu_isactive(cpu))
