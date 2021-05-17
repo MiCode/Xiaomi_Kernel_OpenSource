@@ -5981,7 +5981,7 @@ static int cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num)
 				    rc_num, ret);
 	}
 
-	cnss_pr_err("Trying to enumerate with PCIe RC%x\n", rc_num);
+	cnss_pr_dbg("Trying to enumerate with PCIe RC%x\n", rc_num);
 retry:
 	ret = _cnss_pci_enumerate(plat_priv, rc_num);
 	if (ret) {
