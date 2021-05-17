@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, 2019, 2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -8,6 +8,7 @@
 #include <linux/platform_device.h>
 #include <linux/coresight.h>
 #include <linux/of.h>
+#include <linux/pm_runtime.h>
 
 #define DUMMY_TRACE_ID_START	256
 
@@ -124,6 +125,7 @@ static int dummy_probe(struct platform_device *pdev)
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
 
+	pm_runtime_enable(dev);
 	dev_info(dev, "Dummy device initialized\n");
 
 	return 0;
@@ -132,7 +134,9 @@ static int dummy_probe(struct platform_device *pdev)
 static int dummy_remove(struct platform_device *pdev)
 {
 	struct dummy_drvdata *drvdata = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
 
+	pm_runtime_disable(dev);
 	coresight_unregister(drvdata->csdev);
 	return 0;
 }
