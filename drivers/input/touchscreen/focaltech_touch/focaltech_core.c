@@ -2802,11 +2802,22 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	}
 #endif
 
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+	fts_ts_trusted_touch_init(ts_data);
+	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
+#endif
+	ret = fts_ts_probe_delayed(ts_data);
+	if (ret) {
+		FTS_ERROR("Failed to enable resources\n");
+		goto err_probe_delayed;
+	}
+
 #if defined(CONFIG_DRM)
 	if (ts_data->ts_workqueue)
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
 
-	fts_ts_register_for_panel_events(ts_data->dev->of_node, ts_data);
+	if (!strcmp(fts_data->touch_environment, "pvm"))
+		fts_ts_register_for_panel_events(ts_data->dev->of_node, ts_data);
 #elif defined(CONFIG_FB)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
@@ -2822,16 +2833,6 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	ts_data->early_suspend.resume = fts_ts_late_resume;
 	register_early_suspend(&ts_data->early_suspend);
 #endif
-
-#ifdef CONFIG_FTS_TRUSTED_TOUCH
-	fts_ts_trusted_touch_init(ts_data);
-	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
-#endif
-	ret = fts_ts_probe_delayed(ts_data);
-	if (ret) {
-		FTS_ERROR("Failed to enable resources\n");
-		goto err_probe_delayed;
-	}
 
 	FTS_FUNC_EXIT();
 	return 0;
