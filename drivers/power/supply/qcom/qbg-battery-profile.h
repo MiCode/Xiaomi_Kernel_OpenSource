@@ -12,6 +12,12 @@
 		|| ((left) <= (right) && (left) <= (value) \
 			&& (value) <= (right)))
 
+enum ttf_calc_mode {
+	TTF_MODE_VBAT_STEP_CHG = 0,
+	TTF_MODE_OCV_STEP_CHG,
+	TTF_MODE_SOC_STEP_CHG,
+};
+
 struct battery_data_table0 {
 	int	soc_length;
 	int	ocv_length;

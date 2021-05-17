@@ -99,6 +99,12 @@
 #define OCV_BOOST_MAX_UV				5600000
 #define OCV_BOOST_STEP_UV				100000
 
+#define BATT_HOT_DECIDEGREE_MAX				600
+
+#define MILLI_TO_10NANO				100000
+#define MICRO_TO_10NANO				100
+#define MILLI_TO_MICRO				1000
+
 static int qbg_debug_mask;
 
 static const unsigned int qbg_accum_interval[8] = {
@@ -706,6 +712,211 @@ static int qbg_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int qbg_read_range_data_from_node(struct device_node *node,
+		const char *prop_str, struct ranges *ranges,
+		int max_threshold, u32 max_value)
+{
+	int rc = 0, i, length, per_tuple_length, tuples;
+
+	if (!node || !prop_str || !ranges) {
+		pr_err("Invalid parameters passed\n");
+		return -EINVAL;
+	}
+
+	rc = of_property_count_elems_of_size(node, prop_str, sizeof(u32));
+	if (rc < 0) {
+		pr_err("Count %s failed, rc=%d\n", prop_str, rc);
+		return rc;
+	}
+
+	length = rc;
+	per_tuple_length = sizeof(struct range_data) / sizeof(u32);
+	if (length % per_tuple_length) {
+		pr_err("%s length (%d) should be multiple of %d\n",
+				prop_str, length, per_tuple_length);
+		return -EINVAL;
+	}
+
+	tuples = length / per_tuple_length;
+	if (tuples > QBG_MAX_STEP_CHG_ENTRIES) {
+		pr_err("too many entries(%d), only %d allowed\n",
+				tuples, QBG_MAX_STEP_CHG_ENTRIES);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(node, prop_str, (u32 *)ranges->data, length);
+	if (rc < 0) {
+		pr_err("Read %s failed, rc=%d\n", prop_str, rc);
+		return rc;
+	}
+
+	for (i = 0; i < tuples; i++) {
+		if (ranges->data[i].low_threshold >
+				ranges->data[i].high_threshold) {
+			pr_err("%s thresholds should be in ascendant ranges data\n",
+						prop_str);
+			rc = -EINVAL;
+			goto clean;
+		}
+
+		if (i != 0) {
+			if (ranges->data[i - 1].high_threshold >
+					ranges->data[i].low_threshold) {
+				pr_err("%s thresholds should be in ascendant ranges data\n",
+							prop_str);
+				rc = -EINVAL;
+				goto clean;
+			}
+		}
+
+		if (ranges->data[i].low_threshold > max_threshold)
+			ranges->data[i].low_threshold = max_threshold;
+		if (ranges->data[i].high_threshold > max_threshold)
+			ranges->data[i].high_threshold = max_threshold;
+		if (ranges->data[i].value > max_value)
+			ranges->data[i].value = max_value;
+	}
+
+	ranges->range_count = tuples;
+	ranges->valid = true;
+	return rc;
+clean:
+	memset(ranges, 0, tuples * sizeof(struct range_data));
+	return rc;
+}
+
+#define QBG_DEFAULT_JEITA_FULL_FV_10NV		420000000
+#define QBG_DEFAULT_BATTERY_BETA		4250
+#define QBG_DEFAULT_BATTERY_THERM_KOHM		100
+#define QBG_DEFAULT_JEITA_WARM_ADC_DATA		0x25e3 /* WARM = 40 DegC */
+#define QBG_DEFAULT_JEITA_COOL_ADC_DATA		0x5314 /* COOL = 5 DegC */
+static int parse_step_chg_jeita_params(struct qti_qbg *chip, struct device_node *profile_node)
+{
+	struct qbg_step_chg_jeita_params *step_chg_jeita;
+	bool soc_based_step_chg = false;
+	bool ocv_based_step_chg = false;
+	int rc;
+	int i = 0;
+	u32 temp[2];
+	bool jeita_thresh_valid = true;
+
+	step_chg_jeita = devm_kzalloc(chip->dev, sizeof(*step_chg_jeita),
+				GFP_KERNEL);
+	if (!step_chg_jeita)
+		return -ENOMEM;
+
+	/* choose the lower of the two soft threaholds as the jeita-full-fv */
+	step_chg_jeita->jeita_full_fv_10nv = QBG_DEFAULT_JEITA_FULL_FV_10NV;
+	rc = of_property_read_u32_array(profile_node, "qcom,jeita-soft-fv-uv",
+				temp, 2);
+	if (!rc)
+		step_chg_jeita->jeita_full_fv_10nv = min(temp[0], temp[1]) * MICRO_TO_10NANO;
+	else
+		pr_debug("Failed to read jeita full fv from battery profile, rc=%d\n", rc);
+
+	step_chg_jeita->jeita_full_iterm_10na = chip->iterm_ma * MILLI_TO_10NANO;
+
+	soc_based_step_chg = of_property_read_bool(profile_node, "qcom,soc-based-step-chg");
+	ocv_based_step_chg = of_property_read_bool(profile_node, "qcom,ocv-based-step-chg");
+	if (soc_based_step_chg)
+		step_chg_jeita->ttf_calc_mode = TTF_MODE_SOC_STEP_CHG;
+	else if (ocv_based_step_chg)
+		step_chg_jeita->ttf_calc_mode = TTF_MODE_OCV_STEP_CHG;
+
+	step_chg_jeita->battery_beta = QBG_DEFAULT_BATTERY_BETA;
+	rc = of_property_read_u32(profile_node, "qcom,battery-beta",
+				&step_chg_jeita->battery_beta);
+	if (rc < 0)
+		pr_debug("Failed to read battery beta form battery profile, rc=%d\n", rc);
+
+	step_chg_jeita->battery_therm_kohm = QBG_DEFAULT_BATTERY_THERM_KOHM;
+	rc = of_property_read_u32(profile_node, "qcom,battery-therm-kohm",
+				&step_chg_jeita->battery_therm_kohm);
+	if (rc < 0)
+		pr_debug("Failed to read battery therm from battery profile, rc=%d\n", rc);
+
+	step_chg_jeita->jeita_cool_adc_value = QBG_DEFAULT_JEITA_COOL_ADC_DATA;
+	step_chg_jeita->jeita_warm_adc_value = QBG_DEFAULT_JEITA_WARM_ADC_DATA;
+	rc = of_property_read_u32_array(profile_node, "qcom,jeita-soft-thresholds",
+				temp, 2);
+	if (!rc) {
+		step_chg_jeita->jeita_cool_adc_value = temp[0];
+		step_chg_jeita->jeita_warm_adc_value = temp[1];
+	} else {
+		jeita_thresh_valid = false;
+		pr_debug("Failed to read jeita cool and warm value from battery profile, rc=%d\n",
+				 rc);
+	}
+
+	rc = qbg_read_range_data_from_node(profile_node,
+			"qcom,jeita-fcc-ranges",
+			&step_chg_jeita->jeita_fcc_cfg,
+			BATT_HOT_DECIDEGREE_MAX,
+			chip->fastchg_curr_ma * MILLI_TO_MICRO);
+	if (rc < 0)
+		pr_debug("Failed to read qcom,jeita-fcc-ranges from battery profile, rc=%d\n",
+					rc);
+
+	rc = qbg_read_range_data_from_node(profile_node,
+			"qcom,jeita-fv-ranges",
+			&step_chg_jeita->jeita_fv_cfg,
+			BATT_HOT_DECIDEGREE_MAX, chip->float_volt_uv);
+	if (rc < 0)
+		pr_debug("Failed to read qcom,jeita-fv-ranges from battery profile, rc=%d\n",
+					rc);
+
+	if ((step_chg_jeita->jeita_fcc_cfg.valid != step_chg_jeita->jeita_fv_cfg.valid)
+		|| (jeita_thresh_valid != step_chg_jeita->jeita_fcc_cfg.valid)) {
+		pr_err("battery JEITA configuration is not valid\n");
+		return -EINVAL;
+	}
+
+	rc = qbg_read_range_data_from_node(profile_node,
+			"qcom,step-chg-ranges",
+			&step_chg_jeita->step_fcc_cfg,
+			soc_based_step_chg ? 100 : chip->float_volt_uv,
+			chip->fastchg_curr_ma * MILLI_TO_MICRO);
+	if (rc < 0)
+		pr_debug("Failed to read qcom,step-chg-ranges from battery profile, rc=%d\n",
+					rc);
+
+	qbg_dbg(chip, QBG_DEBUG_PROFILE, "jeita_full_fv = %dnv, jeita_full_iterm = %dna, jeita_warm_adc = 0x%x, jeita_cool_adc = 0x%x, battery_beta = %d, battery_therm = %dkohm\n",
+			step_chg_jeita->jeita_full_fv_10nv,
+			step_chg_jeita->jeita_full_iterm_10na,
+			step_chg_jeita->jeita_warm_adc_value,
+			step_chg_jeita->jeita_cool_adc_value,
+			step_chg_jeita->battery_beta,
+			step_chg_jeita->battery_therm_kohm);
+
+	pr_debug("step-chg-ranges:\n");
+	for (i = 0; i < step_chg_jeita->step_fcc_cfg.range_count; i++) {
+		pr_debug("%d %d %d\n",
+			step_chg_jeita->step_fcc_cfg.data[i].low_threshold,
+			step_chg_jeita->step_fcc_cfg.data[i].high_threshold,
+			step_chg_jeita->step_fcc_cfg.data[i].value);
+	}
+
+	pr_debug("jeita-fcc-ranges:\n");
+	for (i = 0; i < step_chg_jeita->jeita_fcc_cfg.range_count; i++) {
+		pr_debug("%d %d %d\n",
+			step_chg_jeita->jeita_fcc_cfg.data[i].low_threshold,
+			step_chg_jeita->jeita_fcc_cfg.data[i].high_threshold,
+			step_chg_jeita->jeita_fcc_cfg.data[i].value);
+	}
+
+	pr_debug("jeita-fv-ranges:\n");
+	for (i = 0; i < step_chg_jeita->jeita_fv_cfg.range_count; i++) {
+		pr_debug("%d %d %d\n",
+			step_chg_jeita->jeita_fv_cfg.data[i].low_threshold,
+			step_chg_jeita->jeita_fv_cfg.data[i].high_threshold,
+			step_chg_jeita->jeita_fv_cfg.data[i].value);
+	}
+
+	chip->step_chg_jeita_params = step_chg_jeita;
+
+	return 0;
+}
+
 static int qbg_load_battery_profile(struct qti_qbg *chip)
 {
 	struct device_node *node = chip->dev->of_node;
@@ -771,6 +982,7 @@ static int qbg_load_battery_profile(struct qti_qbg *chip)
 	}
 	chip->nominal_capacity = temp[0];
 
+	rc = parse_step_chg_jeita_params(chip, profile_node);
 out:
 	of_node_put(chip->batt_node);
 	return rc;
@@ -1448,6 +1660,7 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 	struct qbg_config __user *config_user;
 	struct qbg_config config;
 	struct qbg_essential_params __user *params_user;
+	struct qbg_step_chg_jeita_params __user *step_chg_params_user;
 	unsigned long rtc_sec;
 	int rc = 0, i;
 
@@ -1499,6 +1712,7 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 		config.pon_tbat = chip->pon_tbat;
 		config.pon_soc = chip->pon_soc;
 		config.float_volt_uv = chip->float_volt_uv;
+		config.fastchg_curr_ma = chip->fastchg_curr_ma;
 		config.vbat_cutoff_mv = chip->vbat_cutoff_mv;
 		config.ibat_cutoff_ma = chip->ibat_cutoff_ma;
 		config.vph_min_mv = chip->vph_min_mv;
@@ -1558,6 +1772,21 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 		}
 		qbg_dbg(chip, QBG_DEBUG_SDAM, "Essential params written, time:%lu secs\n",
 					rtc_sec);
+
+		break;
+	case QBGIOCXSTEPCHGCFG:
+		step_chg_params_user = (struct qbg_step_chg_jeita_params __user *)arg;
+
+		if (copy_to_user(step_chg_params_user, (void *)chip->step_chg_jeita_params,
+			sizeof(struct qbg_step_chg_jeita_params))) {
+			pr_err("Failed to copy QBG step and jeita charge params to user\n");
+			return -EFAULT;
+		}
+		qbg_dbg(chip, QBG_DEBUG_DEVICE, "QBGIOCXSTEPCHGCFG: jeita_full_fv_10nv:%d jeita_warm_adc_value:0x%x jeita_cool_adc_value:0x%x ttf_calc_mode:%u\n",
+				chip->step_chg_jeita_params->jeita_full_fv_10nv,
+				chip->step_chg_jeita_params->jeita_warm_adc_value,
+				chip->step_chg_jeita_params->jeita_cool_adc_value,
+				chip->step_chg_jeita_params->ttf_calc_mode);
 
 		break;
 	default:

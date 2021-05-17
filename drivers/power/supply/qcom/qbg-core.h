@@ -84,6 +84,7 @@ enum QBG_ACCUM_INTERVAL_TYPE {
  * @kdata:		QBG Kernel space data structure
  * @udata:		QBG user space data structure
  * @battery:		Pointer to QBG battery data structure
+ * @step_chg_jeita_params:	Jeita step charge parameters structure
  * @fifo_lock:		Lock for reading FIFO data
  * @data_lock:		Lock for reading kdata from QBG char device
  * @batt_id_chan:	IIO channel to read battery ID
@@ -154,6 +155,7 @@ struct qti_qbg {
 	struct qbg_kernel_data	kdata;
 	struct qbg_user_data	udata;
 	struct qbg_battery_data	*battery;
+	struct qbg_step_chg_jeita_params	*step_chg_jeita_params;
 	struct mutex		fifo_lock;
 	struct mutex		data_lock;
 	struct iio_channel	*batt_id_chan;

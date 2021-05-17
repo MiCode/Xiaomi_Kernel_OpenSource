@@ -7,6 +7,7 @@
 #define __QBG_H__
 
 #define MAX_FIFO_COUNT			36
+#define QBG_MAX_STEP_CHG_ENTRIES	6
 
 enum QBG_STATE {
 	QBG_LPM,
@@ -143,9 +144,35 @@ struct qbg_user_data {
 	struct qbg_param		param[QBG_PARAM_MAX];
 } __attribute__ ((__packed__));
 
+struct range_data {
+	int		low_threshold;
+	int		high_threshold;
+	unsigned int	value;
+} __attribute__ ((__packed__));
+
+struct ranges {
+	struct		range_data data[QBG_MAX_STEP_CHG_ENTRIES];
+	unsigned char	range_count;
+	_Bool		valid;
+} __attribute__((__packed__));
+
+struct qbg_step_chg_jeita_params {
+	int		jeita_full_fv_10nv;
+	int		jeita_full_iterm_10na;
+	int		jeita_warm_adc_value;
+	int		jeita_cool_adc_value;
+	int		battery_beta;
+	int		battery_therm_kohm;
+	struct ranges	step_fcc_cfg;
+	struct ranges	jeita_fcc_cfg;
+	struct ranges	jeita_fv_cfg;
+	unsigned char	ttf_calc_mode;
+} __attribute__ ((__packed__));
+
 /*  IOCTLs to read & write QBG config and essential params */
 #define QBGIOCXCFG	_IOR('B', 0x01, struct qbg_config)
 #define QBGIOCXEPR	_IOR('B', 0x02, struct qbg_essential_params)
 #define QBGIOCXEPW	_IOWR('B', 0x03, struct qbg_essential_params)
+#define QBGIOCXSTEPCHGCFG	_IOWR('B', 0x04, struct qbg_step_chg_jeita_params)
 
 #endif
