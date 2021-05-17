@@ -729,10 +729,6 @@ unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 		return (qmi_timeout + WLAN_COLD_BOOT_CAL_TIMEOUT);
 	case CNSS_TIMEOUT_WLAN_WATCHDOG:
 		return ((qmi_timeout << 1) + WLAN_WD_TIMEOUT_MS);
-	case CNSS_TIMEOUT_RDDM:
-		return CNSS_RDDM_TIMEOUT_MS;
-	case CNSS_TIMEOUT_RECOVERY:
-		return RECOVERY_TIMEOUT;
 	default:
 		return qmi_timeout;
 	}
@@ -888,7 +884,6 @@ EXPORT_SYMBOL(cnss_idle_restart);
 int cnss_idle_shutdown(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	unsigned int timeout;
 	int ret;
 
 	if (!plat_priv) {
@@ -908,12 +903,11 @@ int cnss_idle_shutdown(struct device *dev)
 		goto skip_wait;
 
 	reinit_completion(&plat_priv->recovery_complete);
-	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_RECOVERY);
 	ret = wait_for_completion_timeout(&plat_priv->recovery_complete,
-					  msecs_to_jiffies(timeout));
+					  msecs_to_jiffies(RECOVERY_TIMEOUT));
 	if (!ret) {
 		cnss_pr_err("Timeout (%ums) waiting for recovery to complete\n",
-			    timeout);
+			    RECOVERY_TIMEOUT);
 		CNSS_ASSERT(0);
 	}
 
@@ -1251,11 +1245,10 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 
 	/* FW recovery sequence has multiple steps and firmware load requires
 	 * linux PM in awake state. Thus hold the cnss wake source until
-	 * WLAN MISSION enabled. CNSS_TIMEOUT_RECOVERY option should cover all
-	 * time taken in this process.
+	 * WLAN MISSION enabled.
 	 */
-	pm_wakeup_ws_event(plat_priv->recovery_ws,
-			   cnss_get_timeout(plat_priv, CNSS_TIMEOUT_RECOVERY),
+	pm_wakeup_ws_event(plat_priv->recovery_ws, RECOVERY_TIMEOUT +
+			   cnss_get_boot_timeout(NULL),
 			   true);
 
 	switch (reason) {
@@ -1442,7 +1435,6 @@ EXPORT_SYMBOL(cnss_force_fw_assert);
 int cnss_force_collect_rddm(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	unsigned int timeout;
 	int ret = 0;
 
 	if (!plat_priv) {
@@ -1479,12 +1471,12 @@ int cnss_force_collect_rddm(struct device *dev)
 
 wait_rddm:
 	reinit_completion(&plat_priv->rddm_complete);
-	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_RDDM);
-	ret = wait_for_completion_timeout(&plat_priv->rddm_complete,
-					  msecs_to_jiffies(timeout));
+	ret = wait_for_completion_timeout
+		(&plat_priv->rddm_complete,
+		 msecs_to_jiffies(CNSS_RDDM_TIMEOUT_MS));
 	if (!ret) {
 		cnss_pr_err("Timeout (%ums) waiting for RDDM to complete\n",
-			    timeout);
+			    CNSS_RDDM_TIMEOUT_MS);
 		ret = -ETIMEDOUT;
 	} else if (ret > 0) {
 		ret = 0;
