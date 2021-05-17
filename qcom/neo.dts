@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "neo.dtsi"
+
+/ {
+/** DUMMY DEVICE TREE - Place holder only **/
+	model = "Qualcomm Technologies, Inc. NEO SoC DUMMY DT";
+	compatible = "qcom,neo";
+};
