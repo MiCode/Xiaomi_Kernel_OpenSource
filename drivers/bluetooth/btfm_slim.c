@@ -461,7 +461,6 @@ static int btfm_slim_probe(struct slim_device *slim)
 	ret = btpower_register_slimdev(&slim->dev);
 	if (ret < 0) {
 		btfm_slim_unregister_codec(&slim->dev);
-		ret = -EPROBE_DEFER;
 		goto dealloc;
 	}
 	return ret;
