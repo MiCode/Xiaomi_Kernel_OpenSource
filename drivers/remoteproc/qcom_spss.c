@@ -575,10 +575,6 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	qcom_add_glink_spss_subdev(rproc, &spss->glink_subdev, "spss");
 	qcom_add_ssr_subdev(rproc, &spss->ssr_subdev, desc->ssr_name);
 
-	ret = rproc_add(rproc);
-	if (ret)
-		goto free_rproc;
-
 	mask_scsr_irqs(spss);
 	spss->generic_irq = platform_get_irq(pdev, 0);
 	ret = devm_request_threaded_irq(&pdev->dev, spss->generic_irq, NULL, spss_generic_handler,
@@ -587,6 +583,10 @@ static int qcom_spss_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to acquire generic IRQ\n");
 		goto free_rproc;
 	}
+
+	ret = rproc_add(rproc);
+	if (ret)
+		goto free_rproc;
 
 	return 0;
 
