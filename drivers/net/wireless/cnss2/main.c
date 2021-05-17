@@ -733,6 +733,7 @@ unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 		return CNSS_RDDM_TIMEOUT_MS;
 	case CNSS_TIMEOUT_RECOVERY:
 		return RECOVERY_TIMEOUT;
+	case CNSS_TIMEOUT_PCI_ENUM:
 	default:
 		return qmi_timeout;
 	}
@@ -2920,6 +2921,7 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 {
 	complete_all(&plat_priv->recovery_complete);
+	complete_all(&plat_priv->pci_enum_complete);
 	complete_all(&plat_priv->rddm_complete);
 	complete_all(&plat_priv->cal_complete);
 	complete_all(&plat_priv->power_up_complete);

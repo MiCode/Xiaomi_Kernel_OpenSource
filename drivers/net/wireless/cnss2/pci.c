@@ -2856,12 +2856,19 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -ENODEV;
 	}
 
-	pci_priv = plat_priv->bus_priv;
-	if (!pci_priv) {
-		cnss_pr_err("pci_priv is NULL\n");
-		return -EAGAIN;
+	if (!plat_priv->bus_priv) {
+		cnss_pr_dbg("pci_priv is NULL\n");
+		timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_PCI_ENUM);
+		ret = wait_for_completion_timeout(&plat_priv->pci_enum_complete,
+						  msecs_to_jiffies(timeout));
+		if (!ret) {
+			cnss_pr_err("Timeout (%ums) waiting for PCI enumerate to complete\n",
+				    timeout);
+			return -ENODEV;
+		}
 	}
 
+	pci_priv = plat_priv->bus_priv;
 	if (pci_priv->driver_ops) {
 		cnss_pr_err("Driver has already registered\n");
 		return -EEXIST;
@@ -5695,6 +5702,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
 	cnss_power_off_device(plat_priv);
+	complete_all(&plat_priv->pci_enum_complete);
 
 	return 0;
 
@@ -5810,6 +5818,7 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 				    ret);
 	}
 
+	init_completion(&plat_priv->pci_enum_complete);
 retry:
 	ret = cnss_pci_enumerate(plat_priv, rc_num);
 	if (ret) {
@@ -5835,7 +5844,6 @@ retry:
 		ret = -ENODEV;
 		goto unreg_pci;
 	}
-
 	return 0;
 
 unreg_pci:
