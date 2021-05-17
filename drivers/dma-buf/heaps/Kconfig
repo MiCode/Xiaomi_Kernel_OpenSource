@@ -41,6 +41,17 @@ config QCOM_DMABUF_HEAPS_SYSTEM
 	  along with other optimizatons. If in doubt, say Y
 	  here.
 
+config QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL
+	bool "QCOM DMA-BUF Page Pool Refill"
+	depends on QCOM_DMABUF_HEAPS_SYSTEM
+	help
+	  Choose this option to enable the page pool auto refill
+	  feature for the system heap's page pools. When enabled,
+	  a thread is created which wakes up to refill the page pools
+	  when they fall below a particular threshold, which in turn
+	  results in smaller allocation latencies. If in doubt, say Y
+	  here.
+
 config QCOM_DMABUF_HEAPS_SYSTEM_SECURE
 	bool "QCOM DMA-BUF System Secure Heap"
 	depends on QCOM_DMABUF_HEAPS && QCOM_SECURE_BUFFER
