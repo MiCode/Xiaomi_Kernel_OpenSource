@@ -358,8 +358,9 @@ static void gmu_ring_local_db(struct qcom_hgsl  *hgsl, unsigned int value)
 static void tcsr_ring_global_db(struct qcom_hgsl *hgsl, uint32_t tcsr_idx,
 				uint32_t dbq_idx)
 {
-	hgsl_tcsr_irq_trigger(hgsl->tcsr[tcsr_idx][HGSL_TCSR_ROLE_SENDER],
-		GLB_DB_SRC_ISSUEIB_IRQ_ID_0 + dbq_idx);
+	if (tcsr_idx < HGSL_TCSR_NUM)
+		hgsl_tcsr_irq_trigger(hgsl->tcsr[tcsr_idx][HGSL_TCSR_ROLE_SENDER],
+						GLB_DB_SRC_ISSUEIB_IRQ_ID_0 + dbq_idx);
 }
 
 static bool hgsl_ctx_dbq_ready(struct hgsl_priv  *priv)
