@@ -45,12 +45,23 @@ struct adreno_hwsched {
 	struct kthread_worker *worker;
 	/** @hwsched_ops: Container for target specific hwscheduler ops */
 	const struct adreno_hwsched_ops *hwsched_ops;
+	/** @ctxt_bad: Container for the context bad hfi packet */
+	void *ctxt_bad;
+	/** @idle_gate: Gate to wait on for hwscheduler to idle */
+	struct completion idle_gate;
+	/** @big_cmdobj = Points to the big IB that is inflight */
+	struct kgsl_drawobj_cmd *big_cmdobj;
 };
+
+/*
+ * This value is based on maximum number of IBs that can fit
+ * in the ringbuffer.
+ */
+#define HWSCHED_MAX_IBS 2000
 
 enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_POWER = 0,
-	ADRENO_HWSCHED_FAULT_RESTART,
-	ADRENO_HWSCHED_FAULT_REPLAY,
+	ADRENO_HWSCHED_ACTIVE,
 };
 
 /**
@@ -80,22 +91,11 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev,
 	const struct adreno_hwsched_ops *hwsched_ops);
 
 /**
- * adreno_hwsched_set_fault - Set hwsched fault to request recovery
+ * adreno_hwsched_fault - Set hwsched fault to request recovery
  * @adreno_dev: A handle to adreno device
+ * @fault: The type of fault
  */
-void adreno_hwsched_set_fault(struct adreno_device *adreno_dev);
-
-/**
- * adreno_hwsched_mark_drawobj() - Get the drawobj that faulted
- * @adreno_dev: pointer to the adreno device
- * @ctxt_id: context id of the faulty submission
- * @ts: timestamp of the faulty submission
- *
- * When we get a context bad hfi, use this function to get to the
- * faulty submission and mark the submission for snapshot purposes
- */
-void adreno_hwsched_mark_drawobj(struct adreno_device *adreno_dev, u32 ctxt_id,
-	u32 ts);
+void adreno_hwsched_fault(struct adreno_device *adreno_dev, u32 fault);
 
 /**
  * adreno_hwsched_parse_fault_ib - Parse the faulty submission
@@ -118,4 +118,12 @@ void adreno_hwsched_flush(struct adreno_device *adreno_dev);
  * contexts
  */
 void adreno_hwsched_unregister_contexts(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_idle - Wait for dispatcher and hardware to become idle
+ * @adreno_dev: A handle to adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int adreno_hwsched_idle(struct adreno_device *adreno_dev);
 #endif

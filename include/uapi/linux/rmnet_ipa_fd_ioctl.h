@@ -37,6 +37,7 @@
 #define WAN_IOCTL_RMV_OFFLOAD_CONNECTION     19
 #define WAN_IOCTL_GET_WAN_MTU                20
 #define WAN_IOCTL_SET_DATA_QUOTA_WARNING     21
+#define WAN_IOCTL_NOTIFY_NAT_MOVE_RES        22
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -305,4 +306,8 @@ struct wan_ioctl_query_per_client_stats {
 #define WAN_IOC_SET_DATA_QUOTA_WARNING _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_SET_DATA_QUOTA_WARNING, \
 		struct wan_ioctl_set_data_quota_warning)
+
+#define WAN_IOC_NOTIFY_NAT_MOVE_RES _IOWR(WAN_IOC_MAGIC, \
+	WAN_IOCTL_NOTIFY_NAT_MOVE_RES, \
+	bool)
 #endif /* _RMNET_IPA_FD_IOCTL_H */

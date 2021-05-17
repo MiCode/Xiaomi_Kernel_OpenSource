@@ -252,6 +252,30 @@ TRACE_EVENT(kgsl_clk,
 	)
 );
 
+TRACE_EVENT(kgsl_gmu_pwrlevel,
+
+	TP_PROTO(unsigned long freq,
+		unsigned long prev_freq),
+
+	TP_ARGS(freq, prev_freq),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, freq)
+		__field(unsigned long, prev_freq)
+	),
+
+	TP_fast_assign(
+		__entry->freq = freq;
+		__entry->prev_freq = prev_freq;
+	),
+
+	TP_printk(
+		"gmu_freq=%ld gmu_prev_freq=%ld",
+		__entry->freq,
+		__entry->prev_freq
+	)
+);
+
 TRACE_EVENT(kgsl_pwrlevel,
 
 	TP_PROTO(struct kgsl_device *device,
@@ -620,6 +644,64 @@ TRACE_EVENT(kgsl_mem_sync_cache,
 		(__entry->op & KGSL_GPUMEM_CACHE_CLEAN) ? 'c' : '.',
 		(__entry->op & KGSL_GPUMEM_CACHE_INV) ? 'i' : '.',
 		__entry->offset
+	)
+);
+
+TRACE_EVENT(kgsl_mem_add_bind_range,
+	TP_PROTO(struct kgsl_mem_entry *target, u64 offset,
+		 struct kgsl_mem_entry *child, u64 length),
+
+	TP_ARGS(target, offset, child, length),
+
+	TP_STRUCT__entry(
+		__field(u64, gpuaddr)
+		__field(u32, target)
+		__field(u32, tgid)
+		__field(u32, child)
+		__field(u64, length)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = target->memdesc.gpuaddr + offset;
+		__entry->tgid = pid_nr(target->priv->pid);
+		__entry->target = target->id;
+		__entry->child = child->id;
+		__entry->length = length;
+	),
+
+	TP_printk(
+	"tgid=%u target=%d gpuaddr=%llx length %llu child=%d",
+		__entry->tgid, __entry->target, __entry->gpuaddr,
+		__entry->length, __entry->child
+	)
+);
+
+TRACE_EVENT(kgsl_mem_remove_bind_range,
+	TP_PROTO(struct kgsl_mem_entry *target, u64 offset,
+		 struct kgsl_mem_entry *child, u64 length),
+
+	TP_ARGS(target, offset, child, length),
+
+	TP_STRUCT__entry(
+		__field(u64, gpuaddr)
+		__field(u32, target)
+		__field(u32, tgid)
+		__field(u32, child)
+		__field(u64, length)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = target->memdesc.gpuaddr + offset;
+		__entry->tgid = pid_nr(target->priv->pid);
+		__entry->target = target->id;
+		__entry->child = child->id;
+		__entry->length = length;
+	),
+
+	TP_printk(
+	"tgid=%u target=%d gpuaddr=%llx length %llu child=%d",
+		__entry->tgid, __entry->target, __entry->gpuaddr,
+		__entry->length, __entry->child
 	)
 );
 

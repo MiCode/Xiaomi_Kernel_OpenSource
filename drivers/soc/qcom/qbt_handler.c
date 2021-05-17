@@ -106,6 +106,8 @@ struct qbt_drvdata {
 	struct fw_ipc_info	fw_ipc;
 	struct finger_detect_gpio fd_gpio;
 	struct finger_detect_touch fd_touch;
+	uint32_t intr2_gpio;
+	uint32_t current_slot_state[MT_MAX_FINGERS];
 	DECLARE_KFIFO(fd_events, struct fd_event, MAX_FW_EVENTS);
 	DECLARE_KFIFO(ipc_events, struct ipc_event, MAX_FW_EVENTS);
 	wait_queue_head_t read_wait_queue_fd;
@@ -289,6 +291,8 @@ static void qbt_touch_work_func(struct work_struct *work)
 	struct touch_event current_event, last_event;
 	struct fd_event finger_event;
 	int slot = 0;
+	int i = 0;
+	bool intr2_state = false;
 
 	if (!work) {
 		pr_err("NULL pointer passed\n");
@@ -342,6 +346,20 @@ static void qbt_touch_work_func(struct work_struct *work)
 		finger_event.id = slot;
 		finger_event.X = current_event.X;
 		finger_event.Y = current_event.Y;
+
+		if (finger_event.state != QBT_EVENT_FINGER_MOVE) {
+			drvdata->current_slot_state[slot] = finger_event.state;
+			for (i = 0; i < MT_MAX_FINGERS; i++)
+				if (drvdata->current_slot_state[i] == QBT_EVENT_FINGER_DOWN) {
+					intr2_state = true;
+					break;
+				}
+			pr_debug("Setting INTR2 GPIO to %d\n", intr2_state);
+			if (gpio_is_valid(drvdata->intr2_gpio))
+				__gpio_set_value(drvdata->intr2_gpio, intr2_state);
+			else
+				pr_debug("INTR2 GPIO not available\n");
+		}
 
 		qbt_fd_report_event(drvdata, &finger_event);
 	}
@@ -622,6 +640,23 @@ static long qbt_ioctl(
 		pr_debug("rad_x: %d rad_y: %d\n",
 			drvdata->fd_touch.config.rad_x,
 			drvdata->fd_touch.config.rad_y);
+		break;
+	}
+	case QBT_INTR2_TEST:
+	{
+		struct qbt_intr2_test test;
+
+		if (copy_from_user(&test, priv_arg, sizeof(test)) != 0) {
+			rc = -EFAULT;
+			pr_err("failed copy from user space %d\n", rc);
+			goto end;
+		}
+		pr_debug("Setting INTR2 GPIO to %d\n", test.state);
+		if (gpio_is_valid(drvdata->intr2_gpio))
+			__gpio_set_value(drvdata->intr2_gpio, test.state);
+		else
+			pr_debug("INTR2 GPIO is not available\n");
+
 		break;
 	}
 	default:
@@ -1063,6 +1098,25 @@ static irqreturn_t qbt_ipc_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int setup_intr2_irq(struct platform_device *pdev,
+		struct qbt_drvdata *drvdata)
+{
+	int rc = 0;
+	const char *desc = "qbt_intr2";
+
+	rc = devm_gpio_request_one(&pdev->dev, drvdata->intr2_gpio,
+		GPIOF_OUT_INIT_LOW, desc);
+	if (rc < 0) {
+		pr_err("failed to request intr2 gpio %d, error %d\n",
+			drvdata->intr2_gpio, rc);
+		goto end;
+	}
+
+end:
+	pr_debug("rc %d\n", rc);
+	return rc;
+}
+
 static int setup_fd_gpio_irq(struct platform_device *pdev,
 		struct qbt_drvdata *drvdata)
 {
@@ -1171,6 +1225,11 @@ static int qbt_read_device_tree(struct platform_device *pdev,
 	int gpio;
 	enum of_gpio_flags flags;
 
+	drvdata->intr2_gpio = of_get_named_gpio(pdev->dev.of_node,
+			"qcom,intr2-gpio", 0);
+	if (!gpio_is_valid(drvdata->intr2_gpio))
+		pr_err("intr2 gpio not found, gpio=%d\n", drvdata->intr2_gpio);
+
 	/* read IPC gpio */
 	drvdata->fw_ipc.gpio = of_get_named_gpio(pdev->dev.of_node,
 		"qcom,ipc-gpio", 0);
@@ -1239,6 +1298,9 @@ static int qbt_probe(struct platform_device *pdev)
 	INIT_KFIFO(drvdata->ipc_events);
 	init_waitqueue_head(&drvdata->read_wait_queue_fd);
 	init_waitqueue_head(&drvdata->read_wait_queue_ipc);
+
+	if (gpio_is_valid(drvdata->intr2_gpio))
+		rc = setup_intr2_irq(pdev, drvdata);
 
 	rc = setup_fd_gpio_irq(pdev, drvdata);
 	if (rc < 0)

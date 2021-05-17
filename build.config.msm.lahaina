@@ -9,6 +9,10 @@ MSM_ARCH=lahaina
 VARIANTS=(gki)
 [ -z "${VARIANT}" ] && VARIANT=gki
 
+if [ -e "${ROOT_DIR}/msm-kernel" -a "${KERNEL_DIR}" = "common" ]; then
+	KERNEL_DIR="msm-kernel"
+fi
+
 DT_OVERLAY_SUPPORT=1
 
 BOOT_IMAGE_HEADER_VERSION=3

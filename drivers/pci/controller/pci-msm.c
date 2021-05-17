@@ -720,6 +720,7 @@ struct msm_pcie_dev_t {
 	uint32_t aux_clk_freq;
 	bool linkdown_panic;
 	uint32_t boot_option;
+	bool lpi_enable;
 
 	uint32_t rc_idx;
 	uint32_t phy_ver;
@@ -4161,7 +4162,8 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 	}
 
 	if (dev->enumerated) {
-		msm_msi_config(dev_get_msi_domain(&dev->dev->dev));
+		if (!dev->lpi_enable)
+			msm_msi_config(dev_get_msi_domain(&dev->dev->dev));
 		msm_pcie_config_link_pm(dev, true);
 	}
 
@@ -4205,7 +4207,9 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev)
 	}
 
 	/* suspend access to MSI register. resume access in msm_msi_config */
-	msm_msi_config_access(dev_get_msi_domain(&dev->dev->dev), false);
+	if (!dev->lpi_enable)
+		msm_msi_config_access(dev_get_msi_domain(&dev->dev->dev),
+				      false);
 
 	dev->link_status = MSM_PCIE_LINK_DISABLED;
 	dev->power_on = false;
@@ -4506,9 +4510,11 @@ int msm_pcie_enumerate(u32 rc_idx)
 		goto out;
 	}
 
-	ret = msm_msi_init(&dev->pdev->dev);
-	if (ret)
-		goto out;
+	if (!dev->lpi_enable) {
+		ret = msm_msi_init(&dev->pdev->dev);
+		if (ret)
+			goto out;
+	}
 
 	bridge->sysdata = dev;
 	bridge->ops = &msm_pcie_ops;
@@ -5759,6 +5765,15 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	pcie_dev->shadow_en = true;
 	pcie_dev->aer_enable = true;
+
+	if (!of_find_property(of_node, "msi-map", NULL)) {
+		PCIE_DBG(pcie_dev, "RC%d: LPI not supported.\n",
+			 pcie_dev->rc_idx);
+	} else {
+		PCIE_DBG(pcie_dev, "RC%d: LPI supported.\n",
+			 pcie_dev->rc_idx);
+		pcie_dev->lpi_enable = true;
+	}
 
 	memcpy(pcie_dev->vreg, msm_pcie_vreg_info, sizeof(msm_pcie_vreg_info));
 	memcpy(pcie_dev->gpio, msm_pcie_gpio_info, sizeof(msm_pcie_gpio_info));
@@ -7127,7 +7142,9 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	pcie_dev->link_status = MSM_PCIE_LINK_ENABLED;
 
 	/* resume access to MSI register as link is resumed */
-	msm_msi_config_access(dev_get_msi_domain(&pcie_dev->dev->dev), true);
+	if (!pcie_dev->lpi_enable)
+		msm_msi_config_access(dev_get_msi_domain(&pcie_dev->dev->dev),
+				      true);
 
 	enable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
 
@@ -7163,7 +7180,9 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	}
 
 	/* suspend access to MSI register. resume access in drv_resume */
-	msm_msi_config_access(dev_get_msi_domain(&pcie_dev->dev->dev), false);
+	if (!pcie_dev->lpi_enable)
+		msm_msi_config_access(dev_get_msi_domain(&pcie_dev->dev->dev),
+				      false);
 
 	pcie_dev->user_suspend = true;
 	set_bit(pcie_dev->rc_idx, &pcie_drv.rc_drv_enabled);

@@ -164,6 +164,7 @@ struct spi_geni_master {
 	bool shared_ee; /* Dual EE use case */
 	bool shared_se; /* True Multi EE use case */
 	bool is_le_vm;	/* LE VM usecase */
+	bool is_la_vm;	/* LA VM property */
 	bool dis_autosuspend;
 	bool cmd_done;
 	bool set_miso_sampling;
@@ -440,7 +441,7 @@ static struct msm_gpi_tre *setup_go_tre(int cmd, int cs, int rx_len, int flags,
 	if (cmd == SPI_RX_ONLY) {
 		eot = 0;
 		chain = 0;
-		eob = 0;
+		eob = 1;	/* GO TRE on TX: processing needed */
 	} else {
 		eot = 0;
 		chain = 1;
@@ -910,12 +911,22 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 
 	if (mas->shared_ee) {
 		if (mas->setup) {
+			/* Client to respect system suspend */
+			if (!pm_runtime_enabled(mas->dev)) {
+				GENI_SE_ERR(mas->ipc, false, NULL,
+					"%s: System suspended\n", __func__);
+				return -EACCES;
+			}
+
 			ret = pm_runtime_get_sync(mas->dev);
 			if (ret < 0) {
 				dev_err(mas->dev,
 					"%s:pm_runtime_get_sync failed %d\n",
 							__func__, ret);
+				WARN_ON_ONCE(1);
 				pm_runtime_put_noidle(mas->dev);
+				/* Set device in suspended since resume failed */
+				pm_runtime_set_suspended(mas->dev);
 				goto exit_prepare_message;
 			}
 			ret = 0;
@@ -1142,7 +1153,6 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 		}
 	}
 setup_ipc:
-	mas->ipc = ipc_log_context_create(4, dev_name(mas->dev), 0);
 	dev_info(mas->dev, "tx_fifo %d rx_fifo %d tx_width %d\n",
 		mas->tx_fifo_depth, mas->rx_fifo_depth,
 		mas->tx_fifo_width);
@@ -1197,6 +1207,13 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 	if (mas->is_le_vm)
 		return 0;
 
+	/* Client to respect system suspend */
+	if (!pm_runtime_enabled(mas->dev)) {
+		GENI_SE_ERR(mas->ipc, false, NULL,
+			"%s: System suspended\n", __func__);
+		return -EACCES;
+	}
+
 	if (mas->gsi_mode && !mas->shared_ee) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
@@ -1215,7 +1232,10 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 			dev_err(mas->dev,
 				"%s:pm_runtime_get_sync failed %d\n",
 							__func__, ret);
+			WARN_ON_ONCE(1);
 			pm_runtime_put_noidle(mas->dev);
+			/* Set device in suspended since resume failed */
+			pm_runtime_set_suspended(mas->dev);
 			return ret;
 		}
 
@@ -1246,6 +1266,10 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 	int count = 0;
 
 	if (mas->shared_ee || mas->is_le_vm)
+		return 0;
+
+	if (mas->is_la_vm)
+		/* Client on LA VM to controls resources, hence return */
 		return 0;
 
 	if (mas->gsi_mode) {
@@ -1465,6 +1489,17 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	if (xfer->len < 1) {
 		dev_err(mas->dev, "Zero length transfer\n");
 		return -EINVAL;
+	}
+
+	/* Double check PM status, client might have not taken wakelock and
+	 * continue to queue more transfers. Post auto-suspend, system suspend
+	 * can keep driver to forced suspend, hence it's client's responsibility
+	 * to not allow system suspend to trigger.
+	 */
+	if (pm_runtime_status_suspended(mas->dev)) {
+		GENI_SE_ERR(mas->ipc, true, mas->dev,
+			"%s: device is PM suspended\n", __func__);
+		return -EACCES;
 	}
 
 	if (mas->cur_xfer_mode != GSI_DMA) {
@@ -1787,6 +1822,11 @@ static int spi_geni_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,la-vm")) {
+		geni_mas->is_la_vm = true;
+		dev_info(&pdev->dev, "LA-VM usecase\n");
+	}
+
 	/*
 	 * For LE, clocks, gpio and icb voting will be provided by
 	 * by LA. The SPI operates in GSI mode only for LE usecase,
@@ -1862,7 +1902,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 			goto spi_geni_probe_unmap;
 		}
 
-		irq_set_status_flags(geni_mas->irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev, geni_mas->irq,
 			geni_spi_irq, IRQF_TRIGGER_HIGH, "spi_geni", geni_mas);
 		if (ret) {
@@ -1901,7 +1940,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 	geni_mas->dis_autosuspend =
 		of_property_read_bool(pdev->dev.of_node,
 				"qcom,disable-autosuspend");
-
 	/*
 	 * shared_se property is set when spi is being used simultaneously
 	 * from two Execution Environments.
@@ -1964,15 +2002,22 @@ static int spi_geni_probe(struct platform_device *pdev)
 		pm_runtime_use_autosuspend(&pdev->dev);
 	}
 	pm_runtime_enable(&pdev->dev);
+
+	geni_mas->ipc = ipc_log_context_create(4, dev_name(geni_mas->dev), 0);
+	if (!geni_mas->ipc && IS_ENABLED(CONFIG_IPC_LOGGING))
+		dev_err(&pdev->dev, "Error creating IPC logs\n");
+
 	ret = spi_register_master(spi);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register SPI master\n");
 		goto spi_geni_probe_unmap;
 	}
+	dev_info(&pdev->dev, "%s: completed\n", __func__);
 	return ret;
 spi_geni_probe_unmap:
 	devm_iounmap(&pdev->dev, geni_mas->base);
 spi_geni_probe_err:
+	dev_info(&pdev->dev, "%s: ret:%d\n", __func__, ret);
 	spi_master_put(spi);
 	return ret;
 }
@@ -2001,6 +2046,7 @@ static int spi_geni_runtime_suspend(struct device *dev)
 		return 0;
 	}
 
+	GENI_SE_DBG(geni_mas->ipc, false, NULL, "%s:\n", __func__);
 	/* Do not unconfigure the GPIOs for a shared_se usecase */
 	if (geni_mas->shared_ee && !geni_mas->shared_se)
 		goto exit_rt_suspend;
@@ -2043,6 +2089,8 @@ static int spi_geni_runtime_resume(struct device *dev)
 		/* Return here as LE VM doesn't need resourc/clock management */
 		return ret;
 	}
+
+	GENI_SE_DBG(geni_mas->ipc, false, NULL, "%s:\n", __func__);
 
 	if (geni_mas->shared_ee)
 		goto exit_rt_resume;

@@ -262,7 +262,7 @@ static int a3xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	cmds[index++] = 0;
 
 	profile_gpuaddr = adreno_profile_postib_processing(adreno_dev,
-		&profile_dwords);
+		drawctxt, &profile_dwords);
 
 	if (profile_gpuaddr) {
 		cmds[index++] = cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2);
@@ -440,7 +440,7 @@ int a3xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		goto done;
 	}
 
-	adreno_ringbuffer_set_constraint(device, drawobj);
+	adreno_drawobj_set_constraint(device, drawobj);
 
 	ret = a3xx_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
 		flags, cmds, index, drawobj->timestamp, NULL);

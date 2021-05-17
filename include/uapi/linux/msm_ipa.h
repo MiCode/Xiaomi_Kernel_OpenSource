@@ -133,6 +133,8 @@
 #define IPA_IOCTL_PDN_CONFIG                    80
 #define IPA_IOCTL_SET_MAC_FLT                   81
 #define IPA_IOCTL_GET_PHERIPHERAL_EP_INFO       82
+#define IPA_IOCTL_SET_SW_FLT                    85
+#define IPA_IOCTL_SET_PKT_THRESHOLD             87
 
 /**
  * max size of the header to be inserted
@@ -178,7 +180,11 @@
 /**
  * Max number of clients supported for mac based exception
  */
+
 #define IPA_MAX_NUM_MAC_FLT 5
+#define IPA_MAX_NUM_IPv4_SEGS_FLT 16
+#define IPA_MAX_NUM_IFACE_FLT 4
+
 
 /**
  * MAX number of the FLT_RT stats counter supported.
@@ -436,9 +442,15 @@ enum ipa_client_type {
 
 	/* RESERVED PROD			= 118, */
 	IPA_CLIENT_WLAN2_CONS1			= 119,
+
+	IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD	= 120,
+	IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS	= 121,
+
+	IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD		= 122,
+	/* RESERVED CONS			= 123, */
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_WLAN2_CONS1 + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -463,17 +475,22 @@ enum ipa_client_type {
 #define IPA_CLIENT_MHI_QDSS_CONS IPA_CLIENT_MHI_QDSS_CONS
 #define IPA_CLIENT_QDSS_PROD IPA_CLIENT_QDSS_PROD
 #define IPA_CLIENT_WLAN2_CONS1 IPA_CLIENT_WLAN2_CONS1
+#define IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD
+#define IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS
+#define IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
 	(client) == IPA_CLIENT_APPS_WAN_CONS || \
 	(client) == IPA_CLIENT_APPS_WAN_COAL_CONS || \
-	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_CONS)
+	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_CONS || \
+	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS)
 
 #define IPA_CLIENT_IS_APPS_PROD(client) \
 	((client) == IPA_CLIENT_APPS_LAN_PROD || \
 	(client) == IPA_CLIENT_APPS_WAN_PROD || \
-	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_PROD)
+	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_PROD || \
+	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD)
 
 #define IPA_CLIENT_IS_USB_CONS(client) \
 	((client) == IPA_CLIENT_USB_CONS || \
@@ -519,6 +536,7 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_CMD_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP2_PROD || \
+	(client) == IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD || \
 	(client) == IPA_CLIENT_Q6_DL_NLO_DATA_PROD || \
 	(client) == IPA_CLIENT_Q6_CV2X_PROD || \
 	(client) == IPA_CLIENT_Q6_AUDIO_DMA_MHI_PROD)
@@ -543,6 +561,7 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_WAN_PROD || \
 	(client) == IPA_CLIENT_Q6_CMD_PROD || \
 	(client) == IPA_CLIENT_Q6_DL_NLO_DATA_PROD || \
+	(client) == IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD || \
 	(client) == IPA_CLIENT_Q6_CV2X_PROD || \
 	(client) == IPA_CLIENT_Q6_AUDIO_DMA_MHI_PROD)
 
@@ -800,7 +819,25 @@ enum ipa_warning_limit_event {
 #define IPA_WARNING_LIMIT_EVENT_MAX IPA_WARNING_LIMIT_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_WARNING_LIMIT_EVENT_MAX)
+enum ipa_sw_flt_event {
+	IPA_SW_FLT_EVENT = IPA_WARNING_LIMIT_EVENT_MAX,
+	IPA_SW_FLT_EVENT_MAX
+#define IPA_SW_FLT_EVENT_MAX IPA_SW_FLT_EVENT_MAX
+};
+
+enum ipa_pkt_threshold_event {
+	IPA_PKT_THRESHOLD_EVENT = IPA_SW_FLT_EVENT_MAX,
+	IPA_PKT_THRESHOLD_EVENT_MAX
+#define IPA_PKT_THRESHOLD_EVENT_MAX IPA_PKT_THRESHOLD_EVENT_MAX
+};
+
+enum ipa_move_nat_table_event {
+	IPA_MOVE_NAT_TABLE = IPA_PKT_THRESHOLD_EVENT_MAX,
+	IPA_MOVE_NAT_EVENT_MAX
+#define IPA_MOVE_NAT_EVENT_MAX IPA_MOVE_NAT_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_MOVE_NAT_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -2460,6 +2497,28 @@ struct ipa_ioc_get_ep_info {
 };
 
 /**
+ * struct ipa_set_pkt_threshold
+ * @pkt_threshold_enable: indicate pkt_thr enable or not
+ * @pkt_threshold: if pkt_threshold_enable = true, given the values
+ */
+struct ipa_set_pkt_threshold {
+	uint8_t pkt_threshold_enable;
+	int pkt_threshold;
+};
+
+/**
+ * struct ipa_ioc_set_pkt_threshold
+ * @ioctl_ptr: has to be typecasted to (__u64)(uintptr_t)
+ * @ioctl_data_size:
+ * Eg: For ipa_set_pkt_threshold = sizeof(ipa_set_pkt_threshold)
+ */
+struct ipa_ioc_set_pkt_threshold {
+	__u64 ioctl_ptr;
+	__u32 ioctl_data_size;
+	__u32 padding;
+};
+
+/**
  * struct ipa_ioc_wigig_fst_switch - switch between wigig and wlan
  * @netdev_name: wigig interface name
  * @client_mac_addr: client to switch between netdevs
@@ -2877,6 +2936,49 @@ struct ipa_ioc_mac_client_list_type {
 };
 
 /**
+ * struct ipa_sw_flt_list_type- exception list
+ * @mac_enable: true to block current mac addrs and false to clean
+ *		up all previous mac addrs
+ * @num_of_mac: holds num of clients to blacklist
+ * @mac_addr: an array to hold clients mac addrs
+ * @ipv4_segs_enable: true to block current ipv4 addrs and false to clean
+ *		up all previous ipv4 addrs
+ * @ipv4_segs_ipv6_offload: reserved flexibility for future use.
+ *		true will indicate ipv6 could be still offloaded and
+ *		default is set to false as sw-path for ipv6 as well.
+ * @num_of_ipv4_segs: holds num of ipv4 segs to blacklist
+ * @ipv4_segs: an array to hold clients ipv4 segs addrs
+ * @iface_enable: true to block current ifaces and false to clean
+ *		up all previous ifaces
+ * @num_of_iface: holds num of ifaces to blacklist
+ * @iface: an array to hold netdev ifaces
+ */
+struct ipa_sw_flt_list_type {
+	uint8_t mac_enable;
+	int num_of_mac;
+	uint8_t mac_addr[IPA_MAX_NUM_MAC_FLT][IPA_MAC_ADDR_SIZE];
+	uint8_t ipv4_segs_enable;
+	uint8_t ipv4_segs_ipv6_offload;
+	int num_of_ipv4_segs;
+	uint32_t ipv4_segs[IPA_MAX_NUM_IPv4_SEGS_FLT][2];
+	uint8_t iface_enable;
+	int num_of_iface;
+	char iface[IPA_MAX_NUM_IFACE_FLT][IPA_RESOURCE_NAME_MAX];
+};
+
+/**
+ * struct ipa_ioc_sw_flt_list_type
+ * @ioctl_ptr: has to be typecasted to (__u64)(uintptr_t)
+ * @ioctl_data_size:
+ * Eg: For ipa_sw_flt_list_type = sizeof(ipa_sw_flt_list_type)
+ */
+struct ipa_ioc_sw_flt_list_type {
+	__u64 ioctl_ptr;
+	__u32 ioctl_data_size;
+	__u32 padding;
+};
+
+/**
  *   actual IOCTLs supported by IPA driver
  */
 #define IPA_IOC_ADD_HDR _IOWR(IPA_IOC_MAGIC, \
@@ -3149,6 +3251,13 @@ struct ipa_ioc_mac_client_list_type {
 				IPA_IOCTL_GET_PHERIPHERAL_EP_INFO, \
 				struct ipa_ioc_get_ep_info)
 
+#define IPA_IOC_SET_SW_FLT _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_SW_FLT, \
+				struct ipa_ioc_sw_flt_list_type)
+
+#define IPA_IOC_SET_PKT_THRESHOLD _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_PKT_THRESHOLD, \
+				struct ipa_ioc_set_pkt_threshold)
 /*
  * unique magic number of the Tethering bridge ioctls
  */

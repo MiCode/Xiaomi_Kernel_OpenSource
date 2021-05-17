@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_SHAREDMEM_H
 #define __KGSL_SHAREDMEM_H
@@ -271,6 +271,19 @@ kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 }
 
 /**
+ * kgsl_memdesc_put_gpuaddr - Release the gpuaddr assigned to a memdesc
+ * @memdesc: Pointer to a GPU memory object
+ *
+ * Call the memdesc specific function to release the GPU address assigned to the
+ * memdesc and unmap the memory
+ */
+static inline void kgsl_sharedmem_put_gpuaddr(struct kgsl_memdesc *memdesc)
+{
+	if (memdesc && memdesc->ops->put_gpuaddr)
+		memdesc->ops->put_gpuaddr(memdesc);
+}
+
+/**
  * kgsl_cachemode_is_cached - Return true if the passed flags indicate a cached
  * buffer
  * @flags: A bitmask of KGSL_MEMDESC_ flags
@@ -283,5 +296,95 @@ static inline bool kgsl_cachemode_is_cached(u64 flags)
 
 	return (mode != KGSL_CACHEMODE_UNCACHED &&
 		mode != KGSL_CACHEMODE_WRITECOMBINE);
+}
+
+struct kgsl_sharedmem_bind_op_range {
+	u64 start;
+	u64 last;
+	u32 child_offset;
+	u32 op;
+	struct kgsl_mem_entry *entry;
+};
+
+struct kgsl_sharedmem_bind_op {
+	struct kgsl_mem_entry *target;
+	struct kgsl_sharedmem_bind_op_range *ops;
+	int nr_ops;
+	void (*callback)(struct kgsl_sharedmem_bind_op *op);
+	void *data;
+	struct work_struct work;
+	struct kref ref;
+};
+
+/**
+ * kgsl_sharedmem_allocate_vbo - Allocate a new virtual buffer object
+ * @device: A KGSL GPU handle
+ * @memdesc: Memory descriptor container to initialize
+ * @size:  Size of the VBO
+ * @flags: Bitmask of KGSL_MEMFLAGS_*
+ *
+ * Initialize a new virtual buffer object memory descriptor
+ *
+ * Return: 0 on success or negative on failure.
+ */
+int kgsl_sharedmem_allocate_vbo(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc, u64 size, u64 flags);
+
+/**
+ * kgsl_memdesc_print_vbo_ranges - Print a new virtual buffer object
+ * @entry: A KGSL memory entry
+ * @s:	seq_file pointer
+ *
+ * Print virtual buffer object memory ranges
+ */
+void kgsl_memdesc_print_vbo_ranges(struct kgsl_mem_entry *entry,
+		struct seq_file *s);
+
+/**
+ * kgsl_sharedmem_create_bind_op - Create a new bind op
+ * @private: A KGSL process private
+ * @target_id:	Target virtual buffer object id
+ * @ranges: User memory pointer to an array of range operations of type &struct
+ * kgsl_gpumem_bind_range
+ * @ranges_nents: Number of entries in @ranges
+ * @ranges_size: Size of each entry in @ranges in bytes
+ *
+ * Create a new bind op to be used to map ranges
+ *
+ * Return: On success return kgsl_sharedmem_bind_op pointer or negative
+ * on failure
+ *
+ */
+struct kgsl_sharedmem_bind_op *
+kgsl_sharedmem_create_bind_op(struct kgsl_process_private *private,
+		u32 target_id, void __user *ranges, u32 ranges_nents,
+		u64 ranges_size);
+
+/**
+ * kgsl_sharedmem_bind_ranges - Bind ranges to virtual buffer object
+ * @op: One of KGSL_GPUMEM_RANGE_OP_BIND or KGSL_GPUMEM_RANGE_OP_UNBIND
+ *
+ * Add or remove a range from kgsl memory descriptor
+ */
+void kgsl_sharedmem_bind_ranges(struct kgsl_sharedmem_bind_op *op);
+
+/**
+ * kgsl_sharedmem_bind_range_destroy - Bind ranges to virtual buffer object
+ * @kref: kref to bind kgsl_sharedmem_bind_op
+ *
+ * Destroy bind ranges object
+ */
+void kgsl_sharedmem_bind_range_destroy(struct kref *kref);
+
+/**
+ * kgsl_sharedmem_put_bind_op - Bind ranges to virtual buffer object
+ * @op: One of KGSL_GPUMEM_RANGE_OP_BIND or KGSL_GPUMEM_RANGE_OP_UNBIND
+ *
+ * Put kgsl_sharedmem_bind_range_destroy to free resources
+ */
+static inline void kgsl_sharedmem_put_bind_op(struct kgsl_sharedmem_bind_op *op)
+{
+	if (!IS_ERR_OR_NULL(op))
+		kref_put(&op->ref, kgsl_sharedmem_bind_range_destroy);
 }
 #endif /* __KGSL_SHAREDMEM_H */

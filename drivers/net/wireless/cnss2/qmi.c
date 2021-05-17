@@ -198,11 +198,7 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	}
 
 	req->num_clients_valid = 1;
-	if (test_bit(ENABLE_DAEMON_SUPPORT,
-		     &plat_priv->ctrl_params.quirks))
-		req->num_clients = 2;
-	else
-		req->num_clients = 1;
+	req->num_clients = 1;
 	cnss_pr_dbg("Number of clients is %d\n", req->num_clients);
 
 	req->wake_msi = cnss_bus_get_wake_irq(plat_priv);
@@ -476,14 +472,15 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 		plat_priv->fw_pcie_gen_switch =
 			!!(resp->fw_caps & QMI_WLFW_HOST_PCIE_GEN_SWITCH_V01);
 
-	cnss_pr_dbg("Target capability: chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s, fw_build_id: %s, otp_version: 0x%x\n",
+	cnss_pr_dbg("Target capability: chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, otp_version: 0x%x\n",
 		    plat_priv->chip_info.chip_id,
 		    plat_priv->chip_info.chip_family,
 		    plat_priv->board_info.board_id, plat_priv->soc_info.soc_id,
+		    plat_priv->otp_version);
+	cnss_pr_dbg("fw_version: 0x%x, fw_build_timestamp: %s, fw_build_id: %s\n",
 		    plat_priv->fw_version_info.fw_version,
 		    plat_priv->fw_version_info.fw_build_timestamp,
-		    plat_priv->fw_build_id,
-		    plat_priv->otp_version);
+		    plat_priv->fw_build_id);
 
 	kfree(req);
 	kfree(resp);
@@ -599,7 +596,13 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	if (ret)
 		goto err_req_fw;
 
-	ret = request_firmware(&fw_entry, filename, &plat_priv->plat_dev->dev);
+	if (bdf_type == CNSS_BDF_REGDB)
+		ret = cnss_request_firmware_direct(plat_priv, &fw_entry,
+						   filename);
+	else
+		ret = firmware_request_nowarn(&fw_entry, filename,
+					      &plat_priv->plat_dev->dev);
+
 	if (ret) {
 		cnss_pr_err("Failed to load BDF: %s\n", filename);
 		goto err_req_fw;
@@ -672,12 +675,17 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 
 	release_firmware(fw_entry);
 
-	/* QCA6490 enable S3E regulator for IPA configuration only */
 	if (resp->host_bdf_data_valid) {
+		/* QCA6490 enable S3E regulator for IPA configuration only */
 		if (!(resp->host_bdf_data & QMI_WLFW_HW_XPA_V01))
 			cnss_enable_int_pow_amp_vreg(plat_priv);
-	}
 
+		plat_priv->cbc_file_download =
+			resp->host_bdf_data & QMI_WLFW_CBC_FILE_DOWNLOAD_V01;
+		cnss_pr_info("Host BDF config: HW_XPA: %d CalDB: %d\n",
+			     resp->host_bdf_data & QMI_WLFW_HW_XPA_V01,
+			     plat_priv->cbc_file_download);
+	}
 	kfree(req);
 	kfree(resp);
 	return 0;
@@ -1005,8 +1013,8 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	}
 
 	cnss_get_qdss_cfg_filename(plat_priv, qdss_cfg_filename, sizeof(qdss_cfg_filename));
-	ret = request_firmware(&fw_entry, qdss_cfg_filename,
-			       &plat_priv->plat_dev->dev);
+	ret = cnss_request_firmware_direct(plat_priv, &fw_entry,
+					   qdss_cfg_filename);
 	if (ret) {
 		cnss_pr_err("Failed to load QDSS: %s\n",
 			    qdss_cfg_filename);
@@ -2140,6 +2148,8 @@ static void cnss_wlfw_request_mem_ind_cb(struct qmi_handle *qmi_wlfw,
 		if (plat_priv->fw_mem[i].type == CNSS_MEM_TYPE_DDR)
 			plat_priv->fw_mem[i].attrs |=
 				DMA_ATTR_FORCE_CONTIGUOUS;
+		if (plat_priv->fw_mem[i].type == CNSS_MEM_CAL_V01)
+			plat_priv->cal_mem = &plat_priv->fw_mem[i];
 	}
 
 	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_REQUEST_MEM,
@@ -2245,21 +2255,71 @@ static void cnss_wlfw_pin_result_ind_cb(struct qmi_handle *qmi_wlfw,
 		    ind_msg->rf_pin_result);
 }
 
+int cnss_wlfw_cal_report_req_send_sync(struct cnss_plat_data *plat_priv,
+				       u32 cal_file_download_size)
+{
+	struct wlfw_cal_report_req_msg_v01 req = {0};
+	struct wlfw_cal_report_resp_msg_v01 resp = {0};
+	struct qmi_txn txn;
+	int ret = 0;
+
+	cnss_pr_dbg("Sending cal file report request. File size: %d, state: 0x%lx\n",
+		    cal_file_download_size, plat_priv->driver_state);
+	req.cal_file_download_size_valid = 1;
+	req.cal_file_download_size = cal_file_download_size;
+
+	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+			   wlfw_cal_report_resp_msg_v01_ei, &resp);
+	if (ret < 0) {
+		cnss_pr_err("Failed to initialize txn for Cal Report request, err: %d\n",
+			    ret);
+		goto out;
+	}
+	ret = qmi_send_request(&plat_priv->qmi_wlfw, NULL, &txn,
+			       QMI_WLFW_CAL_REPORT_REQ_V01,
+			       WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_cal_report_req_msg_v01_ei, &req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Failed to send Cal Report request, err: %d\n",
+			    ret);
+		goto out;
+	}
+	ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
+	if (ret < 0) {
+		cnss_pr_err("Failed to wait for response of Cal Report request, err: %d\n",
+			    ret);
+		goto out;
+	}
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("Cal Report request failed, result: %d, err: %d\n",
+			    resp.resp.result, resp.resp.error);
+		ret = -resp.resp.result;
+		goto out;
+	}
+out:
+	return ret;
+}
+
 static void cnss_wlfw_cal_done_ind_cb(struct qmi_handle *qmi_wlfw,
 				      struct sockaddr_qrtr *sq,
 				      struct qmi_txn *txn, const void *data)
 {
 	struct cnss_plat_data *plat_priv =
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
+	const struct wlfw_cal_done_ind_msg_v01 *ind = data;
 	struct cnss_cal_info *cal_info;
 
-	cnss_pr_dbg("Received QMI WLFW calibration done indication\n");
-
+	cnss_pr_dbg("Received Cal done indication. File size: %d\n",
+		    ind->cal_file_upload_size);
+	cnss_pr_info("Calibration took %d ms\n",
+		     jiffies_to_msecs(jiffies - plat_priv->cal_time));
 	if (!txn) {
 		cnss_pr_err("Spurious indication\n");
 		return;
 	}
-
+	if (ind->cal_file_upload_size_valid)
+		plat_priv->cal_file_size = ind->cal_file_upload_size;
 	cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 	if (!cal_info)
 		return;

@@ -12,7 +12,6 @@
 #include <linux/module.h>
 #include <linux/notifier.h>
 #include <linux/remoteproc.h>
-#include <linux/remoteproc/qcom_rproc.h>
 #include <linux/rpmsg/qcom_glink.h>
 #include <linux/rpmsg/qcom_smd.h>
 #include <linux/slab.h>
@@ -21,6 +20,8 @@
 
 #include "remoteproc_internal.h"
 #include "qcom_common.h"
+
+#define SSR_NOTIF_TIMEOUT CONFIG_RPROC_SSR_NOTIF_TIMEOUT
 
 #define to_glink_subdev(d) container_of(d, struct qcom_rproc_glink, subdev)
 #define to_smd_subdev(d) container_of(d, struct qcom_rproc_subdev, subdev)
@@ -90,6 +91,7 @@ struct qcom_ssr_subsystem {
 static LIST_HEAD(qcom_ssr_subsystem_list);
 static DEFINE_MUTEX(qcom_ssr_subsys_lock);
 
+static const char * const ssr_timeout_msg = "srcu notifier chain for %s:%s taking too long";
 
 static void qcom_minidump_cleanup(struct rproc *rproc)
 {
@@ -397,6 +399,17 @@ void *qcom_register_ssr_notifier(const char *name, struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(qcom_register_ssr_notifier);
 
+static void ssr_notif_timeout_handler(struct timer_list *t)
+{
+	struct qcom_rproc_ssr *ssr = from_timer(ssr, t, timer);
+
+#if IS_ENABLED(CONFIG_QCOM_PANIC_ON_NOTIF_TIMEOUT)
+	panic(ssr_timeout_msg, ssr->info->name, subdevice_state_string[ssr->notification]);
+#else
+	WARN(1, ssr_timeout_msg, ssr->info->name, subdevice_state_string[ssr->notification]);
+#endif
+}
+
 /**
  * qcom_unregister_ssr_notifier() - unregister SSR notification handler
  * @notify:	subsystem cookie returned from qcom_register_ssr_notifier
@@ -413,6 +426,16 @@ int qcom_unregister_ssr_notifier(void *notify, struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(qcom_unregister_ssr_notifier);
 
+static inline void notify_ssr_clients(struct qcom_rproc_ssr *ssr, struct qcom_ssr_notify_data *data)
+{
+	unsigned long timeout;
+
+	timeout = jiffies + msecs_to_jiffies(SSR_NOTIF_TIMEOUT);
+	mod_timer(&ssr->timer, timeout);
+	srcu_notifier_call_chain(&ssr->info->notifier_list, ssr->notification, data);
+	del_timer_sync(&ssr->timer);
+}
+
 static int ssr_notify_prepare(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_ssr *ssr = to_ssr_subdev(subdev);
@@ -421,8 +444,8 @@ static int ssr_notify_prepare(struct rproc_subdev *subdev)
 		.crashed = false,
 	};
 
-	srcu_notifier_call_chain(&ssr->info->notifier_list,
-				 QCOM_SSR_BEFORE_POWERUP, &data);
+	ssr->notification = QCOM_SSR_BEFORE_POWERUP;
+	notify_ssr_clients(ssr, &data);
 	return 0;
 }
 
@@ -434,8 +457,8 @@ static int ssr_notify_start(struct rproc_subdev *subdev)
 		.crashed = false,
 	};
 
-	srcu_notifier_call_chain(&ssr->info->notifier_list,
-				 QCOM_SSR_AFTER_POWERUP, &data);
+	ssr->notification = QCOM_SSR_AFTER_POWERUP;
+	notify_ssr_clients(ssr, &data);
 	return 0;
 }
 
@@ -447,8 +470,8 @@ static void ssr_notify_stop(struct rproc_subdev *subdev, bool crashed)
 		.crashed = crashed,
 	};
 
-	srcu_notifier_call_chain(&ssr->info->notifier_list,
-				 QCOM_SSR_BEFORE_SHUTDOWN, &data);
+	ssr->notification = QCOM_SSR_BEFORE_SHUTDOWN;
+	notify_ssr_clients(ssr, &data);
 }
 
 static void ssr_notify_unprepare(struct rproc_subdev *subdev)
@@ -459,8 +482,8 @@ static void ssr_notify_unprepare(struct rproc_subdev *subdev)
 		.crashed = false,
 	};
 
-	srcu_notifier_call_chain(&ssr->info->notifier_list,
-				 QCOM_SSR_AFTER_SHUTDOWN, &data);
+	ssr->notification = QCOM_SSR_AFTER_SHUTDOWN;
+	notify_ssr_clients(ssr, &data);
 }
 
 /**
@@ -483,6 +506,8 @@ void qcom_add_ssr_subdev(struct rproc *rproc, struct qcom_rproc_ssr *ssr,
 		dev_err(&rproc->dev, "Failed to add ssr subdevice\n");
 		return;
 	}
+
+	timer_setup(&ssr->timer, ssr_notif_timeout_handler, 0);
 
 	ssr->info = info;
 	ssr->subdev.prepare = ssr_notify_prepare;

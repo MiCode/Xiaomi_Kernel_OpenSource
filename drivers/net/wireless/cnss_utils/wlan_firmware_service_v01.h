@@ -563,9 +563,11 @@ struct wlfw_cal_report_req_msg_v01 {
 	u8 xo_cal_data;
 	u8 cal_remove_supported_valid;
 	u8 cal_remove_supported;
+	u8 cal_file_download_size_valid;
+	u64 cal_file_download_size;
 };
 
-#define WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN 32
+#define WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN 43
 extern struct qmi_elem_info wlfw_cal_report_req_msg_v01_ei[];
 
 struct wlfw_cal_report_resp_msg_v01 {
@@ -920,10 +922,11 @@ struct wlfw_xo_cal_ind_msg_v01 {
 extern struct qmi_elem_info wlfw_xo_cal_ind_msg_v01_ei[];
 
 struct wlfw_cal_done_ind_msg_v01 {
-	char placeholder;
+	u8 cal_file_upload_size_valid;
+	u64 cal_file_upload_size;
 };
 
-#define WLFW_CAL_DONE_IND_MSG_V01_MAX_MSG_LEN 0
+#define WLFW_CAL_DONE_IND_MSG_V01_MAX_MSG_LEN 11
 extern struct qmi_elem_info wlfw_cal_done_ind_msg_v01_ei[];
 
 struct wlfw_qdss_trace_req_mem_ind_msg_v01 {

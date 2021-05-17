@@ -174,9 +174,8 @@ int genc_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		 * recovery.
 		 */
 		gmu_core_fault_snapshot(device);
-		adreno_set_gpu_fault(adreno_dev,
+		adreno_dispatcher_fault(adreno_dev,
 			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
-		adreno_dispatcher_schedule(device);
 	}
 
 	return ret;
@@ -302,7 +301,7 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	index += dwords;
 
 	profile_gpuaddr = adreno_profile_postib_processing(adreno_dev,
-		&dwords);
+		drawctxt, &dwords);
 
 	if (profile_gpuaddr) {
 		cmds[index++] = cp_type7_packet(CP_INDIRECT_BUFFER_PFE, 3);
@@ -551,7 +550,7 @@ int genc_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		goto done;
 	}
 
-	adreno_ringbuffer_set_constraint(device, drawobj);
+	adreno_drawobj_set_constraint(device, drawobj);
 
 	ret = genc_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
 		flags, cmds, index, drawobj->timestamp, time);

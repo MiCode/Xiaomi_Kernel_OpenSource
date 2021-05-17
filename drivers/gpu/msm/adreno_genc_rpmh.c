@@ -262,15 +262,20 @@ static int setup_cx_arc_votes(struct genc_hfi *hfi,
 	struct rpmh_arc_vals *pri_rail, struct rpmh_arc_vals *sec_rail)
 {
 	/* Hardcoded values of GMU CX voltage levels */
-	u16 gmu_cx_vlvl[] = { 0, RPMH_REGULATOR_LEVEL_MIN_SVS };
+	u16 gmu_cx_vlvl[MAX_CX_LEVELS];
 	u32 cx_votes[MAX_CX_LEVELS];
 	struct hfi_dcvstable_cmd *table = &hfi->dcvs_table;
 	int ret, i;
 
-	table->gmu_level_num = 2;
+	gmu_cx_vlvl[0] = 0;
+	gmu_cx_vlvl[1] = RPMH_REGULATOR_LEVEL_LOW_SVS;
+	gmu_cx_vlvl[2] = RPMH_REGULATOR_LEVEL_SVS;
+
+	table->gmu_level_num = 3;
 
 	table->cx_votes[0].freq = 0;
-	table->cx_votes[1].freq = GMU_FREQUENCY / 1000;
+	table->cx_votes[1].freq = GMU_FREQ_MIN / 1000;
+	table->cx_votes[2].freq = GMU_FREQ_MAX / 1000;
 
 	ret = setup_volt_dependency_tbl(cx_votes, pri_rail,
 			sec_rail, gmu_cx_vlvl, table->gmu_level_num);

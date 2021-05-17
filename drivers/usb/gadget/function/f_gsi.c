@@ -3195,6 +3195,10 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 
 	log_event_dbg("%s:id:%d: dwq start", __func__, gsi->prot_id);
+
+	if (atomic_read(&gsi->connected))
+		gsi_disable(f);
+
 	/*
 	 * Use drain_workqueue to accomplish below conditions:
 	 * 1. Make sure that any running work completed

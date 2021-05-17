@@ -19,8 +19,16 @@ CONFIG_TARGET=msm.${MSM_ARCH}
 function compile_external_dtc() {
   (
     OUT_DIR=${COMMON_OUT_DIR}/external/dtc
+    [ "${SKIP_MRPROPER}" != "1" ] && rm -rf ${OUT_DIR}
     cd ${ROOT_DIR}/external/dtc
-    NO_PYTHON=1 CC=cc make all install PREFIX=${COMMON_OUT_DIR}/host
+    DTC_MAKE_ARGS=("CC=${HOSTCC}" "AR=${AR}")
+    DTC_MAKE_ARGS+=("LDFLAGS=${HOSTLDFLAGS} -fuse-ld=${LD##*.} --rtlib=compiler-rt")
+    DTC_MAKE_ARGS+=("EXTRA_CFLAGS=${HOSTCFLAGS}")
+    # PKG_CONFIG would pull from host environment to determine if libyaml and libpython are
+    # available. We want a hermetic build that doesn't rely on host tools, so make dtc build think
+    #  none of these libraries are installed.
+    DTC_MAKE_ARGS+=("PKG_CONFIG=false")
+    make all install "${DTC_MAKE_ARGS[@]}" NO_PYTHON=1 PREFIX=${COMMON_OUT_DIR}/host
   )
 }
 append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
@@ -47,7 +55,7 @@ DTC_OVERLAY_TEST_EXT=ufdt_apply_overlay
 function add_dt_overlay_defconfig() {
   ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
     -e BUILD_ARM64_DT_OVERLAY
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} olddefconfig)
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
 }
 if [ ! -z $DT_OVERLAY_SUPPORT ] && [ ! $DT_OVERLAY_SUPPORT -eq "0" ]; then
   append_cmd POST_DEFCONFIG_CMDS 'add_dt_overlay_defconfig'
@@ -97,7 +105,7 @@ function merge_defconfig_fragments() {
     exit 1
   fi
   local temp_config=$(mktemp)
-  (cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG}) 2>&1 | tee $output
+  (cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" ${DEFCONFIG}) 2>&1 | tee $output
   if grep -q -e "warning:" $output; then
     echo "========================================================"
     echo "ERROR! Treating config warnings as errors"

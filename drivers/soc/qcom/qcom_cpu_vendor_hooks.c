@@ -8,12 +8,15 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/kprobes.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/atomic.h>
 #include <linux/sched/debug.h>
+
+#include <soc/qcom/watchdog.h>
 
 #include <trace/hooks/debug.h>
 #include <trace/hooks/printk.h>
@@ -45,6 +48,58 @@ static void timer_recalc_index(void *unused,
 	*expires -= 1;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_SPINLOCK) && \
+   (IS_ENABLED(CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG) || IS_ENABLED(CONFIG_DEBUG_SPINLOCK_PANIC_ON_BUG))
+static int entry_spin_bug(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+	raw_spinlock_t *lock = (raw_spinlock_t *)regs->regs[0];
+	const char *msg = (const char *)regs->regs[1];
+	struct task_struct *owner = READ_ONCE(lock->owner);
+
+	if (!debug_locks_off())
+		return 0;
+
+	/* Dup of spin_bug in kernel/locking/spinlock_debug.c */
+	if (owner == SPINLOCK_OWNER_INIT)
+		owner = NULL;
+	printk(KERN_EMERG "BUG: spinlock %s on CPU#%d, %s/%d\n",
+		msg, raw_smp_processor_id(),
+		current->comm, task_pid_nr(current));
+	printk(KERN_EMERG " lock: %pS, .magic: %08x, .owner: %s/%d, "
+			".owner_cpu: %d\n",
+		lock, READ_ONCE(lock->magic),
+		owner ? owner->comm : "<none>",
+		owner ? task_pid_nr(owner) : -1,
+		READ_ONCE(lock->owner_cpu));
+
+#if IS_ENABLED(CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG)
+	qcom_wdt_trigger_bite();
+#elif IS_ENABLED(CONFIG_DEBUG_SPINLOCK_PANIC_ON_BUG)
+	BUG();
+#else
+# error "Neither CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG nor CONFIG_DEBUG_SPINLOCK_PANIC_ON_BUG is enabled yet trying to enable spin_bug hook"
+#endif
+	return 0;
+}
+
+struct kretprobe spin_bug_probe = {
+	.entry_handler = entry_spin_bug,
+	.maxactive = 1,
+	.kp.symbol_name = "spin_bug",
+};
+
+static void register_spinlock_bug_hook(struct platform_device *pdev)
+{
+	int ret;
+
+	ret = register_kretprobe(&spin_bug_probe);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to register spin_bug_probe: %x\n", ret);
+}
+#else
+static inline void register_spinlock_bug_hook(struct platform_device *pdev) { }
+#endif
+
 static int cpu_vendor_hooks_driver_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -69,6 +124,8 @@ static int cpu_vendor_hooks_driver_probe(struct platform_device *pdev)
 		unregister_trace_android_vh_printk_hotplug(printk_hotplug, NULL);
 		return ret;
 	}
+
+	register_spinlock_bug_hook(pdev);
 
 	return ret;
 }

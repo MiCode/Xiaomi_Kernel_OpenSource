@@ -497,6 +497,7 @@ static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
 
 static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
 				u32 req_clk);
+static void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host);
 
 static const struct sdhci_msm_offset *sdhci_priv_msm_offset(struct sdhci_host *host)
 {
@@ -1665,6 +1666,16 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 		sdhci_msm_hs400(host, &mmc->ios);
 }
 
+/*
+ * Ensure larger discard size by always setting max_busy_timeout to zero.
+ * This will always return max_busy_timeout as zero to the sdhci layer.
+ */
+
+static unsigned int sdhci_msm_get_max_timeout_count(struct sdhci_host *host)
+{
+	return 0;
+}
+
 #define MAX_PROP_SIZE 32
 static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 		struct sdhci_msm_reg_data **vreg_data, const char *vreg_name)
@@ -2013,10 +2024,13 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	if (!done) {
 		if (!wait_event_timeout(msm_host->pwr_irq_wait,
 				msm_host->pwr_irq_flag,
-				msecs_to_jiffies(MSM_PWR_IRQ_TIMEOUT_MS)))
+				msecs_to_jiffies(MSM_PWR_IRQ_TIMEOUT_MS))) {
 			dev_warn(&msm_host->pdev->dev,
 				 "%s: pwr_irq for req: (%d) timed out\n",
 				 mmc_hostname(host->mmc), req_type);
+			sdhci_msm_dump_pwr_ctrl_regs(host);
+		}
+
 	}
 
 	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
@@ -3432,6 +3446,7 @@ static void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 		readl_relaxed(host->ioaddr +
 			msm_offset->core_vendor_spec_func2),
 		readl_relaxed(host->ioaddr + msm_offset->core_vendor_spec3));
+	sdhci_msm_dump_pwr_ctrl_regs(host);
 
 	/*
 	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
@@ -3556,6 +3571,7 @@ static const struct sdhci_ops sdhci_msm_ops = {
 	.get_max_clock = sdhci_msm_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
+	.get_max_timeout_count = sdhci_msm_get_max_timeout_count,
 	.write_w = sdhci_msm_writew,
 	.write_b = sdhci_msm_writeb,
 	.irq	= sdhci_msm_cqe_irq,
@@ -3942,7 +3958,6 @@ static void sdhci_msm_qos_init(struct sdhci_msm_host *msm_host)
 	struct qos_cpu_group *qcg;
 	int i, err, mask = 0;
 
-	return;
 	qr = kzalloc(sizeof(*qr), GFP_KERNEL);
 	if (!qr)
 		return;
@@ -4448,13 +4463,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		msm_host->cqhci_offset_changed = true;
 
 	/*
-	 * Ensure larger discard size by setting max_busy_timeout.
-	 * This has to set only after sdhci_add_host so that our
-	 * value won't be over-written.
-	 */
-	host->mmc->max_busy_timeout = 0;
-
-	/*
 	 * Set platfm_init_done only after sdhci_add_host().
 	 * So that we don't turn off vqmmc while we reset sdhc as
 	 * part of sdhci_add_host().
@@ -4555,7 +4563,7 @@ static __maybe_unused int sdhci_msm_runtime_suspend(struct device *dev)
 skip_qos:
 	queue_delayed_work(msm_host->workq,
 			&msm_host->clk_gating_work,
-			msecs_to_jiffies(msm_host->pm_qos_delay));
+			msecs_to_jiffies(msm_host->clk_gating_delay));
 	return 0;
 }
 
@@ -4566,7 +4574,6 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	struct sdhci_msm_qos_req *qos_req = msm_host->sdhci_qos;
 	int ret;
-
 
 	ret = cancel_delayed_work_sync(&msm_host->clk_gating_work);
 	if (!ret) {
@@ -4597,7 +4604,7 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 		sdhci_msm_vote_pmqos(msm_host->mmc,
 					msm_host->sdhci_qos->active_mask);
 
-	return ret;
+	return 0;
 }
 
 static int sdhci_msm_suspend_late(struct device *dev)

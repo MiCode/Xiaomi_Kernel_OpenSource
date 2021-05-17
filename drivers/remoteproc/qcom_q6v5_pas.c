@@ -24,6 +24,7 @@
 #include <linux/soc/qcom/mdt_loader.h>
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
+#include <linux/soc/qcom/qcom_aoss.h>
 
 #include "qcom_common.h"
 #include "qcom_pil_info.h"
@@ -33,6 +34,7 @@
 #define XO_FREQ		19200000
 #define PIL_TZ_AVG_BW	0
 #define PIL_TZ_PEAK_BW	UINT_MAX
+#define QMP_MSG_LEN	64
 
 static struct icc_path *scm_perf_client;
 static int scm_pas_bw_count;
@@ -53,6 +55,7 @@ struct adsp_data {
 
 	const char *ssr_name;
 	const char *sysmon_name;
+	const char *qmp_name;
 	int ssctl_id;
 };
 
@@ -70,6 +73,8 @@ struct qcom_adsp {
 
 	struct device *active_pds[1];
 	struct device *proxy_pds[3];
+	const char *qmp_name;
+	struct qmp *qmp;
 
 	int active_pd_count;
 	int proxy_pd_count;
@@ -96,11 +101,30 @@ struct qcom_adsp {
 	struct qcom_sysmon *sysmon;
 };
 
+static ssize_t txn_id_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	struct qcom_adsp *adsp = (struct qcom_adsp *)platform_get_drvdata(pdev);
+
+	return sysfs_emit(buf, "%zu\n", qcom_sysmon_get_txn_id(adsp->sysmon));
+}
+static DEVICE_ATTR_RO(txn_id);
+
 static void adsp_minidump(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
 
 	qcom_minidump(rproc, adsp->minidump_id);
+}
+
+static int adsp_toggle_load_state(struct qmp *qmp, const char *name, bool enable)
+{
+	char buf[QMP_MSG_LEN] = {};
+
+	snprintf(buf, sizeof(buf),
+		 "{class: image, res: load_state, name: %s, val: %s}",
+		 name, enable ? "on" : "off");
+	return qmp_send(qmp, buf, sizeof(buf));
 }
 
 static int adsp_pds_enable(struct qcom_adsp *adsp, struct device **pds,
@@ -266,9 +290,13 @@ static int adsp_start(struct rproc *rproc)
 	if (ret < 0)
 		goto disable_active_pds;
 
-	ret = clk_prepare_enable(adsp->xo);
+	ret = adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, true);
 	if (ret)
 		goto disable_proxy_pds;
+
+	ret = clk_prepare_enable(adsp->xo);
+	if (ret)
+		goto disable_load_state;
 
 	ret = clk_prepare_enable(adsp->aggre2_clk);
 	if (ret)
@@ -309,6 +337,8 @@ disable_aggre2_clk:
 	clk_disable_unprepare(adsp->aggre2_clk);
 disable_xo_clk:
 	clk_disable_unprepare(adsp->xo);
+disable_load_state:
+	adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);
 disable_proxy_pds:
 	adsp_pds_disable(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
 disable_active_pds:
@@ -348,6 +378,7 @@ static int adsp_stop(struct rproc *rproc)
 		dev_err(adsp->dev, "failed to shutdown: %d\n", ret);
 
 	adsp_pds_disable(adsp, adsp->active_pds, adsp->active_pd_count);
+	adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);
 	handover = qcom_q6v5_unprepare(&adsp->q6v5);
 	if (handover)
 		qcom_pas_handover(&adsp->q6v5);
@@ -614,6 +645,7 @@ static int adsp_probe(struct platform_device *pdev)
 	adsp->pas_id = desc->pas_id;
 	adsp->has_aggre2_clk = desc->has_aggre2_clk;
 	adsp->info_name = desc->sysmon_name;
+	adsp->qmp_name = desc->qmp_name;
 
 	if (desc->free_after_auth_reset)
 		adsp->mdata = devm_kzalloc(adsp->dev, sizeof(struct qcom_mdt_metadata), GFP_KERNEL);
@@ -647,6 +679,10 @@ static int adsp_probe(struct platform_device *pdev)
 		goto detach_active_pds;
 	adsp->proxy_pd_count = ret;
 
+	adsp->qmp = qmp_get(adsp->dev);
+	if (IS_ERR_OR_NULL(adsp->qmp))
+		goto detach_proxy_pds;
+
 	ret = qcom_q6v5_init(&adsp->q6v5, pdev, rproc, desc->crash_reason_smem,
 			     qcom_pas_handover);
 	if (ret)
@@ -664,12 +700,19 @@ static int adsp_probe(struct platform_device *pdev)
 		goto detach_proxy_pds;
 	}
 
+	ret = device_create_file(adsp->dev, &dev_attr_txn_id);
+	if (ret)
+		goto remove_subdevs;
+
 	ret = rproc_add(rproc);
 	if (ret)
-		goto detach_proxy_pds;
+		goto remove_attr_txn_id;
 
 	return 0;
-
+remove_attr_txn_id:
+	device_remove_file(adsp->dev, &dev_attr_txn_id);
+remove_subdevs:
+	qcom_remove_sysmon_subdev(adsp->sysmon);
 detach_proxy_pds:
 	adsp_pds_detach(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
 detach_active_pds:
@@ -685,7 +728,7 @@ static int adsp_remove(struct platform_device *pdev)
 	struct qcom_adsp *adsp = platform_get_drvdata(pdev);
 
 	rproc_del(adsp->rproc);
-
+	device_remove_file(adsp->dev, &dev_attr_txn_id);
 	qcom_remove_glink_subdev(adsp->rproc, &adsp->glink_subdev);
 	qcom_remove_sysmon_subdev(adsp->sysmon);
 	qcom_remove_smd_subdev(adsp->rproc, &adsp->smd_subdev);
@@ -752,12 +795,9 @@ static const struct adsp_data waipio_adsp_resource = {
 	.minidump_id = 5,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
-	.active_pd_names = (char*[]){
-		"load_state",
-		NULL
-	},
 	.ssr_name = "lpass",
 	.sysmon_name = "adsp",
+	.qmp_name = "adsp",
 	.ssctl_id = 0x14,
 };
 
@@ -832,12 +872,9 @@ static const struct adsp_data waipio_cdsp_resource = {
 	.minidump_id = 7,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
-	.active_pd_names = (char*[]){
-		"load_state",
-		NULL
-	},
 	.ssr_name = "cdsp",
 	.sysmon_name = "cdsp",
+	.qmp_name = "cdsp",
 	.ssctl_id = 0x17,
 };
 
@@ -869,12 +906,9 @@ static const struct adsp_data waipio_mpss_resource = {
 	.minidump_id = 3,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
-	.active_pd_names = (char*[]){
-		"load_state",
-		NULL
-	},
 	.ssr_name = "mpss",
 	.sysmon_name = "modem",
+	.qmp_name = "modem",
 	.ssctl_id = 0x12,
 };
 
@@ -935,12 +969,9 @@ static const struct adsp_data waipio_slpi_resource = {
 	.pas_id = 12,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
-	.active_pd_names = (char*[]){
-		"load_state",
-		NULL
-	},
 	.ssr_name = "dsps",
 	.sysmon_name = "slpi",
+	.qmp_name = "slpi",
 	.ssctl_id = 0x16,
 };
 

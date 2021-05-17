@@ -11,13 +11,29 @@ MODULES_LIST=${KERNEL_DIR}/modules.list.${CONFIG_TARGET}
 BUILD_BOOT_IMG=1
 BUILD_INITRAMFS=1
 
-ABI_DEFINITION=android/abi_gki_aarch64_allsyms
+ABI_DEFINITION=android/abi_gki_aarch64.xml
 KMI_SYMBOL_LIST=android/abi_gki_aarch64_qcom
-TRIM_NONLISTED_KMI=1
-KMI_SYMBOL_LIST_STRICT_MODE=1
 KMI_SYMBOL_LIST_MODULE_GROUPING=0
 KMI_SYMBOL_LIST_ADD_ONLY=1
 KMI_ENFORCED=1
+
+MAKE_GOALS="modules dtbs"
+GKI_KERNEL_DIR=common
+GKI_BUILD_CONFIG=${GKI_KERNEL_DIR}/build.config.gki.aarch64
+GKI_SKIP_IF_VERSION_MATCHES=1
+GKI_SKIP_CP_KERNEL_HDR=1
+
+function sanity_check_abi() {
+	[ -z "${GKI_BUILD_CONFIG}" ] && return
+
+	if ! diff -q "${ROOT_DIR}/${KERNEL_DIR}/android/abi_gki_aarch64.xml" \
+		     "${ROOT_DIR}/${GKI_KERNEL_DIR}/android/abi_gki_aarch64.xml" ; then
+		echo "Suspected ABI differences between ${BRANCH} and GKI kernel tree."
+		echo "Are trees in sync?"
+		exit 1
+	fi
+}
+append_cmd POST_DEFCONFIG_CMDS 'sanity_check_abi'
 
 function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then
@@ -25,10 +41,11 @@ function build_defconfig_fragments() {
 		if [ "${VARIANT}" = gki ]; then
 			return
 		fi
+		GKI_BUILD_CONFIG=common/build.config.gki-debug.aarch64
+		GKI_GKI_DEFCONFIG_FRAGMENT=common/build.config.gki_consolidate.aarch64
 		# ABI comparison isn't applicable on consolidate variant
 		unset ABI_DEFINITION
-		unset TRIM_NONLISTED_KMI
-		unset KMI_SYMBOL_LIST_STRICT_MODE
+		apply_defconfig_fragment common/arch/${ARCH}/configs/consolidate.fragment consolidate_defconfig
 		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_consolidate.config vendor/${MSM_ARCH}-consolidate_defconfig
 	elif [ "${VARIANT}" = gki-ack ]; then
 		# In gki-only, then using ACK's GKI config directly

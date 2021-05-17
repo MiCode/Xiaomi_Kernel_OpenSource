@@ -8,6 +8,7 @@
 
 #include "walt.h"
 #include "trace.h"
+#include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
 
 /* Migration margins */
@@ -43,7 +44,6 @@ static inline bool task_demand_fits(struct task_struct *p, int cpu)
 struct find_best_target_env {
 	bool	is_rtg;
 	int	need_idle;
-	bool	boosted;
 	int	fastpath;
 	int	start_cpu;
 	int	order_index;
@@ -113,7 +113,7 @@ static inline bool walt_target_ok(int target_cpu, int order_index)
 }
 
 static void walt_get_indicies(struct task_struct *p, int *order_index,
-		int *end_index, int task_boost, bool boosted)
+		int *end_index, int task_boost, bool uclamp_boost)
 {
 	int i = 0;
 
@@ -136,7 +136,8 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		return;
 	}
 
-	if (boosted || task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
+	if (uclamp_boost || task_boost ||
+		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
 		walt_task_skip_min_cpu(p))
 		*order_index = 1;
 
@@ -242,17 +243,13 @@ static void walt_find_best_target(struct sched_domain *sd,
 			 * accounting. However, the blocked utilization may be zero.
 			 */
 			wake_util = cpu_util_without(i, p);
-			new_util = wake_util + uclamp_task_util(p);
+			new_util = wake_util + min_util;
 			spare_wake_cap = capacity_orig - wake_util;
 
 			if (spare_wake_cap > most_spare_wake_cap) {
 				most_spare_wake_cap = spare_wake_cap;
 				most_spare_cap_cpu = i;
 			}
-
-			if (per_task_boost(cpu_rq(i)->curr) ==
-					TASK_BOOST_STRICT_MAX)
-				continue;
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -262,13 +259,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 			new_util = max(min_util, new_util);
 			if (new_util > capacity_orig)
 				continue;
-
-			/*
-			 * Pre-compute the maximum possible capacity we expect
-			 * to have available on this CPU once the task is
-			 * enqueued here.
-			 */
-			spare_cap = capacity_orig - new_util;
 
 			/*
 			 * Find an optimal backup IDLE CPU for non latency
@@ -312,6 +302,17 @@ static void walt_find_best_target(struct sched_domain *sd,
 				best_idle_cpu = i;
 				continue;
 			}
+
+			if (per_task_boost(cpu_rq(i)->curr) ==
+					TASK_BOOST_STRICT_MAX)
+				continue;
+
+			/*
+			 * Compute the maximum possible capacity we expect
+			 * to have available on this CPU once the task is
+			 * enqueued here.
+			 */
+			spare_cap = capacity_orig - new_util;
 
 			/*
 			 * Try to spread the rtg high prio tasks so that they
@@ -501,7 +502,7 @@ static DEFINE_PER_CPU(cpumask_t, energy_cpus);
 int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 				     int sync, int sibling_count_hint)
 {
-	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
+	unsigned long prev_energy = ULONG_MAX, best_energy = ULONG_MAX;
 	struct root_domain *rd = cpu_rq(cpumask_first(cpu_active_mask))->rd;
 	int weight, cpu = smp_processor_id(), best_energy_cpu = prev_cpu;
 	struct perf_domain *pd;
@@ -513,8 +514,7 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	u64 start_t = 0;
 	int delta = 0;
 	int task_boost = per_task_boost(p);
-	bool is_uclamp_boosted = uclamp_boosted(p);
-	bool boosted = is_uclamp_boosted || (task_boost > 0);
+	bool uclamp_boost = uclamp_boosted(p);
 	int start_cpu, order_index, end_index;
 
 	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
@@ -524,7 +524,7 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	if (unlikely(!cpu_array))
 		return -EPERM;
 
-	walt_get_indicies(p, &order_index, &end_index, task_boost, boosted);
+	walt_get_indicies(p, &order_index, &end_index, task_boost, uclamp_boost);
 	start_cpu = cpumask_first(&cpu_array[order_index][0]);
 
 	is_rtg = task_in_related_thread_group(p);
@@ -558,7 +558,6 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	fbt_env.start_cpu = start_cpu;
 	fbt_env.order_index = order_index;
 	fbt_env.end_index = end_index;
-	fbt_env.boosted = boosted;
 	fbt_env.strict_max = is_rtg &&
 		(task_boost == TASK_BOOST_STRICT_MAX);
 	fbt_env.skip_cpu = walt_is_many_wakeup(sibling_count_hint) ?
@@ -582,17 +581,18 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		delta = task_util(p);
 
 	if (task_placement_boost_enabled(p) || fbt_env.need_idle ||
-	    boosted || is_rtg || __cpu_overutilized(prev_cpu, delta) ||
-	    !task_fits_max(p, prev_cpu) || !cpu_active(prev_cpu)) {
+	    uclamp_boost || task_boost || is_rtg ||
+	    __cpu_overutilized(prev_cpu, delta) || !task_fits_max(p, prev_cpu) ||
+	    !cpu_active(prev_cpu)) {
 		best_energy_cpu = cpu;
 		goto unlock;
 	}
 
 	if (cpumask_test_cpu(prev_cpu, &p->cpus_mask))
-		prev_delta = best_delta =
+		prev_energy = best_energy =
 			walt_compute_energy(p, prev_cpu, pd);
 	else
-		prev_delta = best_delta = ULONG_MAX;
+		prev_energy = best_energy = ULONG_MAX;
 
 	/* Select the best candidate energy-wise. */
 	for_each_cpu(cpu, candidates) {
@@ -601,15 +601,15 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 
 		cur_energy = walt_compute_energy(p, cpu, pd);
 		trace_sched_compute_energy(p, cpu, cur_energy,
-			prev_delta, best_delta, best_energy_cpu);
+			prev_energy, best_energy, best_energy_cpu);
 
-		if (cur_energy < best_delta) {
-			best_delta = cur_energy;
+		if (cur_energy < best_energy) {
+			best_energy = cur_energy;
 			best_energy_cpu = cpu;
-		} else if (cur_energy == best_delta) {
+		} else if (cur_energy == best_energy) {
 			if (select_cpu_same_energy(cpu, best_energy_cpu,
 							prev_cpu)) {
-				best_delta = cur_energy;
+				best_energy = cur_energy;
 				best_energy_cpu = cpu;
 			}
 		}
@@ -624,15 +624,15 @@ unlock:
 	 */
 	if (!(available_idle_cpu(best_energy_cpu) &&
 	    walt_get_idle_exit_latency(cpu_rq(best_energy_cpu)) <= 1) &&
-	    (prev_delta != ULONG_MAX) && (best_energy_cpu != prev_cpu) &&
-	    ((prev_delta - best_delta) <= prev_delta >> 4) &&
+	    (prev_energy != ULONG_MAX) && (best_energy_cpu != prev_cpu) &&
+	    ((prev_energy - best_energy) <= prev_energy >> 4) &&
 	    (capacity_orig_of(prev_cpu) <= capacity_orig_of(start_cpu)))
 		best_energy_cpu = prev_cpu;
 
 done:
 	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
 			sync, fbt_env.need_idle, fbt_env.fastpath,
-			start_t, boosted, start_cpu);
+			start_t, uclamp_boost || task_boost, start_cpu);
 
 	return best_energy_cpu;
 
@@ -718,6 +718,34 @@ static void walt_binder_low_latency_clear(void *unused, struct binder_transactio
 		wts->low_latency &= ~WALT_LOW_LATENCY_BINDER;
 }
 
+static void binder_set_priority_hook(void *data,
+				struct binder_transaction *bndrtrans, struct task_struct *task)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *) task->android_vendor_data1;
+	struct walt_task_struct *current_wts =
+			(struct walt_task_struct *) current->android_vendor_data1;
+
+	if (unlikely(walt_disabled))
+		return;
+
+	if (bndrtrans && bndrtrans->need_reply && current_wts->boost == TASK_BOOST_STRICT_MAX) {
+		bndrtrans->android_vendor_data1  = wts->boost;
+		wts->boost = TASK_BOOST_STRICT_MAX;
+	}
+}
+
+static void binder_restore_priority_hook(void *data,
+				struct binder_transaction *bndrtrans, struct task_struct *task)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *) task->android_vendor_data1;
+
+	if (unlikely(walt_disabled))
+		return;
+
+	if (wts->boost == TASK_BOOST_STRICT_MAX)
+		wts->boost = bndrtrans->android_vendor_data1;
+}
+
 void walt_cfs_init(void)
 {
 	register_trace_android_rvh_select_task_rq_fair(walt_select_task_rq_fair, NULL);
@@ -725,4 +753,7 @@ void walt_cfs_init(void)
 
 	register_trace_android_vh_binder_wakeup_ilocked(walt_binder_low_latency_set, NULL);
 	register_trace_binder_transaction_received(walt_binder_low_latency_clear, NULL);
+
+	register_trace_android_vh_binder_set_priority(binder_set_priority_hook, NULL);
+	register_trace_android_vh_binder_restore_priority(binder_restore_priority_hook, NULL);
 }

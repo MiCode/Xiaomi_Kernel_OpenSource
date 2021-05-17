@@ -416,6 +416,21 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	WARN_ON(mhi_cntrl->pm_state != MHI_PM_M3);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
+	if (mhi_cntrl->rddm_image && mhi_get_exec_env(mhi_cntrl) == MHI_EE_RDDM
+	    && mhi_is_active(mhi_cntrl)) {
+		mhi_cntrl->ee = MHI_EE_RDDM;
+
+		MHI_ERR("RDDM event occurred!\n");
+
+		/* notify critical clients with early notifications */
+		mhi_report_error(mhi_cntrl);
+
+		mhi_cntrl->status_cb(mhi_cntrl, MHI_CB_EE_RDDM);
+		wake_up_all(&mhi_cntrl->state_event);
+
+		return 0;
+	}
+
 	/* Notify clients about exiting LPM */
 	if (notify_clients) {
 		list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans,

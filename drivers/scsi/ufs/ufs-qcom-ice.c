@@ -2,7 +2,7 @@
 /*
  * Qualcomm ICE (Inline Crypto Engine) support.
  *
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019,2021 The Linux Foundation. All rights reserved.
  * Copyright 2019 Google LLC
  */
 
@@ -10,6 +10,7 @@
 #include <linux/qcom_scm.h>
 
 #include "ufshcd-crypto.h"
+#include <linux/crypto-qti-common.h>
 #include "ufs-qcom.h"
 
 #define AES_256_XTS_KEY_SIZE			64
@@ -104,7 +105,7 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *host)
 	      MASK_CRYPTO_SUPPORT))
 		return 0;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ice");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ufs_ice");
 	if (!res) {
 		dev_warn(dev, "ICE registers not found\n");
 		goto disable;
@@ -163,9 +164,18 @@ int ufs_qcom_ice_enable(struct ufs_qcom_host *host)
 {
 	if (!(host->hba->caps & UFSHCD_CAP_CRYPTO))
 		return 0;
+
 	qcom_ice_low_power_mode_enable(host);
 	qcom_ice_optimization_enable(host);
 	return ufs_qcom_ice_resume(host);
+}
+
+void ufs_qcom_ice_disable(struct ufs_qcom_host *host)
+{
+	if (!(host->hba->caps & UFSHCD_CAP_CRYPTO))
+		return;
+	if (host->hba->quirks & UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER)
+		return crypto_qti_disable(host->ice_mmio);
 }
 
 /* Poll until all BIST bits are reset */

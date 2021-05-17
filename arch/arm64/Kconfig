@@ -209,6 +209,7 @@ config ARM64
 	select SYSCTL_EXCEPTION_TRACE
 	select THREAD_INFO_IN_TASK
 	select ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
+	select HAVE_ARCH_USERFAULTFD_MINOR if USERFAULTFD
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
@@ -301,16 +302,10 @@ config ZONE_DMA
 	default y
 
 config ZONE_DMA32
-	bool "Enable or Disable Zone DMA"
+	bool "Support DMA32 zone" if EXPERT
 	default y
-	help
-	  This option enables/disables the DMA zone.
 
 config ARCH_ENABLE_MEMORY_HOTPLUG
-    depends on !NUMA
-	def_bool y
-
-config ARCH_ENABLE_MEMORY_HOTREMOVE
 	def_bool y
 
 config ARCH_ENABLE_MEMORY_HOTREMOVE
@@ -1072,33 +1067,8 @@ config ARCH_WANT_HUGE_PMD_SHARE
 config ARCH_HAS_CACHE_LINE_SIZE
 	def_bool y
 
-if ARM64 && IOMMU_DMA
-
-config ARM64_DMA_IOMMU_ALIGNMENT
-	int "Maximum PAGE_SIZE order of alignment for DMA IOMMU buffers"
-	range 4 9
-	default 9
-	help
-	  DMA mapping framework by default aligns all buffers to the smallest
-	  PAGE_SIZE order which is greater than or equal to the requested buffer
-	  size. This works well for buffers up to a few hundreds kilobytes, but
-	  for larger buffers it just a waste of address space. Drivers which has
-	  relatively small addressing window (like 64Mib) might run out of
-	  virtual space with just a few allocations.
-
-	  With this parameter you can specify the maximum PAGE_SIZE order for
-	  DMA IOMMU buffers. Larger buffers will be aligned only to this
-	  specified order. The order is expressed as a power of two multiplied
-	  by the PAGE_SIZE.
-
-endif
-
 config ARCH_ENABLE_SPLIT_PMD_PTLOCK
 	def_bool y if PGTABLE_LEVELS > 2
-
-config ARCH_MEMORY_PROBE
-	def_bool y
-	depends on MEMORY_HOTPLUG
 
 # Supported by clang >= 7.0
 config CC_HAVE_SHADOW_CALL_STACK
@@ -1432,10 +1402,13 @@ config ARM64_PAN
 config AS_HAS_LDAPR
 	def_bool $(as-instr,.arch_extension rcpc)
 
+config AS_HAS_LSE_ATOMICS
+	def_bool $(as-instr,.arch_extension lse)
+
 config ARM64_LSE_ATOMICS
 	bool
 	default ARM64_USE_LSE_ATOMICS
-	depends on $(as-instr,.arch_extension lse)
+	depends on AS_HAS_LSE_ATOMICS
 
 config ARM64_USE_LSE_ATOMICS
 	bool "Atomic instructions"
@@ -1717,6 +1690,7 @@ config ARM64_MTE
 	depends on AS_HAS_ARMV8_5
 	# Required for tag checking in the uaccess routines
 	depends on ARM64_PAN
+	depends on AS_HAS_LSE_ATOMICS
 	select ARCH_USES_HIGH_VMA_FLAGS
 	help
 	  Memory Tagging (part of the ARMv8.5 Extensions) provides

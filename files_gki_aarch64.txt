@@ -669,6 +669,7 @@ drivers/clk/hisilicon/reset.h
 drivers/clocksource/arm_arch_timer.c
 drivers/clocksource/dummy_timer.c
 drivers/clocksource/mmio.c
+drivers/clocksource/timer-mediatek.c
 drivers/clocksource/timer-of.c
 drivers/clocksource/timer-of.h
 drivers/clocksource/timer-probe.c
@@ -698,6 +699,7 @@ drivers/cpuidle/dt_idle_states.c
 drivers/cpuidle/dt_idle_states.h
 drivers/cpuidle/governor.c
 drivers/cpuidle/governors/menu.c
+drivers/cpuidle/governors/teo.c
 drivers/cpuidle/sysfs.c
 drivers/dax/bus.c
 drivers/dax/bus.h
@@ -719,6 +721,10 @@ drivers/dma-buf/dma-fence.c
 drivers/dma-buf/dma-fence-chain.c
 drivers/dma-buf/dma-heap.c
 drivers/dma-buf/dma-resv.c
+drivers/dma-buf/heaps/deferred-free-helper.c
+drivers/dma-buf/heaps/deferred-free-helper.h
+drivers/dma-buf/heaps/page_pool.c
+drivers/dma-buf/heaps/page_pool.h
 drivers/dma-buf/seqno-fence.c
 drivers/dma-buf/sync_file.c
 drivers/dma/dmaengine.c
@@ -1065,7 +1071,6 @@ drivers/md/dm-target.c
 drivers/md/dm-uevent.c
 drivers/md/dm-uevent.h
 drivers/md/dm-user.c
-drivers/md/dm-verity-avb.c
 drivers/md/dm-verity-fec.c
 drivers/md/dm-verity-fec.h
 drivers/md/dm-verity.h
@@ -1422,6 +1427,8 @@ drivers/scsi/ufs/tc-dwc-g210.h
 drivers/scsi/ufs/tc-dwc-g210-pltfrm.c
 drivers/scsi/ufs/ufs_bsg.c
 drivers/scsi/ufs/ufs_bsg.h
+drivers/scsi/ufs/ufs-debugfs.c
+drivers/scsi/ufs/ufs-debugfs.h
 drivers/scsi/ufs/ufs.h
 drivers/scsi/ufs/ufshcd.c
 drivers/scsi/ufs/ufshcd-crypto.c
@@ -1561,12 +1568,15 @@ drivers/usb/gadget/function/f_midi.c
 drivers/usb/gadget/function/f_ncm.c
 drivers/usb/gadget/function/f_rndis.c
 drivers/usb/gadget/function/f_serial.c
+drivers/usb/gadget/function/f_uac2.c
 drivers/usb/gadget/function/ndis.h
 drivers/usb/gadget/function/rndis.c
 drivers/usb/gadget/function/rndis.h
 drivers/usb/gadget/functions.c
 drivers/usb/gadget/function/storage_common.c
 drivers/usb/gadget/function/storage_common.h
+drivers/usb/gadget/function/u_audio.c
+drivers/usb/gadget/function/u_audio.h
 drivers/usb/gadget/function/u_ether.c
 drivers/usb/gadget/function/u_ether_configfs.h
 drivers/usb/gadget/function/u_ether.h
@@ -1577,6 +1587,7 @@ drivers/usb/gadget/function/u_ncm.h
 drivers/usb/gadget/function/u_rndis.h
 drivers/usb/gadget/function/u_serial.c
 drivers/usb/gadget/function/u_serial.h
+drivers/usb/gadget/function/u_uac2.h
 drivers/usb/gadget/udc/core.c
 drivers/usb/gadget/udc/dummy_hcd.c
 drivers/usb/gadget/udc/trace.c
@@ -1724,6 +1735,18 @@ fs/drop_caches.c
 fs/eventfd.c
 fs/eventpoll.c
 fs/exec.c
+fs/exfat/balloc.c
+fs/exfat/cache.c
+fs/exfat/dir.c
+fs/exfat/exfat_fs.h
+fs/exfat/exfat_raw.h
+fs/exfat/fatent.c
+fs/exfat/file.c
+fs/exfat/inode.c
+fs/exfat/misc.c
+fs/exfat/namei.c
+fs/exfat/nls.c
+fs/exfat/super.c
 fs/exportfs/expfs.c
 fs/ext4/acl.c
 fs/ext4/acl.h
@@ -1839,6 +1862,8 @@ fs/incfs/internal.h
 fs/incfs/main.c
 fs/incfs/pseudo_files.c
 fs/incfs/pseudo_files.h
+fs/incfs/sysfs.c
+fs/incfs/sysfs.h
 fs/incfs/verity.c
 fs/incfs/verity.h
 fs/incfs/vfs.c
@@ -2644,6 +2669,7 @@ include/linux/if_ether.h
 include/linux/if_fddi.h
 include/linux/if_frad.h
 include/linux/if_link.h
+include/linux/if_ltalk.h
 include/linux/if_macvlan.h
 include/linux/if_pppol2tp.h
 include/linux/if_pppox.h
@@ -2962,7 +2988,9 @@ include/linux/page_idle.h
 include/linux/page-isolation.h
 include/linux/pagemap.h
 include/linux/page_owner.h
+include/linux/page_pinner.h
 include/linux/page_ref.h
+include/linux/page_reporting.h
 include/linux/pagevec.h
 include/linux/pagewalk.h
 include/linux/parser.h
@@ -3619,6 +3647,7 @@ include/net/raw.h
 include/net/rawv6.h
 include/net/regulatory.h
 include/net/request_sock.h
+include/net/rose.h
 include/net/route.h
 include/net/rpl.h
 include/net/rtnetlink.h
@@ -3841,6 +3870,7 @@ include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/gpiolib.h
 include/trace/hooks/iommu.h
+include/trace/hooks/logbuf.h
 include/trace/hooks/memory.h
 include/trace/hooks/mm.h
 include/trace/hooks/module.h
@@ -3849,8 +3879,11 @@ include/trace/hooks/pm_domain.h
 include/trace/hooks/power.h
 include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
+include/trace/hooks/psi.h
 include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
+include/trace/hooks/selinux.h
+include/trace/hooks/signal.h
 include/trace/hooks/softlockup.h
 include/trace/hooks/sys.h
 include/trace/hooks/sysrqcrash.h
@@ -3861,6 +3894,8 @@ include/trace/hooks/traps.h
 include/trace/hooks/typec.h
 include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
+include/trace/hooks/vmscan.h
+include/trace/hooks/workqueue.h
 include/trace/hooks/wqlockup.h
 include/trace/perf.h
 include/trace/syscall.h
@@ -3980,11 +4015,14 @@ include/uapi/linux/if_arp.h
 include/uapi/linux/if_bonding.h
 include/uapi/linux/if_bridge.h
 include/uapi/linux/if_ether.h
+include/uapi/linux/if_fc.h
 include/uapi/linux/if_fddi.h
 include/uapi/linux/if_frad.h
 include/uapi/linux/if.h
+include/uapi/linux/if_hippi.h
 include/uapi/linux/if_infiniband.h
 include/uapi/linux/if_link.h
+include/uapi/linux/if_ltalk.h
 include/uapi/linux/if_packet.h
 include/uapi/linux/if_pppol2tp.h
 include/uapi/linux/if_pppox.h
@@ -4172,6 +4210,7 @@ include/uapi/linux/remoteproc_cdev.h
 include/uapi/linux/resource.h
 include/uapi/linux/rfkill.h
 include/uapi/linux/romfs_fs.h
+include/uapi/linux/rose.h
 include/uapi/linux/route.h
 include/uapi/linux/rpl.h
 include/uapi/linux/rpmsg.h
@@ -4610,6 +4649,8 @@ kernel/trace/trace_entries.h
 kernel/trace/trace_event_perf.c
 kernel/trace/trace_events.c
 kernel/trace/trace_events_filter.c
+kernel/trace/trace_events_hist.c
+kernel/trace/trace_events_synth.c
 kernel/trace/trace_events_trigger.c
 kernel/trace/trace_export.c
 kernel/trace/trace.h
@@ -4627,7 +4668,10 @@ kernel/trace/trace_sched_switch.c
 kernel/trace/trace_seq.c
 kernel/trace/trace_stat.c
 kernel/trace/trace_stat.h
+kernel/trace/trace_synth.h
 kernel/trace/trace_uprobe.c
+kernel/trace/tracing_map.c
+kernel/trace/tracing_map.h
 kernel/tsacct.c
 kernel/ucount.c
 kernel/uid16.c
@@ -4866,6 +4910,7 @@ lib/zstd/zstd_common.c
 lib/zstd/zstd_internal.h
 lib/zstd/zstd_opt.h
 mm/backing-dev.c
+mm/balloon_compaction.c
 mm/cleancache.c
 mm/cma.c
 mm/cma_debug.c
@@ -4919,6 +4964,8 @@ mm/page_ext.c
 mm/page_io.c
 mm/page_isolation.c
 mm/page_owner.c
+mm/page_pinner.c
+mm/page_reporting.c
 mm/page_reporting.h
 mm/page_vma_mapped.c
 mm/pagewalk.c
@@ -5779,6 +5826,7 @@ sound/soc/soc-jack.c
 sound/soc/soc-link.c
 sound/soc/soc-ops.c
 sound/soc/soc-pcm.c
+sound/soc/soc-topology.c
 sound/soc/soc-utils.c
 sound/sound_core.c
 sound/usb/card.c

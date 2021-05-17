@@ -104,6 +104,8 @@
 #define GENC_CP_AHB_CNTL                 0x98d
 #define GENC_CP_APERTURE_CNTL_HOST       0xa00
 #define GENC_CP_APERTURE_CNTL_CD         0xa03
+#define GENC_CP_BV_PROTECT_STATUS        0xa61
+#define GENC_CP_BV_HW_FAULT              0xa64
 #define GENC_CP_BV_DRAW_STATE_ADDR       0xa81
 #define GENC_CP_BV_DRAW_STATE_DATA       0xa82
 #define GENC_CP_BV_ROQ_DBG_ADDR          0xa83

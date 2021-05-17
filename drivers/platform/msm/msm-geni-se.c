@@ -37,8 +37,6 @@ static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,
 				100000000, 150000000, 200000000, 236000000};
 
 struct bus_vectors {
-	int src;
-	int dst;
 	int ab;
 	int ib;
 };
@@ -714,7 +712,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 	int ret = 0;
 
 	if (geni_se_dev->vectors == NULL)
-		return 0;
+		return ret;
 
 	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list)))
 		return -EINVAL;
@@ -861,7 +859,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 	int ret = 0;
 
 	if (geni_se_dev->vectors == NULL)
-		return 0;
+		return ret;
 
 	mutex_lock(&geni_se_dev->geni_dev_lock);
 
@@ -1045,9 +1043,7 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 		return 0;
 
 	if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
-		geni_se_dev->bus_bw = icc_get(geni_se_dev->dev,
-					geni_se_dev->vectors[0].src,
-					geni_se_dev->vectors[0].dst);
+		geni_se_dev->bus_bw = of_icc_get(geni_se_dev->dev, "qup-core");
 		if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
 			GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
 				"%s: Error Get Path: (Core2x), %ld\n",
@@ -1062,9 +1058,8 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 
 	if (geni_se_dev->num_paths == 2) {
 		if (IS_ERR_OR_NULL(geni_se_dev->bus_bw_noc)) {
-			geni_se_dev->bus_bw_noc = icc_get(geni_se_dev->dev,
-						geni_se_dev->vectors[1].src,
-						geni_se_dev->vectors[1].dst);
+			geni_se_dev->bus_bw_noc =
+				of_icc_get(geni_se_dev->dev, "qup-ddr");
 			if (IS_ERR_OR_NULL(geni_se_dev->bus_bw_noc)) {
 				GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
 					"%s: Error Get Path: (DDR), %ld\n",
@@ -1542,6 +1537,10 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	u32 se_dma_rx_len_in = 0;
 	u32 se_dma_tx_len = 0;
 	u32 se_dma_tx_len_in = 0;
+	u32 geni_m_irq_en = 0;
+	u32 geni_s_irq_en = 0;
+	u32 geni_dma_tx_irq_en = 0;
+	u32 geni_dma_rx_irq_en = 0;
 	struct geni_se_device *geni_se_dev;
 
 	if (!ipc)
@@ -1570,6 +1569,10 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	se_dma_rx_len_in = geni_read_reg(base, SE_DMA_RX_LEN_IN);
 	se_dma_tx_len = geni_read_reg(base, SE_DMA_TX_LEN);
 	se_dma_tx_len_in = geni_read_reg(base, SE_DMA_TX_LEN_IN);
+	geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
+	geni_s_irq_en = geni_read_reg(base, SE_GENI_S_IRQ_EN);
+	geni_dma_tx_irq_en = geni_read_reg(base, SE_DMA_TX_IRQ_EN);
+	geni_dma_rx_irq_en = geni_read_reg(base, SE_DMA_RX_IRQ_EN);
 
 	GENI_SE_DBG(ipc, false, NULL,
 	"%s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
@@ -1581,7 +1584,11 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	"se_dma_dbg:0x%x, m_cmd_ctrl:0x%x, dma_rxlen:0x%x, dma_rxlen_in:0x%x\n",
 	se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
 	GENI_SE_DBG(ipc, false, NULL,
-	"dma_txlen:0x%x, dma_txlen_in:0x%x\n", se_dma_tx_len, se_dma_tx_len_in);
+	"dma_txlen:0x%x, dma_txlen_in:0x%x s_irq_status:0x%x\n",
+	se_dma_tx_len, se_dma_tx_len_in, s_irq_status);
+	GENI_SE_DBG(ipc, false, NULL,
+	"dma_txirq_en:0x%x, dma_rxirq_en:0x%x geni_m_irq_en:0x%x geni_s_irq_en:0x%x\n",
+	geni_dma_tx_irq_en, geni_dma_rx_irq_en, geni_m_irq_en, geni_s_irq_en);
 }
 EXPORT_SYMBOL(geni_se_dump_dbg_regs);
 
@@ -1595,40 +1602,11 @@ static struct bus_vectors *get_icc_paths(struct platform_device *pdev,
 				struct geni_se_device *host)
 {
 	struct device *dev = &pdev->dev;
-	int i = 0, len;
-	bool mem_err = false;
-	const uint32_t *vec_arr = NULL;
 	struct bus_vectors *vectors = NULL;
-
-	vec_arr = of_get_property(dev->of_node,
-			"qcom,msm-bus,vectors-bus-ids", &len);
-	if (vec_arr == NULL) {
-		pr_err("Error: Vector array not found\n");
-		goto out;
-	}
-
-	if (len != host->num_paths * sizeof(uint32_t) * 2) {
-		pr_err("Error: Length-error on getting vectors\n");
-		goto out;
-	}
 
 	vectors = devm_kzalloc(dev, host->num_paths *
 			sizeof(struct bus_vectors), GFP_KERNEL);
-	if (!vectors) {
-		mem_err = true;
-		goto out;
-	}
-
-	for (i = 0; i < host->num_paths; i++) {
-		vectors[i].src =
-				be32_to_cpu(vec_arr[(i*2)]);
-		vectors[i].dst =
-				be32_to_cpu(vec_arr[(i*2) + 1]);
-	}
-
 	return vectors;
-out:
-	return NULL;
 }
 
 static int geni_se_iommu_probe(struct device *dev)

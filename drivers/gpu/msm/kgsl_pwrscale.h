@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __KGSL_PWRSCALE_H
@@ -29,7 +29,6 @@ struct kgsl_power_stats {
  * @enabled - Whether or not power scaling is enabled
  * @time - Last submitted sample timestamp
  * @on_time - Timestamp when gpu busy begins
- * @nh - Notifier for the partner devfreq bus device
  * @devfreq_wq - Main devfreq workqueue
  * @devfreq_suspend_ws - Pass device suspension to devfreq
  * @devfreq_resume_ws - Pass device resume to devfreq
@@ -53,7 +52,6 @@ struct kgsl_pwrscale {
 	bool enabled;
 	ktime_t time;
 	s64 on_time;
-	struct srcu_notifier_head nh;
 	struct workqueue_struct *devfreq_wq;
 	struct work_struct devfreq_suspend_ws;
 	struct work_struct devfreq_resume_ws;
@@ -65,6 +63,8 @@ struct kgsl_pwrscale {
 	unsigned int ctxt_aware_busy_penalty;
 	/** @busmondev: A child device for the busmon  governor */
 	struct device busmondev;
+	/** @bus_devfreq: Pointer to the bus devfreq device */
+	struct devfreq *bus_devfreq;
 };
 
 /**
@@ -101,4 +101,11 @@ int kgsl_busmon_get_dev_status(struct device *dev,
 			struct devfreq_dev_status *stat);
 int kgsl_busmon_get_cur_freq(struct device *dev, unsigned long *freq);
 
+int msm_adreno_tz_init(void);
+
+void msm_adreno_tz_exit(void);
+
+int devfreq_gpubw_init(void);
+
+void devfreq_gpubw_exit(void);
 #endif

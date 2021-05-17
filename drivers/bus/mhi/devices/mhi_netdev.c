@@ -24,6 +24,12 @@
 #define MAX_NETBUF_SIZE (128)
 #define MHI_NETDEV_NAPI_POLL_WEIGHT (64)
 
+#ifdef CONFIG_MHI_BUS_DEBUG
+#define MHI_NETDEV_LOG_LVL MHI_MSG_LVL_VERBOSE
+#else
+#define MHI_NETDEV_LOG_LVL MHI_MSG_LVL_ERROR
+#endif
+
 #define MSG_VERB(fmt, ...) do { \
 	if (mhi_netdev->ipc_log && mhi_netdev->msg_lvl <= MHI_MSG_LVL_VERBOSE) \
 		ipc_log_string(mhi_netdev->ipc_log, "%s[D][%s] " fmt, \
@@ -37,7 +43,7 @@
 } while (0)
 
 #define MSG_ERR(fmt, ...) do { \
-	pr_err("%s[E][%s] " fmt, __func__, ##__VA_ARGS__);\
+	pr_err("[E][%s] " fmt, __func__, ##__VA_ARGS__);\
 	if (mhi_netdev->ipc_log && mhi_netdev->msg_lvl <= MHI_MSG_LVL_ERROR) \
 		ipc_log_string(mhi_netdev->ipc_log, "%s[E][%s] " fmt, \
 				"", __func__, ##__VA_ARGS__); \
@@ -1050,7 +1056,7 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 		 */
 		mhi_netdev_clone_dev(mhi_netdev, rsc_parent_netdev);
 	} else {
-		mhi_netdev->msg_lvl = MHI_MSG_LVL_ERROR;
+		mhi_netdev->msg_lvl = MHI_NETDEV_LOG_LVL;
 
 		ret = sysfs_create_group(&mhi_dev->dev.kobj, &mhi_netdev_group);
 		if (ret)

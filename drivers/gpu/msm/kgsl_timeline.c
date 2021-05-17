@@ -8,9 +8,9 @@
 #include <linux/list.h>
 #include <linux/kref.h>
 #include <linux/sync_file.h>
-#include <linux/xarray.h>
 
 #include "kgsl_device.h"
+#include "kgsl_eventlog.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_timeline.h"
 #include "kgsl_trace.h"
@@ -118,29 +118,34 @@ struct kgsl_timeline *kgsl_timeline_get(struct kgsl_timeline *timeline)
 	return timeline;
 }
 
-static struct kgsl_timeline *kgsl_timeline_alloc(struct kgsl_device *device,
+static struct kgsl_timeline *kgsl_timeline_alloc(struct kgsl_device_private *dev_priv,
 		u64 initial)
 {
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_timeline *timeline;
-	u32 id;
-	int ret;
+	int id;
 
 	timeline = kzalloc(sizeof(*timeline), GFP_KERNEL);
 	if (!timeline)
 		return ERR_PTR(-ENOMEM);
 
-	ret = xa_alloc(&device->timelines, &id,
-		timeline, xa_limit_32b, GFP_KERNEL);
+	idr_preload(GFP_KERNEL);
+	spin_lock(&device->timelines_lock);
+	/* Allocate the ID but don't attach the pointer just yet */
+	id = idr_alloc(&device->timelines, NULL, 1, 0, GFP_NOWAIT);
+	spin_unlock(&device->timelines_lock);
+	idr_preload_end();
 
-	if (ret) {
+	if (id < 0) {
 		kfree(timeline);
-		return ERR_PTR(ret);
+		return ERR_PTR(id);
 	}
 
 	timeline->context = dma_fence_context_alloc(1);
 	timeline->id = id;
 	INIT_LIST_HEAD(&timeline->fences);
 	timeline->value = initial;
+	timeline->dev_priv = dev_priv;
 
 	snprintf((char *) timeline->name, sizeof(timeline->name),
 		"kgsl-sw-timeline-%d", id);
@@ -180,6 +185,7 @@ static void timeline_fence_release(struct dma_fence *fence)
 	spin_unlock(&fence_lock);
 	spin_unlock_irqrestore(&timeline->lock, flags);
 	trace_kgsl_timeline_fence_release(f->timeline->id, fence->seqno);
+	log_kgsl_timeline_fence_release_event(f->timeline->id, fence->seqno);
 
 	kgsl_timeline_put(f->timeline);
 	dma_fence_free(fence);
@@ -303,6 +309,7 @@ struct dma_fence *kgsl_timeline_fence_alloc(struct kgsl_timeline *timeline,
 		kgsl_timeline_add_fence(timeline, fence);
 
 	trace_kgsl_timeline_fence_alloc(timeline->id, seqno);
+	log_kgsl_timeline_fence_alloc_event(timeline->id, seqno);
 
 	return &fence->base;
 }
@@ -314,20 +321,32 @@ long kgsl_ioctl_timeline_create(struct kgsl_device_private *dev_priv,
 	struct kgsl_timeline_create *param = data;
 	struct kgsl_timeline *timeline;
 
-	timeline = kgsl_timeline_alloc(device, param->seqno);
+	timeline = kgsl_timeline_alloc(dev_priv, param->seqno);
 	if (IS_ERR(timeline))
 		return PTR_ERR(timeline);
 
+	/* Commit the pointer to the timeline in timeline idr */
+	spin_lock(&device->timelines_lock);
+	idr_replace(&device->timelines, timeline, timeline->id);
 	param->id = timeline->id;
+	spin_unlock(&device->timelines_lock);
 	return 0;
 }
 
 struct kgsl_timeline *kgsl_timeline_by_id(struct kgsl_device *device,
 		u32 id)
 {
-	struct kgsl_timeline *timeline = xa_load(&device->timelines, id);
+	struct kgsl_timeline *timeline;
+	int ret = 0;
 
-	return kgsl_timeline_get(timeline);
+	spin_lock(&device->timelines_lock);
+	timeline = idr_find(&device->timelines, id);
+
+	if (timeline)
+		ret = kref_get_unless_zero(&timeline->ref);
+	spin_unlock(&device->timelines_lock);
+
+	return ret ? timeline : NULL;
 }
 
 long kgsl_ioctl_timeline_wait(struct kgsl_device_private *dev_priv,
@@ -497,9 +516,25 @@ long kgsl_ioctl_timeline_destroy(struct kgsl_device_private *dev_priv,
 	if (*param == 0)
 		return -ENODEV;
 
-	timeline = xa_erase(&device->timelines, *param);
-	if (!timeline)
+	spin_lock(&device->timelines_lock);
+	timeline = idr_find(&device->timelines, *param);
+
+	if (timeline == NULL) {
+		spin_unlock(&device->timelines_lock);
 		return -ENODEV;
+	}
+
+	/*
+	 * Validate that the id given is owned by the dev_priv
+	 * instance that is passed in. If not, abort.
+	 */
+	if (timeline->dev_priv != dev_priv) {
+		spin_unlock(&device->timelines_lock);
+		return -EINVAL;
+	}
+
+	idr_remove(&device->timelines, timeline->id);
+	spin_unlock(&device->timelines_lock);
 
 	INIT_LIST_HEAD(&temp);
 
@@ -533,5 +568,5 @@ long kgsl_ioctl_timeline_destroy(struct kgsl_device_private *dev_priv,
 
 	kgsl_timeline_put(timeline);
 
-	return timeline ? 0 : -ENODEV;
+	return 0;
 }

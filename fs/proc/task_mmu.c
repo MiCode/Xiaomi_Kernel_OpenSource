@@ -159,7 +159,7 @@ static void seq_print_vma_name(struct seq_file *m, struct vm_area_struct *vma)
 		write_len = strnlen(kaddr + page_offset, len);
 		seq_write(m, kaddr + page_offset, write_len);
 		kunmap(page);
-		put_page(page);
+		put_user_page(page);
 
 		/* if strnlen hit a null terminator then we're done */
 		if (write_len != len)
@@ -718,6 +718,9 @@ static void show_smap_vma_flags(struct seq_file *m, struct vm_area_struct *vma)
 		[ilog2(VM_PKEY_BIT4)]	= "",
 #endif
 #endif /* CONFIG_ARCH_HAS_PKEYS */
+#ifdef CONFIG_HAVE_ARCH_USERFAULTFD_MINOR
+		[ilog2(VM_UFFD_MINOR)]	= "ui",
+#endif /* CONFIG_HAVE_ARCH_USERFAULTFD_MINOR */
 	};
 	size_t i;
 

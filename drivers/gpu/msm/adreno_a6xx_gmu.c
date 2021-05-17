@@ -1821,11 +1821,9 @@ static int a6xx_gmu_dcvs_set(struct adreno_device *adreno_dev,
 		 * If this was a dcvs request along side an active gpu, request
 		 * dispatcher based reset and recovery.
 		 */
-		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
-			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT |
+		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+			adreno_dispatcher_fault(adreno_dev, ADRENO_GMU_FAULT |
 				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
-			adreno_dispatcher_schedule(device);
-		}
 	}
 
 	if (req.freq != INVALID_DCVS_IDX)
@@ -2125,10 +2123,10 @@ int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	a6xx_rdpm_cx_freq_update(gmu, GMU_FREQUENCY / 1000);
+	a6xx_rdpm_cx_freq_update(gmu, GMU_FREQ_MIN / 1000);
 
 	ret = kgsl_clk_set_rate(gmu->clks, gmu->num_clks, "gmu_clk",
-			GMU_FREQUENCY);
+			GMU_FREQ_MIN);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "Unable to set the GMU clock\n");
 		return ret;
@@ -2694,6 +2692,9 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	/* GMU sysfs nodes setup */
 	kobject_init_and_add(&gmu->log_kobj, &log_kobj_type, &dev->kobj, "log");
 
+	of_property_read_u32(gmu->pdev->dev.of_node, "qcom,gmu-perf-ddr-bw",
+		&gmu->perf_ddr_bw);
+
 	gmu->irq = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
 		a6xx_gmu_irq_handler, device);
 
@@ -2942,10 +2943,6 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_boot(adreno_dev);
-
-	ret = adreno_dispatcher_init(adreno_dev);
-	if (ret)
-		return ret;
 
 	ret = a6xx_ringbuffer_init(adreno_dev);
 	if (ret)
@@ -3298,6 +3295,10 @@ int a6xx_gmu_device_probe(struct platform_device *pdev,
 	adreno_dev = &a6xx_dev->adreno_dev;
 
 	ret = a6xx_probe_common(pdev, adreno_dev, chipid, gpucore);
+	if (ret)
+		return ret;
+
+	ret = adreno_dispatcher_init(adreno_dev);
 	if (ret)
 		return ret;
 

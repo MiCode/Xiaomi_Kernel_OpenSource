@@ -96,6 +96,7 @@ struct cnss_pinctrl_info {
 	struct pinctrl_state *wlan_en_active;
 	struct pinctrl_state *wlan_en_sleep;
 	int bt_en_gpio;
+	int xo_clk_gpio; /*qca6490 only */
 };
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
@@ -297,6 +298,7 @@ enum cnss_driver_state {
 	CNSS_IN_PANIC,
 	CNSS_QMI_DEL_SERVER,
 	CNSS_QMI_DMS_CONNECTED = 20,
+	CNSS_DAEMON_CONNECTED,
 };
 
 struct cnss_recovery_data {
@@ -402,6 +404,9 @@ enum cnss_timeout_type {
 	CNSS_TIMEOUT_IDLE_RESTART,
 	CNSS_TIMEOUT_CALIBRATION,
 	CNSS_TIMEOUT_WLAN_WATCHDOG,
+	CNSS_TIMEOUT_RDDM,
+	CNSS_TIMEOUT_RECOVERY,
+	CNSS_TIMEOUT_DAEMON_CONNECTION,
 };
 
 struct cnss_plat_data {
@@ -450,6 +455,11 @@ struct cnss_plat_data {
 	u32 fw_mem_seg_len;
 	struct cnss_fw_mem fw_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 	struct cnss_fw_mem m3_mem;
+	struct cnss_fw_mem *cal_mem;
+	u64 cal_time;
+	bool cbc_file_download;
+	u32 cal_file_size;
+	struct completion daemon_connected;
 	u32 qdss_mem_seg_len;
 	struct cnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 	u32 *qdss_reg;
@@ -563,5 +573,7 @@ int cnss_get_tcs_info(struct cnss_plat_data *plat_priv);
 unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 			      enum cnss_timeout_type);
 int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv);
-
+int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
+				 const struct firmware **fw_entry,
+				 const char *filename);
 #endif /* _CNSS_MAIN_H */

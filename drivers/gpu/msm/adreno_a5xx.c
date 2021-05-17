@@ -66,6 +66,7 @@ static int a5xx_probe(struct platform_device *pdev,
 {
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
+	int ret;
 
 	adreno_dev = (struct adreno_device *)
 		of_device_get_match_data(&pdev->dev);
@@ -96,7 +97,11 @@ static int a5xx_probe(struct platform_device *pdev,
 
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
-	return adreno_device_probe(pdev, adreno_dev);
+	ret = adreno_device_probe(pdev, adreno_dev);
+	if (ret)
+		return ret;
+
+	return adreno_dispatcher_init(adreno_dev);
 }
 
 static void _do_fixup(const struct adreno_critical_fixup *fixups, int count,
@@ -170,10 +175,6 @@ static int a5xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	int ret;
-
-	ret = adreno_dispatcher_init(adreno_dev);
-	if (ret)
-		return ret;
 
 	ret = a5xx_ringbuffer_init(adreno_dev);
 	if (ret)
@@ -2256,7 +2257,7 @@ static void a5x_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_irqctrl(adreno_dev, 0);
 
 	/* Trigger a fault in the dispatcher - this will effect a restart */
-	adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
+	adreno_dispatcher_fault(adreno_dev, ADRENO_SOFT_FAULT);
 	adreno_dispatcher_schedule(device);
 }
 

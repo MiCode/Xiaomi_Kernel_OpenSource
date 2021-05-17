@@ -775,13 +775,13 @@ static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
 	bool in_use = test_bit(tcs_id, drv->tcs_in_use);
 	int i;
 
-	if (!tcs_grp || !req)
-		return;
-
 	sts = read_tcs_reg(drv, RSC_DRV_STATUS, tcs_id);
 	cmds_enabled = read_tcs_reg(drv, RSC_DRV_CMD_ENABLE, tcs_id);
 	if (!cmds_enabled)
 		return;
+
+	if (!tcs_grp || !req)
+		goto print_tcs_data;
 
 	data = read_tcs_reg(drv, RSC_DRV_CONTROL, tcs_id);
 	irq_sts = readl_relaxed(drv->tcs_base + RSC_DRV_IRQ_STATUS);
@@ -793,6 +793,7 @@ static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
 		tcs_id, sts ? "IDLE" : "BUSY", data,
 		(irq_sts & BIT(tcs_id)) ? "COMPLETED" : "PENDING");
 
+print_tcs_data:
 	for_each_set_bit(i, &cmds_enabled, MAX_CMDS_PER_TCS) {
 		addr = read_tcs_cmd(drv, RSC_DRV_CMD_ADDR, tcs_id, i);
 		data = read_tcs_cmd(drv, RSC_DRV_CMD_DATA, tcs_id, i);
@@ -819,7 +820,7 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 	pr_warn("RSC:%s\n", drv->name);
 
 	for (i = 0; i < drv->num_tcs; i++) {
-		if (read_tcs_reg(drv, RSC_DRV_STATUS, i))
+		if (!test_bit(i, drv->tcs_in_use))
 			continue;
 		busy++;
 		print_tcs_info(drv, i, &accl);

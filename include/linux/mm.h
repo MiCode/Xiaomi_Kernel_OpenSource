@@ -32,6 +32,7 @@
 #include <linux/sched.h>
 #include <linux/pgtable.h>
 #include <linux/kasan.h>
+#include <linux/page_pinner.h>
 #include <linux/android_kabi.h>
 
 struct mempolicy;
@@ -364,6 +365,13 @@ extern unsigned int kobjsize(const void *objp);
 # define VM_GROWSUP	VM_NONE
 #endif
 
+#ifdef CONFIG_HAVE_ARCH_USERFAULTFD_MINOR
+# define VM_UFFD_MINOR_BIT	37
+# define VM_UFFD_MINOR		BIT(VM_UFFD_MINOR_BIT)	/* UFFD minor faults */
+#else /* !CONFIG_HAVE_ARCH_USERFAULTFD_MINOR */
+# define VM_UFFD_MINOR		VM_NONE
+#endif /* CONFIG_HAVE_ARCH_USERFAULTFD_MINOR */
+
 /* Bits set in the VMA until the stack is in its final location */
 #define VM_STACK_INCOMPLETE_SETUP	(VM_RAND_READ | VM_SEQ_READ)
 
@@ -639,6 +647,10 @@ struct vm_operations_struct {
 	 */
 	struct page *(*find_special_page)(struct vm_area_struct *vma,
 					  unsigned long addr);
+
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	bool (*allow_speculation)(void);
+#endif
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
@@ -1220,6 +1232,8 @@ static inline void put_page(struct page *page)
 {
 	page = compound_head(page);
 
+	page_pinner_migration_failed(page);
+
 	/*
 	 * For devmap managed pages we need to catch refcount transition from
 	 * 2 to 1, when refcount reach one it means the page is free and we
@@ -1268,6 +1282,7 @@ static inline void put_page(struct page *page)
  */
 #define GUP_PIN_COUNTING_BIAS (1U << 10)
 
+void put_user_page(struct page *page);
 void unpin_user_page(struct page *page);
 void unpin_user_pages_dirty_lock(struct page **pages, unsigned long npages,
 				 bool make_dirty);
@@ -1777,11 +1792,13 @@ extern int fixup_user_fault(struct mm_struct *mm,
 extern vm_fault_t __handle_speculative_fault(struct mm_struct *mm,
 					     unsigned long address,
 					     unsigned int flags,
-					     struct vm_area_struct **vma);
+					     struct vm_area_struct **vma,
+					     struct pt_regs *regs);
 static inline vm_fault_t handle_speculative_fault(struct mm_struct *mm,
 						  unsigned long address,
 						  unsigned int flags,
-						  struct vm_area_struct **vma)
+						  struct vm_area_struct **vma,
+						  struct pt_regs *regs)
 {
 	/*
 	 * Try speculative page fault for multithreaded user space task only.
@@ -1790,7 +1807,7 @@ static inline vm_fault_t handle_speculative_fault(struct mm_struct *mm,
 		*vma = NULL;
 		return VM_FAULT_RETRY;
 	}
-	return __handle_speculative_fault(mm, address, flags, vma);
+	return __handle_speculative_fault(mm, address, flags, vma, regs);
 }
 extern bool can_reuse_spf_vma(struct vm_area_struct *vma,
 			      unsigned long address);
@@ -1798,7 +1815,8 @@ extern bool can_reuse_spf_vma(struct vm_area_struct *vma,
 static inline vm_fault_t handle_speculative_fault(struct mm_struct *mm,
 						  unsigned long address,
 						  unsigned int flags,
-						  struct vm_area_struct **vma)
+						  struct vm_area_struct **vma,
+						  struct pt_regs *regs)
 {
 	return VM_FAULT_RETRY;
 }
@@ -2768,6 +2786,9 @@ extern vm_fault_t filemap_fault(struct vm_fault *vmf);
 extern vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 		pgoff_t start_pgoff, pgoff_t end_pgoff);
 extern vm_fault_t filemap_page_mkwrite(struct vm_fault *vmf);
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+extern bool filemap_allow_speculation(void);
+#endif
 
 /* mm/page-writeback.c */
 int __must_check write_one_page(struct page *page);
@@ -3332,6 +3353,7 @@ unsigned long wp_shared_mapping_range(struct address_space *mapping,
 #endif
 
 extern int sysctl_nr_trim_pages;
+extern bool pte_map_lock_addr(struct vm_fault *vmf, unsigned long addr);
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_MM_H */

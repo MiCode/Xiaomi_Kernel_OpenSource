@@ -142,6 +142,11 @@ config QCOM_RTB_SEPARATE_CPUS
 	  separately. This will guarantee that the last acesses for each cpu
 	  will be logged but there will be fewer entries per cpu
 
+menuconfig TRACEFS_DISABLE_AUTOMOUNT
+	bool "Do not autmount tracefs in the debugfs filesystem"
+	help
+	  Provides an option to not automount tracefs in /sys/kernel/debug/tracing.
+
 # All tracer options should select GENERIC_TRACER. For those options that are
 # enabled by all tracers (context switch and event tracer) they select TRACING.
 # This allows those options to appear when no other tracer is selected. But the

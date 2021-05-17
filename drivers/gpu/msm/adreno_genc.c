@@ -326,7 +326,7 @@ static void _llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 			FIELD_PREP(GENMASK(4, 0), gpu_scid));
 
 	kgsl_regwrite(device, GENC_GBIF_SCACHE_CNTL0,
-			FIELD_PREP(GENMASK(14, 10), gpu_scid));
+			FIELD_PREP(GENMASK(14, 10), gpu_scid) | BIT(8));
 }
 
 static void _llc_gpuhtw_slice_activate(struct adreno_device *adreno_dev)
@@ -723,12 +723,11 @@ static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int status1, status2;
 	struct device *dev = device->dev;
+	unsigned int opcode;
 
 	kgsl_regread(device, GENC_CP_INTERRUPT_STATUS, &status1);
 
 	if (status1 & BIT(CP_INT_OPCODEERROR)) {
-		unsigned int opcode;
-
 		kgsl_regwrite(device, GENC_CP_SQE_STAT_ADDR, 1);
 		kgsl_regread(device, GENC_CP_SQE_STAT_DATA, &opcode);
 		dev_crit_ratelimited(dev,
@@ -773,17 +772,28 @@ static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 	if (status1 & BIT(CP_INT_ILLEGALINSTRUCTIONLPAC))
 		dev_crit_ratelimited(dev, "CP illegal instruction LPAC\n");
 
-	if (status1 & BIT(CP_INT_OPCODEERRORBV))
-		dev_crit_ratelimited(dev, "CP opcode error BV\n");
+	if (status1 & BIT(CP_INT_OPCODEERRORBV)) {
+		kgsl_regwrite(device, GENC_CP_BV_SQE_STAT_ADDR, 1);
+		kgsl_regread(device, GENC_CP_BV_SQE_STAT_DATA, &opcode);
+		dev_crit_ratelimited(dev, "CP opcode error BV | opcode=0x%8.8x\n", opcode);
+	}
 
 	if (status1 & BIT(CP_INT_UCODEERRORBV))
 		dev_crit_ratelimited(dev, "CP ucode error BV\n");
 
-	if (status1 & BIT(CP_INT_CPHWFAULTBV))
-		dev_crit_ratelimited(dev, "CP hw fault BV\n");
+	if (status1 & BIT(CP_INT_CPHWFAULTBV)) {
+		kgsl_regread(device, GENC_CP_BV_HW_FAULT, &status2);
+		dev_crit_ratelimited(dev,
+			"CP BV | Ringbuffer HW fault | status=%x\n", status2);
+	}
 
-	if (status1 & BIT(CP_INT_REGISTERPROTECTIONBV))
-		dev_crit_ratelimited(dev, "CP register protection BV\n");
+	if (status1 & BIT(CP_INT_REGISTERPROTECTIONBV)) {
+		kgsl_regread(device, GENC_CP_BV_PROTECT_STATUS, &status2);
+		dev_crit_ratelimited(dev,
+			"CP BV | Protected mode error | %s | addr=%x | status=%x\n",
+			status2 & BIT(20) ? "READ" : "WRITE",
+			status2 & 0x3ffff, status2);
+	}
 
 	if (status1 & BIT(CP_INT_ILLEGALINSTRUCTIONBV))
 		dev_crit_ratelimited(dev, "CP illegal instruction BV\n");
@@ -918,8 +928,7 @@ static void genc_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_irqctrl(adreno_dev, 0);
 
 	/* Trigger a fault in the dispatcher - this will effect a restart */
-	adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
-	adreno_dispatcher_schedule(device);
+	adreno_dispatcher_fault(adreno_dev, ADRENO_SOFT_FAULT);
 }
 
 static const struct adreno_irq_funcs genc_irq_funcs[32] = {
@@ -1014,8 +1023,7 @@ static irqreturn_t genc_irq_handler(struct adreno_device *adreno_dev)
 	genc_gpu_keepalive(adreno_dev, true);
 
 	if (genc_irq_poll_fence(adreno_dev)) {
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
+		adreno_dispatcher_fault(adreno_dev, ADRENO_GMU_FAULT);
 		goto done;
 	}
 
@@ -1285,6 +1293,7 @@ const struct genc_gpudev adreno_genc_hwsched_gpudev = {
 		.power_stats = genc_power_stats,
 		.setproperty = genc_setproperty,
 		.gpu_model = genc_gpu_model,
+		.hw_isidle = genc_hw_isidle,
 	},
 	.hfi_probe = genc_hwsched_hfi_probe,
 	.handle_watchdog = genc_hwsched_handle_watchdog,

@@ -204,6 +204,20 @@ struct ipa_fmwk_contex {
 
 	int (*ipa_unregister_rmnet_ctl_cb)(void);
 
+	/* rmnet_ll APIs */
+	int (*ipa_rmnet_ll_xmit)(struct sk_buff *skb);
+
+	int (*ipa_register_rmnet_ll_cb)(
+		void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+		void *user_data1,
+		void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+		void *user_data2,
+		void (*ipa_rmnet_ll_rx_notify_cb)(
+			void *user_data3, void *rx_data),
+		void *user_data3);
+
+	int (*ipa_unregister_rmnet_ll_cb)(void);
+
 	int (*ipa_add_hdr)(struct ipa_ioc_add_hdr *hdrs);
 
 	int (*ipa_del_hdr)(struct ipa_ioc_del_hdr *hdls);
@@ -241,6 +255,8 @@ struct ipa_fmwk_contex {
 	/* ipa_wdi3 APIs */
 	int (*ipa_wdi_init)(struct ipa_wdi_init_in_params *in,
 		struct ipa_wdi_init_out_params *out);
+
+	int (*ipa_get_wdi_version)(void);
 
 	int (*ipa_wdi_cleanup)(void);
 
@@ -525,6 +541,10 @@ int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
 	ipa_fmwk_ctx->ipa_disconnect_wdi_pipe = in->ipa_disconnect_wdi_pipe;
 	ipa_fmwk_ctx->ipa_reg_uc_rdyCB = in->ipa_uc_reg_rdyCB;
 	ipa_fmwk_ctx->ipa_dereg_uc_rdyCB = in->ipa_uc_dereg_rdyCB;
+	ipa_fmwk_ctx->ipa_rmnet_ll_xmit = in->ipa_rmnet_ll_xmit;
+	ipa_fmwk_ctx->ipa_register_rmnet_ll_cb = in->ipa_register_rmnet_ll_cb;
+	ipa_fmwk_ctx->ipa_unregister_rmnet_ll_cb =
+		in->ipa_unregister_rmnet_ll_cb;
 
 	ipa_fmwk_ctx->ipa_ready = true;
 	ipa_trigger_ipa_ready_cbs();
@@ -983,6 +1003,47 @@ int ipa_unregister_rmnet_ctl_cb(void)
 }
 EXPORT_SYMBOL(ipa_unregister_rmnet_ctl_cb);
 
+/* registration API for rmnet_ll module */
+int ipa_rmnet_ll_xmit(struct sk_buff *skb)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_rmnet_ll_xmit, skb);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_rmnet_ll_xmit);
+
+int ipa_register_rmnet_ll_cb(
+	void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+	void *user_data1,
+	void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+	void *user_data2,
+	void (*ipa_rmnet_ll_rx_notify_cb)(
+		void *user_data3, void *rx_data),
+	void *user_data3)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_register_rmnet_ll_cb,
+		ipa_rmnet_ll_ready_cb, user_data1,
+		ipa_rmnet_ll_stop_cb, user_data2,
+		ipa_rmnet_ll_rx_notify_cb, user_data3);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_register_rmnet_ll_cb);
+
+int ipa_unregister_rmnet_ll_cb(void)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_unregister_rmnet_ll_cb);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_unregister_rmnet_ll_cb);
+
 /* registration API for IPA usb module */
 int ipa_fmwk_register_ipa_usb(const struct ipa_usb_data *in)
 {
@@ -1114,7 +1175,8 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 		|| ipa_fmwk_ctx->ipa_wdi_create_smmu_mapping
 		|| ipa_fmwk_ctx->ipa_wdi_release_smmu_mapping
 		|| ipa_fmwk_ctx->ipa_wdi_get_stats
-		|| ipa_fmwk_ctx->ipa_wdi_sw_stats) {
+		|| ipa_fmwk_ctx->ipa_wdi_sw_stats
+		|| ipa_fmwk_ctx->ipa_get_wdi_version) {
 		pr_err("ipa_wdi3 APIs were already initialized\n");
 		return -EPERM;
 	}
@@ -1135,6 +1197,7 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 		in->ipa_wdi_release_smmu_mapping;
 	ipa_fmwk_ctx->ipa_wdi_get_stats = in->ipa_wdi_get_stats;
 	ipa_fmwk_ctx->ipa_wdi_sw_stats = in->ipa_wdi_sw_stats;
+	ipa_fmwk_ctx->ipa_get_wdi_version = in->ipa_get_wdi_version;
 
 	pr_info("ipa_wdi3 registered successfully\n");
 
@@ -1154,6 +1217,16 @@ int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 	return ret;
 }
 EXPORT_SYMBOL(ipa_wdi_init);
+
+int ipa_get_wdi_version(void)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_get_wdi_version);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_wdi_version);
 
 int ipa_wdi_cleanup(void)
 {

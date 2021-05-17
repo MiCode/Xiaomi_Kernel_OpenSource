@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -182,8 +182,8 @@ static int mhi_fw_load_bhie(struct mhi_controller *mhi_cntrl,
 	void __iomem *base = mhi_cntrl->bhie;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
-	u32 tx_status, sequence_id;
-	int ret;
+	u32 tx_status, sequence_id, val;
+	int ret, rd;
 
 	read_lock_bh(pm_lock);
 	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
@@ -217,8 +217,12 @@ static int mhi_fw_load_bhie(struct mhi_controller *mhi_cntrl,
 						   &tx_status) || tx_status,
 				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) ||
-	    tx_status != BHIE_TXVECSTATUS_STATUS_XFER_COMPL)
+	    tx_status != BHIE_TXVECSTATUS_STATUS_XFER_COMPL) {
+		rd = mhi_read_reg(mhi_cntrl, base, BHIE_TXVECSTATUS_OFFS, &val);
+		MHI_ERR("BHIE_TXVECSTATUS: 0x%x, reg read: %d, tx_status: %u\n",
+			val, rd, tx_status);
 		return -EIO;
+	}
 
 	return (!ret) ? -ETIMEDOUT : 0;
 }
@@ -323,9 +327,13 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 	int i;
 	struct image_info *img_info;
 	struct mhi_buf *mhi_buf;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 
 	if (mhi_cntrl->img_pre_alloc)
 		return 0;
+
+	MHI_LOG("Allocating bytes: %zu seg_size: %zu total_seg: %u\n",
+		alloc_size, seg_size, segments);
 
 	img_info = kzalloc(sizeof(*img_info), GFP_KERNEL);
 	if (!img_info)
@@ -352,11 +360,16 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 						  GFP_KERNEL);
 		if (!mhi_buf->buf)
 			goto error_alloc_segment;
+
+		MHI_LOG("Entry: %d Address: 0x%llx size: %lu\n", i,
+			mhi_buf->dma_addr, mhi_buf->len);
 	}
 
 	img_info->bhi_vec = img_info->mhi_buf[segments - 1].buf;
 	img_info->entries = segments;
 	*image_info = img_info;
+
+	MHI_LOG("Successfully allocated BHIe vector table\n");
 
 	return 0;
 
@@ -380,12 +393,16 @@ static void mhi_firmware_copy(struct mhi_controller *mhi_cntrl,
 	const u8 *buf = firmware->data;
 	struct mhi_buf *mhi_buf = img_info->mhi_buf;
 	struct bhi_vec_entry *bhi_vec = img_info->bhi_vec;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 
 	while (remainder) {
 		to_cpy = min(remainder, mhi_buf->len);
 		memcpy(mhi_buf->buf, buf, to_cpy);
 		bhi_vec->dma_addr = mhi_buf->dma_addr;
 		bhi_vec->size = to_cpy;
+
+		MHI_VERB("Setting Vector: 0x%llx size: %llu\n",
+			 bhi_vec->dma_addr, bhi_vec->size);
 
 		buf += to_cpy;
 		remainder -= to_cpy;

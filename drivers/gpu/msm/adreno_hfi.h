@@ -114,6 +114,7 @@
 #define HFI_CTXT_FLAG_PREEMPT_STYLE_ANY		0
 #define HFI_CTXT_FLAG_PREEMPT_STYLE_RB		1
 #define HFI_CTXT_FLAG_PREEMPT_STYLE_FG		2
+#define CMDBATCH_INDIRECT			0x00000200
 
 enum hfi_mem_kind {
 	/** @HFI_MEMKIND_GENERIC: Used for requesting generic memory */
@@ -175,6 +176,8 @@ enum hfi_mem_kind {
 	HFI_MEMKIND_PROFILE,
 	/** @HFI_MEMKIND_USER_PROFILING_IBS: Used for user profiling */
 	HFI_MEMKIND_USER_PROFILE_IBS,
+	/** @MEMKIND_CMD_BUFFER: Used for composing ringbuffer content */
+	HFI_MEMKIND_CMD_BUFFER,
 	HFI_MEMKIND_MAX,
 };
 
@@ -195,6 +198,7 @@ static const char * const hfi_memkind_strings[] = {
 	[HFI_MEMKIND_MMIO_QDSS_STM] = "GMU MMIO QDSS STM",
 	[HFI_MEMKIND_PROFILE] = "GMU KERNEL PROFILING",
 	[HFI_MEMKIND_USER_PROFILE_IBS] = "GMU USER PROFILING",
+	[HFI_MEMKIND_CMD_BUFFER] = "GMU CMD BUFFER",
 };
 
 /* CP/GFX pipeline can access */
@@ -299,6 +303,9 @@ struct hfi_queue_table {
 
 #define GMU_QUEUE_START_ADDR(gmuaddr, i) \
 	(gmuaddr + HFI_QUEUE_OFFSET(i))
+
+#define HOST_QUEUE_START_ADDR(hfi_mem, i) \
+	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
 
 #define MSG_HDR_GET_ID(hdr) ((hdr) & 0xFF)
 #define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
@@ -492,6 +499,7 @@ struct hfi_mem_alloc_desc {
 struct hfi_mem_alloc_entry {
 	struct hfi_mem_alloc_desc desc;
 	struct kgsl_memdesc *gpu_md;
+	struct gmu_memdesc *gmu_md;
 };
 
 /* F2H */
@@ -633,6 +641,8 @@ struct hfi_ts_notify_cmd {
 #define CMDBATCH_ERROR		2
 #define CMDBATCH_SKIP		3
 
+#define CMDBATCH_PROFILING  BIT(4)
+
 /* F2H */
 struct hfi_ts_retire_cmd {
 	u32 hdr;
@@ -669,6 +679,7 @@ struct hfi_context_bad_cmd {
 	u32 policy;
 	u32 ts;
 	u32 error;
+	u32 payload[];
 } __packed;
 
 /* H2F */
@@ -686,6 +697,7 @@ struct hfi_submit_cmd {
 	u32 profile_gpuaddr_lo;
 	u32 profile_gpuaddr_hi;
 	u32 numibs;
+	u32 big_ib_gmu_va;
 } __packed;
 
 struct hfi_log_block {
@@ -723,7 +735,79 @@ static inline int _CMD_MSG_HDR(u32 *hdr, int id, size_t size)
 	_CMD_MSG_HDR(&(cmd).hdr, id, sizeof(cmd))
 
 /* Maximum number of IBs in a submission */
-#define HWSCHED_MAX_NUMIBS \
+#define HWSCHED_MAX_DISPATCH_NUMIBS \
 	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
 		/ sizeof(struct hfi_issue_ib))
+
+/**
+ * struct payload_section - Container of keys values
+ *
+ * There may be a variable number of payload sections appended
+ * to the context bad HFI message. Each payload section contains
+ * a variable number of key-value pairs, both key and value being
+ * single dword each.
+ */
+struct payload_section {
+	/** @type: Type of the payload */
+	u16 type;
+	/** @dwords: Number of dwords in the data array. */
+	u16 dwords;
+	/** @data: A sequence of key-value pairs. Each pair is 2 dwords. */
+	u32 data[];
+} __packed;
+
+/* IDs for context bad hfi payloads */
+#define PAYLOAD_FAULT_REGS 1
+#define PAYLOAD_RB 2
+#define PAYLOAD_PREEMPT_TIMEOUT 3
+
+/* Keys for PAYLOAD_FAULT_REGS type payload */
+#define KEY_CP_OPCODE_ERROR 1
+#define KEY_CP_PROTECTED_ERROR 2
+#define KEY_CP_HW_FAULT 3
+#define KEY_CP_BV_OPCODE_ERROR 4
+#define KEY_CP_BV_PROTECTED_ERROR 5
+#define KEY_CP_BV_HW_FAULT 6
+
+/* Keys for PAYLOAD_RB type payload */
+#define KEY_RB_ID 1
+#define KEY_RB_RPTR 2
+#define KEY_RB_WPTR 3
+#define KEY_RB_SIZEDWORDS 4
+#define KEY_RB_QUEUED_TS 5
+#define KEY_RB_RETIRED_TS 6
+#define KEY_RB_GPUADDR_LO 7
+#define KEY_RB_GPUADDR_HI 8
+
+/* Keys for PAYLOAD_PREEMPT_TIMEOUT type payload */
+#define KEY_PREEMPT_TIMEOUT_CUR_RB_ID 1
+#define KEY_PREEMPT_TIMEOUT_NEXT_RB_ID 2
+
+/* Types of errors that trigger context bad HFI */
+
+/* GPU encountered a CP HW error */
+#define GMU_CP_HW_ERROR 600
+/* GPU encountered a GPU Hang interrupt */
+#define GMU_GPU_HW_HANG 601
+/* Preemption didn't complete in given time */
+#define GMU_GPU_PREEMPT_TIMEOUT 602
+/* Fault due to Long IB timeout */
+#define GMU_GPU_SW_HANG 603
+/* GPU encountered a bad opcode */
+#define GMU_CP_OPCODE_ERROR 604
+/* GPU encountered protected mode error */
+#define GMU_CP_PROTECTED_ERROR 605
+/* GPU encountered an illegal instruction */
+#define GMU_CP_ILLEGAL_INST_ERROR 606
+/* GPU encountered a CP ucode error */
+#define GMU_CP_UCODE_ERROR 607
+/* GPU encountered a CP hw fault error */
+#define GMU_CP_HW_FAULT_ERROR 608
+/* GPU BV encountered a bad opcode */
+#define GMU_CP_BV_OPCODE_ERROR 609
+/* GPU BV encountered protected mode error */
+#define GMU_CP_BV_PROTECTED_ERROR 610
+/* GPU BV encountered a CP hw fault error */
+#define GMU_CP_BV_HW_FAULT_ERROR 611
+
 #endif

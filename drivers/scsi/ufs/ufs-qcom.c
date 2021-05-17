@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, Linux Foundation. All rights reserved.
  */
 
 #include <linux/acpi.h>
@@ -633,12 +633,17 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		 * is initialized.
 		 */
 		err = ufs_qcom_enable_lane_clks(host);
+		/*
+		 * ICE enable needs to be called before ufshcd_crypto_enable
+		 * during resume as it is needed before reprogramming all
+		 * keys. So moving it to PRE_CHANGE.
+		 */
+		ufs_qcom_ice_enable(host);
 		break;
 	case POST_CHANGE:
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
 		ufs_qcom_enable_hw_clk_gating(hba);
-		ufs_qcom_ice_enable(host);
 		break;
 	default:
 		dev_err(hba->dev, "%s: invalid status %d\n", __func__, status);
@@ -1160,6 +1165,8 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	if (!err && ufs_qcom_is_link_off(hba) && host->device_reset)
 		ufs_qcom_device_reset_ctrl(hba, true);
+
+	ufs_qcom_ice_disable(host);
 
 	return err;
 }
@@ -1721,19 +1728,19 @@ out:
 static void ufs_qcom_override_pa_h8time(struct ufs_hba *hba)
 {
 	int ret;
-	u32 loc_tx_h8time_cap = 0;
+	u32 pa_h8time = 0;
 
-	ret = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(TX_HIBERN8TIME_CAPABILITY,
-				UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
-				&loc_tx_h8time_cap);
+	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_HIBERN8TIME),
+				&pa_h8time);
 	if (ret) {
-		dev_err(hba->dev, "Failed getting max h8 time: %d\n", ret);
+		dev_err(hba->dev, "Failed getting PA_HIBERN8TIME: %d\n", ret);
 		return;
 	}
 
+
 	/* 1 implies 100 us */
 	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME),
-				loc_tx_h8time_cap + 1);
+				pa_h8time + 1);
 	if (ret)
 		dev_err(hba->dev, "Failed updating PA_HIBERN8TIME: %d\n", ret);
 
@@ -1845,6 +1852,10 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 
 	if (host->disable_lpm)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
+
+#if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
+	hba->quirks |= UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER;
+#endif
 }
 
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
@@ -2619,8 +2630,12 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 				  unsigned long data)
 {
 	struct ufs_hba *hba = dev_get_drvdata(tcd->devdata);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct scsi_device *sdev;
 	int ret = 0;
+
+	if (data == host->uqt.curr_state)
+		return ret;
 
 	switch (data) {
 	case UFS_QCOM_LVL_NO_THERM:
@@ -2648,6 +2663,8 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 		dev_err(tcd->devdata, "Invalid UFS thermal state (%d)\n", data);
 		ret = -EINVAL;
 	}
+
+	host->uqt.curr_state = data;
 
 	return ret;
 }
@@ -2744,12 +2761,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		goto out_variant_clear;
 	}
 
-	/*
-	 * Set the vendor specific ops needed for ICE.
-	 * Default implementation if the ops are not set.
-	 */
-	ufshcd_crypto_qti_set_vops(hba);
-
 	err = ufs_qcom_bus_register(host);
 	if (err)
 		goto out_variant_clear;
@@ -2836,6 +2847,14 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	err = ufs_qcom_ice_init(host);
 	if (err)
 		goto out_variant_clear;
+
+	/*
+	 * Instantiate crypto capabilities for wrapped keys.
+	 * It is controlled by CONFIG_SCSI_UFS_CRYPTO_QTI.
+	 * If this is not defined, this API would return zero and
+	 * non-wrapped crypto capabilities will be instantiated.
+	 */
+	ufshcd_qti_hba_init_crypto_capabilities(hba);
 
 	ufs_qcom_set_bus_vote(hba, true);
 	/* enable the device ref clock for HS mode*/
@@ -3365,6 +3384,8 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 		usleep_range(1000, 1100);
 		ufs_qcom_phy_dbg_register_dump(phy);
 	}
+
+	BUG_ON(host->crash_on_err);
 }
 
 /*
@@ -3465,6 +3486,8 @@ static struct ufs_dev_fix ufs_qcom_dev_fixups[] = {
 	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUEG8UHDB-C2D1",
 		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
 	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUDG4UHDB-B2D1",
+		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "HN8T15BZGKX016",
 		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
@@ -3571,21 +3594,26 @@ static ssize_t clk_status_show(struct device *dev,
 
 static DEVICE_ATTR_RO(clk_status);
 
-static unsigned int ufs_qcom_gec(struct ufs_hba *hba,
-				 struct ufs_err_reg_hist *err_hist,
+static unsigned int ufs_qcom_gec(struct ufs_hba *hba, u32 id,
 				 char *err_name)
 {
 	unsigned long flags;
 	int i, cnt_err = 0;
+	struct ufs_event_hist *e;
+
+	if (id >= UFS_EVT_CNT)
+		return -EINVAL;
+
+	e = &hba->ufs_stats.event[id];
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	for (i = 0; i < UFS_ERR_REG_HIST_LENGTH; i++) {
-		int p = (i + err_hist->pos) % UFS_ERR_REG_HIST_LENGTH;
+	for (i = 0; i < UFS_EVENT_HIST_LENGTH; i++) {
+		int p = (i + e->pos) % UFS_EVENT_HIST_LENGTH;
 
-		if (err_hist->tstamp[p] == 0)
+		if (e->tstamp[p] == 0)
 			continue;
 		dev_err(hba->dev, "%s[%d] = 0x%x at %lld us\n", err_name, p,
-			err_hist->reg[p], ktime_to_us(err_hist->tstamp[p]));
+			e->val[p], ktime_to_us(e->tstamp[p]));
 
 		++cnt_err;
 	}
@@ -3602,13 +3630,13 @@ static ssize_t err_count_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE,
 			 "%s: %d\n%s: %d\n%s: %d\n",
 			 "pa_err_cnt_total",
-			 ufs_qcom_gec(hba, &hba->ufs_stats.pa_err,
+			 ufs_qcom_gec(hba, UFS_EVT_PA_ERR,
 				      "pa_err_cnt_total"),
 			 "dl_err_cnt_total",
-			 ufs_qcom_gec(hba, &hba->ufs_stats.dl_err,
+			 ufs_qcom_gec(hba, UFS_EVT_DL_ERR,
 				      "dl_err_cnt_total"),
 			 "dme_err_cnt",
-			 ufs_qcom_gec(hba, &hba->ufs_stats.dme_err,
+			 ufs_qcom_gec(hba, UFS_EVT_DME_ERR,
 				      "dme_err_cnt"));
 }
 
@@ -3629,6 +3657,37 @@ static ssize_t dbg_state_show(struct device *dev,
 
 static DEVICE_ATTR_RO(dbg_state);
 
+static ssize_t crash_on_err_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!host->crash_on_err);
+}
+
+static ssize_t crash_on_err_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	bool v;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (kstrtobool(buf, &v))
+		return -EINVAL;
+
+	host->crash_on_err = v;
+
+	return count;
+}
+
+
+static DEVICE_ATTR_RW(crash_on_err);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
@@ -3636,6 +3695,7 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_clk_status.attr,
 	&dev_attr_err_count.attr,
 	&dev_attr_dbg_state.attr,
+	&dev_attr_crash_on_err.attr,
 	NULL
 };
 

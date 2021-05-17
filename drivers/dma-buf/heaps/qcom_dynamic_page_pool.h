@@ -98,6 +98,7 @@ void dynamic_page_pool_free(struct dynamic_page_pool *pool, struct page *page);
 int dynamic_page_pool_init_shrinker(void);
 void dynamic_page_pool_shrink_high_and_low(struct dynamic_page_pool **pools_list,
 					   int num_pools, int nr_to_scan);
+int dynamic_page_pool_total(struct dynamic_page_pool *pool, bool high);
 
 struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, bool high);
 void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page);

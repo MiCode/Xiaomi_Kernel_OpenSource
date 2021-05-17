@@ -85,6 +85,11 @@ struct a6xx_gmu_device {
 	/** @log_group_mask: Allows overriding default GMU log group mask */
 	u32 log_group_mask;
 	struct kobject log_kobj;
+	/*
+	 * @perf_ddr_bw: The lowest ddr bandwidth that puts CX at a corner at
+	 * which GMU can run at 500 Mhz.
+	 */
+	u32 perf_ddr_bw;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */

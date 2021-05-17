@@ -136,10 +136,44 @@ unsigned int kgsl_pwrctrl_adjust_pwrlevel(struct kgsl_device *device,
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	unsigned int old_level = pwr->active_pwrlevel;
+	bool reset = false;
 
 	/* If a pwr constraint is expired, remove it */
 	if ((pwr->constraint.type != KGSL_CONSTRAINT_NONE) &&
 		(time_after(jiffies, pwr->constraint.expires))) {
+
+		struct kgsl_context *context = kgsl_context_get(device,
+				pwr->constraint.owner_id);
+
+		/* We couldn't get a reference, clear the constraint */
+		if (!context) {
+			reset = true;
+			goto done;
+		}
+
+		/*
+		 * If the last timestamp that set the constraint has retired,
+		 * clear the constraint
+		 */
+		if (kgsl_check_timestamp(device, context,
+			pwr->constraint.owner_timestamp)) {
+			reset = true;
+			kgsl_context_put(context);
+			goto done;
+		}
+
+		/*
+		 * Increase the timeout to keep the constraint at least till
+		 * the timestamp retires
+		 */
+		pwr->constraint.expires = jiffies +
+			msecs_to_jiffies(device->pwrctrl.interval_timeout);
+
+		kgsl_context_put(context);
+	}
+
+done:
+	if (reset) {
 		/* Trace the constraint being un-set by the driver */
 		trace_kgsl_constraint(device, pwr->constraint.type,
 						old_level, 0);
@@ -240,19 +274,8 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 }
 
-/**
- * kgsl_pwrctrl_set_constraint() - Validate and change enforced constraint
- * @device: Pointer to the kgsl_device struct
- * @pwrc: Pointer to requested constraint
- * @id: Context id which owns the constraint
- *
- * Accept the new constraint if no previous constraint existed or if the
- * new constraint is faster than the previous one.  If the new and previous
- * constraints are equal, update the timestamp and ownership to make sure
- * the constraint expires at the correct time.
- */
 void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
-			struct kgsl_pwr_constraint *pwrc, uint32_t id)
+			struct kgsl_pwr_constraint *pwrc, uint32_t id, u32 ts)
 {
 	unsigned int constraint;
 	struct kgsl_pwr_constraint *pwrc_old;
@@ -274,32 +297,35 @@ void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 		pwrc_old->sub_type = pwrc->sub_type;
 		pwrc_old->hint.pwrlevel.level = constraint;
 		pwrc_old->owner_id = id;
-		pwrc_old->expires = jiffies + msecs_to_jiffies(device->pwrctrl.interval_timeout);
+		pwrc_old->expires = jiffies +
+			msecs_to_jiffies(device->pwrctrl.interval_timeout);
+		pwrc_old->owner_timestamp = ts;
 		kgsl_pwrctrl_pwrlevel_change(device, constraint);
 		/* Trace the constraint being set by the driver */
 		trace_kgsl_constraint(device, pwrc_old->type, constraint, 1);
 	} else if ((pwrc_old->type == pwrc->type) &&
 		(pwrc_old->hint.pwrlevel.level == constraint)) {
 		pwrc_old->owner_id = id;
-		pwrc_old->expires = jiffies + msecs_to_jiffies(device->pwrctrl.interval_timeout);
+		pwrc_old->owner_timestamp = ts;
+		pwrc_old->expires = jiffies +
+			msecs_to_jiffies(device->pwrctrl.interval_timeout);
 	}
 }
 
-static void kgsl_pwrctrl_set_thermal_pwrlevel(struct kgsl_device *device,
+static int kgsl_pwrctrl_set_thermal_limit(struct kgsl_device *device,
 		u32 level)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	mutex_lock(&device->mutex);
+	int ret = -EINVAL;
 
 	if (level >= pwr->num_pwrlevels)
 		level = pwr->num_pwrlevels - 1;
 
-	pwr->thermal_pwrlevel = level;
+	if (dev_pm_qos_request_active(&pwr->sysfs_thermal_req))
+		ret = dev_pm_qos_update_request(&pwr->sysfs_thermal_req,
+			(pwr->pwrlevels[level].gpu_freq / 1000));
 
-	/* Update the current level using the new limit */
-	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
-	mutex_unlock(&device->mutex);
+	return (ret < 0) ? ret : 0;
 }
 
 static ssize_t thermal_pwrlevel_store(struct device *dev,
@@ -314,7 +340,9 @@ static ssize_t thermal_pwrlevel_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	kgsl_pwrctrl_set_thermal_pwrlevel(device, level);
+	ret = kgsl_pwrctrl_set_thermal_limit(device, level);
+	if (ret)
+		return ret;
 
 	return count;
 }
@@ -459,7 +487,10 @@ static ssize_t max_gpuclk_store(struct device *dev,
 	 * is that it set thermal_pwrlevel instead so we don't want to mess with
 	 * that.
 	 */
-	kgsl_pwrctrl_set_thermal_pwrlevel(device, level);
+	ret = kgsl_pwrctrl_set_thermal_limit(device, level);
+	if (ret)
+		return ret;
+
 	return count;
 }
 
@@ -890,7 +921,7 @@ static ssize_t _max_clock_mhz_show(struct kgsl_device *device, char *buf)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n",
-		pwr->pwrlevels[pwr->max_pwrlevel].gpu_freq / 1000000);
+		pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq / 1000000);
 }
 
 static ssize_t max_clock_mhz_show(struct device *dev,
@@ -906,7 +937,6 @@ static ssize_t _max_clock_mhz_store(struct kgsl_device *device,
 {
 	u32 freq;
 	int ret, level;
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	ret = kstrtou32(buf, 0, &freq);
 	if (ret)
@@ -916,10 +946,14 @@ static ssize_t _max_clock_mhz_store(struct kgsl_device *device,
 	if (level < 0)
 		return level;
 
-	mutex_lock(&device->mutex);
-	pwr->max_pwrlevel = min_t(unsigned int, level, pwr->min_pwrlevel);
-	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
-	mutex_unlock(&device->mutex);
+	/*
+	 * You would think this would set max_pwrlevel but the legacy behavior
+	 * is that it set thermal_pwrlevel instead so we don't want to mess with
+	 * that.
+	 */
+	ret = kgsl_pwrctrl_set_thermal_limit(device, level);
+	if (ret)
+		return ret;
 
 	return count;
 }
@@ -1524,6 +1558,12 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pwr->wakeup_maxpwrlevel = 0;
 
+	result = dev_pm_qos_add_request(&pdev->dev, &pwr->sysfs_thermal_req,
+			DEV_PM_QOS_MAX_FREQUENCY,
+			PM_QOS_MAX_FREQUENCY_DEFAULT_VALUE);
+	if (result < 0)
+		dev_err(device->dev, "PM QoS thermal request failed:\n", result);
+
 	for (i = 0; i < pwr->num_pwrlevels; i++) {
 		freq = pwr->pwrlevels[i].gpu_freq;
 
@@ -1584,6 +1624,9 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	pwr->power_flags = 0;
 
 	kgsl_bus_close(device);
+
+	if (dev_pm_qos_request_active(&pwr->sysfs_thermal_req))
+		dev_pm_qos_remove_request(&pwr->sysfs_thermal_req);
 
 	pm_runtime_disable(&device->pdev->dev);
 
@@ -2212,4 +2255,29 @@ int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device)
 
 	/* Request adjusted DCVS level */
 	return device->ftbl->gpu_clock_set(device, pwr->active_pwrlevel);
+}
+
+/**
+ * kgsl_pwrctrl_update_thermal_pwrlevel() - Update GPU thermal power level
+ * @device: Pointer to the kgsl_device struct
+ */
+void kgsl_pwrctrl_update_thermal_pwrlevel(struct kgsl_device *device)
+{
+	s32 qos_max_freq = dev_pm_qos_read_value(&device->pdev->dev,
+				DEV_PM_QOS_MAX_FREQUENCY);
+	int level = 0;
+
+	if (qos_max_freq != PM_QOS_MAX_FREQUENCY_DEFAULT_VALUE) {
+		level = _get_nearest_pwrlevel(&device->pwrctrl,
+				qos_max_freq * 1000);
+		if (level < 0)
+			return;
+	}
+
+	if (level != device->pwrctrl.thermal_pwrlevel) {
+		trace_kgsl_thermal_constraint(
+			device->pwrctrl.pwrlevels[level].gpu_freq);
+
+		device->pwrctrl.thermal_pwrlevel = level;
+	}
 }

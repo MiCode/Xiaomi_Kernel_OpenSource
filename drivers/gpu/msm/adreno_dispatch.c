@@ -9,6 +9,7 @@
 #include "adreno.h"
 #include "adreno_sysfs.h"
 #include "adreno_trace.h"
+#include "kgsl_eventlog.h"
 #include "kgsl_gmu_core.h"
 #include "kgsl_timeline.h"
 
@@ -261,6 +262,9 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 			drawobj->flags, rb->dispatch_q.inflight, 0);
 	}
 
+	log_kgsl_cmdbatch_retired_event(context->id, drawobj->timestamp,
+		context->priority, drawobj->flags, 0, 0);
+
 	kgsl_drawobj_destroy(drawobj);
 }
 
@@ -367,6 +371,31 @@ static int drawqueue_retire_timelineobj(struct kgsl_drawobj *drawobj,
 	return 0;
 }
 
+static int drawqueue_retire_bindobj(struct kgsl_drawobj *drawobj,
+		struct adreno_context *drawctxt)
+{
+	struct kgsl_drawobj_bind *bindobj = BINDOBJ(drawobj);
+
+	if (test_bit(KGSL_BINDOBJ_STATE_DONE, &bindobj->state)) {
+		_pop_drawobj(drawctxt);
+		_retire_timestamp(drawobj);
+		return 0;
+	}
+
+	if (!test_and_set_bit(KGSL_BINDOBJ_STATE_START, &bindobj->state)) {
+		/*
+		 * Take a referencre to the drawobj and the context because both
+		 * get referenced in the bind callback
+		 */
+		_kgsl_context_get(&drawctxt->base);
+		kref_get(&drawobj->refcount);
+
+		kgsl_sharedmem_bind_ranges(bindobj->bind);
+	}
+
+	return -EAGAIN;
+}
+
 /*
  * Retires all expired marker and sync objs from the context
  * queue and returns one of the below
@@ -403,6 +432,9 @@ static struct kgsl_drawobj *_process_drawqueue_get_next_drawobj(
 			break;
 		case SYNCOBJ_TYPE:
 			ret = dispatch_retire_syncobj(drawobj, drawctxt);
+			break;
+		case BINDOBJ_TYPE:
+			ret = drawqueue_retire_bindobj(drawobj, drawctxt);
 			break;
 		case TIMELINEOBJ_TYPE:
 			ret = drawqueue_retire_timelineobj(drawobj, drawctxt);
@@ -647,6 +679,9 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	trace_adreno_cmdbatch_submitted(drawobj, &info,
 			time.ticks, (unsigned long) secs, nsecs / 1000,
 			dispatch_q->inflight);
+
+	log_kgsl_cmdbatch_submitted_event(context->id, drawobj->timestamp,
+		context->priority, drawobj->flags);
 
 	mutex_unlock(&device->mutex);
 
@@ -1357,6 +1392,7 @@ static int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 		case SYNCOBJ_TYPE:
 			drawctxt_queue_syncobj(drawctxt, drawobj[i], timestamp);
 			break;
+		case BINDOBJ_TYPE:
 		case TIMELINEOBJ_TYPE:
 			ret = drawctxt_queue_auxobj(adreno_dev,
 				drawctxt, drawobj[i], timestamp, user_ts);
@@ -1665,9 +1701,9 @@ static void process_cmdobj_fault(struct kgsl_device *device,
 	 * won't disable GFT and invalidate the context.
 	 */
 	if (test_bit(KGSL_FT_THROTTLE, &cmdobj->fault_policy)) {
-		if (time_after(jiffies, (drawobj->context->fault_time
-				+ msecs_to_jiffies(_fault_throttle_time)))) {
-			drawobj->context->fault_time = jiffies;
+		if (ktime_ms_delta(ktime_get(), drawobj->context->fault_time) >
+				_fault_throttle_time) {
+			drawobj->context->fault_time = ktime_get();
 			drawobj->context->fault_count = 1;
 		} else {
 			drawobj->context->fault_count++;
@@ -2233,6 +2269,9 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 			cmdobj->fault_recovery);
 	}
 
+	log_kgsl_cmdbatch_retired_event(context->id, drawobj->timestamp,
+		context->priority, drawobj->flags, start, end);
+
 	drawctxt->submit_retire_ticks[drawctxt->ticks_index] =
 		end - cmdobj->submit_ticks;
 
@@ -2456,7 +2495,7 @@ static void adreno_dispatcher_queue_context(struct adreno_device *adreno_dev,
 	adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 }
 
-static void adreno_dispatcher_fault(struct adreno_device *adreno_dev,
+void adreno_dispatcher_fault(struct adreno_device *adreno_dev,
 		u32 fault)
 {
 	adreno_set_gpu_fault(adreno_dev, fault);
@@ -2625,18 +2664,31 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 	return adreno_dev->preempt.count;
 }
 
+static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev, bool val)
+{
+	adreno_dev->long_ib_detect = val ? true : false;
+	return 0;
+}
+
+static bool _ft_long_ib_detect_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->long_ib_detect;
+}
+
 static ADRENO_SYSFS_BOOL(preemption);
 static ADRENO_SYSFS_U32(preempt_level);
 static ADRENO_SYSFS_BOOL(usesgmem);
 static ADRENO_SYSFS_BOOL(skipsaverestore);
 static ADRENO_SYSFS_RO_U32(preempt_count);
+static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
 
-static const struct attribute *_preempt_attr_list[] = {
+static const struct attribute *_dispatch_attr_list[] = {
 	&adreno_attr_preemption.attr.attr,
 	&adreno_attr_preempt_level.attr.attr,
 	&adreno_attr_usesgmem.attr.attr,
 	&adreno_attr_skipsaverestore.attr.attr,
 	&adreno_attr_preempt_count.attr.attr,
+	&adreno_attr_ft_long_ib_detect.attr.attr,
 	NULL,
 };
 
@@ -2671,6 +2723,8 @@ static void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 	kobject_put(&dispatcher->kobj);
 
 	kmem_cache_destroy(jobs_cache);
+
+	clear_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
 }
 
 struct dispatcher_attribute {
@@ -2826,7 +2880,13 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	sysfs_create_files(&device->dev->kobj, _preempt_attr_list);
+	dispatcher->worker = kthread_create_worker(0, "kgsl_dispatcher");
+	if (IS_ERR(dispatcher->worker)) {
+		kobject_put(&dispatcher->kobj);
+		return PTR_ERR(dispatcher->worker);
+	}
+
+	sysfs_create_files(&device->dev->kobj, _dispatch_attr_list);
 
 	mutex_init(&dispatcher->mutex);
 
@@ -2844,15 +2904,11 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 		init_llist_head(&dispatcher->requeue[i]);
 	}
 
-	set_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
-
 	adreno_set_dispatch_ops(adreno_dev, &swsched_ops);
 
-	dispatcher->worker = kthread_create_worker(0, "kgsl_dispatcher");
-	if (IS_ERR(dispatcher->worker))
-		return PTR_ERR(dispatcher->worker);
-
 	sched_set_fifo(dispatcher->worker->task);
+
+	set_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
 
 	return 0;
 }

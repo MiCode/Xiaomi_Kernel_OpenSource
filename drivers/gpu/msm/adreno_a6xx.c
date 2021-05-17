@@ -190,10 +190,6 @@ static int a6xx_nogmu_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	ret = adreno_dispatcher_init(adreno_dev);
-	if (ret)
-		return ret;
-
 	ret = a6xx_ringbuffer_init(adreno_dev);
 	if (ret)
 		return ret;
@@ -1674,8 +1670,7 @@ static void a6xx_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_irqctrl(adreno_dev, 0);
 
 	/* Trigger a fault in the dispatcher - this will effect a restart */
-	adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
-	adreno_dispatcher_schedule(device);
+	adreno_dispatcher_fault(adreno_dev, ADRENO_SOFT_FAULT);
 }
 
 static const struct adreno_irq_funcs a6xx_irq_funcs[32] = {
@@ -1775,8 +1770,7 @@ static irqreturn_t a6xx_irq_handler(struct adreno_device *adreno_dev)
 	a6xx_gpu_keepalive(adreno_dev, true);
 
 	if (a6xx_irq_poll_fence(adreno_dev)) {
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
+		adreno_dispatcher_fault(adreno_dev, ADRENO_GMU_FAULT);
 		goto done;
 	}
 
@@ -2248,6 +2242,10 @@ static int a6xx_probe(struct platform_device *pdev,
 	if (ret)
 		return ret;
 
+	ret = adreno_dispatcher_init(adreno_dev);
+	if (ret)
+		return ret;
+
 	device = KGSL_DEVICE(adreno_dev);
 
 	timer_setup(&device->idle_timer, kgsl_timer, 0);
@@ -2632,6 +2630,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.power_ops = &a6xx_hwsched_power_ops,
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
+		.hw_isidle = a6xx_hw_isidle,
 	},
 	.hfi_probe = a6xx_hwsched_hfi_probe,
 	.handle_watchdog = a6xx_hwsched_handle_watchdog,

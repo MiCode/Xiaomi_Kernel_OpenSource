@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ctype.h>
@@ -8,6 +8,7 @@
 #include <linux/sched/signal.h>
 
 #include "adreno.h"
+#include "adreno_hwsched.h"
 #include "adreno_profile.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
@@ -691,7 +692,11 @@ static ssize_t profile_assignments_write(struct file *filep,
 	 * all it's work.  This helps to synchronize the work flow to the
 	 * GPU and avoid racey conditions.
 	 */
-	if (adreno_idle(device)) {
+	if (adreno_dev->dispatch_ops && adreno_dev->dispatch_ops->idle)
+		ret = adreno_dev->dispatch_ops->idle(adreno_dev);
+	else
+		ret = adreno_idle(device);
+	if (ret) {
 		size = -ETIMEDOUT;
 		goto error_put;
 	}
@@ -1073,7 +1078,7 @@ u64 adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 	unsigned int *shared_ptr;
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 
-	if (!adreno_profile_assignments_ready(profile))
+	if (!drawctxt || !adreno_profile_assignments_ready(profile))
 		return 0;
 
 	/*
@@ -1110,14 +1115,14 @@ u64 adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 }
 
 u64 adreno_profile_postib_processing(struct adreno_device *adreno_dev,
-		u32 *dwords)
+		struct adreno_context *drawctxt, u32 *dwords)
 {
 	struct adreno_profile *profile = &adreno_dev->profile;
 	int count = profile->assignment_count;
 	unsigned int entry_head = profile->shared_head -
 		SIZE_SHARED_ENTRY(count);
 
-	if (!adreno_profile_assignments_ready(profile))
+	if (!drawctxt || !adreno_profile_assignments_ready(profile))
 		return 0;
 
 	/* create the shared ibdesc */

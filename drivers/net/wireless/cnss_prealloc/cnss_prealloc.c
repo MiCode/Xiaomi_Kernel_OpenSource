@@ -141,7 +141,9 @@ static void cnss_pool_deinit(void)
  * cnss_pool_get_index() - Get the index of memory pool
  * @mem: Allocated memory
  *
- * Returns the index of the memory pool which fits the reqested memory.
+ * Returns the index of the memory pool which fits the reqested memory. The
+ * complexity of this check is O(num of memory pools). Returns a negative
+ * value with error code in case of failure.
  *
  */
 static int cnss_pool_get_index(void *mem)
@@ -150,18 +152,18 @@ static int cnss_pool_get_index(void *mem)
 	struct kmem_cache *cache;
 	int i;
 
+	if (!virt_addr_valid(mem))
+		return -EINVAL;
+
 	/* mem -> page -> cache */
 	page = virt_to_head_page(mem);
-	if (!page) {
-		pr_err("cnss_prealloc: no page\n");
+	if (!page)
 		return -ENOENT;
-	}
 
 	cache = page->slab_cache;
-	if (!cache) {
-		pr_err("cnss_prealloc: no cache\n");
+	if (!cache)
 		return -ENOENT;
-	}
+
 
 	/* Check if memory belongs to a pool */
 	for (i = 0; i < ARRAY_SIZE(cnss_pools); i++) {
@@ -228,9 +230,6 @@ int wcnss_prealloc_put(void *mem)
 	int i;
 
 	if (!mem)
-		return 0;
-
-	if (ksize(mem) < cnss_pool_alloc_threshold())
 		return 0;
 
 	i = cnss_pool_get_index(mem);

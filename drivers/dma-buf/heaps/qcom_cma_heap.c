@@ -28,8 +28,9 @@
 #include "qcom_sg_ops.h"
 
 struct cma_heap {
-	struct dma_heap *heap;
 	struct cma *cma;
+	/* max_align is in units of page_order, similar to CONFIG_CMA_ALIGNMENT */
+	u32 max_align;
 };
 
 static void cma_heap_free(struct qcom_sg_buffer *buffer)
@@ -65,8 +66,8 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 
 	cma_heap = dma_heap_get_drvdata(heap);
 
-	if (align > CONFIG_CMA_ALIGNMENT)
-		align = CONFIG_CMA_ALIGNMENT;
+	if (align > cma_heap->max_align)
+		align = cma_heap->max_align;
 
 	helper_buffer = kzalloc(sizeof(*helper_buffer), GFP_KERNEL);
 	if (!helper_buffer)
@@ -146,19 +147,23 @@ static int __add_cma_heap(struct platform_heap *heap_data, void *data)
 {
 	struct cma_heap *cma_heap;
 	struct dma_heap_export_info exp_info;
+	struct dma_heap *heap;
 
 	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
 	if (!cma_heap)
 		return -ENOMEM;
 	cma_heap->cma = heap_data->dev->cma_area;
+	cma_heap->max_align = CONFIG_CMA_ALIGNMENT;
+	if (heap_data->max_align)
+		cma_heap->max_align = heap_data->max_align;
 
 	exp_info.name = heap_data->name;
 	exp_info.ops = &cma_heap_ops;
 	exp_info.priv = cma_heap;
 
-	cma_heap->heap = dma_heap_add(&exp_info);
-	if (IS_ERR(cma_heap->heap)) {
-		int ret = PTR_ERR(cma_heap->heap);
+	heap = dma_heap_add(&exp_info);
+	if (IS_ERR(heap)) {
+		int ret = PTR_ERR(heap);
 
 		kfree(cma_heap);
 		return ret;

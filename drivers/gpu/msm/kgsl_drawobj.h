@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __KGSL_DRAWOBJ_H
@@ -19,6 +19,7 @@
 #define CMDOBJ_TYPE     BIT(0)
 #define MARKEROBJ_TYPE  BIT(1)
 #define SYNCOBJ_TYPE    BIT(2)
+#define BINDOBJ_TYPE    BIT(3)
 #define TIMELINEOBJ_TYPE    BIT(4)
 
 /**
@@ -82,6 +83,8 @@ struct kgsl_drawobj_cmd {
 	uint64_t profiling_buffer_gpuaddr;
 	unsigned int profile_index;
 	uint64_t submit_ticks;
+	/* @numibs: Number of ibs in this cmdobj */
+	u32 numibs;
 };
 
 /**
@@ -103,6 +106,26 @@ struct kgsl_drawobj_sync {
 	struct timer_list timer;
 	unsigned long timeout_jiffies;
 };
+
+#define KGSL_BINDOBJ_STATE_START 0
+#define KGSL_BINDOBJ_STATE_DONE  1
+
+/**
+ * struct kgsl_drawobj_bind - KGSL virtual buffer object bind operation
+ * @base: &struct kgsl_drawobj container
+ * @state: Current state of the draw operation
+ * @bind: Pointer to the VBO bind operation struct
+ */
+struct kgsl_drawobj_bind {
+	struct kgsl_drawobj base;
+	unsigned long state;
+	struct kgsl_sharedmem_bind_op *bind;
+};
+
+static inline struct kgsl_drawobj_bind *BINDOBJ(struct kgsl_drawobj *obj)
+{
+	return container_of(obj, struct kgsl_drawobj_bind, base);
+}
 
 /**
  * struct kgsl_drawobj_timeline - KGSL timeline signal operation
@@ -273,6 +296,12 @@ struct kgsl_drawobj_sync *
 kgsl_drawobj_create_timestamp_syncobj(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp);
 
+struct kgsl_drawobj_bind *kgsl_drawobj_bind_create(struct kgsl_device *device,
+		struct kgsl_context *context);
+
+int kgsl_drawobj_add_bind(struct kgsl_device_private *dev_priv,
+		struct kgsl_drawobj_bind *bindobj,
+		void __user *src, u64 cmdsize);
 
 /**
  * kgsl_drawobj_timeline_create - Create a timeline draw object

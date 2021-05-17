@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef ____ADRENO_DISPATCHER_H
@@ -102,4 +102,11 @@ void adreno_dispatcher_start_fault_timer(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop_fault_timer(struct kgsl_device *device);
 
 void adreno_dispatcher_schedule(struct kgsl_device *device);
+
+/**
+ * adreno_dispatcher_fault - Set dispatcher fault to request recovery
+ * @adreno_dev: A handle to adreno device
+ * @fault: The type of fault
+ */
+void adreno_dispatcher_fault(struct adreno_device *adreno_dev, u32 fault);
 #endif /* __ADRENO_DISPATCHER_H */

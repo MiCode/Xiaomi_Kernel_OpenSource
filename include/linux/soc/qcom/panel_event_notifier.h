@@ -61,7 +61,7 @@ void panel_event_notification_trigger(enum panel_event_notifier_tag tag,
 		 struct panel_event_notification *notification);
 
 #else
-static void *panel_event_notifier_register(enum panel_event_notifier_tag tag,
+static inline void *panel_event_notifier_register(enum panel_event_notifier_tag tag,
 		enum panel_event_notifier_client client_handle,
 		struct drm_panel *panel,
 		panel_event_notifier_handler notif_handler, void *pvt_data)
@@ -69,11 +69,12 @@ static void *panel_event_notifier_register(enum panel_event_notifier_tag tag,
 	return ERR_PTR(-EOPNOTSUPP);
 }
 
-static void panel_event_notifier_unregister(void *cookie)
+static inline void panel_event_notifier_unregister(void *cookie)
 {
 }
-void panel_event_notification_trigger(enum panel_event_notifier_tag tag,
-		 struct panel_event_notification *notification)
+static inline void panel_event_notification_trigger(
+		enum panel_event_notifier_tag tag,
+		struct panel_event_notification *notification)
 {
 }
 #endif

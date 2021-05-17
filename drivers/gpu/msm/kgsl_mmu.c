@@ -304,21 +304,6 @@ int kgsl_mmu_set_svm_region(struct kgsl_pagetable *pagetable, uint64_t gpuaddr,
 	return -ENOMEM;
 }
 
-/**
- * kgsl_mmu_get_gpuaddr() - Assign a GPU address to the memdesc
- * @pagetable: GPU pagetable to assign the address in
- * @memdesc: mem descriptor to assign the memory to
- */
-int
-kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
-		struct kgsl_memdesc *memdesc)
-{
-	if (PT_OP_VALID(pagetable, get_gpuaddr))
-		return pagetable->pt_ops->get_gpuaddr(pagetable, memdesc);
-
-	return -ENOMEM;
-}
-
 int
 kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				struct kgsl_memdesc *memdesc)
@@ -330,6 +315,9 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	/* Only global mappings should be mapped multiple times */
 	if (!kgsl_memdesc_is_global(memdesc) &&
 			(KGSL_MEMDESC_MAPPED & memdesc->priv))
+		return -EINVAL;
+
+	if (memdesc->flags & KGSL_MEMFLAGS_VBO)
 		return -EINVAL;
 
 	size = kgsl_memdesc_footprint(memdesc);
@@ -351,41 +339,56 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	return 0;
 }
 
-/**
- * kgsl_mmu_put_gpuaddr() - Remove a GPU address from a pagetable
- * @pagetable: Pagetable to release the memory from
- * @memdesc: Memory descriptor containing the GPU address to free
- */
-void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc)
+int kgsl_mmu_map_child(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 offset,
+		struct kgsl_memdesc *child, u64 child_offset,
+		u64 length)
 {
-	struct kgsl_pagetable *pagetable = memdesc->pagetable;
-	int unmap_fail = 0;
+	/* This only makes sense for virtual buffer objects */
+	if (!(memdesc->flags & KGSL_MEMFLAGS_VBO))
+		return -EINVAL;
 
-	if (memdesc->size == 0 || memdesc->gpuaddr == 0)
-		return;
+	if (!memdesc->gpuaddr)
+		return -EINVAL;
 
-	if (!kgsl_memdesc_is_global(memdesc))
-		unmap_fail = kgsl_mmu_unmap(pagetable, memdesc);
+	if (PT_OP_VALID(pt, mmu_map_child)) {
+		int ret;
 
-	/*
-	 * Do not free the gpuaddr/size if unmap fails. Because if we
-	 * try to map this range in future, the iommu driver will throw
-	 * a BUG_ON() because it feels we are overwriting a mapping.
-	 */
-	if (PT_OP_VALID(pagetable, put_gpuaddr) && (unmap_fail == 0))
-		pagetable->pt_ops->put_gpuaddr(memdesc);
+		ret = pt->pt_ops->mmu_map_child(pt, memdesc,
+			offset, child, child_offset, length);
+		if (ret)
+			return ret;
 
-	memdesc->pagetable = NULL;
+		KGSL_STATS_ADD(length, &pt->stats.mapped,
+				&pt->stats.max_mapped);
+	}
 
+	return 0;
+}
 
-	/*
-	 * If SVM tries to take a GPU address it will lose the race until the
-	 * gpuaddr returns to zero so we shouldn't need to worry about taking a
-	 * lock here
-	 */
-	if (!kgsl_memdesc_is_global(memdesc))
-		memdesc->gpuaddr = 0;
+int kgsl_mmu_map_zero_page_to_range(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 start, u64 length)
+{
+	int ret = -EINVAL;
 
+	/* This only makes sense for virtual buffer objects */
+	if (!(memdesc->flags & KGSL_MEMFLAGS_VBO))
+		return -EINVAL;
+
+	if (!memdesc->gpuaddr)
+		return -EINVAL;
+
+	if (PT_OP_VALID(pt, mmu_map_zero_page_to_range)) {
+		ret = pt->pt_ops->mmu_map_zero_page_to_range(pt,
+			memdesc, start, length);
+		if (ret)
+			return ret;
+
+		KGSL_STATS_ADD(length, &pt->stats.mapped,
+				&pt->stats.max_mapped);
+	}
+
+	return 0;
 }
 
 /**
@@ -414,6 +417,9 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 	if (memdesc->size == 0)
 		return -EINVAL;
 
+	if ((memdesc->flags & KGSL_MEMFLAGS_VBO))
+		return -EINVAL;
+
 	/* Only global mappings should be mapped multiple times */
 	if (!(KGSL_MEMDESC_MAPPED & memdesc->priv))
 		return -EINVAL;
@@ -430,6 +436,26 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 		if (!kgsl_memdesc_is_global(memdesc))
 			memdesc->priv &= ~KGSL_MEMDESC_MAPPED;
+	}
+
+	return ret;
+}
+
+int
+kgsl_mmu_unmap_range(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc, u64 offset, u64 length)
+{
+	int ret = 0;
+
+	/* Only allow virtual buffer objects to use this function */
+	if (!(memdesc->flags & KGSL_MEMFLAGS_VBO))
+		return -EINVAL;
+
+	if (PT_OP_VALID(pagetable, mmu_unmap_range)) {
+		ret = pagetable->pt_ops->mmu_unmap_range(pagetable, memdesc,
+			offset, length);
+
+		atomic_long_sub(length, &pagetable->stats.mapped);
 	}
 
 	return ret;

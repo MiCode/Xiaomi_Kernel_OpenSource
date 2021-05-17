@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_KGSL_H
@@ -151,6 +151,7 @@
 #define KGSL_MEMFLAGS_SPARSE_VIRT (1ULL << 30)
 #define KGSL_MEMFLAGS_IOCOHERENT  (1ULL << 31)
 #define KGSL_MEMFLAGS_GUARD_PAGE  (1ULL << 33)
+#define KGSL_MEMFLAGS_VBO         (1ULL << 34)
 
 /* Memory types for which allocations are made */
 #define KGSL_MEMTYPE_MASK		0x0000FF00
@@ -1691,9 +1692,106 @@ struct kgsl_gpu_sparse_command {
 #define IOCTL_KGSL_GPU_SPARSE_COMMAND \
 	_IOWR(KGSL_IOC_TYPE, 0x55, struct kgsl_gpu_sparse_command)
 
+#define KGSL_GPUMEM_RANGE_OP_BIND 1
+#define KGSL_GPUMEM_RANGE_OP_UNBIND 2
+
+/**
+ * struct kgsl_gpumem_bind_range - specifies a bind operation for a virtual
+ * buffer object
+ * @child_offset: Offset to the start of memory within the child buffer object
+ * (not used for KGSL_GPUMEM_RANGE_OP_UNBIND operations)
+ * @target_offset: GPU address offset within the target VBO
+ * @length: Amount of memory to map/unmap (in bytes)
+ * @child_id: The GPU buffer ID for the child object to map/unmap in the VBO
+ * @op: One of KGSL_GPUMEM_RANGE_OP_BIND or KGSL_GPUMEM_RANGE_OP_UNBIND
+ *
+ * This defines a specific bind operation to a virtual buffer object specified
+ * in &struct kgsl_gpumem_bind_ranges. When @op is KGSL_GPUMEM_RANGE_OP_BIND the
+ * physical memory starting at @child_offset in the memory object identified by
+ * @child_id will be mapped into the target virtual buffer object starting at
+ * @offset for @length bytes.
+ *
+ * When @op is KGSL_GPUMEM_RANGE_OP_UNBIND any entries in the target virtual
+ * buffer object between @offset and @length that belong to @child_id will be
+ * removed.
+ */
+struct kgsl_gpumem_bind_range {
+	__u64 child_offset;
+	__u64 target_offset;
+	__u64 length;
+	__u32 child_id;
+	__u32 op;
+};
+
+#define KGSL_GPUMEM_BIND_ASYNC		(1UL << 0)
+#define KGSL_GPUMEM_BIND_FENCE_OUT	(1UL << 1)
+
+/**
+ * struct kgsl_gpumem_bind_ranges - Argument to IOCTL_KGSL_GPUMEM_BIND_RANGES to
+ * either map or unmap a child buffer object into a virtual buffer object.
+ * @ranges: User memory pointer to an array of range operations of type &struct
+ * kgsl_gpumem_bind_range
+ * @ranges_nents: Number of entries in @ranges
+ * @ranges_size: Size of each entry in @ranges in bytes
+ * @id: GPU buffer object identifier for the target virtual buffer object
+ * @flags: Bitmap of KGSL_GPUMEM_BIND_ASYNC and KGSL_GPUMEM_BIND_FENCE_OUT
+ * @fence_id: If KGSL_GPUMEM_BIND_FENCE_OUT is set in @flags contains the
+ * identifier for the sync fence that will be signaled after the operation
+ * completes
+ *
+ * Describes a number of range operations to perform on a virtual buffer object
+ * identified by @id. Ranges should be a __u64 representation of an array of
+ * &struct kgsl_gpumem_bind_range entries. @ranges_nents will contain the number
+ * of entries in the array, and @ranges_size will contain the size of each entry
+ * in the array. If KGSL_GPUMEM_BIND_ASYNC is set the operation will be
+ * performed asynchronously and the operation will immediately return to the
+ * user. Otherwise the calling context will block until the operation has
+ * completed.
+ *
+ * If KGSL_GPUMEM_BIND_ASYNC and KGSL_GPUMEM_BIND_FENCE_OUT are both set a sync
+ * fence will be created and returned in @fence_id. The fence will be signaled
+ * when the bind operation has completed.
+ */
+struct kgsl_gpumem_bind_ranges {
+	__u64 ranges;
+	__u32 ranges_nents;
+	__u32 ranges_size;
+	__u32 id;
+	__u32 flags;
+	int fence_id;
+	/* private: 64 bit compatibility */
+	__u32 padding;
+};
+
+#define IOCTL_KGSL_GPUMEM_BIND_RANGES \
+	_IOWR(KGSL_IOC_TYPE, 0x56, struct kgsl_gpumem_bind_ranges)
+
+#define KGSL_GPU_AUX_COMMAND_BIND	(1 << 0)
 #define KGSL_GPU_AUX_COMMAND_TIMELINE	(1 << 1)
 /* Reuse the same flag that GPU COMMAND uses */
 #define KGSL_GPU_AUX_COMMAND_SYNC	KGSL_CMDBATCH_SYNC
+
+/**
+ * struct kgsl_gpu_aux_command_bind - Descriptor for a GPU AUX bind command
+ * @rangeslist: Pointer to a list of &struct kgsl_gpumem_bind_range items
+ * @numranges Number of entries in @rangeslist
+ * @rangesize: Size of each entry in @rangeslist
+ * @target: The GPU memory ID for the target virtual buffer object
+ *
+ * Describe a GPU AUX command to bind ranges in a virtual buffer object.
+ * @rangeslist points to a &struct kgsl_gpumem_bind_ranges which is the same
+ * struct that is used by IOCTl_KGSL_GPUMEM_BIND_RANGES. @numrages is the size
+ * of the array in @rangeslist and @rangesize is the size of each entity in
+ * @rangeslist. @target points to the GPU ID for the target VBO object.
+ */
+struct kgsl_gpu_aux_command_bind {
+	__u64 rangeslist;
+	__u64 numranges;
+	__u64 rangesize;
+	__u32 target;
+/* private: Padding for 64 bit compatibility */
+	__u32 padding;
+};
 
 /**
  * struct kgsl_aux_command_generic - Container for an AUX command

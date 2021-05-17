@@ -157,18 +157,17 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 	if (qcom_mdt_bins_are_split(fw)) {
 		fw_name = kstrdup(firmware, GFP_KERNEL);
 		if (!fw_name) {
-			kfree(data);
-			return ERR_PTR(-ENOMEM);
+			ret = -ENOMEM;
+			goto free_metadata;
+
 		}
 		snprintf(fw_name + strlen(fw_name) - 3, 4, "b%02d", hash_index);
 
 		ret = request_firmware_into_buf(&seg_fw, fw_name, dev, data + ehdr_size, hash_size);
 		kfree(fw_name);
 
-		if (ret) {
-			kfree(data);
-			return ERR_PTR(ret);
-		}
+		if (ret)
+			goto free_metadata;
 
 		release_firmware(seg_fw);
 	} else {
@@ -178,6 +177,12 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 	*data_len = ehdr_size + hash_size;
 
 	return data;
+free_metadata:
+	if (metadata_phys)
+		dma_free_coherent(dev, ehdr_size + hash_size, data, *metadata_phys);
+	else
+		kfree(data);
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_read_metadata);
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -46,7 +46,7 @@
 #define OP_MODE_SHIFT		1
 
 #define EQ_SETTING_MASK			0x07
-#define OUTPUT_COMPRESSION_MASK		0x03
+#define OUTPUT_COMPRESSION_MASK		0x0b
 #define LOSS_MATCH_MASK			0x03
 #define FLAT_GAIN_MASK			0x03
 
@@ -60,36 +60,24 @@
 #define CHNC_INDEX		2
 #define CHND_INDEX		3
 
-#define CHAN_MODE_NUM		2
-
-/* for type c cable */
 enum plug_orientation {
 	ORIENTATION_CC1,
 	ORIENTATION_CC2,
 };
 
-/*
- * Three Modes of Operations:
- *  - One/Two ports of USB 3.1 Gen1/Gen2 (Default Mode)
- *  - Two lanes of DisplayPort 1.4 + One port of USB 3.1 Gen1/Gen2
- *  - Four lanes of DisplayPort 1.4
- */
 enum operation_mode {
-	OP_MODE_NONE,
-	OP_MODE_USB,	/* One/Two ports of USB */
-	OP_MODE_DP,		/* DP 4 Lane and DP 2 Lane */
-	OP_MODE_USB_AND_DP, /* One port of USB and DP 2 Lane */
+	OP_MODE_NONE,		/* 4 lanes disabled */
+	OP_MODE_USB,		/* 2 lanes for USB and 2 lanes disabled */
+	OP_MODE_DP,		/* 4 lanes DP */
+	OP_MODE_USB_AND_DP,	/* 2 lanes for USB and 2 lanes DP */
+	OP_MODE_DEFAULT,	/* 4 lanes USB */
 };
 
-/*
- * USB redriver channel mode:
- *  - USB mode
- *  - DP mode
- */
-enum channel_mode {
-	CHAN_MODE_USB,
-	CHAN_MODE_DP,
-};
+#define CHAN_MODE_USB		0
+#define CHAN_MODE_DP		1
+#define CHAN_MODE_NUM		2
+
+#define CHAN_MODE_DISABLE	0xff /* when disable, not configure eq, gain ... */
 
 struct ssusb_redriver {
 	struct device		*dev;
@@ -97,19 +85,21 @@ struct ssusb_redriver {
 	struct i2c_client	*client;
 
 	int orientation_gpio;
-	bool orientation_gpio_enable;
 	enum plug_orientation typec_orientation;
 	enum operation_mode op_mode;
 
-	struct notifier_block	panic_nb;
 	struct notifier_block ucsi_nb;
 
-	enum	channel_mode chan_mode[CHANNEL_NUM];
+	u8	chan_mode[CHANNEL_NUM];
 
 	u8	eq[CHAN_MODE_NUM][CHANNEL_NUM];
 	u8	output_comp[CHAN_MODE_NUM][CHANNEL_NUM];
 	u8	loss_match[CHAN_MODE_NUM][CHANNEL_NUM];
 	u8	flat_gain[CHAN_MODE_NUM][CHANNEL_NUM];
+
+	u8	gen_dev_val;
+	bool	lane_channel_swap;
+	int	ucsi_i2c_write_err;
 
 	struct dentry	*debug_root;
 };
@@ -122,27 +112,9 @@ static const char * const opmode_string[] = {
 	[OP_MODE_USB] = "USB",
 	[OP_MODE_DP] = "DP",
 	[OP_MODE_USB_AND_DP] = "USB and DP",
+	[OP_MODE_DEFAULT] = "DEFAULT",
 };
 #define OPMODESTR(x) opmode_string[x]
-
-static int redriver_i2c_reg_get(struct ssusb_redriver *redriver,
-		u8 reg, u8 *val)
-{
-	int ret;
-	unsigned int val_tmp;
-
-	ret = regmap_read(redriver->regmap, (unsigned int)reg, &val_tmp);
-	if (ret < 0) {
-		dev_err(redriver->dev, "reading reg 0x%02x failure\n", reg);
-		return ret;
-	}
-
-	*val = (u8)val_tmp;
-
-	dev_dbg(redriver->dev, "reading reg 0x%02x=0x%02x\n", reg, *val);
-
-	return 0;
-}
 
 static int redriver_i2c_reg_set(struct ssusb_redriver *redriver,
 		u8 reg, u8 val)
@@ -161,12 +133,18 @@ static int redriver_i2c_reg_set(struct ssusb_redriver *redriver,
 	return 0;
 }
 
-static void ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
+static int ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
 {
-	int ret;
 	u8 val = 0;
 
 	switch (redriver->op_mode) {
+	case OP_MODE_DEFAULT:
+		/* Enable channel A, B, C and D */
+		val |= (CHNA_EN | CHNB_EN);
+		val |= (CHNC_EN | CHND_EN);
+		val |= (0x5 << OP_MODE_SHIFT);
+		val |= CHIP_EN;
+		break;
 	case OP_MODE_USB:
 		/* Use source side I/O mapping */
 		if (redriver->typec_orientation
@@ -213,40 +191,26 @@ static void ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
 		break;
 	}
 
-	ret = redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
-	if (ret < 0)
-		goto err_exit;
+	redriver->gen_dev_val = val;
 
-	dev_dbg(redriver->dev,
-		"successfully configure device, reg 0x00 = 0x%x\n", val);
-
-	return;
-
-err_exit:
-	dev_err(redriver->dev,
-		"failure to configure device, reg 0x00 = 0x%x\n", val);
+	return redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
 }
 
 static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
-		u8 reg_base, u8 channel, u8 mask, u8 shift, u8 val,
+		u8 reg_base, u8 channel, u8 chan_mode, u8 mask, u8 shift, u8 val,
 		u8 (*stored_val)[CHANNEL_NUM])
 {
 	int i, j, ret = -EINVAL;
-	u8 reg_addr, reg_val, real_channel, chan_mode;
+	u8 reg_addr, reg_val;
 
-	if (channel == CHANNEL_NUM * CHAN_MODE_NUM) {
+	if (channel == CHANNEL_NUM) {
 		for (i = 0; i < CHAN_MODE_NUM; i++)
 			for (j = 0; j < CHANNEL_NUM; j++) {
 				if (redriver->chan_mode[j] == i) {
 					reg_addr = reg_base + (j << 1);
 
-					ret = redriver_i2c_reg_get(redriver,
-							reg_addr, &reg_val);
-					if (ret < 0)
-						return ret;
-
-					reg_val &= ~(mask << shift);
-					reg_val |= (val << shift);
+					reg_val =  (val  << shift);
+					reg_val &= (mask << shift);
 
 					ret = redriver_i2c_reg_set(redriver,
 							reg_addr, reg_val);
@@ -256,20 +220,12 @@ static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
 
 				stored_val[i][j] = val;
 			}
-	} else if (channel < CHANNEL_NUM * CHAN_MODE_NUM) {
-		real_channel = channel % CHANNEL_NUM;
-		chan_mode = channel / CHANNEL_NUM;
+	} else {
+		if (redriver->chan_mode[channel] == chan_mode) {
+			reg_addr = reg_base + (channel << 1);
 
-		if (redriver->chan_mode[real_channel] == chan_mode) {
-			reg_addr = reg_base + (real_channel << 1);
-
-			ret = redriver_i2c_reg_get(redriver,
-					reg_addr, &reg_val);
-			if (ret < 0)
-				return ret;
-
-			reg_val &= ~(mask << shift);
-			reg_val |= (val << shift);
+			reg_val =  (val  << shift);
+			reg_val &= (mask << shift);
 
 			ret = redriver_i2c_reg_set(redriver,
 					reg_addr, reg_val);
@@ -277,72 +233,72 @@ static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
 				return ret;
 		}
 
-		stored_val[chan_mode][real_channel] = val;
-	} else {
-		dev_err(redriver->dev, "error channel value.\n");
-		return ret;
+		stored_val[chan_mode][channel] = val;
 	}
 
 	return 0;
 }
 
 static int ssusb_redriver_eq_config(
-		struct ssusb_redriver *redriver, u8 channel, u8 val)
+	struct ssusb_redriver *redriver, u8 channel, u8 chan_mode, u8 val)
 {
-	if (val <= EQ_SETTING_MASK)
-		return ssusb_redriver_param_config(redriver,
-				EQ_SET_REG_BASE, channel, EQ_SETTING_MASK,
-				EQ_SETTING_SHIFT, val, redriver->eq);
-	else
-		return -EINVAL;
+	return ssusb_redriver_param_config(redriver,
+			EQ_SET_REG_BASE, channel, chan_mode,
+			EQ_SETTING_MASK, EQ_SETTING_SHIFT,
+			val, redriver->eq);
 }
 
 static int ssusb_redriver_flat_gain_config(
-		struct ssusb_redriver *redriver, u8 channel, u8 val)
+	struct ssusb_redriver *redriver, u8 channel, u8 chan_mode, u8 val)
 {
-	if (val <= FLAT_GAIN_MASK)
-		return ssusb_redriver_param_config(redriver,
-				FLAT_GAIN_REG_BASE, channel, FLAT_GAIN_MASK,
-				FLAT_GAIN_SHIFT, val, redriver->flat_gain);
-	else
-		return -EINVAL;
+	return ssusb_redriver_param_config(redriver,
+			FLAT_GAIN_REG_BASE, channel, chan_mode,
+			FLAT_GAIN_MASK, FLAT_GAIN_SHIFT,
+			val, redriver->flat_gain);
 }
 
 static int ssusb_redriver_output_comp_config(
-		struct ssusb_redriver *redriver, u8 channel, u8 val)
+	struct ssusb_redriver *redriver, u8 channel, u8 chan_mode, u8 val)
 {
-	if (val <= OUTPUT_COMPRESSION_MASK)
-		return ssusb_redriver_param_config(redriver,
-				OUT_COMP_AND_POL_REG_BASE, channel,
-				OUTPUT_COMPRESSION_MASK,
-				OUTPUT_COMPRESSION_SHIFT, val,
-				redriver->output_comp);
-	else
-		return -EINVAL;
+	return ssusb_redriver_param_config(redriver,
+			OUT_COMP_AND_POL_REG_BASE, channel, chan_mode,
+			OUTPUT_COMPRESSION_MASK, OUTPUT_COMPRESSION_SHIFT,
+			val, redriver->output_comp);
 }
 
 static int ssusb_redriver_loss_match_config(
-		struct ssusb_redriver *redriver, u8 channel, u8 val)
+	struct ssusb_redriver *redriver, u8 channel, u8 chan_mode, u8 val)
 {
-	if (val <= LOSS_MATCH_MASK)
-		return ssusb_redriver_param_config(redriver,
-				LOSS_MATCH_REG_BASE, channel, LOSS_MATCH_MASK,
-				LOSS_MATCH_SHIFT, val, redriver->loss_match);
-	else
-		return -EINVAL;
+	return ssusb_redriver_param_config(redriver,
+			LOSS_MATCH_REG_BASE, channel, chan_mode,
+			LOSS_MATCH_MASK, LOSS_MATCH_SHIFT, val,
+			redriver->loss_match);
 }
 
 static int ssusb_redriver_channel_update(struct ssusb_redriver *redriver)
 {
-	int ret = 0, i = 0, pos = 0;
-	u8 chan_mode;
+	int ret;
+	u8 i, chan_mode;
 
 	switch (redriver->op_mode) {
-	case OP_MODE_USB:
+	case OP_MODE_DEFAULT:
 		redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_USB;
 		redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_USB;
 		redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_USB;
 		redriver->chan_mode[CHND_INDEX] = CHAN_MODE_USB;
+		break;
+	case OP_MODE_USB:
+		if (redriver->typec_orientation == ORIENTATION_CC1) {
+			redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_DISABLE;
+			redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_DISABLE;
+			redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHND_INDEX] = CHAN_MODE_USB;
+		} else {
+			redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_DISABLE;
+			redriver->chan_mode[CHND_INDEX] = CHAN_MODE_DISABLE;
+		}
 		break;
 	case OP_MODE_USB_AND_DP:
 		if (redriver->typec_orientation == ORIENTATION_CC1) {
@@ -368,36 +324,36 @@ static int ssusb_redriver_channel_update(struct ssusb_redriver *redriver)
 	}
 
 	for (i = 0; i < CHANNEL_NUM; i++) {
-		chan_mode = redriver->chan_mode[i];
-		pos = i + chan_mode * CHANNEL_NUM;
+		if (redriver->chan_mode[i] == CHAN_MODE_DISABLE)
+			continue;
 
-		ret = ssusb_redriver_eq_config(redriver, pos,
+		chan_mode = redriver->chan_mode[i];
+
+		ret = ssusb_redriver_eq_config(redriver, i, chan_mode,
 				redriver->eq[chan_mode][i]);
 		if (ret)
 			goto err;
 
-		ret = ssusb_redriver_flat_gain_config(redriver, pos,
+		ret = ssusb_redriver_flat_gain_config(redriver, i, chan_mode,
 				redriver->flat_gain[chan_mode][i]);
 		if (ret)
 			goto err;
 
-		ret = ssusb_redriver_output_comp_config(redriver, pos,
+		ret = ssusb_redriver_output_comp_config(redriver, i, chan_mode,
 				redriver->output_comp[chan_mode][i]);
 		if (ret)
 			goto err;
 
-		ret = ssusb_redriver_loss_match_config(redriver, pos,
+		ret = ssusb_redriver_loss_match_config(redriver, i, chan_mode,
 				redriver->loss_match[chan_mode][i]);
 		if (ret)
 			goto err;
 	}
 
-	dev_dbg(redriver->dev, "redriver channel parameters updated.\n");
-
 	return 0;
 
 err:
-	dev_err(redriver->dev, "channel parameters update failure.\n");
+	dev_err(redriver->dev, "channel parameters update failure(%d).\n", ret);
 	return ret;
 }
 
@@ -441,60 +397,61 @@ static int ssusb_redriver_read_configuration(struct ssusb_redriver *redriver)
 
 err:
 	dev_err(redriver->dev,
-			"%s: set default parameters failure.\n", __func__);
+			"%s: error read parameters.\n", __func__);
 	return ret;
 }
 
 static int ssusb_redriver_read_orientation(struct ssusb_redriver *redriver)
 {
-	struct device *dev = redriver->dev;
-	struct pinctrl *orientation_pinctrl;
-	struct pinctrl_state *gpio_state;
 	int ret;
 
-	if (!redriver->orientation_gpio_enable)
+	if (!gpio_is_valid(redriver->orientation_gpio))
 		return -EINVAL;
 
-	orientation_pinctrl = pinctrl_get(dev);
-	if (IS_ERR_OR_NULL(orientation_pinctrl)) {
-		dev_err(dev, "Failed to get pinctrl\n");
-		return -EINVAL;
-	}
-
-	gpio_state = pinctrl_lookup_state(orientation_pinctrl, "enable_gpio");
-	if (IS_ERR_OR_NULL(gpio_state)) {
-		dev_err(dev, "Failed to get gpio state\n");
-		ret = -ENODEV;
-		goto put_pinctrl;
-	}
-
-	ret = pinctrl_select_state(orientation_pinctrl, gpio_state);
-	if (ret) {
-		dev_err(redriver->dev, "fail to enable gpio state\n");
-		ret = -EINVAL;
-		goto put_pinctrl;
-	}
-
-	/* wait for some time ??? */
 	ret = gpio_get_value(redriver->orientation_gpio);
 	if (ret < 0) {
 		dev_err(redriver->dev, "fail to read gpio value\n");
-		ret = -EINVAL;
-		goto put_pinctrl;
+		return -EINVAL;
 	}
+
+	/*
+	 * Support some board layouts in which the channels are reversed.
+	 * i.e. channels C&D are used for the USB CC1 orientation and
+	 * channels A&B are used for USB CC2
+	 */
+	if (redriver->lane_channel_swap)
+		ret = !ret;
 
 	if (ret == 0)
 		redriver->typec_orientation = ORIENTATION_CC1;
 	else
 		redriver->typec_orientation = ORIENTATION_CC2;
 
-	ret = 0;
-
-put_pinctrl:
-	pinctrl_put(orientation_pinctrl);
-
-	return ret;
+	return 0;
 }
+
+int redriver_orientation_get(struct device_node *node)
+{
+	struct ssusb_redriver *redriver;
+	struct i2c_client *client;
+
+	if (!node)
+		return -ENODEV;
+
+	client = of_find_i2c_device_by_node(node);
+	if (!client)
+		return -ENODEV;
+
+	redriver = i2c_get_clientdata(client);
+	if (!redriver)
+		return -EINVAL;
+
+	if (!gpio_is_valid(redriver->orientation_gpio))
+		return -EINVAL;
+
+	return gpio_get_value(redriver->orientation_gpio);
+}
+EXPORT_SYMBOL(redriver_orientation_get);
 
 static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 		unsigned long action, void *data)
@@ -503,6 +460,7 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 			container_of(nb, struct ssusb_redriver, ucsi_nb);
 	struct ucsi_glink_constat_info *info = data;
 	enum operation_mode op_mode;
+	int ret;
 
 	if (info->connect && !info->partner_change)
 		return NOTIFY_DONE;
@@ -546,11 +504,99 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 			"CC1" : "CC2");
 	}
 
-	ssusb_redriver_channel_update(redriver);
+	ret = ssusb_redriver_channel_update(redriver);
+	if (ret) {
+		dev_dbg(redriver->dev, "i2c bus may not resume(%d)\n", ret);
+		redriver->ucsi_i2c_write_err = ret;
+		return NOTIFY_DONE;
+	}
 	ssusb_redriver_gen_dev_set(redriver);
 
 	return NOTIFY_OK;
 }
+
+int redriver_notify_connect(struct device_node *node)
+{
+	struct ssusb_redriver *redriver;
+	struct i2c_client *client;
+
+	if (!node)
+		return -ENODEV;
+
+	client = of_find_i2c_device_by_node(node);
+	if (!client)
+		return -ENODEV;
+
+	redriver = i2c_get_clientdata(client);
+	if (!redriver)
+		return -EINVAL;
+
+	/* 1. no operation in recovery mode.
+	 * 2. needed when usb related mode set.
+	 * 3. currently ucsi notification arrive to redriver earlier than usb,
+	 * in ucsi notification callback, save mode even i2c write failed,
+	 * but add ucsi_i2c_write_err to indicate i2c write error,
+	 * this allow usb trigger i2c write again by check it.
+	 * !!! if future remove ucsi, ucsi_i2c_write_err can be removed,
+	 * and this function also need update !!!.
+	 */
+	if ((redriver->op_mode == OP_MODE_DEFAULT) ||
+	    ((redriver->op_mode != OP_MODE_USB) &&
+	     (redriver->op_mode != OP_MODE_USB_AND_DP)) ||
+	    (!redriver->ucsi_i2c_write_err))
+		return 0;
+
+	dev_dbg(redriver->dev, "op mode %s\n",
+		OPMODESTR(redriver->op_mode));
+
+	/* !!! assume i2c resume complete here !!! */
+	ssusb_redriver_channel_update(redriver);
+	ssusb_redriver_gen_dev_set(redriver);
+
+	redriver->ucsi_i2c_write_err = 0;
+
+	return 0;
+}
+EXPORT_SYMBOL(redriver_notify_connect);
+
+int redriver_notify_disconnect(struct device_node *node)
+{
+	struct ssusb_redriver *redriver;
+	struct i2c_client *client;
+
+	if (!node)
+		return -ENODEV;
+
+	client = of_find_i2c_device_by_node(node);
+	if (!client)
+		return -ENODEV;
+
+	redriver = i2c_get_clientdata(client);
+	if (!redriver)
+		return -EINVAL;
+
+	/* 1. no operation in recovery mode.
+	 * 2. there is case for 4 lane display, first report usb mode,
+	 * second call usb release super speed lanes,
+	 * then stop usb host and call this disconnect,
+	 * it should not disable chip.
+	 * 3. if already disabled, no need to disable again.
+	 */
+	if ((redriver->op_mode == OP_MODE_DEFAULT) ||
+	    (redriver->op_mode == OP_MODE_DP) ||
+	    (redriver->op_mode == OP_MODE_NONE))
+		return 0;
+
+	dev_dbg(redriver->dev, "op mode %s -> %s\n",
+		OPMODESTR(redriver->op_mode), OPMODESTR(OP_MODE_NONE));
+
+	redriver->op_mode = OP_MODE_NONE;
+
+	ssusb_redriver_gen_dev_set(redriver);
+
+	return 0;
+}
+EXPORT_SYMBOL(redriver_notify_disconnect);
 
 int redriver_release_usb_lanes(struct device_node *node)
 {
@@ -558,13 +604,15 @@ int redriver_release_usb_lanes(struct device_node *node)
 	struct i2c_client *client;
 
 	if (!node)
-		return -EINVAL;
+		return -ENODEV;
 
 	client = of_find_i2c_device_by_node(node);
 	if (!client)
-		return -EINVAL;
+		return -ENODEV;
 
 	redriver = i2c_get_clientdata(client);
+	if (!redriver)
+		return -EINVAL;
 
 	if (redriver->op_mode == OP_MODE_DP)
 		return 0;
@@ -585,9 +633,8 @@ static void ssusb_redriver_orientation_gpio_init(
 	struct device *dev = redriver->dev;
 	int rc;
 
-	redriver->orientation_gpio =
-			of_get_named_gpio(dev->of_node, "orientation_gpio", 0);
-	if (redriver->orientation_gpio < 0) {
+	redriver->orientation_gpio = of_get_gpio(dev->of_node, 0);
+	if (!gpio_is_valid(redriver->orientation_gpio)) {
 		dev_err(dev, "Failed to get gpio\n");
 		return;
 	}
@@ -595,21 +642,9 @@ static void ssusb_redriver_orientation_gpio_init(
 	rc = devm_gpio_request(dev, redriver->orientation_gpio, "redriver");
 	if (rc < 0) {
 		dev_err(dev, "Failed to request gpio\n");
+		redriver->orientation_gpio = -EINVAL;
 		return;
 	}
-
-	redriver->orientation_gpio_enable = true;
-}
-
-static int ssusb_redriver_panic_notifier(struct notifier_block *this,
-		unsigned long event, void *ptr)
-{
-	struct ssusb_redriver *redriver = container_of(this,
-			struct ssusb_redriver, panic_nb);
-
-	pr_err("%s: op mode: %d\n", __func__, redriver->op_mode);
-
-	return NOTIFY_OK;
 }
 
 static const struct regmap_config redriver_regmap = {
@@ -647,11 +682,17 @@ static int redriver_i2c_probe(struct i2c_client *client,
 		return ret;
 	}
 
-	ssusb_redriver_orientation_gpio_init(redriver);
+	redriver->lane_channel_swap =
+	    of_property_read_bool(redriver->dev->of_node, "lane-channel-swap");
 
-	redriver->panic_nb.notifier_call = ssusb_redriver_panic_notifier;
-	atomic_notifier_chain_register(&panic_notifier_list,
-			&redriver->panic_nb);
+	if (of_property_read_bool(redriver->dev->of_node, "init-none"))
+		redriver->op_mode = OP_MODE_NONE;
+	else
+		redriver->op_mode = OP_MODE_DEFAULT;
+	ssusb_redriver_channel_update(redriver); /* a little expensive ??? */
+	ssusb_redriver_gen_dev_set(redriver);
+
+	ssusb_redriver_orientation_gpio_init(redriver);
 
 	redriver->ucsi_nb.notifier_call = ssusb_redriver_ucsi_notifier;
 	register_ucsi_glink_notifier(&redriver->ucsi_nb);
@@ -667,8 +708,6 @@ static int redriver_i2c_remove(struct i2c_client *client)
 
 	debugfs_remove(redriver->debug_root);
 	unregister_ucsi_glink_notifier(&redriver->ucsi_nb);
-	atomic_notifier_chain_unregister(&panic_notifier_list,
-			&redriver->panic_nb);
 
 	return 0;
 }
@@ -676,13 +715,14 @@ static int redriver_i2c_remove(struct i2c_client *client)
 static ssize_t channel_config_write(struct file *file,
 		const char __user *ubuf, size_t count, loff_t *ppos,
 		int (*config_func)(struct ssusb_redriver *redriver,
-			u8 channel, u8 val))
+			u8 channel, u8 chan_mode, u8 val))
 {
 	struct seq_file *s = file->private_data;
 	struct ssusb_redriver *redriver = s->private;
 	char buf[40];
 	char *token_chan, *token_val, *this_buf;
-	int store_offset = 0, ret = 0;
+	u8 channel, chan_mode;
+	int ret = 0;
 
 	memset(buf, 0, sizeof(buf));
 
@@ -692,8 +732,7 @@ static ssize_t channel_config_write(struct file *file,
 		return -EFAULT;
 
 	if (isdigit(buf[0])) {
-		ret = config_func(redriver, CHANNEL_NUM * CHAN_MODE_NUM,
-				buf[0] - '0');
+		ret = config_func(redriver, CHANNEL_NUM, -1, buf[0] - '0');
 		if (ret < 0)
 			goto err;
 	} else if (isalpha(buf[0])) {
@@ -703,7 +742,8 @@ static ssize_t channel_config_write(struct file *file,
 			case 'B':
 			case 'C':
 			case 'D':
-				store_offset = *token_chan - 'A';
+				channel = *token_chan - 'A';
+				chan_mode = CHAN_MODE_USB;
 				token_val = strsep(&this_buf, " ");
 				if (!isdigit(*token_val))
 					goto err;
@@ -712,8 +752,8 @@ static ssize_t channel_config_write(struct file *file,
 			case 'b':
 			case 'c':
 			case 'd':
-				store_offset = *token_chan - 'a'
-					+ CHANNEL_NUM;
+				channel = *token_chan - 'a';
+				chan_mode = CHAN_MODE_DP;
 				token_val = strsep(&this_buf, " ");
 				if (!isdigit(*token_val))
 					goto err;
@@ -722,7 +762,7 @@ static ssize_t channel_config_write(struct file *file,
 				goto err;
 			}
 
-			ret = config_func(redriver, store_offset,
+			ret = config_func(redriver, channel, chan_mode,
 					*token_val - '0');
 			if (ret < 0)
 				goto err;
@@ -947,10 +987,18 @@ static int __maybe_unused redriver_i2c_suspend(struct device *dev)
 	dev_dbg(redriver->dev, "%s: SS USB redriver suspend.\n",
 			__func__);
 
-	if (redriver->op_mode != OP_MODE_DP) {
-		redriver->op_mode = OP_MODE_NONE;
-		ssusb_redriver_gen_dev_set(redriver);
-	}
+	/*
+	 * 1. when in 4 lanes display mode, it can't disable;
+	 * 2. when in NONE mode, there is no need to re-disable;
+	 * 3. when in DEFAULT mode, there is no adsp and can't disable;
+	 */
+	if (redriver->op_mode == OP_MODE_DP ||
+	    redriver->op_mode == OP_MODE_NONE ||
+	    redriver->op_mode == OP_MODE_DEFAULT)
+		return 0;
+
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG,
+				redriver->gen_dev_val & ~CHIP_EN);
 
 	return 0;
 }
@@ -962,6 +1010,15 @@ static int __maybe_unused redriver_i2c_resume(struct device *dev)
 
 	dev_dbg(redriver->dev, "%s: SS USB redriver resume.\n",
 			__func__);
+
+	/* no suspend happen in following mode */
+	if (redriver->op_mode == OP_MODE_DP ||
+	    redriver->op_mode == OP_MODE_NONE ||
+	    redriver->op_mode == OP_MODE_DEFAULT)
+		return 0;
+
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG,
+				redriver->gen_dev_val);
 
 	return 0;
 }
@@ -993,14 +1050,14 @@ static const struct of_device_id redriver_match_table[] = {
 };
 
 static const struct i2c_device_id redriver_i2c_id[] = {
-	{ "ssusb redriver", 0 },
+	{ "ssusb-redriver", 0 },
 	{ },
 };
 MODULE_DEVICE_TABLE(i2c, redriver_i2c_id);
 
 static struct i2c_driver redriver_i2c_driver = {
 	.driver = {
-		.name	= "ssusb redriver",
+		.name	= "ssusb-redriver",
 		.of_match_table	= redriver_match_table,
 		.pm	= &redriver_i2c_pm,
 	},

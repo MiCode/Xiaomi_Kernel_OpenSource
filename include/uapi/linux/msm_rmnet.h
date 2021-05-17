@@ -70,6 +70,8 @@
 #define RMNET_IOCTL_SET_OFFLOAD                0x0018   /* Set IPA offload */
 #define RMNET_IOCTL_GET_MTU                    0x0019   /* Get v4/v6 MTU   */
 #define RMNET_IOCTL_SET_MTU                    0x0020   /* Set v4/v6 MTU   */
+#define RMNET_IOCTL_GET_EPID_LL                0x0021   /* Get LL ep ID    */
+#define RMNET_IOCTL_GET_EP_PAIR_LL             0x0022   /* LL ep pair      */
 
 /**
  * RMNET_IOCTL_EXTENDED_V2 ioctl types.

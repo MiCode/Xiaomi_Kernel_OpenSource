@@ -147,7 +147,7 @@ extern unsigned int sched_capacity_margin_down[WALT_NR_CPUS];
 extern cpumask_t asym_cap_sibling_cpus;
 extern cpumask_t __read_mostly **cpu_array;
 
-extern void sched_update_nr_prod(int cpu, bool enq);
+extern void sched_update_nr_prod(int cpu, int enq);
 extern unsigned int walt_big_tasks(int cpu);
 extern void walt_rotate_work_init(void);
 extern void walt_rotation_checkpoint(int nr_big);
@@ -282,8 +282,6 @@ extern void walt_update_group_thresholds(void);
 extern void sched_window_nr_ticks_change(void);
 extern unsigned long sched_user_hint_reset_time;
 extern struct irq_work walt_migration_irq_work;
-extern struct task_group *task_group_topapp;
-extern struct task_group *task_group_foreground;
 
 #define LIB_PATH_LENGTH 512
 extern unsigned int cpuinfo_max_freq_cached;

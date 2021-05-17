@@ -1795,9 +1795,14 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 
 	if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM]))
 		new_mode = TMC_ETR_OUT_MODE_MEM;
-	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB]))
+	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
+		if (drvdata->usb_data->usb_mode == TMC_ETR_USB_NONE) {
+			dev_err(&drvdata->csdev->dev,
+					"USB mode is not supported.\n");
+			return -EINVAL;
+		}
 		new_mode = TMC_ETR_OUT_MODE_USB;
-	else
+	} else
 		return -EINVAL;
 
 	if (new_mode == drvdata->out_mode)

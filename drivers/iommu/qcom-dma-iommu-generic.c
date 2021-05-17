@@ -261,13 +261,12 @@ void qcom_dma_common_free_remap(void *cpu_addr, size_t size)
 {
 	struct qcom_iommu_dma_area *area;
 
-	area = qcom_find_vm_area(cpu_addr);
-	if (!area) {
-		WARN(1, "trying to free invalid coherent area: %p\n", cpu_addr);
-		return;
-	}
-
 	vunmap(cpu_addr);
+
+	/* qcom_dma_common_contiguous_remap doesn't save the pages array */
+	area = qcom_find_vm_area(cpu_addr);
+	if (!area)
+		return;
 
 	mutex_lock(&rbtree_lock);
 	rb_erase(&area->node, root);

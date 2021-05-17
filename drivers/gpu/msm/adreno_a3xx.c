@@ -572,6 +572,7 @@ static int a3xx_probe(struct platform_device *pdev,
 {
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
+	int ret;
 
 	adreno_dev = (struct adreno_device *)
 		of_device_get_match_data(&pdev->dev);
@@ -590,7 +591,11 @@ static int a3xx_probe(struct platform_device *pdev,
 
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
-	return adreno_device_probe(pdev, adreno_dev);
+	ret = adreno_device_probe(pdev, adreno_dev);
+	if (ret)
+		return ret;
+
+	return adreno_dispatcher_init(adreno_dev);
 }
 
 static int a3xx_send_me_init(struct adreno_device *adreno_dev,
@@ -776,10 +781,9 @@ static void a3xx_soft_fault_timer(struct timer_list *t)
 	 * so mark the dispatcher as faulted and schedule the work loop.
 	 */
 
-	if (!a3xx_soft_fault_detect_read_compare(adreno_dev)) {
-		adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
-		adreno_dispatcher_schedule(device);
-	} else if (dispatcher->inflight > 0)
+	if (!a3xx_soft_fault_detect_read_compare(adreno_dev))
+		adreno_dispatcher_fault(adreno_dev, ADRENO_SOFT_FAULT);
+	else if (dispatcher->inflight > 0)
 		adreno_dispatcher_start_fault_timer(adreno_dev);
 }
 
@@ -914,10 +918,6 @@ static int a3xx_init(struct adreno_device *adreno_dev)
 	 */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_SOFT_FAULT_DETECT))
 		timer_setup(&dispatcher->fault_timer, a3xx_soft_fault_timer, 0);
-
-	ret = adreno_dispatcher_init(adreno_dev);
-	if (ret)
-		return ret;
 
 	ret = a3xx_ringbuffer_init(adreno_dev);
 	if (ret)

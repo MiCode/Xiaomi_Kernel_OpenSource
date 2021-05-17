@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef UFS_QCOM_H_
@@ -398,6 +398,7 @@ struct ufs_qcom_host {
 	struct ufs_qcom_thermal uqt;
 	/* FlashPVL entries */
 	bool err_occurred;
+	bool crash_on_err;
 	atomic_t scale_up;
 	atomic_t clks_on;
 };
@@ -524,6 +525,7 @@ int ufs_qcom_ice_enable(struct ufs_qcom_host *host);
 int ufs_qcom_ice_resume(struct ufs_qcom_host *host);
 int ufs_qcom_ice_program_key(struct ufs_hba *hba,
 			     const union ufs_crypto_cfg_entry *cfg, int slot);
+void ufs_qcom_ice_disable(struct ufs_qcom_host *host);
 #else
 static inline int ufs_qcom_ice_init(struct ufs_qcom_host *host)
 {
@@ -534,6 +536,10 @@ static inline int ufs_qcom_ice_enable(struct ufs_qcom_host *host)
 	return 0;
 }
 static inline int ufs_qcom_ice_resume(struct ufs_qcom_host *host)
+{
+	return 0;
+}
+static inline void ufs_qcom_ice_disable(struct ufs_qcom_host *host)
 {
 	return 0;
 }

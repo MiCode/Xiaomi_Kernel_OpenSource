@@ -50,6 +50,7 @@ struct uci_dev {
 	bool enabled;
 	u32 tiocm;
 	void *ipc_log;
+	enum MHI_DEBUG_LEVEL msg_lvl;
 };
 
 struct mhi_uci_drv {
@@ -60,37 +61,44 @@ struct mhi_uci_drv {
 	dev_t dev_t;
 };
 
-static enum MHI_DEBUG_LEVEL msg_lvl = MHI_MSG_LVL_ERROR;
+#ifdef CONFIG_MHI_BUS_DEBUG
+#define MHI_UCI_LOG_LVL MHI_MSG_LVL_VERBOSE
+#else
+#define MHI_UCI_LOG_LVL MHI_MSG_LVL_ERROR
+#endif
 
 #define MHI_UCI_IPC_LOG_PAGES (50)
 #define MSG_VERB(fmt, ...) do { \
-		if (msg_lvl <= MHI_MSG_LVL_VERBOSE) \
-			printk("%s[D][%s] " fmt, KERN_ERR, __func__, \
-			       ##__VA_ARGS__); \
-		if (uci_dev->ipc_log) \
+		if (uci_dev->ipc_log && uci_dev->msg_lvl <= MHI_MSG_LVL_VERBOSE) \
 			ipc_log_string(uci_dev->ipc_log, "%s[D][%s] " fmt, \
 				       "", __func__, ##__VA_ARGS__); \
 	} while (0)
 
 #define MSG_LOG(fmt, ...) do { \
-		if (msg_lvl <= MHI_MSG_LVL_INFO) \
-			printk("%s[I][%s] " fmt, KERN_ERR, __func__, \
-			       ##__VA_ARGS__); \
-		if (uci_dev->ipc_log) \
+		if (uci_dev->ipc_log && uci_dev->msg_lvl <= MHI_MSG_LVL_INFO) \
 			ipc_log_string(uci_dev->ipc_log, "%s[I][%s] " fmt, \
 				       "", __func__, ##__VA_ARGS__); \
 	} while (0)
 
 #define MSG_ERR(fmt, ...) do { \
-		if (msg_lvl <= MHI_MSG_LVL_ERROR) \
-			printk("%s[E][%s] " fmt, KERN_ERR, __func__, \
-			       ##__VA_ARGS__); \
-		if (uci_dev->ipc_log) \
+		pr_err("[E][%s] " fmt, __func__, ##__VA_ARGS__); \
+		if (uci_dev->ipc_log && uci_dev->msg_lvl <= MHI_MSG_LVL_ERROR) \
 			ipc_log_string(uci_dev->ipc_log, "%s[E][%s] " fmt, \
 				       "", __func__, ##__VA_ARGS__); \
 	} while (0)
 
 #define MAX_UCI_DEVICES (64)
+
+const char * const mhi_uci_log_level_str[MHI_MSG_LVL_MAX] = {
+	[MHI_MSG_LVL_VERBOSE] = "Verbose",
+	[MHI_MSG_LVL_INFO] = "Info",
+	[MHI_MSG_LVL_ERROR] = "Error",
+	[MHI_MSG_LVL_CRITICAL] = "Critical",
+	[MHI_MSG_LVL_MASK_ALL] = "Mask all",
+};
+#define MHI_UCI_LOG_LEVEL_STR(level) ((level >= MHI_MSG_LVL_MAX || \
+				      !mhi_uci_log_level_str[level]) ? \
+				      "Mask all" : mhi_uci_log_level_str[level])
 
 static DECLARE_BITMAP(uci_minors, MAX_UCI_DEVICES);
 static struct mhi_uci_drv mhi_uci_drv;
@@ -511,6 +519,54 @@ static const struct file_operations mhidev_fops = {
 	.unlocked_ioctl = mhi_uci_ioctl,
 };
 
+static ssize_t log_level_show(struct device *dev,
+			      struct device_attribute *attr,
+			      char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct uci_dev *uci_dev = dev_get_drvdata(&mhi_dev->dev);
+
+	if (!uci_dev)
+		return -EIO;
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "IPC log level begins from: %s\n",
+			 MHI_UCI_LOG_LEVEL_STR(uci_dev->msg_lvl));
+}
+
+static ssize_t log_level_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf,
+			       size_t count)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct uci_dev *uci_dev = dev_get_drvdata(&mhi_dev->dev);
+	enum MHI_DEBUG_LEVEL log_level;
+
+	if (kstrtou32(buf, 0, &log_level) < 0)
+		return -EINVAL;
+
+	if (!uci_dev)
+		return -EIO;
+
+	uci_dev->msg_lvl = log_level;
+
+	MSG_LOG("IPC log level changed to: %s\n",
+		MHI_UCI_LOG_LEVEL_STR(log_level));
+
+	return count;
+}
+static DEVICE_ATTR_RW(log_level);
+
+static struct attribute *mhi_uci_attrs[] = {
+	&dev_attr_log_level.attr,
+	NULL,
+};
+
+static const struct attribute_group mhi_uci_group = {
+	.attrs = mhi_uci_attrs,
+};
+
 static void mhi_uci_remove(struct mhi_device *mhi_dev)
 {
 	struct uci_dev *uci_dev = dev_get_drvdata(&mhi_dev->dev);
@@ -534,6 +590,7 @@ static void mhi_uci_remove(struct mhi_device *mhi_dev)
 	device_destroy(mhi_uci_drv.class, uci_dev->devt);
 	uci_dev->dev = NULL;
 	list_del(&uci_dev->node);
+	sysfs_remove_group(&mhi_dev->dev.kobj, &mhi_uci_group);
 
 	/* safe to free memory only if all file nodes are closed */
 	if (!uci_dev->ref_count) {
@@ -594,6 +651,10 @@ static int mhi_uci_probe(struct mhi_device *mhi_dev,
 	/* create debugging buffer */
 	uci_dev->ipc_log = ipc_log_context_create(MHI_UCI_IPC_LOG_PAGES,
 						  dev_name(&mhi_dev->dev), 0);
+	uci_dev->msg_lvl = MHI_UCI_LOG_LVL;
+	ret = sysfs_create_group(&mhi_dev->dev.kobj, &mhi_uci_group);
+	if (ret)
+		MSG_ERR("Failed to create MHI UCI sysfs group\n");
 
 	for (dir = 0; dir < 2; dir++) {
 		struct uci_chan *uci_chan = (dir) ?

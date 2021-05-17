@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/cacheflush.h>
@@ -52,7 +52,7 @@ imported_mem_show(struct kgsl_process_private *priv,
 		int egl_surface_count = 0, egl_image_count = 0;
 		struct kgsl_memdesc *m;
 
-		if (kgsl_mem_entry_get(entry) == 0)
+		if (!kgsl_mem_entry_get(entry))
 			continue;
 		spin_unlock(&priv->mem_lock);
 
@@ -302,8 +302,12 @@ static vm_fault_t kgsl_paged_vmfault(struct kgsl_memdesc *memdesc,
 				struct vm_fault *vmf)
 {
 	int pgoff;
+	unsigned int offset = vmf->address - vma->vm_start;
 
-	pgoff = (vmf->address - vma->vm_start) >> PAGE_SHIFT;
+	if (offset >= memdesc->size)
+		return VM_FAULT_SIGBUS;
+
+	pgoff = offset >> PAGE_SHIFT;
 
 	return vmf_insert_page(vma, vmf->address, memdesc->pages[pgoff]);
 }
@@ -499,6 +503,17 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 	return 0;
 }
 
+/*
+ * Set by default in kgsl_memdesc_init() for the usermem functions that don't
+ * define their own operations
+ */
+
+static void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc);
+
+static struct kgsl_memdesc_ops kgsl_default_ops = {
+	.put_gpuaddr = kgsl_unmap_and_put_gpuaddr,
+};
+
 void kgsl_memdesc_init(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, uint64_t flags)
 {
@@ -546,6 +561,8 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		kgsl_memdesc_get_align(memdesc), ilog2(PAGE_SIZE));
 	kgsl_memdesc_set_align(memdesc, align);
 
+	memdesc->ops = &kgsl_default_ops;
+
 	spin_lock_init(&memdesc->lock);
 }
 
@@ -554,14 +571,15 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 	if (!memdesc || !memdesc->size)
 		return;
 
-	/* Make sure the memory object has been unmapped */
-	kgsl_mmu_put_gpuaddr(memdesc);
-
 	/* Assume if no operations were specified something went bad early */
-	if (!memdesc->ops || !memdesc->ops->free)
+	if (!memdesc->ops)
 		return;
 
-	memdesc->ops->free(memdesc);
+	if (memdesc->ops->put_gpuaddr)
+		memdesc->ops->put_gpuaddr(memdesc);
+
+	if (memdesc->ops->free)
+		memdesc->ops->free(memdesc);
 }
 
 #if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
@@ -877,6 +895,7 @@ static void kgsl_free_pool_pages(struct kgsl_memdesc *memdesc)
 	memdesc->pages = NULL;
 }
 
+
 static void kgsl_free_system_pages(struct kgsl_memdesc *memdesc)
 {
 	int i;
@@ -894,10 +913,33 @@ static void kgsl_free_system_pages(struct kgsl_memdesc *memdesc)
 	memdesc->pages = NULL;
 }
 
+static void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc)
+{
+	if (!memdesc->size || !memdesc->gpuaddr)
+		return;
+
+	if (WARN_ON(kgsl_memdesc_is_global(memdesc)))
+		return;
+
+	/*
+	 * Don't release the GPU address if the memory fails to unmap because
+	 * the IOMMU driver will BUG later if we reallocated the address and
+	 * tried to map it
+	 */
+	if (kgsl_mmu_unmap(memdesc->pagetable, memdesc))
+		return;
+
+	kgsl_mmu_put_gpuaddr(memdesc->pagetable, memdesc);
+
+	memdesc->gpuaddr = 0;
+	memdesc->pagetable = NULL;
+}
+
 static const struct kgsl_memdesc_ops kgsl_contiguous_ops = {
 	.free = kgsl_contiguous_free,
 	.vmflags = VM_DONTDUMP | VM_PFNMAP | VM_DONTEXPAND | VM_DONTCOPY,
 	.vmfault = kgsl_contiguous_vmfault,
+	.put_gpuaddr = kgsl_unmap_and_put_gpuaddr,
 };
 
 #if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
@@ -909,6 +951,7 @@ static const struct kgsl_memdesc_ops kgsl_secure_system_ops = {
 static const struct kgsl_memdesc_ops kgsl_secure_pool_ops = {
 	.free = kgsl_free_secure_pool_pages,
 	/* FIXME: Make sure vmflags / vmfault does the right thing here */
+	.put_gpuaddr = kgsl_unmap_and_put_gpuaddr,
 };
 #endif
 
@@ -918,6 +961,7 @@ static const struct kgsl_memdesc_ops kgsl_pool_ops = {
 	.vmfault = kgsl_paged_vmfault,
 	.map_kernel = kgsl_paged_map_kernel,
 	.unmap_kernel = kgsl_paged_unmap_kernel,
+	.put_gpuaddr = kgsl_unmap_and_put_gpuaddr,
 };
 
 static const struct kgsl_memdesc_ops kgsl_system_ops = {

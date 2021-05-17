@@ -28,8 +28,8 @@
 #define ATTR1_FIXED_SIZE_SHIFT        0x03
 #define ATTR1_PRIORITY_SHIFT          0x04
 #define ATTR1_MAX_CAP_SHIFT           0x10
-#define ATTR0_RES_WAYS_MASK           GENMASK(11, 0)
-#define ATTR0_BONUS_WAYS_MASK         GENMASK(27, 16)
+#define ATTR0_RES_WAYS_MASK           GENMASK(15, 0)
+#define ATTR0_BONUS_WAYS_MASK         GENMASK(31, 16)
 #define ATTR0_BONUS_WAYS_SHIFT        0x10
 #define LLCC_STATUS_READ_DELAY        100
 
@@ -212,27 +212,29 @@ static const struct llcc_slice_config shima_data[] =  {
 };
 
 static const struct llcc_slice_config waipio_data[] =  {
-	{LLCC_CPUSS,     1, 2048, 1, 0, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
+	{LLCC_CPUSS,     1, 2048, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CPUSS1,    3, 1024, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CAMEXP0,   4,  256, 3, 1, 0xF000, 0x0,   2, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_AUDIO,     6, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
 	{LLCC_MDMHPGRW,  7, 1024, 3, 0, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMHW,     9, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_GPUHTW,   11, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_GPU,      12, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 1, 0 },
+	{LLCC_GPUHTW,   11,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_GPU,      12, 2048, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 1, 0 },
 	{LLCC_MMUHWT,   13,  768, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
 	{LLCC_DISP,     16, 4096, 2, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CVPFW,    17,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMPNG,   21, 1024, 0, 1, 0xF000, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CPUMTE,   23,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
-	{LLCC_CAMEXP1,  27,  256, 3, 1, 0xF000, 0x0,   2, 0, 0, 1, 0, 0, 0 },
 	{LLCC_CVP,      28,  256, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMVPE,   29,   64, 1, 1, 0xF000, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_APTCM,    30, 1024, 3, 1, 0x0,    0xF0,  1, 0, 0, 1, 0, 0, 0 },
 	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_CVPFW,    17,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CPUSS1,    3, 1024, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CAMEXP0,   4,  256, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CPUMTE,   23,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
+	{LLCC_CAMEXP1,  27,  256, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_AENPU,     8, 2048, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
 };
 
 static const struct qcom_llcc_config sc7180_cfg = {
@@ -292,6 +294,7 @@ struct llcc_slice_desc *llcc_slice_getd(u32 uid)
 	if (!desc)
 		return ERR_PTR(-ENOMEM);
 
+	atomic_set(&desc->refcount, 0);
 	desc->slice_id = cfg->slice_id;
 	desc->slice_size = cfg->max_cap;
 
@@ -305,8 +308,11 @@ EXPORT_SYMBOL_GPL(llcc_slice_getd);
  */
 void llcc_slice_putd(struct llcc_slice_desc *desc)
 {
-	if (!IS_ERR_OR_NULL(desc))
+	if (!IS_ERR_OR_NULL(desc)) {
+		WARN(atomic_read(&desc->refcount), " Slice %d is still active\n",
+					desc->slice_id);
 		kfree(desc);
+	}
 }
 EXPORT_SYMBOL_GPL(llcc_slice_putd);
 
@@ -363,11 +369,12 @@ int llcc_slice_activate(struct llcc_slice_desc *desc)
 		return -EINVAL;
 
 	mutex_lock(&drv_data->lock);
-	if ((atomic_read(&drv_data->refcount)) >= 1) {
-		atomic_inc_return(&drv_data->refcount);
+	if ((atomic_read(&desc->refcount)) >= 1) {
+		atomic_inc_return(&desc->refcount);
 		mutex_unlock(&drv_data->lock);
 		return 0;
 	}
+
 	if (test_bit(desc->slice_id, drv_data->bitmap)) {
 		mutex_unlock(&drv_data->lock);
 		return 0;
@@ -381,7 +388,8 @@ int llcc_slice_activate(struct llcc_slice_desc *desc)
 		mutex_unlock(&drv_data->lock);
 		return ret;
 	}
-	atomic_inc_return(&drv_data->refcount);
+
+	atomic_inc_return(&desc->refcount);
 	__set_bit(desc->slice_id, drv_data->bitmap);
 	mutex_unlock(&drv_data->lock);
 
@@ -408,11 +416,12 @@ int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 		return -EINVAL;
 
 	mutex_lock(&drv_data->lock);
-	if ((atomic_read(&drv_data->refcount)) > 1) {
-		atomic_dec_return(&drv_data->refcount);
+	if ((atomic_read(&desc->refcount)) > 1) {
+		atomic_dec_return(&desc->refcount);
 		mutex_unlock(&drv_data->lock);
 		return 0;
 	}
+
 	if (!test_bit(desc->slice_id, drv_data->bitmap)) {
 		mutex_unlock(&drv_data->lock);
 		return 0;
@@ -425,7 +434,8 @@ int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 		mutex_unlock(&drv_data->lock);
 		return ret;
 	}
-	atomic_dec_return(&drv_data->refcount);
+
+	atomic_dec_return(&desc->refcount);
 	__clear_bit(desc->slice_id, drv_data->bitmap);
 	mutex_unlock(&drv_data->lock);
 
@@ -663,7 +673,6 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	drv_data->cfg = llcc_cfg;
 	drv_data->cfg_size = sz;
 	mutex_init(&drv_data->lock);
-	atomic_set(&drv_data->refcount, 0);
 	platform_set_drvdata(pdev, drv_data);
 
 	ret = qcom_llcc_cfg_program(pdev);

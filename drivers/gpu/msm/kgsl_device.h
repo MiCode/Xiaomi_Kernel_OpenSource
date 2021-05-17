@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
@@ -235,16 +235,23 @@ struct kgsl_device {
 		void *ptr;
 		dma_addr_t dma_handle;
 		u32 size;
+		bool in_minidump;
 	} snapshot_memory;
 
 	struct kgsl_snapshot *snapshot;
+	/** @panic_nb: notifier block to capture GPU snapshot on kernel panic */
+	struct notifier_block panic_nb;
+	struct {
+		void *ptr;
+		u32 size;
+	} snapshot_memory_atomic;
 
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	bool force_panic;		/* Force panic after snapshot dump */
 	bool skip_ib_capture;		/* Skip IB capture after snapshot */
 	bool prioritize_unrecoverable;	/* Overwrite with new GMU snapshots */
 	bool set_isdb_breakpoint;	/* Set isdb registers before snapshot */
-
+	bool snapshot_atomic;		/* To capture snapshot in atomic context*/
 	/* Use CP Crash dumper to get GPU snapshot*/
 	bool snapshot_crashdumper;
 	/* Use HOST side register reads to get GPU snapshot*/
@@ -282,10 +289,14 @@ struct kgsl_device {
 	u32 speed_bin;
 	/** @gmu_fault: Set when a gmu or rgmu fault is encountered */
 	bool gmu_fault;
-	/** @timelines: xarray for the timelines */
-	struct xarray timelines;
 	/** @regmap: GPU register map */
 	struct kgsl_regmap regmap;
+	/** @timelines: Iterator for assigning IDs to timelines */
+	struct idr timelines;
+	/** @timelines_lock: Spinlock to protect the timelines idr */
+	spinlock_t timelines_lock;
+	/** @fence_trace_array: A local trace array for fence debugging */
+	struct trace_array *fence_trace_array;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -355,7 +366,7 @@ struct kgsl_context {
 	struct kgsl_pwr_constraint pwr_constraint;
 	struct kgsl_pwr_constraint l3_pwr_constraint;
 	unsigned int fault_count;
-	unsigned long fault_time;
+	ktime_t fault_time;
 	struct kgsl_mem_entry *user_ctxt_record;
 	unsigned int total_fault_count;
 	unsigned int last_faulted_cmd_ts;

@@ -15,6 +15,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/trace.h>
 
 #include "adreno.h"
 #include "adreno_a3xx.h"
@@ -381,8 +382,7 @@ void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_irqctrl(adreno_dev, 0);
 
 	/* Trigger a fault in the dispatcher - this will effect a restart */
-	adreno_set_gpu_fault(adreno_dev, ADRENO_HARD_FAULT);
-	adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
+	adreno_dispatcher_fault(adreno_dev, ADRENO_HARD_FAULT);
 }
 
 /*
@@ -961,8 +961,13 @@ static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 static void adreno_regmap_op_preaccess(struct kgsl_regmap_region *region)
 {
 	struct kgsl_device *device = region->priv;
-
-	if (!in_interrupt())
+	/*
+	 * kgsl panic notifier will be called in atomic context to get
+	 * GPU snapshot. Also panic handler will skip snapshot dumping
+	 * incase GPU is in SLUMBER state. So we can safely ignore the
+	 * kgsl_pre_hwaccess().
+	 */
+	if (!device->snapshot_atomic && !in_interrupt())
 		kgsl_pre_hwaccess(device);
 }
 
@@ -1107,6 +1112,8 @@ int adreno_device_probe(struct platform_device *pdev,
 	if (status)
 		goto err;
 
+	adreno_fence_trace_array_init(device);
+
 	/* Probe for the optional CX_DBGC block */
 	adreno_cx_dbgc_probe(device);
 
@@ -1206,6 +1213,8 @@ static void adreno_unbind(struct device *dev)
 
 	adreno_dev = ADRENO_DEVICE(device);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	trace_array_put(device->fence_trace_array);
 
 	if (gpudev->remove != NULL)
 		gpudev->remove(adreno_dev);

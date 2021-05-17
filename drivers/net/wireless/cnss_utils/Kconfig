@@ -13,3 +13,8 @@ config CNSS_QMI_SVC
 	  Add CNSS QMI SVC support for the WLAN driver module.
 	  This feature enable wlan driver to use CNSS QMI service APIs to set
 	  and get wlan related information.
+
+config CNSS_PLAT_IPC_QMI_SVC
+	tristate "CNSS Platform QMI IPC Support"
+	help
+	  Add CNSS platform kernel and user space components IPC using QMI.

@@ -33,6 +33,10 @@
 #include <soc/qcom/secure_buffer.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/hh_virtio_backend.h>
+#undef CREATE_TRACE_POINTS
+
 #define MAX_DEVICE_NAME		32
 #define MAX_VM_NAME		32
 #define MAX_CDEV_NAME		64
@@ -193,7 +197,7 @@ static int vb_dev_irqfd_wakeup(wait_queue_entry_t *wait, unsigned int mode,
 	if (flags & EPOLLIN) {
 		int rc = assert_virq(vb_dev->cap_id, 1);
 
-		pr_debug("%s: Inject IRQ ret %d\n", VIRTIO_PRINT_MARKER, rc);
+		trace_hh_virtio_backend_irq_inj(vb_dev->label, rc);
 	}
 
 	if (flags & EPOLLHUP)
@@ -302,7 +306,7 @@ static void signal_vqs(struct virtio_backend_device *vb_dev)
 		if ((vb_dev->vdev_event_data & flags) && vb_dev->ioctx[i].ctx) {
 			eventfd_signal(vb_dev->ioctx[i].ctx, 1);
 			vb_dev->vdev_event_data &= ~flags;
-			pr_debug("%s: Queue_notify on %d\n", VIRTIO_PRINT_MARKER, i);
+			trace_hh_virtio_backend_queue_notify(vb_dev->label, i);
 		}
 	}
 }
@@ -455,9 +459,9 @@ loop_back:
 
 		spin_unlock_irqrestore(&vb_dev->lock, flags);
 
-		pr_debug("%s: cur/org_evt %x/%x cur/org_evt_data %x/%x\n",
-			VIRTIO_PRINT_MARKER, vb_dev->cur_event, org_event,
-			vb_dev->cur_event_data, org_data);
+		trace_hh_virtio_backend_wait_event(vb_dev->label, vb_dev->cur_event,
+				org_event, vb_dev->cur_event_data, org_data);
+
 		if (!vb_dev->cur_event)
 			goto loop_back;
 
@@ -1243,10 +1247,10 @@ static irqreturn_t vdev_interrupt(int irq, void *data)
 	unsigned long flags;
 
 	ret = get_event(vb_dev->cap_id, &event_data, &event);
-	if (ret)
+	trace_hh_virtio_backend_irq(vb_dev->label, event, event_data, ret);
+	if (ret || !event)
 		return IRQ_HANDLED;
 
-	pr_debug("%s: event %d event_data %x\n", VIRTIO_PRINT_MARKER, event, event_data);
 	spin_lock_irqsave(&vb_dev->lock, flags);
 	if (event == EVENT_NEW_BUFFER && vb_dev->ack_driver_ok) {
 		vb_dev->vdev_event_data = event_data;
@@ -1515,15 +1519,24 @@ static int __init hh_virtio_backend_init(void)
 		return ret;
 
 	ret = hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_init);
-	if (ret)
+	if (ret) {
+		vb_devclass_deinit();
 		return ret;
+	}
 
-	return platform_driver_register(&hh_virtio_backend_driver);
+	ret = platform_driver_register(&hh_virtio_backend_driver);
+	if (ret) {
+		gh_rm_unset_virtio_mmio_cb();
+		vb_devclass_deinit();
+	}
+
+	return ret;
 }
 module_init(hh_virtio_backend_init);
 
 static void __exit hh_virtio_backend_exit(void)
 {
+	gh_rm_unset_virtio_mmio_cb();
 	platform_driver_unregister(&hh_virtio_backend_driver);
 	vb_devclass_deinit();
 }

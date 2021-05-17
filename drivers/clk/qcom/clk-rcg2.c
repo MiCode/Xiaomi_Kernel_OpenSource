@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013, 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -959,10 +959,11 @@ static int clk_byte2_determine_rate(struct clk_hw *hw,
 	struct clk_hw *p;
 	unsigned long rate = req->rate;
 
-	if (rate == 0)
+	p = req->best_parent_hw;
+
+	if (!p || rate == 0)
 		return -EINVAL;
 
-	p = req->best_parent_hw;
 	req->best_parent_rate = parent_rate = clk_hw_round_rate(p, rate);
 
 	div = DIV_ROUND_UP((2 * parent_rate), rate) - 1;
@@ -1040,6 +1041,9 @@ static int clk_pixel_determine_rate(struct clk_hw *hw,
 	unsigned long request, src_rate;
 	int delta = 100000;
 	const struct frac_entry *frac = frac_table_pixel;
+
+	if (!req->best_parent_hw)
+		return -EINVAL;
 
 	for (; frac->num; frac++) {
 		request = (req->rate * frac->den) / frac->num;
@@ -1188,6 +1192,9 @@ static int clk_dp_set_rate_and_parent(struct clk_hw *hw, unsigned long rate,
 static int clk_dp_determine_rate(struct clk_hw *hw,
 		struct clk_rate_request *req)
 {
+	if (!req->best_parent_hw)
+		return -EINVAL;
+
 	req->best_parent_rate = clk_hw_round_rate(req->best_parent_hw,
 							req->best_parent_rate);
 	return 0;
