@@ -1,0 +1,51 @@
+&soc {
+	mdm0: qcom,remoteproc-esoc0 {
+		cell-index = <0>;
+		#address-cells = <0>;
+		interrupt-parent = <&mdm0>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-names =
+			"err_fatal_irq",
+			"status_irq";
+		interrupt-map = <0 &tlmm 36 0x3
+				 1 &tlmm 40 0x3>;
+		/* modem attributes */
+		qcom,ramdump-delay-ms = <3000>;
+		qcom,ramdump-timeout-ms = <120000>;
+		qcom,vddmin-modes = "normal";
+		qcom,vddmin-drive-strength = <8>;
+		qcom,sfr-query;
+		qcom,sysmon-id = <20>;
+		qcom,ssctl-instance-id = <0x10>;
+		qcom,support-shutdown;
+		qcom,pil-force-shutdown;
+		pinctrl-names = "default", "mdm_active", "mdm_suspend";
+		pinctrl-0 = <&ap2mdm_pon_reset_default>;
+		pinctrl-1 = <&ap2mdm_active &mdm2ap_active>;
+		pinctrl-2 = <&ap2mdm_sleep &mdm2ap_sleep>;
+		qcom,mdm2ap-errfatal-gpio = <&tlmm 36 0x00>;
+		qcom,ap2mdm-errfatal-gpio = <&tlmm 37 0x00>;
+		qcom,mdm2ap-status-gpio   = <&tlmm 40 0x00>;
+		qcom,ap2mdm-status-gpio   = <&tlmm 41 0x00>;
+		qcom,ap2mdm-soft-reset-gpio = <&pm8450_gpios 1 0>;
+
+		reg-names = "l10c";
+		l10c-supply = <&L10C>;
+		l10c-uV-uA = <1200000 100000>;
+
+		qcom,esoc-skip-restart-for-mdm-crash;
+		status = "ok";
+	};
+};
+
+&pm8450_gpios {
+	ap2mdm_pon_reset {
+		ap2mdm_pon_reset_default: ap2mdm_pon_reset_default {
+			/* MDM PON control*/
+			pins = "gpio1";
+			function = "normal";
+			power-source = <1>; /* 1.8V */
+		};
+	};
+};

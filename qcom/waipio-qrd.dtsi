@@ -3,7 +3,6 @@
 
 #include "waipio-pmic-overlay.dtsi"
 #include "waipio-thermal-overlay.dtsi"
-#include "waipio-audio-overlay.dtsi"
 
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4-lahaina";
@@ -142,6 +141,7 @@
 				9000000 8500000 8000000 7500000 7000000 6500000
 				6000000 5500000 5000000 4500000 4000000 3500000
 				3000000 2500000 2000000 1500000 1000000 500000>;
+	qcom,wireless-fw-name = "idt9415.bin";
 };
 
 &qupv3_se9_i2c {
@@ -168,82 +168,10 @@
 	};
 };
 
-&tx_swr_clk_active {
-	config {
-		drive-strength = <2>;
-	};
-};
-
-&tx_swr_data0_active {
-	config {
-		drive-strength = <2>;
-	};
-};
-
-&tx_swr_data1_active {
-	config {
-		drive-strength = <2>;
-	};
-};
-
-&tx_swr_data2_active {
-	config {
-		drive-strength = <2>;
-	};
-};
-
-&waipio_snd {
-	qcom,model = "waipio-qrd-snd-card";
-
-	qcom,audio-routing =
-		"AMIC1", "Analog Mic1",
-		"AMIC1", "MIC BIAS1",
-		"AMIC2", "Analog Mic2",
-		"AMIC2", "MIC BIAS2",
-		"AMIC3", "Analog Mic3",
-		"AMIC3", "MIC BIAS3",
-		"AMIC4", "Analog Mic4",
-		"AMIC4", "MIC BIAS3",
-		"AMIC5", "Analog Mic5",
-		"AMIC5", "MIC BIAS4",
-		"VA AMIC1", "Analog Mic1",
-		"VA AMIC1", "VA MIC BIAS1",
-		"VA AMIC2", "Analog Mic2",
-		"VA AMIC2", "VA MIC BIAS2",
-		"VA AMIC3", "Analog Mic3",
-		"VA AMIC3", "VA MIC BIAS3",
-		"VA AMIC4", "Analog Mic4",
-		"VA AMIC4", "VA MIC BIAS3",
-		"VA AMIC5", "Analog Mic5",
-		"VA AMIC5", "VA MIC BIAS4",
-		"IN1_HPHL", "HPHL_OUT",
-		"IN2_HPHR", "HPHR_OUT",
-		"IN3_AUX", "AUX_OUT",
-		"HAP_IN", "PCM_OUT",
-		"WSA SRC0_INP", "SRC0",
-		"WSA_TX DEC0_INP", "TX DEC0 MUX",
-		"WSA_TX DEC1_INP", "TX DEC1 MUX",
-		"RX_TX DEC0_INP", "TX DEC0 MUX",
-		"RX_TX DEC1_INP", "TX DEC1 MUX",
-		"RX_TX DEC2_INP", "TX DEC2 MUX",
-		"RX_TX DEC3_INP", "TX DEC3 MUX",
-		"SpkrLeft IN", "WSA_SPK1 OUT",
-		"SpkrRight IN", "WSA_SPK2 OUT",
-		"TX SWR_INPUT", "WCD_TX_OUTPUT",
-		"VA SWR_INPUT", "VA_SWR_CLK",
-		"VA SWR_INPUT", "WCD_TX_OUTPUT",
-		"VA_AIF1 CAP", "VA_SWR_CLK",
-		"VA_AIF2 CAP", "VA_SWR_CLK",
-		"VA_AIF3 CAP", "VA_SWR_CLK";
-
-		qcom,msm-mbhc-usbc-audio-supported = <1>;
-		qcom,msm-mbhc-hphl-swh = <0>;
-		qcom,msm-mbhc-gnd-swh = <0>;
-};
-
 &qupv3_se4_spi {
 	status = "ok";
 	qcom,spi-touch-active = "focaltech,fts_ts";
+	qcom,la-vm;
 
 	focaltech@0 {
 		compatible = "focaltech,fts_ts";
@@ -264,11 +192,60 @@
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
+
+		focaltech,trusted-touch-mode = "vm_mode";
+		focaltech,touch-environment = "pvm";
+		focaltech,trusted-touch-spi-irq = <754>;
+		focaltech,trusted-touch-io-bases = <0xF110000 0xF111000 0xF112000 0xF113000 0xF114000 0xF115000 0x990000 0x00910000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
 	};
+};
+
+&qupv3_se5_i2c {
+	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	redriver: redriver@1c {
+		compatible = "onnn,redriver";
+		reg = <0x1c>;
+
+		lane-channel-swap;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb3phy_portselect_gpio>;
+		gpios = <&tlmm 91 0>;
+
+		eq = /bits/ 8 <
+				/* Parameters for USB */
+				0x4 0x4 0x4 0x4
+				/* Parameters for DP */
+				0x6 0x4 0x4 0x6>;
+		flat-gain = /bits/ 8 <
+				/* Parameters for USB */
+				0x3 0x1 0x1 0x3
+				/* Parameters for DP */
+				0x2 0x1 0x1 0x2>;
+		output-comp = /bits/ 8 <
+				/* Parameters for USB */
+				0x3 0x3 0x3 0x3
+				/* Parameters for DP */
+				0x3 0x3 0x3 0x3>;
+		loss-match = /bits/ 8 <
+				/* Parameters for USB */
+				0x1 0x3 0x3 0x1
+				/* Parameters for DP */
+				0x3 0x3 0x3 0x3>;
+	};
+};
+
+&usb_qmp_dp_phy {
+	pinctrl-names = "unused";
 };
 
 &usb0 {
 	usb-role-switch;
+	ssusb_redriver = <&redriver>;
 
 	dwc3@a600000 {
 		usb-role-switch;

@@ -1,0 +1,14 @@
+/dts-v1/;
+/plugin/;
+
+#include "waipio-mtp.dtsi"
+#include "waipio-pm8008.dtsi"
+#include "sdxlemur-external-soc.dtsi"
+#include "waipio-lemur.dtsi"
+
+/ {
+	model = "WAIPIO LEMUR CDP";
+	compatible = "qcom,waipio-cdp", "qcom,waipio", "qcom,cdp";
+	qcom,msm-id = <457 0x10000>;
+	qcom,board-id = <0x01010001 0x1>;
+};

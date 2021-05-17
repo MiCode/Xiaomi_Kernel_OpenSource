@@ -5,6 +5,7 @@ that are available on some Qualcomm Technologies, Inc. (QTI) chipsets.
 
 Required properties:
 - compatible:		Must be "qcom,pmu"
+- qcom,long-counter	Specify if the pmu counters are long (64 bit) counters.
 - qcom,pmu-events-tbl:	A list of the pmu events to be configured on the cpus.
 			The first column in the table contains the event id and
 			the second column contains the a bit mask (cpumask) of
@@ -14,6 +15,7 @@ Example:
 
 	qcom,pmu {
 		compatible = "qcom,pmu";
+		qcom,long-counter;
 		qcom,pmu-events-tbl =
 			< 0x0008 0xFF >,
 			< 0x0011 0xFF >,

@@ -34,6 +34,14 @@ device module in Qualcomm Technologies, Inc. PMIC chips.
 	Value type: <u32>
 	Definition: The number of the consecutive LPG/PWM channels in the chip.
 
+- qcom,pfm-chan-ids:
+	Usage: optional
+	Value type: <u32 array>
+	Definition: 1-indexed channel numbers that support Pulse Frequency
+		      Modulation (PFM) in which duty cycle is fixed at 50% and
+		      only the period/frequency can be changed. PFM mode will
+		      be enabled only if the HW supports it.
+
 - nvmem-names:
 	Usage: optional
 	Value type: <stringlist>
@@ -100,14 +108,17 @@ channels expected to be supported in LUT mode.
 
 Subnode properties:
 Subnodes for each LPG channel (lpg@X) can be defined if any of the following
-parameters needs to be configured for that channel.
+parameters needs to be configured for that channel. These properties cannot be
+specified for a channel that is configured as PFM enabled using the
+`qcom,pfm-chan-ids` property.
 
 - qcom,lpg-chan-id:
 	Usage: required
 	Value type: <u32>
 	Definition: The LPG channel's hardware ID indexed from 1. Allowed
 		      range is 1 - 8. Maximum value depends on the number of
-		      channels supported on PMIC.
+		      channels supported on PMIC. Cannot specify this property
+		      for a channel that is PFM enabled.
 
 - qcom,lpg-sdam-base:
 	Usage: optional

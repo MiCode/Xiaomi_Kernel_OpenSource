@@ -33,7 +33,8 @@
 				0 0 0 3 &intc GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH
 				0 0 0 4 &intc GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>;
 
-		msi-parent = <&pcie0_msi>;
+		msi-map = <0x0 &gic_its 0x5980 0x1>, /* ITS IRQ 0x5980 */
+			<0x100 &gic_its 0x5981 0x20>; /* ITS IRQ 0x5981 - 0x59a1 */
 
 		perst-gpio = <&tlmm 94 0>;
 		wake-gpio = <&tlmm 96 0>;
@@ -246,6 +247,7 @@
 			<GIC_SPI 797 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 798 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 799 IRQ_TYPE_EDGE_RISING>;
+		status = "disabled";
 	};
 
 	pcie1: qcom,pcie@1c08000 {

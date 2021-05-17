@@ -2476,6 +2476,20 @@
 				drive-strength = <2>;
 			};
 		};
+
+		usb3phy_portselect_gpio: usb3phy_portselect_gpio {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
 	};
 
 	cnss_pins {
@@ -2767,6 +2781,74 @@
 			config {
 				pins = "gpio20", "gpio21";
 				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+
+	ap2mdm {
+		ap2mdm_active: ap2mdm_active {
+			mux {
+				/* ap2mdm-status
+				 * ap2mdm-errfatal
+				 */
+				pins = "gpio41", "gpio37";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio41", "gpio37";
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		ap2mdm_sleep: ap2mdm_sleep {
+			mux {
+				/* ap2mdm-status
+				 * ap2mdm-errfatal
+				 */
+				pins = "gpio41", "gpio37";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio41", "gpio37";
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+	};
+
+	mdm2ap {
+		mdm2ap_active: mdm2ap_active {
+			mux {
+				/* mdm2ap-status
+				 * mdm2ap-errfatal
+				 */
+				pins = "gpio40", "gpio36";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio40", "gpio36";
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		mdm2ap_sleep: mdm2ap_sleep {
+			mux {
+				/* mdm2ap-status
+				 * mdm2ap-errfatal
+				 */
+				pins = "gpio40", "gpio36";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio40", "gpio36";
+				drive-strength = <8>;
 				bias-disable;
 			};
 		};

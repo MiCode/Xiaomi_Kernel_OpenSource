@@ -99,10 +99,10 @@
 		qcom,pasid = <0x0 0x1c>;
 
 		iomemory-ranges = <0x0 0x92c000 0x0 0x92c000 0x0 0x4000 0x0
-				0x0 0xc400000 0x0 0xc400000 0x0 0x30000 0x1
-				0x0 0xc440000 0x0 0xc440000 0x0 0x10000 0x1
-				0x0 0xe600000 0x0 0xe600000 0x0 0x100000 0x1
-				0x0 0xe700000 0x0 0xe700000 0x0 0xa0000 0x1
+				0x0 0xc400000 0x0 0xc400000 0x0 0x3000 0x1
+				0x0 0xc42d000 0x0 0xc42d000 0x0 0x4000 0x1
+				0x0 0xc440000 0x0 0xc440000 0x0 0x80000 0x1
+				0x0 0xc4c0000 0x0 0xc4c0000 0x0 0x10000 0x1
 				0x0 0xae8f000 0x0 0xae8f000 0x0 0x1000 0x0>;
 
 		gic-irq-ranges = <283 283>; /* PVM->SVM IRQ transfer */
@@ -121,7 +121,7 @@
 		vcpus {
 			config = "/cpus";
 			affinity = "static";
-			affinity-map = <0x4 0x5>;
+			affinity-map = <0x5 0x6>;
 			sched-priority = <0>;       /* relative to PVM */
 			sched-timeslice = <2000>;   /* in ms */
 		};
@@ -230,19 +230,39 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
-	spmi_bus: qcom,spmi@c440000 {
+	spmi_bus: qcom,spmi@c42d000 {
 		compatible = "qcom,spmi-pmic-arb";
-		reg = <0xc440000 0x1100>,
-		      <0xc600000 0x2000000>,
-		      <0xe600000 0x100000>,
-		      <0xe700000 0xa0000>,
-		      <0xc40a000 0x26000>;
-		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		reg = <0xc42d000 0x4000>,
+		      <0xc400000 0x3000>,
+		      <0xc500000 0x400000>,
+		      <0xc440000 0x80000>,
+		      <0xc4c0000 0x10000>;
+		reg-names = "cnfg", "core", "chnls", "obsrvr", "intr";
 		#address-cells = <2>;
 		#size-cells = <0>;
 		cell-index = <0>;
 		qcom,channel = <0>;
 		qcom,ee = <0>;
+		qcom,bus-id = <0>;
+	};
+
+	vm_tlmm_irq: vm-tlmm-irq@0 {
+		compatible = "qcom,tlmm-vm-irq";
+		reg = <0x0 0x0>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	tlmm: pinctrl@f000000 {
+		compatible = "qcom,waipio-vm-pinctrl";
+		reg = <0x0F000000 0x1000000>;
+		interrupts-extended = <&vm_tlmm_irq 1 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		/* Valid pins */
+		gpios = /bits/ 16 <0 1>;
 	};
 
 	psci {

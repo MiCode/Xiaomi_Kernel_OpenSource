@@ -24,6 +24,12 @@ Optional properties:
 A/B/C/D, 8 bit.
 	loss_match[0] - loss_match[3]: Channel A-D parameter for USB.
 	loss_match[4] - loss_match[7]: Channel A-D parameter for DP.
+- lane-channel-swap: in most design,
+	channel A for RX1, channel B for TX1,
+	channel C for TX0, channel D for RX0.
+	enable this property if your design have following assignment,
+	channel A for RX0, channel B for TX0,
+	channel C for TX1, channel D for RX1.
 
 Example:
 	redriver@19 {
