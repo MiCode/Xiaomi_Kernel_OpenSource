@@ -752,6 +752,10 @@ static const struct adsp_data waipio_adsp_resource = {
 	.minidump_id = 5,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
+	.active_pd_names = (char*[]){
+		"load_state",
+		NULL
+	},
 	.ssr_name = "lpass",
 	.sysmon_name = "adsp",
 	.ssctl_id = 0x14,
@@ -828,6 +832,10 @@ static const struct adsp_data waipio_cdsp_resource = {
 	.minidump_id = 7,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
+	.active_pd_names = (char*[]){
+		"load_state",
+		NULL
+	},
 	.ssr_name = "cdsp",
 	.sysmon_name = "cdsp",
 	.ssctl_id = 0x17,
@@ -861,6 +869,10 @@ static const struct adsp_data waipio_mpss_resource = {
 	.minidump_id = 3,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
+	.active_pd_names = (char*[]){
+		"load_state",
+		NULL
+	},
 	.ssr_name = "mpss",
 	.sysmon_name = "modem",
 	.ssctl_id = 0x12,
@@ -923,6 +935,10 @@ static const struct adsp_data waipio_slpi_resource = {
 	.pas_id = 12,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
+	.active_pd_names = (char*[]){
+		"load_state",
+		NULL
+	},
 	.ssr_name = "dsps",
 	.sysmon_name = "slpi",
 	.ssctl_id = 0x16,
