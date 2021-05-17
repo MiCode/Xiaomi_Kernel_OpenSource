@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2831,35 +2831,15 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	if (core->state == VIDC_CORE_UNINIT) {
 		dprintk(VIDC_INFO, "Video core: %d is already in state: %d\n",
 				core->id, core->state);
+		mutex_unlock(&core->lock);
 		goto core_already_uninited;
 	}
 	mutex_unlock(&core->lock);
 
 	msm_comm_scale_clocks_and_bus(inst);
 
-	mutex_lock(&core->lock);
-
-	if (!core->resources.never_unload_fw) {
-		cancel_delayed_work(&core->fw_unload_work);
-
-		/*
-		 * Delay unloading of firmware. This is useful
-		 * in avoiding firmware download delays in cases where we
-		 * will have a burst of back to back video playback sessions
-		 * e.g. thumbnail generation.
-		 */
-		schedule_delayed_work(&core->fw_unload_work,
-			msecs_to_jiffies(core->state == VIDC_CORE_INVALID ?
-					0 : msm_vidc_firmware_unload_delay));
-
-		dprintk(VIDC_DBG, "firmware unload delayed by %u ms\n",
-			core->state == VIDC_CORE_INVALID ?
-			0 : msm_vidc_firmware_unload_delay);
-	}
-
 core_already_uninited:
 	change_inst_state(inst, MSM_VIDC_CORE_UNINIT);
-	mutex_unlock(&core->lock);
 	return 0;
 }
 
@@ -5311,43 +5291,6 @@ int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
 	}
 	return msm_smem_cache_operations(mem->dma_buf, mem->offset,
 					mem->size, cache_ops);
-}
-
-void msm_vidc_fw_unload_handler(struct work_struct *work)
-{
-	struct msm_vidc_core *core = NULL;
-	struct hfi_device *hdev = NULL;
-	int rc = 0;
-
-	core = container_of(work, struct msm_vidc_core, fw_unload_work.work);
-	if (!core || !core->device) {
-		dprintk(VIDC_ERR, "%s - invalid work or core handle\n",
-				__func__);
-		return;
-	}
-
-	hdev = core->device;
-
-	mutex_lock(&core->lock);
-	if (list_empty(&core->instances) &&
-		core->state != VIDC_CORE_UNINIT) {
-		if (core->state > VIDC_CORE_INIT) {
-			dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
-			rc = call_hfi_op(hdev, core_release,
-					hdev->hfi_device_data);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"Failed to release core, id = %d\n",
-					core->id);
-				mutex_unlock(&core->lock);
-				return;
-			}
-		}
-		core->state = VIDC_CORE_UNINIT;
-		kfree(core->capabilities);
-		core->capabilities = NULL;
-	}
-	mutex_unlock(&core->lock);
 }
 
 int msm_comm_set_color_format(struct msm_vidc_inst *inst,
