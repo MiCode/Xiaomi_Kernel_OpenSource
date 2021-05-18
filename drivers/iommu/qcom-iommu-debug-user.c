@@ -518,9 +518,9 @@ static void iommu_debug_destroy_phoney_sg_table(struct device *dev,
 	sg_free_table(table);
 }
 
-#define ds_printf(d, s, fmt, ...) ({				\
-			dev_err(d, fmt, ##__VA_ARGS__);		\
-			seq_printf(s, fmt, ##__VA_ARGS__);	\
+#define ps_printf(name, s, fmt, ...) ({						\
+			pr_err("%s: " fmt, name, ##__VA_ARGS__);		\
+			seq_printf(s, fmt, ##__VA_ARGS__);			\
 		})
 
 static int __functional_dma_api_alloc_test(struct device *dev,
@@ -534,15 +534,15 @@ static int __functional_dma_api_alloc_test(struct device *dev,
 	dma_addr_t iova;
 
 	/* Make sure we can allocate and use a buffer */
-	ds_printf(dev, s, "Allocating coherent buffer");
+	ps_printf(dev_name(dev), s, "Allocating coherent buffer");
 	data = dma_alloc_coherent(dev, size, &iova, GFP_KERNEL);
 	if (!data) {
 		ret = -ENOMEM;
 	} else {
 		int i;
 
-		ds_printf(dev, s, "  -> SUCCEEDED\n");
-		ds_printf(dev, s, "Using coherent buffer");
+		ps_printf(dev_name(dev), s, "  -> SUCCEEDED\n");
+		ps_printf(dev_name(dev), s, "Using coherent buffer");
 		for (i = 0; i < 742; ++i) {
 			int ind = SZ_1K * i;
 			u8 *p = data + ind;
@@ -552,14 +552,14 @@ static int __functional_dma_api_alloc_test(struct device *dev,
 			*p = val;
 			(*p)++;
 			if ((*p) != val + 1) {
-				ds_printf(dev, s,
+				ps_printf(dev_name(dev), s,
 					  "  -> FAILED on iter %d since %d != %d\n",
 					  i, *p, val + 1);
 				ret = -EINVAL;
 			}
 		}
 		if (!ret)
-			ds_printf(dev, s, "  -> SUCCEEDED\n");
+			ps_printf(dev_name(dev), s, "  -> SUCCEEDED\n");
 		dma_free_coherent(dev, size, data, iova);
 	}
 
@@ -576,7 +576,7 @@ static int __functional_dma_api_basic_test(struct device *dev,
 	u8 *data;
 	dma_addr_t iova;
 
-	ds_printf(dev, s, "Basic DMA API test");
+	ps_printf(dev_name(dev), s, "Basic DMA API test");
 	/* Make sure we can allocate and use a buffer */
 	for (i = 0; i < 1000; ++i) {
 		data = kmalloc(size, GFP_KERNEL);
@@ -603,9 +603,9 @@ static int __functional_dma_api_basic_test(struct device *dev,
 
 out:
 	if (ret)
-		ds_printf(dev, s, "  -> FAILED\n");
+		ps_printf(dev_name(dev), s, "  -> FAILED\n");
 	else
-		ds_printf(dev, s, "  -> SUCCEEDED\n");
+		ps_printf(dev_name(dev), s, "  -> SUCCEEDED\n");
 
 	return ret;
 }
@@ -616,7 +616,7 @@ static int __functional_dma_api_map_sg_test(struct device *dev, struct seq_file 
 	const size_t *sz;
 	int ret = 0, count = 0;
 
-	ds_printf(dev, s, "Map SG DMA API test");
+	ps_printf(dev_name(dev), s, "Map SG DMA API test");
 
 	for (sz = sizes; *sz; ++sz) {
 		size_t size = *sz;
@@ -645,9 +645,9 @@ destroy_table:
 	}
 out:
 	if (ret)
-		ds_printf(dev, s, "  -> FAILED\n");
+		ps_printf(dev_name(dev), s, "  -> FAILED\n");
 	else
-		ds_printf(dev, s, "  -> SUCCEEDED\n");
+		ps_printf(dev_name(dev), s, "  -> SUCCEEDED\n");
 
 	return ret;
 }
@@ -705,7 +705,6 @@ static int __apply_to_new_mapping(struct seq_file *s,
 	struct iommu_debug_device *ddev = s->private;
 	struct device *dev;
 	int ret = -EINVAL;
-	phys_addr_t pt_phys;
 
 	mutex_lock(&ddev->state_lock);
 	if (!iommu_debug_usecase_reset(ddev))
@@ -714,19 +713,12 @@ static int __apply_to_new_mapping(struct seq_file *s,
 	domain = ddev->domain;
 	dev = ddev->test_dev;
 
-	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_CONTEXT_BANK,
-				  &pt_phys)) {
-		ds_printf(dev, s, "Couldn't get page table base address\n");
-		goto out;
-	}
-
-	dev_err_ratelimited(dev, "testing with pgtables at %pa\n", &pt_phys);
 	ret = fn(dev, s, domain, priv);
 
 out:
 	mutex_unlock(&ddev->state_lock);
 	seq_printf(s, "%s\n", ret ? "FAIL" : "SUCCESS");
-	return 0;
+	return ret;
 }
 
 static const char * const _size_to_string(unsigned long size)
@@ -1085,52 +1077,64 @@ static int __functional_dma_api_va_test(struct seq_file *s)
 	size_t *sz;
 	size_t sizes[] = {SZ_4K, SZ_8K, SZ_16K, SZ_64K, 0};
 	struct iommu_debug_device *ddev = s->private;
-	struct device *dev = ddev->test_dev;
+	char *usecase_name;
+
+	/*
+	 * dev_name() cannot be used to get the usecase name as ddev->test_dev
+	 * will be NULL in case __apply_to_new_mapping() fails. Since
+	 * ddev->test_dev changes across calls to __apply_to_new_mapping(), we
+	 * also can't hold a reference to its name by caching the result of
+	 * dev_name() initially.
+	 */
+	usecase_name = kstrdup(dev_name(ddev->test_dev), GFP_KERNEL);
+	if (!usecase_name)
+		return -ENOMEM;
 
 	for (sz = sizes; *sz; ++sz) {
-		ds_printf(dev, s, "Full VA sweep @%s", _size_to_string(*sz));
+		ps_printf(usecase_name, s, "Full VA sweep @%s:", _size_to_string(*sz));
 		if (__apply_to_new_mapping(s, __full_va_sweep, (void *)*sz)) {
-			ds_printf(dev, s, "  -> FAILED\n");
+			ps_printf(usecase_name, s, "  -> FAILED\n");
 			ret = -EINVAL;
 		} else {
-			ds_printf(dev, s, "  -> SUCCEEDED\n");
+			ps_printf(usecase_name, s, "  -> SUCCEEDED\n");
 		}
 	}
 
-	ds_printf(dev, s, "bonus map:");
+	ps_printf(usecase_name, s, "bonus map:");
 	if (__apply_to_new_mapping(s, __full_va_sweep, (void *)SZ_4K)) {
-		ds_printf(dev, s, "  -> FAILED\n");
+		ps_printf(usecase_name, s, "  -> FAILED\n");
 		ret = -EINVAL;
 	} else {
-		ds_printf(dev, s, "  -> SUCCEEDED\n");
+		ps_printf(usecase_name, s, "  -> SUCCEEDED\n");
 	}
 
 	for (sz = sizes; *sz; ++sz) {
-		ds_printf(dev, s, "Rand VA sweep @%s", _size_to_string(*sz));
+		ps_printf(usecase_name, s, "Rand VA sweep @%s:", _size_to_string(*sz));
 		if (__apply_to_new_mapping(s, __rand_va_sweep, (void *)*sz)) {
-			ds_printf(dev, s, "  -> FAILED\n");
+			ps_printf(usecase_name, s, "  -> FAILED\n");
 			ret = -EINVAL;
 		} else {
-			ds_printf(dev, s, "  -> SUCCEEDED\n");
+			ps_printf(usecase_name, s, "  -> SUCCEEDED\n");
 		}
 	}
 
-	ds_printf(dev, s, "TLB stress sweep");
+	ps_printf(usecase_name, s, "TLB stress sweep:");
 	if (__apply_to_new_mapping(s, __tlb_stress_sweep, NULL)) {
-		ds_printf(dev, s, "  -> FAILED\n");
+		ps_printf(usecase_name, s, "  -> FAILED\n");
 		ret = -EINVAL;
 	} else {
-		ds_printf(dev, s, "  -> SUCCEEDED\n");
+		ps_printf(usecase_name, s, "  -> SUCCEEDED\n");
 	}
 
-	ds_printf(dev, s, "second bonus map:");
+	ps_printf(usecase_name, s, "second bonus map:");
 	if (__apply_to_new_mapping(s, __full_va_sweep, (void *)SZ_4K)) {
-		ds_printf(dev, s, "  -> FAILED\n");
+		ps_printf(usecase_name, s, "  -> FAILED\n");
 		ret = -EINVAL;
 	} else {
-		ds_printf(dev, s, "  -> SUCCEEDED\n");
+		ps_printf(usecase_name, s, "  -> SUCCEEDED\n");
 	}
 
+	kfree(usecase_name);
 	return ret;
 }
 

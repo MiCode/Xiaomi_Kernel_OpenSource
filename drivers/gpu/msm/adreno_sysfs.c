@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/sysfs.h>
@@ -17,11 +17,7 @@ static ssize_t _gpu_model_show(struct kgsl_device *device, char *buf)
 	if (gpudev->gpu_model)
 		return gpudev->gpu_model(adreno_dev, buf, PAGE_SIZE);
 
-	return scnprintf(buf, PAGE_SIZE, "Adreno%lx%ld%lxv%ld\n",
-			ADRENO_CHIPID_CORE(adreno_dev->chipid),
-			 ADRENO_CHIPID_MAJOR(adreno_dev->chipid),
-			 ADRENO_CHIPID_MINOR(adreno_dev->chipid),
-			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
+	return scnprintf(buf, PAGE_SIZE, adreno_get_gpu_model(device));
 }
 
 static ssize_t gpu_model_show(struct device *dev,

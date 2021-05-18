@@ -96,7 +96,7 @@ static inline bool walt_task_skip_min_cpu(struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	return sched_boost() != CONSERVATIVE_BOOST &&
+	return (sched_boost_type != CONSERVATIVE_BOOST) &&
 		walt_get_rtg_status(p) && wts->unfilter;
 }
 
@@ -200,7 +200,8 @@ static void walt_find_best_target(struct sched_domain *sd,
 	if (((capacity_orig_of(prev_cpu) == capacity_orig_of(start_cpu)) ||
 				asym_cap_siblings(prev_cpu, start_cpu)) &&
 				cpu_active(prev_cpu) && cpu_online(prev_cpu) &&
-				available_idle_cpu(prev_cpu)) {
+				available_idle_cpu(prev_cpu) &&
+				cpumask_test_cpu(prev_cpu, p->cpus_ptr)) {
 		target_cpu = prev_cpu;
 		fbt_env->fastpath = PREV_CPU_FASTPATH;
 		cpumask_set_cpu(target_cpu, candidates);
