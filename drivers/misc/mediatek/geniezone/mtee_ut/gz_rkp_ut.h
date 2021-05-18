@@ -19,10 +19,14 @@
 #ifndef __GZ_RKP_UT_H__
 #define __GZ_RKP_UT_H__
 
-int vreg_test(void *args);
-int test_rkp_by_buffer(void *args);
-int test_rkp_by_gzdriver(void *args);
-int test_rkp_gzkernel_memory(void *args);
-int test_rkp(void *args);
+int test_rkp_mix_op(void *args);
+int test_rkp_stress_by_vreg(void *args);
+int test_rkp_stress_by_smc(void *args);
+int test_rkp_by_malloc_buf(void *args);
+int test_rkp_basic_by_vreg(void *args);
+int test_rkp_basic_by_smc(void *args);
+
+int test_rkp_by_gz_driver(void *args);
+
 
 #endif
