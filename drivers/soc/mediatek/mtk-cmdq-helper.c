@@ -1250,8 +1250,11 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	else
 		shift_pa = CMDQ_REG_SHIFT_ADDR(
 			pkt->cmd_buf_size - end_addr_mark - CMDQ_INST_SIZE);
-	inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
-	inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
+	if (inst) {
+		inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
+		inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
+	} else
+		cmdq_err("inst is NULL");
 
 	/* relative case the counter have different offset */
 	if (cnt_end_addr_mark) {
@@ -1263,8 +1266,11 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 				pkt, end_addr_mark + CMDQ_INST_SIZE);
 		shift_pa = CMDQ_REG_SHIFT_ADDR(
 			pkt->cmd_buf_size - cnt_end_addr_mark - CMDQ_INST_SIZE);
-		inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
-		inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
+		if (inst) {
+			inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
+			inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
+		} else
+			cmdq_err("inst is NULL");
 	}
 
 	return 0;
