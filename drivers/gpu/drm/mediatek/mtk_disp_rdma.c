@@ -146,13 +146,6 @@
 #define DISP_REG_RDMA_DBG_OUT3 0x0114
 #define DISP_REG_RDMA_DBG_OUT4 0x0118
 #define DISP_REG_RDMA_DBG_OUT5 0x011c
-#define DISP_REG_RDMA_DBG_120  0x0120
-#define DISP_REG_RDMA_DBG_124  0x0124
-#define DISP_REG_RDMA_DBG_128  0x0128
-#define DISP_REG_RDMA_DBG_12c  0x012c
-#define DISP_REG_RDMA_DBG_130  0x0130
-#define DISP_REG_RDMA_DBG_134  0x0134
-#define DISP_REG_RDMA_DBG_138  0x0138
 
 #define DISP_REG_RDMA_GREQ_URG_NUM_SEL 0x01a8
 #define FLD_RG_LAYER_SMI_ID_EN REG_FLD_MSB_LSB(29, 29)
@@ -352,10 +345,13 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		       readl(DISP_REG_RDMA_IN_LINE_CNT + rdma->regs),
 		       readl(DISP_REG_RDMA_OUT_P_CNT + rdma->regs),
 		       readl(DISP_REG_RDMA_OUT_LINE_CNT + rdma->regs));
+		mtk_rdma_analysis(rdma);
+		mtk_rdma_dump(rdma);
 		if (rdma->mtk_crtc) {
 			mtk_drm_crtc_analysis(&(rdma->mtk_crtc->base));
 			mtk_drm_crtc_dump(&(rdma->mtk_crtc->base));
 		}
+
 		if (rdma->mtk_crtc) {
 			struct mtk_drm_private *drm_priv = NULL;
 
@@ -1138,12 +1134,6 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 		DDPDUMP("(0x114)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT3 + baddr));
 		DDPDUMP("(0x118)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT4 + baddr));
 		DDPDUMP("(0x11c)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT5 + baddr));
-		DDPDUMP("(0x120)0x%x\n", readl(DISP_REG_RDMA_DBG_120 + baddr));
-		DDPDUMP("(0x124)0x%x\n", readl(DISP_REG_RDMA_DBG_124 + baddr));
-		DDPDUMP("(0x12c)0x%x\n", readl(DISP_REG_RDMA_DBG_12c + baddr));
-		DDPDUMP("(0x130)0x%x\n", readl(DISP_REG_RDMA_DBG_130 + baddr));
-		DDPDUMP("(0x134)0x%x\n", readl(DISP_REG_RDMA_DBG_134 + baddr));
-		DDPDUMP("(0x138)0x%x\n", readl(DISP_REG_RDMA_DBG_138 + baddr));
 	}
 
 	mtk_rdma_dump_golden_setting(comp);

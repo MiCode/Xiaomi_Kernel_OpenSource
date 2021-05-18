@@ -38,10 +38,6 @@
 #include "cmdq-sec.h"
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_mmp.h"
-#ifdef CONFIG_MTK_SMI_EXT
-#include "smi_public.h"
-#endif
-#include "mtk_drm_crtc.h"
 
 #define REG_FLD(width, shift)                                                  \
 	((unsigned int)((((width)&0xFF) << 16) | ((shift)&0xFF)))
@@ -613,19 +609,10 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	}
 	if (val & (1 << 2)) {
 		DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
-				mtk_dump_comp_str(ovl), priv->underflow_cnt);
-		if ((priv->underflow_cnt % 50) == 0) {
-			if (ovl->mtk_crtc) {
-				mtk_drm_crtc_analysis(&(ovl->mtk_crtc->base));
-				mtk_drm_crtc_dump(&(ovl->mtk_crtc->base));
-			}
-			DDPAEE(" %s: frame underflow! cnt=%d\n",
-				mtk_dump_comp_str(ovl), priv->underflow_cnt);
-#ifdef CONFIG_MTK_SMI_EXT
-			smi_debug_bus_hang_detect_disp(false, "DISP");
-#endif
-		}
+			  mtk_dump_comp_str(ovl), priv->underflow_cnt);
 		priv->underflow_cnt++;
+		mtk_ovl_dump(ovl);
+		mtk_ovl_analysis(ovl);
 	}
 	if (val & (1 << 3))
 		DDPIRQ("[IRQ] %s: sw reset done!\n", mtk_dump_comp_str(ovl));
