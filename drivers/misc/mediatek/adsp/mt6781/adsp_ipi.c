@@ -89,6 +89,7 @@ void adsp_ipi_handler(int irq, void *data, int cid)
 			(void *)recv_obj->share_buf, len);
 
 		if (ipi_id == ADSP_IPI_ADSP_A_READY ||
+		    ipi_id == ADSP_IPI_DVFS_SUSPEND ||
 		    ipi_id == ADSP_IPI_LOGGER_INIT) {
 			/*
 			 * adsp_ready & logger init ipi bypass send to ipi
