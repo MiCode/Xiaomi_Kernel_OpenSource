@@ -272,6 +272,7 @@ struct st_asm330lhhx_sensor {
 			u16 max_watermark;
 			u16 watermark;
 			u8 pm;
+			s64 last_fifo_timestamp;
 		};
 		struct {
 			uint8_t status_reg;
@@ -304,16 +305,21 @@ struct st_asm330lhhx_sensor {
 struct st_asm330lhhx_hw {
 	struct device *dev;
 	int irq;
+
 	struct regmap *regmap;
-	struct mutex page_lock;
 	struct mutex fifo_lock;
+	struct mutex page_lock;
+
 	enum st_asm330lhhx_fifo_mode fifo_mode;
 	unsigned long state;
 	u32 enable_mask;
 	u32 requested_mask;
-	u64 ts_delta_ns;
+
 	s64 ts_offset;
+	u64 ts_delta_ns;
 	s64 hw_ts;
+	u32 val_ts_old;
+	u32 hw_ts_high;
 	s64 tsample;
 	s64 delta_ts;
 	s64 ts;
@@ -367,6 +373,14 @@ st_asm330lhhx_write_locked(struct st_asm330lhhx_hw *hw, unsigned int addr,
 	mutex_unlock(&hw->page_lock);
 
 	return err;
+}
+
+static inline s64 st_asm330lhhx_get_time_ns(void)
+{
+	struct timespec ts;
+
+	get_monotonic_boottime(&ts);
+	return timespec_to_ns(&ts);
 }
 
 int st_asm330lhhx_probe(struct device *dev, int irq,

@@ -55,7 +55,7 @@ enum {
 };
 
 /* Default timeout before to re-enable gyro */
-int delay_gyro = 10;
+static int delay_gyro = 10;
 module_param(delay_gyro, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(delay_gyro, "Delay for Gyro arming");
 static bool delayed_enable_gyro;
@@ -75,8 +75,10 @@ static inline int st_asm330lhhx_reset_hwts(struct st_asm330lhhx_hw *hw)
 {
 	u8 data = 0xaa;
 
-	hw->ts = iio_get_time_ns(hw->iio_devs[0]);
+	hw->ts = st_asm330lhhx_get_time_ns();
 	hw->ts_offset = hw->ts;
+	hw->val_ts_old = 0;
+	hw->hw_ts_high = 0;
 	hw->tsample = 0ull;
 
 	return st_asm330lhhx_write_locked(hw, ST_ASM330LHHX_REG_TIMESTAMP2_ADDR,
@@ -98,14 +100,19 @@ int st_asm330lhhx_set_fifo_mode(struct st_asm330lhhx_hw *hw,
 
 	hw->fifo_mode = fifo_mode;
 
+	if (fifo_mode == ST_ASM330LHHX_FIFO_BYPASS)
+		clear_bit(ST_ASM330LHHX_HW_OPERATIONAL, &hw->state);
+	else
+		set_bit(ST_ASM330LHHX_HW_OPERATIONAL, &hw->state);
+
 	return 0;
 }
 
 int __st_asm330lhhx_set_sensor_batching_odr(struct st_asm330lhhx_sensor *sensor,
 					 bool enable)
 {
-	struct st_asm330lhhx_hw *hw = sensor->hw;
 	enum st_asm330lhhx_sensor_id id = sensor->id;
+	struct st_asm330lhhx_hw *hw = sensor->hw;
 	u8 data = 0;
 	int err;
 
@@ -198,39 +205,51 @@ static struct iio_dev *st_asm330lhhx_get_iiodev_from_tag(struct st_asm330lhhx_hw
 	return iio_dev;
 }
 
+static inline void st_asm330lhhx_sync_hw_ts(struct st_asm330lhhx_hw *hw, s64 ts)
+{
+	s64 delta = ts - hw->hw_ts;
+
+	hw->ts_offset = st_asm330lhhx_ewma(hw->ts_offset, delta,
+					   ST_ASM330LHHX_EWMA_LEVEL);
+}
+
+
 static int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 {
 	u8 iio_buf[ALIGN(ST_ASM330LHHX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
-	u8 buf[6 * ST_ASM330LHHX_FIFO_SAMPLE_SIZE], tag, *ptr;
-	s64 ts_irq, hw_ts_old;
-	int i, err, word_len, fifo_len, read_len = 0;
+	u8 buf[30 * ST_ASM330LHHX_FIFO_SAMPLE_SIZE], tag, *ptr;
+	int i, err, word_len, fifo_len, read_len;
 	struct iio_dev *iio_dev;
-	struct st_asm330lhhx_sensor *sensor;
+	s64 ts_irq, hw_ts_old;
 	__le16 fifo_status;
 	u16 fifo_depth;
 	s16 drdymask;
+	s64 delta;
 	u32 val;
 
-	/* Return if FIFO is already disabled. */
-	if (hw->fifo_mode == ST_ASM330LHHX_FIFO_BYPASS) {
+	/* return if FIFO is already disabled */
+	if (!test_bit(ST_ASM330LHHX_HW_OPERATIONAL, &hw->state)) {
 		dev_warn(hw->dev, "%s: FIFO in bypass mode\n", __func__);
+
 		return 0;
 	}
 
 	ts_irq = hw->ts - hw->delta_ts;
 
-	err = st_asm330lhhx_read_locked(hw,
-				       ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR,
+	err = st_asm330lhhx_read_locked(hw, ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR,
 				       &fifo_status, sizeof(fifo_status));
 	if (err < 0)
 		return err;
 
-	fifo_depth = le16_to_cpu(fifo_status) &
-		     ST_ASM330LHHX_REG_FIFO_STATUS_DIFF;
+	fifo_depth = le16_to_cpu(fifo_status) & ST_ASM330LHHX_REG_FIFO_STATUS_DIFF;
 	if (!fifo_depth)
 		return 0;
 
 	fifo_len = fifo_depth * ST_ASM330LHHX_FIFO_SAMPLE_SIZE;
+	read_len = 0;
+
+	delta = div_s64(hw->delta_ts, fifo_depth);
+
 	while (read_len < fifo_len) {
 		word_len = min_t(int, fifo_len - read_len, sizeof(buf));
 		err = st_asm330lhhx_read_locked(hw,
@@ -242,44 +261,46 @@ static int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 		for (i = 0; i < word_len; i += ST_ASM330LHHX_FIFO_SAMPLE_SIZE) {
 			ptr = &buf[i + ST_ASM330LHHX_TAG_SIZE];
 			tag = buf[i] >> 3;
-
+			ts_irq += delta;
 			if (tag == ST_ASM330LHHX_TS_TAG) {
 				val = get_unaligned_le32(ptr);
-				hw_ts_old = hw->hw_ts;
-				hw->hw_ts = val * hw->ts_delta_ns;
-				hw->ts_offset = st_asm330lhhx_ewma(hw->ts_offset,
-						ts_irq - hw->hw_ts,
-						ST_ASM330LHHX_EWMA_LEVEL);
-				ts_irq += hw->hw_ts;
 
-				if (!hw->tsample)
-					hw->tsample = hw->ts_offset + hw->hw_ts;
-				else
-					hw->tsample = hw->tsample + hw->hw_ts -
-						      hw_ts_old;
+				if (hw->val_ts_old > val)
+					hw->hw_ts_high++;
+
+				hw_ts_old = hw->hw_ts;
+
+				/* check hw rollover */
+				hw->val_ts_old = val;
+				hw->hw_ts = (val +
+					     ((s64)hw->hw_ts_high << 32)) *
+					     hw->ts_delta_ns;
+
+				if (!test_bit(ST_ASM330LHHX_HW_FLUSH, &hw->state))
+					/* sync ap timestamp and sensor one */
+					st_asm330lhhx_sync_hw_ts(hw, ts_irq);
 			} else {
-				iio_dev = st_asm330lhhx_get_iiodev_from_tag(hw,
-									   tag);
+				struct st_asm330lhhx_sensor *sensor;
+				s64 ts;
+
+				iio_dev = st_asm330lhhx_get_iiodev_from_tag(hw, tag);
 				if (!iio_dev)
 					continue;
 
-				/* Skip samples if not ready. */
-				sensor = iio_priv(iio_dev);
-				drdymask =(s16)le16_to_cpu(get_unaligned_le16(ptr));
-				if (unlikely(drdymask >=
-				    ST_ASM330LHHX_SAMPLE_DISCHARD)) {
+				/* skip samples if not ready */
+				drdymask = (s16)le16_to_cpu(get_unaligned_le16(ptr));
+				if (unlikely(drdymask >= ST_ASM330LHHX_SAMPLE_DISCHARD)) {
 					continue;
 				}
 
+				sensor = iio_priv(iio_dev);
 				memcpy(iio_buf, ptr, ST_ASM330LHHX_SAMPLE_SIZE);
 
-				hw->tsample = min_t(s64,
-					iio_get_time_ns(iio_dev),
-					hw->tsample);
-
+				ts = hw->hw_ts + hw->ts_offset;
 				iio_push_to_buffers_with_timestamp(iio_dev,
 								   iio_buf,
-								   hw->tsample);
+								   ts);
+				sensor->last_fifo_timestamp = ts;
 			}
 		}
 		read_len += word_len;
@@ -327,9 +348,10 @@ ssize_t st_asm330lhhx_set_watermark(struct device *dev,
 		goto out;
 
 	sensor->watermark = val;
-	iio_device_release_direct_mode(iio_dev);
 
 out:
+	iio_device_release_direct_mode(iio_dev);
+
 	return err < 0 ? err : size;
 }
 
@@ -340,23 +362,28 @@ ssize_t st_asm330lhhx_flush_fifo(struct device *dev,
 	struct iio_dev *iio_dev = dev_get_drvdata(dev);
 	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
 	struct st_asm330lhhx_hw *hw = sensor->hw;
-	s64 type;
 	s64 event;
 	int count;
+	s64 type;
+	s64 fts;
 	s64 ts;
 
 	mutex_lock(&hw->fifo_lock);
-	ts = iio_get_time_ns(iio_dev);
+	ts = st_asm330lhhx_get_time_ns();
 	hw->delta_ts = ts - hw->ts;
 	hw->ts = ts;
 	set_bit(ST_ASM330LHHX_HW_FLUSH, &hw->state);
 	count = st_asm330lhhx_read_fifo(hw);
 	mutex_unlock(&hw->fifo_lock);
+	if (count > 0)
+		fts = sensor->last_fifo_timestamp;
+	else
+		fts = ts;
 
 	type = count > 0 ? IIO_EV_DIR_FIFO_DATA : IIO_EV_DIR_FIFO_EMPTY;
 	event = IIO_UNMOD_EVENT_CODE(iio_dev->channels[0].type, -1,
 				     IIO_EV_TYPE_FIFO_FLUSH, type);
-	iio_push_event(iio_dev, event, iio_get_time_ns(iio_dev));
+	iio_push_event(iio_dev, event, fts);
 
 	return size;
 }
@@ -380,13 +407,7 @@ int st_asm330lhhx_update_batching(struct iio_dev *iio_dev, bool enable)
 	int err;
 
 	disable_irq(hw->irq);
-
 	err = st_asm330lhhx_set_sensor_batching_odr(sensor, enable);
-	if (err < 0)
-		goto out;
-
-
-out:
 	enable_irq(hw->irq);
 
 	return err;
@@ -466,7 +487,7 @@ out:
 static irqreturn_t st_asm330lhhx_handler_irq(int irq, void *private)
 {
 	struct st_asm330lhhx_hw *hw = (struct st_asm330lhhx_hw *)private;
-	s64 ts = iio_get_time_ns(hw->iio_devs[0]);
+	s64 ts = st_asm330lhhx_get_time_ns();
 
 	hw->delta_ts = ts - hw->ts;
 	hw->ts = ts;
@@ -576,4 +597,3 @@ int st_asm330lhhx_buffers_setup(struct st_asm330lhhx_hw *hw)
 				  ST_ASM330LHHX_REG_DEC_TS_MASK,
 				  FIELD_PREP(ST_ASM330LHHX_REG_DEC_TS_MASK, 1));
 }
-

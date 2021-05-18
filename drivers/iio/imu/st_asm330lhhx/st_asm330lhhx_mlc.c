@@ -399,7 +399,7 @@ static int st_asm330lhhx_mlc_flush_all(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor_mlc;
 	struct iio_dev *iio_dev;
-	int ret, id;
+	int ret = 0, id;
 
 	for (id = ST_ASM330LHHX_ID_MLC_0; id < ST_ASM330LHHX_ID_MAX; id++) {
 		iio_dev = hw->iio_devs[id];
@@ -669,7 +669,7 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 						return err;
 
 					iio_push_event(iio_dev, (u64)event[i],
-						       iio_get_time_ns(iio_dev));
+						       st_asm330lhhx_get_time_ns());
 
 					dev_info(hw->dev,
 						 "MLC %d Status %x MLC EVENT %llx\n",
@@ -709,7 +709,7 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 						return err;
 
 					iio_push_event(iio_dev, (u64)event[i],
-						       iio_get_time_ns(iio_dev));
+						       st_asm330lhhx_get_time_ns(iio_dev));
 
 					dev_info(hw->dev,
 						 "FSM %d Status %x FSM EVENT %llx\n",
