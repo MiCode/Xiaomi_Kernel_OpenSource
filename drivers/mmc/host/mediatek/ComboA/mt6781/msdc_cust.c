@@ -443,77 +443,52 @@ void msdc_set_host_power_control(struct msdc_host *host)
 
 void msdc_HQA_set_voltage(struct msdc_host *host)
 {
-#if defined(MSDC_HQA_HV) || defined(MSDC_HQA_LV)
-	u32 vcore;
-	/*u32 val_delta;*/
-#endif
-	u32 vio_cal = 0, vio_trim = 0, vio_sel = 0;
-	static int vcore_orig = -1;
+	u32 vio_cal = 0, vio_trim = 0;
 
 	if (host->is_autok_done == 1)
 		return;
-
-	if (vcore_orig < 0)
-		pmic_read_interface(0x1534, &vcore_orig, 0x7F, 0);
 
 	pmic_read_interface(PMIC_RG_VIO18_VOCAL_ADDR, &vio_cal,
 		PMIC_RG_VIO18_VOCAL_MASK, PMIC_RG_VIO18_VOCAL_SHIFT);
 	pmic_read_interface(PMIC_RG_VIO18_VOTRIM_ADDR, &vio_trim,
 		PMIC_RG_VIO18_VOTRIM_MASK, PMIC_RG_VIO18_VOTRIM_SHIFT);
-	pmic_read_interface(PMIC_RG_VIO18_VOSEL_ADDR, &vio_sel,
-		PMIC_RG_VIO18_VOSEL_MASK, PMIC_RG_VIO18_VOSEL_SHIFT);
-	pr_info("[MSDC%d HQA] orig Vcore 0x%x, Vio_Sel=0x%x, Vio_trim 0x%x, Vio_cal 0x%x\n",
-		host->id, vcore_orig, vio_sel, vio_trim, vio_cal);
+	pr_info("[MSDC%d HQA] Vio_trim 0x%x, Vio_cal 0x%x\n",
+		host->id, vio_trim, vio_cal);
 
 #if defined(MSDC_HQA_HV) || defined(MSDC_HQA_LV)
-	/*val_delta = (500000 + vcore_orig * 6250) / 20 / 6250;*/
-	vcore = vcore_orig;
 	vio_cal = 0;
 	vio_trim = 0;
 
 	#ifdef MSDC_HQA_HV
-	/*vcore = vcore_orig + val_delta;*/
 	/* set to 1.89V */
-	vio_sel = 0xC;
 	vio_cal = 0x9; /*+90mV*/
-	vio_trim = 0;
+	vio_trim = 0x0;
 	#endif
 
 	#ifdef MSDC_HQA_LV
-	/*vcore = vcore_orig - val_delta;*/
-	/* set to 1.71V */
-	vio_sel = 0xB;
-	vio_cal = 0x1; /*+10mv*/
-	vio_trim = 0;
+	/* set to 1.73V */
+	vio_cal = 0x0;
+	vio_trim = 0x7; /*-10mV*/
 	#endif
 
-	/*let DRAM do the setting for Vcore*/
-	/*pmic_config_interface(0x14aa, vcore, 0x7F, 0);*/
-
-	pr_info("[MSDC%d HQA] adj Vcore 0x%x, Vio_sel=%x, Vio_trim 0x%x, Vio_cal= 0x%x(0x9 = +90mv)\n",
-	host->id, vcore, vio_sel, vio_trim, vio_cal);
-	pmic_config_interface(PMIC_RG_VIO18_VOSEL_ADDR,
-		vio_sel, PMIC_RG_VIO18_VOSEL_MASK, PMIC_RG_VIO18_VOSEL_SHIFT);
+	pr_info("[MSDC%d HQA] adj Vio_trim 0x%x(0x7 = -70mV), Vio_cal= 0x%x(0x9 = +90mV)\n",
+		host->id, vio_trim, vio_cal);
 	pmic_config_interface(PMIC_RG_VIO18_VOCAL_ADDR,
 		vio_cal, PMIC_RG_VIO18_VOCAL_MASK, PMIC_RG_VIO18_VOCAL_SHIFT);
 
 	/* trim need ask pmic owner if trim efuse reg */
-	pmic_config_interface(PMIC_TMA_KEY_ADDR,
-		0x9CA6, PMIC_TMA_KEY_MASK, PMIC_TMA_KEY_SHIFT);
+	pmic_config_interface(PMIC_TMA_KEY_ADDR, 0x9CA7, PMIC_TMA_KEY_MASK, PMIC_TMA_KEY_SHIFT);
 	pmic_config_interface(PMIC_RG_VIO18_VOTRIM_ADDR, vio_trim,
 		PMIC_RG_VIO18_VOTRIM_MASK, PMIC_RG_VIO18_VOTRIM_SHIFT);
-	pmic_config_interface(PMIC_TMA_KEY_ADDR,
-		0x0, PMIC_TMA_KEY_MASK, PMIC_TMA_KEY_SHIFT);
+	pmic_config_interface(PMIC_TMA_KEY_ADDR, 0x0, PMIC_TMA_KEY_MASK, PMIC_TMA_KEY_SHIFT);
 
 	/*read twice to check*/
 	pmic_read_interface(PMIC_RG_VIO18_VOCAL_ADDR, &vio_cal,
 		PMIC_RG_VIO18_VOCAL_MASK, PMIC_RG_VIO18_VOCAL_SHIFT);
 	pmic_read_interface(PMIC_RG_VIO18_VOTRIM_ADDR, &vio_trim,
 		PMIC_RG_VIO18_VOTRIM_MASK, PMIC_RG_VIO18_VOTRIM_SHIFT);
-	pmic_read_interface(PMIC_RG_VIO18_VOSEL_ADDR, &vio_sel,
-		PMIC_RG_VIO18_VOSEL_MASK, PMIC_RG_VIO18_VOSEL_SHIFT);
-	pr_info("[MSDC%d HQA] after set: Vcore 0x%x,Vio_sel=0x%x,Vio_trim 0x%x, Vio_cal 0x%x\n",
-		host->id, vcore_orig, vio_sel, vio_trim, vio_cal);
+	pr_info("[MSDC%d HQA] after set: Vio_trim 0x%x, Vio_cal 0x%x\n",
+		host->id, vio_trim, vio_cal);
 #endif
 }
 #endif
