@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -64,8 +64,17 @@ static const struct fsa4480_reg_val fsa_reg_i2c_defaults[] = {
 static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
 		u32 switch_control, u32 switch_enable)
 {
+	u32 prev_control, prev_enable;
+
 	if (!fsa_priv->regmap) {
 		dev_err(fsa_priv->dev, "%s: regmap invalid\n", __func__);
+		return;
+	}
+
+	regmap_read(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, &prev_control);
+	regmap_read(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, &prev_enable);
+	if (prev_control == switch_control && prev_enable == switch_enable) {
+		dev_dbg(fsa_priv->dev, "%s: settings unchanged\n", __func__);
 		return;
 	}
 
