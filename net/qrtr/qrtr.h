@@ -39,4 +39,7 @@ void qrtr_ns_init(void);
 
 void qrtr_ns_remove(void);
 
+int qrtr_peek_pkt_size(const void *data);
+
+unsigned int qrtr_get_service_id(unsigned int node_id, unsigned int port_id);
 #endif
