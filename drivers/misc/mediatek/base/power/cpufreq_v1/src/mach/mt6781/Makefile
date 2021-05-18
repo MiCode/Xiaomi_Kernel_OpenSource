@@ -28,4 +28,11 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)
 endif
 SSPM_VER := v2
+ifeq ($(SSPM_VER),v2)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+ccflags-y += -DUSE_SSPM_VER_V2
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ccflags-y += -DUSE_SSPM_VER_V1
+endif
 obj-y += mtk_cpufreq_platform.o
