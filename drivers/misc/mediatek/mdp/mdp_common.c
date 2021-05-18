@@ -1248,7 +1248,7 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 			addr[i].instrIndex += addr[i].instrIndex / max_inst;
 
 			CMDQ_MSG("meta index change from:%u to:%u\n",
-				idx, addr[i].instrIndex);
+				 idx, addr[i].instrIndex);
 		}
 	}
 #endif
@@ -1366,7 +1366,10 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 #if IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 #ifdef CMDQ_ENG_SVP_MTEE_GROUP_BITS
 	if (handle->engineFlag & CMDQ_ENG_SVP_MTEE_GROUP_BITS) {
-		sec_id = SEC_ID_SVP;
+		if (secData->extension & 0x1)
+			sec_id = SEC_ID_WFD;
+		else
+			sec_id = SEC_ID_SVP;
 		cmdq_sec_pkt_set_mtee(handle->pkt, true, sec_id);
 	}
 #endif
@@ -1382,12 +1385,11 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	if (-1 == sec_id)
 		cmdq_sec_pkt_set_mtee(handle->pkt, false, sec_id);
 
-	CMDQ_LOG("handle:%p mtee:%d dapc:%#llx(%#llx) port:%#llx(%#llx) sec_id:%d\n",
+	CMDQ_LOG("[SEC] handle:%p mtee:%d dapc:%#llx(%#llx) port:%#llx(%#llx) sec_id:%d\n",
 		handle,
 		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee,
 		handle->secData.enginesNeedDAPC, dapc,
-		handle->secData.enginesNeedPortSecurity, port,
-		sec_id);
+		handle->secData.enginesNeedPortSecurity, port, sec_id);
 
 	kfree(addr_meta);
 	return 0;

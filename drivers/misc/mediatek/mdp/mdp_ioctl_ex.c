@@ -57,8 +57,12 @@
 #ifdef MDP_M4U_TEE_SUPPORT
 static atomic_t m4u_init = ATOMIC_INIT(0);
 #endif
-#if defined(MDP_M4U_MTEE_SEC_CAM_SUPPORT) || defined(MDP_M4U_MTEE_SVP_SUPPORT)
-static atomic_t m4u_gz_init = ATOMIC_INIT(0);
+#if defined(MDP_M4U_MTEE_SEC_CAM_SUPPORT)
+static atomic_t m4u_gz_init_sec_cam = ATOMIC_INIT(0);
+#endif
+#if defined(MDP_M4U_MTEE_SVP_SUPPORT)
+static atomic_t m4u_gz_init_svp = ATOMIC_INIT(0);
+static atomic_t m4u_gz_init_wfd = ATOMIC_INIT(0);
 #endif
 
 static int mdp_limit_open(struct inode *pInode, struct file *pFile)
@@ -661,17 +665,23 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	}
 #endif
 #ifdef MDP_M4U_MTEE_SEC_CAM_SUPPORT
-	if (atomic_cmpxchg(&m4u_gz_init, 0, 1) == 0) {
-		// 0: SEC_ID_SEC_CAM
+	if (atomic_cmpxchg(&m4u_gz_init_sec_cam, 0, 1) == 0) {
 		m4u_gz_sec_init(0);
-		CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_SEC_CAM is called\n");
+		CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_SEC_CAM(0) is called\n");
 	}
 #endif
 #ifdef MDP_M4U_MTEE_SVP_SUPPORT
-	if (atomic_cmpxchg(&m4u_gz_init, 0, 1) == 0) {
-		// 1: SEC_ID_SVP
-		m4u_gz_sec_init(1);
-		CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_SVP is called\n");
+	if (user_job.secData.extension & 0x1) {
+		/* using 2nd display scenario */
+		if (atomic_cmpxchg(&m4u_gz_init_wfd, 0, 1) == 0) {
+			m4u_gz_sec_init(3);
+			CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_WFD(3) is called\n");
+		}
+	} else {
+		if (atomic_cmpxchg(&m4u_gz_init_svp, 0, 1) == 0) {
+			m4u_gz_sec_init(1);
+			CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_SVP(1) is called\n");
+		}
 	}
 #endif
 

@@ -316,6 +316,27 @@ enum CMDQ_SEC_ADDR_METADATA_TYPE {
 	CMDQ_SAM_H_2_MVA = 1,	/* sec handle to sec MVA */
 	CMDQ_SAM_NMVA_2_MVA = 2,	/* map normal MVA to secure world */
 	CMDQ_SAM_PH_2_MVA = 3,	/* protected handle to sec MVA */
+	/* SVP */
+	CMDQ_SAM_H_2_MVA_SVP_IN = 4, /* sec handle to sec MVA */
+	CMDQ_SAM_NMVA_2_MVA_SVP_IN = 5, /* map normal MVA to secure world */
+	CMDQ_SAM_PH_2_MVA_SVP_IN = 6, /* protected handle to sec MVA */
+	CMDQ_SAM_H_2_MVA_SVP_OUT = 7, /* sec handle to sec MVA */
+	CMDQ_SAM_NMVA_2_MVA_SVP_OUT = 8, /* map normal MVA to secure world */
+	CMDQ_SAM_PH_2_MVA_SVP_OUT = 9, /* protected handle to sec MVA */
+	/* WFD */
+	CMDQ_SAM_H_2_MVA_WFD_IN = 10, /* sec handle to sec MVA */
+	CMDQ_SAM_NMVA_2_MVA_WFD_IN = 11, /* map normal MVA to secure world */
+	CMDQ_SAM_PH_2_MVA_WFD_IN = 12, /* protected handle to sec MVA */
+	CMDQ_SAM_H_2_MVA_WFD_OUT = 13, /* sec handle to sec MVA */
+	CMDQ_SAM_NMVA_2_MVA_WFD_OUT = 14, /* map normal MVA to secure world */
+	CMDQ_SAM_PH_2_MVA_WFD_OUT = 15, /* protected handle to sec MVA */
+	/* SEC_CAM */
+	CMDQ_SAM_H_2_MVA_SEC_CAM_IN = 16, /* sec handle to sec MVA */
+	CMDQ_SAM_NMVA_2_MVA_SEC_CAM_IN = 17, /* map normal MVA to secure world */
+	CMDQ_SAM_PH_2_MVA_SEC_CAM_IN = 18, /* protected handle to sec MVA */
+	CMDQ_SAM_H_2_MVA_SEC_CAM_OUT = 19, /* sec handle to sec MVA */
+	CMDQ_SAM_NMVA_2_MVA_SEC_CAM_OUT = 20, /* map normal MVA to secure world */
+	CMDQ_SAM_PH_2_MVA_SEC_CAM_OUT = 21, /* protected handle to sec MVA */
 };
 
 struct cmdqSecAddrMetadataStruct {
