@@ -2812,7 +2812,8 @@
 		disp_step0_ext = <560 2 9 0x1589d8>;
 		disp_step1 = <450 1 0 7>;
 		disp_step1_ext = <450 2 9 0x114ec4>;
-		disp_step2 = <312 1 0 10>;
+		disp_step2 = <375 1 0 7>;
+		disp_step2_ext = <375 2 9 0x0e6c4e>;
 		cam_step0 = <546 1 1 8>;
 		cam_step1 = <416 1 1 9>;
 		cam_step2 = <312 1 1 10>;
@@ -2830,12 +2831,12 @@
 		vdec_step2 = <312 1 5 10>;
 		mdp_step0 = <560 1 6 7>;
 		mdp_step1 = <450 1 6 7>;
-		mdp_step2 = <312 1 6 10>;
+		mdp_step2 = <375 1 6 7>;
 
 		vcore-supply = <&mt_pmic_vcore_buck_reg>;
 
 		/* fmeter_mux_ids: Mapping to mux sequence in clocks */
-		vopp_steps = <0 1 2>;
+		vopp_steps = <0 1 1>;
 		disp_freq = "disp_step0", "disp_step1", "disp_step2";
 		cam_freq = "cam_step0", "cam_step1", "cam_step2";
 		img_freq = "img_step0", "img_step1", "img_step2";
