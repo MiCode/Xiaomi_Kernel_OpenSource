@@ -80,6 +80,10 @@
 
 #define PCIE20_PARF_DEBUG_INT_EN (0x190)
 #define PCIE20_PARF_DEBUG_INT_EN_L1SUB_TIMEOUT_BIT (BIT(0))
+#define PCIE20_PARF_INT_ALL_2_STATUS (0x500)
+#define PCIE20_PARF_INT_ALL_2_CLEAR (0x504)
+#define PCIE20_PARF_INT_ALL_2_MASK (0X508)
+#define MSM_PCIE_BW_MGT_INT_STATUS (BIT(25))
 
 #define PCIE20_PARF_CLKREQ_OVERRIDE (0x2b0)
 #define PCIE20_PARF_CLKREQ_IN_VALUE (BIT(3))
@@ -774,6 +778,7 @@ struct msm_pcie_dev_t {
 	/* cache drv pc req from RC client, by default drv pc is enabled */
 	int drv_disable_pc_vote;
 	struct mutex drv_pc_lock;
+	struct completion speed_change_completion;
 
 	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
 };
@@ -2471,6 +2476,37 @@ static int msm_pcie_is_link_up(struct msm_pcie_dev_t *dev)
 {
 	return readl_relaxed(dev->dm_core +
 			PCIE20_CAP_LINKCTRLSTATUS) & BIT(29);
+}
+
+static void msm_pcie_config_bandwidth_int(struct msm_pcie_dev_t *dev,
+						bool enable)
+{
+	struct pci_dev *pci_dev = dev->dev;
+
+	if (enable) {
+		msm_pcie_write_reg_field(dev->parf, PCIE20_PARF_INT_ALL_2_MASK,
+				MSM_PCIE_BW_MGT_INT_STATUS, 1);
+		msm_pcie_config_clear_set_dword(pci_dev,
+				pci_dev->pcie_cap + PCI_EXP_LNKCTL,
+				0, PCI_EXP_LNKCTL_LBMIE);
+	} else {
+		msm_pcie_write_reg_field(dev->parf, PCIE20_PARF_INT_ALL_2_MASK,
+				MSM_PCIE_BW_MGT_INT_STATUS, 0);
+		msm_pcie_config_clear_set_dword(pci_dev,
+				pci_dev->pcie_cap + PCI_EXP_LNKCTL,
+				PCI_EXP_LNKCTL_LBMIE, 0);
+	}
+}
+
+static void msm_pcie_clear_bandwidth_int_status(struct msm_pcie_dev_t *dev)
+{
+	struct pci_dev *pci_dev = dev->dev;
+
+	msm_pcie_config_clear_set_dword(pci_dev,
+					pci_dev->pcie_cap + PCI_EXP_LNKCTL,
+					PCI_EXP_LNKCTL_LBMIE, 0);
+	msm_pcie_write_reg_field(dev->parf, PCIE20_PARF_INT_ALL_2_CLEAR,
+				 MSM_PCIE_BW_MGT_INT_STATUS, 1);
 }
 
 static bool msm_pcie_check_ltssm_state(struct msm_pcie_dev_t *dev, u32 state)
@@ -4919,7 +4955,7 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 	int i;
 	struct msm_pcie_dev_t *dev = data;
 	unsigned long irqsave_flags;
-	u32 status = 0;
+	u32 status = 0, status2 = 0;
 
 	spin_lock_irqsave(&dev->irq_lock, irqsave_flags);
 
@@ -4936,8 +4972,13 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_CLEAR, 0, status);
 
-	PCIE_DUMP(dev, "RC%d: Global IRQ %d received: 0x%x\n",
-		dev->rc_idx, irq, status);
+	status2 = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_2_STATUS) &
+			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_2_MASK);
+
+	msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_2_CLEAR, 0, status2);
+
+	PCIE_DUMP(dev, "RC%d: Global IRQ %d received: 0x%x status2: 0x%x\n",
+		  dev->rc_idx, irq, status, status2);
 
 	for (i = 0; i <= MSM_PCIE_INT_EVT_MAX; i++) {
 		if (status & BIT(i)) {
@@ -4970,6 +5011,17 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 					dev->rc_idx, i);
 			}
 		}
+	}
+
+	if (status2 & MSM_PCIE_BW_MGT_INT_STATUS) {
+		/* Disable configuration for bandwidth interrupt */
+		msm_pcie_config_bandwidth_int(dev, false);
+		/* Clear bandwidth interrupt status */
+		msm_pcie_clear_bandwidth_int_status(dev);
+		PCIE_DBG(dev,
+			 "PCIe: RC%d: Speed change interrupt received.\n",
+			 dev->rc_idx);
+		complete(&dev->speed_change_completion);
 	}
 
 	spin_unlock_irqrestore(&dev->irq_lock, irqsave_flags);
@@ -5805,6 +5857,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		pcie_dev->pcidev_table[i].event_reg = NULL;
 		pcie_dev->pcidev_table[i].registered = true;
 	}
+	init_completion(&pcie_dev->speed_change_completion);
 
 	dev_set_drvdata(&pdev->dev, pcie_dev);
 
@@ -5936,26 +5989,39 @@ out:
 static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 				struct pci_dev *pci_dev)
 {
-	u32 cnt;
-	u32 cnt_max = 1000; /* 100ms timeout */
+	u32 cnt_max = 100; /* 100ms timeout */
 	u32 link_status_lbms_mask = PCI_EXP_LNKSTA_LBMS << PCI_EXP_LNKCTL;
+	int ret, status;
+
+	/* Enable configuration for bandwidth interrupt */
+	msm_pcie_config_bandwidth_int(pcie_dev, true);
+	reinit_completion(&pcie_dev->speed_change_completion);
 
 	/* link retrain */
 	msm_pcie_config_clear_set_dword(pci_dev,
 					pci_dev->pcie_cap + PCI_EXP_LNKCTL,
 					0, PCI_EXP_LNKCTL_RL);
 
-	cnt = 0;
-	/* poll until link train is done */
-	while (!(readl_relaxed(pcie_dev->dm_core + pci_dev->pcie_cap +
-		PCI_EXP_LNKCTL) & link_status_lbms_mask)) {
-		if (unlikely(cnt++ >= cnt_max)) {
-			PCIE_ERR(pcie_dev, "PCIe: RC%d: failed to retrain\n",
-				pcie_dev->rc_idx);
+	ret = wait_for_completion_timeout(&pcie_dev->speed_change_completion,
+					  msecs_to_jiffies(cnt_max));
+	if (!ret) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: Bandwidth int: completion timeout\n",
+			 pcie_dev->rc_idx);
+		/* poll to check if link train is done */
+		if (!(readl_relaxed(pcie_dev->dm_core + pci_dev->pcie_cap +
+		      PCI_EXP_LNKCTL) & link_status_lbms_mask)) {
+			PCIE_ERR(pcie_dev,
+				 "PCIe: RC%d: failed to retrain\n",
+				 pcie_dev->rc_idx);
 			return -EIO;
+		} else {
+			status = (readl_relaxed(pcie_dev->dm_core + pci_dev->pcie_cap +
+				  PCI_EXP_LNKCTL) & link_status_lbms_mask);
+			PCIE_DBG(pcie_dev,
+				 "PCIe: RC%d: Status set 0x%x\n",
+				 pcie_dev->rc_idx, status);
 		}
-
-		usleep_range(100, 105);
 	}
 
 	pcie_dev->current_link_speed = (readl_relaxed(pcie_dev->dm_core +
