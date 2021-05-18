@@ -124,7 +124,7 @@ static int fmt_set_gce_task(struct cmdq_pkt *pkt_ptr, u32 id)
 	return -1;
 }
 
-static void fmt_clear_gce_task(int taskid)
+static void fmt_clear_gce_task(unsigned int taskid)
 {
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 
@@ -239,6 +239,11 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	}
 
 	identifier = buff.identifier;
+	if (identifier >= fmt->gce_th_num) {
+		fmt_err("invalid identifier %u",
+			identifier);
+		return -EINVAL;
+	}
 
 	cl = fmt->clt_fmt[identifier];
 
@@ -331,6 +336,11 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 	taskid = fmt_set_gce_task(pkt_ptr, identifier);
 
+	if (taskid < 0) {
+		fmt_err("failed to set task id");
+		ret = -EINVAL;
+	}
+
 	memcpy(&fmt->gce_task[taskid].cmdq_buff, &buff, sizeof(buff));
 
 	// flush cmd async
@@ -349,9 +359,9 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 static int fmt_gce_wait_callback(unsigned long arg)
 {
-	int ret, identifier, taskid;
+	int ret;
+	unsigned int identifier, taskid;
 	unsigned char *user_data_addr = NULL;
-	//struct gce_obj obj;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 
 	user_data_addr = (unsigned char *)arg;
@@ -363,7 +373,19 @@ static int fmt_gce_wait_callback(unsigned long arg)
 		return -EINVAL;
 	}
 
+	if (taskid >= FMT_INST_MAX) {
+		fmt_err("invalid taskid %u",
+			taskid);
+		return -EINVAL;
+	}
+
 	identifier = fmt->gce_task[taskid].identifier;
+	if (identifier >= fmt->gce_th_num) {
+		fmt_err("invalid identifier %u",
+			identifier);
+		return -EINVAL;
+	}
+
 	fmt_debug(1, "id %d taskid %d pkt_ptr %p",
 		identifier, taskid, fmt->gce_task[taskid].pkt_ptr);
 
