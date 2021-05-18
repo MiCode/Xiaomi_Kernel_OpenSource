@@ -501,9 +501,10 @@ void power_misc_handler(void *arg)
 static int power_misc_routine_thread(void *arg)
 {
 	struct shutdown_controller *sdd = arg;
+	int ret = 0;
 
 	while (1) {
-		wait_event(sdd->wait_que, (sdd->timeout == true)
+		ret = wait_event_interruptible(sdd->wait_que, (sdd->timeout == true)
 			|| (sdd->overheat == true));
 		if (sdd->timeout == true) {
 			sdd->timeout = false;

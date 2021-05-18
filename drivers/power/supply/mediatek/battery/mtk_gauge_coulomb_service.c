@@ -489,9 +489,10 @@ static int gauge_coulomb_thread(void *arg)
 {
 	unsigned long flags = 0;
 	struct timespec start, end, duraction;
+	int ret = 0;
 
 	while (1) {
-		wait_event(wait_que, (coulomb_thread_timeout == true));
+		ret = wait_event_interruptible(wait_que, (coulomb_thread_timeout == true));
 		coulomb_thread_timeout = false;
 		get_monotonic_boottime(&start);
 		ft_trace("[%s]=>\n", __func__);
@@ -508,11 +509,11 @@ static int gauge_coulomb_thread(void *arg)
 		duraction = timespec_sub(end, start);
 
 		ft_trace(
-			"%s time:%d ms %d %d\n",
+			"%s time:%d ms %d %d, ret=%d\n",
 			__func__,
 			(int)(duraction.tv_nsec / 1000000),
 			(int)(sstart[0].tv_nsec / 1000000),
-			(int)(sstart[1].tv_nsec / 1000000));
+			(int)(sstart[1].tv_nsec / 1000000), ret);
 
 		if (fix_coverity == 1)
 			break;

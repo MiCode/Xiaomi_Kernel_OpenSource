@@ -2402,9 +2402,10 @@ void fg_drv_update_hw_status(void)
 
 int battery_update_routine(void *x)
 {
+	int ret = 0;
 	battery_update_psd(&battery_main);
 	while (1) {
-		wait_event(gm.wait_que,
+		ret = wait_event_interruptible(gm.wait_que,
 			(gm.fg_update_flag > 0)
 			|| (gm.tracking_cb_flag > 0)
 			|| (gm.onepercent_cb_flag > 0));
