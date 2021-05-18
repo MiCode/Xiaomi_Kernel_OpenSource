@@ -26,6 +26,7 @@
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
+#include <linux/regulator/consumer.h>
 
 #define CONFIG_MTK_PANEL_EXT
 #if defined(CONFIG_MTK_PANEL_EXT)
@@ -136,6 +137,91 @@ static void tianma_dcs_write(struct tianma *ctx, const void *data, size_t len)
 		ctx->error = ret;
 	}
 }
+
+#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+static struct regulator *disp_bias_pos;
+static struct regulator *disp_bias_neg;
+
+static int lcm_panel_bias_regulator_init(void)
+{
+	static int regulator_inited;
+	int ret = 0;
+
+	if (regulator_inited)
+		return ret;
+
+	/* please only get regulator once in a driver */
+	disp_bias_pos = regulator_get(NULL, "dsv_pos");
+	if (IS_ERR(disp_bias_pos)) { /* handle return value */
+		ret = PTR_ERR(disp_bias_pos);
+		pr_err("get dsv_pos fail, error: %d\n", ret);
+		return ret;
+	}
+
+	disp_bias_neg = regulator_get(NULL, "dsv_neg");
+	if (IS_ERR(disp_bias_neg)) { /* handle return value */
+		ret = PTR_ERR(disp_bias_neg);
+		pr_err("get dsv_neg fail, error: %d\n", ret);
+		return ret;
+	}
+
+	regulator_inited = 1;
+	return ret; /* must be 0 */
+}
+
+static int lcm_panel_bias_enable(void)
+{
+	int ret = 0;
+	int retval = 0;
+
+	lcm_panel_bias_regulator_init();
+
+	/* set voltage with min & max*/
+	ret = regulator_set_voltage(disp_bias_pos, 5400000, 5400000);
+	if (ret < 0)
+		pr_err("set voltage disp_bias_pos fail, ret = %d\n", ret);
+	retval |= ret;
+
+	ret = regulator_set_voltage(disp_bias_neg, 5400000, 5400000);
+	if (ret < 0)
+		pr_err("set voltage disp_bias_neg fail, ret = %d\n", ret);
+	retval |= ret;
+
+	/* enable regulator */
+	ret = regulator_enable(disp_bias_pos);
+	if (ret < 0)
+		pr_err("enable regulator disp_bias_pos fail, ret = %d\n", ret);
+	retval |= ret;
+
+	ret = regulator_enable(disp_bias_neg);
+	if (ret < 0)
+		pr_err("enable regulator disp_bias_neg fail, ret = %d\n", ret);
+	retval |= ret;
+
+	return retval;
+}
+
+static int lcm_panel_bias_disable(void)
+{
+	int ret = 0;
+	int retval = 0;
+
+	lcm_panel_bias_regulator_init();
+
+	ret = regulator_disable(disp_bias_neg);
+	if (ret < 0)
+		pr_err("disable regulator disp_bias_neg fail, ret = %d\n", ret);
+	retval |= ret;
+
+	ret = regulator_disable(disp_bias_pos);
+	if (ret < 0)
+		pr_err("disable regulator disp_bias_pos fail, ret = %d\n", ret);
+	retval |= ret;
+
+	return retval;
+}
+#endif
+
 
 #define HFP_SUPPORT 1
 
@@ -551,13 +637,48 @@ static int tianma_unprepare(struct drm_panel *panel)
 	tianma_dcs_write_seq_static(ctx, 0x10);
 	msleep(120);
 
-#if defined(CONFIG_RT4831A_I2C)
+	ctx->error = 0;
+	ctx->prepared = false;
+#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+	lcm_panel_bias_disable();
+#elif defined(CONFIG_RT4831A_I2C)
 	/*this is rt4831a*/
 	_gate_ic_i2c_panel_bias_enable(0);
 	_gate_ic_Power_off();
+#else
+	ctx->reset_gpio =
+		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->reset_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get reset_gpio %ld\n",
+			__func__, PTR_ERR(ctx->reset_gpio));
+		return PTR_ERR(ctx->reset_gpio);
+	}
+	gpiod_set_value(ctx->reset_gpio, 0);
+	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+
+
+	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
+		"bias", 1, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_neg)) {
+		dev_err(ctx->dev, "%s: cannot get bias_neg %ld\n",
+			__func__, PTR_ERR(ctx->bias_neg));
+		return PTR_ERR(ctx->bias_neg);
+	}
+	gpiod_set_value(ctx->bias_neg, 0);
+	devm_gpiod_put(ctx->dev, ctx->bias_neg);
+
+	udelay(1000);
+
+	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
+		"bias", 0, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_pos)) {
+		dev_err(ctx->dev, "%s: cannot get bias_pos %ld\n",
+			__func__, PTR_ERR(ctx->bias_pos));
+		return PTR_ERR(ctx->bias_pos);
+	}
+	gpiod_set_value(ctx->bias_pos, 0);
+	devm_gpiod_put(ctx->dev, ctx->bias_pos);
 #endif
-	ctx->error = 0;
-	ctx->prepared = false;
 	return 0;
 }
 
@@ -569,11 +690,37 @@ static int tianma_prepare(struct drm_panel *panel)
 	pr_info("%s\n", __func__);
 	if (ctx->prepared)
 		return 0;
-#if defined(CONFIG_RT4831A_I2C)
+
+#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+	lcm_panel_bias_enable();
+#elif defined(CONFIG_RT4831A_I2C)
 	_gate_ic_Power_on();
 	/*rt4831a co-work with leds_i2c*/
 	_gate_ic_i2c_panel_bias_enable(1);
+#else
+	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
+		"bias", 0, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_pos)) {
+		dev_err(ctx->dev, "%s: cannot get bias_pos %ld\n",
+			__func__, PTR_ERR(ctx->bias_pos));
+		return PTR_ERR(ctx->bias_pos);
+	}
+	gpiod_set_value(ctx->bias_pos, 1);
+	devm_gpiod_put(ctx->dev, ctx->bias_pos);
+
+	udelay(2000);
+
+	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
+		"bias", 1, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_neg)) {
+		dev_err(ctx->dev, "%s: cannot get bias_neg %ld\n",
+			__func__, PTR_ERR(ctx->bias_neg));
+		return PTR_ERR(ctx->bias_neg);
+	}
+	gpiod_set_value(ctx->bias_neg, 1);
+	devm_gpiod_put(ctx->dev, ctx->bias_neg);
 #endif
+
 	tianma_panel_init(ctx);
 
 	ret = ctx->error;
@@ -1064,6 +1211,25 @@ static int tianma_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->reset_gpio);
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
+#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+	lcm_panel_bias_enable();
+#elif !defined(CONFIG_RT4831A_I2C)
+	ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_pos)) {
+		dev_err(dev, "%s: cannot get bias-pos 0 %ld\n",
+			__func__, PTR_ERR(ctx->bias_pos));
+		return PTR_ERR(ctx->bias_pos);
+	}
+	devm_gpiod_put(dev, ctx->bias_pos);
+
+	ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_neg)) {
+		dev_err(dev, "%s: cannot get bias-neg 1 %ld\n",
+			__func__, PTR_ERR(ctx->bias_neg));
+		return PTR_ERR(ctx->bias_neg);
+	}
+	devm_gpiod_put(dev, ctx->bias_neg);
+#endif
 
 	ctx->prepared = true;
 	ctx->enabled = true;
