@@ -1847,8 +1847,7 @@ static kal_uint32 get_sensor_temperature(void)
 		temperature_convert = -64;
 	}
 
-	return 20;
-	//return temperature_convert;
+	return temperature_convert;
 }
 
 static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id,
