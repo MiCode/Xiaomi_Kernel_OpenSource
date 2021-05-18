@@ -153,6 +153,9 @@ static unsigned int g_count_r[L_TS_LVTS_NUM];
 static unsigned int g_count_rc[L_TS_LVTS_NUM];
 static unsigned int g_count_rc_now[L_TS_LVTS_NUM];
 static int g_use_fake_efuse;
+#if THERMAL_IMAX_PROTECT
+static unsigned int g_chip_bin = 2;
+#endif
 int lvts_debug_log;
 int lvts_rawdata_debug_log;
 
@@ -1155,6 +1158,9 @@ void lvts_thermal_cal_prepare(void)
 	unsigned int temp[16];
 	int i, offset;
 	char buffer[512];
+#if THERMAL_IMAX_PROTECT
+	u32 fab_info = 0, ptp_info = 0;
+#endif
 
 	temp[0] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_0);
 	temp[1] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_3);
@@ -1260,6 +1266,29 @@ void lvts_thermal_cal_prepare(void)
 	}
 
 	lvts_printk("%s\n", buffer);
+#if THERMAL_IMAX_PROTECT
+	// bin judgement
+	fab_info = get_devinfo_with_index(130);
+	ptp_info = get_devinfo_with_index(69);
+	lvts_printk("[%s] fab_info=0x%x ptp_info=0x%x\n"
+			, __func__, fab_info, ptp_info);
+	fab_info = (fab_info & _BITMASK_(3:2)) >> 2;
+	ptp_info = (ptp_info & _BITMASK_(31:30)) >> 30;
+
+	if (fab_info != 0x0) {
+		if (fab_info == 0x2)
+			g_chip_bin = 1;
+		else
+			g_chip_bin = 2;
+	} else {
+		if (ptp_info == 0x1)
+			g_chip_bin = 1;
+		else
+			g_chip_bin = 2;
+	}
+	lvts_printk("[%s] chip bin is %u\n"
+			, __func__, g_chip_bin);
+#endif
 }
 
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
@@ -1270,7 +1299,11 @@ void lvts_ipi_send_efuse_data(void)
 	lvts_printk("%s\n", __func__);
 
 	thermal_data.u.data.arg[0] = g_golden_temp;
+#if THERMAL_IMAX_PROTECT
+	thermal_data.u.data.arg[1] = g_chip_bin;
+#else
 	thermal_data.u.data.arg[1] = 0;
+#endif
 	thermal_data.u.data.arg[2] = 0;
 	while (thermal_to_sspm(THERMAL_IPI_LVTS_INIT_GRP1, &thermal_data) != 0)
 		udelay(100);

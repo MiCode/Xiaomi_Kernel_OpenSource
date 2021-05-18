@@ -175,6 +175,7 @@
 #define LVTS_USE_DOMINATOR_SENSING_POINT (1)
 
 #define CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR (0)
+#define THERMAL_IMAX_PROTECT (1)
 /*=============================================================
  *REG ACCESS
  *=============================================================
