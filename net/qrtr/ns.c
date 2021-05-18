@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
- * Copyright (c) 2013, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2020-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2020, Linaro Ltd.
  */
 
@@ -97,6 +97,25 @@ static struct qrtr_node *node_get(unsigned int node_id)
 
 	return node;
 }
+
+unsigned int qrtr_get_service_id(unsigned int node_id, unsigned int port_id)
+{
+	struct qrtr_server *srv;
+	struct qrtr_node *node;
+	unsigned long index;
+
+	node = node_get(node_id);
+	if (!node)
+		return 0;
+
+	xa_for_each(&node->servers, index, srv) {
+		if (srv->node == node_id && srv->port == port_id)
+			return srv->service;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(qrtr_get_service_id);
 
 static int server_match(const struct qrtr_server *srv,
 			const struct qrtr_server_filter *f)
