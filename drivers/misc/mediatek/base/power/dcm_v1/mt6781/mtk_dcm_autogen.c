@@ -136,68 +136,6 @@ void dcm_infracfg_ao_infra_bus(int on)
 	}
 }
 
-#define INFRACFG_AO_INFRA_MEM_REG0_MASK ((0x1 << 0) | \
-			(0x1 << 6) | \
-			(0x1 << 7) | \
-			(0x1 << 8) | \
-			(0x1f << 16) | \
-			(0x1f << 21) | \
-			(0x1 << 26) | \
-			(0x1 << 27) | \
-			(0x1 << 28) | \
-			(0x1 << 29) | \
-			(0x1 << 31))
-#define INFRACFG_AO_INFRA_MEM_REG0_ON ((0x0 << 0) | \
-			(0x0 << 6) | \
-			(0x1 << 7) | \
-			(0x1 << 8) | \
-			(0x0 << 16) | \
-			(0x1f << 21) | \
-			(0x0 << 26) | \
-			(0x1 << 27) | \
-			(0x0 << 28) | \
-			(0x0 << 29) | \
-			(0x0 << 31))
-#define INFRACFG_AO_INFRA_MEM_REG0_OFF ((0x0 << 0) | \
-			(0x0 << 6) | \
-			(0x1 << 7) | \
-			(0x1 << 8) | \
-			(0x0 << 16) | \
-			(0x1f << 21) | \
-			(0x0 << 26) | \
-			(0x1 << 27) | \
-			(0x0 << 28) | \
-			(0x0 << 29) | \
-			(0x0 << 31))
-
-bool dcm_infracfg_ao_infra_mem_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MEM_DCM_CTRL) &
-		INFRACFG_AO_INFRA_MEM_REG0_MASK) ==
-		(unsigned int) INFRACFG_AO_INFRA_MEM_REG0_ON);
-
-	return ret;
-}
-
-void dcm_infracfg_ao_infra_mem(int on)
-{
-	if (on) {
-		/* TINFO = "Turn ON DCM 'infracfg_ao_infra_mem'" */
-		reg_write(MEM_DCM_CTRL,
-			(reg_read(MEM_DCM_CTRL) &
-			~INFRACFG_AO_INFRA_MEM_REG0_MASK) |
-			INFRACFG_AO_INFRA_MEM_REG0_ON);
-	} else {
-		/* TINFO = "Turn OFF DCM 'infracfg_ao_infra_mem'" */
-		reg_write(MEM_DCM_CTRL,
-			(reg_read(MEM_DCM_CTRL) &
-			~INFRACFG_AO_INFRA_MEM_REG0_MASK) |
-			INFRACFG_AO_INFRA_MEM_REG0_OFF);
-	}
-}
-
 #define INFRACFG_AO_P2P_RX_CLK_REG0_MASK ((0xf << 0))
 #define INFRACFG_AO_P2P_RX_CLK_REG0_ON ((0x0 << 0))
 #define INFRACFG_AO_P2P_RX_CLK_REG0_OFF ((0xf << 0))

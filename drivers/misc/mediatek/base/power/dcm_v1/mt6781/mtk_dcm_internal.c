@@ -134,7 +134,6 @@ bool dcm_infra_is_on(void)
 	ret &= dcm_infracfg_ao_audio_bus_is_on();
 	ret &= dcm_infracfg_ao_icusb_bus_is_on();
 	ret &= dcm_infracfg_ao_infra_bus_is_on();
-	ret &= dcm_infracfg_ao_infra_mem_is_on();
 	ret &= dcm_infracfg_ao_p2p_rx_clk_is_on();
 	ret &= dcm_infracfg_ao_peri_bus_is_on();
 
@@ -146,7 +145,6 @@ int dcm_infra(int on)
 	dcm_infracfg_ao_audio_bus(on);
 	dcm_infracfg_ao_icusb_bus(on);
 	dcm_infracfg_ao_infra_bus(on);
-	dcm_infracfg_ao_infra_mem(on);
 	dcm_infracfg_ao_p2p_rx_clk(on);
 	dcm_infracfg_ao_peri_bus(on);
 
@@ -474,7 +472,6 @@ void dcm_dump_regs(void)
 	REG_DUMP(MP_CPUSYS_TOP_MP0_DCM_CFG7);
 	REG_DUMP(INFRA_BUS_DCM_CTRL);
 	REG_DUMP(PERI_BUS_DCM_CTRL);
-	REG_DUMP(MEM_DCM_CTRL);
 	REG_DUMP(P2P_RX_CLK_ON);
 }
 

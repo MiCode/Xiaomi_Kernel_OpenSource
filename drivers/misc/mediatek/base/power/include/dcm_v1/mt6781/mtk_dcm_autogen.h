@@ -66,7 +66,6 @@ extern unsigned long dcm_ddrphy1_ao_base;
 /* Register Definition */
 #define CPCCFG_REG_EMI_WFIFO            (CPCCFG_REG_BASE + 0x100)
 #define INFRA_BUS_DCM_CTRL              (INFRACFG_AO_BASE + 0x70)
-#define MEM_DCM_CTRL                    (INFRACFG_AO_BASE + 0x78)
 #define MP_CPUSYS_TOP_BUS_PLLDIV_CFG    (MP_CPUSYS_TOP_BASE + 0x22e0)
 #define MP_CPUSYS_TOP_CPU_PLLDIV_CFG0   (MP_CPUSYS_TOP_BASE + 0x22a0)
 #define MP_CPUSYS_TOP_CPU_PLLDIV_CFG1   (MP_CPUSYS_TOP_BASE + 0x22a4)
@@ -86,8 +85,6 @@ bool dcm_infracfg_ao_icusb_bus_is_on(void);
 void dcm_infracfg_ao_icusb_bus(int on);
 bool dcm_infracfg_ao_infra_bus_is_on(void);
 void dcm_infracfg_ao_infra_bus(int on);
-bool dcm_infracfg_ao_infra_mem_is_on(void);
-void dcm_infracfg_ao_infra_mem(int on);
 bool dcm_infracfg_ao_p2p_rx_clk_is_on(void);
 void dcm_infracfg_ao_p2p_rx_clk(int on);
 bool dcm_infracfg_ao_peri_bus_is_on(void);
