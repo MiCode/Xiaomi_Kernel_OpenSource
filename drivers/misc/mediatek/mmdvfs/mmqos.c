@@ -277,11 +277,6 @@ static s32 get_io_width(void)
 	else
 		io_width = 4;
 
-// temp workaround until dram ready
-#if IS_ENABLED(CONFIG_MACH_MT6781)
-	io_width = 2;
-#endif
-
 	return io_width;
 }
 #elif defined(USE_MTK_DRAMC)

@@ -175,9 +175,7 @@ endif
 ifeq ($(CONFIG_MTK_DRAMC),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -DUSE_MTK_DRAMC
-endif
-
-ifeq ($(CONFIG_MEDIATEK_EMI),y)
+else ifeq ($(CONFIG_MEDIATEK_EMI),y)
 ccflags-y += -DUSE_MEDIATEK_EMI
 endif
 
