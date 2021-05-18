@@ -1,4 +1,4 @@
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 
 
 ifeq ($(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT), y)
