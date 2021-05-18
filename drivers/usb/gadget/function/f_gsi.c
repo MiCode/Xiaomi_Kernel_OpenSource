@@ -501,8 +501,12 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	struct ipa_req_chan_out_params ipa_in_channel_out_params;
 	struct ipa_req_chan_out_params ipa_out_channel_out_params;
 
-	if (gsi->prot_id == IPA_USB_RMNET)
+	if (gsi->prot_id == IPA_USB_RMNET) {
 		d_port->in_request.use_tcm_mem = gsi->rmnet_use_tcm_mem;
+		/* override needed for moving from LLCC TCM to DDR memory */
+		d_port->in_request.buf_len = GSI_IN_RMNET_BUFF_SIZE;
+		d_port->in_request.num_bufs = GSI_NUM_IN_RMNET_BUFFERS;
+	}
 
 	ret = usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 			GSI_EP_OP_PREPARE_TRBS);
