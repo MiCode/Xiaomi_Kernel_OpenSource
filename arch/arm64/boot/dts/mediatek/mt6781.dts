@@ -2687,9 +2687,8 @@
 		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
 		reg = <0 0x1b002000 0 0x1000>;
 		mediatek,larb-id = <2>;
-		clocks = <&scpsys SCP_SYS_DIS>, <&topckgen TOP_MUX_MDP>,
-			<&mdpsys_config CLK_MDP_SMI0>;
-		clock-names = "scp-dis", "mdp-mux", "mdp-smi";
+		clocks = <&scpsys SCP_SYS_DIS>, <&mdpsys_config CLK_MDP_SMI0>;
+		clock-names = "scp-dis", "mdp-smi";
 		mediatek,smi-id = <2>;
 	};
 
