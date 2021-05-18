@@ -211,7 +211,7 @@ void low_battery_protect_init(void)
 {
 	int ret = 0;
 #ifdef LBAT_LIMIT_BCPU_OPP
-	u32 fab_info = 0, ptp_info = 0;
+	u32 fab_info = 0, ptp_info = 0, fab_info11 = 0, id0 = 0, id1 = 0;
 #endif
 
 	ret = lbat_user_register(&lbat_pt, "power throttling"
@@ -219,20 +219,36 @@ void low_battery_protect_init(void)
 			, POWER_INT2_VOLT, exec_low_battery_callback);
 
 #ifdef LBAT_LIMIT_BCPU_OPP
+	id0 = get_devinfo_with_index(12);
+	id1 = get_devinfo_with_index(13);
+	pr_info("[%s] id0[31:16]=%u id0[15:0]=%u id1[31:16]=%u id0[15:0]=%u\n",
+		__func__, ((id0 & _BITMASK_(31:16)) >> 16), (id0 & _BITMASK_(15:0)),
+		((id1 & _BITMASK_(31:16)) >> 16), (id1 & _BITMASK_(15:0)));
+
+	fab_info11 = get_devinfo_with_index(141);
 	fab_info = get_devinfo_with_index(130);
-	ptp_info = get_devinfo_with_index(46);
+	ptp_info = get_devinfo_with_index(69);
 
-	pr_info("[%s] fab_info=0x%x ptp_info=0x%x\n"
-			, __func__, fab_info, ptp_info);
+	pr_info("[%s] fab_info11=0x%x fab_info=0x%x ptpod19=0x%x\n"
+			, __func__, fab_info11, fab_info, ptp_info);
 
+	fab_info11 = fab_info11 & _BITMASK_(7:0);
 	fab_info = (fab_info & _BITMASK_(3:2)) >> 2;
 	ptp_info = (ptp_info & _BITMASK_(31:30)) >> 30;
+
+	if (ptp_info == 0x3 && fab_info11 == 0x4) {
+		pr_info("Error: ptp=%d fab=%d, power bin Fail IC, reboot!!!\n",
+			ptp_info, fab_info11);
+		BUG();
+	}
 
 	if (!(fab_info == 0x2 || (fab_info == 0x0 && ptp_info == 0x1))) {
 		ret = lbat_user_register(&lbat_pt_ext, "power throttling ext"
 			, POWER_INT0_VOLT_EXT, POWER_INT1_VOLT_EXT
 			, POWER_INT2_VOLT_EXT, exec_low_battery_callback_ext);
-	}
+		pr_info("BIN2 IC, register throttling ext\n");
+	} else
+		pr_info("BIN1 IC, NOT register throttling ext\n");
 #endif
 
 #if PMIC_THROTTLING_DLPT_UT
@@ -1921,6 +1937,7 @@ int pmic_throttling_dlpt_init(struct platform_device *pdev)
 
 	/* no need to depend on LOW_BATTERY_PROTECT */
 	lbat_service_init(pdev);
+
 #ifdef LOW_BATTERY_PROTECT
 	low_battery_protect_init();
 #else
