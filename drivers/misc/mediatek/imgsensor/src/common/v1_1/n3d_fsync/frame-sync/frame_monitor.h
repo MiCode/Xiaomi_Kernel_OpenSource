@@ -48,7 +48,7 @@ struct vsync_rec {
 #ifdef USING_CCU
 void frm_power_on_ccu(unsigned int flag);
 
-void frm_reset_ccu_vsync_timestamp(unsigned int tg);
+void frm_reset_ccu_vsync_timestamp(unsigned int idx);
 #endif
 
 
@@ -73,7 +73,7 @@ unsigned int frm_query_vsync_data(
 	unsigned int tgs[], unsigned int len);
 
 
-void frm_get_vsync_data(struct vsync_rec *data);
+void frm_get_vsync_data(struct vsync_rec *pData);
 
 void frm_set_frame_measurement(
 	unsigned int idx, unsigned int passed_vsyncs,
