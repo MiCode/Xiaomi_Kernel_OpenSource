@@ -2809,11 +2809,11 @@
 	mmdvfs: mmdvfs_pmqos {
 		compatible = "mediatek,mmdvfs";
 		disp_step0 = <560 1 0 7>;
-		disp_step0_ext = <560 2 9 0x1589D8>;
+		disp_step0_ext = <560 2 9 0x1589d8>;
 		disp_step1 = <450 1 0 7>;
-		disp_step1_ext = <450 2 9 0x114EC4>;
+		disp_step1_ext = <450 2 9 0x114ec4>;
 		disp_step2 = <315 1 0 7>;
-		disp_step2_ext = <315 2 9 0xC1E00>;
+		disp_step2_ext = <315 2 9 0x183b13>;
 		cam_step0 = <546 1 1 8>;
 		cam_step1 = <416 1 1 9>;
 		cam_step2 = <312 1 1 10>;
