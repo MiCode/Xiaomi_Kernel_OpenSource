@@ -69,7 +69,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 600,
-		.mipi_pixel_rate = 954600000,
+		.mipi_pixel_rate = 956000000,
 	},
 	.cap = {
 		.pclk = 115200000,
@@ -81,7 +81,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.normal_video = {
 		.pclk = 115200000,
@@ -93,7 +93,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 2256,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.hs_video = {
 		.pclk = 115200000,
@@ -105,7 +105,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 720,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 1200,
-		.mipi_pixel_rate = 528000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.slim_video = {
 		.pclk = 115200000,
@@ -117,7 +117,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 2600,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.custom1 = {
 		.pclk = 115200000,
@@ -129,8 +129,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 583600000,
-
+		.mipi_pixel_rate = 548000000,
 	},
 	.custom2 = {
 		.pclk = 115200000,
@@ -142,7 +141,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 2160,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.custom3 = {
 		.pclk = 115200000,
@@ -154,7 +153,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 6000,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 100,
-		.mipi_pixel_rate = 584000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.custom4 = {
 		.pclk = 115200000,
@@ -166,8 +165,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 1128,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 2400,
-		.mipi_pixel_rate = 716000000,
-	  },
+		.mipi_pixel_rate = 832900000,
+	},
 	.custom5 = {
 		.pclk = 115200000,
 		.linelength = 1200,
@@ -178,7 +177,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 2600,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 
 	.margin = 22,					/* sensor framelength & shutter margin */
@@ -683,7 +682,7 @@ static void preview_setting(void)
 {
 	int _length = 0;
 
-	pr_debug("%s RES_4000x3000_30fps\n", __func__);
+	pr_debug("%s RES_4000x3000_60fps\n", __func__);
 	_length = sizeof(addr_data_pair_preview_ov48b2q) / sizeof(kal_uint16);
 	if (!_is_seamless) {
 		ov48b2q_table_write_cmos_sensor(
@@ -2328,7 +2327,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[3],
 			       sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
-
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		default:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
@@ -2415,7 +2413,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_GET_BINNING_TYPE:
 		switch (*(feature_data + 1)) {
 		case MSDK_SCENARIO_ID_CUSTOM4:
-			*feature_return_para_32 = 2;
+			*feature_return_para_32 = 2; /*BINNING_SUMMED*/
 			break;
 		default:
 			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
