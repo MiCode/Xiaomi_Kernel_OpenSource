@@ -801,7 +801,7 @@ static const struct drm_display_mode performance_mode_2 = {
 #if defined(CONFIG_MTK_PANEL_EXT)
 
 static struct mtk_panel_params ext_params = {
-	.vfp_low_power = 888,//45hz
+	.vfp_low_power = 4300,//45hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -860,7 +860,7 @@ static struct mtk_panel_params ext_params = {
 
 
 static struct mtk_panel_params ext_params_mode_1 = {
-	.vfp_low_power = 1302,//60hz
+	.vfp_low_power = 2630,//60hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -918,7 +918,7 @@ static struct mtk_panel_params ext_params_mode_1 = {
 };
 
 static struct mtk_panel_params ext_params_mode_2 = {
-	.vfp_low_power = 2558,//60hz
+	.vfp_low_power = 2630,//60hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
