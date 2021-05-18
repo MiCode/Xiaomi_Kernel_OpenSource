@@ -475,6 +475,27 @@ void qcom_scm_deassert_ps_hold(void)
 }
 EXPORT_SYMBOL(qcom_scm_deassert_ps_hold);
 
+int qcom_scm_paravirt_smmu_attach(u64 sid, u64 asid,
+			u64 ste_pa, u64 ste_size, u64 cd_pa,
+			u64 cd_size)
+{
+	return __qcom_scm_paravirt_smmu_attach(__scm ? __scm->dev : NULL, sid, asid,
+					ste_pa, ste_size, cd_pa, cd_size);
+}
+EXPORT_SYMBOL(qcom_scm_paravirt_smmu_attach);
+
+int qcom_scm_paravirt_tlb_inv(u64 asid)
+{
+	return __qcom_scm_paravirt_tlb_inv(__scm ? __scm->dev : NULL, asid);
+}
+EXPORT_SYMBOL(qcom_scm_paravirt_tlb_inv);
+
+int qcom_scm_paravirt_smmu_detach(u64 sid)
+{
+	return __qcom_scm_paravirt_smmu_detach(__scm ? __scm->dev : NULL, sid);
+}
+EXPORT_SYMBOL(qcom_scm_paravirt_smmu_detach);
+
 void qcom_scm_mmu_sync(bool sync)
 {
 	__qcom_scm_mmu_sync(__scm ? __scm->dev : NULL, sync);
