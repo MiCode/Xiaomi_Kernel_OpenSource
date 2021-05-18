@@ -56,7 +56,7 @@
 			/* with it: don't check 1.2v while PD/SD during BC12 */
 			/* disable_vlgc; */
 			/* with it: enable fast unknown TA detection */
-			/* fast_unknown_ta_dect; */
+			fast_unknown_ta_dect;
 			/* enable_polling; */
 			/* with it: do post aicl measure */
 			/* post_aicl; */
