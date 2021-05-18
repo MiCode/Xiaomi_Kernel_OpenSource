@@ -40,7 +40,7 @@
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
 	clocks = <&topckgen TOP_MUX_MSDC50_0_HCLK>,
-		<&infracfg_ao INFRACFG_AO_MSDC0_SCK_CG>,
+		<&infracfg_ao INFRACFG_AO_MSDC0_SRCLK_CG>,
 		<&infracfg_ao INFRACFG_AO_MSDC0_CG>,
 		<&infracfg_ao INFRACFG_AO_MSDCFDE_CG>;
 	clock-names = "msdc0-src-hclock", "msdc0-clock",
@@ -86,7 +86,7 @@
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
-	clocks = <&infracfg_ao INFRACFG_AO_MSDC1_SCK_CG>,
+	clocks = <&infracfg_ao INFRACFG_AO_MSDC1_SRCLK_CG>,
 			<&infracfg_ao INFRACFG_AO_MSDC1_CG>;
 	clock-names = "msdc1-clock", "msdc1-hclock";
 #endif
