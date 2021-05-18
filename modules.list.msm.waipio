@@ -41,7 +41,6 @@ phy-qcom-ufs-qmp-v4-lahaina.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 pinctrl-diwali.ko
 pinctrl-msm.ko
-pinctrl-waipio.ko
 proxy-consumer.ko
 qcom-cpufreq-hw.ko
 qcom_cpu_vendor_hooks.ko
@@ -53,6 +52,7 @@ qcom_iommu_util.ko
 qcom_ipcc.ko
 qcom_ipc_logging.ko
 qcom_llcc_pmu.ko
+qcom-msm-pinctrl.ko
 qcom-pdc.ko
 qcom-pmu-lib.ko
 qcom-reboot-reason.ko
