@@ -1228,6 +1228,8 @@ static void nvt_irq_enable(bool enable)
 			/* trusted_touch_underway is set in LA only */
 			if (atomic_read(&ts->trusted_touch_underway))
 				enable_irq_wake(ts->client->irq);
+			else
+				enable_irq(ts->client->irq);
 #else
 			enable_irq(ts->client->irq);
 #endif
@@ -1238,6 +1240,8 @@ static void nvt_irq_enable(bool enable)
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 			if (atomic_read(&ts->trusted_touch_underway))
 				disable_irq_wake(ts->client->irq);
+			else
+				disable_irq(ts->client->irq);
 #else
 			disable_irq(ts->client->irq);
 #endif
