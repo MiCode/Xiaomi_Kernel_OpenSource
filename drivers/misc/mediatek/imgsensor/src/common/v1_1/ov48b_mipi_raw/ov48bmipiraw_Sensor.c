@@ -270,7 +270,7 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 		0x00, 0x2b, 0x0FA0, 0x0BB8, 0x00, 0x00, 0x0280, 0x0001,
-		0x00, 0x2b, 0x01F0, 0x05D8, 0x03, 0x00, 0x0000, 0x0000
+		0x01, 0x2b, 0x01F0, 0x05D8, 0x03, 0x00, 0x0000, 0x0000
 	},
 	/* Capture mode setting  496(Pixel)*1496*/
 	{
@@ -763,7 +763,7 @@ static void hs_video_setting(void)
 {
 	int _length = 0;
 
-	pr_debug("%s RES_1280x720_160fps\n", __func__);
+	pr_debug("%s RES_1280x720_120fps\n", __func__);
 	_length = sizeof(addr_data_pair_hs_video_ov48b2q) / sizeof(kal_uint16);
 	if (!_is_seamless) {
 		ov48b2q_table_write_cmos_sensor(
@@ -2413,6 +2413,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_GET_BINNING_TYPE:
 		switch (*(feature_data + 1)) {
 		case MSDK_SCENARIO_ID_CUSTOM4:
+		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 			*feature_return_para_32 = 2; /*BINNING_SUMMED*/
 			break;
 		default:
