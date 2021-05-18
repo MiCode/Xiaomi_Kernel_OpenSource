@@ -3014,6 +3014,7 @@
 
 	llcc_freq_table: llcc-freq-table {
 		qcom,freq-tbl =
+			<  150000 >,
 			<  300000 >,
 			<  466000 >,
 			<  600000 >,
@@ -3169,6 +3170,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,cpufreq-memfreq-tbl =
+					<  300000  150000 >,
 					<  691200  300000 >,
 					< 1459200  466000 >,
 					< 1900800  600000 >;
@@ -3179,6 +3181,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,cpufreq-memfreq-tbl =
+					<  300000  150000 >,
 					<  672000  300000 >,
 					< 1017600  466000 >,
 					< 1305600  600000 >,
@@ -3192,7 +3195,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					< 1804800  300000 >,
+					< 1804800  150000 >,
 					< 2400000  600000 >;
 				qcom,sampling-enabled;
 				qcom,compute-mon;
