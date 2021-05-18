@@ -995,7 +995,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 				// CMDQ MTEE hint
 				pr_debug("[VCU] Use MTEE\n");
 				cmdq_sec_pkt_set_mtee(pkt_ptr,
-					 (buff.cmdq_buff.secure == 3), SEC_ID_SVP);
+					 (buff.cmdq_buff.secure == 3), SEC_ID_WFD);
 			}
 #endif
 #endif
