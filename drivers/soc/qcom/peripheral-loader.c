@@ -868,6 +868,10 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+	if (!strcmp(desc->name, "modem"))
+		place_marker("M - Modem Image Start Loading");
+#endif
 
 	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
@@ -1324,6 +1328,12 @@ int pil_boot(struct pil_desc *desc)
 		goto err_auth_and_reset;
 	}
 	trace_pil_event("reset_done", desc);
+
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+	if (!strcmp(desc->name, "modem"))
+		place_marker("M - Modem out of reset");
+#endif
+
 	pil_info(desc, "Brought out of reset\n");
 	desc->modem_ssr = false;
 err_auth_and_reset:
