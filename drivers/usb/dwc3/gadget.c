@@ -1778,11 +1778,11 @@ static void dwc3_gadget_ep_skip_trbs(struct dwc3_ep *dep, struct dwc3_request *r
 static void dwc3_gadget_ep_cleanup_cancelled_requests(struct dwc3_ep *dep)
 {
 	struct dwc3_request		*req;
-	struct dwc3_request		*tmp;
 	struct dwc3			*dwc = dep->dwc;
 	int				request_count = 0;
 
-	list_for_each_entry_safe(req, tmp, &dep->cancelled_list, list) {
+	while (!list_empty(&dep->cancelled_list)) {
+		req = next_request(&dep->cancelled_list);
 		dwc3_gadget_ep_skip_trbs(dep, req);
 		dwc3_gadget_giveback(dep, req, -ECONNRESET);
 		request_count++;
@@ -1846,8 +1846,7 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 			/* If ep isn't started, then there's no end transfer
 			 * pending
 			 */
-			if ((dep->flags & DWC3_EP_TRANSFER_STARTED) &&
-				!(dep->flags & DWC3_EP_END_TRANSFER_PENDING))
+			if (!(dep->flags & DWC3_EP_END_TRANSFER_PENDING))
 				dwc3_gadget_ep_cleanup_cancelled_requests(dep);
 
 			goto out;
@@ -3583,11 +3582,8 @@ int dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt)
 	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
 	WARN_ON_ONCE(ret);
 	dep->resource_index = 0;
-	if (ret == -ETIMEDOUT) {
-		dbg_log_string("%s(%d): endxfer ret:%d",
-				dep->name, dep->number, ret);
-		return ret;
-	}
+
+	dbg_log_string("%s(%d): endxfer ret:%d", dep->name, dep->number, ret);
 
 	if (!interrupt)
 		dep->flags &= ~DWC3_EP_TRANSFER_STARTED;
