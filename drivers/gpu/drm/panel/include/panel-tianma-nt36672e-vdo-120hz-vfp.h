@@ -22,21 +22,21 @@
 
 /*Parameter setting for mode 0 Start*/
 #define MODE_0_FPS                  60
-#define MODE_0_VFP                  2670
+#define MODE_0_VFP                  2630
 #define MODE_0_HFP                  161
 #define MODE_0_DATA_RATE            1200
 /*Parameter setting for mode 0 End*/
 
 /*Parameter setting for mode 1 Start*/
 #define MODE_1_FPS                  90
-#define MODE_1_VFP                  972
+#define MODE_1_VFP                  940
 #define MODE_1_HFP                  161
 #define MODE_1_DATA_RATE            1200
 /*Parameter setting for mode 1 End*/
 
 /*Parameter setting for mode 2 Start*/
 #define MODE_2_FPS                  120
-#define MODE_2_VFP                  120
+#define MODE_2_VFP                  110
 #define MODE_2_HFP                  161
 #define MODE_2_DATA_RATE            1200
 /*Parameter setting for mode 2 End*/
