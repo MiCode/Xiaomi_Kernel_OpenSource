@@ -21,6 +21,8 @@
 #include "ccci_config.h"
 #include <linux/clk.h>
 #include <mach/mtk_pbm.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #ifdef FEATURE_CLK_BUF
 #include <mtk_clkbuf_ctl.h>
 #endif
@@ -51,6 +53,7 @@
 #else
 #include "ap_md_reg_dump.h"
 #endif
+#include "modem_secure_base.h"
 
 static struct ccci_clk_node clk_table[] = {
 	{ NULL, "scp-sys-md1-main"},
@@ -351,7 +354,31 @@ void md_cd_lock_cldma_clock_src(int locked)
 
 void md_cd_lock_modem_clock_src(int locked)
 {
+#ifdef CCCI_PLATFORM_MT6781
+	struct arm_smccc_res res = {0};
+	int settle;
+
+	/* spm_ap_mdsrc_req(locked); */
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
+		MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0, &res);
+
+	if (locked) {
+		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
+			MD_REG_AP_MDSRC_SETTLE, 0, 0, 0, 0, 0, &res);
+
+		if (res.a0 != 0 && res.a0 < 10)
+			settle = res.a0;
+		else
+			settle = 3;
+
+		mdelay(settle);
+
+		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
+			MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0, &res);
+	}
+#else
 	spm_ap_mdsrc_req(locked);
+#endif
 }
 
 void md_cd_dump_md_bootup_status(struct ccci_modem *md)
