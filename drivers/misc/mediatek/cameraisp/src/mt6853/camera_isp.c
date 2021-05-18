@@ -823,10 +823,12 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 	\
 	avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
 	if (avaLen > 1) {\
-		snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt,\
+		if (snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt,\
 			gSvLog[irq]._lastIrqTime.sec,\
 			gSvLog[irq]._lastIrqTime.usec,\
-			##__VA_ARGS__);   \
+			##__VA_ARGS__) < 0) {\
+			LOG_NOTICE("Error: snprintf failed");\
+		} \
 		if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
 			LOG_NOTICE("log str over flow(%d)", irq);\
 		} \
@@ -892,7 +894,9 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 				_str[ppb][logT][pSrc->_cnt[ppb][logT]]);\
 			\
 			ptr2 = &(pSrc->_cnt[ppb][logT]);\
-			snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);\
+			if (snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__) < 0) {\
+				LOG_NOTICE("Error: snprintf failed");\
+			} \
 			while (*ptr++ != '\0') {\
 				(*ptr2)++;\
 			} \
