@@ -165,6 +165,7 @@
 
 #define FLEXCHARGER_REG				0x10
 #define AFVC_IRQ_BIT				BIT(7)
+#define CHARGER_CONFIG_5_12V_BIT		BIT(6)
 #define CHG_CONFIG_MASK				SMB1351_MASK(6, 4)
 #define LOW_BATT_VOLTAGE_DET_TH_MASK		SMB1351_MASK(3, 0)
 
@@ -195,6 +196,7 @@
 
 #define OTG_MODE_POWER_OPTIONS_REG		0x14
 #define ADAPTER_CONFIG_MASK			SMB1351_MASK(7, 6)
+#define CONTINUOUS_MODE_BIT			BIT(7)
 #define MAP_HVDCP_BIT				BIT(5)
 #define SDP_LOW_BATT_FORCE_USB5_OVER_USB1_BIT	BIT(4)
 #define OTG_HICCUP_MODE_BIT			BIT(2)
@@ -304,7 +306,7 @@
 #define STATUS_RID_C_STATE_MACHINE_BIT		BIT(0)
 
 #define STATUS_7_REG				0x3D
-#define STATUS_HVDCP_MASK			SMB1351_MASK(7, 0)
+#define STATUS_HVDCP_MASK			SMB1351_MASK(4, 0)
 
 #define STATUS_8_REG				0x3E
 #define STATUS_USNIN_HV_INPUT_SEL_BIT		BIT(5)
@@ -361,7 +363,7 @@
 
 #define IRQ_H_REG				0x47
 #define IRQ_IC_LIMIT_STATUS_BIT			BIT(5)
-#define IRQ_HVDCP_2P1_STATUS_BIT		BIT(4)
+#define IRQ_HVDCP_3_STATUS_BIT			BIT(4)
 #define IRQ_HVDCP_AUTH_DONE_BIT			BIT(2)
 #define IRQ_WDOG_TIMEOUT_BIT			BIT(0)
 
@@ -844,6 +846,20 @@ static int smb_chip_get_version(struct smb1351_charger *chip)
 	return rc;
 }
 
+static int rerun_apsd(struct smb1351_charger *chip)
+{
+	int rc;
+
+	pr_debug("Reruning APSD\nDisabling APSD\n");
+
+	rc = smb1351_masked_write(chip, CMD_HVDCP_REG, CMD_APSD_RE_RUN_BIT,
+						CMD_APSD_RE_RUN_BIT);
+	if (rc)
+		pr_err("Couldn't re-run APSD algo\n");
+
+	return 0;
+}
+
 static int smb1351_hw_init(struct smb1351_charger *chip)
 {
 	int rc;
@@ -1045,6 +1061,58 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 			pr_err("Couldn't configure RID enable rc = %d\n", rc);
 			return rc;
 		}
+	}
+
+	rc = smb1351_masked_write(chip, PON_OPTIONS_REG,
+				QC_2P1_AUTH_ALGO_IRQ_EN_BIT,
+				QC_2P1_AUTH_ALGO_IRQ_EN_BIT);
+	if (rc) {
+		pr_err("Couldn't enable QC2P1 algo auth irq rc = %d\n", rc);
+		return rc;
+	}
+
+	/* enable continuous mode */
+	rc = smb1351_masked_write(chip, OTG_MODE_POWER_OPTIONS_REG,
+				CONTINUOUS_MODE_BIT, CONTINUOUS_MODE_BIT);
+	if (rc) {
+		pr_err("couldn't write to OTG_MODE_POWER_OPTIONS_REG rc= %d\n",
+									rc);
+		return rc;
+	}
+
+	/* set the voltage range to 5V-12V */
+	rc = smb1351_masked_write(chip, FLEXCHARGER_REG,
+					CHG_CONFIG_MASK,
+					CHARGER_CONFIG_5_12V_BIT);
+	if (rc) {
+		pr_err("couldn't write to FLEXCHARGER_REG rc= %d\n", rc);
+		return rc;
+	}
+
+	/* Enable HVDCP-QC2/3 */
+	rc = smb1351_masked_write(chip, HVDCP_BATT_MISSING_CTRL_REG,
+				HVDCP_EN_BIT, HVDCP_EN_BIT);
+	if (rc) {
+		pr_err("Couldn't enable hvdcp  rc = %d\n", rc);
+		return rc;
+	}
+
+	rc = smb1351_read_reg(chip, IRQ_G_REG, &reg);
+	if (rc) {
+		pr_err("Couldn't read IRQ_G_REG rc = %d\n", rc);
+		return rc;
+	}
+
+	/* To detect HVDCP, rerun APSD only if DCP is detected */
+	if (reg & IRQ_SOURCE_DET_BIT) {
+		rc = smb1351_read_reg(chip, STATUS_5_REG, &reg);
+		if (rc) {
+			pr_err("Couldn't read STATUS_5 rc = %d\n", rc);
+			return rc;
+		}
+
+		if (reg & STATUS_PORT_DCP)
+			rerun_apsd(chip);
 	}
 
 	return rc;
@@ -1468,20 +1536,6 @@ static int smb1351_battery_get_property(struct power_supply *psy,
 	return 0;
 }
 
-static int rerun_apsd(struct smb1351_charger *chip)
-{
-	int rc;
-
-	pr_debug("Reruning APSD\nDisabling APSD\n");
-
-	rc = smb1351_masked_write(chip, CMD_HVDCP_REG, CMD_APSD_RE_RUN_BIT,
-						CMD_APSD_RE_RUN_BIT);
-	if (rc)
-		pr_err("Couldn't re-run APSD algo\n");
-
-	return 0;
-}
-
 static void smb1351_hvdcp_det_work(struct work_struct *work)
 {
 	int rc;
@@ -1497,11 +1551,17 @@ static void smb1351_hvdcp_det_work(struct work_struct *work)
 	}
 	pr_debug("STATUS_7_REG = 0x%02X\n", reg);
 
+	if (reg & STATUS_HVDCP_MASK) {
+		rc = smb1351_read_reg(chip, IRQ_H_REG, &reg);
+
+		if (!rc && (reg & IRQ_HVDCP_3_STATUS_BIT))
+			pr_debug("HVDCP_3 is detected\n");
+	}
 end:
 	pm_relax(chip->dev);
 }
 
-#define HVDCP_NOTIFY_MS 2500
+#define HVDCP_NOTIFY_MS 3500
 static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 						u8 status)
 {
@@ -1667,7 +1727,11 @@ reschedule:
 
 static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 {
-	smb1351_request_dpdm(chip, !!status);
+	/*
+	 *Status=0 indicates valid input is present,
+	 *request usb to Hi-Z dp-dm
+	 */
+	smb1351_request_dpdm(chip, !status);
 
 	if (status) {
 		cancel_delayed_work_sync(&chip->hvdcp_det_work);
