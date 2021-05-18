@@ -342,6 +342,7 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_QUERY_CAPABILITIES	0x27
 #define KGSL_PROP_CONTEXT_PROPERTY	0x28
 #define KGSL_PROP_GPU_MODEL		0x29
+#define KGSL_PROP_VK_DEVICE_ID		0x2A
 
 /*
  * kgsl_capabilities_properties returns a list of supported properties.
