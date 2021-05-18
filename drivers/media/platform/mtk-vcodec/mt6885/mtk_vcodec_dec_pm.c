@@ -488,7 +488,10 @@ void mtk_vdec_dump_addr_reg(
 		return;
 	}
 	ctx = dev->curr_dec_ctx[hw_id];
-	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	if (ctx)
+		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	else
+		fourcc = 0;
 
 	spin_lock_irqsave(&dev->dec_power_lock[hw_id], flags);
 	if (dev->dec_is_power_on[hw_id] == false) {
@@ -655,12 +658,18 @@ enum mtk_iommu_callback_ret_t mtk_vdec_translation_fault_callback(
 		hw_id = MTK_VDEC_CORE;
 
 	ctx = dev->curr_dec_ctx[hw_id];
-	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
-	mtk_v4l2_err("codec:0x%08x(%c%c%c%c) %s TF larb %d port %x mva 0x%lx",
-		(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE",
-		fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
-		(fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF,
-		port >> 5, port, mva);
+	if (ctx) {
+		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		mtk_v4l2_err("codec:0x%08x(%c%c%c%c) %s TF larb %d port %x mva 0x%lx",
+			fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
+			(fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF,
+			(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE",
+			port >> 5, port, mva);
+	} else {
+		mtk_v4l2_err("ctx NULL codec unknown, %s TF larb %d port %x mva 0x%lx",
+			(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE",
+			port >> 5, port, mva);
+	}
 
 	switch (port) {
 	case M4U_PORT_L5_VDEC_LAT0_VLD_EXT_DISP:
