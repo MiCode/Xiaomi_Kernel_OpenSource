@@ -308,11 +308,8 @@ static int adsp_start(struct rproc *rproc)
 
 	scm_pas_enable_bw();
 	ret = qcom_scm_pas_auth_and_reset(adsp->pas_id);
-	if (ret) {
-		dev_err(adsp->dev,
-			"failed to authenticate image and release reset\n");
-		goto disable_regs;
-	}
+	if (ret)
+		panic("Panicking, auth and reset failed for remoteproc %s\n", rproc->name);
 	scm_pas_disable_bw();
 
 	if (!timeout_disabled) {
@@ -371,7 +368,7 @@ static int adsp_stop(struct rproc *rproc)
 
 	ret = qcom_scm_pas_shutdown(adsp->pas_id);
 	if (ret)
-		dev_err(adsp->dev, "failed to shutdown: %d\n", ret);
+		panic("Panicking, remoteproc %s failed to shutdown.\n", rproc->name);
 
 	adsp_pds_disable(adsp, adsp->active_pds, adsp->active_pd_count);
 	adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);

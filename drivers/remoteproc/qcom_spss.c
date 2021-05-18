@@ -269,7 +269,7 @@ static int spss_stop(struct rproc *rproc)
 
 	ret = qcom_scm_pas_shutdown(spss->pas_id);
 	if (ret)
-		dev_err(spss->dev, "failed to shutdown: %d\n", ret);
+		panic("Panicking, remoteproc %s failed to shutdown.\n", rproc->name);
 
 	mask_scsr_irqs(spss);
 
@@ -333,11 +333,8 @@ static int spss_start(struct rproc *rproc)
 		goto disable_xo_clk;
 
 	ret = qcom_scm_pas_auth_and_reset(spss->pas_id);
-	if (ret) {
-		dev_err(spss->dev,
-			"failed to authenticate image and release reset with error %d\n", ret);
-		goto disable_cx_supply;
-	}
+	if (ret)
+		panic("Panicking, auth and reset failed for remoteproc %s\n", rproc->name);
 
 	unmask_scsr_irqs(spss);
 
@@ -348,7 +345,6 @@ static int spss_start(struct rproc *rproc)
 		dev_err(spss->dev, "start timed out\n");
 	ret = ret ? 0 : -ETIMEDOUT;
 
-disable_cx_supply:
 	disable_regulator(&spss->cx);
 disable_xo_clk:
 	clk_disable_unprepare(spss->xo);
