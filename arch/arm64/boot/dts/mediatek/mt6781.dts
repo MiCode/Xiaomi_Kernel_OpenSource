@@ -2687,8 +2687,9 @@
 		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
 		reg = <0 0x1b002000 0 0x1000>;
 		mediatek,larb-id = <2>;
-		clocks = <&scpsys SCP_SYS_DIS>, <&mdpsys_config CLK_MDP_SMI0>;
-		clock-names = "scp-dis", "mdp-smi";
+		clocks = <&scpsys SCP_SYS_DIS>, <&topckgen TOP_MUX_MDP>,
+			<&mdpsys_config CLK_MDP_SMI0>;
+		clock-names = "scp-dis", "mdp-mux", "mdp-smi";
 		mediatek,smi-id = <2>;
 	};
 
@@ -2812,8 +2813,7 @@
 		disp_step0_ext = <560 2 9 0x1589d8>;
 		disp_step1 = <450 1 0 7>;
 		disp_step1_ext = <450 2 9 0x114ec4>;
-		disp_step2 = <375 1 0 7>;
-		disp_step2_ext = <375 2 9 0x0e6c4e>;
+		disp_step2 = <312 1 0 10>;
 		cam_step0 = <546 1 1 8>;
 		cam_step1 = <416 1 1 9>;
 		cam_step2 = <312 1 1 10>;
@@ -2831,12 +2831,12 @@
 		vdec_step2 = <312 1 5 10>;
 		mdp_step0 = <560 1 6 7>;
 		mdp_step1 = <450 1 6 7>;
-		mdp_step2 = <375 1 6 7>;
+		mdp_step2 = <312 1 6 10>;
 
 		vcore-supply = <&mt_pmic_vcore_buck_reg>;
 
 		/* fmeter_mux_ids: Mapping to mux sequence in clocks */
-		vopp_steps = <0 1 1>;
+		vopp_steps = <0 1 2>;
 		disp_freq = "disp_step0", "disp_step1", "disp_step2";
 		cam_freq = "cam_step0", "cam_step1", "cam_step2";
 		img_freq = "img_step0", "img_step1", "img_step2";
