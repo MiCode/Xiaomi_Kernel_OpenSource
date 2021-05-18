@@ -50,6 +50,31 @@ static atomic_t md1_md3_smem_clear = ATOMIC_INIT(0);
 #define CCB_CACHE_MIN_SIZE    (2 * 1024 * 1024)
 static const char *s_smem_user_names[SMEM_USER_MAX];
 
+#define MD_SMEM_FLAG_NORMAL    0
+#define MD_SMEM_FLAG_PADDING   1
+#define MD_SMEM_FLAG_OVERLAP   2
+
+#define MD_SMEM_FLAG_SIZE_ZERO 1000
+#define MD_SMEM_FLAG_LAST_REGION 1001
+
+#define MD_SMEM_BUF_SIZE 1024
+static char g_md_smem_buf[MD_SMEM_BUF_SIZE];
+static unsigned int g_md_smem_pos;
+
+#define STR_SIZE 100
+
+int ccci_get_md_smem_buf(char **pbuf, unsigned int *size)
+{
+	if ((!pbuf) || (!(*pbuf)) || (!size))
+		return -1;
+
+	*pbuf = g_md_smem_buf;
+	*size = g_md_smem_pos;
+
+	return 0;
+}
+
+
 #ifdef CCCI_USE_DFD_OFFSET_0
 struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 		{SMEM_USER_RAW_DFD,	        0,	0,		 0, },
@@ -289,6 +314,7 @@ static void init_smem_user_name(void)
 	s_smem_user_names[SMEM_USER_MD_WIFI_PROXY] = "MD_WIFI_PROXY";
 	s_smem_user_names[SMEM_USER_MD_NVRAM_CACHE] = "MD_NVRAM_CACHE";
 	s_smem_user_names[SMEM_USER_LOW_POWER] = "LOW_POWER";
+	s_smem_user_names[SMEM_USER_SECURITY_SMEM] = "SECURITY_SMEM";
 }
 
 
@@ -320,6 +346,156 @@ static struct ccci_smem_region *get_smem_by_user_id(
 	return NULL;
 }
 
+static void append_string_to_md_smem_buf(const char *str)
+{
+	int n;
+
+	if (g_md_smem_pos >= (MD_SMEM_BUF_SIZE - 1))
+		return;
+
+	n = snprintf(g_md_smem_buf + g_md_smem_pos,
+				 MD_SMEM_BUF_SIZE - g_md_smem_pos,
+				 "%s", str);
+
+	if (n <= 0) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] warning: snprintf() fail: %d\n",
+			__func__, n);
+		return;
+	}
+
+	if (n >= (MD_SMEM_BUF_SIZE - g_md_smem_pos)) {
+		CCCI_ERROR_LOG(-1, TAG,
+		"[%s] warning: g_md_smem_buf is too small: %u,%d\n",
+		__func__, g_md_smem_pos, n);
+
+		g_md_smem_pos = MD_SMEM_BUF_SIZE - 1;
+
+	} else
+		g_md_smem_pos += n;
+
+	g_md_smem_buf[g_md_smem_pos] = '\0';
+}
+
+static void calc_smem_overlap_and_padding(
+		struct ccci_smem_region *regions,
+		int flag, int index, int *overlap_index)
+{
+	int i = 0, n = 0;
+	char str[STR_SIZE] = {0};
+
+	CCCI_BOOTUP_LOG(-1, TAG,
+		"[%s] flag: %d; index: %d; overlap_index: %d\n",
+		__func__, flag, index, (*overlap_index));
+
+	if ((flag != MD_SMEM_FLAG_SIZE_ZERO) &&
+			((*overlap_index) != -1)) {  //overlap
+		int s = 0, c = 0;
+		unsigned int overlap_off = 0, overlap_size = 0;
+		char lap[STR_SIZE] = {0};
+
+		i = (*overlap_index);
+
+		while (i < index) {
+			if (regions[i].size == 0) {
+				i++;
+				continue;
+			}
+
+			if ((regions[i].offset < overlap_off) ||
+					(overlap_off == 0))
+				overlap_off = regions[i].offset;
+
+			if ((regions[i].offset + regions[i].size)
+					- overlap_off > overlap_size)
+				overlap_size =
+					(regions[i].offset + regions[i].size)
+					- overlap_off;
+
+			if (i == (*overlap_index))
+				n = snprintf(lap + s, STR_SIZE - s,
+						"%d", regions[i].id);
+			else
+				n = snprintf(lap + s, STR_SIZE - s,
+						"|%d", regions[i].id);
+
+			if (n >= (STR_SIZE - s))
+				CCCI_ERROR_LOG(-1, TAG,
+					"[%s] warning: buf size too small: %d,%d\n",
+					__func__, s, n);
+
+			else if (n < 0) {
+				CCCI_ERROR_LOG(-1, TAG,
+					"[%s] warning: snprintf() fail: %d,%d\n",
+					__func__, s, n);
+				break;
+			}
+
+			s += n;
+			c++;
+			i++;
+
+			if (s >= STR_SIZE)
+				break;
+		}
+
+		if (c > 1) {
+			n = snprintf(str, STR_SIZE, "%d-%s-%X|%X\n",
+					MD_SMEM_FLAG_OVERLAP,
+					lap, overlap_off, overlap_size);
+
+			if (n >= STR_SIZE)
+				CCCI_ERROR_LOG(-1, TAG,
+					"[%s] warning: str buf size too small, %d\n",
+					__func__, n);
+
+			if (n > 0)
+				append_string_to_md_smem_buf(str);
+		}
+
+		*overlap_index = -1;
+	}
+
+	if (flag == MD_SMEM_FLAG_SIZE_ZERO)
+		flag = MD_SMEM_FLAG_NORMAL;
+
+	if (flag == MD_SMEM_FLAG_NORMAL ||
+			flag == MD_SMEM_FLAG_PADDING) {  //normal and padding
+
+		if (flag == MD_SMEM_FLAG_PADDING) {
+			int pad_off = regions[index-1].offset
+						+ regions[index-1].size;
+
+			n = snprintf(str, STR_SIZE, "%d-%d-%X|%X\n", flag,
+					regions[index].id,
+					pad_off,
+					regions[index].offset - pad_off);
+
+			if (n >= STR_SIZE)
+				CCCI_ERROR_LOG(-1, TAG,
+					"[%s] warning: str buf size too small, %d\n",
+					__func__, n);
+
+			if (n > 0)
+				append_string_to_md_smem_buf(str);
+
+			flag = MD_SMEM_FLAG_NORMAL;
+		}
+
+		n = snprintf(str, STR_SIZE, "%d-%d-%X|%X\n", flag,
+				regions[index].id,
+				regions[index].offset, regions[index].size);
+
+		if (n >= STR_SIZE)
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] warning: str buf size too small, %d\n",
+				__func__, n);
+
+		if (n > 0)
+			append_string_to_md_smem_buf(str);
+	}
+}
+
 static void init_smem_regions(struct ccci_smem_region *regions,
 	phys_addr_t base_ap_view_phy,
 	void __iomem *base_ap_view_vir,
@@ -327,6 +503,7 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 {
 	int i;
 	int calc_offset = 0;
+	int overlap_index = -1;
 
 	for (i = 0; ; i++) {
 		if (!regions || regions[i].id == SMEM_USER_MAX)
@@ -343,25 +520,52 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 		regions[i].base_md_view_phy =
 			base_md_view_phy + regions[i].offset;
 
-		if (calc_offset != regions[i].offset) {
-			if ((i > 0) &&
-				(regions[i-1].offset == regions[i].offset))
-				CCCI_BOOTUP_LOG(-1, TAG,
-					"[%s] (%s) and (%s) is overlap.\n",
-					__func__,
-					get_smem_user_name(regions[i-1].id),
-					get_smem_user_name(regions[i].id));
-			else
+		if ((i > 0) && (regions[i].size != 0) &&
+				(calc_offset != regions[i].offset)) {
+
+			if (regions[i].offset > calc_offset) { // padding
 				CCCI_BOOTUP_LOG(-1, TAG,
 					"[%s] <%d>(%s) padding size: %x\n",
 					__func__, regions[i].id,
 					get_smem_user_name(regions[i].id),
 					regions[i].offset - calc_offset);
 
-			calc_offset = regions[i].offset + regions[i].size;
+				calc_smem_overlap_and_padding(regions,
+					MD_SMEM_FLAG_PADDING, i,
+					&overlap_index);
 
-		} else
-			calc_offset += regions[i].size;
+				calc_offset = regions[i].offset + regions[i].size;
+
+			} else {  //overlap
+				CCCI_BOOTUP_LOG(-1, TAG,
+					"[%s] (%s) and (%s) is overlap.\n",
+					__func__,
+					get_smem_user_name(regions[i-1].id),
+					get_smem_user_name(regions[i].id));
+
+				if (overlap_index == -1)
+					overlap_index = i-1;
+
+				if ((regions[i].offset + regions[i].size) >
+						calc_offset)  //range is larger than before
+					calc_offset = regions[i].offset +
+							regions[i].size;
+			}
+
+		} else {
+			if (regions[i].size != 0) {  //normal region
+				calc_offset = regions[i].offset + regions[i].size;
+
+				calc_smem_overlap_and_padding(regions,
+					MD_SMEM_FLAG_NORMAL, i,
+					&overlap_index);
+
+			} else  // region size is 0
+				calc_smem_overlap_and_padding(regions,
+					MD_SMEM_FLAG_SIZE_ZERO, i,
+					&overlap_index);
+
+		}
 
 		CCCI_BOOTUP_LOG(-1, TAG,
 			"%s: reg[%d](%s)<%d>(%lx %lx %lx)[%x]\n", __func__,
@@ -371,6 +575,10 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 			(unsigned long)regions[i].base_md_view_phy,
 			regions[i].size);
 	}
+
+	calc_smem_overlap_and_padding(regions,
+			MD_SMEM_FLAG_LAST_REGION, i,
+			&overlap_index);
 }
 
 static void clear_smem_region(struct ccci_smem_region *regions, int first_boot)
