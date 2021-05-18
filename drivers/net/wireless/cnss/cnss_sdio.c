@@ -274,7 +274,7 @@ static int cnss_put_hw_resources(struct device *dev)
 
 	info->cnss_hw_state = false;
 
-	return ret;
+	return 0;
 }
 
 static int cnss_get_hw_resources(struct device *dev)
@@ -678,9 +678,9 @@ int cnss_get_restart_level(void)
 	ssr_info = &cnss_pdata->ssr_info;
 	if (!ssr_info->subsys)
 		return CNSS_RESET_SOC;
-#ifdef CNSS_COMPLIE_ISSUE_FIX_LATER_IFNEEDED
+
 	level = subsys_get_restart_level(ssr_info->subsys);
-#endif
+
 	switch (level) {
 	case RESET_SOC:
 		return CNSS_RESET_SOC;

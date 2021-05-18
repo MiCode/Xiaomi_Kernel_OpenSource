@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SUBSYS_RESTART_H
@@ -132,6 +132,7 @@ struct notif_data {
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 
+extern int subsys_get_restart_level(struct subsys_device *dev);
 extern int subsystem_restart_dev(struct subsys_device *dev);
 extern int subsystem_restart(const char *name);
 extern int subsystem_crashed(const char *name);
@@ -156,6 +157,11 @@ static inline void complete_shutdown_ack(struct subsys_desc *desc)
 }
 struct subsys_device *find_subsys_device(const char *str);
 #else
+
+static inline int subsys_get_restart_level(struct subsys_device *dev)
+{
+	return 0;
+}
 
 static inline int subsystem_restart_dev(struct subsys_device *dev)
 {

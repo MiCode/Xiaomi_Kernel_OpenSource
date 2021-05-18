@@ -328,6 +328,12 @@ static ssize_t system_debug_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(system_debug);
 
+int subsys_get_restart_level(struct subsys_device *dev)
+{
+	return dev->restart_level;
+}
+EXPORT_SYMBOL(subsys_get_restart_level);
+
 static void subsys_set_state(struct subsys_device *subsys,
 			     enum subsys_state state)
 {
