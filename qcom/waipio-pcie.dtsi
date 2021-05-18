@@ -114,7 +114,6 @@
 		qcom,aux-clk-freq = <20>; /* 19.2 MHz */
 		qcom,drv-supported;
 		qcom,drv-l1ss-timeout-us = <5000>;
-		qcom,no-l0s-supported;
 		qcom,l1-2-th-scale = <2>;
 		qcom,l1-2-th-value = <70>;
 		qcom,slv-addr-space-size = <0x4000000>;
