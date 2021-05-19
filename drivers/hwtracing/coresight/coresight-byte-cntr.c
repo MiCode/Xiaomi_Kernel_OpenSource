@@ -630,6 +630,11 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 
 	switch (event) {
 	case USB_QDSS_CONNECT:
+		if (tmcdrvdata->mode == CS_MODE_DISABLED) {
+			dev_err_ratelimited(&tmcdrvdata->csdev->dev,
+			 "%s: ETR is disabled.\n", __func__);
+			return;
+		}
 		ret = usb_bypass_start(drvdata);
 		if (ret < 0)
 			return;
