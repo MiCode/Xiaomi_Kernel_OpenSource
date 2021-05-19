@@ -1271,18 +1271,18 @@ static struct clk_rcg2 sdcc2_apps_clk_src = {
 };
 
 static const struct freq_tbl ftbl_usb_hs_system_clk_src[] = {
-	F(57140000, P_GPLL0_OUT_MAIN, 14, 0, 0),
+	F(57142857, P_GPLL0_OUT_MAIN, 14, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 8, 0, 0),
 	F(133333333, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	F(177780000, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
+	F(177777778, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
 	{ }
 };
 
 static const struct freq_tbl ftbl_usb_hs_system_clk_src_qm215[] = {
 	F( 80000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
 	F( 100000000, P_GPLL0_OUT_MAIN, 8, 0, 0),
-	F( 133330000, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	F( 177780000, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
+	F( 133333333, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F( 177777778, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
 	{ }
 };
 
@@ -4266,8 +4266,8 @@ static void fixup_for_qm215(struct platform_device *pdev,
 	sdcc1_apps_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 400000000;
 
 	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 800000000;
-	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 133333000;
-	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 177780000;
+	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 133333333;
+	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 177777778;
 	usb_hs_system_clk_src.freq_tbl = ftbl_usb_hs_system_clk_src_qm215;
 
 	/*
