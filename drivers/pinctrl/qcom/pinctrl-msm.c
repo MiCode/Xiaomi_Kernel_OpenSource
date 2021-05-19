@@ -25,6 +25,7 @@
 #include <linux/qcom_scm.h>
 #include <linux/soc/qcom/irq.h>
 #include <linux/bitmap.h>
+#include <linux/sizes.h>
 
 #include "../core.h"
 #include "../pinconf.h"
@@ -33,6 +34,7 @@
 
 #define MAX_NR_GPIO 300
 #define MAX_NR_TILES 4
+#define DEFAULT_REG_SIZE_4K  1
 #define PS_HOLD_OFFSET 0x820
 #define QUP_MASK       GENMASK(5, 0)
 
@@ -1509,6 +1511,47 @@ int msm_gpio_mpm_wake_set(unsigned int gpio, bool enable)
 	return 0;
 }
 EXPORT_SYMBOL(msm_gpio_mpm_wake_set);
+
+/*
+ * msm_gpio_get_pin_address - API to get GPIO physical address range
+ * @gpio_num:   global GPIO num, as returned from gpio apis - desc_to_gpio().
+ * @res:        Out param. Resource struct with start/end addr populated.
+ * @ret:        true if the pin is valid, false otherwise.
+ */
+bool msm_gpio_get_pin_address(unsigned int gpio_num, struct resource *res)
+{
+	struct gpio_chip *chip;
+	const struct msm_pingroup *g;
+	struct resource *tile_res;
+	struct platform_device *pdev;
+	unsigned int gpio;
+
+	if (!msm_pinctrl_data) {
+		pr_err("pinctrl data is not available\n");
+		return false;
+	}
+
+	chip = &msm_pinctrl_data->chip;
+	pdev = to_platform_device(msm_pinctrl_data->dev);
+	gpio = gpio_num - chip->base;
+
+	if (!gpiochip_line_is_valid(chip, gpio))
+		return false;
+	if (!res)
+		return false;
+
+	g = &msm_pinctrl_data->soc->groups[gpio];
+	if (msm_pinctrl_data->soc->tiles)
+		tile_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					msm_pinctrl_data->soc->tiles[g->tile]);
+	else
+		tile_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res->start = tile_res->start + g->ctl_reg;
+	res->end = res->start + (g->reg_size_4k ? : DEFAULT_REG_SIZE_4K) * SZ_4K - 1;
+
+	return true;
+}
+EXPORT_SYMBOL(msm_gpio_get_pin_address);
 
 int msm_qup_write(u32 mode, u32 val)
 {

@@ -166,6 +166,14 @@ config QCOM_MSM_IPCC
 	  Say Y here to compile the driver as a part of kernel or M to compile
 	  as a module.
 
+config QCOM_TLMM_VM_IRQCHIP
+       tristate "Qualcomm Technologies, Inc. TLMM VM irqchip driver"
+       help
+         Qualcomm Technologies, Inc. TLMM VM irqchip driver for MSM devices. The
+         driver acts as a parent interrupt controller for tlmm driver for VMs.
+         Say Y here to compile the driver as a part of kernel or M to compile
+         as a module.
+
 config QCOM_RIMPS
 	tristate "Qualcomm Technologies, Inc. Rimps driver"
 	depends on MAILBOX
