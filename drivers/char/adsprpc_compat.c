@@ -295,8 +295,8 @@ static int compat_get_fastrpc_ioctl_invoke(
 		err |= get_user(p, &inv32->job);
 		err |= put_user(p, (compat_uptr_t __user *)&inv->job);
 	}
-	err |= put_user((compat_uptr_t)NULL, (compat_uptr_t __user *)&inv->perf_kernel);
-	err |= put_user((compat_uptr_t)NULL, (compat_uptr_t __user *)&inv->perf_dsp);
+	err |= put_user((compat_uptr_t)0, (compat_uptr_t __user *)&inv->perf_kernel);
+	err |= put_user((compat_uptr_t)0, (compat_uptr_t __user *)&inv->perf_dsp);
 	if ((cmd == COMPAT_FASTRPC_IOCTL_INVOKE_PERF) || (cmd == FASTRPC_INVOKE2_ASYNC)) {
 		err |= get_user(k, &inv32->perf_kernel);
 		err |= get_user(p, &inv32->perf_dsp);
@@ -384,9 +384,9 @@ static int compat_get_fastrpc_ioctl_invoke2(
 			err |= put_user(NULL, &asyncinv_user->job);
 			err |= get_user(p, &lasync32_old->job);
 			err |= put_user(p, (compat_uptr_t __user *)&asyncinv_user->job);
-			err |= put_user((compat_uptr_t)NULL,
+			err |= put_user((compat_uptr_t)0,
 				(compat_uptr_t __user *)&asyncinv_user->perf_kernel);
-			err |= put_user((compat_uptr_t)NULL,
+			err |= put_user((compat_uptr_t)0,
 				(compat_uptr_t __user *)&asyncinv_user->perf_dsp);
 		} else {
 			VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(lasync32,
