@@ -1824,7 +1824,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_0_0 = {
 		.chipid = 0x07030000,
 		.features = ADRENO_APRIV | ADRENO_IOCOHERENT |
 				ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
-				ADRENO_ACD | ADRENO_L3_VOTE,
+				ADRENO_ACD | ADRENO_L3_VOTE | ADRENO_BCL,
 		.gpudev = &adreno_gen7_gmu_gpudev.base,
 		.perfcounters = &adreno_gen7_perfcounters,
 		.gmem_base = 0,
@@ -1853,7 +1853,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_0_1 = {
 		.chipid = 0x07030001,
 		.features = ADRENO_APRIV | ADRENO_IOCOHERENT |
 				ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
-				ADRENO_ACD | ADRENO_L3_VOTE,
+				ADRENO_ACD | ADRENO_L3_VOTE | ADRENO_BCL,
 		.gpudev = &adreno_gen7_gmu_gpudev.base,
 		.perfcounters = &adreno_gen7_perfcounters,
 		.gmem_base = 0,
