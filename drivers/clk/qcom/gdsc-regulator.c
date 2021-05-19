@@ -251,11 +251,13 @@ static int gdsc_enable(struct regulator_dev *rdev)
 				regmap_write(sc->acd_misc_reset, REG_OFFSET, regval);
 
 			/*
-			 * BLK_ARES should be kept asserted for 1us before
-			 * being de-asserted.
+			 * BLK_ARES should be kept asserted for at least 100 us
+			 * before being de-asserted.
+			 * This is necessary as in HW there are 3 demet cells
+			 * on sleep clk to synchronize the BLK_ARES.
 			 */
 			gdsc_mb(sc);
-			udelay(1);
+			udelay(100);
 
 			regval &= ~BCR_BLK_ARES_BIT;
 			regmap_write(sc->sw_reset, REG_OFFSET, regval);

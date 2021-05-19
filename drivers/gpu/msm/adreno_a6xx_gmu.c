@@ -1358,11 +1358,10 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 			| ((ADRENO_CHIPID_PATCH(adreno_dev->chipid) & 0xf) << 8);
 
 	/*
-	 * For A660 GPU variant, GMU firmware expects chipid as per below
-	 * format to differentiate between A660 and A660 variant. In device
-	 * tree, target version is specified as high nibble of patch to align
-	 * with usermode driver expectation. Format the chipid according to
-	 * firmware requirement.
+	 * For A642 GPU, GMU firmware expects chipid as per below format.
+	 * In device tree, target version is specified as  high nibble of
+	 * patch to align with usermode driver expectation. Format the
+	 * chipid according to firmware requirement.
 	 *
 	 * Bit 11-8: patch version
 	 * Bit 15-12: minor version
@@ -1370,7 +1369,7 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 	 * Bit 27-24: core version
 	 * Bit 31-28: target version
 	 */
-	if (adreno_is_a660_shima(adreno_dev))
+	if (adreno_is_a642(adreno_dev))
 		chipid |= ((ADRENO_CHIPID_PATCH(adreno_dev->chipid) >> 4) << 28);
 
 	gmu_core_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
@@ -1762,14 +1761,8 @@ void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
-		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
-
 	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
-
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
-		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 

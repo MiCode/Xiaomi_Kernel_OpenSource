@@ -10,6 +10,39 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #define PATH_SIZE	32
+#define SLOT_STR_LENGTH 3
+#define MAX_STR_SIZE 255
+
+static char active_slot[SLOT_STR_LENGTH];
+static char backup_slot[SLOT_STR_LENGTH];
+static int dp_enabled;
+static char final_name[MAX_STR_SIZE];
+static int __init set_slot_suffix(char *str)
+{
+	if (str) {
+		strlcpy(active_slot, str, SLOT_STR_LENGTH);
+		strcmp(active_slot, "_a") ?
+		strlcpy(backup_slot, "_a", SLOT_STR_LENGTH) :
+		strlcpy(backup_slot, "_b", SLOT_STR_LENGTH);
+		dp_enabled = 1;
+	}
+	return 1;
+}
+__setup("androidboot.slot_suffix=", set_slot_suffix);
+
+static void get_slot_updated_name(char *name)
+{
+	int length = strlen(name);
+
+	memset(final_name, '\0', MAX_STR_SIZE);
+	strlcpy(final_name, name, MAX_STR_SIZE);
+	if (dp_enabled && (final_name[length-2] == '_')) {
+		if (final_name[length-1] == 'a')
+			final_name[length-1] = active_slot[1];
+		else if (final_name[length-1] == 'b')
+			final_name[length-1] = backup_slot[1];
+	}
+}
 
 static int rename_blk_dev_init(void)
 {
@@ -18,7 +51,8 @@ static int rename_blk_dev_init(void)
 	struct gendisk *disk;
 	struct device_node *node;
 	char dev_path[PATH_SIZE];
-	const char *actual_name, *modified_name;
+	const char *actual_name;
+	char *modified_name;
 
 	node = of_find_compatible_node(NULL, NULL, "qcom,blkdev-rename");
 	if (!node) {
@@ -40,8 +74,9 @@ static int rename_blk_dev_init(void)
 			return -ENXIO;
 		}
 		if (!of_property_read_string_index(node, "rename-dev", index,
-							&modified_name)) {
-			device_rename(disk_to_dev(disk), modified_name);
+						(const char **)&modified_name)) {
+			get_slot_updated_name(modified_name);
+			device_rename(disk_to_dev(disk), final_name);
 		} else {
 			pr_err("rename-dev for actual-dev = %s is missing\n",
 								 actual_name);

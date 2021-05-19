@@ -1711,7 +1711,6 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 	uint32_t n = 0, num_zero_bits = 0, total_ecc_byte_cnt;
 	struct msm_nand_rw_reg_data data;
 	struct sps_iovec *iovec;
-	struct msm_nand_sps_cmd *sps_cmd;
 	struct sps_iovec iovec_temp;
 	struct mtd_oob_ops raw_ops;
 
@@ -1726,7 +1725,6 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 	struct msm_nand_read_status_desc *status_desc = NULL;
 	uint32_t flash_cmd = 0x0;
 	struct {
-		struct msm_nand_sps_cmd cmd;
 		struct sps_transfer xfer;
 		struct sps_iovec cmd_iovec[MAX_DESC];
 		struct {
@@ -1751,7 +1749,6 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 	wait_event(chip->dma_wait_queue, (dma_buffer = msm_nand_get_dma_buffer(
 					chip, sizeof(*dma_buffer))));
 
-	sps_cmd = &dma_buffer->cmd;
 	memset(&data, 0, sizeof(struct msm_nand_rw_reg_data));
 	msm_nand_update_rw_reg_data(chip, &raw_ops, rw_params, &data);
 
@@ -1771,6 +1768,8 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 		dma_map_single(chip->dev, ecc, total_ecc_byte_cnt,
 				DMA_FROM_DEVICE);
 
+	uint32_t cw_desc_cnt = 1;
+	struct sps_command_element *curr_ce, *start_ce;
 	data.addr0 = (rw_params->page << 16) | rw_params->oob_col;
 	data.addr1 = (rw_params->page >> 16) & 0xff;
 	for (n = rw_params->start_sector; n < cwperpage; n++) {
@@ -1780,6 +1779,15 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 	}
 	msm_nand_prep_read_cmd_desc_pagescope(&raw_ops, rw_params, &data,
 			info, cmd_list, chip->ecc_parity_bytes);
+
+	start_ce = &cmd_list->cw_desc[cw_desc_cnt].ce[0];
+	curr_ce = start_ce;
+	cmd_list->cw_desc[cw_desc_cnt].flags = CMD | INT_UNLCK;
+	cmd_list->count++;
+	msm_nand_prep_ce(curr_ce, MSM_NAND_AUTO_STATUS_EN(info),
+			WRITE, flash_cmd);
+	curr_ce++;
+	cmd_list->cw_desc[cw_desc_cnt].num_ce = curr_ce - start_ce;
 
 	dma_buffer->xfer.iovec_count = cmd_list->count;
 	dma_buffer->xfer.iovec = dma_buffer->cmd_iovec;
@@ -1868,29 +1876,6 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 				(info->sps.data_prod_stat.index), err);
 		goto put_dev;
 	}
-	/*
-	 * There is a H/W BUG in qpic 2.0. You should unlock the command
-	 * pipe only after all the status descriptors are collected on
-	 * status descriptor pipe (pipe#3).
-	 */
-
-	/* Unlock the command pipe now */
-	msm_nand_prep_single_desc(sps_cmd, MSM_NAND_AUTO_STATUS_EN(info),
-			WRITE, flash_cmd, INT_UNLCK);
-	err = sps_transfer_one(info->sps.cmd_pipe.handle,
-			msm_virt_to_dma(chip, &sps_cmd->ce),
-			sizeof(struct sps_command_element), NULL,
-			sps_cmd->flags);
-	if (err) {
-		pr_err("Failed to unlock cmd desc. pipe: %d\n", err);
-		goto put_dev;
-	}
-	err = msm_nand_sps_get_iovec(info->sps.cmd_pipe.handle,
-			info->sps.cmd_pipe.index, 1, &iovec_temp);
-	if (err) {
-		pr_err("Failed to get iovec for cmd desc. err:%d\n", err);
-		goto put_dev;
-	}
 	err = msm_nand_put_device(chip->dev);
 	mutex_unlock(&info->lock);
 	if (err)
@@ -1963,7 +1948,6 @@ static int msm_nand_read_pagescope(struct mtd_info *mtd, loff_t from,
 	struct msm_nand_rw_params rw_params;
 	struct msm_nand_rw_reg_data data;
 	struct sps_iovec *iovec;
-	struct msm_nand_sps_cmd *sps_cmd;
 	struct sps_iovec iovec_temp;
 	bool erased_page;
 	uint64_t fix_data_in_pages = 0;
@@ -1976,7 +1960,6 @@ static int msm_nand_read_pagescope(struct mtd_info *mtd, loff_t from,
 	 * read_location_last_cw_1, exec.
 	 */
 	struct {
-		struct msm_nand_sps_cmd cmd;
 		struct sps_transfer xfer;
 		struct sps_iovec cmd_iovec[MAX_DESC];
 		struct {
@@ -2005,7 +1988,6 @@ static int msm_nand_read_pagescope(struct mtd_info *mtd, loff_t from,
 	rw_params.oob_col = rw_params.start_sector * chip->cw_size;
 	if (chip->cfg1 & (1 << WIDE_FLASH))
 		rw_params.oob_col >>= 1;
-	sps_cmd = &dma_buffer->cmd;
 
 	memset(&data, 0, sizeof(struct msm_nand_rw_reg_data));
 	msm_nand_update_rw_reg_data(chip, ops, &rw_params, &data);
@@ -2018,14 +2000,14 @@ static int msm_nand_read_pagescope(struct mtd_info *mtd, loff_t from,
 	}
 
 	cmd_list = (struct msm_nand_rw_cmd_desc *)&dma_buffer->cmd_list;
-	status_desc =
-		(struct msm_nand_read_status_desc *)&dma_buffer->result[0];
 	ecc_capability = flash_dev->ecc_capability;
 
 	while (rw_params.page_count-- > 0) {
 
 		uint32_t cw_desc_cnt = 1;
 		struct sps_command_element *curr_ce, *start_ce;
+		status_desc =
+			(struct msm_nand_read_status_desc *)&dma_buffer->result[0];
 		erased_page = false;
 		data.addr0 = (rw_params.page << 16) | rw_params.oob_col;
 		data.addr1 = (rw_params.page >> 16) & 0xff;
@@ -4517,6 +4499,7 @@ static int msm_nand_probe(struct platform_device *pdev)
 	info->nand_chip.qpic_min_version = qpic_version.qpic_minor;
 	if (info->nand_chip.qpic_version >= 2 &&
 			info->nand_chip.qpic_min_version >= 1) {
+		info->nand_chip.caps = MSM_NAND_CAP_PAGE_SCOPE_READ;
 		mutex_lock(&info->lock);
 		err = msm_nand_get_device(info->nand_chip.dev);
 		if (err) {

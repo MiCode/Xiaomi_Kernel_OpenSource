@@ -23,6 +23,7 @@
 #include <linux/virtio_config.h>
 #include <linux/uaccess.h>
 #include <linux/suspend.h>
+#include <linux/of.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
 #include "adsprpc_compat.h"
@@ -40,7 +41,7 @@
 /* indicates smmu passthrough is supported */
 #define VIRTIO_FASTRPC_F_SMMU_PASSTHROUGH		5
 
-#define NUM_CHANNELS			5 /* adsp, mdsp, slpi, cdsp0, cdsp1*/
+#define NUM_CHANNELS			4 /* adsp, mdsp, slpi, cdsp0*/
 #define NUM_DEVICES			2 /* adsprpc-smd, adsprpc-smd-secure */
 #define M_FDLIST			16
 #define MINOR_NUM_DEV			0
@@ -177,6 +178,7 @@ struct fastrpc_apps {
 	unsigned int order;
 	unsigned int num_bufs;
 	unsigned int buf_size;
+	unsigned int num_channels;
 	int last_sbuf;
 
 	bool has_invoke_attr;
@@ -880,7 +882,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl,
 		}
 	}
 
-	VERIFY(err, fl->domain >= 0 && fl->domain < NUM_CHANNELS);
+	VERIFY(err, fl->domain >= 0 && fl->domain < me->num_channels);
 	if (err) {
 		dev_err(me->dev, "user application %s domain is not set\n",
 				current->comm);
@@ -1719,7 +1721,7 @@ static int fastrpc_ioctl_get_info(struct fastrpc_file *fl,
 		goto bail;
 	if (fl->domain == -1) {
 		domain = *info;
-		VERIFY(err, domain < NUM_CHANNELS);
+		VERIFY(err, domain < fl->apps->num_channels);
 		if (err)
 			goto bail;
 		fl->domain = domain;
@@ -2306,8 +2308,20 @@ static int virt_fastrpc_probe(struct virtio_device *vdev)
 		return err;
 	}
 
+	if (of_get_property(me->dev->of_node, "qcom,domain_num", NULL) != NULL) {
+		err = of_property_read_u32(me->dev->of_node, "qcom,domain_num",
+					&me->num_channels);
+		if (err) {
+			dev_err(&vdev->dev, "failed to read domain_num %d\n", err);
+			goto alloc_chrdev_bail;
+		}
+	} else {
+		dev_dbg(&vdev->dev, "set domain_num to default value\n");
+		me->num_channels = NUM_CHANNELS;
+	}
+
 	debugfs_root = debugfs_create_dir("adsprpc", NULL);
-	err = alloc_chrdev_region(&me->dev_no, 0, NUM_CHANNELS, DEVICE_NAME);
+	err = alloc_chrdev_region(&me->dev_no, 0, me->num_channels, DEVICE_NAME);
 	if (err)
 		goto alloc_chrdev_bail;
 
@@ -2377,7 +2391,7 @@ device_create_bail:
 class_create_bail:
 	cdev_del(&me->cdev);
 cdev_init_bail:
-	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
+	unregister_chrdev_region(me->dev_no, me->num_channels);
 alloc_chrdev_bail:
 	vdev->config->del_vqs(vdev);
 	return err;
@@ -2393,7 +2407,7 @@ static void virt_fastrpc_remove(struct virtio_device *vdev)
 					MINOR_NUM_SECURE_DEV));
 	class_destroy(me->class);
 	cdev_del(&me->cdev);
-	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
+	unregister_chrdev_region(me->dev_no, me->num_channels);
 	debugfs_remove_recursive(debugfs_root);
 
 	vdev->config->reset(vdev);

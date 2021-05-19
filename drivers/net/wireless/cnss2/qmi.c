@@ -186,6 +186,7 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	int ret = 0;
 	u64 iova_start = 0, iova_size = 0,
 	    iova_ipa_start = 0, iova_ipa_size = 0;
+	u64 feature_list = 0;
 
 	cnss_pr_dbg("Sending host capability message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -240,6 +241,14 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 
 	req->host_build_type_valid = 1;
 	req->host_build_type = cnss_get_host_build_type();
+
+	ret = cnss_get_feature_list(plat_priv, &feature_list);
+	if (!ret) {
+		req->feature_list_valid = 1;
+		req->feature_list = feature_list;
+		cnss_pr_dbg("Sending feature list 0x%llx\n",
+			    req->feature_list);
+	}
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
@@ -586,7 +595,7 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	char filename[MAX_FIRMWARE_NAME_LEN];
 	const struct firmware *fw_entry = NULL;
 	const u8 *temp;
-	unsigned int remaining;
+	u32 remaining;
 	int ret = 0;
 
 	cnss_pr_dbg("Sending BDF download message, state: 0x%lx, type: %d\n",
@@ -615,12 +624,18 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 					      &plat_priv->plat_dev->dev);
 
 	if (ret) {
-		cnss_pr_err("Failed to load BDF: %s\n", filename);
+		cnss_pr_err("Failed to load BDF: %s, ret: %d\n", filename, ret);
 		goto err_req_fw;
 	}
 
 	temp = fw_entry->data;
-	remaining = fw_entry->size;
+
+	/* Check if firmware image size is within expected range */
+	if (fw_entry->size > U32_MAX)
+		goto err_send;
+
+	/* Typecast to match with interface defintition */
+	remaining = (u32)fw_entry->size;
 
 	cnss_pr_dbg("Downloading BDF: %s, size: %u\n", filename, remaining);
 
@@ -845,7 +860,7 @@ int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_n
 	struct wlfw_qdss_trace_data_req_msg_v01 *req;
 	struct wlfw_qdss_trace_data_resp_msg_v01 *resp;
 	unsigned char *p_qdss_trace_data_temp, *p_qdss_trace_data = NULL;
-	unsigned int remaining;
+	u32 remaining;
 	struct qmi_txn txn;
 
 	cnss_pr_dbg("%s\n", __func__);
@@ -1002,7 +1017,7 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	const struct firmware *fw_entry = NULL;
 	const u8 *temp;
 	char qdss_cfg_filename[MAX_FIRMWARE_NAME_LEN];
-	unsigned int remaining;
+	u32 remaining;
 	int ret = 0;
 
 	cnss_pr_dbg("Sending QDSS config download message, state: 0x%lx\n",
@@ -1028,7 +1043,13 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	}
 
 	temp = fw_entry->data;
-	remaining = fw_entry->size;
+
+	/* Check if firmware image size is within expected range */
+	if (fw_entry->size > U32_MAX)
+		goto err_send;
+
+	/* Typecast to match with interface definition */
+	remaining = (u32)fw_entry->size;
 
 	cnss_pr_dbg("Downloading QDSS: %s, size: %u\n",
 		    qdss_cfg_filename, remaining);

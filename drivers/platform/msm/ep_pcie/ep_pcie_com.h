@@ -105,8 +105,8 @@
 #define PCIE20_CAP_LINKCTRLSTATUS      0x80
 #define PCIE20_DEVICE_CONTROL2_STATUS2 0x98
 #define PCIE20_LINK_CONTROL2_LINK_STATUS2 0xA0
-#define PCIE20_L1SUB_CAPABILITY        0x154
-#define PCIE20_L1SUB_CONTROL1          0x158
+#define PCIE20_L1SUB_CAPABILITY        0x234
+#define PCIE20_L1SUB_CONTROL1          0x238
 #define PCIE20_BUS_DISCONNECT_STATUS   0x68c
 #define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
 #define PCIE20_MASK_ACK_N_FTS          0xff00
@@ -330,7 +330,6 @@ struct ep_pcie_dev_t {
 	struct ep_pcie_irq_info_t    irq[EP_PCIE_MAX_IRQ];
 	struct ep_pcie_res_info_t    res[EP_PCIE_MAX_RES];
 
-	u32			     mmio_res_size;
 	void __iomem                 *parf;
 	void __iomem                 *phy;
 	void __iomem                 *mmio;

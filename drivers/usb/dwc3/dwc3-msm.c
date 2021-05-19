@@ -44,6 +44,9 @@
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/role.h>
 #include <linux/usb/redriver.h>
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+#include <soc/qcom/boot_stats.h>
+#endif
 
 #include "core.h"
 #include "gadget.h"
@@ -3810,6 +3813,14 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 
 	dwc->t_pwr_evt_irq = ktime_get();
 	dev_dbg(mdwc->dev, "%s received\n", __func__);
+
+	if (mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
+		dev_info(mdwc->dev, "USB Resume start\n");
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+		place_marker("M - USB device resume started");
+#endif
+	}
+
 	/*
 	 * When in Low Power Mode, can't read PWR_EVNT_IRQ_STAT_REG to acertain
 	 * which interrupts have been triggered, as the clocks are disabled.
@@ -4022,7 +4033,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	 * Drive a pulse on DP to ensure proper CDP detection
 	 * and only when the vbus connect event is a valid one.
 	 */
-	if (get_chg_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
+	if (get_chg_type(mdwc) == POWER_SUPPLY_USB_TYPE_CDP &&
 			mdwc->vbus_active && !mdwc->check_eud_state) {
 		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
 		mdwc->hs_phy->charger_detect(mdwc->hs_phy);
@@ -5841,6 +5852,14 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	dbg_event(0xFF, "PM Res", 0);
 
 	atomic_set(&mdwc->pm_suspended, 0);
+
+	if (atomic_read(&dwc->in_lpm) &&
+			mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
+		dev_info(mdwc->dev, "USB Resume start\n");
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+		place_marker("M - USB device resume started");
+#endif
+	}
 
 	if (!mdwc->in_host_mode) {
 		/* kick in otg state machine */

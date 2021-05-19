@@ -101,4 +101,16 @@ config SMB358_CHARGER
 	  The driver supports charger enable/disable.
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
+
+config QTI_QBG
+	tristate "QTI Battery Gauge"
+	depends on MFD_SPMI_PMIC && IIO
+	help
+	  Say Y here to enable the Qualcomm Technologies, Inc. Battery Gauge
+	  driver which uses the periodic samples of the battery voltage and
+	  current to determine the battery state-of-charge (SOC) and supports
+	  other battery management features.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qti-qbg-main.
 endif

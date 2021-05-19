@@ -978,6 +978,8 @@ static int nvt_ts_trusted_touch_pvm_vm_mode_enable(struct nvt_ts_data *ts)
 	int rc = 0;
 	struct trusted_touch_vm_info *vm_info = ts->vm_info;
 
+	if (atomic_read(&ts->pvm_interrupt_underway))
+		wait_for_completion_interruptible(&ts->trusted_touch_interrupt);
 	atomic_set(&ts->trusted_touch_underway, 1);
 
 #if BOOT_UPDATE_FIRMWARE
@@ -988,6 +990,7 @@ static int nvt_ts_trusted_touch_pvm_vm_mode_enable(struct nvt_ts_data *ts)
 	if (nvt_ts_bus_get(ts) < 0) {
 		pr_err("nvt_ts_bus_get failed\n");
 		rc = -EIO;
+		atomic_set(&ts->trusted_touch_underway, 0);
 		return rc;
 	}
 
@@ -1178,6 +1181,7 @@ static void nvt_ts_trusted_touch_init(struct nvt_ts_data *ts)
 
 	init_completion(&ts->trusted_touch_powerdown);
 	init_completion(&ts->touch_suspend_resume);
+	init_completion(&ts->trusted_touch_interrupt);
 
 	/* Get clocks */
 	ts->core_clk = devm_clk_get(ts->client->dev.parent,
@@ -2043,7 +2047,25 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	}
 #endif
 
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+	atomic_set(&ts->pvm_interrupt_underway, 1);
+	reinit_completion(&ts->trusted_touch_interrupt);
+#endif
+#endif
 	mutex_lock(&ts->lock);
+
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+	if (atomic_read(&ts->trusted_touch_underway)) {
+		mutex_unlock(&ts->lock);
+		atomic_set(&ts->pvm_interrupt_underway, 0);
+		input_report_key(ts->input_dev, BTN_TOUCH, 0);
+		input_sync(ts->input_dev);
+		return IRQ_HANDLED;
+	}
+#endif
+#endif
 
 	ret = CTP_I2C_READ(ts->client, I2C_FW_Address, point_data, POINT_DATA_LEN + 1);
 	if (ret < 0) {
@@ -2063,6 +2085,12 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		input_id = (uint8_t)(point_data[1] >> 3);
 		nvt_ts_wakeup_gesture_report(input_id, point_data);
 		mutex_unlock(&ts->lock);
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+		complete(&ts->trusted_touch_interrupt);
+		atomic_set(&ts->pvm_interrupt_underway, 0);
+#endif
+#endif
 		return IRQ_HANDLED;
 	}
 #endif
@@ -2161,6 +2189,12 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 XFER_ERROR:
 
 	mutex_unlock(&ts->lock);
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+	complete(&ts->trusted_touch_interrupt);
+	atomic_set(&ts->pvm_interrupt_underway, 0);
+#endif
+#endif
 
 	return IRQ_HANDLED;
 }
