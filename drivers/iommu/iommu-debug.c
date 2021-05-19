@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1543,6 +1543,11 @@ static ssize_t iommu_debug_atos_write(struct file *file,
 	if (kstrtox_from_user(ubuf, count, 0, &iova)) {
 		pr_err_ratelimited("Invalid format for iova\n");
 		ddev->iova = 0;
+		return -EINVAL;
+	}
+
+	if (!ddev->domain) {
+		pr_err_ratelimited("No domain. Did you already attach?\n");
 		return -EINVAL;
 	}
 
