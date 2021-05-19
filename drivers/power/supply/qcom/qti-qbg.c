@@ -81,6 +81,11 @@
 #define TBAT_LSB					7500
 #define TBAT_DENOMINATOR				115600
 
+#define BOOST_COMPENSATION_UV				400000
+#define OCV_BOOST_MIN_UV				4100000
+#define OCV_BOOST_MAX_UV				5600000
+#define OCV_BOOST_STEP_UV				100000
+
 enum qbg_data_tag {
 	QBG_DATA_TAG_FAST_CHAR,
 };
@@ -223,6 +228,30 @@ static int qbg_get_fifo_count(struct qti_qbg *chip, u32 *fifo_count)
 	return rc;
 }
 
+static void update_ocv_for_boost(struct qti_qbg *chip)
+{
+	int ocv_for_boost = 0x00;
+
+	/*
+	 * Every time when OCV gets updated, add 0.4V headroom compensation
+	 * and round it to a value between 4.1V to 5.6V, then map it to a
+	 * setting between [0x00 - 0x0F] and set it in SDAM to notify charger-boost.
+	 */
+	ocv_for_boost = chip->ocv_uv + BOOST_COMPENSATION_UV;
+	if (ocv_for_boost < OCV_BOOST_MIN_UV)
+		ocv_for_boost = OCV_BOOST_MIN_UV;
+	else if (ocv_for_boost > OCV_BOOST_MAX_UV)
+		ocv_for_boost = OCV_BOOST_MAX_UV;
+
+	ocv_for_boost -= OCV_BOOST_MIN_UV;
+	ocv_for_boost /= OCV_BOOST_STEP_UV;
+
+	qbg_dbg(chip, QBG_DEBUG_STATUS, "Boost OCV value written =%d\n", ocv_for_boost);
+	qbg_sdam_write(chip,
+		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_BHARGER_OCV_HDRM_OFFSET,
+		(u8 *)&ocv_for_boost, 1);
+}
+
 static void process_udata_work(struct work_struct *work)
 {
 	struct qti_qbg *chip = container_of(work, struct qti_qbg, udata_work);
@@ -252,8 +281,10 @@ static void process_udata_work(struct work_struct *work)
 			power_supply_changed(chip->qbg_psy);
 	}
 
-	if (chip->udata.param[QBG_PARAM_OCV_UV].valid)
+	if (chip->udata.param[QBG_PARAM_OCV_UV].valid) {
 		chip->ocv_uv = chip->udata.param[QBG_PARAM_OCV_UV].data;
+		update_ocv_for_boost(chip);
+	}
 
 	if (chip->udata.param[QBG_PARAM_CHARGE_CYCLE_COUNT].valid)
 		chip->charge_cycle_count =
@@ -881,6 +912,7 @@ static int get_batt_id_ohm(struct qti_qbg *chip, u32 *batt_id_ohm)
 static int qbg_setup_battery(struct qti_qbg *chip)
 {
 	int rc = 0;
+	u8 ocv_boost_val = 0x02;
 
 	chip->profile_loaded = false;
 
@@ -898,6 +930,13 @@ static int qbg_setup_battery(struct qti_qbg *chip)
 				pr_err("Failed to load battery-profile, rc=%d\n", rc);
 			else
 				chip->profile_loaded = true;
+		}
+
+		/* Update OCV boost headroom compensation value to 4.3V in debug battery case */
+		if (is_debug_batt_id(chip)) {
+			rc = qbg_sdam_write(chip,
+				QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) +
+				QBG_SDAM_BHARGER_OCV_HDRM_OFFSET, &ocv_boost_val, 1);
 		}
 	}
 
