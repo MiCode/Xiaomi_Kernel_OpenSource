@@ -4996,8 +4996,9 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 	struct msm_pcie_register_event *reg_itr;
 	struct msm_pcie_notify *notify;
 	struct msm_pcie_notify client_notify;
+	unsigned long flags;
 
-	spin_lock(&dev->evt_reg_list_lock);
+	spin_lock_irqsave(&dev->evt_reg_list_lock, flags);
 	list_for_each_entry(reg_itr, &dev->event_reg_list, node) {
 		if ((reg_itr->events & event) && reg_itr->callback) {
 			notify = &reg_itr->notify;
@@ -5020,7 +5021,7 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 			break;
 		}
 	}
-	spin_unlock(&dev->evt_reg_list_lock);
+	spin_unlock_irqrestore(&dev->evt_reg_list_lock, flags);
 }
 
 static void handle_wake_func(struct work_struct *work)
@@ -8026,6 +8027,7 @@ int msm_pcie_register_event(struct msm_pcie_register_event *reg)
 	struct msm_pcie_dev_t *pcie_dev;
 	struct msm_pcie_register_event *reg_itr;
 	struct pci_dev *pcidev;
+	unsigned long flags;
 
 	if (!reg) {
 		pr_err("PCIe: Event registration is NULL\n");
@@ -8046,19 +8048,19 @@ int msm_pcie_register_event(struct msm_pcie_register_event *reg)
 
 	pcidev = (struct pci_dev *)reg->user;
 
-	spin_lock(&pcie_dev->evt_reg_list_lock);
+	spin_lock_irqsave(&pcie_dev->evt_reg_list_lock, flags);
 	list_for_each_entry(reg_itr, &pcie_dev->event_reg_list, node) {
 		if (reg_itr->user == reg->user) {
 			PCIE_ERR(pcie_dev,
 				 "PCIe: RC%d: EP BDF 0x%4x already registered\n",
 				 pcie_dev->rc_idx,
 				 PCI_DEVID(pcidev->bus->number, pcidev->devfn));
-			spin_unlock(&pcie_dev->evt_reg_list_lock);
+			spin_unlock_irqrestore(&pcie_dev->evt_reg_list_lock, flags);
 			return -EEXIST;
 		}
 	}
 	list_add_tail(&reg->node, &pcie_dev->event_reg_list);
-	spin_unlock(&pcie_dev->evt_reg_list_lock);
+	spin_unlock_irqrestore(&pcie_dev->evt_reg_list_lock, flags);
 
 	if (pcie_dev->drv_supported)
 		schedule_work(&pcie_drv.drv_connect);
@@ -8072,6 +8074,7 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 	struct msm_pcie_dev_t *pcie_dev;
 	struct pci_dev *pcidev;
 	struct msm_pcie_register_event *reg_itr;
+	unsigned long flags;
 
 	if (!reg) {
 		pr_err("PCIe: Event deregistration is NULL\n");
@@ -8093,11 +8096,11 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 
 	pcidev = (struct pci_dev *)reg->user;
 
-	spin_lock(&pcie_dev->evt_reg_list_lock);
+	spin_lock_irqsave(&pcie_dev->evt_reg_list_lock, flags);
 	list_for_each_entry(reg_itr, &pcie_dev->event_reg_list, node) {
 		if (reg_itr->user == reg->user) {
 			list_del(&reg->node);
-			spin_unlock(&pcie_dev->evt_reg_list_lock);
+			spin_unlock_irqrestore(&pcie_dev->evt_reg_list_lock, flags);
 			PCIE_DBG(pcie_dev,
 				 "PCIe: RC%d: Event deregistered for BDF 0x%04x\n",
 				 pcie_dev->rc_idx,
@@ -8105,7 +8108,7 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 			return 0;
 		}
 	}
-	spin_unlock(&pcie_dev->evt_reg_list_lock);
+	spin_unlock_irqrestore(&pcie_dev->evt_reg_list_lock, flags);
 
 	PCIE_DBG(pcie_dev,
 		 "PCIe: RC%d: Failed to deregister event for BDF 0x%04x\n",
