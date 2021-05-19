@@ -390,6 +390,14 @@
 #define GENC_RBBM_PERFCTR_CMP_2_HI               0x3f7
 #define GENC_RBBM_PERFCTR_CMP_3_LO               0x3f8
 #define GENC_RBBM_PERFCTR_CMP_3_HI               0x3f9
+#define GENC_RBBM_PERFCTR_UFC_0_LO               0x3fa
+#define GENC_RBBM_PERFCTR_UFC_0_HI               0x3fb
+#define GENC_RBBM_PERFCTR_UFC_1_LO               0x3fc
+#define GENC_RBBM_PERFCTR_UFC_1_HI               0x3fd
+#define GENC_RBBM_PERFCTR_UFC_2_LO               0x3fe
+#define GENC_RBBM_PERFCTR_UFC_2_HI               0x3ff
+#define GENC_RBBM_PERFCTR_UFC_3_LO               0x400
+#define GENC_RBBM_PERFCTR_UFC_3_HI               0x401
 #define GENC_RBBM_PERFCTR_BV_PC_0_LO             0x460
 #define GENC_RBBM_PERFCTR_BV_PC_0_HI             0x461
 #define GENC_RBBM_PERFCTR_BV_PC_1_LO             0x462
@@ -630,6 +638,10 @@
 #define GENC_RB_PERFCTR_CMP_SEL_1           0x8e2d
 #define GENC_RB_PERFCTR_CMP_SEL_2           0x8e2e
 #define GENC_RB_PERFCTR_CMP_SEL_3           0x8e2f
+#define GENC_RB_PERFCTR_UFC_SEL_0           0x8e30
+#define GENC_RB_PERFCTR_UFC_SEL_1           0x8e31
+#define GENC_RB_PERFCTR_UFC_SEL_2           0x8e32
+#define GENC_RB_PERFCTR_UFC_SEL_3           0x8e33
 #define GENC_RB_RB_SUB_BLOCK_SEL_CNTL_HOST  0x8e3b
 #define GENC_RB_RB_SUB_BLOCK_SEL_CNTL_CD    0x8e3d
 #define GENC_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE 0x8e50

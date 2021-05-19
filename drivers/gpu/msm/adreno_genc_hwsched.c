@@ -498,9 +498,6 @@ static int genc_hwsched_gpu_boot(struct adreno_device *adreno_dev)
 	/* Clear the busy_data stats - we're starting over from scratch */
 	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
-	/* Restore performance counter registers with saved values */
-	adreno_perfcounter_restore(adreno_dev);
-
 	genc_start(adreno_dev);
 
 	/* Re-initialize the coresight registers if applicable */
@@ -705,9 +702,6 @@ static int genc_hwsched_power_off(struct adreno_device *adreno_dev)
 
 	/* Save active coresight registers if applicable */
 	adreno_coresight_stop(adreno_dev);
-
-	/* Save physical performance counter values before GPU power down*/
-	adreno_perfcounter_save(adreno_dev);
 
 	adreno_irqctrl(adreno_dev, 0);
 
