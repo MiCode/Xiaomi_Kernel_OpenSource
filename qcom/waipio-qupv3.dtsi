@@ -827,6 +827,7 @@
 		interrupts = <GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>,
 				<&pdc 35 IRQ_TYPE_LEVEL_HIGH>,
 				<&pdc 34 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,ibi-support-disabled;
 
 		#address-cells = <3>;
 		#size-cells = <0>;
