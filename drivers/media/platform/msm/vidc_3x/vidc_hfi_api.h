@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1434,6 +1434,7 @@ struct msm_vidc_gov_data {
 	struct vidc_bus_vote_data *data;
 	u32 data_count;
 	int imem_size;
+	unsigned long total_bw_ddr;
 };
 
 enum msm_vidc_power_mode {
