@@ -33,7 +33,7 @@ struct genc_hfi *to_genc_hfi(struct adreno_device *adreno_dev)
 int genc_hfi_queue_read(struct genc_gmu_device *gmu, u32 queue_idx,
 		unsigned int *output, unsigned int max_size)
 {
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	u32 *queue;
@@ -164,7 +164,7 @@ int genc_hfi_cmdq_write(struct adreno_device *adreno_dev, u32 *msg)
 static void init_queues(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	int i;
 	struct hfi_queue_table *tbl;
 	struct hfi_queue_header *hdr;
@@ -508,7 +508,7 @@ int genc_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr;
 	int result, i;
@@ -568,7 +568,7 @@ err:
 void genc_hfi_stop(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);

@@ -18,7 +18,7 @@ struct genc_hfi {
 	 */
 	atomic_t seqnum;
 	/** @hfi_mem: Memory descriptor for the hfi memory */
-	struct gmu_memdesc *hfi_mem;
+	struct kgsl_memdesc *hfi_mem;
 	/** @bw_table: HFI BW table buffer */
 	struct hfi_bwtable_cmd bw_table;
 	/** @acd_table: HFI table for ACD data */

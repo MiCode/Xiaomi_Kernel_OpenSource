@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "a6xx_reg.h"
@@ -129,7 +129,7 @@ static const unsigned int a650_rscc_registers[] = {
 };
 
 struct gmu_mem_type_desc {
-	struct gmu_memdesc *memdesc;
+	struct kgsl_memdesc *memdesc;
 	uint32_t type;
 };
 
@@ -222,7 +222,7 @@ static void a6xx_gmu_snapshot_memories(struct kgsl_device *device,
 	struct a6xx_gmu_device *gmu, struct kgsl_snapshot *snapshot)
 {
 	struct gmu_mem_type_desc desc;
-	struct gmu_memdesc *md;
+	struct kgsl_memdesc *md;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(gmu->gmu_globals); i++) {

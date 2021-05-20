@@ -379,13 +379,13 @@ int genc_rscc_sleep_sequence(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static struct gmu_memdesc *find_gmu_memdesc(struct genc_gmu_device *gmu,
+static struct kgsl_memdesc *find_gmu_memdesc(struct genc_gmu_device *gmu,
 	u32 addr, u32 size)
 {
 	int i;
 
 	for (i = 0; i < gmu->global_entries; i++) {
-		struct gmu_memdesc *md = &gmu->gmu_globals[i];
+		struct kgsl_memdesc *md = &gmu->gmu_globals[i];
 
 		if ((addr >= md->gmuaddr) &&
 				(((addr + size) <= (md->gmuaddr + md->size))))
@@ -454,7 +454,7 @@ int genc_gmu_load_fw(struct adreno_device *adreno_dev)
 				GENC_GMU_CM3_DTCM_START,
 				gmu->vma[GMU_DTCM].start, blk);
 		} else {
-			struct gmu_memdesc *md =
+			struct kgsl_memdesc *md =
 				find_gmu_memdesc(gmu, blk->addr, blk->size);
 
 			if (!md) {
@@ -850,44 +850,40 @@ void genc_gmu_register_config(struct adreno_device *adreno_dev)
 	genc_gmu_power_config(adreno_dev);
 }
 
-struct gmu_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
+struct kgsl_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
 	u32 addr, u32 size, u32 vma_id)
 {
 	int ret;
-	struct gmu_memdesc *md;
+	struct kgsl_memdesc *md;
 	struct gmu_vma_entry *vma = &gmu->vma[vma_id];
+	struct kgsl_device *device = KGSL_DEVICE(genc_gmu_to_adreno(gmu));
 
 	if (gmu->global_entries == ARRAY_SIZE(gmu->gmu_globals))
 		return ERR_PTR(-ENOMEM);
 
 	md = &gmu->gmu_globals[gmu->global_entries];
 
-	md->size = PAGE_ALIGN(size);
-
-	md->hostptr = dma_alloc_attrs(&gmu->pdev->dev, (size_t)md->size,
-		&md->physaddr, GFP_KERNEL, 0);
-
-	if (md->hostptr == NULL)
+	ret = kgsl_allocate_kernel(device, md, size, 0, KGSL_MEMDESC_SYSMEM);
+	if (ret) {
+		memset(md, 0x0, sizeof(*md));
 		return ERR_PTR(-ENOMEM);
-
-	memset(md->hostptr, 0x0, size);
+	}
 
 	if (!addr)
 		addr = vma->next_va;
 
-	md->gmuaddr = addr;
-
-	ret = iommu_map(gmu->domain, addr,
-		md->physaddr, md->size, IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV);
+	ret = gmu_core_map_memdesc(gmu->domain, md, addr,
+		IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV);
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
 			"Unable to map GMU kernel block: addr:0x%08x size:0x%x :%d\n",
-			md->gmuaddr, md->size, ret);
-		dma_free_attrs(&gmu->pdev->dev, (size_t)size,
-			(void *)md->hostptr, md->physaddr, 0);
-		memset(md, 0, sizeof(*md));
-		return ERR_PTR(ret);
+			addr, md->size, ret);
+			kgsl_sharedmem_free(md);
+			memset(md, 0, sizeof(*md));
+			return ERR_PTR(-ENOMEM);
 	}
+
+	md->gmuaddr = addr;
 
 	vma->next_va = md->gmuaddr + md->size;
 
@@ -899,7 +895,7 @@ struct gmu_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
 static int genc_gmu_process_prealloc(struct genc_gmu_device *gmu,
 	struct gmu_block_header *blk)
 {
-	struct gmu_memdesc *md;
+	struct kgsl_memdesc *md;
 
 	int id = find_vma_block(gmu, blk->addr, blk->value);
 
@@ -1711,7 +1707,7 @@ static void genc_free_gmu_globals(struct genc_gmu_device *gmu)
 	int i;
 
 	for (i = 0; i < gmu->global_entries; i++) {
-		struct gmu_memdesc *md = &gmu->gmu_globals[i];
+		struct kgsl_memdesc *md = &gmu->gmu_globals[i];
 
 		if (!md->gmuaddr)
 			continue;

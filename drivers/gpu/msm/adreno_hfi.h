@@ -499,8 +499,7 @@ struct hfi_mem_alloc_desc {
 
 struct hfi_mem_alloc_entry {
 	struct hfi_mem_alloc_desc desc;
-	struct kgsl_memdesc *gpu_md;
-	struct gmu_memdesc *gmu_md;
+	struct kgsl_memdesc *md;
 };
 
 /* F2H */
