@@ -149,10 +149,11 @@ void dwc3_dbg_dma_unmap(struct dwc3 *dwc, u8 ep_num, struct dwc3_request *req)
 			req->trb->ctrl & DWC3_TRB_CTRL_HWO);
 	} else {
 		ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
-			"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx %d",
+			"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx %d %u",
 			ep_num >> 1, ep_num & 1 ? "IN":"OUT", "UNMAP",
 			&req->request, req->request.dma, req->request.length,
-			req->trb_dma, req->trb->ctrl & DWC3_TRB_CTRL_HWO);
+			req->trb_dma, req->trb->ctrl & DWC3_TRB_CTRL_HWO,
+			req->request.actual);
 	}
 }
 
