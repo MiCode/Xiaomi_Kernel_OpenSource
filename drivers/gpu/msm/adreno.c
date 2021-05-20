@@ -37,6 +37,8 @@ static void adreno_input_work(struct work_struct *work);
 static int adreno_soft_reset(struct kgsl_device *device);
 static unsigned int counter_delta(struct kgsl_device *device,
 	unsigned int reg, unsigned int *counter);
+static struct device_node *
+	adreno_get_gpu_model_node(struct platform_device *pdev);
 
 static struct adreno_device device_3d0;
 
@@ -629,15 +631,23 @@ _get_gpu_core(struct platform_device *pdev, unsigned int chipid)
 	unsigned int minor = ADRENO_CHIPID_MINOR(chipid);
 	unsigned int patchid = ADRENO_CHIPID_PATCH(chipid);
 	int i;
+	struct device_node *node;
+
+	/*
+	 * When "qcom,gpu-models" is defined, use gpu model node to match
+	 * on a compatible string, otherwise match using legacy way.
+	 */
+	node = adreno_get_gpu_model_node(pdev);
+	if (!node || !of_find_property(node, "compatible", NULL))
+		node = pdev->dev.of_node;
 
 	/* Check to see if any of the entries match on a compatible string */
 	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
 		if (adreno_gpulist[i]->compatible &&
-			of_device_is_compatible(pdev->dev.of_node,
+			of_device_is_compatible(node,
 				adreno_gpulist[i]->compatible))
 			return adreno_gpulist[i];
 	}
-
 
 	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
 		if (core == adreno_gpulist[i]->core &&
