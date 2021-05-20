@@ -2641,8 +2641,10 @@ skip_power_off:
 	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
 	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
-	    test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state))
+	    test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state)) {
 		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+		pci_priv->pci_link_down_ind = false;
+	}
 	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 	clear_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state);
 
