@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_ION_PRIV_H
@@ -41,6 +41,7 @@
 #define ION_TUI_CARVEOUT_HEAP_NAME "tui_carveout"
 #define ION_DISPLAY_HEAP_NAME "display"
 #define ION_AUDIO_ML_HEAP_NAME "audio_ml"
+#define ION_AUDIO_CARVEOUT_HEAP_NAME "audio_carveout"
 
 /**
  * Debug feature. Make ION allocations DMA

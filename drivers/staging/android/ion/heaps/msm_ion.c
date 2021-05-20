@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -96,6 +96,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_AUDIO_ML_HEAP_ID,
 		.name	= ION_AUDIO_ML_HEAP_NAME,
+	},
+	{
+		.id	= ION_AUDIO_CARVEOUT_HEAP_ID,
+		.name	= ION_AUDIO_CARVEOUT_HEAP_NAME,
 	},
 };
 
