@@ -379,15 +379,14 @@ static int kgsl_iopgtbl_map(struct kgsl_pagetable *pagetable,
 		struct page *page = iommu_get_guard_page(memdesc);
 		size_t ret;
 
-		if (page) {
+		if (page)
 			ret = _iopgtbl_map_page_to_range(pt, page,
 				memdesc->gpuaddr + mapped, padding,
 				prot & ~IOMMU_WRITE);
 
-			if (ret == 0) {
-				_iopgtbl_unmap(pt, memdesc->gpuaddr, mapped);
-				return -ENOMEM;
-			}
+		if (!page || !ret) {
+			_iopgtbl_unmap(pt, memdesc->gpuaddr, mapped);
+			return -ENOMEM;
 		}
 	}
 
@@ -494,13 +493,13 @@ _kgsl_iommu_map(struct iommu_domain *domain, struct kgsl_memdesc *memdesc)
 		struct page *page = iommu_get_guard_page(memdesc);
 		size_t guard_mapped;
 
-		if (page) {
+		if (page)
 			guard_mapped = _iommu_map_page_to_range(domain, page,
 				memdesc->gpuaddr + mapped, padding, prot & ~IOMMU_WRITE);
-			if (!guard_mapped) {
-				_iommu_unmap(domain, memdesc->gpuaddr, mapped);
-				ret = -ENOMEM;
-			}
+
+		if (!page || !guard_mapped) {
+			_iommu_unmap(domain, memdesc->gpuaddr, mapped);
+			ret = -ENOMEM;
 		}
 	}
 
