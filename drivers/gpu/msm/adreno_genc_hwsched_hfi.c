@@ -1188,6 +1188,31 @@ int genc_hwsched_hfi_probe(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static void destroy_f2h_list(struct llist_head *head)
+{
+	struct llist_node *list;
+	struct f2h_packet *pkt, *tmp;
+
+	list = llist_del_all(head);
+	if (!list)
+		return;
+
+	llist_for_each_entry_safe(pkt, tmp, list, node)
+		kmem_cache_free(f2h_cache, pkt);
+}
+
+void genc_hwsched_hfi_remove(struct adreno_device *adreno_dev)
+{
+	struct genc_hwsched_hfi *hw_hfi = to_genc_hwsched_hfi(adreno_dev);
+
+	destroy_f2h_list(&hw_hfi->f2h_msglist);
+
+	kmem_cache_destroy(f2h_cache);
+	f2h_cache = NULL;
+
+	kthread_stop(hw_hfi->f2h_task);
+}
+
 static void add_profile_events(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj *drawobj, struct adreno_submit_time *time)
 {

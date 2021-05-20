@@ -36,6 +36,12 @@ struct kgsl_drawobj_cmd;
 int a6xx_hwsched_hfi_probe(struct adreno_device *adreno_dev);
 
 /**
+ * a6xx_hwsched_hfi_remove - Release hwsched hfi resources
+ * @adreno_dev: Pointer to adreno device structure
+ */
+void a6xx_hwsched_hfi_remove(struct adreno_device *adreno_dev);
+
+/**
  * a6xx_hwsched_hfi_init - Initialize hfi resources
  * @adreno_dev: Pointer to adreno device structure
  *

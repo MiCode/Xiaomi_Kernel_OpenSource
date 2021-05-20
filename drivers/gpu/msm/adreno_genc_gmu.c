@@ -2626,6 +2626,12 @@ static void genc_gmu_unbind(struct device *dev, struct device *master,
 		void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct genc_gpudev *genc_gpudev = to_genc_gpudev(gpudev);
+
+	if (genc_gpudev->hfi_remove)
+		genc_gpudev->hfi_remove(adreno_dev);
 
 	genc_gmu_remove(device);
 }
