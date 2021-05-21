@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2015, 2017, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, 2017, 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -79,6 +79,7 @@ struct qpnp_tm_chip {
 	unsigned int			stage;
 	unsigned int			prev_stage;
 	unsigned int			base;
+	int				irq;
 	/* protects .thresh, .stage and chip registers */
 	struct mutex			lock;
 	bool				initialized;
@@ -409,7 +410,7 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 	struct device_node *node;
 	u8 type, subtype, dig_major, dig_minor;
 	u32 res;
-	int ret, irq;
+	int ret;
 
 	node = pdev->dev.of_node;
 
@@ -430,9 +431,9 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
+	chip->irq = platform_get_irq(pdev, 0);
+	if (chip->irq < 0)
+		return chip->irq;
 
 	/* ADC based measurements are optional */
 	chip->adc = devm_iio_channel_get(&pdev->dev, "thermal");
@@ -502,8 +503,9 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL, qpnp_tm_isr,
-					IRQF_ONESHOT, node->name, chip);
+	ret = devm_request_threaded_irq(&pdev->dev, chip->irq, NULL,
+					qpnp_tm_isr, IRQF_ONESHOT,
+					node->name, chip);
 	if (ret < 0)
 		return ret;
 
@@ -511,6 +513,47 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 
 	return 0;
 }
+
+static int qpnp_tm_restore(struct device *dev)
+{
+	int ret = 0;
+	struct qpnp_tm_chip *chip = dev_get_drvdata(dev);
+	struct device_node *node = dev->of_node;
+	unsigned long flags;
+
+	if (chip->subtype == QPNP_TM_SUBTYPE_GEN2)
+		flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+	else
+		flags = IRQF_TRIGGER_RISING;
+
+	if (chip->irq > 0) {
+		ret = devm_request_threaded_irq(dev, chip->irq, NULL,
+			qpnp_tm_isr, flags | IRQF_ONESHOT, node->name, chip);
+		if (ret < 0)
+			return ret;
+	}
+
+	ret = qpnp_tm_init(chip);
+	if (ret < 0)
+		dev_err(dev, "init failed\n");
+
+	return ret;
+}
+
+static int qpnp_tm_freeze(struct device *dev)
+{
+	struct qpnp_tm_chip *chip = dev_get_drvdata(dev);
+
+	if (chip->irq > 0)
+		devm_free_irq(dev, chip->irq, chip);
+
+	return 0;
+}
+
+static const struct dev_pm_ops qpnp_tm_pm_ops = {
+	.freeze = qpnp_tm_freeze,
+	.restore = qpnp_tm_restore,
+};
 
 static const struct of_device_id qpnp_tm_match_table[] = {
 	{ .compatible = "qcom,spmi-temp-alarm" },
@@ -522,6 +565,7 @@ static struct platform_driver qpnp_tm_driver = {
 	.driver = {
 		.name = "spmi-temp-alarm",
 		.of_match_table = qpnp_tm_match_table,
+		.pm = &qpnp_tm_pm_ops,
 	},
 	.probe  = qpnp_tm_probe,
 };

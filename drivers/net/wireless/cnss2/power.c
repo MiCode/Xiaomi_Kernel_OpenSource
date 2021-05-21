@@ -784,6 +784,7 @@ int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
 							      XO_CLK_GPIO, 0);
 		cnss_pr_dbg("QCA6490 XO_CLK GPIO: %d\n",
 			    pinctrl_info->xo_clk_gpio);
+		cnss_set_feature_list(plat_priv, BOOTSTRAP_CLOCK_SELECT_V01);
 	} else {
 		pinctrl_info->xo_clk_gpio = -EINVAL;
 	}

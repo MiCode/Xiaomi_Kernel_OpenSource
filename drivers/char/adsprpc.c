@@ -568,8 +568,8 @@ struct fastrpc_mmap {
 	uintptr_t raddr;
 	int uncached;
 	int secure;
-	/* Minidump unique index */
-	int frpc_md_index;
+	bool is_persistent;                     //the map is persistenet across sessions
+	int frpc_md_index;                      //Minidump unique index
 	uintptr_t attr;
 	struct timespec64 map_start_time;
 	struct timespec64 map_end_time;
@@ -641,6 +641,10 @@ struct fastrpc_file {
 	spinlock_t aqlock;
 	uint32_t ws_timeout;
 	bool untrusted_process;
+	/* Process kill will wait on work when ram dump collection in progress */
+	struct completion work;
+	/* Flag to indicate ram dump collection status*/
+	bool is_ramdump_pend;
 };
 
 static struct fastrpc_apps gfa;
@@ -904,8 +908,7 @@ static int fastrpc_elf_ramdump(void *rh_dump_dev, struct ramdump_segment *ramdum
 {
 	int err = 0;
 
-	err = do_elf_ramdump(
-		rh_dump_dev,
+	err = do_minidump(rh_dump_dev,
 			ramdump_seg, 1);
 
 	return err;
@@ -1196,7 +1199,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, int fd, uintptr_t va,
 	hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 		if ((fd < 0 || map->fd == fd) && map->raddr == va &&
 			map->raddr + map->len == va + len &&
-			map->refs == 1) {
+			map->refs == 1 && !map->is_persistent) {
 			match = map;
 			hlist_del_init(&map->hn);
 			break;
@@ -1248,7 +1251,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		spin_lock(&me->hlock);
 		map->refs--;
-		if (!map->refs)
+		if (!map->refs && !map->is_persistent)
 			hlist_del_init(&map->hn);
 		spin_unlock(&me->hlock);
 		if (map->refs > 0) {
@@ -2244,25 +2247,21 @@ static void fastrpc_ramdump_collection(int cid)
 	struct fastrpc_channel_ctx *chan = &me->channel[cid];
 	struct ramdump_segment ramdump_entry;
 	struct fastrpc_buf *buf = NULL;
-	int ret;
+	int ret = 0;
 	char ramdump_name[RAMDUMP_NAME_MAX_LENGTH];
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (fl->cid == cid && fl->init_mem) {
-			/* process exit state condition should */
-			/* checked in spin lock to avoid race conditions */
-			spin_lock(&fl->hlock);
-				if (fl->file_close == FASTRPC_PROCESS_DEFAULT_STATE)
-					hlist_add_head(&fl->init_mem->hn_init,
-						&chan->initmems);
-			spin_unlock(&fl->hlock);
+			hlist_add_head(&fl->init_mem->hn_init, &chan->initmems);
+			fl->is_ramdump_pend = true;
 		}
 	}
 	spin_unlock(&me->hlock);
 
 	if (chan->rh_dump_dev) {
 		hlist_for_each_entry_safe(buf, n, &chan->initmems, hn_init) {
+			memset(&ramdump_entry, 0, sizeof(ramdump_entry));
 			ramdump_entry.address = buf->phys;
 			ramdump_entry.v_address = (void __iomem *)buf->virt;
 			ramdump_entry.size = buf->size;
@@ -2273,8 +2272,10 @@ static void fastrpc_ramdump_collection(int cid)
 			}
 			ret = fastrpc_elf_ramdump(chan->rh_dump_dev, &ramdump_entry);
 			if (ret < 0)
-				pr_err("adsprpc: %s: unable to dump PD memory (err %d)\n",
+				ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
 					__func__, ret);
+			if (buf->fl)
+				complete(&buf->fl->work);
 			hlist_del_init(&buf->hn_init);
 		}
 	}
@@ -3863,7 +3864,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid) {
+		if (rhvm->vmid && mem && !mem->is_persistent) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -3877,6 +3878,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 			rh_hyp_done = 1;
 		}
 		me->staticpd_flags = 1;
+		mem->is_persistent = true;
 	}
 
 	/*
@@ -4516,6 +4518,10 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 		spin_lock(&me->hlock);
 		hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 			match = map;
+			if (map->is_persistent) {
+				match = NULL;
+				continue;
+			}
 			hlist_del_init(&map->hn);
 			break;
 		}
@@ -4655,8 +4661,11 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 		err = -EINVAL;
 		goto bail;
 	}
-	VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
-			map->phys, map->size, map->flags)));
+	if (!map->is_persistent) {
+		VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
+					map->phys, map->size, map->flags)));
+	}
+
 	if (err)
 		goto bail;
 	mutex_lock(&fl->map_mutex);
@@ -5128,7 +5137,17 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	(void)fastrpc_release_current_dsp_process(fl);
 
 	spin_lock(&fl->apps->hlock);
+	if (!fl->is_ramdump_pend) {
+		spin_unlock(&fl->apps->hlock);
+		goto skip_dump_wait;
+	}
+	spin_unlock(&fl->apps->hlock);
+	wait_for_completion(&fl->work);
+
+skip_dump_wait:
+	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
+	fl->is_ramdump_pend = false;
 	spin_unlock(&fl->apps->hlock);
 	kfree(fl->debug_buf);
 	kfree(fl->gidlist.gids);
@@ -5536,6 +5555,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->init_mem = NULL;
 	fl->qos_request = 0;
 	fl->dsp_proc_init = 0;
+	fl->is_ramdump_pend = false;
+	init_completion(&fl->work);
 	fl->file_close = FASTRPC_PROCESS_DEFAULT_STATE;
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
@@ -6041,7 +6062,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		goto bail;
 
 	spin_lock(&fl->hlock);
-	if (fl->file_close == FASTRPC_PROCESS_EXIT_START) {
+	if (fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
 		err = -ESHUTDOWN;
 		pr_warn("adsprpc: fastrpc_device_release is happening, So not sending any new requests to DSP\n");
 		spin_unlock(&fl->hlock);

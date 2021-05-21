@@ -122,3 +122,5 @@ obj-$(CONFIG_CPU_V7) += idle-v7.o
 obj-$(CONFIG_DUMP_XBL_LOG) += dump_boot_log.o
 # GNSS driver
 obj-$(CONFIG_GNSS_SIRF)		+= gnsssirf/
+obj-$(CONFIG_MSM_SEB) += slate_events_bridge.o
+obj-$(CONFIG_MSM_SEB_RPMSG) += slate_events_bridge_rpmsg.o

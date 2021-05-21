@@ -174,7 +174,7 @@ int a6xx_init(struct adreno_device *adreno_dev)
 
 	/* If the memory type is DDR 4, override the existing configuration */
 	if (of_fdt_get_ddrtype() == 0x7) {
-		if (adreno_is_a660_shima(adreno_dev) ||
+		if (adreno_is_a642(adreno_dev) ||
 			adreno_is_a635(adreno_dev))
 			adreno_dev->highest_bank_bit = 14;
 		else if ((adreno_is_a650(adreno_dev) ||
@@ -314,27 +314,14 @@ static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 	return 0x00000000;
 }
 
-bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
+static bool __disable_cx_regulator_wait(struct regulator *reg,
 				struct kgsl_device *device, u32 timeout)
 {
 	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
 	unsigned int val;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-
-	if (IS_ERR_OR_NULL(reg))
-		return true;
 
 	regulator_disable(reg);
-
-	/*
-	 * Check logical enable state of CX GDSC using regulator_is_enabled()
-	 * instead of checking physical state by CX_GDSCR register because
-	 * in a640 and a680, CX_GDSCR will not be disabled from kernel. It can
-	 * be turned off by AOP for CX Power collapse.
-	 */
-	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
-		return !(regulator_is_enabled(gmu->cx_gdsc));
 
 	for (;;) {
 		if (adreno_is_a619_holi(adreno_dev))
@@ -358,6 +345,26 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 
 		usleep_range((100 >> 2) + 1, 100);
 	}
+}
+
+bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
+				struct kgsl_device *device, u32 timeout)
+{
+	bool ret;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (IS_ERR_OR_NULL(reg))
+		return true;
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
+		regulator_set_mode(reg, REGULATOR_MODE_IDLE);
+
+	ret = __disable_cx_regulator_wait(reg, device, timeout);
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
+		regulator_set_mode(reg, REGULATOR_MODE_NORMAL);
+
+	return ret;
 }
 
 static void set_holi_sptprac_clock(struct adreno_device *adreno_dev, bool enable)

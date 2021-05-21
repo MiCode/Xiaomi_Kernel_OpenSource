@@ -44,6 +44,9 @@
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/role.h>
 #include <linux/usb/redriver.h>
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+#include <soc/qcom/boot_stats.h>
+#endif
 
 #include "core.h"
 #include "gadget.h"
@@ -1447,6 +1450,112 @@ static int gsi_updatexfer_for_ep(struct usb_ep *ep,
 	return ret;
 }
 
+#define TCM_BUF_SIZE	(16 * 1024)
+#define TCM_BUF_NUM	8
+#define TCM_MEM_REQ	(TCM_BUF_SIZE * TCM_BUF_NUM)
+
+/* Using IOVA base address at end of USB IOVA address */
+#define TCM_IOVA_BASE	0x9ffe0000
+static void gsi_free_data_buffers(struct usb_ep *ep,
+			struct usb_gsi_request *req)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+
+	if (req->tcm_mem) {
+		dbg_log_string("free tcm based buffer for ep:%s\n", dep->name);
+		iommu_unmap(iommu_get_domain_for_dev(dwc->sysdev),
+				TCM_IOVA_BASE, TCM_MEM_REQ);
+		llcc_tcm_deactivate(req->tcm_mem);
+		req->tcm_mem = NULL;
+		req->dma = 0;
+	} else {
+		dma_free_coherent(dwc->sysdev,
+			req->buf_len * req->num_bufs,
+			req->buf_base_addr, req->dma);
+	}
+	req->buf_base_addr = NULL;
+	sg_free_table(&req->sgt_data_buff);
+}
+
+static int gsi_allocate_data_buffers(struct usb_ep *ep,
+			struct usb_gsi_request *req)
+{
+	size_t len = 0;
+	int ret = 0;
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct iommu_domain *usb_domain = NULL;
+
+	/* Check need of using tcm for IN endpoint only */
+	if (!(req->use_tcm_mem && dep->direction))
+		goto normal_alloc;
+
+	usb_domain = iommu_get_domain_for_dev(dwc->sysdev);
+	if (usb_domain == NULL) {
+		dev_err(dwc->dev, "No USB IOMMU domain\n");
+		goto normal_alloc;
+	}
+
+	/* Validate USB IOVA range with TCM IOVA base */
+	if (usb_domain->geometry.aperture_start <= TCM_IOVA_BASE &&
+		usb_domain->geometry.aperture_end > TCM_IOVA_BASE) {
+		dev_err(dwc->dev, "overlap IOVA: TCM:%x USB:(%x-%x)\n",
+				TCM_IOVA_BASE,
+				usb_domain->geometry.aperture_start,
+				usb_domain->geometry.aperture_end);
+		goto normal_alloc;
+	}
+
+	/* Check availability of TCM memory */
+	req->tcm_mem = llcc_tcm_activate();
+	if (IS_ERR_OR_NULL(req->tcm_mem)) {
+		dev_err(dwc->dev, "can't use tcm_mem ep:%s err:%ld\n",
+				dep->name, PTR_ERR(req->tcm_mem));
+		req->tcm_mem = NULL;
+		goto normal_alloc;
+	}
+
+	if (req->tcm_mem->mem_size < TCM_MEM_REQ) {
+		dev_err(dwc->dev, "err:tcm_mem: req sz:(%d) > avail_sz(%d)\n",
+				TCM_MEM_REQ, req->tcm_mem->mem_size);
+		llcc_tcm_deactivate(req->tcm_mem);
+		req->tcm_mem = NULL;
+		goto normal_alloc;
+	}
+
+	len = TCM_MEM_REQ;
+	ret = iommu_map(usb_domain, TCM_IOVA_BASE, req->tcm_mem->phys_addr, len,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_NOEXEC);
+	if (ret) {
+		dev_err(dwc->dev, "%s: can't map TCM mem, using DDR\n",
+				dep->name);
+		llcc_tcm_deactivate(req->tcm_mem);
+		req->tcm_mem = NULL;
+		goto normal_alloc;
+	}
+
+	req->buf_base_addr = (void __force *)req->tcm_mem->virt_addr;
+	req->buf_len = TCM_BUF_SIZE;
+	req->num_bufs = TCM_BUF_NUM;
+	req->dma = TCM_IOVA_BASE;
+	goto fill_sgtable;
+
+normal_alloc:
+	len = req->buf_len * req->num_bufs;
+	req->buf_base_addr = dma_alloc_coherent(dwc->sysdev, len,
+			&req->dma, GFP_KERNEL);
+	if (!req->buf_base_addr)
+		return -ENOMEM;
+
+fill_sgtable:
+	dma_get_sgtable(dwc->sysdev, &req->sgt_data_buff,
+			req->buf_base_addr, req->dma, len);
+	dbg_log_string("alloc buffer for ep:%s use_tcm_mem:%d mem_type:%s\n",
+		dep->name, req->use_tcm_mem, req->tcm_mem ? "TCM" : "DDR");
+	return 0;
+}
+
 /**
  * Allocates Buffers and TRBs. Configures TRBs for GSI EPs.
  *
@@ -1457,39 +1566,30 @@ static int gsi_updatexfer_for_ep(struct usb_ep *ep,
  */
 static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
-	int i = 0;
-	size_t len;
+	int i = 0, ret;
 	dma_addr_t buffer_addr;
 	dma_addr_t trb0_dma;
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3		*dwc = dep->dwc;
 	struct dwc3_trb *trb;
-	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
-					: (req->num_bufs + 2);
+	int num_trbs;
 	struct scatterlist *sg;
 	struct sg_table *sgt;
 
-	/* Allocate TRB buffers */
-
-	len = req->buf_len * req->num_bufs;
-	req->buf_base_addr = dma_alloc_coherent(dwc->sysdev, len, &req->dma,
-					GFP_KERNEL);
-	if (!req->buf_base_addr) {
-		dev_err(dwc->dev, "buf_base_addr allocate failed %s\n",
+	ret = gsi_allocate_data_buffers(ep, req);
+	if (ret) {
+		dev_err(dep->dwc->dev, "failed to alloc TRB buffer for %s\n",
 				dep->name);
-		return -ENOMEM;
+		return ret;
 	}
 
-	dma_get_sgtable(dwc->sysdev, &req->sgt_data_buff, req->buf_base_addr,
-			req->dma, len);
-
 	buffer_addr = req->dma;
-
 	/* Allocate and configure TRBs */
+	num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
+					: (req->num_bufs + 2);
 	dep->trb_pool = dma_alloc_coherent(dwc->sysdev,
 				num_trbs * sizeof(struct dwc3_trb),
 				&dep->trb_pool_dma, GFP_KERNEL);
-
 	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to alloc trb dma pool for %s\n",
 				dep->name);
@@ -1564,9 +1664,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	return 0;
 
 free_trb_buffer:
-	dma_free_coherent(dwc->sysdev, len, req->buf_base_addr, req->dma);
-	req->buf_base_addr = NULL;
-	sg_free_table(&req->sgt_data_buff);
+	gsi_free_data_buffers(ep, req);
 	return -ENOMEM;
 }
 
@@ -1596,10 +1694,7 @@ static void gsi_free_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	sg_free_table(&req->sgt_trb_xfer_ring);
 
 	/* free TRB buffers */
-	dma_free_coherent(dwc->sysdev, req->buf_len * req->num_bufs,
-		req->buf_base_addr, req->dma);
-	req->buf_base_addr = NULL;
-	sg_free_table(&req->sgt_data_buff);
+	gsi_free_data_buffers(ep, req);
 }
 /**
  * Configures GSI EPs. For GSI EPs we need to set interrupter numbers.
@@ -3718,6 +3813,14 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 
 	dwc->t_pwr_evt_irq = ktime_get();
 	dev_dbg(mdwc->dev, "%s received\n", __func__);
+
+	if (mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
+		dev_info(mdwc->dev, "USB Resume start\n");
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+		place_marker("M - USB device resume started");
+#endif
+	}
+
 	/*
 	 * When in Low Power Mode, can't read PWR_EVNT_IRQ_STAT_REG to acertain
 	 * which interrupts have been triggered, as the clocks are disabled.
@@ -3930,7 +4033,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	 * Drive a pulse on DP to ensure proper CDP detection
 	 * and only when the vbus connect event is a valid one.
 	 */
-	if (get_chg_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
+	if (get_chg_type(mdwc) == POWER_SUPPLY_USB_TYPE_CDP &&
 			mdwc->vbus_active && !mdwc->check_eud_state) {
 		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
 		mdwc->hs_phy->charger_detect(mdwc->hs_phy);
@@ -5749,6 +5852,14 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	dbg_event(0xFF, "PM Res", 0);
 
 	atomic_set(&mdwc->pm_suspended, 0);
+
+	if (atomic_read(&dwc->in_lpm) &&
+			mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
+		dev_info(mdwc->dev, "USB Resume start\n");
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+		place_marker("M - USB device resume started");
+#endif
+	}
 
 	if (!mdwc->in_host_mode) {
 		/* kick in otg state machine */

@@ -529,16 +529,18 @@ static void ep_pcie_pipe_clk_deinit(struct ep_pcie_dev_t *dev)
 
 static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 {
+	struct resource *res = dev->res[EP_PCIE_RES_MMIO].resource;
+	u32 mask = res->end - res->start;
 	u32 properties = 0x4;
 
 	EP_PCIE_DBG(dev, "PCIe V%d: BAR mask to program is 0x%x\n",
-			dev->rev, dev->mmio_res_size);
+			dev->rev, mask);
 
 	/* Configure BAR mask via CS2 */
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, 0, BIT(0));
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, dev->mmio_res_size);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, mask);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x4, 0);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, dev->mmio_res_size);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, mask);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0xc, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x14, 0);
@@ -654,10 +656,6 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		ep_pcie_write_mask(dev->dm_core +
 				PCIE20_LINK_CONTROL2_LINK_STATUS2,
 				0xf, dev->link_speed);
-
-		EP_PCIE_DBG2(dev, "PCIe V%d: Allow L1 after D3_COLD->D0\n",
-				dev->rev);
-		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 
 		EP_PCIE_DBG2(dev, "PCIe V%d: Clear disconn_req after D3_COLD\n",
 			     dev->rev);
@@ -1300,7 +1298,6 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 					goto out;
 				}
 			}
-			dev->mmio_res_size = res->end = res->start;
 		} else {
 			EP_PCIE_DBG(dev, "start addr for %s is %pa\n",
 				res_info->name,	&res->start);
@@ -1975,6 +1972,11 @@ checkbme:
 			dev->rev, retries,
 			BME_TIMEOUT_US_MIN * retries / 1000);
 		ep_pcie_enumeration_complete(dev);
+
+		EP_PCIE_DBG2(dev, "PCIe V%d: Allow L1 after BME is set\n",
+				dev->rev);
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
+
 		/* expose BAR to user space to identify modem */
 		ep_pcie_bar0_address =
 			readl_relaxed(dev->dm_core + PCIE20_BAR0);
@@ -2148,6 +2150,10 @@ static irqreturn_t ep_pcie_handle_bme_irq(int irq, void *data)
 				dev->rev);
 			ep_pcie_notify_event(dev, EP_PCIE_EVENT_LINKUP);
 		}
+
+		EP_PCIE_DBG2(dev, "PCIe V%d: Allow L1 after BME is set\n",
+				dev->rev);
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 	} else {
 		EP_PCIE_DBG(dev,
 				"PCIe V%d:BME is still disabled\n", dev->rev);

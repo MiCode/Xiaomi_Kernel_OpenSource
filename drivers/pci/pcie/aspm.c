@@ -761,8 +761,8 @@ void pci_save_aspm_l1ss_state(struct pci_dev *dev)
 		return;
 
 	cap = (u32 *)&save_state->cap.data[0];
-	pci_read_config_dword(dev, aspm_l1ss + PCI_L1SS_CTL1, cap++);
 	pci_read_config_dword(dev, aspm_l1ss + PCI_L1SS_CTL2, cap++);
+	pci_read_config_dword(dev, aspm_l1ss + PCI_L1SS_CTL1, cap);
 }
 
 void pci_restore_aspm_l1ss_state(struct pci_dev *dev)
@@ -780,8 +780,8 @@ void pci_restore_aspm_l1ss_state(struct pci_dev *dev)
 		return;
 
 	cap = (u32 *)&save_state->cap.data[0];
-	pci_write_config_dword(dev, aspm_l1ss + PCI_L1SS_CTL1, *cap++);
 	pci_write_config_dword(dev, aspm_l1ss + PCI_L1SS_CTL2, *cap++);
+	pci_write_config_dword(dev, aspm_l1ss + PCI_L1SS_CTL1, *cap);
 }
 #endif
 

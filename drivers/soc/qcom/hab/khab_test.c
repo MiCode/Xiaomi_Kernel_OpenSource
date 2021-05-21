@@ -3,10 +3,10 @@
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
+#include <linux/rtc.h>
 #if !defined CONFIG_GHS_VMM && defined(CONFIG_QTI_QUIN_GVM)
 #include <asm/cacheflush.h>
 #include <linux/list.h>
-#include <linux/rtc.h>
 #include "hab_pipe.h"
 #include "hab_qvm.h"
 #include "khab_test.h"

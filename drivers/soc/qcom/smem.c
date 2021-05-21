@@ -735,7 +735,7 @@ phys_addr_t qcom_smem_virt_to_phys(void *p)
 		if (p < region->virt_base)
 			continue;
 		if (p < region->virt_base + region->size) {
-			u64 offset = p - region->virt_base;
+			u64 offset = p - (void *)region->virt_base;
 
 			return (phys_addr_t)region->aux_base + offset;
 		}

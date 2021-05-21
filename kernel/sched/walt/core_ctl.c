@@ -18,6 +18,7 @@
 #include <trace/events/sched.h>
 #include "qc_vas.h"
 
+#define MAX_NR_HISTORY_COUNT	2
 struct cluster_data {
 	bool inited;
 	unsigned int min_cpus;
@@ -33,6 +34,8 @@ struct cluster_data {
 	unsigned int need_cpus;
 	unsigned int task_thres;
 	unsigned int max_nr;
+	unsigned int max_nr_avg;
+	unsigned int max_nr_history[MAX_NR_HISTORY_COUNT];
 	unsigned int nr_prev_assist;
 	unsigned int nr_prev_assist_thresh;
 	s64 need_ts;
@@ -545,6 +548,23 @@ static int compute_cluster_max_nr(int index)
 	return max_nr;
 }
 
+static int compute_cluster_average_max_nr(int index, unsigned int max_nr)
+{
+	struct cluster_data *cluster = &cluster_state[index];
+	u32 *hist = &cluster->max_nr_history[0];
+	int idx, sum = 0;
+
+	for (idx = MAX_NR_HISTORY_COUNT - 1; idx > 0; idx--) {
+		hist[idx] = hist[idx-1];
+		sum += hist[idx];
+	}
+
+	hist[0] = max_nr;
+	sum += hist[0];
+
+	return DIV_ROUND_UP(sum, MAX_NR_HISTORY_COUNT);
+}
+
 static int cluster_real_big_tasks(int index)
 {
 	int nr_big = 0;
@@ -681,6 +701,7 @@ static void update_running_avg(void)
 
 		cluster->nrrun = nr_need + prev_misfit_need;
 		cluster->max_nr = compute_cluster_max_nr(index);
+		cluster->max_nr_avg = compute_cluster_average_max_nr(index, cluster->max_nr);
 		cluster->nr_prev_assist = prev_cluster_nr_need_assist(index);
 
 		cluster->strict_nrrun = compute_cluster_nr_strict_need(index);
@@ -723,7 +744,8 @@ static unsigned int apply_task_need(const struct cluster_data *cluster,
 	 * If any CPU has more than MAX_NR_THRESHOLD in the last
 	 * window, bring another CPU to help out.
 	 */
-	if (cluster->max_nr > MAX_NR_THRESHOLD)
+	if (cluster->max_nr > MAX_NR_THRESHOLD &&
+	    cluster->max_nr_avg > MAX_NR_THRESHOLD)
 		new_need = new_need + 1;
 
 	/*

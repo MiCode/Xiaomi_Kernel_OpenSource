@@ -27,6 +27,7 @@
 #define ICNSS_SMEM_SEQ_NO_POS 16
 #define QCA6750_PATH_PREFIX    "qca6750/"
 #define ICNSS_MAX_FILE_NAME      35
+#define ICNSS_PCI_EP_WAKE_OFFSET 4
 
 extern uint64_t dynamic_feature_mask;
 
@@ -182,6 +183,8 @@ enum icnss_smp2p_msg_id {
 	ICNSS_POWER_SAVE_ENTER = 1,
 	ICNSS_POWER_SAVE_EXIT,
 	ICNSS_TRIGGER_SSR,
+	ICNSS_PCI_EP_POWER_SAVE_ENTER = 6,
+	ICNSS_PCI_EP_POWER_SAVE_EXIT,
 };
 
 struct icnss_stats {
@@ -353,6 +356,9 @@ struct icnss_priv {
 	phys_addr_t mem_base_pa;
 	void __iomem *mem_base_va;
 	u32 mem_base_size;
+	phys_addr_t mhi_state_info_pa;
+	void __iomem *mhi_state_info_va;
+	u32 mhi_state_info_size;
 	struct iommu_domain *iommu_domain;
 	dma_addr_t smmu_iova_start;
 	size_t smmu_iova_len;

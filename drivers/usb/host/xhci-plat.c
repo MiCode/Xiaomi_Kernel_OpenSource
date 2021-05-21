@@ -276,7 +276,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	}
 
 	if (device_may_wakeup(sysdev))
-		device_wakeup_enable(hcd->self.controller);
+		device_init_wakeup(hcd->self.controller, 1);
 
 	xhci->main_hcd = hcd;
 	xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,

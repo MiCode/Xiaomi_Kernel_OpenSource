@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2021, The Linux Foundation. All rights reserved. */
 
 #ifndef WLAN_FIRMWARE_SERVICE_V01_H
 #define WLAN_FIRMWARE_SERVICE_V01_H
@@ -9,115 +9,117 @@
 #define WLFW_SERVICE_ID_V01 0x45
 #define WLFW_SERVICE_VERS_V01 0x01
 
-#define QMI_WLFW_POWER_SAVE_RESP_V01 0x0050
-#define QMI_WLFW_CAP_REQ_V01 0x0024
-#define QMI_WLFW_CAL_REPORT_REQ_V01 0x0026
-#define QMI_WLFW_M3_INFO_RESP_V01 0x003C
-#define QMI_WLFW_CAL_REPORT_RESP_V01 0x0026
-#define QMI_WLFW_MAC_ADDR_RESP_V01 0x0033
-#define QMI_WLFW_DYNAMIC_FEATURE_MASK_RESP_V01 0x003B
 #define QMI_WLFW_IND_REGISTER_REQ_V01 0x0020
-#define QMI_WLFW_DYNAMIC_FEATURE_MASK_REQ_V01 0x003B
-#define QMI_WLFW_QDSS_TRACE_MODE_RESP_V01 0x0045
-#define QMI_WLFW_FW_READY_IND_V01 0x0021
-#define QMI_WLFW_QDSS_TRACE_MEM_INFO_RESP_V01 0x0040
-#define QMI_WLFW_CAL_UPDATE_REQ_V01 0x0029
-#define QMI_WLFW_REQUEST_MEM_IND_V01 0x0035
-#define QMI_WLFW_QDSS_TRACE_DATA_RESP_V01 0x0042
-#define QMI_WLFW_RESPOND_MEM_RESP_V01 0x0036
-#define QMI_WLFW_VBATT_RESP_V01 0x0032
-#define QMI_WLFW_QDSS_TRACE_MODE_REQ_V01 0x0045
-#define QMI_WLFW_CAL_DOWNLOAD_REQ_V01 0x0027
 #define QMI_WLFW_IND_REGISTER_RESP_V01 0x0020
-#define QMI_WLFW_CAL_UPDATE_RESP_V01 0x0029
-#define QMI_WLFW_M3_INFO_REQ_V01 0x003C
-#define QMI_WLFW_PCIE_GEN_SWITCH_REQ_V01 0x0053
-#define QMI_WLFW_ANTENNA_GRANT_RESP_V01 0x0048
-#define QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01 0x002A
-#define QMI_WLFW_RESPOND_MEM_REQ_V01 0x0036
-#define QMI_WLFW_HOST_CAP_RESP_V01 0x0034
-#define QMI_WLFW_MSA_READY_IND_V01 0x002B
+#define QMI_WLFW_FW_READY_IND_V01 0x0021
 #define QMI_WLFW_WLAN_MODE_REQ_V01 0x0022
-#define QMI_WLFW_WLAN_CFG_RESP_V01 0x0023
-#define QMI_WLFW_REJUVENATE_IND_V01 0x0039
-#define QMI_WLFW_ATHDIAG_WRITE_REQ_V01 0x0031
-#define QMI_WLFW_SOC_WAKE_REQ_V01 0x004F
-#define QMI_WLFW_PIN_CONNECT_RESULT_IND_V01 0x002C
-#define QMI_WLFW_M3_DUMP_UPLOAD_DONE_RESP_V01 0x004E
-#define QMI_WLFW_QDSS_TRACE_SAVE_IND_V01 0x0041
-#define QMI_WLFW_BDF_DOWNLOAD_RESP_V01 0x0025
-#define QMI_WLFW_REJUVENATE_ACK_RESP_V01 0x003A
-#define QMI_WLFW_MSA_INFO_RESP_V01 0x002D
-#define QMI_WLFW_SHUTDOWN_REQ_V01 0x0043
-#define QMI_WLFW_VBATT_REQ_V01 0x0032
-#define QMI_WLFW_MAC_ADDR_REQ_V01 0x0033
-#define QMI_WLFW_WLAN_CFG_REQ_V01 0x0023
-#define QMI_WLFW_ANTENNA_GRANT_REQ_V01 0x0048
-#define QMI_WLFW_BDF_DOWNLOAD_REQ_V01 0x0025
-#define QMI_WLFW_FW_MEM_READY_IND_V01 0x0037
-#define QMI_WLFW_RESPOND_GET_INFO_IND_V01 0x004B
-#define QMI_WLFW_QDSS_TRACE_DATA_REQ_V01 0x0042
-#define QMI_WLFW_CAL_DOWNLOAD_RESP_V01 0x0027
-#define QMI_WLFW_INI_RESP_V01 0x002F
-#define QMI_WLFW_QDSS_TRACE_MEM_INFO_REQ_V01 0x0040
-#define QMI_WLFW_ANTENNA_SWITCH_REQ_V01 0x0047
-#define QMI_WLFW_QDSS_TRACE_REQ_MEM_IND_V01 0x003F
-#define QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01 0x0028
-#define QMI_WLFW_ATHDIAG_WRITE_RESP_V01 0x0031
-#define QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_RESP_V01 0x0044
-#define QMI_WLFW_SOC_WAKE_RESP_V01 0x004F
-#define QMI_WLFW_GET_INFO_RESP_V01 0x004A
-#define QMI_WLFW_PCIE_GEN_SWITCH_RESP_V01 0x0053
-#define QMI_WLFW_INI_REQ_V01 0x002F
-#define QMI_WLFW_M3_DUMP_UPLOAD_SEGMENTS_REQ_IND_V01 0x0054
-#define QMI_WLFW_MSA_READY_REQ_V01 0x002E
-#define QMI_WLFW_M3_DUMP_UPLOAD_DONE_REQ_V01 0x004E
-#define QMI_WLFW_CAP_RESP_V01 0x0024
-#define QMI_WLFW_REJUVENATE_ACK_REQ_V01 0x003A
-#define QMI_WLFW_ATHDIAG_READ_RESP_V01 0x0030
-#define QMI_WLFW_ANTENNA_SWITCH_RESP_V01 0x0047
-#define QMI_WLFW_DEVICE_INFO_REQ_V01 0x004C
-#define QMI_WLFW_MSA_INFO_REQ_V01 0x002D
-#define QMI_WLFW_HOST_CAP_REQ_V01 0x0034
-#define QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01 0x0044
-#define QMI_WLFW_GET_INFO_REQ_V01 0x004A
-#define QMI_WLFW_CAL_DONE_IND_V01 0x003E
-#define QMI_WLFW_M3_DUMP_UPLOAD_REQ_IND_V01 0x004D
-#define QMI_WLFW_WFC_CALL_STATUS_RESP_V01 0x0049
-#define QMI_WLFW_FW_INIT_DONE_IND_V01 0x0038
-#define QMI_WLFW_POWER_SAVE_REQ_V01 0x0050
-#define QMI_WLFW_XO_CAL_IND_V01 0x003D
-#define QMI_WLFW_SHUTDOWN_RESP_V01 0x0043
-#define QMI_WLFW_ATHDIAG_READ_REQ_V01 0x0030
-#define QMI_WLFW_WFC_CALL_TWT_CONFIG_IND_V01 0x0051
 #define QMI_WLFW_WLAN_MODE_RESP_V01 0x0022
-#define QMI_WLFW_WFC_CALL_STATUS_REQ_V01 0x0049
-#define QMI_WLFW_DEVICE_INFO_RESP_V01 0x004C
+#define QMI_WLFW_WLAN_CFG_REQ_V01 0x0023
+#define QMI_WLFW_WLAN_CFG_RESP_V01 0x0023
+#define QMI_WLFW_CAP_REQ_V01 0x0024
+#define QMI_WLFW_CAP_RESP_V01 0x0024
+#define QMI_WLFW_BDF_DOWNLOAD_REQ_V01 0x0025
+#define QMI_WLFW_BDF_DOWNLOAD_RESP_V01 0x0025
+#define QMI_WLFW_CAL_REPORT_REQ_V01 0x0026
+#define QMI_WLFW_CAL_REPORT_RESP_V01 0x0026
+#define QMI_WLFW_CAL_DOWNLOAD_REQ_V01 0x0027
+#define QMI_WLFW_CAL_DOWNLOAD_RESP_V01 0x0027
+#define QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01 0x0028
+#define QMI_WLFW_CAL_UPDATE_REQ_V01 0x0029
+#define QMI_WLFW_CAL_UPDATE_RESP_V01 0x0029
+#define QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01 0x002A
+#define QMI_WLFW_MSA_READY_IND_V01 0x002B
+#define QMI_WLFW_PIN_CONNECT_RESULT_IND_V01 0x002C
+#define QMI_WLFW_MSA_INFO_REQ_V01 0x002D
+#define QMI_WLFW_MSA_INFO_RESP_V01 0x002D
+#define QMI_WLFW_MSA_READY_REQ_V01 0x002E
 #define QMI_WLFW_MSA_READY_RESP_V01 0x002E
+#define QMI_WLFW_INI_REQ_V01 0x002F
+#define QMI_WLFW_INI_RESP_V01 0x002F
+#define QMI_WLFW_ATHDIAG_READ_REQ_V01 0x0030
+#define QMI_WLFW_ATHDIAG_READ_RESP_V01 0x0030
+#define QMI_WLFW_ATHDIAG_WRITE_REQ_V01 0x0031
+#define QMI_WLFW_ATHDIAG_WRITE_RESP_V01 0x0031
+#define QMI_WLFW_VBATT_REQ_V01 0x0032
+#define QMI_WLFW_VBATT_RESP_V01 0x0032
+#define QMI_WLFW_MAC_ADDR_REQ_V01 0x0033
+#define QMI_WLFW_MAC_ADDR_RESP_V01 0x0033
+#define QMI_WLFW_HOST_CAP_REQ_V01 0x0034
+#define QMI_WLFW_HOST_CAP_RESP_V01 0x0034
+#define QMI_WLFW_REQUEST_MEM_IND_V01 0x0035
+#define QMI_WLFW_RESPOND_MEM_REQ_V01 0x0036
+#define QMI_WLFW_RESPOND_MEM_RESP_V01 0x0036
+#define QMI_WLFW_FW_MEM_READY_IND_V01 0x0037
+#define QMI_WLFW_FW_INIT_DONE_IND_V01 0x0038
+#define QMI_WLFW_REJUVENATE_IND_V01 0x0039
+#define QMI_WLFW_REJUVENATE_ACK_REQ_V01 0x003A
+#define QMI_WLFW_REJUVENATE_ACK_RESP_V01 0x003A
+#define QMI_WLFW_DYNAMIC_FEATURE_MASK_REQ_V01 0x003B
+#define QMI_WLFW_DYNAMIC_FEATURE_MASK_RESP_V01 0x003B
+#define QMI_WLFW_M3_INFO_REQ_V01 0x003C
+#define QMI_WLFW_M3_INFO_RESP_V01 0x003C
+#define QMI_WLFW_XO_CAL_IND_V01 0x003D
+#define QMI_WLFW_CAL_DONE_IND_V01 0x003E
+#define QMI_WLFW_QDSS_TRACE_REQ_MEM_IND_V01 0x003F
+#define QMI_WLFW_QDSS_TRACE_MEM_INFO_REQ_V01 0x0040
+#define QMI_WLFW_QDSS_TRACE_MEM_INFO_RESP_V01 0x0040
+#define QMI_WLFW_QDSS_TRACE_SAVE_IND_V01 0x0041
+#define QMI_WLFW_QDSS_TRACE_DATA_REQ_V01 0x0042
+#define QMI_WLFW_QDSS_TRACE_DATA_RESP_V01 0x0042
+#define QMI_WLFW_SHUTDOWN_REQ_V01 0x0043
+#define QMI_WLFW_SHUTDOWN_RESP_V01 0x0043
+#define QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01 0x0044
+#define QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_RESP_V01 0x0044
+#define QMI_WLFW_QDSS_TRACE_MODE_REQ_V01 0x0045
+#define QMI_WLFW_QDSS_TRACE_MODE_RESP_V01 0x0045
 #define QMI_WLFW_QDSS_TRACE_FREE_IND_V01 0x0046
+#define QMI_WLFW_ANTENNA_SWITCH_REQ_V01 0x0047
+#define QMI_WLFW_ANTENNA_SWITCH_RESP_V01 0x0047
+#define QMI_WLFW_ANTENNA_GRANT_REQ_V01 0x0048
+#define QMI_WLFW_ANTENNA_GRANT_RESP_V01 0x0048
+#define QMI_WLFW_WFC_CALL_STATUS_REQ_V01 0x0049
+#define QMI_WLFW_WFC_CALL_STATUS_RESP_V01 0x0049
+#define QMI_WLFW_GET_INFO_REQ_V01 0x004A
+#define QMI_WLFW_GET_INFO_RESP_V01 0x004A
+#define QMI_WLFW_RESPOND_GET_INFO_IND_V01 0x004B
+#define QMI_WLFW_DEVICE_INFO_REQ_V01 0x004C
+#define QMI_WLFW_DEVICE_INFO_RESP_V01 0x004C
+#define QMI_WLFW_M3_DUMP_UPLOAD_REQ_IND_V01 0x004D
+#define QMI_WLFW_M3_DUMP_UPLOAD_DONE_REQ_V01 0x004E
+#define QMI_WLFW_M3_DUMP_UPLOAD_DONE_RESP_V01 0x004E
+#define QMI_WLFW_SOC_WAKE_REQ_V01 0x004F
+#define QMI_WLFW_SOC_WAKE_RESP_V01 0x004F
+#define QMI_WLFW_POWER_SAVE_REQ_V01 0x0050
+#define QMI_WLFW_POWER_SAVE_RESP_V01 0x0050
+#define QMI_WLFW_WFC_CALL_TWT_CONFIG_IND_V01 0x0051
 #define QMI_WLFW_QDSS_MEM_READY_IND_V01 0x0052
+#define QMI_WLFW_PCIE_GEN_SWITCH_REQ_V01 0x0053
+#define QMI_WLFW_PCIE_GEN_SWITCH_RESP_V01 0x0053
+#define QMI_WLFW_M3_DUMP_UPLOAD_SEGMENTS_REQ_IND_V01 0x0054
 
-#define QMI_WLFW_MAX_M3_SEGMENTS_SIZE_V01 10
-#define QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01 2
-#define QMI_WLFW_MAX_NUM_MEM_SEG_V01 32
-#define QMI_WLFW_MAX_NUM_CAL_V01 5
-#define QMI_WLFW_MAX_DATA_SIZE_V01 6144
-#define QMI_WLFW_FUNCTION_NAME_LEN_V01 128
 #define QMI_WLFW_MAX_NUM_CE_V01 12
-#define QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01 3
-#define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
-#define QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01 6144
-#define QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01 256
-#define QMI_WLFW_MAX_NUM_GPIO_V01 32
-#define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
-#define QMI_WLFW_MAX_NUM_MEM_CFG_V01 2
+#define QMI_WLFW_MAX_NUM_SVC_V01 24
+#define QMI_WLFW_MAX_DATA_SIZE_V01 6144
+#define QMI_WLFW_MAX_NUM_CAL_V01 5
 #define QMI_WLFW_MAX_STR_LEN_V01 16
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
-#define QMI_WLFW_MAC_ADDR_SIZE_V01 6
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01 36
-#define QMI_WLFW_MAX_DEV_MEM_NUM_V01 4
+#define QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01 2
+#define QMI_WLFW_MAX_NUM_MEM_CFG_V01 2
+#define QMI_WLFW_MAX_NUM_MEM_SEG_V01 52
+#define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
+#define QMI_WLFW_MAC_ADDR_SIZE_V01 6
+#define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
+#define QMI_WLFW_FUNCTION_NAME_LEN_V01 128
+#define QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01 6144
+#define QMI_WLFW_MAX_NUM_GPIO_V01 32
+#define QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01 256
 #define QMI_WLFW_MAX_PLATFORM_NAME_LEN_V01 64
-#define QMI_WLFW_MAX_NUM_SVC_V01 24
+#define QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01 3
+#define QMI_WLFW_MAX_M3_SEGMENTS_SIZE_V01 10
+#define QMI_WLFW_MAX_DEV_MEM_NUM_V01 4
+#define QMI_WLFW_MAX_NUM_MLO_CHIPS_V01 3
+#define QMI_WLFW_MAX_NUM_MLO_LINKS_PER_CHIP_V01 2
 
 enum wlfw_driver_mode_enum_v01 {
 	WLFW_DRIVER_MODE_ENUM_MIN_VAL_V01 = INT_MIN,
@@ -162,6 +164,7 @@ enum wlfw_mem_type_enum_v01 {
 	QMI_WLFW_MEM_DPD_V01 = 5,
 	QMI_WLFW_MEM_QDSS_V01 = 6,
 	QMI_WLFW_MEM_HANG_DATA_V01 = 7,
+	QMI_WLFW_MLO_GLOBAL_MEM_V01 = 8,
 	WLFW_MEM_TYPE_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
@@ -238,6 +241,13 @@ enum wlfw_m3_segment_type_v01 {
 	QMI_M3_SEGMENT_PHYAPDMEM_V01 = 5,
 	QMI_M3_SEGMENT_MAX_V01 = 6,
 	WLFW_M3_SEGMENT_TYPE_MAX_VAL_V01 = INT_MAX,
+};
+
+enum cnss_feature_v01 {
+	CNSS_FEATURE_MIN_VAL_V01 = INT_MIN,
+	BOOTSTRAP_CLOCK_SELECT_V01 = 0,
+	CNSS_MAX_FEATURE_V01 = 64,
+	CNSS_FEATURE_MAX_VAL_V01 = INT_MAX,
 };
 
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
@@ -354,6 +364,13 @@ struct wlfw_dev_mem_info_s_v01 {
 	u64 size;
 };
 
+struct wlfw_host_mlo_chip_info_s_v01 {
+	u8 chip_id;
+	u8 num_local_links;
+	u8 hw_link_id[QMI_WLFW_MAX_NUM_MLO_LINKS_PER_CHIP_V01];
+	u8 valid_mlo_link_id[QMI_WLFW_MAX_NUM_MLO_LINKS_PER_CHIP_V01];
+};
+
 struct wlfw_ind_register_req_msg_v01 {
 	u8 fw_ready_enable_valid;
 	u8 fw_ready_enable;
@@ -396,7 +413,6 @@ struct wlfw_ind_register_req_msg_v01 {
 	u8 m3_dump_upload_segments_req_enable_valid;
 	u8 m3_dump_upload_segments_req_enable;
 };
-
 #define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 86
 extern struct qmi_elem_info wlfw_ind_register_req_msg_v01_ei[];
 
@@ -511,10 +527,8 @@ struct wlfw_cap_resp_msg_v01 {
 	u8 rd_card_chain_cap_valid;
 	enum wlfw_rd_card_chain_cap_v01 rd_card_chain_cap;
 	u8 dev_mem_info_valid;
-	struct wlfw_dev_mem_info_s_v01
-		dev_mem_info[QMI_WLFW_MAX_DEV_MEM_NUM_V01];
+	struct wlfw_dev_mem_info_s_v01 dev_mem_info[QMI_WLFW_MAX_DEV_MEM_NUM_V01];
 };
-
 #define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 320
 extern struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[];
 
@@ -552,8 +566,10 @@ struct wlfw_cal_report_req_msg_v01 {
 	u8 xo_cal_data;
 	u8 cal_remove_supported_valid;
 	u8 cal_remove_supported;
+	u8 cal_file_download_size_valid;
+	u64 cal_file_download_size;
 };
-#define WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN 32
+#define WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN 43
 extern struct qmi_elem_info wlfw_cal_report_req_msg_v01_ei[];
 
 struct wlfw_cal_report_resp_msg_v01 {
@@ -765,8 +781,23 @@ struct wlfw_host_cap_req_msg_v01 {
 	struct wlfw_host_ddr_range_s_v01 ddr_range[QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01];
 	u8 host_build_type_valid;
 	enum wlfw_host_build_type_v01 host_build_type;
+	u8 mlo_capable_valid;
+	u8 mlo_capable;
+	u8 mlo_chip_id_valid;
+	u16 mlo_chip_id;
+	u8 mlo_group_id_valid;
+	u8 mlo_group_id;
+	u8 max_mlo_peer_valid;
+	u16 max_mlo_peer;
+	u8 mlo_num_chips_valid;
+	u8 mlo_num_chips;
+	u8 mlo_chip_info_valid;
+	struct wlfw_host_mlo_chip_info_s_v01 mlo_chip_info[QMI_WLFW_MAX_NUM_MLO_CHIPS_V01];
+	u8 feature_list_valid;
+	u64 feature_list;
 };
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 319
+
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 373
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
@@ -779,14 +810,14 @@ struct wlfw_request_mem_ind_msg_v01 {
 	u32 mem_seg_len;
 	struct wlfw_mem_seg_s_v01 mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
 };
-#define WLFW_REQUEST_MEM_IND_MSG_V01_MAX_MSG_LEN 1124
+#define WLFW_REQUEST_MEM_IND_MSG_V01_MAX_MSG_LEN 1824
 extern struct qmi_elem_info wlfw_request_mem_ind_msg_v01_ei[];
 
 struct wlfw_respond_mem_req_msg_v01 {
 	u32 mem_seg_len;
 	struct wlfw_mem_seg_resp_s_v01 mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
 };
-#define WLFW_RESPOND_MEM_REQ_MSG_V01_MAX_MSG_LEN 548
+#define WLFW_RESPOND_MEM_REQ_MSG_V01_MAX_MSG_LEN 888
 extern struct qmi_elem_info wlfw_respond_mem_req_msg_v01_ei[];
 
 struct wlfw_respond_mem_resp_msg_v01 {
@@ -807,7 +838,6 @@ struct wlfw_fw_init_done_ind_msg_v01 {
 	u8 hang_data_length_valid;
 	u16 hang_data_length;
 };
-
 #define WLFW_FW_INIT_DONE_IND_MSG_V01_MAX_MSG_LEN 12
 extern struct qmi_elem_info wlfw_fw_init_done_ind_msg_v01_ei[];
 
@@ -873,23 +903,24 @@ struct wlfw_xo_cal_ind_msg_v01 {
 extern struct qmi_elem_info wlfw_xo_cal_ind_msg_v01_ei[];
 
 struct wlfw_cal_done_ind_msg_v01 {
-	char placeholder;
+	u8 cal_file_upload_size_valid;
+	u64 cal_file_upload_size;
 };
-#define WLFW_CAL_DONE_IND_MSG_V01_MAX_MSG_LEN 0
+#define WLFW_CAL_DONE_IND_MSG_V01_MAX_MSG_LEN 11
 extern struct qmi_elem_info wlfw_cal_done_ind_msg_v01_ei[];
 
 struct wlfw_qdss_trace_req_mem_ind_msg_v01 {
 	u32 mem_seg_len;
 	struct wlfw_mem_seg_s_v01 mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
 };
-#define WLFW_QDSS_TRACE_REQ_MEM_IND_MSG_V01_MAX_MSG_LEN 1124
+#define WLFW_QDSS_TRACE_REQ_MEM_IND_MSG_V01_MAX_MSG_LEN 1824
 extern struct qmi_elem_info wlfw_qdss_trace_req_mem_ind_msg_v01_ei[];
 
 struct wlfw_qdss_trace_mem_info_req_msg_v01 {
 	u32 mem_seg_len;
 	struct wlfw_mem_seg_resp_s_v01 mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
 };
-#define WLFW_QDSS_TRACE_MEM_INFO_REQ_MSG_V01_MAX_MSG_LEN 548
+#define WLFW_QDSS_TRACE_MEM_INFO_REQ_MSG_V01_MAX_MSG_LEN 888
 extern struct qmi_elem_info wlfw_qdss_trace_mem_info_req_msg_v01_ei[];
 
 struct wlfw_qdss_trace_mem_info_resp_msg_v01 {
@@ -907,7 +938,7 @@ struct wlfw_qdss_trace_save_ind_msg_v01 {
 	u8 file_name_valid;
 	char file_name[QMI_WLFW_MAX_STR_LEN_V01 + 1];
 };
-#define WLFW_QDSS_TRACE_SAVE_IND_MSG_V01_MAX_MSG_LEN 581
+#define WLFW_QDSS_TRACE_SAVE_IND_MSG_V01_MAX_MSG_LEN 921
 extern struct qmi_elem_info wlfw_qdss_trace_save_ind_msg_v01_ei[];
 
 struct wlfw_qdss_trace_data_req_msg_v01 {
@@ -973,7 +1004,7 @@ struct wlfw_qdss_trace_free_ind_msg_v01 {
 	u32 mem_seg_len;
 	struct wlfw_mem_seg_resp_s_v01 mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
 };
-#define WLFW_QDSS_TRACE_FREE_IND_MSG_V01_MAX_MSG_LEN 548
+#define WLFW_QDSS_TRACE_FREE_IND_MSG_V01_MAX_MSG_LEN 888
 extern struct qmi_elem_info wlfw_qdss_trace_free_ind_msg_v01_ei[];
 
 struct wlfw_shutdown_req_msg_v01 {
@@ -1080,8 +1111,12 @@ struct wlfw_device_info_resp_msg_v01 {
 	u64 bar_addr;
 	u8 bar_size_valid;
 	u32 bar_size;
+	u8 mhi_state_info_addr_valid;
+	u64 mhi_state_info_addr;
+	u8 mhi_state_info_size_valid;
+	u32 mhi_state_info_size;
 };
-#define WLFW_DEVICE_INFO_RESP_MSG_V01_MAX_MSG_LEN 25
+#define WLFW_DEVICE_INFO_RESP_MSG_V01_MAX_MSG_LEN 43
 extern struct qmi_elem_info wlfw_device_info_resp_msg_v01_ei[];
 
 struct wlfw_m3_dump_upload_req_ind_msg_v01 {
@@ -1169,10 +1204,8 @@ extern struct qmi_elem_info wlfw_pcie_gen_switch_resp_msg_v01_ei[];
 struct wlfw_m3_dump_upload_segments_req_ind_msg_v01 {
 	u32 pdev_id;
 	u32 no_of_valid_segments;
-	struct wlfw_m3_segment_info_s_v01
-		m3_segment[QMI_WLFW_MAX_M3_SEGMENTS_SIZE_V01];
+	struct wlfw_m3_segment_info_s_v01 m3_segment[QMI_WLFW_MAX_M3_SEGMENTS_SIZE_V01];
 };
-
 #define WLFW_M3_DUMP_UPLOAD_SEGMENTS_REQ_IND_MSG_V01_MAX_MSG_LEN 387
 extern struct qmi_elem_info wlfw_m3_dump_upload_segments_req_ind_msg_v01_ei[];
 
