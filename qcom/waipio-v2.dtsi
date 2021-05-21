@@ -180,3 +180,4 @@
 		};
 	};
 };
+#include "waipio-v2-gpu.dtsi"
