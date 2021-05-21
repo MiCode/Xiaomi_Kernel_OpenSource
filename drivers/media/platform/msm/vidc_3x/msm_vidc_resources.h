@@ -206,7 +206,6 @@ struct msm_vidc_platform_resources {
 	bool thermal_mitigable;
 	const char *fw_name;
 	const char *hfi_version;
-	bool never_unload_fw;
 	uint32_t pm_qos_latency_us;
 	uint32_t max_inst_count;
 	uint32_t max_secure_inst_count;
