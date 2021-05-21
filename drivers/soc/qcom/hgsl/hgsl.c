@@ -937,12 +937,6 @@ static int hgsl_dbq_init(struct file *filep, unsigned long arg)
 	}
 	WARN_ON(param.head_dwords < 2);
 
-	dbq_set_qindex((uint32_t *)dbq->vbase,
-				DBQ_WRITE_INDEX_IN_DWORD, 0);
-
-	dbq_set_qindex((uint32_t *)dbq->vbase,
-				DBQ_READ_INDEX_IN_DWORD, 0);
-
 	dbq->data.vaddr = dbq->vbase + (param.queue_off_dwords << 2);
 	dbq->data.dwords = param.queue_dwords;
 
