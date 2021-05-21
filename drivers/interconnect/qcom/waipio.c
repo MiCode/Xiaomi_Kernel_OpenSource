@@ -723,44 +723,23 @@ static struct qcom_icc_node qnm_camnoc_sf = {
 	.links = { SLAVE_MNOC_SF_MEM_NOC },
 };
 
-static struct qcom_icc_qosbox qnm_mdp0_qos = {
+static struct qcom_icc_qosbox qnm_mdp_qos = {
 	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0x16000 },
+	.num_ports = 2,
+	.offsets = { 0x16000, 0x16080 },
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 1,
 	},
 };
 
-static struct qcom_icc_node qnm_mdp0 = {
-	.name = "qnm_mdp0",
-	.id = MASTER_MDP0,
-	.channels = 1,
+static struct qcom_icc_node qnm_mdp = {
+	.name = "qnm_mdp",
+	.id = MASTER_MDP,
+	.channels = 2,
 	.buswidth = 32,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &qnm_mdp0_qos,
-	.num_links = 1,
-	.links = { SLAVE_MNOC_HF_MEM_NOC },
-};
-
-static struct qcom_icc_qosbox qnm_mdp1_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0x16080 },
-	.config = &(struct qos_config) {
-		.prio = 0,
-		.urg_fwd = 1,
-	},
-};
-
-static struct qcom_icc_node qnm_mdp1 = {
-	.name = "qnm_mdp1",
-	.id = MASTER_MDP1,
-	.channels = 1,
-	.buswidth = 32,
-	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &qnm_mdp1_qos,
+	.qosbox = &qnm_mdp_qos,
 	.num_links = 1,
 	.links = { SLAVE_MNOC_HF_MEM_NOC },
 };
@@ -806,44 +785,23 @@ static struct qcom_icc_node qnm_vapss_hcp = {
 	.links = { SLAVE_MNOC_SF_MEM_NOC },
 };
 
-static struct qcom_icc_qosbox qnm_video0_qos = {
+static struct qcom_icc_qosbox qnm_video_qos = {
 	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0x14000 },
+	.num_ports = 2,
+	.offsets = { 0x14000, 0x14080 },
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 1,
 	},
 };
 
-static struct qcom_icc_node qnm_video0 = {
-	.name = "qnm_video0",
-	.id = MASTER_VIDEO_P0,
-	.channels = 1,
+static struct qcom_icc_node qnm_video = {
+	.name = "qnm_video",
+	.id = MASTER_VIDEO,
+	.channels = 2,
 	.buswidth = 32,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &qnm_video0_qos,
-	.num_links = 1,
-	.links = { SLAVE_MNOC_SF_MEM_NOC },
-};
-
-static struct qcom_icc_qosbox qnm_video1_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0x14080 },
-	.config = &(struct qos_config) {
-		.prio = 0,
-		.urg_fwd = 1,
-	},
-};
-
-static struct qcom_icc_node qnm_video1 = {
-	.name = "qnm_video1",
-	.id = MASTER_VIDEO_P1,
-	.channels = 1,
-	.buswidth = 32,
-	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &qnm_video1_qos,
+	.qosbox = &qnm_video_qos,
 	.num_links = 1,
 	.links = { SLAVE_MNOC_SF_MEM_NOC },
 };
@@ -1137,20 +1095,10 @@ static struct qcom_icc_node llcc_mc_disp = {
 	.links = { SLAVE_EBI1_DISP },
 };
 
-static struct qcom_icc_node qnm_mdp0_disp = {
-	.name = "qnm_mdp0_disp",
-	.id = MASTER_MDP0_DISP,
-	.channels = 1,
-	.buswidth = 32,
-	.noc_ops = &qcom_qnoc4_ops,
-	.num_links = 1,
-	.links = { SLAVE_MNOC_HF_MEM_NOC_DISP },
-};
-
-static struct qcom_icc_node qnm_mdp1_disp = {
-	.name = "qnm_mdp1_disp",
-	.id = MASTER_MDP1_DISP,
-	.channels = 1,
+static struct qcom_icc_node qnm_mdp_disp = {
+	.name = "qnm_mdp_disp",
+	.id = MASTER_MDP_DISP,
+	.channels = 2,
 	.buswidth = 32,
 	.noc_ops = &qcom_qnoc4_ops,
 	.num_links = 1,
@@ -1957,8 +1905,8 @@ static struct qcom_icc_node qns_mem_noc_sf_disp = {
 static struct qcom_icc_bcm bcm_acv = {
 	.name = "ACV",
 	.voter_idx = 0,
-	.enable_mask = BIT(3),
-	.perf_mode_mask = BIT(1),
+	.enable_mask = 0x8,
+	.perf_mode_mask = 0x2,
 	.num_nodes = 1,
 	.nodes = { &ebi },
 };
@@ -1973,6 +1921,7 @@ static struct qcom_icc_bcm bcm_ce0 = {
 static struct qcom_icc_bcm bcm_cn0 = {
 	.name = "CN0",
 	.voter_idx = 0,
+	.enable_mask = 0x1,
 	.keepalive = true,
 	.num_nodes = 55,
 	.nodes = { &qnm_gemnoc_cnoc, &qnm_gemnoc_pcie,
@@ -2008,6 +1957,7 @@ static struct qcom_icc_bcm bcm_cn0 = {
 static struct qcom_icc_bcm bcm_co0 = {
 	.name = "CO0",
 	.voter_idx = 0,
+	.enable_mask = 0x1,
 	.num_nodes = 2,
 	.nodes = { &qxm_nsp, &qns_nsp_gemnoc },
 };
@@ -2031,14 +1981,14 @@ static struct qcom_icc_bcm bcm_mm0 = {
 static struct qcom_icc_bcm bcm_mm1 = {
 	.name = "MM1",
 	.voter_idx = 0,
-	.num_nodes = 13,
+	.enable_mask = 0x1,
+	.num_nodes = 12,
 	.nodes = { &qnm_camnoc_hf, &qnm_camnoc_icp,
-		   &qnm_camnoc_sf, &qnm_mdp0,
-		   &qnm_mdp1, &qnm_mnoc_cfg,
-		   &qnm_rot, &qnm_vapss_hcp,
-		   &qnm_video0, &qnm_video_cv_cpu,
-		   &qnm_video_cvp, &qnm_video_v_cpu,
-		   &qns_mem_noc_sf },
+		   &qnm_camnoc_sf, &qnm_mdp,
+		   &qnm_mnoc_cfg, &qnm_rot,
+		   &qnm_vapss_hcp, &qnm_video,
+		   &qnm_video_cv_cpu, &qnm_video_cvp,
+		   &qnm_video_v_cpu, &qns_mem_noc_sf },
 };
 
 static struct qcom_icc_bcm bcm_qup0 = {
@@ -2079,6 +2029,7 @@ static struct qcom_icc_bcm bcm_sh0 = {
 static struct qcom_icc_bcm bcm_sh1 = {
 	.name = "SH1",
 	.voter_idx = 0,
+	.enable_mask = 0x1,
 	.num_nodes = 7,
 	.nodes = { &alm_gpu_tcu, &alm_sys_tcu,
 		   &qnm_nsp_gemnoc, &qnm_pcie,
@@ -2097,6 +2048,7 @@ static struct qcom_icc_bcm bcm_sn0 = {
 static struct qcom_icc_bcm bcm_sn1 = {
 	.name = "SN1",
 	.voter_idx = 0,
+	.enable_mask = 0x1,
 	.num_nodes = 4,
 	.nodes = { &qhm_gic, &qxm_pimem,
 		   &xm_gic, &qns_gemnoc_gc },
@@ -2133,8 +2085,8 @@ static struct qcom_icc_bcm bcm_sn7 = {
 static struct qcom_icc_bcm bcm_acv_disp = {
 	.name = "ACV",
 	.voter_idx = 1,
-	.enable_mask = BIT(0),
-	.perf_mode_mask = BIT(1),
+	.enable_mask = 0x1,
+	.perf_mode_mask = 0x2,
 	.num_nodes = 1,
 	.nodes = { &ebi_disp },
 };
@@ -2156,9 +2108,10 @@ static struct qcom_icc_bcm bcm_mm0_disp = {
 static struct qcom_icc_bcm bcm_mm1_disp = {
 	.name = "MM1",
 	.voter_idx = 1,
-	.num_nodes = 4,
-	.nodes = { &qnm_mdp0_disp, &qnm_mdp1_disp,
-		   &qnm_rot_disp, &qns_mem_noc_sf_disp },
+	.enable_mask = 0x1,
+	.num_nodes = 3,
+	.nodes = { &qnm_mdp_disp, &qnm_rot_disp,
+		   &qns_mem_noc_sf_disp },
 };
 
 static struct qcom_icc_bcm bcm_sh0_disp = {
@@ -2171,6 +2124,7 @@ static struct qcom_icc_bcm bcm_sh0_disp = {
 static struct qcom_icc_bcm bcm_sh1_disp = {
 	.name = "SH1",
 	.voter_idx = 1,
+	.enable_mask = 0x1,
 	.num_nodes = 1,
 	.nodes = { &qnm_pcie_disp },
 };
@@ -2447,21 +2401,18 @@ static struct qcom_icc_node *mmss_noc_nodes[] = {
 	[MASTER_CAMNOC_HF] = &qnm_camnoc_hf,
 	[MASTER_CAMNOC_ICP] = &qnm_camnoc_icp,
 	[MASTER_CAMNOC_SF] = &qnm_camnoc_sf,
-	[MASTER_MDP0] = &qnm_mdp0,
-	[MASTER_MDP1] = &qnm_mdp1,
+	[MASTER_MDP] = &qnm_mdp,
 	[MASTER_CNOC_MNOC_CFG] = &qnm_mnoc_cfg,
 	[MASTER_ROTATOR] = &qnm_rot,
 	[MASTER_CDSP_HCP] = &qnm_vapss_hcp,
-	[MASTER_VIDEO_P0] = &qnm_video0,
-	[MASTER_VIDEO_P1] = &qnm_video1,
+	[MASTER_VIDEO] = &qnm_video,
 	[MASTER_VIDEO_CV_PROC] = &qnm_video_cv_cpu,
 	[MASTER_VIDEO_PROC] = &qnm_video_cvp,
 	[MASTER_VIDEO_V_PROC] = &qnm_video_v_cpu,
 	[SLAVE_MNOC_HF_MEM_NOC] = &qns_mem_noc_hf,
 	[SLAVE_MNOC_SF_MEM_NOC] = &qns_mem_noc_sf,
 	[SLAVE_SERVICE_MNOC] = &srvc_mnoc,
-	[MASTER_MDP0_DISP] = &qnm_mdp0_disp,
-	[MASTER_MDP1_DISP] = &qnm_mdp1_disp,
+	[MASTER_MDP_DISP] = &qnm_mdp_disp,
 	[MASTER_ROTATOR_DISP] = &qnm_rot_disp,
 	[SLAVE_MNOC_HF_MEM_NOC_DISP] = &qns_mem_noc_hf_disp,
 	[SLAVE_MNOC_SF_MEM_NOC_DISP] = &qns_mem_noc_sf_disp,
