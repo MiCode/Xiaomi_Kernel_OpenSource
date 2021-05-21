@@ -4599,6 +4599,7 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	dwc = platform_get_drvdata(mdwc->dwc3);
 	if (!dwc) {
 		dev_err(mdwc->dev, "Failed to get dwc3 device\n");
+		mdwc->dwc3 = NULL;
 		ret = -ENODEV;
 		goto depopulate;
 	}
@@ -5467,6 +5468,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dbg_event(0xFF, "core_init failed", ret);
 			pm_runtime_put_sync_suspend(mdwc->dev);
 			pm_runtime_disable(mdwc->dev);
+			work = true;
 			break;
 		}
 
