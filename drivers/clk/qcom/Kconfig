@@ -624,3 +624,12 @@ config SM_GPUCC_KHAJE
 	 Support for the graphics clock controller on Qualcomm Technologies, Inc
 	 KHAJE devices.
 	 Say Y if you want to support graphics controller devices.
+
+config SM_DISPCC_KHAJE
+	tristate "KHAJE Display Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the display clock controller on Qualcomm Technologies, Inc.
+	 KHAJE devices.
+	 Say Y if you want to support display devices and functionality such as
+	 splash screen.
