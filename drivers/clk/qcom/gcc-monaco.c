@@ -397,9 +397,9 @@ static struct clk_alpha_pll_postdiv gpll8_out_even = {
 static const struct alpha_pll_config gpll9_config = {
 	.l = 0x32,
 	.alpha = 0x0,
-	.config_ctl_val = 0x08200920,
-	.config_ctl_hi_val = 0x05008001,
-	.config_ctl_hi1_val = 0x00000000,
+	.config_ctl_val = 0x08200800,
+	.config_ctl_hi_val = 0x05028011,
+	.config_ctl_hi1_val = 0x08000000,
 	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000000,
 };
@@ -916,7 +916,7 @@ static struct clk_rcg2 gcc_camss_ope_ahb_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_camss_ope_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(200000000, P_GPLL8_OUT_EVEN, 2, 0, 0),
+	F(200000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
 	F(465000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
 	F(580000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
 	{ }
@@ -1473,6 +1473,7 @@ static struct clk_rcg2 gcc_qupv3_wrap0_s7_clk_src = {
 static const struct freq_tbl ftbl_gcc_sdcc1_apps_clk_src[] = {
 	F(144000, P_BI_TCXO, 16, 3, 25),
 	F(400000, P_BI_TCXO, 12, 1, 4),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(20000000, P_GPLL0_OUT_EVEN, 5, 1, 3),
 	F(25000000, P_GPLL0_OUT_EVEN, 6, 1, 2),
 	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
