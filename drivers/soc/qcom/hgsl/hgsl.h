@@ -35,6 +35,8 @@ struct hgsl_context {
 
 	uint32_t last_ts;
 	struct hgsl_hsync_timeline *timeline;
+	uint32_t queued_ts;
+	bool is_killed;
 };
 
 struct hgsl_priv {
