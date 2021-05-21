@@ -4034,11 +4034,6 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	if (IS_ERR(tbu->base))
 		return PTR_ERR(tbu->base);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "status-reg");
-	tbu->status_reg = devm_ioremap_resource(dev, res);
-	if (IS_ERR(tbu->status_reg))
-		return PTR_ERR(tbu->status_reg);
-
 	cell = of_get_property(dev->of_node, "qcom,stream-id-range", &len);
 	if (!cell || len < 8)
 		return -EINVAL;
