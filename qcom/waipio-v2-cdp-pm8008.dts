@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "waipio-v2.dtsi"
+#include "waipio-cdp.dtsi"
+#include "waipio-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio v2 CDP with PM8008";
+	compatible = "qcom,waipio-cdp", "qcom,waipio", "qcom,cdp";
+	qcom,board-id = <1 0>;
+};

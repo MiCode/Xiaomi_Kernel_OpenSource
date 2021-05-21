@@ -7,6 +7,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. Waipio MTP with PM8008";
 	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
-	qcom,msm-id = <457 0x10000>, <482 0x10000>;
+	qcom,msm-id = <457 0x10000>, <482 0x10000>, <457 0x20000>, <482 0x20000>;
 	qcom,board-id = <0x10008 0>;
 };
