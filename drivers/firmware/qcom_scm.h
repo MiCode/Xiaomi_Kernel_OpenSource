@@ -200,6 +200,7 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 #define QCOM_SCM_ICE_RESTORE_KEY_ID		0x06
 
 #define QCOM_SCM_SVC_SMCINVOKE			0x06
+#define QCOM_SCM_SMCINVOKE_INVOKE_LEGACY	0x00
 #define QCOM_SCM_SMCINVOKE_INVOKE		0x02
 #define QCOM_SCM_SMCINVOKE_CB_RSP		0x01
 
