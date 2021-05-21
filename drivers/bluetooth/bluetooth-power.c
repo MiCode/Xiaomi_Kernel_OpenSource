@@ -1149,7 +1149,9 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			soc_id = chipset_version;
 			if (soc_id == QCA_HSP_SOC_ID_0100 ||
 				soc_id == QCA_HSP_SOC_ID_0110 ||
-				soc_id == QCA_HSP_SOC_ID_0200) {
+				soc_id == QCA_HSP_SOC_ID_0200 ||
+				soc_id == QCA_HSP_SOC_ID_0210 ||
+				soc_id == QCA_HSP_SOC_ID_1211) {
 				ret = bt_disable_asd();
 			}
 		} else {

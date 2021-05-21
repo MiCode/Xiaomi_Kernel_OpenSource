@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "icnss2_qmi: " fmt
@@ -333,6 +333,15 @@ int wlfw_device_info_send_msg(struct icnss_priv *priv)
 				    priv->mem_base_size);
 		goto out;
 	}
+
+	if (resp->mhi_state_info_addr_valid)
+		priv->mhi_state_info_pa = resp->mhi_state_info_addr;
+
+	if (resp->mhi_state_info_size_valid)
+		priv->mhi_state_info_size = resp->mhi_state_info_size;
+
+	if (!priv->mhi_state_info_pa)
+		icnss_pr_err("Fail to get MHI info address\n");
 
 	kfree(resp);
 	kfree(req);
@@ -2328,8 +2337,6 @@ static void icnss_wlfw_respond_get_info_ind_cb(struct qmi_handle *qmi,
 	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
 	const struct wlfw_respond_get_info_ind_msg_v01 *ind_msg = data;
 
-	icnss_pr_vdbg("Received QMI WLFW respond get info indication\n");
-
 	if (!txn) {
 		icnss_pr_err("Spurious indication\n");
 		return;
@@ -2927,9 +2934,6 @@ int icnss_wlfw_get_info_send_sync(struct icnss_priv *plat_priv, int type,
 	struct wlfw_get_info_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	int ret = 0;
-
-	icnss_pr_dbg("Sending get info message, type: %d, cmd length: %d, state: 0x%lx\n",
-		     type, cmd_len, plat_priv->state);
 
 	if (cmd_len > QMI_WLFW_MAX_DATA_SIZE_V01)
 		return -EINVAL;

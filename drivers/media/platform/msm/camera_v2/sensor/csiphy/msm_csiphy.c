@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -210,7 +210,7 @@ static int msm_csiphy_snps_2_lane_config(
 	diff = abs(snps_v100_freq_values[0].default_bit_rate -
 		local_data_rate);
 	/* ToDo: Can be optimized to a O(1) search */
-	for (i = 1; i < ARRAY_SIZE(snps_v100_freq_values)/
+	for (i = 1; i < sizeof(snps_v100_freq_values)/
 		sizeof(snps_v100_freq_values[0]);) {
 		diff_i = abs(snps_v100_freq_values[i].default_bit_rate -
 			local_data_rate);
@@ -220,7 +220,7 @@ static int msm_csiphy_snps_2_lane_config(
 		}
 		diff = diff_i;
 		i++;
-		if (ARRAY_SIZE(snps_v100_freq_values)/
+		if (sizeof(snps_v100_freq_values)/
 		sizeof(snps_v100_freq_values[0]) == i) {
 			i--;
 			break;

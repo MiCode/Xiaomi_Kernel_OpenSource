@@ -50,8 +50,11 @@ int mdss_dsi_check_panel_status(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
 	 * then no need to fail this function,
 	 * instead return a positive value.
 	 */
-	if (ctrl->check_status)
+	if (ctrl->check_status) {
+		mutex_lock(&mfd->sd_lock);
 		ret = ctrl->check_status(ctrl);
+		mutex_unlock(&mfd->sd_lock);
+	}
 	else
 		ret = 1;
 	mutex_unlock(&ctl->offlock);

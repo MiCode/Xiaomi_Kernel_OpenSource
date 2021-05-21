@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2011-2017, 2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, 2020-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 
 enum bam_dmux_func_type {
 	BAM_DMUX_FUNC_RMNET,
-	BAM_DMUX_FUNC_MBIM,
+	BAM_DMUX_FUNC_MBIM = 0,
 	BAM_DMUX_FUNC_DPL,
 	BAM_DMUX_NUM_FUNCS,
 };
@@ -76,28 +76,15 @@ enum data_xport_type {
 	NR_XPORT_TYPES
 };
 
-static inline int gbam_setup(enum bam_dmux_func_type func)
-{
-	return 0;
-}
-
-static inline void gbam_cleanup(enum bam_dmux_func_type func)
-{
-}
-
-static inline int gbam_connect(struct data_port *gr,
-		enum bam_dmux_func_type func)
-{
-	return 0;
-}
-
-static inline void gbam_disconnect(struct data_port *gr,
-		enum bam_dmux_func_type func)
-{
-}
+int gbam_connect(struct data_port *gr, enum bam_dmux_func_type func);
+void gbam_disconnect(struct data_port *gr, enum bam_dmux_func_type func);
+void gbam_cleanup(enum bam_dmux_func_type func);
+int gbam_setup(enum bam_dmux_func_type func);
+int gbam_mbim_connect(struct usb_gadget *g, struct usb_ep *in,
+						struct usb_ep *out);
 
 int gbam_mbim_connect(struct usb_gadget *g, struct usb_ep *in,
-			struct usb_ep *out);
+						struct usb_ep *out);
 void gbam_mbim_disconnect(void);
 int gbam_mbim_setup(void);
 

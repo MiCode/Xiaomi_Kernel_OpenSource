@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015, Sony Mobile Communications AB.
- * Copyright (c) 2012-2013, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/interrupt.h>
@@ -855,6 +855,9 @@ static int qcom_smd_write_fifo(struct qcom_smd_channel *channel,
 				 word_aligned);
 	}
 
+	/* Ensure ordering of channel info updates */
+	wmb();
+
 	head += count;
 	head &= (channel->fifo_size - 1);
 	SET_TX_CHANNEL_INFO(channel, head, head);
@@ -897,7 +900,8 @@ static int __qcom_smd_send(struct qcom_smd_channel *channel, const void *data,
 	spin_lock_irqsave(&channel->tx_lock, flags);
 
 	while (qcom_smd_get_tx_avail(channel) < tlen &&
-	       channel->state == SMD_CHANNEL_OPENED) {
+	       channel->state == SMD_CHANNEL_OPENED &&
+		channel->remote_state == SMD_CHANNEL_OPENED) {
 		if (!wait) {
 			ret = -EAGAIN;
 			goto out_unlock;
@@ -910,7 +914,8 @@ static int __qcom_smd_send(struct qcom_smd_channel *channel, const void *data,
 
 		ret = wait_event_interruptible(channel->fblockread_event,
 				       qcom_smd_get_tx_avail(channel) >= tlen ||
-				       channel->state != SMD_CHANNEL_OPENED);
+				       channel->state != SMD_CHANNEL_OPENED ||
+				channel->remote_state != SMD_CHANNEL_OPENED);
 		if (ret)
 			return ret;
 
@@ -1486,6 +1491,9 @@ static void qcom_channel_state_worker(struct work_struct *work)
 		chinfo.dst = RPMSG_ADDR_ANY;
 		smd_ipc(channel->edge->ipc, false, NULL,
 			"%s: unregistering ch %s\n", __func__, channel->name);
+
+		wake_up_interruptible_all(&channel->fblockread_event);
+
 		rpmsg_unregister_device(&edge->dev, &chinfo);
 		channel->registered = false;
 		spin_lock_irqsave(&edge->channels_lock, flags);

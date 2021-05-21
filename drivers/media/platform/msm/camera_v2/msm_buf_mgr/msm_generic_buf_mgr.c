@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -282,7 +282,7 @@ static void msm_buf_mngr_contq_listdel(struct msm_buf_mngr_device *dev,
 		cont_save, &dev->cont_qhead, entry) {
 		if ((cont_bufs->sessid == session) &&
 		(cont_bufs->strid == stream)) {
-			if (cnt && unmap) {
+			if (cnt == 1 && unmap) {
 				/* dma_buf_vunmap ignored vaddr(2nd argument) */
 				dma_buf_vunmap(cont_bufs->dmabuf,
 					cont_bufs->paddr);
