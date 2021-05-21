@@ -47,6 +47,17 @@ DECLARE_HOOK(android_vh_meminfo_proc_show,
 DECLARE_HOOK(android_vh_exit_mm,
 	TP_PROTO(struct mm_struct *mm),
 	TP_ARGS(mm));
+DECLARE_HOOK(android_vh_get_unmapped_area_from_anti_fragment_pool,
+	TP_PROTO(struct mm_struct *mm, struct vm_unmapped_area_info *info,
+		unsigned long *addr),
+	TP_ARGS(mm, info, addr));
+DECLARE_HOOK(android_vh_exclude_reserved_zone,
+	TP_PROTO(struct mm_struct *mm, struct vm_unmapped_area_info *info),
+	TP_ARGS(mm, info));
+DECLARE_HOOK(android_vh_get_unmapped_area_include_reserved_zone,
+	TP_PROTO(struct mm_struct *mm, struct vm_unmapped_area_info *info,
+		unsigned long *addr),
+	TP_ARGS(mm, info, addr));
 DECLARE_HOOK(android_vh_show_mem,
 	TP_PROTO(unsigned int filter, nodemask_t *nodemask),
 	TP_ARGS(filter, nodemask));
@@ -60,6 +71,13 @@ struct slabinfo;
 DECLARE_HOOK(android_vh_cache_show,
 	TP_PROTO(struct seq_file *m, struct slabinfo *sinfo, struct kmem_cache *s),
 	TP_ARGS(m, sinfo, s));
+struct dirty_throttle_control;
+DECLARE_HOOK(android_vh_mm_dirty_limits,
+	TP_PROTO(struct dirty_throttle_control *const gdtc, bool strictlimit,
+		unsigned long dirty, unsigned long bg_thresh,
+		unsigned long nr_reclaimable, unsigned long pages_dirtied),
+	TP_ARGS(gdtc, strictlimit, dirty, bg_thresh,
+		nr_reclaimable, pages_dirtied));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_MM_H */
