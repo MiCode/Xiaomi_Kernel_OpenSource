@@ -6,7 +6,6 @@
 
 #include <asm/div64.h>
 #include <dt-bindings/interconnect/qcom,waipio.h>
-#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/interconnect.h>
 #include <linux/interconnect-provider.h>
@@ -17,15 +16,14 @@
 #include <linux/platform_device.h>
 #include <linux/sort.h>
 
-#include "icc-debug.h"
 #include "icc-rpmh.h"
-#include "bcm-voter.h"
 #include "qnoc-qos.h"
 
-static LIST_HEAD(qnoc_probe_list);
-static DEFINE_MUTEX(probe_list_lock);
-
-static int probe_count;
+static const struct regmap_config icc_regmap_config = {
+	.reg_bits       = 32,
+	.reg_stride     = 4,
+	.val_bits       = 32,
+};
 
 static struct qcom_icc_qosbox qhm_qspi_qos = {
 	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
@@ -2148,6 +2146,7 @@ static char *aggre1_noc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_aggre1_noc = {
+	.config = &icc_regmap_config,
 	.nodes = aggre1_noc_nodes,
 	.num_nodes = ARRAY_SIZE(aggre1_noc_nodes),
 	.bcms = aggre1_noc_bcms,
@@ -2181,6 +2180,7 @@ static char *aggre2_noc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_aggre2_noc = {
+	.config = &icc_regmap_config,
 	.nodes = aggre2_noc_nodes,
 	.num_nodes = ARRAY_SIZE(aggre2_noc_nodes),
 	.bcms = aggre2_noc_bcms,
@@ -2209,6 +2209,7 @@ static char *clk_virt_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_clk_virt = {
+	.config = &icc_regmap_config,
 	.nodes = clk_virt_nodes,
 	.num_nodes = ARRAY_SIZE(clk_virt_nodes),
 	.bcms = clk_virt_bcms,
@@ -2284,6 +2285,7 @@ static char *config_noc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_config_noc = {
+	.config = &icc_regmap_config,
 	.nodes = config_noc_nodes,
 	.num_nodes = ARRAY_SIZE(config_noc_nodes),
 	.bcms = config_noc_bcms,
@@ -2326,6 +2328,7 @@ static char *gem_noc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_gem_noc = {
+	.config = &icc_regmap_config,
 	.nodes = gem_noc_nodes,
 	.num_nodes = ARRAY_SIZE(gem_noc_nodes),
 	.bcms = gem_noc_bcms,
@@ -2354,6 +2357,7 @@ static char *lpass_ag_noc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_lpass_ag_noc = {
+	.config = &icc_regmap_config,
 	.nodes = lpass_ag_noc_nodes,
 	.num_nodes = ARRAY_SIZE(lpass_ag_noc_nodes),
 	.bcms = lpass_ag_noc_bcms,
@@ -2382,6 +2386,7 @@ static char *mc_virt_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_mc_virt = {
+	.config = &icc_regmap_config,
 	.nodes = mc_virt_nodes,
 	.num_nodes = ARRAY_SIZE(mc_virt_nodes),
 	.bcms = mc_virt_bcms,
@@ -2424,6 +2429,7 @@ static char *mmss_noc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_mmss_noc = {
+	.config = &icc_regmap_config,
 	.nodes = mmss_noc_nodes,
 	.num_nodes = ARRAY_SIZE(mmss_noc_nodes),
 	.bcms = mmss_noc_bcms,
@@ -2448,6 +2454,7 @@ static char *nsp_noc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_nsp_noc = {
+	.config = &icc_regmap_config,
 	.nodes = nsp_noc_nodes,
 	.num_nodes = ARRAY_SIZE(nsp_noc_nodes),
 	.bcms = nsp_noc_bcms,
@@ -2473,6 +2480,7 @@ static char *pcie_anoc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_pcie_anoc = {
+	.config = &icc_regmap_config,
 	.nodes = pcie_anoc_nodes,
 	.num_nodes = ARRAY_SIZE(pcie_anoc_nodes),
 	.bcms = pcie_anoc_bcms,
@@ -2507,6 +2515,7 @@ static char *system_noc_voters[] = {
 };
 
 static struct qcom_icc_desc waipio_system_noc = {
+	.config = &icc_regmap_config,
 	.nodes = system_noc_nodes,
 	.num_nodes = ARRAY_SIZE(system_noc_nodes),
 	.bcms = system_noc_bcms,
@@ -2515,185 +2524,15 @@ static struct qcom_icc_desc waipio_system_noc = {
 	.num_voters = ARRAY_SIZE(system_noc_voters),
 };
 
-static const struct regmap_config icc_regmap_config = {
-	.reg_bits       = 32,
-	.reg_stride     = 4,
-	.val_bits       = 32,
-};
-
-static struct regmap *
-qcom_icc_map(struct platform_device *pdev, const struct qcom_icc_desc *desc)
-{
-	void __iomem *base;
-	struct resource *res;
-	struct device *dev = &pdev->dev;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return NULL;
-
-	base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(base))
-		return ERR_CAST(base);
-
-	return devm_regmap_init_mmio(dev, base, &icc_regmap_config);
-}
-
 static int qnoc_probe(struct platform_device *pdev)
 {
-	const struct qcom_icc_desc *desc;
-	struct icc_onecell_data *data;
-	struct icc_provider *provider;
-	struct qcom_icc_node **qnodes;
-	struct qcom_icc_provider *qp;
-	struct icc_node *node;
-	size_t num_nodes, i;
 	int ret;
 
-	desc = of_device_get_match_data(&pdev->dev);
-	if (!desc)
-		return -EINVAL;
-
-	qnodes = desc->nodes;
-	num_nodes = desc->num_nodes;
-
-	qp = devm_kzalloc(&pdev->dev, sizeof(*qp), GFP_KERNEL);
-	if (!qp)
-		return -ENOMEM;
-
-	data = devm_kcalloc(&pdev->dev, num_nodes, sizeof(*node), GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
-
-	provider = &qp->provider;
-	provider->dev = &pdev->dev;
-	provider->set = qcom_icc_set_stub;
-	provider->pre_aggregate = qcom_icc_pre_aggregate;
-	provider->aggregate = qcom_icc_aggregate_stub;
-	provider->xlate = of_icc_xlate_onecell;
-	INIT_LIST_HEAD(&provider->nodes);
-	provider->data = data;
-	provider->get_bw = qcom_icc_get_bw_stub;
-
-	qp->dev = &pdev->dev;
-	qp->bcms = desc->bcms;
-	qp->num_bcms = desc->num_bcms;
-
-	qp->num_voters = desc->num_voters;
-	qp->voters = devm_kcalloc(&pdev->dev, qp->num_voters,
-			      sizeof(*qp->voters), GFP_KERNEL);
-
-	if (!qp->voters)
-		return -ENOMEM;
-
-	for (i = 0; i < qp->num_voters; i++) {
-		qp->voters[i] = of_bcm_voter_get(qp->dev, desc->voters[i]);
-		if (IS_ERR(qp->voters[i]))
-			return PTR_ERR(qp->voters[i]);
-	}
-
-	qp->regmap = qcom_icc_map(pdev, desc);
-	if (IS_ERR(qp->regmap))
-		return PTR_ERR(qp->regmap);
-
-	ret = icc_provider_add(provider);
-	if (ret) {
-		dev_err(&pdev->dev, "error adding interconnect provider\n");
-		return ret;
-	}
-
-	qp->num_clks = devm_clk_bulk_get_all(qp->dev, &qp->clks);
-	if (qp->num_clks < 0)
-		return qp->num_clks;
-
-	ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable clocks\n");
-		return ret;
-	}
-
-	for (i = 0; i < qp->num_bcms; i++)
-		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
-
-	for (i = 0; i < num_nodes; i++) {
-		size_t j;
-
-		if (!qnodes[i])
-			continue;
-
-		qnodes[i]->regmap = dev_get_regmap(qp->dev, NULL);
-
-		node = icc_node_create(qnodes[i]->id);
-		if (IS_ERR(node)) {
-			ret = PTR_ERR(node);
-			goto err;
-		}
-
-		if (qnodes[i]->qosbox) {
-			qnodes[i]->noc_ops->set_qos(qnodes[i]);
-			qnodes[i]->qosbox->initialized = true;
-		}
-
-		node->name = qnodes[i]->name;
-		node->data = qnodes[i];
-		icc_node_add(node, provider);
-
-		dev_dbg(&pdev->dev, "registered node %pK %s %d\n", node,
-			qnodes[i]->name, node->id);
-
-		/* populate links */
-		for (j = 0; j < qnodes[i]->num_links; j++)
-			icc_link_create(node, qnodes[i]->links[j]);
-
-		data->nodes[i] = node;
-	}
-	data->num_nodes = num_nodes;
-
-	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
-
-	platform_set_drvdata(pdev, qp);
-
-	provider->set = qcom_icc_set;
-	provider->aggregate = qcom_icc_aggregate;
-
-	qcom_icc_debug_register(provider);
-
-	dev_dbg(&pdev->dev, "Registered WAIPIO ICC\n");
-
-	mutex_lock(&probe_list_lock);
-	list_add_tail(&qp->probe_list, &qnoc_probe_list);
-	mutex_unlock(&probe_list_lock);
+	ret = qcom_icc_rpmh_probe(pdev);
+	if (ret)
+		dev_err(&pdev->dev, "failed to register ICC provider\n");
 
 	return ret;
-err:
-	list_for_each_entry(node, &provider->nodes, node_list) {
-		icc_node_del(node);
-		icc_node_destroy(node->id);
-	}
-
-	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
-	clk_bulk_put_all(qp->num_clks, qp->clks);
-
-	icc_provider_del(provider);
-	return ret;
-}
-
-static int qnoc_remove(struct platform_device *pdev)
-{
-	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
-	struct icc_provider *provider = &qp->provider;
-	struct icc_node *n;
-
-	qcom_icc_debug_unregister(provider);
-
-	list_for_each_entry(n, &provider->nodes, node_list) {
-		icc_node_del(n);
-		icc_node_destroy(n->id);
-	}
-
-	clk_bulk_put_all(qp->num_clks, qp->clks);
-
-	return icc_provider_del(provider);
 }
 
 static const struct of_device_id qnoc_of_match[] = {
@@ -2723,48 +2562,13 @@ static const struct of_device_id qnoc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
-static void qnoc_sync_state(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
-	struct qcom_icc_bcm *bcm;
-	struct bcm_voter *voter;
-
-	mutex_lock(&probe_list_lock);
-	probe_count++;
-
-	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
-		mutex_unlock(&probe_list_lock);
-		return;
-	}
-
-	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
-		int i;
-
-		for (i = 0; i < qp->num_voters; i++)
-			qcom_icc_bcm_voter_clear_init(qp->voters[i]);
-
-		for (i = 0; i < qp->num_bcms; i++) {
-			bcm = qp->bcms[i];
-			if (!bcm->keepalive)
-				continue;
-
-			voter = qp->voters[bcm->voter_idx];
-			qcom_icc_bcm_voter_add(voter, bcm);
-			qcom_icc_bcm_voter_commit(voter);
-		}
-	}
-
-	mutex_unlock(&probe_list_lock);
-}
-
 static struct platform_driver qnoc_driver = {
 	.probe = qnoc_probe,
-	.remove = qnoc_remove,
+	.remove = qcom_icc_rpmh_remove,
 	.driver = {
 		.name = "qnoc-waipio",
 		.of_match_table = qnoc_of_match,
-		.sync_state = qnoc_sync_state,
+		.sync_state = qcom_icc_rpmh_sync_state,
 	},
 };
 
