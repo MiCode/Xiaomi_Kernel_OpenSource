@@ -269,7 +269,7 @@ static int spss_stop(struct rproc *rproc)
 
 	ret = qcom_scm_pas_shutdown(spss->pas_id);
 	if (ret)
-		dev_err(spss->dev, "failed to shutdown: %d\n", ret);
+		panic("Panicking, remoteproc %s failed to shutdown.\n", rproc->name);
 
 	mask_scsr_irqs(spss);
 
@@ -295,12 +295,11 @@ static int spss_attach(struct rproc *rproc)
 	unmask_scsr_irqs(spss);
 
 	ret = wait_for_completion_timeout(&spss->start_done, msecs_to_jiffies(SPSS_TIMEOUT));
-	if (rproc->recovery_disabled && !ret) {
+	if (rproc->recovery_disabled && !ret)
 		panic("Panicking, %s attach timed out\n", rproc->name);
-	} else if (!ret) {
+	else if (!ret)
 		dev_err(spss->dev, "start timed out\n");
-		rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
-	}
+
 	ret = ret ? 0 : -ETIMEDOUT;
 
 	return ret;
@@ -334,27 +333,18 @@ static int spss_start(struct rproc *rproc)
 		goto disable_xo_clk;
 
 	ret = qcom_scm_pas_auth_and_reset(spss->pas_id);
-	if (ret) {
-		dev_err(spss->dev,
-			"failed to authenticate image and release reset with error %d\n", ret);
-		goto disable_cx_supply;
-	}
-
-	/* at this point the spss should be in the process of booting up */
-	rproc->state = RPROC_RUNNING;
+	if (ret)
+		panic("Panicking, auth and reset failed for remoteproc %s\n", rproc->name);
 
 	unmask_scsr_irqs(spss);
 
 	ret = wait_for_completion_timeout(&spss->start_done, msecs_to_jiffies(SPSS_TIMEOUT));
-	if (rproc->recovery_disabled && !ret) {
+	if (rproc->recovery_disabled && !ret)
 		panic("Panicking, %s start timed out\n", rproc->name);
-	} else if (!ret) {
+	else if (!ret)
 		dev_err(spss->dev, "start timed out\n");
-		rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
-	}
 	ret = ret ? 0 : -ETIMEDOUT;
 
-disable_cx_supply:
 	disable_regulator(&spss->cx);
 disable_xo_clk:
 	clk_disable_unprepare(spss->xo);
