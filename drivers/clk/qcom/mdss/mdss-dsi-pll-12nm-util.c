@@ -35,9 +35,10 @@ int pixel_div_set_div(void *context, unsigned int reg,
 	}
 
 	/* Programming during vco_prepare. Keep this value */
-	data = ((div - 1) & 0x7f);
+	data = (div & 0x7f);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC9, data);
 	pdb->param.pixel_divhf = data;
+	pll->cached_postdiv3 = data;
 
 	mdss_pll_resource_enable(pll, false);
 	pr_debug("ndx=%d div=%d divhf=%d\n",
@@ -63,7 +64,7 @@ int pixel_div_get_div(void *context, unsigned int reg,
 	}
 
 	val = (MDSS_PLL_REG_R(pll->pll_base, DSIPHY_SSC9) & 0x7F);
-	*div = val + 1;
+	*div = val;
 	pr_debug("pixel_div = %d\n", (*div));
 
 	mdss_pll_resource_enable(pll, false);
@@ -94,11 +95,14 @@ int set_post_div_mux_sel(void *context, unsigned int reg,
 	data = ((vco_cntrl & 0x3f) | BIT(6));
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_VCO_CTRL, data);
 	pr_debug("%s: vco_cntrl 0x%x\n", __func__, vco_cntrl);
+	pll->cached_cfg0 = data;
+	wmb(); /* make sure register committed before preparing the clocks */
 
 	data = ((cpbias_cntrl & 0x1) << 6) | BIT(4);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_CHAR_PUMP_BIAS_CTRL, data);
 	pr_debug("%s: cpbias_cntrl 0x%x\n", __func__, cpbias_cntrl);
 
+	pll->cached_cfg1 = data;
 	pr_debug("ndx=%d post_div_mux_sel=%d p_div=%d\n",
 			pll->index, sel, (u32) BIT(sel));
 
@@ -168,6 +172,7 @@ int set_gp_mux_sel(void *context, unsigned int reg,
 	/* Programming during vco_prepare. Keep this value */
 	data = ((sel & 0x7) << 5) | 0x5;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_CTRL, data);
+	pll->cached_postdiv1 = data;
 
 	pr_debug("ndx=%d gp_div_mux_sel=%d gp_cntrl=%d\n",
 			pll->index, sel, (u32) BIT(sel));
@@ -910,10 +915,9 @@ unsigned long vco_12nm_recalc_rate(struct clk_hw *hw,
 	}
 
 	if (pll->vco_current_rate != 0) {
-		rate = pll_vco_get_rate_12nm(hw);
 		pr_debug("%s:returning vco rate = %lld\n", __func__,
 				pll->vco_current_rate);
-		return rate;
+		return pll->vco_current_rate;
 	}
 
 	rc = mdss_pll_resource_enable(pll, true);
@@ -971,6 +975,22 @@ int pll_vco_prepare_12nm(struct clk_hw *hw)
 		}
 	}
 
+	if (!pll->handoff_resources) {
+		pr_debug("%s ndx = %d cache PLL regs\n", __func__, pll->index);
+		MDSS_PLL_REG_W(pll->pll_base,
+			DSIPHY_PLL_VCO_CTRL, pll->cached_cfg0);
+		udelay(1);
+		MDSS_PLL_REG_W(pll->pll_base,
+			DSIPHY_PLL_CHAR_PUMP_BIAS_CTRL, pll->cached_cfg1);
+		udelay(1);
+		MDSS_PLL_REG_W(pll->pll_base,
+			 DSIPHY_PLL_CTRL, pll->cached_postdiv1);
+		udelay(1);
+		MDSS_PLL_REG_W(pll->pll_base,
+			 DSIPHY_SSC9, pll->cached_postdiv3);
+		udelay(5); /* h/w recommended delay */
+	}
+
 	/*
 	 * For cases where  DSI PHY is already enabled like:
 	 * 1.) LP-11 during static screen
@@ -1009,6 +1029,12 @@ void pll_vco_unprepare_12nm(struct clk_hw *hw)
 	}
 
 	pll->vco_cached_rate = clk_hw_get_rate(hw);
+
+	pll->cached_cfg0 = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_PLL_VCO_CTRL);
+	pll->cached_cfg1 = MDSS_PLL_REG_R(pll->pll_base,
+					DSIPHY_PLL_CHAR_PUMP_BIAS_CTRL);
+	pll->cached_postdiv1 = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_PLL_CTRL);
+	pll->cached_postdiv3 = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_SSC9);
 	dsi_pll_disable(hw);
 }
 
