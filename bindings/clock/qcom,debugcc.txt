@@ -9,6 +9,7 @@ Required properties :
 			"qcom,holi-debugcc"
 			"qcom,sdxlemur-debugcc"
 			"qcom,waipio-debugcc"
+			"qcom,diwali-debugcc"
 
 - qcom,gcc: phandle to the GCC device node.
 - qcom,videocc: phandle to the Video CC device node.

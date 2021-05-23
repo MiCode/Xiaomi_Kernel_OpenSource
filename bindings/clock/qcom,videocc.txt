@@ -8,6 +8,7 @@ Required properties :
 			"qcom,lahaina-videocc"
 			"qcom,shima-videocc"
 			"qcom,waipio-videocc"
+			"qcom,diwali-videocc"
 
 - reg : shall contain base register location and length
 - #clock-cells : from common clock binding, shall contain 1.
