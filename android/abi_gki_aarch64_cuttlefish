@@ -614,8 +614,8 @@
   kmalloc_order_trace
   kvfree
   kvmalloc_node
-  memdup_user
   mutex_trylock
+  sg_alloc_table
   __sg_alloc_table_from_pages
   sg_free_table
   sg_next
@@ -644,6 +644,8 @@
   ttm_eu_fence_buffer_objects
   ttm_eu_reserve_buffers
   ttm_tt_init
+  vmalloc_to_page
+  vmemdup_user
   vmemmap
   ww_mutex_lock_interruptible
   ww_mutex_unlock

@@ -255,12 +255,14 @@
   fwnode_graph_get_next_endpoint
   fwnode_handle_put
   fwnode_property_read_u32_array
+  gcd
   generic_handle_irq
   get_cpu_device
   __get_free_pages
   get_random_bytes
   get_unused_fd_flags
   gpiod_direction_output_raw
+  gpiod_set_raw_value
   gpiod_set_raw_value_cansleep
   gpiod_set_value_cansleep
   gpio_request
@@ -272,6 +274,7 @@
   i2c_add_adapter
   i2c_del_adapter
   i2c_del_driver
+  i2c_put_adapter
   i2c_register_driver
   i2c_transfer
   i2c_transfer_buffer_flags
@@ -306,9 +309,9 @@
   kmalloc_caches
   kmalloc_order_trace
   kmem_cache_alloc_trace
-  kmemdup
   kobject_create_and_add
   kobject_put
+  kstrtoull
   kthread_create_on_node
   kthread_should_stop
   ktime_get
@@ -323,6 +326,7 @@
   media_entity_remote_pad
   memcpy
   memset
+  __memset_io
   mipi_dsi_attach
   mipi_dsi_detach
   mipi_dsi_driver_register_full
@@ -359,7 +363,6 @@
   of_clk_get
   of_clk_get_by_name
   of_clk_src_onecell_get
-  of_count_phandle_with_args
   of_device_get_match_data
   of_device_is_available
   of_device_is_compatible
@@ -394,6 +397,7 @@
   of_property_read_string
   of_property_read_u32_index
   of_property_read_variable_u32_array
+  of_reserved_mem_device_init_by_idx
   of_reset_control_array_get
   param_array_ops
   param_ops_bool
@@ -478,6 +482,7 @@
   __register_chrdev
   register_netdev
   __register_rpmsg_driver
+  register_virtio_device
   register_virtio_driver
   regmap_attach_dev
   regmap_read
@@ -547,7 +552,9 @@
   snd_soc_info_volsw
   snd_soc_jack_add_gpios
   snd_soc_of_parse_audio_routing
+  snd_soc_of_parse_audio_simple_widgets
   snd_soc_of_parse_card_name
+  snd_soc_of_parse_daifmt
   snd_soc_params_to_bclk
   snd_soc_pm_ops
   snd_soc_put_enum_double
@@ -665,6 +672,9 @@
   vmalloc
   vmalloc_to_page
   vmemmap
+  vring_del_virtqueue
+  vring_interrupt
+  vring_new_virtqueue
   vsnprintf
   wait_for_completion_interruptible_timeout
   wait_for_completion_timeout
@@ -777,7 +787,6 @@
   drm_scdc_set_high_tmds_clock_ratio
   drm_scdc_set_scrambling
   drm_scdc_write
-  i2c_put_adapter
   of_get_i2c_adapter_by_node
 
 # required by dw_hdmi-imx.ko
@@ -794,6 +803,7 @@
 
 # required by dwc3-qcom.ko
   devm_extcon_register_notifier
+  kmemdup
   of_clk_get_parent_count
 
 # required by dwc3.ko
@@ -845,7 +855,6 @@
   of_mdiobus_register
   of_phy_connect
   of_phy_deregister_fixed_link
-  of_phy_find_device
   of_phy_is_fixed_link
   of_phy_register_fixed_link
   param_ops_byte
@@ -977,7 +986,6 @@
   clk_notifier_register
   clk_notifier_unregister
   dma_request_chan
-  gpiod_set_raw_value
   i2c_add_numbered_adapter
   i2c_generic_scl_recovery
   i2c_recover_bus
@@ -1117,6 +1125,13 @@
 # required by imx8mp-ldb.ko
   devm_of_phy_get
 
+# required by imx_rpmsg.ko
+  mbox_free_channel
+  mbox_request_channel_byname
+  mbox_send_message
+  of_reserved_mem_device_release
+  vring_transport_features
+
 # required by imx_rpmsg_tty.ko
   print_hex_dump
   put_tty_driver
@@ -1131,30 +1146,6 @@
   tty_set_operations
   tty_std_termios
   tty_unregister_driver
-
-# required by imx_rproc.ko
-  mbox_free_channel
-  mbox_request_channel_byname
-  mbox_send_message
-  of_phandle_iterator_init
-  of_phandle_iterator_next
-  of_reserved_mem_lookup
-  reset_control_status
-  rproc_add
-  rproc_add_carveout
-  rproc_alloc
-  rproc_coredump_add_segment
-  rproc_da_to_va
-  rproc_del
-  rproc_elf_find_loaded_rsc_table
-  rproc_elf_get_boot_addr
-  rproc_elf_load_rsc_table
-  rproc_elf_load_segments
-  rproc_elf_sanity_check
-  rproc_free
-  rproc_mem_entry_init
-  rproc_of_resm_mem_entry_init
-  rproc_vq_interrupt
 
 # required by imxdrm.ko
   component_bind_all
@@ -1225,13 +1216,11 @@
   match_token
   mutex_is_locked
   notify_change
-  override_creds
   pagecache_get_page
   path_get
   path_put
   __put_cred
   register_filesystem
-  revert_creds
   set_anon_super
   sget
   simple_getattr
@@ -1275,6 +1264,9 @@
 # required by it6263.ko
   i2c_new_dummy
   regmap_bulk_read
+
+# required by lpa_ctrl.ko
+  sysfs_create_groups
 
 # required by moal.ko
   alloc_netdev_mqs
@@ -1626,7 +1618,7 @@
 
 # required by snd-soc-fsl-dsp.ko
   dev_pm_domain_attach_by_id
-  __memset_io
+  of_count_phandle_with_args
   of_irq_get
   pm_system_wakeup
   sysfs_streq
@@ -1634,7 +1626,6 @@
 
 # required by snd-soc-fsl-easrc.ko
   completion_done
-  gcd
   snd_pcm_format_big_endian
   snd_pcm_format_linear
   snd_pcm_format_unsigned
@@ -1643,7 +1634,6 @@
 
 # required by snd-soc-fsl-micfil.ko
   kobject_uevent_env
-  kstrtoull
   snd_soc_get_volsw_sx
   snd_soc_info_volsw_sx
   snd_soc_put_volsw_sx
@@ -1666,9 +1656,6 @@
   snd_pcm_hw_constraint_eld
   snd_soc_jack_report
 
-# required by snd-soc-imx-rpmsg.ko
-  of_reserved_mem_device_init_by_idx
-
 # required by snd-soc-imx-wm8960.ko
   gpiod_get_raw_value_cansleep
   of_parse_phandle_with_fixed_args
@@ -1684,6 +1671,22 @@
 # required by snd-soc-rpmsg-cs42xx8.ko
   regcache_cache_bypass
 
+# required by snd-soc-rpmsg-imx-pcm512x.ko
+  i2c_get_adapter
+  i2c_smbus_read_byte
+  snd_soc_dai_set_bclk_ratio
+  snd_soc_get_pcm_runtime
+  snd_soc_limit_volume
+  snd_soc_unregister_card
+
+# required by snd-soc-rpmsg-pcm512x.ko
+  devm_regulator_register_notifier
+  snd_ctl_boolean_stereo_info
+  snd_interval_ranges
+  snd_pcm_hw_constraint_ratnums
+  snd_pcm_hw_rule_add
+  snd_soc_params_to_frame_size
+
 # required by snd-soc-simple-card-utils.ko
   devm_get_clk_from_child
   devm_kasprintf
@@ -1692,13 +1695,14 @@
   snd_soc_dapm_get_pin_switch
   snd_soc_dapm_info_pin_switch
   snd_soc_dapm_put_pin_switch
-  snd_soc_of_parse_audio_simple_widgets
-  snd_soc_of_parse_daifmt
 
 # required by snd-soc-simple-card.ko
   snd_soc_of_get_dai_name
   snd_soc_of_parse_node_prefix
   snd_soc_of_parse_tdm_slot
+
+# required by snd-soc-tpa6130a2.ko
+  devm_gpio_request
 
 # required by snvs_pwrkey.ko
   devm_input_allocate_device
@@ -1763,11 +1767,7 @@
   panic_notifier_list
 
 # required by trusty-virtio.ko
-  register_virtio_device
   unregister_virtio_device
-  vring_del_virtqueue
-  vring_interrupt
-  vring_new_virtqueue
 
 # required by trusty.ko
   atomic_notifier_call_chain
