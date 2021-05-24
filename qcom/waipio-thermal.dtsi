@@ -74,6 +74,42 @@
 			qcom,cpus = <&CPU6 &CPU7>;
 			#cooling-cells = <2>;
 		};
+
+		/* Thermal-engine cooling devices */
+		pause-cpu0 {
+			qcom,cpus = <&CPU0>;
+			qcom,cdev-alias = "pause-cpu0";
+		};
+
+		pause-cpu1 {
+			qcom,cpus = <&CPU1>;
+			qcom,cdev-alias = "pause-cpu1";
+		};
+
+		pause-cpu2 {
+			qcom,cpus = <&CPU2>;
+			qcom,cdev-alias = "pause-cpu2";
+		};
+
+		pause-cpu3 {
+			qcom,cpus = <&CPU3>;
+			qcom,cdev-alias = "pause-cpu3";
+		};
+
+		pause-cpu5 {
+			qcom,cpus = <&CPU5>;
+			qcom,cdev-alias = "pause-cpu5";
+		};
+
+		pause-cpu6 {
+			qcom,cpus = <&CPU6>;
+			qcom,cdev-alias = "pause-cpu6";
+		};
+
+		pause-cpu7 {
+			qcom,cpus = <&CPU7>;
+			qcom,cdev-alias = "pause-cpu7";
+		};
 	};
 
 	qcom,cpu-hotplug {
