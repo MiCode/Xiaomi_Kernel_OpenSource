@@ -2609,9 +2609,6 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	/* Reset active USB connection */
 	dwc3_resume_work(&mdwc->resume_work);
 
-	/* temporarily disable dwc3 autosuspend so it suspends immediately */
-	pm_runtime_dont_use_autosuspend(&mdwc->dwc3->dev);
-
 	/* Make sure disconnect is processed before sending connect */
 	while (--timeout && !pm_runtime_suspended(mdwc->dev))
 		msleep(20);
@@ -2624,7 +2621,6 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 		pm_runtime_suspend(mdwc->dev);
 	}
 
-	pm_runtime_use_autosuspend(&mdwc->dwc3->dev);
 	mdwc->in_restart = false;
 	/* Force reconnect only if cable is still connected */
 	if (mdwc->vbus_active)
@@ -3605,6 +3601,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 
+	dwc3_msm_set_clk_sel(mdwc);
+
 	dbg_event(0xFF, "Ctl Res", atomic_read(&mdwc->in_lpm));
 	mutex_unlock(&mdwc->suspend_resume_mutex);
 
@@ -4410,8 +4408,6 @@ static void dwc3_init_dbm(struct dwc3_msm *mdwc)
 
 static int dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 {
-	int ret;
-
 	if (start) {
 		dbg_log_string("start host mode");
 		mdwc->id_state = DWC3_ID_GROUND;
@@ -4425,17 +4421,20 @@ static int dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 	dwc3_ext_event_notify(mdwc);
 
 	if (!start) {
+		/*
+		 * Block runtime PM during draining of the WQ, as if RPM suspend
+		 * occurs, it can not queue work to sm_usb_wq. (as only chain
+		 * queuing is allowed)
+		 */
+		pm_runtime_get(&mdwc->dwc3->dev);
+
 		flush_work(&mdwc->resume_work);
 		drain_workqueue(mdwc->sm_usb_wq);
 
-		/* ensure controller is stopped and in LPM */
-		ret = pm_runtime_suspend(&mdwc->dwc3->dev);
-		dbg_event(0xFF, "suspend dwc3", ret);
-		if (ret < 0)
-			return ret;
-
+		pm_runtime_put(&mdwc->dwc3->dev);
 		while (test_bit(WAIT_FOR_LPM, &mdwc->inputs))
 			msleep(20);
+
 		dbg_log_string("stop_host_mode completed");
 	}
 
@@ -4444,8 +4443,6 @@ static int dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 
 static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 {
-	int ret;
-
 	if (start) {
 		dbg_log_string("start device mode");
 		mdwc->id_state = DWC3_ID_FLOAT;
@@ -4459,17 +4456,21 @@ static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 	dwc3_ext_event_notify(mdwc);
 
 	if (!start) {
+		/*
+		 * Block runtime PM during draining of the WQ, as if RPM suspend
+		 * occurs, it can not queue work to sm_usb_wq. (as only chain
+		 * queuing is allowed)
+		 */
+		pm_runtime_get(&mdwc->dwc3->dev);
+
 		flush_work(&mdwc->resume_work);
 		drain_workqueue(mdwc->sm_usb_wq);
 
-		/* ensure controller is stopped and in LPM */
-		ret = pm_runtime_suspend(&mdwc->dwc3->dev);
-		dbg_event(0xFF, "suspend dwc3", ret);
-		if (ret < 0)
-			return ret;
+		pm_runtime_put(&mdwc->dwc3->dev);
 
 		while (test_bit(WAIT_FOR_LPM, &mdwc->inputs))
 			msleep(20);
+
 		dbg_log_string("stop_device_mode completed");
 	}
 
@@ -4643,6 +4644,7 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	mdwc->ip = DWC3_GSNPS_ID(val);
 
 	dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_ALLOC, 0);
+	pm_runtime_set_autosuspend_delay(dwc->dev, 0);
 	pm_runtime_allow(dwc->dev);
 
 	return 0;
@@ -5356,7 +5358,6 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on gadget %s\n", __func__);
 
-		dwc3_msm_set_clk_sel(mdwc);
 		pm_runtime_get_sync(&mdwc->dwc3->dev);
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP, 0);
 
