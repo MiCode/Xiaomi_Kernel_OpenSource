@@ -181,3 +181,12 @@ config QTI_LMH_CPU_VDD_COOLING_DEVICE
 	   These cooling devices will be used by QTI chipset to place a
 	   request to limits hardware for a minimum CPU railway voltage
 	   corner at cold temperature condition.
+
+config QTI_CX_IPEAK_COOLING_DEVICE
+	tristate "QTI CX IPeak cooling device"
+	depends on THERMAL_OF && QTI_THERMAL
+	help
+	  This implements a mitigation device to place a thermal client vote
+	  to CXIP LM hardware. When all pre-defined clients on CX rail including
+	  thermal client set their vote, CXIP LM hardware throttles the clients
+	  on the CX rail.
