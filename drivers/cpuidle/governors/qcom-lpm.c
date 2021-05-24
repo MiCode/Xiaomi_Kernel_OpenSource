@@ -535,6 +535,7 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	if (!cpu_gov)
 		return 0;
 
+	do_div(latency_req, NSEC_PER_USEC);
 	cpu_gov->predicted = 0;
 	cpu_gov->now = ktime_get();
 	histtimer_cancel();
