@@ -169,6 +169,9 @@
 #define LINK_WIDTH_MASK (0x3f)
 #define LINK_WIDTH_SHIFT (16)
 
+#define NUM_OF_LANES_MASK (0x1f)
+#define NUM_OF_LANES_SHIFT (8)
+
 #define MSM_PCIE_LTSSM_MASK (0x3f)
 
 #define MSM_PCIE_DRV_MAJOR_VERSION (1)
@@ -666,6 +669,7 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_vreg_info_t *mx_vreg;
 	struct msm_pcie_bw_scale_info_t *bw_scale;
 	u32 bw_gen_max;
+	u32 link_width_max;
 
 	struct clk *pipe_clk_mux;
 	struct clk *pipe_clk_ext_src;
@@ -705,6 +709,8 @@ struct msm_pcie_dev_t {
 	uint32_t target_link_speed;
 	uint32_t dt_target_link_speed;
 	uint32_t current_link_speed;
+	uint32_t target_link_width;
+	uint32_t current_link_width;
 	uint32_t n_fts;
 	uint32_t ep_latency;
 	uint32_t switch_latency;
@@ -1000,6 +1006,8 @@ static void msm_pcie_config_l1ss_enable_all(struct msm_pcie_dev_t *dev);
 static void msm_pcie_check_l1ss_support_all(struct msm_pcie_dev_t *dev);
 
 static void msm_pcie_config_link_pm(struct msm_pcie_dev_t *dev, bool enable);
+static int msm_pcie_set_link_width(struct msm_pcie_dev_t *pcie_dev,
+				   u16 target_link_width);
 
 static void msm_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 {
@@ -1382,6 +1390,12 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->target_link_speed);
 	PCIE_DBG_FS(dev, "current_link_speed: 0x%x\n",
 		dev->current_link_speed);
+	PCIE_DBG_FS(dev, "target_link_width: %d\n",
+		dev->target_link_width);
+	PCIE_DBG_FS(dev, "current_link_width: %d\n",
+		dev->current_link_width);
+	PCIE_DBG_FS(dev, "link_width_max: %d\n",
+		dev->link_width_max);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
 		dev->link_turned_on_counter);
 	PCIE_DBG_FS(dev, "link_turned_off_counter: %lu\n",
@@ -3961,7 +3975,7 @@ static void msm_pcie_scale_link_bandwidth(struct msm_pcie_dev_t *pcie_dev,
 static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 {
 	int link_check_count = 0;
-	uint32_t val;
+	uint32_t val, link_status;
 
 	msm_pcie_write_reg_field(dev->dm_core,
 		PCIE_GEN3_GEN2_CTRL, 0x1f00, 1);
@@ -4011,11 +4025,14 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		return MSM_PCIE_ERROR;
 	}
 
-	dev->current_link_speed = (readl_relaxed(dev->dm_core +
-					PCIE20_CAP_LINKCTRLSTATUS) >> 16) &
-					PCI_EXP_LNKSTA_CLS;
-	PCIE_DBG(dev, "PCIe: RC%d: Link is up at Gen%d\n",
-		dev->rc_idx, dev->current_link_speed);
+	link_status = readl_relaxed(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS);
+
+	dev->current_link_speed = (link_status >> 16) & PCI_EXP_LNKSTA_CLS;
+	dev->current_link_width = ((link_status >> 16) & PCI_EXP_LNKSTA_NLW) >>
+				   PCI_EXP_LNKSTA_NLW_SHIFT;
+	PCIE_DBG(dev, "PCIe: RC%d: Link is up at Gen%dX%d\n",
+		 dev->rc_idx, dev->current_link_speed,
+		 dev->current_link_width);
 
 	/*
 	 * If the link up GEN speed is less than the max/default supported,
@@ -4142,6 +4159,19 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 	if (dev->gpio[MSM_PCIE_GPIO_EP].num)
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
 				dev->gpio[MSM_PCIE_GPIO_EP].on);
+
+	dev->link_width_max =
+		(readl_relaxed(dev->dm_core + PCIE20_CAP + PCI_EXP_LNKCAP) &
+			       PCI_EXP_LNKCAP_MLW) >> PCI_EXP_LNKSTA_NLW_SHIFT;
+	PCIE_DBG(dev, "PCIe: RC%d: Maximum supported link width is %d\n",
+		 dev->rc_idx, dev->link_width_max);
+
+	if (dev->target_link_width) {
+		ret = msm_pcie_set_link_width(dev, dev->target_link_width <<
+					      PCI_EXP_LNKSTA_NLW_SHIFT);
+		if (ret)
+			goto link_fail;
+	}
 
 	/* de-assert PCIe reset link to bring EP out of reset */
 
@@ -5716,6 +5746,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	pcie_dev->target_link_speed = pcie_dev->dt_target_link_speed;
 
+	msm_pcie_dev[rc_idx].target_link_width = 0;
+	of_property_read_u32(of_node, "qcom,target-link-width",
+			     &pcie_dev->target_link_width);
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: target-link-width: %d.\n",
+		 pcie_dev->rc_idx, pcie_dev->target_link_width);
+
 	of_property_read_u32(of_node, "qcom,n-fts", &pcie_dev->n_fts);
 	PCIE_DBG(pcie_dev, "n-fts: 0x%x.\n", pcie_dev->n_fts);
 
@@ -5990,6 +6026,7 @@ static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 				struct pci_dev *pci_dev)
 {
 	u32 cnt_max = 100; /* 100ms timeout */
+	u32 link_status;
 	u32 link_status_lbms_mask = PCI_EXP_LNKSTA_LBMS << PCI_EXP_LNKCTL;
 	int ret, status;
 
@@ -6024,16 +6061,23 @@ static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 		}
 	}
 
-	pcie_dev->current_link_speed = (readl_relaxed(pcie_dev->dm_core +
-					PCIE20_CAP_LINKCTRLSTATUS) >> 16) &
-					PCI_EXP_LNKSTA_CLS;
+	link_status = readl_relaxed(pcie_dev->dm_core +
+				    PCIE20_CAP_LINKCTRLSTATUS);
+	pcie_dev->current_link_speed = (link_status >> 16) & PCI_EXP_LNKSTA_CLS;
+	pcie_dev->current_link_width = ((link_status >> 16) & PCI_EXP_LNKSTA_NLW) >>
+					PCI_EXP_LNKSTA_NLW_SHIFT;
+
 	return 0;
 }
 
 static int msm_pcie_set_link_width(struct msm_pcie_dev_t *pcie_dev,
-					u16 target_link_width)
+				   u16 target_link_width)
 {
 	u16 link_width;
+
+	if (pcie_dev->target_link_width &&
+	    (pcie_dev->target_link_width > pcie_dev->link_width_max))
+		goto invalid_link_width;
 
 	switch (target_link_width) {
 	case PCI_EXP_LNKSTA_NLW_X1:
@@ -6043,18 +6087,49 @@ static int msm_pcie_set_link_width(struct msm_pcie_dev_t *pcie_dev,
 		link_width = LINK_WIDTH_X2;
 		break;
 	default:
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d: unsupported link width request: %d\n",
-			pcie_dev->rc_idx, target_link_width);
-		return -EINVAL;
+		goto invalid_link_width;
 	}
 
 	msm_pcie_write_reg_field(pcie_dev->dm_core,
-				PCIE20_PORT_LINK_CTRL_REG,
-				LINK_WIDTH_MASK << LINK_WIDTH_SHIFT,
-				link_width);
+				 PCIE20_PORT_LINK_CTRL_REG,
+				 LINK_WIDTH_MASK << LINK_WIDTH_SHIFT,
+				 link_width);
+
+	/* Set NUM_OF_LANES in GEN2_CTRL_OFF */
+	msm_pcie_write_reg_field(pcie_dev->dm_core,
+				 PCIE_GEN3_GEN2_CTRL,
+				 NUM_OF_LANES_MASK << NUM_OF_LANES_SHIFT,
+				 link_width);
+
+	/* enable write access to RO register */
+	msm_pcie_write_mask(pcie_dev->dm_core + PCIE_GEN3_MISC_CONTROL, 0,
+			    BIT(0));
+
+	/* Set Maximum link width as current width */
+	msm_pcie_write_reg_field(pcie_dev->dm_core, PCIE20_CAP + PCI_EXP_LNKCAP,
+				 PCI_EXP_LNKCAP_MLW, link_width);
+
+	/* disable write access to RO register */
+	msm_pcie_write_mask(pcie_dev->dm_core + PCIE_GEN3_MISC_CONTROL, BIT(0),
+			    0);
+
+	pcie_dev->link_width_max =
+		(readl_relaxed(pcie_dev->dm_core + PCIE20_CAP + PCI_EXP_LNKCAP) &
+			       PCI_EXP_LNKCAP_MLW) >> PCI_EXP_LNKSTA_NLW_SHIFT;
+	PCIE_DBG(pcie_dev,
+		 "PCIe: RC%d: updated maximum link width supported to: %d\n",
+		 pcie_dev->rc_idx, pcie_dev->link_width_max);
 
 	return 0;
+
+invalid_link_width:
+	PCIE_ERR(pcie_dev,
+		 "PCIe: RC%d: unsupported link width request: %d, Max: %d\n",
+		 pcie_dev->rc_idx,
+		 target_link_width >> PCI_EXP_LNKSTA_NLW_SHIFT,
+		 pcie_dev->link_width_max);
+
+	return -EINVAL;
 }
 
 void msm_pcie_allow_l1(struct pci_dev *pci_dev)
@@ -6266,8 +6341,9 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	else
 		PCIE_DBG(pcie_dev,
 			"PCIe: RC%d: switching from x%d to x%d\n",
-			pcie_dev->rc_idx, current_link_width,
-			target_link_width);
+			pcie_dev->rc_idx,
+			current_link_width >> PCI_EXP_LNKSTA_NLW_SHIFT,
+			target_link_width >> PCI_EXP_LNKSTA_NLW_SHIFT);
 
 	if (!set_link_speed && !set_link_width)
 		return 0;
