@@ -42,6 +42,19 @@
 		pci-domain1 = &pcie1; /* PCIe1 domain */
 	};
 
+	sram: sram@17D09400 {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "mmio-sram";
+		reg = <0x0 0x17D09400 0x0 0x400>;
+		ranges = <0x0 0x0 0x0 0x17D09400 0x0 0x400>;
+
+		cpu_scp_lpri: scp-shmem@0 {
+			compatible = "arm,scp-shmem";
+			reg = <0x0 0x0 0x0 0x400>;
+		};
+	};
+
 	firmware: firmware { };
 
 	cpus {
@@ -824,6 +837,36 @@
 		};
 	};
 
+	rimps: qcom,rimps@17400000 {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "qcom,rimps";
+		reg =   <0x17400000 0x10>,
+			<0x17d90000 0x2000>;
+		#mbox-cells = <1>;
+		interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	scmi: qcom,scmi {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "arm,scmi";
+		mboxes = <&rimps 0>;
+		mbox-names = "tx";
+		shmem = <&cpu_scp_lpri>;
+
+		scmi_memlat: protocol@80 {
+			reg = <0x80>;
+			#clock-cells = <1>;
+		};
+	};
+
+	rimps_log: qcom,rimps_log@17d09c00 {
+		compatible = "qcom,rimps-log";
+		reg = <0x17d09c00 0x200>, <0x17d09e00 0x200>;
+		mboxes = <&rimps 1>;
+	};
+
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
@@ -1523,6 +1566,14 @@
 		priority = <0>;
 		mbox-desc-offset = <0x0>;
 		#mbox-cells = <1>;
+	};
+
+	qcom,tmecom-qmp-client {
+		compatible = "qcom,tmecom-qmp-client";
+		mboxes = <&qmp_tme 0>;
+		mbox-names = "tmecom";
+		label = "tmecom";
+		depends-on-supply = <&qmp_tme>;
 	};
 
 	qcom,glinkpkt {

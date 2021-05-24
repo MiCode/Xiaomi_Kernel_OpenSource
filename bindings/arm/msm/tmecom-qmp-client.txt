@@ -1,0 +1,19 @@
+TMECOM QMP client:
+-----------------
+
+QTI Messaging Protocol(QMP) TMECom client is an interface for other clients to
+send data to Trust Management Engine (TME) on MSM platforms
+
+Required properties :
+- compatible : must be "qcom,tmecom-qmp-client"
+- mboxes : list of QMP mailbox phandle and channel identifier tuples.
+- mbox-names : names of the listed mboxes
+
+Example :
+	qcom,tmecom-qmp-client {
+	        compatible = "qcom,tmecom-qmp-client";
+		mboxes = <&qmp_tme 0>;
+		mbox-names = "tmecom";
+		label = "tmecom";
+		depends-on-supply = <&qmp_tme>;
+	};

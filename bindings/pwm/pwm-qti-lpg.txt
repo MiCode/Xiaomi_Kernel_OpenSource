@@ -164,6 +164,20 @@ specified for a channel that is configured as PFM enabled using the
 	Definition: The flag to specify if LPG would be ramping with the LUT
 		      pattern repeatedly.
 
+- qcom,ramp-pause-hi-count:
+	Usage: optional
+	Value type: <u32>
+	Definition: The number of step counts for which the LPG will continue
+		      to hold the output after it has ramped up to the high
+		      index of the LUT. Allowed range: 0 - 254 if SDAM is used.
+
+- qcom,ramp-pause-lo-count:
+	Usage: optional
+	Value type: <u32>
+	Definition: The number of step counts for which the LPG will continue
+		      to hold the output after it has ramped down to the low
+		      index of the LUT. Allowed range: 0 - 254 if SDAM is used.
+
 - qcom,ramp-from-low-to-high:
 	Usage: optional
 	Value type: <empty>
@@ -179,20 +193,6 @@ specified for a channel that is configured as PFM enabled using the
 		      in ramping. If toggling enabled, LPG would return to the
 		      low index when high index is reached, or return to the high
 		      index when low index is reached. This property is not
-		      required when SDAM module is used.
-
-- qcom,ramp-pause-hi-count:
-	Usage: optional
-	Value type: <u32>
-	Definition: The step count that LPG stop the output when it ramped up
-		      to the high index of the LUT. This property is not
-		      required when SDAM module is used.
-
-- qcom,ramp-pause-lo-count:
-	Usage: optional
-	Value type: <u32>
-	Definition: The step count that LPG stop the output when it ramped up
-		      to the low index of the LUT. This property is not
 		      required when SDAM module is used.
 
 Example when LUT pattern is stored in a LUT module:
@@ -252,28 +252,34 @@ Example when LUT pattern is stored in a SDAM module:
 		qcom,lut-patterns = <0 14 28 42 56 70 84 100
 					100 84 70 56 42 28 14 0>;
 		lpg@1 {
+			qcom,lpg-sdam-base = <0x48>:
 			qcom,lpg-chan-id = <1>;
 			qcom,ramp-step-ms = <200>;
 			qcom,ramp-low-index = <0>;
 			qcom,ramp-high-index = <15>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
 			qcom,ramp-pattern-repeat;
-			qcom,lpg-sdam-base = <0x48>:
 		};
 		lpg@2 {
+			qcom,lpg-sdam-base = <0x56>;
 			qcom,lpg-chan-id = <2>;
 			qcom,ramp-step-ms = <200>;
 			qcom,ramp-low-index = <0>;
 			qcom,ramp-high-index = <15>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
 			qcom,ramp-pattern-repeat;
-			qcom,lpg-sdam-base = <0x56>;
 		};
 		lpg@3 {
+			qcom,lpg-sdam-base = <0x64>;
 			qcom,lpg-chan-id = <3>;
 			qcom,ramp-step-ms = <200>;
 			qcom,ramp-low-index = <0>;
 			qcom,ramp-high-index = <15>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
 			qcom,ramp-pattern-repeat;
-			qcom,lpg-sdam-base = <0x64>;
 		};
 	};
 
@@ -291,29 +297,35 @@ Example when LUT pattern is stored in two SDAM modules:
 		qcom,lut-patterns = <0 10 20 30 40 50 60 70 80 90 100
 		                     90 80 70 60 50 40 30 20 10 0>;
 		lpg@1 {
+			qcom,lpg-sdam-base = <0x48>;
 			qcom,lpg-chan-id = <1>;
 			qcom,ramp-step-ms = <200>;
 			qcom,ramp-low-index = <0>;
 			qcom,ramp-high-index = <19>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
 			qcom,ramp-pattern-repeat;
-			qcom,lpg-sdam-base = <0x48>;
 		};
 
 		lpg@2 {
+			qcom,lpg-sdam-base = <0x56>;
 			qcom,lpg-chan-id = <2>;
 			qcom,ramp-step-ms = <200>;
 			qcom,ramp-low-index = <0>;
 			qcom,ramp-high-index = <19>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
 			qcom,ramp-pattern-repeat;
-			qcom,lpg-sdam-base = <0x56>;
 		};
 
 		lpg@3 {
+			qcom,lpg-sdam-base = <0x64>;
 			qcom,lpg-chan-id = <3>;
 			qcom,ramp-step-ms = <200>;
 			qcom,ramp-low-index = <0>;
 			qcom,ramp-high-index = <19>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
 			qcom,ramp-pattern-repeat;
-			qcom,lpg-sdam-base = <0x64>;
 		};
 	};
