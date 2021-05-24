@@ -191,6 +191,11 @@
 			};
 		};
 	};
+
+	qcom,cpufreq-cdev {
+		compatible = "qcom,cpufreq-cdev";
+		qcom,cpus = <&CPU0 &CPU4 &CPU7>;
+	};
 };
 
 #include "waipio-thermal-modem.dtsi"
