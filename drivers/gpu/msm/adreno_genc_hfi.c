@@ -535,11 +535,9 @@ int genc_hfi_start(struct adreno_device *adreno_dev)
 	if (result)
 		goto err;
 
-	/*
-	 * GMU might not support this feature enablement yet. Don't error for
-	 * now.
-	 */
-	genc_hfi_send_ifpc_feature_ctrl(adreno_dev);
+	result = genc_hfi_send_ifpc_feature_ctrl(adreno_dev);
+	if (result)
+		goto err;
 
 	result = genc_hfi_send_core_fw_start(adreno_dev);
 	if (result)
