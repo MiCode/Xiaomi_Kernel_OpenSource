@@ -127,7 +127,6 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
 	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
-	const struct mhi_pci_dev_info *dev_info = mhi_priv->dev_info;
 	int ret;
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
@@ -160,11 +159,7 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 
 	mhi_priv->mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
 
-	ret = mhi_qcom_pci_probe(pci_dev, dev_info);
-	if (ret)
-		mhi_priv->powered_on = false;
-
-	return ret;
+	return mhi_qcom_pci_probe(pci_dev, mhi_cntrl, mhi_priv);
 }
 
 static void mhi_arch_link_off(struct mhi_controller *mhi_cntrl)
@@ -212,6 +207,7 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 		return;
 	}
 	mhi_priv->powered_on = false;
+	mhi_priv->driver_remove = false;
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 	pm_runtime_put_noidle(mhi_cntrl->cntrl_dev);
@@ -220,10 +216,10 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 	mhi_power_down(mhi_cntrl, !mdm_state);
 
 	/* turn the link off */
-	mhi_deinit_pci_dev(mhi_cntrl);
 	mhi_arch_link_off(mhi_cntrl);
-
 	mhi_arch_pcie_deinit(mhi_cntrl);
+	mhi_deinit_pci_dev(to_pci_dev(mhi_cntrl->cntrl_dev),
+			   mhi_priv->dev_info);
 
 	pm_relax(&mhi_cntrl->mhi_dev->dev);
 }

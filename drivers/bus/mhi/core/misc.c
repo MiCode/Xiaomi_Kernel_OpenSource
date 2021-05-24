@@ -225,8 +225,17 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 
 void *mhi_controller_get_privdata(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+	struct mhi_device *mhi_dev;
+	struct mhi_private *mhi_priv;
 
+	if (!mhi_cntrl)
+		return NULL;
+
+	mhi_dev = mhi_cntrl->mhi_dev;
+	if (!mhi_dev)
+		return NULL;
+
+	mhi_priv = dev_get_drvdata(&mhi_dev->dev);
 	if (!mhi_priv)
 		return NULL;
 
@@ -236,8 +245,17 @@ EXPORT_SYMBOL(mhi_controller_get_privdata);
 
 void mhi_controller_set_privdata(struct mhi_controller *mhi_cntrl, void *priv)
 {
-	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+	struct mhi_device *mhi_dev;
+	struct mhi_private *mhi_priv;
 
+	if (!mhi_cntrl)
+		return;
+
+	mhi_dev = mhi_cntrl->mhi_dev;
+	if (!mhi_dev)
+		return;
+
+	mhi_priv = dev_get_drvdata(&mhi_dev->dev);
 	if (!mhi_priv)
 		return;
 
