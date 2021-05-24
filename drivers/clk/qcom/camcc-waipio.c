@@ -63,7 +63,7 @@ static struct pll_vco lucid_evo_vco[] = {
 };
 
 static struct pll_vco rivian_evo_vco[] = {
-	{ 875000000, 1075000000, 0 },
+	{ 864000000, 1056000000, 0 },
 };
 
 static const struct alpha_pll_config cam_cc_pll0_config = {
@@ -152,9 +152,9 @@ static struct clk_alpha_pll_postdiv cam_cc_pll0_out_odd = {
 };
 
 static const struct alpha_pll_config cam_cc_pll1_config = {
-	.l = 0x1F,
+	.l = 0x25,
 	.cal_l = 0x44,
-	.alpha = 0xAAAA,
+	.alpha = 0xEAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00182261,
 	.config_ctl_hi1_val = 0x32AA299C,
@@ -222,6 +222,15 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.config_ctl_hi1_val = 0x00000217,
 };
 
+static const struct alpha_pll_config cam_cc_pll2_config_sm8450_v2 = {
+	.l = 0x32,
+	.cal_l = 0x32,
+	.alpha = 0x0,
+	.config_ctl_val = 0x90008820,
+	.config_ctl_hi_val = 0x00890263,
+	.config_ctl_hi1_val = 0x00000217,
+};
+
 static struct clk_alpha_pll cam_cc_pll2 = {
 	.offset = 0x2000,
 	.vco_table = rivian_evo_vco,
@@ -240,13 +249,13 @@ static struct clk_alpha_pll cam_cc_pll2 = {
 			.vdd_class = &vdd_mxa,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
-				[VDD_LOW] = 1075000000},
+				[VDD_LOW] = 1056000000},
 		},
 	},
 };
 
 static const struct alpha_pll_config cam_cc_pll3_config = {
-	.l = 0x24,
+	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
@@ -308,7 +317,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll3_out_even = {
 };
 
 static const struct alpha_pll_config cam_cc_pll4_config = {
-	.l = 0x24,
+	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
@@ -370,7 +379,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll4_out_even = {
 };
 
 static const struct alpha_pll_config cam_cc_pll5_config = {
-	.l = 0x24,
+	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
@@ -432,7 +441,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll5_out_even = {
 };
 
 static const struct alpha_pll_config cam_cc_pll6_config = {
-	.l = 0x24,
+	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
@@ -494,7 +503,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll6_out_even = {
 };
 
 static const struct alpha_pll_config cam_cc_pll7_config = {
-	.l = 0x24,
+	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
@@ -723,7 +732,6 @@ static const struct clk_parent_data cam_cc_parent_data_9_ao[] = {
 
 static const struct freq_tbl ftbl_cam_cc_bps_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(160000000, P_CAM_CC_PLL0_OUT_ODD, 2.5, 0, 0),
 	F(200000000, P_CAM_CC_PLL0_OUT_ODD, 2, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	F(480000000, P_CAM_CC_PLL8_OUT_EVEN, 1, 0, 0),
@@ -761,7 +769,6 @@ static struct clk_rcg2 cam_cc_bps_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_camnoc_axi_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(240000000, P_CAM_CC_PLL0_OUT_EVEN, 2.5, 0, 0),
 	F(300000000, P_CAM_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	{ }
@@ -795,7 +802,6 @@ static struct clk_rcg2 cam_cc_camnoc_axi_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_cci_0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(30000000, P_CAM_CC_PLL8_OUT_EVEN, 16, 0, 0),
 	F(37500000, P_CAM_CC_PLL0_OUT_EVEN, 16, 0, 0),
 	{ }
 };
@@ -850,7 +856,6 @@ static struct clk_rcg2 cam_cc_cci_1_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_cphy_rx_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(300000000, P_CAM_CC_PLL0_OUT_MAIN, 4, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(480000000, P_CAM_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
 	{ }
@@ -884,7 +889,6 @@ static struct clk_rcg2 cam_cc_cphy_rx_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_csi0phytimer_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(266666667, P_CAM_CC_PLL0_OUT_ODD, 1.5, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	{ }
 };
@@ -1034,7 +1038,6 @@ static struct clk_rcg2 cam_cc_csi5phytimer_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_csid_clk_src[] = {
-	F(300000000, P_CAM_CC_PLL0_OUT_MAIN, 4, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(480000000, P_CAM_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
 	{ }
@@ -1068,7 +1071,6 @@ static struct clk_rcg2 cam_cc_csid_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_fast_ahb_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(80000000, P_CAM_CC_PLL0_OUT_EVEN, 7.5, 0, 0),
 	F(100000000, P_CAM_CC_PLL0_OUT_EVEN, 6, 0, 0),
 	F(200000000, P_CAM_CC_PLL0_OUT_EVEN, 3, 0, 0),
 	F(300000000, P_CAM_CC_PLL0_OUT_MAIN, 4, 0, 0),
@@ -1106,7 +1108,6 @@ static struct clk_rcg2 cam_cc_fast_ahb_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_icp_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(300000000, P_CAM_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	F(480000000, P_CAM_CC_PLL8_OUT_EVEN, 1, 0, 0),
 	F(600000000, P_CAM_CC_PLL0_OUT_MAIN, 2, 0, 0),
@@ -1142,11 +1143,19 @@ static struct clk_rcg2 cam_cc_icp_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_ife_0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(345600000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(432000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(594000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(675000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(785000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_ife_0_clk_src_waipio_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(432000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(594000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(675000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(727000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -1180,11 +1189,19 @@ static struct clk_rcg2 cam_cc_ife_0_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_ife_1_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(345600000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
 	F(432000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
 	F(594000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
 	F(675000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
 	F(785000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_ife_1_clk_src_waipio_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(432000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
+	F(594000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
+	F(675000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
+	F(727000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -1217,11 +1234,18 @@ static struct clk_rcg2 cam_cc_ife_1_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_ife_2_clk_src[] = {
-	F(345600000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
 	F(432000000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
 	F(594000000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
 	F(675000000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
 	F(785000000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_ife_2_clk_src_waipio_v2[] = {
+	F(432000000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
+	F(594000000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
+	F(675000000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
+	F(727000000, P_CAM_CC_PLL5_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -1254,7 +1278,6 @@ static struct clk_rcg2 cam_cc_ife_2_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_ife_lite_clk_src[] = {
-	F(266666667, P_CAM_CC_PLL0_OUT_ODD, 1.5, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	F(480000000, P_CAM_CC_PLL8_OUT_EVEN, 1, 0, 0),
 	{ }
@@ -1313,7 +1336,6 @@ static struct clk_rcg2 cam_cc_ife_lite_csid_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_ipe_nps_clk_src[] = {
-	F(304000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
 	F(364000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
 	F(500000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
 	F(600000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
@@ -1570,7 +1592,6 @@ static struct clk_rcg2 cam_cc_mclk7_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_qdss_debug_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(60000000, P_CAM_CC_PLL8_OUT_EVEN, 8, 0, 0),
 	F(75000000, P_CAM_CC_PLL0_OUT_EVEN, 8, 0, 0),
 	F(150000000, P_CAM_CC_PLL0_OUT_EVEN, 4, 0, 0),
 	F(300000000, P_CAM_CC_PLL0_OUT_MAIN, 4, 0, 0),
@@ -1604,11 +1625,18 @@ static struct clk_rcg2 cam_cc_qdss_debug_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_sfe_0_clk_src[] = {
-	F(345600000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
 	F(432000000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
 	F(594000000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
 	F(675000000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
 	F(785000000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_sfe_0_clk_src_waipio_v2[] = {
+	F(432000000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
+	F(594000000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
+	F(675000000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
+	F(727000000, P_CAM_CC_PLL6_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -1641,11 +1669,18 @@ static struct clk_rcg2 cam_cc_sfe_0_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_sfe_1_clk_src[] = {
-	F(345600000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
 	F(432000000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
 	F(594000000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
 	F(675000000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
 	F(785000000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_sfe_1_clk_src_waipio_v2[] = {
+	F(432000000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
+	F(594000000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
+	F(675000000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
+	F(727000000, P_CAM_CC_PLL7_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -1707,7 +1742,6 @@ static struct clk_rcg2 cam_cc_sleep_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_slow_ahb_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(64000000, P_CAM_CC_PLL8_OUT_EVEN, 7.5, 0, 0),
 	F(80000000, P_CAM_CC_PLL0_OUT_EVEN, 7.5, 0, 0),
 	{ }
 };
@@ -3197,9 +3231,40 @@ static struct qcom_cc_desc cam_cc_waipio_desc = {
 
 static const struct of_device_id cam_cc_waipio_match_table[] = {
 	{ .compatible = "qcom,waipio-camcc" },
+	{ .compatible = "qcom,waipio-camcc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_waipio_match_table);
+
+static void cam_cc_waipio_fixup_waipiov2(struct regmap *regmap)
+{
+	clk_rivian_evo_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config_sm8450_v2);
+	cam_cc_ife_0_clk_src.freq_tbl = ftbl_cam_cc_ife_0_clk_src_waipio_v2;
+	cam_cc_ife_0_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_ife_1_clk_src.freq_tbl = ftbl_cam_cc_ife_1_clk_src_waipio_v2;
+	cam_cc_ife_1_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_ife_2_clk_src.freq_tbl = ftbl_cam_cc_ife_2_clk_src_waipio_v2;
+	cam_cc_ife_2_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_sfe_0_clk_src.freq_tbl = ftbl_cam_cc_sfe_0_clk_src_waipio_v2;
+	cam_cc_sfe_0_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_sfe_1_clk_src.freq_tbl = ftbl_cam_cc_sfe_1_clk_src_waipio_v2;
+	cam_cc_sfe_1_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+}
+
+static int cam_cc_waipio_fixup(struct platform_device *pdev, struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || compatlen <= 0)
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,waipio-camcc-v2"))
+		cam_cc_waipio_fixup_waipiov2(regmap);
+
+	return 0;
+}
 
 static int cam_cc_waipio_probe(struct platform_device *pdev)
 {
@@ -3227,6 +3292,10 @@ static int cam_cc_waipio_probe(struct platform_device *pdev)
 	clk_lucid_evo_pll_configure(&cam_cc_pll6, regmap, &cam_cc_pll6_config);
 	clk_lucid_evo_pll_configure(&cam_cc_pll7, regmap, &cam_cc_pll7_config);
 	clk_lucid_evo_pll_configure(&cam_cc_pll8, regmap, &cam_cc_pll8_config);
+
+	ret = cam_cc_waipio_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	/*
 	 * Keep clocks always enabled:
