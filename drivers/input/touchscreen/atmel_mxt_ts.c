@@ -24,6 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/irq.h>
 #include <linux/of.h>
+#include <linux/soc/qcom/panel_event_notifier.h>
 #include <linux/property.h>
 #include <linux/slab.h>
 #include <linux/gpio/consumer.h>
@@ -391,6 +392,7 @@ struct mxt_data {
 
 	u32 panel_minx, panel_miny, panel_maxx, panel_maxy;
 	u32 disp_minx, disp_miny, disp_maxx, disp_maxy;
+	void *notifier_cookie;
 };
 
 struct mxt_vb2_buffer {
@@ -736,7 +738,7 @@ static int __mxt_write_reg(struct i2c_client *client, u16 reg, u16 len,
 	} else {
 		if (ret >= 0)
 			ret = -EIO;
-		dev_err(&client->dev, "%s: i2c send failed (%d)\n",
+		dev_dbg(&client->dev, "%s: i2c send failed (%d)\n",
 			__func__, ret);
 	}
 
@@ -3374,18 +3376,21 @@ static void mxt_stop(struct mxt_data *data)
 
 static int mxt_input_open(struct input_dev *dev)
 {
+#if !defined(CONFIG_DRM)
 	struct mxt_data *data = input_get_drvdata(dev);
 
 	mxt_start(data);
-
+#endif
 	return 0;
 }
 
 static void mxt_input_close(struct input_dev *dev)
 {
+#if !defined(CONFIG_DRM)
 	struct mxt_data *data = input_get_drvdata(dev);
 
 	mxt_stop(data);
+#endif
 }
 
 static int mxt_parse_device_properties(struct mxt_data *data)
@@ -3460,6 +3465,7 @@ static int mxt_check_dedicated_touch(struct device_node *dt, const char *prop,
 }
 
 #ifdef CONFIG_DRM
+static struct drm_panel *active_panel;
 static int mxt_check_dt(struct device_node *np)
 {
 	int i;
@@ -3475,8 +3481,10 @@ static int mxt_check_dt(struct device_node *np)
 		node = of_parse_phandle(np, "panel", i);
 		panel = of_drm_find_panel(node);
 		of_node_put(node);
-		if (!IS_ERR(panel))
+		if (!IS_ERR(panel)) {
+			active_panel = panel;
 			return 0;
+		}
 	}
 
 	return PTR_ERR(panel);
@@ -3544,6 +3552,75 @@ static const struct dmi_system_id chromebook_T9_suspend_dmi[] = {
 	},
 	{ }
 };
+
+#ifdef CONFIG_DRM
+
+static void mxt_panel_notifier_callback(enum panel_event_notifier_tag tag,
+		struct panel_event_notification *notification,
+		void *client_data)
+{
+	struct mxt_data *mxt = client_data;
+	struct input_dev *input_dev;
+
+	if (!notification) {
+		pr_err("Invalid notification\n");
+		return;
+	}
+
+	if (!mxt) {
+		pr_err("Invalid mxt data\n");
+		return;
+	}
+
+	pr_debug("Notification type:%d, early_trigger:%d\n",
+			notification->notif_type,
+			notification->notif_data.early_trigger);
+
+	input_dev = mxt->input_dev;
+
+	switch (notification->notif_type) {
+	case DRM_PANEL_EVENT_UNBLANK:
+		if (input_dev)
+			mutex_lock(&input_dev->mutex);
+
+		mxt_start(mxt);
+
+		if (input_dev)
+			mutex_unlock(&input_dev->mutex);
+		break;
+	case DRM_PANEL_EVENT_BLANK:
+		if (input_dev)
+			mutex_lock(&input_dev->mutex);
+
+		mxt_stop(mxt);
+
+		if (input_dev)
+			mutex_unlock(&input_dev->mutex);
+		break;
+	default:
+		break;
+	}
+}
+
+static void mxt_register_for_panel_events(struct device_node *dt,
+		struct mxt_data *data)
+{
+	void *cookie = NULL;
+
+	cookie = panel_event_notifier_register(
+			PANEL_EVENT_NOTIFICATION_PRIMARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH,
+			active_panel, &mxt_panel_notifier_callback, data);
+	if (!cookie) {
+		pr_err("Failed to register for panel events\n");
+		return;
+	}
+	pr_debug("registered for panel notifications on panel: 0x%x\n",
+		       active_panel);
+
+	data->notifier_cookie = cookie;
+}
+#endif
 
 static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
@@ -3671,7 +3748,7 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 					  client->name, data);
 	if (error) {
 		dev_err(&client->dev, "Failed to register interrupt\n");
-		return error;
+		goto err_disable_regulator;
 	}
 
 	disable_irq(client->irq);
@@ -3692,7 +3769,7 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	error = mxt_initialize(data);
 	if (error)
-		return error;
+		goto err_disable_regulator;
 
 	error = sysfs_create_group(&client->dev.kobj, &mxt_attr_group);
 	if (error) {
@@ -3700,12 +3777,18 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 			error);
 		goto err_free_object;
 	}
-
+#ifdef CONFIG_DRM
+	if (active_panel)
+		mxt_register_for_panel_events(dt, data);
+#endif
 	return 0;
 
 err_free_object:
 	mxt_free_input_device(data);
 	mxt_free_object_table(data);
+
+err_disable_regulator:
+	mxt_regulator_disable(data);
 	return error;
 }
 
@@ -3713,7 +3796,12 @@ static int mxt_remove(struct i2c_client *client)
 {
 	struct mxt_data *data = i2c_get_clientdata(client);
 
+#ifdef CONFIG_DRM
+	if (active_panel && data->notifier_cookie)
+		panel_event_notifier_unregister(data->notifier_cookie);
+#endif
 	disable_irq(data->irq);
+	mxt_regulator_disable(data);
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 	mxt_free_input_device(data);
 	mxt_free_object_table(data);
@@ -3723,6 +3811,7 @@ static int mxt_remove(struct i2c_client *client)
 
 static int __maybe_unused mxt_suspend(struct device *dev)
 {
+#if !defined(CONFIG_DRM)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
@@ -3738,12 +3827,14 @@ static int __maybe_unused mxt_suspend(struct device *dev)
 	mutex_unlock(&input_dev->mutex);
 
 	disable_irq(data->irq);
+#endif
 
 	return 0;
 }
 
 static int __maybe_unused mxt_resume(struct device *dev)
 {
+#if !defined(CONFIG_DRM)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
@@ -3759,6 +3850,7 @@ static int __maybe_unused mxt_resume(struct device *dev)
 		mxt_start(data);
 
 	mutex_unlock(&input_dev->mutex);
+#endif
 
 	return 0;
 }

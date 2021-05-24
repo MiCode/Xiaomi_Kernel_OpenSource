@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, 2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -9,6 +9,7 @@
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/sysfs.h>
@@ -282,6 +283,7 @@ static int remote_etm_probe(struct platform_device *pdev)
 	}
 	dev_info(dev, "Remote ETM initialized\n");
 
+	pm_runtime_enable(dev);
 	if (drvdata->inst_id >= sizeof(int)*BITS_PER_BYTE)
 		dev_err(dev, "inst_id greater than boot_enable bit mask\n");
 	else if (boot_enable & BIT(drvdata->inst_id))
@@ -296,7 +298,9 @@ err:
 static int remote_etm_remove(struct platform_device *pdev)
 {
 	struct remote_etm_drvdata *drvdata = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
 
+	pm_runtime_disable(dev);
 	qmi_handle_release(&drvdata->handle);
 	coresight_unregister(drvdata->csdev);
 	return 0;

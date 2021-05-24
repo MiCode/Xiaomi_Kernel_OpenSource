@@ -1,14 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0-only
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
-
-#include <linux/module.h>
-#include <linux/of.h>
-#include <linux/platform_device.h>
-#include <linux/pinctrl/pinctrl.h>
-
-#include "pinctrl-msm.h"
 
 #define FUNCTION(fname)			                \
 	[msm_mux_##fname] = {		                \
@@ -1866,6 +1859,7 @@ static const struct msm_pingroup waipio_groups[] = {
 	[212] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1d6000, 11, 3),
 	[213] = SDC_QDSD_PINGROUP(sdc2_data, 0x1d6000, 9, 0),
 };
+
 static struct pinctrl_qup waipio_qup_regs[] = {
 	QUP_I3C(8, QUP_I3C_8_MODE_OFFSET),
 	QUP_I3C(9, QUP_I3C_9_MODE_OFFSET),
@@ -1891,52 +1885,3 @@ static const struct msm_gpio_wakeirq_map waipio_pdc_map[] = {
 	{ 182, 110 }, { 185, 112 }, { 187, 113 }, { 188, 118 }, { 190, 122 },
 	{ 192, 123 }, { 195, 124 }, { 201, 119 }, { 203, 120 }, { 205, 121 },
 };
-
-static const struct msm_pinctrl_soc_data waipio_pinctrl = {
-	.pins = waipio_pins,
-	.npins = ARRAY_SIZE(waipio_pins),
-	.functions = waipio_functions,
-	.nfunctions = ARRAY_SIZE(waipio_functions),
-	.groups = waipio_groups,
-	.ngroups = ARRAY_SIZE(waipio_groups),
-	.ngpios = 211,
-	.wakeirq_map = waipio_pdc_map,
-	.nwakeirq_map = ARRAY_SIZE(waipio_pdc_map),
-	.qup_regs = waipio_qup_regs,
-	.nqup_regs = ARRAY_SIZE(waipio_qup_regs),
-};
-
-static int waipio_pinctrl_probe(struct platform_device *pdev)
-{
-	return msm_pinctrl_probe(pdev, &waipio_pinctrl);
-}
-
-static const struct of_device_id waipio_pinctrl_of_match[] = {
-	{ .compatible = "qcom,waipio-pinctrl", },
-	{ },
-};
-
-static struct platform_driver waipio_pinctrl_driver = {
-	.driver = {
-		.name = "waipio-pinctrl",
-		.of_match_table = waipio_pinctrl_of_match,
-	},
-	.probe = waipio_pinctrl_probe,
-	.remove = msm_pinctrl_remove,
-};
-
-static int __init waipio_pinctrl_init(void)
-{
-	return platform_driver_register(&waipio_pinctrl_driver);
-}
-arch_initcall(waipio_pinctrl_init);
-
-static void __exit waipio_pinctrl_exit(void)
-{
-	platform_driver_unregister(&waipio_pinctrl_driver);
-}
-module_exit(waipio_pinctrl_exit);
-
-MODULE_DESCRIPTION("QTI waipio pinctrl driver");
-MODULE_LICENSE("GPL v2");
-MODULE_DEVICE_TABLE(of, waipio_pinctrl_of_match);

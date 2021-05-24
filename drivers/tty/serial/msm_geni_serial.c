@@ -226,6 +226,7 @@ struct msm_geni_serial_port {
 	struct completion m_cmd_timeout;
 	struct completion s_cmd_timeout;
 	spinlock_t rx_lock;
+	bool is_clock_off;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -2164,7 +2165,7 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 	bool s_cmd_done = false;
 	bool m_cmd_done = false;
 
-	if (uart_console(uport) && uport->suspended) {
+	if (uart_console(uport) && msm_port->is_clock_off) {
 		IPC_LOG_MSG(msm_port->console_log,
 			"%s. Console in suspend state\n", __func__);
 		goto exit_geni_serial_isr;
@@ -2961,11 +2962,15 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 	if (unlikely(!uart_console(uport)))
 		return;
 
-	if (new_state == UART_PM_STATE_ON && old_state == UART_PM_STATE_OFF)
+	if (new_state == UART_PM_STATE_ON && old_state == UART_PM_STATE_OFF) {
 		se_geni_resources_on(&msm_port->serial_rsc);
+		msm_port->is_clock_off = false;
+	}
 	else if (new_state == UART_PM_STATE_OFF &&
-			old_state == UART_PM_STATE_ON)
+			old_state == UART_PM_STATE_ON) {
 		se_geni_resources_off(&msm_port->serial_rsc);
+		msm_port->is_clock_off = true;
+	}
 }
 
 static const struct uart_ops msm_geni_console_pops = {

@@ -81,7 +81,7 @@ static const struct mhi_channel_config modem_qcom_sdx65_mhi_channels[] = {
 	MHI_CHANNEL_CONFIG_DL(3, "SAHARA", 128, 1, MHI_EE_SBL,
 			      MHI_DB_BRST_DISABLE, false, 0, false, false,
 			      false, false, 0, 0),
-	MHI_CHANNEL_CONFIG_DL(25, "BL", 64, 1, MHI_EE_SBL,
+	MHI_CHANNEL_CONFIG_DL(25, "BL", 32, 1, MHI_EE_SBL,
 			      MHI_DB_BRST_DISABLE, false, 0, false, false,
 			      false, false, 0, 0),
 	/* AMSS channels */
