@@ -70,9 +70,9 @@
 #include <uapi/linux/virtio_mmio.h>
 #include <linux/virtio_ring.h>
 
-#ifdef CONFIG_HH_VIRTIO_DEBUG
+#ifdef CONFIG_GH_VIRTIO_DEBUG
 #define CREATE_TRACE_POINTS
-#include <trace/events/hh_virtio_frontend.h>
+#include <trace/events/gh_virtio_frontend.h>
 #undef CREATE_TRACE_POINTS
 #endif
 
@@ -297,7 +297,7 @@ static bool vm_notify(struct virtqueue *vq)
 {
 	struct virtio_mmio_device *vm_dev = to_virtio_mmio_device(vq->vdev);
 
-#ifdef CONFIG_HH_VIRTIO_DEBUG
+#ifdef CONFIG_GH_VIRTIO_DEBUG
 	trace_virtio_mmio_vm_notify(vq->vdev->index, vq->index);
 #endif
 	/* We write the queue's selector into the notification register to
@@ -317,7 +317,7 @@ static irqreturn_t vm_interrupt(int irq, void *opaque)
 
 	/* Read and acknowledge interrupts */
 	status = readl(vm_dev->base + VIRTIO_MMIO_INTERRUPT_STATUS);
-#ifdef CONFIG_HH_VIRTIO_DEBUG
+#ifdef CONFIG_GH_VIRTIO_DEBUG
 	trace_virtio_mmio_vm_interrupt(vm_dev->vdev.index, status);
 #endif
 

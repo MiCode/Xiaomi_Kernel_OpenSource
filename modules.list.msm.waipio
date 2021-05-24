@@ -13,11 +13,11 @@ deferred-free-helper.ko
 dispcc-waipio.ko
 gcc-waipio.ko
 gdsc-regulator.ko
-hh_ctrl.ko
-hh_dbl.ko
-hh_msgq.ko
-hh_rm_drv.ko
-hh_virt_wdt.ko
+gh_ctrl.ko
+gh_dbl.ko
+gh_msgq.ko
+gh_rm_drv.ko
+gh_virt_wdt.ko
 icc-bcm-voter.ko
 icc-debug.ko
 icc-rpmh.ko

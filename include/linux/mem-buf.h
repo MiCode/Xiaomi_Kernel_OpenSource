@@ -8,7 +8,7 @@
 
 #include <linux/err.h>
 #include <linux/errno.h>
-#include <linux/haven/hh_rm_drv.h>
+#include <linux/gunyah/gh_rm_drv.h>
 #include <linux/types.h>
 #include <linux/dma-buf.h>
 #include <uapi/linux/mem-buf.h>
@@ -52,7 +52,7 @@ struct mem_buf_msg_hdr {
  * @hdr: Message header
  * @size: The size of the memory allocation to be performed on the remote VM.
  * @src_mem_type: The type of memory that the remote VM should allocate.
- * @acl_desc: A HH ACL descriptor that describes the VMIDs that will be
+ * @acl_desc: A GH ACL descriptor that describes the VMIDs that will be
  * accessing the memory, as well as what permissions each VMID will have.
  *
  * NOTE: Certain memory types require additional information for the remote VM
@@ -65,7 +65,7 @@ struct mem_buf_alloc_req {
 	struct mem_buf_msg_hdr hdr;
 	u64 size;
 	u32 src_mem_type;
-	struct hh_acl_desc acl_desc;
+	struct gh_acl_desc acl_desc;
 } __packed;
 
 /**
@@ -153,7 +153,7 @@ struct mem_buf_lend_kernel_arg {
 	unsigned int nr_acl_entries;
 	int *vmids;
 	int *perms;
-	hh_memparcel_handle_t memparcel_hdl;
+	gh_memparcel_handle_t memparcel_hdl;
 };
 
 int mem_buf_lend(struct dma_buf *dmabuf,
@@ -174,7 +174,7 @@ struct mem_buf_retrieve_kernel_arg {
 	unsigned int nr_acl_entries;
 	int *vmids;
 	int *perms;
-	hh_memparcel_handle_t memparcel_hdl;
+	gh_memparcel_handle_t memparcel_hdl;
 	int fd_flags;
 };
 struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg);
