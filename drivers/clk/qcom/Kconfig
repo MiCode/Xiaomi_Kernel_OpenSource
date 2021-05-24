@@ -72,6 +72,15 @@ config QCOM_CLK_RPMH
 	 Say Y if you want to support the clocks exposed by RPMh on
 	 platforms such as SDM845.
 
+config QCS_CMN_BLK_PLL
+	tristate "QCS404 CMN BLK PLL"
+	select QCS_GCC_404
+	help
+	 Support for the CMN BLK PLL on Qualcomm Technologies, Inc QCS404
+	 devices.
+	 Common block PLL is required for USB and PCIE subsystems.
+	 Say Y if you want to support the Common Block PLL.
+
 config APQ_GCC_8084
 	tristate "APQ8084 Global Clock Controller"
 	select QCOM_GDSC
@@ -220,6 +229,15 @@ config MSM_GCC_8998
 	  Support for the global clock controller on msm8998 devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI,
 	  i2c, USB, UFS, SD/eMMC, PCIe, etc.
+
+config QCS_DEBUGCC_404
+	tristate "QCS404 Debug Clock Controller"
+	depends on QCS_GCC_404
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc.
+	  QCS404 devices.
+	  Say Y if you want to support the debug clocks such as clock measurement
+	  functionality.
 
 config QCS_GCC_404
 	tristate "QCS404 Global Clock Controller"
