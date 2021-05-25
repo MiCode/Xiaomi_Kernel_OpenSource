@@ -220,7 +220,6 @@ void dwmac_qcom_program_avb_algorithm(struct stmmac_priv *priv,
 
 unsigned int dwmac_qcom_get_plat_tx_coal_frames(struct sk_buff *skb)
 {
-	bool is_udp;
 	unsigned int eth_type;
 
 	eth_type = dwmac_qcom_get_eth_type(skb->data);
@@ -234,7 +233,7 @@ unsigned int dwmac_qcom_get_plat_tx_coal_frames(struct sk_buff *skb)
 		return AVB_INT_MOD;
 	if (eth_type == ETH_P_IP || eth_type == ETH_P_IPV6) {
 #ifdef CONFIG_PTPSUPPORT_OBJ
-		is_udp = (((eth_type == ETH_P_IP) &&
+		bool is_udp = (((eth_type == ETH_P_IP) &&
 				   (ip_hdr(skb)->protocol ==
 					IPPROTO_UDP)) ||
 				  ((eth_type == ETH_P_IPV6) &&
