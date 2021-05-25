@@ -58,6 +58,7 @@ static bool lpm_disallowed(s64 sleep_ns, int cpu)
 		return true;
 
 	if (!sched_lpm_disallowed_time(cpu, &bias_time)) {
+		cpu_gov->last_idx = 0;
 		cpu_gov->bias = bias_time;
 		return true;
 	}
