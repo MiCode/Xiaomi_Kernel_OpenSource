@@ -1031,9 +1031,9 @@
 		L2H: pm8450_l2: regulator-pm8450-l2 {
 			regulator-name = "pm8450_l2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <912000>;
+			regulator-min-microvolt = <880000>;
 			regulator-max-microvolt = <912000>;
-			qcom,init-voltage = <912000>;
+			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
