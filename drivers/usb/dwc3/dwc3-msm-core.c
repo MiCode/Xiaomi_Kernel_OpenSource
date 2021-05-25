@@ -523,6 +523,7 @@ struct dwc3_msm {
 	int			orientation_override;
 
 	struct device_node	*ss_redriver_node;
+	struct work_struct	redriver_work;
 
 #define MAX_ERROR_RECOVERY_TRIES	3
 	bool			err_evt_seen;
@@ -2817,6 +2818,11 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_ALLOC\n");
 		dwc3_gsi_event_buf_alloc(dwc);
 		break;
+	case DWC3_CONTROLLER_PULLUP:
+		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_PULLUP %d\n", value);
+		if (!value)
+			schedule_work(&mdwc->redriver_work);
+		break;
 	case DWC3_GSI_EVT_BUF_SETUP:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_SETUP\n");
 		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
@@ -4688,6 +4694,15 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 	return ret;
 }
 
+static void dwc3_msm_redriver_work(struct work_struct *w)
+{
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, redriver_work);
+
+	redriver_gadget_pullup(mdwc->ss_redriver_node, 0);
+	/* register write time should enough to allow host lost RX detection */
+	redriver_gadget_pullup(mdwc->ss_redriver_node, 1);
+}
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node, *phy_node;
@@ -4943,6 +4958,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mutex_init(&mdwc->suspend_resume_mutex);
 
 	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
+	INIT_WORK(&mdwc->redriver_work, dwc3_msm_redriver_work);
 
 	if (of_property_read_bool(node, "usb-role-switch")) {
 		struct usb_role_switch_desc role_desc = {
