@@ -956,6 +956,10 @@
 		compatible = "qcom,dload-mode";
 	};
 
+	microdump_modem {
+		compatible = "qcom,microdump_modem";
+	};
+
 	mini_dump_mode {
 		compatible = "qcom,minidump";
 		status = "ok";
