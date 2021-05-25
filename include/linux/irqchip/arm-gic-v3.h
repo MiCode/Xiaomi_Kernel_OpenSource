@@ -638,6 +638,10 @@ static inline bool gic_enable_sre(void)
 	return !!(val & ICC_SRE_EL1_SRE);
 }
 
+#ifdef CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ
+void gic_s2idle_wake(void);
+#endif /* CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ */
+
 #endif
 
 #endif

@@ -37,6 +37,7 @@ config ARM_GIC_V3
 	select IRQ_DOMAIN_HIERARCHY
 	select PARTITION_PERCPU
 	select GENERIC_IRQ_EFFECTIVE_AFF_MASK
+	select QGKI_SHOW_S2IDLE_WAKE_IRQ if QGKI
 
 config ARM_GIC_V3_ITS
 	bool
@@ -515,5 +516,12 @@ config SIFIVE_PLIC
 	   interrupt sources are subordinate to the PLIC.
 
 	   If you don't know what to do here, say Y.
+
+config QGKI_SHOW_S2IDLE_WAKE_IRQ
+	bool "Qualcomm Technologies, Inc. (QTI) SHOW S2IDLE WAKE IRQ"
+	depends on ARM_GIC_V3
+	help
+	   When this option is selected, first cpu waking up from s2idle
+	   prints the interrupts pending and enabled at GIC.
 
 endmenu

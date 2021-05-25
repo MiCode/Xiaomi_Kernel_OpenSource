@@ -18,6 +18,7 @@
 #include <linux/percpu.h>
 #include <linux/refcount.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/msm_rtb.h>
 #include <linux/wakeup_reason.h>
 
@@ -604,10 +605,15 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 		struct irq_desc *desc = irq_to_desc(irq);
 		const char *name = "null";
 
+		if (i < 32)
+			continue;
+
 		if (desc == NULL)
 			name = "stray irq";
 		else if (desc->action && desc->action->name)
 			name = desc->action->name;
+		else if (desc->irq_data.chip && desc->irq_data.chip->name)
+			name = desc->irq_data.chip->name;
 
 		pr_warn("%s: irq:%d hwirq:%u triggered %s\n",
 			 __func__, irq, i, name);
@@ -1243,6 +1249,13 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 #define gic_set_affinity	NULL
 #define gic_smp_init()		do { } while(0)
 #endif
+
+#ifdef CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ
+void gic_s2idle_wake(void)
+{
+	gic_resume_one(&gic_data);
+}
+#endif /* CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ */
 
 #ifdef CONFIG_CPU_PM
 static int gic_cpu_pm_notifier(struct notifier_block *self,
