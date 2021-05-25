@@ -119,8 +119,6 @@ extern int qcom_iommu_get_fault_ids(struct iommu_domain *domain,
 extern int qcom_iommu_get_msi_size(struct device *dev, u32 *msi_size);
 
 
-extern int __init qcom_dma_iommu_generic_driver_init(void);
-extern void qcom_dma_iommu_generic_driver_exit(void);
 #ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
 int __init qcom_arm_lpae_do_selftests(void);
 #else
