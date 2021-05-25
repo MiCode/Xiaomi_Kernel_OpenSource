@@ -812,6 +812,30 @@
 		status = "disabled";
 	};
 
+	i3c0: i3c-master@880000 {
+		compatible = "qcom,geni-i3c";
+		reg = <0x880000 0x4000>,
+			<0x0ECB0000 0x10000>;
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP2_S0_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_2_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_2_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep", "disable";
+		pinctrl-0 = <&qupv3_se15_i3c_active>;
+		pinctrl-1 = <&qupv3_se15_i3c_sleep>;
+		pinctrl-2 = <&qupv3_se15_i3c_disable>;
+		interrupts = <GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>,
+				<&pdc 35 IRQ_TYPE_LEVEL_HIGH>,
+				<&pdc 34 IRQ_TYPE_LEVEL_HIGH>;
+
+		#address-cells = <3>;
+		#size-cells = <0>;
+		qcom,ibi-ctrl-id = <2>; //QUP2-SE0 – IBI2 - 0xECB0000
+		qcom,wrapper-core = <&qupv3_2>;
+
+		status = "disable";
+	};
+
 	qupv3_se16_i2c: i2c@884000 {
 		compatible = "qcom,i2c-geni";
 		reg = <0x884000 0x4000>;
