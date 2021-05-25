@@ -173,14 +173,17 @@
 /* timeout in us for busy polling after early response from remote processor */
 #define FASTRPC_POLL_TIME (4000)
 
-/* timeout in us for polling without preempt */
-#define FASTRPC_POLL_TIME_WITHOUT_PREEMPT (500)
+/* timeout in us for polling until memory barrier */
+#define FASTRPC_POLL_TIME_MEM_UPDATE (500)
 
 /* timeout in us for polling completion signal after user early hint */
 #define FASTRPC_USER_EARLY_HINT_TIMEOUT (500)
 
 /* Early wake up poll completion number received from remote processor */
 #define FASTRPC_EARLY_WAKEUP_POLL (0xabbccdde)
+
+/* Poll response number from remote processor for call completion */
+#define FASTRPC_POLL_RESPONSE (0xdecaf)
 
 /* latency in us, early wake up signal used below this value */
 #define FASTRPC_EARLY_WAKEUP_LATENCY (200)
@@ -665,6 +668,12 @@ struct fastrpc_file {
 	struct completion work;
 	/* Flag to indicate ram dump collection status*/
 	bool is_ramdump_pend;
+	/* Flag to indicate type of process (static, dynamic) */
+	uint32_t proc_flags;
+	/* If set, threads will poll for DSP response instead of glink wait */
+	bool poll_mode;
+	/* Threads poll for specified timeout and fall back to glink wait */
+	uint32_t poll_timeout;
 };
 
 static struct fastrpc_apps gfa;
@@ -743,6 +752,9 @@ static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
 static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
 				uint32_t flags, uintptr_t va, uint64_t phys,
 				size_t size, uintptr_t *raddr);
+static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
+	uint64_t ctx, int retval, uint32_t rsp_flags,
+	uint32_t early_wake_time, uint32_t ver, int64_t ns);
 
 /**
  * fastrpc_device_create - Create device for the fastrpc process file
@@ -776,7 +788,8 @@ static inline int64_t get_timestamp_in_ns(void)
 	ns = timespec64_to_ns(&ts);
 	return ns;
 }
-static inline int poll_on_early_response(struct smq_invoke_ctx *ctx)
+
+static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t timeout)
 {
 	int ii, jj, err = -EIO;
 	uint32_t sc = ctx->sc;
@@ -796,27 +809,30 @@ static inline int poll_on_early_response(struct smq_invoke_ctx *ctx)
 	crclist = (uint32_t *)(fdlist + M_FDLIST);
 	poll = (uint32_t *)(crclist + M_CRCLIST);
 
-	/*
-	 * poll on memory for actual completion after receiving
-	 * early response from DSP. Return failure on timeout.
-	 */
-	preempt_disable();
+	/* poll on memory for DSP response. Return failure on timeout */
 	for (ii = 0, jj = 0; ii < FASTRPC_POLL_TIME; ii++, jj++) {
 		if (*poll == FASTRPC_EARLY_WAKEUP_POLL) {
+			/* Remote processor sent early response */
 			err = 0;
 			break;
+		} else if (*poll == FASTRPC_POLL_RESPONSE) {
+			/* Remote processor sent poll response to complete the call */
+			err = 0;
+			ctx->is_work_done = true;
+			ctx->retval = 0;
+			/* Update DSP response history */
+			fastrpc_update_rxmsg_buf(&gfa.channel[ctx->fl->cid],
+				ctx->msg.invoke.header.ctx, 0, POLL_MODE, 0,
+				FASTRPC_RSP_VERSION2, get_timestamp_in_ns());
+			break;
 		}
-		if (jj == FASTRPC_POLL_TIME_WITHOUT_PREEMPT) {
-			/* limit preempt disable time with no rescheduling */
-			preempt_enable();
+		if (jj == FASTRPC_POLL_TIME_MEM_UPDATE) {
 			/* Wait for DSP to finish updating poll memory */
 			rmb();
-			preempt_disable();
 			jj = 0;
 		}
 		udelay(1);
 	}
-	preempt_enable();
 	return err;
 }
 
@@ -3060,7 +3076,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 
 		/* busy poll on memory for actual job done */
 		case EARLY_RESPONSE:
-			err = poll_on_early_response(ctx);
+			err = poll_for_remote_response(ctx, FASTRPC_POLL_TIME);
 
 			/* Mark job done if poll on memory successful */
 			/* Wait for completion if poll on memory timoeut */
@@ -3106,6 +3122,17 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 					*ptr_isworkdone = true;
 				spin_unlock_irqrestore(&ctx->fl->aqlock, flags);
 				goto bail;
+			}
+			break;
+		case POLL_MODE:
+			err = poll_for_remote_response(ctx, ctx->fl->poll_timeout);
+
+			/* If polling timed out, move to normal response state */
+			if (err)
+				ctx->rsp_flags = NORMAL_RESPONSE;
+			else {
+				*ptr_interrupted = 0;
+				*ptr_isworkdone = true;
 			}
 			break;
 		default:
@@ -3226,6 +3253,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (isasyncinvoke)
 		goto invoke_end;
  wait:
+	/* Poll mode allowed only for non-static handle calls to dynamic CDSP process */
+	if (fl->poll_mode && (invoke->handle > FASTRPC_STATIC_HANDLE_MAX)
+		&& (cid == CDSP_DOMAIN_ID)
+		&& (fl->proc_flags == FASTRPC_INIT_CREATE))
+		ctx->rsp_flags = POLL_MODE;
+
 	fastrpc_wait_for_completion(ctx, &interrupted, kernel, 0, &isworkdone);
 	trace_fastrpc_msg("wait_for_completion: end");
 	VERIFY(err, 0 == (err = interrupted));
@@ -4057,6 +4090,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	if (err)
 		goto bail;
 
+	fl->proc_flags = init->flags;
 	switch (init->flags) {
 	case FASTRPC_INIT_ATTACH:
 	case FASTRPC_INIT_ATTACH_SENSORS:
@@ -5168,8 +5202,11 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		 * Received an anticipatory COMPLETE_SIGNAL from DSP for a
 		 * context after CPU successfully polling on memory and
 		 * completed processing of context. Ignore the message.
+		 * Also ignore response for a call which was already
+		 * completed by update of poll memory and the context was
+		 * removed from the table.
 		 */
-		ignore_rpmsg_err = (rsp_flags == COMPLETE_SIGNAL) ? 1 : 0;
+		ignore_rpmsg_err = ((rsp_flags == COMPLETE_SIGNAL) || !ctx) ? 1 : 0;
 		goto bail_unlock;
 	}
 
@@ -5854,6 +5891,37 @@ bail:
 	return err;
 }
 
+static int fastrpc_manage_poll_mode(struct fastrpc_file *fl, uint32_t enable, uint32_t timeout)
+{
+	int err = 0;
+	const unsigned int MAX_POLL_TIMEOUT_US = 10000;
+
+	if ((fl->cid != CDSP_DOMAIN_ID) || (fl->proc_flags != FASTRPC_INIT_CREATE)) {
+		err = -EPERM;
+		ADSPRPC_ERR("flags %d, cid %d, poll mode allowed only for dynamic CDSP process\n",
+			fl->proc_flags, fl->cid);
+		goto bail;
+	}
+	if (timeout > MAX_POLL_TIMEOUT_US) {
+		err = -EBADMSG;
+		ADSPRPC_ERR("poll timeout %u is greater than max allowed value %u\n",
+			timeout, MAX_POLL_TIMEOUT_US);
+		goto bail;
+	}
+	spin_lock(&fl->hlock);
+	if (enable) {
+		fl->poll_mode = true;
+		fl->poll_timeout = timeout;
+	} else {
+		fl->poll_mode = false;
+		fl->poll_timeout = 0;
+	}
+	spin_unlock(&fl->hlock);
+	ADSPRPC_INFO("updated poll mode to %d, timeout %u\n", enable, timeout);
+bail:
+	return err;
+}
+
 static int fastrpc_internal_control(struct fastrpc_file *fl,
 					struct fastrpc_ioctl_control *cp)
 {
@@ -5940,6 +6008,11 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		break;
 	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
 		(void)fastrpc_release_current_dsp_process(fl);
+		break;
+	case FASTRPC_CONTROL_RPC_POLL:
+		err = fastrpc_manage_poll_mode(fl, cp->lp.enable, cp->lp.latency);
+		if (err)
+			goto bail;
 		break;
 	default:
 		err = -EBADRQC;

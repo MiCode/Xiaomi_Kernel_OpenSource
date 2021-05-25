@@ -436,6 +436,7 @@ enum fastrpc_control_type {
 	FASTRPC_CONTROL_PM		=	5,
 /* Clean process on DSP */
 	FASTRPC_CONTROL_DSPPROCESS_CLEAN	=	6,
+	FASTRPC_CONTROL_RPC_POLL = 7,
 };
 
 struct fastrpc_ctrl_latency {
@@ -512,7 +513,8 @@ enum fastrpc_response_flags {
 	EARLY_RESPONSE = 1,
 	USER_EARLY_SIGNAL = 2,
 	COMPLETE_SIGNAL = 3,
-	STATUS_RESPONSE = 4
+	STATUS_RESPONSE = 4,
+	POLL_MODE = 5,
 };
 
 struct smq_invoke_rspv2 {
