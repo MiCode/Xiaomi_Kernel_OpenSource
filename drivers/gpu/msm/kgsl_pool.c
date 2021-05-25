@@ -11,6 +11,7 @@
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_trace.h"
 
 /**
  * struct kgsl_page_pool - Structure to hold information for the pool
@@ -108,6 +109,8 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 	list_add_tail(&p->lru, &pool->page_list);
 	pool->page_count++;
 	spin_unlock(&pool->list_lock);
+
+	trace_kgsl_pool_add_page(pool->pool_order, pool->page_count);
 	mod_node_page_state(page_pgdat(p),  NR_KERNEL_MISC_RECLAIMABLE,
 				(1 << pool->pool_order));
 }
@@ -128,6 +131,8 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 	pool->page_count--;
 	list_del(&p->lru);
 	spin_unlock(&pool->list_lock);
+
+	trace_kgsl_pool_get_page(pool->pool_order, pool->page_count);
 	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
 				-(1 << pool->pool_order));
 	return p;
@@ -179,6 +184,7 @@ _kgsl_pool_shrink(struct kgsl_page_pool *pool,
 
 		__free_pages(page, pool->pool_order);
 		pcount += (1 << pool->pool_order);
+		trace_kgsl_pool_free_page(pool->pool_order);
 	}
 
 	return pcount;
@@ -353,10 +359,11 @@ static int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			if (order > 0) {
 				size = PAGE_SIZE << --order;
 				goto eagain;
-
 			} else
 				return -ENOMEM;
 		}
+
+		trace_kgsl_pool_alloc_page_system(order);
 		goto done;
 	}
 
@@ -376,6 +383,7 @@ static int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			page = alloc_pages(gfp_mask, order);
 			if (page == NULL)
 				return -ENOMEM;
+			trace_kgsl_pool_alloc_page_system(order);
 			goto done;
 		}
 	}
@@ -398,6 +406,8 @@ static int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			} else
 				return -ENOMEM;
 		}
+
+		trace_kgsl_pool_alloc_page_system(order);
 	}
 
 done:
@@ -412,6 +422,7 @@ done:
 	return pcount;
 
 eagain:
+	trace_kgsl_pool_try_page_lower(get_order(*page_size));
 	*page_size = kgsl_get_page_size(size, ilog2(size));
 	*align = ilog2(*page_size);
 	return -EAGAIN;
@@ -490,6 +501,7 @@ static void kgsl_pool_free_page(struct page *page)
 
 	/* Give back to system as not added to pool */
 	__free_pages(page, page_order);
+	trace_kgsl_pool_free_page(page_order);
 }
 
 /* Functions for the shrinker */
