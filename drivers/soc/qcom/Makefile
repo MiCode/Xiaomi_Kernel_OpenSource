@@ -102,3 +102,4 @@ obj-$(CONFIG_QCOM_DCVS) += dcvs/
 obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
 obj-$(CONFIG_QCOM_PANEL_EVENT_NOTIFIER) += panel_event_notifier.o
 obj-$(CONFIG_QCOM_SPEC_SYNC)  += sync_fence/
+obj-$(CONFIG_MSM_TMECOM_QMP) += tmecom/
