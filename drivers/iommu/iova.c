@@ -219,8 +219,6 @@ retry:
 			goto retry;
 		}
 		iovad->max32_alloc_size = size;
-		pr_info("[iommu_debug] %s fail, size:0x%lx,limit:0x%lx, new:0x%lx, start:0x%lx\n",
-			__func__, size, limit_pfn, new_pfn, iovad->start_pfn);
 		goto iova32_full;
 	}
 
@@ -408,11 +406,6 @@ free_iova(struct iova_domain *iovad, unsigned long pfn)
 	iova = private_find_iova(iovad, pfn);
 	if (iova)
 		private_free_iova(iovad, iova);
-	else {
-		pr_info("[iommu_debug] find iova fail!! start:0x%lx, cur:0x%lx\n",
-			iovad->start_pfn, pfn);
-		dump_stack();
-	}
 	spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
 
 }
