@@ -3,7 +3,6 @@
 #define _LINUX_SCHED_CPUFREQ_H
 
 #include <linux/types.h>
-#include <linux/sched/sysctl.h>
 
 /*
  * Interface between cpufreq drivers and the scheduler:
@@ -27,12 +26,7 @@ bool cpufreq_this_cpu_can_update(struct cpufreq_policy *policy);
 static inline unsigned long map_util_freq(unsigned long util,
 					unsigned long freq, unsigned long cap)
 {
-	unsigned long scale;
-
-	scale = (SCHED_CAPACITY_SCALE * 100 / (100 - sysctl_sched_capacity_margin));
-	freq = freq * scale / SCHED_CAPACITY_SCALE;
-
-	return freq * util / cap;
+	return (freq + (freq >> 2)) * util / cap;
 }
 
 static inline unsigned long map_util_perf(unsigned long util)
