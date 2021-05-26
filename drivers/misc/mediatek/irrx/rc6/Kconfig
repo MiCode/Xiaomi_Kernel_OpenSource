@@ -1,0 +1,8 @@
+config MTK_IRRX_RC6
+	bool "Support MTK IR RC6 protocol"
+	depends on MTK_IRRX
+	help
+		It support different IR protocol.
+		This protocol is defined by Philips.
+		If this option is set, it will support
+		RC6 IRRX protocol.

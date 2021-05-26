@@ -1,0 +1,13 @@
+What:		/sys/class/misc/access-<region>/label
+Date:		May 16, 2017
+KernelVersion:	3.18
+Contact:	Patrick Tjin <pattjin@google.com>
+Description:	This file exposes the region which is controlled by the driver.
+
+What:		/sys/class/misc/access-<region>/size
+Date:		June 6, 2017
+KernelVersion:	3.18
+Contact:	Patrick Tjin <pattjin@google.com>
+Description:	This file exposes the size of the  region which is controlled
+                by the driver.
+

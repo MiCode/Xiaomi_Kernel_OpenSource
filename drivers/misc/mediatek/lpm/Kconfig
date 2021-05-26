@@ -1,0 +1,72 @@
+config MTK_LPM_DBG_COMMON
+	bool "Meditaek Low Power common debug Module"
+	help
+	  Select MTK_LPM_DBG_COMMON then Mediatek low module
+	  common debug feature will be enabled. The common debug
+	  feature will support basic debug control and show the
+	  information to console.
+
+config MTK_LPM_GS_DUMP_SUPPORT
+	bool "Meditaek Low Power golden setting checker"
+	help
+	  Select MTK_LPM_GS_DUMP_SUPPORT then Mediatek low module
+	  golden setting dump mechanism enable.
+	  Set Y to select this feature for power setting dump .
+	  If unsure, set N to disable.
+
+config MTK_LPM_GS_DUMP_VERSION
+	string "Meditaek Low Power golden setting checker version"
+	default "v1"
+	help
+	  Set MTK_LPM_GS_DUMP_VERSION for Mediatek low module
+	  golden setting dump mechanism version.
+
+config MTK_LPM_MT6779
+	tristate "Specify Mediatek LPM Platform is MT6779"
+	depends on MTK_LOW_POWER_MODULE
+	help
+	  Select MediaTek Low Power Module Platform is MT6779
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6779.
+	  If unsure, set N to disable.
+
+config MTK_LPM_MT6833
+	tristate "Specify Mediatek LPM Platform is MT6833"
+	depends on MTK_LOW_POWER_MODULE
+	select MTK_LPM_DBG_COMMON
+	select MTK_LPM_GS_DUMP_SUPPORT
+	help
+	  Select MediaTek Low Power Module Platform is MT6833
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6833.
+	  If unsure, set N to disable.
+
+config MTK_LPM_MT6853
+	tristate "Specify Mediatek LPM Platform is MT6853"
+	depends on MTK_LOW_POWER_MODULE
+	select MTK_LPM_DBG_COMMON
+	help
+	  Select MediaTek Low Power Module Platform is MT6853
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6853.
+	  If unsure, set N to disable.
+
+config MTK_LPM_MT6873
+	tristate "Specify Mediatek LPM Platform is MT6873"
+	depends on MTK_LOW_POWER_MODULE
+	select MTK_LPM_DBG_COMMON
+	help
+	  Select MediaTek Low Power Module Platform is MT6873
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6873.
+	  If unsure, set N to disable.
+
+config MTK_LPM_MT6885
+	tristate "Specify Mediatek LPM Platform is MT6885"
+	depends on MTK_LOW_POWER_MODULE
+	select MTK_LPM_DBG_COMMON
+	help
+	  Select MediaTek Low Power Module Platform is MT6885
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6885.
+	  If unsure, set N to disable.

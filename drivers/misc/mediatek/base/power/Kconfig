@@ -1,0 +1,128 @@
+config MTK_CPU_FREQ
+	bool "MTK CPU FREQ"
+	default n
+	---help---
+	  This kernel config can be used to enable CPU FREQ.
+	  When enable this option, CPU frequency and voltage will be
+	  changed which will depended on CPU FREQ governor.
+	  If unsure, say N.
+
+config MTK_PTPOD
+	bool "MTK PTPOD"
+	default n
+	---help---
+	  This kernel config can be used to enable cpu PTPOD.
+	  When enable this option, cpu voltage will be
+	  changed which will depended on chip.
+	  If unsure, say N.
+
+config MTK_PTPOD_GPU
+        bool "MTK PTPOD GPU"
+        default n
+        ---help---
+          This kernel config can be used to enable gpu PTPOD.
+          When enable this option, gpu voltage will be
+          changed which will depended on chip.
+          If unsure, say N.
+
+config MTK_CPU_MSSV
+	bool "MTK CPU MSSV SUPPORT"
+	---help---
+	  This kernel config can be used to enable cpu MSSV support.
+	  MSSV means Mediatek Software System Validation.
+	  When enable this option, cpu V/F get/set function will be enabled.
+	  This config should be enabled with corresponding MCUPM setting.
+	  If unsure, say N.
+
+config MTK_CPU_KORO
+	bool "MTK CPU KORO SUPPORT"
+	---help---
+	  This kernel config can be used to enable cpu KORO support.
+	  When enable this option, system will keep cpus power on while reset.
+	  This config should be enabled depend on platform.
+	  If unsure, say N.
+
+config MTK_STATIC_POWER
+	bool "MTK STATIC POWER"
+	default n
+	---help---
+	  This kernel config can be used to enable static power.
+	  This information can provide power data to someone who
+	  need it
+	  If unsure, say N.
+
+config MTK_UNIFY_POWER
+	bool "MTK UNIFY POWER"
+	default n
+	---help---
+	  This kernel config can be used to enable unified power table.
+	  This table can provide power data and capacity to someone who
+	  need it.
+	  If unsure, say Y.
+
+config MTK_SLBC
+	bool "MTK SLBC"
+	---help---
+	  This kernel config can be used to enable SLBC. When enable
+	  this option, we will use system buffer to improve performance
+	  and power.
+	  If unsure, say N.
+
+config MTK_SLBC_MMSRAM
+	bool "MTK SLBC use MMSRAM"
+	select MTK_SLBC
+	---help---
+	  This kernel config can be used to enable SLBC MMSRAM. When enable
+	  this option, we will use system buffer to improve performance
+	  and power.
+	  If unsure, say N.
+
+config MTK_CM_MGR
+	bool "MTK CM MGR"
+	default n
+	---help---
+	  This kernel config can be used to enable CM MGR. When enable
+	  this option, dram opp level will be changed which will depended
+	  on power table.
+	  If unsure, say N.
+
+config MTK_SWPM
+	bool "MTK SW Power Meter"
+	default n
+	---help---
+	  This kernel config can be used to enable SW power meter. When enable
+	  this option, user can turn on SW power meter and get average power
+	  for each power rail for low power debugging.
+	  If unsure, say N.
+
+config MTK_QOS_FRAMEWORK
+	bool "MTK QOS FRAMEWORK"
+	---help---
+	  This kernel config can be used to enable MTK QOS FRAMEWORK.
+	  When enabling this option, BW Limiter and BW Bound Detector
+	  will be enabled and set EMI hardware.
+	  If unsure, say N.
+
+config MTK_QOS_V1
+	bool "MTK QOS Framework Ver 1.0"
+	default y if MACH_MT6768
+	---help---
+	  This version support QOS ver 1.0 feature sets.
+	  The dram opp could be controlled by the BW prediction.
+	  It is also mapped with sspm qos v1.
+	  If unsure, say N.
+
+config MTK_QOS_V2
+	bool "MTK QOS Framework Ver 2.0"
+	default y if MACH_MT6785
+	default y if MACH_MT6885
+	default y if MACH_MT6873
+	default y if MACH_MT6853
+	default y if MACH_MT6893
+	default y if MACH_MT6833
+	select MTK_QOS_FRAMEWORK
+	---help---
+	  This version support QOS version 2.0 feature sets.
+	  It supports BW prediction, BW bound detection, and BW limiter.
+	  It is also mapped with sspm qos v2.
+	  If unsure, say N.

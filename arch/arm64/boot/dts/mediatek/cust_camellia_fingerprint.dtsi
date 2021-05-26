@@ -1,0 +1,74 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* add goodix fingerprint start*/
+
+&spi5 {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fpc_tee@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		fpc,enable-wakeup;
+		spi-max-frequency = <10000000>;
+		netlink-event = <30>;
+		status = "okay";
+	};
+};
+
+&goodix_fp {
+	fpc,gpio_irq = <&pio 22 0>;
+	pinctrl-names = "default", "reset_high", "reset_low","spi_mode";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	pinctrl-3 = <&fingerprint_spi_mode>;
+	status = "okay";
+};
+
+&pio {
+	fingerprint_default: state_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO22__FUNC_GPIO22>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fingerprint_spi_mode:spi_mode{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO35__FUNC_SPI5_CLK>,
+				<PINMUX_GPIO36__FUNC_SPI5_CSB>,
+				<PINMUX_GPIO37__FUNC_SPI5_MO>,
+				<PINMUX_GPIO38__FUNC_SPI5_MI>;
+			drive-strength = <2>;
+		};
+	};
+};
+/* add goodix fingerprint end*/
+

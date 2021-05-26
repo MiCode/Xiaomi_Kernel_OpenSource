@@ -1,0 +1,60 @@
+config MTK_APUSYS_SUPPORT
+	bool "APUSYS driver"
+	help
+	  For Mediatek APUSYS features, such as APUSYS driver
+	  APUSYS power, APUSYS QoS,
+	  CONFIG_MTK_APUSYS defines
+	  if the APUSYS driver should be
+	  built in or not
+
+config MTK_APUSYS_DEBUG
+	bool "APUSYS debug"
+	depends on MTK_APUSYS_SUPPORT
+	help
+	  Enable debug facilities of APUSYS, including
+	  trace points and trace tags. Recommended for
+	  analysis resource issues, such as starvation.
+	  Disable, if you don't need them.
+
+config MTK_APUSYS_RT_SUPPORT
+	bool "APUSYS Preemption"
+	help
+	  For Mediatek APUSYS preemption features.
+	  This config will enable MDLA/VPU preemption feature.
+	  It will increase performance for high priority task.
+	  MDLA/VPU should be enable/disable at the same time.
+
+config MTK_APUSYS_MDLA_SUPPORT
+	bool "MDLA driver"
+	help
+	  Support deep neural network calculation using
+	  hardware accelerator. Customers and third party
+	  could use MDLA to develop feature and algorithm
+	  by themselves.
+
+config MTK_APUSYS_VPU
+	bool "VPU driver"
+	select REMOTEPROC
+	help
+	  Support image processing using VPU hardware.
+	  Customers and third party could use VPU to develop
+	  feature and algorithm by themselves. There is better
+	  performance and power if image process algorithm
+	  land on VPU instead of CPU/GPU.
+
+config MTK_APUSYS_VPU_DEBUG
+	bool "VPU Debug"
+	depends on MTK_APUSYS_VPU
+	help
+	  Enable debug facilities of VPU, such as
+	  kernel logs, register dumps, device logs,
+	  VPU jtag functions, and MET trace.
+	  Disable, if you don't need them.
+
+config MTK_APUSYS_EDMA_SUPPORT
+        bool "EDMA (External DMA) Driver"
+        help
+          The purpose of Mediatek eDMA is performing
+	  data transfer between external memory such as
+	  DRAM/TCM, It will cooperate with MDLA. eDMA
+	  support different modes for image process.

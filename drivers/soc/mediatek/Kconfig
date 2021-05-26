@@ -1,0 +1,71 @@
+#
+# MediaTek SoC drivers
+#
+config MTK_INFRACFG
+	bool "MediaTek INFRACFG Support"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek INFRACFG controller. The
+	  INFRACFG controller contains various infrastructure registers not
+	  directly associated to any device.
+
+config MTK_PMIC_WRAP
+	tristate "MediaTek PMIC Wrapper Support"
+	select REGMAP
+	help
+	  Say yes here to add support for MediaTek PMIC Wrapper found
+	  on different MediaTek SoCs. The PMIC wrapper is a proprietary
+	  hardware to connect the PMIC.
+
+config MTK_SCPSYS
+	bool "MediaTek SCPSYS Support"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	default ARCH_MEDIATEK
+	select REGMAP
+	select MTK_INFRACFG
+	select PM_GENERIC_DOMAINS if PM
+	help
+	  Say yes here to add support for the MediaTek SCPSYS power domain
+	  driver.
+
+config MTK_SCPSYS_MT8167
+	bool "SCPSYS Support MediaTek MT8167"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select SOC_MEDIATEK
+	select REGMAP
+	select MTK_INFRACFG
+	select PM_GENERIC_DOMAINS
+	default y if MACH_MT8167 && !FPGA_EARLY_PORTING
+	help
+	  Say yes here to add support for the MediaTek SCPSYS power domain
+	  driver.
+	  The System Control Processor System (SCPSYS) has several power
+	  management related tasks in the system.
+
+config MTK_IPI
+	tristate "MediaTek IPI Support"
+	depends on RPMSG_MTK
+	help
+	  Say yes here to add support for the MediaTek IPI between tinysys.
+	  MTK IPI consists of APIs to do Linux to/from uP/DSP communication
+	  based on rpmsg. Synchronization among tasks is also handled by
+	  this layer. If uP/DSP drivers handle by themselves, they can use
+	  rpmsg directly.
+
+config MTK_MBOX
+	tristate "MediaTek Mbox Support"
+	help
+	  Say yes here to add support for the MediaTek Mbox driver.
+	  MTK MBOX is a physical H/W which consists of configurable 128
+	  or 256 bytes SRAM and 32 bit irq. The driver does read/write
+	  SRAM and IRQ handling.
+
+config MTK_LPM
+	bool "MediaTek Low Power Manager"
+	help
+	  Say yes here to add support for the MediaTek Low Power Manager
+	  driver. The mtk-lpm will handle the mtk low power module then
+	  platform could enter deeper sleep mode when cpu preparing to
+	  power down if it have sufficient time between warmboot.
+

@@ -1,0 +1,11 @@
+config MTK_NET_CCMNI
+	bool "MediaTek CCMNI driver"
+	depends on MTK_CCCI_DEVICES
+	default n
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	help
+	  This option enables CCMNI driver,
+	  if yes, then CCMNI driver is used to communicate with CCCI driver by Kernel network,
+	  if no, Kernel network uses ccci port_net to send and recevie data.
+	  The option default depends on MTK_CCCI_DEVICES.
