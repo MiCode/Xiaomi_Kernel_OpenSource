@@ -315,14 +315,6 @@ int __cpu_disable(void)
 	remove_cpu_topology(cpu);
 	numa_remove_cpu(cpu);
 
-#ifdef CONFIG_ARM_IRQ_TARGET_ALL
-	/*
-	 * we disable irq here to ensure interrupts
-	 * did not bother this cpu after status as offline.
-	 */
-	local_irq_disable();
-#endif
-
 	/*
 	 * Take this CPU offline.  Once we clear this, we can't return,
 	 * and we must not schedule until we're ready to give up the cpu.
@@ -860,16 +852,9 @@ void arch_irq_work_raise(void)
 
 static void local_cpu_stop(void)
 {
-#ifdef CONFIG_ARM_IRQ_TARGET_ALL
-	local_daif_mask();
-#endif
-
 	set_cpu_online(smp_processor_id(), false);
 
-#ifndef CONFIG_ARM_IRQ_TARGET_ALL
 	local_daif_mask();
-#endif
-
 	sdei_mask_local_cpu();
 	cpu_park_loop();
 }

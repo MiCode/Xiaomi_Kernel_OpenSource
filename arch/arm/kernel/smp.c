@@ -265,13 +265,7 @@ int __cpu_disable(void)
 #ifdef CONFIG_GENERIC_ARCH_TOPOLOGY
 	remove_cpu_topology(cpu);
 #endif
-#ifdef CONFIG_ARM_IRQ_TARGET_ALL
-	/*
-	 * we disable irq here to ensure interrupts
-	 * did not bother this cpu after status as offline.
-	 */
-	local_irq_disable();
-#endif
+
 	/*
 	 * Take this CPU offline.  Once we clear this, we can't return,
 	 * and we must not schedule until we're ready to give up the cpu.
@@ -606,16 +600,10 @@ static void ipi_cpu_stop(unsigned int cpu)
 		raw_spin_unlock(&stop_lock);
 	}
 
-#ifdef CONFIG_ARM_IRQ_TARGET_ALL
 	set_cpu_online(cpu, false);
-#endif
 
 	local_fiq_disable();
 	local_irq_disable();
-
-#ifndef CONFIG_ARM_IRQ_TARGET_ALL
-	set_cpu_online(cpu, false);
-#endif
 
 	while (1) {
 		cpu_relax();
