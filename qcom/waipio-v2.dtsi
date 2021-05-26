@@ -5,3 +5,11 @@
 	compatible = "qcom,waipio";
 	qcom,msm-id = <457 0x20000>;
 };
+
+&clock_camcc {
+	compatible = "qcom,waipio-camcc-v2", "syscon";
+};
+
+&clock_gpucc {
+	compatible = "qcom,waipio-gpucc-v2", "syscon";
+};

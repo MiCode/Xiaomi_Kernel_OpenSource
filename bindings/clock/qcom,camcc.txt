@@ -8,6 +8,7 @@ Required properties :
 		"qcom,lahaina-camcc-v2"
 		"qcom,shima-camcc"
 		"qcom,waipio-camcc"
+		"qcom,waipio-camcc-v2"
 - reg : shall contain base register location and length.
 - #clock-cells : from common clock binding, shall contain 1.
 - #reset-cells : from common reset binding, shall contain 1.
