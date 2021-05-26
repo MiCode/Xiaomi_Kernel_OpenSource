@@ -633,3 +633,11 @@ config SM_DISPCC_KHAJE
 	 KHAJE devices.
 	 Say Y if you want to support display devices and functionality such as
 	 splash screen.
+
+config SM_DEBUGCC_KHAJE
+	tristate "KHAJE Debug Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the debug clock controller on Qualcomm Technologies, Inc
+	 KHAJE devices.
+	 Say Y if you want to support the clock measurement functionality.
