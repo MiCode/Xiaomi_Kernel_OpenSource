@@ -203,7 +203,7 @@
 #define MAX_RC_NAME_LEN (15)
 #define MSM_PCIE_MAX_VREG (5)
 #define MSM_PCIE_MAX_CLK (21)
-#define MSM_PCIE_MAX_PIPE_CLK (1)
+#define MSM_PCIE_MAX_PIPE_CLK (2)
 #define MAX_RC_NUM (5)
 #define MAX_DEVICE_NUM (20)
 #define PCIE_TLP_RD_SIZE (0x5)
@@ -1032,7 +1032,7 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
 	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
 	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
-	{NULL, "pcie_0_pipediv2_clk", 0, false, false}
+	{NULL, "pcie_cnoc_4_qx", 0, false, false}
 	},
 	{
 	{NULL, "pcie_1_ref_clk_src", 0, false, false},
@@ -1055,7 +1055,7 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
 	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
 	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
-	{NULL, "pcie_1_pipediv2_clk", 0, false, false}
+	{NULL, "pcie_cnoc_4_qx", 0, false, false}
 	},
 	{
 	{NULL, "pcie_2_ref_clk_src", 0, false, false},
@@ -1078,7 +1078,7 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
 	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
 	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
-	{NULL, "pcie_2_pipediv2_clk", 0, false, false}
+	{NULL, "pcie_cnoc_4_qx", 0, false, false}
 	},
 	{
 	{NULL, "pcie_3_ref_clk_src", 0, false, false},
@@ -1101,7 +1101,7 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
 	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
 	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
-	{NULL, "pcie_3_pipediv2_clk", 0, false, false}
+	{NULL, "pcie_cnoc_4_qx", 0, false, false}
 	},
 	{
 	{NULL, "pcie_4_ref_clk_src", 0, false, false},
@@ -1124,7 +1124,7 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
 	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
 	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
-	{NULL, "pcie_4_pipediv2_clk", 0, false, false}
+	{NULL, "pcie_cnoc_4_qx", 0, false, false}
 	}
 };
 
@@ -1133,18 +1133,23 @@ static struct msm_pcie_clk_info_t
 	msm_pcie_pipe_clk_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_CLK] = {
 	{
 	{NULL, "pcie_0_pipe_clk", 125000000, true, false},
+	{NULL, "pcie_0_pipediv2_clk", 125000000, false, false}
 	},
 	{
 	{NULL, "pcie_1_pipe_clk", 125000000, true, false},
+	{NULL, "pcie_1_pipediv2_clk", 125000000, false, false}
 	},
 	{
 	{NULL, "pcie_2_pipe_clk", 125000000, true, false},
+	{NULL, "pcie_2_pipediv2_clk", 125000000, false, false}
 	},
 	{
 	{NULL, "pcie_3_pipe_clk", 125000000, true, false},
+	{NULL, "pcie_3_pipediv2_clk", 125000000, false, false}
 	},
 	{
 	{NULL, "pcie_4_pipe_clk", 125000000, true, false},
+	{NULL, "pcie_4_pipediv2_clk", 125000000, false, false}
 	}
 };
 
