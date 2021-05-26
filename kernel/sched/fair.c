@@ -6597,12 +6597,12 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
  */
 static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sync)
 {
-	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX, best_delta_active = ULONG_MAX;
+	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int max_spare_cap_cpu_ls = prev_cpu, best_idle_cpu = -1;
-	unsigned long target_cap = 0;
+	unsigned long max_spare_cap_ls = 0, target_cap;
 	unsigned long cpu_cap, util, base_energy = 0;
-	bool latency_sensitive = false;
+	bool boosted, latency_sensitive = false;
 	unsigned int min_exit_lat = UINT_MAX;
 	int cpu, best_energy_cpu = prev_cpu;
 	struct cpuidle_state *idle;
@@ -6642,14 +6642,13 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 		goto unlock;
 
 	latency_sensitive = uclamp_latency_sensitive(p);
+	boosted = uclamp_boosted(p);
+	target_cap = boosted ? 0 : ULONG_MAX;
 
 	for (; pd; pd = pd->next) {
 		unsigned long cur_delta, spare_cap, max_spare_cap = 0;
 		unsigned long base_energy_pd;
-		unsigned long max_spare_cap_ls_idle = 0, max_spare_cap_ls_active = 0;
 		int max_spare_cap_cpu = -1;
-		int max_spare_cap_cpu_ls_idle = -1;
-		int max_spare_cap_cpu_ls_active = -1;
 
 		/* Compute the 'base' energy of the pd, without @p */
 		base_energy_pd = compute_energy(p, -1, pd);
@@ -6696,25 +6695,22 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 
 			if (idle_cpu(cpu)) {
 				cpu_cap = capacity_orig_of(cpu);
+				if (boosted && cpu_cap < target_cap)
+					continue;
+				if (!boosted && cpu_cap > target_cap)
+					continue;
 				idle = idle_get_state(cpu_rq(cpu));
 				if (idle && idle->exit_latency > min_exit_lat &&
 						cpu_cap == target_cap)
 					continue;
 
-				if (spare_cap < max_spare_cap_ls_idle)
-					continue;
-
 				if (idle)
 					min_exit_lat = idle->exit_latency;
-
-				max_spare_cap_ls_idle = spare_cap;
 				target_cap = cpu_cap;
-				max_spare_cap_cpu_ls_idle = cpu;
-			} else {
-				if (spare_cap < max_spare_cap_ls_active)
-					continue;
-				max_spare_cap_ls_active = spare_cap;
-				max_spare_cap_cpu_ls_active = cpu;
+				best_idle_cpu = cpu;
+			} else if (spare_cap > max_spare_cap_ls) {
+				max_spare_cap_ls = spare_cap;
+				max_spare_cap_cpu_ls = cpu;
 			}
 		}
 
@@ -6726,25 +6722,6 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 			if (cur_delta < best_delta) {
 				best_delta = cur_delta;
 				best_energy_cpu = max_spare_cap_cpu;
-			}
-		}
-
-		if (latency_sensitive) {
-			if (max_spare_cap_cpu_ls_idle >= 0) {
-				cur_delta = compute_energy(p, max_spare_cap_cpu_ls_idle, pd);
-				cur_delta -= base_energy_pd;
-				if (cur_delta < best_delta) {
-					best_delta = cur_delta;
-					best_idle_cpu = max_spare_cap_cpu_ls_idle;
-				}
-			}
-			if (max_spare_cap_cpu_ls_active >= 0) {
-				cur_delta = compute_energy(p, max_spare_cap_cpu_ls_active, pd);
-				cur_delta -= base_energy_pd;
-				if (cur_delta < best_delta_active) {
-					best_delta_active = cur_delta;
-					max_spare_cap_cpu_ls = max_spare_cap_cpu_ls_active;
-				}
 			}
 		}
 	}
