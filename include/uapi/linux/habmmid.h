@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef HABMMID_H
 #define HABMMID_H
@@ -66,6 +66,12 @@
 #define	MM_HSI2S_1 1201
 #define	MM_HSI2S_END 1202
 
-#define	MM_ID_MAX	1203
+#define	MM_XVM_START 1300
+#define	MM_XVM_1 1301
+#define	MM_XVM_2 1302
+#define	MM_XVM_3 1303
+#define	MM_XVM_END 1304
+
+#define	MM_ID_MAX	1305
 
 #endif /* HABMMID_H */

@@ -55,6 +55,9 @@ enum hab_payload_type {
 #define DEVICE_DATA1_NAME "hab_data_network1"
 #define DEVICE_DATA2_NAME "hab_data_network2"
 #define DEVICE_HSI2S1_NAME "hab_hsi2s1"
+#define DEVICE_XVM1_NAME "hab_xvm1"
+#define DEVICE_XVM2_NAME "hab_xvm2"
+#define DEVICE_XVM3_NAME "hab_xvm3"
 
 /* make sure concascaded name is less than this value */
 #define MAX_VMID_NAME_SIZE 30
