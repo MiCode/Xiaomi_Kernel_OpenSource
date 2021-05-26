@@ -4500,8 +4500,11 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 	}
 
 	dbg_event(0xFF, "Set DP mode", lanes);
+
+	while (!pm_runtime_active(&mdwc->dwc3->dev))
+		msleep(20);
+
 	if (lanes == 2) {
-		mdwc->ss_phy->flags |= PHY_DP_MODE;
 		return 0;
 	}
 
