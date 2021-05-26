@@ -19,7 +19,7 @@
  *
  * Free the irq resource
  */
-static void timer_of_irq_exit(struct of_timer_irq *of_irq)
+static __init void timer_of_irq_exit(struct of_timer_irq *of_irq)
 {
 	struct timer_of *to = container_of(of_irq, struct timer_of, of_irq);
 
@@ -47,7 +47,7 @@ static void timer_of_irq_exit(struct of_timer_irq *of_irq)
  *
  * Returns 0 on success, < 0 otherwise
  */
-static int timer_of_irq_init(struct device_node *np,
+static __init int timer_of_irq_init(struct device_node *np,
 				    struct of_timer_irq *of_irq)
 {
 	int ret;
@@ -91,7 +91,7 @@ static int timer_of_irq_init(struct device_node *np,
  *
  * Disables and releases the refcount on the clk
  */
-static void timer_of_clk_exit(struct of_timer_clk *of_clk)
+static __init void timer_of_clk_exit(struct of_timer_clk *of_clk)
 {
 	of_clk->rate = 0;
 	clk_disable_unprepare(of_clk->clk);
@@ -107,7 +107,7 @@ static void timer_of_clk_exit(struct of_timer_clk *of_clk)
  *
  * Returns 0 on success, < 0 otherwise
  */
-static int timer_of_clk_init(struct device_node *np,
+static __init int timer_of_clk_init(struct device_node *np,
 				    struct of_timer_clk *of_clk)
 {
 	int ret;
@@ -146,12 +146,12 @@ out_clk_put:
 	goto out;
 }
 
-static void timer_of_base_exit(struct of_timer_base *of_base)
+static __init void timer_of_base_exit(struct of_timer_base *of_base)
 {
 	iounmap(of_base->base);
 }
 
-static int timer_of_base_init(struct device_node *np,
+static __init int timer_of_base_init(struct device_node *np,
 				     struct of_timer_base *of_base)
 {
 	of_base->base = of_base->name ?
@@ -165,7 +165,7 @@ static int timer_of_base_init(struct device_node *np,
 	return 0;
 }
 
-int timer_of_init(struct device_node *np, struct timer_of *to)
+int __init timer_of_init(struct device_node *np, struct timer_of *to)
 {
 	int ret = -EINVAL;
 	int flags = 0;
@@ -209,7 +209,6 @@ out_fail:
 		timer_of_base_exit(&to->of_base);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(timer_of_init);
 
 /**
  * timer_of_cleanup - release timer_of resources
@@ -218,7 +217,7 @@ EXPORT_SYMBOL_GPL(timer_of_init);
  * Release the resources that has been used in timer_of_init().
  * This function should be called in init error cases
  */
-void timer_of_cleanup(struct timer_of *to)
+void __init timer_of_cleanup(struct timer_of *to)
 {
 	if (to->flags & TIMER_OF_IRQ)
 		timer_of_irq_exit(&to->of_irq);
