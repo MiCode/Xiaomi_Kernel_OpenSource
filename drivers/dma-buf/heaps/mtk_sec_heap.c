@@ -42,9 +42,8 @@ enum secure_feature_type {
 
 struct sec_feature {
 	char feat_name[NAME_LEN];
-	const struct dma_heap_ops *ops;
-	void *priv;
 	struct dma_heap *heap;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type;
 };
 
 //TODO: should replace by atomic_t
@@ -73,7 +72,7 @@ struct sec_heap_dev_info {
 
 /* No domain concept in secure memory, set array count as 1 */
 #define BUF_PRIV_MAX_CNT             1
-struct sec_heap_priv {
+struct sec_buf_priv {
 	bool                     mapped[BUF_PRIV_MAX_CNT];
 	struct sec_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
 	/* secure heap will not strore sgtable here */
@@ -94,6 +93,12 @@ struct dma_heap_attachment {
 
 	bool uncached;
 };
+
+/* Function Declcare */
+static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf);
+static int sec_heap_to_tmem_type(const struct dma_heap *heap,
+				 enum TRUSTED_MEM_REQ_TYPE *mem_type);
+
 
 static struct sg_table *dup_sg_table_sec(struct sg_table *table)
 {
@@ -121,14 +126,26 @@ static struct sg_table *dup_sg_table_sec(struct sg_table *table)
 	return new_table;
 }
 
-static void tmem_free(enum TRUSTED_MEM_REQ_TYPE tmem_type,
-		      struct dma_buf *dmabuf)
+static void tmem_free(struct dma_buf *dmabuf)
 {
-	struct mtk_sec_heap_buffer *buffer = dmabuf->priv;
-	struct sec_heap_priv *buf_info = buffer->priv;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type;
+	struct mtk_sec_heap_buffer *buffer = NULL;
+	struct sec_buf_priv *buf_info = NULL;
 	u32 sec_handle = 0;
 	struct sg_table *table = NULL;
 	int i;
+
+	if (unlikely(!is_mtk_secure_dmabuf(dmabuf)))
+		return;
+
+	buffer = dmabuf->priv;
+	if (!sec_heap_to_tmem_type(buffer->heap, &tmem_type))
+	{
+		pr_info("ERR: %s heap[%s] err\n",
+			__func__, dma_heap_get_name(buffer->heap));
+		return;
+	}
+	buf_info = buffer->priv;
 
 	pr_debug("[%s][%d] %s: enter priv 0x%lx\n",
 		 dmabuf->exp_name, tmem_type,
@@ -160,20 +177,6 @@ static void tmem_free(enum TRUSTED_MEM_REQ_TYPE tmem_type,
 		 dmabuf->exp_name, tmem_type, sec_heap_total_memory);
 
 	mutex_unlock(&dmabuf->lock);
-}
-
-static inline void svp_region_free(struct dma_buf *dmabuf)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SVP_REGION;
-
-	tmem_free(tmem_type, dmabuf);
-}
-
-static inline void svp_page_free(struct dma_buf *dmabuf)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SVP_PAGE;
-
-	tmem_free(tmem_type, dmabuf);
 }
 
 static int mtk_sec_heap_attach(struct dma_buf *dmabuf,
@@ -243,128 +246,34 @@ static void mtk_sec_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	sg_dma_address(sgt->sgl) = 0;
 }
 
-static const struct dma_buf_ops svp_region_heap_buf_ops = {
+static const struct dma_buf_ops sec_buf_ops = {
 	.attach = mtk_sec_heap_attach,
 	.detach = mtk_sec_heap_detach,
 	.map_dma_buf = mtk_sec_heap_map_dma_buf,
 	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
-	.release = svp_region_free,
+	.release = tmem_free,
 };
 
-static const struct dma_buf_ops svp_page_heap_buf_ops = {
-	.attach = mtk_sec_heap_attach,
-	.detach = mtk_sec_heap_detach,
-	.map_dma_buf = mtk_sec_heap_map_dma_buf,
-	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
-	.release = svp_page_free,
-};
-
-static inline void prot_region_free(struct dma_buf *dmabuf)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_PROT_REGION;
-
-	tmem_free(tmem_type, dmabuf);
-}
-
-static inline void prot_page_free(struct dma_buf *dmabuf)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_PROT_PAGE;
-
-	tmem_free(tmem_type, dmabuf);
-}
-
-static const struct dma_buf_ops prot_region_heap_buf_ops = {
-	.attach = mtk_sec_heap_attach,
-	.detach = mtk_sec_heap_detach,
-	.map_dma_buf = mtk_sec_heap_map_dma_buf,
-	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
-	.release = prot_region_free,
-};
-
-static const struct dma_buf_ops prot_page_heap_buf_ops = {
-	.attach = mtk_sec_heap_attach,
-	.detach = mtk_sec_heap_detach,
-	.map_dma_buf = mtk_sec_heap_map_dma_buf,
-	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
-	.release = prot_page_free,
-};
-
-static inline void wfd_free(struct dma_buf *dmabuf)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_WFD;
-
-	tmem_free(tmem_type, dmabuf);
-}
-
-static const struct dma_buf_ops wfd_heap_buf_ops = {
-	.attach = mtk_sec_heap_attach,
-	.detach = mtk_sec_heap_detach,
-	.map_dma_buf = mtk_sec_heap_map_dma_buf,
-	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
-	.release = wfd_free,
-};
-
-static inline void prot_2d_fr_free(struct dma_buf *dmabuf)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_2D_FR;
-
-	tmem_free(tmem_type, dmabuf);
-}
-
-static const struct dma_buf_ops prot_2d_fr_heap_buf_ops = {
-	.attach = mtk_sec_heap_attach,
-	.detach = mtk_sec_heap_detach,
-	.map_dma_buf = mtk_sec_heap_map_dma_buf,
-	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
-	.release = prot_2d_fr_free,
-};
-
-static inline void sapu_data_shm_free(struct dma_buf *dmabuf)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SAPU_DATA_SHM;
-
-	tmem_free(tmem_type, dmabuf);
-}
-
-static const struct dma_buf_ops sapu_data_shm_heap_buf_ops = {
-	.attach = mtk_sec_heap_attach,
-	.detach = mtk_sec_heap_detach,
-	.map_dma_buf = mtk_sec_heap_map_dma_buf,
-	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
-	.release = sapu_data_shm_free,
-};
-
-static inline void sapu_engine_shm_free(struct dma_buf *dmabuf)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SAPU_ENGINE_SHM;
-
-	tmem_free(tmem_type, dmabuf);
-}
-
-static const struct dma_buf_ops sapu_engine_shm_heap_buf_ops = {
-	.attach = mtk_sec_heap_attach,
-	.detach = mtk_sec_heap_detach,
-	.map_dma_buf = mtk_sec_heap_map_dma_buf,
-	.unmap_dma_buf = mtk_sec_heap_unmap_dma_buf,
-	.release = sapu_engine_shm_free,
-};
-
-static struct dma_buf *tmem_allocate(enum TRUSTED_MEM_REQ_TYPE tmem_type,
-				     const struct dma_buf_ops *heap_buf_ops,
-				     struct dma_heap *heap,
+static struct dma_buf *tmem_allocate(struct dma_heap *heap,
 				     unsigned long len,
 				     unsigned long fd_flags,
 				     unsigned long heap_flags)
 {
 	struct mtk_sec_heap_buffer *buffer;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type = -1;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dmabuf;
 	struct sg_table *table;
 	int ret = -ENOMEM;
-	struct sec_heap_priv *info;
+	struct sec_buf_priv *info;
 	struct task_struct *task = current->group_leader;
 	u32 sec_handle = 0;
 	u32 refcount = 0;/* tmem refcount */
+
+	if (!sec_heap_to_tmem_type(heap, &tmem_type)) {
+		pr_info("ERR: %s heap[%s] err\n", __func__, dma_heap_get_name(heap));
+		return ERR_PTR(-EINVAL);
+	}
 
 	pr_debug("[%s][%d] %s: enter: size 0x%lx\n",
 		 dma_heap_get_name(heap), tmem_type, __func__, len);
@@ -418,7 +327,7 @@ static struct dma_buf *tmem_allocate(enum TRUSTED_MEM_REQ_TYPE tmem_type,
 
 	/* create the dmabuf */
 	exp_info.exp_name = dma_heap_get_name(heap);
-	exp_info.ops = heap_buf_ops;
+	exp_info.ops = &sec_buf_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;
@@ -459,139 +368,15 @@ free_buffer_struct:
 	return ERR_PTR(ret);
 }
 
-static inline struct dma_buf *svp_region_allocate(struct dma_heap *heap,
-					   unsigned long len,
-					   unsigned long fd_flags,
-					   unsigned long heap_flags)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SVP_REGION;
-
-	return tmem_allocate(tmem_type, &svp_region_heap_buf_ops,
-			     heap, len, fd_flags, heap_flags);
-}
-
-static const struct dma_heap_ops svp_region_heap_ops = {
-	.allocate = svp_region_allocate,
+static const struct dma_heap_ops sec_heap_ops = {
+	.allocate = tmem_allocate,
 };
-
-static inline struct dma_buf *svp_page_allocate(struct dma_heap *heap,
-					   unsigned long len,
-					   unsigned long fd_flags,
-					   unsigned long heap_flags)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SVP_PAGE;
-
-	return tmem_allocate(tmem_type, &svp_page_heap_buf_ops,
-			     heap, len, fd_flags, heap_flags);
-}
-
-static const struct dma_heap_ops svp_page_heap_ops = {
-	.allocate = svp_page_allocate,
-};
-
-static inline struct dma_buf *prot_region_allocate(struct dma_heap *heap,
-					    unsigned long len,
-					    unsigned long fd_flags,
-					    unsigned long heap_flags)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_PROT_REGION;
-
-	return tmem_allocate(tmem_type, &prot_region_heap_buf_ops,
-			     heap, len, fd_flags, heap_flags);
-}
-
-static const struct dma_heap_ops prot_region_heap_ops = {
-	.allocate = prot_region_allocate,
-};
-
-static inline struct dma_buf *prot_page_allocate(struct dma_heap *heap,
-					    unsigned long len,
-					    unsigned long fd_flags,
-					    unsigned long heap_flags)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_PROT_PAGE;
-
-	return tmem_allocate(tmem_type, &prot_page_heap_buf_ops,
-			     heap, len, fd_flags, heap_flags);
-}
-
-static const struct dma_heap_ops prot_page_heap_ops = {
-	.allocate = prot_page_allocate,
-};
-
-static inline struct dma_buf *wfd_allocate(struct dma_heap *heap,
-					    unsigned long len,
-					    unsigned long fd_flags,
-					    unsigned long heap_flags)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_WFD;
-
-	return tmem_allocate(tmem_type, &wfd_heap_buf_ops,
-			     heap, len, fd_flags, heap_flags);
-}
-
-static const struct dma_heap_ops wfd_heap_ops = {
-	.allocate = wfd_allocate,
-};
-
-static inline struct dma_buf *prot_2d_fr_allocate(struct dma_heap *heap,
-					    unsigned long len,
-					    unsigned long fd_flags,
-					    unsigned long heap_flags)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_2D_FR;
-
-	return tmem_allocate(tmem_type, &prot_2d_fr_heap_buf_ops,
-			     heap, len, fd_flags, heap_flags);
-}
-
-static const struct dma_heap_ops prot_2d_fr_heap_ops = {
-	.allocate = prot_2d_fr_allocate,
-};
-
-static inline struct dma_buf *sapu_data_shm_allocate(struct dma_heap *heap,
-					    unsigned long len,
-					    unsigned long fd_flags,
-					    unsigned long heap_flags)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SAPU_DATA_SHM;
-
-	return tmem_allocate(tmem_type, &sapu_data_shm_heap_buf_ops,
-			     heap, len, fd_flags, heap_flags);
-}
-
-static const struct dma_heap_ops sapu_data_shm_heap_ops = {
-	.allocate = sapu_data_shm_allocate,
-};
-
-static inline struct dma_buf *sapu_engine_shm_allocate(struct dma_heap *heap,
-					    unsigned long len,
-					    unsigned long fd_flags,
-					    unsigned long heap_flags)
-{
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SAPU_ENGINE_SHM;
-
-	return tmem_allocate(tmem_type, &sapu_engine_shm_heap_buf_ops,
-			     heap, len, fd_flags, heap_flags);
-}
-
-static const struct dma_heap_ops sapu_engine_shm_heap_ops = {
-	.allocate = sapu_engine_shm_allocate,
-};
-
-static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf) {
-
-	if (!dmabuf)
-		return 0;
-
-	return 1;
-}
 
 /* no '\n' at end of str */
 static char *sec_get_buf_dump_str(const struct dma_buf *dmabuf,
 				  const struct dma_heap *heap) {
 	struct mtk_sec_heap_buffer *buf = dmabuf->priv;
-	struct sec_heap_priv *buf_priv = NULL;
+	struct sec_buf_priv *buf_priv = NULL;
 	struct dma_heap *buf_heap = NULL;
 	//int i;
 	char *info_str;
@@ -788,45 +573,69 @@ static const struct mtk_heap_priv_info mtk_sec_heap_priv = {
 static struct sec_feature mtk_sec_heap[__MAX_NR_SECURE_FEATURES] = {
 	[SVP_REGION] = {
 		.feat_name = "mtk_svp_region-uncached",
-		.ops = &svp_region_heap_ops,
-		.priv = (void *)&mtk_sec_heap_priv,
+		.tmem_type = TRUSTED_MEM_REQ_SVP_REGION,
 	},
 	[SVP_PAGE] = {
 		.feat_name = "mtk_svp_page-uncached",
-		.ops = &svp_page_heap_ops,
-		.priv = (void *)&mtk_sec_heap_priv,
+		.tmem_type = TRUSTED_MEM_REQ_SVP_PAGE,
 	},
 	[PROT_REGION] = {
 		.feat_name = "mtk_prot_region-uncached",
-		.ops = &prot_region_heap_ops,
-		.priv = (void *)&mtk_sec_heap_priv,
+		.tmem_type = TRUSTED_MEM_REQ_PROT_REGION,
 	},
 	[PROT_PAGE] = {
 		.feat_name = "mtk_prot_page-uncached",
-		.ops = &prot_page_heap_ops,
-		.priv = (void *)&mtk_sec_heap_priv,
+		.tmem_type = TRUSTED_MEM_REQ_PROT_PAGE,
 	},
 	[PROT_2D_FR_REGION] = {
 		.feat_name = "mtk_2d_fr-uncached",
-		.ops = &prot_2d_fr_heap_ops,
-		.priv = (void *)&mtk_sec_heap_priv,
+		.tmem_type = TRUSTED_MEM_REQ_2D_FR,
 	},
 	[WFD_REGION] = {
 		.feat_name = "mtk_wfd-uncached",
-		.ops = &wfd_heap_ops,
-		.priv = (void *)&mtk_sec_heap_priv,
+		.tmem_type = TRUSTED_MEM_REQ_WFD,
 	},
 	[SAPU_DATA_SHM_REGION] = {
 		.feat_name = "mtk_sapu_data_shm-uncached",
-		.ops = &sapu_data_shm_heap_ops,
-		.priv = (void *)&mtk_sec_heap_priv,
+		.tmem_type = TRUSTED_MEM_REQ_SAPU_DATA_SHM,
 	},
 	[SAPU_ENGINE_SHM_REGION] = {
 		.feat_name = "mtk_sapu_engine_shm-uncached",
-		.ops = &sapu_engine_shm_heap_ops,
-		.priv = (void *)&mtk_sec_heap_priv,
+		.tmem_type = TRUSTED_MEM_REQ_SAPU_ENGINE_SHM,
 	},
 };
+
+static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf) {
+	int i = 0;
+	struct mtk_sec_heap_buffer *buffer = NULL;
+
+	if (!dmabuf || !dmabuf->priv)
+		return 0;
+
+	buffer = dmabuf->priv;
+
+	for (; i < __MAX_NR_SECURE_FEATURES; i++) {
+		if (mtk_sec_heap[i].heap == buffer->heap)
+			return 1;
+	}
+
+	return 0;
+}
+
+/* PASS@return 1, FAIL@return 0 */
+static int sec_heap_to_tmem_type(const struct dma_heap *heap,
+				 enum TRUSTED_MEM_REQ_TYPE *mem_type) {
+	int i = 0;
+
+	for (; i < __MAX_NR_SECURE_FEATURES; i++) {
+		if (mtk_sec_heap[i].heap == heap) {
+			*mem_type = mtk_sec_heap[i].tmem_type;
+			return 1;
+		}
+	}
+
+	return 0;
+}
 
 static int mtk_sec_heap_create(void)
 {
@@ -835,15 +644,16 @@ static int mtk_sec_heap_create(void)
 
 	/* No need pagepool for secure heap */
 
+	exp_info.ops = &sec_heap_ops;
+	exp_info.priv = (void *)&mtk_sec_heap_priv;
 	for (i = 0; i < __MAX_NR_SECURE_FEATURES; i++) {
 		exp_info.name = mtk_sec_heap[i].feat_name;
-		exp_info.ops = mtk_sec_heap[i].ops;
-		exp_info.priv = mtk_sec_heap[i].priv;
 
 		mtk_sec_heap[i].heap = dma_heap_add(&exp_info);
 		if (IS_ERR(mtk_sec_heap[i].heap))
 			return PTR_ERR(mtk_sec_heap[i].heap);
-		pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
+		pr_info("%s add heap[%s][%d] success\n", __func__,
+			exp_info.name, mtk_sec_heap[i].tmem_type);
 	}
 
 	return 0;
@@ -852,7 +662,7 @@ static int mtk_sec_heap_create(void)
 /* return 0 means error */
 u32 dmabuf_to_secure_handle (struct dma_buf *dmabuf) {
 	struct mtk_sec_heap_buffer *buffer;
-	struct sec_heap_priv *buf_info;
+	struct sec_buf_priv *buf_info;
 
 	if (!is_mtk_secure_dmabuf(dmabuf))
 		return 0;
