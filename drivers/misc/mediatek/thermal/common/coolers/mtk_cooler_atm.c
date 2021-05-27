@@ -38,6 +38,9 @@
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
 #include <mtk_ram_console.h>
 #endif
+#ifndef CLATM_USE_MIN_CPU_OPP
+#define CLATM_USE_MIN_CPU_OPP			(0)
+#endif
 #ifdef ATM_USES_PPM
 #include "mtk_ppm_api.h"
 #if CLATM_USE_MIN_CPU_OPP
@@ -230,10 +233,6 @@ static int MINIMUM_GPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 350, 0 };
 static int MAXIMUM_GPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 960, 0 };
 #endif
 static int is_max_gpu_power_specified[MAX_CPT_ADAPTIVE_COOLERS] = { 0, 0 };
-
-#ifndef CLATM_USE_MIN_CPU_OPP
-#define CLATM_USE_MIN_CPU_OPP			(0)
-#endif
 
 #if CLATM_USE_MIN_CPU_OPP
 struct atm_cpu_min_opp {
@@ -537,11 +536,14 @@ mt_get_uartlog_status(void)
 {
 	return 0;
 }
+
+#if CLATM_USE_MIN_CPU_OPP
 int  __attribute__ ((weak))
 ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 {
 	return 0;
 }
+#endif
 
 /*=============================================================*/
 
