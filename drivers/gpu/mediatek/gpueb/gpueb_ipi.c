@@ -319,6 +319,7 @@ int gpueb_get_send_PIN_ID_by_name(char *send_PIN_name)
     }
     return -1;
 }
+EXPORT_SYMBOL_GPL(gpueb_get_send_PIN_ID_by_name);
 
 int gpueb_get_recv_PIN_ID_by_name(char *recv_PIN_name)
 {
@@ -329,3 +330,10 @@ int gpueb_get_recv_PIN_ID_by_name(char *recv_PIN_name)
     }
     return -1;
 }
+EXPORT_SYMBOL_GPL(gpueb_get_recv_PIN_ID_by_name);
+
+void *get_gpueb_ipidev(void)
+{
+	return &gpueb_plat_ipidev;
+}
+EXPORT_SYMBOL_GPL(get_gpueb_ipidev);
