@@ -35,3 +35,5 @@ qcom_iommu_util-y += qcom-iommu-util.o
 qcom_iommu_util-$(CONFIG_IOMMU_IO_PGTABLE_FAST) += qcom-dma-iommu-generic.o io-pgtable-fast.o dma-mapping-fast.o
 qcom_iommu_util-$(CONFIG_IOMMU_IO_PGTABLE_LPAE) += qcom-io-pgtable-arm.o
 obj-$(CONFIG_QTI_IOMMU_SUPPORT) += iommu-logger.o
+obj-$(CONFIG_QCOM_IOMMU_DEBUG) += qcom_iommu_debug.o
+qcom_iommu_debug-y += qcom-iommu-debug.o qcom-iommu-debug-user.o
