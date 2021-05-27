@@ -1162,6 +1162,29 @@ static const char *peri_mi_trans(uint32_t bus_id)
 	return master;
 }
 
+static bool is_addr_in_mdp_mali(uint32_t addr)
+{
+	if ((addr >= MDP_REGION1_START_ADDR && addr <= MDP_REGION1_END_ADDR) ||
+		(addr >= MDP_REGION2_START_ADDR && addr <= MDP_REGION2_END_ADDR) ||
+		(addr >= MDP_REGION3_START_ADDR && addr <= MDP_REGION3_END_ADDR)) {
+		pr_info(PFX "vio_addr might from MDP_MALI\n");
+		return true;
+	}
+
+	return false;
+}
+
+static bool is_addr_in_mmsys_mali(uint32_t addr)
+{
+	if ((addr >= MMSYS_REGION1_START_ADDR && addr <= MMSYS_REGION1_END_ADDR) ||
+		(addr >= MMSYS_REGION2_START_ADDR && addr <= MMSYS_REGION2_END_ADDR)) {
+		pr_info(PFX "vio_addr might from MMSYS_MALI\n");
+		return true;
+	}
+
+	return false;
+}
+
 static const char *mt6833_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit, int domain)
 {
@@ -1201,18 +1224,19 @@ static const char *mt6833_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 
 			return infra_mi_trans(bus_id >> 1);
 
+		} else if (is_addr_in_mdp_mali(vio_addr) ||
+				is_addr_in_mmsys_mali(vio_addr) ||
+				shift_sta_bit == 7) {
+			if ((bus_id & 0x1) == 0x1)
+				return "GCE_M";
+
+			return infra_mi_trans(bus_id >> 1);
+
 		} else if (shift_sta_bit >= 0 && shift_sta_bit <= 3) {
 			return peri_mi_trans(bus_id);
 
 		} else if (shift_sta_bit >= 4 && shift_sta_bit <= 5) {
 			return infra_mi_trans(bus_id);
-
-		} else if (shift_sta_bit == 7) {
-			pr_info(PFX "vio_addr is from MMSYS_MALI\n");
-			if ((bus_id & 0x1) == 0x1)
-				return "GCE_M";
-
-			return infra_mi_trans(bus_id >> 1);
 		}
 
 		return err_master;
