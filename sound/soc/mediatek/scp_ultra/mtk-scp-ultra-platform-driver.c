@@ -385,7 +385,7 @@ static const struct snd_kcontrol_new ultra_platform_kcontrols[] = {
 			  sizeof(struct ultra_gain_config),
 			  mtk_scp_ultra_gain_config_get,
 			  mtk_scp_ultra_gain_config_set),
-	SOC_ENUM_EXT("mtk_scp_ultra_engine_state",
+	SOC_SINGLE_EXT("mtk_scp_ultra_engine_state",
 		     SND_SOC_NOPM, 0, 0xff, 0,
 		     mtk_scp_ultra_engine_state_get,
 		     mtk_scp_ultra_engine_state_set),
