@@ -13,7 +13,7 @@
 #define HW_MONITER_WINDOW 10
 #define HW_MONITER_LEVEL 8
 #define EMA_DIVISOR 10
-#define EMA_DIVIDEND 7
+#define EMA_DIVIDEND 5
 #define EMA_REST_DIVIDEND (EMA_DIVISOR - EMA_DIVIDEND)
 #define SP_ALLOW_NAME "UnityMain"
 #define SP_ALLOW_NAME2 "Thread-"

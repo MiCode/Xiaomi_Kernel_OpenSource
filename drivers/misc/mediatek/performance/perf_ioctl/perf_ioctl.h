@@ -30,17 +30,22 @@ struct _FPSGO_PACKAGE {
 	union {
 		__u32 tid;
 		__s32 fps;
+		__s32 cmd;
 	};
 	union {
 		__u32 start;
 		__u32 connectedAPI;
+		__u32 value1;
 	};
 	union {
 		__u64 frame_time;
 		__u64 bufID;
 	};
 	__u64 frame_id;
-	__s32 queue_SF;
+	union {
+		__s32 queue_SF;
+		__s32 value2;
+	};
 	__u64 identifier;
 };
 
@@ -92,6 +97,7 @@ enum  {
 #define FPSGO_QUEUE_CONNECT          _IOW('g', 15, struct _FPSGO_PACKAGE)
 #define FPSGO_BQID                   _IOW('g', 16, struct _FPSGO_PACKAGE)
 #define FPSGO_GET_FPS                _IOW('g', 17, struct _FPSGO_PACKAGE)
+#define FPSGO_GET_CMD                _IOW('g', 18, struct _FPSGO_PACKAGE)
 
 #define EARA_NN_BEGIN               _IOW('g', 1, struct _EARA_NN_PACKAGE)
 #define EARA_NN_END                 _IOW('g', 2, struct _EARA_NN_PACKAGE)

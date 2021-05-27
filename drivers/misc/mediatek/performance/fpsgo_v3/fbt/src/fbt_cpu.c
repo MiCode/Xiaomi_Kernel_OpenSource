@@ -690,17 +690,12 @@ static void fbt_set_idleprefer_locked(int enable)
 		return;
 
 	xgf_trace("fpsgo %s idelprefer", enable?"enable":"disbale");
-#if IS_ENABLED(CONFIG_SCHED_TUNE)
-	/* use eas_ctrl to control prefer idle */
-	update_prefer_idle_value(EAS_PREFER_IDLE_KIR_FPSGO, CGROUP_TA, enable);
-#endif
+	fpsgo_sentcmd(FPSGO_SET_IDLE_PREFER, enable, -1);
 	set_idleprefer = enable;
 }
 
 static void fbt_set_down_throttle_locked(int nsec)
 {
-	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
-
 	if (!fbt_down_throttle_enable)
 		return;
 
@@ -708,8 +703,7 @@ static void fbt_set_down_throttle_locked(int nsec)
 		return;
 
 	xgf_trace("fpsgo set sched_rate_ns %d", nsec);
-	snprintf(temp, sizeof(temp), "SCHED_RATE_NS=%d", nsec);
-	fpsgo_sentuevent(temp);
+	fpsgo_sentcmd(FPSGO_SET_SCHED_RATE, nsec, -1);
 	down_throttle_ns = nsec;
 }
 
@@ -5469,8 +5463,8 @@ void __exit fbt_cpu_exit(void)
 
 int __init fbt_cpu_init(void)
 {
-	bhr = 5;
-	bhr_opp = 1;
+	bhr = 0;
+	bhr_opp = 0;
 	bhr_opp_l = fbt_get_l_min_bhropp();
 	rescue_opp_c = (NR_FREQ_CPU - 1);
 	rescue_opp_f = 5;

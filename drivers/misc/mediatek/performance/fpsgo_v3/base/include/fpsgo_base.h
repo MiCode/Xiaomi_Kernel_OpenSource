@@ -19,6 +19,14 @@
 #define QUOTA_MAX_SIZE 300
 #define GCC_MAX_SIZE 300
 
+enum {
+    FPSGO_SET_UNKNOWN = -1,
+    FPSGO_SET_BOOST_TA = 0,
+    FPSGO_SET_IDLE_PREFER = 1,
+    FPSGO_SET_SCHED_RATE = 2,
+    FPSGO_SET_DRAM = 3,
+};
+
 /* EARA job type */
 enum HW_EVENT4RENDER {
 	PER_FRAME = 0,
@@ -241,6 +249,8 @@ void fpsgo_del_linger(struct render_info *thr);
 int fpsgo_uboost_traverse(unsigned long long ts);
 int fpsgo_base_is_finished(struct render_info *thr);
 int fpsgo_update_swap_buffer(int pid);
+void fpsgo_sentcmd(int cmd, int value1, int value2);
+void fpsgo_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2);
 
 int init_fpsgo_common(void);
 

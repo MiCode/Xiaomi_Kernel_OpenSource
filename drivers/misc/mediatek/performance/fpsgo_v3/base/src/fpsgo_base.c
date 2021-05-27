@@ -17,6 +17,7 @@
 #include <linux/device.h>
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
+#include <linux/wait.h>
 
 #include "mt-plat/fpsgo_common.h"
 #include "fpsgo_usedext.h"
@@ -165,34 +166,32 @@ unsigned int fpsgo_cpufreq_get_freq_by_idx(
 	return max_freq;
 }
 
-static struct miscdevice fpsgo_object;
-bool fpsgo_sentuevent(const char *src)
+static int condition_get_cmd;
+static int fpsgo2pwr_cmd;
+static int fpsgo2pwr_value1;
+static int fpsgo2pwr_value2;
+static DEFINE_MUTEX(fpsgo2pwr_lock);
+DECLARE_WAIT_QUEUE_HEAD(pwr_queue);
+void fpsgo_sentcmd(int cmd, int value1, int value2)
 {
-	int ret;
-	char *envp[2];
-	int string_size = FPSGO_SYSFS_MAX_BUFF_SIZE;
-	char  event_string[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	mutex_lock(&fpsgo2pwr_lock);
+	fpsgo2pwr_cmd = cmd;
+	fpsgo2pwr_value1 = value1;
+	fpsgo2pwr_value2 = value2;
+	condition_get_cmd = 1;
+	mutex_unlock(&fpsgo2pwr_lock);
+	wake_up_interruptible(&pwr_queue);
+}
 
-	envp[0] = event_string;
-	envp[1] = NULL;
-
-
-	/*send uevent*/
-	strlcpy(event_string, src, string_size);
-	if (event_string[0] == '\0') { /*string is null*/
-
-		return false;
-	}
-	ret = kobject_uevent_env(
-			&fpsgo_object.this_device->kobj,
-			KOBJ_CHANGE, envp);
-	if (ret != 0) {
-		pr_debug("uevent failed");
-
-		return false;
-	}
-
-	return true;
+void fpsgo_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2)
+{
+	wait_event_interruptible(pwr_queue, condition_get_cmd);
+	mutex_lock(&fpsgo2pwr_lock);
+	*cmd = fpsgo2pwr_cmd;
+	*value1 = fpsgo2pwr_value1;
+	*value2 = fpsgo2pwr_value2;
+	condition_get_cmd = 0;
+	mutex_unlock(&fpsgo2pwr_lock);
 }
 
 uint32_t fpsgo_systrace_mask;
@@ -1257,36 +1256,8 @@ static ssize_t perfserv_ta_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(perfserv_ta);
 
-static int init_fpsgo_kobj(void)
-{
-	int ret = 0;
-
-	/* dev init */
-
-	fpsgo_object.name = "fpsgo";
-	fpsgo_object.minor = MISC_DYNAMIC_MINOR;
-	ret = misc_register(&fpsgo_object);
-	if (ret) {
-		pr_debug("misc_register error:%d\n", ret);
-		return ret;
-	}
-
-	ret = kobject_uevent(
-			&fpsgo_object.this_device->kobj, KOBJ_ADD);
-
-	if (ret) {
-		misc_deregister(&fpsgo_object);
-		pr_debug("uevent creat fail:%d\n", ret);
-		return ret;
-	}
-
-	return ret;
-
-}
-
 int init_fpsgo_common(void)
 {
-	int ret;
 	render_pid_tree = RB_ROOT;
 
 	BQ_id_list = RB_ROOT;
@@ -1304,10 +1275,6 @@ int init_fpsgo_common(void)
 
 	fpsgo_update_tracemark();
 	fpsgo_systrace_mask = FPSGO_DEBUG_MANDATORY;
-
-	ret = init_fpsgo_kobj();
-	if (ret)
-		pr_debug("init gbe_kobj failed");
 
 	return 0;
 }

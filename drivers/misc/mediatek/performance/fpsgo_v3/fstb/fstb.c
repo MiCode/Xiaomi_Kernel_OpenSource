@@ -57,7 +57,7 @@ static int fps_error_threshold = 10;
 static int QUANTILE = 50;
 static long long FRAME_TIME_WINDOW_SIZE_US = 1000000;
 static long long ADJUST_INTERVAL_US = 1000000;
-static int margin_mode;
+static int margin_mode = 2;
 static int margin_mode_gpu;
 static int margin_mode_dbnc_a = 9;
 static int margin_mode_dbnc_b = 1;
