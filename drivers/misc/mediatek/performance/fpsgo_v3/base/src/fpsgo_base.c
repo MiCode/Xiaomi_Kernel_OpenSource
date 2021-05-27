@@ -166,31 +166,49 @@ unsigned int fpsgo_cpufreq_get_freq_by_idx(
 	return max_freq;
 }
 
+struct k_list {
+	struct list_head queue_list;
+	int fpsgo2pwr_cmd;
+	int fpsgo2pwr_value1;
+	int fpsgo2pwr_value2;
+};
+static LIST_HEAD(head);
 static int condition_get_cmd;
-static int fpsgo2pwr_cmd;
-static int fpsgo2pwr_value1;
-static int fpsgo2pwr_value2;
 static DEFINE_MUTEX(fpsgo2pwr_lock);
-DECLARE_WAIT_QUEUE_HEAD(pwr_queue);
+static DECLARE_WAIT_QUEUE_HEAD(pwr_queue);
 void fpsgo_sentcmd(int cmd, int value1, int value2)
 {
+	static struct k_list *node;
+
 	mutex_lock(&fpsgo2pwr_lock);
-	fpsgo2pwr_cmd = cmd;
-	fpsgo2pwr_value1 = value1;
-	fpsgo2pwr_value2 = value2;
+	node=kmalloc(sizeof(struct k_list *),GFP_KERNEL);
+	if (node == NULL)
+		goto out;
+	node->fpsgo2pwr_cmd=cmd;
+	node->fpsgo2pwr_value1=value1;
+	node->fpsgo2pwr_value2=value2;
+	list_add_tail(&node->queue_list,&head);
 	condition_get_cmd = 1;
+out:
 	mutex_unlock(&fpsgo2pwr_lock);
 	wake_up_interruptible(&pwr_queue);
 }
 
 void fpsgo_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2)
 {
+	static struct k_list *node;
+
 	wait_event_interruptible(pwr_queue, condition_get_cmd);
 	mutex_lock(&fpsgo2pwr_lock);
-	*cmd = fpsgo2pwr_cmd;
-	*value1 = fpsgo2pwr_value1;
-	*value2 = fpsgo2pwr_value2;
-	condition_get_cmd = 0;
+	if (!list_empty(&head)) {
+		node=list_first_entry(&head,struct k_list ,queue_list);
+		*cmd = node->fpsgo2pwr_cmd;
+		*value1 = node->fpsgo2pwr_value1;
+		*value2 = node->fpsgo2pwr_value2;
+		list_del(&node->queue_list);
+	}
+	if (list_empty(&head))
+		condition_get_cmd = 0;
 	mutex_unlock(&fpsgo2pwr_lock);
 }
 

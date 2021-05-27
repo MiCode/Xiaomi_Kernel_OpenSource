@@ -26,6 +26,7 @@
 #include "mtk_drm_arr.h"
 #include "utch.h"
 #include "uboost.h"
+#include "gbe_common.h"
 
 #define CREATE_TRACE_POINTS
 
@@ -711,6 +712,8 @@ static void __exit fpsgo_exit(void)
 
 	/* touch boost */
 	exit_utch_mod();
+	/* game boost engine */
+	exit_gbe_common();
 }
 
 static int __init fpsgo_init(void)
@@ -762,6 +765,8 @@ fail_reg_cpu_frequency_entry:
 
 	/* touch boost */
 	init_utch_mod();
+	/* game boost engine*/
+	init_gbe_common();
 
 	if (fpsgo_arch_nr_clusters() > 0)
 		fpsgo_switch_enable(1);

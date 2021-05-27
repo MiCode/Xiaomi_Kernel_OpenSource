@@ -14,20 +14,11 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-MTK_TOP = $(srctree)/drivers/misc/mediatek/
-FPSGO_TOP = $(srctree)/drivers/misc/mediatek/performance/fpsgo_v3/
-BASE_TOP = $(FPSGO_TOP)/base
-FBT_TOP = $(FPSGO_TOP)/fbt
-FSTB_TOP = $(FPSGO_TOP)/fstb
-COM_TOP = $(FPSGO_TOP)/composer
+#MTK_TOP = $(srctree)/drivers/misc/mediatek/
+#ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3/base/include/
+#ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3/fstb/
 
-obj-y += src/fps_composer.o
-
-ccflags-y += \
-	-I$(srctree)/include/ \
-	-I$(MTK_TOP)/include/ \
-	-I$(BASE_TOP)/include/ \
-	-I$(COM_TOP)/include/ \
-	-I$(FBT_TOP)/include/ \
-	-I$(FSTB_TOP)/ \
-
+mtk_fpsgo_utch_objs += gbe1_main.o
+mtk_fpsgo_utch_objs += gbe2_main.o
+mtk_fpsgo_utch_objs += gbe_common.o
+mtk_fpsgo_utch_objs += gbe_sysfs.o

@@ -110,6 +110,7 @@ enum  {
 #define FPSGO_BQID                   _IOW('g', 16, struct _FPSGO_PACKAGE)
 #define FPSGO_GET_FPS                _IOW('g', 17, struct _FPSGO_PACKAGE)
 #define FPSGO_GET_CMD                _IOW('g', 18, struct _FPSGO_PACKAGE)
+#define FPSGO_GBE_GET_CMD            _IOW('g', 19, struct _FPSGO_PACKAGE)
 
 #define EARA_NN_BEGIN               _IOW('g', 1, struct _EARA_NN_PACKAGE)
 #define EARA_NN_END                 _IOW('g', 2, struct _EARA_NN_PACKAGE)
