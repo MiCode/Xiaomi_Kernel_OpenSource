@@ -43,9 +43,6 @@
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 #include <mtk_low_battery_throttling.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_STATIC_POWER)
-#include <leakage_table_v2/mtk_static_power.h>
-#endif
 #if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 #include <mtk_freqhopping_drv.h>
 #endif
@@ -209,9 +206,15 @@ static struct gpufreq_platform_fp platform_fp = {
 	.get_dvfs_state = __gpufreq_get_dvfs_state,
 	.get_shader_present = __gpufreq_get_shader_present,
 	.get_cur_fgpu = __gpufreq_get_cur_fgpu,
+	.get_max_fgpu = __gpufreq_get_max_fgpu,
+	.get_min_fgpu = __gpufreq_get_min_fgpu,
 	.get_cur_vgpu = __gpufreq_get_cur_vgpu,
+	.get_max_vgpu = __gpufreq_get_max_vgpu,
+	.get_min_vgpu = __gpufreq_get_min_vgpu,
 	.get_cur_vsram_gpu = __gpufreq_get_cur_vsram_gpu,
 	.get_cur_pgpu = __gpufreq_get_cur_pgpu,
+	.get_max_pgpu = __gpufreq_get_max_pgpu,
+	.get_min_pgpu = __gpufreq_get_min_pgpu,
 	.get_cur_idx_gpu = __gpufreq_get_cur_idx_gpu,
 	.get_max_idx_gpu = __gpufreq_get_max_idx_gpu,
 	.get_min_idx_gpu = __gpufreq_get_min_idx_gpu,
@@ -233,9 +236,15 @@ static struct gpufreq_platform_fp platform_fp = {
 	.fix_target_oppidx_gpu = __gpufreq_fix_target_oppidx_gpu,
 	.fix_custom_freq_volt_gpu = __gpufreq_fix_custom_freq_volt_gpu,
 	.get_cur_fstack = __gpufreq_get_cur_fstack,
+	.get_max_fstack = __gpufreq_get_max_fstack,
+	.get_min_fstack = __gpufreq_get_min_fstack,
 	.get_cur_vstack = __gpufreq_get_cur_vstack,
+	.get_max_vstack = __gpufreq_get_max_vstack,
+	.get_min_vstack = __gpufreq_get_min_vstack,
 	.get_cur_vsram_stack = __gpufreq_get_cur_vsram_stack,
 	.get_cur_pstack = __gpufreq_get_cur_pstack,
+	.get_max_pstack = __gpufreq_get_max_pstack,
+	.get_min_pstack = __gpufreq_get_min_pstack,
 	.get_cur_idx_stack = __gpufreq_get_cur_idx_stack,
 	.get_max_idx_stack = __gpufreq_get_max_idx_stack,
 	.get_min_idx_stack = __gpufreq_get_min_idx_stack,
@@ -294,9 +303,29 @@ unsigned int __gpufreq_get_cur_fgpu(void)
 	return g_gpu.cur_freq;
 }
 
+unsigned int __gpufreq_get_max_fgpu(void)
+{
+	return g_gpu.working_table[g_gpu.max_oppidx].freq;
+}
+
+unsigned int __gpufreq_get_min_fgpu(void)
+{
+	return g_gpu.working_table[g_gpu.min_oppidx].freq;
+}
+
 unsigned int __gpufreq_get_cur_vgpu(void)
 {
 	return g_gpu.buck_count ? g_gpu.cur_volt : 0;
+}
+
+unsigned int __gpufreq_get_max_vgpu(void)
+{
+	return g_gpu.working_table[g_gpu.max_oppidx].volt;
+}
+
+unsigned int __gpufreq_get_min_vgpu(void)
+{
+	return g_gpu.working_table[g_gpu.min_oppidx].volt;
 }
 
 unsigned int __gpufreq_get_cur_vsram_gpu(void)
@@ -308,6 +337,16 @@ unsigned int __gpufreq_get_cur_vsram_gpu(void)
 unsigned int __gpufreq_get_cur_pgpu(void)
 {
 	return g_gpu.working_table[g_gpu.cur_oppidx].power;
+}
+
+unsigned int __gpufreq_get_max_pgpu(void)
+{
+	return g_gpu.working_table[g_gpu.max_oppidx].power;
+}
+
+unsigned int __gpufreq_get_min_pgpu(void)
+{
+	return g_gpu.working_table[g_gpu.min_oppidx].power;
 }
 
 int __gpufreq_get_cur_idx_gpu(void)
@@ -826,7 +865,27 @@ unsigned int __gpufreq_get_cur_fstack(void)
 	return 0;
 }
 
+unsigned int __gpufreq_get_max_fstack(void)
+{
+	return 0;
+}
+
+unsigned int __gpufreq_get_min_fstack(void)
+{
+	return 0;
+}
+
 unsigned int __gpufreq_get_cur_vstack(void)
+{
+	return 0;
+}
+
+unsigned int __gpufreq_get_max_vstack(void)
+{
+	return 0;
+}
+
+unsigned int __gpufreq_get_min_vstack(void)
 {
 	return 0;
 }
@@ -838,6 +897,16 @@ unsigned int __gpufreq_get_cur_vsram_stack(void)
 
 /* API: get current Power of STACK */
 unsigned int __gpufreq_get_cur_pstack(void)
+{
+	return 0;
+}
+
+unsigned int __gpufreq_get_max_pstack(void)
+{
+	return 0;
+}
+
+unsigned int __gpufreq_get_min_pstack(void)
 {
 	return 0;
 }
@@ -2709,11 +2778,6 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 
 	/* init opp index by bootup freq */
 	__gpufreq_init_opp_idx();
-
-#if IS_ENABLED(CONFIG_MTK_STATIC_POWER)
-	/* Initial leackage power usage */
-	mt_spower_init();
-#endif /* CONFIG_MTK_STATIC_POWER */
 
 	g_probe_done = true;
 	GPUFREQ_LOGI("gpufreq platform driver probe done");

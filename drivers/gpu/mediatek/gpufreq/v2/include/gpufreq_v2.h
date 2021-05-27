@@ -49,13 +49,13 @@ enum gpufreq_return {
 	GPUFREQ_HW_LIMIT = 1,
 	GPUFREQ_SUCCESS = 0,
 	GPUFREQ_EINVAL = -1,
-	GPUFREQ_ENOMEM,
-	GPUFREQ_ENOENT,
+	GPUFREQ_ENOMEM = -2,
+	GPUFREQ_ENOENT = -3,
 };
 
 enum gpufreq_postdiv {
 	POSDIV_POWER_1 = 0,
-	POSDIV_POWER_2,
+	POSDIV_POWER_2 = 1,
 	POSDIV_POWER_4,
 	POSDIV_POWER_8,
 	POSDIV_POWER_16,
@@ -155,8 +155,14 @@ struct gpufreq_platform_fp {
 	int (*set_enforced_aging)(unsigned int mode);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
+	unsigned int (*get_max_fgpu)(void);
+	unsigned int (*get_min_fgpu)(void);
 	unsigned int (*get_cur_vgpu)(void);
+	unsigned int (*get_max_vgpu)(void);
+	unsigned int (*get_min_vgpu)(void);
 	unsigned int (*get_cur_pgpu)(void);
+	unsigned int (*get_max_pgpu)(void);
+	unsigned int (*get_min_pgpu)(void);
 	int (*get_cur_idx_gpu)(void);
 	int (*get_max_idx_gpu)(void);
 	int (*get_min_idx_gpu)(void);
@@ -183,8 +189,14 @@ struct gpufreq_platform_fp {
 	unsigned int (*get_vsram_by_vstack)(unsigned int volt);
 	/* STACK */
 	unsigned int (*get_cur_fstack)(void);
+	unsigned int (*get_max_fstack)(void);
+	unsigned int (*get_min_fstack)(void);
 	unsigned int (*get_cur_vstack)(void);
+	unsigned int (*get_max_vstack)(void);
+	unsigned int (*get_min_vstack)(void);
 	unsigned int (*get_cur_pstack)(void);
+	unsigned int (*get_max_pstack)(void);
+	unsigned int (*get_min_pstack)(void);
 	int (*get_cur_idx_stack)(void);
 	int (*get_max_idx_stack)(void);
 	int (*get_min_idx_stack)(void);
@@ -209,10 +221,10 @@ struct gpufreq_platform_fp {
 struct gpuppm_platform_fp {
 	int (*limited_commit_gpu)(int oppidx);
 	int (*limited_commit_stack)(int oppidx);
-	int (*set_limit_gpu)(unsigned int limiter, int ceiling, int floor);
-	int (*switch_limit_gpu)(unsigned int limiter, int c_enable, int f_enable);
-	int (*set_limit_stack)(unsigned int limiter, int ceiling, int floor);
-	int (*switch_limit_stack)(unsigned int limiter, int c_enable, int f_enable);
+	int (*set_limit_gpu)(enum gpuppm_limiter limiter, int ceiling, int floor);
+	int (*switch_limit_gpu)(enum gpuppm_limiter limiter, int c_enable, int f_enable);
+	int (*set_limit_stack)(enum gpuppm_limiter limiter, int ceiling, int floor);
+	int (*switch_limit_stack)(enum gpuppm_limiter limiter, int c_enable, int f_enable);
 	int (*get_ceiling_gpu)(void);
 	int (*get_floor_gpu)(void);
 	unsigned int (*get_c_limiter_gpu)(void);
@@ -249,8 +261,14 @@ void gpufreq_set_timestamp(void);
 void gpufreq_check_bus_idle(void);
 void gpufreq_dump_infra_status(void);
 unsigned int gpufreq_get_cur_freq(enum gpufreq_target target);
+unsigned int gpufreq_get_max_freq(enum gpufreq_target target);
+unsigned int gpufreq_get_min_freq(enum gpufreq_target target);
 unsigned int gpufreq_get_cur_volt(enum gpufreq_target target);
+unsigned int gpufreq_get_max_volt(enum gpufreq_target target);
+unsigned int gpufreq_get_min_volt(enum gpufreq_target target);
 unsigned int gpufreq_get_cur_power(enum gpufreq_target target);
+unsigned int gpufreq_get_max_power(enum gpufreq_target target);
+unsigned int gpufreq_get_min_power(enum gpufreq_target target);
 int gpufreq_get_cur_oppidx(enum gpufreq_target target);
 int gpufreq_get_max_oppidx(enum gpufreq_target target);
 int gpufreq_get_min_oppidx(enum gpufreq_target target);
@@ -265,7 +283,7 @@ unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int 
 unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);
 int gpufreq_set_limit(enum gpufreq_target target,
-	unsigned int limiter, int ceiling, int floor);
+	enum gpuppm_limiter limiter, int ceiling, int floor);
 int gpufreq_get_cur_limit_idx(enum gpufreq_target target,enum gpuppm_limit_type limit);
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit);
 int gpufreq_power_control(enum gpufreq_power_state power);

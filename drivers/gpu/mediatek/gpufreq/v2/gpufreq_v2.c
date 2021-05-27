@@ -25,6 +25,10 @@
 #include <gpufreq_debug.h>
 #include <mtk_gpu_utility.h>
 
+#if IS_ENABLED(CONFIG_MTK_PBM)
+#include <mtk_pbm_gpu_cb.h>
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
 #endif
@@ -41,7 +45,7 @@
  * ===============================================
  */
 static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev);
-static void gpufreq_gpuhal_init(void);
+static void gpufreq_init_external_callback(void);
 
 /**
  * ===============================================
@@ -75,7 +79,7 @@ static struct gpuppm_platform_fp *gpuppm_fp;
 unsigned int gpufreq_bringup(void)
 {
 	/* if bringup fp exists, it isn't bringup state */
-	if (gpufreq_fp->bringup)
+	if (gpufreq_fp && gpufreq_fp->bringup)
 		return false;
 	else
 		return true;
@@ -84,52 +88,71 @@ EXPORT_SYMBOL(gpufreq_bringup);
 
 unsigned int gpufreq_power_ctrl_enable(void)
 {
-	if (gpufreq_fp->power_ctrl_enable)
+	if (gpufreq_fp && gpufreq_fp->power_ctrl_enable)
 		return gpufreq_fp->power_ctrl_enable();
-	else
+	else {
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 		return false;
+	}
 }
 EXPORT_SYMBOL(gpufreq_power_ctrl_enable);
 
 unsigned int gpufreq_get_dvfs_state(void)
 {
-	if (gpufreq_fp->get_dvfs_state)
+	if (gpufreq_fp && gpufreq_fp->get_dvfs_state)
 		return gpufreq_fp->get_dvfs_state();
-	else
+	else {
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 		return DVFS_DISABLE;
+	}
 }
 EXPORT_SYMBOL(gpufreq_get_dvfs_state);
 
 unsigned int gpufreq_get_shader_present(void)
 {
-	if (gpufreq_fp->get_shader_present)
+	if (gpufreq_fp && gpufreq_fp->get_shader_present)
 		return gpufreq_fp->get_shader_present();
-	else
+	else {
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 		return 0x0;
+	}
 }
 EXPORT_SYMBOL(gpufreq_get_shader_present);
 
 void gpufreq_set_timestamp(void)
 {
-	if (gpufreq_fp->set_timestamp)
+	if (gpufreq_fp && gpufreq_fp->set_timestamp)
 		gpufreq_fp->set_timestamp();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 }
 EXPORT_SYMBOL(gpufreq_set_timestamp);
 
 void gpufreq_check_bus_idle(void)
 {
-	if (gpufreq_fp->check_bus_idle)
+	if (gpufreq_fp && gpufreq_fp->check_bus_idle)
 		gpufreq_fp->check_bus_idle();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 }
 EXPORT_SYMBOL(gpufreq_check_bus_idle);
 
 void gpufreq_dump_infra_status(void)
 {
-	if (gpufreq_fp->dump_infra_status)
+	if (gpufreq_fp && gpufreq_fp->dump_infra_status)
 		gpufreq_fp->dump_infra_status();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 }
 EXPORT_SYMBOL(gpufreq_dump_infra_status);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_cur_freq
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : freq   - Current freq of given target
+ Description        : Query current frequency of the target
+************************************************************************************/
 unsigned int gpufreq_get_cur_freq(enum gpufreq_target target)
 {
 	unsigned int freq = 0;
@@ -147,10 +170,12 @@ unsigned int gpufreq_get_cur_freq(enum gpufreq_target target)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_cur_fstack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_cur_fstack)
 		freq = gpufreq_fp->get_cur_fstack();
-	else if (target == TARGET_GPU && gpufreq_fp->get_cur_fgpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_cur_fgpu)
 		freq = gpufreq_fp->get_cur_fgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, current freq: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -161,6 +186,93 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_cur_freq);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_max_freq
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : freq   - Max freq of given target in working table
+ Description        : Query maximum frequency of the target
+************************************************************************************/
+unsigned int gpufreq_get_max_freq(enum gpufreq_target target)
+{
+	unsigned int freq = 0;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_max_fstack)
+		freq = gpufreq_fp->get_max_fstack();
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_max_fgpu)
+		freq = gpufreq_fp->get_max_fgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	GPUFREQ_LOGD("target: %s, max freq: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		freq);
+
+done:
+	return freq;
+}
+EXPORT_SYMBOL(gpufreq_get_max_freq);
+
+/***********************************************************************************
+ Function Name      : gpufreq_get_min_freq
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : freq   - Min freq of given target in working table
+ Description        : Query minimum frequency of the target
+************************************************************************************/
+unsigned int gpufreq_get_min_freq(enum gpufreq_target target)
+{
+	unsigned int freq = 0;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_min_fstack)
+		freq = gpufreq_fp->get_min_fstack();
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_min_fgpu)
+		freq = gpufreq_fp->get_min_fgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	GPUFREQ_LOGD("target: %s, min freq: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		freq);
+
+done:
+	return freq;
+}
+EXPORT_SYMBOL(gpufreq_get_min_freq);
+
+/***********************************************************************************
+ Function Name      : gpufreq_get_cur_volt
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : volt   - Current volt of given target
+ Description        : Query current voltage of the target
+************************************************************************************/
 unsigned int gpufreq_get_cur_volt(enum gpufreq_target target)
 {
 	unsigned int volt = 0;
@@ -178,10 +290,12 @@ unsigned int gpufreq_get_cur_volt(enum gpufreq_target target)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_cur_vstack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_cur_vstack)
 		volt = gpufreq_fp->get_cur_vstack();
-	else if (target == TARGET_GPU && gpufreq_fp->get_cur_vgpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_cur_vgpu)
 		volt = gpufreq_fp->get_cur_vgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, current volt: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -192,6 +306,93 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_cur_volt);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_max_volt
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : freq   - Max volt of given target in working table
+ Description        : Query maximum voltage of the target
+************************************************************************************/
+unsigned int gpufreq_get_max_volt(enum gpufreq_target target)
+{
+	unsigned int volt = 0;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_max_vstack)
+		volt = gpufreq_fp->get_max_vstack();
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_max_vgpu)
+		volt = gpufreq_fp->get_max_vgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	GPUFREQ_LOGD("target: %s, max volt: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		volt);
+
+done:
+	return volt;
+}
+EXPORT_SYMBOL(gpufreq_get_max_volt);
+
+/***********************************************************************************
+ Function Name      : gpufreq_get_min_volt
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : volt   - Min volt of given target in working table
+ Description        : Query minimum voltage of the target
+************************************************************************************/
+unsigned int gpufreq_get_min_volt(enum gpufreq_target target)
+{
+	unsigned int volt = 0;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_min_vstack)
+		volt = gpufreq_fp->get_min_vstack();
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_min_vgpu)
+		volt = gpufreq_fp->get_min_vgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	GPUFREQ_LOGD("target: %s, min volt: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		volt);
+
+done:
+	return volt;
+}
+EXPORT_SYMBOL(gpufreq_get_min_volt);
+
+/***********************************************************************************
+ Function Name      : gpufreq_get_cur_power
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : power  - Current power of given target
+ Description        : Query current power of the target
+************************************************************************************/
 unsigned int gpufreq_get_cur_power(enum gpufreq_target target)
 {
 	unsigned int power = 0;
@@ -209,10 +410,12 @@ unsigned int gpufreq_get_cur_power(enum gpufreq_target target)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_cur_pstack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_cur_pstack)
 		power = gpufreq_fp->get_cur_pstack();
-	else if (target == TARGET_GPU && gpufreq_fp->get_cur_pgpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_cur_pgpu)
 		power = gpufreq_fp->get_cur_pgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, current power: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -223,6 +426,93 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_cur_power);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_max_power
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : power  - Max power of given target in working table
+ Description        : Query maximum power of the target
+************************************************************************************/
+unsigned int gpufreq_get_max_power(enum gpufreq_target target)
+{
+	unsigned int power = 0;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_max_pstack)
+		power = gpufreq_fp->get_max_pstack();
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_max_pgpu)
+		power = gpufreq_fp->get_max_pgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	GPUFREQ_LOGD("target: %s, max power: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		power);
+
+done:
+	return power;
+}
+EXPORT_SYMBOL(gpufreq_get_max_power);
+
+/***********************************************************************************
+ Function Name      : gpufreq_get_min_power
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : power  - Min power of given target in working table
+ Description        : Query minimum power of the target
+************************************************************************************/
+unsigned int gpufreq_get_min_power(enum gpufreq_target target)
+{
+	unsigned int power = 0;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_min_pstack)
+		power = gpufreq_fp->get_min_pstack();
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_min_pgpu)
+		power = gpufreq_fp->get_min_pgpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	GPUFREQ_LOGD("target: %s, min power: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		power);
+
+done:
+	return power;
+}
+EXPORT_SYMBOL(gpufreq_get_min_power);
+
+/***********************************************************************************
+ Function Name      : gpufreq_get_cur_oppidx
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : oppidx - Current working OPP index of given target
+ Description        : Query current working OPP index of the target
+************************************************************************************/
 int gpufreq_get_cur_oppidx(enum gpufreq_target target)
 {
 	int oppidx = -1;
@@ -240,10 +530,12 @@ int gpufreq_get_cur_oppidx(enum gpufreq_target target)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_cur_idx_stack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_cur_idx_stack)
 		oppidx = gpufreq_fp->get_cur_idx_stack();
-	else if (target == TARGET_GPU && gpufreq_fp->get_cur_idx_gpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_cur_idx_gpu)
 		oppidx = gpufreq_fp->get_cur_idx_gpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, current OPP index: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -254,6 +546,13 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_cur_oppidx);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_max_oppidx
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : oppidx - Max working OPP index of given target
+ Description        : Query maximum working OPP index of the target
+************************************************************************************/
 int gpufreq_get_max_oppidx(enum gpufreq_target target)
 {
 	int oppidx = -1;
@@ -271,10 +570,12 @@ int gpufreq_get_max_oppidx(enum gpufreq_target target)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_max_idx_stack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_max_idx_stack)
 		oppidx = gpufreq_fp->get_max_idx_stack();
-	else if (target == TARGET_GPU && gpufreq_fp->get_max_idx_gpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_max_idx_gpu)
 		oppidx = gpufreq_fp->get_max_idx_gpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, max OPP index: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -285,6 +586,13 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_max_oppidx);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_min_oppidx
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : oppidx - Min working OPP index of given target
+ Description        : Query minimum working OPP index of the target
+************************************************************************************/
 int gpufreq_get_min_oppidx(enum gpufreq_target target)
 {
 	int oppidx = -1;
@@ -302,10 +610,12 @@ int gpufreq_get_min_oppidx(enum gpufreq_target target)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_min_idx_stack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_min_idx_stack)
 		oppidx = gpufreq_fp->get_min_idx_stack();
-	else if (target == TARGET_GPU && gpufreq_fp->get_min_idx_gpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_min_idx_gpu)
 		oppidx = gpufreq_fp->get_min_idx_gpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, min OPP index: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -316,6 +626,13 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_min_oppidx);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_opp_num
+ Inputs             : target  - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : opp_num - # of OPP index in working table of given target
+ Description        : Query number of OPP index in working table of the target
+************************************************************************************/
 unsigned int gpufreq_get_opp_num(enum gpufreq_target target)
 {
 	unsigned int opp_num = 0;
@@ -333,10 +650,12 @@ unsigned int gpufreq_get_opp_num(enum gpufreq_target target)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_opp_num_stack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_opp_num_stack)
 		opp_num = gpufreq_fp->get_opp_num_stack();
-	else if (target == TARGET_GPU && gpufreq_fp->get_opp_num_gpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_opp_num_gpu)
 		opp_num = gpufreq_fp->get_opp_num_gpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, # of OPP index: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -347,6 +666,14 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_opp_num);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_freq_by_idx
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      oppidx - Worknig OPP index of the target
+ Outputs            : -
+ Returns            : freq   - Freq of given target at given working OPP index
+ Description        : Query freq of the target by working OPP index
+************************************************************************************/
 unsigned int gpufreq_get_freq_by_idx(enum gpufreq_target target, int oppidx)
 {
 	unsigned int freq = 0;
@@ -364,10 +691,12 @@ unsigned int gpufreq_get_freq_by_idx(enum gpufreq_target target, int oppidx)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_fstack_by_idx)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_fstack_by_idx)
 		freq = gpufreq_fp->get_fstack_by_idx(oppidx);
-	else if (target == TARGET_GPU && gpufreq_fp->get_fgpu_by_idx)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_fgpu_by_idx)
 		freq = gpufreq_fp->get_fgpu_by_idx(oppidx);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, freq[%d]: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -378,6 +707,14 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_freq_by_idx);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_volt_by_idx
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      oppidx - Worknig OPP index of the target
+ Outputs            : -
+ Returns            : volt   - Volt of given target at given working OPP index
+ Description        : Query volt of the target by working OPP index
+************************************************************************************/
 unsigned int gpufreq_get_volt_by_idx(enum gpufreq_target target, int oppidx)
 {
 	unsigned int volt = 0;
@@ -395,10 +732,12 @@ unsigned int gpufreq_get_volt_by_idx(enum gpufreq_target target, int oppidx)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_vstack_by_idx)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_vstack_by_idx)
 		volt = gpufreq_fp->get_vstack_by_idx(oppidx);
-	else if (target == TARGET_GPU && gpufreq_fp->get_vgpu_by_idx)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_vgpu_by_idx)
 		volt = gpufreq_fp->get_vgpu_by_idx(oppidx);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, volt[%d]: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -409,6 +748,15 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_volt_by_idx);
 
+
+/***********************************************************************************
+ Function Name      : gpufreq_get_power_by_idx
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      oppidx - Worknig OPP index of the target
+ Outputs            : -
+ Returns            : power  - Power of given target at given working OPP index
+ Description        : Query volt of the target by working OPP index
+************************************************************************************/
 unsigned int gpufreq_get_power_by_idx(enum gpufreq_target target, int oppidx)
 {
 	unsigned int power = 0;
@@ -426,10 +774,12 @@ unsigned int gpufreq_get_power_by_idx(enum gpufreq_target target, int oppidx)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_pstack_by_idx)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_pstack_by_idx)
 		power = gpufreq_fp->get_pstack_by_idx(oppidx);
-	else if (target == TARGET_GPU && gpufreq_fp->get_pgpu_by_idx)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_pgpu_by_idx)
 		power = gpufreq_fp->get_pgpu_by_idx(oppidx);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, power[%d]: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -440,6 +790,14 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_power_by_idx);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_oppidx_by_freq
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      freq   - Freq of the target
+ Outputs            : -
+ Returns            : oppidx - Working OPP index of given target that has given freq
+ Description        : Query working OPP index of the target that has the frequency
+************************************************************************************/
 int gpufreq_get_oppidx_by_freq(enum gpufreq_target target, unsigned int freq)
 {
 	int oppidx = -1;
@@ -457,10 +815,12 @@ int gpufreq_get_oppidx_by_freq(enum gpufreq_target target, unsigned int freq)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_idx_by_fstack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_idx_by_fstack)
 		oppidx = gpufreq_fp->get_idx_by_fstack(freq);
-	else if (target == TARGET_GPU && gpufreq_fp->get_idx_by_fgpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_idx_by_fgpu)
 		oppidx = gpufreq_fp->get_idx_by_fgpu(freq);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, oppidx[%d]: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -471,6 +831,14 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_oppidx_by_freq);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_oppidx_by_volt
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      volt   - Volt of the target
+ Outputs            : -
+ Returns            : oppidx - Working OPP index of given target that has given volt
+ Description        : Query working OPP index of the target that has the voltage
+************************************************************************************/
 int gpufreq_get_oppidx_by_volt(enum gpufreq_target target, unsigned int volt)
 {
 	int oppidx = -1;
@@ -488,10 +856,12 @@ int gpufreq_get_oppidx_by_volt(enum gpufreq_target target, unsigned int volt)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_idx_by_vstack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_idx_by_vstack)
 		oppidx = gpufreq_fp->get_idx_by_vstack(volt);
-	else if (target == TARGET_GPU && gpufreq_fp->get_idx_by_vgpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_idx_by_vgpu)
 		oppidx = gpufreq_fp->get_idx_by_vgpu(volt);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, oppidx[%d]: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -502,6 +872,14 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_oppidx_by_volt);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_oppidx_by_power
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      power  - Power of the target
+ Outputs            : -
+ Returns            : oppidx - Working OPP index of given target that has given power
+ Description        : Query working OPP index of the target that has the power
+************************************************************************************/
 int gpufreq_get_oppidx_by_power(enum gpufreq_target target, unsigned int power)
 {
 	int oppidx = -1;
@@ -519,10 +897,12 @@ int gpufreq_get_oppidx_by_power(enum gpufreq_target target, unsigned int power)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_idx_by_pstack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_idx_by_pstack)
 		oppidx = gpufreq_fp->get_idx_by_pstack(power);
-	else if (target == TARGET_GPU && gpufreq_fp->get_idx_by_pgpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_idx_by_pgpu)
 		oppidx = gpufreq_fp->get_idx_by_pgpu(power);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, oppidx[%d]: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -533,6 +913,14 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_oppidx_by_power);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_leakage_power
+ Inputs             : target    - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      volt      - Voltage of the target
+ Outputs            : -
+ Returns            : p_leakage - Leakage power of given target computed by given volt
+ Description        : Compute leakage power of the target by the voltage
+************************************************************************************/
 unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int volt)
 {
 	unsigned int p_leakage = 0;
@@ -550,10 +938,12 @@ unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int 
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_lkg_pstack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_lkg_pstack)
 		p_leakage = gpufreq_fp->get_lkg_pstack(volt);
-	else if (target == TARGET_GPU && gpufreq_fp->get_lkg_pgpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_lkg_pgpu)
 		p_leakage = gpufreq_fp->get_lkg_pgpu(volt);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, p_leakage[v=%d]: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -564,6 +954,16 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_leakage_power);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_dynamic_power
+ Inputs             : target    - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      freq      - Frequency of the target
+                      volt      - Voltage of the target
+ Outputs            : -
+ Returns            : p_dynamic - Dynamic power of given target computed by given freq
+                                  and volt
+ Description        : Compute dynamic power of the target by the frequency and voltage
+************************************************************************************/
 unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt)
 {
@@ -582,10 +982,12 @@ unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_dyn_pstack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_dyn_pstack)
 		p_dynamic = gpufreq_fp->get_dyn_pstack(freq, volt);
-	else if (target == TARGET_GPU && gpufreq_fp->get_dyn_pgpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_dyn_pgpu)
 		p_dynamic = gpufreq_fp->get_dyn_pgpu(freq, volt);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, p_dynamic[f=%d, v=%d]: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -601,13 +1003,13 @@ EXPORT_SYMBOL(gpufreq_get_dynamic_power);
  Inputs             : power          - Target power state
  Outputs            : -
  Returns            : power_count    - Success
-                      GPUFREQ_EINVAL - Failed
-                      GPUFREQ_ENOENT - No implementation
+                      GPUFREQ_EINVAL - Failure
+                      GPUFREQ_ENOENT - Null implementation
  Description        : Control power state of whole MFG system
 ************************************************************************************/
 int gpufreq_power_control(enum gpufreq_power_state power)
 {
-	int ret = GPUFREQ_SUCCESS;
+	int ret = GPUFREQ_ENOENT;
 
 	GPUFREQ_TRACE_START("power=%d", power);
 
@@ -617,14 +1019,15 @@ int gpufreq_power_control(enum gpufreq_power_state power)
 		goto done;
 	}
 
-	if (gpufreq_fp->power_control)
+	if (gpufreq_fp && gpufreq_fp->power_control)
 		ret = gpufreq_fp->power_control(power);
 	else
-		ret = GPUFREQ_ENOENT;
-	if (unlikely(ret < 0)) {
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	if (unlikely(ret < 0))
 		GPUFREQ_LOGE("fail to control power state: %s (%d)",
-			power ? "POWER_ON" : "POWER_OFF", ret);
-	}
+			power ? "POWER_ON" : "POWER_OFF",
+			ret);
 
 done:
 	GPUFREQ_TRACE_END();
@@ -633,9 +1036,20 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_power_control);
 
+/***********************************************************************************
+ Function Name      : gpufreq_commit
+ Inputs             : target          - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      oppidx          - Working OPP index of the target
+ Outputs            : -
+ Returns            : GPUFREQ_SUCCESS - Success
+                      GPUFREQ_EINVAL  - Failure
+                      GPUFREQ_ENOENT  - Null implementation
+ Description        : Commit DVFS request to the target with working OPP index
+                      It will be constrained by the limit recorded in GPU PPM
+************************************************************************************/
 int gpufreq_commit(enum gpufreq_target target, int oppidx)
 {
-	int ret = GPUFREQ_SUCCESS;
+	int ret = GPUFREQ_ENOENT;
 
 	GPUFREQ_TRACE_START("target=%d, oppidx=%d", target, oppidx);
 
@@ -657,23 +1071,17 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx)
 		target == TARGET_STACK ? "STACK" : "GPU",
 		oppidx);
 
-	if (target == TARGET_STACK) {
-		if (gpuppm_fp->limited_commit_stack)
-			ret = gpuppm_fp->limited_commit_stack(oppidx);
-		else
-			ret = GPUFREQ_ENOENT;
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to commit STACK OPP index: %d (%d)",
-				oppidx, ret);
-	} else if (target == TARGET_GPU) {
-		if (gpuppm_fp->limited_commit_gpu)
-			ret = gpuppm_fp->limited_commit_gpu(oppidx);
-		else
-			ret = GPUFREQ_ENOENT;
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to commit GPU OPP index: %d (%d)",
-				oppidx, ret);
-	}
+	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->limited_commit_stack)
+		ret = gpuppm_fp->limited_commit_stack(oppidx);
+	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->limited_commit_gpu)
+		ret = gpuppm_fp->limited_commit_gpu(oppidx);
+	else
+		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
+
+	if (unlikely(ret))
+		GPUFREQ_LOGE("fail to commit %s OPP index: %d (%d)",
+			target == TARGET_STACK ? "STACK" : "GPU",
+			oppidx, ret);
 
 done:
 	GPUFREQ_TRACE_END();
@@ -682,10 +1090,23 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_commit);
 
+/***********************************************************************************
+ Function Name      : gpufreq_set_limit
+ Inputs             : target          - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      limiter         - Pre-defined user that set limit to GPU DVFS
+                      ceiling         - Upper limit of working OPP index
+                      floor           - Lower limit of working OPP index
+ Outputs            : -
+ Returns            : GPUFREQ_SUCCESS - Success
+                      GPUFREQ_EINVAL  - Failure
+                      GPUFREQ_ENOENT  - Null implementation
+ Description        : Set ceiling and floor limit to GPU DVFS by specified limiter
+                      It will immediately trigger DVFS if current OPP violates limit
+************************************************************************************/
 int gpufreq_set_limit(enum gpufreq_target target,
-	unsigned int limiter, int ceiling, int floor)
+	enum gpuppm_limiter limiter, int ceiling, int floor)
 {
-	int ret = GPUFREQ_SUCCESS;
+	int ret = GPUFREQ_ENOENT;
 
 	GPUFREQ_TRACE_START("target=%d, limiter=%d, ceiling=%d, floor=%d",
 		target, limiter, ceiling, floor);
@@ -708,21 +1129,17 @@ int gpufreq_set_limit(enum gpufreq_target target,
 		target == TARGET_STACK ? "STACK" : "GPU",
 		limiter, ceiling, floor);
 
-	if (target == TARGET_STACK) {
-		if (gpuppm_fp->set_limit_stack)
-			ret = gpuppm_fp->set_limit_stack(limiter, ceiling, floor);
-		else
-			ret = GPUFREQ_ENOENT;
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set STACK limit (%d)", ret);
-	} else if (target == TARGET_GPU) {
-		if (gpuppm_fp->set_limit_gpu)
-			ret = gpuppm_fp->set_limit_gpu(limiter, ceiling, floor);
-		else
-			ret = GPUFREQ_ENOENT;
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
-	}
+	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
+		ret = gpuppm_fp->set_limit_stack(limiter, ceiling, floor);
+	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
+		ret = gpuppm_fp->set_limit_gpu(limiter, ceiling, floor);
+	else
+		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
+
+	if (unlikely(ret))
+		GPUFREQ_LOGE("fail to set %s limit ceiling: %d, floor: %d (%d)",
+			target == TARGET_STACK ? "STACK" : "GPU",
+			ceiling, floor, ret);
 
 done:
 	GPUFREQ_TRACE_END();
@@ -731,6 +1148,14 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_set_limit);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_cur_limit_idx
+ Inputs             : target    - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      limit     - Type of limit (GPUPPM_CEILING, GPUPPM_FLOOR)
+ Outputs            : -
+ Returns            : limit_idx - Working OPP index of ceiling or floor
+ Description        : Query current working OPP index of ceiling or floor limit
+************************************************************************************/
 int gpufreq_get_cur_limit_idx(enum gpufreq_target target, enum gpuppm_limit_type limit)
 {
 	int limit_idx = -1;
@@ -754,15 +1179,19 @@ int gpufreq_get_cur_limit_idx(enum gpufreq_target target, enum gpuppm_limit_type
 	}
 
 	if (target == TARGET_STACK) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp->get_ceiling_stack)
+		if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_ceiling_stack)
 			limit_idx = gpuppm_fp->get_ceiling_stack();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp->get_floor_stack)
+		else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_floor_stack)
 			limit_idx = gpuppm_fp->get_floor_stack();
+		else
+			GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 	} else if (target == TARGET_GPU) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp->get_ceiling_gpu)
+		if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_ceiling_gpu)
 			limit_idx = gpuppm_fp->get_ceiling_gpu();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp->get_floor_gpu)
+		else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_floor_gpu)
 			limit_idx = gpuppm_fp->get_floor_gpu();
+		else
+			GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 	}
 
 	GPUFREQ_LOGD("target: %s, current %s index: %d",
@@ -775,6 +1204,14 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_cur_limit_idx);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_cur_limiter
+ Inputs             : target  - Target of GPU DVFS (GPU, STACK, DEFAULT)
+                      limit   - Type of limit (GPUPPM_CEILING, GPUPPM_FLOOR)
+ Outputs            : -
+ Returns            : limiter - Pre-defined user that set limit to GPU DVFS
+ Description        : Query which user decide current ceiling and floor OPP index
+************************************************************************************/
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit)
 {
 	unsigned int limiter = 0;
@@ -798,15 +1235,19 @@ unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_lim
 	}
 
 	if (target == TARGET_STACK) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp->get_c_limiter_stack)
+		if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_c_limiter_stack)
 			limiter = gpuppm_fp->get_c_limiter_stack();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp->get_f_limiter_stack)
+		else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_f_limiter_stack)
 			limiter = gpuppm_fp->get_f_limiter_stack();
+		else
+			GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 	} else if (target == TARGET_GPU) {
-		if (limit == GPUPPM_CEILING && gpuppm_fp->get_c_limiter_gpu)
+		if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_c_limiter_gpu)
 			limiter = gpuppm_fp->get_c_limiter_gpu();
-		else if (limit == GPUPPM_FLOOR && gpuppm_fp->get_f_limiter_gpu)
+		else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_f_limiter_gpu)
 			limiter = gpuppm_fp->get_f_limiter_gpu();
+		else
+			GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 	}
 
 	GPUFREQ_LOGD("target: %s, current %s limiter: %d",
@@ -823,7 +1264,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_limiter);
 static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 {
 	int ceiling = GPUPPM_DEFAULT_IDX;
-	int ret = GPUFREQ_SUCCESS;
+	int ret = GPUFREQ_ENOENT;
 	enum gpufreq_target target = TARGET_DEFAULT;
 
 	GPUFREQ_TRACE_START("batt_oc_level=%d", batt_oc_level);
@@ -833,18 +1274,22 @@ static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 	else
 		target = TARGET_GPU;
 
-	if (gpufreq_fp->get_batt_oc_idx)
+	if (gpufreq_fp && gpufreq_fp->get_batt_oc_idx)
 		ceiling = gpufreq_fp->get_batt_oc_idx(batt_oc_level);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
-	if (target == TARGET_STACK && gpuppm_fp->set_limit_stack) {
+	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
 		ret = gpuppm_fp->set_limit_stack(LIMIT_BATT_OC, ceiling, GPUPPM_KEEP_IDX);
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set STACK limit (%d)", ret);
-	} else if (target == TARGET_GPU && gpuppm_fp->set_limit_gpu) {
+	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
 		ret = gpuppm_fp->set_limit_gpu(LIMIT_BATT_OC, ceiling, GPUPPM_KEEP_IDX);
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
-	}
+	else
+		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
+
+	if (unlikely(ret))
+		GPUFREQ_LOGE("fail to set %s limit ceiling: %d (%d)",
+			target == TARGET_STACK ? "STACK" : "GPU",
+			ceiling, ret);
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, battery_oc_level: %d, ceiling: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -858,7 +1303,7 @@ static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 static void gpufreq_batt_percent_callback(enum BATTERY_PERCENT_LEVEL_TAG batt_percent_level)
 {
 	int ceiling = GPUPPM_DEFAULT_IDX;
-	int ret = GPUFREQ_SUCCESS;
+	int ret = GPUFREQ_ENOENT;
 	enum gpufreq_target target = TARGET_DEFAULT;
 
 	GPUFREQ_TRACE_START("batt_percent_level=%d", batt_percent_level);
@@ -868,18 +1313,23 @@ static void gpufreq_batt_percent_callback(enum BATTERY_PERCENT_LEVEL_TAG batt_pe
 	else
 		target = TARGET_GPU;
 
-	if (gpufreq_fp->get_batt_percent_idx)
+	if (gpufreq_fp && gpufreq_fp->get_batt_percent_idx)
 		ceiling = gpufreq_fp->get_batt_percent_idx(batt_percent_level);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
-	if (target == TARGET_STACK && gpuppm_fp->set_limit_stack) {
+	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
 		ret = gpuppm_fp->set_limit_stack(LIMIT_BATT_PERCENT, ceiling, GPUPPM_KEEP_IDX);
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set STACK limit (%d)", ret);
-	} else if (target == TARGET_GPU && gpuppm_fp->set_limit_gpu) {
+	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
 		ret = gpuppm_fp->set_limit_gpu(LIMIT_BATT_PERCENT, ceiling, GPUPPM_KEEP_IDX);
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
-	}
+	else
+		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
+
+	if (unlikely(ret))
+		GPUFREQ_LOGE("fail to set %s limit ceiling: %d (%d)",
+			target == TARGET_STACK ? "STACK" : "GPU",
+			ceiling, ret);
+
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, battery_percent_level: %d, ceiling: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -893,7 +1343,7 @@ static void gpufreq_batt_percent_callback(enum BATTERY_PERCENT_LEVEL_TAG batt_pe
 static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 {
 	int ceiling = GPUPPM_DEFAULT_IDX;
-	int ret = GPUFREQ_SUCCESS;
+	int ret = GPUFREQ_ENOENT;
 	enum gpufreq_target target = TARGET_DEFAULT;
 
 	GPUFREQ_TRACE_START("low_batt_level=%d", low_batt_level);
@@ -903,18 +1353,22 @@ static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 	else
 		target = TARGET_GPU;
 
-	if (gpufreq_fp->get_low_batt_idx)
+	if (gpufreq_fp && gpufreq_fp->get_low_batt_idx)
 		ceiling = gpufreq_fp->get_low_batt_idx(low_batt_level);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
-	if (target == TARGET_STACK && gpuppm_fp->set_limit_stack) {
+	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
 		ret = gpuppm_fp->set_limit_stack(LIMIT_LOW_BATT, ceiling, GPUPPM_KEEP_IDX);
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set STACK limit (%d)", ret);
-	} else if (target == TARGET_GPU && gpuppm_fp->set_limit_gpu) {
+	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
 		ret = gpuppm_fp->set_limit_gpu(LIMIT_LOW_BATT, ceiling, GPUPPM_KEEP_IDX);
-		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
-	}
+	else
+		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
+
+	if (unlikely(ret))
+		GPUFREQ_LOGE("fail to set %s limit ceiling: %d (%d)",
+			target == TARGET_STACK ? "STACK" : "GPU",
+			ceiling, ret);
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, low_battery_level: %d, ceiling: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
@@ -924,12 +1378,40 @@ static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 }
 #endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 
-static void gpufreq_gpuhal_init(void)
+static void gpufreq_init_external_callback(void)
 {
+	struct pbm_gpu_callback_table pbm_cb = {
+		.get_max_pb = gpufreq_get_max_power,
+		.get_min_pb = gpufreq_get_min_power,
+		.get_cur_pb = gpufreq_get_cur_power,
+		.get_cur_vol = gpufreq_get_cur_volt,
+		.get_opp_by_pb = gpufreq_get_oppidx_by_power,
+		.set_limit = gpufreq_set_limit,
+	};
+
+	/* hook GPU HAL callback */
 	mtk_get_gpu_limit_index_fp = gpufreq_get_cur_limit_idx;
 	mtk_get_gpu_limiter_fp = gpufreq_get_cur_limiter;
 	mtk_get_gpu_cur_freq_fp = gpufreq_get_cur_freq;
 	mtk_get_gpu_cur_oppidx_fp = gpufreq_get_cur_oppidx;
+
+	/* register PBM callback */
+#if IS_ENABLED(CONFIG_MTK_PBM)
+	register_pbm_gpu_notify(&pbm_cb);
+#endif /* CONFIG_MTK_PBM */
+
+	/* register power throttling callback */
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
+	register_low_battery_notify(&gpufreq_low_batt_callback, LOW_BATTERY_PRIO_GPU);
+#endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+	register_bp_thl_notify(&gpufreq_batt_percent_callback, BATTERY_PERCENT_PRIO_GPU);
+#endif /* CONFIG_MTK_BATTERY_PERCENT_THROTTLING */
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
+	register_battery_oc_notify(&gpufreq_batt_oc_callback, BATTERY_OC_PRIO_GPU);
+#endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 }
 
 void gpufreq_register_gpufreq_fp(struct gpufreq_platform_fp *platform_fp)
@@ -951,6 +1433,12 @@ void gpufreq_register_gpuppm_fp(struct gpuppm_platform_fp *platform_fp)
 	}
 
 	gpuppm_fp = platform_fp;
+
+	/*
+	 * register external callback function at here
+	 * because platform impl. is ready after PPM func. pointer register done
+	 */
+	gpufreq_init_external_callback();
 }
 EXPORT_SYMBOL(gpufreq_register_gpuppm_fp);
 
@@ -1014,24 +1502,6 @@ static int __init gpufreq_wrapper_init(void)
 		GPUFREQ_LOGE("fail to init gpufreq debug (%d)", ret);
 		goto done;
 	}
-
-	gpufreq_gpuhal_init();
-
-	/* init power throttling */
-#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
-	register_low_battery_notify(&gpufreq_low_batt_callback,
-		LOW_BATTERY_PRIO_GPU);
-#endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
-
-#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
-	register_bp_thl_notify(&gpufreq_batt_percent_callback,
-		BATTERY_PERCENT_PRIO_GPU);
-#endif /* CONFIG_MTK_BATTERY_PERCENT_THROTTLING */
-
-#if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
-	register_battery_oc_notify(&gpufreq_batt_oc_callback,
-		BATTERY_OC_PRIO_GPU);
-#endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 
 	GPUFREQ_LOGI("gpufreq wrapper driver init done");
 

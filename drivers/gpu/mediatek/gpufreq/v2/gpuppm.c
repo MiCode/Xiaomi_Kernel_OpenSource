@@ -363,8 +363,7 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_stack(void)
 	return limit_info;
 }
 
-int gpuppm_set_limit_gpu(
-	unsigned int limiter, int ceiling, int floor)
+int gpuppm_set_limit_gpu(enum gpuppm_limiter limiter, int ceiling, int floor)
 {
 	int cur_oppidx = 0;
 	int cur_ceiling = 0, cur_floor = 0;
@@ -422,8 +421,7 @@ done:
 	return ret;
 }
 
-int gpuppm_switch_limit_gpu(
-	unsigned int limiter, int c_enable, int f_enable)
+int gpuppm_switch_limit_gpu(enum gpuppm_limiter limiter, int c_enable, int f_enable)
 {
 	int cur_oppidx = 0;
 	int cur_ceiling = 0, cur_floor = 0;
@@ -476,8 +474,7 @@ done:
 	return ret;
 }
 
-int gpuppm_set_limit_stack(
-	unsigned int limiter, int ceiling, int floor)
+int gpuppm_set_limit_stack(enum gpuppm_limiter limiter, int ceiling, int floor)
 {
 	int cur_oppidx = 0;
 	int cur_ceiling = 0, cur_floor = 0;
@@ -534,8 +531,7 @@ done:
 	return ret;
 }
 
-int gpuppm_switch_limit_stack(
-	unsigned int limiter, int c_enable, int f_enable)
+int gpuppm_switch_limit_stack(enum gpuppm_limiter limiter, int c_enable, int f_enable)
 {
 	int cur_oppidx = 0;
 	int cur_ceiling = 0, cur_floor = 0;
