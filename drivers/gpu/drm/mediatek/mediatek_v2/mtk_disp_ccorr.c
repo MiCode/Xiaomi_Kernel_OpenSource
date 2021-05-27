@@ -20,6 +20,18 @@
 #include "mtk_dump.h"
 #include "mtk_drm_helper.h"
 
+#ifdef CONFIG_LEDS_MTK_DISP
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#include <mtk_leds_drv.h>
+#include <leds-mtk-disp.h>
+#elif defined CONFIG_LEDS_MTK_PWM
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#include <mtk_leds_drv.h>
+#include <leds-mtk-pwm.h>
+#else
+#define mt_leds_brightness_set(x, y) do { } while (0)
+#endif
+
 #define DISP_REG_CCORR_EN (0x000)
 #define DISP_REG_CCORR_INTEN                     (0x008)
 #define DISP_REG_CCORR_INTSTA                    (0x00C)
@@ -790,6 +802,48 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 	return mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
 }
 
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+int led_brightness_changed_event_to_pq(struct notifier_block *nb, unsigned long event,
+	void *v)
+{
+	int trans_level;
+	struct led_conf_info *led_conf;
+
+	led_conf = (struct led_conf_info *)v;
+
+	switch (event) {
+	case 1:
+		trans_level = led_conf->cdev.brightness;
+
+		disp_pq_notify_backlight_changed(trans_level);
+		DDPINFO("%s: brightness changed: %d(%d)\n",
+			__func__, trans_level, led_conf->cdev.brightness);
+		break;
+	case 2:
+		disp_pq_notify_backlight_changed(0);
+		break;
+	case 3:
+		trans_level = (
+			(((1 << led_conf->trans_bits) - 1)
+			* led_conf->max_level
+			+ ((led_conf->cdev.max_brightness) / 2))
+			/ (led_conf->cdev.max_brightness));
+		DDPINFO("%s: set Maxbrightness %d(%d)\n",
+			__func__, trans_level, led_conf->max_level);
+		break;
+
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block leds_init_notifier = {
+	.notifier_call = led_brightness_changed_event_to_pq,
+};
+#endif
+
 int mtk_drm_ioctl_ccorr_eventctl(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
@@ -1085,6 +1139,11 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
+
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+	if (comp_id == DDP_COMPONENT_CCORR0)
+		mtk_leds_register_notifier(&leds_init_notifier);
+#endif
 	DDPINFO("%s-\n", __func__);
 
 	default_comp = NULL;
@@ -1099,6 +1158,10 @@ static int mtk_disp_ccorr_remove(struct platform_device *pdev)
 	component_del(&pdev->dev, &mtk_disp_ccorr_component_ops);
 	mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+	if (priv->ddp_comp.id == DDP_COMPONENT_CCORR0)
+		mtk_leds_unregister_notifier(&leds_init_notifier);
+#endif
 	return 0;
 }
 

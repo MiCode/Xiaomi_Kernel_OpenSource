@@ -30,7 +30,7 @@
 #define DMDP_AAL_R2Y_00		0x04D4
 
 #define AAL_EN BIT(0)
-
+static int g_dre30_support;
 struct mtk_dmdp_aal_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
@@ -312,6 +312,13 @@ static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 			DMDP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
 
 	mtk_dmdp_aal_restore(comp);
+
+	if (g_dre30_support == 0) {
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_EN, AAL_EN, ~0);
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_CFG, 0x400003, ~0);
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_CFG_MAIN, 0, ~0);
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BILATERAL, 0, ~0);
+	}
 }
 
 static void mtk_dmdp_aal_unprepare(struct mtk_ddp_comp *comp)
@@ -378,6 +385,7 @@ static int mtk_dmdp_aal_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_dmdp_aal *priv;
+	struct device_node *aal_node;
 	enum mtk_ddp_comp_id comp_id;
 	int ret;
 
@@ -391,6 +399,14 @@ static int mtk_dmdp_aal_probe(struct platform_device *pdev)
 	if ((int)comp_id < 0) {
 		DDPMSG("Failed to identify by alias: %d\n", comp_id);
 		return comp_id;
+	}
+
+	aal_node = of_find_compatible_node(NULL, NULL, "mediatek,disp_aal0");
+	if (of_property_read_u32(aal_node, "mtk_dre30_support",
+		&g_dre30_support)) {
+		DDPMSG("comp_id: %d, mtk_dre30_support = %d\n",
+			comp_id, g_dre30_support);
+		return -EINVAL;
 	}
 
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &priv->ddp_comp, comp_id,
