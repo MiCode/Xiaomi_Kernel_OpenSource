@@ -97,6 +97,14 @@ struct CRTC_MMP_Events {
 	mmp_event layer_dump[6];
 	mmp_event cwbBmpDump;
 	mmp_event cwb_dump;
+	/*Msync 2.0 mmp start*/
+	mmp_event ovl_status_err;
+	mmp_event vfp_period;
+	mmp_event not_vfp_period;
+	mmp_event dsi_state_dbg7;
+	mmp_event dsi_dbg7_after_sof;
+	mmp_event msync_enable;
+	/*Msync 2.0 mmp end*/
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

@@ -285,7 +285,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	/* set DAL config and trigger display */
-	cmdq_handle = mtk_crtc_gce_commit_begin(crtc);
+	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL);
 
 	if (mtk_crtc->is_dual_pipe) {
 		struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;

@@ -50,6 +50,8 @@
 #define IF_ONE
 #endif
 
+extern int g_msync_dy;
+
 /* TODO: BW report module should not hardcode */
 enum DISP_PMQOS_SLOT {
 	DISP_PMQOS_OVL0_BW = 0,
@@ -115,7 +117,12 @@ enum DISP_PMQOS_SLOT {
 #define DISP_OVL_DATAPATH_CON 0x24
 
 /* TODO: figure out Display pipe which need report PMQOS BW */
-#define DISP_SLOT_SIZE (DISP_SLOT_CUR_BL_IDX + 0x4)
+/*Msync 2.0*/
+#define DISP_SLOT_VFP_PERIOD (DISP_SLOT_CUR_BL_IDX + 0x4)
+#define DISP_SLOT_DSI_STATE_DBG7 (DISP_SLOT_VFP_PERIOD + 0x4)
+#define DISP_SLOT_DSI_STATE_DBG7_2 (DISP_SLOT_DSI_STATE_DBG7 + 0x4)
+#define DISP_SLOT_SIZE (DISP_SLOT_DSI_STATE_DBG7_2 + 0x4)
+
 #if DISP_SLOT_SIZE > CMDQ_BUF_ALLOC_SIZE
 #error "DISP_SLOT_SIZE exceed CMDQ_BUF_ALLOC_SIZE"
 #endif
@@ -360,6 +367,8 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_COLOR_TRANSFORM,
 	CRTC_PROP_USER_SCEN,
 	CRTC_PROP_HDR_ENABLE,
+	/*Msync 2.0*/
+	CRTC_PROP_MSYNC2_0_ENABLE,
 	CRTC_PROP_MAX,
 };
 
@@ -446,6 +455,8 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_STREAM_BLOCK,
 	EVENT_CABC_EOF,
 	EVENT_DSI0_SOF,
+	/*Msync 2.0*/
+	EVENT_SYNC_TOKEN_VFP_PERIOD,
 	EVENT_TYPE_MAX,
 };
 
@@ -751,6 +762,7 @@ struct mtk_cmdq_cb_data {
 	struct cmdq_pkt			*cmdq_handle;
 	struct drm_crtc			*crtc;
 	unsigned int misc;
+	unsigned int msync2_enable;
 };
 
 int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc);
@@ -811,7 +823,10 @@ void mtk_crtc_connect_addon_module(struct drm_crtc *crtc);
 void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc);
 int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			struct cmdq_pkt *cmdq_handle);
-struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc);
+/*Msync 2.0*/
+struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
+						struct drm_crtc_state *old_crtc_state,
+						struct mtk_crtc_state *crtc_state);
 void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle,
 	struct drm_crtc *crtc, struct cmdq_client *cl);
 int mtk_crtc_get_mutex_id(struct drm_crtc *crtc, unsigned int ddp_mode,

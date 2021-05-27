@@ -236,6 +236,20 @@ void init_crtc_mmp_event(void)
 					mmprofile_register_event(
 					g_CRTC_MMP_Events[i].cwbBmpDump,
 					"cwb_dump");
+		/*Msync 2.0 mmp start*/
+		g_CRTC_MMP_Events[i].ovl_status_err =
+			mmprofile_register_event(crtc_mmp_root, "ovl_status_err");
+		g_CRTC_MMP_Events[i].vfp_period =
+			mmprofile_register_event(crtc_mmp_root, "vfp_period");
+		g_CRTC_MMP_Events[i].not_vfp_period =
+			mmprofile_register_event(crtc_mmp_root, "not_vfp_period");
+		g_CRTC_MMP_Events[i].dsi_state_dbg7 =
+			mmprofile_register_event(crtc_mmp_root, "dsi_state_dbg7");
+		g_CRTC_MMP_Events[i].dsi_dbg7_after_sof =
+			mmprofile_register_event(crtc_mmp_root, "dsi_dbg7_after_sof");
+		g_CRTC_MMP_Events[i].msync_enable =
+			mmprofile_register_event(crtc_mmp_root, "msync_enable");
+		/*Msync 2.0 mmp end*/
 	}
 }
 void drm_mmp_init(void)

@@ -491,6 +491,9 @@
 /* check CABC setup finish */
 #define CMDQ_SYNC_TOKEN_CABC_EOF			644
 
+/*VFP period token for Msync*/
+#define CMDQ_SYNC_TOKEN_VFP_PERIOD			645
+
 /* Notify normal CMDQ there are some secure task done
  * MUST NOT CHANGE, this token sync with secure world
  */

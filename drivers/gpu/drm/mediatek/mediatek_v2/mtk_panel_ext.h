@@ -186,6 +186,8 @@ struct dynamic_mipi_params {
 	unsigned int hsa;
 	unsigned int hbp;
 	unsigned int hfp;
+	/*Msync 2.0*/
+	unsigned int max_vfp_for_msync_dyn;
 };
 
 struct dfps_switch_cmd {
@@ -244,6 +246,9 @@ struct mtk_panel_params {
 //Settings for LFR Function:
 	unsigned int lfr_enable;
 	unsigned int lfr_minimum_fps;
+	/*Msync 2.0*/
+	unsigned int msync2_enable;
+	unsigned int max_vfp_for_msync;
 };
 
 struct mtk_panel_ext {

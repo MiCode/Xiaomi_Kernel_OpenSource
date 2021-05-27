@@ -75,11 +75,34 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "COLOR_TRANSFORM", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "USER_SCEN", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "HDR_ENABLE", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "MSYNC2_0_ENABLE", 0, UINT_MAX, 0},
 };
 
 bool hdr_en;
 static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
+
+enum MSYNC_RECORD_TYPE {
+	INVALID,
+	ENABLE_MSYNC,
+	DISABLE_MSYNC,
+	FRAME_TIME,
+};
+
+struct msync_record {
+	enum MSYNC_RECORD_TYPE type;
+	u64 time;
+	bool low_frame;
+};
+
+#define MSYNC_MAX_RECORD 5
+#define MSYNC_LOWFRAME_THRESHOLD 3
+#define MSYNC_MIN_FPS 46.1
+
+int g_msync_dy = 0;
+static struct msync_record g_msync_record[MSYNC_MAX_RECORD];
+static int g_msync_record_index;
+static bool g_msync_disabled;
 
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
@@ -3133,6 +3156,10 @@ static void _ddp_cmdq_cb(struct cmdq_cb_data data)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int session_id, id;
 	unsigned int ovl_status = 0;
+	/*Msync2.0 related*/
+	unsigned int is_vfp_period = 0;
+	unsigned int _dsi_state_dbg7 = 0;
+	unsigned int _dsi_state_dbg7_2 = 0;
 
 	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x\n",
 		crtc_state,
@@ -3160,6 +3187,35 @@ static void _ddp_cmdq_cb(struct cmdq_cb_data data)
 				DDPPR_ERR("crtc%d is disabled so skip dump\n",
 					id);
 		}
+		/*Msync 2.0 related function*/
+		if (ovl_status & 1) {
+			CRTC_MMP_MARK(id, ovl_status_err, ovl_status, 0);
+		}
+
+		if (cb_data->msync2_enable) {
+
+			_dsi_state_dbg7 = *(unsigned int *)(cmdq_buf->va_base +
+						DISP_SLOT_DSI_STATE_DBG7);
+			DDPDBG("[Msync]_dsi_state_dbg7=0x%x\n", _dsi_state_dbg7);
+			CRTC_MMP_MARK(id, dsi_state_dbg7, _dsi_state_dbg7, 0);
+
+			is_vfp_period = *(unsigned int *)(cmdq_buf->va_base +
+						DISP_SLOT_VFP_PERIOD);
+			DDPDBG("[Msync]is_vfp_period=%d\n", is_vfp_period);
+
+			if (is_vfp_period == 0) {
+				CRTC_MMP_MARK(id, not_vfp_period, 1, 0);
+				pr_info("[Msync]not vfp period\n");
+			} else
+				CRTC_MMP_MARK(id, vfp_period, 1, 0);
+
+			/*Msync ToDo: for debug*/
+			_dsi_state_dbg7_2 = *(unsigned int *)(cmdq_buf->va_base +
+						DISP_SLOT_DSI_STATE_DBG7_2);
+			DDPDBG("[Msync]_dsi_state_dbg7 after sof=0x%x\n", _dsi_state_dbg7_2);
+			CRTC_MMP_MARK(id, dsi_dbg7_after_sof, _dsi_state_dbg7_2, 0);
+		}
+
 	}
 	CRTC_MMP_MARK(id, frame_cfg, ovl_status, 0);
 
@@ -3548,10 +3604,26 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	} else {
 		mtk_disp_mutex_submit_sof(mtk_crtc->mutex[0]);
-		if (crtc_id == 0)
-			cmdq_pkt_wfe(cmdq_handle,
-				     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-		else if (crtc_id == 1)
+		if (crtc_id == 0) {
+			/*Msync 2.0 add vfp period token instead of EOF*/
+			if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_MSYNC2_0)) {
+				DDPDBG("[Msync]%s, add set vfp period token\n", __func__);
+				cmdq_pkt_wfe(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+				/*clear last SOF*/
+				cmdq_pkt_clear_event(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+			
+				/*for dynamic Msync on/off,set vfp period token*/
+				cmdq_pkt_set_event(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_VFP_PERIOD]);
+			} else {
+				cmdq_pkt_wfe(cmdq_handle,
+						     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+			}
+
+		} else if (crtc_id == 1)
 			cmdq_pkt_wfe(cmdq_handle,
 					 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 
@@ -3600,6 +3672,21 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			mtk_crtc->layer_rec_en = true;
 		} else {
 			mtk_crtc->layer_rec_en = false;
+		}
+		/*Msync 2.0 add vfp period token instead of EOF*/
+		if (crtc_id == 0) {
+			if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_MSYNC2_0)) {
+				/*wait next SOF*/
+				cmdq_pkt_wait_no_clear(cmdq_handle,
+						    mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+				/*clear last EOF*/
+				cmdq_pkt_clear_event(cmdq_handle,
+							mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+				/*clear vfp period token*/
+				cmdq_pkt_clear_event(cmdq_handle,
+							mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_VFP_PERIOD]);
+			}
 		}
 	}
 	cmdq_pkt_finalize_loop(cmdq_handle);
@@ -5256,10 +5343,18 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 }
 #endif
 
-struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
+/*Msync 2.0 need check old_crtc_state and crtc_state*/
+struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
+						struct drm_crtc_state *old_crtc_state,
+						struct mtk_crtc_state *crtc_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *cmdq_handle;
+	/*Msync 2.0*/
+	struct mtk_crtc_state *old_mtk_state = NULL;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_panel_params *params =
+			mtk_drm_get_lcm_ext_params(crtc);
 
 	if (mtk_crtc->sec_on)
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
@@ -5271,7 +5366,39 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
+	/*Msync 2.0 change to check vfp period token instead of EOF*/
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_MSYNC2_0) 
+			&& params 
+			&& params->msync2_enable) {
+
+		if (old_crtc_state != NULL)
+			old_mtk_state = to_mtk_crtc_state(old_crtc_state);
+
+		/* Msync 2.0 ToDo, consider move into mtk_crtc_wait_frame_done?
+		 * if Msync on, change to wait vfp period token,instead of eof
+		 * if 0->1 enable Msync at current frame
+		 * if 1->0 disable Msync at next frame
+		 */
+		if (((crtc_state != NULL) && 
+			(crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)) ||
+			((old_mtk_state != NULL) && 
+			(old_mtk_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0))) {
+			if (!mtk_crtc_is_frame_trigger_mode(crtc)) {
+				DDPDBG("%s:%d, msync = 1, wait vfp period sw token\n", 
+					__func__, __LINE__);
+				cmdq_pkt_wait_no_clear(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_VFP_PERIOD]);
+			} else {
+				/*Msync 2.0 ToDo: cmd mode*/
+				mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
+			}
+		} else {
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
+		}
+	} else {
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
+	}
 
 	if (mtk_crtc->sec_on) {
 	#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
@@ -5307,6 +5434,254 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 	return cmdq_handle;
 }
 
+/******************Msync 2.0 function start**********************/
+#define msync_index_inc(index) \
+	(index = (index + 1) % MSYNC_MAX_RECORD)
+#define msync_index_dec(index) \
+	(index = (index + MSYNC_MAX_RECORD - 1) % MSYNC_MAX_RECORD)
+
+static void msync_add_frame_time(struct mtk_drm_crtc *mtk_crtc,
+		enum MSYNC_RECORD_TYPE type, u64 time)
+{
+	static bool feature_on = false;
+	struct mtk_crtc_state *state;
+	struct drm_display_mode *mode;
+	unsigned int mode_idx;
+	unsigned int last_msync_idx;
+	unsigned int fps;
+	u64 time_diff;
+
+	if (g_msync_dy == 0)
+		return;
+
+	switch (type) {
+	case ENABLE_MSYNC:
+		DDPDBG("[Msync] msync_add_frame_time:ENABLE_MSYNC\n");
+		g_msync_disabled = false;
+		feature_on = true;
+		g_msync_record[g_msync_record_index].type = type;
+		g_msync_record[g_msync_record_index].time = time;
+		msync_index_inc(g_msync_record_index);
+		break;
+	case DISABLE_MSYNC:
+		DDPDBG("[Msync] msync_add_frame_time:DISABLE_MSYNC\n");
+		g_msync_disabled = false;
+		feature_on = false;
+		g_msync_record[g_msync_record_index].type = type;
+		g_msync_record[g_msync_record_index].time = time;
+		msync_index_inc(g_msync_record_index);
+		break;
+	case FRAME_TIME:
+		DDPDBG("[Msync] msync_add_frame_time:FRAME_TIME\n");
+		if (!feature_on)
+			return;
+		g_msync_record[g_msync_record_index].type = type;
+		g_msync_record[g_msync_record_index].time = time;
+		last_msync_idx = g_msync_record_index;
+		msync_index_dec(last_msync_idx);
+		if (g_msync_record[last_msync_idx].type != ENABLE_MSYNC &&
+			g_msync_record[last_msync_idx].type != DISABLE_MSYNC &&
+			g_msync_record[last_msync_idx].type != FRAME_TIME) {
+			g_msync_record[g_msync_record_index].low_frame = false;
+			msync_index_inc(g_msync_record_index);
+			DDPDBG("[Msync] low_frame set false, return\n");
+			return;
+		}
+		state = to_mtk_crtc_state(mtk_crtc->base.state);
+		mode_idx = state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+		mode = &(mtk_crtc->avail_modes[mode_idx]);
+		fps = drm_mode_vrefresh(mode);
+		time_diff = g_msync_record[g_msync_record_index].time -
+			g_msync_record[last_msync_idx].time;
+		DDPDBG("[Msync] min fps:%f, fps:%d, time_diff:%d\n", MSYNC_MIN_FPS, fps, time_diff);
+		if (1000 * 1000 * 1000 / MSYNC_MIN_FPS < time_diff) {
+			g_msync_record[g_msync_record_index].low_frame = true;
+			DDPDBG("[Msync] low_frame = true\n");
+		} else {
+			g_msync_record[g_msync_record_index].low_frame = false;
+			DDPDBG("[Msync] low_frame = false\n");
+		}
+		msync_index_inc(g_msync_record_index);
+		break;
+	default:
+		break;
+	}
+}
+
+static bool msync_need_disable(void)
+{
+	int index = g_msync_record_index;
+	int low_frame_count = 0;
+	int i = 0;
+
+	if (g_msync_dy == 0 || g_msync_disabled)
+		return false;
+
+	msync_index_dec(index);
+	while (i++ < MSYNC_MAX_RECORD) {
+		if (g_msync_record[index].type != FRAME_TIME)
+			break;
+		if (g_msync_record[index].low_frame)
+			low_frame_count++;
+		msync_index_dec(index);
+	}
+	return low_frame_count >= MSYNC_LOWFRAME_THRESHOLD;
+}
+
+static bool msync_need_enable(void)
+{
+	int index = g_msync_record_index;
+	int low_frame_count = 0;
+	int i = 0;
+
+	if (g_msync_dy == 0 || !g_msync_disabled)
+		return false;
+
+	msync_index_dec(index);
+	while (i++ < MSYNC_MAX_RECORD) {
+		if (g_msync_record[index].type != FRAME_TIME)
+			break;
+		if (g_msync_record[index].low_frame)
+			low_frame_count++;
+		msync_index_dec(index);
+	}
+	if (i >= MSYNC_MAX_RECORD &&
+			low_frame_count == 0)
+		return true;
+	return false;
+}
+
+static void mtk_crtc_msync2_add_cmds_bef_cfg(struct drm_crtc *crtc,
+				      struct drm_crtc_state *old_crtc_state,
+				      struct mtk_crtc_state *crtc_state,
+				      struct cmdq_pkt *cmdq_handle)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *old_mtk_state =
+		to_mtk_crtc_state(old_crtc_state);
+	int index = drm_crtc_index(crtc);
+	bool need_enable = false;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	/*cmdq if/else condition*/
+	struct cmdq_operand lop;
+	struct cmdq_operand rop;
+
+	u32 inst_condi_jump = 0;
+	u64* inst = NULL;
+	dma_addr_t jump_pa = 0;
+
+	const u16 reg_jump = CMDQ_THR_SPR_IDX1;
+	const u16 vfp_period = CMDQ_THR_SPR_IDX2;
+
+	struct mtk_ddp_comp *output_comp;
+	dma_addr_t addr;
+
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+	/*0->1*/
+	if ((old_mtk_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0) &&
+				(crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)) {
+		DDPMSG("%s, Msync 0 -> 1\n", __func__);
+		CRTC_MMP_EVENT_START(index, msync_enable, 1, 0);
+		msync_add_frame_time(mtk_crtc, ENABLE_MSYNC, sched_clock());
+	}
+	/*1->0*/
+	else if ((old_mtk_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) &&
+				(crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0)) {
+		DDPMSG("%s, Msync 1 -> 0\n", __func__);
+		CRTC_MMP_EVENT_END(index, msync_enable, 0, 0);
+		msync_add_frame_time(mtk_crtc, DISABLE_MSYNC, sched_clock());
+	}
+	else if (crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) {
+		msync_add_frame_time(mtk_crtc, FRAME_TIME, sched_clock());
+	}
+
+	if (crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)
+		need_enable = msync_need_enable();
+	if (((old_mtk_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0) &&
+			(crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0)) ||
+			(g_msync_disabled && !need_enable)) {
+		DDPDBG("[Msync] %s:%d msync disabled\n", __func__, __LINE__);
+		return;
+	}
+
+	DDPDBG("%s, Msync change cfg thread cmds\n", __func__);
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+	if (((old_mtk_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0) &&
+		(crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)) ||
+		need_enable) {
+		/*0->1 need disable LFR and init vfp early stop register*/
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_LFR)) {
+			int en = 0;
+			mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+					DSI_LFR_SET, &en);
+		}
+		if (output_comp)
+			mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+				DSI_INIT_VFP_EARLY_STOP, NULL);
+		if (need_enable) {
+			g_msync_disabled = false;
+			DDPDBG("[Msync] %s:%d g_msync_disabled = false\n", __func__, __LINE__);
+		}
+	}
+
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+			DSI_ADD_VFP_FOR_MSYNC, NULL);
+	addr = cmdq_buf->pa_base + DISP_SLOT_VFP_PERIOD;
+	/* for debug: first init vfp period slot to 1*/
+	cmdq_pkt_write(cmdq_handle,
+		mtk_crtc->gce_obj.base, addr, 1, ~0);
+	lop.reg = true;
+	lop.idx = vfp_period;
+
+	rop.reg = false;
+	rop.value = 0x1000;
+
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+			DSI_READ_VFP_PERIOD, (void*)&vfp_period);
+
+	cmdq_pkt_logic_command(cmdq_handle,
+		CMDQ_LOGIC_AND, vfp_period, &lop, &rop);
+
+	inst_condi_jump = (cmdq_handle)->cmd_buf_size;
+	cmdq_pkt_assign_command(cmdq_handle, reg_jump, 0);
+	/* check whether vfp_period == 1*/
+	cmdq_pkt_cond_jump_abs(cmdq_handle, reg_jump,
+		&lop, &rop, CMDQ_EQUAL);
+
+	/* false case:
+	 * condition not match
+	 * if vfp_period != 1, add wait next vfp period cmd
+	 */
+	cmdq_pkt_write(cmdq_handle,
+		mtk_crtc->gce_obj.base, addr, 0, ~0);
+
+	/*clear last EOF*/
+	cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+	/*clear last vfp period sw token*/
+	cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_VFP_PERIOD]);
+	cmdq_pkt_wait_no_clear(cmdq_handle,
+		     mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_VFP_PERIOD]);
+
+	inst = cmdq_pkt_get_va_by_offset(cmdq_handle,
+			inst_condi_jump);
+	jump_pa = cmdq_pkt_get_pa_by_offset(cmdq_handle,
+			(cmdq_handle)->cmd_buf_size);
+	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
+
+	/* true case:
+	 * condition match
+	 * only if vfp_period ==1, we can config directly
+	 */
+}
+/******************Msync 2.0 function end**********************/
+
 static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state)
 {
@@ -5317,6 +5692,9 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	int i, j;
 	int crtc_idx = drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	/*Msync 2.0*/
+	struct mtk_panel_params *params =
+			mtk_drm_get_lcm_ext_params(crtc);
 
 	/* When open VDS path switch feature, we will resume VDS crtc
 	 * in it's second atomic commit, and the crtc will be resumed
@@ -5354,10 +5732,23 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		state->base.event = NULL;
 	}
 
-	//mtk_drm_trace_begin("mtk_drm_crtc_atomic:%d-%d",
-	//	crtc_idx, state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
+	/*Msync 2.0: add Msync trace info*/
+	// mtk_drm_trace_begin("mtk_drm_crtc_atomic:%d-%d-%d",
+	//			crtc_idx, state->prop_val[CRTC_PROP_PRES_FENCE_IDX],
+	//			state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE]);
 
-	state->cmdq_handle = mtk_crtc_gce_commit_begin(crtc);
+	state->cmdq_handle = mtk_crtc_gce_commit_begin(crtc, old_crtc_state, state);
+
+	/*Msync 2.0: add cmds to cfg thread*/
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_MSYNC2_0)
+			&& params
+			&& params->msync2_enable) {
+		if (!mtk_crtc_is_frame_trigger_mode(crtc)) {
+			mtk_crtc_msync2_add_cmds_bef_cfg(crtc, old_crtc_state, state,
+					state->cmdq_handle);
+		}
+	}
 
 #ifdef MTK_DRM_ADVANCE
 	mtk_crtc_update_ddp_state(crtc, old_crtc_state, state,
@@ -6144,6 +6535,12 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct mtk_cmdq_cb_data *cb_data;
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_crtc *mtk_crtc0 = to_mtk_crtc(priv->crtc[0]);
+	/*Msync 2.0*/
+	struct mtk_crtc_state *old_mtk_state =
+		to_mtk_crtc_state(old_crtc_state);
+	struct mtk_panel_params *params =
+			mtk_drm_get_lcm_ext_params(crtc);
+	bool need_disable = false;
 
 	CRTC_MMP_EVENT_START(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
@@ -6220,14 +6617,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		mtk_crtc->fake_layer.first_dis = false;
 	}
 
-	/* backup ovl0 2l status for crtc0 */
-	if (index == 0) {
-		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL0_2L);
-		if (comp != NULL)
-			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-				BACKUP_OVL_STATUS, NULL);
-	}
-
 	/* backup present fence */
 	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
@@ -6246,6 +6635,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data->state = old_crtc_state;
 	cb_data->cmdq_handle = cmdq_handle;
 	cb_data->misc = mtk_crtc->ddp_mode;
+	cb_data->msync2_enable = 0;
 
 	/* This refcnt would be release in ddp_cmdq_cb */
 	drm_atomic_state_get(old_crtc_state->state);
@@ -6255,6 +6645,78 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		if (index == 0)
 			cmdq_pkt_clear_event(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+	}
+
+	/* backup ovl0 2l status for crtc0 */
+	if (index == 0) {
+		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL0_2L);
+		if (comp != NULL)
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				BACKUP_OVL_STATUS, NULL);
+	}
+
+	/*Msync 2.0*/
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_MSYNC2_0)
+			&& params
+			&& params->msync2_enable) {
+		if (!mtk_crtc_is_frame_trigger_mode(crtc)) {
+			if (((state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) ||
+				(old_mtk_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)) &&
+				!g_msync_disabled) {
+				/*VFP early stop 0->1*/
+				struct mtk_ddp_comp *output_comp;
+				u32 vfp_early_stop = 1;
+
+				DDPDBG("[Msync] %s %d\n", __func__, __LINE__);
+
+				output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+				if (output_comp)
+					mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_VFP_EARLYSTOP,
+							&vfp_early_stop);
+				/*clear EOF*/
+				/* Avoid other operation during VFP after vfp ealry stop*/
+				cmdq_pkt_clear_event(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+				/*clear vfp period sw token*/
+				cmdq_pkt_clear_event(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_VFP_PERIOD]);
+				/*add wait SOF cmd*/
+				cmdq_pkt_wait_no_clear(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+				if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)
+					need_disable = msync_need_disable();
+				/* if 1->0 or msync_need_disable*/
+				if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0 ||
+						need_disable) {
+					/* disable msync and enable LFR*/
+					if (output_comp)
+						mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_DISABLE_VFP_EALRY_STOP,
+							NULL);
+					if (need_disable) {
+						g_msync_disabled = true;
+						DDPDBG("[Msync] %s:%d g_msync_disabled = true\n", __func__, __LINE__);
+					}
+					if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_LFR)) {
+						int en = 1;
+						mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+								DSI_LFR_SET, &en);
+					}
+				} else { /*if 0->1 or 1->1*/
+					/* restore VFP*/
+					if (output_comp)
+						mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+								DSI_RESTORE_VFP_FOR_MSYNC, NULL);
+				}
+				cb_data->msync2_enable = 1;
+
+			}
+			DDPDBG("[Msync]cmdq pkt size = %d\n", cmdq_handle->cmd_buf_size);
+			if (cmdq_handle->cmd_buf_size>= 4096) {
+				/*ToDo: if larger than 4096 need consider change pages*/
+				pr_info("[Msync]cmdq pkt size = %d\n", cmdq_handle->cmd_buf_size);
+			}
+		}
 	}
 #ifdef MTK_DRM_CMDQ_ASYNC
 	ret = mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
@@ -6542,6 +7004,11 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		break;
 	case EVENT_DSI0_SOF:
 		len = snprintf(buf, buf_len, "disp_dsi0_sof%d",
+			       drm_crtc_index(&mtk_crtc->base));
+		break;
+	/*Msync 2.0*/
+	case EVENT_SYNC_TOKEN_VFP_PERIOD:
+		len = snprintf(buf, buf_len, "disp_token_vfp_period%d",
 			       drm_crtc_index(&mtk_crtc->base));
 		break;
 	default:

@@ -113,6 +113,23 @@
 #define DSI_VBP_NL 0x24
 #define DSI_VFP_NL 0x28
 #define DSI_SIZE_CON 0x38
+
+/*Msync 2.0 related register start*/
+#define DSI_VFP_EARLY_STOP 0x3C
+#define VFP_EARLY_STOP_EN BIT(0)
+#define FLD_VFP_EARLY_STOP_EN REG_FLD_MSB_LSB(0, 0)
+#define VFP_EARLY_STOP_SKIP_VSA_EN BIT(1)
+#define FLD_VFP_EARLY_STOP_SKIP_VSA_EN REG_FLD_MSB_LSB(1, 1)
+#define VFP_UNLIMITED_MODE BIT(4)
+#define FLD_VFP_UNLIMITED_MODE REG_FLD_MSB_LSB(4, 4)
+#define VFP_EARLY_STOP_UNCON_EN BIT(7)
+#define FLD_VFP_EARLY_STOP_UNCON_EN REG_FLD_MSB_LSB(7, 7)
+#define VFP_EARLY_STOP BIT(8)
+#define FLD_VFP_EARLY_STOP REG_FLD_MSB_LSB(8, 8)
+#define VFP_EARLY_STOP_MIN_NL (0x7FFF << 16)
+#define VFP_EARLY_STOP_FLD_REG_MIN_NL REG_FLD_MSB_LSB(30, 16)
+/*Msync 2.0 related register end*/
+
 #define DSI_VACT_NL 0x2C
 #define DSI_LFR_CON 0x30
 #define DSI_LFR_STA 0x34
@@ -210,6 +227,10 @@
 
 #define DSI_STATE_DBG6 0x160
 #define STATE_DBG6_FLD_REG_CMCTL_STATE REG_FLD_MSB_LSB(14, 0)
+
+/*Msync 2.0*/
+#define DSI_STATE_DBG7 0x164
+#define FLD_VFP_PERIOD REG_FLD_MSB_LSB(12, 12)
 
 #define DSI_SHADOW_DEBUG 0x190
 #define DSI_BYPASS_SHADOW BIT(1)
@@ -1877,6 +1898,87 @@ static int mtk_preconfig_dsi_enable(struct mtk_dsi *dsi)
 	return 0;
 }
 
+/***********************Msync 2.0 function start************************/
+static void mtk_dsi_init_vfp_early_stop(struct mtk_dsi *dsi, struct cmdq_pkt *handle, struct mtk_ddp_comp *comp)
+{
+	/* vfp ealry stop*/
+	u32 value = 0;
+	struct mtk_panel_ext *panel_ext;
+	unsigned int max_vfp_for_msync = 0;
+	unsigned int vfp_min = 0;
+
+	/*get max_vfp_for_msync related to current display mode*/
+	panel_ext = mtk_dsi_get_panel_ext(comp);
+	vfp_min = dsi->vm.vfront_porch;
+	DDPDBG("[Msync] vfp_min=%d\n", vfp_min);
+	/*ToDo: whether need skip VSA?*/
+	value = REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 1)
+		| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, vfp_min);
+
+	if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
+		&& panel_ext->params->dyn.max_vfp_for_msync_dyn)
+		max_vfp_for_msync = panel_ext->params->dyn.max_vfp_for_msync_dyn;
+	else if (panel_ext && panel_ext->params)
+		max_vfp_for_msync = panel_ext->params->max_vfp_for_msync;
+	else
+		max_vfp_for_msync = dsi->vm.vfront_porch;
+
+	if (handle) {
+		/*enable vfp ealry stop*/
+		cmdq_pkt_write(handle, comp->cmdq_base,
+						comp->regs_pa + DSI_VFP_EARLY_STOP, value, ~0);
+
+		/*set max vfp*/
+		cmdq_pkt_write(handle, comp->cmdq_base,
+						comp->regs_pa + DSI_VFP_NL, max_vfp_for_msync, ~0);
+
+	} else {
+		writel(value, dsi->regs + DSI_VFP_EARLY_STOP);
+		writel(max_vfp_for_msync, dsi->regs + DSI_VFP_NL);
+	}
+	DDPDBG("[Msync] %s, VFP_EARLY_STOP = 0x%x, VFP_NL=%d\n",
+				__func__, value, max_vfp_for_msync);
+}
+
+
+static void mtk_dsi_disable_vfp_early_stop(struct mtk_dsi *dsi, struct cmdq_pkt *handle, struct mtk_ddp_comp *comp)
+{
+	/* vfp ealry stop*/
+	u32 value = 0;
+	struct mtk_panel_ext *panel_ext;
+	unsigned int vfp_nl = 0;
+
+	value = REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 0)
+	| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, dsi->vm.vfront_porch);
+
+	/*get max_vfp_for_msync related to current display mode*/
+	panel_ext = mtk_dsi_get_panel_ext(comp);
+
+	if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
+		&& panel_ext->params->dyn.vfp)
+		vfp_nl = panel_ext->params->dyn.vfp;
+	else
+		vfp_nl = dsi->vm.vfront_porch;
+
+
+	if (handle) {
+		/*disable vfp ealry stop*/
+		cmdq_pkt_write(handle, comp->cmdq_base,
+						comp->regs_pa + DSI_VFP_EARLY_STOP, value, ~0);
+
+		/*restore vfp_nl*/
+		cmdq_pkt_write(handle, comp->cmdq_base,
+						comp->regs_pa + DSI_VFP_NL, vfp_nl, ~0);
+	} else {
+		writel(value, dsi->regs + DSI_VFP_EARLY_STOP);
+		writel(vfp_nl, dsi->regs + DSI_VFP_NL);
+	}
+	DDPINFO("[Msync] %s, VFP_EARLY_STOP = 0x%x\n", __func__, value);
+}
+
+
+/***********************Msync 2.0 function end************************/
+
 static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	int force_lcm_update)
 {
@@ -2717,6 +2819,8 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	    old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int dst_mode_idx =
 	    state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+	/*Msync 2.0*/
+	struct mtk_drm_private *priv = (mtk_crtc->base).dev->dev_private;
 
 	old_mode = &(mtk_crtc->avail_modes[src_mode_idx]);
 	adjust_mode = &(mtk_crtc->avail_modes[dst_mode_idx]);
@@ -2732,6 +2836,9 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 			src_mode_idx);
 
 	if (get_panel_ext) {
+		/* ToDo:shouldn't set cur_panel_params?
+		 * cur_panel_params should keep the new params?
+		 */
 		cur_panel_params = get_panel_ext->params;
 		adjust_panel_params = get_panel_ext->params;
 	}
@@ -2788,6 +2895,37 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 			adjust_panel_params->dyn.data_rate) {
 			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
 		}
+	}
+	/* Msync 2.0 related function,
+	 * if max_vfp_for_msync changed also need set DYNFPS_DSI_VFP
+	 * use panel_ext->params (new params) instead of cur_panel_params
+	 * it seems cur_panel_params is set to old params by mistake by above code
+	 */
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+						 MTK_DRM_OPT_MSYNC2_0)
+			&& panel_ext->params->msync2_enable) {
+		  if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) {
+			  DDPDBG("[Msync]%s,%d\n", __func__, __LINE__);
+
+			  if (!(dsi->mipi_hopping_sta && adjust_panel_params &&
+					cur_panel_params && cur_panel_params->dyn.switch_en &&
+					adjust_panel_params->dyn.switch_en == 1)) {
+
+					if (panel_ext && adjust_panel_params &&
+						panel_ext->params->max_vfp_for_msync !=
+						adjust_panel_params->max_vfp_for_msync) {
+						fps_chg_index |= DYNFPS_DSI_VFP;
+					}
+			  } else if (cur_panel_params && adjust_panel_params) {
+
+					if (panel_ext && adjust_panel_params &&
+					  panel_ext->params->dyn.max_vfp_for_msync_dyn !=
+					  adjust_panel_params->dyn.max_vfp_for_msync_dyn) {
+					  fps_chg_index |= DYNFPS_DSI_VFP;
+					}
+			}
+
+		 }
 	}
 
 	mtk_crtc->fps_change_index = fps_chg_index;
@@ -4870,6 +5008,9 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			to_mtk_crtc_state(old_state);
 	unsigned int src_mode =
 	    old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+	/*Msync 2.0*/
+	unsigned int vfp_early_stop_value = 0;
+	struct mtk_drm_private *priv = (mtk_crtc->base).dev->dev_private;
 
 	DDPINFO("%s+\n", __func__);
 
@@ -4963,6 +5104,32 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			vfp = adjusted_mode.vsync_start -
 				adjusted_mode.vdisplay;
 		dsi->vm.vfront_porch = vfp;
+
+		/* Msync 2.0 ToDo: can we change vm.vfront_porch according msync?
+		 * mmdvfs,dramdvfs according to vm.vfront_porch?
+	     */
+	    if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_MSYNC2_0)
+			&& dsi->ext->params->msync2_enable) {
+			if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) {
+				DDPDBG("[Msync]%s,%d\n", __func__, __LINE__);
+
+				/* update VFP_MIN to vm.vfront_porch
+				 * avoid cmdq read operation, we re-write FLD_VFP_EARLY_STOP_EN
+				 */
+				vfp_early_stop_value = REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 1)
+					| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, dsi->vm.vfront_porch);
+				cmdq_pkt_write(handle, comp->cmdq_base,
+						comp->regs_pa + DSI_VFP_EARLY_STOP, vfp_early_stop_value, ~0);
+
+				/*update VFP to max_vfp_for_msync*/
+				if (dsi->mipi_hopping_sta && dsi->ext && dsi->ext->params
+					&& dsi->ext->params->dyn.max_vfp_for_msync_dyn)
+					vfp =dsi->ext->params->dyn.max_vfp_for_msync_dyn;
+				else if (dsi->ext && dsi->ext->params)
+					vfp = dsi->ext->params->max_vfp_for_msync;
+			}
+	    }
 
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
 	}
@@ -5075,6 +5242,10 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		unsigned int vfront_porch = 0;
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
+		/*Msync 2.0*/
+		struct mtk_drm_private *priv = (crtc->base).dev->dev_private;
+		struct mtk_crtc_state *state =
+			to_mtk_crtc_state(crtc->base.state);
 
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
@@ -5083,6 +5254,23 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			vfront_porch = panel_ext->params->dyn.vfp;
 		else
 			vfront_porch = dsi->vm.vfront_porch;
+
+		/*Msync 2.0*/
+		/*leave idle need keep msync status*/
+		 if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_MSYNC2_0)
+			&& panel_ext->params->msync2_enable) {
+			if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) {
+				DDPDBG("[Msync]%s,%d\n", __func__, __LINE__);
+				if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
+					&& panel_ext->params->dyn.max_vfp_for_msync_dyn)
+					vfront_porch = panel_ext->params->dyn.max_vfp_for_msync_dyn;
+				else if (panel_ext && panel_ext->params)
+					vfront_porch = panel_ext->params->max_vfp_for_msync;
+				else
+					vfront_porch = dsi->vm.vfront_porch;
+			}
+		 }
 
 		DDPINFO("vfront_porch=%d\n", vfront_porch);
 
@@ -5451,7 +5639,148 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_dsi_LFR_status_check(dsi);
 	}
 		break;
+	/****Msync 2.0 cmds start*****/
+	case DSI_ADD_VFP_FOR_MSYNC:
+	{
+		/* add value directly*/
+		//mtk_dsi_porch_setting(comp, handle, DSI_VFP, 2000 + 20);
+		unsigned int vfront_porch_temp = 0;
+		panel_ext = mtk_dsi_get_panel_ext(comp);
 
+		DDPDBG("[Msync] %s:%d iocmd DSI_ADD_VFP_FOR_MSYNC\n", __func__, __LINE__);
+		if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
+			&& panel_ext->params->dyn.max_vfp_for_msync_dyn)
+			vfront_porch_temp = panel_ext->params->dyn.max_vfp_for_msync_dyn;
+		else if (panel_ext && panel_ext->params)
+			vfront_porch_temp = panel_ext->params->max_vfp_for_msync;
+		else
+			vfront_porch_temp = dsi->vm.vfront_porch;
+
+		DDPDBG("[Msync] add vfp to =%d\n", vfront_porch_temp + 100);
+		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
+					vfront_porch_temp + 100);
+	}
+		break;
+	case DSI_VFP_EARLYSTOP:
+	{
+		/* vfp ealry stop*/
+		u32 value = 0;
+		u32 vfp_early_stop = 0;
+
+		DDPDBG("[Msync] %s:%d iocmd DSI_VFP_EARLYSTOP\n", __func__, __LINE__);
+		vfp_early_stop = *(unsigned int *)params;
+
+		DDPDBG("[Msync] set VFP_EARLYSTOP to %u\n", vfp_early_stop);
+
+
+#if 0
+		value = REG_FLD_VAL(FLD_VFP_EARLY_STOP, vfp_early_stop)
+				| REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 1)
+				| REG_FLD_VAL(FLD_VFP_EARLY_STOP_SKIP_VSA_EN, 1)
+				| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, 54);
+#endif
+#if 1
+		if (vfp_early_stop == 1) {
+			/*change vfp_early_stop*/
+			value = REG_FLD_VAL(FLD_VFP_EARLY_STOP, 1)
+			| REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 1)
+			| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, dsi->vm.vfront_porch);
+		} else {
+			value = REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 1)
+			| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, dsi->vm.vfront_porch);
+
+		}
+#endif
+#if 0
+		/*for test*/
+		value = REG_FLD_VAL(FLD_VFP_EARLY_STOP, 1)
+		| REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 1)
+		| REG_FLD_VAL(FLD_VFP_EARLY_STOP_SKIP_VSA_EN, 1)
+		| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, 54);
+#endif
+		DDPINFO("[Msync] VFP_EARLYSTOP = 0x%x, handle = 0x%x\n", value, handle);
+
+		/*for test*/
+		//value = 0x36FFFF;
+		//DDPINFO("[Msync] value change to 0x36FFFF\n");
+		if (handle)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DSI_VFP_EARLY_STOP, value, ~0);
+#if 0
+		/*1->0*/
+		value =REG_FLD_VAL(VFP_EARLY_STOP_EN, 1)
+			| REG_FLD_VAL(VFP_EARLY_STOP_SKIP_VSA_EN, 1)
+			| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, 54);
+
+		if (handle)
+			cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
+				comp->regs_pa+DSI_VFP_EARLY_STOP, value, ~0);
+#endif
+	}
+		break;
+	case DSI_RESTORE_VFP_FOR_MSYNC:
+	{
+		unsigned int vfront_porch_temp = 0;
+		//for test
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		dma_addr_t slot = cmdq_buf->pa_base + DISP_SLOT_DSI_STATE_DBG7_2;
+
+		DDPDBG("[Msync] %s:%d iocmd DSI_RESTORE_VFP_FOR_MSYNC\n", __func__, __LINE__);
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+
+
+		if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
+			&& panel_ext->params->dyn.max_vfp_for_msync_dyn)
+			vfront_porch_temp = panel_ext->params->dyn.max_vfp_for_msync_dyn;
+		else if (panel_ext && panel_ext->params)
+			vfront_porch_temp = panel_ext->params->max_vfp_for_msync;
+		else
+			vfront_porch_temp = dsi->vm.vfront_porch;
+
+		DDPDBG("[Msync] restore vfp to =%d\n", vfront_porch_temp);
+		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
+					vfront_porch_temp);
+
+		cmdq_pkt_mem_move(handle, comp->cmdq_base,
+			comp->regs_pa + DSI_STATE_DBG7,
+			slot, CMDQ_THR_SPR_IDX3);
+
+	}
+		break;
+
+	case DSI_READ_VFP_PERIOD:
+	{
+		u16 vfp_period_spr = CMDQ_THR_SPR_IDX2;
+		//for test
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		dma_addr_t slot = cmdq_buf->pa_base + DISP_SLOT_DSI_STATE_DBG7;
+
+		DDPDBG("[Msync] %s:%d iocmd DSI_READ_VFP_PERIOD\n", __func__, __LINE__);
+		vfp_period_spr = *(u16*)params;
+		DDPDBG("[Msync] read VFP_PERIOD\n");
+		if (handle)
+			cmdq_pkt_read(handle, NULL, comp->regs_pa + DSI_STATE_DBG7, vfp_period_spr);
+
+		cmdq_pkt_mem_move(handle, comp->cmdq_base,
+			comp->regs_pa + DSI_STATE_DBG7,
+			slot, CMDQ_THR_SPR_IDX3);
+	}
+		break;
+	case DSI_INIT_VFP_EARLY_STOP:
+	{
+		DDPDBG("[Msync] %s:%d iocmd DSI_INIT_VFP_EARLY_STOP\n", __func__, __LINE__);
+		mtk_dsi_init_vfp_early_stop(dsi, handle, comp);
+	}
+		break;
+	case DSI_DISABLE_VFP_EALRY_STOP:
+	{
+		DDPDBG("[Msync] %s:%d iocmd DSI_DISABLE_VFP_EALRY_STOP\n", __func__, __LINE__);
+		mtk_dsi_disable_vfp_early_stop(dsi, handle, comp);
+	}
+		break;
+	/****Msync 2.0 cmds end*****/
 	default:
 		break;
 	}

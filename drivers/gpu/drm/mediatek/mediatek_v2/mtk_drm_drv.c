@@ -2244,7 +2244,13 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_PQ_34_COLOR_MATRIX))
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_PQ_34_COLOR_MATRIX;
-
+	/* Msync 2.0
+	 * according to panel*/
+	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_MSYNC2_0)) {
+		if (params && params->msync2_enable)
+			caps_info->disp_feature_flag |=
+				DRM_DISP_FEATURE_MSYNC2_0;
+	}
 	return ret;
 }
 

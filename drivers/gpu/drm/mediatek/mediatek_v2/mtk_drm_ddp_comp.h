@@ -244,6 +244,14 @@ enum mtk_ddp_io_cmd {
 	DSI_LFR_STATUS_CHECK,
 	WDMA_WRITE_DST_ADDR0,
 	WDMA_READ_DST_SIZE,
+	/*Msync 2.0 cmd start*/
+	DSI_ADD_VFP_FOR_MSYNC,
+	DSI_VFP_EARLYSTOP,
+	DSI_RESTORE_VFP_FOR_MSYNC,
+	DSI_READ_VFP_PERIOD,
+	DSI_INIT_VFP_EARLY_STOP,
+	DSI_DISABLE_VFP_EALRY_STOP,
+	/*Msync 2.0 cmd end*/
 };
 
 struct golden_setting_context {

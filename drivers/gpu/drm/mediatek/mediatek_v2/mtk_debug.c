@@ -1548,6 +1548,11 @@ static void process_dbg_opt(const char *opt)
 			g_mobile_log = 1;
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_mobile_log = 0;
+	} else if (strncmp(opt, "msync_dy:", 9) == 0) {
+		if (strncmp(opt + 9, "on", 2) == 0)
+			g_msync_dy = 1;
+		else if (strncmp(opt + 9, "off", 3) == 0)
+			g_msync_dy = 0;
 	} else if (strncmp(opt, "fence:", 6) == 0) {
 		if (strncmp(opt + 6, "on", 2) == 0)
 			g_fence_log = 1;

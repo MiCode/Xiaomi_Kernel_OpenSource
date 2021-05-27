@@ -533,9 +533,15 @@ static struct mtk_panel_params ext_params = {
 		.vfp_lp_dyn = 4178,
 		.hfp = 161,
 		.vfp = 2528,
+		.max_vfp_for_msync_dyn = 3995, /*Msync 2.0*/
 	},
 	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
+
+	/*Msync 2.0*/
+	.msync2_enable = 1,
+	.max_vfp_for_msync = 3995,//4095, //PP only supprt 0xFFF for vfp max value
+
 };
 
 static struct mtk_panel_params ext_params_90hz = {
@@ -593,9 +599,15 @@ static struct mtk_panel_params ext_params_90hz = {
 		.vfp_lp_dyn = 2528,
 		.hfp = 161,
 		.vfp = 879,
+		.max_vfp_for_msync_dyn = 3995, /*Msync 2.0*/
 	},
 	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
+	/*Msync 2.0*/
+	.msync2_enable = 1,
+	.max_vfp_for_msync = 3995,//4095, //PP only supprt 0xFFF for vfp max value
+
+
 };
 
 static struct mtk_panel_params ext_params_120hz = {
@@ -652,7 +664,15 @@ static struct mtk_panel_params ext_params_120hz = {
 		.vfp_lp_dyn = 2528,
 		.hfp = 161,
 		.vfp = 54,
+		.max_vfp_for_msync_dyn = 3995,
 	},
+	.lfr_enable = 1,
+	.lfr_minimum_fps = 60,
+	/*Msync 2.0*/
+	.msync2_enable = 1,
+	/*PP only supprt 0xFFF for vfp max value,reserve 100 lines for cfg*/
+	.max_vfp_for_msync = 3995,//4095,
+
 };
 
 static int panel_ext_reset(struct drm_panel *panel, int on)
