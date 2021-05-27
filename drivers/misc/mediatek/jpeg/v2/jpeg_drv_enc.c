@@ -71,7 +71,7 @@ static int jpeg_ion_get_mva(struct ion_client *client, struct ion_handle *handle
 		     dma_addr_t *mva, unsigned int *size, int port)
 {
 	struct ion_mm_data mm_data;
-	size_t mva_size;
+	size_t mva_size = 0;
 	ion_phys_addr_t phy_addr = 0;
 
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
