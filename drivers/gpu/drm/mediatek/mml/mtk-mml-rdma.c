@@ -20,9 +20,7 @@ struct rdma_data mt6893_rdma_data = {
 
 struct mtk_mml_rdma {
 	struct mml_comp mml_comp;
-	struct clk *clk;
 	struct rdma_data *data;
-	bool mml_binded;
 };
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
@@ -34,9 +32,6 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 	if (ret)
 		dev_err(dev, "Failed to register mml component %s: %d\n",
 			dev->of_node->full_name, ret);
-	else
-		rdma->mml_binded = true;
-
 	return ret;
 }
 
@@ -45,7 +40,6 @@ static void mml_unbind(struct device *dev, struct device *master, void *data)
 	struct mtk_mml_rdma *rdma = dev_get_drvdata(dev);
 
 	mml_unregister_comp(master, &rdma->mml_comp);
-	rdma->mml_binded = false;
 }
 
 
@@ -62,7 +56,6 @@ static int probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_mml_rdma *priv;
 	s32 ret;
-	s32 comp_id = -1;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
@@ -71,13 +64,15 @@ static int probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 	priv->data = (struct rdma_data*)of_device_get_match_data(dev);
 
-	if (!of_property_read_u32(dev->of_node, "comp-id", &comp_id))
-		priv->mml_comp.comp_id = comp_id;
-
+	ret = mml_comp_init(pdev, &priv->mml_comp);
+	if (ret) {
+		dev_err(dev, "Failed to init mml component: %d\n", ret);
+		return ret;
+	}
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
-	if (ret != 0)
+	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 
 	return ret;
@@ -146,10 +141,10 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 		for(i = 0; i < dbg_probed_count; i++) {
 			length += snprintf(buf + length, PAGE_SIZE - length,
 				"  - [%d] mml_comp_id: %d\n", i,
-				dbg_probed_components[i]->mml_comp.comp_id);
+				dbg_probed_components[i]->mml_comp.id);
 			length += snprintf(buf + length, PAGE_SIZE - length,
 				"  -      mml_binded: %d\n",
-				dbg_probed_components[i]->mml_binded);
+				dbg_probed_components[i]->mml_comp.bound);
 		}
 	default:
 		mml_err("not support read for case_id: %d", ut_case);

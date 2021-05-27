@@ -11,6 +11,8 @@ int mtk_mml_msg;
 EXPORT_SYMBOL(mtk_mml_msg);
 module_param(mtk_mml_msg, int, 0644);
 
+extern s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
+    cmdq_async_flush_cb cb, void *data);
 static void core_taskdone(struct work_struct *work)
 {
 	struct mml_task *task;

@@ -14,8 +14,8 @@
 
 
 
-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek 		\
-             -I$(srctree)/drivers/devfreq/				\
+ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek 	\
+             -I$(srctree)/drivers/devfreq/		\
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 
 obj-$(CONFIG_MTK_MML_MT6893) := mtk-mml-mt6893.o

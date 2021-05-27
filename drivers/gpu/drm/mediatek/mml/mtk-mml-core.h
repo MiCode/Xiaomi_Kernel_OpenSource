@@ -118,6 +118,8 @@ struct mml_task {
 	struct work_struct work_wait;
 };
 
+struct mml_comp;
+
 struct mml_comp_tile_ops {
 
 };
@@ -135,7 +137,12 @@ struct mml_comp_debug_ops {
 };
 
 struct mml_comp {
-	u32 comp_id;
+	u32 id;
+	void __iomem *base;
+	phys_addr_t base_pa;
+	struct clk *clks[2];
+	struct device *larb_dev;
+	bool bound;
 	const struct mml_comp_tile_ops *tile_ops;
 	const struct mml_comp_config_ops *config_ops;
 	const struct mml_comp_hw_ops *hw_ops;
