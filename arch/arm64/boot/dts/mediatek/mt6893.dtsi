@@ -5445,6 +5445,15 @@
 			clock-names = "CCU_CLK_CAM_CCU",
 					"CCU_CLK_TOP_MUX";
 			mediatek,larbs = <&larb13>;
+			interconnects =
+				<&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM_CCUI_MDP) &mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM_CCUO_MDP) &mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "ccu_g",
+					     "ccu_i",
+					     "ccu_o";
+			operating-points-v2 = <&opp_table_ccu>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		ipesys_clk: syscon@1b000000 {
