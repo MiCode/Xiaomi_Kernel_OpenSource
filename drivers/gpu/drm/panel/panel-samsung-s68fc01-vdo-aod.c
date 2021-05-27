@@ -761,6 +761,12 @@ static struct mtk_panel_params ext_params = {
 	.hbm_en_time = 2,
 	.hbm_dis_time = 1,
 	.doze_delay = 3,
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = 1110,
+		.hfp = 50,
+		.vfp = 35,
+	},
 };
 
 static int panel_doze_post_disp_on(struct drm_panel *panel,
