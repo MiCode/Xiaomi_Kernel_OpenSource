@@ -520,6 +520,7 @@ struct drm_display_mode *get_mode_by_id(struct drm_panel *panel,
 			return m;
 		i++;
 	}
+	pr_info("%s, %d, failed to get mode:%d, total:%u\n", __func__, __LINE__, mode, i);
 	return NULL;
 }
 
@@ -755,6 +756,10 @@ static int mode_switch(struct drm_panel *panel, unsigned int cur_mode,
 	struct drm_display_mode *m = get_mode_by_id(panel, dst_mode);
 	if (cur_mode == dst_mode)
 		return ret;
+
+	if (m == NULL)
+		return -EINVAL;
+
 	if (m->vrefresh == MODE_0_FPS) { /*switch to 60 */
 		mode_switch_to_60(panel, stage);
 	} else if (m->vrefresh == MODE_1_FPS) { /*switch to 90 */
