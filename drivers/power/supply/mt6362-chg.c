@@ -584,8 +584,8 @@ static bool is_usb_rdy(struct device *dev)
 
 	node = of_parse_phandle(dev->of_node, "usb", 0);
 	if (node) {
-		ready = of_property_read_bool(node, "gadget-ready");
-		dev_info(dev, "gadget-ready=%d\n", ready);
+		ready = !of_property_read_bool(node, "cdp-block");
+		dev_info(dev, "usb ready=%d\n", ready);
 	} else
 		dev_info(dev, "usb node missing or invalid\n");
 
@@ -596,7 +596,7 @@ static int mt6362_enable_bc12(struct mt6362_chg_data *data, bool en)
 {
 	struct mt6362_chg_platform_data *pdata = dev_get_platdata(data->dev);
 	int i;
-	const int max_wait_cnt = 200;
+	const int max_wait_cnt = 250;
 
 	if (en) {
 		if (data->bootmode == 5) {

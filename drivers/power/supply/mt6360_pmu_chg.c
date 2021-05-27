@@ -481,8 +481,8 @@ static bool is_usb_rdy(struct device *dev)
 
 	node = of_parse_phandle(dev->of_node, "usb", 0);
 	if (node) {
-		ready = of_property_read_bool(node, "gadget-ready");
-		dev_info(dev, "gadget-ready=%d\n", ready);
+		ready = !of_property_read_bool(node, "cdp-block");
+		dev_info(dev, "usb ready=%d\n", ready);
 	} else
 		dev_info(dev, "usb node missing or invalid\n");
 
@@ -492,7 +492,7 @@ static bool is_usb_rdy(struct device *dev)
 static int __mt6360_enable_usbchgen(struct mt6360_chg_info *mci, bool en)
 {
 	int i, ret = 0;
-	const int max_wait_cnt = 200;
+	const int max_wait_cnt = 250;
 	bool pwr_rdy = false;
 	enum mt6360_usbsw_state usbsw =
 				       en ? MT6360_USBSW_CHG : MT6360_USBSW_USB;
