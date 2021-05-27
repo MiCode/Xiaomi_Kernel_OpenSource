@@ -1895,7 +1895,8 @@ static void cmdq_mdp_init_pmqos(struct platform_device *pdev)
 	mdp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "mdp-dvfsrc-vcore");
 	isp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "isp-dvfsrc-vcore");
 	/* number of available opp */
-	mdp_pmqos_opp_num = regulator_count_voltages(mdp_mmdvfs_reg);
+	mdp_pmqos_opp_num = dev_pm_opp_get_opp_count(&pdev->dev);
+
 	CMDQ_LOG("%s opp count:%d\n", __func__, mdp_pmqos_opp_num);
 	if (mdp_pmqos_opp_num > 0) {
 		mdp_volts = kcalloc(mdp_pmqos_opp_num, sizeof(int), GFP_KERNEL);
