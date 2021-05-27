@@ -14,9 +14,11 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/energy_model.h>
+#include <trace/events/sched.h>
 #include <trace/hooks/topology.h>
 #include <trace/hooks/sched.h>
 #include "sched_main.h"
+#include "../../../../kernel/sched/sched.h"
 
 #define CREATE_TRACE_POINTS
 #include "sched_trace.h"
@@ -307,6 +309,97 @@ static int init_opp_cap_info(struct proc_dir_entry *dir) { return 0; }
 
 #endif
 
+static void sched_task_util_hook(void *data, struct sched_entity *se)
+{
+	if (trace_sched_task_util_enabled()) {
+		struct task_struct *p;
+		struct sched_avg *sa;
+
+		if (!entity_is_task(se))
+			return;
+
+		p = container_of(se, struct task_struct, se);
+		sa = &se->avg;
+
+		trace_sched_task_util(p->pid, p->comm,
+				sa->util_avg, sa->util_est.enqueued, sa->util_est.ewma);
+	}
+}
+
+static void sched_task_uclamp_hook(void *data, struct sched_entity *se)
+{
+	if (trace_sched_task_uclamp_enabled()) {
+		struct task_struct *p;
+		struct sched_avg *sa;
+		struct util_est ue;
+		struct uclamp_se *uc_min_req, *uc_max_req;
+		unsigned long util;
+
+		if (!entity_is_task(se))
+			return;
+
+		p = container_of(se, struct task_struct, se);
+		sa = &se->avg;
+		ue = READ_ONCE(se->avg.util_est);
+		util = max(ue.ewma, ue.enqueued);
+		util = max(util, READ_ONCE(se->avg.util_avg));
+		uc_min_req = &p->uclamp_req[UCLAMP_MIN];
+		uc_max_req = &p->uclamp_req[UCLAMP_MAX];
+
+		trace_sched_task_uclamp(p->pid, util,
+				p->uclamp[UCLAMP_MIN].active,
+				p->uclamp[UCLAMP_MIN].value, p->uclamp[UCLAMP_MAX].value,
+				uc_min_req->user_defined, uc_min_req->value,
+				uc_max_req->user_defined, uc_max_req->value);
+	}
+}
+
+static int enqueue;
+static int dequeue;
+static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct *p, int flags)
+{
+	if (trace_sched_queue_task_enabled()) {
+		int cpu = rq->cpu;
+		unsigned long util = READ_ONCE(rq->cfs.avg.util_avg);
+
+		util = max_t(unsigned long, util,
+			     READ_ONCE(rq->cfs.avg.util_est.enqueued));
+
+		trace_sched_queue_task(cpu, p->pid, *(int *)data, util,
+				rq->uclamp[UCLAMP_MIN].value, rq->uclamp[UCLAMP_MAX].value,
+				p->uclamp[UCLAMP_MIN].value, p->uclamp[UCLAMP_MAX].value);
+	}
+}
+
+static void mtk_sched_trace_init(void)
+{
+	int ret = 0;
+
+	enqueue = 1;
+	dequeue = -1;
+
+	ret = register_trace_android_rvh_enqueue_task(sched_queue_task_hook, &enqueue);
+	if (ret)
+		pr_info("register android_rvh_enqueue_task failed!\n");
+	ret = register_trace_android_rvh_dequeue_task(sched_queue_task_hook, &dequeue);
+	if (ret)
+		pr_info("register android_rvh_dequeue_task failed!\n");
+
+	ret = register_trace_pelt_se_tp(sched_task_util_hook, NULL);
+	if (ret)
+		pr_info("register sched_task_util_hook failed!\n");
+
+	ret = register_trace_pelt_se_tp(sched_task_uclamp_hook, NULL);
+	if (ret)
+		pr_info("register sched_task_uclamp_hook failed!\n");
+}
+
+static void mtk_sched_trace_exit(void)
+{
+	unregister_trace_pelt_se_tp(sched_task_util_hook, NULL);
+	unregister_trace_pelt_se_tp(sched_task_uclamp_hook, NULL);
+}
+
 static int __init mtk_scheduler_init(void)
 {
 	int ret = 0;
@@ -363,12 +456,15 @@ static int __init mtk_scheduler_init(void)
 #endif
 #endif
 
+	mtk_sched_trace_init();
+
 	return ret;
 
 }
 
 static void __exit mtk_scheduler_exit(void)
 {
+	mtk_sched_trace_exit();
 	clear_opp_cap_info();
 	cleanup_sched_common_sysfs();
 }
