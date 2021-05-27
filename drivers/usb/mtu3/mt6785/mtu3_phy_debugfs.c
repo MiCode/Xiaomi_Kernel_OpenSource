@@ -710,8 +710,8 @@ int mtu3_phy_init_debugfs(struct phy *phy)
 		goto err1;
 	}
 
-	file = proc_create_data(FILE_RG_USB20_PHY_REV6, 0644,
-				   root, &rg_usb20_rev6_fops, phy);
+	file = proc_create_data(FILE_REG_DEBUG, 0644,
+				   root, &phy_rw_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
