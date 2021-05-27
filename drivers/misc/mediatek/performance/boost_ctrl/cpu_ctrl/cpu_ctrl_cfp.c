@@ -389,6 +389,7 @@ int cpu_ctrl_cfp_init(struct proc_dir_entry *parent)
 	int i;
 	int clu_idx, opp_idx;
 	int ret = 0;
+	size_t idx;
 
 	struct pentry {
 		const char *name;
@@ -407,11 +408,11 @@ int cpu_ctrl_cfp_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(cfp_curr_stat),
 	};
 
-	for (i = 0; i < ARRAY_SIZE(entries); i++) {
-		if (!proc_create(entries[i].name, 0644,
-					parent, entries[i].fops)) {
+	for (idx = 0; idx < ARRAY_SIZE(entries); idx++) {
+		if (!proc_create(entries[idx].name, 0644,
+					parent, entries[idx].fops)) {
 			pr_debug("%s(), create /cpu_ctrl%s failed\n",
-					__func__, entries[i].name);
+					__func__, entries[idx].name);
 			ret = -EINVAL;
 			goto out_err;
 		}

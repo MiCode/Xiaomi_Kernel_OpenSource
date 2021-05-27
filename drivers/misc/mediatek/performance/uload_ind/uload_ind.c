@@ -479,7 +479,8 @@ static int init_cpu_loading_kobj(void)
 int init_uload_ind(struct proc_dir_entry *parent)
 {
 	struct proc_dir_entry *lt_dir = NULL;
-	int i, ret;
+	int ret;
+	size_t i;
 
 	struct pentry {
 		const char *name;
