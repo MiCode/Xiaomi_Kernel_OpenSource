@@ -709,6 +709,10 @@ SND_SOC_DAILINK_DEFS(dspcaptureraw,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_capture_raw_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspfmadsp,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_fm_adsp_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
 #endif
 
 static struct snd_soc_dai_link mt6873_mt6359p_dai_links[] = {
@@ -1292,6 +1296,11 @@ static struct snd_soc_dai_link mt6873_mt6359p_dai_links[] = {
 		.name = "DSP_Capture_Raw",
 		.stream_name = "DSP_Capture_Raw",
 		SND_SOC_DAILINK_REG(dspcaptureraw),
+	},
+	{
+		.name = "DSP_Playback_Fm_Adsp",
+		.stream_name = "DSP_Playback_Fm_Adsp",
+		SND_SOC_DAILINK_REG(dspfmadsp),
 	},
 #endif
 };
