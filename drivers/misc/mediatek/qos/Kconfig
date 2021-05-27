@@ -1,8 +1,15 @@
 config MTK_QOS_FRAMEWORK
 	tristate "MTK QOS FRAMEWORK"
-	depends on MTK_TINYSYS_SSPM_SUPPORT
 	help
 	  This kernel config can be used to enable MTK QOS FRAMEWORK.
+	  When enabling this option, BW Limiter and BW Bound Detector
+	  will be enabled and set EMI hardware.
+	  If unsure, say N.
+
+config MTK_QOS_MT6893
+	tristate "MTK QOS for MT6893"
+	help
+          This kernel config can be used to enable MTK QOS MT6893.
 	  When enabling this option, BW Limiter and BW Bound Detector
 	  will be enabled and set EMI hardware.
 	  If unsure, say N.
