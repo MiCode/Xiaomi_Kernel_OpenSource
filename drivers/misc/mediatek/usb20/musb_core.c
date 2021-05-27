@@ -85,6 +85,7 @@
 #include <linux/io.h>
 #include <linux/idr.h>
 #include <linux/dma-mapping.h>
+#include <linux/proc_fs.h>
 
 #if defined(CONFIG_USBIF_COMPLIANCE)
 #include <linux/kthread.h>
@@ -2658,7 +2659,7 @@ static int musb_init_controller
 	if (status < 0)
 		goto fail3;
 
-#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_PROC_FS
 	status = musb_init_debugfs(musb);
 	if (status < 0)
 		goto fail4;
@@ -2672,7 +2673,7 @@ static int musb_init_controller
 	pm_runtime_put(musb->controller);
 
 	return 0;
-#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_PROC_FS
 #ifdef CONFIG_SYSFS
 fail5:
 	musb_exit_debugfs(musb);
@@ -2751,7 +2752,7 @@ static int musb_remove(struct platform_device *pdev)
 	 *  - Peripheral mode: peripheral is deactivated (or never-activated)
 	 *  - OTG mode: both roles are deactivated (or never-activated)
 	 */
-#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_PROC_FS
 	musb_exit_debugfs(musb);
 #endif
 	musb_shutdown(pdev);

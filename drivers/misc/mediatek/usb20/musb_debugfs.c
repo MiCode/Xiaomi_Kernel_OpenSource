@@ -30,7 +30,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/init.h>
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/string.h>
 
@@ -39,6 +39,15 @@
 #define MUSB_OTG_CSR0 0x102
 #include "musb_core.h"
 #include "musb_debug.h"
+
+#define PROC_DIR_MTK_USB "mtk_usb"
+#define PROC_FILE_TESTMODE "mtk_usb/testmode"
+#define PROC_FILE_REGDUMP "mtk_usb/regdump"
+#define PROC_FILE_REGW "mtk_usb/regw"
+#define PROC_FILE_REGR "mtk_usb/regr"
+
+#define PROC_FILE_NUM 4
+static struct proc_dir_entry *proc_files[PROC_FILE_NUM] = {NULL, NULL, NULL, NULL};
 
 struct musb_register_map {
 	char *name;
@@ -101,8 +110,6 @@ static const struct musb_register_map musb_regmap[] = {
 	{}			/* Terminating Entry */
 };
 
-static struct dentry *musb_debugfs_root;
-
 static int musb_regdump_show(struct seq_file *s, void *unused)
 {
 	struct musb *musb = s->private;
@@ -132,7 +139,7 @@ static int musb_regdump_show(struct seq_file *s, void *unused)
 
 static int musb_regdump_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_regdump_show, inode->i_private);
+	return single_open(file, musb_regdump_show, PDE_DATA(inode));
 }
 
 static int musb_test_mode_show(struct seq_file *s, void *unused)
@@ -178,7 +185,7 @@ static const struct file_operations musb_regdump_fops = {
 
 static int musb_test_mode_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_test_mode_show, inode->i_private);
+	return single_open(file, musb_test_mode_show, PDE_DATA(inode));
 }
 
 void musbdebugfs_otg_write_fifo(u16 len, u8 *buf, struct musb *mtk_musb)
@@ -395,7 +402,7 @@ static int musb_regw_show(struct seq_file *s, void *unused)
 
 static int musb_regw_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_regw_show, inode->i_private);
+	return single_open(file, musb_regw_show, PDE_DATA(inode));
 }
 
 static ssize_t musb_regw_mode_write
@@ -451,7 +458,7 @@ static ssize_t musb_regw_mode_write
 		musb_writeb(musb->mregs, offset, data);
 	} else {
 		if ((offset % 4) != 0) {
-			pr_err("Must use 32bits alignment address\n");
+			pr_notice("Must use 32bits alignment address\n");
 			return count;
 		}
 		pr_notice("Phy base adddr 0x%lx, Write 0x%x[0x%x]\n",
@@ -484,7 +491,7 @@ static int musb_regr_show(struct seq_file *s, void *unused)
 
 static int musb_regr_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_regr_show, inode->i_private);
+	return single_open(file, musb_regr_show, PDE_DATA(inode));
 }
 
 static ssize_t musb_regr_mode_write(struct file *file,
@@ -532,7 +539,7 @@ static ssize_t musb_regr_mode_write(struct file *file,
 			, musb_readb(musb->mregs, offset));
 	else {
 		if ((offset % 4) != 0) {
-			pr_err("Must use 32bits alignment address\n");
+			pr_notice("Must use 32bits alignment address\n");
 			return count;
 		}
 		pr_notice("Read Phy base adddr 0x%lx, Read 0x%x[0x%x]\n",
@@ -555,56 +562,57 @@ static const struct file_operations musb_regr_fops = {
 
 int musb_init_debugfs(struct musb *musb)
 {
-	struct dentry *root;
-	struct dentry *file;
-	int ret;
+	int idx = 0, ret;
 
-	root = debugfs_create_dir("musb", NULL);
-	if (!root) {
+	proc_mkdir(PROC_DIR_MTK_USB, NULL);
+
+	proc_files[idx] = proc_create_data(PROC_FILE_TESTMODE, 0644,
+			NULL, &musb_test_mode_fops, musb);
+	if (!proc_files[idx]) {
+		ret = -ENOMEM;
+		goto err0;
+	}
+	idx++;
+
+	proc_files[idx] = proc_create_data(PROC_FILE_REGDUMP, 0444,
+			NULL, &musb_regdump_fops, musb);
+	if (!proc_files[idx]) {
+		ret = -ENOMEM;
+		goto err0;
+	}
+	idx++;
+
+	proc_files[idx] = proc_create_data(PROC_FILE_REGW, 0444,
+			NULL, &musb_regw_fops, musb);
+	if (!proc_files[idx]) {
+		ret = -ENOMEM;
+		goto err0;
+	}
+	idx++;
+
+	proc_files[idx] = proc_create_data(PROC_FILE_REGR, 0644,
+			NULL, &musb_regr_fops, musb);
+	if (!proc_files[idx]) {
 		ret = -ENOMEM;
 		goto err0;
 	}
 
-	file = debugfs_create_file("regdump", 0444,
-			root, musb, &musb_regdump_fops);
-	if (!file) {
-		ret = -ENOMEM;
-		goto err1;
-	}
-
-	file = debugfs_create_file("testmode", 0644,
-			root, musb, &musb_test_mode_fops);
-	if (!file) {
-		ret = -ENOMEM;
-		goto err1;
-	}
-
-	file = debugfs_create_file("regw", 0644,
-			root, musb, &musb_regw_fops);
-	if (!file) {
-		ret = -ENOMEM;
-		goto err1;
-	}
-
-	file = debugfs_create_file("regr", 0644
-						, root, musb, &musb_regr_fops);
-	if (!file) {
-		ret = -ENOMEM;
-		goto err1;
-	}
-
-	musb_debugfs_root = root;
-
 	return 0;
 
-err1:
-	debugfs_remove_recursive(root);
-
 err0:
+	for (; idx >= 0; idx--) {
+		if (proc_files[idx])
+			proc_remove(proc_files[idx]);
+	}
 	return ret;
 }
 
 void /* __init_or_exit */ musb_exit_debugfs(struct musb *musb)
 {
-	debugfs_remove_recursive(musb_debugfs_root);
+	int idx = 0;
+
+	for (; idx < PROC_FILE_NUM; idx++) {
+		if (proc_files[idx])
+			proc_remove(proc_files[idx]);
+	}
 }
