@@ -1680,13 +1680,16 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 	}
 }
 
-static char *dump_charger_type(int type)
+static char *dump_charger_type(int chg_type, int usb_type)
 {
-	switch (type) {
+	switch (chg_type) {
 	case POWER_SUPPLY_TYPE_UNKNOWN:
 		return "none";
 	case POWER_SUPPLY_TYPE_USB:
-		return "usb";
+		if (usb_type == POWER_SUPPLY_USB_TYPE_SDP)
+			return "usb";
+		else
+			return "nonstd";
 	case POWER_SUPPLY_TYPE_USB_CDP:
 		return "usb-h";
 	case POWER_SUPPLY_TYPE_USB_DCP:
@@ -1733,8 +1736,8 @@ static int charger_routine_thread(void *arg)
 			get_battery_current(info),
 			info->battery_temp,
 			get_uisoc(info),
-			dump_charger_type(info->chr_type),
-			dump_charger_type(get_charger_type(info)),
+			dump_charger_type(info->chr_type, info->usb_type),
+			dump_charger_type(get_charger_type(info), get_usb_type(info)),
 			info->pd_type);
 
 		is_charger_on = mtk_is_charger_on(info);
