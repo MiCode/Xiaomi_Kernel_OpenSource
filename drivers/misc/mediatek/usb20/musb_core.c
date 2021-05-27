@@ -211,9 +211,6 @@ static const struct of_device_id apusb_of_ids[] = {
 };
 
 /* void __iomem	*USB_BASE; */
-
-module_param_named(speed, musb_speed, uint, 0644);
-MODULE_PARM_DESC(debug, "USB speed configuration. default = 1, high speed");
 module_param_named(debug, musb_debug, uint, 0644);
 MODULE_PARM_DESC(debug, "Debug message level. Default = 0");
 module_param_named(debug_limit, musb_debug_limit, uint, 0644);

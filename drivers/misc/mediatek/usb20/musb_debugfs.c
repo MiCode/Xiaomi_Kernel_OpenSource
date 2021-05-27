@@ -45,9 +45,11 @@
 #define PROC_FILE_REGDUMP "mtk_usb/regdump"
 #define PROC_FILE_REGW "mtk_usb/regw"
 #define PROC_FILE_REGR "mtk_usb/regr"
+#define PROC_FILE_SPEED "mtk_usb/speed"
 
-#define PROC_FILE_NUM 4
-static struct proc_dir_entry *proc_files[PROC_FILE_NUM] = {NULL, NULL, NULL, NULL};
+#define PROC_FILE_NUM 5
+static struct proc_dir_entry *proc_files[PROC_FILE_NUM] = {
+	NULL, NULL, NULL, NULL, NULL};
 
 struct musb_register_map {
 	char *name;
@@ -560,6 +562,44 @@ static const struct file_operations musb_regr_fops = {
 	.release = single_release,
 };
 
+static int musb_speed_show(struct seq_file *s, void *unused)
+{
+	seq_printf(s, "musb_speed = %d\n", musb_speed);
+	return 0;
+}
+
+static int musb_speed_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, musb_speed_show, PDE_DATA(inode));
+}
+
+static ssize_t musb_speed_write(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	char buf[20];
+	unsigned int val;
+
+	memset(buf, 0x00, sizeof(buf));
+
+	if (copy_from_user(buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 10, &val) == 0 && val >= 0 && val <= 1)
+		musb_speed = val;
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+static const struct file_operations musb_speed_fops = {
+	.open = musb_speed_open,
+	.write = musb_speed_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 int musb_init_debugfs(struct musb *musb)
 {
 	int idx = 0, ret;
@@ -596,7 +636,14 @@ int musb_init_debugfs(struct musb *musb)
 		ret = -ENOMEM;
 		goto err0;
 	}
+	idx++;
 
+	proc_files[idx] = proc_create_data(PROC_FILE_SPEED, 0644,
+			NULL, &musb_speed_fops, musb);
+	if (!proc_files[idx]) {
+		ret = -ENOMEM;
+		goto err0;
+	}
 	return 0;
 
 err0:

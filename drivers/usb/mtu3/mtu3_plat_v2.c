@@ -40,29 +40,6 @@ MODULE_PARM_DESC(debug_level, "Debug Print Log Lvl");
  * 1: Super Speed
  */
 u32 mtu3_speed;
-static int set_musb_speed(const char *val, const struct kernel_param *kp)
-{
-	int ret;
-	u32 u3_en;
-
-	ret = kstrtou32(val, 10, &u3_en);
-	if (ret)
-		return ret;
-
-	if (u3_en != 0 && u3_en != 1)
-		return -EINVAL;
-
-	mtu3_speed = u3_en;
-
-	return 0;
-}
-static struct kernel_param_ops musb_speed_param_ops = {
-	.set = set_musb_speed,
-	.get = param_get_int,
-};
-module_param_cb(speed, &musb_speed_param_ops, &mtu3_speed, 0644);
-MODULE_PARM_DESC(debug, "USB speed configuration. default = 1, spuper speed.");
-
 
 #ifdef CONFIG_SYSFS
 const char *const mtu3_mode_str[CABLE_MODE_MAX] = { "CHRG_ONLY",
