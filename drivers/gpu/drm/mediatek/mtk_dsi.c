@@ -47,6 +47,8 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_arr.h"
 #include "mtk_panel_ext.h"
+#include "mtk_drm_trace.h"
+
 /* ************ Panel Master ********** */
 #include "mtk_drm_fbdev.h"
 #include "mtk_fbconfig_kdebug.h"
@@ -4950,6 +4952,9 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 		DDPPR_ERR("%s: cmdq_handle is null or err\n", __func__);
 		return;
 	}
+
+	mtk_drm_trace_begin("%s\n", __func__);
+
 	/* 1. wait frame done & wait DSI not busy */
 	cmdq_pkt_wait_no_clear(cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
@@ -5006,6 +5011,7 @@ skip_change_mipi:
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	if (IS_ERR_OR_NULL(cmdq_handle2)) {
 		DDPPR_ERR("%s: cmdq_handle2 is null or err\n", __func__);
+		mtk_drm_trace_end();
 		return;
 	}
 	mtk_dsi_poll_for_idle(dsi, cmdq_handle2);
@@ -5017,6 +5023,8 @@ skip_change_mipi:
 		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 	cmdq_pkt_flush(cmdq_handle2);
 	cmdq_pkt_destroy(cmdq_handle2);
+
+	mtk_drm_trace_end();
 }
 
 static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
@@ -5073,6 +5081,9 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 				__func__, __LINE__);
 		return;
 	}
+
+	mtk_drm_trace_begin("%s\n", __func__);
+
 	mtk_crtc_pkt_create(&handle, &(mtk_crtc->base), client);
 
 	if (fps_chg_index & DYNFPS_DSI_MIPI_CLK) {
@@ -5129,6 +5140,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 			if (!comp) {
 				DDPPR_ERR("ddp comp is NULL\n");
+				mtk_drm_trace_end();
 				return;
 			}
 
@@ -5155,6 +5167,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 	if (cmdq_pkt_flush_threaded(handle,
 		mtk_dsi_dy_fps_cmdq_cb, cb_data) < 0)
 		DDPPR_ERR("failed to flush dsi_dy_fps\n");
+	mtk_drm_trace_end();
 }
 
 static void mtk_dsi_timing_change(struct mtk_dsi *dsi,
