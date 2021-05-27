@@ -3828,6 +3828,34 @@
 				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA5_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_MFB_WDMA0_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_MFB_WDMA1_MDP>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_MFB_RDMA0_MDP)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_MFB_RDMA1_MDP)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_MFB_RDMA2_MDP)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_MFB_RDMA3_MDP)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_MFB_RDMA4_MDP)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_MFB_RDMA5_MDP)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_MFB_WDMA0_MDP)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_MFB_WDMA1_MDP)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names =
+				"mfb_qos_rdma0",
+				"mfb_qos_rdma1",
+				"mfb_qos_rdma2",
+				"mfb_qos_rdma3",
+				"mfb_qos_rdma4",
+				"mfb_qos_rdma5",
+				"mfb_qos_wdma0",
+				"mfb_qos_wdma1";
+			operating-points-v2 = <&opp_table_img>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		wpe_a@15011000 {
