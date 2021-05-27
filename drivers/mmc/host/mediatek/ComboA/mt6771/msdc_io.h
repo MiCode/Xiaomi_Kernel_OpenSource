@@ -102,9 +102,31 @@ void msdc_clk_enable_and_stable(struct msdc_host *host);
 		if (host->hclk_ctl) \
 			clk_disable(host->hclk_ctl); \
 	} while (0)
+#define msdc_clk_prepare_enable(host) \
+	do { \
+		if (host->src_hclk_ctl) \
+			(void)clk_prepare_enable(host->src_hclk_ctl); \
+		(void)clk_prepare_enable(host->clk_ctl); \
+		if (host->aes_clk_ctl) \
+			(void)clk_prepare_enable(host->aes_clk_ctl); \
+		if (host->hclk_ctl) \
+			(void)clk_prepare_enable(host->hclk_ctl); \
+	} while (0)
+#define msdc_clk_disable_unprepare(host) \
+	do { \
+		clk_disable_unprepare(host->clk_ctl); \
+		if (host->aes_clk_ctl) \
+			clk_disable_unprepare(host->aes_clk_ctl); \
+		if (host->hclk_ctl) \
+			clk_disable_unprepare(host->hclk_ctl); \
+		if (host->src_hclk_ctl) \
+			clk_disable_unprepare(host->src_hclk_ctl); \
+	} while (0)
 #else
 #define msdc_clk_enable(host)
 #define msdc_clk_disable(host)
+#define msdc_clk_prepare_enable(host)
+#define msdc_clk_disable_unprepare(host)
 #endif
 
 #endif
