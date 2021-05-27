@@ -26,6 +26,7 @@
 #endif
 #include <linux/sched.h>
 #include <linux/sched/task_stack.h>
+#include <linux/sched/mm.h>
 #include <linux/semaphore.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
@@ -1732,9 +1733,10 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		unsigned long start = 0;
 		unsigned long end = 0, length = 0;
 		unsigned char *maps;
-		int mapsLength;
+		int mapsLength = 0;
 		unsigned char *stack;
 		int copied;
+		struct mm_struct *rms_mm;
 
 		pr_info("Get direct unwind backtrace info");
 
@@ -1760,6 +1762,8 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				goto EXIT;
 			}
 
+			get_task_struct(task);
+
 			rcu_read_unlock();
 			// 1. get registers
 			user_ret = task_pt_regs(task);
@@ -1767,37 +1771,40 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_to_user((void *)thread_info.regs, user_ret,
 				sizeof(struct pt_regs))) {
 				ret = -EFAULT;
+				put_task_struct(task);
 				goto EXIT;
 			}
 
 			// 2. get maps
-			if ((!user_mode(user_ret)) || !task->mm) {
+			if ((!user_mode(user_ret))) {
 				ret = -EFAULT;
+				put_task_struct(task);
+				goto EXIT;
+			}
+
+			rms_mm = get_task_mm(task);
+			if (!rms_mm) {
+				ret = -EFAULT;
+				put_task_struct(task);
 				goto EXIT;
 			}
 
 			maps = vmalloc(MaxMapsSize);
 			if (!maps) {
 				ret = -ENOMEM;
+				mmput(rms_mm);
+				put_task_struct(task);
 				goto EXIT;
 			}
 			memset(maps, 0, MaxMapsSize);
-			down_read(&task->mm->mmap_lock);
-			vma = task->mm->mmap;
-			while (vma && (mapcount < task->mm->map_count)) {
+
+			mmap_read_lock(rms_mm);
+			vma = rms_mm->mmap;
+			while (vma && (mapcount < rms_mm->map_count)) {
 				show_map_vma(maps, &mapsLength, vma);
 				vma = vma->vm_next;
 				mapcount++;
 			}
-
-			if (copy_to_user(thread_info.Userthread_maps,
-				maps, mapsLength)) {
-				vfree(maps);
-				ret = -EFAULT;
-				goto EXIT;
-			}
-			vfree(maps);
-			thread_info.Userthread_mapsLength = mapsLength;
 
 			// 3. get stack
 #ifndef __aarch64__ //K32+U32
@@ -1808,7 +1815,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			else //K64+U64
 				start = (ulong)user_ret->user_regs.sp;
 #endif
-			vma = task->mm->mmap;
+			vma = rms_mm->mmap;
 			while (vma) {
 				if (vma->vm_start <= start &&
 					vma->vm_end >= start) {
@@ -1816,11 +1823,21 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					break;
 				}
 				vma = vma->vm_next;
-				if (vma == task->mm->mmap)
+				if (vma == rms_mm->mmap)
 					break;
 			}
 
-			up_read(&task->mm->mmap_lock);
+			mmap_read_unlock(rms_mm);
+			mmput(rms_mm);
+			put_task_struct(task);
+			if (copy_to_user(thread_info.Userthread_maps,
+				maps, mapsLength)) {
+				vfree(maps);
+				ret = -EFAULT;
+				goto EXIT;
+			}
+			vfree(maps);
+			thread_info.Userthread_mapsLength = mapsLength;
 			if (end == 0) {
 				pr_info("Dump native stack failed:\n");
 				ret = -EFAULT;
