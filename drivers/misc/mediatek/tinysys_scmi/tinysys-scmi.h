@@ -4,7 +4,7 @@
  */
 #include <linux/scmi_protocol.h>
 
-#define SCMI_TINYSYS_CB_MAX		10
+#define SCMI_TINYSYS_CB_MAX		20 /* must large/equal than tinysys side define */
 
 struct scmi_tinysys_power_state_notifier_payld {
 	__le32 f_id;

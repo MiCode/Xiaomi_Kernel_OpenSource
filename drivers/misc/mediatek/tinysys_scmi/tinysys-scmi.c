@@ -41,6 +41,7 @@ int scmi_tinysys_notifier_fn(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
 	struct scmi_tinysys_power_state_notifier_report *r = data;
+	scmi_tinysys_report* report = (scmi_tinysys_report *)&(r->f_id);
 	f_handler_t func;
 
 	/* pr_notice("scmi notify report ktime:%ld f_id:%d p1:%d %d %d %d\n",
@@ -51,7 +52,7 @@ int scmi_tinysys_notifier_fn(struct notifier_block *nb,
 
 		func = cb_array[r->f_id];
 		if(func)
-			func(r->f_id, data);
+			func(r->f_id, report);
 	}
 	return NOTIFY_OK;
 }
@@ -96,6 +97,12 @@ EXPORT_SYMBOL(scmi_tinysys_register_event_notifier);
 
 #ifdef TINYSYS_SCMI_DEBUG
 
+void test_callback(u32 feature_id, scmi_tinysys_report* r)
+{
+	pr_notice("scmi test_callback %d, %x %x %x %x %x\n",
+		feature_id, r->feature_id, r->p1, r->p2, r->p3, r->p4);
+}
+
 static ssize_t tinysys_scmi_debug_store(struct device *kobj,
 	struct device_attribute *attr, const char *buf, size_t n)
 {
@@ -123,9 +130,10 @@ static ssize_t tinysys_scmi_debug_store(struct device *kobj,
 		if(ret)
 			pr_notice("%s scmi_tinysys_common_get error ret = %d\n", prompt, ret);
 		else
-			pr_notice("%s scmi_tinysys_common_get status:%d r1:%d r2:%d r3:%d\n", prompt, rvalue.status, rvalue.r1, rvalue.r2, rvalue.r3);
+			pr_notice("%s scmi_tinysys_common_get r1:%d r2:%d r3:%d\n", prompt,  rvalue.r1, rvalue.r2, rvalue.r3);
 		break;
 	case 2:
+		scmi_tinysys_register_event_notifier(f_id, (f_handler_t)test_callback);
 		ret = scmi_tinysys_event_notify(f_id, 1);
 		break;
 	case 3:
