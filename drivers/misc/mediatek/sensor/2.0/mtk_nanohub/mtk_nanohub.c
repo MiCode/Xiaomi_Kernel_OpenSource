@@ -315,8 +315,10 @@ static void mtk_nanohub_sync_time_func(unsigned long data)
 static int mtk_nanohub_direct_push_work(void *data)
 {
 	for (;;) {
-		wait_event(chre_kthread_wait,
-			READ_ONCE(chre_kthread_wait_condition));
+		if (wait_event_interruptible(chre_kthread_wait,
+			READ_ONCE(chre_kthread_wait_condition)))
+			continue;
+
 		WRITE_ONCE(chre_kthread_wait_condition, false);
 		mtk_nanohub_read_wp_queue();
 	}
@@ -1793,8 +1795,10 @@ void mtk_nanohub_power_up_loop(void *data)
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
 	unsigned long flags = 0;
 
-	wait_event(power_reset_wait,
-		READ_ONCE(scp_system_ready) && READ_ONCE(scp_chre_ready));
+	if (wait_event_interruptible(power_reset_wait,
+		READ_ONCE(scp_system_ready) && READ_ONCE(scp_chre_ready)))
+		return;
+
 	spin_lock_irqsave(&scp_state_lock, flags);
 	WRITE_ONCE(scp_chre_ready, false);
 	WRITE_ONCE(scp_system_ready, false);
