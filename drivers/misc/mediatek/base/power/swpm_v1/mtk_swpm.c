@@ -131,18 +131,6 @@ static int dump_power_proc_show(struct seq_file *m, void *v)
 
 static int dump_lkg_power_proc_show(struct seq_file *m, void *v)
 {
-	int i, j;
-
-	if (!swpm_info_ref)
-		return 0;
-
-	for (i = 0; i < NR_CPU_LKG_TYPE; i++) {
-		for (j = 0; j < 16; j++) {
-			seq_printf(m, "type %d opp%d lkg = %d\n", i, j,
-				swpm_info_ref->cpu_lkg_pwr[i][j]);
-		}
-	}
-
 	return 0;
 }
 

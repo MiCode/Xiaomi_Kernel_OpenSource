@@ -307,12 +307,14 @@ void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 
 static inline void swpm_pass_to_sspm(void)
 {
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #ifdef CONFIG_MTK_DRAMC
 	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
 		(unsigned int)(rec_size & 0xFFFFFFFF), get_emi_ch_num());
 #else
 	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
 		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
+#endif
 #endif
 }
 
