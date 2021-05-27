@@ -175,8 +175,7 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 			dstbuf->vb.vb2_buf.timestamp == ctx->input_max_ts)
 			dstbuf->vb.flags |= V4L2_BUF_FLAG_LAST;
 
-		if (ctx->input_driven)
-			dstbuf->vb.vb2_buf.timestamp =
+		dstbuf->vb.vb2_buf.timestamp =
 				disp_frame_buffer->timestamp;
 
 		mtk_v4l2_debug(2,
