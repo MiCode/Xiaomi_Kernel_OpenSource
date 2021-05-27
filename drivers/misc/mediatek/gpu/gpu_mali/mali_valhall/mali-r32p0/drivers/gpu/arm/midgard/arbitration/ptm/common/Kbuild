@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note OR MIT
+#
+# (C) COPYRIGHT 2021 Arm Limited or its affiliates. All rights reserved.
+#
+#
+
+# Only build this symbol when compiling built-in modules.
+obj-y += mali_gpu_ptm_msg.o
+
+ccflags-y += $(DEFINES)
+ccflags-y += -I$(src)
+ccflags-y += -I$(src)/../include
+ccflags-y += -I$(src)/../../include
+ccflags-y += -I$(src)/../../../arbiter
+subdir-ccflags-y += $(DEFINES)
+

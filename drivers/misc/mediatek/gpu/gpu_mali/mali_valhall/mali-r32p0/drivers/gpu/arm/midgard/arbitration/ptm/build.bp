@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note OR MIT */
+
+/*
+ * (C) COPYRIGHT 2020-2021 Arm Limited or its affiliates. All rights reserved.
+ */
+
+/* Default settings shared among Partition Manager modules */
+bob_defaults {
+    name: "mali_ptm_config_defaults",
+    kbuild_options: [
+        "CONFIG_MALI_PARTITION_MANAGER=m",
+    ],
+    local_include_dirs: [
+        "include",
+    ],
+    enabled: false,
+    build_ptm_modules: {
+        enabled: true,
+    },
+    buslog: {
+        extra_symbols: [
+            "bus_logger",
+        ],
+    },
+    defaults: [
+        "mali_kbase_shared_config_defaults",
+    ],
+}
