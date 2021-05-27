@@ -913,7 +913,7 @@ static void accdet_get_efuse(void)
 	accdet_auxadc_offset = efuseval & 0xFF;
 	if (accdet_auxadc_offset > 128)
 		accdet_auxadc_offset -= 256;
-	accdet_auxadc_offset = (accdet_auxadc_offset >> 1);
+	accdet_auxadc_offset = (accdet_auxadc_offset/2);
 	pr_info("%s efuse=0x%x,auxadc_val=%dmv\n", __func__, efuseval,
 		accdet_auxadc_offset);
 
