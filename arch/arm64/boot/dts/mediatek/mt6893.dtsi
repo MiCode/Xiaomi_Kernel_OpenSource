@@ -14,6 +14,7 @@
 #include <dt-bindings/power/mt6893-power.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/gce/mt6885-gce.h>
+#include <dt-bindings/mml/mml-mt6893.h>
 #include <dt-bindings/reset/ti-syscon.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <dt-bindings/thermal/thermal.h>
@@ -5697,6 +5698,61 @@
 			#clock-cells = <1>;
 		};
 
+		mmlsys_config: mmlsys_config {
+			compatible = "mediatek,mmlsys_config", "mediatek,mt6893-mml";
+			reg = <0 0x1f000000 0 0x1000>;
+			#clock-cells = <1>;
+			comp-count = <MML_ENGINE_TOTAL>;
+		};
+
+		mml_rdma0: mml_rdma0@1f006000 {
+			compatible = "mediatek,mml_rdma0", "mediatek,mt6893-mml_rdma";
+			reg = <0 0x1f006000 0 0x1000>;
+			clocks = <&mdpsys CLK_MDP_RDMA0>;
+			clock-names = "MDP_RDMA0";
+			comp-id = <MML_RDMA0>;
+		};
+
+		mml_rdma1: mml_rdma1@1f007000 {
+			compatible = "mediatek,mml_rdma1", "mediatek,mt6893-mml_rdma";
+			reg = <0 0x1f007000 0 0x1000>;
+			clocks = <&mdpsys CLK_MDP_RDMA1>;
+			clock-names = "MDP_RDMA1";
+			comp-id = <MML_RDMA1>;
+		};
+
+		mml_rsz0: mml_rsz0@1f012000 {
+			compatible = "mediatek,mdp_rsz0", "mediatek,mml_rsz0", "mediatek,mt6893-mml_rsz";
+			reg = <0 0x1f012000 0 0x1000>;
+			clocks = <&mdpsys CLK_MDP_RSZ0>;
+			clock-names = "MDP_RSZ0";
+			comp-id = <MML_RSZ0>;
+		};
+
+		mml_rsz1: mml_rsz1@1f013000 {
+			compatible = "mediatek,mdp_rsz1", "mediatek,mml_rsz1", "mediatek,mt6893-mml_rsz";
+			reg = <0 0x1f013000 0 0x1000>;
+			clocks = <&mdpsys CLK_MDP_RSZ1>;
+			clock-names = "MDP_RSZ1";
+			comp-id = <MML_RSZ1>;
+		};
+
+		mml_wrot0: mml_wrot0@1f016000 {
+			compatible = "mediatek,mml_wrot0", "mediatek,mt6893-mml_wrot";
+			reg = <0 0x1f016000 0 0x1000>;
+			clocks = <&mdpsys CLK_MDP_WROT0>;
+			clock-names = "MDP_WROT0";
+			comp-id = <MML_WROT0>;
+		};
+
+		mml_wrot1: mml_wrot1@1f017000 {
+			compatible = "mediatek,mml_wrot1", "mediatek,mt6893-mml_wrot";
+			reg = <0 0x1f017000 0 0x1000>;
+			clocks = <&mdpsys CLK_MDP_WROT1>;
+			clock-names = "MDP_WROT1";
+			comp-id = <MML_WROT1>;
+		};
+
 		mdpsys_config: mdpsys_config@1f000000 {
 			compatible = "mediatek,mdpsys_config", "syscon";
 			reg = <0 0x1f000000 0 0x1000>;
@@ -5751,8 +5807,8 @@
 			mdp_rdma3  = <&mdp_rdma3>;
 			mdp_fg0    = <&mdp_fg0>;
 			mdp_fg1    = <&mdp_fg1>;
-			mdp_rsz0   = <&mdp_rsz0>;
-			mdp_rsz1   = <&mdp_rsz1>;
+			mdp_rsz0   = <&mml_rsz0>;
+			mdp_rsz1   = <&mml_rsz1>;
 			mdp_rsz2   = <&mdp_rsz2>;
 			mdp_rsz3   = <&mdp_rsz3>;
 			mdp_wrot0  = <&mdp_wrot0>;
@@ -6215,20 +6271,6 @@
 			reg = <0 0x1f011000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_HDR1>;
 			clock-names = "MDP_HDR1";
-		};
-
-		mdp_rsz0: mdp_rsz0@1f012000 {
-			compatible = "mediatek,mdp_rsz0";
-			reg = <0 0x1f012000 0 0x1000>;
-			clocks = <&mdpsys CLK_MDP_RSZ0>;
-			clock-names = "MDP_RSZ0";
-		};
-
-		mdp_rsz1: mdp_rsz1@1f013000 {
-			compatible = "mediatek,mdp_rsz1";
-			reg = <0 0x1f013000 0 0x1000>;
-			clocks = <&mdpsys CLK_MDP_RSZ1>;
-			clock-names = "MDP_RSZ1";
 		};
 
 		mdp_rsz2: mdp_rsz2@1f014000 {
