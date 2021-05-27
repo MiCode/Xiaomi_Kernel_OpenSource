@@ -619,7 +619,10 @@ static int mtk_crtc_enable_vblank_thread(void *data)
 		ret = wait_event_interruptible(
 			mtk_crtc->vblank_enable_wq,
 			atomic_read(&mtk_crtc->vblank_enable_task_active));
-
+		if (ret) {
+			DDPPR_ERR("%s wait_event_interruptible failed, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 		if (mtk_crtc->enabled)
 			mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
@@ -1956,6 +1959,11 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 
 	if (lyeblob_ids->ddp_blob_id) {
 		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
+
+		if (blob == NULL) {
+			DDPPR_ERR("drm_property_lookup_blob return NULL\n");
+			return;
+		}
 		lye_state = (struct mtk_lye_ddp_state *)blob->data;
 		drm_property_unreference_blob(blob);
 		old_lye_state = &state->lye_state;
@@ -6843,6 +6851,10 @@ static int mtk_drm_fake_vsync_kthread(void *data)
 		ret = wait_event_interruptible(fake_vsync->fvsync_wq,
 				atomic_read(&fake_vsync->fvsync_active));
 
+		if (ret) {
+			DDPPR_ERR("%s wait_event_interruptible failed, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		mtk_crtc_vblank_irq(crtc);
 		usleep_range(16700, 17700);
 
@@ -6904,6 +6916,7 @@ static int dc_main_path_commit_thread(void *data)
 
 static int mtk_drm_pf_release_thread(void *data)
 {
+	int ret;
 	struct sched_param param = {.sched_priority = 87};
 	struct mtk_drm_private *private;
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
@@ -6917,8 +6930,12 @@ static int mtk_drm_pf_release_thread(void *data)
 	sched_setscheduler(current, SCHED_RR, &param);
 
 	while (!kthread_should_stop()) {
-		wait_event_interruptible(mtk_crtc->present_fence_wq,
-				 atomic_read(&mtk_crtc->pf_event));
+		ret = wait_event_interruptible(mtk_crtc->present_fence_wq,
+			atomic_read(&mtk_crtc->pf_event));
+		if (ret) {
+			DDPPR_ERR("%s wait_event_interruptible failed, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		atomic_set(&mtk_crtc->pf_event, 0);
 
 		mutex_lock(&private->commit.lock);
@@ -6942,6 +6959,7 @@ static int mtk_drm_sf_pf_release_thread(void *data)
 	struct drm_crtc *crtc;
 	struct cmdq_pkt_buffer *cmdq_buf;
 	unsigned int fence_idx, crtc_idx;
+	int ret = 0;
 
 	crtc = &mtk_crtc->base;
 	private = crtc->dev->dev_private;
@@ -6949,8 +6967,12 @@ static int mtk_drm_sf_pf_release_thread(void *data)
 	sched_setscheduler(current, SCHED_RR, &param);
 
 	while (!kthread_should_stop()) {
-		wait_event_interruptible(mtk_crtc->sf_present_fence_wq,
+		ret = wait_event_interruptible(mtk_crtc->sf_present_fence_wq,
 					 atomic_read(&mtk_crtc->sf_pf_event));
+		if (ret) {
+			DDPPR_ERR("%s wait_event_interruptible failed, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		atomic_set(&mtk_crtc->sf_pf_event, 0);
 
 		mutex_lock(&private->commit.lock);
@@ -7998,9 +8020,9 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 
 		/* Switch main display path, take away ovl0_2l from main display */
 		if (priv->need_vds_path_switch) {
-			struct mtk_ddp_comp *comp_ovl0;
-			struct mtk_ddp_comp *comp_ovl0_2l;
-			struct cmdq_pkt *cmdq_handle;
+			struct mtk_ddp_comp *comp_ovl0 = NULL;
+			struct mtk_ddp_comp *comp_ovl0_2l = NULL;
+			struct cmdq_pkt *cmdq_handle = NULL;
 			struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
 			int keep_first_layer = false;
 

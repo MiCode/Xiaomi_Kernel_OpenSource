@@ -2289,6 +2289,10 @@ static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 
 	priv->top_clk = devm_kmalloc_array(dev, priv->top_clk_num,
 					   sizeof(*priv->top_clk), GFP_KERNEL);
+	if (!priv->top_clk) {
+		DDPPR_ERR("%s: devm_kmalloc_array failed\n", __func__);
+		return;
+	}
 
 	for (i = 0; i < priv->top_clk_num; i++) {
 		clk = of_clk_get(node, i);
@@ -3130,7 +3134,7 @@ long mtk_drm_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 			  __func__, task_pid_nr(current),
 			  (long)old_encode_dev(file_priv->minor->kdev->devt),
 			  file_priv->authenticated,
-			  mtk_compat_ioctls[nr].name);
+			  mtk_compat_ioctls[nr - DRM_COMMAND_BASE].name);
 	ret = (*fn)(filp, cmd, arg);
 	if (ret)
 		DDPMSG("ret = %d\n", ret);

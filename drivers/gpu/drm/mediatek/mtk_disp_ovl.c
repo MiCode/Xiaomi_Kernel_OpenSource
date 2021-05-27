@@ -3476,12 +3476,18 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 
 static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 {
-	struct mtk_disp_ovl *priv = dev_get_drvdata(comp->dev);
+	struct mtk_disp_ovl *priv = NULL;
 	int ret;
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 #endif
 	struct mtk_drm_private *dev_priv = NULL;
+
+	if (comp == NULL) {
+		DDPPR_ERR("mtk_ddp_comp is NULL\n");
+		return;
+	}
+	priv = dev_get_drvdata(comp->dev);
 
 	mtk_ddp_comp_clk_prepare(comp);
 

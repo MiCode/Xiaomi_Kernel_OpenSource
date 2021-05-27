@@ -319,7 +319,7 @@ static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 	if (drm_crtc_index(crtc) != 0)
 		return;
 
-	if (level < 0 || level > MAX_FREQ_STEP)
+	if (level < 0 || level >= MAX_FREQ_STEP)
 		level = -1;
 
 	if (level == g_freq_level)

@@ -562,6 +562,10 @@ static void mtk_fake_engine_share_port_config(struct drm_crtc *crtc,
 				fake_eng_data->fake_eng_num,
 				sizeof(void __iomem *),
 				GFP_KERNEL);
+		if (!baddr) {
+			DDPPR_ERR("%s: devm_kmalloc_array failed\n", __func__);
+			return;
+		}
 		for (i = 0; i < fake_eng_data->fake_eng_num; i++) {
 			larb_node = of_parse_phandle(priv->mmsys_dev->of_node,
 				"fake-engine", i * 2);
@@ -647,6 +651,10 @@ void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
 					fake_eng_data->fake_eng_num,
 					sizeof(struct mtk_drm_gem_obj *),
 					GFP_KERNEL);
+			if (!gem) {
+				DDPPR_ERR("%s: devm_kmalloc_array failed\n", __func__);
+				return;
+			}
 			for (i = 0; i < fake_eng_data->fake_eng_num; i++) {
 				gem[i] = mtk_drm_gem_create(crtc->dev,
 							1024*1024, true);

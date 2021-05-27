@@ -342,7 +342,10 @@ static int mtk_drm_request_eint(struct drm_crtc *crtc)
 		return -EINVAL;
 	}
 
-	of_property_read_u32_array(node, "debounce", ints, ARRAY_SIZE(ints));
+	ret = of_property_read_u32_array(node, "debounce", ints, ARRAY_SIZE(ints));
+	if (ret)
+		DDPPR_ERR("debounce not found\n");
+
 	esd_ctx->eint_irq = irq_of_parse_and_map(node, 0);
 
 	ret = request_irq(esd_ctx->eint_irq, _esd_check_ext_te_irq_handler,
@@ -472,10 +475,10 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
-	struct mtk_drm_private *private = crtc->dev->dev_private;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
-	struct mtk_panel_ext *panel_ext = mtk_crtc->panel_ext;
+	struct mtk_drm_private *private = NULL;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct mtk_drm_esd_ctx *esd_ctx = NULL;
+	struct mtk_panel_ext *panel_ext = NULL;
 	int ret = 0;
 	int i = 0;
 	int recovery_flg = 0;
@@ -486,6 +489,10 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 		DDPPR_ERR("%s invalid CRTC context, stop thread\n", __func__);
 		return -EINVAL;
 	}
+	private = crtc->dev->dev_private;
+	mtk_crtc = to_mtk_crtc(crtc);
+	esd_ctx = mtk_crtc->esd_ctx;
+	panel_ext = mtk_crtc->panel_ext;
 
 	if (unlikely(!(panel_ext && panel_ext->params))) {
 		DDPPR_ERR("%s invalid  panel_ext handle\n", __func__);
