@@ -226,6 +226,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		break;
 	case MTU3_VBUS_OFF:
 		spin_lock_irqsave(&mtu->lock, flags);
+		mtu3_nuke_all_ep(mtu);
 		mtu3_stop(mtu);
 		/* report disconnect */
 		if (mtu->g.speed != USB_SPEED_UNKNOWN)
