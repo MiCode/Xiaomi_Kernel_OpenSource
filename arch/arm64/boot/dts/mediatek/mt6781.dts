@@ -3078,6 +3078,7 @@
 			pwms = <&disp_pwm 0 39385>;
 			max-brightness = <255>;
 			led-bits = <8>;
+			default-state = "on";
 			pwm-names = "lcd-backlight";
 		};
 	};
