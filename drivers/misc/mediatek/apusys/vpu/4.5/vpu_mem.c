@@ -504,7 +504,7 @@ static void vpu_iova_free(struct device *dev, struct vpu_iova *i)
 	/* skip, if already deleted by .exit() */
 	if (i->time) {
 		mutex_lock(&vpu_drv->vi_lock);
-		list_del(&i->list);
+		list_del_init(&i->list);
 		i->time = 0;
 		mutex_unlock(&vpu_drv->vi_lock);
 	}
