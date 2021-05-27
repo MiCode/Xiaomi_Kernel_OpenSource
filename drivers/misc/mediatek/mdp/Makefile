@@ -32,6 +32,11 @@ ccflags-y += -DMET_USER_EVENT_SUPPORT
 # Enable AEE
 ccflags-y += -DCMDQ_AEE_READY
 
+# iommu callback support
+ifeq ($(strip $(CONFIG_MTK_IOMMU)),y)
+#ccflags-y += -DMDP_IOMMU_DEBUG
+endif
+
 # secure path
 ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)

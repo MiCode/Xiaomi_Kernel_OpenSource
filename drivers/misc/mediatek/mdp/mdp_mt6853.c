@@ -1563,7 +1563,7 @@ static bool mdp_is_isp_camin(struct cmdqRecStruct *handle)
 		((1LL << CMDQ_ENG_MDP_CAMIN) | CMDQ_ENG_ISP_GROUP_BITS));
 }
 
-void cmdqMdpInitialSetting(void)
+void cmdqMdpInitialSetting(struct platform_device *pdev)
 {
 #ifdef CONFIG_MTK_IOMMU_V2
 	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
@@ -1686,7 +1686,7 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 	return gCmdqEngineGroupBits[engine_group];
 }
 
-static void cmdq_mdp_enable_common_clock(bool enable)
+static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 {
 #if IS_ENABLED(CONFIG_MTK_SMI)
 	struct device *larb = mdp_larb_dev_get();

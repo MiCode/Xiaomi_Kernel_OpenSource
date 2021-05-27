@@ -277,23 +277,23 @@ s32 cmdq_mdp_get_smi_usage(void)
 	return atomic_read(&mdp_ctx.mdp_smi_usage);
 }
 
-static void cmdq_mdp_common_clock_enable(void)
+static void cmdq_mdp_common_clock_enable(u64 engine_flag)
 {
 	s32 smi_ref = atomic_inc_return(&mdp_ctx.mdp_smi_usage);
 
 	CMDQ_MSG("[CLOCK]MDP SMI clock enable %d\n", smi_ref);
-	cmdq_mdp_get_func()->mdpEnableCommonClock(true);
+	cmdq_mdp_get_func()->mdpEnableCommonClock(true, engine_flag);
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 1);
 }
 
-static void cmdq_mdp_common_clock_disable(void)
+static void cmdq_mdp_common_clock_disable(u64 engine_flag)
 {
 	s32 smi_ref = atomic_dec_return(&mdp_ctx.mdp_smi_usage);
 
 	CMDQ_MSG("[CLOCK]MDP SMI clock disable %d\n", smi_ref);
-	cmdq_mdp_get_func()->mdpEnableCommonClock(false);
+	cmdq_mdp_get_func()->mdpEnableCommonClock(false, engine_flag);
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 0);
@@ -611,7 +611,7 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	 */
 	CMDQ_MSG("%s handle:0x%p pkt:0x%p engine:0x%016llx\n",
 		__func__, handle, handle->pkt, handle->engineFlag);
-	cmdq_mdp_common_clock_enable();
+	cmdq_mdp_common_clock_enable(handle->engineFlag);
 
 	CMDQ_PROF_START(current->pid, __func__);
 
@@ -718,7 +718,7 @@ static void cmdq_mdp_handle_stop(struct cmdqRecStruct *handle)
 
 	/* make sure smi clock off at last */
 	mutex_lock(&mdp_thread_mutex);
-	cmdq_mdp_common_clock_disable();
+	cmdq_mdp_common_clock_disable(handle->engineFlag);
 	mutex_unlock(&mdp_thread_mutex);
 }
 
@@ -1922,6 +1922,7 @@ static int cmdq_mdp_init_larb(struct platform_device *pdev)
 	larb_pdev = of_find_device_by_node(node);
 	if (WARN_ON(!larb_pdev)) {
 		of_node_put(node);
+		CMDQ_ERR("%s no larb support\n", __func__);
 		return -EINVAL;
 	}
 	of_node_put(node);
@@ -1978,7 +1979,7 @@ void cmdq_mdp_init(struct platform_device *pdev)
 	cmdq_dev_init_resource(cmdq_mdp_init_resource);
 
 	/* MDP initialization setting */
-	cmdq_mdp_get_func()->mdpInitialSet();
+	cmdq_mdp_get_func()->mdpInitialSet(pdev);
 	cmdq_mdp_init_pmqos(pdev);
 
 	mdp_pool.limit = &mdp_pool_limit;
@@ -1991,7 +1992,6 @@ void cmdq_mdp_init(struct platform_device *pdev)
 	CMDQ_LOG("dre hist sram start:%u\n", dre30_hist_sram_start);
 
 	cmdq_mdp_pool_create();
-	cmdq_mdp_init_larb(pdev);
 }
 EXPORT_SYMBOL(cmdq_mdp_init);
 
@@ -2151,9 +2151,10 @@ static bool mdp_check_handle_dummy(struct cmdqRecStruct *handle)
 }
 
 /* MDP Initialization setting */
-void cmdqMdpInitialSetting_virtual(void)
+void cmdqMdpInitialSetting_virtual(struct platform_device *pdev)
 {
-	/* Do Nothing */
+	/* common larb init only support 1 larb */
+	cmdq_mdp_init_larb(pdev);
 }
 
 /* test MDP clock function */
@@ -2227,7 +2228,7 @@ long cmdq_mdp_get_module_base_VA_MMSYS_CONFIG(void)
 	return cmdq_mmsys_base;
 }
 
-static void cmdq_mdp_enable_common_clock_virtual(bool enable)
+static void cmdq_mdp_enable_common_clock_virtual(bool enable, u64 engine_flag)
 {
 #ifdef CMDQ_PWR_AWARE
 #if IS_ENABLED(CONFIG_MTK_SMI)

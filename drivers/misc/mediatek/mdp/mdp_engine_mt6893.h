@@ -86,6 +86,17 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_MAX = CMDQ_MAX_ENGINE_COUNT	/* ALWAYS keep at the end */
 };
 
+#define MDP_ENG_LARB2 ((1LL << CMDQ_ENG_MDP_RDMA0) | \
+		       (1LL << CMDQ_ENG_MDP_RDMA2) | \
+		       (1LL << CMDQ_ENG_MDP_WROT0) | \
+		       (1LL << CMDQ_ENG_MDP_WROT2))
+
+#define MDP_ENG_LARB3 ((1LL << CMDQ_ENG_MDP_RDMA1) | \
+		       (1LL << CMDQ_ENG_MDP_RDMA3) | \
+		       (1LL << CMDQ_ENG_MDP_WROT1) | \
+		       (1LL << CMDQ_ENG_MDP_WROT3))
+
+
 #define CMDQ_ENG_WPE_GROUP_BITS	((1LL << CMDQ_ENG_WPEI) |	\
 				 (1LL << CMDQ_ENG_WPEO) |	\
 				 (1LL << CMDQ_ENG_WPEI2) |	\

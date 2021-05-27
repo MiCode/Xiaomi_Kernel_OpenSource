@@ -56,7 +56,7 @@ typedef s32(*MdpEngineFunc) (struct EngineStruct *engine_list);
 typedef bool(*MdpCheckHandleFunc) (struct cmdqRecStruct *handle);
 
 /* MDP Initialization setting */
-typedef void(*CmdqMdpInitialSet) (void);
+typedef void(*CmdqMdpInitialSet) (struct platform_device *pdev);
 
 /* Initialization & de-initialization MDP base VA */
 typedef void (*CmdqMdpInitModuleBaseVA) (void);
@@ -86,7 +86,7 @@ typedef const char *(*CmdqPraseErrorModByEngFlag) (
 
 typedef u64 (*CmdqMdpGetEngineGroupBits) (u32 engine_group);
 
-typedef void (*CmdqMdpEnableCommonClock) (bool enable);
+typedef void (*CmdqMdpEnableCommonClock) (bool enable, u64 engine_flag);
 
 typedef void (*CmdqCheckHwStatus) (struct cmdqRecStruct *handle);
 
