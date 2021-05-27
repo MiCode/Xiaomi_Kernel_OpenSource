@@ -32,8 +32,11 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 			struct perf_domain *pd = NULL;
 			int dst_cpu = dst_rq->cpu;
 
-			pd = dst_rq->rd->pd;
+			pd = rcu_dereference(dst_rq->rd->pd);
 			pd = find_pd(pd, dst_cpu);
+			if (!pd)
+				return;
+
 			src_cpu = group_first_cpu(busiest);
 
 			if (cpumask_test_cpu(src_cpu, perf_domain_span(pd)))
