@@ -754,6 +754,7 @@ config MACH_MT6877
 	select MTK_SDA
 	select MTK_BUS_PARITY_CHECK
 	select DEVMPU_MT6877
+	select MEDIATEK_CQDMA
 	help
 	  This enables support for MediaTek MT6877
 	  Support for aarch64 Architecture
