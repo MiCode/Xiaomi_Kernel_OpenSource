@@ -14,6 +14,19 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	aliases {
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
+		i2c6 = &i2c6;
+		i2c7 = &i2c7;
+		i2c8 = &i2c8;
+		i2c9 = &i2c9;
+	};
+
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
@@ -514,6 +527,116 @@
 	apdma@10220000 {
 		compatible = "mediatek,apdma";
 		reg = <0 0x10220000 0 0x4000>;
+	};
+
+	i2c0: i2c@11f40000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11f40000 0 0x1000>,
+			<0 0x11300080 0 0x80>;
+		interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c1: i2c@11d00000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11d00000 0 0x1000>,
+			<0 0x11300100 0 0x80>;
+		interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c2: i2c@11d01000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11d01000 0 0x1000>,
+			<0 0x11300180 0 0x100>;
+		interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c3: i2c@11d02000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11d02000 0 0x1000>,
+			<0 0x11300280 0 0x80>;
+		interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c4: i2c@11d03000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11d03000 0 0x1000>,
+			<0 0x11300300 0 0x100>;
+		interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c5: i2c@11280000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11280000 0 0x1000>,
+			<0 0x11300400 0 0x80>;
+		interrupts = <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c6: i2c@11281000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11281000 0 0x1000>,
+			<0 0x11300480 0 0x80>;
+		interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c7: i2c@11d04000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11d04000 0 0x1000>,
+			<0 0x11300500 0 0x100>;
+		interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c8: i2c@11d05000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11d05000 0 0x1000>,
+			<0 0x11300600 0 0x100>;
+		interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+	};
+
+	i2c9: i2c@11d06000 {
+		compatible = "mediatek,mt6879-i2c";
+		reg = <0 0x11d06000 0 0x1000>,
+			<0 0x11300700 0 0x100>;
+		interrupts = <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C0_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
 	};
 
 	m4u@10224000 {
