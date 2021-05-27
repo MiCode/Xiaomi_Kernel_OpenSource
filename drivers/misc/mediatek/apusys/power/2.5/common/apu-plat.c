@@ -139,8 +139,6 @@ static int apu_clk_init(struct apu_dev *ad)
 				TOMHZ(dst->def_freq), TOMHZ(dst->shut_freq));
 	}
 
-	/* prepare all clks */
-	aclk->ops->prepare(aclk);
 	return ret;
 
 err:
@@ -160,7 +158,6 @@ static void apu_clk_uninit(struct apu_dev *ad)
 	struct apu_clk *dst = NULL;
 
 	aclk = ad->aclk;
-	aclk->ops->unprepare(ad->aclk);
 
 	dst = aclk->top_pll;
 	if (!IS_ERR_OR_NULL(dst))
