@@ -128,6 +128,7 @@ SRC := \
 	mmu/mali_kbase_mmu_mode_lpae.c \
 	mmu/mali_kbase_mmu_mode_aarch64.c \
 	mali_kbase_disjoint_events.c \
+	mali_kbase_gator_api.c \
 	mali_kbase_debug_mem_view.c \
 	mali_kbase_smc.c \
 	mali_kbase_mem_pool.c \
