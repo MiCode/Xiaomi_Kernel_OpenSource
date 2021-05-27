@@ -198,13 +198,6 @@ static struct mtk_ddp_comp *_handle_phy_top_plane(struct mtk_drm_crtc *mtk_crtc)
 	return ovl_comp;
 }
 
-static void mtk_drm_cmdq_done(struct cmdq_cb_data data)
-{
-	struct cmdq_pkt *cmdq_handle = data.data;
-
-	cmdq_pkt_destroy(cmdq_handle);
-}
-
 static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 						       bool enable)
 {
@@ -320,7 +313,9 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 	}
 
-	mtk_crtc_gce_flush(crtc, mtk_drm_cmdq_done, cmdq_handle, cmdq_handle);
+	mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
+	cmdq_pkt_wait_complete(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return 0;
 }

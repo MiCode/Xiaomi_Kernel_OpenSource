@@ -412,7 +412,7 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 			mtk_fence_session_mode_spy(session_id),
 			layer_id, fence);
 
-		mtk_sync_timeline_inc(layer_info->timeline, num_fence);
+		mtk_sync_timeline_inc(layer_info->timeline, num_fence, 0);
 		layer_info->timeline_idx = fence;
 
 		if (num_fence >= 2)
@@ -516,7 +516,7 @@ void mtk_release_layer_fence(unsigned int session_id, unsigned int layer_id)
 	mtk_release_fence(session_id, layer_id, fence);
 }
 
-int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
+int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx, ktime_t time)
 {
 	struct mtk_fence_info *layer_info = NULL;
 	unsigned int timeline_id = 0;
@@ -546,7 +546,7 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 	mtk_drm_trace_begin("present_fence_rel:%s-%d",
 		mtk_fence_session_mode_spy(session_id), fence_idx);
 
-	mtk_sync_timeline_inc(layer_info->timeline, fence_increment);
+	mtk_sync_timeline_inc(layer_info->timeline, fence_increment, time);
 	DDPFENCE("RL+/%s%d/T%d/id%d\n",
 		 mtk_fence_session_mode_spy(session_id),
 		 MTK_SESSION_DEV(session_id), timeline_id, fence_idx);
@@ -609,7 +609,7 @@ int mtk_release_sf_present_fence(unsigned int session_id,
 	mtk_drm_trace_begin("sf_present_fence_rel:%s-%d",
 		mtk_fence_session_mode_spy(session_id), fence_idx);
 
-	mtk_sync_timeline_inc(layer_info->timeline, fence_increment);
+	mtk_sync_timeline_inc(layer_info->timeline, fence_increment, 0);
 	DDPFENCE("RL+/%s%d/T%d/id%d\n",
 		 mtk_fence_session_mode_spy(session_id),
 		 MTK_SESSION_DEV(session_id), timeline_id, fence_idx);
