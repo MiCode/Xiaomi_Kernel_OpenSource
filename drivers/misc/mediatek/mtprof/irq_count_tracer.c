@@ -224,9 +224,18 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 					skip = 1;
 		}
 
-		/* Temporarily exclude IPI */
-		if (!strcmp(irq_to_name(irq), "IPI"))
+		if (!strcmp(irq_to_name(irq), "IPI")) {
+#if IS_ENABLED(CONFIG_ARM64)
+			struct irq_desc **ipi_desc = ipi_desc_get();
+			struct irq_desc *desc = irq_to_desc(irq);
+
+			/* reschedule IPI and function call IPI */
+			if (ipi_desc[0] == desc || ipi_desc[1] == desc)
+				skip = 1;
+#else
 			skip = 1;
+#endif
+		}
 
 		if (skip)
 			continue;
