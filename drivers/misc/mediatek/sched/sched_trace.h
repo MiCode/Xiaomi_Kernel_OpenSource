@@ -129,6 +129,29 @@ TRACE_EVENT(sched_force_migrate,
 		__entry->dest, __entry->force)
 );
 
+/*
+ * Tracepoint for task force migrations.
+ */
+TRACE_EVENT(thermal_frequency_limits,
+
+	TP_PROTO(int max_frequency, int cpu_id),
+
+	TP_ARGS(max_frequency, cpu_id),
+
+	TP_STRUCT__entry(
+		__field(unsigned int,  max_frequency)
+		__field(int,  cpu_id)
+		),
+
+	TP_fast_assign(
+		__entry->max_frequency   = max_frequency;
+		__entry->cpu_id = cpu_id;
+		),
+
+	TP_printk("max=%lu cpu_id=%d",
+		__entry->max_frequency, __entry->cpu_id)
+);
+
 #endif /* _TRACE_SCHEDULER_H */
 
 #undef TRACE_INCLUDE_PATH

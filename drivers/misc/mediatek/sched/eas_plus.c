@@ -5,6 +5,7 @@
 #include <linux/module.h>
 #include "../../../../kernel/sched/sched.h"
 #include "sched_main.h"
+#include <sched_trace.h>
 #include <linux/sort.h>
 #include "../../../../drivers/thermal/mediatek/thermal_interface.h"
 
@@ -124,6 +125,8 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	capacity = frequency * max_capacity;
 	capacity /= pd->table[pd->nr_perf_states-1].frequency;
 	arch_set_thermal_pressure(to_cpumask(pd->cpus), max_capacity - capacity);
+
+	trace_thermal_frequency_limits(frequency, this_cpu);
 }
 
 /*
