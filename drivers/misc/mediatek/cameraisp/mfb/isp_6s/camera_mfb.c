@@ -33,7 +33,7 @@
 #include <cmdq-util.h>
 #endif
 #include <soc/mediatek/smi.h>
-//#define MFB_PMQOS
+#define MFB_PMQOS
 #ifdef MFB_PMQOS
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
@@ -4163,7 +4163,7 @@ PM_OK:
 		regu = devm_regulator_get(MFB_dev->dev, "dvfsrc-vcore");
 		num_available = dev_pm_opp_get_opp_count(MFB_dev->dev);
 		/* number of available opp */
-		avail_size = sizeof(u32) * num_available;
+		avail_size = sizeof(u64) * num_available;
 		speeds = kzalloc(avail_size, GFP_KERNEL);
 		freq = 0;
 		while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(MFB_dev->dev, &freq))) {
@@ -4174,14 +4174,14 @@ PM_OK:
 			dev_pm_opp_put(opp);
 		}
 
-		path_mfb[0] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma0");
-		path_mfb[1] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma1");
-		path_mfb[2] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma2");
-		path_mfb[3] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma3");
-		path_mfb[4] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma4");
-		path_mfb[5] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma5");
-		path_mfb[6] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_wdma0");
-		path_mfb[7] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_wdma1");
+		path_mfb[0] = of_mtk_icc_get(MFB_dev->dev, "mfb_qos_rdma0");
+		path_mfb[1] = of_mtk_icc_get(MFB_dev->dev, "mfb_qos_rdma1");
+		path_mfb[2] = of_mtk_icc_get(MFB_dev->dev, "mfb_qos_rdma2");
+		path_mfb[3] = of_mtk_icc_get(MFB_dev->dev, "mfb_qos_rdma3");
+		path_mfb[4] = of_mtk_icc_get(MFB_dev->dev, "mfb_qos_rdma4");
+		path_mfb[5] = of_mtk_icc_get(MFB_dev->dev, "mfb_qos_rdma5");
+		path_mfb[6] = of_mtk_icc_get(MFB_dev->dev, "mfb_qos_wdma0");
+		path_mfb[7] = of_mtk_icc_get(MFB_dev->dev, "mfb_qos_wdma1");
 #endif
 
 		/* Create class register */
