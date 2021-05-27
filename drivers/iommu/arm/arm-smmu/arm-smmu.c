@@ -3081,7 +3081,7 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 
 	smmu = cfg->smmu;
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
-		if (dir == SID_SWITCH_HLOS_TO_SECURE) {
+		if (dir == SID_RELEASE) {
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), 0);
 		} else {
