@@ -5635,6 +5635,8 @@
 			mdp_rdma1  = <&mdp_rdma1>;
 			mdp_rdma2  = <&mdp_rdma2>;
 			mdp_rdma3  = <&mdp_rdma3>;
+			mdp_fg0    = <&mdp_fg0>;
+			mdp_fg1    = <&mdp_fg1>;
 			mdp_rsz0   = <&mdp_rsz0>;
 			mdp_rsz1   = <&mdp_rsz1>;
 			mdp_rsz2   = <&mdp_rsz2>;
