@@ -28,6 +28,7 @@
 
 #define MTK_MAX_VENC_CLK_COUNT 2
 #define MTK_MAX_VENC_CLK_CORE_COUNT 2
+#define MTK_VENC_MAX_LARB_COUNT 2
 
 
 #define IS_SPECIFIC_CLK_TYPE(clk_name, prefix) \
@@ -78,7 +79,7 @@ struct mtk_vcodec_pm {
 	struct clk      *venc_lt_sel;
 	struct clk      *img_resz;
 	struct device   *larbvdecs[MTK_VDEC_MAX_LARB_COUNT];
-	struct device   *larbvenc;
+	struct device   *larbvencs[MTK_VENC_MAX_LARB_COUNT];
 	struct device   *larbvenclt;
 	struct device   *dev;
 	struct device_node      *chip_node;

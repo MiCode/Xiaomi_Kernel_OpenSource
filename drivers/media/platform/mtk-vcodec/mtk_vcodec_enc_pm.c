@@ -36,6 +36,7 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 	struct platform_device *pdev;
 	struct device *dev;
 	struct mtk_vcodec_pm *pm;
+	int larb_index;
 	int clk_id = 0;
 	const char *clk_name;
 	struct mtk_venc_clks_data *clks_data;
@@ -53,15 +54,20 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 		mtk_v4l2_err("no mediatek,larb found");
 		return -1;
 	}
-	pdev = of_find_device_by_node(node);
-	if (!pdev) {
-		mtk_v4l2_err("no mediatek,larb device found");
-		return -1;
-	}
-	pm->larbvenc = &pdev->dev;
+	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
+		node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", larb_index);
+		if (!node)
+			break;
 
-	pdev = mtkdev->plat_dev;
-	pm->dev = &pdev->dev;
+		pdev = of_find_device_by_node(node);
+		if (WARN_ON(!pdev)) {
+			of_node_put(node);
+			return -1;
+		}
+		pm->larbvencs[larb_index] = &pdev->dev;
+		mtk_v4l2_debug(8, "larbvencs[%d] = %p", larb_index, pm->larbvencs[larb_index]);
+		pdev = mtkdev->plat_dev;
+	}
 
 	memset(clks_data, 0x00, sizeof(struct mtk_venc_clks_data));
 	while (!of_property_read_string_index(
@@ -82,7 +88,6 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 
 	pm_runtime_enable(&pdev->dev);
 #endif
-
 	return ret;
 }
 
@@ -106,6 +111,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	int i, larb_port_num, larb_id;
 	struct M4U_PORT_STRUCT port;
 #endif
+	int larb_index;
 	int j, clk_id;
 	struct mtk_venc_clks_data *clks_data;
 	struct mtk_vcodec_dev *dev = NULL;
@@ -117,20 +123,26 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 
 	clks_data = &pm->venc_clks_data;
 
-	if (pm->larbvenc) {
-		ret = mtk_smi_larb_get(pm->larbvenc);
-		if (ret)
-			mtk_v4l2_err("Failed to get venc larb.");
+	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
+		if (pm->larbvencs[larb_index]) {
+			ret = mtk_smi_larb_get(pm->larbvencs[larb_index]);
+			if (ret)
+				mtk_v4l2_err("Failed to get venc larb. index: %d, core_id: %d",
+					larb_index, core_id);
+		}
 	}
+
+
 	if (core_id == MTK_VENC_CORE_0 ||
 		core_id == MTK_VENC_CORE_1) {
 			// enable core clocks
 		for (j = 0; j < clks_data->core_clks_len; j++) {
 			clk_id = clks_data->core_clks[j].clk_id;
 			ret = clk_prepare_enable(pm->venc_clks[clk_id]);
-			if (ret)
+			if (ret) {
 				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
 					clk_id, clks_data->core_clks[j].clk_name, ret);
+			}
 		}
 	} else {
 		mtk_v4l2_err("invalid core_id %d", core_id);
@@ -166,6 +178,7 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 	int i, clk_id;
+	int larb_index;
 	struct mtk_venc_clks_data *clks_data;
 
 #ifndef FPGA_PWRCLK_API_DISABLE
@@ -181,8 +194,9 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 		}
 	} else
 		mtk_v4l2_err("invalid core_id %d", core_id);
-
-	if (pm->larbvenc)
-		mtk_smi_larb_put(pm->larbvenc);
+	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
+		if (pm->larbvencs[larb_index])
+			mtk_smi_larb_put(pm->larbvencs[larb_index]);
+	}
 #endif
 }

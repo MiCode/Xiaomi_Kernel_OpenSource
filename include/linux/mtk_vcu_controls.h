@@ -13,7 +13,7 @@
 #include <linux/string.h>
 #include <linux/compat.h>
 
-#define SHARE_BUF_SIZE 72
+#define SHARE_BUF_SIZE 80
 #define LOG_INFO_SIZE 1024
 #define VCODEC_CMDQ_CMD_MAX           (2048)
 

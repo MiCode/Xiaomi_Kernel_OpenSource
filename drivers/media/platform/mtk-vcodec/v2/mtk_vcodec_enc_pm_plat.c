@@ -146,8 +146,8 @@ void mtk_prepare_venc_emi_bw(struct mtk_vcodec_dev *dev)
 	struct platform_device *pdev = 0;
 
 	pdev = dev->plat_dev;
-	for (i = 0; i < MTK_VDEC_PORT_NUM; i++)
-		dev->vdec_qos_req[i] = 0;
+	for (i = 0; i < MTK_VENC_PORT_NUM; i++)
+		dev->venc_qos_req[i] = 0;
 
 	i = 0;
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_rcpu");
@@ -155,12 +155,36 @@ void mtk_prepare_venc_emi_bw(struct mtk_vcodec_dev *dev)
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_bsdma");
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sv_comv");
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_rd_comv");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_nbm_rdma");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_nbm_rdma_lite");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_nbm_wdma");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_nbm_wdma_lite");
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_cur_luma");
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_cur_chroma");
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_ref_luma");
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_ref_chroma");
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sub_r_luma");
 	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sub_w_luma");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_fcs_nbm_rdma");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_fcs_nbm_wdma");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_rcpu_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_rec_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_bsdma_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sv_comv_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_rd_comv_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_nbm_rdma_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_nbm_rdma_lite_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_nbm_wdma_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_nbm_wdma_lite_2");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_cur_luma_2");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_cur_chroma_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_ref_luma_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_ref_chrom_1a");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sub_r_luma_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_sub_w_luma_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_fcs_nbm_rdma_1");
+	dev->venc_qos_req[i++] = of_mtk_icc_get(&pdev->dev, "path_venc_fcs_nbm_wdma_1");
+
 #endif
 }
 
@@ -202,7 +226,9 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx, int core_id)
 	if (job->format == V4L2_PIX_FMT_HEIF)
 		idx = 3;
 
-	ctx->dev->venc_freq.active_freq = ctx->dev->venc_freqs[idx];
+	ctx->dev->venc_freq.freq[core_id] = ctx->dev->venc_freqs[idx];
+	if (ctx->dev->venc_freq.active_freq < ctx->dev->venc_freq.freq[core_id])
+		ctx->dev->venc_freq.active_freq = ctx->dev->venc_freq.freq[core_id];
 
 	if (ctx->dev->venc_reg != 0) {
 		opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev,
@@ -229,7 +255,11 @@ void mtk_venc_dvfs_end(struct mtk_vcodec_ctx *ctx, int core_id)
 	if (ctx->dev->temp_venc_jobs[core_id] == 0)
 		return;
 
-	ctx->dev->venc_freq.active_freq = ctx->dev->venc_freqs[0];
+	ctx->dev->venc_freq.freq[core_id] = ctx->dev->venc_freqs[0];
+	if (ctx->dev->venc_freq.freq[(core_id+1)%2] > ctx->dev->venc_freq.freq[core_id])
+		ctx->dev->venc_freq.active_freq = ctx->dev->venc_freq.freq[(core_id+1)%2];
+	else
+		ctx->dev->venc_freq.active_freq = ctx->dev->venc_freq.freq[core_id];
 
 	if (ctx->dev->venc_reg != 0) {
 		opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev,
@@ -286,9 +316,9 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int core_id)
 	}
 
 	cur_luma_bw = STD_LUMA_BW * (pdev->venc_freq.active_freq / 1000000) *
-			(100 + boost_perc) * 4 / STD_VENC_FREQ / 100 / 3;
+			(100 + boost_perc) * 1 / STD_VENC_FREQ / 100 / 3;
 	cur_chroma_bw = STD_CHROMA_BW * (pdev->venc_freq.active_freq / 1000000)
-			* (100 + boost_perc) * 4 / STD_VENC_FREQ / 100 / 3;
+			* (100 + boost_perc) * 1 / STD_VENC_FREQ / 100 / 3;
 
 	rec_bw = cur_luma_bw + cur_chroma_bw;
 	if (0) { /* no UFO */
@@ -299,12 +329,16 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int core_id)
 		ref_chroma_bw = (cur_luma_bw * 4) + (cur_chroma_bw * 4);
 	}
 
+	if (core_id == 1)
+		i = 17;
+
 	if (pdev->venc_qos_req[0] != 0) {
 		mtk_icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(rcpu_bw), 0);
 		mtk_icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(rec_bw), 0);
 		mtk_icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(bsdma_bw), 0);
 		mtk_icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(sv_comv_bw), 0);
 		mtk_icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(rd_comv_bw), 0);
+		i += 4; /* No EMI BW for NBM port*/
 		mtk_icc_set_bw(pdev->venc_qos_req[i++],
 					MBps_to_icc(cur_luma_bw), 0);
 		mtk_icc_set_bw(pdev->venc_qos_req[i++],

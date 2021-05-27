@@ -42,7 +42,7 @@
 
 #define MAX_CODEC_FREQ_STEP	10
 #define MTK_VDEC_PORT_NUM	25
-#define MTK_VENC_PORT_NUM	25
+#define MTK_VENC_PORT_NUM	40
 
 #define DEBUG_GKI 1
 

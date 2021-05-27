@@ -213,6 +213,9 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 			vcu->abort = 1;
 		return status;
 	}
+	else
+		mtk_vcodec_debug(vcu, "vcu_ipi_send msg_id %x len %d success",
+				*(uint32_t *)msg, len);
 	if (vcu->failure)
 		return -EINVAL;
 
@@ -517,6 +520,9 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			out.input_fd[0], vsi->meta_fd, vsi->meta_size,
 			vsi->meta_addr);
 	}
+	else {
+		mtk_vcodec_debug(vcu, "frm_buf is null");
+	}
 
 	if (bs_buf) {
 		out.bs_addr = bs_buf->dma_addr;
@@ -525,6 +531,9 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 		mtk_vcodec_debug(vcu, " output (dma:%lx fd:%x)",
 			(unsigned long)bs_buf->dmabuf,
 			out.bs_fd);
+	}
+	else {
+		mtk_vcodec_debug(vcu, "bs_buf is null");
 	}
 
 	mutex_lock(vcu->ctx_ipi_binding);
@@ -536,6 +545,9 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 		mtk_vcodec_err(vcu, "AP_IPIMSG_ENC_ENCODE %d fail %d",
 					   bs_mode, ret);
 		return ret;
+	}
+	else{
+		mtk_vcodec_debug(vcu, " vcu_enc_send_msg done");
 	}
 
 	if (frm_buf) {

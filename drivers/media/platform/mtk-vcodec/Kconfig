@@ -6,3 +6,4 @@ config VIDEO_MEDIATEK_VCODEC_MT6885
 	  v2 folder is dvfs setting for MT6885
 	  Set Y to select this feature for specific platform-MT6885.
 	  If unsure, set N to disable.
+
