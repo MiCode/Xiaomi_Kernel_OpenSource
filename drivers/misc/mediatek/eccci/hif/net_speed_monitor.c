@@ -35,7 +35,7 @@
 #define TAG "Speed"
 
 #define CALC_DELTA		(1000)
-#define MAX_C_NUM		(2)
+#define MAX_C_NUM		(4)
 
 static int net_spd_status;
 static int ap_plat;
