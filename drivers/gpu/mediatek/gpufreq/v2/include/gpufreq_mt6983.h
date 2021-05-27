@@ -29,7 +29,7 @@
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* external module control */
-#define GPUFREQ_THERMAL_ENABLE          (0)
+#define GPUFREQ_HWAPM_ENABLE            (0)
 
 /**************************************************
  * Clock Setting
@@ -49,7 +49,8 @@
 #define ROUNDING_VALUE                  (5)
 #define MFGPLL_FIN                      (26)            /* MHz */
 #define MFGPLL_FH_PLL                   FH_PLL6
-#define MFGPLL_CON1                     (g_apmixed_base + 0x026C)
+#define MFGPLL_GPU_CON1                 (g_mfg_pll_base + 0x00C)
+#define MFGPLL_STACK_CON1               (g_mfg_scpll_base + 0x00C)
 
 /**************************************************
  * Shader Present Setting
@@ -119,9 +120,6 @@
 #define VOLT_NORMALIZATION(volt) \
 	((volt % 625) ? (volt - (volt % 625) + 625) : volt)
 
-/* DVFS Timing Issue */
-#define VSTACK_PARKING_VOLT             (65000)
-
 /**************************************************
  * SRAMRC Setting
  **************************************************/
@@ -166,14 +164,21 @@ int g_avsidx_mapping[] = {
  **************************************************/
 #define GPUFREQ_AGING_ENABLE            (1)
 #define GPUFREQ_AGING_KEEP_FREQ         (350000)
-#define GPUFREQ_AGING_KEEP_VOLT         (55000)
+#define GPUFREQ_AGING_KEEP_VOLT         (65000)
 
 /**************************************************
- * GPU DVFS HW Constraint Coefficient Setting
+ * GPU DVFS HW Constraint Setting
  **************************************************/
-/* Constraint Coefficient = CONSTRAINT_COEF/BASE_COEF */
-#define GPUFREQ_CONSTRAINT_COEF           (11)
-#define GPUFREQ_BASE_COEF                 (10)
+/*
+ * Constraint Coefficient = CONSTRAINT_COEF/BASE_COEF
+ * Fgpu = Fstack * 1.1
+ */
+#define GPUFREQ_CONSTRAINT_COEF         (11)
+#define GPUFREQ_BASE_COEF               (10)
+/* DVFS Timing issue */
+#define DVFS_TIMING_PARK_VOLT           (65000)
+/* DELSEL ULV SRAM access */
+#define DELSEL_ULV_PARK_VOLT            (55000)
 
 /**************************************************
  * Enumeration
@@ -205,6 +210,7 @@ struct gpufreq_clk_info {
 };
 
 struct gpufreq_mtcmos_info {
+	struct platform_device *mfg1_pdev;
 	struct platform_device *mfg2_pdev;
 	struct platform_device *mfg3_pdev;
 	struct platform_device *mfg4_pdev;

@@ -112,12 +112,12 @@ enum gpuppm_limit_type {
  * Structure
  **************************************************/
 struct gpufreq_opp_info {
-	unsigned int freq;
-	unsigned int volt;
-	unsigned int vsram;
+	unsigned int freq;            /* KHz */
+	unsigned int volt;            /* mV x 100 */
+	unsigned int vsram;           /* mV x 100 */
 	enum gpufreq_postdiv postdiv;
-	unsigned int vaging;
-	unsigned int power;
+	unsigned int vaging;          /* mV x 100 */
+	unsigned int power;           /* mW */
 };
 
 struct gpufreq_sb_info {
