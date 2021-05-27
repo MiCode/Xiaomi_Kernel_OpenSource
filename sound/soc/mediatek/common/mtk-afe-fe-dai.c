@@ -345,7 +345,6 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	if (memif->use_adsp_share_mem == true)
 		return mtk_adsp_free_mem(substream,
-					 substream->runtime->dma_bytes,
 					 cpu_dai->id);
 
 	return snd_pcm_lib_free_pages(substream);
@@ -356,7 +355,6 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	if (memif->use_adsp_share_mem == true)
 		return mtk_adsp_free_mem(substream,
-					 substream->runtime->dma_bytes,
 					 cpu_dai->id);
 
 	return snd_pcm_lib_free_pages(substream);

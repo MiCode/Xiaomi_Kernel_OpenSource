@@ -91,7 +91,6 @@ int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
 			  unsigned int size,
 			  int id);
 int mtk_adsp_free_mem(struct snd_pcm_substream *substream,
-		      unsigned int size,
 		      int id);
 
 int mtk_adsp_genpool_allocate_memory(unsigned char **vaddr,

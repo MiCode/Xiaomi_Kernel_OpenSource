@@ -414,7 +414,6 @@ int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
 EXPORT_SYMBOL_GPL(mtk_adsp_allocate_mem);
 
 int mtk_adsp_free_mem(struct snd_pcm_substream *substream,
-		      unsigned int size,
 		      int id)
 {
 	int ret = 0;
@@ -471,7 +470,7 @@ int mtk_adsp_genpool_free_memory(unsigned char **vaddr,
 		*vaddr = NULL;
 		*size = 0;
 	}
-;
+
 	return 0;
 }
 

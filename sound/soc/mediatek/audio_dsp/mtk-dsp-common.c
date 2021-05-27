@@ -417,36 +417,6 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	/* send msg by task by unsing common function */
 	switch (command) {
 	case AUDIO_DSP_TASK_PCM_HWPARAM:
-		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
-				 substream,
-				 params,
-				 memif->irq_usage,
-				 dai);
-
-		/* send audio_afepcm_buf to SCP side */
-		ipi_audio_buf = (void *)
-				 dsp_memif->msg_atod_share_buf.va_addr;
-		memcpy((void *)ipi_audio_buf,
-		       (void *)&dsp_memif->audio_afepcm_buf,
-		       sizeof(struct audio_hw_buffer));
-
-#ifdef DEBUG_VERBOSE
-		dump_audio_hwbuffer(ipi_audio_buf);
-#endif
-
-		/* send to task with hw_param information ,
-		 * buffer and pcm attribute
-		 */
-		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
-				       AUDIO_IPI_PAYLOAD,
-				       AUDIO_IPI_MSG_NEED_ACK,
-				       AUDIO_DSP_TASK_PCM_HWPARAM,
-				       sizeof(unsigned int),
-				       (unsigned int)
-				       dsp_memif->msg_atod_share_buf.phy_addr,
-				       (char *)
-				       &dsp_memif->msg_atod_share_buf.phy_addr);
-		break;
 	case AUDIO_DSP_TASK_PCM_PREPARE:
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
 				 substream,
@@ -465,11 +435,13 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		dump_audio_hwbuffer(ipi_audio_buf);
 #endif
 
-		/* send to task with prepare status */
+		/* send to task with hw_param information, buffer and pcm attribute
+		 * or send to task with prepare status
+		 */
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
 				       AUDIO_IPI_PAYLOAD,
 				       AUDIO_IPI_MSG_NEED_ACK,
-				       AUDIO_DSP_TASK_PCM_PREPARE,
+				       command,
 				       sizeof(unsigned int),
 				       (unsigned int)
 				       dsp_memif->msg_atod_share_buf.phy_addr,

@@ -1200,13 +1200,16 @@ static int mtk_dsp_pcm_open(struct snd_soc_component *component,
 	}
 
 	/* send to task with open information */
-	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
-			 AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_OPEN, 0, 0,
-			 NULL);
+	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
+			       AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_OPEN,
+			       0, 0, NULL);
+	if (ret)
+		pr_info("%s() ret[%d]\n", __func__, ret);
 
 	dsp->dsp_mem[id].substream = substream;
+	dsp->dsp_mem[id].underflowed = 0;
 
-	return 0;
+	return ret;
 }
 
 static int mtk_dsp_pcm_close(struct snd_soc_component *component,
