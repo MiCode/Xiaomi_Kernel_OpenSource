@@ -5283,6 +5283,8 @@
 			reg = <0 0x1400c000 0 0x1000>;
 			interrupts = <GIC_SPI 262 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys_config_clk CLK_MM_DISP_AAL0>;
+			mtk_aal_support = <1>;
+			mtk_dre30_support = <0>;
 		};
 
 		disp_gamma0: disp_gamma0@1400d000 {

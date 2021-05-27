@@ -1498,6 +1498,8 @@
 	disp_aal0@1400d000 {
 		compatible = "mediatek,disp_aal0";
 		reg = <0 0x1400d000 0 0x1000>;
+		mtk_aal_support = <1>;
+		mtk_dre30_support = <0>;
 	};
 
 	disp_gamma0@1400e000 {
@@ -1723,6 +1725,8 @@
 	disp_aal0@1440d000 {
 		compatible = "mediatek,disp_aal0";
 		reg = <0 0x1440d000 0 0x1000>;
+		mtk_aal_support = <1>;
+		mtk_dre30_support = <0>;
 	};
 
 	disp_gamma0@1440e000 {

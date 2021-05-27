@@ -6654,6 +6654,8 @@
 			interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys_config_clk CLK_MM_DISP_AAL0>;
 			aal_dre3 = <&mdp_aal4>;
+			mtk_aal_support = <1>;
+			mtk_dre30_support = <0>;
 		};
 
 		disp_gamma0: disp_gamma@1400a000 {
@@ -6859,6 +6861,8 @@
 			interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys_config_clk CLK_MM_DISP_AAL1>;
 			aal_dre3 = <&mdp_aal5>;
+			mtk_aal_support = <1>;
+			mtk_dre30_support = <0>;
 		};
 
 		disp_gamma1: disp_gamma@1410a000 {

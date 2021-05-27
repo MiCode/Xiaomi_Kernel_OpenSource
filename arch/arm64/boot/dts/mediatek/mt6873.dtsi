@@ -6050,6 +6050,8 @@
 			interrupts = <GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys CLK_MM_DISP_AAL0>;
 			aal_dre3 = <&mdp_aal4>;
+			mtk_aal_support = <1>;
+			mtk_dre30_support = <0>;
 		};
 
 		disp_gamma0: disp_gamma0@1400c000 {
