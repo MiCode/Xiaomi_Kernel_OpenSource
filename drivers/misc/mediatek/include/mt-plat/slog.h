@@ -11,7 +11,7 @@
 
 #include <linux/tracepoint.h>
 
-#define SLOG_MSG_MAX (200)
+#define SLOG_MSG_MAX (256)
 
 TRACE_EVENT(slog,
 	TP_PROTO(struct va_format *vaf),
@@ -22,11 +22,10 @@ TRACE_EVENT(slog,
 		__dynamic_array(char, msg, SLOG_MSG_MAX)
 	),
 
-	TP_fast_assign(
-		WARN_ON_ONCE(vsnprintf(__get_dynamic_array(msg),
-					SLOG_MSG_MAX,
-					vaf->fmt,
-					*vaf->va) >= SLOG_MSG_MAX);
+	TP_fast_assign(vsnprintf(__get_dynamic_array(msg),
+				SLOG_MSG_MAX,
+				vaf->fmt,
+				*vaf->va);
 	),
 
 	TP_printk("%s", __get_str(msg))
