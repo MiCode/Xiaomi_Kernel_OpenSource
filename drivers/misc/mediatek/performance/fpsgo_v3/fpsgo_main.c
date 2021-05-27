@@ -763,7 +763,8 @@ fail_reg_cpu_frequency_entry:
 	/* touch boost */
 	init_utch_mod();
 
-	fpsgo_switch_enable(1);
+	if (fpsgo_arch_nr_clusters() > 0)
+		fpsgo_switch_enable(1);
 
 	fpsgo_notify_vsync_fp = fpsgo_notify_vsync;
 
