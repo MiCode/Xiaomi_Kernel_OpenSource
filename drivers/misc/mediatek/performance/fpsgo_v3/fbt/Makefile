@@ -21,8 +21,6 @@ MTK_TOP = $(srctree)/drivers/misc/mediatek
 BASE_TOP = $(FPSGO_TOP)/base
 FSTB_TOP = $(FPSGO_TOP)/fstb
 
-ccflags-y += -DNR_FREQ_CPU=17
-
 obj-y += platform/$(MTK_PLATFORM)/fbt_cpu_platform.o
 
 obj-y += \

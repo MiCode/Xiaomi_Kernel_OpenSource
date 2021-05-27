@@ -2,16 +2,12 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-#define API_READY 0
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/rbtree.h>
 #include <linux/preempt.h>
 #include <linux/proc_fs.h>
 #include <linux/vmalloc.h>
-#if API_READY
-#include <linux/trace_events.h>
-#endif
 #include <linux/module.h>
 #include <linux/sched/clock.h>
 #include <linux/sched.h>
@@ -19,12 +15,11 @@
 #include <linux/kallsyms.h>
 #include <linux/tracepoint.h>
 #include <linux/sched/task.h>
+#include <linux/kernel.h>
+#include <trace/trace.h>
 
 #include <mt-plat/fpsgo_common.h>
 
-#if API_READY
-#include <trace/events/fpsgo.h>
-#endif
 #include <trace/events/sched.h>
 #include <trace/events/ipi.h>
 #include <trace/events/irq.h>
@@ -43,6 +38,7 @@ static atomic_t xgf_atomic_val_1 = ATOMIC_INIT(0);
 static unsigned long long last_update2spid_ts;
 static char *xgf_sp_name = SP_ALLOW_NAME;
 static int xgf_extra_sub;
+static int cur_xgf_extra_sub;
 static int xgf_dep_frames = XGF_DEP_FRAMES_MIN;
 static int xgf_prev_dep_frames = XGF_DEP_FRAMES_MIN;
 static int xgf_spid_sub = XGF_DO_SP_SUB;
@@ -118,9 +114,7 @@ void xgf_trace(const char *fmt, ...)
 	if (unlikely(len == 256))
 		log[255] = '\0';
 	va_end(args);
-#if API_READY
-	trace_xgf_log(log);
-#endif
+	trace_printk(log);
 }
 EXPORT_SYMBOL(xgf_trace);
 
@@ -154,7 +148,7 @@ EXPORT_SYMBOL(xgf_atomic_val_assign);
 
 int *xgf_extra_sub_assign(void)
 {
-	return (int *)(&xgf_extra_sub);
+	return (int *)(&cur_xgf_extra_sub);
 }
 EXPORT_SYMBOL(xgf_extra_sub_assign);
 
@@ -214,11 +208,7 @@ EXPORT_SYMBOL(xgf_get_task_state);
 
 unsigned long xgf_lookup_name(const char *name)
 {
-#if API_READY
-	return kallsyms_lookup_name(name);
-#else
 	return 0;
-#endif
 }
 EXPORT_SYMBOL(xgf_lookup_name);
 
@@ -1378,9 +1368,7 @@ static void xgf_log_trace(const char *fmt, ...)
 	if (unlikely(len == 1024))
 		log[1023] = '\0';
 	va_end(args);
-#if API_READY
-	trace_xgf_log(log);
-#endif
+	trace_printk(log);
 }
 
 static void xgf_print_debug_log(int rpid,
@@ -1539,6 +1527,8 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	struct hlist_node *hr;
 	unsigned long long raw_runtime = 0;
 	int new_spid;
+	unsigned long long t_dequeue_time = 0;
+	int do_extra_sub = 0;
 
 	if (rpid <= 0 || ts == 0)
 		return XGF_PARAM_ERR;
@@ -1568,13 +1558,28 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			goto qudeq_notify_err;
 		}
 		r->queue.end_ts = ts;
+		cur_xgf_extra_sub = xgf_extra_sub;
 
 		new_spid = xgf_get_spid(r);
 		if (new_spid != -1) {
 			xgf_trace("xgf spid:%d => %d", r->spid, new_spid);
 			r->spid = new_spid;
 		}
+
+		t_dequeue_time = r->deque.end_ts - r->deque.start_ts;
+		if (r->deque.start_ts && r->deque.end_ts
+			&& (r->deque.end_ts > r->deque.start_ts)
+			&& (t_dequeue_time > 2500000)
+			&& !cur_xgf_extra_sub) {
+			do_extra_sub = 1;
+			cur_xgf_extra_sub = 1;
+			xgf_trace("xgf extra_sub:%d => %llu", rpid, t_dequeue_time);
+		}
+
 		ret = xgf_enter_est_runtime(rpid, r, &raw_runtime, ts);
+
+		if (do_extra_sub)
+			cur_xgf_extra_sub = 0;
 
 		if (!raw_runtime)
 			*run_time = raw_runtime;

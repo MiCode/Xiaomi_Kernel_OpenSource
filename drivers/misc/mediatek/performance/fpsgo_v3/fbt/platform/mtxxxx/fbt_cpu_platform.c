@@ -48,8 +48,8 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 		attr.sched_util_min = -1;
 		attr.sched_util_max = -1;
 	} else {
-		attr.sched_util_min = min_blc_1024;
-		attr.sched_util_max = max_blc_1024;
+		attr.sched_util_min = (min_blc_1024 << 10) / 1280;
+		attr.sched_util_max = (max_blc_1024 << 10) / 1280;
 	}
 
 	if (pid < 0)
@@ -75,8 +75,8 @@ out:
 		return;
 	}
 
-	fpsgo_systrace_c_fbt_gm(pid, 0, min_blc, "min_cap");
-	fpsgo_systrace_c_fbt_gm(pid, 0, max_blc, "max_cap");
+	fpsgo_systrace_c_fbt_gm(pid, 0, attr.sched_util_min, "min_cap");
+	fpsgo_systrace_c_fbt_gm(pid, 0, attr.sched_util_max, "max_cap");
 }
 
 void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
@@ -105,6 +105,6 @@ int fbt_get_default_boost_ta(void)
 
 int fbt_get_default_adj_loading(void)
 {
-	return 0;
+	return 1;
 }
 

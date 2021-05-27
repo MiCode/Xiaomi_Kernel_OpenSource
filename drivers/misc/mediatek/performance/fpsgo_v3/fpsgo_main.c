@@ -10,11 +10,15 @@
 #include <linux/topology.h>
 #include <linux/arch_topology.h>
 #include <linux/cpumask.h>
+#include <trace/events/power.h>
+#include <linux/tracepoint.h>
+#include <linux/kallsyms.h>
 
 #include "mt-plat/fpsgo_common.h"
 #include "fpsgo_base.h"
 #include "fpsgo_sysfs.h"
 #include "fpsgo_usedext.h"
+#include "fpsgo_cpu_policy.h"
 #include "fbt_cpu.h"
 #include "fstb.h"
 #include "fps_composer.h"
@@ -553,28 +557,70 @@ int fpsgo_fstb_percentile_frametime(int ratio)
 	return switch_percentile_frametime(ratio);
 }
 
-static int freq_notifier_call(struct notifier_block *self,
-				unsigned long event, void *data)
+struct tracepoints_table {
+	const char *name;
+	void *func;
+	struct tracepoint *tp;
+	bool registered;
+};
+
+static void fpsgo_cpu_frequency_tracer(void *ignore, unsigned int frequency, unsigned int cpu_id)
 {
-	struct cpufreq_freqs *p = data;
-	int cl, cpu;
+	int cpu = 0, cluster = 0;
+	struct cpufreq_policy *policy = NULL;
 
-	if (event != CPUFREQ_PRECHANGE)
-		return 0;
+	policy = cpufreq_cpu_get(cpu_id);
+	if (!policy)
+		return;
+	if (cpu_id != cpumask_first(policy->related_cpus))
+		return;
 
-	cpu = p->policy->cpu;
-	if (cpu >= 0 && cpu < num_possible_cpus()) {
-		cl = topology_physical_package_id(cpu);
-
-		fpsgo_notify_cpufreq(cl, p->new);
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			break;
+		cpu = cpumask_first(policy->related_cpus);
+		if (cpu == cpu_id)
+			break;
+		cpu = cpumask_last(policy->related_cpus);
+		cluster++;
 	}
 
-	return 0;
+	if (policy)
+		fpsgo_notify_cpufreq(cluster, frequency);
 }
 
-static struct notifier_block freq_notifier = {
-	.notifier_call = freq_notifier_call,
+struct tracepoints_table fpsgo_tracepoints[] = {
+	{.name = "cpu_frequency", .func = fpsgo_cpu_frequency_tracer},
 };
+
+#define FOR_EACH_INTEREST(i) \
+	for (i = 0; i < sizeof(fpsgo_tracepoints) / sizeof(struct tracepoints_table); i++)
+
+static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (strcmp(fpsgo_tracepoints[i].name, tp->name) == 0)
+			fpsgo_tracepoints[i].tp = tp;
+	}
+}
+
+void tracepoint_cleanup(void)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (fpsgo_tracepoints[i].registered) {
+			tracepoint_probe_unregister(
+				fpsgo_tracepoints[i].tp,
+				fpsgo_tracepoints[i].func, NULL);
+			fpsgo_tracepoints[i].registered = false;
+		}
+	}
+}
+
 
 static void __exit fpsgo_exit(void)
 {
@@ -599,7 +645,13 @@ static void __exit fpsgo_exit(void)
 
 static int __init fpsgo_init(void)
 {
+	int i;
+	int ret;
+
 	FPSGO_LOGI("[FPSGO_CTRL] init\n");
+
+	fpsgo_cpu_policy_init();
+
 	fpsgo_sysfs_init();
 
 	g_psNotifyWorkQueue =
@@ -608,7 +660,24 @@ static int __init fpsgo_init(void)
 	if (g_psNotifyWorkQueue == NULL)
 		return -EFAULT;
 
-	cpufreq_register_notifier(&freq_notifier, CPUFREQ_TRANSITION_NOTIFIER);
+	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
+
+	FOR_EACH_INTEREST(i) {
+		if (fpsgo_tracepoints[i].tp == NULL) {
+			FPSGO_LOGE("FPSGO Error, %s not found\n", fpsgo_tracepoints[i].name);
+			tracepoint_cleanup();
+			return -1;
+		}
+	}
+	ret = tracepoint_probe_register(fpsgo_tracepoints[0].tp, fpsgo_tracepoints[0].func,  NULL);
+	if (ret) {
+		FPSGO_LOGE("cpu_frequency: Couldn't activate tracepoint\n");
+		goto fail_reg_cpu_frequency_entry;
+	}
+	fpsgo_tracepoints[0].registered = true;
+
+fail_reg_cpu_frequency_entry:
+
 
 	mutex_init(&notify_lock);
 
@@ -623,9 +692,7 @@ static int __init fpsgo_init(void)
 	/* touch boost */
 	init_utch_mod();
 
-	//fpsgo_switch_enable(1);
-
-	//cpufreq_notifier_fp = fpsgo_notify_cpufreq;
+	fpsgo_switch_enable(0);
 
 	fpsgo_notify_vsync_fp = fpsgo_notify_vsync;
 

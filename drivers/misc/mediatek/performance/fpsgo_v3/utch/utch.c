@@ -47,7 +47,7 @@ struct freq_qos_request *tchbst_rq;
 
 static int policy_num;
 
-static int powerhal_tid;
+int powerhal_tid;
 
 
 /* local function */
@@ -489,6 +489,9 @@ int init_utch_mod(void)
 
 	num = 0;
 	for_each_possible_cpu(cpu) {
+		if (num >= policy_num)
+			break;
+
 		policy = cpufreq_cpu_get(cpu);
 
 		if (!policy)
