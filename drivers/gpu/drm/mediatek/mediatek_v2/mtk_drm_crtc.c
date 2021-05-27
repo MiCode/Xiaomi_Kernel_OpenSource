@@ -3101,7 +3101,30 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 
 #ifdef MTK_DRM_CMDQ_ASYNC
 
+static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cmdq_cb_data data)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	if (unlikely(!mtk_crtc)) {
+		DDPINFO("%s:invalid ESD context, crtc id:%d\n",
+			__func__, drm_crtc_index(crtc));
+		return;
+	}
+
+	mtk_crtc->cb_data = data;
+	atomic_set(&mtk_crtc->cmdq_done, 1);
+	wake_up_interruptible(&mtk_crtc->signal_fence_task_wq);
+}
+
 static void ddp_cmdq_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+	struct drm_crtc_state *crtc_state = cb_data->state;
+	struct drm_crtc *crtc = crtc_state->crtc;
+	mtk_disp_signal_fence_worker_signal(crtc, data);
+}
+
+static void _ddp_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
 	struct drm_crtc_state *crtc_state = cb_data->state;
@@ -3142,6 +3165,19 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	mtk_crtc_release_input_layer_fence(crtc, session_id);
 
+	// release present fence
+	if (drm_crtc_index(crtc) != 2) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		unsigned int fence_idx = *(unsigned int *)(cmdq_buf->va_base +
+				DISP_SLOT_PRESENT_FENCE(drm_crtc_index(crtc)));
+
+		// only VDO mode panel use CMDQ call
+		if (mtk_crtc &&
+			!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			mtk_release_present_fence(session_id, fence_idx, mtk_crtc->eof_time);
+		}
+	}
+
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (!mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_release_output_buffer_fence(crtc, session_id);
@@ -3170,6 +3206,23 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	CRTC_MMP_EVENT_END(id, frame_cfg, 0, 0);
 }
 
+static int mtk_drm_signal_fence_worker_kthread(void *data)
+{
+	struct sched_param param = {.sched_priority = 87};
+	int ret = 0;
+	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+
+	while (1) {
+		ret = wait_event_interruptible(
+			mtk_crtc->signal_fence_task_wq
+			, atomic_read(&mtk_crtc->cmdq_done));
+			atomic_set(&mtk_crtc->cmdq_done, 0);
+		_ddp_cmdq_cb(mtk_crtc->cb_data);
+	}
+	return 0;
+}
 #else
 /* ddp_cmdq_cb_blocking should be called within locked function */
 static void ddp_cmdq_cb_blocking(struct mtk_cmdq_cb_data *cb_data)
@@ -5918,7 +5971,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
-	if (cmdq_pkt_flush_threaded(cmdq_handle,
+	if (cmdq_pkt_flush_async(cmdq_handle,
 		gce_cb, cb_data) < 0)
 		DDPPR_ERR("failed to flush gce_cb\n");
 #else
@@ -6890,7 +6943,7 @@ static int mtk_drm_pf_release_thread(void *data)
 				DISP_SLOT_PRESENT_FENCE(crtc_idx));
 
 		mtk_release_present_fence(private->session_id[crtc_idx],
-					  fence_idx);
+					  fence_idx, 0);
 		mutex_unlock(&private->commit.lock);
 	}
 
@@ -7236,6 +7289,12 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			wakeup_source_create(mtk_crtc->wk_lock_name);
 		wakeup_source_add(mtk_crtc->wk_lock);
 	}
+
+	mtk_crtc->signal_present_fece_task = kthread_create(
+		mtk_drm_signal_fence_worker_kthread, mtk_crtc, "signal_fence");
+	init_waitqueue_head(&mtk_crtc->signal_fence_task_wq);
+	atomic_set(&mtk_crtc->cmdq_done, 0);
+	wake_up_process(mtk_crtc->signal_present_fece_task);
 
 	DDPMSG("%s-CRTC%d create successfully\n", __func__,
 		priv->num_pipes - 1);
