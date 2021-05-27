@@ -64,6 +64,10 @@
 #include "conap_scp_priv.h"
 //#include "conap_scp_test.h"
 
+#ifdef AOLTEST_SUPPORT
+#include "aoltest_core.h"
+#endif
+
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
 {
 #ifdef CFG_CONNADP_BUILD_IN

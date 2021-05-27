@@ -525,6 +525,7 @@ static int msg_evt_thread(void *pvData)
 		}
 	}
 
+	ctx->thread_stop = true;
 	pr_debug("msg evt thread exists\n");
 	return 0;
 }
@@ -548,6 +549,8 @@ int msg_thread_init(struct msg_thread_ctx *ctx, const char *name, const msg_opid
 		return -1;
 	}
 
+	ctx->pThread = p_thread;
+
 	init_waitqueue_head(&ctx->waitQueue);
 	mutex_init(&ctx->active_op_q.lock);
 	mutex_init(&ctx->free_op_q.lock);
@@ -567,6 +570,7 @@ int msg_thread_init(struct msg_thread_ctx *ctx, const char *name, const msg_opid
 	//osal_op_history_init(&ctx->op_history, 16);
 
 	wake_up_process(p_thread);
+	ctx->thread_stop = false;
 
 	return r;
 }
@@ -574,6 +578,7 @@ int msg_thread_init(struct msg_thread_ctx *ctx, const char *name, const msg_opid
 int msg_thread_deinit(struct msg_thread_ctx *ctx)
 {
 	int r;
+	unsigned int retry = 0;
 	struct task_struct *p_thread = ctx->pThread;
 
 	if ((p_thread) && !IS_ERR_OR_NULL(p_thread)) {
@@ -586,6 +591,15 @@ int msg_thread_deinit(struct msg_thread_ctx *ctx)
 
 	//for (i = 0; i < MSG_THREAD_OP_BUF_SIZE; i++)
 	//	osal_signal_deinit(&(ctx->op_q_inst[i].signal));
+	while (retry < 10 && !ctx->thread_stop) {
+		// Waiting for thread to stop
+		msleep(20);
+		retry++;
+	}
+
+	if (retry == 10) {
+		pr_info("[%s] Fail to stop msg thread\n", __func__);
+	}
 
 	mutex_destroy(&ctx->free_op_q.lock);
 	mutex_destroy(&ctx->active_op_q.lock);

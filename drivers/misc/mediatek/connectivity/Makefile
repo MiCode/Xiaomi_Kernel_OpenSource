@@ -30,6 +30,13 @@ ifneq ($(KERNELRELEASE),)
         subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/connectivity/conap_scp
     endif
 
+    # Aoltest
+    ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
+    ifeq ($(CONFIG_MTK_AOL_DEBUG),y)
+        subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/connectivity/aoltest/
+    endif
+    endif
+
     # Do Nothing, move to standalone repo
     MODULE_NAME := connadp
     obj-$(CONFIG_MTK_COMBO) += $(MODULE_NAME).o
@@ -48,6 +55,17 @@ ifneq ($(KERNELRELEASE),)
         $(MODULE_NAME)-objs += conap_scp/conap_platform_data.o
         $(MODULE_NAME)-objs += conap_scp/conap_scp_test.o
         ###########################################################################
+    endif
+
+    # Aoltest
+    ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
+    ifeq ($(CONFIG_MTK_AOL_DEBUG),y)
+        ccflags-y += -D AOLTEST_SUPPORT
+        $(MODULE_NAME)-objs += aoltest/aoltest_core.o
+        $(MODULE_NAME)-objs += aoltest/aoltest_netlink.o
+        $(MODULE_NAME)-objs += aoltest/aoltest_message_builder.o
+        $(MODULE_NAME)-objs += aoltest/aoltest_ring_buffer.o
+    endif
     endif
 
     ifeq ($(CONFIG_MTK_COMBO), y)

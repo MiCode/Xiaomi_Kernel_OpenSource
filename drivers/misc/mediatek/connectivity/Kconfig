@@ -363,3 +363,12 @@ config MTK_CONNSYS_DEDICATED_LOG_PATH
 	     from connsys (by EMI or other specific path)
 	  2. The scope may include (but not limited) Wi-Fi firmware log,
 	     BT firmware log, GPS firmware log etc.
+
+config MTK_AOL_DEBUG
+	bool "Enable Always on Location test"
+	depends on MTK_TINYSYS_SCP_SUPPORT
+	help
+	  This config is used to choose whether to support
+	  test for Always on Location feature or not.
+	  Will support test if set to 'y',
+	  otherwise will not support test.
