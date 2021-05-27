@@ -15,11 +15,15 @@
 #include <linux/mailbox_client.h>
 #include <linux/types.h>
 #include <linux/time.h>
+#include <linux/workqueue.h>
 
 #include "mtk-mml.h"
 #include "mtk-mml-driver.h"
 
 extern int mtk_mml_msg;
+extern s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
+    cmdq_async_flush_cb cb, void *data);
+
 #define mml_msg(fmt, args...) \
 do { \
 	if (mtk_mml_msg) \
@@ -57,6 +61,7 @@ struct mml_frame_config {
 	struct mutex task_mutex;
 	struct list_head tasks;
 	struct list_head done_tasks;
+	bool dual;
 
 	/* platform driver */
 	struct mml_dev *mml;
@@ -66,6 +71,10 @@ struct mml_frame_config {
 
 	/* core */
 	const struct mml_task_ops *task_ops;
+
+	/* workqueue */
+	struct workqueue_struct *wq_config[2];
+	struct workqueue_struct *wq_wait;
 };
 
 struct mml_file_buf {
@@ -103,6 +112,10 @@ struct mml_task {
 
 	/* command */
 	struct cmdq_pkt pkts[MML_PIPE_CNT];
+
+	/* workqueue */
+	struct work_struct work_config[2];
+	struct work_struct work_wait;
 };
 
 struct mml_comp_tile_ops {
