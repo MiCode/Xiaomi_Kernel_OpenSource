@@ -62,12 +62,12 @@ static void mtk_usb_extcon_update_role(struct work_struct *work)
 	} else if (cur_dr == DUAL_PROP_DR_DEVICE &&
 			new_dr == DUAL_PROP_DR_HOST) {
 		extcon_set_state_sync(extcon->edev, EXTCON_USB, false);
-		extcon_set_state_sync(extcon->edev,	EXTCON_USB_HOST, true);
+		extcon_set_state_sync(extcon->edev, EXTCON_USB_HOST, true);
 	/* host -> device */
 	} else if (cur_dr == DUAL_PROP_DR_HOST &&
 			new_dr == DUAL_PROP_DR_DEVICE) {
 		extcon_set_state_sync(extcon->edev, EXTCON_USB_HOST, false);
-		extcon_set_state_sync(extcon->edev,	EXTCON_USB, true);
+		extcon_set_state_sync(extcon->edev, EXTCON_USB, true);
 	}
 
 	/* usb role switch */
@@ -345,6 +345,18 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 		of_property_read_bool(dev->of_node,
 			"mediatek,bypss-typec-sink");
 
+	extcon->extcon_wq = create_singlethread_workqueue("extcon_usb");
+	if (!extcon->extcon_wq)
+		return -ENOMEM;
+
+	extcon->c_role = DUAL_PROP_DR_DEVICE;
+
+	/* default initial role */
+	mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
+
+	/* default turn off vbus */
+	mtk_usb_extcon_set_vbus(extcon, false);
+
 	/* power psy */
 	ret = mtk_usb_extcon_psy_init(extcon);
 	if (ret < 0)
@@ -358,14 +370,6 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 #endif
 
 	platform_set_drvdata(pdev, extcon);
-	extcon->c_role = DUAL_PROP_DR_NONE;
-	extcon->extcon_wq = create_singlethread_workqueue("extcon_usb");
-
-	/* default initial role */
-	mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
-
-	/* default turn off vbus */
-	mtk_usb_extcon_set_vbus(extcon, false);
 
 	return 0;
 }
