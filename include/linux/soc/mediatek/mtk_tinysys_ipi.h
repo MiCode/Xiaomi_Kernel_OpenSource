@@ -21,6 +21,7 @@ enum mtk_ipi_dev {
 	IPI_DEV_CPUEB,
 	IPI_DEV_APUSYS,
 	IPI_DEV_GPUEB,
+	IPI_DEV_VCP,
 	IPI_DEV_TOTAL,
 };
 

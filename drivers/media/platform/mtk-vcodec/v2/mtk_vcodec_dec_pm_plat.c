@@ -364,4 +364,5 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 	mtk_vdec_dvfs_end(ctx, hw_id);
 	mtk_vdec_emi_bw_end(ctx, hw_id);
 }
+MODULE_LICENSE("GPL v2");
 

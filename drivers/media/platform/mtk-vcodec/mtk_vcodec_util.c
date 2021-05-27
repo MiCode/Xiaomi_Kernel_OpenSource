@@ -15,10 +15,10 @@
 #include "mtk_vcu.h"
 #include "mtk_vcodec_dec.h"
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
-extern phys_addr_t scp_get_reserve_mem_phys(enum scp_reserve_mem_id_t id);
-extern phys_addr_t scp_get_reserve_mem_virt(enum scp_reserve_mem_id_t id);
-extern phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+extern phys_addr_t vcp_get_reserve_mem_phys(enum vcp_reserve_mem_id_t id);
+extern phys_addr_t vcp_get_reserve_mem_virt(enum vcp_reserve_mem_id_t id);
+extern phys_addr_t vcp_get_reserve_mem_size(enum vcp_reserve_mem_id_t id);
 #endif
 
 /* For encoder, this will enable logs in venc/*/
@@ -338,13 +338,12 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 	}
 
 	if (descr)
-		strscpy(fmt->description, descr, sz);
-
+		WARN_ON(strscpy(fmt->description, descr, sz) < 0);
 }
 EXPORT_SYMBOL_GPL(v4l_fill_mtk_fmtdesc);
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
-int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
 {
 	dma_addr_t dma_addr;
 
@@ -374,7 +373,7 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum sc
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_alloc_mem);
 
-int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
 {
 	if (mem->type == MEM_TYPE_FOR_SW){
 		int ret;
@@ -398,11 +397,11 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_free_mem);
 
-int mtk_vcodec_init_reserve_mem_slot(enum scp_reserve_mem_id_t res_mem_id, int **mem_slot_stat)
+int mtk_vcodec_init_reserve_mem_slot(enum vcp_reserve_mem_id_t res_mem_id, int **mem_slot_stat)
 {
-	__u64 total_mem = (__u64)scp_get_reserve_mem_size(res_mem_id);
-	__u64 va_start = (__u64)scp_get_reserve_mem_virt(res_mem_id);
-	__u64 pa_start = (__u64)scp_get_reserve_mem_phys(res_mem_id);
+	__u64 total_mem = (__u64)vcp_get_reserve_mem_size(res_mem_id);
+	__u64 va_start = (__u64)vcp_get_reserve_mem_virt(res_mem_id);
+	__u64 pa_start = (__u64)vcp_get_reserve_mem_phys(res_mem_id);
 	__u64 slot_range = mem_slot_range;
 
 	int total_slot_num = (int)(total_mem/slot_range);
@@ -430,11 +429,11 @@ int mtk_vcodec_init_reserve_mem_slot(enum scp_reserve_mem_id_t res_mem_id, int *
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_init_reserve_mem_slot);
 
-int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
 {
-	__u64 total_mem = (__u64)scp_get_reserve_mem_size(res_mem_id);
-	__u64 va_start = (__u64)scp_get_reserve_mem_virt(res_mem_id);
-	__u64 pa_start = (__u64)scp_get_reserve_mem_phys(res_mem_id);
+	__u64 total_mem = (__u64)vcp_get_reserve_mem_size(res_mem_id);
+	__u64 va_start = (__u64)vcp_get_reserve_mem_virt(res_mem_id);
+	__u64 pa_start = (__u64)vcp_get_reserve_mem_phys(res_mem_id);
 	__u64 slot_range = mem_slot_range;
 	int total_slot_num = (int)(total_mem/slot_range), slot;
 
@@ -473,12 +472,12 @@ int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_get_reserve_mem_slot);
 
-int mtk_vcodec_put_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+int mtk_vcodec_put_reserve_mem_slot(struct vcodec_mem_obj *mem, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
 {
 
-	__u64 total_mem = (__u64)scp_get_reserve_mem_size(res_mem_id);
-	__u64 va_start = (__u64)scp_get_reserve_mem_virt(res_mem_id);
-	__u64 pa_start = (__u64)scp_get_reserve_mem_phys(res_mem_id);
+	__u64 total_mem = (__u64)vcp_get_reserve_mem_size(res_mem_id);
+	__u64 va_start = (__u64)vcp_get_reserve_mem_virt(res_mem_id);
+	__u64 pa_start = (__u64)vcp_get_reserve_mem_phys(res_mem_id);
 	__u64 slot_range = mem_slot_range;
 	int slot;
 	__u64 va_free = mem->va, pa_free = mem->pa;

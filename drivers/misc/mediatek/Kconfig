@@ -23,11 +23,6 @@ source "drivers/misc/mediatek/mdpm/Kconfig"
 source "drivers/misc/mediatek/pbm/Kconfig"
 endmenu # Power
 
-menu "SSPM"
-source "drivers/misc/mediatek/sspm/Kconfig"
-source "drivers/misc/mediatek/tinysys_scmi/Kconfig"
-endmenu # SSPM
-
 menu "MultiMedia, Display, Camera"
 source "drivers/misc/mediatek/iommu/Kconfig"
 source "drivers/misc/mediatek/cameraisp/Kconfig"
@@ -50,9 +45,13 @@ source "drivers/misc/mediatek/trusted_mem/Kconfig"
 source "drivers/misc/mediatek/geniezone/Kconfig"
 endmenu # Security
 
-menu "APU"
+menu "Tinysys"
 source "drivers/misc/mediatek/apusys/Kconfig"
-endmenu # APU
+source "drivers/misc/mediatek/sspm/Kconfig"
+source "drivers/misc/mediatek/tinysys_scmi/Kconfig"
+source "drivers/misc/mediatek/scp/Kconfig"
+source "drivers/misc/mediatek/vcp/Kconfig"
+endmenu # Tinysys
 
 menu "Debug, log, trace"
 
@@ -108,10 +107,6 @@ source "drivers/misc/mediatek/perf_common/Kconfig"
 source "drivers/misc/mediatek/rps/Kconfig"
 source "drivers/misc/mediatek/task_turbo/Kconfig"
 endmenu # Performance
-
-menu "SCP"
-source "drivers/misc/mediatek/scp/Kconfig"
-endmenu # SCP
 
 menu "Config File"
 config BUILD_CONFIG_FILE

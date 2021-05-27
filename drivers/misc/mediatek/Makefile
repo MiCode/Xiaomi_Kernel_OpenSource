@@ -70,6 +70,7 @@ obj-$(CONFIG_MTK_AMMS) += memory-amms/
 obj-$(CONFIG_MTK_SDA) += sda/
 obj-$(CONFIG_MTK_MDDP_SUPPORT) += mddp/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
+obj-$(CONFIG_MTK_TINYSYS_VCP_SUPPORT) += vcp/
 obj-$(CONFIG_MTK_SENSOR_SUPPORT) += sensor/
 obj-$(CONFIG_MTK_DRAM_LOG_STORE) += log_store/
 obj-$(CONFIG_MTK_PRINTK) += mtprintk/

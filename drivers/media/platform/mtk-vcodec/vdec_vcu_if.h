@@ -97,7 +97,5 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out);
 int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id,
 					  void *param, unsigned int size);
 int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb);
-int get_mapped_fd(struct dma_buf *dmabuf);
-void close_mapped_fd(unsigned int target_fd);
 
 #endif

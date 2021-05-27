@@ -22,7 +22,7 @@
 const struct venc_common_if *get_enc_common_if(void);
 #endif
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 const struct venc_common_if *get_enc_vcp_if(void);
 #endif
 
@@ -40,7 +40,7 @@ int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	case V4L2_PIX_FMT_HEIF:
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 		if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER))
 			ctx->enc_if = get_enc_vcp_if();
 		else

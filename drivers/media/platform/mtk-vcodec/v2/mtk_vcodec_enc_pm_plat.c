@@ -448,4 +448,5 @@ void mtk_venc_pmqos_gce_done(struct mtk_vcodec_ctx *ctx, int core_id,
 		mtk_venc_emi_bw_begin(ctx, core_id);
 	}
 }
+MODULE_LICENSE("GPL v2");
 

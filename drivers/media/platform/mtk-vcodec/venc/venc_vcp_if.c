@@ -6,8 +6,8 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <mt-plat/mtk_tinysys_ipi.h>
-#include <uapi/linux/mtk_vcu_controls.h>
+#include <linux/soc/mediatek/mtk_tinysys_ipi.h>
+#include <linux/mtk_vcu_controls.h>
 
 #include "../mtk_vcodec_drv.h"
 #include "../mtk_vcodec_util.h"
@@ -16,9 +16,9 @@
 #include "../venc_ipi_msg.h"
 #include "../venc_vcu_if.h"
 #include "mtk_vcodec_enc_pm.h"
-#include "scp_ipi_pin.h"
-#include "scp_mbox_layout.h"  /* for IPI mbox size */
-#include "scp_helper.h"
+#include "vcp_ipi_pin.h"
+#include "vcp_mbox_layout.h"  /* for IPI mbox size */
+#include "vcp_helper.h"
 // TODO: need remove ISR ipis
 #include "mtk_vcodec_intr.h"
 
@@ -31,7 +31,7 @@
 static void handle_enc_init_msg(struct venc_vcu_inst *vcu, void *data)
 {
 	struct venc_vcu_ipi_msg_init *msg = data;
-	__u64 shmem_pa_start = (__u64)scp_get_reserve_mem_phys(VENC_MEM_ID);
+	__u64 shmem_pa_start = (__u64)vcp_get_reserve_mem_phys(VENC_MEM_ID);
 	__u64 inst_offset = ((msg->vcu_inst_addr & 0x0FFFFFFF) - (shmem_pa_start & 0x0FFFFFFF));
 
 	if (vcu == NULL)
@@ -41,7 +41,7 @@ static void handle_enc_init_msg(struct venc_vcu_inst *vcu, void *data)
 		(uintptr_t)msg->venc_inst, msg->vcu_inst_addr, msg->msg_id);
 
 	vcu->inst_addr = msg->vcu_inst_addr;
-	vcu->vsi = (void *)((__u64)scp_get_reserve_mem_virt(VENC_MEM_ID) + inst_offset);
+	vcu->vsi = (void *)((__u64)vcp_get_reserve_mem_virt(VENC_MEM_ID) + inst_offset);
 }
 
 static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
@@ -49,7 +49,7 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 	struct venc_vcu_inst *vcu = (struct venc_vcu_inst *)msg->ap_inst_addr;
 	void *data;
 	int size = 0;
-	__u64 shmem_pa_start = (__u64)scp_get_reserve_mem_phys(VENC_MEM_ID);
+	__u64 shmem_pa_start = (__u64)vcp_get_reserve_mem_phys(VENC_MEM_ID);
 	__u64 data_offset = ((msg->vcu_data_addr & 0x0FFFFFFF) - (shmem_pa_start & 0x0FFFFFFF));
 
 	if (vcu == NULL)
@@ -58,7 +58,7 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 		(uintptr_t)msg->ap_inst_addr, msg->vcu_data_addr, msg->id);
 
 	/* mapping vcp address to kernel virtual address */
-	data = (void *)((__u64)scp_get_reserve_mem_virt(VENC_MEM_ID) + data_offset);
+	data = (void *)((__u64)vcp_get_reserve_mem_virt(VENC_MEM_ID) + data_offset);
 	if (data == NULL)
 		return;
 	switch (msg->id) {
@@ -85,8 +85,8 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	unsigned long timeout;
 	struct share_obj obj;
 
-	if (!is_scp_ready(SCP_A_ID))
-		mtk_vcodec_err(inst, "SCP_A_ID not ready");
+	if (!is_vcp_ready(VCP_A_ID))
+		mtk_vcodec_err(inst, "VCP_A_ID not ready");
 
 	if (len > sizeof(struct share_obj))
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
@@ -102,7 +102,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 
 	mtk_v4l2_debug(2, "id %d len %d msg 0x%x is_ack %d %d", obj.id, obj.len, *(u32 *)msg,
 		is_ack, inst->vcu_inst.signaled);
-	ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_VENC_0, IPI_SEND_WAIT, &obj,
+	ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VENC_0, IPI_SEND_WAIT, &obj,
 		ipi_size, IPI_TIMEOUT_MS);
 
 	if (is_ack)
@@ -139,9 +139,9 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 
 	if (msg->mem.type == MEM_TYPE_FOR_SHM) {
 		msg->status = 0;
-		msg->mem.va = (__u64)scp_get_reserve_mem_virt(VENC_MEM_ID);
-		msg->mem.pa = (__u64)scp_get_reserve_mem_phys(VENC_MEM_ID);
-		msg->mem.len = (__u64)scp_get_reserve_mem_size(VENC_MEM_ID);
+		msg->mem.va = (__u64)vcp_get_reserve_mem_virt(VENC_MEM_ID);
+		msg->mem.pa = (__u64)vcp_get_reserve_mem_phys(VENC_MEM_ID);
+		msg->mem.len = (__u64)vcp_get_reserve_mem_size(VENC_MEM_ID);
 		msg->mem.iova = 0;
 
 		mtk_v4l2_debug(4, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d size of %d %d\n",
@@ -251,7 +251,7 @@ int vcp_enc_ipi_handler(void *arg)
 			if (shem_msg->mem.type == MEM_TYPE_FOR_SHM) {
 				handle_venc_mem_alloc((void *)shem_msg);
 				shem_msg->msg_id = AP_IPIMSG_ENC_MEM_ALLOC_DONE;
-				ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_VENC_0, IPI_SEND_WAIT, obj,
+				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VENC_0, IPI_SEND_WAIT, obj,
 					PIN_OUT_SIZE_VENC, 100);
 				if (ret != IPI_ACTION_DONE)
 					mtk_v4l2_err("mtk_ipi_send fail %d", ret);
@@ -404,7 +404,7 @@ void venc_vcp_probe(struct mtk_vcodec_dev *dev)
 	init_waitqueue_head(&dev->mq.wq);
 	atomic_set(&dev->mq.cnt, 0);
 
-	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_VENC_0, venc_vcp_ipi_isr, dev, vcp_ipi_data);
+	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VENC_0, venc_vcp_ipi_isr, dev, vcp_ipi_data);
 	if (ret) {
 		mtk_v4l2_err(" ipi_register fail, ret %d\n", ret);
 	}

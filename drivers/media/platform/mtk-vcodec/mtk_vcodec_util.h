@@ -13,8 +13,8 @@
 #include <linux/dma-direction.h>
 #include <linux/mtk_vcu_controls.h>
 #include "vcodec_ipi_msg.h"
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
-#include "scp_helper.h"
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+#include "vcp_helper.h"
 #endif
 #include <linux/trace_events.h>
 
@@ -211,12 +211,12 @@ void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 		void *vbuf);
 void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt);
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
-int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
-int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
-int mtk_vcodec_init_reserve_mem_slot(enum scp_reserve_mem_id_t res_mem_id, int **mem_slot_stat);
-int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
-int mtk_vcodec_put_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+int mtk_vcodec_init_reserve_mem_slot(enum vcp_reserve_mem_id_t res_mem_id, int **mem_slot_stat);
+int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+int mtk_vcodec_put_reserve_mem_slot(struct vcodec_mem_obj *mem, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
 #endif
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

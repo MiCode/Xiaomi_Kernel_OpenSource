@@ -20,7 +20,7 @@
 const struct vdec_common_if *get_dec_common_if(void);
 #endif
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 const struct vdec_common_if *get_dec_vcp_if(void);
 #endif
 
@@ -50,7 +50,7 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	case V4L2_PIX_FMT_RV30:
 	case V4L2_PIX_FMT_RV40:
 	case V4L2_PIX_FMT_AV1:
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 		if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
 			ctx->dec_if = get_dec_vcp_if();
 		else
@@ -124,7 +124,7 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 			return -ENOMEM;
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 		if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
 			ctx->dec_if = get_dec_vcp_if();
 		else

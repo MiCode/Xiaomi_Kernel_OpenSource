@@ -246,7 +246,7 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 extern void vdec_vcp_probe(struct mtk_vcodec_dev *dev);
 #endif
 
@@ -422,8 +422,7 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	dev->is_codec_suspending = 0;
 	dev->dec_cnt = 0;
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
-	// TODO: Use dts for vcp probe
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	vdec_vcp_probe(dev);
 #endif
 	return 0;
