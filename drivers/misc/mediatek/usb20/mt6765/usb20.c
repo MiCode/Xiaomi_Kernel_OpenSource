@@ -120,6 +120,9 @@ static void issue_dpidle_timer(void)
 static void usb_6765_dpidle_request(int mode)
 {
 	unsigned long flags;
+#ifdef CONFIG_MACH_MT6761
+	int ret;
+#endif
 
 	spin_lock_irqsave(&usb_hal_dpidle_lock, flags);
 
@@ -161,8 +164,13 @@ static void usb_6765_dpidle_request(int mode)
 			SPM_RESOURCE_AXI_BUS);
 #ifdef CONFIG_MACH_MT6761
 		/* workaround: keep clock on for wakeup function */
-		clk_prepare_enable(glue->musb_clk_top_sel);
-		clk_prepare_enable(glue->musb_clk);
+		ret = clk_prepare_enable(glue->musb_clk_top_sel);
+		if (ret)
+			DBG(0, "%s: clk_prepare_enable: musb_clk_top_sel failed: %d\n",
+				__func__, ret);
+		ret = clk_prepare_enable(glue->musb_clk);
+		if (ret)
+			DBG(0, "%s: clk_prepare_enable: musb_clk failed: %d\n", __func__, ret);
 #endif
 		DBG(0, "DPIDLE_SUSPEND\n");
 		break;
