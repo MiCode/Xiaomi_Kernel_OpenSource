@@ -60,7 +60,7 @@ int __init swpm_v6893_dbg_init(void)
 		goto swpm_v6893_dbg_init_fail;
 
 	return 0;
-mt6893_swpm_dbg_init_fail:
+swpm_v6893_dbg_init_fail:
 	return -EAGAIN;
 }
 
