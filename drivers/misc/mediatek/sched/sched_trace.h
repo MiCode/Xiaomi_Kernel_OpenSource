@@ -99,7 +99,67 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->sync_flag)
 );
 
+TRACE_EVENT(sched_compute_energy,
 
+	TP_PROTO(int dst_cpu, struct cpumask *pd_mask,
+		unsigned long energy, unsigned long max_util, unsigned long sum_util),
+
+	TP_ARGS(dst_cpu, pd_mask, energy, max_util, sum_util),
+
+	TP_STRUCT__entry(
+		__field(int, dst_cpu)
+		__field(long, cpu_mask )
+		__field(unsigned long, energy)
+		__field(unsigned long, max_util)
+		__field(unsigned long, sum_util)
+		),
+
+	TP_fast_assign(
+		__entry->dst_cpu    = dst_cpu;
+		__entry->cpu_mask   = pd_mask->bits[0];
+		__entry->energy     = energy;
+		__entry->max_util   = max_util;
+		__entry->sum_util   = sum_util;
+		),
+
+	TP_printk("dst_cpu=%d mask=0x%lx energy=%lu max_util=%lu sum_util=%lu",
+		__entry->dst_cpu,
+		__entry->cpu_mask,
+		__entry->energy,
+		__entry->max_util,
+		__entry->sum_util)
+);
+
+TRACE_EVENT(sched_find_energy_efficient_cpu,
+
+	TP_PROTO(unsigned long prev_delta, unsigned long best_delta,
+		int best_energy_cpu, int best_idle_cpu, int max_spare_cap_cpu_ls),
+
+	TP_ARGS(prev_delta, best_delta, best_energy_cpu, best_idle_cpu, max_spare_cap_cpu_ls),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, prev_delta)
+		__field(unsigned long, best_delta)
+		__field(int, best_energy_cpu)
+		__field(int, best_idle_cpu)
+		__field(int, max_spare_cap_cpu_ls)
+		),
+
+	TP_fast_assign(
+		__entry->prev_delta      = prev_delta;
+		__entry->best_delta      = best_delta;
+		__entry->best_energy_cpu = best_energy_cpu;
+		__entry->best_idle_cpu   = best_idle_cpu;
+		__entry->max_spare_cap_cpu_ls = max_spare_cap_cpu_ls;
+		),
+
+	TP_printk("prev_delta=%lu best_delta=%lu best_energy_cpu=%d best_idle_cpu=%d max_spare_cap_cpu_ls=%d",
+		__entry->prev_delta,
+		__entry->best_delta,
+		__entry->best_energy_cpu,
+		__entry->best_idle_cpu,
+		__entry->max_spare_cap_cpu_ls)
+);
 
 /*
  * Tracepoint for task force migrations.

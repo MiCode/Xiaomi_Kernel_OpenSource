@@ -200,6 +200,8 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 	if (!energy)
 		energy = em_cpu_energy(pd->em_pd, max_util, sum_util);
 
+	trace_sched_compute_energy(dst_cpu, pd_mask, energy, max_util, sum_util);
+
 	return energy;
 }
 
@@ -442,6 +444,8 @@ fail:
 
 	*new_cpu = -1;
 done:
+	trace_sched_find_energy_efficient_cpu(prev_delta, best_delta, best_energy_cpu,
+			best_idle_cpu, max_spare_cap_cpu_ls);
 	trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
 			task_util(p), uclamp_task_util(p),
 			latency_sensitive , sync);
