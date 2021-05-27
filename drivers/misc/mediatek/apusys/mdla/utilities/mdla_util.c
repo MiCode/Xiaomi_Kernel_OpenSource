@@ -150,17 +150,25 @@ struct mdla_util_pmu_ops *mdla_util_pmu_ops_get(void)
 
 static bool mdla_util_pmu_addr_is_invalid(struct apusys_cmd_handle *apusys_hd)
 {
-	if (apusys_hd->num_cmdbufs != MAX_CMDBUF_NUM)
+	if (apusys_hd->num_cmdbufs < CMD_PMU_BUF_0_IDX + 1)
 		return true;
 
 	if (!apusys_hd->cmdbufs[CMD_PMU_INFO_IDX].kva ||
-			!apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva ||
-			!apusys_hd->cmdbufs[CMD_PMU_BUF_1_IDX].kva)
+			!apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva)
 		return true;
 
-	mdla_pmu_debug("pmu kva: buf0 = %08llx, buf1 = %08llx\n",
-		apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva,
-		apusys_hd->cmdbufs[CMD_PMU_BUF_1_IDX].kva);
+	if (apusys_hd->multicore_total == 2) {
+		if ((apusys_hd->num_cmdbufs < CMD_PMU_BUF_1_IDX + 1) ||
+		    !apusys_hd->cmdbufs[CMD_PMU_BUF_1_IDX].kva) {
+			return true;
+		}
+		mdla_pmu_debug("pmu kva: buf0 = %08llx, buf1 = %08llx\n",
+			       apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva,
+			       apusys_hd->cmdbufs[CMD_PMU_BUF_1_IDX].kva);
+	} else {
+		mdla_pmu_debug("pmu kva: buf0 = %08llx\n",
+			       apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva);
+	}
 
 	return false;
 }

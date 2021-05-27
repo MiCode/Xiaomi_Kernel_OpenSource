@@ -156,7 +156,7 @@ static int mdla_pmu_cmd_prepare(struct mdla_dev *mdla_info,
 
 	pmu->cmd_id = apusys_hd->kid;
 
-	if (mdla_info->mdla_id == 0)
+	if ((mdla_info->mdla_id == 0) || (apusys_hd->multicore_total != 2))
 		buf_idx = CMD_PMU_BUF_0_IDX;
 	else if (mdla_info->mdla_id == 1)
 		buf_idx = CMD_PMU_BUF_1_IDX;
