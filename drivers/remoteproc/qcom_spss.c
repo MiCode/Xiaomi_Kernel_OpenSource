@@ -351,7 +351,7 @@ disable_xo_clk:
 	return ret;
 }
 
-static void *spss_da_to_va(struct rproc *rproc, u64 da, size_t len)
+static void *spss_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
 {
 	struct qcom_spss *spss = (struct qcom_spss *)rproc->priv;
 	int offset;

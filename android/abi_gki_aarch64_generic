@@ -50,8 +50,11 @@
   bio_endio
   bio_init
   bio_put
+  __bitmap_andnot
   __bitmap_clear
+  __bitmap_equal
   bitmap_from_arr32
+  __bitmap_or
   bitmap_parse
   bitmap_parselist
   bitmap_print_to_pagebuf
@@ -90,6 +93,7 @@
   bpf_trace_run5
   bpf_trace_run6
   bpf_trace_run7
+  bpf_trace_run8
   bpf_trace_run9
   build_skb
   bus_find_device
@@ -159,6 +163,8 @@
   clk_hw_get_name
   clk_hw_get_parent
   __clk_is_enabled
+  clk_notifier_register
+  clk_notifier_unregister
   clk_prepare
   clk_put
   clk_register
@@ -300,16 +306,22 @@
   _dev_err
   devfreq_add_device
   devfreq_add_governor
+  devfreq_monitor_resume
+  devfreq_monitor_start
+  devfreq_monitor_stop
+  devfreq_monitor_suspend
   devfreq_recommended_opp
   devfreq_register_opp_notifier
   devfreq_remove_device
   devfreq_unregister_opp_notifier
+  devfreq_update_interval
   dev_fwnode
   dev_get_by_name
   device_add_disk
   device_add_groups
   device_create
   device_create_file
+  device_create_with_groups
   device_destroy
   device_find_child
   device_for_each_child
@@ -386,6 +398,7 @@
   devm_platform_ioremap_resource_byname
   devm_power_supply_register
   devm_pwm_get
+  devm_regmap_add_irq_chip
   __devm_regmap_init
   __devm_regmap_init_i2c
   __devm_regmap_init_spi
@@ -498,6 +511,7 @@
   downgrade_write
   down_interruptible
   down_read
+  down_read_trylock
   down_timeout
   down_trylock
   down_write
@@ -716,6 +730,7 @@
   file_path
   filp_close
   filp_open_block
+  find_extend_vma
   find_get_pid
   find_next_bit
   find_next_zero_bit
@@ -817,6 +832,7 @@
   handle_simple_irq
   handle_sysrq
   have_governor_per_policy
+  hex2bin
   hex_dump_to_buffer
   hex_to_bin
   hid_add_device
@@ -966,7 +982,6 @@
   kasprintf
   kernel_cpustat
   kernel_kobj
-  kernel_read
   kernel_restart
   kern_mount
   kern_unmount
@@ -998,6 +1013,7 @@
   kobject_init_and_add
   kobject_put
   kobject_uevent
+  kobject_uevent_env
   kobj_sysfs_ops
   krealloc
   kstat
@@ -1277,6 +1293,7 @@
   perf_event_create_kernel_counter
   perf_event_enable
   perf_event_pause
+  perf_event_read_local
   perf_event_read_value
   perf_event_release_kernel
   perf_event_update_userpage
@@ -1448,6 +1465,7 @@
   regmap_bulk_read
   regmap_bulk_write
   regmap_get_device
+  regmap_irq_get_virq
   regmap_multi_reg_write
   regmap_multi_reg_write_bypassed
   regmap_raw_read
@@ -1572,6 +1590,7 @@
   __sg_page_iter_next
   __sg_page_iter_start
   sg_scsi_ioctl
+  shmem_file_setup
   simple_attr_open
   simple_attr_read
   simple_attr_release
@@ -1623,7 +1642,9 @@
   snd_soc_card_get_kcontrol
   snd_soc_card_jack_new
   snd_soc_component_disable_pin
+  snd_soc_component_enable_pin
   snd_soc_component_force_enable_pin
+  snd_soc_component_get_pin_status
   snd_soc_component_read
   snd_soc_component_set_jack
   snd_soc_component_set_pll
@@ -1634,6 +1655,7 @@
   snd_soc_dai_set_sysclk
   snd_soc_dai_set_tdm_slot
   snd_soc_dapm_add_routes
+  snd_soc_dapm_del_routes
   snd_soc_dapm_disable_pin
   snd_soc_dapm_disable_pin_unlocked
   snd_soc_dapm_force_enable_pin_unlocked
@@ -1651,10 +1673,13 @@
   snd_soc_get_enum_double
   snd_soc_get_volsw
   snd_soc_get_volsw_range
+  snd_soc_get_volsw_sx
   snd_soc_info_enum_double
   snd_soc_info_volsw
   snd_soc_info_volsw_range
+  snd_soc_info_volsw_sx
   snd_soc_jack_report
+  snd_soc_lookup_component
   snd_soc_new_compress
   snd_soc_of_get_dai_link_codecs
   snd_soc_of_get_dai_name
@@ -1665,6 +1690,7 @@
   snd_soc_put_enum_double
   snd_soc_put_volsw
   snd_soc_put_volsw_range
+  snd_soc_put_volsw_sx
   snd_soc_register_card
   snd_soc_register_component
   snd_soc_runtime_set_dai_fmt
@@ -1755,6 +1781,7 @@
   sysrq_mask
   system_freezing_cnt
   system_highpri_wq
+  system_long_wq
   system_power_efficient_wq
   system_state
   system_unbound_wq
@@ -1765,6 +1792,7 @@
   __tasklet_schedule
   task_may_not_preempt
   __task_pid_nr_ns
+  task_rq_lock
   tcpci_get_tcpm_port
   tcpci_irq
   tcpci_register_port
@@ -1800,11 +1828,13 @@
   trace_event_raw_init
   trace_event_reg
   trace_handle_return
+  __traceiter_android_rvh_cgroup_force_kthread_migration
   __traceiter_android_rvh_cpu_overutilized
   __traceiter_android_rvh_dequeue_task
   __traceiter_android_rvh_find_energy_efficient_cpu
   __traceiter_android_rvh_irqs_disable
   __traceiter_android_rvh_irqs_enable
+  __traceiter_android_rvh_post_init_entity_util_avg
   __traceiter_android_rvh_preempt_disable
   __traceiter_android_rvh_preempt_enable
   __traceiter_android_rvh_select_task_rq_rt
@@ -1821,8 +1851,10 @@
   __traceiter_android_vh_enable_thermal_genl_check
   __traceiter_android_vh_ep_create_wakeup_source
   __traceiter_android_vh_ipi_stop
+  __traceiter_android_vh_of_i2c_get_board_info
   __traceiter_android_vh_pagecache_get_page
   __traceiter_android_vh_rmqueue
+  __traceiter_android_vh_thermal_pm_notify_suspend
   __traceiter_android_vh_timerfd_create
   __traceiter_android_vh_typec_store_partner_src_caps
   __traceiter_android_vh_typec_tcpci_override_toggling
@@ -1858,11 +1890,13 @@
   __traceiter_sched_util_est_se_tp
   __traceiter_suspend_resume
   trace_output_call
+  __tracepoint_android_rvh_cgroup_force_kthread_migration
   __tracepoint_android_rvh_cpu_overutilized
   __tracepoint_android_rvh_dequeue_task
   __tracepoint_android_rvh_find_energy_efficient_cpu
   __tracepoint_android_rvh_irqs_disable
   __tracepoint_android_rvh_irqs_enable
+  __tracepoint_android_rvh_post_init_entity_util_avg
   __tracepoint_android_rvh_preempt_disable
   __tracepoint_android_rvh_preempt_enable
   __tracepoint_android_rvh_select_task_rq_rt
@@ -1879,8 +1913,10 @@
   __tracepoint_android_vh_enable_thermal_genl_check
   __tracepoint_android_vh_ep_create_wakeup_source
   __tracepoint_android_vh_ipi_stop
+  __tracepoint_android_vh_of_i2c_get_board_info
   __tracepoint_android_vh_pagecache_get_page
   __tracepoint_android_vh_rmqueue
+  __tracepoint_android_vh_thermal_pm_notify_suspend
   __tracepoint_android_vh_timerfd_create
   __tracepoint_android_vh_typec_store_partner_src_caps
   __tracepoint_android_vh_typec_tcpci_override_toggling
@@ -1918,6 +1954,7 @@
   __tracepoint_sched_util_est_se_tp
   __tracepoint_suspend_resume
   trace_print_array_seq
+  trace_print_bitmask_seq
   trace_print_flags_seq
   trace_print_symbols_seq
   trace_raw_output_prep
@@ -2008,6 +2045,7 @@
   usb_role_switch_get_drvdata
   usb_role_switch_register
   usb_role_switch_unregister
+  usb_speed_string
   usb_string_id
   usb_unregister_notify
   __usecs_to_jiffies
