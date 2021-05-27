@@ -59,23 +59,32 @@ enum mtk_iommu_type {
 	TYPE_NUM
 };
 
-enum mm_iommu{
+enum mm_iommu {
 	DISP_IOMMU,
 	MDP_IOMMU,
 	MM_IOMMU_NUM
 };
 
-enum apu_iommu{
+enum apu_iommu {
 	APU_IOMMU0,
 	APU_IOMMU1,
 	APU_IOMMU_NUM
 };
 
-enum peri_iommu{
+enum peri_iommu {
 	PERI_IOMMU_M4,
 	PERI_IOMMU_M6,
 	PERI_IOMMU_M7,
 	PERI_IOMMU_NUM
+};
+
+enum IOMMU_BANK {
+	IOMMU_BK0, /* normal bank */
+	IOMMU_BK1, /* protected bank1 */
+	IOMMU_BK2, /* protected bank2 */
+	IOMMU_BK3, /* protected bank3 */
+	IOMMU_BK4, /* secure bank */
+	IOMMU_BK_NUM
 };
 
 struct mtk_iommu_iova_region;
@@ -86,6 +95,8 @@ struct mtk_iommu_plat_data {
 	u32                 inv_sel_reg;
 
 	u32		    tbw_reg_val;
+	u32		    reg_val;
+	int		    iommu_id;
 	enum mtk_iommu_type iommu_type;
 	unsigned int				iova_region_nr;
 	const struct mtk_iommu_iova_region	*iova_region;
@@ -96,8 +107,11 @@ struct mtk_iommu_domain;
 
 struct mtk_iommu_data {
 	void __iomem			*base;
+	void __iomem			*bk_base[IOMMU_BK_NUM];
 	int				irq;
+	int				bk_irq[IOMMU_BK_NUM];
 	struct device			*dev;
+	struct device			*bk_dev[IOMMU_BK_NUM];
 	struct clk			*bclk;
 	phys_addr_t			protect_base; /* protect memory base */
 	struct mtk_iommu_suspend_reg	reg;

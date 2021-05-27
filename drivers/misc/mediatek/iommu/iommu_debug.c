@@ -3,7 +3,7 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
-#define pr_fmt(fmt)    "[iommu_debug] " fmt
+#define pr_fmt(fmt)    "mtk_iommu: debug " fmt
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>

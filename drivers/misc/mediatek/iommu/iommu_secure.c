@@ -31,7 +31,7 @@ EXPORT_SYMBOL_GPL(mtk_iommu_sec_bk_init);
  * Call iommu tf-a smc to dump iommu secure bank reg
  * Return 0 is fail, 1 is success.
  */
-int mtk_iommu_sec_bk_tf(uint32_t type, uint32_t id, u32 *iova, u32 *pa, u32 *fault_id)
+int mtk_iommu_sec_bk_tf(uint32_t type, uint32_t id, u64 *iova, u64 *pa, u32 *fault_id)
 {
 	return 0;
 }
