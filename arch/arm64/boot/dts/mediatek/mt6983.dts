@@ -225,6 +225,11 @@
 		reg = <0 0x10005000 0 0x1000>;
 	};
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	sleep@10006000 {
 		compatible = "mediatek,sleep";
 		reg = <0 0x10006000 0 0x1000>;
