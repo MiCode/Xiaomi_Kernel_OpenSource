@@ -400,7 +400,7 @@ static const struct dma_heap_ops system_heap_ops = {
 	.get_pool_size = get_pool_size_bytes,
 };
 
-int qcom_system_heap_create(char *name, bool uncached)
+void qcom_system_heap_create(const char *name, const char *system_alias, bool uncached)
 {
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
@@ -412,7 +412,7 @@ int qcom_system_heap_create(char *name, bool uncached)
 
 	ret = dynamic_page_pool_init_shrinker();
 	if (ret)
-		return ret;
+		goto out;
 
 	sys_heap = kzalloc(sizeof(*sys_heap), GFP_KERNEL);
 	if (!sys_heap) {
@@ -464,7 +464,23 @@ int qcom_system_heap_create(char *name, bool uncached)
 					     DMA_BIT_MASK(64));
 
 	pr_info("%s: DMA-BUF Heap: Created '%s'\n", __func__, name);
-	return 0;
+
+	if (system_alias != NULL) {
+		exp_info.name = system_alias;
+
+		heap = dma_heap_add(&exp_info);
+		if (IS_ERR(heap)) {
+			pr_err("%s: Failed to create '%s', error is %d\n", __func__,
+			       system_alias, PTR_ERR(heap));
+			return;
+		}
+
+		dma_coerce_mask_and_coherent(dma_heap_get_dev(heap), DMA_BIT_MASK(64));
+
+		pr_info("%s: DMA-BUF Heap: Created '%s'\n", __func__, system_alias);
+	}
+
+	return;
 
 stop_worker:
 	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAP_PAGE_POOL_REFILL))
@@ -478,6 +494,4 @@ free_heap:
 
 out:
 	pr_err("%s: Failed to create '%s', error is %d\n", __func__, name, ret);
-
-	return ret;
 }
