@@ -34,7 +34,6 @@ struct proc_dir_entry *entry;
 static u32 last_boot_phase = FLAG_INVALID;
 
 
-#define EXPDB_PATH "/dev/block/by-name/expdb"
 
 #define LOG_BLOCK_SIZE (512)
 #define EXPDB_LOG_SIZE (2*1024*1024)
@@ -88,10 +87,6 @@ void store_log_to_emmc_enable(bool value)
 
 void set_boot_phase(u32 step)
 {
-	struct file *filp;
-	mm_segment_t fs;
-	int file_size = 0;
-	struct log_emmc_header pEmmc;
 
 #if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)
 	if (sram_header->reserve[SRAM_PMIC_BOOT_PHASE] == FLAG_ENABLE) {
@@ -103,53 +98,6 @@ void set_boot_phase(u32 step)
 
 	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] &= ~BOOT_PHASE_MASK;
 	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] |= step;
-
-	if ((sram_dram_buff->flag & NEED_SAVE_TO_EMMC) == NEED_SAVE_TO_EMMC) {
-		pr_notice("log_store: set boot phase, last boot phase is 0x%x.\n",
-		last_boot_phase);
-		pr_notice("log_store: not boot up, don't store log to expdb  ");
-		return;
-	}
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
-	if (IS_ERR(filp)) {
-		pr_notice("log_store can't open expdb file: %s.\n", EXPDB_PATH);
-		set_fs(fs);
-		return;
-	}
-
-	if (!filp->f_op) {
-		pr_notice("log_store File Operation Method Error!!\n");
-		set_fs(fs);
-		return;
-	}
-
-	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	kernel_read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	if (pEmmc.sig != LOG_EMMC_SIG) {
-		pr_notice("log_store emmc header error, format it.\n");
-		memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-		pEmmc.sig = LOG_EMMC_SIG;
-	} else if (last_boot_phase == FLAG_INVALID) {
-		// get last boot phase
-		last_boot_phase = (pEmmc.reserve_flag[BOOT_STEP] >>
-			LAST_BOOT_PHASE_SHIFT) & BOOT_PHASE_MASK;
-	}
-	// clear now boot phase
-	pEmmc.reserve_flag[BOOT_STEP] &= ~BOOT_PHASE_MASK;
-	// set boot phase
-	pEmmc.reserve_flag[BOOT_STEP] |= step;
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	kernel_write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	filp_close(filp, NULL);
-	set_fs(fs);
-	pr_notice("log_store: set boot phase, last boot phase is %d.\n",
-		last_boot_phase);
 }
 
 u32 get_last_boot_phase(void)
@@ -163,171 +111,6 @@ void log_store_bootup(void)
 	store_log_to_emmc_enable(false);
 	set_boot_phase(BOOT_PHASE_ANDROID);
 }
-
-#ifndef MODULE
-void log_store_to_emmc(void)
-{
-	struct file *filp;
-	mm_segment_t fs;
-	char buff[LOG_BLOCK_SIZE];
-	struct log_emmc_header pEmmc;
-	struct kmsg_dumper dumper = { .active = true };
-	size_t len = 0;
-	int file_size, size = 0;
-	struct emmc_log kernel_log_config;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
-	if (IS_ERR(filp)) {
-		pr_notice("log_store can't open expdb file: %d.\n", filp);
-		set_fs(fs);
-		return;
-	}
-
-	if (!filp->f_op) {
-		pr_notice("log_store File Operation Method Error!!\n");
-		set_fs(fs);
-		return;
-	}
-
-	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	kernel_read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	if (pEmmc.sig != LOG_EMMC_SIG) {
-		pr_notice("log_store emmc header error, format it.\n");
-		memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-		pEmmc.sig = LOG_EMMC_SIG;
-	}
-	kernel_log_config.start = pEmmc.offset;
-
-	kmsg_dump_rewind_nolock(&dumper);
-	memset(buff, 0, LOG_BLOCK_SIZE);
-	while (kmsg_dump_get_line_nolock(&dumper, true, buff,
-					 LOG_BLOCK_SIZE, &len)) {
-		if (pEmmc.offset + len + LOG_BLOCK_SIZE > EXPDB_LOG_SIZE)
-			pEmmc.offset = 0;
-		filp->f_op->llseek(filp, file_size - EXPDB_LOG_SIZE + pEmmc.offset, SEEK_SET);
-		size = kernel_write(filp, buff, len, &filp->f_pos);
-		if (size < 0)
-			pr_notice_once("write expdb failed:%d.\n", size);
-		else
-			pEmmc.offset += size;
-		memset(buff, 0, LOG_BLOCK_SIZE);
-	}
-
-	kernel_log_config.end = pEmmc.offset;
-	kernel_log_config.type = LOG_LAST_KERNEL;
-	size = file_size - sram_header->reserve[1] +
-		sizeof(struct log_emmc_header) +
-		pEmmc.reserve_flag[LOG_INDEX] * sizeof(struct emmc_log);
-	filp->f_op->llseek(filp, size, SEEK_SET);
-	kernel_write(filp, (char *)&kernel_log_config, sizeof(struct emmc_log), &filp->f_pos);
-	pEmmc.reserve_flag[LOG_INDEX] += 1;
-	pEmmc.reserve_flag[LOG_INDEX] = pEmmc.reserve_flag[LOG_INDEX] %
-		HEADER_INDEX_MAX;
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	kernel_write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	filp_close(filp, NULL);
-	set_fs(fs);
-	pr_notice("log_store write expdb done!\n");
-}
-
-int set_emmc_config(int type, int value)
-{
-	struct file *filp;
-	mm_segment_t fs;
-	struct log_emmc_header pEmmc;
-	int file_size;
-
-	if (type >= EMMC_STORE_FLAG_TYPE_NR || type < 0) {
-		pr_notice("invalid config type: %d.\n", type);
-		return -1;
-	}
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
-	if (IS_ERR(filp)) {
-		pr_notice("log_store can't open expdb file: %d.\n", filp);
-		set_fs(fs);
-		return -1;
-	}
-
-	if (!filp->f_op) {
-		pr_notice("log_store File Operation Method Error!!\n");
-		set_fs(fs);
-		return -1;
-	}
-
-	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	kernel_read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	if (pEmmc.sig != LOG_EMMC_SIG) {
-		pr_notice("log_store emmc header error.\n");
-		filp_close(filp, NULL);
-		set_fs(fs);
-		return -1;
-	}
-
-	if (type == UART_LOG || type == PRINTK_RATELIMIT ||
-		type == KEDUMP_CTL) {
-		if (value)
-			pEmmc.reserve_flag[type] = FLAG_ENABLE;
-		else
-			pEmmc.reserve_flag[type] = FLAG_DISABLE;
-	} else {
-		pEmmc.reserve_flag[type] = value;
-	}
-	filp->f_op->llseek(filp, file_size - LOG_BLOCK_SIZE, SEEK_SET);
-	kernel_write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	filp_close(filp, NULL);
-	set_fs(fs);
-	pr_notice("type:%d, value:%d.\n", type, value);
-	return 0;
-}
-
-int read_emmc_config(struct log_emmc_header *log_header)
-{
-	struct file *filp;
-	mm_segment_t fs;
-	int file_size;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
-	if (IS_ERR(filp)) {
-		pr_notice("log_store can't open expdb file: %d.\n", filp);
-		set_fs(fs);
-		return -1;
-	}
-
-	if (!filp->f_op) {
-		pr_notice("log_store File Operation Method Error!!\n");
-		set_fs(fs);
-		return -1;
-	}
-
-	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	kernel_read(filp, (char *)log_header, sizeof(struct log_emmc_header), &filp->f_pos);
-	if (log_header->sig != LOG_EMMC_SIG) {
-		pr_notice("log_store emmc header error.\n");
-		filp_close(filp, NULL);
-		set_fs(fs);
-		return -1;
-	}
-	filp_close(filp, NULL);
-	set_fs(fs);
-	return 0;
-}
-
-#endif
 
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 {
@@ -509,7 +292,7 @@ static int __init log_store_late_init(void)
 	return 0;
 }
 
-#ifndef MODULE
+
 /* need mapping virtual address to phy address */
 static void store_printk_buff(void)
 {
@@ -541,7 +324,7 @@ static void store_printk_buff(void)
 		sram_dram_buff->klog_size,
 		sram_dram_buff->flag);
 }
-#endif
+
 
 void disable_early_log(void)
 {
@@ -617,10 +400,10 @@ static int __init log_store_early_init(void)
 		return -1;
 	}
 
-#ifndef MODULE
+
 	/* store printk log buff information to DRAM */
 	store_printk_buff();
-#endif
+
 	if (sram_header->reserve[1] == 0 ||
 		sram_header->reserve[1] > EXPDB_LOG_SIZE)
 		sram_header->reserve[1] = LOG_BLOCK_SIZE;
