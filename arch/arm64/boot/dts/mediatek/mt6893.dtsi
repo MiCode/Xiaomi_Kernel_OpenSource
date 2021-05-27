@@ -3252,24 +3252,28 @@
 			<0 0 4>,
 			<1 0 4>,
 			<2 0 3>,
-			<3 0 3>;
+			<3 0 3>,
+			<4 0 9>;
 			send_name_table =
 			"IPI_ID_PLATFORM",
 			"IPI_ID_FREQ",
 			"IPI_ID_SLEEP",
-			"IPI_ID_TIMER";
+			"IPI_ID_TIMER",
+			"IPI_ID_FHCTL";
 
 			/* id, mbox, recv_size, recv_opt */
 			recv_table =
 			<0 0 1 1>,
 			<1 0 4 1>,
 			<2 0 1 1>,
-			<3 0 1 1>;
+			<3 0 1 1>,
+			<4 0 1 1>;
 			recv_name_table =
 			"IPI_ID_PLATFORM",
 			"IPI_ID_FREQ",
 			"IPI_ID_SLEEP",
-			"IPI_ID_TIMER";
+			"IPI_ID_TIMER",
+			"IPI_ID_FHCTL";
 
 			reg = <0 0x13c40000 0 0x22000>,
 			      <0 0x13c5fd80 0 0xa0>,
