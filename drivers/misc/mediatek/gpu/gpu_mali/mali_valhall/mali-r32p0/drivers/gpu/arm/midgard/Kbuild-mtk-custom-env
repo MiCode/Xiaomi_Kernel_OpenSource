@@ -1,0 +1,54 @@
+$(info mali MTK evironment, building r30p0 DDK)
+
+MTK_TOP = $(srctree)/drivers/misc/mediatek/
+
+# build support for a ARM Mali Midgard GPU
+CONFIG_MALI_MIDGARD := y
+
+# use mtk platform
+CONFIG_MALI_PLATFORM_THIRDPARTY := y
+ifeq ($(CONFIG_MACH_MT6833),y)
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6833"
+else ifeq ($(CONFIG_MACH_MT6893),y)
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6893"
+else
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MTK_PLATFORM)
+endif
+
+$(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY := $(CONFIG_MALI_PLATFORM_THIRDPARTY))
+$(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME))
+
+CONFIG_MALI_DEBUG := y
+
+ccflags-y += -I$(srctree)/include
+ccflags-y += -I$(srctree)/drivers/staging/android
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/gpu_bm
+
+ccflags-$(CONFIG_DEBUG_FS) += -DCONFIG_DEBUG_FS
+ccflags-y += -DCONFIG_PROC_FS
+
+ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
+ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DCONFIG_MTK_GPU_COMMON_DVFS
+
+# Enable by specific Family-ID
+ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
+ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DGED_ENABLE_DVFS_LOADING_MODE
+endif
+
+ifeq ($(CONFIG_MTK_IOMMU_V2),y)
+ccflags-y += -I$(srctree)/drivers/staging/android/ion
+ccflags-y += -I$(srctree)/drivers/iommu
+# SW ReadyGo, need to include mt6833/ prior to mt6853/ if mt6833/ exists
+ifeq ($(CONFIG_MACH_MT6833),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include
+else ifeq ($(CONFIG_MACH_MT6893),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6893/include
+endif
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+endif
+
+ccflags-y += -DCONFIG_MTK_GPU_DEBUG
+ccflags-y += -DCONFIG_MTK_GPU_DEBUG_DFD
+ccflags-y += -DCONFIG_MTK_GPU_MEM_TRACK

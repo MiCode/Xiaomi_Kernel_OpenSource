@@ -64,6 +64,12 @@ endif
 # Configurations
 #
 
+# *** MTK ***
+include $(src)/Kbuild-mtk-custom-env
+include $(src)/platform/mtk_platform_common/Kbuild
+ccflags-y += -I$(src)/include
+subdir-ccflags-y += -I$(src)/include
+
 # Driver version string which is returned to userspace via an ioctl
 MALI_RELEASE_NAME ?= '"r32p0-00cet0"'
 # Set up defaults if not defined by build system
@@ -71,7 +77,9 @@ MALI_CUSTOMER_RELEASE ?= 1
 MALI_UNIT_TEST ?= 0
 MALI_COVERAGE ?= 0
 
-CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+#CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+# *** MTK ***
+CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME)
 # Kconfig passes in the name with quotes for in-tree builds - remove them.
 MALI_PLATFORM_DIR := $(shell echo $(CONFIG_MALI_PLATFORM_NAME))
 

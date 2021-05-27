@@ -1,0 +1,8 @@
+include $(src)/Kbuild-mtk-custom-env
+
+curr := platform/mtk_platform_common
+
+obj-y += $(curr)/mtk_platform_common.o
+
+ccflags-y += -I$(srctree)/drivers/devfreq/
+

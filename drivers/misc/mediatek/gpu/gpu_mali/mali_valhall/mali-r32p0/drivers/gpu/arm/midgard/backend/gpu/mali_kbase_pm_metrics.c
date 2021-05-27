@@ -359,6 +359,11 @@ KBASE_EXPORT_TEST_API(kbase_pm_get_dvfs_metrics);
 #ifdef CONFIG_MALI_MIDGARD_DVFS
 void kbase_pm_get_dvfs_action(struct kbase_device *kbdev)
 {
+/*
+ * kbase_platform_dvfs_event is not implemented by MTK.
+ * We used MTKCalGpuUtilization/MTKCalGpuUtilization_ex instead.
+ */
+#if 0
 	int utilisation;
 	struct kbasep_pm_metrics *diff;
 #if !MALI_USE_CSF
@@ -394,6 +399,7 @@ void kbase_pm_get_dvfs_action(struct kbase_device *kbdev)
 	 * so we should be good.
 	 */
 	kbase_platform_dvfs_event(kbdev, utilisation);
+#endif
 #endif
 }
 
