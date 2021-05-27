@@ -129,18 +129,34 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 	case APUSYS_CMD_SUSPEND:
 		return edma_power_off(edma_sub, 1);
 	case APUSYS_CMD_EXECUTE:{
-			struct apusys_cmd_hnd *cmd_hnd;
+			struct apusys_cmd_handle *cmd_hnd;
 			struct edma_ext *edma_ext;
 
 			if (hnd == NULL)
 				break;
 
-			cmd_hnd = (struct apusys_cmd_hnd *)hnd;
-			if (cmd_hnd->kva == 0 ||
-				cmd_hnd->size != sizeof(struct edma_ext))
+			cmd_hnd = (struct apusys_cmd_handle *)hnd;
+			if (cmd_hnd->cmdbufs == 0) {
+				LOG_ERR("%s cmd_hnd->cmdbufs == 0 error\n", __func__);
 				break;
+			}
 
-			edma_ext = (struct edma_ext *)cmd_hnd->kva;
+			if (cmd_hnd->num_cmdbufs < 2) {
+				LOG_ERR("%s num_cmdbufs = %d error\n", __func__, cmd_hnd->num_cmdbufs);				
+				break;
+			}
+
+			if (cmd_hnd->cmdbufs[0].size != sizeof(struct edma_ext)) {
+				LOG_ERR("%s cmdHnd->cmdbufs[0].size = %d error\n", __func__, cmd_hnd->cmdbufs[0].size);
+				break;
+			}
+			edma_ext = (struct edma_ext *)cmd_hnd->cmdbufs[0].kva;
+
+			edma_ext->reg_addr = (u32)apusys_mem_query_iova((uint64_t)cmd_hnd->cmdbufs[1].kva);
+
+			LOG_INF("%s cmdbufs[1].kva = 0x%x\n", __func__, cmd_hnd->cmdbufs[1].kva);
+
+			LOG_INF("%s edma_ext.reg_addr = 0x%x\n", __func__, edma_ext->reg_addr);
 
 			result = edma_execute(edma_sub, edma_ext);
 
