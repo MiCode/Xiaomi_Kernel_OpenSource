@@ -175,6 +175,14 @@
 		reg = <0 0x10001000 0 0x1000>;
 	};
 
+	scp_infra: scp_infra@10001000 {
+	    compatible = "mediatek,scpinfra";
+	    reg = <0 0x10001000 0 0x1000>,	/* infracfg_ao */
+		    <0 0x10006000 0 0x1000>,	/* spm */
+		    <0 0x10000000 0 0x1000>;	/* topckgen */
+	    #clock-cells = <1>;
+	};
+
 	infracfg_ao_mem@10002000 {
 		compatible = "mediatek,infracfg_ao_mem";
 		reg = <0 0x10002000 0 0x1000>;
@@ -2003,6 +2011,153 @@
 	mbist@17860000 {
 		compatible = "mediatek,mbist";
 		reg = <0 0x17860000 0 0x10000>;
+	};
+
+	scp: scp@1c700000 {
+		compatible = "mediatek,scp";
+		status = "okay";
+		reg = <0 0x1c400000 0 0x200000>, /* tcm */
+		      <0 0x1c724000 0 0x1000>, /* cfg */
+		      <0 0x1c721000 0 0x1000>, /* clk*/
+		      <0 0x1c730000 0 0x1000>, /* cfg core0 */
+		      <0 0x1c740000 0 0x1000>, /* cfg core1 */
+		      <0 0x1c752000 0 0x1000>, /* bus tracker */
+		      <0 0x1c760000 0 0x40000>, /* llc */
+		      <0 0x1c7a5000 0 0x4>, /* cfg_sec */
+		      <0 0x1c7fb000 0 0x100>, /* mbox0 base */
+		      <0 0x1c7fb100 0 0x4>, /* mbox0 set */
+		      <0 0x1c7fb10c 0 0x4>, /* mbox0 clr */
+		      <0 0x1c7a5020 0 0x4>, /* mbox0 init */
+		      <0 0x1c7fc000 0 0x100>, /* mbox1 base */
+		      <0 0x1c7fc100 0 0x4>, /* mbox1 set */
+		      <0 0x1c7fc10c 0 0x4>, /* mbox1 clr */
+		      <0 0x1c7a5024 0 0x4>, /* mbox1 init */
+		      <0 0x1c7fd000 0 0x100>, /* mbox2 base */
+		      <0 0x1c7fd100 0 0x4>, /* mbox2 set */
+		      <0 0x1c7fd10c 0 0x4>, /* mbox2 clr */
+		      <0 0x1c7a5028 0 0x4>, /* mbox2 init */
+		      <0 0x1c7fe000 0 0x100>, /* mbox3 base */
+		      <0 0x1c7fe100 0 0x4>, /* mbox3 set */
+		      <0 0x1c7fe10c 0 0x4>, /* mbox3 clr */
+		      <0 0x1c7a502c 0 0x4>, /* mbox3 init */
+		      <0 0x1c7ff000 0 0x100>, /* mbox4 base */
+		      <0 0x1c7ff100 0 0x4>, /* mbox4 set */
+		      <0 0x1c7ff10c 0 0x4>, /* mbox4 clr */
+		      <0 0x1c7a5030 0 0x4>; /* mbox4 init */
+
+		reg-names = "scp_sram_base",
+			    "scp_cfgreg",
+			    "scp_clkreg",
+			    "scp_cfgreg_core0",
+			    "scp_cfgreg_core1",
+			    "scp_bus_tracker",
+			    "scp_l1creg",
+			    "scp_cfgreg_sec",
+			    "mbox0_base",
+			    "mbox0_set",
+			    "mbox0_clr",
+			    "mbox0_init",
+			    "mbox1_base",
+			    "mbox1_set",
+			    "mbox1_clr",
+			    "mbox1_init",
+			    "mbox2_base",
+			    "mbox2_set",
+			    "mbox2_clr",
+			    "mbox2_init",
+			    "mbox3_base",
+			    "mbox3_set",
+			    "mbox3_clr",
+			    "mbox3_init",
+			    "mbox4_base",
+			    "mbox4_set",
+			    "mbox4_clr",
+			    "mbox4_init";
+
+		interrupts = <GIC_SPI 682 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 683 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 687 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 688 IRQ_TYPE_LEVEL_HIGH 0>;
+
+		interrupt-names = "ipc0",
+				  "ipc1",
+				  "mbox0",
+				  "mbox1",
+				  "mbox2",
+				  "mbox3",
+				  "mbox4";
+
+		core_0 = "enable";
+		scp_hwccf = "enable";
+		scp_sramSize = <0x00200000>;
+		core_nums = <2>;	/* core number */
+		twohart = <2>;		/* two hart arch */
+		mbox_count = <5>;
+		/* id, mbox, send_size*/
+		send_table =
+		< 0 0  9>,/* IPI_OUT_AUDIO_VOW_1 */
+		<14 0  1>,/* IPI_OUT_DVFS_SET_FREQ_1 */
+		<15 0  2>,/* IPI_OUT_C_SLEEP_1 */
+		<16 0  1>,/* IPI_OUT_TEST_1 */
+		//<24 0  6>,/* IPI_OUT_SCP_MPOOL_1 */
+		<17 1  6>,/* IPI_OUT_LOGGER_CTRL */
+		<18 1  2>,/* IPI_OUT_SCPCTL_1 */
+		< 4 2  1>,/* IPI_OUT_DVFS_SET_FREQ_0 */
+		< 5 2  2>,/* IPI_OUT_C_SLEEP_0 */
+		<35 2  2>,/* IPI_OUT_SCP_HWCCF_DEBUG */
+		< 6 2  1>,/* IPI_OUT_TEST_0 */
+		//<11 2  6>,/* IPI_OUT_SCP_MPOOL_0 */
+		<33 2  3>,/* IPI_OUT_SCP_CONNSYS */
+		< 3 3  2>,/* IPI_OUT_APCCCI_0 */
+		<26 3  9>,/* IPI_OUT_AUDIO_ULTRA_SND_0 */
+		<29 4 16>,/* IPI_OUT_SENSOR_CTRL */
+		<31 4  7>;/* IPI_OUT_SENSOR_NOTIFY */
+
+		/* id, mbox, recv_size, recv_opt */
+		recv_table =
+		< 1 0  2 0>,/* IPI_IN_AUDIO_VOW_ACK_1 */
+		< 2 0 26 0>,/* IPI_IN_AUDIO_VOW_1 */
+		<15 0  1 1>,/* IPI_OUT_C_SLEEP_1 */
+		//<25 0  6 0>,/* IPI_IN_SCP_MPOOL_1 */
+		<20 1 10 0>,/* IPI_IN_SCP_ERROR_INFO_1 */
+		<21 1  6 0>,/* IPI_IN_LOGGER_CTRL */
+		<22 1  1 0>,/* IPI_IN_SCP_READY_1 */
+		< 5 2  1 1>,/* IPI_OUT_C_SLEEP_0 */
+		< 8 2 10 0>,/* IPI_IN_SCP_ERROR_INFO_0 */
+		//<12 2  6 0>,/* IPI_IN_SCP_MPOOL_0 */
+		<34 2  3 0>,/* IPI_IN_SCP_CONNSYS */
+		< 7 3  2 0>,/* IPI_IN_APCCCI_0 */
+		<28 3  5 0>,/* IPI_IN_AUDIO_ULTRA_SND_0 */
+		<27 3  2 0>,/* IPI_IN_AUDIO_ULTRA_SND_ACK_0 */
+		<30 4  2 0>,/* IPI_IN_SENSOR_CTRL */
+		<32 4  7 0>;/* IPI_IN_SENSOR_NOTIFY */
+
+		//legacy_table = 	<11>, /* out_id_0 IPI_OUT_SCP_MPOOL_0 */
+		//		<24>, /* out_id_1 IPI_OUT_SCP_MPOOL_1 */
+		//		<12>, /* in_id_0 IPI_IN_SCP_MPOOL_0 */
+		//		<12>, /* in_id_1 IPI_IN_SCP_MPOOL_0 */
+		//		<6>, /* out_size */
+		//		<6>; /* in_size */
+
+		scp_feature_tbl = <0 5>,   /* vow */
+				  <1 29>,  /* sensor */
+				  <2 26>,  /* flp */
+				  <3 0>,   /* rtos */
+				  <4 200>, /* speaker */
+				  <5 77>,  /* vcore */
+				  <6 200>, /* barge in */
+				  <7 10>;  /* vow dump */
+		scp_mem_key = "mediatek,reserve-memory-scp_share";
+		scp_mem_tbl = <0 0x4A700>, /* vow */
+			      <1 0x100000>, /* sensor main*/
+			      <2 0x180000>, /* logger */
+			      <3 0x19000>, /* audio */
+			      <7 0x10000>, /* sensor supper*/
+			      <8 0x1000>, /* sensor list */
+			      <9 0x2000>; /* sensor debug */
 	};
 
 	gce: gce@1e980000 {
