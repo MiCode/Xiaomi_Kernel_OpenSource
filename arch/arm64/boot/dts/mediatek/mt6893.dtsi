@@ -5113,6 +5113,7 @@
 			reg = <0 0x1a030000 0 0x8000>;
 			interrupts = <GIC_SPI 318 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM_RAWA>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus =
 				<&iommu1 M4U_PORT_L16_CAM_IMGO_R1_A_MDP>,
 				<&iommu1 M4U_PORT_L16_CAM_RRZO_R1_A_MDP>,
@@ -5154,6 +5155,7 @@
 			reg = <0 0x1a050000 0 0x8000>;
 			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM_RAWB>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus =
 				<&iommu0 M4U_PORT_L17_CAM_IMGO_R1_B_DISP>,
 				<&iommu0 M4U_PORT_L17_CAM_RRZO_R1_B_DISP>,
@@ -5195,6 +5197,7 @@
 			reg = <0 0x1a070000 0 0x8000>;
 			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM_RAWC>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus =
 				<&iommu1 M4U_PORT_L18_CAM_IMGO_R1_C_MDP>,
 				<&iommu1 M4U_PORT_L18_CAM_RRZO_R1_C_MDP>,
