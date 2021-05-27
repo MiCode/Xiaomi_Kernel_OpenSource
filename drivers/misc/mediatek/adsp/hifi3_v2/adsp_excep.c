@@ -341,6 +341,10 @@ void get_adsp_misc_buffer(unsigned long *vaddr, unsigned long *size)
 	unsigned int part_len = ADSP_MISC_BUF_SIZE / ADSP_CORE_TOTAL;
 
 	memset(buf, 0, ADSP_KE_DUMP_LEN);
+	if (!is_adsp_load()) {
+		pr_info("adsp not load, skip dump");
+		goto ERROR;
+	}
 
 	for (id = 0; id < ADSP_CORE_TOTAL; id++) {
 		w_pos = 0;
@@ -399,6 +403,11 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	u32 len = ADSP_KE_DUMP_LEN;
 
 	memset(buf, 0, len);
+	if (!is_adsp_load()) {
+		pr_info("adsp not load, skip dump");
+		goto EXIT;
+	}
+
 	adsp_enable_clock();
 	mutex_lock(&excep_ctrl.lock);
 	read_lock(&access_rwlock);
@@ -429,7 +438,7 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 
 	/* last adsp_log */
 	//n += dump_adsp_partial_log(buf + n, len - n);
-
+EXIT:
 	/* return value */
 	*vaddr = (unsigned long)buf;
 	*size = len;
