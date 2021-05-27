@@ -77,9 +77,10 @@
 #define RET_GT_5K		(0)
 
 /* Used to let accdet know if the pin has been fully plugged-in */
-#define EINT_PIN_PLUG_IN        (1)
 #define EINT_PIN_PLUG_OUT       (0)
+#define EINT_PIN_PLUG_IN        (1)
 #define EINT_PIN_MOISTURE_DETECTED (2)
+#define EINT_PIN_THING_IN	(3)
 #define ANALOG_FASTDISCHARGE_SUPPORT
 
 #ifdef CONFIG_ACCDET_EINT_IRQ
@@ -122,6 +123,7 @@ static struct cdev *accdet_cdev;
 static struct class *accdet_class;
 static struct device *accdet_device;
 static int s_button_status;
+static int accdet_pmic;
 
 /* accdet input device to report cable type and key event */
 static struct input_dev *accdet_input_dev;
@@ -136,10 +138,11 @@ static struct workqueue_struct *dis_micbias_workqueue;
 /* when  accdet irq issued, queue work: accdet_work work */
 static struct work_struct accdet_work;
 static struct workqueue_struct *accdet_workqueue;
+#ifdef CONFIG_ACCDET_EINT_IRQ
 /* when  eint issued, queue work: eint_work */
 static struct work_struct eint_work;
 static struct workqueue_struct *eint_workqueue;
-
+#endif
 /* micbias_timer: disable micbias if no accdet irq after eint,
  * timeout: 6 seconds
  * timerHandler: dis_micbias_timerhandler()
@@ -216,6 +219,10 @@ static struct task_struct *thread;
 static void accdet_init_once(void);
 static inline void accdet_init(void);
 static void send_accdet_status_event(u32 cable_type, u32 status);
+#if defined CONFIG_ACCDET_EINT_IRQ || defined CONFIG_ACCDET_EINT
+static u32 moisture_detect(void);
+#endif
+static inline void check_cable_type(void);
 
 #if !defined CONFIG_MTK_PMIC_NEW_ARCH
 enum PMIC_FAKE_IRQ_ENUM {
@@ -748,18 +755,24 @@ static u32 accdet_get_auxadc(int deCount)
 static void accdet_get_efuse(void)
 {
 	u32 efuseval = 0;
-	int tmp_div;
+	int tmp_div = 0, efuse_idx = 0;
 	unsigned int moisture_eint0;
 	unsigned int moisture_eint1;
+	int efuse[2][5] = {{110, 113, 114, 112, 113},
+			   {115, 118, 119, 117, 118} };
 
+	if (accdet_pmic == 0x0)
+		efuse_idx = 0;
+	else if (accdet_pmic == 0x66)
+		efuse_idx = 1;
 	/* accdet offset efuse:
 	 * this efuse must divided by 2
 	 */
-	efuseval = pmic_Read_Efuse_HPOffset(110);
+	efuseval = pmic_Read_Efuse_HPOffset(efuse[efuse_idx][0]);
 	accdet_auxadc_offset = efuseval & 0xFF;
 	if (accdet_auxadc_offset > 128)
 		accdet_auxadc_offset -= 256;
-	accdet_auxadc_offset = (accdet_auxadc_offset >> 1);
+	accdet_auxadc_offset = (accdet_auxadc_offset / 2);
 	pr_info("%s efuse=0x%x,auxadc_val=%dmv\n", __func__, efuseval,
 		accdet_auxadc_offset);
 
@@ -767,7 +780,7 @@ static void accdet_get_efuse(void)
  * we need to transfer it
  */
 	/* moisture vdd efuse offset */
-	efuseval = pmic_Read_Efuse_HPOffset(113);
+	efuseval = pmic_Read_Efuse_HPOffset(efuse[efuse_idx][1]);
 	moisture_vdd_offset = (int)((efuseval >> 8) & ACCDET_CALI_MASK0);
 	if (moisture_vdd_offset > 128)
 		moisture_vdd_offset -= 256;
@@ -775,7 +788,7 @@ static void accdet_get_efuse(void)
 		__func__, efuseval, moisture_vdd_offset);
 
 	/* moisture offset */
-	efuseval = pmic_Read_Efuse_HPOffset(114);
+	efuseval = pmic_Read_Efuse_HPOffset(efuse[efuse_idx][2]);
 	moisture_offset = (int)(efuseval & ACCDET_CALI_MASK0);
 	if (moisture_offset > 128)
 		moisture_offset -= 256;
@@ -784,12 +797,12 @@ static void accdet_get_efuse(void)
 
 	if (accdet_dts.moisture_use_ext_res == 0x0) {
 		/* moisture eint efuse offset */
-		efuseval = pmic_Read_Efuse_HPOffset(112);
+		efuseval = pmic_Read_Efuse_HPOffset(efuse[efuse_idx][3]);
 		moisture_eint0 = (int)((efuseval >> 8) & ACCDET_CALI_MASK0);
 		pr_info("%s moisture_eint0 efuse=0x%x,moisture_eint0=0x%x\n",
 			__func__, efuseval, moisture_eint0);
 
-		efuseval = pmic_Read_Efuse_HPOffset(113);
+		efuseval = pmic_Read_Efuse_HPOffset(efuse[efuse_idx][4]);
 		moisture_eint1 = (int)(efuseval & ACCDET_CALI_MASK0);
 		pr_info("%s moisture_eint1 efuse=0x%x,moisture_eint1=0x%x\n",
 			__func__, efuseval, moisture_eint1);
@@ -809,14 +822,15 @@ static void accdet_get_efuse(void)
 		pr_info("%s internal moisture_vm=%d mv\n", __func__,
 			moisture_vm);
 	} else if (accdet_dts.moisture_use_ext_res == 0x1) {
-		moisture_vm = (2800 + moisture_vdd_offset);
-		moisture_vm = moisture_vm * water_r;
-		moisture_vm = moisture_vm / (water_r + moisture_ext_r);
-		moisture_vm = moisture_vm + (moisture_offset >> 1);
-		pr_info("%s external moisture_vm=%d mv\n", __func__,
-			moisture_vm);
+		if (moisture_vm == 50) {
+			moisture_vm = (2800 + moisture_vdd_offset);
+			moisture_vm = moisture_vm * water_r;
+			moisture_vm = moisture_vm / (water_r + moisture_ext_r);
+			moisture_vm = moisture_vm + (moisture_offset >> 1);
+			pr_info("%s external moisture_vm=%d mv\n", __func__,
+				moisture_vm);
+		}
 	}
-
 }
 
 #ifdef CONFIG_FOUR_KEY_HEADSET
@@ -824,6 +838,14 @@ static void accdet_get_efuse_4key(void)
 {
 	u32 tmp_val = 0;
 	u32 tmp_8bit = 0
+	int efuse_idx = 0;
+	int efuse[2][2] = {{111, 112},
+			   {116, 117} };
+
+	if (accdet_pmic == 0x0)
+		efuse_idx = 0;
+	else if (accdet_pmic == 0x66)
+		efuse_idx = 1;
 
 	/* 4-key efuse:
 	 * bit[9:2] efuse value is loaded, so every read out value need to be
@@ -833,14 +855,14 @@ static void accdet_get_efuse_4key(void)
 	 * BC efuse: key-B Voltage:DB--BC;
 	 * key-C Voltage: BC--600;
 	 */
-	tmp_val = pmic_Read_Efuse_HPOffset(111);
+	tmp_val = pmic_Read_Efuse_HPOffset(efuse[efuse_idx][0]);
 	tmp_8bit = tmp_val & ACCDET_CALI_MASK0;
 	accdet_dts.four_key.mid = tmp_8bit << 2;
 
 	tmp_8bit = (tmp_val >> 8) & ACCDET_CALI_MASK0;
 	accdet_dts.four_key.voice = tmp_8bit << 2;
 
-	tmp_val = pmic_Read_Efuse_HPOffset(112);
+	tmp_val = pmic_Read_Efuse_HPOffset(efuse[efuse_idx][1]);
 	tmp_8bit = tmp_val & ACCDET_CALI_MASK0;
 	accdet_dts.four_key.up = tmp_8bit << 2;
 
@@ -934,6 +956,13 @@ static void send_accdet_status_event(u32 cable_type, u32 status)
 		input_sync(accdet_input_dev);
 		pr_info("%s MICROPHONE(4-pole) %s\n", __func__,
 			status ? "PlugIn" : "PlugOut");
+		/* when press key for a long time then plug in
+		 * even recoginized as 4-pole
+		 * disable micbias timer still timeout after 6s
+		 * it check AB=00(because keep to press key) then disable
+		 * micbias, it will cause key no response
+		 */
+		del_timer_sync(&micbias_timer);
 		break;
 	case LINE_OUT_DEVICE:
 		input_report_switch(accdet_input_dev, SW_LINEOUT_INSERT,
@@ -977,7 +1006,7 @@ static void multi_key_detection(u32 cur_AB)
 	 * issued AB=0 and Eint, delay to wait eint been flaged in register.
 	 * or eint handler issued. cur_eint_state == PLUG_OUT
 	 */
-	mdelay(10);
+	usleep_range(10000, 12000);
 
 #ifdef CONFIG_ACCDET_EINT_IRQ
 	irq_bit = !(pmic_read(ACCDET_IRQ_STS) & ACCDET_EINT_IRQ_B2_B3);
@@ -1342,7 +1371,7 @@ static inline void check_cable_type(void)
 				if (!fast_discharge) {
 					pmic_write(ACCDET_HW_MODE_DFF,
 						ACCDET_FAST_DISCAHRGE_REVISE);
-					mdelay(20);
+					msleep(20);
 					pmic_write(ACCDET_HW_MODE_DFF,
 						ACCDET_FAST_DISCAHRGE_EN);
 					fast_discharge = true;
@@ -1463,7 +1492,8 @@ static void accdet_work_callback(void)
 
 	mutex_lock(&accdet_eint_irq_sync_mutex);
 	if (eint_accdet_sync_flag) {
-		if (pre_cable_type != cable_type)
+		if ((pre_cable_type != cable_type) ||
+			(cable_type == HEADSET_MIC))
 			send_accdet_status_event(cable_type, 1);
 	} else
 		pr_info("%s() Headset has been plugout. Don't set state\n",
@@ -1596,7 +1626,7 @@ static int pmic_eint_queue_work(int eintID)
 
 	return ret;
 }
-
+#endif /* end of #ifdef CONFIG_ACCDET_EINT_IRQ */
 static u32 moisture_detect(void)
 {
 	u32 moisture_vol = 0;
@@ -1643,14 +1673,13 @@ static u32 moisture_detect(void)
 	return moisture_vol;
 
 }
-#endif
 
 void accdet_irq_handle(void)
 {
 	u32 eintID = 0;
 	u32 irq_status;
-	unsigned int moisture_vol = 0;
 #ifdef CONFIG_ACCDET_EINT_IRQ
+	unsigned int moisture_vol = 0;
 	eintID = get_triggered_eint();
 #endif
 	irq_status = pmic_read(ACCDET_IRQ_STS);
@@ -1864,6 +1893,10 @@ static int accdet_get_dts_data(void)
 		return -1;
 	}
 
+	ret = of_property_read_u32(node, "mediatek,accdet-pmic", &accdet_pmic);
+	if (ret)
+		accdet_pmic = 0x0;
+
 	ret = of_property_read_u32(node, "moisture-water-r", &water_r);
 	if (ret) {
 		/* no moisture detection */
@@ -1885,6 +1918,11 @@ static int accdet_get_dts_data(void)
 			&moisture_int_r);
 		pr_info("Moisture_INT support water_r=%d, int_r=%d\n",
 		     water_r, moisture_int_r);
+	}
+	ret = of_property_read_u32(node, "moisture-vm", &moisture_vm);
+	if (ret) {
+		/* moisture_vm threshold */
+		moisture_vm = 50;
 	}
 	of_property_read_u32(node, "accdet-mic-vol", &accdet_dts.mic_vol);
 	of_property_read_u32(node, "accdet-plugout-debounce",
@@ -2046,14 +2084,14 @@ static inline void accdet_eint_high_level_support(void)
 			/* set bit3 to enable default EINT init status */
 			pmic_write(ACCDET_CTRL, reg_val|
 				ACCDET_EINT0_SEQ_INIT_EN_B3);
-			mdelay(2);
+			mdelay(1); /* please do not change usleep_range(2000, 3000); */
 			reg_val = pmic_read(ACCDET_CTRL);
 			reg_val = pmic_read(ACCDET_DEFAULT_STATE_RG);
 			/* set default EINT init status */
 			pmic_write(ACCDET_DEFAULT_STATE_RG,
 				(reg_val|ACCDET_EINT0_IVAL_SEL_B14)&
 				(~ACCDET_EINT0_IVAL_B2_6_10));
-			mdelay(2);
+			mdelay(1); /* please do not change usleep_range(2000, 3000); */
 			reg_val = pmic_read(ACCDET_DEFAULT_STATE_RG);
 			/* clear bit3 to disable default EINT init status */
 			reg_val = pmic_read(ACCDET_CTRL);
@@ -2225,10 +2263,10 @@ static inline void accdet_init(void)
 #if PMIC_ACCDET_KERNEL
 	/* set and clear initial bit every eint interrutp */
 	pmic_write(ACCDET_CTRL, pmic_read(ACCDET_CTRL)|ACCDET_SEQ_INIT_EN_B1);
-	mdelay(2);
+	mdelay(2); /* please do not change usleep_range(2000, 3000); */
 	pmic_write(ACCDET_CTRL,
 			pmic_read(ACCDET_CTRL)&(~ACCDET_SEQ_INIT_EN_B1));
-	mdelay(1);
+	mdelay(1); /* please do not change usleep_range(1000, 1500); */
 #endif
 	/* init the debounce time (debounce/32768)sec */
 	accdet_set_debounce(accdet_state000, cust_pwm_deb->debounce0);
@@ -2452,10 +2490,13 @@ int mt_accdet_probe(struct platform_device *dev)
 
 #ifdef CONFIG_ACCDET_EINT
 err_eint_setup:
+#ifdef CONFIG_ACCDET_EINT_IRQ
 	destroy_workqueue(eint_workqueue);
 #endif
-
+#endif
+#ifdef CONFIG_ACCDET_EINT_IRQ
 err_create_workqueue:
+#endif
 	destroy_workqueue(dis_micbias_workqueue);
 err:
 	destroy_workqueue(accdet_workqueue);
@@ -2481,7 +2522,9 @@ void mt_accdet_remove(void)
 	pr_debug("%s enter!\n", __func__);
 
 	/* cancel_delayed_work(&accdet_work); */
+#ifdef CONFIG_ACCDET_EINT_IRQ
 	destroy_workqueue(eint_workqueue);
+#endif
 	destroy_workqueue(dis_micbias_workqueue);
 	destroy_workqueue(accdet_workqueue);
 	input_unregister_device(accdet_input_dev);
