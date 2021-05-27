@@ -28,6 +28,10 @@
 #define WDT_LENGTH_KEY      0x8
 #define WDT_RST         0x08
 #define WDT_RST_RELOAD      0x1971
+#define WDT_NONRST_REG2     0x24
+#define WDT_STAGE_OFS       29
+#define WDT_STAGE_MASK      0x07
+#define WDT_STAGE_KERNEL    0x03
 #define CPU_NR (nr_cpu_ids)
 
 static int start_kicker(void);
@@ -395,6 +399,15 @@ static int __init init_wk_check_bit(void)
 	return 0;
 }
 
+static void wdt_mark_stage(unsigned int stage)
+{
+	unsigned int reg = ioread32(toprgu_base + WDT_NONRST_REG2);
+
+	reg = (reg & ~(WDT_STAGE_MASK << WDT_STAGE_OFS))
+		| (stage << WDT_STAGE_OFS);
+	iowrite32(reg, toprgu_base + WDT_NONRST_REG2);
+}
+
 static const struct of_device_id toprgu_of_match[] = {
 	{ .compatible = "mediatek,mt6589-wdt" },
 	{},
@@ -419,7 +432,9 @@ static int __init hangdet_init(void)
 
 	toprgu_base = of_iomap(np_toprgu, 0);
 	if (!toprgu_base)
-		pr_debug("apxgpt iomap failed\n");
+		pr_debug("toprgu iomap failed\n");
+	else
+		wdt_mark_stage(WDT_STAGE_KERNEL);
 
 	init_wk_check_bit();
 
