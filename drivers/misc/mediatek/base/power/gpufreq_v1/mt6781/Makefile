@@ -16,7 +16,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/mt6781/inc/mach/
 # pbm reuse mt6785 header
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(subst ",,$(CONFIG_MTK_PLATFORM))/include/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6785/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/mt6781/
+ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/wdt/common/wdt_v2/
 endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
@@ -25,7 +26,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/leakage_table
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 
 ccflags-y += -Wno-unused-variable
