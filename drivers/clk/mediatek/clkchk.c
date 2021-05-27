@@ -191,6 +191,12 @@ static struct clk *__clk_chk_lookup(const char *name)
 	return NULL;
 }
 
+struct clk *clk_chk_lookup(const char *name)
+{
+	return __clk_chk_lookup(name);
+}
+EXPORT_SYMBOL(clk_chk_lookup);
+
 static s32 *read_spm_pwr_status_array(void)
 {
 	if (clkchk_ops == NULL || clkchk_ops->get_spm_pwr_status_array  == NULL)

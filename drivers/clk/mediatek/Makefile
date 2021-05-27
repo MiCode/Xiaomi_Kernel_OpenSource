@@ -170,13 +170,21 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-chk.o
 clk-chk-$(CONFIG_COMMON_CLK_MT6853) += clkchk.o clkchk-mt6853.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6893.c),)
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-chk.o
 clk-chk-$(CONFIG_COMMON_CLK_MT6893) += clkchk.o clkchk-mt6893.o
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-fmeter.o
 clk-fmeter-$(CONFIG_COMMON_CLK_MT6893) += clk-fmeter-mt6893.o
+obj-$(CONFIG_COMMON_CLK_MT6893) += pd-chk-mt6893.o
+pd-chk-mt6893-$(CONFIG_COMMON_CLK_MT6893) += mtk-pd-chk.o mtk-pd-chk-mt6893.o
+endif
 ifeq ($(CONFIG_DEBUG_FS), y)
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-dbg.o
 clk-dbg-$(CONFIG_COMMON_CLK_MT6853) += clkdbg.o clkdbg-mt6853.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6893.c),)
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-dbg.o
 clk-dbg-$(CONFIG_COMMON_CLK_MT6893) += clkdbg.o clkdbg-mt6893.o
 endif

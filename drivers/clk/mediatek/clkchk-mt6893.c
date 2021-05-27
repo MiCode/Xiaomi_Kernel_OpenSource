@@ -498,6 +498,7 @@ void print_subsys_reg(enum chk_sys_id id)
 			rns->name, PHYSADDR(rns), clk_readl(ADDR(rns)));
 	}
 }
+EXPORT_SYMBOL(print_subsys_reg);
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 static void devapc_dump(void)
