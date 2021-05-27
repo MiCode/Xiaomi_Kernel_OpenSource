@@ -3676,6 +3676,16 @@
 			#iommu-cells = <1>;
 		};
 
+		mtk_dmabufheap_debug0: dmaheap_test0{
+			compatible = "mediatek, mtk_dmabufheap, iommu0";
+			iommus = <&iommu0 M4U_PORT_L0_DISP_WDMA0>;
+		};
+
+		mtk_dmabufheap_debug1: dmaheap_test1{
+			compatible = "mediatek, mtk_dmabufheap, iommu1";
+			iommus = <&iommu0 M4U_PORT_L1_DISP_FAKE1>;
+		};
+
 		imgsys1_clk: syscon@15020000 {
 			compatible = "mediatek,mt6893-imgsys1", "syscon";
 			reg = <0 0x15020000 0 0x1000>;
