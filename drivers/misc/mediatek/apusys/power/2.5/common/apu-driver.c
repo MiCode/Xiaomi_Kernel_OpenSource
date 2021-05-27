@@ -338,7 +338,7 @@ struct platform_driver apusys_power_driver = {
 	},
 };
 
-static int __init apu_power_init(void)
+int apu_power_init(void)
 {
 	int ret = 0;
 
@@ -381,9 +381,8 @@ static int __init apu_power_init(void)
 		return ret;
 	return 0;
 }
-module_init(apu_power_init);
 
-static void __exit apu_power_exit(void)
+void apu_power_exit(void)
 {
 	int ret = 0;
 
@@ -416,5 +415,3 @@ static void __exit apu_power_exit(void)
 		pr_info("[%s] failed remove gov %s %d\n",
 			__func__, agov_passive_pe.name, ret);
 }
-module_exit(apu_power_exit)
-MODULE_LICENSE("GPL");

@@ -1,5 +1,5 @@
 config MTK_APUSYS_SUPPORT
-	tristate "APU_TOP driver"
+	tristate "APUSYS Power Driver"
 	help
 	  Enable Mediatek APU_TOP mtcmos control.
 	  Support APU_TOP generic power domain multi-user use.

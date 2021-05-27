@@ -77,4 +77,4 @@ config MTK_APUSYS_EDMA_SUPPORT
 	  DRAM/TCM, It will cooperate with MDLA. eDMA
 	  support different modes for image process.
 
-source "drivers/misc/mediatek/apusys/apu_top/Kconfig"
+source "drivers/misc/mediatek/apusys/power/Kconfig"

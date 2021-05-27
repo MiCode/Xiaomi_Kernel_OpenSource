@@ -173,15 +173,15 @@ apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/debug_plat_device.o
 apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/debug_platform.o
 endif
 
-# power driver makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.5/inc/
 apusys-objs += power/2.5/common/apu-tag.o
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += power/2.5/
-
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.5/inc/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/platform/
+obj-$(CONFIG_MTK_APUSYS_SUPPORT) += power/
 
 # mdla
 src=$(srctree)/drivers/misc/mediatek/apusys

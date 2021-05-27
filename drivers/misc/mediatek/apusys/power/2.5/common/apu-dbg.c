@@ -860,7 +860,7 @@ void apupw_dbg_release_nodes(void)
 }
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
-int apu_power_drv_init(struct apusys_core_info *info)
+int apupw_dbg_init(struct apusys_core_info *info)
 {
 	/* creating apupw directory */
 	apupw_dbg.dir = debugfs_create_dir("apupwr", info->dbg_root);
@@ -887,16 +887,14 @@ out:
 	return 0;
 }
 
-void apu_power_drv_exit(void)
+void apupw_dbg_exit(void)
 {
 	debugfs_remove(apupw_dbg.sym_link);
 	debugfs_remove(apupw_dbg.file);
 	debugfs_remove(apupw_dbg.dir);
 }
 #else
-int apu_power_drv_init(struct apusys_core_info *info) { return 0; }
-void apu_power_drv_exit(void) {}
+int apupw_dbg_init(struct apusys_core_info *info) { return 0; }
+void apupw_dbg_exit(void) {}
 #endif
-EXPORT_SYMBOL(apu_power_drv_init);
-EXPORT_SYMBOL(apu_power_drv_exit);
 
