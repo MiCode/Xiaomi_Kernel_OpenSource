@@ -306,6 +306,10 @@ extern void set_wake_sync(unsigned int sync);
 extern unsigned int get_wake_sync(void);
 extern void set_uclamp_min_ls(unsigned int val);
 extern unsigned int get_uclamp_min_ls(void);
+#if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
+extern int sched_pause_cpu(int val);
+extern int sched_resume_cpu(int val);
+#endif
 
 static long eas_ioctl_impl(struct file *filp,
 		unsigned int cmd, unsigned long arg, void *pKM)
@@ -313,6 +317,14 @@ static long eas_ioctl_impl(struct file *filp,
 	ssize_t ret = 0;
 	unsigned int sync;
 	unsigned int val;
+	unsigned int cpu;
+	bool is_pause;
+	char powerhal_str[20];
+	char *ubuf = (char *)arg;
+#if IS_ENABLED(CONFIG_MTK_CORE_CTL)
+	unsigned int cid, min, max, thres, throttle_ms;
+	bool enable, boost;
+#endif
 
 	switch (cmd) {
 	case EAS_SYNC_SET:
@@ -335,6 +347,72 @@ static long eas_ioctl_impl(struct file *filp,
 		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
 			return -1;
 		break;
+	case EAS_ACTIVE_MASK_GET:
+		val = __cpu_active_mask.bits[0];
+		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
+	case CORE_CTL_FORCE_RESUME_CPU:
+	case CORE_CTL_FORCE_PAUSE_CPU:
+		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+			return -1;
+		if (sscanf(powerhal_str, "%u %u\n", &cpu, &is_pause) != 2)
+			return -1;
+#if IS_ENABLED(CONFIG_MTK_CORE_CTL)
+		ret = core_ctl_force_pause_cpu(cpu, is_pause);
+#elif IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
+		if (is_pause)
+			ret = sched_pause_cpu(cpu);
+		else
+			ret = sched_resume_cpu(cpu);
+#else
+		return -1;
+#endif
+		break;
+#if IS_ENABLED(CONFIG_MTK_CORE_CTL)
+	case CORE_CTL_SET_OFFLINE_THROTTLE_MS:
+		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+			return -1;
+		if (sscanf(powerhal_str, "%u %u\n", &cid, &throttle_ms) != 2)
+			return -1;
+		ret = core_ctl_set_offline_throttle_ms(cid, throttle_ms);
+		break;
+	case CORE_CTL_SET_LIMIT_CPUS:
+		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+			return -1;
+		if (sscanf(powerhal_str, "%u %u %u\n", &cid, &min, &max) != 3)
+			return -1;
+		ret = core_ctl_set_limit_cpus(cid, min, max);
+		break;
+	case CORE_CTL_SET_NOT_PREFERRED:
+		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+			return -1;
+		if (sscanf(powerhal_str, "%u %u %u\n", &cid, &cpu, &enable) != 3)
+			return -1;
+		ret = core_ctl_set_not_preferred(cid, cpu, enable);
+		break;
+	case CORE_CTL_SET_BOOST:
+		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+			return -1;
+		if (sscanf(powerhal_str, "%u\n", &boost) != 1)
+			return -1;
+		ret = core_ctl_set_boost(boost);
+		break;
+	case CORE_CTL_SET_UP_THRES:
+		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+			return -1;
+		if (sscanf(powerhal_str, "%u %u\n", &cid, &thres) != 2)
+			return -1;
+		ret = core_ctl_set_up_thres(cid, thres);
+		break;
+	case CORE_CTL_ENABLE_POLICY:
+		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+			return -1;
+		if (sscanf(powerhal_str, "%u\n", &enable) != 1)
+			return -1;
+		ret = core_ctl_enable_policy(enable);
+		break;
+#endif
 	default:
 		pr_debug(TAG "%s %d: unknown cmd %x\n",
 			__FILE__, __LINE__, cmd);

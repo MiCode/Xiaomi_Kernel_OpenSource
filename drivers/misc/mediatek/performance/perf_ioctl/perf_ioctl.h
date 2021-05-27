@@ -26,6 +26,18 @@
 
 #include <linux/ioctl.h>
 
+#if IS_ENABLED(CONFIG_MTK_CORE_CTL)
+extern int core_ctl_set_offline_throttle_ms(unsigned int cid,
+                                unsigned int throttle_ms);
+extern int core_ctl_set_limit_cpus(unsigned int cid, unsigned int min,
+                                unsigned int max);
+extern int core_ctl_set_not_preferred(int cid, int cpu, bool enable);
+extern int core_ctl_set_boost(bool boost);
+extern int core_ctl_set_up_thres(int cid, unsigned int val);
+extern int core_ctl_force_pause_cpu(int cpu, bool paused);
+extern int core_ctl_enable_policy(bool paused);
+#endif
+
 struct _FPSGO_PACKAGE {
 	union {
 		__u32 tid;
@@ -104,10 +116,19 @@ enum  {
 #define EARA_GETUSAGE               _IOW('g', 3, struct _EARA_NN_PACKAGE)
 #define EARA_GETSTATE               _IOW('g', 4, struct _EARA_NN_PACKAGE)
 
-#define EAS_SYNC_SET              _IOW('g', 1, unsigned int)
-#define EAS_SYNC_GET              _IOW('g', 2, unsigned int)
-#define EAS_PERTASK_LS_SET              _IOW('g', 3, unsigned int)
-#define EAS_PERTASK_LS_GET              _IOR('g', 4, unsigned int)
+#define EAS_SYNC_SET                            _IOW('g', 1,  unsigned int)
+#define EAS_SYNC_GET                            _IOW('g', 2,  unsigned int)
+#define EAS_PERTASK_LS_SET                      _IOW('g', 3,  unsigned int)
+#define EAS_PERTASK_LS_GET                      _IOR('g', 4,  unsigned int)
+#define EAS_ACTIVE_MASK_GET                     _IOR('g', 5,  unsigned int)
+#define CORE_CTL_FORCE_RESUME_CPU               _IOW('g', 6, char *)
+#define CORE_CTL_FORCE_PAUSE_CPU                _IOW('g', 7, char *)
+#define CORE_CTL_SET_OFFLINE_THROTTLE_MS        _IOW('g', 8,  char *)
+#define CORE_CTL_SET_LIMIT_CPUS                 _IOW('g', 9,  char *)
+#define CORE_CTL_SET_NOT_PREFERRED              _IOW('g', 10, char *)
+#define CORE_CTL_SET_BOOST                      _IOW('g', 11, char *)
+#define CORE_CTL_SET_UP_THRES                   _IOW('g', 12, char *)
+#define CORE_CTL_ENABLE_POLICY                  _IOW('g', 13, char *)
 
 #endif
 
