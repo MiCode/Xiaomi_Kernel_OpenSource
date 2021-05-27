@@ -26,6 +26,9 @@
 
 #include "../../../kernel/irq/internals.h"
 
+#include <linux/tracepoint.h>
+#include <trace/events/irq.h>
+
 #define NUM_CLASS_CPUS	NR_CPUS
 #define QCOM_GIC_INTERRUPT_ROUTING_MODE	BIT(31)
 #define QCOM_GICD_ICLAR2	0xE008
@@ -510,6 +513,57 @@ static int qcom_gic_affinity_cpu_offline(unsigned int cpu)
 	return 0;
 }
 
+void qcom_gic_irq_handler_entry_notifer(void *ignore, int irq,
+					struct irqaction *action)
+{
+	struct irq_chip *gic_chip = NULL;
+	struct irq_desc *desc;
+	int cpu;
+	struct irq_data *data;
+	u32 hwirq, hwirq_bitpos;
+	struct cpumask *effective_affinity;
+
+	if (!action->thread_fn)
+		return;
+
+	desc = irq_to_desc(irq);
+	if (!desc)
+		return;
+
+	data = irq_desc_get_irq_data(desc);
+	hwirq = data->hwirq;
+
+	if (hwirq < 32 || hwirq >= QCOM_MAX_IRQS)
+		return;
+
+	if (READ_ONCE(qcom_gic_routing_data.gic_1_of_N_init_done)) {
+		/* Order .gic_1_of_N_init_done and .gic_chip read */
+		smp_rmb();
+		gic_chip = READ_ONCE(qcom_gic_routing_data.gic_chip);
+	}
+	if (!qcom_is_gic_chip(desc, gic_chip))
+		return;
+
+	hwirq_bitpos = hwirq - 32;
+	if (!test_bit(hwirq_bitpos, qcom_active_gic_class0) &&
+	    !test_bit(hwirq_bitpos, qcom_active_gic_class1))
+		return;
+
+	if (raw_spin_trylock(&desc->lock)) {
+		effective_affinity =
+			irq_data_get_effective_affinity_mask(data);
+		cpu = raw_smp_processor_id();
+		if (!cpumask_equal(effective_affinity, cpumask_of(cpu))) {
+			irq_data_update_effective_affinity(data,
+				cpumask_of(cpu));
+			pr_debug("Update effective affinity %d cpu :%d irq: %d\n",
+				 hwirq, cpu, irq);
+			set_bit(IRQTF_AFFINITY, &action->thread_flags);
+		}
+		raw_spin_unlock(&desc->lock);
+	}
+}
+
 static int qcom_gic_intr_routing_probe(struct platform_device *pdev)
 {
 
@@ -539,6 +593,7 @@ static int qcom_gic_intr_routing_probe(struct platform_device *pdev)
 	register_trace_android_rvh_gic_v3_set_affinity(
 		qcom_trace_gic_v3_set_affinity, NULL);
 
+	register_trace_irq_handler_entry(qcom_gic_irq_handler_entry_notifer, NULL);
 	rc = cpuhp_setup_state(
 		CPUHP_AP_ONLINE_DYN, "qcom/gic_affinity_setting:online",
 		qcom_gic_affinity_cpu_online, qcom_gic_affinity_cpu_offline);
