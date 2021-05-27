@@ -93,7 +93,7 @@ static int mtk_usb_extcon_set_role(struct mtk_extcon_info *extcon,
 	struct usb_role_info *role_info;
 
 	/* create and prepare worker */
-	role_info = kzalloc(sizeof(*role_info), GFP_KERNEL);
+	role_info = kzalloc(sizeof(*role_info), GFP_ATOMIC);
 	if (!role_info)
 		return -ENOMEM;
 
