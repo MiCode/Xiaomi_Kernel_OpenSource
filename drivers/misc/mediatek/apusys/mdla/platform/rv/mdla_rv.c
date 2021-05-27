@@ -79,9 +79,6 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 	{NF_MDLA_IPI_TYPE_0,     0,               0,    0,            NULL,                NULL, 0}
 };
 
-static unsigned int bootcode;
-static unsigned int maincode;
-
 static void mdla_plat_v2_dbgfs_usage(struct seq_file *s, void *data)
 {
 	seq_puts(s, "\n---- Set uP debug log mask ----\n");
@@ -176,8 +173,6 @@ int mdla_rv_init(struct platform_device *pdev)
 		mdla_plat_devices[i].dev = &pdev->dev;
 	}
 
-	mdla_plat_load_fw(&pdev->dev, &bootcode, &maincode);
-
 	if (mdla_plat_pwr_drv_ready()) {
 		if (mdla_pwr_device_register(pdev, NULL, NULL))
 			return -1;
@@ -192,11 +187,6 @@ int mdla_rv_init(struct platform_device *pdev)
 
 	mdla_dbg_plat_cb()->dbgfs_plat_init = mdla_plat_dbgfs_init;
 
-	if (bootcode && maincode) {
-		mdla_ipi_send(MDLA_IPI_FW_ADDR, 0, (u64)bootcode);
-		mdla_ipi_send(MDLA_IPI_FW_ADDR, 1, (u64)maincode);
-	}
-
 	return 0;
 }
 
@@ -209,7 +199,5 @@ void mdla_rv_deinit(struct platform_device *pdev)
 	if (mdla_plat_pwr_drv_ready()
 			&& mdla_pwr_device_unregister(pdev))
 		dev_info(&pdev->dev, "unregister mdla power fail\n");
-
-	mdla_plat_unload_fw(&pdev->dev);
 }
 
