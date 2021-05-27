@@ -90,4 +90,11 @@ source "drivers/soc/mediatek/devmpu/Kconfig"
 
 endmenu # Security
 
+config MTK_SOCINFO
+	tristate "MediaTek SoCInfo Driver"
+	select SOC_BUS
+	help
+	  Say yes here to support the MediaTek SoCInfo driver, providing
+	  information about the SoC to user space.
+
 endmenu
