@@ -2558,6 +2558,7 @@
 			mediatek,clk-mgr;
 			mediatek,usb3-drd;
 			usb-role-switch;
+			cdp-block;
 
 			usb_host: xhci0@11200000 {
 				compatible = "mediatek,mtk-xhci";
