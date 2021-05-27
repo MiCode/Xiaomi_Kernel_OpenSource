@@ -842,7 +842,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int *clus_opp;
 	unsigned int *clus_floor_freq;
 	int tgt_opp = 0;
-	unsigned int mbhr;
+	int mbhr;
 	int mbhr_opp;
 	int bhr_opp_local;
 	int bhr_local;
@@ -910,11 +910,11 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 
 		mbhr_opp = (clus_opp[cluster] - bhr_opp_local);
 
-		mbhr = clus_floor_freq[cluster] * 100U;
+		mbhr = clus_floor_freq[cluster] * 100;
 		mbhr = mbhr / cpu_max_freq;
-		mbhr = mbhr + (unsigned int)bhr_local;
-		mbhr = (min(mbhr, 100U) * cpu_max_freq);
-		mbhr = mbhr / 100U;
+		mbhr = mbhr + bhr_local;
+		mbhr = (min(mbhr, 100) * cpu_max_freq);
+		mbhr = mbhr / 100;
 
 		for (i = (NR_FREQ_CPU - 1); i >= 0; i--) {
 			if (cpu_dvfs[cluster].power[i] > mbhr)
