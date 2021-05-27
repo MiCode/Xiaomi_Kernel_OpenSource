@@ -26,7 +26,7 @@ int reset_recorder(int cammux_id1, int cammux_id2);
 int record_vs_diff(int vflag, unsigned int diff);
 int record_vs1(unsigned int ts);
 int record_vs2(unsigned int ts);
-int show_records(int idx);
+int show_records(unsigned int idx);
 int query_n3d_vsync_data(struct vsync_rec *pData);
 
 #endif
