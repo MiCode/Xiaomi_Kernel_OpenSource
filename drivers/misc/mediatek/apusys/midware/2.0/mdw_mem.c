@@ -46,8 +46,9 @@ static void mdw_mem_delete(struct kref *ref)
 	struct mdw_mem *m = container_of(ref, struct mdw_mem, ref);
 
 	mdw_mem_debug("delete mem(%p)\n", m);
-	list_del(&m->u_item);
+	mutex_lock(&mmgr.mtx);
 	list_del(&m->m_item);
+	mutex_unlock(&mmgr.mtx);
 
 	if (m->is_alloced)
 		mdw_mem_dma_free(m->mpriv, m);
@@ -66,8 +67,9 @@ static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 		mdw_mem_debug("create mem(%p)\n", m);
 		m->mpriv = mpriv;
 		kref_init(&m->ref);
-		list_add_tail(&m->u_item, &mpriv->mems);
+		mutex_lock(&mmgr.mtx);
 		list_add_tail(&m->m_item, &mmgr.mems);
+		mutex_unlock(&mmgr.mtx);
 	}
 
 	return m;
@@ -83,6 +85,7 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	if (!m)
 		return NULL;
 
+	m->mpriv = mpriv;
 	m->size = size;
 	m->align = align;
 	m->cacheable = cacheable; /* TODO */
@@ -130,7 +133,6 @@ static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,
 	struct mdw_mem *m = NULL;
 	int ret = 0;
 
-	mutex_lock(&mmgr.mtx);
 	mutex_lock(&mpriv->mtx);
 
 	m = mdw_mem_alloc(mpriv, in->alloc.size,
@@ -140,12 +142,12 @@ static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,
 		goto out;
 	}
 
+	list_add_tail(&m->u_item, &mpriv->mems);
 	memset(args, 0, sizeof(*args));
 	args->out.alloc.handle = m->handle;
 
 out:
 	mutex_unlock(&mpriv->mtx);
-	mutex_unlock(&mmgr.mtx);
 
 	return ret;
 }
@@ -157,18 +159,18 @@ static int mdw_mem_ioctl_free(struct mdw_fpriv *mpriv,
 	struct mdw_mem *m = NULL;
 	int ret = -ENOMEM;
 
-	mutex_lock(&mmgr.mtx);
 	mutex_lock(&mpriv->mtx);
 	m = mdw_mem_get(mpriv, in->free.handle);
 	if (!m)
 		goto out;
 
-	ret = mdw_mem_free(mpriv, m);
+	if (kref_read(&m->ref) == 1)
+		list_del(&m->u_item);
+	ret =mdw_mem_free(mpriv, m);
 
 out:
 	memset(args, 0, sizeof(*args));
 	mutex_unlock(&mpriv->mtx);
-	mutex_unlock(&mmgr.mtx);
 
 	return ret;
 }
@@ -180,24 +182,25 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 	struct mdw_mem *m = NULL;
 	int ret = -ENOMEM;
 
-	mutex_lock(&mmgr.mtx);
 	mutex_lock(&mpriv->mtx);
-
 	m = mdw_mem_get(mpriv, in->map.handle);
 	if (!m) {
+		/* this handle is not belong to current apu user */
 		m = mdw_mem_create(mpriv);
 		if (!m) {
 			mdw_drv_err("alloc mdw mem fail\n");
 			goto out;
 		}
 
+		/* assign handle */
 		m->handle = in->map.handle;
 		ret = mdw_mem_map(mpriv, m);
-		/* delete mem */
 		if (ret) {
 			kref_put(&m->ref, mdw_mem_delete);
 			goto out;
 		}
+
+		list_add_tail(&m->u_item, &mpriv->mems);
 	} else {
 		ret = mdw_mem_map(mpriv, m);
 		if (ret)
@@ -210,7 +213,6 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 
 out:
 	mutex_unlock(&mpriv->mtx);
-	mutex_unlock(&mmgr.mtx);
 
 	return ret;
 }

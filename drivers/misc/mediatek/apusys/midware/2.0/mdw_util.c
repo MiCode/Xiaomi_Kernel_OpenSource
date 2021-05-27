@@ -30,16 +30,11 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data)
 			break;
 		}
 
-		mdw_drv_debug("\n");
-
-
-
 		mem_ucmd = vzalloc(args->in.ucmd.size);
 		if (!mem_ucmd) {
 			ret = -ENOMEM;
 			break;
 		}
-		mdw_drv_debug("\n");
 
 		if (copy_from_user(mem_ucmd,
 			(void __user *)in->ucmd.handle,
@@ -47,20 +42,16 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data)
 			ret = -EFAULT;
 			goto free_ucmd;
 		}
-		mdw_drv_debug("\n");
-
 		ret = mdev->dev_funcs->ucmd(in->ucmd.dev_type,
 			mem_ucmd, in->ucmd.size);
 		if (ret) {
 			mdw_drv_err("dev(%d) ucmd fail\n", in->ucmd.dev_type);
 			goto free_ucmd;
 		}
-		mdw_drv_debug("\n");
 
 		if (copy_to_user((void __user *)in->ucmd.handle,
 				mem_ucmd, in->ucmd.size))
 			ret = -EFAULT;
-		mdw_drv_debug("\n");
 
 free_ucmd:
 		vfree(mem_ucmd);

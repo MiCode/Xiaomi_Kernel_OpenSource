@@ -32,8 +32,8 @@ struct mdw_sched_mgr {
 
 static struct mdw_sched_mgr ms_mgr;
 
-#define MDW_EXEC_PRINT " pid(%d/%d) cmd(%d/0x%llx-#%u/%u)"\
-	" dev(%d/%s-#%d) mp(%u/%u/%u/%u) sched(%u/%u/%u/%u/%u/%u)"\
+#define MDW_EXEC_PRINT " pid(%d/%d) cmd(%p.%d/0x%llx-#%u/%u)"\
+	" dev(%d/%s-#%d) pack(%u) sched(%u/%u/%u/%u/%u/%u)"\
 	" mem(%u/%u/0x%x/0x%x) boost(%u) bw(0x%x) time(%u/%u)"
 
 static void mdw_sched_met_start(struct mdw_ap_sc *sc, struct mdw_dev_info *d)
@@ -117,6 +117,7 @@ static void mdw_sched_trace(struct mdw_ap_sc *sc,
 			state,
 			sc->parent->pid,
 			sc->parent->tgid,
+			sc->parent->c->mpriv,
 			sc->parent->c->id,
 			sc->parent->c->kid,
 			sc->idx,
@@ -125,9 +126,6 @@ static void mdw_sched_trace(struct mdw_ap_sc *sc,
 			d->name,
 			d->idx,
 			sc->hdr->info->pack_id,
-			0, //h->multicore_idx,
-			0, //sc->multi_total,
-			0, //sc->multi_bmp,
 			sc->parent->c->priority,
 			sc->parent->c->softlimit,
 			sc->parent->c->hardlimit,
@@ -148,6 +146,7 @@ static void mdw_sched_trace(struct mdw_ap_sc *sc,
 			state,
 			sc->parent->pid,
 			sc->parent->tgid,
+			sc->parent->c->mpriv,
 			sc->parent->c->id,
 			sc->parent->c->kid,
 			sc->idx,
@@ -156,9 +155,6 @@ static void mdw_sched_trace(struct mdw_ap_sc *sc,
 			d->name,
 			d->idx,
 			sc->hdr->info->pack_id,
-			0, //h->multicore_idx,
-			0, //sc->multi_total,
-			0, //sc->multi_bmp,
 			sc->parent->c->priority,
 			sc->parent->c->softlimit,
 			sc->parent->c->hardlimit,
@@ -360,15 +356,16 @@ int mdw_sched_dev_routine(void *arg)
 
 		mdw_ap_parser.clear_hnd(&h);
 
-		mdw_sched_enque_done_sc(sc);
-
 		/* put device */
 		if (mdw_rsc_put_dev(d))
 			mdw_drv_err("put dev(%d-#%d) fail\n",
 				d->type, d->dev->idx);
+
+		mdw_sched_enque_done_sc(sc);
+
 #ifdef APUSYS_MDW_TAG_SUPPORT
 		mdw_trace_end("dev(%s-%d) exec|boost(%d)",
-			d->name, d->idx, sc->boost);
+			d->name, d->idx, h->boost);
 #endif
 next:
 		mdw_flw_debug("done\n");

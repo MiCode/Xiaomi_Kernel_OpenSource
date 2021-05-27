@@ -31,7 +31,7 @@ static void mdw_fence_release(struct dma_fence *fence)
 	struct mdw_cmd *c =
 		container_of(fence, struct mdw_cmd, base_fence);
 
-	mdw_drv_debug("cmd(%p.%d) release fence\n", c->mpriv, c->id);
+	mdw_flw_debug("cmd(%p.%d) release fence\n", c->mpriv, c->id);
 }
 
 static const struct dma_fence_ops mdw_fence_ops = {
@@ -47,6 +47,9 @@ static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *cmd)
 	if (!cmd->cmdbufs)
 		return;
 
+	/* ref for map */
+	mdw_mem_free(mpriv, cmd->cmdbufs);
+	/* ref for alloc */
 	mdw_mem_free(mpriv, cmd->cmdbufs);
 	cmd->cmdbufs = NULL;
 }
@@ -158,7 +161,7 @@ static int mdw_cmd_setup(struct mdw_cmd *c, struct mdw_cmd_in *in,
 		c->hardlimit = in->exec.hardlimit;
 		c->softlimit = in->exec.softlimit;
 		c->power_save = in->exec.power_save;
-		mdw_drv_debug("cmd(%p.%d) exec(%u/%u/%u/%u)\n",
+		mdw_flw_debug("cmd(%p.%d) exec(%u/%u/%u/%u)\n",
 			c->priority, c->hardlimit,
 			c->softlimit, c->power_save);
 	}
@@ -342,7 +345,7 @@ static int mdw_cmd_wait(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 		else
 			ret = 0;
 	} else if (ret < 0) {
-		mdw_drv_debug("cmd(%p.%d) wait fail(%d)\n",
+		mdw_drv_warn("cmd(%p.%d) wait fail(%d)\n",
 			c->mpriv, c->id, ret);
 	} else if (ret == 0) {
 		mdw_drv_err("cmd(%p.%d) timeout\n", c->mpriv, c->id);

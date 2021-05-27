@@ -60,6 +60,7 @@ struct mdw_mem {
 	struct list_head m_item;
 
 	bool is_alloced;
+	bool is_user;
 	struct kref ref;
 	struct mdw_fpriv *mpriv;
 

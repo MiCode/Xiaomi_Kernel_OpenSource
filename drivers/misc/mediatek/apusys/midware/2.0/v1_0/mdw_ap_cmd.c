@@ -101,7 +101,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 	INIT_LIST_HEAD(&ac->sc_list);
 	INIT_LIST_HEAD(&ac->di_list);
 	ac->c = c;
-	mdw_flw_debug("cmd(0x%llx) create\n", ac->c->kid);
+
 	memset(ac->ctx_repo, MDW_CMD_EMPTY_NUM, sizeof(ac->ctx_repo));
 
 	/* alloc adjacency matrix */
@@ -149,7 +149,8 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 		mdw_ap_sc_print(sc);
 		list_add_tail(&sc->c_item, &ac->sc_list);
 	}
-	mdw_drv_debug("cmd(0x%llx) create done\n", ac->c->kid);
+	mdw_drv_debug("cmd(%p.%d/0x%llx) create done\n",
+		c->mpriv, c->id, ac->c->kid);
 
 	goto out;
 
@@ -166,7 +167,8 @@ static void mdw_ap_cmd_delete(struct mdw_ap_cmd *ac)
 {
 	struct mdw_cmd *c = ac->c;
 
-	mdw_drv_debug("cmd(0x%llx) delete\n", ac->c->kid);
+	mdw_drv_debug("cmd(%p.%d/0x%llx) delete\n",
+		c->mpriv, c->id, c->kid);
 
 	mutex_lock(&c->mtx);
 	/* free ap subcmds */
