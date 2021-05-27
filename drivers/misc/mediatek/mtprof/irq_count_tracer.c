@@ -158,7 +158,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 	int irq, irq_num, i, skip;
 	unsigned int count;
 	unsigned long long t_avg, t_diff, t_diff_ms;
-	char msg[128];
+	char aee_msg[128];
 	int list_num = ARRAY_SIZE(irq_count_plist);
 
 	if (!irq_count_tracer)
@@ -240,15 +240,17 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 		if (skip)
 			continue;
 
-		snprintf(msg, sizeof(msg),
+		snprintf(aee_msg, sizeof(aee_msg),
 			 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
 			 irq, irq_to_name(irq), count, t_diff_ms,
 			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
 			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
 			 raw_smp_processor_id());
-		irq_mon_msg(TO_BOTH, msg);
+		irq_mon_msg(TO_BOTH, aee_msg);
 
 		for (i = 0; i < REC_NUM; i++) {
+			char msg[128];
+
 			spin_lock(&irq_cpus[i].lock);
 
 			if (irq_cpus[i].warn[irq] || !irq_cpus[i].diff[irq]) {
@@ -278,7 +280,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			//irq_count_aee_limit--;
 			aee_kernel_warning_api(__FILE__, __LINE__,
 					DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-					"BURST IRQ", "Burst IRQ\n");
+					"BURST IRQ", aee_msg);
 		}
 	}
 
