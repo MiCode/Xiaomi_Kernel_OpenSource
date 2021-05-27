@@ -81,7 +81,6 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram vmalloc=400M \
-		earlycon=uart8250,mmio32,0x11002000 \
 		rcupdate.rcu_expedited=1 swiotlb=noforce \
 		firmware_class.path=/vendor/firmware page_owner=on \
 		loop.max_part=7 snd-usb-audio.use_vmalloc=0 \
@@ -1635,12 +1634,12 @@
 			dma-channel-mask = <63>;
 		};
 
-		apdma: dma-controller@10217a80 {
+		apdma: dma-controller@11000a80  {
 			compatible = "mediatek,mt6779-uart-dma";
-			reg =   <0 0x10217a80 0 0x80>,
-				<0 0x10217b00 0 0x80>,
-				<0 0x10217b80 0 0x80>,
-				<0 0x10217c00 0 0x80>;
+			reg =   <0 0x11000a80  0 0x80>,
+				<0 0x11000b00 0 0x80>,
+				<0 0x11000b80 0 0x80>,
+				<0 0x11000c00 0 0x80>;
 			interrupts =    <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH 0>,
 					<GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH 0>,
 					<GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH 0>,
