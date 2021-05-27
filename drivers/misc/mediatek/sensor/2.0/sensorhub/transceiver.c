@@ -472,13 +472,17 @@ static void transceiver_process_super(struct transceiver_device *dev)
 
 static int transceiver_thread(void *data)
 {
+	int ret = 0;
 	struct transceiver_device *dev = data;
 
 	while (!kthread_should_stop()) {
-		wait_for_completion(&transceiver_done);
+		ret = wait_for_completion_interruptible(&transceiver_done);
+		if (ret)
+			continue;
 		transceiver_process(dev);
 		transceiver_process_super(dev);
 	}
+
 	return 0;
 }
 
