@@ -126,7 +126,7 @@ config PINCTRL_MT6879
 	select PINCTRL_MTK_PARIS
 	help
 	  This is the pin controller and gpio driver for mediatek
-	  mt6885 chipset. It will enable mediatek common v2,
+	  mt6879 chipset. It will enable mediatek common v2,
 	  paris and eint core driver.
 	  Say Y here to enable it.
 
@@ -146,7 +146,7 @@ config PINCTRL_MT6895
 	select PINCTRL_MTK_PARIS
 	help
 	  This is the pin controller and gpio driver for mediatek
-	  mt6885 chipset. It will enable mediatek common v2,
+	  mt6895 chipset. It will enable mediatek common v2,
 	  paris and eint core driver.
 	  Say Y here to enable it.
 
