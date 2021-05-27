@@ -3114,10 +3114,7 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 			DBG(0, "ret<%d>\n", ret);
 	}
 
-	if (strstr(current->comm, "usb_call"))
-		DBG_LIMIT(5, "%s", info);
-	else
-		DBG(0, "%s\n", info);
+	DBG_LIMIT(5, "%s", info);
 
 #ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	/* abort HW transaction on this ep */
@@ -3172,7 +3169,7 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 #endif
 			if (qh->type != USB_ENDPOINT_XFER_CONTROL) {
 				DBG(0, "why here, this is ring case?\n");
-				musb_bug();
+				dump_stack();
 			}
 
 			qh->hep->hcpriv = NULL;
