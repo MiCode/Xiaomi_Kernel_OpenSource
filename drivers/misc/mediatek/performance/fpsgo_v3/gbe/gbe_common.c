@@ -127,6 +127,7 @@ void gbe_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2)
 		*value1 = node->gbe2pwr_value1;
 		*value2 = node->gbe2pwr_value2;
 		list_del(&node->queue_list);
+		kfree(node);
 	}
 	if (list_empty(&head))
 		condition_get_cmd = 0;
