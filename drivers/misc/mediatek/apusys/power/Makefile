@@ -14,8 +14,7 @@ SRC += 2.5/devices/dev-freq-core.o 2.5/devices/dev-freq-conn.o 2.5/devices/dev-f
 # apusys power driver v3.0
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/platform/
-SRC += 3.0/aputop_drv.o 3.0/platform/mt6893_aputop.o 3.0/platform/mt6983_aputop.o
-SRC += 3.0/platform/mt6983_pwr_func.o
+SRC += 3.0/aputop_drv.o 3.0/platform/mt6893_aputop.o
 
 SRC += apu_top_entry.o
 

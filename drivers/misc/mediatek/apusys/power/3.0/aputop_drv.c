@@ -18,14 +18,12 @@ struct platform_device *this_pdev;
 static const struct apupwr_plat_data *pwr_data;
 static int aputop_func_sel;
 
-// FIXME: fix me in mt6983
 void __register_aputop_post_power_off_cb(
 		void (*post_power_off_cb)(void))
 {
 }
 EXPORT_SYMBOL(__register_aputop_post_power_off_cb);
 
-// FIXME: fix me in mt6983
 void __register_aputop_post_power_off_sync_cb(
 		void (*post_power_off_sync_cb)(void))
 {
@@ -163,7 +161,6 @@ static int apu_top_remove(struct platform_device *pdev)
 
 static const struct of_device_id of_match_apu_top[] = {
 	{ .compatible = "mt6893,apu_top_3", .data = &mt6893_plat_data},
-	{ .compatible = "mt6983,apu_top_3", .data = &mt6983_plat_data},
 	{ /* end of list */},
 };
 
