@@ -18,7 +18,6 @@ define fixup-kernel-cmd-file
 if [ -e $(1) ]; then cp $(1) $(1).bak; sed -e 's/\\\\\\\\/\\\\/g' < $(1).bak > $(1); rm -f $(1).bak; fi
 endef
 
-ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   KERNEL_DIR := $(KERNEL_ENV_PATH)
   mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
   current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
@@ -85,7 +84,9 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     endif#BUILD_KERNEL
 
     BUILT_KERNEL_TARGET := $(KERNEL_ZIMAGE_OUT).bin
+    ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
+    endif
     TARGET_KERNEL_CONFIG := $(KERNEL_OUT)/.config
     GEN_KERNEL_BUILD_CONFIG := $(patsubst %/,%,$(dir $(KERNEL_OUT)))/build.config
     REL_GEN_KERNEL_BUILD_CONFIG := $(REL_KERNEL_OUT)/$(notdir $(GEN_KERNEL_BUILD_CONFIG))
@@ -106,4 +107,3 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     BUILT_KERNEL_TARGET := $(TARGET_PREBUILT_KERNEL)
   endif #TARGET_PREBUILT_KERNEL is empty
 
-endif #TARGET_NO_KERNEL
