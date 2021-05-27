@@ -1542,14 +1542,16 @@ static int vcu_ipi_handler(struct mtk_vcu *vcu, struct share_obj *rcv_obj)
 
 static int vcu_ipi_init(struct mtk_vcu *vcu)
 {
-	int i = 0;
-
 	vcu->is_open = false;
-	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
-		mutex_init(&vcu->vcu_mutex[i]);
-		mutex_init(&vcu->vcu_gce_mutex[i]);
-		mutex_init(&vcu->ctx_ipi_binding[i]);
-	}
+	mutex_init(&vcu->vcu_mutex[VCU_VDEC]);
+	mutex_init(&vcu->vcu_gce_mutex[VCU_VDEC]);
+	mutex_init(&vcu->ctx_ipi_binding[VCU_VDEC]);
+	mutex_init(&vcu->vcu_mutex[VCU_VENC]);
+	mutex_init(&vcu->vcu_gce_mutex[VCU_VENC]);
+	mutex_init(&vcu->ctx_ipi_binding[VCU_VENC]);
+	mutex_init(&vcu->vcu_mutex[VCU_RESOURCE]);
+	mutex_init(&vcu->vcu_gce_mutex[VCU_RESOURCE]);
+	mutex_init(&vcu->ctx_ipi_binding[VCU_RESOURCE]);
 	mutex_init(&vcu->vcu_share);
 	mutex_init(&vpud_file_mutex);
 
@@ -2631,11 +2633,15 @@ err_add:
 err_alloc:
 	unregister_chrdev_region(vcu_mtkdev[vcuid]->vcu_devno, 1);
 vcu_mutex_destroy:
-	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
-		mutex_destroy(&vcu->vcu_mutex[i]);
-		mutex_destroy(&vcu->vcu_gce_mutex[i]);
-		mutex_destroy(&vcu->ctx_ipi_binding[i]);
-	}
+	mutex_destroy(&vcu->vcu_mutex[VCU_VDEC]);
+	mutex_destroy(&vcu->vcu_gce_mutex[VCU_VDEC]);
+	mutex_destroy(&vcu->ctx_ipi_binding[VCU_VDEC]);
+	mutex_destroy(&vcu->vcu_mutex[VCU_VENC]);
+	mutex_destroy(&vcu->vcu_gce_mutex[VCU_VENC]);
+	mutex_destroy(&vcu->ctx_ipi_binding[VCU_VENC]);
+	mutex_destroy(&vcu->vcu_mutex[VCU_RESOURCE]);
+	mutex_destroy(&vcu->vcu_gce_mutex[VCU_RESOURCE]);
+	mutex_destroy(&vcu->ctx_ipi_binding[VCU_RESOURCE]);
 	mutex_destroy(&vcu->vcu_share);
 	mutex_destroy(&vpud_file_mutex);
 err_ipi_init:
