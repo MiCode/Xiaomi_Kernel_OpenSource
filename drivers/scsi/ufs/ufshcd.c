@@ -226,8 +226,6 @@ static int ufshcd_clear_tm_cmd(struct ufs_hba *hba, int tag);
 static void ufshcd_hba_exit(struct ufs_hba *hba);
 static int ufshcd_clear_ua_wluns(struct ufs_hba *hba);
 static int ufshcd_probe_hba(struct ufs_hba *hba, bool async);
-static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
-				 bool skip_ref_clk);
 static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on);
 static inline void ufshcd_add_delay_before_dme_cmd(struct ufs_hba *hba);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
@@ -1737,11 +1735,7 @@ static void ufshcd_gate_work(struct work_struct *work)
 
 	ufshcd_disable_irq(hba);
 
-	if (!ufshcd_is_link_active(hba))
-		ufshcd_setup_clocks(hba, false);
-	else
-		/* If link is active, device ref_clk can't be switched off */
-		__ufshcd_setup_clocks(hba, false, true);
+	ufshcd_setup_clocks(hba, false);
 
 	/* Put the host controller in low power mode if possible */
 	ufshcd_hba_vreg_set_lpm(hba);
@@ -2812,7 +2806,7 @@ static int ufshcd_wait_for_dev_cmd(struct ufs_hba *hba,
  * ufshcd_exec_dev_cmd - API for sending device management requests
  * @hba: UFS hba
  * @cmd_type: specifies the type (NOP, Query...)
- * @timeout: time in seconds
+ * @timeout: timeout in milliseconds
  *
  * NOTE: Since there is only one available tag for device management commands,
  * it is expected you hold the hba->dev_cmd.lock mutex.
@@ -2842,6 +2836,9 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 	}
 	tag = req->tag;
 	WARN_ON_ONCE(!ufshcd_valid_tag(hba, tag));
+	/* Set the timeout such that the SCSI error handler is not activated. */
+	req->timeout = msecs_to_jiffies(2 * timeout);
+	blk_mq_start_request(req);
 
 	init_completion(&wait);
 	lrbp = &hba->lrb[tag];
@@ -4413,8 +4410,10 @@ static inline void ufshcd_hba_stop(struct ufs_hba *hba)
  */
 static int ufshcd_hba_execute_hce(struct ufs_hba *hba)
 {
-	int retry;
+	int retry_outer = 3;
+	int retry_inner;
 
+start:
 	if (!ufshcd_is_hba_active(hba))
 		/* change controller state to "reset state" */
 		ufshcd_hba_stop(hba);
@@ -4440,13 +4439,17 @@ static int ufshcd_hba_execute_hce(struct ufs_hba *hba)
 	ufshcd_delay_us(hba->vps->hba_enable_delay_us, 100);
 
 	/* wait for the host controller to complete initialization */
-	retry = 50;
+	retry_inner = 50;
 	while (ufshcd_is_hba_active(hba)) {
-		if (retry) {
-			retry--;
+		if (retry_inner) {
+			retry_inner--;
 		} else {
 			dev_err(hba->dev,
 				"Controller enable failed\n");
+			if (retry_outer) {
+				retry_outer--;
+				goto start;
+			}
 			return -EIO;
 		}
 		usleep_range(1000, 1100);
@@ -8143,8 +8146,7 @@ static int ufshcd_init_hba_vreg(struct ufs_hba *hba)
 	return 0;
 }
 
-static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
-					bool skip_ref_clk)
+static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on)
 {
 	int ret = 0;
 	struct ufs_clk_info *clki;
@@ -8162,7 +8164,12 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
-			if (skip_ref_clk && !strcmp(clki->name, "ref_clk"))
+			/*
+			 * Don't disable clocks which are needed
+			 * to keep the link active.
+			 */
+			if (ufshcd_is_link_active(hba) &&
+			    clki->keep_link_active)
 				continue;
 
 			clk_state_changed = on ^ clki->enabled;
@@ -8205,11 +8212,6 @@ out:
 			(on ? "on" : "off"),
 			ktime_to_us(ktime_sub(ktime_get(), start)), ret);
 	return ret;
-}
-
-static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on)
-{
-	return  __ufshcd_setup_clocks(hba, on, false);
 }
 
 static int ufshcd_init_clocks(struct ufs_hba *hba)
@@ -8726,11 +8728,7 @@ disable_clks:
 	 */
 	ufshcd_disable_irq(hba);
 
-	if (!ufshcd_is_link_active(hba))
-		ufshcd_setup_clocks(hba, false);
-	else
-		/* If link is active, device ref_clk can't be switched off */
-		__ufshcd_setup_clocks(hba, false, true);
+	ufshcd_setup_clocks(hba, false);
 
 	if (ufshcd_is_clkgating_allowed(hba)) {
 		hba->clk_gating.state = CLKS_OFF;

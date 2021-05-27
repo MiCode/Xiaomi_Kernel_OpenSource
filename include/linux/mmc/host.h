@@ -287,6 +287,7 @@ struct mmc_host {
 	u32			ocr_avail_sd;	/* SD-specific OCR */
 	u32			ocr_avail_mmc;	/* MMC-specific OCR */
 #ifdef CONFIG_PM_SLEEP
+	/* DO NOT USE, is not used, for abi preservation only */
 	struct notifier_block	pm_notify;
 #endif
 	struct wakeup_source	*ws;		/* Enable consume of uevents */

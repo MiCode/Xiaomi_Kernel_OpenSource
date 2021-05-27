@@ -94,7 +94,7 @@ fi
 
 if [ "$mode" == "p" ]
 then
-target_commit=ab8b108b0a250254daec39f7aba7d6bcd5012bb7 #Merge 5.10.31 into android12-5.10
+target_commit=560fdb20e4a665557264ca09c258671503a3f79f #FROMGIT: scsi: ufs: ufs-mediatek: Fix power down spec violation
 echo src_commit=$src_commit
 echo target_commit=$target_commit
 fi

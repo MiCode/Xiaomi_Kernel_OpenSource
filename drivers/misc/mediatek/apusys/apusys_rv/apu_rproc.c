@@ -24,7 +24,7 @@
 #include "apu_excep.h"
 #include "apu_config.h"
 
-static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len)
+static void *apu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool* is_iomem)
 {
 	void *ptr = NULL;
 	struct mtk_apu *apu = (struct mtk_apu *)rproc->priv;

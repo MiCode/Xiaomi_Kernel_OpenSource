@@ -330,7 +330,7 @@ void update_rq_clock(struct rq *rq)
 EXPORT_SYMBOL_GPL(update_rq_clock);
 
 static inline void
-rq_csd_init(struct rq *rq, call_single_data_t *csd, smp_call_func_t func)
+rq_csd_init(struct rq *rq, struct __call_single_data *csd, smp_call_func_t func)
 {
 	csd->flags = 0;
 	csd->func = func;
@@ -967,7 +967,7 @@ EXPORT_SYMBOL_GPL(sched_uclamp_used);
 
 static inline unsigned int uclamp_bucket_id(unsigned int clamp_value)
 {
-	return clamp_value / UCLAMP_BUCKET_DELTA;
+	return min_t(unsigned int, clamp_value / UCLAMP_BUCKET_DELTA, UCLAMP_BUCKETS - 1);
 }
 
 static inline unsigned int uclamp_none(enum uclamp_id clamp_id)
@@ -1530,6 +1530,7 @@ static void __setscheduler_uclamp(struct task_struct *p,
 			value = uclamp_none(clamp_id);
 
 		uclamp_se_set(uc_se, value, false);
+
 	}
 
 	if (likely(!(attr->sched_flags & SCHED_FLAG_UTIL_CLAMP)))
@@ -1640,6 +1641,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 	uclamp_rq_inc(rq, p);
 	trace_android_rvh_enqueue_task(rq, p, flags);
 	p->sched_class->enqueue_task(rq, p, flags);
+	trace_android_rvh_after_enqueue_task(rq, p);
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -1655,6 +1657,7 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 	uclamp_rq_dec(rq, p);
 	trace_android_rvh_dequeue_task(rq, p, flags);
 	p->sched_class->dequeue_task(rq, p, flags);
+	trace_android_rvh_after_dequeue_task(rq, p);
 }
 
 void activate_task(struct rq *rq, struct task_struct *p, int flags)
@@ -1917,6 +1920,7 @@ void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_ma
 {
 	cpumask_copy(&p->cpus_mask, new_mask);
 	p->nr_cpus_allowed = cpumask_weight(new_mask);
+	trace_android_rvh_set_cpus_allowed_comm(p, new_mask);
 }
 
 void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
@@ -6094,6 +6098,7 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 	cpumask_var_t cpus_allowed, new_mask;
 	struct task_struct *p;
 	int retval;
+	int skip = 0;
 
 	rcu_read_lock();
 
@@ -6129,6 +6134,9 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 		rcu_read_unlock();
 	}
 
+	trace_android_vh_sched_setaffinity_early(p, in_mask, &skip);
+	if (skip)
+		goto out_free_new_mask;
 	retval = security_task_setscheduler(p);
 	if (retval)
 		goto out_free_new_mask;
@@ -6957,6 +6965,11 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf, bool force)
 	 * value of rq->clock[_task]
 	 */
 	update_rq_clock(rq);
+
+#ifdef CONFIG_SCHED_DEBUG
+	/* note the clock update in orf */
+	orf.clock_update_flags |= RQCF_UPDATED;
+#endif
 
 	for (;;) {
 		/*
