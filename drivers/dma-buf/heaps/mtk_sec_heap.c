@@ -2,13 +2,8 @@
 /*
  * DMABUF mtk_sec heap exporter
  *
- * Copyright (C) 2011 Google, Inc.
- * Copyright (C) 2019, 2020 Linaro Ltd.
  * Copyright (C) 2021 MediaTek Inc.
  *
- * Portions based off of Andrew Davis' SRAM heap:
- * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
- *	Andrew F. Davis <afd@ti.com>
  */
 
 #define pr_fmt(fmt) "[MTK_DMABUF_HEAP: SEC] "fmt
@@ -69,6 +64,7 @@ struct sec_heap_priv {
 	pid_t                    tid;
 	char                     pid_name[TASK_COMM_LEN];
 	char                     tid_name[TASK_COMM_LEN];
+	u32                      sec_handle;/* keep same type with tmem */
 };
 
 struct dma_heap_attachment {
@@ -98,8 +94,8 @@ static struct sg_table *dup_sg_table_sec(struct sg_table *table)
 
 	new_sg = new_table->sgl;
 	for_each_sgtable_sg(table, sg, i) {
-		/* also copy dma_address */
-		memcpy(new_sg, sg, sizeof(*sg));
+		/* skip copy dma_address, need get via map_attachment */
+		sg_set_page(new_sg, sg_page(sg), sg->length, sg->offset);
 		new_sg = sg_next(new_sg);
 	}
 
@@ -112,6 +108,8 @@ static void tmem_free(enum TRUSTED_MEM_REQ_TYPE tmem_type,
 	struct mtk_sec_heap_buffer *buffer = dmabuf->priv;
 	struct sec_heap_priv *buf_info = buffer->priv;
 	u32 sec_handle = 0;
+	struct sg_table *table = NULL;
+	int i;
 
 	pr_debug("[%s][%d] %s: enter priv 0x%lx\n",
 		 dmabuf->exp_name, tmem_type,
@@ -119,10 +117,20 @@ static void tmem_free(enum TRUSTED_MEM_REQ_TYPE tmem_type,
 
 	sec_heap_total_memory -= buffer->len;
 
-	sec_handle = sg_dma_address(buffer->sg_table.sgl);
-
+	sec_handle = buf_info->sec_handle;
 	trusted_mem_api_unref(tmem_type, sec_handle,
 			      (uint8_t *)dma_heap_get_name(buffer->heap), 0);
+
+	//free sgtable
+	/* remove all domains' sgtable */
+	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
+		table = buf_info->mapped_table[i];
+
+		/* if we have secure iova, also need unmap here */
+
+		sg_free_table(table);
+		kfree(table);
+	}
 
 	mutex_lock(&dmabuf->lock);
 	kfree(buf_info);
@@ -193,6 +201,7 @@ static struct sg_table *mtk_sec_heap_map_dma_buf(struct dma_buf_attachment *atta
 	struct dma_heap_attachment *a = attachment->priv;
 	struct sg_table *table = a->table;
 
+	/* for TZMP2 secure iova, here we need copy into sgtable */
 	return table;
 }
 
@@ -297,9 +306,6 @@ static struct dma_buf *tmem_allocate(enum TRUSTED_MEM_REQ_TYPE tmem_type,
 	}
 	sg_set_page(table->sgl, 0, 0, 0);
 
-	/* store seucre handle */
-	sg_dma_address(table->sgl) = (dma_addr_t)sec_handle;
-
 	/* create the dmabuf */
 	exp_info.exp_name = dma_heap_get_name(heap);
 	exp_info.ops = heap_buf_ops;
@@ -321,6 +327,9 @@ static struct dma_buf *tmem_allocate(enum TRUSTED_MEM_REQ_TYPE tmem_type,
 	get_task_comm(info->tid_name, current);
 	info->pid = task_pid_nr(task);
 	info->tid = task_pid_nr(current);
+
+	/* store seucre handle */
+	info->sec_handle = sec_handle;
 
 	sec_heap_total_memory += len;
 	pr_debug("[%s][%d] %s: dmabuf:%p, sec_handle 0x%lx, size 0x%lx\n",
@@ -370,6 +379,18 @@ static const struct dma_heap_ops prot_heap_ops = {
 	.allocate = prot_allocate,
 };
 
+static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf) {
+
+	if (!dmabuf)
+		return 0;
+
+	if (dmabuf->ops != &svp_heap_buf_ops &&
+	    dmabuf->ops != &prot_heap_buf_ops)
+		return 0;
+
+	return 1;
+}
+
 /* no '\n' at end of str */
 static char *sec_get_buf_dump_str(const struct dma_buf *dmabuf,
 				  const struct dma_heap *heap) {
@@ -381,8 +402,7 @@ static char *sec_get_buf_dump_str(const struct dma_buf *dmabuf,
 	int len = 0;
 
 	/* buffer check */
-	if (dmabuf->ops != &svp_heap_buf_ops &&
-	    dmabuf->ops != &prot_heap_buf_ops)
+	if (!is_mtk_secure_dmabuf(dmabuf))
 		return NULL;
 
 	buf_priv = buf->priv;
@@ -611,5 +631,21 @@ static int mtk_sec_heap_create(void)
 
 	return 0;
 }
+
+/* return 0 means error */
+u32 dmabuf_to_secure_handle (struct dma_buf *dmabuf) {
+	struct mtk_sec_heap_buffer *buffer;
+	struct sec_heap_priv *buf_info;
+
+	if (!is_mtk_secure_dmabuf(dmabuf))
+		return 0;
+
+	buffer = dmabuf->priv;
+	buf_info = buffer->priv;
+
+	return buf_info->sec_handle;
+}
+EXPORT_SYMBOL_GPL(dmabuf_to_secure_handle);
+
 module_init(mtk_sec_heap_create);
 MODULE_LICENSE("GPL v2");
