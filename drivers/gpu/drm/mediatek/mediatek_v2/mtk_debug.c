@@ -9,6 +9,7 @@
 #include <linux/wait.h>
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#include <mt-plat/mrdump.h>
 #endif
 
 #if IS_ENABLED(CONFIG_PROC_FS)
@@ -2536,6 +2537,13 @@ void disp_dbg_probe(void)
 			S_IFREG | 0644,	d_folder, NULL, &disp_lfr_params_fops);
 	}
 	init_log_buffer();
+	if (is_buffer_init) {
+		unsigned long va = (unsigned long)err_buffer[0];
+		unsigned long pa = __pa_nodebug(va);
+		unsigned long size = (DEBUG_BUFFER_SIZE - 4096);
+
+		mrdump_mini_add_extra_file(va, pa, size, "DISPLAY");
+	}
 
 	drm_mmp_init();
 #endif
