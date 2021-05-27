@@ -7151,7 +7151,7 @@
 	/* feature: $enable */
 	speech_usip_mem: speech_usip_mem {
 		compatible = "mediatek,speech_usip_mem";
-		adsp_phone_call_enh_enable = <0x0>;
+		adsp_phone_call_enh_enable = <0x1>;
 	};
 
 	mtk_lpm: mtk_lpm {
