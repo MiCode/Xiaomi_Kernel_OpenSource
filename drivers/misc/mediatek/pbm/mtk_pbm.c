@@ -893,66 +893,12 @@ static int mt_pbm_create_procfs(void)
 	return 0;
 }
 
-void cpu_pbm_policy_update(struct cpufreq_policy *policy)
-{
-	int ret;
-	struct cpu_pbm_policy *pbm_policy, *pbm_policy_t;
-
-	list_for_each_entry_safe(pbm_policy, pbm_policy_t, &pbm_policy_list, cpu_pbm_list) {
-		if (pbm_policy->policy == policy) {
-			pr_info("already in list, cpu=%d\n", policy->cpu);
-			return;
-		}
-	}
-
-	pbm_policy = kzalloc(sizeof(*pbm_policy), GFP_KERNEL);
-	if (!pbm_policy) {
-		pr_info("%s: pbm_policy not found\n", __func__);
-		return;
-	}
-
-	ret = cpufreq_table_count_valid_entries(policy);
-	if (!ret) {
-		pr_info("%s: CPUFreq table not found or has no valid entries\n", __func__);
-		kfree(pbm_policy);
-		return;
-	}
-
-	pbm_policy->em = em_cpu_get(policy->cpu);
-	pbm_policy->max_perf_state = pbm_policy->em->nr_perf_states;
-	pbm_policy->policy = policy;
-	pbm_policy->cpu = policy->cpu;
-	pbm_policy->power_weight = DEFAULT_PBM_WEIGHT;
-
-	ret = freq_qos_add_request(&policy->constraints,
-		   &pbm_policy->qos_req,
-		   FREQ_QOS_MAX, FREQ_QOS_MAX_DEFAULT_VALUE);
-
-	if (ret < 0)
-		pr_notice("Failed to add freq constraint for CPU%d (%d)\n", pbm_policy->cpu, ret);
-
-	list_add_tail(&pbm_policy->cpu_pbm_list, &pbm_policy_list);
-	pr_info("pbm policy update pbm_policy->cpu=%d\n", pbm_policy->cpu);
-}
-
-static int cpu_policy_notifier(struct notifier_block *nb, unsigned long event, void *data)
-{
-	struct cpufreq_policy *policy = data;
-
-	if (event == CPUFREQ_CREATE_POLICY)
-		cpu_pbm_policy_update(policy);
-
-	return 0;
-}
-
-static struct notifier_block mtk_cpu_policy_notifier_block = {
-	.notifier_call = cpu_policy_notifier,
-};
-
 static int __init pbm_module_init(void)
 {
+	struct cpufreq_policy *policy;
+	struct cpu_pbm_policy *pbm_policy;
 	unsigned int i;
-	int ret;
+	int cpu, ret;
 
 	mt_pbm_create_procfs();
 
@@ -985,7 +931,41 @@ static int __init pbm_module_init(void)
 	register_dlpt_notify(&kicker_pbm_by_dlpt, DLPT_PRIO_PBM);
 #endif
 
-	cpufreq_register_notifier(&mtk_cpu_policy_notifier_block, CPUFREQ_POLICY_NOTIFIER);
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			continue;
+
+		if (policy->cpu == cpu) {
+			pbm_policy = kzalloc(sizeof(*pbm_policy), GFP_KERNEL);
+			if (!pbm_policy)
+				return -ENOMEM;
+
+			i = cpufreq_table_count_valid_entries(policy);
+			if (!i) {
+				pr_info("%s: CPUFreq table not found or has no valid entries\n",
+					 __func__);
+				return -ENODEV;
+			}
+
+			pbm_policy->em = em_cpu_get(policy->cpu);
+			pbm_policy->max_perf_state = pbm_policy->em->nr_perf_states;
+			pbm_policy->policy = policy;
+			pbm_policy->cpu = cpu;
+			pbm_policy->power_weight = DEFAULT_PBM_WEIGHT;
+
+			ret = freq_qos_add_request(&policy->constraints,
+				&pbm_policy->qos_req, FREQ_QOS_MAX,
+				FREQ_QOS_MAX_DEFAULT_VALUE);
+
+			if (ret < 0) {
+				pr_notice("%s: Fail to add freq constraint (%d)\n",
+					__func__, ret);
+				return ret;
+			}
+			list_add_tail(&pbm_policy->cpu_pbm_list, &pbm_policy_list);
+		}
+	}
 
 	INIT_DELAYED_WORK(&poll_queue, pbm_thread_handle);
 	pbm_ctrl.pbm_drv_done = 1;
