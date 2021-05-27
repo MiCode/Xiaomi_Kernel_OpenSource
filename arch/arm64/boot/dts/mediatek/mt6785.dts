@@ -2934,6 +2934,18 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x11f50000 0 0x1000>;
 	};
 
+	mmc0: mmc0@11230000 {
+		compatible = "mediatek,mt6785-mmc";
+		reg = <0 0x11230000 0 0x1000>,
+		    <0 0x11f50000 0 0x1000>;
+		interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&topckgen TOP_MUX_MSDC50_0>,
+		       <&infracfg_ao INFRACFG_AO_MSDC0_CG>,
+		       <&infracfg_ao INFRACFG_AO_MSDC0_SCK_CG>;
+		clock-names = "source", "hclk", "source_cg";
+		status = "disabled";
+	};
+
 	ufshci:ufshci@11270000 {
 		compatible = "mediatek,ufshci";
 		reg = <0 0x11270000 0 0x2300>;
