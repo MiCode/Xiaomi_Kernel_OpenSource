@@ -145,11 +145,13 @@ static int sensor_list_share_mem_cfg(struct share_mem_config *cfg,
 
 int sensor_list_init(void)
 {
+	unsigned long flags = 0;
+
 	atomic_set(&sensor_list_sequence, 0);
 
-	spin_lock(&rx_notify_lock);
+	spin_lock_irqsave(&rx_notify_lock, flags);
 	memset(&rx_notify, 0, sizeof(rx_notify));
-	spin_unlock(&rx_notify_lock);
+	spin_unlock_irqrestore(&rx_notify_lock, flags);
 
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_LIST_CMD,
 		sensor_list_notify_handler, NULL);
