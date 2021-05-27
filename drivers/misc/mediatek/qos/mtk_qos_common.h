@@ -8,6 +8,7 @@
 
 
 struct mtk_qos;
+struct platform_device;
 
 struct mtk_qos_soc {
 	const struct qos_ipi_cmd *ipi_pin;

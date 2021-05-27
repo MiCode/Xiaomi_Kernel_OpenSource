@@ -83,6 +83,12 @@ struct qos_ipi_data {
 	} u;
 };
 
+#ifdef MTK_SCMI
+extern int qos_ipi_to_sspm_scmi_command(unsigned int cmd, unsigned int p1, unsigned int p2,
+		unsigned int p3,unsigned int p4);
+#else
 extern int qos_ipi_to_sspm_command(void *buffer, int slot);
+#endif
+
 #endif
 
