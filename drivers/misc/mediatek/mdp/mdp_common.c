@@ -2466,6 +2466,9 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	CMDQ_SYSTRACE_BEGIN("%s %u\n", __func__, size);
 
+	if (unlikely(!handle_list))
+		goto done;
+
 	/* check engine status */
 	cmdq_mdp_get_func()->CheckHwStatus(handle);
 
