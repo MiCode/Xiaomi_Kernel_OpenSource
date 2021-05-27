@@ -16,16 +16,8 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/include/
 
 #subdir-ccflags-y += -Wno-error
 
-obj-m += gpueb_mt6893.o
-gpueb_mt6893-y += \
-    gpueb_init.o \
-    gpueb_ipi.o \
-    gpueb_logger.o \
-    gpueb_plat_service.o \
-    gpueb_reserved_mem.o
-
-obj-m += gpueb_mt6983.o
-gpueb_mt6983-y += \
+obj-m += gpueb.o
+gpueb-y += \
     gpueb_init.o \
     gpueb_ipi.o \
     gpueb_logger.o \
