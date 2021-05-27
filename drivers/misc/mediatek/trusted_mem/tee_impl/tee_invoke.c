@@ -107,7 +107,6 @@ int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type)
 		return TMEM_OK;
 	}
 #endif
-		return TMEM_OK;
 
 	return tee_directly_invoke_cmd(&cmd_params);
 }
