@@ -116,7 +116,7 @@ const char *scp_dvfs_hw_chip_ver[MAX_SCP_DVFS_CHIP_HW] __initconst = {
 struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
 	[ULPOSC_VER_1] = {
 		REG_DEFINE(con0, 0x2C0, REG_MAX_MASK, 0)
-		REG_DEFINE(cali, 0x2C0, 0x7FF, 0)
+		REG_DEFINE(cali, 0x2C0, 0x7F, 0)
 		REG_DEFINE(con1, 0x2C4, REG_MAX_MASK, 0)
 		REG_DEFINE(con2, 0x2C8, REG_MAX_MASK, 0)
 	},
@@ -558,12 +558,12 @@ static int __scp_pll_sel_26M(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 	if (ret)
 		return ret;
 
-	if (pll_ctrl_flag == PLL_ENABLE)
+	if (pll_ctrl_flag == PLL_ENABLE) {
 		ret = clk_set_parent(mt_scp_pll.clk_mux, mt_scp_pll.clk_pll[0]);
-
-	if (ret) {
-		pr_notice("[%s]: clk_set_parent() failed for 26M\n", __func__);
-		WARN_ON(1);
+		if (ret) {
+			pr_notice("[%s]: clk_set_parent() failed for 26M\n", __func__);
+			WARN_ON(1);
+		}
 	}
 
 	return ret;
@@ -1825,8 +1825,13 @@ static int __init mt_scp_dts_init_dvfs_data(struct device_node *node,
 			goto OPP_INIT_FAILED;
 		}
 		if ((*opp)[i].dvfsrc_opp != 0xff) {
-			(*opp)[i].tuned_vcore =
-				scp_get_vcore_table((*opp)[i].dvfsrc_opp);
+			ret = scp_get_vcore_table((*opp)[i].dvfsrc_opp);
+			if (ret > 0) {
+				(*opp)[i].tuned_vcore = ret;
+			} else {
+				/* As default value, if atf is not available */
+				(*opp)[i].tuned_vcore = (*opp)[i].vcore;
+			}
 		} else {
 			(*opp)[i].tuned_vcore = (*opp)[i].vcore;
 		}
