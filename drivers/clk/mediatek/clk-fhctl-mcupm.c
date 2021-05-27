@@ -19,6 +19,7 @@
 
 #define FHCTL_TARGET FHCTL_MCUPM
 #define IPI_TIMEOUT_MS 10
+#define IPI_TIMEOUT_LONG_MS 3000
 
 struct match {
 	char *name;
@@ -26,12 +27,17 @@ struct match {
 	int (*init)(struct pll_dts *array
 			, struct match *match);
 };
+struct id_map {
+	char *name;
+	int base;
+};
 struct hdlr_data_v1 {
 	struct pll_dts *array;
 	spinlock_t *lock;
 	struct fh_pll_domain *domain;
 	u8 tr_id;
 	void __iomem *reg_tr;
+	struct id_map *map;
 };
 struct freqhopping_ioctl {
 	unsigned int pll_id;
@@ -73,6 +79,19 @@ enum FH_DEVCTL_CMD_ID {
 	sizeof(unsigned int))
 static unsigned int ack_data;
 
+static int id_to_mcupm(struct id_map *map, char *domain, int fh_id) {
+	if (!map)
+		return fh_id;
+
+	while ( map->name != NULL ) {
+		if (strcmp(map->name,
+					domain) == 0) {
+			return (map->base + fh_id);
+		}
+		map++;
+	}
+	return fh_id;
+}
 static void ipi_get_data(unsigned int cmd)
 {
 	struct fhctl_ipi_data ipi_data;
@@ -125,7 +144,7 @@ static int mcupm_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 
 	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
 	ipi_data.cmd = FH_DCTL_CMD_GENERAL_DFS;
-	ipi_data.u.args[0] = fh_id;
+	ipi_data.u.args[0] = id_to_mcupm(d->map, domain_name, fh_id);
 	ipi_data.u.args[1] = new_dds;
 	ipi_data.u.args[2] = postdiv;
 
@@ -219,7 +238,7 @@ static int mcupm_ssc_enable_v1(void *priv_data,
 
 	FHDBG("rate<%d>\n", rate);
 
-	fh_ctl.pll_id = fh_id;
+	fh_ctl.pll_id = id_to_mcupm(d->map, domain_name, fh_id);
 	fh_ctl.result = 0;
 	fh_ctl.ssc_setting.dt = data->dt_val;
 	fh_ctl.ssc_setting.df = data->df_val;
@@ -233,7 +252,7 @@ static int mcupm_ssc_enable_v1(void *priv_data,
 	ipi_data.cmd = FH_DCTL_CMD_SSC_ENABLE;
 	ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_FHCTL,
 			IPI_SEND_POLLING, &ipi_data,
-			FHCTL_D_LEN, IPI_TIMEOUT_MS);
+			FHCTL_D_LEN, IPI_TIMEOUT_LONG_MS);
 	FHDBG("ret<%d>\n", ret);
 
 	array->ssc_rate = rate;
@@ -257,7 +276,7 @@ static int mcupm_ssc_disable_v1(void *priv_data,
 
 	FHDBG("\n");
 
-	fh_ctl.pll_id = fh_id;
+	fh_ctl.pll_id = id_to_mcupm(d->map, domain_name, fh_id);
 	fh_ctl.result = 0;
 
 	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
@@ -267,7 +286,7 @@ static int mcupm_ssc_disable_v1(void *priv_data,
 	ipi_data.cmd = FH_DCTL_CMD_SSC_DISABLE;
 	ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_FHCTL,
 			IPI_SEND_POLLING, &ipi_data,
-			FHCTL_D_LEN, IPI_TIMEOUT_MS);
+			FHCTL_D_LEN, IPI_TIMEOUT_LONG_MS);
 	FHDBG("ret<%d>\n", ret);
 
 	array->ssc_rate = 0;
@@ -315,6 +334,7 @@ static int mcupm_init_v1(struct pll_dts *array, struct match *match)
 	if (match_data && match_data->reg_tr) {
 		priv_data->reg_tr = array->fhctl_base
 			+ (unsigned long)match_data->reg_tr;
+		priv_data->map = match_data->map;
 	}
 
 	/* hook to array */
@@ -391,11 +411,34 @@ static struct match mt6885_match = {
 	.hdlr = &mcupm_hdlr_6885,
 	.init = &mcupm_init_v1,
 };
+static struct id_map map_6983[] = {
+	{"mcu0", 1000},
+	{"mcu1", 2000},
+	{"mcu2", 3000},
+	{"mcu3", 4000},
+	{}
+};
+
+struct hdlr_data_v1 hdlr_data_6983 = {
+	.reg_tr = NULL,
+	.map = map_6983,
+};
+static struct fh_hdlr mcupm_hdlr_6983 = {
+	.ops = &mcupm_ops_v1,
+	.data = &hdlr_data_6983,
+};
+static struct match mt6983_match = {
+	.name = "mediatek,mt6983-fhctl",
+	.hdlr = &mcupm_hdlr_6983,
+	.init = &mcupm_init_v1,
+};
+
 static struct match *matches[] = {
 	&mt6853_match,
 	&mt6877_match,
 	&mt6873_match,
 	&mt6885_match,
+	&mt6983_match,
 	NULL,
 };
 
