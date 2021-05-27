@@ -105,6 +105,7 @@ phys_addr_t scp_mem_base_phys;
 phys_addr_t scp_mem_base_virt;
 phys_addr_t scp_mem_size;
 struct scp_regs scpreg;
+bool scp_hwccf_support = false;
 
 unsigned char *scp_send_buff[SCP_CORE_TOTAL];
 unsigned char *scp_recv_buff[SCP_CORE_TOTAL];
@@ -1879,6 +1880,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	int ret = 0, i = 0;
 	struct resource *res;
 	const char *core_status = NULL;
+	const char *scp_hwccf = NULL;
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 
@@ -1967,6 +1969,18 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_debug("[SCP] core_0 enable\n");
 		scp_enable[SCP_A_ID] = 1;
 	}
+
+	of_property_read_string(pdev->dev.of_node, "scp_hwccf", &scp_hwccf);
+	if (scp_hwccf){
+		if (strcmp(scp_hwccf, "enable") != 0) {
+			pr_notice("[SCP] scp_hwccf not enable\n");
+			scp_hwccf_support = false;
+		} else {
+			pr_notice("[SCP] scp_hwccf enable\n");
+			scp_hwccf_support = true;
+		}
+	} else
+		pr_debug("[SCP] scp_hwccf not support\n");
 
 	of_property_read_u32(pdev->dev.of_node, "core_nums"
 						, &scpreg.core_nums);
@@ -2209,13 +2223,22 @@ static int __init scp_init(void)
 
 	INIT_WORK(&scp_A_notify_work.work, scp_A_notify_ws);
 
-	scp_legacy_ipi_init();
+	if (mbox_check_recv_table(IPI_IN_SCP_MPOOL_0))
+		scp_legacy_ipi_init();
+	else
+		pr_info("Skip legacy ipi init\n");
 
-	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_READY_0,
+	if (mbox_check_recv_table(IPI_IN_SCP_READY_0))
+		mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_READY_0,
 			(void *)scp_A_ready_ipi_handler, NULL, &msg_scp_ready0);
+	else
+		pr_info("Dosen't support IPI_IN_SCP_READY_0");
 
-	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_READY_1,
+	if (mbox_check_recv_table(IPI_IN_SCP_READY_1))
+		mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_READY_1,
 			(void *)scp_A_ready_ipi_handler, NULL, &msg_scp_ready1);
+	else
+		pr_info("Dosen't support IPI_IN_SCP_READY_1");
 
 	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_ERROR_INFO_0,
 			(void *)scp_err_info_handler, NULL, msg_scp_err_info0);

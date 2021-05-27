@@ -222,6 +222,28 @@ enum scp_ipi_status scp_legacy_ipi_init(void)
 	return SCP_IPI_DONE;
 }
 
+bool mbox_check_send_table(unsigned int id)
+{
+	unsigned int i = 0;
+
+	for (i = 0; i < scp_mboxdev.send_count; i++)
+		if (scp_mbox_pin_send[i].chan_id == id)
+			return true;
+
+	return false;
+}
+
+bool mbox_check_recv_table(unsigned int id)
+{
+	unsigned int i = 0;
+
+	for (i = 0; i < scp_mboxdev.recv_count; i++)
+		if (scp_mbox_pin_recv[i].chan_id == id)
+			return true;
+
+	return false;
+}
+
 void mbox_setup_pin_table(unsigned int mbox)
 {
 	int i, last_ofs = 0, last_idx = 0, last_slot = 0, last_sz = 0;
