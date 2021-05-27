@@ -32,9 +32,9 @@ struct mdw_sched_mgr {
 
 static struct mdw_sched_mgr ms_mgr;
 
-#define MDW_EXEC_PRINT " pid(%d/%d) cmd(0x%llx/0x%llx-#%d/%u)"\
-	" dev(%d/%s-#%d) mp(0x%x/%u/%u/0x%llx) sched(%d/%u/%u/%u/%u/%d)"\
-	" mem(%lu/%d/0x%x/0x%x) boost(%u) time(%u/%u)"
+#define MDW_EXEC_PRINT " pid(%d/%d) cmd(%d/0x%llx-#%u/%u)"\
+	" dev(%d/%s-#%d) mp(%u/%u/%u/%u) sched(%u/%u/%u/%u/%u/%u)"\
+	" mem(%u/%u/0x%x/0x%x) boost(%u) bw(0x%x) time(%u/%u)"
 
 static void mdw_sched_met_start(struct mdw_ap_sc *sc, struct mdw_dev_info *d)
 {

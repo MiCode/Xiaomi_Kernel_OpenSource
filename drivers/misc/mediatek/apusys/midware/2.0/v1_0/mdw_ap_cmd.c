@@ -47,6 +47,9 @@ static void mdw_ap_sc_print(struct mdw_ap_sc *sc)
 	mdw_cmd_debug(" boost = %u\n", sc->hdr->info->boost);
 	mdw_cmd_debug(" pack_id = %u\n", sc->hdr->info->pack_id);
 	mdw_cmd_debug(" num_cmdbufs = %u\n", sc->hdr->info->num_cmdbufs);
+	mdw_cmd_debug(" runtime = %u\n", sc->runtime);
+	mdw_cmd_debug(" deadline = %u\n", sc->deadline);
+	mdw_cmd_debug(" period = %u\n", sc->period);
 	mdw_cmd_debug("-------------------------\n");
 }
 
@@ -133,6 +136,16 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 			ac->ctx_cnt[sc->hdr->info->vlm_ctx_id]++;
 		if (sc->hdr->info->pack_id)
 			ac->pack_cnt[sc->hdr->info->pack_id]++;
+
+		/* TODO */
+		//sc->runtime = sc->hdr->info->ip_time;
+		if (mdw_rsc_get_dev_num(sc->type + APUSYS_DEVICE_RT) &&
+			c->softlimit) {
+			sc->type += APUSYS_DEVICE_RT;
+			sc->period = c->softlimit * 1000;
+			sc->deadline = jiffies + usecs_to_jiffies(sc->period);
+		}
+
 		mdw_ap_sc_print(sc);
 		list_add_tail(&sc->c_item, &ac->sc_list);
 	}
