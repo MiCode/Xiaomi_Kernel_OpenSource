@@ -18,4 +18,4 @@ mtk_perf_ioctl-objs += $(MTK_PERF_IOCTL_SRC)
 
 #Generic subdir build
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/
-
+obj-$(CONFIG_MTK_FPS_COOLER) += fps_cooler/
