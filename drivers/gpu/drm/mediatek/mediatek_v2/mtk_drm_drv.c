@@ -1883,7 +1883,7 @@ void mtk_drm_suspend_release_present_fence(struct device *dev,
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
 
 	mtk_release_present_fence(private->session_id[index],
-				  atomic_read(&private->crtc_present[index]), 0);
+				  atomic_read(&private->crtc_present[index]));
 }
 
 void mtk_drm_suspend_release_sf_present_fence(struct device *dev,

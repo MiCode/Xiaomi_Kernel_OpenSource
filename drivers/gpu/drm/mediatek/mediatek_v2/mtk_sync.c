@@ -227,7 +227,7 @@ static struct dma_fence_ops mtk_sync_timeline_fence_ops = {
  * has signaled or has an error condition.
  */
 static void mtk_sync_timeline_signal(struct sync_timeline *obj,
-				     unsigned int inc, ktime_t time)
+				     unsigned int inc)
 {
 	struct sync_pt *pt, *next;
 
@@ -250,10 +250,7 @@ static void mtk_sync_timeline_signal(struct sync_timeline *obj,
 		 * prevent deadlocking on timeline->lock inside
 		 * timeline_fence_release().
 		 */
-		if (0 != time)
-			dma_fence_signal_timestamp_locked(&pt->base, time);
-		else
-			dma_fence_signal_locked(&pt->base);
+		dma_fence_signal_locked(&pt->base);
 	}
 
 	spin_unlock_irq(&obj->lock);
@@ -293,9 +290,9 @@ void mtk_sync_timeline_destroy(struct sync_timeline *obj)
 	mtk_sync_timeline_put(obj);
 }
 
-void mtk_sync_timeline_inc(struct sync_timeline *obj, u32 value, ktime_t time)
+void mtk_sync_timeline_inc(struct sync_timeline *obj, u32 value)
 {
-	mtk_sync_timeline_signal(obj, value, time);
+	mtk_sync_timeline_signal(obj, value);
 }
 
 int mtk_sync_fence_create(struct sync_timeline *obj, struct fence_data *data)

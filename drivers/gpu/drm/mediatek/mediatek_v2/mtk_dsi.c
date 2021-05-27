@@ -1592,8 +1592,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
 				mtk_crtc && mtk_crtc->vblank_en)
 				mtk_crtc_vblank_irq(&mtk_crtc->base);
-
-			mtk_crtc->eof_time = ktime_get();
 		}
 	}
 

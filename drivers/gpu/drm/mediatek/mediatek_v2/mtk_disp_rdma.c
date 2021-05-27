@@ -322,8 +322,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		mtk_drm_refresh_tag_start(&priv->ddp_comp);
 		MMPathTraceDRM(rdma);
 
-		if (mtk_crtc &&
-			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		if (mtk_crtc) {
 			atomic_set(&mtk_crtc->pf_event, 1);
 			wake_up_interruptible(&mtk_crtc->present_fence_wq);
 		}
@@ -370,6 +369,11 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	}
 	if (val & (1 << 5)) {
 		DDPIRQ("[IRQ] %s: target line!\n", mtk_dump_comp_str(rdma));
+		if (mtk_crtc &&
+		    !mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			atomic_set(&mtk_crtc->sf_pf_event, 1);
+			wake_up_interruptible(&mtk_crtc->sf_present_fence_wq);
+		}
 		if (rdma->mtk_crtc && rdma->mtk_crtc->esd_ctx &&
 			(!(val & (1 << 2)))) {
 			atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 1);
