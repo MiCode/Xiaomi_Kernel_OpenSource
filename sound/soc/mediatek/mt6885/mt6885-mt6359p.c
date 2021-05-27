@@ -675,6 +675,12 @@ SND_SOC_DAILINK_DEFS(vow,
 				      "mt6359-snd-codec-vow")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+SND_SOC_DAILINK_DEFS(ultra,
+        DAILINK_COMP_ARRAY(COMP_DUMMY()),
+        DAILINK_COMP_ARRAY(COMP_DUMMY()),
+        DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_scp_ultra")));
+#endif
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 SND_SOC_DAILINK_DEFS(dspvoip,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_voip_dai")),
@@ -1280,6 +1286,13 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 		.ignore_suspend = 1,
 		.ops = &mt6885_mt6359p_vow_ops,
 		SND_SOC_DAILINK_REG(vow),
+	},
+#endif
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+	{
+		.name = "SCP_ULTRA_Playback",
+		.stream_name = "SCP_ULTRA_Playback",
+		SND_SOC_DAILINK_REG(ultra),
 	},
 #endif
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)

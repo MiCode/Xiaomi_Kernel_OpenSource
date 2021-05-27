@@ -32,6 +32,11 @@
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include "adsp_helper.h"
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+#include "../ultrasound/ultra_common/mtk-scp-ultra.h"
+#endif
+
 #define AFE_BASE_END_OFFSET 8
 
 static int mtk_regmap_update_bits(struct regmap *map, int reg,
@@ -186,7 +191,6 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	mtk_audio_sram_free(afe->sram, substream);
 
 	substream->runtime->dma_bytes = params_buffer_bytes(params);
-
 	if (memif->use_dram_only == 0 &&
 	    mtk_audio_sram_allocate(afe->sram,
 				    &substream->runtime->dma_addr,
@@ -214,10 +218,20 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 			goto MALLOC_DONE_SRAM;
 		}
 #endif
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+	if (memif->scp_ultra_enable) {
+		ret = mtk_scp_ultra_allocate_mem(substream,
+						 &substream->runtime->dma_addr,
+						 &substream->runtime->dma_area,
+						 substream->runtime->dma_bytes,
+						 afe);
+		goto MALLOC_DONE_SRAM;
+	}
+#endif
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(params));
 
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#if (IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) || IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY))
 MALLOC_DONE_SRAM:
 #endif
 		if (ret < 0)
@@ -236,6 +250,16 @@ MALLOC_DONE_SRAM:
 		goto MALLOC_DONE;
 	}
 #endif
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+	if (memif->scp_ultra_enable) {
+		ret = mtk_scp_ultra_allocate_mem(substream,
+						 &substream->runtime->dma_addr,
+						 &substream->runtime->dma_area,
+						 substream->runtime->dma_bytes,
+						 afe);
+		goto MALLOC_DONE;
+	}
+#endif
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	if (memif->use_adsp_share_mem == true) {
 		ret = mtk_adsp_allocate_mem(substream,
@@ -246,7 +270,7 @@ MALLOC_DONE_SRAM:
 #endif
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 
-#if (IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP))
+#if (IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) || IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY))
 MALLOC_DONE:
 #endif
 	if (ret < 0)
