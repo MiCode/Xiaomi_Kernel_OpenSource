@@ -24,15 +24,9 @@
 
 #include "clkchk.h"
 
-#if defined(CONFIG_PM_DEBUG)
-#define CLKCHK_PM_DOMAIN	1
-#else
-#define CLKCHK_PM_DOMAIN	0
-#endif
-
-#define MAX_CLK_NUM	1024
-#define MAX_PD_NUM	64
-#define PLL_LEN		20
+#define MAX_CLK_NUM			1024
+#define PLL_LEN				20
+#define INV_MSK				0xFFFFFFFF
 
 void __attribute__((weak)) clkchk_set_cfg(void)
 {
@@ -119,6 +113,8 @@ static void setup_provider_clk(struct provider_clk *pvdck)
 			return;
 		}
 	}
+
+	pvdck->pwr_mask = INV_MSK;
 }
 
 struct provider_clk *get_all_provider_clks(void)
@@ -206,9 +202,6 @@ static s32 *read_spm_pwr_status_array(void)
 static int clk_hw_pwr_is_on(struct clk_hw *c_hw, u32 *spm_pwr_status,
 		struct provider_clk *pvdck)
 {
-	if (!pvdck || !pvdck->pwr_mask)
-		return 0;
-
 	if (pvdck->sta_type == PWR_STA) {
 		if ((spm_pwr_status[PWR_STA] & pvdck->pwr_mask) != pvdck->pwr_mask &&
 				(spm_pwr_status[PWR_STA2] & pvdck->pwr_mask) != pvdck->pwr_mask)
@@ -240,10 +233,23 @@ int clkchk_pvdck_is_on(struct provider_clk *pvdck)
 {
 	u32 *pval;
 
-	if (!pvdck || !pvdck->pwr_mask)
+	if (!pvdck)
 		return -1;
 
 	if (clkchk_ops == NULL || clkchk_ops->is_pwr_on == NULL) {
+		if (clkchk_ops == NULL || clkchk_ops->get_pvd_pwr_mask == NULL)
+			return -1;
+
+		if (pvdck->pwr_mask == INV_MSK) {
+			pr_notice("%s is offf\n", __clk_get_name(pvdck->ck));
+			return 0;
+		}
+
+		if (!pvdck->pwr_mask) {
+			pr_notice("%s is onn\n", __clk_get_name(pvdck->ck));
+			return 1;
+		}
+
 		pval = read_spm_pwr_status_array();
 
 		return pvdck_pwr_is_on(pvdck, pval);
@@ -419,41 +425,32 @@ static int get_vcore_opp(void)
 	return clkchk_ops->get_vcore_opp();
 }
 
-void warn_vcore(int opp, const char *clk_name, int rate, int id)
+void warn_vcore(int opp, const char *clk_name, int rate, int freq)
 {
-	struct mtk_vf *vf_table;
-	int freq;
-
-	vf_table = clkchk_get_vf_table();
-	if (!vf_table)
-		return;
-
-	freq = vf_table->freq_table[id];
-
-	if ((opp >= 0) && (id >= 0) && (freq > 0) && ((rate/1000) > freq)) {
-		pr_notice("%s Choose %d FAIL!!!![MAX(%d/%d): %d]\r\n",
-				clk_name, rate/1000, id, opp, freq);
+	if ((opp >= 0) && (freq > 0) && ((rate/1000) > freq)) {
+		pr_notice("%s Choose %d FAIL!!!![MAX(%d): %d]\r\n",
+				clk_name, rate/1000, opp, freq);
 
 		BUG_ON(1);
 	}
 }
 
-static int mtk_mux2id(const char **mux_name)
+static int mtk_mux2opp(const char *mux_name, int opp)
 {
 	struct mtk_vf *vf_table = clkchk_get_vf_table();
 	int i = 0;
 
-	if (!vf_table)
+	if (!vf_table || opp < 0)
 		return -EINVAL;
 
-	for (; vf_table->name != NULL; vf_table++, i++) {
+	for (; vf_table != NULL && vf_table->name != NULL; vf_table++, i++) {
 		const char *name = vf_table->name;
 
 		if (!name)
 			continue;
 
-		if (strcmp(*mux_name, name) == 0)
-			return i;
+		if (strcmp(mux_name, name) == 0)
+			return vf_table->freq_table[opp];
 	}
 
 	return -EINVAL;
@@ -473,7 +470,7 @@ static int mtk_clk_rate_change(struct notifier_block *nb,
 
 	if (flags == PRE_RATE_CHANGE && clk_name) {
 		warn_vcore(vcore_opp, clk_name,
-			ndata->new_rate, mtk_mux2id(&clk_name));
+			ndata->new_rate, mtk_mux2opp(clk_name, vcore_opp));
 	}
 
 	return NOTIFY_OK;

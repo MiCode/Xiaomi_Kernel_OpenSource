@@ -15,11 +15,15 @@
 #include <devapc_public.h>
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+#include <mt-plat/dvfsrc-exp.h>
+#endif
+
 #include "clkchk.h"
 #include "clkchk-mt6893.h"
 
 #define BUG_ON_CHK_ENABLE	1
-#define CHECK_VCORE_FREQ	0
+#define CHECK_VCORE_FREQ	1
 
 /*
  * clkchk dump_regs
@@ -344,6 +348,8 @@ u32 *get_spm_pwr_status_array(void)
  * clkchk pwr_msk
  */
 static struct pvd_msk pvd_pwr_mask[] = {
+	{"topckgen", PWR_STA, 0x00000000},
+	{"apmixedsys", PWR_STA, 0x00000000},
 	{"audiosys", PWR_STA, 0x00200000},
 	{"mfgcfg", PWR_STA, 0x000001FC},
 	{"mmsys", PWR_STA, 0x00100000},
@@ -392,16 +398,8 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("dpe_sel", 546000, 458333, 364000, 312000),
 	MTK_VF_TABLE("cam_sel", 624000, 499200, 392857, 312000),
 	MTK_VF_TABLE("ccu_sel", 499200, 392857, 364000, 312000),
-	MTK_VF_TABLE("dsp_sel", 687500, 550000, 499200, 273000),
-	MTK_VF_TABLE("dsp1_sel", 832000, 728000, 624000, 499200),
-	MTK_VF_TABLE("dsp2_sel", 832000, 728000, 624000, 499200),
-	MTK_VF_TABLE("dsp3_sel", 832000, 728000, 624000, 499200),
-	MTK_VF_TABLE("dsp4_sel", 832000, 728000, 624000, 499200),
-	MTK_VF_TABLE("dsp5_sel", 850000, 850000, 850000, 850000),
-	MTK_VF_TABLE("dsp6_sel", 850000, 850000, 850000, 850000),
-	MTK_VF_TABLE("dsp7_sel", 624000, 550000, 458333, 364000),
-	MTK_VF_TABLE("ipu_if_sel", 550000, 416000, 312000, 273000),
-	MTK_VF_TABLE("mfg_sel", 350000, 350000, 350000, 350000),
+	/* APU CORE Power: 0.575v, 0.725v, 0.825v - vcore-less */
+	/* GPU DVFS - vcore-less */
 	MTK_VF_TABLE("camtg_sel", 52000, 52000, 52000, 52000),
 	MTK_VF_TABLE("camtg2_sel", 52000, 52000, 52000, 52000),
 	MTK_VF_TABLE("camtg3_sel", 52000, 52000, 52000, 52000),
@@ -460,11 +458,16 @@ static struct mtk_vf *get_vf_table(void)
 
 static int get_vcore_opp(void)
 {
+	int opp = VCORE_NULL;
+
 #if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER) && CHECK_VCORE_FREQ
-	return get_sw_req_vcore_opp();
-#else
-	return VCORE_NULL;
+	opp = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_SW_REQ_VCORE_OPP);
+	if (opp == 0)
+		return opp;
+
+	return opp - 1;
 #endif
+	return opp;
 }
 
 void print_subsys_reg(enum chk_sys_id id)
@@ -505,9 +508,6 @@ static void devapc_dump(void)
 	print_subsys_reg(ifrao);
 	print_subsys_reg(infracfg_ao_bus);
 	print_subsys_reg(apmixed);
-	print_subsys_reg(mm);
-	print_subsys_reg(mdp);
-	print_subsys_reg(imgsys1);
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -569,13 +569,11 @@ static struct clkchk_ops clkchk_mt6893_ops = {
 
 void clkchk_set_cfg(void)
 {
-	pr_notice("clkchk_set_cfg\n");
 	init_regbase();
 
 	set_clkchk_ops(&clkchk_mt6893_ops);
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
-	pr_notice("register devapc callback\n");
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
 }
