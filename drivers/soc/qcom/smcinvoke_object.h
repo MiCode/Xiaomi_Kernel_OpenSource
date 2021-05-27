@@ -6,11 +6,13 @@
 #define __SMCINVOKE_OBJECT_H
 
 #include <linux/types.h>
+#include <linux/firmware.h>
 
 /*
  * Method bits are not modified by transport layers.  These describe the
  * method (member function) being requested by the client.
  */
+
 #define OBJECT_OP_METHOD_MASK     (0x0000FFFFu)
 #define OBJECT_OP_METHODID(op)    ((op) & OBJECT_OP_METHOD_MASK)
 #define OBJECT_OP_RELEASE       (OBJECT_OP_METHOD_MASK - 0)
@@ -51,6 +53,7 @@
 	((uint32_t) ((in_bufs) | ((out_bufs) << 4) | \
 			((in_objs) << 8) | ((out_objs) << 12)))
 
+#define OBJECT_COUNTS_INDEX_buffers(k)   OBJECT_COUNTS_INDEX_BI(k)
 
 /* Object_invoke return codes */
 
@@ -81,4 +84,120 @@
 #define OBJECT_ERROR_BUSY        -99   /* Object is busy */
 #define Object_ERROR_TIMEOUT     -103  /* Call Back Object invocation timed out. */
 
+#define FOR_ARGS(ndxvar, counts, section) \
+	for (ndxvar = OBJECT_COUNTS_INDEX_##section(counts); \
+		ndxvar < (OBJECT_COUNTS_INDEX_##section(counts) \
+		+ OBJECT_COUNTS_NUM_##section(counts)); \
+		++ndxvar)
+
+/* ObjectOp */
+
+#define ObjectOp_METHOD_MASK     ((uint32_t) 0x0000FFFFu)
+#define ObjectOp_methodID(op)    ((op) & ObjectOp_METHOD_MASK)
+
+#define ObjectOp_LOCAL           ((uint32_t) 0x00008000U)
+
+#define ObjectOp_isLocal(op)     (((op) & ObjectOp_LOCAL) != 0)
+
+
+#define Object_OP_release       (ObjectOp_METHOD_MASK - 0)
+#define Object_OP_retain        (ObjectOp_METHOD_MASK - 1)
+
+/* Object */
+
+#define ObjectCounts_pack(nBuffersIn, nBuffersOut, nObjectsIn, nObjectsOut) \
+	((uint32_t) ((nBuffersIn) |	\
+	((nBuffersOut) << 4) |			\
+	((nObjectsIn) << 8)  |			\
+	((nObjectsOut) << 12)))
+
+union ObjectArg;
+
+typedef int32_t (*ObjectInvoke)(void *h,
+				uint32_t op,
+				union ObjectArg *args,
+				uint32_t counts);
+
+struct Object {
+	ObjectInvoke invoke;
+	void *context;
+};
+
+struct ObjectBuf {
+	void *ptr;
+	size_t size;
+};
+
+struct ObjectBufIn {
+	const void *ptr;
+	size_t size;
+};
+
+union ObjectArg {
+	struct ObjectBuf b;
+	struct ObjectBufIn bi;
+	struct Object o;
+};
+
+static inline int32_t Object_invoke(struct Object o, uint32_t op,
+				union ObjectArg *args, uint32_t k)
+{
+	return o.invoke(o.context, op, args, k);
+}
+
+#define Object_NULL		((struct Object){NULL, NULL})
+
+
+#define OBJECT_NOT_RETAINED
+
+#define OBJECT_CONSUMED
+
+static inline int32_t Object_release(OBJECT_CONSUMED struct Object o)
+{
+	return Object_invoke((o), Object_OP_release, 0, 0);
+}
+static inline int32_t Object_retain(struct Object o)
+{
+	return Object_invoke((o), Object_OP_retain, 0, 0);
+}
+
+#define Object_isNull(o)	((o).invoke == NULL)
+
+#define Object_RELEASE_IF(o)				\
+	do {						\
+		struct Object o_ = (o);			\
+		if (!Object_isNull(o_))			\
+			(void) Object_release(o_);	\
+	} while (0)
+
+static inline void Object_replace(struct Object *loc, struct Object objNew)
+{
+	if (!Object_isNull(*loc))
+		Object_release(*loc);
+
+	if (!Object_isNull(objNew))
+		Object_retain(objNew);
+	*loc = objNew;
+}
+
+#define Object_ASSIGN_NULL(loc)  Object_replace(&(loc), Object_NULL)
+
+int smcinvoke_release_from_kernel_client(int fd);
+
+int get_root_fd(int *root_fd);
+
+int process_invoke_request_from_kernel_client(
+		int fd, struct smcinvoke_cmd_req *req);
+
+int firmware_request_from_smcinvoke(
+		const struct firmware **fw_entry, char *fw_name);
+
+int smcinvoke_alloc_coherent_buf(
+		uint32_t size, uint8_t **vaddr, phys_addr_t *paddr);
+
+void smcinvoke_free_coherent_buf(
+		uint32_t size, uint8_t *vaddr, phys_addr_t paddr);
+
+int firmware_request_from_smcinvoke(
+		const struct firmware **fw_entry, char *fw_name);
 #endif /* __SMCINVOKE_OBJECT_H */
