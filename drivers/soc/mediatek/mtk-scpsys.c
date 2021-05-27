@@ -356,7 +356,7 @@ static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 en_ofs = bp->en_ofs;
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
-	int ret;
+	int ret = 0;
 
 	if (set_ofs)
 		regmap_write(map, set_ofs, mask);
@@ -368,10 +368,10 @@ static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 
 	if (ret < 0) {
-		pr_notice("%s val=%x, mask=%x, (val & mask)=%x\n",
+		pr_err("%s val=0x%x, mask=0x%x, (val & mask)=0x%x\n",
 			__func__, val, mask, (val & mask));
 	}
-	return 0;
+	return ret;
 }
 
 static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
@@ -382,7 +382,7 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
 	bool ignore_ack = bp->ignore_clr_ack;
-	int ret;
+	int ret = 0;
 
 	if (clr_ofs)
 		regmap_write(map, clr_ofs, mask);
@@ -397,10 +397,10 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 
 	if (ret < 0) {
-		pr_notice("%s val=%x, mask=%x, (val & mask)=%x\n",
+		pr_err("%s val=0x%x, mask=0x%x, (val & mask)=0x%x\n",
 			__func__, val, mask, (val & mask));
 	}
-	return 0;
+	return ret;
 }
 
 static int scpsys_bus_protect_enable(struct scp_domain *scpd)
@@ -1550,15 +1550,15 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
 				MT6893_TOP_AXI_PROT_EN_1_MFG1),
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6893_TOP_AXI_PROT_EN_2_MFG1),
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6893_TOP_AXI_PROT_EN_MFG1),
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6893_TOP_AXI_PROT_EN_2_MFG1_2ND),
-			BUS_PROT(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
+			BUS_PROT_IGN(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
 				MT6893_TOP_AXI_PROT_EN_SUB_INFRA_VDNR_MFG1),
 		},
 	},
@@ -1606,9 +1606,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"isp"},
 		.subsys_clk_prefix = "isp",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6893_TOP_AXI_PROT_EN_MM_2_ISP),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6893_TOP_AXI_PROT_EN_MM_2_ISP_2ND),
 		},
 	},
@@ -1621,9 +1621,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"isp2"},
 		.subsys_clk_prefix = "isp2",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_ISP2),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_ISP2_2ND),
 		},
 	},
@@ -1636,9 +1636,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"ipe"},
 		.subsys_clk_prefix = "ipe",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_IPE),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_IPE_2ND),
 		},
 	},
@@ -1651,9 +1651,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"vdec"},
 		.subsys_clk_prefix = "vdec",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_VDEC),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_VDEC_2ND),
 		},
 	},
@@ -1665,9 +1665,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "vdec2",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6893_TOP_AXI_PROT_EN_MM_2_VDEC2),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6893_TOP_AXI_PROT_EN_MM_2_VDEC2_2ND),
 		},
 	},
@@ -1680,13 +1680,13 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"venc"},
 		.subsys_clk_prefix = "venc",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_VENC),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6893_TOP_AXI_PROT_EN_MM_2_VENC),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_VENC_2ND),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6893_TOP_AXI_PROT_EN_MM_2_VENC_2ND),
 		},
 	},
@@ -1698,9 +1698,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "venc2",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_VENC_CORE1),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_VENC_CORE1_2ND),
 		},
 	},
@@ -1713,19 +1713,19 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"mdp"},
 		.subsys_clk_prefix = "mdp",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6893_TOP_AXI_PROT_EN_MDP),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_MDP),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6893_TOP_AXI_PROT_EN_MM_2_MDP),
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6893_TOP_AXI_PROT_EN_MDP_2ND),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_MDP_2ND),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6893_TOP_AXI_PROT_EN_MM_2_MDP_2ND),
-			BUS_PROT(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
+			BUS_PROT_IGN(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
 				MT6893_TOP_AXI_PROT_EN_SUB_INFRA_VDNR_MDP),
 		},
 	},
@@ -1738,13 +1738,13 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"disp"},
 		.subsys_clk_prefix = "disp",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_DISP),
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6893_TOP_AXI_PROT_EN_DISP),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_DISP_2ND),
-			BUS_PROT(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
+			BUS_PROT_IGN(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
 				MT6893_TOP_AXI_PROT_EN_SUB_INFRA_VDNR_DISP),
 		},
 	},
@@ -1757,7 +1757,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"audio"},
 		.subsys_clk_prefix = "audio",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6893_TOP_AXI_PROT_EN_2_AUDIO),
 		},
 	},
@@ -1769,7 +1769,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sram_slp_ack_bits = GENMASK(13, 13),
 		.basic_clk_name = {"adsp"},
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6893_TOP_AXI_PROT_EN_2_ADSP_DORMANT),
 		},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
@@ -1783,13 +1783,13 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.basic_clk_name = {"cam"},
 		.subsys_clk_prefix = "cam",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6893_TOP_AXI_PROT_EN_2_CAM),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_CAM),
-			BUS_PROT(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
 				MT6893_TOP_AXI_PROT_EN_1_CAM),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_CAM_2ND),
 		},
 	},
@@ -1801,9 +1801,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_rawa",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_CAM_RAWA),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_CAM_RAWA_2ND),
 		},
 	},
@@ -1815,9 +1815,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_rawb",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_CAM_RAWB),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_CAM_RAWB_2ND),
 		},
 	},
@@ -1829,9 +1829,9 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_rawc",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_CAM_RAWC),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6893_TOP_AXI_PROT_EN_MM_CAM_RAWC_2ND),
 		},
 	},
@@ -1850,11 +1850,11 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.extb_iso_offs = 0x398,
 		.extb_iso_bits = 0x3,
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6893_TOP_AXI_PROT_EN_MD),
-			BUS_PROT(IFR_TYPE, 0xB84, 0xB88, 0xB80, 0xB90,
+			BUS_PROT_IGN(IFR_TYPE, 0xB84, 0xB88, 0xB80, 0xB90,
 				MT6893_TOP_AXI_PROT_EN_INFRA_VDNR_MD),
-			BUS_PROT(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
+			BUS_PROT_IGN(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
 				MT6893_TOP_AXI_PROT_EN_SUB_INFRA_VDNR_MD),
 		},
 	},
@@ -1863,11 +1863,11 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sta_mask = BIT(1),
 		.ctl_offs = 0x304,
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6893_TOP_AXI_PROT_EN_CONN),
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6893_TOP_AXI_PROT_EN_CONN_2ND),
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6893_TOP_AXI_PROT_EN_2_CONN),
 		},
 	},
