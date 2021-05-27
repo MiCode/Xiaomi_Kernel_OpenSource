@@ -48,7 +48,7 @@ enum CMD_MODE {
 };
 
 struct mdla_pmu_info;
-struct apusys_cmd_hnd;
+struct apusys_cmd_handle;
 
 void mdla_util_pmu_cmd_timer(bool enable);
 
@@ -80,12 +80,13 @@ struct mdla_util_pmu_ops {
 	u32 (*get_hnd_evt_num)(struct mdla_pmu_info *pmu);
 	u32 (*get_hnd_mode)(struct mdla_pmu_info *pmu);
 	u64 (*get_hnd_buf_addr)(struct mdla_pmu_info *pmu);
+	u32 (*get_hnd_buf_size)(struct mdla_pmu_info *pmu);
 
 	void (*set_evt_handle)(struct mdla_pmu_info *pmu,
 			u32 counter_idx, u32 val);
 	struct mdla_pmu_info *(*get_info)(u32 core_id, u16 priority);
 	int (*apu_cmd_prepare)(struct mdla_dev *mdla_info,
-			struct apusys_cmd_hnd *apusys_hd, u16 priority);
+			struct apusys_cmd_handle *apusys_hd, u16 priority);
 };
 
 struct mdla_util_pmu_ops *mdla_util_pmu_ops_get(void);
@@ -93,10 +94,18 @@ struct mdla_util_pmu_ops *mdla_util_pmu_ops_get(void);
 /* apusys pmu operation */
 void mdla_util_apusys_pmu_support(bool enable);
 int mdla_util_apu_pmu_handle(struct mdla_dev *mdla_info,
-	struct apusys_cmd_hnd *apusys_hd, u16 priority);
+	struct apusys_cmd_handle *apusys_hd, u16 priority);
 void mdla_util_apu_pmu_update(struct mdla_dev *mdla_info,
-	struct apusys_cmd_hnd *apusys_hd, u16 priority);
+	struct apusys_cmd_handle *apusys_hd, u16 priority);
 
+/* apusys cmdbuf list */
+#define MIN_CMDBUF_NUM          2
+#define MAX_CMDBUF_NUM          5
+#define CMD_INFO_IDX            0
+#define CMD_CODEBUF_IDX         1
+#define CMD_PMU_INFO_IDX        2
+#define CMD_PMU_BUF_0_IDX       3
+#define CMD_PMU_BUF_1_IDX       4
 
 /* IO operation */
 struct mdla_util_core_io_ops {

@@ -25,10 +25,8 @@
 
 
 static void mdla_cmd_prepare_v1_x(struct mdla_run_cmd *cd,
-	struct apusys_cmd_hnd *apusys_hd, struct command_entry *ce)
+	struct apusys_cmd_handle *apusys_hd, struct command_entry *ce)
 {
-	ce->mva = cd->mva + cd->offset;
-
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
 	ce->bandwidth = 0;
@@ -36,7 +34,8 @@ static void mdla_cmd_prepare_v1_x(struct mdla_run_cmd *cd,
 	ce->count = cd->count;
 	ce->receive_t = sched_clock();
 
-	ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
+	ce->kva = apusys_hd->cmdbufs[CMD_CODEBUF_IDX].kva + cd->offset;
+	ce->mva = apusys_mem_query_iova((u64)ce->kva);
 
 	mdla_cmd_debug("%s: kva=0x%llx, mva=0x%08x(0x%08x+0x%x), cnt=%u, sz=0x%x\n",
 			__func__,
@@ -45,7 +44,7 @@ static void mdla_cmd_prepare_v1_x(struct mdla_run_cmd *cd,
 			cd->mva,
 			cd->offset,
 			ce->count,
-			cd->size);
+			apusys_hd->cmdbufs[CMD_CODEBUF_IDX].size);
 }
 
 
@@ -66,23 +65,27 @@ static void mdla_cmd_ut_prepare_v1_x(struct ioctl_run_cmd *cd,
 	ce->result = MDLA_SUCCESS;
 	ce->count = cd->count;
 	ce->receive_t = sched_clock();
-	ce->kva = NULL;
 	ce->boost_val = cd->boost_value;
 }
 
 int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
-				struct apusys_cmd_hnd *apusys_hd,
+				struct apusys_cmd_handle *apusys_hd,
 				uint32_t priority)
 {
 	u64 deadline = 0;
 	struct mdla_run_cmd *cd = &cmd_data->req;
 	struct command_entry ce;
 	int ret = 0, boost_val;
-	u32 core_id = 0;
+	u32 core_id = mdla_info->mdla_id;
+
+	if (!cd || (apusys_hd->cmdbufs[CMD_INFO_IDX].size < sizeof(struct mdla_run_cmd)))
+		return -EINVAL;
+
+	if ((cd->count == 0) || (cd->offset >= apusys_hd->cmdbufs[CMD_CODEBUF_IDX].size))
+		return -1;
 
 	memset(&ce, 0, sizeof(struct command_entry));
-	core_id = mdla_info->mdla_id;
 	ce.queue_t = sched_clock();
 
 	/* The critical region of command enqueue */
@@ -103,7 +106,7 @@ int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 	if (ret)
 		goto out;
 
-	boost_val = apusys_hd->boost_val;
+	boost_val = (int)apusys_hd->boost;
 
 	if (unlikely(mdla_dbg_read_u32(FS_DVFS_RAND)))
 		boost_val = mdla_pwr_get_random_boost_val();

@@ -54,11 +54,12 @@ struct mdla_pmu_hnd {
 	u8 mode;
 	u8 number_of_event;
 	u16 event[MDLA_PMU_COUNTERS];
-};
+} __attribute__((__packed__));
 
 struct mdla_pmu_info {
 	u64 cmd_id;
 	u64 PMU_res_buf_addr;
+	u32 PMU_res_buf_size;
 	struct mdla_pmu_hnd *pmu_hnd;
 	struct mdla_pmu_data data;
 	spinlock_t lock;
@@ -116,6 +117,11 @@ static u64 mdla_pmu_get_hnd_buf_addr(struct mdla_pmu_info *pmu)
 	return pmu->PMU_res_buf_addr;
 }
 
+static u32 mdla_pmu_get_hnd_buf_size(struct mdla_pmu_info *pmu)
+{
+	return pmu->PMU_res_buf_size;
+}
+
 static void mdla_pmu_set_evt_handle(struct mdla_pmu_info *pmu,
 		u32 counter_idx, u32 val)
 {
@@ -129,9 +135,9 @@ static struct mdla_pmu_info *mdla_pmu_get_info(u32 core_id, u16 priority)
 
 /* extract pmu_hnd form pmu_kva and set mdla_info->pmu */
 static int mdla_pmu_cmd_prepare(struct mdla_dev *mdla_info,
-	struct apusys_cmd_hnd *apusys_hd, u16 priority)
+	struct apusys_cmd_handle *apusys_hd, u16 priority)
 {
-	u64 ofs_buf_addr;
+	u32 buf_idx;
 	struct mdla_pmu_info *pmu;
 
 	pmu = &mdla_info->pmu_info[priority];
@@ -139,19 +145,23 @@ static int mdla_pmu_cmd_prepare(struct mdla_dev *mdla_info,
 	if (pmu->pmu_mode >= CMD_MODE_MAX)
 		return -1;
 
-	pmu->pmu_hnd =
-		(struct mdla_pmu_hnd *)apusys_hd->pmu_kva;
+	if (apusys_hd->cmdbufs[CMD_PMU_INFO_IDX].size < sizeof(struct mdla_pmu_hnd))
+		return -1;
 
-	pmu->cmd_id = apusys_hd->cmd_id;
+	pmu->pmu_hnd =
+		(struct mdla_pmu_hnd *)apusys_hd->cmdbufs[CMD_PMU_INFO_IDX].kva;
+
+	pmu->cmd_id = apusys_hd->kid;
 
 	if (mdla_info->mdla_id == 0)
-		ofs_buf_addr = pmu->pmu_hnd->offset_to_PMU_res_buf0;
+		buf_idx = CMD_PMU_BUF_0_IDX;
 	else if (mdla_info->mdla_id == 1)
-		ofs_buf_addr = pmu->pmu_hnd->offset_to_PMU_res_buf1;
+		buf_idx = CMD_PMU_BUF_1_IDX;
 	else
 		return -1;
 
-	pmu->PMU_res_buf_addr = apusys_hd->cmd_entry + ofs_buf_addr;
+	pmu->PMU_res_buf_addr = (u64)apusys_hd->cmdbufs[buf_idx].kva;
+	pmu->PMU_res_buf_size = apusys_hd->cmdbufs[buf_idx].size;
 
 	if (pmu->pmu_mode == PER_CMD)
 		mdla_util_pmu_cmd_timer(true);
@@ -604,6 +614,7 @@ void mdla_v1_0_pmu_init(struct mdla_dev *mdla_info)
 	pmu_ops->get_hnd_evt_num      = mdla_pmu_get_hnd_evt_num;
 	pmu_ops->get_hnd_mode         = mdla_pmu_get_hnd_mode;
 	pmu_ops->get_hnd_buf_addr     = mdla_pmu_get_hnd_buf_addr;
+	pmu_ops->get_hnd_buf_size     = mdla_pmu_get_hnd_buf_size;
 	pmu_ops->set_evt_handle       = mdla_pmu_set_evt_handle;
 	pmu_ops->get_info             = mdla_pmu_get_info;
 	pmu_ops->apu_cmd_prepare      = mdla_pmu_cmd_prepare;

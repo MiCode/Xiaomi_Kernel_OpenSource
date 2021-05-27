@@ -11,7 +11,7 @@
 
 static int mdla_cmd_dummy_run(struct mdla_run_cmd_sync *run_cmd,
 			struct mdla_dev *mdla_info,
-			struct apusys_cmd_hnd *apusys_hd, uint32_t data)
+			struct apusys_cmd_handle *apusys_hd, uint32_t data)
 {
 	mdla_cmd_debug("%s() !!!\n", __func__);
 	return 0;

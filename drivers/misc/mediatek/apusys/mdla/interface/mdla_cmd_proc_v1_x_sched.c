@@ -29,13 +29,10 @@
 
 #include "mdla_cmd_data_v1_x.h"
 
-
 static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
-	struct apusys_cmd_hnd *apusys_hd,
-	struct command_entry *ce, int priority)
+					struct apusys_cmd_handle *apusys_hd,
+					struct command_entry *ce, int priority)
 {
-	ce->mva = cd->mva + cd->offset;
-
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
 	ce->bandwidth = 0;
@@ -44,8 +41,8 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	ce->receive_t = sched_clock();
 	ce->csn = priority + 1;
 
-	ce->deadline_t = get_jiffies_64()
-			+ msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));
+	ce->deadline_t = get_jiffies_64() +
+			 msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));
 
 	/* It is new command list */
 	ce->fin_cid = 0;
@@ -53,16 +50,19 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	ce->irq_state = IRQ_SUCCESS;
 	ce->req_start_t = 0;
 
-	ce->boost_val = apusys_hd->boost_val;
-	ce->ctx_id = apusys_hd->ctx_id;
+	ce->priority = priority;
+
+	ce->boost_val = (int)apusys_hd->boost;
+	ce->ctx_id = apusys_hd->vlm_ctx;
 	ce->context_callback = apusys_hd->context_callback;
 	apusys_hd->ip_time = 0;
-	ce->cmdbuf = apusys_hd->cmdbuf;
-	ce->priority = priority;
-	ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
+
+	ce->cmdbuf = &apusys_hd->cmdbufs[CMD_CODEBUF_IDX];
+	ce->kva = ce->cmdbuf->kva + cd->offset;
+	ce->mva = apusys_mem_query_iova((u64)ce->kva);
 
 	if (apusys_hd->multicore_total == 2) {
-		ce->cmd_id = apusys_hd->cmd_id;
+		ce->cmd_id = apusys_hd->kid;
 		ce->multicore_total = apusys_hd->multicore_total;
 		ce->cmd_batch_size = cd->count + 1;
 	} else {
@@ -71,23 +71,17 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 
 	init_completion(&ce->swcmd_done_wait);
 
-	mdla_cmd_debug("%s: kva=0x%llx mva=0x%08x(0x%08x+0x%x) cnt=%u sz=0x%x\n",
-			__func__,
-			(u64)ce->kva,
-			ce->mva,
-			cd->mva,
-			cd->offset,
-			ce->count,
-			cd->size);
+	mdla_cmd_debug(
+		"%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x cnt=%u sz=0x%x\n",
+		__func__, (u64)ce->kva, ce->cmdbuf->kva, cd->offset, ce->mva,
+		ce->count, ce->cmdbuf->size);
 	mdla_verbose("%s: ctx_id=%d apu_hd_core_num=%d prio=%d batch_sz=%d)\n",
-			__func__,
-			ce->ctx_id,
-			apusys_hd->multicore_total,
-			ce->priority,
-			ce->cmd_batch_size);
+		     __func__, ce->ctx_id, apusys_hd->multicore_total,
+		     ce->priority, ce->cmd_batch_size);
 }
 
-static void mdla_cmd_set_opp(u32 core_id, struct command_entry *ce, int boost_val)
+static void mdla_cmd_set_opp(u32 core_id, struct command_entry *ce,
+			     int boost_val)
 {
 	if (ce->boost_val > boost_val)
 		boost_val = ce->boost_val;
@@ -111,7 +105,7 @@ static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
 	int prio;
 
 	mdla_timeout_debug("Interrupt error status: %x\n",
-		mdla_info->error_bit);
+			   mdla_info->error_bit);
 	mdla_info->error_bit = 0;
 
 	mdla_timeout_debug("Print current ce\n");
@@ -139,7 +133,7 @@ static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
 	/* Enable & Relase bus protect */
 	mdla_pwr_ops_get()->switch_off_on(core_id);
 	mdla_pwr_ops_get()->hw_reset(mdla_info->mdla_id,
-				mdla_dbg_get_reason_str(REASON_TIMEOUT));
+				     mdla_dbg_get_reason_str(REASON_TIMEOUT));
 
 	/* error handling for scheudler by removing processing CE */
 	spin_lock_irqsave(&sched->lock, flags);
@@ -159,9 +153,9 @@ static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
 }
 
 int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
-				struct mdla_dev *mdla_info,
-				struct apusys_cmd_hnd *apusys_hd,
-				uint32_t priority)
+				 struct mdla_dev *mdla_info,
+				 struct apusys_cmd_handle *apusys_hd,
+				 uint32_t priority)
 {
 	int ret = REASON_MDLA_SUCCESS;
 	unsigned long flags;
@@ -170,11 +164,15 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 	struct mdla_run_cmd *cd = &cmd_data->req;
 	struct command_entry *ce;
 	struct mdla_scheduler *sched = mdla_info->sched;
-
 	u32 core_id = mdla_info->mdla_id;
 
-	if (!cd || (cd->count == 0) || (apusys_hd->cmdbuf == NULL))
+	if (!cd || (apusys_hd->cmdbufs[CMD_INFO_IDX].size <
+		    sizeof(struct mdla_run_cmd)))
 		return -EINVAL;
+
+	if ((cd->count == 0) ||
+	    (cd->offset >= apusys_hd->cmdbufs[CMD_CODEBUF_IDX].size))
+		return -1;
 
 	/* need to define error code for scheduler is NULL */
 	if (!sched)
@@ -245,11 +243,11 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 	}
 
 	/* wait for deadline */
-	while (ce->fin_cid < ce->count
-			&& time_before64(get_jiffies_64(), ce->deadline_t)) {
+	while (ce->fin_cid < ce->count &&
+	       time_before64(get_jiffies_64(), ce->deadline_t)) {
 		wait_for_completion_interruptible_timeout(
-				&ce->swcmd_done_wait,
-				mdla_cmd_plat_cb()->get_wait_time(core_id));
+			&ce->swcmd_done_wait,
+			mdla_cmd_plat_cb()->get_wait_time(core_id));
 
 		mdla_cmd_plat_cb()->wait_cmd_handle(core_id, ce);
 
@@ -288,7 +286,7 @@ error_handle:
 }
 
 int mdla_cmd_ut_run_sync_v1_x_sched(void *run_cmd, void *wait_cmd,
-				struct mdla_dev *mdla_info)
+				    struct mdla_dev *mdla_info)
 {
 	return 0;
 }

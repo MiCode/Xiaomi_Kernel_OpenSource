@@ -20,7 +20,6 @@
 #include <utilities/mdla_profile.h>
 #include <utilities/mdla_util.h>
 
-
 static struct apusys_device *apusys_dev_mdla;
 static struct apusys_device *apusys_dev_mdla_rt;
 
@@ -29,13 +28,11 @@ static bool apusys_mdla_rt_support(void)
 	return DEVICE_MDLA != DEVICE_MDLA_RT;
 }
 
-static int apusys_mdla_handler(int type,
-	void *hnd, struct apusys_device *dev)
+static int apusys_mdla_handler(int type, void *hnd, struct apusys_device *dev)
 {
 	int ret = 0;
 	struct mdla_dev *mdla_info;
-	struct apusys_cmd_hnd *cmd_hnd;
-	struct mdla_run_cmd_sync *cmd_data;
+	struct apusys_cmd_handle *cmd_hnd;
 
 	if (unlikely(!dev || !(dev->private)))
 		return -EINVAL;
@@ -45,7 +42,7 @@ static int apusys_mdla_handler(int type,
 	if (dev->dev_type != DEVICE_MDLA)
 		return -EINVAL;
 
-	if (unlikely(mdla_info->mdla_id >= mdla_util_get_core_num()))
+	if (unlikely(core_id_is_invalid(mdla_info->mdla_id)))
 		return -EINVAL;
 
 	switch (type) {
@@ -62,16 +59,18 @@ static int apusys_mdla_handler(int type,
 		break;
 	case APUSYS_CMD_EXECUTE:
 		cmd_hnd = hnd;
-		cmd_data = (struct mdla_run_cmd_sync *)cmd_hnd->kva;
 
-		if (unlikely(!cmd_hnd || !cmd_data))
+		if (unlikely(!cmd_hnd || cmd_hnd->num_cmdbufs < MIN_CMDBUF_NUM))
 			return -ENODEV;
 
+		if (unlikely(!cmd_hnd->cmdbufs[CMD_INFO_IDX].kva))
+			return -EINVAL;
+
 		ret = mdla_cmd_ops_get()->run_sync(
-			cmd_data,
-			mdla_info,
-			cmd_hnd,
-			MDLA_LOW_PRIORITY);
+			(struct mdla_run_cmd_sync *)cmd_hnd
+				->cmdbufs[CMD_INFO_IDX]
+				.kva,
+			mdla_info, cmd_hnd, MDLA_LOW_PRIORITY);
 		break;
 	case APUSYS_CMD_PREEMPT:
 		ret = -EINVAL;
@@ -84,45 +83,43 @@ static int apusys_mdla_handler(int type,
 	return ret;
 }
 
-static int apusys_mdla_rt_handler(int type,
-	void *hnd, struct apusys_device *dev)
+static int apusys_mdla_rt_handler(int type, void *hnd,
+				  struct apusys_device *dev)
 {
 	int ret;
-	struct apusys_cmd_hnd *cmd_hnd;
+	struct apusys_cmd_handle *cmd_hnd;
 	struct mdla_dev *mdla_info;
-	struct mdla_run_cmd_sync *cmd_data;
 
 	if (type != APUSYS_CMD_EXECUTE)
 		return 0;
 
-	cmd_hnd = hnd;
-
-	if (unlikely(!cmd_hnd || !dev))
+	if (unlikely(dev->dev_type != DEVICE_MDLA_RT))
 		return -EINVAL;
 
-	cmd_data = (struct mdla_run_cmd_sync *)cmd_hnd->kva;
+	if (unlikely(!hnd || !dev || !(dev->private)))
+		return -EINVAL;
+
+	cmd_hnd = hnd;
 	mdla_info = (struct mdla_dev *)dev->private;
 
-	if (unlikely(!mdla_info || !cmd_data))
+	if (unlikely(cmd_hnd->num_cmdbufs < MIN_CMDBUF_NUM))
 		return -ENODEV;
 
-	if (dev->dev_type != DEVICE_MDLA_RT)
+	if (unlikely(!cmd_hnd->cmdbufs[CMD_INFO_IDX].kva))
 		return -EINVAL;
 
-	if (unlikely(mdla_info->mdla_id >= mdla_util_get_core_num()))
+	if (unlikely(core_id_is_invalid(mdla_info->mdla_id)))
 		return -EINVAL;
 
 	ret = mdla_cmd_ops_get()->run_sync(
-			cmd_data,
-			mdla_info,
-			cmd_hnd,
-			MDLA_HIGH_PRIORITY);
+		(struct mdla_run_cmd_sync *)cmd_hnd->cmdbufs[CMD_INFO_IDX].kva,
+		mdla_info, cmd_hnd, MDLA_HIGH_PRIORITY);
 
 	return ret;
 }
 
 #define MDLA_DEVICE_NAME "mdlactl"
-#define MDLA_CLASS_NAME  "mdla"
+#define MDLA_CLASS_NAME "mdla"
 
 static dev_t mdlactl_dev_num;
 static struct cdev *mdlactl_cdev;
@@ -166,7 +163,7 @@ static int mdla_drv_register_char_dev(struct device *dev)
 	}
 
 	dev_info(dev, "Registered cdev with major/minor number %d\n",
-			mdlactl_dev_num);
+		 mdlactl_dev_num);
 
 	return 0;
 
@@ -185,7 +182,7 @@ int mdla_drv_create_device_node(struct device *dev)
 	if (mdlactl_cdev) {
 		ret = -1;
 		dev_info(dev, "%s() Has registered character device!\n",
-					__func__);
+			 __func__);
 		goto out;
 	}
 
@@ -203,8 +200,8 @@ int mdla_drv_create_device_node(struct device *dev)
 	}
 
 	/* 3. Creates a device and registers it with sysfs */
-	mdlactl_device = device_create(mdlactl_class, NULL,
-				mdlactl_dev_num, NULL, MDLA_DEVICE_NAME);
+	mdlactl_device = device_create(mdlactl_class, NULL, mdlactl_dev_num,
+				       NULL, MDLA_DEVICE_NAME);
 	if (IS_ERR(mdlactl_device)) {
 		dev_info(dev, "Failed to create the device\n");
 		ret = PTR_ERR(mdlactl_device);
@@ -218,7 +215,7 @@ int mdla_drv_create_device_node(struct device *dev)
 	ret = dma_get_mask(mdlactl_device);
 	if (ret < 0 || ret != DMA_BIT_MASK(32)) {
 		ret = dma_set_mask_and_coherent(mdlactl_device,
-					DMA_BIT_MASK(32));
+						DMA_BIT_MASK(32));
 		if (ret)
 			dev_info(dev, "MDLA: set DMA mask failed: %d\n", ret);
 	}
@@ -274,16 +271,14 @@ static int mdla_probe(struct platform_device *pdev)
 	}
 
 	apusys_dev_mdla = kcalloc(mdla_util_get_core_num(),
-					sizeof(struct apusys_device),
-					GFP_KERNEL);
+				  sizeof(struct apusys_device), GFP_KERNEL);
 	if (!apusys_dev_mdla) {
 		ret = -ENOMEM;
 		goto err;
 	}
 
 	apusys_dev_mdla_rt = kcalloc(mdla_util_get_core_num(),
-					sizeof(struct apusys_device),
-					GFP_KERNEL);
+				     sizeof(struct apusys_device), GFP_KERNEL);
 	if (!apusys_dev_mdla_rt) {
 		ret = -ENOMEM;
 		goto err_dev_mdla_rt;
@@ -325,7 +320,6 @@ static int mdla_probe(struct platform_device *pdev)
 	dev_info(dev, "%s: done\n", __func__);
 
 	return 0;
-
 
 err_apusys:
 	for (i = i - 1; i >= 0; i--) {
@@ -378,8 +372,7 @@ static int mdla_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
 	int i;
 
-	for_each_mdla_core(i)
-		mdla_pwr_ops_get()->off(i, 1, true);
+	for_each_mdla_core(i) mdla_pwr_ops_get()->off(i, 1, true);
 
 	dev_info(&pdev->dev, "%s()\n", __func__);
 	return 0;
@@ -407,4 +400,3 @@ void mdla_drv_exit(void)
 {
 	platform_driver_unregister(&mdla_driver);
 }
-

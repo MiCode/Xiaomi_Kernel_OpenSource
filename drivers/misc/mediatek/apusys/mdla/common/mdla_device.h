@@ -16,7 +16,7 @@
 #define MAX_CORE_NUM 16
 
 struct device;
-struct apusys_kmem;
+struct apusys_cmdbuf;
 
 struct mdla_run_cmd;
 struct mdla_run_cmd_sync;
@@ -174,7 +174,8 @@ struct command_entry {
 	u32 fin_cid;         /* record the last finished command id */
 	u32 wish_fin_cid;
 
-	struct apusys_kmem *cmdbuf;
+	struct apusys_cmdbuf *cmdbuf;
+
 	int ctx_id;
 	int (*context_callback)(int a, int b, unsigned char c);
 

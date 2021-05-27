@@ -145,7 +145,7 @@ static void mdla_split_alloc_command_batch(struct command_entry *ce)
 
 	INIT_LIST_HEAD(ce->batch_list_head);
 
-	apusys_mem_invalidate(ce->cmdbuf);
+	apusys_mem_invalidate_kva(ce->kva, ce->cmdbuf->size - (ce->kva - ce->cmdbuf->kva));
 
 	// TODO: add default policy when batch_size is zero
 	for (i = 1; i <= cmd_count; i += cur_batch_len) {
@@ -189,7 +189,7 @@ static void mdla_split_alloc_command_batch(struct command_entry *ce)
 
 	// buffer sync here
 	if (likely(ce->cmdbuf != NULL))
-		apusys_mem_flush(ce->cmdbuf);
+		apusys_mem_flush_kva(ce->kva, ce->cmdbuf->size - (ce->kva - ce->cmdbuf->kva));
 
 	if (mdla_dbg_read_u32(FS_PREEMPTION_DBG))
 		list_for_each_safe(tmp, next, ce->batch_list_head) {

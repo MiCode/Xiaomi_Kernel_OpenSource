@@ -22,9 +22,8 @@
 
 #include "mdla_cmd_data_v1_0.h"
 
-
 static void mdla_cmd_cal_perf_index(struct ioctl_wait_cmd *wt,
-		struct command_entry *ce)
+				    struct command_entry *ce)
 {
 	wt->queue_time = ce->poweron_t - ce->receive_t;
 	wt->busy_time = ce->wait_t - ce->poweron_t;
@@ -32,48 +31,36 @@ static void mdla_cmd_cal_perf_index(struct ioctl_wait_cmd *wt,
 }
 
 static void mdla_cmd_prepare_v1_0(struct mdla_run_cmd *cd,
-	struct apusys_cmd_hnd *apusys_hd, struct command_entry *ce)
+				  struct apusys_cmd_handle *apusys_hd,
+				  struct command_entry *ce)
 {
-	ce->mva = cd->mva + cd->offset;
-
-	mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
-				__func__,
-				cd->mva,
-				cd->offset,
-				cd->count);
-
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
 	ce->bandwidth = 0;
 	ce->result = MDLA_SUCCESS;
 	ce->count = cd->count;
 	ce->receive_t = sched_clock();
-	ce->kva = NULL;
+	ce->kva = apusys_hd->cmdbufs[CMD_CODEBUF_IDX].kva + cd->offset;
+	ce->mva = apusys_mem_query_iova((u64)ce->kva);
 
-	ce->kva = (void *)(get_code_buf_kva(apusys_hd, cd));
-	mdla_cmd_debug("%s: cmd_entry=0x%llx, ce->kva=%p, size=0x%x\n",
-			__func__,
-			apusys_hd->cmd_entry,
-			ce->kva,
-			cd->size);
-
+	mdla_cmd_debug(
+		"%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x cnt=%u sz=0x%x\n",
+		__func__, (u64)ce->kva, ce->cmdbuf->kva, cd->offset, ce->mva,
+		ce->count, ce->cmdbuf->size);
 }
 
 static void mdla_cmd_ut_prepare_v1_0(struct ioctl_run_cmd *cd,
-					struct command_entry *ce)
+				     struct command_entry *ce)
 {
 	if (!ce)
 		return;
 
 	ce->mva = cd->buf.mva + cd->offset;
 
-	mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u, priority: %u, boost: %u\n",
-			__func__,
-			cd->buf.mva,
-			cd->offset,
-			cd->count,
-			cd->priority,
-			cd->boost_value);
+	mdla_cmd_debug(
+		"%s: mva=0x%08x, offset=0x%x, count: %u, priority: %u, boost: %u\n",
+		__func__, cd->buf.mva, cd->offset, cd->count, cd->priority,
+		cd->boost_value);
 
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
@@ -84,17 +71,24 @@ static void mdla_cmd_ut_prepare_v1_0(struct ioctl_run_cmd *cd,
 	ce->kva = NULL;
 }
 
-
 int mdla_cmd_run_sync_v1_0(struct mdla_run_cmd_sync *cmd_data,
-				struct mdla_dev *mdla_info,
-				struct apusys_cmd_hnd *apusys_hd,
-				uint32_t priority)
+			   struct mdla_dev *mdla_info,
+			   struct apusys_cmd_handle *apusys_hd,
+			   uint32_t priority)
 {
 	u64 deadline = 0;
 	struct mdla_run_cmd *cd = &cmd_data->req;
 	struct command_entry ce;
 	int ret = 0, boost_val;
 	u32 core_id = 0;
+
+	if (!cd || (apusys_hd->cmdbufs[CMD_INFO_IDX].size <
+		    sizeof(struct mdla_run_cmd)))
+		return -EINVAL;
+
+	if ((cd->count == 0) ||
+	    (cd->offset >= apusys_hd->cmdbufs[CMD_CODEBUF_IDX].size))
+		return -1;
 
 	memset(&ce, 0, sizeof(struct command_entry));
 	core_id = mdla_info->mdla_id;
@@ -107,19 +101,19 @@ int mdla_cmd_run_sync_v1_0(struct mdla_run_cmd_sync *cmd_data,
 	mdla_cmd_prepare_v1_0(cd, apusys_hd, &ce);
 
 process_command:
-	deadline = get_jiffies_64()
-			+ msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));
+	deadline = get_jiffies_64() +
+		   msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));
 
 	mdla_info->max_cmd_id = 0;
 
-	mdla_verbose("%s: core: %d max_cmd_id: %d id: %d\n",
-			__func__, core_id, mdla_info->max_cmd_id, ce.count);
+	mdla_verbose("%s: core: %d max_cmd_id: %d id: %d\n", __func__, core_id,
+		     mdla_info->max_cmd_id, ce.count);
 
 	ret = mdla_pwr_ops_get()->on(core_id, false);
 	if (ret)
 		goto out;
 
-	boost_val = apusys_hd->boost_val;
+	boost_val = (int)apusys_hd->boost;
 
 	if (unlikely(mdla_dbg_read_u32(FS_DVFS_RAND)))
 		boost_val = mdla_pwr_get_random_boost_val();
@@ -140,16 +134,16 @@ process_command:
 	mdla_cmd_plat_cb()->process_command(core_id, &ce);
 
 	/* Wait for timeout */
-	while (mdla_info->max_cmd_id < ce.count
-			&& time_before64(get_jiffies_64(), deadline)) {
-
+	while (mdla_info->max_cmd_id < ce.count &&
+	       time_before64(get_jiffies_64(), deadline)) {
 		wait_for_completion_interruptible_timeout(
-				&mdla_info->command_done,
-				mdla_cmd_plat_cb()->get_wait_time(core_id));
+			&mdla_info->command_done,
+			mdla_cmd_plat_cb()->get_wait_time(core_id));
 
 		/* E1 HW timeout check here */
 		if (mdla_cmd_plat_cb()->wait_cmd_hw_detect(core_id) != 0) {
-			mdla_pwr_ops_get()->hw_reset(mdla_info->mdla_id,
+			mdla_pwr_ops_get()->hw_reset(
+				mdla_info->mdla_id,
 				mdla_dbg_get_reason_str(REASON_TIMEOUT));
 			goto process_command;
 		}
@@ -165,13 +159,13 @@ process_command:
 	cd->id = mdla_info->max_cmd_id;
 
 	if (mdla_info->max_cmd_id < ce.count) {
-		mdla_timeout_debug("command: %d, max_cmd_id: %d\n",
-				ce.count,
-				mdla_info->max_cmd_id);
+		mdla_timeout_debug("command: %d, max_cmd_id: %d\n", ce.count,
+				   mdla_info->max_cmd_id);
 
 		mdla_dbg_dump(mdla_info, &ce);
-		mdla_pwr_ops_get()->hw_reset(mdla_info->mdla_id,
-				mdla_dbg_get_reason_str(REASON_TIMEOUT));
+		mdla_pwr_ops_get()->hw_reset(
+			mdla_info->mdla_id,
+			mdla_dbg_get_reason_str(REASON_TIMEOUT));
 		ret = -1;
 	}
 
@@ -190,7 +184,7 @@ out:
 }
 
 int mdla_cmd_ut_run_sync_v1_0(void *run_cmd, void *wait_cmd,
-			struct mdla_dev *mdla_info)
+			      struct mdla_dev *mdla_info)
 {
 	u64 deadline = 0;
 	int ret = 0;
@@ -211,13 +205,13 @@ int mdla_cmd_ut_run_sync_v1_0(void *run_cmd, void *wait_cmd,
 
 process_command:
 	/* Compute deadline */
-	deadline = get_jiffies_64()
-			+ msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));
+	deadline = get_jiffies_64() +
+		   msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));
 
 	mdla_info->max_cmd_id = 0;
 
-	mdla_timeout_debug("%s: max_cmd_id: %d id: %d\n",
-			__func__, mdla_info->max_cmd_id, ce.count);
+	mdla_timeout_debug("%s: max_cmd_id: %d id: %d\n", __func__,
+			   mdla_info->max_cmd_id, ce.count);
 
 	ret = mdla_pwr_ops_get()->on(core_id, false);
 	if (ret)
@@ -232,16 +226,16 @@ process_command:
 	mdla_cmd_plat_cb()->process_command(core_id, &ce);
 
 	/* Wait for timeout */
-	while (mdla_info->max_cmd_id < ce.count
-			&& time_before64(get_jiffies_64(), deadline)) {
-
+	while (mdla_info->max_cmd_id < ce.count &&
+	       time_before64(get_jiffies_64(), deadline)) {
 		wait_for_completion_interruptible_timeout(
 			&mdla_info->command_done,
 			mdla_cmd_plat_cb()->get_wait_time(core_id));
 
 		/* E1 HW timeout check here */
 		if (mdla_cmd_plat_cb()->wait_cmd_hw_detect(core_id) != 0) {
-			mdla_pwr_ops_get()->hw_reset(mdla_info->mdla_id,
+			mdla_pwr_ops_get()->hw_reset(
+				mdla_info->mdla_id,
 				mdla_dbg_get_reason_str(REASON_TIMEOUT));
 			goto process_command;
 		}
@@ -256,12 +250,14 @@ process_command:
 	if (mdla_info->max_cmd_id >= ce.count)
 		wt->result = 0;
 	else { // Command timeout
-		mdla_timeout_debug("%s: command: %u, max_cmd_id: %u deadline:%llu, jiffies: %lu\n",
-				__func__, ce.count,
-				mdla_info->max_cmd_id, deadline, jiffies);
+		mdla_timeout_debug(
+			"%s: command: %u, max_cmd_id: %u deadline:%llu, jiffies: %lu\n",
+			__func__, ce.count, mdla_info->max_cmd_id, deadline,
+			jiffies);
 		mdla_dbg_dump(mdla_info, &ce);
-		mdla_pwr_ops_get()->hw_reset(mdla_info->mdla_id,
-				mdla_dbg_get_reason_str(REASON_TIMEOUT));
+		mdla_pwr_ops_get()->hw_reset(
+			mdla_info->mdla_id,
+			mdla_dbg_get_reason_str(REASON_TIMEOUT));
 		wt->result = 1;
 	}
 
