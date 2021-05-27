@@ -820,6 +820,8 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 		data_rate /= 1000000;
 	}
 
+	DDPINFO("%s -, data_rate=%d\n", __func__, data_rate);
+
 	return data_rate;
 }
 
@@ -947,7 +949,10 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 	/* Store DSI data rate in MHz */
 	dsi->data_rate = data_rate;
 
-	DDPDBG("set mipitx's data rate: %lu Hz\n", mipi_tx_rate);
+	DDPDBG("%s, data_rate: %d MHz, mipi_tx_rate: %lu Hz\n",
+		__func__, data_rate, mipi_tx_rate);
+
+	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, data_rate);
 	ret = clk_set_rate(dsi->hs_clk, mipi_tx_rate);
 	return ret;
 }

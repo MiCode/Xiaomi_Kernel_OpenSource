@@ -1826,6 +1826,8 @@ void mtk_mipi_tx_pll_rate_set_adpt(struct phy *phy, unsigned long rate)
 {
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 
+	DDPDBG("%s set rate: %lu Hz\n", __func__, rate);
+
 	mipi_tx->data_rate_adpt = rate;
 }
 
@@ -1905,6 +1907,8 @@ static int mtk_mipi_tx_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 				    unsigned long parent_rate)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
+
+	DDPDBG("%s set rate: %lu Hz\n", __func__, rate);
 
 	dev_dbg(mipi_tx->dev, "set rate: %lu Hz\n", rate);
 
