@@ -1640,7 +1640,7 @@
 		reg = <0 0x10025000 0 0x1000>;
 	};
 
-	pwm@11006000 {
+	pwm@10048000 {
 		compatible = "mediatek,pwm";
 		reg = <0 0x10048000 0 0x1000>;
 		interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>;
