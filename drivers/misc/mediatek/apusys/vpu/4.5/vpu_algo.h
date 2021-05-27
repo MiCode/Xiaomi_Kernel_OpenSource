@@ -31,11 +31,6 @@ int vpu_init_dev_algo(struct platform_device *pdev, struct vpu_device *vd);
 void vpu_exit_dev_algo(struct platform_device *pdev, struct vpu_device *vd);
 int vpu_hw_alg_init(struct vpu_algo_list *al, struct __vpu_algo *alg);
 
-/* vpu_algo.c
- * handleing dynamic load/unload algo
- */
-int vpu_firmware(struct vpu_device *vd, struct apusys_firmware_hnd *fw);
-
 struct __vpu_algo {
 	struct vpu_algo a;
 	struct vpu_iova prog;   /* preloaded and dynamic loaded algo */
@@ -57,9 +52,6 @@ struct vpu_algo_ops {
 	void (*release)(struct kref *ref);
 	/* device controls */
 	int (*hw_init)(struct vpu_algo_list *al, struct __vpu_algo *alg);
-	/* external firmware */
-	int (*add)(struct vpu_algo_list *al, struct apusys_firmware_hnd *hnd);
-	int (*del)(struct vpu_algo_list *al, struct apusys_firmware_hnd *hnd);
 };
 
 extern struct vpu_algo_ops vpu_normal_aops;
