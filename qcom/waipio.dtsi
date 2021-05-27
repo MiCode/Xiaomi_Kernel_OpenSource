@@ -2210,6 +2210,7 @@
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		iommus = <&apps_smmu 0x0584 0x0011>;
 		qcom,iommu-dma = "atomic";
+		dma-coherent;
 
 		qcom_cedev_ns_cb {
 			compatible = "qcom,qcedev,context-bank";
@@ -2218,6 +2219,7 @@
 				<&apps_smmu 0x59A 0x0>,
 				<&apps_smmu 0x59F 0x0>,
 				<&apps_smmu 0x598 0x5>;
+			dma-coherent;
 		};
 
 		qcom_cedev_s_cb {
