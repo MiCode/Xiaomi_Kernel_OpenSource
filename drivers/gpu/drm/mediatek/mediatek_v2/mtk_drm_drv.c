@@ -2646,13 +2646,13 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		goto err_component_unbind;
 	}
 
-	dma_dev = &pdev->dev;
-	private->dma_dev = dma_dev;
+	private->dma_dev = &pdev->dev;
 
 	/*
 	 * Configure the DMA segment size to make sure we get contiguous IOVA
 	 * when importing PRIME buffers.
 	 */
+	dma_dev = drm->dev;
 	if (!dma_dev->dma_parms) {
 		private->dma_parms_allocated = true;
 		dma_dev->dma_parms =
@@ -2715,7 +2715,7 @@ err_unset_dma_parms:
 	if (private->dma_parms_allocated)
 		dma_dev->dma_parms = NULL;
 put_dma_dev:
-	put_device(private->dma_dev);
+	put_device(drm->dev);
 err_component_unbind:
 	component_unbind_all(drm->dev, drm);
 err_config_cleanup:
@@ -2731,7 +2731,7 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 	drm_kms_helper_poll_fini(drm);
 
 	if (private->dma_parms_allocated)
-		private->dma_dev->dma_parms = NULL;
+		drm->dev->dma_parms = NULL;
 
 	//drm_vblank_cleanup(drm);
 	component_unbind_all(drm->dev, drm);
