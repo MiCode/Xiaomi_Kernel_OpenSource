@@ -365,7 +365,8 @@ int charger_manager_force_disable_power_path(struct charger_consumer *consumer,
 	struct charger_manager *info = consumer->cm;
 	struct charger_device *chg_dev = NULL;
 	int ret = 0;
-
+	if (info == NULL)
+		return -ENODEV;
 	switch (idx) {
 	case MAIN_CHARGER:
 		chg_dev = info->chg1_dev;
