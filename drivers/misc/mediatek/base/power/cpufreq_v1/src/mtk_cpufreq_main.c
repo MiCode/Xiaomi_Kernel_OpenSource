@@ -1494,7 +1494,6 @@ static void _hps_request_wrapper(struct mt_cpu_dvfs *p,
 #endif
 			aee_record_cpu_dvfs_cb(9);
 #endif
-			act_p->mt_policy = NULL;
 			aee_record_cpu_dvfs_cb(10);
 		}
 		break;

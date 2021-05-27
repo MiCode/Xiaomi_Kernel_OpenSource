@@ -34,7 +34,6 @@
 /* #define SUPPORT_VOLT_HW_AUTO_TRACK 1 */
 /* #define CPU_DVFS_NOT_READY	1 */
 #endif
-#define DFD_WORKAROUND  1
 #define INIT_MCUPM_VOLTAGE_SETTING  1
 #define NR_FREQ		16
 #define NR_CCI_TBL		2
@@ -69,6 +68,8 @@
 #define DVFS_LOG_NUM		125
 #define ENTRY_EACH_LOG		6
 #define REG_LEN                 4
+/* Enable dsu dvfs */
+#define DSU_DVFS_ENABLE 1
 
 
 extern struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS];

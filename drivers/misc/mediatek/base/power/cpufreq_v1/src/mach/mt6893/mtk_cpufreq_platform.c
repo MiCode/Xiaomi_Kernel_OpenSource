@@ -302,6 +302,9 @@ void prepare_pll_addr(enum mt_cpu_dvfs_pll_id pll_id)
 {
 	struct pll_ctrl_t *pll_p = id_to_pll_ctrl(pll_id);
 
+	if (!pll_p)
+		return;
+
 	pll_p->armpll_addr =
 	(unsigned int *)(pll_id == PLL_LL_CLUSTER ? ARMPLL_LL_CON1 :
 	pll_id == PLL_L_CLUSTER ? ARMPLL_L_CON1 : pll_id == PLL_B_CLUSTER ?
@@ -741,6 +744,8 @@ void _dfd_workaround(void)
 	struct buck_ctrl_t *b_vsram_p = id_to_buck_ctrl(p_b->Vsram_buck_id);
 	int val = mt_get_chip_sw_ver();
 
+	if (b_vproc_p == NULL || b_vsram_p == NULL)
+		return;
 	ktime_t ktime = ktime_set(0, 0);
 	ktime_t start = ktime_set(0, 0);
 
