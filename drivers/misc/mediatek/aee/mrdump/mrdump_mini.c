@@ -23,8 +23,6 @@
 #include <linux/stacktrace.h>
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
-#include "../../../../kernel/printk/printk_ringbuffer.h"
-#include "../../../../kernel/sched/sched.h"
 
 #include <asm/irq.h>
 #include <asm/kexec.h>
@@ -37,6 +35,8 @@
 
 #include <mrdump.h>
 #include <mt-plat/aee.h>
+#include <printk/printk_ringbuffer.h>
+#include <sched/sched.h>
 #include "mrdump_mini.h"
 #include "mrdump_private.h"
 
@@ -44,9 +44,6 @@ static struct mrdump_mini_elf_header *mrdump_mini_ehdr;
 
 
 #ifdef CONFIG_MODULES
-#define MAX_KO_NAME_LEN 40
-#define MAX_KO_NUM 300
-
 struct module_sect_attr {
 	struct bin_attribute battr;
 	unsigned long address;
@@ -55,8 +52,19 @@ struct module_sect_attr {
 struct module_sect_attrs {
 	struct attribute_group grp;
 	unsigned int nsections;
-	struct module_sect_attr attrs[0];
+	struct module_sect_attr attrs[];
 };
+
+struct module_notes_attrs {
+	struct kobject *dir;
+	unsigned int notes;
+	struct bin_attribute attrs[];
+};
+
+#define MAX_KO_NAME_LEN 40
+#define MAX_KO_NUM 400
+#define LEN_BUILD_ID 20
+#define KO_INFO_VERSION "AEE01"
 
 struct ko_info {
 	char name[MAX_KO_NAME_LEN];
@@ -64,11 +72,16 @@ struct ko_info {
 	u64 init_text_addr;
 	u32 core_size;
 	u32 init_size;
-};
+	u8 build_id[LEN_BUILD_ID];
+} __packed __aligned(8);
 
+struct ko_info_all {
+	char version[8];
+	struct ko_info ko_list[MAX_KO_NUM];
+} __packed __aligned(8);
+
+static struct ko_info_all *ko_infos;
 static struct ko_info *ko_info_list;
-
-#define KO_INFO_SIZE (MAX_KO_NUM * sizeof(struct ko_info))
 
 static spinlock_t kolist_lock;
 
@@ -76,7 +89,9 @@ static void fill_ko_list(unsigned int idx, struct module *mod)
 {
 	unsigned long text_addr = 0;
 	unsigned long init_addr = 0;
-	int i, search_nm;
+	const void *build_id;
+	struct elf_note *note;
+	int i, search_nm, build_id_sz = 0;
 
 	if (idx >= MAX_KO_NUM)
 		return;
@@ -96,22 +111,29 @@ static void fill_ko_list(unsigned int idx, struct module *mod)
 			break;
 	}
 
+	for (i = 0; i < mod->notes_attrs->notes; i++) {
+		if (!strcmp(mod->notes_attrs->attrs[i].attr.name,
+			    ".note.gnu.build-id")) {
+			note = mod->notes_attrs->attrs[i].private;
+			build_id = (void *)round_up(((unsigned long)(note + 1)
+						     + note->n_namesz), 4);
+			build_id_sz = note->n_descsz;
+			break;
+		}
+	}
+
 	if(snprintf(ko_info_list[idx].name,
 		    MAX_KO_NAME_LEN, "%s", mod->name) > 0) {
 		ko_info_list[idx].text_addr = text_addr;
 		ko_info_list[idx].init_text_addr = init_addr;
 		ko_info_list[idx].core_size = mod->core_layout.size;
 		ko_info_list[idx].init_size = mod->init_layout.size;
+		if (build_id_sz && build_id_sz <= LEN_BUILD_ID)
+			memcpy(ko_info_list[idx].build_id, build_id,
+					build_id_sz);
 	} else {
 		memset(&ko_info_list[i], 0, sizeof(struct ko_info));
 	}
-}
-
-static void init_ko_addr_list(void)
-{
-	ko_info_list = kzalloc(KO_INFO_SIZE, GFP_KERNEL);
-	if (!ko_info_list)
-		return;
 }
 
 void load_ko_addr_list(struct module *module)
@@ -619,15 +641,25 @@ EXPORT_SYMBOL(mrdump_mini_add_extra_misc);
 /*
  * mrdump_mini_add_extra_file - add a file named SYS_EXTRA_#name#_RAW to KE DB
  * @vaddr:	start vaddr of target memory
+ * @paddr:	start paddr of target memory
  * @size:	size of target memory
  * @name:	file name
  *
  * the size sould be no more than 512K, and the less the better.
  */
-int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long size,
-	const char *name)
+int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
+	unsigned long size, const char *name)
 {
-	return _mrdump_mini_add_extra_misc(vaddr, size, name);
+	char name_buf[SZ_128];
+
+	if (!mrdump_mini_ehdr ||
+		!size ||
+		size > SZ_512K ||
+		!name)
+		return -1;
+	snprintf(name_buf, SZ_128, "_EXTRA_%s_", name);
+	mrdump_mini_add_misc_pa(vaddr, paddr, size, 0, name_buf);
+	return 0;
 }
 EXPORT_SYMBOL(mrdump_mini_add_extra_file);
 
@@ -643,7 +675,6 @@ void mrdump_mini_set_addr_size(unsigned int addr, unsigned int size)
 	mrdump_mini_addr = addr;
 	mrdump_mini_size = size;
 }
-EXPORT_SYMBOL(mrdump_mini_set_addr_size);
 
 void mrdump_mini_add_klog(void)
 {
@@ -743,12 +774,17 @@ static void mrdump_mini_build_elf_misc(void)
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_DISP_DBG_");
 #ifdef CONFIG_MODULES
 	spin_lock_init(&kolist_lock);
-	init_ko_addr_list();
-	if (ko_info_list)
-		mrdump_mini_add_misc_pa((unsigned long)ko_info_list,
-			(unsigned long)__pa_nodebug(
-					(unsigned long)ko_info_list),
-			KO_INFO_SIZE, 0, "SYS_MODULES_INFO_RAW");
+	ko_infos = kzalloc(sizeof(struct ko_info_all), GFP_KERNEL);
+	if (ko_infos) {
+		ko_info_list = ko_infos->ko_list;
+		memcpy(ko_infos->version, KO_INFO_VERSION,
+		       sizeof(ko_infos->version));
+		mrdump_mini_add_misc_pa((unsigned long)ko_infos,
+				(unsigned long)__pa_nodebug(
+						(unsigned long)ko_infos),
+				sizeof(struct ko_info_all),
+				0, "_MODULES_INFO_");
+	}
 #endif
 
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));

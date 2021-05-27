@@ -328,9 +328,9 @@ static struct notifier_block mrdump_module_nb = {
 static int __init mrdump_panic_init(void)
 {
 	struct mrdump_params mparams = {};
-
 	struct device_node *rmem_node;
 	struct reserved_mem *rmem;
+	void *kinfo_vaddr;
 
 	/* Get reserved memory */
 	rmem_node = of_find_compatible_node(NULL, NULL, DEBUG_COMPATIBLE);
@@ -350,12 +350,14 @@ static int __init mrdump_panic_init(void)
 		(unsigned long long)rmem->base + (unsigned long long)rmem->size,
 		(unsigned long long)rmem->size);
 
-	rmem->priv = memremap(rmem->base, rmem->size, MEMREMAP_WB);
-	if (!rmem->priv) {
+	kinfo_vaddr = memremap(rmem->base, rmem->size, MEMREMAP_WB);
+	if (!kinfo_vaddr) {
 		pr_info("[mrdump] failed to map debug-kinfo\n");
 		return -ENOMEM;
 	} else {
-		memset(rmem->priv, 0, sizeof(struct kernel_all_info));
+		memset(kinfo_vaddr, 0, sizeof(struct kernel_all_info));
+		smp_wmb();
+		rmem->priv = kinfo_vaddr;
 		pr_info("[mrdump] rmem->priv = %px\n", rmem->priv);
 	}
 
@@ -373,7 +375,7 @@ static int __init mrdump_panic_init(void)
 
 #ifdef MODULE
 	mrdump_mini_add_misc_pa((unsigned long)rmem->priv, rmem->base,
-			rmem->size, 0, "_KINFO_");
+			rmem->size, 0, MRDUMP_MINI_MISC_LOAD);
 	mrdump_ka_init(rmem->priv, mparams.lk_version);
 #else
 	mrdump_full_init(mparams.lk_version);

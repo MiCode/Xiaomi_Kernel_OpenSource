@@ -217,8 +217,8 @@ void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
 int mrdump_common_die(int reboot_reason, const char *msg, struct pt_regs *regs);
 void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size);
 void mrdump_mini_add_extra_misc(void);
-int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long size,
-	const char *name);
+int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
+	unsigned long size, const char *name);
 extern void mlog_get_buffer(char **ptr, int *size)__attribute__((weak));
 extern void get_msdc_aee_buffer(unsigned long *buff,
 	unsigned long *size)__attribute__((weak));
