@@ -57,6 +57,7 @@ struct FSTB_FRAME_INFO {
 	int in_list;
 	int new_info;
 	int target_fps_diff;
+	int target_fps_notifying;
 
 	long long m_c_time;
 	unsigned int m_c_cap;
