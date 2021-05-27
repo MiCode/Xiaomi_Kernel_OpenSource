@@ -1615,7 +1615,14 @@
 			compatible = "mediatek,gpio_usage_mapping";
 		};
 
-		md1_sim1_hot_plug_eint: md1_sim1_hot_plug_eint {
+		md1_sim1_hot_plug_eint: MD1_SIM1_HOT_PLUG_EINT {
+                        compatible = "mediatek,MD1_SIM1_HOT_PLUG_EINT-eint";
+                        interrupts = <0 4>;
+                        debounce = <0 100000>;
+                        dedicated = <0 0>;
+                        src_pin = <0 1>;
+                        sockettype = <0 0>;
+                        status = "okay";
 		};
 
 		md1_sim2_hot_plug_eint: md1_sim2_hot_plug_eint {
