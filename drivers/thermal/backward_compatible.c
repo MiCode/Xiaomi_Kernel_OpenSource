@@ -36,6 +36,8 @@ static int backward_compatible_throttle(struct thermal_zone_device *tz,
 	else
 		tz->ops->get_trip_temp(tz, trip, &trip_temp);
 
+	mutex_lock(&tz->lock);
+
 	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
 		if (instance->trip != trip)
 			continue;
@@ -47,6 +49,8 @@ static int backward_compatible_throttle(struct thermal_zone_device *tz,
 		instance->cdev->updated = false;
 		thermal_cdev_update(instance->cdev);
 	}
+
+	mutex_unlock(&tz->lock);
 
 	return 0;
 }
