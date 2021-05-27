@@ -58,6 +58,20 @@ enum aoltest_attr {
 	_AOLTEST_ATTR_MAX,
 };
 
+enum testinfo_attr {
+	_TESTINFO_ATTR_DEFAULT,
+	TESTINFO_ATTR_WIFI_ENABLED,
+	TESTINFO_ATTR_WIFI_SCAN_INTVL,
+	TESTINFO_ATTR_WIFI_CB_INTVL,
+	TESTINFO_ATTR_BT_ENABLED,
+	TESTINFO_ATTR_BT_SCAN_INTVL,
+	TESTINFO_ATTR_BT_CB_INTVL,
+	TESTINFO_ATTR_GPS_ENABLED,
+	TESTINFO_ATTR_GPS_SCAN_INTVL,
+	TESTINFO_ATTR_GPS_CB_INTVL,
+	_TESTINFO_ATTR_MAX,
+};
+
 enum link_status {
 	LINK_STATUS_INIT,
 	LINK_STATUS_INIT_DONE,
@@ -82,7 +96,6 @@ static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info);
 static int aoltest_nl_stop_test(struct sk_buff *skb, struct genl_info *info);
 static int aoltest_nl_start_data_transmission(struct sk_buff *skb, struct genl_info *info);
 static int aoltest_nl_stop_data_transmission(struct sk_buff *skb, struct genl_info *info);
-static void aoltest_nl_socket_unbind(struct net *net, int group);
 
 /*******************************************************************************
 *                  G L O B A L  V A R I A B L E
@@ -95,7 +108,20 @@ static struct nla_policy aoltest_genl_policy[_AOLTEST_ATTR_MAX + 1] = {
 	[AOLTEST_ATTR_MSG] = {.type = NLA_NUL_STRING},
 	[AOLTEST_ATTR_MSG_ID] = {.type = NLA_U32},
 	[AOLTEST_ATTR_MSG_SIZE] = {.type = NLA_U32},
-	[AOLTEST_ATTR_TEST_INFO] = {.type = NLA_UNSPEC, .len = sizeof(struct test_info)},
+	[AOLTEST_ATTR_TEST_INFO] = {.type = NLA_NESTED},
+	//[AOLTEST_ATTR_TEST_INFO] = {.type = NLA_UNSPEC, .len = sizeof(struct test_info)},
+};
+
+static struct nla_policy test_info_policy[_TESTINFO_ATTR_MAX + 1] = {
+	[TESTINFO_ATTR_WIFI_ENABLED]	= {.type = NLA_U32},
+	[TESTINFO_ATTR_WIFI_SCAN_INTVL]	= {.type = NLA_U32},
+	[TESTINFO_ATTR_WIFI_CB_INTVL]	= {.type = NLA_U32},
+	[TESTINFO_ATTR_BT_ENABLED]	= {.type = NLA_U32},
+	[TESTINFO_ATTR_BT_SCAN_INTVL]	= {.type = NLA_U32},
+	[TESTINFO_ATTR_BT_CB_INTVL]	= {.type = NLA_U32},
+	[TESTINFO_ATTR_GPS_ENABLED]	= {.type = NLA_U32},
+	[TESTINFO_ATTR_GPS_SCAN_INTVL]	= {.type = NLA_U32},
+	[TESTINFO_ATTR_GPS_CB_INTVL]	= {.type = NLA_U32},
 };
 
 /* Operation definition */
@@ -148,33 +174,20 @@ struct aoltest_netlink_ctx g_aoltest_netlink_ctx = {
 		.name = AOLTEST_NETLINK_FAMILY_NAME,
 		.version = 1,
 		.maxattr = _AOLTEST_ATTR_MAX,
-		.mcast_unbind = aoltest_nl_socket_unbind,
 		.ops = aoltest_gnl_ops_array,
 		.n_ops = ARRAY_SIZE(aoltest_gnl_ops_array),
-		.mcgrps = &g_mcgrps,
-		.n_mcgrps = 1,
 	},
 	.status = LINK_STATUS_INIT,
 	.seqnum = 0,
 };
 
 struct aoltest_netlink_ctx* g_ctx = &g_aoltest_netlink_ctx;
+static bool g_already_bind = false;
 
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************
 */
-static void aoltest_nl_socket_unbind(struct net *net, int group)
-{
-	pr_info("[%s] Unbind pid=[%d]\n", __func__, g_ctx->bind_pid);
-
-	if (g_ctx && g_ctx->cb.aoltest_unbind) {
-		g_ctx->cb.aoltest_unbind();
-	}
-
-	g_ctx->bind_pid = 0;
-}
-
 static int aoltest_nl_bind(struct sk_buff *skb, struct genl_info *info)
 {
 	struct nlattr *port_na;
@@ -197,7 +210,15 @@ static int aoltest_nl_bind(struct sk_buff *skb, struct genl_info *info)
 		return -1;
 	}
 
+	if (g_already_bind) {
+		pr_info("[%s] Already bind before, only change port=[%d]", __func__, port);
+		g_ctx->bind_pid = port;
+		mutex_unlock(&g_ctx->nl_lock);
+		goto out;
+	}
+
 	g_ctx->bind_pid = port;
+	g_already_bind = true;
 
 	mutex_unlock(&g_ctx->nl_lock);
 
@@ -211,17 +232,57 @@ out:
 
 static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info)
 {
+	int ret = 0;
 	struct nlattr *attr_info = NULL;
-	unsigned int *data = NULL;
+	//struct nlattr *nested_attr;
+	struct nlattr *test_attr[_TESTINFO_ATTR_MAX + 1];
+	//int rem;
+	//unsigned int *data = NULL;
 	TEST_INFO params;
+	//unsigned int param;
 
+	pr_info("[%s] \n", __func__);
 	if (mutex_lock_killable(&g_ctx->nl_lock))
 		return -1;
 
 	attr_info = info->attrs[AOLTEST_ATTR_TEST_INFO];
 
 	if (attr_info) {
-		data = nla_data(attr_info);
+		//nla_for_each_nested(nested_attr, attr_info, rem) {
+			ret = nla_parse_nested_deprecated(test_attr, _TESTINFO_ATTR_MAX,
+							attr_info, test_info_policy, NULL);
+			if (ret < 0) {
+				pr_info("[%s] Fail to parse nested attributes, ret=[%d]\n", __func__, ret);
+				mutex_unlock(&g_ctx->nl_lock);
+				return -1;
+			} else {
+				// WiFi
+				if (test_attr[TESTINFO_ATTR_WIFI_ENABLED])
+					params.wifi_enabled = nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_ENABLED]);
+				if (test_attr[TESTINFO_ATTR_WIFI_SCAN_INTVL])
+					params.wifi_scan_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_SCAN_INTVL]);
+				if (test_attr[TESTINFO_ATTR_WIFI_CB_INTVL])
+					params.wifi_cb_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_CB_INTVL]);
+				// BT
+				if (test_attr[TESTINFO_ATTR_BT_ENABLED])
+					params.bt_enabled = nla_get_u32(test_attr[TESTINFO_ATTR_BT_ENABLED]);
+				if (test_attr[TESTINFO_ATTR_BT_SCAN_INTVL])
+					params.bt_scan_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_BT_SCAN_INTVL]);
+				if (test_attr[TESTINFO_ATTR_BT_CB_INTVL])
+					params.bt_cb_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_BT_CB_INTVL]);
+				// GPS
+				if (test_attr[TESTINFO_ATTR_GPS_ENABLED])
+					params.gps_enabled = nla_get_u32(test_attr[TESTINFO_ATTR_GPS_ENABLED]);
+				if (test_attr[TESTINFO_ATTR_GPS_SCAN_INTVL])
+					params.gps_scan_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_GPS_SCAN_INTVL]);
+				if (test_attr[TESTINFO_ATTR_GPS_CB_INTVL])
+					params.gps_cb_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_GPS_CB_INTVL]);
+			}
+		//}
+
+		//param = (unsigned int)nla_get_u32(attr_info);
+		//pr_info("[%s] Start test param:[%d]\n", __func__, param);
+		/*data = nla_data(attr_info);
 		params.wifi_enabled = data[0];
 		params.wifi_scan_intvl = data[1];
 		params.wifi_cb_intvl = data[2];
@@ -230,7 +291,7 @@ static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info)
 		params.bt_cb_intvl = data[5];
 		params.gps_enabled = data[6];
 		params.gps_scan_intvl = data[7];
-		params.gps_cb_intvl = data[8];
+		params.gps_cb_intvl = data[8];*/
 	} else {
 		pr_info("[%s] No test info found\n", __func__);
 		mutex_unlock(&g_ctx->nl_lock);
@@ -239,7 +300,13 @@ static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_unlock(&g_ctx->nl_lock);
 
+	pr_info("[%s] start test param: (%d, %d, %d)(%d, %d, %d)(%d, %d, %d)\n", __func__,
+			params.wifi_enabled, params.wifi_scan_intvl, params.wifi_cb_intvl,
+			params.bt_enabled, params.bt_scan_intvl, params.bt_cb_intvl,
+			params.gps_enabled, params.gps_scan_intvl, params.gps_cb_intvl);
+
 	if (g_ctx && g_ctx->cb.aoltest_handler) {
+		pr_info("[%s] call aoltest_handler: start test\n", __func__);
 		g_ctx->cb.aoltest_handler(AOLTEST_CMD_START_TEST, (void*)&params);
 	}
 

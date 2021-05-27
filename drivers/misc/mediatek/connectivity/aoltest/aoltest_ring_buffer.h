@@ -7,6 +7,7 @@
 #define __AOLTEST_RING_BUFFER_H__
 
 #include <linux/spinlock.h>
+#include <linux/completion.h>
 
 #define CORE_OP_SZ          8
 #define MAC_ADDR_LEN        6

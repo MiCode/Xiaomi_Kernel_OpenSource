@@ -19,7 +19,6 @@
 #include "msg_thread.h"
 #include "conap_scp.h"
 #include "aoltest_netlink.h"
-#include "aoltest_message_builder.h"
 #include "aoltest_ring_buffer.h"
 
 /*******************************************************************************
@@ -40,6 +39,14 @@ enum aoltest_core_status {
 	AOLTEST_ACTIVE,
 };
 
+enum aoltest_msg_id {
+	AOLTEST_MSG_ID_DEFAULT = 0,
+	AOLTEST_MSG_ID_WIFI = 1,
+	AOLTEST_MSG_ID_BT = 2,
+	AOLTEST_MSG_ID_GPS = 3,
+	AOLTEST_MSG_ID_MAX
+};
+
 struct aoltest_core_ctx {
 	enum conap_scp_drv_type drv_type;
 	struct msg_thread_ctx msg_ctx;
@@ -47,18 +54,20 @@ struct aoltest_core_ctx {
 	int status;
 };
 
-struct aoltest_core_ctx g_aoltest_ctx;
-struct aoltest_core_rb g_rb;
-
-TEST_INFO g_test_info;
-static unsigned char g_is_scp_ready = 0;
-static bool g_is_test_started = false;
-
 /*******************************************************************************
 *                             M A C R O S
 ********************************************************************************
 */
-#define BUFF_SIZE (32 * 1024 * sizeof(char))
+#define BUFF_SIZE       (32 * 1024 * sizeof(char))
+#define MAX_BUF_LEN     (3 * 1024)
+
+struct aoltest_core_ctx g_aoltest_ctx;
+struct aoltest_core_rb g_rb;
+
+TEST_INFO g_test_info;
+char g_buf[MAX_BUF_LEN];
+static unsigned char g_is_scp_ready = 0;
+static bool g_is_test_started = false;
 
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
@@ -83,6 +92,36 @@ static const msg_opid_func aoltest_core_opfunc[] = {
 *                              F U N C T I O N S
 ********************************************************************************
 */
+static void aoltest_push_message(struct aoltest_core_rb *rb, unsigned int type, unsigned int *buf)
+{
+	unsigned long flags;
+	struct aoltest_rb_data *rb_data = NULL;
+
+	// Get free space from ring buffer
+	spin_lock_irqsave(&(rb->lock), flags);
+	rb_data = aoltest_core_rb_pop_free(rb);
+
+	if (rb_data) {
+		if (type == AOLTEST_MSG_ID_WIFI) {
+			memcpy(&(rb_data->raw_data.wifi_raw), (struct aoltest_wifi_raw_data*)buf,
+				sizeof(struct aoltest_wifi_raw_data));
+		} else if (type == AOLTEST_MSG_ID_BT) {
+			memcpy(&(rb_data->raw_data.bt_raw), (struct aoltest_bt_raw_data*)buf,
+				sizeof(struct aoltest_bt_raw_data));
+		} else if (type == AOLTEST_MSG_ID_GPS) {
+			memcpy(&(rb_data->raw_data.gps_raw), (struct aoltest_gps_raw_data*)buf,
+				sizeof(struct aoltest_gps_raw_data));
+		}
+
+		rb_data->type = type;
+		aoltest_core_rb_push_active(rb, rb_data);
+	} else {
+		pr_info("[%s] rb is NULL", __func__);
+	}
+
+	spin_unlock_irqrestore(&(rb->lock), flags);
+}
+
 static int is_scp_ready()
 {
 	int ret = 0;
@@ -148,19 +187,23 @@ static int opfunc_send_msg(struct msg_op_data *op)
 	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
 
 	if (!g_is_scp_ready) {
-		 ret = is_scp_ready();
-		 pr_info("[%s] is ready=[%d] ret=[%d]", __func__, g_is_scp_ready, ret);
+		ret = is_scp_ready();
+		pr_info("[%s] is ready=[%d] ret=[%d]", __func__, g_is_scp_ready, ret);
 
-		 if (ret <= 0)
-			 return -1;
-	 }
+		if (ret <= 0)
+			return -1;
+	}
+
+	pr_info("[%s] is ready=[%d] ret=[%d]", __func__, g_is_scp_ready, ret);
 
 	cmd = (unsigned int)op->op_data[0];
+	pr_info("[%s] cmd=[%d]", __func__, cmd);
 
 	if (cmd == AOLTEST_CMD_START_TEST) {
 		g_is_test_started = true;
 		ret = conap_scp_send_message(ctx->drv_type, cmd,
 								(unsigned char*)&g_test_info, sizeof(TEST_INFO));
+		pr_info("cmd is AOLTEST_CMD_START_TEST and call scp, ret=%d", __func__, ret);
 	} else {
 		if (cmd == AOLTEST_CMD_STOP_TEST) {
 			g_is_test_started = false;
@@ -177,20 +220,44 @@ static int opfunc_recv_msg(struct msg_op_data *op)
 {
 	int ret = 0;
 	int type = -1;
-	char buf[MAX_BUF_LEN];
+	unsigned long flags;
+	struct aoltest_rb_data* rb_data = NULL;
+	int sz = 0;
+	char *ptr = NULL;
 
 	unsigned int msg_id = (unsigned int)op->op_data[0];
-	memset(buf, '\0', sizeof(buf));
+	memset(g_buf, '\0', sizeof(g_buf));
 
-	type = aoltest_pop_message(&g_rb, buf);
+	spin_lock_irqsave(&(g_rb.lock), flags);
+	rb_data = aoltest_core_rb_pop_active(&g_rb);
 
-	if (type <= 0) {
-		pr_info("Pop message fail\n");
+	if (rb_data == NULL)
 		return -1;
+
+	type = rb_data->type;
+	pr_info("[%s] msg_id=[%d], type=[%d]\n", __func__, msg_id, type);
+
+	if (type == AOLTEST_MSG_ID_WIFI) {
+		ptr = (char*)&(rb_data->raw_data.wifi_raw);
+		sz = sizeof(struct aoltest_wifi_raw_data);
+	} else if (type == AOLTEST_MSG_ID_BT) {
+		ptr = (char*)&(rb_data->raw_data.bt_raw);
+		sz = sizeof(struct aoltest_bt_raw_data);
+	} else if (type == AOLTEST_MSG_ID_GPS) {
+		ptr = (char*)&(rb_data->raw_data.gps_raw);
+		sz = sizeof(struct aoltest_gps_raw_data);
+	} else {
+		aoltest_core_rb_push_free(&g_rb, rb_data);
+		return -2;
 	}
 
-	pr_info("Send to netlink client, buf=[%s]\n", buf);
-	aoltest_netlink_send_to_native("[AOLTEST]", msg_id, buf, (strlen(buf) + 1));
+	memcpy(g_buf, ptr, sz);
+	// Free data
+	aoltest_core_rb_push_free(&g_rb, rb_data);
+	spin_unlock_irqrestore(&(g_rb.lock), flags);
+
+	pr_info("Send to netlink client, sz=[%d]\n", sz);
+	aoltest_netlink_send_to_native("[AOLTEST]", msg_id, g_buf, sz);
 
 	return ret;
 }
@@ -205,6 +272,7 @@ void aoltest_core_msg_notify(unsigned int msg_id, unsigned int *buf, unsigned in
 	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
 	unsigned int expect_size = 0;
 
+	pr_info("[%s] msg_id=[%d]\n", __func__, msg_id);
 	if (ctx->status == AOLTEST_INACTIVE) {
 		pr_info("EM test ctx is inactive\n");
 		return;
@@ -263,6 +331,7 @@ static int aoltest_core_handler(int cmd, void* data)
 {
 	int ret = 0;
 	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
+	pr_info("[%s] Get cmd: %d\n", __func__, cmd);
 
 	if (ctx->status == AOLTEST_INACTIVE) {
 		pr_info("EM test ctx is inactive\n");
@@ -314,6 +383,8 @@ static int aoltest_core_bind(void)
 static int aoltest_core_unbind(void)
 {
 	int ret = 0;
+
+#if 0
 	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
 	ctx->status = AOLTEST_INACTIVE;
 
@@ -331,6 +402,7 @@ static int aoltest_core_unbind(void)
 		pr_info("EM test thread deinit fail, ret=[%d]\n", ret);
 		return -1;
 	}
+#endif
 
 	return ret;
 }
