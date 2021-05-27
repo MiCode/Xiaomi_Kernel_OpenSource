@@ -2419,7 +2419,9 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	int crtc_mask = 0x1 << index;
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
+#ifndef CONFIG_MTK_DISP_NO_LK
 	struct drm_device *dev = crtc->dev;
+#endif
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
@@ -2464,8 +2466,8 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				mtk_drm_fb_gem_release(dev);
 				free_fb_buf();
 				already_free = true;
-#endif
 			}
+#endif
 			break;
 		} else if (lyeblob_ids->lye_idx < prop_lye_idx) {
 			if (lyeblob_ids->ref_cnt) {

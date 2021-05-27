@@ -859,8 +859,10 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	}
 	devm_gpiod_put(dev, ctx->bias_neg);
 
+#ifndef CONFIG_MTK_DISP_NO_LK
 	ctx->prepared = true;
 	ctx->enabled = true;
+#endif
 
 	drm_panel_init(&ctx->panel, dev, &lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 	ctx->panel.dev = dev;

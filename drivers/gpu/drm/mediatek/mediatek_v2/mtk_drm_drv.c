@@ -2445,7 +2445,9 @@ unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
 
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			unsigned int *fps)
-{	struct device_node *chosen_node;
+{
+#ifndef CONFIG_MTK_DISP_NO_LK
+	struct device_node *chosen_node;
 
 	*fps = 6000;
 	chosen_node = of_find_node_by_path("/chosen");
@@ -2478,7 +2480,10 @@ found:
 		*vramsize);
 	DDPINFO("[DT][videolfb] fps	   = %d\n", *fps);
 
-return 0;
+	return 0;
+#else
+	return -1;
+#endif
 }
 
 int mtk_drm_primary_get_info(struct drm_device *dev,
