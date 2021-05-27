@@ -251,6 +251,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		}
 	}
 
+	sc_select_charging_current(info, pdata);
+
 	if (pdata->thermal_charging_current_limit != -1) {
 		if (pdata->thermal_charging_current_limit <
 			pdata->charging_current_limit) {
@@ -322,7 +324,7 @@ done:
 		is_basic = true;
 	}
 
-	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d dvchg1:%d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
+	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d dvchg1:%d sc:%d %d %d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
 		info->config,
 		_uA_to_mA(pdata->thermal_input_current_limit),
 		_uA_to_mA(pdata->thermal_charging_current_limit),
@@ -333,6 +335,9 @@ done:
 		_uA_to_mA(pdata2->input_current_limit),
 		_uA_to_mA(pdata2->charging_current_limit),
 		_uA_to_mA(pdata_dvchg->thermal_input_current_limit),
+		info->sc.pre_ibat,
+		info->sc.sc_ibat,
+		info->sc.solution,
 		info->chr_type, info->pd_type,
 		info->usb_unlimited,
 		IS_ENABLED(CONFIG_USBIF_COMPLIANCE), info->usb_state,

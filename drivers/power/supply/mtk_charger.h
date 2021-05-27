@@ -11,6 +11,7 @@
 #include "adapter_class.h"
 #include "mtk_charger_algorithm_class.h"
 #include <linux/power_supply.h>
+#include "mtk_smartcharging.h"
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
@@ -43,6 +44,7 @@ do {								\
 } while (0)
 
 struct mtk_charger;
+struct charger_data;
 #define BATTERY_CV 4350000
 #define V_CHARGER_MAX 6500000 /* 6.5 V */
 #define V_CHARGER_MIN 4600000 /* 4.6 V */
@@ -338,6 +340,13 @@ struct mtk_charger {
 	/* fast charging algo support indicator */
 	bool enable_fast_charging_indicator;
 	unsigned int fast_charging_indicator;
+
+	struct smartcharging sc;
+
+	/*daemon related*/
+	struct sock *daemo_nl_sk;
+	u_int g_scd_pid;
+	struct scd_cmd_param_t_1 sc_data;
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,
