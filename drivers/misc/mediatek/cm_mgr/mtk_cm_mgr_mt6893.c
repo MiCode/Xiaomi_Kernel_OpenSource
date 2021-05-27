@@ -96,7 +96,7 @@ static int cm_mgr_get_idx(void)
 };
 
 struct timer_list cm_mgr_perf_timeout_timer;
-static struct delayed_work cm_mgr_timeout_work;
+//static struct delayed_work cm_mgr_timeout_work; /* TODO */
 #define CM_MGR_PERF_TIMEOUT_MS	msecs_to_jiffies(100)
 
 static void cm_mgr_perf_timeout_timer_fn(struct timer_list *timer)
@@ -104,7 +104,7 @@ static void cm_mgr_perf_timeout_timer_fn(struct timer_list *timer)
 	if (pm_qos_update_request_status) {
 		cm_mgr_dram_opp = -1;
 		cm_mgr_set_dram_opp_base(cm_mgr_dram_opp);
-		schedule_delayed_work(&cm_mgr_timeout_work, 1);
+		//schedule_delayed_work(&cm_mgr_timeout_work, 1); /* TODO */
 
 		pm_qos_update_request_status = 0;
 		debounce_times_perf_down_local_set(-1);
