@@ -73,7 +73,7 @@
 /*#include"../../../smi/smi_debug.h" YWclose*/
 
 /*for kernel log count*/
-#define _K_LOG_ADJUST (1)
+#define _K_LOG_ADJUST (0)
 
 #ifdef CONFIG_COMPAT
 /* 64 bit */
