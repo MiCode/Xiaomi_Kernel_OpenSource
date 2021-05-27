@@ -30,6 +30,10 @@
 
 #define NUM_MPU_REGION 3
 
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+static void usip_send_emi_info_to_dsp(void);
+#endif
+
 int EMI_TABLE[3][3]
 	= {{0, 0, 0x30000}, {1, 0x30000, 0x8000}, {2, 0x38000, 0x28000} };
 
@@ -102,6 +106,9 @@ static long usip_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		pr_info("%s(): in SET_USIP_ADSP_PHONE_CALL_ENH_CONFIG: %d",
 			__func__,
 			usip.adsp_phone_call_enh_config);
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+		usip_send_emi_info_to_dsp();
+#endif
 		break;
 	default:
 		pr_debug("%s(), default\n", __func__);
