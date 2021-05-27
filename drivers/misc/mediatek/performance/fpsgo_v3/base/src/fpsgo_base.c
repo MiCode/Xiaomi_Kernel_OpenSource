@@ -167,18 +167,24 @@ unsigned int fpsgo_cpufreq_get_freq_by_idx(
 }
 
 static int condition_get_cmd;
-static int fpsgo2pwr_cmd;
-static int fpsgo2pwr_value1;
-static int fpsgo2pwr_value2;
+static int fpsgo2pwr_cmd_cnt;
+static int fpsgo2pwr_cmd[16];
+static int fpsgo2pwr_value1[16];
+static int fpsgo2pwr_value2[16];
 static DEFINE_MUTEX(fpsgo2pwr_lock);
 DECLARE_WAIT_QUEUE_HEAD(pwr_queue);
 void fpsgo_sentcmd(int cmd, int value1, int value2)
 {
 	mutex_lock(&fpsgo2pwr_lock);
-	fpsgo2pwr_cmd = cmd;
-	fpsgo2pwr_value1 = value1;
-	fpsgo2pwr_value2 = value2;
+	if (fpsgo2pwr_cmd_cnt > 16)
+		goto out; /*use list instead*/
+
+	fpsgo2pwr_cmd[fpsgo2pwr_cmd_cnt] = cmd;
+	fpsgo2pwr_value1[fpsgo2pwr_cmd_cnt] = value1;
+	fpsgo2pwr_value2[fpsgo2pwr_cmd_cnt] = value2;
+	fpsgo2pwr_cmd_cnt++;
 	condition_get_cmd = 1;
+out:
 	mutex_unlock(&fpsgo2pwr_lock);
 	wake_up_interruptible(&pwr_queue);
 }
@@ -187,9 +193,13 @@ void fpsgo_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2)
 {
 	wait_event_interruptible(pwr_queue, condition_get_cmd);
 	mutex_lock(&fpsgo2pwr_lock);
-	*cmd = fpsgo2pwr_cmd;
-	*value1 = fpsgo2pwr_value1;
-	*value2 = fpsgo2pwr_value2;
+	fpsgo2pwr_cmd_cnt--;
+	if (fpsgo2pwr_cmd_cnt >= 0) {
+		*cmd = fpsgo2pwr_cmd[fpsgo2pwr_cmd_cnt];
+		*value1 = fpsgo2pwr_value1[fpsgo2pwr_cmd_cnt];
+		*value2 = fpsgo2pwr_value2[fpsgo2pwr_cmd_cnt];
+	}
+	if (fpsgo2pwr_cmd_cnt <= 0)
 	condition_get_cmd = 0;
 	mutex_unlock(&fpsgo2pwr_lock);
 }
