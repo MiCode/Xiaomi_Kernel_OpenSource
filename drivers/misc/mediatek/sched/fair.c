@@ -461,6 +461,7 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 
 	lockdep_assert_held(&src_rq->lock);
 
+	rcu_read_lock();
 	dst_capacity = capacity_orig_of(dst_cpu);
 	list_for_each_entry_reverse(p,
 			&src_rq->cfs_tasks, se.group_node) {
@@ -491,9 +492,11 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 			 * so we can safely collect stats here rather than
 			 * inside detach_tasks().
 			 */
+			rcu_read_unlock();
 			return p;
 		}
-	 }
+	}
+	rcu_read_unlock();
 	return NULL;
 }
 
