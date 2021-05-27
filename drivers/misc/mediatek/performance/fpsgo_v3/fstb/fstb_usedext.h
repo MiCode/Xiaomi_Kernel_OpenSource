@@ -17,6 +17,7 @@
 #define MAX_NR_FPS_LEVELS	1
 #define MAX_NR_RENDER_FPS_LEVELS	10
 #define DISPLAY_FPS_FILTER_NS 100000000ULL
+#define DISPLAY_FPS_FILTER_NUM 4
 #define ASFC_THRESHOLD_NS 20000000ULL
 #define ASFC_THRESHOLD_PERCENTAGE 30
 #define VPU_MAX_CAP 100
@@ -25,6 +26,7 @@
 #define DEFAULT_JUMP_CHECK_NUM 21
 #define DEFAULT_JUMP_CHECK_Q_PCT 33
 #define JUMP_VOTE_MAX_I 60
+#define FSTB_IDLE_DBNC 10
 
 extern int (*fbt_notifier_cpu_frame_time_fps_stabilizer)(
 	int pid,
@@ -44,13 +46,17 @@ struct FSTB_FRAME_INFO {
 	char proc_name[16];
 	int target_fps;
 	int target_fps_margin;
+	int target_fps_margin_gpu;
 	int target_fps_margin2;
 	int target_fps_margin_dbnc_a;
 	int target_fps_margin_dbnc_b;
+	int target_fps_margin_gpu_dbnc_a;
+	int target_fps_margin_gpu_dbnc_b;
 	int queue_fps;
 	unsigned long long bufid;
 	int in_list;
 	int new_info;
+	int target_fps_diff;
 
 	long long m_c_time;
 	unsigned int m_c_cap;
@@ -78,8 +84,13 @@ struct FSTB_FRAME_INFO {
 	int weighted_gpu_time_end;
 	unsigned long long sorted_weighted_cpu_time[FRAME_TIME_BUFFER_SIZE];
 	unsigned long long sorted_weighted_gpu_time[FRAME_TIME_BUFFER_SIZE];
+	int quantile_cpu_time;
+	int quantile_gpu_time;
 
+	unsigned long long gblock_b;
+	unsigned long long gblock_time;
 	int fps_raise_flag;
+	int render_idle_cnt;
 };
 
 struct FSTB_RENDER_TARGET_FPS {
@@ -98,4 +109,3 @@ struct FSTB_FTEH_LIST {
 };
 
 #endif
-

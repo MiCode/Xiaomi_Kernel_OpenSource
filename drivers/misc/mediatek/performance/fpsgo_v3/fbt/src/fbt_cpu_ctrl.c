@@ -445,6 +445,22 @@ int fbt_set_cpu_freq_ceiling(int num, int *freq)
 	return 0;
 }
 
+void update_userlimit_cpu_freq(int kicker, int cluster_num, struct cpu_ctrl_data *pld)
+{
+	int *freq;
+	int i;
+
+	freq = kcalloc(policy_num,
+		sizeof(struct cpufreq_policy *), GFP_KERNEL);
+	for (i = 0; i < cluster_num; i++)
+		freq[i] = pld[i].max;
+
+	fbt_set_cpu_freq_ceiling(cluster_num, freq);
+
+	return;
+}
+
+
 int fbt_cpu_ctrl_init(void)
 {
 	int i, cpu_num;

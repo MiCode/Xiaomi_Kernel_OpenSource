@@ -31,6 +31,7 @@ extern struct proc_dir_entry *perfmgr_root;
 //extern int is_fstb_active(long long time_diff);
 extern void exit_utch_mod(void);
 extern int init_utch_mod(void);
+extern int notify_touch(int action);
 
 #endif /* _TCHBST_H */
 

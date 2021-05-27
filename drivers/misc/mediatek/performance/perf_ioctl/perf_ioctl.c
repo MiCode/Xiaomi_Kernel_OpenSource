@@ -7,6 +7,8 @@
 
 #define TAG "PERF_IOCTL"
 
+#define MAX_STEP 10
+
 void (*fpsgo_notify_qudeq_fp)(int qudeq,
 		unsigned int startend,
 		int pid, unsigned long long identifier);
@@ -19,12 +21,16 @@ void (*fpsgo_notify_bqid_fp)(int pid, unsigned long long bufID,
 EXPORT_SYMBOL_GPL(fpsgo_notify_bqid_fp);
 void (*fpsgo_notify_vsync_fp)(void);
 EXPORT_SYMBOL_GPL(fpsgo_notify_vsync_fp);
+int (*fpsgo_get_fps_fp)(void);
+EXPORT_SYMBOL_GPL(fpsgo_get_fps_fp);
 void (*fpsgo_notify_nn_job_begin_fp)(unsigned int tid, unsigned long long mid);
 void (*fpsgo_notify_nn_job_end_fp)(int pid, int tid, unsigned long long mid,
 	int num_step, __s32 *boost, __s32 *device, __u64 *exec_time);
 int (*fpsgo_get_nn_priority_fp)(unsigned int pid, unsigned long long mid);
 void (*fpsgo_get_nn_ttime_fp)(unsigned int pid, unsigned long long mid,
 	int num_step, __u64 *ttime);
+void (*fpsgo_notify_swap_buffer_fp)(int pid);
+EXPORT_SYMBOL_GPL(fpsgo_notify_swap_buffer_fp);
 
 void (*rsu_getusage_fp)(__s32 *devusage, __u32 *bwusage, __u32 pid);
 void (*rsu_getstate_fp)(int *throttled);
@@ -63,6 +69,9 @@ static void perfctl_notify_fpsgo_nn_begin(
 	if (!fpsgo_notify_nn_job_begin_fp || !fpsgo_get_nn_ttime_fp)
 		return;
 
+	if (msgKM->num_step > MAX_STEP)
+		return;
+
 	fpsgo_notify_nn_job_begin_fp(msgKM->tid, msgKM->mid);
 
 	arr_length = msgKM->num_step * MAX_DEVICE;
@@ -91,6 +100,9 @@ static void perfctl_notify_fpsgo_nn_end(
 	int size;
 
 	if (!fpsgo_notify_nn_job_end_fp || !fpsgo_get_nn_priority_fp)
+		return;
+
+	if (msgKM->num_step > MAX_STEP)
 		return;
 
 	size = msgKM->num_step * MAX_DEVICE;
@@ -132,7 +144,6 @@ out_um_malloc_fail:
 	fpsgo_notify_nn_job_end_fp(msgKM->pid, msgKM->tid, msgKM->mid,
 			msgKM->num_step, NULL, NULL, NULL);
 }
-
 
 /*--------------------DEV OP------------------------*/
 static int eara_show(struct seq_file *m, void *v)
@@ -191,6 +202,7 @@ static long eara_ioctl_impl(struct file *filp,
 
 		perfctl_copy_to_user(msgUM, msgKM,
 				sizeof(struct _EARA_NN_PACKAGE));
+
 		break;
 	default:
 		pr_debug(TAG "%s %d: unknown cmd %x\n",
@@ -408,6 +420,17 @@ static long device_ioctl(struct file *filp,
 		if (fpsgo_notify_vsync_fp)
 			fpsgo_notify_vsync_fp();
 		break;
+	case FPSGO_SWAP_BUFFER:
+		if (fpsgo_notify_swap_buffer_fp)
+			fpsgo_notify_swap_buffer_fp(msgKM->tid);
+		break;
+	case FPSGO_GET_FPS:
+		if (fpsgo_get_fps_fp)
+			msgKM->fps = fpsgo_get_fps_fp();
+		else
+			ret = -1;
+		perfctl_copy_to_user(msgUM, msgKM,
+				sizeof(struct _FPSGO_PACKAGE));
 		break;
 
 #else
@@ -422,6 +445,10 @@ static long device_ioctl(struct file *filp,
 	case FPSGO_VSYNC:
 		 [[fallthrough]];
 	case FPSGO_BQID:
+		 [[fallthrough]];
+	case FPSGO_SWAP_BUFFER:
+		 [[fallthrough]];
+	case FPSGO_GET_FPS:
 		break;
 #endif
 

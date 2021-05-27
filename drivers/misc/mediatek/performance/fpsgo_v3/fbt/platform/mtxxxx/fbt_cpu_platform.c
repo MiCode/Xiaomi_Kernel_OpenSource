@@ -21,6 +21,14 @@ void fbt_boost_dram(int boost)
 {
 }
 
+void fbt_set_boost_value(unsigned int base_blc)
+{
+}
+
+void fbt_clear_boost_value(void)
+{
+}
+
 void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 {
 	int ret = -1;
@@ -88,10 +96,6 @@ void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
 {
 }
 
-int fbt_get_L_cluster_num(void)
-{
-	return 0;
-}
 
 int fbt_get_L_min_ceiling(void)
 {
@@ -106,5 +110,48 @@ int fbt_get_default_boost_ta(void)
 int fbt_get_default_adj_loading(void)
 {
 	return 1;
+}
+
+int fbt_get_default_adj_count(void)
+{
+	return 10;
+}
+
+int fbt_get_default_adj_tdiff(void)
+{
+	return 1000000;
+}
+
+int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq)
+{
+/*
+ * when return value is zero -> no limit
+ * when cluster is not set -> no limit
+ * when cluster is set and freq is set -> ceiling limit
+ * when cluster is set and r_freq is set -> rescue ceiling limit
+ */
+	*cluster = 2;
+	*freq = 2600000;
+	return 1;
+}
+
+int fbt_get_default_uboost(void)
+{
+	return 75;
+}
+
+int fbt_get_default_qr_enable(void)
+{
+	return 1;
+}
+
+int fbt_get_default_gcc_enable(void)
+{
+	return 1;
+}
+
+int fbt_get_l_min_bhropp(void)
+{
+	return 0;
 }
 

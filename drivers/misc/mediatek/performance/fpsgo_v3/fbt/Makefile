@@ -26,7 +26,9 @@ obj-y += platform/$(MTK_PLATFORM)/fbt_cpu_platform.o
 obj-y += \
 	src/fbt_cpu.o \
 	src/xgf.o \
-	src/mini_top.o
+	src/mini_top.o \
+	src/uboost.o \
+	src/thermal_aware.o
 
 ccflags-y += \
 	-I$(srctree)/include/ \

@@ -7,6 +7,7 @@
 #define _XGF_H_
 
 #include <linux/rbtree.h>
+#include <linux/tracepoint.h>
 
 #define HW_EVENT_NUM 2
 #define HW_MONITER_WINDOW 10
@@ -19,6 +20,13 @@
 #define XGF_DEP_FRAMES_MIN 2
 #define XGF_DEP_FRAMES_MAX 20
 #define XGF_DO_SP_SUB 0
+#define XGF_MAX_UFRMAES 200
+#define XGF_UBOOST 1
+#define XGF_UBOOST_STDDEV_M 1
+#define TIME_50MS  50000000
+#define UB_SKIP_FRAME 20
+#define UB_BEGIN_FRAME 50
+#define XGF_MAX_SPID_LIST_LENGTH 20
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -74,6 +82,8 @@ struct xgf_render {
 	int event_count;
 
 	int frame_count;
+	int u_wake_r;
+	int u_wake_r_count;
 
 	struct rb_root deps_list;
 	struct rb_root out_deps_list;
@@ -83,6 +93,11 @@ struct xgf_render {
 	struct xgf_sub_sect queue;
 
 	unsigned long long ema_runtime;
+	unsigned long long pre_u_runtime;
+	unsigned long long u_runtime[XGF_MAX_UFRMAES];
+	unsigned long long u_avg_runtime;
+	unsigned long long u_runtime_sd;
+	int u_runtime_idx;
 
 	int spid;
 	int dep_frames;
@@ -155,6 +170,17 @@ struct xgf_hw_event {
 	unsigned long long tail_ts;
 };
 
+struct xgf_spid {
+	struct hlist_node hlist;
+	char process_name[16];
+	char thread_name[16];
+	int pid;
+	int rpid;
+	int tid;
+	unsigned long long bufID;
+	int action;
+};
+
 extern int (*xgf_est_runtime_fp)(pid_t r_pid,
 		struct xgf_render *render,
 		unsigned long long *runtime,
@@ -203,6 +229,8 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 void fpsgo_create_render_dep(void);
 int has_xgf_dep(pid_t tid);
+int uboost2xgf_get_info(int pid, unsigned long long bufID,
+	unsigned long long *timer_period, int *frame_idx);
 
 int __init init_xgf(void);
 #endif
