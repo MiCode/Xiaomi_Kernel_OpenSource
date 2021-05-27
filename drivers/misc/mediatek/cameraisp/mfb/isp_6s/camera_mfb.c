@@ -33,7 +33,7 @@
 #include <cmdq-util.h>
 #endif
 #include <soc/mediatek/smi.h>
-#define MFB_PMQOS
+//#define MFB_PMQOS
 #ifdef MFB_PMQOS
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
