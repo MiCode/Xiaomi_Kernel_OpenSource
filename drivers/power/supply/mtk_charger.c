@@ -39,6 +39,7 @@
 #include <linux/types.h>
 #include <linux/wait.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/fs.h>
 #include <linux/sched.h>
 #include <linux/poll.h>
@@ -74,26 +75,25 @@ static char *chg_cmdline = __chg_cmdline;
 
 const char *chg_get_cmd(void)
 {
-	struct file *fd;
-	mm_segment_t fs;
-	loff_t pos = 0;
+	struct device_node * of_chosen = NULL;
+	char *bootargs = NULL;
 
 	if (__chg_cmdline[0] != 0)
 		return chg_cmdline;
 
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-	fd = filp_open("/proc/cmdline", O_RDONLY, 0);
-	if (IS_ERR(fd)) {
-		chr_info("kedump: Unable to open /proc/cmdline (%ld)",
-			PTR_ERR(fd));
-		set_fs(fs);
-		return chg_cmdline;
-	}
-	kernel_read(fd, (void *)chg_cmdline, COMMAND_LINE_SIZE, &pos);
-	filp_close(fd, NULL);
-	fd = NULL;
-	set_fs(fs);
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen) {
+		bootargs = (char *)of_get_property(
+					of_chosen, "bootargs", NULL);
+		if (!bootargs)
+			chr_err("%s: failed to get bootargs\n", __func__);
+		else {
+			strcpy(__chg_cmdline, bootargs);
+			chr_err("%s: bootargs: %s\n", __func__, bootargs);
+		}
+	} else
+		chr_err("%s: failed to get /chosen \n", __func__);
+
 	return chg_cmdline;
 }
 
@@ -1933,6 +1933,7 @@ void mtk_charger_get_atm_mode(struct mtk_charger *info)
 			goto end;
 		strncpy(atm_str, ptr + strlen(keyword), size);
 		atm_str[size] = '\0';
+		chr_err("%s: atm_str: %s\n", __func__, atm_str);
 
 		if (!strncmp(atm_str, "enable", strlen("enable")))
 			info->atm_enabled = true;
