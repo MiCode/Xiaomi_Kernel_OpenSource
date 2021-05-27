@@ -609,6 +609,8 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 				 size_t count, loff_t *data)
 {
 	unsigned long op = UFSDBG_UNKNOWN;
+	struct ufs_hba *hba = ufshba;
+	struct ufs_mtk_host *host =ufshcd_get_variant(hba);
 	char cmd_buf[16];
 
 	if (count == 0 || count > 15)
@@ -623,12 +625,21 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 
 	if (op == UFSDBG_CMD_LIST_ENABLE) {
 		cmd_hist_enable();
-		pr_info("ufs_mtk_dbg: cmd history on\n");
+		dev_info(hba->dev, "cmd history on\n");
 	} else if (op == UFSDBG_CMD_LIST_DISABLE) {
 		cmd_hist_disable();
-		pr_info("ufs_mtk_dbg: cmd history off\n");
-	} else
-		return -EINVAL;
+		dev_info(hba->dev, "cmd history off\n");
+	} else if (op == UFSDBG_CMD_QOS_ON) {
+		if (host && host->qos_allowed) {
+			host->qos_enabled = true;
+			dev_info(hba->dev, "QoS on\n");
+		}
+	} else if (op == UFSDBG_CMD_QOS_OFF) {
+		if (host && host->qos_allowed) {
+			host->qos_enabled = false;
+			dev_info(hba->dev, "QoS off\n");
+		}
+	}
 
 	return count;
 }
