@@ -93,5 +93,8 @@ enum  {
 #define EARA_GETUSAGE               _IOW('g', 3, struct _EARA_NN_PACKAGE)
 #define EARA_GETSTATE               _IOW('g', 4, struct _EARA_NN_PACKAGE)
 
+#define EAS_SYNC_SET              _IOW('g', 1, unsigned int)
+#define EAS_SYNC_GET              _IOW('g', 2, unsigned int)
+
 #endif
 

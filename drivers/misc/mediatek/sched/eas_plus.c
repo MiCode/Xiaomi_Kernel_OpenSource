@@ -134,11 +134,13 @@ void set_wake_sync(unsigned int sync)
 {
 	sched_sync_hint_enable = sync;
 }
+EXPORT_SYMBOL_GPL(set_wake_sync);
 
 unsigned int get_wake_sync(void)
 {
 	return sched_sync_hint_enable;
 }
+EXPORT_SYMBOL_GPL(get_wake_sync);
 
 void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode)
 {

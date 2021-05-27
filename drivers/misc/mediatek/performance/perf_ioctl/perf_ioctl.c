@@ -277,6 +277,63 @@ static const struct proc_ops eara_Fops = {
 	.proc_release = single_release,
 };
 
+/*--------------------SYNC------------------------*/
+static int eas_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+static int eas_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, eas_show, inode->i_private);
+}
+
+extern void set_wake_sync(unsigned int sync);
+extern unsigned int get_wake_sync(void);
+
+static long eas_ioctl_impl(struct file *filp,
+		unsigned int cmd, unsigned long arg, void *pKM)
+{
+	ssize_t ret = 0;
+	unsigned int sync;
+
+	switch (cmd) {
+	case EAS_SYNC_SET:
+		if (perfctl_copy_from_user(&sync, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_wake_sync(sync);
+		break;
+	case EAS_SYNC_GET:
+		sync = get_wake_sync();
+		if (perfctl_copy_to_user((void *)arg, &sync, sizeof(unsigned int)))
+			return -1;
+		break;
+	default:
+		pr_debug(TAG "%s %d: unknown cmd %x\n",
+			__FILE__, __LINE__, cmd);
+		ret = -1;
+		goto ret_ioctl;
+	}
+
+ret_ioctl:
+	return ret;
+}
+
+static long eas_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	return eas_ioctl_impl(filp, cmd, arg, NULL);
+}
+
+static const struct proc_ops eas_Fops = {
+	.proc_ioctl = eas_ioctl,
+	.proc_compat_ioctl = eas_ioctl,
+	.proc_open = eas_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 /*--------------------INIT------------------------*/
 
 static int device_show(struct seq_file *m, void *v)
@@ -399,6 +456,15 @@ static int __init init_perfctl(void)
 	}
 
 	pe = proc_create("eara_ioctl", 0664, parent, &eara_Fops);
+	if (!pe) {
+		pr_debug(TAG"%s failed with %d\n",
+				"Creating file node ",
+				ret_val);
+		ret_val = -ENOMEM;
+		goto out_wq;
+	}
+
+	pe = proc_create("eas_ioctl", 0664, parent, &eas_Fops);
 	if (!pe) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",
