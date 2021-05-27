@@ -639,7 +639,7 @@ void mrdump_mini_add_extra_misc(void)
 EXPORT_SYMBOL(mrdump_mini_add_extra_misc);
 
 /*
- * mrdump_mini_add_extra_file - add a file named SYS_EXTRA_#name#_RAW to KE DB
+ * mrdump_mini_add_extra_file - add a file named SYS_#name#_RAW to KE DB
  * @vaddr:	start vaddr of target memory
  * @paddr:	start paddr of target memory
  * @size:	size of target memory
@@ -650,14 +650,26 @@ EXPORT_SYMBOL(mrdump_mini_add_extra_misc);
 int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
 	unsigned long size, const char *name)
 {
-	char name_buf[SZ_128];
+	char name_buf[SZ_128] = {0};
 
-	if (!mrdump_mini_ehdr ||
-		!size ||
-		size > SZ_512K ||
-		!name)
+	if (!name) {
+		pr_info("mrdump: invalid file name\n");
 		return -1;
-	snprintf(name_buf, SZ_128, "_EXTRA_%s_", name);
+	}
+	if (!mrdump_mini_ehdr) {
+		pr_info("mrdump: failed to add %s, aee not ready\n", name);
+		return -1;
+	}
+	if (!size) {
+		pr_info("mrdump: failed to add %s, invalid size\n", name);
+		return -1;
+	}
+
+	if (size > SZ_512K)
+		pr_warn("mrdump: file size of %s is too large 0x%lx\n",
+			name, size);
+
+	snprintf(name_buf, SZ_128, "_%s_", name);
 	mrdump_mini_add_misc_pa(vaddr, paddr, size, 0, name_buf);
 	return 0;
 }
