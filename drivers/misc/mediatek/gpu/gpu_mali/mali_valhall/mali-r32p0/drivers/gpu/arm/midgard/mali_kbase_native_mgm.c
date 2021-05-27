@@ -45,6 +45,11 @@ static struct page *kbase_native_mgm_alloc(
 	struct memory_group_manager_device *mgm_dev, int group_id,
 	gfp_t gfp_mask, unsigned int order)
 {
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	struct page *page;
+	unsigned int i;
+#endif
+
 	/*
 	 * Check that the base and the mgm defines, from separate header files,
 	 * for the max number of memory groups are compatible.
@@ -61,7 +66,18 @@ static struct page *kbase_native_mgm_alloc(
 	CSTD_UNUSED(mgm_dev);
 	CSTD_UNUSED(group_id);
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	page = alloc_pages(gfp_mask, order);
+	if (page) {
+		/* Please see more on <linux/page-flags.h> */
+		for (i = 0; i < (1 << order); i++) {
+			SetPageIommu(&page[i]);
+		}
+	}
+	return page;
+#else
 	return alloc_pages(gfp_mask, order);
+#endif
 }
 
 /**

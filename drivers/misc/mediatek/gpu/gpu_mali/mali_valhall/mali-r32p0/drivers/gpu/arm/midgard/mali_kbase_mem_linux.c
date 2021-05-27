@@ -48,6 +48,11 @@
 #include <mali_kbase_trace_gpu_mem.h>
 #include <mali_kbase_reset_gpu.h>
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#include <asm/cacheflush.h>
+static DEFINE_MUTEX(ion_config_lock);
+#endif
+
 #if ((KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE) || \
 	(KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE))
 /* Enable workaround for ion for kernels prior to v5.0.0 and from v5.3.0
@@ -1155,12 +1160,47 @@ static int kbase_mem_umm_map_attachment(struct kbase_context *kctx,
 	int err;
 	size_t count = 0;
 	struct kbase_mem_phy_alloc *alloc = reg->gpu_alloc;
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	struct ion_mm_data mm_data;
+	int retry_cnt = 0;
+#endif
 
 	WARN_ON_ONCE(alloc->type != KBASE_MEM_TYPE_IMPORTED_UMM);
 	WARN_ON_ONCE(alloc->imported.umm.sgt);
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	mutex_lock(&ion_config_lock);
+
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.config_buffer_param.kernel_handle =
+			alloc->imported.umm.ion_handle;
+	mm_data.config_buffer_param.module_id = M4U_PORT_GPU;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 0;
+
+retry:
+	err = ion_kernel_ioctl(kctx->kbdev->client,
+			ION_CMD_MULTIMEDIA, (unsigned long)&mm_data);
+
+	if (err == -ION_ERROR_CONFIG_CONFLICT && retry_cnt < 1000) {
+		retry_cnt++;
+		goto retry;
+	} else if (err) {
+		dev_warn(kctx->kbdev->dev,
+				"fail to config ion buffer, err=%d, retry_cnt %d\n",
+				err, retry_cnt);
+		mutex_unlock(&ion_config_lock);
+		return -EINVAL;
+	}
+#endif
+
 	sgt = dma_buf_map_attachment(alloc->imported.umm.dma_attachment,
 			DMA_BIDIRECTIONAL);
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	mutex_unlock(&ion_config_lock);
+#endif
+
 	if (IS_ERR_OR_NULL(sgt))
 		return -EINVAL;
 
@@ -1176,12 +1216,12 @@ static int kbase_mem_umm_map_attachment(struct kbase_context *kctx,
 		"sg_dma_len(s)=%u is not a multiple of PAGE_SIZE\n",
 		sg_dma_len(s));
 
-		WARN_ONCE(sg_dma_address(s) & (PAGE_SIZE-1),
-		"sg_dma_address(s)=%llx is not aligned to PAGE_SIZE\n",
-		(unsigned long long) sg_dma_address(s));
+		WARN_ONCE(sg_phys(s) & (PAGE_SIZE-1),
+		"sg_phys(s)=%llx is not aligned to PAGE_SIZE\n",
+		(unsigned long long) sg_phys(s));
 
 		for (j = 0; (j < pages) && (count < reg->nr_pages); j++, count++)
-			*pa++ = as_tagged(sg_dma_address(s) +
+			*pa++ = as_tagged(sg_phys(s) +
 				(j << PAGE_SHIFT));
 		WARN_ONCE(j < pages,
 		"sg list from dma_buf_map_attachment > dma_buf->size=%zu\n",
@@ -1361,6 +1401,9 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	bool shared_zone = false;
 	bool need_sync = false;
 	int group_id;
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	struct ion_handle *ion_handle = NULL;
+#endif
 
 	/* 64-bit address range is the max */
 	if (*va_pages > (U64_MAX / PAGE_SIZE))
@@ -1462,6 +1505,27 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	reg->gpu_alloc->imported.umm.kctx = kctx;
 	reg->extension = 0;
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	/* 64-bit address range is the max */
+	if (*va_pages > (U64_MAX / PAGE_SIZE))
+		return NULL;
+
+	if (kctx->kbdev->client == NULL) {
+		dev_warn(kctx->kbdev->dev, "invalid ion client!\n");
+		return NULL;
+	}
+
+	ion_handle = ion_import_dma_buf_fd(kctx->kbdev->client, fd);
+
+	if (IS_ERR(ion_handle)) {
+		dev_warn(kctx->kbdev->dev, "import ion handle failed!\n");
+		return NULL;
+	}
+
+	reg->gpu_alloc->imported.umm.ion_client = kctx->kbdev->client;
+	reg->gpu_alloc->imported.umm.ion_handle = ion_handle;
+#endif
+
 	if (!IS_ENABLED(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND)) {
 		int err;
 
@@ -1469,6 +1533,10 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 
 		err = kbase_mem_umm_map_attachment(kctx, reg);
 		if (err) {
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+			ion_free(kctx->kbdev->client, ion_handle);
+			ion_handle = NULL;
+#endif
 			dev_warn(kctx->kbdev->dev,
 				 "Failed to map dma-buf %pK on GPU: %d\n",
 				 dma_buf, err);

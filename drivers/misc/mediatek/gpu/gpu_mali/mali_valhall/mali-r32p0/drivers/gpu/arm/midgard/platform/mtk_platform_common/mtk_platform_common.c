@@ -89,8 +89,30 @@ int mtk_common_device_init(struct kbase_device *kbdev)
 		return -1;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	if (g_ion_device) {
+		kbdev->client = ion_client_create(g_ion_device, "mali_kbase");
+	}
+
+	if (kbdev->client == NULL) {
+		pr_info("@%s: create ion client failed!\n", __func__);
+	}
+#endif
+
 	return 0;
 }
 
-void mtk_common_device_term(struct kbase_device *kbdev) { }
+void mtk_common_device_term(struct kbase_device *kbdev)
+{
+	if (!kbdev) {
+		pr_info("@%s: kbdev is NULL\n", __func__);
+		return;
+	}
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	if (kbdev->client != NULL) {
+		ion_client_destroy(kbdev->client);
+	}
+#endif
+
+}

@@ -1178,6 +1178,9 @@ struct kbase_device {
 	struct priority_control_manager_device *pcm_dev;
 
 	struct notifier_block oom_notifier_block;
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	struct ion_client *client;
+#endif
 };
 
 /**
