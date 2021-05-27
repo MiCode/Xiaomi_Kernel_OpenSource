@@ -25,6 +25,7 @@
 #include <linux/of_fdt.h>
 #include <linux/of_reserved_mem.h>
 
+#include <debug_kinfo.h>
 #include <mrdump.h>
 #include <mt-plat/mboot_params.h>
 #include "mrdump_mini.h"
@@ -354,6 +355,7 @@ static int __init mrdump_panic_init(void)
 		pr_info("[mrdump] failed to map debug-kinfo\n");
 		return -ENOMEM;
 	} else {
+		memset(rmem->priv, 0, sizeof(struct kernel_all_info));
 		pr_info("[mrdump] rmem->priv = %px\n", rmem->priv);
 	}
 
