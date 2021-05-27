@@ -6499,7 +6499,7 @@
 				<0>, /*MTK_DRM_OPT_LAYER_REC*/
 				<1>, /*MTK_DRM_OPT_CLEAR_LAYER*/
 				<1>, /*MTK_DRM_OPT_LFR*/
-				<1>, /*MTK_DRM_OPT_SF_PF*/
+				<0>, /*MTK_DRM_OPT_SF_PF*/
 				<1>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 				<0>; /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
 		};
