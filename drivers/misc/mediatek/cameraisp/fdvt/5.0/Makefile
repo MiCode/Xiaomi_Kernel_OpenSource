@@ -28,4 +28,4 @@ ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
 ccflags-y += -DCMDQ_MTEE
 endif
 
-obj-y += camera_fdvt.o
+obj-$(CONFIG_MTK_CAMERA_FD_ISP6) += camera_fdvt.o

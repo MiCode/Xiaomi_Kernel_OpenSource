@@ -14,5 +14,5 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 
-obj-y += camera_fdvt.o
+obj-$(CONFIG_MTK_CAMERA_FD_VERSION40) += camera_fdvt.o
 
