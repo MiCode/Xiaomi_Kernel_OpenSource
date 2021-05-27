@@ -35,6 +35,19 @@ void reviser_exit(void);
 int devapc_init(struct apusys_core_info *info);
 void devapc_exit(void);
 
+
+int sw_logger_init(void);
+void sw_logger_exit(void);
+
+int apu_ctrl_rpmsg_init(void);
+void apu_ctrl_rpmsg_exit(void);
+
+int apu_mailbox_init(void);
+void apu_mailbox_exit(void);
+
+int apu_rproc_init(void);
+void apu_rproc_exit(void);
+
 /*
  * init function at other modulses
  * call init function in order at apusys.ko init stage

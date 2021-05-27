@@ -210,3 +210,27 @@ endif
 # devapc
 apusys-objs += devapc/dapc.o
 apusys-objs += devapc/dapc_cfg.o
+
+# apusys rv
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/apusys_rv/
+apusys-objs += apusys_rv/apu_config.o
+apusys-objs += apusys_rv/apu_coredump.o
+apusys-objs += apusys_rv/apu_excep.o
+apusys-objs += apusys_rv/apu_hw.o
+apusys-objs += apusys_rv/apu_ipi.o
+apusys-objs += apusys_rv/apu_mbox.o
+apusys-objs += apusys_rv/apu_mem.o
+apusys-objs += apusys_rv/apu_rproc.o
+apusys-objs += apusys_rv/apu_sysfs.o
+
+# ipi
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/ipi/
+ccflags-y += -I$(srctree)/drivers/rpmsg/
+apusys-objs += ipi/apu_ctrl_rpmsg.o
+apusys-objs += ipi/apu_systrace.o
+apusys-objs += ipi/mtk_apu_rpmsg.o
+
+# sw logger
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/sw_logger/
+apusys-objs += sw_logger/sw_logger.o
+
