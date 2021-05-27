@@ -1501,6 +1501,7 @@ PROC_FOPS_RW(perfmgr_log);
 int eas_ctrl_init(struct proc_dir_entry *parent)
 {
 	int i, ret = 0;
+	size_t idx;
 #if defined(CONFIG_SCHED_TUNE)
 	int j;
 #endif
@@ -1563,11 +1564,11 @@ int eas_ctrl_init(struct proc_dir_entry *parent)
 		pr_debug("boost_dir null\n ");
 
 	/* create procfs */
-	for (i = 0; i < ARRAY_SIZE(entries); i++) {
-		if (!proc_create(entries[i].name, 0644,
-					boost_dir, entries[i].fops)) {
+	for (idx = 0; idx < ARRAY_SIZE(entries); idx++) {
+		if (!proc_create(entries[idx].name, 0644,
+					boost_dir, entries[idx].fops)) {
 			pr_debug("%s(), create /eas_ctrl%s failed\n",
-					__func__, entries[i].name);
+					__func__, entries[idx].name);
 			ret = -EINVAL;
 			goto out;
 		}

@@ -148,7 +148,8 @@ PROC_FOPS_RO(dram);
 
 int dram_ctrl_init(struct proc_dir_entry *parent)
 {
-	int i, ret = 0;
+	int ret = 0;
+	size_t i;
 	struct proc_dir_entry *drams_dir;
 
 	struct pentry {
