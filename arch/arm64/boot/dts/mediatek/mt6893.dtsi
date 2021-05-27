@@ -94,6 +94,13 @@
 		compatible = "google,debug-kinfo";
 	};
 
+	dsu-pmu-0 {
+		compatible = "arm,dsu-pmu";
+		interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH 0>;
+		cpus = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>,
+			<&cpu4>, <&cpu5>, <&cpu6>, <&cpu7>;
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0 0x40000000 0 0x20000000>;
