@@ -689,7 +689,7 @@ static void fbt_set_idleprefer_locked(int enable)
 	if (set_idleprefer == enable)
 		return;
 
-	xgf_trace("fpsgo %s idleprefer", enable?"enable":"disbale");
+	xgf_trace("fpsgo %s idelprefer", enable?"enable":"disbale");
 	fpsgo_sentcmd(FPSGO_SET_IDLE_PREFER, enable, -1);
 	set_idleprefer = enable;
 }
