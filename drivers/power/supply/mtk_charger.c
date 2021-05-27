@@ -141,7 +141,7 @@ void _wake_up_charger(struct mtk_charger *info)
 		__pm_stay_awake(info->charger_wakelock);
 	spin_unlock_irqrestore(&info->slock, flags);
 	info->charger_thread_timeout = true;
-	wake_up(&info->wait_que);
+	wake_up_interruptible(&info->wait_que);
 }
 
 bool is_disable_charger(struct mtk_charger *info)
@@ -2323,10 +2323,15 @@ static int charger_routine_thread(void *arg)
 	unsigned long flags;
 	static bool is_module_init_done;
 	bool is_charger_on;
+	int ret;
 
 	while (1) {
-		wait_event(info->wait_que,
+		ret = wait_event_interruptible(info->wait_que,
 			(info->charger_thread_timeout == true));
+		if (ret < 0) {
+			chr_err("%s: wait event been interrupted(%d)\n", __func__, ret);
+			continue;
+		}
 
 		while (is_module_init_done == false) {
 			if (charger_init_algo(info) == true)

@@ -2060,7 +2060,7 @@ static irqreturn_t mt6360_pmu_chg_mivr_evt_handler(int irq, void *data)
 	mt_dbg(mci->dev, "%s\n", __func__);
 	mt6360_pmu_chg_irq_enable("chg_mivr_evt", 0);
 	atomic_inc(&mci->mivr_cnt);
-	wake_up(&mci->mivr_wq);
+	wake_up_interruptible(&mci->mivr_wq);
 	return IRQ_HANDLED;
 }
 
@@ -2429,8 +2429,12 @@ static int mt6360_chg_mivr_task_threadfn(void *data)
 
 	dev_info(mci->dev, "%s ++\n", __func__);
 	while (!kthread_should_stop()) {
-		wait_event(mci->mivr_wq, atomic_read(&mci->mivr_cnt) > 0 ||
+		ret = wait_event_interruptible(mci->mivr_wq, atomic_read(&mci->mivr_cnt) > 0 ||
 							 kthread_should_stop());
+		if (ret < 0) {
+			mt_dbg(mci->dev, "%s: wait event been interrupted(%d)\n", __func__, ret);
+			continue;
+		}
 		mt_dbg(mci->dev, "%s: enter mivr thread\n", __func__);
 		if (kthread_should_stop())
 			break;
@@ -3198,7 +3202,7 @@ static int mt6360_pmu_chg_remove(struct platform_device *pdev)
 	destroy_workqueue(mci->pe_wq);
 	if (mci->mivr_task) {
 		atomic_inc(&mci->mivr_cnt);
-		wake_up(&mci->mivr_wq);
+		wake_up_interruptible(&mci->mivr_wq);
 		kthread_stop(mci->mivr_task);
 	}
 	device_remove_file(mci->dev, &dev_attr_shipping_mode);

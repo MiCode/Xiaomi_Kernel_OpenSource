@@ -68,9 +68,13 @@ static int typec_attach_thread(void *data)
 
 	pr_info("%s: ++\n", __func__);
 	while (!kthread_should_stop()) {
-		wait_event(mci->attach_wq,
+		ret = wait_event_interruptible(mci->attach_wq,
 			   atomic_read(&mci->chrdet_start) > 0 ||
 							 kthread_should_stop());
+		if (ret < 0) {
+			pr_notice("%s: wait event been interrupted(%d)\n", __func__, ret);
+			continue;
+		}
 		if (kthread_should_stop())
 			break;
 		mutex_lock(&mci->attach_lock);
@@ -98,7 +102,7 @@ static void handle_typec_attach(struct mtk_ctd_info *mci,
 	mutex_lock(&mci->attach_lock);
 	mci->typec_attach = en;
 	atomic_inc(&mci->chrdet_start);
-	wake_up(&mci->attach_wq);
+	wake_up_interruptible(&mci->attach_wq);
 	mutex_unlock(&mci->attach_lock);
 }
 
