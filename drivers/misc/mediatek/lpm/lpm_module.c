@@ -329,7 +329,7 @@ static int lpm_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	if (lpm && lpm->op.prompt)
 		prompt = lpm->op.prompt(cpuid, nb_data.issuer);
 
-	if (!unlikely(flags & LPM_REQ_NOBROADCAST)) {
+	if (!unlikely(model_flags & LPM_REQ_NOBROADCAST)) {
 		prompt = lpm_notify_var(LPM_NB_AFTER_PROMPT, prompt);
 		lpm_pm_notify(prompt, &nb_data);
 	}
@@ -380,7 +380,7 @@ static void lpm_cpuidle_resume(struct cpuidle_driver *drv, int index, int ret)
 
 	spin_lock_irqsave(&lpm_mod_locker, flags);
 
-	if (!unlikely(flags & LPM_REQ_NOBROADCAST))
+	if (!unlikely(model_flags & LPM_REQ_NOBROADCAST))
 		lpm_pm_notify(LPM_NB_BEFORE_REFLECT, &nb_data);
 
 	if (lpm && lpm->op.reflect)
