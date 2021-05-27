@@ -619,6 +619,47 @@ struct msdc_host {
 	int autok_error;
 	u32 tune_latch_ck_cnt;
 	u8 autok_res[AUTOK_VCORE_NUM+1][TUNING_PARA_SCAN_COUNT];
+	u8 card_inserted;  /* the status of card inserted */
+	bool block_bad_card;
+	int retune_times;
+	int power_cycle_cnt;
+	u32 data_timeout_cont; /* data continuous timeout */
 };
+
+/*--------------------------------------------------------------------------*/
+/* SDCard error handler                                                 */
+/*--------------------------------------------------------------------------*/
+/* if continuous data timeout reach the limit */
+/* driver will force remove card */
+#define MSDC_MAX_DATA_TIMEOUT_CONTINUOUS (100)
+
+/* if continuous power cycle fail reach the limit */
+/* driver will force remove card */
+#define MSDC_MAX_POWER_CYCLE_FAIL_CONTINUOUS (3)
+
+/* count of bad sd detecter (or bad sd condition kinds),
+ * we can add it here if has other condition
+ */
+#define BAD_SD_DETECTER_COUNT 1
+
+/* we take it as bad sd when the bad sd condition occurs
+ * out of tolerance
+ */
+u32 bad_sd_tolerance[BAD_SD_DETECTER_COUNT] = {10};
+
+/* bad sd condition occur times
+ */
+u32 bad_sd_detecter[BAD_SD_DETECTER_COUNT] = {0};
+
+/* bad sd condition occur times will reset to zero by self
+ * when reach the forget time (when set to 0, means not
+ * reset to 0 by self), unit:s
+ */
+u32 bad_sd_forget[BAD_SD_DETECTER_COUNT] = {3};
+
+/* the latest occur time of the bad sd condition,
+ * unit: clock
+ */
+unsigned long bad_sd_timer[BAD_SD_DETECTER_COUNT] = {0};
 
 #endif  /* _MTK_MMC_H_ */

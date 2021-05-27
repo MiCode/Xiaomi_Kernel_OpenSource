@@ -5,6 +5,7 @@
  */
 #include "mtk-mmc.h"
 #include "mtk-mmc-dbg.h"
+#include "../core/card.h"
 
 static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode);
 
@@ -626,14 +627,20 @@ static int msdc_auto_cmd_done(struct msdc_host *host, int events,
 
 	if (events & MSDC_INT_ACMDRDY) {
 		cmd->error = 0;
+		if (host->need_tune == TUNE_AUTOK_PASS) {
+			host->need_tune = TUNE_NONE;
+			host->retune_times = 0;
+		}
 	} else {
 		msdc_reset_hw(host);
 		if (events & MSDC_INT_ACMDCRCERR) {
 			cmd->error = -EILSEQ;
 			host->error |= REQ_STOP_EIO;
+			host->need_tune = TUNE_CMD_CRC;
 		} else if (events & MSDC_INT_ACMDTMO) {
 			cmd->error = -ETIMEDOUT;
 			host->error |= REQ_STOP_TMO;
+			host->need_tune = TUNE_CMD_TMO;
 		}
 		dev_err(host->dev,
 			"%s: AUTO_CMD%d arg=%08X; rsp %08X; cmd_error=%d\n",
@@ -761,6 +768,11 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 			cmd->error = -ETIMEDOUT;
 			host->error |= REQ_CMD_TMO;
 			host->need_tune = TUNE_CMD_TMO;
+		}
+	} else {
+		if (host->need_tune == TUNE_AUTOK_PASS) {
+			host->need_tune = TUNE_NONE;
+			host->retune_times = 0;
 		}
 	}
 	if (cmd->error)
@@ -948,6 +960,10 @@ static bool msdc_data_xfer_done(struct msdc_host *host, u32 events,
 
 		if ((events & MSDC_INT_XFER_COMPL) && (!stop || !stop->error)) {
 			data->bytes_xfered = data->blocks * data->blksz;
+			if (host->need_tune == TUNE_AUTOK_PASS) {
+				host->need_tune = TUNE_NONE;
+				host->retune_times = 0;
+			}
 		} else {
 			dev_dbg(host->dev, "interrupt events: %x\n", events);
 			msdc_reset_hw(host);
@@ -960,10 +976,13 @@ static bool msdc_data_xfer_done(struct msdc_host *host, u32 events,
 			host->error |= REQ_DAT_ERR;
 			data->bytes_xfered = 0;
 
-			if (events & MSDC_INT_DATTMO)
+			if (events & MSDC_INT_DATTMO) {
 				data->error = -ETIMEDOUT;
-			else if (events & MSDC_INT_DATCRCERR)
+				host->data_timeout_cont++;
+			} else if (events & MSDC_INT_DATCRCERR) {
+				host->data_timeout_cont = 0;
 				data->error = -EILSEQ;
+			}
 
 			dev_info(host->dev, "%s: cmd=%d; blocks=%d",
 				__func__, mrq->cmd->opcode, data->blocks);
@@ -1330,6 +1349,7 @@ static void msdc_init_hw(struct msdc_host *host)
 	/* reset tuning parameter */
 	msdc_init_tune_setting(host);
 	host->need_tune = TUNE_NONE;
+	host->retune_times = 0;
 #endif
 
 	dev_info(host->dev, "init hardware done!");
@@ -1421,6 +1441,15 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		if (!IS_ERR(mmc->supply.vqmmc) && host->vqmmc_enabled) {
 			regulator_disable(mmc->supply.vqmmc);
 			host->vqmmc_enabled = false;
+		}
+
+		if (host->id == MSDC_SD) {
+			if (host->mclk == 100000) {
+				host->block_bad_card = 1;
+				pr_notice("[%s]: msdc%d power off at clk %dhz set block_bad_card = %d\n",
+					__func__, host->id, host->mclk,
+					host->block_bad_card);
+			}
 		}
 		break;
 	default:
@@ -1794,14 +1823,249 @@ skip_fall:
 }
 #endif
 
+static int msdc_get_cd(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+	int val;
+
+	if (mmc->caps & MMC_CAP_NONREMOVABLE) {
+		host->card_inserted = 1;
+		goto end;
+	} else if (!host->internal_cd) {
+		host->card_inserted = mmc_gpio_get_cd(mmc);
+	} else {
+		val = readl(host->base + MSDC_PS) & MSDC_PS_CDSTS;
+		if (mmc->caps2 & MMC_CAP2_CD_ACTIVE_HIGH)
+			host->card_inserted = !!val;
+		else
+			host->card_inserted = !val;
+	}
+
+	if (host->block_bad_card)
+		host->card_inserted = 0;
+end:
+	pr_info(
+		"%s:card status:%s block bad card<%d> trigger card event<%d>",
+		__func__, host->card_inserted ? "inserted" : "removed",
+		host->block_bad_card, mmc->trigger_card_event);
+
+	return host->card_inserted;
+}
+
+static void msdc_reset_bad_sd_detecter(struct msdc_host *host)
+{
+	u32 i = 0;
+
+	if (host == NULL) {
+		pr_notice("WARN: host is NULL at %s\n", __func__);
+		return;
+	}
+
+	host->block_bad_card = 0;
+	for (i = 0; i < BAD_SD_DETECTER_COUNT; i++)
+		bad_sd_detecter[i] = 0;
+}
+
+static void msdc_ops_card_event(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+
+	host->power_cycle_cnt = 0;
+	host->data_timeout_cont = 0;
+	host->is_autok_done = 0;
+	msdc_reset_bad_sd_detecter(host);
+
+	msdc_get_cd(mmc);
+}
+
+void msdc_set_bad_card_and_remove(struct msdc_host *host)
+{
+	struct mmc_host *mmc = mmc_from_priv(host);
+
+	if (host->card_inserted) {
+		host->block_bad_card = 1;
+		host->card_inserted = 0;
+	}
+
+	if ((mmc == NULL) || (mmc->card == NULL)) {
+		pr_info("WARN: mmc or card is NULL");
+		return;
+	}
+
+	if (mmc->card) {
+		mmc_card_set_removed(mmc->card);
+		pr_info("schedule mmc_rescan");
+		mmc_detect_change(mmc, msecs_to_jiffies(200));
+		if (host->block_bad_card)
+			pr_info("remove the bad card, block_bad_card=%d, card_inserted=%d",
+				host->block_bad_card, host->card_inserted);
+	}
+}
+
+int sdcard_hw_reset(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+	int ret = 0;
+
+	host->card_inserted = msdc_get_cd(mmc);
+
+	if (!(host->card_inserted)) {
+		pr_notice("card is not inserted!\n");
+		msdc_set_bad_card_and_remove(host);
+		ret = -1;
+		return ret;
+	}
+
+	ret = mmc_hw_reset(mmc);
+	if (ret) {
+		if (++host->power_cycle_cnt
+			> MSDC_MAX_POWER_CYCLE_FAIL_CONTINUOUS)
+			msdc_set_bad_card_and_remove(host);
+		pr_notice(
+			"msdc%d power reset (%d) failed, block_bad_card = %d\n",
+			host->id, host->power_cycle_cnt, host->block_bad_card);
+	} else {
+		host->power_cycle_cnt = 0;
+		pr_notice("msdc%d power reset success\n", host->id);
+	}
+
+	return ret;
+}
+
+int msdc_data_timeout_cont_chk(struct msdc_host *host)
+{
+	if ((host->id == MSDC_SD) &&
+		(host->data_timeout_cont >= MSDC_MAX_DATA_TIMEOUT_CONTINUOUS)) {
+		pr_info("force remove bad card, data timeout continuous %d",
+			host->data_timeout_cont);
+		msdc_set_bad_card_and_remove(host);
+		return 1;
+	}
+
+	return 0;
+}
+
+/* SDcard will change speed mode and power reset
+ * UHS card
+ *    UHS_SDR104 --> UHS_DDR50 --> UHS_SDR50 --> UHS_SDR25
+ * HS card
+ *    50MHz --> 25MHz --> 12.5MHz --> 6.25MHz
+ */
+int sdcard_reset_tuning(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+	char *remove_cap;
+	int ret = 0;
+
+	if (!mmc->card) {
+		pr_notice("mmc card = NULL, skip reset tuning\n");
+		return -1;
+	}
+
+	if (mmc_card_uhs(mmc->card)) {
+		if (mmc->card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR104) {
+			mmc->card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_SDR104;
+			remove_cap = "UHS_SDR104";
+		} else if (mmc->card->sw_caps.sd3_bus_mode
+			& SD_MODE_UHS_DDR50) {
+			mmc->card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_DDR50;
+			remove_cap = "UHS_DDR50";
+		} else if (mmc->card->sw_caps.sd3_bus_mode
+			& SD_MODE_UHS_SDR50) {
+			mmc->card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_SDR50;
+			remove_cap = "UHS_SDR50";
+		} else if (mmc->card->sw_caps.sd3_bus_mode
+			& SD_MODE_UHS_SDR25) {
+			mmc->card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_SDR25;
+			remove_cap = "UHS_SDR25";
+		} else {
+			remove_cap = "none";
+		}
+		pr_notice("msdc%d: remove %s mode then reinit card\n", host->id,
+			remove_cap);
+	} else if (mmc_card_hs(mmc->card)) {
+		if (mmc->card->sw_caps.hs_max_dtr >= HIGH_SPEED_MAX_DTR / 4)
+			mmc->card->sw_caps.hs_max_dtr /= 2;
+		pr_notice("msdc%d: set hs speed %dhz then reinit card\n",
+			host->id, mmc->card->sw_caps.hs_max_dtr);
+	} else {
+		pr_notice("msdc%d: ds card just reinit card\n", host->id);
+	}
+
+	/* force remove card for continuous data timeout */
+	ret = msdc_data_timeout_cont_chk(host);
+	if (ret) {
+		ret = -1;
+		goto done;
+	}
+
+	/* power cycle sdcard */
+	ret = sdcard_hw_reset(mmc);
+	if (ret) {
+		ret = -1;
+		goto done;
+	}
+
+done:
+	return ret;
+}
+
+static int msdc_detect_bad_sd(struct msdc_host *host, u32 condition)
+{
+	unsigned long time_current = jiffies;
+	int ret = 0;
+
+	if (host == NULL) {
+		pr_notice("WARN: host is NULL at %s\n", __func__);
+		ret = -1;
+		goto end;
+	}
+
+	if (condition >= BAD_SD_DETECTER_COUNT) {
+		pr_notice("msdc1: BAD_SD_DETECTER_COUNT is %d, need check it's definition at %s\n",
+			BAD_SD_DETECTER_COUNT, __func__);
+		ret = -1;
+		goto end;
+	}
+
+	if (bad_sd_forget[condition]
+	&& time_after(time_current,
+	(bad_sd_timer[condition] + bad_sd_forget[condition] * HZ)))
+		bad_sd_detecter[condition] = 0;
+	bad_sd_timer[condition] = time_current;
+
+	if (++(bad_sd_detecter[condition]) >= bad_sd_tolerance[condition]) {
+		msdc_set_bad_card_and_remove(host);
+		ret = -1;
+	}
+	pr_notice("%s:bad_sd_detecter:%d\n", __func__, bad_sd_detecter[condition]);
+
+end:
+	return ret;
+}
+
 static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	struct msdc_host *host = mmc_priv(mmc);
 	int ret = 0;
 
 #if IS_ENABLED(CONFIG_MMC_AUTOK)
-	msdc_init_tune_path(host, mmc->ios.timing);
-	autok_msdc_tx_setting(host, &mmc->ios);
+	if (host->need_tune) {
+		if (host->id == MSDC_SD) {
+			if (msdc_get_cd(mmc) == 0)
+				goto end;
+
+			ret = msdc_detect_bad_sd(host, 0);
+			if (ret)
+				goto end;
+		}
+		pr_info("msdc%d: %s error retune %d times\n",
+				host->id, host->id ? "SD" : "eMMC",
+				++host->retune_times);
+	} else {
+		msdc_init_tune_path(host, mmc->ios.timing);
+		autok_msdc_tx_setting(host, &mmc->ios);
+	}
 
 	host->tuning_in_progress = true;
 	if (host->id == MSDC_EMMC)
@@ -1814,6 +2078,13 @@ static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	if (ret)
 		msdc_dump_info(NULL, 0, NULL, host);
 #endif
+	if (host->retune_times >= 4) {
+		if (host->id == MSDC_SD)
+			sdcard_reset_tuning(mmc);
+	} else if (!ret) {
+		pr_info("msdc%d autok pass\n", host->id);
+		host->need_tune = TUNE_AUTOK_PASS;
+	}
 #else
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
 
@@ -1853,6 +2124,7 @@ tune_done:
 	}
 #endif
 
+end:
 	return ret;
 }
 
@@ -1892,24 +2164,6 @@ static void msdc_ack_sdio_irq(struct mmc_host *mmc)
 	spin_lock_irqsave(&host->lock, flags);
 	__msdc_enable_sdio_irq(host, 1);
 	spin_unlock_irqrestore(&host->lock, flags);
-}
-
-static int msdc_get_cd(struct mmc_host *mmc)
-{
-	struct msdc_host *host = mmc_priv(mmc);
-	int val;
-
-	if (mmc->caps & MMC_CAP_NONREMOVABLE)
-		return 1;
-
-	if (!host->internal_cd)
-		return mmc_gpio_get_cd(mmc);
-
-	val = readl(host->base + MSDC_PS) & MSDC_PS_CDSTS;
-	if (mmc->caps2 & MMC_CAP2_CD_ACTIVE_HIGH)
-		return !!val;
-	else
-		return !val;
 }
 
 static void msdc_hs400_enhanced_strobe(struct mmc_host *mmc,
@@ -2002,6 +2256,7 @@ static const struct mmc_host_ops mt_msdc_ops = {
 	.execute_tuning = msdc_execute_tuning,
 	.prepare_hs400_tuning = msdc_prepare_hs400_tuning,
 	.hw_reset = msdc_hw_reset,
+	.card_event = msdc_ops_card_event,
 };
 
 static const struct cqhci_host_ops msdc_cmdq_ops = {

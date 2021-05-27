@@ -4412,7 +4412,8 @@ int emmc_execute_autok(struct msdc_host *host, u32 opcode)
 			autok_err_type = CRC_STATUS_ERROR;
 		else if (host->need_tune & TUNE_DATA_READ)
 			autok_err_type = DATA_ERROR;
-		autok_low_speed_switch_edge(host, &mmc->ios, autok_err_type);
+		if (autok_err_type != -1)
+			autok_low_speed_switch_edge(host, &mmc->ios, autok_err_type);
 		host->need_tune = TUNE_NONE;
 	}
 
@@ -4509,7 +4510,8 @@ int sd_execute_autok(struct msdc_host *host, u32 opcode)
 			autok_err_type = CRC_STATUS_ERROR;
 		else if (host->need_tune & TUNE_DATA_READ)
 			autok_err_type = DATA_ERROR;
-		autok_low_speed_switch_edge(host, &mmc->ios, autok_err_type);
+		if (autok_err_type != -1)
+			autok_low_speed_switch_edge(host, &mmc->ios, autok_err_type);
 		host->need_tune = TUNE_NONE;
 	}
 	if (need_merge) {

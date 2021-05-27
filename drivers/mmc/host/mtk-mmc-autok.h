@@ -17,7 +17,7 @@
 #define TUNE_CMD_CRC       (0x1 << 0) /* transfer cmd crc */
 #define TUNE_DATA_WRITE    (0x1 << 1) /* transfer data crc */
 #define TUNE_DATA_READ     (0x1 << 2) /* transfer data crc */
-#define TUNE_CMD_TMO       (0x1 << 3) /* legacy transfer cmd tmo */
+#define TUNE_CMD_TMO       (0x1 << 3) /* transfer cmd tmo */
 #define TUNE_AUTOK_PASS    (0x1 << 4) /* autok pass flag */
 
 struct AUTOK_PLAT_PARA_TX {

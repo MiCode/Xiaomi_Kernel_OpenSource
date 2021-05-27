@@ -214,7 +214,7 @@ void msdc_dump_ldo_sts(char **buff, unsigned long *size,
 			regulator_is_enabled(mmc->supply.vmmc),
 			regulator_get_voltage(mmc->supply.vmmc));
 		SPREAD_PRINTF(buff, size, m,
-		" VMC_EN=0x%x, VMC_VOL=0%duV\n",
+		" VMC_EN=0x%x, VMC_VOL=%duV\n",
 			regulator_is_enabled(mmc->supply.vqmmc),
 			regulator_get_voltage(mmc->supply.vqmmc));
 		break;
