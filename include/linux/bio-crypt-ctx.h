@@ -158,9 +158,6 @@ static inline bool bio_crypt_dun_is_contiguous(const struct bio_crypt_ctx *bc,
 	int i = 0;
 	unsigned int inc = bytes >> bc->bc_key->data_unit_size_bits;
 
-	if (bc->hie_ext4)
-		return true;
-
 	/* eMMC + F2FS OTA only */
 #ifdef CONFIG_MMC_CRYPTO_LEGACY
 	if (is_emmc_type() && !bc->hie_ext4 &&
@@ -197,9 +194,6 @@ static inline void bio_crypt_advance(struct bio *bio, unsigned int bytes)
 	unsigned int inc;
 
 	if (!bc)
-		return;
-
-	if (bc->hie_ext4)
 		return;
 
 	inc = bytes >> bc->bc_key->data_unit_size_bits;
