@@ -459,7 +459,7 @@ static const char *get_provider_name(struct device_node *node, u32 *cells)
 {
 	const char *name;
 	const char *p;
-	u32 cc;
+	u32 cc = 0;
 
 	if (of_property_read_u32(node, "#clock-cells", &cc) != 0)
 		cc = 0;
