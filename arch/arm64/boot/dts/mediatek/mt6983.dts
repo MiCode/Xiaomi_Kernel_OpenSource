@@ -142,6 +142,14 @@
 		ranges;
 	};
 
+	clocks {
+		clk10m: clk10m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <10000000>;
+		};
+	};
+
 	gic: interrupt-controller {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <4>;
@@ -331,13 +339,13 @@
 		reg = <0 0x10017000 0 0x1000>;
 	};
 
-timer: timer {
+	timer: timer {
 		compatible = "arm,armv8-timer";
 		interrupt-parent = <&gic>;
-		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_PPI 14 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_PPI 14 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH 0>;
 		clock-frequency = <13000000>;
 	};
 
@@ -1009,6 +1017,37 @@ timer: timer {
 	dbg_mdsys1@0d100000 {
 		compatible = "mediatek,dbg_mdsys1";
 		reg = <0 0x0d100000 0 0x100000>;
+	};
+
+	apdma: dma-controller@10217a80 {
+			compatible = "mediatek,mt6779-uart-dma";
+			reg =   <0 0x10217a80 0 0x80>,
+				<0 0x10217b00 0 0x80>,
+				<0 0x10217b80 0 0x80>,
+				<0 0x10217c00 0 0x80>;
+			interrupts =    <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH 0>,
+					<GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH 0>,
+					<GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH 0>,
+					<GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&clk10m>;
+			clock-names = "apdma";
+			dma-requests = <4>;
+	};
+
+	uart0: serial@11001000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11001000 0 0x1000>;
+		interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&clk10m>;
+		clock-names = "baud";
+	};
+
+	uart1: serial@11002000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11002000 0 0x1000>;
+		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&clk10m>;
+		clock-names = "baud";
 	};
 
 	peri_io_cfg_rm@11c20000 {
