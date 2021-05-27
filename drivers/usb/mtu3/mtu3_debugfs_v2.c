@@ -16,7 +16,7 @@
  *
  */
 
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
@@ -24,6 +24,13 @@
 #include "mtu3.h"
 #include "mtu3_hal.h"
 
+#define PROC_DIR_MTK_USB "mtk_usb"
+#define PROC_FILE_SMTERRCOUNT "mtk_usb/smt_err_count"
+#define PROC_FILE_IPPCREG "mtk_usb/ippc_reg"
+#define PROC_FILE_MACREG "mtk_usb/mac_reg"
+
+#define PROC_FILE_NUM 3
+static struct proc_dir_entry *proc_files[PROC_FILE_NUM] = {NULL, NULL, NULL};
 
 static u32 mac_value, mac_addr;
 static u32 ippc_value, ippc_addr;
@@ -135,7 +142,7 @@ static ssize_t mac_rw_write(struct file *file,
 
 static int mac_rw_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, mac_rw_show, inode->i_private);
+	return single_open(file, mac_rw_show, PDE_DATA(inode));
 }
 
 static const struct file_operations mac_rw_fops = {
@@ -202,7 +209,7 @@ static ssize_t ippc_rw_write(struct file *file,
 
 static int ippc_rw_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, ippc_rw_show, inode->i_private);
+	return single_open(file, ippc_rw_show, PDE_DATA(inode));
 }
 
 static const struct file_operations ippc_rw_fops = {
@@ -213,42 +220,41 @@ static const struct file_operations ippc_rw_fops = {
 	.release = single_release,
 };
 
-
 void ssusb_debugfs_init(struct ssusb_mtk *ssusb)
 {
-	struct dentry *root;
-	struct dentry *file;
+	int idx = 0;
 
-	root = debugfs_create_dir("musb-hdrc", NULL);
-	if (IS_ERR_OR_NULL(root)) {
-		if (!root)
-			dev_dbg(ssusb->dev, "create debugfs root failed\n");
-		return;
-	}
-	ssusb->dbgfs_root = root;
+	proc_mkdir(PROC_DIR_MTK_USB, NULL);
 
 	if (ssusb->u3_loopb_support) {
-		file = debugfs_create_file("smt_err_count", 0644, root,
-			ssusb, &smt_err_count);
-		if (!file)
+		proc_files[idx] = proc_create_data(PROC_FILE_SMTERRCOUNT, 0644, NULL,
+			&smt_err_count, ssusb);
+		if (!proc_files[idx])
 			dev_dbg(ssusb->dev, "file smt_err_count failed\n");
+		idx++;
 	}
 
-	file = debugfs_create_file("ippc_reg", 0644, root,
-		ssusb, &ippc_rw_fops);
-	if (!file)
+	proc_files[idx] = proc_create_data(PROC_FILE_IPPCREG, 0644, NULL,
+		&ippc_rw_fops, ssusb);
+	if (!proc_files[idx])
 		dev_dbg(ssusb->dev, "file ippc_reg failed\n");
+	idx++;
 
-	file = debugfs_create_file("mac_reg", 0644, root,
-		ssusb, &mac_rw_fops);
-	if (!file)
+	proc_files[idx] = proc_create_data(PROC_FILE_MACREG, 0644, NULL,
+		&mac_rw_fops, ssusb);
+	if (!proc_files[idx])
 		dev_dbg(ssusb->dev, "file mac_reg failed\n");
-}
 
+}
 
 void ssusb_debugfs_exit(struct ssusb_mtk *ssusb)
 {
-	debugfs_remove_recursive(ssusb->dbgfs_root);
+	int idx = 0;
+
+	for (; idx < PROC_FILE_NUM ; idx++) {
+		if (proc_files[idx])
+			proc_remove(proc_files[idx]);
+	}
 }
 
 

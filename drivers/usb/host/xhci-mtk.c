@@ -28,7 +28,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 
 #include "xhci.h"
@@ -89,11 +89,15 @@
 #define UWK_CTL1_IS_P		BIT(6)  /* polarity for ip sleep */
 
 /* test mode */
+#define PROC_DIR_MTK_USB "mtk_usb"
+#define PROC_FILE_TESTMODE "mtk_usb/testmode"
 #define HOST_CMD_TEST_J             0x1
 #define HOST_CMD_TEST_K             0x2
 #define HOST_CMD_TEST_SE0_NAK       0x3
 #define HOST_CMD_TEST_PACKET        0x4
 #define PMSC_PORT_TEST_CTRL_OFFSET  28
+
+static struct proc_dir_entry *file_testmode;
 
 /* frmcnt */
 #define INIT_FRMCNT_LEV1_FULL_RANGE 0x944
@@ -238,7 +242,7 @@ static int xhci_mtk_test_mode_open(struct inode *inode,
 					struct file *file)
 {
 	return single_open(file, xhci_mtk_test_mode_show,
-					   inode->i_private);
+					   PDE_DATA(inode));
 }
 
 static const struct file_operations xhci_mtk_test_mode_fops = {
@@ -252,23 +256,16 @@ static const struct file_operations xhci_mtk_test_mode_fops = {
 static int xhci_mtk_dbg_init(struct xhci_hcd_mtk *mtk)
 {
 	int ret = 0;
-	struct dentry *root;
-	struct dentry *file;
 
-	root = debugfs_create_dir("xhci_mtk_dbg", NULL);
-	if (IS_ERR_OR_NULL(root)) {
-		ret = PTR_ERR(root);
+	file_testmode = NULL;
+	proc_mkdir(PROC_DIR_MTK_USB, NULL);
+
+	file_testmode = proc_create_data(PROC_FILE_TESTMODE, 0644, NULL,
+						&xhci_mtk_test_mode_fops, mtk);
+	if (file_testmode) {
+		ret = -ENOMEM;
 		goto err0;
 	}
-
-	file = debugfs_create_file("testmode", 0644, root,
-						mtk, &xhci_mtk_test_mode_fops);
-	if (IS_ERR_OR_NULL(file)) {
-		ret = PTR_ERR(file);
-		goto err0;
-	}
-
-	mtk->debugfs_root = root;
 
 	return 0;
 err0:
@@ -277,7 +274,8 @@ err0:
 
 static int xhci_mtk_dbg_exit(struct xhci_hcd_mtk *mtk)
 {
-	debugfs_remove_recursive(mtk->debugfs_root);
+	if (file_testmode)
+		proc_remove(file_testmode);
 	return 0;
 }
 

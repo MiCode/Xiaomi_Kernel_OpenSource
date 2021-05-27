@@ -482,7 +482,9 @@ int ssusb_otg_switch_init(struct ssusb_mtk *ssusb)
 
 	INIT_DELAYED_WORK(&otg_sx->extcon_reg_dwork, extcon_register_dwork);
 
+#ifdef CONFIG_PROC_FS
 	ssusb_debugfs_init(ssusb);
+#endif
 
 	/* It is enough to delay 1s for waiting for host initialization */
 	schedule_delayed_work(&otg_sx->extcon_reg_dwork, HZ/2);
@@ -504,6 +506,8 @@ void ssusb_otg_switch_exit(struct ssusb_mtk *ssusb)
 			EXTCON_USB_HOST, &otg_sx->id_nb);
 	}
 
+#ifdef CONFIG_PROC_FS
 	ssusb_debugfs_exit(ssusb);
+#endif
 	g_otg_sx = NULL;
 }
