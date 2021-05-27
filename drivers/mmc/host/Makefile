@@ -107,6 +107,9 @@ obj-$(CONFIG_MMC_CQHCI)			+= cqhci.o
 cqhci-y					+= cqhci-core.o
 cqhci-$(CONFIG_MMC_CRYPTO)		+= cqhci-crypto.o
 obj-$(CONFIG_MMC_HSQ)			+= mmc_hsq.o
+obj-$(CONFIG_MMC_MTK_PRO)		+= mtk-mmc.o
+obj-$(CONFIG_MMC_AUTOK)			+= mtk-mmc-autok.o
+obj-$(CONFIG_MMC_DEBUG)			+= mtk-mmc-dbg.o
 
 ifeq ($(CONFIG_CB710_DEBUG),y)
 	CFLAGS-cb710-mmc	+= -DDEBUG
