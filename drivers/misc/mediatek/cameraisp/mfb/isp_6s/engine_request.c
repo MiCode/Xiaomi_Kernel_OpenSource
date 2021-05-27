@@ -94,7 +94,7 @@ signed int mfb_init_frame(struct frame *frame)
 /*
  * single request init
  */
-signed int mfb_init_request(struct request *req)
+signed int mfb_init_request(struct request_mfb *req)
 {
 	int f;
 
