@@ -21,6 +21,7 @@ $(TARGET_KERNEL_CONFIG): kernel/build/build.sh $(GEN_KERNEL_BUILD_CONFIG) $(KERN
 	$(hide) mkdir -p $(dir $@)
 	$(hide) CC_WRAPPER=$(PRIVATE_CC_WRAPPER) SKIP_MRPROPER=1 BUILD_CONFIG=$(REL_GEN_KERNEL_BUILD_CONFIG) OUT_DIR=$(PRIVATE_KERNEL_OUT) DIST_DIR=$(PRIVATE_DIST_DIR) POST_DEFCONFIG_CMDS="exit 0" ./kernel/build/build.sh
 
+ifeq (yes,$(strip $(BUILD_KERNEL)))
 .KATI_RESTAT: $(KERNEL_ZIMAGE_OUT)
 $(KERNEL_ZIMAGE_OUT): PRIVATE_DIR := $(KERNEL_DIR)
 $(KERNEL_ZIMAGE_OUT): PRIVATE_KERNEL_OUT := $(REL_KERNEL_OUT)
@@ -38,10 +39,13 @@ $(BUILT_KERNEL_TARGET): $(KERNEL_ZIMAGE_OUT) $(TARGET_KERNEL_CONFIG) $(LOCAL_PAT
 $(TARGET_PREBUILT_KERNEL): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-new-target)
 
+endif#BUILD_KERNEL
 endif #TARGET_PREBUILT_KERNEL is empty
 
+ifeq (yes,$(strip $(BUILD_KERNEL)))
 $(INSTALLED_KERNEL_TARGET): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-target)
+endif#BUILD_KERNEL
 
 .PHONY: kernel save-kernel kernel-savedefconfig kernel-menuconfig menuconfig-kernel savedefconfig-kernel clean-kernel
 kernel: $(INSTALLED_KERNEL_TARGET)
