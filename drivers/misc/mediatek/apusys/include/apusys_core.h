@@ -53,7 +53,7 @@ void apu_rproc_exit(void);
  * call init function in order at apusys.ko init stage
  */
 static int (*apusys_init_func[])(struct apusys_core_info *) = {
-	apupwr_init_tags,
+//	apupwr_init_tags,
 	apu_power_drv_init,
 	devapc_init,
 	mnoc_init,
@@ -95,6 +95,6 @@ static void (*apusys_exit_func[])(void) = {
 	mnoc_exit,
 	devapc_exit,
 	apu_power_drv_exit,
-	apupwr_exit_tags,
+//	apupwr_exit_tags,
 };
 #endif
