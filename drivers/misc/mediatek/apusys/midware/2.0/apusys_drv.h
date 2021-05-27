@@ -111,7 +111,6 @@ enum mdw_cmd_ioctl_op {
 	MDW_CMD_IOCTL_BUILD,
 	MDW_CMD_IOCTL_RELEASE,
 	MDW_CMD_IOCTL_RUN,
-	MDW_CMD_IOCTL_RUNASYNC,
 };
 
 enum {

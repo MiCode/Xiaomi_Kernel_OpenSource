@@ -194,7 +194,7 @@ int mdw_ap_cmd_exec(struct mdw_cmd *c)
 		ret = -ENOMEM;
 		goto out;
 	}
-	c->priv = ac;
+	//c->priv = ac;
 
 	mdw_flw_debug("cmd(0x%llx) execute...\n", ac->c->kid);
 

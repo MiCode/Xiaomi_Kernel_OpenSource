@@ -90,7 +90,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		acc_cb += c->subcmds[i].num_cmdbufs;
 	}
 
-	c->priv = rc;
+	//c->priv = rc;
 
 	goto out;
 

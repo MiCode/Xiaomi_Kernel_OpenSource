@@ -138,19 +138,20 @@ struct mdw_cmd {
 	struct mdw_subcmd_kinfo *ksubcmds;
 	uint32_t num_cmdbufs;
 	uint32_t size_cmdbufs;
+	struct mdw_mem *cmdbufs;
+	struct dma_buf *cmdbufs_inst;
+	uint8_t *adj_matrix;
+
 	int state;
 	struct mutex mtx;
-	bool is_executed;
-	uint8_t *adj_matrix;
-	struct mdw_mem *cmdbufs;
-	void *priv;
+	struct kref ref;
+
 	struct mdw_fpriv *mpriv;
 	int (*complete)(struct mdw_cmd *c, int ret);
 
 	struct mdw_fence *fence;
 	struct work_struct t_wk;
 	struct dma_fence *wait_fence;
-	int wait_fd;
 };
 
 struct mdw_dev_func {

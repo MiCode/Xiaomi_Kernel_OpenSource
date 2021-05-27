@@ -166,7 +166,7 @@ static int mdw_mem_ioctl_free(struct mdw_fpriv *mpriv,
 
 	if (kref_read(&m->ref) == 1)
 		list_del(&m->u_item);
-	ret =mdw_mem_free(mpriv, m);
+	ret = mdw_mem_free(mpriv, m);
 
 out:
 	memset(args, 0, sizeof(*args));
