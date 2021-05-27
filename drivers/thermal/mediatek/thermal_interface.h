@@ -11,6 +11,7 @@
 #define CPU_HEADROOM_RATIO_OFFSET   (0x40)
 #define CPU_PREDICT_TEMP_OFFSET     (0x60)
 #define AP_NTC_HEADROOM_OFFSET      (0x80)
+#define TPCB_OFFSET      			(0x84)
 #define TTJ_OFFSET                 (0x100)
 #define POWER_BUDGET_OFFSET        (0x110)
 #define CPU_MIN_OPP_HINT_OFFSET    (0x120)
@@ -45,7 +46,9 @@ enum headroom_id {
 struct fps_cooler_info {
 	int target_fps;
 	int tpcb;
+	int tpcb_slope;
 	int ap_headroom;
+	int n_sec_to_ttpcb;
 };
 
 extern void update_ap_ntc_headroom(int temp, int polling_interval);

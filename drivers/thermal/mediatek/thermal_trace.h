@@ -364,17 +364,22 @@ TRACE_EVENT(fps_cooler,
 	TP_STRUCT__entry(
 		__field(int, target_fps)
 		__field(int, tpcb)
+		__field(int, tpcb_slope)
 		__field(int, ap_headroom)
+		__field(int, n_sec_to_ttpcb)
 	),
 
 	TP_fast_assign(
 		__entry->target_fps = fps_cooler->target_fps;
 		__entry->tpcb = fps_cooler->tpcb;
+		__entry->tpcb_slope = fps_cooler->tpcb_slope;
 		__entry->ap_headroom = fps_cooler->ap_headroom;
+		__entry->n_sec_to_ttpcb = fps_cooler->n_sec_to_ttpcb;
 	),
 
-	TP_printk("target_fps=%d tpcb=%d ap_headroom=%d",
-		__entry->target_fps, __entry->tpcb, __entry->ap_headroom)
+	TP_printk("target_fps=%d tpcb=%d tpcb_slope=%d ap_headroom=%d target_n=%d",
+		__entry->target_fps, __entry->tpcb, __entry->tpcb_slope,
+		__entry->ap_headroom, __entry->n_sec_to_ttpcb)
 );
 
 #endif /* _TRACE_MTK_THERMAL_H */
