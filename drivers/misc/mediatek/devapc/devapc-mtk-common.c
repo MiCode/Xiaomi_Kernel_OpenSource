@@ -876,20 +876,20 @@ int mtk_devapc_probe(struct platform_device *pdev,
 			mtk_devapc_ctx->devapc_pd_base,
 			mtk_devapc_ctx->devapc_irq);
 
-/* Enable devapc-infra-clock in preloader */
-#ifndef CONFIG_DEVAPC_MT6781
 	/* CCF (Common Clock Framework) */
 	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
 			"devapc-infra-clock");
 
-	if (IS_ERR(mtk_devapc_ctx->devapc_infra_clk)) {
-		pr_err(PFX "(Infra) Cannot get devapc clock from CCF.\n");
-		return PTR_ERR(mtk_devapc_ctx->devapc_infra_clk);
-	}
+	if (IS_ERR(mtk_devapc_ctx->devapc_infra_clk))
+		pr_info(PFX "(Infra) Cannot get devapc clock from CCF, error(%ld)\n",
+				PTR_ERR(mtk_devapc_ctx->devapc_infra_clk));
 
-	if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk))
-		return -EINVAL;
-#endif
+	if (!IS_ERR(mtk_devapc_ctx->devapc_infra_clk)) {
+		if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
+			pr_err(PFX "Cannot enable devapc clock\n");
+			return -EINVAL;
+		}
+	}
 
 	start_devapc();
 
@@ -914,10 +914,9 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 int mtk_devapc_remove(struct platform_device *dev)
 {
-/* devapc-infra-clock is always on */
-#ifndef CONFIG_DEVAPC_MT6781
-	clk_disable_unprepare(mtk_devapc_ctx->devapc_infra_clk);
-#endif
+	if (!IS_ERR(mtk_devapc_ctx->devapc_infra_clk))
+		clk_disable_unprepare(mtk_devapc_ctx->devapc_infra_clk);
+
 	return 0;
 }
 
