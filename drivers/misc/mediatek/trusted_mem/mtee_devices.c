@@ -175,6 +175,11 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
 
+	/* skip svp and wfd when disable svp */
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD) &&
+		!is_svp_enabled())
+		return NULL;
+
 	/* skip svp or wfd on TEE */
 	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD) &&
 		!is_svp_on_mtee())
