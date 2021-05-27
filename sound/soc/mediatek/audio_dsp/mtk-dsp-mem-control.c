@@ -392,8 +392,7 @@ int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 }
 
 int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
-			  unsigned int size,
-			  int id)
+			  unsigned int size)
 {
 	int ret = 0;
 
@@ -413,8 +412,7 @@ int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
 }
 EXPORT_SYMBOL_GPL(mtk_adsp_allocate_mem);
 
-int mtk_adsp_free_mem(struct snd_pcm_substream *substream,
-		      int id)
+int mtk_adsp_free_mem(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 
@@ -460,7 +458,12 @@ int mtk_adsp_genpool_free_memory(unsigned char **vaddr,
 	struct gen_pool *gen_pool_dsp = mtk_get_adsp_dram_gen_pool(id);
 
 	if (gen_pool_dsp == NULL) {
-		pr_warn("%s gen_pool_dsp == NULL\n", __func__);
+		pr_warn("%s() gen_pool_dsp == NULL\n", __func__);
+		return -1;
+	}
+
+	if (!gen_pool_has_addr(gen_pool_dsp, (unsigned long)*vaddr, *size)) {
+		pr_warn("%s() vaddr is not in genpool\n", __func__);
 		return -1;
 	}
 

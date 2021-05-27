@@ -88,10 +88,8 @@ int set_dsp_base(struct mtk_base_dsp *pdsp);
 void *get_dsp_base(void);
 
 int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
-			  unsigned int size,
-			  int id);
-int mtk_adsp_free_mem(struct snd_pcm_substream *substream,
-		      int id);
+			  unsigned int size);
+int mtk_adsp_free_mem(struct snd_pcm_substream *substream);
 
 int mtk_adsp_genpool_allocate_memory(unsigned char **vaddr,
 				     dma_addr_t *paddr,

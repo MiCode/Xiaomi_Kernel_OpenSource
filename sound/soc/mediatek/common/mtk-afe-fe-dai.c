@@ -150,9 +150,10 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	unsigned int rate = params_rate(params);
 	snd_pcm_format_t format = params_format(params);
 
-#if IS_ENABLED(CONFIG_MTK_ION)
+
 	// mmap don't alloc buffer
 	if (memif->use_mmap_share_mem != 0) {
+#if IS_ENABLED(CONFIG_MTK_ION)
 		unsigned long phy_addr;
 		void *vir_addr;
 
@@ -178,10 +179,11 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 			dev_warn(afe->dev, "mmap share mem %d not support\n",
 				 memif->use_mmap_share_mem);
 		}
-
-		goto MMAP_MEM_ALLOCATE_DONE;
-	}
+#else
+		dev_err(afe->dev, "%s(), CONFIG_MTK_ION not support\n", __func__);
 #endif
+		goto MEM_ALLOCATE_DONE;
+	}
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
 	/*
@@ -191,6 +193,7 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	mtk_audio_sram_free(afe->sram, substream);
 
 	substream->runtime->dma_bytes = params_buffer_bytes(params);
+
 	if (memif->use_dram_only == 0 &&
 	    mtk_audio_sram_allocate(afe->sram,
 				    &substream->runtime->dma_addr,
@@ -199,7 +202,10 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 				    substream,
 				    params_format(params), false) == 0) {
 		memif->using_sram = 1;
-	} else {
+	} else
+#endif
+	{
+		memif->using_sram = 0;
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 		if (memif->vow_barge_in_enable) {
 			ret = mtk_scp_vow_barge_in_allocate_mem(substream,
@@ -207,17 +213,31 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 						   &substream->runtime->dma_area,
 						   substream->runtime->dma_bytes,
 						   afe);
-			goto MALLOC_DONE_SRAM;
+			if (ret < 0) {
+				dev_err(afe->dev,
+					"%s(), vow_barge_in: %d, err: %d\n",
+					__func__, memif->use_adsp_share_mem, ret);
+				return ret;
+			}
+
+			goto MEM_ALLOCATE_DONE;
 		}
 #endif
+
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-		if (memif->use_adsp_share_mem == true) {
+		if (memif->use_adsp_share_mem) {
 			ret = mtk_adsp_allocate_mem(substream,
-						    params_buffer_bytes(params),
-						    id);
-			goto MALLOC_DONE_SRAM;
+						    params_buffer_bytes(params));
+			if (ret < 0) {
+				dev_err(afe->dev, "%s(), adsp_share_mem: %d, err: %d\n",
+					__func__, memif->use_adsp_share_mem, ret);
+				return ret;
+			}
+
+			goto MEM_ALLOCATE_DONE;
 		}
 #endif
+
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 	if (memif->scp_ultra_enable) {
 		ret = mtk_scp_ultra_allocate_mem(substream,
@@ -225,62 +245,26 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 						 &substream->runtime->dma_area,
 						 substream->runtime->dma_bytes,
 						 afe);
-		goto MALLOC_DONE_SRAM;
+		if (ret < 0) {
+			dev_err(afe->dev, "%s(), scp_ultra_enable: %d, err: %d\n",
+				__func__, memif->scp_ultra_enable, ret);
+			return ret;
+		}
+
+		goto MEM_ALLOCATE_DONE;
 	}
 #endif
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(params));
-
-#if (IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) || IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY))
-MALLOC_DONE_SRAM:
-#endif
-		if (ret < 0)
+		if (ret < 0) {
+			dev_err(afe->dev,
+				"%s(), snd_pcm_lib_malloc_pages err: %d\n",
+				__func__, ret);
 			return ret;
-		memif->using_sram = 0;
+		}
 	}
-#else
-/* CONFIG_SND_SOC_MTK_SRAM not enabled */
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
-	if (memif->vow_barge_in_enable) {
-		ret = mtk_scp_vow_barge_in_allocate_mem(substream,
-						   &substream->runtime->dma_addr,
-						   &substream->runtime->dma_area,
-						   substream->runtime->dma_bytes,
-						   afe);
-		goto MALLOC_DONE;
-	}
-#endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
-	if (memif->scp_ultra_enable) {
-		ret = mtk_scp_ultra_allocate_mem(substream,
-						 &substream->runtime->dma_addr,
-						 &substream->runtime->dma_area,
-						 substream->runtime->dma_bytes,
-						 afe);
-		goto MALLOC_DONE;
-	}
-#endif
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	if (memif->use_adsp_share_mem == true) {
-		ret = mtk_adsp_allocate_mem(substream,
-					    params_buffer_bytes(params),
-					    id);
-		goto MALLOC_DONE;
-	}
-#endif
-	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+MEM_ALLOCATE_DONE:
 
-#if (IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) || IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY))
-MALLOC_DONE:
-#endif
-	if (ret < 0)
-		return ret;
-	memif->using_sram = 0;
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_ION)
-MMAP_MEM_ALLOCATE_DONE:
-#endif
 	memset_io(substream->runtime->dma_area, 0,
 		  substream->runtime->dma_bytes);
 
@@ -354,38 +338,23 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	if (memif->using_sram == 0 && afe->release_dram_resource)
 		afe->release_dram_resource(afe->dev);
 
-#if IS_ENABLED(CONFIG_MTK_ION)
 	// mmap do not free buffer
 	if (memif->use_mmap_share_mem)
 		return 0;
-#endif
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
 	if (memif->using_sram) {
 		memif->using_sram = 0;
 		return mtk_audio_sram_free(afe->sram, substream);
+	} else
+#endif
+	{
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+		if (memif->use_adsp_share_mem)
+			return mtk_adsp_free_mem(substream);
+#endif
+		return snd_pcm_lib_free_pages(substream);
 	}
-
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	if (memif->use_adsp_share_mem == true)
-		return mtk_adsp_free_mem(substream,
-					 cpu_dai->id);
-
-	return snd_pcm_lib_free_pages(substream);
-#else
-	return snd_pcm_lib_free_pages(substream);
-#endif
-#else
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	if (memif->use_adsp_share_mem == true)
-		return mtk_adsp_free_mem(substream,
-					 cpu_dai->id);
-
-	return snd_pcm_lib_free_pages(substream);
-#else
-	return snd_pcm_lib_free_pages(substream);
-#endif
-#endif
 }
 EXPORT_SYMBOL_GPL(mtk_afe_fe_hw_free);
 

@@ -296,59 +296,13 @@ int mt6885_get_memif_pbuf_size(struct snd_pcm_substream *substream)
 		return MT6885_MEMIF_PBUF_SIZE_32_BYTES;
 }
 
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-int mt6885_fe_prepare(struct snd_pcm_substream *substream,
-		      struct snd_soc_dai *dai)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_pcm_runtime * const runtime = substream->runtime;
-	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
-	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
-	int id = cpu_dai->id;
-	struct mtk_base_afe_memif *memif = &afe->memif[id];
-	int irq_id = memif->irq_usage;
-	struct mtk_base_afe_irq *irqs = &afe->irqs[irq_id];
-	const struct mtk_base_irq_data *irq_data = irqs->irq_data;
-	unsigned int counter = runtime->period_size;
-	int fs;
-	int ret;
-
-	ret = mtk_afe_fe_prepare(substream, dai);
-	if (ret)
-		goto exit;
-
-	/* set irq counter */
-	regmap_update_bits(afe->regmap, irq_data->irq_cnt_reg,
-			       irq_data->irq_cnt_maskbit
-			       << irq_data->irq_cnt_shift,
-			       counter << irq_data->irq_cnt_shift);
-
-	/* set irq fs */
-	fs = afe->irq_fs(substream, runtime->rate);
-
-	if (fs < 0)
-		return -EINVAL;
-
-	regmap_update_bits(afe->regmap, irq_data->irq_fs_reg,
-			       irq_data->irq_fs_maskbit
-			       << irq_data->irq_fs_shift,
-			       fs << irq_data->irq_fs_shift);
-exit:
-	return ret;
-}
-#endif
-
 /* FE DAIs */
 static const struct snd_soc_dai_ops mt6885_memif_dai_ops = {
 	.startup	= mt6885_fe_startup,
 	.shutdown	= mt6885_fe_shutdown,
 	.hw_params	= mtk_afe_fe_hw_params,
 	.hw_free	= mtk_afe_fe_hw_free,
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	.prepare	= mt6885_fe_prepare,
-#else
 	.prepare	= mtk_afe_fe_prepare,
-#endif
 	.trigger	= mt6885_fe_trigger,
 };
 
@@ -3403,6 +3357,7 @@ static const struct snd_soc_component_driver mt6885_afe_component = {
 	.name = AFE_PCM_NAME,
 	.probe = mt6885_afe_component_probe,
 	.pcm_construct = mtk_afe_pcm_new,
+	.pcm_destruct = mtk_afe_pcm_free,
 	.pointer = mtk_afe_pcm_pointer,
 	.copy_user = mtk_afe_pcm_copy_user,
 };
