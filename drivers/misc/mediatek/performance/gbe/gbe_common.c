@@ -44,20 +44,19 @@
 #include "gbe_sysfs.h"
 
 static DEFINE_MUTEX(gbe_lock);
-static int cluster_num;
-static struct pm_qos_request dram_req;
 static int boost_set[KIR_NUM];
 static unsigned long policy_mask;
-static struct ppm_limit_data *pld;
 
 enum GBE_BOOST_DEVICE {
-	GBE_BOOST_CPU,
-	GBE_BOOST_EAS,
-	GBE_BOOST_VCORE,
-	GBE_BOOST_IO,
-	GBE_BOOST_HE,
-	GBE_BOOST_GPU,
-	GBE_BOOST_NUM,
+	GBE_BOOST_UNKNOWN = -1,
+	GBE_BOOST_CPU = 0,
+	GBE_BOOST_EAS = 1,
+	GBE_BOOST_VCORE = 2,
+	GBE_BOOST_IO = 3,
+	GBE_BOOST_HE = 4,
+	GBE_BOOST_GPU = 5,
+	GBE_BOOST_LLF = 6,
+	GBE_BOOST_NUM = 7,
 };
 
 static unsigned long __read_mostly tracing_mark_write_addr;
@@ -107,47 +106,60 @@ void gbe_trace_count(int tid, int val, const char *fmt, ...)
 	preempt_enable();
 }
 
-static struct miscdevice gbe_object;
-bool sentuevent(const char *src)
+struct k_list {
+	struct list_head queue_list;
+	int gbe2pwr_cmd;
+	int gbe2pwr_value1;
+	int gbe2pwr_value2;
+};
+static LIST_HEAD(head);
+static int condition_get_cmd;
+static DEFINE_MUTEX(gbe2pwr_lock);
+static DECLARE_WAIT_QUEUE_HEAD(pwr_queue);
+void gbe_sentcmd(int cmd, int value1, int value2)
 {
-	int ret;
-	char *envp[2];
-	int string_size = 15;
-	char  event_string[string_size];
+	static struct k_list *node;
 
-	envp[0] = event_string;
-	envp[1] = NULL;
+	mutex_lock(&gbe2pwr_lock);
+	node = kmalloc(sizeof(struct k_list *), GFP_KERNEL);
+	if (node == NULL)
+		goto out;
+	node->gbe2pwr_cmd = cmd;
+	node->gbe2pwr_value1 = value1;
+	node->gbe2pwr_value2 = value2;
+	list_add_tail(&node->queue_list, &head);
+	condition_get_cmd = 1;
+out:
+	mutex_unlock(&gbe2pwr_lock);
+	wake_up_interruptible(&pwr_queue);
+}
 
+void gbe_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2)
+{
+	static struct k_list *node;
 
-	/*send uevent*/
-	strlcpy(event_string, src, string_size);
-	if (event_string[0] == '\0') { /*string is null*/
-
-		return false;
+	wait_event_interruptible(pwr_queue, condition_get_cmd);
+	mutex_lock(&gbe2pwr_lock);
+	if (!list_empty(&head)) {
+		node = list_first_entry(&head, struct k_list, queue_list);
+		*cmd = node->gbe2pwr_cmd;
+		*value1 = node->gbe2pwr_value1;
+		*value2 = node->gbe2pwr_value2;
+		list_del(&node->queue_list);
+		kfree(node);
 	}
-	ret = kobject_uevent_env(
-			&gbe_object.this_device->kobj,
-			KOBJ_CHANGE, envp);
-	if (ret != 0) {
-		pr_debug("uevent failed");
-
-		return false;
-	}
-
-	return true;
+	if (list_empty(&head))
+		condition_get_cmd = 0;
+	mutex_unlock(&gbe2pwr_lock);
 }
 
 void gbe_boost(enum GBE_KICKER kicker, int boost)
 {
-	int uclamp_pct, pm_req;
 	int i;
 	int boost_final = 0;
-	char u_io_string[11];
-	char u_boost_string[12];
-	char u_gpu_string[12];
-
-	if (!pld)
-		return;
+	int cpu_boost = 0, eas_boost = -1, vcore_boost = -1,
+			io_boost = 0, he_boost = 0, gpu_boost = 0,
+			llf_boost = 0;
 
 	mutex_lock(&gbe_lock);
 
@@ -162,51 +174,36 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 			break;
 		}
 
-
-	if (!pm_qos_request_active(&dram_req))
-		pm_qos_add_request(&dram_req, PM_QOS_DDR_OPP,
-				PM_QOS_DDR_OPP_DEFAULT_VALUE);
-
 	if (boost_final) {
-		for (i = 0; i < cluster_num; i++) {
-			pld[i].max = 3000000;
-			pld[i].min = 3000000;
-		}
-		uclamp_pct = 100;
-		pm_req = 0;
-		strncpy(u_io_string, "IO_BOOST=1", 11);
-		strncpy(u_gpu_string, "GPU_BOOST=1", 12);
-		strncpy(u_boost_string, "GBE_BOOST=1", 12);
-	} else {
-		for (i = 0; i < cluster_num; i++) {
-			pld[i].max = -1;
-			pld[i].min = -1;
-		}
-		uclamp_pct = 0;
-		pm_req = PM_QOS_DDR_OPP_DEFAULT_VALUE;
-		strncpy(u_io_string, "IO_BOOST=0", 11);
-		strncpy(u_gpu_string, "GPU_BOOST=0", 12);
-		strncpy(u_boost_string, "GBE_BOOST=0", 12);
+		cpu_boost = 1;
+		eas_boost = 100;
+		vcore_boost = 0;
+		io_boost = 1;
+		he_boost = 1;
+		gpu_boost = 1;
+		llf_boost = 1;
 	}
 
 	if (test_bit(GBE_BOOST_CPU, &policy_mask))
-		update_userlimit_cpu_freq(CPU_KIR_GBE, cluster_num, pld);
+		gbe_sentcmd(GBE_BOOST_CPU, cpu_boost, -1);
 
 	if (test_bit(GBE_BOOST_EAS, &policy_mask))
-		update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE,
-			CGROUP_TA, uclamp_pct);
+		gbe_sentcmd(GBE_BOOST_EAS, eas_boost, -1);
 
 	if (test_bit(GBE_BOOST_VCORE, &policy_mask))
-		pm_qos_update_request(&dram_req, pm_req);
+		gbe_sentcmd(GBE_BOOST_VCORE, vcore_boost, -1);
 
 	if (test_bit(GBE_BOOST_IO, &policy_mask))
-		sentuevent(u_io_string);
+		gbe_sentcmd(GBE_BOOST_IO, io_boost, -1);
 
 	if (test_bit(GBE_BOOST_HE, &policy_mask))
-		sentuevent(u_boost_string);
+		gbe_sentcmd(GBE_BOOST_HE, he_boost, -1);
 
 	if (test_bit(GBE_BOOST_GPU, &policy_mask))
-		sentuevent(u_gpu_string);
+		gbe_sentcmd(GBE_BOOST_GPU, gpu_boost, -1);
+
+	if (test_bit(GBE_BOOST_LLF, &policy_mask))
+		gbe_sentcmd(GBE_BOOST_LLF, llf_boost, -1);
 
 out:
 	mutex_unlock(&gbe_lock);
@@ -227,6 +224,9 @@ static ssize_t gbe_policy_mask_store(struct kobject *kobj,
 	int val = 0;
 	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
 	int arg;
+	int cpu_boost = 0, eas_boost = -1, vcore_boost = -1,
+			io_boost = 0, he_boost = 0, gpu_boost = 0,
+			llf_boost = 0;
 
 	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -237,70 +237,25 @@ static ssize_t gbe_policy_mask_store(struct kobject *kobj,
 		}
 	}
 
-	if (val > 64 || val < 0)
+	if (val > 1 << GBE_BOOST_NUM || val < 0)
 		return count;
 
-	if (!pld)
-		return count;
+	mutex_lock(&gbe_lock);
+	policy_mask = val;
 
-	{
-		int i;
-		char u_io_string[11];
-		char u_gpu_string[12];
-		char u_boost_string[12];
-
-		strncpy(u_io_string, "IO_BOOST=0", 11);
-		strncpy(u_gpu_string, "GPU_BOOST=0", 12);
-		strncpy(u_boost_string, "GBE_BOOST=0", 12);
-		for (i = 0; i < cluster_num; i++) {
-			pld[i].max = -1;
-			pld[i].min = -1;
-		}
-
-		mutex_lock(&gbe_lock);
-		policy_mask = val;
-
-		update_userlimit_cpu_freq(CPU_KIR_GBE, cluster_num, pld);
-		update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, 0);
-		pm_qos_update_request(&dram_req, PM_QOS_DDR_OPP_DEFAULT_VALUE);
-		sentuevent(u_io_string);
-		sentuevent(u_gpu_string);
-		sentuevent(u_boost_string);
-
-		mutex_unlock(&gbe_lock);
-	}
+	gbe_sentcmd(GBE_BOOST_CPU, cpu_boost, -1);
+	gbe_sentcmd(GBE_BOOST_EAS, eas_boost, -1);
+	gbe_sentcmd(GBE_BOOST_VCORE, vcore_boost, -1);
+	gbe_sentcmd(GBE_BOOST_IO, io_boost, -1);
+	gbe_sentcmd(GBE_BOOST_HE, he_boost, -1);
+	gbe_sentcmd(GBE_BOOST_GPU, gpu_boost, -1);
+	gbe_sentcmd(GBE_BOOST_LLF, llf_boost, -1);
+	mutex_unlock(&gbe_lock);
 
 	return count;
 }
 
 static KOBJ_ATTR_RW(gbe_policy_mask);
-
-static int init_gbe_kobj(void)
-{
-	int ret = 0;
-
-	/* dev init */
-
-	gbe_object.name = "gbe";
-	gbe_object.minor = MISC_DYNAMIC_MINOR;
-	ret = misc_register(&gbe_object);
-	if (ret) {
-		pr_debug("misc_register error:%d\n", ret);
-		return ret;
-	}
-
-	ret = kobject_uevent(
-			&gbe_object.this_device->kobj, KOBJ_ADD);
-
-	if (ret) {
-		misc_deregister(&gbe_object);
-		pr_debug("uevent creat fail:%d\n", ret);
-		return ret;
-	}
-
-	return ret;
-
-}
 
 static void __exit gbe_common_exit(void)
 {
@@ -311,7 +266,7 @@ static void __exit gbe_common_exit(void)
 struct dentry *gbe_debugfs_dir;
 static int __init gbe_common_init(void)
 {
-	int ret = 0;
+	gbe_get_cmd_fp = gbe_ctrl2base_get_pwr_cmd;
 
 	gbe_sysfs_init();
 	gbe1_init();
@@ -319,21 +274,11 @@ static int __init gbe_common_init(void)
 
 	gbe_sysfs_create_file(&kobj_attr_gbe_policy_mask);
 
-	cluster_num = arch_get_nr_clusters();
-	pld = kcalloc(cluster_num,
-			sizeof(struct ppm_limit_data),
-			GFP_KERNEL);
 
 	set_bit(GBE_BOOST_CPU, &policy_mask);
 	set_bit(GBE_BOOST_EAS, &policy_mask);
 	set_bit(GBE_BOOST_VCORE, &policy_mask);
 	set_bit(GBE_BOOST_HE, &policy_mask);
-
-	ret = init_gbe_kobj();
-	if (ret) {
-		pr_debug("init gbe_kobj failed");
-		return ret;
-	}
 
 	return 0;
 }

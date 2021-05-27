@@ -32,6 +32,7 @@ void (*fpsgo_notify_bqid_fp)(int pid, unsigned long long bufID,
 		int queue_SF, unsigned long long identifier, int create);
 void (*fpsgo_notify_vsync_fp)(void);
 int (*fpsgo_get_fps_fp)(void);
+void (*gbe_get_cmd_fp)(int *cmd, int *value1, int *value2);
 void (*fpsgo_notify_nn_job_begin_fp)(unsigned int tid, unsigned long long mid);
 void (*fpsgo_notify_nn_job_end_fp)(int pid, int tid, unsigned long long mid,
 	int num_step, __s32 *boost, __s32 *device, __u64 *exec_time);
@@ -242,7 +243,6 @@ out_um_malloc_fail:
 	fpsgo_notify_nn_job_end_fp(msgKM->pid, msgKM->tid, msgKM->mid,
 			msgKM->num_step, NULL, NULL, NULL);
 }
-
 
 /*--------------------DEV OP------------------------*/
 static int eara_show(struct seq_file *m, void *v)
@@ -464,6 +464,7 @@ static long device_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
 	ssize_t ret = 0;
+	int pwr_cmd = -1, value1 = -1, value2 = -1;
 	struct _FPSGO_PACKAGE *msgKM = NULL,
 			*msgUM = (struct _FPSGO_PACKAGE *)arg;
 	struct _FPSGO_PACKAGE smsgKM;
@@ -520,6 +521,20 @@ static long device_ioctl(struct file *filp,
 		perfctl_copy_to_user(msgUM, msgKM,
 				sizeof(struct _FPSGO_PACKAGE));
 		break;
+	case FPSGO_GET_CMD:
+		ret = -1;
+		break;
+	case FPSGO_GBE_GET_CMD:
+		if (gbe_get_cmd_fp) {
+			gbe_get_cmd_fp(&pwr_cmd, &value1, &value2);
+			msgKM->cmd = pwr_cmd;
+			msgKM->value1 = value1;
+			msgKM->value2 = value2;
+		} else
+			ret = -1;
+		perfctl_copy_to_user(msgUM, msgKM,
+				sizeof(struct _FPSGO_PACKAGE));
+		break;
 
 #else
 	case FPSGO_TOUCH:
@@ -535,9 +550,16 @@ static long device_ioctl(struct file *filp,
 	case FPSGO_BQID:
 		/* FALLTHROUGH */
 	case FPSGO_SWAP_BUFFER:
-		break;
+		/* FALLTHROUGH */
 	case FPSGO_GET_FPS:
 		ret = -1;
+		break;
+	case FPSGO_GET_CMD:
+		ret = -1;
+		break;
+	case FPSGO_GBE_GET_CMD:
+		ret = -1;
+		break;
 		break;
 #endif
 
