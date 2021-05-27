@@ -975,8 +975,8 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 
 	wallclock = walt_ktime_get_ns();
 
-	lockdep_assert_held(src_rq->lock);
-	lockdep_assert_held(dest_rq->lock);
+	lockdep_assert_held(&src_rq->lock);
+	lockdep_assert_held(&dest_rq->lock);
 
 	walt_update_task_ravg(task_rq(p)->curr, task_rq(p),
 			 TASK_UPDATE,
