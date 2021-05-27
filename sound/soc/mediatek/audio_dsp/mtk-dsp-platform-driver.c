@@ -1203,12 +1203,16 @@ static int mtk_dsp_pcm_open(struct snd_soc_component *component,
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_OPEN,
 			       0, 0, NULL);
-	if (ret)
+	if (ret < 0) {
 		pr_info("%s() ret[%d]\n", __func__, ret);
+		mtk_dsp_deregister_feature(dsp_feature_id);
+		goto error;
+	}
 
 	dsp->dsp_mem[id].substream = substream;
 	dsp->dsp_mem[id].underflowed = 0;
 
+error:
 	return ret;
 }
 
