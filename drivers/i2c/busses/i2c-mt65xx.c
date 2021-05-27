@@ -85,8 +85,6 @@
 enum {
 	DMA_HW_VERSION0 = 0,
 	DMA_HW_VERSION1 = 1,
-	MDA_SUPPORT_8G  = 2,
-	DMA_SUPPORT_64G = 3,
 };
 
 enum DMA_REGS_OFFSET {
@@ -119,6 +117,7 @@ enum mtk_trans_op {
 enum I2C_REGS_OFFSET {
 	OFFSET_DATA_PORT,
 	OFFSET_SLAVE_ADDR,
+	OFFSET_SLAVE_ADDR1,
 	OFFSET_INTR_MASK,
 	OFFSET_INTR_STAT,
 	OFFSET_CONTROL,
@@ -149,6 +148,8 @@ enum I2C_REGS_OFFSET {
 	OFFSET_HS_STA_STO_AC_TIMING,
 	OFFSET_SDA_TIMING,
 	OFFSET_DMA_FSM_DEBUG,
+	OFFSET_MCU_INTR,
+	OFFSET_MULTI_DMA,
 };
 
 static const u16 mt_i2c_regs_v1[] = {
@@ -188,6 +189,7 @@ static const u16 mt_i2c_regs_v1[] = {
 static const u16 mt_i2c_regs_v2[] = {
 	[OFFSET_DATA_PORT] = 0x0,
 	[OFFSET_SLAVE_ADDR] = 0x4,
+	[OFFSET_SLAVE_ADDR1] = 0x94,
 	[OFFSET_INTR_MASK] = 0x8,
 	[OFFSET_INTR_STAT] = 0xc,
 	[OFFSET_CONTROL] = 0x10,
@@ -202,17 +204,18 @@ static const u16 mt_i2c_regs_v2[] = {
 	[OFFSET_IO_CONFIG] = 0x34,
 	[OFFSET_FIFO_ADDR_CLR] = 0x38,
 	[OFFSET_SDA_TIMING] = 0x3c,
+	[OFFSET_MCU_INTR] = 0x40,
 	[OFFSET_TRANSFER_LEN_AUX] = 0x44,
 	[OFFSET_CLOCK_DIV] = 0x48,
 	[OFFSET_SOFTRESET] = 0x50,
 	[OFFSET_SCL_MIS_COMP_POINT] = 0x90,
-	[OFFSET_DEBUGSTAT] = 0xe0,
 	[OFFSET_DEBUGSTAT] = 0xe4,
 	[OFFSET_DEBUGCTRL] = 0xe8,
 	[OFFSET_DMA_FSM_DEBUG] = 0xec,
 	[OFFSET_FIFO_STAT] = 0xf4,
 	[OFFSET_FIFO_THRESH] = 0xf8,
 	[OFFSET_DCM_EN] = 0xf88,
+	[OFFSET_MULTI_DMA] = 0xf8c,
 };
 
 struct mtk_i2c_compatible {
@@ -228,6 +231,7 @@ struct mtk_i2c_compatible {
 	unsigned char dma_ver;
 	unsigned char apdma_sync: 1;
 	unsigned char max_dma_support;
+	unsigned char slave_addr_ver;
 };
 
 struct mtk_i2c_ac_timing {
@@ -432,11 +436,43 @@ static const struct mtk_i2c_compatible mt6873_compat = {
 	.max_dma_support = 36,
 };
 
+static const struct mtk_i2c_compatible mt6879_compat = {
+	.regs = mt_i2c_regs_v2,
+	.pmic_i2c = 0,
+	.dcm = 0,
+	.auto_restart = 1,
+	.aux_len_reg = 1,
+	.timing_adjust = 1,
+	.dma_sync = 1,
+	.ltiming_adjust = 1,
+	.dma_ver = 0,
+	.apdma_sync = 1,
+	.max_dma_support = 36,
+	.slave_addr_ver = 1,
+};
+
+static const struct mtk_i2c_compatible mt6983_compat = {
+	.regs = mt_i2c_regs_v2,
+	.pmic_i2c = 0,
+	.dcm = 0,
+	.auto_restart = 1,
+	.aux_len_reg = 1,
+	.timing_adjust = 1,
+	.dma_sync = 1,
+	.ltiming_adjust = 1,
+	.dma_ver = 1,
+	.apdma_sync = 1,
+	.max_dma_support = 36,
+	.slave_addr_ver = 1,
+};
+
 static const struct of_device_id mtk_i2c_of_match[] = {
 	{ .compatible = "mediatek,mt2712-i2c", .data = &mt2712_compat },
 	{ .compatible = "mediatek,mt6577-i2c", .data = &mt6577_compat },
 	{ .compatible = "mediatek,mt6589-i2c", .data = &mt6589_compat },
 	{ .compatible = "mediatek,mt6873-i2c", .data = &mt6873_compat },
+	{ .compatible = "mediatek,mt6879-i2c", .data = &mt6879_compat },
+	{ .compatible = "mediatek,mt6983-i2c", .data = &mt6983_compat },
 	{ .compatible = "mediatek,mt7622-i2c", .data = &mt7622_compat },
 	{ .compatible = "mediatek,mt8173-i2c", .data = &mt8173_compat },
 	{ .compatible = "mediatek,mt8183-i2c", .data = &mt8183_compat },
@@ -858,11 +894,17 @@ static int mtk_i2c_set_speed(struct mtk_i2c *i2c, unsigned int parent_clk)
 
 static void mtk_i2c_dump_reg(struct mtk_i2c *i2c)
 {
+	u16 slave_addr_value = 0;
+
+	if (i2c->dev_comp->slave_addr_ver == 1)
+		slave_addr_value = mtk_i2c_readw(i2c, OFFSET_SLAVE_ADDR1);
+	else
+		slave_addr_value = mtk_i2c_readw(i2c, OFFSET_SLAVE_ADDR);
 	dev_info(i2c->dev, "I2C register:\n"
 		"SLAVE_ADDR=0x%x,INTR_STAT=0x%x,CONTROL=0x%x,\n"
 		"TRANSFER_LEN=0x%x,TRANSAC_LEN=0x%x,START=0x%x,\n"
 		"FIFO_STAT=0x%x,DEBUGSTAT=0x%x,DMA_FSM_DEBUG=0x%x\n",
-		(mtk_i2c_readw(i2c, OFFSET_SLAVE_ADDR)),
+		(slave_addr_value),
 		(mtk_i2c_readw(i2c, OFFSET_INTR_STAT)),
 		(mtk_i2c_readw(i2c, OFFSET_CONTROL)),
 		(mtk_i2c_readw(i2c, OFFSET_TRANSFER_LEN)),
@@ -922,7 +964,10 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	mtk_i2c_writew(i2c, control_reg, OFFSET_CONTROL);
 
 	addr_reg = i2c_8bit_addr_from_msg(msgs);
-	mtk_i2c_writew(i2c, addr_reg, OFFSET_SLAVE_ADDR);
+	if (i2c->dev_comp->slave_addr_ver == 1)
+		mtk_i2c_writew(i2c, addr_reg, OFFSET_SLAVE_ADDR1);
+	else
+		mtk_i2c_writew(i2c, addr_reg, OFFSET_SLAVE_ADDR);
 
 	/* Clear interrupt status */
 	mtk_i2c_writew(i2c, restart_flag | I2C_HS_NACKERR | I2C_ACKERR |
