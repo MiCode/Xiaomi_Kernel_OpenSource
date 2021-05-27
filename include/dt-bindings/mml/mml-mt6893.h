@@ -14,7 +14,8 @@
 #define MML_RSZ1		3
 #define MML_WROT0		4
 #define MML_WROT1		5
-#define MML_ENGINE_TOTAL	6
+#define MML_MUTEX		6
+#define MML_ENGINE_TOTAL	7
 /*
 #define MML_MMLSYS		0
 #define MML_MUTEX		1

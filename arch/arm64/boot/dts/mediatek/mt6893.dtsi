@@ -5773,6 +5773,14 @@
 			comp-count = <MML_ENGINE_TOTAL>;
 		};
 
+		mml_mutex: mml_mutex@1f001000 {
+			compatible = "mediatek,mml_mutex", "mediatek,mt6893-mml_mutex";
+			reg = <0 0x1f001000 0 0x1000>;
+			clocks = <&mdpsys CLK_MDP_MUTEX0>;
+			clock-names = "MDP_MUTEX0";
+			comp-id = <MML_MUTEX>;
+		};
+
 		mml_rdma0: mml_rdma0@1f006000 {
 			compatible = "mediatek,mml_rdma0", "mediatek,mt6893-mml_rdma";
 			reg = <0 0x1f006000 0 0x1000>;
