@@ -331,30 +331,6 @@ TRACE_EVENT(cpu_hr_info_1,
 		__entry->cpu3_temp, __entry->cpu3_pdt_temp, __entry->cpu3_headroom, __entry->cpu3_ratio)
 );
 
-TRACE_EVENT(ap_ntc_hr,
-
-	TP_PROTO(int temp, int predict_temp, int headroom, int ratio),
-
-	TP_ARGS(temp, predict_temp, headroom, ratio),
-
-	TP_STRUCT__entry(
-		__field(int, temp)
-		__field(int, predict_temp)
-		__field(int, headroom)
-		__field(int, ratio)
-	),
-
-	TP_fast_assign(
-		__entry->temp = temp;
-		__entry->predict_temp = predict_temp;
-		__entry->headroom = headroom;
-		__entry->ratio = ratio;
-	),
-
-	TP_printk("temp=%d predict_temp=%d headroom=%d ratio=%d",
-		__entry->temp, __entry->predict_temp, __entry->headroom, __entry->ratio)
-);
-
 TRACE_EVENT(fps_cooler,
 
 	TP_PROTO(struct fps_cooler_info *fps_cooler),

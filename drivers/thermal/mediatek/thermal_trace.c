@@ -61,7 +61,8 @@ static struct thermal_info thermal_info_data;
 
 struct thermal_trace {
 	int enable;
-	unsigned long period;
+	int hr_enable;
+	unsigned long hr_period;
 	struct mutex lock;
 	struct hrtimer trace_timer;
 };
@@ -134,7 +135,7 @@ static void thermal_trace_timer_add(void)
 {
 	ktime_t ktime;
 
-	ktime = ktime_set(0, thermal_trace_data.period);
+	ktime = ktime_set(0, thermal_trace_data.hr_period);
 	hrtimer_start(&thermal_trace_data.trace_timer, ktime, HRTIMER_MODE_REL);
 }
 
@@ -272,7 +273,7 @@ static enum hrtimer_restart thermal_trace_work(struct hrtimer *timer)
 	trace_thermal_gpu(&gpu_info);
 	trace_thermal_apu(&apu_info);
 
-	ktime = ktime_set(0, thermal_trace_data.period);
+	ktime = ktime_set(0, thermal_trace_data.hr_period);
 	hrtimer_forward_now(timer, ktime);
 
 	return HRTIMER_RESTART;
@@ -305,7 +306,38 @@ static ssize_t enable_store(struct kobject *kobj,
 	mutex_lock(&thermal_trace_data.lock);
 	thermal_trace_data.enable = enable;
 	thermal_info_timer_add(thermal_trace_data.enable);
-	if (thermal_trace_data.enable) {
+	mutex_unlock(&thermal_trace_data.lock);
+
+	return count;
+}
+
+static ssize_t hr_enable_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+		thermal_trace_data.hr_enable);
+
+	return len;
+}
+
+static ssize_t hr_enable_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int hr_enable;
+
+	if ((kstrtouint(buf, 10, &hr_enable)))
+		return -EINVAL;
+
+	hr_enable = (hr_enable > 0) ? 1 : 0;
+
+	if (hr_enable == thermal_trace_data.hr_enable)
+		return count;
+
+	mutex_lock(&thermal_trace_data.lock);
+	thermal_trace_data.hr_enable = hr_enable;
+	if (thermal_trace_data.hr_enable) {
 		thermal_trace_timer_add();
 	} else {
 		thermal_trace_timer_cancel();
@@ -315,18 +347,18 @@ static ssize_t enable_store(struct kobject *kobj,
 	return count;
 }
 
-static ssize_t period_show(struct kobject *kobj,
+static ssize_t hr_period_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	int len = 0;
 
 	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
-		thermal_trace_data.period);
+		thermal_trace_data.hr_period);
 
 	return len;
 }
 
-static ssize_t period_store(struct kobject *kobj,
+static ssize_t hr_period_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	unsigned long period;
@@ -334,13 +366,16 @@ static ssize_t period_store(struct kobject *kobj,
 	if ((kstrtoul(buf, 10, &period)))
 		return -EINVAL;
 
+	if (period < 1000000)
+		return -EINVAL;
+
 	period = (period > 0) ? period : 0;
 
-	if (period == thermal_trace_data.period)
+	if (period == thermal_trace_data.hr_period)
 		return count;
 
 	mutex_lock(&thermal_trace_data.lock);
-	thermal_trace_data.period = period;
+	thermal_trace_data.hr_period = period;
 	mutex_unlock(&thermal_trace_data.lock);
 
 	return count;
@@ -370,12 +405,14 @@ static ssize_t wifitput_show(struct kobject *kobj,
 
 
 static struct kobj_attribute enable_attr = __ATTR_RW(enable);
-static struct kobj_attribute period_attr = __ATTR_RW(period);
+static struct kobj_attribute hr_enable_attr = __ATTR_RW(hr_enable);
+static struct kobj_attribute hr_period_attr = __ATTR_RW(hr_period);
 static struct kobj_attribute mdtput_attr = __ATTR_RO(mdtput);
 static struct kobj_attribute wifitput_attr = __ATTR_RO(wifitput);
 static struct attribute *thermal_trace_attrs[] = {
 	&enable_attr.attr,
-	&period_attr.attr,
+	&hr_enable_attr.attr,
+	&hr_period_attr.attr,
 	&mdtput_attr.attr,
 	&wifitput_attr.attr,
 	NULL
@@ -399,7 +436,7 @@ static int __init thermal_trace_init(void)
 	INIT_DELAYED_WORK(&thermal_info_data.poll_queue, thermal_info_work);
 	hrtimer_init(&thermal_trace_data.trace_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	thermal_trace_data.trace_timer.function = thermal_trace_work;
-	thermal_trace_data.period = 1000000; /* 1ms */
+	thermal_trace_data.hr_period = 1000000; /* 1ms */
 
 	ret = sysfs_create_group(kernel_kobj, &thermal_trace_attr_group);
 	if (ret)
