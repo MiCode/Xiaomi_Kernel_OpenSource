@@ -1666,7 +1666,7 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 
 	wait_cnt = atomic_inc_return(&handle->wait_protect);
 	if (wait_cnt != 1) {
-		CMDQ_ERR(
+		CMDQ_LOG(
 			"wait twice:%d submit:%llu trigger:%llu wait:%llu irq:%llu wakeup:%llu\n",
 			wait_cnt,
 			handle->submit, handle->trigger, handle->beginWait,
