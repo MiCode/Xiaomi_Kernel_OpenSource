@@ -27,6 +27,7 @@ static int qos_sspm_ready;
 int qos_ipi_ackdata;
 struct qos_ipi_data qos_recv_ackdata;
 
+#if 0
 static int qos_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
 {
 	unsigned int cmd, arg;
@@ -48,7 +49,7 @@ static int qos_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
 
 	return 0;
 }
-
+#endif
 
 int qos_ipi_to_sspm_scmi_command(unsigned int cmd, unsigned int p1, unsigned int p2,
 		unsigned int p3,unsigned int p4)
@@ -128,11 +129,11 @@ void qos_ipi_init(struct mtk_qos *qos)
 		return;
 	}
 
-	scmi_tinysys_register_event_notifier(scmi_qos_id,
-		(f_handler_t)qos_scmi_handler);
-	ret = scmi_tinysys_event_notify(scmi_qos_id, 1);
-	if (ret)
-		pr_info("qos event notify fail ...");
+	//scmi_tinysys_register_event_notifier(scmi_qos_id,
+	//	(f_handler_t)qos_scmi_handler);
+	//ret = scmi_tinysys_event_notify(scmi_qos_id, 1);
+	//if (ret)
+	//	pr_info("qos event notify fail ...");
 
 	qos_sspm_ready = 1;
 	qos_sspm_enable();

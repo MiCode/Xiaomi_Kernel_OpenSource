@@ -45,6 +45,7 @@ void qos_bound_enable(int enable)
 	struct qos_ipi_data qos_ipi_d;
 	unsigned int ack;
 
+	return;
 	qos_ipi_d.cmd = QOS_IPI_QOS_BOUND_ENABLE;
 	qos_ipi_d.u.qos_bound_enable.enable = enable;
 	ack = qos_ipi_to_sspm_scmi_command(qos_ipi_d.cmd,
