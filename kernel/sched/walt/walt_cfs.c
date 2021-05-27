@@ -805,6 +805,8 @@ static void walt_cfs_account_mvp_runtime(struct rq *rq, struct task_struct *curr
 	s64 delta;
 	unsigned int limit;
 
+	lockdep_assert_held(&rq->lock);
+
 	/* sum_exec_snapshot can be ahead. See below increment */
 	delta = curr->se.sum_exec_runtime - wts->sum_exec_snapshot;
 	if (delta < 0)
@@ -882,8 +884,10 @@ void walt_cfs_tick(struct rq *rq)
 	if (unlikely(walt_disabled))
 		return;
 
+	raw_spin_lock(&rq->lock);
+
 	if (list_empty(&wts->mvp_list))
-		return;
+		goto out;
 
 	walt_cfs_account_mvp_runtime(rq, rq->curr);
 	/*
@@ -892,6 +896,9 @@ void walt_cfs_tick(struct rq *rq)
 	 */
 	if ((wrq->mvp_tasks.next != &wts->mvp_list) && rq->cfs.h_nr_running > 1)
 		resched_curr(rq);
+
+out:
+	raw_spin_unlock(&rq->lock);
 }
 
 /*
