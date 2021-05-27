@@ -133,9 +133,11 @@ TRACE_EVENT(sched_compute_energy,
 TRACE_EVENT(sched_find_energy_efficient_cpu,
 
 	TP_PROTO(unsigned long prev_delta, unsigned long best_delta,
-		int best_energy_cpu, int best_idle_cpu, int max_spare_cap_cpu_ls),
+		int best_energy_cpu, int best_idle_cpu, int max_spare_cap_cpu_ls,
+		int sys_max_spare_cap_cpu),
 
-	TP_ARGS(prev_delta, best_delta, best_energy_cpu, best_idle_cpu, max_spare_cap_cpu_ls),
+	TP_ARGS(prev_delta, best_delta, best_energy_cpu, best_idle_cpu,
+		max_spare_cap_cpu_ls, sys_max_spare_cap_cpu),
 
 	TP_STRUCT__entry(
 		__field(unsigned long, prev_delta)
@@ -143,6 +145,7 @@ TRACE_EVENT(sched_find_energy_efficient_cpu,
 		__field(int, best_energy_cpu)
 		__field(int, best_idle_cpu)
 		__field(int, max_spare_cap_cpu_ls)
+		__field(int, sys_max_spare_cap_cpu)
 		),
 
 	TP_fast_assign(
@@ -151,14 +154,16 @@ TRACE_EVENT(sched_find_energy_efficient_cpu,
 		__entry->best_energy_cpu = best_energy_cpu;
 		__entry->best_idle_cpu   = best_idle_cpu;
 		__entry->max_spare_cap_cpu_ls = max_spare_cap_cpu_ls;
+		__entry->sys_max_spare_cap_cpu = sys_max_spare_cap_cpu;
 		),
 
-	TP_printk("prev_delta=%lu best_delta=%lu best_energy_cpu=%d best_idle_cpu=%d max_spare_cap_cpu_ls=%d",
+	TP_printk("prev_delta=%lu best_delta=%lu best_energy_cpu=%d best_idle_cpu=%d max_spare_cap_cpu_ls=%d sys_max_spare_cpu=%d",
 		__entry->prev_delta,
 		__entry->best_delta,
 		__entry->best_energy_cpu,
 		__entry->best_idle_cpu,
-		__entry->max_spare_cap_cpu_ls)
+		__entry->max_spare_cap_cpu_ls, 
+		__entry->sys_max_spare_cap_cpu)
 );
 
 /*
