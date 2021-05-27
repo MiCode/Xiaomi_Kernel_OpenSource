@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/phy/phy.h>
@@ -154,7 +154,7 @@
 
 #define FILE_REG_DEBUG "phy_reg"
 
-static struct dentry *usb20_phy_debugfs_root;
+static struct proc_dir_entry *usb20_phy_procfs_root;
 static u32 ippc_value, ippc_addr;
 
 static void u3phywrite32(struct phy *phy, int offset, int mask, int value)
@@ -557,47 +557,47 @@ static int phy_rw_show(struct seq_file *s, void *unused)
 
 static int usb_driving_capability_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, usb_driving_capability_show, inode->i_private);
+	return single_open(file, usb_driving_capability_show, PDE_DATA(inode));
 }
 
 static int rg_usb20_term_vref_sel_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, rg_usb20_term_vref_sel_show, inode->i_private);
+	return single_open(file, rg_usb20_term_vref_sel_show, PDE_DATA(inode));
 }
 
 static int rg_usb20_hstx_srctrl_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, rg_usb20_hstx_srctrl_show, inode->i_private);
+	return single_open(file, rg_usb20_hstx_srctrl_show, PDE_DATA(inode));
 }
 
 static int rg_usb20_vrt_vref_sel_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, rg_usb20_vrt_vref_sel_show, inode->i_private);
+	return single_open(file, rg_usb20_vrt_vref_sel_show, PDE_DATA(inode));
 }
 
 static int rg_usb20_intr_en_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, rg_usb20_intr_en_show, inode->i_private);
+	return single_open(file, rg_usb20_intr_en_show, PDE_DATA(inode));
 }
 
 static int rg_usb20_rev6_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, rg_usb20_rev6_show, inode->i_private);
+	return single_open(file, rg_usb20_rev6_show, PDE_DATA(inode));
 }
 
 static int rg_usb20_intr_cal_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, rg_usb20_intr_cal_show, inode->i_private);
+	return single_open(file, rg_usb20_intr_cal_show, PDE_DATA(inode));
 }
 
 static int rg_usb20_discth_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, rg_usb20_discth_show, inode->i_private);
+	return single_open(file, rg_usb20_discth_show, PDE_DATA(inode));
 }
 
 static int phy_rw_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, phy_rw_show, inode->i_private);
+	return single_open(file, phy_rw_show, PDE_DATA(inode));
 }
 
 void val_to_bstring_width3(u8 val, char *str)
@@ -902,76 +902,78 @@ static const struct file_operations phy_rw_fops = {
 
 int mtu3_phy_init_debugfs(struct phy *phy)
 {
-	struct dentry *root;
-	struct dentry *file;
+	struct proc_dir_entry *root;
+	struct proc_dir_entry *file;
 	int ret;
 
-	root = debugfs_create_dir("usb20_phy", NULL);
+	proc_mkdir("mtk_usb", NULL);
+
+	root = proc_mkdir("mtk_usb/usb20_phy", NULL);
 	if (!root) {
 		ret = -ENOMEM;
 		goto err0;
 	}
 
-	file = debugfs_create_file(FILE_USB_DRIVING_CAPABILITY, 0644,
-				   root, phy, &usb_driving_capability_fops);
+	file = proc_create_data(FILE_USB_DRIVING_CAPABILITY, 0644,
+				   root, &usb_driving_capability_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_TERM_VREF_SEL, 0644,
-				   root, phy, &rg_usb20_term_vref_sel_fops);
+	file = proc_create_data(FILE_RG_USB20_TERM_VREF_SEL, 0644,
+				   root, &rg_usb20_term_vref_sel_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_HSTX_SRCTRL, 0644,
-				   root, phy, &rg_usb20_hstx_srctrl_fops);
+	file = proc_create_data(FILE_RG_USB20_HSTX_SRCTRL, 0644,
+				   root, &rg_usb20_hstx_srctrl_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_VRT_VREF_SEL, 0644,
-				   root, phy, &rg_usb20_vrt_vref_sel_fops);
+	file = proc_create_data(FILE_RG_USB20_VRT_VREF_SEL, 0644,
+				   root, &rg_usb20_vrt_vref_sel_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_INTR_EN, 0644,
-				   root, phy, &rg_usb20_intr_en_fops);
+	file = proc_create_data(FILE_RG_USB20_INTR_EN, 0644,
+				   root, &rg_usb20_intr_en_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_PHY_REV6, 0644,
-				   root, phy, &rg_usb20_rev6_fops);
+	file = proc_create_data(FILE_RG_USB20_PHY_REV6, 0644,
+				   root, &rg_usb20_rev6_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_INTR_CAL, 0644,
-				   root, phy, &rg_usb20_intr_cal_fops);
+	file = proc_create_data(FILE_RG_USB20_INTR_CAL, 0644,
+				   root, &rg_usb20_intr_cal_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_RG_USB20_DISCTH, 0644,
-				   root, phy, &rg_usb20_discth_fops);
+	file = proc_create_data(FILE_RG_USB20_DISCTH, 0644,
+				   root, &rg_usb20_discth_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
-	file = debugfs_create_file(FILE_REG_DEBUG, 0644,
-				   root, phy, &phy_rw_fops);
+	file = proc_create_data(FILE_REG_DEBUG, 0644,
+				   root, &phy_rw_fops, phy);
 	if (!file) {
 		ret = -ENOMEM;
 		goto err1;
 	}
 
-	usb20_phy_debugfs_root = root;
+	usb20_phy_procfs_root = root;
 	return 0;
 
 err1:
-	debugfs_remove_recursive(root);
+	proc_remove(root);
 
 err0:
 	return ret;
@@ -979,6 +981,6 @@ err0:
 
 int mtu3_phy_exit_debugfs(void)
 {
-	debugfs_remove_recursive(usb20_phy_debugfs_root);
+	proc_remove(usb20_phy_procfs_root);
 	return 0;
 }
