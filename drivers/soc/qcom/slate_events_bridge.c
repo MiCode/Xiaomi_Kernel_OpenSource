@@ -245,6 +245,8 @@ int seb_send_event_to_slate(void *seb_handle, enum event_group_type event,
 						void *event_buf, uint32_t buf_size)
 {
 	int rc = 0;
+	uint32_t txn_len = 0;
+	uint8_t *tx_buf = 0;
 	struct gmi_header req_header;
 	struct seb_priv *dev =
 		container_of(seb_drv, struct seb_priv, lhndl);
@@ -260,16 +262,16 @@ int seb_send_event_to_slate(void *seb_handle, enum event_group_type event,
 
 	mutex_lock(&seb_api_mutex);
 
-	txn_len = sizeof(gmi_header) + buf_size;
+	txn_len = sizeof(req_header) + buf_size;
 
 	tx_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
 	if (!tx_buf) {
-		ret = -ENOMEM;
+		rc = -ENOMEM;
 		goto error_ret;
 	}
 
-	req_header.opcode = seb_handle.event_group;
-	req_header.payload_size = buf_size
+	req_header.opcode = ((struct seb_notif_info *)seb_handle)->event_group;
+	req_header.payload_size = buf_size;
 
 	memcpy(tx_buf, &req_header, sizeof(req_header));
 	memcpy(tx_buf+sizeof(req_header), &event_buf, buf_size);
