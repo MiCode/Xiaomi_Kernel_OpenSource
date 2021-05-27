@@ -104,7 +104,6 @@ extern bool in_uart_mode;
 #endif
 extern int usb20_phy_init_debugfs(void);
 #ifdef CONFIG_USB_MTK_OTG
-extern bool usb20_check_vbus_on(void);
 extern void mt_usb_otg_init(struct musb *musb);
 extern void mt_usb_otg_exit(struct musb *musb);
 extern int mt_usb_get_vbus_status(struct musb *musb);

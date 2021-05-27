@@ -538,7 +538,7 @@ bool usb_enable_clock(bool enable)
 	static int virt_enable = 0, virt_disable;
 	unsigned long flags;
 
-	DBG(0, "enable(%d),count(%d),<%d,%d,%d,%d>\n",
+	DBG(1, "enable(%d),count(%d),<%d,%d,%d,%d>\n",
 	    enable, count, virt_enable, virt_disable,
 	    real_enable, real_disable);
 
@@ -824,7 +824,7 @@ bool mt_usb_is_device(void)
 	}
 #endif
 #ifdef CONFIG_USB_MTK_OTG
-	return !usb20_check_vbus_on();
+	return !mtk_musb->is_host;
 #else
 	return true;
 #endif

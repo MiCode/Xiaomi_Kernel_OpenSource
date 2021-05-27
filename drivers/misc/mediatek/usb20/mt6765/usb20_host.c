@@ -89,13 +89,6 @@ module_param(vbus_on, bool, 0644);
 static int vbus_control;
 module_param(vbus_control, int, 0644);
 
-bool usb20_check_vbus_on(void)
-{
-	DBG(0, "vbus_on<%d>\n", vbus_on);
-	return vbus_on;
-}
-EXPORT_SYMBOL(usb20_check_vbus_on);
-
 static void _set_vbus(int is_on)
 {
 	if (!reg_vbus) {
