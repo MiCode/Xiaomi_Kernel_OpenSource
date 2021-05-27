@@ -290,12 +290,15 @@ static int eas_open(struct inode *inode, struct file *file)
 
 extern void set_wake_sync(unsigned int sync);
 extern unsigned int get_wake_sync(void);
+extern void set_uclamp_min_ls(unsigned int val);
+extern unsigned int get_uclamp_min_ls(void);
 
 static long eas_ioctl_impl(struct file *filp,
 		unsigned int cmd, unsigned long arg, void *pKM)
 {
 	ssize_t ret = 0;
 	unsigned int sync;
+	unsigned int val;
 
 	switch (cmd) {
 	case EAS_SYNC_SET:
@@ -306,6 +309,16 @@ static long eas_ioctl_impl(struct file *filp,
 	case EAS_SYNC_GET:
 		sync = get_wake_sync();
 		if (perfctl_copy_to_user((void *)arg, &sync, sizeof(unsigned int)))
+			return -1;
+		break;
+	case EAS_PERTASK_LS_SET:
+		if (perfctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_uclamp_min_ls(val);
+		break;
+	case EAS_PERTASK_LS_GET:
+		val = get_uclamp_min_ls();
+		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
 			return -1;
 		break;
 	default:

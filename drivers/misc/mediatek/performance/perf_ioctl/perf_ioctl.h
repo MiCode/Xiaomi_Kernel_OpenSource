@@ -95,6 +95,8 @@ enum  {
 
 #define EAS_SYNC_SET              _IOW('g', 1, unsigned int)
 #define EAS_SYNC_GET              _IOW('g', 2, unsigned int)
+#define EAS_PERTASK_LS_SET              _IOW('g', 3, unsigned int)
+#define EAS_PERTASK_LS_GET              _IOR('g', 4, unsigned int)
 
 #endif
 
