@@ -113,7 +113,8 @@ static struct mtk_blocktag *mtk_btag_find_locked(const char *name)
 
 /* pid logger: page loger*/
 unsigned long long mtk_btag_system_dram_size;
-struct page_pid_logger __rcu *mtk_btag_pagelogger;
+static DEFINE_SPINLOCK(mtk_btag_lock);
+static struct page_pid_logger __rcu *mtk_btag_pagelogger;
 static bool mtk_btag_enable;
 
 static bool mtk_btag_allocate_pidlogger(void);
@@ -1305,12 +1306,15 @@ static bool mtk_btag_allocate_pidlogger(void)
 	unsigned long count = mtk_btag_system_dram_size >> PAGE_SHIFT;
 	unsigned long size = count * sizeof(struct page_pid_logger);
 
-	old_pagelogger = rcu_dereference(mtk_btag_pagelogger);
 	new_pagelogger = vmalloc(size);
 
 	if (new_pagelogger) {
 		memset(new_pagelogger, 0, size);
+		spin_lock(&mtk_btag_lock);
+		old_pagelogger = rcu_dereference_protected(mtk_btag_pagelogger,
+			lockdep_is_held(&mtk_btag_lock));
 		rcu_assign_pointer(mtk_btag_pagelogger, new_pagelogger);
+		spin_unlock(&mtk_btag_lock);
 		synchronize_rcu();
 		if (old_pagelogger)
 			vfree(old_pagelogger);
@@ -1325,8 +1329,11 @@ static void mtk_btag_destroy_pidlogger(void)
 {
 	struct page_pid_logger *old_pagelogger;
 
-	old_pagelogger = rcu_dereference(mtk_btag_pagelogger);
+	spin_lock(&mtk_btag_lock);
+	old_pagelogger = rcu_dereference_protected(mtk_btag_pagelogger,
+		lockdep_is_held(&mtk_btag_lock));
 	rcu_assign_pointer(mtk_btag_pagelogger, NULL);
+	spin_unlock(&mtk_btag_lock);
 	synchronize_rcu();
 	if (old_pagelogger)
 		vfree(old_pagelogger);
@@ -1337,11 +1344,14 @@ static bool mtk_btag_allocate_aee_buffer(void)
 	char *aee_buffer;
 	char *old_aee_buffer;
 
-	old_aee_buffer = rcu_dereference(blockio_aee_buffer);
 	aee_buffer = kmalloc(BLOCKIO_AEE_BUFFER_SIZE, GFP_KERNEL);
 	if (aee_buffer) {
 		memset(aee_buffer, 0, BLOCKIO_AEE_BUFFER_SIZE);
+		spin_lock(&mtk_btag_lock);
+		old_aee_buffer = rcu_dereference_protected(blockio_aee_buffer,
+			lockdep_is_held(&mtk_btag_lock));
 		rcu_assign_pointer(blockio_aee_buffer, aee_buffer);
+		spin_unlock(&mtk_btag_lock);
 		synchronize_rcu();
 		kfree(old_aee_buffer);
 		pr_info(TAG " aeebuffer: new aee buffer is allocated\n");
@@ -1355,8 +1365,11 @@ static void mtk_btag_destroy_aee_buffer(void)
 {
 	char *old_aee_buffer;
 
-	old_aee_buffer = rcu_dereference(blockio_aee_buffer);
+	spin_lock(&mtk_btag_lock);
+	old_aee_buffer = rcu_dereference_protected(blockio_aee_buffer,
+		lockdep_is_held(&mtk_btag_lock));
 	rcu_assign_pointer(blockio_aee_buffer, NULL);
+	spin_unlock(&mtk_btag_lock);
 	synchronize_rcu();
 	kfree(old_aee_buffer);
 }

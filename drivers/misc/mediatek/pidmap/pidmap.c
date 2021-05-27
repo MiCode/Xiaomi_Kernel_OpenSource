@@ -37,6 +37,7 @@
 
 #define TAG "[PIDMAP]"
 
+static DEFINE_SPINLOCK(mtk_pidmap_lock);
 static char __rcu *mtk_pidmap;
 static bool mtk_pidmap_enable;
 static int  mtk_pidmap_proc_dump_mode;
@@ -53,9 +54,11 @@ static bool mtk_pidmap_allocate(void)
 		return false;
 
 	memset(pidmap, 0, PIDMAP_AEE_BUF_SIZE);
-	old_pidmap = rcu_dereference(mtk_pidmap);
-
+	spin_lock(&mtk_pidmap_lock);
+	old_pidmap = rcu_dereference_protected(mtk_pidmap,
+		lockdep_is_held(&mtk_pidmap_lock));
 	rcu_assign_pointer(mtk_pidmap, pidmap);
+	spin_unlock(&mtk_pidmap_lock);
 	synchronize_rcu();
 	kfree(old_pidmap);
 	return true;
@@ -76,8 +79,11 @@ static void mtk_pidmap_free(void)
 {
 	char *old_pidmap = NULL;
 
-	old_pidmap = rcu_dereference(mtk_pidmap);
+	spin_lock(&mtk_pidmap_lock);
+	old_pidmap = rcu_dereference_protected(mtk_pidmap,
+		lockdep_is_held(&mtk_pidmap_lock));
 	rcu_assign_pointer(mtk_pidmap, NULL);
+	spin_unlock(&mtk_pidmap_lock);
 	synchronize_rcu();
 	kfree(old_pidmap);
 }
