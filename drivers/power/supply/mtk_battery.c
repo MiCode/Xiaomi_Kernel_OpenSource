@@ -2362,11 +2362,12 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 int battery_update_routine(void *arg)
 {
 	struct mtk_battery *gm = (struct mtk_battery *)arg;
+	int ret = 0;
 
 	battery_update_psd(gm);
 	while (1) {
 		bm_err("%s\n", __func__);
-		wait_event(gm->wait_que, (gm->fg_update_flag > 0));
+		ret = wait_event_interruptible(gm->wait_que, (gm->fg_update_flag > 0));
 		gm->fg_update_flag = 0;
 
 		fg_drv_update_hw_status(gm);
@@ -2921,9 +2922,10 @@ static int power_misc_routine_thread(void *arg)
 {
 	struct mtk_battery *gm = arg;
 	struct shutdown_controller *sdd = &gm->sdc;
+	int ret = 0;
 
 	while (1) {
-		wait_event(sdd->wait_que, (sdd->timeout == true)
+		ret = wait_event_interruptible(sdd->wait_que, (sdd->timeout == true)
 			|| (sdd->overheat == true));
 		if (sdd->timeout == true) {
 			sdd->timeout = false;
@@ -2931,8 +2933,8 @@ static int power_misc_routine_thread(void *arg)
 		}
 		if (sdd->overheat == true) {
 			sdd->overheat = false;
-			bm_debug("%s battery overheat~ power off\n",
-				__func__);
+			bm_err("%s battery overheat~ power off, ret = %d\n",
+				__func__, ret);
 			kernel_power_off();
 			return 1;
 		}
@@ -3045,7 +3047,7 @@ int battery_init(struct platform_device *pdev)
 	gm = gauge->gm;
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = fg_temp_table;
-	gm->log_level = BMLOG_ERROR_LEVEL;
+	gm->log_level = BMLOG_TRACE_LEVEL;
 	gm->sw_iavg_gap = 3000;
 
 	init_waitqueue_head(&gm->wait_que);

@@ -399,10 +399,12 @@ static int gauge_coulomb_thread(void *arg)
 	struct mtk_coulomb_service *cs = (struct mtk_coulomb_service *)arg;
 	unsigned long flags = 0;
 	ktime_t start, end, duraction;
+	int ret = 0;
 
 	bm_debug("[%s]=>\n", __func__);
 	while (1) {
-		wait_event(cs->wait_que, (cs->coulomb_thread_timeout == true));
+		ret = wait_event_interruptible(cs->wait_que,
+			(cs->coulomb_thread_timeout == true));
 		cs->coulomb_thread_timeout = false;
 		start = ktime_get_boottime();
 

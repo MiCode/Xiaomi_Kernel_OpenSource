@@ -4621,6 +4621,21 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 		IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
 		"mtk_bat_tmp_l",
 		gm);
+
+		ret = devm_request_threaded_irq(&gm->gauge->pdev->dev,
+		gm->gauge->irq_no[VBAT_H_IRQ],
+		NULL, vbat_h_irq,
+		IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+		"mtk_gauge_vbat_high",
+		gm);
+
+		ret = devm_request_threaded_irq(&gm->gauge->pdev->dev,
+		gm->gauge->irq_no[VBAT_L_IRQ],
+		NULL, vbat_l_irq,
+		IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+		"mtk_gauge_vbat_low",
+		gm);
+
 	}
 
 	sw_iavg_init(gm);
