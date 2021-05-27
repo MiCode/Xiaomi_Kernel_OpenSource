@@ -122,7 +122,7 @@ inline unsigned int ipi_id_to_inst_id(int id)
 #define pr_debug vcu_dbg_log
 
 #define MAP_PA_BASE_1GB  0x40000000 /* < 1GB registers */
-#define VCU_MAP_HW_REG_NUM 4
+#define VCU_MAP_HW_REG_NUM 5
 /* VDEC VDEC_LAT VENC_CORE0 VENC_CORE1 */
 
 /* Default vcu_mtkdev[0] handle vdec, vcu_mtkdev[1] handle mdp */
@@ -382,6 +382,134 @@ struct mtk_vcu {
 	/* for vcu dbg log*/
 	int enable_vcu_dbg_log;
 };
+
+typedef struct _node_iova_t
+{
+	uintptr_t wdma_dma_buf_addr;
+	dma_addr_t mapped_iova;
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
+	struct _node_iova_t *next;
+} node_iova_t;
+
+typedef struct _node_list_t
+{
+	node_iova_t *first_node;
+	node_iova_t *last_node;
+	struct mutex node_iova_lock;
+} node_list_t;
+
+static node_list_t iova_node_list;
+
+static void remove_all_iova_node(struct mtk_vcu *vcu)
+{
+	node_iova_t *curr_node, *next_node;
+	struct dma_buf *display_dma_buf;
+
+	vcu_dbg_log("[VCU] %s +++", __func__);
+
+	mutex_lock(&iova_node_list.node_iova_lock);
+	curr_node = iova_node_list.first_node;
+	if (curr_node == NULL)
+	{
+		mutex_unlock(&iova_node_list.node_iova_lock);
+		return;
+	}
+	next_node = curr_node->next;
+
+	// detach
+	display_dma_buf = (struct dma_buf *)(uintptr_t)curr_node->wdma_dma_buf_addr;
+	dma_buf_unmap_attachment(curr_node->buf_att, curr_node->sgt, DMA_TO_DEVICE);
+	dma_buf_detach(display_dma_buf, curr_node->buf_att);
+
+	kfree(curr_node);
+
+	while(next_node!=NULL)
+	{
+		curr_node = next_node;
+		next_node = next_node->next;
+
+		// detach
+		display_dma_buf = (struct dma_buf *)(uintptr_t)curr_node->wdma_dma_buf_addr;
+		dma_buf_unmap_attachment(curr_node->buf_att, curr_node->sgt, DMA_TO_DEVICE);
+		dma_buf_detach(display_dma_buf, curr_node->buf_att);
+
+		vcu_dbg_log("[VCU] free node with mapped_iova:x%lx wdma_dma_buf_addr:0x%lx",
+			curr_node->mapped_iova, curr_node->wdma_dma_buf_addr);
+		kfree(curr_node);
+	}
+	mutex_unlock(&iova_node_list.node_iova_lock);
+
+	vcu_dbg_log("[VCU] %s ---", __func__);
+
+	return;
+}
+
+static void add_new_iova_node(
+	u64 in_wdma_dam_buf_addr,
+	dma_addr_t in_mapped_iova,
+	struct dma_buf_attachment *buf_att,
+	struct sg_table *sgt)
+{
+	node_iova_t *curr_node = (node_iova_t *)kmalloc(sizeof(node_iova_t) ,GFP_KERNEL);
+
+	mutex_lock(&iova_node_list.node_iova_lock);
+
+	vcu_dbg_log("%s wdma_dam_buf_addr:0x%lx", __func__, in_wdma_dam_buf_addr);
+
+	curr_node->mapped_iova = in_mapped_iova;
+	curr_node->wdma_dma_buf_addr = in_wdma_dam_buf_addr;
+	curr_node->buf_att = buf_att;
+	curr_node->sgt = sgt;
+
+	curr_node->next = NULL;
+
+	if (iova_node_list.first_node == NULL) // 1st node
+	{
+		iova_node_list.first_node = curr_node;
+		iova_node_list.last_node = NULL;
+	}
+	else if (iova_node_list.last_node == NULL) // 2nd node
+	{
+		iova_node_list.last_node = curr_node;
+		iova_node_list.first_node->next = iova_node_list.last_node;
+	}
+	else // update reference
+	{
+		iova_node_list.last_node->next = curr_node;
+		iova_node_list.last_node = iova_node_list.last_node->next;
+	}
+
+	mutex_unlock(&iova_node_list.node_iova_lock);
+
+	return;
+}
+
+static dma_addr_t find_iova_node_by_dam_buf(uintptr_t in_wdma_dma_buf_addr)
+{
+	dma_addr_t ret = 0;
+	node_iova_t *curr_node;
+
+	mutex_lock(&iova_node_list.node_iova_lock);
+
+	curr_node = iova_node_list.first_node;
+
+	while (curr_node != NULL)
+	{
+		if (curr_node->wdma_dma_buf_addr == in_wdma_dma_buf_addr)
+		{
+			vcu_dbg_log("This dma_buf 0x%lx has been mapped, iova is 0x%lx",
+				in_wdma_dma_buf_addr, curr_node->mapped_iova);
+			ret = curr_node->mapped_iova;
+			break;
+		}
+		curr_node = curr_node->next;
+	}
+
+	mutex_unlock(&iova_node_list.node_iova_lock);
+
+	return ret;
+}
 
 static inline bool vcu_running(struct mtk_vcu *vcu)
 {
@@ -1081,6 +1209,69 @@ static int vcu_wait_gce_callback(struct mtk_vcu *vcu, unsigned long arg)
 	return ret;
 }
 
+//extern u64 mtk_drm_get_wdma_dma_buf(void);
+//extern u32 mtk_drm_get_wdma_y_buf(void);
+
+static long vcu_get_disp_mapped_iova(struct mtk_vcu *vcu, unsigned long arg)
+{
+	long ret=0;
+	uintptr_t wdma_dma_buf_addr;
+
+	struct dma_buf *display_dma_buf;
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
+	dma_addr_t mapped_iova=0xdeadbeef;
+	dma_addr_t mapped_iova_old=0;
+
+	vcu_dbg_log("[VCU] %s +\n", __func__);
+
+	wdma_dma_buf_addr = 0;//(uintptr_t)mtk_drm_get_wdma_dma_buf();
+	display_dma_buf = (struct dma_buf *)(uintptr_t)wdma_dma_buf_addr;
+	if (wdma_dma_buf_addr != 0)
+	{
+		// get display dma_buf from dram
+		vcu_dbg_log("[VCU] wdma_dma_buf address = 0x%lx \n", wdma_dma_buf_addr);
+	}
+	else
+	{
+		pr_info("[VCU] Invalid wdma_dma_buf address 0x%lx\n", wdma_dma_buf_addr);
+		return 0;
+	}
+
+	// check if this dma_buf has been mapped; if yes, return its mapped iova directly
+	mapped_iova_old = find_iova_node_by_dam_buf(wdma_dma_buf_addr);
+	if (mapped_iova_old > 0)
+		return (long)mapped_iova_old;
+
+	// obtain iova on this device
+	buf_att = dma_buf_attach(display_dma_buf, vcu->dev);
+	vcu_dbg_log("%s %d", __func__, __LINE__);
+	sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
+	vcu_dbg_log("%s %d", __func__, __LINE__);
+	mapped_iova= sg_dma_address(sgt->sgl);
+	vcu_dbg_log("[VCU] mapped_iova=0x%lx", mapped_iova);
+
+	// add this mapped iova in list
+	add_new_iova_node(wdma_dma_buf_addr, mapped_iova, buf_att, sgt);
+
+	// return iova to caller
+	ret = (long)mapped_iova;
+
+	vcu_dbg_log("[VCU] %s -\n", __func__);
+
+	return ret;
+}
+
+static void vcu_clear_disp_mapped_iova(struct mtk_vcu *vcu, unsigned long arg)
+{
+	remove_all_iova_node(vcu);
+	return;
+}
+
+static long vcu_get_disp_wdma_y_addr(struct mtk_vcu *vcu, unsigned long arg)
+{
+	return 0;//mtk_drm_get_wdma_y_buf();
+}
 int vcu_set_gce_v4l2_callback(struct platform_device *pdev,
 	struct vcu_v4l2_callback_func *call_back)
 {
@@ -1891,6 +2082,16 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case VCU_GCE_WAIT_CALLBACK:
 		ret = vcu_wait_gce_callback(vcu_dev, arg);
 		break;
+	case VCU_GET_DISP_MAPPED_IOVA:
+		ret = vcu_get_disp_mapped_iova(vcu_dev, arg);
+		break;
+	case VCU_CLEAR_DISP_MAPPED_IOVA:
+		vcu_clear_disp_mapped_iova(vcu_dev, arg);
+		ret = 0;
+		break;
+	case VCU_GET_DISP_WDMA_Y_ADDR:
+		ret = vcu_get_disp_wdma_y_addr(vcu_dev, arg);
+		break;
 	default:
 		dev_info(dev, "[VCU] Unknown cmd\n");
 		break;
@@ -1955,6 +2156,9 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 	case VCU_GET_LOG_OBJECT:
 	case VCU_GCE_SET_CMD_FLUSH:
 	case VCU_GCE_WAIT_CALLBACK:
+	case VCU_GET_DISP_MAPPED_IOVA:
+	case VCU_CLEAR_DISP_MAPPED_IOVA:
+	case VCU_GET_DISP_WDMA_Y_ADDR:
 		share_data32 = compat_ptr((uint32_t)arg);
 		ret = file->f_op->unlocked_ioctl(file,
 			cmd, (unsigned long)share_data32);

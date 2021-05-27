@@ -96,6 +96,10 @@ struct gce_obj {
 	uint32_t	codec_type;
 };
 
+struct disp_iova_obj {
+	uint32_t	mapped_iova;
+};
+
 enum gce_cmd_id {
 	CMD_READ = 0,    /* read register */
 	CMD_WRITE,       /* write register */
@@ -194,6 +198,9 @@ enum gce_event_id {
 #define VCU_GET_LOG_OBJECT	_IOW('v', 11, struct log_test_nofuse)
 #define VCU_SET_LOG_OBJECT	_IOW('v', 12, struct log_test)
 #define VCU_SET_MMAP_TYPE	_IOW('v', 13, struct map_obj)
+#define VCU_GET_DISP_MAPPED_IOVA	_IOWR('v', 14, struct disp_iova_obj)
+#define VCU_CLEAR_DISP_MAPPED_IOVA	_IOW('v', 15, struct disp_iova_obj)
+#define VCU_GET_DISP_WDMA_Y_ADDR	_IOWR('v', 16, struct disp_iova_obj)
 
 #define COMPAT_VCU_SET_OBJECT		_IOW('v', 0, struct share_obj)
 #define COMPAT_VCU_MVA_ALLOCATION	_IOWR('v', 1, struct compat_mem_obj)
