@@ -5803,6 +5803,11 @@
 			clock-names = "apb", "smi";
 		};
 
+		vcp: vcp@1ec00000 {
+			compatible = "mediatek,vcp";
+			vcp-support = <0>;
+		};
+
 		mdpsys: mdpsys@1f000000 {
 			compatible = "mediatek,mt6893-mdpsys_config", "syscon";
 			reg = <0 0x1f000000 0 0x1000>;
