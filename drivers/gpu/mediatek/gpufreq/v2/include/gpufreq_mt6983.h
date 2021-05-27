@@ -9,7 +9,7 @@
 /**************************************************
  * GPUFREQ Local Config
  **************************************************/
-#define GPUFREQ_BRINGUP                 (0)
+#define GPUFREQ_BRINGUP                 (1)
 #define GPUFREQ_BUCK_ALWAYS_ON          (0)
 #define GPUFREQ_MTCMOS_ALWAYS_ON        (0)
 #define GPUFREQ_CG_ALWAYS_ON            (0)

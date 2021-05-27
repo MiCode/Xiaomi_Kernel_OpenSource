@@ -2198,6 +2198,14 @@ static void __gpufreq_acp_control(void)
 	val = readl(g_g3d_base + 0x8E8);
 	val |= (0x855);
 	writel(val, g_g3d_base + 0x8E8);
+
+	/*
+	 * Inform MCU that it has transaction
+	 *
+	 * todo:
+	 * Need dts prepare reg for 0x10270108 remap
+	 * 0x10270108 = (0x1 << 12)
+	 */
 }
 
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
@@ -2217,6 +2225,8 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 
 #if GPUFREQ_HWAPM_ENABLE
 		/*
+		 * Control HWAPM after MFG_1 on
+		 *
 		 * Set HW APM register to enable PDC mode 2 when power on
 		 * let GPU DDK control MTCMOS itself
 		 */
