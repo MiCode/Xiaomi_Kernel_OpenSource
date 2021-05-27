@@ -187,12 +187,6 @@ static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 			}
 		}
 
-		ret = regulator_enable(vbus);
-		if (ret) {
-			dev_err(dev, "vbus regulator enable failed\n");
-			return ret;
-		}
-
 		if (extcon->vbus_cur) {
 			ret = regulator_set_current_limit(vbus,
 					extcon->vbus_cur, extcon->vbus_cur);
@@ -200,6 +194,12 @@ static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 				dev_err(dev, "vbus regulator set current failed\n");
 				return ret;
 			}
+		}
+
+		ret = regulator_enable(vbus);
+		if (ret) {
+			dev_err(dev, "vbus regulator enable failed\n");
+			return ret;
 		}
 	} else {
 		regulator_disable(vbus);
