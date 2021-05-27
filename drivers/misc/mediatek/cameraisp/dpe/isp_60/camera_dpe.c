@@ -2001,7 +2001,7 @@ signed int CmdqDPEHW(struct frame *frame)
 	domain = iommu_get_domain_for_dev(gdev);
 #endif
 /************** Pass User info to DPE_Kernel_Config **************/
-	if (pDpeUserConfig->use_fd == 0) {
+	if (pDpeUserConfig->use_fd == 1) {
 		records = kzalloc(sizeof(struct tee_mmu)*NUM_BASEADDR, GFP_KERNEL);
 		success = dpe_get_dma_buffer(&mmu,
 		pDpeUserConfig->DPE_DMapSettings.Dpe_InBuf_SrcImg_YL_fd);
