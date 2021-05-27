@@ -745,6 +745,14 @@
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
+		reserve-memory-gpueb_share {
+			compatible = "mediatek,reserve-memory-gpueb_share";
+			no-map;
+			size = <0 0x00300000>; /*3 MB share mem size */
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
+		};
+
 		ssmr_cma_mem: ssmr-reserved-cma_memory {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -3213,6 +3221,57 @@
 			#clock-cells = <1>;
 		};
 
+		gpueb: gpueb@13c00000 {
+			compatible = "mediatek,gpueb";
+			gpueb-support = <0>;
+			gpueb-logger-support = <0>;
+			mbox_count = <1>;
+			mbox_size = <160>; /* slots */
+			slot_size = <4>;   /* bytes */
+
+			/* id, mbox, send_size */
+			send_table =
+			<0 0 4>,
+			<1 0 4>,
+			<2 0 3>,
+			<3 0 3>;
+			send_name_table =
+			"IPI_ID_PLATFORM",
+			"IPI_ID_FREQ",
+			"IPI_ID_SLEEP",
+			"IPI_ID_TIMER";
+
+			/* id, mbox, recv_size, recv_opt */
+			recv_table =
+			<0 0 1 1>,
+			<1 0 4 1>,
+			<2 0 1 1>,
+			<3 0 1 1>;
+			recv_name_table =
+			"IPI_ID_PLATFORM",
+			"IPI_ID_FREQ",
+			"IPI_ID_SLEEP",
+			"IPI_ID_TIMER";
+
+			reg = <0 0x13c40000 0 0x22000>,
+			      <0 0x13c5fd80 0 0xa0>,
+			      <0 0x13c62004 0 0x4>,
+			      <0 0x13c62078 0 0x4>,
+			      <0 0x13c62000 0 0x4>,
+			      <0 0x13c62070 0 0x4>;
+			reg-names = "gpueb_base",
+						"mbox0_base",
+						"mbox0_set",
+						"mbox0_clr",
+						"mbox0_send",
+						"mbox0_recv";
+
+			interrupts = <GIC_SPI 548 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupt-names = "mbox0";
+
+			gpueb_mem_tbl = <0 0x180000>; /* logger 1.5MB */
+		};
+
 		gpufreq: gpufreq {
 			compatible = "mediatek,gpufreq";
 			clocks =
@@ -3234,11 +3293,6 @@
 			compatible = "mediatek,gpufreq_wrapper";
 			gpufreq-version = <2>;
 			dual-buck = <0>;
-		};
-
-		gpueb: gpueb@13C00000 {
-			compatible = "mediatek,gpueb";
-			gpueb-support = <0>;
 		};
 
 		gpufreq_mfg2: gpufreq_mfg2 {
