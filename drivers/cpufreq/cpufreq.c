@@ -406,8 +406,8 @@ wait:
 	policy->transition_task = current;
 
 	spin_unlock(&policy->transition_lock);
-#if !defined(CONFIG_MACH_MT6893) || !defined(CONFIG_MACH_MT6877) \
-	|| !defined(CONFIG_MACH_MT6781)
+#if !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6877) \
+	&& !defined(CONFIG_MACH_MT6781)
 	arch_set_freq_scale(policy->cpus, freqs->new, policy->cpuinfo.max_freq);
 #endif
 	arch_set_max_freq_scale(policy->cpus, policy->max);
