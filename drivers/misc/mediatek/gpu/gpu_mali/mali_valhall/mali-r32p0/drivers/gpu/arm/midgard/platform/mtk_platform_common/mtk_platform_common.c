@@ -22,6 +22,9 @@
 #include <ged_dvfs.h>
 #if IS_ENABLED(CONFIG_PROC_FS)
 #include <linux/proc_fs.h>
+#if IS_ENABLED(CONFIG_MTK_GPU_MEM_TRACK)
+#include <device/mali_kbase_device.h>
+#endif
 #endif
 
 static bool mfg_powered;
@@ -99,6 +102,45 @@ static int mtk_common_gpu_utilization_show(struct seq_file *m, void *v)
 	return 0;
 }
 DEFINE_SHOW_ATTRIBUTE(mtk_common_gpu_utilization);
+
+static int mtk_common_gpu_memory_show(struct seq_file *m, void *v)
+{
+#if IS_ENABLED(CONFIG_MTK_GPU_MEM_TRACK)
+	struct list_head *entry;
+	const struct list_head *kbdev_list;
+
+	kbdev_list = kbase_device_get_list();
+	list_for_each(entry, kbdev_list) {
+		struct kbase_device *kbdev = NULL;
+		struct kbase_context *kctx;
+
+		kbdev = list_entry(entry, struct kbase_device, entry);
+		/* output the total memory usage and cap for this device */
+		seq_printf(m, "%-16s  %10u\n",
+				kbdev->devname,
+				atomic_read(&(kbdev->memdev.used_pages)));
+		mutex_lock(&kbdev->kctx_list_lock);
+		list_for_each_entry(kctx, &kbdev->kctx_list, kctx_list_link) {
+			/* output the memory usage and cap for each kctx
+			* opened on this device
+			*/
+			seq_printf(m, "  %s-0x%p %10u %10u\n",
+				"kctx",
+				kctx,
+				atomic_read(&(kctx->used_pages)),
+				kctx->tgid);
+		}
+		mutex_unlock(&kbdev->kctx_list_lock);
+	}
+	kbase_device_put_list(kbdev_list);
+#else
+	seq_puts(m, "GPU mem_profile doesn't be enabled\n");
+#endif
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mtk_common_gpu_memory);
+
 void mtk_common_procfs_init(void)
 {
   	mtk_mali_root = proc_mkdir("mtk_mali", NULL);
@@ -107,12 +149,14 @@ void mtk_common_procfs_init(void)
   		return;
   	}
 	proc_create("utilization", 0444, mtk_mali_root, &mtk_common_gpu_utilization_fops);
+	proc_create("gpu_memory", 0444, mtk_mali_root, &mtk_common_gpu_memory_fops);
 }
 
 void mtk_common_procfs_exit(void)
 {
 	mtk_mali_root = NULL;
 	remove_proc_entry("utilization", mtk_mali_root);
+	remove_proc_entry("gpu_memory", mtk_mali_root);
 	remove_proc_entry("mtk_mali", NULL);
 }
 #endif
