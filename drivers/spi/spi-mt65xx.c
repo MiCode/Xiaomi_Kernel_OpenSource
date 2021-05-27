@@ -877,6 +877,27 @@ static int mtk_spi_remove(struct platform_device *pdev)
 	return 0;
 }
 
+void mt_spi_disable_master_clk(struct spi_device *spidev)
+{
+	struct mtk_spi *ms;
+
+	ms = spi_master_get_devdata(spidev->master);
+
+	clk_disable_unprepare(ms->spi_clk);
+}
+EXPORT_SYMBOL(mt_spi_disable_master_clk);
+
+void mt_spi_enable_master_clk(struct spi_device *spidev)
+{
+	int ret;
+	struct mtk_spi *ms;
+
+	ms = spi_master_get_devdata(spidev->master);
+
+	ret = clk_prepare_enable(ms->spi_clk);
+}
+EXPORT_SYMBOL(mt_spi_enable_master_clk);
+
 static struct platform_driver mtk_spi_driver = {
 	.driver = {
 		.name = "mtk-spi",
