@@ -310,6 +310,12 @@ const char *get_str_by_dsp_dai_id(const int task_id)
 	case AUDIO_TASK_KTV_ID:
 		name = "T_KTV";
 		break;
+	case AUDIO_TASK_CAPTURE_RAW_ID:
+		name = "T_CAPTURE_RAW";
+		break;
+	case AUDIO_TASK_FM_ADSP_ID:
+		name = "T_FM_ADSP";
+		break;
 	default:
 		name = "T_UNKNOWN";
 		break;

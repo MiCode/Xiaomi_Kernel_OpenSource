@@ -35,6 +35,11 @@ static int ktv_status;
 //#define DEBUG_VERBOSE
 //#define DEBUG_VERBOSE_IRQ
 
+static inline unsigned long clr_bit(int bit, unsigned long *addr)
+{
+	return (*addr & ~(1UL << bit));
+}
+
 static int dsp_primary_default_set(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_value *ucontrol)
 {
@@ -1683,11 +1688,10 @@ void audio_irq_handler(int irq, void *data, int core_id)
 			pr_info("+%s flag[%llx] task_id[%d] task_value[%lu] dsp_scene[%d]\n",
 				__func__, *pdtoa, task_id, task_value, dsp_scene);
 #endif
-			// clear_bit(dsp_scene, pdtoa);
-			*pdtoa = 0;
+			*pdtoa = clr_bit(dsp_scene, pdtoa);
 #ifdef DEBUG_VERBOSE_IRQ
 			pr_info("-%s flag[%llx] task_id[%d] task_value[%lu]\n",
-			__func__, *pdtoa, task_id, task_value);
+				__func__, *pdtoa, task_id, task_value);
 #endif
 			if (task_id >= 0)
 				mtk_dsp_dl_consume_handler(dsp, NULL, task_id);
