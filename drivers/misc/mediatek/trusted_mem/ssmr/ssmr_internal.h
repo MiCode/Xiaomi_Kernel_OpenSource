@@ -295,6 +295,28 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.req_size = 0,
 		.is_page_based = true
 	},
+	[SSMR_FEAT_SAPU_DATA_SHM] = {
+		.dt_prop_name = "sapu-data-shm-size",
+		.feat_name = "sapu-data-shm",
+		.cmd_online = "sapu_data_shm=on",
+		.cmd_offline = "sapu_data_shm=off",
+		.enable = "on",
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
+	},
+	[SSMR_FEAT_SAPU_ENGINE_SHM] = {
+		.dt_prop_name = "sapu-engine-shm-size",
+		.feat_name = "sapu-engine-shm",
+		.cmd_online = "sapu_engine_shm=on",
+		.cmd_offline = "sapu_engine_shm=off",
+		.enable = "on",
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
+	},
 };
 /* clang-format on */
 

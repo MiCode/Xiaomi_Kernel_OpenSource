@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 
+#include "memory_ssmr.h"
 #include "private/mld_helper.h"
 #include "private/tmem_device.h"
 #include "private/tmem_error.h"
@@ -77,6 +78,9 @@ int tee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params)
 {
 	int ret = TMEM_OK;
 
+	if(!is_svp_enabled())
+		return TMEM_OK;
+
 	TEE_CMD_LOCK();
 	ret = tee_directly_invoke_cmd_locked(invoke_params);
 	TEE_CMD_UNLOCK();
@@ -95,8 +99,12 @@ int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
 
-	if (pa == 0 & size == 0)
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
+	if (is_multi_type_alloc_multithread_test_locked()) {
+		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
 		return TMEM_OK;
+	}
+#endif
 
 	return tee_directly_invoke_cmd(&cmd_params);
 }
@@ -110,12 +118,54 @@ int secmem_fr_set_wfd_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
 
-	if (pa == 0 & size == 0)
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
+	if (is_multi_type_alloc_multithread_test_locked()) {
+		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
 		return TMEM_OK;
+	}
+#endif
 
 	return tee_directly_invoke_cmd(&cmd_params);
 }
 #endif
+
+int secmem_fr_set_sapu_data_shm_region(u64 pa, u32 size, int remote_region_type)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_SEC_MEM_SET_SAPU_DATA_SHM_REGION;
+	cmd_params.param0 = pa;
+	cmd_params.param1 = size;
+	cmd_params.param2 = remote_region_type;
+
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
+	if (is_multi_type_alloc_multithread_test_locked()) {
+		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
+		return TMEM_OK;
+	}
+#endif
+
+	return tee_directly_invoke_cmd(&cmd_params);
+}
+
+int secmem_fr_set_sapu_engine_shm_region(u64 pa, u32 size, int remote_region_type)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_SEC_MEM_SET_SAPU_ENGINE_SHM_REGION;
+	cmd_params.param0 = pa;
+	cmd_params.param1 = size;
+	cmd_params.param2 = remote_region_type;
+
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
+	if (is_multi_type_alloc_multithread_test_locked()) {
+		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
+		return TMEM_OK;
+	}
+#endif
+
+	return tee_directly_invoke_cmd(&cmd_params);
+}
 
 #if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT) && \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)

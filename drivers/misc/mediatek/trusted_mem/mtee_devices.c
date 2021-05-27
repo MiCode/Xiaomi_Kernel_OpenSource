@@ -162,6 +162,40 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.dev_name = "MTEE_SDSP_SHARED",
 	},
 #endif
+	{
+		.kern_tmem_type = TRUSTED_MEM_SAPU_DATA_SHM,
+		.tee_smem_type = TEE_SMEM_INVALID,
+		.mtee_chunks_id = MTEE_MCHUNKS_SAPU_DATA_SHM,
+		.ssmr_feature_id = SSMR_FEAT_SAPU_DATA_SHM,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SAPU_DATA_SHM},
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.notify_remote = true,
+		.notify_remote_fn = secmem_fr_set_sapu_data_shm_region,
+#else
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+#endif
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_SAPU_DATA_SHM",
+	},
+	{
+		.kern_tmem_type = TRUSTED_MEM_SAPU_ENGINE_SHM,
+		.tee_smem_type = TEE_SMEM_INVALID,
+		.mtee_chunks_id = MTEE_MCHUNKS_SAPU_ENGINE_SHM,
+		.ssmr_feature_id = SSMR_FEAT_SAPU_ENGINE_SHM,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SAPU_ENGINE_SHM},
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.notify_remote = true,
+		.notify_remote_fn = secmem_fr_set_sapu_engine_shm_region,
+#else
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+#endif
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_SAPU_ENGINE_SHM",
+	},
 };
 
 #define MTEE_MCHUNKS_DEVICE_COUNT ARRAY_SIZE(mtee_mchunks)

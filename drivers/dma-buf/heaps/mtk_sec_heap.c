@@ -321,7 +321,7 @@ static const struct dma_buf_ops prot_2d_fr_heap_buf_ops = {
 
 static inline void sapu_data_shm_free(struct dma_buf *dmabuf)
 {
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SDSP_SHARED;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SAPU_DATA_SHM;
 
 	tmem_free(tmem_type, dmabuf);
 }
@@ -336,7 +336,7 @@ static const struct dma_buf_ops sapu_data_shm_heap_buf_ops = {
 
 static inline void sapu_engine_shm_free(struct dma_buf *dmabuf)
 {
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SDSP;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SAPU_ENGINE_SHM;
 
 	tmem_free(tmem_type, dmabuf);
 }
@@ -554,7 +554,7 @@ static inline struct dma_buf *sapu_data_shm_allocate(struct dma_heap *heap,
 					    unsigned long fd_flags,
 					    unsigned long heap_flags)
 {
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SDSP_SHARED;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SAPU_DATA_SHM;
 
 	return tmem_allocate(tmem_type, &sapu_data_shm_heap_buf_ops,
 			     heap, len, fd_flags, heap_flags);
@@ -569,7 +569,7 @@ static inline struct dma_buf *sapu_engine_shm_allocate(struct dma_heap *heap,
 					    unsigned long fd_flags,
 					    unsigned long heap_flags)
 {
-	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SDSP;
+	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SAPU_ENGINE_SHM;
 
 	return tmem_allocate(tmem_type, &sapu_engine_shm_heap_buf_ops,
 			     heap, len, fd_flags, heap_flags);
@@ -793,7 +793,7 @@ static struct sec_feature mtk_sec_heap[__MAX_NR_SECURE_FEATURES] = {
 	},
 	[SVP_PAGE] = {
 		.feat_name = "mtk_svp_page-uncached",
-		.ops = &svp_region_heap_ops,
+		.ops = &svp_page_heap_ops,
 		.priv = (void *)&mtk_sec_heap_priv,
 	},
 	[PROT_REGION] = {

@@ -18,6 +18,8 @@ enum TRUSTED_MEM_REQ_TYPE {
 	TRUSTED_MEM_REQ_TUI = 8,
 	TRUSTED_MEM_REQ_SVP_PAGE = 9,
 	TRUSTED_MEM_REQ_PROT_PAGE = 10,
+	TRUSTED_MEM_REQ_SAPU_DATA_SHM = 11,
+	TRUSTED_MEM_REQ_SAPU_ENGINE_SHM = 12,
 };
 
 /**********************************************************/
