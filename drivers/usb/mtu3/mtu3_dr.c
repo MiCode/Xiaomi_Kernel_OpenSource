@@ -14,14 +14,6 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
-#include "mtk_spm_resource_req.h"
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
-#include "mtk_spm_resource_req.h"
-#endif
-
 #if defined(CONFIG_MACH_MT6779)
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #endif
@@ -466,7 +458,6 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				ssusb_set_power_resource(ssusb,
 					MTU3_RESOURCE_ALL);
 			if (ssusb->clk_mgr) {
-				pm_stay_awake(ssusb->dev);
 				#if defined(CONFIG_MACH_MT6779)
 				ssusb_set_vcore(true);
 				#endif
@@ -502,7 +493,6 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				#if defined(CONFIG_MACH_MT6779)
 				ssusb_set_vcore(false);
 				#endif
-				pm_relax(ssusb->dev);
 			} else
 				ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
 			if (ssusb->spm_mgr)
