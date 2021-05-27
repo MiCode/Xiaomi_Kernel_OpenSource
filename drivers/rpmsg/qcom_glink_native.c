@@ -56,6 +56,8 @@ do {									     \
 #define RPM_GLINK_CID_MAX	65536
 
 static int should_wake;
+int glink_resume_pkt;
+EXPORT_SYMBOL(glink_resume_pkt);
 
 struct glink_msg {
 	__le16 cmd;
@@ -1246,8 +1248,11 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 	unsigned int cmd;
 	int ret = 0;
 
-	if (should_wake)
+	if (should_wake) {
+		pr_info("%s: %d triggered %s\n", __func__, irq, glink->irqname);
+		glink_resume_pkt = true;
 		pm_system_wakeup();
+	}
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
 
