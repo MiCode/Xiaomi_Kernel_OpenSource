@@ -45,4 +45,15 @@ struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev);
  */
 void mml_drm_put_context(struct mml_drm_ctx *ctx);
 
+/*
+ * mml_drm_submit - submit mml job
+ *
+ * @ctx:	Context of mml drm adaptor. Get by mml_drm_get_context API.
+ * @submit:	Frame info which want mml driver to execute.
+ *
+ * Return:	Result of submit. In value < 0 case job did not send to mml
+ *		driver core.
+ */
+s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit);
+
 #endif	/* __MTK_MML_DRM_ADAPTOR_H__ */

@@ -254,6 +254,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 
 	return result;
 }
+EXPORT_SYMBOL_GPL(mml_drm_submit);
 
 const static struct mml_task_ops drm_task_ops = {
 	.submit_done = task_submit_done,
