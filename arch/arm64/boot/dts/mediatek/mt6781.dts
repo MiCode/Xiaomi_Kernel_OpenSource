@@ -1108,6 +1108,8 @@
 		      <0 0x1000e000 0 0x1000>,
 		      <0 0x0011a000 0 0x1000>;
 		interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_DEVICE_APC_CG>;
+		clock-names = "devapc-infra-clock";
 	};
 
 	hwrng: hwrng {
