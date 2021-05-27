@@ -756,12 +756,49 @@ static irqreturn_t mtu3_irq(int irq, void *data)
 	struct mtu3 *mtu = (struct mtu3 *)data;
 	unsigned long flags;
 	u32 level1;
+	u32 tmp;
 
 	spin_lock_irqsave(&mtu->lock, flags);
 
 	/* U3D_LV1ISR is RU */
 	level1 = mtu3_readl(mtu->mac_base, U3D_LV1ISR);
 	level1 &= mtu3_readl(mtu->mac_base, U3D_LV1IER);
+
+	if (unlikely(!mtu->softconnect) && (level1 & MAC2_INTR)) {
+		dev_info(mtu->dev, "%s !softconnect MAC2_INTR\n", __func__);
+		tmp = mtu3_readl(mtu->mac_base, U3D_COMMON_USB_INTR);
+		tmp &= mtu3_readl(mtu->mac_base, U3D_COMMON_USB_INTR_ENABLE);
+		mtu3_writel(mtu->mac_base, U3D_COMMON_USB_INTR, tmp);
+		spin_unlock_irqrestore(&mtu->lock, flags);
+		return IRQ_HANDLED;
+	}
+
+	if (unlikely(!mtu->softconnect) && (level1 & BMU_INTR)) {
+		dev_info(mtu->dev, "%s !softconnect BMU_INTR\n", __func__);
+		tmp = mtu3_readl(mtu->mac_base, U3D_EPISR);
+		tmp &= mtu3_readl(mtu->mac_base, U3D_EPIER);
+		mtu3_writel(mtu->mac_base, U3D_EPISR, tmp);
+		spin_unlock_irqrestore(&mtu->lock, flags);
+		return IRQ_HANDLED;
+	}
+
+	if (unlikely(!mtu->softconnect) && (level1 & QMU_INTR)) {
+		dev_info(mtu->dev, "%s !softconnect QMU_INTR\n", __func__);
+		tmp = mtu3_readl(mtu->mac_base, U3D_QISAR0);
+		tmp &= mtu3_readl(mtu->mac_base, U3D_QIER0);
+		mtu3_writel(mtu->mac_base, U3D_QISAR0, tmp);
+		spin_unlock_irqrestore(&mtu->lock, flags);
+		return IRQ_HANDLED;
+	}
+
+	if (unlikely(!mtu->softconnect) && (level1 & MAC3_INTR)) {
+		dev_info(mtu->dev, "%s !softconnect MAC3_INTR\n", __func__);
+		tmp = mtu3_readl(mtu->mac_base, U3D_LTSSM_INTR);
+		tmp &= mtu3_readl(mtu->mac_base, U3D_LTSSM_INTR_ENABLE);
+		mtu3_writel(mtu->mac_base, U3D_LTSSM_INTR, tmp);
+		spin_unlock_irqrestore(&mtu->lock, flags);
+		return IRQ_HANDLED;
+	}
 
 	if (level1 & EP_CTRL_INTR)
 		mtu3_link_isr(mtu);
