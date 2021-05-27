@@ -29,6 +29,7 @@
 
 module_param(mtk_v4l2_dbg_level, int, S_IRUGO | S_IWUSR);
 module_param(mtk_vcodec_dbg, bool, S_IRUGO | S_IWUSR);
+module_param(mtk_vcodec_vcp, int, S_IRUGO | S_IWUSR);
 
 static int fops_vcodec_open(struct file *file)
 {
@@ -167,7 +168,7 @@ static const struct v4l2_file_operations mtk_vcodec_fops = {
 };
 
 /**
- * Suspend callbacks after user space processes are frozen
+ * Suspsend callbacks after user space processes are frozen
  * Since user space processes are frozen, there is no need and cannot hold same
  * mutex that protects lock owner while checking status.
  * If video codec hardware is still active now, must not to enter suspend.
@@ -235,6 +236,9 @@ static int mtk_vcodec_enc_suspend_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+extern void venc_vcp_probe(struct mtk_vcodec_dev *dev);
+#endif
 
 static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 {
@@ -329,6 +333,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 		sema_init(&dev->enc_sem[i], 1);
 
 	mutex_init(&dev->dev_mutex);
+	mutex_init(&dev->ipi_mutex);
 	mutex_init(&dev->enc_dvfs_mutex);
 	spin_lock_init(&dev->irqlock);
 
@@ -340,8 +345,6 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 		mtk_v4l2_err("v4l2_device_register err=%d", ret);
 		goto err_res;
 	}
-
-	init_waitqueue_head(&dev->queue);
 
 	/* allocate video device for encoder and register it */
 	vfd_enc = video_device_alloc();
@@ -413,6 +416,11 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	register_pm_notifier(&dev->pm_notifier);
 	dev->is_codec_suspending = 0;
 	dev->enc_cnt = 0;
+
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+	// TODO: Use dts for vcp probe
+	venc_vcp_probe(dev);
+#endif
 
 	return 0;
 

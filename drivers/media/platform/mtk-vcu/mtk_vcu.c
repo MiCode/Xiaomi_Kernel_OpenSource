@@ -118,6 +118,9 @@ inline unsigned int ipi_id_to_inst_id(int id)
 			pr_info(fmt, ##arg); \
 	} while (0)
 
+#undef pr_debug
+#define pr_debug vcu_dbg_log
+
 #define MAP_PA_BASE_1GB  0x40000000 /* < 1GB registers */
 #define VCU_MAP_HW_REG_NUM 4
 /* VDEC VDEC_LAT VENC_CORE0 VENC_CORE1 */
@@ -801,7 +804,7 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	atomic_dec(&vcu->gce_info[j].flush_pending);
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
-	if (vcu->cbf.enc_pmqos_gce_end != NULL)
+	if (i == VCU_VENC && vcu->cbf.enc_pmqos_gce_end != NULL)
 		vcu->cbf.enc_pmqos_gce_end(vcu->gce_info[j].v4l2_ctx, core_id,
 				vcu->gce_job_cnt[i][core_id].counter);
 	if (atomic_dec_and_test(&vcu->gce_job_cnt[i][core_id]) &&
@@ -1348,13 +1351,14 @@ static int vcu_ipi_handler(struct mtk_vcu *vcu, struct share_obj *rcv_obj)
 
 static int vcu_ipi_init(struct mtk_vcu *vcu)
 {
+	int i = 0;
+
 	vcu->is_open = false;
-	mutex_init(&vcu->vcu_mutex[VCU_VDEC]);
-	mutex_init(&vcu->vcu_mutex[VCU_VENC]);
-	mutex_init(&vcu->vcu_gce_mutex[VCU_VDEC]);
-	mutex_init(&vcu->vcu_gce_mutex[VCU_VENC]);
-	mutex_init(&vcu->ctx_ipi_binding[VCU_VDEC]);
-	mutex_init(&vcu->ctx_ipi_binding[VCU_VENC]);
+	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
+		mutex_init(&vcu->vcu_mutex[i]);
+		mutex_init(&vcu->vcu_gce_mutex[i]);
+		mutex_init(&vcu->ctx_ipi_binding[i]);
+	}
 	mutex_init(&vcu->vcu_share);
 	mutex_init(&vpud_file_mutex);
 
@@ -2175,7 +2179,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	struct mtk_vcu *vcu;
 	struct device *dev;
 	struct resource *res;
-	int i, ret = 0;
+	int i, j, ret = 0;
 	unsigned int vcuid;
 	const char *gce_event_name;
 	int gce_event_id;
@@ -2270,17 +2274,16 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		goto vcu_mutex_destroy;
 	}
 
-	init_waitqueue_head(&vcu->ack_wq[VCU_VDEC]);
-	init_waitqueue_head(&vcu->ack_wq[VCU_VENC]);
-	init_waitqueue_head(&vcu->get_wq[VCU_VDEC]);
-	init_waitqueue_head(&vcu->get_wq[VCU_VENC]);
-	init_waitqueue_head(&vcu->gce_wq[VCU_VDEC]);
-	init_waitqueue_head(&vcu->gce_wq[VCU_VENC]);
+	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
+		init_waitqueue_head(&vcu->ack_wq[i]);
+		init_waitqueue_head(&vcu->get_wq[i]);
+		init_waitqueue_head(&vcu->gce_wq[i]);
+		atomic_set(&vcu->ipi_got[i], 0);
+		atomic_set(&vcu->ipi_done[i], 1);
+		for (j = 0; j < (int)GCE_THNUM_MAX; j++)
+			atomic_set(&vcu->gce_job_cnt[i][j], 0);
+	}
 	init_waitqueue_head(&vcu->vdec_log_get_wq);
-	atomic_set(&vcu->ipi_got[VCU_VDEC], 0);
-	atomic_set(&vcu->ipi_got[VCU_VENC], 0);
-	atomic_set(&vcu->ipi_done[VCU_VDEC], 1);
-	atomic_set(&vcu->ipi_done[VCU_VENC], 1);
 	atomic_set(&vcu->vdec_log_got, 0);
 	for (i = 0; i < (int)VCODEC_INST_MAX; i++) {
 		atomic_set(&vcu->gce_info[i].flush_done, 0);
@@ -2288,12 +2291,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		vcu->gce_info[i].user_hdl = 0;
 		vcu->gce_info[i].v4l2_ctx = NULL;
 	}
-	atomic_set(&vcu->gce_job_cnt[VCU_VDEC][0], 0);
-	atomic_set(&vcu->gce_job_cnt[VCU_VDEC][1], 0);
-	atomic_set(&vcu->gce_job_cnt[VCU_VENC][0], 0);
-	atomic_set(&vcu->gce_job_cnt[VCU_VENC][1], 0);
-	/* init character device */
 
+	/* init character device */
 	ret = alloc_chrdev_region(&vcu_mtkdev[vcuid]->vcu_devno, 0, 1,
 				  vcu_mtkdev[vcuid]->vcuname);
 	if (ret < 0) {
@@ -2428,12 +2427,11 @@ err_add:
 err_alloc:
 	unregister_chrdev_region(vcu_mtkdev[vcuid]->vcu_devno, 1);
 vcu_mutex_destroy:
-	mutex_destroy(&vcu->vcu_mutex[VCU_VDEC]);
-	mutex_destroy(&vcu->vcu_mutex[VCU_VENC]);
-	mutex_destroy(&vcu->vcu_gce_mutex[VCU_VDEC]);
-	mutex_destroy(&vcu->vcu_gce_mutex[VCU_VENC]);
-	mutex_destroy(&vcu->ctx_ipi_binding[VCU_VDEC]);
-	mutex_destroy(&vcu->ctx_ipi_binding[VCU_VENC]);
+	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
+		mutex_destroy(&vcu->vcu_mutex[i]);
+		mutex_destroy(&vcu->vcu_gce_mutex[i]);
+		mutex_destroy(&vcu->ctx_ipi_binding[i]);
+	}
 	mutex_destroy(&vcu->vcu_share);
 	mutex_destroy(&vpud_file_mutex);
 err_ipi_init:

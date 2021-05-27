@@ -55,7 +55,7 @@ static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 
 	if (mtk_video_formats[0].fourcc == 0) {
 		if (venc_if_get_param(ctx,
-			GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
+			GET_PARAM_VENC_CAP_SUPPORTED_FORMATS,
 			&mtk_video_formats) != 0) {
 			mtk_v4l2_err("Error!! Cannot get supported format");
 			return;
@@ -82,7 +82,7 @@ static void get_supported_framesizes(struct mtk_vcodec_ctx *ctx)
 	unsigned int i;
 
 	if (mtk_venc_framesizes[0].fourcc == 0) {
-		if (venc_if_get_param(ctx, GET_PARAM_CAPABILITY_FRAME_SIZES,
+		if (venc_if_get_param(ctx, GET_PARAM_VENC_CAP_FRAME_SIZES,
 				      &mtk_venc_framesizes) != 0) {
 			mtk_v4l2_err("[%d] Error!! Cannot get frame size",
 				ctx->id);
@@ -459,7 +459,7 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->param_change |= MTK_ENCODE_PARAM_TSVC;
 		break;
 	default:
-		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
+		mtk_v4l2_debug(4, "ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
 		break;
 	}
@@ -488,7 +488,7 @@ static int vidioc_venc_g_ctrl(struct v4l2_ctrl *ctrl)
 			reschange);
 		break;
 	default:
-		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
+		mtk_v4l2_debug(4, "ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
 		break;
 	}
@@ -1921,7 +1921,6 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 {
 	struct venc_enc_param enc_prm;
 	struct vb2_v4l2_buffer *vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
-	//struct vb2_buffer *vb = &vb2_v4l2->vb2_buf;
 	struct mtk_video_enc_buf *mtk_buf =
 		container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
 

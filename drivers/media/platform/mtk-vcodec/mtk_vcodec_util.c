@@ -15,6 +15,12 @@
 #include "mtk_vcu.h"
 #include "mtk_vcodec_dec.h"
 
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+extern phys_addr_t scp_get_reserve_mem_phys(enum scp_reserve_mem_id_t id);
+extern phys_addr_t scp_get_reserve_mem_virt(enum scp_reserve_mem_id_t id);
+extern phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id);
+#endif
+
 /* For encoder, this will enable logs in venc/*/
 bool mtk_vcodec_dbg;
 EXPORT_SYMBOL_GPL(mtk_vcodec_dbg);
@@ -28,6 +34,26 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_perf);
  */
 int mtk_v4l2_dbg_level;
 EXPORT_SYMBOL_GPL(mtk_v4l2_dbg_level);
+
+/* For vcodec vcp debug */
+int mtk_vcodec_vcp;
+EXPORT_SYMBOL_GPL(mtk_vcodec_vcp);
+
+/* VCODEC FTRACE */
+unsigned long vcodec_get_tracing_mark(void)
+{
+/*
+	static unsigned long __read_mostly tracing_mark_write_addr;
+
+	if (unlikely(tracing_mark_write_addr == 0))
+		tracing_mark_write_addr =
+			kallsyms_lookup_name("tracing_mark_write");
+
+	return tracing_mark_write_addr;
+*/
+	return 0;
+}
+EXPORT_SYMBOL(vcodec_get_tracing_mark);
 
 void __iomem *mtk_vcodec_get_dec_reg_addr(struct mtk_vcodec_ctx *data,
 	unsigned int reg_idx)
@@ -134,26 +160,37 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_get_curr_ctx);
 
 struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 {
-	struct vb2_buffer *dst_buf, *src_buf;
+	struct vb2_buffer *dst_buf = NULL;
 	struct vdec_fb *pfb;
 	struct mtk_video_dec_buf *dst_buf_info;
-	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
+	struct vb2_v4l2_buffer *dst_vb2_v4l2;
 	int i;
+	unsigned int num_rdy_bufs;
 
 	if (!ctx) {
 		mtk_v4l2_err("Ctx is NULL!");
 		return NULL;
 	}
 
-	/* for getting timestamp*/
-	src_vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
-	src_buf = &src_vb2_v4l2->vb2_buf;
-
 	mtk_v4l2_debug_enter();
 	dst_vb2_v4l2 = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 	if (dst_vb2_v4l2 != NULL) {
 		dst_buf = &dst_vb2_v4l2->vb2_buf;
-
+		if (ctx->dec_eos_vb == (void *)dst_vb2_v4l2) {
+			num_rdy_bufs = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
+			mtk_v4l2_debug(8, "[%d] Find EOS framebuffer in v4l2 (num_rdy_bufs %d), get next",
+				ctx->id, num_rdy_bufs);
+			if (num_rdy_bufs > 1) {
+				dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+				v4l2_m2m_buf_queue_check(
+					ctx->m2m_ctx, dst_vb2_v4l2);
+				dst_vb2_v4l2 = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
+				dst_buf = &dst_vb2_v4l2->vb2_buf;
+			} else
+				dst_buf = NULL;
+		}
+	}
+	if (dst_buf != NULL) {
 		dst_buf_info = container_of(
 			dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
 		pfb = &dst_buf_info->frame_buffer;
@@ -175,8 +212,8 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 		}
 
 		pfb->status = 0;
-		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p dma_addr[1]=%p Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
-				ctx->id, dst_buf->index, pfb,
+		mtk_v4l2_debug(1, "[%d] id=%d pfb=0x%p %llx VA=%p dma_addr[0]=%p dma_addr[1]=%p Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
+				ctx->id, dst_buf->index, pfb, (unsigned long long)pfb,
 				pfb->fb_base[0].va,
 				&pfb->fb_base[0].dma_addr,
 				&pfb->fb_base[1].dma_addr,
@@ -195,7 +232,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 				ctx->id, dst_buf->index,
 				v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx));
 	} else {
-		mtk_v4l2_err("[%d] No free framebuffer in v4l2!!\n", ctx->id);
+		mtk_v4l2_debug(8, "[%d] No free framebuffer in v4l2!!\n", ctx->id);
 		pfb = NULL;
 	}
 	mtk_v4l2_debug_leave();
@@ -305,6 +342,194 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 
 }
 EXPORT_SYMBOL_GPL(v4l_fill_mtk_fmtdesc);
+
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+{
+	dma_addr_t dma_addr;
+
+	if (mem->type == MEM_TYPE_FOR_SW) {
+		int ret;
+		ret = mtk_vcodec_get_reserve_mem_slot(mem, res_mem_id, mem_slot_stat);
+		if(ret)
+			return ret;
+	} else if (mem->type == MEM_TYPE_FOR_HW) {
+		mem->va = (__u64)dma_alloc_attrs(dev,
+			mem->len, &dma_addr, GFP_KERNEL, 0);
+		if (IS_ERR_OR_NULL((void *)mem->va))
+			return -ENOMEM;
+		else {
+			mem->iova = (__u64)dma_addr;
+			mem->pa = 0;
+		}
+	} else if (mem->type == MEM_TYPE_FOR_SEC) {
+		// TODO: alloc secure memory
+	} else {
+		mtk_v4l2_err("wrong type %u\n", mem->type);
+		return -EPERM;
+	}
+
+	mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n", mem->va, mem->pa, mem->iova, mem->len);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_vcodec_alloc_mem);
+
+int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+{
+	if (mem->type == MEM_TYPE_FOR_SW){
+		int ret;
+		ret = mtk_vcodec_put_reserve_mem_slot(mem, res_mem_id, mem_slot_stat);
+		if(ret)
+			return ret;
+	} else if (mem->type == MEM_TYPE_FOR_HW) {
+		if (IS_ERR_OR_NULL((void *)mem->va))
+			return -EFAULT;
+		else
+			dma_free_attrs(dev, mem->len, (void *)mem->va, (dma_addr_t)mem->iova, 0);
+	} else if (mem->type == MEM_TYPE_FOR_SEC) {
+		// TODO: free secure memory
+	} else {
+		mtk_v4l2_err("wrong type %d\n", mem->type);
+		return -EPERM;
+	}
+
+	mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n", mem->va, mem->pa, mem->iova, mem->len);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_vcodec_free_mem);
+
+int mtk_vcodec_init_reserve_mem_slot(enum scp_reserve_mem_id_t res_mem_id, int **mem_slot_stat)
+{
+	__u64 total_mem = (__u64)scp_get_reserve_mem_size(res_mem_id);
+	__u64 va_start = (__u64)scp_get_reserve_mem_virt(res_mem_id);
+	__u64 pa_start = (__u64)scp_get_reserve_mem_phys(res_mem_id);
+	__u64 slot_range = mem_slot_range;
+
+	int total_slot_num = (int)(total_mem/slot_range);
+	int slot;
+
+	mtk_v4l2_debug(8, "res_mem_id %d, total_mem (%llu), mem_slot_range (%llu), total_slot_num(%d), va_start:0x%llx, pa_start:0x%llx\n",
+		res_mem_id, total_mem, slot_range, total_slot_num, va_start, pa_start);
+
+	if (res_mem_id != VDEC_WORK_ID && res_mem_id != VENC_WORK_ID) {
+		mtk_v4l2_err("[err] unknown res_mem_id (%d)\n", res_mem_id);
+		return -EPERM;
+	}
+
+	*mem_slot_stat = kmalloc_array(total_slot_num, sizeof(int), GFP_KERNEL);
+	if (*mem_slot_stat == NULL) {
+		mtk_v4l2_err("[err] kmalloc_array mem_slot_stat (size %d) failed\n", total_slot_num);
+		return -ENOMEM;
+	}
+
+	for (slot = 0; slot < total_slot_num; slot++) {
+		*(*mem_slot_stat + slot) = 0;
+	}
+	mtk_v4l2_debug(8, "init mem_slot_stat 0x%08x, total_slot_num %d\n", *mem_slot_stat, total_slot_num);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_vcodec_init_reserve_mem_slot);
+
+int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+{
+	__u64 total_mem = (__u64)scp_get_reserve_mem_size(res_mem_id);
+	__u64 va_start = (__u64)scp_get_reserve_mem_virt(res_mem_id);
+	__u64 pa_start = (__u64)scp_get_reserve_mem_phys(res_mem_id);
+	__u64 slot_range = mem_slot_range;
+	int total_slot_num = (int)(total_mem/slot_range), slot;
+
+	if (res_mem_id != VDEC_WORK_ID && res_mem_id != VENC_WORK_ID) {
+		mtk_v4l2_err("[err] unknown res_mem_id (%d)\n", res_mem_id);
+		return -EPERM;
+	}
+
+	if ((mem->len) > slot_range) {
+		mtk_v4l2_err("[err] Allocate size exit max memory slot %llu\n", slot_range);
+		return -EPERM;
+	}
+
+	if (mem_slot_stat == NULL) {
+		mtk_v4l2_err("[err] %s mem_slot_stat is null\n", __func__);
+		return -EPERM;
+	}
+
+	for (slot = 0; slot < total_slot_num; slot++) {
+		if(mem_slot_stat[slot] == 0) /* 0: memory slot is available */
+			break;
+	}
+
+	if (slot == total_slot_num) {
+		mtk_v4l2_err("[err] No available reserved memory\n");
+		return -ENOMEM;
+	}
+	else {
+		mem_slot_stat[slot] = 1; /* 1: memory slot is using */
+		mem->va = va_start + (__u64)slot * slot_range;
+		mem->pa = pa_start + (__u64)slot * slot_range;
+		mem->iova = 0;
+		mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n", mem->va, mem->pa, mem->iova, mem->len);
+		return 0;
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_vcodec_get_reserve_mem_slot);
+
+int mtk_vcodec_put_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+{
+
+	__u64 total_mem = (__u64)scp_get_reserve_mem_size(res_mem_id);
+	__u64 va_start = (__u64)scp_get_reserve_mem_virt(res_mem_id);
+	__u64 pa_start = (__u64)scp_get_reserve_mem_phys(res_mem_id);
+	__u64 slot_range = mem_slot_range;
+	int slot;
+	__u64 va_free = mem->va, pa_free = mem->pa;
+
+	if (res_mem_id != VDEC_WORK_ID && res_mem_id != VENC_WORK_ID) {
+		mtk_v4l2_err("[err] unknown res_mem_id (%d)\n", res_mem_id);
+		return -EPERM;
+	}
+
+	if ((mem->len) > slot_range) {
+		mtk_v4l2_err("[err] Freed size exit max memory slot %llu\n", mem_slot_range);
+		return -EPERM;
+	}
+
+	if (mem_slot_stat == NULL) {
+		mtk_v4l2_err("[err] %s mem_slot_stat is null\n", __func__);
+		return -EPERM;
+	}
+
+	/* check whether the freed address out of reserved memory range */
+	if ((pa_free < pa_start) || (va_free < va_start) || (pa_free > (pa_start + total_mem)) || (va_free > (va_start + total_mem))) {
+		mtk_v4l2_err("[err] Freed address is not in the reserved memory pa %llu, va %llu, pa range(%llu,%llu), va range (%llu,%llu)\n"
+			, pa_free, va_free, pa_start, pa_start + total_mem, va_start, va_start + total_mem);
+		return -EPERM;
+	}
+
+	/* check whether the freed address is on the start of one slot */
+	if (((pa_free - pa_start) % slot_range != 0) ||  ((va_free - va_start) % slot_range != 0)) {
+		mtk_v4l2_err("[err] Freed address is not on the slot pa %llu, va %llu\n", pa_free, va_free);
+		return -EPERM;
+	}/* check whether the freed address of va and pa are on the same slot */
+	else if ((pa_free - pa_start) / slot_range != (va_free - va_start) / slot_range) {
+		mtk_v4l2_err("[err] Freed address of pa & va are not in the same slot pa %llu, va %llu\n", pa_free, va_free);
+		return -EPERM;
+	}
+	else {
+		slot = (pa_free - pa_start) / slot_range;
+		if (mem_slot_stat[slot] == 0) {
+			mtk_v4l2_err("[err] Freed slot status %d is wrong, expected is 1\n", slot);
+		}
+
+		mem_slot_stat[slot] = 0;
+		mem->va = 0;
+		mem->pa = 0;
+		mem->iova = 0;
+		mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n", mem->va, mem->pa, mem->iova, mem->len);
+		return 0;
+	}
+}
+EXPORT_SYMBOL(mtk_vcodec_put_reserve_mem_slot);
+#endif
 
 MODULE_LICENSE("GPL v2");
 

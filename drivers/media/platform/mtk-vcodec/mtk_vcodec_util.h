@@ -11,9 +11,17 @@
 #include <aee.h>
 #include <linux/types.h>
 #include <linux/dma-direction.h>
+#include <linux/mtk_vcu_controls.h>
+#include "vcodec_ipi_msg.h"
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+#include "scp_helper.h"
+#endif
+#include <linux/trace_events.h>
 
 /* #define FPGA_PWRCLK_API_DISABLE */
 /* #define FPGA_INTERRUPT_API_DISABLE */
+
+#define mem_slot_range 100*1024ULL //100KB
 
 struct mtk_vcodec_mem {
 	size_t length;
@@ -41,12 +49,25 @@ enum mtk_vcodec_flags {
 	REF_FREED = 1 << 3
 };
 
+struct mtk_vcodec_msgq {
+	struct list_head head;
+	wait_queue_head_t wq;
+	spinlock_t lock;
+	atomic_t cnt;
+};
+
+struct mtk_vcodec_msg_node {
+	struct share_obj ipi_data;
+	struct list_head list;
+};
+
 struct mtk_vcodec_ctx;
 struct mtk_vcodec_dev;
 
 extern int mtk_v4l2_dbg_level;
 extern bool mtk_vcodec_dbg;
 extern bool mtk_vcodec_perf;
+extern int mtk_vcodec_vcp;
 
 #define DEBUG   1
 
@@ -138,6 +159,39 @@ static __attribute__((used)) unsigned int time_ms_s[2][2], time_ms_e[2][2];
 				timeout_ms); \
 	} while (0)
 
+#if 1
+unsigned long vcodec_get_tracing_mark(void);
+#define vcodec_trace_begin(fmt, args...)
+#define vcodec_trace_end()
+#define vcodec_trace_count(name, count)
+#else
+
+#define vcodec_trace_begin(fmt, args...) do { \
+			preempt_disable(); \
+			event_trace_printk(vcodec_get_tracing_mark(), \
+				"B|%d|"fmt"\n", current->tgid, ##args); \
+			preempt_enable();\
+		} while (0)
+
+#define vcodec_trace_end() do { \
+			preempt_disable(); \
+			event_trace_printk(vcodec_get_tracing_mark(), "E\n"); \
+			preempt_enable(); \
+		} while (0)
+
+#define vcodec_trace_count(name, count) do { \
+			preempt_disable(); \
+			event_trace_printk(vcodec_get_tracing_mark(), \
+				"C|%d|%s|%d\n", current->tgid, name, count); \
+			preempt_enable();\
+		} while (0)
+#endif
+
+enum mtk_put_buffer_type {
+	PUT_BUFFER_WORKER = -1,
+	PUT_BUFFER_CALLBACK = 0,
+};
+
 void __iomem *mtk_vcodec_get_dec_reg_addr(struct mtk_vcodec_ctx *data,
 	unsigned int reg_idx);
 void __iomem *mtk_vcodec_get_enc_reg_addr(struct mtk_vcodec_ctx *data,
@@ -151,10 +205,18 @@ void mtk_vcodec_set_curr_ctx(struct mtk_vcodec_dev *dev,
 struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
 	unsigned int hw_id);
 struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx);
-int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type);
+int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type);
 void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx);
 void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 		void *vbuf);
 void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt);
+
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+int mtk_vcodec_init_reserve_mem_slot(enum scp_reserve_mem_id_t res_mem_id, int **mem_slot_stat);
+int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+int mtk_vcodec_put_reserve_mem_slot(struct vcodec_mem_obj *mem, enum scp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+#endif
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

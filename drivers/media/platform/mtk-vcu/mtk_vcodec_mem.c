@@ -17,7 +17,7 @@
 struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 	struct device *cmdq_dev)
 {
-	struct mtk_vcu_queue *vcu_queue;
+	struct mtk_vcu_queue *vcu_queue = NULL;
 
 	vcu_queue = kzalloc(sizeof(struct mtk_vcu_queue), GFP_KERNEL);
 	if (vcu_queue == NULL) {

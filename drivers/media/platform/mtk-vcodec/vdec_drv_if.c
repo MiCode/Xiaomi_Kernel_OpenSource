@@ -20,11 +20,8 @@
 const struct vdec_common_if *get_dec_common_if(void);
 #endif
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VPU)
-#include "mtk_vpu.h"
-const struct vdec_common_if *get_h264_dec_comm_if(void);
-const struct vdec_common_if *get_vp8_dec_comm_if(void);
-const struct vdec_common_if *get_vp9_dec_comm_if(void);
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+const struct vdec_common_if *get_dec_vcp_if(void);
 #endif
 
 int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
@@ -53,22 +50,12 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	case V4L2_PIX_FMT_RV30:
 	case V4L2_PIX_FMT_RV40:
 	case V4L2_PIX_FMT_AV1:
-		ctx->dec_if = get_dec_common_if();
-		break;
-	default:
-		return -EINVAL;
-	}
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+		if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
+			ctx->dec_if = get_dec_vcp_if();
+		else
 #endif
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VPU)
-	switch (fourcc) {
-	case V4L2_PIX_FMT_H264:
-		ctx->dec_if = get_h264_dec_comm_if();
-		break;
-	case V4L2_PIX_FMT_VP8:
-		ctx->dec_if = get_vp8_dec_comm_if();
-		break;
-	case V4L2_PIX_FMT_VP9:
-		ctx->dec_if = get_vp9_dec_comm_if();
+			ctx->dec_if = get_dec_common_if();
 		break;
 	default:
 		return -EINVAL;
@@ -114,7 +101,9 @@ int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
 	if (!ctx->user_lock_hw)
 		vdec_decode_prepare(ctx, MTK_VDEC_CORE);
 
+	vcodec_trace_begin("%s", __func__);
 	ret = ctx->dec_if->decode(ctx->drv_handle, bs, fb, src_chg);
+	vcodec_trace_end();
 
 	if (!ctx->user_lock_hw)
 		vdec_decode_unprepare(ctx, MTK_VDEC_CORE);
@@ -135,7 +124,13 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 			return -ENOMEM;
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
-		ctx->dec_if = get_dec_common_if();
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+		if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
+			ctx->dec_if = get_dec_vcp_if();
+		else
+#endif
+			ctx->dec_if = get_dec_common_if();
+
 		drv_handle_exist = 0;
 	}
 
@@ -196,6 +191,10 @@ void vdec_decode_prepare(void *ctx_prepare,
 		enable_irq(ctx->dev->dec_irq[hw_id]);
 
 	mtk_vdec_pmqos_begin_frame(ctx, hw_id);
+	if (hw_id == MTK_VDEC_CORE)
+		vcodec_trace_count("VDEC_HW_CORE", 1);
+	else
+		vcodec_trace_count("VDEC_HW_LAT", 1);
 }
 EXPORT_SYMBOL_GPL(vdec_decode_prepare);
 
@@ -212,8 +211,12 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 			hw_id, ctx->dev->dec_sem[hw_id].count);
 		return;
 	}
-	mtk_vdec_pmqos_end_frame(ctx, hw_id);
+	if (hw_id == MTK_VDEC_CORE)
+		vcodec_trace_count("VDEC_HW_CORE", 0);
+	else
+		vcodec_trace_count("VDEC_HW_LAT", 0);
 
+	mtk_vdec_pmqos_end_frame(ctx, hw_id);
 	disable_irq(ctx->dev->dec_irq[hw_id]);
 	mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL, hw_id);

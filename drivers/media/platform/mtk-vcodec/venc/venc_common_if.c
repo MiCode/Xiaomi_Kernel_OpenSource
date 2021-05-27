@@ -423,8 +423,8 @@ static int venc_get_param(unsigned long handle,
 	inst->vcu_inst.ctx = inst->ctx;
 
 	switch (type) {
-	case GET_PARAM_CAPABILITY_FRAME_SIZES:
-	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
+	case GET_PARAM_VENC_CAP_FRAME_SIZES:
+	case GET_PARAM_VENC_CAP_SUPPORTED_FORMATS:
 		vcu_enc_query_cap(&inst->vcu_inst, type, out);
 		break;
 	case GET_PARAM_FREE_BUFFERS:

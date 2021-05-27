@@ -144,6 +144,18 @@ enum mtk_q_type {
 };
 
 /**
+ * enum input_driven_mode  - decoder different input driven mode
+ * @NON_INPUT_DRIVEN     : non input driven, bs/frm pairwise trigger ipi
+ * @INPUT_DRIVEN_CB_FRM      : input driven, codec callback get frame
+ * @INPUT_DRIVEN_PUT_FRM : input driven, v4l2 initiatively put frame to codec
+ */
+enum vdec_input_driven_mode {
+	NON_INPUT_DRIVEN = 0,
+	INPUT_DRIVEN_CB_FRM = 1,
+	INPUT_DRIVEN_PUT_FRM = 2,
+};
+
+/**
  * struct mtk_q_data - Structure used to store information about queue
  */
 struct mtk_q_data {
@@ -385,6 +397,10 @@ struct mtk_vcodec_ctx {
 	unsigned int errormap_info[VB2_MAX_FRAME];
 	s64 input_max_ts;
 
+	unsigned int eos_type;
+	void *dec_eos_vb;
+	u64 early_eos_ts;
+
 	int int_cond[MTK_VDEC_HW_NUM];
 	int int_type;
 	wait_queue_head_t queue[MTK_VDEC_HW_NUM];
@@ -398,7 +414,8 @@ struct mtk_vcodec_ctx {
 	struct mtk_video_enc_buf *enc_flush_buf;
 	struct vb2_buffer *pend_src_buf;
 	wait_queue_head_t fm_wq;
-	int input_driven;
+	unsigned char *ipi_blocked;
+	enum vdec_input_driven_mode input_driven;
 	int user_lock_hw;
 	/* for user lock HW case release check */
 	int hw_locked[MTK_VDEC_HW_NUM];
@@ -482,7 +499,8 @@ struct mtk_vcodec_dev {
 	int int_cond;
 	int int_type;
 	struct mutex dev_mutex;
-	wait_queue_head_t queue;
+	struct mutex ipi_mutex;
+	struct mtk_vcodec_msgq mq;
 
 	int dec_irq[MTK_VDEC_HW_NUM];
 	int enc_irq;
@@ -504,6 +522,8 @@ struct mtk_vcodec_dev {
 	int dec_cnt;
 	int enc_cnt;
 
+	int *dec_mem_slot_stat;
+	int *enc_mem_slot_stat;
 	struct codec_job *vdec_jobs[MTK_VDEC_HW_NUM];
 	struct codec_job *venc_jobs[MTK_VENC_HW_NUM];
 	struct temp_job *temp_venc_jobs[MTK_VENC_HW_NUM];

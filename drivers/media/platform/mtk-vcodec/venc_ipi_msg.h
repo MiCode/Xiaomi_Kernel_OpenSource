@@ -13,13 +13,8 @@
 #include "vcodec_ipi_msg.h"
 
 #define MTK_MAX_ENC_CODECS_SUPPORT       (64)
-#define AP_IPIMSG_VENC_BASE 0xC000
-#define VCU_IPIMSG_VENC_BASE 0xD000
-#define VCU_IPIMSG_VENC_SEND_BASE 0xE000
-
 #define VENC_MAX_FB_NUM              VIDEO_MAX_FRAME
 #define VENC_MAX_BS_NUM              VIDEO_MAX_FRAME
-
 
 /**
  * enum venc_ipi_msg_id - message id between AP and VCU
@@ -28,34 +23,43 @@
  * @VCU_IPIMSG_ENC_XXX_DONE:    VCU ack AP cmd message id
  */
 enum venc_ipi_msg_id {
-	AP_IPIMSG_ENC_INIT = AP_IPIMSG_VENC_BASE,
+	AP_IPIMSG_ENC_INIT = AP_IPIMSG_VENC_SEND_BASE,
 	AP_IPIMSG_ENC_SET_PARAM,
 	AP_IPIMSG_ENC_ENCODE,
 	AP_IPIMSG_ENC_DEINIT,
 	AP_IPIMSG_ENC_QUERY_CAP,
 
-	VCU_IPIMSG_ENC_INIT_DONE = VCU_IPIMSG_VENC_BASE,
+	VCU_IPIMSG_ENC_INIT_DONE = VCU_IPIMSG_VENC_ACK_BASE,
 	VCU_IPIMSG_ENC_SET_PARAM_DONE,
 	VCU_IPIMSG_ENC_ENCODE_DONE,
 	VCU_IPIMSG_ENC_DEINIT_DONE,
-	VCU_IPIMSG_ENC_QUERY_CAP_ACK,
-	VCU_IPIMSG_ENC_ENCODE_ACK,
+	VCU_IPIMSG_ENC_QUERY_CAP_DONE,
+	VCU_IPIMSG_ENC_TRACE,
 
 	VCU_IPIMSG_ENC_POWER_ON = VCU_IPIMSG_VENC_SEND_BASE,
 	VCU_IPIMSG_ENC_POWER_OFF,
+	VCU_IPIMSG_ENC_PUT_BUFFER,
+	VCU_IPIMSG_ENC_MEM_ALLOC,
+	VCU_IPIMSG_ENC_MEM_FREE,
 	VCU_IPIMSG_ENC_WAIT_ISR,
-	VCU_IPIMSG_ENC_PUT_BUFFER
+
+	AP_IPIMSG_ENC_POWER_ON_DONE = AP_IPIMSG_VENC_ACK_BASE,
+	AP_IPIMSG_ENC_POWER_OFF_DONE,
+	AP_IPIMSG_ENC_PUT_BUFFER_DONE,
+	AP_IPIMSG_ENC_MEM_ALLOC_DONE,
+	AP_IPIMSG_ENC_MEM_FREE_DONE,
+	AP_IPIMSG_ENC_WAIT_ISR_DONE
 };
 
 /* enum venc_get_param_type - The type of set parameter used in
  *                            venc_if_get_param()
- * GET_PARAM_CAPABILITY_SUPPORTED_FORMATS: get codec supported format capability
- * GET_PARAM_CAPABILITY_FRAME_SIZES:
+ * GET_PARAM_VENC_CAP_SUPPORTED_FORMATS: get codec supported format capability
+ * GET_PARAM_VENC_CAP_FRAME_SIZES:
  *         get codec supported frame size & alignment info
  */
 enum venc_get_param_type {
-	GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
-	GET_PARAM_CAPABILITY_FRAME_SIZES,
+	GET_PARAM_VENC_CAP_SUPPORTED_FORMATS,
+	GET_PARAM_VENC_CAP_FRAME_SIZES,
 	GET_PARAM_FREE_BUFFERS,
 	GET_PARAM_ROI_RC_QP,
 	GET_PARAM_RESOLUTION_CHANGE,
@@ -242,13 +246,27 @@ enum venc_ipi_msg_status {
 /**
  * struct venc_vcu_ipi_msg_common - VCU ack AP cmd common structure
  * @msg_id:     message id (VCU_IPIMSG_XXX_DONE)
- * @status:     cmd status (venc_ipi_msg_status)
+ * @status:     cmd status (venc_ipi_msg_status, carries hw id when lock/unlock)
  * @venc_inst:  AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
  */
 struct venc_vcu_ipi_msg_common {
 	__u32 msg_id;
 	__s32 status;
 	__u64 venc_inst;
+};
+
+/**
+ * struct venc_vcu_ipi_msg_trace - VCU ack AP cmd trace structure
+ * @msg_id:     message id (VCU_IPIMSG_XXX_DONE)
+ * @status:     cmd status (venc_ipi_msg_status, carries hw id when lock/unlock)
+ * @venc_inst:  AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
+ */
+struct venc_vcu_ipi_msg_trace {
+	__u32 msg_id;
+	__s32 status;
+	__u64 venc_inst;
+	__u32 trace_id;
+	__u32 flag;
 };
 
 /**
@@ -337,7 +355,7 @@ struct venc_vcu_ipi_msg_deinit {
 };
 
 /**
- * struct venc_vcu_ipi_msg_waitisr - VCU ack AP wait isr cmd structure
+ * struct venc_vcu_ipi_msg_waitisr - VCU to AP wait isr cmd structure
  * @msg_id:   message id (VCU_IPIMSG_XXX_ENC_DEINIT_DONE)
  * @status:   cmd status (venc_ipi_msg_status)
  * @venc_inst:  AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
@@ -350,6 +368,20 @@ struct venc_vcu_ipi_msg_waitisr {
 	__u64 venc_inst;
 	__u32 irq_status;
 	__u32 timeout;
+};
+
+/**
+ * struct venc_vcu_ipi_mem_op -VCU/AP bi-direction memory operation cmd structure
+ * @msg_id:   message id (VCU_IPIMSG_XXX_ENC_DEINIT_DONE)
+ * @status:   cmd status (venc_ipi_msg_status)
+ * @venc_inst:	AP encoder instance (struct venc_inst *)
+ * @struct vcodec_mem_obj: encoder memories
+ */
+struct venc_vcu_ipi_mem_op {
+	__u32 msg_id;
+	__s32 status;
+	__u64 venc_inst;
+	struct vcodec_mem_obj mem;
 };
 
 /*

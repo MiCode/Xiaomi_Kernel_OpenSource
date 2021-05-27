@@ -246,6 +246,10 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+extern void vdec_vcp_probe(struct mtk_vcodec_dev *dev);
+#endif
+
 static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 {
 	struct mtk_vcodec_dev *dev;
@@ -333,18 +337,18 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++)
 		sema_init(&dev->dec_sem[i], 1);
 	mutex_init(&dev->dev_mutex);
+	mutex_init(&dev->ipi_mutex);
 	mutex_init(&dev->dec_dvfs_mutex);
 	spin_lock_init(&dev->irqlock);
 
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name), "%s",
 			 "[/MTK_V4L2_VDEC]");
+
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret) {
 		mtk_v4l2_err("v4l2_device_register err=%d", ret);
 		goto err_res;
 	}
-
-	init_waitqueue_head(&dev->queue);
 
 	vfd_dec = video_device_alloc();
 	if (!vfd_dec) {
@@ -404,6 +408,9 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+#ifdef DEC_TF_CALLBACK
+	mtk_vdec_translation_fault_callback_setting(dev);
+#endif
 #endif
 	mtk_v4l2_debug(0, "decoder registered as /dev/video%d",
 				   vfd_dec->num);
@@ -415,6 +422,10 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	dev->is_codec_suspending = 0;
 	dev->dec_cnt = 0;
 
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+	// TODO: Use dts for vcp probe
+	vdec_vcp_probe(dev);
+#endif
 	return 0;
 
 err_dec_reg:

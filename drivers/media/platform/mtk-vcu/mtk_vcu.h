@@ -121,12 +121,12 @@ enum ipi_id {
 	IPI_VDEC_MPEG4,
 	IPI_VDEC_H263,
 	IPI_VDEC_S263,
-	IPI_VDEC_XVID,
 	IPI_VDEC_MPEG12,
 	IPI_VDEC_WMV,
 	IPI_VDEC_RV30,
 	IPI_VDEC_RV40,
 	IPI_VDEC_AV1,
+	IPI_VDEC_RESOURCE,
 	IPI_VENC_COMMON,
 	IPI_VENC_H264,
 	IPI_VENC_H265,
@@ -143,9 +143,10 @@ enum ipi_id {
 	IPI_MAX = 50,
 };
 
-enum vcu_codec_type {
+enum vcu_codec_ipi_type {
 	VCU_VDEC = 0,
 	VCU_VENC,
+	VCU_RESOURCE,
 	VCU_CODEC_MAX
 };
 

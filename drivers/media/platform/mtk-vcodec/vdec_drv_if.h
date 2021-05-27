@@ -37,7 +37,8 @@ struct vdec_inst {
 enum vdec_fb_status {
 	FB_ST_NORMAL            = 0,
 	FB_ST_DISPLAY           = (1 << 0),
-	FB_ST_FREE              = (1 << 1)
+	FB_ST_FREE              = (1 << 1),
+	FB_ST_EOS               = (1 << 2)
 };
 
 /**

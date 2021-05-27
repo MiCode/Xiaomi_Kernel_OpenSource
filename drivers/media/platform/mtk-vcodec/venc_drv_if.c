@@ -22,10 +22,8 @@
 const struct venc_common_if *get_enc_common_if(void);
 #endif
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VPU)
-#include "mtk_vpu.h"
-const struct venc_common_if *get_h264_enc_comm_if(void);
-const struct venc_common_if *get_vp8_enc_comm_if(void);
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+const struct venc_common_if *get_enc_vcp_if(void);
 #endif
 
 int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
@@ -42,20 +40,14 @@ int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	case V4L2_PIX_FMT_HEIF:
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
-		ctx->enc_if = get_enc_common_if();
-		ctx->oal_vcodec = 0;
-		break;
-	default:
-		return -EINVAL;
-	}
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCP)
+		if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER))
+			ctx->enc_if = get_enc_vcp_if();
+		else
 #endif
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VPU)
-	switch (fourcc) {
-	case V4L2_PIX_FMT_VP8:
-		ctx->enc_if = get_vp8_enc_comm_if();
-		break;
-	case V4L2_PIX_FMT_H264:
-		ctx->enc_if = get_h264_enc_comm_if();
+		ctx->enc_if = get_enc_common_if();
+
+		ctx->oal_vcodec = 0;
 		break;
 	default:
 		return -EINVAL;
@@ -121,6 +113,10 @@ void venc_encode_prepare(void *ctx_prepare,
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
 	mtk_vcodec_enc_clock_on(ctx, core_id);
 	mtk_venc_pmqos_begin_frame(ctx, core_id);
+	if (core_id == MTK_VENC_CORE_0)
+		vcodec_trace_count("VENC_HW_CORE_0", 1);
+	else
+		vcodec_trace_count("VENC_HW_CORE_1", 1);
 }
 EXPORT_SYMBOL_GPL(venc_encode_prepare);
 
@@ -137,6 +133,10 @@ void venc_encode_unprepare(void *ctx_unprepare,
 			core_id, ctx->dev->enc_sem[core_id].count);
 		return;
 	}
+	if (core_id == MTK_VENC_CORE_0)
+		vcodec_trace_count("VENC_HW_CORE_0", 0);
+	else
+		vcodec_trace_count("VENC_HW_CORE_1", 0);
 
 	mtk_venc_pmqos_end_frame(ctx, core_id);
 	mtk_vcodec_enc_clock_off(ctx, core_id);
@@ -171,8 +171,10 @@ int venc_if_encode(struct mtk_vcodec_ctx *ctx,
 	if (ctx->drv_handle == 0)
 		return 0;
 
+	vcodec_trace_begin("%s", __func__);
 	ret = ctx->enc_if->encode(ctx->drv_handle, opt, frm_buf,
 							  bs_buf, result);
+	vcodec_trace_end();
 
 	return ret;
 }

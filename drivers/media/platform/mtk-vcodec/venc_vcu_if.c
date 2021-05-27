@@ -12,7 +12,117 @@
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_enc_pm.h"
 #include "mtk_vcodec_enc.h"
-#include "vdec_vcu_if.h"
+
+static inline int venc_get_mapped_fd(struct dma_buf *dmabuf)
+{
+	int target_fd = 0;
+#if 0
+	unsigned long rlim_cur;
+	unsigned long irqs;
+	struct task_struct *task = NULL;
+	struct files_struct *f = NULL;
+	unsigned long flags = 0;
+
+	if (dmabuf == NULL || dmabuf->file == NULL)
+		return 0;
+
+	vcu_get_file_lock();
+
+	vcu_get_task(&task, &f, 0);
+	if (task == NULL || f == NULL) {
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
+
+	if (vcu_get_sig_lock(&flags) <= 0) {
+		pr_info("%s() Failed to try lock...VPUD may die", __func__);
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
+
+	if (vcu_check_vpud_alive() == 0) {
+		pr_info("%s() Failed to check vpud alive. VPUD died", __func__);
+		vcu_put_file_lock();
+		vcu_put_sig_lock(flags);
+		return -EMFILE;
+	}
+	vcu_put_sig_lock(flags);
+
+	if (!lock_task_sighand(task, &irqs)) {
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
+
+	// get max number of open files
+	rlim_cur = task_rlimit(task, RLIMIT_NOFILE);
+	unlock_task_sighand(task, &irqs);
+
+	f = get_files_struct(task);
+	if (!f) {
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
+
+	target_fd = __alloc_fd(f, 0, rlim_cur, O_CLOEXEC);
+
+	get_file(dmabuf->file);
+
+	if (target_fd < 0) {
+		put_files_struct(f);
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
+
+	__fd_install(f, target_fd, dmabuf->file);
+
+	put_files_struct(f);
+	vcu_put_file_lock();
+
+	/* pr_info("venc_get_mapped_fd: %d", target_fd); */
+#endif
+	return target_fd;
+}
+
+static inline void venc_close_mapped_fd(unsigned int target_fd)
+{
+#if 0
+	struct task_struct *task = NULL;
+	struct files_struct *f = NULL;
+	unsigned long flags = 0;
+
+	vcu_get_file_lock();
+	vcu_get_task(&task, &f, 0);
+	if (task == NULL || f == NULL) {
+		vcu_put_file_lock();
+		return;
+	}
+
+	if (vcu_get_sig_lock(&flags) <= 0) {
+		pr_info("%s() Failed to try lock...VPUD may die", __func__);
+		vcu_put_file_lock();
+		return;
+	}
+
+	if (vcu_check_vpud_alive() == 0) {
+		pr_info("%s() Failed to check vpud alive. VPUD died", __func__);
+		vcu_put_file_lock();
+		vcu_put_sig_lock(flags);
+		return;
+	}
+	vcu_put_sig_lock(flags);
+
+	f = get_files_struct(task);
+	if (!f) {
+		vcu_put_file_lock();
+		return;
+	}
+
+	__close_fd(f, target_fd);
+
+	put_files_struct(f);
+	vcu_put_file_lock();
+#endif
+}
 
 static void handle_enc_init_msg(struct venc_vcu_inst *vcu, void *data)
 {
@@ -39,12 +149,12 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 	if (data == NULL)
 		return;
 	switch (msg->id) {
-	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
+	case GET_PARAM_VENC_CAP_SUPPORTED_FORMATS:
 		size = sizeof(struct mtk_video_fmt);
 		memcpy((void *)msg->ap_data_addr, data,
 			size * MTK_MAX_ENC_CODECS_SUPPORT);
 		break;
-	case GET_PARAM_CAPABILITY_FRAME_SIZES:
+	case GET_PARAM_VENC_CAP_FRAME_SIZES:
 		size = sizeof(struct mtk_codec_framesizes);
 		memcpy((void *)msg->ap_data_addr, data,
 			size * MTK_MAX_ENC_CODECS_SUPPORT);
@@ -132,17 +242,26 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	case VCU_IPIMSG_ENC_DEINIT_DONE:
 		break;
 	case VCU_IPIMSG_ENC_POWER_ON:
-		venc_encode_prepare(ctx, 0, &flags);
+		/*use status to store core ID*/
+		venc_encode_prepare(ctx, msg->status, &flags);
+		msg->status = VENC_IPI_MSG_STATUS_OK;
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_POWER_OFF:
-		venc_encode_unprepare(ctx, 0, &flags);
+		/*use status to store core ID*/
+		venc_encode_unprepare(ctx, msg->status, &flags);
+		msg->status = VENC_IPI_MSG_STATUS_OK;
 		ret = 1;
 		break;
-	case VCU_IPIMSG_ENC_QUERY_CAP_ACK:
+	case VCU_IPIMSG_ENC_QUERY_CAP_DONE:
 		handle_query_cap_ack_msg(data);
 		break;
 	case VCU_IPIMSG_ENC_WAIT_ISR:
+		if (msg->status == MTK_VENC_CORE_0)
+			vcodec_trace_count("VENC_HW_CORE_0", 2);
+		else
+			vcodec_trace_count("VENC_HW_CORE_1", 2);
+
 		if (-1 == mtk_vcodec_wait_for_done_ctx(ctx, 0,
 			MTK_INST_IRQ_RECEIVED,
 			WAIT_INTR_TIMEOUT_MS)) {
@@ -151,13 +270,19 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 				"irq_status %x <-", ctx->irq_status);
 		} else
 			handle_enc_waitisr_msg(vcu, data, 0);
+
+		if (msg->status == MTK_VENC_CORE_0)
+			vcodec_trace_count("VENC_HW_CORE_0", 1);
+		else
+			vcodec_trace_count("VENC_HW_CORE_1", 1);
+
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_PUT_BUFFER:
 		mtk_enc_put_buf(ctx);
 		ret = 1;
 		break;
-	case VCU_IPIMSG_ENC_ENCODE_ACK:
+	case VCU_IPIMSG_ENC_ENCODE_DONE:
 		break;
 	default:
 		mtk_vcodec_err(vcu, "unknown msg id %x", msg->msg_id);
@@ -287,7 +412,6 @@ int vcu_enc_init(struct venc_vcu_inst *vcu)
 		return -EINVAL;
 	}
 
-	init_waitqueue_head(&vcu->wq_hd);
 	vcu->signaled = 0;
 	vcu->failure = 0;
 	vcu_get_ctx_ipi_binding_lock(vcu->dev, &vcu->ctx_ipi_binding, VCU_VENC);
@@ -499,13 +623,13 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			out.input_size[i] =
 				frm_buf->fb_addr[i].size;
 			out.input_fd[i] =
-				get_mapped_fd(frm_buf->fb_addr[i].dmabuf);
+				venc_get_mapped_fd(frm_buf->fb_addr[i].dmabuf);
 			out.data_offset[i] =
 				frm_buf->fb_addr[i].data_offset;
 		}
 		if (frm_buf->has_meta) {
 			vsi->meta_fd =
-				get_mapped_fd(frm_buf->meta_dma);
+				venc_get_mapped_fd(frm_buf->meta_dma);
 			vsi->meta_size = sizeof(struct mtk_hdr_dynamic_info);
 			vsi->meta_addr = frm_buf->meta_addr;
 		} else {
@@ -527,7 +651,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	if (bs_buf) {
 		out.bs_addr = bs_buf->dma_addr;
 		out.bs_size = bs_buf->size;
-		out.bs_fd = get_mapped_fd(bs_buf->dmabuf);
+		out.bs_fd = venc_get_mapped_fd(bs_buf->dmabuf);
 		mtk_vcodec_debug(vcu, " output (dma:%lx fd:%x)",
 			(unsigned long)bs_buf->dmabuf,
 			out.bs_fd);
@@ -553,16 +677,16 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	if (frm_buf) {
 		for (i = 0; i < frm_buf->num_planes; i++) {
 			if (frm_buf->fb_addr[i].dmabuf != NULL)
-				close_mapped_fd(out.input_fd[i]);
+				venc_close_mapped_fd(out.input_fd[i]);
 		}
 		if (frm_buf->has_meta) {
-			close_mapped_fd(vsi->meta_fd);
+			venc_close_mapped_fd(vsi->meta_fd);
 			dma_buf_put(frm_buf->meta_dma);
 		}
 	}
 
 	if (bs_buf && bs_buf->dmabuf != NULL)
-		close_mapped_fd(out.bs_fd);
+		venc_close_mapped_fd(out.bs_fd);
 
 	mtk_vcodec_debug(vcu, "bs_mode %d size %d key_frm %d <-",
 		bs_mode, vcu->bs_size, vcu->is_key_frm);

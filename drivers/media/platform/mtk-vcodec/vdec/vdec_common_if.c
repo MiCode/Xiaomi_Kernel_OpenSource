@@ -121,9 +121,6 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	case V4L2_PIX_FMT_S263:
 		inst->vcu.id = IPI_VDEC_S263;
 		break;
-	case V4L2_PIX_FMT_XVID:
-		inst->vcu.id = IPI_VDEC_XVID;
-		break;
 	case V4L2_PIX_FMT_MPEG1:
 	case V4L2_PIX_FMT_MPEG2:
 		inst->vcu.id = IPI_VDEC_MPEG12;
@@ -151,7 +148,7 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	inst->vcu.dev = vcu_get_plat_device(ctx->dev->plat_dev);
 	if (inst->vcu.dev  == NULL) {
-		mtk_vcodec_err(inst, "vcu device in not ready");
+		mtk_vcodec_err(inst, "vcu device is not ready");
 		goto error_free_inst;
 	}
 
@@ -170,6 +167,9 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	inst->vsi = (struct vdec_vsi *)inst->vcu.vsi;
 	ctx->input_driven = inst->vsi->input_driven;
+	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
+	*(ctx->ipi_blocked) = 0;
+
 
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 
@@ -219,9 +219,15 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	mtk_vcodec_debug(inst, "+ [%d] FB y_dma=%llx c_dma=%llx va=%p num_planes %d",
 		inst->num_nalu, fb_dma[0], fb_dma[1], fb, num_planes);
 
-	/* bs NULL means flush decoder */
-	if (bs == NULL)
-		return vcu_dec_reset(vcu);
+	/* bs == NULL means reset decoder */
+	if (bs == NULL) {
+		if (fb == NULL)
+			return vcu_dec_reset(vcu, VDEC_FLUSH);   /* flush (0) */
+		else if (fb->status == 0)
+			return vcu_dec_reset(vcu, VDEC_DRAIN);   /* drain (1) */
+		else
+			return vcu_dec_reset(vcu, VDEC_DRAIN_EOS);   /* drain and return EOS frame (2) */
+	}
 
 	mtk_vcodec_debug(inst, "+ BS dma=0x%llx dmabuf=%p format=%c%c%c%c",
 		(uint64_t)bs->dma_addr, bs->dmabuf, bs_fourcc & 0xFF,
@@ -236,7 +242,10 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 
 	inst->vsi->dec.bs_fd = (uint64_t)get_mapped_fd(bs->dmabuf);
 
+	if (inst->vsi->input_driven == NON_INPUT_DRIVEN) {
 	inst->vsi->dec.vdec_fb_va = (u64)(uintptr_t)NULL;
+		inst->vsi->dec.index = 0xFF;
+	}
 	if (fb != NULL) {
 		inst->vsi->dec.vdec_fb_va = vdec_fb_va;
 		inst->vsi->dec.index = fb->index;
@@ -260,9 +269,6 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 			inst->vsi->general_buf_size = 0;
 			mtk_vcodec_debug(inst, "no general buf dmabuf");
 		}
-	} else {
-		if (!inst->ctx->input_driven)
-			inst->vsi->dec.index = 0xFF;
 	}
 
 	inst->vsi->dec.queued_frame_buf_count =
@@ -294,7 +300,7 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	/*ack timeout means vpud has crashed*/
 	if (ret == -EIO) {
 		mtk_vcodec_err(inst, "- IPI msg ack timeout  -");
-		*src_chg = VDEC_HW_NOT_SUPPORT;
+		*src_chg = *src_chg | VDEC_HW_NOT_SUPPORT;
 	}
 
 	if (bs->dmabuf != NULL)
@@ -365,13 +371,15 @@ static void vdec_get_fb(struct vdec_inst *inst,
 
 	if (disp_list)
 		fb->status |= FB_ST_DISPLAY;
-	else
+	else {
 		fb->status |= FB_ST_FREE;
+		if (list->fb_list[list->read_idx].reserved)
+			fb->status |= FB_ST_EOS;
+	}
 
 	*out_fb = fb;
-	mtk_vcodec_debug(inst, "[FB] get %s fb st=%d poc=%d ts=%llu %llx gbuf fd %d dma %p",
-		disp_list ? "disp" : "free",
-		fb->status, list->fb_list[list->read_idx].poc,
+	mtk_vcodec_debug(inst, "[FB] get %s fb st=%x id=%d ts=%llu %llx gbuf fd %d dma %p",
+		disp_list ? "disp" : "free", fb->status, list->read_idx,
 		list->fb_list[list->read_idx].timestamp,
 		list->fb_list[list->read_idx].vdec_fb_va,
 		fb->general_buf_fd, fb->dma_general_buf);
@@ -387,7 +395,7 @@ static void get_supported_format(struct vdec_inst *inst,
 	unsigned int i = 0;
 
 	inst->vcu.ctx = inst->ctx;
-	vcu_dec_query_cap(&inst->vcu, GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
+	vcu_dec_query_cap(&inst->vcu, GET_PARAM_VDEC_CAP_SUPPORTED_FORMATS,
 					  video_fmt);
 	for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
 		if (video_fmt[i].fourcc != 0) {
@@ -404,7 +412,7 @@ static void get_frame_sizes(struct vdec_inst *inst,
 	unsigned int i = 0;
 
 	inst->vcu.ctx = inst->ctx;
-	vcu_dec_query_cap(&inst->vcu, GET_PARAM_CAPABILITY_FRAME_SIZES,
+	vcu_dec_query_cap(&inst->vcu, GET_PARAM_VDEC_CAP_FRAME_SIZES,
 					  codec_framesizes);
 	for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
 		if (codec_framesizes[i].fourcc != 0) {
@@ -562,11 +570,11 @@ static int vdec_get_param(unsigned long h_vdec,
 		get_crop_info(inst, out);
 		break;
 
-	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
+	case GET_PARAM_VDEC_CAP_SUPPORTED_FORMATS:
 		get_supported_format(inst, out);
 		break;
 
-	case GET_PARAM_CAPABILITY_FRAME_SIZES:
+	case GET_PARAM_VDEC_CAP_FRAME_SIZES:
 		get_frame_sizes(inst, out);
 		break;
 
@@ -620,6 +628,9 @@ static int vdec_set_param(unsigned long h_vdec,
 		return -EINVAL;
 
 	switch (type) {
+	case SET_PARAM_FRAME_BUFFER:
+		vcu_dec_set_frame_buffer(&inst->vcu, in);
+		break;
 	case SET_PARAM_FRAME_SIZE:
 	case SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER:
 		vcu_dec_set_param(&inst->vcu, (unsigned int)type, in, 2U);

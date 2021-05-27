@@ -9,9 +9,11 @@
 
 #include <linux/dma-buf.h>
 #include "mtk_vcu.h"
+#include "vdec_ipi_msg.h"
 
 /**
  * struct vdec_vcu_inst - VCU instance for video codec
+ * @wq          : wait queue to wait VCU message ack
  * @ipi_id      : ipi id for each decoder
  * @vsi         : driver structure allocated by VCU side and shared to AP side
  *                for control and info share
@@ -20,11 +22,11 @@
  * @signaled    : 1 - Host has received ack message from VCU, 0 - not received
  * @ctx         : context for v4l2 layer integration
  * @dev         : platform device of VCU
- * @wq          : wait queue to wait VCU message ack
  * @handler     : ipi handler for each decoder
  * @abort       : abort when vpud crashed stop this instance ipi_msg
  */
 struct vdec_vcu_inst {
+	wait_queue_head_t wq;
 	enum ipi_id id;
 	void *vsi;
 	int32_t failure;
@@ -32,7 +34,6 @@ struct vdec_vcu_inst {
 	unsigned int signaled;
 	struct mtk_vcodec_ctx *ctx;
 	struct platform_device *dev;
-	wait_queue_head_t wq;
 	ipi_handler_t handler;
 	bool abort;
 	int daemon_pid;
@@ -80,8 +81,9 @@ int vcu_dec_deinit(struct vdec_vcu_inst *vcu);
  *                 seek. Remainig non displayed frame will be pushed to display.
  *
  * @vcu: instance for vdec_vcu_inst
+ * @drain_type: flush (0), drain (1),  drain with EOS (2)
  */
-int vcu_dec_reset(struct vdec_vcu_inst *vcu);
+int vcu_dec_reset(struct vdec_vcu_inst *vcu, enum vdec_reset_type drain_type);
 
 /**
  * vcu_dec_ipi_handler - Handler for VCU ipi message.
@@ -94,6 +96,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv);
 int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out);
 int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id,
 					  void *param, unsigned int size);
+int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb);
 int get_mapped_fd(struct dma_buf *dmabuf);
 void close_mapped_fd(unsigned int target_fd);
 
