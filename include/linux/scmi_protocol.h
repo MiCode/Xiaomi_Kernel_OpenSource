@@ -542,7 +542,6 @@ struct scmi_voltage_proto_ops {
 };
 
 struct scmi_tinysys_status {
-	u32 status;
 	u32 r1;
 	u32 r2;
 	u32 r3;
@@ -558,7 +557,6 @@ struct scmi_tinysys_proto_ops {
 		u32 p0, u32 p1, u32 p2, u32 p3, u32 p4, u32 p5);
 	int (*common_get)(const struct scmi_protocol_handle *ph, \
 		u32 p0, u32 p1, struct scmi_tinysys_status *rvalue);
-	int (*event_notify)(const struct scmi_protocol_handle *ph, u32 p0, u32 p1);
 };
 
 /**

@@ -12,8 +12,6 @@
 #include "common.h"
 #include "notify.h"
 
-#define SCMI_TINYSYS_NUM_SOURCES		10
-
 enum scmi_tinysys_protocol_cmd {
 	TINYSYS_COMMON_SET = 0x3,
 	TINYSYS_COMMON_GET = 0x4,
@@ -51,6 +49,7 @@ struct scmi_tinysys_power_state_notifier_payld {
 
 struct scmi_tinysys_info {
 	u32 version;
+	int num_domains;
 };
 
 static int scmi_tinysys_common_set(const struct scmi_protocol_handle *ph, u32 p0,
@@ -156,12 +155,43 @@ static void *scmi_tinysys_fill_custom_report(const struct scmi_protocol_handle *
 	r->p2_status= le32_to_cpu(p->p2);
 	r->p3_status= le32_to_cpu(p->p3);
 	r->p4_status= le32_to_cpu(p->p4);
-	pr_notice("scmi_tinysys_fill_custom_report f_id:%d p1:%d p2:%d p3:%d p4:%d\n"
-		,p->f_id, p->p1, p->p2, p->p3, p->p4);
 
-	*src_id = 0;
+	*src_id = p->f_id;
 
 	return r;
+}
+
+static int scmi_tinysys_attributes_get(const struct scmi_protocol_handle *ph,
+				     struct scmi_tinysys_info *pi)
+{
+	int ret;
+	struct scmi_xfer *t;
+	u32 attr;
+
+	ret = ph->xops->xfer_get_init(ph, PROTOCOL_ATTRIBUTES,
+				      0, sizeof(attr), &t);
+	if (ret)
+		return ret;
+
+	ret = ph->xops->do_xfer(ph, t);
+	if (!ret) {
+		attr = get_unaligned_le32(t->rx.buf);
+		pi->num_domains = attr;
+	}
+
+	ph->xops->xfer_put(ph, t);
+	return ret;
+}
+
+
+static int scmi_tinysys_get_num_sources(const struct scmi_protocol_handle *ph)
+{
+	struct scmi_tinysys_info *pinfo = ph->get_priv(ph);
+
+	if (!pinfo)
+		return -EINVAL;
+
+	return pinfo->num_domains;
 }
 
 static const struct scmi_event tinysys_events[] = {
@@ -177,10 +207,10 @@ static const struct scmi_event tinysys_events[] = {
 static const struct scmi_tinysys_proto_ops tinysys_proto_ops = {
 		.common_set = scmi_tinysys_common_set,
 		.common_get = scmi_tinysys_common_get,
-//		.event_notify = scmi_tinysys_event_notify,
 };
 
 static const struct scmi_event_ops tinysys_event_ops = {
+	.get_num_sources = scmi_tinysys_get_num_sources,
 	.set_notify_enabled = scmi_tinysys_set_notify_enabled,
 	.fill_custom_report = scmi_tinysys_fill_custom_report,
 };
@@ -190,7 +220,6 @@ static const struct scmi_protocol_events tinysys_protocol_events = {
 	.ops = &tinysys_event_ops,
 	.evts = tinysys_events,
 	.num_events = ARRAY_SIZE(tinysys_events),
-	.num_sources = SCMI_TINYSYS_NUM_SOURCES,
 };
 
 static int scmi_tinysys_protocol_init(const struct scmi_protocol_handle *ph)
@@ -206,6 +235,8 @@ static int scmi_tinysys_protocol_init(const struct scmi_protocol_handle *ph)
 	pinfo = devm_kzalloc(ph->dev, sizeof(*pinfo), GFP_KERNEL);
 	if (!pinfo)
 		return -ENOMEM;
+
+	scmi_tinysys_attributes_get(ph, pinfo);
 
 	pinfo->version = version;
 
