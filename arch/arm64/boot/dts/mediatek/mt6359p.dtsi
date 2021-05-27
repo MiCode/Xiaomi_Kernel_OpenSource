@@ -358,11 +358,9 @@
 
 			fg_init: fg_init {
 				reg = <0 0x1>;
-				bits = <0 8>;
 			};
 			fg_soc: fg_soc {
 				reg = <1 0x1>;
-				bits = <0 8>;
 			};
 			ext_32k: ext_32k {
 				reg = <2 0x1>;
