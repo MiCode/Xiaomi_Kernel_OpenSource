@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <typec.h>
@@ -46,9 +46,11 @@
 
 static u32 debug_level = (255 - K_DEBUG);
 static struct usbtypc *g_exttypec;
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-static struct dentry *root;
-#endif
+
+#define DIR_MTK_TYPEC "mtk_typec"
+#define FILE_GPIO "mtk_typec/gpio"
+#define FILE_SMT "mtk_typec/smt"
+#define FILE_SMT_U2_CC_MODE "mtk_typec/smt_u2_cc_mode"
 
 static int usb3_switch_en(struct usbtypc *typec, int on)
 {
@@ -237,7 +239,7 @@ end:
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 /*Print U3 switch & Redriver*/
-static int usb_gpio_debugfs_show(struct seq_file *s, void *unused)
+static int usb_gpio_procfs_show(struct seq_file *s, void *unused)
 {
 	struct usbtypc *typec = s->private;
 	int pin = 0;
@@ -288,12 +290,12 @@ static int usb_gpio_debugfs_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int usb_gpio_debugfs_open(struct inode *inode, struct file *file)
+static int usb_gpio_procfs_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, usb_gpio_debugfs_show, inode->i_private);
+	return single_open(file, usb_gpio_procfs_show, PDE_DATA(inode));
 }
 
-static ssize_t usb_gpio_debugfs_write(struct file *file,
+static ssize_t usb_gpio_procfs_write(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
 	struct seq_file *s = file->private_data;
@@ -343,9 +345,9 @@ static ssize_t usb_gpio_debugfs_write(struct file *file,
 	return count;
 }
 
-static const struct file_operations usb_gpio_debugfs_fops = {
-	.open = usb_gpio_debugfs_open,
-	.write = usb_gpio_debugfs_write,
+static const struct file_operations usb_gpio_procfs_fops = {
+	.open = usb_gpio_procfs_open,
+	.write = usb_gpio_procfs_write,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
@@ -371,7 +373,7 @@ static int usb_switch_set(void *data, u64 val)
 
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(usb_debugfs_fops, NULL, usb_switch_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(usb_procfs_fops, NULL, usb_switch_set, "%llu\n");
 
 #ifdef CONFIG_TCPC_CLASS
 static int usb_cc_smt_status(void *data, u64 *val)
@@ -405,20 +407,18 @@ static int usb_cc_smt_status(void *data, u64 *val)
 #endif
 DEFINE_SIMPLE_ATTRIBUTE(usb_cc_smt_fops, usb_cc_smt_status, NULL, "%llu\n");
 
-static int usb_typec_pinctrl_debugfs(struct usbtypc *typec)
+static int usb_typec_pinctrl_procfs(struct usbtypc *typec)
 {
-	struct dentry *file;
+	struct proc_dir_entry *file;
 
-	root = debugfs_create_dir("usb_c", NULL);
-	if (!root)
-		return -ENOMEM;
+	proc_mkdir(DIR_MTK_TYPEC, NULL);
 
-	file = debugfs_create_file("gpio", 0644, root,
-			typec, &usb_gpio_debugfs_fops);
-	file = debugfs_create_file("smt", 0200, root, typec,
-			&usb_debugfs_fops);
-	file = debugfs_create_file("smt_u2_cc_mode", 0400, root, typec,
-			&usb_cc_smt_fops);
+	file = proc_create_data(FILE_GPIO, 0644, NULL,
+			&usb_gpio_procfs_fops, typec);
+	file = proc_create_data(FILE_SMT, 0200, NULL,
+			&usb_procfs_fops, typec);
+	file = proc_create_data(FILE_SMT_U2_CC_MODE, 0400, NULL,
+			&usb_cc_smt_fops, typec);
 
 	return 0;
 }
@@ -762,8 +762,8 @@ static int usbc_pinctrl_probe(struct platform_device *pdev)
 	usb_redriver_init(typec);
 	usb3_switch_init(typec);
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-	usb_typec_pinctrl_debugfs(typec);
+#if IS_ENABLED(CONFIG_PROC_FS)
+	usb_typec_pinctrl_procfs(typec);
 #endif
 
 	g_exttypec = typec;
