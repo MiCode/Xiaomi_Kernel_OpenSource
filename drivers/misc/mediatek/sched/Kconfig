@@ -88,3 +88,13 @@ config MTK_OPP_MIN
 	help
 	   To improve critical task performance under same power budget
 	   On-time deliver critical task frequency boost hint to thermal.
+
+config MTK_CORE_CTL
+	tristate "MTK Core Control with CPU Isolation"
+	depends on MTK_CORE_PAUSE
+	help
+	  This config is for the core control policy with CPU isolation.
+	  The core control online and offline CPU cores based on task
+	  utilizations from scheduler information automatically.
+	  If you are not sure about whether to enable it or not,
+	  please set n.

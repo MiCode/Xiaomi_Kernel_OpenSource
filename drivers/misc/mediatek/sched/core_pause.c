@@ -34,14 +34,15 @@ int sched_pause_cpu(int cpu)
 	struct cpumask cpu_pause_mask;
 	struct cpumask cpu_inactive_mask;
 
+	mutex_lock(&sched_core_pause_mutex);
 	cpumask_complement(&cpu_inactive_mask, cpu_active_mask);
 	if (cpumask_test_cpu(cpu, &cpu_inactive_mask)) {
 		pr_info("[Core Pause]Already Pause: cpu=%d, pause_mask=0x%lx, active_mask=0x%lx\n",
 			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0]);
+		mutex_unlock(&sched_core_pause_mutex);
 		return err;
 	}
 
-	mutex_lock(&sched_core_pause_mutex);
 	cpumask_clear(&cpu_pause_mask);
 	cpumask_set_cpu(cpu, &cpu_pause_mask);
 
@@ -68,13 +69,14 @@ int sched_resume_cpu(int cpu)
 	int err = 0;
 	struct cpumask cpu_resume_mask;
 
+	mutex_lock(&sched_core_pause_mutex);
 	if (cpumask_test_cpu(cpu, cpu_active_mask)) {
 		pr_info("[Core Pause]Already Resume: cpu=%d, resume_mask=0x%lx, active_mask=0x%lx\n",
 				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0]);
+		mutex_unlock(&sched_core_pause_mutex);
 		return err;
 	}
 
-	mutex_lock(&sched_core_pause_mutex);
 	cpumask_clear(&cpu_resume_mask);
 	cpumask_set_cpu(cpu, &cpu_resume_mask);
 	err = resume_cpus(&cpu_resume_mask);

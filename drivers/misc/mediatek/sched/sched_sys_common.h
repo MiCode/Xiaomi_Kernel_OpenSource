@@ -12,6 +12,8 @@ extern void cleanup_sched_common_sysfs(void);
 
 #if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
 extern struct kobj_attribute sched_core_pause_info_attr;
+extern int sched_pause_cpu(int cpu);
+extern int sched_resume_cpu(int cpu);
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
