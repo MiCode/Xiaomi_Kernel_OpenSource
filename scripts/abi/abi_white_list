@@ -1,6 +1,4 @@
 #Add symbols to bypass ABI Monitor here
 bypass_arr=( \
-"led_" \
 "function int timer_of_init" \
-"ion_" \
-"struct iommu_ops ")
+"ion_")
