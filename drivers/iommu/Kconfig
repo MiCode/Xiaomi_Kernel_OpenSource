@@ -381,6 +381,18 @@ config ARM_SMMU_V3_SVA
 	  Say Y here if your system supports SVA extensions such as PCIe PASID
 	  and PRI.
 
+config QCOM_LAZY_MAPPING
+	tristate "Reference counted iommu-mapping support"
+	depends on QCOM_DMABUF_HEAPS
+	depends on IOMMU_API
+	help
+	  DMA-BUFs may be shared between several software clients.
+	  Reference counting the mapping may simplify coordination between
+	  these clients, and decrease latency by preventing multiple
+	  map/unmaps of the same region.
+
+	  If unsure, say N here.
+
 config S390_IOMMU
 	def_bool y if S390 && PCI
 	depends on S390 && PCI
