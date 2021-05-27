@@ -431,18 +431,14 @@ void pbm_check_and_run_polling(int uisoc, int pbm_stop)
 {
 	if ((uisoc <= BAT_PERCENT_LIMIT && uisoc >= 0) &&
 		g_start_polling == 0 && pbm_stop == 0) {
-		mutex_lock(&pbm_mutex);
 		g_start_polling = 1;
 		pbm_timer_add(g_start_polling);
-		mutex_unlock(&pbm_mutex);
 		pr_info("[DLPT] pbm polling, soc=%d polling=%d stop=%d\n", uisoc,
 			g_start_polling, pbm_ctrl.pbm_stop);
 	} else if ((uisoc > BAT_PERCENT_LIMIT || pbm_stop == 1)
 		&& (g_start_polling == 1)) {
-		mutex_lock(&pbm_mutex);
 		g_start_polling = 0;
 		pbm_timer_add(g_start_polling);
-		mutex_unlock(&pbm_mutex);
 
 		//unlimit CG
 		mtk_cpu_dlpt_unlimit_by_pbm();
