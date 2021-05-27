@@ -1380,6 +1380,7 @@ static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 
 static void gpufreq_init_external_callback(void)
 {
+#if IS_ENABLED(CONFIG_MTK_PBM)
 	struct pbm_gpu_callback_table pbm_cb = {
 		.get_max_pb = gpufreq_get_max_power,
 		.get_min_pb = gpufreq_get_min_power,
@@ -1388,6 +1389,7 @@ static void gpufreq_init_external_callback(void)
 		.get_opp_by_pb = gpufreq_get_oppidx_by_power,
 		.set_limit = gpufreq_set_limit,
 	};
+#endif /* CONFIG_MTK_PBM */
 
 	/* hook GPU HAL callback */
 	mtk_get_gpu_limit_index_fp = gpufreq_get_cur_limit_idx;
