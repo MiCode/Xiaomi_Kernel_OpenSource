@@ -22,10 +22,10 @@
 #if IS_ENABLED(CONFIG_MTK_MDPM)
 #include "mtk_mdpm.h"
 #endif
-#define PBM_ENABLE_GPU (0)
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
-#include "mtk_gpufreq.h"
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+#include <mtk_gpufreq.h>
 #endif
+#include "mtk_pbm_gpu_cb.h"
 
 #define DEFAULT_PBM_WEIGHT 1024
 #define MAX_FLASH_POWER 3500
@@ -40,6 +40,9 @@ static bool mt_pbm_debug;
 
 #define DLPTCB_MAX_NUM 16
 static struct pbm_callback_table pbmcb_tb[DLPTCB_MAX_NUM] = { {0} };
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+static struct pbm_gpu_callback_table pbm_gpu_cb = {0,0,0,0,0,0};
+#endif
 
 static struct hpf hpf_ctrl = {
 	.switch_md1 = 1,
@@ -221,13 +224,31 @@ static void mtk_cpu_dlpt_unlimit_by_pbm(void)
 
 static void mtk_gpufreq_set_power_limit_by_pbm(unsigned int limit_power)
 {
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
-	int oppidx;
-	if (limit_power) {
-		oppidx = gpufreq_get_oppidx_by_power(TARGET_DEFAULT, limit_power);
-		gpufreq_set_limit(TARGET_DEFAULT, LIMIT_PBM, oppidx, GPUPPM_KEEP_IDX);
-	} else {
-		gpufreq_set_limit(TARGET_DEFAULT, LIMIT_PBM, GPUPPM_RESET_IDX, GPUPPM_KEEP_IDX);
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+	int oppidx = 0;
+	if (pbm_gpu_cb.set_limit != NULL && pbm_gpu_cb.get_opp_by_pb != NULL) {
+		if (limit_power) {
+			oppidx = pbm_gpu_cb.get_opp_by_pb(TARGET_DEFAULT, limit_power);
+			pbm_gpu_cb.set_limit(TARGET_DEFAULT, LIMIT_PBM, oppidx, GPUPPM_KEEP_IDX);
+		} else {
+			pbm_gpu_cb.set_limit(TARGET_DEFAULT, LIMIT_PBM, GPUPPM_RESET_IDX, GPUPPM_KEEP_IDX);
+		}
+	}
+#else
+	return;
+#endif
+}
+
+static void mtk_gpufreq_get_max_min_pb(void)
+{
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+	if (pbm_gpu_cb.get_max_pb != NULL
+			&& gpu_max_pb == 0) {
+		gpu_max_pb = pbm_gpu_cb.get_max_pb(TARGET_DEFAULT);
+	}
+	if (pbm_gpu_cb.get_min_pb != NULL
+			&& gpu_min_pb == 0) {
+		gpu_min_pb = pbm_gpu_cb.get_min_pb(TARGET_DEFAULT);
 	}
 #else
 	return;
@@ -518,10 +539,14 @@ static void pbm_thread_handle(struct work_struct *work)
 	int g_dlpt_state_sync = 0;
 	unsigned int gpu_cur_pb = 0, gpu_cur_volt = 0;
 
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
-	gpu_cur_volt = gpufreq_get_cur_volt(TARGET_DEFAULT);
-	gpu_cur_pb = gpufreq_get_cur_power(TARGET_DEFAULT);
+	mtk_gpufreq_get_max_min_pb();
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+	if (pbm_gpu_cb.get_cur_vol != NULL)
+		gpu_cur_volt = pbm_gpu_cb.get_cur_vol(TARGET_DEFAULT);
+	if (pbm_gpu_cb.get_cur_pb != NULL)
+		gpu_cur_pb = pbm_gpu_cb.get_cur_pb(TARGET_DEFAULT);
 #endif
+
 	if (gpu_cur_volt)
 		kicker_pbm_by_gpu(true, gpu_cur_pb, gpu_cur_volt);
 	else
@@ -644,9 +669,31 @@ void tracepoint_cleanup(void)
 
 void register_pbm_notify(void *oc_cb, enum PBM_PRIO_TAG prio_val)
 {
-	pbmcb_tb[prio_val].pbmcb = oc_cb;
+	if (prio_val == PBM_PRIO_GPU)
+	{
+#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
+		struct pbm_gpu_callback_table *gpu_cb;
+		gpu_cb = (struct pbm_gpu_callback_table *) oc_cb;
+		pbm_gpu_cb.get_max_pb = gpu_cb->get_max_pb;
+		pbm_gpu_cb.get_min_pb = gpu_cb->get_min_pb;
+		pbm_gpu_cb.get_cur_pb = gpu_cb->get_cur_pb;
+		pbm_gpu_cb.get_cur_vol = gpu_cb->get_cur_vol;
+		pbm_gpu_cb.get_opp_by_pb = gpu_cb->get_opp_by_pb;
+		pbm_gpu_cb.set_limit = gpu_cb->set_limit;
+#else
+		return;
+#endif
+	} else {
+		pbmcb_tb[prio_val].pbmcb = oc_cb;
+	}
 }
 EXPORT_SYMBOL(register_pbm_notify);
+
+void register_pbm_gpu_notify(void *cb)
+{
+	register_pbm_notify(cb, PBM_PRIO_GPU);
+}
+EXPORT_SYMBOL(register_pbm_gpu_notify);
 
 static int mt_pbm_debug_proc_show(struct seq_file *m, void *v)
 {
@@ -906,9 +953,6 @@ static int __init pbm_module_init(void)
 {
 	unsigned int i;
 	int ret;
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
-	int gpu_max_opp, gpu_min_opp;
-#endif
 
 	mt_pbm_create_procfs();
 
@@ -942,13 +986,6 @@ static int __init pbm_module_init(void)
 #endif
 
 	cpufreq_register_notifier(&mtk_cpu_policy_notifier_block, CPUFREQ_POLICY_NOTIFIER);
-
-#if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2) && PBM_ENABLE_GPU
-	gpu_max_opp = gpufreq_get_max_oppidx(TARGET_DEFAULT);
-	gpu_min_opp = gpufreq_get_min_oppidx(TARGET_DEFAULT);
-	gpu_max_pb = gpufreq_get_power_by_idx(TARGET_DEFAULT, gpu_max_opp);
-	gpu_min_pb = gpufreq_get_power_by_idx(TARGET_DEFAULT, gpu_min_opp);
-#endif
 
 	INIT_DELAYED_WORK(&poll_queue, pbm_thread_handle);
 	pbm_ctrl.pbm_drv_done = 1;
