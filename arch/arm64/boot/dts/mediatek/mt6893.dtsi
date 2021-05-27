@@ -995,11 +995,20 @@
 			#performance-domain-cells = <1>;
 		};
 
+		eas_info: eas_info{
+			compatible = "mediatek,eas-info";
+
+			csram-base=<0x0011bc00>;
+                        /* L, BL, B, CCI */
+			offs-thermal-limit=<0x1208 0x120c 0x1210 0x1214>;
+			offs-cap=<0xFA0>;
+		};
+
 		cpuhvfs: cpuhvfs@00115400{
 			compatible = "mediatek,cpufreq-hybrid";
 			reg = <0 0x00115400 0 0xC00>,
 				<0 0x0011bc00 0 0x1400>;
-			reg-names="CSRAM","USRAM";
+			reg-names="USRAM","CSRAM";
 			cslog-range =<0x03d0>,<0x0fa0>;
 
 			pll-con = <0x20c>, <0x22c>, <0x21c>;
