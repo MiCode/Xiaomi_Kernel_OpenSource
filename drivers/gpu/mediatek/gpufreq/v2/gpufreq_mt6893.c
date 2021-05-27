@@ -196,6 +196,8 @@ static unsigned int g_probe_done;
 static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
 static unsigned int g_gpueb_support;
+static unsigned int g_apply_mcl50_opp;
+static unsigned int g_apply_6879_opp;
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock_gpu);
 // static DEFINE_MUTEX(gpufreq_lock_stack);
@@ -2372,6 +2374,13 @@ static void __gpufreq_segment_adjustment(struct platform_device *pdev)
 		break;
 	}
 
+	/* for mcl50 swrgo */
+	if (g_apply_mcl50_opp) {
+		adj_table = g_adj_gpu_segment_2;
+		adj_num = ADJ_GPU_SEGMENT_2_NUM;
+		__gpufreq_adjust_opp_gpu(adj_table, adj_num);
+	}
+
 	GPUFREQ_LOGI("efuse_id: 0x%x, adj_num: %d", efuse_id, adj_num);
 }
 
@@ -2407,7 +2416,10 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 
 	/* init working OPP range */
 	segment_id = g_gpu.segment_id;
-	if (segment_id == MT6891_SEGMENT)
+	/* for mt6879 swrgo */
+	if (g_apply_6879_opp)
+		g_gpu.segment_upbound = 34;
+	else if (segment_id == MT6891_SEGMENT)
 		g_gpu.segment_upbound = 8;
 	else if (segment_id == MT6893_SEGMENT)
 		g_gpu.segment_upbound = 0;
@@ -2730,6 +2742,10 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
+	ret = of_property_read_u32(gpufreq, "apply-mcl50-opp", &g_apply_mcl50_opp);
+	ret = of_property_read_u32(gpufreq, "apply-6879-opp", &g_apply_6879_opp);
+	ret = of_property_read_u32(gpufreq, "enable-aging", &g_aging_enable);
+
 	/* init pmic regulator */
 	ret = __gpufreq_init_pmic(pdev);
 	if (unlikely(ret)) {
@@ -2770,11 +2786,8 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		}
 	}
 
-#if defined(GPUFREQ_AGING_LOAD)
-	GPUFREQ_LOGI("aging load");
-	g_aging_enable = true;
-	__gpufreq_apply_aging(true);
-#endif /* GPUFREQ_AGING_LOAD */
+	if (g_aging_enable)
+		__gpufreq_apply_aging(true);
 
 	/* init opp index by bootup freq */
 	__gpufreq_init_opp_idx();

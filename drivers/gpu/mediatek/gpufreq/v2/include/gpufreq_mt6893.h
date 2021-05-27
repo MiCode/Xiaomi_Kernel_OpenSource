@@ -279,7 +279,7 @@ struct gpufreq_opp_info g_default_gpu_segment[] = {
 
 #define ADJ_GPU_SEGMENT_1_NUM           ARRAY_SIZE(g_adj_gpu_segment_1)
 struct gpufreq_adj_info g_adj_gpu_segment_1[] = {
-	ADJOP(25, 0, 65000, 0), /* sign off */
+	ADJOP(25, 0, 65000, 0),
 	ADJOP(26, 0, 64375, 0),
 	ADJOP(27, 0, 64375, 0),
 	ADJOP(28, 0, 63750, 0),
@@ -295,6 +295,50 @@ struct gpufreq_adj_info g_adj_gpu_segment_1[] = {
 	ADJOP(38, 0, 60625, 0),
 	ADJOP(39, 0, 60625, 0),
 	ADJOP(40, 0, 60000, 0), /* sign off */
+};
+
+/* for mcl50 swrgo */
+#define ADJ_GPU_SEGMENT_2_NUM           ARRAY_SIZE(g_adj_gpu_segment_2)
+struct gpufreq_adj_info g_adj_gpu_segment_2[] = {
+	ADJOP(0,  0, 70000, 75000), /* sign off */
+	ADJOP(1,  0, 70000, 75000),
+	ADJOP(2,  0, 69375, 75000),
+	ADJOP(3,  0, 69375, 75000),
+	ADJOP(4,  0, 68750, 75000),
+	ADJOP(5,  0, 68125, 75000),
+	ADJOP(6,  0, 68125, 75000),
+	ADJOP(7,  0, 67500, 75000),
+	ADJOP(8,  0, 66875, 0), /* sign off */
+	ADJOP(9,  0, 66875, 0),
+	ADJOP(10, 0, 66875, 0),
+	ADJOP(11, 0, 66250, 0),
+	ADJOP(12, 0, 65625, 0),
+	ADJOP(13, 0, 65000, 0),
+	ADJOP(14, 0, 64375, 0),
+	ADJOP(15, 0, 64375, 0),
+	ADJOP(16, 0, 64375, 0),
+	ADJOP(17, 0, 63750, 0),
+	ADJOP(18, 0, 63125, 0),
+	ADJOP(19, 0, 62500, 0),
+	ADJOP(20, 0, 61875, 0),
+	ADJOP(21, 0, 61875, 0),
+	ADJOP(22, 0, 61250, 0),
+	ADJOP(23, 0, 61250, 0),
+	ADJOP(24, 0, 60625, 0), /* sign off */
+	ADJOP(25, 0, 60625, 0),
+	ADJOP(26, 0, 60000, 0),
+	ADJOP(27, 0, 60000, 0),
+	ADJOP(28, 0, 59375, 0),
+	ADJOP(29, 0, 59375, 0),
+	ADJOP(30, 0, 58750, 0),
+	ADJOP(31, 0, 58750, 0),
+	ADJOP(32, 0, 58125, 0),
+	ADJOP(33, 0, 58125, 0),
+	ADJOP(34, 0, 57500, 0),
+	ADJOP(35, 0, 57500, 0),
+	ADJOP(36, 0, 56875, 0),
+	ADJOP(37, 0, 56250, 0),
+	ADJOP(38, 0, 55625, 0),
 };
 
 #define ADJ_GPU_CUSTOM_NUM              ARRAY_SIZE(g_adj_gpu_custom)
