@@ -111,10 +111,17 @@ struct mdw_subcmd_kinfo {
 };
 
 enum mdw_cmd_state {
-	MDW_CMD_STATE_IDLE,
-	MDW_CMD_STATE_RUN,
-	MDW_CMD_STATE_DONE,
-	MDW_CMD_STATE_ABORT,
+	MDW_CMD_STATE_IDLE, //ready to exec
+	MDW_CMD_STATE_WAIT, //wait for other fence
+	MDW_CMD_STATE_RUN, //executing
+	MDW_CMD_STATE_DONE, //done
+};
+
+struct mdw_fence {
+	struct dma_fence base_fence;
+	struct mdw_device *mdev;
+	spinlock_t lock;
+	void *priv;
 };
 
 struct mdw_cmd {
@@ -132,7 +139,6 @@ struct mdw_cmd {
 	uint32_t num_cmdbufs;
 	uint32_t size_cmdbufs;
 	int state;
-	//struct kref ref;
 	struct mutex mtx;
 	bool is_executed;
 	uint8_t *adj_matrix;
@@ -141,8 +147,10 @@ struct mdw_cmd {
 	struct mdw_fpriv *mpriv;
 	int (*complete)(struct mdw_cmd *c, int ret);
 
-	struct dma_fence base_fence;
-	spinlock_t lock;
+	struct mdw_fence *fence;
+	struct work_struct t_wk;
+	struct dma_fence *wait_fence;
+	int wait_fd;
 };
 
 struct mdw_dev_func {

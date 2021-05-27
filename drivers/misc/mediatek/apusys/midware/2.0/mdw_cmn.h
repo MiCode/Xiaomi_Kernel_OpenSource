@@ -31,7 +31,7 @@ int mdw_debug_on(int mask)
 }
 
 #define mdw_debug(mask, x, ...) do { if (mdw_debug_on(mask)) \
-		dev_info(mdw_dev->dev, " %s/%d " x, __func__, \
+		dev_info(mdw_dev->dev, "[debug] %s/%d " x, __func__, \
 		__LINE__, ##__VA_ARGS__); \
 	} while (0)
 

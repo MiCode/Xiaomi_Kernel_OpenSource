@@ -112,8 +112,6 @@ enum mdw_cmd_ioctl_op {
 	MDW_CMD_IOCTL_RELEASE,
 	MDW_CMD_IOCTL_RUN,
 	MDW_CMD_IOCTL_RUNASYNC,
-	MDW_CMD_IOCTL_WAIT,
-	MDW_CMD_IOCTL_RUNFENCE,
 };
 
 enum {
@@ -127,8 +125,6 @@ enum {
 
 struct mdw_subcmd_info {
 	uint32_t type;
-	uint32_t kernel_time;
-	uint32_t driver_time;
 	uint32_t suggest_time;
 	uint32_t vlm_usage;
 	uint32_t vlm_ctx_id;
@@ -139,6 +135,13 @@ struct mdw_subcmd_info {
 	/* cmdbufs */
 	uint32_t num_cmdbufs;
 	uint64_t cmdbufs;
+
+	/* out */
+	uint32_t driver_time;
+	uint32_t ip_time;
+	uint32_t ip_start_ts;
+	uint32_t ip_end_ts;
+	uint32_t bw;
 };
 
 struct mdw_subcmd_cmdbuf {
@@ -173,11 +176,8 @@ struct mdw_cmd_in {
 			uint32_t hardlimit;
 			uint32_t softlimit;
 			uint32_t power_save;
+			uint64_t fence;
 		} exec;
-
-		struct {
-			uint64_t id;
-		} wait;
 	};
 };
 
@@ -188,14 +188,9 @@ struct mdw_cmd_out {
 		} build;
 
 		struct {
-			uint32_t kernel_duration;
-			uint32_t mdw_duration;
-			uint32_t driver_duration;
-		} done;
-
-		struct {
+			/* fence fd */
 			uint64_t fence;
-		} fence;
+		} exec;
 	};
 };
 

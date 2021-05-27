@@ -38,8 +38,6 @@ static void mdw_ap_sc_print(struct mdw_ap_sc *sc)
 	mdw_cmd_debug("-------------------------\n");
 	mdw_cmd_debug("sc(0x%llx-#%d)\n", sc->parent->c->kid, sc->idx);
 	mdw_cmd_debug(" type = %u\n", sc->hdr->info->type);
-	mdw_cmd_debug(" kernel_time = %u\n", sc->hdr->info->kernel_time);
-	mdw_cmd_debug(" driver_time = %u\n", sc->hdr->info->driver_time);
 	mdw_cmd_debug(" suggest_time = %u\n", sc->hdr->info->suggest_time);
 	mdw_cmd_debug(" vlm_usage = %u\n", sc->hdr->info->vlm_usage);
 	mdw_cmd_debug(" vlm_ctx_id = %u\n", sc->hdr->info->vlm_ctx_id);
@@ -47,6 +45,10 @@ static void mdw_ap_sc_print(struct mdw_ap_sc *sc)
 	mdw_cmd_debug(" boost = %u\n", sc->hdr->info->boost);
 	mdw_cmd_debug(" pack_id = %u\n", sc->hdr->info->pack_id);
 	mdw_cmd_debug(" num_cmdbufs = %u\n", sc->hdr->info->num_cmdbufs);
+	mdw_cmd_debug(" driver_time = %u\n", sc->hdr->info->driver_time);
+	mdw_cmd_debug(" ip time = %u\n", sc->hdr->info->ip_time);
+	mdw_cmd_debug(" ip start ts = %u\n", sc->hdr->info->ip_start_ts);
+	mdw_cmd_debug(" ip end ts = %u\n", sc->hdr->info->ip_end_ts);
 	mdw_cmd_debug(" runtime = %u\n", sc->runtime);
 	mdw_cmd_debug(" deadline = %u\n", sc->deadline);
 	mdw_cmd_debug(" period = %u\n", sc->period);

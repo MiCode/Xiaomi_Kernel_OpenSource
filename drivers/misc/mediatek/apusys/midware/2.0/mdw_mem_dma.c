@@ -116,7 +116,6 @@ static void *mdw_dmabuf_vmap(struct dma_buf *dbuf)
 static void mdw_dmabuf_release(struct dma_buf *dbuf)
 {
 	struct mdw_mem_dma *mdbuf = dbuf->priv;
-	/* drop reference obtained in dma_dc_get_dmabuf */
 
 	mdw_mem_debug("%s: %d %p\n", __func__, __LINE__, dbuf->priv);
 	dma_free_coherent(&mdbuf->mdev->pdev->dev, mdbuf->dma_size,
