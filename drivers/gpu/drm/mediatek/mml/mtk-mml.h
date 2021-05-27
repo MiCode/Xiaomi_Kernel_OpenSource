@@ -9,6 +9,7 @@
 
 #include <linux/kernel.h>
 #include <linux/types.h>
+#include <linux/ktime.h>
 
 #define MML_MAX_OUTPUTS		2
 #define MML_MAX_PLANES		3
@@ -144,7 +145,7 @@ struct mml_submit {
 	struct mml_frame_buffer buffer;
 	struct timeval_t {
 		uint64_t sec;
-		uint64_t usec;
+		uint64_t nsec;
 	} end;
 	struct mml_pq_param *pq_param[MML_MAX_OUTPUTS];
 	bool update;

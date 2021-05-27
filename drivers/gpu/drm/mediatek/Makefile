@@ -2,6 +2,7 @@
 
 ifeq (y, $(filter y, $(CONFIG_DRM_MEDIATEK_V2)))
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek_v2/
+obj-$(CONFIG_DRM_MEDIATEK) += mml/
 else
 
 mediatek-drm-y := mtk_disp_color.o \
@@ -27,3 +28,5 @@ mediatek-drm-hdmi-objs := mtk_cec.o \
 
 obj-$(CONFIG_DRM_MEDIATEK_HDMI) += mediatek-drm-hdmi.o
 endif
+
+

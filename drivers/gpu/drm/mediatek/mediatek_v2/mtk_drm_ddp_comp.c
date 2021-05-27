@@ -598,6 +598,7 @@ int mtk_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 	private->ddp_comp[comp->id] = comp;
 	return 0;
 }
+EXPORT_SYMBOL(mtk_ddp_comp_register);
 
 void mtk_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
 {
@@ -605,6 +606,7 @@ void mtk_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
 	if (comp && comp->id >= 0)
 		private->ddp_comp[comp->id] = NULL;
 }
+EXPORT_SYMBOL(mtk_ddp_comp_unregister);
 
 void mtk_ddp_comp_pm_enable(struct mtk_ddp_comp *comp)
 {

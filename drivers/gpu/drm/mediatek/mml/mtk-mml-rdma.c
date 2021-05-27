@@ -107,7 +107,7 @@ struct platform_driver mtk_mml_rdma_driver = {
 		},
 };
 
-module_platform_driver(mtk_mml_rdma_driver);
+//module_platform_driver(mtk_mml_rdma_driver);
 
 static s32 ut_case;
 static s32 ut_set(const char *val, const struct kernel_param *kp)
@@ -164,8 +164,8 @@ static struct kernel_param_ops up_param_ops = {
 	.set = ut_set,
 	.get = ut_get,
 };
-module_param_cb(ut_case, &up_param_ops, NULL, 0644);
-MODULE_PARM_DESC(ut_case, "mml rdma UT test case");
+module_param_cb(rdma_ut_case, &up_param_ops, NULL, 0644);
+MODULE_PARM_DESC(rdma_ut_case, "mml rdma UT test case");
 
 MODULE_AUTHOR("Dennis-YC Hsieh <dennis-yc.hsieh@mediatek.com>");
 MODULE_DESCRIPTION("MediaTek SoC display MML RDMA driver");

@@ -28,6 +28,13 @@ struct mml_dev {
 	struct mutex drm_ctx_mutex;
 };
 
+struct cmdq_base *cmdq_register_device(struct device *dev);
+struct cmdq_client *cmdq_mbox_create(struct device *dev, int index);
+
+extern struct platform_driver mtk_mml_rdma_driver;
+extern struct platform_driver mtk_mml_wrot_driver;
+extern struct platform_driver mtk_mml_rsz_driver;
+
 struct platform_device *mml_get_plat_device(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -101,7 +108,7 @@ static const struct component_master_ops mml_master_ops = {
 static int component_compare(struct device *dev, void *data)
 {
 	u32 comp_id;
-	u32 match_id = (u32)data;
+	u32 match_id = (u32)(uintptr_t)data;
 
 	dev_dbg(dev, "%s -- match_id:%d\n", __func__, match_id);
 	if (!of_property_read_u32(dev->of_node, "comp-id", &comp_id)) {
@@ -260,6 +267,27 @@ static int __init mml_driver_init(void)
 	if (ret) {
 		mml_err("failed to register %s driver",
 			mml_driver.driver.name);
+		return ret;
+	}
+
+	ret = platform_driver_register(&mtk_mml_rsz_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_rsz_driver.driver.name);
+		return ret;
+	}
+
+	ret = platform_driver_register(&mtk_mml_rdma_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_rdma_driver.driver.name);
+		return ret;
+	}
+
+	ret = platform_driver_register(&mtk_mml_wrot_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_wrot_driver.driver.name);
 		return ret;
 	}
 

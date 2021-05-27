@@ -8,7 +8,9 @@
 #define __MTK_MML_DRIVER_H__
 
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/mtk-cmdq-mailbox.h>
+#include <linux/mailbox_controller.h>
 
 struct mml_dev;
 struct mml_drm_ctx;

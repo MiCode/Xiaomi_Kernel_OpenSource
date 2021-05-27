@@ -29,3 +29,4 @@ config DRM_MEDIATEK_HDMI
 	  DRM/KMS HDMI driver for Mediatek SoCs
 
 source "drivers/gpu/drm/mediatek/mediatek_v2/Kconfig"
+source "drivers/gpu/drm/mediatek/mml/Kconfig"

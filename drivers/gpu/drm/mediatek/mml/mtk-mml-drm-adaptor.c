@@ -241,7 +241,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	/* copy per-frame info */
 	task->ctx = ctx;
 	task->end_time.tv_sec = submit->end.sec;
-	task->end_time.tv_usec = submit->end.usec;
+	task->end_time.tv_nsec = submit->end.nsec;
 	frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src);
 	for (i = 0; i < submit->buffer.dest_cnt; i++)
 		frame_buf_to_task_buf(&task->buf.dest[i],

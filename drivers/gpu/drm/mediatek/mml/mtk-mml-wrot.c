@@ -107,7 +107,7 @@ struct platform_driver mtk_mml_wrot_driver = {
 		},
 };
 
-module_platform_driver(mtk_mml_wrot_driver);
+//module_platform_driver(mtk_mml_wrot_driver);
 
 static s32 ut_case;
 static s32 ut_set(const char *val, const struct kernel_param *kp)
@@ -164,8 +164,8 @@ static struct kernel_param_ops up_param_ops = {
 	.set = ut_set,
 	.get = ut_get,
 };
-module_param_cb(ut_case, &up_param_ops, NULL, 0644);
-MODULE_PARM_DESC(ut_case, "mml resizer UT test case");
+module_param_cb(wrot_ut_case, &up_param_ops, NULL, 0644);
+MODULE_PARM_DESC(wrot_ut_case, "mml resizer UT test case");
 
 MODULE_AUTHOR("Dennis-YC Hsieh <dennis-yc.hsieh@mediatek.com>");
 MODULE_DESCRIPTION("MediaTek SoC display MML resizer driver");

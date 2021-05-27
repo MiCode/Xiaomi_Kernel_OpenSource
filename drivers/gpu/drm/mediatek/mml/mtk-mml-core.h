@@ -10,8 +10,11 @@
 
 #include <linux/file.h>
 #include <linux/list.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/mailbox_controller.h>
+#include <linux/mailbox/mtk-cmdq-mailbox.h>
+#include <linux/mailbox_client.h>
 #include <linux/types.h>
+#include <linux/time.h>
 
 #include "mtk-mml.h"
 #include "mtk-mml-driver.h"
@@ -91,7 +94,7 @@ struct mml_task {
 	struct mml_job job;
 	struct mml_frame_config *config;
 	struct mml_task_buffer buf;
-	struct timeval end_time;
+	struct timespec64 end_time;
 	struct file *fence;
 	enum mml_task_state state;
 
