@@ -112,7 +112,7 @@ static bool had_mpu_vio(void __iomem *base, struct reg_info_t *dump, int cnt)
 
 	for (dump_idx = 0; dump_idx < cnt; dump_idx++) {
 		val = readl(base + dump[dump_idx].offset);
-		if (!val)
+		if (val)
 			return true;
 	}
 
