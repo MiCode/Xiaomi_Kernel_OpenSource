@@ -23,6 +23,7 @@
 #include <mali_kbase_hwaccess_time.h>
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
+#include <asm/arch_timer.h>
 
 void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev,
 					  u64 *cycle_counter,
@@ -44,6 +45,7 @@ void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev,
 		*cycle_counter |= (((u64) hi1) << 32);
 	}
 
+#if 0
 	if (system_time) {
 		/* Read hi, lo, hi to ensure a coherent u64 */
 		do {
@@ -56,6 +58,15 @@ void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev,
 		} while (hi1 != hi2);
 		*system_time |= (((u64) hi1) << 32);
 	}
+#endif
+
+	/*
+	 * MTK : Due to a mistake by DE, TIMESTAMP will be reset after powering down the MFG.
+	 * Therefore, we need to get system_time from CNTVCT instead of TIMESTAMP.
+	 * Note: TIMESTAMP is 26MHz, CNTVCT is 13MHz
+	 */
+	if (system_time)
+		*system_time = arch_counter_get_cntvct() * 2;
 
 	/* Record the CPU's idea of current time */
 	if (ts != NULL)
