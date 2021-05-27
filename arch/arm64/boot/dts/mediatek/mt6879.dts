@@ -7,6 +7,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/phy/phy.h>
+#include "mediatek/cust_mt6879_msdc.dtsi"
 
 / {
 	model = "MT6879";
@@ -146,5 +147,16 @@
 			pclk_phase = <23>;
 			#phy-cells = <1>;
 		};
+	};
+
+	mmc1: mmc@11240000 {
+		compatible = "mediatek,mt6879-mmc", "mediatek,mt2712-mmc";
+		reg = <0 0x11240000 0 0x1000>,
+		      <0 0x11e10000 0 0x1000>;
+		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
+			 <&infracfg_ao_clk CLK_IFRAO_MSDC1>,
+			 <&infracfg_ao_clk CLK_IFRAO_MSDC1_SRC>;
+		clock-names = "source", "hclk", "source_cg";
 	};
 };
