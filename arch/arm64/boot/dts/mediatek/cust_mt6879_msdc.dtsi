@@ -29,9 +29,11 @@
 
 &mmc1 {
 	status = "okay";
+#if 0
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc1_pins_default>;
 	pinctrl-1 = <&mmc1_pins_uhs>;
+#endif
 	bus-width = <4>;
 	max-frequency = <200000000>;
 	cap-sd-highspeed;
@@ -40,15 +42,17 @@
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
+#if 0
 	cd-gpios = <&pio 23 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
+#endif
 	no-mmc;
 	no-sdio;
 };
 
-&pio {
 #if 0
+&pio {
 	mmc0_pins_default: mmc0default {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO184__FUNC_MSDC0_DAT0>,
@@ -103,7 +107,6 @@
 			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_00>;
 		};
 	};
-#endif
 	mmc1_pins_default: mmc1default {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO54__FUNC_MSDC1_DAT0>,
@@ -141,3 +144,4 @@
 		};
 	};
 };
+#endif
