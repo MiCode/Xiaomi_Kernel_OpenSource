@@ -347,6 +347,7 @@ static void scmi_handle_response(struct scmi_chan_info *cinfo,
 		info->desc->ops->clear_channel(cinfo);
 		complete(xfer->async_done);
 	} else {
+		pr_notice("[scmi] complete done\n");
 		complete(&xfer->done);
 	}
 }

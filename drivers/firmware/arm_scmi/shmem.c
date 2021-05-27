@@ -52,12 +52,15 @@ void shmem_tx_prepare(struct scmi_shared_mem __iomem *shmem,
 
 u32 shmem_read_header(struct scmi_shared_mem __iomem *shmem)
 {
+	pr_notice("[scmi rh] %08x\n", ioread32(&shmem->msg_header));
 	return ioread32(&shmem->msg_header);
 }
 
 void shmem_fetch_response(struct scmi_shared_mem __iomem *shmem,
 			  struct scmi_xfer *xfer)
 {
+	u32 msg[4];
+
 	xfer->hdr.status = ioread32(shmem->msg_payload);
 	/* Skip the length of header and status in shmem area i.e 8 bytes */
 	xfer->rx.len = min_t(size_t, xfer->rx.len,
@@ -65,6 +68,9 @@ void shmem_fetch_response(struct scmi_shared_mem __iomem *shmem,
 
 	/* Take a copy to the rx buffer.. */
 	memcpy_fromio(xfer->rx.buf, shmem->msg_payload + 4, xfer->rx.len);
+	memcpy(msg, xfer->tx.buf, 4*4);
+	pr_notice("[scmi rx] %08x msg+%d:%08x %08x %08x %08x\n", xfer->hdr.status,
+		xfer->rx.len, msg[0], msg[1], msg[2], msg[3]);
 }
 
 void shmem_fetch_notification(struct scmi_shared_mem __iomem *shmem,
