@@ -2684,22 +2684,8 @@
 					"vow_clk_miso_on",
 					"aud_gpio_i2s0_off",
 					"aud_gpio_i2s0_on",
-					"aud_gpio_i2s1_off",
-					"aud_gpio_i2s1_on",
-					"aud_gpio_i2s2_off",
-					"aud_gpio_i2s2_on",
 					"aud_gpio_i2s3_off",
-					"aud_gpio_i2s3_on",
-					"aud_gpio_i2s5_off",
-					"aud_gpio_i2s5_on",
-					"aud_gpio_i2s6_off",
-					"aud_gpio_i2s6_on",
-					"aud_gpio_i2s7_off",
-					"aud_gpio_i2s7_on",
-					"aud_gpio_i2s8_off",
-					"aud_gpio_i2s8_on",
-					"aud_gpio_i2s9_off",
-					"aud_gpio_i2s9_on";
+					"aud_gpio_i2s3_on";
 			pinctrl-0 = <&aud_clk_mosi_off>;
 			pinctrl-1 = <&aud_clk_mosi_on>;
 			pinctrl-2 = <&aud_dat_mosi_off>;
@@ -2718,22 +2704,8 @@
 			pinctrl-15 = <&vow_clk_miso_on>;
 			pinctrl-16 = <&aud_gpio_i2s0_off>;
 			pinctrl-17 = <&aud_gpio_i2s0_on>;
-			pinctrl-18 = <&aud_gpio_i2s1_off>;
-			pinctrl-19 = <&aud_gpio_i2s1_on>;
-			pinctrl-20 = <&aud_gpio_i2s2_off>;
-			pinctrl-21 = <&aud_gpio_i2s2_on>;
-			pinctrl-22 = <&aud_gpio_i2s3_off>;
-			pinctrl-23 = <&aud_gpio_i2s3_on>;
-			pinctrl-24 = <&aud_gpio_i2s5_off>;
-			pinctrl-25 = <&aud_gpio_i2s5_on>;
-			pinctrl-26 = <&aud_gpio_i2s6_off>;
-			pinctrl-27 = <&aud_gpio_i2s6_on>;
-			pinctrl-28 = <&aud_gpio_i2s7_off>;
-			pinctrl-29 = <&aud_gpio_i2s7_on>;
-			pinctrl-30 = <&aud_gpio_i2s8_off>;
-			pinctrl-31 = <&aud_gpio_i2s8_on>;
-			pinctrl-32 = <&aud_gpio_i2s9_off>;
-			pinctrl-33 = <&aud_gpio_i2s9_on>;
+			pinctrl-18 = <&aud_gpio_i2s3_off>;
+			pinctrl-19 = <&aud_gpio_i2s3_on>;
 		};
 
 		audio_sram@11212000 {
@@ -7491,14 +7463,6 @@
 			bias-disable;
 		};
 	};
-	aud_gpio_i2s1_off: aud_gpio_i2s1_off {
-	};
-	aud_gpio_i2s1_on: aud_gpio_i2s1_on {
-	};
-	aud_gpio_i2s2_off: aud_gpio_i2s2_off {
-	};
-	aud_gpio_i2s2_on: aud_gpio_i2s2_on {
-	};
 	aud_gpio_i2s3_off: aud_gpio_i2s3_off {
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO32__FUNC_GPIO32>;
@@ -7532,26 +7496,6 @@
 			input-schmitt-enable;
 			bias-disable;
 		};
-	};
-	aud_gpio_i2s5_off: aud_gpio_i2s5_off {
-	};
-	aud_gpio_i2s5_on: aud_gpio_i2s5_on {
-	};
-	aud_gpio_i2s6_off: aud_gpio_i2s6_off {
-	};
-	aud_gpio_i2s6_on: aud_gpio_i2s6_on {
-	};
-	aud_gpio_i2s7_off: aud_gpio_i2s7_off {
-	};
-	aud_gpio_i2s7_on: aud_gpio_i2s7_on {
-	};
-	aud_gpio_i2s8_off: aud_gpio_i2s8_off {
-	};
-	aud_gpio_i2s8_on: aud_gpio_i2s8_on {
-	};
-	aud_gpio_i2s9_off: aud_gpio_i2s9_off {
-	};
-	aud_gpio_i2s9_on: aud_gpio_i2s9_on {
 	};
 	/* ATF logger */
 	atf_logger {
