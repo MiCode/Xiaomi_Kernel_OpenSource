@@ -312,7 +312,7 @@ static ssize_t mtk_pidmap_proc_write(struct file *file, const char *buf,
 	size_t count, loff_t *data)
 {
 	int ret;
-	char cmd[PIDMAP_PROC_CMD_BUF_SIZE];
+	char cmd[PIDMAP_PROC_CMD_BUF_SIZE] = {0};
 
 	if (count == 0)
 		goto err;
