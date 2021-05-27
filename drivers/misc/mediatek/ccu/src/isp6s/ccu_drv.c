@@ -52,7 +52,8 @@
 
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
-
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
 #include "ccu_drv.h"
 #include "ccu_cmn.h"
 #include "ccu_reg.h"
@@ -63,9 +64,8 @@
 #include "ccu_qos.h"
 #include "ccu_ipc.h"
 //for mmdvfs
-#include <linux/pm_qos.h>
-#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
-#include <mmdvfs_pmqos.h>
+#ifdef CCU_QOS_SUPPORT_ENABLE
+#include "mtk-interconnect.h"
 #endif
 /***************************************************************************
  *
@@ -124,9 +124,9 @@ static irqreturn_t ccu_isr_callback_xxx(int irq, void *device_id)
 	LOG_DBG("%s:0x%x\n", __func__, irq);
 	return IRQ_HANDLED;
 }
-#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
-static struct pm_qos_request _ccu_qos_request;
-static u64 _g_freq_steps[MAX_FREQ_STEP];
+#ifdef CCU_QOS_SUPPORT_ENABLE
+static struct regulator *_ccu_qos_request;
+static u64 *_g_freq_steps;
 static u32 _step_size;
 #endif
 static int ccu_probe(struct platform_device *dev);
@@ -600,8 +600,8 @@ int ccu_clock_enable(void)
 		LOG_ERR("pm_runtime_get_sync fail.\n");
 
 	_clk_count++;
-#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
-	ccu_qos_init();
+#ifdef CCU_QOS_SUPPORT_ENABLE
+	ccu_qos_init(g_ccu_device);
 #endif
 #ifndef CCU_LDVT
 	ret = clk_prepare_enable(ccu_clk_pwr_ctrl[0]);
@@ -644,8 +644,8 @@ void ccu_clock_disable(void)
 	}
 #endif
 
-#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
-	ccu_qos_uninit();
+#ifdef CCU_QOS_SUPPORT_ENABLE
+	ccu_qos_uninit(g_ccu_device);
 #endif
 	mutex_unlock(&g_ccu_device->clk_mutex);
 }
@@ -914,7 +914,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	{
 		uint32_t ccu_bw[3];
 
-		ccu_qos_update_req(&ccu_bw[0]);
+		ccu_qos_update_req(g_ccu_device, &ccu_bw[0]);
 
 		ret = copy_to_user((void *)arg, &ccu_bw,
 			sizeof(uint32_t) * 3);
@@ -924,22 +924,31 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	case CCU_IOCTL_UPDATE_CAM_FREQ_REQUEST:
 	{
 		uint32_t freq_level;
+#ifdef CCU_QOS_SUPPORT_ENABLE
+		struct dev_pm_opp *opp;
+		int volt;
+		unsigned long freq = 0;
+#endif
 
 		ret = copy_from_user(&freq_level,
 			(void *)arg, sizeof(uint32_t));
 
 		LOG_DBG_MUST("request freq level: %d\n", freq_level);
-#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
-		if (freq_level == CCU_REQ_CAM_FREQ_NONE)
-			pm_qos_update_request(&_ccu_qos_request, 0);
-		else
-			pm_qos_update_request(&_ccu_qos_request,
-				_g_freq_steps[freq_level]);
+#ifdef CCU_QOS_SUPPORT_ENABLE
+		if (freq_level == CCU_REQ_CAM_FREQ_NONE) {
+			volt = 0;
+		} else {
+			freq = _g_freq_steps[freq_level];
+			opp = dev_pm_opp_find_freq_ceil(g_ccu_device->dev,
+				&freq);
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
+		}
+		ret = regulator_set_voltage(_ccu_qos_request, volt, INT_MAX);
 
 		//use pm_qos_request to get
 		//current freq setting
-		LOG_DBG_MUST("current freq: %d\n",
-			pm_qos_request(PM_QOS_CAM_FREQ));
+		LOG_DBG_MUST("current freq: %d\n", volt);
 #endif
 		break;
 	}
@@ -1612,7 +1621,11 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 	}
 	of_node_put(smi_node);
 	g_ccu_device->smi_dev = &smi_pdev->dev;
-
+#ifdef CCU_QOS_SUPPORT_ENABLE
+	g_ccu_device->path_ccuo = of_mtk_icc_get(g_ccu_device->dev, "ccu_o");
+	g_ccu_device->path_ccui = of_mtk_icc_get(g_ccu_device->dev, "ccu_i");
+	g_ccu_device->path_ccug = of_mtk_icc_get(g_ccu_device->dev, "ccu_g");
+#endif
 	g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
 	LOG_INF_MUST("probe 1, ccu_base: 0x%lx, bin_base: 0x%lx,",
 		g_ccu_device->ccu_base, g_ccu_device->bin_base);
@@ -1782,7 +1795,11 @@ static int __init CCU_INIT(void)
 {
 	int ret = 0;
 	int result = 0;
-
+#ifdef CCU_QOS_SUPPORT_ENABLE
+	int i = 0;
+	unsigned long freq = 0;
+	struct dev_pm_opp *opp = NULL;
+#endif
 	/*struct device_node *node = NULL;*/
 
 	g_ccu_device = kzalloc(sizeof(struct ccu_device_s), GFP_KERNEL);
@@ -1800,18 +1817,24 @@ static int __init CCU_INIT(void)
 		return -ENODEV;
 	}
 
-	LOG_DBG("platform_driver_register finsish\n");
-#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
-	//Call pm_qos_add_request when
-	//initialize module or driver prob
-	pm_qos_add_request(&_ccu_qos_request,
-		PM_QOS_CAM_FREQ, PM_QOS_MM_FREQ_DEFAULT_VALUE);
+#ifdef CCU_QOS_SUPPORT_ENABLE
+	/*Call pm_qos_add_request when initialize module or driver prob*/
+	dev_pm_opp_of_add_table(g_ccu_device->dev);
+	_ccu_qos_request = devm_regulator_get(g_ccu_device->dev,
+		"dvfsrc-vcore");
 
-	//Call mmdvfs_qos_get_freq_steps
-	//to get supported frequency
+	/*Call mmdvfs_qos_get_freq_steps to get supported frequency*/
+	_step_size = dev_pm_opp_get_opp_count(g_ccu_device->dev);
+	_g_freq_steps = kzalloc(sizeof(u64) * _step_size, GFP_KERNEL);
 
-	result = mmdvfs_qos_get_freq_steps(PM_QOS_CAM_FREQ,
-		_g_freq_steps, &_step_size);
+	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(g_ccu_device->dev,
+		&freq))) {
+		_g_freq_steps[i] = freq;
+		freq++;
+		i++;
+		dev_pm_opp_put(opp);
+	}
+
 #endif
 	if (result < 0)
 		LOG_ERR("get MMDVFS freq steps failed, result: %d\n", result);
@@ -1822,10 +1845,10 @@ static int __init CCU_INIT(void)
 
 static void __exit CCU_EXIT(void)
 {
-#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
+#ifdef CCU_QOS_SUPPORT_ENABLE
 	//Call pm_qos_remove_request when
 	//de-initialize module or driver remove
-	pm_qos_remove_request(&_ccu_qos_request);
+	kfree(_g_freq_steps);
 #endif
 	platform_driver_unregister(&ccu_driver);
 	kfree(g_ccu_device);

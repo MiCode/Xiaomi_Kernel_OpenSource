@@ -42,6 +42,9 @@ struct ccu_device_s {
 	struct list_head user_list;
 	/* notify enque thread */
 	wait_queue_head_t cmd_wait;
+	struct icc_path *path_ccuo;
+	struct icc_path *path_ccui;
+	struct icc_path *path_ccug;
 };
 
 struct ccu_user_s {

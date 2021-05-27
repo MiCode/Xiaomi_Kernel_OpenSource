@@ -5,13 +5,12 @@
 
 #ifndef _CCU_QOS_H_
 #define _CCU_QOS_H_
-#include "ccu_reg.h"
+#include "ccu_cmn.h"
+#define CCU_QOS_SUPPORT_ENABLE 1
 
-// #define CONFIG_MTK_QOS_SUPPORT_ENABLE 1
-
-void ccu_qos_init(void);
-void ccu_qos_update_req(uint32_t *ccu_bw);
-void ccu_qos_uninit(void);
+void ccu_qos_init(struct ccu_device_s *ccu);
+void ccu_qos_update_req(struct ccu_device_s *ccu, uint32_t *ccu_bw);
+void ccu_qos_uninit(struct ccu_device_s *ccu);
 
 
 #endif
