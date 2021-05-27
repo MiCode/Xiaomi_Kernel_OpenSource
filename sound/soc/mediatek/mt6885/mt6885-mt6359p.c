@@ -722,6 +722,10 @@ SND_SOC_DAILINK_DEFS(dspfmadsp,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_fm_adsp_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspa2dp,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_a2dp_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
 #endif
 
 static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
@@ -1345,6 +1349,11 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 		.name = "DSP_Playback_Fm_Adsp",
 		.stream_name = "DSP_Playback_Fm_Adsp",
 		SND_SOC_DAILINK_REG(dspfmadsp),
+	},
+	{
+		.name = "DSP_Playback_A2DP",
+		.stream_name = "DSP_Playback_A2DP",
+		SND_SOC_DAILINK_REG(dspa2dp),
 	},
 #endif
 };
