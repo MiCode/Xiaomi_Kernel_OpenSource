@@ -1182,29 +1182,6 @@ config LOCK_DEBUGGING_SUPPORT
 	depends on TRACE_IRQFLAGS_SUPPORT && STACKTRACE_SUPPORT && LOCKDEP_SUPPORT
 	default y
 
-choice
-	prompt "Perform Action on spinlock bug"
-	depends on DEBUG_SPINLOCK
-
-	default DEBUG_SPINLOCK_BITE_ON_BUG
-
-	config DEBUG_SPINLOCK_BITE_ON_BUG
-		bool "Cause a Watchdog Bite on Spinlock bug"
-		depends on QCOM_WATCHDOG_V2
-		help
-		  On a spinlock bug, cause a watchdog bite so that we can get
-		  the precise state of the system captured at the time of spin
-		  dump. This is mutually exclusive with the below
-		  DEBUG_SPINLOCK_PANIC_ON_BUG config.
-
-	config DEBUG_SPINLOCK_PANIC_ON_BUG
-		bool "Cause a Kernel Panic on Spinlock bug"
-		help
-		  On a spinlock bug, cause a kernel panic so that we can get the complete
-		  information about the system at the time of spin dump in the dmesg.
-		  This is mutually exclusive with the above DEBUG_SPINLOCK_BITE_ON_BUG.
-endchoice
-
 config PROVE_LOCKING
 	bool "Lock debugging: prove locking correctness"
 	depends on DEBUG_KERNEL && LOCK_DEBUGGING_SUPPORT
