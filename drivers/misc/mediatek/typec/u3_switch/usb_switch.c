@@ -237,7 +237,7 @@ end:
 	return retval;
 }
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
+#if IS_ENABLED(CONFIG_PROC_FS)
 /*Print U3 switch & Redriver*/
 static int usb_gpio_procfs_show(struct seq_file *s, void *unused)
 {
