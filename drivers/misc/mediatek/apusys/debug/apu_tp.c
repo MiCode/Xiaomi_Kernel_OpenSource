@@ -54,17 +54,11 @@ void apu_tp_exit(struct apu_tp_tbl *tbl)
 #ifdef MODULE
 static void for_each_apu_tracepoint(
 	void (*fct)(struct tracepoint *tp, void *priv),
-	void *priv, const char *mod_name)
+	void *priv, struct module *mod)
 {
-#if IS_ENABLED(CONFIG_TRACEPOINTS)
-	struct module *mod;
 	tracepoint_ptr_t *iter, *begin, *end;
 
-	mutex_lock(&module_mutex);
-	mod = find_module(mod_name);
-	mutex_unlock(&module_mutex);
-
-	if (!mod || !fct)
+	if (IS_ERR_OR_NULL(mod) || !fct)
 		return;
 
 	begin = mod->tracepoints_ptrs;
@@ -72,26 +66,24 @@ static void for_each_apu_tracepoint(
 
 	for (iter = begin; iter < end; iter++)
 		fct(tracepoint_ptr_deref(iter), priv);
-
-#endif
 }
 #endif
 
 /**
- * apu_tp_init() - Initialize trace point table
- *
+ * apu_tp_init_mod() - Initialize trace point table
+ * @mod: additional module to be searched
  * @apu_tp_tbl: trace point table
  *
  * Register all trace points listed in the given table to kernel.
  * Note: The last entry of the table must be "APU_TP_TBL_END".
  */
-int apu_tp_init(struct apu_tp_tbl *tbl)
+int apu_tp_init_mod(struct apu_tp_tbl *tbl, struct module *mod)
 {
 	struct apu_tp_tbl *t;
 
 #ifdef MODULE
-	for_each_apu_tracepoint(apu_tp_lookup, tbl, "apusys");
-	for_each_apu_tracepoint(apu_tp_lookup, tbl, "apu_top");
+	for_each_apu_tracepoint(apu_tp_lookup, tbl, THIS_MODULE);
+	for_each_apu_tracepoint(apu_tp_lookup, tbl, mod);
 #else
 	for_each_kernel_tracepoint(apu_tp_lookup, tbl);
 #endif

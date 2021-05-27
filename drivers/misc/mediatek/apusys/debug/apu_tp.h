@@ -19,13 +19,14 @@ struct apu_tp_tbl {
 #define APU_TP_TBL_END  {.name = NULL, .func = NULL},
 
 #if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
-int apu_tp_init(struct apu_tp_tbl *tbl);
+
+int apu_tp_init_mod(struct apu_tp_tbl *tbl, struct module *mod);
 void apu_tp_exit(struct apu_tp_tbl *tbl);
 
 #else
 
 static inline
-int apu_tp_init(struct apu_tp_tbl *tbl)
+int apu_tp_init_mod(struct apu_tp_tbl *tbl, struct module *mod)
 {
 	return 0;
 }
@@ -33,8 +34,14 @@ int apu_tp_init(struct apu_tp_tbl *tbl)
 static inline
 void apu_tp_exit(struct apu_tp_tbl *tbl)
 {
-
 }
+
 #endif
+
+static inline
+int apu_tp_init(struct apu_tp_tbl *tbl)
+{
+	return apu_tp_init_mod(tbl, NULL);
+}
 
 #endif
