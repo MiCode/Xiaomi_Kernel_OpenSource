@@ -113,12 +113,14 @@ static struct mml_frame_config *frame_config_create(
 	if (!cfg)
 		return ERR_PTR(-ENOMEM);
 
-	cfg->mml = ctx->mml;
-	cfg->task_ops = ctx->task_ops;
-	cfg->info = *info;
-	mutex_init(&cfg->task_mutex);
 	INIT_LIST_HEAD(&cfg->entry);
 	list_add_tail(&cfg->entry, &ctx->configs);
+	cfg->info = *info;
+	mutex_init(&cfg->task_mutex);
+	INIT_LIST_HEAD(&cfg->tasks);
+	INIT_LIST_HEAD(&cfg->done_tasks);
+	cfg->mml = ctx->mml;
+	cfg->task_ops = ctx->task_ops;
 
 	return cfg;
 }
@@ -210,6 +212,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 
 	cfg = frame_config_find_reuse(ctx, submit);
 	if (cfg) {
+		mml_msg("%s reuse config", __func__);
 		task = task_get_idle(cfg);
 		if (task) {
 			/* reuse case change state IDLE to REUSE */
@@ -221,6 +224,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 			task->config = cfg;
 		}
 	} else {
+		mml_msg("%s create config", __func__);
 		cfg = frame_config_create(ctx, &submit->info);
 		if (IS_ERR(cfg))
 			return PTR_ERR(cfg);
@@ -269,7 +273,9 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)
 	if (!ctx)
 		return ERR_PTR(-ENOMEM);
 
+	INIT_LIST_HEAD(&ctx->configs);
 	mutex_init(&ctx->config_mutex);
+	ctx->mml = mml;
 	ctx->task_ops = &drm_task_ops;
 	return ctx;
 }
