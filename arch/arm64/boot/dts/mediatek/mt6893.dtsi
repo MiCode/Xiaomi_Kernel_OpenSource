@@ -2450,14 +2450,16 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
-		pwm_leds {
-			compatible = "pwm-leds";
+		mtk_leds: pwm_leds {
+			compatible = "mediatek,pwm-leds";
 
 			backlight {
 				label = "lcd-backlight";
 				pwms = <&disp_pwm 0 39385>;
-				pwm-names = "lcd-backlight";
 				max-brightness = <255>;
+				max-hw-brightness = <1023>;
+				pwm-names = "lcd-backlight";
+				aal-enable = <0>;
 			};
 		};
 
