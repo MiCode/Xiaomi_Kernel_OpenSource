@@ -95,7 +95,9 @@ next:
 static int vpu_req_check(struct apusys_cmd_handle *cmd)
 {
 	int ret = 0;
+	uint64_t mask = 0;
 	struct apusys_cmdbuf *cmd_buf;
+	struct vpu_request *req;
 
 	if (cmd->num_cmdbufs != VPU_CMD_BUF_NUM) {
 		pr_info("%s: invalid number 0x%x of vpu request\n",
@@ -114,6 +116,25 @@ static int vpu_req_check(struct apusys_cmd_handle *cmd)
 	if (cmd_buf->size != sizeof(struct vpu_request)) {
 		pr_info("%s: invalid size 0x%x of vpu request\n",
 			__func__, cmd_buf->size);
+		return -EINVAL;
+	}
+
+	req = (struct vpu_request *)cmd_buf->kva;
+
+	mask = ~(VPU_REQ_F_ALG_RELOAD |
+		VPU_REQ_F_ALG_CUSTOM |
+		VPU_REQ_F_ALG_PRELOAD |
+		VPU_REQ_F_PREEMPT_TEST);
+
+	if (req->flags & mask) {
+		pr_info("%s: invalid flags 0x%llx of vpu request\n",
+			__func__, req->flags);
+		return -EINVAL;
+	}
+
+	if (req->buffer_count > VPU_MAX_NUM_PORTS) {
+		pr_info("%s: invalid buffer_count 0x%x of vpu request\n",
+			__func__, req->buffer_count);
 		return -EINVAL;
 	}
 
