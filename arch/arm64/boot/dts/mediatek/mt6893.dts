@@ -935,6 +935,7 @@
 		compatible = "mediatek, mrdump_ext_rst-eint";
 		mode = "IRQ";
 		status = "okay";
+		interrupts = <0 0x8 0 0>;
 	};
 };
 
