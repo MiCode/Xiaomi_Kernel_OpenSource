@@ -4565,9 +4565,6 @@ static DEVICE_ATTR(FG_g_fg_dbg_percentage_voltmode, 0664,
 static int battery_meter_probe(struct platform_device *dev)
 {
 	int ret_device_file = 0;
-#if defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
-	char *temp_strptr;
-#endif
 	battery_meter_ctrl = bm_ctrl_cmd;
 
 	bm_print(BM_LOG_CRTI, "[%s] probe\n", __func__);
@@ -4576,20 +4573,7 @@ static int battery_meter_probe(struct platform_device *dev)
 
 	/* select battery meter control method */
 	battery_meter_ctrl = bm_ctrl_cmd;
-#if defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
-	if (get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT ||
-	    get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
-		temp_strptr =
-			kzalloc(strlen(saved_command_line) +
-					strlen(" androidboot.mode=charger") + 1,
-				GFP_KERNEL);
-		strncpy(temp_strptr, saved_command_line,
-			strlen(saved_command_line));
-		strncat(temp_strptr, " androidboot.mode=charger",
-			strlen(" androidboot.mode=charger") + 1);
-		saved_command_line = temp_strptr;
-	}
-#endif
+
 	/* LOG System Set */
 	init_proc_log_fg();
 
