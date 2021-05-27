@@ -16,6 +16,9 @@
 
 #include <linux/platform_device.h>
 
+
+struct kbase_device *mtk_common_get_kbdev(void);
+
 bool mtk_common_pm_is_mfg_active(void);
 void mtk_common_pm_mfg_active(void);
 void mtk_common_pm_mfg_idle(void);
