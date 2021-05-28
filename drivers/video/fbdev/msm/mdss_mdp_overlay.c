@@ -5899,7 +5899,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		pr_debug("cleaning up pipes on fb%d\n", mfd->index);
 		if (mdata->handoff_pending)
 			mdp5_data->allow_kickoff = true;
-
+		atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
 		mdss_mdp_overlay_kickoff(mfd, NULL);
 	} else if (!mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
 		if (mfd->panel_reconfig) {
