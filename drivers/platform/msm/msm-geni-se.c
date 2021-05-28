@@ -33,6 +33,23 @@
 #define CONV_TO_BW(x) (x*4)
 #define NUM_LOG_PAGES 2
 #define MAX_CLK_PERF_LEVEL 32
+
+#define CREATE_TRACE_POINTS
+#include "qup-common-trace.h"
+
+#define GENI_LOG_DBG(log_ctx, print, dev, x...) do { \
+GENI_SE_DBG(log_ctx, print, dev, x); \
+if (dev) \
+	geni_trace_log(dev, x); \
+} while (0)
+
+#define GENI_LOG_ERR(log_ctx, print, dev, x...) do { \
+GENI_SE_ERR(log_ctx, print, dev, x); \
+if (dev) \
+	geni_trace_log(dev, x); \
+} while (0)
+
+
 static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,
 				100000000, 150000000, 200000000, 236000000};
 
@@ -110,6 +127,22 @@ struct geni_se_device {
 #define HW_VER_MINOR_MASK GENMASK(27, 16)
 #define HW_VER_MINOR_SHFT 16
 #define HW_VER_STEP_MASK GENMASK(15, 0)
+
+/* FTRACE Logging */
+void geni_trace_log(struct device *dev, const char *fmt, ...)
+{
+	struct va_format vaf = {
+		.fmt = fmt,
+	};
+
+	va_list args;
+
+	va_start(args, fmt);
+	vaf.va = &args;
+	trace_geni_log_info(dev_name(dev), &vaf);
+	va_end(args);
+}
+
 
 /**
  * geni_read_reg_nolog() - Helper function to read from a GENI register
@@ -742,7 +775,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->vectors[0].ab,
 						geni_se_dev->vectors[0].ib);
 
-	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+	GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 		"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
 		__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
 		geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
@@ -775,7 +808,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->vectors[1].ab,
 						geni_se_dev->vectors[1].ib);
 
-		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+		GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 			"%s: %s: cur_ab_ib_noc(%lu:%lu) req_ab_ib_noc(%lu:%lu) %d\n",
 			__func__, dev_name(rsc->ctrl_dev),
 			geni_se_dev->cur_ab_noc, geni_se_dev->cur_ib_noc,
@@ -810,8 +843,9 @@ int se_geni_clks_off(struct se_geni_rsc *rsc)
 
 	ret = geni_se_rmv_ab_ib(geni_se_dev, rsc);
 	if (ret)
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d during bus_bw_update\n", __func__, ret);
+		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s: %s: Error %d during bus_bw_update\n", __func__,
+			dev_name(rsc->ctrl_dev), ret);
 
 	return ret;
 }
@@ -838,12 +872,14 @@ int se_geni_resources_off(struct se_geni_rsc *rsc)
 
 	ret = se_geni_clks_off(rsc);
 	if (ret)
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d turning off clocks\n", __func__, ret);
+		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s: %s: Error %d turning off clocks\n", __func__,
+			dev_name(rsc->ctrl_dev), ret);
 	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
 	if (ret)
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d pinctrl_select_state\n", __func__, ret);
+		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s: %s: Error %d pinctrl_select_state\n", __func__,
+			dev_name(rsc->ctrl_dev), ret);
 	return ret;
 }
 EXPORT_SYMBOL(se_geni_resources_off);
@@ -889,7 +925,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->vectors[0].ab,
 						geni_se_dev->vectors[0].ib);
 
-	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+	GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 		"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
 		__func__, dev_name(rsc->ctrl_dev),
 		geni_se_dev->cur_ab, geni_se_dev->cur_ib,
@@ -922,7 +958,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->vectors[1].ab,
 						geni_se_dev->vectors[1].ib);
 
-		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+		GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 			"%s: %s: cur_ab_ib_noc(%lu:%lu) req_ab_ib_noc(%lu:%lu) %d\n",
 			__func__, dev_name(rsc->ctrl_dev),
 			geni_se_dev->cur_ab_noc, geni_se_dev->cur_ib_noc,
@@ -953,8 +989,9 @@ int se_geni_clks_on(struct se_geni_rsc *rsc)
 
 	ret = geni_se_add_ab_ib(geni_se_dev, rsc);
 	if (ret) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d during bus_bw_update\n", __func__, ret);
+		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s: %s: Error %d during bus_bw_update\n", __func__,
+			dev_name(rsc->ctrl_dev), ret);
 		return ret;
 	}
 
@@ -1002,15 +1039,17 @@ int se_geni_resources_on(struct se_geni_rsc *rsc)
 
 	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_active);
 	if (ret) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d pinctrl_select_state\n", __func__, ret);
+		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s: %s: Error %d pinctrl_select_state\n", __func__,
+			dev_name(rsc->ctrl_dev), ret);
 		return ret;
 	}
 
 	ret = se_geni_clks_on(rsc);
 	if (ret) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d during clks_on\n", __func__, ret);
+		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s: %s: Error %d during clks_on\n", __func__,
+			dev_name(rsc->ctrl_dev), ret);
 		pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
 	}
 
@@ -1045,9 +1084,9 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 	if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
 		geni_se_dev->bus_bw = of_icc_get(geni_se_dev->dev, "qup-core");
 		if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
-			GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-				"%s: Error Get Path: (Core2x), %ld\n",
-				__func__, PTR_ERR(geni_se_dev->bus_bw));
+			GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+				"%s: %s Error Get Path: (Core2x), %ld\n",
+				__func__, dev_name(rsc->ctrl_dev), PTR_ERR(geni_se_dev->bus_bw));
 
 				return geni_se_dev->bus_bw ?
 				PTR_ERR(geni_se_dev->bus_bw) : -ENOENT;
@@ -1061,9 +1100,9 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 			geni_se_dev->bus_bw_noc =
 				of_icc_get(geni_se_dev->dev, "qup-ddr");
 			if (IS_ERR_OR_NULL(geni_se_dev->bus_bw_noc)) {
-				GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-					"%s: Error Get Path: (DDR), %ld\n",
-					 __func__,
+				GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+					"%s: %s: Error Get Path: (DDR), %ld\n",
+					 __func__, dev_name(rsc->ctrl_dev),
 					PTR_ERR(geni_se_dev->bus_bw_noc));
 				icc_put(geni_se_dev->bus_bw);
 				geni_se_dev->bus_bw = NULL;
@@ -1435,7 +1474,7 @@ void *geni_se_iommu_alloc_buf(struct device *wrapper_dev, dma_addr_t *iova,
 
 	buf = dma_alloc_coherent(cb_dev, size, iova, GFP_KERNEL);
 	if (!buf)
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 			    "%s: Failed dma_alloc_coherent\n", __func__);
 	return buf;
 }
@@ -1550,7 +1589,8 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	if (!geni_se_dev)
 		return;
 	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list))) {
-		GENI_SE_DBG(ipc, false, NULL, "%s: Clocks not on\n", __func__);
+		GENI_LOG_DBG(ipc, false, geni_se_dev->dev, "%s: %s: Clocks not on\n",
+		__func__, dev_name(rsc->ctrl_dev));
 		return;
 	}
 	m_cmd0 = geni_read_reg(base, SE_GENI_M_CMD0);
@@ -1574,21 +1614,22 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	geni_dma_tx_irq_en = geni_read_reg(base, SE_DMA_TX_IRQ_EN);
 	geni_dma_rx_irq_en = geni_read_reg(base, SE_DMA_RX_IRQ_EN);
 
-	GENI_SE_DBG(ipc, false, NULL,
-	"%s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
-	__func__, m_cmd0, m_irq_status, geni_status, geni_ios);
-	GENI_SE_DBG(ipc, false, NULL,
-	"dma_rx_irq:0x%x, dma_tx_irq:0x%x, rx_fifo_sts:0x%x, tx_fifo_sts:0x%x\n"
-	, dma_rx_irq, dma_tx_irq, rx_fifo_status, tx_fifo_status);
-	GENI_SE_DBG(ipc, false, NULL,
-	"se_dma_dbg:0x%x, m_cmd_ctrl:0x%x, dma_rxlen:0x%x, dma_rxlen_in:0x%x\n",
-	se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
-	GENI_SE_DBG(ipc, false, NULL,
-	"dma_txlen:0x%x, dma_txlen_in:0x%x s_irq_status:0x%x\n",
-	se_dma_tx_len, se_dma_tx_len_in, s_irq_status);
-	GENI_SE_DBG(ipc, false, NULL,
-	"dma_txirq_en:0x%x, dma_rxirq_en:0x%x geni_m_irq_en:0x%x geni_s_irq_en:0x%x\n",
-	geni_dma_tx_irq_en, geni_dma_rx_irq_en, geni_m_irq_en, geni_s_irq_en);
+	GENI_LOG_DBG(ipc, false, geni_se_dev->dev,
+	"%s: %s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
+	__func__, dev_name(rsc->ctrl_dev), m_cmd0, m_irq_status, geni_status, geni_ios);
+	GENI_LOG_DBG(ipc, false, geni_se_dev->dev,
+	"%s: dma_rx_irq:0x%x, dma_tx_irq:0x%x, rx_fifo_sts:0x%x, tx_fifo_sts:0x%x\n",
+	dev_name(rsc->ctrl_dev), dma_rx_irq, dma_tx_irq, rx_fifo_status, tx_fifo_status);
+	GENI_LOG_DBG(ipc, false, geni_se_dev->dev,
+	"%s: se_dma_dbg:0x%x, m_cmd_ctrl:0x%x, dma_rxlen:0x%x, dma_rxlen_in:0x%x\n",
+	dev_name(rsc->ctrl_dev), se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
+	GENI_LOG_DBG(ipc, false, geni_se_dev->dev,
+	"%s: dma_txlen:0x%x, dma_txlen_in:0x%x s_irq_status:0x%x\n",
+	dev_name(rsc->ctrl_dev), se_dma_tx_len, se_dma_tx_len_in, s_irq_status);
+	GENI_LOG_DBG(ipc, false, geni_se_dev->dev,
+	"%s: dma_txirq_en:0x%x, dma_rxirq_en:0x%x geni_m_irq_en:0x%x geni_s_irq_en:0x%x\n",
+	dev_name(rsc->ctrl_dev), geni_dma_tx_irq_en, geni_dma_rx_irq_en, geni_m_irq_en,
+	geni_s_irq_en);
 }
 EXPORT_SYMBOL(geni_se_dump_dbg_regs);
 
@@ -1616,7 +1657,7 @@ static int geni_se_iommu_probe(struct device *dev)
 	geni_se_dev = dev_get_drvdata(dev->parent);
 	geni_se_dev->cb_dev = dev;
 
-	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+	GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 		    "%s: Probe successful\n", __func__);
 	return 0;
 }
@@ -1707,7 +1748,7 @@ static int geni_se_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+	GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 		    "%s: Probe successful\n", __func__);
 	return 0;
 }
