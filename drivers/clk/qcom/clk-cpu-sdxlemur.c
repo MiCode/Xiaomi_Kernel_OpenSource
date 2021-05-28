@@ -306,7 +306,7 @@ static struct clk_alpha_pll apcs_cpu_pll = {
 				.fw_name = "bi_tcxo_ao",
 			},
 			.num_parents = 1,
-			.ops = &clk_alpha_pll_lucid_5lpe_ops,
+			.ops = &clk_alpha_pll_lucid_5lpe_sdx_cpu_ops,
 		},
 		.vdd_data = {
 			.vdd_class = &vdd_pll,
