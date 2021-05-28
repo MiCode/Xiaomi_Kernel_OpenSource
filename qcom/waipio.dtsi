@@ -2209,6 +2209,7 @@
 			label = "ns_context";
 			iommus = <&apps_smmu 0x588 0x0>,
 				<&apps_smmu 0x59A 0x0>,
+				<&apps_smmu 0x59F 0x0>,
 				<&apps_smmu 0x598 0x5>;
 		};
 
