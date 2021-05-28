@@ -952,6 +952,11 @@ static void kgsl_contiguous_free(struct kgsl_memdesc *memdesc)
 
 	atomic_long_sub(memdesc->size, &kgsl_driver.stats.coherent);
 
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+	mod_node_page_state(page_pgdat(phys_to_page(memdesc->physaddr)),
+		NR_UNRECLAIMABLE_PAGES, -(memdesc->size >> PAGE_SHIFT));
+#endif
+
 	_kgsl_contiguous_free(memdesc);
 }
 
@@ -961,6 +966,7 @@ static void kgsl_free_secure_system_pages(struct kgsl_memdesc *memdesc)
 	int i;
 	struct scatterlist *sg;
 	int ret = unlock_sgt(memdesc->sgt);
+	int order = get_order(PAGE_SIZE);
 
 	if (ret) {
 		/*
@@ -979,7 +985,11 @@ static void kgsl_free_secure_system_pages(struct kgsl_memdesc *memdesc)
 	for_each_sg(memdesc->sgt->sgl, sg, memdesc->sgt->nents, i) {
 		struct page *page = sg_page(sg);
 
-		__free_pages(page, get_order(PAGE_SIZE));
+		__free_pages(page, order);
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+		mod_node_page_state(page_pgdat(page), NR_UNRECLAIMABLE_PAGES,
+				-(1 << order));
+#endif
 	}
 
 	sg_free_table(memdesc->sgt);
@@ -1032,15 +1042,20 @@ static void kgsl_free_pool_pages(struct kgsl_memdesc *memdesc)
 
 static void kgsl_free_system_pages(struct kgsl_memdesc *memdesc)
 {
-	int i;
+	int i, order = get_order(PAGE_SIZE);
 
 	kgsl_paged_unmap_kernel(memdesc);
 	WARN_ON(memdesc->hostptr);
 
 	atomic_long_sub(memdesc->size, &kgsl_driver.stats.page_alloc);
 
-	for (i = 0; i < memdesc->page_count; i++)
-		__free_pages(memdesc->pages[i], get_order(PAGE_SIZE));
+	for (i = 0; i < memdesc->page_count; i++) {
+		__free_pages(memdesc->pages[i], order);
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+		mod_node_page_state(page_pgdat(memdesc->pages[i]),
+				NR_UNRECLAIMABLE_PAGES, -(1 << order));
+#endif
+	}
 
 	memdesc->page_count = 0;
 	kvfree(memdesc->pages);
@@ -1087,6 +1102,7 @@ static int kgsl_system_alloc_pages(u64 size, struct page ***pages,
 	struct scatterlist sg;
 	struct page **local;
 	int i, npages = size >> PAGE_SHIFT;
+	int order = get_order(PAGE_SIZE);
 
 	local = kvcalloc(npages, sizeof(*pages), GFP_KERNEL);
 	if (!local)
@@ -1098,8 +1114,13 @@ static int kgsl_system_alloc_pages(u64 size, struct page ***pages,
 
 		local[i] = alloc_pages(gfp, get_order(PAGE_SIZE));
 		if (!local[i]) {
-			for (i = i - 1; i >= 0; i--)
-				__free_pages(local[i], get_order(PAGE_SIZE));
+			for (i = i - 1; i >= 0; i--) {
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+				mod_node_page_state(page_pgdat(local[i]),
+					NR_UNRECLAIMABLE_PAGES, -(1 << order));
+#endif
+				__free_pages(local[i], order);
+			}
 			kvfree(local);
 			return -ENOMEM;
 		}
@@ -1110,6 +1131,10 @@ static int kgsl_system_alloc_pages(u64 size, struct page ***pages,
 		sg_dma_address(&sg) = page_to_phys(local[i]);
 
 		dma_sync_sg_for_device(dev, &sg, 1, DMA_BIDIRECTIONAL);
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+		mod_node_page_state(page_pgdat(local[i]), NR_UNRECLAIMABLE_PAGES,
+				(1 << order));
+#endif
 	}
 
 	*pages = local;
@@ -1256,9 +1281,14 @@ static int kgsl_alloc_contiguous(struct kgsl_device *device,
 	memdesc->ops = &kgsl_contiguous_ops;
 	ret = _kgsl_alloc_contiguous(&device->pdev->dev, memdesc, size, 0);
 
-	if (!ret)
+	if (!ret) {
 		KGSL_STATS_ADD(size, &kgsl_driver.stats.coherent,
 			&kgsl_driver.stats.coherent_max);
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+		mod_node_page_state(page_pgdat(phys_to_page(memdesc->physaddr)),
+			NR_UNRECLAIMABLE_PAGES, (size >> PAGE_SHIFT));
+#endif
+	}
 
 	return ret;
 }
