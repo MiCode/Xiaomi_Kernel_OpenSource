@@ -2122,7 +2122,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 
 	/* Terminate the stalled transaction and resume the IOMMU */
 	if (fault & ADRENO_IOMMU_PAGE_FAULT)
-		kgsl_mmu_pagefault_resume(&device->mmu);
+		kgsl_mmu_pagefault_resume(&device->mmu, true);
 
 	/* Reset the dispatcher queue */
 	dispatcher->inflight = 0;

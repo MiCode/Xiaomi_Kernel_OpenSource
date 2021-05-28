@@ -1023,13 +1023,13 @@ static void _do_gbif_halt(struct kgsl_device *device, u32 reg, u32 ack_reg,
 		 * then the halt sequence will not complete as long as SMMU
 		 * is stalled.
 		 */
-		kgsl_mmu_pagefault_resume(&device->mmu);
+		kgsl_mmu_pagefault_resume(&device->mmu, false);
 
 		usleep_range(10, 100);
 	} while (!time_after(jiffies, t));
 
 	/* Check one last time */
-	kgsl_mmu_pagefault_resume(&device->mmu);
+	kgsl_mmu_pagefault_resume(&device->mmu, false);
 
 	kgsl_regread(device, ack_reg, &ack);
 	if ((ack & mask) == mask)

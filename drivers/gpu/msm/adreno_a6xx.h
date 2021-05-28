@@ -302,15 +302,6 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev);
 void a6xx_start(struct adreno_device *adreno_dev);
 
 /**
- * a6xx_sqe_unhalt - Unhalt the SQE engine
- * @adreno_dev: An Adreno GPU handle
- *
- * Points the hardware to the microcode location in memory and then
- * unhalts the SQE so that it can fetch instructions from DDR
- */
-void a6xx_unhalt_sqe(struct adreno_device *adreno_dev);
-
-/**
  * a6xx_init - Initialize a6xx resources
  * @adreno_dev: An Adreno GPU handle
  *
