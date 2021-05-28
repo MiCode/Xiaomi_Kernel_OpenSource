@@ -20,6 +20,7 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/reset.h>
+#include <linux/pinctrl/consumer.h>
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
@@ -4377,6 +4378,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			ret = PTR_ERR(msm_host->core_mem);
 			goto vreg_deinit;
 		}
+	}
+
+	/* Toggle wlan_en pin to reset SDIO card to correct state */
+	if (host->mmc->pm_caps & MMC_PM_KEEP_POWER) {
+		pinctrl_pm_select_sleep_state(&pdev->dev);
+		mdelay(1);
+		pinctrl_pm_select_default_state(&pdev->dev);
 	}
 
 	/* Reset the vendor spec register to power on reset state */
