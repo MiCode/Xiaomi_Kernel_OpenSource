@@ -29,6 +29,7 @@ struct q6v5_data {
 	struct clk *qdss_clk;
 	struct clk *prng_clk;
 	struct clk *axis2_clk;
+	struct clk *qpic_clk;
 	void __iomem *axi_halt_base; /* Halt base of q6, mss,
 				      * nc are in same 4K page
 				      */
