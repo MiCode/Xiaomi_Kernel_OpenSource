@@ -361,7 +361,6 @@ static struct regmap_config cpu_regmap_config = {
 	.reg_bits	= 32,
 	.reg_stride	= 4,
 	.val_bits	= 32,
-	.max_register	= 0x3C,
 	.fast_io	= true,
 };
 
