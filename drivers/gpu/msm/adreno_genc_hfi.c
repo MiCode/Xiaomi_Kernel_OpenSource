@@ -493,11 +493,12 @@ int genc_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev)
 	int ret = 0;
 
 	if (adreno_dev->acd_enabled) {
-		ret = genc_hfi_send_generic_req(adreno_dev,
-			&gmu->hfi.acd_table);
+		ret = genc_hfi_send_feature_ctrl(adreno_dev,
+			HFI_FEATURE_ACD, 1, 0);
+
 		if (!ret)
-			ret = genc_hfi_send_feature_ctrl(adreno_dev,
-				HFI_FEATURE_ACD, 1, 0);
+			ret = genc_hfi_send_generic_req(adreno_dev,
+				&gmu->hfi.acd_table);
 	}
 
 	return ret;
