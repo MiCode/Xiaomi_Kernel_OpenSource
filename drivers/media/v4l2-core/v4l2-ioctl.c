@@ -1298,18 +1298,6 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_YVYU:		descr = "YVYU 4:2:2"; break;
 	case V4L2_PIX_FMT_UYVY:		descr = "UYVY 4:2:2"; break;
 	case V4L2_PIX_FMT_VYUY:		descr = "VYUY 4:2:2"; break;
-	case V4L2_PIX_FMT_YUYV10:
-		descr = "YUYV 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_YVYU10:
-		descr = "YVYU 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_UYVY10:
-		descr = "UYVY 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_VYUY10:
-		descr = "VYUY 4:2:2 10 bits";
-		break;
 	case V4L2_PIX_FMT_YUV422P:	descr = "Planar YUV 4:2:2"; break;
 	case V4L2_PIX_FMT_YUV411P:	descr = "Planar YUV 4:1:1"; break;
 	case V4L2_PIX_FMT_Y41P:		descr = "YUV 4:1:1 (Packed)"; break;
@@ -1332,18 +1320,6 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_NV61:		descr = "Y/CrCb 4:2:2"; break;
 	case V4L2_PIX_FMT_NV24:		descr = "Y/CbCr 4:4:4"; break;
 	case V4L2_PIX_FMT_NV42:		descr = "Y/CrCb 4:4:4"; break;
-	case V4L2_PIX_FMT_NV12_10:
-		descr = "Y/CbCr 4:2:0 10 bits";
-		break;
-	case V4L2_PIX_FMT_NV21_10:
-		descr = "Y/CrCb 4:2:0 10 bits";
-		break;
-	case V4L2_PIX_FMT_NV16_10:
-		descr = "Y/CbCr 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_NV61_10:
-		descr = "Y/CrCb 4:2:2 10 bits";
-		break;
 	case V4L2_PIX_FMT_NV12M:	descr = "Y/CbCr 4:2:0 (N-C)"; break;
 	case V4L2_PIX_FMT_NV21M:	descr = "Y/CrCb 4:2:0 (N-C)"; break;
 	case V4L2_PIX_FMT_NV16M:	descr = "Y/CbCr 4:2:2 (N-C)"; break;
@@ -1410,114 +1386,6 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_KONICA420:	descr = "GSPCA KONICA420"; break;
 	case V4L2_PIX_FMT_HSV24:	descr = "24-bit HSV 8-8-8"; break;
 	case V4L2_PIX_FMT_HSV32:	descr = "32-bit XHSV 8-8-8-8"; break;
-	case V4L2_PIX_FMT_MTISP_SBGGR10:
-		descr = "10-bit Bayer BGGR MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG10:
-		descr = "10-bit Bayer GBRG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG10:
-		descr = "10-bit Bayer GRBG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB10:
-		descr = "10-bit Bayer RGGB MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR12:
-		descr = "12-bit Bayer BGGR MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG12:
-		descr = "12-bit Bayer GBRG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG12:
-		descr = "12-bit Bayer GRBG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB12:
-		descr = "12-bit Bayer RGGB MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR14:
-		descr = "14-bit Bayer BGGR MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG14:
-		descr = "14-bit Bayer GBRG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG14:
-		descr = "14-bit Bayer GRBG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB14:
-		descr = "14-bit Bayer RGGB MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR8F:
-		descr = "8-bit Enhanced BGGR Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG8F:
-		descr = "8-bit Enhanced GBRG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG8F:
-		descr = "8-bit Enhanced GRBG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB8F:
-		descr = "8-bit Enhanced RGGB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR10F:
-		descr = "10-bit Enhanced BGGR Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG10F:
-		descr = "10-bit Enhanced GBRG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG10F:
-		descr = "10-bit Enhanced GRBG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB10F:
-		descr = "10-bit Enhanced RGGB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR12F:
-		descr = "12-bit Enhanced BGGR Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG12F:
-		descr = "12-bit Enhanced GBRG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG12F:
-		descr = "12-bit Enhanced GRBG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB12F:
-		descr = "12-bit Enhanced RGGB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR14F:
-		descr = "14-bit Enhanced BGGR Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG14F:
-		descr = "14-bit Enhanced GBRG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG14F:
-		descr = "14-bit Enhanced GRBG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB14F:
-		descr = "14-bit Enhanced RGGB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV12_10P:
-		descr = "Y/CbCr 4:2:0 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV21_10P:
-		descr = "Y/CrCb 4:2:0 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV16_10P:
-		descr = "Y/CbCr 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV61_10P:
-		descr = "Y/CrCb 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_YUYV10P:
-		descr = "YUYV 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_YVYU10P:
-		descr = "YVYU 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_UYVY10P:
-		descr = "UYVY 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_VYUY10P:
-		descr = "VYUY 4:2:2 10 bits packed";
-		break;
 	case V4L2_SDR_FMT_CU8:		descr = "Complex U8"; break;
 	case V4L2_SDR_FMT_CU16LE:	descr = "Complex U16LE"; break;
 	case V4L2_SDR_FMT_CS8:		descr = "Complex S8"; break;
@@ -1535,21 +1403,6 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_META_FMT_UVC:		descr = "UVC Payload Header Metadata"; break;
 	case V4L2_META_FMT_D4XX:	descr = "Intel D4xx UVC Metadata"; break;
 	case V4L2_META_FMT_VIVID:       descr = "Vivid Metadata"; break;
-	case V4L2_META_FMT_MTISP_3A:
-		descr = "AE/AWB Histogram";
-		break;
-	case V4L2_META_FMT_MTISP_AF:
-		descr = "AF Histogram";
-		break;
-	case V4L2_META_FMT_MTISP_LCS:
-		descr = "Local Contrast Enhancement Stat";
-		break;
-	case V4L2_META_FMT_MTISP_LMV:
-		descr = "Local Motion Vector Histogram";
-		break;
-	case V4L2_META_FMT_MTISP_PARAMS:
-		descr = "MTK ISP Tuning Metadata";
-		break;
 	case V4L2_META_FMT_RK_ISP1_PARAMS:	descr = "Rockchip ISP1 3A Parameters"; break;
 	case V4L2_META_FMT_RK_ISP1_STAT_3A:	descr = "Rockchip ISP1 3A Statistics"; break;
 
@@ -1793,22 +1646,6 @@ static int v4l_g_fmt(const struct v4l2_ioctl_ops *ops,
 	return -EINVAL;
 }
 
-static void store_mplane_request(__u8 *req, struct v4l2_pix_format_mplane *p)
-{
-	req[0] = p->reserved[0];
-	req[1] = p->reserved[1];
-	req[2] = p->reserved[2];
-	req[3] = p->reserved[3];
-}
-
-static void restore_mplane_request(__u8 *req, struct v4l2_pix_format_mplane *p)
-{
-	p->reserved[0] = req[0];
-	p->reserved[1] = req[1];
-	p->reserved[2] = req[2];
-	p->reserved[3] = req[3];
-}
-
 static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 				struct file *file, void *fh, void *arg)
 {
@@ -1836,20 +1673,14 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 		if (vfd->vfl_type == VFL_TYPE_TOUCH)
 			v4l_pix_format_touch(&p->fmt.pix);
 		return ret;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
-		__u8 req[4];
-
-		store_mplane_request(req, &p->fmt.pix_mp);
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (unlikely(!ops->vidioc_s_fmt_vid_cap_mplane))
 			break;
 		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
-		restore_mplane_request(req, &p->fmt.pix_mp);
-		ret = ops->vidioc_s_fmt_vid_cap_mplane(file, fh, arg);
-		return ret;
-	}
+		return ops->vidioc_s_fmt_vid_cap_mplane(file, fh, arg);
 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
 		if (unlikely(!ops->vidioc_s_fmt_vid_overlay))
 			break;
@@ -1930,8 +1761,6 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 
 	if (ret)
 		return ret;
-	if (p->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		pr_info("1request fd: %d\n", p->fmt.pix_mp.reserved[0]);
 
 	v4l_sanitize_format(p);
 
@@ -1946,20 +1775,14 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 		if (vfd->vfl_type == VFL_TYPE_TOUCH)
 			v4l_pix_format_touch(&p->fmt.pix);
 		return ret;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
-		__u8 req[4];
-
-		store_mplane_request(req, &p->fmt.pix_mp);
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (unlikely(!ops->vidioc_try_fmt_vid_cap_mplane))
 			break;
 		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
-		restore_mplane_request(req, &p->fmt.pix_mp);
-		ret = ops->vidioc_try_fmt_vid_cap_mplane(file, fh, arg);
-		return ret;
-	}
+		return ops->vidioc_try_fmt_vid_cap_mplane(file, fh, arg);
 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
 		if (unlikely(!ops->vidioc_try_fmt_vid_overlay))
 			break;
@@ -2994,7 +2817,7 @@ static const struct v4l2_ioctl_info v4l2_ioctls[] = {
 	IOCTL_INFO(VIDIOC_G_CROP, v4l_g_crop, v4l_print_crop, INFO_FL_CLEAR(v4l2_crop, type)),
 	IOCTL_INFO(VIDIOC_S_CROP, v4l_s_crop, v4l_print_crop, INFO_FL_PRIO),
 	IOCTL_INFO(VIDIOC_G_SELECTION, v4l_g_selection, v4l_print_selection, INFO_FL_CLEAR(v4l2_selection, r)),
-	IOCTL_INFO(VIDIOC_S_SELECTION, v4l_s_selection, v4l_print_selection, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_S_SELECTION, v4l_s_selection, v4l_print_selection, INFO_FL_PRIO | INFO_FL_CLEAR(v4l2_selection, r)),
 	IOCTL_INFO(VIDIOC_G_JPEGCOMP, v4l_stub_g_jpegcomp, v4l_print_jpegcompression, 0),
 	IOCTL_INFO(VIDIOC_S_JPEGCOMP, v4l_stub_s_jpegcomp, v4l_print_jpegcompression, INFO_FL_PRIO),
 	IOCTL_INFO(VIDIOC_QUERYSTD, v4l_querystd, v4l_print_std, 0),

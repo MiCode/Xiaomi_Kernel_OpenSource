@@ -17,7 +17,6 @@
 #include "../venc_drv_base.h"
 #include "../venc_ipi_msg.h"
 #include "../venc_vpu_if.h"
-#include "mtk_vpu.h"
 
 #define VENC_BITSTREAM_FRAME_SIZE 0x0098
 #define VENC_BITSTREAM_HEADER_LEN 0x00e8
@@ -25,7 +24,7 @@
 /* This ac_tag is vp8 frame tag. */
 #define MAX_AC_TAG_SIZE 10
 
-/**
+/*
  * enum venc_vp8_vpu_work_buf - vp8 encoder buffer index
  */
 enum venc_vp8_vpu_work_buf {
@@ -61,7 +60,7 @@ enum venc_vp8_vpu_work_buf {
  * @gop_size: group of picture size (key frame)
  * @framerate: frame rate in fps
  * @ts_mode: temporal scalability mode (0: disable, 1: enable)
- *           support three temporal layers - 0: 7.5fps 1: 7.5fps 2: 15fps.
+ *	     support three temporal layers - 0: 7.5fps 1: 7.5fps 2: 15fps.
  */
 struct venc_vp8_vpu_config {
 	u32 input_fourcc;
@@ -114,12 +113,12 @@ struct venc_vp8_vsi {
  * @work_bufs: working buffer
  * @work_buf_allocated: working buffer allocated flag
  * @frm_cnt: encoded frame count, it's used for I-frame judgement and
- *           reset when force intra cmd received.
+ *	     reset when force intra cmd received.
  * @ts_mode: temporal scalability mode (0: disable, 1: enable)
- *           support three temporal layers - 0: 7.5fps 1: 7.5fps 2: 15fps.
+ *	     support three temporal layers - 0: 7.5fps 1: 7.5fps 2: 15fps.
  * @vpu_inst: VPU instance to exchange information between AP and VPU
  * @vsi: driver structure allocated by VPU side and shared to AP side for
- *       control and info share
+ *	 control and info share
  * @ctx: context for v4l2 layer integration
  */
 struct venc_vp8_inst {
@@ -179,7 +178,7 @@ static int vp8_enc_alloc_work_buf(struct venc_vp8_inst *inst)
 		ret = mtk_vcodec_mem_alloc(inst->ctx, &inst->work_bufs[i]);
 		if (ret) {
 			mtk_vcodec_err(inst,
-				"cannot alloc work_bufs[%d]", i);
+				       "cannot alloc work_bufs[%d]", i);
 			goto err_alloc;
 		}
 		/*
@@ -188,21 +187,23 @@ static int vp8_enc_alloc_work_buf(struct venc_vp8_inst *inst)
 		 * virtual addr in 'iova' field for reg setting in VPU side.
 		 */
 		if (i == VENC_VP8_VPU_WORK_BUF_RC_CODE ||
-			i == VENC_VP8_VPU_WORK_BUF_RC_CODE2 ||
-			i == VENC_VP8_VPU_WORK_BUF_RC_CODE3) {
+		    i == VENC_VP8_VPU_WORK_BUF_RC_CODE2 ||
+		    i == VENC_VP8_VPU_WORK_BUF_RC_CODE3) {
+			struct mtk_vcodec_fw *handler;
 			void *tmp_va;
 
-			tmp_va = vpu_mapping_dm_addr(inst->vpu_inst.dev,
-				wb[i].vpua);
+			handler = inst->vpu_inst.ctx->dev->fw_handler;
+			tmp_va = mtk_vcodec_fw_map_dm_addr(handler,
+							   wb[i].vpua);
 			memcpy(inst->work_bufs[i].va, tmp_va, wb[i].size);
 		}
 		wb[i].iova = inst->work_bufs[i].dma_addr;
 
 		mtk_vcodec_debug(inst,
-						 "work_bufs[%d] va=0x%p,iova=%pad,size=%zu",
-						 i, inst->work_bufs[i].va,
-						 &inst->work_bufs[i].dma_addr,
-						 inst->work_bufs[i].size);
+				 "work_bufs[%d] va=0x%p,iova=%pad,size=%zu",
+				 i, inst->work_bufs[i].va,
+				 &inst->work_bufs[i].dma_addr,
+				 inst->work_bufs[i].size);
 	}
 
 	mtk_vcodec_debug_leave(inst);
@@ -220,8 +221,8 @@ static unsigned int vp8_enc_wait_venc_done(struct venc_vp8_inst *inst)
 	unsigned int irq_status = 0;
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)inst->ctx;
 
-	if (!mtk_vcodec_wait_for_done_ctx(ctx, 0, MTK_INST_IRQ_RECEIVED,
-		WAIT_INTR_TIMEOUT_MS)) {
+	if (!mtk_vcodec_wait_for_done_ctx(ctx, MTK_INST_IRQ_RECEIVED,
+					  WAIT_INTR_TIMEOUT_MS)) {
 		irq_status = ctx->irq_status;
 		mtk_vcodec_debug(inst, "isr return %x", irq_status);
 	}
@@ -233,8 +234,8 @@ static unsigned int vp8_enc_wait_venc_done(struct venc_vp8_inst *inst)
  * one bitstream buffer.
  */
 static int vp8_enc_compose_one_frame(struct venc_vp8_inst *inst,
-	struct mtk_vcodec_mem *bs_buf,
-	unsigned int *bs_size)
+				     struct mtk_vcodec_mem *bs_buf,
+				     unsigned int *bs_size)
 {
 	unsigned int not_key;
 	u32 bs_frm_size;
@@ -263,12 +264,13 @@ static int vp8_enc_compose_one_frame(struct venc_vp8_inst *inst,
 		ac_tag[7] = inst->vsi->config.pic_w >> 8;
 		ac_tag[8] = inst->vsi->config.pic_h;
 		ac_tag[9] = inst->vsi->config.pic_h >> 8;
-	} else
+	} else {
 		ac_tag_size = 3;
+	}
 
 	if (bs_buf->size < bs_hdr_len + bs_frm_size + ac_tag_size) {
 		mtk_vcodec_err(inst, "bitstream buf size is too small(%zu)",
-					   bs_buf->size);
+			       bs_buf->size);
 		return -EINVAL;
 	}
 
@@ -280,10 +282,10 @@ static int vp8_enc_compose_one_frame(struct venc_vp8_inst *inst,
 	* ac tag, bitstream header and bitstream body.
 	*/
 	memmove(bs_buf->va + bs_hdr_len + ac_tag_size,
-			bs_buf->va, bs_frm_size);
+		bs_buf->va, bs_frm_size);
 	memcpy(bs_buf->va + ac_tag_size,
-		   inst->work_bufs[VENC_VP8_VPU_WORK_BUF_BS_HEADER].va,
-		   bs_hdr_len);
+	       inst->work_bufs[VENC_VP8_VPU_WORK_BUF_BS_HEADER].va,
+	       bs_hdr_len);
 	memcpy(bs_buf->va, ac_tag, ac_tag_size);
 	*bs_size = bs_frm_size + bs_hdr_len + ac_tag_size;
 
@@ -291,16 +293,17 @@ static int vp8_enc_compose_one_frame(struct venc_vp8_inst *inst,
 }
 
 static int vp8_enc_encode_frame(struct venc_vp8_inst *inst,
-	struct venc_frm_buf *frm_buf,
-	struct mtk_vcodec_mem *bs_buf,
-	unsigned int *bs_size)
+				struct venc_frm_buf *frm_buf,
+				struct mtk_vcodec_mem *bs_buf,
+				unsigned int *bs_size)
 {
 	int ret = 0;
 	unsigned int irq_status;
 
 	mtk_vcodec_debug(inst, "->frm_cnt=%d", inst->frm_cnt);
 
-	ret = vpu_enc_encode(&inst->vpu_inst, 0, frm_buf, bs_buf, bs_size);
+	ret = vpu_enc_encode(&inst->vpu_inst, 0, frm_buf, bs_buf, bs_size,
+			     NULL);
 	if (ret)
 		return ret;
 
@@ -317,12 +320,12 @@ static int vp8_enc_encode_frame(struct venc_vp8_inst *inst,
 
 	inst->frm_cnt++;
 	mtk_vcodec_debug(inst, "<-size=%d key_frm=%d", *bs_size,
-					 inst->vpu_inst.is_key_frm);
+			 inst->vpu_inst.is_key_frm);
 
 	return ret;
 }
 
-static int vp8_enc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
+static int vp8_enc_init(struct mtk_vcodec_ctx *ctx)
 {
 	int ret = 0;
 	struct venc_vp8_inst *inst;
@@ -333,9 +336,8 @@ static int vp8_enc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 
 	inst->ctx = ctx;
 	inst->vpu_inst.ctx = ctx;
-	inst->vpu_inst.dev = ctx->dev->vpu_plat_dev;
 	inst->vpu_inst.id = IPI_VENC_VP8;
-	inst->hw_base = mtk_vcodec_get_enc_reg_addr(inst->ctx, VENC_LT_SYS);
+	inst->hw_base = mtk_vcodec_get_reg_addr(inst->ctx, VENC_LT_SYS);
 
 	mtk_vcodec_debug_enter(inst);
 
@@ -348,16 +350,16 @@ static int vp8_enc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	if (ret)
 		kfree(inst);
 	else
-		(*handle) = (unsigned long)inst;
+		ctx->drv_handle = inst;
 
 	return ret;
 }
 
-static int vp8_enc_encode(unsigned long handle,
-	enum venc_start_opt opt,
-	struct venc_frm_buf *frm_buf,
-	struct mtk_vcodec_mem *bs_buf,
-	struct venc_done_result *result)
+static int vp8_enc_encode(void *handle,
+			  enum venc_start_opt opt,
+			  struct venc_frm_buf *frm_buf,
+			  struct mtk_vcodec_mem *bs_buf,
+			  struct venc_done_result *result)
 {
 	int ret = 0;
 	struct venc_vp8_inst *inst = (struct venc_vp8_inst *)handle;
@@ -370,7 +372,7 @@ static int vp8_enc_encode(unsigned long handle,
 	switch (opt) {
 	case VENC_START_OPT_ENCODE_FRAME:
 		ret = vp8_enc_encode_frame(inst, frm_buf, bs_buf,
-			&result->bs_size);
+					   &result->bs_size);
 		if (ret)
 			goto encode_err;
 		result->is_key_frm = inst->vpu_inst.is_key_frm;
@@ -390,17 +392,9 @@ encode_err:
 	return ret;
 }
 
-static int vp8_enc_get_param(unsigned long handle,
-	enum venc_get_param_type type,
-	void *out)
-{
-	int ret = 0;
-	return ret;
-}
-
-static int vp8_enc_set_param(unsigned long handle,
-	enum venc_set_param_type type,
-	struct venc_enc_param *enc_prm)
+static int vp8_enc_set_param(void *handle,
+			     enum venc_set_param_type type,
+			     struct venc_enc_param *enc_prm)
 {
 	int ret = 0;
 	struct venc_vp8_inst *inst = (struct venc_vp8_inst *)handle;
@@ -449,7 +443,7 @@ static int vp8_enc_set_param(unsigned long handle,
 	return ret;
 }
 
-static int vp8_enc_deinit(unsigned long handle)
+static int vp8_enc_deinit(void *handle)
 {
 	int ret = 0;
 	struct venc_vp8_inst *inst = (struct venc_vp8_inst *)handle;
@@ -467,17 +461,9 @@ static int vp8_enc_deinit(unsigned long handle)
 	return ret;
 }
 
-static const struct venc_common_if venc_vp8_if = {
+const struct venc_common_if venc_vp8_if = {
 	.init = vp8_enc_init,
 	.encode = vp8_enc_encode,
-	.get_param = vp8_enc_get_param,
 	.set_param = vp8_enc_set_param,
 	.deinit = vp8_enc_deinit,
 };
-
-const struct venc_common_if *get_vp8_enc_comm_if(void);
-
-const struct venc_common_if *get_vp8_enc_comm_if(void)
-{
-	return &venc_vp8_if;
-}

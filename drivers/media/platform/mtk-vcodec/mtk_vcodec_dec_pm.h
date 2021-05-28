@@ -9,26 +9,12 @@
 
 #include "mtk_vcodec_drv.h"
 
-#define DEC_DVFS	1
-#define DEC_EMI_BW	1
-
-void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx);
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *dev);
 void mtk_vcodec_release_dec_pm(struct mtk_vcodec_dev *dev);
 
-void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm, int hw_id);
-void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id);
-void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id);
-void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id);
-
-void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
-void mtk_unprepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
-void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev);
-void mtk_unprepare_vdec_emi_bw(struct mtk_vcodec_dev *dev);
-
-void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int hw_id);
-void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id);
-void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id);
-int mtk_vdec_ion_config_buff(struct dma_buf *dmabuf);
+void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm);
+void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm);
+void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm);
+void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm);
 
 #endif /* _MTK_VCODEC_DEC_PM_H_ */
