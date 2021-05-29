@@ -394,17 +394,16 @@ static int arm_smmu_init_interconnect(struct arm_smmu_power_resources *pwr)
  * Cleanup done by devm. Any non-devm resources must clean up themselves.
  */
 struct arm_smmu_power_resources *arm_smmu_init_power_resources(
-						struct platform_device *pdev)
+						struct device *dev)
 {
 	struct arm_smmu_power_resources *pwr;
 	int ret;
 
-	pwr = devm_kzalloc(&pdev->dev, sizeof(*pwr), GFP_KERNEL);
+	pwr = devm_kzalloc(dev, sizeof(*pwr), GFP_KERNEL);
 	if (!pwr)
 		return ERR_PTR(-ENOMEM);
 
-	pwr->dev = &pdev->dev;
-	pwr->pdev = pdev;
+	pwr->dev = dev;
 	mutex_init(&pwr->power_lock);
 	spin_lock_init(&pwr->clock_refs_lock);
 

@@ -3806,7 +3806,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 		smmu->irqs[i] = irq;
 	}
 
-	smmu->pwr = arm_smmu_init_power_resources(pdev);
+	smmu->pwr = arm_smmu_init_power_resources(dev);
 	if (IS_ERR(smmu->pwr))
 		return PTR_ERR(smmu->pwr);
 
@@ -4041,7 +4041,7 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	tbu->sid_start = of_read_number(cell, 1);
 	tbu->num_sids = of_read_number(cell + 1, 1);
 
-	tbu->pwr = arm_smmu_init_power_resources(pdev);
+	tbu->pwr = arm_smmu_init_power_resources(dev);
 	if (IS_ERR(tbu->pwr))
 		return PTR_ERR(tbu->pwr);
 
