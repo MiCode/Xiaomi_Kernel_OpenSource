@@ -152,10 +152,17 @@ int arm_smmu_power_on(struct arm_smmu_power_resources *pwr)
 	if (ret)
 		goto out_unprepare_clocks;
 
+	if (pwr->resume) {
+		ret = pwr->resume(pwr);
+		if (ret)
+			goto out_disable_clocks;
+	}
+
 	pwr->power_count = 1;
 	mutex_unlock(&pwr->power_lock);
 	return 0;
-
+out_disable_clocks:
+	arm_smmu_disable_clocks(pwr);
 out_unprepare_clocks:
 	arm_smmu_unprepare_clocks(pwr);
 out_disable_regulators:
@@ -184,6 +191,9 @@ void arm_smmu_power_off(struct arm_smmu_device *smmu,
 		mutex_unlock(&pwr->power_lock);
 		return;
 	}
+
+	if (pwr->suspend)
+		pwr->suspend(pwr);
 
 	arm_smmu_arch_write_sync(smmu);
 	arm_smmu_disable_clocks(pwr);
