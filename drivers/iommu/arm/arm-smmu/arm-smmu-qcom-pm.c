@@ -125,35 +125,6 @@ out:
 	return ret;
 }
 
-static int arm_smmu_disable_regulators(struct arm_smmu_power_resources *pwr)
-{
-	struct regulator_bulk_data *consumers;
-	int i;
-	int num_consumers, ret, r;
-
-	num_consumers = pwr->num_gdscs;
-	consumers = pwr->gdscs;
-	for (i = num_consumers - 1; i >= 0; --i) {
-		ret = regulator_disable_deferred(consumers[i].consumer,
-						 pwr->regulator_defer);
-		if (ret != 0)
-			goto err;
-	}
-
-	return 0;
-
-err:
-	pr_err("Failed to disable %s: %d\n", consumers[i].supply, ret);
-	for (++i; i < num_consumers; ++i) {
-		r = regulator_enable(consumers[i].consumer);
-		if (r != 0)
-			pr_err("Failed to rename %s: %d\n",
-			       consumers[i].supply, r);
-	}
-
-	return ret;
-}
-
 /* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
 static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 {
@@ -252,7 +223,7 @@ static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 	}
 
 	arm_smmu_unprepare_clocks(pwr);
-	arm_smmu_disable_regulators(pwr);
+	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
 	arm_smmu_lower_interconnect_bw(pwr);
 	pwr->power_count = 0;
 	mutex_unlock(&pwr->power_lock);
@@ -350,12 +321,6 @@ static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 
 	if (!pwr->gdscs)
 		return -ENOMEM;
-
-	if (!of_property_read_u32(dev->of_node,
-				  "qcom,deferred-regulator-disable-delay",
-				  &(pwr->regulator_defer)))
-		dev_info(dev, "regulator defer delay %d\n",
-			pwr->regulator_defer);
 
 	i = 0;
 	of_property_for_each_string(dev->of_node, "qcom,regulator-names",

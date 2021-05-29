@@ -332,7 +332,6 @@ struct arm_smmu_power_resources {
 	/* Protects clock_refs_count */
 	spinlock_t			clock_refs_lock;
 	int				clock_refs_count;
-	int				regulator_defer;
 };
 
 struct arm_smmu_s2cr {
