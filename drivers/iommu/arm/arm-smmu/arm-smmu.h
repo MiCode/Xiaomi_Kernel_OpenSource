@@ -328,10 +328,6 @@ struct arm_smmu_power_resources {
 	/* Protects power_count */
 	struct mutex			power_lock;
 	int				power_count;
-
-	/* Protects clock_refs_count */
-	spinlock_t			clock_refs_lock;
-	int				clock_refs_count;
 };
 
 struct arm_smmu_s2cr {

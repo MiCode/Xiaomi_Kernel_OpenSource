@@ -125,54 +125,7 @@ out:
 	return ret;
 }
 
-/* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
-static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
-{
-	int ret = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&pwr->clock_refs_lock, flags);
-	if (pwr->clock_refs_count > 0) {
-		pwr->clock_refs_count++;
-		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
-		return 0;
-	}
-
-	ret = arm_smmu_enable_clocks(pwr);
-	if (!ret)
-		pwr->clock_refs_count = 1;
-
-	spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
-	return ret;
-}
-
-/* Clocks should be unprepared after this (arm_smmu_unprepare_clocks) */
-static void arm_smmu_power_off_atomic(struct arm_smmu_device *smmu,
-				      struct arm_smmu_power_resources *pwr)
-{
-	unsigned long flags;
-
-	arm_smmu_arch_write_sync(smmu);
-
-	spin_lock_irqsave(&pwr->clock_refs_lock, flags);
-	if (pwr->clock_refs_count == 0) {
-		WARN(1, "%s: bad clock_ref_count\n", dev_name(pwr->dev));
-		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
-		return;
-
-	} else if (pwr->clock_refs_count > 1) {
-		pwr->clock_refs_count--;
-		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
-		return;
-	}
-
-	arm_smmu_disable_clocks(pwr);
-
-	pwr->clock_refs_count = 0;
-	spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
-}
-
-static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
+int arm_smmu_power_on(struct arm_smmu_power_resources *pwr)
 {
 	int ret;
 
@@ -195,10 +148,16 @@ static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
 	if (ret)
 		goto out_disable_regulators;
 
+	ret = arm_smmu_enable_clocks(pwr);
+	if (ret)
+		goto out_unprepare_clocks;
+
 	pwr->power_count = 1;
 	mutex_unlock(&pwr->power_lock);
 	return 0;
 
+out_unprepare_clocks:
+	arm_smmu_unprepare_clocks(pwr);
 out_disable_regulators:
 	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
 out_disable_bus:
@@ -208,7 +167,11 @@ out_unlock:
 	return ret;
 }
 
-static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
+/*
+ * Needing to pass smmu to this api for arm_smmu_arch_write_sync is awkward.
+ */
+void arm_smmu_power_off(struct arm_smmu_device *smmu,
+			struct arm_smmu_power_resources *pwr)
 {
 	mutex_lock(&pwr->power_lock);
 	if (pwr->power_count == 0) {
@@ -222,37 +185,13 @@ static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 		return;
 	}
 
+	arm_smmu_arch_write_sync(smmu);
+	arm_smmu_disable_clocks(pwr);
 	arm_smmu_unprepare_clocks(pwr);
 	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
 	arm_smmu_lower_interconnect_bw(pwr);
 	pwr->power_count = 0;
 	mutex_unlock(&pwr->power_lock);
-}
-
-int arm_smmu_power_on(struct arm_smmu_power_resources *pwr)
-{
-	int ret;
-
-	ret = arm_smmu_power_on_slow(pwr);
-	if (ret)
-		return ret;
-
-	ret = arm_smmu_power_on_atomic(pwr);
-	if (ret)
-		goto out_disable;
-
-	return 0;
-
-out_disable:
-	arm_smmu_power_off_slow(pwr);
-	return ret;
-}
-
-void arm_smmu_power_off(struct arm_smmu_device *smmu,
-			struct arm_smmu_power_resources *pwr)
-{
-	arm_smmu_power_off_atomic(smmu, pwr);
-	arm_smmu_power_off_slow(pwr);
 }
 
 static int arm_smmu_init_clocks(struct arm_smmu_power_resources *pwr)
@@ -370,7 +309,6 @@ struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 
 	pwr->dev = dev;
 	mutex_init(&pwr->power_lock);
-	spin_lock_init(&pwr->clock_refs_lock);
 
 	ret = arm_smmu_init_clocks(pwr);
 	if (ret)
