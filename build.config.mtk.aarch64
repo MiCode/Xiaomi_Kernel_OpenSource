@@ -16,3 +16,7 @@ OBJDUMP=llvm-objdump
 READELF=llvm-readelf
 OBJSIZE=llvm-size
 STRIP=llvm-strip
+FILES="vmlinux"
+KMI_SYMBOL_LIST=android/abi_gki_aarch64_mtk
+GKI_MODULES_LIST=android/gki_aarch64_modules
+ABI_DEFINITION=android/abi_gki_aarch64.xml
