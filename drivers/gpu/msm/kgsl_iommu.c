@@ -2309,8 +2309,10 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 				&md->memdesc);
 	}
 
-	device->qdss_desc = kgsl_allocate_global_fixed(device,
-		"qcom,gpu-qdss-stm", "gpu-qdss");
+	/* QDSS is supported only when CORESIGHT is enabled */
+	if (IS_ENABLED(CONFIG_CORESIGHT))
+		device->qdss_desc = kgsl_allocate_global_fixed(device,
+					"qcom,gpu-qdss-stm", "gpu-qdss");
 
 	device->qtimer_desc = kgsl_allocate_global_fixed(device,
 		"qcom,gpu-timer", "gpu-qtimer");
