@@ -1094,7 +1094,7 @@ err_send:
 		release_firmware(fw_entry);
 err_req_fw:
 	if (bdf_type != ICNSS_BDF_REGDB)
-		ICNSS_ASSERT(0);
+		ICNSS_QMI_ASSERT();
 	kfree(req);
 	kfree(resp);
 	return ret;
@@ -3132,7 +3132,7 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	return 0;
 
 out:
-	ICNSS_ASSERT(0);
+	ICNSS_QMI_ASSERT();
 	kfree(req);
 	kfree(resp);
 	return ret;
