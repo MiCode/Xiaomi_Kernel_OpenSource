@@ -513,6 +513,15 @@ config QCOM_MINIDUMP
 	  Minidump would dump all registered entries, only when DLOAD mode
 	  is enabled.
 
+config QCOM_VA_MINIDUMP
+	tristate "QCOM VA Minidump Support"
+	depends on QCOM_MINIDUMP
+	help
+	  This enables minidump feature for registering dynamic
+	  data structures. It supports VA based registration
+	  with minidump, which is made into an ELF. The region
+	  for ELF is registered with legacy minidump.
+
 config QCOM_DYN_MINIDUMP_STACK
 	bool "QTI Dynamic Minidump Stack Registration Support"
 	depends on QCOM_MINIDUMP
