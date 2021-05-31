@@ -1709,6 +1709,8 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 	uint32_t cwperpage = (mtd->writesize >> 9);
 	int err, submitted_num_desc = 0;
 	uint32_t n = 0, num_zero_bits = 0, total_ecc_byte_cnt;
+	uint32_t cw_desc_cnt = 1;
+	struct sps_command_element *curr_ce, *start_ce;
 	struct msm_nand_rw_reg_data data;
 	struct sps_iovec *iovec;
 	struct sps_iovec iovec_temp;
@@ -1768,8 +1770,6 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 		dma_map_single(chip->dev, ecc, total_ecc_byte_cnt,
 				DMA_FROM_DEVICE);
 
-	uint32_t cw_desc_cnt = 1;
-	struct sps_command_element *curr_ce, *start_ce;
 	data.addr0 = (rw_params->page << 16) | rw_params->oob_col;
 	data.addr1 = (rw_params->page >> 16) & 0xff;
 	for (n = rw_params->start_sector; n < cwperpage; n++) {
