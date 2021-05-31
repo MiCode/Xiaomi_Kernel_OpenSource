@@ -130,11 +130,9 @@ int crypto_qti_enable(void *mmio_data)
 }
 EXPORT_SYMBOL(crypto_qti_enable);
 
-void crypto_qti_disable(void *mmio_data)
+void crypto_qti_disable(void)
 {
-	void __iomem *ice_mmio = (void __iomem *) mmio_data;
-
-	crypto_qti_disable_platform(ice_mmio);
+	crypto_qti_disable_platform();
 }
 EXPORT_SYMBOL(crypto_qti_disable);
 
@@ -188,9 +186,9 @@ static void ice_dump_test_bus(void __iomem *ice_mmio)
 }
 
 
-int crypto_qti_debug(void *mmio_data)
+int crypto_qti_debug(const struct ice_mmio_data *mmio_data)
 {
-	void __iomem *ice_mmio = (void __iomem *) mmio_data;
+	void __iomem *ice_mmio =  mmio_data->ice_base_mmio;
 
 	pr_err("ICE Control: 0x%08x | ICE Reset: 0x%08x\n",
 		ice_readl(ice_mmio, ICE_REGS_CONTROL),
@@ -297,19 +295,18 @@ int crypto_qti_debug(void *mmio_data)
 }
 EXPORT_SYMBOL(crypto_qti_debug);
 
-int crypto_qti_keyslot_program(void *mmio_data,
+int crypto_qti_keyslot_program(const struct ice_mmio_data *mmio_data,
 			       const struct blk_crypto_key *key,
 			       unsigned int slot,
 			       u8 data_unit_mask, int capid)
 {
 	int err = 0;
-	void __iomem *ice_mmio = (void __iomem *) mmio_data;
 
-	err = crypto_qti_program_key(ice_mmio, key, slot,
+	err = crypto_qti_program_key(mmio_data, key, slot,
 				data_unit_mask, capid);
 	if (err) {
 		pr_err("%s: program key failed with error %d\n", __func__, err);
-		err = crypto_qti_invalidate_key(ice_mmio, slot);
+		err = crypto_qti_invalidate_key(mmio_data, slot);
 		if (err) {
 			pr_err("%s: invalidate key failed with error %d\n",
 				__func__, err);
@@ -321,12 +318,12 @@ int crypto_qti_keyslot_program(void *mmio_data,
 }
 EXPORT_SYMBOL(crypto_qti_keyslot_program);
 
-int crypto_qti_keyslot_evict(void *mmio_data, unsigned int slot)
+int crypto_qti_keyslot_evict(const struct ice_mmio_data *mmio_data,
+							 unsigned int slot)
 {
 	int err = 0;
-	void __iomem *ice_mmio = (void __iomem *) mmio_data;
 
-	err = crypto_qti_invalidate_key(ice_mmio, slot);
+	err = crypto_qti_invalidate_key(mmio_data, slot);
 	if (err) {
 		pr_err("%s: invalidate key failed with error %d\n",
 			__func__, err);
@@ -336,13 +333,11 @@ int crypto_qti_keyslot_evict(void *mmio_data, unsigned int slot)
 }
 EXPORT_SYMBOL(crypto_qti_keyslot_evict);
 
-int crypto_qti_derive_raw_secret(void *mmio_data,
-				 const u8 *wrapped_key,
+int crypto_qti_derive_raw_secret(const u8 *wrapped_key,
 				 unsigned int wrapped_key_size, u8 *secret,
 				 unsigned int secret_size)
 {
 	int err = 0;
-	void __iomem *ice_mmio = (void __iomem *) mmio_data;
 
 	if (wrapped_key_size <= RAW_SECRET_SIZE) {
 		pr_err("%s: Invalid wrapped_key_size: %u\n",
@@ -356,9 +351,8 @@ int crypto_qti_derive_raw_secret(void *mmio_data,
 		return err;
 	}
 
-	return crypto_qti_derive_raw_secret_platform(ice_mmio,
-				wrapped_key, wrapped_key_size,
-				secret, secret_size);
+	return crypto_qti_derive_raw_secret_platform(wrapped_key,
+				wrapped_key_size, secret, secret_size);
 }
 EXPORT_SYMBOL(crypto_qti_derive_raw_secret);
 

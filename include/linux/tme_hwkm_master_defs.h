@@ -173,9 +173,9 @@ struct tme_key_policy {
 #define TME_KAL_SNOW3G            (UINT32_C(0x1A) << TME_KAL_Shift)
 #define TME_KAL_ZUC               (UINT32_C(0x1B) << TME_KAL_Shift)
 #define TME_KAL_PRINCE            (UINT32_C(0x1C) << TME_KAL_Shift)
-#define TME_KAL_SIPHASH           (UINT32_C(0x1D) << TME_KAL_SHIFT)
-#define TME_KAL_TDES_2KEY_CBC     (UINT32_C(0x1E) << TME_KAL_SHIFT)
-#define TME_KAL_TDES_2KEY_ECB     (UINT32_C(0x1F) << TME_KAL_SHIFT)
+#define TME_KAL_SIPHASH           (UINT32_C(0x1D) << TME_KAL_Shift)
+#define TME_KAL_TDES_2KEY_CBC     (UINT32_C(0x1E) << TME_KAL_Shift)
+#define TME_KAL_TDES_2KEY_ECB     (UINT32_C(0x1F) << TME_KAL_Shift)
 #define TME_KAL_KDF_NIST          (UINT32_C(0x20) << TME_KAL_Shift)
 #define TME_KAL_KDF_HKDF          (UINT32_C(0x21) << TME_KAL_Shift)
 /**< If Key Type is #TME_KT_Asymmetric, Key Subtype is ECC */
