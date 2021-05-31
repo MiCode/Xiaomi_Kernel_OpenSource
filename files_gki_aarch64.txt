@@ -1023,6 +1023,7 @@ drivers/iommu/iommu-sysfs.c
 drivers/iommu/iommu-traces.c
 drivers/iommu/io-pgtable-arm.c
 drivers/iommu/io-pgtable-arm.h
+drivers/iommu/io-pgtable-arm-v7s.c
 drivers/iommu/io-pgtable.c
 drivers/iommu/iova.c
 drivers/iommu/of_iommu.c
@@ -2655,6 +2656,7 @@ include/linux/hidraw.h
 include/linux/hid-roccat.h
 include/linux/highmem.h
 include/linux/highuid.h
+include/linux/hmm.h
 include/linux/hrtimer_defs.h
 include/linux/hrtimer.h
 include/linux/huge_mm.h
@@ -4933,6 +4935,7 @@ mm/filemap.c
 mm/frame_vector.c
 mm/gup.c
 mm/highmem.c
+mm/hmm.c
 mm/huge_memory.c
 mm/init-mm.c
 mm/internal.h
