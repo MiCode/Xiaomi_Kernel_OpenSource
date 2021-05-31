@@ -1997,7 +1997,7 @@ static bool a6xx_gmu_scales_bandwidth(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	return (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A635);
+	return (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
 }
 
 static irqreturn_t a6xx_gmu_irq_handler(int irq, void *data)
