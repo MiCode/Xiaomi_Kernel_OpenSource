@@ -1943,7 +1943,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 	case PRE_CHANGE:
 		if (on) {
 			err = ufs_qcom_set_bus_vote(hba, true);
-			ufs_qcom_phy_set_src_clk_h8_exit(phy);
+			if (ufs_qcom_is_link_hibern8(hba))
+				ufs_qcom_phy_set_src_clk_h8_exit(phy);
 		} else {
 			if (!ufs_qcom_is_link_active(hba)) {
 				/* disable device ref_clk */
@@ -1972,7 +1973,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			if (ufshcd_is_hs_mode(&hba->pwr_info))
 				ufs_qcom_dev_ref_clk_ctrl(host, true);
 		} else {
-			ufs_qcom_phy_set_src_clk_h8_enter(phy);
+			if (ufs_qcom_is_link_hibern8(hba))
+				ufs_qcom_phy_set_src_clk_h8_enter(phy);
 			err = ufs_qcom_set_bus_vote(hba, false);
 			if (err)
 				return err;
