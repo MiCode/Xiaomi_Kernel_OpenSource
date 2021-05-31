@@ -1050,6 +1050,16 @@ config CDSPRM_VTCM_DYNAMIC_DEBUG
 	  enabled, the vtcm partition details are sent to the CDSP via rpmsg
 	  channel.
 
+config QCOM_SYSMON_SUBSYSTEM_STATS
+	tristate "Qualcomm Technologies SysMon DSP subsystem stats"
+	depends on QCOM_SMEM
+	help
+	  sysMon subsystem stats driver exposes API to query DSP
+	  subsystem's load and power statistics stored in SMEM.
+	  SMEM region for each DSP subsystem is updated periodically
+	  by the respective subsystem. Power stats gets updated after
+	  DSP clock change event.
+
 config QCOM_WDT_CORE
 	tristate "Qualcomm Technologies, Inc. Watchdog Support"
 	depends on ARCH_QCOM
