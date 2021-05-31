@@ -14,6 +14,7 @@
 
 void *icnss_ipc_log_context;
 void *icnss_ipc_log_long_context;
+void *icnss_ipc_log_long1_context;
 
 static ssize_t icnss_regwrite_write(struct file *fp,
 				    const char __user *user_buf,
@@ -410,6 +411,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_COLD_BOOT_CAL:
 			seq_puts(s, "COLD BOOT CALIBRATION");
+			continue;
+		case ICNSS_QMI_DMS_CONNECTED:
+			seq_puts(s, "DMS_CONNECTED");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -770,6 +774,12 @@ void icnss_debug_init(void)
 						       "icnss_long", 0);
 	if (!icnss_ipc_log_long_context)
 		icnss_pr_err("Unable to create log long context\n");
+
+	icnss_ipc_log_long1_context = ipc_log_context_create(NUM_LOG_LONG_PAGES,
+						       "icnss_long1", 0);
+	if (!icnss_ipc_log_long1_context)
+		icnss_pr_err("Unable to create log long context\n");
+
 }
 
 void icnss_debug_deinit(void)
@@ -783,4 +793,9 @@ void icnss_debug_deinit(void)
 		ipc_log_context_destroy(icnss_ipc_log_long_context);
 		icnss_ipc_log_long_context = NULL;
 	}
+	if (icnss_ipc_log_long1_context) {
+		ipc_log_context_destroy(icnss_ipc_log_long1_context);
+		icnss_ipc_log_long1_context = NULL;
+	}
+
 }
