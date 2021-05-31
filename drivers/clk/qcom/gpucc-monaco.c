@@ -311,7 +311,7 @@ static struct clk_branch gpu_cc_cxo_aon_clk = {
 
 static struct clk_branch gpu_cc_cxo_clk = {
 	.halt_reg = 0x418c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x418c,
 		.enable_mask = BIT(0),
@@ -329,7 +329,7 @@ static struct clk_branch gpu_cc_cxo_clk = {
 
 static struct clk_branch gpu_cc_gx_cxo_clk = {
 	.halt_reg = 0x416c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x416c,
 		.enable_mask = BIT(0),
