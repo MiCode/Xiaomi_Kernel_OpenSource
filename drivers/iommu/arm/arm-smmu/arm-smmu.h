@@ -269,6 +269,8 @@ enum arm_smmu_cbar_type {
 #define TBU_SYNC_REQ			BIT(16)
 #define TBU_INV_ACK			GENMASK(9, 1)
 #define TBU_INV_REQ			BIT(0)
+#define APPS_SMMU_TBU_REG_ACCESS_REQ_NS 0x5f8
+#define APPS_SMMU_TBU_REG_ACCESS_ACK_NS 0x5fc
 
 /* Relative to SMMU_BASE */
 #define ARM_SMMU_TBU_PWR_STATUS         0x2204
@@ -437,6 +439,8 @@ struct qsmmuv500_tbu_device {
 	/* Protects halt count */
 	spinlock_t			halt_lock;
 	u32				halt_count;
+
+	bool				has_micro_idle;
 };
 
 enum arm_smmu_context_fmt {
@@ -714,6 +718,8 @@ struct arm_smmu_device *qcom_adreno_smmu_impl_init(struct arm_smmu_device *smmu)
 void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx);
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 
+int arm_smmu_micro_idle_wake(struct arm_smmu_power_resources *pwr);
+void arm_smmu_micro_idle_allow(struct arm_smmu_power_resources *pwr);
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
