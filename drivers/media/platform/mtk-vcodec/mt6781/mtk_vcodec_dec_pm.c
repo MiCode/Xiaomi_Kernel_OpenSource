@@ -635,7 +635,6 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	long long emi_bw = 0;
 	long long emi_bw_input = 0;
 	long long emi_bw_output = 0;
-	int is_ufo_on = 0;
 
 	if (vdec_freq_step_size > 1)
 		b_freq_idx = vdec_freq_step_size - 1;
@@ -667,28 +666,15 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		break;
 	}
 
-	is_ufo_on = 0;
-
 	/* bits/s to MBytes/s */
 	emi_bw = emi_bw / (1024 * 1024) / 8;
-
-	if (is_ufo_on == 1) {    /* UFO */
-		emi_bw = emi_bw * 6 / 10;
-		emi_bw_output = emi_bw_output * 6 / 10;
-	}
 
 	emi_bw = emi_bw - emi_bw_output - (emi_bw_input * 2);
 	if (emi_bw < 0)
 		emi_bw = 0;
 
-	if (is_ufo_on == 1) {    /* UFO */
-		mm_qos_set_request(&vdec_ufo, emi_bw, 0, BW_COMP_DEFAULT);
-		mm_qos_set_request(&vdec_ufo_enc, emi_bw_output, 0,
-					BW_COMP_DEFAULT);
-	} else {
-		mm_qos_set_request(&vdec_mc, emi_bw, 0, BW_COMP_NONE);
-		mm_qos_set_request(&vdec_pp, emi_bw_output, 0, BW_COMP_NONE);
-	}
+	mm_qos_set_request(&vdec_mc, emi_bw, 0, BW_COMP_NONE);
+	mm_qos_set_request(&vdec_pp, emi_bw_output, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_pred_rd, 1, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_pred_wr, 1, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_ppwrap, 0, 0, BW_COMP_NONE);
