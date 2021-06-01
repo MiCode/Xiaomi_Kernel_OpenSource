@@ -2006,6 +2006,8 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_wait_no_clear(handle,
 			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+		cmdq_pkt_wait_no_clear(handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	}
 
 	cmdq_pkt_clear_event(
