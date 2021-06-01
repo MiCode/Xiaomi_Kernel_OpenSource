@@ -826,7 +826,12 @@ static ssize_t driver_flag_set(struct device_driver *drv,
 	} else
 		x = 0;
 /*	x = (NULL != p_token) ? kstrtol(p_token, 16, NULL) : 0;*/
-
+#ifndef BTIF_FLAG_SET_ENABLE_ALL_FUNC
+	if (x != 8) {
+		BTIF_INFO_FUNC("only debug level adjustment is allowed.\n");
+		return -1;
+	}
+#endif
 	p_token = strsep(&p_buf, "\t\n ");
 	if (p_token != NULL) {
 		result = kstrtol(p_token, 16, &y);
