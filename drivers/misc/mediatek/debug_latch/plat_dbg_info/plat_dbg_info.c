@@ -51,7 +51,8 @@ static int __init plat_dbg_info_init(void)
 		    (plat_dbg_info_size == NULL) ||
 		    (plat_dbg_info_base == NULL)) {
 			pr_debug("[PLAT DBG INFO] cannot allocate memory\n");
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto err_out;
 		}
 
 		ret |= of_property_read_u32_array(
@@ -65,7 +66,8 @@ static int __init plat_dbg_info_init(void)
 			plat_dbg_info_size, plat_dbg_info_max);
 		if (ret != 0) {
 			pr_debug("[PLAT DBG INFO] cannot find property\n");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto err_out;
 		}
 
 		for (i = 0; i < plat_dbg_info_max; i++) {
@@ -87,6 +89,12 @@ static int __init plat_dbg_info_init(void)
 	}
 
 	return 0;
+err_out:
+	kfree(temp_base);
+	kfree(plat_dbg_info_key);
+	kfree(plat_dbg_info_size);
+	kfree(plat_dbg_info_base);
+	return ret;
 }
 
 void __iomem *get_dbg_info_base(unsigned int key)
