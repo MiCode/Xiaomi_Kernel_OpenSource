@@ -378,6 +378,14 @@ DECLARE_RESTRICTED_HOOK(android_rvh_effective_cpu_util,
 		 struct task_struct *p, unsigned long *new_util),
 	TP_ARGS(cpu, util_cfs, max, type, p, new_util), 1);
 
+DECLARE_HOOK(android_vh_force_compatible_pre,
+	TP_PROTO(void *unused),
+	TP_ARGS(unused));
+
+DECLARE_HOOK(android_vh_force_compatible_post,
+	TP_PROTO(void *unused),
+	TP_ARGS(unused));
+
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */
