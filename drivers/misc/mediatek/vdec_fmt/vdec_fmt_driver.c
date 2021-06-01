@@ -285,6 +285,12 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		mutex_unlock(&fmt->mux_gce_th[identifier]);
 		return -EINVAL;
 	}
+	if (cmds->cmd_cnt >= FMT_CMDQ_CMD_MAX) {
+		fmt_err("cmd_cnt (%d) overflow!!", cmds->cmd_cnt);
+		cmds->cmd_cnt = FMT_CMDQ_CMD_MAX;
+		ret = -EINVAL;
+		return ret;
+	}
 
 	buff.cmds_user_ptr = (u64)(unsigned long)cmds;
 
@@ -313,13 +319,6 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		fmt_err("cmdq_pkt_create fail");
 		pkt_ptr = NULL;
 	}
-
-	if (cmds->cmd_cnt >= FMT_CMDQ_CMD_MAX) {
-		fmt_err("cmd_cnt (%d) overflow!!", cmds->cmd_cnt);
-		cmds->cmd_cnt = FMT_CMDQ_CMD_MAX;
-		ret = -EINVAL;
-	}
-
 	for (i = 0; i < FMT_FD_RESERVE; i++) {
 		map[i].fd = -1;
 		map[i].iova = 0;
@@ -339,6 +338,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	if (taskid < 0) {
 		fmt_err("failed to set task id");
 		ret = -EINVAL;
+		return ret;
 	}
 
 	memcpy(&fmt->gce_task[taskid].cmdq_buff, &buff, sizeof(buff));

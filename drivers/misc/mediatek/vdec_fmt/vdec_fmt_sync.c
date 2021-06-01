@@ -408,7 +408,7 @@ err:
 
 static long fmt_sync_ioctl_inc(struct sync_timeline *obj, unsigned long arg)
 {
-	u32 value;
+	u32 value = 0;
 
 	if (copy_from_user(&value, (void __user *)arg, sizeof(value)))
 		return -EFAULT;
