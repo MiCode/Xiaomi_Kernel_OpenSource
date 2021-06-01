@@ -187,11 +187,13 @@ static irqreturn_t adsp_irq_dispatcher(int irq, void *data)
 	struct irq_t *pdata = (struct irq_t *)data;
 
 	adsp_mt_clr_spm(pdata->cid);
-	if (!pdata->irq_cb || !pdata->clear_irq)
-		return IRQ_NONE;
-	pdata->irq_cb(irq, pdata->data, pdata->cid);
-	pdata->clear_irq(pdata->cid);
-	wmb(); /* drain writebuffer */
+
+	if (pdata->irq_cb)
+		pdata->irq_cb(irq, pdata->data, pdata->cid);
+
+	if (pdata->clear_irq)
+		pdata->clear_irq(pdata->cid);
+
 	return IRQ_HANDLED;
 }
 
