@@ -94,4 +94,9 @@
 #define CAM_CPAS_RT_OT_FUSE    9
 #define CAM_CPAS_FUSE_FEATURE_MAX 10
 
+/* Flash type*/
+#define CAM_FLASH_TYPE_GPIO 0
+#define CAM_FLASH_TYPE_I2C  1
+#define CAM_FLASH_TYPE_PMIC 2
+
 #endif
