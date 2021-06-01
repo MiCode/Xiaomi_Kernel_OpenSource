@@ -20,6 +20,7 @@ conditions.
                         "qcom,qsmmu-v500"
                         "qcom,adreno-smmu"
                         "qcom,smmu-v2"
+			"qcom,virt-smmu"
 
                   depending on the particular implementation and/or the
                   version of the architecture implemented.
@@ -32,6 +33,12 @@ conditions.
                   Qcom SoCs implementing "arm,mmu-500" must also include,
                   as below, SoC-specific compatibles:
                   "qcom,sdm845-smmu-500", "arm,mmu-500"
+
+		  "qcom,virt-smmu" is a subtype of "qcom,qsmmu-v500" which
+		  only supports access to the set of registers required by
+		  the arm specificiation. None of the additional registers
+		  normally present in qcom,qsmmu-v500 are supported
+		  currently.
 
 - reg           : Base address and size of the SMMU.
 
