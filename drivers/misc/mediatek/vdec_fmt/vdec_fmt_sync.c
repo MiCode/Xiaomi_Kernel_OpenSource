@@ -408,14 +408,17 @@ err:
 
 static long fmt_sync_ioctl_inc(struct sync_timeline *obj, unsigned long arg)
 {
-	u32 value = 0;
+	u32 value = 0, mod = 0, i = 0, loop = 0;
 
 	if (copy_from_user(&value, (void __user *)arg, sizeof(value)))
 		return -EFAULT;
 
-	while (value > INT_MAX)  {
-		sync_timeline_signal(obj, INT_MAX);
-		value -= INT_MAX;
+	if (value > INT_MAX) {
+		loop = value/INT_MAX;
+		mod = value%INT_MAX;
+		for (i = 0; i < loop; i++)
+			sync_timeline_signal(obj, INT_MAX);
+		value = mod;
 	}
 
 	sync_timeline_signal(obj, value);
