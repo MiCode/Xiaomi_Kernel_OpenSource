@@ -55,7 +55,7 @@ int reset_recorder(int cammux_id1, int cammux_id2)
 	return 0;
 }
 
-static int record_vs(int idx, unsigned int tclk)
+static int record_vs(unsigned int idx, unsigned int tclk)
 {
 	int w_pos;
 	unsigned int pre_time;
@@ -132,7 +132,7 @@ int record_vs2(unsigned int tclk)
 	return 0;
 }
 
-int show_records(int idx)
+int show_records(unsigned int idx)
 {
 	LOG_D("show-%d [%u, %u, %u, %u]\n", idx,
 		 records[idx].timestamps[0],

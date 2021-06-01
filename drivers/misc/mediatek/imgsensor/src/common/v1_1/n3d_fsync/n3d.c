@@ -178,8 +178,8 @@ static int start_sync(void)
 {
 #define SYNC_NUM 2
 	struct SENINF_N3D *pn3d = &gn3d;
-	int i, sync_num;
-	int sync_idx[SYNC_NUM];
+	unsigned int i, sync_num;
+	unsigned int sync_idx[SYNC_NUM];
 
 	LOG_D("start sync\n");
 
