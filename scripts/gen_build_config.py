@@ -169,7 +169,8 @@ def main(**args):
             [ -n "`ls -A ${tmp_dir}`" ] && break\n\
             cd ..\n\
         done\n\
-    fi\n}' % (rel_o_path)
+    fi\n\
+    cd ${ROOT_DIR}\n}' % (rel_o_path)
         file_text.append(clean_empty_folder_func)
 
     gen_build_config = out_file
