@@ -832,8 +832,10 @@ static int __init amms_init(void)
 	if (ret)
 		pr_info("amms init FAIL, ret 0x%x!!!\n", ret);
 
-	/* set amms_task interruptible */
-	smp_store_mb(amms_task->state, (TASK_INTERRUPTIBLE));
+	if (amms_task) {
+		/* set amms_task interruptible */
+		smp_store_mb(amms_task->state, (TASK_INTERRUPTIBLE));
+	}
 	return ret;
 }
 
