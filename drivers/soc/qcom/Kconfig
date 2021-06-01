@@ -577,12 +577,12 @@ config MINIDUMP_MAX_ENTRIES
 
 config QCOM_MICRODUMP
 	tristate "Qualcomm Technologies, Inc. Microdump Support"
-	depends on MSM_SUBSYSTEM_RESTART
+	depends on QCOM_RAMDUMP
 	depends on QCOM_SMEM
 	help
 	  This enables microdump feature. It collects
 	  crash data from SMEM whenever modem subsytem
-	  crashes and stores it under /dev to expose
+	  crashes and stores it under /devcd to expose
 	  to user space.
 
 config QCOM_APR
