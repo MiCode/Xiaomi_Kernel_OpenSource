@@ -34,5 +34,8 @@
 #define MD1_BOOT_STATS_SELECT (0x1020E700)
 #define MD1_CFG_BOOT_STATS (MD1_CFG_BASE+0x00)
 
+/*md l2sram base */
+#define MD_L2SRAM_BASE (0x0D0CF000)
+#define MD_L2SRAM_SIZE (0x1000)
 /* MD Exception dump register list end]======== */
 #endif				/* __MODEM_REG_BASE_H__ */

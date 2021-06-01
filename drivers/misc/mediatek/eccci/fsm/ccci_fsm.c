@@ -28,6 +28,12 @@
 #endif
 #include <mt-plat/ccci_events.h>
 
+#ifdef CCCI_PLATFORM_MT6781
+#include "modem_sys.h"
+#include "md_sys1_platform.h"
+#include "modem_reg_base.h"
+#endif
+
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
 static void fsm_finish_command(struct ccci_fsm_ctl *ctl,
@@ -556,11 +562,48 @@ static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 	struct ccci_smem_region *mdss_dbg
 		= ccci_md_get_smem_by_user_id(ctl->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
+#ifdef CCCI_PLATFORM_MT6781
+	struct ccci_modem *md = NULL;
+	struct md_sys1_info *md_info = NULL;
+	struct md_pll_reg *md_reg = NULL;
+
+	md = ccci_md_get_modem_by_id(ctl->md_id);
+	if (md)
+		md_info = (struct md_sys1_info *)md->private_data;
+	else {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s: get md fail\n", __func__);
+		return;
+	}
+	if (md_info)
+		md_reg = md_info->md_pll_base;
+	else {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s: get md private_data fail\n", __func__);
+		return;
+	}
+	if (!md_reg) {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s: get md_reg fail\n", __func__);
+		return;
+	}
+	if (!md_reg->md_l2sram_base) {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s: get md_l2sram_base fail\n", __func__);
+		return;
+	}
+#endif
 
 	if (ctl->md_id == MD_SYS1)
+#ifdef CCCI_PLATFORM_MT6781
+		is_epon_set =
+			*((int *)(md_reg->md_l2sram_base
+				+ CCCI_EE_OFFSET_EPON_MD1)) == 0xBAEBAE10;
+#else
 		is_epon_set =
 			*((int *)(mdss_dbg->base_ap_view_vir
 				+ CCCI_EE_OFFSET_EPON_MD1)) == 0xBAEBAE10;
+#endif
 	else if (ctl->md_id == MD_SYS3)
 		is_epon_set = *((int *)(mdss_dbg->base_ap_view_vir
 			+ CCCI_EE_OFFSET_EPON_MD3))

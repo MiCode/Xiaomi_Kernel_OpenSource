@@ -338,7 +338,9 @@ int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 		ioremap_nocache(MD1_BOOT_STATS_SELECT, 4);
 	md_reg->md_boot_stats = ioremap_nocache(MD1_CFG_BOOT_STATS, 4);
 	/*just for dump end*/
-
+#ifdef CCCI_PLATFORM_MT6781
+	md_reg->md_l2sram_base = ioremap_nocache(MD_L2SRAM_BASE, MD_L2SRAM_SIZE);
+#endif
 	md_info->md_pll_base = md_reg;
 
 #ifdef MD_PEER_WAKEUP
