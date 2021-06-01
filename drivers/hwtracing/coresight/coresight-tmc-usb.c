@@ -652,7 +652,11 @@ void tmc_usb_disable(struct tmc_usb_data *usb_data)
 		tmc_etr_bam_disable(usb_data);
 	} else if (usb_data->usb_mode == TMC_ETR_USB_SW)
 		usb_bypass_stop(tmcdrvdata->byte_cntr);
-	usb_qdss_close(usb_data->usbch);
+
+	if (usb_data->usbch)
+		usb_qdss_close(usb_data->usbch);
+	else
+		dev_err(&tmcdrvdata->csdev->dev, "usb channel is null.\n");
 }
 
 int tmc_etr_usb_init(struct amba_device *adev,
