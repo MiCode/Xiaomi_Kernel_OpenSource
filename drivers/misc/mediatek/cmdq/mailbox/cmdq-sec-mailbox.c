@@ -1251,9 +1251,8 @@ static const struct of_device_id cmdq_sec_of_ids[] = {
 	{}
 };
 
-void cmdq_sec_mbox_switch_normal(struct cmdq_client *cl)
+void cmdq_sec_mbox_switch_normal(struct cmdq_client *cl, const bool mtee)
 {
-#ifdef CMDQ_GP_SUPPORT
 	struct cmdq_sec *cmdq =
 		container_of(cl->chan->mbox, typeof(*cmdq), mbox);
 	struct cmdq_sec_thread *thread =
@@ -1261,20 +1260,19 @@ void cmdq_sec_mbox_switch_normal(struct cmdq_client *cl)
 
 	WARN_ON(clk_prepare(cmdq->clock) < 0);
 	cmdq_sec_clk_enable(cmdq);
-	cmdq_log("[ IN] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
-		__func__, cl, cmdq, thread, thread->idx);
+	cmdq_log("[ IN] %s: cl:%p cmdq:%p thrd:%p idx:%u, mtee:%d\n",
+		__func__, cl, cmdq, thread, thread->idx, mtee);
 
 	mutex_lock(&cmdq->exec_lock);
 	/* TODO : use other CMD_CMDQ_TL for maintenance */
 	cmdq_sec_task_submit(cmdq, NULL, CMD_CMDQ_TL_PATH_RES_RELEASE,
-		thread->idx, NULL, false);
+		thread->idx, NULL, mtee);
 	mutex_unlock(&cmdq->exec_lock);
 
 	cmdq_log("[OUT] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
 		__func__, cl, cmdq, thread, thread->idx);
 	cmdq_sec_clk_disable(cmdq);
 	clk_unprepare(cmdq->clock);
-#endif
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_switch_normal);
 
