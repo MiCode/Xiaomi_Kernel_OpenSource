@@ -73,8 +73,8 @@ struct qcom_iommu_atos_txn {
 };
 
 enum sid_switch_direction {
-	SID_SWITCH_HLOS_TO_SECURE,
-	SID_SWITCH_SECURE_TO_HLOS,
+	SID_ACQUIRE,
+	SID_RELEASE,
 };
 
 struct qcom_iommu_fault_ids {
@@ -113,6 +113,7 @@ void qcom_iommu_put_resv_regions(struct device *dev, struct list_head *list);
 phys_addr_t qcom_iommu_iova_to_phys_hard(struct iommu_domain *domain,
 				    struct qcom_iommu_atos_txn *txn);
 
+int qcom_iommu_sid_switch(struct device *dev, enum sid_switch_direction dir);
 
 extern int qcom_iommu_get_fault_ids(struct iommu_domain *domain,
 				struct qcom_iommu_fault_ids *f_ids);
