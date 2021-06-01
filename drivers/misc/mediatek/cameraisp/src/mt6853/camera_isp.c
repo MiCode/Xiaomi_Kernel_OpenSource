@@ -910,7 +910,7 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 		struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 		char *ptr;\
 		unsigned int i;\
-		int ppb = 0;\
+		unsigned int ppb = 0;\
 		int logT = 0;\
 		if (ppb_in > 1) {\
 			ppb = 1;\
@@ -1141,7 +1141,7 @@ void __iomem *CAMX_REG_TG_SEN_MODE(int reg_module)
 
 /* if isp has been suspend, frame cnt needs to add previous value*/
 /* CAM_REG_TG_INTER_ST 0x3b3c, CAMSV_REG_TG_INTER_ST 0x016C */
-unsigned int ISP_RD32_TG_CAMX_FRM_CNT(int IrqType, int reg_module)
+unsigned int ISP_RD32_TG_CAMX_FRM_CNT(unsigned int IrqType, int reg_module)
 {
 	unsigned int _regVal;
 
@@ -1518,9 +1518,11 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 		tmp_module = reg_module_array[i] - ISP_CAMSYS_RAWC_CONFIG_IDX;
 		index = tmp_module - ISP_CAM_A_INNER_IDX;
 
-		if (index > (ISP_CAM_C_INNER_IDX - ISP_CAM_A_INNER_IDX)) {
+		if ((index > (ISP_CAM_C_INNER_IDX - ISP_CAM_A_INNER_IDX)) ||
+			(index < 0)) {
 			LOG_NOTICE(
 				"index is invalid! recover fail");
+			return;
 		}
 
 		//CQ1
@@ -4158,6 +4160,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				   sizeof(struct ISP_REG_IO_STRUCT)) == 0) {
 			/* 2nd layer behavoir of copy from user is */
 			/* implemented in ISP_WriteReg(...) */
+			if ((RegIo.Count * sizeof(struct ISP_REG_STRUCT)) > 0xFFFFF000) {
+				Ret = -EFAULT;
+				LOG_NOTICE("RegIo.Count error\n");
+				goto EXIT;
+			}
 			Ret = ISP_WriteReg(&RegIo);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");
@@ -9833,7 +9840,10 @@ unsigned int *reg_module_count)
 	}
 	LOG_NOTICE("+CQ recover");
 
-
+	if ((irq_module < 0) || (irq_module >= ISP_IRQ_TYPE_AMOUNT)) {
+		LOG_NOTICE("[Error] invalid index : irq_module");
+		return -1;
+	}
 	if (g_tgErrRecoverCnt[irq_module] >= MAX_RECOVER_CNT) {
 		LOG_NOTICE("TG err recover over 3 times");
 		return -1;
@@ -11151,7 +11161,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			/*SW p1_don is not reliable */
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
 				gPass1doneLog[module].module = module;
-				snprintf(gPass1doneLog[module]._str,
+				if (snprintf(gPass1doneLog[module]._str,
 				P1DONE_STR_LEN,
 				"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)exe_us:%d",
 					'A' + cardinalNum,
@@ -11173,7 +11183,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 						ISP_CAM_C_IDX)),
 					(unsigned int)((sec * 1000000 + usec) -
 					       (1000000 * sec_sof[module] +
-						usec_sof[module])));
+						usec_sof[module]))) < 0)
+					LOG_NOTICE("[Error] snprintf failed");
 			}
 		}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
@@ -11272,10 +11283,11 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
 			gLostPass1doneLog[module].module = module;
-			snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN,
+			if (snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN,
 				"CAM%c Lost p1 done_%d (0x%x): ",
 				'A' + cardinalNum, sof_count[module],
-				cur_v_cnt);
+				cur_v_cnt) < 0)
+				LOG_NOTICE("[Error] snprintf failed");
 			/*
 			 *IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 			 *	       "CAM%c Lost p1 done_%d (0x%x): ",
@@ -11772,8 +11784,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				(unsigned int)ISP_RD32(
 					CAM_REG_YUVO_FH_BASE_ADDR(
 						ISP_CAM_B_INNER_IDX)));
-		snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\");
-		snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN, "\\");
+		if (snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\") < 0)
+			LOG_NOTICE("[Error] snprintf failed");
+		if (snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN, "\\") < 0)
+			LOG_NOTICE("[Error] snprintf failed");
 
 #ifdef ENABLE_STT_IRQ_LOG /*STT addr */
 			IRQ_LOG_KEEPER(
