@@ -638,6 +638,9 @@ int mt_spower_get_leakage(int dev, unsigned int vol, int deg)
 {
 	int ret;
 
+	if (dev >= MTK_SPOWER_MAX || dev < 0)
+		return 0;
+
 	if (!tab_validate(&sptab[dev]))
 		return 0;
 
@@ -663,7 +666,7 @@ int mt_spower_get_leakage_uW(int dev, unsigned int vol, int deg)
 {
 	int ret;
 
-	if (dev < 0)
+	if (dev >= MTK_SPOWER_MAX || dev < 0)
 		return 0;
 
 	if (!tab_validate(&sptab[dev]))
