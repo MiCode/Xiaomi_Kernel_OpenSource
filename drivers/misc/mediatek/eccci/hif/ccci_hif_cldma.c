@@ -926,7 +926,7 @@ static int cldma_net_rx_push_thread(void *arg)
 	int count = 0;
 	int ret;
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		if (skb_queue_empty(&queue->skb_list.skb_list)) {
 			cldma_queue_broadcast_state(md_ctrl, RX_FLUSH,
 				IN, queue->index);
@@ -934,10 +934,9 @@ static int cldma_net_rx_push_thread(void *arg)
 			ret = wait_event_interruptible(queue->rx_wq,
 				!skb_queue_empty(&queue->skb_list.skb_list));
 			if (ret == -ERESTARTSYS)
-				continue;	/* FIXME */
+				continue;
 		}
-		if (kthread_should_stop())
-			break;
+
 		skb = ccci_skb_dequeue(&queue->skb_list);
 		if (!skb)
 			continue;

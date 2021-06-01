@@ -345,16 +345,15 @@ static int port_ipc_kernel_thread(void *arg)
 	CCCI_DEBUG_LOG(port->md_id, IPC,
 		"port %s's thread running\n", port->name);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 retry:
 		if (skb_queue_empty(&port->rx_skb_list)) {
 			ret = wait_event_interruptible(port->rx_wq,
 				!skb_queue_empty(&port->rx_skb_list));
 			if (ret == -ERESTARTSYS)
-				continue;	/* FIXME */
+				continue;
 		}
-		if (kthread_should_stop())
-			break;
+
 		CCCI_DEBUG_LOG(port->md_id, IPC,
 			"read on %s\n", port->name);
 		/* 1. dequeue */

@@ -594,10 +594,14 @@ static int fsm_main_thread(void *data)
 	struct ccci_fsm_ctl *ctl = (struct ccci_fsm_ctl *)data;
 	struct ccci_fsm_command *cmd = NULL;
 	unsigned long flags;
+	int ret;
 
-	while (1) {
-		wait_event(ctl->command_wq,
+	while (!kthread_should_stop()) {
+		ret = wait_event_interruptible(ctl->command_wq,
 			!list_empty(&ctl->command_queue));
+		if (ret == -ERESTARTSYS)
+			continue;
+
 		spin_lock_irqsave(&ctl->command_lock, flags);
 		cmd = list_first_entry(&ctl->command_queue,
 			struct ccci_fsm_command, entry);
@@ -647,6 +651,7 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd = NULL;
 	int result = 0;
 	unsigned long flags;
+	int ret;
 
 	if (cmd_id <= CCCI_COMMAND_INVALID
 			|| cmd_id >= CCCI_COMMAND_MAX) {
@@ -682,12 +687,19 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 	 */
 	wake_up(&ctl->command_wq);
 	if (flag & FSM_CMD_FLAG_WAIT_FOR_COMPLETE) {
-		wait_event(cmd->complete_wq, cmd->complete != 0);
-		if (cmd->complete != 1)
-			result = -1;
-		spin_lock_irqsave(&ctl->cmd_complete_lock, flags);
-		kfree(cmd);
-		spin_unlock_irqrestore(&ctl->cmd_complete_lock, flags);
+		while (1) {
+			ret = wait_event_interruptible(cmd->complete_wq,
+				cmd->complete != 0);
+			if (ret == -ERESTARTSYS)
+				continue;
+
+			if (cmd->complete != 1)
+				result = -1;
+			spin_lock_irqsave(&ctl->cmd_complete_lock, flags);
+			kfree(cmd);
+			spin_unlock_irqrestore(&ctl->cmd_complete_lock, flags);
+			break;
+		}
 	}
 	return result;
 }

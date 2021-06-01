@@ -827,7 +827,7 @@ static int dpmaif_net_rx_push_thread(void *arg)
 	CCCI_BOOTUP_LOG(-1, TAG, "Using batch !!!\r\n");
 #endif
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		if (skb_queue_empty(&queue->skb_list.skb_list)) {
 #ifdef USING_BATCHING
 			if (!list_empty(&gro_head)) {
@@ -851,10 +851,9 @@ static int dpmaif_net_rx_push_thread(void *arg)
 				(!skb_queue_empty(&queue->skb_list.skb_list) ||
 				kthread_should_stop()));
 			if (ret == -ERESTARTSYS)
-				continue;	/* FIXME */
+				continue;
 		}
-		if (kthread_should_stop())
-			break;
+
 		skb = ccci_skb_dequeue(&queue->skb_list);
 		if (!skb)
 			continue;
@@ -2426,14 +2425,13 @@ int dpmaif_tx_done_kernel_thread(void *arg)
 
 	sched_setaffinity(0, &tmask);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		ret = wait_event_interruptible(txq->tx_done_wait,
 				(atomic_read(&txq->txq_done)
 				|| kthread_should_stop()));
-		if (kthread_should_stop())
-			break;
 		if (ret == -ERESTARTSYS)
 			continue;
+
 		atomic_set(&txq->txq_done, 0);
 		/* This is used to avoid race condition which may cause KE */
 		if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) {

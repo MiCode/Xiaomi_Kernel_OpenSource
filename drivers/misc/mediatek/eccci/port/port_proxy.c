@@ -1021,15 +1021,14 @@ int port_kthread_handler(void *arg)
 	CCCI_DEBUG_LOG(md_id, TAG,
 		"port %s's thread running\n", port->name);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		if (skb_queue_empty(&port->rx_skb_list)) {
 			ret = wait_event_interruptible(port->rx_wq,
 					!skb_queue_empty(&port->rx_skb_list));
 			if (ret == -ERESTARTSYS)
-				continue;	/* FIXME */
+				continue;
 		}
-		if (kthread_should_stop())
-			break;
+
 		CCCI_DEBUG_LOG(md_id, TAG, "read on %s\n", port->name);
 		/* 1. dequeue */
 		spin_lock_irqsave(&port->rx_skb_list.lock, flags);

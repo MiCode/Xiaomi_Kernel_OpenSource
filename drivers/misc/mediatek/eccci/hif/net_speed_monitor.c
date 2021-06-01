@@ -383,11 +383,9 @@ static int speed_monitor_thread(void *arg)
 	s_dl_dvfs_tbl = mtk_ccci_get_dvfs_table(0, &s_dl_dvfs_items_num);
 	s_ul_dvfs_tbl = mtk_ccci_get_dvfs_table(1, &s_ul_dvfs_items_num);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		ret = wait_event_interruptible(s_mon_wq,
 				(s_speed_mon_on || kthread_should_stop()));
-		if (kthread_should_stop())
-			break;
 		if (ret == -ERESTARTSYS)
 			continue;
 
