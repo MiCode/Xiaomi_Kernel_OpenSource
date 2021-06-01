@@ -25,7 +25,9 @@
 #include <linux/mfd/mt6358/core.h>
 
 #include <mt-plat/upmu_common.h>
+#if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
+#endif
 #include <mach/mtk_pmic.h>
 #include "include/pmic.h"
 #include "include/pmic_throttling_dlpt.h"
@@ -1080,7 +1082,11 @@ int get_dlpt_imix(void)
 				ptim_lock();
 				wk_auxadc_reset();
 				ptim_unlock();
+			} else if (count_do_ptim > 6) {
+				pr_notice("do_ptim more than eight times\n");
+#if defined(CONFIG_MTK_AEE_FEATURE)
 				aee_kernel_warning("PTIM timeout", "PTIM");
+#endif
 				break;
 			}
 			count_do_ptim++;
