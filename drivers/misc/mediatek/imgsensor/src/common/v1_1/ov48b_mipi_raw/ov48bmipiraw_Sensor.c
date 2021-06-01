@@ -1837,16 +1837,6 @@ static kal_uint32 get_sensor_temperature(void)
 	else
 		temperature_convert = 192 - temperature / 256;
 
-	if (temperature_convert > 192) {
-		//pr_debug("Temperature too high: %d\n",
-				//temperature_convert);
-		temperature_convert = 192;
-	} else if (temperature_convert < -64) {
-		//pr_debug("Temperature too low: %d\n",
-				//temperature_convert);
-		temperature_convert = -64;
-	}
-
 	return temperature_convert;
 }
 
