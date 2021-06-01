@@ -879,7 +879,6 @@ static void __mt_gpufreq_toprgu_pwr_on(bool enable)
 {
 #if MT_GPUFREQ_DFD_ENABLE
 	unsigned int rgu_pwr;
-	int ret;
 	int retry = 10;
 	unsigned int val;
 
@@ -899,8 +898,8 @@ static void __mt_gpufreq_toprgu_pwr_on(bool enable)
 			break;
 
 		retry--;
-		gpufreq_pr_info("[GPU_DFD] toprgu_mfg_pwr_on(%d) fail=0x%0x ret=%d retry_remain=%d\n",
-				enable, rgu_pwr, ret, retry);
+		gpufreq_pr_info("[GPU_DFD] toprgu_mfg_pwr_on(%d) fail=0x%0x retry_remain=%d\n",
+				enable, rgu_pwr, retry);
 	}
 #endif
 }
