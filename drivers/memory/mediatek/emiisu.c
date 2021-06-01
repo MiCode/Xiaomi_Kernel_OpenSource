@@ -129,8 +129,6 @@ static ssize_t dump_buf_read
 	}
 
 	if (bytes) {
-		pr_info("%s: EMIISU debug. %x\n", __func__, emiisu_dev_ptr->buf_addr);
-		pr_info("%s: EMIISU debug. %p\n", __func__, emiisu_dev_ptr->buf_addr);
 		if (copy_to_user(data, (char *)(emiisu_dev_ptr->buf_addr) +
 			*ppos, bytes))
 			return -EFAULT;
