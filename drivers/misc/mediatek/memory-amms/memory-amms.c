@@ -469,7 +469,13 @@ static int __init memory_ccci_share_init(struct reserved_mem *rmem)
 	pr_info("pos_addr=%pa pos_length=%pa\n",
 		&pos_addr, &pos_length);
 
-	if ((long long)pos_addr == -1 || (long long)pos_addr == 0xffffffff) {
+	/*
+	 * Check the return value of smc call. ATF might return
+	 * unknown value because the smc id handler function maybe
+	 * undefined. ATF v1.4 return 0xffffffff, v1.6 will
+	 * return -1. Need to be handled in aarch32 and aarch64.
+	 */
+	if ((pos_addr == (~0ULL)) || (pos_addr == (~0UL))) {
 		pr_info("%s: no support POS\n", __func__);
 		return 0;
 	}
