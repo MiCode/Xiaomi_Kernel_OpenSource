@@ -326,7 +326,7 @@ static ssize_t mix_read(struct file *filp,
 	}
 
 	/* For block read */
-	while (!kthread_should_stop()) {
+	while (1) {
 		if (ccci_util_skbtime_hasdata()) {
 			ret = copy_skbtime_to_user(buf, (int) size);
 			skb_times_ring.pending_event_cnt =
