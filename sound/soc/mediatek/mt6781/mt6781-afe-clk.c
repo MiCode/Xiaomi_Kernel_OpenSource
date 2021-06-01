@@ -258,7 +258,7 @@ int mt6781_afe_enable_clock(struct mtk_base_afe *afe)
 		goto CLK_MUX_AUDIO_INTBUS_ERR;
 	}
 	ret = mt6781_set_audio_int_bus_parent(afe,
-					      CLK_TOP_MAINPLL_D2_D4);
+					      CLK_CLK26M);
 	if (ret)
 		goto CLK_MUX_AUDIO_INTBUS_PARENT_ERR;
 
