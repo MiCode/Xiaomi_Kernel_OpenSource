@@ -160,6 +160,7 @@ extern void mt_gpufreq_dump_infra_status(void);
 extern int mt_gpufreq_is_dfd_force_dump(void);
 extern void mt_gpufreq_software_trigger_dfd(void);
 extern void mt_gpufreq_wdt_reset(void);
+extern void mt_gpufreq_hardstop_dump_aee(void);
 
 /**
  * power limit notification

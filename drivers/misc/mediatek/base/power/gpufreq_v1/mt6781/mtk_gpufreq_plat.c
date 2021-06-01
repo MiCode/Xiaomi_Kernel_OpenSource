@@ -69,6 +69,11 @@ extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
 #include "ext_wd_drv.h"
 #endif
 
+#ifndef CREATE_TRACE_POINTS
+#define CREATE_TRACE_POINTS
+#endif
+#include <mt-plat/gpu_hardstop.h>
+
 enum gpu_dvfs_vgpu_step {
 	GPU_DVFS_VGPU_STEP_1 = 0x1,
 	GPU_DVFS_VGPU_STEP_2 = 0x2,
@@ -310,6 +315,32 @@ void mt_gpufreq_wdt_reset(void)
 	}
 
 }
+
+void mt_gpufreq_hardstop_dump_aee(void)
+{
+#if defined(CONFIG_MTK_AEE_FEATURE)
+#if defined(AGING_LOAD)
+	int cx = 0;
+	char aeelog[128];
+
+	cx = snprintf(aeelog, 128, "mfgpll=%d freq=%d vgpu=%d vsram_gpu=%d",
+		mt_get_abist_freq(FM_AD_MFGPLL_CK),
+		g_cur_opp_freq,
+		g_cur_opp_vgpu,
+		g_cur_opp_vsram_gpu);
+	if (cx >= 0 && cx < 128)
+		aee_kernel_exception("GPUEXP", "\nCRDISPATCH_KEY:GPUHS %s\n", aeelog);
+#else
+	// dump slog in normal load
+	trace_gpu_hardstop("gpuexp", "hs",
+		mt_get_abist_freq(FM_AD_MFGPLL_CK),
+		g_cur_opp_freq,
+		g_cur_opp_vgpu,
+		g_cur_opp_vsram_gpu);
+#endif // AGING_LOAD
+#endif // CONFIG_MTK_AEE_FEATURE
+}
+
 
 void mt_gpufreq_dump_infra_status(void)
 {

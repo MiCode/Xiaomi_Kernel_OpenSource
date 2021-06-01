@@ -199,6 +199,10 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					/* MTK add for gpu_freq information */
 					mt_gpufreq_dump_infra_status();
 
+#if defined(CONFIG_MACH_MT6781)
+					mt_gpufreq_hardstop_dump_aee();
+#endif
+
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
 							(unsigned long)ms);
@@ -247,6 +251,10 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 
 					/* MTK add for gpu_freq information */
 					mt_gpufreq_dump_infra_status();
+
+#if defined(CONFIG_MACH_MT6781)
+					mt_gpufreq_hardstop_dump_aee();
+#endif
 
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
