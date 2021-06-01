@@ -1,0 +1,24 @@
+QTI CPU frequency cooling devices.
+
+The CPU frequency cooling device will be used by userspace thermal daemon to
+vote for frequency cap under thermal conditions. This driver will register a
+cooling device for each CPU phandle specified in the devicetree.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,cpufreq-cdev"
+
+Cooling device node:
+- qcom,cpus:
+	Usage: required
+	Value type: <list of CPU Phandles>
+	Definition: List of Phandles to the CPUs. Each CPU will be registered
+			as a separate cooling device with thermal framework.
+
+Example:
+	qcom,cpufreq-cdev {
+		compatible = "qcom,cpufreq-cdev";
+		qcom,cpus = <&CPU0 &CPU4 &CPU7>;
+        };
