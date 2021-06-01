@@ -515,21 +515,15 @@
 		reg = <0x0 0xe0b00000 0x0 0x7a00000>;
 	};
 
-	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e85fc000 {
+	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e8509000 {
 		no-map;
-		reg = <0x0 0xe85fc000 0x0 0x4000>;
-		gunyah-label = <0x10>;
-	};
-
-	trust_ui_vm_vblk1_ring: trust_ui_vm_vblk1_ring@e8600000 {
-		no-map;
-		reg = <0x0 0xe8600000 0x0 0x4000>;
+		reg = <0x0 0xe8509000 0x0 0x4000>;
 		gunyah-label = <0x11>;
 	};
 
-	trust_ui_vm_swiotlb: trust_ui_vm_swiotlb@e8604000 {
+	trust_ui_vm_swiotlb: trust_ui_vm_swiotlb@e850d000 {
 		no-map;
-		reg = <0x0 0xe8604000 0x0 0x1fc000>;
+		reg = <0x0 0xe850d000 0x0 0x100000>;
 		gunyah-label = <0x12>;
 	};
 
@@ -3302,19 +3296,13 @@
 		qcom,target-dev = <&qcom_ddr_dcvs_hw>;
 	};
 
-	trust_ui_vm: qcom,trust_ui_vm@e85fc000 {
-		reg = <0xe85fc000 0x204000>;
+	trust_ui_vm: qcom,trust_ui_vm@e8509000 {
+		reg = <0xe8509000 0x104000>;
 		vm_name = "trustedvm";
-		shared-buffers = <&trust_ui_vm_vblk0_ring &trust_ui_vm_vblk1_ring &trust_ui_vm_swiotlb>;
+		shared-buffers = <&trust_ui_vm_vblk0_ring &trust_ui_vm_swiotlb>;
 	};
 
 	qcom,virtio_backend@0 {
-		compatible = "qcom,virtio_backend";
-		qcom,vm = <&trust_ui_vm>;
-		qcom,label = <0x10>;
-	};
-
-	qcom,virtio_backend@1 {
 		compatible = "qcom,virtio_backend";
 		qcom,vm = <&trust_ui_vm>;
 		qcom,label = <0x11>;
