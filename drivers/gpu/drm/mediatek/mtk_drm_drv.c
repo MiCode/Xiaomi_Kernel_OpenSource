@@ -2688,7 +2688,7 @@ wait_queue_head_t *mtk_get_log_wq(void)
 
 static int mtk_irq_log_kthread_func(void *data)
 {
-	while (1) {
+	while (!kthread_should_stop()) {
 		wait_event_interruptible(mtk_irq_log_wq,
 				mtk_get_module_irq());
 		mtk_set_module_irq(0);
