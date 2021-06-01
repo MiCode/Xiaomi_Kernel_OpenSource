@@ -967,18 +967,18 @@ static kal_uint16 ov48b_PDC_setting_burst[720*2];
 
 static void read_sensor_Cali(void)
 {
-	kal_uint16 idx = 0, eeprom_PDC_addr = 0x24A4;
+	kal_uint16 idx = 0, eeprom_PDC_addr = 0x1638;
 	kal_uint16 sensor_PDC_addr1 = 0x5C0E, sensor_PDC_addr2 = 0x5900;
 
 	for (idx = 0; idx < 8; idx++) {
-		eeprom_PDC_addr = 0x24A4 + idx;
+		eeprom_PDC_addr = 0x1638 + idx;
 		sensor_PDC_addr1 = 0x5C0E + idx;
 		ov48b_PDC_setting[2 * idx] = sensor_PDC_addr1;
 		ov48b_PDC_setting[2 * idx + 1] =
 			read_cmos_eeprom_8(eeprom_PDC_addr);
 	}
 	for (idx = 8; idx < 728; idx++) {
-		eeprom_PDC_addr = 0x24A4 + idx;
+		eeprom_PDC_addr = 0x1638 + idx;
 		sensor_PDC_addr2 = 0x5900 + idx - 8;
 		ov48b_PDC_setting_burst[2 * (idx-8)] = sensor_PDC_addr2;
 		ov48b_PDC_setting_burst[2 * (idx-8) + 1] =
