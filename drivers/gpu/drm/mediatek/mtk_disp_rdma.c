@@ -217,6 +217,22 @@ enum GS_RDMA_FLD {
 	GS_RDMA_FLD_NUM,
 };
 
+static int mtk_irq_rdma_underflow;
+static unsigned int comp_id;
+static unsigned int underflow_counter;
+static struct mtk_ddp_comp *temp_rdma;
+
+void mtk_set_rdma(struct mtk_ddp_comp *rdma)
+{
+	if (rdma != NULL)
+		temp_rdma = rdma;
+}
+
+struct mtk_ddp_comp *mtk_get_rdma(void)
+{
+	return temp_rdma;
+}
+
 struct mtk_disp_rdma_data {
 	unsigned int fifo_size;
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
@@ -257,6 +273,47 @@ struct mtk_disp_rdma {
 static inline struct mtk_disp_rdma *comp_to_rdma(struct mtk_ddp_comp *comp)
 {
 	return container_of(comp, struct mtk_disp_rdma, ddp_comp);
+}
+
+void mtk_irq_rdma_underflow_aee_trigger(void)
+{
+	static unsigned long long last_timer;
+	static unsigned int considerable_cnt;
+	struct mtk_ddp_comp *p_rdma = NULL;
+
+	if (mtk_irq_rdma_underflow) {
+		if (last_timer != 0) {
+			unsigned long long freq = (1000 * 1000000);
+
+			do_div(freq, sched_clock() - last_timer);
+			if (freq > 0)
+				considerable_cnt++;
+			else
+				considerable_cnt = 0;
+		} else {
+			p_rdma = mtk_get_rdma();
+			if (p_rdma->mtk_crtc) {
+				mtk_drm_crtc_analysis(&(p_rdma->mtk_crtc->base));
+				mtk_drm_crtc_dump(&(p_rdma->mtk_crtc->base));
+			}
+		}
+
+		if (considerable_cnt >= 20) {
+			DDPAEE("[IRQ] %s: underflow! cnt= %d\n",
+				mtk_dump_comp_str_id(comp_id), underflow_counter);
+			considerable_cnt = 0;
+		}
+
+		if (considerable_cnt == 1) {
+			p_rdma = mtk_get_rdma();
+			if (p_rdma->mtk_crtc) {
+				mtk_drm_crtc_analysis(&(p_rdma->mtk_crtc->base));
+				mtk_drm_crtc_dump(&(p_rdma->mtk_crtc->base));
+			}
+		}
+		last_timer = sched_clock();
+		mtk_irq_rdma_underflow = 0;
+	}
 }
 
 static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
@@ -345,12 +402,14 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		       readl(DISP_REG_RDMA_IN_LINE_CNT + rdma->regs),
 		       readl(DISP_REG_RDMA_OUT_P_CNT + rdma->regs),
 		       readl(DISP_REG_RDMA_OUT_LINE_CNT + rdma->regs));
-		mtk_rdma_analysis(rdma);
-		mtk_rdma_dump(rdma);
+//		mtk_rdma_analysis(rdma);
+//		mtk_rdma_dump(rdma);
+#if 0
 		if (rdma->mtk_crtc) {
 			mtk_drm_crtc_analysis(&(rdma->mtk_crtc->base));
 			mtk_drm_crtc_dump(&(rdma->mtk_crtc->base));
 		}
+#endif
 
 		if (rdma->mtk_crtc) {
 			struct mtk_drm_private *drm_priv = NULL;
@@ -369,7 +428,13 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		}
 
 		priv->underflow_cnt++;
+
+		mtk_set_rdma(rdma);
+		mtk_irq_rdma_underflow = 1;
+		mtk_set_module_irq(rdma->id);
+		wake_up_interruptible(mtk_get_log_wq());
 	}
+
 	if (val & (1 << 5)) {
 		DDPIRQ("[IRQ] %s: target line!\n", mtk_dump_comp_str(rdma));
 		if (mtk_crtc) {
@@ -1151,18 +1216,18 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 	unsigned int fifo = readl(baddr + DISP_REG_RDMA_FIFO_CON);
 
 	global_ctrl = readl(DISP_REG_RDMA_GLOBAL_CON + baddr);
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
-	DDPDUMP("en=%d,mode:%s,smi_busy:%d\n",
+	DDPMSG("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPMSG("en=%d,mode:%s,smi_busy:%d\n",
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_ENGINE_EN, global_ctrl),
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_MODE_SEL, global_ctrl)
 				? "mem" : "DL",
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_SMI_BUSY, global_ctrl));
-	DDPDUMP("wh(%dx%d),pitch=%d,addr=0x%08x\n",
+	DDPMSG("wh(%dx%d),pitch=%d,addr=0x%08x\n",
 		readl(DISP_REG_RDMA_SIZE_CON_0 + baddr) & 0xfff,
 		readl(DISP_REG_RDMA_SIZE_CON_1 + baddr) & 0xfffff,
 		readl(DISP_REG_RDMA_MEM_SRC_PITCH + baddr),
 		readl(DISP_REG_RDMA_MEM_START_ADDR + baddr));
-	DDPDUMP("fifo_sz=%u,output_valid_threshold=%u,fifo_min=%d\n",
+	DDPMSG("fifo_sz=%u,output_valid_threshold=%u,fifo_min=%d\n",
 #if 0 /* TODO */
 		unified_color_fmt_name(display_fmt_reg_to_unified_fmt(
 				(readl(DISP_REG_RDMA_MEM_CON +
@@ -1173,7 +1238,7 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(FIFO_CON_FLD_FIFO_PSEUDO_SIZE, fifo),
 		REG_FLD_VAL_GET(FIFO_CON_FLD_OUTPUT_VALID_FIFO_THRESHOLD, fifo),
 		readl(DISP_REG_RDMA_FIFO_LOG + baddr));
-	DDPDUMP("pos:in(%d,%d)out(%d,%d),bg(t%d,b%d,l%d,r%d)\n",
+	DDPMSG("pos:in(%d,%d)out(%d,%d),bg(t%d,b%d,l%d,r%d)\n",
 		readl(DISP_REG_RDMA_IN_P_CNT + baddr),
 		readl(DISP_REG_RDMA_IN_LINE_CNT + baddr),
 		readl(DISP_REG_RDMA_OUT_P_CNT + baddr),

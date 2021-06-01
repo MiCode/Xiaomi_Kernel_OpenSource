@@ -94,6 +94,9 @@ const char *mutex_nested_locker;
 
 struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
+static wait_queue_head_t mtk_irq_log_wq;
+static unsigned int mtk_irq_module;
+
 static inline struct mtk_atomic_state *to_mtk_state(struct drm_atomic_state *s)
 {
 	return container_of(s, struct mtk_atomic_state, base);
@@ -2667,12 +2670,40 @@ int mtk_drm_ioctl_get_lcm_index(struct drm_device *dev, void *data,
 	return ret;
 }
 
+unsigned int mtk_get_module_irq(void)
+{
+	return mtk_irq_module;
+}
+
+unsigned int mtk_set_module_irq(unsigned int module_id)
+{
+	mtk_irq_module = module_id;
+	return 0;
+}
+
+wait_queue_head_t *mtk_get_log_wq(void)
+{
+	return &mtk_irq_log_wq;
+}
+
+static int mtk_irq_log_kthread_func(void *data)
+{
+	while (1) {
+		wait_event_interruptible(mtk_irq_log_wq,
+				mtk_get_module_irq());
+		mtk_set_module_irq(0);
+		mtk_irq_rdma_underflow_aee_trigger();
+	}
+	return 0;
+}
+
 static int mtk_drm_kms_init(struct drm_device *drm)
 {
 	struct mtk_drm_private *private = drm->dev_private;
 	struct platform_device *pdev;
 	struct device_node *np;
 	int ret, i;
+	struct task_struct *mtk_irq_log_task;
 
 #ifdef CONFIG_MTK_DISPLAY_M4U
 	if (!iommu_present(&platform_bus_type))
@@ -2793,6 +2824,13 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 #endif
 	disp_dbg_init(drm);
 	PanelMaster_Init(drm);
+	mtk_irq_log_task = kthread_create(mtk_irq_log_kthread_func,
+			NULL, "mtk_irq_log_kthread");
+	if (IS_ERR(mtk_irq_log_task))
+		DDPMSG("can not create mtk_irq_log_thread");
+	init_waitqueue_head(&mtk_irq_log_wq);
+	wake_up_process(mtk_irq_log_task);
+
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	mtk_drm_mmdvfs_init();
 #endif

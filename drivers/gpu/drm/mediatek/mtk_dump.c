@@ -176,7 +176,7 @@ void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 		l += s;
 	}
 
-	DDPDUMP("%s\n", buf);
+	DDPMSG("%s\n", buf);
 }
 
 void mtk_cust_dump_reg(void __iomem *base, int off1, int off2, int off3,

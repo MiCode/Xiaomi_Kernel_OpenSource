@@ -3258,28 +3258,28 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 
 static void ovl_printf_status(unsigned int status)
 {
-	DDPDUMP("- OVL_FLOW_CONTROL_DEBUG -\n");
-	DDPDUMP("addcon_idle:%d,blend_idle:%d\n",
+	DDPMSG("- OVL_FLOW_CONTROL_DEBUG -\n");
+	DDPMSG("addcon_idle:%d,blend_idle:%d\n",
 		(status >> 10) & (0x1), (status >> 11) & (0x1));
-	DDPDUMP("out_valid:%d,out_ready:%d,out_idle:%d\n",
+	DDPMSG("out_valid:%d,out_ready:%d,out_idle:%d\n",
 		(status >> 12) & (0x1), (status >> 13) & (0x1),
 		(status >> 15) & (0x1));
-	DDPDUMP("rdma_idle3-0:(%d,%d,%d,%d),rst:%d\n", (status >> 16) & (0x1),
+	DDPMSG("rdma_idle3-0:(%d,%d,%d,%d),rst:%d\n", (status >> 16) & (0x1),
 		(status >> 17) & (0x1), (status >> 18) & (0x1),
 		(status >> 19) & (0x1), (status >> 20) & (0x1));
-	DDPDUMP("trig:%d,frame_hwrst_done:%d\n",
+	DDPMSG("trig:%d,frame_hwrst_done:%d\n",
 		(status >> 21) & (0x1), (status >> 23) & (0x1));
-	DDPDUMP("frame_swrst_done:%d,frame_underrun:%d,frame_done:%d\n",
+	DDPMSG("frame_swrst_done:%d,frame_underrun:%d,frame_done:%d\n",
 		(status >> 24) & (0x1), (status >> 25) & (0x1),
 		(status >> 26) & (0x1));
-	DDPDUMP("ovl_running:%d,ovl_start:%d,ovl_clr:%d\n",
+	DDPMSG("ovl_running:%d,ovl_start:%d,ovl_clr:%d\n",
 		(status >> 27) & (0x1), (status >> 28) & (0x1),
 		(status >> 29) & (0x1));
-	DDPDUMP("reg_update:%d,ovl_upd_reg:%d\n",
+	DDPMSG("reg_update:%d,ovl_upd_reg:%d\n",
 		(status >> 30) & (0x1),
 		(status >> 31) & (0x1));
 
-	DDPDUMP("ovl_fms_state:\n");
+	DDPMSG("ovl_fms_state:\n");
 	switch (status & 0x3ff) {
 	case 0x1:
 		DDPDUMP("idle\n");
@@ -3319,9 +3319,9 @@ static void ovl_printf_status(unsigned int status)
 
 static void ovl_print_ovl_rdma_status(unsigned int status)
 {
-	DDPDUMP("warm_rst_cs:%d,layer_greq:%d,out_data:0x%x\n", status & 0x7,
+	DDPMSG("warm_rst_cs:%d,layer_greq:%d,out_data:0x%x\n", status & 0x7,
 		(status >> 3) & 0x1, (status >> 4) & 0xffffff);
-	DDPDUMP("out_ready:%d,out_valid:%d,smi_busy:%d,smi_greq:%d\n",
+	DDPMSG("out_ready:%d,out_valid:%d,smi_busy:%d,smi_greq:%d\n",
 		(status >> 28) & 0x1, (status >> 29) & 0x1,
 		(status >> 30) & 0x1, (status >> 31) & 0x1);
 }
@@ -3354,11 +3354,11 @@ static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 	}
 
 	if (compr_en == 0) {
-		DDPDUMP("compr_en:%u\n", compr_en);
+		DDPMSG("compr_en:%u\n", compr_en);
 		return;
 	}
 
-	DDPDUMP("compr_en:%u, pitch_msb:0x%x, hdr_addr:0x%x, hdr_pitch:0x%x\n",
+	DDPMSG("compr_en:%u, pitch_msb:0x%x, hdr_addr:0x%x, hdr_pitch:0x%x\n",
 		compr_en, pitch_msb,
 		readl(DISP_REG_OVL_L0_HDR_ADDR + Lx_PVRIC_hdr_base),
 		readl(DISP_REG_OVL_L0_HDR_PITCH + Lx_PVRIC_hdr_base));
@@ -3413,11 +3413,11 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	 * REG_FLD_VAL_GET(L_CON_FLD_BTSW, con),
 	 * REG_FLD_VAL_GET(L_CON_FLD_RGB_SWAP, con));
 	 */
-	DDPDUMP("%s_L%d:(%u,%u,%ux%u)\n",
+	DDPMSG("%s_L%d:(%u,%u,%ux%u)\n",
 		is_ext_layer ? "ext" : "phy", layer, offset & 0xfff,
 		(offset >> 16) & 0xfff, src_size & 0xfff,
 		(src_size >> 16) & 0xfff);
-	DDPDUMP("pitch=%u,addr=0x%08x,source=%s,aen=%u,alpha=%u,cl=0x%x\n",
+	DDPMSG("pitch=%u,addr=0x%08x,source=%s,aen=%u,alpha=%u,cl=0x%x\n",
 		pitch & 0xffff,
 		addr, /* unified_color_fmt_name(fmt),*/
 		(REG_FLD_VAL_GET(L_CON_FLD_LSRC, con) == 0) ? "mem"
@@ -3446,18 +3446,18 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
 	addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
 
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
-	DDPDUMP("ovl_en=%d,layer_en(%d,%d,%d,%d),bg(%dx%d)\n",
+	DDPMSG("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPMSG("ovl_en=%d,layer_en(%d,%d,%d,%d),bg(%dx%d)\n",
 		readl(DISP_REG_OVL_EN + baddr) & 0x1, src_con & 0x1,
 		(src_con >> 1) & 0x1, (src_con >> 2) & 0x1,
 		(src_con >> 3) & 0x1,
 		readl(DISP_REG_OVL_ROI_SIZE + baddr) & 0xfff,
 		(readl(DISP_REG_OVL_ROI_SIZE + baddr) >> 16) & 0xfff);
-	DDPDUMP("ext_layer:layer_en(%d,%d,%d),attach_layer(%d,%d,%d)\n",
+	DDPMSG("ext_layer:layer_en(%d,%d,%d),attach_layer(%d,%d,%d)\n",
 		ext_con & 0x1, (ext_con >> 1) & 0x1, (ext_con >> 2) & 0x1,
 		(ext_con >> 16) & 0xf, (ext_con >> 20) & 0xf,
 		(ext_con >> 24) & 0xf);
-	DDPDUMP("cur_pos(%u,%u),layer_hit(%u,%u,%u,%u),bg_mode=%s,sta=0x%x\n",
+	DDPMSG("cur_pos(%u,%u),layer_hit(%u,%u,%u,%u),bg_mode=%s,sta=0x%x\n",
 		REG_FLD_VAL_GET(ADDCON_DBG_FLD_ROI_X, addcon),
 		REG_FLD_VAL_GET(ADDCON_DBG_FLD_ROI_Y, addcon),
 		REG_FLD_VAL_GET(ADDCON_DBG_FLD_L0_WIN_HIT, addcon),
@@ -3481,7 +3481,7 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 
 		Lx_base = i * OVL_LAYER_OFFSET + baddr;
 		rdma_ctrl = readl(Lx_base + DISP_REG_OVL_RDMA0_CTRL);
-		DDPDUMP("ovl rdma%d status:(en=%d,fifo_used:%d,GMC=0x%x)\n", i,
+		DDPMSG("ovl rdma%d status:(en=%d,fifo_used:%d,GMC=0x%x)\n", i,
 			REG_FLD_VAL_GET(RDMA0_CTRL_FLD_RDMA_EN, rdma_ctrl),
 			REG_FLD_VAL_GET(RDMA0_CTRL_FLD_RMDA_FIFO_USED_SZ,
 					rdma_ctrl),

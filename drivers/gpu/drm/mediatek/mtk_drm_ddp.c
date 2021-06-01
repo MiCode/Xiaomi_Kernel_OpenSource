@@ -6651,33 +6651,33 @@ void mutex_dump_reg_mt6873(struct mtk_disp_mutex *mutex)
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	void __iomem *module_base = ddp->regs;
 
-	DDPDUMP("== DISP MUTEX REGS ==\n");
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPMSG("== DISP MUTEX REGS ==\n");
+	DDPMSG("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
 		0x0, readl_relaxed(module_base + 0x0), 0x4,
 		readl_relaxed(module_base + 0x4), 0x8,
 		readl_relaxed(module_base + 0x8), 0x020,
 		readl_relaxed(module_base + 0x020));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPMSG("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
 		0x028, readl_relaxed(module_base + 0x028), 0x02C,
 		readl_relaxed(module_base + 0x02C), 0x030,
 		readl_relaxed(module_base + 0x030), 0x034,
 		readl_relaxed(module_base + 0x034));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPMSG("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
 		0x040, readl_relaxed(module_base + 0x040), 0x048,
 		readl_relaxed(module_base + 0x048), 0x04C,
 		readl_relaxed(module_base + 0x04C), 0x050,
 		readl_relaxed(module_base + 0x050));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPMSG("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
 		0x054, readl_relaxed(module_base + 0x054), 0x060,
 		readl_relaxed(module_base + 0x060), 0x068,
 		readl_relaxed(module_base + 0x068), 0x06C,
 		readl_relaxed(module_base + 0x06C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPMSG("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
 		0x070, readl_relaxed(module_base + 0x070), 0x074,
 		readl_relaxed(module_base + 0x074), 0x080,
 		readl_relaxed(module_base + 0x080), 0x088,
 		readl_relaxed(module_base + 0x088));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPMSG("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
 		0x08C, readl_relaxed(module_base + 0x08C), 0x090,
 		readl_relaxed(module_base + 0x090), 0x094,
 		readl_relaxed(module_base + 0x094));
@@ -6947,7 +6947,7 @@ void mutex_dump_analysis_mt6781(struct mtk_disp_mutex *mutex)
 	unsigned int val;
 	int string_buf_avail_len = 0;
 
-	DDPDUMP("== DISP Mutex Analysis ==\n");
+	DDPMSG("== DISP Mutex Analysis ==\n");
 	for (i = 0; i < 5; i++) {
 		p = mutex_module;
 		len = 0;
@@ -6990,7 +6990,7 @@ void mutex_dump_analysis_mt6781(struct mtk_disp_mutex *mutex)
 				}
 			}
 		}
-		DDPDUMP("%s)\n", mutex_module);
+		DDPMSG("%s)\n", mutex_module);
 	}
 }
 
@@ -7880,7 +7880,7 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 		readl_relaxed(config_regs +
 				MT6873_DISP_REG_CONFIG_SMI_LARB1_GREQ);
 
-	DDPDUMP("== DISP MMSYS_CONFIG ANALYSIS ==\n");
+	DDPMSG("== DISP MMSYS_CONFIG ANALYSIS ==\n");
 	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON0_MT6873);
 	for (i = 0; i < 32; i++) {
 		if ((reg & (1 << i)) == 0) {
@@ -7891,13 +7891,13 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 		}
 	}
 
-	DDPDUMP("clock on modules:%s\n", clock_on);
+	DDPMSG("clock on modules:%s\n", clock_on);
 
-	DDPDUMP("va0=0x%x,va1=0x%x\n",
+	DDPMSG("va0=0x%x,va1=0x%x\n",
 		valid0, valid1);
-	DDPDUMP("rd0=0x%x,rd1=0x%x\n",
+	DDPMSG("rd0=0x%x,rd1=0x%x\n",
 		ready0, ready1);
-	DDPDUMP("greq0=0x%x greq1=0x%x\n", greq0, greq1);
+	DDPMSG("greq0=0x%x greq1=0x%x\n", greq0, greq1);
 	for (i = 0; i < 32; i++) {
 		name = ddp_signal_0_mt6781(i);
 		if (!name)
@@ -7954,7 +7954,7 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 			return;
 		}
 
-		DDPDUMP("%s\n", clock_on);
+		DDPMSG("%s\n", clock_on);
 	}
 
 	for (i = 0; i < 32; i++) {
@@ -8013,19 +8013,19 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 			return;
 		}
 
-		DDPDUMP("%s\n", clock_on);
+		DDPMSG("%s\n", clock_on);
 	}
 
 
 	/* greq: 1 means SMI dose not grant, maybe SMI hang */
 	if (greq0) {
-		DDPDUMP("smi larb0 greq not grant module:\n");
-		DDPDUMP(
+		DDPMSG("smi larb0 greq not grant module:\n");
+		DDPMSG(
 		"(greq0: 1 means SMI dose not grant, maybe SMI larb0 hang)\n");
 	}
 	if (greq1) {
-		DDPDUMP("smi larb1 greq not grant module:\n");
-		DDPDUMP(
+		DDPMSG("smi larb1 greq not grant module:\n");
+		DDPMSG(
 		"(greq1: 1 means SMI dose not grant, maybe SMI larb1 hang)\n");
 	}
 
@@ -8052,7 +8052,7 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 		}
 	}
 
-	DDPDUMP("%s\n", clock_on);
+	DDPMSG("%s\n", clock_on);
 
 #ifdef CONFIG_MTK_SMI_EXT
 	if (greq0 || greq1) {

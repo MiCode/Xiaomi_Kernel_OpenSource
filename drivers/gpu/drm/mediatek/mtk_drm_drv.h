@@ -304,4 +304,7 @@ int lcm_fps_ctx_reset(struct drm_crtc *crtc);
 int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
 int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
+unsigned int mtk_set_module_irq(unsigned int module_id);
+extern void mtk_irq_rdma_underflow_aee_trigger(void);
+wait_queue_head_t *mtk_get_log_wq(void);
 #endif /* MTK_DRM_DRV_H */
