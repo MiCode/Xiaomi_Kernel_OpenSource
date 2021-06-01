@@ -1113,6 +1113,10 @@ int mtk_wdt_dfd_count_en(int value)
 		tmp &= (~MTK_WDT_DFD_EN);
 		tmp |= MTK_WDT_LATCH_CTL2_KEY;
 		mt_reg_sync_writel(tmp, MTK_WDT_LATCH_CTL2);
+
+#if defined(CONFIG_MACH_MT6781)
+		mt_reg_sync_writel(0x77000000, MTK_WDT_MFG_POWE_EN);
+#endif
 	}
 	pr_debug("mtk_wdt_dfd_en:MTK_WDT_LATCH_CTL2(0x%x)\n",
 		__raw_readl(MTK_WDT_LATCH_CTL2));
