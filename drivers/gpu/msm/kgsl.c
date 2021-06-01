@@ -2521,6 +2521,12 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 		ret = kgsl_mmu_set_svm_region(pagetable,
 			(uint64_t) hostptr, (uint64_t) size);
 
+		/* if OOM, retry once after flushing mem_workqueue */
+		if (ret == -ENOMEM) {
+			flush_workqueue(kgsl_driver.mem_workqueue);
+			ret = kgsl_mmu_set_svm_region(pagetable,
+				(uint64_t) hostptr, (uint64_t) size);
+		}
 		if (ret)
 			return ret;
 
@@ -4894,6 +4900,11 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 						pgoff, len, (int) val);
 	} else {
 		val = _get_svm_area(private, entry, addr, len, flags);
+		/* if OOM, retry once after flushing mem_workqueue */
+		if (val == -ENOMEM) {
+			flush_workqueue(kgsl_driver.mem_workqueue);
+			val = _get_svm_area(private, entry, addr, len, flags);
+		}
 		if (IS_ERR_VALUE(val))
 			dev_err_ratelimited(device->dev,
 					       "_get_svm_area: pid %d mmap_base %lx addr %lx pgoff %lx len %ld failed error %d\n",
