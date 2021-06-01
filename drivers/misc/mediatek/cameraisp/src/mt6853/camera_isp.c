@@ -784,6 +784,51 @@ struct SV_LOG_STR {
 	struct S_START_T _lastIrqTime;
 };
 
+/* If log buffer size(See avaLen in the macro, "IRQ_LOG_KEEPER") is not
+ * enough, dbg msg will be printed out via pr_info/pr_notice. This behavior
+ * costs too much for ISR and CPU. If ISR_NO_PRINT is defined as "true", we'll
+ * hide the dbg msg, when log buffer is not enough.
+ */
+#define ISR_NO_PRINT (true)
+
+static void print_isr_log(unsigned int logtype, char *ptr)
+{
+	int i = 0;
+	unsigned int log_page_num = 0;
+
+	if (logtype == _LOG_DBG)
+		log_page_num = DBG_PAGE;
+	else if (logtype == _LOG_INF)
+		log_page_num = INF_PAGE;
+	else if (logtype == _LOG_ERR)
+		log_page_num = ERR_PAGE;
+
+	for (i = 0; i < log_page_num; i++) {
+		if (ptr[NORMAL_STR_LEN * (i + 1) - 1] != '\0') {
+			ptr[NORMAL_STR_LEN * (i + 1) - 1] = '\0';
+
+			if ((ISR_NO_PRINT) || (logtype == _LOG_DBG))
+				LOG_DBG("%s", &ptr[NORMAL_STR_LEN * i]);
+			else if (logtype == _LOG_INF)
+				LOG_INF("%s", &ptr[NORMAL_STR_LEN * i]);
+			else if (logtype == _LOG_ERR)
+				LOG_NOTICE("%s", &ptr[NORMAL_STR_LEN * i]);
+			else
+				LOG_NOTICE("Not Support logtype(%d)\n", logtype);
+		} else {
+			if ((ISR_NO_PRINT) || (logtype == _LOG_DBG))
+				LOG_DBG("%s", &ptr[NORMAL_STR_LEN * i]);
+			else if (logtype == _LOG_INF)
+				LOG_INF("%s", &ptr[NORMAL_STR_LEN * i]);
+			else if (logtype == _LOG_ERR)
+				LOG_NOTICE("%s", &ptr[NORMAL_STR_LEN * i]);
+			else
+				LOG_NOTICE("Not Support logtype(%d)\n", logtype);
+			break;
+		}
+	}
+}
+
 static void *pLog_kmalloc;
 static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
 static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
@@ -808,7 +853,6 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 	int avaLen;\
 	unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
 	unsigned int str_leng;\
-	unsigned int i;\
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	if (logT == _LOG_ERR) {\
 		str_leng = NORMAL_STR_LEN*ERR_PAGE;\
@@ -837,57 +881,13 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 			(*ptr2)++;\
 		} \
 	} else {\
-		LOG_INF("(%d)(%d)log str avalible=0, print log\n", irq, logT);\
+		if (ISR_NO_PRINT) \
+			LOG_DBG("(%d)(%d)log str avalible=0, print log\n", irq, logT);\
+		else \
+			LOG_INF("(%d)(%d)log str avalible=0, print log\n", irq, logT);\
 		ptr = pSrc->_str[ppb][logT];\
 		if (pSrc->_cnt[ppb][logT] != 0) {\
-			if (logT == _LOG_DBG) {\
-				for (i = 0; i < DBG_PAGE; i++) {\
-					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != \
-					    '\0') {\
-						ptr[NORMAL_STR_LEN*(i+1) - 1] =\
-							'\0';\
-						LOG_DBG("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-					} else{\
-						LOG_DBG("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-						break;\
-					} \
-				} \
-			} \
-			else if (logT == _LOG_INF) {\
-				for (i = 0; i < INF_PAGE; i++) {\
-					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != \
-					    '\0') {\
-						ptr[NORMAL_STR_LEN*(i+1) - 1] =\
-						    '\0';\
-						LOG_INF("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-					} else{\
-						LOG_INF("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-						break;\
-					} \
-				} \
-			} \
-			else if (logT == _LOG_ERR) {\
-				for (i = 0; i < ERR_PAGE; i++) {\
-					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != \
-					    '\0') {\
-						ptr[NORMAL_STR_LEN*(i+1) - 1] =\
-							'\0';\
-						LOG_NOTICE("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-					} else{\
-						LOG_NOTICE("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-						break;\
-					} \
-				} \
-			} \
-			else {\
-				LOG_NOTICE("N.S.%d", logT);\
-			} \
+			print_isr_log(logT, ptr); \
 			ptr[0] = '\0';\
 			pSrc->_cnt[ppb][logT] = 0;\
 			avaLen = str_leng - 1;\
