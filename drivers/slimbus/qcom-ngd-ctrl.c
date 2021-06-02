@@ -103,6 +103,23 @@
 #define SAT_MSG_PROT	0x1
 #define to_ngd(d)	container_of(d, struct qcom_slim_ngd, dev)
 
+#define CREATE_TRACE_POINTS
+#include "trace.h"
+
+void __slimbus_dbg(const char *func, const char *fmt, ...)
+{
+	struct va_format vaf = {
+		.fmt = fmt,
+	};
+
+	va_list args;
+
+	va_start(args, fmt);
+	vaf.va = &args;
+	trace_slimbus_dbg(func, &vaf);
+	va_end(args);
+}
+
 struct ngd_reg_offset_data {
 	u32 offset, size;
 };
