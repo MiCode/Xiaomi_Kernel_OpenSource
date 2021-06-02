@@ -183,6 +183,15 @@ config QCOM_GIC_INTERRUPT_ROUTING
          Say Y here to compile the driver as a part of kernel or M to compile
          as a module.
 
+config GH_TLMM_VM_MEM_ACCESS
+	tristate "Qualcomm Technologies, Inc. TLMM VM mem access driver"
+	depends on GH_RM_DRV
+	help
+         Qualcomm Technologies, Inc. TLMM VM mem access driver for MSM devices.
+         The drivers provides initial gpio memory access to VM.
+         Say Y here to compile the driver as a part of kernel or M to compile
+         as a module.
+
 config QCOM_RIMPS
 	tristate "Qualcomm Technologies, Inc. Rimps driver"
 	depends on MAILBOX
