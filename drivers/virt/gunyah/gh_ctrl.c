@@ -222,8 +222,9 @@ static int __init gh_ctrl_init(void)
 
 	hyp = of_find_node_by_path("/hypervisor");
 
-	if (!hyp || !of_device_is_compatible(hyp, "qcom,haven-hypervisor")) {
-		pr_err("haven-hypervisor node not present\n");
+	if (!hyp || (!of_device_is_compatible(hyp, "qcom,gunyah-hypervisor") &&
+		     !of_device_is_compatible(hyp, "qcom,haven-hypervisor"))) {
+		pr_err("gunyah-hypervisor or haven-hypervisor node not present\n");
 		return 0;
 	}
 

@@ -269,6 +269,7 @@ static const struct dev_pm_ops gh_wdt_dev_pm_ops = {
 };
 
 static const struct of_device_id gh_wdt_match_table[] = {
+	{ .compatible = "qcom,gh-watchdog" },
 	{ .compatible = "qcom,hh-watchdog" },
 	{}
 };
