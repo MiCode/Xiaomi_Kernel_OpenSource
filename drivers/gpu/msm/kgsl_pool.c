@@ -278,6 +278,25 @@ static int kgsl_pool_size_total(void)
 	return total;
 }
 
+/* Returns the total number of pages in all pools excluding reserved pages */
+static unsigned long kgsl_pool_size_nonreserved(void)
+{
+	int i;
+	unsigned long total = 0;
+
+	for (i = 0; i < kgsl_num_pools; i++) {
+		struct kgsl_page_pool *pool = &kgsl_pools[i];
+
+		spin_lock(&pool->list_lock);
+		if (pool->page_count > pool->reserved_pages)
+			total += (pool->page_count - pool->reserved_pages) *
+					(1 << pool->pool_order);
+		spin_unlock(&pool->list_lock);
+	}
+
+	return total;
+}
+
 /*
  * Returns a page from specified pool only if pool
  * currently holds more number of pages than reserved
@@ -652,15 +671,21 @@ kgsl_pool_shrink_scan_objects(struct shrinker *shrinker,
 					struct shrink_control *sc)
 {
 	/* sc->nr_to_scan represents number of pages to be removed*/
-	return kgsl_pool_reduce(sc->nr_to_scan, false);
+	unsigned long pcount = kgsl_pool_reduce(sc->nr_to_scan, false);
+
+	/* If pools are exhausted return SHRINK_STOP */
+	return pcount ? pcount : SHRINK_STOP;
 }
 
 static unsigned long
 kgsl_pool_shrink_count_objects(struct shrinker *shrinker,
 					struct shrink_control *sc)
 {
-	/* Return total pool size as everything in pool can be freed */
-	return kgsl_pool_size_total();
+	/*
+	 * Return non-reserved pool size as we don't
+	 * want shrinker to free reserved pages.
+	 */
+	return kgsl_pool_size_nonreserved();
 }
 
 /* Shrinker callback data*/
