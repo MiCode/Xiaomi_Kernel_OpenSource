@@ -1,0 +1,8 @@
+config CUSTOM_KERNEL_ALS_MULTI_CALI_SUPPORT
+	bool "multi_cali for MediaTek package"
+	help
+	  It support multi_cali.
+	  If this option is set,
+	  it will support
+	  multi_cali.
+

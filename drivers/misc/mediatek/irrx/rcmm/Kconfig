@@ -1,0 +1,8 @@
+config MTK_IRRX_RCMM
+	bool "Support MTK IR RCMM protocol"
+	depends on MTK_IRRX
+	help
+		It support different IR protocol.
+		This protocol is defined by Philips.
+		If this option is set, it will support
+		RCMM IRRX protocol.

@@ -1,0 +1,7 @@
+config MTK_RAM_CONSOLE
+	bool "mt ram console"
+	help
+	  ram_console is a feature which will record some
+	  debug information and can be read after reboot.
+	  It can be configured as SRAM or DRAM.
+	  Each ram type should be set address and size.

@@ -1,0 +1,95 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/* TOUCH start */
+&i2c0 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "ts_int_active",
+		"ts_reset_active", "ts_int_suspend",
+		"ts_reset_suspend", "ts_i2c_mode";
+	pinctrl-0 = <&ctp_pins_default>;
+	pinctrl-1 = <&ctp_ts_int_active>;
+	pinctrl-2 = <&ctp_ts_reset_active>;
+	pinctrl-3 = <&ctp_ts_int_suspend>;
+	pinctrl-4 = <&ctp_ts_reset_suspend>;
+	pinctrl-5 = <&ctp_ts_i2c_mode>;
+
+	gt9886@5d {
+		compatible = "goodix,gt9886";
+		reg = <0x5d>;
+		status = "ok";
+		interrupt-parent = <&pio>;
+		interrupts = <21 IRQ_TYPE_EDGE_FALLING 21 0>;
+		vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
+		goodix,reset-gpio = <&pio 20 0x0>;
+		goodix,irq-gpio = <&pio 21 0x0>;
+		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
+		goodix,panel-max-id = <10>;
+		goodix,panel-max-x = <1080>;
+		goodix,panel-max-y = <2280>;
+		goodix,panel-max-w = <256>;
+		goodix,panel-max-p = <256>;
+		goodix,input-max-x = <1080>;
+		goodix,input-max-y = <2280>;
+		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
+		goodix,power-on-delay-us = <10000>; /*10ms*/
+		goodix,power-off-delay-us = <5000>;
+		goodix,firmware-version = "6885v01";
+		goodix,config-version = "6885v01";
+		/*goodix,swap-axis;*/
+		/*goodix,x2x;*/
+		/*goodix,y2y;*/
+		goodix,pen-enable;
+		goodix,key-of-pen = <331 332>;/*BTN_STYLUS, BTN_STYLUS2*/
+		tpd-filter-enable = <0>;
+		tpd-filter-pixel-density = <161>;
+		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+		tpd-filter-custom-speed = <0 0 0>;
+	};
+
+};
+
+&pio {
+	ctp_pins_default: eintdefault {
+	};
+	ctp_ts_int_active: int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			input-enable;
+		};
+	};
+	ctp_ts_reset_active: reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			output-high;
+		};
+	};
+	ctp_ts_int_suspend: int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			output-low;
+		};
+	};
+	ctp_ts_reset_suspend: reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			output-low;
+		};
+	};
+	ctp_ts_i2c_mode: i2cmode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_SCL0>,
+				<PINMUX_GPIO205__FUNC_SDA0>;
+		};
+	};
+};
+/* TOUCH end */

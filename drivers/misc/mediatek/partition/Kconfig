@@ -1,0 +1,8 @@
+config MTK_GPT_SCHEME_SUPPORT
+	bool "MTK GUID Partition Table SCHEME SUPPORT"
+	depends on EFI_PARTITION
+	help
+	  MTK Support for GUID Partition Table
+	  Provide APIs to query GPT information
+	  Set Y to support.
+	  Set N to disable.

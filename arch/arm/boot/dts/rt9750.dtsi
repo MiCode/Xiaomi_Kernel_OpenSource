@@ -1,0 +1,35 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ * ShuFanLee <shufan_lee@richtek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
+&i2c7 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	rt9750@67 {
+		compatible = "richtek,rt9750";
+		reg = <0x67>;
+		status = "okay";
+		charger_name = "primary_load_switch";
+		alias_name = "rt9750";
+		rt,en_gpio_num = <195>;
+		rt,en_gpio = <&pio 195 0x0>;
+		rt,intr_gpio_num = <37>; /* direct defined GPIO num */
+		rt,intr_gpio = <&pio 37 0x0>;
+		vout_reg = <5000000>; /* uV */
+		vbat_reg = <4500000>; /* uV */
+		iococp = <6500000>; /* uA */
+		regmap_represent_slave_addr = <0x67>;
+		regmap_name = "rt9750";
+		wdt = <0>; /* 0, 500000, 1000000, 2000000 us */
+	};
+};

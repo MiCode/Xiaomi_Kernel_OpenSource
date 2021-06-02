@@ -1,0 +1,21 @@
+# OP-TEE Trusted Execution Environment Configuration
+config MITEE
+	tristate "OP-TEE"
+	help
+	  This implements the OP-TEE Trusted Execution Environment (TEE)
+	  driver.
+
+config OPTEE_SHM_NUM_PRIV_PAGES
+	int "Private Shared Memory Pages"
+	default 1
+	depends on MITEE
+	help
+	  This sets the number of private shared memory pages to be
+	  used by OP-TEE TEE driver.
+
+config OPTEE_BENCHMARK
+	bool "OP-TEE Benchmark (EXPERIMENTAL)"
+	depends on MITEE
+	help
+	  This enables benchmarking feature in the OP-TEE Trusted
+	  Execution Environment (TEE) driver.
