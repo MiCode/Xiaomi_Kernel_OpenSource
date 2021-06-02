@@ -42,7 +42,7 @@ static struct kmem_cache *addr_page_cache;
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
-	int page_count;
+	unsigned int page_count;
 	unsigned int reserved_pages;
 	spinlock_t list_lock;
 	struct rb_root pool_rbtree;
@@ -120,7 +120,7 @@ static void kgsl_pool_cache_init(void)
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
-	int page_count;
+	unsigned int page_count;
 	unsigned int reserved_pages;
 	spinlock_t list_lock;
 	struct list_head page_list;
