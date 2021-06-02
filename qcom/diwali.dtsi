@@ -811,6 +811,11 @@
 		cap-based-alloc-and-pwr-collapse;
 	};
 
+	qcom,secure-buffer {
+		compatible = "qcom,secure-buffer";
+		qcom,vmid-cp-camera-preview-ro;
+	};
+
 	tcsr_mutex_block: syscon@1f40000 {
 		compatible = "syscon";
 		reg = <0x1f40000 0x20000>;
