@@ -140,6 +140,7 @@
 #define IPA_IOCTL_SET_PKT_THRESHOLD             87
 #define IPA_IOCTL_ADD_EoGRE_MAPPING             88
 #define IPA_IOCTL_DEL_EoGRE_MAPPING             89
+#define IPA_IOCTL_SET_IPPT_SW_FLT               90
 
 /**
  * max size of the header to be inserted
@@ -199,6 +200,12 @@
 #define IPA_FLT_RT_SW_COUNTER \
 	(IPA_MAX_FLT_RT_CNT_INDEX - IPA_FLT_RT_HW_COUNTER)
 #define IPA_MAX_FLT_RT_CLIENTS 60
+
+/**
+ * Max number of ports/IPs IPPT exception
+ */
+
+#define IPA_MAX_IPPT_NUM_PORT_FLT 5
 
 /**
  * New feature flag for CV2X config.
@@ -887,7 +894,13 @@ enum ipa_eogre_event {
 #define IPA_EoGRE_EVENT_MAX IPA_EoGRE_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_EoGRE_EVENT_MAX)
+enum ipa_ippt_sw_flt_event {
+	IPA_IPPT_SW_FLT_EVENT = IPA_EoGRE_EVENT_MAX,
+	IPA_IPPT_SW_FLT_EVENT_MAX
+#define IPA_IPPT_SW_FLT_EVENT_MAX IPA_IPPT_SW_FLT_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_IPPT_SW_FLT_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -3267,10 +3280,32 @@ struct ipa_sw_flt_list_type {
 };
 
 /**
+ * struct ipa_ippt_sw_flt_list_type- exception list
+ * @ipv4_enable: true to block ipv4 addrs given below and false to clean
+ *		up all previous ipv4 addrs
+ * @num_of_ipv4: holds num of ipv4 to SW-exception
+ * @ipv4: an array to hold ipv4 addrs to SW-exception
+ * @port_enable: true to block current ports and false to clean
+ *		up all previous ports
+ * @num_of_port: holds num of ports to SW-exception
+ * @port: an array to hold connection ports to SW-exception
+ */
+
+struct ipa_ippt_sw_flt_list_type {
+	uint8_t ipv4_enable;
+	int num_of_ipv4;
+	uint32_t ipv4[IPA_MAX_PDN_NUM];
+	uint8_t port_enable;
+	int num_of_port;
+	uint16_t port[IPA_MAX_IPPT_NUM_PORT_FLT];
+};
+
+/**
  * struct ipa_ioc_sw_flt_list_type
  * @ioctl_ptr: has to be typecasted to (__u64)(uintptr_t)
  * @ioctl_data_size:
  * Eg: For ipa_sw_flt_list_type = sizeof(ipa_sw_flt_list_type)
+ * Eg: For ipa_ippt_sw_flt_list_type = sizeof(ipa_ippt_sw_flt_list_type)
  */
 struct ipa_ioc_sw_flt_list_type {
 	__u64 ioctl_ptr;
@@ -3577,6 +3612,10 @@ struct ipa_ioc_sw_flt_list_type {
 #define IPA_IOC_DEL_EoGRE_MAPPING _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_DEL_EoGRE_MAPPING, \
 				struct ipa_ioc_eogre_info)
+
+#define IPA_IOC_SET_IPPT_SW_FLT _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_IPPT_SW_FLT, \
+				struct ipa_ioc_sw_flt_list_type)
 /*
  * unique magic number of the Tethering bridge ioctls
  */
