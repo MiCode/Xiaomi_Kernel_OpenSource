@@ -2244,7 +2244,7 @@ static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
 	struct fuse_passthrough_out pto;
 
 	if (_IOC_TYPE(cmd) != FUSE_DEV_IOC_MAGIC)
-		return -EINVAL;
+		return -ENOTTY;
 
 	switch (_IOC_NR(cmd)) {
 	case _IOC_NR(FUSE_DEV_IOC_CLONE):

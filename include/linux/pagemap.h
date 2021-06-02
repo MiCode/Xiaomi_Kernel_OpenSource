@@ -19,6 +19,11 @@
 
 struct pagevec;
 
+static inline bool mapping_empty(struct address_space *mapping)
+{
+	return xa_empty(&mapping->i_pages);
+}
+
 /*
  * Bits in mapping->flags.
  */
@@ -157,6 +162,16 @@ static inline void filemap_nr_thps_dec(struct address_space *mapping)
 }
 
 void release_pages(struct page **pages, int nr);
+
+/*
+ * For file cache pages, return the address_space, otherwise return NULL
+ */
+static inline struct address_space *page_mapping_file(struct page *page)
+{
+	if (unlikely(PageSwapCache(page)))
+		return NULL;
+	return page_mapping(page);
+}
 
 /*
  * speculatively take a reference to a page.

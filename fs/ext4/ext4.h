@@ -162,7 +162,12 @@ enum SHIFT_DIRECTION {
 #define EXT4_MB_USE_RESERVED		0x2000
 /* Do strict check for free blocks while retrying block allocation */
 #define EXT4_MB_STRICT_CHECK		0x4000
-
+/* Large fragment size list lookup succeeded at least once for cr = 0 */
+#define EXT4_MB_CR0_OPTIMIZED		0x8000
+/* Avg fragment size rb tree lookup succeeded at least once for cr = 1 */
+#define EXT4_MB_CR1_OPTIMIZED		0x00010000
+/* Perform linear traversal for one group */
+#define EXT4_MB_SEARCH_NEXT_LINEAR	0x00020000
 struct ext4_allocation_request {
 	/* target inode for block we're allocating */
 	struct inode *inode;
@@ -1213,7 +1218,7 @@ struct ext4_inode_info {
 #define EXT4_MOUNT_JOURNAL_CHECKSUM	0x800000 /* Journal checksums */
 #define EXT4_MOUNT_JOURNAL_ASYNC_COMMIT	0x1000000 /* Journal Async Commit */
 #define EXT4_MOUNT_WARN_ON_ERROR	0x2000000 /* Trigger WARN_ON on error */
-#define EXT4_MOUNT_PREFETCH_BLOCK_BITMAPS 0x4000000
+#define EXT4_MOUNT_NO_PREFETCH_BLOCK_BITMAPS 0x4000000
 #define EXT4_MOUNT_DELALLOC		0x8000000 /* Delalloc support */
 #define EXT4_MOUNT_DATA_ERR_ABORT	0x10000000 /* Abort on file data write */
 #define EXT4_MOUNT_BLOCK_VALIDITY	0x20000000 /* Block validity checking */
@@ -1238,7 +1243,9 @@ struct ext4_inode_info {
 #define EXT4_MOUNT2_JOURNAL_FAST_COMMIT	0x00000010 /* Journal fast commit */
 #define EXT4_MOUNT2_DAX_NEVER		0x00000020 /* Do not allow Direct Access */
 #define EXT4_MOUNT2_DAX_INODE		0x00000040 /* For printing options only */
-
+#define EXT4_MOUNT2_MB_OPTIMIZE_SCAN	0x00000080 /* Optimize group
+						    * scanning in mballoc
+						    */
 
 #define clear_opt(sb, opt)		EXT4_SB(sb)->s_mount_opt &= \
 						~EXT4_MOUNT_##opt
@@ -1519,9 +1526,14 @@ struct ext4_sb_info {
 	unsigned int s_mb_free_pending;
 	struct list_head s_freed_data_list;	/* List of blocks to be freed
 						   after commit completed */
+	struct rb_root s_mb_avg_fragment_size_root;
+	rwlock_t s_mb_rb_lock;
+	struct list_head *s_mb_largest_free_orders;
+	rwlock_t *s_mb_largest_free_orders_locks;
 
 	/* tunables */
 	unsigned long s_stripe;
+	unsigned int s_mb_max_linear_groups;
 	unsigned int s_mb_stream_request;
 	unsigned int s_mb_max_to_scan;
 	unsigned int s_mb_min_to_scan;
@@ -1541,12 +1553,17 @@ struct ext4_sb_info {
 	atomic_t s_bal_success;	/* we found long enough chunks */
 	atomic_t s_bal_allocated;	/* in blocks */
 	atomic_t s_bal_ex_scanned;	/* total extents scanned */
+	atomic_t s_bal_groups_scanned;	/* number of groups scanned */
 	atomic_t s_bal_goals;	/* goal hits */
 	atomic_t s_bal_breaks;	/* too long searches */
 	atomic_t s_bal_2orders;	/* 2^order hits */
-	spinlock_t s_bal_lock;
-	unsigned long s_mb_buddies_generated;
-	unsigned long long s_mb_generation_time;
+	atomic_t s_bal_cr0_bad_suggestions;
+	atomic_t s_bal_cr1_bad_suggestions;
+	atomic64_t s_bal_cX_groups_considered[4];
+	atomic64_t s_bal_cX_hits[4];
+	atomic64_t s_bal_cX_failed[4];		/* cX loop didn't find blocks */
+	atomic_t s_mb_buddies_generated;	/* number of buddies generated */
+	atomic64_t s_mb_generation_time;
 	atomic_t s_mb_lost_chunks;
 	atomic_t s_mb_preallocated;
 	atomic_t s_mb_discarded;
@@ -2741,17 +2758,16 @@ extern int __ext4_check_dir_entry(const char *, unsigned int, struct inode *,
 				  struct file *,
 				  struct ext4_dir_entry_2 *,
 				  struct buffer_head *, char *, int,
-				  ext4_lblk_t, unsigned int);
-#define ext4_check_dir_entry(dir, filp, de, bh, buf, size, lblk, offset) \
+				  unsigned int);
+#define ext4_check_dir_entry(dir, filp, de, bh, buf, size, offset) \
 	unlikely(__ext4_check_dir_entry(__func__, __LINE__, (dir), (filp), \
-				(de), (bh), (buf), (size), (lblk), (offset)))
+				(de), (bh), (buf), (size), (offset)))
 extern int ext4_htree_store_dirent(struct file *dir_file, __u32 hash,
 				__u32 minor_hash,
 				struct ext4_dir_entry_2 *dirent,
 				struct fscrypt_str *ent_name);
 extern void ext4_htree_free_dir_info(struct dir_private_info *p);
 extern int ext4_find_dest_de(struct inode *dir, struct inode *inode,
-			     ext4_lblk_t lblk,
 			     struct buffer_head *bh,
 			     void *buf, int buf_size,
 			     struct ext4_filename *fname,
@@ -2847,8 +2863,10 @@ int __init ext4_fc_init_dentry_cache(void);
 
 /* mballoc.c */
 extern const struct seq_operations ext4_mb_seq_groups_ops;
+extern const struct seq_operations ext4_mb_seq_structs_summary_ops;
 extern long ext4_mb_stats;
 extern long ext4_mb_max_to_scan;
+extern int ext4_seq_mb_stats_show(struct seq_file *seq, void *offset);
 extern int ext4_mb_init(struct super_block *);
 extern int ext4_mb_release(struct super_block *);
 extern ext4_fsblk_t ext4_mb_new_blocks(handle_t *,
@@ -2987,11 +3005,10 @@ extern int ext4_search_dir(struct buffer_head *bh,
 			   int buf_size,
 			   struct inode *dir,
 			   struct ext4_filename *fname,
-			   ext4_lblk_t lblk, unsigned int offset,
+			   unsigned int offset,
 			   struct ext4_dir_entry_2 **res_dir);
 extern int ext4_generic_delete_entry(struct inode *dir,
 				     struct ext4_dir_entry_2 *de_del,
-				     ext4_lblk_t lblk,
 				     struct buffer_head *bh,
 				     void *entry_buf,
 				     int buf_size,
@@ -3352,11 +3369,14 @@ struct ext4_group_info {
 	ext4_grpblk_t	bb_free;	/* total free blocks */
 	ext4_grpblk_t	bb_fragments;	/* nr of freespace fragments */
 	ext4_grpblk_t	bb_largest_free_order;/* order of largest frag in BG */
+	ext4_group_t	bb_group;	/* Group number */
 	struct          list_head bb_prealloc_list;
 #ifdef DOUBLE_CHECK
 	void            *bb_bitmap;
 #endif
 	struct rw_semaphore alloc_sem;
+	struct rb_node	bb_avg_fragment_size_rb;
+	struct list_head bb_largest_free_order_node;
 	ext4_grpblk_t	bb_counters[];	/* Nr of free power-of-two-block
 					 * regions, index is order.
 					 * bb_counters[3] = 5 means

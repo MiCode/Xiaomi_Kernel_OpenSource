@@ -117,3 +117,5 @@ mtk_pep-objs := mtk_pe.o mtk_pe_hal.o
 obj-$(CONFIG_MTK_PUMP_EXPRESS_40_SUPPORT) += mtk_pep40.o
 mtk_pep40-objs := mtk_pe4.o mtk_pe4_hal.o
 obj-$(CONFIG_BATTERY_ACER_A500)	+= acer_a500_battery.o
+obj-$(CONFIG_BATTERY_SURFACE)	+= surface_battery.o
+obj-$(CONFIG_CHARGER_SURFACE)	+= surface_charger.o

@@ -524,7 +524,7 @@ static bool is_dcmd_request(struct mmc_request *mrq)
 
 	host = mq->card->host;
 
-	if (mq->use_cqe && !host->hsq_enabled) {
+	if (!host->hsq_enabled) {
 		if (req_op(req) == REQ_OP_FLUSH)
 			return (host->caps2 & MMC_CAP2_CQE_DCMD) ? true : false;
 	}

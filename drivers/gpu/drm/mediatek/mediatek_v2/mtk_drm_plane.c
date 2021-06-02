@@ -273,9 +273,11 @@ static const struct drm_plane_funcs mtk_plane_funcs = {
 };
 
 static int mtk_plane_atomic_check(struct drm_plane *plane,
-				  struct drm_plane_state *state)
+				  struct drm_atomic_state *state)
 {
-	struct drm_framebuffer *fb = state->fb;
+	struct drm_plane_state *new_plane_state =
+		drm_atomic_get_new_plane_state(state, plane);
+	struct drm_framebuffer *fb = new_plane_state->fb;
 	struct drm_crtc_state *crtc_state;
 	struct mtk_drm_private *private = plane->dev->dev_private;
 
@@ -287,20 +289,18 @@ static int mtk_plane_atomic_check(struct drm_plane *plane,
 		return -EFAULT;
 	}
 
-	if (!state->crtc)
-		return 0;
-
-	crtc_state = drm_atomic_get_crtc_state(state->state, state->crtc);
+	crtc_state = drm_atomic_get_crtc_state(state,
+					       new_plane_state->crtc);
 	if (IS_ERR(crtc_state))
 		return PTR_ERR(crtc_state);
 
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_RPO))
 		return drm_atomic_helper_check_plane_state(
-			state, crtc_state, MTK_DRM_PLANE_SCALING_MIN,
+			new_plane_state, crtc_state, MTK_DRM_PLANE_SCALING_MIN,
 			MTK_DRM_PLANE_SCALING_MAX, true, true);
 	else
 		return drm_atomic_helper_check_plane_state(
-			state, crtc_state, DRM_PLANE_HELPER_NO_SCALING,
+			new_plane_state, crtc_state, DRM_PLANE_HELPER_NO_SCALING,
 			DRM_PLANE_HELPER_NO_SCALING, true, true);
 }
 
@@ -355,7 +355,7 @@ void mtk_plane_get_comp_state(struct drm_plane *plane,
 #endif
 
 static void mtk_plane_atomic_update(struct drm_plane *plane,
-				    struct drm_plane_state *old_state)
+				    struct drm_atomic_state *old_state)
 {
 	struct mtk_plane_state *state = to_mtk_plane_state(plane->state);
 	struct drm_crtc *crtc = plane->state->crtc;
@@ -461,7 +461,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 }
 
 static void mtk_plane_atomic_disable(struct drm_plane *plane,
-				     struct drm_plane_state *old_state)
+				     struct drm_atomic_state *old_state)
 {
 	struct mtk_plane_state *state = to_mtk_plane_state(plane->state);
 
