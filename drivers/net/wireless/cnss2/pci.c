@@ -2919,6 +2919,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
 	struct cnss_pci_data *pci_priv;
+	const struct pci_device_id *id_table = driver_ops->id_table;
 	unsigned int timeout;
 
 	if (!plat_priv) {
@@ -2942,8 +2943,17 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EINVAL;
 	}
 
-	if (!driver_ops->id_table || !pci_dev_present(driver_ops->id_table)) {
-		cnss_pr_err("PCIe device id is %x, not supported by platform\n",
+	if (!id_table || !pci_dev_present(id_table)) {
+		/* id_table pointer will move from pci_dev_present(),
+		 * so check again using local pointer.
+		 */
+		id_table = driver_ops->id_table;
+		while (id_table->vendor) {
+			cnss_pr_info("Host driver is built for PCIe device ID 0x%x\n",
+				     id_table->device);
+			id_table++;
+		}
+		cnss_pr_err("Enumerated PCIe device id is 0x%x, reject unsupported driver\n",
 			    pci_priv->device_id);
 		return -ENODEV;
 	}
