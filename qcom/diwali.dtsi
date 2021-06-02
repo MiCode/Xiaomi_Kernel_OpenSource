@@ -1588,6 +1588,10 @@
 
 	thermal_zones: thermal-zones {
 	};
+
+	qcom,mem-buf-msgq {
+		compatible = "qcom,mem-buf-msgq";
+	};
 };
 
 #include "diwali-qupv3.dtsi"
