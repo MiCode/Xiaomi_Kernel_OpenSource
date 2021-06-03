@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -183,11 +183,8 @@ long adreno_ioctl_helper(struct kgsl_device_private *dev_priv,
 			break;
 	}
 
-	if (i == len) {
-		dev_err(dev_priv->device->dev,
-			     "invalid ioctl code 0x%08X\n", cmd);
+	if (i == len)
 		return -ENOIOCTLCMD;
-	}
 
 	if (_IOC_SIZE(cmds[i].cmd > sizeof(data))) {
 		dev_err_ratelimited(dev_priv->device->dev,

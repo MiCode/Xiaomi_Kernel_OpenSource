@@ -113,7 +113,10 @@ static inline void __strict_check(struct venus_hfi_device *device)
 		WARN_ON(VIDC_DBG_WARN_ENABLE);
 	}
 }
-
+static inline bool is_clock_bus_voted(struct venus_hfi_device *device)
+{
+	return (device->bus_vote.total_bw_ddr && device->clk_freq);
+}
 static inline void __set_state(struct venus_hfi_device *device,
 		enum venus_hfi_state state)
 {
@@ -812,13 +815,18 @@ no_data_count:
 
 	venus_hfi_for_each_bus(device, bus) {
 		if (!bus->is_prfm_gov_used) {
-			freq = __calc_bw(bus, &device->bus_vote);
-			rc = __vote_bandwidth(bus, &freq);
-		} else {
+			rc = msm_vidc_table_get_target_freq(
+					device->res->gov_data,
+					&device->bus_vote, &freq);
+			if (rc) {
+				dprintk(VIDC_ERR, "unable to get freq\n");
+				return rc;
+			}
+			device->bus_vote.total_bw_ddr = freq;
+		} else
 			freq = bus->range[1];
-			rc = __vote_bandwidth(bus, &freq);
-		}
 
+		rc = __vote_bandwidth(bus, &freq);
 		if (rc)
 			return rc;
 	}
@@ -1526,6 +1534,12 @@ static int __iface_cmdq_write_relaxed(struct venus_hfi_device *device,
 		dprintk(VIDC_ERR, "%s: Power on failed\n", __func__);
 		goto err_q_write;
 	}
+
+	if (cmd_packet->packet_type == HFI_CMD_SESSION_EMPTY_BUFFER &&
+				!is_clock_bus_voted(device))
+		dprintk(VIDC_ERR, "%s: bus %llu bps or clock %lu MHz\n",
+				__func__, device->bus_vote.total_bw_ddr,
+					device->clk_freq);
 
 	if (!__write_queue(q_info, (u8 *)pkt, requires_interrupt)) {
 		if (device->res->sw_power_collapsible) {

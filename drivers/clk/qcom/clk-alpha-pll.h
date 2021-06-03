@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2015, 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2015, 2018-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef __QCOM_CLK_ALPHA_PLL_H__
 #define __QCOM_CLK_ALPHA_PLL_H__
@@ -91,6 +91,7 @@ struct clk_alpha_pll {
 #define SUPPORTS_SLEW		BIT(4)
 	/* Associated with soft_vote for multiple PLL software instances */
 #define SUPPORTS_FSM_VOTE	BIT(5)
+#define SUPPORTS_FSM_LEGACY_MODE BIT(6)
 	u8 flags;
 
 	struct clk_regmap clkr;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015, 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -30,6 +30,7 @@
 #define PLL_VOTE_FSM_RESET	BIT(21)
 #define PLL_UPDATE		BIT(22)
 #define PLL_UPDATE_BYPASS	BIT(23)
+#define PLL_FSM_LEGACY_MODE	BIT(24)
 #define PLL_ALPHA_EN		BIT(24)
 #define PLL_OFFLINE_ACK		BIT(28)
 #define ALPHA_PLL_ACK_LATCH	BIT(29)
@@ -1265,10 +1266,10 @@ static int clk_zonda_pll_enable(struct clk_hw *hw)
 static void clk_zonda_pll_disable(struct clk_hw *hw)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 val, mask, off = pll->offset;
+	u32 val, mask;
 	int ret;
 
-	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE(pll), &val);
+	ret = regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
 	if (ret)
 		return;
 
@@ -2076,6 +2077,9 @@ void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				 PLL_UPDATE_BYPASS,
 				 PLL_UPDATE_BYPASS);
 
+	if (pll->flags & SUPPORTS_FSM_LEGACY_MODE)
+		regmap_update_bits(regmap, PLL_MODE(pll), PLL_FSM_LEGACY_MODE,
+						PLL_FSM_LEGACY_MODE);
 	/* Disable PLL output */
 	regmap_update_bits(regmap, PLL_MODE(pll),
 					PLL_OUTCTRL, 0);

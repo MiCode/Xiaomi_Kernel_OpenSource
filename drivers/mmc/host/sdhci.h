@@ -733,7 +733,6 @@ struct sdhci_ops {
 					bool enable, u32 type);
 	int     (*enable_controller_clock)(struct sdhci_host *host);
 	void	(*clear_set_dumpregs)(struct sdhci_host *host, bool set);
-	void	(*enhanced_strobe_mask)(struct sdhci_host *host, bool set);
 	void    (*dump_vendor_regs)(struct sdhci_host *host);
 	void	(*voltage_switch)(struct sdhci_host *host);
 	int	(*select_drive_strength)(struct sdhci_host *host,
