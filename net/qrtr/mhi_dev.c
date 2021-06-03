@@ -137,16 +137,16 @@ static int qrtr_mhi_dev_open_channels(struct qrtr_mhi_dev_ep *qep)
 	int rc;
 
 	/* write channel */
-	rc = mhi_dev_open_channel(QRTR_MHI_DEV_OUT, &qep->out,
+	rc = mhi_dev_open_channel(QRTR_MHI_DEV_IN, &qep->in,
 				  qrtr_mhi_dev_event_cb);
 	if (rc < 0)
 		return rc;
 
 	/* read channel */
-	rc = mhi_dev_open_channel(QRTR_MHI_DEV_IN, &qep->in,
+	rc = mhi_dev_open_channel(QRTR_MHI_DEV_OUT, &qep->out,
 				  qrtr_mhi_dev_event_cb);
 	if (rc < 0) {
-		mhi_dev_close_channel(qep->out);
+		mhi_dev_close_channel(qep->in);
 		return rc;
 	}
 	return 0;
@@ -156,13 +156,13 @@ static void qrtr_mhi_dev_close_channels(struct qrtr_mhi_dev_ep *qep)
 {
 	int rc;
 
-	rc = mhi_dev_close_channel(qep->out);
-	if (rc < 0)
-		dev_err(qep->dev, "failed to close out channel %d\n", rc);
-
 	rc = mhi_dev_close_channel(qep->in);
 	if (rc < 0)
 		dev_err(qep->dev, "failed to close in channel %d\n", rc);
+
+	rc = mhi_dev_close_channel(qep->out);
+	if (rc < 0)
+		dev_err(qep->dev, "failed to close out channel %d\n", rc);
 }
 
 static void qrtr_mhi_dev_state_cb(struct mhi_dev_client_cb_data *cb_data)
@@ -224,7 +224,7 @@ static int qrtr_mhi_dev_probe(struct platform_device *pdev)
 	init_completion(&qep->out_tre);
 	qep->ep.xmit = qrtr_mhi_dev_send;
 	rc = mhi_register_state_cb(qrtr_mhi_dev_state_cb, qep,
-				   QRTR_MHI_DEV_OUT);
+				   QRTR_MHI_DEV_IN);
 	if (rc)
 		return rc;
 
