@@ -1094,19 +1094,15 @@ int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv)
 	ret = of_property_read_string(plat_priv->plat_dev->dev.of_node,
 				      "qcom,vreg_ol_cpr",
 				      &plat_priv->vreg_ol_cpr);
-	if (ret) {
+	if (ret)
 		cnss_pr_dbg("Vreg for OL CPR not configured\n");
-		goto out;
-	}
 
 	ret = of_property_read_string(plat_priv->plat_dev->dev.of_node,
 				      "qcom,vreg_ipa",
 				      &plat_priv->vreg_ipa);
-	if (ret) {
+	if (ret)
 		cnss_pr_dbg("Volt regulator for Int Power Amp not configured\n");
-		goto out;
-	}
-out:
+
 	cnss_pr_dbg("Mbox channel initialized\n");
 	return 0;
 }
