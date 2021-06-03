@@ -8,6 +8,15 @@
 
 #define MAX_FIFO_COUNT			36
 
+enum QBG_STATE {
+	QBG_LPM,
+	QBG_MPM,
+	QBG_HPM,
+	QBG_FAST_CHAR,
+	QBG_PON_OCV,
+	QBG_STATE_MAX,
+};
+
 enum QBG_SDAM_DATA_OFFSET {
 	QBG_ACC0_OFFSET = 0,
 	QBG_ACC1_OFFSET = 2,
@@ -41,10 +50,7 @@ enum qbg {
 	QBG_PARAM_SYS_SOC_HOLD_100PCT,
 	QBG_PARAM_JEITA_COOL_THRESHOLD,
 	QBG_PARAM_TOTAL_IMPEDANCE,
-	QBG_PARAM_PON_OCV,
-	QBG_PARAM_PON_IBAT,
-	QBG_PARAM_PON_SOC,
-	QBG_PARAM_BATT_ID,
+	QBG_PARAM_ESSENTIAL_PARAM_REVID,
 	QBG_PARAM_FIFO_TIMESTAMP,
 	QBG_PARAM_MAX,
 };
@@ -115,6 +121,9 @@ struct qbg_config {
 	unsigned int	iterm_ma;
 	unsigned int	rconn_mohm;
 	unsigned long	current_time;
+	unsigned int	sdam_batt_id;
+	unsigned int	essential_param_revid;
+	unsigned long	sample_time_us[QBG_STATE_MAX];
 } __attribute__ ((__packed__));
 
 struct qbg_param {

@@ -67,7 +67,20 @@
 
 #define QBG_MAIN_VBAT_EMPTY_THRESH			0x56
 
+#define QBG_MAIN_HPM_MEAS_CTL2				0x5d
+
+#define QBG_MAIN_MPM_MEAS_CTL2				0x61
+
+#define QBG_MAIN_LPM_MEAS_CTL2				0x65
+#define QBG_NUM_OF_ACCUM_MASK				GENMASK(7, 5)
+#define QBG_NUM_OF_ACCUM_SHIFT				5
+#define QBG_ACCUM_INTERVAL_MASK				GENMASK(2, 0)
+
+#define QBG_MAIN_FAST_CHAR_MEAS_CTL2			0x69
+
 #define QBG_MAIN_PON_OCV_ACC0_DATA0			0x70
+
+#define QBG_MAIN_LAST_ADC_ACC0_DATA0			0x9A
 
 #define QBG_MAIN_LAST_BURST_AVG_ACC0_DATA0		0xA0
 
@@ -75,7 +88,7 @@
 
 #define QBG_FAST_CHAR_DELTA_MS				100000
 #define VBATT_1S_LSB					19463
-#define IBATT_10A_LSB					30518
+#define IBATT_10A_LSB					6103
 #define VBAT_0PCT_OCV					300000000ULL
 #define ICHG_FS_10A					1
 #define TBAT_LSB					7500
@@ -86,11 +99,14 @@
 #define OCV_BOOST_MAX_UV				5600000
 #define OCV_BOOST_STEP_UV				100000
 
-enum qbg_data_tag {
-	QBG_DATA_TAG_FAST_CHAR,
-};
-
 static int qbg_debug_mask;
+
+static const unsigned int qbg_accum_interval[8] = {
+	10000, 20000, 50000, 100000, 150000, 200000, 500000, 1000000};
+static const unsigned int qbg_lpm_accum_interval[8] = {
+	100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000, 100000000};
+static const unsigned int qbg_fast_char_avg_interval[8] = {
+	6250, 12500, 25000, 50000, 100000, 200000, 400000, 800000};
 
 static const struct qbg_iio_channels qbg_iio_psy_channels[] = {
 	QBG_CHAN_INDEX("debug_battery", PSY_IIO_DEBUG_BATTERY)
@@ -100,6 +116,7 @@ static const struct qbg_iio_channels qbg_iio_psy_channels[] = {
 	QBG_CHAN_VOLT("voltage_max", PSY_IIO_VOLTAGE_MAX)
 	QBG_CHAN_VOLT("voltage_now", PSY_IIO_VOLTAGE_NOW)
 	QBG_CHAN_VOLT("voltage_ocv", PSY_IIO_VOLTAGE_OCV)
+	QBG_CHAN_VOLT("voltage_avg", PSY_IIO_VOLTAGE_AVG)
 	QBG_CHAN_CUR("current_now", PSY_IIO_CURRENT_NOW)
 	QBG_CHAN_RES("resistance_id", PSY_IIO_RESISTANCE_ID)
 	QBG_CHAN_TSTAMP("time_to_full_avg", PSY_IIO_TIME_TO_FULL_AVG)
@@ -215,7 +232,7 @@ static int qbg_get_fifo_count(struct qti_qbg *chip, u32 *fifo_count)
 	u8 val[2];
 
 	rc = qbg_sdam_read(chip,
-		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_FIFO_COUNT_OFFSET,
+		QBG_SDAM_BASE(chip, SDAM_CTRL0) + QBG_SDAM_FIFO_COUNT_OFFSET,
 		val, 2);
 	if (rc < 0) {
 		pr_err("Failed to read QBG SDAM, rc=%d\n", rc);
@@ -223,7 +240,7 @@ static int qbg_get_fifo_count(struct qti_qbg *chip, u32 *fifo_count)
 	}
 
 	*fifo_count = (val[1] << 8) | val[0];
-	qbg_dbg(chip, QBG_DEBUG_FIFO, "FIFO count=%d\n", *fifo_count);
+	qbg_dbg(chip, QBG_DEBUG_SDAM, "FIFO count=%d\n", *fifo_count);
 
 	return rc;
 }
@@ -248,13 +265,14 @@ static void update_ocv_for_boost(struct qti_qbg *chip)
 
 	qbg_dbg(chip, QBG_DEBUG_STATUS, "Boost OCV value written =%d\n", ocv_for_boost);
 	qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_BHARGER_OCV_HDRM_OFFSET,
+		QBG_SDAM_BASE(chip, SDAM_CTRL0) + QBG_SDAM_BHARGER_OCV_HDRM_OFFSET,
 		(u8 *)&ocv_for_boost, 1);
 }
 
 static void process_udata_work(struct work_struct *work)
 {
 	struct qti_qbg *chip = container_of(work, struct qti_qbg, udata_work);
+	int rc;
 
 	if (chip->udata.param[QBG_PARAM_BATT_SOC].valid)
 		chip->batt_soc = chip->udata.param[QBG_PARAM_BATT_SOC].data;
@@ -305,6 +323,20 @@ static void process_udata_work(struct work_struct *work)
 
 	if (chip->udata.param[QBG_PARAM_TBAT].valid)
 		chip->tbat = chip->udata.param[QBG_PARAM_TBAT].data;
+
+	if (chip->udata.param[QBG_PARAM_ESSENTIAL_PARAM_REVID].valid) {
+		chip->essential_param_revid =
+			chip->udata.param[QBG_PARAM_ESSENTIAL_PARAM_REVID].data;
+
+		rc = qbg_sdam_set_essential_param_revid(chip, chip->essential_param_revid);
+		if (rc < 0)
+			pr_err("Failed to set essential param revid in sdam, rc=%d\n",
+				rc);
+	}
+
+	rc = qbg_sdam_set_battery_id(chip, chip->batt_id_ohm / 1000);
+	if (rc < 0)
+		pr_err("Failed to set battid in sdam, rc=%d\n", rc);
 
 	qbg_dbg(chip, QBG_DEBUG_STATUS, "udata update: batt_soc=%d sys_soc=%d soc=%d qbg_esr=%d\n",
 		(chip->batt_soc != INT_MIN) ? chip->batt_soc : -EINVAL,
@@ -382,7 +414,7 @@ static int qbg_process_fifo(struct qti_qbg *chip, u32 fifo_count)
 	unsigned long timestamp;
 
 	if (!fifo_count) {
-		qbg_dbg(chip, QBG_DEBUG_FIFO, "No FIFO data\n");
+		qbg_dbg(chip, QBG_DEBUG_SDAM, "No FIFO data\n");
 		return -EINVAL;
 	}
 
@@ -439,7 +471,7 @@ static int qbg_process_fifo(struct qti_qbg *chip, u32 fifo_count)
 			esr = (vbat1 - vbat1_esr) / ((ibat_esr - ibat) * 10000);
 			esr *= 10000;
 			chip->esr = esr;
-			qbg_dbg(chip, QBG_DEBUG_FIFO, "ESR:%u, ibat=%d ibat_esr=%d vbat1:%u vbat1_esr:%u\n",
+			qbg_dbg(chip, QBG_DEBUG_SDAM, "ESR:%u, ibat=%d ibat_esr=%d vbat1:%u vbat1_esr:%u\n",
 				esr, ibat, ibat_esr, vbat1, vbat1_esr);
 		} else {
 			pr_err("Couldn't calculate ESR, ibat=%d ibat_esr=%d vbat1:%u vbat1_esr:%u\n",
@@ -456,7 +488,7 @@ static int qbg_process_fifo(struct qti_qbg *chip, u32 fifo_count)
 			goto ret;
 		}
 
-		qbg_dbg(chip, QBG_DEBUG_FIFO, "vbat1:%u ibat:%d tbat:%u ibat_t:%u\n",
+		qbg_dbg(chip, QBG_DEBUG_SDAM, "vbat1:%u ibat:%d tbat:%u ibat_t:%u\n",
 			vbat1, ibat, tbat, ibat_t);
 
 		chip->kdata.fifo[i].v1 = vbat1;
@@ -464,6 +496,7 @@ static int qbg_process_fifo(struct qti_qbg *chip, u32 fifo_count)
 		chip->kdata.fifo[i].i = ibat;
 		chip->kdata.fifo[i].tbat = tbat;
 		chip->kdata.fifo[i].ibat = ibat_t;
+		chip->kdata.fifo[i].data_tag = fifo[i].data_tag;
 	}
 
 ret:
@@ -477,7 +510,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 	u8 val[2] = {0, 0};
 
 	rc = qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_FIFO_COUNT_OFFSET,
+		QBG_SDAM_BASE(chip, SDAM_CTRL0) + QBG_SDAM_FIFO_COUNT_OFFSET,
 		val, 2);
 	if (rc < 0) {
 		pr_err("Failed to clear QBG FIFO Count, rc=%d\n", rc);
@@ -487,7 +520,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 	for (i = 0; i < 10; i++) {
 		val[0] = 0;
 		rc = qbg_sdam_write(chip,
-			QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST_VAL,
+			QBG_SDAM_BASE(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST_VAL,
 			val, 1);
 		if (rc < 0) {
 			pr_err("Failed to SDAM0 test val to 0, rc=%d\n", rc);
@@ -496,7 +529,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 
 		/* Handshake with PBS to access FIFO data */
 		rc = qbg_sdam_read(chip,
-			QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST_VAL,
+			QBG_SDAM_BASE(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST_VAL,
 			val, 1);
 		if (rc < 0) {
 			pr_err("Failed to read QBG SDAM, rc=%d\n", rc);
@@ -512,7 +545,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 	val[0] = QBG_SDAM_START_OFFSET;
 	val[1] = 0x0;
 	rc = qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_DATA0) + QBG_SDAM_DATA_PUSH_COUNTER_OFFSET,
+		QBG_SDAM_BASE(chip, SDAM_DATA0) + QBG_SDAM_DATA_PUSH_COUNTER_OFFSET,
 		val, 2);
 	if (rc < 0) {
 		pr_err("Failed to configure QBG data push counter, rc=%d\n", rc);
@@ -520,7 +553,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 	}
 	val[0] = 0x0;
 	rc = qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_PBS_STATUS_OFFSET,
+		QBG_SDAM_BASE(chip, SDAM_CTRL0) + QBG_SDAM_PBS_STATUS_OFFSET,
 		val, 1);
 	if (rc < 0) {
 		pr_err("Failed to set QBG PBS status, rc=%d\n", rc);
@@ -537,7 +570,7 @@ static int qbg_init_sdam(struct qti_qbg *chip)
 
 	val[0] = 0x80;
 	rc = qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST1, val, 1);
+		QBG_SDAM_BASE(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST1, val, 1);
 	if (rc < 0) {
 		pr_err("Failed to write QBG SDAM, rc=%d\n", rc);
 		return rc;
@@ -545,7 +578,7 @@ static int qbg_init_sdam(struct qti_qbg *chip)
 
 	val[0] = 0;
 	rc = qbg_sdam_read(chip,
-		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) +  QBG_SDAM_INT_TEST_VAL,
+		QBG_SDAM_BASE(chip, SDAM_CTRL0) +  QBG_SDAM_INT_TEST_VAL,
 		val, 1);
 	if (rc < 0) {
 		pr_err("Faiiled to read QBG SDAM, rc=%d\n", rc);
@@ -687,7 +720,7 @@ static int qbg_load_battery_profile(struct qti_qbg *chip)
 	}
 
 	profile_node = of_batterydata_get_best_profile(chip->batt_node,
-			chip->batt_id_ohm, NULL);
+			chip->batt_id_ohm / 1000, NULL);
 	if (IS_ERR(profile_node)) {
 		rc = PTR_ERR(profile_node);
 		pr_err("Failed to detect valid QBG battery profile, rc=%d\n",
@@ -723,7 +756,7 @@ static int qbg_load_battery_profile(struct qti_qbg *chip)
 		goto out;
 	}
 
-	rc = of_property_read_u32(profile_node, "qcom,fastchg-curr-ma",
+	rc = of_property_read_u32(profile_node, "qcom,fastchg-current-ma",
 				&chip->fastchg_curr_ma);
 	if (rc < 0) {
 		pr_err("Failed to read battery fastcharge current, rc:%d\n", rc);
@@ -868,42 +901,23 @@ static bool is_battery_present(struct qti_qbg *chip)
 	return present;
 }
 
-#define BID_RPULL_OHM		100000
-#define BID_VREF_MV		1875
 static int get_batt_id_ohm(struct qti_qbg *chip, u32 *batt_id_ohm)
 {
-	int rc, batt_id_mv;
-	int64_t denom;
+	int rc, batt_id;
 
 	if (!chip->batt_id_chan)
 		return -EINVAL;
 
 	/* Read battery-id */
-	rc = iio_read_channel_processed(chip->batt_id_chan, &batt_id_mv);
+	rc = iio_read_channel_processed(chip->batt_id_chan, &batt_id);
 	if (rc < 0) {
 		pr_err("Failed to read BATT_ID over ADC, rc=%d\n", rc);
 		return rc;
 	}
 
-	batt_id_mv = div_s64(batt_id_mv, 1000);
-	if (batt_id_mv == 0) {
-		*batt_id_ohm = 0;
-		pr_debug("batt_id_mv = 0 from ADC\n");
-		return 0;
-	}
+	*batt_id_ohm = (u32)batt_id;
 
-	denom = div64_s64(BID_VREF_MV * 1000, batt_id_mv) - 1000;
-	if (denom <= 0) {
-		/* batt id connector might be open, return 0 kohms */
-		*batt_id_ohm = 0;
-		return 0;
-	}
-
-	*batt_id_ohm = div64_u64(BID_RPULL_OHM * 1000 + denom / 2, denom);
-	chip->batt_id_ohm = *batt_id_ohm;
-
-	qbg_dbg(chip, QBG_DEBUG_PROFILE, "batt_id_mv=%d, batt_id_ohm=%d\n",
-					batt_id_mv, *batt_id_ohm);
+	qbg_dbg(chip, QBG_DEBUG_PROFILE, "batt_id_ohm=%u\n", *batt_id_ohm);
 
 	return 0;
 }
@@ -934,7 +948,7 @@ static int qbg_setup_battery(struct qti_qbg *chip)
 		/* Update OCV boost headroom compensation value to 4.3V in debug battery case */
 		if (is_debug_batt_id(chip)) {
 			rc = qbg_sdam_write(chip,
-				QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) +
+				QBG_SDAM_BASE(chip, SDAM_CTRL0) +
 				QBG_SDAM_BHARGER_OCV_HDRM_OFFSET, &ocv_boost_val, 1);
 		}
 	}
@@ -1034,13 +1048,6 @@ static int qbg_determine_pon_soc(struct qti_qbg *chip)
 	return 0;
 }
 
-static int qbg_psy_set_prop(struct power_supply *psy,
-			enum power_supply_property psp,
-			const union power_supply_propval *pval)
-{
-	return 0;
-}
-
 static int qbg_psy_get_prop(struct power_supply *psy,
 			enum power_supply_property psp,
 			union power_supply_propval *pval)
@@ -1061,7 +1068,6 @@ static struct power_supply_desc qbg_psy_desc = {
 	.properties		= qbg_psy_props,
 	.num_properties		= ARRAY_SIZE(qbg_psy_props),
 	.get_property		= qbg_psy_get_prop,
-	.set_property		= qbg_psy_set_prop,
 };
 
 static int qbg_init_psy(struct qti_qbg *chip)
@@ -1120,6 +1126,9 @@ static int qbg_iio_read_raw(struct iio_dev *indio_dev,
 		break;
 	case PSY_IIO_VOLTAGE_OCV:
 		*val1 = chip->ocv_uv;
+		break;
+	case PSY_IIO_VOLTAGE_AVG:
+		rc = qbg_get_battery_voltage(chip, val1);
 		break;
 	case PSY_IIO_VOLTAGE_NOW:
 		rc = qbg_get_battery_voltage(chip, val1);
@@ -1224,6 +1233,85 @@ static int qbg_init_iio(struct qti_qbg *chip,
 	rc = devm_iio_device_register(chip->dev, indio_dev);
 	if (rc < 0)
 		pr_err("Failed to register QBG IIO device, rc=%d\n", rc);
+
+	return rc;
+}
+
+static int qbg_get_accumulator_properties(struct qti_qbg *chip,
+				enum QBG_STATE state,
+				enum QBG_SAMPLE_NUM_TYPE *num_of_accum,
+				enum QBG_ACCUM_INTERVAL_TYPE *accum_interval)
+{
+	int rc = 0;
+	unsigned int reg = QBG_MAIN_LPM_MEAS_CTL2;
+	unsigned char data = 0;
+
+	if (state >= QBG_STATE_MAX || !num_of_accum || !accum_interval)
+		return -EINVAL;
+
+	switch (state) {
+	case QBG_LPM:
+		reg = QBG_MAIN_LPM_MEAS_CTL2;
+		break;
+	case QBG_MPM:
+		reg = QBG_MAIN_MPM_MEAS_CTL2;
+		break;
+	case QBG_HPM:
+		reg = QBG_MAIN_HPM_MEAS_CTL2;
+		break;
+	case QBG_FAST_CHAR:
+		reg = QBG_MAIN_FAST_CHAR_MEAS_CTL2;
+		break;
+	default:
+		pr_err("Invalid QBG state requested for accumulator properties %u\n",
+			state);
+		return rc;
+	}
+
+	rc = qbg_read(chip, reg, &data, 1);
+	if (rc < 0) {
+		pr_err("Failed to MEAS_CTL2 %u, rc=%d\n", reg, rc);
+		return rc;
+	}
+
+	if (state == QBG_FAST_CHAR)
+		*num_of_accum = 0;
+	else
+		*num_of_accum = (data & QBG_NUM_OF_ACCUM_MASK) >> QBG_NUM_OF_ACCUM_SHIFT;
+
+	*accum_interval = data & QBG_ACCUM_INTERVAL_MASK;
+
+	qbg_dbg(chip, QBG_DEBUG_DEVICE, "state:%u num_of_accum:%u accum_interval:%u\n",
+			state, *num_of_accum, *accum_interval);
+
+	return rc;
+}
+
+static int qbg_get_sample_time_us(struct qti_qbg *chip)
+{
+	int rc = 0, index;
+	unsigned int interval;
+	enum QBG_ACCUM_INTERVAL_TYPE accum_interval = ACCUM_INTERVAL_100MS;
+	enum QBG_SAMPLE_NUM_TYPE num_accum = SAMPLE_NUM_1;
+
+	for (index = 0; index < QBG_STATE_MAX; index++) {
+		if (index == QBG_PON_OCV)
+			continue;
+
+		rc = qbg_get_accumulator_properties(chip, index, &num_accum,
+					&accum_interval);
+		if (rc < 0)
+			return rc;
+
+		if (index == QBG_FAST_CHAR)
+			interval = qbg_fast_char_avg_interval[accum_interval];
+		else if (index == QBG_LPM)
+			interval = qbg_lpm_accum_interval[accum_interval];
+		else
+			interval = qbg_accum_interval[accum_interval];
+
+		chip->sample_time_us[index] = interval;
+	}
 
 	return rc;
 }
@@ -1361,7 +1449,7 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 	struct qbg_config config;
 	struct qbg_essential_params __user *params_user;
 	unsigned long rtc_sec;
-	int rc = 0;
+	int rc = 0, i;
 
 	if (!chip) {
 		pr_err("Device private data not set!\n");
@@ -1383,8 +1471,29 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case QBGIOCXCFG:
 		config_user = (struct qbg_config __user *)arg;
+
+		rc = qbg_get_sample_time_us(chip);
+		if (rc < 0) {
+			pr_err("Failed to calculate sample time us, rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = qbg_sdam_get_battery_id(chip, &chip->sdam_batt_id);
+		if (rc < 0) {
+			pr_err("Failed to get battid from sdam, rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = qbg_sdam_get_essential_param_revid(chip,
+					(u8 *)&chip->essential_param_revid);
+		if (rc < 0) {
+			pr_err("Failed to get essential param revid, rc=%d\n",
+				rc);
+			return rc;
+		}
+
 		config.current_time = rtc_sec;
-		config.batt_id = chip->batt_id_ohm;
+		config.batt_id = chip->batt_id_ohm / 1000;
 		config.pon_ocv = chip->pon_ocv;
 		config.pon_ibat = chip->pon_ibat;
 		config.pon_tbat = chip->pon_tbat;
@@ -1395,16 +1504,25 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 		config.vph_min_mv = chip->vph_min_mv;
 		config.iterm_ma = chip->iterm_ma;
 		config.rconn_mohm = chip->rconn_mohm;
+		config.sdam_batt_id = chip->sdam_batt_id;
+		config.essential_param_revid = chip->essential_param_revid;
+		for (i = 0; i < QBG_STATE_MAX; i++) {
+			config.sample_time_us[i] = chip->sample_time_us[i];
+			qbg_dbg(chip, QBG_DEBUG_DEVICE, "QBGIOCXCFG: sample_time_us[%d]:%u\n",
+					i, config.sample_time_us[i]);
+		}
 
 		if (copy_to_user(config_user, (void *)&config, sizeof(config))) {
 			pr_err("Failed to copy QBG config to user\n");
 			return -EFAULT;
 		}
 
-		qbg_dbg(chip, QBG_DEBUG_DEVICE, "QBGIOCXCFG: battid:%u pon_ocv:%u pon_ibat:%u pon_soc:%u vbatt_cutoff_mv:%u iterm_ma:%u\n",
+		qbg_dbg(chip, QBG_DEBUG_DEVICE, "QBGIOCXCFG: sdam_battid:%u essential param revid:%u battid:%u pon_ocv:%u pon_ibat:%u pon_soc:%u vbatt_cutoff_mv:%u iterm_ma:%u\n",
+				config.sdam_batt_id, config.essential_param_revid,
 				config.batt_id, config.pon_ocv,
 				config.pon_ibat, config.pon_soc,
 				config.vbat_cutoff_mv, config.iterm_ma);
+
 		break;
 	case QBGIOCXEPR:
 		params_user = (struct qbg_essential_params __user *)arg;
@@ -1538,7 +1656,7 @@ static int qbg_parse_sdam_dt(struct qti_qbg *chip, struct device_node *node)
 		return rc;
 	}
 
-	rc = of_property_read_u32(node, "sdam-base", &chip->sdam_base);
+	rc = of_property_read_u32(node, "qcom,sdam-base", &chip->sdam_base);
 	if (rc < 0) {
 		pr_err("Failed to read SDAM base address, rc=%d\n", rc);
 		return rc;

@@ -17,14 +17,13 @@
 enum debug_mask {
 	QBG_DEBUG_BUS_READ	= BIT(0),
 	QBG_DEBUG_BUS_WRITE	= BIT(1),
-	QBG_DEBUG_FIFO		= BIT(2),
+	QBG_DEBUG_SDAM		= BIT(2),
 	QBG_DEBUG_IRQ		= BIT(3),
 	QBG_DEBUG_DEVICE	= BIT(4),
 	QBG_DEBUG_PROFILE	= BIT(5),
 	QBG_DEBUG_SOC		= BIT(6),
-	QBG_DEBUG_SDAM		= BIT(7),
-	QBG_DEBUG_STATUS	= BIT(8),
-	QBG_DEBUG_PON		= BIT(9),
+	QBG_DEBUG_STATUS	= BIT(7),
+	QBG_DEBUG_PON		= BIT(8),
 };
 
 enum qbg_sdam {
@@ -35,6 +34,32 @@ enum qbg_sdam {
 	SDAM_DATA2,
 	SDAM_DATA3,
 	SDAM_DATA4,
+};
+
+enum qbg_data_tag {
+	QBG_DATA_TAG_FAST_CHAR,
+};
+
+enum QBG_SAMPLE_NUM_TYPE {
+	SAMPLE_NUM_1,
+	SAMPLE_NUM_2,
+	SAMPLE_NUM_4,
+	SAMPLE_NUM_8,
+	SAMPLE_NUM_16,
+	SAMPLE_NUM_32,
+	QBG_SAMPLE_NUM_INVALID,
+};
+
+enum QBG_ACCUM_INTERVAL_TYPE {
+	ACCUM_INTERVAL_100MS,
+	ACCUM_INTERVAL_200MS,
+	ACCUM_INTERVAL_500MS,
+	ACCUM_INTERVAL_1000MS,
+	ACCUM_INTERVAL_2000MS,
+	ACCUM_INTERVAL_5000MS,
+	ACCUM_INTERVAL_10000MS,
+	ACCUM_INTERVAL_100000MS,
+	ACCUM_INTERVAL_INVALID,
 };
 
 /**
@@ -70,8 +95,11 @@ enum qbg_sdam {
  * @batt_type_str:	String array denoting battery type
  * @irq:		QBG irq number
  * @base:		Base address of QBG HW
- * @num_sdams:		Number of sdams used for QBG
+ * @num_data_sdams:	Number of data sdams used for QBG
  * @batt_id_ohm:	Battery resistance in ohms
+ * @sdam_batt_id:	Battery ID stored and retrieved from SDAM
+ * @essential_param_revid:	QBG essential parameters revision ID
+ * @sample_time_us:	Array of accumulator sample time in each QBG HW state
  * @debug_mask:		Debug mask to enable/disable debug prints
  * @pon_ocv:		Power-on OCV of QBG device
  * @pon_ibat:		Power-on current of QBG device
@@ -138,9 +166,11 @@ struct qti_qbg {
 	int			irq;
 	u32			base;
 	u32			sdam_base;
-	u32			num_sdams;
 	u32			num_data_sdams;
 	u32			batt_id_ohm;
+	u32			sdam_batt_id;
+	u32			essential_param_revid;
+	u32			sample_time_us[QBG_STATE_MAX];
 	u32			*debug_mask;
 	int			pon_ocv;
 	int			pon_ibat;
