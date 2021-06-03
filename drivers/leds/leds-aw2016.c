@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
-#include <linux/leds-aw2016.h>
+#include "leds-aw2016.h"
 
 #define AW2016_DRIVER_VERSION "V1.0.3"
 
@@ -143,7 +143,7 @@ static int aw2016_read(struct aw2016_led *led, u8 reg, u8 *val)
 static void aw2016_soft_reset(struct aw2016_led *led)
 {
 	aw2016_write(led, AW2016_REG_RESET, AW2016_CHIP_RESET_MASK);
-	msleep(5);
+	usleep_range(5000, 6000);
 }
 
 static void aw2016_brightness_work(struct work_struct *work)
@@ -160,7 +160,7 @@ static void aw2016_brightness_work(struct work_struct *work)
 		aw2016_write(led, AW2016_REG_GCR1,
 			     AW2016_CHARGE_DISABLE_MASK |
 				     AW2016_CHIP_ENABLE_MASK);
-		msleep(2);
+		usleep_range(2000, 3000);
 	}
 
 	if (led->cdev.brightness > 0) {
@@ -180,9 +180,9 @@ static void aw2016_brightness_work(struct work_struct *work)
 	}
 
 	/*
-     * If value in AW2016_REG_LEDEN is 0, it means the RGB leds are
-     * all off. So we need to power it off.
-     */
+	 * If value in AW2016_REG_LEDEN is 0, it means the RGB leds are
+	 * all off. So we need to power it off.
+	 */
 	aw2016_read(led, AW2016_REG_LEDEN, &val);
 	if (val == 0) {
 		aw2016_write(led, AW2016_REG_GCR1,
@@ -209,7 +209,7 @@ static void aw2016_blink_work(struct work_struct *work)
 		aw2016_write(led, AW2016_REG_GCR1,
 			     AW2016_CHARGE_DISABLE_MASK |
 				     AW2016_CHIP_ENABLE_MASK);
-		msleep(2);
+		usleep_range(2000, 3000);
 	}
 
 	led->cdev.brightness = led->blinking ? led->cdev.max_brightness : 0;
@@ -248,6 +248,11 @@ static void aw2016_blink_work(struct work_struct *work)
 	mutex_unlock(&led->pdata->led->lock);
 }
 
+static enum led_brightness aw2016_get_brightness(struct led_classdev *cdev)
+{
+	return cdev->brightness;
+}
+
 static void aw2016_set_brightness(struct led_classdev *cdev,
 				  enum led_brightness brightness)
 {
@@ -258,7 +263,17 @@ static void aw2016_set_brightness(struct led_classdev *cdev,
 	schedule_work(&led->brightness_work);
 }
 
-static ssize_t aw2016_store_blink(struct device *dev,
+static ssize_t aw2016_breath_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct aw2016_led *led = container_of(led_cdev, struct aw2016_led,
+								cdev);
+
+	return led->blinking;
+}
+
+static ssize_t aw2016_breath_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t len)
 {
@@ -277,7 +292,7 @@ static ssize_t aw2016_store_blink(struct device *dev,
 	return len;
 }
 
-static ssize_t aw2016_led_time_show(struct device *dev,
+static ssize_t led_time_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
@@ -289,7 +304,7 @@ static ssize_t aw2016_led_time_show(struct device *dev,
 			led->pdata->fall_time_ms, led->pdata->off_time_ms);
 }
 
-static ssize_t aw2016_led_time_store(struct device *dev,
+static ssize_t led_time_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t len)
 {
@@ -321,7 +336,7 @@ static ssize_t aw2016_led_time_store(struct device *dev,
 	return len;
 }
 
-static ssize_t aw2016_reg_show(struct device *dev,
+static ssize_t reg_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
@@ -342,7 +357,7 @@ static ssize_t aw2016_reg_show(struct device *dev,
 	return len;
 }
 
-static ssize_t aw2016_reg_store(struct device *dev,
+static ssize_t reg_store(struct device *dev,
 				struct device_attribute *attr, const char *buf,
 				size_t len)
 {
@@ -352,19 +367,20 @@ static ssize_t aw2016_reg_store(struct device *dev,
 
 	unsigned int databuf[2];
 
-	if (2 == sscanf(buf, "%x %x", &databuf[0], &databuf[1])) {
+	if (sscanf(buf, "%x %x", &databuf[0], &databuf[1]) == 2) {
 		aw2016_write(led, (unsigned char)databuf[0],
 			     (unsigned char)databuf[1]);
 	}
 
 	return len;
 }
-static DEVICE_ATTR(blink, 0664, NULL, aw2016_store_blink);
-static DEVICE_ATTR(led_time, 0664, aw2016_led_time_show, aw2016_led_time_store);
-static DEVICE_ATTR(reg, 0664, aw2016_reg_show, aw2016_reg_store);
+
+static DEVICE_ATTR(breath, 0644, aw2016_breath_show, aw2016_breath_store);
+static DEVICE_ATTR_RW(led_time);
+static DEVICE_ATTR_RW(reg);
 
 static struct attribute *aw2016_led_attributes[] = {
-	&dev_attr_blink.attr,
+	&dev_attr_breath.attr,
 	&dev_attr_led_time.attr,
 	&dev_attr_reg.attr,
 	NULL,
@@ -430,7 +446,7 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 		pdata->led = led_array;
 		led->pdata = pdata;
 
-		rc = of_property_read_string(temp, "aw2016,name",
+		rc = of_property_read_string(temp, "awinic,name",
 					     &led->cdev.name);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
@@ -438,14 +454,14 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 			goto free_pdata;
 		}
 
-		rc = of_property_read_u32(temp, "aw2016,id", &led->id);
+		rc = of_property_read_u32(temp, "awinic,id", &led->id);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
 				"Failure reading id, rc = %d\n", rc);
 			goto free_pdata;
 		}
 
-		rc = of_property_read_u32(temp, "aw2016,imax",
+		rc = of_property_read_u32(temp, "awinic,imax",
 					  &led->pdata->imax);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
@@ -453,7 +469,7 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 			goto free_pdata;
 		}
 
-		rc = of_property_read_u32(temp, "aw2016,led-current",
+		rc = of_property_read_u32(temp, "awinic,led-current",
 					  &led->pdata->led_current);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
@@ -461,7 +477,7 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 			goto free_pdata;
 		}
 
-		rc = of_property_read_u32(temp, "aw2016,max-brightness",
+		rc = of_property_read_u32(temp, "awinic,max-brightness",
 					  &led->cdev.max_brightness);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
@@ -470,7 +486,7 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 			goto free_pdata;
 		}
 
-		rc = of_property_read_u32(temp, "aw2016,rise-time-ms",
+		rc = of_property_read_u32(temp, "awinic,rise-time-ms",
 					  &led->pdata->rise_time_ms);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
@@ -478,7 +494,7 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 			goto free_pdata;
 		}
 
-		rc = of_property_read_u32(temp, "aw2016,hold-time-ms",
+		rc = of_property_read_u32(temp, "awinic,hold-time-ms",
 					  &led->pdata->hold_time_ms);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
@@ -486,7 +502,7 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 			goto free_pdata;
 		}
 
-		rc = of_property_read_u32(temp, "aw2016,fall-time-ms",
+		rc = of_property_read_u32(temp, "awinic,fall-time-ms",
 					  &led->pdata->fall_time_ms);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
@@ -494,7 +510,7 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 			goto free_pdata;
 		}
 
-		rc = of_property_read_u32(temp, "aw2016,off-time-ms",
+		rc = of_property_read_u32(temp, "awinic,off-time-ms",
 					  &led->pdata->off_time_ms);
 		if (rc < 0) {
 			dev_err(&led->client->dev,
@@ -506,6 +522,7 @@ static int aw2016_led_parse_child_node(struct aw2016_led *led_array,
 		INIT_WORK(&led->blink_work, aw2016_blink_work);
 
 		led->cdev.brightness_set = aw2016_set_brightness;
+		led->cdev.brightness_get = aw2016_get_brightness;
 
 		rc = led_classdev_register(&led->client->dev, &led->cdev);
 		if (rc) {
@@ -634,7 +651,7 @@ static const struct i2c_device_id aw2016_led_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, aw2016_led_id);
 
-static struct of_device_id aw2016_match_table[] = {
+static const struct of_device_id aw2016_match_table[] = {
 	{
 		.compatible = "awinic,aw2016_led",
 	},
