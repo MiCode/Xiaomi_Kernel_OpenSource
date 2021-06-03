@@ -182,8 +182,13 @@ static int qti_hwkm_ice_init_sequence(const struct ice_mmio_data *mmio_data)
 
 	//Put ICE in standard mode
 	val = ice_readl(mmio_data->ice_base_mmio, ICE_REGS_CONTROL);
-	val = val & 0xFFFFFFFA;
+	val = val & 0xFFFFFFFE;
 	ice_writel(mmio_data->ice_base_mmio, val, ICE_REGS_CONTROL);
+	/* Write memory barrier */
+	wmb();
+
+	pr_debug("%s: ICE_REGS_CONTROL = 0x%x\n", __func__,
+			ice_readl(mmio_data->ice_base_mmio, ICE_REGS_CONTROL));
 
 	ret = qti_hwkm_check_bist_status(mmio_data);
 	if (ret) {
