@@ -6,7 +6,7 @@
 #ifndef __LINUX_CLK_QCOM_H_
 #define __LINUX_CLK_QCOM_H_
 
-#include <linux/clk-provider.h>
+#include <linux/clk.h>
 
 enum branch_mem_flags {
 	CLKFLAG_RETAIN_PERIPH,
@@ -19,5 +19,8 @@ enum branch_mem_flags {
 
 int qcom_clk_get_voltage(struct clk *clk, unsigned long rate);
 int qcom_clk_set_flags(struct clk *clk, unsigned long flags);
+void qcom_clk_dump(struct clk *clk, bool calltrace);
+void qcom_clk_bulk_dump(int num_clks, struct clk_bulk_data *clks,
+			bool calltrace);
 
 #endif  /* __LINUX_CLK_QCOM_H_ */
