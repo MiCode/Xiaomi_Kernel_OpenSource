@@ -1225,6 +1225,13 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 	unsigned int geni_ios;
 	static unsigned int ios_log_limit;
 
+	/* when start_tx is called with UART clocks OFF return. */
+	if (uart_console(uport) && msm_port->is_clock_off) {
+		IPC_LOG_MSG(msm_port->console_log,
+			"%s. Console in suspend state\n", __func__);
+		return;
+	}
+
 	if (!uart_console(uport) && !pm_runtime_active(uport->dev)) {
 		IPC_LOG_MSG(msm_port->ipc_log_misc,
 				"%s.Putting in async RPM vote\n", __func__);
@@ -3562,6 +3569,7 @@ static int msm_geni_serial_sys_suspend(struct device *dev)
 	if (uart_console(uport) || port->pm_auto_suspend_disable) {
 		uart_suspend_port((struct uart_driver *)uport->private_data,
 					uport);
+		IPC_LOG_MSG(port->console_log, "%s\n", __func__);
 	} else {
 		struct uart_state *state = uport->state;
 		struct tty_port *tty_port = &state->port;
@@ -3593,6 +3601,7 @@ static int msm_geni_serial_sys_resume(struct device *dev)
 		port->pm_auto_suspend_disable) {
 		uart_resume_port((struct uart_driver *)uport->private_data,
 									uport);
+		IPC_LOG_MSG(port->console_log, "%s\n", __func__);
 	}
 	return 0;
 }
