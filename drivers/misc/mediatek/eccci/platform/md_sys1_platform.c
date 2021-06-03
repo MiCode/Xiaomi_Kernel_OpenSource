@@ -291,7 +291,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 
 	/* Get spm sleep base */
 	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
-	hw_info->spm_sleep_base = (unsigned long)of_iomap(node, 0);
+	hw_info->spm_sleep_base = of_iomap(node, 0);
 	if (!hw_info->spm_sleep_base) {
 		CCCI_ERROR_LOG(0, TAG,
 			"%s: spm_sleep_base of_iomap failed\n",
@@ -549,7 +549,7 @@ static void md1_pmic_setting_init(struct platform_device *plat_dev)
 
 static void md1_pmic_setting_on(void)
 {
-	int ret = -1, idx;
+	int ret = -1, idx, regulator_val;
 
 	for (idx = 0; idx < ARRAY_SIZE(md_reg_table); idx++) {
 		if (md_reg_table[idx].reg_ref) {
@@ -566,9 +566,12 @@ static void md1_pmic_setting_on(void)
 			if (ret)
 				CCCI_ERROR_LOG(-1, TAG, "pmic_%s sync fail\n",
 					md_reg_table[idx].reg_name);
-			else
-				CCCI_BOOTUP_LOG(-1, TAG, "pmic_%s set\n",
-					md_reg_table[idx].reg_name);
+			else {
+				regulator_val = regulator_get_voltage(
+					md_reg_table[idx].reg_ref);
+				CCCI_BOOTUP_LOG(-1, TAG, "pmic_%s set done = %d\n",
+					md_reg_table[idx].reg_name, regulator_val);
+			}
 		} else
 			CCCI_BOOTUP_LOG(-1, TAG, "bypass pmic_%s set\n",
 					md_reg_table[idx].reg_name);
@@ -669,6 +672,26 @@ static int md_start_platform(struct ccci_modem *md)
 	return ret;
 }
 
+static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
+{
+	unsigned int val;
+	struct md_hw_info *hw_info = md->hw_info;
+
+	if (hw_info->spm_sleep_base) {
+		ccci_write32(hw_info->spm_sleep_base, 0, 0x0B160001);
+		val = ccci_read32(hw_info->spm_sleep_base, 0);
+		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base: val:0x%x\n", val);
+
+		val = ccci_read32(hw_info->spm_sleep_base, 8);
+		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x +\n", val);
+		val |= 0x1U<<21;
+		ccci_write32(hw_info->spm_sleep_base, 8, val);
+		val = ccci_read32(hw_info->spm_sleep_base, 8);
+		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x -\n", val);
+	}
+	return 0;
+}
+
 static int md_cd_topclkgen_on(struct ccci_modem *md)
 {
 	unsigned int reg_value;
@@ -707,6 +730,7 @@ static int md_cd_power_on(struct ccci_modem *md)
 		regmap_read(md->hw_info->plat_val->infra_ao_base,
 		INFRA_AO_MD_SRCCLKENA, &reg_value));
 
+	mtk_ccci_cfg_srclken_o1_on(md);
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	switch (md->index) {
 	case MD_SYS1:
