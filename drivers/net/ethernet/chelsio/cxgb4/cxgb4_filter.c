@@ -778,7 +778,7 @@ void clear_all_filters(struct adapter *adapter)
 				cxgb4_del_filter(dev, i, &f->fs);
 		}
 
-		sb = t4_read_reg(adapter, LE_DB_SRVR_START_INDEX_A);
+		sb = adapter->tids.stid_base;
 		for (i = 0; i < sb; i++) {
 			f = (struct filter_entry *)adapter->tids.tid_tab[i];
 
