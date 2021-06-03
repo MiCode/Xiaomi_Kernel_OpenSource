@@ -612,16 +612,6 @@ static int sendcmd(struct adreno_device *adreno_dev,
 			if (!test_and_set_bit(ADRENO_DISPATCHER_ACTIVE,
 				&dispatcher->priv))
 				reinit_completion(&dispatcher->idle_gate);
-
-			/*
-			 * We update power stats generally at the expire of
-			 * cmdbatch. In cases where the cmdbatch takes a long
-			 * time to finish, it will delay power stats update,
-			 * in effect it will delay DCVS decision. Start a
-			 * timer to update power state on expire of this timer.
-			 */
-			kgsl_pwrscale_midframe_timer_restart(device);
-
 		} else {
 			adreno_active_count_put(adreno_dev);
 			clear_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
