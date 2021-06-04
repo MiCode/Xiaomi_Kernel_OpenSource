@@ -48,6 +48,7 @@ qcom_cpu_vendor_hooks.ko
 qcom-dcvs.ko
 qcom-dload-mode.ko
 qcom_dma_heaps.ko
+qcom_gic_intr_routing.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
 qcom_ipcc.ko
