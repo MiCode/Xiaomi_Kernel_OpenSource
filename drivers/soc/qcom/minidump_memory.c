@@ -532,8 +532,10 @@ void md_dump_pageowner(char *addr, size_t dump_size)
 			continue;
 
 		size = dump_page_owner_md(addr, dump_size, pfn, page, handle);
-		if (size == dump_size - 1)
+		if (size == dump_size - 1) {
 			pr_err("pageowner minidump region exhausted\n");
+			return;
+		}
 		dump_size -= size;
 		addr += size;
 	}
