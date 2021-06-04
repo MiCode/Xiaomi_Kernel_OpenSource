@@ -96,8 +96,11 @@ static void mhi_uci_generic_client_cb(struct mhi_dev_client_cb_data *cb_data);
 static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data);
 static void mhi_uci_at_ctrl_tre_cb(struct mhi_dev_client_cb_reason *reason);
 
-/* UCI channel attributes table */
-static const struct chan_attr uci_chan_attr_table[] = {
+/* MHI channel attributes table
+ * Skip node creation for IPCR channels but still allow uevent broadcast to
+ * QRTR client by setting the broadcast flag
+ */
+static const struct chan_attr mhi_chan_attr_table[] = {
 	{
 		MHI_CLIENT_LOOPBACK_OUT,
 		TRB_MAX_DATA_SIZE,
@@ -267,7 +270,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		NULL,
 		NULL,
 		false,
-		false,
+		true,
 		true
 	},
 	{
@@ -1224,8 +1227,8 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 	mhi_parse_state(buf, &nbytes, info);
 	add_uevent_var(env, "MHI_STATE=%s", buf);
 
-	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i++) {
-		chan_attrib = &uci_chan_attr_table[i];
+	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i++) {
+		chan_attrib = &mhi_chan_attr_table[i];
 		if (chan_attrib->state_bcast) {
 			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
 					chan_attrib->chan_id);
@@ -1548,8 +1551,8 @@ void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
 	unsigned int i;
 	const struct chan_attr *chan_attrib;
 
-	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i++) {
-		chan_attrib = &uci_chan_attr_table[i];
+	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i++) {
+		chan_attrib = &mhi_chan_attr_table[i];
 		if (chan_attrib->state_bcast) {
 			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
 					chan_attrib->chan_id);
@@ -2101,8 +2104,8 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
 	struct uci_client *client;
 	const struct chan_attr *chan_attrib;
 
-	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i += 2) {
-		chan_attrib = &uci_chan_attr_table[i];
+	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i += 2) {
+		chan_attrib = &mhi_chan_attr_table[i];
 		index = CHAN_TO_CLIENT(chan_attrib->chan_id);
 		client = &uci_ctxt->client_handles[index];
 		client->out_chan_attr = chan_attrib;
