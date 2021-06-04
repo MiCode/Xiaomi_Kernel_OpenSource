@@ -726,6 +726,7 @@
 		atid = <65>;
 		coresight-name = "coresight-tpdm-dcc";
 
+		qcom,hw-enable-check;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 
