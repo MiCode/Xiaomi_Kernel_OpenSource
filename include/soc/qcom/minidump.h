@@ -71,10 +71,20 @@ struct va_md_entry {
 };
 
 #if IS_ENABLED(CONFIG_QCOM_VA_MINIDUMP)
-extern struct atomic_notifier_head qcom_va_md_notifier_list;
+extern bool qcom_va_md_enabled(void);
+extern int qcom_va_md_register(char *name, struct notifier_block *nb);
 extern int qcom_va_md_add_region(struct va_md_entry *entry);
 #else
-static inline int qcom_va_md_add_region(struct va_md_entry *entry) { return 0; }
+static inline bool qcom_va_md_enabled(void) { return false; }
+static inline int qcom_va_md_register(char *name, struct notifier_block *nb)
+{
+	return -ENODEV;
+}
+
+static inline int qcom_va_md_add_region(struct va_md_entry *entry)
+{
+	return -ENODEV;
+}
 #endif
 
 #endif
