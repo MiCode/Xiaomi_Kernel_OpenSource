@@ -161,19 +161,6 @@ gh_rm_validate_vm_exited_notif(struct gh_rm_rpc_hdr *hdr,
 			return -EINVAL;
 		}
 		break;
-	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET2:
-		if ((vm_exited_payload->exit_reason_size !=
-					MAX_EXIT_REASON_SIZE) ||
-					(recv_buff_size != min_buff_sz +
-			sizeof(struct gh_vm_exit_reason_psci_sys_reset2))) {
-			pr_err("%s: Invalid size for type PSCI_SYSTEM_RESET2: %u\n",
-			__func__, recv_buff_size - sizeof(*hdr));
-			return -EINVAL;
-		}
-	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET:
-		break;
-	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF:
-		break;
 	case GH_RM_VM_EXIT_TYPE_WDT_BITE:
 		break;
 	case GH_RM_VM_EXIT_TYPE_HYP_ERROR:
@@ -183,9 +170,12 @@ gh_rm_validate_vm_exited_notif(struct gh_rm_rpc_hdr *hdr,
 	case GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED:
 		break;
 	default:
-		pr_err("%s: Unknown exit type: %u\n", __func__,
-			vm_exited_payload->exit_type);
-		return -EINVAL;
+		if (gh_arch_validate_vm_exited_notif(recv_buff_size,
+			sizeof(*hdr), vm_exited_payload)) {
+			pr_err("%s: Unknown exit type: %u\n", __func__,
+				vm_exited_payload->exit_type);
+			return -EINVAL;
+		}
 	}
 
 	return 0;

@@ -125,9 +125,9 @@ static int gh_vm_loader_get_wait_for_stop_reason(u32 stop_reason, u8 stop_flags)
 	case GH_VM_STOP_SHUTDOWN:
 		if (stop_flags)
 			return GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED;
-		return GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF;
+		return GH_RM_VM_EXIT_TYPE_SYSTEM_OFF;
 	case GH_VM_STOP_RESTART:
-		return GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET;
+		return GH_RM_VM_EXIT_TYPE_SYSTEM_RESET;
 	case GH_VM_STOP_CRASH:
 		return GH_RM_VM_EXIT_TYPE_WDT_BITE;
 	}
@@ -261,11 +261,11 @@ gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
 	wake_up_interruptible(&sec_vm_struct->vm_exited_wait);
 
 	switch (vm_exited->exit_type) {
-	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF:
+	case GH_RM_VM_EXIT_TYPE_SYSTEM_OFF:
 		gh_vm_loader_handle_shutdown(sec_vm_struct, vm_exited);
 		ioc_exit_reason = GH_VM_EXIT_REASON_SHUTDOWN;
 		break;
-	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET:
+	case GH_RM_VM_EXIT_TYPE_SYSTEM_RESET:
 		gh_vm_loader_handle_shutdown(sec_vm_struct, vm_exited);
 		ioc_exit_reason = GH_VM_EXIT_REASON_RESTART;
 		break;

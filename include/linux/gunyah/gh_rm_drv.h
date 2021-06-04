@@ -169,9 +169,9 @@ struct gh_notify_vmid_desc {
 #define GH_RM_VM_STOP_FLAG_FORCE_STOP				0x01
 
 #define GH_RM_VM_EXIT_TYPE_VM_EXIT				0
-#define GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF		1
-#define GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET	2
-#define GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET2	3
+#define GH_RM_VM_EXIT_TYPE_SYSTEM_OFF		1
+#define GH_RM_VM_EXIT_TYPE_SYSTEM_RESET		2
+#define GH_RM_VM_EXIT_TYPE_SYSTEM_RESET2	3
 #define GH_RM_VM_EXIT_TYPE_WDT_BITE				4
 #define GH_RM_VM_EXIT_TYPE_HYP_ERROR			5
 #define GH_RM_VM_EXIT_TYPE_ASYNC_EXT_ABORT		6
@@ -196,40 +196,6 @@ struct gh_vm_exit_reason_vm_exit {
 #define GH_VM_EXIT_DEVICE_ERR	3
 
 	u8 reserved;
-} __packed;
-
-/* GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET2 */
-struct gh_vm_exit_reason_psci_sys_reset2 {
-	u16 exit_flags;
-	/* GH_PSCI_SYS_RESET2_EXIT_FLAG_* are bit representations.
-	 * It follows similar flags model as that of VM_EXIT, but
-	 * only if the vendor_reset field in the struct is set
-	 */
-#define GH_PSCI_SYS_RESET2_EXIT_FLAG_TYPE	0x1
-#define GH_PSCI_SYS_RESET2_POWEROFF	0 /* Value at bit:0 */
-#define GH_PSCI_SYS_RESET2_RESTART	1 /* Value at bit:0 */
-#define GH_PSCI_SYS_RESET2_EXIT_FLAG_SYSTEM	0x2
-#define GH_PSCI_SYS_RESET2_EXIT_FLAG_WARM	0x4
-#define GH_PSCI_SYS_RESET2_EXIT_FLAG_DUMP	0x8
-
-	u8 exit_code;
-	/* Exit codes.
-	 * It follows similar flags model as that of VM_EXIT, but
-	 * only if the vendor_reset field in the struct is set
-	 */
-#define GH_PSCI_SYS_RESET2_CODE_NORMAL	0
-#define GH_PSCI_SYS_RESET2_SOFTWARE_ERR	1
-#define GH_PSCI_SYS_RESET2_BUS_ERR		2
-#define GH_PSCI_SYS_RESET2_DEVICE_ERR	3
-
-	u8 reserved:7;
-
-	/* If the vendor_reset is set, the above flags and codes apply.
-	 * Else, the entire exit_reason struct is 0, which qualifies as
-	 * PSCI_SYSTEM_WARM_RESET. Hence, first check this field before
-	 * checking others.
-	 */
-	u8 vendor_reset:1;
 } __packed;
 
 struct gh_rm_notif_vm_exited_payload {
@@ -273,6 +239,8 @@ int gh_get_irq(u32 virq, u32 type, struct fwnode_handle *handle);
 int gh_put_irq(int irq);
 int gh_get_virq(int base_virq, int virq);
 int gh_put_virq(int irq);
+int gh_arch_validate_vm_exited_notif(size_t buff_size, size_t hdr_size,
+	struct gh_rm_notif_vm_exited_payload *payload);
 #else
 static inline int gh_get_irq(u32 virq, u32 type,
 					struct fwnode_handle *handle)
@@ -288,6 +256,11 @@ static inline int gh_get_virq(int base_virq, int virq)
 	return -EINVAL;
 }
 static inline int gh_put_virq(int irq)
+{
+	return -EINVAL;
+}
+static inline int gh_arch_validate_vm_exited_notif(size_t buff_size,
+	size_t hdr_size, struct gh_rm_notif_vm_exited_payload *payload)
 {
 	return -EINVAL;
 }
