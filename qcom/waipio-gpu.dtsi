@@ -20,6 +20,8 @@
 				"gcc_gpu_snoc_dvm_gfx",
 				"gpu_cc_ahb";
 
+		qcom,gpu-model = "AdrenoC500v1";
+
 		qcom,initial-pwrlevel = <6>;
 
 		qcom,no-nap;
