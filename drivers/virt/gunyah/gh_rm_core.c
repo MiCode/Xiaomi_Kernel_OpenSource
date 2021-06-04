@@ -626,10 +626,7 @@ void *gh_rm_call(gh_rm_msgid_t message_id,
 	}
 
 	/* Wait for response */
-	if (wait_for_completion_interruptible(&connection->seq_done)) {
-		ret = ERR_PTR(-ERESTARTSYS);
-		goto out;
-	}
+	wait_for_completion(&connection->seq_done);
 
 	*reply_err_code = connection->reply_err_code;
 	if (connection->reply_err_code) {
