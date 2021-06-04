@@ -225,10 +225,11 @@
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			<&clock_gpucc GPU_CC_AHB_CLK>,
-			<&clock_gpucc GPU_CC_HUB_CX_INT_CLK>;
+			<&clock_gpucc GPU_CC_HUB_CX_INT_CLK>,
+			<&aoss_qmp>;
 
 		clock-names = "gmu_clk", "cxo_clk", "axi_clk",
-			"memnoc_clk", "ahb_clk", "hub_clk";
+			"memnoc_clk", "ahb_clk", "hub_clk", "apb_pclk";
 
 
 		iommus = <&kgsl_smmu 0x5 0x400>;
