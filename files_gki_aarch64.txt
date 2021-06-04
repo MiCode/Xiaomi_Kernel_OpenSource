@@ -2,8 +2,6 @@ arch/arm64/crypto/aes-ce-core.S
 arch/arm64/crypto/aes-ce-glue.c
 arch/arm64/crypto/aes-ce.S
 arch/arm64/crypto/aes-ce-setkey.h
-arch/arm64/crypto/aes-cipher-core.S
-arch/arm64/crypto/aes-cipher-glue.c
 arch/arm64/crypto/aes-glue.c
 arch/arm64/crypto/aes-modes.S
 arch/arm64/crypto/chacha-neon-core.S
@@ -498,7 +496,6 @@ crypto/cmac.c
 crypto/compress.c
 crypto/crc32c_generic.c
 crypto/crc32_generic.c
-crypto/cryptd.c
 crypto/crypto_engine.c
 crypto/crypto_null.c
 crypto/ctr.c
@@ -545,7 +542,6 @@ crypto/sha1_generic.c
 crypto/sha256_generic.c
 crypto/sha512_generic.c
 crypto/shash.c
-crypto/simd.c
 crypto/skcipher.c
 crypto/testmgr.c
 crypto/xcbc.c
@@ -2206,7 +2202,6 @@ include/crypto/blake2b.h
 include/crypto/blake2s.h
 include/crypto/chacha20poly1305.h
 include/crypto/chacha.h
-include/crypto/cryptd.h
 include/crypto/ctr.h
 include/crypto/curve25519.h
 include/crypto/drbg.h
