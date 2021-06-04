@@ -3453,10 +3453,8 @@
 		qcom,ipa-cfg-offset = <0x0140000>;
 		interrupts =
 			<0 654 IRQ_TYPE_LEVEL_HIGH>,
-			<0 432 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 489 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 490 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "ipa-irq", "gsi-irq", "msi-irq-rmnet-ctl", "msi-irq-rmnet-ll";
+			<0 432 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ipa-irq", "gsi-irq";
 		qcom,ipa-hw-ver = <22>; /* IPA core version = IPAv5.1 */
 		qcom,ipa-hw-mode = <0>;
 		qcom,platform-type = <1>; /* MSM platform */
@@ -3476,10 +3474,6 @@
 		qcom,wan-use-skb-page;
 		qcom,rmnet-ctl-enable;
 		qcom,rmnet-ll-enable;
-		qcom,gsi-msi-addr = <0x17110040>;
-		qcom,gsi-msi-clear-addr = <0x17110048>;
-		qcom,gsi-rmnet-ctl-evt-ring-intvec = <521>;
-		qcom,gsi-rmnet-ll-evt-ring-intvec = <522>;
 		qcom,ipa-uc-holb-monitor;
 		qcom,ipa-holb-monitor-poll-period = <5>;
 		qcom,ipa-holb-monitor-max-cnt-wlan = <10>;
