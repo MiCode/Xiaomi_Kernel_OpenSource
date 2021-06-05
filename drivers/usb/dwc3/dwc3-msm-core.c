@@ -5378,6 +5378,13 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		dev_dbg(mdwc->dev, "%s: turn on gadget %s\n", __func__);
 
 		pm_runtime_get_sync(&mdwc->dwc3->dev);
+		/*
+		 * Ensure DWC3 DRD switch routine is complete before continuing.
+		 * The DWC3 DRD sequence will execute a global and core soft
+		 * reset during mode switching.  DWC3 MSM needs to avoid setting
+		 * up the GSI related resources until that is completed.
+		 */
+		flush_work(&dwc->drd_work);
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP, 0);
 
 		dwc3_override_vbus_status(mdwc, true);
