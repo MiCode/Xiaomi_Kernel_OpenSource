@@ -1099,5 +1099,8 @@ int genc_hwsched_probe(struct platform_device *pdev,
 
 	adreno_dev->irq_mask = GENC_HWSCHED_INT_MASK;
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+
 	return adreno_hwsched_init(adreno_dev, &genc_hwsched_ops);
 }
