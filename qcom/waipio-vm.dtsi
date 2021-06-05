@@ -369,3 +369,4 @@
 };
 
 #include "waipio-vm-dma-heaps.dtsi"
+#include "msm-arm-smmu-waipio-vm.dtsi"
