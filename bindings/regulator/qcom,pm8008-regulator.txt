@@ -62,7 +62,7 @@ PM8008 chip regulator specific properties:
 - compatible:
   Usage: required
   Value type: <string>
-  Definition: must be "qcom,pm8008-regulator"
+  Definition: must be "qcom,pm8008-regulator" or "qcom,pm8010-regulator"
 
 - <pin>-supply:
   Usage: optional
