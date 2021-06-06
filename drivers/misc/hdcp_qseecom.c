@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[hdcp-qseecom] %s: " fmt, __func__
@@ -23,8 +23,7 @@
 #include <linux/errno.h>
 #include <linux/hdcp_qseecom.h>
 #include <linux/kthread.h>
-
-#include "qseecom_kernel.h"
+#include <misc/qseecom_kernel.h>
 
 #define HDCP2P2_APP_NAME      "hdcp2p2"
 #define HDCP1_APP_NAME        "hdcp1"

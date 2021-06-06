@@ -35,7 +35,7 @@
 #include <soc/qcom/qseecom_scm.h>
 #include <soc/qcom/qseecomi.h>
 #include <asm/cacheflush.h>
-#include "qseecom_kernel.h"
+#include <misc/qseecom_kernel.h>
 #include <crypto/ice.h>
 #include <linux/delay.h>
 #include <linux/signal.h>
