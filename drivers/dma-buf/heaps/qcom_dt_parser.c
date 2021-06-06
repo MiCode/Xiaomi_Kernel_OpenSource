@@ -30,6 +30,8 @@ static int populate_heap(struct device_node *node,
 	/* Optional properties */
 	heap->is_dynamic = of_property_read_bool(node, "qcom,dynamic-heap");
 
+	heap->is_uncached = of_property_read_bool(node, "qcom,uncached-heap");
+
 	ret = of_property_read_u32(node, "qcom,token", &heap->token);
 	if (ret && ret != -EINVAL)
 		goto err;
