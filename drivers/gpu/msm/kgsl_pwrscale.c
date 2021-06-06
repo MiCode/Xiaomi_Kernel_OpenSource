@@ -19,18 +19,6 @@ static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 	.mod_percent = 100,
 };
 
-/**
- * struct kgsl_midframe_info - midframe power stats sampling info
- * @timer - midframe sampling timer
- * @timer_check_ws - Updates powerstats on midframe expiry
- * @device - pointer to kgsl_device
- */
-static struct kgsl_midframe_info {
-	struct hrtimer timer;
-	struct work_struct timer_check_ws;
-	struct kgsl_device *device;
-} *kgsl_midframe = NULL;
-
 static void do_devfreq_suspend(struct work_struct *work);
 static void do_devfreq_resume(struct work_struct *work);
 static void do_devfreq_notify(struct work_struct *work);
@@ -160,52 +148,6 @@ void kgsl_pwrscale_update(struct kgsl_device *device)
 	if (device->state != KGSL_STATE_SLUMBER)
 		queue_work(device->pwrscale.devfreq_wq,
 			&device->pwrscale.devfreq_notify_ws);
-
-	kgsl_pwrscale_midframe_timer_restart(device);
-}
-
-void kgsl_pwrscale_midframe_timer_restart(struct kgsl_device *device)
-{
-	if (kgsl_midframe) {
-		WARN_ON(!mutex_is_locked(&device->mutex));
-
-		/* If the timer is already running, stop it */
-		if (hrtimer_active(&kgsl_midframe->timer))
-			hrtimer_cancel(
-				&kgsl_midframe->timer);
-
-		hrtimer_start(&kgsl_midframe->timer,
-				ns_to_ktime(KGSL_GOVERNOR_CALL_INTERVAL
-					* NSEC_PER_USEC), HRTIMER_MODE_REL);
-	}
-}
-
-void kgsl_pwrscale_midframe_timer_cancel(struct kgsl_device *device)
-{
-	if (kgsl_midframe) {
-		WARN_ON(!mutex_is_locked(&device->mutex));
-		hrtimer_cancel(&kgsl_midframe->timer);
-	}
-}
-
-static void kgsl_pwrscale_midframe_timer_check(struct work_struct *work)
-{
-	struct kgsl_device *device = kgsl_midframe->device;
-
-	mutex_lock(&device->mutex);
-	if (device->state == KGSL_STATE_ACTIVE)
-		kgsl_pwrscale_update(device);
-	mutex_unlock(&device->mutex);
-}
-
-static enum hrtimer_restart kgsl_pwrscale_midframe_timer(struct hrtimer *timer)
-{
-	struct kgsl_device *device = kgsl_midframe->device;
-
-	queue_work(device->pwrscale.devfreq_wq,
-			&kgsl_midframe->timer_check_ws);
-
-	return HRTIMER_NORESTART;
 }
 
 /*
@@ -716,21 +658,6 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 			pwrscale->ctxt_aware_busy_penalty;
 	}
 
-	if (of_property_read_bool(pdev->dev.of_node,
-			"qcom,enable-midframe-timer")) {
-		kgsl_midframe = kzalloc(
-				sizeof(struct kgsl_midframe_info), GFP_KERNEL);
-		if (kgsl_midframe) {
-			hrtimer_init(&kgsl_midframe->timer,
-					CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-			kgsl_midframe->timer.function =
-					kgsl_pwrscale_midframe_timer;
-			kgsl_midframe->device = device;
-		} else
-			dev_err(device->dev,
-				     "Failed to enable-midframe-timer feature\n");
-	}
-
 	/*
 	 * If there is a separate GX power rail, allow
 	 * independent modification to its voltage through
@@ -783,9 +710,6 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	INIT_WORK(&pwrscale->devfreq_suspend_ws, do_devfreq_suspend);
 	INIT_WORK(&pwrscale->devfreq_resume_ws, do_devfreq_resume);
 	INIT_WORK(&pwrscale->devfreq_notify_ws, do_devfreq_notify);
-	if (kgsl_midframe)
-		INIT_WORK(&kgsl_midframe->timer_check_ws,
-				kgsl_pwrscale_midframe_timer_check);
 
 	pwrscale->next_governor_call = ktime_add_us(ktime_get(),
 			KGSL_GOVERNOR_CALL_INTERVAL);
@@ -819,8 +743,6 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	if (pwrscale->cooling_dev)
 		devfreq_cooling_unregister(pwrscale->cooling_dev);
 
-	kgsl_pwrscale_midframe_timer_cancel(device);
-
 	if (pwrscale->devfreq_wq) {
 		flush_workqueue(pwrscale->devfreq_wq);
 		destroy_workqueue(pwrscale->devfreq_wq);
@@ -828,8 +750,6 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	}
 
 	devfreq_remove_device(device->pwrscale.devfreqptr);
-	kfree(kgsl_midframe);
-	kgsl_midframe = NULL;
 	device->pwrscale.devfreqptr = NULL;
 	msm_adreno_tz_exit();
 }
