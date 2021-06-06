@@ -206,11 +206,6 @@ Optional Properties:
 				Specify the names of GPU thermal zones. These will be used
 				to get gpu temperature from the thermal driver API.
 
-- qcom,enable-midframe-timer:
-				Boolean. Enables the use of midframe sampling timer. This timer
-				samples the GPU powerstats if the cmdbatch expiry takes longer than
-				the threshold set by KGSL_GOVERNOR_CALL_INTERVAL. Enable only if
-				target has NAP state enabled.
  nvmem-cells:
 				A phandle to the configuration data such as gpu speed bin, gpu gaming mode,
 				gpu model name provided by a nvmem device. If unspecified default values shall be used.
