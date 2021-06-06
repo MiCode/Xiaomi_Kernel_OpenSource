@@ -240,7 +240,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 };
 
 static int gcc_debug_mux_sels[] = {
-	0xBA,		/* cpu_cc_debug_mux */
+	0xBF,		/* cpu_cc_debug_mux */
 	0x43,		/* disp_cc_debug_mux */
 	0x67,		/* gcc_ahb2phy_csi_clk */
 	0x68,		/* gcc_ahb2phy_usb_clk */
