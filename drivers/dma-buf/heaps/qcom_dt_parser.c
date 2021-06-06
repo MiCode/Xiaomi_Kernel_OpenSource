@@ -18,19 +18,29 @@ static int populate_heap(struct device_node *node,
 {
 	int ret;
 
+	/* Mandatory properties */
 	ret = of_property_read_string(node, "qcom,dma-heap-name", &heap->name);
 	if (ret)
-		goto out;
+		goto err;
 
 	ret = of_property_read_u32(node, "qcom,dma-heap-type", &heap->type);
 	if (ret)
-		goto out;
+		goto err;
 
+	/* Optional properties */
 	heap->is_dynamic = of_property_read_bool(node, "qcom,dynamic-heap");
 
-	of_property_read_u32(node, "qcom,token", &heap->token);
-	of_property_read_u32(node, "qcom,max-align", &heap->max_align);
-out:
+	ret = of_property_read_u32(node, "qcom,token", &heap->token);
+	if (ret && ret != -EINVAL)
+		goto err;
+
+	ret = of_property_read_u32(node, "qcom,max-align", &heap->max_align);
+	if (ret && ret != -EINVAL)
+		goto err;
+
+	return 0;
+
+err:
 	if (ret)
 		pr_err("%s: Unable to populate heap, error: %d\n", __func__,
 		       ret);
