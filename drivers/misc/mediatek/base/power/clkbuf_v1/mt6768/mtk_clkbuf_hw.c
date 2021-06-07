@@ -325,12 +325,12 @@ u32 clk_buf_bblpm_enter_cond(void)
 		}
 #endif
 	}
+	if (!bblpm_cond)
+		bblpm_cnt = BBLPM_COND_SKIP;
+
 #else /* !CLKBUF_USE_BBLPM */
 	bblpm_cond |= BBLPM_COND_SKIP;
 #endif
-
-	if (!bblpm_cond)
-		bblpm_cnt++;
 
 	return bblpm_cond;
 }
