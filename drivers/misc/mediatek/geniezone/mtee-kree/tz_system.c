@@ -182,7 +182,6 @@ static TZ_RESULT port_append_srv(struct tipc_k_port *port, const char *srv_name)
 	}
 
 	strncpy(port->srv_name[port->srv_cnt], srv_name, MAX_SRV_NAME_LEN-1);
-	port->srv_name[port->srv_cnt][MAX_SRV_NAME_LEN-1] = '\0';
 	port->srv_cnt += 1;
 
 	return TZ_RESULT_SUCCESS;
