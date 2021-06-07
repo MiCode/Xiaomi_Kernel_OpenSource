@@ -22,5 +22,6 @@ void fmt_prepare_dvfs_emi_bw(void);
 void fmt_unprepare_dvfs_emi_bw(void);
 void fmt_start_dvfs_emi_bw(struct fmt_pmqos pmqos_param);
 void fmt_end_dvfs_emi_bw(void);
+void fmt_translation_fault_callback_setting(struct mtk_vdec_fmt *fmt);
 
 #endif /* _MTK_FMT_PM_H */

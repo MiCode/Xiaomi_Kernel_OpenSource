@@ -57,5 +57,5 @@ extern int fmt_dbg_level;
 		bandwidth = (u32)(div_u64(numerator, denominator));\
 	} while (0)
 
-
+#define FMT_GET32(addr)         (readl((void *)addr) & 0xFFFFFFFF)
 #endif /* _MTK_FMT_UTILS_H */

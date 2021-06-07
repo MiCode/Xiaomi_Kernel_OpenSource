@@ -804,6 +804,8 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 
 	fmt_init_pm(fmt);
 
+	fmt_translation_fault_callback_setting(fmt);
+
 	fmt_debug(0, "initialization completed");
 	return 0;
 

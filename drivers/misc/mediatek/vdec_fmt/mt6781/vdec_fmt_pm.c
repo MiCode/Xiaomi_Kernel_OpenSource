@@ -12,6 +12,7 @@
  */
 
 #include "vdec_fmt_pm.h"
+#include "vdec_fmt_ion.h"
 #include "vdec_fmt_utils.h"
 #include <linux/clk.h>
 
@@ -75,7 +76,7 @@ int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt)
 		port.Security = 0;
 		port.Virtuality = 1;
 		m4u_config_port(&port);
-		fmt_debug(0, "port.ePortID %d m4u_config_port", port.ePortID);
+		fmt_debug(1, "port.ePortID %d m4u_config_port", port.ePortID);
 	}
 #endif
 
@@ -165,3 +166,57 @@ void fmt_end_dvfs_emi_bw(void)
 	mm_qos_update_all_request(&fmt_rlist[0]);
 }
 
+void fmt_dump_addr_reg(struct mtk_vdec_fmt *fmt, int port)
+{
+	int i;
+
+	switch (port) {
+	case M4U_PORT_L4_MINI_MDP_R0_EXT:
+		for (i = 0; i < 313; i++)
+			fmt_debug(0, "FMT RDMA0(0x%x) 0x%x",
+				fmt->map_base[0].base + i*4,
+				FMT_GET32(fmt->map_base[0].va + i*4));
+		for (i = 960; i < 982; i++)
+			fmt_debug(0, "FMT RDMA0(0x%x) 0x%x",
+				fmt->map_base[0].base + i*4,
+				FMT_GET32(fmt->map_base[0].va + i*4));
+		break;
+	case M4U_PORT_L4_MINI_MDP_W0_EXT:
+		for (i = 0; i < 60; i++)
+			fmt_debug(0, "FMT WROT0(0x%x) 0x%x",
+				fmt->map_base[1].base + i*4,
+				FMT_GET32(fmt->map_base[1].va + i*4));
+		for (i = 960; i < 973; i++)
+			fmt_debug(0, "FMT WROT0(0x%x) 0x%x",
+				fmt->map_base[1].base + i*4,
+				FMT_GET32(fmt->map_base[1].va + i*4));
+		break;
+	default:
+		break;
+	}
+}
+
+#ifdef CONFIG_MTK_IOMMU_V2
+enum mtk_iommu_callback_ret_t fmt_translation_fault_callback(
+	int port, unsigned long mva, void *data)
+{
+	struct mtk_vdec_fmt *fmt = (struct mtk_vdec_fmt *) data;
+
+	fmt_debug(0, "TF callback, port:%d, mva:0x%x", port, mva);
+	fmt_dump_addr_reg(fmt, port);
+
+	return MTK_IOMMU_CALLBACK_HANDLED;
+}
+#endif
+
+void fmt_translation_fault_callback_setting(struct mtk_vdec_fmt *fmt)
+{
+#ifdef CONFIG_MTK_IOMMU_V2
+	mtk_iommu_register_fault_callback(M4U_PORT_L4_MINI_MDP_R0_EXT,
+		(mtk_iommu_fault_callback_t)fmt_translation_fault_callback,
+		fmt);
+	mtk_iommu_register_fault_callback(M4U_PORT_L4_MINI_MDP_W0_EXT,
+		(mtk_iommu_fault_callback_t)fmt_translation_fault_callback,
+		fmt);
+#endif
+}
