@@ -6,6 +6,9 @@
 #ifndef __ADSP_PLATFORM_H__
 #define __ADSP_PLATFORM_H__
 
+/* adsp sw workaround for reading chip hw version */
+#define ADSP_SW_WORKAROUND               (1)
+
 enum adsp_irq_id {
 	ADSP_IRQ_WDT_ID = 0,
 	ADSP_IRQ_IPC_ID,

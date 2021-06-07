@@ -11,6 +11,9 @@
 #include "adsp_reserved_mem.h"
 #include "adsp_semaphore.h"
 #include "adsp_platform_driver.h"
+#if ADSP_SW_WORKAROUND
+#include <mt-plat/mtk_chip.h>
+#endif
 
 #ifdef ADSP_BASE
 #undef ADSP_BASE
@@ -138,10 +141,20 @@ bool is_adsp_axibus_idle(void)
 
 void adsp_mt_set_bootup_mark(u32 cid)
 {
+#if ADSP_SW_WORKAROUND
+	unsigned int chip_hw_ver;
+#endif
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
 
 	writel(MAGIC_PATTERN, ADSP_CREG_BOOTUP_MARK);
+#if ADSP_SW_WORKAROUND
+	chip_hw_ver = mt_get_chip_hw_ver();
+	writel(chip_hw_ver, ADSP_CREG_CHIP_HW_VERSION);
+	/* pr_info("%s() chip hw version=0x%x/0x%x\n", __func__, */
+	/*					    chip_hw_ver, */
+	/*					    readl(ADSP_CREG_CHIP_HW_VERSION)); */
+#endif
 }
 
 u32 switch_adsp_clk_ctrl_cg(bool en, u32 mask)
