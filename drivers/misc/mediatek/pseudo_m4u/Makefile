@@ -50,10 +50,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6758" "mt6779" "mt6768" "mt6785" "mt6885" "mt6873" "mt6893" "mt6853" "mt6877"))
 obj-y += pseudo_m4u_v2.o pseudo_m4u_debug.o
 ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
-ifeq ($(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT),y)
-ifneq ($(CONFIG_MTK_SVP_ON_MTEE_SUPPORT), y)
+ifneq (,$(filter y_n, $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)_$(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)))
 obj-y += pseudo_m4u_sec.o
-endif
 else ifeq ($(CONFIG_MTK_CAM_SECURITY_SUPPORT),y)
 obj-y += pseudo_m4u_sec.o
 else ifeq ($(CONFIG_MTK_GZ_SUPPORT_SDSP),y)
