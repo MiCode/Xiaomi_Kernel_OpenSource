@@ -4553,22 +4553,22 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, struct drm_crtc_state *old_state)
 {
-	struct cmdq_pkt *cmdq_handle;
-	struct cmdq_pkt *cmdq_handle2;
-	struct mtk_crtc_state *state;
-	struct mtk_crtc_state *old_mtk_state;
+	struct cmdq_pkt *cmdq_handle = NULL;
+	struct cmdq_pkt *cmdq_handle2 = NULL;
+	struct mtk_crtc_state *state = NULL;
+	struct mtk_crtc_state *old_mtk_state = NULL;
 	unsigned int src_mode;
 	unsigned int dst_mode;
 	bool need_mipi_change = 1;
 	unsigned int clk_cnt = 0;
 	struct mtk_drm_private *priv = NULL;
 
-	if (IS_ERR_OR_NULL(mtk_crtc))
+	if (IS_ERR_OR_NULL(mtk_crtc) || IS_ERR_OR_NULL(old_state) ||
+	    IS_ERR_OR_NULL(dsi))
 		return;
 
 	state = to_mtk_crtc_state(mtk_crtc->base.state);
-	if (old_state)
-		old_mtk_state = to_mtk_crtc_state(old_state);
+	old_mtk_state = to_mtk_crtc_state(old_state);
 
 	dst_mode =
 		state->prop_val[CRTC_PROP_DISP_MODE_IDX];
