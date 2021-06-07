@@ -175,7 +175,7 @@ static struct tipc_k_port *lookup_port_by_name(const char *srv_name)
 
 static TZ_RESULT port_append_srv(struct tipc_k_port *port, const char *srv_name)
 {
-	if (port->srv_cnt + 1 > MAX_SRV_SIZE) {
+	if (port->srv_cnt < 0 || port->srv_cnt + 1 > MAX_SRV_SIZE) {
 		KREE_ERR("%s: Failed to append srv_name %s for port %s\n",
 			 __func__, srv_name, port->srv_name[0]);
 		return TZ_RESULT_ERROR_EXCESS_DATA;
