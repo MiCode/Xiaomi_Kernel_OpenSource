@@ -345,7 +345,7 @@ static inline int gh_rm_get_vm_name(gh_vmid_t vmid, enum gh_vm_names *vm_name)
 	return -EINVAL;
 }
 
-static inline int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vminfo);
+static inline int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vminfo)
 {
 	return -EINVAL;
 }
@@ -451,7 +451,7 @@ static inline void gh_rm_unset_virtio_mmio_cb(void)
 
 }
 
-static inline int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_cb fnptr)
+static inline int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_cb_t fnptr)
 {
 	return -EINVAL;
 }
