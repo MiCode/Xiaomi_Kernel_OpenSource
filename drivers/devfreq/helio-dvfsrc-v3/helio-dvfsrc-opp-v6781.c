@@ -29,10 +29,8 @@
 #define V_VMODE_SHIFT 0
 #define V_CT_SHIFT 5
 #define V_CT_TEST_SHIFT 6
-#define V_CT_OPP2_SHIFT 7
 
 static int opp_min_bin_opp0;
-static int opp_min_bin_opp2;
 
 
 static int dvfsrc_rsrv;
@@ -117,11 +115,6 @@ static int get_vb_volt(int vcore_opp)
 		if (idx >= opp_min_bin_opp0)
 			ret = 1;
 		break;
-	case VCORE_OPP_2:
-		idx = ptpod & 0xF;
-		if (idx >= opp_min_bin_opp2 && idx < 10)
-			ret = 1;
-		break;
 	default:
 		break;
 	}
@@ -151,7 +144,6 @@ static int __init dvfsrc_opp_init(void)
 	int is_vcore_ct = 0;
 	int dvfs_v_mode = 0;
 	int ct_test = 0;
-	int ct_opp2_en = 0;
 	void __iomem *dvfsrc_base;
 
 #if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
@@ -191,20 +183,14 @@ static int __init dvfsrc_opp_init(void)
 		dvfs_v_mode = (dvfsrc_rsrv >> V_VMODE_SHIFT) & 0x3;
 		is_vcore_ct = (dvfsrc_rsrv >> V_CT_SHIFT) & 0x1;
 		ct_test = (dvfsrc_rsrv >> V_CT_TEST_SHIFT) & 0x1;
-		ct_opp2_en = (dvfsrc_rsrv >> V_CT_OPP2_SHIFT) & 0x1;
 	}
 
 	if (is_vcore_ct) {
-		if (ct_test) {
+		if (ct_test)
 			opp_min_bin_opp0 = 2;
-			opp_min_bin_opp2 = 4;
-		} else {
+		else
 			opp_min_bin_opp0 = 3;
-			opp_min_bin_opp2 = 5;
-	}
 		vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0);
-		if (ct_opp2_en)
-			vcore_opp_2_uv -= get_vb_volt(VCORE_OPP_2);
 	}
 
 	if (is_rising_need() == 2)
