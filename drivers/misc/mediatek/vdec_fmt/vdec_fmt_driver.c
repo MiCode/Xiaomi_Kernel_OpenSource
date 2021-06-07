@@ -173,9 +173,10 @@ static void fmt_set_gce_cmd(struct cmdq_pkt *pkt,
 				addr, data, mask);
 	break;
 	case CMD_WAIT_EVENT:
-		fmt_debug(3, "CMD_WAIT_EVENT eid %d", fmt->gce_codec_eid[data]);
-		if (data < GCE_EVENT_MAX)
+		if (data < GCE_EVENT_MAX) {
+			fmt_debug(3, "CMD_WAIT_EVENT eid %d", fmt->gce_codec_eid[data]);
 			cmdq_pkt_wfe(pkt, fmt->gce_codec_eid[data]);
+		}
 		else
 			fmt_err("CMD_WAIT_EVENT got wrong eid %llu",
 				data);
