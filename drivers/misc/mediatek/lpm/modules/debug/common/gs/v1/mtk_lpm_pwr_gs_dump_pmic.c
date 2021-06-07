@@ -159,7 +159,7 @@ int mtk_lpm_gs_pmic_cmp(int user)
 			continue;
 		}
 		regmap = regulator_get_regmap(regulator);
-		if (IS_ERR(regmap)) {
+		if ((regmap == NULL) ||  IS_ERR(regmap)) {
 			pr_info("%s regmap get failed\n", __func__);
 			continue;
 		}
