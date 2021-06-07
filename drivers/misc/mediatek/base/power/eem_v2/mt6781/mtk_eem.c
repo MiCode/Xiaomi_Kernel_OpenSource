@@ -440,9 +440,7 @@ static int get_devinfo(void)
 			gpu_opp0_t_volt[efuse_val];
 		eem_debug("gpu_vb_volt:%d, efuse_val:%d\n",
 			gpu_vb_volt, efuse_val);
-	} else
-		gpu_vb_volt =
-			gpu_opp0_t_volt[0];
+	}
 
 	/* NR_HW_RES_FOR_BANK =  10 for 5 banks efuse */
 	if (val[0] == 0) {
