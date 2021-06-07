@@ -1150,7 +1150,7 @@ void xgf_epoll_igather_timer(
 
 int xgf_uboost_case(struct xgf_render *render)
 {
-	int quarter, ret = 0,	shift = 2;
+	int quarter, ret = 0, shift = 2;
 
 	quarter = render->frame_count >> shift;
 	if (quarter < render->u_wake_r_count)
@@ -1591,7 +1591,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 			continue;
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
-		if (xgf_uboost_case(render_iter) && xgf_uboost)
+		if (xgf_r_uboost && xgf_uboost)
 			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
 
 		if (render_iter->spid)
