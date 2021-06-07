@@ -11,7 +11,8 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <linux/mutex.h>
+#include <linux/spinlock.h>
+#include <linux/spinlock_types.h>
 
 #include "n3d_util.h"
 #include "vsync_recorder.h"
@@ -26,7 +27,7 @@ struct Vtimestamp {
 	int unread_cnt;
 };
 
-static DEFINE_MUTEX(global_mutex);
+static DEFINE_SPINLOCK(global_lock);
 static unsigned int global_time;
 static int first_time_diff;
 static struct Vtimestamp records[MAX_RECORD_SENSOR];
@@ -34,8 +35,9 @@ static struct Vtimestamp records[MAX_RECORD_SENSOR];
 int reset_recorder(int cammux_id1, int cammux_id2)
 {
 	int i, j;
+	unsigned long flags = 0;
 
-	mutex_lock(&global_mutex);
+	spin_lock_irqsave(&global_lock, flags);
 
 	global_time = 0;
 	first_time_diff = 2;
@@ -50,7 +52,7 @@ int reset_recorder(int cammux_id1, int cammux_id2)
 	records[0].cammux_id = cammux_id1;
 	records[1].cammux_id = cammux_id2;
 
-	mutex_unlock(&global_mutex);
+	spin_unlock_irqrestore(&global_lock, flags);
 
 	return 0;
 }
@@ -76,9 +78,10 @@ static int record_vs(unsigned int idx, unsigned int tclk)
 	return 0;
 }
 
+/* ISR */
 int record_vs_diff(int vflag, unsigned int diff)
 {
-	mutex_lock(&global_mutex);
+	spin_lock(&global_lock);
 
 	if (first_time_diff) {
 		first_time_diff--;
@@ -99,39 +102,42 @@ int record_vs_diff(int vflag, unsigned int diff)
 		}
 	}
 
-	mutex_unlock(&global_mutex);
+	spin_unlock(&global_lock);
 
 	return 0;
 }
 
+/* ISR */
 int record_vs1(unsigned int tclk)
 {
-	mutex_lock(&global_mutex);
+	spin_lock(&global_lock);
 
 	if (records[0].w_cur_pos == -1)
 		tclk = 0;
 
 	record_vs(0, tclk);
 
-	mutex_unlock(&global_mutex);
+	spin_unlock(&global_lock);
 
 	return 0;
 }
 
+/* ISR */
 int record_vs2(unsigned int tclk)
 {
-	mutex_lock(&global_mutex);
+	spin_lock(&global_lock);
 
 	if (records[1].w_cur_pos == -1)
 		tclk = 0;
 
 	record_vs(1, tclk);
 
-	mutex_unlock(&global_mutex);
+	spin_unlock(&global_lock);
 
 	return 0;
 }
 
+/* ISR */
 int show_records(unsigned int idx)
 {
 	LOG_D("show-%d [%u, %u, %u, %u]\n", idx,
@@ -160,11 +166,12 @@ int query_n3d_vsync_data(struct vsync_rec *pData)
 	int i, j, rec_pos;
 	unsigned int max_tick = 0;
 	struct Vtimestamp *rec = NULL;
+	unsigned long flags = 0;
 
 	for (i = 0; i < pData->ids; i++) {
 		rec = get_record_entry(pData->recs[i].id);
 		if (rec != NULL) {
-			mutex_lock(&global_mutex);
+			spin_lock_irqsave(&global_lock, flags);
 
 			for (j = 0; j < MAX_RECORD_NUM; j++) {
 				rec_pos = rec->w_cur_pos - j;
@@ -181,7 +188,7 @@ int query_n3d_vsync_data(struct vsync_rec *pData)
 			pData->recs[i].vsyncs = rec->unread_cnt;
 			rec->unread_cnt = 0;
 
-			mutex_unlock(&global_mutex);
+			spin_unlock_irqrestore(&global_lock, flags);
 		}
 	}
 
