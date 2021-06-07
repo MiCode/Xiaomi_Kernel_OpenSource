@@ -96,6 +96,8 @@ unsigned int DRAM_TYPE;
 unsigned int CH_NUM;
 unsigned int CBT_MODE;
 unsigned int highfreq_4266;
+unsigned int DRAMC_INIT_DONE;
+
 
 /*extern bool spm_vcorefs_is_dvfs_in_porgress(void);*/
 #define Reg_Sync_Writel(addr, val)   writel(val, IOMEM(addr))
@@ -1293,6 +1295,10 @@ int dram_steps_freq(unsigned int step)
 
 	switch (step) {
 	case 0:
+		if (!DRAMC_INIT_DONE) {
+			freq = 4266;
+			return freq;
+		}
 		//freq = highfreq_4266 ? 4266 : 3733;
 		freq = get_dram_data_rate();
 		break;
@@ -1324,7 +1330,7 @@ int dram_steps_freq(unsigned int step)
 		freq = 819;
 		break;
 	default:
-		return -1;
+		return freq;
 	}
 	return freq;
 }
@@ -1898,6 +1904,7 @@ static int dram_probe(struct platform_device *pdev)
 		break;
 	}
 
+	DRAMC_INIT_DONE = 1;  //1, means DRAMC base addr init done!
 	if (get_dram_data_rate() == 4266)
 		highfreq_4266 = 1;
 
