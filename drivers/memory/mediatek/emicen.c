@@ -1049,6 +1049,7 @@ static int emicen_probe(struct platform_device *pdev)
 	struct emi_cen *cen;
 	unsigned int i;
 	int ret;
+	int emi_cen_cnt_temp;
 
 	pr_info("%s: module probe.\n", __func__);
 
@@ -1089,12 +1090,14 @@ static int emicen_probe(struct platform_device *pdev)
 		pr_info("%s: rk_size%d(0x%llx)\n", __func__,
 			i, cen->rk_size[i]);
 
-	cen->emi_cen_cnt = of_property_count_elems_of_size(
+	emi_cen_cnt_temp = of_property_count_elems_of_size(
 		emicen_node, "reg", sizeof(unsigned int) * 4);
-	if (cen->emi_cen_cnt <= 0) {
+	if (emi_cen_cnt_temp <= 0) {
 		pr_info("%s: get emi_cen_cnt fail\n", __func__);
 		return -EINVAL;
-	}
+	} else
+		cen->emi_cen_cnt = (unsigned int)emi_cen_cnt_temp;
+
 	cen->emi_cen_base = devm_kmalloc_array(&pdev->dev,
 		cen->emi_cen_cnt, sizeof(phys_addr_t), GFP_KERNEL);
 	if (!(cen->emi_cen_base))
