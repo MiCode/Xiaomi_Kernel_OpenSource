@@ -34,8 +34,7 @@ static void set_tfps_diff(int max_cnt, int *pid, unsigned long long *buf_id, int
 	mutex_unlock(&pre_lock);
 }
 
-static void get_tfps_pair(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps,
-	char name[][16])
+static void get_tfps_pair(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps)
 {
 	mutex_lock(&pre_lock);
 
@@ -47,7 +46,7 @@ static void get_tfps_pair(int max_cnt, int *pid, unsigned long long *buf_id, int
 	memset(pid, 0, max_cnt * sizeof(int));
 	memset(buf_id, 0, max_cnt * sizeof(unsigned long long));
 	memset(tfps, 0, max_cnt * sizeof(int));
-	eara2fstb_get_tfps(max_cnt, pid, buf_id, tfps, name);
+	eara2fstb_get_tfps(max_cnt, pid, buf_id, tfps);
 
 	mutex_unlock(&pre_lock);
 }

@@ -29,8 +29,7 @@ extern int get_tpcb_headroom(void);
 
 extern void (*eara_enable_fp)(int enable);
 extern void (*eara_set_tfps_diff_fp)(int max_cnt, int *pid, unsigned long long *buf_id, int *diff);
-extern void (*eara_get_tfps_pair_fp)(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps,
-	char name[][16]);
+extern void (*eara_get_tfps_pair_fp)(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps);
 extern void (*eara_pre_active_fp)(int is_active);
 
 /* platform */

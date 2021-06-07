@@ -673,7 +673,7 @@ static int get_gpu_frame_time(struct FSTB_FRAME_INFO *iter)
 }
 
 void eara2fstb_get_tfps(int max_cnt, int *pid, unsigned long long *buf_id,
-				int *tfps, char name[][16])
+				int *tfps)
 {
 	int count = 0;
 	struct FSTB_FRAME_INFO *iter;
@@ -691,7 +691,6 @@ void eara2fstb_get_tfps(int max_cnt, int *pid, unsigned long long *buf_id,
 		pid[count] = iter->pid;
 		buf_id[count] = iter->bufid;
 		tfps[count] = iter->target_fps;
-		strncpy(name[count], iter->proc_name, 16);
 		count++;
 	}
 
