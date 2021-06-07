@@ -168,6 +168,12 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	if (hw_id == MTK_VDEC_CORE) {
 		ctx = dev->curr_dec_ctx[hw_id];
 		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		if (readl(vdec_gcon_addr) == 0) {
+			mtk_v4l2_debug(0, "VDEC not HW break since clk off. codec:0x%08x(%c%c%c%c)",
+			    fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
+			    (fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF);
+			return;
+		}
 		/* hw break */
 		writel((readl(vdec_misc_addr + 0x0100) | 0x1),
 			vdec_misc_addr + 0x0100);
