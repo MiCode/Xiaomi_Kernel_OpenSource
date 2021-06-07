@@ -1150,7 +1150,7 @@ void xgf_epoll_igather_timer(
 
 int xgf_uboost_case(struct xgf_render *render)
 {
-	int quarter, ret = 0, shift = 2;
+	int quarter, ret = 0,	shift = 2;
 
 	quarter = render->frame_count >> shift;
 	if (quarter < render->u_wake_r_count)
@@ -1324,10 +1324,6 @@ int gbe2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 		if (render_iter->bufID != bufID)
 			continue;
 
-		if (xgf_uboost_case(render_iter) < 0
-			|| xgf_uboost_case(render_iter) > 1)
-			continue;
-
 		xgf_r_uboost = xgf_uboost_case(render_iter);
 		if (xgf_r_uboost && xgf_uboost)
 			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
@@ -1413,10 +1409,6 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 		if (render_iter->bufID != bufID)
 			continue;
 
-		if (xgf_uboost_case(render_iter) < 0
-			|| xgf_uboost_case(render_iter) > 1)
-			continue;
-
 		xgf_r_uboost = xgf_uboost_case(render_iter);
 		if (xgf_r_uboost && xgf_uboost)
 			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
@@ -1500,10 +1492,6 @@ int gbe2xgf_get_dep_list(int pid, int count,
 			continue;
 
 		if (render_iter->bufID != bufID)
-			continue;
-
-		if (xgf_uboost_case(render_iter) < 0
-			|| xgf_uboost_case(render_iter) > 1)
 			continue;
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
@@ -1600,10 +1588,6 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 			continue;
 
 		if (render_iter->bufID != bufID)
-			continue;
-
-		if (xgf_uboost_case(render_iter) < 0
-			|| xgf_uboost_case(render_iter) > 1)
 			continue;
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
