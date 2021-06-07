@@ -1804,13 +1804,13 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 	/* SNAPSHOT_SEL = (tg_overrun|tg_graberr|cq_over_vsync|dma_err|seninf_full) */
 		ISP_WR32(CAM_REG_DBG_SET(innerRegModule),
-			 (0x007c0101 + (i * 0x100)));
+			 (0x00040101 + (i * 0x100)));
 		moduleReqStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	}
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(innerRegModule),
-			 (0x007c1101 + (i * 0x100)));
+			 (0x00041101 + (i * 0x100)));
 		moduleRdyStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	}
 
@@ -4462,9 +4462,9 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					ISP_WR32(
 						CAM_REG_TG_VF_CON(DebugFlag[1]),
 						(vf + 0x1));
-					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX), 0x007c0000);
-					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_B_IDX), 0x007c0000);
-					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_C_IDX), 0x007c0000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX), 0x00040000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_B_IDX), 0x00040000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_C_IDX), 0x00040000);
 				}
 
 				/*SCQ does not support CQ covery */
