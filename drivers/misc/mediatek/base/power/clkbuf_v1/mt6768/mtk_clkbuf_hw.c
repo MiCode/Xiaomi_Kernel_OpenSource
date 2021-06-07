@@ -163,11 +163,12 @@ static u32 dcxo_dbg_read_auxout(u16 sel);
 
 static void pmic_clk_buf_ctrl_ext(short on)
 {
-	if (on)
+	if (on) {
 		pmic_config_interface(PMIC_DCXO_CW11_SET_ADDR, 0x1,
 				      PMIC_XO_EXTBUF7_EN_M_MASK,
 				      PMIC_XO_EXTBUF7_EN_M_SHIFT);
-	else
+		udelay(400);
+	} else
 		pmic_config_interface(PMIC_DCXO_CW11_CLR_ADDR, 0x1,
 				      PMIC_XO_EXTBUF7_EN_M_MASK,
 				      PMIC_XO_EXTBUF7_EN_M_SHIFT);
