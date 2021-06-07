@@ -216,6 +216,7 @@ struct tmc_drvdata {
 	u32			mode;
 	enum tmc_config_type	config_type;
 	enum tmc_mem_intf_width	memwidth;
+	struct mutex		mem_lock;
 	u32			trigger_cntr;
 	u32			etr_caps;
 	struct idr		idr;
