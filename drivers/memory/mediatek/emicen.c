@@ -1036,7 +1036,7 @@ static ssize_t emicen_addr2dram_store
 
 	global_emi_cen->a2d_addr = (unsigned long)addr;
 
-	return ret ? : count;
+	return count;
 }
 
 static DRIVER_ATTR_RW(emicen_addr2dram);
