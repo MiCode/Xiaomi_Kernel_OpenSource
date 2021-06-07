@@ -1248,12 +1248,25 @@ static int a6xx_rgmu_regulators_probe(struct a6xx_rgmu_device *rgmu)
 static int a6xx_rgmu_clocks_probe(struct a6xx_rgmu_device *rgmu,
 		struct device_node *node)
 {
-	int ret;
+	int ret, i;
 
 	ret = devm_clk_bulk_get_all(&rgmu->pdev->dev, &rgmu->clks);
 	if (ret < 0)
 		return ret;
-
+	/*
+	 * Voting for apb_pclk will enable power and clocks required for
+	 * QDSS path to function. However, if CORESIGHT is not enabled,
+	 * QDSS is essentially unusable. Hence, if QDSS cannot be used,
+	 * don't vote for this clock.
+	 */
+	if (!IS_ENABLED(CONFIG_CORESIGHT)) {
+		for (i = 0; i < ret; i++) {
+			if (!strcmp(rgmu->clks[i].id, "apb_pclk")) {
+				rgmu->clks[i].clk = NULL;
+				break;
+			}
+		}
+	}
 	rgmu->num_clks = ret;
 
 	rgmu->gpu_clk = kgsl_of_clk_by_name(rgmu->clks, ret, "core");
