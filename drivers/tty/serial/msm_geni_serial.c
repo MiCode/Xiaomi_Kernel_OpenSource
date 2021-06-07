@@ -247,6 +247,7 @@ struct msm_geni_serial_port {
 	bool s_cmd_done;
 	bool m_cmd;
 	bool s_cmd;
+	bool wakeup_enabled;
 	struct completion m_cmd_timeout;
 	struct completion s_cmd_timeout;
 	spinlock_t rx_lock;
@@ -656,12 +657,12 @@ static int vote_clock_on(struct uart_port *uport)
 	int usage_count;
 	int ret = 0;
 
-	port->ioctl_count++;
 	ret = msm_geni_serial_power_on(uport);
 	if (ret) {
 		dev_err(uport->dev, "Failed to vote clock on\n");
 		return ret;
 	}
+	port->ioctl_count++;
 	usage_count = atomic_read(&uport->dev->power.usage_count);
 	PRINT_LOG(5, LOG_LEVEL, port->ipc_log_pwr, __func__, STR, current->comm);
 	PRINT_LOG(8, LOG_LEVEL, port->ipc_log_pwr, __func__, INT, "ioctl",
@@ -2435,9 +2436,10 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 
 		}
 
-		if (msm_port->wakeup_irq > 0) {
+		if (msm_port->wakeup_irq > 0 && msm_port->wakeup_enabled) {
 			irq_set_irq_wake(msm_port->wakeup_irq, 0);
 			disable_irq(msm_port->wakeup_irq);
+			msm_port->wakeup_enabled = false;
 		}
 	}
 	PRINT_LOG(5, LOG_LEVEL, msm_port->ipc_log_misc, __func__,
@@ -3212,6 +3214,7 @@ static int msm_geni_serial_get_irq_pinctrl(struct platform_device *pdev,
 								__func__, ret);
 			return ret;
 		}
+		dev_port->wakeup_enabled = true;
 	}
 
 	return ret;
@@ -3551,6 +3554,7 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	if (port->wakeup_irq > 0) {
 		port->edge_count = 0;
 		enable_irq(port->wakeup_irq);
+		port->wakeup_enabled = true;
 	}
 	PRINT_LOG(5, LOG_LEVEL, port->ipc_log_pwr, __func__, STR, "End");
 	__pm_relax(port->geni_wake);
@@ -3571,11 +3575,13 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 	__pm_relax(port->geni_wake);
 	__pm_stay_awake(port->geni_wake);
 	/*
-	 * check for ioctl count before disabling the wakeup_irq as
+	 * check for wakeup_enabled before disabling the wakeup_irq as
 	 * this might be disabled from shutdown as well.
 	 */
-	if (port->wakeup_irq > 0 && port->ioctl_count)
+	if (port->wakeup_irq > 0 && port->wakeup_enabled) {
 		disable_irq(port->wakeup_irq);
+		port->wakeup_enabled = false;
+	}
 
 	/*
 	 * Resources On.
