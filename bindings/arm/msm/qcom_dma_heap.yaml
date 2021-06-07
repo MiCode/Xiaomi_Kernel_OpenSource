@@ -39,6 +39,7 @@ patternProperties:
         items:
           - enum:
               - HEAP_TYPE_SECURE_CARVEOUT
+              - HEAP_TYPE_CARVEOUT
               - HEAP_TYPE_CMA
         description: |
           The heap type to use for this heap.
