@@ -211,6 +211,7 @@ struct mtk_devapc_soc {
 	const char* (*subsys_get)(uint32_t index);
 	const char* (*master_get)(int bus_id, uint32_t vio_addr,
 			int vio_idx);
+	uint32_t (*shift_group_get)(uint32_t vio_idx);
 };
 
 void handle_sramrom_vio(void);

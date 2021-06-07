@@ -19,7 +19,7 @@
 #define PLAT_VIO_CFG_MAX_IDX		518
 #define PLAT_VIO_MAX_IDX		558
 #define PLAT_VIO_MASK_STA_NUM		18
-#define PLAT_VIO_SHIFT_MAX_BIT		25
+#define PLAT_VIO_SHIFT_MAX_BIT		21
 
 /******************************************************************************
  * DATA STRUCTURE & FUNCTION DEFINATION

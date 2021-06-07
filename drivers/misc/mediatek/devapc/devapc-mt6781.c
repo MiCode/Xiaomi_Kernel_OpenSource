@@ -685,15 +685,15 @@ static struct PERIAXI_ID_INFO paxi_int_mi_id_to_master[] = {
 };
 
 static struct TOPAXI_ID_INFO topaxi_mi0_id_to_master[] = {
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 0, 0, 0,	0, 0, 2, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 0, 0, 1,	0, 0, 2, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 2, 2,	2, 1, 2, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 0, 0, 0,	0, 0, 0, 2,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 0, 0, 1,	0, 0, 0, 2,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 0, 0,	0, 0, 0, 0,	1, 0, 0, 2,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 1, 0,	0, 0, 0, 0,	1, 0, 0, 2,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 2, 2,	2, 1, 0, 2,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 2, 2,	2, 2, 1, 2,	0, 0 } },
+	{"MCUSYS",            { 2, 2, 2, 0,	0, 0, 0, 0,	2, 0, 0, 0,	0, 0 } },
+	{"MCUSYS",            { 2, 2, 2, 0,	0, 1, 0, 0,	2, 0, 0, 0,	0, 0 } },
+	{"MCUSYS",            { 2, 2, 2, 2,	2, 2, 2, 1,	2, 0, 0, 0,	0, 0 } },
+	{"MCUSYS",            { 2, 2, 2, 0,	0, 0, 0, 0,	0, 2, 0, 0,	0, 0 } },
+	{"MCUSYS",            { 2, 2, 2, 0,	0, 1, 0, 0,	0, 2, 0, 0,	0, 0 } },
+	{"MCUSYS",            { 0, 0, 0, 0,	0, 0, 1, 0,	0, 2, 0, 0,	0, 0 } },
+	{"MCUSYS",            { 1, 0, 0, 0,	0, 0, 1, 0,	0, 2, 0, 0,	0, 0 } },
+	{"MCUSYS",            { 2, 2, 2, 2,	2, 2, 2, 1,	0, 2, 0, 0,	0, 0 } },
+	{"MCUSYS",            { 2, 2, 2, 2,	2, 2, 2, 2,	1, 2, 0, 0,	0, 0 } },
 	{"DEBUGSYS",          { 1, 0, 0, 0,	0, 2, 0, 0,	0, 0, 0, 0,	0, 0 } },
 	{"MSDC0",             { 1, 0, 1, 0,	0, 0, 0, 0,	2, 2, 0, 0,	0, 0 } },
 	{"PWM",               { 1, 0, 1, 0,	0, 1, 0, 0,	0, 0, 0, 0,	0, 0 } },
@@ -730,6 +730,9 @@ static const char *topaxi_mi0_trans(int bus_id)
 	int master_count = ARRAY_SIZE(topaxi_mi0_id_to_master);
 	int i, j;
 
+	DEVAPC_DBG_MSG("%s %s:0x%x\n",
+		__func__, "bus id", bus_id);
+
 	for (i = 0; i < master_count; i++) {
 		for (j = 0; j < TOPAXI_MI0_BIT_LENGTH ; j++) {
 			if (topaxi_mi0_id_to_master[i].bit[j] == 2)
@@ -759,6 +762,9 @@ static const char *paxi_int_mi_trans(int bus_id)
 	const char *master = "UNKNOWN_MASTER_FROM_PAXI";
 	int master_count = ARRAY_SIZE(paxi_int_mi_id_to_master);
 	int i, j;
+
+	DEVAPC_DBG_MSG("%s %s:0x%x\n",
+		__func__, "bus id", bus_id);
 
 	if ((bus_id & 0x3) == 0x2) {
 		master = topaxi_mi0_trans(bus_id >> 2);
@@ -900,6 +906,62 @@ const char *index_to_subsys(uint32_t index)
 		return "OUT_OF_BOUND";
 }
 
+static uint32_t mt6781_shift_group_get(uint32_t vio_idx)
+{
+	if (vio_idx >= 0 && vio_idx <= 31)
+		return 0;
+	else if (vio_idx >= 32 && vio_idx <= 81)
+		return 1;
+	else if ((vio_idx >= 82 && vio_idx <= 92) ||
+		(vio_idx >= 519 && vio_idx <= 521))
+		return 2;
+	else if (vio_idx == 93)
+		return 3;
+	else if (vio_idx == 94)
+		return 4;
+	else if ((vio_idx >= 95 && vio_idx <= 120) ||
+		(vio_idx >= 522 && vio_idx <= 524))
+		return 5;
+	else if (vio_idx >= 121 && vio_idx <= 130)
+		return 6;
+	else if (vio_idx == 131 || vio_idx == 148)
+		return 7;
+	else if (vio_idx == 149 || vio_idx == 525)
+		return 8;
+	else if (vio_idx == 150 || vio_idx == 526)
+		return 9;
+	else if (vio_idx >= 531 && vio_idx <= 533)
+		return 10;
+	else if ((vio_idx >= 132 && vio_idx <= 147) ||
+		(vio_idx >= 534 && vio_idx <= 536))
+		return 11;
+	else if (vio_idx >= 151 && vio_idx <= 158)
+		return 12;
+	else if (vio_idx >= 159 && vio_idx <= 518)
+		return 13;
+	else if (vio_idx >= 541 && vio_idx <= 542)
+		return 14;
+	else if (vio_idx == 540)
+		return 15;
+	else if (vio_idx == 545)
+		return 16;
+	else if (vio_idx == 537)
+		return 17;
+	else if (vio_idx == 543)
+		return 18;
+	else if (vio_idx == 544)
+		return 19;
+	else if (vio_idx == 539)
+		return 20;
+	else if (vio_idx == 538)
+		return 21;
+
+	DEVAPC_MSG("%s:%d Wrong vio_idx:%d\n",
+		__func__, __LINE__, vio_idx);
+
+	return 31;
+}
+
 static ssize_t mt6781_devapc_dbg_read(struct file *file, char __user *buffer,
 	size_t count, loff_t *ppos)
 {
@@ -975,6 +1037,7 @@ static struct mtk_devapc_soc mt6781_data = {
 	.sramrom_sec_vios = &mt6781_sramrom_sec_vios,
 	.devapc_pds = &mt6781_devapc_pds,
 	.master_get = &bus_id_to_master,
+	.shift_group_get = &mt6781_shift_group_get,
 };
 
 static const struct of_device_id mt6781_devapc_dt_match[] = {
