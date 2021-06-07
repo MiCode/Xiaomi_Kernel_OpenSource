@@ -1074,16 +1074,7 @@ void cm_mgr_setup_cpu_dvfs_info(void)
 void cm_mgr_ddr_setting_init(void)
 {
 	int i;
-	int idx = cm_mgr_get_idx();
 
-	if (idx == CM_MGR_LP4) {
-		for (i = 0; i < CM_MGR_EMI_OPP; i++) {
-			cpu_power_ratio_up[i] = cpu_power_ratio_up[i];
-			cpu_power_ratio_down[i] = cpu_power_ratio_down[i];
-			debounce_times_up_adb[i] = debounce_times_up_adb[i];
-			debounce_times_down_adb[i] = debounce_times_down_adb[i];
-		}
-	}
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	for (i = 0; i < CM_MGR_EMI_OPP; i++) {
 		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
