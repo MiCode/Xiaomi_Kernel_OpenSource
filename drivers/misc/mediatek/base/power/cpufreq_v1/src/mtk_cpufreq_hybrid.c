@@ -136,6 +136,7 @@ void parse_time_log_content(unsigned int time_stamp_l_log,
 {
 	if (idx < 0)
 		return;
+
 	if (time_stamp_h_log == 0 && time_stamp_l_log == 0)
 		log_box_parsed[idx].time_stamp = 0;
 
@@ -149,6 +150,9 @@ void parse_log_content(unsigned int *local_buf, int idx)
 	struct cpu_dvfs_log *log_box = (struct cpu_dvfs_log *)local_buf;
 	struct mt_cpu_dvfs *p;
 	int i;
+
+	if (idx < 0)
+		return;
 
 	for_each_cpu_dvfs(i, p) {
 		log_box_parsed[idx].cluster_opp_cfg[i].limit_idx =
@@ -1649,9 +1653,13 @@ unsigned int get_sram_table_volt(unsigned int cluster_id, int idx)
 	struct buck_ctrl_t *vproc_p;
 	struct mt_cpu_dvfs *p;
 
-
 	p = id_to_cpu_dvfs(cluster_id);
+	if (p == NULL)
+		return 0;
+
 	vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
+	if (vproc_p == NULL)
+		return 0;
 
 	volt = vproc_p->buck_ops->transfer2volt
 		((recordRef[idx + 36 * cluster_id] >> 16) & 0xFFF);
