@@ -88,7 +88,7 @@ int a6xx_hfi_queue_read(struct a6xx_gmu_device *gmu, uint32_t queue_idx,
 		trace_kgsl_hfi_receive(MSG_HDR_GET_ID(msg_hdr),
 			MSG_HDR_GET_SIZE(msg_hdr), MSG_HDR_GET_SEQNUM(msg_hdr));
 
-	hdr->read_index = read;
+	hfi_update_read_idx(hdr, read);
 
 done:
 	return result;
@@ -136,7 +136,7 @@ int a6xx_hfi_queue_write(struct adreno_device *adreno_dev, uint32_t queue_idx,
 		}
 	}
 
-	hdr->write_index = write;
+	hfi_update_write_idx(hdr, write);
 
 	return 0;
 }
