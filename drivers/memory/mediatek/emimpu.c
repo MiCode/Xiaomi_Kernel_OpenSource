@@ -123,7 +123,8 @@ static ssize_t emimpu_ctrl_store
 	char *ptr;
 	char *token[MTK_EMI_MAX_TOKEN];
 	static struct emimpu_region_t *rg_info;
-	unsigned long long start, end;
+	unsigned long long start = 0;
+	unsigned long long end = 0;
 	unsigned long region;
 	unsigned long dgroup;
 	unsigned long apc;
