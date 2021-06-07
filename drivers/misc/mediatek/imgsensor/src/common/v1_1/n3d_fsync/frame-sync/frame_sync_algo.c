@@ -89,6 +89,10 @@ struct FrameSyncInst {
 static struct FrameSyncInst fs_inst[SENSOR_MAX_NUM];
 
 
+/* fps sync result */
+static unsigned int target_min_fl_us;
+
+
 /* frame monitor data */
 static unsigned int cur_tick;
 static unsigned int tick_factor;
@@ -848,6 +852,8 @@ static void do_fps_sync(unsigned int solveIdxs[], unsigned int len)
 		set_fl_us(idx, target_fl_us);
 	}
 
+	target_min_fl_us = target_fl_us;
+
 
 	ret = snprintf(log_buf + strlen(log_buf),
 		LOG_BUF_STR_LEN - strlen(log_buf),
@@ -875,6 +881,7 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 
 	unsigned int min_vtick_diff = (0 - 1);    // 0xffffffff
 	unsigned int target_vts = 0;
+	unsigned int pf_ctrl_timing_error[SENSOR_MAX_NUM] = {0};
 
 	unsigned int anti_flicker_en = 0;
 	unsigned int flicker_vdiff[SENSOR_MAX_NUM] = {0};
@@ -1001,20 +1008,33 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 	/* 3.2 extend frame length to align target timestamp */
 	for (i = 0; i < len; ++i) {
 		unsigned int idx = solveIdxs[i];
+		unsigned int pred_vdiff = 0;
 		unsigned int fl_lc = 0;
+
+
+		/* detect pf ctrl timing error */
+		pred_vdiff = target_vts - fs_inst[idx].vdiff;
+		if (pred_vdiff > target_min_fl_us) {
+			/* pred_vdiff > FPS sync result */
+			/* => Do not adjust vdiff, only use fps sync result */
+
+			pf_ctrl_timing_error[idx] = 1;
+			pred_vdiff = 0;
+		}
+
 
 		/* add diff and set framelength */
 		/* all framelength operation must use this API */
-		fl_lc = fs_inst[idx].output_fl_us +
-				target_vts - fs_inst[idx].vdiff;
+		fl_lc = fs_inst[idx].output_fl_us + pred_vdiff;
 
 		set_fl_us(idx, fl_lc);
 
 
 		ret = snprintf(log_buf[idx] + strlen(log_buf[idx]),
 			LOG_BUF_STR_LEN - strlen(log_buf[idx]),
-			"pred_vdiff:%u, flk_en:%u, out_fl:%u(%u)",
+			"pred_vdiff:%u(timing_err:%u), flk_en:%u, out_fl:%u(%u)",
 			target_vts - fs_inst[idx].vdiff,
+			pf_ctrl_timing_error[idx],
 			fs_inst[idx].flicker_en,
 			fs_inst[idx].output_fl_us,
 			fs_inst[idx].output_fl_lc);
