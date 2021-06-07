@@ -4168,6 +4168,15 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 
 	//writel_relaxed(0, data->base + REG_MMU_STANDARD_AXI_MODE);
 
+	/* add to avoid iommu too busy to finish wr cmd */
+	regval = readl_relaxed(data->base + REG_MMU_WR_LEN_CTRL);
+	pr_info("%s, REG_MMU_WR_LEN_CTRL before config :0x%x\n", __func__, regval);
+
+	/* disable throttling mechanism */
+	regval = regval | F_MMU_WR_LEN_CTRL_THROT_DIS(0) | F_MMU_WR_LEN_CTRL_THROT_DIS(1);
+	writel_relaxed(regval, data->base + REG_MMU_WR_LEN_CTRL);
+	pr_info("%s, REG_MMU_WR_LEN_CTRL after config :0x%x\n", __func__, regval);
+
 	if (devm_request_irq(data->dev, data->irq, mtk_iommu_isr, 0,
 				 dev_name(data->dev), (void *)data)) {
 		writel_relaxed(0, data->base + REG_MMU_PT_BASE_ADDR);
@@ -4181,6 +4190,9 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 		GFP_KERNEL | __GFP_ZERO);
 	if (p_reg_backup[m4u_id] == NULL)
 		return -ENOMEM;
+
+	/* enable bank irq */
+	mtk_iommu_atf_call(IOMMU_ATF_BANK_ENABLE_TF, m4u_id, MTK_IOMMU_BANK_COUNT);
 
 #ifdef MTK_M4U_SECURE_IRQ_SUPPORT
 	/* register secure bank irq */
