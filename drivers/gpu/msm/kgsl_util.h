@@ -30,13 +30,25 @@ struct clk_bulk_data;
  * 16 + (4 * (List_Length - 1))
  * @list_offset: this tells CP the start of preemption only list:
  * 16 + (4 * List_Offset)
+ * @ifpc_list_len: number of static ifpc duplets in the list
+ * @preemption_list_len: number of static preemption duplets in the list
+ * @dynamic_list_len: number of dynamically added triplets in the list
  */
 struct cpu_gpu_lock {
 	u32 gpu_req;
 	u32 cpu_req;
 	u32 turn;
-	u16 list_length;
-	u16 list_offset;
+	union {
+		struct {
+			u16 list_length;
+			u16 list_offset;
+		};
+		struct {
+			u8 ifpc_list_len;
+			u8 preemption_list_len;
+			u16 dynamic_list_len;
+		};
+	};
 };
 
 /**
