@@ -173,6 +173,7 @@ void log_kgsl_syncpoint_fence_event(u32 id, char *fence_name)
 		return;
 
 	entry->id = id;
+	memset(entry->name, 0, sizeof(entry->name));
 	strlcpy(entry->name, fence_name, sizeof(entry->name));
 }
 
@@ -188,6 +189,7 @@ void log_kgsl_syncpoint_fence_expire_event(u32 id, char *fence_name)
 		return;
 
 	entry->id = id;
+	memset(entry->name, 0, sizeof(entry->name));
 	strlcpy(entry->name, fence_name, sizeof(entry->name));
 }
 
