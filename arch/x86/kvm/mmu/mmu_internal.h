@@ -59,7 +59,7 @@ struct kvm_mmu_page {
 #ifdef CONFIG_X86_64
 	bool tdp_mmu_page;
 
-	/* Used for freeing the page asyncronously if it is a TDP MMU page. */
+	/* Used for freeing the page asynchronously if it is a TDP MMU page. */
 	struct rcu_head rcu_head;
 #endif
 };
@@ -76,6 +76,11 @@ static inline struct kvm_mmu_page *to_shadow_page(hpa_t shadow_page)
 static inline struct kvm_mmu_page *sptep_to_sp(u64 *sptep)
 {
 	return to_shadow_page(__pa(sptep));
+}
+
+static inline int kvm_mmu_page_as_id(struct kvm_mmu_page *sp)
+{
+	return sp->role.smm ? 1 : 0;
 }
 
 static inline bool kvm_vcpu_ad_need_write_protect(struct kvm_vcpu *vcpu)

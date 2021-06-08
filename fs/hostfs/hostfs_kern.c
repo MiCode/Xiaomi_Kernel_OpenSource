@@ -144,7 +144,7 @@ static char *follow_link(char *link)
 	char *name, *resolved, *end;
 	int n;
 
-	name = __getname();
+	name = kmalloc(PATH_MAX, GFP_KERNEL);
 	if (!name) {
 		n = -ENOMEM;
 		goto out_free;
@@ -173,12 +173,11 @@ static char *follow_link(char *link)
 		goto out_free;
 	}
 
-	__putname(name);
-	kfree(link);
+	kfree(name);
 	return resolved;
 
  out_free:
-	__putname(name);
+	kfree(name);
 	return ERR_PTR(n);
 }
 
@@ -712,7 +711,6 @@ static int hostfs_mknod(struct user_namespace *mnt_userns, struct inode *dir,
 	if (name == NULL)
 		goto out_put;
 
-	init_special_inode(inode, mode, dev);
 	err = do_mknod(name, mode, MAJOR(dev), MINOR(dev));
 	if (err)
 		goto out_free;
