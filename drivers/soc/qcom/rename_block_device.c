@@ -66,21 +66,22 @@ static int rename_blk_dev_init(void)
 		dev = name_to_dev_t(dev_path);
 		if (!dev) {
 			pr_err("No device path : %s\n", dev_path);
-			return -EINVAL;
+			goto out;
 		}
 		disk = get_gendisk(dev, &partno);
 		if (!disk) {
 			pr_err("No device with dev path : %s\n", dev_path);
-			return -ENXIO;
+			goto out;
 		}
-		if (!of_property_read_string_index(node, "rename-dev", index,
-						(const char **)&modified_name)) {
+		if (!of_property_read_string_index(node, dp_enabled ?
+					"rename-dev-ab" : "rename-dev",
+				 index,	(const char **)&modified_name)) {
 			get_slot_updated_name(modified_name);
 			device_rename(disk_to_dev(disk), final_name);
 		} else {
 			pr_err("rename-dev for actual-dev = %s is missing\n",
 								 actual_name);
-			return -ENXIO;
+			goto out;
 		}
 		index++;
 	}

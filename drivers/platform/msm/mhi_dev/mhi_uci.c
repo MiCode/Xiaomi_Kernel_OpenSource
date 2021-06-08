@@ -874,6 +874,15 @@ static int mhi_uci_read_async(struct uci_client *uci_handle, int *bytes_avail)
 	if (*bytes_avail < 0) {
 		uci_log(UCI_DBG_ERROR, "Failed to read channel ret %dlu\n",
 			*bytes_avail);
+		if (uci_handle->in_chan == MHI_CLIENT_ADB_OUT) {
+			uci_log(UCI_DBG_ERROR,
+				"Read failed CH 36 free req from list\n");
+			uci_handle->pkt_loc = NULL;
+			uci_handle->pkt_size = 0;
+			mhi_uci_put_req(uci_handle, ureq);
+			*bytes_avail = 0;
+			return ret_val;
+		}
 		mhi_uci_put_req(uci_handle, ureq);
 		return -EIO;
 	}

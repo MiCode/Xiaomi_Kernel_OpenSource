@@ -8,6 +8,9 @@
  */
 #include "sched.h"
 
+#ifdef CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ
+#include <linux/irqchip/arm-gic-v3.h>
+#endif /* CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ */
 #include <trace/events/power.h>
 
 /* Linker adds these: start and end of __cpuidle functions */
@@ -128,6 +131,11 @@ static int call_cpuidle(struct cpuidle_driver *drv, struct cpuidle_device *dev,
  * set, and it returns with polling set.  If it ever stops polling, it
  * must clear the polling bit.
  */
+
+#ifdef CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ
+static cpumask_t cpu_state;
+#endif /* CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ */
+
 static void cpuidle_idle_call(void)
 {
 	struct cpuidle_device *dev = cpuidle_get_device();
@@ -169,9 +177,26 @@ static void cpuidle_idle_call(void)
 
 	if (idle_should_enter_s2idle() || dev->use_deepest_state) {
 		if (idle_should_enter_s2idle()) {
+
+#ifdef CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ
+			bool print_wake_irq;
+
+			cpumask_set_cpu(dev->cpu, &cpu_state);
+#endif /* CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ */
+
 			rcu_idle_enter();
 
 			entered_state = cpuidle_enter_s2idle(drv, dev);
+
+#ifdef CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ
+			print_wake_irq = cpumask_weight(&cpu_state) ==
+				    cpumask_weight(cpu_online_mask) ?
+				    true : false;
+			cpumask_clear_cpu(dev->cpu, &cpu_state);
+			if (print_wake_irq)
+				gic_s2idle_wake();
+#endif /* CONFIG_QGKI_SHOW_S2IDLE_WAKE_IRQ */
+
 			if (entered_state > 0) {
 				local_irq_enable();
 				goto exit_idle;

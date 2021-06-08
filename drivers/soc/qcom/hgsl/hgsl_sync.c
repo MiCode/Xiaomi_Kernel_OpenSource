@@ -171,8 +171,12 @@ static void hgsl_hsync_fence_release(struct dma_fence *base)
 			container_of(base, struct hgsl_hsync_fence, fence);
 	struct hgsl_hsync_timeline *timeline = fence->timeline;
 
-	if (timeline)
+	if (timeline) {
+		spin_lock(&timeline->lock);
+		list_del_init(&fence->child_list);
+		spin_unlock(&timeline->lock);
 		hgsl_hsync_timeline_put(timeline);
+	}
 	kfree(fence);
 }
 

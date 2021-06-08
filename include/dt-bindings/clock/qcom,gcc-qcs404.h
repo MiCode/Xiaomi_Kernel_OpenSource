@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_QCS404_H
@@ -152,6 +152,9 @@
 #define GCC_BIMC_CDSP_CLK				144
 #define GCC_CDSP_TBU_CLK				145
 #define GCC_CDSP_BIMC_CLK_SRC				146
+#define GCC_BIAS_PLL_MISC_RESET_CLK			147
+#define GCC_BIAS_PLL_AHB_CLK				148
+#define GCC_BIAS_PLL_AON_CLK				149
 
 #define GCC_GENI_IR_BCR					0
 #define GCC_USB_HS_BCR					1
@@ -176,5 +179,6 @@
 #define GCC_PCIE_0_SLEEP_ARES				20
 #define GCC_PCIE_0_PIPE_ARES				21
 #define GCC_WDSP_RESTART				22
+#define GCC_BIAS_PLL_BCR				23
 
 #endif

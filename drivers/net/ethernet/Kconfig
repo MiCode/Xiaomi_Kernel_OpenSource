@@ -183,4 +183,15 @@ source "drivers/net/ethernet/wiznet/Kconfig"
 source "drivers/net/ethernet/xilinx/Kconfig"
 source "drivers/net/ethernet/xircom/Kconfig"
 
+config QPS615
+	tristate "QPS615 driver"
+	select PHYLINK
+	select PAGE_POOL
+	default m
+	help
+	  Say M here to compile this driver as a dynamically loadable kernel
+	  module. The DLKM will be called qps615_drv.ko.
+	  NTN3 is a PCIe switch for 2 emac interfaces to send Internet Packets
+	  to SDX65 host.
+
 endif # ETHERNET

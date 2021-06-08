@@ -11,6 +11,7 @@
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_trace.h"
 
 /**
  * struct kgsl_page_pool - Structure to hold information for the pool
@@ -22,7 +23,7 @@
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
-	int page_count;
+	unsigned int page_count;
 	unsigned int reserved_pages;
 	spinlock_t list_lock;
 	struct list_head page_list;
@@ -108,6 +109,8 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 	list_add_tail(&p->lru, &pool->page_list);
 	pool->page_count++;
 	spin_unlock(&pool->list_lock);
+
+	trace_kgsl_pool_add_page(pool->pool_order, pool->page_count);
 	mod_node_page_state(page_pgdat(p),  NR_KERNEL_MISC_RECLAIMABLE,
 				(1 << pool->pool_order));
 }
@@ -128,6 +131,8 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 	pool->page_count--;
 	list_del(&p->lru);
 	spin_unlock(&pool->list_lock);
+
+	trace_kgsl_pool_get_page(pool->pool_order, pool->page_count);
 	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
 				-(1 << pool->pool_order));
 	return p;
@@ -151,6 +156,35 @@ static int kgsl_pool_size_total(void)
 }
 
 /*
+ * Returns a page from specified pool only if pool
+ * currently holds more number of pages than reserved
+ * pages.
+ */
+static struct page *
+_kgsl_pool_get_nonreserved_page(struct kgsl_page_pool *pool)
+{
+	struct page *p = NULL;
+
+	spin_lock(&pool->list_lock);
+	if (pool->page_count <= pool->reserved_pages) {
+		spin_unlock(&pool->list_lock);
+		return NULL;
+	}
+
+	p = list_first_entry_or_null(&pool->page_list, struct page, lru);
+	if (p == NULL) {
+		spin_unlock(&pool->list_lock);
+		return NULL;
+	}
+	pool->page_count--;
+	list_del(&p->lru);
+	spin_unlock(&pool->list_lock);
+	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
+			-(1 << pool->pool_order));
+	return p;
+}
+
+/*
  * This will shrink the specified pool by num_pages or by
  * (page_count - reserved_pages), whichever is smaller.
  */
@@ -160,25 +194,28 @@ _kgsl_pool_shrink(struct kgsl_page_pool *pool,
 {
 	int j;
 	unsigned int pcount = 0;
+	struct page *(*get_page)(struct kgsl_page_pool *) =
+		_kgsl_pool_get_nonreserved_page;
 
 	if (pool == NULL || num_pages == 0)
 		return pcount;
 
-	num_pages = num_pages >> pool->pool_order;
+	num_pages = (num_pages + (1 << pool->pool_order) - 1) >>
+				pool->pool_order;
 
-	/* This is to ensure that we don't free reserved pages */
-	if (!exit)
-		num_pages =  min(num_pages, (pool->page_count -
-				pool->reserved_pages));
+	/* This is to ensure that we free reserved pages */
+	if (exit)
+		get_page = _kgsl_pool_get_page;
 
 	for (j = 0; j < num_pages; j++) {
-		struct page *page = _kgsl_pool_get_page(pool);
+		struct page *page = get_page(pool);
 
 		if (!page)
 			break;
 
 		__free_pages(page, pool->pool_order);
 		pcount += (1 << pool->pool_order);
+		trace_kgsl_pool_free_page(pool->pool_order);
 	}
 
 	return pcount;
@@ -353,10 +390,11 @@ static int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			if (order > 0) {
 				size = PAGE_SIZE << --order;
 				goto eagain;
-
 			} else
 				return -ENOMEM;
 		}
+
+		trace_kgsl_pool_alloc_page_system(order);
 		goto done;
 	}
 
@@ -376,6 +414,7 @@ static int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			page = alloc_pages(gfp_mask, order);
 			if (page == NULL)
 				return -ENOMEM;
+			trace_kgsl_pool_alloc_page_system(order);
 			goto done;
 		}
 	}
@@ -398,6 +437,8 @@ static int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			} else
 				return -ENOMEM;
 		}
+
+		trace_kgsl_pool_alloc_page_system(order);
 	}
 
 done:
@@ -412,6 +453,7 @@ done:
 	return pcount;
 
 eagain:
+	trace_kgsl_pool_try_page_lower(get_order(*page_size));
 	*page_size = kgsl_get_page_size(size, ilog2(size));
 	*align = ilog2(*page_size);
 	return -EAGAIN;
@@ -490,6 +532,7 @@ static void kgsl_pool_free_page(struct page *page)
 
 	/* Give back to system as not added to pool */
 	__free_pages(page, page_order);
+	trace_kgsl_pool_free_page(page_order);
 }
 
 /* Functions for the shrinker */

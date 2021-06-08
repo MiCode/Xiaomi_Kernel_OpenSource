@@ -443,6 +443,9 @@ struct dwc3_msm {
 	struct clk		*utmi_clk_src;
 	struct clk		*bus_aggr_clk;
 	struct clk		*noc_aggr_clk;
+	struct clk		*noc_aggr_north_clk;
+	struct clk		*noc_aggr_south_clk;
+	struct clk		*noc_sys_clk;
 	struct clk		*cfg_ahb_clk;
 	struct reset_control	*core_reset;
 	struct regulator	*dwc3_gdsc;
@@ -3318,6 +3321,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 	clk_set_rate(mdwc->core_clk, 19200000);
 	clk_disable_unprepare(mdwc->core_clk);
 	clk_disable_unprepare(mdwc->noc_aggr_clk);
+	clk_disable_unprepare(mdwc->noc_aggr_north_clk);
+	clk_disable_unprepare(mdwc->noc_aggr_south_clk);
+	clk_disable_unprepare(mdwc->noc_sys_clk);
 	/*
 	 * Disable iface_clk only after core_clk as core_clk has FSM
 	 * depedency on iface_clk. Hence iface_clk should be turned off
@@ -3441,6 +3447,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	 */
 	clk_prepare_enable(mdwc->iface_clk);
 	clk_prepare_enable(mdwc->noc_aggr_clk);
+	clk_prepare_enable(mdwc->noc_aggr_north_clk);
+	clk_prepare_enable(mdwc->noc_aggr_south_clk);
+	clk_prepare_enable(mdwc->noc_sys_clk);
 
 	core_clk_rate = mdwc->core_clk_rate;
 	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH) {
@@ -3926,6 +3935,20 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	mdwc->noc_aggr_clk = devm_clk_get(mdwc->dev, "noc_aggr_clk");
 	if (IS_ERR(mdwc->noc_aggr_clk))
 		mdwc->noc_aggr_clk = NULL;
+
+	mdwc->noc_aggr_north_clk = devm_clk_get(mdwc->dev,
+						"noc_aggr_north_clk");
+	if (IS_ERR(mdwc->noc_aggr_north_clk))
+		mdwc->noc_aggr_north_clk = NULL;
+
+	mdwc->noc_aggr_south_clk = devm_clk_get(mdwc->dev,
+						"noc_aggr_south_clk");
+	if (IS_ERR(mdwc->noc_aggr_south_clk))
+		mdwc->noc_aggr_south_clk = NULL;
+
+	mdwc->noc_sys_clk = devm_clk_get(mdwc->dev, "noc_sys_clk");
+	if (IS_ERR(mdwc->noc_sys_clk))
+		mdwc->noc_sys_clk = NULL;
 
 	if (of_property_match_string(mdwc->dev->of_node,
 				"clock-names", "cfg_ahb_clk") >= 0) {
@@ -5041,6 +5064,9 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	if (ret_pm < 0) {
 		dev_err(mdwc->dev,
 			"pm_runtime_get_sync failed with %d\n", ret_pm);
+		clk_prepare_enable(mdwc->noc_aggr_north_clk);
+		clk_prepare_enable(mdwc->noc_aggr_south_clk);
+		clk_prepare_enable(mdwc->noc_sys_clk);
 		clk_prepare_enable(mdwc->noc_aggr_clk);
 		clk_prepare_enable(mdwc->utmi_clk);
 		clk_prepare_enable(mdwc->core_clk);
