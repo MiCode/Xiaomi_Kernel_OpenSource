@@ -369,7 +369,7 @@ static void process_ctx_bad(struct adreno_device *adreno_dev)
 	adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 }
 
-static void process_msgq_irq(struct adreno_device *adreno_dev)
+void genc_hwsched_process_msgq(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	u32 rcvd[MAX_RCVD_SIZE], next_hdr;
@@ -459,7 +459,7 @@ static irqreturn_t genc_hwsched_hfi_handler(int irq, void *data)
 		status &= ~HFI_IRQ_MSGQ_MASK;
 
 	if (status & HFI_IRQ_MSGQ_MASK)
-		process_msgq_irq(adreno_dev);
+		genc_hwsched_process_msgq(adreno_dev);
 	if (status & HFI_IRQ_DBGQ_MASK)
 		process_dbgq_irq(adreno_dev);
 	if (status & HFI_IRQ_CM3_FAULT_MASK) {

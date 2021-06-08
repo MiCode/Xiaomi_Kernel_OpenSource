@@ -1069,6 +1069,13 @@ int genc_hwsched_reset(struct adreno_device *adreno_dev)
 
 	genc_gmu_suspend(adreno_dev);
 
+	/*
+	 * In some corner cases, it is possible that GMU put TS_RETIRE
+	 * on the msgq after we have turned off gmu interrupts. Hence,
+	 * drain the queue one last time before we reboot the GMU.
+	 */
+	genc_hwsched_process_msgq(adreno_dev);
+
 	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
 
 	ret = genc_hwsched_boot(adreno_dev);
