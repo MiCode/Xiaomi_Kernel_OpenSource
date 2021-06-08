@@ -5719,6 +5719,8 @@ static int dwc3_msm_pm_resume(struct device *dev)
 
 static int dwc3_core_prepare(struct device *dev)
 {
+	struct dwc3 *dwc = dev_get_drvdata(dev);
+
 	/*
 	 * It is recommended to use the PM prepare callback to handle situations
 	 * where the device is already runtime suspended, in order to avoid
@@ -5730,6 +5732,12 @@ static int dwc3_core_prepare(struct device *dev)
 	 */
 	if (pm_runtime_enabled(dev) && pm_runtime_suspended(dev))
 		return 1;
+
+	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_DEVICE &&
+			!pm_runtime_suspended(dev)) {
+		dev_info(dev, "%s: peripheral mode still active\n", __func__);
+		return -EBUSY;
+	}
 
 	return 0;
 }
