@@ -1529,7 +1529,7 @@ static int vmx_rtit_ctl_check(struct kvm_vcpu *vcpu, u64 data)
 
 	/*
 	 * MTCFreq, CycThresh and PSBFreq encodings check, any MSR write that
-	 * utilize encodings marked reserved will casue a #GP fault.
+	 * utilize encodings marked reserved will cause a #GP fault.
 	 */
 	value = intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_mtc_periods);
 	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_mtc) &&
@@ -2761,7 +2761,7 @@ static void enter_pmode(struct kvm_vcpu *vcpu)
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 
 	/*
-	 * Update real mode segment cache. It may be not up-to-date if sement
+	 * Update real mode segment cache. It may be not up-to-date if segment
 	 * register was written while vcpu was in a guest mode.
 	 */
 	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_ES], VCPU_SREG_ES);
@@ -6027,19 +6027,19 @@ static int __vmx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
 	     exit_reason.basic != EXIT_REASON_PML_FULL &&
 	     exit_reason.basic != EXIT_REASON_APIC_ACCESS &&
 	     exit_reason.basic != EXIT_REASON_TASK_SWITCH)) {
+		int ndata = 3;
+
 		vcpu->run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
 		vcpu->run->internal.suberror = KVM_INTERNAL_ERROR_DELIVERY_EV;
-		vcpu->run->internal.ndata = 3;
 		vcpu->run->internal.data[0] = vectoring_info;
 		vcpu->run->internal.data[1] = exit_reason.full;
 		vcpu->run->internal.data[2] = vcpu->arch.exit_qualification;
 		if (exit_reason.basic == EXIT_REASON_EPT_MISCONFIG) {
-			vcpu->run->internal.ndata++;
-			vcpu->run->internal.data[3] =
+			vcpu->run->internal.data[ndata++] =
 				vmcs_read64(GUEST_PHYSICAL_ADDRESS);
 		}
-		vcpu->run->internal.data[vcpu->run->internal.ndata++] =
-			vcpu->arch.last_vmentry_cpu;
+		vcpu->run->internal.data[ndata++] = vcpu->arch.last_vmentry_cpu;
+		vcpu->run->internal.ndata = ndata;
 		return 0;
 	}
 
@@ -6580,8 +6580,8 @@ static void atomic_switch_perf_msrs(struct vcpu_vmx *vmx)
 	int i, nr_msrs;
 	struct perf_guest_switch_msr *msrs;
 
+	/* Note, nr_msrs may be garbage if perf_guest_get_msrs() returns NULL. */
 	msrs = perf_guest_get_msrs(&nr_msrs);
-
 	if (!msrs)
 		return;
 
@@ -7252,7 +7252,7 @@ static void update_intel_pt_cfg(struct kvm_vcpu *vcpu)
 	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_topa_output))
 		vmx->pt_desc.ctl_bitmask &= ~RTIT_CTL_TOPA;
 
-	/* If CPUID.(EAX=14H,ECX=0):ECX[3]=1 FabircEn can be set */
+	/* If CPUID.(EAX=14H,ECX=0):ECX[3]=1 FabricEn can be set */
 	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_output_subsys))
 		vmx->pt_desc.ctl_bitmask &= ~RTIT_CTL_FABRIC_EN;
 

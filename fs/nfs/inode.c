@@ -207,7 +207,7 @@ static bool nfs_has_xattr_cache(const struct nfs_inode *nfsi)
 }
 #endif
 
-static void nfs_set_cache_invalid(struct inode *inode, unsigned long flags)
+void nfs_set_cache_invalid(struct inode *inode, unsigned long flags)
 {
 	struct nfs_inode *nfsi = NFS_I(inode);
 	bool have_delegation = NFS_PROTO(inode)->have_delegation(inode, FMODE_READ);
@@ -229,6 +229,7 @@ static void nfs_set_cache_invalid(struct inode *inode, unsigned long flags)
 	if (flags & NFS_INO_INVALID_DATA)
 		nfs_fscache_invalidate(inode);
 }
+EXPORT_SYMBOL_GPL(nfs_set_cache_invalid);
 
 /*
  * Invalidate the local caches
@@ -334,7 +335,7 @@ nfs_find_actor(struct inode *inode, void *opaque)
 
 	if (NFS_FILEID(inode) != fattr->fileid)
 		return 0;
-	if ((S_IFMT & inode->i_mode) != (S_IFMT & fattr->mode))
+	if (inode_wrong_type(inode, fattr->mode))
 		return 0;
 	if (nfs_compare_fh(NFS_FH(inode), fh))
 		return 0;
@@ -1067,8 +1068,8 @@ void nfs_inode_attach_open_context(struct nfs_open_context *ctx)
 	spin_lock(&inode->i_lock);
 	if (list_empty(&nfsi->open_files) &&
 	    (nfsi->cache_validity & NFS_INO_DATA_INVAL_DEFER))
-		nfsi->cache_validity |= NFS_INO_INVALID_DATA |
-			NFS_INO_REVAL_FORCED;
+		nfs_set_cache_invalid(inode, NFS_INO_INVALID_DATA |
+						     NFS_INO_REVAL_FORCED);
 	list_add_tail_rcu(&ctx->list, &nfsi->open_files);
 	spin_unlock(&inode->i_lock);
 }
@@ -1460,7 +1461,7 @@ static int nfs_check_inode_attributes(struct inode *inode, struct nfs_fattr *fat
 			return 0;
 		return -ESTALE;
 	}
-	if ((fattr->valid & NFS_ATTR_FATTR_TYPE) && (inode->i_mode & S_IFMT) != (fattr->mode & S_IFMT))
+	if ((fattr->valid & NFS_ATTR_FATTR_TYPE) && inode_wrong_type(inode, fattr->mode))
 		return -ESTALE;
 
 
@@ -1875,7 +1876,7 @@ static int nfs_update_inode(struct inode *inode, struct nfs_fattr *fattr)
 	/*
 	 * Make sure the inode's type hasn't changed.
 	 */
-	if ((fattr->valid & NFS_ATTR_FATTR_TYPE) && (inode->i_mode & S_IFMT) != (fattr->mode & S_IFMT)) {
+	if ((fattr->valid & NFS_ATTR_FATTR_TYPE) && inode_wrong_type(inode, fattr->mode)) {
 		/*
 		* Big trouble! The inode has become a different object.
 		*/

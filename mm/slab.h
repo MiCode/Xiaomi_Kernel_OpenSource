@@ -91,6 +91,24 @@ struct kmem_cache *kmalloc_slab(size_t, gfp_t);
 
 gfp_t kmalloc_fix_flags(gfp_t flags);
 
+#ifdef CONFIG_SLUB
+/*
+ * Tracking user of a slab.
+ */
+#define TRACK_ADDRS_COUNT 16
+struct track {
+	unsigned long addr;	/* Called from address */
+#ifdef CONFIG_STACKTRACE
+	unsigned long addrs[TRACK_ADDRS_COUNT];	/* Called from address */
+#endif
+	int cpu;		/* Was running on cpu */
+	int pid;		/* Pid context */
+	unsigned long when;	/* When did the operation occur */
+};
+
+enum track_item { TRACK_ALLOC, TRACK_FREE };
+#endif
+
 /* Functions provided by the slab allocators */
 int __kmem_cache_create(struct kmem_cache *, slab_flags_t flags);
 
@@ -215,10 +233,23 @@ DECLARE_STATIC_KEY_TRUE(slub_debug_enabled);
 DECLARE_STATIC_KEY_FALSE(slub_debug_enabled);
 #endif
 extern void print_tracking(struct kmem_cache *s, void *object);
+extern unsigned long get_each_object_track(struct kmem_cache *s,
+		struct page *page, enum track_item alloc,
+		int (*fn)(const struct kmem_cache *, const void *,
+		const struct track *, void *), void *private);
 #else
 static inline void print_tracking(struct kmem_cache *s, void *object)
 {
 }
+#ifdef CONFIG_SLUB
+static inline unsigned long get_each_object_track(struct kmem_cache *s,
+		struct page *page, enum track_item alloc,
+		int (*fn)(const struct kmem_cache *, const void *,
+		const struct track *, void *), void *private)
+{
+	return 0;
+}
+#endif
 #endif
 
 /*
@@ -601,7 +632,8 @@ static inline void cache_random_seq_destroy(struct kmem_cache *cachep) { }
 
 static inline bool slab_want_init_on_alloc(gfp_t flags, struct kmem_cache *c)
 {
-	if (static_branch_unlikely(&init_on_alloc)) {
+	if (static_branch_maybe(CONFIG_INIT_ON_ALLOC_DEFAULT_ON,
+				&init_on_alloc)) {
 		if (c->ctor)
 			return false;
 		if (c->flags & (SLAB_TYPESAFE_BY_RCU | SLAB_POISON))
@@ -613,12 +645,14 @@ static inline bool slab_want_init_on_alloc(gfp_t flags, struct kmem_cache *c)
 
 static inline bool slab_want_init_on_free(struct kmem_cache *c)
 {
-	if (static_branch_unlikely(&init_on_free))
+	if (static_branch_maybe(CONFIG_INIT_ON_FREE_DEFAULT_ON,
+				&init_on_free))
 		return !(c->ctor ||
 			 (c->flags & (SLAB_TYPESAFE_BY_RCU | SLAB_POISON)));
 	return false;
 }
 
+#ifdef CONFIG_PRINTK
 #define KS_ADDRS_COUNT 16
 struct kmem_obj_info {
 	void *kp_ptr;
@@ -630,5 +664,6 @@ struct kmem_obj_info {
 	void *kp_stack[KS_ADDRS_COUNT];
 };
 void kmem_obj_info(struct kmem_obj_info *kpp, void *object, struct page *page);
+#endif
 
 #endif /* MM_SLAB_H */

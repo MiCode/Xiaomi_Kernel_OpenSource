@@ -10,6 +10,10 @@
 / {
 	model = "Radxa ROCK Pi 4B";
 	compatible = "radxa,rockpi4b", "radxa,rockpi4", "rockchip,rk3399";
+
+	aliases {
+		mmc2 = &sdio0;
+	};
 };
 
 &sdio0 {
@@ -27,7 +31,7 @@
 };
 
 &uart0 {
-	status = "okay";
+	status = "disabled";
 
 	bluetooth {
 		compatible = "brcm,bcm43438-bt";
