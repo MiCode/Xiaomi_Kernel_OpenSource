@@ -925,6 +925,7 @@ void pm_system_cancel_wakeup(void)
 {
 	atomic_dec_if_positive(&pm_abort_suspend);
 }
+EXPORT_SYMBOL_GPL(pm_system_cancel_wakeup);
 
 void pm_wakeup_clear(bool reset)
 {
