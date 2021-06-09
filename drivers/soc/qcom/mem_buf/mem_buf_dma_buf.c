@@ -23,6 +23,7 @@ struct mem_buf_vmperm {
 	struct mutex lock;
 	mem_buf_dma_buf_destructor dtor;
 	void *dtor_data;
+	bool has_lookup_sgl;
 };
 
 /*
@@ -183,7 +184,9 @@ static int __mem_buf_vmperm_reclaim(struct mem_buf_vmperm *vmperm)
 	int new_perms[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 	ret = mem_buf_unassign_mem(vmperm->sgt, vmperm->vmids,
-				vmperm->nr_acl_entries);
+				   vmperm->nr_acl_entries,
+				   vmperm->memparcel_hdl,
+				   vmperm->has_lookup_sgl);
 	if (ret) {
 		pr_err_ratelimited("Reclaim failed\n");
 		mem_buf_vmperm_set_err(vmperm);
@@ -432,21 +435,6 @@ int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	if (api < 0)
 		return -EINVAL;
 
-	if (api == MEM_BUF_API_GUNYAH) {
-		/* Due to hyp-assign batching */
-		if (sgt->nents > 1) {
-			pr_err_ratelimited("Operation requires physically contiguous memory\n");
-			return -EINVAL;
-		}
-
-		/* Due to memory-hotplug */
-		if (!IS_ALIGNED(sg_phys(sgt->sgl), SUBSECTION_SIZE) ||
-		    !IS_ALIGNED(sgt->sgl->length, SUBSECTION_SIZE)) {
-			pr_err_ratelimited("Operation requires SUBSECTION_SIZE alignemnt\n");
-			return -EINVAL;
-		}
-	}
-
 	ret = validate_lend_vmids(arg, is_lend);
 	if (ret)
 		return ret;
@@ -488,22 +476,12 @@ int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	if (ret)
 		goto err_resize;
 
-	ret = mem_buf_assign_mem(vmperm->sgt, arg->vmids, arg->perms,
-				arg->nr_acl_entries);
+	ret = mem_buf_assign_mem(is_lend, vmperm->sgt, arg,
+				 &vmperm->has_lookup_sgl);
 	if (ret) {
 		if (ret == -EADDRNOTAVAIL)
 			mem_buf_vmperm_set_err(vmperm);
 		goto err_assign;
-	}
-
-	if (api == MEM_BUF_API_GUNYAH) {
-		ret = mem_buf_retrieve_memparcel_hdl(vmperm->sgt, arg->vmids,
-				arg->perms, arg->nr_acl_entries,
-				&arg->memparcel_hdl);
-		if (ret)
-			goto err_retrieve_hdl;
-	} else {
-		arg->memparcel_hdl = 0;
 	}
 
 	mem_buf_vmperm_update_state(vmperm, arg->vmids, arg->perms,
@@ -514,8 +492,6 @@ int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	mutex_unlock(&vmperm->lock);
 	return 0;
 
-err_retrieve_hdl:
-	__mem_buf_vmperm_reclaim(vmperm);
 err_assign:
 err_resize:
 	mutex_unlock(&vmperm->lock);

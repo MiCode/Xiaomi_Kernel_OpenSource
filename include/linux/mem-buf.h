@@ -154,6 +154,8 @@ struct mem_buf_lend_kernel_arg {
 	int *vmids;
 	int *perms;
 	gh_memparcel_handle_t memparcel_hdl;
+	u32 flags;
+	u64 label;
 };
 
 int mem_buf_lend(struct dma_buf *dmabuf,

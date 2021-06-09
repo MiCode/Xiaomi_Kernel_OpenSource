@@ -124,6 +124,7 @@ struct mem_buf_xfer_mem {
 	u32 nr_acl_entries;
 	int *dst_vmids;
 	int *dst_perms;
+	bool has_lookup_sgl;
 };
 
 /**
@@ -431,11 +432,25 @@ static void mem_buf_free_xfer_mem(struct mem_buf_xfer_mem *xfer_mem)
 	kfree(xfer_mem);
 }
 
+static int mem_buf_get_mem_xfer_type(int *vmids, int *perms, unsigned int nr_acl_entries)
+{
+	u32 i;
+
+	for (i = 0; i < nr_acl_entries; i++)
+		if (vmids[i] == VMID_HLOS &&
+		    perms[i] != 0)
+			return GH_RM_TRANS_TYPE_SHARE;
+
+	return GH_RM_TRANS_TYPE_LEND;
+}
+
 static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 {
 	int ret;
 	struct mem_buf_alloc_req *req_msg = req;
 	struct mem_buf_xfer_mem *xfer_mem;
+	struct mem_buf_lend_kernel_arg arg = {0};
+	bool is_lend;
 
 	xfer_mem = mem_buf_prep_xfer_mem(req_msg);
 	if (IS_ERR(xfer_mem))
@@ -446,20 +461,20 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 		goto err_rmt_alloc;
 
 	if (!xfer_mem->secure_alloc) {
-		ret = mem_buf_assign_mem(xfer_mem->mem_sgt, xfer_mem->dst_vmids,
-					 xfer_mem->dst_perms,
-					 xfer_mem->nr_acl_entries);
+		ret = mem_buf_get_mem_xfer_type(xfer_mem->dst_vmids,
+				xfer_mem->dst_perms, xfer_mem->nr_acl_entries);
+		is_lend = (ret == GH_RM_TRANS_TYPE_LEND);
+
+		arg.nr_acl_entries = xfer_mem->nr_acl_entries;
+		arg.vmids = xfer_mem->dst_vmids;
+		arg.perms = xfer_mem->dst_perms;
+		ret = mem_buf_assign_mem(is_lend, xfer_mem->mem_sgt, &arg,
+					 &xfer_mem->has_lookup_sgl);
 		if (ret < 0)
 			goto err_assign_mem;
-	}
 
-	ret = mem_buf_retrieve_memparcel_hdl(xfer_mem->mem_sgt,
-					     xfer_mem->dst_vmids,
-					     xfer_mem->dst_perms,
-					     xfer_mem->nr_acl_entries,
-					     &xfer_mem->hdl);
-	if (ret < 0)
-		goto err_retrieve_hdl;
+		xfer_mem->hdl = arg.memparcel_hdl;
+	}
 
 	mutex_lock(&mem_buf_xfer_mem_list_lock);
 	list_add(&xfer_mem->entry, &mem_buf_xfer_mem_list);
@@ -467,11 +482,6 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 
 	return xfer_mem;
 
-err_retrieve_hdl:
-	if (!xfer_mem->secure_alloc &&
-	    (mem_buf_unassign_mem(xfer_mem->mem_sgt, xfer_mem->dst_vmids,
-				 xfer_mem->nr_acl_entries) < 0))
-		return ERR_PTR(ret);
 err_assign_mem:
 	if (ret != -EADDRNOTAVAIL)
 		mem_buf_rmt_free_mem(xfer_mem);
@@ -487,7 +497,9 @@ static void mem_buf_cleanup_alloc_req(struct mem_buf_xfer_mem *xfer_mem)
 	if (!xfer_mem->secure_alloc) {
 		ret = mem_buf_unassign_mem(xfer_mem->mem_sgt,
 					   xfer_mem->dst_vmids,
-					   xfer_mem->nr_acl_entries);
+					   xfer_mem->nr_acl_entries,
+					   xfer_mem->hdl,
+					   xfer_mem->has_lookup_sgl);
 		if (ret < 0)
 			return;
 	}
