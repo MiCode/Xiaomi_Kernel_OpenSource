@@ -1582,6 +1582,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	/* Initialise the context bank with our page table cfg */
 	arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
+	if (smmu->impl && smmu->impl->init_context_bank)
+		smmu->impl->init_context_bank(smmu_domain, dev);
 	arm_smmu_write_context_bank(smmu, cfg->cbndx);
 
 	/*
