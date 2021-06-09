@@ -65,6 +65,7 @@
 #include <trace/hooks/dmabuf.h>
 #include <trace/hooks/mmc.h>
 #include <trace/hooks/evdev.h>
+#include <trace/hooks/ipv4.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -324,3 +325,8 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_try_to_unmap_one);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_shrink_node_memcgs);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mmc_sdio_pm_flag_set);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_account_task_time);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_sendmsg_locked);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_recvmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_udp_sendmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_udp_recvmsg);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tcp_recvmsg_stat);
