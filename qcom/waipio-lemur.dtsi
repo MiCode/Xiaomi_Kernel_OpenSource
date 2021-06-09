@@ -14,6 +14,7 @@
 
 &pcie1 {
 	qcom,target-link-width = <1>; /* force X1 lane width */
+	qcom,no-l0s-supported;
 	qcom,pcie-phy-ver = <105>;
 	qcom,phy-sequence = <0x1240 0x03 0x0
 			0x101c 0x31 0x0
