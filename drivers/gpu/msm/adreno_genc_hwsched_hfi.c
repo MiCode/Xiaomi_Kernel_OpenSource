@@ -413,6 +413,7 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	u32 rcvd[MAX_RCVD_SIZE];
 	bool recovery = false;
+	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
 
 	while (genc_hfi_queue_read(gmu, HFI_DBG_ID, rcvd, sizeof(rcvd)) > 0) {
 
@@ -425,8 +426,10 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_DEBUG)
 			adreno_genc_receive_debug_req(gmu, rcvd);
 
-		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK)
+		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK) {
 			add_f2h_packet(adreno_dev, rcvd);
+			wake_up_interruptible(&hfi->f2h_wq);
+		}
 	}
 
 	if (!recovery)
