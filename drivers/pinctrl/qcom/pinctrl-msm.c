@@ -755,9 +755,9 @@ static int msm_gpio_init_valid_mask(struct gpio_chip *gc,
 		return 0;
 	}
 
-	if (of_property_count_u32_elems(pctrl->dev->of_node, "reserved-gpios") > 0) {
+	if (of_property_count_u32_elems(pctrl->dev->of_node, "qcom,gpios-reserved") > 0) {
 		bitmap_fill(valid_mask, ngpios);
-		of_property_for_each_u32(pctrl->dev->of_node, "reserved-gpios", prop, p, i) {
+		of_property_for_each_u32(pctrl->dev->of_node, "qcom,gpios-reserved", prop, p, i) {
 			if (i >= ngpios) {
 				dev_err(pctrl->dev, "invalid list of reserved GPIOs\n");
 				return -EINVAL;
@@ -1319,11 +1319,11 @@ static bool msm_gpio_needs_valid_mask(struct msm_pinctrl *pctrl)
 	if (pctrl->soc->reserved_gpios)
 		return true;
 
-	have_reserved = of_property_count_u32_elems(pctrl->dev->of_node, "reserved-gpios") > 0;
+	have_reserved = of_property_count_u32_elems(pctrl->dev->of_node, "qcom,gpios-reserved") > 0;
 	have_gpios = device_property_count_u16(pctrl->dev, "gpios") > 0;
 
 	if (have_reserved && have_gpios)
-		dev_warn(pctrl->dev, "reserved-gpios and gpios are both defined. Only one should be used.\n");
+		dev_warn(pctrl->dev, "qcom,gpios-reserved and gpios are both defined. Only one should be used.\n");
 
 	return have_reserved || have_gpios;
 }
