@@ -315,7 +315,6 @@ struct arm_smmu_impl_def_reg {
  * operations.
  */
 struct arm_smmu_power_resources {
-	struct platform_device		*pdev;
 	struct device			*dev;
 
 	struct clk			**clocks;
@@ -721,7 +720,7 @@ int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
 struct arm_smmu_power_resources *arm_smmu_init_power_resources(
-			struct platform_device *pdev);
+			struct device *dev);
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10
