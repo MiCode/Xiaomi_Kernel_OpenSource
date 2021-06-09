@@ -1237,7 +1237,7 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv)
 		ret = cnss_aop_set_vreg_param(plat_priv,
 					      plat_priv->vreg_ipa,
 					      CNSS_VREG_ENABLE,
-					      CNSS_TCS_ALL_SEQ, 1);
+					      CNSS_TCS_UP_SEQ, 1);
 		if (ret == 0)
 			config_done = true;
 		return ret;
