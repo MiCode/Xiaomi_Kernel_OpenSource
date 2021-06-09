@@ -150,9 +150,15 @@ static int __add_cma_heap(struct platform_heap *heap_data, void *data)
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
 
+	if (!heap_data->dev->cma_area) {
+		pr_err("%s: CMA area for device uninitialized!\n", __func__);
+		return -EINVAL;
+	}
+
 	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
 	if (!cma_heap)
 		return -ENOMEM;
+
 	cma_heap->cma = heap_data->dev->cma_area;
 	cma_heap->max_align = CONFIG_CMA_ALIGNMENT;
 	if (heap_data->max_align)

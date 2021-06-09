@@ -17,11 +17,13 @@ struct qcom_secure_system_heap {
 };
 
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_SECURE
-int qcom_secure_system_heap_create(char *name, int vmid);
+void qcom_secure_system_heap_create(const char *name, const char *secure_system_alias,
+				    int vmid);
 #else
-static int qcom_secure_system_heap_create(char *name, int vmid)
+static void qcom_secure_system_heap_create(const char *name, const char *secure_system_alias,
+					   int vmid)
 {
-	return 0;
+
 }
 #endif
 
