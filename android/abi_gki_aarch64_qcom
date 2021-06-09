@@ -377,6 +377,7 @@
   dev_alloc_name
   dev_coredumpv
   _dev_crit
+  __dev_direct_xmit
   dev_driver_string
   _dev_emerg
   _dev_err
@@ -393,6 +394,7 @@
   __dev_get_by_index
   dev_get_by_index
   dev_get_by_name
+  dev_get_by_name_rcu
   dev_get_regmap
   device_add
   device_add_disk
@@ -862,6 +864,7 @@
   drm_universal_plane_init
   drm_vblank_init
   drm_wait_one_vblank
+  dst_release
   dump_stack
   __dynamic_dev_dbg
   __dynamic_pr_debug
@@ -1170,6 +1173,7 @@
   __iowrite32_copy
   ip_compute_csum
   ipi_desc_get
+  ip_route_output_flow
   iput
   __ipv6_addr_type
   ipv6_ext_hdr
@@ -1438,7 +1442,10 @@
   napi_gro_receive
   __napi_schedule
   napi_schedule_prep
+  neigh_destroy
+  __neigh_event_send
   neigh_lookup
+  neigh_xmit
   __netdev_alloc_skb
   netdev_rx_handler_register
   netdev_rx_handler_unregister
@@ -1621,20 +1628,26 @@
   param_set_copystring
   param_set_int
   pause_cpus
+  pci_aer_clear_nonfatal_status
   pci_alloc_irq_vectors_affinity
   pci_assign_resource
   pci_bus_type
   pci_clear_master
   pci_d3cold_disable
   pci_device_group
+  pci_device_is_present
   pci_dev_present
   pci_disable_device
   pci_disable_msi
+  pci_disable_pcie_error_reporting
+  pcie_capability_clear_and_set_word
   pcie_capability_read_word
   pci_enable_device
+  pci_enable_pcie_error_reporting
   pci_find_ext_capability
   pci_free_irq_vectors
   pci_get_device
+  pci_get_domain_bus_and_slot
   pci_host_probe
   pci_iomap
   pci_irq_vector
@@ -2366,6 +2379,7 @@
   task_may_not_preempt
   __task_pid_nr_ns
   __task_rq_lock
+  thermal_cooling_device_register
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
   thermal_pressure
@@ -2561,6 +2575,7 @@
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_printk_hotplug
+  __tracepoint_android_vh_process_killed
   __tracepoint_android_vh_psi_event
   __tracepoint_android_vh_psi_group
   __tracepoint_android_vh_scheduler_tick
