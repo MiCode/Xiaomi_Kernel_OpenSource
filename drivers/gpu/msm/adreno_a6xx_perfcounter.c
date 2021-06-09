@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -731,8 +731,17 @@ static struct adreno_perfcount_register a6xx_perfcounters_gbif_pwr[] = {
 	{ .countable = KGSL_PERFCOUNTER_NOT_USED, \
 	  .offset = lo, .offset_hi = hi, .select = sel }
 
+#define GMU_COUNTER_RESERVED(lo, hi, sel) \
+	{ .countable = KGSL_PERFCOUNTER_BROKEN, \
+	  .offset = lo, .offset_hi = hi, .select = sel }
+
 static struct adreno_perfcount_register a6xx_perfcounters_gmu_xoclk[] = {
-	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
+	/*
+	 * COUNTER_XOCLK_0 and COUNTER_XOCLK_4 are used for the GPU
+	 * busy and ifpc count. Mark them as reserved to ensure they
+	 * are not re-used.
+	 */
+	GMU_COUNTER_RESERVED(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_H,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0),
 	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
@@ -744,7 +753,7 @@ static struct adreno_perfcount_register a6xx_perfcounters_gmu_xoclk[] = {
 	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_H,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0),
-	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
+	GMU_COUNTER_RESERVED(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_H,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1),
 	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_L,
