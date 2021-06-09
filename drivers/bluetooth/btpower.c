@@ -1219,7 +1219,7 @@ static int btpower_enable_ipa_vreg(struct btpower_platform_data *pdata)
 		ret = btpower_aop_set_vreg_param(pdata,
 					       pdata->vreg_ipa,
 					       BTPOWER_VREG_ENABLE,
-					       BTPOWER_TCS_ALL_SEQ, 1);
+					       BTPOWER_TCS_UP_SEQ, 1);
 		if (ret >=  0) {
 			pr_info("%s:Enabled iPA\n", __func__);
 			config_done = true;
