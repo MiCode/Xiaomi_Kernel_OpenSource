@@ -465,7 +465,7 @@ static unsigned long to_mbps_zone(struct hwmon_node *node, unsigned long mbps)
 }
 
 #define MIN_MBPS	500UL
-#define HIST_PEAK_TOL	60
+#define HIST_PEAK_TOL	75
 static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 					struct dcvs_freq *freq_mbps)
 {
@@ -548,6 +548,8 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 		node->hyst_peak = 0;
 		node->hyst_trig_win = node->hyst_length;
 		node->hyst_mbps = meas_mbps;
+		if (node->hyst_en)
+			node->hyst_en = node->hyst_length;
 	}
 
 	/*
@@ -557,9 +559,10 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	if (meas_mbps >= hyst_lo_tol && meas_mbps > MIN_MBPS
 	    && !node->max_mbps) {
 		node->hyst_peak++;
-		if (node->hyst_peak >= node->hyst_trigger_count
-		    || node->hyst_en)
+		if (node->hyst_peak >= node->hyst_trigger_count) {
+			node->hyst_peak = 0;
 			node->hyst_en = node->hyst_length;
+		}
 	}
 
 	if (node->hyst_trig_win)
