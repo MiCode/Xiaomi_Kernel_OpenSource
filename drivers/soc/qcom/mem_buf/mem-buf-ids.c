@@ -42,6 +42,7 @@ PERIPHERAL_VM(CP_CAMERA_PREVIEW, cp_camera_preview);
 PERIPHERAL_VM(CP_SPSS_SP_SHARED, cp_spss_sp_shared);
 PERIPHERAL_VM(CP_SPSS_HLOS_SHARED, cp_spss_hlos_shared);
 PERIPHERAL_VM(CP_CDSP, cp_cdsp);
+PERIPHERAL_VM(CP_APP, cp_app);
 
 static struct mem_buf_vm vm_trusted_vm = {
 	.name = "qcom,trusted_vm",
@@ -71,6 +72,7 @@ struct mem_buf_vm *pdata_array[] = {
 	&vm_cp_spss_sp_shared,
 	&vm_cp_spss_hlos_shared,
 	&vm_cp_cdsp,
+	&vm_cp_app,
 	NULL,
 };
 
