@@ -5345,6 +5345,7 @@ skip_dump_wait:
 	mutex_destroy(&fl->map_mutex);
 	mutex_destroy(&fl->internal_map_mutex);
 	kfree(fl->dev_pm_qos_req);
+	kfree(fl->gidlist.gids);
 	kfree(fl);
 	return 0;
 }
@@ -5793,9 +5794,9 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 			pr_warn("Error: %s: %s: failed to create debugfs file %s\n",
 				cur_comm, __func__, fl->debug_buf);
 			fl->debugfs_file = NULL;
-			kfree(fl->debug_buf);
-			fl->debug_buf = NULL;
 		}
+		kfree(fl->debug_buf);
+		fl->debug_buf = NULL;
 	}
 	return err;
 }
