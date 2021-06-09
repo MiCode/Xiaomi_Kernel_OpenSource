@@ -208,36 +208,15 @@ int genc_load_pdc_ucode(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-/*
- * The lowest 16 bits of this value are the number of XO clock cycles
- * for main hysteresis. This is the first hysteresis. Here we set it
- * to 0x1680 cycles, or 300 us. The highest 16 bits of this value are
- * the number of XO clock cycles for short hysteresis. This happens
- * after main hysteresis. Here we set it to 0xa cycles, or 0.5 us.
- */
-#define GMU_PWR_COL_HYST 0x000a1680
-
 /* Configure and enable GMU low power mode */
 static void genc_gmu_power_config(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-
-	/* Configure registers for idle setting. The setting is cumulative */
 
 	/* Disable GMU WB/RB buffer and caches at boot */
 	gmu_core_regwrite(device, GENC_GMU_SYS_BUS_CONFIG, 0x1);
 	gmu_core_regwrite(device, GENC_GMU_ICACHE_CONFIG, 0x1);
 	gmu_core_regwrite(device, GENC_GMU_DCACHE_CONFIG, 0x1);
-
-	gmu_core_regwrite(device, GENC_GMU_PWR_COL_INTER_FRAME_CTRL, 0x9c40400);
-
-	if (gmu->idle_level == GPU_HW_IFPC) {
-		gmu_core_regwrite(device, GENC_GMU_PWR_COL_INTER_FRAME_HYST,
-				GMU_PWR_COL_HYST);
-		gmu_core_regrmw(device, GENC_GMU_PWR_COL_INTER_FRAME_CTRL,
-				IFPC_ENABLE_MASK, IFPC_ENABLE_MASK);
-	}
 }
 
 static void gmu_ao_sync_event(struct adreno_device *adreno_dev)
