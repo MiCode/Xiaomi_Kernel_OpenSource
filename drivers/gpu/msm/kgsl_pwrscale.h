@@ -71,13 +71,20 @@ struct kgsl_pwrscale {
  * kgsl_pwrscale_init - Initialize the pwrscale subsystem
  * @device: A GPU device handle
  * @pdev: A pointer to the GPU platform device
+ *
+ * Return: 0 on success or negative on failure
+ */
+int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev);
+void kgsl_pwrscale_close(struct kgsl_device *device);
+
+/**
+ * kgsl_pwrscale_enable_devfreq - Create devfreq and enable it
+ * @device: A GPU device handle
  * @governor: default devfreq governor to use for GPU frequency scaling
  *
  * Return: 0 on success or negative on failure
  */
-int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
-		const char *governor);
-void kgsl_pwrscale_close(struct kgsl_device *device);
+int kgsl_pwrscale_enable_devfreq(struct kgsl_device *device, const char *governor);
 
 void kgsl_pwrscale_update(struct kgsl_device *device);
 void kgsl_pwrscale_update_stats(struct kgsl_device *device);
