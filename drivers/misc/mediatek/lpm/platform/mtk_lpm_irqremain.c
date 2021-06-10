@@ -112,19 +112,19 @@ int mtk_lpm_irqremain_get(struct mtk_lpm_irqremain **irq)
 	tar = kcalloc(1, sizeof(**irq), GFP_KERNEL);
 
 	if (!tar)
-		goto mtk_lpm_irqremain_release;
+		goto mtk_lpm_tar_fail;
 
 	tar->irqs = kcalloc(count,
 				sizeof(*tar->irqs), GFP_KERNEL);
 
 	if (!tar->irqs)
-		goto mtk_lpm_irqremain_release;
+		goto mtk_lpm_irq_fail;
 
 	tar->wakeup_src_cat = kcalloc(count,
 		sizeof(*tar->wakeup_src_cat), GFP_KERNEL);
 
 	if (!tar->wakeup_src_cat)
-		goto mtk_lpm_irqremain_release;
+		goto mtk_lpm_wakeup_src_cat_fail;
 
 	tar->wakeup_src = kcalloc(count,
 				sizeof(*tar->irqs), GFP_KERNEL);
@@ -148,12 +148,17 @@ int mtk_lpm_irqremain_get(struct mtk_lpm_irqremain **irq)
 	return 0;
 
 mtk_lpm_irqremain_release:
+	if (tar)
+		kfree(tar->wakeup_src);
+mtk_lpm_wakeup_src_cat_fail:
+	if (tar)
+		kfree(tar->wakeup_src_cat);
+mtk_lpm_irq_fail:
 	if (tar) {
 		kfree(tar->irqs);
-		kfree(tar->wakeup_src);
-		kfree(tar->wakeup_src_cat);
 		kfree(tar);
 	}
+mtk_lpm_tar_fail:
 	mtk_lpm_system_unlock(flag);
 
 	return -ENOMEM;
