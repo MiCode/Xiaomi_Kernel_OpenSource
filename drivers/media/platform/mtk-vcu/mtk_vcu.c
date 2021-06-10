@@ -1612,7 +1612,7 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 			usleep_range(10000, 20000);
 		}
 
-		for (i = 0; i < 2; i++) {
+		for (i = 0; i < VCU_CODEC_MAX; i++) {
 			atomic_set(&vcu->ipi_got[i], 1);
 			atomic_set(&vcu->ipi_done[i], 0);
 			memset(&vcu->user_obj[i], 0,
