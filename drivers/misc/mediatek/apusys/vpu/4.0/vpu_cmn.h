@@ -131,6 +131,9 @@ struct vpu_driver {
 	/* debugfs entry */
 	struct dentry *droot;
 
+	/* procfs entry */
+	struct proc_dir_entry *proc_root;
+
 	/* device references */
 	struct kref ref;
 
@@ -225,6 +228,7 @@ struct vpu_device {
 
 	/* debug */
 	struct dentry *droot;  /* debugfs entry */
+	struct proc_dir_entry *proc_root; /* procfs entry */
 	bool ftrace_avail;     /* trace */
 	bool jtag_enabled;     /* jtag */
 	struct vpu_dmp *dmp;   /* dump */
