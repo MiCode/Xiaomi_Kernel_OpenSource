@@ -25,14 +25,13 @@ struct topology_ip_node {
 static LIST_HEAD(tp_ips);
 static DEFINE_MUTEX(tp_mutex);
 
-void mml_topology_register_ip(const char *ip,
-	const struct mml_topology_ops *op)
+int mml_topology_register_ip(const char *ip, const struct mml_topology_ops *op)
 {
 	struct topology_ip_node *ip_node = kzalloc(sizeof(*ip_node),
 						   GFP_KERNEL);
 	if (!ip) {
 		mml_err("fail to register ip %s", ip);
-		return;
+		return -ENOMEM;
 	}
 
 	INIT_LIST_HEAD(&ip_node->entry);
@@ -42,6 +41,7 @@ void mml_topology_register_ip(const char *ip,
 	mutex_lock(&tp_mutex);
 	list_add_tail(&ip_node->entry, &tp_ips);
 	mutex_unlock(&tp_mutex);
+	return 0;
 }
 
 void mml_topology_unregister_ip(const char *ip)
@@ -193,7 +193,7 @@ static void core_config_thread(struct work_struct *work)
 
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
-		/* topology will fill in path instan */
+		/* topology will fill in path instance */
 		err = topology_select_path(task->config);
 		if (err < 0) {
 			mml_err("%s select path fail %d", __func__, err);

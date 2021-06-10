@@ -41,9 +41,8 @@ do { \
 } while (0)
 
 #define MML_PIPE_CNT		2
-#define MML_MAX_PATH_ENGINES	10
+#define MML_MAX_PATH_NODES	10
 #define MML_MAX_PATH_CACHES	6
-#define MML_ENGINE_INOUT	3
 
 struct mml_topology_cache;
 struct mml_frame_config;
@@ -59,10 +58,10 @@ struct mml_cap {
 	enum mml_mode running;
 };
 
-struct mml_engine {
+struct mml_path_node {
 	u32 id;
-	struct mml_engine *prev;
-	struct mml_engine *next[MML_MAX_OUTPUTS];
+	struct mml_path_node *prev;
+	struct mml_path_node *next[MML_MAX_OUTPUTS];
 	struct mml_comp *comp;
 
 	/* index from engine array to tile_engines
@@ -81,27 +80,27 @@ struct mml_topology_path {
 	struct mml_topology_info info;
 	bool alpharot;
 
-	/* Engines of this path, each engine may link to others as a tree.
-	 * Some of engine like mmlsys, mutex, may not link to others.
+	/* Nodes of this path, each node may link to others as a tree.
+	 * Some of nodes like mmlsys, mutex, may not link to others.
 	 */
-	struct mml_engine engines[MML_MAX_PATH_ENGINES];
-	u8 engine_cnt;
+	struct mml_path_node nodes[MML_MAX_PATH_NODES];
+	u8 node_cnt;
 
 	/* special ptr for mmlsys and mutex */
 	struct mml_comp *mmlsys;
-	u8 mmlsys_eid;
+	u8 mmlsys_idx;
 	struct mml_comp *mutex;
-	u8 mutex_eid;
+	u8 mutex_idx;
 
 	/* Index of engine array,
 	 * which represent only engines in data path.
 	 * These engines join tile driver calculate.
 	 */
-	u8 tile_engines[MML_MAX_PATH_ENGINES];
+	u8 tile_engines[MML_MAX_PATH_NODES];
 	u8 tile_engine_cnt;
 
 	/* Describe which engine is out0 and which is out1 */
-	u32 out_engine_id[MML_MAX_OUTPUTS];
+	u32 out_engine_ids[MML_MAX_OUTPUTS];
 
 	/* cmdq client to compose command */
 	struct cmdq_client *clt;
@@ -227,8 +226,10 @@ struct mml_comp {
  *
  * @ip:	name of IP, like mt6983
  * @op: operations of specific IP
+ *
+ * Return:
  */
-void mml_topology_register_ip(const char *ip, const struct mml_topology_ops *op);
+int mml_topology_register_ip(const char *ip, const struct mml_topology_ops *op);
 
 /*
  * mml_topology_unregister_ip - Unregister topology operation in node list in

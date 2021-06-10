@@ -17,12 +17,12 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-sys.h"
 
-#define MML_MAX_ENGINES		50
+#define MML_MAX_COMPONENTS	50
 #define MML_MAX_CMDQ_CLTS	4
 
 struct mml_dev {
 	struct platform_device *pdev;
-	struct mml_comp *comps[MML_MAX_ENGINES];
+	struct mml_comp *comps[MML_MAX_COMPONENTS];
 	struct mtk_mml_sys *sys;
 	struct cmdq_base *cmdq_base;
 	struct cmdq_client *cmdq_clts[MML_MAX_CMDQ_CLTS];
