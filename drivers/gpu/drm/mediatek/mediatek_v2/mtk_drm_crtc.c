@@ -2419,6 +2419,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
 	int index = drm_crtc_index(crtc);
 	int crtc_mask = 0x1 << index;
+	int need_skip = crtc_state->prop_val[CRTC_PROP_SKIP_CONFIG];
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
 #ifndef CONFIG_MTK_DISP_NO_LK
@@ -2458,6 +2459,8 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 					crtc, lyeblob_ids->frame_weight,
 					lyeblob_ids, cmdq_handle);
 			}
+			if (index == 2 && need_skip)
+				break;
 			mtk_crtc_get_plane_comp_state(crtc, cmdq_handle);
 			mtk_crtc_atmoic_ddp_config(crtc, lyeblob_ids,
 						   cmdq_handle);
@@ -5957,12 +5960,13 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
 	dma_addr_t addr;
+	int need_skip = state->prop_val[CRTC_PROP_SKIP_CONFIG];
 
-	if (comp)
+	if (comp && !need_skip)
 		DDPINFO("%s+ plane_id:%d, comp_id:%d, comp_id:%d\n", __func__,
 			plane->index, comp->id, plane_state->comp_state.comp_id);
 
-	if (plane_state->pending.enable) {
+	if (plane_state->pending.enable && !need_skip) {
 		if (mtk_crtc->is_dual_pipe) {
 			struct mtk_plane_state plane_state_l;
 			struct mtk_plane_state plane_state_r;
@@ -5997,7 +6001,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 		mtk_wb_atomic_commit(mtk_crtc);
 #endif
 	} else if (state->prop_val[CRTC_PROP_USER_SCEN] &
-		USER_SCEN_BLANK) {
+		USER_SCEN_BLANK && !need_skip) {
 	/* plane disable at mtk_crtc_get_plane_comp_state() actually */
 	/* following statement is for disable all layers during suspend */
 
@@ -6317,6 +6321,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct disp_ccorr_config *ccorr_config = NULL;
+	int need_skip = state->prop_val[CRTC_PROP_SKIP_CONFIG];
 
 	if (mtk_crtc_gec_flush_check(crtc) < 0)	{
 		if (cb_data) {
@@ -6346,11 +6351,11 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 
 		mtk_crtc_wb_comp_config(crtc, cmdq_handle);
 
-		if (mtk_crtc_is_dc_mode(crtc))
+		if (mtk_crtc_is_dc_mode(crtc) && !need_skip)
 			/* Decouple and Decouple mirror mode */
 			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[1],
 					cmdq_handle, mtk_crtc->gce_obj.base);
-		else {
+		else if (!need_skip) {
 			/* For virtual display write-back path */
 			cmdq_pkt_clear_event(cmdq_handle, gce_event);
 			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],

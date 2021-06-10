@@ -827,6 +827,16 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	struct golden_setting_context *gsc;
 	u32 sec, buffer_size;
 	unsigned int frame_cnt = cfg_info->count + 1;
+	struct drm_crtc_state *crtc_state = comp->mtk_crtc->base.state;
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
+	int need_skip = state->prop_val[CRTC_PROP_SKIP_CONFIG];
+
+	if (need_skip) {
+		mtk_ddp_write(comp, frame_cnt | 0x80000000U,
+				DISP_REG_WDMA_DUMMY, handle);
+		cfg_info->count = frame_cnt;
+		return;
+	}
 
 	if (!comp->fb) {
 		if (crtc_idx != 2)
@@ -903,10 +913,9 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 				0, buffer_size, 0);
 #endif
 	}
+	mtk_ddp_write(comp, frame_cnt, DISP_REG_WDMA_DUMMY, handle);
 
 	gsc = cfg->p_golden_setting_context;
-	mtk_ddp_write(comp, frame_cnt,
-		DISP_REG_WDMA_DUMMY, handle);
 	mtk_wdma_golden_setting(comp, gsc, handle);
 
 	cfg_info->addr = addr;
