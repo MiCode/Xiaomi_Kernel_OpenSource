@@ -2246,6 +2246,607 @@
 		reg = <0 0x14800000 0 0x800000>;
 	};
 
+	imgsys_fw@15000000 {
+		compatible = "mediatek,imgsys";
+#if 0
+		ion-supply = <&ion>;
+		reg = <0 0x15000000 0 0x4000>,	/* 0 IMGSYS_TOP */
+		      <0 0x15020000 0 0x10000>,	/* 1 IMGSYS_TRAW */
+		      <0 0x15040000 0 0x10000>,	/* 2 IMGSYS_LTRAW */
+		      <0 0x15100000 0 0x10000>,	/* 3 IMGSYS_DIP */
+		      <0 0x15140000 0 0x10000>,	/* 4 IMGSYS_PQDIP_A */
+		      <0 0x15150000 0 0x10000>,	/* 5 IMGSYS_PQDIP_B */
+		      <0 0x15200000 0 0x10000>,	/* 6 IMGSYS_WPE_EIS */
+		      <0 0x15210000 0 0x10000>,	/* 7 IMGSYS_WPE_TNR */
+		      <0 0x15220000 0 0x00100>,	/* 8 IMGSYS_WPE_DIP1 */
+		      <0 0x15320000 0 0x10000>;	/* 9 IMGSYS_ME */
+		mediatek,hcp = <&hcp>;
+		mediatek,larb = <&larb9 &larb10 &larb11>;
+		iommus = <&iommu0 M4U_PORT_L9_IMG_IMGI_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_IMGBI_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_IMGCI_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_SMTI_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_TNCSTI_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_TNCSTI_T4_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_TIMGO_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T2_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_IMGI_T1_B>,
+			 <&iommu0 M4U_PORT_L9_IMG_IMGBI_T1_B>,
+			 <&iommu0 M4U_PORT_L9_IMG_IMGCI_T1_B>,
+			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T5_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_SMTI_T1_B>,
+			 <&iommu0 M4U_PORT_L9_IMG_TNCSO_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_SMTO_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_TNCSTO_T1_A>,
+			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T2_B>,
+			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T5_B>,
+			 <&iommu0 M4U_PORT_L9_IMG_SMTO_T1_B>,
+			 <&iommu0 M4U_PORT_L10_IMG_IMGI_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_IMGCI_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_DEPI_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_DMGI_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_VIPI_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_TNRWI_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_RECI_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_SMTI_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_SMTI_D6_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_PIMGI_P1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_PIMGBI_P1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_PIMGCI_P1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_PIMGI_P1_B>,
+			 <&iommu0 M4U_PORT_L10_IMG_PIMGBI_P1_B>,
+			 <&iommu0 M4U_PORT_L10_IMG_PIMGCI_P1_B>,
+			 <&iommu0 M4U_PORT_L10_IMG_IMG3O_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_IMG4O_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_IMG3CO_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_FEO_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_IMG2O_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_TNRWO_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_SMTO_D1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_WROT_P1_A>,
+			 <&iommu0 M4U_PORT_L10_IMG_WROT_P1_B>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_RDMA0_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_RDMA1_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_WDMA0_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_RDMA0_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_RDMA1_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_WDMA0_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_CQ0_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_CQ1_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_CQ0_A>,
+			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_CQ1_A>;
+		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_1>,
+			 <&gce_mbox 1 0 CMDQ_THR_PRIO_1>,
+			 <&gce_mbox 2 0 CMDQ_THR_PRIO_1>,
+			 <&gce_mbox 3 0 CMDQ_THR_PRIO_1>,
+			 <&gce_mbox 4 0 CMDQ_THR_PRIO_1>,
+			 <&gce_mbox 5 0 CMDQ_THR_PRIO_1>,
+			 <&gce_mbox 6 0 CMDQ_THR_PRIO_1>,
+			 <&gce_mbox 7 0 CMDQ_THR_PRIO_1>;
+		traw_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_0>;
+		traw_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_1>;
+		traw_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_2>;
+		traw_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_3>;
+		traw_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_4>;
+		traw_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_5>;
+		traw_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_6>;
+		traw_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_7>;
+		traw_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_8>;
+		traw_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_9>;
+		traw_cq_thread10_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_10>;
+		traw_cq_thread11_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_11>;
+		traw_cq_thread12_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_12>;
+		traw_cq_thread13_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_13>;
+		traw_cq_thread14_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_14>;
+		ltraw_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_0>;
+		ltraw_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_1>;
+		ltraw_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_2>;
+		ltraw_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_3>;
+		ltraw_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_4>;
+		ltraw_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_5>;
+		ltraw_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_6>;
+		ltraw_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_7>;
+		ltraw_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_8>;
+		ltraw_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_9>;
+		ltraw_cq_thread10_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_10>;
+		ltraw_cq_thread11_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_11>;
+		ltraw_cq_thread12_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_12>;
+		ltraw_cq_thread13_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_13>;
+		ltraw_cq_thread14_frame_done =
+			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_14>;
+		dip_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_0>;
+		dip_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_1>;
+		dip_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_2>;
+		dip_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_3>;
+		dip_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_4>;
+		dip_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_5>;
+		dip_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_6>;
+		dip_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_7>;
+		dip_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_8>;
+		dip_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_9>;
+		dip_cq_thread10_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_10>;
+		dip_cq_thread11_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_11>;
+		dip_cq_thread12_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_12>;
+		dip_cq_thread13_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_13>;
+		dip_cq_thread14_frame_done =
+			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_14>;
+		pqa_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_0>;
+		pqa_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_1>;
+		pqa_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_2>;
+		pqa_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_3>;
+		pqa_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_4>;
+		pqa_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_5>;
+		pqa_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_6>;
+		pqa_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_7>;
+		pqa_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_8>;
+		pqa_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_9>;
+		pqa_cq_thread10_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_10>;
+		pqa_cq_thread11_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_11>;
+		pqa_cq_thread12_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_12>;
+		pqa_cq_thread13_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_13>;
+		pqa_cq_thread14_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_14>;
+		pqb_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_0>;
+		pqb_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_1>;
+		pqb_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_2>;
+		pqb_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_3>;
+		pqb_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_4>;
+		pqb_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_5>;
+		pqb_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_6>;
+		pqb_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_7>;
+		pqb_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_8>;
+		pqb_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_9>;
+		pqb_cq_thread10_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_10>;
+		pqb_cq_thread11_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_11>;
+		pqb_cq_thread12_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_12>;
+		pqb_cq_thread13_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_13>;
+		pqb_cq_thread14_frame_done =
+			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_14>;
+		wpe_eis_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_0>;
+		wpe_eis_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_1>;
+		wpe_eis_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_2>;
+		wpe_eis_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_3>;
+		wpe_eis_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_4>;
+		wpe_eis_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_5>;
+		wpe_eis_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_6>;
+		wpe_eis_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_7>;
+		wpe_eis_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_8>;
+		wpe_eis_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_9>;
+		wpe_eis_cq_thread10_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_10>;
+		wpe_eis_cq_thread11_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_11>;
+		wpe_eis_cq_thread12_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_12>;
+		wpe_eis_cq_thread13_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_13>;
+		wpe_eis_cq_thread14_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_14>;
+		wpe_tnr_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_0>;
+		wpe_tnr_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_1>;
+		wpe_tnr_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_2>;
+		wpe_tnr_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_3>;
+		wpe_tnr_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_4>;
+		wpe_tnr_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_5>;
+		wpe_tnr_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_6>;
+		wpe_tnr_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_7>;
+		wpe_tnr_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_8>;
+		wpe_tnr_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_9>;
+		wpe_tnr_cq_thread10_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_10>;
+		wpe_tnr_cq_thread11_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_11>;
+		wpe_tnr_cq_thread12_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_12>;
+		wpe_tnr_cq_thread13_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_13>;
+		wpe_tnr_cq_thread14_frame_done =
+			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_14>;
+		me_done =
+			/bits/ 16 <CMDQ_EVENT_IMGSYS_IPE_ME_DONE>;
+		wpe_eis_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_WPE_EIS>;
+		wpe_tnr_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_WPE_TNR>;
+		traw_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_TRAW>;
+		ltraw_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_LTRAW>;
+		dip_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_DIP>;
+		pqdip_a_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A>;
+		pqdip_b_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B>;
+		sw_sync_token_pool_1 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_1>;
+		sw_sync_token_pool_2 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_2>;
+		sw_sync_token_pool_3 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_3>;
+		sw_sync_token_pool_4 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_4>;
+		sw_sync_token_pool_5 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_5>;
+		sw_sync_token_pool_6 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_6>;
+		sw_sync_token_pool_7 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_7>;
+		sw_sync_token_pool_8 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_8>;
+		sw_sync_token_pool_9 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_9>;
+		sw_sync_token_pool_10 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_10>;
+		sw_sync_token_pool_11 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_11>;
+		sw_sync_token_pool_12 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_12>;
+		sw_sync_token_pool_13 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_13>;
+		sw_sync_token_pool_14 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_14>;
+		sw_sync_token_pool_15 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_15>;
+		sw_sync_token_pool_16 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_16>;
+		sw_sync_token_pool_17 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_17>;
+		sw_sync_token_pool_18 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_18>;
+		sw_sync_token_pool_19 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_19>;
+		sw_sync_token_pool_20 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_20>;
+		sw_sync_token_pool_21 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_21>;
+		sw_sync_token_pool_22 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_22>;
+		sw_sync_token_pool_23 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_23>;
+		sw_sync_token_pool_24 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_24>;
+		sw_sync_token_pool_25 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_25>;
+		sw_sync_token_pool_26 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_26>;
+		sw_sync_token_pool_27 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_27>;
+		sw_sync_token_pool_28 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_28>;
+		sw_sync_token_pool_29 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_29>;
+		sw_sync_token_pool_30 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_30>;
+		sw_sync_token_pool_31 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_31>;
+		sw_sync_token_pool_32 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_32>;
+		sw_sync_token_pool_33 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_33>;
+		sw_sync_token_pool_34 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_34>;
+		sw_sync_token_pool_35 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_35>;
+		sw_sync_token_pool_36 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_36>;
+		sw_sync_token_pool_37 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_37>;
+		sw_sync_token_pool_38 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_38>;
+		sw_sync_token_pool_39 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_39>;
+		sw_sync_token_pool_40 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_40>;
+		sw_sync_token_camsys_pool_1 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_1>;
+		sw_sync_token_camsys_pool_2 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_2>;
+		sw_sync_token_camsys_pool_3 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_3>;
+		sw_sync_token_camsys_pool_4 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_4>;
+		sw_sync_token_camsys_pool_5 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_5>;
+		sw_sync_token_camsys_pool_6 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_6>;
+		sw_sync_token_camsys_pool_7 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_7>;
+		sw_sync_token_camsys_pool_8 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_8>;
+		sw_sync_token_camsys_pool_9 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_9>;
+		sw_sync_token_camsys_pool_10 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_10>;
+		clocks = <&imgsys CLK_IMG_TRAW0>,
+			 <&imgsys CLK_IMG_TRAW1>,
+			 <&imgsys CLK_IMG_TRAW2>,
+			 <&imgsys CLK_IMG_TRAW3>,
+			 <&imgsys CLK_IMG_DIP0>,
+			 <&imgsys CLK_IMG_WPE0>,
+			 <&imgsys CLK_IMG_DIP1>,
+			 <&imgsys CLK_IMG_WPE1>,
+			 <&imgsys1_dip_top CLK_IMG1_DIP_TOP_DIP_TOP>,
+			 <&imgsys1_dip_nr CLK_IMG1_DIP_NR_DIP_NR>,
+			 <&imgsys1_wpe CLK_IMG1_WPE_WPE>;
+		clock-names = "IMGSYS_CG_IMG_TRAW0",
+			      "IMGSYS_CG_IMG_TRAW1",
+			      "IMGSYS_CG_IMG_TRAW2",
+			      "IMGSYS_CG_IMG_TRAW3",
+			      "IMGSYS_CG_IMG_DIP0",
+			      "IMGSYS_CG_IMG_WPE0",
+			      "IMGSYS_CG_IMG_DIP1",
+			      "IMGSYS_CG_IMG_WPE1",
+			      "DIP_CG_IMG_DIP",
+			      "DIP_NR_DIP_NR",
+			      "WPE_CG_WPE_WPE";
+		operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMGI_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMGBI_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMGCI_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_SMTI_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_TNCSTI_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_TNCSTI_T4_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_YUVO_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_TIMGO_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_YUVO_T2_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMGI_T1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMGBI_T1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMGCI_T1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_YUVO_T5_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_SMTI_T1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_TNCSO_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_SMTO_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_TNCSTO_T1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_YUVO_T2_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_YUVO_T5_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_SMTO_T1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_IMGI_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_IMGCI_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_DEPI_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_DMGI_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_VIPI_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_TNRWI_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_RECI_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_SMTI_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_SMTI_D6_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_PIMGI_P1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_PIMGBI_P1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_PIMGCI_P1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_PIMGI_P1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_PIMGBI_P1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_PIMGCI_P1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_IMG3O_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_IMG4O_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_IMG3CO_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_FEO_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_IMG2O_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_TNRWO_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_SMTO_D1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_WROT_P1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L10_IMG_WROT_P1_B)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_EIS_RDMA0_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_EIS_RDMA1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_EIS_WDMA0_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_TNR_RDMA0_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_TNR_RDMA1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_TNR_WDMA0_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_EIS_CQ0_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_EIS_CQ1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_TNR_CQ0_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_WPE_TNR_CQ1_A)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L12_IMG_ME_RDMA)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L12_IMG_ME_WDMA)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+				"l9_imgi_t1_a",
+				"l9_imgbi_t1_a",
+				"l9_imgci_t1_a",
+				"l9_smti_t1_a",
+				"l9_tncsti_t1_a",
+				"l9_tncsti_t4_a",
+				"l9_yuvo_t1_a",
+				"l9_timgo_t1_a",
+				"l9_yuvo_t2_a",
+				"l9_imgi_t1_b",
+				"l9_imgbi_t1_b",
+				"l9_imgci_t1_b",
+				"l9_yuvo_t5_a",
+				"l9_smti_t1_b",
+				"l9_tncso_t1_a",
+				"l9_smto_t1_a",
+				"l9_tncsto_t1_a",
+				"l9_yuvo_t2_b",
+				"l9_yuvo_t5_b",
+				"l9_smto_t1_b",
+				"l10_imgi_d1_a",
+				"l10_imgci_d1_a",
+				"l10_depi_d1_a",
+				"l10_dmgi_d1_a",
+				"l10_vipi_d1_a",
+				"l10_tnrwi_d1_a",
+				"l10_reci_d1_a",
+				"l10_smti_d1_a",
+				"l10_smti_d6_a",
+				"l10_pimgi_p1_a",
+				"l10_pimgbi_p1_a",
+				"l10_pimgci_p1_a",
+				"l10_pimgi_p1_b",
+				"l10_pimgbi_p1_b",
+				"l10_pimgci_p1_b",
+				"l10_img3o_d1_a",
+				"l10_img4o_d1_a",
+				"l10_img3co_d1_a",
+				"l10_feo_d1_a",
+				"l10_img2o_d1_a",
+				"l10_tnrwo_d1_a",
+				"l10_smto_d1_a",
+				"l10_wrot_p1_a",
+				"l10_wrot_p1_b",
+				"l11_wpe_eis_rdma0_a",
+				"l11_wpe_eis_rdma1_a",
+				"l11_wpe_eis_wdma0_a",
+				"l11_wpe_tnr_rdma0_a",
+				"l11_wpe_tnr_rdma1_a",
+				"l11_wpe_tnr_wdma0_a",
+				"l11_wpe_eis_cq0_a",
+				"l11_wpe_eis_cq1_a",
+				"l11_wpe_tnr_cq0_a",
+				"l11_wpe_tnr_cq1_a",
+				"l12_me_rdma",
+				"l12_me_wdma";
+#endif
+	};
+
 	vdec_gcon@16000000 {
 		compatible = "mediatek,vdec_gcon";
 		reg = <0 0x16000000 0 0x10000>;
