@@ -68,7 +68,7 @@ static DEFINE_SPINLOCK(vowdrv_lock);
 static struct wakeup_source *vow_suspend_lock;
 static struct wakeup_source *vow_ipi_suspend_lock;
 static int init_flag = -1;
-
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 static struct file *file_vffp_data;
 static uint32_t vffp_dump_data_routine_cnt_pass;
 static struct file *file_recog_data;
@@ -94,7 +94,7 @@ static bool file_bargein_echo_ref_open;
 static bool file_bargein_delay_info_open;
 static bool file_recog_data_open;
 static bool file_vffp_data_open;
-
+#endif  /* #if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT) */
 /*****************************************************************************
  * Function  Declaration
  ****************************************************************************/
@@ -106,19 +106,24 @@ static void vow_ipi_reg_ok(short uuid,
 static bool VowDrv_SetFlag(int type, unsigned int set);
 static int VowDrv_GetHWStatus(void);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 static void vow_service_OpenDumpFile(void);
 static void vow_service_CloseDumpFile(void);
+#endif  /* #if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT) */
 #endif  /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT) */
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 static void vow_service_OpenDumpFile_internal(void);
 static void vow_service_CloseDumpFile_internal(void);
 static void vow_pcm_dump_init(void);
 static void vow_pcm_dump_deinit(void);
 static int vow_pcm_dump_kthread(void *data);
-static bool VowDrv_SetBargeIn(unsigned int set, unsigned int irq_id);
 static void bargein_dump_routine(struct work_struct *ws);
 static void input_dump_routine(struct work_struct *ws);
 static void recog_dump_routine(struct work_struct *ws);
 static void vffp_dump_routine(struct work_struct *ws);
+#endif  /* #if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT) */
+static bool VowDrv_SetBargeIn(unsigned int set, unsigned int irq_id);
+
 //static int vow_service_SearchSpeakerModelWithUuid(int uuid);
 static int vow_service_SearchSpeakerModelWithKeyword(int keyword);
 static int vow_service_SearchSpeakerModelWithId(int id);
@@ -275,6 +280,7 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 			vow_service_getVoiceData();
 		}
 		/* IPIMSG_VOW_BARGEIN_DUMP_INFO */
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 		if (ipi_ptr->ipi_type_flag & BARGEIN_DUMP_INFO_IDX_MASK) {
 			vowserv.dump_frm_cnt = ipi_ptr->dump_frm_cnt;
 			vowserv.voice_sample_delay =
@@ -364,6 +370,7 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 			if (ret == 0)
 				vffp_dump_data_routine_cnt_pass++;
 		}
+#endif
 		break;
 	}
 	case IPIMSG_VOW_RETURN_VALUE: {
@@ -583,9 +590,11 @@ static void vow_service_Init(void)
 		init_flag = 1;
 		vowserv.dump_pcm_flag = false;
 		vowserv.split_dumpfile_flag = false;
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 		dump_queue = NULL;
 		vow_pcm_dump_init();
 		bargein_dump_info_flag = false;
+#endif
 		vowserv.scp_dual_mic_switch = VOW_ENABLE_DUAL_MIC;
 		vowserv.mtkif_type = 0;
 	} else {
@@ -1162,6 +1171,7 @@ static void vow_service_ReadPayloadDumpData(unsigned int buf_length)
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 static void vow_interleaving(short *out_buf,
 			     short *l_sample,
 			     short *r_sample,
@@ -1176,6 +1186,7 @@ static void vow_interleaving(short *out_buf,
 		*out_buf++ = *r_sample++;
 	}
 }
+#endif
 #endif
 
 static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
@@ -1510,8 +1521,9 @@ static int vow_pcm_dump_set(bool enable)
 		     (unsigned int)vffp_resv_dram.phy_addr);
 	if ((vowserv.dump_pcm_flag == false) && (enable == true)) {
 		vowserv.dump_pcm_flag = true;
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 		vow_service_OpenDumpFile();
-
+#endif
 		vow_pcm_dump_notify(true);
 	} else if ((vowserv.dump_pcm_flag == true) && (enable == false)) {
 		vowserv.dump_pcm_flag = false;
@@ -1519,7 +1531,9 @@ static int vow_pcm_dump_set(bool enable)
 		vow_pcm_dump_notify(false);
 
 		vow_stop_dump_wait();
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 		vow_service_CloseDumpFile();
+#endif
 	}
 #else
 	VOWDRV_DEBUG("%s(), vow: SCP no support\n\r", __func__);
@@ -1527,6 +1541,7 @@ static int vow_pcm_dump_set(bool enable)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 static void vow_service_OpenDumpFile(void)
 {
@@ -2241,7 +2256,7 @@ static void vow_pcm_dump_deinit(void)
 #endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 
 }
-
+#endif /* #if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT) */
 /*****************************************************************************
  * VOW CONTROL FUNCTIONS
  *****************************************************************************/
@@ -3650,7 +3665,9 @@ static int __init VowDrv_mod_init(void)
 static void __exit VowDrv_mod_exit(void)
 {
 	VOWDRV_DEBUG("+%s()\n", __func__);
+#if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 	vow_pcm_dump_deinit();
+#endif
 	VOWDRV_DEBUG("-%s()\n", __func__);
 }
 module_init(VowDrv_mod_init);
