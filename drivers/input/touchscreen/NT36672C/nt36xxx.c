@@ -1481,6 +1481,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	char firmware_name_jdi[] = "novatek_ts_fw_jdi.bin";
 	char firmware_name_tm[] = "novatek_ts_fw_tm.bin";
 	char firmware_name[] = "novatek_ts_fw.bin";
+	char firmware_name_144hz[] = "novatek_ts_fw_144.bin";
 #if ((TOUCH_KEY_NUM > 0) || WAKEUP_GESTURE)
 	int32_t retry = 0;
 #endif
@@ -1706,6 +1707,9 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 			strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_tianma_rt4801_hfp_lcm_drv",
 			videolfb_tag->lcmname) == 0)
 			strncpy(novatek_firmware, firmware_name_tm, sizeof(firmware_name_tm));
+		else if (strcmp("nt36672e_fhdp_dsi_vdo_120hz_tianma_hfp_lcm_drv",
+			videolfb_tag->lcmname) == 0)
+			strncpy(novatek_firmware, firmware_name_144hz, sizeof(firmware_name_144hz));
 		else
 			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
 		NVT_LOG("nt36672c touch fw name : %s", BOOT_UPDATE_FIRMWARE_NAME);
