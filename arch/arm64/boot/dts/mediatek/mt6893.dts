@@ -581,6 +581,12 @@
 		compatible = "mediatek,mt6360-charger-cooler";
 		#cooling-cells = <2>;
 	};
+	
+	backlight_cooler: backlight-cooler {
+		compatible = "mediatek,backlight-cooler";
+		backlight-names = "lcd-backlight";
+		#cooling-cells = <2>;
+	};
 
 	thermal_zones: thermal-zones {
 		ap_ntc: ap_ntc {
