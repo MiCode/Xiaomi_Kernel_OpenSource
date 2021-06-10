@@ -1423,6 +1423,12 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 			&ctx->dev->plat_dev->dev);
 		mtkbuf->frm_buf.sgt = dma_buf_map_attachment(mtkbuf->frm_buf.buf_att,
 			DMA_TO_DEVICE);
+		if (IS_ERR_OR_NULL(mtkbuf->frm_buf.sgt)) {
+			mtk_v4l2_err("dma_buf_map_attachment fail %d.\n",
+				mtkbuf->frm_buf.sgt);
+			dma_buf_detach(mtkbuf->frm_buf.meta_dma, mtkbuf->frm_buf.buf_att);
+			return -EINVAL;
+		}
 		mtkbuf->frm_buf.meta_addr = sg_dma_address(mtkbuf->frm_buf.sgt->sgl);
 
 		mtk_v4l2_debug(1, "[%d] Have HDR info meta fd, buf->index:%d. mtkbuf:%p, fd:%u",
@@ -1618,6 +1624,11 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 			buf_att = dma_buf_attach(vb->planes[i].dbuf,
 				&ctx->dev->plat_dev->dev);
 			sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+			if (IS_ERR_OR_NULL(sgt)) {
+				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
+				dma_buf_detach(vb->planes[i].dbuf, buf_att);
+				return -EINVAL;
+			}
 			dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
 				sgt->sgl,
 				sgt->orig_nents,
@@ -1664,6 +1675,11 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 			buf_att = dma_buf_attach(vb->planes[0].dbuf,
 				&ctx->dev->plat_dev->dev);
 			sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
+			if (IS_ERR_OR_NULL(sgt)) {
+				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
+				dma_buf_detach(vb->planes[0].dbuf, buf_att);
+				return;
+			}
 			dma_sync_sg_for_cpu(&ctx->dev->plat_dev->dev, sgt->sgl,
 				sgt->orig_nents, DMA_FROM_DEVICE);
 			dma_buf_unmap_attachment(buf_att, sgt, DMA_FROM_DEVICE);

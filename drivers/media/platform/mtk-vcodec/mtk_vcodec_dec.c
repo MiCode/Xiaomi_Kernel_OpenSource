@@ -2043,6 +2043,13 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 				&ctx->dev->plat_dev->dev);
 			mtkbuf->frame_buffer.sgt =
 				dma_buf_map_attachment(mtkbuf->frame_buffer.buf_att, DMA_TO_DEVICE);
+			if (IS_ERR_OR_NULL(mtkbuf->frame_buffer.sgt)) {
+				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n",
+					mtkbuf->frame_buffer.sgt);
+				dma_buf_detach(mtkbuf->frame_buffer.dma_general_buf,
+					mtkbuf->frame_buffer.buf_att);
+				return -EINVAL;
+			}
 			mtkbuf->frame_buffer.dma_general_addr =
 				sg_dma_address(mtkbuf->frame_buffer.sgt->sgl);
 		} else
@@ -2065,6 +2072,11 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 				&ctx->dev->plat_dev->dev);
 
 			sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+			if (IS_ERR_OR_NULL(sgt)) {
+				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
+				dma_buf_detach(vb->planes[0].dbuf, buf_att);
+				return -EINVAL;
+			}
 			dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
 				sgt->sgl,
 				sgt->orig_nents,
@@ -2091,6 +2103,11 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 					&ctx->dev->plat_dev->dev);
 				sgt = dma_buf_map_attachment(buf_att,
 					DMA_TO_DEVICE);
+				if (IS_ERR_OR_NULL(sgt)) {
+					mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
+					dma_buf_detach(vb->planes[plane].dbuf, buf_att);
+					return -EINVAL;
+				}
 				dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
 					sgt->sgl,
 					sgt->orig_nents,
@@ -2448,6 +2465,11 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 			buf_att = dma_buf_attach(vb->planes[plane].dbuf,
 				&ctx->dev->plat_dev->dev);
 			sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
+			if (IS_ERR_OR_NULL(sgt)) {
+				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
+				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
+				return;
+			}
 			dma_sync_sg_for_cpu(&ctx->dev->plat_dev->dev, sgt->sgl,
 				sgt->orig_nents, DMA_FROM_DEVICE);
 			dma_buf_unmap_attachment(buf_att, sgt, DMA_FROM_DEVICE);

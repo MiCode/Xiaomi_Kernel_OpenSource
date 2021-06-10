@@ -352,9 +352,9 @@ void vcu_io_buffer_cache_sync(struct device *dev,
 		return;
 	}
 	sgt = dma_buf_map_attachment(buf_att, op);
-	if (IS_ERR(sgt)) {
+	if (IS_ERR_OR_NULL(sgt)) {
+		pr_info("%s Error getting dmabuf scatterlist %d\n", __func__, sgt);
 		dma_buf_detach(dbuf, buf_att);
-		pr_info("Error getting dmabuf scatterlist\n");
 		return;
 	}
 	dma_sync_sg_for_device(dev, sgt->sgl, sgt->orig_nents, op);
