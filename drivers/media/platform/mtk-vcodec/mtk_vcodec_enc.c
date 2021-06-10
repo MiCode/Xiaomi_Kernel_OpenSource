@@ -1818,14 +1818,16 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 
 	mtk_v4l2_debug(2, "[%d]-> type=%d", ctx->id, q->type);
 
-	ret = venc_if_encode(ctx,
+	if (vb2_start_streaming_called(&ctx->m2m_ctx->cap_q_ctx.q) &&
+		vb2_start_streaming_called(&ctx->m2m_ctx->out_q_ctx.q)) {
+		ret = venc_if_encode(ctx,
 		VENC_START_OPT_ENCODE_FRAME_FINAL,
 		NULL, NULL, &enc_result);
-	if (!ctx->async_mode)
-		mtk_enc_put_buf(ctx);
-
-	if (ret)
-		mtk_v4l2_err("venc_if_deinit failed=%d", ret);
+		if (!ctx->async_mode)
+			mtk_enc_put_buf(ctx);
+		if (ret)
+			mtk_v4l2_err("venc_if_deinit failed=%d", ret);
+	}
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		while ((dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
@@ -1835,9 +1837,10 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 					  VB2_BUF_STATE_ERROR);
 		}
 	} else {
-		while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
-			v4l2_m2m_buf_done(src_vb2_v4l2,
-					  VB2_BUF_STATE_ERROR);
+		while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx))) {
+			if (src_vb2_v4l2 != &ctx->enc_flush_buf->vb)
+				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
+		}
 	}
 
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
