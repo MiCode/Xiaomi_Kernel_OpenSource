@@ -38,6 +38,7 @@ void set_clkchk_ops(const struct clkchk_ops *ops)
 {
 	clkchk_ops = ops;
 }
+EXPORT_SYMBOL(set_clkchk_ops);
 
 /*
  * for mtcmos debug
@@ -61,6 +62,15 @@ const struct regname *get_all_regnames(void)
 	return clkchk_ops->get_all_regnames();
 }
 EXPORT_SYMBOL(get_all_regnames);
+
+void clkchk_devapc_dump(void)
+{
+	if (clkchk_ops == NULL || clkchk_ops->devapc_dump == NULL)
+		return;
+
+	clkchk_ops->devapc_dump();
+}
+EXPORT_SYMBOL(clkchk_devapc_dump);
 
 static const char *get_provider_name(struct device_node *node, u32 *cells)
 {
@@ -511,14 +521,6 @@ int mtk_clk_check_muxes(void)
 	return 0;
 }
 
-static int clk_chk_probe(struct platform_device *pdev)
-{
-	clkchk_set_cfg();
-	mtk_clk_check_muxes();
-
-	return 0;
-}
-
 static int clk_chk_dev_pm_suspend(struct device *dev)
 {
 	struct provider_clk *pvdck = get_all_provider_clks();
@@ -536,41 +538,8 @@ static int clk_chk_dev_pm_suspend(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops clk_chk_dev_pm_ops = {
+const struct dev_pm_ops clk_chk_dev_pm_ops = {
 	.suspend_noirq = clk_chk_dev_pm_suspend,
 	.resume_noirq = NULL,
 };
-
-static struct platform_driver clk_chk_drv = {
-	.probe = clk_chk_probe,
-	.driver = {
-		.name = "clk-chk",
-		.owner = THIS_MODULE,
-		.pm = &clk_chk_dev_pm_ops,
-	},
-};
-
-/*
- * init functions
- */
-
-static int __init clkchk_init(void)
-{
-	static struct platform_device *clk_chk_dev;
-
-	clk_chk_dev = platform_device_register_simple("clk-chk", -1, NULL, 0);
-	if (IS_ERR(clk_chk_dev))
-		pr_warn("unable to register clk-chk device");
-
-	return platform_driver_register(&clk_chk_drv);
-}
-
-static void __exit clkchk_exit(void)
-{
-	platform_driver_unregister(&clk_chk_drv);
-}
-
-subsys_initcall(clkchk_init);
-module_exit(clkchk_exit);
-MODULE_LICENSE("GPL");
-
+EXPORT_SYMBOL(clk_chk_dev_pm_ops);

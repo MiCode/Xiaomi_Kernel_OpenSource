@@ -7,6 +7,7 @@
 #include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/seq_file.h>
 
 #include <dt-bindings/power/mt6893-power.h>
@@ -503,11 +504,11 @@ EXPORT_SYMBOL(print_subsys_reg);
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 static void devapc_dump(void)
 {
-	pr_notice("devapc dump\n");
 	print_subsys_reg(spm);
 	print_subsys_reg(top);
 	print_subsys_reg(infracfg_ao_bus);
 	print_subsys_reg(apmixed);
+	pr_notice("devapc dump\n");
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -565,9 +566,10 @@ static struct clkchk_ops clkchk_mt6893_ops = {
 	.is_pll_chk_bug_on = is_pll_chk_bug_on,
 	.get_vf_table = get_vf_table,
 	.get_vcore_opp = get_vcore_opp,
+	.devapc_dump = devapc_dump,
 };
 
-void clkchk_set_cfg(void)
+static int clk_chk_mt6893_probe(struct platform_device *pdev)
 {
 	init_regbase();
 
@@ -576,5 +578,39 @@ void clkchk_set_cfg(void)
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
+
+	return 0;
 }
-EXPORT_SYMBOL(clkchk_set_cfg);
+
+static struct platform_driver clk_chk_mt6893_drv = {
+	.probe = clk_chk_mt6893_probe,
+	.driver = {
+		.name = "clk-chk-mt6893",
+		.owner = THIS_MODULE,
+		.pm = &clk_chk_dev_pm_ops,
+	},
+};
+
+/*
+ * init functions
+ */
+
+static int __init clkchk_mt6893_init(void)
+{
+	static struct platform_device *clk_chk_dev;
+
+	clk_chk_dev = platform_device_register_simple("clk-chk-mt6893", -1, NULL, 0);
+	if (IS_ERR(clk_chk_dev))
+		pr_warn("unable to register clk-chk device");
+
+	return platform_driver_register(&clk_chk_mt6893_drv);
+}
+
+static void __exit clkchk_mt6893_exit(void)
+{
+	platform_driver_unregister(&clk_chk_mt6893_drv);
+}
+
+subsys_initcall(clkchk_mt6893_init);
+module_exit(clkchk_mt6893_exit);
+MODULE_LICENSE("GPL");

@@ -8,19 +8,24 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/seq_file.h>
 
 #include <dt-bindings/power/mt6853-power.h>
 
-#ifdef CONFIG_MTK_DEVAPC
-#include <mt-plat/devapc_public.h>
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+#include <devapc_public.h>
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+#include <mt-plat/dvfsrc-exp.h>
 #endif
 
 #include "clkchk.h"
 #include "clkchk-mt6853.h"
 
 #define BUG_ON_CHK_ENABLE	1
-#define CHECK_VCORE_FREQ		1
+#define CHECK_VCORE_FREQ	1
 
 /*
  * clkchk dump_regs
@@ -347,6 +352,7 @@ static struct pvd_msk *get_pvd_pwr_mask(void)
  * Opp2 : 0p60v
  * Opp3 : 0p55v
  */
+#if CHECK_VCORE_FREQ
 static struct mtk_vf vf_table[] = {
 	/* Opp0, Opp1, Opp2, Opp3 */
 	MTK_VF_TABLE("axi_sel", 156000, 156000, 156000, 156000),
@@ -406,6 +412,7 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("sflash_sel", 62400, 62400, 62400, 62400),
 	{},
 };
+#endif
 
 static struct mtk_vf *get_vf_table(void)
 {
@@ -416,18 +423,14 @@ static struct mtk_vf *get_vf_table(void)
 #endif
 }
 
-#ifdef CONFIG_MTK_DEVAPC
-/*
- * MT6853: for devapc debug
- */
-static bool is_valid_reg(void __iomem *addr)
+static int get_vcore_opp(void)
 {
-#ifdef CONFIG_64BIT
-	return ((u64)addr & 0xf0000000) != 0UL ||
-			(((u64)addr >> 32U) & 0xf0000000) != 0UL;
-#else
-	return ((u32)addr & 0xf0000000) != 0U;
+	int opp = VCORE_NULL;
+
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER) && CHECK_VCORE_FREQ
+	opp = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_SW_REQ_VCORE_OPP);
 #endif
+	return opp;
 }
 
 void print_subsys_reg(enum chk_sys_id id)
@@ -439,7 +442,7 @@ void print_subsys_reg(enum chk_sys_id id)
 	if (rns == NULL)
 		return;
 
-	if (id >= dbg_sys_num || id < 0) {
+	if (id >= chk_sys_num || id < 0) {
 		pr_info("wrong id:%d\n", id);
 		return;
 	}
@@ -458,14 +461,16 @@ void print_subsys_reg(enum chk_sys_id id)
 			rns->name, PHYSADDR(rns), clk_readl(ADDR(rns)));
 	}
 }
+EXPORT_SYMBOL(print_subsys_reg);
 
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 static void devapc_dump_regs(void)
 {
 	print_subsys_reg(spm);
 	print_subsys_reg(top);
-	print_subsys_reg(ifrao);
 	print_subsys_reg(infracfg_ao_bus);
 	print_subsys_reg(apmixed);
+	pr_notice("devapc dump\n");
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -513,15 +518,6 @@ static bool is_pll_chk_bug_on(void)
 	return false;
 }
 
-static int get_vcore_opp(void)
-{
-#ifdef CONFIG_MTK_DVFSRC_HELPER
-	return get_sw_req_vcore_opp();
-#else
-	return VCORE_NULL;
-#endif
-}
-
 /*
  * init functions
  */
@@ -535,15 +531,51 @@ static struct clkchk_ops clkchk_mt6853_ops = {
 	.is_pll_chk_bug_on = is_pll_chk_bug_on,
 	.get_vf_table = get_vf_table,
 	.get_vcore_opp = get_vcore_opp,
+	.devapc_dump = devapc_dump_regs,
 };
 
-void clkchk_set_cfg(void)
+static int clk_chk_mt6853_probe(struct platform_device *pdev)
 {
 	init_regbase();
 
 	set_clkchk_ops(&clkchk_mt6853_ops);
 
-#ifdef CONFIG_MTK_DEVAPC
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
+
+	return 0;
 }
+
+static struct platform_driver clk_chk_mt6853_drv = {
+	.probe = clk_chk_mt6853_probe,
+	.driver = {
+		.name = "clk-chk-mt6853",
+		.owner = THIS_MODULE,
+		.pm = &clk_chk_dev_pm_ops,
+	},
+};
+
+/*
+ * init functions
+ */
+
+static int __init clkchk_mt6853_init(void)
+{
+	static struct platform_device *clk_chk_dev;
+
+	clk_chk_dev = platform_device_register_simple("clk-chk-mt6853", -1, NULL, 0);
+	if (IS_ERR(clk_chk_dev))
+		pr_warn("unable to register clk-chk device");
+
+	return platform_driver_register(&clk_chk_mt6853_drv);
+}
+
+static void __exit clkchk_mt6853_exit(void)
+{
+	platform_driver_unregister(&clk_chk_mt6853_drv);
+}
+
+subsys_initcall(clkchk_mt6853_init);
+module_exit(clkchk_mt6853_exit);
+MODULE_LICENSE("GPL");

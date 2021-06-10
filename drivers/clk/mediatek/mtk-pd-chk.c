@@ -14,31 +14,16 @@
 
 #define TAG			"[pdchk] "
 #define MAX_PD_NUM		64
+#define MAX_BUF_LEN		512
 #define POWER_ON_STA		1
 #define POWER_OFF_STA		0
+#define ENABLE_PD_CHK_CG	0
 
 static struct platform_device *pd_pdev[MAX_PD_NUM];
 static struct notifier_block mtk_pd_notifier[MAX_PD_NUM];
 static bool pd_sta[MAX_PD_NUM];
 
 static const struct pdchk_ops *pdchk_ops;
-
-static struct pd_check_swcg *get_subsys_cg(unsigned int id)
-{
-	if (pdchk_ops == NULL || pdchk_ops->get_subsys_cg == NULL)
-		return NULL;
-
-	return pdchk_ops->get_subsys_cg(id);
-}
-
-static void dump_subsys_reg(unsigned int id)
-{
-	if (pdchk_ops == NULL || pdchk_ops->dump_subsys_reg == NULL)
-		return;
-
-	return pdchk_ops->dump_subsys_reg(id);
-}
-
 
 static bool is_in_pd_list(unsigned int id)
 {
@@ -64,24 +49,48 @@ static void pd_log_dump(unsigned int id, unsigned int pwr_sta)
 	pdchk_ops->log_dump(id, pwr_sta);
 }
 
+static struct pd_check_swcg *get_subsys_cg(unsigned int id)
+{
+	if (pdchk_ops == NULL || pdchk_ops->get_subsys_cg == NULL)
+		return NULL;
+
+	return pdchk_ops->get_subsys_cg(id);
+}
+
+#if ENABLE_PD_CHK_CG
+static void dump_subsys_reg(unsigned int id)
+{
+	if (pdchk_ops == NULL || pdchk_ops->dump_subsys_reg == NULL)
+		return;
+
+	return pdchk_ops->dump_subsys_reg(id);
+}
+
 static unsigned int check_cg_state(struct pd_check_swcg *swcg, unsigned int id)
 {
+	char *buf;
 	int enable_count = 0;
+	int len = 0;
 
 	if (!swcg)
 		return 0;
 
+	buf = kzalloc(MAX_BUF_LEN, GFP_KERNEL);
+
 	while (swcg->name) {
 		if (!IS_ERR_OR_NULL(swcg->c)) {
 			if (__clk_is_enabled(swcg->c) > 0) {
-				dump_subsys_reg(id);
-				pr_notice("%s[%-17s]\n", __func__,
+				len += snprintf(buf + len, PAGE_SIZE - len,
+					"%s[%-20s]: en\n", __func__,
 					__clk_get_name(swcg->c));
 				enable_count++;
 			}
 		}
 		swcg++;
 	}
+
+	if (enable_count > 0)
+		pr_notice("%s\n", buf);
 
 	return enable_count;
 }
@@ -96,10 +105,10 @@ static void mtk_check_subsys_swcg(unsigned int id)
 
 	/* check if Subsys CGs are still on */
 	ret = check_cg_state(swcg, id);
-	if (ret) {
-		pr_err("%s(%d): %d\n", __func__, id, ret);
-	}
+	if (ret)
+		dump_subsys_reg(id);
 }
+#endif
 
 /*
  * pm_domain event receive
@@ -114,7 +123,9 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 		break;
 	case GENPD_NOTIFY_PRE_OFF:
 		pd_sta[nb->priority] = POWER_OFF_STA;
+#if ENABLE_PD_CHK_CG
 		mtk_check_subsys_swcg(nb->priority);
+#endif
 		break;
 	case GENPD_NOTIFY_ON:
 		if (pd_sta[nb->priority] == POWER_OFF_STA)

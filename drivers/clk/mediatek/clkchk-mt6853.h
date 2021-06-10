@@ -36,7 +36,7 @@ enum chk_sys_id {
 	cam_rb,
 	ipe,
 	mdp,
-	dbg_sys_num,
+	chk_sys_num,
 };
 
 #ifdef CONFIG_MTK_DVFSRC_HELPER

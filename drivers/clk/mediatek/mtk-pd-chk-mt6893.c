@@ -251,7 +251,7 @@ struct pd_check_swcg vdec_gcon_swcgs[] = {
 	//SWCG("vde2_lat_cken"),
 	SWCG("vde2_lat_active"),
 	SWCG("vde2_lat_cken_eng"),
-	SWCG("vde2_vdec_cken"),
+	//SWCG("vde2_vdec_cken"),
 	SWCG("vde2_vdec_active"),
 	SWCG("vde2_vdec_cken_eng"),
 	SWCG(NULL),
