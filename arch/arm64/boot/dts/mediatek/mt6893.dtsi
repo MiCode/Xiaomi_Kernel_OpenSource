@@ -1348,6 +1348,17 @@
 			};
 		};
 
+		masp@1000a000 {
+			compatible = "mediatek,masp";
+			reg = <0 0x1000a000 0 0x1000>;
+			interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		security_ao@1001a000 {
+			compatible = "mediatek,security_ao";
+			reg = <0 0x1001a000 0 0x1000>;
+		};
+
 		apxgpt: apxgpt@10008000 {
 			compatible = "mediatek,apxgpt";
 			reg = <0 0x10008000 0 0x1000>;
