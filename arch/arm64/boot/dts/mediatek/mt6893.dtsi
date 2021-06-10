@@ -7650,6 +7650,10 @@
 		mtk_dsp_mem_afe = <0x1 0x40000>;
 	};
 
+	goodix_fp: fingerprint {
+		compatible = "mediatek,goodix-fp";
+	};
+
 	/* feature: $enable */
 	speech_usip_mem: speech_usip_mem {
 		compatible = "mediatek,speech_usip_mem";
