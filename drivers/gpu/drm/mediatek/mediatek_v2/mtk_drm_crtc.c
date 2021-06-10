@@ -5921,6 +5921,17 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
 			mtk_ddp_comp_layer_off(comp, comp_state->lye_id,
 					comp_state->ext_lye_id, cmdq_handle);
+		} else {
+			struct mtk_plane_state *state =
+				to_mtk_plane_state(plane->state);
+
+			/* for the case do not contain crtc info, we assume this plane assign to
+			 * first component of display path
+			 */
+			if (!state->crtc) {
+				comp = mtk_crtc_get_comp(crtc, 0, 0);
+				mtk_ddp_comp_layer_off(comp, plane->index, 0, cmdq_handle);
+			}
 		}
 	}
 	last_fence = *(unsigned int *)(cmdq_buf->va_base +
