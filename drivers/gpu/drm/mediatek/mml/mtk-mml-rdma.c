@@ -427,9 +427,9 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 	/* block format error check */
 	if (MML_FMT_BLOCK(src->format)) {
 		if ((src->width & 0x0f) || (src->height & 0x1f)) {
-			mml_err("invalid block format setting, width %u, height %u",
+			mml_err("invalid blk, width %u, height %u",
 				src->width, src->height);
-			mml_err("width should be 16 align, height should be 32 align");
+			mml_err("alignment width 16x, height 32x");
 			return -1;
 		}
 
@@ -438,8 +438,9 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 		if (!src->secure && ((src_buf->iova[0] & 0x0f) ||
 		    (plane > 1 && (src_buf->iova[1] & 0x0f)) ||
 		    (plane > 2 && (src_buf->iova[2] & 0x0f)))) {
-			mml_err("invalid block format setting, buffer %llu %llu %llu",
-				src_buf->iova[0], src_buf->iova[1], src_buf->iova[2]);
+			mml_err("invalid blk, buffer %llu %llu %llu",
+				src_buf->iova[0], src_buf->iova[1],
+				src_buf->iova[2]);
 			mml_err("buffer should be 16 align");
 			return -1;
 		}
@@ -447,8 +448,9 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 		if (!src->secure && ((src_buf->iova[0] & 0x7f) ||
 		    (plane > 1 && (src_buf->iova[1] & 0x7f)) ||
 		    (plane > 2 && (src_buf->iova[2] & 0x7f)))) {
-			mml_log("warning: block format setting, buffer %llu %llu %llu\n",
-				src_buf->iova[0], src_buf->iova[1], src_buf->iova[2]);
+			mml_log("warning: blk format, buffer %llu %llu %llu\n",
+				src_buf->iova[0], src_buf->iova[1],
+				src_buf->iova[2]);
 		}
 	}
 
@@ -458,8 +460,9 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 	}
 	if ((plane == 1 && !src_buf->iova[0]) ||
 	    (plane == 2 && (!src_buf->iova[1] || !src_buf->iova[0])) ||
-	    (plane == 3 && (!src_buf->iova[2] || !src_buf->iova[1] || !src_buf->iova[0]))) {
-		mml_err("configFrameRead buffer plane number error, color format = %#x, plane = %d",
+	    (plane == 3 && (!src_buf->iova[2] || !src_buf->iova[1] ||
+	    !src_buf->iova[0]))) {
+		mml_err("buffer plane number error, format = %#x, plane = %d",
 			src->format, plane);
 		return -1;
 	}
@@ -602,7 +605,8 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 							    (1 << 16),
 							    0x00030071);
 	if (MML_FMT_IS_ARGB(src->format) &&
-	    cfg->info.dest[0].pq_config.hdr_en && !cfg->info.dest[0].pq_config.aal_en &&
+	    cfg->info.dest[0].pq_config.hdr_en &&
+	    !cfg->info.dest[0].pq_config.aal_en &&
 	    !cfg->info.dest[0].pq_config.tdshp_en)
 		rdma_frm->color_tran = 0;
 
@@ -684,7 +688,8 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* Write frame base address */
 	if (rdma_frm->enable_ufo) {
-		if (MML_FMT_10BIT_JUMP(src->format) || MML_FMT_AUO(src->format)) {
+		if (MML_FMT_10BIT_JUMP(src->format) ||
+			MML_FMT_AUO(src->format)) {
 			iova[0] = src_buf->iova[0] + src->plane_offset[0];
 			iova[1] = src_buf->iova[0] + src->plane_offset[0] +
 				  u4pic_size_bs;
@@ -932,7 +937,8 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* Write frame base address */
 	if (rdma_frm->enable_ufo) {
-		if (MML_FMT_10BIT_JUMP(src->format) || MML_FMT_AUO(src->format)) {
+		if (MML_FMT_10BIT_JUMP(src->format) ||
+			MML_FMT_AUO(src->format)) {
 			iova[0] = src_buf->iova[0] + src->plane_offset[0];
 			iova[1] = src_buf->iova[0] + src->plane_offset[0] +
 				  u4pic_size_bs;
