@@ -968,6 +968,8 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	else
 		mtk_atomic_complete(private, state);
 
+	private->already_first_config = true;
+
 	mutex_nested_time_end = sched_clock();
 	mutex_nested_time_period =
 			mutex_nested_time_end - mutex_nested_time_start;

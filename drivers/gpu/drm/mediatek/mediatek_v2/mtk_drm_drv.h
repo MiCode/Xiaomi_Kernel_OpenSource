@@ -169,6 +169,8 @@ struct mtk_drm_private {
 	struct cmdq_client *ext_sec_client;
 
 	bool dma_parms_allocated;
+
+	bool already_first_config;
 };
 
 struct mtk_drm_property {
