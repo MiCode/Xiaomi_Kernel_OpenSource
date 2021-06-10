@@ -2826,6 +2826,67 @@ static int mt_ncp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int mt_aif_rx_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol,
+			    int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mt6359_set_playback_gpio(priv);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		mt6359_reset_playback_gpio(priv);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static int mt_aif_tx_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol,
+			    int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mt6359_set_capture_gpio(priv);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		mt6359_reset_capture_gpio(priv);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static int mt_aif_vow_tx_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol,
+			    int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mt6359_set_vow_gpio(priv);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		mt6359_reset_vow_gpio(priv);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static int dc_trim_thread(void *arg);
 static int mt_dc_trim_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol,
@@ -2959,11 +3020,15 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 			      NULL, 0),
 
 	/* AIF Rx*/
-	SND_SOC_DAPM_AIF_IN("AIF_RX", "AIF1 Playback", 0,
-			    SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN_E("AIF_RX", "AIF1 Playback", 0,
+			    SND_SOC_NOPM, 0, 0,
+			    mt_aif_rx_event,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_AIF_IN("AIF2_RX", "AIF2 Playback", 0,
-			    SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN_E("AIF2_RX", "AIF2 Playback", 0,
+			    SND_SOC_NOPM, 0, 0,
+			    mt_aif_rx_event,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SUPPLY_S("AFE_DL_SRC", SUPPLY_SEQ_DL_SRC,
 			      MT6359_AFE_DL_SRC2_CON0_L,
@@ -3072,10 +3137,14 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("SGEN DL"),
 
 	/* Uplinks */
-	SND_SOC_DAPM_AIF_OUT("AIF1TX", "AIF1 Capture", 0,
-			     SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_OUT("AIF2TX", "AIF2 Capture", 0,
-			     SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT_E("AIF1TX", "AIF1 Capture", 0,
+			       SND_SOC_NOPM, 0, 0,
+			       mt_aif_tx_event,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_OUT_E("AIF2TX", "AIF2 Capture", 0,
+			       SND_SOC_NOPM, 0, 0,
+			       mt_aif_tx_event,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SUPPLY_S("ADC_CLKGEN", SUPPLY_SEQ_ADC_CLKGEN,
 			      SND_SOC_NOPM, 0, 0,
@@ -3245,8 +3314,10 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 			      NULL, 0),
 
 	/* VOW */
-	SND_SOC_DAPM_AIF_OUT("VOW TX", "VOW Capture", 0,
-			     SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT_E("VOW TX", "VOW Capture", 0,
+			       SND_SOC_NOPM, 0, 0,
+			       mt_aif_vow_tx_event,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* DC trim : trigger dc trim flow because set the reg when init_reg */
 	/* this must be at the last widget */
@@ -3558,54 +3629,57 @@ static int mt6359_codec_dai_hw_params(struct snd_pcm_substream *substream,
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		priv->ul_rate[id] = rate;
 
-	priv->vow_channel = priv->vow_enable ? params_channels(params) : 0;
-
 	return 0;
-}
-
-static int mt6359_codec_dai_startup(struct snd_pcm_substream *substream,
-				    struct snd_soc_dai *dai)
-{
-	struct snd_soc_component *cmpnt = dai->component;
-	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	dev_info(priv->dev, "%s stream %d, dai id %d\n",
-		 __func__, substream->stream, dai->id);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		mt6359_set_playback_gpio(priv);
-	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		mt6359_set_capture_gpio(priv);
-
-	if (dai->id == MT6359_AIF_VOW) {
-		priv->vow_enable = 1;
-		mt6359_set_vow_gpio(priv);
-	}
-
-	return 0;
-}
-
-static void mt6359_codec_dai_shutdown(struct snd_pcm_substream *substream,
-				      struct snd_soc_dai *dai)
-{
-	struct snd_soc_component *cmpnt = dai->component;
-	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	dev_dbg(priv->dev, "%s stream %d\n", __func__, substream->stream);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		mt6359_reset_playback_gpio(priv);
-	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		mt6359_reset_capture_gpio(priv);
-
-	if (dai->id == MT6359_AIF_VOW) {
-		priv->vow_enable = 0;
-		mt6359_reset_vow_gpio(priv);
-	}
 }
 
 static const struct snd_soc_dai_ops mt6359_codec_dai_ops = {
 	.hw_params = mt6359_codec_dai_hw_params,
-	.startup = mt6359_codec_dai_startup,
-	.shutdown = mt6359_codec_dai_shutdown,
+};
+
+static int mt6359_codec_dai_vow_hw_params(struct snd_pcm_substream *substream,
+				      struct snd_pcm_hw_params *params,
+				      struct snd_soc_dai *dai)
+{
+	struct snd_soc_component *cmpnt = dai->component;
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int channel = params_channels(params);
+
+	dev_info(priv->dev, "%s(), substream->stream %d, channel %d, number %d\n",
+		 __func__,
+		 substream->stream,
+		 channel,
+		 substream->number);
+
+	priv->vow_channel = channel;
+
+	return 0;
+}
+
+static int mt6359_codec_dai_vow_startup(struct snd_pcm_substream *substream,
+					struct snd_soc_dai *dai)
+{
+	struct snd_soc_component *cmpnt = dai->component;
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	priv->vow_enable = 1;
+
+	return 0;
+}
+
+static void mt6359_codec_dai_vow_shutdown(struct snd_pcm_substream *substream,
+					  struct snd_soc_dai *dai)
+{
+	struct snd_soc_component *cmpnt = dai->component;
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	priv->vow_enable = 0;
+}
+
+
+static const struct snd_soc_dai_ops mt6359_codec_dai_vow_ops = {
+	.hw_params = mt6359_codec_dai_vow_hw_params,
+	.startup = mt6359_codec_dai_vow_startup,
+	.shutdown = mt6359_codec_dai_vow_shutdown,
 };
 
 #define MT6359_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S16_BE |\
@@ -3676,7 +3750,7 @@ static struct snd_soc_dai_driver mt6359_dai_driver[] = {
 			.rates = SNDRV_PCM_RATE_16000,
 			.formats = MT6359_FORMATS,
 		},
-		.ops = &mt6359_codec_dai_ops,
+		.ops = &mt6359_codec_dai_vow_ops,
 	},
 };
 
