@@ -151,7 +151,7 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 		&keypad->use_extend_type);
 	if (ret) {
 		pr_debug("read mediatek,use-extend-type error.\n");
-		return ret;
+		keypad->use_extend_type = 0;
 	}
 
 	ret = of_property_read_u32(node, "mediatek,hw-map-num",
