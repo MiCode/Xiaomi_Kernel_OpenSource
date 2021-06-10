@@ -21,13 +21,6 @@
 #include "smi_public.h"
 #endif
 
-/* mtk iommu */
-#ifdef CONFIG_MTK_IOMMU_V2
-#include "mtk_iommu_ext.h"
-#include "mach/pseudo_m4u.h"
-#endif
-
-
 #define RDMA_EN				0x000
 #define RDMA_UFBDC_DCM_EN		0x004
 #define RDMA_RESET			0x008
@@ -162,10 +155,6 @@ struct mml_rdma {
 	u16 event_poll;
 	u16 event_sof;
 	u16 event_eof;
-
-	/* mtk iommu */
-	u8 larb;
-	u32 m4u_port;
 };
 
 struct rdma_frame_data {
@@ -1001,72 +990,10 @@ static const struct mml_comp_config_ops rdma_cfg_ops = {
 	.reframe = rdma_reconfig_frame,
 };
 
-static s32 rdma_pw_enable(struct mml_comp *comp)
-{
-	struct mml_rdma *rdma = comp_to_rdma(comp);
-
-	/* mtk iommu */
-	mml_log("%s larb %hhu", __func__, rdma->larb);
-	if (rdma->larb == 2) {
-        mml_log("[CLOCK] Enable MDP Larb2 Clock\n");
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB2, "MML_RDMA");
-#endif
-    } else if (rdma->larb == 3) {
-        mml_log("[CLOCK] Enable MDP Larb3 Clock\n");
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB3, "MML_RDMA");
-#endif
-    } else {
-		mml_err("[rdma] %s unknown larb %hhu", __func__, rdma->larb);
-    }
-
-	return 0;
-}
-
-static s32 rdma_pw_disable(struct mml_comp *comp)
-{
-	struct mml_rdma *rdma = comp_to_rdma(comp);
-
-	/* mtk iommu */
-	mml_log("%s larb %hhu", __func__, rdma->larb);
-	if (rdma->larb == 2) {
-        mml_log("[CLOCK] Disable rdma larb2 Clock\n");
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_disable_unprepare(SMI_LARB2, "MDP");
-#endif
-    } else if (rdma->larb == 3) {
-        mml_log("[CLOCK] Disable rdma larb3 Clock\n");
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_disable_unprepare(SMI_LARB3, "MDP");
-#endif
-    } else {
-		mml_err("[rdma] %s unknown larb %hhu", __func__, rdma->larb);
-    }
-
-	return 0;
-}
-
-static s32 rdma_clk_enable(struct mml_comp *comp)
-{
-	/* mtk iommu */
-#ifdef CONFIG_MTK_IOMMU_V2
-	struct mml_rdma *rdma = comp_to_rdma(comp);
-	struct M4U_PORT_STRUCT port = {
-		.ePortID = rdma->m4u_port,
-		.Virtuality = 1,
-	};
-
-	m4u_config_port(&port);
-#endif
-
-	return mml_comp_clk_enable(comp);
-}
-
 static const struct mml_comp_hw_ops rdma_hw_ops = {
-	.pw_enable = &rdma_pw_enable,
-	.pw_disable = &rdma_pw_disable,
-	.clk_enable = &rdma_clk_enable,
+	.pw_enable = &mml_comp_pw_enable,
+	.pw_disable = &mml_comp_pw_disable,
+	.clk_enable = &mml_comp_clk_enable,
 	.clk_disable = &mml_comp_clk_disable,
 };
 
@@ -1221,6 +1148,15 @@ static int probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* init larb for smi and mtcmos */
+	ret = mml_comp_init_larb(&priv->comp, dev);
+	if (ret) {
+		if (ret == -EPROBE_DEFER)
+			return ret;
+		dev_err(dev, "fail to init component %u larb ret %d",
+			priv->comp.id, ret);
+	}
+
 	if (of_property_read_u8(dev->of_node, "gpr_poll", &priv->gpr_poll))
 		dev_err(dev, "read gpr poll fail\n");
 
@@ -1235,13 +1171,6 @@ static int probe(struct platform_device *pdev)
 	if (of_property_read_u16(dev->of_node, "event_frame_done",
 				 &priv->event_eof))
 		dev_err(dev, "read event poll fail\n");
-
-	/* mtk iommu */
-	if (of_property_read_u8(dev->of_node, "larb", &priv->larb))
-		dev_err(dev, "config larb fail\n");
-
-	if (of_property_read_u32(dev->of_node, "m4u_port", &priv->m4u_port))
-		dev_err(dev, "config m4u port fail\n");
 
 	/* assign ops */
 	priv->comp.config_ops = &rdma_cfg_ops;

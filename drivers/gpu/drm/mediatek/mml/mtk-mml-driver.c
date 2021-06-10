@@ -13,6 +13,8 @@
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
 
+#include <soc/mediatek/smi.h>
+
 #include "mtk-mml-driver.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-sys.h"
@@ -273,7 +275,7 @@ s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp)
 	ret = __comp_init(comp_pdev, comp, comp_clock_names);
 	if (ret)
 		return ret;
-	/* TODO: get larb device for smi prepare */
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mml_comp_init);
@@ -310,6 +312,62 @@ s32 mml_subcomp_init(struct platform_device *comp_pdev,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mml_subcomp_init);
+
+s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
+{
+	struct device_node *node;
+	struct platform_device *larb_pdev;
+
+	/* get larb node from dts */
+	node = of_parse_phandle(dev->of_node, "mediatek,larb", 0);
+	if (!node) {
+		mml_err("%s fail to parse mediatek,larb", __func__);
+		return -ENOENT;
+	}
+
+	larb_pdev = of_find_device_by_node(node);
+	if (WARN_ON(!larb_pdev)) {
+		of_node_put(node);
+		mml_log("%s no larb and defer", __func__);
+		return -EPROBE_DEFER;
+	}
+	of_node_put(node);
+
+	comp->larb_dev = &larb_pdev->dev;
+
+	mml_log("%s dev %p larb dev %u comp %u",
+		__func__, dev, larb_pdev, comp->id);
+
+	return 0;
+}
+
+s32 mml_comp_pw_enable(struct mml_comp *comp)
+{
+	int ret;
+
+	if (!comp->larb_dev) {
+		mml_err("%s no larb for comp %u", __func__, comp->id);
+		return 0;
+	}
+
+	ret = mtk_smi_larb_get(comp->larb_dev);
+
+	if (ret)
+		mml_err("%s enable fail ret:%d", __func__, ret);
+	return ret;
+}
+
+s32 mml_comp_pw_disable(struct mml_comp *comp)
+{
+	if (!comp->larb_dev) {
+		mml_err("%s no larb for comp %u", __func__, comp->id);
+		return 0;
+	}
+
+	mtk_smi_larb_put(comp->larb_dev);
+
+	return 0;
+}
 
 s32 mml_comp_clk_enable(struct mml_comp *comp)
 {

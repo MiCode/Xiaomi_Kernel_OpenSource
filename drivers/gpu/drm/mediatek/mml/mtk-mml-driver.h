@@ -35,6 +35,9 @@ static inline int of_mml_read_comp_id_index(const struct device_node *np,
 
 s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp);
 
+s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev);
+s32 mml_comp_pw_enable(struct mml_comp *comp);
+s32 mml_comp_pw_disable(struct mml_comp *comp);
 s32 mml_comp_clk_enable(struct mml_comp *comp);
 s32 mml_comp_clk_disable(struct mml_comp *comp);
 

@@ -23,12 +23,6 @@
 #include "smi_public.h"
 #endif
 
-/* mtk iommu */
-#ifdef CONFIG_MTK_IOMMU_V2
-#include "mtk_iommu_ext.h"
-#include "mach/pseudo_m4u.h"
-#endif
-
 /* WROT register offset */
 #define VIDO_CTRL			0x000
 #define VIDO_DMA_PERF			0x004
@@ -120,10 +114,6 @@ struct mml_wrot {
 	u8 gpr_poll;
 	u16 event_poll;
 	u16 event_eof;	/* wrot frame done */
-
-	/* mtk iommu */
-	u8 larb;
-	u32 m4u_port;
 };
 
 /* meta data for each different frame config */
@@ -1432,70 +1422,10 @@ static const struct mml_comp_config_ops wrot_cfg_ops = {
 	.reframe = wrot_reconfig_frame,
 };
 
-static s32 wrot_pw_enable(struct mml_comp *comp)
-{
-	struct mml_wrot *wrot = comp_to_wrot(comp);
-
-	/* mtk iommu */
-	mml_log("%s larb %hhu", __func__, wrot->larb);
-	if (wrot->larb == 2) {
-        mml_log("[CLOCK] Enable SMI & LARB2 Clock\n");
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB2, "MML_WROT");
-#endif
-    } else if (wrot->larb == 3) {
-        mml_log("[CLOCK] Enable SMI & LARB3 Clock\n");
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB3, "MML_WROT");
-#endif
-	} else
-		mml_err("[wrot] %s unknown larb %hhu", __func__, wrot->larb);
-
-	return 0;
-}
-
-static s32 wrot_pw_disable(struct mml_comp *comp)
-{
-	struct mml_wrot *wrot = comp_to_wrot(comp);
-
-	/* mtk iommu */
-	mml_log("%s larb %hhu", __func__, wrot->larb);
-	if (wrot->larb == 2) {
-        mml_log("[CLOCK] Disable SMI & LARB2 Clock\n");
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_disable_unprepare(SMI_LARB2, "MDP");
-#endif
-	} else if (wrot->larb == 3) {
-        mml_log("[CLOCK] Disable SMI & LARB3 Clock\n");
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_disable_unprepare(SMI_LARB3, "MDP");
-#endif
-	} else
-		mml_err("[wrot] %s unknown larb %hhu", __func__, wrot->larb);
-
-	return 0;
-}
-
-static s32 wrot_clk_enable(struct mml_comp *comp)
-{
-	/* mtk iommu */
-#ifdef CONFIG_MTK_IOMMU_V2
-	struct mml_wrot *wrot = comp_to_wrot(comp);
-	struct M4U_PORT_STRUCT port = {
-		.ePortID = wrot->m4u_port,
-		.Virtuality = 1,
-	};
-
-	m4u_config_port(&port);
-#endif
-
-	return mml_comp_clk_enable(comp);
-}
-
 static const struct mml_comp_hw_ops wrot_hw_ops = {
-	.pw_enable = &wrot_pw_enable,
-	.pw_disable = &wrot_pw_disable,
-	.clk_enable = &wrot_clk_enable,
+	.pw_enable = &mml_comp_pw_enable,
+	.pw_disable = &mml_comp_pw_disable,
+	.clk_enable = &mml_comp_clk_enable,
 	.clk_disable = &mml_comp_clk_disable,
 };
 
@@ -1615,6 +1545,15 @@ static int probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* init larb for smi and mtcmos */
+	ret = mml_comp_init_larb(&priv->comp, dev);
+	if (ret) {
+		if (ret == -EPROBE_DEFER)
+			return ret;
+		dev_err(dev, "fail to init component %u larb ret %d",
+			priv->comp.id, ret);
+	}
+
 	if (of_property_read_u8(dev->of_node, "gpr_poll", &priv->gpr_poll))
 		dev_err(dev, "read gpr poll fail\n");
 
@@ -1625,13 +1564,6 @@ static int probe(struct platform_device *pdev)
 	if (of_property_read_u16(dev->of_node, "event_frame_done",
 		&priv->event_eof))
 		dev_err(dev, "read event poll fail\n");
-
-	/* mtk iommu */
-	if (of_property_read_u8(dev->of_node, "larb", &priv->larb))
-		dev_err(dev, "config larb fail\n");
-
-	if (of_property_read_u32(dev->of_node, "m4u_port", &priv->m4u_port))
-		dev_err(dev, "config m4u port fail\n");
 
 	/* assign ops */
 	priv->comp.tile_ops = &wrot_tile_ops;
