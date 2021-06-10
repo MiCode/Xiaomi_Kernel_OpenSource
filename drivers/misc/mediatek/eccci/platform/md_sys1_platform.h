@@ -33,11 +33,8 @@ struct ccci_plat_ops {
 	//void (*cldma_hw_rst)(unsigned char md_id);
 	void (*set_clk_cg)(struct ccci_modem *md, unsigned int on);
 	int (*remap_md_reg)(struct ccci_modem *md);
-	void (*lock_cldma_clock_src)(int locked);
 	void (*lock_modem_clock_src)(int locked);
-	void (*dump_md_bootup_status)(struct ccci_modem *md);
-	void (*get_md_bootup_status)(
-	struct ccci_modem *md, unsigned int *buff, int length);
+	void (*get_md_bootup_status)(unsigned int *buff, int length);
 	void (*debug_reg)(struct ccci_modem *md);
 	int (*pccif_send)(struct ccci_modem *md, int channel_id);
 	void (*check_emi_state)(struct ccci_modem *md, int polling);

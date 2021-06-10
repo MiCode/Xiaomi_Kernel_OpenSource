@@ -75,9 +75,7 @@ static struct ccci_clk_node clk_table[] = {
 
 static int md_cd_io_remap_md_side_register(struct ccci_modem *md);
 static void md_cd_dump_debug_register(struct ccci_modem *md);
-static void md_cd_dump_md_bootup_status(struct ccci_modem *md);
-static void md_cd_get_md_bootup_status(struct ccci_modem *md,
-	unsigned int *buff, int length);
+static void md_cd_get_md_bootup_status(unsigned int *buff, int length);
 static void md_cd_check_emi_state(struct ccci_modem *md, int polling);
 static int md_start_platform(struct ccci_modem *md);
 static int md_cd_power_on(struct ccci_modem *md);
@@ -85,9 +83,7 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout);
 static int md_cd_soft_power_off(struct ccci_modem *md, unsigned int mode);
 static int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode);
 static int md_cd_let_md_go(struct ccci_modem *md);
-static void md_cd_lock_cldma_clock_src(int locked);
 static void md_cd_lock_modem_clock_src(int locked);
-//static void md_cldma_hw_reset(unsigned char md_id);
 static void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on);
 
 static int ccci_modem_remove(struct platform_device *dev);
@@ -105,9 +101,7 @@ static struct ccci_plat_ops md_cd_plat_ptr = {
 	//.cldma_hw_rst = &md_cldma_hw_reset,
 	.set_clk_cg = &ccci_set_clk_cg,
 	.remap_md_reg = &md_cd_io_remap_md_side_register,
-	.lock_cldma_clock_src = &md_cd_lock_cldma_clock_src,
 	.lock_modem_clock_src = &md_cd_lock_modem_clock_src,
-	.dump_md_bootup_status = &md_cd_dump_md_bootup_status,
 	.get_md_bootup_status = &md_cd_get_md_bootup_status,
 	.debug_reg = &md_cd_dump_debug_register,
 	.check_emi_state = &md_cd_check_emi_state,
@@ -345,17 +339,11 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 	return 0;
 }
 
-static void md_cd_lock_cldma_clock_src(int locked)
-{
-	/* spm_ap_mdsrc_req(locked); */
-}
-
 static void md_cd_lock_modem_clock_src(int locked)
 {
 	int settle = -1;
 	struct arm_smccc_res res = {0};
 
-	/* spm_ap_mdsrc_req(locked); */
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
 		MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0, &res);
 
@@ -374,61 +362,22 @@ static void md_cd_lock_modem_clock_src(int locked)
 	}
 }
 
-static void md_cd_dump_md_bootup_status(struct ccci_modem *md)
-{
-	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
-	struct md_pll_reg *md_reg = md_info->md_pll_base;
-
-	/*To avoid AP/MD interface delay,
-	 * dump 3 times, and buy-in the 3rd dump value.
-	 */
-
-	ccci_write32(md_reg->md_boot_stats_select, 0, 2);
-	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
-	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
-	CCCI_NOTICE_LOG(md->index, TAG,
-		"md_boot_stats0:0x%X\n",
-		ccci_read32(md_reg->md_boot_stats, 0));
-
-	ccci_write32(md_reg->md_boot_stats_select, 0, 3);
-	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
-	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
-	CCCI_NOTICE_LOG(md->index, TAG,
-		"md_boot_stats1:0x%X\n",
-		ccci_read32(md_reg->md_boot_stats, 0));
-}
-
 static void md_cd_get_md_bootup_status(
-	struct ccci_modem *md, unsigned int *buff, int length)
+	unsigned int *buff, int length)
 {
-	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
-	struct md_pll_reg *md_reg = NULL;
+	struct arm_smccc_res res = {0};
 
-	md_reg = md_info->md_pll_base;
-	if (!md_reg) {
-		CCCI_ERROR_LOG(md->index, TAG, "%s:md_reg is null\n", __func__);
-		return;
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+		MD_BOOT_STATUS, 0, 0, 0, 0, 0, &res);
+
+	if (buff && (length >= 2)) {
+		buff[0] = (unsigned int)res.a1;
+		buff[1] = (unsigned int)res.a2;
 	}
 
-	CCCI_NOTICE_LOG(md->index, TAG, "md_boot_stats len %d\n", length);
-
-	if (length < 2 || buff == NULL) {
-		md_cd_dump_md_bootup_status(md);
-		return;
-	}
-
-	ccci_write32(md_reg->md_boot_stats_select, 0, 2);
-	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
-	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
-	buff[0] = ccci_read32(md_reg->md_boot_stats, 0);
-
-	ccci_write32(md_reg->md_boot_stats_select, 0, 3);
-	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
-	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
-	buff[1] = ccci_read32(md_reg->md_boot_stats, 0);
-	CCCI_NOTICE_LOG(md->index, TAG,
-		"md_boot_stats0 / 1:0x%X / 0x%X\n", buff[0], buff[1]);
-
+	CCCI_NOTICE_LOG(-1, TAG,
+		"[%s] AP: boot_ret=%lu, boot_status_0=%lX, boot_status_1=%lX\n",
+		__func__, res.a0, res.a1, res.a2);
 }
 
 void __weak mtk_suspend_emiisu(void)
@@ -446,7 +395,7 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	/* EMI debug feature */
 	mtk_suspend_emiisu();
 
-	md_cd_get_md_bootup_status(md, reg_value, 2);
+	md_cd_get_md_bootup_status(reg_value, 2);
 	md->ops->dump_info(md, DUMP_FLAG_CCIF, ccif_sram, 0);
 	/* copy from HS1 timeout */
 	if ((reg_value[0] == 0) && (ccif_sram[1] == 0))
@@ -623,11 +572,7 @@ static int md_start_platform(struct ccci_modem *md)
 		res.a0, res.a1, res.a2, res.a3);
 	CCCI_ERROR_LOG(md->index, TAG, "dummy md sys clk\n");
 
-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
-		MD_BOOT_STATUS, 0, 0, 0, 0, 0, &res);
-	CCCI_ERROR_LOG(md->index, TAG,
-		"AP: boot_ret=%lu, boot_status_0=%lu, boot_status_1=%lu\n",
-		res.a0, res.a1, res.a2);
+	md_cd_get_md_bootup_status(NULL, 0);
 
 	if (ret != 0) {
 		/* BROM */

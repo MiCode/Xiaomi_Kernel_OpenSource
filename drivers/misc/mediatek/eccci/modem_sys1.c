@@ -586,12 +586,6 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 				md1_sleep_timeout_proc();
 			break;
 		}
-		if (md->hw_info->plat_ptr->lock_cldma_clock_src) {
-			md->hw_info->plat_ptr->lock_cldma_clock_src(1);
-			msleep(1000);
-			md->hw_info->plat_ptr->lock_cldma_clock_src(0);
-			msleep(20);
-		}
 	}
 }
 static int md_cd_stop(struct ccci_modem *md, unsigned int stop_type)
@@ -1085,8 +1079,8 @@ static int md_cd_dump_info(struct ccci_modem *md,
 
 	if ((flag & DUMP_MD_BOOTUP_STATUS) &&
 		md->hw_info->plat_ptr->get_md_bootup_status)
-		md->hw_info->plat_ptr->get_md_bootup_status(md,
-		(unsigned int *)buff, length);
+		md->hw_info->plat_ptr->get_md_bootup_status((unsigned int *)buff,
+			length);
 
 	return length;
 }
