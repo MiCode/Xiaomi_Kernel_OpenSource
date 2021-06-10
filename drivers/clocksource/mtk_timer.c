@@ -96,74 +96,61 @@ static uint64_t gpt_clkevt_last_interrupt_time;
 static uint64_t gpt_clkevt_last_setting_next_event_time;
 #endif
 
+#if defined(CONFIG_MTK_RAM_CONSOLE) && defined(CONFIG_MTK_TIMER_AEE_DUMP)
+static void gpt_aeedata_save(const char *str, uint64_t data)
+{
+	int cnt = 0;
+
+	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
+
+	cnt = snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
+		str,
+		data);
+	if ((cnt < 0) || (cnt >= sizeof(gpt_clkevt_aee_dump_buf)))
+		strncpy(gpt_clkevt_aee_dump_buf, "snprintf : unknown err",
+				sizeof(gpt_clkevt_aee_dump_buf));
+
+	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
+}
+#endif
+
 void mt_gpt_clkevt_aee_dump(void)
 {
 #if defined(CONFIG_MTK_RAM_CONSOLE) && defined(CONFIG_MTK_TIMER_AEE_DUMP)
-
 	/*
 	 * Notice: printk cannot be used during AEE flow to avoid lock issues.
 	 */
 	struct clock_event_device dev = gpt_devs->dev;
-	/* last interrupt time */
 
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT] last interrupt time: %llu\n",
+	/* last interrupt time */
+	gpt_aeedata_save("[GPT] last interrupt time: %llu\n",
 		gpt_clkevt_last_interrupt_time);
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
 	/* last time of setting next event */
-
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT] last setting next event time: %llu\n",
+	gpt_aeedata_save("[GPT] last setting next event time: %llu\n",
 		gpt_clkevt_last_setting_next_event_time);
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
 	/* global gpt status */
-
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT] IRQEN: 0x%x\n",
+	gpt_aeedata_save("[GPT] IRQEN: 0x%x\n",
 		__raw_readl(gpt_devs->gpt_base + GPT_IRQ_EN_REG));
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT] IRQSTA: 0x%x\n",
+	gpt_aeedata_save("[GPT] IRQSTA: 0x%x\n",
 		__raw_readl(gpt_devs->gpt_base + GPT_IRQ_STA_REG));
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
 	/* gpt1 status */
-
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT1] CON: 0x%x\n",
+	gpt_aeedata_save("[GPT1] CON: 0x%x\n",
 		__raw_readl(gpt_devs->gpt_base + TIMER_CTRL_REG(GPT_CLK_EVT)));
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT1] CLK: 0x%x\n",
+	gpt_aeedata_save("[GPT1] CLK: 0x%x\n",
 		__raw_readl(gpt_devs->gpt_base + TIMER_CLK_REG(GPT_CLK_EVT)));
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT1] CNT: 0x%x\n",
+	gpt_aeedata_save("[GPT1] CNT: 0x%x\n",
 		__raw_readl(gpt_devs->gpt_base + TIMER_CNT_REG(GPT_CLK_EVT)));
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT1] CMP: 0x%x\n",
+	gpt_aeedata_save("[GPT1] CMP: 0x%x\n",
 		__raw_readl(gpt_devs->gpt_base + TIMER_CMP_REG(GPT_CLK_EVT)));
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
-	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
-	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT1] irq affinity: %d\n", dev.irq_affinity_on);
-	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
+	gpt_aeedata_save("[GPT1] irq affinity: %d\n", dev.irq_affinity_on);
 
 	/*
 	 * TODO: dump apxgpt irq status
