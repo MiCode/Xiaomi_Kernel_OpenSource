@@ -138,7 +138,9 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 		pr_notice("%s: mrdump_cb not mapped\n", __func__);
 		return;
 	}
-	memset_io(mrdump_cblock, 0, sizeof(struct mrdump_control_block));
+	memset_io(mrdump_cblock, 0,
+		sizeof(struct mrdump_control_block) +
+		nr_cpu_ids * sizeof(mrdump_cblock->crash_record.cpu_reg[0]));
 	memcpy_toio(mrdump_cblock->sig, MRDUMP_GO_DUMP,
 			sizeof(mrdump_cblock->sig));
 
