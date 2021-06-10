@@ -783,11 +783,26 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 	if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_DYN_MIPI_CHANGE) && dsi->ext && dsi->ext->params
 		&& dsi->ext->params->dyn_fps.data_rate) {
-		data_rate = dsi->ext->params->dyn_fps.data_rate;
+		if (dsi->mipi_hopping_sta &&
+			dsi->ext->params->dyn.switch_en == 1 &&
+			dsi->ext->params->dyn.data_rate)
+			data_rate = dsi->ext->params->dyn.data_rate;
+		else
+			data_rate = dsi->ext->params->dyn_fps.data_rate;
 	} else if (dsi->ext && dsi->ext->params->data_rate) {
-		data_rate = dsi->ext->params->data_rate;
+		if (dsi->mipi_hopping_sta &&
+			dsi->ext->params->dyn.switch_en == 1 &&
+			dsi->ext->params->dyn.data_rate)
+			data_rate = dsi->ext->params->dyn.data_rate;
+		else
+			data_rate = dsi->ext->params->data_rate;
 	} else if (dsi->ext && dsi->ext->params->pll_clk) {
-		data_rate = dsi->ext->params->pll_clk * 2;
+		if (dsi->mipi_hopping_sta &&
+			dsi->ext->params->dyn.switch_en == 1 &&
+			dsi->ext->params->dyn.pll_clk)
+			data_rate = dsi->ext->params->dyn.pll_clk * 2;
+		else
+			data_rate = dsi->ext->params->pll_clk * 2;
 	} else {
 		u64 pixel_clock, total_bits;
 		u32 htotal, htotal_bits, bit_per_pixel;
