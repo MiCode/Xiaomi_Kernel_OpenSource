@@ -8,6 +8,7 @@
 #include <linux/sync_file.h>
 
 #include "mdw_cmn.h"
+#include "mdw_mem.h"
 
 #define mdw_cmd_set_state(c, s) \
 	do { \
@@ -18,45 +19,95 @@
 		mutex_unlock(&c->mtx); \
 	} while (0)
 
-static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *cmd)
+#define mdw_cmd_show(c) \
+	mdw_cmd_debug("cmd(%p.%d/0x%llx/0x%llx)(%u/%u/%u/%u)(%u/%p/%u/%u)\n", \
+	c->mpriv, c->id, c->uid, c->kid, \
+	c->priority, c->hardlimit, c->softlimit, c->power_save, \
+	c->num_subcmds, c->cmdbufs, c->num_cmdbufs, c->size_cmdbufs)
+
+static struct mdw_mem *mdw_cmd_get_mem(struct mdw_fpriv *mpriv, uint64_t handle)
 {
-	if (!cmd->cmdbufs)
-		return;
+	struct mdw_mem *m = NULL;
 
-	dma_buf_put(cmd->cmdbufs_inst);
+	m = mdw_mem_get(mpriv, handle);
+	if (!m)
+		return NULL;
 
-	/* ref for map */
-	mdw_mem_free(mpriv, cmd->cmdbufs);
-	/* ref for alloc */
-	mdw_mem_free(mpriv, cmd->cmdbufs);
+	/* inc ref cnt */
+	if (mdw_mem_dma_map(mpriv, m))
+		return NULL;
 
-	cmd->cmdbufs = NULL;
+	mdw_cmd_debug("u(%p) get cmdbuf(%llu)\n", mpriv, handle);
+
+	return m;
 }
 
-static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *cmd)
+static int mdw_cmd_put_mem(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+{
+	mdw_cmd_debug("u(%p) put cmdbuf(%p/%llu)\n", mpriv, m, m->handle);
+
+	/* dec ref cnf */
+	return mdw_mem_dma_unmap(mpriv, m);
+}
+
+static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
+{
+	struct mdw_subcmd_kinfo *ksubcmd = NULL;
+	unsigned int i = 0, j = 0;
+
+	if (!c->cmdbufs)
+		return;
+
+	for (i = 0; i < c->num_subcmds; i++) {
+		ksubcmd = &c->ksubcmds[i];
+		for (j = 0; j < ksubcmd->info->num_cmdbufs; j++) {
+			if (ksubcmd->ori_mems[j]) {
+				if (mdw_cmd_put_mem(mpriv,
+					ksubcmd->ori_mems[j]))
+					mdw_drv_warn("cmd(%p.%d) put cmdbuf(%llu) fail\n",
+					mpriv, c->id,
+					ksubcmd->cmdbufs[j].handle);
+				ksubcmd->ori_mems[j] = NULL;
+			}
+		}
+	}
+	mdw_mem_dma_unmap(mpriv, c->cmdbufs);
+	mdw_mem_free(mpriv, c->cmdbufs);
+	c->cmdbufs = NULL;
+}
+
+static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 {
 	unsigned int i = 0, j = 0, ofs = 0;
-	int ret = 0;
+	int ret = -EINVAL;
 	struct mdw_subcmd_kinfo *ksubcmd = NULL;
+	struct mdw_mem *m = NULL;
 
-	if (!cmd->size_cmdbufs || cmd->cmdbufs)
-		return -EINVAL;
+	if (!c->size_cmdbufs || c->cmdbufs)
+		goto out;
 
 	/* alloc cmdbuf by dmabuf */
-	cmd->cmdbufs = mdw_mem_alloc(mpriv, cmd->size_cmdbufs,
+	c->cmdbufs = mdw_mem_alloc(mpriv, c->size_cmdbufs,
 		MDW_DEFAULT_ALIGN, true);
-	if (!cmd->cmdbufs)
-		return -ENOMEM;
-	if (mdw_mem_map(mpriv, cmd->cmdbufs))
+	if (!c->cmdbufs) {
+		mdw_drv_err("cmd(%p.%d) alloc buffer for duplicate fail\n",
+			mpriv, c->id);
+		ret = -ENOMEM;
+		goto out;
+	}
+	ret = mdw_mem_dma_map(mpriv, c->cmdbufs);
+	if (ret) {
+		mdw_drv_err("cmd(%p.%d) map buffer for duplicate fail\n",
+			mpriv, c->id);
 		goto free_cmdbufs;
-	cmd->cmdbufs_inst = dma_buf_get(cmd->cmdbufs->handle);
+	}
 
-	/* TODO, should ref++ for output */
-	for (i = 0; i < cmd->num_subcmds; i++) {
+	mdw_cmd_debug("alloc internal cmdbuf(%p)\n", c->cmdbufs);
+	for (i = 0; i < c->num_subcmds; i++) {
 		mdw_cmd_debug("sc(%u) #cmdbufs(%u)\n",
-			i, cmd->ksubcmds[i].info->num_cmdbufs);
+			i, c->ksubcmds[i].info->num_cmdbufs);
 
-		ksubcmd = &cmd->ksubcmds[i];
+		ksubcmd = &c->ksubcmds[i];
 		for (j = 0; j < ksubcmd->info->num_cmdbufs; j++) {
 			/* calc align */
 			if (ksubcmd->cmdbufs[j].align)
@@ -67,29 +118,44 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *cmd)
 			mdw_cmd_debug("sc(%u) #cmdbufs(%u) offset(%u)\n",
 				i, j, ofs);
 
-			/* copy cmdbuf */
-			if (copy_from_user(cmd->cmdbufs->vaddr + ofs,
-				(void __user *)ksubcmd->cmdbufs[j].handle,
-				ksubcmd->cmdbufs[j].size)) {
-				ret = -EFAULT;
+			/* get mem from handle */
+			m = mdw_cmd_get_mem(mpriv, ksubcmd->cmdbufs[j].handle);
+			if (!m) {
+				mdw_drv_err("get cmdbuf(%u-%u)(%llu) fail\n",
+					i, j, ksubcmd->cmdbufs[j].handle);
 				goto free_cmdbufs;
 			}
-			/* write */
+			/* check mem boundary */
+			if (m->vaddr == NULL ||
+				ksubcmd->cmdbufs[j].size != m->size) {
+				mdw_drv_err("cmdbuf(%u-%u) range invalid(%p/%u/%u)\n",
+					i, j, m->vaddr,
+					ksubcmd->cmdbufs[j].size,
+					m->size);
+				goto free_cmdbufs;
+			}
+
+			/* duplicate cmdbuf */
+			memcpy(c->cmdbufs->vaddr + ofs, m->vaddr,
+			ksubcmd->cmdbufs[j].size);
+
+			/* record buffer info */
+			ksubcmd->ori_mems[j] = m;
 			ksubcmd->kvaddrs[j] =
-				(uint64_t)(cmd->cmdbufs->vaddr + ofs);
+				(uint64_t)(c->cmdbufs->vaddr + ofs);
 			ksubcmd->daddrs[j] =
-				(uint64_t)(cmd->cmdbufs->device_va + ofs);
+				(uint64_t)(c->cmdbufs->device_va + ofs);
 			ofs += ksubcmd->cmdbufs[j].size;
 			mdw_cmd_debug("cmdbufs(%u-#%u) (0x%llx/0x%llx)\n",
 				i, j, ksubcmd->kvaddrs[j], ksubcmd->daddrs[j]);
 		}
 	}
 
+	ret = 0;
 	goto out;
 
 free_cmdbufs:
-	mdw_mem_free(mpriv, cmd->cmdbufs);
-	cmd->cmdbufs = NULL;
+	mdw_cmd_put_cmdbufs(mpriv, c);
 out:
 	mdw_cmd_debug("ret(%d)\n", ret);
 	return ret;
@@ -98,32 +164,34 @@ out:
 static int mdw_cmd_duplicate_cmdbuf(struct mdw_subcmd_kinfo *in,
 	bool before_exec)
 {
-	int i = 0, ret = 0;
+	int i = 0, ret = -ENOMEM;
 
 	for (i = 0; i < in->info->num_cmdbufs; i++) {
+		if (!in->kvaddrs[i] || in->ori_mems[i]->vaddr == NULL)
+			goto out;
+
 		if (before_exec == true) {
 			if (in->cmdbufs[i].direction == MDW_CB_OUT)
 				continue;
-
-			if (copy_from_user((void *)in->kvaddrs[i],
-				(void __user *)in->cmdbufs[i].handle,
-				in->cmdbufs[i].size)) {
-				ret = -EFAULT;
-				goto out;
-			}
+			memcpy((void *)in->kvaddrs[i],
+				(void *)in->ori_mems[i]->vaddr,
+				in->cmdbufs[i].size);
+			mdw_cmd_debug("copy in(0x%llx/0x%llx)\n",
+				in->kvaddrs[i],
+				(uint64_t)in->ori_mems[i]->vaddr);
 		} else {
 			if (in->cmdbufs[i].direction == MDW_CB_IN)
 				continue;
-
-			if (copy_to_user((void __user *)in->cmdbufs[i].handle,
+			memcpy((void *)in->ori_mems[i]->vaddr,
 				(void *)in->kvaddrs[i],
-				in->cmdbufs[i].size)) {
-				ret = -EFAULT;
-				goto out;
-			}
+				in->cmdbufs[i].size);
+			mdw_cmd_debug("copy out(0x%llx/0x%llx)\n",
+				(uint64_t)in->ori_mems[i]->vaddr,
+				in->kvaddrs[i]);
 		}
 	}
 
+	ret = 0;
 out:
 	if (ret)
 		mdw_drv_err("duplicate cmdbuf(%u) fail\n", i);
@@ -145,21 +213,27 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 			c->subcmds[i].boost, c->subcmds[i].pack_id,
 			c->subcmds[i].num_cmdbufs, c->subcmds[i].cmdbufs);
 
+		/* kva for oroginal buffer */
+		c->ksubcmds[i].ori_mems = kvzalloc(c->subcmds[i].num_cmdbufs *
+			sizeof(c->ksubcmds[i].ori_mems), GFP_KERNEL);
+		if (!c->ksubcmds[i].ori_mems)
+			goto free_cmdbufs;
+
 		/* record kva for duplicate */
-		c->ksubcmds[i].kvaddrs = vzalloc(c->subcmds[i].num_cmdbufs *
-			sizeof(*c->ksubcmds[i].kvaddrs));
+		c->ksubcmds[i].kvaddrs = kvzalloc(c->subcmds[i].num_cmdbufs *
+			sizeof(*c->ksubcmds[i].kvaddrs), GFP_KERNEL);
 		if (!c->ksubcmds[i].kvaddrs)
 			goto free_cmdbufs;
 
-		c->ksubcmds[i].daddrs = vzalloc(c->subcmds[i].num_cmdbufs *
-			sizeof(*c->ksubcmds[i].daddrs));
+		c->ksubcmds[i].daddrs = kvzalloc(c->subcmds[i].num_cmdbufs *
+			sizeof(*c->ksubcmds[i].daddrs), GFP_KERNEL);
 		if (!c->ksubcmds[i].daddrs)
 			goto free_cmdbufs;
 
 
 		/* allocate for subcmd cmdbuf */
-		c->ksubcmds[i].cmdbufs = vzalloc(c->subcmds[i].num_cmdbufs *
-			sizeof(*c->ksubcmds[i].cmdbufs));
+		c->ksubcmds[i].cmdbufs = kvzalloc(c->subcmds[i].num_cmdbufs *
+			sizeof(*c->ksubcmds[i].cmdbufs), GFP_KERNEL);
 		if (!c->ksubcmds[i].cmdbufs)
 			goto free_cmdbufs;
 
@@ -198,17 +272,22 @@ free_cmdbufs:
 	for (i = 0; i < c->num_subcmds; i++) {
 		/* free dvaddrs */
 		if (c->ksubcmds[i].daddrs) {
-			vfree(c->ksubcmds[i].daddrs);
+			kvfree(c->ksubcmds[i].daddrs);
 			c->ksubcmds[i].daddrs = NULL;
 		}
 		/* free kvaddrs */
 		if (c->ksubcmds[i].kvaddrs) {
-			vfree(c->ksubcmds[i].kvaddrs);
+			kvfree(c->ksubcmds[i].kvaddrs);
 			c->ksubcmds[i].kvaddrs = NULL;
+		}
+		/* free ori kvas */
+		if (c->ksubcmds[i].ori_mems) {
+			kvfree(c->ksubcmds[i].ori_mems);
+			c->ksubcmds[i].ori_mems = NULL;
 		}
 		/* free cmdbufs */
 		if (c->ksubcmds[i].cmdbufs) {
-			vfree(c->ksubcmds[i].cmdbufs);
+			kvfree(c->ksubcmds[i].cmdbufs);
 			c->ksubcmds[i].cmdbufs = NULL;
 		}
 	}
@@ -225,10 +304,26 @@ static void mdw_cmd_delete_infos(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	mdw_cmd_put_cmdbufs(mpriv, c);
 
 	for (i = 0; i < c->num_subcmds; i++) {
-		if (!c->ksubcmds[i].cmdbufs)
-			continue;
-		vfree(c->ksubcmds[i].cmdbufs);
-		c->ksubcmds[i].cmdbufs = NULL;
+		/* free dvaddrs */
+		if (c->ksubcmds[i].daddrs) {
+			kvfree(c->ksubcmds[i].daddrs);
+			c->ksubcmds[i].daddrs = NULL;
+		}
+		/* free kvaddrs */
+		if (c->ksubcmds[i].kvaddrs) {
+			kvfree(c->ksubcmds[i].kvaddrs);
+			c->ksubcmds[i].kvaddrs = NULL;
+		}
+		/* free ori kvas */
+		if (c->ksubcmds[i].ori_mems) {
+			kvfree(c->ksubcmds[i].ori_mems);
+			c->ksubcmds[i].ori_mems = NULL;
+		}
+		/* free cmdbufs */
+		if (c->ksubcmds[i].cmdbufs) {
+			kvfree(c->ksubcmds[i].cmdbufs);
+			c->ksubcmds[i].cmdbufs = NULL;
+		}
 	}
 }
 
@@ -273,6 +368,7 @@ static int mdw_cmd_postset(struct mdw_cmd *c)
 		}
 	}
 out:
+	mdw_cmd_show(c);
 	return ret;
 }
 
@@ -281,7 +377,7 @@ static void mdw_cmd_release(struct kref *ref)
 	struct mdw_cmd *c =
 		container_of(ref, struct mdw_cmd, ref);
 
-	mdw_flw_debug("cmd(%p.%d) release\n", c->mpriv, c->id);
+	mdw_cmd_show(c);
 	/* free mdw_cmd */
 	mdw_cmd_delete_infos(c->mpriv, c);
 	vfree(c->ksubcmds);
@@ -315,8 +411,7 @@ static void mdw_fence_release(struct dma_fence *fence)
 		container_of(fence, struct mdw_fence, base_fence);
 	struct mdw_cmd *c = f->priv;
 
-	mdw_cmd_set_state(c, MDW_CMD_STATE_IDLE);
-	mdw_cmd_postset(c);
+	//mdw_cmd_set_state(c, MDW_CMD_STATE_IDLE);
 	mdw_flw_debug("current pid(%d)\n", current->pid);
 	kfree(f);
 	kref_put(&c->ref, mdw_cmd_release);
@@ -361,9 +456,7 @@ static int mdw_cmd_preset(struct mdw_cmd *c, struct mdw_cmd_in *in)
 	c->hardlimit = in->exec.hardlimit;
 	c->softlimit = in->exec.softlimit;
 	c->power_save = in->exec.power_save;
-	mdw_flw_debug("cmd(%p.%d) exec(%u/%u/%u/%u)\n",
-		c->priority, c->hardlimit,
-		c->softlimit, c->power_save);
+	mdw_cmd_show(c);
 
 	/* cmdbuf handle */
 	for (i = 0; i < c->num_subcmds; i++) {
@@ -392,6 +485,7 @@ static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	int ret = 0;
 
 	mdw_cmd_set_state(c, MDW_CMD_STATE_RUN);
+	mdw_cmd_show(c);
 	ret = mdev->dev_funcs->run_cmd(mpriv, c);
 	if (ret) {
 		mdw_drv_err("run cmd(%p.%d) fail(%d)\n",
@@ -414,7 +508,8 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 	mdw_drv_debug("cmd(%p.%d) ret(%d) complete\n",
 		c->mpriv, c->id, ret);
 	mdw_flw_debug("current pid(%d)\n", current->pid);
-	mdw_cmd_set_state(c, MDW_CMD_STATE_DONE);
+	mdw_cmd_postset(c);
+	mdw_cmd_set_state(c, MDW_CMD_STATE_IDLE);
 
 	dma_fence_signal(&c->fence->base_fence);
 	dma_fence_put(&c->fence->base_fence);
@@ -455,7 +550,8 @@ static int mdw_cmd_ioctl_create(struct mdw_fpriv *mpriv,
 
 	/* copy cmd header info */
 	c->kid = (uint64_t)c;
-	c->uid = in->build.cmd_uid;
+	c->uid = in->build.uid;
+	c->usr_id = in->build.usr_id;
 	c->priority = in->build.priority;
 	c->hardlimit = in->build.hardlimit;
 	c->softlimit = in->build.softlimit;
@@ -466,8 +562,6 @@ static int mdw_cmd_ioctl_create(struct mdw_fpriv *mpriv,
 		ret = -ENOMEM;
 		goto free_cmd;
 	}
-	mdw_cmd_debug("cmd(0x%llx/%u/%u/%u/%u)\n", c->uid, c->priority,
-		c->hardlimit, c->softlimit, c->power_save);
 
 	/* copy adj matrix */
 	c->adj_matrix = vzalloc(c->num_subcmds *
@@ -495,7 +589,9 @@ static int mdw_cmd_ioctl_create(struct mdw_fpriv *mpriv,
 		goto free_adj;
 	}
 
+	mutex_lock(&mpriv->mtx);
 	ret = mdw_cmd_create_infos(mpriv, c);
+	mutex_unlock(&mpriv->mtx);
 	if (ret)
 		goto free_ksubcmds;
 
@@ -508,6 +604,7 @@ static int mdw_cmd_ioctl_create(struct mdw_fpriv *mpriv,
 	c->complete = mdw_cmd_complete;
 	c->state = MDW_CMD_STATE_IDLE;
 	INIT_WORK(&c->t_wk, &mdw_cmd_trigger_func);
+	mdw_cmd_show(c);
 
 	/* gen cmd id */
 	mutex_lock(&mpriv->mtx);
@@ -515,8 +612,6 @@ static int mdw_cmd_ioctl_create(struct mdw_fpriv *mpriv,
 	mutex_unlock(&mpriv->mtx);
 	if (c->id < 0)
 		goto delete_infos;
-	mdw_drv_debug("cmd(0x%llx/%p.%d) create\n",
-		c->uid, c->mpriv, c->id);
 
 	kref_init(&c->ref);
 
@@ -558,12 +653,13 @@ static int mdw_cmd_ioctl_delete(struct mdw_fpriv *mpriv,
 		ret = -EINVAL;
 		goto unlock_mpriv;
 	}
+	mdw_cmd_show(c);
 
 	/* remove from idr */
 	idr_remove(&mpriv->cmds_idr, cmd_id);
+	kref_put(&c->ref, mdw_cmd_release);
 	mutex_unlock(&mpriv->mtx);
 
-	mdw_drv_debug("cmd(%p.%d) delete\n", mpriv, cmd_id);
 	goto out;
 
 unlock_mpriv:

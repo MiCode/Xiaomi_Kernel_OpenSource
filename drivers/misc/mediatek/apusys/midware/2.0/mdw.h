@@ -48,23 +48,25 @@ struct mdw_fpriv;
 struct mdw_device;
 
 struct mdw_mem {
-	int handle;
-	void *vaddr;
+	/* in */
 	unsigned int size;
-	uint64_t device_va;
 	unsigned int align;
-
 	uint64_t flags;
-	uint8_t cacheable;
-	struct list_head u_item;
-	struct list_head m_item;
-
-	bool is_alloced;
-	bool is_user;
-	struct kref ref;
 	struct mdw_fpriv *mpriv;
 
+	/* out */
+	int handle;
+	void *vaddr;
+	uint64_t device_va;
+	uint32_t dva_size;
 	void *priv;
+
+	/* control */
+	bool is_user;
+	struct list_head u_item;
+	struct list_head m_item;
+	struct kref map_ref;
+	void (*release)(struct mdw_mem *m);
 };
 
 struct mdw_dinfo {
@@ -103,10 +105,11 @@ struct mdw_fpriv {
 };
 
 struct mdw_subcmd_kinfo {
-	struct mdw_subcmd_info *info;
-	struct mdw_subcmd_cmdbuf *cmdbufs;
-	uint64_t *kvaddrs;
-	uint64_t *daddrs;
+	struct mdw_subcmd_info *info; //c->subcmds
+	struct mdw_subcmd_cmdbuf *cmdbufs; //from usr
+	struct mdw_mem **ori_mems; //pointer to original buf
+	uint64_t *kvaddrs; //pointer to duplicated buf
+	uint64_t *daddrs; //pointer to duplicated buf
 	void *priv; //mdw_ap_sc
 };
 
@@ -127,19 +130,18 @@ struct mdw_fence {
 struct mdw_cmd {
 	int id;
 	uint64_t kid;
-	pid_t exec_pid;
 	uint64_t uid;
+	uint64_t usr_id;
 	uint32_t priority;
 	uint32_t hardlimit;
 	uint32_t softlimit;
 	uint32_t power_save;
 	uint32_t num_subcmds;
-	struct mdw_subcmd_info *subcmds;
+	struct mdw_subcmd_info *subcmds; //from usr
 	struct mdw_subcmd_kinfo *ksubcmds;
 	uint32_t num_cmdbufs;
 	uint32_t size_cmdbufs;
 	struct mdw_mem *cmdbufs;
-	struct dma_buf *cmdbufs_inst;
 	uint8_t *adj_matrix;
 
 	int state;
@@ -179,10 +181,9 @@ int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
-	uint32_t align, uint8_t cacheable);
+	uint32_t align, uint64_t flags);
 int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
-int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
-int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
+struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle);
 
 int mdw_sysfs_init(struct mdw_device *mdev);
 void mdw_sysfs_deinit(struct mdw_device *mdev);

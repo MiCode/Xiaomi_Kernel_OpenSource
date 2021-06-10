@@ -36,7 +36,13 @@ struct mdw_mem_dma {
 
 	struct mutex mtx;
 	struct mdw_device *mdev;
+	struct mdw_mem *mmem;
 };
+
+#define mdw_mem_dma_show(d) \
+	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/0x%x)(%d)\n", \
+	d->mmem, d->mmem->handle, (uint64_t)d->mmem->vaddr, d->mmem->size, \
+	d->dma_addr, d->dma_size, current->pid)
 
 static int mdw_dmabuf_attach(struct dma_buf *dbuf,
 	struct dma_buf_attachment *attach)
@@ -116,12 +122,14 @@ static void *mdw_dmabuf_vmap(struct dma_buf *dbuf)
 static void mdw_dmabuf_release(struct dma_buf *dbuf)
 {
 	struct mdw_mem_dma *mdbuf = dbuf->priv;
+	struct mdw_mem *m = mdbuf->mmem;
 
-	mdw_mem_debug("%s: %d %p\n", __func__, __LINE__, dbuf->priv);
+	mdw_mem_dma_show(mdbuf);
 	dma_free_coherent(&mdbuf->mdev->pdev->dev, mdbuf->dma_size,
 		mdbuf->a.vaddr, mdbuf->dma_addr);
 
 	kfree(mdbuf);
+	m->release(m);
 }
 
 static int mdw_dmabuf_mmap(struct dma_buf *dbuf,
@@ -188,6 +196,7 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 		goto free_dma_buf;
 
 	mdbuf->dbuf->priv = mdbuf;
+	mdbuf->mmem = mem;
 
 	/* create fd from dma-buf */
 	mdbuf->a.handle =  dma_buf_fd(mdbuf->dbuf,
@@ -201,9 +210,9 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	mem->device_va = mdbuf->dma_addr;
 	mem->handle = mdbuf->a.handle;
 	mem->vaddr = mdbuf->a.vaddr;
+	mem->priv = mdbuf;
 
-	mdw_mem_debug("alloc mem(%p)(%p/%u)(0x%llx/%u) done\n",
-		mem, mem->vaddr, mem->size, mdbuf->dma_addr, mdbuf->dma_size);
+	mdw_mem_dma_show(mdbuf);
 
 	return 0;
 
@@ -219,6 +228,7 @@ free_mdw_dbuf:
 int mdw_mem_dma_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 {
 	struct dma_buf *dbuf = NULL;
+	struct mdw_mem_dma *mdbuf = NULL;
 
 	dbuf = dma_buf_get(mem->handle);
 	if (IS_ERR_OR_NULL(dbuf)) {
@@ -226,14 +236,44 @@ int mdw_mem_dma_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 		return -EINVAL;
 	}
 
-	mdw_mem_debug("free mem(%p)\n", mem);
+	mdbuf = (struct mdw_mem_dma *)mem->priv;
+	mdw_mem_dma_show(mdbuf);
+
 	dma_buf_put(dbuf);
 	dma_buf_put(dbuf);
+	put_unused_fd(mem->handle);
 
 	return 0;
 }
 
 int mdw_mem_dma_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+{
+	struct dma_buf *dbuf = NULL;
+	struct mdw_mem_dma *mdbuf = NULL;
+
+	dbuf = dma_buf_get(mem->handle);
+	if (IS_ERR_OR_NULL(dbuf)) {
+		mdw_drv_err("mem invalid handle(%p/%llu)\n", mem, mem->handle);
+		return -EINVAL;
+	}
+
+	mdbuf = (struct mdw_mem_dma *)mem->priv;
+	mdw_mem_dma_show(mdbuf);
+
+	return 0;
+}
+
+int mdw_mem_dma_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+{
+	struct mdw_mem_dma *mdbuf = mem->priv;
+
+	mdw_mem_dma_show(mdbuf);
+	dma_buf_put(mdbuf->dbuf);
+
+	return 0;
+}
+
+int mdw_mem_dma_import(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 {
 	int ret = 0;
 	struct mdw_mem_dma *mdbuf = NULL;
@@ -250,13 +290,13 @@ int mdw_mem_dma_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	if (IS_ERR_OR_NULL(dbuf))
 		return -ENOMEM;
 
-	mem->priv = kzalloc(sizeof(*mdbuf), GFP_KERNEL);
-	if (!mem->priv) {
+	mdbuf = kzalloc(sizeof(*mdbuf), GFP_KERNEL);
+	if (!mdbuf) {
 		ret = -ENOMEM;
 		goto put_dbuf;
 	}
 
-	mdbuf = mem->priv;
+	mdbuf->mmem = mem;
 	mdbuf->dbuf = dbuf;
 	mdbuf->m.attach = dma_buf_attach(mdbuf->dbuf, &mdev->pdev->dev);
 	if (IS_ERR(mdbuf->m.attach)) {
@@ -283,7 +323,7 @@ int mdw_mem_dma_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	mem->device_va = mdbuf->dma_addr;
 	mem->priv = mdbuf;
 
-	mdw_mem_debug("map mem(%p/0x%llx)\n", mem, mdbuf->dma_addr);
+	mdw_mem_dma_show(mdbuf);
 
 	goto out;
 
@@ -300,15 +340,15 @@ out:
 	return ret;
 }
 
-int mdw_mem_dma_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+int mdw_mem_dma_unimport(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 {
 	struct mdw_mem_dma *mdbuf = NULL;
 
 	if (IS_ERR_OR_NULL(mem->priv))
 		return -EINVAL;
 
-	mdw_mem_debug("map mem(%p)\n", mem);
 	mdbuf = (struct mdw_mem_dma *)mem->priv;
+	mdw_mem_dma_show(mdbuf);
 
 	if (IS_ERR_OR_NULL(mdbuf->m.attach) ||
 		IS_ERR_OR_NULL(mdbuf->m.sgt))

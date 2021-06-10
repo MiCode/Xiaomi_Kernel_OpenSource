@@ -60,6 +60,10 @@ enum mdw_mem_ioctl_op {
 	MDW_MEM_IOCTL_FREE,
 	MDW_MEM_IOCTL_MAP,
 	MDW_MEM_IOCTL_UNMAP,
+	MDW_MEM_IOCTL_IMPORT,
+	MDW_MEM_IOCTL_UNIMPORT,
+	MDW_MEM_IOCTL_FLUSH,
+	MDW_MEM_IOCTL_INVALIDATE,
 };
 
 enum MDW_MEM_IOCTL_ALLOC_BITMASK {
@@ -71,6 +75,7 @@ struct mdw_mem_in {
 	enum mdw_mem_ioctl_op op;
 	uint64_t flags;
 	union {
+		/* alloc */
 		struct {
 			uint32_t size;
 			uint32_t align;
@@ -79,6 +84,8 @@ struct mdw_mem_in {
 		struct {
 			uint64_t handle;
 		} free;
+
+		/* map */
 		struct {
 			uint64_t handle;
 			uint32_t size;
@@ -86,6 +93,23 @@ struct mdw_mem_in {
 		struct {
 			uint64_t handle;
 		} unmap;
+
+		/* import */
+		struct {
+			uint64_t handle;
+			uint32_t size;
+		} import;
+		struct {
+			uint64_t handle;
+		} unimport;
+
+		/* cache operation */
+		struct {
+			uint64_t handle;
+		} flush;
+		struct {
+			uint64_t handle;
+		} invalidate;
 	};
 };
 
@@ -97,6 +121,10 @@ struct mdw_mem_out {
 		struct {
 			uint64_t device_va;
 		} map;
+		struct {
+			uint64_t device_va;
+			uint32_t size;
+		} import;
 	};
 };
 
@@ -154,7 +182,8 @@ struct mdw_cmd_in {
 	enum mdw_cmd_ioctl_op op;
 	union {
 		struct {
-			uint64_t cmd_uid;
+			uint64_t usr_id;
+			uint64_t uid;
 			uint32_t priority;
 			uint32_t hardlimit;
 			uint32_t softlimit;

@@ -13,5 +13,7 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
 int mdw_mem_dma_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
 int mdw_mem_dma_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
 int mdw_mem_dma_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
+int mdw_mem_dma_import(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
+int mdw_mem_dma_unimport(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
 
 #endif
