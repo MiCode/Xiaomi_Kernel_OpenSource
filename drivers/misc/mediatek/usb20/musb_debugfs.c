@@ -7,7 +7,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/init.h>
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/string.h>
 
@@ -22,6 +22,24 @@
 #include <musb_core.h>
 #include <musb_debug.h>
 #include <musb_dr.h>
+
+#define PROC_DIR_MTK_USB "mtk_usb"
+#define PROC_FILE_REGDUMP "mtk_usb/regdump"
+#define PROC_FILE_TESTMODE "mtk_usb/testmode"
+#define PROC_FILE_REGW "mtk_usb/regw"
+#define PROC_FILE_REGR "mtk_usb/regr"
+#define PROC_FILE_SPEED "mtk_usb/speed"
+
+#define PROC_FILE_NUM 5
+static struct proc_dir_entry *proc_files[PROC_FILE_NUM] = {
+	NULL, NULL, NULL, NULL, NULL};
+
+#define PROC_FILE_MODE "mtk_usb/mode"
+#define PROC_FILE_VBUS "mtk_usb/vbus"
+
+#define PROC_FILE_DR_NUM 2
+static struct proc_dir_entry *proc_dr_files[PROC_FILE_DR_NUM] = {
+	NULL, NULL};
 
 struct musb_register_map {
 	char *name;
@@ -84,8 +102,6 @@ static const struct musb_register_map musb_regmap[] = {
 	{}			/* Terminating Entry */
 };
 
-static struct dentry *musb_debugfs_root;
-
 static int musb_regdump_show(struct seq_file *s, void *unused)
 {
 	struct musb *musb = s->private;
@@ -115,7 +131,7 @@ static int musb_regdump_show(struct seq_file *s, void *unused)
 
 static int musb_regdump_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_regdump_show, inode->i_private);
+	return single_open(file, musb_regdump_show, PDE_DATA(inode));
 }
 
 static int musb_test_mode_show(struct seq_file *s, void *unused)
@@ -161,7 +177,7 @@ static const struct file_operations musb_regdump_fops = {
 
 static int musb_test_mode_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_test_mode_show, inode->i_private);
+	return single_open(file, musb_test_mode_show, PDE_DATA(inode));
 }
 
 void musbdebugfs_otg_write_fifo(u16 len, u8 *buf, struct musb *mtk_musb)
@@ -378,7 +394,7 @@ static int musb_regw_show(struct seq_file *s, void *unused)
 
 static int musb_regw_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_regw_show, inode->i_private);
+	return single_open(file, musb_regw_show, PDE_DATA(inode));
 }
 
 static ssize_t musb_regw_mode_write
@@ -469,7 +485,7 @@ static int musb_regr_show(struct seq_file *s, void *unused)
 
 static int musb_regr_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_regr_show, inode->i_private);
+	return single_open(file, musb_regr_show, PDE_DATA(inode));
 }
 
 static ssize_t musb_regr_mode_write(struct file *file,
@@ -540,60 +556,112 @@ static const struct file_operations musb_regr_fops = {
 	.release = single_release,
 };
 
+static int musb_speed_show(struct seq_file *s, void *unused)
+{
+	seq_printf(s, "musb_speed = %d\n", musb_speed);
+	return 0;
+}
+
+static int musb_speed_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, musb_speed_show, PDE_DATA(inode));
+}
+
+static ssize_t musb_speed_write(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	char buf[20];
+	unsigned int val;
+
+	memset(buf, 0x00, sizeof(buf));
+
+	if (copy_from_user(buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 10, &val) == 0 && val >= 0 && val <= 1)
+		musb_speed = val;
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+static const struct file_operations musb_speed_fops = {
+	.open = musb_speed_open,
+	.write = musb_speed_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 int musb_init_debugfs(struct musb *musb)
 {
-	struct dentry *root;
-	struct dentry *file;
-	int ret;
+	int ret, idx = 0;
 
-	root = debugfs_create_dir("musb", NULL);
-	if (!root) {
-		ret = -ENOMEM;
-		goto err0;
-	}
+	proc_mkdir(PROC_DIR_MTK_USB, NULL);
 
-	file = debugfs_create_file("regdump", 0444,
-			root, musb, &musb_regdump_fops);
-	if (!file) {
+	proc_files[idx] = proc_create_data(PROC_FILE_REGDUMP, 0444,
+			NULL, &musb_regdump_fops, musb);
+	if (!proc_files[idx]) {
 		ret = -ENOMEM;
 		goto err1;
 	}
+	idx++;
 
-	file = debugfs_create_file("testmode", 0644,
-			root, musb, &musb_test_mode_fops);
-	if (!file) {
+	proc_files[idx] = proc_create_data(PROC_FILE_TESTMODE, 0644,
+			NULL, &musb_test_mode_fops, musb);
+	if (!proc_files[idx]) {
 		ret = -ENOMEM;
 		goto err1;
 	}
+	idx++;
 
-	file = debugfs_create_file("regw", 0644,
-			root, musb, &musb_regw_fops);
-	if (!file) {
+	proc_files[idx] = proc_create_data(PROC_FILE_REGW, 0644,
+			NULL, &musb_regw_fops, musb);
+	if (!proc_files[idx]) {
 		ret = -ENOMEM;
 		goto err1;
 	}
+	idx++;
 
-	file = debugfs_create_file("regr", 0644
-						, root, musb, &musb_regr_fops);
-	if (!file) {
+	proc_files[idx] = proc_create_data(PROC_FILE_REGR, 0644,
+			NULL, &musb_regr_fops, musb);
+	if (!proc_files[idx]) {
 		ret = -ENOMEM;
 		goto err1;
 	}
+	idx++;
 
-	musb_debugfs_root = root;
+	proc_files[idx] = proc_create_data(PROC_FILE_SPEED, 0644,
+			NULL, &musb_speed_fops, musb);
+	if (!proc_files[idx]) {
+		ret = -ENOMEM;
+		goto err1;
+	}
 
 	return 0;
 
 err1:
-	debugfs_remove_recursive(root);
+	for (; idx >= 0; idx--) {
+		if (proc_files[idx]) {
+			proc_remove(proc_files[idx]);
+			proc_files[idx] = NULL;
+		}
+	}
 
-err0:
 	return ret;
 }
 
 void /* __init_or_exit */ musb_exit_debugfs(struct musb *musb)
 {
-	debugfs_remove_recursive(musb_debugfs_root);
+	int idx = 0;
+
+	for (; idx < PROC_FILE_NUM; idx++) {
+		if (proc_files[idx]) {
+			proc_remove(proc_files[idx]);
+			proc_files[idx] = NULL;
+		}
+	}
 }
 
 static int musb_mode_show(struct seq_file *sf, void *unused)
@@ -611,7 +679,7 @@ static int musb_mode_show(struct seq_file *sf, void *unused)
 
 static int musb_mode_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_mode_show, inode->i_private);
+	return single_open(file, musb_mode_show, PDE_DATA(inode));
 }
 
 static ssize_t musb_mode_write(struct file *file, const char __user *ubuf,
@@ -659,7 +727,7 @@ static int musb_vbus_show(struct seq_file *sf, void *unused)
 
 static int musb_vbus_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, musb_vbus_show, inode->i_private);
+	return single_open(file, musb_vbus_show, PDE_DATA(inode));
 }
 
 static ssize_t musb_vbus_write(struct file *file, const char __user *ubuf,
@@ -696,8 +764,13 @@ static const struct file_operations musb_vbus_fops = {
 
 void musb_dr_debugfs_init(struct musb *musb)
 {
-	struct dentry *root = musb_debugfs_root;
+	int idx = 0;
 
-	debugfs_create_file("mode", 0644, root, musb, &musb_mode_fops);
-	debugfs_create_file("vbus", 0644, root, musb, &musb_vbus_fops);
+	proc_mkdir(PROC_DIR_MTK_USB, NULL);
+
+	proc_dr_files[idx++] = proc_create_data(PROC_FILE_MODE, 0644,
+			NULL, &musb_mode_fops, musb);
+
+	proc_dr_files[idx++] = proc_create_data(PROC_FILE_VBUS, 0644,
+			NULL, &musb_vbus_fops, musb);
 }

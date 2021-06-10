@@ -44,6 +44,7 @@ extern struct musb *musb;
 extern unsigned int musb_debug;
 extern unsigned int musb_debug_limit;
 extern unsigned int musb_uart_debug;
+extern unsigned int musb_speed;
 
 static inline int _dbg_level(unsigned int level)
 {

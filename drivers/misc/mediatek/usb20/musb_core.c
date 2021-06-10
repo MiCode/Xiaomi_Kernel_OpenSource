@@ -127,8 +127,6 @@ static const struct of_device_id apusb_of_ids[] = {
 	{},
 };
 
-module_param_named(speed, musb_speed, uint, 0644);
-MODULE_PARM_DESC(debug, "USB speed configuration. default = 1, high speed");
 module_param_named(debug, musb_debug, uint, 0644);
 MODULE_PARM_DESC(debug, "Debug message level. Default = 0");
 module_param_named(debug_limit, musb_debug_limit, uint, 0644);
@@ -2567,7 +2565,7 @@ static int musb_init_controller
 	musb_platform_unprepare_clk(musb);
 #endif
 
-#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_PROC_FS
 	status = musb_init_debugfs(musb);
 	if (status < 0)
 		goto fail4;
@@ -2583,7 +2581,7 @@ static int musb_init_controller
 
 	return 0;
 
-#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_PROC_FS
 #ifdef CONFIG_SYSFS
 fail5:
 	musb_exit_debugfs(musb);
@@ -2664,7 +2662,7 @@ static int musb_remove(struct platform_device *pdev)
 	 *  - Peripheral mode: peripheral is deactivated (or never-activated)
 	 *  - OTG mode: both roles are deactivated (or never-activated)
 	 */
-#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_PROC_FS
 	musb_exit_debugfs(musb);
 #endif
 	musb_shutdown(pdev);
