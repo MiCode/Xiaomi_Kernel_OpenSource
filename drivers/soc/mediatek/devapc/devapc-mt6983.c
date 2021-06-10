@@ -870,10 +870,90 @@ static const struct mtk_device_info mt6983_devices_peri_par[] = {
 	{-1, -1, 94, "DEVICE_APC_PERI_PDN", false},
 };
 
+static const struct mtk_device_info mt6983_devices_vlp[] = {
+	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
+	/* 0 */
+	{0, 0, 0, "INFRA_S0_S", true},
+	{0, 1, 1, "INFRA_S0_S-1", true},
+	{0, 2, 2, "INFRA_S0_S-2", true},
+	{0, 3, 3, "SCP_S", true},
+	{0, 4, 4, "SCP_S-1", true},
+	{0, 5, 5, "SCP_S-2", true},
+	{0, 6, 6, "SCP_S-3", true},
+	{0, 7, 7, "SCP_S-4", true},
+	{0, 8, 8, "SCP_S-5", true},
+	{0, 9, 9, "SPM_APB_S", true},
+
+	/* 10 */
+	{0, 10, 10, "SPM_APB_S-1", true},
+	{0, 11, 11, "SPM_APB_S-2", true},
+	{0, 12, 12, "SPM_APB_S-3", true},
+	{0, 13, 13, "SPM_APB_S-4", true},
+	{0, 14, 14, "SPM_APB_S-5", true},
+	{0, 15, 15, "SPM_APB_S-6", true},
+	{0, 16, 16, "SPM_APB_S-7", true},
+	{0, 17, 17, "SPM_APB_S-8", true},
+	{0, 18, 18, "SPM_APB_S-9", true},
+	{0, 19, 19, "SPM_APB_S-10", true},
+
+	/* 20 */
+	{0, 20, 20, "SPM_APB_S-11", true},
+	{0, 21, 21, "SPM_APB_S-12", true},
+	{0, 22, 22, "SSPM_S", true},
+	{0, 23, 23, "SSPM_S-1", true},
+	{0, 24, 24, "SSPM_S-2", true},
+	{0, 25, 25, "SSPM_S-3", true},
+	{0, 26, 26, "SSPM_S-4", true},
+	{0, 27, 27, "SSPM_S-5", true},
+	{0, 28, 28, "SSPM_S-6", true},
+	{0, 29, 29, "SSPM_S-7", true},
+
+	/* 30 */
+	{0, 30, 30, "SSPM_S-8", true},
+	{0, 31, 31, "SSPM_S-9", true},
+	{0, 32, 32, "SSPM_S-10", true},
+	{0, 33, 33, "SSPM_S-11", true},
+	{0, 34, 34, "SSPM_S-12", true},
+	{0, 35, 35, "VLPCFG_AO_APB_S", true},
+	{0, 36, 37, "SRCLKEN_RC_APB_S", true},
+	{0, 37, 38, "TOPRGU_APB_S", true},
+	{0, 38, 39, "APXGPT_APB_S", true},
+	{0, 39, 40, "KP_APB_S", true},
+
+	/* 40 */
+	{0, 40, 41, "DVFSRC_APB_S", true},
+	{0, 41, 42, "MBIST_APB_S", true},
+	{0, 42, 43, "SYS_TIMER_APB_S", true},
+	{0, 43, 44, "MODEM_TEMP_SHARE_APB_S", true},
+	{0, 44, 45, "VLP_CKSYS_APB_S", true},
+	{0, 45, 46, "PMIF1_APB_S", true},
+	{0, 46, 47, "PMIF2_APB_S", true},
+	{0, 47, 49, "PWM_VLP_APB_S", true},
+	{0, 48, 50, "SEJ_APB_S", true},
+	{0, 49, 51, "AES_TOP0_APB_S", true},
+
+	/* 50 */
+	{0, 50, 52, "SECURITY_AO_APB_S", true},
+	{0, 51, 53, "DEVICE_APC_VLP_AO_APB_S", true},
+	{0, 52, 54, "DEVICE_APC_VLP_APB_S", true},
+	{0, 53, 55, "BCRM_VLP_AO_APB_S", true},
+	{0, 54, 56, "DEBUG_CTRL_VLP_AO_APB_S", true},
+	{0, 55, 57, "VLPCFG_APB_S", true},
+	{0, 56, 58, "SPMI_P_MST_APB_S", true},
+	{0, 57, 59, "SPMI_M_MST_APB_S", true},
+	{0, 58, 60, "EFUSE_DEBUG_AO_APB_S", true},
+	{0, 59, 61, "MD_BUCK_CTRL_SEQUENCER_APB_S", true},
+
+	/* 60 */
+	{0, 60, 62, "AP_CIRQ_EINT_APB_S", true},
+	{0, 61, 63, "SRAMRC_APB_S", true},
+};
+
 static const struct mtk_device_num mtk6983_devices_num[] = {
 	{SLAVE_TYPE_INFRA, VIO_SLAVE_NUM_INFRA, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_INFRA1, VIO_SLAVE_NUM_INFRA1, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_PERI_PAR, VIO_SLAVE_NUM_PERI_PAR, IRQ_TYPE_INFRA},
+	{SLAVE_TYPE_VLP, VIO_SLAVE_NUM_VLP, IRQ_TYPE_VLP},
 };
 
 static const struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
@@ -970,6 +1050,12 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 		for (i = 0; i < VIO_SLAVE_NUM_PERI_PAR; i++) {
 			if (vio_index == mt6983_devices_peri_par[i].vio_index)
 				return mt6983_devices_peri_par[i].device;
+		}
+	} else if (slave_type == SLAVE_TYPE_VLP &&
+			vio_index < VIO_SLAVE_NUM_VLP) {
+		for (i = 0; i < VIO_SLAVE_NUM_VLP; i++) {
+			if (vio_index == mt6983_devices_vlp[i].vio_index)
+				return mt6983_devices_vlp[i].device;
 		}
 	}
 
@@ -1090,6 +1176,7 @@ static const char * const slave_type_to_str[] = {
 	"SLAVE_TYPE_INFRA",
 	"SLAVE_TYPE_INFRA1",
 	"SLAVE_TYPE_PERI_PAR",
+	"SLAVE_TYPE_VLP",
 	"WRONG_SLAVE_TYPE",
 };
 
@@ -1097,6 +1184,7 @@ static int mtk_vio_mask_sta_num[] = {
 	VIO_MASK_STA_NUM_INFRA,
 	VIO_MASK_STA_NUM_INFRA1,
 	VIO_MASK_STA_NUM_PERI_PAR,
+	VIO_MASK_STA_NUM_VLP,
 };
 
 static struct mtk_devapc_vio_info mt6983_devapc_vio_info = {
@@ -1151,6 +1239,7 @@ static struct mtk_devapc_soc mt6983_data = {
 	.device_info[SLAVE_TYPE_INFRA] = mt6983_devices_infra,
 	.device_info[SLAVE_TYPE_INFRA1] = mt6983_devices_infra1,
 	.device_info[SLAVE_TYPE_PERI_PAR] = mt6983_devices_peri_par,
+	.device_info[SLAVE_TYPE_VLP] = mt6983_devices_vlp,
 	.ndevices = mtk6983_devices_num,
 	.vio_info = &mt6983_devapc_vio_info,
 	.vio_dbgs = &mt6983_vio_dbgs,
