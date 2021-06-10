@@ -87,7 +87,7 @@
 		dma-channel-mask = <63>;
 		status = "disabled";
 	};
-`
+
 	apdma: dma-controller@11000980 {
 		compatible = "mediatek,mt6577-uart-dma";
 		reg = <0 0x11000a80 0 0x80>,
