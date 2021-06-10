@@ -578,13 +578,16 @@ int vcu_ipi_send(struct platform_device *pdev,
 	}
 
 	i = ipi_id_to_inst_id(id);
+	timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
 
 	mutex_lock(&vcu->vcu_mutex[i]);
 	if (vcu_ptr->abort) {
 		if (vcu_ptr->open_cnt > 0) {
 			dev_info(vcu->dev, "wait for vpud killed %d\n",
 				vcu_ptr->vpud_killed.count);
-			ret = down_interruptible(&vcu_ptr->vpud_killed);
+			ret = down_timeout(&vcu_ptr->vpud_killed, timeout);
+			if (ret)
+				dev_info(vcu->dev, "timeout %d\n", ret);
 		}
 		dev_info(&pdev->dev, "[VCU] vpud killed before IPI\n");
 		mutex_unlock(&vcu->vcu_mutex[i]);
@@ -606,7 +609,6 @@ int vcu_ipi_send(struct platform_device *pdev,
 	wake_up(&vcu->get_wq[i]);
 
 	/* wait for VCU's ACK */
-	timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
 	ret = wait_event_timeout(vcu->ack_wq[i], vcu->ipi_id_ack[id], timeout);
 	vcu->ipi_id_ack[id] = false;
 
@@ -619,7 +621,9 @@ int vcu_ipi_send(struct platform_device *pdev,
 		if (vcu_ptr->open_cnt > 0) {
 			dev_info(vcu->dev, "wait for vpud killed %d\n",
 				vcu_ptr->vpud_killed.count);
-			ret = down_interruptible(&vcu_ptr->vpud_killed);
+			ret = down_timeout(&vcu_ptr->vpud_killed, timeout);
+			if (ret)
+				dev_info(vcu->dev, "timeout %d\n", ret);
 		}
 		dev_info(&pdev->dev, "[VCU] vpud killed IPI fail\n");
 		ret = -EIO;
