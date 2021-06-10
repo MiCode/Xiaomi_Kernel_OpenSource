@@ -1010,6 +1010,7 @@ static int fpga_phy_init(struct phy *phy)
 	default:
 		dev_info(u3phy->dev, "%s: incompatible PHY type:0x%x\n",
 			__func__, instance->chip_version);
+		return -EINVAL;
 	}
 
 	return 0;
