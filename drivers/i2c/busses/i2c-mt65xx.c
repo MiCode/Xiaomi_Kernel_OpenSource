@@ -433,6 +433,7 @@ static const struct mtk_i2c_compatible mt6873_compat = {
 	.dma_sync = 1,
 	.ltiming_adjust = 1,
 	.dma_ver = 1,
+	.apdma_sync = 1,
 	.max_dma_support = 36,
 };
 
