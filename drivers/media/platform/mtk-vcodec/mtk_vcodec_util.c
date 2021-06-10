@@ -332,9 +332,10 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_MT21S10RJ:
 	case V4L2_PIX_FMT_MT21CS10TJ:
 	case V4L2_PIX_FMT_MT21CS10RJ:
-	    descr = "Mediatek Video Block Format"; break;
+		descr = "Mediatek Video Block Format"; break;
 	default:
-	    mtk_v4l2_debug(0, "MTK Unknown pixelformat 0x%08x\n", fmt->pixelformat);
+		mtk_v4l2_debug(8, "MTK Unknown pixelformat 0x%08x\n", fmt->pixelformat);
+		break;
 	}
 
 	if (descr)

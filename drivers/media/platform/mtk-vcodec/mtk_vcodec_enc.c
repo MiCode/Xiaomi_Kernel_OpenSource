@@ -530,12 +530,9 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 				  struct v4l2_frmsizeenum *fsize)
 {
 	unsigned int i = 0;
-	struct mtk_vcodec_ctx *ctx = fh_to_ctx(fh);
 
 	if (fsize->index != 0)
 		return -EINVAL;
-
-	get_supported_framesizes(ctx);
 
 	for (i = 0; i < MTK_MAX_ENC_CODECS_SUPPORT &&
 	     mtk_venc_framesizes[i].fourcc != 0; ++i) {
@@ -652,7 +649,6 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 		pix_fmt_mp->num_planes = 1;
 		pix_fmt_mp->plane_fmt[0].bytesperline = 0;
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		get_supported_framesizes(ctx);
 		if (ctx->q_data[MTK_Q_DATA_DST].fmt != NULL) {
 			bs_fourcc =
 				ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
@@ -2448,6 +2444,7 @@ void mtk_vcodec_enc_set_default_params(struct mtk_vcodec_ctx *ctx)
 	ctx->xfer_func = V4L2_XFER_FUNC_DEFAULT;
 
 	get_supported_format(ctx);
+	get_supported_framesizes(ctx);
 
 	q_data = &ctx->q_data[MTK_Q_DATA_SRC];
 	memset(q_data, 0, sizeof(struct mtk_q_data));

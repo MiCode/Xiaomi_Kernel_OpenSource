@@ -586,7 +586,7 @@ int vcu_ipi_send(struct platform_device *pdev,
 				vcu_ptr->vpud_killed.count);
 			ret = down_interruptible(&vcu_ptr->vpud_killed);
 		}
-		dev_info(&pdev->dev, "[VCU] vpud killed\n");
+		dev_info(&pdev->dev, "[VCU] vpud killed before IPI\n");
 		mutex_unlock(&vcu->vcu_mutex[i]);
 		return -EIO;
 	}
@@ -621,7 +621,7 @@ int vcu_ipi_send(struct platform_device *pdev,
 				vcu_ptr->vpud_killed.count);
 			ret = down_interruptible(&vcu_ptr->vpud_killed);
 		}
-		dev_info(&pdev->dev, "[VCU] vpud killed\n");
+		dev_info(&pdev->dev, "[VCU] vpud killed IPI fail\n");
 		ret = -EIO;
 		mutex_unlock(&vcu->vcu_mutex[i]);
 		goto end;

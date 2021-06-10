@@ -495,7 +495,7 @@ void vdec_vcp_probe(struct mtk_vcodec_dev *dev)
 
 	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VDEC_1, vdec_vcp_ipi_isr, dev, vcp_ipi_data);
 	if (ret) {
-		mtk_v4l2_err(" ipi_register fail, ret %d\n", ret);
+		mtk_v4l2_debug(0, " ipi_register, ret %d\n", ret);
 	}
 
 	kthread_run(vcp_dec_ipi_handler, dev, "vdec_ipi_recv");

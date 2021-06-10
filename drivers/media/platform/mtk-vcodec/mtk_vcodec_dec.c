@@ -91,6 +91,34 @@ static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 	}
 }
 
+static void get_supported_framesizes(struct mtk_vcodec_ctx *ctx)
+{
+	unsigned int i;
+
+	if (mtk_vdec_framesizes[0].fourcc == 0) {
+		if (vdec_if_get_param(ctx, GET_PARAM_VDEC_CAP_FRAME_SIZES,
+			&mtk_vdec_framesizes) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get frame size",
+				ctx->id);
+			return;
+		}
+
+		for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
+			if (mtk_vdec_framesizes[i].fourcc != 0) {
+				mtk_v4l2_debug(1,
+				"vdec_fs[%d] fourcc %d s %d %d %d %d %d %d\n",
+				i, mtk_vdec_framesizes[i].fourcc,
+				mtk_vdec_framesizes[i].stepwise.min_width,
+				mtk_vdec_framesizes[i].stepwise.max_width,
+				mtk_vdec_framesizes[i].stepwise.step_width,
+				mtk_vdec_framesizes[i].stepwise.min_height,
+				mtk_vdec_framesizes[i].stepwise.max_height,
+				mtk_vdec_framesizes[i].stepwise.step_height);
+			}
+		}
+	}
+}
+
 static struct mtk_video_fmt *mtk_vdec_find_format(struct mtk_vcodec_ctx *ctx,
 	struct v4l2_format *f, unsigned int t)
 {
@@ -1115,6 +1143,7 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 	ctx->xfer_func = V4L2_XFER_FUNC_DEFAULT;
 
 	get_supported_format(ctx);
+	get_supported_framesizes(ctx);
 
 	q_data = &ctx->q_data[MTK_Q_DATA_SRC];
 	memset(q_data, 0, sizeof(struct mtk_q_data));
@@ -1718,28 +1747,7 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 	if (fsize->index != 0)
 		return -EINVAL;
 
-	if (mtk_vdec_framesizes[0].fourcc == 0) {
-		if (vdec_if_get_param(ctx, GET_PARAM_VDEC_CAP_FRAME_SIZES,
-			&mtk_vdec_framesizes) != 0) {
-			mtk_v4l2_err("[%d] Error!! Cannot get frame size",
-				ctx->id);
-			return -EINVAL;
-		}
 
-		for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
-			if (mtk_vdec_framesizes[i].fourcc != 0) {
-				mtk_v4l2_debug(1,
-				"vdec_fs[%d] fourcc %d s %d %d %d %d %d %d\n",
-				i, mtk_vdec_framesizes[i].fourcc,
-				mtk_vdec_framesizes[i].stepwise.min_width,
-				mtk_vdec_framesizes[i].stepwise.max_width,
-				mtk_vdec_framesizes[i].stepwise.step_width,
-				mtk_vdec_framesizes[i].stepwise.min_height,
-				mtk_vdec_framesizes[i].stepwise.max_height,
-				mtk_vdec_framesizes[i].stepwise.step_height);
-			}
-		}
-	}
 
 	for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT &&
 		 mtk_vdec_framesizes[i].fourcc != 0; ++i) {
@@ -2712,17 +2720,6 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 				   ctx->id, ctrl->id, ctrl->val,
 				   ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
 
-	if (ctrl->id == V4L2_CID_MPEG_MTK_SEC_DECODE) {
-		ctx->dec_params.svp_mode = ctrl->val;
-		ctx->dec_param_change |= MTK_DEC_PARAM_SEC_DECODE;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
-		mtk_dma_contig_set_secure_mode(&ctx->dev->plat_dev->dev,
-					ctx->dec_params.svp_mode);
-#endif
-		mtk_v4l2_debug(0, "[%d] V4L2_CID_MPEG_MTK_SEC_DECODE id %d val %d",
-			ctx->id, ctrl->id, ctrl->val);
-	}
-
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_MTK_DECODE_MODE:
 		ctx->dec_params.decode_mode = ctrl->val;
@@ -2735,6 +2732,8 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 		mtk_dma_contig_set_secure_mode(&ctx->dev->plat_dev->dev,
 					ctx->dec_params.svp_mode);
 #endif
+		mtk_v4l2_debug(0, "[%d] V4L2_CID_MPEG_MTK_SEC_DECODE id %d val %d",
+			ctx->id, ctrl->id, ctrl->val);
 		break;
 	case V4L2_CID_MPEG_MTK_FRAME_SIZE:
 		if (ctx->dec_params.frame_size_width == 0)
