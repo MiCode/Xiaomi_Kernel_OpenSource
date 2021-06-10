@@ -170,24 +170,6 @@
 #define CLK_SW_SEL_O_ULPOSC_CORE	0x4
 #define CLK_SW_SEL_O_ULPOSC_PERI	0x8
 
-#define CLK_ENABLE				(vcpreg.clkctrl + 0x0004)
-
-#define CLK_SAFE_ACK			(vcpreg.clkctrl + 0x0008)
-#define CLK_SYS_SAFE_ACK_BIT	0
-#define CLK_HIGH_SAFE_ACK_BIT	1
-
-#define CLK_HIGH_CORE			(vcpreg.clkctrl + 0x005C)
-#define HIGH_CORE_CG_BIT		1
-
-#define CLK_ON_CTRL				(vcpreg.clkctrl + 0x006C)
-#define HIGH_AO_BIT				0
-#define HIGH_CG_AO_BIT			2
-#define HIGH_CORE_AO_BIT		4
-#define HIGH_CORE_DIS_SUB_BIT	5
-#define HIGH_CORE_CG_AO_BIT		6
-#define HIGH_FINAL_VAL_BIT		8
-#define HIGH_FINAL_VAL_MASK		0x1f
-
 #define R_SEC_CTRL			(vcpreg.cfg_sec + 0x0000)
 	#define B_CORE0_CACHE_DBG_EN	(1 << 28)
 	#define B_CORE1_CACHE_DBG_EN	(1 << 29)

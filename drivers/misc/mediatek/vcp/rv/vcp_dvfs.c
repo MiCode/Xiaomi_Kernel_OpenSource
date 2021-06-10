@@ -431,7 +431,6 @@ void vcp_init_vcore_request(void)
  */
 int vcp_request_freq(void)
 {
-	int value = 0;
 	int timeout = 250;
 	int ret = 0;
 	unsigned long spin_flags;
@@ -468,10 +467,14 @@ int vcp_request_freq(void)
 		vcp_pll_ctrl_set(PLL_ENABLE, vcp_expected_freq);
 
 		do {
+/*
+			int value = 0;
+
 			ret = mtk_ipi_send(&vcp_ipidev,
 				IPI_OUT_DVFS_SET_FREQ_0,
 				IPI_SEND_WAIT, &value,
 				PIN_OUT_SIZE_DVFS_SET_FREQ_0, 0);
+*/
 			if (ret != IPI_ACTION_DONE)
 				pr_notice("VCP send IPI fail - %d\n", ret);
 

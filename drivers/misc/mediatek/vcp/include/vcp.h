@@ -81,49 +81,34 @@ enum {
 
 /* core0 */
 	/* the following will use mbox1 */
-	IPI_OUT_VENC_0	   =  2,
-	IPI_IN_VENC_0	   =  3,
-	IPI_OUT_DVFS_SET_FREQ_0	  =  4,
-	IPI_OUT_C_SLEEP_0         =  5,
-	IPI_OUT_TEST_0            =  6,
-	IPI_IN_APCCCI_0           =  7,
-	IPI_IN_VCP_ERROR_INFO_0   =  8,
-	IPI_IN_VCP_READY_0        =  9,
-	IPI_IN_VCP_RAM_DUMP_0     = 10,
+	IPI_OUT_C_SLEEP_0         =  2,
+	IPI_OUT_TEST_0            =  3,
+	IPI_IN_VCP_ERROR_INFO_0   =  4,
+	IPI_IN_VCP_READY_0        =  5,
+	IPI_IN_VCP_RAM_DUMP_0     = 6,
+	IPI_OUT_VCP_CONNSYS       = 7,
+	IPI_IN_VCP_CONNSYS        = 8,
 
 	/* the following will use mbox2 */
+	IPI_OUT_VENC_0	   =  9,
+	IPI_IN_VENC_0	   =  10,
 	IPI_OUT_VCP_MPOOL_0       = 11,
 	IPI_IN_VCP_MPOOL_0        = 12,
 
 /* core1 */
 	/* the following will use mbox3 */
-	IPI_OUT_AUDIO_ULTRA_SND_1 = 13,
-	IPI_OUT_DVFS_SET_FREQ_1   = 14,
-	IPI_OUT_C_SLEEP_1         = 15,
-	IPI_OUT_TEST_1            = 16,
-	IPI_OUT_LOGGER_CTRL       = 17,
-	IPI_OUT_VCPCTL_1          = 18,
-	IPI_IN_AUDIO_ULTRA_SND_1  = 19,
-	IPI_IN_VCP_ERROR_INFO_1   = 20,
-	IPI_IN_LOGGER_CTRL        = 21,
-	IPI_IN_VCP_READY_1        = 22,
-	IPI_IN_VCP_RAM_DUMP_1     = 23,
-	/* the following will use mbox4 */
-	IPI_OUT_VCP_MPOOL_1       = 24,
-	IPI_IN_VCP_MPOOL_1        = 25,
-	/* ultrasound will use core 0 and mbox 1*/
-	IPI_OUT_AUDIO_ULTRA_SND_0 =  26,
-	IPI_IN_AUDIO_ULTRA_SND_ACK_0 = 27,
-	IPI_IN_AUDIO_ULTRA_SND_0  =  28,
+	IPI_OUT_C_SLEEP_1         = 13,
+	IPI_OUT_TEST_1            = 14,
+	IPI_OUT_LOGGER_CTRL       = 15,
+	IPI_OUT_VCPCTL_1          = 16,
+	IPI_IN_VCP_ERROR_INFO_1   = 17,
+	IPI_IN_LOGGER_CTRL        = 18,
+	IPI_IN_VCP_READY_1        = 19,
+	IPI_IN_VCP_RAM_DUMP_1     =20,
 
-/* core0 */
-	/* the following will use mbox2 */
-	IPI_OUT_SENSOR_CTRL       = 29,
-	IPI_IN_SENSOR_CTRL        = 30,
-	IPI_OUT_SENSOR_NOTIFY     = 31,
-	IPI_IN_SENSOR_NOTIFY      = 32,
-	IPI_OUT_VCP_CONNSYS       = 33,
-	IPI_IN_VCP_CONNSYS        = 34,
+	/* the following will use mbox4 */
+	IPI_OUT_VCP_MPOOL_1       = 21,
+	IPI_IN_VCP_MPOOL_1        = 22,
 	VCP_IPI_COUNT
 };
 
