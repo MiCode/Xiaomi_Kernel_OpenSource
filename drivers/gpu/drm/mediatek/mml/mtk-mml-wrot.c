@@ -6,6 +6,7 @@
 
 #include <linux/clk.h>
 #include <linux/component.h>
+#include <linux/dma-mapping.h>
 #include <linux/ioport.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -13,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/math64.h>
 
+#include "mtk-mml-buf.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
@@ -113,6 +115,7 @@ static const struct wrot_data mt6893_wrot_data = {
 struct mml_wrot {
 	struct mml_comp comp;
 	const struct wrot_data *data;
+	struct device *dev;	/* for dmabuf to iova */
 
 	u8 gpr_poll;
 	u16 event_poll;
@@ -133,6 +136,8 @@ struct wrot_frame_data {
 	u32 out_h;
 	struct mml_rect compose;
 	u32 uv_stride;
+	u64 iova[MML_MAX_PLANES];
+	u32 plane_offset[MML_MAX_PLANES];
 
 	/* calculate in prepare and use as tile input */
 	u32 out_x_off;
@@ -328,6 +333,36 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 			wrot_config_pipe0(dest, wrot_frm);
 		else
 			wrot_config_pipe1(dest, wrot_frm);
+	}
+
+	return 0;
+}
+
+static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg)
+{
+	struct mml_wrot *wrot = comp_to_wrot(comp);
+	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
+	u8 i;
+	s32 ret;
+
+	/* get iova */
+	ret = mml_buf_iova_get(wrot->dev, &task->buf.dest[wrot_frm->out_idx]);
+	if (ret < 0) {
+		mml_err("%s iova fail %d", __func__, ret);
+		return ret;
+	}
+
+	mml_msg("%s comp %u iova %#x",
+		__func__, comp->id,
+		task->buf.dest[wrot_frm->out_idx].dma[0].iova);
+
+	for (i = 0; i < task->buf.dest[wrot_frm->out_idx].cnt; i++) {
+		wrot_frm->iova[i] =
+			task->buf.dest[wrot_frm->out_idx].dma[i].iova;
+		wrot_frm->plane_offset[i] = dest->data.plane_offset[i];
 	}
 
 	return 0;
@@ -617,7 +652,6 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_wrot *wrot = comp_to_wrot(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
-	struct mml_file_buf *dest_buf = &task->buf.dest[wrot_frm->out_idx];
 	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
@@ -676,16 +710,15 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* Note: WROT not support UV swap */
 	if (out_swap == 1 && MML_FMT_PLANE(dest_fmt) == 3) {
-		swap(dest_buf->f[1], dest_buf->f[2]);
-		swap(dest_buf->iova[1], dest_buf->iova[2]);
-		swap(dest->data.plane_offset[1], dest->data.plane_offset[2]);
+		swap(wrot_frm->iova[1], wrot_frm->iova[2]);
+		swap(wrot_frm->plane_offset[1], wrot_frm->plane_offset[2]);
 	}
 
 	calc_plane_offset(wrot_frm->compose.left, wrot_frm->compose.top,
 			  dest->data.y_stride, wrot_frm->uv_stride,
 			  wrot_frm->bbp_y, wrot_frm->bbp_uv,
 			  wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
-			  dest->data.plane_offset);
+			  wrot_frm->plane_offset);
 
 	if (dest->data.secure) {
 		/* TODO: for secure case setup plane offset and reg */
@@ -699,7 +732,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		/* Write frame base address */
 		calc_afbc_block(wrot_frm->bbp_y,
 				dest->data.y_stride, dest->data.vert_stride,
-				dest_buf->iova, dest->data.plane_offset,
+				wrot_frm->iova, wrot_frm->plane_offset,
 				&block_x, &addr_c, &addr_v, &addr);
 
 		/* Write frame base address */
@@ -735,9 +768,9 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 			       MML_FMT_IS_ARGB(dest_fmt), 0x1);
 	} else {
 		u32 iova[3] = {
-			dest_buf->iova[0] + dest->data.plane_offset[0],
-			dest_buf->iova[1] + dest->data.plane_offset[1],
-			dest_buf->iova[2] + dest->data.plane_offset[2],
+			wrot_frm->iova[0] + wrot_frm->plane_offset[0],
+			wrot_frm->iova[1] + wrot_frm->plane_offset[1],
+			wrot_frm->iova[2] + wrot_frm->plane_offset[2],
 		};
 
 		/* Write frame base address */
@@ -1335,7 +1368,6 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_frame_config *cfg = task->config;
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
-	struct mml_file_buf *dest_buf = &task->buf.dest[wrot_frm->out_idx];
 	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 
@@ -1343,16 +1375,15 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	const u32 out_swap = MML_FMT_SWAP(dest_fmt);
 
 	if (out_swap == 1 && MML_FMT_PLANE(dest_fmt) == 3) {
-		swap(dest_buf->f[1], dest_buf->f[2]);
-		swap(dest_buf->iova[1], dest_buf->iova[2]);
-		swap(dest->data.plane_offset[1], dest->data.plane_offset[2]);
+		swap(wrot_frm->iova[1], wrot_frm->iova[2]);
+		swap(wrot_frm->plane_offset[1], wrot_frm->plane_offset[2]);
 	}
 
 	calc_plane_offset(wrot_frm->compose.left, wrot_frm->compose.top,
 			  dest->data.y_stride, wrot_frm->uv_stride,
 			  wrot_frm->bbp_y, wrot_frm->bbp_uv,
 			  wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
-			  dest->data.plane_offset);
+			  wrot_frm->plane_offset);
 
 	if (dest->data.secure) {
 		/* TODO: for secure case setup plane offset and reg */
@@ -1363,9 +1394,9 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		u32 block_x, addr_c, addr_v, addr;
 
 		/* Write frame base address */
-		calc_afbc_block(MML_FMT_BITS_PER_PIXEL(dest_fmt),
+		calc_afbc_block(wrot_frm->bbp_y,
 				dest->data.y_stride, dest->data.vert_stride,
-				dest_buf->iova, dest->data.plane_offset,
+				wrot_frm->iova, wrot_frm->plane_offset,
 				&block_x, &addr_c, &addr_v, &addr);
 
 		/* update frame base address to list */
@@ -1376,9 +1407,9 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		/* TODO: cmdq should return label of above 3 write */
 	} else {
 		u32 iova[3] = {
-			dest_buf->iova[0] + dest->data.plane_offset[0],
-			dest_buf->iova[1] + dest->data.plane_offset[1],
-			dest_buf->iova[2] + dest->data.plane_offset[2],
+			wrot_frm->iova[0] + wrot_frm->plane_offset[0],
+			wrot_frm->iova[1] + wrot_frm->plane_offset[1],
+			wrot_frm->iova[2] + wrot_frm->plane_offset[2],
 		};
 
 		/* update frame base address to list */
@@ -1392,6 +1423,7 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 static const struct mml_comp_config_ops wrot_cfg_ops = {
 	.prepare = wrot_config_write,
+	.buf_prepare = wrot_buf_prepare,
 	.get_label_count = wrot_get_label_count,
 	.init = wrot_init,
 	.frame = wrot_config_frame,
@@ -1409,14 +1441,14 @@ static s32 wrot_pw_enable(struct mml_comp *comp)
 	if (wrot->larb == 2) {
         mml_log("[CLOCK] Enable SMI & LARB2 Clock\n");
 #ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB2, "MDP");
+		smi_bus_prepare_enable(SMI_LARB2, "MML_WROT");
 #endif
     } else if (wrot->larb == 3) {
         mml_log("[CLOCK] Enable SMI & LARB3 Clock\n");
 #ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB3, "MDP");
+		smi_bus_prepare_enable(SMI_LARB3, "MML_WROT");
 #endif
-	} else 
+	} else
 		mml_err("[wrot] %s unknown larb %hhu", __func__, wrot->larb);
 
 	return 0;
@@ -1571,6 +1603,11 @@ static int probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 	priv->data = (const struct wrot_data *)of_device_get_match_data(dev);
+	priv->dev = dev;
+
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
+	if (ret)
+		dev_err(dev, "fail to config wrot dma mask %d\n", ret);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {

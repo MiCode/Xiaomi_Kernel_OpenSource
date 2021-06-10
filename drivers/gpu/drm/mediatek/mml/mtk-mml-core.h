@@ -22,6 +22,7 @@
 #include <linux/time.h>
 #include <linux/workqueue.h>
 #include "mtk-mml.h"
+#include "mtk-mml-buf.h"
 #include "mtk-mml-driver.h"
 
 struct cmdq_subsys {
@@ -248,10 +249,18 @@ struct mml_frame_config {
 	struct mml_tile_output *tile_output[MML_PIPE_CNT];
 };
 
+struct mml_dma_buf {
+	struct dma_buf *dmabuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table* sgt;
+
+	u64 iova;
+};
+
 struct mml_file_buf {
-	struct file *f[MML_MAX_PLANES];
+	/* dma buf heap */
+	struct mml_dma_buf dma[MML_MAX_PLANES];
 	u32 size[MML_MAX_PLANES];
-	u64 iova[MML_MAX_PLANES];
 	u8 cnt;
 	struct dma_fence *fence;
 	u32 usage;
@@ -301,6 +310,8 @@ struct mml_comp_tile_ops {
 struct mml_comp_config_ops {
 	s32 (*prepare)(struct mml_comp *comp, struct mml_task *task,
 		       struct mml_comp_config *priv);
+	s32 (*buf_prepare)(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg);
 	u32 (*get_label_count)(struct mml_comp *comp, struct mml_task *task);
 	/* op to make command in frame change case */
 	s32 (*init)(struct mml_comp *comp, struct mml_task *task,

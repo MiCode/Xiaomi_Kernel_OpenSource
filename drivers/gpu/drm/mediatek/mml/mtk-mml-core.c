@@ -160,9 +160,23 @@ static void core_prepare(struct mml_task *task, u8 pipe)
 		struct mml_comp *comp = path->nodes[i].comp;
 
 		call_cfg_op(comp, prepare, task, &cache->cfg[i]);
+		call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
 	}
 
 	mml_trace_ex_end();
+}
+
+static void core_reuse(struct mml_task *task, u8 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	u8 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mml_comp *comp = path->nodes[i].comp;
+
+		call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
+	}
 }
 
 static s32 command_make(struct mml_task *task, u8 pipe)
@@ -386,12 +400,14 @@ static s32 core_config(struct mml_task *task, u32 pipe_id)
 		 * and use command_reuse if success copy.
 		 */
 		mml_trace_ex_begin("%s_dup_cmd_%u", __func__, pipe_id);
+		core_reuse(task, pipe_id);
 		command_make(task, pipe_id);
 		mml_trace_ex_end();
 
 	} else {
 		/* pkt exists, reuse it directly */
 		mml_trace_ex_begin("%s_reuse_cmd_%u", __func__, pipe_id);
+		core_reuse(task, pipe_id);
 		command_reuse(task, pipe_id);
 		mml_trace_ex_end();
 	}

@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/sync_file.h>
 
+#include "mtk-mml-buf.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
@@ -299,14 +300,11 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 {
 	u8 i;
 
-	for (i = 0; i < fdbuf->cnt; i++) {
-		fbuf->f[i] = fget(fdbuf->fd[i]);
-		fbuf->size[i] = fdbuf->size[i];
+	mml_buf_get(fbuf, fdbuf->fd, fdbuf->cnt);
 
-		if (!fbuf->f[i])
-			mml_err("[drm] fail to get file from fd %hhu/%hhu %d",
-				i, fdbuf->cnt - 1, fdbuf->fd[i]);
-	}
+	/* also copy size for later use */
+	for (i = 0; i < fdbuf->cnt; i++)
+		fbuf->size[i] = fdbuf->size[i];
 	fbuf->cnt = fdbuf->cnt;
 	fbuf->usage = fdbuf->usage;
 
@@ -394,23 +392,14 @@ static void task_frame_done(struct mml_task *task)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
-	u8 idx_d, idx_p;
+	u8 i;
 
 	mml_msg("[drm]%s task %p state %u", __func__, task, task->state);
 
 	/* clean up */
-	for (idx_d = 0; idx_d < task->buf.dest_cnt; idx_d++)
-		for (idx_p = 0; idx_p < task->buf.dest[idx_d].cnt; idx_p++)
-			if (task->buf.dest[idx_d].f[idx_p])
-				fput(task->buf.dest[idx_d].f[idx_p]);
-			else
-				mml_err("[drm] no dest file %hhu %hhu to put",
-					idx_d, idx_p);
-	for (idx_p = 0; idx_p < task->buf.src.cnt; idx_p++)
-		if (task->buf.src.f[idx_p])
-			fput(task->buf.src.f[idx_p]);
-		else
-			mml_err("[drm] no src file %hhu to put", idx_p);
+	for (i = 0; i < task->buf.dest_cnt; i++)
+		mml_buf_put(&task->buf.dest[i]);
+	mml_buf_put(&task->buf.src);
 
 	/* TODO: Confirm buf file and fence release correctly,
 	 * after implement dmabuf and fence mechanism.

@@ -6,11 +6,13 @@
 
 #include <linux/clk.h>
 #include <linux/component.h>
+#include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 
+#include "mtk-mml-buf.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
@@ -154,6 +156,7 @@ static const struct rdma_data mt6893_rdma_data = {
 struct mml_rdma {
 	struct mml_comp comp;
 	const struct rdma_data *data;
+	struct device *dev;	/* for dmabuf to iova */
 
 	u8 gpr_poll;
 	u16 event_poll;
@@ -198,6 +201,23 @@ static s32 rdma_config_read(struct mml_comp *comp, struct mml_task *task,
 {
 	ccfg->data = kzalloc(sizeof(struct rdma_frame_data), GFP_KERNEL);
 	return 0;
+}
+
+static s32 rdma_buf_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg)
+{
+	struct mml_rdma *rdma = comp_to_rdma(comp);
+	s32 ret;
+
+	/* get iova */
+	ret = mml_buf_iova_get(rdma->dev, &task->buf.src);
+	if (ret < 0)
+		mml_err("%s iova fail %d", __func__, ret);
+	else
+		mml_msg("%s comp %u iova %#x",
+			__func__, comp->id, task->buf.src.dma[0].iova);
+
+	return ret;
 }
 
 static u32 rdma_get_label_count(struct mml_comp *comp, struct mml_task *task)
@@ -435,22 +455,22 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 
 		/* 16-byte error */
 		/* secure handle will not check */
-		if (!src->secure && ((src_buf->iova[0] & 0x0f) ||
-		    (plane > 1 && (src_buf->iova[1] & 0x0f)) ||
-		    (plane > 2 && (src_buf->iova[2] & 0x0f)))) {
-			mml_err("invalid blk, buffer %llu %llu %llu",
-				src_buf->iova[0], src_buf->iova[1],
-				src_buf->iova[2]);
+		if (!src->secure && ((src_buf->dma[0].iova & 0x0f) ||
+		    (plane > 1 && (src_buf->dma[1].iova & 0x0f)) ||
+		    (plane > 2 && (src_buf->dma[2].iova & 0x0f)))) {
+			mml_err("invalid block format setting, buffer %llu %llu %llu",
+				src_buf->dma[0].iova, src_buf->dma[1].iova,
+				src_buf->dma[2].iova);
 			mml_err("buffer should be 16 align");
 			return -1;
 		}
 		/* 128-byte warning for performance */
-		if (!src->secure && ((src_buf->iova[0] & 0x7f) ||
-		    (plane > 1 && (src_buf->iova[1] & 0x7f)) ||
-		    (plane > 2 && (src_buf->iova[2] & 0x7f)))) {
-			mml_log("warning: blk format, buffer %llu %llu %llu\n",
-				src_buf->iova[0], src_buf->iova[1],
-				src_buf->iova[2]);
+		if (!src->secure && ((src_buf->dma[0].iova & 0x7f) ||
+		    (plane > 1 && (src_buf->dma[1].iova & 0x7f)) ||
+		    (plane > 2 && (src_buf->dma[2].iova & 0x7f)))) {
+			mml_log("warning: block format setting, buffer %llu %llu %llu",
+				src_buf->dma[0].iova, src_buf->dma[1].iova,
+				src_buf->dma[2].iova);
 		}
 	}
 
@@ -458,10 +478,10 @@ s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 		src->uv_stride = mml_color_get_min_uv_stride(src->format,
 			src->width);
 	}
-	if ((plane == 1 && !src_buf->iova[0]) ||
-	    (plane == 2 && (!src_buf->iova[1] || !src_buf->iova[0])) ||
-	    (plane == 3 && (!src_buf->iova[2] || !src_buf->iova[1] ||
-	    !src_buf->iova[0]))) {
+	if ((plane == 1 && !src_buf->dma[0].iova) ||
+	    (plane == 2 && (!src_buf->dma[1].iova || !src_buf->dma[0].iova)) ||
+	    (plane == 3 && (!src_buf->dma[2].iova || !src_buf->dma[1].iova ||
+	    !src_buf->dma[0].iova))) {
 		mml_err("buffer plane number error, format = %#x, plane = %d",
 			src->format, plane);
 		return -1;
@@ -522,15 +542,15 @@ static void calc_ufo(struct mml_file_buf *src_buf, struct mml_frame_data *src,
 
 	if (MML_FMT_10BIT_JUMP(src->format) || MML_FMT_AUO(src->format)) {
 		/* Y YL C CL*/
-		*ufo_dec_length_y = src_buf->iova[0] + src->plane_offset[0] +
+		*ufo_dec_length_y = src_buf->dma[0].iova + src->plane_offset[0] +
 				   *u4pic_size_y_bs;
-		*ufo_dec_length_c = src_buf->iova[1] + src->plane_offset[1] +
+		*ufo_dec_length_c = src_buf->dma[1].iova + src->plane_offset[1] +
 				   u4pic_size_c_bs;
 	} else {
 		/* Y C YL CL */
-		*ufo_dec_length_y = src_buf->iova[0] + src->plane_offset[0] +
+		*ufo_dec_length_y = src_buf->dma[0].iova + src->plane_offset[0] +
 				   *u4pic_size_bs;
-		*ufo_dec_length_c = src_buf->iova[0] + src->plane_offset[0] +
+		*ufo_dec_length_c = src_buf->dma[0].iova + src->plane_offset[0] +
 				   *u4pic_size_bs + u4ufo_len_size_y;
 	}
 }
@@ -690,20 +710,20 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	if (rdma_frm->enable_ufo) {
 		if (MML_FMT_10BIT_JUMP(src->format) ||
 			MML_FMT_AUO(src->format)) {
-			iova[0] = src_buf->iova[0] + src->plane_offset[0];
-			iova[1] = src_buf->iova[0] + src->plane_offset[0] +
+			iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
+			iova[1] = src_buf->dma[0].iova + src->plane_offset[0] +
 				  u4pic_size_bs;
-			iova[2] = src_buf->iova[2] + src->plane_offset[2];
+			iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 		} else {
-			iova[0] = src_buf->iova[0] + src->plane_offset[0];
-			iova[1] = src_buf->iova[0] + src->plane_offset[0] +
+			iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
+			iova[1] = src_buf->dma[0].iova + src->plane_offset[0] +
 				  u4pic_size_y_bs;
-			iova[2] = src_buf->iova[2] + src->plane_offset[2];
+			iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 		}
 	} else {
-		iova[0] = src_buf->iova[0] + src->plane_offset[0];
-		iova[1] = src_buf->iova[1] + src->plane_offset[1];
-		iova[2] = src_buf->iova[2] + src->plane_offset[2];
+		iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
+		iova[1] = src_buf->dma[1].iova + src->plane_offset[1];
+		iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 	}
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_BASE_0,
 		       iova[0], U32_MAX);
@@ -939,20 +959,20 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	if (rdma_frm->enable_ufo) {
 		if (MML_FMT_10BIT_JUMP(src->format) ||
 			MML_FMT_AUO(src->format)) {
-			iova[0] = src_buf->iova[0] + src->plane_offset[0];
-			iova[1] = src_buf->iova[0] + src->plane_offset[0] +
+			iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
+			iova[1] = src_buf->dma[0].iova + src->plane_offset[0] +
 				  u4pic_size_bs;
-			iova[2] = src_buf->iova[2] + src->plane_offset[2];
+			iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 		} else {
-			iova[0] = src_buf->iova[0] + src->plane_offset[0];
-			iova[1] = src_buf->iova[0] + src->plane_offset[0] +
+			iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
+			iova[1] = src_buf->dma[0].iova + src->plane_offset[0] +
 				  u4pic_size_y_bs;
-			iova[2] = src_buf->iova[2] + src->plane_offset[2];
+			iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 		}
 	} else {
-		iova[0] = src_buf->iova[0] + src->plane_offset[0];
-		iova[1] = src_buf->iova[1] + src->plane_offset[1];
-		iova[2] = src_buf->iova[2] + src->plane_offset[2];
+		iova[0] = src_buf->dma[0].iova + src->plane_offset[0];
+		iova[1] = src_buf->dma[1].iova + src->plane_offset[1];
+		iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 	}
 
 	update_label(cache, rdma_frm, RDMA_LABEL_BASE_0, iova[0]);
@@ -972,6 +992,7 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 static const struct mml_comp_config_ops rdma_cfg_ops = {
 	.prepare = rdma_config_read,
+	.buf_prepare = rdma_buf_prepare,
 	.get_label_count = rdma_get_label_count,
 	.init = rdma_init,
 	.frame = rdma_config_frame,
@@ -989,12 +1010,12 @@ static s32 rdma_pw_enable(struct mml_comp *comp)
 	if (rdma->larb == 2) {
         mml_log("[CLOCK] Enable MDP Larb2 Clock\n");
 #ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB2, "MDP");
+		smi_bus_prepare_enable(SMI_LARB2, "MML_RDMA");
 #endif
     } else if (rdma->larb == 3) {
         mml_log("[CLOCK] Enable MDP Larb3 Clock\n");
 #ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB3, "MDP");
+		smi_bus_prepare_enable(SMI_LARB3, "MML_RDMA");
 #endif
     } else {
 		mml_err("[rdma] %s unknown larb %hhu", __func__, rdma->larb);
@@ -1188,6 +1209,11 @@ static int probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 	priv->data = (const struct rdma_data *)of_device_get_match_data(dev);
+	priv->dev = dev;
+
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
+	if (ret)
+		dev_err(dev, "fail to config rdma dma mask %d\n", ret);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {
