@@ -1357,12 +1357,12 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	if (-1 == sec_id)
 		cmdq_sec_pkt_set_mtee(handle->pkt, false, sec_id);
 
-	CMDQ_LOG("handle:%p mtee:%d dapc:%#llx(%#llx) port:%#llx(%#llx) sec_id:%d\n",
+	CMDQ_LOG("handle:%p mtee:%d dapc:%#llx(%#llx) port:%#llx(%#llx) sec_id:%d, engine:%#llx\n",
 		handle,
 		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee,
 		handle->secData.enginesNeedDAPC, dapc,
 		handle->secData.enginesNeedPortSecurity, port,
-		sec_id);
+		sec_id, handle->engineFlag);
 
 	kfree(addr_meta);
 	return 0;
