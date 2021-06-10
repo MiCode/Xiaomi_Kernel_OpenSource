@@ -737,7 +737,8 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 {
 	u32 status = 0, task_mask = 0;
-	unsigned long tag = 0, comp_status = 0, cmd_idx = 0;
+	unsigned long comp_status = 0, cmd_idx = 0;
+	unsigned int tag = 0;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	unsigned long err_info = 0;
 	struct mmc_request *mrq = NULL;
