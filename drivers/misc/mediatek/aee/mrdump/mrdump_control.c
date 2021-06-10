@@ -7,7 +7,6 @@
 #include <linux/crc32.h>
 #include <linux/delay.h>
 #include <linux/io.h>
-#include <linux/memblock.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <asm/memory.h>
@@ -18,44 +17,106 @@
 
 struct mrdump_control_block *mrdump_cblock;
 
-#if defined(CONFIG_KALLSYMS) && !defined(CONFIG_KALLSYMS_BASE_RELATIVE)
+#if IS_ENABLED(CONFIG_KALLSYMS)
+#if !IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE)
 static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *kparam)
 {
-	unsigned long start_addr = (unsigned long)kallsyms_addresses;
+	struct mrdump_ksyms_param tmp_kp;
+	unsigned long start_addr;
 
-	kparam->tag[0] = 'K';
-	kparam->tag[1] = 'S';
-	kparam->tag[2] = 'Y';
-	kparam->tag[3] = 'M';
+	memset(&tmp_kp, 0, sizeof(struct mrdump_ksyms_param));
+	start_addr = (unsigned long)kallsyms_addresses;
+	tmp_kp.tag[0] = 'K';
+	tmp_kp.tag[1] = 'S';
+	tmp_kp.tag[2] = 'Y';
+	tmp_kp.tag[3] = 'M';
 
 	switch (sizeof(unsigned long)) {
 	case 4:
-		kparam->flag = KSYM_32;
+		tmp_kp.flag = KSYM_32;
 		break;
 	case 8:
-		kparam->flag = KSYM_64;
+		tmp_kp.flag = KSYM_64;
 		break;
 	default:
 		BUILD_BUG();
 	}
-	kparam->start_addr = __pa_symbol(start_addr);
-	kparam->size = (unsigned long)&kallsyms_token_index - start_addr + 512;
-	kparam->crc = crc32(0, (unsigned char *)start_addr, kparam->size);
-	kparam->addresses_off = (unsigned long)&kallsyms_addresses - start_addr;
-	kparam->num_syms_off = (unsigned long)&kallsyms_num_syms - start_addr;
-	kparam->names_off = (unsigned long)&kallsyms_names - start_addr;
-	kparam->markers_off = (unsigned long)&kallsyms_markers - start_addr;
-	kparam->token_table_off =
+	tmp_kp.start_addr = __pa_symbol(start_addr);
+	tmp_kp.size = (unsigned long)&kallsyms_token_index - start_addr + 512;
+	tmp_kp.crc = crc32(0, (unsigned char *)start_addr, tmp_kp.size);
+	tmp_kp.addresses_off = (unsigned long)&kallsyms_addresses - start_addr;
+	tmp_kp.num_syms_off = (unsigned long)&kallsyms_num_syms - start_addr;
+	tmp_kp.names_off = (unsigned long)&kallsyms_names - start_addr;
+	tmp_kp.markers_off = (unsigned long)&kallsyms_markers - start_addr;
+	tmp_kp.token_table_off =
 		(unsigned long)&kallsyms_token_table - start_addr;
-	kparam->token_index_off =
+	tmp_kp.token_index_off =
 		(unsigned long)&kallsyms_token_index - start_addr;
+	memcpy_toio(kparam, &tmp_kp, sizeof(struct mrdump_ksyms_param));
 }
 #else
-static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *unused)
+static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *kparam)
 {
-}
+	struct mrdump_ksyms_param tmp_kp;
+	unsigned long start_addr;
 
+	memset(&tmp_kp, 0, sizeof(struct mrdump_ksyms_param));
+	start_addr = aee_get_kallsyms_addresses();
+	tmp_kp.tag[0] = 'K';
+	tmp_kp.tag[1] = 'S';
+	tmp_kp.tag[2] = 'Y';
+	tmp_kp.tag[3] = 'M';
+	tmp_kp.flag |= 1 << MKP_BIT_SHIFT_RELATIVE;
+#if IS_ENABLED(CONFIG_KALLSYMS_ABSOLUTE_PERCPU)
+	tmp_kp.flag |= 1 << MKP_BIT_SHIFT_ABS_PERCPU;
 #endif
+	switch (sizeof(unsigned long)) {
+	case 4:
+		break;
+	case 8:
+		tmp_kp.flag |= 1 << MKP_BIT_SHIFT_ARCH64;
+		break;
+	default:
+		BUILD_BUG();
+	}
+
+	tmp_kp.start_addr = __pa_symbol(start_addr);
+	tmp_kp.size = (u32)(aee_get_kti_addresses() - start_addr + 512);
+	tmp_kp.crc = crc32(0, (unsigned char *)start_addr, tmp_kp.size);
+	tmp_kp.addresses_off = 0;
+	tmp_kp.num_syms_off = (u32)aee_get_kns_off();
+	tmp_kp.names_off = (u32)aee_get_kn_off();
+	tmp_kp.markers_off = (u32)aee_get_km_off();
+	tmp_kp.token_table_off = (u32)aee_get_ktt_off();
+	tmp_kp.token_index_off = (u32)aee_get_kti_off();
+
+	memcpy_toio(kparam, &tmp_kp, sizeof(struct mrdump_ksyms_param));
+}
+#endif
+#endif
+
+void mrdump_cblock_late_init(void)
+{
+	struct mrdump_machdesc *machdesc_p;
+
+	if (!mrdump_cblock) {
+		pr_notice("%s: mrdump_cb not mapped\n", __func__);
+		return;
+	}
+
+	machdesc_p = &mrdump_cblock->machdesc;
+#if IS_ENABLED(CONFIG_KALLSYMS)
+	mrdump_cblock_kallsyms_init(&machdesc_p->kallsyms);
+#endif
+	machdesc_p->kimage_stext = (uint64_t)aee_get_text();
+	machdesc_p->kimage_etext = (uint64_t)aee_get_etext();
+	machdesc_p->kimage_stext_real = (uint64_t)aee_get_stext();
+	machdesc_p->kimage_sdata = (uint64_t)aee_get_sdata();
+	machdesc_p->kimage_edata = (uint64_t)aee_get_edata();
+	mrdump_cblock->machdesc_crc = crc32(0, machdesc_p,
+			sizeof(struct mrdump_machdesc));
+	pr_notice("%s: done.\n", __func__);
+}
 
 __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 {
@@ -84,16 +145,11 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 	machdesc_p = &mrdump_cblock->machdesc;
 	machdesc_p->nr_cpus = nr_cpu_ids;
 	machdesc_p->page_offset = (uint64_t)PAGE_OFFSET;
-	machdesc_p->high_memory = (uintptr_t)high_memory;
-
-#if defined(KIMAGE_VADDR)
-	machdesc_p->kimage_vaddr = KIMAGE_VADDR;
-#endif
 #if defined(CONFIG_ARM64)
+	machdesc_p->kimage_vaddr = kimage_vaddr;
 	machdesc_p->kimage_voffset = (unsigned long)kimage_voffset;
 #endif
 
-	machdesc_p->dram_end = (uint64_t)memblock_end_of_DRAM();
 	machdesc_p->vmalloc_start = (uint64_t)VMALLOC_START;
 	machdesc_p->vmalloc_end = (uint64_t)VMALLOC_END;
 
@@ -112,7 +168,6 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 
 	machdesc_p->struct_page_size = (uint32_t)sizeof(struct page);
 
-	mrdump_cblock_kallsyms_init(&machdesc_p->kallsyms);
 #ifdef MODULE
 	mrdump_cblock->machdesc_crc = crc32(0, machdesc_p,
 			sizeof(struct mrdump_machdesc));
@@ -122,24 +177,3 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 	pr_notice("%s: done.\n", __func__);
 }
 
-void mrdump_cblock_late_init(void)
-{
-	struct mrdump_machdesc *machdesc_p;
-
-	if (!mrdump_cblock) {
-		pr_notice("%s: mrdump_cb not mapped\n", __func__);
-		return;
-	}
-
-	machdesc_p = &mrdump_cblock->machdesc;
-
-	machdesc_p->dram_start = (uint64_t)aee_memblock_start_of_DRAM();
-	machdesc_p->kimage_stext = (uint64_t)aee_get_text();
-	machdesc_p->kimage_etext = (uint64_t)aee_get_etext();
-	machdesc_p->kimage_stext_real = (uint64_t)aee_get_stext();
-	machdesc_p->kimage_sdata = (uint64_t)aee_get_sdata();
-	machdesc_p->kimage_edata = (uint64_t)aee_get_edata();
-	mrdump_cblock->machdesc_crc = crc32(0, machdesc_p,
-			sizeof(struct mrdump_machdesc));
-	pr_notice("%s: done.\n", __func__);
-}

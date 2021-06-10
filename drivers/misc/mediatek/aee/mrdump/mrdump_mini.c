@@ -10,7 +10,6 @@
 #include <linux/highmem.h>
 #include <linux/init.h>
 #include <linux/kdebug.h>
-#include <linux/memblock.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -728,7 +727,7 @@ void mrdump_mini_add_kallsyms(void)
 
 	vaddr = aee_get_kallsyms_addresses();
 	vaddr = round_down(vaddr, PAGE_SIZE);
-	size = aee_get_kti_addresses() - vaddr;
+	size = aee_get_kti_addresses() - vaddr + 512;
 	size = round_up(size, PAGE_SIZE);
 	if (vaddr)
 		mrdump_mini_add_misc_pa(vaddr, __pa_nodebug(vaddr),
@@ -789,7 +788,7 @@ static void mrdump_mini_build_elf_misc(void)
 	ko_infos = kzalloc(sizeof(struct ko_info_all), GFP_KERNEL);
 	if (ko_infos) {
 		ko_info_list = ko_infos->ko_list;
-		memcpy(ko_infos->version, KO_INFO_VERSION,
+		strlcpy(ko_infos->version, KO_INFO_VERSION,
 		       sizeof(ko_infos->version));
 		mrdump_mini_add_misc_pa((unsigned long)ko_infos,
 				(unsigned long)__pa_nodebug(

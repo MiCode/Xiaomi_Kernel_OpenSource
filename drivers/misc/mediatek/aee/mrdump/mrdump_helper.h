@@ -19,7 +19,6 @@ extern unsigned long aee_get_sdata(void);
 extern unsigned long aee_get_edata(void);
 
 extern void *aee_log_buf_addr_get(void);
-extern phys_addr_t aee_memblock_start_of_DRAM(void);
 #ifdef CONFIG_SYSFS
 extern struct kset *aee_get_module_kset(void);
 #endif
@@ -27,6 +26,11 @@ extern struct list_head *aee_get_modules(void);
 extern void aee_show_regs(struct pt_regs *regs);
 extern unsigned long aee_get_kallsyms_addresses(void);
 extern unsigned long aee_get_kti_addresses(void);
+extern unsigned long aee_get_kn_off(void);
+extern unsigned long aee_get_kns_off(void);
+extern unsigned long aee_get_km_off(void);
+extern unsigned long aee_get_ktt_off(void);
+extern unsigned long aee_get_kti_off(void);
 extern void aee_zap_locks(void);
 extern void aee_reinit_die_lock(void);
 #if IS_ENABLED(CONFIG_MODULES)

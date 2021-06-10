@@ -5,7 +5,6 @@
 
 #include <linux/delay.h>
 #include <linux/init.h>
-#include <linux/memblock.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/of_fdt.h>
@@ -29,7 +28,6 @@
 
 #ifdef MODULE
 
-#define KV		kimage_vaddr
 #define NAME_LEN	128
 
 static unsigned long *mrdump_ka;
@@ -40,6 +38,54 @@ static u8 *mrdump_kn;
 static unsigned int *mrdump_km;
 static u8 *mrdump_ktt;
 static u16 *mrdump_kti;
+
+#if IS_ENABLED(CONFIG_64BIT)
+#define KALLS_ALGN	8
+#else
+#define KALLS_ALGN	4
+#endif
+
+#if IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE)
+unsigned long aee_get_kn_off(void)
+{
+	if (!_mrdump_kns)
+		return 0;
+
+	return (unsigned long)mrdump_kn - (unsigned long)mrdump_ko;
+}
+
+unsigned long aee_get_kns_off(void)
+{
+	if (!_mrdump_kns)
+		return 0;
+
+	return aee_get_kn_off() - KALLS_ALGN;
+}
+
+unsigned long aee_get_km_off(void)
+{
+	if (!_mrdump_kns)
+		return 0;
+
+	return (unsigned long)mrdump_km - (unsigned long)mrdump_ko;
+}
+
+unsigned long aee_get_ktt_off(void)
+{
+	if (!_mrdump_kns)
+		return 0;
+
+	return (unsigned long)mrdump_ktt - (unsigned long)mrdump_ko;
+}
+
+unsigned long aee_get_kti_off(void)
+{
+	if (!_mrdump_kns)
+		return 0;
+
+	return (unsigned long)mrdump_kti - (unsigned long)mrdump_ko;
+}
+#endif
 
 static int retry_nm = 100;
 
@@ -321,33 +367,6 @@ struct kset *aee_get_module_kset(void)
 }
 #endif
 
-static struct memblock *p_memblock;
-static struct memblock *aee_memblock(void)
-{
-	if (p_memblock)
-		return p_memblock;
-
-	p_memblock = (void *)(aee_addr_find("memblock"));
-
-	if (!p_memblock) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-	return p_memblock;
-}
-
-phys_addr_t aee_memblock_start_of_DRAM(void)
-{
-	struct memblock *memblockp = aee_memblock();
-
-	if (!memblockp) {
-		pr_info("%s failed", __func__);
-		return 0;
-	}
-
-	return memblockp->memory.regions[0].base;
-}
-
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;
 struct list_head *aee_get_modules(void)
@@ -485,7 +504,7 @@ static void aee_base_addrs_init(void)
 	char strbuf[NAME_LEN];
 	unsigned long i;
 	unsigned int off;
-	unsigned int search_num = 7;
+	unsigned int search_num = 6;
 
 #ifndef CONFIG_SYSFS
 	search_num--;
@@ -513,11 +532,6 @@ static void aee_base_addrs_init(void)
 			continue;
 		}
 #endif
-		if (!p_memblock && strcmp(strbuf, "memblock") == 0) {
-			p_memblock = (void *)mrdump_idx2addr(i);
-			search_num--;
-			continue;
-		}
 
 		if (!p_etext && strcmp(strbuf, "_etext") == 0) {
 			p_etext = mrdump_idx2addr(i);
@@ -585,10 +599,6 @@ struct kset *aee_get_module_kset(void)
 }
 #endif
 
-phys_addr_t aee_memblock_start_of_DRAM(void)
-{
-	return memblock_start_of_DRAM();
-}
 
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;

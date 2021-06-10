@@ -85,6 +85,11 @@ struct mrdump_crash_record {
 	} cpu_reg[0];
 };
 
+/* mrdump_ksyms_param->flag */
+#define MKP_BIT_SHIFT_ARCH64		0
+#define MKP_BIT_SHIFT_ABS_PERCPU	1
+#define MKP_BIT_SHIFT_RELATIVE		31
+
 struct mrdump_ksyms_param {
 	char     tag[4];
 	uint32_t flag;
@@ -103,11 +108,11 @@ struct mrdump_machdesc {
 	uint32_t nr_cpus;
 
 	uint64_t page_offset;
-	uint64_t high_memory;
+	uint64_t high_memory; /* deprecated */
 
 	uint64_t kimage_vaddr;
-	uint64_t dram_start;
-	uint64_t dram_end;
+	uint64_t dram_start; /* deprecated */
+	uint64_t dram_end; /* deprecated */
 	uint64_t kimage_stext;
 	uint64_t kimage_etext;
 	uint64_t kimage_stext_real;
