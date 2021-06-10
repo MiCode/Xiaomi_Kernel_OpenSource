@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2021 MediaTek Inc.
+ * Author: Wy Chuang<wy.chuang@mediatek.com>
+ *
+ */
+
+&mtk_gauge {
+	DIFFERENCE_FULLOCV_ITH = <(200)>;
+	/* Charging termination current */
+	SHUTDOWN_1_TIME = <(5)>;
+	/* If ui_soc shows 1% more than X minites, system will shutdown */
+	KEEP_100_PERCENT = <(1)>;
+	R_FG_VALUE = <(5)>;
+	/* R_sense resistance */
+	EMBEDDED_SEL = <(0)>;
+	/* Configures whether using embedded battery or not */
+	PMIC_SHUTDOWN_CURRENT = <(20)>;
+	/* System shutdown current */
+	FG_METER_RESISTANCE = <(100)>;
+	/* The resistance of PCB */
+	CAR_TUNE_VALUE = <(100)>;
+	/* Tune value for current measurement */
+	PMIC_MIN_VOL = <(33500)>;
+	/* vboot voltage for gauge 0%*/
+	POWERON_SYSTEM_IBOOT = <(500)>;
+	/* power on system iboot */
+	SHUTDOWN_GAUGE0_VOLTAGE = <(34000)>;
+	/* shutdown gauge 0% voltage */
+	TEMPERATURE_T0 = <(50)>;
+	/* Battery temperature T0 */
+	TEMPERATURE_T1 = <(25)>;
+	/* Battery temperature T1 */
+	TEMPERATURE_T2 = <(10)>;
+	/* Battery temperature T2 */
+	TEMPERATURE_T3 = <(0)>;
+	/* Battery temperature T3 */
+	TEMPERATURE_T4 = <(-6)>;
+	/* Battery temperature T4 */
+	TEMPERATURE_T5 = <(-10)>;
+	/* Battery temperature T5 */
+	g_FG_PSEUDO100_T0 = <(100)>;
+	/* Pseudo 100% percentage at T0 */
+	g_FG_PSEUDO100_T1 = <(100)>;
+	/* Pseudo 100% percentage at T1 */
+	g_FG_PSEUDO100_T2 = <(100)>;
+	/* Pseudo 100% percentage at T2 */
+	g_FG_PSEUDO100_T3 = <(100)>;
+	/* Pseudo 100% percentage at T3 */
+	g_FG_PSEUDO100_T4 = <(100)>;
+	/* Pseudo 100% percentage at T4 */
+	Q_MAX_SYS_VOLTAGE_BAT0 = <(3350)>;
+	/* Pseudo1 for hide percentage */
+	Q_MAX_SYS_VOLTAGE_BAT1 = <(3350)>;
+	/* Pseudo1 for hide percentage */
+	Q_MAX_SYS_VOLTAGE_BAT2 = <(3350)>;
+	/* Pseudo1 for hide percentage */
+	Q_MAX_SYS_VOLTAGE_BAT3 = <(3350)>;
+	/* Pseudo1 for hide percentage */
+	COM_FG_METER_RESISTANCE = <(100)>;
+	/* compensate The resistance of PCB */
+	COM_R_FG_VALUE = <(0)>;
+	/* compensate R_sense resistance */
+	enable_tmp_intr_suspend = <(0)>;
+	/* Enable update temp when suspend */
+	ACTIVE_TABLE = <(6)>;
+	/* Table numbers per battery */
+	MULTI_TEMP_GAUGE0 = <(1)>;
+	/* Multi gauge0 enable */
+#include "mt6893_battery_table.dtsi"
+#include "mt6893_battery_prop_dim2_ext.dtsi"
+};
