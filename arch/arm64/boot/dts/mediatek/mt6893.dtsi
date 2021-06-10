@@ -1282,6 +1282,16 @@
 			infracfg = <&infracfg_ao_clk>;
 		};
 
+		ktf-clkmgr-test {
+                        compatible = "mediatek,ktf-clkmgr-test";
+                        clocks = <&apmixedsys_clk CLK_APMIXED_APLL2>,
+ 				 <&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
+				 <&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+				 <&infracfg_ao_clk CLK_IFRAO_AES>;
+			clock-names = "pll", "mux", "mux_parent", "gate";
+			power-domains = <&scpsys MT6893_POWER_DOMAIN_CONN>;
+		};
+
 		scp_infra: scp_infra@10001000 {
 		    compatible = "mediatek,scpinfra";
 		    reg = <0 0x10001000 0 0x1000>,		/* infracfg_ao */
