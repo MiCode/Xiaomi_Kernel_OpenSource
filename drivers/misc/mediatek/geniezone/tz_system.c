@@ -907,6 +907,53 @@ static int ree_service_threads(uint32_t type, uint32_t val_a, uint32_t val_b,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_TEE)
+/* teec weak functions are used when teec function are unavailable. */
+__weak u32 teec_initialize_context(const char *name, struct teec_context *context)
+{
+	(void)name;
+	(void)context;
+	return 0;
+}
+
+__weak void teec_finalize_context(struct teec_context *context)
+{
+	(void)context;
+}
+
+__weak u32 teec_open_session(struct teec_context *context,
+			     struct teec_session *session,
+			     const struct teec_uuid *destination,
+			     u32 connection_method, const void *connection_data,
+			     struct teec_operation *operation,
+			     u32 *return_origin)
+{
+	(void)context;
+	(void)session;
+	(void)destination;
+	(void)connection_data;
+	(void)operation;
+	(void)return_origin;
+	return 0;
+}
+
+__weak void teec_close_session(struct teec_session *session)
+{
+	(void)session;
+}
+
+__weak u32 teec_invoke_command(struct teec_session *session,
+			       u32 command_id,
+			       struct teec_operation *operation,
+			       u32 *return_origin)
+{
+	(void)session;
+	(void)operation;
+	(void)return_origin;
+	return 0;
+}
+#endif
+
 TZ_RESULT _Gz_KreeServiceCall_body(KREE_SESSION_HANDLE handle, uint32_t command,
 				   uint32_t paramTypes,
 				   union MTEEC_PARAM param[4])
