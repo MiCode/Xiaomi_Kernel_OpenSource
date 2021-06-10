@@ -430,6 +430,7 @@ static dma_addr_t vpu_iova_alloc(struct device *dev,
 	i->m.va = 0;
 	i->m.pa = 0;
 	i->m.length = 0;
+	INIT_LIST_HEAD(&i->list);
 
 	/* allocate kvm and map */
 	if (i->bin == VPU_MEM_ALLOC) {
