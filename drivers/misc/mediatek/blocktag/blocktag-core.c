@@ -1657,7 +1657,6 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 		return NULL;
 	}
 	strncpy(btag->name, name, BLOCKTAG_NAME_LEN-1);
-	spin_lock_init(&btag->rt.lock);
 
 	/* context */
 	btag->ctx.count = ctx_count;
