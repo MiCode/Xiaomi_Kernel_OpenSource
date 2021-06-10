@@ -67,14 +67,22 @@ static void syslimiter_update_limit_freq(void)
 	mutex_lock(&syslimiter);
 
 	if (syslimiter_disable == 1 || fpsgo_state == STATE_OFF) {
-		freq_to_set[cluster_1].max = -1;
-		freq_to_set[cluster_0].max = -1;
+		if (perfmgr_clusters == 2) {
+			freq_to_set[cluster_1].max = -1;
+		} else if (perfmgr_clusters == 3) {
+			freq_to_set[cluster_1].max = -1;
+			freq_to_set[cluster_0].max = -1;
+		}
 		goto out;
 	}
 
 	if (dfrc_fps == -1) {
-		freq_to_set[cluster_1].max = -1;
-		freq_to_set[cluster_0].max = -1;
+		if (perfmgr_clusters == 2) {
+			freq_to_set[cluster_1].max = -1;
+		} else if (perfmgr_clusters == 3) {
+			freq_to_set[cluster_1].max = -1;
+			freq_to_set[cluster_0].max = -1;
+		}
 		//goto out;
 	}
 
@@ -126,8 +134,12 @@ static void syslimiter_update_limit_freq(void)
 		perfmgr_trace_count(limit_freq_at_144, "limit_freq_at_144");
 		goto out;
 	} else {
-		freq_to_set[cluster_1].max = -1;
-		freq_to_set[cluster_0].max = -1;
+		if (perfmgr_clusters == 2) {
+			freq_to_set[cluster_1].max = -1;
+		} else if (perfmgr_clusters == 3) {
+			freq_to_set[cluster_1].max = -1;
+			freq_to_set[cluster_0].max = -1;
+		}
 	}
 
 	if (limit_freq > 0) {
@@ -140,8 +152,12 @@ static void syslimiter_update_limit_freq(void)
 		perfmgr_trace_count(limit_freq, "limit_freq");
 		goto out;
 	} else {
-		freq_to_set[cluster_1].max = -1;
-		freq_to_set[cluster_0].max = -1;
+		if (perfmgr_clusters == 2) {
+			freq_to_set[cluster_1].max = -1;
+		} else if (perfmgr_clusters == 3) {
+			freq_to_set[cluster_1].max = -1;
+			freq_to_set[cluster_0].max = -1;
+		}
 	}
 
 out:
@@ -155,15 +171,16 @@ out:
 			"current_freq");
 	}
 
-	if ((freq_to_set[cluster_0].max != current_freq[cluster_0].max)
-		&& perfmgr_clusters == 3) {
-		pr_debug("update_userlimit_cpu_freq freq:%d\n",
-			freq_to_set[cluster_0].max);
-		update_userlimit_cpu_freq(CPU_KIR_SYSLIM,
-			perfmgr_clusters, freq_to_set);
-		current_freq[cluster_0].max = freq_to_set[cluster_0].max;
-		perfmgr_trace_count(current_freq[cluster_0].max,
-			"current_freq");
+	if (perfmgr_clusters == 3) {
+		if (freq_to_set[cluster_0].max != current_freq[cluster_0].max) {
+			pr_debug("update_userlimit_cpu_freq freq:%d\n",
+				freq_to_set[cluster_0].max);
+			update_userlimit_cpu_freq(CPU_KIR_SYSLIM,
+				perfmgr_clusters, freq_to_set);
+			current_freq[cluster_0].max = freq_to_set[cluster_0].max;
+			perfmgr_trace_count(current_freq[cluster_0].max,
+				"current_freq");
+		}
 	}
 
 	mutex_unlock(&syslimiter);
