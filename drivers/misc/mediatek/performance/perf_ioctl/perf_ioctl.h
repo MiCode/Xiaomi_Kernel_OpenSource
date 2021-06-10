@@ -31,7 +31,7 @@ extern int core_ctl_set_offline_throttle_ms(unsigned int cid,
                                 unsigned int throttle_ms);
 extern int core_ctl_set_limit_cpus(unsigned int cid, unsigned int min,
                                 unsigned int max);
-extern int core_ctl_set_not_preferred(int cid, int cpu, bool enable);
+extern int core_ctl_set_not_preferred(unsigned int not_preferred_cpus);
 extern int core_ctl_set_boost(bool boost);
 extern int core_ctl_set_up_thres(int cid, unsigned int val);
 extern int core_ctl_force_pause_cpu(int cpu, bool paused);
@@ -101,6 +101,23 @@ enum  {
 	USAGE_DEVTYPE_MAX  = 5,
 };
 
+struct _CORE_CTL_PACKAGE {
+	union {
+		__u32 cid;
+		__u32 cpu;
+	};
+	union {
+		__u32 min;
+		__u32 is_pause;
+		__u32 throttle_ms;
+		__u32 not_preferred_cpus;
+		__u32 boost;
+		__u32 thres;
+		__u32 enable_policy;
+	};
+	__u32 max;
+};
+
 #define FPSGO_QUEUE                  _IOW('g', 1,  struct _FPSGO_PACKAGE)
 #define FPSGO_DEQUEUE                _IOW('g', 3,  struct _FPSGO_PACKAGE)
 #define FPSGO_VSYNC                  _IOW('g', 5,  struct _FPSGO_PACKAGE)
@@ -122,14 +139,14 @@ enum  {
 #define EAS_PERTASK_LS_SET                      _IOW('g', 3,  unsigned int)
 #define EAS_PERTASK_LS_GET                      _IOR('g', 4,  unsigned int)
 #define EAS_ACTIVE_MASK_GET                     _IOR('g', 5,  unsigned int)
-#define CORE_CTL_FORCE_RESUME_CPU               _IOW('g', 6, char *)
-#define CORE_CTL_FORCE_PAUSE_CPU                _IOW('g', 7, char *)
-#define CORE_CTL_SET_OFFLINE_THROTTLE_MS        _IOW('g', 8,  char *)
-#define CORE_CTL_SET_LIMIT_CPUS                 _IOW('g', 9,  char *)
-#define CORE_CTL_SET_NOT_PREFERRED              _IOW('g', 10, char *)
-#define CORE_CTL_SET_BOOST                      _IOW('g', 11, char *)
-#define CORE_CTL_SET_UP_THRES                   _IOW('g', 12, char *)
-#define CORE_CTL_ENABLE_POLICY                  _IOW('g', 13, char *)
+#define CORE_CTL_FORCE_RESUME_CPU               _IOW('g', 6,  struct _CORE_CTL_PACKAGE)
+#define CORE_CTL_FORCE_PAUSE_CPU                _IOW('g', 7,  struct _CORE_CTL_PACKAGE)
+#define CORE_CTL_SET_OFFLINE_THROTTLE_MS        _IOW('g', 8,  struct _CORE_CTL_PACKAGE)
+#define CORE_CTL_SET_LIMIT_CPUS                 _IOW('g', 9,  struct _CORE_CTL_PACKAGE)
+#define CORE_CTL_SET_NOT_PREFERRED              _IOW('g', 10, struct _CORE_CTL_PACKAGE)
+#define CORE_CTL_SET_BOOST                      _IOW('g', 11, struct _CORE_CTL_PACKAGE)
+#define CORE_CTL_SET_UP_THRES                   _IOW('g', 12, struct _CORE_CTL_PACKAGE)
+#define CORE_CTL_ENABLE_POLICY                  _IOW('g', 13, struct _CORE_CTL_PACKAGE)
 
 #endif
 

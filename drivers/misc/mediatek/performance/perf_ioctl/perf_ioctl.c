@@ -319,14 +319,9 @@ static long eas_ioctl_impl(struct file *filp,
 	ssize_t ret = 0;
 	unsigned int sync;
 	unsigned int val;
-	unsigned int cpu;
-	bool is_pause;
-	char powerhal_str[20];
-	char *ubuf = (char *)arg;
-#if IS_ENABLED(CONFIG_MTK_CORE_CTL)
-	unsigned int cid, min, max, thres, throttle_ms;
-	bool enable, boost;
-#endif
+	void __user *ubuf = (struct _CORE_CTL_PACKAGE *)arg;
+	struct _CORE_CTL_PACKAGE msgKM = {0};
+	bool bval;
 
 	switch (cmd) {
 	case EAS_SYNC_SET:
@@ -354,65 +349,57 @@ static long eas_ioctl_impl(struct file *filp,
 		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
 			return -1;
 		break;
-	case CORE_CTL_FORCE_RESUME_CPU:
 	case CORE_CTL_FORCE_PAUSE_CPU:
-		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
-		if (sscanf(powerhal_str, "%u %u\n", &cpu, &is_pause) != 2)
-			return -1;
+
+		bval = !!msgKM.is_pause;
 #if IS_ENABLED(CONFIG_MTK_CORE_CTL)
-		ret = core_ctl_force_pause_cpu(cpu, is_pause);
+		ret = core_ctl_force_pause_cpu(msgKM.cpu, bval);
 #elif IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
-		if (is_pause)
-			ret = sched_pause_cpu(cpu);
+		if (bval)
+			ret = sched_pause_cpu(msgKM.cpu);
 		else
-			ret = sched_resume_cpu(cpu);
+			ret = sched_resume_cpu(msgKM.cpu);
 #else
 		return -1;
 #endif
 		break;
 #if IS_ENABLED(CONFIG_MTK_CORE_CTL)
 	case CORE_CTL_SET_OFFLINE_THROTTLE_MS:
-		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
-		if (sscanf(powerhal_str, "%u %u\n", &cid, &throttle_ms) != 2)
-			return -1;
-		ret = core_ctl_set_offline_throttle_ms(cid, throttle_ms);
+		ret = core_ctl_set_offline_throttle_ms(msgKM.cid, msgKM.throttle_ms);
 		break;
 	case CORE_CTL_SET_LIMIT_CPUS:
-		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
-		if (sscanf(powerhal_str, "%u %u %u\n", &cid, &min, &max) != 3)
-			return -1;
-		ret = core_ctl_set_limit_cpus(cid, min, max);
+		ret = core_ctl_set_limit_cpus(msgKM.cid, msgKM.min, msgKM.max);
 		break;
 	case CORE_CTL_SET_NOT_PREFERRED:
-		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
-		if (sscanf(powerhal_str, "%u %u %u\n", &cid, &cpu, &enable) != 3)
-			return -1;
-		ret = core_ctl_set_not_preferred(cid, cpu, enable);
+
+		ret = core_ctl_set_not_preferred(msgKM.not_preferred_cpus);
 		break;
 	case CORE_CTL_SET_BOOST:
-		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
-		if (sscanf(powerhal_str, "%u\n", &boost) != 1)
-			return -1;
-		ret = core_ctl_set_boost(boost);
+
+		bval = !!msgKM.boost;
+		ret = core_ctl_set_boost(bval);
 		break;
 	case CORE_CTL_SET_UP_THRES:
-		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
-		if (sscanf(powerhal_str, "%u %u\n", &cid, &thres) != 2)
-			return -1;
-		ret = core_ctl_set_up_thres(cid, thres);
+		ret = core_ctl_set_up_thres(msgKM.cid, msgKM.thres);
 		break;
 	case CORE_CTL_ENABLE_POLICY:
-		if (perfctl_copy_from_user(powerhal_str, ubuf, sizeof(char *)))
+		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
-		if (sscanf(powerhal_str, "%u\n", &enable) != 1)
-			return -1;
-		ret = core_ctl_enable_policy(enable);
+
+		bval = !!msgKM.enable_policy;
+		ret = core_ctl_enable_policy(bval);
 		break;
 #endif
 	default:

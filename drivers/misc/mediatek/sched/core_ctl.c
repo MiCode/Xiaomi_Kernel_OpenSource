@@ -285,12 +285,14 @@ void update_next_cluster_down_thres(unsigned int index,
 }
 
 static inline
-void set_not_preferred_locked(struct cluster_data *cluster, int cpu, bool enable)
+void set_not_preferred_locked(int cpu, bool enable)
 {
 	struct cpu_data *c;
+	struct cluster_data *cluster;
 	bool changed = false;
 
 	c = &per_cpu(cpu_state, cpu);
+	cluster = c->cluster;
 	if (enable) {
 		changed = !c->not_preferred;
 		c->not_preferred = 1;
@@ -456,29 +458,27 @@ int core_ctl_set_boost(bool boost)
 }
 EXPORT_SYMBOL(core_ctl_set_boost);
 
+#define	MAX_CPU_MASK	((1 << nr_cpu_ids) - 1)
 /*
  *  core_ctl_set_not_preferred - set not_prefer for the specific cpu number
- *  @cid: cluster id
- *  @cpu: cpu number
- *  @enable: true if set, false if unset.
+ *  @not_preferred_cpus: Stand for cpu bitmap, 1 if set, 0 if unset.
  *
  *  return 0 if success, else return errno
  */
-int core_ctl_set_not_preferred(int cid, int cpu, bool enable)
+int core_ctl_set_not_preferred(unsigned int not_preferred_cpus)
 {
-	struct cluster_data *cluster;
 	unsigned long flags;
+	int i;
+	bool bval;
 
-	if (cid >= num_clusters)
-		return -EINVAL;
-
-	cluster = &cluster_state[cid];
-
-	if (!cpumask_test_cpu(cpu, &cluster->cpu_mask))
+	if (not_preferred_cpus > MAX_CPU_MASK)
 		return -EINVAL;
 
 	spin_lock_irqsave(&state_lock, flags);
-	set_not_preferred_locked(cluster, cpu, enable);
+	for (i = 0; i < nr_cpu_ids; i++) {
+		bval = !!(not_preferred_cpus & (1 << i));
+		set_not_preferred_locked(i, bval);
+	}
 	spin_unlock_irqrestore(&state_lock, flags);
 	return 0;
 }
@@ -667,7 +667,7 @@ static ssize_t store_not_preferred(struct cluster_data *state,
 
 	spin_lock_irqsave(&state_lock, flags);
 	for (i = 0; i < state->num_cpus; i++)
-		set_not_preferred_locked(state, i + state->first_cpu, val[i]);
+		set_not_preferred_locked(i + state->first_cpu, val[i]);
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	return count;
