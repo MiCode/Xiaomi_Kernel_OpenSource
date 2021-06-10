@@ -752,6 +752,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		/* DYNAMIC_MARGIN_MODE_PERF */
 
 		int t_gpu_target_hd;/* apply headroom target */
+		int temp;
 
 		if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_PERF)
 			t_gpu_target_hd = t_gpu_target *
@@ -760,10 +761,10 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 			t_gpu_target_hd = t_gpu_target;
 
 		if (t_gpu > t_gpu_target_hd) { /* must set to max. margin */
-			int temp;
-
+			t_gpu_target_hd = (t_gpu_target_hd != 0) ?
+				t_gpu_target_hd : 1;
 			temp = (gx_fb_dvfs_margin*(t_gpu-t_gpu_target_hd))
-				/t_gpu_target_hd;
+			 	/ t_gpu_target_hd;
 
 			if (temp < dvfs_min_margin_inc_step*10)
 				temp = dvfs_min_margin_inc_step*10;
@@ -804,12 +805,16 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 					margin_low_bound =
 					dvfs_margin_low_bound*10;
 			}
+			t_gpu_target_hd = (t_gpu_target_hd != 0) ?
+				t_gpu_target_hd : 1;
 
-		gx_fb_dvfs_margin -=
-		((gx_fb_dvfs_margin*(t_gpu_target_hd-t_gpu))/t_gpu_target_hd);
+			temp = (gx_fb_dvfs_margin*(t_gpu_target_hd-t_gpu))
+				/ t_gpu_target_hd;
 
-		if (gx_fb_dvfs_margin < margin_low_bound)
-			gx_fb_dvfs_margin = margin_low_bound;
+			gx_fb_dvfs_margin -= temp;
+
+			if (gx_fb_dvfs_margin < margin_low_bound)
+				gx_fb_dvfs_margin = margin_low_bound;
 		}
 	}
 
@@ -830,8 +835,10 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		gpu_busy_cycle = (gpu_busy_cycle > busy_cycle_cur) ?
 			gpu_busy_cycle : busy_cycle_cur;
 	}
-
-	gpu_freq_tar = (gpu_busy_cycle / t_gpu_target);
+	if (t_gpu_target != 0)
+		gpu_freq_tar = (gpu_busy_cycle / t_gpu_target);
+	else
+		gpu_freq_tar = gpu_freq_pre;
 
 	if (gpu_freq_tar * 100
 		< GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT * gpu_freq_pre) {
