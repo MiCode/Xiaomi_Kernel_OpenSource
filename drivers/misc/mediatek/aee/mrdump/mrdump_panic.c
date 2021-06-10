@@ -362,7 +362,6 @@ static int __init mrdump_panic_init(void)
 		return -ENOMEM;
 	} else {
 		memset(kinfo_vaddr, 0, sizeof(struct kernel_all_info));
-		smp_wmb();
 		rmem->priv = kinfo_vaddr;
 		pr_info("[mrdump] rmem->priv = %px\n", rmem->priv);
 	}

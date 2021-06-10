@@ -147,8 +147,10 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 	machdesc_p = &mrdump_cblock->machdesc;
 	machdesc_p->nr_cpus = nr_cpu_ids;
 	machdesc_p->page_offset = (uint64_t)PAGE_OFFSET;
+#if defined(KIMAGE_VADDR)
+	machdesc_p->kimage_vaddr = KIMAGE_VADDR;
+#endif
 #if defined(CONFIG_ARM64)
-	machdesc_p->kimage_vaddr = kimage_vaddr;
 	machdesc_p->kimage_voffset = (unsigned long)kimage_voffset;
 #endif
 
