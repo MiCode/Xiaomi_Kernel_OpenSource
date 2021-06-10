@@ -289,6 +289,8 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	if (ret < 0)
 		pr_notice("irq %d enable irq wake fail\n", keypad->irqnr);
 
+	platform_set_drvdata(pdev,keypad);
+
 	return 0;
 
 err_irq:
