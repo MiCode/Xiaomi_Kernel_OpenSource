@@ -11,6 +11,8 @@ ifeq ($(CONFIG_MACH_MT6833),y)
 CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6833"
 else ifeq ($(CONFIG_MACH_MT6893),y)
 CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6893"
+else ifeq ($(CONFIG_MACH_MT6781),y)
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6781"
 else
 CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MTK_PLATFORM)
 endif
@@ -43,6 +45,11 @@ ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
 ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 
+# Enabel by specific platform
+ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DGED_ENABLE_DVFS_LOADING_MODE
+endif
+
 ifeq ($(CONFIG_MTK_IOMMU_V2),y)
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/drivers/iommu
@@ -51,6 +58,8 @@ ifeq ($(CONFIG_MACH_MT6833),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include
 else ifeq ($(CONFIG_MACH_MT6893),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6893/include
+else ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6781/include
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 endif
