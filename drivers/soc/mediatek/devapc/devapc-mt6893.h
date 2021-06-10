@@ -3,8 +3,8 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
-#ifndef __DEVAPC_MT6885_H__
-#define __DEVAPC_MT6885_H__
+#ifndef __DEVAPC_MT6893_H__
+#define __DEVAPC_MT6893_H__
 
 /******************************************************************************
  * VARIABLE DEFINITION
@@ -245,4 +245,4 @@ struct INFRAAXI_ID_INFO {
 
 #define SRAM_START_ADDR				(0x100000)
 
-#endif /* __DEVAPC_MT6885_H__ */
+#endif /* __DEVAPC_MT6893_H__ */

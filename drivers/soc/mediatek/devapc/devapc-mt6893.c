@@ -9,10 +9,10 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 
-#include "devapc-mt6885.h"
+#include "devapc-mt6893.h"
 #include "devapc-mtk-multi-ao.h"
 
-static const struct mtk_device_info mt6885_devices_infra[] = {
+static const struct mtk_device_info mt6893_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
 	/* 0 */
 	{0, 0, 0, "MFG_S_S", true},
@@ -526,7 +526,7 @@ static const struct mtk_device_info mt6885_devices_infra[] = {
 	{-1, -1, 424, "DEVICE_APC_INFRA_PDN", false},
 };
 
-static const struct mtk_device_info mt6885_devices_peri[] = {
+static const struct mtk_device_info mt6893_devices_peri[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
 	/* 0 */
 	{0, 0, 0, "SPM_APB_S", true},
@@ -965,7 +965,7 @@ static const struct mtk_device_info mt6885_devices_peri[] = {
 	{-1, -1, 202, "RESERVED", false},
 };
 
-static const struct mtk_device_info mt6885_devices_peri2[] = {
+static const struct mtk_device_info mt6893_devices_peri2[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
 	/* 0 */
 	{0, 0, 0, "EFUSE_DEBUG_AO_APB_S", true},
@@ -1291,7 +1291,7 @@ static const struct mtk_device_info mt6885_devices_peri2[] = {
 	{-1, -1, 111, "RESERVED", false},
 };
 
-static const struct mtk_device_num mtk6885_devices_num[] = {
+static const struct mtk_device_num mtk6893_devices_num[] = {
 	{SLAVE_TYPE_INFRA, VIO_SLAVE_NUM_INFRA},
 	{SLAVE_TYPE_PERI, VIO_SLAVE_NUM_PERI},
 	{SLAVE_TYPE_PERI2, VIO_SLAVE_NUM_PERI2},
@@ -1412,7 +1412,7 @@ static const char *peri_mi_trans(uint32_t bus_id)
 	return master;
 }
 
-static const char *mt6885_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
+static const char *mt6893_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit, int domain)
 {
 	uint16_t h_2byte;
@@ -1590,8 +1590,8 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 		}
 
 		for (i = 0; i < VIO_SLAVE_NUM_INFRA; i++) {
-			if (vio_index == mt6885_devices_infra[i].vio_index)
-				return mt6885_devices_infra[i].device;
+			if (vio_index == mt6893_devices_infra[i].vio_index)
+				return mt6893_devices_infra[i].device;
 		}
 
 	} else if (slave_type == SLAVE_TYPE_PERI &&
@@ -1610,8 +1610,8 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 		}
 
 		for (i = 0; i < VIO_SLAVE_NUM_PERI; i++) {
-			if (vio_index == mt6885_devices_peri[i].vio_index)
-				return mt6885_devices_peri[i].device;
+			if (vio_index == mt6893_devices_peri[i].vio_index)
+				return mt6893_devices_peri[i].device;
 		}
 
 	} else if (slave_type == SLAVE_TYPE_PERI2 &&
@@ -1624,8 +1624,8 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 			return "GCE";
 
 		for (i = 0; i < VIO_SLAVE_NUM_PERI2; i++) {
-			if (vio_index == mt6885_devices_peri2[i].vio_index)
-				return mt6885_devices_peri2[i].device;
+			if (vio_index == mt6893_devices_peri2[i].vio_index)
+				return mt6893_devices_peri2[i].device;
 		}
 	}
 
@@ -1705,7 +1705,7 @@ static void mm2nd_vio_handler(void __iomem *infracfg,
 	vio_info->write = (rw == 1);
 }
 
-static uint32_t mt6885_shift_group_get(int slave_type, uint32_t vio_idx)
+static uint32_t mt6893_shift_group_get(int slave_type, uint32_t vio_idx)
 {
 	if (slave_type == SLAVE_TYPE_INFRA) {
 		if ((vio_idx >= 0 && vio_idx <= 8) || vio_idx == 412)
@@ -1857,7 +1857,7 @@ void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
 	}
 }
 
-static struct mtk_devapc_dbg_status mt6885_devapc_dbg_stat = {
+static struct mtk_devapc_dbg_status mt6893_devapc_dbg_stat = {
 	.enable_ut = PLAT_DBG_UT_DEFAULT,
 	.enable_KE = PLAT_DBG_KE_DEFAULT,
 	.enable_AEE = PLAT_DBG_AEE_DEFAULT,
@@ -1878,7 +1878,7 @@ static int mtk_vio_mask_sta_num[] = {
 	VIO_MASK_STA_NUM_PERI2,
 };
 
-static struct mtk_devapc_vio_info mt6885_devapc_vio_info = {
+static struct mtk_devapc_vio_info mt6893_devapc_vio_info = {
 	.vio_mask_sta_num = mtk_vio_mask_sta_num,
 	.sramrom_vio_idx = SRAMROM_VIO_INDEX,
 	.mdp_vio_idx = MDP_VIO_INDEX,
@@ -1888,7 +1888,7 @@ static struct mtk_devapc_vio_info mt6885_devapc_vio_info = {
 	.mm2nd_slv_type = MM2ND_SLAVE_TYPE,
 };
 
-static const struct mtk_infra_vio_dbg_desc mt6885_vio_dbgs = {
+static const struct mtk_infra_vio_dbg_desc mt6893_vio_dbgs = {
 	.vio_dbg_mstid = INFRA_VIO_DBG_MSTID,
 	.vio_dbg_mstid_start_bit = INFRA_VIO_DBG_MSTID_START_BIT,
 	.vio_dbg_dmnid = INFRA_VIO_DBG_DMNID,
@@ -1901,7 +1901,7 @@ static const struct mtk_infra_vio_dbg_desc mt6885_vio_dbgs = {
 	.vio_addr_high_start_bit = INFRA_VIO_ADDR_HIGH_START_BIT,
 };
 
-static const struct mtk_sramrom_sec_vio_desc mt6885_sramrom_sec_vios = {
+static const struct mtk_sramrom_sec_vio_desc mt6893_sramrom_sec_vios = {
 	.vio_id_mask = SRAMROM_SEC_VIO_ID_MASK,
 	.vio_id_shift = SRAMROM_SEC_VIO_ID_SHIFT,
 	.vio_domain_mask = SRAMROM_SEC_VIO_DOMAIN_MASK,
@@ -1910,7 +1910,7 @@ static const struct mtk_sramrom_sec_vio_desc mt6885_sramrom_sec_vios = {
 	.vio_rw_shift = SRAMROM_SEC_VIO_RW_SHIFT,
 };
 
-static const uint32_t mt6885_devapc_pds[] = {
+static const uint32_t mt6893_devapc_pds[] = {
 	PD_VIO_MASK_OFFSET,
 	PD_VIO_STA_OFFSET,
 	PD_VIO_DBG0_OFFSET,
@@ -1923,50 +1923,50 @@ static const uint32_t mt6885_devapc_pds[] = {
 	PD_VIO_DBG3_OFFSET,
 };
 
-static struct mtk_devapc_soc mt6885_data = {
-	.dbg_stat = &mt6885_devapc_dbg_stat,
+static struct mtk_devapc_soc mt6893_data = {
+	.dbg_stat = &mt6893_devapc_dbg_stat,
 	.slave_type_arr = slave_type_to_str,
 	.slave_type_num = SLAVE_TYPE_NUM,
-	.device_info[SLAVE_TYPE_INFRA] = mt6885_devices_infra,
-	.device_info[SLAVE_TYPE_PERI] = mt6885_devices_peri,
-	.device_info[SLAVE_TYPE_PERI2] = mt6885_devices_peri2,
-	.ndevices = mtk6885_devices_num,
-	.vio_info = &mt6885_devapc_vio_info,
-	.vio_dbgs = &mt6885_vio_dbgs,
-	.sramrom_sec_vios = &mt6885_sramrom_sec_vios,
-	.devapc_pds = mt6885_devapc_pds,
+	.device_info[SLAVE_TYPE_INFRA] = mt6893_devices_infra,
+	.device_info[SLAVE_TYPE_PERI] = mt6893_devices_peri,
+	.device_info[SLAVE_TYPE_PERI2] = mt6893_devices_peri2,
+	.ndevices = mtk6893_devices_num,
+	.vio_info = &mt6893_devapc_vio_info,
+	.vio_dbgs = &mt6893_vio_dbgs,
+	.sramrom_sec_vios = &mt6893_sramrom_sec_vios,
+	.devapc_pds = mt6893_devapc_pds,
 	.subsys_get = &index_to_subsys,
-	.master_get = &mt6885_bus_id_to_master,
+	.master_get = &mt6893_bus_id_to_master,
 	.mm2nd_vio_handler = &mm2nd_vio_handler,
-	.shift_group_get = mt6885_shift_group_get,
+	.shift_group_get = mt6893_shift_group_get,
 };
 
-static const struct of_device_id mt6885_devapc_dt_match[] = {
-	{ .compatible = "mediatek,mt6885-devapc" },
+static const struct of_device_id mt6893_devapc_dt_match[] = {
+	{ .compatible = "mediatek,mt6893-devapc" },
 	{},
 };
 
-static int mt6885_devapc_probe(struct platform_device *pdev)
+static int mt6893_devapc_probe(struct platform_device *pdev)
 {
-	return mtk_devapc_probe(pdev, &mt6885_data);
+	return mtk_devapc_probe(pdev, &mt6893_data);
 }
 
-static int mt6885_devapc_remove(struct platform_device *dev)
+static int mt6893_devapc_remove(struct platform_device *dev)
 {
 	return mtk_devapc_remove(dev);
 }
 
-static struct platform_driver mt6885_devapc_driver = {
-	.probe = mt6885_devapc_probe,
-	.remove = mt6885_devapc_remove,
+static struct platform_driver mt6893_devapc_driver = {
+	.probe = mt6893_devapc_probe,
+	.remove = mt6893_devapc_remove,
 	.driver = {
 		.name = KBUILD_MODNAME,
-		.of_match_table = mt6885_devapc_dt_match,
+		.of_match_table = mt6893_devapc_dt_match,
 	},
 };
 
-module_platform_driver(mt6885_devapc_driver);
+module_platform_driver(mt6893_devapc_driver);
 
-MODULE_DESCRIPTION("Mediatek MT6885 Device APC Driver");
+MODULE_DESCRIPTION("Mediatek MT6893 Device APC Driver");
 MODULE_AUTHOR("Neal Liu <neal.liu@mediatek.com>");
 MODULE_LICENSE("GPL");
