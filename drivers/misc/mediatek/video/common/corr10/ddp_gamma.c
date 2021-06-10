@@ -1305,6 +1305,7 @@ static int ccorr_parse_coef(const char *cmd, enum DISP_MODULE_ENUM module,
 
 	for (i = 0; i < 3; i++) {
 		for (j = 0; j < 3; j++) {
+			temp = 0;
 			end = ddp_simple_strtoul(next,
 				(unsigned long *)(&temp));
 			next += end;
