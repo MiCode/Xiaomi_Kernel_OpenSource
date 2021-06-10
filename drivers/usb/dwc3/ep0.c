@@ -1164,7 +1164,14 @@ void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
 		dev_dbg(dwc->dev, "%s: send ep cmd ENDTRANSFER failed",
 			dep->name);
 		dbg_event(dep->number, "EENDXFER", ret);
+
+		/* Skip clearing DWC3_EP_TRANSFER_STARTED
+		 * if ENDTRANSFER cmd failed.
+		 */
+		goto out;
 	}
+	dep->flags &= ~DWC3_EP_TRANSFER_STARTED;
+out:
 	dep->resource_index = 0;
 }
 

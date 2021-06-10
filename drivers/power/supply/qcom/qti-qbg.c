@@ -81,6 +81,11 @@
 #define TBAT_LSB					7500
 #define TBAT_DENOMINATOR				115600
 
+#define BOOST_COMPENSATION_UV				400000
+#define OCV_BOOST_MIN_UV				4100000
+#define OCV_BOOST_MAX_UV				5600000
+#define OCV_BOOST_STEP_UV				100000
+
 enum qbg_data_tag {
 	QBG_DATA_TAG_FAST_CHAR,
 };
@@ -210,7 +215,7 @@ static int qbg_get_fifo_count(struct qti_qbg *chip, u32 *fifo_count)
 	u8 val[2];
 
 	rc = qbg_sdam_read(chip,
-		QBG_SDAM_DATA_START_OFFSET(SDAM_CTRL0) + QBG_SDAM_FIFO_COUNT_OFFSET,
+		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_FIFO_COUNT_OFFSET,
 		val, 2);
 	if (rc < 0) {
 		pr_err("Failed to read QBG SDAM, rc=%d\n", rc);
@@ -221,6 +226,30 @@ static int qbg_get_fifo_count(struct qti_qbg *chip, u32 *fifo_count)
 	qbg_dbg(chip, QBG_DEBUG_FIFO, "FIFO count=%d\n", *fifo_count);
 
 	return rc;
+}
+
+static void update_ocv_for_boost(struct qti_qbg *chip)
+{
+	int ocv_for_boost = 0x00;
+
+	/*
+	 * Every time when OCV gets updated, add 0.4V headroom compensation
+	 * and round it to a value between 4.1V to 5.6V, then map it to a
+	 * setting between [0x00 - 0x0F] and set it in SDAM to notify charger-boost.
+	 */
+	ocv_for_boost = chip->ocv_uv + BOOST_COMPENSATION_UV;
+	if (ocv_for_boost < OCV_BOOST_MIN_UV)
+		ocv_for_boost = OCV_BOOST_MIN_UV;
+	else if (ocv_for_boost > OCV_BOOST_MAX_UV)
+		ocv_for_boost = OCV_BOOST_MAX_UV;
+
+	ocv_for_boost -= OCV_BOOST_MIN_UV;
+	ocv_for_boost /= OCV_BOOST_STEP_UV;
+
+	qbg_dbg(chip, QBG_DEBUG_STATUS, "Boost OCV value written =%d\n", ocv_for_boost);
+	qbg_sdam_write(chip,
+		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_BHARGER_OCV_HDRM_OFFSET,
+		(u8 *)&ocv_for_boost, 1);
 }
 
 static void process_udata_work(struct work_struct *work)
@@ -252,8 +281,10 @@ static void process_udata_work(struct work_struct *work)
 			power_supply_changed(chip->qbg_psy);
 	}
 
-	if (chip->udata.param[QBG_PARAM_OCV_UV].valid)
+	if (chip->udata.param[QBG_PARAM_OCV_UV].valid) {
 		chip->ocv_uv = chip->udata.param[QBG_PARAM_OCV_UV].data;
+		update_ocv_for_boost(chip);
+	}
 
 	if (chip->udata.param[QBG_PARAM_CHARGE_CYCLE_COUNT].valid)
 		chip->charge_cycle_count =
@@ -310,7 +341,6 @@ static int qbg_decode_fifo_data(struct fifo_data fifo, unsigned int *vbat1,
 static int get_rtc_time(struct qti_qbg *chip, unsigned long *rtc_time)
 {
 	struct rtc_time tm;
-	struct rtc_device *rtc;
 	int rc;
 
 	if (!chip->rtc) {
@@ -447,7 +477,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 	u8 val[2] = {0, 0};
 
 	rc = qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(SDAM_CTRL0) + QBG_SDAM_FIFO_COUNT_OFFSET,
+		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_FIFO_COUNT_OFFSET,
 		val, 2);
 	if (rc < 0) {
 		pr_err("Failed to clear QBG FIFO Count, rc=%d\n", rc);
@@ -457,7 +487,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 	for (i = 0; i < 10; i++) {
 		val[0] = 0;
 		rc = qbg_sdam_write(chip,
-			QBG_SDAM_DATA_START_OFFSET(SDAM_CTRL0) + QBG_SDAM_INT_TEST_VAL,
+			QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST_VAL,
 			val, 1);
 		if (rc < 0) {
 			pr_err("Failed to SDAM0 test val to 0, rc=%d\n", rc);
@@ -466,7 +496,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 
 		/* Handshake with PBS to access FIFO data */
 		rc = qbg_sdam_read(chip,
-			QBG_SDAM_DATA_START_OFFSET(SDAM_CTRL0) + QBG_SDAM_INT_TEST_VAL,
+			QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST_VAL,
 			val, 1);
 		if (rc < 0) {
 			pr_err("Failed to read QBG SDAM, rc=%d\n", rc);
@@ -482,7 +512,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 	val[0] = QBG_SDAM_START_OFFSET;
 	val[1] = 0x0;
 	rc = qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(SDAM_DATA0) + QBG_SDAM_DATA_PUSH_COUNTER_OFFSET,
+		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_DATA0) + QBG_SDAM_DATA_PUSH_COUNTER_OFFSET,
 		val, 2);
 	if (rc < 0) {
 		pr_err("Failed to configure QBG data push counter, rc=%d\n", rc);
@@ -490,7 +520,7 @@ static int qbg_clear_fifo_data(struct qti_qbg *chip)
 	}
 	val[0] = 0x0;
 	rc = qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(SDAM_CTRL0) + QBG_SDAM_PBS_STATUS_OFFSET,
+		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_PBS_STATUS_OFFSET,
 		val, 1);
 	if (rc < 0) {
 		pr_err("Failed to set QBG PBS status, rc=%d\n", rc);
@@ -507,7 +537,7 @@ static int qbg_init_sdam(struct qti_qbg *chip)
 
 	val[0] = 0x80;
 	rc = qbg_sdam_write(chip,
-		QBG_SDAM_DATA_START_OFFSET(SDAM_CTRL0) + QBG_SDAM_INT_TEST1, val, 1);
+		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) + QBG_SDAM_INT_TEST1, val, 1);
 	if (rc < 0) {
 		pr_err("Failed to write QBG SDAM, rc=%d\n", rc);
 		return rc;
@@ -515,7 +545,7 @@ static int qbg_init_sdam(struct qti_qbg *chip)
 
 	val[0] = 0;
 	rc = qbg_sdam_read(chip,
-		QBG_SDAM_DATA_START_OFFSET(SDAM_CTRL0) +  QBG_SDAM_INT_TEST_VAL,
+		QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) +  QBG_SDAM_INT_TEST_VAL,
 		val, 1);
 	if (rc < 0) {
 		pr_err("Faiiled to read QBG SDAM, rc=%d\n", rc);
@@ -881,6 +911,7 @@ static int get_batt_id_ohm(struct qti_qbg *chip, u32 *batt_id_ohm)
 static int qbg_setup_battery(struct qti_qbg *chip)
 {
 	int rc = 0;
+	u8 ocv_boost_val = 0x02;
 
 	chip->profile_loaded = false;
 
@@ -898,6 +929,13 @@ static int qbg_setup_battery(struct qti_qbg *chip)
 				pr_err("Failed to load battery-profile, rc=%d\n", rc);
 			else
 				chip->profile_loaded = true;
+		}
+
+		/* Update OCV boost headroom compensation value to 4.3V in debug battery case */
+		if (is_debug_batt_id(chip)) {
+			rc = qbg_sdam_write(chip,
+				QBG_SDAM_DATA_START_OFFSET(chip, SDAM_CTRL0) +
+				QBG_SDAM_BHARGER_OCV_HDRM_OFFSET, &ocv_boost_val, 1);
 		}
 	}
 
@@ -936,7 +974,7 @@ static int qbg_get_pon_reading(struct qti_qbg *chip, unsigned int *ocv,
 
 static int qbg_determine_pon_soc(struct qti_qbg *chip)
 {
-	int rc;
+	int rc, batt_temp;
 	union power_supply_propval prop = {0, };
 	unsigned long rtc_sec, time_diff = 0;
 	unsigned int pon_ocv;
@@ -1517,7 +1555,7 @@ static int qbg_parse_sdam_dt(struct qti_qbg *chip, struct device_node *node)
 static int qbg_parse_dt(struct qti_qbg *chip)
 {
 	struct device_node *node = chip->dev->of_node;
-	int rc = 0, i;
+	int rc = 0;
 	u32 val;
 
 	rc = qbg_parse_sdam_dt(chip, node);

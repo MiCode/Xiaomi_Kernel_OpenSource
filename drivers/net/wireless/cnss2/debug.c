@@ -182,7 +182,7 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 	cnss_pr_dbg("Received dev_boot debug command: %s\n", cmd);
 
 	if (sysfs_streq(cmd, "on")) {
-		ret = cnss_power_on_device(plat_priv);
+		ret = cnss_power_on_device(plat_priv, false);
 	} else if (sysfs_streq(cmd, "off")) {
 		cnss_power_off_device(plat_priv);
 	} else if (sysfs_streq(cmd, "enumerate")) {

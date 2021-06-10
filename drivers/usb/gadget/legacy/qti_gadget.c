@@ -9,6 +9,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/kernel.h>
+#include <linux/usb/dwc3-msm.h>
 
 struct qti_usb_function {
 	struct usb_function_instance *fi;
@@ -322,6 +323,16 @@ static int qti_usb_func_alloc(struct qti_usb_config *qcfg,
 		memcpy(cdev->qw_sign, qw_sign, QW_SIGN_LEN);
 	}
 
+#if IS_ENABLED(CONFIG_USB_F_GSI)
+	struct qti_usb_gadget *qg;
+
+	if (!strcmp(instance_name, "rmnet")) {
+		qg = container_of(cdev, struct qti_usb_gadget, cdev);
+		rmnet_gsi_update_in_buffer_mem_type(f,
+			of_property_read_bool(qg->cfg_node,
+				"qcom,rmnet_in_use_tcm_mem"));
+	}
+#endif
 	return 0;
 }
 

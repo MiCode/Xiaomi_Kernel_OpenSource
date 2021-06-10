@@ -52,6 +52,10 @@
 #define BCL_VBAT_MAX_MV       3600
 #define BCL_VBAT_THRESH_BASE  2250
 
+#define BCL_IBAT_CCM_OFFSET   800
+#define BCL_IBAT_CCM_LSB      100
+#define BCL_IBAT_CCM_MAX_VAL  14
+
 #define MAX_PERPH_COUNT       2
 #define IPC_LOGPAGES          2
 
@@ -106,6 +110,7 @@ struct bcl_device {
 	struct regmap			*regmap;
 	uint16_t			fg_bcl_addr;
 	void				*ipc_log;
+	bool				ibat_ccm_enabled;
 	struct bcl_peripheral_data	param[BCL_TYPE_MAX];
 };
 
@@ -201,6 +206,22 @@ static void convert_adc_to_ibat_val(int *val)
 		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 1000);
 }
 
+static int8_t convert_ibat_to_ccm_val(int ibat)
+{
+	int8_t val = BCL_IBAT_CCM_MAX_VAL;
+
+	val = (int8_t)((ibat - BCL_IBAT_CCM_OFFSET) / BCL_IBAT_CCM_LSB);
+
+	if (val > BCL_IBAT_CCM_MAX_VAL) {
+		pr_err(
+		"CCM thresh:%d is invalid, use MAX supported threshold\n",
+			ibat);
+		val = BCL_IBAT_CCM_MAX_VAL;
+	}
+
+	return val;
+}
+
 static int bcl_set_ibat(void *data, int low, int high)
 {
 	int ret = 0, ibat_ua, thresh_value;
@@ -234,6 +255,8 @@ static int bcl_set_ibat(void *data, int low, int high)
 		break;
 	case BCL_IBAT_LVL1:
 		addr = BCL_IBAT_TOO_HIGH;
+		if (bat_data->dev->ibat_ccm_enabled)
+			val = convert_ibat_to_ccm_val(ibat_ua);
 		pr_debug("ibat too high threshold:%d mA ADC:0x%02x\n",
 				ibat_ua, val);
 		break;
@@ -508,6 +531,8 @@ static int bcl_get_devicetree_data(struct platform_device *pdev,
 				"qcom,ibat-use-qg-adc-5a");
 	no_bit_shift =  of_property_read_bool(dev_node,
 				"qcom,pmic7-threshold");
+	bcl_perph->ibat_ccm_enabled =  of_property_read_bool(dev_node,
+						"qcom,ibat-ccm-hw-support");
 
 	return ret;
 }

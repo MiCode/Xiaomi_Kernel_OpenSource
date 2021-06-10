@@ -9,6 +9,8 @@
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/types.h>
@@ -22,6 +24,12 @@
 #define MAGIC_KEY1		0xA1157A75
 #define MAX_NUM_MODES		0x14
 #define MSM_ARCH_TIMER_FREQ	19200000
+#define MAX_DRV			18
+#define MAX_MSG_LEN		35
+#define DRV_ABSENT		0xdeaddead
+#define DRV_INVALID		0xffffdead
+#define VOTE_MASK		0x3fff
+#define VOTE_X_SHIFT		14
 
 #define GET_PDATA_OF_ATTR(attr) \
 	(container_of(attr, struct ddr_stats_kobj_attr, ka)->pd)
@@ -41,7 +49,10 @@ struct ddr_stats_platform_data {
 	void __iomem *reg;
 	int freq_count;
 	int entry_count;
+	bool read_ddr_vote;
 	struct mutex ddr_stats_lock;
+	struct mbox_client stats_mbox_cl;
+	struct mbox_chan *stats_mbox_ch;
 };
 
 struct stats_entry {
@@ -199,6 +210,64 @@ int ddr_stats_get_residency(int freq_count, struct ddr_freq_residency *data)
 }
 EXPORT_SYMBOL(ddr_stats_get_residency);
 
+int ddr_stats_get_ss_count(void)
+{
+	return ddr_pdata->read_ddr_vote ? MAX_DRV : -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(ddr_stats_get_ss_count);
+
+int ddr_stats_get_ss_vote_info(int ss_count,
+			       struct ddr_stats_ss_vote_info *vote_info)
+{
+	char buf[MAX_MSG_LEN] = {};
+	struct qmp_pkt pkt;
+	void __iomem *reg;
+	u32 vote_offset, val[MAX_DRV];
+	int ret, i;
+
+	if (!ddr_pdata->read_ddr_vote)
+		return -EOPNOTSUPP;
+
+	if (!vote_info || !(ss_count == MAX_DRV) || !ddr_pdata)
+		return -ENODEV;
+
+	mutex_lock(&ddr_pdata->ddr_stats_lock);
+	ret = scnprintf(buf, MAX_MSG_LEN, "{class: ddr, res: drvs_ddr_votes}");
+	pkt.size = (ret + 0x3) & ~0x3;
+	pkt.data = buf;
+
+	ret = mbox_send_message(ddr_pdata->stats_mbox_ch, &pkt);
+	if (ret < 0) {
+		pr_err("Error sending mbox message: %d\n", ret);
+		mutex_unlock(&ddr_pdata->ddr_stats_lock);
+		return ret;
+	}
+
+	vote_offset = sizeof(u32) + sizeof(u32) +
+			(ddr_pdata->entry_count * sizeof(struct stats_entry));
+	reg = ddr_pdata->reg;
+
+	for (i = 0; i < ss_count; i++, reg += sizeof(u32)) {
+		val[i] = readl_relaxed(reg + vote_offset);
+		if (val[i] == DRV_ABSENT) {
+			vote_info[i].ab = DRV_ABSENT;
+			vote_info[i].ib = DRV_ABSENT;
+			continue;
+		} else if (val[i] == DRV_INVALID) {
+			vote_info[i].ab = DRV_INVALID;
+			vote_info[i].ib = DRV_INVALID;
+			continue;
+		}
+
+		vote_info[i].ab = (val[i] >> VOTE_X_SHIFT) & VOTE_MASK;
+		vote_info[i].ib = val[i] & VOTE_MASK;
+	}
+
+	mutex_unlock(&ddr_pdata->ddr_stats_lock);
+	return 0;
+}
+EXPORT_SYMBOL(ddr_stats_get_ss_vote_info);
+
 static ssize_t ddr_stats_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
@@ -312,6 +381,16 @@ static int ddr_stats_probe(struct platform_device *pdev)
 		reg += sizeof(struct stats_entry);
 	}
 
+	ddr_pdata->stats_mbox_cl.dev = &pdev->dev;
+	ddr_pdata->stats_mbox_cl.tx_block = true;
+	ddr_pdata->stats_mbox_cl.tx_tout = 1000;
+	ddr_pdata->stats_mbox_cl.knows_txdone = false;
+
+	ddr_pdata->read_ddr_vote = true;
+	ddr_pdata->stats_mbox_ch = mbox_request_channel(&ddr_pdata->stats_mbox_cl, 0);
+	if (IS_ERR(ddr_pdata->stats_mbox_ch))
+		ddr_pdata->read_ddr_vote = false;
+
 	return ddr_stats_create_sysfs(pdev, ddr_pdata);
 }
 
@@ -321,6 +400,9 @@ static int ddr_stats_remove(struct platform_device *pdev)
 
 	ddr_stats_ka = (struct ddr_stats_kobj_attr *)
 			platform_get_drvdata(pdev);
+
+	if (ddr_pdata->read_ddr_vote)
+		mbox_free_channel(ddr_stats_ka->pd->stats_mbox_ch);
 
 	sysfs_remove_file(ddr_stats_ka->kobj, &ddr_stats_ka->ka.attr);
 	kobject_put(ddr_stats_ka->kobj);

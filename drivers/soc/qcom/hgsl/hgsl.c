@@ -26,11 +26,11 @@
 #include <linux/regmap.h>
 #include <linux/uaccess.h>
 #include <uapi/linux/hgsl.h>
-
+#include <linux/delay.h>
 #include "hgsl.h"
 #include "hgsl_tcsr.h"
 
-#define HGSL_DEVICE_NAME  "hgsl"
+#define HGSL_DEVICE_NAME "hgsl"
 #define HGSL_DEV_NUM 1
 
 /* Support upto 3 GVMs: 3 DBQs(Low/Medium/High priority) per GVM */
@@ -40,15 +40,15 @@
 #define IORESOURCE_GMUCX "hgsl_reg_gmucx"
 
 /* Set-up profiling packets as needed by scope */
-#define CMDBATCH_PROFILING  0x00000010
+#define CMDBATCH_PROFILING 0x00000010
 
 /* Ping the user of HFI when this command is done */
-#define CMDBATCH_NOTIFY     0x00000020
+#define CMDBATCH_NOTIFY    0x00000020
 
-#define CMDBATCH_EOF        0x00000100
+#define CMDBATCH_EOF       0x00000100
 
-/* timeout of waiting for free space of doorbell queue. */
-#define HGSL_IDLE_TIMEOUT msecs_to_jiffies(1000)
+/* Max retry count of waiting for free space of doorbell queue. */
+#define HGSL_QFREE_MAX_RETRY_COUNT     (500)
 #define GLB_DB_SRC_ISSUEIB_IRQ_ID_0    TCSR_SRC_IRQ_ID_0
 #define GLB_DB_SRC_ISSUEIB_IRQ_ID_1    TCSR_SRC_IRQ_ID_1
 #define GLB_DB_SRC_ISSUEIB_IRQ_ID_2    TCSR_SRC_IRQ_ID_2
@@ -76,77 +76,121 @@ struct db_buffer {
 #define QHDR_STATUS_INACTIVE 0x00
 #define QHDR_STATUS_ACTIVE 0x01
 
-/* Updated by HGSL */
-#define DBQ_WRITE_INDEX_IN_DWORD     0
+#define HGSL_CONTEXT_NUM                     (128)
+#define HGSL_SEND_MSG_MAX_RETRY_COUNT        (150)
 
-/* Updated by GMU */
-#define DBQ_READ_INDEX_IN_DWORD      1
+// Skip all commands from the bad context
+#define HGSL_FT_POLICY_FLAG_KILL             BIT(2)
 
-#define HGSL_DBQ_HFI_Q_INDEX_BASE_OFFSET_IN_DWORD  (1536 >> 2)
-#define HGSL_DBQ_CONTEXT_INFO_BASE_OFFSET_IN_DWORD (2048 >> 2)
+#define ALIGN_ADDRESS_4DWORD(addr)         (((addr)+15) & ((long long) ~15))
+#define ALIGN_DWORD_ADDRESS_4DWORD(dwaddr) (ALIGN_ADDRESS_4DWORD((dwaddr) * \
+				sizeof(uint32_t)) / sizeof(uint32_t))
 
-#define HGSL_CONTEXT_NUM                      128
+enum HGSL_DBQ_METADATA_COMMAND_INFO {
+	HGSL_DBQ_METADATA_CONTEXT_INFO,
+	HGSL_DBQ_METADATA_QUEUE_INDEX,
+	HGSL_DBQ_METADATA_COOPERATIVE_RESET,
+};
 
-/* Meta info for context */
-enum HGSL_DBQ_METADATA_INFO {
-	HGSL_DBQ_METADATA_CTXT_ID_IN_DWORD        = 0x0,
-	HGSL_DBQ_METADATA_TIMESTAMP_IN_DWORD      = 0x1,
-	HGSL_DBQ_METADATA_CTXT_DESTROY_IN_DWORD   = 0x2,
-	HGSL_DBQ_METADATA_TOTAL_ENTITY_NUM,
-	/* The context metadata size is 2K in DBQ,
-	 * so we can have maximum 4 dwords for each context
-	 */
-	HGSL_DBQ_METADATA_TOTAL_ENTITY_MAX        = 0x4
+#define HGSL_DBQ_CONTEXT_ANY                 (0x0)
+#define HGSL_DBQ_OFFSET_ZERO                 (0x0)
+
+#define HGSL_DBQ_WRITE_INDEX_OFFSET_IN_DWORD (0x0)
+#define HGSL_DBQ_READ_INDEX_OFFSET_IN_DWORD  (0x1)
+
+enum HGSL_DBQ_METADATA_COOPERATIVE_RESET_INFO {
+	HGSL_DBQ_HOST_TO_GVM_HARDRESET_REQ,
+	HGSL_DBQ_GVM_TO_HOST_HARDRESET_DISPATCH_IN_BUSY,
+};
+
+enum HGSL_DBQ_METADATA_CONTEXT_OFFSET_INFO {
+	HGSL_DBQ_CONTEXT_CONTEXT_ID_OFFSET_IN_DWORD,
+	HGSL_DBQ_CONTEXT_TIMESTAMP_OFFSET_IN_DWORD,
+	HGSL_DBQ_CONTEXT_DESTROY_OFFSET_IN_DWORD,
+	HGSL_DBQ_METADATA_CTXT_TOTAL_ENTITY_NUM,
 };
 
 /* DBQ structure
- *  |   IBs storage   |       reserved    |   w.idx/r.idx        |   ctxt.info|
- *  ---------------------------------------------------------------------------
- *  |     [0]         |        [1K]       |    [1.5K]            |     [2K]   |
- *  ---------------------------------------------------------------------------
+ *   IBs storage | reserved | w.idx/r.idx | ctxt.info | hard reset |
+ * 0             1K         1.5K          2K          3.5K         |
+ * |             |          |             |           |            |
  */
-static inline void dbq_set_qindex(uint32_t *va_base,
-					uint32_t offset,
-					uint32_t value)
-{
-	uint32_t *dest;
 
-	dest = va_base + HGSL_DBQ_HFI_Q_INDEX_BASE_OFFSET_IN_DWORD + offset;
-	*dest = value;
+#define HGSL_DBQ_HFI_Q_INDEX_BASE_OFFSET_IN_DWORD            (1536 >> 2)
+#define HGSL_DBQ_CONTEXT_INFO_BASE_OFFSET_IN_DWORD           (2048 >> 2)
+#define HGSL_DBQ_COOPERATIVE_RESET_INFO_BASE_OFFSET_IN_DWORD (3584 >> 2)
+
+
+static inline bool _timestamp_retired(struct hgsl_context *ctxt,
+				unsigned int timestamp);
+
+static inline void set_context_timestamp(struct hgsl_context *ctxt,
+				unsigned int ts);
+static void _signal_contexts(struct qcom_hgsl *hgsl);
+
+static int db_get_busy_state(void *dbq_base);
+static void db_set_busy_state(void *dbq_base, int in_busy);
+
+static uint32_t hgsl_dbq_get_state_info(uint32_t *va_base, uint32_t command,
+				uint32_t ctxt_id, uint32_t offset)
+{
+	uint32_t *dest = NULL;
+
+	switch (command) {
+	case HGSL_DBQ_METADATA_QUEUE_INDEX:
+		dest = (uint32_t *)(va_base +
+				HGSL_DBQ_HFI_Q_INDEX_BASE_OFFSET_IN_DWORD +
+				offset);
+		break;
+	case HGSL_DBQ_METADATA_CONTEXT_INFO:
+		dest = (uint32_t *)(va_base +
+				HGSL_DBQ_CONTEXT_INFO_BASE_OFFSET_IN_DWORD +
+				(HGSL_DBQ_METADATA_CTXT_TOTAL_ENTITY_NUM *
+				ctxt_id) + offset);
+		break;
+	case HGSL_DBQ_METADATA_COOPERATIVE_RESET:
+		dest = (uint32_t *)(va_base +
+		HGSL_DBQ_COOPERATIVE_RESET_INFO_BASE_OFFSET_IN_DWORD +
+				offset);
+		break;
+	default:
+		break;
+	}
+
+	return *dest;
 }
 
-static inline uint32_t dbq_get_qindex(uint32_t *va_base,
-					uint32_t offset)
+static void hgsl_dbq_set_state_info(uint32_t *va_base, uint32_t command,
+				uint32_t ctxt_id, uint32_t offset,
+				uint32_t value)
 {
-	uint32_t *dest;
-	uint32_t val;
+	uint32_t *dest = NULL;
 
-	dest = va_base + HGSL_DBQ_HFI_Q_INDEX_BASE_OFFSET_IN_DWORD + offset;
-
-	val = *dest;
-
-	/* ensure read is done before return */
-	rmb();
-	return val;
+	switch (command) {
+	case HGSL_DBQ_METADATA_QUEUE_INDEX:
+		dest = (uint32_t *)(va_base +
+				HGSL_DBQ_HFI_Q_INDEX_BASE_OFFSET_IN_DWORD +
+				(HGSL_DBQ_METADATA_CTXT_TOTAL_ENTITY_NUM *
+				ctxt_id) + offset);
+		*dest = value;
+		break;
+	case HGSL_DBQ_METADATA_CONTEXT_INFO:
+		dest = (uint32_t *)(va_base +
+				HGSL_DBQ_CONTEXT_INFO_BASE_OFFSET_IN_DWORD +
+				(HGSL_DBQ_METADATA_CTXT_TOTAL_ENTITY_NUM *
+				ctxt_id) + offset);
+		*dest = value;
+		break;
+	case HGSL_DBQ_METADATA_COOPERATIVE_RESET:
+		dest = (uint32_t *)(va_base +
+		HGSL_DBQ_COOPERATIVE_RESET_INFO_BASE_OFFSET_IN_DWORD +
+				offset);
+		*dest = value;
+		break;
+	default:
+		break;
+	}
 }
-
-static inline void dbq_update_ctxt_info(uint32_t *va_base,
-					uint32_t ctxt_id,
-					uint32_t offset,
-					uint32_t value)
-{
-	uint32_t *dest = (uint32_t *)(va_base +
-			HGSL_DBQ_CONTEXT_INFO_BASE_OFFSET_IN_DWORD +
-			(HGSL_DBQ_METADATA_TOTAL_ENTITY_NUM * ctxt_id) +
-			offset);
-
-	if (WARN_ON(ctxt_id >= HGSL_CONTEXT_NUM))
-		return;
-
-	*dest = value;
-}
-
-#define RGS_HFI_DEFAULT_TIMEOUT_MS       5000
 
 #define HFI_MSG_TYPE_CMD  0
 #define HFI_MSG_TYPE_RET  1
@@ -215,6 +259,18 @@ struct hgsl_fw_ib_desc {
 	uint32_t sz;
 } __packed;
 
+struct hfi_msg_header_fields {
+	uint32_t msg_id             : 8;   ///< 0~127 power, 128~255 eCP
+	uint32_t msg_size_dword     : 8;   ///< unit in dword, maximum 255
+	uint32_t msg_type           : 4;   ///< refer to adreno_hfi_msg_type_t
+	uint32_t msg_packet_seq_no  : 12;
+};
+
+union hfi_msg_header {
+	uint32_t u32_all;
+	struct hfi_msg_header_fields fields;
+};
+
 /*
  * Context ID
  * cmd_flags
@@ -224,7 +280,7 @@ struct hgsl_fw_ib_desc {
  * An array of IB descriptors
  */
 struct hgsl_db_cmds {
-	uint32_t header;
+	union hfi_msg_header header;
 	uint32_t ctx_id;
 	uint32_t cmd_flags;
 	uint32_t timestamp;
@@ -358,8 +414,9 @@ static void gmu_ring_local_db(struct qcom_hgsl  *hgsl, unsigned int value)
 static void tcsr_ring_global_db(struct qcom_hgsl *hgsl, uint32_t tcsr_idx,
 				uint32_t dbq_idx)
 {
-	hgsl_tcsr_irq_trigger(hgsl->tcsr[tcsr_idx][HGSL_TCSR_ROLE_SENDER],
-		GLB_DB_SRC_ISSUEIB_IRQ_ID_0 + dbq_idx);
+	if (tcsr_idx < HGSL_TCSR_NUM)
+		hgsl_tcsr_irq_trigger(hgsl->tcsr[tcsr_idx][HGSL_TCSR_ROLE_SENDER],
+						GLB_DB_SRC_ISSUEIB_IRQ_ID_0 + dbq_idx);
 }
 
 static bool hgsl_ctx_dbq_ready(struct hgsl_priv  *priv)
@@ -386,18 +443,23 @@ static uint32_t db_queue_freedwords(struct doorbell_queue *dbq)
 	if (dbq == NULL)
 		return 0;
 
-	wptr = dbq_get_qindex(dbq->vbase, DBQ_WRITE_INDEX_IN_DWORD);
-	rptr = dbq_get_qindex(dbq->vbase, DBQ_READ_INDEX_IN_DWORD);
+	wptr = hgsl_dbq_get_state_info((uint32_t *)dbq->vbase,
+			HGSL_DBQ_METADATA_QUEUE_INDEX, HGSL_DBQ_CONTEXT_ANY,
+				HGSL_DBQ_WRITE_INDEX_OFFSET_IN_DWORD);
+
+	rptr = hgsl_dbq_get_state_info((uint32_t *)dbq->vbase,
+			HGSL_DBQ_METADATA_QUEUE_INDEX, HGSL_DBQ_CONTEXT_ANY,
+			HGSL_DBQ_READ_INDEX_OFFSET_IN_DWORD);
 
 	queue_size = dbq->data.dwords;
 	queue_used = (wptr + queue_size - rptr) % queue_size;
 	return (queue_size - queue_used - 1);
 }
 
-static int db_queue_wait_freewords(struct doorbell_queue *dbq,
-				    uint32_t size)
+static int db_queue_wait_freewords(struct doorbell_queue *dbq, uint32_t size)
 {
-	unsigned long t = jiffies + HGSL_IDLE_TIMEOUT;
+	unsigned int retry_count = 0;
+	unsigned int hard_reset_req = false;
 
 	if (size == 0)
 		return 0;
@@ -406,11 +468,55 @@ static int db_queue_wait_freewords(struct doorbell_queue *dbq,
 		return -EINVAL;
 
 	do {
-		if (db_queue_freedwords(dbq) >= size)
-			return 0;
-	} while (time_before(jiffies, t));
+		hard_reset_req = hgsl_dbq_get_state_info((uint32_t *)dbq->vbase,
+			HGSL_DBQ_METADATA_COOPERATIVE_RESET,
+			HGSL_DBQ_CONTEXT_ANY,
+			HGSL_DBQ_HOST_TO_GVM_HARDRESET_REQ);
+
+		/* ensure read is done before comparison */
+		rmb();
+
+		if (hard_reset_req == true) {
+			if (db_get_busy_state(dbq->vbase) == true)
+				db_set_busy_state(dbq->vbase, false);
+		} else {
+			if (db_queue_freedwords(dbq) >= size) {
+				db_set_busy_state(dbq->vbase, true);
+				return 0;
+			}
+		}
+
+		udelay(1000);
+	} while (retry_count++ < HGSL_QFREE_MAX_RETRY_COUNT);
 
 	return -ETIMEDOUT;
+}
+
+static int db_get_busy_state(void *dbq_base)
+{
+	unsigned int busy_state = false;
+
+	busy_state = hgsl_dbq_get_state_info((uint32_t *)dbq_base,
+		HGSL_DBQ_METADATA_COOPERATIVE_RESET,
+		HGSL_DBQ_CONTEXT_ANY,
+		HGSL_DBQ_GVM_TO_HOST_HARDRESET_DISPATCH_IN_BUSY);
+
+	/* ensure read is done before comparison */
+	rmb();
+
+	return busy_state;
+}
+
+static void db_set_busy_state(void *dbq_base, int in_busy)
+{
+	hgsl_dbq_set_state_info((uint32_t *)dbq_base,
+		HGSL_DBQ_METADATA_COOPERATIVE_RESET,
+		HGSL_DBQ_CONTEXT_ANY,
+		HGSL_DBQ_GVM_TO_HOST_HARDRESET_DISPATCH_IN_BUSY,
+		in_busy);
+
+	/* confirm write to memory done */
+	wmb();
 }
 
 static int db_send_msg(struct hgsl_priv  *priv,
@@ -426,11 +532,36 @@ static int db_send_msg(struct hgsl_priv  *priv,
 	struct qcom_hgsl *hgsl;
 	struct doorbell_queue *dbq;
 	uint32_t wptr;
+	struct hgsl_db_cmds *cmds;
+	int retry_count = 0;
+	uint32_t hard_reset_req = false;
 
 	hgsl = priv->dev;
 	dbq = &hgsl->dbq[priv->dbq_idx];
 
-	mutex_lock(&hgsl->lock);
+	mutex_lock(&dbq->lock);
+
+	cmds = (struct hgsl_db_cmds *)msg_req->ptr_data;
+	do {
+		hard_reset_req = hgsl_dbq_get_state_info((uint32_t *)dbq->vbase,
+		HGSL_DBQ_METADATA_COOPERATIVE_RESET,
+		HGSL_DBQ_CONTEXT_ANY,
+		HGSL_DBQ_HOST_TO_GVM_HARDRESET_REQ);
+
+		/* ensure read is done before comparison */
+		rmb();
+
+		if (hard_reset_req) {
+			udelay(1000);
+			if (retry_count++ > HGSL_SEND_MSG_MAX_RETRY_COUNT) {
+				ret = -ETIMEDOUT;
+				goto quit;
+			}
+		}
+	} while (hard_reset_req);
+
+	db_set_busy_state(dbq->vbase, true);
+
 	queue_size_dword = dbq->data.dwords;
 	msg_size_align = ALIGN(msg_req->msg_dwords, 4);
 
@@ -441,7 +572,10 @@ static int db_send_msg(struct hgsl_priv  *priv,
 		goto quit;
 	}
 
-	wptr = dbq_get_qindex(dbq->vbase, DBQ_WRITE_INDEX_IN_DWORD);
+	wptr = hgsl_dbq_get_state_info((uint32_t *)dbq->vbase,
+			HGSL_DBQ_METADATA_QUEUE_INDEX, HGSL_DBQ_CONTEXT_ANY,
+			HGSL_DBQ_WRITE_INDEX_OFFSET_IN_DWORD);
+
 	move_dwords = msg_req->msg_dwords;
 	if ((msg_req->msg_dwords + wptr) >= queue_size_dword) {
 		move_dwords = queue_size_dword - wptr;
@@ -456,13 +590,22 @@ static int db_send_msg(struct hgsl_priv  *priv,
 	memcpy(dst, src, (move_dwords << 2));
 
 	wptr = (wptr + msg_size_align) % queue_size_dword;
-	dbq_set_qindex((uint32_t *)dbq->vbase,
-				DBQ_WRITE_INDEX_IN_DWORD,
-				wptr);
+	hgsl_dbq_set_state_info((uint32_t *)dbq->vbase,
+				HGSL_DBQ_METADATA_QUEUE_INDEX,
+				HGSL_DBQ_CONTEXT_ANY,
+				HGSL_DBQ_WRITE_INDEX_OFFSET_IN_DWORD,
+							wptr);
 
-	dbq_update_ctxt_info((uint32_t *)dbq->vbase,
+	hgsl_dbq_set_state_info((uint32_t *)dbq->vbase,
+				HGSL_DBQ_METADATA_CONTEXT_INFO,
+				cmds->ctx_id,
+				HGSL_DBQ_CONTEXT_CONTEXT_ID_OFFSET_IN_DWORD,
+				cmds->ctx_id);
+
+	hgsl_dbq_set_state_info((uint32_t *)dbq->vbase,
+				HGSL_DBQ_METADATA_CONTEXT_INFO,
 				((struct hgsl_db_cmds *)src)->ctx_id,
-				HGSL_DBQ_METADATA_TIMESTAMP_IN_DWORD,
+				HGSL_DBQ_CONTEXT_TIMESTAMP_OFFSET_IN_DWORD,
 				((struct hgsl_db_cmds *)src)->timestamp);
 
 	/* confirm write to memory done before ring door bell. */
@@ -476,7 +619,9 @@ static int db_send_msg(struct hgsl_priv  *priv,
 		gmu_ring_local_db(hgsl, priv->dbq_idx);
 
 quit:
-	mutex_unlock(&hgsl->lock);
+	db_set_busy_state(dbq->vbase, false);
+
+	mutex_unlock(&dbq->lock);
 	return ret;
 }
 
@@ -495,12 +640,14 @@ static int hgsl_db_issue_cmd(struct hgsl_priv  *priv,
 	struct db_msg_id db_msg_id;
 	struct doorbell_queue *dbq;
 	struct qcom_hgsl  *hgsl = priv->dev;
+	struct hgsl_context *ctxt;
 	uint32_t seq_num;
 
 	db_msg_id.msg_id = HTOF_MSG_ISSUE_CMD;
 	seq_num = atomic_inc_return(&hgsl->seq_num);
 	db_msg_id.seq_no = seq_num;
 
+	ctxt = hgsl->contexts[ctx_id];
 	dbq = &hgsl->dbq[priv->dbq_idx];
 
 	msg_dwords = MSG_ISSUE_INF_SZ() + MSG_ISSUE_IBS_SZ(num_ibs);
@@ -515,9 +662,9 @@ static int hgsl_db_issue_cmd(struct hgsl_priv  *priv,
 	if (cmds == NULL)
 		return -ENOMEM;
 
-	cmds->header = HFI_ISSUE_IB_HEADER(num_ibs,
-					   msg_dwords,
-					   db_msg_id.seq_no);
+	cmds->header = (union hfi_msg_header)HFI_ISSUE_IB_HEADER(num_ibs,
+					msg_dwords,
+					db_msg_id.seq_no);
 	cmds->ctx_id = ctx_id;
 	cmds->num_ibs = num_ibs;
 	cmds->cmd_flags = gmu_cmd_flags;
@@ -530,7 +677,19 @@ static int hgsl_db_issue_cmd(struct hgsl_priv  *priv,
 	req.msg_dwords = msg_dwords;
 	req.ptr_data = cmds;
 
-	ret = db_send_msg(priv, &db_msg_id, &req, &resp);
+	if (!ctxt->is_killed) {
+		ret = db_send_msg(priv, &db_msg_id, &req, &resp);
+	} else {
+		/* Retire ts immediately*/
+		set_context_timestamp(ctxt, timestamp);
+
+		/* Trigger event to waitfor ts thread */
+		_signal_contexts(hgsl);
+		ret = 0;
+	}
+
+	if (ret == 0)
+		ctxt->queued_ts = timestamp;
 
 	kfree(cmds);
 	return ret;
@@ -702,8 +861,22 @@ static inline uint32_t get_context_timestamp(struct hgsl_context *ctxt)
 	return ts;
 }
 
+static inline void set_context_timestamp(struct hgsl_context *ctxt,
+				unsigned int ts)
+{
+	unsigned int *ts_mem;
+
+	ts_mem = (unsigned int *)(ctxt->shadow_vbase +
+						ctxt->shadow_eop_off);
+
+	*ts_mem = ts;
+
+	/* ensure update is done before return */
+	wmb();
+}
+
 static inline bool _timestamp_retired(struct hgsl_context *ctxt,
-					unsigned int timestamp)
+				unsigned int timestamp)
 {
 	return (get_context_timestamp(ctxt) >= timestamp);
 }
@@ -936,12 +1109,6 @@ static int hgsl_dbq_init(struct file *filep, unsigned long arg)
 	}
 	WARN_ON(param.head_dwords < 2);
 
-	dbq_set_qindex((uint32_t *)dbq->vbase,
-				DBQ_WRITE_INDEX_IN_DWORD, 0);
-
-	dbq_set_qindex((uint32_t *)dbq->vbase,
-				DBQ_READ_INDEX_IN_DWORD, 0);
-
 	dbq->data.vaddr = dbq->vbase + (param.queue_off_dwords << 2);
 	dbq->data.dwords = param.queue_dwords;
 
@@ -993,7 +1160,7 @@ static int hgsl_context_create(struct file *filep, unsigned long arg)
 	}
 
 	if (!hgsl->contexts) {
-		dev_err(hgsl->dev, "DBQ not initialized propertily\n");
+		dev_err(hgsl->dev, "DBQ not initialized properly\n");
 		return -ENODEV;
 	}
 
@@ -1238,15 +1405,16 @@ static int hgsl_dbq_release(struct file *filep, unsigned long arg,
 		rel_info = *(struct hgsl_dbq_release_info *)arg;
 
 	dbq = &hgsl->dbq[priv->dbq_idx];
-
-	dbq_update_ctxt_info(dbq->vbase,
+	hgsl_dbq_set_state_info((uint32_t *)dbq->vbase,
+				HGSL_DBQ_METADATA_CONTEXT_INFO,
 				rel_info.ctxt_id,
-				HGSL_DBQ_METADATA_CTXT_ID_IN_DWORD,
+				HGSL_DBQ_CONTEXT_CONTEXT_ID_OFFSET_IN_DWORD,
 				rel_info.ctxt_id);
 
-	dbq_update_ctxt_info(dbq->vbase,
+	hgsl_dbq_set_state_info((uint32_t *)dbq->vbase,
+				HGSL_DBQ_METADATA_CONTEXT_INFO,
 				rel_info.ctxt_id,
-				HGSL_DBQ_METADATA_CTXT_DESTROY_IN_DWORD,
+				HGSL_DBQ_CONTEXT_DESTROY_OFFSET_IN_DWORD,
 				1);
 
 	rel_info.ref_count = (dbq->state == DB_STATE_Q_INIT_DONE) ? 1 : 0;
@@ -1369,7 +1537,7 @@ out:
 }
 
 static int hgsl_ioctl_isync_timeline_create(struct file *filep,
-					      unsigned long arg)
+					unsigned long arg)
 {
 	struct hgsl_priv *priv = filep->private_data;
 	uint32_t param = 0;
@@ -1383,7 +1551,7 @@ static int hgsl_ioctl_isync_timeline_create(struct file *filep,
 }
 
 static int hgsl_ioctl_isync_timeline_destroy(struct file *filep,
-					       unsigned long arg)
+					unsigned long arg)
 {
 	struct hgsl_priv *priv = filep->private_data;
 	uint32_t param = 0;
@@ -1396,7 +1564,7 @@ static int hgsl_ioctl_isync_timeline_destroy(struct file *filep,
 }
 
 static int hgsl_ioctl_isync_fence_create(struct file *filep,
-					   unsigned long arg)
+					unsigned long arg)
 {
 	struct hgsl_priv *priv = filep->private_data;
 	struct hgsl_isync_create_fence param;
@@ -1417,7 +1585,7 @@ static int hgsl_ioctl_isync_fence_create(struct file *filep,
 }
 
 static int hgsl_ioctl_isync_fence_signal(struct file *filep,
-					   unsigned long arg)
+					unsigned long arg)
 {
 	struct hgsl_priv *priv = filep->private_data;
 	struct hgsl_isync_signal_fence param;
@@ -1432,7 +1600,7 @@ static int hgsl_ioctl_isync_fence_signal(struct file *filep,
 }
 
 static int hgsl_ioctl_isync_forward(struct file *filep,
-					   unsigned long arg)
+					unsigned long arg)
 {
 	struct hgsl_priv *priv = filep->private_data;
 	struct hgsl_isync_forward param;
@@ -1517,7 +1685,7 @@ static const struct file_operations hgsl_fops = {
 };
 
 static int qcom_hgsl_register(struct platform_device *pdev,
-			      struct qcom_hgsl *hgsl_dev)
+				struct qcom_hgsl *hgsl_dev)
 {
 	int ret;
 
@@ -1537,9 +1705,9 @@ static int qcom_hgsl_register(struct platform_device *pdev,
 	}
 
 	hgsl_dev->class_dev = device_create(hgsl_dev->driver_class,
-					     NULL,
-					     hgsl_dev->device_no,
-					     hgsl_dev, HGSL_DEVICE_NAME);
+					NULL,
+					hgsl_dev->device_no,
+					hgsl_dev, HGSL_DEVICE_NAME);
 
 	if (IS_ERR(hgsl_dev->class_dev)) {
 		dev_err(&pdev->dev, "class_device_create failed %d\n", ret);
@@ -1552,8 +1720,8 @@ static int qcom_hgsl_register(struct platform_device *pdev,
 	hgsl_dev->cdev.owner = THIS_MODULE;
 
 	ret = cdev_add(&hgsl_dev->cdev,
-		       MKDEV(MAJOR(hgsl_dev->device_no), 0),
-		       1);
+					MKDEV(MAJOR(hgsl_dev->device_no), 0),
+					1);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "cdev_add failed %d\n", ret);
 		goto exit_destroy_device;

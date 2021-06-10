@@ -97,7 +97,8 @@ static int32_t send_fbe_req_hab(void *arg)
 		}
 	} while (0);
 
-	req_args->ret = ret;
+	if (req_args)
+		req_args->ret = ret;
 
 	complete(&send_fbe_req_done);
 

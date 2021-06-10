@@ -1228,6 +1228,8 @@ static void nvt_irq_enable(bool enable)
 			/* trusted_touch_underway is set in LA only */
 			if (atomic_read(&ts->trusted_touch_underway))
 				enable_irq_wake(ts->client->irq);
+			else
+				enable_irq(ts->client->irq);
 #else
 			enable_irq(ts->client->irq);
 #endif
@@ -1238,6 +1240,8 @@ static void nvt_irq_enable(bool enable)
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 			if (atomic_read(&ts->trusted_touch_underway))
 				disable_irq_wake(ts->client->irq);
+			else
+				disable_irq(ts->client->irq);
 #else
 			disable_irq(ts->client->irq);
 #endif
@@ -3082,10 +3086,6 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	if (atomic_read(&ts->trusted_touch_underway))
-		wait_for_completion_interruptible(
-			&ts->trusted_touch_powerdown);
-
 	atomic_set(&ts->suspend_resume_underway, 1);
 	reinit_completion(&ts->touch_suspend_resume);
 #endif
@@ -3120,7 +3120,10 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	//---write command to enter "deep sleep mode"---
 	buf[0] = EVENT_MAP_HOST_CMD;
 	buf[1] = 0x11;
-	CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	if (!atomic_read(&ts->trusted_touch_underway))
+		CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
+#endif
 #endif // WAKEUP_GESTURE
 
 	mutex_unlock(&ts->lock);

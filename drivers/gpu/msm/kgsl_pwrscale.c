@@ -857,8 +857,11 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	}
 
 	pwrscale->devfreq_wq = create_freezable_workqueue("kgsl_devfreq_wq");
-	if (!pwrscale->devfreq_wq)
+	if (!pwrscale->devfreq_wq) {
+		dev_err(device->dev, "Failed to allocate kgsl devfreq workqueue\n");
+		device->pwrscale.enabled = false;
 		return -ENOMEM;
+	}
 
 	devfreq = devfreq_add_device(&pdev->dev, &gpu_profile->profile,
 			governor, &adreno_tz_data);
