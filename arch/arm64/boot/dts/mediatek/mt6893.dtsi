@@ -89,11 +89,6 @@
 		kaslr-seed = <0 0>;
 	};
 
-	debug-kinfo {
-		memory-region = <&mrdump>;
-		compatible = "google,debug-kinfo";
-	};
-
 	pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupt-parent = <&gic>;
@@ -693,13 +688,6 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-
-		mrdump: mrdump-reserve {
-			compatible = "mediatek,reserve-memory-mrdump_share";
-			status = "okay";
-			size = <0x0 0x10000>;
-			alignment = <0x0 0x10000>;
-		};
 
 		reserve-memory-mcupm_share {
 			compatible = "mediatek,reserve-memory-mcupm_share";
