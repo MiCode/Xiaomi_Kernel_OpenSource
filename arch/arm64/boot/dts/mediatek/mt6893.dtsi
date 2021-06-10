@@ -3951,7 +3951,7 @@
 		larb9: larb@1502e000 {
 			compatible = "mediatek,mt6893-smi-larb",
 					 "mediatek,smi-larb";
-			mediatek,smi = <&smi_common>;
+			mediatek,smi = <&mdp_smi_common>;
 			reg = <0 0x1502e000 0 0x1000>;
 			mediatek,larb-id = <9>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_ISP>;
@@ -4419,7 +4419,7 @@
 		larb4: larb@1602e000 {
 			compatible = "mediatek,mt6893-smi-larb",
 					 "mediatek,smi-larb";
-			mediatek,smi = <&smi_common>;
+			mediatek,smi = <&mdp_smi_common>;
 			reg = <0 0x1602e000 0 0x1000>;
 			mediatek,larb-id = <4>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_VDEC2>;
@@ -4600,7 +4600,7 @@
 		larb8: larb@17810000 {
 			compatible = "mediatek,mt6893-smi-larb",
 					 "mediatek,smi-larb";
-			mediatek,smi = <&smi_common>;
+			mediatek,smi = <&mdp_smi_common>;
 			reg = <0 0x17810000 0 0x1000>;
 			mediatek,larb-id = <8>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_VENC_CORE1>;
@@ -5609,7 +5609,7 @@
 		larb13: larb@1a001000 {
 			compatible = "mediatek,mt6893-smi-larb",
 					 "mediatek,smi-larb";
-			mediatek,smi = <&smi_common>;
+			mediatek,smi = <&mdp_smi_common>;
 			reg = <0 0x1a001000 0 0x1000>;
 			mediatek,larb-id = <13>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM>;
@@ -5687,7 +5687,7 @@
 		larb16: larb@1a00f000 {
 			compatible = "mediatek,mt6893-smi-larb",
 					 "mediatek,smi-larb";
-			mediatek,smi = <&smi_common>;
+			mediatek,smi = <&mdp_smi_common>;
 			reg = <0 0x1a00f000 0 0x1000>;
 			mediatek,larb-id = <16>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM_RAWA>;
@@ -5711,7 +5711,7 @@
 		larb18: larb@1a011000 {
 			compatible = "mediatek,mt6893-smi-larb",
 					 "mediatek,smi-larb";
-			mediatek,smi = <&smi_common>;
+			mediatek,smi = <&mdp_smi_common>;
 			reg = <0 0x1a011000 0 0x1000>;
 			mediatek,larb-id = <18>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM_RAWC>;
@@ -7113,7 +7113,7 @@
 		larb3: larb@1f004000 {
 			compatible = "mediatek,mt6893-smi-larb",
 					 "mediatek,smi-larb";
-			mediatek,smi = <&smi_common>;
+			mediatek,smi = <&mdp_smi_common>;
 			reg = <0 0x1f004000 0 0x1000>;
 			mediatek,larb-id = <3>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MDP>;
@@ -7128,7 +7128,7 @@
 				     "mediatek,mt6893-smi-common",
 					 "mediatek,smi-common";
 			reg = <0 0x1f022000 0 0x1000>;
-			mediatek,common-id = <8>;
+			mediatek,common-id = <9>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MDP>;
 			clocks = <&mdpsys CLK_MDP_SMI0>,
 					 <&mdpsys CLK_MDP_SMI1>,
@@ -7142,7 +7142,7 @@
 				     "mediatek,mt6893-smi-common",
 					 "mediatek,smi-common";
 			reg = <0 0x1f023000 0 0x1000>;
-			mediatek,common-id = <9>;
+			mediatek,common-id = <8>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MDP>;
 			clocks = <&mdpsys CLK_MDP_SMI0>,
 					 <&mdpsys CLK_MDP_SMI1>,
