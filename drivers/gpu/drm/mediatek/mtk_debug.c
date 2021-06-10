@@ -46,6 +46,7 @@
 #include "mtk_dp_debug.h"
 #endif
 #include "mtk_drm_arr.h"
+#include "mtk_drm_graphics_base.h"
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -2359,6 +2360,35 @@ static void process_dbg_opt(const char *opt)
 		reinit_completion(&cwb_cmp);
 	}  else if (strncmp(opt, "drm:", 4) == 0) {
 		disp_drm_debug(opt + 4);
+	}  else if (strncmp(opt, "fake_wcg", 8) == 0) {
+		unsigned int fake_hdr_en = 0;
+		struct drm_crtc *crtc;
+		struct mtk_panel_params *params = NULL;
+		int ret;
+
+		ret = sscanf(opt, "fake_wcg:%u\n", &fake_hdr_en);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		params = mtk_drm_get_lcm_ext_params(crtc);
+		if (!params) {
+			DDPPR_ERR("[Fake HDR] find lcm ext fail\n");
+			return;
+		}
+
+		params->lcm_color_mode = (fake_hdr_en) ?
+			MTK_DRM_COLOR_MODE_DISPLAY_P3 : MTK_DRM_COLOR_MODE_NATIVE;
+		DDPINFO("set panel color_mode to %d\n", params->lcm_color_mode);
 	}
 
 }
