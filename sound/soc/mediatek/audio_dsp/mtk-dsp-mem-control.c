@@ -259,13 +259,11 @@ static int get_dsp_dram_sement_by_id(struct audio_dsp_dram *buffer, int id)
 	int ret = 0;
 
 	buffer->phy_addr =
-		adsp_get_reserve_mem_phys(dsp_daiid_to_scp_reservedid(id));
+		adsp_get_reserve_mem_phys(ADSP_AUDIO_COMMON_MEM_ID);
 	buffer->va_addr = (unsigned long long)
-		adsp_get_reserve_mem_virt(dsp_daiid_to_scp_reservedid(id));
-	buffer->vir_addr = adsp_get_reserve_mem_virt(
-		dsp_daiid_to_scp_reservedid(id));
-	buffer->size = adsp_get_reserve_mem_size(
-		dsp_daiid_to_scp_reservedid(id));
+		adsp_get_reserve_mem_virt(ADSP_AUDIO_COMMON_MEM_ID);
+	buffer->vir_addr = adsp_get_reserve_mem_virt(ADSP_AUDIO_COMMON_MEM_ID);
+	buffer->size = adsp_get_reserve_mem_size(ADSP_AUDIO_COMMON_MEM_ID);
 
 	ret = checkdspbuffer(buffer);
 	if (ret)
@@ -532,70 +530,15 @@ int aud_genppol_allocate_sharemem_msg(struct mtk_base_dsp_mem *dsp_mem,
 	return 0;
 }
 
-int dsp_daiid_to_scp_reservedid(int task_dai_id)
-{
-	switch (task_dai_id) {
-#ifndef FPGA_EARLY_DEVELOPMENT
-	case AUDIO_TASK_OFFLOAD_ID:
-	case AUDIO_TASK_VOIP_ID:
-	case AUDIO_TASK_PRIMARY_ID:
-	case AUDIO_TASK_DEEPBUFFER_ID:
-	case AUDIO_TASK_PLAYBACK_ID:
-	case AUDIO_TASK_MUSIC_ID:
-	case AUDIO_TASK_CAPTURE_UL1_ID:
-	case AUDIO_TASK_A2DP_ID:
-	case AUDIO_TASK_DATAPROVIDER_ID:
-	case AUDIO_TASK_CALL_FINAL_ID:
-	case AUDIO_TASK_FAST_ID:
-	case AUDIO_TASK_KTV_ID:
-	case AUDIO_TASK_CAPTURE_RAW_ID:
-	case AUDIO_TASK_FM_ADSP_ID:
-		return ADSP_AUDIO_COMMON_MEM_ID;
-#endif
-	default:
-		pr_warn("%s id = %d\n", __func__, task_dai_id);
-		return -1;
-	}
-	return -1;
-}
-
 static struct mtk_adsp_task_attr *mtk_get_adsp_task_attr(int adsp_id)
 {
-	switch (adsp_id) {
-	case AUDIO_TASK_VOIP_ID:
-		return &adsp_task_attr[AUDIO_TASK_VOIP_ID];
-	case AUDIO_TASK_PRIMARY_ID:
-		return &adsp_task_attr[AUDIO_TASK_PRIMARY_ID];
-	case AUDIO_TASK_OFFLOAD_ID:
-		return &adsp_task_attr[AUDIO_TASK_OFFLOAD_ID];
-	case AUDIO_TASK_DEEPBUFFER_ID:
-		return &adsp_task_attr[AUDIO_TASK_DEEPBUFFER_ID];
-	case AUDIO_TASK_PLAYBACK_ID:
-		return &adsp_task_attr[AUDIO_TASK_PLAYBACK_ID];
-	case AUDIO_TASK_MUSIC_ID:
-		return &adsp_task_attr[AUDIO_TASK_MUSIC_ID];
-	case AUDIO_TASK_CAPTURE_UL1_ID:
-		return &adsp_task_attr[AUDIO_TASK_CAPTURE_UL1_ID];
-	case AUDIO_TASK_A2DP_ID:
-		return &adsp_task_attr[AUDIO_TASK_A2DP_ID];
-	case AUDIO_TASK_DATAPROVIDER_ID:
-		return &adsp_task_attr[AUDIO_TASK_DATAPROVIDER_ID];
-	case AUDIO_TASK_CALL_FINAL_ID:
-		return &adsp_task_attr[AUDIO_TASK_CALL_FINAL_ID];
-	case AUDIO_TASK_FAST_ID:
-		return &adsp_task_attr[AUDIO_TASK_FAST_ID];
-	case AUDIO_TASK_KTV_ID:
-		return &adsp_task_attr[AUDIO_TASK_KTV_ID];
-	case AUDIO_TASK_CAPTURE_RAW_ID:
-		return &adsp_task_attr[AUDIO_TASK_CAPTURE_RAW_ID];
-	case AUDIO_TASK_FM_ADSP_ID:
-		return &adsp_task_attr[AUDIO_TASK_FM_ADSP_ID];
-	default:
-		pr_info("%s() adsp_id error %d\n", __func__, adsp_id);
-		break;
+	if (adsp_id >= AUDIO_TASK_DAI_NUM || adsp_id < 0) {
+		pr_info("%s(), adsp_id err: %d, return\n",
+			__func__, adsp_id);
+		return NULL;
 	}
 
-	return NULL;
+	return &adsp_task_attr[adsp_id];
 }
 
 int set_task_attr(int dsp_id, int task_enum, int param)
@@ -750,15 +693,15 @@ int get_afememref_by_afe_taskid(int task_id)
 	return ret;
 }
 
-int get_taskid_by_afe_daiid(int task_dai_id)
+int get_taskid_by_afe_daiid(int afe_dai_id)
 {
 	int i = 0;
 	struct mtk_adsp_task_attr *task_attr = NULL;
 	struct mtk_base_afe *afe = get_afe_base();
 
-	if (task_dai_id >= afe->memif_size) {
+	if (afe_dai_id >= afe->memif_size) {
 		pr_warn("%s() afe_dai_id over max %d, return\n",
-			__func__, task_dai_id);
+			__func__, afe_dai_id);
 		return -1;
 	}
 
@@ -766,16 +709,16 @@ int get_taskid_by_afe_daiid(int task_dai_id)
 		task_attr = mtk_get_adsp_task_attr(i);
 		if ((task_attr == NULL) || !(task_attr->default_enable & 0x1))
 			continue;
-		if ((task_attr->afe_memif_dl == task_dai_id ||
-		     task_attr->afe_memif_ul == task_dai_id) &&
+		if ((task_attr->afe_memif_dl == afe_dai_id ||
+		     task_attr->afe_memif_ul == afe_dai_id) &&
 		     (task_attr->runtime_enable))
 			return i;
-		else if ((task_attr->afe_memif_ref == task_dai_id) &&
+		else if ((task_attr->afe_memif_ref == afe_dai_id) &&
 			 (task_attr->ref_runtime_enable))
 			return i;
 	}
 
-	pr_err("%s(), afe_dai_id not support: %d", __func__, task_dai_id);
+	pr_err("%s(), afe_dai_id not support: %d", __func__, afe_dai_id);
 
 	return -1;
 }

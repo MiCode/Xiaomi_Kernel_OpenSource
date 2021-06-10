@@ -264,13 +264,6 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 MEM_ALLOCATE_DONE:
-
-	memset_io(substream->runtime->dma_area, 0,
-		  substream->runtime->dma_bytes);
-
-	if (memif->using_sram == 0 && afe->request_dram_resource)
-		afe->request_dram_resource(afe->dev);
-
 	dev_info(afe->dev, "%s(), %s, using_sram %d, use_dram_only %d, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
 		 __func__, memif->data->name,
 		 memif->using_sram, memif->use_dram_only,
@@ -278,6 +271,12 @@ MEM_ALLOCATE_DONE:
 		 &substream->runtime->dma_addr,
 		 substream->runtime->dma_area,
 		 substream->runtime->dma_bytes);
+
+	memset_io(substream->runtime->dma_area, 0,
+		  substream->runtime->dma_bytes);
+
+	if (memif->using_sram == 0 && afe->request_dram_resource)
+		afe->request_dram_resource(afe->dev);
 
 	/* set addr */
 	ret = mtk_memif_set_addr(afe, id,
@@ -567,106 +566,157 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_disable);
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int id)
+int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int afe_id)
 {
-	int ret = 0, adsp_sem_ret = 0;
+	int ret = 0;
 
-	adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
+	if (!afe)
+		return -ENODEV;
+
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	if (!is_afe_id_support_adsp(afe_id))
+#endif
+		return mtk_memif_set_enable(afe, afe_id);
+
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && \
+	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	/* use semaphore to protect memif enable bit when adsp and AP access */
+
+	ret = get_adsp_semaphore(SEMA_AUDIOREG);
 	/* get sem ok*/
-	if (!adsp_sem_ret) {
-		ret = mtk_memif_set_enable(afe, id);
+	if (!ret) {
+		ret = mtk_memif_set_enable(afe, afe_id);
 		release_adsp_semaphore(SEMA_AUDIOREG);
 	} else {
-		if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
-			pr_info("%s adsp_sem_ret[%d]\n",
-				__func__, adsp_sem_ret);
-		ret = mtk_memif_set_enable(afe, id);
+		if (ret == ADSP_SEMAPHORE_BUSY)
+			pr_info("%s adsp_sem_ret[%d]\n", __func__, ret);
+		ret = mtk_memif_set_enable(afe, afe_id);
 	}
+#endif
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_dsp_memif_set_enable);
 
-int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int id)
+int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int afe_id)
 {
-	int ret = 0, adsp_sem_ret = 0;
+	int ret = 0;
 
-	adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
+	if (!afe)
+		return -ENODEV;
+
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	if (!is_afe_id_support_adsp(afe_id))
+#endif
+		return mtk_memif_set_disable(afe, afe_id);
+
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && \
+	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	/* use semaphore to protect memif disable bit when adsp and AP access */
+
+	ret = get_adsp_semaphore(SEMA_AUDIOREG);
 	/* get sem ok*/
-	if (!adsp_sem_ret) {
-		ret = mtk_memif_set_disable(afe, id);
+	if (!ret) {
+		ret = mtk_memif_set_disable(afe, afe_id);
 		release_adsp_semaphore(SEMA_AUDIOREG);
 	} else {
-		if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
-			pr_info("%s adsp_sem_ret[%d]\n",
-				__func__, adsp_sem_ret);
-		ret = mtk_memif_set_disable(afe, id);
+		if (ret == ADSP_SEMAPHORE_BUSY)
+			pr_info("%s adsp_sem_ret[%d]\n", __func__, ret);
+		ret = mtk_memif_set_disable(afe, afe_id);
 	}
+#endif
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_dsp_memif_set_disable);
 
-
 int mtk_dsp_irq_set_enable(struct mtk_base_afe *afe,
-			   const struct mtk_base_irq_data *irq_data)
+			   const struct mtk_base_irq_data *irq_data,
+			   int afe_id)
 {
-	int ret = 0, adsp_sem_ret = 0;
+	int ret = 0;
 
 	if (!afe)
-		return -EPERM;
+		return -ENODEV;
 	if (!irq_data)
-		return -EPERM;
+		return -ENODEV;
 
-	adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	if (!is_afe_id_support_adsp(afe_id))
+#endif
+	{
+		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+				   1 << irq_data->irq_en_shift,
+				   1 << irq_data->irq_en_shift);
+		return ret;
+	}
+
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && \
+	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	/* use semaphore to protect irq enable bit when adsp and AP access */
+
+	ret = get_adsp_semaphore(SEMA_AUDIOREG);
 	/* get sem ok*/
-	if (!adsp_sem_ret) {
+	if (!ret) {
 		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
 				   1 << irq_data->irq_en_shift,
 				   1 << irq_data->irq_en_shift);
 		release_adsp_semaphore(SEMA_AUDIOREG);
 	} else {
-		if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
-			pr_info("%s adsp_sem_ret[%d]\n",
-				__func__, adsp_sem_ret);
+		if (ret == ADSP_SEMAPHORE_BUSY)
+			pr_info("%s() SEMAPHORE_BUSY[%d]\n", __func__, ret);
+
 		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
 				   1 << irq_data->irq_en_shift,
 				   1 << irq_data->irq_en_shift);
 	}
+#endif
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_dsp_irq_set_enable);
 
 int mtk_dsp_irq_set_disable(struct mtk_base_afe *afe,
-			    const struct mtk_base_irq_data *irq_data)
+			    const struct mtk_base_irq_data *irq_data,
+			    int afe_id)
 {
-	int ret = 0, adsp_sem_ret = 0;
+	int ret = 0;
 
 	if (!afe)
 		return -EPERM;
 	if (!irq_data)
 		return -EPERM;
 
-	adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	if (!is_afe_id_support_adsp(afe_id))
+#endif
+	{
+		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+				   1 << irq_data->irq_en_shift,
+				   0 << irq_data->irq_en_shift);
+		return ret;
+	}
 
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) && \
+	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	/* use semaphore to protect irq disable bit when adsp and AP access */
+
+	ret = get_adsp_semaphore(SEMA_AUDIOREG);
 	/* get sem ok*/
-	if (!adsp_sem_ret) {
+	if (!ret) {
 		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
 				   1 << irq_data->irq_en_shift,
 				   0 << irq_data->irq_en_shift);
 		release_adsp_semaphore(SEMA_AUDIOREG);
 	} else {
-		if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
-			pr_info("%s adsp_sem_ret[%d]\n",
-				__func__, adsp_sem_ret);
+		if (ret == ADSP_SEMAPHORE_BUSY)
+			pr_info("%s SEMAPHORE_BUSY[%d]\n", __func__, ret);
+
 		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
 				   1 << irq_data->irq_en_shift,
 				   0 << irq_data->irq_en_shift);
 	}
+#endif
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_dsp_irq_set_disable);
-
-#endif
 
 int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 		       unsigned char *dma_area,

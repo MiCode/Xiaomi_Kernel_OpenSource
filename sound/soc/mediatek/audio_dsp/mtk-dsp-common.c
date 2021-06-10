@@ -578,3 +578,9 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 }
 EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 
+int is_afe_id_support_adsp(int afe_dai_id)
+{
+	return (get_taskid_by_afe_daiid(afe_dai_id) > -1) ? 1 : 0;
+}
+EXPORT_SYMBOL(is_afe_id_support_adsp);
+

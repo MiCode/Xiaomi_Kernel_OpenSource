@@ -189,7 +189,7 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-			mtk_dsp_irq_set_enable(afe, irq_data);
+			mtk_dsp_irq_set_enable(afe, irq_data, id);
 #else
 			regmap_update_bits(afe->regmap,
 					   irq_data->irq_en_reg,
@@ -234,7 +234,7 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		/* disable interrupt */
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		if (runtime->stop_threshold != ~(0U))
-			mtk_dsp_irq_set_disable(afe, irq_data);
+			mtk_dsp_irq_set_disable(afe, irq_data, id);
 #else
 		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
