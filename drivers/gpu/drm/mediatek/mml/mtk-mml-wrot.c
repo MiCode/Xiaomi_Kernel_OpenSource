@@ -317,17 +317,13 @@ static s32 wrot_config_write(struct mml_comp *comp,
 	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct wrot_frame_data *wrot_frm;
 	struct mml_frame_dest *dest;
-	u8 i;
 
 	/* initialize component frame data for current frame config */
 	wrot_frm = kzalloc(sizeof(*wrot_frm), GFP_KERNEL);
 	ccfg->data = wrot_frm;
-	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
-		if (comp->id == path->out_engine_ids[i]) {
-			wrot_frm->out_idx = i;
-			break;
-		}
-	}
+
+	/* cache out index for easy use */
+	wrot_frm->out_idx = path->nodes[ccfg->node_idx].out_idx;
 
 	/* select output port struct */
 	dest = &cfg->info.dest[wrot_frm->out_idx];

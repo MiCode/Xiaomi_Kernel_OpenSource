@@ -65,6 +65,7 @@ struct mml_path_node {
 	struct mml_path_node *prev;
 	struct mml_path_node *next[MML_MAX_OUTPUTS];
 	struct mml_comp *comp;
+	u8 out_idx;
 
 	/* index from engine array to tile_engines
 	 * in mml_topology_path structure.

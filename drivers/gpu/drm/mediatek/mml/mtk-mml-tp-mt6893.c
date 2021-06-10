@@ -34,7 +34,7 @@ static inline bool engine_wrot(u32 id)
 	return id == MML_WROT0 || id == MML_WROT1;
 }
 
-static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_CACHES] = {
+static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 	[PATH_MML_DC_NOPQ_P0] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
@@ -46,7 +46,7 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_CACHES] = {
 		{MML_MUTEX,},
 		{MML_RDMA1, MML_WROT1,},
 		{MML_WROT1,},
-	}
+	},
 };
 
 enum cmdq_clt_usage {
@@ -65,12 +65,13 @@ static void tp_dump_path(struct mml_topology_path *path)
 	u8 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
-		mml_log("engine %hhu (%p) prev %p next %p %p comp %p tile idx %hhu",
+		mml_log("engine %hhu (%p) prev %p next %p %p comp %p tile idx %hhu out %hhu",
 			path->nodes[i].id, &path->nodes[i],
 			path->nodes[i].prev,
 			path->nodes[i].next[0], path->nodes[i].next[1],
 			path->nodes[i].comp,
-			path->nodes[i].tile_eng_idx);
+			path->nodes[i].tile_eng_idx,
+			path->nodes[i].out_idx);
 	}
 }
 
@@ -81,7 +82,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 	u8 connect_eng[2] = {0};
 	u8 i, tile_idx, out_eng_idx;
 
-	for (i = 0; i < MML_MAX_PATH_CACHES; i++) {
+	for (i = 0; i < MML_MAX_PATH_NODES; i++) {
 		const u8 eng = route[i].eng;
 		const u8 next0 = route[i].next0;
 		const u8 next1 = route[i].next1;
@@ -114,6 +115,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			 */
 			prev[0] = &path->nodes[i];
 			connect_eng[0] = next0;
+			path->nodes[i].out_idx = 0;
 		} else if (connect_eng[0] == eng) {
 			/* connect out 0 */
 			prev[0]->next[0] = &path->nodes[i];
@@ -121,6 +123,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			path->nodes[i].prev = prev[0];
 			prev[0] = &path->nodes[i];
 			connect_eng[0] = next0;
+			path->nodes[i].out_idx = 0;
 
 			/* also assign 1 in 2 out case,
 			 * must branch from line 0
@@ -131,11 +134,15 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			}
 		} else if (connect_eng[1] == eng) {
 			/* connect out 1 */
-			prev[1]->next[0] = &path->nodes[i];
+			if (!prev[1]->next[0])
+				prev[1]->next[0] = &path->nodes[i];
+			else
+				prev[1]->next[1] = &path->nodes[i];
 			/* replace current out 1 to this engine */
 			path->nodes[i].prev = prev[1];
 			prev[1] = &path->nodes[i];
 			connect_eng[1] = next0;
+			path->nodes[i].out_idx = 1;
 
 			/* at most 2 out in one path,
 			 * cannot branch from line 1
@@ -226,11 +233,12 @@ static s32 tp_select(struct mml_topology_cache *cache,
 
 	if (path[0]->alpharot) {
 		u8 fmt_in = MML_FMT_HW_FORMAT(cfg->info.src.format);
-		u8 fmt_out = MML_FMT_HW_FORMAT(cfg->info.dest[0].data.format);
+		u8 i;
 
-		if ((fmt_in == 2 || fmt_in == 3) &&
-			(fmt_out == 2 || fmt_out == 3))
-			cfg->alpharot = true;
+		cfg->alpharot = MML_FMT_IS_ARGB(fmt_in);
+		for (i = 0; i < cfg->info.dest_cnt && cfg->alpharot; i++)
+			if (!MML_FMT_IS_ARGB(cfg->info.dest[i].data.format))
+				cfg->alpharot = false;
 	}
 
 	return 0;
