@@ -413,7 +413,7 @@ static void case_config_afbc(void)
 	the_case.cfg_dest_h = CASE_AFBC_H;
 }
 
-#define mml_afbc_vert_stride(h) (((h + 31) >> 3) << 3)
+#define mml_afbc_vert_stride(h) (((h + 31) >> 5) << 5)
 
 static void setup_afbc(struct mml_submit *task, struct mml_test_case *cur)
 {
@@ -656,21 +656,52 @@ static void case_run_2out_crop_compose(struct mml_test *test,
 	case_general_submit(test, cur, setup_2out_crop_compose);
 }
 
+/* case_config_crop_offset / setup_crop / case_run_crop
+ *
+ * format in: RGB888
+ * format out0: RGB888 crop
+ */
+#define RGB_CROP_OFF_W	(CASE_RGB_W / 2)
+#define RGB_CROP_OFF_H	(CASE_RGB_H / 2)
+
+static void case_config_crop(void)
+{
+	the_case.cfg_src_format = MML_FMT_RGB888;
+	the_case.cfg_src_w = CASE_SRC_RGB_W;
+	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_dest_format = MML_FMT_RGB888;
+	the_case.cfg_dest_w = RGB_CROP_OFF_W;
+	the_case.cfg_dest_h = RGB_CROP_OFF_H;
+}
+
+static void setup_crop(struct mml_submit *task, struct mml_test_case *cur)
+{
+	task->info.dest[0].crop.r.left = central(CASE_RGB_W, RGB_CROP_OFF_W);
+	task->info.dest[0].crop.r.top = central(CASE_RGB_H, RGB_CROP_OFF_H);
+	task->info.dest[0].crop.r.width = RGB_CROP_OFF_W;
+	task->info.dest[0].crop.r.height = RGB_CROP_OFF_H;
+}
+
+static void case_run_crop(struct mml_test *test, struct mml_test_case *cur)
+{
+	case_general_submit(test, cur, setup_crop);
+}
 
 enum mml_ut_case {
-	MML_UT_RGB,
-	MML_UT_RGB_ROTATE,
-	MML_UT_COMPOSE_FLIP,
-	MML_UT_RESIZE_RELAY,
-	MML_UT_RESIZE_UP2,
-	MML_UT_NV12,
-	MML_UT_YUYV_DOWN2,
-	MML_UT_BLOCK_TO_NV12,
-	MML_UT_AFBC,
-	MML_UT_AFBC_TO_RGB,
-	MML_UT_2OUT,
-	MML_UT_2OUT_CROP,
-	MML_UT_2OUT_RSZ_CROP_COMPOSE,
+	MML_UT_RGB,		/* 0 */
+	MML_UT_RGB_ROTATE,	/* 1 */
+	MML_UT_COMPOSE_FLIP,	/* 2 */
+	MML_UT_RESIZE_RELAY,	/* 3 */
+	MML_UT_RESIZE_UP2,	/* 4 */
+	MML_UT_NV12,		/* 5 */
+	MML_UT_YUYV_DOWN2,	/* 6 */
+	MML_UT_BLOCK_TO_NV12,	/* 7 */
+	MML_UT_AFBC,		/* 8 */
+	MML_UT_AFBC_TO_RGB,	/* 9 */
+	MML_UT_2OUT,		/* 10 */
+	MML_UT_2OUT_CROP,	/* 11 */
+	MML_UT_2OUT_RCC,	/* 12 */
+	MML_UT_CROP,		/* 13 */
 	MML_UT_TOTAL
 };
 
@@ -723,12 +754,15 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 		.config = case_config_2out_crop,
 		.run = case_run_2out_crop,
 	},
-	[MML_UT_2OUT_RSZ_CROP_COMPOSE] = {
+	[MML_UT_2OUT_RCC] = {
 		.config = case_config_2out_crop_compose,
 		.run = case_run_2out_crop_compose,
 	},
+	[MML_UT_CROP] = {
+		.config = case_config_crop,
+		.run = case_run_crop,
+	},
 };
-
 
 static ssize_t test_read(struct file *filep, char __user *buf, size_t size,
 	loff_t *offset)
@@ -741,12 +775,13 @@ static ssize_t test_read(struct file *filep, char __user *buf, size_t size,
 		return -EFAULT;
 	}
 
-	mml_log("[test]%s run read", __func__);
+	memset(&the_case, 0, sizeof(the_case));
 
 	if (mml_case < ARRAY_SIZE(cases) && cases[mml_case].config)
 		cases[mml_case].config();
 	else
 		mml_err("[test]no such case %d", mml_case);
+
 	copy_to_user(buf, &the_case, len);
 	*offset += len;
 
