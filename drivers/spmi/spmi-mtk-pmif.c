@@ -20,7 +20,8 @@
 #define PMIF_CMD_EXT_REG_LONG	3
 
 #define PMIF_DELAY_US   10
-#define PMIF_TIMEOUT    (10 * 1000)
+//#define PMIF_TIMEOUT    (10 * 1000)
+#define PMIF_TIMEOUT    (100 * 1000)
 
 #define PMIF_CHAN_OFFSET 0x5
 
