@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2020 MediaTek Inc.
+
+sec_obj += $(ASF_VER)/sec/sec_boot_core.o
+sec_obj += $(ASF_VER)/sec/sec_mod_core.o
+sec_obj += $(ASF_VER)/sec/sec_osal.o
+sec_obj += $(ASF_VER)/sec/sec_mod.o
+sec_obj += $(ASF_VER)/sec/sec_clk.o
+sec_obj += $(ASF_VER)/sec/sec_lib.o
+sec_obj += $(ASF_VER)/sec/sec_ao.o
+
+

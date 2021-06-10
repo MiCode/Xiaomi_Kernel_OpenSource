@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2020 MediaTek Inc.
+
+hacc_obj += $(ASF_VER)/hacc/hacc_lib.o
+hacc_obj += $(ASF_VER)/hacc/hacc_export.o
+hacc_obj += $(ASF_VER)/hacc/hacc_hk.o
+hacc_obj += $(ASF_VER)/hacc/hacc_sk.o
+
+
+
