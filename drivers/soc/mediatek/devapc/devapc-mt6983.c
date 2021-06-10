@@ -996,12 +996,526 @@ static const struct mtk_device_info mt6983_devices_adsp[] = {
 	{0, 35, 35, "DAPC_S", true},
 };
 
+static const struct mtk_device_info mt6983_devices_mminfra[] = {
+	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
+	/* 0 */
+	{0, 0, 0, "GCE_M_APB_S", true},
+	{0, 1, 1, "GCE_M_APB_S-1", true},
+	{0, 2, 2, "GCE_M_APB_S-2", true},
+	{0, 3, 3, "GCE_M_APB_S-3", true},
+	{0, 4, 4, "GCE_M_APB_S-4", true},
+	{0, 5, 5, "GCE_M_APB_S-5", true},
+	{0, 6, 6, "GCE_M_APB_S-6", true},
+	{0, 7, 7, "GCE_M_APB_S-7", true},
+	{0, 8, 8, "GCE_D_APB_S", true},
+	{0, 9, 9, "GCE_D_APB_S-1", true},
+
+	/* 10 */
+	{0, 10, 10, "GCE_D_APB_S-2", true},
+	{0, 11, 11, "GCE_D_APB_S-3", true},
+	{0, 12, 12, "GCE_D_APB_S-4", true},
+	{0, 13, 13, "GCE_D_APB_S-5", true},
+	{0, 14, 14, "GCE_D_APB_S-6", true},
+	{0, 15, 15, "GCE_D_APB_S-7", true},
+	{0, 16, 16, "MMINFRA_APB_S", true},
+	{0, 17, 17, "MMINFRA_APB_S-1", true},
+	{0, 18, 18, "MMINFRA_APB_S-2", true},
+	{0, 19, 19, "MMINFRA_APB_S-3", true},
+
+	/* 20 */
+	{0, 20, 20, "MMINFRA_APB_S-4", true},
+	{0, 21, 21, "MMINFRA_APB_S-5", true},
+	{0, 22, 22, "MMINFRA_APB_S-6", true},
+	{0, 23, 23, "MMINFRA_APB_S-7", true},
+	{0, 24, 24, "MMINFRA_APB_S-8", true},
+	{0, 25, 25, "MMINFRA_APB_S-9", true},
+	{0, 26, 26, "MMINFRA_APB_S-10", true},
+	{0, 27, 27, "MMINFRA_APB_S-11", true},
+	{0, 28, 28, "MMINFRA_APB_S-12", true},
+	{0, 29, 29, "MMINFRA_APB_S-13", true},
+
+	/* 30 */
+	{0, 30, 30, "MMINFRA_APB_S-14", true},
+	{0, 31, 31, "MMINFRA_APB_S-15", true},
+	{0, 32, 32, "MMINFRA_APB_S-16", true},
+	{0, 33, 33, "MMINFRA_APB_S-17", true},
+	{0, 34, 34, "MMINFRA_APB_S-18", true},
+	{0, 35, 35, "MMINFRA_APB_S-19", true},
+	{0, 36, 36, "MMINFRA_APB_S-20", true},
+	{0, 37, 37, "MMINFRA_APB_S-21", true},
+	{0, 38, 38, "MMINFRA_APB_S-22", true},
+	{0, 39, 39, "MMINFRA_APB_S-23", true},
+
+	/* 40 */
+	{0, 40, 40, "MMINFRA_APB_S-24", true},
+	{0, 41, 41, "MMINFRA_APB_S-25", true},
+	{0, 42, 42, "MMINFRA_APB_S-26", true},
+	{0, 43, 43, "MMINFRA_APB_S-27", true},
+	{0, 44, 44, "MMINFRA_APB_S-28", true},
+	{0, 45, 45, "MMINFRA_APB_S-37", true},
+	{0, 46, 46, "DAPC_PDN_S", true},
+	{0, 47, 47, "BCRM_PDN_S", true},
+	{0, 48, 48, "MMUP_APB_S", true},
+	{0, 49, 49, "MMUP_APB_S-1", true},
+
+	/* 50 */
+	{0, 50, 50, "MMUP_APB_S-2", true},
+	{0, 51, 51, "MMUP_APB_S-3", true},
+	{0, 52, 52, "MMUP_APB_S-4", true},
+	{0, 53, 53, "MMUP_APB_S-5", true},
+	{0, 54, 54, "MMUP_APB_S-6", true},
+	{0, 55, 55, "MMUP_APB_S-7", true},
+	{0, 56, 56, "MMUP_APB_S-8", true},
+	{0, 57, 57, "MMUP_APB_S-9", true},
+	{0, 58, 58, "MMUP_APB_S-10", true},
+	{0, 59, 59, "MMUP_APB_S-11", true},
+
+	/* 60 */
+	{0, 60, 60, "MMUP_APB_S-12", true},
+	{0, 61, 61, "MMUP_APB_S-13", true},
+	{0, 62, 62, "MMUP_APB_S-14", true},
+	{0, 63, 63, "MMUP_APB_S-15", true},
+	{0, 64, 64, "VENC_APB_S", true},
+	{0, 65, 65, "VENC_APB_S-1", true},
+	{0, 66, 66, "VENC_APB_S-2", true},
+	{0, 67, 67, "VENC_APB_S-3", true},
+	{0, 68, 68, "VENC_APB_S-4", true},
+	{0, 69, 69, "VENC_APB_S-5", true},
+
+	/* 70 */
+	{0, 70, 70, "VENC_APB_S-6", true},
+	{0, 71, 71, "VENC_APB_S-7", true},
+	{0, 72, 72, "VENC_APB_S-8", true},
+	{0, 73, 73, "VENC_APB_S-9", true},
+	{0, 74, 74, "VENC_APB_S-10", true},
+	{0, 75, 75, "VENC2_APB_S", true},
+	{0, 76, 76, "VENC2_APB_S-1", true},
+	{0, 77, 77, "VENC2_APB_S-2", true},
+	{0, 78, 78, "VENC2_APB_S-3", true},
+	{0, 79, 79, "VENC2_APB_S-4", true},
+
+	/* 80 */
+	{0, 80, 80, "VENC2_APB_S-5", true},
+	{0, 81, 81, "VENC2_APB_S-6", true},
+	{0, 82, 82, "VENC2_APB_S-7", true},
+	{0, 83, 83, "VENC2_APB_S-8", true},
+	{0, 84, 84, "VENC2_APB_S-9", true},
+	{0, 85, 85, "VENC2_APB_S-10", true},
+	{0, 86, 86, "VDEC_APB_S", true},
+	{0, 87, 87, "VDEC_APB_S-1", true},
+	{0, 88, 88, "VDEC_APB_S-2", true},
+	{0, 89, 89, "VDEC_APB_S-3", true},
+
+	/* 90 */
+	{0, 90, 90, "VDEC_APB_S-4", true},
+	{0, 91, 91, "VDEC_APB_S-5", true},
+	{0, 92, 92, "VDEC_APB_S-6", true},
+	{0, 93, 93, "VDEC_APB_S-7", true},
+	{0, 94, 94, "VDEC_APB_S-8", true},
+	{0, 95, 95, "VDEC_APB_S-9", true},
+	{0, 96, 96, "CCU_APB_S", true},
+	{0, 97, 97, "CCU_APB_S-1", true},
+	{0, 98, 98, "CCU_APB_S-2", true},
+	{0, 99, 99, "CCU_APB_S-3", true},
+
+	/* 100 */
+	{0, 100, 100, "CCU_APB_S-4", true},
+	{0, 101, 101, "CCU_APB_S-5", true},
+	{0, 102, 102, "CCU_APB_S-6", true},
+	{0, 103, 103, "CCU_APB_S-7", true},
+	{0, 104, 104, "CCU_APB_S-8", true},
+	{0, 105, 105, "CCU_APB_S-9", true},
+	{0, 106, 106, "CCU_APB_S-10", true},
+	{0, 107, 107, "CCU_APB_S-11", true},
+	{0, 108, 108, "CCU_APB_S-12", true},
+	{0, 109, 109, "CCU_APB_S-13", true},
+
+	/* 110 */
+	{0, 110, 110, "CCU_APB_S-14", true},
+	{0, 111, 111, "CCU_APB_S-15", true},
+	{0, 112, 112, "CCU_APB_S-16", true},
+	{0, 113, 113, "IMG_APB_S", true},
+	{0, 114, 114, "IMG_APB_S-1", true},
+	{0, 115, 115, "IMG_APB_S-2", true},
+	{0, 116, 116, "IMG_APB_S-3", true},
+	{0, 117, 117, "IMG_APB_S-4", true},
+	{0, 118, 118, "IMG_APB_S-5", true},
+	{0, 119, 119, "IMG_APB_S-6", true},
+
+	/* 120 */
+	{0, 120, 120, "IMG_APB_S-7", true},
+	{0, 121, 121, "IMG_APB_S-8", true},
+	{0, 122, 122, "IMG_APB_S-9", true},
+	{0, 123, 123, "IMG_APB_S-10", true},
+	{0, 124, 124, "IMG_APB_S-11", true},
+	{0, 125, 125, "IMG_APB_S-12", true},
+	{0, 126, 126, "IMG_APB_S-13", true},
+	{0, 127, 127, "IMG_APB_S-14", true},
+	{0, 128, 128, "IMG_APB_S-15", true},
+	{0, 129, 129, "IMG_APB_S-16", true},
+
+	/* 130 */
+	{0, 130, 130, "IMG_APB_S-17", true},
+	{0, 131, 131, "IMG_APB_S-18", true},
+	{0, 132, 132, "IMG_APB_S-19", true},
+	{0, 133, 133, "IMG_APB_S-20", true},
+	{0, 134, 134, "IMG_APB_S-21", true},
+	{0, 135, 135, "IMG_APB_S-22", true},
+	{0, 136, 136, "IMG_APB_S-23", true},
+	{0, 137, 137, "IMG_APB_S-24", true},
+	{0, 138, 138, "IMG_APB_S-25", true},
+	{0, 139, 139, "IMG_APB_S-26", true},
+
+	/* 140 */
+	{0, 140, 140, "IMG_APB_S-27", true},
+	{0, 141, 141, "IMG_APB_S-28", true},
+	{0, 142, 142, "IMG_APB_S-29", true},
+	{0, 143, 143, "IMG_APB_S-30", true},
+	{0, 144, 144, "IMG_APB_S-31", true},
+	{0, 145, 145, "IMG_APB_S-32", true},
+	{0, 146, 146, "IMG_APB_S-33", true},
+	{0, 147, 147, "IMG_APB_S-34", true},
+	{0, 148, 148, "IMG_APB_S-35", true},
+	{0, 149, 149, "IMG_APB_S-36", true},
+
+	/* 150 */
+	{0, 150, 150, "IMG_APB_S-37", true},
+	{0, 151, 151, "IMG_APB_S-38", true},
+	{0, 152, 152, "IMG_APB_S-39", true},
+	{0, 153, 153, "IMG_APB_S-40", true},
+	{0, 154, 154, "IMG_APB_S-41", true},
+	{0, 155, 155, "IMG_APB_S-42", true},
+	{0, 156, 156, "IMG_APB_S-43", true},
+	{0, 157, 157, "IMG_APB_S-44", true},
+	{0, 158, 158, "IMG_APB_S-45", true},
+	{0, 159, 159, "IMG_APB_S-46", true},
+
+	/* 160 */
+	{0, 160, 160, "IMG_APB_S-47", true},
+	{0, 161, 161, "IMG_APB_S-48", true},
+	{0, 162, 162, "CAM_APB_S", true},
+	{0, 163, 163, "CAM_APB_S-1", true},
+	{0, 164, 164, "CAM_APB_S-2", true},
+	{0, 165, 165, "CAM_APB_S-3", true},
+	{0, 166, 166, "CAM_APB_S-4", true},
+	{0, 167, 167, "CAM_APB_S-5", true},
+	{0, 168, 168, "CAM_APB_S-6", true},
+	{0, 169, 169, "CAM_APB_S-7", true},
+
+	/* 170 */
+	{0, 170, 170, "CAM_APB_S-8", true},
+	{0, 171, 171, "CAM_APB_S-9", true},
+	{0, 172, 172, "CAM_APB_S-10", true},
+	{0, 173, 173, "CAM_APB_S-11", true},
+	{0, 174, 174, "CAM_APB_S-12", true},
+	{0, 175, 175, "CAM_APB_S-13", true},
+	{0, 176, 176, "CAM_APB_S-14", true},
+	{0, 177, 177, "CAM_APB_S-15", true},
+	{0, 178, 178, "CAM_APB_S-16", true},
+	{0, 179, 179, "CAM_APB_S-17", true},
+
+	/* 180 */
+	{0, 180, 180, "CAM_APB_S-18", true},
+	{0, 181, 181, "CAM_APB_S-19", true},
+	{0, 182, 182, "CAM_APB_S-20", true},
+	{0, 183, 183, "CAM_APB_S-21", true},
+	{0, 184, 184, "CAM_APB_S-22", true},
+	{0, 185, 185, "CAM_APB_S-23", true},
+	{0, 186, 186, "CAM_APB_S-24", true},
+	{0, 187, 187, "CAM_APB_S-25", true},
+	{0, 188, 188, "CAM_APB_S-26", true},
+	{0, 189, 189, "CAM_APB_S-27", true},
+
+	/* 190 */
+	{0, 190, 190, "CAM_APB_S-28", true},
+	{0, 191, 191, "CAM_APB_S-29", true},
+	{0, 192, 192, "CAM_APB_S-30", true},
+	{0, 193, 193, "CAM_APB_S-31", true},
+	{0, 194, 194, "CAM_APB_S-32", true},
+	{0, 195, 195, "CAM_APB_S-33", true},
+	{0, 196, 196, "CAM_APB_S-34", true},
+	{0, 197, 197, "CAM_APB_S-35", true},
+	{0, 198, 198, "CAM_APB_S-36", true},
+	{0, 199, 199, "CAM_APB_S-37", true},
+
+	/* 200 */
+	{0, 200, 200, "CAM_APB_S-38", true},
+	{0, 201, 201, "CAM_APB_S-39", true},
+	{0, 202, 202, "CAM_APB_S-40", true},
+	{0, 203, 203, "CAM_APB_S-41", true},
+	{0, 204, 204, "CAM_APB_S-42", true},
+	{0, 205, 205, "CAM_APB_S-43", true},
+	{0, 206, 206, "CAM_APB_S-44", true},
+	{0, 207, 207, "CAM_APB_S-45", true},
+	{0, 208, 208, "CAM_APB_S-46", true},
+	{0, 209, 209, "CAM_APB_S-47", true},
+
+	/* 210 */
+	{0, 210, 210, "CAM_APB_S-48", true},
+	{0, 211, 211, "CAM_APB_S-49", true},
+	{0, 212, 212, "CAM_APB_S-50", true},
+	{0, 213, 213, "CAM_APB_S-51", true},
+	{0, 214, 214, "CAM_APB_S-52", true},
+	{0, 215, 215, "CAM_APB_S-53", true},
+	{0, 216, 216, "CAM_APB_S-54", true},
+	{0, 217, 217, "CAM_APB_S-55", true},
+	{0, 218, 218, "CAM_APB_S-56", true},
+	{0, 219, 219, "CAM_APB_S-57", true},
+
+	/* 220 */
+	{0, 220, 220, "CAM_APB_S-58", true},
+	{0, 221, 221, "CAM_APB_S-59", true},
+	{0, 222, 222, "CAM_APB_S-60", true},
+	{0, 223, 223, "CAM_APB_S-61", true},
+	{0, 224, 224, "CAM_APB_S-62", true},
+	{0, 225, 225, "CAM_APB_S-63", true},
+	{0, 226, 226, "CAM_APB_S-64", true},
+	{0, 227, 227, "CAM_APB_S-65", true},
+	{0, 228, 228, "CAM_APB_S-66", true},
+	{0, 229, 229, "CAM_APB_S-67", true},
+
+	/* 230 */
+	{0, 230, 230, "CAM_APB_S-68", true},
+	{0, 231, 231, "CAM_APB_S-69", true},
+	{0, 232, 232, "CAM_APB_S-70", true},
+	{0, 233, 233, "CAM_APB_S-71", true},
+	{0, 234, 234, "CAM_APB_S-72", true},
+	{0, 235, 235, "CAM_APB_S-73", true},
+	{0, 236, 236, "CAM_APB_S-74", true},
+	{0, 237, 237, "CAM_APB_S-75", true},
+	{0, 238, 238, "CAM_APB_S-76", true},
+	{0, 239, 239, "CAM_APB_S-77", true},
+
+	/* 240 */
+	{0, 240, 240, "CAM_APB_S-78", true},
+	{0, 241, 241, "CAM_APB_S-79", true},
+	{0, 242, 242, "CAM_APB_S-80", true},
+	{0, 243, 243, "CAM_APB_S-81", true},
+	{0, 244, 244, "CAM_APB_S-82", true},
+	{0, 245, 245, "CAM_APB_S-83", true},
+	{0, 246, 246, "CAM_APB_S-84", true},
+	{0, 247, 247, "CAM_APB_S-85", true},
+	{0, 248, 248, "CAM_APB_S-86", true},
+	{0, 249, 249, "CAM_APB_S-87", true},
+
+	/* 250 */
+	{0, 250, 250, "CAM_APB_S-88", true},
+	{0, 251, 251, "CAM_APB_S-89", true},
+	{0, 252, 252, "CAM_APB_S-90", true},
+	{0, 253, 253, "CAM_APB_S-91", true},
+	{0, 254, 254, "CAM_APB_S-92", true},
+	{0, 255, 255, "CAM_APB_S-93", true},
+	{1, 0, 256, "CAM_APB_S-94", true},
+	{1, 1, 257, "CAM_APB_S-95", true},
+	{1, 2, 258, "CAM_APB_S-96", true},
+	{1, 3, 259, "CAM_APB_S-97", true},
+
+	/* 260 */
+	{1, 4, 260, "CAM_APB_S-98", true},
+	{1, 5, 261, "CAM_APB_S-99", true},
+	{1, 6, 262, "CAM_APB_S-100", true},
+	{1, 7, 263, "CAM_APB_S-101", true},
+	{1, 8, 264, "CAM_APB_S-102", true},
+	{1, 9, 265, "CAM_APB_S-103", true},
+	{1, 10, 266, "CAM_APB_S-104", true},
+	{1, 11, 267, "CAM_APB_S-105", true},
+	{1, 12, 268, "CAM_APB_S-106", true},
+	{1, 13, 269, "CAM_APB_S-107", true},
+
+	/* 270 */
+	{1, 14, 270, "CAM_APB_S-108", true},
+	{1, 15, 271, "CAM_APB_S-109", true},
+	{1, 16, 272, "CAM_APB_S-110", true},
+	{1, 17, 273, "CAM_APB_S-111", true},
+	{1, 18, 274, "CAM_APB_S-112", true},
+	{1, 19, 275, "CAM_APB_S-113", true},
+	{1, 20, 276, "CAM_APB_S-114", true},
+	{1, 21, 277, "CAM_APB_S-115", true},
+	{1, 22, 278, "CAM_APB_S-116", true},
+	{1, 23, 279, "DISP2_APB_S", true},
+
+	/* 280 */
+	{1, 24, 280, "DISP2_APB_S-1", true},
+	{1, 25, 281, "DISP2_APB_S-2", true},
+	{1, 26, 282, "DISP2_APB_S-3", true},
+	{1, 27, 283, "DISP2_APB_S-4", true},
+	{1, 28, 284, "DISP2_APB_S-5", true},
+	{1, 29, 285, "DISP2_APB_S-6", true},
+	{1, 30, 286, "DISP2_APB_S-7", true},
+	{1, 31, 287, "DISP2_APB_S-8", true},
+	{1, 32, 288, "DISP2_APB_S-9", true},
+	{1, 33, 289, "DISP2_APB_S-10", true},
+
+	/* 290 */
+	{1, 34, 290, "DISP2_APB_S-11", true},
+	{1, 35, 291, "DISP2_APB_S-12", true},
+	{1, 36, 292, "DISP2_APB_S-13", true},
+	{1, 37, 293, "DISP2_APB_S-14", true},
+	{1, 38, 294, "DISP2_APB_S-15", true},
+	{1, 39, 295, "DISP2_APB_S-16", true},
+	{1, 40, 296, "DISP2_APB_S-17", true},
+	{1, 41, 297, "DISP2_APB_S-18", true},
+	{1, 42, 298, "DISP2_APB_S-19", true},
+	{1, 43, 299, "DISP2_APB_S-20", true},
+
+	/* 300 */
+	{1, 44, 300, "DISP2_APB_S-21", true},
+	{1, 45, 301, "DISP2_APB_S-22", true},
+	{1, 46, 302, "DISP2_APB_S-23", true},
+	{1, 47, 303, "DISP2_APB_S-24", true},
+	{1, 48, 304, "DISP2_APB_S-25", true},
+	{1, 49, 305, "DISP2_APB_S-26", true},
+	{1, 50, 306, "DISP2_APB_S-27", true},
+	{1, 51, 307, "DISP2_APB_S-28", true},
+	{1, 52, 308, "DISP2_APB_S-29", true},
+	{1, 53, 309, "DISP2_APB_S-30", true},
+
+	/* 310 */
+	{1, 54, 310, "DISP2_APB_S-31", true},
+	{1, 55, 311, "DISP2_APB_S-32", true},
+	{1, 56, 312, "DISP2_APB_S-33", true},
+	{1, 57, 313, "DISP2_APB_S-34", true},
+	{1, 58, 314, "DISP2_APB_S-35", true},
+	{1, 59, 315, "DISP2_APB_S-36", true},
+	{1, 60, 316, "DISP2_APB_S-37", true},
+	{1, 61, 317, "DISP2_APB_S-38", true},
+	{1, 62, 318, "DISP2_APB_S-39", true},
+	{1, 63, 319, "DISP2_APB_S-40", true},
+
+	/* 320 */
+	{1, 64, 320, "DISP2_APB_S-41", true},
+	{1, 65, 321, "DISP2_APB_S-42", true},
+	{1, 66, 322, "DISP2_APB_S-43", true},
+	{1, 67, 323, "DISP2_APB_S-44", true},
+	{1, 68, 324, "DISP_APB_S", true},
+	{1, 69, 325, "DISP_APB_S-1", true},
+	{1, 70, 326, "DISP_APB_S-2", true},
+	{1, 71, 327, "DISP_APB_S-3", true},
+	{1, 72, 328, "DISP_APB_S-4", true},
+	{1, 73, 329, "DISP_APB_S-5", true},
+
+	/* 330 */
+	{1, 74, 330, "DISP_APB_S-6", true},
+	{1, 75, 331, "DISP_APB_S-7", true},
+	{1, 76, 332, "DISP_APB_S-8", true},
+	{1, 77, 333, "DISP_APB_S-9", true},
+	{1, 78, 334, "DISP_APB_S-10", true},
+	{1, 79, 335, "DISP_APB_S-11", true},
+	{1, 80, 336, "DISP_APB_S-12", true},
+	{1, 81, 337, "DISP_APB_S-13", true},
+	{1, 82, 338, "DISP_APB_S-14", true},
+	{1, 83, 339, "DISP_APB_S-15", true},
+
+	/* 340 */
+	{1, 84, 340, "DISP_APB_S-16", true},
+	{1, 85, 341, "DISP_APB_S-17", true},
+	{1, 86, 342, "DISP_APB_S-18", true},
+	{1, 87, 343, "DISP_APB_S-19", true},
+	{1, 88, 344, "DISP_APB_S-20", true},
+	{1, 89, 345, "DISP_APB_S-21", true},
+	{1, 90, 346, "DISP_APB_S-22", true},
+	{1, 91, 347, "DISP_APB_S-23", true},
+	{1, 92, 348, "DISP_APB_S-24", true},
+	{1, 93, 349, "DISP_APB_S-25", true},
+
+	/* 350 */
+	{1, 94, 350, "DISP_APB_S-26", true},
+	{1, 95, 351, "DISP_APB_S-27", true},
+	{1, 96, 352, "DISP_APB_S-28", true},
+	{1, 97, 353, "DISP_APB_S-29", true},
+	{1, 98, 354, "DISP_APB_S-30", true},
+	{1, 99, 355, "DISP_APB_S-31", true},
+	{1, 100, 356, "DISP_APB_S-32", true},
+	{1, 101, 357, "DISP_APB_S-33", true},
+	{1, 102, 358, "DISP_APB_S-34", true},
+	{1, 103, 359, "DISP_APB_S-35", true},
+
+	/* 360 */
+	{1, 104, 360, "DISP_APB_S-36", true},
+	{1, 105, 361, "DISP_APB_S-37", true},
+	{1, 106, 362, "DISP_APB_S-38", true},
+	{1, 107, 363, "DISP_APB_S-39", true},
+	{1, 108, 364, "DISP_APB_S-40", true},
+	{1, 109, 365, "DISP_APB_S-41", true},
+	{1, 110, 366, "DISP_APB_S-42", true},
+	{1, 111, 367, "DISP_APB_S-43", true},
+	{1, 112, 368, "DISP_APB_S-44", true},
+	{1, 113, 369, "MDP_APB_S", true},
+
+	/* 370 */
+	{1, 114, 370, "MDP_APB_S-1", true},
+	{1, 115, 371, "MDP_APB_S-2", true},
+	{1, 116, 372, "MDP_APB_S-3", true},
+	{1, 117, 373, "MDP_APB_S-4", true},
+	{1, 118, 374, "MDP_APB_S-5", true},
+	{1, 119, 375, "MDP_APB_S-6", true},
+	{1, 120, 376, "MDP_APB_S-7", true},
+	{1, 121, 377, "MDP_APB_S-8", true},
+	{1, 122, 378, "MDP_APB_S-9", true},
+	{1, 123, 379, "MDP_APB_S-10", true},
+
+	/* 380 */
+	{1, 124, 380, "MDP_APB_S-11", true},
+	{1, 125, 381, "MDP_APB_S-12", true},
+	{1, 126, 382, "MDP_APB_S-13", true},
+	{1, 127, 383, "MDP_APB_S-14", true},
+	{1, 128, 384, "MDP_APB_S-15", true},
+	{1, 129, 385, "MDP_APB_S-16", true},
+	{1, 130, 386, "MDP_APB_S-17", true},
+	{1, 131, 387, "MDP_APB_S-18", true},
+	{1, 132, 388, "MDP_APB_S-19", true},
+	{1, 133, 389, "MDP_APB_S-20", true},
+
+	/* 390 */
+	{1, 134, 390, "MDP_APB_S-21", true},
+	{1, 135, 391, "MDP_APB_S-22", true},
+	{1, 136, 392, "MDP_APB_S-23", true},
+	{1, 137, 393, "MDP_APB_S-24", true},
+	{1, 138, 394, "MDP2_APB_S", true},
+	{1, 139, 395, "MDP2_APB_S-1", true},
+	{1, 140, 396, "MDP2_APB_S-2", true},
+	{1, 141, 397, "MDP2_APB_S-3", true},
+	{1, 142, 398, "MDP2_APB_S-4", true},
+	{1, 143, 399, "MDP2_APB_S-5", true},
+
+	/* 400 */
+	{1, 144, 400, "MDP2_APB_S-6", true},
+	{1, 145, 401, "MDP2_APB_S-7", true},
+	{1, 146, 402, "MDP2_APB_S-8", true},
+	{1, 147, 403, "MDP2_APB_S-9", true},
+	{1, 148, 404, "MDP2_APB_S-10", true},
+	{1, 149, 405, "MDP2_APB_S-11", true},
+	{1, 150, 406, "MDP2_APB_S-12", true},
+	{1, 151, 407, "MDP2_APB_S-13", true},
+	{1, 152, 408, "MDP2_APB_S-14", true},
+	{1, 153, 409, "MDP2_APB_S-15", true},
+
+	/* 410 */
+	{1, 154, 410, "MDP2_APB_S-16", true},
+	{1, 155, 411, "MDP2_APB_S-17", true},
+	{1, 156, 412, "MDP2_APB_S-18", true},
+	{1, 157, 413, "MDP2_APB_S-19", true},
+	{1, 158, 414, "MDP2_APB_S-20", true},
+	{1, 159, 415, "MDP2_APB_S-21", true},
+	{1, 160, 416, "MDP2_APB_S-22", true},
+	{1, 161, 417, "MDP2_APB_S-23", true},
+	{1, 162, 418, "MDP2_APB_S-24", true},
+	{1, 163, 420, "HRE_APB_S", true},
+
+	/* 420 */
+	{1, 164, 428, "DPTX_APB_S", true},
+	{1, 165, 429, "DAPC_AO_S", true},
+	{1, 166, 430, "BCRM_AO_S", true},
+	{1, 167, 431, "DEBUG_CTL_AO_S", true},
+};
+
 static const struct mtk_device_num mtk6983_devices_num[] = {
 	{SLAVE_TYPE_INFRA, VIO_SLAVE_NUM_INFRA, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_INFRA1, VIO_SLAVE_NUM_INFRA1, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_PERI_PAR, VIO_SLAVE_NUM_PERI_PAR, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_VLP, VIO_SLAVE_NUM_VLP, IRQ_TYPE_VLP},
 	{SLAVE_TYPE_ADSP, VIO_SLAVE_NUM_ADSP, IRQ_TYPE_ADSP},
+	{SLAVE_TYPE_MMINFRA, VIO_SLAVE_NUM_MMINFRA, IRQ_TYPE_MMINFRA},
 };
 
 static const struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
@@ -1110,6 +1624,12 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 		for (i = 0; i < VIO_SLAVE_NUM_ADSP; i++) {
 			if (vio_index == mt6983_devices_adsp[i].vio_index)
 				return mt6983_devices_adsp[i].device;
+		}
+	} else if (slave_type == SLAVE_TYPE_MMINFRA &&
+			vio_index < VIO_SLAVE_NUM_MMINFRA) {
+		for (i = 0; i < VIO_SLAVE_NUM_MMINFRA; i++) {
+			if (vio_index == mt6983_devices_mminfra[i].vio_index)
+				return mt6983_devices_mminfra[i].device;
 		}
 	}
 
@@ -1232,6 +1752,7 @@ static const char * const slave_type_to_str[] = {
 	"SLAVE_TYPE_PERI_PAR",
 	"SLAVE_TYPE_VLP",
 	"SLAVE_TYPE_ADSP",
+	"SLAVE_TYPE_MMINFRA",
 	"WRONG_SLAVE_TYPE",
 };
 
@@ -1241,6 +1762,7 @@ static int mtk_vio_mask_sta_num[] = {
 	VIO_MASK_STA_NUM_PERI_PAR,
 	VIO_MASK_STA_NUM_VLP,
 	VIO_MASK_STA_NUM_ADSP,
+	VIO_MASK_STA_NUM_MMINFRA,
 };
 
 static struct mtk_devapc_vio_info mt6983_devapc_vio_info = {
@@ -1297,6 +1819,7 @@ static struct mtk_devapc_soc mt6983_data = {
 	.device_info[SLAVE_TYPE_PERI_PAR] = mt6983_devices_peri_par,
 	.device_info[SLAVE_TYPE_VLP] = mt6983_devices_vlp,
 	.device_info[SLAVE_TYPE_ADSP] = mt6983_devices_adsp,
+	.device_info[SLAVE_TYPE_MMINFRA] = mt6983_devices_mminfra,
 	.ndevices = mtk6983_devices_num,
 	.vio_info = &mt6983_devapc_vio_info,
 	.vio_dbgs = &mt6983_vio_dbgs,
