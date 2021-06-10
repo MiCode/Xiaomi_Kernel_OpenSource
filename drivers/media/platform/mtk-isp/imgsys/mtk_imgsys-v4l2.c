@@ -1670,28 +1670,21 @@ long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 }
 
 
-#ifndef NOT_FPGA
-static struct mtk_imgsys_request imgsys_reqs[32];
-#endif
 static struct media_request *mtk_imgsys_request_alloc(struct media_device *mdev)
 {
 	struct mtk_imgsys_request *imgsys_req = NULL;
 	struct media_request *req = NULL;
+	struct mtk_imgsys_dev *imgsys = mtk_imgsys_mdev_to_dev(mdev);
+	size_t bufs_size;
 
-#ifndef NOT_FPGA
-	static unsigned int index;
-#endif
-	pr_info("%s: 0x%x", __func__, sizeof(*imgsys_req));
-
-#ifdef NOT_FPGA
 	imgsys_req = vzalloc(sizeof(*imgsys_req));
-#else
-	imgsys_req = &imgsys_reqs[index];
-	index++;
-#endif
-	if (imgsys_req)
+
+	if (imgsys_req) {
+		bufs_size = imgsys->imgsys_pipe[0].desc->total_queues *
+					sizeof(struct mtk_imgsys_dev_buffer *);
+		imgsys_req->buf_map = vzalloc(bufs_size);
 		req = &imgsys_req->req;
-	else
+	} else
 		pr_info("%s: vzalloc fails\n", __func__);
 
 	return req;
@@ -1701,13 +1694,10 @@ static void mtk_imgsys_request_free(struct media_request *req)
 {
 	struct mtk_imgsys_request *imgsys_req =
 					mtk_imgsys_media_req_to_imgsys_req(req);
-#ifdef NOT_FPGA
 	if (imgsys_req->used)
 		wait_for_completion_timeout(&imgsys_req->done, HZ);
+	vfree(imgsys_req->buf_map);
 	vfree(imgsys_req);
-#else
-	(void)imgsys_req;
-#endif
 
 }
 
@@ -1719,13 +1709,16 @@ static int mtk_imgsys_vb2_request_validate(struct media_request *req)
 					mtk_imgsys_media_req_to_imgsys_req(req);
 	struct mtk_imgsys_pipe *pipe = NULL;
 	struct mtk_imgsys_pipe *pipe_prev = NULL;
-	struct mtk_imgsys_dev_buffer **map = imgsys_req->buf_map;
+	struct mtk_imgsys_dev_buffer **buf_map = imgsys_req->buf_map;
 	int buf_count = 0;
+	int i;
+
 	imgsys_req->buf_fd = 0;
 	imgsys_req->buf_va_daddr = 0;
 	imgsys_req->buf_same = false;
 
-	memset(map, 0, sizeof(imgsys_req->buf_map));
+	for (i = 0; i < imgsys_dev->imgsys_pipe[0].desc->total_queues; i++)
+		buf_map[i] = NULL;
 
 	list_for_each_entry(obj, &req->objects, list) {
 		struct vb2_buffer *vb;
