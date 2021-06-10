@@ -388,6 +388,8 @@ struct cmdqSecAddrMetadataStruct {
 	uint32_t offset;	/* [IN]_b, buffser offset to secure handle */
 	uint32_t size;		/* buffer size */
 	uint32_t port;		/* hw port id (i.e. M4U port id) */
+	uint32_t sec_id;
+	uint32_t useSecIdinMeta;
 };
 
 struct cmdqMetaBuf {
@@ -459,6 +461,9 @@ struct cmdqSecDataStruct {
 	uint64_t extension;
 
 	bool mtee;
+
+	/*iommu_sec_id*/
+	int32_t sec_id;
 #ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
 	/* tablet use */
 	uint32_t secMode;
