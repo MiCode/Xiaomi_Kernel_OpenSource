@@ -274,6 +274,8 @@ void vcu_get_task(struct task_struct **task, struct files_struct **f,
 		int reset);
 void vcu_get_file_lock(void);
 void vcu_put_file_lock(void);
+void vcu_get_gce_lock(struct platform_device *pdev, unsigned long codec_type);
+void vcu_put_gce_lock(struct platform_device *pdev, unsigned long codec_type);
 int vcu_get_sig_lock(unsigned long *flags);
 void vcu_put_sig_lock(unsigned long flags);
 int vcu_check_vpud_alive(void);

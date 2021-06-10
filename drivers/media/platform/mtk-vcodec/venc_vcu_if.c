@@ -14,6 +14,7 @@
  */
 
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 #include <media/v4l2-mem2mem.h>
 #include <uapi/linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
@@ -83,6 +84,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	unsigned long flags;
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
+	int lock = -1;
 
 	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_msg_init) > SHARE_BUF_SIZE);
 	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_query_cap) > SHARE_BUF_SIZE);
@@ -141,11 +143,24 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	case VCU_IPIMSG_ENC_DEINIT_DONE:
 		break;
 	case VCU_IPIMSG_ENC_POWER_ON:
+		vcu_get_gce_lock(vcu->dev, VCU_VENC);
+		while (lock != 0) {
+			lock = venc_lock(ctx, 0, true);
+			if (lock != 0) {
+				vcu_put_gce_lock(vcu->dev, VCU_VENC);
+				usleep_range(1000, 2000);
+				vcu_get_gce_lock(vcu->dev, VCU_VENC);
+			}
+		}
 		venc_encode_prepare(ctx, 0, &flags);
+		vcu_put_gce_lock(vcu->dev, VCU_VENC);
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_POWER_OFF:
+		vcu_get_gce_lock(vcu->dev, VCU_VENC);
 		venc_encode_unprepare(ctx, 0, &flags);
+		venc_unlock(ctx, 0);
+		vcu_put_gce_lock(vcu->dev, VCU_VENC);
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_QUERY_CAP_ACK:
