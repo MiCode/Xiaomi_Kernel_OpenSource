@@ -8,6 +8,7 @@
 #ifndef __MTK_MML_CORE_H__
 #define __MTK_MML_CORE_H__
 
+#include <linux/atomic.h>
 #include <linux/file.h>
 #include <linux/list.h>
 #include <linux/mailbox_controller.h>
@@ -222,6 +223,7 @@ struct mml_task {
 	/* workqueue */
 	struct work_struct work_config[2];
 	struct work_struct work_wait;
+	atomic_t pipe_done;
 };
 
 struct mml_comp_tile_ops {

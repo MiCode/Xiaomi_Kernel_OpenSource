@@ -249,13 +249,81 @@ static s32 command_make(struct mml_task *task, u8 pipe)
 	return command_reuse(task, pipe);
 }
 
+static s32 core_enable(struct mml_task *task, u8 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_comp *comp;
+	u8 i;
+
+	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		if (comp->hw_ops->pw_enable)
+			comp->hw_ops->pw_enable(comp);
+	}
+
+	if (path->mmlsys && path->mmlsys->hw_ops->clk_enable)
+		path->mmlsys->hw_ops->clk_enable(path->mmlsys);
+	if (path->mutex && path->mutex->hw_ops->clk_enable)
+		path->mutex->hw_ops->clk_enable(path->mutex);
+
+	for (i = 0; i < path->node_cnt; i++) {
+		if (i == path->mmlsys_idx || i == path->mutex_idx)
+			continue;
+		comp = task_comp(task, pipe, i);
+		comp->hw_ops->clk_enable(comp);
+	}
+
+	return 0;
+}
+
+static s32 core_disable(struct mml_task *task, u8 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_comp *comp;
+	u8 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		if (i == path->mmlsys_idx || i == path->mutex_idx)
+			continue;
+		comp = task_comp(task, pipe, i);
+		comp->hw_ops->clk_disable(comp);
+	}
+
+	if (path->mutex && path->mutex->hw_ops->clk_disable)
+		path->mutex->hw_ops->clk_disable(path->mutex);
+	if (path->mmlsys && path->mmlsys->hw_ops->clk_disable)
+		path->mmlsys->hw_ops->clk_disable(path->mmlsys);
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		if (comp->hw_ops->pw_disable)
+			comp->hw_ops->pw_disable(comp);
+	}
+
+	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
+
+	return 0;
+}
+
 static void core_taskdone(struct work_struct *work)
 {
 	struct mml_task *task;
+	int cnt;
 
 	task = container_of(work, struct mml_task, work_wait);
 
 	task->config->task_ops->frame_done(task);
+	cnt = atomic_inc_return(&task->pipe_done);
+
+	/* cnt should be 1 or 2, if dual on and count 2 means pipes done */
+	if (task->config->dual && cnt == 1)
+		return;
+
+	core_disable(task, 0);
+	if (task->config->dual)
+		core_disable(task, 1);
 }
 
 static void core_taskdone_cb(struct cmdq_cb_data data)
@@ -278,6 +346,8 @@ static s32 core_config(struct mml_task *task, u32 pipe_id)
 
 	/* make commands into pkt for later flash */
 	command_make(task, pipe_id);
+
+	core_enable(task, pipe_id);
 
 	return 0;
 }
@@ -414,6 +484,9 @@ s32 mml_core_submit_task(struct mml_frame_config *frame_config,
 		task->config->wq_config[0] = alloc_workqueue("mml_work0", 0, 0);
 	if (!task->config->wq_wait)
 		task->config->wq_wait= alloc_workqueue("mml_wait", 0, 0);
+
+	/* reset to 0 in case reuse task */
+	atomic_set(&task->pipe_done, 0);
 
 	queue_work(task->config->wq_config[0], &task->work_config[0]);
 

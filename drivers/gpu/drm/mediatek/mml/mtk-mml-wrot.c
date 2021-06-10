@@ -1525,8 +1525,6 @@ static s32 wrot_pw_disable(struct mml_comp *comp)
 
 static s32 wrot_clk_enable(struct mml_comp *comp)
 {
-	u8 i;
-
 	/* mtk iommu */
 #ifdef CONFIG_MTK_IOMMU_V2
 	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
@@ -1538,33 +1536,14 @@ static s32 wrot_clk_enable(struct mml_comp *comp)
 	m4u_config_port(&port);
 #endif
 
-	for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
-		if (IS_ERR(comp->clks[i]))
-			break;
-		clk_prepare_enable(comp->clks[i]);
-	}
-
-	return 0;
-}
-
-static s32 wrot_clk_disable(struct mml_comp *comp)
-{
-	u8 i;
-
-	for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
-		if (IS_ERR(comp->clks[i]))
-			break;
-		clk_disable_unprepare(comp->clks[i]);
-	}
-
-	return 0;
+	return mml_comp_clk_enable(comp);
 }
 
 static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.pw_enable = &wrot_pw_enable,
 	.pw_disable = &wrot_pw_disable,
 	.clk_enable = &wrot_clk_enable,
-	.clk_disable = &wrot_clk_disable,
+	.clk_disable = &mml_comp_clk_disable,
 };
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
