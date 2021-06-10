@@ -286,6 +286,7 @@ static int vcp_get_freq_idx(unsigned int clk_opp)
 	return i;
 }
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 static int vcp_update_pmic_vow_lp_mode(bool on)
 {
 	int ret = 0;
@@ -299,6 +300,7 @@ static int vcp_update_pmic_vow_lp_mode(bool on)
 
 	return ret;
 }
+#endif
 
 static int vcp_set_pmic_vcore(unsigned int cur_freq)
 {
