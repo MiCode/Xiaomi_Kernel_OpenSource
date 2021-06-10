@@ -15,12 +15,14 @@
 
 #include "mtk-mml-driver.h"
 #include "mtk-mml-core.h"
+#include "mtk-mml-sys.h"
 
 #define MML_MAX_ENGINES		50
 
 struct mml_dev {
 	struct platform_device *pdev;
 	struct mml_comp *comps[MML_MAX_ENGINES];
+	struct mtk_mml_sys *sys;
 	struct cmdq_base *cmdq_base;
 	struct cmdq_client *cmdq_clt;
 
@@ -106,64 +108,94 @@ static const struct component_master_ops mml_master_ops = {
 	.unbind = master_unbind,
 };
 
-static int component_compare(struct device *dev, void *data)
+static inline int of_mml_read_comp_name_index(const struct device_node *np,
+	int index, const char **name)
+{
+	return of_property_read_string_index(np, "comp-names", index, name);
+}
+
+static int comp_compare(struct device *dev, int subcomponent, void *data)
 {
 	u32 comp_id;
 	u32 match_id = (u32)(uintptr_t)data;
 
-	dev_dbg(dev, "%s -- match_id:%d\n", __func__, match_id);
-	if (!of_property_read_u32(dev->of_node, "comp-id", &comp_id)) {
+	dev_dbg(dev, "%s %d -- match_id:%d\n", __func__,
+		subcomponent, match_id);
+	if (!of_mml_read_comp_id_index(dev->of_node, subcomponent, &comp_id)) {
 		dev_dbg(dev, "%s -- comp_id:%d\n", __func__, comp_id);
 		return match_id == comp_id;
 	}
 	return 0;
 }
 
-static int comp_sys_init(struct device *dev, struct mml_dev *mml)
+static inline int of_mml_read_comp_count(const struct device_node *np,
+	u32 *count)
+{
+	return of_property_read_u32(np, "comp-count", count);
+}
+
+static int comp_master_init(struct device *dev, struct mml_dev *mml)
 {
 	struct component_match *match = NULL;
 	u32 comp_count;
 	ulong i;
 	int ret;
 
-	if (of_property_read_u32(dev->of_node, "comp-count", &comp_count)) {
-		dev_err(dev, "No comp-count in dts node\n");
+	if (of_mml_read_comp_count(dev->of_node, &comp_count)) {
+		dev_err(dev, "no comp-count in dts node\n");
 		return -EINVAL;
 	}
 	dev_notice(dev, "%s -- comp-count:%d\n", __func__, comp_count);
 	for (i = 0; i < comp_count; i++)
-		component_match_add(dev, &match, component_compare, (void *)i);
+		component_match_add_typed(dev, &match, comp_compare, (void *)i);
 
 	ret = component_master_add_with_match(dev, &mml_master_ops, match);
 	if (ret)
-		dev_err(dev, "Failed to add match: %d\n", ret);
+		dev_err(dev, "failed to add match: %d\n", ret);
 
 	return ret;
 }
 
-static void comp_sys_deinit(struct device *dev)
+static void comp_master_deinit(struct device *dev)
 {
 	component_master_del(dev, &mml_master_ops);
 }
 
-static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp)
+static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
+	const char *clkpropname)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 	struct resource *res;
+	struct property *prop;
+	const char *clkname;
 	int i;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		dev_err(dev, "Failed to get resource\n");
+		dev_err(dev, "failed to get resource\n");
 		return -EINVAL;
 	}
 	comp->base = devm_ioremap_resource(dev, res);
 	comp->base_pa = res->start;
-	for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
-		comp->clks[i] = of_clk_get(node, i);
-		if (IS_ERR(comp->clks[i]))
-			break;
+
+	if (clkpropname && of_property_count_strings(node, clkpropname) > 0) {
+		i = 0;
+		of_property_for_each_string(node, clkpropname, prop, clkname) {
+			if (i >= ARRAY_SIZE(comp->clks))
+				break;
+			comp->clks[i] = of_clk_get_by_name(node, clkname);
+			if (!IS_ERR(comp->clks[i]))
+				i++;
+		}
+		if (i < ARRAY_SIZE(comp->clks))
+			comp->clks[i] = ERR_PTR(-ENOENT);
+	} else {
+		for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
+			comp->clks[i] = of_clk_get(node, i);
+			if (IS_ERR(comp->clks[i]))
+				break;
+		}
 	}
 	return 0;
 }
@@ -171,18 +203,17 @@ static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp)
 s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp)
 {
 	struct device *dev = &comp_pdev->dev;
-	struct device_node *node = dev->of_node;
 	u32 comp_id;
 	int ret;
 
-	ret = of_property_read_u32(node, "comp-id", &comp_id);
+	ret = of_mml_read_comp_id_index(dev->of_node, 0, &comp_id);
 	if (ret) {
-		dev_err(dev, "No comp-id in component %s: %d\n",
-			node->full_name, ret);
+		dev_err(dev, "no comp-ids in component %s: %d\n",
+			dev->of_node->full_name, ret);
 		return -EINVAL;
 	}
 	comp->id = comp_id;
-	ret = __comp_init(comp_pdev, comp);
+	ret = __comp_init(comp_pdev, comp, "comp-clock-names");
 	if (ret)
 		return ret;
 	/* TODO: get larb device for smi prepare */
@@ -190,23 +221,31 @@ s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp)
 }
 EXPORT_SYMBOL_GPL(mml_comp_init);
 
-s32 mml_subcomp_init(struct platform_device *main_pdev,
+s32 mml_subcomp_init(struct platform_device *comp_pdev,
 	int subcomponent, struct mml_comp *comp)
 {
-	struct device *dev = &main_pdev->dev;
+	struct device *dev = &comp_pdev->dev;
 	struct device_node *node = dev->of_node;
 	u32 comp_id;
+	const char *name_ptr = NULL;
+	char name[32] = "";
 	int ret;
 
-	ret = of_property_read_u32_index(node, "mml-comp-ids",
-		subcomponent, &comp_id);
+	ret = of_mml_read_comp_id_index(node, subcomponent, &comp_id);
 	if (ret) {
-		dev_err(dev, "No mml-comp-ids in component %s: %d\n",
+		dev_err(dev, "no comp-ids in component %s: %d\n",
 			node->full_name, ret);
 		return -EINVAL;
 	}
 	comp->id = comp_id;
-	ret = __comp_init(main_pdev, comp);
+	if (!of_mml_read_comp_name_index(node, subcomponent, &name_ptr)) {
+		ret = snprintf(name, sizeof(name), "%s-clock-names", name_ptr);
+		if (ret >= sizeof(name))
+			dev_err(dev, "len:%d over name size:%d",
+				ret, sizeof(name));
+		name_ptr = name;
+	}
+	ret = __comp_init(comp_pdev, comp, name_ptr);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mml_subcomp_init);
@@ -216,7 +255,7 @@ s32 mml_register_comp(struct device *master, struct mml_comp *comp)
 	struct mml_dev *mml = dev_get_drvdata(master);
 
 	if (mml->comps[comp->id]) {
-		dev_err(master, "Duplicated component id: %d\n", comp->id);
+		dev_err(master, "duplicated component id:%d\n", comp->id);
 		return -EINVAL;
 	}
 	mml->comps[comp->id] = comp;
@@ -236,6 +275,28 @@ void mml_unregister_comp(struct device *master, struct mml_comp *comp)
 }
 EXPORT_SYMBOL_GPL(mml_unregister_comp);
 
+
+static int comp_bind(struct device *dev, struct device *master, void *data)
+{
+	struct mml_dev *mml = dev_get_drvdata(dev);
+	struct mtk_mml_sys *sys = mml->sys;
+
+	return mml_sys_bind(dev, master, sys);
+}
+
+static void comp_unbind(struct device *dev, struct device *master, void *data)
+{
+	struct mml_dev *mml = dev_get_drvdata(dev);
+	struct mtk_mml_sys *sys = mml->sys;
+
+	mml_sys_unbind(dev, master, sys);
+}
+
+static const struct component_ops sys_comp_ops = {
+	.bind	= comp_bind,
+	.unbind = comp_unbind,
+};
+
 static bool dbg_probed;
 static int mml_probe(struct platform_device *pdev)
 {
@@ -248,21 +309,22 @@ static int mml_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mml->pdev = pdev;
-	ret = comp_sys_init(dev, mml);
+	ret = comp_master_init(dev, mml);
 	if (ret) {
-		dev_err(dev, "Failed to initialize mml comp system\n");
+		dev_err(dev, "failed to initialize mml component master\n");
 		goto err_init_comp;
 	}
-	//ret = mml_sys_comp_add(dev);
-	if (ret) {
-		dev_err(dev, "Failed to add mmlsys component: %d\n", ret);
+	mml->sys = mml_sys_create(pdev, &sys_comp_ops);
+	if (IS_ERR(mml->sys)) {
+		ret = PTR_ERR(mml->sys);
+		dev_err(dev, "failed to init mml sys: %d\n", ret);
 		goto err_sys_add;
 	}
 
 	mml->cmdq_base = cmdq_register_device(dev);
 	mml->cmdq_clt = cmdq_mbox_create(dev, 0);
 	if (IS_ERR(mml->cmdq_clt)) {
-		dev_err(dev, "Unable to create cmdq mbox on %p:%d\n", dev, 0);
+		dev_err(dev, "unable to create cmdq mbox on %p:%d\n", dev, 0);
 		ret = PTR_ERR(mml->cmdq_clt);
 		goto err_mbox_create;
 	}
@@ -272,9 +334,9 @@ static int mml_probe(struct platform_device *pdev)
 	return 0;
 
 err_mbox_create:
-	//mml_sys_comp_del(dev);
+	mml_sys_destroy(pdev, mml->sys, &sys_comp_ops);
 err_sys_add:
-	comp_sys_deinit(dev);
+	comp_master_deinit(dev);
 err_init_comp:
 	devm_kfree(dev, mml);
 	return ret;
@@ -285,7 +347,8 @@ static int mml_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mml_dev *mml = platform_get_drvdata(pdev);
 
-	comp_sys_deinit(dev);
+	mml_sys_destroy(pdev, mml->sys, &sys_comp_ops);
+	comp_master_deinit(dev);
 	devm_kfree(dev, mml);
 	return 0;
 }
@@ -321,22 +384,14 @@ static const struct dev_pm_ops mml_pm_ops = {
 	SET_RUNTIME_PM_OPS(mml_pm_suspend, mml_pm_resume, NULL)
 };
 
-static const struct of_device_id mml_of_ids[] = {
-	{
-		.compatible = "mediatek,mt6893-mml",
-	},
-	{},
-};
-MODULE_DEVICE_TABLE(of, mml_of_ids);
-
 static struct platform_driver mml_driver = {
 	.probe = mml_probe,
 	.remove = mml_remove,
 	.driver = {
-		.name = "mtk-mml",
+		.name = "mediatek-mml",
 		.owner = THIS_MODULE,
 		.pm = &mml_pm_ops,
-		.of_match_table = mml_of_ids,
+		.of_match_table = mtk_mml_of_ids,
 	},
 };
 

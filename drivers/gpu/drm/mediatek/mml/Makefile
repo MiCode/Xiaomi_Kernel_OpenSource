@@ -26,7 +26,9 @@ mtk-mml-mt6893-objs := mml_drv.o
 mml_drv-objs += mtk-mml-driver.o
 mml_drv-objs += mtk-mml-core.o
 mml_drv-objs += mtk-mml-drm-adaptor.o
+mml_drv-objs += mtk-mml-sys.o
+mml_drv-objs += mtk-mml-mutex.o
 mml_drv-objs += mtk-mml-rsz.o
 mml_drv-objs += mtk-mml-rdma.o
 mml_drv-objs += mtk-mml-wrot.o
-mml_drv-objs += mtk-mml-mutex.o
+

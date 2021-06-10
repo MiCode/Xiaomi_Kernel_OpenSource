@@ -11,14 +11,27 @@
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/mtk-cmdq-mailbox.h>
 #include <linux/mailbox_controller.h>
+#include <linux/of.h>
 
+struct mml_comp;
 struct mml_dev;
 struct mml_drm_ctx;
-struct mml_comp;
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev);
+
+static inline int of_mml_count_comps(const struct device_node *np)
+{
+	return of_property_count_u32_elems(np, "comp-ids");
+}
+
+static inline int of_mml_read_comp_id_index(const struct device_node *np,
+	u32 index, u32 *id)
+{
+	return of_property_read_u32_index(np, "comp-ids", index, id);
+}
+
 s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp);
-s32 mml_subcomp_init(struct platform_device *main_pdev,
+s32 mml_subcomp_init(struct platform_device *comp_pdev,
 	int subcomponent, struct mml_comp *comp);
 s32 mml_register_comp(struct device *master, struct mml_comp *comp);
 void mml_unregister_comp(struct device *master, struct mml_comp *comp);

@@ -48,7 +48,7 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mtk_mml_wrot *dbg_probed_components[2];
+static struct mtk_mml_wrot *dbg_probed_components[4];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)
