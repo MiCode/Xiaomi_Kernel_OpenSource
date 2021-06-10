@@ -106,7 +106,9 @@ static char *vcodec_param_string = "";
 
 inline unsigned int ipi_id_to_inst_id(int id)
 {
-	/* Assume VENC uses instance 1 and others use 0. */
+	if (id == IPI_VDEC_RESOURCE)
+		return VCU_RESOURCE;
+
 	if (id < IPI_VENC_COMMON && id >= IPI_VCU_INIT)
 		return VCU_VDEC;
 	else
