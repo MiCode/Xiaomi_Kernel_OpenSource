@@ -495,9 +495,7 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 		goto out;
 
 	alg->builtin = true;
-	mutex_lock(&vpu_drv->vi_lock);
 	list_add_tail(&alg->list, &al->a);
-	mutex_unlock(&vpu_drv->vi_lock);
 
 added:
 	vpu_drv_debug("%s: vpu%d(%xh): %s <%s>: off: %x, mva: %llx, size: %x, addr: %x\n",
@@ -589,9 +587,7 @@ static int vpu_init_dev_algo_normal(
 			alg->a.len = algo_info->length;
 			alg->builtin = true;
 
-			mutex_lock(&vpu_drv->vi_lock);
 			list_add_tail(&alg->list, &al->a);
-			mutex_unlock(&vpu_drv->vi_lock);
 			al->cnt++;
 		}
 		vpu_drv_debug("%s: vpu%d, total algo count: %d\n",
