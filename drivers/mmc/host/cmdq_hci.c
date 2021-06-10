@@ -800,7 +800,10 @@ _err:
 				task_mask = cmdq_readl(cq_host, CQTCN);
 				if (!task_mask)
 					task_mask = cmdq_readl(cq_host, CQTDBR);
-				tag = uffs(task_mask) - 1;
+				if (task_mask == 0)
+					tag = 0;
+				else
+					tag = uffs(task_mask) - 1;
 				pr_notice("%s: cmd%lu err tag: %lu\n",
 					__func__, cmd_idx, tag);
 			} else {
