@@ -2667,7 +2667,6 @@ static int mtk_vcu_remove(struct platform_device *pdev)
 
 	vcu_free_d_ext_mem(vcu);
 	if (vcu->is_open == true) {
-		filp_close(vcu->file, NULL);
 		vcu->is_open = false;
 	}
 	devm_kfree(&pdev->dev, vcu);
