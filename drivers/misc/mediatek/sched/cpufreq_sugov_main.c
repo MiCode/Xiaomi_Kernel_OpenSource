@@ -24,6 +24,9 @@
 #include <linux/kthread.h>
 #include "../../../../drivers/thermal/mediatek/thermal_interface.h"
 
+#define CREATE_TRACE_POINTS
+#include "sched_trace.h"
+
 #define IOWAIT_BOOST_MIN	(SCHED_CAPACITY_SCALE / 8)
 
 struct sugov_tunables {
@@ -559,6 +562,8 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 {
 	struct sugov_cpu *sg_cpu = container_of(hook, struct sugov_cpu, update_util);
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
+	struct rq *rq;
+	unsigned long umin, umax;
 	unsigned long util, max;
 	unsigned int next_f;
 	bool busy;
@@ -580,6 +585,15 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	util = sugov_get_util(sg_cpu);
 	max = sg_cpu->max;
 	util = sugov_iowait_apply(sg_cpu, time, util, max);
+
+	if (trace_sugov_ext_util_enabled()) {
+		rq = cpu_rq(sg_cpu->cpu);
+
+		umin = rq->uclamp[UCLAMP_MIN].value;
+		umax = rq->uclamp[UCLAMP_MAX].value;
+		trace_sugov_ext_util(sg_cpu->cpu, util, umin, umax);
+	}
+
 	next_f = get_next_freq(sg_policy, util, max);
 	/*
 	 * Do not reduce the frequency if the CPU has not been idle
@@ -610,6 +624,8 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 {
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
 	struct cpufreq_policy *policy = sg_policy->policy;
+	struct rq *rq;
+	unsigned long umin, umax;
 	unsigned long util = 0, max = 1;
 	unsigned int j;
 
@@ -620,6 +636,14 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 		j_util = sugov_get_util(j_sg_cpu);
 		j_max = j_sg_cpu->max;
 		j_util = sugov_iowait_apply(j_sg_cpu, time, j_util, j_max);
+
+		if (trace_sugov_ext_util_enabled()) {
+			rq = cpu_rq(j);
+
+			umin = rq->uclamp[UCLAMP_MIN].value;
+			umax = rq->uclamp[UCLAMP_MAX].value;
+			trace_sugov_ext_util(j, j_util, umin, umax);
+		}
 
 		if (j_util * max > j_max * util) {
 			util = j_util;
