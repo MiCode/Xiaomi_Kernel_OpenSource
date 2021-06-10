@@ -126,10 +126,14 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	freq_thermal = pd->table[opp_idx].frequency;
 
 	policy = cpufreq_cpu_get(this_cpu);
-	freq_max = policy->max;
+	if (!policy)
+		freq_max = pd->table[pd->nr_perf_states-1].frequency;
+	else {
+		freq_max = policy->max;
+		cpufreq_cpu_put(policy);
+	}
 
 	freq_ceiling = min(freq_thermal, freq_max);
-
 	max_capacity = arch_scale_cpu_capacity(this_cpu);
 	capacity = freq_ceiling * max_capacity;
 	capacity /= pd->table[pd->nr_perf_states-1].frequency;
