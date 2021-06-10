@@ -287,12 +287,17 @@ static int dl_speed_hint(u64 speed, int *in_idx, struct common_cfg_para *cfg)
 	/* DRAM freq hint*/
 	dram_frq_lvl = s_dl_dvfs_tbl[new_idx].dram_lvl;
 	/* CPU affinity */
-	if (g_md_gen == 6298)
+	if (g_dpmaif_ver == 3)
 		mtk_ccci_affinity_rta_v3(s_dl_dvfs_tbl[new_idx].irq_affinity,
 					s_dl_dvfs_tbl[new_idx].task_affinity, 8);
-	else
+	else if (g_dpmaif_ver == 2)
 		mtk_ccci_affinity_rta_v2(s_dl_dvfs_tbl[new_idx].irq_affinity,
 				s_dl_dvfs_tbl[new_idx].task_affinity, 8);
+	else
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: g_dpmaif_ver(%u) is invalid.\n",
+			__func__, g_dpmaif_ver);
+
 	/* RPS */
 	set_ccmni_rps(s_dl_dvfs_tbl[new_idx].rps);
 

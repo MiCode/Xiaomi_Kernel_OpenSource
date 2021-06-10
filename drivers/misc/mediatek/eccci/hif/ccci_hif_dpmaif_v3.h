@@ -194,16 +194,17 @@ enum error_num {
 	ERROR_STOP_MAX, /* -4 */
 };
 
-#ifdef CCCI_GEN98_ENABLE_LRO
 #define DPMAIF_MAX_LRO 50
 
 struct dpmaif_rx_lro_info {
 	unsigned int    bid_tbl[DPMAIF_MAX_LRO];
 	struct sk_buff *skb_tbl[DPMAIF_MAX_LRO];
+#ifdef GET_HEADER_OFFSET_FROM_PIT
+	unsigned int    hof_tbl[DPMAIF_MAX_LRO];
+#endif
 
 	unsigned int    count;
 };
-#endif
 
 struct dpmaif_rx_queue {
 	unsigned char index;
@@ -238,9 +239,7 @@ struct dpmaif_rx_queue {
 	struct ccci_skb_queue skb_list;
 	unsigned int pit_dp;
 
-#ifdef CCCI_GEN98_ENABLE_LRO
 	struct dpmaif_rx_lro_info lro_info;
-#endif
 };
 
 /****************************************************************************
@@ -392,6 +391,7 @@ struct hif_dpmaif_ctrl {
 	struct ccci_hif_dpmaif_val plat_val;
 
 	atomic_t suspend_flag;
+	unsigned int support_lro;
 };
 
 #ifndef CCCI_KMODULE_ENABLE

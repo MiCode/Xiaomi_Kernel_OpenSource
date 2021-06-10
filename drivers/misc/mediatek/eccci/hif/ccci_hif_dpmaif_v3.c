@@ -51,11 +51,9 @@
 
 #include "dpmaif_arch_v3.h"
 
-#ifdef CCCI_GEN98_ENABLE_LRO
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/skbuff.h>
-#endif
 
 #include "ccci_hif_dpmaif_comm.h"
 #include "modem_secure_base.h"
@@ -122,8 +120,6 @@ TRACE_EVENT(ccci_skb_rx,
 );
 #endif
 #endif
-
-#ifdef CCCI_GEN98_ENABLE_LRO
 
 static int ccci_skb_to_list(struct ccci_skb_queue *queue,
 		struct sk_buff *newsk);
@@ -306,7 +302,11 @@ static inline void dpmaif_rxq_lro_start(struct dpmaif_rx_lro_info *lro_info)
 static inline void dpmaif_rxq_lro_join_skb(
 		struct dpmaif_rx_queue *rxq,
 		struct sk_buff *skb,
+#ifndef GET_HEADER_OFFSET_FROM_PIT
 		unsigned int bid)
+#else
+		unsigned int bid, unsigned int header_offset)
+#endif
 {
 	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
 
@@ -320,7 +320,9 @@ static inline void dpmaif_rxq_lro_join_skb(
 
 	lro_info->bid_tbl[lro_info->count] = bid;
 	lro_info->skb_tbl[lro_info->count] = skb;
-
+#ifdef GET_HEADER_OFFSET_FROM_PIT
+	lro_info->hof_tbl[lro_info->count] = header_offset;
+#endif
 	lro_info->count++;
 }
 
@@ -418,13 +420,20 @@ lro_continue:
 				goto lro_end;
 			}
 
+#ifdef GET_HEADER_OFFSET_FROM_PIT
+			if (lro_info->hof_tbl[i])
+				header_len = (lro_info->hof_tbl[i] << 2);
+			else {
+#endif
 			header_len = dpmaif_get_skb_header_len(skb0,
 					lro_info->bid_tbl[i]);
 			if (header_len == 0) {
 				start_idx = i + 1;
 				goto gro_too_much_skb;
 			}
-
+#ifdef GET_HEADER_OFFSET_FROM_PIT
+			}
+#endif
 			NAPI_GRO_CB(skb0)->data_offset = header_len;
 			NAPI_GRO_CB(skb0)->last = skb0;
 
@@ -432,14 +441,20 @@ lro_continue:
 		}
 
 		skb1 = lro_info->skb_tbl[i];
-
+#ifdef GET_HEADER_OFFSET_FROM_PIT
+		if (lro_info->hof_tbl[i])
+			header_len = (lro_info->hof_tbl[i] << 2);
+		else {
+#endif
 		header_len = dpmaif_get_skb_header_len(skb1,
 				lro_info->bid_tbl[i]);
 		if (header_len == 0) {
 			start_idx = i;
 			goto gro_too_much_skb;
 		}
-
+#ifdef GET_HEADER_OFFSET_FROM_PIT
+		}
+#endif
 		data_len = skb1->len - header_len;
 
 		NAPI_GRO_CB(skb1)->data_offset = header_len;
@@ -484,7 +499,6 @@ lro_end:
 	dpmaif_rxq_lro_handle_bid(rxq, lro_info->count, 0);
 	return 0;
 }
-#endif
 
 static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 {
@@ -1601,9 +1615,14 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	new_skb->ip_summed = (rxq->check_sum == 0) ?
 		CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
 
-#ifdef CCCI_GEN98_ENABLE_LRO
-	dpmaif_rxq_lro_join_skb(rxq, new_skb, buffer_id);
+	if (dpmaif_ctrl->support_lro)
+#ifndef GET_HEADER_OFFSET_FROM_PIT
+		dpmaif_rxq_lro_join_skb(rxq, new_skb, buffer_id);
+#else
+		dpmaif_rxq_lro_join_skb(rxq, new_skb, buffer_id,
+				pkt_inf_t->header_offset);
 #endif
+
 	return 0;
 }
 
@@ -1909,9 +1928,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 #ifdef PIT_USING_CACHE_MEM
 	dma_addr_t cache_start_addr;
 #endif
-#ifdef CCCI_GEN98_ENABLE_LRO
 	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
-#endif
 
 	cur_pit = rxq->pit_rd_idx;
 
@@ -1966,9 +1983,8 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 				rxq->pit_dp =
 				((struct dpmaifq_msg_pit *)pkt_inf_t)->dp;
 
-#ifdef CCCI_GEN98_ENABLE_LRO
-				dpmaif_rxq_lro_start(lro_info);
-#endif
+				if (dpmaif_ctrl->support_lro)
+					dpmaif_rxq_lro_start(lro_info);
 			} else if (pkt_inf_t->packet_type == DES_PT_PD) {
 				buffer_id = (pkt_inf_t->buffer_id |
 						((pkt_inf_t->h_bid) << 13));
@@ -2038,13 +2054,12 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 #endif
 			if (pkt_inf_t->c_bit == 0) {
 				/* last one, not msg pit, && data had rx. */
-#ifdef CCCI_GEN98_ENABLE_LRO
-				if (lro_info->count > 1)
+				if (dpmaif_ctrl->support_lro &&
+						lro_info->count > 1)
 					ret = dpmaif_rxq_lro_end(rxq);
 				else
-#endif
-				ret = dpmaif_send_skb_to_net(rxq,
-					rxq->skb_idx);
+					ret = dpmaif_send_skb_to_net(rxq,
+							rxq->skb_idx);
 				if (ret < 0)
 					break;
 				recv_skb_cnt++;
@@ -3277,9 +3292,9 @@ static int dpmaif_rxq_init(struct dpmaif_rx_queue *queue)
 {
 	int ret = -1;
 
-#ifdef CCCI_GEN98_ENABLE_LRO
-	dpmaif_rxq_lro_info_init(queue);
-#endif
+	if (dpmaif_ctrl->support_lro)
+		dpmaif_rxq_lro_info_init(queue);
+
 	ret = dpmaif_rx_buf_init(queue);
 	if (ret) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
@@ -3954,76 +3969,6 @@ static void dpmaif_hw_reset(void)
 {
 	unsigned char md_id = 0;
 	unsigned int reg_value;
-	int ret;
-
-	/* pre- DPMAIF HW reset: bus-protect */
-	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base, 0, &reg_value);
-	if (ret) {
-		CCCI_ERROR_LOG(0, TAG, "read infra_ao_base ret=%d\n", ret);
-		return;
-	}
-	reg_value &= ~INFRA_PROT_DPMAIF_BIT;
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base, 0, reg_value);
-	CCCI_REPEAT_LOG(md_id, TAG, "%s:set prot:0x%x\n", __func__, reg_value);
-
-	/* DPMAIF HW reset */
-	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
-	/* reset dpmaif hw: AO Domain */
-	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_RST0_REG_AO, &reg_value);
-	if (ret) {
-		CCCI_ERROR_LOG(0, TAG, "read INFRA_RST0_REG_AO ret=%d\n", ret);
-		return;
-	}
-	reg_value &= ~(DPMAIF_AO_RST_MASK); /* the bits in reg is WO, */
-	reg_value |= (DPMAIF_AO_RST_MASK);/* so only this bit effective */
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_RST0_REG_AO, reg_value);
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
-	/* reset dpmaif clr */
-	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_RST1_REG_AO, &reg_value);
-	if (ret) {
-		CCCI_ERROR_LOG(0, TAG, "read INFRA_RST1_REG_AO ret=%d\n", ret);
-		return;
-	}
-	reg_value &= ~(DPMAIF_AO_RST_MASK);/* read no use, maybe a time delay */
-	reg_value |= (DPMAIF_AO_RST_MASK);
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_RST1_REG_AO, reg_value);
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
-
-	/* reset dpmaif hw: PD Domain */
-	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_RST0_REG_PD, &reg_value);
-	if (ret) {
-		CCCI_ERROR_LOG(0, TAG, "read INFRA_RST0_REG_PD ret=%d\n", ret);
-		return;
-	}
-	reg_value &= ~(DPMAIF_PD_RST_MASK);
-	reg_value |= (DPMAIF_PD_RST_MASK);
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_RST0_REG_PD, reg_value);
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
-	/* reset dpmaif clr */
-	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_RST1_REG_PD, &reg_value);
-	if (ret) {
-		CCCI_ERROR_LOG(0, TAG, "read INFRA_RST1_REG_PD ret=%d\n", ret);
-		return;
-	}
-	reg_value &= ~(DPMAIF_PD_RST_MASK);
-	reg_value |= (DPMAIF_PD_RST_MASK);
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_RST1_REG_PD, reg_value);
-	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
-
-}
-
-static void dpmaif_hw_reset_6983(void)
-{
-	unsigned char md_id = 0;
-	unsigned int reg_value;
 
 	/* pre- DPMAIF HW reset: bus-protect */
 	reg_value = ccci_read32(infra_ao_mem, 0);
@@ -4266,6 +4211,7 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 	struct hif_dpmaif_ctrl *hif_ctrl = NULL;
 	int ret = 0;
 	unsigned char md_id = 0;
+	unsigned int dpmaif_cap;
 
 	CCCI_HISTORY_TAG_LOG(-1, TAG,
 			"%s: probe initl\n", __func__);
@@ -4403,6 +4349,19 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 
 	}
 
+	if (of_property_read_u32(dev->of_node,
+			"mediatek,dpmaif_cap", &dpmaif_cap)) {
+		dpmaif_cap = 0;
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] read mediatek,dpmaif_cap fail!\n",
+			__func__);
+
+	}
+	dpmaif_ctrl->support_lro = (dpmaif_cap & DPMAIF_CAP_LRO);
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] support_lro: %u\n",
+		__func__, dpmaif_ctrl->support_lro);
+
 	dev->dma_mask = &dpmaif_dmamask;
 	dev->coherent_dma_mask = dpmaif_dmamask;
 	/* hook up to device */
@@ -4432,11 +4391,7 @@ DPMAIF_INIT_FAIL:
 
 static void dpmaif_init_plat_ops(void)
 {
-	if (g_ap_palt == 6983)
-		g_plt_ops.hw_reset = dpmaif_hw_reset_6983;
-	else
-		g_plt_ops.hw_reset = dpmaif_hw_reset;
-
+	g_plt_ops.hw_reset = dpmaif_hw_reset;
 }
 
 int ccci_dpmaif_suspend_noirq_v3(struct device *dev)

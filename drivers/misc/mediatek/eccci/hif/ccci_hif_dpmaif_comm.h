@@ -14,6 +14,7 @@
 #include <linux/hrtimer.h>
 #include <linux/skbuff.h>
 
+#define DPMAIF_CAP_LRO		(1 << 0)
 
 
 struct ccci_dpmaif_platform_ops {
@@ -22,8 +23,7 @@ struct ccci_dpmaif_platform_ops {
 };
 
 
-extern unsigned int g_md_gen;
-extern unsigned int g_ap_palt;
+extern unsigned int g_dpmaif_ver;
 extern struct ccci_dpmaif_platform_ops g_plt_ops;
 
 

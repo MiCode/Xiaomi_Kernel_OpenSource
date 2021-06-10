@@ -33,6 +33,6 @@
 //#define CCCI_LOG_LEVEL  CCCI_LOG_ALL_UART
 #define USING_PM_RUNTIME
 
-//#define CCCI_GEN98_ENABLE_LRO
+//#define GET_HEADER_OFFSET_FROM_PIT
 
 #endif

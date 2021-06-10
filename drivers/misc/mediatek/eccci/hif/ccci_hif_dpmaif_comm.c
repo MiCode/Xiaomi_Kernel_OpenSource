@@ -39,73 +39,54 @@
 
 #define TAG "dpmaif"
 
-
-unsigned int g_md_gen;
-unsigned int g_ap_palt;
+unsigned int g_dpmaif_ver;
 struct ccci_dpmaif_platform_ops g_plt_ops;
 
 
 static int ccci_hif_dpmaif_probe(struct platform_device *pdev)
 {
-	struct device_node *node_md = NULL;
+	if (of_property_read_u32(pdev->dev.of_node,
+			"mediatek,dpmaif_ver", &g_dpmaif_ver))
+		g_dpmaif_ver = 2;
 
-	node_md = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
-	if (!node_md) {
-		CCCI_ERROR_LOG(-1, TAG, "No md driver node in dtsi\n");
-		return -2;
-	}
+	CCCI_NORMAL_LOG(-1, TAG, "g_dpmaif_ver: %u\n", g_dpmaif_ver);
 
-	if (of_property_read_u32(node_md,
-			"mediatek,md_generation", &g_md_gen)) {
-		CCCI_ERROR_LOG(-1, TAG, "read md_generation fail from dtsi\n");
-		return -3;
-	}
-
-	if (of_property_read_u32(node_md,
-			"mediatek,ap_plat_info", &g_ap_palt)) {
-		CCCI_ERROR_LOG(-1, TAG, "read ap_plat_info fail from dtsi\n");
-		return -4;
-	}
-
-	CCCI_NORMAL_LOG(-1, TAG, "g_md_gen: %u; g_ap_palt: %u\n",
-			g_md_gen, g_ap_palt);
-
-	if (g_md_gen == 6298)
+	if (g_dpmaif_ver == 3)
 		return ccci_dpmaif_hif_init_v3(pdev);
-	else if (g_md_gen == 6297)
+	else if (g_dpmaif_ver == 2)
 		return ccci_dpmaif_hif_init_v2(pdev);
 	else {
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: md %d not suport.\n",
-			__func__, g_md_gen);
-		return -5;
+			"[%s] error: g_dpmaif_ver(%d) is invalid.\n",
+			__func__, g_dpmaif_ver);
+		return -1;
 	}
 }
 
 static int dpmaif_suspend_noirq(struct device *dev)
 {
-	if (g_md_gen == 6298)
+	if (g_dpmaif_ver == 3)
 		return ccci_dpmaif_suspend_noirq_v3(dev);
-	else if (g_md_gen == 6297)
+	else if (g_dpmaif_ver == 2)
 		return ccci_dpmaif_suspend_noirq_v2(dev);
 	else {
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: md %d not suport.\n",
-			__func__, g_md_gen);
+			"[%s] error: g_dpmaif_ver(%u) is invalid.\n",
+			__func__, g_dpmaif_ver);
 		return 0;
 	}
 }
 
 static int dpmaif_resume_noirq(struct device *dev)
 {
-	if (g_md_gen == 6298)
+	if (g_dpmaif_ver == 3)
 		return ccci_dpmaif_resume_noirq_v3(dev);
-	else if (g_md_gen == 6297)
+	else if (g_dpmaif_ver == 2)
 		return ccci_dpmaif_resume_noirq_v2(dev);
 	else {
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: md %d not suport.\n",
-			__func__, g_md_gen);
+			"[%s] error: g_dpmaif_ver(%u) is invalid.\n",
+			__func__, g_dpmaif_ver);
 		return 0;
 	}
 }
