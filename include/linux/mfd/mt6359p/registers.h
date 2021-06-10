@@ -452,6 +452,9 @@
 #define MT6359P_VXO22_ANA_CON0                0x2088
 #define MT6359P_VRFCK_ANA_CON0                0x208c
 #define MT6359P_VBBCK_ANA_CON0                0x2096
+#define MT6359P_ISINK0_CON1		      0x210a
+#define MT6359P_ISINK1_CON1		      0x210c
+#define MT6359P_ISINK_EN_CTRL_SMPL	      0x2110
 #define MT6359P_AUD_TOP_INT_CON0              0x2328
 #define MT6359P_AUD_TOP_INT_STATUS0           0x2334
 
