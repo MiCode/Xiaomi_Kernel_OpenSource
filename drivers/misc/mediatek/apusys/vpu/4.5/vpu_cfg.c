@@ -21,7 +21,7 @@ static void vpu_emi_mpu_set_mt68xx(unsigned long start, unsigned int size)
 #define MPU_PROCT_D0_AP		0
 #define MPU_PROCT_D5_APUSYS	5
 
-#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+#if IS_ENABLED(CONFIG_MTK_EMI)
 	struct emimpu_region_t md_region;
 
 	mtk_emimpu_init_region(&md_region, MPU_PROCT_REGION);
