@@ -284,6 +284,7 @@ static int scp_get_freq_idx(unsigned int clk_opp)
 	return i;
 }
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 static int scp_update_pmic_vow_lp_mode(bool on)
 {
 	int ret = 0;
@@ -297,6 +298,7 @@ static int scp_update_pmic_vow_lp_mode(bool on)
 
 	return ret;
 }
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 
 static int scp_set_pmic_vcore(unsigned int cur_freq)
 {
