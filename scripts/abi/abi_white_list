@@ -1,3 +1,2 @@
 #Add symbols to bypass ABI Monitor here
-bypass_arr=( \
-"enum android_debug_symbol ")
+bypass_arr=()
