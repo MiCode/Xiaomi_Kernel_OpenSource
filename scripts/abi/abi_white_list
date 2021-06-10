@@ -1,4 +1,5 @@
 #Add symbols to bypass ABI Monitor here
 bypass_arr=( \
 "function int timer_of_init" \
-"ion_")
+"ion_" \
+"enum android_debug_symbol ")
