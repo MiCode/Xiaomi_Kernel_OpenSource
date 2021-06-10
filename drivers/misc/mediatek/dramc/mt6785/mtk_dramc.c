@@ -1293,8 +1293,7 @@ int dram_steps_freq(unsigned int step)
 
 	switch (step) {
 	case 0:
-		//freq = highfreq_4266 ? 4266 : 3733;
-		freq = get_dram_data_rate();
+		freq = highfreq_4266 ? 4266 : 3733;
 		break;
 	case 1:
 		freq = 3094;
