@@ -133,22 +133,32 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
+	const struct mml_frame_data *src = &cfg->info.src;
+	const struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
+	u32 out_width, out_height;
+
+	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
+		out_width = dest->data.height;
+		out_height = dest->data.width;
+	} else {
+		out_width = dest->data.width;
+		out_height = dest->data.height;
+	}
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ETC_CONTROL, 0x0, U32_MAX);
 
 	if (frame_info->dest_cnt == 1 &&
-	    frame_info->dest[0].crop.r.width == frame_info->src.width &&
-	    frame_info->src.width == frame_info->dest[0].data.width &&
-	    frame_info->dest[0].crop.r.height == frame_info->src.height &&
-	    frame_info->src.height == frame_info->dest[0].data.height &&
-	    frame_info->dest[0].crop.x_sub_px == 0 &&
-	    frame_info->dest[0].crop.y_sub_px == 0) {
+	    dest->crop.r.width == src->width &&
+	    src->width == out_width &&
+	    dest->crop.r.height == src->height &&
+	    src->height == out_height &&
+	    dest->crop.x_sub_px == 0 && dest->crop.y_sub_px == 0) {
 		/* relay mode */
 		cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0, 0x00000001);
 		return 0;
 	}
 
-	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(frame_info->src.format);
+	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(src->format);
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_CON_1,
 		       rsz_frm->use121filter << 26, 0x04000000);
 	return 0;
@@ -193,10 +203,18 @@ static s32 rsz_config_tile(struct mml_comp *comp, struct mml_task *task,
 	rsz_output_h = tile->out.ye - tile->out.ys + 1;
 
 	/* YUV422 to YUV444 upsampler */
-	if (tile->out.xe >= dest->data.width - 1)
-		urs_clip_en = 0;
-	else
-		urs_clip_en = 1;
+	if (dest->rotate == MML_ROT_90 ||
+	    dest->rotate == MML_ROT_270) {
+		if (tile->out.xe >= dest->data.height- 1)
+			urs_clip_en = 0;
+		else
+			urs_clip_en = 1;
+	} else {
+		if (tile->out.xe >= dest->data.width - 1)
+			urs_clip_en = 0;
+		else
+			urs_clip_en = 1;
+	}
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_CON_2,
 		       (drs_lclip_en << 11) +

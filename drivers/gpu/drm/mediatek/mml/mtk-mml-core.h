@@ -13,8 +13,9 @@
 #include <linux/file.h>
 #include <linux/kref.h>
 #include <linux/list.h>
+#include <linux/io.h>
 #include <linux/mailbox_controller.h>
-#include <linux/mailbox/mtk-cmdq-mailbox.h>
+#include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
 #include <linux/mailbox_client.h>
 #include <linux/trace_events.h>
 #include <linux/types.h>

@@ -9,7 +9,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/mailbox_client.h>
-#include <linux/mailbox/mtk-cmdq-mailbox.h>
+#include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
 #include <linux/mailbox_controller.h>
 #include <linux/of.h>
 
