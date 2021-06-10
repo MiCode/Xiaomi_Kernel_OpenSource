@@ -1190,6 +1190,14 @@
 					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0: lvts_ap */
 					0x730 10 0x734 10 0 0
 					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 1: lvts_mcu */
+
+					/* ufs reset */
+					0x130 15 0x134 15 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 2: ufshci */
+					0x140  7 0x144  7 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 3: unipro */
+					0x150 21 0x154 21 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 4: ufs-crypto */
 					>;
 			};
 		};
@@ -2801,7 +2809,10 @@
 					<0 0>, <0 0>, <0 0>;
 
 			vcc-supply = <&mt6359p_vemc_reg>;
-			vcc-supply-2p5;
+
+			resets = <&infracfg_rst 2>, <&infracfg_rst 3>,
+				 <&infracfg_rst 4>;
+			reset-names = "hci_rst", "unipro_rst", "crypto_rst";
 
 			bootmode = <&chosen>;
 
