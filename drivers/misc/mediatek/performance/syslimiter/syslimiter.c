@@ -35,6 +35,7 @@
 static struct ppm_limit_data *freq_to_set;
 static struct ppm_limit_data *current_freq;
 static int dfrc_fps;
+static int limit_freq;
 static int limit_freq_at_60;
 static int limit_freq_at_90;
 static int limit_freq_at_120;
@@ -74,7 +75,7 @@ static void syslimiter_update_limit_freq(void)
 	if (dfrc_fps == -1) {
 		freq_to_set[cluster_1].max = -1;
 		freq_to_set[cluster_0].max = -1;
-		goto out;
+		//goto out;
 	}
 
 	perfmgr_trace_count(dfrc_fps, "dfrc_fps");
@@ -123,6 +124,20 @@ static void syslimiter_update_limit_freq(void)
 			freq_to_set[cluster_0].max = limit_freq_at_144;
 		}
 		perfmgr_trace_count(limit_freq_at_144, "limit_freq_at_144");
+		goto out;
+	} else {
+		freq_to_set[cluster_1].max = -1;
+		freq_to_set[cluster_0].max = -1;
+	}
+
+	if (limit_freq > 0) {
+		if (perfmgr_clusters == 2) {
+			freq_to_set[cluster_1].max = limit_freq;
+		} else if (perfmgr_clusters == 3) {
+			freq_to_set[cluster_1].max = limit_freq;
+			freq_to_set[cluster_0].max = limit_freq;
+		}
+		perfmgr_trace_count(limit_freq, "limit_freq");
 		goto out;
 	} else {
 		freq_to_set[cluster_1].max = -1;
@@ -341,6 +356,32 @@ static int perfmgr_syslimiter_tolerance_percent_proc_show(struct seq_file *m,
 	return 0;
 }
 
+static ssize_t perfmgr_syslimiter_limit_freq_proc_write(struct file *filp,
+		const char __user *ubuf, size_t cnt, loff_t *pos)
+{
+	int data = 0;
+	int rv = check_proc_write(&data, ubuf, cnt);
+
+	if (rv != 0)
+		return rv;
+
+	mutex_lock(&syslimiter);
+	limit_freq = data;
+	mutex_unlock(&syslimiter);
+
+	syslimiter_update_limit_freq();
+
+	return cnt;
+}
+
+static int perfmgr_syslimiter_limit_freq_proc_show(struct seq_file *m, void *v)
+{
+	if (m)
+		seq_printf(m, "%d\n", limit_freq);
+	return 0;
+}
+
+PROC_FOPS_RW(syslimiter_limit_freq);
 PROC_FOPS_RW(syslimiter_fps_144);
 PROC_FOPS_RW(syslimiter_fps_120);
 PROC_FOPS_RW(syslimiter_fps_90);
@@ -361,6 +402,7 @@ int syslimiter_init(struct proc_dir_entry *parent)
 	};
 
 	const struct pentry entries[] = {
+		PROC_ENTRY(syslimiter_limit_freq),
 		PROC_ENTRY(syslimiter_fps_60),
 		PROC_ENTRY(syslimiter_fps_90),
 		PROC_ENTRY(syslimiter_fps_120),
@@ -411,6 +453,7 @@ int syslimiter_init(struct proc_dir_entry *parent)
 	}
 
 	dfrc_fps = FPS_THRESHOLD_60;
+	limit_freq = -1;
 	limit_freq_at_60 = -1;
 	limit_freq_at_90 = -1;
 	limit_freq_at_120 = -1;
