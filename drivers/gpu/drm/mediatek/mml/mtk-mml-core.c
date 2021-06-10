@@ -194,7 +194,7 @@ static s32 command_make(struct mml_task *task, u8 pipe)
 	if (!cache->labels) {
 		mml_err("%s not able to alloc label table", __func__);
 		ret = -ENOMEM;
-		goto err_label_fail;
+		goto err;
 	}
 	cache->label_cnt = label_cnt;
 
@@ -206,6 +206,12 @@ static s32 command_make(struct mml_task *task, u8 pipe)
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
 		call_cfg_op(comp, frame, task, &cfg[i]);
+	}
+
+	if (!task->config->tile_output[pipe]) {
+		mml_err("%s no tile for input pipe %hhu", __func__, pipe);
+		ret = -EINVAL;
+		goto err;
 	}
 
 	for (tile = 0; tile < task->config->tile_output[pipe]->tile_cnt;
@@ -231,7 +237,7 @@ static s32 command_make(struct mml_task *task, u8 pipe)
 
 	return 0;
 
-err_label_fail:
+err:
 	cmdq_pkt_destroy(task->pkts[pipe]);
 	task->pkts[pipe] = NULL;
 	return ret;

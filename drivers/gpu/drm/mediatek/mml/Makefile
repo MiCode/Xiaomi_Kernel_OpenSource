@@ -27,7 +27,7 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek 	\
 obj-$(CONFIG_MTK_MML_MT6893) := mtk-mml-mt6893.o
 
 mtk-mml-mt6893-objs := mml_drv.o
-# mml_drv_v1.o if ipbased 
+# mml_drv_v1.o if ipbased
 
 mml_drv-objs += mtk-mml-driver.o
 mml_drv-objs += mtk-mml-core.o
@@ -46,8 +46,10 @@ mml_drv-objs += mtk-mml-tdshp.o
 mml_drv-objs += mtk-mml-tcc.o
 mml_drv-objs += mtk-mml-fg.o
 
-
 mml_drv-objs += tile_core.o
 mml_drv-objs += tile_utility.o
 mml_drv-objs += tile_mdp_func.o
 mml_drv-objs += DpTileScaler.o
+
+# for unit test
+mml_drv-objs += mtk-mml-test.o

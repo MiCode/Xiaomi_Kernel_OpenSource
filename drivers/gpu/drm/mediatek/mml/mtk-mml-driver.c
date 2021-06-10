@@ -44,6 +44,7 @@ extern struct platform_driver mtk_mml_aal_driver;
 extern struct platform_driver mtk_mml_tdshp_driver;
 extern struct platform_driver mtk_mml_tcc_driver;
 extern struct platform_driver mtk_mml_fg_driver;
+extern struct platform_driver mtk_mml_test_drv;
 
 extern struct cmdq_base *cmdq_register_device(struct device *dev);
 extern struct cmdq_client *cmdq_mbox_create(struct device *dev, int index);
@@ -589,7 +590,24 @@ static int __init mml_driver_init(void)
 			mtk_mml_tcc_driver.driver.name);
 		return ret;
 	}
-    mml_topology_ip_init();
+
+	ret = platform_driver_register(&mtk_mml_fg_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_fg_driver.driver.name);
+		return ret;
+	}
+
+	ret = platform_driver_register(&mtk_mml_test_drv);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_test_drv.driver.name);
+		return ret;
+	}
+
+	/* make sure topology for platform ready */
+	mml_topology_ip_init();
+
 	/* register pm notifier */
 
 	return 0;
@@ -598,8 +616,9 @@ module_init(mml_driver_init);
 
 static void __exit mml_driver_exit(void)
 {
+	mml_topology_ip_exit();
+
 	platform_driver_unregister(&mml_driver);
-    mml_topology_ip_exit();
 }
 module_exit(mml_driver_exit);
 

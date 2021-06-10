@@ -17,7 +17,7 @@
 /* TODO: change after dual pipe ready */
 #define TOPOLOGY_FORCE_SINGLE	1
 /* force use resize in topology */
-#define TOPOLOGY_FORCE_RESIZE	1
+#define TOPOLOGY_FORCE_RESIZE	0
 
 
 enum topology_scenario {
@@ -387,10 +387,8 @@ int mml_topology_ip_init(void)
 {
 	return mml_topology_register_ip(TOPOLOGY_PLATFORM, &tp_ops_mt6893);
 }
-//module_init(mml_topology_ip_init);
 
 void mml_topology_ip_exit(void)
 {
 	mml_topology_unregister_ip(TOPOLOGY_PLATFORM);
 }
-//module_exit(mml_topology_ip_exit);
