@@ -31,6 +31,7 @@ struct common_port_node {
 	u32 latest_avg_bw;
 	struct list_head list;
 	u8 channel;
+	u8 hrt_type;
 };
 
 struct larb_port_node {
@@ -159,6 +160,28 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	icc_set_bw(comm_node->icc_hrt_path, peak_bw, 0);
 }
 
+static void update_hrt_bw(struct mtk_mmqos *mmqos)
+{
+	struct common_node *comm_node;
+	struct common_port_node *comm_port;
+	u32 hrt_bw[HRT_TYPE_NUM] = {0};
+	u32 i;
+
+	list_for_each_entry(comm_node, &mmqos->comm_list, list) {
+		list_for_each_entry(comm_port,
+				    &comm_node->comm_port_list, list) {
+			if (comm_port->hrt_type != HRT_NONE) {
+				hrt_bw[comm_port->hrt_type] += icc_to_MBps(comm_port->latest_peak_bw);
+			}
+		}
+	}
+
+	for (i = 0; i < HRT_TYPE_NUM; i++)
+		if (i != HRT_MD)
+			mtk_mmqos_set_hrt_bw(i, hrt_bw[i]);
+
+}
+
 static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 {
 	struct larb_node *larb_node;
@@ -175,6 +198,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		if (!comm_node)
 			break;
 		set_comm_icc_bw(comm_node);
+		update_hrt_bw(mmqos);
 		//queue_work(mmqos->wq, &comm_node->work);
 		break;
 	case MTK_MMQOS_NODE_COMMON_PORT:
@@ -191,6 +215,8 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 			icc_to_MBps(comm_port_node->latest_peak_bw),
 			mmqos->qos_bound);
 		mutex_unlock(&comm_port_node->bw_lock);
+		if (comm_port_node->hrt_type == HRT_CAM)
+			mtk_mmqos_wait_throttle_done();
 		break;
 	case MTK_MMQOS_NODE_LARB:
 		larb_port_node = (struct larb_port_node *)src->data;
@@ -461,6 +487,9 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 			}
 			comm_port_node->channel =
 				mmqos_desc->comm_port_channels[
+				MASK_8((node->id >> 8))][MASK_8(node->id)];
+			comm_port_node->hrt_type =
+				mmqos_desc->comm_port_hrt_types[
 				MASK_8((node->id >> 8))][MASK_8(node->id)];
 			mutex_init(&comm_port_node->bw_lock);
 			comm_port_node->common = node->links[0]->data;

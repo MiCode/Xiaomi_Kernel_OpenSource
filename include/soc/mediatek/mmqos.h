@@ -11,7 +11,9 @@ enum hrt_type {
 	HRT_MD,
 	HRT_CAM,
 	HRT_DISP,
-	HRT_TYPE_NUM
+	HRT_MML,
+	HRT_TYPE_NUM,
+	HRT_NONE = HRT_TYPE_NUM,
 };
 
 enum {

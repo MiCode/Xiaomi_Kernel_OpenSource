@@ -13,12 +13,12 @@ s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 	u32 i, used_bw = 0;
 
 	if (!mmqos_hrt)
-		return 0xFFFF;
+		return -ENOENT;
 	for (i = 0; i < HRT_TYPE_NUM; i++) {
 		if (mmqos_hrt->hrt_bw[i] != type)
 			used_bw += mmqos_hrt->hrt_bw[i];
 	}
-	if (mmqos_hrt->cam_max_bw)
+	if (type != HRT_CAM && mmqos_hrt->cam_max_bw)
 		used_bw = used_bw - mmqos_hrt->hrt_bw[HRT_CAM]
 				+ mmqos_hrt->cam_max_bw;
 	return (mmqos_hrt->hrt_total_bw - used_bw);
@@ -34,6 +34,7 @@ s32 mtk_mmqos_register_bw_throttle_notifier(struct notifier_block *nb)
 				nb);
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_register_bw_throttle_notifier);
+
 s32 mtk_mmqos_unregister_bw_throttle_notifier(struct notifier_block *nb)
 {
 	if (!nb || !mmqos_hrt)
@@ -68,8 +69,11 @@ s32 mtk_mmqos_set_hrt_bw(enum hrt_type type, u32 bw)
 		return -EINVAL;
 	}
 	if (!mmqos_hrt)
-		return -EINVAL;
-	mmqos_hrt->hrt_bw[type] = bw;
+		return -ENOENT;
+	if (mmqos_hrt->hrt_bw[type] != bw) {
+		mmqos_hrt->hrt_bw[type] = bw;
+		pr_notice("%s: type=%d bw=%d\n", __func__, type, bw);
+	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_set_hrt_bw);
@@ -88,6 +92,10 @@ s32 mtk_mmqos_hrt_scen(enum hrt_scen scen, bool is_start)
 {
 	s32 ret = 0;
 
+	if (!mmqos_hrt) {
+		pr_notice("%s: mmqos_hrt not ready\n");
+		return -ENOENT;
+	}
 	switch (scen) {
 		case CAM_SCEN_CHANGE:
 			notify_bw_throttle(scen, is_start);
@@ -144,6 +152,12 @@ static ssize_t camera_max_bw_store(struct device *dev,
 		dev_notice(dev, "wrong camera max bw string:%d\n", ret);
 		return ret;
 	}
+
+	if (!mmqos_hrt) {
+		dev_notice(dev, "mmqos_hrt is not ready\n");
+		return -ENOENT;
+	}
+
 	cancel_delayed_work_sync(&mmqos_hrt->work);
 	mmqos_hrt->cam_occu_bw = MULTIPLY_W_DRAM_WEIGHT(bw);
 	mutex_lock(&mmqos_hrt->blocking_lock);

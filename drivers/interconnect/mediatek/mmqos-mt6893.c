@@ -589,10 +589,17 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6893 = {
 		.hrt_bw = {3344, 0, 0},
 		.hrt_total_bw = 8532, /* Todo: Use DRAMC API */
 		.md_speech_bw = { 3844, 3344},
+		.blocking = true,
 	},
 	.comm_port_channels = {
 		{ 0x1, 0x2, 0x2, 0x1, 0x2, 0x2, 0x1, 0x2, 0x3 },
 		{ 0x1, 0x2, 0x2, 0x1, 0x2, 0x2, 0x1, 0x2, 0x3 }
+	},
+	.comm_port_hrt_types = {
+		{ HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE,
+			HRT_NONE, HRT_CAM, HRT_CAM, HRT_DISP },
+		{ HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE,
+			HRT_CAM, HRT_CAM, HRT_CAM, HRT_NONE },
 	},
 };
 static const struct of_device_id mtk_mmqos_mt6893_of_ids[] = {

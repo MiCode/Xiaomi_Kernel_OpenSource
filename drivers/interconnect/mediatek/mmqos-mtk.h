@@ -12,7 +12,8 @@
 #include <linux/workqueue.h>
 #include <soc/mediatek/mmqos.h>
 #define MMQOS_NO_LINK	(0xffffffff)
-#define MMQOS_MAX_COMM_PORT_NUM	(15)
+#define MMQOS_MAX_COMM_NUM	(3)
+#define MMQOS_MAX_COMM_PORT_NUM	(10)
 #define MMQOS_COMM_CHANNEL_NUM (2)
 
 struct mmqos_hrt {
@@ -72,7 +73,8 @@ struct mtk_mmqos_desc {
 	const char * const *larb_icc_path_names;
 	const u32 max_ratio;
 	const struct mmqos_hrt hrt;
-	const u8 comm_port_channels[][MMQOS_MAX_COMM_PORT_NUM];
+	const u8 comm_port_channels[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
+	const u8 comm_port_hrt_types[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
 };
 
 #define DEFINE_MNODE(_name, _id, _bw_ratio, _link) {	\
