@@ -309,6 +309,19 @@ static ssize_t fps_cooler_info_store(struct kobject *kobj,
 	return count;
 }
 
+static ssize_t atc_show(struct kobject *kobj, struct kobj_attribute *attr,
+	char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d, %d, %d\n",
+		therm_intf_read_csram_s32(ATC_OFFSET),
+		therm_intf_read_csram_s32(ATC_OFFSET + 4),
+		therm_intf_read_csram_s32(ATC_OFFSET + 8));
+
+	return len;
+}
+
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
 static struct kobj_attribute cpu_info_attr = __ATTR_RO(cpu_info);
@@ -317,6 +330,7 @@ static struct kobj_attribute apu_info_attr = __ATTR_RO(apu_info);
 static struct kobj_attribute fps_cooler_info_attr = __ATTR_RW(fps_cooler_info);
 static struct kobj_attribute cpu_temp_attr = __ATTR_RO(cpu_temp);
 static struct kobj_attribute headroom_info_attr = __ATTR_RO(headroom_info);
+static struct kobj_attribute atc_attr = __ATTR_RO(atc);
 
 static struct attribute *thermal_attrs[] = {
 	&ttj_attr.attr,
@@ -327,6 +341,7 @@ static struct attribute *thermal_attrs[] = {
 	&fps_cooler_info_attr.attr,
 	&cpu_temp_attr.attr,
 	&headroom_info_attr.attr,
+	&atc_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {

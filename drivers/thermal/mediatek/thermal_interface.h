@@ -15,6 +15,7 @@
 #define TTJ_OFFSET                 (0x100)
 #define POWER_BUDGET_OFFSET        (0x110)
 #define CPU_MIN_OPP_HINT_OFFSET    (0x120)
+#define ATC_OFFSET                 (0x160)
 #define CPU_LIMIT_OPP_OFFSET       (0x200)
 #define CPU_CUR_OPP_OFFSET         (0x210)
 #define CPU_MAX_TEMP_OFFSET        (0x220)
