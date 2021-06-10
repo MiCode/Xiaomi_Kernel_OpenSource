@@ -47,6 +47,7 @@ do { \
 struct mml_topology_cache;
 struct mml_frame_config;
 struct mml_task;
+struct mml_tile_output;
 
 struct mml_task_ops {
 	void (*submit_done)(struct mml_task *task);
@@ -59,7 +60,7 @@ struct mml_cap {
 };
 
 struct mml_path_node {
-	u32 id;
+	u8 id;
 	struct mml_path_node *prev;
 	struct mml_path_node *next[MML_MAX_OUTPUTS];
 	struct mml_comp *comp;
@@ -145,6 +146,9 @@ struct mml_frame_config {
 
 	/* topology */
 	const struct mml_topology_path *path[MML_PIPE_CNT];
+
+	/* tile */
+	struct mml_tile_output *tile_output[MML_PIPE_CNT];
 };
 
 struct mml_file_buf {
@@ -188,10 +192,7 @@ struct mml_task {
 	struct work_struct work_wait;
 };
 
-struct mml_comp;
-
 struct mml_comp_tile_ops {
-
 };
 
 struct mml_comp_config_ops {
@@ -217,6 +218,52 @@ struct mml_comp {
 	const struct mml_comp_config_ops *config_ops;
 	const struct mml_comp_hw_ops *hw_ops;
 	const struct mml_comp_debug_ops *debug_ops;
+};
+
+struct mml_tile_region {
+	u16 xs;
+	u16 xe;
+	u16 ys;
+	u16 ye;
+};
+
+struct mml_tile_offset {
+	u16 x;
+	u16 y;
+	u32 x_sub;
+	u32 y_sub;
+};
+
+struct mml_tile_engine {
+	/* component id for dump */
+	u8 comp_id;
+
+	/* tile input/output region */
+	struct mml_tile_region in;
+	struct mml_tile_region out;
+
+	struct mml_tile_offset luma;
+	struct mml_tile_offset chroma;
+};
+
+struct mml_tile_config {
+	/* index of the tile */
+	u16 tile_no;
+
+	/* current horizontal tile number, from left to right */
+	u16 h_tile_no;
+	/* current vertical tile number, from top to bottom */
+	u16 v_tile_no;
+
+	/* align with tile_engine_cnt */
+	u8 engine_cnt;
+	struct mml_tile_engine tile_engines[MML_MAX_PATH_NODES];
+};
+
+struct mml_tile_output {
+	/* total how many tiles */
+	u16 tile_cnt;
+	struct mml_tile_config *tiles;
 };
 
 /*
