@@ -24,6 +24,15 @@
 	GPIO_FDD_BAND_SUPPORT_DETECT_4TH_PIN = <&pio 66 0>;
 };
 
+&mtk_leds {
+	compatible = "mediatek,pwm-leds";
+
+	backlight {
+		pwms = <&disp_pwm 0 39385>;
+		pwm-names = "lcd-backlight";
+	};
+};
+
 &gpio{
 	gpio_init_default = <0 0 0 0 1 1 1>,
 		<1 0 0 0 1 0 1>,

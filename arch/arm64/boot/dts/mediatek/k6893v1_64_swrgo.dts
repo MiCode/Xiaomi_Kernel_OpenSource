@@ -255,6 +255,15 @@
 		"td4330_fhdp_dsi_vdo_auo_rt5081_drv";
 };
 
+&mtk_leds {
+	compatible = "mediatek,pwm-leds";
+
+	backlight {
+		pwms = <&disp_pwm 0 39385>;
+		pwm-names = "lcd-backlight";
+	};
+};
+
 &pio {
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
 		pins_cmd_dat {
