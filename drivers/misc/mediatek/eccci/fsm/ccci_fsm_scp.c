@@ -320,6 +320,8 @@ static int fsm_sim_type_handler(int md_id, int data)
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 void fsm_scp_init0(void)
 {
+	enum MD_STATE_FOR_USER state =
+		ccci_fsm_get_md_state_for_user(ccci_scp_ctl.md_id);
 	mutex_init(&scp_ipi_tx_mutex);
 
 	if (!init_work_done) {
@@ -342,6 +344,9 @@ void fsm_scp_init0(void)
 		CCCI_ERROR_LOG(-1, FSM, "register IPI fail!\n");
 #endif
 	atomic_set(&scp_state, SCP_CCCI_STATE_BOOTING);
+
+	if (state != MD_STATE_INVALID)
+		ccci_scp_md_state_sync(state);
 }
 
 static int apsync_event(struct notifier_block *this,

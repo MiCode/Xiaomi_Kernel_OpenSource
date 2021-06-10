@@ -131,7 +131,7 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	if (ctl->scp_ctl) {
 		CCCI_NORMAL_LOG(ctl->md_id, FSM,
-			"ccci scp state sync %d, %p, %p, %d\n", state,
+			"ccci scp state sync %d, %px, %px, %d\n", state,
 			ctl->scp_ctl, ctl->scp_ctl->md_state_sync,
 			ctl->scp_ctl->md_id);
 		if (ctl->scp_ctl->md_state_sync)
@@ -870,7 +870,7 @@ void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl)
 
 	ctl->scp_ctl = scp_ctl;
 	CCCI_NORMAL_LOG(ctl->md_id, FSM,
-		"ccci scp register to fsm, %d, %p, %p, %p\n", md_id,
+		"ccci scp register to fsm, %d, %px, %px, %px\n", md_id,
 		ctl->scp_ctl, scp_ctl, &scp_ctl->md_state_sync);
 
 }
