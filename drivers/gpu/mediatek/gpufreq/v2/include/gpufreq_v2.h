@@ -266,6 +266,7 @@ unsigned int gpufreq_get_min_freq(enum gpufreq_target target);
 unsigned int gpufreq_get_cur_volt(enum gpufreq_target target);
 unsigned int gpufreq_get_max_volt(enum gpufreq_target target);
 unsigned int gpufreq_get_min_volt(enum gpufreq_target target);
+unsigned int gpufreq_get_cur_vsram(enum gpufreq_target target);
 unsigned int gpufreq_get_cur_power(enum gpufreq_target target);
 unsigned int gpufreq_get_max_power(enum gpufreq_target target);
 unsigned int gpufreq_get_min_power(enum gpufreq_target target);

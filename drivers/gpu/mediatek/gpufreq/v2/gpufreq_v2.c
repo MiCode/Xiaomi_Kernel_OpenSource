@@ -387,6 +387,44 @@ done:
 EXPORT_SYMBOL(gpufreq_get_min_volt);
 
 /***********************************************************************************
+ Function Name      : gpufreq_get_cur_vsram
+ Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ Outputs            : -
+ Returns            : vsram  - Current vsram volt of given target
+ Description        : Query current vsram voltage of the target
+************************************************************************************/
+unsigned int gpufreq_get_cur_vsram(enum gpufreq_target target)
+{
+	unsigned int vsram = 0;
+
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_STACK && !g_dual_buck)) {
+		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_STACK;
+		else
+			target = TARGET_GPU;
+	}
+
+	if (target == TARGET_STACK && gpufreq_fp->get_cur_vsram_stack)
+		vsram = gpufreq_fp->get_cur_vsram_stack();
+	else if (target == TARGET_GPU && gpufreq_fp->get_cur_vsram_gpu)
+		vsram = gpufreq_fp->get_cur_vsram_gpu();
+
+	GPUFREQ_LOGD("target: %s, current vsram: %d",
+		target == TARGET_STACK ? "STACK" : "GPU",
+		vsram);
+
+done:
+	return vsram;
+}
+EXPORT_SYMBOL(gpufreq_get_cur_vsram);
+
+/***********************************************************************************
  Function Name      : gpufreq_get_cur_power
  Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
  Outputs            : -

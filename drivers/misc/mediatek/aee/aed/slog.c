@@ -25,6 +25,7 @@ struct tracepoints_table {
 
 static unsigned int ufs_count;
 static unsigned int ccci_count;
+static unsigned int gpu_count;
 static unsigned int threshold;
 static struct proc_dir_entry *dir;
 
@@ -57,9 +58,20 @@ static void probe_ccci_event(void *data, char *string, char *sub_string,
 	slog("#$#%s#@#%s#%d:%d#%d", string, sub_string, sub_type, resv, ccci_count);
 }
 
+static void probe_gpu_hardstop_event(void *data, char *string, char *sub_string,
+	unsigned int gpu_freq, unsigned int gpu_volt, unsigned int gpu_vsram,
+	unsigned int stack_freq, unsigned int stack_volt, unsigned int stack_vsram)
+{
+	gpu_count++;
+	slog("#$#%s#@#%s#%d:%d:%d:%d:%d:%d#%d",
+		string, sub_string, gpu_freq, gpu_volt, gpu_vsram,
+		stack_freq, stack_volt, stack_vsram, gpu_count);
+}
+
 static struct tracepoints_table interests[] = {
 	{.name = "ufs_mtk_event", .mod_name = NULL, .module = false, .func = probe_ufs_mtk_event},
 	{.name = "ccci_event", .mod_name = NULL, .module = false, .func = probe_ccci_event},
+	{.name = "gpu_hardstop", .mod_name = "mtk_gpufreq_wrapper", .module = true, .func = probe_gpu_hardstop_event},
 };
 
 /**
