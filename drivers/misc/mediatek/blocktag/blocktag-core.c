@@ -1582,6 +1582,7 @@ int mtk_btag_mictx_get_data(
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_btag_mictx_get_data);
 
 void mtk_btag_mictx_enable(int enable)
 {
@@ -1613,8 +1614,10 @@ static void mtk_btag_mictx_init(const char *name,
 	btag_bootdev = btag;
 	spin_lock_init(&btag->mictx.lock);
 
-	if (vops->earaio_enabled)
+	if (vops->earaio_enabled) {
 		mtk_btag_earaio_init_mictx(btag);
+		rs_index_init(btag, btag_proc_root);
+	}
 }
 
 struct mtk_blocktag *mtk_btag_alloc(const char *name,

@@ -226,6 +226,7 @@ struct mtk_blocktag {
 		struct proc_dir_entry *droot;
 		struct proc_dir_entry *dlog;
 		struct proc_dir_entry *dlog_mictx;
+		struct proc_dir_entry *dindex;
 	} dentry;
 
 	struct mtk_btag_vops *vops;
@@ -295,6 +296,9 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int taski_id,
 void ufs_mtk_biolog_check(unsigned long req_mask);
 void ufs_mtk_biolog_clk_gating(bool gated);
 
+void rs_index_init(struct mtk_blocktag *btag,
+		   struct proc_dir_entry *parent);
+
 #else
 
 #define mtk_btag_pidlog_copy_pid(...)
@@ -315,6 +319,8 @@ void ufs_mtk_biolog_clk_gating(bool gated);
 #define ufs_mtk_biolog_transfer_req_compl(...)
 #define ufs_mtk_biolog_check(...)
 #define ufs_mtk_biolog_clk_gating(...)
+
+#define rs_index_init(...)
 
 #endif
 
