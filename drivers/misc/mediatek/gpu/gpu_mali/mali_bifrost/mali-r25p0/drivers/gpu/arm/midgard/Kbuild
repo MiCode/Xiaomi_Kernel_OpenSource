@@ -80,6 +80,12 @@ DEFINES += -DMALI_KBASE_BUILD
 # Use our defines when compiling
 /* MTK Add -I$(src)/include to include ddk linux headers: dma-buf-test-exporter.h, memory_group_manager.h, protected_mode_switcher.h */
 ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux  -I$(src)/include
+
+ifeq ($(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM), y)
+	include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include
+	ccflags-y += -I$(srctree)/drivers/staging/android/ion
+endif
+
 subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include
 
 SRC := \
