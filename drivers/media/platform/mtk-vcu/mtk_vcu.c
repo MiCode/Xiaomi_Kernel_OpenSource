@@ -1530,6 +1530,10 @@ static int vcu_ipi_handler(struct mtk_vcu *vcu, struct share_obj *rcv_obj)
 
 	i = ipi_id_to_inst_id(rcv_obj->id);
 
+	if (vcu->abort)
+		pr_info("[VCU] aborted not handled: %s %d %d: ipi %d\n",
+			current->comm, current->tgid, current->pid, rcv_obj->id);
+
 	if (rcv_obj->id < (int)IPI_MAX &&
 	    ipi_desc[rcv_obj->id].handler != NULL) {
 		non_ack = ipi_desc[rcv_obj->id].handler(rcv_obj->share_buf,
