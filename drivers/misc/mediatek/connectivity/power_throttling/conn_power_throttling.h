@@ -69,14 +69,25 @@ struct conn_pwr_update_info {
 	enum conn_pwr_drv_status status;
 };
 
-typedef int (*CONN_PWR_EVENT_CB)(enum conn_pwr_low_battery_level level);
+enum conn_pwr_event_type {
+	CONN_PWR_EVENT_LEVEL = 0,
+	CONN_PWR_EVENT_MAX_TEMP = 1,
+	CONN_PWR_EVENT_MAX
+};
+
+struct conn_pwr_event_max_temp {
+	int max_temp;
+	int recovery_temp;
+};
+
+typedef int (*CONN_PWR_EVENT_CB)(enum conn_pwr_event_type type, void *data);
 
 /* called by conn_pwr_core */
 int conn_pwr_get_chipid(void);
 int conn_pwr_get_temp(int *temp, int cached);
 int conn_pwr_get_plat_level(enum conn_pwr_plat_type type, int *data);
 int conn_pwr_get_drv_status(enum conn_pwr_drv_type type);
-int conn_pwr_notify_event(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level level);
+int conn_pwr_notify_event(enum conn_pwr_drv_type drv, enum conn_pwr_event_type event, void *data);
 
 /* called by customer */
 int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level level);

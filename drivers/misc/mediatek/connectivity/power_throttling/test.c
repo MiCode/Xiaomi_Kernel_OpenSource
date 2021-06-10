@@ -30,10 +30,10 @@ static int conn_pwr_ut_notify(int par1, int par2, int par3);
 static int conn_pwr_ut_get_temp(int par1, int par2, int par3);
 static int conn_pwr_ut_get_plat_level(int par1, int par2, int par3);
 static int conn_pwr_ut_set_customer_level(int par1, int par2, int par3);
-static int conn_pwr_ut_event_cb_bt(enum conn_pwr_low_battery_level level);
-static int conn_pwr_ut_event_cb_fm(enum conn_pwr_low_battery_level level);
-static int conn_pwr_ut_event_cb_gps(enum conn_pwr_low_battery_level level);
-static int conn_pwr_ut_event_cb_wifi(enum conn_pwr_low_battery_level level);
+static int conn_pwr_ut_event_cb_bt(enum conn_pwr_event_type event, void *data);
+static int conn_pwr_ut_event_cb_fm(enum conn_pwr_event_type event, void *data);
+static int conn_pwr_ut_event_cb_gps(enum conn_pwr_event_type event, void *data);
+static int conn_pwr_ut_event_cb_wifi(enum conn_pwr_event_type event, void *data);
 
 typedef int(*CONN_PWR_TEST_FUNC) (int par1, int par2, int par3);
 
@@ -139,27 +139,38 @@ static int conn_pwr_ut_thermal(int par1, int par2, int par3)
 	return 0;
 }
 
-static int conn_pwr_ut_event_cb_bt(enum conn_pwr_low_battery_level level)
+static void conn_pwr_ut_event_cb(const char *s, enum conn_pwr_event_type event, void *data)
 {
-	pr_info("%s level = %d", __func__, level);
+	if (event == CONN_PWR_EVENT_LEVEL)
+		pr_info("%s level = %d\n", s, *((int *)data));
+	else if (event == CONN_PWR_EVENT_MAX_TEMP) {
+		struct conn_pwr_event_max_temp *d = (struct conn_pwr_event_max_temp *)data;
+
+		pr_info("%s m_temp = %d, r_temp = %d\n", s, d->max_temp, d->recovery_temp);
+	}
+}
+
+static int conn_pwr_ut_event_cb_bt(enum conn_pwr_event_type event, void *data)
+{
+	conn_pwr_ut_event_cb(__func__, event, data);
 	return 0;
 }
 
-static int conn_pwr_ut_event_cb_fm(enum conn_pwr_low_battery_level level)
+static int conn_pwr_ut_event_cb_fm(enum conn_pwr_event_type event, void *data)
 {
-	pr_info("%s level = %d", __func__, level);
+	conn_pwr_ut_event_cb(__func__, event, data);
 	return 0;
 }
 
-static int conn_pwr_ut_event_cb_gps(enum conn_pwr_low_battery_level level)
+static int conn_pwr_ut_event_cb_gps(enum conn_pwr_event_type event, void *data)
 {
-	pr_info("%s level = %d", __func__, level);
+	conn_pwr_ut_event_cb(__func__, event, data);
 	return 0;
 }
 
-static int conn_pwr_ut_event_cb_wifi(enum conn_pwr_low_battery_level level)
+static int conn_pwr_ut_event_cb_wifi(enum conn_pwr_event_type event, void *data)
 {
-	pr_info("%s level = %d", __func__, level);
+	conn_pwr_ut_event_cb(__func__, event, data);
 	return 0;
 }
 
@@ -195,7 +206,15 @@ static int conn_pwr_ut_stop(int par1, int par2, int par3)
 
 static int conn_pwr_ut_notify(int par1, int par2, int par3)
 {
-	conn_pwr_notify_event(par2, par3);
+	struct conn_pwr_event_max_temp data;
+
+	if (par3 == CONN_PWR_EVENT_LEVEL)
+		conn_pwr_notify_event(par2, par3, &par3);
+	else if (par3 == CONN_PWR_EVENT_MAX_TEMP) {
+		data.max_temp = 100;
+		data.recovery_temp = 60;
+		conn_pwr_notify_event(par2, par3, &data);
+	}
 	return 0;
 }
 

@@ -22,6 +22,7 @@
 
 
 /* termal related macro */
+//#define CONN_PWR_LOW_BATTERY_ENABLE
 #define CONN_PWR_INVALID_TEMP (-888)
 #define CONN_PWR_MAX_TEMP_HIGH  110
 #define CONN_PWR_MAX_TEMP_LOW    60
@@ -134,6 +135,7 @@ static long conn_pwr_dev_compat_ioctl(struct file *filp, unsigned int cmd, unsig
 }
 #endif
 
+#ifdef CONN_PWR_LOW_BATTERY_ENABLE
 static void conn_pwr_low_battery_cb(LOW_BATTERY_LEVEL level)
 {
 	struct conn_pwr_update_info info;
@@ -143,6 +145,7 @@ static void conn_pwr_low_battery_cb(LOW_BATTERY_LEVEL level)
 	info.reason = CONN_PWR_ARB_LOW_BATTERY;
 	conn_pwr_arbitrate(&info);
 }
+#endif
 
 int conn_pwr_get_plat_level(enum conn_pwr_plat_type type, int *data)
 {
@@ -219,24 +222,32 @@ int conn_pwr_get_temp(int *temp, int cached)
 	return ret;
 }
 
-int conn_pwr_notify_event(enum conn_pwr_drv_type type,
-			  enum conn_pwr_low_battery_level level)
+int conn_pwr_notify_event(enum conn_pwr_drv_type drv, enum conn_pwr_event_type event, void *data)
 {
 	int ret;
+	struct conn_pwr_event_max_temp *d;
 
-	if (type < 0 || type >= CONN_PWR_DRV_MAX) {
-		pr_info("type %d is out of range.\n", type);
+	if (drv < 0 || drv >= CONN_PWR_DRV_MAX || event < 0 || event >= CONN_PWR_EVENT_MAX) {
+		pr_info("drv %d or event %d is out of range.\n", drv, event);
 		return -1;
 	}
 
-	if (g_event_cb_tbl[type] == NULL) {
-		pr_info("event cb is not registered.\n", type);
+	if (g_event_cb_tbl[drv] == NULL) {
+		pr_info("event cb is not registered.\n", drv);
 		return -2;
 	}
 
-	ret = (*g_event_cb_tbl[type])(level);
-	pr_info("%s, type = %d, level = %d, ret = %d\n", __func__, type, level, ret);
-
+	ret = (*g_event_cb_tbl[drv])(event, data);
+	if (event == CONN_PWR_EVENT_LEVEL)
+		pr_info("%s, drv = %d, level = %d, ret = %d\n", __func__, drv, *((int *)data), ret);
+	else if (event == CONN_PWR_EVENT_MAX_TEMP && data != NULL) {
+		d = (struct conn_pwr_event_max_temp *)data;
+		pr_info("%s, drv = %d, max_t = %d, rcv_t = %d, ret = %d\n", __func__,
+			drv, d->max_temp, d->recovery_temp, ret);
+	} else {
+		pr_info("invalid. event = %d, data = %x\n", event, data);
+		return -3;
+	}
 	return ret;
 }
 
@@ -411,8 +422,9 @@ int conn_pwr_init(struct conn_pwr_plat_info *data)
 
 	conn_pwr_core_init();
 
+#ifdef CONN_PWR_LOW_BATTERY_ENABLE
 	register_low_battery_notify(&conn_pwr_low_battery_cb, LOW_BATTERY_PRIO_WIFI);
-
+#endif
 	conn_pwr_dev_init();
 
 	return 0;
