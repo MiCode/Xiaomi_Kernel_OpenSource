@@ -606,6 +606,14 @@ void cmdq_task_set_mtee(struct cmdqRecStruct *handle, const bool enable)
 		__func__, handle, handle->secData.mtee);
 }
 
+void cmdq_task_set_secure_id(struct cmdqRecStruct *handle, s32 sec_id)
+{
+	handle->secData.sec_id = sec_id;
+	CMDQ_LOG("%s handle:%p sec_id:%d\n",
+		__func__, handle, handle->secData.sec_id);
+}
+
+
 s32 cmdq_append_addr_metadata(struct cmdqRecStruct *handle,
 	const struct cmdqSecAddrMetadataStruct *pMetadata)
 {

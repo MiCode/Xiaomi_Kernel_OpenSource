@@ -11,6 +11,14 @@
 #include <linux/types.h>
 #ifdef CONFIG_MTK_SMI_EXT
 
+enum mtk_iommu_sec_id {
+	SEC_ID_SEC_CAM = 0,
+	SEC_ID_SVP,
+	SEC_ID_SDSP,
+	SEC_ID_WFD,
+	SEC_ID_COUNT
+};
+
 /* translate port */
 typedef uint32_t (*CmdqTranslatePort) (uint32_t engineId);
 

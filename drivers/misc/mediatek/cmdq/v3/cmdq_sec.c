@@ -512,6 +512,10 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 	iwc->command.extension = task->secData.extension;
 	iwc->command.readback_pa = task->reg_values_pa;
 
+
+	iwc->command.sec_id = task->secData.sec_id;
+	CMDQ_LOG("%s, sec_id:%d\n", __func__, iwc->command.sec_id);
+
 	last_buf = list_last_entry(&task->pkt->buf, typeof(*last_buf),
 		list_entry);
 	list_for_each_entry(buf, &task->pkt->buf, list_entry) {
