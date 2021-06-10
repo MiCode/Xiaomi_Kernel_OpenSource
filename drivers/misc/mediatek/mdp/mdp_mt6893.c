@@ -2212,7 +2212,6 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 	return 0;
 }
 
-/* [FIXME] MT6873 */
 static s32 mdp_is_mod_suspend(struct EngineStruct *engine_list)
 {
 	s32 status = 0;
@@ -2223,14 +2222,22 @@ static s32 mdp_is_mod_suspend(struct EngineStruct *engine_list)
 		CMDQ_ENG_ISP_IMGI,
 		CMDQ_ENG_MDP_RDMA0,
 		CMDQ_ENG_MDP_RDMA1,
+		CMDQ_ENG_MDP_RDMA2,
+		CMDQ_ENG_MDP_RDMA3,
 		CMDQ_ENG_MDP_RSZ0,
 		CMDQ_ENG_MDP_RSZ1,
+		CMDQ_ENG_MDP_RSZ2,
+		CMDQ_ENG_MDP_RSZ3,
 		CMDQ_ENG_MDP_TDSHP0,
 		CMDQ_ENG_MDP_TDSHP1,
+		CMDQ_ENG_MDP_TDSHP2,
+		CMDQ_ENG_MDP_TDSHP3,
 		CMDQ_ENG_MDP_COLOR0,
 		CMDQ_ENG_MDP_COLOR1,
 		CMDQ_ENG_MDP_WROT0,
 		CMDQ_ENG_MDP_WROT1,
+		CMDQ_ENG_MDP_WROT2,
+		CMDQ_ENG_MDP_WROT3,
 	};
 
 	for (i = 0; i < ARRAY_SIZE(non_suspend_engine); i++) {
@@ -2247,7 +2254,6 @@ static s32 mdp_is_mod_suspend(struct EngineStruct *engine_list)
 	return status;
 }
 
-/* [FIXME] MT6873 */
 static s32 mdp_dump_engine_usage(struct EngineStruct *engine_list)
 {
 	struct EngineStruct *engine;
@@ -2272,7 +2278,6 @@ static s32 mdp_dump_engine_usage(struct EngineStruct *engine_list)
 	return 0;
 }
 
-/* [FIXME] MT6873 */
 static bool mdp_is_mtee(struct cmdqRecStruct *handle)
 {
 #ifdef CMDQ_ENG_MTEE_GROUP_BITS
