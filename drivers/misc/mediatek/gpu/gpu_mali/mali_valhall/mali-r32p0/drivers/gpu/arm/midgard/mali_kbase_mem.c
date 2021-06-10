@@ -44,6 +44,8 @@
 #include <mali_kbase_config_defaults.h>
 #include <mali_kbase_trace_gpu_mem.h>
 
+#include <linux/kmemleak.h>
+
 /*
  * Alignment of objects allocated by the GPU inside a just-in-time memory
  * region whose size is given by an end address
@@ -2258,6 +2260,9 @@ int kbase_alloc_phy_pages_helper(struct kbase_mem_phy_alloc *alloc,
 						false);
 					goto no_new_partial;
 				}
+
+				/* Avoid kmemleak scan false positive */
+				kmemleak_ignore(sa);
 
 				/* store pointers back to the control struct */
 				np->lru.next = (void *)sa;

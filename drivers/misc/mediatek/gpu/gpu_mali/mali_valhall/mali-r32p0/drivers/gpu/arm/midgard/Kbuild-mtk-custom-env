@@ -9,6 +9,8 @@ CONFIG_MALI_MIDGARD := y
 CONFIG_MALI_PLATFORM_THIRDPARTY := y
 ifeq ($(CONFIG_MACH_MT6833),y)
 CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6833"
+else ifeq ($(CONFIG_MACH_MT6877),y)
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6877"
 else ifeq ($(CONFIG_MACH_MT6893),y)
 CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6893"
 else ifeq ($(CONFIG_MACH_MT6781),y)
@@ -63,6 +65,16 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6781/include
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 endif
+
+# Enable by specific platform
+ifeq ($(findstring k6893v1_64_for_6877,$(PROJECT_DTB_NAMES)),k6893v1_64_for_6877)
+	ccflags-y += -DSHADER_PWR_CTL_WA
+else ifeq ($(CONFIG_MACH_MT6877),y)
+	ccflags-y += -DSHADER_PWR_CTL_WA
+endif
+
+# Set default policy always_on
+#ccflags-y += -DMTK_POWER_POLICY_AO
 
 ccflags-y += -DCONFIG_MTK_GPU_DEBUG
 ccflags-y += -DCONFIG_MTK_GPU_DEBUG_DFD

@@ -34,6 +34,12 @@ void mtk_common_procfs_init(void);
 void mtk_common_procfs_exit(void);
 #endif
 
+#ifdef SHADER_PWR_CTL_WA
+void mtk_set_mt_gpufreq_clock_parking_lock(unsigned long *pFlags);
+void mtk_set_mt_gpufreq_clock_parking_unlock(unsigned long *pFlags);
+int mtk_set_mt_gpufreq_clock_parking(int clksrc);
+#endif
+
 int mtk_platform_device_init(struct kbase_device *kbdev);
 void mtk_platform_device_term(struct kbase_device *kbdev);
 
