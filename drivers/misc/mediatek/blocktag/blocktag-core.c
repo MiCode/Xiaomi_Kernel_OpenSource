@@ -74,7 +74,7 @@ do { \
 #define mtk_btag_pidlog_entry(idx) \
 	(((struct page_pid_logger *)mtk_btag_pagelogger) + idx)
 
-/* max dump size is 300KB whitch can be adjusted */
+/* max dump size is 300KB which can be adjusted */
 #define BLOCKIO_AEE_BUFFER_SIZE (300 * 1024)
 char *blockio_aee_buffer;
 
