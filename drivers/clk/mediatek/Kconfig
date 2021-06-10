@@ -758,6 +758,16 @@ config COMMON_CLK_MT6893_VENCSYS
 	  If you wish to use clock resources from the vencsys device,
 	  say Y. Otherwise, say N.
 
+config COMMON_CLK_MT6983
+	tristate "Clock driver for MediaTek MT6983"
+	depends on ARM64 || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	help
+	  This driver supports MediaTek MT6983 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6983 SOC,
+	  say Y. Otherwise, say N.
+
 config COMMON_CLK_MT7622
 	bool "Clock driver for MediaTek MT7622"
 	depends on ARM || ARM64 || COMPILE_TEST
