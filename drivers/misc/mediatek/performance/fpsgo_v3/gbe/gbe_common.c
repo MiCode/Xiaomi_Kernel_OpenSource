@@ -102,13 +102,13 @@ void gbe_sentcmd(int cmd, int value1, int value2)
 	static struct k_list *node;
 
 	mutex_lock(&gbe2pwr_lock);
-	node=kmalloc(sizeof(struct k_list *),GFP_KERNEL);
+	node = kmalloc(sizeof(*node), GFP_KERNEL);
 	if (node == NULL)
 		goto out;
-	node->gbe2pwr_cmd=cmd;
-	node->gbe2pwr_value1=value1;
-	node->gbe2pwr_value2=value2;
-	list_add_tail(&node->queue_list,&head);
+	node->gbe2pwr_cmd = cmd;
+	node->gbe2pwr_value1 = value1;
+	node->gbe2pwr_value2 = value2;
+	list_add_tail(&node->queue_list, &head);
 	condition_get_cmd = 1;
 out:
 	mutex_unlock(&gbe2pwr_lock);
@@ -122,7 +122,7 @@ void gbe_ctrl2base_get_pwr_cmd(int *cmd, int *value1, int *value2)
 	wait_event_interruptible(pwr_queue, condition_get_cmd);
 	mutex_lock(&gbe2pwr_lock);
 	if (!list_empty(&head)) {
-		node=list_first_entry(&head,struct k_list ,queue_list);
+		node = list_first_entry(&head,struct k_list, queue_list);
 		*cmd = node->gbe2pwr_cmd;
 		*value1 = node->gbe2pwr_value1;
 		*value2 = node->gbe2pwr_value2;

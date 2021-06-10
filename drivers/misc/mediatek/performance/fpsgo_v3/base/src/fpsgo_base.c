@@ -181,13 +181,13 @@ void fpsgo_sentcmd(int cmd, int value1, int value2)
 	static struct k_list *node;
 
 	mutex_lock(&fpsgo2pwr_lock);
-	node=kmalloc(sizeof(struct k_list *),GFP_KERNEL);
+	node = kmalloc(sizeof(*node), GFP_KERNEL);
 	if (node == NULL)
 		goto out;
-	node->fpsgo2pwr_cmd=cmd;
-	node->fpsgo2pwr_value1=value1;
-	node->fpsgo2pwr_value2=value2;
-	list_add_tail(&node->queue_list,&head);
+	node->fpsgo2pwr_cmd = cmd;
+	node->fpsgo2pwr_value1 = value1;
+	node->fpsgo2pwr_value2 = value2;
+	list_add_tail(&node->queue_list, &head);
 	condition_get_cmd = 1;
 out:
 	mutex_unlock(&fpsgo2pwr_lock);
