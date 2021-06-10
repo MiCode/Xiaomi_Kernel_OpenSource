@@ -32,6 +32,7 @@
 #define WAIT_INTR_TIMEOUT_MS    500
 #define SUSPEND_TIMEOUT_CNT     5000
 #define MTK_MAX_CTRLS_HINT      64
+#define V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED 0x02000000
 
 /**
  * enum mtk_instance_type - The type of an MTK Vcodec instance.

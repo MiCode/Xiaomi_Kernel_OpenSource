@@ -696,6 +696,10 @@ static void mtk_vdec_worker(struct work_struct *work)
 		(!ctx->input_driven) && dst_buf_info != NULL)
 		dst_buf_info->flags |= CROP_CHANGED;
 
+
+	if (src_chg & VDEC_OUTPUT_NOT_GENERATED)
+		src_vb2_v4l2->flags |= V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED;
+
 	if (!ctx->input_driven)
 		mtk_vdec_put_fb(ctx, -1);
 
