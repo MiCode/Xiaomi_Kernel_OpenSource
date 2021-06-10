@@ -72,9 +72,48 @@ static int ccci_hif_dpmaif_probe(struct platform_device *pdev)
 
 	if (g_md_gen == 6298)
 		return ccci_dpmaif_hif_init_v3(pdev);
-	else
+	else if (g_md_gen == 6297)
 		return ccci_dpmaif_hif_init_v2(pdev);
+	else {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: md %d not suport.\n",
+			__func__, g_md_gen);
+		return -5;
+	}
 }
+
+static int dpmaif_suspend_noirq(struct device *dev)
+{
+	if (g_md_gen == 6298)
+		return ccci_dpmaif_suspend_noirq_v3(dev);
+	else if (g_md_gen == 6297)
+		return ccci_dpmaif_suspend_noirq_v2(dev);
+	else {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: md %d not suport.\n",
+			__func__, g_md_gen);
+		return 0;
+	}
+}
+
+static int dpmaif_resume_noirq(struct device *dev)
+{
+	if (g_md_gen == 6298)
+		return ccci_dpmaif_resume_noirq_v3(dev);
+	else if (g_md_gen == 6297)
+		return ccci_dpmaif_resume_noirq_v2(dev);
+	else {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: md %d not suport.\n",
+			__func__, g_md_gen);
+		return 0;
+	}
+}
+
+static const struct dev_pm_ops dpmaif_pm_ops = {
+	.suspend_noirq = dpmaif_suspend_noirq,
+	.resume_noirq = dpmaif_resume_noirq,
+};
 
 static const struct of_device_id ccci_dpmaif_of_ids[] = {
 	{.compatible = "mediatek,dpmaif"},
@@ -86,6 +125,7 @@ static struct platform_driver ccci_hif_dpmaif_driver = {
 	.driver = {
 		.name = "ccci_hif_dpmaif",
 		.of_match_table = ccci_dpmaif_of_ids,
+		.pm = &dpmaif_pm_ops,
 	},
 
 	.probe = ccci_hif_dpmaif_probe,

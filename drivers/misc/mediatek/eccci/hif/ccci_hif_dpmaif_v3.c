@@ -31,6 +31,7 @@
 #include <mt-plat/aee.h>
 #endif
 #include <linux/clk.h>
+#include <linux/atomic.h>
 
 #ifndef CCCI_KMODULE_ENABLE
 #include "ccci_core.h"
@@ -57,6 +58,7 @@
 #endif
 
 #include "ccci_hif_dpmaif_comm.h"
+#include "modem_secure_base.h"
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
@@ -2419,6 +2421,28 @@ static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 		return ((real_rel_cnt < rel_cnt)?ONCE_MORE : ALL_CLEAR);
 }
 
+static int dpmaif_wait_resume_done(void)
+{
+	int cnt = 0;
+
+	while (atomic_read(&dpmaif_ctrl->suspend_flag) == 1) {
+		cnt++;
+		if (cnt >= 1600000) {
+			CCCI_NORMAL_LOG(-1, TAG,
+				"[%s] warning: suspend_flag = 1; (cnt: %d)",
+				__func__, cnt);
+			return -1;
+		}
+	}
+
+	if (cnt)
+		CCCI_NORMAL_LOG(-1, TAG,
+			"[%s] suspend_flag = 0; (cnt: %d)",
+			__func__, cnt);
+
+	return 0;
+}
+
 /*=== tx done =====*/
 static void dpmaif_tx_done(struct work_struct *work)
 {
@@ -2428,6 +2452,11 @@ static void dpmaif_tx_done(struct work_struct *work)
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
 	int ret;
 	unsigned int L2TISAR0;
+
+	if (dpmaif_wait_resume_done() < 0)
+		 queue_delayed_work(hif_ctrl->txq[txq->index].worker,
+				&hif_ctrl->txq[txq->index].dpmaif_tx_work,
+				msecs_to_jiffies(1000 / HZ));
 
 	/* This is used to avoid race condition which may cause KE */
 	if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) {
@@ -2599,6 +2628,9 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	/* 1. parameters check*/
 	if (!skb)
 		return 0;
+
+	if (dpmaif_wait_resume_done() < 0)
+		return -EBUSY;
 
 	if (skb->mark & UIDMASK)
 		prio_count = 0x1000;
@@ -4220,11 +4252,6 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.debug = &dpmaif_debug,
 };
 
-static struct syscore_ops dpmaif_sysops = {
-	.suspend = dpmaif_syssuspend,
-	.resume = dpmaif_sysresume,
-};
-
 /* =======================================================
  *
  * Descriptions: State Module part End
@@ -4267,6 +4294,8 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 	hif_ctrl->md_id = md_id; /* maybe can get from dtsi or phase-out. */
 	hif_ctrl->hif_id = DPMAIF_HIF_ID;
 	dpmaif_ctrl = hif_ctrl;
+	atomic_set(&dpmaif_ctrl->suspend_flag, -1);
+
 	node_md = of_find_compatible_node(NULL, NULL,
 		"mediatek,mddriver");
 	of_property_read_u32(node_md,
@@ -4388,8 +4417,10 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 #endif
 	ccci_hif_register(DPMAIF_HIF_ID, (void *)dpmaif_ctrl,
 		&ccci_hif_dpmaif_ops);
-	register_syscore_ops(&dpmaif_sysops);
+
 	mtk_ccci_speed_monitor_init(dev);
+
+	atomic_set(&dpmaif_ctrl->suspend_flag, 0);
 	return 0;
 
 DPMAIF_INIT_FAIL:
@@ -4406,6 +4437,45 @@ static void dpmaif_init_plat_ops(void)
 	else
 		g_plt_ops.hw_reset = dpmaif_hw_reset;
 
+}
+
+int ccci_dpmaif_suspend_noirq_v3(struct device *dev)
+{
+	if ((!dpmaif_ctrl) || (atomic_read(&dpmaif_ctrl->suspend_flag) < 0))
+		return 0;
+
+	CCCI_NORMAL_LOG(-1, TAG, "[%s]\n", __func__);
+
+	atomic_set(&dpmaif_ctrl->suspend_flag, 1);
+
+	dpmaif_syssuspend();
+
+	return 0;
+}
+
+int ccci_dpmaif_resume_noirq_v3(struct device *dev)
+{
+	struct arm_smccc_res res;
+
+	if ((!dpmaif_ctrl) || (atomic_read(&dpmaif_ctrl->suspend_flag) < 0))
+		return 0;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL,
+			MD_CLOCK_REQUEST, MD_WAKEUP_AP_SRC,
+			WAKE_SRC_HIF_DPMAIF, 0, 0, 0, 0, &res);
+
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx, flag_4=0x%llx\n",
+		__func__, res.a0, res.a1, res.a2, res.a3);
+
+	if ((!res.a0) && (res.a1 == WAKE_SRC_HIF_DPMAIF))
+		arch_atomic_set(&dpmaif_ctrl->wakeup_src, 1);
+
+	dpmaif_sysresume();
+
+	atomic_set(&dpmaif_ctrl->suspend_flag, 0);
+
+	return 0;
 }
 
 int ccci_dpmaif_hif_init_v3(struct platform_device *pdev)

@@ -391,6 +391,7 @@ struct hif_dpmaif_ctrl {
 	struct platform_device *plat_dev; /* maybe: no need. */
 	struct ccci_hif_dpmaif_val plat_val;
 
+	atomic_t suspend_flag;
 };
 
 #ifndef CCCI_KMODULE_ENABLE
