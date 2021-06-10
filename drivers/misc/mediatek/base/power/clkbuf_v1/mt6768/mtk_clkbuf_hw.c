@@ -783,6 +783,38 @@ bool clk_buf_ctrl(enum clk_buf_id id, bool onoff)
 }
 EXPORT_SYMBOL(clk_buf_ctrl);
 
+void clk_buf_disp_ctrl(bool onoff)
+{
+	int pwrap_dcxo_en;
+
+	pr_info("%s:onoff=%d\n", __func__, onoff);
+	pwrap_dcxo_en = clkbuf_readl(DCXO_ENABLE) & ~DCXO_NFC_ENABLE;
+	clkbuf_writel(DCXO_ENABLE, pwrap_dcxo_en);
+	if (onoff) {
+		pmic_config_interface(PMIC_DCXO_CW00_CLR_ADDR,
+			PMIC_XO_EXTBUF3_MODE_MASK,
+			PMIC_XO_EXTBUF3_MODE_MASK,
+			PMIC_XO_EXTBUF3_MODE_SHIFT);
+		pmic_config_interface(PMIC_DCXO_CW00_SET_ADDR,
+			PMIC_XO_EXTBUF3_EN_M_MASK,
+			PMIC_XO_EXTBUF3_EN_M_MASK,
+			PMIC_XO_EXTBUF3_EN_M_SHIFT);
+		pmic_clk_buf_swctrl[XO_NFC] = 1;
+	} else {
+		pmic_config_interface(PMIC_DCXO_CW00_CLR_ADDR,
+			PMIC_XO_EXTBUF3_MODE_MASK,
+			PMIC_XO_EXTBUF3_MODE_MASK,
+			PMIC_XO_EXTBUF3_MODE_SHIFT);
+		pmic_config_interface(PMIC_DCXO_CW00_CLR_ADDR,
+			PMIC_XO_EXTBUF3_EN_M_MASK,
+			PMIC_XO_EXTBUF3_EN_M_MASK,
+			PMIC_XO_EXTBUF3_EN_M_SHIFT);
+		pmic_clk_buf_swctrl[XO_NFC] = 0;
+	}
+
+}
+EXPORT_SYMBOL(clk_buf_disp_ctrl);
+
 void clk_buf_dump_dts_log(void)
 {
 	pr_info("%s: PMIC_CLK_BUF?_STATUS=%d %d %d %d %d %d %d\n", __func__,
