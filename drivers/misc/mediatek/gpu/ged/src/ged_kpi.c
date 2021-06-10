@@ -232,7 +232,7 @@ struct GED_KPI_MEOW_DVFS_FREQ_PRED {
 	int gpu_freq_cur;
 	int gpu_freq_max;
 	int gpu_freq_pred;
-	int is_GIFT_on;
+	int gift_ratio;
 
 	int target_pid;
 	int target_fps;
@@ -841,7 +841,7 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 		psKPI->t_gpu,
 		psKPI->gpu_done_interval,
 		vsync_period,
-		g_psMEOW->is_GIFT_on,
+		g_psMEOW->gift_ratio,
 #ifdef GED_ENABLE_FB_DVFS
 		psKPI->cpu_gpu_info.gpu.gpu_dvfs,
 		psKPI->cpu_gpu_info.gpu.tb_dvfs_mode,
@@ -1694,9 +1694,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					util_ex.util_3d, psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
 
-					/* hint GiFT on/off status to EAT */
+					/* hint GiFT ratio  to EAT */
 					ged_log_perf_trace_counter(
-					"is_gift_on", g_psMEOW->is_GIFT_on,
+					"is_gift_on", g_psMEOW->gift_ratio,
 					psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
 
@@ -2686,13 +2686,14 @@ GED_ERROR ged_kpi_query_gpu_dvfs_info(int *gpu_freq_cur
 EXPORT_SYMBOL(ged_kpi_query_gpu_dvfs_info);
 
 /* ------------------------------------------------------------------- */
-GED_ERROR ged_kpi_set_gift_status(int mode)
+GED_ERROR ged_kpi_set_gift_status(int ratio)
 {
 #ifdef MTK_GED_KPI
-	if (mode == 1)
-		g_psMEOW->is_GIFT_on = 1;
+	if (ratio > 0)
+		g_psMEOW->gift_ratio = ratio;
 	else
-		g_psMEOW->is_GIFT_on = 0;
+		g_psMEOW->gift_ratio = 0;
+
 	return GED_OK;
 #endif /* MTK_GED_KPI */
 	return GED_OK;
