@@ -495,7 +495,7 @@ int ccci_dump_write(int md_id, int buf_type,
 			rtc_time_to_tm(savetv.tv_sec, &now_time);
 
 			write_len = snprintf(temp_log, CCCI_LOG_MAX_WRITE,
-					     "[%04ld-%02d-%02d %02d:%02d:%02d.%03d]",
+					     "[%04d-%02d-%02d %02d:%02d:%02d.%03d]",
 					     now_time.tm_year + 1900,
 					     now_time.tm_mon + 1,
 					     now_time.tm_mday,

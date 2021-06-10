@@ -1372,7 +1372,7 @@ extern int ccci_get_md_smem_buf(char **pbuf, unsigned int *size);
 
 static ssize_t md_cd_smem_show(struct ccci_modem *md, char *buf)
 {
-	char *smem_buf;
+	char *smem_buf = NULL;
 	unsigned int smem_size;
 	int n, ret;
 
