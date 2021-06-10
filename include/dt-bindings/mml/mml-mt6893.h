@@ -7,15 +7,24 @@
 #define _DT_BINDINGS_MML_MT6893_H
 
 /* MML engines in mt6893 */
-/* Temp for early development */
-#define MML_RDMA0		0
-#define MML_RDMA1		1
-#define MML_RSZ0		2
-#define MML_RSZ1		3
-#define MML_WROT0		4
-#define MML_WROT1		5
-#define MML_MUTEX		6
-#define MML_ENGINE_TOTAL	7
+/* Temp for early development. The id 0 leaves empty, do not use. */
+#define MML_MMLSYS		1
+#define MML_MUTEX		2
+#define MML_CAMIN		3 /* to verify sub-component framework */
+#define MML_CAMIN2		4 /* to verify sub-component framework */
+#define MML_CAMIN3		5 /* to verify sub-component framework */
+#define MML_CAMIN4		6 /* to verify sub-component framework */
+#define MML_RDMA0		7
+#define MML_RDMA1		8
+#define MML_PQ0_SOUT		9
+#define MML_PQ1_SOUT		10
+#define MML_RSZ0		11
+#define MML_RSZ1		12
+#define MML_WROT0		13
+#define MML_WROT1		14
+#define MML_WROT2		15
+#define MML_WROT3		16
+#define MML_ENGINE_TOTAL	17
 /*
 #define MML_MMLSYS		0
 #define MML_MUTEX		1

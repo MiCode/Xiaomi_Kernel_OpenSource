@@ -5826,6 +5826,38 @@
 			reg = <0 0x1f000000 0 0x1000>;
 			#clock-cells = <1>;
 			comp-count = <MML_ENGINE_TOTAL>;
+			/* As components */
+			topology = "mt6893";
+			mboxes = <&gce_m 6 0 CMDQ_THR_PRIO_1>,
+				<&gce_m 7 0 CMDQ_THR_PRIO_1>,
+				<&gce_m 8 0 CMDQ_THR_PRIO_1>,
+				<&gce_m 9 0 CMDQ_THR_PRIO_1>;
+			/* As mmlsys */
+			comp-ids = <MML_MMLSYS>,
+				<MML_CAMIN>,
+				<MML_CAMIN2>,
+				<MML_CAMIN3>,
+				<MML_CAMIN4>,
+				<MML_PQ0_SOUT>,
+				<MML_PQ1_SOUT>;
+			comp-names = "mmlsys",
+				"camin",
+				"camin2",
+				"camin3",
+				"camin4",
+				"pq0_sout",
+				"pq1_sout";
+			mmlsys-clock-names = "MDP_APB_BUS",
+					"MDP_APMCU_GALS";
+			camin-clock-names = "MDP_IMG_DL_ASYNC0",
+					"MDP_IMG0_IMG_DL_ASYNC0";
+			camin2-clock-names = "MDP_IMG_DL_ASYNC1",
+					"MDP_IMG0_IMG_DL_ASYNC1";
+			camin3-clock-names = "MDP_IMG_DL_ASYNC2",
+					"MDP_IMG1_IMG_DL_ASYNC2";
+			camin4-clock-names = "MDP_IMG_DL_ASYNC3",
+					"MDP_IMG1_IMG_DL_ASYNC3";
+			pq0_sout-clock-names = "MDP_RDMA0";
 		};
 
 		mml_mutex: mml_mutex@1f001000 {
@@ -5833,7 +5865,7 @@
 			reg = <0 0x1f001000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_MUTEX0>;
 			clock-names = "MDP_MUTEX0";
-			comp-id = <MML_MUTEX>;
+			comp-ids = <MML_MUTEX>;
 		};
 
 		mml_rdma0: mml_rdma0@1f006000 {
@@ -5857,7 +5889,7 @@
 			reg = <0 0x1f012000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_RSZ0>;
 			clock-names = "MDP_RSZ0";
-			comp-id = <MML_RSZ0>;
+			comp-ids = <MML_RSZ0>;
 		};
 
 		mml_rsz1: mml_rsz1@1f013000 {
@@ -5865,7 +5897,7 @@
 			reg = <0 0x1f013000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_RSZ1>;
 			clock-names = "MDP_RSZ1";
-			comp-id = <MML_RSZ1>;
+			comp-ids = <MML_RSZ1>;
 		};
 
 		mml_wrot0: mml_wrot0@1f016000 {
@@ -5873,7 +5905,12 @@
 			reg = <0 0x1f016000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_WROT0>;
 			clock-names = "MDP_WROT0";
-			comp-id = <MML_WROT0>;
+			comp-ids = <MML_WROT0>;
+			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
+			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
+			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_WROT0_FRAME_DONE>;
+			larb = /bits/ 8 <2>;
+			m4u_port = <M4U_PORT_L2_MDP_WROT0>;
 		};
 
 		mml_wrot1: mml_wrot1@1f017000 {
@@ -5881,7 +5918,40 @@
 			reg = <0 0x1f017000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_WROT1>;
 			clock-names = "MDP_WROT1";
-			comp-id = <MML_WROT1>;
+			comp-ids = <MML_WROT1>;
+			gpr_poll = /bits/ 8 <GCE_GPR_R08>;
+			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>;
+			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_WROT1_FRAME_DONE>;
+			larb = /bits/ 8 <3>;
+			m4u_port = <M4U_PORT_L3_MDP_WROT1>;
+		};
+
+		mml_wrot2: mml_wrot2@1f018000 {
+			compatible = "mediatek,mml_wrot2", "mediatek,mt6893-mml_wrot";
+			reg = <0 0x1f018000 0 0x1000>;
+			interrupts = <GIC_SPI 485 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&mdpsys CLK_MDP_WROT2>;
+			clock-names = "MDP_WROT2";
+			comp-ids = <MML_WROT2>;
+			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
+			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
+			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_WROT2_FRAME_DONE>;
+			larb = /bits/ 8 <2>;
+			m4u_port = <M4U_PORT_L2_MDP_WROT2>;
+		};
+
+		mml_wrot3: mml_wrot3@1f019000 {
+			compatible = "mediatek,mml_wrot3", "mediatek,mt6893-mml_wrot";
+			reg = <0 0x1f019000 0 0x1000>;
+			interrupts = <GIC_SPI 486 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&mdpsys CLK_MDP_WROT3>;
+			clock-names = "MDP_WROT3";
+			comp-ids = <MML_WROT3>;
+			gpr_poll = /bits/ 8 <GCE_GPR_R08>;
+			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>;
+			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_WROT3_FRAME_DONE>;
+			larb = /bits/ 8 <3>;
+			m4u_port = <M4U_PORT_L3_MDP_WROT3>;
 		};
 
 		mdpsys_config: mdpsys_config@1f000000 {
