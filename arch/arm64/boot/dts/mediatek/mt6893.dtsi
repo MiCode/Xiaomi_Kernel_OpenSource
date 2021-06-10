@@ -5866,6 +5866,23 @@
 			clocks = <&mdpsys CLK_MDP_MUTEX0>;
 			clock-names = "MDP_MUTEX0";
 			comp-ids = <MML_MUTEX>;
+			mutex-comps = "rdma0", "rdma1", "rsz0", "rsz1",
+				"wrot0", "wrot1", "wrot2", "wrot3",
+				"camin", "camin2", "camin3", "camin4";
+			rdma0 = <MML_RDMA0 0 0>;
+			rdma1 = <MML_RDMA1 0 1>;
+			rsz0 = <MML_RSZ0 0 12>;
+			rsz1 = <MML_RSZ1 0 13>;
+			wrot0 = <MML_WROT0 0 16>;
+			wrot1 = <MML_WROT1 0 17>;
+			wrot2 = <MML_WROT2 0 18>;
+			wrot3 = <MML_WROT3 0 19>;
+			camin = <MML_CAMIN 0 28>;
+			camin2 = <MML_CAMIN2 0 29>;
+			camin3 = <MML_CAMIN3 0 30>;
+			camin4 = <MML_CAMIN4 0 31>;
+			mutex-ids = <MML_RDMA0 4 MML_RDMA1 5
+				MML_CAMIN 0 MML_CAMIN2 1 MML_CAMIN3 2 MML_CAMIN4 3>;
 		};
 
 		mml_rdma0: mml_rdma0@1f006000 {
