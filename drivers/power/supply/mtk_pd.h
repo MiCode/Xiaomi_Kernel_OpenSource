@@ -192,5 +192,5 @@ extern int pd_hal_enable_charger(struct chg_alg_device *alg,
 extern int pd_hal_charger_enable_chip(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool enable);
 extern int pd_hal_get_uisoc(struct chg_alg_device *alg);
-
+extern int pd_hal_get_log_level(struct chg_alg_device *alg);
 #endif /* __MTK_PD_H */

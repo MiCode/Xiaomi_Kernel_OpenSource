@@ -180,5 +180,5 @@ extern int pe2_hal_safety_check(struct chg_alg_device *alg,
 	int ieoc);
 extern int pe2_hal_is_charger_enable(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool *en);
-
+extern int pe2_hal_get_log_level(struct chg_alg_device *alg);
 #endif /* __MTK_PE2_H */

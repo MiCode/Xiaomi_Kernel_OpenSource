@@ -160,7 +160,7 @@ int __pe_increase_ta_vchr(struct chg_alg_device *alg)
 
 	/* TA is not exist */
 	ret_value = -ECABLEOUT;
-	pr_notice("%s: failed, cable out\n", __func__);
+	pe_err("%s: failed, cable out\n", __func__);
 	return ret_value;
 }
 
@@ -473,6 +473,7 @@ static int _pe_is_algo_ready(struct chg_alg_device *alg)
 static int _pe_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pe *pe;
+	int log_level;
 
 	pe = dev_get_drvdata(&alg->dev);
 	pe_dbg("%s\n", __func__);
@@ -481,6 +482,11 @@ static int _pe_init_algo(struct chg_alg_device *alg)
 		pe->state = PE_HW_FAIL;
 	else
 		pe->state = PE_HW_READY;
+
+	log_level = pe_hal_get_log_level(alg);
+	pr_notice("%s: log_level=%d", __func__, log_level);
+	if (log_level > 0)
+		pe_dbg_level = log_level;
 
 	return 0;
 }

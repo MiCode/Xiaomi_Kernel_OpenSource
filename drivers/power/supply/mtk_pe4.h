@@ -236,4 +236,5 @@ extern int pe4_hal_set_cv(struct chg_alg_device *alg,
 extern int pe4_hal_enable_termination(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool enable);
 extern int pe4_hal_reset_eoc_state(struct chg_alg_device *alg);
+extern int pe4_hal_get_log_level(struct chg_alg_device *alg);
 #endif /* __MTK_PE4_H */

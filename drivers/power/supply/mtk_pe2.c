@@ -535,7 +535,7 @@ static int pe2_leave(struct chg_alg_device *alg)
 static int _pe2_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pe20 *pe2;
-	int ret, cnt;
+	int ret, cnt, log_level;
 
 	pe2 = dev_get_drvdata(&alg->dev);
 	mutex_lock(&pe2->access_lock);
@@ -560,6 +560,12 @@ static int _pe2_init_algo(struct chg_alg_device *alg)
 			alg->config = SINGLE_CHARGER;
 	} else
 		alg->config = SINGLE_CHARGER;
+
+	log_level = pe2_hal_get_log_level(alg);
+	pr_notice("%s: log_level=%d", __func__, log_level);
+	if (log_level > 0)
+		pe2_dbg_level = log_level;
+
 	mutex_unlock(&pe2->access_lock);
 	pe2_dbg("%s config:%d\n", __func__, alg->config);
 	return 0;

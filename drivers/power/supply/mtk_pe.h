@@ -127,7 +127,5 @@ extern int pe_hal_set_charging_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 ua);
 extern int pe_hal_set_input_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 ua);
-
-
-
+extern int pe_hal_get_log_level(struct chg_alg_device *alg);
 #endif /* __MTK_PE_INTF_H */

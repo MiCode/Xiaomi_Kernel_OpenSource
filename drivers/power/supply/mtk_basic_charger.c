@@ -202,6 +202,13 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		pdata->charging_current_limit =
 			info->data.usb_charger_current;
 		is_basic = true;
+	} else {
+		/*chr_type && usb_type cannot match above, set 500mA*/
+		pdata->input_current_limit =
+				info->data.usb_charger_current;
+		pdata->charging_current_limit =
+				info->data.usb_charger_current;
+		is_basic = true;
 	}
 
 	if (support_fast_charging(info))
@@ -311,6 +318,7 @@ done:
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
 	if (ret != -EOPNOTSUPP && pdata->charging_current_limit < ichg1_min) {
 		pdata->charging_current_limit = 0;
+		/* For TC_018, pleasae don't modify the format */
 		chr_err("min_charging_current is too low %d %d\n",
 			pdata->charging_current_limit, ichg1_min);
 		is_basic = true;
@@ -319,11 +327,12 @@ done:
 	ret = charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
 	if (ret != -EOPNOTSUPP && pdata->input_current_limit < aicr1_min) {
 		pdata->input_current_limit = 0;
+		/* For TC_018, pleasae don't modify the format */
 		chr_err("min_input_current is too low %d %d\n",
 			pdata->input_current_limit, aicr1_min);
 		is_basic = true;
 	}
-
+	/* For TC_018, pleasae don't modify the format */
 	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d dvchg1:%d sc:%d %d %d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
 		info->config,
 		_uA_to_mA(pdata->thermal_input_current_limit),

@@ -114,7 +114,7 @@ int get_battery_temperature(struct mtk_charger *info)
 
 	bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "gauge");
-	pr_notice("%s %x\n", __func__, bat_psy);
+	chr_debug("%s %x\n", __func__, bat_psy);
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		chr_err("%s Couldn't get bat_psy\n", __func__);
@@ -161,7 +161,7 @@ static int get_pmic_vbus(struct mtk_charger *info, int *vchr)
 	if (chg_psy == NULL)
 		chg_psy = power_supply_get_by_name("mtk_charger_type");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		ret = -1;
 	} else {
 		ret = power_supply_get_property(chg_psy,
@@ -169,7 +169,7 @@ static int get_pmic_vbus(struct mtk_charger *info, int *vchr)
 	}
 	*vchr = prop.intval;
 
-	pr_notice("%s vbus:%d\n", __func__,
+	chr_debug("%s vbus:%d\n", __func__,
 		prop.intval);
 	return ret;
 }
@@ -201,7 +201,7 @@ int get_ibus(struct mtk_charger *info)
 		return -EINVAL;
 	ret = charger_dev_get_ibus(info->chg1_dev, &ibus);
 	if (ret < 0)
-		pr_notice("%s: get ibus failed: %d\n", __func__, ret);
+		chr_err("%s: get ibus failed: %d\n", __func__, ret);
 
 	return ibus / 1000;
 }
@@ -238,7 +238,7 @@ bool is_charger_exist(struct mtk_charger *info)
 		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		ret = -1;
 	} else {
 		ret = power_supply_get_property(chg_psy,
@@ -261,7 +261,7 @@ int get_charger_type(struct mtk_charger *info)
 		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
@@ -276,7 +276,7 @@ int get_charger_type(struct mtk_charger *info)
 			prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
 	}
 
-	pr_notice("%s online:%d type:%d usb_type:%d\n", __func__,
+	chr_debug("%s online:%d type:%d usb_type:%d\n", __func__,
 		prop.intval,
 		prop2.intval,
 		prop3.intval);
@@ -293,14 +293,14 @@ int get_usb_type(struct mtk_charger *info)
 		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop2);
 	}
-	pr_notice("%s online:%d usb_type:%d\n", __func__,
+	chr_debug("%s online:%d usb_type:%d\n", __func__,
 		prop.intval,
 		prop2.intval);
 	return prop2.intval;

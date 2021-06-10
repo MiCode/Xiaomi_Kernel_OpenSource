@@ -562,6 +562,7 @@ static void check_dynamic_mivr(struct mtk_charger *info)
 		alg = info->alg[i];
 		if (alg == NULL)
 			continue;
+
 		ret = chg_alg_is_algo_ready(alg);
 		if (ret == ALG_RUNNING) {
 			is_fast_charge = true;
@@ -804,7 +805,7 @@ static ssize_t fast_chg_indicator_show(struct device *dev, struct device_attribu
 {
 	struct mtk_charger *pinfo = dev->driver_data;
 
-	chr_err("%s: %d\n", __func__, pinfo->fast_charging_indicator);
+	chr_debug("%s: %d\n", __func__, pinfo->fast_charging_indicator);
 	return sprintf(buf, "%d\n", pinfo->fast_charging_indicator);
 }
 
@@ -818,6 +819,9 @@ static ssize_t fast_chg_indicator_store(struct device *dev, struct device_attrib
 		pinfo->fast_charging_indicator = temp;
 	else
 		chr_err("%s: format error!\n", __func__);
+
+	if (pinfo->fast_charging_indicator > 0)
+		pinfo->log_level = CHRLOG_DEBUG_LEVEL;
 
 	return size;
 }
@@ -1123,7 +1127,7 @@ void scd_ctrl_cmd_from_user(void *nl_data, struct sc_nl_msg_t *ret_msg)
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1205,7 +1209,7 @@ static void sc_nl_send_to_user(u32 pid, int seq, struct sc_nl_msg_t *reply_msg)
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1366,7 +1370,7 @@ int wakeup_sc_algo_cmd(struct scd_cmd_param_t_1 *data, int subcmd, int para1)
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1423,7 +1427,7 @@ static ssize_t enable_sc_show(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1448,7 +1452,7 @@ static ssize_t enable_sc_store(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1487,7 +1491,7 @@ static ssize_t sc_stime_show(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1512,7 +1516,7 @@ static ssize_t sc_stime_store(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1549,7 +1553,7 @@ static ssize_t sc_etime_show(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1574,7 +1578,7 @@ static ssize_t sc_etime_store(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1611,7 +1615,7 @@ static ssize_t sc_tuisoc_show(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1636,7 +1640,7 @@ static ssize_t sc_tuisoc_store(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1673,7 +1677,7 @@ static ssize_t sc_ibat_limit_show(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -1698,7 +1702,7 @@ static ssize_t sc_ibat_limit_store(
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	}
 	info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -2752,7 +2756,7 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 	chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "charger");
 	if (IS_ERR_OR_NULL(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
@@ -2966,7 +2970,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 		chr_err("register psy dvchg2 fail:%d\n",
 			PTR_ERR(info->psy_dvchg2));
 
-	info->log_level = CHRLOG_DEBUG_LEVEL;
+	info->log_level = CHRLOG_ERROR_LEVEL;
 
 	info->pd_adapter = get_adapter_by_name("pd_adapter");
 	if (!info->pd_adapter)

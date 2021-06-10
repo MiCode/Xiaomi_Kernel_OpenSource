@@ -97,7 +97,7 @@ static char *pd_state_to_str(int state)
 static int _pd_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd;
-	int cnt;
+	int cnt, log_level;
 
 	pd = dev_get_drvdata(&alg->dev);
 	pd_dbg("%s\n", __func__);
@@ -122,6 +122,11 @@ static int _pd_init_algo(struct chg_alg_device *alg)
 	} else
 		alg->config = SINGLE_CHARGER;
 
+	log_level = pd_hal_get_log_level(alg);
+	pr_notice("%s: log_level=%d", __func__, log_level);
+	if (log_level > 0)
+		pd_dbg_level = log_level;
+
 	pd->pdc_max_watt_setting = -1;
 
 	pd->check_impedance = true;
@@ -141,7 +146,7 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 	int ret_value;
 	int uisoc;
 
-	pd_err("%s %d\n", __func__, pd->state);
+	pd_dbg("%s %d\n", __func__, pd->state);
 	switch (pd->state) {
 	case PD_HW_UNINIT:
 	case PD_HW_FAIL:

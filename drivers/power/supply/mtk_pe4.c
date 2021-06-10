@@ -106,7 +106,7 @@ void mtk_pe40_reset(struct chg_alg_device *alg)
 static int _pe4_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pe40 *pe4;
-	int cnt;
+	int cnt, log_level;
 
 	pe4 = dev_get_drvdata(&alg->dev);
 	pe4_dbg("%s\n", __func__);
@@ -131,6 +131,12 @@ static int _pe4_init_algo(struct chg_alg_device *alg)
 			alg->config = SINGLE_CHARGER;
 	} else
 		alg->config = SINGLE_CHARGER;
+
+	log_level = pe4_hal_get_log_level(alg);
+	pr_notice("%s: log_level=%d", __func__, log_level);
+	if (log_level > 0)
+		pe4_dbg_level = log_level;
+
 	mutex_unlock(&pe4->access_lock);
 	return 0;
 }
