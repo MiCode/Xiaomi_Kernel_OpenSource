@@ -1,3 +1,4 @@
+1
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2020 MediaTek Inc.
@@ -467,9 +468,14 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 	TCPC_INFO("usb_port_attached\r\n");
 
 	switch (tcpc->typec_attach_new) {
-	case TYPEC_ATTACHED_SNK:
 	case TYPEC_ATTACHED_CUSTOM_SRC:
 	case TYPEC_ATTACHED_NORP_SRC:
+		if (!tcpc->partner) {
+			tcpc->partner =
+				typec_register_partner(tcpc->typec_port,
+				&tcpc->partner_desc);
+		}
+	case TYPEC_ATTACHED_SNK:
 		tcpc->dual_role_pr = DUAL_ROLE_PROP_PR_SNK;
 		tcpc->dual_role_dr = DUAL_ROLE_PROP_DR_DEVICE;
 		tcpc->dual_role_mode = DUAL_ROLE_PROP_MODE_UFP;
