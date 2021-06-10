@@ -27,7 +27,7 @@
 #endif
 
 #if IS_ENABLED(CONFIG_SND_SOC_RT5512)
-#include "../../codecs/rt5512.h"
+#include "../../codecs/richtek/rt5512.h"
 #endif
 
 #if IS_ENABLED(CONFIG_SND_SOC_TFA9874)
