@@ -313,7 +313,7 @@ static void mdw_ap_cmd_put_ctx(struct mdw_ap_sc *sc)
 		goto free_ctx;
 
 	ac->ctx_cnt[ctx_idx]--;
-	if (!ac->ctx_cnt[ctx_idx])
+	if (ac->ctx_cnt[ctx_idx])
 		goto out;
 	ac->ctx_repo[ctx_idx] = MDW_CMD_EMPTY_NUM;
 
