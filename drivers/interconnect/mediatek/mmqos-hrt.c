@@ -74,15 +74,39 @@ s32 mtk_mmqos_set_hrt_bw(enum hrt_type type, u32 bw)
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_set_hrt_bw);
 
-static void notify_bw_throttle(u32 bw)
+static void notify_bw_throttle(enum hrt_scen scen, bool is_start)
 {
 	u64 start_jiffies = jiffies;
 
 	blocking_notifier_call_chain(&mmqos_hrt->hrt_bw_throttle_notifier,
-		(bw > 0)?BW_THROTTLE_START:BW_THROTTLE_END, NULL);
-	pr_notice("%s: notify_time=%u\n", __func__,
-		jiffies_to_msecs(jiffies-start_jiffies));
+		is_start?BW_THROTTLE_START:BW_THROTTLE_END, NULL);
+	pr_notice("%s: scen(%d) notify_time=%u\n", __func__,
+		scen, jiffies_to_msecs(jiffies-start_jiffies));
 }
+
+s32 mtk_mmqos_hrt_scen(enum hrt_scen scen, bool is_start)
+{
+	s32 ret = 0;
+
+	switch (scen) {
+		case CAM_SCEN_CHANGE:
+			notify_bw_throttle(scen, is_start);
+			break;
+		case MD_SPEECH:
+			mmqos_hrt->hrt_bw[HRT_MD] = is_start ?
+				mmqos_hrt->md_speech_bw[0] :
+				mmqos_hrt->md_speech_bw[1];
+			notify_bw_throttle(scen, is_start);
+			break;
+		default:
+			pr_notice("%s: wrong hrt_scen(%d)\n", __func__, scen);
+			ret = -EINVAL;
+			break;
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_mmqos_hrt_scen);
+
 
 static void set_camera_max_bw(u32 bw)
 {
@@ -93,7 +117,7 @@ static void set_camera_max_bw(u32 bw)
 		pr_notice("%s: increase lock_count=%d\n", __func__,
 			atomic_read(&mmqos_hrt->lock_count));
 	}
-	notify_bw_throttle(bw);
+	mtk_mmqos_hrt_scen(CAM_SCEN_CHANGE, bw > 0);
 	if (mmqos_hrt->blocking) {
 		atomic_dec(&mmqos_hrt->lock_count);
 		wake_up(&mmqos_hrt->hrt_wait);
@@ -131,6 +155,7 @@ static ssize_t camera_max_bw_store(struct device *dev,
 		schedule_delayed_work(&mmqos_hrt->work, 0);
 	}
 	mutex_unlock(&mmqos_hrt->blocking_lock);
+
 	return count;
 }
 
