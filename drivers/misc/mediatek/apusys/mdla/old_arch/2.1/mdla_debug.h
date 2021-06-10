@@ -20,6 +20,7 @@
 #include <linux/types.h>
 #include <linux/printk.h>
 #include <linux/seq_file.h>
+#include <linux/proc_fs.h>
 #include <aee.h>
 
 #ifdef CONFIG_MTK_AEE_FEATURE
@@ -192,6 +193,46 @@ static inline void mdla_debugfs_exit(void)
 #define dump_reg_cfg(core_id, name) \
 	mdla_timeout_debug("%s: %d: %.8x\n", #name,\
 	core_id, mdla_cfg_read_with_mdlaid(core_id, name))
+
+
+#define PROC_FOPS_RO_MDLA(name)							\
+static int mdla_dbg_ ## name ## _open(struct inode *inode, struct file *file)	\
+{										\
+	return single_open(file, mdla_dbg_ ## name ## _show, inode->i_private);	\
+}										\
+static const struct file_operations mdla_dbg_ ## name ## _fops = {		\
+	.owner	 = THIS_MODULE,							\
+	.open	 = mdla_dbg_ ## name ## _open,					\
+	.read	 = seq_read,							\
+	.llseek	 = seq_lseek,							\
+	.release = single_release,						\
+}
+#define PROC_CREATE_RO_MDLA(parent, name)					\
+do {										\
+	if (!proc_create(#name, 0444, parent, &mdla_dbg_ ## name ## _fops))	\
+		LOG_ERR("%s(), create /proc/mdla/%s failed\n",			\
+			__func__, #name);					\
+} while (0)
+
+#define PROC_FOPS_RW_MDLA(name)							\
+static int mdla_dbg_ ## name ## _open(struct inode *inode, struct file *file)	\
+{										\
+	return single_open(file, mdla_dbg_ ## name ## _show, inode->i_private);	\
+}										\
+static const struct file_operations mdla_dbg_ ## name ## _fops = {		\
+	.owner	 = THIS_MODULE,							\
+	.open	 = mdla_dbg_ ## name ## _open,					\
+	.read	 = seq_read,							\
+	.write   = mdla_dbg_ ## name ## _write,					\
+	.llseek	 = seq_lseek,							\
+	.release = single_release,						\
+}
+#define PROC_CREATE_RW_MDLA(parent, name)					\
+do {										\
+	if (!proc_create(#name, 0644, parent, &mdla_dbg_ ## name ## _fops))	\
+		LOG_ERR("%s(), create /proc/mdla/%s failed\n",			\
+			__func__, #name);					\
+} while (0)
 
 #endif
 

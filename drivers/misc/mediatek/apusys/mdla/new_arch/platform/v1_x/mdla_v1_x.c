@@ -339,7 +339,7 @@ static int mdla_plat_dbgfs_usage(struct seq_file *s, void *data)
 	seq_puts(s, "\n---- Dump the last code buffer ----\n");
 	seq_printf(s, "echo [1|0] > /d/mdla/%s\n",
 				mdla_dbg_get_u32_node_str(FS_DUMP_CMDBUF));
-	seq_printf(s, "cat /d/mdla/%s\n", DBGFS_CMDBUF_NAME);
+	seq_printf(s, "cat /proc/mdla/%s\n", DBGFS_CMDBUF_NAME);
 
 	seq_puts(s, "\n---- Command timeout setting ----\n");
 	seq_printf(s, "echo [ms(dec)] > /d/mdla/%s\n",

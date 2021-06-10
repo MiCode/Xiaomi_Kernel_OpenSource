@@ -98,7 +98,6 @@ static const struct file_operations mdla_debug_ ## name ## _fops = {   \
 
 
 IMPLEMENT_MDLA_DEBUGFS(register);
-IMPLEMENT_MDLA_DEBUGFS(mdla_memory);
 
 #undef IMPLEMENT_MDLA_DEBUGFS
 
@@ -214,6 +213,7 @@ static const struct file_operations mdla_debug_prof_fops = {
 	.write = mdla_debug_prof_write,
 };
 
+static struct proc_dir_entry *mdla_procfs_dir;
 
 #define DEFINE_MDLA_DEBUGFS(name)  \
 	struct dentry *mdla_d##name
@@ -230,7 +230,6 @@ static const struct file_operations mdla_debug_prof_fops = {
 	DEFINE_MDLA_DEBUGFS(klog);
 	DEFINE_MDLA_DEBUGFS(register);
 	DEFINE_MDLA_DEBUGFS(power);
-	DEFINE_MDLA_DEBUGFS(mdla_memory);
 
 	DEFINE_MDLA_DEBUGFS(eng0);
 	DEFINE_MDLA_DEBUGFS(eng1);
@@ -266,6 +265,25 @@ static const struct file_operations mdla_debug_prof_fops = {
 	DEFINE_MDLA_DEBUGFS(preemption_debug);
 
 u32 mdla_klog;
+
+static int mdla_dbg_mdla_memory_show(struct seq_file *s, void *data)
+{
+	mdla_dump_mdla_memory(s);
+	return 0;
+}
+PROC_FOPS_RO_MDLA(mdla_memory);
+
+static void mdla_procfs_init(void)
+{
+	mdla_procfs_dir = proc_mkdir("mdla", NULL);
+
+	if (IS_ERR_OR_NULL(mdla_procfs_dir)) {
+		LOG_ERR("fail to create /proc/mdla @ %s()\n", __func__);
+		return;
+	}
+
+	PROC_CREATE_RO_MDLA(mdla_procfs_dir, mdla_memory);
+}
 
 void mdla_debugfs_init(void)
 {
@@ -383,7 +401,8 @@ void mdla_debugfs_init(void)
 	CREATE_MDLA_DEBUGFS(register);
 	CREATE_MDLA_DEBUGFS(power);
 	CREATE_MDLA_DEBUGFS(prof);
-	CREATE_MDLA_DEBUGFS(mdla_memory);
+
+	mdla_procfs_init();
 
 #undef CREATE_MDLA_DEBUGFS
 	cfg_eng0 = 0x0;
@@ -429,12 +448,13 @@ void mdla_debugfs_exit(void)
 	REMOVE_MDLA_DEBUGFS(c14);
 	REMOVE_MDLA_DEBUGFS(c15);
 	REMOVE_MDLA_DEBUGFS(root);
-	REMOVE_MDLA_DEBUGFS(mdla_memory);
 
 	REMOVE_MDLA_DEBUGFS(batch_number);
 	REMOVE_MDLA_DEBUGFS(preemption_times);
 	REMOVE_MDLA_DEBUGFS(preemption_debug);
 
+	if (mdla_procfs_dir)
+		proc_remove(mdla_procfs_dir);
 }
 
 void mdla_dump_buf(int mask, void *kva, int group, u32 size)

@@ -9,6 +9,7 @@
 #include <linux/printk.h>
 #include <linux/seq_file.h>
 #include <linux/device.h>
+#include <linux/proc_fs.h>
 
 #include <common/mdla_device.h>
 
@@ -205,6 +206,47 @@ const char *mdla_dbg_get_reason_str(int res);
 /* debugfs node name : used to r/w 32/64-bit value */
 const char *mdla_dbg_get_u64_node_str(int node);
 const char *mdla_dbg_get_u32_node_str(int node);
+
+
+#define PROC_FOPS_RO_MDLA(name)							\
+static int mdla_dbg_ ## name ## _open(struct inode *inode, struct file *file)	\
+{										\
+	return single_open(file, mdla_dbg_ ## name ## _show, inode->i_private);	\
+}										\
+static const struct file_operations mdla_dbg_ ## name ## _fops = {		\
+	.owner	 = THIS_MODULE,							\
+	.open	 = mdla_dbg_ ## name ## _open,					\
+	.read	 = seq_read,							\
+	.llseek	 = seq_lseek,							\
+	.release = single_release,						\
+}
+#define PROC_CREATE_RO_MDLA(parent, name)					\
+do {										\
+	if (!proc_create(#name, 0444, parent, &mdla_dbg_ ## name ## _fops))	\
+		mdla_err("%s(), create /proc/mdla/%s failed\n",			\
+			__func__, #name);					\
+} while (0)
+
+#define PROC_FOPS_RW_MDLA(name)							\
+static int mdla_dbg_ ## name ## _open(struct inode *inode, struct file *file)	\
+{										\
+	return single_open(file, mdla_dbg_ ## name ## _show, inode->i_private);	\
+}										\
+static const struct file_operations mdla_dbg_ ## name ## _fops = {		\
+	.owner	 = THIS_MODULE,							\
+	.open	 = mdla_dbg_ ## name ## _open,					\
+	.read	 = seq_read,							\
+	.write   = mdla_dbg_ ## name ## _write,					\
+	.llseek	 = seq_lseek,							\
+	.release = single_release,						\
+}
+#define PROC_CREATE_RW_MDLA(parent, name)					\
+do {										\
+	if (!proc_create(#name, 0644, parent, &mdla_dbg_ ## name ## _fops))	\
+		mdla_err("%s(), create /proc/mdla/%s failed\n",			\
+			__func__, #name);					\
+} while (0)
+
 
 /* debugfs node name : used to show information */
 #define DBGFS_HW_REG_NAME   "register"
