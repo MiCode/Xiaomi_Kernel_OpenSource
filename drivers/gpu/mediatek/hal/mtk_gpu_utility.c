@@ -568,6 +568,37 @@ bool mtk_get_dvfs_loading_mode(unsigned int *pui32LoadingMode)
 }
 EXPORT_SYMBOL(mtk_get_dvfs_loading_mode);
 
+/* -----------------------------gpu pmu fp--------------------------------- */
+void (*mtk_ltr_gpu_pmu_start_fp)(unsigned int interval_ns) = NULL;
+EXPORT_SYMBOL(mtk_ltr_gpu_pmu_start_fp);
+
+bool mtk_ltr_gpu_pmu_start(unsigned int interval_ns)
+{
+	if (mtk_ltr_gpu_pmu_start_fp != NULL) {
+		mtk_ltr_gpu_pmu_start_fp(interval_ns);
+		return true;
+	}
+	return false;
+
+}
+EXPORT_SYMBOL(mtk_ltr_gpu_pmu_start);
+
+void (*mtk_ltr_gpu_pmu_stop_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_ltr_gpu_pmu_stop_fp);
+
+bool mtk_ltr_gpu_pmu_stop(int *pi32MarginValue)
+{
+	if (mtk_ltr_gpu_pmu_stop_fp != NULL) {
+		mtk_ltr_gpu_pmu_stop_fp();
+		return true;
+	}
+	return false;
+
+}
+EXPORT_SYMBOL(mtk_ltr_gpu_pmu_stop);
+
+/* ------------------------------------------------------------------------ */
+
 static int mtk_gpu_hal_init(void)
 {
 	/*Do Nothing*/
