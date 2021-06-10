@@ -160,6 +160,7 @@ struct vcu_v4l2_callback_func {
 	void (*enc_pmqos_gce_end)(void *ctx_end,
 		unsigned int core_id, int job_cnt);
 	void (*gce_timeout_dump)(void *ctx);
+	void (*vdec_realease_lock)(void *ctx);
 };
 
 /**
@@ -283,7 +284,7 @@ int vcu_get_sig_lock(unsigned long *flags);
 void vcu_put_sig_lock(unsigned long flags);
 int vcu_check_vpud_alive(void);
 extern void smp_inner_dcache_flush_all(void);
-int vcu_set_gce_v4l2_callback(struct platform_device *pdev,
+int vcu_set_v4l2_callback(struct platform_device *pdev,
 	struct vcu_v4l2_callback_func *call_back);
 int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,
 	struct mutex **mutex, unsigned long type);
@@ -300,5 +301,7 @@ extern void venc_encode_pmqos_gce_begin(void *ctx_begin,
 		unsigned int core_id, int job_cnt);
 extern void venc_encode_pmqos_gce_end(void *ctx_end,
 		unsigned int core_id, int job_cnt);
+extern void vdec_check_release_lock(void *ctx_check);
 extern void mtk_vcodec_gce_timeout_dump(void *ctx);
+
 #endif /* _MTK_VCU_H */

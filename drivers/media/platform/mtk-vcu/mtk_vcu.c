@@ -1278,7 +1278,7 @@ static long vcu_get_disp_wdma_y_addr(struct mtk_vcu *vcu, unsigned long arg)
 {
 	return 0;//mtk_drm_get_wdma_y_buf();
 }
-int vcu_set_gce_v4l2_callback(struct platform_device *pdev,
+int vcu_set_v4l2_callback(struct platform_device *pdev,
 	struct vcu_v4l2_callback_func *call_back)
 {
 	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
@@ -1293,10 +1293,12 @@ int vcu_set_gce_v4l2_callback(struct platform_device *pdev,
 		vcu->cbf.enc_pmqos_gce_end = call_back->enc_pmqos_gce_end;
 	if (call_back->gce_timeout_dump != NULL)
 		vcu->cbf.gce_timeout_dump = call_back->gce_timeout_dump;
+	if (call_back->vdec_realease_lock != NULL)
+		vcu->cbf.vdec_realease_lock = call_back->vdec_realease_lock;
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(vcu_set_gce_v4l2_callback);
+EXPORT_SYMBOL_GPL(vcu_set_v4l2_callback);
 
 int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,
 	struct mutex **mutex, unsigned long type)
@@ -1710,6 +1712,9 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 		spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
 		vcu_ptr->vpud_is_going_down = 0;
 		spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
+
+		if (vcu_ptr->curr_ctx[VCU_VDEC])
+			vcu_ptr->cbf.vdec_realease_lock(vcu_ptr->curr_ctx[VCU_VDEC]);
 	}
 
 	return 0;

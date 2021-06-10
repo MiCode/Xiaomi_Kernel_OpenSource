@@ -2906,9 +2906,7 @@ void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);
 
-	while (hw_id < MTK_VENC_HW_NUM && ret != 0
-		&& !ctx->lock_abort)
-		ret = down_interruptible(&ctx->dev->enc_sem[hw_id]);
+	ret = down_interruptible(&ctx->dev->enc_sem[hw_id]);
 }
 
 void mtk_vcodec_enc_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
