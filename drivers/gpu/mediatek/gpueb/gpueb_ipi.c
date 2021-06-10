@@ -29,8 +29,8 @@
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 #include <linux/soc/mediatek/mtk-mbox.h>
 
-struct mtk_mbox_device   gpueb_plat_mboxdev;
-struct mtk_ipi_device    gpueb_plat_ipidev;
+struct mtk_mbox_device   gpueb_mboxdev;
+struct mtk_ipi_device    gpueb_ipidev;
 struct mtk_mbox_info     *gpueb_mbox_info;
 struct mtk_mbox_pin_send *gpueb_mbox_pin_send;
 struct mtk_mbox_pin_recv *gpueb_mbox_pin_recv;
@@ -49,8 +49,8 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 
     // Get MBOX num
     of_property_read_u32(pdev->dev.of_node, "mbox_count"
-                        , &gpueb_plat_mboxdev.count);
-    if (!gpueb_plat_mboxdev.count) {
+                        , &gpueb_mboxdev.count);
+    if (!gpueb_mboxdev.count) {
         gpueb_pr_debug("mbox count not found\n");
         return false;
     }
@@ -72,19 +72,19 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
     }
 
     // Get send PIN num
-    gpueb_plat_mboxdev.send_count = of_property_count_u32_elems(
+    gpueb_mboxdev.send_count = of_property_count_u32_elems(
                 pdev->dev.of_node, "send_table")
                 / send_item_num;
-    if (gpueb_plat_mboxdev.send_count <= 0) {
+    if (gpueb_mboxdev.send_count <= 0) {
         gpueb_pr_debug("send table not found\n");
         return false;
     }
 
     // Get recv PIN num
-    gpueb_plat_mboxdev.recv_count = of_property_count_u32_elems(
+    gpueb_mboxdev.recv_count = of_property_count_u32_elems(
                 pdev->dev.of_node, "recv_table")
                 / recv_item_num;
-    if (gpueb_plat_mboxdev.recv_count <= 0) {
+    if (gpueb_mboxdev.recv_count <= 0) {
         gpueb_pr_debug("recv table not found\n");
         return false;
     }
@@ -93,13 +93,13 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
     ret = of_property_read_string_array(pdev->dev.of_node,
                                        "send_name_table",
                                        gpueb_mbox_pin_send_name,
-                                       gpueb_plat_mboxdev.send_count);
+                                       gpueb_mboxdev.send_count);
     if (ret < 0) {
         gpueb_pr_debug("Could not find send_name_table in dts\n");
         return false;
     }
 
-    for (i = 0; i < gpueb_plat_mboxdev.send_count; i++) {
+    for (i = 0; i < gpueb_mboxdev.send_count; i++) {
         gpueb_pr_debug("send_name_table[%d] = %s\n", i, gpueb_mbox_pin_send_name[i]);
     }
 
@@ -108,24 +108,24 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
     ret = of_property_read_string_array(pdev->dev.of_node,
                                        "recv_name_table",
                                        gpueb_mbox_pin_recv_name,
-                                       gpueb_plat_mboxdev.recv_count);
+                                       gpueb_mboxdev.recv_count);
     if (ret < 0) {
         gpueb_pr_debug("Could not find recv_name_table in dts\n");
         return false;
     }
 
-    for (i = 0; i < gpueb_plat_mboxdev.recv_count; i++) {
+    for (i = 0; i < gpueb_mboxdev.recv_count; i++) {
         gpueb_pr_debug("recv_name_table[%d] = %s\n", i, gpueb_mbox_pin_recv_name[i]);
     }
 
     // Alloc and init mtk_mbox_info for GPUEB
-    gpueb_plat_mboxdev.info_table = vzalloc(sizeof(struct mtk_mbox_info) * gpueb_plat_mboxdev.count);
-    if (!gpueb_plat_mboxdev.info_table) {
+    gpueb_mboxdev.info_table = vzalloc(sizeof(struct mtk_mbox_info) * gpueb_mboxdev.count);
+    if (!gpueb_mboxdev.info_table) {
         gpueb_pr_debug("vmlloc info table fail:%d\n", __LINE__);
         return false;
     }
-    gpueb_mbox_info = gpueb_plat_mboxdev.info_table;
-    for (i = 0; i < gpueb_plat_mboxdev.count; i++) {
+    gpueb_mbox_info = gpueb_mboxdev.info_table;
+    for (i = 0; i < gpueb_mboxdev.count; i++) {
         gpueb_mbox_info[i].id = i;
         gpueb_mbox_info[i].slot = g_mbox_size;
         gpueb_mbox_info[i].enable = 1;
@@ -133,13 +133,13 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
     }
 
     // Alloc and init send PIN table
-    gpueb_plat_mboxdev.pin_send_table = vzalloc(sizeof(struct mtk_mbox_pin_send) * gpueb_plat_mboxdev.send_count);
-    if (!gpueb_plat_mboxdev.pin_send_table) {
+    gpueb_mboxdev.pin_send_table = vzalloc(sizeof(struct mtk_mbox_pin_send) * gpueb_mboxdev.send_count);
+    if (!gpueb_mboxdev.pin_send_table) {
         gpueb_pr_debug("vmlloc send table fail:%d\n", __LINE__);
         return false;
     }
-    gpueb_mbox_pin_send = gpueb_plat_mboxdev.pin_send_table;
-    for (i = 0; i < gpueb_plat_mboxdev.send_count; i++) {
+    gpueb_mbox_pin_send = gpueb_mboxdev.pin_send_table;
+    for (i = 0; i < gpueb_mboxdev.send_count; i++) {
         ret = of_property_read_u32_index(pdev->dev.of_node,
                 "send_table",
                 i * send_item_num,
@@ -169,13 +169,13 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
     }
 
     // Alloc and init recv PIN table
-    gpueb_plat_mboxdev.pin_recv_table = vzalloc(sizeof(struct mtk_mbox_pin_recv) * gpueb_plat_mboxdev.recv_count);
-    if (!gpueb_plat_mboxdev.pin_recv_table) {
+    gpueb_mboxdev.pin_recv_table = vzalloc(sizeof(struct mtk_mbox_pin_recv) * gpueb_mboxdev.recv_count);
+    if (!gpueb_mboxdev.pin_recv_table) {
         gpueb_pr_debug("vmlloc recv table fail:%d\n", __LINE__);
         return false;
     }
-    gpueb_mbox_pin_recv = gpueb_plat_mboxdev.pin_recv_table;
-    for (i = 0; i < gpueb_plat_mboxdev.recv_count; ++i) {
+    gpueb_mbox_pin_recv = gpueb_mboxdev.pin_recv_table;
+    for (i = 0; i < gpueb_mboxdev.recv_count; ++i) {
         ret = of_property_read_u32_index(pdev->dev.of_node,
                 "recv_table",
                 i * recv_item_num,
@@ -223,14 +223,14 @@ void gpueb_mbox_setup_pin_table(unsigned int mbox)
     unsigned int i;
     int last_ofs = 0;
 
-    for (i = 0; i < gpueb_plat_mboxdev.send_count; i++) {
+    for (i = 0; i < gpueb_mboxdev.send_count; i++) {
         if (mbox == gpueb_mbox_pin_recv[i].mbox) {
             gpueb_mbox_pin_recv[i].offset = last_ofs;
             last_ofs += gpueb_mbox_pin_recv[i].msg_size;
         }
     }
 
-    for (i = 0; i < gpueb_plat_mboxdev.recv_count; i++) {
+    for (i = 0; i < gpueb_mboxdev.recv_count; i++) {
         if (mbox == gpueb_mbox_pin_send[i].mbox) {
             gpueb_mbox_pin_send[i].offset = last_ofs;
             last_ofs += gpueb_mbox_pin_send[i].msg_size;
@@ -248,7 +248,7 @@ void gpueb_plat_ipi_timeout_cb(int ipi_id)
 {
     gpueb_pr_debug("Error: possible error IPI %d \n", ipi_id);
 
-    ipi_monitor_dump(&gpueb_plat_ipidev);
+    ipi_monitor_dump(&gpueb_ipidev);
     //mtk_emidbg_dump();
     //BUG_ON(1);
 
@@ -266,15 +266,15 @@ int gpueb_ipi_init(struct platform_device *pdev)
 
     // Create mbox dev
     gpueb_pr_debug("mbox probe start\n");
-    for (i = 0; i < gpueb_plat_mboxdev.count; i++) {
-        gpueb_mbox_info[i].mbdev = &gpueb_plat_mboxdev;
+    for (i = 0; i < gpueb_mboxdev.count; i++) {
+        gpueb_mbox_info[i].mbdev = &gpueb_mboxdev;
         ret = mtk_mbox_probe(pdev, gpueb_mbox_info[i].mbdev, i);
-        if (ret < 0 || gpueb_plat_mboxdev.info_table[i].irq_num < 0) {
+        if (ret < 0 || gpueb_mboxdev.info_table[i].irq_num < 0) {
             gpueb_pr_debug("mbox%d probe fail, ret = %d\n", i, ret);
             continue;
         }
 
-        ret = enable_irq_wake(gpueb_plat_mboxdev.info_table[i].irq_num);
+        ret = enable_irq_wake(gpueb_mboxdev.info_table[i].irq_num);
         if (ret < 0) {
             gpueb_pr_debug("mbox%d enable irq fail, ret = %d\n", i, ret);
             continue;
@@ -282,10 +282,10 @@ int gpueb_ipi_init(struct platform_device *pdev)
         gpueb_mbox_setup_pin_table(i);
     }
 
-    gpueb_plat_ipidev.name = "gpueb_ipidev";
-    gpueb_plat_ipidev.id = IPI_DEV_GPUEB;
-    gpueb_plat_ipidev.mbdev = &gpueb_plat_mboxdev;
-    gpueb_plat_ipidev.timeout_handler = gpueb_plat_ipi_timeout_cb;
+    gpueb_ipidev.name = "gpueb_ipidev";
+    gpueb_ipidev.id = IPI_DEV_GPUEB;
+    gpueb_ipidev.mbdev = &gpueb_mboxdev;
+    gpueb_ipidev.timeout_handler = gpueb_plat_ipi_timeout_cb;
 
     /*
      * IPI device register
@@ -296,10 +296,10 @@ int gpueb_ipi_init(struct platform_device *pdev)
      * the registered ipi num to the big one. 
      */
     ret = mtk_ipi_device_register(
-                &gpueb_plat_ipidev,
+                &gpueb_ipidev,
                 pdev,
-                &gpueb_plat_mboxdev,
-                gpueb_plat_mboxdev.send_count
+                &gpueb_mboxdev,
+                gpueb_mboxdev.send_count
             );
     if (ret != IPI_ACTION_DONE) {
         gpueb_pr_debug("ipi devcie register fail!");
@@ -313,7 +313,7 @@ int gpueb_ipi_init(struct platform_device *pdev)
 int gpueb_get_send_PIN_ID_by_name(char *send_PIN_name)
 {
     int i;
-    for (i = 0; i < gpueb_plat_mboxdev.send_count; i++) {
+    for (i = 0; i < gpueb_mboxdev.send_count; i++) {
         if (!strcmp(gpueb_mbox_pin_send_name[i], send_PIN_name))
             return gpueb_mbox_pin_send[i].chan_id;
     }
@@ -324,7 +324,7 @@ EXPORT_SYMBOL_GPL(gpueb_get_send_PIN_ID_by_name);
 int gpueb_get_recv_PIN_ID_by_name(char *recv_PIN_name)
 {
     int i;
-    for (i = 0; i < gpueb_plat_mboxdev.recv_count; i++) {
+    for (i = 0; i < gpueb_mboxdev.recv_count; i++) {
         if (!strcmp(gpueb_mbox_pin_recv_name[i], recv_PIN_name))
             return gpueb_mbox_pin_recv[i].chan_id;
     }
@@ -334,6 +334,6 @@ EXPORT_SYMBOL_GPL(gpueb_get_recv_PIN_ID_by_name);
 
 void *get_gpueb_ipidev(void)
 {
-	return &gpueb_plat_ipidev;
+	return &gpueb_ipidev;
 }
 EXPORT_SYMBOL_GPL(get_gpueb_ipidev);

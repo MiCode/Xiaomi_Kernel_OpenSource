@@ -23,8 +23,8 @@ struct plat_ipi_send_data {
     } u;
 };
 
-extern struct mtk_mbox_device   gpueb_plat_mboxdev;
-extern struct mtk_ipi_device    gpueb_plat_ipidev;
+extern struct mtk_mbox_device   gpueb_mboxdev;
+extern struct mtk_ipi_device    gpueb_ipidev;
 extern struct mtk_mbox_info     *gpueb_mbox_info;
 extern struct mtk_mbox_pin_send *gpueb_mbox_pin_send;
 extern struct mtk_mbox_pin_recv *gpueb_mbox_pin_recv;

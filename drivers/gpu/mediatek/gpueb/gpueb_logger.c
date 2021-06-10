@@ -60,7 +60,7 @@ static unsigned int gpueb_log_enable_set(unsigned int enable)
 
         // CH_PLATFORM message size is 16 byte, 4 slots
         ret = mtk_ipi_send_compl(
-            &gpueb_plat_ipidev, // GPUEB's IPI device
+            &gpueb_ipidev, // GPUEB's IPI device
             channel_id, // Send channel
             0,   // 0: wait, 1: polling
             (void *)&plat_send_data, // Send data

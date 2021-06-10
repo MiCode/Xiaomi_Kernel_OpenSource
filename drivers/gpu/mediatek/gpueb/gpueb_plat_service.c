@@ -43,7 +43,7 @@ int gpueb_plat_service_init(struct platform_device *pdev)
     }
 
     // IPI channel - CH_PLATFORM register
-    ret = mtk_ipi_register(&gpueb_plat_ipidev,
+    ret = mtk_ipi_register(&gpueb_ipidev,
                             channel_id,
                             NULL,
                             NULL,
