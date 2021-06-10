@@ -1653,7 +1653,14 @@
                         status = "okay";
 		};
 
-		md1_sim2_hot_plug_eint: md1_sim2_hot_plug_eint {
+		md1_sim2_hot_plug_eint: MD1_SIM2_HOT_PLUG_EINT {
+                        compatible = "mediatek,MD1_SIM2_HOT_PLUG_EINT-eint";
+                        interrupts = <1 4>;
+                        debounce = <1 100000>;
+                        dedicated = <1 0>;
+                        src_pin = <1 2>;
+                        sockettype = <1 0>;
+                        status = "okay";
 		};
 
 		cqdma: cq_dma@10212000 {
