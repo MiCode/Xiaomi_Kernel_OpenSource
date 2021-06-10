@@ -120,6 +120,7 @@
 #define DISP_REG_WDMA_DST_ADDR1 0x0f04
 #define DISP_REG_WDMA_DST_ADDR2 0x0f08
 #define DISP_REG_WDMA_RGB888 0x10
+#define DISP_REG_WDMA_DUMMY 0x100
 
 #define MEM_MODE_INPUT_FORMAT_RGB565 0x0U
 #define MEM_MODE_INPUT_FORMAT_RGB888 (0x001U << 4)
@@ -193,6 +194,7 @@ struct mtk_wdma_cfg_info {
 	unsigned int width;
 	unsigned int height;
 	unsigned int fmt;
+	unsigned int count;
 };
 
 /**
@@ -824,6 +826,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	int clip_w, clip_h;
 	struct golden_setting_context *gsc;
 	u32 sec, buffer_size;
+	unsigned int frame_cnt = cfg_info->count + 1;
 
 	if (!comp->fb) {
 		if (crtc_idx != 2)
@@ -902,12 +905,15 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	}
 
 	gsc = cfg->p_golden_setting_context;
+	mtk_ddp_write(comp, frame_cnt,
+		DISP_REG_WDMA_DUMMY, handle);
 	mtk_wdma_golden_setting(comp, gsc, handle);
 
 	cfg_info->addr = addr;
 	cfg_info->width = cfg->w;
 	cfg_info->height = cfg->h;
 	cfg_info->fmt = comp->fb->format->format;
+	cfg_info->count = frame_cnt;
 }
 
 static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
