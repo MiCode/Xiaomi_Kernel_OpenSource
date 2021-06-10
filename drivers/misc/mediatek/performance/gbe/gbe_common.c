@@ -121,7 +121,7 @@ void gbe_sentcmd(int cmd, int value1, int value2)
 	static struct k_list *node;
 
 	mutex_lock(&gbe2pwr_lock);
-	node = kmalloc(sizeof(struct k_list *), GFP_KERNEL);
+	node = kmalloc(sizeof(*node), GFP_KERNEL);
 	if (node == NULL)
 		goto out;
 	node->gbe2pwr_cmd = cmd;
