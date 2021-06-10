@@ -17,6 +17,19 @@
 #define XO_CDAC_FPM_ADDR	PMIC_XO_CDAC_FPM_ADDR
 #define XO_CDAC_FPM_MASK	PMIC_XO_CDAC_FPM_MASK
 #define XO_CDAC_FPM_SHIFT	PMIC_XO_CDAC_FPM_SHIFT
+
+#define XO_COFST_FPM_ADDR	PMIC_XO_COFST_FPM_ADDR
+#define XO_COFST_FPM_MASK	PMIC_XO_COFST_FPM_MASK
+#define XO_COFST_FPM_SHIFT	PMIC_XO_COFST_FPM_SHIFT
+
+#define XO_CORE_IDAC_FPM_ADDR	PMIC_XO_CORE_IDAC_FPM_ADDR
+#define XO_CORE_IDAC_FPM_MASK	PMIC_XO_CORE_IDAC_FPM_MASK
+#define XO_CORE_IDAC_FPM_SHIFT	PMIC_XO_CORE_IDAC_FPM_SHIFT
+
+#define XO_AAC_FPM_SWEN_ADDR	PMIC_XO_AAC_FPM_SWEN_ADDR
+#define XO_AAC_FPM_SWEN_MASK	PMIC_XO_AAC_FPM_SWEN_MASK
+#define XO_AAC_FPM_SWEN_SHIFT	PMIC_XO_AAC_FPM_SWEN_SHIFT
+
 #define XO_CDAC_TOTAL_MASK	0xff
 #define XO_CDAC_VALUE_MASK	0x7f
 #define XO_CDAC_SIGN_BIT	7
@@ -41,8 +54,18 @@ MODULE_DEVICE_TABLE(of, mt6357_dcxo_of_match);
 
 static void dcxo_trim_write(uint32_t cap_code)
 {
+	pmic_config_interface(XO_COFST_FPM_ADDR, 0x0, XO_COFST_FPM_MASK,
+			      XO_COFST_FPM_SHIFT);
 	pmic_config_interface(XO_CDAC_FPM_ADDR, cap_code, XO_CDAC_FPM_MASK,
 			      XO_CDAC_FPM_SHIFT);
+	pmic_config_interface(XO_CORE_IDAC_FPM_ADDR, 0x2, XO_CORE_IDAC_FPM_MASK,
+			      XO_CORE_IDAC_FPM_SHIFT);
+	pmic_config_interface(XO_AAC_FPM_SWEN_ADDR, 0x0, XO_AAC_FPM_SWEN_MASK,
+			      XO_AAC_FPM_SWEN_SHIFT);
+	mdelay(1);
+	pmic_config_interface(XO_AAC_FPM_SWEN_ADDR, 0x1, XO_AAC_FPM_SWEN_MASK,
+			      XO_AAC_FPM_SWEN_SHIFT);
+	mdelay(5);
 }
 
 static uint32_t dcxo_trim_read(void)
@@ -270,10 +293,6 @@ static int mt_dcxo_probe(struct platform_device *pdev)
 	dcxo->ori_dcxo_capid = dcxo_trim_read();
 	dev_info(&pdev->dev, "Original cap code: 0x%x\n", dcxo->ori_dcxo_capid);
 
-	/* set default cap code */
-	dcxo_trim_write(XO_CDAC_FPM_DEFAULT);
-	mdelay(1);
-
 	/* get default cap code */
 	dcxo->ori_dcxo_capid = dcxo_trim_read();
 	dev_info(&pdev->dev, "Default cap code: 0x%x\n", dcxo->ori_dcxo_capid);
@@ -289,10 +308,10 @@ static int mt_dcxo_probe(struct platform_device *pdev)
 	default_capid &= XO_CDAC_TOTAL_MASK;
 	dev_info(&pdev->dev, "Default dts capid: 0x%x\n", default_capid);
 
-	dcxo->cur_dcxo_capid = dcxo_capid_add_offset(dcxo->ori_dcxo_capid,
-						     default_capid);
-	dcxo_trim_write(dcxo->cur_dcxo_capid);
-	mdelay(1);
+	if (default_capid)
+		dcxo_trim_write(default_capid);
+	else
+		dcxo_trim_write(XO_CDAC_FPM_DEFAULT);
 
 	dcxo->cur_dcxo_capid = dcxo_trim_read();
 	dev_info(&pdev->dev, "Current cap code: 0x%x\n", dcxo->cur_dcxo_capid);
