@@ -415,11 +415,6 @@
 		reg = <0 0x10211000 0 0x1000>;
 	};
 
-	cq_dma@10212000 {
-		compatible = "mediatek,cq_dma";
-		reg = <0 0x10212000 0 0x1000>;
-	};
-
 	md2md_md2_ccif0@10213000 {
 		compatible = "mediatek,md2md_md2_ccif0";
 		reg = <0 0x10213000 0 0x1000>;
