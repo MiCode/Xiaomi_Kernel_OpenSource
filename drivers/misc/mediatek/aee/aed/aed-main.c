@@ -532,6 +532,9 @@ static void ke_gen_user_reg_msg(void)
 static int ke_gen_ind_msg(struct aee_oops *oops)
 {
 	unsigned long flags;
+	long ret;
+	unsigned long expire;
+	unsigned long timeout;
 
 	if (!oops)
 		return -1;
@@ -599,10 +602,24 @@ static int ke_gen_ind_msg(struct aee_oops *oops)
 		 * available, add a 60s timeout in case of debuggerd quit
 		 * abnormally
 		 */
-		if (!wait_for_completion_timeout(&aed_ke_com,
-					msecs_to_jiffies(5 * 60 * 1000)))
-			pr_info("%s: TIMEOUT, not receive close event, skip\n",
-					__func__);
+		timeout = msecs_to_jiffies(5 * 60 * 1000);
+		expire = jiffies + timeout;
+		for (;;) {
+			ret = wait_for_completion_interruptible_timeout(&aed_ke_com, timeout);
+			if (ret == 0) {
+				pr_info("%s: TIMEOUT, not receive close event, skip\n",
+						__func__);
+				break;
+			}
+			if (ret > 0)
+				break;
+			if ((ret == -ERESTARTSYS) && (jiffies < expire)) {
+				pr_info("%s: INTERRUPTED, continue waiting for completion\n",
+						__func__);
+				timeout = expire - jiffies;
+				continue;
+			}
+		}
 	}
 	return 0;
 }
@@ -912,6 +929,9 @@ static void ee_gen_ind_msg(struct aed_eerec *eerec)
 {
 	unsigned long flags;
 	struct AE_Msg *rep_msg;
+	long ret;
+	unsigned long expire;
+	unsigned long timeout;
 
 	if (!eerec)
 		return;
@@ -944,10 +964,24 @@ static void ee_gen_ind_msg(struct aed_eerec *eerec)
 
 	init_completion(&aed_ee_com);
 	wake_up(&aed_dev.eewait);
-	if (wait_for_completion_timeout(&aed_ee_com,
-					msecs_to_jiffies(5 * 60 * 1000)))
-		pr_info("%s: TIMEOUT, not receive close event, skip\n",
-			__func__);
+	timeout = msecs_to_jiffies(5 * 60 * 1000);
+	expire = jiffies + timeout;
+	for (;;) {
+		ret = wait_for_completion_interruptible_timeout(&aed_ee_com, timeout);
+		if (ret == 0) {
+			pr_info("%s: TIMEOUT, not receive close event, skip\n",
+						__func__);
+			break;
+		}
+		if (ret > 0)
+			break;
+		if ((ret == -ERESTARTSYS) && (jiffies < expire)) {
+			pr_info("%s: INTERRUPTED, continue waiting for completion\n",
+						__func__);
+			timeout = expire - jiffies;
+			continue;
+		}
+	}
 }
 
 static void ee_queue_request(struct aed_eerec *eerec)
