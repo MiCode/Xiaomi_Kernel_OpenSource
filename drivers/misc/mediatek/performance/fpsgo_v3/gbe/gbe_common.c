@@ -46,6 +46,12 @@ enum GBE_BOOST_DEVICE {
 	GBE_BOOST_NUM = 7,
 };
 
+static noinline int tracing_mark_write(const char *buf)
+{
+	trace_printk(buf);
+	return 0;
+}
+
 void gbe_trace_printk(int pid, char *module, char *string)
 {
 	int len;
@@ -83,7 +89,7 @@ void gbe_trace_count(int tid, int val, const char *fmt, ...)
 		return;
 	else if (unlikely(len == 256))
 		buf2[255] = '\0';
-	trace_printk(buf2);
+	tracing_mark_write(buf2);
 
 }
 
