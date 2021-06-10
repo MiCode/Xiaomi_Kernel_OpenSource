@@ -2589,11 +2589,8 @@ void disp_aal_on_start_of_frame(void)
 	unsigned long flags;
 	struct mtk_disp_aal *aal_data = comp_to_aal(default_comp);
 
-	if (!g_aal_fo->mtk_dre30_support) {
-		pr_notice("[debug] dre30 is not support\n");
+	if (!g_aal_fo->mtk_dre30_support)
 		return;
-	}
-
 	if (atomic_read(&g_aal_force_relay) == 1)
 		return;
 	if (atomic_read(&g_aal_change_to_dre30) != 0x3)
