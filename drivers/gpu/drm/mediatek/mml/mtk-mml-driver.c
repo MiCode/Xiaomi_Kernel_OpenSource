@@ -183,6 +183,8 @@ static void comp_master_deinit(struct device *dev)
 	component_master_del(dev, &mml_master_ops);
 }
 
+static const char *comp_clock_names = "comp-clock-names";
+
 static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
 	const char *clkpropname)
 {
@@ -191,7 +193,7 @@ static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
 	struct resource *res;
 	struct property *prop;
 	const char *clkname;
-	int i;
+	int i, ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -201,25 +203,46 @@ static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
 	comp->base = devm_ioremap_resource(dev, res);
 	comp->base_pa = res->start;
 
-	if (clkpropname && of_property_count_strings(node, clkpropname) > 0) {
+	/* ignore clks if clkpropname is null as subcomponent */
+	if (!clkpropname)
+		return 0;
+
+	ret = 0;
+	if (of_property_count_strings(node, clkpropname) > 0) {
+		/* get named clks as component or subcomponent */
 		i = 0;
 		of_property_for_each_string(node, clkpropname, prop, clkname) {
-			if (i >= ARRAY_SIZE(comp->clks))
+			if (i >= ARRAY_SIZE(comp->clks)) {
+				dev_err(dev, "out of clk array size %d in %s\n",
+					i, node->full_name);
+				ret = -E2BIG;
 				break;
+			}
 			comp->clks[i] = of_clk_get_by_name(node, clkname);
-			if (!IS_ERR(comp->clks[i]))
+			if (IS_ERR(comp->clks[i])) {
+				dev_err(dev, "failed to get clk %s in %s\n",
+					clkname, node->full_name);
+				ret = PTR_ERR(comp->clks[i]);
+			} else {
 				i++;
+			}
 		}
 		if (i < ARRAY_SIZE(comp->clks))
 			comp->clks[i] = ERR_PTR(-ENOENT);
-	} else {
+	} else if (clkpropname == comp_clock_names) {
+		/* get all clks as component */
 		for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
 			comp->clks[i] = of_clk_get(node, i);
 			if (IS_ERR(comp->clks[i]))
 				break;
 		}
+		if (!i)
+			dev_warn(dev, "no clks in node %s\n", node->full_name);
+	} else {
+		dev_warn(dev, "no %s property in node %s\n",
+			 clkpropname, node->full_name);
 	}
-	return 0;
+	return ret;
 }
 
 s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp)
@@ -235,7 +258,7 @@ s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp)
 		return -EINVAL;
 	}
 	comp->id = comp_id;
-	ret = __comp_init(comp_pdev, comp, "comp-clock-names");
+	ret = __comp_init(comp_pdev, comp, comp_clock_names);
 	if (ret)
 		return ret;
 	/* TODO: get larb device for smi prepare */
@@ -255,8 +278,8 @@ s32 mml_subcomp_init(struct platform_device *comp_pdev,
 
 	ret = of_mml_read_comp_id_index(node, subcomponent, &comp_id);
 	if (ret) {
-		dev_err(dev, "no comp-ids in component %s: %d\n",
-			node->full_name, ret);
+		dev_err(dev, "no comp-ids in subcomponent %d %s: %d\n",
+			subcomponent, node->full_name, ret);
 		return -EINVAL;
 	}
 	comp->id = comp_id;

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Author: Dennis YC Hsieh <dennis-yc.hsieh@mediatek.com>
  */
 
 #include <linux/clk.h>
@@ -95,14 +96,14 @@ struct wrot_data {
 	u32 tile_width;
 };
 
-struct wrot_data mt6893_wrot_data = {
+static const struct wrot_data mt6893_wrot_data = {
 	.fifo = 256,
 	.tile_width = 512
 };
 
 struct mml_wrot {
 	struct mml_comp comp;
-	struct wrot_data *data;
+	const struct wrot_data *data;
 
 	u8 gpr_poll;
 	u16 event_poll;
@@ -180,30 +181,30 @@ struct check_buf_param {
 /* filt_h, filt_v, uv_xsel, uv_ysel */
 static const u32 uv_table[2][4][2][4] = {
 	{	/* YUV422 */
-		{    /* 0 */
+		{	/* 0 */
 			{ 1 /* [1 2 1] */, 0 /* drop  */, 0, 2 },
 			{ 2 /* [1 2 1] */, 0 /* drop  */, 1, 2 }, /* flip */
-		}, { /* 90 */
+		}, {	/* 90 */
 			{ 0 /* drop    */, 4 /* [1 1] */, 2, 1 },
 			{ 0 /* drop    */, 3 /* [1 1] */, 2, 0 }, /* flip */
-		}, { /* 180 */
+		}, {	/* 180 */
 			{ 2 /* [1 2 1] */, 0 /* drop  */, 1, 2 },
 			{ 1 /* [1 2 1] */, 0 /* drop  */, 0, 2 }, /* flip */
-		}, { /* 270 */
+		}, {	/* 270 */
 			{ 0 /* drop    */, 3 /* [1 1] */, 2, 0 },
 			{ 0 /* drop    */, 4 /* [1 1] */, 2, 1 }, /* flip */
 		},
-	}, { /* YUV420 */
-		{    /* 0 */
+	}, {	/* YUV420 */
+		{	/* 0 */
 			{ 1 /* [1 2 1] */, 3 /* [1 1] */, 0, 0 },
 			{ 2 /* [1 2 1] */, 3 /* [1 1] */, 1, 0 }, /* flip */
-		}, { /* 90 */
+		}, {	/* 90 */
 			{ 1 /* [1 2 1] */, 4 /* [1 1] */, 0, 1 },
 			{ 1 /* [1 2 1] */, 3 /* [1 1] */, 0, 0 }, /* flip */
-		}, { /* 180 */
+		}, {	/* 180 */
 			{ 2 /* [1 2 1] */, 4 /* [1 1] */, 1, 1 },
 			{ 1 /* [1 2 1] */, 4 /* [1 1] */, 0, 1 }, /* flip */
-		}, { /* 270 */
+		}, {	/* 270 */
 			{ 2 /* [1 2 1] */, 3 /* [1 1] */, 1, 0 },
 			{ 2 /* [1 2 1] */, 4 /* [1 1] */, 1, 1 }, /* flip */
 		},
@@ -309,8 +310,7 @@ static void wrot_config_pipe1(struct mml_frame_dest *dest,
 	wrot_frm->out_crop_w = wrot_frm->out_h - wrot_frm->out_x_off;
 }
 
-static s32 wrot_config_write(struct mml_comp *comp,
-			     struct mml_task *task,
+static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
@@ -369,7 +369,6 @@ static s32 wrot_init(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_poll(pkt, NULL, 0, base_pa + VIDO_SOFT_RST_STAT, 0x00000001,
 		      wrot->gpr_poll);
 	cmdq_pkt_set_event(pkt, wrot->event_poll);
-
 	return 0;
 }
 
@@ -379,8 +378,6 @@ static void wrot_color_fmt(struct mml_frame_config *cfg,
 	u32 fmt = cfg->info.dest[wrot_frm->out_idx].data.format;
 	u16 profile_in = cfg->info.src.profile;
 	u16 profile_out = cfg->info.dest[wrot_frm->out_idx].data.profile;
-
-	/* TODO: following mapColorFormat */
 
 	wrot_frm->mat_en = 0;
 	wrot_frm->mat_sel = 0;
@@ -507,35 +504,31 @@ static void wrot_color_fmt(struct mml_frame_config *cfg,
 		else if (profile_in == MML_YCBCR_PROFILE_JPEG)
 			wrot_frm->mat_sel = 4;
 		else
-			mml_err("unknown profile conversion %x", profile_in);
+			mml_err("[wrot] unknown profile conversion %x",
+				profile_in);
 	} else {
 		if (profile_in == MML_YCBCR_PROFILE_JPEG &&
 		    profile_out == MML_YCBCR_PROFILE_BT601) {
 			wrot_frm->mat_en = 1;
 			wrot_frm->mat_sel = 8;
-		}
-		else if (profile_in == MML_YCBCR_PROFILE_JPEG &&
-			 profile_out == MML_YCBCR_PROFILE_BT709) {
+		} else if (profile_in == MML_YCBCR_PROFILE_JPEG &&
+			   profile_out == MML_YCBCR_PROFILE_BT709) {
 			wrot_frm->mat_en = 1;
 			wrot_frm->mat_sel = 9;
-		}
-		else if (profile_in == MML_YCBCR_PROFILE_BT601 &&
-			 profile_out == MML_YCBCR_PROFILE_JPEG) {
+		} else if (profile_in == MML_YCBCR_PROFILE_BT601 &&
+			   profile_out == MML_YCBCR_PROFILE_JPEG) {
 			wrot_frm->mat_en = 1;
 			wrot_frm->mat_sel = 10;
-		}
-		else if (profile_in == MML_YCBCR_PROFILE_BT709 &&
-			 profile_out == MML_YCBCR_PROFILE_JPEG) {
+		} else if (profile_in == MML_YCBCR_PROFILE_BT709 &&
+			   profile_out == MML_YCBCR_PROFILE_JPEG) {
 			wrot_frm->mat_en = 1;
 			wrot_frm->mat_sel = 11;
-		}
-		else if (profile_in == MML_YCBCR_PROFILE_BT709 &&
-			 profile_out == MML_YCBCR_PROFILE_BT601) {
+		} else if (profile_in == MML_YCBCR_PROFILE_BT709 &&
+			   profile_out == MML_YCBCR_PROFILE_BT601) {
 			wrot_frm->mat_en = 1;
 			wrot_frm->mat_sel = 12;
-		}
-		else if (profile_in == MML_YCBCR_PROFILE_BT601 &&
-			 profile_out == MML_YCBCR_PROFILE_BT709) {
+		} else if (profile_in == MML_YCBCR_PROFILE_BT601 &&
+			   profile_out == MML_YCBCR_PROFILE_BT709) {
 			wrot_frm->mat_en = 1;
 			wrot_frm->mat_sel = 13;
 		}
@@ -583,8 +576,8 @@ static void update_label(struct mml_pipe_cache *cache,
 }
 
 static void calc_afbc_block(u32 bits_per_pixel, u32 y_stride, u32 vert_stride,
-		     u64 *iova, u32 *offset,
-		     u32 *block_x, u32 *addr_c, u32 *addr_v, u32 *addr)
+			    u64 *iova, u32 *offset,
+			    u32 *block_x, u32 *addr_c, u32 *addr_v, u32 *addr)
 {
 	u32 block_y, header_sz;
 
@@ -633,8 +626,7 @@ static void wrot_calc_hw_buf_setting(struct mml_wrot *wrot,
 	}
 }
 
-static s32 wrot_config_frame(struct mml_comp *comp,
-			     struct mml_task *task,
+static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
 	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
@@ -721,14 +713,9 @@ static s32 wrot_config_frame(struct mml_comp *comp,
 
 		/* Write frame base address */
 		calc_afbc_block(wrot_frm->bbp_y,
-				dest->data.y_stride,
-				dest->data.vert_stride,
-				dest_buf->iova,
-				dest->data.plane_offset,
-				&block_x,
-				&addr_c,
-				&addr_v,
-				&addr);
+				dest->data.y_stride, dest->data.vert_stride,
+				dest_buf->iova, dest->data.plane_offset,
+				&block_x, &addr_c, &addr_v, &addr);
 
 		/* Write frame base address */
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR,
@@ -1301,10 +1288,8 @@ static void wrot_calc_setting(struct mml_wrot *wrot,
 		wrot_check_buf(dest, setting, &buf);
 }
 
-static s32 wrot_config_tile(struct mml_comp *comp,
-			    struct mml_task *task,
-			    struct mml_comp_config *ccfg,
-			    u8 idx)
+static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg, u8 idx)
 {
 	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
 	struct mml_frame_config *cfg = task->config;
@@ -1396,8 +1381,7 @@ static s32 wrot_config_tile(struct mml_comp *comp,
 	return 0;
 }
 
-static s32 wrot_wait(struct mml_comp *comp,
-		     struct mml_task *task,
+static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
 	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
@@ -1405,14 +1389,12 @@ static s32 wrot_wait(struct mml_comp *comp,
 
 	/* wait wrot frame done */
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
-
 	/* Disable engine */
 	cmdq_pkt_write(pkt, NULL, comp->base_pa + VIDO_ROT_EN, 0, 0x00000001);
 	return 0;
 }
 
-static s32 wrot_reconfig_frame(struct mml_comp *comp,
-			       struct mml_task *task,
+static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 			       struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
@@ -1446,14 +1428,9 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp,
 
 		/* Write frame base address */
 		calc_afbc_block(MML_FMT_BITS_PER_PIXEL(dest_fmt),
-				dest->data.y_stride,
-				dest->data.vert_stride,
-				dest_buf->iova,
-				dest->data.plane_offset,
-				&block_x,
-				&addr_c,
-				&addr_v,
-				&addr);
+				dest->data.y_stride, dest->data.vert_stride,
+				dest_buf->iova, dest->data.plane_offset,
+				&block_x, &addr_c, &addr_v, &addr);
 
 		/* update frame base address to list */
 		update_label(cache, wrot_frm, WROT_LABEL_ADDR, addr);
@@ -1580,7 +1557,7 @@ static int probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
-	priv->data = (struct wrot_data*)of_device_get_match_data(dev);
+	priv->data = (const struct wrot_data *)of_device_get_match_data(dev);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {
@@ -1634,7 +1611,7 @@ const struct of_device_id mtk_mml_wrot_driver_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, mtk_mml_wrot_driver_dt_match);
 
-struct platform_driver mtk_mml_wrot_driver = {
+static struct platform_driver mtk_mml_wrot_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {

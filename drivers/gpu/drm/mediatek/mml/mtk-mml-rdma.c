@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
  */
 
 #include <linux/clk.h>
@@ -145,13 +146,13 @@ struct rdma_data {
 	u32 tile_width;
 };
 
-struct rdma_data mt6893_rdma_data = {
+static const struct rdma_data mt6893_rdma_data = {
 	.tile_width = 640
 };
 
 struct mml_rdma {
 	struct mml_comp comp;
-	struct rdma_data *data;
+	const struct rdma_data *data;
 
 	u8 gpr_poll;
 	u16 event_poll;
@@ -201,9 +202,7 @@ static u32 rdma_get_label_count(struct mml_comp *comp, struct mml_task *task)
 static s32 rdma_init(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = container_of(comp,
-					     struct mml_rdma,
-					     comp);
+	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
@@ -221,8 +220,8 @@ static void rdma_color_fmt(struct mml_frame_config *cfg,
 			   struct rdma_frame_data *rdma_frm)
 {
 	u32 fmt = cfg->info.src.format;
+	u16 profile_in = cfg->info.src.profile;
 
-	/* TODO: following mapColorFormat */
 	rdma_frm->color_tran = 0;
 	rdma_frm->matrix_sel = 0;
 
@@ -235,163 +234,162 @@ static void rdma_color_fmt(struct mml_frame_config *cfg,
 	rdma_frm->blk_tile = MML_FMT_10BIT_TILE(fmt);
 
 	switch (fmt) {
-		case MML_FMT_GREY:
-			rdma_frm->bits_per_pixel_y = 8;
-			rdma_frm->bits_per_pixel_uv = 0;
-			rdma_frm->hor_shift_uv = 0;
-			rdma_frm->ver_shift_uv = 0;
-			break;
-		case MML_FMT_RGB565:
-		case MML_FMT_BGR565:
-			rdma_frm->bits_per_pixel_y = 16;
-			rdma_frm->bits_per_pixel_uv = 0;
-			rdma_frm->hor_shift_uv = 0;
-			rdma_frm->ver_shift_uv = 0;
-			rdma_frm->color_tran = 1;
-			break;
-		case MML_FMT_RGB888:
-		case MML_FMT_BGR888:
-			rdma_frm->bits_per_pixel_y = 24;
-			rdma_frm->bits_per_pixel_uv = 0;
-			rdma_frm->hor_shift_uv = 0;
-			rdma_frm->ver_shift_uv = 0;
-			rdma_frm->color_tran = 1;
-			break;
-		case MML_FMT_RGBA8888:
-		case MML_FMT_BGRA8888:
-		case MML_FMT_ARGB8888:
-		case MML_FMT_ABGR8888:
-		case MML_FMT_RGBA1010102:
-		case MML_FMT_BGRA1010102:
-		case MML_FMT_RGBA8888_AFBC:
-		case MML_FMT_BGRA8888_AFBC:
-		case MML_FMT_RGBA1010102_AFBC:
-		case MML_FMT_BGRA1010102_AFBC:
-			rdma_frm->bits_per_pixel_y = 32;
-			rdma_frm->bits_per_pixel_uv = 0;
-			rdma_frm->hor_shift_uv = 0;
-			rdma_frm->ver_shift_uv = 0;
-			rdma_frm->color_tran = 1;
-			break;
-		case MML_FMT_UYVY:
-		case MML_FMT_VYUY:
-		case MML_FMT_YUYV:
-		case MML_FMT_YVYU:
-			rdma_frm->bits_per_pixel_y = 16;
-			rdma_frm->bits_per_pixel_uv = 0;
-			rdma_frm->hor_shift_uv = 0;
-			rdma_frm->ver_shift_uv = 0;
-			break;
-		case MML_FMT_I420:
-		case MML_FMT_YV12:
-			rdma_frm->bits_per_pixel_y = 8;
-			rdma_frm->bits_per_pixel_uv = 8;
-			rdma_frm->hor_shift_uv = 1;
-			rdma_frm->ver_shift_uv = 1;
-			break;
-		case MML_FMT_I422:
-		case MML_FMT_YV16:
-			rdma_frm->bits_per_pixel_y = 8;
-			rdma_frm->bits_per_pixel_uv = 8;
-			rdma_frm->hor_shift_uv = 1;
-			rdma_frm->ver_shift_uv = 0;
-			break;
-		case MML_FMT_I444:
-		case MML_FMT_YV24:
-			rdma_frm->bits_per_pixel_y = 8;
-			rdma_frm->bits_per_pixel_uv = 8;
-			rdma_frm->hor_shift_uv = 0;
-			rdma_frm->ver_shift_uv = 0;
-			break;
-		case MML_FMT_NV12:
-		case MML_FMT_NV21:
-			rdma_frm->bits_per_pixel_y = 8;
-			rdma_frm->bits_per_pixel_uv = 16;
-			rdma_frm->hor_shift_uv = 1;
-			rdma_frm->ver_shift_uv = 1;
-			break;
-		case MML_FMT_BLK_UFO:
-		case MML_FMT_BLK_UFO_AUO:
-		case MML_FMT_BLK:
-			rdma_frm->vdo_blk_shift_w = 4;
-			rdma_frm->vdo_blk_height = 32;
-			rdma_frm->vdo_blk_shift_h = 5;
-			rdma_frm->bits_per_pixel_y = 8;
-			rdma_frm->bits_per_pixel_uv = 16;
-			rdma_frm->hor_shift_uv = 1;
-			rdma_frm->ver_shift_uv = 1;
-			break;
-		case MML_FMT_NV16:
-		case MML_FMT_NV61:
-			rdma_frm->bits_per_pixel_y = 8;
-			rdma_frm->bits_per_pixel_uv = 16;
-			rdma_frm->hor_shift_uv = 1;
-			rdma_frm->ver_shift_uv = 0;
-			break;
-		case MML_FMT_NV24:
-		case MML_FMT_NV42:
-			rdma_frm->bits_per_pixel_y = 8;
-			rdma_frm->bits_per_pixel_uv = 16;
-			rdma_frm->hor_shift_uv = 0;
-			rdma_frm->ver_shift_uv = 0;
-			break;
-		case MML_FMT_NV12_10L:
-		case MML_FMT_NV21_10L:
-			rdma_frm->bits_per_pixel_y = 16;
-			rdma_frm->bits_per_pixel_uv = 32;
-			rdma_frm->hor_shift_uv = 1;
-			rdma_frm->ver_shift_uv = 1;
-			break;
-		case MML_FMT_YUV4441010102:
-			rdma_frm->bits_per_pixel_y = 32;
-			rdma_frm->bits_per_pixel_uv = 0;
-			rdma_frm->hor_shift_uv = 0;
-			rdma_frm->ver_shift_uv = 0;
-			break;
-		case MML_FMT_NV12_10P:
-		case MML_FMT_NV21_10P:
-			rdma_frm->bits_per_pixel_y = 10;
-			rdma_frm->bits_per_pixel_uv = 20;
-			rdma_frm->hor_shift_uv = 1;
-			rdma_frm->ver_shift_uv = 1;
-			break;
-		case MML_FMT_BLK_10H:
-		case MML_FMT_BLK_10V:
-		case MML_FMT_BLK_10HJ:
-		case MML_FMT_BLK_10VJ:
-		case MML_FMT_BLK_UFO_10H:
-		case MML_FMT_BLK_UFO_10V:
-		case MML_FMT_BLK_UFO_10HJ:
-		case MML_FMT_BLK_UFO_10VJ:
-			rdma_frm->vdo_blk_shift_w = 4;
-			rdma_frm->vdo_blk_height = 32;
-			rdma_frm->vdo_blk_shift_h = 5;
-			rdma_frm->bits_per_pixel_y = 10;
-			rdma_frm->bits_per_pixel_uv = 20;
-			rdma_frm->hor_shift_uv = 1;
-			rdma_frm->ver_shift_uv = 1;
-			break;
-		default:
-			mml_err("[rdma] not support format %x", fmt);
-			break;
+	case MML_FMT_GREY:
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 0;
+		rdma_frm->hor_shift_uv = 0;
+		rdma_frm->ver_shift_uv = 0;
+		break;
+	case MML_FMT_RGB565:
+	case MML_FMT_BGR565:
+		rdma_frm->bits_per_pixel_y = 16;
+		rdma_frm->bits_per_pixel_uv = 0;
+		rdma_frm->hor_shift_uv = 0;
+		rdma_frm->ver_shift_uv = 0;
+		rdma_frm->color_tran = 1;
+		break;
+	case MML_FMT_RGB888:
+	case MML_FMT_BGR888:
+		rdma_frm->bits_per_pixel_y = 24;
+		rdma_frm->bits_per_pixel_uv = 0;
+		rdma_frm->hor_shift_uv = 0;
+		rdma_frm->ver_shift_uv = 0;
+		rdma_frm->color_tran = 1;
+		break;
+	case MML_FMT_RGBA8888:
+	case MML_FMT_BGRA8888:
+	case MML_FMT_ARGB8888:
+	case MML_FMT_ABGR8888:
+	case MML_FMT_RGBA1010102:
+	case MML_FMT_BGRA1010102:
+	case MML_FMT_RGBA8888_AFBC:
+	case MML_FMT_BGRA8888_AFBC:
+	case MML_FMT_RGBA1010102_AFBC:
+	case MML_FMT_BGRA1010102_AFBC:
+		rdma_frm->bits_per_pixel_y = 32;
+		rdma_frm->bits_per_pixel_uv = 0;
+		rdma_frm->hor_shift_uv = 0;
+		rdma_frm->ver_shift_uv = 0;
+		rdma_frm->color_tran = 1;
+		break;
+	case MML_FMT_UYVY:
+	case MML_FMT_VYUY:
+	case MML_FMT_YUYV:
+	case MML_FMT_YVYU:
+		rdma_frm->bits_per_pixel_y = 16;
+		rdma_frm->bits_per_pixel_uv = 0;
+		rdma_frm->hor_shift_uv = 0;
+		rdma_frm->ver_shift_uv = 0;
+		break;
+	case MML_FMT_I420:
+	case MML_FMT_YV12:
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 8;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 1;
+		break;
+	case MML_FMT_I422:
+	case MML_FMT_YV16:
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 8;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 0;
+		break;
+	case MML_FMT_I444:
+	case MML_FMT_YV24:
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 8;
+		rdma_frm->hor_shift_uv = 0;
+		rdma_frm->ver_shift_uv = 0;
+		break;
+	case MML_FMT_NV12:
+	case MML_FMT_NV21:
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 16;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 1;
+		break;
+	case MML_FMT_BLK_UFO:
+	case MML_FMT_BLK_UFO_AUO:
+	case MML_FMT_BLK:
+		rdma_frm->vdo_blk_shift_w = 4;
+		rdma_frm->vdo_blk_height = 32;
+		rdma_frm->vdo_blk_shift_h = 5;
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 16;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 1;
+		break;
+	case MML_FMT_NV16:
+	case MML_FMT_NV61:
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 16;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 0;
+		break;
+	case MML_FMT_NV24:
+	case MML_FMT_NV42:
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 16;
+		rdma_frm->hor_shift_uv = 0;
+		rdma_frm->ver_shift_uv = 0;
+		break;
+	case MML_FMT_NV12_10L:
+	case MML_FMT_NV21_10L:
+		rdma_frm->bits_per_pixel_y = 16;
+		rdma_frm->bits_per_pixel_uv = 32;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 1;
+		break;
+	case MML_FMT_YUV4441010102:
+		rdma_frm->bits_per_pixel_y = 32;
+		rdma_frm->bits_per_pixel_uv = 0;
+		rdma_frm->hor_shift_uv = 0;
+		rdma_frm->ver_shift_uv = 0;
+		break;
+	case MML_FMT_NV12_10P:
+	case MML_FMT_NV21_10P:
+		rdma_frm->bits_per_pixel_y = 10;
+		rdma_frm->bits_per_pixel_uv = 20;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 1;
+		break;
+	case MML_FMT_BLK_10H:
+	case MML_FMT_BLK_10V:
+	case MML_FMT_BLK_10HJ:
+	case MML_FMT_BLK_10VJ:
+	case MML_FMT_BLK_UFO_10H:
+	case MML_FMT_BLK_UFO_10V:
+	case MML_FMT_BLK_UFO_10HJ:
+	case MML_FMT_BLK_UFO_10VJ:
+		rdma_frm->vdo_blk_shift_w = 4;
+		rdma_frm->vdo_blk_height = 32;
+		rdma_frm->vdo_blk_shift_h = 5;
+		rdma_frm->bits_per_pixel_y = 10;
+		rdma_frm->bits_per_pixel_uv = 20;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 1;
+		break;
+	default:
+		mml_err("[rdma] not support format %x", fmt);
+		break;
 	}
 
-
-	if (MML_YCBCR_PROFILE_BT2020 == cfg->info.src.profile ||
-	    MML_YCBCR_PROFILE_FULL_BT709 == cfg->info.src.profile ||
-	    MML_YCBCR_PROFILE_FULL_BT2020 == cfg->info.src.profile)
-		cfg->info.src.profile = MML_YCBCR_PROFILE_BT709;
+	if (profile_in == MML_YCBCR_PROFILE_BT2020 ||
+	    profile_in == MML_YCBCR_PROFILE_FULL_BT709 ||
+	    profile_in == MML_YCBCR_PROFILE_FULL_BT2020)
+		profile_in = MML_YCBCR_PROFILE_BT709;
 
 	if (rdma_frm->color_tran == 1) {
-		if (MML_YCBCR_PROFILE_BT601 == cfg->info.src.profile)
+		if (profile_in == MML_YCBCR_PROFILE_BT601)
 			rdma_frm->matrix_sel = 2;
-		else if (MML_YCBCR_PROFILE_BT709 == cfg->info.src.profile)
+		else if (profile_in == MML_YCBCR_PROFILE_BT709)
 			rdma_frm->matrix_sel = 3;
-		else if (MML_YCBCR_PROFILE_FULL_BT601 == cfg->info.src.profile)
+		else if (profile_in == MML_YCBCR_PROFILE_FULL_BT601)
 			rdma_frm->matrix_sel = 0;
-		else {
-			mml_err("[rdma] unknown color conversion %x", cfg->info.src.profile);
-		}
+		else
+			mml_err("[rdma] unknown color conversion %x",
+				profile_in);
 	}
 }
 
@@ -399,7 +397,7 @@ static void add_label(struct mml_pipe_cache *cache, struct cmdq_pkt *pkt,
 		      u16 *label_array, u32 label, u32 value)
 {
 	if (cache->label_idx >= cache->label_cnt) {
-		mml_err("rdma out of label cnt idx %u count %u label %u",
+		mml_err("[rdma] out of label cnt idx %u count %u label %u",
 			cache->label_idx, cache->label_cnt, label);
 		return;
 	}
@@ -408,7 +406,6 @@ static void add_label(struct mml_pipe_cache *cache, struct cmdq_pkt *pkt,
 	cache->labels[cache->label_idx].offset = pkt->cmd_buf_size;
 	cache->labels[cache->label_idx].val = value;
 	cache->label_idx++;
-
 }
 
 static void update_label(struct mml_pipe_cache *cache,
@@ -418,9 +415,7 @@ static void update_label(struct mml_pipe_cache *cache,
 	cache->labels[rdma_frm->label_array_idx[label]].val = value;
 }
 
-
-s32 check_setting(struct mml_file_buf *src_buf,
-		  struct mml_frame_data *src)
+s32 check_setting(struct mml_file_buf *src_buf, struct mml_frame_data *src)
 {
 	s32 plane = MML_FMT_PLANE(src->format);
 	/* block format error check */
@@ -472,12 +467,9 @@ s32 check_setting(struct mml_file_buf *src_buf,
 	return 0;
 }
 
-void calc_ufo(struct mml_file_buf *src_buf,
-	      struct mml_frame_data *src,
-	      u32 *ufo_dec_length_y,
-	      u32 *ufo_dec_length_c,
-	      u32 *u4pic_size_bs,
-	      u32 *u4pic_size_y_bs)
+static void calc_ufo(struct mml_file_buf *src_buf, struct mml_frame_data *src,
+		     u32 *ufo_dec_length_y, u32 *ufo_dec_length_c,
+		     u32 *u4pic_size_bs, u32 *u4pic_size_y_bs)
 {
 	u32 u4pic_size_y = src->width * src->height;
 	u32 u4ufo_len_size_y =
@@ -534,13 +526,10 @@ void calc_ufo(struct mml_file_buf *src_buf,
 	}
 }
 
-static s32 rdma_config_frame(struct mml_comp *comp,
-			     struct mml_task *task,
+static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = container_of(comp,
-					     struct mml_rdma,
-					     comp);
+	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
 	struct mml_frame_config *cfg = task->config;
 	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
 	struct mml_file_buf *src_buf = &task->buf.src;
@@ -763,10 +752,8 @@ static struct mml_tile_engine *rdma_get_tile(struct mml_frame_config *cfg,
 	return &tile_engines[ccfg->node_idx];
 }
 
-static s32 rdma_config_tile(struct mml_comp *comp,
-			    struct mml_task *task,
-			    struct mml_comp_config *ccfg,
-			    u8 idx)
+static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg, u8 idx)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
@@ -915,26 +902,20 @@ static s32 rdma_config_tile(struct mml_comp *comp,
 	return 0;
 }
 
-static s32 rdma_wait(struct mml_comp *comp,
-		     struct mml_task *task,
+static s32 rdma_wait(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = container_of(comp,
-					     struct mml_rdma,
-					     comp);
+	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
 	/* wait rdma frame done */
 	cmdq_pkt_wfe(pkt, rdma->event_eof);
-
 	/* Disable engine */
 	cmdq_pkt_write(pkt, NULL, comp->base_pa + RDMA_EN, 0x0, 0x00000001);
-
 	return 0;
 }
 
-static s32 rdma_reconfig_frame(struct mml_comp *comp,
-			       struct mml_task *task,
+static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 			       struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
@@ -1082,7 +1063,6 @@ static void mml_unbind(struct device *dev, struct device *master, void *data)
 	mml_unregister_comp(master, &rdma->comp);
 }
 
-
 static const struct component_ops mml_comp_ops = {
 	.bind	= mml_bind,
 	.unbind = mml_unbind,
@@ -1102,7 +1082,7 @@ static int probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
-	priv->data = (struct rdma_data*)of_device_get_match_data(dev);
+	priv->data = (const struct rdma_data *)of_device_get_match_data(dev);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {
@@ -1159,7 +1139,7 @@ const struct of_device_id mtk_mml_rdma_driver_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, mtk_mml_rdma_driver_dt_match);
 
-struct platform_driver mtk_mml_rdma_driver = {
+static struct platform_driver mtk_mml_rdma_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {

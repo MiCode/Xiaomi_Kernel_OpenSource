@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Author: Dennis YC Hsieh <dennis-yc.hsieh@mediatek.com>
  */
 
 #ifndef __MTK_MML_COLOR_H__

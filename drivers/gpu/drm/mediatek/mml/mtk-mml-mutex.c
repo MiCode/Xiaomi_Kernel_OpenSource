@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
  */
 
 #include <linux/component.h>

@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
  */
 
 #include <linux/err.h>
@@ -122,10 +123,12 @@ static s32 topology_select_path(struct mml_frame_config *cfg)
 
 #define has_cfg_op(_comp, op) \
 	(_comp->config_ops && _comp->config_ops->op)
-
 #define call_cfg_op(_comp, op, ...) \
 	(has_cfg_op(_comp, op) ? \
 		_comp->config_ops->op(_comp, ##__VA_ARGS__) : 0)
+
+#define call_hw_op(_comp, op) \
+	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp) : 0)
 
 static void core_prepare(struct mml_task *task, u8 pipe)
 {
@@ -259,20 +262,19 @@ static s32 core_enable(struct mml_task *task, u8 pipe)
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		if (comp->hw_ops->pw_enable)
-			comp->hw_ops->pw_enable(comp);
+		call_hw_op(comp, pw_enable);
 	}
 
-	if (path->mmlsys && path->mmlsys->hw_ops->clk_enable)
-		path->mmlsys->hw_ops->clk_enable(path->mmlsys);
-	if (path->mutex && path->mutex->hw_ops->clk_enable)
-		path->mutex->hw_ops->clk_enable(path->mutex);
+	if (path->mmlsys)
+		call_hw_op(path->mmlsys, clk_enable);
+	if (path->mutex)
+		call_hw_op(path->mutex, clk_enable);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		if (i == path->mmlsys_idx || i == path->mutex_idx)
 			continue;
 		comp = task_comp(task, pipe, i);
-		comp->hw_ops->clk_enable(comp);
+		call_hw_op(comp, clk_enable);
 	}
 
 	return 0;
@@ -288,18 +290,17 @@ static s32 core_disable(struct mml_task *task, u8 pipe)
 		if (i == path->mmlsys_idx || i == path->mutex_idx)
 			continue;
 		comp = task_comp(task, pipe, i);
-		comp->hw_ops->clk_disable(comp);
+		call_hw_op(comp, clk_disable);
 	}
 
-	if (path->mutex && path->mutex->hw_ops->clk_disable)
-		path->mutex->hw_ops->clk_disable(path->mutex);
-	if (path->mmlsys && path->mmlsys->hw_ops->clk_disable)
-		path->mmlsys->hw_ops->clk_disable(path->mmlsys);
+	if (path->mutex)
+		call_hw_op(path->mutex, clk_disable);
+	if (path->mmlsys)
+		call_hw_op(path->mmlsys, clk_disable);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		if (comp->hw_ops->pw_disable)
-			comp->hw_ops->pw_disable(comp);
+		call_hw_op(comp, pw_disable);
 	}
 
 	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
@@ -432,13 +433,14 @@ static void core_config_thread(struct work_struct *work)
 
 struct mml_task *mml_core_create_task(void)
 {
-	struct mml_task *task = kzalloc(sizeof(struct mml_task), GFP_KERNEL);
+	struct mml_task *task = kzalloc(sizeof(*task), GFP_KERNEL);
 
+	if (IS_ERR(task))
+		return task;
 	INIT_LIST_HEAD(&task->entry);
 	INIT_WORK(&task->work_config[0], core_config_thread);
 	INIT_WORK(&task->work_config[1], core_init_pipe1);
 	INIT_WORK(&task->work_wait, core_taskdone);
-
 	return task;
 }
 
