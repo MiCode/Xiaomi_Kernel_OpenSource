@@ -1395,18 +1395,18 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 		mtkbuf->flags |= NO_CAHCE_INVALIDATE;
 	}
 
-	if (buf->flags & V4L2_BUF_FLAG_ROI && buf->reserved2 != 0) {
+	if (buf->flags & V4L2_BUF_FLAG_ROI && buf->reserved != 0) {
 		mtk_v4l2_debug(1, "[%d] Have ROI info map 1, buf->index:%d. mtkbuf:%p, pa:0x%x",
-			ctx->id, buf->index, mtkbuf, buf->reserved2);
-		mtkbuf->roimap = buf->reserved2;
-		mtkbuf->frm_buf.roimap = buf->reserved2;
+			ctx->id, buf->index, mtkbuf, buf->reserved);
+		mtkbuf->roimap = buf->reserved;
+		mtkbuf->frm_buf.roimap = buf->reserved;
 	}
-	if (buf->flags & V4L2_BUF_FLAG_HDR_META && buf->reserved2 != 0) {
+	if (buf->flags & V4L2_BUF_FLAG_HDR_META && buf->reserved != 0) {
 		struct dma_buf_attachment *buf_att;
 		struct sg_table *sgt;
 
 		mtkbuf->frm_buf.has_meta = 1;
-		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved2);
+		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved);
 
 		if (IS_ERR(mtkbuf->frm_buf.meta_dma)) {
 			mtk_v4l2_err("%s meta_dma is err 0x%p.\n", __func__,
@@ -1424,7 +1424,7 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 		dma_buf_detach(mtkbuf->frm_buf.meta_dma, buf_att);
 
 		mtk_v4l2_debug(1, "[%d] Have HDR info meta fd, buf->index:%d. mtkbuf:%p, fd:%u",
-			ctx->id, buf->index, mtkbuf, buf->reserved2);
+			ctx->id, buf->index, mtkbuf, buf->reserved);
 	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);

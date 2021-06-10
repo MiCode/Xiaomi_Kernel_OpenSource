@@ -1209,14 +1209,14 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 				ctx->input_max_ts);
 		}
 	} else {
-		if (buf->reserved2 == 0xFFFFFFFF)
+		if (buf->reserved == 0xFFFFFFFF)
 			mtkbuf->general_user_fd = -1;
 		else
-			mtkbuf->general_user_fd = (int)buf->reserved2;
+			mtkbuf->general_user_fd = (int)buf->reserved;
 		mtk_v4l2_debug(1, "[%d] id=%d FB (%d) vb=%p, general_buf_fd=%d, mtkbuf->general_buf_fd = %d",
 				ctx->id, buf->index,
 				buf->length, mtkbuf,
-				buf->reserved2, mtkbuf->general_user_fd);
+				buf->reserved, mtkbuf->general_user_fd);
 	}
 
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN) {
@@ -1251,7 +1251,8 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 	}
 
 	ret = v4l2_m2m_dqbuf(file, ctx->m2m_ctx, buf);
-	buf->reserved = ctx->errormap_info[buf->index % VB2_MAX_FRAME];
+	if (ctx->errormap_info[buf->index % VB2_MAX_FRAME])
+		buf->flags |= V4L2_BUF_FLAG_ERROR;
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 		ret == 0) {
@@ -1270,9 +1271,9 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 		if (mtkbuf->flags & REF_FREED)
 			buf->flags |= V4L2_BUF_FLAG_REF_FREED;
 		if (mtkbuf->general_user_fd < 0)
-			buf->reserved2 = 0xFFFFFFFF;
+			buf->reserved = 0xFFFFFFFF;
 		else
-			buf->reserved2 = mtkbuf->general_user_fd;
+			buf->reserved = mtkbuf->general_user_fd;
 		mtk_v4l2_debug(2,
 			"dqbuf mtkbuf->general_buf_fd = %d",
 			mtkbuf->general_user_fd);
