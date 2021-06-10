@@ -470,7 +470,6 @@ static int md_cooling_remove(struct platform_device *pdev)
 		md_cdev = list_entry(pos, struct md_cooling_device, node);
 		thermal_cooling_device_unregister(md_cdev->cdev);
 		list_del(&md_cdev->node);
-		kfree(md_cdev);
 	}
 	mutex_unlock(&md_cdev_list_lock);
 
