@@ -287,12 +287,15 @@ static ssize_t mt_gpio_store(struct device *dev,
 		hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
 		if (pullen < MTK_PUPD_SET_R1R0_00) {
 			pullen = !!val;
-		} else {
+		} else if (pullen >= MTK_PUPD_SET_R1R0_00 &&
+			   pullen <= MTK_PUPD_SET_R1R0_11) {
 			if (val < 0)
 				val = 0;
 			else if (val > 3)
 				val = 3;
 			pullen = r1r0_en[val];
+		} else {
+			goto out;
 		}
 		hw->soc->bias_set_combo(hw, desc, pullup, pullen);
 	} else if ((!strncmp(buf, "pullsel", 7))

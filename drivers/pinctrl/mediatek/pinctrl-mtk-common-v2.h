@@ -67,6 +67,7 @@ enum {
 	PINCTRL_PIN_REG_DRV_EN,
 	PINCTRL_PIN_REG_DRV_E0,
 	PINCTRL_PIN_REG_DRV_E1,
+	PINCTRL_PIN_REG_RSEL,
 	PINCTRL_PIN_REG_MAX,
 };
 
@@ -221,6 +222,7 @@ struct mtk_pin_soc {
 	u32				capability_flags;
 	const char * const		*base_names;
 	unsigned int			nbase_names;
+	const unsigned int		*pull_type;
 	const struct mtk_eh_pin_pinmux  *eh_pin_pinmux;
 	unsigned int			neh_pins;
 

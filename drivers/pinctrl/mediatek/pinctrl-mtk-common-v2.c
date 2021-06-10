@@ -34,6 +34,12 @@
 #define CLR_OFFSET 0x8
 #define MWR_OFFSET 0xC
 
+
+#define PULL_TYPE_PUPD		0x1
+#define PULL_TYPE_PULLSEL	0x2
+#define PULL_TYPE_R1R0		0x4
+#define PULL_TYPE_RSEL		0x8
+
 /**
  * struct mtk_drive_desc - the structure that holds the information
  *			    of the driving current
@@ -846,21 +852,100 @@ out:
 	return err;
 }
 
+static int mtk_pinconf_bias_get_rsel(struct mtk_pinctrl *hw,
+				const struct mtk_pin_desc *desc,
+				u32 *pullup, u32 *enable)
+{
+	int pu, pd, r, err;
+
+	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_RSEL, &r);
+	if (err)
+		goto out;
+
+	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_PU, &pu);
+	if (err)
+		goto out;
+
+	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_PD, &pd);
+
+	if (pu == 0 && pd == 0)
+		*pullup = 0;
+	else if (pu == 1 && pd == 0)
+		*pullup = 1;
+	else if (pu == 0 && pd == 1)
+		*pullup = 0;
+	else {
+		err = -EINVAL;
+		goto out;
+	}
+
+	*enable = r + MTK_I2C_PULL_RSEL_000;
+
+out:
+	return err;
+}
+
+static int mtk_pinconf_bias_set_rsel(struct mtk_pinctrl *hw,
+				const struct mtk_pin_desc *desc,
+				u32 arg)
+{
+	int err;
+
+	if (arg < MTK_I2C_PULL_RSEL_000) {
+		err = -EINVAL;
+		goto out;
+	}
+
+	arg -= MTK_I2C_PULL_RSEL_000;
+
+	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_RSEL, arg);
+
+out:
+	return err;
+}
+
 int mtk_pinconf_bias_set_combo(struct mtk_pinctrl *hw,
 				const struct mtk_pin_desc *desc,
 				u32 pullup, u32 arg)
 {
-	int err;
+	int err = -ENOTSUPP;
+	bool try_all_type;
 
-	err = mtk_pinconf_bias_set_pu_pd(hw, desc, pullup, arg);
-	if (!err)
+	if (pullup > 1)
 		goto out;
 
-	err = mtk_pinconf_bias_set_pullsel_pullen(hw, desc, pullup, arg);
-	if (!err)
-		goto out;
+	try_all_type = hw->soc->pull_type ? false : true;
 
-	err = mtk_pinconf_bias_set_pupd_r1_r0(hw, desc, pullup, arg);
+	if (try_all_type ||
+	    (hw->soc->pull_type[desc->number] & PULL_TYPE_RSEL)) {
+		err = mtk_pinconf_bias_set_rsel(hw, desc, arg);
+		if (!err) {
+			/* RSEL type use PUPD for up/down selection */
+			err = mtk_pinconf_bias_set_pu_pd(hw, desc, pullup,
+				MTK_ENABLE);
+			if (!err)
+				goto out;
+		}
+	}
+
+	if (try_all_type ||
+	    (hw->soc->pull_type[desc->number] & PULL_TYPE_PUPD)) {
+		err = mtk_pinconf_bias_set_pu_pd(hw, desc, pullup, arg);
+		if (!err)
+			goto out;
+	}
+
+	if (try_all_type ||
+	    (hw->soc->pull_type[desc->number] & PULL_TYPE_PULLSEL)) {
+		err = mtk_pinconf_bias_set_pullsel_pullen(hw, desc, pullup,
+			arg);
+		if (!err)
+			goto out;
+	}
+
+	if (try_all_type ||
+	    (hw->soc->pull_type[desc->number] & PULL_TYPE_R1R0))
+		err = mtk_pinconf_bias_set_pupd_r1_r0(hw, desc, pullup, arg);
 
 out:
 	return err;
@@ -871,17 +956,36 @@ int mtk_pinconf_bias_get_combo(struct mtk_pinctrl *hw,
 			      const struct mtk_pin_desc *desc,
 			      u32 *pullup, u32 *enable)
 {
-	int err;
+	int err = -ENOTSUPP;
+	bool try_all_type;
 
-	err = mtk_pinconf_bias_get_pu_pd(hw, desc, pullup, enable);
-	if (!err)
-		goto out;
+	try_all_type = hw->soc->pull_type ? false : true;
 
-	err = mtk_pinconf_bias_get_pullsel_pullen(hw, desc, pullup, enable);
-	if (!err)
-		goto out;
+	if (try_all_type ||
+	    (hw->soc->pull_type[desc->number] & PULL_TYPE_RSEL)) {
+		err = mtk_pinconf_bias_get_rsel(hw, desc, pullup, enable);
+		if (!err)
+			goto out;
+	}
 
-	err = mtk_pinconf_bias_get_pupd_r1_r0(hw, desc, pullup, enable);
+	if (try_all_type ||
+	    (hw->soc->pull_type[desc->number] & PULL_TYPE_PUPD)) {
+		err = mtk_pinconf_bias_get_pu_pd(hw, desc, pullup, enable);
+		if (!err)
+			goto out;
+	}
+
+	if (try_all_type ||
+	    (hw->soc->pull_type[desc->number] & PULL_TYPE_PULLSEL)) {
+		err = mtk_pinconf_bias_get_pullsel_pullen(hw, desc, pullup,
+			enable);
+		if (!err)
+			goto out;
+	}
+
+	if (try_all_type ||
+	    (hw->soc->pull_type[desc->number] & PULL_TYPE_R1R0))
+		err = mtk_pinconf_bias_get_pupd_r1_r0(hw, desc, pullup, enable);
 
 out:
 	return err;

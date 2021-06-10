@@ -614,8 +614,10 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	if (pinmux >= hw->soc->nfuncs)
 		pinmux -= hw->soc->nfuncs;
 
-	mtk_pinconf_bias_get_combo(hw, desc, &pullup, &pullen);
-	if (pullen == MTK_PUPD_SET_R1R0_00) {
+	val = mtk_pinconf_bias_get_combo(hw, desc, &pullup, &pullen);
+	if (val < 0) {
+		pullen = -1;
+	} else if (pullen == MTK_PUPD_SET_R1R0_00) {
 		pullen = 0;
 		r1 = 0;
 		r0 = 0;
@@ -633,6 +635,9 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 		r0 = 1;
 	} else if (pullen != MTK_DISABLE && pullen != MTK_ENABLE) {
 		pullen = 0;
+	} else if (pullen >= MTK_I2C_PULL_RSEL_000) {
+		/* to do: show detail RSEL setting */
+		pullen = 1;
 	}
 
 	len += snprintf(buf + len, bufLen - len,
@@ -661,7 +666,9 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	else
 		len += snprintf(buf + len, bufLen - len, "X");
 
-	if (r1 != -1)
+	if (pullen == -1)
+		len += snprintf(buf + len, bufLen - len, "XX\n");
+	else if (r1 != -1)
 		len += snprintf(buf + len, bufLen - len, "%1d%1d (%1d %1d)\n",
 			pullen, pullup, r1, r0);
 	else
