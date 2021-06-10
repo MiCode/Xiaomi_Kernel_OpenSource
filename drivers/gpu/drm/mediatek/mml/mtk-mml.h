@@ -35,18 +35,80 @@ enum mml_orientation {
 	MML_ROT_270
 };
 
+enum mml_pq_scenario
+{
+	MML_PQ_MEDIA_UNKNOWN = 0x0,
+	MML_PQ_MEDIA_VIDEO = 0x101,
+	MML_PQ_MEDIA_GAME_NORMAL = 0x1001,
+	MML_PQ_MEDIA_GAME_HDR = 0x1002
+};
+
+struct mml_pq_video_param {
+	uint32_t video_id;
+	uint32_t  time_stamp;
+	bool ishdr2sdr:1;
+	uint32_t param_table;
+};
+
 struct mml_pq_config {
 	bool en:1;
-	bool hdr_en:1;
-	bool aal_en:1;
-	bool tdshp_en:1;
+	bool en_sharp:1;
+	bool en_ur:1;
+	bool en_dc:1;
+	bool en_color:1;
+	bool en_hdr:1;
+	bool en_ccorr:1;
+	bool en_dre:1;
 	bool hfg_en:1;
 };
 
+enum mml_pq_enable_flag
+{
+	/* if PQ_DEFAULT_ENABLE == 1, use default enable set by PQ
+	   The other enable will be regardless. */
+	MML_PQ_DEFAULT_EN = 1 << 0,
+	MML_PQ_COLOR_EN = 1 << 1,
+	MML_PQ_SHP_EN = 1 << 2,
+	MML_PQ_ULTRARES_EN = 1 << 3,
+	MML_PQ_DYN_CONTRAST_EN = 1 << 4,
+	MML_PQ_DRE_EN = 1 << 5,
+	MML_PQ_CCORR_EN = 1 << 6,
+	MML_PQ_VIDEO_HDR_EN = 1 << 7,
+};
+
+enum mml_gamut {
+	MML_GAMUT_UNKNOWN = 0,
+	MML_GAMUT_SRGB,
+	MML_GAMUT_DISPLAY_P3,
+	MML_GAMUT_BT601,
+	MML_GAMUT_BT709,
+	MML_GAMUT_BT2020,
+};
+
+enum mml_pq_user_info{
+	MML_PQ_USER_UNKNOWN = 0,
+	MML_PQ_USER_HWC = 1,
+	MML_PQ_USER_GPU = 2,
+};
+
+enum mml_pq_hdr_video_mode
+{
+	MML_PQ_NON_HDR = 0,
+	MML_PQ_HDR10,
+	MML_PQ_HDR10P,
+};
+
 struct mml_pq_param {
-	int32_t ion_handle;
-	uint32_t enhance_pos;
-	uint32_t enhance_dir;
+	uint32_t enable;
+	uint32_t time_stamp;
+	uint32_t scenario;
+	uint32_t layer_id;
+	uint32_t disp_id;
+	uint32_t src_gamut;
+	uint32_t dst_gamut;
+	uint32_t src_hdr_video_mode;
+	struct mml_pq_video_param video_param;
+	uint32_t user_info;
 };
 
 struct mml_frame_data {

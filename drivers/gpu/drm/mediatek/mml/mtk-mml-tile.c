@@ -244,7 +244,7 @@ void prepare_tile_mt6893(struct mml_task *task,
 			case 13:
 			case 14:
 				/* move to hdr prepare */
-				hdr_data->relay_mode = dest->pq_config.hdr_en?
+				hdr_data->relay_mode = dest->pq_config.en_hdr?
 					false: true; //index need to fix
 				hdr_data->min_width = 16;
 				ptr_func->func_data =

@@ -595,9 +595,9 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 							    (1 << 16),
 							    0x00030071);
 	if (MML_FMT_IS_ARGB(src->format) &&
-	    cfg->info.dest[0].pq_config.hdr_en &&
-	    !cfg->info.dest[0].pq_config.aal_en &&
-	    !cfg->info.dest[0].pq_config.tdshp_en)
+	    cfg->info.dest[0].pq_config.en_hdr &&
+	    !cfg->info.dest[0].pq_config.en_dre &&
+	    !cfg->info.dest[0].pq_config.en_sharp)
 		rdma_frm->color_tran = 0;
 
 	if (MML_FMT_10BIT_LOOSE(src->format))

@@ -324,8 +324,8 @@ static void tp_select_dc(struct mml_topology_cache *cache,
 		scene[1] = PATH_MML_DC_NOPQ_P1;
 	} else if (en_rsz && cfg->info.dest_cnt == 1) {
 		/* 1 in 1 out with PQs */
-		if (cfg->info.dest[0].pq_config.aal_en ||
-			cfg->info.dest[0].pq_config.hdr_en) {
+		if (cfg->info.dest[0].pq_config.en_dre ||
+			cfg->info.dest[0].pq_config.en_hdr) {
 			/* and with HDR/AAL */
 			scene[0] = PATH_MML_DC_PQ2_P0;
 			scene[1] = PATH_MML_DC_PQ2_P1;

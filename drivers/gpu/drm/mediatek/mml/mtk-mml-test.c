@@ -275,7 +275,7 @@ static void case_config_relay_crop(void)
 static void setup_relay(struct mml_submit *task, struct mml_test_case *cur)
 {
 	task->info.dest[0].pq_config.en = true;
-	task->info.dest[0].pq_config.aal_en = true;
+	task->info.dest[0].pq_config.en_dre = true;
 	task->info.dest[0].crop.r.left = 0;
 	task->info.dest[0].crop.r.top = 0;
 	task->info.dest[0].crop.r.width = the_case.cfg_dest_w;
