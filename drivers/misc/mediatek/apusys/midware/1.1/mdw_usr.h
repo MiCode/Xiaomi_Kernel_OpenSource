@@ -68,5 +68,5 @@ void mdw_usr_exit(void);
 
 
 void mdw_usr_print_mem_usage(void);
-void mdw_usr_aee_mem(void *s_file);
+void mdw_usr_sys_aee_mem(char *buf, int *n);
 #endif

@@ -20,6 +20,7 @@
 #include "mdw_rsc.h"
 #include "mdw_queue.h"
 #include "mdw_cmn.h"
+#include "mdw_usr.h"
 
 static struct device *mdw_dev;
 static uint32_t g_sched_plcy_show;
@@ -144,6 +145,28 @@ static struct attribute_group mdw_sched_attr_group = {
 	.attrs	= mdw_sched_attrs,
 };
 
+static ssize_t mem_statistics_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int n = 0;
+
+	mdw_usr_sys_aee_mem(buf, &n);
+
+	return n;
+}
+static DEVICE_ATTR_RO(mem_statistics);
+
+static struct attribute *mdw_mem_attrs[] = {
+	&dev_attr_mem_statistics.attr,
+	NULL,
+};
+
+static struct attribute_group mdw_mem_attr_group = {
+	.name	= "memory",
+	.attrs	= mdw_mem_attrs,
+};
+
+
 int mdw_sysfs_init(struct device *kdev)
 {
 	int ret = 0;
@@ -157,6 +180,10 @@ int mdw_sysfs_init(struct device *kdev)
 	ret = sysfs_create_group(&mdw_dev->kobj, &mdw_sched_attr_group);
 	if (ret)
 		mdw_drv_err("create mdw sched attr fail, ret %d\n", ret);
+
+	ret = sysfs_create_group(&mdw_dev->kobj, &mdw_mem_attr_group);
+	if (ret)
+		mdw_drv_err("create mdw mem attr fail, ret %d\n", ret);
 
 	return ret;
 }

@@ -35,7 +35,6 @@ struct dentry *mdw_dbg_root;
 struct dentry *mdw_dbg_user;
 struct dentry *mdw_dbg_devinfo;
 struct dentry *mdw_dbg_device;
-struct dentry *mdw_dbg_mem;
 struct dentry *mdw_dbg_trace;
 struct dentry *mdw_dbg_test;
 struct dentry *mdw_dbg_log;
@@ -134,29 +133,6 @@ static int mdw_dbg_open_devinfo(struct inode *inode, struct file *file)
 
 static const struct file_operations mdw_dbg_fops_devinfo = {
 	.open = mdw_dbg_open_devinfo,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-	//.write = seq_write,
-};
-
-//----------------------------------------------
-// mem dump
-static int mdw_dbg_dump_mem(struct seq_file *s, void *unused)
-{
-	//mdw_user_print_log();
-	//TODO Change to Tag
-	mdw_usr_aee_mem(s);
-	return 0;
-}
-
-static int mdw_dbg_open_mem(struct inode *inode, struct file *file)
-{
-	return single_open(file, mdw_dbg_dump_mem, inode->i_private);
-}
-
-static const struct file_operations mdw_dbg_fops_mem = {
-	.open = mdw_dbg_open_mem,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
@@ -400,9 +376,6 @@ int mdw_dbg_init(void)
 	mdw_dbg_user = debugfs_create_file("user", 0444,
 		mdw_dbg_root, NULL, &mdw_dbg_fops_user);
 
-	/* create user info */
-	mdw_dbg_mem = debugfs_create_file("mem", 0444,
-		mdw_dbg_root, NULL, &mdw_dbg_fops_mem);
 
 	/* create feature option info */
 	mdw_dbg_test = debugfs_create_file("test", 0644,
