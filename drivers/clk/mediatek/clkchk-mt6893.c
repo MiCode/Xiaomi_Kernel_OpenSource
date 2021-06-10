@@ -506,7 +506,6 @@ static void devapc_dump(void)
 	pr_notice("devapc dump\n");
 	print_subsys_reg(spm);
 	print_subsys_reg(top);
-	print_subsys_reg(ifrao);
 	print_subsys_reg(infracfg_ao_bus);
 	print_subsys_reg(apmixed);
 }

@@ -409,6 +409,8 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 				print_subsys_reg(mtk_subsys_check[i].chk_id);
 		}
 	}
+
+	BUG_ON(1);
 }
 
 static void log_dump(unsigned int id, unsigned int pwr_sta)
