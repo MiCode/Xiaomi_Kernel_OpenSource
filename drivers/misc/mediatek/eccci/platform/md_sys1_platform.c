@@ -292,13 +292,18 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	pm_runtime_enable(&dev_ptr->dev);
 	dev_pm_syscore_device(&dev_ptr->dev, true);
 
-	CCCI_BOOTUP_LOG(dev_cfg->index, TAG, "md mtcmos pm get start\n");
-	retval = pm_runtime_get_sync(&dev_ptr->dev); /* match lk on */
-	if (retval)
-		CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
-			"md mtcmos pm getfail: ret = %d\n", retval);
+	CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
+		"[POWER ON] dummy: MD MTCMOS ON start\n");
+	CCCI_NORMAL_LOG(dev_cfg->index, TAG,
+		"[POWER ON] dummy: MD MTCMOS ON start\n");
 
-	CCCI_BOOTUP_LOG(dev_cfg->index, TAG, "md mtcmos pm get done\n");
+	retval = pm_runtime_get_sync(&dev_ptr->dev); /* match lk on */
+
+	CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
+		"[POWER ON] dummy: MD MTCMOS ON end %d\n", retval);
+	CCCI_NORMAL_LOG(dev_cfg->index, TAG,
+		"[POWER ON] dummy: MD MTCMOS ON end %d\n", retval);
+
 #endif
 
 	return 0;
@@ -489,6 +494,9 @@ static void md1_pmic_setting_on(void)
 {
 	int ret = -1, idx;
 
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
+	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
+
 	for (idx = 0; idx < ARRAY_SIZE(md_reg_table); idx++) {
 		if (md_reg_table[idx].reg_ref) {
 			ret = regulator_set_voltage(md_reg_table[idx].reg_ref,
@@ -505,12 +513,15 @@ static void md1_pmic_setting_on(void)
 				CCCI_ERROR_LOG(-1, TAG, "pmic_%s sync fail\n",
 					md_reg_table[idx].reg_name);
 			else
-				CCCI_BOOTUP_LOG(-1, TAG, "pmic_%s set\n",
+				CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON]pmic_%s set\n",
 					md_reg_table[idx].reg_name);
 		} else
 			CCCI_BOOTUP_LOG(-1, TAG, "bypass pmic_%s set\n",
 					md_reg_table[idx].reg_name);
 	}
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON]%s end\n", __func__);
+	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON]%s end\n", __func__);
+
 
 }
 
@@ -589,23 +600,24 @@ static int md_cd_topclkgen_on(struct ccci_modem *md)
 	unsigned int reg_value;
 	int ret;
 
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER ON]%s start\n", __func__);
+
 	ret = regmap_read(md_cd_plat_val_ptr.topckgen_clk_base, 0, &reg_value);
-	if (ret) {
-		CCCI_ERROR_LOG(md->index, CORE, "%s: read topckgen_clk_base fail,ret=%d\n",
-		__func__, ret);
+	if (ret)
 		return -1;
-	}
 	reg_value &= ~((1<<8) | (1<<9));
 	regmap_write(md_cd_plat_val_ptr.topckgen_clk_base, 0, reg_value);
 
 	ret = regmap_read(md_cd_plat_val_ptr.topckgen_clk_base, 0, &reg_value);
-	if (ret) {
-		CCCI_ERROR_LOG(md->index, CORE, "%s: re-read topckgen_clk_base fail,ret=%d\n",
-		__func__, ret);
-		return -1;
-	}
+	if (ret)
+		return -2;
 
-	CCCI_BOOTUP_LOG(md->index, CORE, "%s: set md1_clk_mod = 0x%x\n",
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"[POWER ON]%s end: set md1_clk_mod = 0x%x\n",
+		__func__, reg_value);
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER ON]%s end: set md1_clk_mod = 0x%x\n",
 		__func__, reg_value);
 
 	return 0;
@@ -622,8 +634,10 @@ static int md_cd_power_on(struct ccci_modem *md)
 	/* modem topclkgen on setting */
 	ret = md_cd_topclkgen_on(md);
 	if (ret) {
-		CCCI_ERROR_LOG(md->index, CORE, "%s:md_cd_topclkgen_on fail,ret=%d\n",
-		__func__, ret);
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER ON] md_cd_topclkgen_on fail, ret=%d\n", ret);
+		CCCI_ERROR_LOG(md->index, TAG,
+			"[POWER ON] md_cd_topclkgen_on fail, ret=%d\n", ret);
 		return ret;
 	}
 
@@ -631,8 +645,9 @@ static int md_cd_power_on(struct ccci_modem *md)
 	ret = regmap_read(md->hw_info->plat_val->infra_ao_base,
 		INFRA_AO_MD_SRCCLKENA, &reg_value);
 	if (ret) {
-		CCCI_ERROR_LOG(md->index, CORE, "%s:read INFRA_AO_MD_SRCCLKENA fail,ret=%d\n",
-		__func__, ret);
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s:read INFRA_AO_MD_SRCCLKENA fail,ret=%d\n",
+			__func__, ret);
 		return ret;
 	}
 	reg_value &= ~(0xFF);
@@ -642,26 +657,32 @@ static int md_cd_power_on(struct ccci_modem *md)
 	ret = regmap_read(md->hw_info->plat_val->infra_ao_base,
 			INFRA_AO_MD_SRCCLKENA, &reg_value);
 	if (ret) {
-		CCCI_ERROR_LOG(md->index, CORE, "%s:re-read INFRA_AO_MD_SRCCLKENA fail,ret=%d\n",
-		__func__, ret);
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s:re-read INFRA_AO_MD_SRCCLKENA fail,ret=%d\n",
+			__func__, ret);
 	}
-	CCCI_BOOTUP_LOG(md->index, CORE,
-		"%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"[POWER ON]%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
 		__func__, reg_value);
 
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	switch (md->index) {
 	case MD_SYS1:
 		flight_mode_set_by_atf(md, false);
-		CCCI_BOOTUP_LOG(md->index, TAG, "enable md sys clk\n");
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER ON] MD MTCMOS ON start\n");
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"[POWER ON] MD MTCMOS ON start\n");
 #ifdef USING_PM_RUNTIME
-		pm_runtime_get_sync(&md->plat_dev->dev);
+		ret = pm_runtime_get_sync(&md->plat_dev->dev);
 #else
 		ret = clk_prepare_enable(clk_table[0].clk_ref);
 #endif
-
 		CCCI_BOOTUP_LOG(md->index, TAG,
-			"enable md sys clk done,ret = %d\n", ret);
+			"[POWER ON] MD MTCMOS ON end: ret = %d\n", ret);
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"[POWER ON] MD MTCMOS ON end: ret = %d\n", ret);
+
 #if IS_ENABLED(CONFIG_MTK_PBM)
 		kicker_pbm_by_md(KR_MD1, true);
 		CCCI_BOOTUP_LOG(md->index, TAG,
@@ -686,14 +707,18 @@ static int md_cd_let_md_go(struct ccci_modem *md)
 
 	if (MD_IN_DEBUG(md))
 		return -1;
-	CCCI_BOOTUP_LOG(md->index, TAG, "set MD boot slave\n");
+	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON]set MD boot slave\n");
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON]set MD boot slave\n");
 
 	/* make boot vector take effect */
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
 		MD_KERNEL_BOOT_UP, 0, 0, 0, 0, 0, &res);
 	CCCI_BOOTUP_LOG(md->index, TAG,
-		"MD: boot_ret=%lu, boot_status_0=%lu, boot_status_1=%lu\n",
-		res.a0, res.a1, res.a2);
+		"[POWER ON]set MD boot slave done: ret=%lu, boot_status_0=%lu, boot_status_1=%lu, boot_slave = %lu\n",
+		res.a0, res.a1, res.a2, res.a3);
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER ON]set MD boot slave done: ret=%lu, boot_status_0=%lu, boot_status_1=%lu, boot_slave = %lu\n",
+		res.a0, res.a1, res.a2, res.a3);
 
 	return 0;
 }
@@ -703,10 +728,14 @@ static int md_cd_topclkgen_off(struct ccci_modem *md)
 	unsigned int reg_value;
 	int ret;
 
+	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER OFF]%s start\n", __func__);
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER OFF]%s start\n", __func__);
+
 	ret = regmap_read(md_cd_plat_val_ptr.topckgen_clk_base, 0, &reg_value);
 	if (ret) {
-		CCCI_ERROR_LOG(md->index, CORE, "%s:read topckgen_clk_base fail,ret=%d\n",
-		__func__, ret);
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s:read topckgen_clk_base fail,ret=%d\n",
+			__func__, ret);
 		return ret;
 	}
 	reg_value |= ((1<<8) | (1<<9));
@@ -714,12 +743,18 @@ static int md_cd_topclkgen_off(struct ccci_modem *md)
 
 	ret = regmap_read(md_cd_plat_val_ptr.topckgen_clk_base, 0, &reg_value);
 	if (ret) {
-		CCCI_ERROR_LOG(md->index, CORE, "%s:read topckgen_clk_base fail,ret=%d\n",
-		__func__, ret);
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s:read topckgen_clk_base fail,ret=%d\n",
+			__func__, ret);
 		return ret;
 	}
-	CCCI_BOOTUP_LOG(md->index, CORE, "%s: set md1_clk_mod = 0x%x\n",
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"[POWER OFF]%s end: set md1_clk_mod = 0x%x\n",
 		__func__, reg_value);
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER OFF]%s end: set md1_clk_mod = 0x%x\n",
+		__func__, reg_value);
+
 
 	return 0;
 }
@@ -739,16 +774,23 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	switch (md->index) {
 	case MD_SYS1:
 		/* 1. power off MD MTCMOS */
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER OFF] MD MTCMOS OFF start\n");
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"[POWER OFF] MD MTCMOS OFF start\n");
 #ifdef USING_PM_RUNTIME
-		pm_runtime_put_sync(&md->plat_dev->dev);
-		CCCI_BOOTUP_LOG(md->index, TAG, "PM:disable md1 clk\n");
+		ret = pm_runtime_put_sync(&md->plat_dev->dev);
 #else
 		clk_disable_unprepare(clk_table[0].clk_ref);
 		CCCI_BOOTUP_LOG(md->index, TAG, "CCF:disable md1 clk\n");
 #endif
 		/* 2. disable srcclkena */
 
-		CCCI_BOOTUP_LOG(md->index, TAG, "disable md1 clk\n");
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
+
 		ret = regmap_read(md->hw_info->plat_val->infra_ao_base,
 			INFRA_AO_MD_SRCCLKENA, &reg_value);
 		if (ret) {
@@ -768,10 +810,8 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 				__func__, ret);
 			break;
 		}
-		CCCI_BOOTUP_LOG(md->index, CORE,
-			"%s: set md1_srcclkena=0x%x\n", __func__,
-			reg_value);
-		CCCI_BOOTUP_LOG(md->index, TAG, "Call md1_pmic_setting_off\n");
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"%s: set md1_srcclkena=0x%x\n", __func__, reg_value);
 		flight_mode_set_by_atf(md, true);
 
 		/* modem topclkgen off setting */
