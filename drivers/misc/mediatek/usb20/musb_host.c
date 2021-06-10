@@ -2808,6 +2808,50 @@ success:
 	return 0;
 }
 
+static int musb_check_ep_usage(struct musb *musb)
+{
+	struct musb_hw_ep *hw_ep = NULL;
+	int epnum, hw_end;
+	int ret = 0;
+
+	/* check rx endpoint  */
+	for (hw_end = 0, epnum = 1, hw_ep = musb->endpoints + epnum;
+		epnum < musb->nr_endpoints; epnum++, hw_ep++) {
+
+		if (musb_ep_get_qh(hw_ep, 128) != NULL)
+			continue;
+
+		hw_end = epnum;
+		break;
+	}
+
+	if (!hw_end) {
+		DBG(0, "can't find free in ep\n");
+		ret = -ENOMEM;
+		goto done;
+	} else
+		DBG(1, "find free in ep=%d\n", hw_end);
+
+	/* check tx endpoint */
+	for (hw_end = 0, epnum = 1, hw_ep = musb->endpoints + epnum;
+		epnum < musb->nr_endpoints; epnum++, hw_ep++) {
+
+		if (musb_ep_get_qh(hw_ep, 0) != NULL)
+			continue;
+
+		hw_end = epnum;
+		break;
+	}
+
+	if (!hw_end) {
+		DBG(0, "can't find free out ep\n");
+		ret = -ENOMEM;
+	} else
+		DBG(1, "find free out ep=%d\n", hw_end);
+done:
+	return ret;
+}
+
 static int
 	musb_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flags)
 {
@@ -2833,6 +2877,26 @@ static int
 		return -ENODEV;
 
 	spin_lock_irqsave(&musb->lock, flags);
+
+	/* check free ep before enumeration */
+	if (usb_endpoint_num(epd) == 0 && usb_pipecontrol(urb->pipe) &&
+			urb->setup_packet) {
+		struct usb_ctrlrequest *ctrlreq =
+			(struct usb_ctrlrequest *) urb->setup_packet;
+		u16 w_value = le16_to_cpu(ctrlreq->wValue);
+
+		if (ctrlreq->bRequest == USB_REQ_GET_DESCRIPTOR &&
+				(w_value >> 8) == USB_DT_CONFIG) {
+
+			ret = musb_check_ep_usage(musb);
+			if (ret < 0) {
+				DBG(0, "no free ep, block enumeration\n");
+				spin_unlock_irqrestore(&musb->lock, flags);
+				return ret;
+			}
+		}
+	}
+
 	ret = usb_hcd_link_urb_to_ep(hcd, urb);
 	qh = ret ? NULL : hep->hcpriv;
 	if (qh) {
