@@ -99,7 +99,6 @@ struct mml_buffer {
 	uint32_t size[MML_MAX_PLANES];
 	uint8_t cnt;
 	int32_t fence;
-	uint32_t usage;
 	bool flush:1;
 	bool invalid:1;
 };
