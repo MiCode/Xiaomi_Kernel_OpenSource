@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (C) 2021 MediaTek Inc.
  */
 
 #define PVRSRV_ENABLE_CCCB_GROW
