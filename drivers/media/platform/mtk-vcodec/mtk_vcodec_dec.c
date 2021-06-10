@@ -607,6 +607,8 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type)
 				dst_buf_info->frame_buffer.status &= ~FB_ST_EOS;
 
 			dst_buf_info->used = false;
+			dst_buf_info->vb.vb2_buf.timestamp = 0;
+			memset(&dst_buf_info->vb.timecode, 0, sizeof(struct v4l2_timecode));
 			dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
 			pfb = &dst_buf_info->frame_buffer;
 			for (i = 0; i < pfb->num_planes; i++)
