@@ -1703,6 +1703,7 @@ static const uint32_t mt6873_devapc_pds[] = {
 	PD_SHIFT_STA_OFFSET,
 	PD_SHIFT_SEL_OFFSET,
 	PD_SHIFT_CON_OFFSET,
+	PD_VIO_DBG3_OFFSET,
 };
 
 static struct mtk_devapc_soc mt6873_data = {
