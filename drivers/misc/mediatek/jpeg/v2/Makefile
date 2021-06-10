@@ -105,6 +105,6 @@ ifdef CONFIG_MTK_PSEUDO_M4U
 endif
 
 #jpeg_driver-objs := jpeg_cmdq.o jpeg_drv_enc.o jpeg_drv_dec.o jpeg_drv.o
-jpeg_driver-objs := jpeg_drv_enc.o jpeg_drv_dec.o jpeg_drv.o
+jpeg_driver-objs := jpeg_drv_enc.o jpeg_drv_dec.o jpeg_drv.o jpeg_ion.o
 
 # EOF

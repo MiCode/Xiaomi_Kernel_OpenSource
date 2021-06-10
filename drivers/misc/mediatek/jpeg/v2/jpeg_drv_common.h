@@ -89,6 +89,12 @@ struct JpegDrvEncCtrlCfg {
 #define JPEG_WRN pr_debug
 #define JPEG_ERR pr_debug
 #define JPEG_VEB pr_debug
+#define JPEG_LOG(level, format, args...)                       \
+	do {                                                        \
+		if ((jpg_dbg_level & level) == level)              \
+			pr_info("[JPEG] level=%d %s(),%d: " format "\n",\
+				level, __func__, __LINE__, ##args);      \
+	} while (0)
 
 /* /////// JPEG Driver Decoder /////// */
 /*  */
@@ -167,6 +173,13 @@ void jpegenc_drv_enc_update_bw_request(struct JPEG_ENC_DRV_IN cfgEnc);
 int jpeg_isr_enc_lisr(void);
 int jpeg_isr_dec_lisr(void);
 int jpeg_isr_hybrid_dec_lisr(int id);
+int jpeg_drv_hybrid_dec_start(unsigned int data[],
+				unsigned int id,
+				int *index_buf_fd);
+
+void jpeg_drv_hybrid_dec_get_p_n_s(unsigned int id,
+				int *progress_n_status);
+
 
 
 unsigned int jpeg_drv_enc_set_src_image(
