@@ -120,7 +120,7 @@ config MTK_DEVINFO
 
 config MT635X_EFUSE
 	tristate "Mediatek MT635x PMIC EFUSE Support"
-	depends on MFD_MT6397 || COMPILE_TEST
+	depends on (MFD_MT6397 || MFD_MTK_SPMI_PMIC) || COMPILE_TEST
 	help
 	  This is a simple driver to dump specified values of Mediatek
 	  MT635X PMIC from EFUSE.
