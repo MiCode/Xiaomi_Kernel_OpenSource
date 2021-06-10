@@ -389,7 +389,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 0>;
 			clock-frequency = <1701000000>;
-			capacity-dmips-mhz = <230>;
+			capacity-dmips-mhz = <345>;
 			#cooling-cells = <2>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 						&system_mem &system_pll &system_bus
@@ -403,7 +403,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 0>;
 			clock-frequency = <1701000000>;
-			capacity-dmips-mhz = <230>;
+			capacity-dmips-mhz = <345>;
 			#cooling-cells = <2>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 						&system_mem &system_pll &system_bus
@@ -417,7 +417,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 0>;
 			clock-frequency = <1701000000>;
-			capacity-dmips-mhz = <230>;
+			capacity-dmips-mhz = <345>;
 			#cooling-cells = <2>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 						&system_mem &system_pll &system_bus
@@ -431,7 +431,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 0>;
 			clock-frequency = <1701000000>;
-			capacity-dmips-mhz = <230>;
+			capacity-dmips-mhz = <345>;
 			#cooling-cells = <2>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 						&system_mem &system_pll &system_bus
@@ -445,7 +445,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
 			clock-frequency = <2171000000>;
-			capacity-dmips-mhz = <877>;
+			capacity-dmips-mhz = <1012>;
 			#cooling-cells = <2>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
 						&system_mem &system_pll &system_bus
@@ -459,7 +459,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
 			clock-frequency = <2171000000>;
-			capacity-dmips-mhz = <877>;
+			capacity-dmips-mhz = <1012>;
 			#cooling-cells = <2>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
 						&system_mem &system_pll &system_bus
@@ -473,7 +473,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
 			clock-frequency = <2171000000>;
-			capacity-dmips-mhz = <877>;
+			capacity-dmips-mhz = <1012>;
 			#cooling-cells = <2>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
 						&system_mem &system_pll &system_bus
