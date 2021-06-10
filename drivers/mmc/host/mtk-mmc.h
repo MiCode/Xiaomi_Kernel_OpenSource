@@ -624,6 +624,9 @@ struct msdc_host {
 	int retune_times;
 	int power_cycle_cnt;
 	u32 data_timeout_cont; /* data continuous timeout */
+	/* set vcore floor */
+	u32 req_vcore;
+	struct regulator *dvfsrc_vcore_power;
 };
 
 /*--------------------------------------------------------------------------*/

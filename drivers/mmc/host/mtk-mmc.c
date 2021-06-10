@@ -6,6 +6,7 @@
 #include "mtk-mmc.h"
 #include "mtk-mmc-dbg.h"
 #include "../core/card.h"
+#include <linux/regulator/consumer.h>
 
 static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode);
 
@@ -2284,6 +2285,21 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 	of_property_read_u32(pdev->dev.of_node, "host-index",
 			     &host->id);
 
+	host->dvfsrc_vcore_power =
+		devm_regulator_get_optional(&pdev->dev, "dvfsrc-vcore");
+	if (IS_ERR(host->dvfsrc_vcore_power)) {
+		pr_info("mmc%d:failed to get dvfsrc-vcore:%ld\n",
+			host->id, PTR_ERR(host->dvfsrc_vcore_power));
+		host->dvfsrc_vcore_power = NULL;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node, "req-vcore",
+		&host->req_vcore)) {
+		pr_info("mmc%d:failed to get req-vcore\n", host->id);
+		host->req_vcore = 0;
+	} else
+		pr_info("mmc%d:req-vcore:%d\n", host->id, host->req_vcore);
+
 	if (of_property_read_bool(pdev->dev.of_node,
 				  "mediatek,hs400-cmd-resp-sel-rising"))
 		host->hs400_cmd_resp_sel_rising = true;
@@ -2740,6 +2756,11 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 #endif
 	msdc_gate_clock(host);
 
+	if (host->dvfsrc_vcore_power && host->req_vcore) {
+		if (regulator_set_voltage(host->dvfsrc_vcore_power, 0, INT_MAX))
+			pr_info("%s: failed to set vcore to MIN\n", __func__);
+	}
+
 	return 0;
 }
 
@@ -2747,6 +2768,13 @@ static int __maybe_unused msdc_runtime_resume(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
+
+	if (host->dvfsrc_vcore_power && host->req_vcore) {
+		if (regulator_set_voltage(host->dvfsrc_vcore_power,
+			host->req_vcore, INT_MAX))
+			pr_info("%s: failed to set vcore to %d\n",
+				__func__, host->req_vcore);
+	}
 
 	msdc_ungate_clock(host);
 #if IS_ENABLED(CONFIG_MMC_AUTOK)
