@@ -25,7 +25,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
 
-obj-y  += cameradpe_dummy.o
 obj-$(CONFIG_MTK_CAMERA_DPE_ISP6S) += camera_dpe_isp60.o
 
 
