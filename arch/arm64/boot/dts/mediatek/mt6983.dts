@@ -2437,7 +2437,7 @@
 		scp_hwccf = "enable";
 		scp_sramSize = <0x00200000>;
 		core_nums = <2>;	/* core number */
-		twohart = <2>;		/* two hart arch */
+		twohart = <1>;		/* two hart arch */
 		mbox_count = <5>;
 		/* id, mbox, send_size*/
 		send_table =
