@@ -9,8 +9,8 @@
 #if IS_ENABLED(CONFIG_MTK_PRINTK)
 void set_detect_count(int val);
 int get_detect_count(void);
-void mt_disable_uart(void);
-void mt_enable_uart(void);
+bool mt_get_uartlog_status(void);
+void update_uartlog_status(bool new_value, int value);
 #else
 static inline void set_detect_count(int val)
 {
@@ -20,11 +20,11 @@ static inline int get_detect_count(void)
 {
 	return 0;
 }
-static inline void mt_disable_uart(void)
+static inline bool mt_get_uartlog_status(void);
 {
 }
 
-static inline void mt_enable_uart(void)
+static inline void update_uartlog_status(bool new_value, int value)
 {
 }
 #endif

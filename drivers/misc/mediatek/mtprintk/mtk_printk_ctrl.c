@@ -21,14 +21,6 @@
 
 #include "aee.h"
 
-
-/* //////////////////////////////////////////////////////// */
-/* --------------------------------------------------- */
-/* Real work */
-/* --------------------------------------------------- */
-/*                     Define Proc entry               */
-/* --------------------------------------------------- */
-
 /*
  * printk_ctrl:
  * 0: uart printk disable
@@ -39,25 +31,36 @@
 static struct proc_dir_entry *entry;
 
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
-static int printk_ctrl;
-module_param_named(disable_uart, printk_ctrl, int, 0644);
+static int printk_ctrl_disable;
+module_param_named(disable_uart, printk_ctrl_disable, int, 0644);
 
 bool mt_get_uartlog_status(void)
 {
-	if (printk_ctrl == 0)
+	if (printk_ctrl_disable == 1)
 		return false;
-	else if ((printk_ctrl == 1) || (printk_ctrl == 2))
+	else if ((printk_ctrl_disable == 0) || (printk_ctrl_disable == 2))
 		return true;
 	return true;
 }
+EXPORT_SYMBOL_GPL(mt_get_uartlog_status);
 
-void mt_disable_uart(void)
+/* 0:disable uart, 1:enable uart */
+void update_uartlog_status(bool new_value, int value)
 {
 	struct console *bcon = NULL;
 
-	/* uart print not always enable */
-	if (printk_ctrl != 2) {
-		printk_ctrl = 0;
+	if (new_value == false || printk_ctrl_disable == 2) {
+		pr_info("use default valut %d to set uart status.\n", printk_ctrl_disable == 1 ? 0 : 1);
+	} else if (value == 0) { /* disable uart log */
+		printk_ctrl_disable = 1;
+	} else if (value == 1) { /* enable uart log */
+		printk_ctrl_disable = 0;
+	} else {
+		pr_info("invalid value %d, use default value %d.\n",
+			value, printk_ctrl_disable == 1 ? 0 : 1);
+	}
+
+	if (printk_ctrl_disable == 1) {
 		for_each_console(bcon) {
 			pr_info("console name: %s, status 0x%x.\n", bcon->name, bcon->flags);
 			if (!strncmp(bcon->name, "ttyS", 4)) {
@@ -65,37 +68,30 @@ void mt_disable_uart(void)
 				return;
 			}
 		}
-	}
-}
-EXPORT_SYMBOL_GPL(mt_disable_uart);
-
-void mt_enable_uart(void)
-{
-	struct console *bcon = NULL;
-
-	printk_ctrl = 1;
-	for_each_console(bcon) {
-		pr_info("console name: %s. status 0x%x.\n", bcon->name, bcon->flags);
-		if (!strncmp(bcon->name, "ttyS", 4)) {
-			bcon->flags |= CON_ENABLED;
-			return;
+	} else {
+		for_each_console(bcon) {
+			pr_info("console name: %s. status 0x%x.\n", bcon->name, bcon->flags);
+			if (!strncmp(bcon->name, "ttyS", 4)) {
+				bcon->flags |= CON_ENABLED;
+				return;
+			}
 		}
 	}
 }
-EXPORT_SYMBOL_GPL(mt_enable_uart);
+EXPORT_SYMBOL_GPL(update_uartlog_status);
 
 #else
-void mt_disable_uart(void)
+bool mt_get_uartlog_status(void)
+{
+	return false;
+}
+EXPORT_SYMBOL_GPL(mt_get_uartlog_status);
+
+void update_uartlog_status(bool new_value, int value)
 {
 
 }
-EXPORT_SYMBOL_GPL(mt_disable_uart);
-
-void mt_enable_uart(void)
-{
-
-}
-EXPORT_SYMBOL_GPL(mt_enable_uart);
+EXPORT_SYMBOL_GPL(update_uartlog_status);
 #endif
 
 
@@ -304,14 +300,14 @@ static ssize_t mt_printk_ctrl_write(struct file *filp,
 	switch (val) {
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 	case 0:
-		mt_disable_uart();
+		update_uartlog_status(true, 0);
 		break;
 	case 1:
-		mt_enable_uart();
+		update_uartlog_status(true, 1);
 		break;
 	case 5:
-		mt_enable_uart();
-		printk_ctrl = 2;
+		printk_ctrl_disable = 2;
+		update_uartlog_status(false, 0);
 		break;
 #endif
 #ifdef CONFIG_LOG_TOO_MUCH_WARNING
