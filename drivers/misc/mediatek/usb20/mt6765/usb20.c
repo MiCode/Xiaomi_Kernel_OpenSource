@@ -1898,11 +1898,14 @@ static int __init mt_usb_init(struct musb *musb)
 	/* only for mt6761 */
 	usb_sram_init();
 #endif
+
+	return 0;
+
 err_phy_power_on:
 	phy_exit(glue->phy);
 err_phy_init:
 
-	return 0;
+	return ret;
 }
 
 static int mt_usb_exit(struct musb *musb)
