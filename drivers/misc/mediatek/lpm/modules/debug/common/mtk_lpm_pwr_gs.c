@@ -63,7 +63,7 @@ int mtk_lpm_pwr_gs_compare_by_type(int comparer, int user,
 	int ret = 0;
 
 	if ((type < 0) || (type >= MTK_LPM_GS_CMP_MAX)
-	    || !mtk_lpm_gs_cmps[comparer])
+	  || (comparer < 0) || !mtk_lpm_gs_cmps[comparer])
 		return -EINVAL;
 
 	spin_lock(&mtk_lpm_gs_locker);
