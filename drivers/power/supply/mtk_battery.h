@@ -824,6 +824,9 @@ struct mtk_battery {
 	bool disable_plug_int;
 
 	/*battery status*/
+	int vbat;
+	int ibat;
+	int tbat;
 	int soc;
 	int ui_soc;
 	ktime_t uisoc_oldtime;

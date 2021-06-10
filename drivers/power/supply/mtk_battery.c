@@ -586,6 +586,8 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 		gauge_get_property(GAUGE_PROP_BATTERY_TEMPERATURE_ADC,
 			&bat_temperature_volt);
 
+		gm->vbat = bat_temperature_volt;
+
 		if (bat_temperature_volt != 0) {
 			fg_r_value = gm->fg_cust_data.com_r_fg_value;
 			if (gm->no_bat_temp_compensate == 0)
@@ -596,6 +598,8 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 
 			gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
 				&fg_current_temp);
+
+			gm->ibat = fg_current_temp;
 
 			if (fg_current_temp > 0)
 				fg_current_state = true;
@@ -2325,14 +2329,16 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 {
 	ktime_t ktime;
 
+	gm->tbat = force_get_tbat_internal(gm, true);
+
 	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d algo:%d gm3:%d %d %d %d,boot:%d\n",
 		gauge_get_int_property(GAUGE_PROP_COULOMB),
 		gm->coulomb_plus.end, gm->coulomb_minus.end,
 		gm->uisoc_plus.end, gm->uisoc_minus.end,
-		force_get_tbat_internal(gm, true),
+		gm->tbat,
 		gm->soc, gm->ui_soc,
-		gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE),
-		gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT),
+		gm->vbat,
+		gm->ibat,
 		gm->algo.active,
 		gm->disableGM30, gm->fg_cust_data.disable_nafg,
 		gm->ntc_disable_nafg, gm->cmd_disable_nafg,
