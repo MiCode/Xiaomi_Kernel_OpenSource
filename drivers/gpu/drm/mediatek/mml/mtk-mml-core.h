@@ -122,6 +122,32 @@ struct mml_topology_cache {
 	u32 cnt;
 };
 
+struct mml_comp_config {
+	u8 pipe;
+	const struct mml_path_node *node;
+	u8 node_idx;
+
+	/* The component private data. Components can store list of labels or
+	 * more info for specific component data in this ptr.
+	 */
+	void *data;
+};
+
+struct mml_label {
+	u32 offset;
+	u32 val;
+};
+
+struct mml_pipe_cache {
+	/* make command cache labels for reuse command */
+	struct mml_label *labels;
+	u32 label_cnt;
+	u32 label_idx;
+
+	/* Fillin when core call prepare. Use in prepare and make command */
+	struct mml_comp_config cfg[MML_MAX_PATH_NODES];
+};
+
 struct mml_frame_config {
 	struct list_head entry;
 	struct mml_frame_info info;
@@ -143,6 +169,9 @@ struct mml_frame_config {
 	/* workqueue */
 	struct workqueue_struct *wq_config[2];
 	struct workqueue_struct *wq_wait;
+
+	/* cache for pipe and component private data for this config */
+	struct mml_pipe_cache cache[MML_PIPE_CNT];
 
 	/* topology */
 	const struct mml_topology_path *path[MML_PIPE_CNT];
@@ -185,7 +214,7 @@ struct mml_task {
 	void *ctx;
 
 	/* command */
-	struct cmdq_pkt pkts[MML_PIPE_CNT];
+	struct cmdq_pkt *pkts[MML_PIPE_CNT];
 
 	/* workqueue */
 	struct work_struct work_config[2];
@@ -196,7 +225,27 @@ struct mml_comp_tile_ops {
 };
 
 struct mml_comp_config_ops {
-
+	s32 (*prepare)(struct mml_comp *comp, struct mml_task *task,
+		       struct mml_comp_config *priv);
+	u32 (*get_label_count)(struct mml_comp *comp, struct mml_task *task);
+	/* op to make command in frame change case */
+	s32 (*init)(struct mml_comp *comp, struct mml_task *task,
+		    struct mml_comp_config *priv);
+	s32 (*frame)(struct mml_comp *comp, struct mml_task *task,
+		     struct mml_comp_config *priv);
+	s32 (*tile)(struct mml_comp *comp, struct mml_task *task,
+		    struct mml_comp_config *priv, u8 idx);
+	s32 (*mutex)(struct mml_comp *comp, struct mml_task *task,
+		     struct mml_comp_config *priv);
+	s32 (*wait)(struct mml_comp *comp, struct mml_task *task,
+		    struct mml_comp_config *priv);
+	s32 (*post)(struct mml_comp *comp, struct mml_task *task,
+		    struct mml_comp_config *priv);
+	/* op to make command in reuse case */
+	s32 (*reframe)(struct mml_comp *comp, struct mml_task *task,
+		       struct mml_comp_config *priv);
+	s32 (*repost)(struct mml_comp *comp, struct mml_task *task,
+		      struct mml_comp_config *priv);
 };
 
 struct mml_comp_hw_ops {
@@ -266,6 +315,21 @@ struct mml_tile_output {
 	struct mml_tile_config *tiles;
 };
 
+/* task_comp - helper inline func which use pipe id and node index to get
+ * mml_comp instance inside topology.
+ *
+ * @task:	The mml_task contains frame config.
+ * @pipe:	Pipe ID, 0 or 1.
+ * @node_idx:	Node index to mml_topology_path->nodes array.
+ *
+ * Return:	mml_comp struct pointer to related engine
+ */
+static inline struct mml_comp *task_comp(struct mml_task *task, u8 pipe,
+					 u8 node_idx)
+{
+	return task->config->path[pipe]->nodes[node_idx].comp;
+}
+
 /*
  * mml_topology_register_ip - Register topology operation to node list in core
  * by giving a name. Core will later call init with IP name to match one of
@@ -316,6 +380,14 @@ struct mml_task *mml_core_create_task(void);
  *
  */
 void mml_core_destroy_task(struct mml_task *task);
+
+/*
+ * mml_core_deinit_config - destroy meta or content store in frame config
+ * which allocated in core.
+ *
+ * @config: The frame config to be deinit.
+ */
+void mml_core_deinit_config(struct mml_frame_config *config);
 
 /**
  * mml_core_submit_task -

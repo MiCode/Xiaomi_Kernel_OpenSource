@@ -283,6 +283,7 @@ s32 mml_register_comp(struct device *master, struct mml_comp *comp)
 	}
 	mml->comps[comp->id] = comp;
 	comp->bound = true;
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mml_register_comp);

@@ -153,6 +153,7 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 		mml_core_destroy_task(task);
 	}
 
+	mml_core_deinit_config(cfg);
 	kfree(cfg);
 }
 

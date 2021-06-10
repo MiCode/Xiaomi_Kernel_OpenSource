@@ -18,17 +18,27 @@ struct mutex_data {
 struct mutex_data mt6893_mutex_data = {
 };
 
-struct mtk_mml_mutex {
-	struct mml_comp mml_comp;
+struct mml_mutex {
+	struct mml_comp comp;
 	struct mutex_data *data;
+};
+
+s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
+		  struct mml_comp_config *cfg)
+{
+	return 0;
+}
+
+static struct mml_comp_config_ops mutex_config_ops = {
+	.mutex = mutex_trigger
 };
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
-	struct mtk_mml_mutex *mutex = dev_get_drvdata(dev);
+	struct mml_mutex *mutex = dev_get_drvdata(dev);
 	s32 ret;
 
-	ret = mml_register_comp(master, &mutex->mml_comp);
+	ret = mml_register_comp(master, &mutex->comp);
 	if (ret)
 		dev_err(dev, "Failed to register mml component %s: %d\n",
 			dev->of_node->full_name, ret);
@@ -37,9 +47,9 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
-	struct mtk_mml_mutex *mutex = dev_get_drvdata(dev);
+	struct mml_mutex *mutex = dev_get_drvdata(dev);
 
-	mml_unregister_comp(master, &mutex->mml_comp);
+	mml_unregister_comp(master, &mutex->comp);
 }
 
 
@@ -48,13 +58,13 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mtk_mml_mutex *dbg_probed_components[2];
+static struct mml_mutex *dbg_probed_components[2];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mtk_mml_mutex *priv;
+	struct mml_mutex *priv;
 	s32 ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -64,11 +74,14 @@ static int probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 	priv->data = (struct mutex_data*)of_device_get_match_data(dev);
 
-	ret = mml_comp_init(pdev, &priv->mml_comp);
+	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {
 		dev_err(dev, "Failed to init mml component: %d\n", ret);
 		return ret;
 	}
+
+	priv->comp.config_ops = &mutex_config_ops;
+
 	dbg_probed_components[dbg_probed_count++] = priv;
 
 	ret = component_add(dev, &mml_comp_ops);
@@ -84,25 +97,25 @@ static int remove(struct platform_device *pdev)
 	return 0;
 }
 
-const struct of_device_id mtk_mml_mutex_driver_dt_match[] = {
+const struct of_device_id mml_mutex_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6893-mml_mutex",
 	  .data = &mt6893_mutex_data},
 	{},
 };
 
-MODULE_DEVICE_TABLE(of, mtk_mml_mutex_driver_dt_match);
+MODULE_DEVICE_TABLE(of, mml_mutex_driver_dt_match);
 
-struct platform_driver mtk_mml_mutex_driver = {
+struct platform_driver mml_mutex_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
 			.name = "mediatek-mml-mutex",
 			.owner = THIS_MODULE,
-			.of_match_table = mtk_mml_mutex_driver_dt_match,
+			.of_match_table = mml_mutex_driver_dt_match,
 		},
 };
 
-//module_platform_driver(mtk_mml_mutex_driver);
+//module_platform_driver(mml_mutex_driver);
 
 static s32 ut_case;
 static s32 ut_set(const char *val, const struct kernel_param *kp)
@@ -140,11 +153,11 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 			"[%d] probed count: %d\n", ut_case, dbg_probed_count);
 		for(i = 0; i < dbg_probed_count; i++) {
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  - [%d] mml_comp_id: %d\n", i,
-				dbg_probed_components[i]->mml_comp.id);
+				"  - [%d] comp.id: %d\n", i,
+				dbg_probed_components[i]->comp.id);
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  -      mml_binded: %d\n",
-				dbg_probed_components[i]->mml_comp.bound);
+				"  -      mml.bind: %d\n",
+				dbg_probed_components[i]->comp.bound);
 		}
 	default:
 		mml_err("not support read for case_id: %d", ut_case);

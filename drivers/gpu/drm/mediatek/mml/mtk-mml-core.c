@@ -119,6 +119,135 @@ static s32 topology_select_path(struct mml_frame_config *cfg)
 	return 0;
 }
 
+#define has_cfg_op(_comp, op) \
+	(_comp->config_ops && _comp->config_ops->op)
+
+#define call_cfg_op(_comp, op, ...) \
+	(has_cfg_op(_comp, op) ? \
+		_comp->config_ops->op(_comp, ##__VA_ARGS__) : 0)
+
+static void core_prepare(struct mml_task *task, u8 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	u8 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		/* collect infos for later easy use */
+		cache->cfg[i].pipe = pipe;
+		cache->cfg[i].node = &path->nodes[i];
+		cache->cfg[i].node_idx = path->nodes[i].tile_eng_idx;
+	}
+
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mml_comp *comp = path->nodes[i].comp;
+
+		call_cfg_op(comp, prepare, task, &cache->cfg[i]);
+	}
+}
+
+static s32 command_make_frame_change(struct mml_task *task, u8 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct cmdq_pkt *pkt = cmdq_pkt_create(path->clt);
+
+	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	struct mml_comp_config *cfg = cache->cfg;
+
+	struct mml_comp *comp;
+	u8 i, tile;
+	u32 label_cnt = 0;
+	s32 ret;
+
+	if (IS_ERR(pkt)) {
+		mml_err("%s fail err %d", __func__, PTR_ERR(pkt));
+		return PTR_ERR(pkt);
+	}
+	task->pkts[pipe] = pkt;
+
+	/* get total label count to create label array */
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		label_cnt += call_cfg_op(comp, get_label_count, task);
+	}
+
+	cache->labels = kcalloc(label_cnt, sizeof(*cache->labels), GFP_KERNEL);
+	if (!cache->labels) {
+		mml_err("%s not able to alloc label table", __func__);
+		ret = -ENOMEM;
+		goto err_label_fail;
+	}
+	cache->label_cnt = label_cnt;
+
+	/* call all component init and frame op, include mmlsys and mutex */
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_cfg_op(comp, init, task, &cfg[i]);
+	}
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_cfg_op(comp, frame, task, &cfg[i]);
+	}
+
+	for (tile = 0; tile < task->config->tile_output[pipe]->tile_cnt;
+		tile++) {
+		for (i = 0; i < path->node_cnt; i++) {
+			comp = task_comp(task, pipe, i);
+			call_cfg_op(comp, tile, task, &cfg[i], tile);
+		}
+
+		path->mutex->config_ops->mutex(path->mutex, task,
+					       &cfg[path->mutex_idx]);
+
+		for (i = 0; i < path->node_cnt; i++) {
+			comp = task_comp(task, pipe, i);
+			call_cfg_op(comp, wait, task, &cfg[i]);
+		}
+	}
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_cfg_op(comp, post, task, &cfg[i]);
+	}
+
+	return 0;
+
+err_label_fail:
+	cmdq_pkt_destroy(task->pkts[pipe]);
+	task->pkts[pipe] = NULL;
+	return ret;
+}
+
+static s32 command_reuse(struct mml_task *task, u8 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	struct mml_comp_config *cfg = cache->cfg;
+	struct mml_comp *comp;
+	u8 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_cfg_op(comp, reframe, task, &cfg[i]);
+	}
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_cfg_op(comp, repost, task, &cfg[i]);
+	}
+
+	/* TODO: call cmdq for pkt, to update value by offset in cache */
+
+	return 0;
+}
+
+static s32 command_make(struct mml_task *task, u8 pipe)
+{
+	if (task->state == MML_TASK_INITIAL)
+		return command_make_frame_change(task, pipe);
+	return command_reuse(task, pipe);
+}
+
 static void core_taskdone(struct work_struct *work)
 {
 	struct mml_task *task;
@@ -137,6 +266,12 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 
 static s32 core_config(struct mml_task *task, u32 pipe_id)
 {
+	/* prepare data in each component for later tile use */
+	core_prepare(task, pipe_id);
+
+	/* make commands into pkt for later flash */
+	command_make(task, pipe_id);
+
 	return 0;
 }
 
@@ -144,7 +279,7 @@ static s32 core_flush(struct mml_task *task, u32 pipe_id)
 {
 	s32 err;
 
-	err = cmdq_pkt_flush_async(&task->pkts[pipe_id],
+	err = cmdq_pkt_flush_async(task->pkts[pipe_id],
 				   core_taskdone_cb,
 				   (void *)task);
 
@@ -235,6 +370,18 @@ void mml_core_destroy_task(struct mml_task *task)
 	return kfree(task);
 }
 
+void mml_core_deinit_config(struct mml_frame_config *config)
+{
+	u8 pipe, i;
+
+	/* make command, engine allocated private data */
+	for (pipe = 0; pipe < MML_PIPE_CNT; pipe++) {
+		for (i = 0; i < config->path[pipe]->node_cnt; i++)
+			kfree(config->cache[pipe].cfg[i].data);
+		kfree(config->cache[pipe].labels);
+	}
+}
+
 s32 mml_core_submit_task(struct mml_frame_config *frame_config,
 			 struct mml_task *task)
 {
@@ -248,4 +395,3 @@ s32 mml_core_submit_task(struct mml_frame_config *frame_config,
 
 	return 0;
 }
-
