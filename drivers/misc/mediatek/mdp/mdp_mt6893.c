@@ -2866,6 +2866,12 @@ static void mdp_readback_aal_by_engine(struct cmdqRecStruct *handle,
 	case CMDQ_ENG_MDP_AAL1:
 		base = mdp_module_pa.aal1;
 		break;
+	case CMDQ_ENG_MDP_AAL2:
+		base = mdp_module_pa.aal2;
+		break;
+	case CMDQ_ENG_MDP_AAL3:
+		base = mdp_module_pa.aal3;
+		break;
 	default:
 		CMDQ_ERR("%s not support\n", __func__);
 		return;
