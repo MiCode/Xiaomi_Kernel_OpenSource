@@ -411,6 +411,17 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 	}
 }
 
+static void log_dump(unsigned int id, unsigned int pwr_sta)
+{
+	if (id >= MT6893_POWER_DOMAIN_NR)
+		return;
+
+	if (id == MT6893_POWER_DOMAIN_MD) {
+		print_subsys_reg(spm);
+		print_subsys_reg(infracfg_ao_bus);
+	}
+}
+
 /*
  * init functions
  */
@@ -420,6 +431,7 @@ static struct pdchk_ops pdchk_mt6893_ops = {
 	.dump_subsys_reg = dump_subsys_reg,
 	.is_in_pd_list = is_in_pd_list,
 	.debug_dump = debug_dump,
+	.log_dump = log_dump,
 };
 
 static int pd_chk_probe(struct platform_device *pdev)

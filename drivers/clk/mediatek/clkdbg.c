@@ -31,6 +31,8 @@
 #define MAX_CLK_NUM	1024
 #define MAX_PD_NUM	64
 #define PLL_LEN		20
+/* increase this number if encouter BRK issue in dump_genpd */
+#define MAX_DEV_NUM	200
 
 void __attribute__((weak)) clkdbg_set_cfg(void)
 {
@@ -990,7 +992,7 @@ static struct generic_pm_domain **get_all_genpd(void)
 	if (node == NULL)
 		return NULL;
 
-	pdev = platform_device_alloc("traverse", 0);
+	pdev = platform_device_alloc("clk-dbg", 0);
 	if (!pdev)
 		return NULL;
 
@@ -1220,7 +1222,7 @@ static void dump_genpd_state(struct genpd_state *pdst, struct seq_file *s)
 
 static void seq_print_all_genpd(struct seq_file *s)
 {
-	static struct genpd_dev_state devst[100];
+	static struct genpd_dev_state devst[MAX_DEV_NUM];
 	static struct genpd_state pdst[MAX_PD_NUM];
 
 	save_all_genpd_state(pdst, devst);

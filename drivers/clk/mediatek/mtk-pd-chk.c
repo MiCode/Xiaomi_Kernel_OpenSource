@@ -56,6 +56,14 @@ static void pd_debug_dump(unsigned int id, unsigned int pwr_sta)
 	pdchk_ops->debug_dump(id, pwr_sta);
 }
 
+static void pd_log_dump(unsigned int id, unsigned int pwr_sta)
+{
+	if (pdchk_ops == NULL || pdchk_ops->log_dump == NULL)
+		return;
+
+	pdchk_ops->log_dump(id, pwr_sta);
+}
+
 static unsigned int check_cg_state(struct pd_check_swcg *swcg, unsigned int id)
 {
 	int enable_count = 0;
@@ -111,11 +119,15 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 	case GENPD_NOTIFY_ON:
 		if (pd_sta[nb->priority] == POWER_OFF_STA)
 			pd_debug_dump(nb->priority, PD_PWR_ON);
+		if (pd_sta[nb->priority] == POWER_ON_STA)
+			pd_log_dump(nb->priority, PD_PWR_ON);
 
 		break;
 	case GENPD_NOTIFY_OFF:
 		if (pd_sta[nb->priority] == POWER_ON_STA)
 			pd_debug_dump(nb->priority, PD_PWR_OFF);
+		if (pd_sta[nb->priority] == POWER_OFF_STA)
+			pd_log_dump(nb->priority, PD_PWR_OFF);
 
 		break;
 	default:
@@ -150,7 +162,7 @@ static int set_genpd_notify(void)
 		pa.args[0] = i;
 		pa.args_count = 1;
 
-		pd_pdev[i] = platform_device_alloc("traverse", 0);
+		pd_pdev[i] = platform_device_alloc("power-domain-chk", 0);
 		if (!pd_pdev[i]) {
 			pr_err("create pd-%d device fail\n", i);
 			return -ENOMEM;
@@ -180,8 +192,8 @@ static int set_genpd_notify(void)
 		pr_notice("pd-%s add to notifier\n", pd->name);
 
 		pm_runtime_enable(&pd_pdev[i]->dev);
-		pm_runtime_get(&pd_pdev[i]->dev);
-		pm_runtime_put(&pd_pdev[i]->dev);
+		pm_runtime_get_noresume(&pd_pdev[i]->dev);
+		pm_runtime_put_noidle(&pd_pdev[i]->dev);
 	}
 
 	return r;

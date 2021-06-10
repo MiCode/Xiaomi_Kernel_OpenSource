@@ -24,6 +24,7 @@ struct pdchk_ops {
 	void (*dump_subsys_reg)(unsigned int pd_id);
 	bool (*is_in_pd_list)(unsigned int id);
 	void (*debug_dump)(unsigned int pd_id, unsigned int pwr_sta);
+	void (*log_dump)(unsigned int pd_id, unsigned int pwr_sta);
 };
 
 void pd_check_common_init(const struct pdchk_ops *ops);
