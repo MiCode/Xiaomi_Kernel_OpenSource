@@ -1445,12 +1445,10 @@ static int mtk_dsp_stop(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	int id = cpu_dai->id;
-	const char *task_name = get_str_by_dsp_dai_id(id);
 
-	/* Avoid print high level log in alsa stop. If underflow happens,
+	/* Avoid print log in alsa stop. If underflow happens,
 	 * log will be printed in ISR.
 	 */
-	dev_dbg(dsp->dev, "%s() %s\n", __func__, task_name);
 
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_DIRECT_SEND, AUDIO_DSP_TASK_STOP,
