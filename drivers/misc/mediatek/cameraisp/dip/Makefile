@@ -11,12 +11,9 @@
 # GNU General Public License for more details.
 #
 
-#obj-$(CONFIG_ISP_DIP_SUPPORT) := cameradip_dummy.o
 MTK_DIP_COUNT := 1
 MTK_MSF_OFFSET := 0
-$(warning "Marvin test")
 $(warning $(CONFIG_MTK_CAMERA_ISP_VER))
-$(warning $(CONFIG_ISP_DIP_SUPPORT))
 
 ifeq ($(CONFIG_MACH_MT6775),y)
   obj-y += $(subst ",,isp_50)/
