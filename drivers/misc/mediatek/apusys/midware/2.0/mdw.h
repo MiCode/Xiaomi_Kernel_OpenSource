@@ -6,7 +6,7 @@
 #ifndef __APUSYS_MDW_H__
 #define __APUSYS_MDW_H__
 
-#include <linux/cdev.h>
+#include <linux/miscdevice.h>
 #include <linux/iopoll.h>
 #include <linux/irqreturn.h>
 #include <linux/dma-fence.h>
@@ -78,9 +78,7 @@ struct mdw_dinfo {
 
 struct mdw_device {
 	struct platform_device *pdev;
-	struct cdev cdev;
-	struct device *dev;
-	uint32_t major;
+	struct miscdevice misc_dev;
 
 	uint64_t vlm_start;
 	uint32_t vlm_size;
@@ -94,7 +92,6 @@ struct mdw_device {
 	struct mdw_dinfo *dinfos[MDW_DEV_MAX];
 
 	const struct mdw_dev_func *dev_funcs;
-	struct list_head iommu_tables;
 };
 
 struct mdw_fpriv {
@@ -124,11 +121,12 @@ enum mdw_cmd_state {
 struct mdw_fence {
 	struct dma_fence base_fence;
 	struct mdw_device *mdev;
-	spinlock_t lock;
 	void *priv;
 };
 
 struct mdw_cmd {
+	pid_t pid;
+	pid_t tgid;
 	int id;
 	uint64_t kid;
 	uint64_t uid;
@@ -148,6 +146,7 @@ struct mdw_cmd {
 	int state;
 	struct mutex mtx;
 	struct kref ref;
+	spinlock_t fence_lock;
 
 	struct mdw_fpriv *mpriv;
 	int (*complete)(struct mdw_cmd *c, int ret);
@@ -158,10 +157,10 @@ struct mdw_cmd {
 };
 
 struct mdw_dev_func {
-	int (*sw_init)(struct mdw_device *mdev);
-	void (*sw_deinit)(struct mdw_device *mdev);
 	int (*late_init)(struct mdw_device *mdev);
 	void (*late_deinit)(struct mdw_device *mdev);
+	int (*sw_init)(struct mdw_device *mdev);
+	void (*sw_deinit)(struct mdw_device *mdev);
 
 	int (*run_cmd)(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
 	int (*lock)(void);

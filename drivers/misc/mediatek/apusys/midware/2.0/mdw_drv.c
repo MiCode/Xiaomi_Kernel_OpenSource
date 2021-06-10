@@ -5,18 +5,15 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/cdev.h>
 #include <linux/of_device.h>
 #include <linux/types.h>
 #include <linux/dma-direct.h>
+#include <linux/rpmsg.h>
 
 #include "apusys_core.h"
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
 
-static struct class *mdw_class;
-static dev_t mdw_devt;
-static int mdw_major;
 struct mdw_device *mdw_dev;
 struct apusys_core_info *g_info;
 static atomic_t g_inited;
@@ -65,45 +62,18 @@ static const struct file_operations mdw_fops = {
 	.compat_ioctl = mdw_ioctl,
 };
 
-static void mdw_dev_release_func(struct device *dev)
+static int mdw_drv_misc_init(struct mdw_device *mdev)
 {
-	pr_info("%s:%d\n", __func__, __LINE__);
-	kfree(dev);
+	mdev->misc_dev.minor = MISC_DYNAMIC_MINOR;
+	mdev->misc_dev.name = MDW_NAME;
+	mdev->misc_dev.fops = &mdw_fops;
+
+	return misc_register(&mdev->misc_dev);
 }
 
-static int mdw_drv_cdev_init(struct mdw_device *mdev)
+static void mdw_drv_misc_deinit(struct mdw_device *mdev)
 {
-	int ret = 0;
-
-	mdev->dev = kzalloc(sizeof(*mdev->dev), GFP_KERNEL);
-	if (!mdev->dev) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	cdev_init(&mdev->cdev, &mdw_fops);
-	mdev->cdev.owner = THIS_MODULE;
-
-	device_initialize(mdev->dev);
-	mdev->dev->devt = MKDEV(mdev->major, 0);
-	mdev->dev->class = mdw_class;
-	mdev->dev->release = mdw_dev_release_func;
-	dev_set_drvdata(mdev->dev, mdev);
-	dev_set_name(mdev->dev, MDW_NAME);
-	ret = cdev_device_add(&mdev->cdev, mdev->dev);
-	if (ret) {
-		pr_info("[error] %s: fail to add cdev(%d)\n",
-			__func__, ret);
-	}
-
-out:
-	return ret;
-}
-
-static void mdw_drv_cdev_deinit(struct mdw_device *mdev)
-{
-	pr_info("%s\n", __func__);
-	cdev_device_del(&mdev->cdev, mdev->dev);
+	return misc_deregister(&mdev->misc_dev);
 }
 
 static struct mdw_device *mdw_drv_create_dev(struct platform_device *pdev)
@@ -124,7 +94,6 @@ static struct mdw_device *mdw_drv_create_dev(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "dma_mask", &mdev->dma_mask);
 
 	mdev->pdev = pdev;
-	mdev->major = mdw_major;
 	mdw_dev = mdev;
 
 	return mdev;
@@ -150,17 +119,19 @@ static int mdw_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	/* register char device */
-	ret = mdw_drv_cdev_init(mdev);
-	if (ret)
+	/* register misc device */
+	ret = mdw_drv_misc_init(mdev);
+	if (ret) {
+		pr_info("%s: register misc device fail\n");
 		goto delete_mdw_dev;
+	}
 
 	platform_set_drvdata(pdev, mdev);
 
 	/* init mdw device */
 	ret = mdw_dev_init(mdev);
 	if (ret)
-		goto deinit_cdev;
+		goto unregister_misc;
 
 	ret = mdw_mem_init(mdev);
 	if (ret)
@@ -180,8 +151,8 @@ deinit_mem:
 	mdw_mem_deinit(mdev);
 deinit_mdev:
 	mdw_dev_deinit(mdev);
-deinit_cdev:
-	mdw_drv_cdev_deinit(mdev);
+unregister_misc:
+	mdw_drv_misc_deinit(mdev);
 delete_mdw_dev:
 	mdw_drv_delete_dev(mdev);
 out:
@@ -201,7 +172,7 @@ static int mdw_remove(struct platform_device *pdev)
 	mdw_sysfs_deinit(mdev);
 	mdw_mem_deinit(mdev);
 	mdw_dev_deinit(mdev);
-	mdw_drv_cdev_deinit(mdev);
+	mdw_drv_misc_deinit(mdev);
 	mdw_drv_delete_dev(mdev);
 	pr_info("%s done\n", __func__);
 
@@ -222,53 +193,26 @@ static const struct of_device_id mdw_of_match[] = {
 	{},
 };
 
+//----------------------------------------
 int mdw_init(struct apusys_core_info *info)
 {
 	int ret = 0;
 
 	g_info = info;
-
-	/* get major */
-	ret = alloc_chrdev_region(&mdw_devt, 0, 1, MDW_NAME);
-	if (ret < 0) {
-		pr_info("[error] unable to get major\n");
-		goto out;
-	}
-	mdw_major = MAJOR(mdw_devt);
-
-	/* create class */
-	mdw_class = class_create(THIS_MODULE, MDW_NAME);
-	if (IS_ERR(mdw_class)) {
-		pr_info("[error] failed to allocate class\n");
-		ret = PTR_ERR(mdw_class);
-		goto remove_major;
-	}
-
 	mdw_driver.driver.of_match_table = mdw_of_match;
 
 	ret =  platform_driver_register(&mdw_driver);
 	if (ret) {
 		pr_info("failed to register apu mdw driver\n");
-		goto delete_class;
+		goto out;
 	}
 
-	pr_info("%s:%d\n", __func__, __LINE__);
-
-	goto out;
-
-delete_class:
-	class_destroy(mdw_class);
-remove_major:
-	unregister_chrdev_region(MKDEV(mdw_major, 0), 1);
 out:
 	return ret;
 }
 
 void mdw_exit(void)
 {
-	pr_info("%s:%d\n", __func__, __LINE__);
 	platform_driver_unregister(&mdw_driver);
-	class_destroy(mdw_class);
-	unregister_chrdev_region(MKDEV(mdw_major, 0), 1);
 	g_info = NULL;
 }
