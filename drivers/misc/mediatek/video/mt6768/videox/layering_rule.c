@@ -102,7 +102,7 @@ static enum HRT_LEVEL max_hrt_level = HRT_LEVEL_NUM - 1;
  */
 #ifndef CONFIG_MTK_ROUND_CORNER_SUPPORT
 static int layer_mapping_table[HRT_TB_NUM][TOTAL_OVL_LAYER_NUM] = {
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 	/* HRT_TB_TYPE_GENERAL */
 	{0x00010001, 0x00030003, 0x00030007, 0x0003000F, 0x0003000F, 0x0003000F,
 	0x0003000F},
@@ -133,7 +133,7 @@ static int layer_mapping_table[HRT_TB_NUM][TOTAL_OVL_LAYER_NUM] = {
 
 #else
 static int layer_mapping_table[HRT_TB_NUM][TOTAL_OVL_LAYER_NUM] = {
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 	/* HRT_TB_TYPE_GENERAL */
 	{0x00010001, 0x00030003, 0x00030007, 0x0003000F, 0x0003000F},
 	/* HRT_TB_TYPE_RPO_L0 */
@@ -171,7 +171,7 @@ static int larb_mapping_table[HRT_TB_NUM] = {
  */
 #ifndef CONFIG_MTK_ROUND_CORNER_SUPPORT
 static int ovl_mapping_table[HRT_TB_NUM] = {
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 	0x00020008, 0x00020008, 0x00020008, 0x00020008,
 #else
 	0x00020022, 0x00020022, 0x00020022, 0x00020022,
@@ -179,7 +179,7 @@ static int ovl_mapping_table[HRT_TB_NUM] = {
 };
 #else
 static int ovl_mapping_table[HRT_TB_NUM] = {
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 	0x00020004, 0x00020004, 0x00020004, 0x00020004,
 #else
 	0x00020012, 0x00020012, 0x00020012, 0x00020012,

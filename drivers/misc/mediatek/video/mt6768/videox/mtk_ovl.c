@@ -405,7 +405,7 @@ int ovl2mem_init(unsigned int session)
 		}
 	}
 	/* Set fake cmdq engineflag for judge path scenario */
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 	cmdqRecSetEngine(pgcl->cmdq_handle_config,
 		(1LL << CMDQ_ENG_DISP_2L_OVL0) | (1LL << CMDQ_ENG_DISP_WDMA0));
 #else
@@ -436,7 +436,7 @@ int ovl2mem_init(unsigned int session)
 #if defined(M4U_TEE_SERVICE_ENABLE)
 	m4u_sec_init();
 #endif
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 	sPort.ePortID = M4U_PORT_DISP_2L_OVL0_LARB0; /* modify to real module*/
 #else
 	sPort.ePortID = M4U_PORT_UNKNOWN; /* modify to real module*/
@@ -448,7 +448,7 @@ int ovl2mem_init(unsigned int session)
 	ret = m4u_config_port(&sPort);
 	if (ret == 0) {
 		DISPDBG("config M4U Port %s to %s SUCCESS\n",
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 			  ddp_get_module_name(DISP_MODULE_OVL0_2L),
 #else
 			  ddp_get_module_name(DISP_MODULE_OVL1_2L),
@@ -456,7 +456,7 @@ int ovl2mem_init(unsigned int session)
 			  ovl2mem_use_m4u ? "virtual" : "physical");
 	} else {
 		DISPERR("config M4U Port %s to %s FAIL(ret=%d)\n",
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 			  ddp_get_module_name(DISP_MODULE_OVL0_2L),
 #else
 			  ddp_get_module_name(DISP_MODULE_OVL1_2L),
@@ -483,7 +483,7 @@ int ovl2mem_init(unsigned int session)
 	}
 #endif
 	dpmgr_enable_event(pgcl->dpmgr_handle, DISP_PATH_EVENT_FRAME_COMPLETE);
-#ifdef CONFIG_MTK_DX_HDCP_SUPPORT
+#ifdef FT_HDCP_FEATURE
 	pgcl->max_layer = 2;
 #else
 	pgcl->max_layer = 4;
