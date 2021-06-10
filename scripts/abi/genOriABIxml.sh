@@ -94,7 +94,7 @@ fi
 
 if [ "$mode" == "p" ]
 then
-target_commit=83aa0320cfa8dfdba4f011f9c4d9040e1cc1f65a #FROMLIST: kthread: Fix kthread_mod_delayed_work vs kthread_cancel_delayed_work_sync race
+target_commit=fe2ecaf37f1debb97870f5449bab79c93559a387 #ANDROID: usb: add EXPORT_TRACE_SYMBOL to export tracepoint
 echo src_commit=$src_commit
 echo target_commit=$target_commit
 fi
