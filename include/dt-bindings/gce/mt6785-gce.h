@@ -15,6 +15,8 @@
 #ifndef _DT_BINDINGS_GCE_MT6785_H
 #define _DT_BINDINGS_GCE_MT6785_H
 
+#include "mt6382-gce.h"
+
 /* assign timeout 0 also means default */
 #define CMDQ_NO_TIMEOUT		0xffffffff
 #define CMDQ_TIMEOUT_DEFAULT	1000

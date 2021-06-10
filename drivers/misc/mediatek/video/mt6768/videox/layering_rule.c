@@ -38,6 +38,30 @@
 static struct layering_rule_ops l_rule_ops;
 static struct layering_rule_info_t l_rule_info;
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
+	/* HRT_BOUND_TYPE_LP4 */
+	{350, 600, 700, 700},
+	/* HRT_BOUND_TYPE_LP4_PLUS */
+	{200, 300, 400, 400},
+	/* HRT_BOUND_TYPE_LP3 */
+	{350, 350, 350, 350},
+	/* HRT_BOUND_TYPE_LP3_PLUS */
+	{300, 300, 300, 300},
+	/* HRT_BOUND_TYPE_LP4_1CH */
+	{350, 350, 350, 350},
+	/* HRT_BOUND_TYPE_LP4_HYBRID */
+	{400, 400, 400, 600},
+	/* HRT_BOUND_TYPE_LP3_HD */
+	{750, 750, 750, 750},
+	/* HRT_BOUND_TYPE_LP4_HD */
+	{750, 1350, 1550, 1550},
+	/* HRT_BOUND_TYPE_LP3_HD_PLUS */
+	{650, 650, 650, 650},
+	/* HRT_BOUND_TYPE_LP4_HD_PLUS */
+	{650, 1100, 1350, 1350},
+};
+#else
 int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4 */
 	{350, 600, 700, 700},
@@ -60,6 +84,7 @@ int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4_HD_PLUS */
 	{650, 1100, 1350, 1350},
 };
+#endif
 
 int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4 */

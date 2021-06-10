@@ -833,6 +833,11 @@ int primary_display_esd_recovery(void)
 		mdelay(40);
 	}
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	primary_display_update_cfg_id(0);
+	DISPCHECK("%s,cfg_id = 0\n", __func__);
+#endif
+
 done:
 	primary_display_manual_unlock();
 	DISPCHECK("[ESD]ESD recovery end\n");

@@ -2795,7 +2795,12 @@ static void mtkfb_late_resume(void)
 	DISPMSG("[FB Driver] enter late_resume\n");
 
 	ret = primary_display_resume();
-
+#ifdef CONFIG_MTK_MT6382_BDG
+	mdelay(10);
+	primary_display_suspend();
+	mdelay(10);
+	primary_display_resume();
+#endif
 	if (ret) {
 		DISPERR("primary display resume failed\n");
 		return;

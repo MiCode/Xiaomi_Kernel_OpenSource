@@ -235,6 +235,15 @@ UINT32 DSI_dcs_read_lcm_reg_v4(enum DISP_MODULE_ENUM module,
 int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 	void *cmdq_trigger_handle, enum CMDQ_STATE state);
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*-------------------------------DynFPS start------------------------------*/
+void DSI_dynfps_send_cmd(
+	void *cmdq, unsigned int cmd,
+	unsigned char count, unsigned char *para_list,
+	unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
+
+/*-------------------------------DynFPS end------------------------------*/
+#endif
 
 #ifdef __cplusplus
 }

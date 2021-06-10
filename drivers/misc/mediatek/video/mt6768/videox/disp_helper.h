@@ -82,7 +82,11 @@ enum DISP_HELPER_OPT {
 	DISP_OPT_TUI_MODE, /* 0: single-window; 1: multi-window */
 	/* HBM: High Backlight Mode */
 	DISP_OPT_LCM_HBM,
-
+	/*DynFPS*/
+	DISP_OPT_DYNAMIC_FPS,
+#ifdef CONFIG_MTK_MT6382_BDG
+	DISP_OPT_6382_BDG
+#endif
 	DISP_OPT_NUM
 };
 

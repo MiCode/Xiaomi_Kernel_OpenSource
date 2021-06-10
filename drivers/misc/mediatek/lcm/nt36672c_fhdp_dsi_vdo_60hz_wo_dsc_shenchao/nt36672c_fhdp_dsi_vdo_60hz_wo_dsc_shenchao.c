@@ -434,7 +434,6 @@ static void lcm_set_util_funcs(const struct LCM_UTIL_FUNCS *util)
 static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
 {
 	struct dfps_info *dfps_params = dsi->dfps_params;
-
 	dsi->dfps_enable = 1;
 	dsi->dfps_default_fps = 9000;/*real fps * 100, to support float*/
 	dsi->dfps_def_vact_tim_fps = 9000;/*real vact timing fps * 100*/
@@ -586,14 +585,14 @@ static void lcm_init_power(void)
 {
 	display_bias_enable();
 /*
- *	if (lcm_util.set_gpio_lcd_enp_bias) {
- *		lcm_util.set_gpio_lcd_enp_bias(1);
- *
- *		_lcm_i2c_write_bytes(0x0, 0xf);
- *		_lcm_i2c_write_bytes(0x1, 0xf);
- *	} else
- *		LCM_LOGI("set_gpio_lcd_enp_bias not defined...\n");
- */
+	if (lcm_util.set_gpio_lcd_enp_bias) {
+		lcm_util.set_gpio_lcd_enp_bias(1);
+
+		_lcm_i2c_write_bytes(0x0, 0xf);
+		_lcm_i2c_write_bytes(0x1, 0xf);
+	} else
+		LCM_LOGI("set_gpio_lcd_enp_bias not defined...\n");
+*/
 }
 
 static void lcm_suspend_power(void)
