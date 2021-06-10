@@ -537,6 +537,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	if (!cpu_active(this_cpu))
 		return;
 
+	update_rq_clock(this_rq);
 	/*
 	 * This is OK, because current is on_cpu, which avoids it being picked
 	 * for load-balance and preemption/IRQs are still disabled avoiding
