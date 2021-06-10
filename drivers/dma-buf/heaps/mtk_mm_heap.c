@@ -247,7 +247,7 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 	struct mm_heap_priv *buf_info = buffer->priv;
 
 	if (a->uncached)
-		attr = DMA_ATTR_SKIP_CPU_SYNC;
+		attr |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	mutex_lock(&buf_info->lock);
 
@@ -297,7 +297,8 @@ static void mtk_mm_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
 
 	if (a->uncached)
-		attr = DMA_ATTR_SKIP_CPU_SYNC;
+		attr |= DMA_ATTR_SKIP_CPU_SYNC;
+
 	if (!fwspec) {
 		a->mapped = false;
 		dma_unmap_sgtable(attachment->dev, table, direction, attr);
