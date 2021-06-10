@@ -56,19 +56,19 @@
 
 #define VMAX_VAL_GPU	(0x38) /* eem domain: 0.75v*/
 #define VMIN_VAL_GPU    (0x14) /* eem domain: 0.52v*/
-#define VCO_VAL_GPU     (0x18) /* eem domain: 0.55v*/
+#define VCO_VAL_GPU     (0x10) /* eem domain: 0.5v*/
 
 /* different for GPU_L */
 #define VMAX_VAL_GL     (0x38) /* eem domain: 0.75v*/
 #define VMIN_VAL_GL     (0x14) /* eem domain: 0.52v*/
-#define VCO_VAL_GL      (0x18) /* eem domain: 0.55v*/
+#define VCO_VAL_GL      (0x10) /* eem domain: 0.5v*/
 #define DVTFIXED_VAL_GL		(0x01)
 #define DVTFIXED_VAL_GPU	(0x06)
 
 /* different for GPU_H */
 #define VMAX_VAL_GH     (0x38) /* eem domain: 0.75v*/
 #define VMIN_VAL_GH     (0x14) /* eem domain: 0.52v*/
-#define VCO_VAL_GH      (0x18) /* eem domain: 0.55v*/
+#define VCO_VAL_GH      (0x10) /* eem domain: 0.5v*/
 
 /* check temperature upper/lower bound */
 #define LOW_TEMP_OFF_DEFAULT	(0)

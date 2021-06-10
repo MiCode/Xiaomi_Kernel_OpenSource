@@ -977,7 +977,6 @@ static void eemg_calculate_aging_margin(struct eemg_det *det,
 
 }
 
-#if SUPPORT_GPU_VB
 static void eemg_save_final_volt_aee(struct eemg_det *ndet)
 {
 #ifdef CONFIG_EEMG_AEE_RR_REC
@@ -1016,7 +1015,6 @@ static void eemg_save_final_volt_aee(struct eemg_det *ndet)
 	}
 #endif
 }
-#endif
 
 #if SUPPORT_GPU_VB
 static void eemg_interpolate_mid_opp(struct eemg_det *ndet)
@@ -1034,6 +1032,7 @@ static void eemg_interpolate_mid_opp(struct eemg_det *ndet)
 	}
 }
 #endif
+
 static void get_volt_table_in_thread(struct eemg_det *det)
 {
 #if ENABLE_LOO
@@ -1276,48 +1275,21 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 		eemg_error("low_temp_offset:%d, rm_dvtfix:%d, 'det'->id:%d\n",
 			low_temp_offset, rm_dvtfix_offset, det->ctrl_id);
 #endif
-#if ENABLE_LOO
-		if ((i > 0) && (ndet->volt_tbl_pmic[i] >
-			ndet->volt_tbl_pmic[i-1]) &&
-			(ndet->set_volt_to_upower)) {
-				/*                 _ /            */
-				/*                /_/             */
-				/*               /                */
-			if (det->loo_role == HIGH_BANK)
-				/* Receive high bank isr but low opp */
-				/* still using higher volt */
-				/* overwrite low bank opp voltage */
-				/*                  /             */
-				/*                _/              */
-				/*               /                */
-				ndet->volt_tbl_pmic[i] =
-					ndet->volt_tbl_pmic[i-1];
-			else {
-				/* Receive low bank isr but high opp */
-				/* still using lower volt */
-				/* overwrite high bank opp voltage */
-				/*                 _/             */
-				/*                /               */
-				/*               /                */
-				ndet->volt_tbl_pmic[i-1] =
-					ndet->volt_tbl_pmic[i];
-
-				if ((i > 1) && (ndet->volt_tbl_pmic[i] >
-						ndet->volt_tbl_pmic[i-2]))
-					ndet->volt_tbl_pmic[i-2] =
-						ndet->volt_tbl_pmic[i];
-			}
-		}
-#endif
-
 	}
 
 #if SUPPORT_GPU_VB
 	if ((ndet->ctrl_id == EEMG_CTRL_GPU) &&
 		(gpu_vb_turn_pt != 0))
 		eemg_interpolate_mid_opp(ndet);
-	eemg_save_final_volt_aee(ndet);
 #endif
+
+	for (i = NR_FREQ - 1; i > 0; i--) {
+		if (ndet->volt_tbl_pmic[i] > ndet->volt_tbl_pmic[i - 1])
+			ndet->volt_tbl_pmic[i - 1] =
+				ndet->volt_tbl_pmic[i];
+	}
+
+	eemg_save_final_volt_aee(ndet);
 
 #if ENABLE_LOO_G
 		if (ndet->set_volt_to_upower == 0) {
