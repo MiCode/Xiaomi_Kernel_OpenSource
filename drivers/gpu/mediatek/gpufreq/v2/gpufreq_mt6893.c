@@ -559,8 +559,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		g_gpu.power_count++;
 	else {
 		g_gpu.power_count--;
-		/* todo */
-		// check_pending_info();
+		__gpufreq_check_pending_exception();
 	}
 	__gpufreq_footprint_power_count(g_gpu.power_count);
 
@@ -1536,7 +1535,7 @@ static void __gpufreq_set_vgpu_mode(unsigned int mode)
 		ret = regulator_set_mode(g_pmic->reg_vgpu, mode);
 
 		if (unlikely(ret))
-			GPUFREQ_LOGE("fail to set regulator mode: %d (%d)",
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to set regulator mode: %d (%d)",
 				mode, ret);
 		else
 			GPUFREQ_LOGD("set regulator mode: %d, (%d: PWM, %d: AUTO)",
@@ -1801,7 +1800,7 @@ static int __gpufreq_volt_scale_gpu(
 				vsram_new * 10,
 				VSRAM_MAX_VOLT * 10 + 125);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to set VSRAM_GPU (%d)", ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to set VSRAM_GPU (%d)", ret);
 			goto done;
 		}
 
@@ -1810,7 +1809,7 @@ static int __gpufreq_volt_scale_gpu(
 				vgpu_new * 10,
 				VGPU_MAX_VOLT * 10 + 125);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to set VGPU (%d)", ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to set VGPU (%d)", ret);
 			goto done;
 		}
 	} else if (vgpu_new < vgpu_old) {
@@ -1827,7 +1826,7 @@ static int __gpufreq_volt_scale_gpu(
 				vgpu_new * 10,
 				VGPU_MAX_VOLT * 10 + 125);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to set VGPU (%d)", ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to set VGPU (%d)", ret);
 			goto done;
 		}
 
@@ -1836,7 +1835,7 @@ static int __gpufreq_volt_scale_gpu(
 				vsram_new * 10,
 				VSRAM_MAX_VOLT * 10 + 125);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to set VSRAM_GPU (%d)", ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to set VSRAM_GPU (%d)", ret);
 			goto done;
 		}
 	} else {
@@ -2181,12 +2180,12 @@ static int __gpufreq_buck_control(enum gpufreq_power_state power)
 	if (power == POWER_ON) {
 		ret = regulator_enable(g_pmic->reg_vsram);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to enable VSRAM_GPU (%d)", ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to enable VSRAM_GPU (%d)", ret);
 			goto done;
 		}
 		ret = regulator_enable(g_pmic->reg_vgpu);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to enable VGPU (%d)", ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to enable VGPU (%d)", ret);
 			goto done;
 		}
 
@@ -2194,12 +2193,12 @@ static int __gpufreq_buck_control(enum gpufreq_power_state power)
 	} else {
 		ret = regulator_disable(g_pmic->reg_vgpu);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to disable VGPU (%d)", ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to disable VGPU (%d)", ret);
 			goto done;
 		}
 		ret = regulator_disable(g_pmic->reg_vsram);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to disable VSRAM_GPU (%d)", ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to disable VSRAM_GPU (%d)", ret);
 			goto done;
 		}
 
@@ -2696,18 +2695,18 @@ static int __gpufreq_init_pmic(struct platform_device *pdev)
 	g_pmic->reg_vgpu =
 		regulator_get_optional(&pdev->dev, "_vgpu");
 	if (IS_ERR(g_pmic->reg_vgpu)) {
-		GPUFREQ_LOGE("fail to get VGPU (%ld)",
-			PTR_ERR(g_pmic->reg_vgpu));
 		ret = PTR_ERR(g_pmic->reg_vgpu);
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to get VGPU (%ld)",
+			PTR_ERR(g_pmic->reg_vgpu));
 		goto done;
 	}
 
 	g_pmic->reg_vsram =
 		regulator_get_optional(&pdev->dev, "_vsram_gpu");
 	if (IS_ERR(g_pmic->reg_vsram)) {
-		GPUFREQ_LOGE("fail to get VSRAM_GPU (%ld)",
-			PTR_ERR(g_pmic->reg_vsram));
 		ret = PTR_ERR(g_pmic->reg_vsram);
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to get VSRAM_GPU (%ld)",
+			PTR_ERR(g_pmic->reg_vsram));
 		goto done;
 	}
 

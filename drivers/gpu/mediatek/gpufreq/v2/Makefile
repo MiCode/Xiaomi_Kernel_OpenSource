@@ -19,6 +19,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pbm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/aed/
 
 ccflags-y += \
 	-Wno-unused-variable \
