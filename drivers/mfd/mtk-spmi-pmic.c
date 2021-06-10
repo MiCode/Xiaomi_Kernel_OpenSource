@@ -60,6 +60,10 @@ static const struct mfd_cell mt6363_devs[] = {
 		.of_compatible = "mediatek,mt6363-efuse",
 	},
 	{ .name = "mt6363-regulator", },
+	{
+		.name = "mt-pmic",
+		.of_compatible = "mediatek,spmi-pmic-debug",
+	},
 };
 
 static struct irq_top_t mt6363_ints[] = {
