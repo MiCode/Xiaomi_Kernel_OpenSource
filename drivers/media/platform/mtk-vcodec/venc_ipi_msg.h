@@ -68,6 +68,7 @@ enum venc_get_param_type {
 	GET_PARAM_FREE_BUFFERS,
 	GET_PARAM_ROI_RC_QP,
 	GET_PARAM_RESOLUTION_CHANGE,
+	GET_PARAM_REFBUF_FRAME_NUM,
 };
 
 /*
@@ -113,6 +114,9 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_ADJUST_MIN_QP,
 	VENC_SET_PARAM_ADJUST_I_P_QP_DELTA,
 	VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP,
+	VENC_SET_PARAM_MAX_REFP_NUM,
+	VENC_SET_PARAM_REFP_DISTANCE,
+	VENC_SET_PARAM_REFP_FRMNUM,
 };
 
 /**
@@ -417,6 +421,8 @@ struct venc_vcu_config {
 	__u32 i_p_qp_delta;
 	__u32 qp_control_mode;
 	__u32 frame_level_qp;
+	__u32 maxrefpnum;
+	__u32 maxrefbufFrameNum;
 };
 
 /**

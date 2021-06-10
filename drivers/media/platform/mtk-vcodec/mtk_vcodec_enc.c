@@ -500,6 +500,27 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->frame_level_qp = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_FRAME_LEVEL_QP;
 		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_MAX_REFP_NUM:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_MAX_REFP_NUM: %d",
+			ctrl->val);
+		p->maxrefpnum = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_MAX_REFP_NUM;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_REFP_DISTANCE:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_REFP_DISTANCE: %d",
+			ctrl->val);
+		p->refpdistance = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_REFP_DISTANCE;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_REFP_FRAME_NUM:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_REFP_FRAME_NUM: %d",
+			ctrl->val);
+		p->refpfrmnum = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_REFP_FRMNUM;
+		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
@@ -528,6 +549,12 @@ static int vidioc_venc_g_ctrl(struct v4l2_ctrl *ctrl)
 		venc_if_get_param(ctx,
 			GET_PARAM_RESOLUTION_CHANGE,
 			reschange);
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_REFP_MAX_FRAME_NUM:
+		venc_if_get_param(ctx,
+			GET_PARAM_REFBUF_FRAME_NUM,
+			&value);
+		ctrl->val = value;
 		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
@@ -1078,6 +1105,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	if (param->qp_control_mode) {
 		param->frame_level_qp = enc_params->frame_level_qp;
 	}
+	param->maxrefpnum = enc_params->maxrefpnum;
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,
@@ -2241,6 +2269,43 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					&enc_prm);
 	}
 
+	if (!ret &&
+		mtk_buf->param_change & MTK_ENCODE_PARAM_MAX_REFP_NUM) {
+		enc_prm.maxrefpnum = mtk_buf->enc_params.maxrefpnum;
+		mtk_v4l2_debug(1, "[%d] idx=%d, maxrefpdistance=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.maxrefpnum);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_MAX_REFP_NUM,
+					&enc_prm);
+	}
+
+	if (!ret &&
+		mtk_buf->param_change & MTK_ENCODE_PARAM_REFP_DISTANCE) {
+		enc_prm.refpdistance = mtk_buf->enc_params.refpdistance;
+		mtk_v4l2_debug(1, "[%d] idx=%d, refpdistance=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.refpdistance);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_REFP_DISTANCE,
+					&enc_prm);
+	}
+
+	if (!ret &&
+		mtk_buf->param_change & MTK_ENCODE_PARAM_REFP_FRMNUM) {
+		enc_prm.refpfrmnum = mtk_buf->enc_params.refpfrmnum;
+		mtk_v4l2_debug(1, "[%d] idx=%d, refpfrmnum=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.refpfrmnum);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_REFP_FRMNUM,
+					&enc_prm);
+	}
+
+
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
 
 	if (ret) {
@@ -2929,6 +2994,54 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.name = "Video Encoder frame level QP";
 	cfg.min = 0;
 	cfg.max = 51;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_REFP_DISTANCE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode refp distance";
+	cfg.min = 0;
+	cfg.max = 14;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_REFP_FRAME_NUM;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode refp frm num";
+	cfg.min = 0;
+	cfg.max = 0x7ffffff;
+	cfg.step = 1;
+	cfg.def = 0x7ffffff;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_MAX_REFP_NUM;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode refp max distance";
+	cfg.min = 0;
+	cfg.max = 16;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_REFP_MAX_FRAME_NUM;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Video encode refp max frame num";
+	cfg.min = 0;
+	cfg.max = 0x7ffffff;
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;

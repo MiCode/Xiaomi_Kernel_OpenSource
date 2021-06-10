@@ -444,6 +444,14 @@ static int venc_get_param(unsigned long handle,
 			return -EINVAL;
 		venc_get_resolution_change(inst, &inst->vsi->config, out);
 		break;
+
+	case GET_PARAM_REFBUF_FRAME_NUM: {
+		if (inst->vsi == NULL || out == NULL)
+			return -EINVAL;
+		*(int *)out = inst->vsi->config.maxrefbufFrameNum;
+		break;
+	}
+
 	default:
 		mtk_vcodec_err(inst, "invalid get parameter type=%d", type);
 		ret = -EINVAL;
@@ -506,6 +514,7 @@ static int venc_set_param(unsigned long handle,
 				enc_prm->color_desc,
 				sizeof(struct mtk_color_desc));
 		}
+		inst->vsi->config.maxrefpnum = enc_prm->maxrefpnum;
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {

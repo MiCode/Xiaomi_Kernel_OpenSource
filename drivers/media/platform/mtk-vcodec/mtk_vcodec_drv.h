@@ -100,6 +100,9 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_I_P_QP_DELTA = (1 << 20),
 	MTK_ENCODE_PARAM_QP_CONTROL_MODE = (1 << 21),
 	MTK_ENCODE_PARAM_FRAME_LEVEL_QP = (1 << 22),
+	MTK_ENCODE_PARAM_MAX_REFP_NUM = (1 << 23),
+	MTK_ENCODE_PARAM_REFP_DISTANCE = (1 << 24),
+	MTK_ENCODE_PARAM_REFP_FRMNUM = (1 << 25),
 };
 
 /*
@@ -253,6 +256,9 @@ struct mtk_enc_params {
 	unsigned int    i_p_qp_delta;
 	unsigned int    qp_control_mode;
 	unsigned int    frame_level_qp;
+	unsigned int    maxrefpnum;
+	unsigned int    refpdistance;
+	unsigned int    refpfrmnum;
 };
 
 /*
@@ -311,6 +317,9 @@ struct venc_enc_param {
 	unsigned int i_p_qp_delta;
 	unsigned int qp_control_mode;
 	unsigned int frame_level_qp;
+	unsigned int maxrefpnum;
+	unsigned int refpdistance;
+	unsigned int refpfrmnum;
 };
 
 /*
