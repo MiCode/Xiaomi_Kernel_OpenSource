@@ -1596,6 +1596,10 @@
 			nvmem-cell-names = "external-32k";
 		};
 
+		ccci_scp:ccci_scp {
+			compatible = "mediatek,ccci_md_scp";
+		};
+
 		gpio_usage_mapping:gpio {
 			compatible = "mediatek,gpio_usage_mapping";
 		};
