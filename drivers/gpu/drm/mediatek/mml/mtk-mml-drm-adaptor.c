@@ -21,6 +21,7 @@ struct mml_drm_ctx {
 	struct mml_dev *mml;
 	const struct mml_task_ops *task_ops;
 	atomic_t job_serial;
+	struct workqueue_struct *wq_destroy;
 };
 
 static bool check_hw_cap(struct mml_frame_data *src,
@@ -108,33 +109,11 @@ static struct mml_task *task_get_idle(struct mml_frame_config *cfg)
 	return task;
 }
 
-static struct mml_frame_config *frame_config_create(
-	struct mml_drm_ctx *ctx,
-	struct mml_frame_info *info)
-{
-	struct mml_frame_config *cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
-	if (!cfg)
-		return ERR_PTR(-ENOMEM);
-
-	INIT_LIST_HEAD(&cfg->entry);
-	list_add_tail(&cfg->entry, &ctx->configs);
-	ctx->config_cnt++;
-	cfg->info = *info;
-	mutex_init(&cfg->task_mutex);
-	INIT_LIST_HEAD(&cfg->tasks);
-	INIT_LIST_HEAD(&cfg->await_tasks);
-	INIT_LIST_HEAD(&cfg->done_tasks);
-	cfg->mml = ctx->mml;
-	cfg->task_ops = ctx->task_ops;
-
-	return cfg;
-}
-
 static void frame_config_destroy(struct mml_frame_config *cfg)
 {
 	struct mml_task *task, *tmp;
 
-	list_del_init(&cfg->entry);
+	mml_msg("[drm]%s frame config %p", __func__, cfg);
 
 	if (!list_empty(&cfg->await_tasks)) {
 		mml_err("still waiting tasks in wq during destroy config");
@@ -168,6 +147,39 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 
 	mml_core_deinit_config(cfg);
 	kfree(cfg);
+
+	mml_msg("[drm]%s frame config %p destroy done", __func__, cfg);
+}
+
+static void frame_config_destroy_work(struct work_struct *work)
+{
+	struct mml_frame_config *cfg = container_of(work,
+		struct mml_frame_config, work_destroy);
+
+	frame_config_destroy(cfg);
+}
+
+static struct mml_frame_config *frame_config_create(
+	struct mml_drm_ctx *ctx,
+	struct mml_frame_info *info)
+{
+	struct mml_frame_config *cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
+	if (!cfg)
+		return ERR_PTR(-ENOMEM);
+
+	INIT_LIST_HEAD(&cfg->entry);
+	list_add_tail(&cfg->entry, &ctx->configs);
+	ctx->config_cnt++;
+	cfg->info = *info;
+	mutex_init(&cfg->task_mutex);
+	INIT_LIST_HEAD(&cfg->tasks);
+	INIT_LIST_HEAD(&cfg->await_tasks);
+	INIT_LIST_HEAD(&cfg->done_tasks);
+	cfg->mml = ctx->mml;
+	cfg->task_ops = ctx->task_ops;
+	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
+
+	return cfg;
 }
 
 static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
@@ -238,8 +250,10 @@ static void task_frame_done(struct mml_task *task)
 	}
 
 	if (ctx->config_cnt >= MAX_CACHE_CONFIG &&
-		list_empty(&cfg->tasks) && list_empty(&cfg->await_tasks))
-		frame_config_destroy(cfg);
+		list_empty(&cfg->tasks) && list_empty(&cfg->await_tasks)) {
+		list_del_init(&cfg->entry);
+		queue_work(ctx->wq_destroy, &cfg->work_destroy);
+	}
 
 	mutex_unlock(&ctx->config_mutex);
 }
@@ -262,19 +276,25 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 			task->state = MML_TASK_REUSE;
 		} else {
 			task = mml_core_create_task();
-			if (IS_ERR(task))
-				return PTR_ERR(task);
+			if (IS_ERR(task)) {
+				result = PTR_ERR(task);
+				goto err_unlock_exit;
+			}
 			task->config = cfg;
 		}
 	} else {
 		mml_msg("%s create config", __func__);
 		cfg = frame_config_create(ctx, &submit->info);
-		if (IS_ERR(cfg))
-			return PTR_ERR(cfg);
+		if (IS_ERR(cfg)) {
+			result = PTR_ERR(cfg);
+			goto err_unlock_exit;
+		}
 		task = mml_core_create_task();
 		if (IS_ERR(task)) {
+			list_del_init(&cfg->entry);
 			frame_config_destroy(cfg);
-			return PTR_ERR(task);
+			result = PTR_ERR(task);
+			goto err_unlock_exit;
 		}
 		task->config = cfg;
 	}
@@ -301,6 +321,10 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	result = mml_core_submit_task(cfg, task);
 
 	return result;
+
+err_unlock_exit:
+	mutex_unlock(&ctx->config_mutex);
+	return result;
 }
 EXPORT_SYMBOL_GPL(mml_drm_submit);
 
@@ -313,6 +337,8 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)
 {
 	struct mml_drm_ctx *ctx;
 
+	mml_msg("[drm]%s on dev %p", __func__, mml);
+
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return ERR_PTR(-ENOMEM);
@@ -321,6 +347,7 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)
 	mutex_init(&ctx->config_mutex);
 	ctx->mml = mml;
 	ctx->task_ops = &drm_task_ops;
+	ctx->wq_destroy = alloc_workqueue("mml_destroy", 0, 0);
 	return ctx;
 }
 
@@ -341,13 +368,17 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 {
 	struct mml_frame_config *cfg, *tmp;
 
+	mml_msg("[drm]%s on ctx %p", __func__, ctx);
+
 	mutex_lock(&ctx->config_mutex);
 	list_for_each_entry_safe(cfg, tmp, &ctx->configs, entry) {
 		/* check and remove configs/tasks in this context */
+		list_del_init(&cfg->entry);
 		frame_config_destroy(cfg);
 	}
 
 	mutex_unlock(&ctx->config_mutex);
+	destroy_workqueue(ctx->wq_destroy);
 	kfree(ctx);
 }
 

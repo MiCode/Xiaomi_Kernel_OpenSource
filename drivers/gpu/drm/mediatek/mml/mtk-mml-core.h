@@ -174,6 +174,9 @@ struct mml_frame_config {
 	struct workqueue_struct *wq_config[MML_PIPE_CNT];
 	struct workqueue_struct *wq_wait;
 
+	/* use on context wq_destroy */
+	struct work_struct work_destroy;
+
 	/* cache for pipe and component private data for this config */
 	struct mml_pipe_cache cache[MML_PIPE_CNT];
 
