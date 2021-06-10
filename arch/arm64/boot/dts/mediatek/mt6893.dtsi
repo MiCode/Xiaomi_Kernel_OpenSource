@@ -3015,6 +3015,12 @@
 			reg = <0 0x11230000 0 0x10000>,
 			      <0 0x11f50000 0 0x1000>;
 			interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MSDC50_0_HCLK>,
+				 <&topckgen_clk CLK_TOP_MSDC50_0>,
+				 <&infracfg_ao_clk CLK_IFRAO_MSDC0>,
+				 <&infracfg_ao_clk CLK_IFRAO_MSDC0_SRC>;
+			clock-names = "bus_clk", "source", "hclk", "source_cg";
+			status = "disabled";
 		};
 
 		mmc1: mmc@11240000 {
@@ -3026,6 +3032,7 @@
 				 <&infracfg_ao_clk CLK_IFRAO_MSDC1>,
 				 <&infracfg_ao_clk CLK_IFRAO_MSDC1_SRC>;
 			clock-names = "source", "hclk", "source_cg";
+			status = "disabled";
 		};
 
 		mali: mali@13000000 {

@@ -1251,11 +1251,6 @@
 	};
 };
 
-&mt6359p_vemc_reg {
-	regulator-min-microvolt = <2500000>;
-	regulator-max-microvolt = <2500000>;
-};
-
 &mt6359p_vgpu11_reg {
 	regulator-always-on;
 };

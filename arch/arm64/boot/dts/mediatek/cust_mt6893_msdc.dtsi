@@ -3,11 +3,11 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 /********************************************
- * MT6873 MSDC DTSI File
+ * MT6893 MSDC DTSI File
  ********************************************/
 #include <dt-bindings/gpio/gpio.h>
-#if 0
 &mmc0 {
+	host-index = <0>;
 	status = "okay";
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc0_pins_default>;
@@ -17,7 +17,7 @@
 	cap-mmc-highspeed;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-	cap-mmc-hw-reset;
+	//cap-mmc-hw-reset;
 	no-sdio;
 	no-sd;
 	hs400-ds-delay = <0x12814>;
@@ -25,9 +25,9 @@
 	non-removable;
 	supports-cqe;
 };
-#endif
 
 &mmc1 {
+	host-index = <1>;
 	status = "okay";
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc1_pins_default>;
@@ -48,7 +48,6 @@
 };
 
 &pio {
-#if 0
 	mmc0_pins_default: mmc0default {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO184__FUNC_MSDC0_DAT0>,
@@ -61,14 +60,17 @@
 				<PINMUX_GPIO190__FUNC_MSDC0_DAT7>,
 				<PINMUX_GPIO183__FUNC_MSDC0_CMD>;
 			input-enable;
+			drive-strength = <4>;
 			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
 		};
 		pins_clk {
 			pinmux = <PINMUX_GPIO192__FUNC_MSDC0_CLK>;
+			drive-strength = <4>;
 			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
 		};
 		pins_rst {
 			pinmux = <PINMUX_GPIO194__FUNC_MSDC0_RSTB>;
+			drive-strength = <4>;
 			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_00>;
 		};
 	};
@@ -103,7 +105,6 @@
 			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_00>;
 		};
 	};
-#endif
 	mmc1_pins_default: mmc1default {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO54__FUNC_MSDC1_DAT0>,
