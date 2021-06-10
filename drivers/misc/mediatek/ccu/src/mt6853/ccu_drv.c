@@ -54,6 +54,7 @@
 #include "m4u.h"
 #endif
 
+#include <smi_public.h>
 
 #include <linux/clk.h>
 
@@ -500,6 +501,15 @@ int ccu_clock_enable(void)
 	ret = clk_prepare_enable(ccu_clk_pwr_ctrl[2]);
 	if (ret)
 		LOG_ERR("CCU_CLK_CAM_CCU enable fail.\n");
+	ret = smi_bus_prepare_enable(
+		SMI_LARB13, "ccui_disp");
+	if (ret)
+		LOG_ERR("LARB13_ccui_disp:smi_bus_prepare_enable fail");
+	ret = smi_bus_prepare_enable(
+		SMI_LARB13, "ccuo_disp");
+	if (ret)
+		LOG_ERR("LARB13_ccuo_disp:smi_bus_prepare_enable fail");
+
 #endif
 	mutex_unlock(&g_ccu_device->clk_mutex);
 	return ret;
@@ -507,6 +517,8 @@ int ccu_clock_enable(void)
 
 void ccu_clock_disable(void)
 {
+	int ret = 0;
+
 	LOG_DBG_MUST("%s. %d\n", __func__, _clk_count);
 
 	mutex_lock(&g_ccu_device->clk_mutex);
@@ -515,6 +527,14 @@ void ccu_clock_disable(void)
 		clk_disable_unprepare(ccu_clk_pwr_ctrl[2]);
 		clk_disable_unprepare(ccu_clk_pwr_ctrl[1]);
 		clk_disable_unprepare(ccu_clk_pwr_ctrl[0]);
+		ret = smi_bus_disable_unprepare(
+			SMI_LARB13, "ccui_disp");
+		if (ret)
+			LOG_ERR("LARB13_ccui_disp:smi_bus_disable_unprepare fail");
+		ret = smi_bus_disable_unprepare(
+			SMI_LARB13, "ccuo_disp");
+		if (ret)
+			LOG_ERR("LARB13_ccuo_disp:smi_bus_disable_unprepare fail");
 		_clk_count--;
 	}
 #endif
