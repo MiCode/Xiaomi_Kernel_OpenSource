@@ -153,7 +153,9 @@ struct mml_frame_config {
 	struct mml_frame_info info;
 	struct mutex task_mutex;
 	struct list_head tasks;
+	struct list_head await_tasks;
 	struct list_head done_tasks;
+	u8 done_task_cnt;
 	bool dual;
 	bool alpharot;
 
@@ -167,7 +169,7 @@ struct mml_frame_config {
 	const struct mml_task_ops *task_ops;
 
 	/* workqueue */
-	struct workqueue_struct *wq_config[2];
+	struct workqueue_struct *wq_config[MML_PIPE_CNT];
 	struct workqueue_struct *wq_wait;
 
 	/* cache for pipe and component private data for this config */

@@ -11,6 +11,9 @@
 
 #define MML_REF_NAME "mml"
 
+#define MAX_CACHE_CONFIG	0
+#define MAX_CACHE_TASK		0
+
 struct mml_drm_ctx {
 	struct list_head configs;
 	u32 config_cnt;
@@ -115,9 +118,11 @@ static struct mml_frame_config *frame_config_create(
 
 	INIT_LIST_HEAD(&cfg->entry);
 	list_add_tail(&cfg->entry, &ctx->configs);
+	ctx->config_cnt++;
 	cfg->info = *info;
 	mutex_init(&cfg->task_mutex);
 	INIT_LIST_HEAD(&cfg->tasks);
+	INIT_LIST_HEAD(&cfg->await_tasks);
 	INIT_LIST_HEAD(&cfg->done_tasks);
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
@@ -129,12 +134,19 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 {
 	struct mml_task *task, *tmp;
 
-	if (unlikely(!list_empty(&cfg->tasks))) {
-		mml_log("%s task still running");
-		return;
-	}
-
 	list_del_init(&cfg->entry);
+
+	if (!list_empty(&cfg->await_tasks)) {
+		mml_err("still waiting tasks in wq during destroy config");
+		list_for_each_entry_safe(task, tmp, &cfg->await_tasks, entry) {
+			/* unable to handling error,
+			 * print error but not destroy
+			 */
+			mml_err("busy task:%p", task);
+			list_del_init(&task->entry);
+			task->config = NULL;
+		}
+	}
 
 	if (!list_empty(&cfg->tasks)) {
 		mml_err("still busy tasks during destroy config");
@@ -148,8 +160,9 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 		}
 	}
 
-	list_for_each_entry_safe(task, tmp, &cfg->done_tasks, entry) {
-		list_del_init(&task->entry);
+	while (!list_empty(&cfg->done_tasks)) {
+		task = list_first_entry(&cfg->done_tasks, typeof(*task),
+			entry);
 		mml_core_destroy_task(task);
 	}
 
@@ -165,6 +178,10 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	for (i = 0; i < fdbuf->cnt; i++) {
 		fbuf->f[i] = fget(fdbuf->fd[i]);
 		fbuf->size[i] = fdbuf->size[i];
+
+		if (!fbuf->f[i])
+			mml_err("[drm] fail to get file from fd %hhu/%hhu %d",
+				i, fdbuf->cnt - 1, fdbuf->fd[i]);
 	}
 	fbuf->cnt = fdbuf->cnt;
 	fbuf->usage = fdbuf->usage;
@@ -178,27 +195,52 @@ static void task_submit_done(struct mml_task *task)
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 
 	mutex_lock(&ctx->config_mutex);
+	list_del_init(&task->entry);
 	task->state = MML_TASK_RUNNING;
-	list_add_tail(&task->config->tasks, &task->entry);
+	list_add_tail(&task->entry, &task->config->tasks);
 	mutex_unlock(&ctx->config_mutex);
 }
 
 static void task_frame_done(struct mml_task *task)
 {
+	struct mml_frame_config *cfg = task->config;
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 	u8 idx_d, idx_p;
 
 	/* clean up */
 	for (idx_d = 0; idx_d < task->buf.dest_cnt; idx_d++)
 		for (idx_p = 0; idx_p < task->buf.dest[idx_d].cnt; idx_p++)
-			fput(task->buf.dest[idx_d].f[idx_p]);
+			if (task->buf.dest[idx_d].f[idx_p])
+				fput(task->buf.dest[idx_d].f[idx_p]);
+			else
+				mml_err("[drm] no dest file %hhu %hhu to put",
+					idx_d, idx_p);
 	for (idx_p = 0; idx_p < task->buf.src.cnt; idx_p++)
-		fput(task->buf.src.f[idx_p]);
+		if (task->buf.src.f[idx_p])
+			fput(task->buf.src.f[idx_p]);
+		else
+			mml_err("[drm] no src file %hhu to put", idx_p);
+
+	/* TODO: Confirm buf file and fence release correctly,
+	 * after implement dmabuf and fence mechanism.
+	 */
 
 	mutex_lock(&ctx->config_mutex);
 	list_del_init(&task->entry);
 	task->state = MML_TASK_IDLE;
-	list_add_tail(&task->config->done_tasks, &task->entry);
+	list_add_tail(&task->entry, &cfg->done_tasks);
+	cfg->done_task_cnt++;
+
+	if (cfg->done_task_cnt >= MAX_CACHE_TASK) {
+		task = list_first_entry(&cfg->done_tasks, typeof(*task),
+			entry);
+		mml_core_destroy_task(task);
+	}
+
+	if (ctx->config_cnt >= MAX_CACHE_CONFIG &&
+		list_empty(&cfg->tasks) && list_empty(&cfg->await_tasks))
+		frame_config_destroy(cfg);
+
 	mutex_unlock(&ctx->config_mutex);
 }
 
@@ -240,6 +282,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	/* make sure id unique and cached last */
 	task->job.jobid = atomic_inc_return(&ctx->job_serial);
 	cfg->last_jobid = task->job.jobid;
+	list_add_tail(&task->entry, &cfg->await_tasks);
 
 	mutex_unlock(&ctx->config_mutex);
 

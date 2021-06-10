@@ -374,8 +374,21 @@ struct mml_task *mml_core_create_task(void)
 
 void mml_core_destroy_task(struct mml_task *task)
 {
-	return kfree(task);
+	int i;
+
+	list_del_init(&task->entry);
+	for (i = 0; i < ARRAY_SIZE(task->pkts); i++)
+		if (task->pkts[i])
+			cmdq_pkt_destroy(task->pkts[i]);
+	kfree(task);
 }
+
+#define core_destroy_wq(wq) do {\
+	if (wq) {\
+		destroy_workqueue(wq); \
+		wq = NULL; \
+	} \
+} while (0);
 
 void mml_core_deinit_config(struct mml_frame_config *config)
 {
@@ -388,6 +401,9 @@ void mml_core_deinit_config(struct mml_frame_config *config)
 		kfree(config->cache[pipe].labels);
 		destroy_tile_output(config->tile_output[pipe]);
 	}
+	for (i = 0; i < ARRAY_SIZE(config->wq_config); i++)
+		core_destroy_wq(config->wq_config[i]);
+	core_destroy_wq(config->wq_wait);
 }
 
 s32 mml_core_submit_task(struct mml_frame_config *frame_config,
