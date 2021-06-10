@@ -69,12 +69,14 @@ static int hang_detect_counter = 0x7fffffff;
 static int dump_bt_done;
 static bool reboot_flag;
 static struct name_list *white_list;
+static struct hang_callback_list *callback_list;
 
 
 
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
 DEFINE_RAW_SPINLOCK(white_list_lock);
+DEFINE_RAW_SPINLOCK(callback_list_lock);
 
 static void show_status(int flag);
 static void monitor_hang_kick(int lParam);
@@ -159,6 +161,41 @@ int del_white_list(char *name)
 	raw_spin_unlock(&white_list_lock);
 	return 0;
 }
+
+int register_hang_callback(void (*function_addr)(void))
+{
+	struct hang_callback_list *new_callback;
+	struct hang_callback_list *pList;
+
+	raw_spin_lock(&callback_list_lock);
+	if (!callback_list) {
+		new_callback = kmalloc(sizeof(struct hang_callback_list), GFP_KERNEL);
+		if (!new_callback) {
+			raw_spin_unlock(&callback_list_lock);
+			return -1;
+		}
+		new_callback->fn = function_addr;
+		new_callback->next = NULL;
+		callback_list = new_callback;
+		raw_spin_unlock(&callback_list_lock);
+		return 0;
+	}
+
+	pList = callback_list;
+	/*add new thread name*/
+	new_callback = kmalloc(sizeof(struct hang_callback_list), GFP_KERNEL);
+	if (!new_callback) {
+		raw_spin_unlock(&callback_list_lock);
+		return -1;
+	}
+
+	new_callback->fn = function_addr;
+	new_callback->next = callback_list;
+	callback_list = new_callback;
+	raw_spin_unlock(&callback_list_lock);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(register_hang_callback);
 
 /******************************************************************************
  * hang detect File operations
@@ -965,6 +1002,24 @@ static int show_white_list_bt(struct task_struct *p)
 	return -1;
 }
 
+static int run_callback()
+{
+	struct hang_callback_list *pList = NULL;
+
+	if (!callback_list)
+		return -1;
+
+
+	raw_spin_lock(&callback_list_lock);
+	pList = callback_list;
+	while (pList) {
+		pList->fn();
+		pList = pList->next;
+	}
+	raw_spin_unlock(&callback_list_lock);
+	return -1;
+}
+
 static void show_task_backtrace(void)
 {
 	struct task_struct *p, *t, *system_server_task = NULL;
@@ -1049,15 +1104,8 @@ static void show_status(int flag)
 		debug_show_all_locks();
 #ifndef MODULE
 		show_free_areas(0, NULL);
-		if (show_task_mem)
-			show_task_mem();
 #endif
-#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
-		mtk_dump_gpu_memory_usage();
-#endif
-#if IS_ENABLED(CONFIG_MTK_WQ_DEBUG)
-		wq_debug_dump();
-#endif
+		run_callback();
 
 	}
 }

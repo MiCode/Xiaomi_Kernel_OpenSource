@@ -14,6 +14,12 @@ struct name_list {
 	struct name_list *next;
 };
 
+struct hang_callback_list
+{
+	void (*fn)(void);
+	struct hang_callback_list *next;
+};
+
 /* hang detect timeout value*/
 #define	COUNT_SWT_INIT		0
 #define	COUNT_SWT_NORMAL	10
@@ -33,8 +39,7 @@ struct name_list {
 #define HANG_ADD_WHITE_LIST _IOR('p', 0x13, char [TASK_COMM_LEN])
 #define HANG_DEL_WHITE_LIST _IOR('p', 0x14, char [TASK_COMM_LEN])
 
-extern void show_task_mem(void);
-extern void mtk_dump_gpu_memory_usage(void);
+extern int register_hang_callback(void (*function_addr)(void));
 
 #ifdef CONFIG_MTK_HANG_DETECT_LOG
 #define hang_log pr_info
