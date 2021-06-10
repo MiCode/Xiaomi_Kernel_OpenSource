@@ -77,6 +77,7 @@
 #define dpe_dump_read_en
 #define SMI_CLK
 #define CMDQ_COMMON
+#define CHECK_SERVICE_IF_0 0
 //#define m4u_en
 //#define  Performance_Usage
 //!#define smi_en
@@ -4637,6 +4638,11 @@ if (DPE_dev->irq > 0) {
 			pDev->dev.of_node->name, DPE_dev->irq);
 }
 #endif
+
+	pm_runtime_enable(DPE_dev->dev);
+	if (!pm_runtime_enabled(DPE_dev->dev))
+		goto EXIT;
+
 	/* Only register char driver in the 1st time */
 	if (nr_DPE_devs == 2) {
 		/* Register char driver */
@@ -4750,7 +4756,6 @@ if (DPE_dev->irq > 0) {
 	gdev = &pDev->dev;
 	LOG_INF("DPE_probe_gdev_addr = %x\n", &gdev);
 #endif
-		pm_runtime_enable(gdev);
 		/* Init spinlocks */
 		spin_lock_init(&(DPEInfo.SpinLockDPERef));
 		spin_lock_init(&(DPEInfo.SpinLockDPE));
@@ -4784,7 +4789,6 @@ if (DPE_dev->irq > 0) {
 		seqlock_init(&(dpe_reqs.seqlock));
 		snprintf(DPE_dev->v4l2_dev.name, sizeof(DPE_dev->v4l2_dev.name),
 			"%s-%03d", DPE_DEV_NAME, 0);
-//#if 0
 		Ret = v4l2_device_register(&pDev->dev, &DPE_dev->v4l2_dev);
 		LOG_INF("v4l2_device_register = %d\n", Ret);
 		DPE_dev->v4l2_dev.release = dpe_dev_release;
@@ -4814,7 +4818,6 @@ if (DPE_dev->irq > 0) {
 			video_unregister_device(vfd);
 			LOG_ERR("video_register_device failed\n");
 		}
-//#endif
 	}
 	g_DPE_PMState = 0;
 EXIT:
@@ -4945,8 +4948,8 @@ int DPE_pm_restore_noirq(struct device *device)
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id DPE_of_ids[] = {
 	//{.compatible = "mediatek,ipesys_config",},
-	{.compatible = "mediatek,dvp",},
 	{.compatible = "mediatek,dvs",},
+	{.compatible = "mediatek,dvp",},
 	{}
 };
 #endif
@@ -5275,10 +5278,13 @@ static signed int __init DPE_Init(void)
 {
 	signed int Ret = 0, j;
 	void *tmp;
+#if CHECK_SERVICE_IF_0
 	struct device_node *node = NULL;
+
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
 	struct proc_dir_entry *isp_dpe_dir;
+#endif
 	int i;
 
 
@@ -5288,6 +5294,8 @@ static signed int __init DPE_Init(void)
 		LOG_ERR("platform_driver_register fail");
 		return Ret;
 	}
+
+#if CHECK_SERVICE_IF_0
 	node = of_find_compatible_node(NULL, NULL, "mediatek,dvs");
 	if (!node) {
 		LOG_ERR("find mediatek,DPE node failed!!!\n");
@@ -5304,6 +5312,7 @@ static signed int __init DPE_Init(void)
 		LOG_ERR("[%s]: fail to mkdir /proc/dpe\n", __func__);
 		return 0;
 	}
+#endif
 
 	/* isr log */
 	if (PAGE_SIZE <
