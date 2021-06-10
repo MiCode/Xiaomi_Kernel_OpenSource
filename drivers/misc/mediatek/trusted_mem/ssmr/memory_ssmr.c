@@ -369,6 +369,7 @@ int ssmr_offline(phys_addr_t *pa, unsigned long *size, bool is_64bit,
 	return _ssmr_offline_internal(
 		pa, size, is_64bit ? UPPER_LIMIT64 : UPPER_LIMIT32, feat);
 }
+EXPORT_SYMBOL(ssmr_offline);
 
 static int memory_region_online(struct SSMR_Feature *feature)
 {
@@ -432,6 +433,7 @@ int ssmr_online(unsigned int feat)
 
 	return _ssmr_online_internal(feat);
 }
+EXPORT_SYMBOL(ssmr_online);
 
 bool is_page_based_memory(enum TRUSTED_MEM_TYPE mem_type)
 {
