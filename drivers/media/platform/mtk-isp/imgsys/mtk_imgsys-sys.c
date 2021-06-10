@@ -825,7 +825,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data)
 		req->img_fparam.frameparam.num_inputs,
 		req->img_fparam.frameparam.num_outputs);
 
-	if (data.sta) {
+	if (data.err < 0) {
 		dev_info(imgsys_dev->dev,
 			"%s: req fd/no(%d/%d)frame no(%d) timeout, kva(0x%lx)lst(%d)e_cb(%d/%d)sidx(%d)tfrm(%d)\n",
 			__func__, swfrminfo_cb->request_fd,

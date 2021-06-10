@@ -2461,9 +2461,11 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 
 	imgsys_cmdq_init(imgsys_dev, 1);
 
+	#if DVFS_QOS_READY
 	mtk_imgsys_mmdvfs_init(imgsys_dev);
 
 	mtk_imgsys_mmqos_init(imgsys_dev);
+	#endif
 
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 3000);
 	pm_runtime_use_autosuspend(&pdev->dev);
@@ -2488,8 +2490,10 @@ static int mtk_imgsys_remove(struct platform_device *pdev)
 	mtk_imgsys_dev_v4l2_release(imgsys_dev);
 	mtk_imgsys_hw_working_buf_pool_release(imgsys_dev);
 	mutex_destroy(&imgsys_dev->hw_op_lock);
+	#if DVFS_QOS_READY
 	mtk_imgsys_mmqos_uninit(imgsys_dev);
 	mtk_imgsys_mmdvfs_uninit(imgsys_dev);
+	#endif
 	imgsys_cmdq_release(imgsys_dev);
 
 	return 0;

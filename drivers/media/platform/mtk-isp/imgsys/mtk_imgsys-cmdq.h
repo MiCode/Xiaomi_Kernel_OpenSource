@@ -7,9 +7,11 @@
  */
 
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-sys.h"
+
+#define DVFS_QOS_READY         (0)
 
 #define IMGSYS_DVFS_ENABLE     (1)
 #define IMGSYS_QOS_ENABLE      (1)
@@ -177,7 +179,6 @@ struct frame_bw_t {
 	struct dip_bw_t dip;
 } __attribute__((__packed__));
 
-#ifdef GCE_COM_ENABLE
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev);
 void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev);
 int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
@@ -185,34 +186,15 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				void (*cmdq_cb)(struct cmdq_cb_data data),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
 				uint32_t fail_uinfo_idx));
-void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev);
-void mtk_imgsys_mmdvfs_uninit(struct mtk_imgsys_dev *imgsys_dev);
-void mtk_imgsys_mmqos_init(struct mtk_imgsys_dev *imgsys_dev);
-void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev);
-#else
-#define imgsys_cmdq_init(imgsys_dev, nr_dev)
-#define imgsys_cmdq_release(imgsys_dev)
-
-#define imgsys_cmdq_sendtask(imgsys_dev, frm_info, cmdq_cb, cmdq_err_cb)\
-({									\
-	int __ret = -1;							\
-	(void)cmdq_cb;							\
-	(void)cmdq_err_cb;						\
-	__ret;								\
-})
-
-
-#define mtk_imgsys_mmdvfs_init(imgsys_dev)
-#define mtk_imgsys_mmdvfs_uninit(imgsys_dev)
-
-#define mtk_imgsys_mmqos_init(imgsys_dev)
-#define mtk_imgsys_mmqos_uninit(imgsys_dev)
-#endif
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd);
 
+void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmdvfs_uninit(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
+void mtk_imgsys_mmqos_init(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);

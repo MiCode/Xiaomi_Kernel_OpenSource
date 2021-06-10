@@ -16,7 +16,8 @@ mtk_imgsys_util-objs := \
 mtk_imgsys-v4l2.o \
 mtk_imgsys-dev.o \
 mtk_imgsys-of.o \
-mtk_imgsys-sys.o
+mtk_imgsys-sys.o \
+mtk_imgsys-cmdq.o
 
 mtk_imgsys_hw_isp71-objs := \
 platforms/isp71/mtk_imgsys-debug.o \

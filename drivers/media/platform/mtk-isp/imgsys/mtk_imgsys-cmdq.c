@@ -7,7 +7,7 @@
  */
 
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include "mtk_imgsys-cmdq.h"
@@ -17,11 +17,8 @@
 #include "mtk_imgsys-trace.h"
 #include "mtk-interconnect.h"
 
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-#include <cmdq-util.h>
-#endif
-
 struct workqueue_struct *imgsys_cmdq_wq;
+static u32 is_stream_off;
 
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev)
 {
@@ -122,24 +119,27 @@ static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
 			break;
 		case IMGSYS_CMD_WAIT:
 			pr_info(
-			"%s: WAIT event(%d) action(%d)\n", __func__, cmd[cmd_idx].u.event,
+			"%s: WAIT event(%d/%d) action(%d)\n", __func__,
+				cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
 				cmd[cmd_idx].u.action);
 			break;
 		case IMGSYS_CMD_UPDATE:
 			pr_info(
-			"%s: UPDATE event(%d) action(%d)\n", __func__, cmd[cmd_idx].u.event,
+			"%s: UPDATE event(%d/%d) action(%d)\n", __func__,
+				cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
 				cmd[cmd_idx].u.action);
 			break;
 		case IMGSYS_CMD_ACQUIRE:
 			pr_info(
-			"%s: ACQUIRE event(%d) action(%d)\n", __func__, cmd[cmd_idx].u.event,
+			"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
+				cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
 				cmd[cmd_idx].u.action);
 			break;
 		case IMGSYS_CMD_STOP:
 			pr_info("%s: End Of Cmd!\n", __func__);
 			break;
 		default:
-			pr_info("%s: Not Support Cmd(%d)!\n", __func__, cmd[cmd_idx].opcode);
+			pr_info("%s: [ERROR]Not Support Cmd(%d)!\n", __func__, cmd[cmd_idx].opcode);
 			break;
 		}
 	}
@@ -159,8 +159,8 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
 	imgsys_dev = cb_param->imgsys_dev;
 
-	if (cb_param->frm_info != NULL) {
-		pr_debug(
+	if (is_stream_off == 0) {
+		dev_dbg(imgsys_dev->dev,
 			"%s: req fd/no(%d/%d) frame no(%d) cb(%p) isBlkLast(%d) isFrmLast(%d) for frm(%d/%d)\n",
 			__func__, cb_param->frm_info->request_fd,
 			cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
@@ -187,9 +187,11 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 				cb_param->frm_info->frame_no, cb_param->frm_info->request_fd,
 				cb_param->frm_info->frm_owner);
 			mutex_lock(&(imgsys_dev->dvfs_qos_lock));
+			#if DVFS_QOS_READY
 			mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
 			mtk_imgsys_mmdvfs_set(imgsys_dev, cb_param->frm_info, 0);
 			mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
+			#endif
 			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 			IMGSYS_SYSTRACE_END();
 			tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
@@ -207,8 +209,8 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
 		}
 	} else
-		pr_info("%s: [ERROR] cb(%p) frm_info is NULL!\n",
-			__func__, cb_param);
+		pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
+			__func__, cb_param, is_stream_off);
 
 	IMGSYS_SYSTRACE_BEGIN(
 		"%s_%s|cb:%p frm(%d/%d/%d) hw_comb:0x%x DvfsSt(%lld) SetCmd(%lld) HW(%lld) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
@@ -226,7 +228,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	cb_param->cmdqTs.tsReqEnd = ktime_get_boottime_ns()/1000;
 	IMGSYS_SYSTRACE_END();
 
-	pr_debug(
+	dev_dbg(imgsys_dev->dev,
 	"%s: TSus cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
 		__func__, cb_param, cb_param->err, cb_param->frm_idx,
 		cb_param->frm_num, cb_frm_cnt, hw_comb,
@@ -251,7 +253,7 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 	pr_debug("%s: +\n", __func__);
 
 	if (!data.data) {
-		pr_info("%s:no callback data\n", __func__);
+		pr_info("%s: [ERROR]no callback data\n", __func__);
 		return;
 	}
 
@@ -266,7 +268,7 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 	if (cb_param->err != 0) {
 		pr_info("%s: [ERROR] cb(%p) error(%d) for frm(%d/%d)",
 			__func__, cb_param, cb_param->err, cb_param->frm_idx, cb_param->frm_num);
-		if (cb_param->frm_info != NULL) {
+		if (is_stream_off == 0) {
 			pipe = (struct mtk_imgsys_pipe *)cb_param->frm_info->pipe;
 			if (pipe->streaming) {
 				imgsys_cmdq_cmd_dump(cb_param->frm_info, cb_param->frm_idx);
@@ -278,12 +280,14 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 					cb_param->user_cmdq_err_cb(
 						user_cb_data, cb_param->frm_idx);
 				}
-			} else
-				pr_info("%s: [ERROR] cb(%p) pipe already streamoff\n",
-					__func__, cb_param);
+			} else {
+				is_stream_off = 1;
+				pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)\n",
+					__func__, cb_param, is_stream_off);
+			}
 		} else
-			pr_info("%s: [ERROR] cb(%p) frm_info is NULL!\n",
-				__func__, cb_param);
+			pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
+				__func__, cb_param, is_stream_off);
 	}
 
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
@@ -319,13 +323,16 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		__func__, "dvfs_qos", frm_info->request_no, frm_info->frame_no,
 		frm_info->request_fd, frm_info->frm_owner);
 	mutex_lock(&(imgsys_dev->dvfs_qos_lock));
+	#if DVFS_QOS_READY
 	mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, frm_info, 1);
 	mtk_imgsys_mmdvfs_set(imgsys_dev, frm_info, 1);
 	mtk_imgsys_mmqos_set(imgsys_dev, frm_info, 1);
+	#endif
 	mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 	IMGSYS_SYSTRACE_END();
 	tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
 
+	is_stream_off = 0;
 	frm_num = frm_info->total_frmnum;
 	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
 		cmd_buf = (struct GCERecoder *)frm_info->user_info[frm_idx].g_swbuf;
@@ -362,7 +369,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			return -1;
 		}
 
-		pr_debug(
+		dev_dbg(imgsys_dev->dev,
 		"%s: req fd/no(%d/%d) frame no(%d) frm(%d/%d) cmd_oft(0x%x), cmd_len(%d), num(%d), sz_per_cmd(%d), frm_blk(%d), hw_comb(0x%x), sync_id(%d), gce_thd(%d), gce_clt(0x%x)\n",
 			__func__, frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
 			frm_idx, frm_num, cmd_buf->cmd_offset, cmd_buf->curr_length,
@@ -414,7 +421,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				cmdq_pkt_destroy(pkt);
 				return -1;
 			}
-			pr_debug(
+			dev_dbg(imgsys_dev->dev,
 			"%s: cb_param kzalloc success cb(%p) in block(%d) for frm(%d/%d)!\n",
 				__func__, cb_param, blk_idx, frm_idx, frm_num);
 
@@ -489,37 +496,37 @@ int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd)
 		break;
 	case IMGSYS_CMD_WAIT:
 		pr_debug(
-		"%s: WAIT event(%d) action(%d)\n", __func__, cmd->u.event,
-								cmd->u.action);
+		"%s: WAIT event(%d/%d) action(%d)\n", __func__,
+			cmd->u.event, imgsys_event[cmd->u.event].event,	cmd->u.action);
 		if (cmd->u.action == 1)
 			cmdq_pkt_wfe(pkt, imgsys_event[cmd->u.event].event);
 		else if (cmd->u.action == 0)
 			cmdq_pkt_wait_no_clear(pkt, imgsys_event[cmd->u.event].event);
 		else
-			pr_info("%s: Not Support wait action(%d)!\n", __func__, cmd->u.action);
+			pr_info("%s: [ERROR]Not Support wait action(%d)!\n", __func__, cmd->u.action);
 		break;
 	case IMGSYS_CMD_UPDATE:
 		pr_debug(
-		"%s: UPDATE event(%d) action(%d)\n", __func__, cmd->u.event,
-								cmd->u.action);
+		"%s: UPDATE event(%d/%d) action(%d)\n", __func__,
+			cmd->u.event, imgsys_event[cmd->u.event].event, cmd->u.action);
 		if (cmd->u.action == 1)
 			cmdq_pkt_set_event(pkt, imgsys_event[cmd->u.event].event);
 		else if (cmd->u.action == 0)
 			cmdq_pkt_clear_event(pkt, imgsys_event[cmd->u.event].event);
 		else
-			pr_info("%s: Not Support update action(%d)!\n", __func__, cmd->u.action);
+			pr_info("%s: [ERROR]Not Support update action(%d)!\n", __func__, cmd->u.action);
 		break;
 	case IMGSYS_CMD_ACQUIRE:
 		pr_debug(
-		"%s: ACQUIRE event(%d) action(%d)\n", __func__, cmd->u.event,
-								cmd->u.action);
+		"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
+			cmd->u.event, imgsys_event[cmd->u.event].event, cmd->u.action);
 		cmdq_pkt_acquire_event(pkt, imgsys_event[cmd->u.event].event);
 		break;
 	case IMGSYS_CMD_STOP:
 		pr_debug("%s: End Of Cmd!\n", __func__);
 		return IMGSYS_CMD_STOP;
 	default:
-		pr_info("%s: Not Support Cmd(%d)!\n", __func__, cmd->opcode);
+		pr_info("%s: [ERROR]Not Support Cmd(%d)!\n", __func__, cmd->opcode);
 		return -1;
 	}
 
@@ -538,7 +545,7 @@ void imgsys_cmdq_setevent(u64 u_id)
 		pr_debug("%s: SetEvent success with (u_id/event_id/event_val)=(%d/%d/%d)!\n",
 			__func__, u_id, event_id, event_val);
 	} else {
-		pr_info("%s: SetEvent fail with (u_id/event_id/event_val)=(%d/%d/%d)!\n",
+		pr_info("%s: [ERROR]SetEvent fail with (u_id/event_id/event_val)=(%d/%d/%d)!\n",
 			__func__, u_id, event_id, event_val);
 	}
 }
@@ -594,7 +601,7 @@ void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev)
 	opp_num = opp_idx;
 	for (opp_idx = 0; opp_idx < opp_num; opp_idx++) {
 		for (idx = 0; idx < dvfs_info->clklv_num[opp_idx]; idx++) {
-			dev_dbg(dvfs_info->dev, "[%s] opp=%d, idx=%d, clk=%d volt=%d\n",
+			dev_info(dvfs_info->dev, "[%s] opp=%d, idx=%d, clk=%d volt=%d\n",
 				__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
 				dvfs_info->voltlv[opp_idx][idx]);
 		}
@@ -609,7 +616,7 @@ void mtk_imgsys_mmdvfs_uninit(struct mtk_imgsys_dev *imgsys_dev)
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	int volt = 0, ret = 0;
 
-	dev_dbg(dvfs_info->dev, "[%s]\n", __func__);
+	dev_info(dvfs_info->dev, "[%s]\n", __func__);
 
 	dvfs_info->cur_volt = volt;
 
@@ -663,7 +670,7 @@ void mtk_imgsys_mmqos_init(struct mtk_imgsys_dev *imgsys_dev)
 		qos_info->qos_path[idx].path =
 			of_mtk_icc_get(qos_info->dev, qos_info->qos_path[idx].dts_name);
 		qos_info->qos_path[idx].bw = 0;
-		dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, name=%s, bw=%d\n",
+		dev_info(qos_info->dev, "[%s] idx=%d, path=%p, name=%s, bw=%d\n",
 			__func__, idx,
 			qos_info->qos_path[idx].path,
 			qos_info->qos_path[idx].dts_name,
@@ -678,7 +685,7 @@ void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev)
 
 	for (idx = 0; idx < IMGSYS_M4U_PORT_MAX; idx++) {
 		if (qos_info->qos_path[idx].path == NULL) {
-			dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n", __func__, idx);
+			dev_info(qos_info->dev, "[%s] path of idx(%d) is NULL\n", __func__, idx);
 			continue;
 		}
 		dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d\n",
@@ -888,7 +895,7 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 		dvfs_info->pixel_size += pixel_size;
 
 		/* Check current time */
-		do_gettimeofday(&curr_time);
+		/* do_gettimeofday(&curr_time); */
 		ts_curr = curr_time.tv_sec * 1000000 + curr_time.tv_usec;
 		ts_eq = frm_info->eqtime.tv_sec * 1000000 + frm_info->eqtime.tv_usec;
 		ts_sw = ts_curr - ts_eq;
