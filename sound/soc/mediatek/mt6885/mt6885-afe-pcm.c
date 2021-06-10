@@ -3326,6 +3326,7 @@ static const struct snd_soc_component_driver mt6885_afe_component = {
 	.probe = mt6885_afe_component_probe,
 	.pcm_construct = mtk_afe_pcm_new,
 	.pcm_destruct = mtk_afe_pcm_free,
+	.open = mtk_afe_pcm_open,
 	.pointer = mtk_afe_pcm_pointer,
 	.copy_user = mtk_afe_pcm_copy_user,
 };

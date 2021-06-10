@@ -1214,6 +1214,9 @@ static int mtk_dsp_pcm_open(struct snd_soc_component *component,
 		goto error;
 	}
 
+	/* set the wait_for_avail to 2 sec*/
+	substream->wait_time = msecs_to_jiffies(2 * 1000);
+
 	dsp->dsp_mem[id].substream = substream;
 	dsp->dsp_mem[id].underflowed = 0;
 

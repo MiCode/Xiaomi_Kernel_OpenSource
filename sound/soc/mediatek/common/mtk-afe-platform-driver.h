@@ -17,6 +17,8 @@ struct snd_pcm;
 struct snd_soc_component;
 struct snd_soc_pcm_runtime;
 
+int mtk_afe_pcm_open(struct snd_soc_component *component,
+		     struct snd_pcm_substream *substream);
 snd_pcm_uframes_t mtk_afe_pcm_pointer(struct snd_soc_component *component,
 				      struct snd_pcm_substream *substream);
 int mtk_afe_pcm_copy_user(struct snd_soc_component *component,

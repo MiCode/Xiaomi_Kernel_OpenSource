@@ -87,6 +87,16 @@ unsigned int word_size_align(unsigned int in_size)
 }
 EXPORT_SYMBOL_GPL(word_size_align);
 
+int mtk_afe_pcm_open(struct snd_soc_component *component,
+		     struct snd_pcm_substream *substream)
+{
+	/* set the wait_for_avail to 2 sec*/
+	substream->wait_time = msecs_to_jiffies(2 * 1000);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_afe_pcm_open);
+
 snd_pcm_uframes_t mtk_afe_pcm_pointer(struct snd_soc_component *component,
 				      struct snd_pcm_substream *substream)
 {
