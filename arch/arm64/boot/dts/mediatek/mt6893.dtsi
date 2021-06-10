@@ -1588,7 +1588,7 @@
 		};
 
 		devapc: devapc@10207000 {
-			compatible = "mediatek,mt6885-devapc";
+			compatible = "mediatek,mt6893-devapc";
 			reg = <0 0x10207000 0 0x1000>,
 				<0 0x11021000 0 0x1000>,
 				<0 0x11022000 0 0x1000>,
