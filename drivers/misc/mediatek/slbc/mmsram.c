@@ -88,7 +88,9 @@ enum smc_mmsram_request {
 static struct work_struct dump_reg_work;
 
 static struct mmsram_dev *mmsram;
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 static atomic_t clk_ref = ATOMIC_INIT(0);
+#endif
 static bool is_secure_on;
 static bool debug_enable;
 
