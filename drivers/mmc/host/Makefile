@@ -24,8 +24,6 @@ obj-$(CONFIG_MMC_WBSD)		+= wbsd.o
 obj-$(CONFIG_MMC_AU1X)		+= au1xmmc.o
 obj-$(CONFIG_MMC_MTK)		+= mtk-sd.o
 ccflags-y += -I$(srctree)/drivers/devfreq/
-obj-$(CONFIG_MMC_MTK_LEGACY_SDIO) += mtk-legacy-sdio.o
-obj-$(CONFIG_MMC_MTK_SDIO)	+= mtk-sdio.o mtk-sdio-proc.o
 obj-$(CONFIG_MMC_OMAP)		+= omap.o
 obj-$(CONFIG_MMC_OMAP_HS)	+= omap_hsmmc.o
 obj-$(CONFIG_MMC_ATMELMCI)	+= atmel-mci.o
@@ -109,6 +107,8 @@ ccflags-y += -I$(srctree)/drivers/devfreq
 obj-y		+= cmdq_hci.o
 obj-$(CONFIG_MMC_CRYPTO)	+= cqhci-crypto.o
 endif
+obj-$(CONFIG_MMC_MTK_LEGACY_SDIO) += mtk-legacy-sdio.o
+obj-$(CONFIG_MMC_MTK_SDIO)      += mtk-sdio.o mtk-sdio-proc.o
 
 obj-$(CONFIG_MMC_SDHCI_XENON)	+= sdhci-xenon-driver.o
 sdhci-xenon-driver-y		+= sdhci-xenon.o sdhci-xenon-phy.o
