@@ -949,11 +949,59 @@ static const struct mtk_device_info mt6983_devices_vlp[] = {
 	{0, 61, 63, "SRAMRC_APB_S", true},
 };
 
+static const struct mtk_device_info mt6983_devices_adsp[] = {
+	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
+	/* 0 */
+	{0, 0, 0, "INFRA_S", true},
+	{0, 1, 1, "INFRA_S-1", true},
+	{0, 2, 2, "INFRA_S-2", true},
+	{0, 3, 3, "EMI_S", true},
+	{0, 4, 4, "AFE_S", true},
+	{0, 5, 5, "AFE_S-1", true},
+	{0, 6, 6, "DSP1_S", true},
+	{0, 7, 7, "DSP1_S-1", true},
+	{0, 8, 8, "DSP2_S", true},
+	{0, 9, 9, "DSP2_S-1", true},
+
+	/* 10 */
+	{0, 10, 10, "DSPCFG_0_S", true},
+	{0, 11, 11, "DSPCKCTL_S", true},
+	{0, 12, 12, "DMA_0_CFG_S", true},
+	{0, 13, 13, "DSP_TIMER_0_S", true},
+	{0, 14, 14, "DSP_UART_S", true},
+	{0, 15, 15, "BUSMON_DRAM_S", true},
+	{0, 16, 16, "DSPMBOX_0_S", true},
+	{0, 17, 17, "DSPMBOX_1_S", true},
+	{0, 18, 18, "DSPMBOX_2_S", true},
+	{0, 19, 19, "DSPMBOX_3_S", true},
+
+	/* 20 */
+	{0, 20, 20, "DSPMBOX_4_S", true},
+	{0, 21, 21, "DSPCFG_SEC_S", true},
+	{0, 22, 22, "BUSMON_INFRA_S", true},
+	{0, 23, 23, "DMA_1_CFG_S", true},
+	{0, 24, 24, "ADSP_RSV_S", true},
+	{0, 25, 25, "HRE_S", true},
+	{0, 26, 26, "ADSP_BUSCFG_S", true},
+	{0, 27, 27, "ADSP_TMBIST_S", true},
+	{0, 28, 28, "BCRM_S", true},
+	{0, 29, 29, "BUS_DEBUG_S", true},
+
+	/* 30 */
+	{0, 30, 30, "SYSCFG_AO_S", true},
+	{0, 31, 31, "DBG_TRACKER_EMI_APB_S", true},
+	{0, 32, 32, "DBG_TRACKER_INFRA_APB_S", true},
+	{0, 33, 33, "DAPC_AO_S", true},
+	{0, 34, 34, "K_BCRM_S", true},
+	{0, 35, 35, "DAPC_S", true},
+};
+
 static const struct mtk_device_num mtk6983_devices_num[] = {
 	{SLAVE_TYPE_INFRA, VIO_SLAVE_NUM_INFRA, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_INFRA1, VIO_SLAVE_NUM_INFRA1, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_PERI_PAR, VIO_SLAVE_NUM_PERI_PAR, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_VLP, VIO_SLAVE_NUM_VLP, IRQ_TYPE_VLP},
+	{SLAVE_TYPE_ADSP, VIO_SLAVE_NUM_ADSP, IRQ_TYPE_ADSP},
 };
 
 static const struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
@@ -1056,6 +1104,12 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 		for (i = 0; i < VIO_SLAVE_NUM_VLP; i++) {
 			if (vio_index == mt6983_devices_vlp[i].vio_index)
 				return mt6983_devices_vlp[i].device;
+		}
+	} else if (slave_type == SLAVE_TYPE_ADSP &&
+			vio_index < VIO_SLAVE_NUM_ADSP) {
+		for (i = 0; i < VIO_SLAVE_NUM_ADSP; i++) {
+			if (vio_index == mt6983_devices_adsp[i].vio_index)
+				return mt6983_devices_adsp[i].device;
 		}
 	}
 
@@ -1177,6 +1231,7 @@ static const char * const slave_type_to_str[] = {
 	"SLAVE_TYPE_INFRA1",
 	"SLAVE_TYPE_PERI_PAR",
 	"SLAVE_TYPE_VLP",
+	"SLAVE_TYPE_ADSP",
 	"WRONG_SLAVE_TYPE",
 };
 
@@ -1185,6 +1240,7 @@ static int mtk_vio_mask_sta_num[] = {
 	VIO_MASK_STA_NUM_INFRA1,
 	VIO_MASK_STA_NUM_PERI_PAR,
 	VIO_MASK_STA_NUM_VLP,
+	VIO_MASK_STA_NUM_ADSP,
 };
 
 static struct mtk_devapc_vio_info mt6983_devapc_vio_info = {
@@ -1240,6 +1296,7 @@ static struct mtk_devapc_soc mt6983_data = {
 	.device_info[SLAVE_TYPE_INFRA1] = mt6983_devices_infra1,
 	.device_info[SLAVE_TYPE_PERI_PAR] = mt6983_devices_peri_par,
 	.device_info[SLAVE_TYPE_VLP] = mt6983_devices_vlp,
+	.device_info[SLAVE_TYPE_ADSP] = mt6983_devices_adsp,
 	.ndevices = mtk6983_devices_num,
 	.vio_info = &mt6983_devapc_vio_info,
 	.vio_dbgs = &mt6983_vio_dbgs,
