@@ -131,7 +131,15 @@ static int __init mtk_dbgtop_drm_init(void)
 	return 0;
 }
 
+static void __exit mtk_dbgtop_drm_exit(void)
+{
+	pr_info("mtk_dbgtop_drm was unloaded\n");
+
+	platform_driver_unregister(&mtk_dbgtop_drm);
+}
+
 module_init(mtk_dbgtop_drm_init);
+module_exit(mtk_dbgtop_drm_exit);
 
 MODULE_DESCRIPTION("MediaTek DBGTOP-DRM Driver");
 MODULE_LICENSE("GPL v2");
