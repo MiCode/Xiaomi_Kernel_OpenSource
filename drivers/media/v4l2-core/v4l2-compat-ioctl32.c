@@ -494,7 +494,6 @@ static int get_v4l2_buffer32(struct v4l2_buffer __user *kp,
 	compat_caddr_t p;
 	int ret;
 	u32 reserved;
-	u32 reserved2;
 
 	if (!access_ok(VERIFY_READ, up, sizeof(*up)) ||
 	    assign_in_user(&kp->index, &up->index) ||
@@ -505,8 +504,6 @@ static int get_v4l2_buffer32(struct v4l2_buffer __user *kp,
 	    put_user(memory, &kp->memory) ||
 	    get_user(length, &up->length) ||
 	    put_user(length, &kp->length) ||
-	    get_user(reserved2, &up->reserved2) ||
-	    put_user(reserved2, &kp->reserved2) ||
 	    get_user(reserved, &up->reserved) ||
 	    put_user(reserved, &kp->reserved))
 		return -EFAULT;
