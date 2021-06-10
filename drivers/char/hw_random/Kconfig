@@ -530,7 +530,6 @@ config HW_RANDOM_SECURE
 	tristate "Arm Security Random Number Generator support"
 	depends on HW_RANDOM
 	depends on HAVE_ARM_SMCCC || COMPILE_TEST
-	default HW_RANDOM
 	help
 	  This driver provides kernel-side support for the Arm Security
 	  Random Number Generator.
