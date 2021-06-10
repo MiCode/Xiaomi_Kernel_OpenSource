@@ -48,6 +48,12 @@ struct mmdvfs_drv_data {
 	u32 num_voltages;
 };
 
+
+static u32 log_level;
+enum mmdvfs_log_level {
+	log_freq = 0,
+};
+
 static BLOCKING_NOTIFIER_HEAD(mmdvfs_notifier_list);
 
 /**
@@ -155,7 +161,8 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 		break;
 	}
 	blocking_notifier_call_chain(&mmdvfs_notifier_list, opp_level, NULL);
-	pr_debug("set clk to opp level:%d\n", opp_level);
+	if (log_level & 1 << log_freq)
+		pr_notice("set clk to opp level:%d\n", opp_level);
 }
 
 static int regulator_event_notify(struct notifier_block *nb,
@@ -176,8 +183,9 @@ static int regulator_event_notify(struct notifier_block *nb,
 		} else if (uV > pvc_data->old_uV || unlikely(drv_data->request_voltage == 0)) {
 			drv_data->need_change_voltage = true;
 		}
-		pr_debug("regulator event=PRE_VOLTAGE_CHANGE old=%lu new=%lu\n",
-			 pvc_data->old_uV, pvc_data->min_uV);
+		if (log_level & 1 << log_freq)
+			pr_notice("regulator event=PRE_VOLTAGE_CHANGE old=%lu new=%lu\n",
+				pvc_data->old_uV, pvc_data->min_uV);
 	} else if (event == REGULATOR_EVENT_VOLTAGE_CHANGE) {
 		uV = (unsigned long)data;
 		if (drv_data->need_change_voltage) {
@@ -185,7 +193,8 @@ static int regulator_event_notify(struct notifier_block *nb,
 			drv_data->need_change_voltage = false;
 			drv_data->request_voltage = uV;
 		}
-		pr_debug("regulator event=VOLTAGE_CHANGE voltage=%lu\n", uV);
+		if (log_level & 1 << log_freq)
+			pr_notice("regulator event=VOLTAGE_CHANGE voltage=%lu\n", uV);
 	} else if (event == REGULATOR_EVENT_ABORT_VOLTAGE_CHANGE) {
 		uV = (unsigned long)data;
 		/* If clk was changed, restore to previous setting */
@@ -208,53 +217,60 @@ static const struct of_device_id of_mmdvfs_match_tbl[] = {
 	{}
 };
 
-static int setting_show(struct seq_file *s, void *data)
+#define MAX_DUMP (PAGE_SIZE - 1)
+struct mmdvfs_drv_data *drv_data;
+int setting_show(char *buf, const struct kernel_param *kp)
 {
-	struct mmdvfs_drv_data *drv_data = s->private;
 	u32 i, j;
+	int length = 0;
 
-	seq_printf(s, "mux number:%d\n", drv_data->num_muxes);
-	seq_puts(s, "mux:");
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"mux number:%d\n", drv_data->num_muxes);
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"mux:");
 	for (i = 0; i < drv_data->num_muxes; i++) {
-		seq_printf(s,
-			"%s ", drv_data->muxes[i].mux_name);
+		length += snprintf(buf + length, MAX_DUMP  - length,
+		"%s ", drv_data->muxes[i].mux_name);
 	}
-	seq_puts(s, "\n");
-	seq_printf(s, "hopping number:%d\n", drv_data->num_hoppings);
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"\n");
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"hopping number:%d\n", drv_data->num_hoppings);
 	for (i = 0; i < drv_data->num_hoppings; i++) {
-		seq_printf(s,
-			"%s: ", drv_data->hoppings[i].hopping_name);
+		length += snprintf(buf + length, MAX_DUMP  - length,
+		"%s: ", drv_data->hoppings[i].hopping_name);
 		for (j = 0; j < MAX_OPP_NUM; j++) {
 			if (!drv_data->hoppings[i].hopping_rate[j])
 				break;
-			seq_printf(s, "%d ",
-				drv_data->hoppings[i].hopping_rate[j]);
+			length += snprintf(buf + length, MAX_DUMP  - length,
+				"%d ", drv_data->hoppings[i].hopping_rate[j]);
 		}
-		seq_puts(s, "\n");
+		length += snprintf(buf + length, MAX_DUMP  - length,
+		"\n");
 	}
-	seq_printf(s, "action: %d\n", drv_data->action);
-	seq_puts(s, "voltage level:");
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"action: %d\n", drv_data->action);
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"voltage level:");
 	for (i = 0; i < MAX_OPP_NUM; i++) {
 		if (!drv_data->voltages[i])
 			break;
-		seq_printf(s, "%d ", drv_data->voltages[i]);
+		length += snprintf(buf + length, MAX_DUMP  - length,
+		"%d ", drv_data->voltages[i]);
 	}
-	seq_puts(s, "\n");
-	seq_printf(s, "request voltage:%d\n", drv_data->request_voltage);
-	return 0;
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"\n");
+	length += snprintf(buf + length, MAX_DUMP  - length,
+		"request voltage:%d\n", drv_data->request_voltage);
+	if (length >= MAX_DUMP)
+		length = MAX_DUMP - 1;
+
+	return length;
 }
 
-static int mmdvfs_setting_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, setting_show, inode->i_private);
-}
-
-static const struct file_operations mmdvfs_setting_fops = {
-	.open = mmdvfs_setting_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
+static struct kernel_param_ops dump_param_ops = {.get = setting_show};
+module_param_cb(setting_show, &dump_param_ops, NULL, 0444);
+MODULE_PARM_DESC(setting_show, "dump mmdvfs current setting");
 
 #ifdef MMDVFS_DBG
 struct mmdvfs_dbg_data {
@@ -263,9 +279,10 @@ struct mmdvfs_dbg_data {
 	u32 max_voltage;
 };
 
-static int force_clk_set(void *data, u64 val)
+struct mmdvfs_dbg_data *dbg_data;
+
+int force_clk_set(u64 val)
 {
-	struct mmdvfs_dbg_data *dbg_data = (struct mmdvfs_dbg_data *)data;
 	struct mmdvfs_drv_data *drv_data = dbg_data->drv_data;
 	s32 ret;
 
@@ -291,16 +308,33 @@ static int force_clk_set(void *data, u64 val)
 	pr_notice("%s: val=%llu\n", __func__, val);
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(force_clk_ops, NULL, force_clk_set, "%llu\n");
+
+int set_force_step(const char *val, const struct kernel_param *kp)
+{
+	int result;
+	u64 new_force_step;
+
+	result = kstrtou64(val, 0, &new_force_step);
+	if (result) {
+		pr_notice("force set step failed: %d\n", result);
+		return result;
+	}
+	return force_clk_set(new_force_step);
+}
+
+static struct kernel_param_ops set_force_step_ops = {
+	.set = set_force_step,
+};
+module_param_cb(force_step, &set_force_step_ops, NULL, 0644);
+MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
+
+module_param(log_level, uint, 0644);
+MODULE_PARM_DESC(log_level, "mmdvfs log level");
 #endif /* MMDVFS_DBG */
 
 static int mmdvfs_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mmdvfs_drv_data *drv_data;
-#ifdef MMDVFS_DBG
-	struct mmdvfs_dbg_data *dbg_data;
-#endif
 	struct regulator *reg;
 	u32 num_mux = 0, num_hopping = 0;
 	u32 num_clksrc, hopping_rate, num_hopping_rate;
@@ -312,7 +346,6 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	s32 ret;
 	unsigned long freq;
 	struct dev_pm_opp *opp;
-	struct dentry *dentry;
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)
@@ -382,15 +415,6 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	reg = devm_regulator_get(dev, "dvfsrc-vcore");
 	if (IS_ERR(reg))
 		return PTR_ERR(reg);
-	mmdvfs_debugfs_dir = debugfs_create_dir("mmdvfs", NULL);
-	if (IS_ERR(mmdvfs_debugfs_dir))
-		pr_notice("Failed to create debugfs dir mmdvfs: %ld\n",
-			PTR_ERR(mmdvfs_debugfs_dir));
-	dentry = debugfs_create_file("setting", 0444,
-			mmdvfs_debugfs_dir, drv_data, &mmdvfs_setting_fops);
-	if (IS_ERR(dentry))
-		pr_notice("Failed to create debugfs setting: %ld\n",
-			PTR_ERR(dentry));
 #ifdef MMDVFS_DBG
 	dbg_data = devm_kzalloc(dev, sizeof(*dbg_data), GFP_KERNEL);
 	if (!dbg_data)
@@ -398,11 +422,6 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	dbg_data->drv_data = drv_data;
 	dbg_data->reg = reg;
 	dbg_data->max_voltage = drv_data->voltages[drv_data->num_voltages-1];
-	dentry = debugfs_create_file("force_clk", 0200,
-			mmdvfs_debugfs_dir, dbg_data, &force_clk_ops);
-	if (IS_ERR(dentry))
-		pr_notice("Failed to create debugfs force_clk: %ld\n",
-			PTR_ERR(dentry));
 #endif
 	drv_data->nb.notifier_call = regulator_event_notify;
 	ret = devm_regulator_register_notifier(reg, &drv_data->nb);

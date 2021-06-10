@@ -48,6 +48,11 @@ struct mtk_mmqos {
 	bool qos_bound; /* Todo: Set qos_bound to true if necessary */
 };
 
+static u32 log_level;
+enum mmqos_log_level {
+	log_bw = 0,
+};
+
 static void mmqos_update_comm_bw(struct device *dev,
 	u32 comm_port, u32 freq, u64 mix_bw, u64 bw_peak, bool qos_bound)
 {
@@ -64,8 +69,9 @@ static void mmqos_update_comm_bw(struct device *dev,
 	else
 		value = 0x1200;
 	mtk_smi_common_bw_set(dev, comm_port, value);
-	dev_dbg(dev, "comm port=%d bw=%d freq=%d qos_bound=%d value=%#x\n",
-		comm_port, comm_bw, freq, qos_bound, value);
+	if (log_level & 1 << log_bw)
+		dev_notice(dev, "comm port=%d bw=%d freq=%d qos_bound=%d value=%#x\n",
+			comm_port, comm_bw, freq, qos_bound, value);
 }
 
 static int update_mm_clk(struct notifier_block *nb,
@@ -200,6 +206,13 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		mtk_smi_larb_bw_set(
 			larb_node->larb_dev,
 			MTK_M4U_TO_PORT(src->id), value);
+		if (log_level & 1 << log_bw)
+			dev_notice(larb_node->larb_dev,
+				"larb=%d port=%d avg_bw:%d peak_bw:%d ostd=%#x\n",
+				MTK_M4U_TO_LARB(src->id), MTK_M4U_TO_PORT(src->id),
+				icc_to_MBps(larb_port_node->base->icc_node->avg_bw),
+				icc_to_MBps(larb_port_node->base->icc_node->peak_bw),
+				value);
 		//queue_work(mmqos->wq, &larb_node->work);
 		break;
 	default:
@@ -548,5 +561,9 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 	mtk_mmqos_unregister_hrt_sysfs(&pdev->dev);
 	return 0;
 }
+
+module_param(log_level, uint, 0644);
+MODULE_PARM_DESC(log_level, "mmqos log level");
+
 EXPORT_SYMBOL_GPL(mtk_mmqos_remove);
 MODULE_LICENSE("GPL v2");
