@@ -30,6 +30,7 @@
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* feature control */
 #define GPUFREQ_HWAPM_ENABLE            (0)
+#define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (1)
 
 /**************************************************
  * Clock Setting

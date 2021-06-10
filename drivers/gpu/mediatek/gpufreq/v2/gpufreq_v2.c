@@ -76,6 +76,14 @@ static struct gpuppm_platform_fp *gpuppm_fp;
  * External Function Definition
  * ===============================================
  */
+/***********************************************************************************
+ Function Name      : gpufreq_bringup
+ Inputs             : -
+ Outputs            : -
+ Returns            : status - Current status of bring-up
+ Description        : Check GPUFREQ bring-up status
+                      If it's bring-up status, GPUFREQ is out-of-function
+************************************************************************************/
 unsigned int gpufreq_bringup(void)
 {
 	/* if bringup fp exists, it isn't bringup state */
@@ -86,6 +94,14 @@ unsigned int gpufreq_bringup(void)
 }
 EXPORT_SYMBOL(gpufreq_bringup);
 
+/***********************************************************************************
+ Function Name      : gpufreq_power_ctrl_enable
+ Inputs             : -
+ Outputs            : -
+ Returns            : status - Current status of power control
+ Description        : Check whether power control of GPU HW is enable
+                      If it's disabled, GPU HW is always power-on
+************************************************************************************/
 unsigned int gpufreq_power_ctrl_enable(void)
 {
 	if (gpufreq_fp && gpufreq_fp->power_ctrl_enable)
@@ -97,6 +113,14 @@ unsigned int gpufreq_power_ctrl_enable(void)
 }
 EXPORT_SYMBOL(gpufreq_power_ctrl_enable);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_dvfs_state
+ Inputs             : -
+ Outputs            : -
+ Returns            : state - Current status of GPU DVFS
+ Description        : Get current DVFS state
+                      If it isn't DVFS_FREE, then DVFS is fixed in some state
+************************************************************************************/
 unsigned int gpufreq_get_dvfs_state(void)
 {
 	if (gpufreq_fp && gpufreq_fp->get_dvfs_state)
@@ -108,6 +132,14 @@ unsigned int gpufreq_get_dvfs_state(void)
 }
 EXPORT_SYMBOL(gpufreq_get_dvfs_state);
 
+/***********************************************************************************
+ Function Name      : gpufreq_get_shader_present
+ Inputs             : -
+ Outputs            : -
+ Returns            : shader_present - Current shader cores
+ Description        : Get GPU shader cores
+                      This is for Mali GPU DDK to control power domain of shader cores
+************************************************************************************/
 unsigned int gpufreq_get_shader_present(void)
 {
 	if (gpufreq_fp && gpufreq_fp->get_shader_present)
@@ -119,6 +151,13 @@ unsigned int gpufreq_get_shader_present(void)
 }
 EXPORT_SYMBOL(gpufreq_get_shader_present);
 
+/***********************************************************************************
+ Function Name      : gpufreq_set_timestamp
+ Inputs             : -
+ Outputs            : -
+ Returns            : -
+ Description        : Set timestamp for clGetEventProfilingInfo
+************************************************************************************/
 void gpufreq_set_timestamp(void)
 {
 	if (gpufreq_fp && gpufreq_fp->set_timestamp)
@@ -128,6 +167,13 @@ void gpufreq_set_timestamp(void)
 }
 EXPORT_SYMBOL(gpufreq_set_timestamp);
 
+/***********************************************************************************
+ Function Name      : gpufreq_check_bus_idle
+ Inputs             : -
+ Outputs            : -
+ Returns            : -
+ Description        : Check bus idle before GPU power-off
+************************************************************************************/
 void gpufreq_check_bus_idle(void)
 {
 	if (gpufreq_fp && gpufreq_fp->check_bus_idle)
@@ -137,6 +183,13 @@ void gpufreq_check_bus_idle(void)
 }
 EXPORT_SYMBOL(gpufreq_check_bus_idle);
 
+/***********************************************************************************
+ Function Name      : gpufreq_dump_infra_status
+ Inputs             : -
+ Outputs            : -
+ Returns            : -
+ Description        : Dump GPU related infra status
+************************************************************************************/
 void gpufreq_dump_infra_status(void)
 {
 	if (gpufreq_fp && gpufreq_fp->dump_infra_status)
@@ -310,7 +363,7 @@ EXPORT_SYMBOL(gpufreq_get_cur_volt);
  Function Name      : gpufreq_get_max_volt
  Inputs             : target - Target of GPU DVFS (GPU, STACK, DEFAULT)
  Outputs            : -
- Returns            : freq   - Max volt of given target in working table
+ Returns            : volt   - Max volt of given target in working table
  Description        : Query maximum voltage of the target
 ************************************************************************************/
 unsigned int gpufreq_get_max_volt(enum gpufreq_target target)
@@ -410,10 +463,12 @@ unsigned int gpufreq_get_cur_vsram(enum gpufreq_target target)
 			target = TARGET_GPU;
 	}
 
-	if (target == TARGET_STACK && gpufreq_fp->get_cur_vsram_stack)
+	if (target == TARGET_STACK && gpufreq_fp && gpufreq_fp->get_cur_vsram_stack)
 		vsram = gpufreq_fp->get_cur_vsram_stack();
-	else if (target == TARGET_GPU && gpufreq_fp->get_cur_vsram_gpu)
+	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_cur_vsram_gpu)
 		vsram = gpufreq_fp->get_cur_vsram_gpu();
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 
 	GPUFREQ_LOGD("target: %s, current vsram: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",

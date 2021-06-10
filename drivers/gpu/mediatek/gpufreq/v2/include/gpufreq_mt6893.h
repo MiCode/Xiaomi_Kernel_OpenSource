@@ -30,6 +30,7 @@
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* external module control */
 #define GPUFREQ_THERMAL_ENABLE          (0)
+#define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (1)
 
 /**************************************************
  * Clock Setting
@@ -171,6 +172,8 @@ struct gpufreq_clk_info {
 };
 
 struct gpufreq_mtcmos_info {
+	struct platform_device *mfg0_pdev;
+	struct platform_device *mfg1_pdev;
 	struct platform_device *mfg2_pdev;
 	struct platform_device *mfg3_pdev;
 	struct platform_device *mfg4_pdev;

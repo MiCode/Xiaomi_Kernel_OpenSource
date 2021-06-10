@@ -25,8 +25,7 @@
  * Local Variable Definition
  * ===============================================
  */
-static DEFINE_MUTEX(gpuppm_lock_gpu);
-static DEFINE_MUTEX(gpuppm_lock_stack);
+static DEFINE_MUTEX(gpuppm_lock);
 static struct gpuppm_status g_gpu;
 static struct gpuppm_status g_stack;
 unsigned int g_gpueb_support;
@@ -269,7 +268,7 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gpu(void)
 		GPUFREQ_UNREFERENCED(limit_info);
 	/* AP mode */
 	} else {
-		mutex_lock(&gpuppm_lock_gpu);
+		mutex_lock(&gpuppm_lock);
 
 		limit_info.ceiling = g_gpu.ceiling;
 		limit_info.c_limiter = g_gpu.c_limiter;
@@ -278,7 +277,7 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gpu(void)
 		limit_info.f_limiter = g_gpu.f_limiter;
 		limit_info.f_priority = g_gpu.f_priority;
 
-		mutex_unlock(&gpuppm_lock_gpu);
+		mutex_unlock(&gpuppm_lock);
 	}
 
 	return limit_info;
@@ -348,7 +347,7 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_stack(void)
 		GPUFREQ_UNREFERENCED(limit_info);
 	/* AP mode */
 	} else {
-		mutex_lock(&gpuppm_lock_stack);
+		mutex_lock(&gpuppm_lock);
 
 		limit_info.ceiling = g_stack.ceiling;
 		limit_info.c_limiter = g_stack.c_limiter;
@@ -357,7 +356,7 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_stack(void)
 		limit_info.f_limiter = g_stack.f_limiter;
 		limit_info.f_priority = g_stack.f_priority;
 
-		mutex_unlock(&gpuppm_lock_stack);
+		mutex_unlock(&gpuppm_lock);
 	}
 
 	return limit_info;
@@ -387,7 +386,7 @@ int gpuppm_set_limit_gpu(enum gpuppm_limiter limiter, int ceiling, int floor)
 			goto done;
 		}
 
-		mutex_lock(&gpuppm_lock_gpu);
+		mutex_lock(&gpuppm_lock);
 
 		if (ceiling == GPUPPM_RESET_IDX || ceiling == GPUPPM_DEFAULT_IDX)
 			g_gpu_limit_table[limiter].ceiling = GPUPPM_DEFAULT_IDX;
@@ -412,7 +411,7 @@ int gpuppm_set_limit_gpu(enum gpuppm_limiter limiter, int ceiling, int floor)
 		else if (cur_oppidx > cur_floor)
 			ret = __gpufreq_generic_commit_gpu(cur_floor, DVFS_FREE);
 
-		mutex_unlock(&gpuppm_lock_gpu);
+		mutex_unlock(&gpuppm_lock);
 	}
 
 done:
@@ -442,7 +441,7 @@ int gpuppm_switch_limit_gpu(enum gpuppm_limiter limiter, int c_enable, int f_ena
 			goto done;
 		}
 
-		mutex_lock(&gpuppm_lock_gpu);
+		mutex_lock(&gpuppm_lock);
 
 		if (c_enable == LIMIT_ENABLE)
 			g_gpu_limit_table[limiter].c_enable = LIMIT_ENABLE;
@@ -467,7 +466,7 @@ int gpuppm_switch_limit_gpu(enum gpuppm_limiter limiter, int c_enable, int f_ena
 		else if (cur_oppidx > cur_floor)
 			ret = __gpufreq_generic_commit_gpu(cur_floor, DVFS_FREE);
 
-		mutex_unlock(&gpuppm_lock_gpu);
+		mutex_unlock(&gpuppm_lock);
 	}
 
 done:
@@ -498,7 +497,7 @@ int gpuppm_set_limit_stack(enum gpuppm_limiter limiter, int ceiling, int floor)
 			goto done;
 		}
 
-		mutex_lock(&gpuppm_lock_stack);
+		mutex_lock(&gpuppm_lock);
 
 		if (ceiling == GPUPPM_RESET_IDX || ceiling == GPUPPM_DEFAULT_IDX)
 			g_stack_limit_table[limiter].ceiling = GPUPPM_DEFAULT_IDX;
@@ -523,7 +522,7 @@ int gpuppm_set_limit_stack(enum gpuppm_limiter limiter, int ceiling, int floor)
 		else if (cur_oppidx > cur_floor)
 			ret = __gpufreq_generic_commit_stack(cur_floor, DVFS_FREE);
 
-		mutex_unlock(&gpuppm_lock_stack);
+		mutex_unlock(&gpuppm_lock);
 	}
 done:
 	GPUFREQ_TRACE_END();
@@ -552,7 +551,7 @@ int gpuppm_switch_limit_stack(enum gpuppm_limiter limiter, int c_enable, int f_e
 			goto done;
 		}
 
-		mutex_lock(&gpuppm_lock_stack);
+		mutex_lock(&gpuppm_lock);
 
 		if (c_enable == LIMIT_ENABLE)
 			g_stack_limit_table[limiter].c_enable = LIMIT_ENABLE;
@@ -577,7 +576,7 @@ int gpuppm_switch_limit_stack(enum gpuppm_limiter limiter, int c_enable, int f_e
 		else if (cur_oppidx > cur_floor)
 			ret = __gpufreq_generic_commit_stack(cur_floor, DVFS_FREE);
 
-		mutex_unlock(&gpuppm_lock_stack);
+		mutex_unlock(&gpuppm_lock);
 	}
 
 done:
@@ -599,7 +598,7 @@ int gpuppm_limited_commit_gpu(int oppidx)
 		ret = GPUFREQ_SUCCESS;
 	/* AP mode */
 	} else {
-		mutex_lock(&gpuppm_lock_gpu);
+		mutex_lock(&gpuppm_lock);
 
 		/* fit to limited interval */
 		cur_ceiling = g_gpu.ceiling;
@@ -616,7 +615,7 @@ int gpuppm_limited_commit_gpu(int oppidx)
 
 		ret = __gpufreq_generic_commit_gpu(limited_idx, DVFS_FREE);
 
-		mutex_unlock(&gpuppm_lock_gpu);
+		mutex_unlock(&gpuppm_lock);
 	}
 
 	GPUFREQ_TRACE_END();
@@ -639,7 +638,7 @@ int gpuppm_limited_commit_stack(int oppidx)
 		ret = GPUFREQ_SUCCESS;
 	/* AP mode */
 	} else {
-		mutex_lock(&gpuppm_lock_stack);
+		mutex_lock(&gpuppm_lock);
 
 		/* fit to limited interval */
 		cur_ceiling = g_stack.ceiling;
@@ -656,7 +655,7 @@ int gpuppm_limited_commit_stack(int oppidx)
 
 		ret = __gpufreq_generic_commit_stack(limited_idx, DVFS_FREE);
 
-		mutex_unlock(&gpuppm_lock_stack);
+		mutex_unlock(&gpuppm_lock);
 	}
 
 	GPUFREQ_TRACE_END();
