@@ -154,6 +154,8 @@ static struct CmdqMdpModuleBaseVA gCmdqMdpModuleBaseVA;
 struct mdp_base_pa {
 	u32 aal0;
 	u32 aal1;
+	u32 aal2;
+	u32 aal3;
 	u32 hdr0;
 	u32 hdr1;
 };
@@ -849,22 +851,28 @@ void cmdq_mdp_init_module_base_VA(void)
 		cmdq_dev_alloc_reference_VA_by_name("mdp_tcc2");
 	gCmdqMdpModuleBaseVA.MDP_TCC3 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_tcc3");
-	gCmdqMdpModuleBaseVA.MDP_AAL0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal0");
-	gCmdqMdpModuleBaseVA.MDP_AAL1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal1");
-	gCmdqMdpModuleBaseVA.MDP_AAL2 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal2");
-	gCmdqMdpModuleBaseVA.MDP_AAL3 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal3");
+        gCmdqMdpModuleBaseVA.MDP_AAL0 =
+                cmdq_dev_alloc_reference_by_name("mdp_aal0",
+                &mdp_module_pa.aal0);
+        gCmdqMdpModuleBaseVA.MDP_AAL1 =
+                cmdq_dev_alloc_reference_by_name("mdp_aal1",
+                &mdp_module_pa.aal1);
+        gCmdqMdpModuleBaseVA.MDP_AAL2 =
+                cmdq_dev_alloc_reference_by_name("mdp_aal2",
+                &mdp_module_pa.aal2);
+        gCmdqMdpModuleBaseVA.MDP_AAL3 =
+                cmdq_dev_alloc_reference_by_name("mdp_aal3",
+                &mdp_module_pa.aal3);
 	gCmdqMdpModuleBaseVA.MDP_COLOR0 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_color0");
 	gCmdqMdpModuleBaseVA.MDP_COLOR1 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_color1");
-	gCmdqMdpModuleBaseVA.MDP_HDR0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_hdr0");
-	gCmdqMdpModuleBaseVA.MDP_HDR1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_hdr1");
+        gCmdqMdpModuleBaseVA.MDP_HDR0 =
+                cmdq_dev_alloc_reference_by_name("mdp_hdr0",
+                &mdp_module_pa.hdr0);
+        gCmdqMdpModuleBaseVA.MDP_HDR1 =
+                cmdq_dev_alloc_reference_by_name("mdp_hdr1",
+                &mdp_module_pa.hdr1);
 	gCmdqMdpModuleBaseVA.MDP_FG0 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_fg0");
 	gCmdqMdpModuleBaseVA.MDP_FG1 =
@@ -2500,14 +2508,24 @@ static u32 cmdq_mdp_qos_translate_port(u32 engine_id)
 		return M4U_PORT_L2_MDP_RDMA0;
 	case CMDQ_ENG_MDP_RDMA1:
 		return M4U_PORT_L3_MDP_RDMA1;
+	case CMDQ_ENG_MDP_RDMA2:
+		return M4U_PORT_L2_MDP_RDMA2;
+	case CMDQ_ENG_MDP_RDMA3:
+		return M4U_PORT_L3_MDP_RDMA3;
 	case CMDQ_ENG_MDP_WROT0:
 		return M4U_PORT_L2_MDP_WROT0;
 	case CMDQ_ENG_MDP_WROT1:
 		return M4U_PORT_L3_MDP_WROT1;
+	case CMDQ_ENG_MDP_WROT2:
+		return M4U_PORT_L2_MDP_WROT2;
+	case CMDQ_ENG_MDP_WROT3:
+		return M4U_PORT_L3_MDP_WROT3;
 	}
 
 	if (engine_id != CMDQ_ENG_MDP_CAMIN &&
-		engine_id != CMDQ_ENG_MDP_CAMIN2)
+		engine_id != CMDQ_ENG_MDP_CAMIN2 &&
+		engine_id != CMDQ_ENG_MDP_CAMIN3 &&
+		engine_id != CMDQ_ENG_MDP_CAMIN4)
 		CMDQ_ERR("pmqos invalid engineId %d\n", engine_id);
 	return 0;
 }
@@ -2900,7 +2918,7 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getEngineBase = mdp_engine_base_get;
 	pFunc->getEngineBaseCount = mdp_engine_base_count;
 	pFunc->getEngineGroupName = mdp_get_engine_group_name;
-	// pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
+	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
 }
 EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 
