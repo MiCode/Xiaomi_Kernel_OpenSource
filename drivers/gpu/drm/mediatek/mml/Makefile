@@ -38,4 +38,5 @@ mml_drv-objs += mtk-mml-rsz.o
 mml_drv-objs += mtk-mml-rdma.o
 mml_drv-objs += mtk-mml-wrot.o
 mml_drv-objs += mtk-mml-tp-mt6893.o
+mml_drv-objs += mtk-mml-tile.o
 

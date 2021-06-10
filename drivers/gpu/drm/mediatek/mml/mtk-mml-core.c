@@ -8,6 +8,7 @@
 #include <linux/of.h>
 
 #include "mtk-mml-core.h"
+#include "mtk-mml-tile.h"
 
 int mtk_mml_msg;
 EXPORT_SYMBOL(mtk_mml_msg);
@@ -269,6 +270,12 @@ static s32 core_config(struct mml_task *task, u32 pipe_id)
 	/* prepare data in each component for later tile use */
 	core_prepare(task, pipe_id);
 
+	/* call to tile to calculate */
+	calc_tile(task, pipe_id);
+
+	/* dump tile output for debug */
+	dump_tile_output(task, pipe_id);
+
 	/* make commands into pkt for later flash */
 	command_make(task, pipe_id);
 
@@ -379,6 +386,7 @@ void mml_core_deinit_config(struct mml_frame_config *config)
 		for (i = 0; i < config->path[pipe]->node_cnt; i++)
 			kfree(config->cache[pipe].cfg[i].data);
 		kfree(config->cache[pipe].labels);
+		destroy_tile_output(config->tile_output[pipe]);
 	}
 }
 
