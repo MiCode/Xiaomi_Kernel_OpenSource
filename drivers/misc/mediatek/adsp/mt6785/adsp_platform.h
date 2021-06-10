@@ -50,6 +50,7 @@ void adsp_mt_set_bootup_mark(u32 cid);
 
 bool check_hifi_status(u32 mask);
 bool is_adsp_axibus_idle(void);
+bool is_adsp_genirq_idle(u32 cid);
 u32 switch_adsp_clk_ctrl_cg(bool en, u32 mask);
 u32 switch_adsp_uart_ctrl_cg(bool en, u32 mask);
 void adsp_platform_init(void);

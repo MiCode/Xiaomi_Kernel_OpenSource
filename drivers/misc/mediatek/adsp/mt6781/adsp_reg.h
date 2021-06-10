@@ -108,8 +108,8 @@
 #define INFRA_AXI_PROT_CLR          (INFRACFG_AO_BASE + 0x02A4)
 #define ADSP_AXI_PROT_MASK          (0x1 << 15)
 #define ADSP_AXI_PROT_READY_MASK    (0x1 << 15)
-#define ADSP_WAY_EN_CTRL            (INFRACFG_AO_BASE + 0x0240)
-#define ADSP_WAY_EN_MASK            (0x1 << 13)
+#define ADSP_WAY_EN_CTRL            (PERICFG_BASE + 0x0210)
+#define ADSP_WAY_EN_MASK            (0x1 << 9)
 
 #define AP_AWAKE_LOCK_BIT           (0)
 #define AP_AWAKE_UNLOCK_BIT         (1)

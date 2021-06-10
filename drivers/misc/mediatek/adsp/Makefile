@@ -4,6 +4,8 @@ subdir-ccflags-y += -Wformat
 
 ifeq ($(CONFIG_MACH_MT6893), y)
 MTK_PLATFORM := mt6885
+else ifeq ($(CONFIG_MACH_MT6781), y)
+MTK_PLATFORM := mt6781
 else
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 endif
@@ -11,6 +13,8 @@ endif
 obj-y += $(MTK_PLATFORM)/
 
 ifeq ($(CONFIG_MACH_MT6785), y)
+MTK_ADSP_HW_VER := 0
+else ifeq ($(CONFIG_MACH_MT6781), y)
 MTK_ADSP_HW_VER := 0
 else
 MTK_ADSP_HW_VER := 1

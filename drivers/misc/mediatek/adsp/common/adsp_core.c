@@ -296,7 +296,7 @@ int adsp_reset(void)
 	adsp_mt_clear();
 
 	/* choose default clk mux */
-	adsp_set_clock_freq(CLK_TOP_CLK26M);
+	adsp_set_clock_freq(CLK_DEFAULT_26M_CK);
 	adsp_set_clock_freq(CLK_DEFAULT_INIT_CK);
 
 	/* restore tcm to initial state */

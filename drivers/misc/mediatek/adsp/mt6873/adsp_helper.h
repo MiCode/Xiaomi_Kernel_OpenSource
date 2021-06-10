@@ -88,7 +88,7 @@ extern enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait,
 			unsigned int core_id);
 extern int is_adsp_ready(u32 cid);
-
+extern bool is_adsp_feature_in_active(void);
 extern int adsp_feature_in_which_core(enum adsp_feature_id fid);
 extern int adsp_register_feature(enum adsp_feature_id fid);
 extern int adsp_deregister_feature(enum adsp_feature_id fid);

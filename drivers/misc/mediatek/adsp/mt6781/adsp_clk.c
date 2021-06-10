@@ -18,6 +18,8 @@ struct adsp_clock_attr {
 
 static struct adsp_clock_attr adsp_clks[ADSP_CLK_NUM] = {
 	[CLK_ADSP_INFRA] = {"clk_adsp_infra", NULL},
+	[CLK_ADSP_INFRA_26M] = {"clk_adsp_infra_26m", NULL},
+	[CLK_ADSP_INFRA_32K] = {"clk_adsp_infra_32k", NULL},
 	[CLK_TOP_ADSP_SEL] = {"clk_top_adsp_sel", NULL},
 	[CLK_TOP_CLK26M] = {"clk_adsp_clk26m", NULL},
 	[CLK_TOP_ADSPPLL] = {"clk_top_adsppll_ck", NULL},
@@ -89,6 +91,20 @@ int adsp_enable_clock(void)
 		adsp_way_en_ctrl(1);
 	spin_unlock_irqrestore(&adsp_clock_spinlock, spin_flags);
 
+	ret = clk_prepare_enable(adsp_clks[CLK_ADSP_INFRA_26M].clock);
+	if (IS_ERR(&ret)) {
+		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
+			__func__, adsp_clks[CLK_ADSP_INFRA_26M].name, ret);
+		return -EINVAL;
+	}
+
+	ret = clk_prepare_enable(adsp_clks[CLK_ADSP_INFRA_32K].clock);
+	if (IS_ERR(&ret)) {
+		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
+			__func__, adsp_clks[CLK_ADSP_INFRA_32K].name, ret);
+		return -EINVAL;
+	}
+
 	ret = clk_prepare_enable(adsp_clks[CLK_ADSP_INFRA].clock);
 	if (IS_ERR(&ret)) {
 		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
@@ -106,6 +122,8 @@ void adsp_disable_clock(void)
 
 	pr_info("%s()\n", __func__);
 	clk_disable_unprepare(adsp_clks[CLK_ADSP_INFRA].clock);
+	clk_disable_unprepare(adsp_clks[CLK_ADSP_INFRA_32K].clock);
+	clk_disable_unprepare(adsp_clks[CLK_ADSP_INFRA_26M].clock);
 
 	spin_lock_irqsave(&adsp_clock_spinlock, spin_flags);
 	if (--adsp_clock_count == 0)

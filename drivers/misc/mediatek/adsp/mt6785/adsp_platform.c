@@ -108,6 +108,15 @@ void adsp_mt_clr_sysirq(u32 cid)
 	writel(ADSP_A_2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
 }
 
+bool is_adsp_genirq_idle(u32 cid)
+{
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
+		return false;
+
+	return ((readl(ADSP_GENERAL_IRQ_SET) & ADSP_GENERAL_IRQ_INUSED)
+		== ADSP_GENERAL_IRQ_INUSED);
+}
+
 void adsp_mt_disable_wdt(u32 cid)
 {
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
