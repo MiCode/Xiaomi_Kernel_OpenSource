@@ -116,7 +116,7 @@
 		compatible = "simple-bus";
 	};
 
-	clk_disable_unused: clk_disable_unused {
+	disable_unused: disable_unused {
 		compatible = "simple-bus";
 	};
 
