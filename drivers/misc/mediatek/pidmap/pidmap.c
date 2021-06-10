@@ -9,6 +9,7 @@
 #include <linux/slab.h>
 #include <linux/tracepoint.h>
 #include <linux/uaccess.h>
+#include <mt-plat/mrdump.h>
 #include <mt-plat/mtk_pidmap.h>
 
 /*
@@ -250,18 +251,6 @@ static int mtk_pidmap_seq_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-void get_pidmap_aee_buffer(unsigned long *vaddr, unsigned long *size)
-{
-	/* retrun start location */
-	if (vaddr)
-		*vaddr = (unsigned long)mtk_pidmap;
-
-	/* return valid buffer size */
-	if (size)
-		*size = PIDMAP_AEE_BUF_SIZE;
-}
-EXPORT_SYMBOL(get_pidmap_aee_buffer);
-
 static ssize_t mtk_pidmap_proc_write(struct file *file, const char *buf,
 	size_t count, loff_t *data)
 {
@@ -340,6 +329,10 @@ static int __init mtk_pidmap_init(void)
 		return ret;
 
 	ret = mtk_pidmap_proc_init();
+	(void)mrdump_mini_add_extra_file(
+			(unsigned long)mtk_pidmap,
+			__pa_nodebug(mtk_pidmap),
+			PIDMAP_AEE_BUF_SIZE, "PIDMAP");
 
 	return ret;
 }
