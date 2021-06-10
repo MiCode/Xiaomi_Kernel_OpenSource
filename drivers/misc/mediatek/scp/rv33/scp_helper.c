@@ -1230,6 +1230,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 #if ENABLE_SCP_EMI_PROTECTION
 void set_scp_mpu(void)
 {
+#if IS_ENABLED(CONFIG_MTK_EMI)
 	struct emimpu_region_t md_region;
 
 	mtk_emimpu_init_region(&md_region, MPU_REGION_ID_SCP_SMEM);
@@ -1242,6 +1243,7 @@ void set_scp_mpu(void)
 	if (mtk_emimpu_set_protection(&md_region))
 		pr_notice("[SCP]mtk_emimpu_set_protection fail\n");
 	mtk_emimpu_free_region(&md_region);
+#endif
 }
 #endif
 
