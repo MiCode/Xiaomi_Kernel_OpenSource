@@ -53,7 +53,8 @@ void fpsgo_base2uboost_compute(
 {
 	struct uboost *boost;
 	struct hrtimer *timer;
-	unsigned long long t_sched_runtime, t_vsyc_period;
+	unsigned long long t_sched_runtime;
+	unsigned long long t_vsyc_period = 0;
 	unsigned long long timer_period = 0;
 	int frame_idx = 0;
 	int get_result = 0;
