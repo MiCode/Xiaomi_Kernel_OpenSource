@@ -9,7 +9,7 @@
 #ifndef _MT6885_AFE_CLOCK_CTRL_H_
 #define _MT6885_AFE_CLOCK_CTRL_H_
 
-#define AP_PLL_CON3 0x0014
+#define AP_PLL_CON3 0x000c
 #define APLL1_CON0 0x0318
 #define APLL1_CON1 0x031c
 #define APLL1_CON2 0x0320

@@ -385,7 +385,7 @@ int mt6885_apll1_enable(struct mtk_base_afe *afe)
 	}
 
 	regmap_update_bits(afe->regmap, AFE_APLL1_TUNER_CFG,
-			   0x0000FFF7, 0x00000832);
+			   0x0000FFF7, 0x00000372);
 	regmap_update_bits(afe->regmap, AFE_APLL1_TUNER_CFG, 0x1, 0x1);
 
 	regmap_update_bits(afe->regmap, AFE_HD_ENGEN_ENABLE,
@@ -441,7 +441,7 @@ int mt6885_apll2_enable(struct mtk_base_afe *afe)
 	}
 
 	regmap_update_bits(afe->regmap, AFE_APLL2_TUNER_CFG,
-			   0x0000FFF7, 0x00000634);
+			   0x0000FFF7, 0x00000374);
 	regmap_update_bits(afe->regmap, AFE_APLL2_TUNER_CFG, 0x1, 0x1);
 
 	regmap_update_bits(afe->regmap, AFE_HD_ENGEN_ENABLE,
