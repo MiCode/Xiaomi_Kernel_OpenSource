@@ -67,7 +67,8 @@ void gbe_trace_printk(int pid, char *module, char *string)
 	trace_printk(buf2);
 }
 
-void gbe_trace_count(int tid, int val, const char *fmt, ...)
+void gbe_trace_count(int tid, unsigned long long bufID,
+	int val, const char *fmt, ...)
 {
 	char log[256];
 	va_list args;
@@ -84,13 +85,18 @@ void gbe_trace_count(int tid, int val, const char *fmt, ...)
 	else if (unlikely(len == 256))
 		log[255] = '\0';
 
-	len = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", tid, log, val);
+	if (!bufID)
+		len = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", tid, log, val);
+	else
+		len = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d|0x%llx\n", tid,
+			log, val, bufID);
+
 	if (unlikely(len < 0))
 		return;
 	else if (unlikely(len == 256))
 		buf2[255] = '\0';
+	
 	tracing_mark_write(buf2);
-
 }
 
 struct k_list {
