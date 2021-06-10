@@ -128,6 +128,7 @@ static size_t mtk_btag_seq_pidlog_usedmem(char **buff, unsigned long *size,
 	size_t size_l = 0;
 	struct page_pid_logger *pagelogger;
 
+	rcu_read_lock();
 	pagelogger = rcu_dereference(mtk_btag_pagelogger);
 	if (mtk_btag_enable && !IS_ERR_OR_NULL(pagelogger)) {
 		size_l = (sizeof(struct page_pid_logger)
@@ -138,6 +139,7 @@ static size_t mtk_btag_seq_pidlog_usedmem(char **buff, unsigned long *size,
 			sizeof(struct page_pid_logger),
 			size_l);
 	}
+	rcu_read_unlock();
 	return size_l;
 }
 
