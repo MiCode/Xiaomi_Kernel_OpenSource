@@ -94,7 +94,6 @@ static void ipi_transfer_messages(void)
 	struct ipi_transfer *t = NULL;
 	int status = 0;
 	unsigned long flags;
-	unsigned int message_count = 0;
 
 	spin_lock_irqsave(&controller.lock, flags);
 	if (list_empty(&controller.head) || controller.running)
@@ -113,23 +112,24 @@ static void ipi_transfer_messages(void)
 			if (t->tx_len)
 				status = ipi_transfer_buffer(t);
 			if (status < 0) {
+				pr_err_ratelimited("seq %u, type %u, cmd %u len %u crc %u\n",
+					t->tx_buf[0], t->tx_buf[1], t->tx_buf[2],
+					t->tx_buf[3], t->tx_buf[4]);
 				break;
 			} else if (status != t->rx_len) {
+				pr_err_ratelimited("seq %u, type %u, cmd %u len %u crc %u\n",
+					t->tx_buf[0], t->tx_buf[1], t->tx_buf[2],
+					t->tx_buf[3], t->tx_buf[4]);
 				status = -EBADMSG;
 				break;
 			}
 			status = 0;
 		}
-		message_count++;
 		m->status = status;
 		m->complete(m->context);
 		spin_lock_irqsave(&controller.lock, flags);
 	}
 	controller.running = false;
-	if (status < 0) {
-		pr_err("message_count:%u\n", message_count);
-		WARN_ON(1);
-	}
 out:
 	spin_unlock_irqrestore(&controller.lock, flags);
 }
