@@ -1144,6 +1144,7 @@ extern int ufshcd_dme_set_attr(struct ufs_hba *hba, u32 attr_sel,
 			       u8 attr_set, u32 mib_val, u8 peer);
 extern int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 			       u32 *mib_val, u8 peer);
+extern void ufshcd_hba_stop(struct ufs_hba *hba, bool can_sleep);
 
 /* UIC command interfaces for DME primitives */
 #define DME_LOCAL	0
