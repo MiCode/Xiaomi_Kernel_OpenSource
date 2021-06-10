@@ -11,4 +11,14 @@ void __exit thrm_aware_exit(void);
 void thrm_aware_frame_start(int perf_hint, int target_fps);
 void thrm_aware_switch(int enable);
 
+#if IS_ENABLED(CONFIG_MTK_CORE_CTL)
+extern int core_ctl_set_limit_cpus(unsigned int cid, unsigned int min,
+	unsigned int max);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
+extern int sched_pause_cpu(int val);
+extern int sched_resume_cpu(int val);
+#endif
+
 #endif

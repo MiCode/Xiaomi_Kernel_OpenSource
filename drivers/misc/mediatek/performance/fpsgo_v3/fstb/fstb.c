@@ -65,6 +65,7 @@ static int margin_mode_gpu_dbnc_a = 9;
 static int margin_mode_gpu_dbnc_b = 1;
 static int JUMP_CHECK_NUM = DEFAULT_JUMP_CHECK_NUM;
 static int JUMP_CHECK_Q_PCT = DEFAULT_JUMP_CHECK_Q_PCT;
+static int adopt_low_fps;
 static int powerhal_fps = -1;
 static int condition_get_fps;
 
@@ -1628,7 +1629,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 
 		v_c_time = total_time;
 
-		if (iter->queue_fps == -1)
+		if (!adopt_low_fps && iter->queue_fps == -1)
 			*target_fps = -1;
 	}
 
@@ -2342,6 +2343,33 @@ static ssize_t fstb_tune_error_threshold_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(fstb_tune_error_threshold);
 
+static ssize_t adopt_low_fps_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", adopt_low_fps);
+}
+
+static ssize_t adopt_low_fps_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0
+				&& arg >= 0 && arg <= 1)
+				adopt_low_fps = arg;
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(adopt_low_fps);
+
 static ssize_t fstb_debug_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -2485,6 +2513,8 @@ int mtk_fstb_init(void)
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_jump_check_q_pct);
 		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_adopt_low_fps);
+		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_render_max_fps);
 	}
 
@@ -2541,6 +2571,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_jump_check_num);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_jump_check_q_pct);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_adopt_low_fps);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_set_render_max_fps);
 
