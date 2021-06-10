@@ -231,6 +231,42 @@ static const struct proc_ops pl_lk_file_ops = {
 	.proc_release = single_release,
 };
 
+struct logstore_tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+#define NORMAL_BOOT_MODE 0
+
+unsigned int get_boot_mode_from_dts(void)
+{
+	struct device_node *np_chosen = NULL;
+	struct logstore_tag_bootmode *tag = NULL;
+
+	np_chosen = of_find_node_by_path("/chosen");
+	if (!np_chosen) {
+		pr_notice("log_store: warning: not find node: '/chosen'\n");
+
+		np_chosen = of_find_node_by_path("/chosen@0");
+		if (!np_chosen) {
+			pr_notice("log_store: warning: not find node: '/chosen@0'\n");
+			return NORMAL_BOOT_MODE;
+		}
+	}
+
+	tag = (struct logstore_tag_bootmode *)
+			of_get_property(np_chosen, "atag,boot", NULL);
+	if (!tag) {
+		pr_notice("log_store: error: not find tag: 'atag,boot';\n");
+		return NORMAL_BOOT_MODE;
+	}
+
+	pr_notice("log_store: bootmode: 0x%x boottype: 0x%x.\n",
+		tag->bootmode, tag->boottype);
+
+	return tag->bootmode;
+}
 
 static int __init log_store_late_init(void)
 {
@@ -244,7 +280,9 @@ static int __init log_store_late_init(void)
 		dram_log_store_status = BUFF_ALLOC_ERROR;
 		return -1;
 	}
-	store_log_to_emmc_enable(false);
+
+	if (get_boot_mode_from_dts() != NORMAL_BOOT_MODE)
+		store_log_to_emmc_enable(false);
 
 	if (!sram_dram_buff->buf_addr || !sram_dram_buff->buf_size) {
 		pr_notice("log_store: DRAM buff is null.\n");
