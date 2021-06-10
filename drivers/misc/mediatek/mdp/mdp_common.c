@@ -1335,19 +1335,25 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 		secData->addrMetadataCount,
 		addr_meta);
 
+#if IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 #ifdef CMDQ_ENG_SVP_MTEE_GROUP_BITS
 	if (handle->engineFlag & CMDQ_ENG_SVP_MTEE_GROUP_BITS) {
-		sec_id = SEC_ID_SVP;
+		if (secData->extension & 0x1)
+			sec_id = SEC_ID_WFD;
+		else
+			sec_id = SEC_ID_SVP;
 		cmdq_sec_pkt_set_mtee(handle->pkt, true, sec_id);
 	}
 #endif
+#endif
+#if IS_ENABLED(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)
 #ifdef CMDQ_ENG_ISP_MTEE_GROUP_BITS
 	if (handle->engineFlag & CMDQ_ENG_ISP_MTEE_GROUP_BITS) {
 		sec_id = SEC_ID_SEC_CAM;
 		cmdq_sec_pkt_set_mtee(handle->pkt, true, sec_id);
 	}
 #endif
-
+#endif
 	if (-1 == sec_id)
 		cmdq_sec_pkt_set_mtee(handle->pkt, false, sec_id);
 
