@@ -104,7 +104,7 @@ static u32 genc_copy_gpu_global(struct adreno_device *adreno_dev,
 	u32 i;
 
 	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
-		struct kgsl_memdesc *md = hw_hfi->mem_alloc_table[i].gpu_md;
+		struct kgsl_memdesc *md = hw_hfi->mem_alloc_table[i].md;
 
 		if (md && (gpuaddr >= md->gpuaddr) &&
 			((gpuaddr + size) <= (md->gpuaddr + md->size))) {
@@ -216,29 +216,29 @@ void genc_hwsched_snapshot(struct adreno_device *adreno_dev,
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_RB_V2,
 				snapshot, adreno_hwsched_snapshot_rb,
-				entry->gpu_md);
+				entry->md);
 
 		if (entry->desc.mem_kind == HFI_MEMKIND_SCRATCH)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
-				entry->gpu_md);
+				entry->md);
 
 		if (entry->desc.mem_kind == HFI_MEMKIND_PROFILE)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
-				entry->gpu_md);
+				entry->md);
 
 		if (entry->desc.mem_kind == HFI_MEMKIND_CSW_SMMU_INFO)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
-				entry->gpu_md);
+				entry->md);
 
 		if (entry->desc.mem_kind == HFI_MEMKIND_CSW_PRIV_NON_SECURE)
 			snapshot_preemption_records(device, snapshot,
-				entry->gpu_md);
+				entry->md);
 	}
 
 	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);

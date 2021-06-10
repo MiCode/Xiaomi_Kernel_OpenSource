@@ -45,8 +45,8 @@ struct genc_gmu_device {
 	struct platform_device *pdev;
 	int irq;
 	const struct firmware *fw_image;
-	struct gmu_memdesc *dump_mem;
-	struct gmu_memdesc *gmu_log;
+	struct kgsl_memdesc *dump_mem;
+	struct kgsl_memdesc *gmu_log;
 	struct genc_hfi hfi;
 	/** @pwrlevels: Array of GMU power levels */
 	struct regulator *cx_gdsc;
@@ -57,7 +57,7 @@ struct genc_gmu_device {
 	unsigned int idle_level;
 	struct kgsl_mailbox mailbox;
 	/** @gmu_globals: Array to store gmu global buffers */
-	struct gmu_memdesc gmu_globals[GMU_KERNEL_ENTRIES];
+	struct kgsl_memdesc gmu_globals[GMU_KERNEL_ENTRIES];
 	/** @global_entries: To keep track of number of gmu buffers */
 	u32 global_entries;
 	struct gmu_vma_entry *vma;
@@ -105,7 +105,7 @@ struct adreno_device *genc_gmu_to_adreno(struct genc_gmu_device *gmu);
  *
  * Return: Pointer to the memory descriptor or error pointer on failure
  */
-struct gmu_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
+struct kgsl_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
 		u32 addr, u32 size, u32 vma_id);
 
 /**

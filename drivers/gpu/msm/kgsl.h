@@ -228,6 +228,8 @@ struct kgsl_memdesc {
 	struct rb_root_cached ranges;
 	/** @ranges_lock: Mutex to protect the range database */
 	struct mutex ranges_lock;
+	/** @gmuaddr: GMU VA if this is mapped in GMU */
+	u32 gmuaddr;
 };
 
 /**

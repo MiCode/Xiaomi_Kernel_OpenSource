@@ -19,7 +19,7 @@ struct a6xx_hfi {
 	int irq;
 	atomic_t seqnum;
 	/** @hfi_mem: Memory descriptor for the hfi memory */
-	struct gmu_memdesc *hfi_mem;
+	struct kgsl_memdesc *hfi_mem;
 	struct hfi_bwtable_cmd bw_table;
 	struct hfi_acd_table_cmd acd_table;
 	/** @dcvs_table: HFI table for gpu dcvs levels */
