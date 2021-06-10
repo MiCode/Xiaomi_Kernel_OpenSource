@@ -87,8 +87,8 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 		goto out;
 
 	/* alloc cmdbuf by dmabuf */
-	c->cmdbufs = mdw_mem_alloc(mpriv, c->size_cmdbufs,
-		MDW_DEFAULT_ALIGN, true);
+	c->cmdbufs = mdw_mem_alloc(mpriv, c->size_cmdbufs, MDW_DEFAULT_ALIGN,
+		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE));
 	if (!c->cmdbufs) {
 		mdw_drv_err("cmd(%p.%d) alloc buffer for duplicate fail\n",
 			mpriv, c->id);
@@ -176,12 +176,14 @@ static int mdw_cmd_duplicate_cmdbuf(struct mdw_subcmd_kinfo *in,
 			memcpy((void *)in->kvaddrs[i],
 				(void *)in->ori_mems[i]->vaddr,
 				in->cmdbufs[i].size);
+			/* TODO, flush */
 			mdw_cmd_debug("copy in(0x%llx/0x%llx)\n",
 				in->kvaddrs[i],
 				(uint64_t)in->ori_mems[i]->vaddr);
 		} else {
 			if (in->cmdbufs[i].direction == MDW_CB_IN)
 				continue;
+			/* TODO, invalidate */
 			memcpy((void *)in->ori_mems[i]->vaddr,
 				(void *)in->kvaddrs[i],
 				in->cmdbufs[i].size);
@@ -529,6 +531,18 @@ static void mdw_cmd_trigger_func(struct work_struct *wk)
 	mdw_flw_debug("cmd(%p.%d) wait fence done, start run\n",
 		c->mpriv, c->id);
 	mdw_cmd_run(c->mpriv, c);
+}
+
+void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv)
+{
+	struct mdw_cmd *c = NULL;
+	int id = 0;
+
+	idr_for_each_entry(&mpriv->cmds_idr, c, id) {
+		idr_remove(&mpriv->cmds_idr, id);
+		mdw_drv_warn("remove residual cmd(%p.%d)\n", mpriv, c->id);
+		kref_put(&c->ref, mdw_cmd_release);
+	}
 }
 
 static int mdw_cmd_ioctl_create(struct mdw_fpriv *mpriv,

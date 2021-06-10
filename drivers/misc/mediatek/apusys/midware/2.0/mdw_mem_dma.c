@@ -227,21 +227,11 @@ free_mdw_dbuf:
 
 int mdw_mem_dma_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 {
-	struct dma_buf *dbuf = NULL;
-	struct mdw_mem_dma *mdbuf = NULL;
+	struct mdw_mem_dma *mdbuf = mem->priv;
 
-	dbuf = dma_buf_get(mem->handle);
-	if (IS_ERR_OR_NULL(dbuf)) {
-		mdw_drv_err("mem invalid handle(%d)\n", mem, mem->handle);
-		return -EINVAL;
-	}
-
-	mdbuf = (struct mdw_mem_dma *)mem->priv;
 	mdw_mem_dma_show(mdbuf);
-
-	dma_buf_put(dbuf);
-	dma_buf_put(dbuf);
 	put_unused_fd(mem->handle);
+	dma_buf_put(mdbuf->dbuf);
 
 	return 0;
 }

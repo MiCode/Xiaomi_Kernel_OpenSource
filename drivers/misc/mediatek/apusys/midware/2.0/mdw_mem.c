@@ -21,9 +21,11 @@ struct mdw_mem_mgr mmgr;
 struct device_dma_parameters mdw_dma_params;
 
 #define mdw_mem_show(m) \
-	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%d/%p)(%d)\n", \
+	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%d/%p)" \
+	"(%u/%u/%d)\n", \
 	m, m->handle, (uint64_t)m->vaddr, m->size, m->device_va, \
-	m->align, m->flags, kref_read(&m->map_ref), m->priv, current->pid)
+	m->align, m->flags, kref_read(&m->map_ref), m->priv, \
+	m->is_user, m->is_released, current->pid)
 
 struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 {
@@ -46,6 +48,9 @@ static void mdw_mem_delete(struct mdw_mem *m)
 	struct mdw_fpriv *mpriv = m->mpriv;
 
 	mdw_mem_show(m);
+	if (m->is_released == true)
+		goto out;
+
 	if (m->is_user == true) {
 		mutex_lock(&mpriv->mtx);
 		list_del(&m->u_item);
@@ -55,7 +60,7 @@ static void mdw_mem_delete(struct mdw_mem *m)
 	mutex_lock(&mmgr.mtx);
 	list_del(&m->m_item);
 	mutex_unlock(&mmgr.mtx);
-
+out:
 	vfree(m);
 }
 
@@ -116,6 +121,33 @@ out:
 int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	return mdw_mem_dma_free(mpriv, m);
+}
+
+void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv)
+{
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct mdw_mem *m = NULL;
+
+	list_for_each_safe(list_ptr, tmp, &mpriv->mems) {
+		m = list_entry(list_ptr, struct mdw_mem, u_item);
+
+		if (m->is_user == true)
+			list_del(&m->u_item);
+
+		mutex_lock(&mmgr.mtx);
+		list_del(&m->m_item);
+		mutex_unlock(&mmgr.mtx);
+		m->is_released = true;
+
+		if (m->is_user) {
+			mdw_mem_show(m);
+			while (kref_read(&m->map_ref))
+				kref_put(&m->map_ref, mdw_mem_unmap);
+		} else {
+			mdw_mem_show(m);
+			mdw_mem_dma_unimport(mpriv, m);
+		}
+	}
 }
 
 static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,

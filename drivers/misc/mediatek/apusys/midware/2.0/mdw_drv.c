@@ -48,6 +48,10 @@ static int mdw_dev_release(struct inode *inode, struct file *filp)
 	struct mdw_fpriv *mpriv = NULL;
 
 	mpriv = filp->private_data;
+	mutex_lock(&mpriv->mtx);
+	mdw_cmd_mpriv_release(mpriv);
+	mdw_mem_mpriv_release(mpriv);
+	mutex_unlock(&mpriv->mtx);
 	kfree(mpriv);
 
 	return 0;

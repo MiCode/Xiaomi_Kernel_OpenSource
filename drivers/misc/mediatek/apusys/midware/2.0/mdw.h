@@ -63,6 +63,7 @@ struct mdw_mem {
 
 	/* control */
 	bool is_user;
+	bool is_released;
 	struct list_head u_item;
 	struct list_head m_item;
 	struct kref map_ref;
@@ -179,6 +180,9 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
+
+void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv);
+void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);
 
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	uint32_t align, uint64_t flags);
