@@ -9061,6 +9061,8 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 
 	/*  */
 	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 #if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -10518,6 +10520,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		return IRQ_HANDLED;
 
 	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 #if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
