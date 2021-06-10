@@ -50,7 +50,7 @@
 
 #include "dpmaif_arch_v3.h"
 
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
+#ifdef CCCI_GEN98_ENABLE_LRO
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/skbuff.h>
@@ -120,6 +120,370 @@ TRACE_EVENT(ccci_skb_rx,
 );
 #endif
 #endif
+
+#ifdef CCCI_GEN98_ENABLE_LRO
+
+static int ccci_skb_to_list(struct ccci_skb_queue *queue,
+		struct sk_buff *newsk);
+
+static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
+	unsigned int skb_idx);
+
+static void dpmaif_rxq_lro_info_init(struct dpmaif_rx_queue *rxq)
+{
+	 memset(&rxq->lro_info, 0, (sizeof(struct dpmaif_rx_lro_info)));
+}
+
+static inline int my_skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
+{
+	struct skb_shared_info *pinfo, *skbinfo = skb_shinfo(skb);
+	unsigned int offset = skb_gro_offset(skb);
+	unsigned int headlen = skb_headlen(skb);
+	unsigned int len = skb_gro_len(skb);
+	unsigned int delta_truesize;
+	struct sk_buff *lp;
+
+	if (unlikely(p->len + len >= 65536 || NAPI_GRO_CB(skb)->flush))
+		return -E2BIG;
+
+	lp = NAPI_GRO_CB(p)->last;
+	pinfo = skb_shinfo(lp);
+
+	if (headlen <= offset) {
+		skb_frag_t *frag;
+		skb_frag_t *frag2;
+		int i = skbinfo->nr_frags;
+		int nr_frags = pinfo->nr_frags + i;
+
+		if (nr_frags > MAX_SKB_FRAGS)
+			goto merge;
+
+		offset -= headlen;
+		pinfo->nr_frags = nr_frags;
+		skbinfo->nr_frags = 0;
+
+		frag = pinfo->frags + nr_frags;
+		frag2 = skbinfo->frags + i;
+		do {
+			*--frag = *--frag2;
+		} while (--i);
+
+		skb_frag_off_add(frag, offset);
+		skb_frag_size_sub(frag, offset);
+
+		/* all fragments truesize : remove (head size + sk_buff) */
+		delta_truesize = skb->truesize -
+				 SKB_TRUESIZE(skb_end_offset(skb));
+
+		skb->truesize -= skb->data_len;
+		skb->len -= skb->data_len;
+		skb->data_len = 0;
+
+		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE;
+		goto done;
+
+	} else if (skb->head_frag) {
+		int nr_frags = pinfo->nr_frags;
+		skb_frag_t *frag = pinfo->frags + nr_frags;
+		struct page *page = virt_to_head_page(skb->head);
+		unsigned int first_size = headlen - offset;
+		unsigned int first_offset;
+
+		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS)
+			goto merge;
+
+		first_offset = skb->data -
+			       (unsigned char *)page_address(page) +
+			       offset;
+
+		pinfo->nr_frags = nr_frags + 1 + skbinfo->nr_frags;
+
+		__skb_frag_set_page(frag, page);
+		skb_frag_off_set(frag, first_offset);
+		skb_frag_size_set(frag, first_size);
+
+		memcpy(frag + 1, skbinfo->frags, sizeof(*frag) * skbinfo->nr_frags);
+		/* We dont need to clear skbinfo->nr_frags here */
+
+		delta_truesize = skb->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
+		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
+		goto done;
+	}
+
+merge:
+	delta_truesize = skb->truesize;
+	if (offset > headlen) {
+		unsigned int eat = offset - headlen;
+
+		skb_frag_off_add(&skbinfo->frags[0], eat);
+		skb_frag_size_sub(&skbinfo->frags[0], eat);
+		skb->data_len -= eat;
+		skb->len -= eat;
+		offset = headlen;
+	}
+
+	__skb_pull(skb, offset);
+
+	if (NAPI_GRO_CB(p)->last == p)
+		skb_shinfo(p)->frag_list = skb;
+	else
+		NAPI_GRO_CB(p)->last->next = skb;
+	NAPI_GRO_CB(p)->last = skb;
+	__skb_header_release(skb);
+	lp = p;
+
+done:
+	NAPI_GRO_CB(p)->count++;
+	p->data_len += len;
+	p->truesize += delta_truesize;
+	p->len += len;
+	if (lp != p) {
+		lp->data_len += len;
+		lp->truesize += delta_truesize;
+		lp->len += len;
+	}
+	NAPI_GRO_CB(skb)->same_flow = 1;
+	return 0;
+}
+
+static inline void dpmaif_rxq_lro_handle_bid(
+		struct dpmaif_rx_queue *rxq, int count, int free_skb)
+{
+	int i;
+	struct dpmaif_bat_skb_t *bat_skb;
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
+
+	for (i = 0; i < count; i++) {
+		if (free_skb)
+			dev_kfree_skb_any(lro_info->skb_tbl[i]);
+
+		bat_skb = ((struct dpmaif_bat_skb_t *)
+					rxq->bat_req.bat_skb_ptr +
+					lro_info->bid_tbl[i]);
+		bat_skb->skb = NULL;
+
+		rxq->bat_req.bid_btable[lro_info->bid_tbl[i]] = 0;
+	}
+
+	lro_info->count = 0;
+}
+
+static inline void dpmaif_rxq_push_all_skb(struct dpmaif_rx_queue *rxq)
+{
+	struct lhif_header *lhif_h = NULL;
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
+	struct sk_buff *skb;
+	int i;
+
+	for (i = 0; i < lro_info->count; i++) {
+		skb = lro_info->skb_tbl[i];
+
+		lhif_h = (struct lhif_header *)(skb_push(skb,
+				sizeof(struct lhif_header)));
+		lhif_h->netif = rxq->cur_chn_idx;
+
+		if (ccci_skb_to_list(&rxq->skb_list, skb)) {
+			CCCI_ERROR_LOG(0, TAG,
+				"[%s] error; skb = %p; (%u) >= (%u)\n",
+				__func__, skb,
+				rxq->skb_list.skb_list.qlen,
+				rxq->skb_list.max_len);
+
+			ccci_free_skb(skb);
+		}
+	}
+
+	dpmaif_rxq_lro_handle_bid(rxq, lro_info->count, 0);
+}
+
+static inline void dpmaif_rxq_lro_start(struct dpmaif_rx_lro_info *lro_info)
+{
+	lro_info->count = 0;
+}
+
+static inline void dpmaif_rxq_lro_join_skb(
+		struct dpmaif_rx_queue *rxq,
+		struct sk_buff *skb,
+		unsigned int bid)
+{
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
+
+	if (lro_info->count >= DPMAIF_MAX_LRO) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] lro skb count is too much.\n",
+			__func__);
+
+		dpmaif_rxq_push_all_skb(rxq);
+	}
+
+	lro_info->bid_tbl[lro_info->count] = bid;
+	lro_info->skb_tbl[lro_info->count] = skb;
+
+	lro_info->count++;
+}
+
+static inline int dpmaif_get_skb_header_len(
+		struct sk_buff *skb, unsigned int bid)
+{
+	struct iphdr *iph = (struct iphdr *)skb->data;
+	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	struct tcphdr *tcph;
+	int ip_len = 0;
+	u16 ipid = 0;
+
+	if (iph->version == 4) {
+		if(iph->protocol != IPPROTO_TCP)
+			return 0;
+
+		ipid = ntohs(iph->id);
+
+		ip_len = (iph->ihl << 2);
+		tcph = (struct tcphdr *)((void *)iph + ip_len);
+
+	} else if (iph->version == 6) {
+		if (ip6h->nexthdr != IPPROTO_TCP)
+			return 0;
+
+		ip_len = 40;
+		tcph = (struct tcphdr *)((void *)ip6h + 40);
+
+	} else {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: ip verion is invalid: %d; bid: %d\n",
+			__func__, iph->version, bid);
+		return 0;
+	}
+
+	return (ip_len + (tcph->doff << 2));
+}
+
+static inline void dpmaif_lro_update_gro_info(
+		struct sk_buff *skb,
+		unsigned int total_len,
+		int gro_skb_num)
+{
+	struct iphdr *iph = (struct iphdr *)skb->data;
+	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
+	unsigned int gso_type;
+
+	if (iph->version == 4) {
+		gso_type = SKB_GSO_TCPV4;
+		iph->tot_len = htons(total_len);
+		iph->check = 0;
+		iph->check = ip_fast_csum((const void*)iph, iph->ihl);
+
+	} else if (iph->version == 6) {
+		gso_type = SKB_GSO_TCPV6;
+		ip6h->payload_len = htons(total_len - 40);
+
+	} else
+		return;
+
+	skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+	skb_shinfo(skb)->gso_type |= gso_type;
+	skb_shinfo(skb)->gso_size = 0;
+	skb_shinfo(skb)->gso_segs = gro_skb_num;
+}
+
+static inline int dpmaif_rxq_lro_end(struct dpmaif_rx_queue *rxq)
+{
+	struct lhif_header *lhif_h = NULL;
+	struct sk_buff *skb0, *skb1;
+	int i, header_len, ret, start_idx, data_len;
+	unsigned int total_len, lro_num;
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
+
+	if (rxq->pit_dp) {
+		dpmaif_rxq_lro_handle_bid(rxq, lro_info->count, 1);
+		return 0;
+	}
+
+	start_idx = 0;
+
+lro_continue:
+	lro_num = 0;
+	total_len = 0;
+
+	for (i = start_idx; i < lro_info->count; i++) {
+		if (i == start_idx) {
+			skb0 = lro_info->skb_tbl[i];
+			total_len = skb0->len;
+			lro_num++;
+
+			if ((lro_info->count - i) == 1) {
+				start_idx = lro_info->count;
+				goto lro_end;
+			}
+
+			header_len = dpmaif_get_skb_header_len(skb0,
+					lro_info->bid_tbl[i]);
+			if (header_len == 0) {
+				start_idx = i + 1;
+				goto gro_too_much_skb;
+			}
+
+			NAPI_GRO_CB(skb0)->data_offset = header_len;
+			NAPI_GRO_CB(skb0)->last = skb0;
+
+			continue;
+		}
+
+		skb1 = lro_info->skb_tbl[i];
+
+		header_len = dpmaif_get_skb_header_len(skb1,
+				lro_info->bid_tbl[i]);
+		if (header_len == 0) {
+			start_idx = i;
+			goto gro_too_much_skb;
+		}
+
+		data_len = skb1->len - header_len;
+
+		NAPI_GRO_CB(skb1)->data_offset = header_len;
+
+		ret = my_skb_gro_receive(skb0, skb1);
+		if (ret) {
+			NAPI_GRO_CB(skb1)->data_offset = 0;
+			start_idx = i;
+			goto gro_too_much_skb;
+		}
+
+		total_len += data_len;
+
+		lro_num++;
+	}
+	start_idx = lro_info->count;
+
+gro_too_much_skb:
+	if (lro_num > 1)
+		dpmaif_lro_update_gro_info(skb0, total_len, lro_num);
+
+lro_end:
+	lhif_h = (struct lhif_header *)(skb_push(skb0,
+			sizeof(struct lhif_header)));
+	lhif_h->netif = rxq->cur_chn_idx;
+
+	ret = ccci_skb_to_list(&rxq->skb_list, skb0);
+	if (ret) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error; start_idx = %d; (%u) >= (%u)\n",
+			__func__, start_idx,
+			rxq->skb_list.skb_list.qlen, rxq->skb_list.max_len);
+
+		dpmaif_rxq_lro_handle_bid(rxq, start_idx, 0);
+		ccci_free_skb(skb0);
+		return ret;
+	}
+
+	if (start_idx < lro_info->count)
+		goto lro_continue;
+
+	dpmaif_rxq_lro_handle_bid(rxq, lro_info->count, 0);
+	return 0;
+}
+#endif
+
 static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 {
 	if (hif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
@@ -586,119 +950,6 @@ static unsigned int ringbuf_releasable(unsigned int  total_cnt,
  *
  * ========================================================
  */
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-//void ccmni_clr_flush_timer(void);
-int my_skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
-{
-	struct skb_shared_info *pinfo, *skbinfo = skb_shinfo(skb);
-	unsigned int offset = skb_gro_offset(skb);
-	unsigned int headlen = skb_headlen(skb);
-	unsigned int len = skb_gro_len(skb);
-	unsigned int delta_truesize;
-	struct sk_buff *lp;
-
-	if (unlikely(p->len + len >= 65536 || NAPI_GRO_CB(skb)->flush))
-		return -E2BIG;
-
-	lp = NAPI_GRO_CB(p)->last;
-	pinfo = skb_shinfo(lp);
-
-	if (headlen <= offset) {
-		skb_frag_t *frag;
-		skb_frag_t *frag2;
-		int i = skbinfo->nr_frags;
-		int nr_frags = pinfo->nr_frags + i;
-
-		if (nr_frags > MAX_SKB_FRAGS)
-			goto merge;
-
-		offset -= headlen;
-		pinfo->nr_frags = nr_frags;
-		skbinfo->nr_frags = 0;
-
-		frag = pinfo->frags + nr_frags;
-		frag2 = skbinfo->frags + i;
-		do {
-			*--frag = *--frag2;
-		} while (--i);
-
-		skb_frag_off_add(frag, offset);
-		skb_frag_size_sub(frag, offset);
-
-		/* all fragments truesize : remove (head size + sk_buff) */
-		delta_truesize = skb->truesize -
-				 SKB_TRUESIZE(skb_end_offset(skb));
-
-		skb->truesize -= skb->data_len;
-		skb->len -= skb->data_len;
-		skb->data_len = 0;
-
-		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE;
-		goto done;
-	} else if (skb->head_frag) {
-		int nr_frags = pinfo->nr_frags;
-		skb_frag_t *frag = pinfo->frags + nr_frags;
-		struct page *page = virt_to_head_page(skb->head);
-		unsigned int first_size = headlen - offset;
-		unsigned int first_offset;
-
-		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS)
-			goto merge;
-
-		first_offset = skb->data -
-			       (unsigned char *)page_address(page) +
-			       offset;
-
-		pinfo->nr_frags = nr_frags + 1 + skbinfo->nr_frags;
-
-		__skb_frag_set_page(frag, page);
-		skb_frag_off_set(frag, first_offset);
-		skb_frag_size_set(frag, first_size);
-
-		memcpy(frag + 1, skbinfo->frags, sizeof(*frag) * skbinfo->nr_frags);
-		/* We dont need to clear skbinfo->nr_frags here */
-
-		delta_truesize = skb->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
-		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
-		goto done;
-	}
-
-merge:
-	delta_truesize = skb->truesize;
-	if (offset > headlen) {
-		unsigned int eat = offset - headlen;
-
-		skb_frag_off_add(&skbinfo->frags[0], eat);
-		skb_frag_size_sub(&skbinfo->frags[0], eat);
-		skb->data_len -= eat;
-		skb->len -= eat;
-		offset = headlen;
-	}
-
-	__skb_pull(skb, offset);
-
-	if (NAPI_GRO_CB(p)->last == p)
-		skb_shinfo(p)->frag_list = skb;
-	else
-		NAPI_GRO_CB(p)->last->next = skb;
-	NAPI_GRO_CB(p)->last = skb;
-	__skb_header_release(skb);
-	lp = p;
-
-done:
-	NAPI_GRO_CB(p)->count++;
-	p->data_len += len;
-	p->truesize += delta_truesize;
-	p->len += len;
-	if (lp != p) {
-		lp->data_len += len;
-		lp->truesize += delta_truesize;
-		lp->len += len;
-	}
-	NAPI_GRO_CB(skb)->same_flow = 1;
-	return 0;
-}
-#endif
 static int dpmaif_net_rx_push_thread(void *arg)
 {
 	struct sk_buff *skb = NULL;
@@ -720,9 +971,6 @@ static int dpmaif_net_rx_push_thread(void *arg)
 			ret = wait_event_interruptible(queue->rx_wq,
 				(!skb_queue_empty(&queue->skb_list.skb_list) ||
 				kthread_should_stop()));
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-//			ccmni_clr_flush_timer();
-#endif
 			if (ret == -ERESTARTSYS)
 				continue;	/* FIXME */
 		}
@@ -740,9 +988,6 @@ static int dpmaif_net_rx_push_thread(void *arg)
 		if (count > 0)
 			skb->tstamp = sched_clock();
 #endif
-#endif
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
 #endif
 		ccci_port_recv_skb(hif_ctrl->md_id, hif_ctrl->hif_id, skb,
 			CLDMA_NET_DATA);
@@ -915,37 +1160,6 @@ static int dpmaif_alloc_rx_frag(struct dpmaif_bat_request *bat_req,
 	return ret;
 }
 
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-static int dpmaif_rx_set_lro_info(struct dpmaif_rx_queue *rxq,
-	struct dpmaifq_normal_pit *pkt_inf_t, struct sk_buff *new_skb)
-{
-	unsigned int idx;
-
-	if ((rxq->lro_tbl_num < MAX_LRO_BID_NUM) &&
-		(rxq->lro_skb_num < MAX_LRO_SKB_NUM)) {
-
-		idx = (pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13));
-
-		rxq->lro_bid_tbl[rxq->lro_tbl_num] = idx;
-		rxq->lro_tbl_num++;
-
-		if (new_skb) {
-			rxq->lro_skb_tbl[rxq->lro_skb_num].skb = new_skb;
-			rxq->lro_skb_tbl[rxq->lro_skb_num].idx = idx;
-			rxq->lro_skb_num++;
-		}
-
-		return 0;
-	}
-
-	CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-		"[%s] error: lro tbl is tool small: (%u,%u).",
-		__func__, rxq->lro_tbl_num, rxq->lro_skb_num);
-
-	return DATA_CHECK_FAIL;
-}
-#endif
-
 static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 	unsigned int skb_idx, struct dpmaifq_normal_pit *pkt_inf_t)
 {
@@ -976,10 +1190,6 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 
 		return DATA_CHECK_FAIL;
 	}
-
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-	return dpmaif_rx_set_lro_info(rxq, pkt_inf_t, NULL);
-#endif
 
 #ifndef REFINE_BAT_OFFSET_REMOVE
 	/* 2. calculate data address && data len. */
@@ -1385,14 +1595,13 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 		return DATA_CHECK_FAIL;
 	}
 
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-	return dpmaif_rx_set_lro_info(rxq, pkt_inf_t, new_skb);
-#endif
-
 	skb_put(new_skb, data_len);
 	new_skb->ip_summed = (rxq->check_sum == 0) ?
 		CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
 
+#ifdef CCCI_GEN98_ENABLE_LRO
+	dpmaif_rxq_lro_join_skb(rxq, new_skb, buffer_id);
+#endif
 	return 0;
 }
 
@@ -1496,174 +1705,6 @@ static int ccci_skb_to_list(struct ccci_skb_queue *queue, struct sk_buff *newsk)
 	spin_unlock_irqrestore(&queue->skb_list.lock, flags);
 	return 0;
 }
-
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-//void dump_sk_info(const char buf[], struct sk_buff *sk);
-
-static inline int dpmaif_get_skb_header_len(struct sk_buff *skb)
-{
-	struct iphdr *iph = (struct iphdr *)skb->data;
-	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
-	struct tcphdr *tcph;
-	int ip_len = 0;
-
-	if (iph->version == 4) {
-		if(iph->protocol != IPPROTO_TCP)
-			return 0;
-
-		ip_len = (iph->ihl << 2);
-		tcph = (struct tcphdr *)((void *)iph + ip_len);
-
-	} else if (iph->version == 6) {
-		if (ip6h->nexthdr != IPPROTO_TCP)
-			return 0;
-
-		ip_len = 40;
-		tcph = (struct tcphdr *)((void *)ip6h + 40);
-
-	} else
-		return 0;
-
-	return (ip_len + (tcph->doff << 2));
-}
-
-static inline void dpmaif_set_skb_tcp_checksum(struct sk_buff *skb,
-		unsigned int total_len, unsigned int gro_skb_num)
-{
-	struct iphdr *iph = (struct iphdr *)skb->data;
-	struct ipv6hdr *ip6h = (struct ipv6hdr *)skb->data;
-//	struct tcphdr *tcph;
-//	int ip_len;
-
-	if (iph->version == 4) {
-		iph->tot_len = total_len;
-		iph->check = 0;
-		iph->check = ip_fast_csum((unsigned char*)iph, iph->ihl);
-
-//		tcph = (struct tcphdr *)((void *)iph + (iph->ihl << 2));
-
-	} else if (iph->version == 6) {
-		ip6h->payload_len = total_len;
-
-//		tcph = (struct tcphdr *)((void *)iph + 40);
-
-	} else
-		return;
-
-//	len_old = uh->len;
-//	total_len -= 20;
-//	len_new = ((total_len>>8) & 0xFF) + ((total_len << 8) & 0xFF00);
-//	uh->len = len_new;
-//	csum_replace2(&uh->check, len_old, len_new);
-
-//	skb_shinfo(skb)->gso_type |= SKB_GSO_TCP;
-//	skb_shinfo(skb)->gso_size = 1472;//tcp: mss; udp: packet size
-	skb_shinfo(skb)->gso_segs = gro_skb_num;
-}
-
-static inline int dpmaif_handle_lro_skb(struct dpmaif_rx_queue *rxq)
-{
-	struct sk_buff *first_skb, *follow_skb;
-	int i, header_len, ret;
-	unsigned int total_len;
-
-	if (rxq->lro_skb_num == 0)
-		return -1;
-
-	first_skb = rxq->lro_skb_tbl[0].skb;
-	header_len = dpmaif_get_skb_header_len(first_skb);
-	if (header_len == 0)
-		return -2;
-
-	NAPI_GRO_CB(first_skb)->data_offset = header_len;
-	NAPI_GRO_CB(first_skb)->last = first_skb;
-
-	total_len = first_skb->len;
-
-	for (i = 1; i < rxq->lro_skb_num; i++) {
-		follow_skb = rxq->lro_skb_tbl[i].skb;
-
-		header_len = dpmaif_get_skb_header_len(follow_skb);
-		if (header_len == 0)
-			break;
-
-		NAPI_GRO_CB(follow_skb)->data_offset = header_len;
-
-		ret = my_skb_gro_receive(first_skb, follow_skb);
-		if (ret) {
-			CCCI_ERROR_LOG(-1, TAG,
-				"[%s] warning: skb_gro_receive() fail: %d;",
-				__func__, ret);
-
-			break;
-		}
-
-		total_len += (follow_skb->len - header_len);
-		rxq->lro_skb_tbl[i].skb = NULL;
-	}
-
-	if (i > 1) {
-		dpmaif_set_skb_tcp_checksum(first_skb, total_len, i);
-		return 0;
-	}
-
-	return -3;
-}
-
-static int dpmaif_send_lro_skb_to_net(struct dpmaif_rx_queue *rxq)
-{
-	struct sk_buff *new_skb;
-	struct lhif_header *lhif_h; /* for uplayer: port/ccmni */
-	//struct ccci_header ccci_h; /* for collect debug info. */
-	int i, ret = 0, once;
-	struct dpmaif_bat_skb_t *bat_skb;
-
-	once = dpmaif_handle_lro_skb(rxq);
-
-	for (i = 0; i < rxq->lro_skb_num; i++) {
-		if (rxq->lro_skb_tbl[i].skb == NULL)
-			continue;
-
-		new_skb = rxq->lro_skb_tbl[i].skb;
-
-		lhif_h = (struct lhif_header *)(skb_push(new_skb,
-				sizeof(struct lhif_header)));
-		lhif_h->netif = rxq->cur_chn_idx;
-
-		ret = ccci_skb_to_list(&rxq->skb_list, new_skb);
-		if (ret < 0)
-			break;
-
-		rxq->lro_skb_tbl[i].skb = NULL;
-
-		if (once)
-			break;
-	}
-
-	if (ret) {
-		for (i = 0; i < rxq->lro_skb_num; i++) {
-			if (rxq->lro_skb_tbl[i].skb) {
-				ccci_free_skb(rxq->lro_skb_tbl[i].skb);
-				rxq->lro_skb_tbl[i].skb = NULL;
-			}
-
-			bat_skb = (struct dpmaif_bat_skb_t *)
-					(rxq->bat_req.bat_skb_ptr +
-						rxq->lro_skb_tbl[i].idx);
-
-			bat_skb->skb = NULL;
-		}
-	}
-	rxq->lro_skb_num = 0;
-
-	for (i = 0; i < rxq->lro_tbl_num; i++)
-		rxq->bat_req.bid_btable[rxq->lro_bid_tbl[i]] = 0;
-
-	rxq->lro_tbl_num = 0;
-
-	return ret;
-}
-#endif
 
 static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	unsigned int skb_idx)
@@ -1866,6 +1907,9 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 #ifdef PIT_USING_CACHE_MEM
 	dma_addr_t cache_start_addr;
 #endif
+#ifdef CCCI_GEN98_ENABLE_LRO
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
+#endif
 
 	cur_pit = rxq->pit_rd_idx;
 
@@ -1919,6 +1963,10 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 				rxq->skb_idx = -1;
 				rxq->pit_dp =
 				((struct dpmaifq_msg_pit *)pkt_inf_t)->dp;
+
+#ifdef CCCI_GEN98_ENABLE_LRO
+				dpmaif_rxq_lro_start(lro_info);
+#endif
 			} else if (pkt_inf_t->packet_type == DES_PT_PD) {
 				buffer_id = (pkt_inf_t->buffer_id |
 						((pkt_inf_t->h_bid) << 13));
@@ -1988,9 +2036,9 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 #endif
 			if (pkt_inf_t->c_bit == 0) {
 				/* last one, not msg pit, && data had rx. */
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-				if (rxq->lro_skb_num > 1)
-					ret = dpmaif_send_lro_skb_to_net(rxq);
+#ifdef CCCI_GEN98_ENABLE_LRO
+				if (lro_info->count > 1)
+					ret = dpmaif_rxq_lro_end(rxq);
 				else
 #endif
 				ret = dpmaif_send_skb_to_net(rxq,
@@ -3197,6 +3245,9 @@ static int dpmaif_rxq_init(struct dpmaif_rx_queue *queue)
 {
 	int ret = -1;
 
+#ifdef CCCI_GEN98_ENABLE_LRO
+	dpmaif_rxq_lro_info_init(queue);
+#endif
 	ret = dpmaif_rx_buf_init(queue);
 	if (ret) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,

@@ -194,16 +194,16 @@ enum error_num {
 	ERROR_STOP_MAX, /* -4 */
 };
 
+#ifdef CCCI_GEN98_ENABLE_LRO
+#define DPMAIF_MAX_LRO 50
 
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-#define MAX_LRO_BID_NUM 128
-#define MAX_LRO_SKB_NUM 50
-#endif
+struct dpmaif_rx_lro_info {
+	unsigned int    bid_tbl[DPMAIF_MAX_LRO];
+	struct sk_buff *skb_tbl[DPMAIF_MAX_LRO];
 
-struct dpmaif_lro_skb_info {
-	struct sk_buff *skb;
-	int idx;
+	unsigned int    count;
 };
+#endif
 
 struct dpmaif_rx_queue {
 	unsigned char index;
@@ -238,11 +238,8 @@ struct dpmaif_rx_queue {
 	struct ccci_skb_queue skb_list;
 	unsigned int pit_dp;
 
-#ifdef CCCI_GEN98_LRO_NEW_FEATURE
-	struct dpmaif_lro_skb_info lro_skb_tbl[MAX_LRO_SKB_NUM];
-	unsigned int    lro_skb_num;
-	unsigned int    lro_bid_tbl[MAX_LRO_BID_NUM];
-	unsigned int    lro_tbl_num;
+#ifdef CCCI_GEN98_ENABLE_LRO
+	struct dpmaif_rx_lro_info lro_info;
 #endif
 };
 
