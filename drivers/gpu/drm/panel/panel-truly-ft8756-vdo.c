@@ -647,17 +647,17 @@ static int lcm_enable(struct drm_panel *panel)
 	return 0;
 }
 
-#define HFP (10)
-#define HSA (6)
-#define HBP (40)
-#define VFP (20)
-#define VSA (4)
-#define VBP (20)
+#define HFP (30)
+#define HSA (16)
+#define HBP (14)
+#define VFP (70)
+#define VSA (16)
+#define VBP (16)
 #define VAC (2300)
 #define HAC (1080)
 
 static struct drm_display_mode default_mode = {
-	.clock = 160872,
+	.clock = 164297,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
@@ -720,8 +720,8 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
 }
 
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 519,
-	.vfp_low_power = 810,
+	.pll_clk = 530,
+	.vfp_low_power = 840,
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
