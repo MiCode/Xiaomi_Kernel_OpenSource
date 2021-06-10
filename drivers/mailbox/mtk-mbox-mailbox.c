@@ -23,7 +23,7 @@
 #define INTR_CLR_OFS	0x4
 
 #define MBOX_CHANS	2
-#define MBOX_DEBUG	1
+#define MBOX_DEBUG	0
 
 
 struct mhu_link {
