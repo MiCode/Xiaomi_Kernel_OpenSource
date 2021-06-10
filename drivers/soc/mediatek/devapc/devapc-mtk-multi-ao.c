@@ -19,10 +19,10 @@
 
 static struct mtk_devapc_context {
 	struct clk *devapc_infra_clk;
-	uint32_t devapc_irq;
+	uint32_t devapc_irq[IRQ_TYPE_NUM_MAX];
 
 	/* HW reg mapped addr */
-	void __iomem *devapc_pd_base[4];
+	void __iomem *devapc_pd_base[SLAVE_TYPE_NUM_MAX];
 	void __iomem *devapc_infra_ao_base;
 	void __iomem *infracfg_base;
 	void __iomem *sramrom_base;
@@ -105,6 +105,7 @@ static void sramrom_vio_handler(void)
 	size_t sramrom_vio_sta;
 	int sramrom_vio;
 	uint32_t rw;
+	uint32_t sramrom_vio_id;
 
 	sramrom_vios = mtk_devapc_ctx->soc->sramrom_sec_vios;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
@@ -115,6 +116,7 @@ static void sramrom_vio_handler(void)
 	sramrom_vio = res.a0;
 	sramrom_vio_sta = res.a1;
 	vio_info->vio_addr = res.a2;
+	sramrom_vio_id = res.a3;
 
 	if (sramrom_vio == SRAM_VIOLATION)
 		pr_info(PFX "%s, SRAM violation is triggered\n", __func__);
@@ -137,11 +139,12 @@ static void sramrom_vio_handler(void)
 	else
 		vio_info->read = 1;
 
-	pr_info(PFX "%s: %s:0x%x, %s:0x%x, %s:%s, %s:0x%x\n",
+	pr_info(PFX "%s: %s:0x%x, %s:0x%x, %s:%s, %s:0x%x, %s:0x%x\n",
 		__func__, "master_id", vio_info->master_id,
 		"domain_id", vio_info->domain_id,
 		"rw", rw ? "Write" : "Read",
-		"vio_addr", vio_info->vio_addr);
+		"vio_addr", vio_info->vio_addr,
+		"vio_id", sramrom_vio_id);
 }
 
 static void mask_module_irq(int slave_type, uint32_t module, bool mask)
@@ -494,7 +497,7 @@ static uint8_t get_permission(int slave_type, int module_index, int domain)
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	const struct mtk_device_info **device_info;
 	const struct mtk_device_num *ndevices;
-	int sys_index, ctrl_index, vio_index;
+	int sys_index, ctrl_index, vio_index, irq_type;
 	uint32_t ret, apc_set_index;
 	struct arm_smccc_res res;
 
@@ -514,6 +517,7 @@ static uint8_t get_permission(int slave_type, int module_index, int domain)
 	sys_index = device_info[slave_type][module_index].sys_index;
 	ctrl_index = device_info[slave_type][module_index].ctrl_index;
 	vio_index = device_info[slave_type][module_index].vio_index;
+	irq_type = ndevices[slave_type].irq_type;
 
 	if (sys_index == -1 || ctrl_index == -1) {
 		pr_err(PFX "%s: cannot get sys_index & ctrl_index\n",
@@ -525,7 +529,7 @@ static uint8_t get_permission(int slave_type, int module_index, int domain)
 	}
 
 	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_PERM_GET, slave_type, sys_index,
-			domain, ctrl_index, vio_index, 0, 0, &res);
+			domain, ctrl_index, vio_index, irq_type, 0, &res);
 	ret = res.a0;
 
 	if (ret == DEAD) {
@@ -589,7 +593,7 @@ static void mtk_devapc_vio_check(int slave_type, int *shift_bit)
 static void devapc_extract_vio_dbg(int slave_type)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
-	void __iomem *vio_dbg0_reg, *vio_dbg1_reg, *vio_dbg2_reg;
+	void __iomem *vio_dbg0_reg, *vio_dbg1_reg, *vio_dbg2_reg, *vio_dbg3_reg;
 	const struct mtk_infra_vio_dbg_desc *vio_dbgs;
 	struct mtk_devapc_vio_info *vio_info;
 	uint32_t dbg0;
@@ -603,6 +607,7 @@ static void devapc_extract_vio_dbg(int slave_type)
 	vio_dbg0_reg = mtk_devapc_pd_get(slave_type, VIO_DBG0, 0);
 	vio_dbg1_reg = mtk_devapc_pd_get(slave_type, VIO_DBG1, 0);
 	vio_dbg2_reg = mtk_devapc_pd_get(slave_type, VIO_DBG2, 0);
+	vio_dbg3_reg = mtk_devapc_pd_get(slave_type, VIO_DBG3, 0);
 
 	vio_dbgs = mtk_devapc_ctx->soc->vio_dbgs;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
@@ -618,8 +623,12 @@ static void devapc_extract_vio_dbg(int slave_type)
 			>> vio_dbgs->vio_dbg_w_vio_start_bit) == 1;
 	vio_info->read = ((dbg0 & vio_dbgs->vio_dbg_r_vio)
 			>> vio_dbgs->vio_dbg_r_vio_start_bit) == 1;
-	vio_info->vio_addr_high = (dbg0 & vio_dbgs->vio_addr_high)
-		>> vio_dbgs->vio_addr_high_start_bit;
+	if (vio_dbgs->vio_addr_high == VIO_ADDR_HIGH_MASK &&
+		!vio_dbgs->vio_addr_high_start_bit)
+		vio_info->vio_addr_high = readl(vio_dbg3_reg);
+	else
+		vio_info->vio_addr_high = (dbg0 & vio_dbgs->vio_addr_high)
+			>> vio_dbgs->vio_addr_high_start_bit;
 
 	devapc_vio_info_print();
 }
@@ -1300,7 +1309,9 @@ int mtk_devapc_probe(struct platform_device *pdev,
 {
 	struct device_node *node = pdev->dev.of_node;
 	uint32_t slave_type_num;
+	uint32_t irq_type_num = IRQ_TYPE_NUM_DEFAULT;
 	int slave_type;
+	int irq_type;
 	int ret;
 
 	pr_info(PFX "driver registered\n");
@@ -1312,6 +1323,8 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	mtk_devapc_ctx->soc = soc;
 	slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	if (mtk_devapc_ctx->soc->irq_type_num)
+		irq_type_num = mtk_devapc_ctx->soc->irq_type_num;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 		mtk_devapc_ctx->devapc_pd_base[slave_type] = of_iomap(node,
@@ -1336,10 +1349,14 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	mtk_devapc_ctx->devapc_irq = irq_of_parse_and_map(node, 0);
-	if (!mtk_devapc_ctx->devapc_irq) {
-		pr_err(PFX "parse and map the interrupt failed\n");
-		return -EINVAL;
+	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
+		mtk_devapc_ctx->devapc_irq[irq_type] = irq_of_parse_and_map(node,
+			irq_type);
+		if (!mtk_devapc_ctx->devapc_irq[irq_type]) {
+			pr_err(PFX "parse and map the interrupt[%d] failed\n",
+				irq_type);
+			return -EINVAL;
+		}
 	}
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++)
@@ -1348,16 +1365,17 @@ int mtk_devapc_probe(struct platform_device *pdev,
 				"devapc_pd_base",
 				mtk_devapc_ctx->devapc_pd_base[slave_type]);
 
-	pr_debug(PFX " IRQ:%d\n", mtk_devapc_ctx->devapc_irq);
+	for (irq_type = 0; irq_type < irq_type_num; irq_type++)
+		pr_debug(PFX " IRQ[%d]:%d\n", irq_type,
+			mtk_devapc_ctx->devapc_irq[irq_type]);
 
 	/* CCF (Common Clock Framework) */
 	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
 			"devapc-infra-clock");
 
-	if (IS_ERR(mtk_devapc_ctx->devapc_infra_clk)) {
-		pr_err(PFX "(Infra) Cannot get devapc clock from CCF\n");
-		return -EINVAL;
-	}
+	if (IS_ERR(mtk_devapc_ctx->devapc_infra_clk))
+		pr_info(PFX "(Infra) Cannot get devapc clock from CCF (%d)\n",
+				PTR_ERR(mtk_devapc_ctx->devapc_infra_clk));
 
 	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
 
@@ -1373,19 +1391,25 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	if (unlikely(mtk_devapc_ctx->sramrom_base == NULL))
 		pr_info(PFX "parse sramrom_base failed\n");
 
-	if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
-		pr_err(PFX " Cannot enable devapc clock\n");
-		return -EINVAL;
+	if (!IS_ERR(mtk_devapc_ctx->devapc_infra_clk)) {
+		if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
+			pr_err(PFX " Cannot enable devapc clock\n");
+			return -EINVAL;
+		}
 	}
 
 	start_devapc();
 
-	ret = devm_request_irq(&pdev->dev, mtk_devapc_ctx->devapc_irq,
+	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
+		ret = devm_request_irq(&pdev->dev,
+			mtk_devapc_ctx->devapc_irq[irq_type],
 			(irq_handler_t)devapc_violation_irq,
 			IRQF_TRIGGER_NONE, "devapc", NULL);
-	if (ret) {
-		pr_err(PFX "request devapc irq failed, ret:%d\n", ret);
-		return ret;
+		if (ret) {
+			pr_err(PFX "request devapc irq[%d] failed, ret:%d\n",
+				irq_type, ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -1393,7 +1417,9 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 int mtk_devapc_remove(struct platform_device *dev)
 {
-	clk_disable_unprepare(mtk_devapc_ctx->devapc_infra_clk);
+	if (!IS_ERR(mtk_devapc_ctx->devapc_infra_clk))
+		clk_disable_unprepare(mtk_devapc_ctx->devapc_infra_clk);
+
 	return 0;
 }
 

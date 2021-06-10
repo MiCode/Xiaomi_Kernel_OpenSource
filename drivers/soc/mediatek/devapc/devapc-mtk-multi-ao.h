@@ -17,7 +17,10 @@
 #define DEAD			0xdeadbeaf
 #define RANDOM_OFFSET		0x88
 #define PFX			"[DEVAPC]: "
-#define SLAVE_TYPE_NUM_MAX	5
+#define SLAVE_TYPE_NUM_MAX	6
+#define IRQ_TYPE_NUM_MAX	4
+#define IRQ_TYPE_NUM_DEFAULT	1
+#define VIO_ADDR_HIGH_MASK	0xFFFFFFFF
 
 #define devapc_log(p, s, fmt, args...) \
 	(p += scnprintf(p, sizeof(s) - strlen(s), fmt, ##args))
@@ -37,6 +40,7 @@ enum DEVAPC_PD_REG_TYPE {
 	VIO_SHIFT_STA,
 	VIO_SHIFT_SEL,
 	VIO_SHIFT_CON,
+	VIO_DBG3,
 	PD_REG_TYPE_NUM,
 };
 
@@ -105,6 +109,7 @@ struct mtk_device_info {
 struct mtk_device_num {
 	int slave_type;
 	uint32_t vio_slave_num;
+	int irq_type;
 };
 
 struct mtk_devapc_vio_info {
@@ -168,6 +173,7 @@ struct mtk_devapc_soc {
 	const struct mtk_infra_vio_dbg_desc *vio_dbgs;
 	const struct mtk_sramrom_sec_vio_desc *sramrom_sec_vios;
 	const uint32_t *devapc_pds;
+	uint32_t irq_type_num;
 
 	/* platform specific operations */
 	const char* (*subsys_get)(int slave_type, uint32_t vio_index,
