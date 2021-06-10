@@ -301,7 +301,7 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 			ack_mask = scpd->data->sram_pdn_ack_bits;
 			ack_sta = 0;
 		}
-		ret = readl_poll_timeout(ctl_addr, tmp,
+		ret = readl_poll_timeout_atomic(ctl_addr, tmp,
 			(tmp & ack_mask) == ack_sta,
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 		if (ret < 0)
@@ -345,7 +345,7 @@ static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
 	writel(val, ctl_addr);
 
 	/* Either wait until SRAM_PDN_ACK all 1 or 0 */
-	return readl_poll_timeout(ctl_addr, tmp,
+	return readl_poll_timeout_atomic(ctl_addr, tmp,
 		(tmp & ack_mask) == ack_sta,
 		MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 }
@@ -364,7 +364,7 @@ static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
 	else
 		regmap_update_bits(map, en_ofs, mask, mask);
 
-	ret = regmap_read_poll_timeout(map, sta_ofs,
+	ret = regmap_read_poll_timeout_atomic(map, sta_ofs,
 			val, (val & mask) == mask,
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 
@@ -393,7 +393,7 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 	if (ignore_ack)
 		return 0;
 
-	ret = regmap_read_poll_timeout(map, sta_ofs,
+	ret = regmap_read_poll_timeout_atomic(map, sta_ofs,
 			val, !(val & mask),
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 
@@ -516,7 +516,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 1 */
-	ret = readx_poll_timeout(scpsys_domain_is_on, scpd, tmp, tmp > 0,
+	ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp > 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_pwr_ack;
@@ -592,7 +592,7 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 0 */
-	ret = readx_poll_timeout(scpsys_domain_is_on, scpd, tmp, tmp == 0,
+	ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp == 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
@@ -639,7 +639,7 @@ static int scpsys_md_power_on(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 1 */
-	ret = readx_poll_timeout(scpsys_md_domain_is_on, scpd, tmp, tmp > 0,
+	ret = readx_poll_timeout_atomic(scpsys_md_domain_is_on, scpd, tmp, tmp > 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_pwr_ack;
@@ -694,7 +694,7 @@ static int scpsys_md_power_off(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 0 */
-	ret = readx_poll_timeout(scpsys_md_domain_is_on, scpd, tmp, tmp == 0,
+	ret = readx_poll_timeout_atomic(scpsys_md_domain_is_on, scpd, tmp, tmp == 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
