@@ -11,18 +11,12 @@
 #include <linux/types.h>
 #ifdef CONFIG_MTK_SMI_EXT
 
-enum MEM_TYPE {
-	MEM_SVP = 0,
-	MEM_SEC = MEM_SVP,
-	MEM_PROT = 1,
-	MEM_WFD = 2,
-	MEM_2D_FR = 3,
-	MEM_SDSP_SHARED = 4,
-	MEM_SDSP_FIRMWARE = 5,
-	MEM_HAPP_ELF = 6,
-	MEM_HAPP_EXTRA = 7,
-
-	MEM_TYPE_MAX
+enum mtk_iommu_sec_id {
+	SEC_ID_SEC_CAM = 0,
+	SEC_ID_SVP,
+	SEC_ID_SDSP,
+	SEC_ID_WFD,
+	SEC_ID_COUNT
 };
 
 /* translate port */
