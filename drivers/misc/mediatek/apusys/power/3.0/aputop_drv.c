@@ -12,7 +12,7 @@
 #include <linux/uaccess.h>
 
 #include "apu_top.h"
-#include "apu_top_entry.h"
+#include <apu_top_entry.h>
 
 struct platform_device *this_pdev;
 static const struct apupwr_plat_data *pwr_data;

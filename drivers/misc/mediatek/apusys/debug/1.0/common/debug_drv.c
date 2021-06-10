@@ -17,6 +17,7 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/string.h>
+#include <linux/device.h>
 
 
 #if IS_ENABLED(CONFIG_OF)
@@ -32,6 +33,7 @@
 #include "apusys_core.h"
 #include "debug_drv.h"
 #include "apusys_debug_api.h"
+#include <debug_platform.h>
 
 #define FORCE_REG_DUMP_ENABLE (0)
 
@@ -52,9 +54,6 @@ int debug_log_level;
 bool apusys_dump_force;
 bool apusys_dump_skip_gals;
 static void *apu_top;
-static struct mutex dump_lock;
-
-struct dentry *apusys_dump_root;
 struct apusys_core_info *dbg_core_info;
 
 void apusys_reg_dump_skip_gals(int onoff)
@@ -68,125 +67,267 @@ void apusys_reg_dump_skip_gals(int onoff)
 
 	LOG_DEBUG("-\n");
 }
+//
+//void apusys_reg_dump(char *module_name, bool dump_vpu)
+//{
+//	LOG_DEBUG("+\n");
+//
+//	LOG_DEBUG("caller name:%s dump_vpu:%d", module_name, dump_vpu);
+//
+//
+//	if (data.reg_all_mem != NULL) {
+//		LOG_INFO("dump is in process, skip this dump call\n");
+//		goto out;
+//	}
+//
+//	data.reg_all_mem = vzalloc(debug_drv.apusys_reg_size);
+//	if (data.reg_all_mem == NULL)
+//		goto out;
+//
+//	data.gals_reg = vzalloc(debug_drv.total_dbg_mux_count);
+//	if (data.gals_reg == NULL)
+//		goto out;
+//
+//	if (module_name != NULL)
+//		strncpy(data.module_name, module_name, STRMAX);
+//
+//	debug_drv.reg_dump(apu_top, dump_vpu, data.reg_all_mem,
+//		apusys_dump_skip_gals, data.gals_reg, debug_drv.platform_idx);
+//
+//out:
+//
+//	LOG_DEBUG("-\n");
+//}
+
+static void set_dbg_sel(int val, int offset, int shift, int mask)
+{
+	void *target = apu_top + offset;
+	u32 tmp = ioread32(target);
+
+	tmp = (tmp & ~(mask << shift)) | (val << shift);
+	iowrite32(tmp, target);
+	tmp = ioread32(target);
+}
+
+u32 dbg_read(struct dbg_mux_sel_value sel)
+{
+	int i;
+	int offset;
+	int shift;
+	int length;
+	int mask;
+	void *addr = apu_top + sel.status_reg_offset;
+	struct dbg_hw_info *hw_info;
+	struct dbg_mux_sel_info *info_table;
+	struct dbg_mux_sel_info info;
+
+	hw_info = &hw_info_set[debug_drv.platform_idx];
+	info_table = hw_info->mux_sel_tbl;
+
+	for (i = 0; i < hw_info->mux_sel_count; ++i) {
+		if (sel.dbg_sel[i] >= 0) {
+			info = info_table[i];
+			offset = info.offset;
+			shift = info.end_bit;
+			length = info.start_bit - info.end_bit + 1;
+			mask = (1 << length) - 1;
+
+			set_dbg_sel(sel.dbg_sel[i], offset, shift, mask);
+		}
+	}
+
+	return ioread32(addr);
+}
+
+void dump_gals_reg(bool dump_vpu)
+{
+	int i;
+	struct dbg_hw_info *hw_info;
+	struct dbg_mux_sel_value *value_table;
+
+	hw_info = &hw_info_set[debug_drv.platform_idx];
+	value_table = hw_info->value_tbl;
+
+	for (i = 0; i < debug_drv.total_dbg_mux_count; ++i)
+		data.gals_reg[i] = dbg_read(value_table[i]);
+}
 
 void apusys_reg_dump(char *module_name, bool dump_vpu)
 {
-	LOG_DEBUG("+\n");
+	int i;
+	u32 offset, size;
+	struct reg_dump_info *range_table;
+	struct dbg_hw_info *hw_info;
+	char *tmp;
 
-	LOG_DEBUG("caller name:%s dump_vpu:%d", module_name, dump_vpu);
+	hw_info = &hw_info_set[debug_drv.platform_idx];
+	range_table = hw_info->range_tbl;
+	tmp =  data.reg_all_mem;
 
-	mutex_lock(&dump_lock);
+	LOG_DEBUG("caller name:%s\n", module_name);
 
-	if (data.reg_all_mem != NULL) {
-		LOG_INFO("dump is in process, skip this dump call\n");
-		goto out;
+	dump_gals_reg(false);
+
+	for (i = 0; i < hw_info->seg_count; ++i) {
+		offset = range_table[i].base - APUSYS_BASE;
+		size = range_table[i].size;
+
+		memcpy_fromio(tmp, apu_top + offset, size);
+		tmp += size;
 	}
-
-	data.reg_all_mem = vzalloc(debug_drv.apusys_reg_size);
-	if (data.reg_all_mem == NULL)
-		goto out;
-
-	data.gals_reg = vzalloc(debug_drv.total_dbg_mux_count);
-	if (data.gals_reg == NULL)
-		goto out;
-
-	if (module_name != NULL)
-		strncpy(data.module_name, module_name, STRMAX);
-
-	debug_drv.reg_dump(apu_top, dump_vpu, data.reg_all_mem,
-		apusys_dump_skip_gals, data.gals_reg, debug_drv.platform_idx);
-
-out:
-	mutex_unlock(&dump_lock);
-
-	LOG_DEBUG("-\n");
 }
 
-int dump_show(struct seq_file *sfile, void *v)
+
+static ssize_t gals_dump_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
 {
-	LOG_DEBUG("+\n");
+	int i;
+	struct dbg_mux_sel_value *value_table;
+	struct dbg_hw_info *hw_info;
+	char *p = buf;
 
-	if (data.reg_all_mem != NULL)
-		debug_drv.dump_show(sfile, v, data.reg_all_mem,
-		data.gals_reg, data.module_name, debug_drv.platform_idx);
+	hw_info = &hw_info_set[debug_drv.platform_idx];
+	value_table = hw_info->value_tbl;
 
-	LOG_DEBUG("-\n");
 
+	if (apusys_dump_force)
+		apusys_reg_dump("force_dump", false);
+
+	for (i = 0; i < debug_drv.total_dbg_mux_count; ++i)
+		p += sprintf(p, "%s:0x%08x\n",
+			value_table[i].name, data.gals_reg[i]);
+	return p - buf;
+}
+
+static u32 find_next_offset(loff_t offset)
+{
+	u32 start, end;
+	loff_t reg_mem_offset = 0;
+	int i;
+	struct reg_dump_info *range_table;
+	struct dbg_hw_info *hw_info;
+
+
+	hw_info = &hw_info_set[debug_drv.platform_idx];
+	range_table = hw_info->range_tbl;
+
+	offset += APUSYS_BASE;
+
+	for (i = 0; i < hw_info->seg_count; i++) {
+		start = range_table[i].base;
+		end = start + range_table[i].size;
+
+		if (offset < start)
+			return start - offset;
+
+		reg_mem_offset += range_table[i].size;
+	}
+
+	/* fail */
 	return 0;
 }
 
-static int dump_open(struct inode *inode, struct file *file)
+
+static u32 find_offset(loff_t offset, u32 *reg_mem_offset)
 {
-	LOG_DEBUG("+\n");
+	u32 start, end;
+	int i;
+	struct reg_dump_info *range_table;
+	struct dbg_hw_info *hw_info;
 
-	if (apusys_dump_force)
-		apusys_reg_dump("force_dump", true);
+	*reg_mem_offset = 0;
 
-	mutex_lock(&dump_lock);
+	hw_info = &hw_info_set[debug_drv.platform_idx];
+	range_table = hw_info->range_tbl;
 
-	LOG_DEBUG("-\n");
+	offset += APUSYS_BASE;
 
-	return single_open(file, dump_show, NULL);
-}
+	for (i = 0; i < hw_info->seg_count; i++) {
+		start = range_table[i].base;
+		end = start + range_table[i].size;
 
-
-static int dump_release(struct inode *inode, struct file *file)
-{
-	LOG_DEBUG("+\n");
-
-	if (data.reg_all_mem != NULL) {
-		vfree(data.reg_all_mem);
-		data.reg_all_mem = NULL;
-		LOG_DEBUG("free reg_all_mem\n");
+		if (offset >= start && offset < end) {
+			*reg_mem_offset += offset - start;
+			return end - offset;
+		}
+		*reg_mem_offset += range_table[i].size;
 	}
 
-	if (data.gals_reg != NULL) {
-		vfree(data.gals_reg);
-		data.gals_reg = NULL;
-		LOG_DEBUG("free gals_reg\n");
-	}
-
-	mutex_unlock(&dump_lock);
-
-	LOG_DEBUG("-\n");
-
-	return single_release(inode, file);
+	/* fail */
+	return 0;
 }
 
+static ssize_t
+reg_read(struct file *filp, struct kobject *kobj,
+	     struct bin_attribute *attr, char *buf,
+	     loff_t offset, size_t count)
+{
+	u32 resid;
+	u32 reg_mem_offset;
+	u32 copy_size;
 
-static const struct file_operations apu_dump_debug_fops = {
-	.owner = THIS_MODULE,
-	.open = dump_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = dump_release
+	resid = find_offset(offset, &reg_mem_offset);
+	if (resid == 0) {
+		resid = find_next_offset(offset);
+		copy_size = count <= resid ? count : resid;
+		memset(buf, 0, copy_size);
+	} else {
+		copy_size = count <= resid ? count : resid;
+		memcpy(buf, data.reg_all_mem + reg_mem_offset, copy_size);
+	}
+
+	return copy_size;
+}
+
+static struct bin_attribute reg_dump_attr = {
+	.attr = {.name = "reg_dump", .mode = (0400)},
+	.size = APUSYS_REG_SIZE,
+	.read = reg_read,
+	.write = NULL,
+	.mmap = NULL,
+};
+
+static DEVICE_ATTR_RO(gals_dump);
+static DEVICE_BOOL_ATTR(force_dump, 0600, apusys_dump_force);
+static struct attribute *reg_dump_attrs[] = {
+	&dev_attr_force_dump.attr.attr,
+	&dev_attr_gals_dump.attr,
+	NULL,
+};
+
+static struct bin_attribute *reg_dump_bin_attrs[] = {
+		&reg_dump_attr,
+		NULL,
+};
+
+static struct attribute_group mdw_reg_dump_attr_group = {
+	.name   = "debug",
+	.attrs  = reg_dump_attrs,
+	.bin_attrs = reg_dump_bin_attrs,
 };
 
 static int debug_probe(struct platform_device *pdev)
 {
+	int reg_mem_size = 0;
 	int ret = 0;
+	int i;
+	struct reg_dump_info *range_table;
+	struct dbg_hw_info *hw_info;
 
 	debug_log_level = 0;
-
 	LOG_DEBUG("+\n");
 
 	debug_drv = *(struct debug_plat_drv *)of_device_get_match_data(&pdev->dev);
+	hw_info = &hw_info_set[debug_drv.platform_idx];
+	range_table = hw_info->range_tbl;
 
-	mutex_init(&dump_lock);
+	ret = sysfs_create_group(&pdev->dev.kobj, &mdw_reg_dump_attr_group);
 
-	apusys_dump_root = debugfs_create_dir("dump", dbg_core_info->dbg_root);
-	ret = IS_ERR_OR_NULL(apusys_dump_root);
 	if (ret) {
 		LOG_ERR("failed to create debugfs dir\n");
 		return -1;
 	}
 
-	debugfs_create_file("apusys_reg_all", 0444,
-			apusys_dump_root, NULL, &apu_dump_debug_fops);
-#if FORCE_REG_DUMP_ENABLE
-	debugfs_create_bool("force_dump", 0644,
-			apusys_dump_root, &apusys_dump_force);
-#endif
 	apu_top = ioremap(debug_drv.apusys_base,
 					debug_drv.apusys_reg_size);
 	if (apu_top == NULL) {
@@ -195,8 +336,12 @@ static int debug_probe(struct platform_device *pdev)
 		return -EIO;
 	}
 
-	data.reg_all_mem = NULL;
-	data.gals_reg = NULL;
+	/*Pre-allocate dump buffer size*/
+	for (i = 0; i < hw_info->seg_count; i++)
+		reg_mem_size += range_table[i].size;
+
+	data.reg_all_mem = vzalloc(reg_mem_size);
+	data.gals_reg = vzalloc(debug_drv.total_dbg_mux_count);
 	memset(data.module_name, 0, STRMAX);
 
 	apusys_dump_force = false;
@@ -207,22 +352,14 @@ static int debug_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int debug_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	return 0;
-}
-
-static int debug_resume(struct platform_device *pdev)
-{
-	return 0;
-}
-
 static int debug_remove(struct platform_device *pdev)
 {
 	LOG_DEBUG("+\n");
 
-	debugfs_remove_recursive(apusys_dump_root);
+	vfree(data.reg_all_mem);
+	vfree(data.gals_reg);
 	iounmap(apu_top);
+	sysfs_remove_group(&pdev->dev.kobj, &mdw_reg_dump_attr_group);
 
 	LOG_DEBUG("-\n");
 
@@ -232,8 +369,6 @@ static int debug_remove(struct platform_device *pdev)
 static struct platform_driver debug_driver = {
 	.probe		= debug_probe,
 	.remove		= debug_remove,
-	.suspend	= debug_suspend,
-	.resume		= debug_resume,
 	.driver		= {
 		.name	= APUSYS_DEBUG_DEV_NAME,
 		.owner	= THIS_MODULE,
@@ -261,8 +396,6 @@ int debug_init(struct apusys_core_info *info)
 void debug_exit(void)
 {
 	LOG_DEBUG("+\n");
-
 	platform_driver_unregister(&debug_driver);
-
 	LOG_DEBUG("-\n");
 }

@@ -12,6 +12,7 @@ SRC += 2.5/governor/gov-apusys.o 2.5/governor/gov-user.o 2.5/governor/common.o 2
 SRC += 2.5/devices/dev-freq-core.o 2.5/devices/dev-freq-conn.o 2.5/devices/dev-freq-vpu.o 2.5/devices/dev-freq-mdla.o 2.5/devices/dev-cb.o 2.5/devices/dev-freq-iommu.o
 
 # apusys power driver v3.0
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/platform/
 SRC += 3.0/aputop_drv.o
