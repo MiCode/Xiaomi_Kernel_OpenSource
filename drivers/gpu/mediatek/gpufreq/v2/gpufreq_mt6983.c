@@ -1560,11 +1560,7 @@ int __gpufreq_get_low_batt_idx(int low_batt_level)
 /* API: enable/disable random OPP index substitution to do stress test */
 void __gpufreq_set_stress_test(unsigned int mode)
 {
-	mutex_lock(&gpufreq_lock);
-
 	g_stress_test_enable = mode;
-
-	mutex_unlock(&gpufreq_lock);
 }
 
 /* API: apply/restore Vaging to working table of STACK */
@@ -1572,12 +1568,8 @@ int __gpufreq_set_aging_mode(unsigned int mode)
 {
 	/* prevent from repeatedly applying aging */
 	if (g_aging_enable ^ mode) {
-		mutex_lock(&gpufreq_lock);
-
 		__gpufreq_apply_aging(TARGET_STACK, mode);
 		g_aging_enable = mode;
-
-		mutex_unlock(&gpufreq_lock);
 
 		return GPUFREQ_SUCCESS;
 	} else {
@@ -1588,11 +1580,7 @@ int __gpufreq_set_aging_mode(unsigned int mode)
 /* API: enable/disable GPM 1.0 */
 void __gpufreq_set_gpm_mode(unsigned int mode)
 {
-	mutex_lock(&gpufreq_lock);
-
 	g_gpm_enable = mode;
-
-	mutex_unlock(&gpufreq_lock);
 }
 
 /**

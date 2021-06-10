@@ -46,6 +46,9 @@
 #if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 #include <mtk_freqhopping_drv.h>
 #endif
+#if IS_ENABLED(CONFIG_COMMON_CLK_MT6893)
+#include <clk-fmeter.h>
+#endif
 
 /**
  * ===============================================
@@ -1316,23 +1319,15 @@ int __gpufreq_get_low_batt_idx(int low_batt_level)
 
 void __gpufreq_set_stress_test(unsigned int mode)
 {
-	mutex_lock(&gpufreq_lock_gpu);
-
 	g_stress_test_enable = mode;
-
-	mutex_unlock(&gpufreq_lock_gpu);
 }
 
 int __gpufreq_set_aging_mode(unsigned int mode)
 {
 	/* prevent from repeatedly applying aging */
 	if (g_aging_enable ^ mode) {
-		mutex_lock(&gpufreq_lock_gpu);
-
 		__gpufreq_apply_aging(mode);
 		g_aging_enable = mode;
-
-		mutex_unlock(&gpufreq_lock_gpu);
 
 		return GPUFREQ_SUCCESS;
 	} else
@@ -1360,6 +1355,8 @@ static void __gpufreq_apply_aging(unsigned int apply_aging)
 
 	GPUFREQ_TRACE_START("apply_aging=%d", apply_aging);
 
+	mutex_lock(&gpufreq_lock_gpu);
+
 	for (i = 0; i < g_gpu.opp_num; i++) {
 		if (apply_aging) {
 			g_gpu.working_table[i].volt -=
@@ -1380,6 +1377,8 @@ static void __gpufreq_apply_aging(unsigned int apply_aging)
 	}
 
 	__gpufreq_set_springboard();
+
+	mutex_unlock(&gpufreq_lock_gpu);
 
 	GPUFREQ_TRACE_END();
 }
@@ -2006,9 +2005,11 @@ static void __gpufreq_init_opp_idx(void)
 
 static unsigned int __gpufreq_get_fmeter_fgpu(void)
 {
-	/* todo: fmeter not ready */
-	// return mt_get_abist_freq(FM_MGPLL_CK);
+#if IS_ENABLED(CONFIG_COMMON_CLK_MT6893)
+	return mt_get_abist_freq(FM_MFGPLL_CK);
+#else
 	return 0;
+#endif
 }
 
 /*
