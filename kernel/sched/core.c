@@ -1169,19 +1169,6 @@ static inline void uclamp_rq_inc_id(struct rq *rq, struct task_struct *p,
 
 	if (uc_se->value > READ_ONCE(uc_rq->value))
 		WRITE_ONCE(uc_rq->value, uc_se->value);
-
-	if (clamp_id == UCLAMP_MAX &&
-			uc_rq->value == uclamp_none(clamp_id) &&
-			uc_se->value != uclamp_none(clamp_id)) {
-		int i;
-		unsigned int tasks = 0;
-
-		for (i = 0; i < UCLAMP_BUCKETS; i++)
-			tasks += uc_rq->bucket[i].tasks;
-
-		if (tasks == 1)
-			WRITE_ONCE(uc_rq->value, uc_se->value);
-	}
 }
 
 /*
