@@ -50,12 +50,24 @@
 /* #pragma GCC optimize ("O0") */
 #define MMP_DEVNAME "mmp"
 
+/* min buffer size is 0x400*32byte = 32KB */
+#define MMPROFILE_MIN_BUFFER_SIZE 0x400
+/* default buffer size is 0x18000*32byte = 3MB */
 #define MMPROFILE_DEFAULT_BUFFER_SIZE 0x18000
+/* max buffer size is 0x100000*32byte = 32MB */
+#define MMPROFILE_MAX_BUFFER_SIZE 0x100000
 #ifdef CONFIG_MTK_ENG_BUILD
+/* min meta buffer size is 0x10000byte = 64KB */
+#define MMPROFILE_MIN_META_BUFFER_SIZE 0x10000
+/* default meta buffer size is 0x800000byte = 8MB */
 #define MMPROFILE_DEFAULT_META_BUFFER_SIZE 0x800000
+/* max meta buffer size is 0x800000byte = 64MB */
+#define MMPROFILE_MAX_META_BUFFER_SIZE 0x4000000
 static unsigned int mmprofile_meta_datacookie = 1;
 #else
+#define MMPROFILE_MIN_META_BUFFER_SIZE 0x0
 #define MMPROFILE_DEFAULT_META_BUFFER_SIZE 0x0
+#define MMPROFILE_MAX_META_BUFFER_SIZE 0x0
 #endif
 
 #define MMPROFILE_DUMP_BLOCK_SIZE (1024*4)
@@ -1922,6 +1934,26 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd,
 	case MMP_IOC_SELECTBUFFER:
 		mmprofile_globals.selected_buffer = arg;
 		break;
+	case MMP_IOC_SETRECORDCNT:
+	{
+		if (arg > MMPROFILE_MAX_BUFFER_SIZE) {
+			arg = MMPROFILE_MAX_BUFFER_SIZE;
+			ret = -EINVAL;
+		} else if (arg < MMPROFILE_MIN_BUFFER_SIZE)
+			arg = MMPROFILE_MIN_BUFFER_SIZE;
+		mmprofile_globals.new_buffer_size_record = arg;
+		break;
+	}
+	case MMP_IOC_SETMETABUFSIZE:
+	{
+		if (arg > MMPROFILE_MAX_META_BUFFER_SIZE) {
+			arg = MMPROFILE_MAX_META_BUFFER_SIZE;
+			ret = -EINVAL;
+		} else if (arg < MMPROFILE_MIN_META_BUFFER_SIZE)
+			arg = MMPROFILE_MIN_META_BUFFER_SIZE;
+		mmprofile_globals.new_meta_buffer_size = arg;
+		break;
+	}
 	case MMP_IOC_TRYLOG:
 		if ((!mmprofile_globals.enable) ||
 		    (!bmmprofile_init_buffer) ||
@@ -2217,6 +2249,12 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd,
 	case MMP_IOC_SELECTBUFFER:
 		ret = mmprofile_ioctl(file, MMP_IOC_SELECTBUFFER, arg);
 		break;
+	case MMP_IOC_SETRECORDCNT:
+		ret = mmprofile_ioctl(file, MMP_IOC_SETRECORDCNT, arg);
+		break;
+	case MMP_IOC_SETMETABUFSIZE:
+		ret = mmprofile_ioctl(file, MMP_IOC_SETMETABUFSIZE, arg);
+		break;
 	case MMP_IOC_TRYLOG:
 		if ((!mmprofile_globals.enable) ||
 		    (!bmmprofile_init_buffer) ||
@@ -2265,12 +2303,11 @@ static int mmprofile_mmap(struct file *file, struct vm_area_struct *vma)
 		pos = vma->vm_start;
 		for (i = 0; i < MMPROFILE_GLOBALS_SIZE;
 			i += PAGE_SIZE, pos += PAGE_SIZE) {
-			unsigned long pfn;
-
-			pfn = __phys_to_pfn(__virt_to_phys(
-				(unsigned long)(&mmprofile_globals) + i));
 			if (remap_pfn_range
-			    (vma, pos, pfn, PAGE_SIZE, PAGE_SHARED))
+			    (vma, pos,
+					vmalloc_to_pfn((void *)((unsigned long)
+					(&mmprofile_globals) + i)),
+			     PAGE_SIZE, PAGE_READONLY))
 				return -EAGAIN;
 			/* pr_debug("pfn: 0x%08x\n", pfn); */
 		}
@@ -2295,7 +2332,7 @@ static int mmprofile_mmap(struct file *file, struct vm_area_struct *vma)
 			    (vma, pos,
 					vmalloc_to_pfn((void *)((unsigned long)
 					p_mmprofile_ring_buffer + i)),
-			     PAGE_SIZE, PAGE_SHARED))
+			     PAGE_SIZE, PAGE_READONLY))
 				return -EAGAIN;
 		}
 	} else
