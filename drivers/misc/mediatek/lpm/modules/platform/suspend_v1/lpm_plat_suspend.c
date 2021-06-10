@@ -76,13 +76,13 @@ static void get_md_sleep_time_addr(void)
 #endif
 }
 
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 static void get_md_sleep_time(struct md_sleep_status *md_data)
 {
 	if (!md_data)
 		return;
 
 	/* dump subsystem sleep info */
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	if (share_mem ==  NULL) {
 		pr_info("MD shared memory is NULL");
 	} else {
@@ -90,13 +90,12 @@ static void get_md_sleep_time(struct md_sleep_status *md_data)
 		memcpy(md_data, share_mem, sizeof(struct md_sleep_status));
 		return;
 	}
-#endif
 }
-
+#endif
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 static void log_md_sleep_info(void)
 {
 
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 #define LOG_BUF_SIZE	256
 	char log_buf[LOG_BUF_SIZE] = { 0 };
 	int log_size = 0;
@@ -135,8 +134,8 @@ static void log_md_sleep_info(void)
 		WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
 		pr_info("[name:spm&][SPM] %s", log_buf);
 	}
-#endif
 }
+#endif
 
 static inline int lpm_suspend_common_enter(unsigned int *susp_status)
 {
@@ -225,9 +224,10 @@ int lpm_suspend_s2idle_prompt(int cpu,
 		pr_info("[name:spm&][%s:%d] - suspend enter\n",
 			__func__, __LINE__);
 
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 		/* Record md sleep status*/
 		get_md_sleep_time(&before_md_sleep_status);
-
+#endif
 		ret = __lpm_suspend_prompt(LPM_SUSPEND_S2IDLE,
 					      cpu, issuer);
 	}
@@ -249,10 +249,12 @@ void lpm_suspend_s2idle_reflect(int cpu,
 			after_md_sleep_time - before_md_sleep_time);
 	else
 		pr_info("[name:spm&][SPM] md share memory is NULL");
-
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	/* show md sleep status */
 	get_md_sleep_time(&after_md_sleep_status);
 	log_md_sleep_info();
+#endif
+
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 		/* TODO
 		 * Need to fix the rcu_idle/timekeeping later.
