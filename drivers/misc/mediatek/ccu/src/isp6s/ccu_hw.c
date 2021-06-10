@@ -717,12 +717,13 @@ int ccu_run(struct ccu_run_s *info)
 		(dmem_base + OFFSET_CCU_SHARED_BUF_MAP_BASE);
 
 	LOG_DBG("+:%s\n", __func__);
+	ccu_irq_enable();
+
 	if (bin_mem == NULL) {
 		LOG_ERR("CCU RUN failed, bin_mem NULL\n");
 		return -EINVAL;
 	}
 	remapOffset = bin_mem->mva - CCU_CACHE_BASE;
-	ccu_irq_enable();
 	ccu_H2X_MSB = ccu_read_reg_bit(ccu_base, CTRL, H2X_MSB);
 	ccu_write_reg(ccu_base, AXI_REMAP, remapOffset);
 	LOG_INF_MUST("set CCU remap offset: %x\n", remapOffset);
