@@ -237,7 +237,7 @@ static SOC_VALUE_ENUM_SINGLE_AUTODISABLE_DECL(i2s_in_mux_map_enum,
 
 
 static const struct snd_kcontrol_new i2s0_in_mux_control =
-	SOC_DAPM_ENUM("I2S0 In Select", i2s_in_mux_map_enum);
+	SOC_DAPM_ENUM("I2S0 In Select", i2s_mux_map_enum);
 
 static const struct snd_kcontrol_new i2s1_out_mux_control =
 	SOC_DAPM_ENUM("I2S1 Out Select", i2s_mux_map_enum);
@@ -1523,7 +1523,7 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 
 	/* allow i2s on without codec on */
 	{"I2S0", NULL, "I2S0_In_Mux"},
-	{"I2S0_In_Mux", "Input_Widget", "I2S_DUMMY_IN"},
+	{"I2S0_In_Mux", "Output_Widget", "I2S_DUMMY_IN"},
 
 	{"I2S1_Out_Mux", "Output_Widget", "I2S1"},
 	{"I2S_DUMMY_OUT", NULL, "I2S1_Out_Mux"},
