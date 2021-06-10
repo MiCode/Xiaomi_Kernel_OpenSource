@@ -49,8 +49,7 @@ void (*rsi_switch_collect_fp)(__s32 cmd);
 
 void (*eara_enable_fp)(int enable);
 void (*eara_set_tfps_diff_fp)(int max_cnt, int *pid, unsigned long long *buf_id, int *diff);
-void (*eara_get_tfps_pair_fp)(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps,
-	char name[][16]);
+void (*eara_get_tfps_pair_fp)(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps);
 
 
 static unsigned long perfctl_copy_from_user(void *pvTo,
@@ -115,7 +114,7 @@ static long eara_thrm_ioctl(struct file *filp,
 	case EARA_GETINFO:
 		if (eara_get_tfps_pair_fp)
 			eara_get_tfps_pair_fp(EARA_MAX_COUNT, msgKM->pair_pid,
-					msgKM->pair_bufid, msgKM->pair_tfps, msgKM->proc_name);
+					msgKM->pair_bufid, msgKM->pair_tfps);
 		else
 			ret = -1;
 
