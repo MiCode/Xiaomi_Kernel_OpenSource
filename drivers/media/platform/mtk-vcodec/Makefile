@@ -24,53 +24,45 @@ mtk-vcodec-enc-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk_vcodec_enc_drv.o \
 mtk-vcodec-common-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk_vcodec_intr.o \
 		mtk_vcodec_util.o
 
+ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_V1),y)
+	obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec-v1.o \
+	                       mtk-vcodec-enc-v1.o
 
-ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_MT6885),y)
-	obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec-mt6885.o \
-	                       mtk-vcodec-enc-mt6885.o
+	mtk-vcodec-dec-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
+			v1/mtk_vcodec_dec_pm_plat.o \
+			v1/vcodec_dvfs.o \
+			v1/vcodec_bw.o
 
-	mtk-vcodec-dec-mt6885-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
+	mtk-vcodec-enc-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
+			v1/mtk_vcodec_enc_pm_plat.o \
+			v1/vcodec_dvfs.o \
+			v1/vcodec_bw.o
+
+	mtk-vcodec-dec-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o
+	mtk-vcodec-enc-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-enc.o
+endif
+
+ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_V2),y)
+	obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec-v2.o \
+	                       mtk-vcodec-enc-v2.o
+
+	mtk-vcodec-dec-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
 			v2/mtk_vcodec_dec_pm_plat.o \
 			v2/vcodec_dvfs.o \
 			v2/vcodec_bw.o
 
-	mtk-vcodec-enc-mt6885-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
+	mtk-vcodec-enc-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
 			v2/mtk_vcodec_enc_pm_plat.o \
 			v2/vcodec_dvfs.o \
 			v2/vcodec_bw.o
 
-	mtk-vcodec-dec-mt6885-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o
-	mtk-vcodec-enc-mt6885-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-enc.o
+	mtk-vcodec-dec-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o
+	mtk-vcodec-enc-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-enc.o
 endif
-
-ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_MT6983),y)
-	obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec-mt6983.o \
-	                       mtk-vcodec-enc-mt6983.o
-
-	mtk-vcodec-dec-mt6983-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
-			v2/mtk_vcodec_dec_pm_plat.o \
-			v2/vcodec_dvfs.o \
-			v2/vcodec_bw.o
-
-	mtk-vcodec-enc-mt6983-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += \
-			v2/mtk_vcodec_enc_pm_plat.o \
-			v2/vcodec_dvfs.o \
-			v2/vcodec_bw.o
-
-	mtk-vcodec-dec-mt6983$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o
-	mtk-vcodec-enc-mt6983$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-enc.o
-endif
-
 
 subdir-ccflags-y += -Werror
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vcu
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vcodec
-ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_MT6885),y)
-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vcodec/v2
-endif
-ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_MT6983),y)
-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vcodec/v2
-endif
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-videobuf
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/slbc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat

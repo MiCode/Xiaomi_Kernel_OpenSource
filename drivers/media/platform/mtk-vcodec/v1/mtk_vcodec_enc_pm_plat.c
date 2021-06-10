@@ -271,8 +271,6 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int core_id)
 	int cur_chroma_bw = 0;
 	int ref_luma_bw = 0;
 	int ref_chroma_bw = 0;
-
-	int i = 0;
 	struct mtk_vcodec_dev *pdev = 0;
 
 	pdev = ctx->dev;

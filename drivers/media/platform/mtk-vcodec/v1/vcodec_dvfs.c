@@ -43,14 +43,11 @@ long long div_64(long long a, long long b)
  */
 long long get_time_us(void)
 {
-	struct timeval tv;
 	struct timespec64 now;
 
 	ktime_get_real_ts64(&now);
-	tv.tv_sec = now.tv_sec;
-	tv.tv_usec = now.tv_nsec / NSEC_PER_USEC;
 
-	return (1000000LL * tv.tv_sec + tv.tv_usec);
+	return (1000000LL * now.tv_sec + (now.tv_nsec / NSEC_PER_USEC));
 }
 
 /**

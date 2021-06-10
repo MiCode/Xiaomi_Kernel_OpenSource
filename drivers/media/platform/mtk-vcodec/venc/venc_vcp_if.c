@@ -429,7 +429,6 @@ void venc_vcp_probe(struct mtk_vcodec_dev *dev)
 
 	mtk_v4l2_debug_leave();
 }
-EXPORT_SYMBOL(venc_vcp_probe);
 
 static unsigned int venc_h265_get_profile(struct venc_inst *inst,
 	unsigned int profile)

@@ -4,7 +4,6 @@
  * Author: Cheng-Jung Ho <cheng-jung.ho@mediatek.com>
  */
 
-
 #ifndef __VCODEC_DVFS_H__
 #define __VCODEC_DVFS_H__
 
@@ -12,7 +11,8 @@
 #define MIN_SUBMIT_GAP 2000		/* 2ms */
 #define MAX_SUBMIT_GAP (1000*1000)	/* 1 second */
 #define FREE_HIST_DELAY (5000*1000)	/* Free history delay */
-#define DEFAULT_MHZ 546
+#define DEFAULT_MHZ 99999
+#define DEC_MODULE 2
 
 struct codec_history {
 	void *handle;
@@ -40,8 +40,23 @@ struct codec_job {
 };
 
 struct codec_freq {
-	unsigned long freq[MODULE];
+	unsigned long freq[DEC_MODULE];
 	unsigned long active_freq;
+};
+
+
+/* first scenario based version, will change to loading based */
+struct temp_job {
+	int ctx_id;
+	int format;
+	int type;
+	int module;
+	int visible_width; /* temp usage only, will use kcy */
+	int visible_height; /* temp usage only, will use kcy */
+	int operation_rate;
+	long long submit;
+	int kcy;
+	struct temp_job *next;
 };
 
 long long get_time_us(void);
@@ -60,6 +75,7 @@ int update_hist(struct codec_job *job, struct codec_history **head,
 int est_freq(void *handle, struct codec_job **job, struct codec_history *head);
 unsigned long match_freq(
 	unsigned long target_hz, unsigned long *freq_list, u32 freq_cnt, unsigned long max_freq_hz);
+u64 match_freq_v2(int target_mhz, u64 *freq_list, u32 freq_cnt);
 
 /* Free unused/all history */
 int free_hist(struct codec_history **head, int only_unused);

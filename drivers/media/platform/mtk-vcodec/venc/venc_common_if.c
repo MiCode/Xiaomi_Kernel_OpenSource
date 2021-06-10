@@ -572,9 +572,9 @@ static const struct venc_common_if venc_if = {
 	.deinit = venc_deinit,
 };
 
-const struct venc_common_if *get_enc_common_if(void);
+const struct venc_common_if *get_enc_vcu_if(void);
 
-const struct venc_common_if *get_enc_common_if(void)
+const struct venc_common_if *get_enc_vcu_if(void)
 {
 	return &venc_if;
 }

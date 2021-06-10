@@ -19,12 +19,30 @@
 
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 #include "mtk_vcu.h"
-const struct venc_common_if *get_enc_common_if(void);
+const struct venc_common_if *get_enc_vcu_if(void);
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 const struct venc_common_if *get_enc_vcp_if(void);
 #endif
+
+static const struct venc_common_if * get_data_path_ptr(void)
+{
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU) &&	\
+	IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER))
+		return get_enc_vcp_if();
+	else
+		return get_enc_vcu_if();
+#endif
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+	return get_enc_vcu_if();
+#endif
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	return get_enc_vcp_if();
+#endif
+	return NULL;
+}
 
 int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 {
@@ -33,26 +51,21 @@ int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	ctx->oal_vcodec = 0;
 	mtk_venc_init_ctx_pm(ctx);
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_H265:
 	case V4L2_PIX_FMT_HEIF:
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-		if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER))
-			ctx->enc_if = get_enc_vcp_if();
-		else
-#endif
-		ctx->enc_if = get_enc_common_if();
-
+		ctx->enc_if = get_data_path_ptr();
 		ctx->oal_vcodec = 0;
 		break;
 	default:
 		return -EINVAL;
 	}
-#endif
+	if (ctx->enc_if == NULL)
+		return -EINVAL;
+
 	ret = ctx->enc_if->init(ctx, (unsigned long *)&ctx->drv_handle);
 
 	return ret;
@@ -71,7 +84,7 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 			return -ENOMEM;
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
-		ctx->enc_if = get_enc_common_if();
+		ctx->enc_if = get_data_path_ptr();
 		drv_handle_exist = 0;
 		mtk_v4l2_debug(0, "%s init drv_handle = 0x%lx",
 			__func__, ctx->drv_handle);
@@ -118,7 +131,6 @@ void venc_encode_prepare(void *ctx_prepare,
 	else
 		vcodec_trace_count("VENC_HW_CORE_1", 1);
 }
-EXPORT_SYMBOL_GPL(venc_encode_prepare);
 
 void venc_encode_unprepare(void *ctx_unprepare,
 	unsigned int core_id, unsigned long *flags)
@@ -145,21 +157,18 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
 	mtk_venc_unlock(ctx, core_id);
 }
-EXPORT_SYMBOL_GPL(venc_encode_unprepare);
 
 void venc_encode_pmqos_gce_begin(void *ctx_begin,
 	unsigned int core_id, int job_cnt)
 {
 	mtk_venc_pmqos_gce_flush(ctx_begin, core_id, job_cnt);
 }
-EXPORT_SYMBOL_GPL(venc_encode_pmqos_gce_begin);
 
 void venc_encode_pmqos_gce_end(void *ctx_end,
 	unsigned int core_id, int job_cnt)
 {
 	mtk_venc_pmqos_gce_done(ctx_end, core_id, job_cnt);
 }
-EXPORT_SYMBOL_GPL(venc_encode_pmqos_gce_end);
 
 int venc_if_encode(struct mtk_vcodec_ctx *ctx,
 	enum venc_start_opt opt, struct venc_frm_buf *frm_buf,

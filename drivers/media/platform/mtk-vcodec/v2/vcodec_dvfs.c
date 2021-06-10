@@ -636,11 +636,11 @@ int est_freq(void *handle, struct codec_job **job, struct codec_history *head)
 }
 
 /**
- * match_freq - Match estimated vcodec frequency with available frequencies
+ * match_freq_v2 - Match estimated vcodec frequency with available frequencies
  *
  * Match requested mhz to available mhz
  */
-u64 match_freq(int target_mhz, u64 *freq_list, u32 freq_cnt)
+u64 match_freq_v2(int target_mhz, u64 *freq_list, u32 freq_cnt)
 {
 	u64 res_mhz = DEFAULT_MHZ;
 	int i;

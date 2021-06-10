@@ -505,7 +505,6 @@ void vdec_vcp_probe(struct mtk_vcodec_dev *dev)
 
 	mtk_v4l2_debug_leave();
 }
-EXPORT_SYMBOL(vdec_vcp_probe);
 
 static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 {

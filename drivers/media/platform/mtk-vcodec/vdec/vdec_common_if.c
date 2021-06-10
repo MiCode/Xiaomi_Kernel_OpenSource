@@ -632,9 +632,10 @@ static struct vdec_common_if vdec_if = {
 	vdec_deinit,
 };
 
-struct vdec_common_if *get_dec_common_if(void)
+const struct vdec_common_if *get_dec_vcu_if(void);
+
+const struct vdec_common_if *get_dec_vcu_if(void)
 {
 	return &vdec_if;
 }
-EXPORT_SYMBOL_GPL(get_dec_common_if);
 

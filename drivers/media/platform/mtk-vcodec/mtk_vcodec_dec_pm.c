@@ -26,7 +26,6 @@
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->input_driven = 0;
-	ctx->user_lock_hw = 1;
 }
 
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
