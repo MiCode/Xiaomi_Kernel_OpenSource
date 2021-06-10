@@ -18,10 +18,6 @@
 #include <mtk_qos_sram.h>
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
-#include <mtk_gpu_power_sspm_ipi.h>
-#endif
-
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 #include <dvfsrc-exp.h>
 #endif
@@ -208,10 +204,10 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 #if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 		// GPU PMU Recording
 		if (val == 1 && gpu_pmu_enable && !is_gpu_pmu_worked) {
-			MTKGPUPower_model_start(gpu_pmu_period);
+			mtk_ltr_gpu_pmu_start(gpu_pmu_period);
 			is_gpu_pmu_worked = 1;
 		} else if (val == 0 && is_gpu_pmu_worked) {
-			MTKGPUPower_model_stop();
+			mtk_ltr_gpu_pmu_stop();
 			is_gpu_pmu_worked = 0;
 		}
 #endif
