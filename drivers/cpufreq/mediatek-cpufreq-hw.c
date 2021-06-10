@@ -116,6 +116,8 @@ static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 	unsigned int index;
 
 	index = cpufreq_table_find_index_dl(policy, target_freq);
+	if (policy->freq_table[index].frequency > policy->max)
+		index++;
 
 	writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
 
