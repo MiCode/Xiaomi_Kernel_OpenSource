@@ -100,6 +100,9 @@ int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
 
+	if (pa == 0 && size == 0)
+		return TMEM_OK;
+
 #if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	if (is_multi_type_alloc_multithread_test_locked()) {
 		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
@@ -118,6 +121,9 @@ int secmem_fr_set_wfd_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param0 = pa;
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
+
+	if (pa == 0 && size == 0)
+		return TMEM_OK;
 
 #if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	if (is_multi_type_alloc_multithread_test_locked()) {
@@ -140,6 +146,9 @@ int secmem_fr_set_prot_shared_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param0 = pa;
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
+
+	if (pa == 0 && size == 0)
+		return TMEM_OK;
 
 #if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	if (is_multi_type_alloc_multithread_test_locked()) {
