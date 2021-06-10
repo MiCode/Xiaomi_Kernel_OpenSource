@@ -737,7 +737,7 @@
 		reserve-memory-scp_share {
 			compatible = "mediatek,reserve-memory-scp_share";
 			no-map;
-			size = <0 0x00300000>; /*3 MB share mem size */
+			size = <0 0x00310000>; /*3 MB share mem size */
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
@@ -2108,10 +2108,11 @@
 					  <6 200>, /* barge in */
 					  <7 10>;  /* vow dump */
 			scp_mem_key = "mediatek,reserve-memory-scp_share";
-			scp_mem_tbl = <0 0x4A700>, /* vow */
+			scp_mem_tbl = <0 0x4a700>, /* vow */
 				      <1 0x100000>, /* sensor main*/
 				      <2 0x180000>, /* logger */
 				      <3 0x19000>, /* audio */
+				      <4 0xa000>, /* vow bargein */
 				      <7 0x10000>, /* sensor supper*/
 				      <8 0x1000>, /* sensor list */
 				      <9 0x2000>; /* sensor debug */
