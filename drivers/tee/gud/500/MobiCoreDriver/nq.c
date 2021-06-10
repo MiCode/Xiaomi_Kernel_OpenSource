@@ -289,7 +289,7 @@ static irqreturn_t irq_handler(int intr, void *arg)
 cpumask_t tee_set_affinity(void)
 {
 	cpumask_t old_affinity;
-	unsigned long affinity = get_tee_affinity();
+	unsigned long affinity = (unsigned long)raw_smp_processor_id();
 
 	old_affinity = current->cpus_mask;
 	mc_dev_devel("aff = %lx mask = %lx curr_aff = %*pbl (pid = %u)",
