@@ -84,12 +84,12 @@ struct gpufreq_debug_opp_info {
 	int cg_count;
 	int power_count;
 	unsigned int segment_id;
-	int segment_upbound;
-	int segment_lowbound;
+	unsigned int opp_num;
+	unsigned int signed_opp_num;
 	unsigned int dvfs_state;
 	unsigned int shader_present;
 	unsigned int aging_enable;
-	unsigned int stress_test_enable;
+	unsigned int gpm_enable;
 };
 
 struct gpufreq_debug_limit_info {

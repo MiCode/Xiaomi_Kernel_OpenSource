@@ -261,7 +261,7 @@ static struct gpufreq_platform_fp platform_fp = {
 	.get_batt_percent_idx = __gpufreq_get_batt_percent_idx,
 	.get_low_batt_idx = __gpufreq_get_low_batt_idx,
 	.set_stress_test = __gpufreq_set_stress_test,
-	.set_enforced_aging = __gpufreq_set_enforced_aging,
+	.set_aging_mode = __gpufreq_set_aging_mode,
 };
 
 /**
@@ -513,12 +513,11 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 	opp_info.mtcmos_count = g_gpu.mtcmos_count;
 	opp_info.buck_count = g_gpu.buck_count;
 	opp_info.segment_id = g_gpu.segment_id;
-	opp_info.segment_upbound = g_gpu.segment_upbound;
-	opp_info.segment_lowbound = g_gpu.segment_lowbound;
+	opp_info.opp_num = g_gpu.opp_num;
+	opp_info.signed_opp_num = g_gpu.signed_opp_num;
 	opp_info.dvfs_state = g_dvfs_state;
 	opp_info.shader_present = g_shader_present;
 	opp_info.aging_enable = g_aging_enable;
-	opp_info.stress_test_enable = g_stress_test_enable;
 	mutex_unlock(&gpufreq_lock);
 
 	/* power on at here to read Reg and avoid increasing power count */
@@ -1262,10 +1261,10 @@ void __gpufreq_set_stress_test(unsigned int mode)
 	mutex_unlock(&gpufreq_lock);
 }
 
-/* API: apply/disapply Vaging to working table of GPU */
-int __gpufreq_set_enforced_aging(unsigned int mode)
+/* API: apply/restore Vaging to working table of GPU */
+int __gpufreq_set_aging_mode(unsigned int mode)
 {
-	/* prevent from double aging */
+	/* prevent from repeatedly applying aging */
 	if (g_aging_enable ^ mode) {
 		mutex_lock(&gpufreq_lock);
 
@@ -2874,8 +2873,12 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 			i, g_gpu.working_table[i].freq, g_gpu.working_table[i].volt,
 			g_gpu.working_table[i].vsram, g_gpu.working_table[i].vaging);
 	}
-	/* apply aging volt to working table volt */
+
+#if GPUFREQ_AGING_ENABLE
+	/* default apply aging volt to working table volt */
 	__gpufreq_apply_aging(TARGET_GPU, true);
+	g_aging_enable = true;
+#endif /* GPUFREQ_AGING_ENABLE */
 
 	/* set power info to working table */
 	__gpufreq_measure_power(TARGET_GPU);

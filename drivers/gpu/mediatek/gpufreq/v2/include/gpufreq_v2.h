@@ -152,7 +152,8 @@ struct gpufreq_platform_fp {
 	int (*get_batt_percent_idx)(int batt_percent_level);
 	int (*get_low_batt_idx)(int low_batt_level);
 	void (*set_stress_test)(unsigned int mode);
-	int (*set_enforced_aging)(unsigned int mode);
+	int (*set_aging_mode)(unsigned int mode);
+	void (*set_gpm_mode)(unsigned int mode);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
 	unsigned int (*get_max_fgpu)(void);

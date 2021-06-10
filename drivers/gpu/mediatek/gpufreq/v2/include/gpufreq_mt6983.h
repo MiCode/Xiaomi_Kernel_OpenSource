@@ -152,7 +152,7 @@
 /**************************************************
  * Adaptive Volt Scaling (AVS) Setting
  **************************************************/
-#define GPUFREQ_AVS_ENABLE              (1)
+#define GPUFREQ_AVS_ENABLE              (0)
 #define AVS_ADJ_NUM                     ARRAY_SIZE(g_avsidx_mapping)
 int g_avsidx_mapping[] = {
 	0, 8, 11, 14,
@@ -164,7 +164,7 @@ int g_avsidx_mapping[] = {
 /**************************************************
  * Aging Sensor Setting
  **************************************************/
-#define GPUFREQ_AGING_ENABLE            (1)
+#define GPUFREQ_AGING_ENABLE            (0)
 #define GPUFREQ_AGING_KEEP_FREQ         (350000)
 #define GPUFREQ_AGING_KEEP_VOLT         (65000)
 

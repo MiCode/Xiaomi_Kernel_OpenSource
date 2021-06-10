@@ -288,7 +288,7 @@ static struct gpufreq_platform_fp platform_fp = {
 	.get_batt_percent_idx = __gpufreq_get_batt_percent_idx,
 	.get_low_batt_idx = __gpufreq_get_low_batt_idx,
 	.set_stress_test = __gpufreq_set_stress_test,
-	.set_enforced_aging = __gpufreq_set_enforced_aging,
+	.set_aging_mode = __gpufreq_set_aging_mode,
 };
 
 /**
@@ -419,12 +419,11 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 	opp_info.mtcmos_count = g_gpu.mtcmos_count;
 	opp_info.buck_count = g_gpu.buck_count;
 	opp_info.segment_id = g_gpu.segment_id;
-	opp_info.segment_upbound = g_gpu.segment_upbound;
-	opp_info.segment_lowbound = g_gpu.segment_lowbound;
+	opp_info.opp_num = g_gpu.opp_num;
+	opp_info.signed_opp_num = g_gpu.signed_opp_num;
 	opp_info.dvfs_state = g_dvfs_state;
 	opp_info.shader_present = g_shader_present;
 	opp_info.aging_enable = g_aging_enable;
-	opp_info.stress_test_enable = g_stress_test_enable;
 	mutex_unlock(&gpufreq_lock_gpu);
 
 	ret = __gpufreq_power_control(POWER_ON);
@@ -1300,9 +1299,9 @@ void __gpufreq_set_stress_test(unsigned int mode)
 	mutex_unlock(&gpufreq_lock_gpu);
 }
 
-int __gpufreq_set_enforced_aging(unsigned int mode)
+int __gpufreq_set_aging_mode(unsigned int mode)
 {
-	/* prevent from double aging */
+	/* prevent from repeatedly applying aging */
 	if (g_aging_enable ^ mode) {
 		mutex_lock(&gpufreq_lock_gpu);
 

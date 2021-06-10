@@ -216,7 +216,8 @@ int __gpufreq_get_batt_oc_idx(int batt_oc_level);
 int __gpufreq_get_batt_percent_idx(int batt_percent_level);
 int __gpufreq_get_low_batt_idx(int low_batt_level);
 void __gpufreq_set_stress_test(unsigned int mode);
-int __gpufreq_set_enforced_aging(unsigned int mode);
+int __gpufreq_set_aging_mode(unsigned int mode);
+void __gpufreq_set_gpm_mode(unsigned int mode);
 /* GPU */
 unsigned int __gpufreq_get_cur_fgpu(void);
 unsigned int __gpufreq_get_max_fgpu(void);

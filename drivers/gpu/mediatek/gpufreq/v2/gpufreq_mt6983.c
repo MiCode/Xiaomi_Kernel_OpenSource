@@ -118,6 +118,7 @@ static void __gpufreq_aoc_control(enum gpufreq_power_state power);
 static void __gpufreq_hw_apm_control(void);
 static void __gpufreq_hw_dcm_control(void);
 static void __gpufreq_acp_control(void);
+static void __gpufreq_gpm_control(void);
 /* init function */
 static void __gpufreq_init_shader_present(void);
 static void __gpufreq_segment_adjustment(struct platform_device *pdev);
@@ -227,6 +228,7 @@ static unsigned int g_shader_present;
 static unsigned int g_probe_done;
 static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
+static unsigned int g_gpm_enable;
 static unsigned int g_gpueb_support;
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock);
@@ -304,7 +306,8 @@ static struct gpufreq_platform_fp platform_fp = {
 	.get_batt_percent_idx = __gpufreq_get_batt_percent_idx,
 	.get_low_batt_idx = __gpufreq_get_low_batt_idx,
 	.set_stress_test = __gpufreq_set_stress_test,
-	.set_enforced_aging = __gpufreq_set_enforced_aging,
+	.set_aging_mode = __gpufreq_set_aging_mode,
+	.set_gpm_mode = __gpufreq_set_gpm_mode,
 };
 
 /**
@@ -556,12 +559,12 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 	opp_info.mtcmos_count = g_gpu.mtcmos_count;
 	opp_info.buck_count = g_gpu.buck_count;
 	opp_info.segment_id = g_gpu.segment_id;
-	opp_info.segment_upbound = g_gpu.segment_upbound;
-	opp_info.segment_lowbound = g_gpu.segment_lowbound;
+	opp_info.opp_num = g_gpu.opp_num;
+	opp_info.signed_opp_num = g_gpu.signed_opp_num;
 	opp_info.dvfs_state = g_dvfs_state;
 	opp_info.shader_present = g_shader_present;
 	opp_info.aging_enable = g_aging_enable;
-	opp_info.stress_test_enable = g_stress_test_enable;
+	opp_info.gpm_enable = g_gpm_enable;
 	mutex_unlock(&gpufreq_lock);
 
 	/* power on at here to read Reg and avoid increasing power count */
@@ -604,12 +607,12 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_stack(void)
 	opp_info.mtcmos_count = g_stack.mtcmos_count;
 	opp_info.buck_count = g_stack.buck_count;
 	opp_info.segment_id = g_stack.segment_id;
-	opp_info.segment_upbound = g_stack.segment_upbound;
-	opp_info.segment_lowbound = g_stack.segment_lowbound;
+	opp_info.opp_num = g_stack.opp_num;
+	opp_info.signed_opp_num = g_stack.signed_opp_num;
 	opp_info.dvfs_state = g_dvfs_state;
 	opp_info.shader_present = g_shader_present;
 	opp_info.aging_enable = g_aging_enable;
-	opp_info.stress_test_enable = g_stress_test_enable;
+	opp_info.gpm_enable = g_gpm_enable;
 	mutex_unlock(&gpufreq_lock);
 
 	/* power on at here to read Reg and avoid increasing power count */
@@ -939,10 +942,15 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		__gpufreq_hw_dcm_control();
 		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_7);
 
+		/* control GPM 1.0 */
+		if (g_gpm_enable)
+			__gpufreq_gpm_control();
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_8);
+
 		if (g_stack.power_count == 1)
 			g_dvfs_state &= ~DVFS_POWEROFF;
 	} else {
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_8);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_9);
 
 		if (g_stack.power_count == 0)
 			g_dvfs_state |= DVFS_POWEROFF;
@@ -954,7 +962,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_9);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_A);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -963,11 +971,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_A);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_B);
 
 		/* control AOC before MFG_0 off */
 		__gpufreq_aoc_control(power);
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_B);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_C);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -976,7 +984,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_C);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_D);
 	}
 
 	/* return power count if successfully control power */
@@ -1562,10 +1570,10 @@ void __gpufreq_set_stress_test(unsigned int mode)
 	mutex_unlock(&gpufreq_lock);
 }
 
-/* API: apply/disapply Vaging to working table of STACK */
-int __gpufreq_set_enforced_aging(unsigned int mode)
+/* API: apply/restore Vaging to working table of STACK */
+int __gpufreq_set_aging_mode(unsigned int mode)
 {
-	/* prevent from double aging */
+	/* prevent from repeatedly applying aging */
 	if (g_aging_enable ^ mode) {
 		mutex_lock(&gpufreq_lock);
 
@@ -1578,6 +1586,16 @@ int __gpufreq_set_enforced_aging(unsigned int mode)
 	} else {
 		return GPUFREQ_EINVAL;
 	}
+}
+
+/* API: enable/disable GPM 1.0 */
+void __gpufreq_set_gpm_mode(unsigned int mode)
+{
+	mutex_lock(&gpufreq_lock);
+
+	g_gpm_enable = mode;
+
+	mutex_unlock(&gpufreq_lock);
 }
 
 /**
@@ -2807,6 +2825,28 @@ static void __gpufreq_acp_control(void)
 	writel(0x55, g_g3d_base + 0x928);
 }
 
+/* GPM1.0: di/dt reduction by slowing down speed of frequency scaling up or down */
+static void __gpufreq_gpm_control(void)
+{
+	/* MFG_I2M_PROTECTOR_CFG_00 0x13FBFF60 = 0x20700316 */
+	writel(0x20700316, g_g3d_base + 0xF60);
+
+	/* MFG_I2M_PROTECTOR_CFG_01 0x13FBFF64 = 0x1800000C */
+	writel(0x1800000C, g_g3d_base + 0xF64);
+
+	/* MFG_I2M_PROTECTOR_CFG_02 0x13FBFF68 = 0x01010802 */
+	writel(0x01011002, g_g3d_base + 0xF68);
+
+	/* MFG_I2M_PROTECTOR_CFG_03 0x13FBFFA8 = 0x01010802 */
+	writel(0x00030FF1, g_g3d_base + 0xFA8);
+
+	/* wait 1us */
+	udelay(1);
+
+	/* MFG_I2M_PROTECTOR_CFG_00 0x13FBFF60 = 0x20700317 */
+	writel(0x20700317, g_g3d_base + 0xF60);
+}
+
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 {
 	int ret = GPUFREQ_SUCCESS;
@@ -3546,8 +3586,11 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 			g_stack.working_table[i].vsram, g_stack.working_table[i].vaging);
 	}
 
-	/* apply aging volt to working table volt */
+#if GPUFREQ_AGING_ENABLE
+	/* default apply Vaging to working table volt */
 	__gpufreq_apply_aging(TARGET_STACK, true);
+	g_aging_enable = true;
+#endif /* GPUFREQ_AGING_ENABLE */
 
 	/* set power info to working table */
 	__gpufreq_measure_power(TARGET_STACK);
@@ -3824,6 +3867,9 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		GPUFREQ_LOGE("fail to init OPP table (%d)", ret);
 		goto done;
 	}
+
+	/* default enable GPM 1.0, before power control */
+	g_gpm_enable = true;
 
 	/* power on and never off if disable power control */
 	if (!__gpufreq_power_ctrl_enable()) {
