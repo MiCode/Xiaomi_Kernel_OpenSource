@@ -130,6 +130,8 @@ struct compat_mmprofile_metalog_t {
 #define MMP_IOC_TRYLOG _IOWR(MMP_IOC_MAGIC, 12, unsigned int)
 #define MMP_IOC_ISENABLE _IOR(MMP_IOC_MAGIC, 13, unsigned int)
 #define MMP_IOC_REMOTESTART _IOW(MMP_IOC_MAGIC, 14, unsigned int)
+#define MMP_IOC_SETRECORDCNT _IOW(MMP_IOC_MAGIC, 15, unsigned int)
+#define MMP_IOC_SETMETABUFSIZE _IOW(MMP_IOC_MAGIC, 16, unsigned int)
 #define MMP_IOC_TEST _IOWR(MMP_IOC_MAGIC, 100, unsigned int)
 
 /* fix build warning: unused */
