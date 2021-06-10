@@ -576,7 +576,7 @@ struct ccci_sys_cb_func_info {
 #define MAX_KERN_API 64
 
 enum MD_WAKEUP_SOURCE {
-	WAKE_SRC_MD_WDT = 0,
+	WAKE_SRC_DEFAULT_SETTING = 0, /* not MD/HIF related. */
 	WAKE_SRC_HIF_CCIF0 = 1,
 	WAKE_SRC_HIF_CCIF1 = 2,
 	WAKE_SRC_HIF_CLDMA = 3,
