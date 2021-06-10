@@ -127,8 +127,8 @@ u32 dvfsrc_get_required_opp_peak_bw(struct device_node *np, int index)
 	if (!required_np)
 		return 0;
 
-	of_property_read_u32_index(required_np, "opp-peak-KBps", dram_type,
-		&peak_bw);
+	if (of_property_read_u32_index(required_np, "opp-peak-KBps", dram_type, &peak_bw))
+		pr_info("%s: get fail\n", __func__);
 
 	of_node_put(required_np);
 	return peak_bw;
@@ -497,16 +497,16 @@ static int mt6983_get_target_level(struct mtk_dvfsrc *dvfsrc)
 
 	reg = dvfsrc_read(dvfsrc, DVFSRC_TARGET_LEVEL);
 	if (reg & (1 << 16))
-		return 0;
-	else
 		return (reg >> 8) & 0x3f + 1;
+	else
+		return 0;
 }
 
 static int mt6983_get_current_level(struct mtk_dvfsrc *dvfsrc)
 {
 	u32 curr_level;
 
-	curr_level = dvfsrc_read(dvfsrc, DVFSRC_LEVEL) & 0x3f + 1;
+	curr_level = (dvfsrc_read(dvfsrc, DVFSRC_LEVEL) & 0x3f) + 1;
 	if (curr_level > dvfsrc->curr_opps->num_opp)
 		curr_level = 0;
 	else
@@ -598,8 +598,6 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 {
 	int ret = 0;
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
-
-	dev_dbg(dvfsrc->dev, "cmd: %d, data: %llu\n", cmd, data);
 
 	switch (cmd) {
 	case MTK_DVFSRC_CMD_BW_REQUEST:
