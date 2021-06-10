@@ -23,9 +23,7 @@
 #include <linux/scatterlist.h>
 #include <linux/vmalloc.h>
 #include <linux/crash_dump.h>
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-#include <../misc/mediatek/iommu/iommu_iova_dbg.h>
-#endif
+#include <trace/hooks/iommu.h>
 
 struct iommu_dma_msi_page {
 	struct list_head	list;
@@ -489,15 +487,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 		iova = alloc_iova_fast(iovad, iova_len, dma_limit >> shift,
 				       true);
 
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-	if (iova) {
-		mtk_iova_dbg_alloc(dev, ((dma_addr_t)iova << shift), size);
-	} else {
-		pr_info("[iommu_debug] %s fail! dev:%s, size:0x%zx\n",
-			__func__, dev_name(dev), size);
-		mtk_iova_dbg_dump(dev);
-	}
-#endif
+	trace_android_vh_iommu_alloc_iova(dev, iova, size);
 
 	return (dma_addr_t)iova << shift;
 }
@@ -516,9 +506,8 @@ static void iommu_dma_free_iova(struct iommu_dma_cookie *cookie,
 	else
 		free_iova_fast(iovad, iova_pfn(iovad, iova),
 				size >> iova_shift(iovad));
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-	mtk_iova_dbg_free(iova, size);
-#endif
+
+	trace_android_vh_iommu_free_iova(iova, size);
 }
 
 static void __iommu_dma_unmap(struct device *dev, dma_addr_t dma_addr,

@@ -11,6 +11,8 @@
   add_uevent_var
   add_wait_queue
   adjust_managed_page_count
+  aes_encrypt
+  aes_expandkey
   alarm_cancel
   alarm_init
   alarm_start_relative
@@ -87,10 +89,10 @@
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
+  bpf_trace_run1
   bpf_trace_run10
   bpf_trace_run11
   bpf_trace_run12
-  bpf_trace_run1
   bpf_trace_run2
   bpf_trace_run3
   bpf_trace_run4
@@ -587,6 +589,7 @@
   dma_fence_remove_callback
   dma_fence_signal
   dma_fence_signal_locked
+  dma_fence_signal_timestamp_locked
   dma_fence_wait_timeout
   dma_free_attrs
   dma_get_sgtable_attrs
@@ -1044,6 +1047,7 @@
   i2c_del_adapter
   i2c_del_driver
   i2c_get_dma_safe_msg_buf
+  i2c_new_client_device
   i2c_put_dma_safe_msg_buf
   i2c_register_driver
   i2c_transfer
@@ -1387,8 +1391,8 @@
   mempool_free
   mempool_free_slab
   memremap
-  memset64
   memset
+  memset64
   __memset_io
   memstart_addr
   memunmap
@@ -1457,10 +1461,10 @@
   nla_find
   nla_memcpy
   __nla_parse
-  nla_put_64bit
   nla_put
-  nla_reserve_64bit
+  nla_put_64bit
   nla_reserve
+  nla_reserve_64bit
   __nla_validate
   __nlmsg_put
   no_llseek
@@ -1539,6 +1543,7 @@
   of_graph_is_present
   of_graph_parse_endpoint
   of_hwspin_lock_get_id
+  of_i2c_get_board_info
   of_icc_get
   of_icc_xlate_onecell
   of_iomap
@@ -2400,6 +2405,7 @@
   __traceiter_android_rvh_find_busiest_queue
   __traceiter_android_rvh_find_lowest_rq
   __traceiter_android_rvh_flush_task
+  __traceiter_android_rvh_gic_v3_set_affinity
   __traceiter_android_rvh_irqs_disable
   __traceiter_android_rvh_irqs_enable
   __traceiter_android_rvh_migrate_queued_task
@@ -2485,6 +2491,7 @@
   __tracepoint_android_rvh_find_busiest_queue
   __tracepoint_android_rvh_find_lowest_rq
   __tracepoint_android_rvh_flush_task
+  __tracepoint_android_rvh_gic_v3_set_affinity
   __tracepoint_android_rvh_irqs_disable
   __tracepoint_android_rvh_irqs_enable
   __tracepoint_android_rvh_migrate_queued_task
@@ -2525,6 +2532,8 @@
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_transaction_init
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_check_uninterruptible_tasks
+  __tracepoint_android_vh_check_uninterruptible_tasks_dn
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_dump_throttled_rt_tasks

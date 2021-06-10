@@ -94,7 +94,7 @@ fi
 
 if [ "$mode" == "p" ]
 then
-target_commit=560fdb20e4a665557264ca09c258671503a3f79f #FROMGIT: scsi: ufs: ufs-mediatek: Fix power down spec violation
+target_commit=83aa0320cfa8dfdba4f011f9c4d9040e1cc1f65a #FROMLIST: kthread: Fix kthread_mod_delayed_work vs kthread_cancel_delayed_work_sync race
 echo src_commit=$src_commit
 echo target_commit=$target_commit
 fi

@@ -50,8 +50,11 @@
   bio_endio
   bio_init
   bio_put
+  __bitmap_andnot
   __bitmap_clear
+  __bitmap_equal
   bitmap_from_arr32
+  __bitmap_or
   bitmap_parse
   bitmap_parselist
   bitmap_print_to_pagebuf
@@ -90,6 +93,7 @@
   bpf_trace_run5
   bpf_trace_run6
   bpf_trace_run7
+  bpf_trace_run8
   bpf_trace_run9
   build_skb
   bus_find_device
@@ -159,6 +163,8 @@
   clk_hw_get_name
   clk_hw_get_parent
   __clk_is_enabled
+  clk_notifier_register
+  clk_notifier_unregister
   clk_prepare
   clk_put
   clk_register
@@ -315,6 +321,7 @@
   device_add_groups
   device_create
   device_create_file
+  device_create_with_groups
   device_destroy
   device_find_child
   device_for_each_child
@@ -391,6 +398,7 @@
   devm_platform_ioremap_resource_byname
   devm_power_supply_register
   devm_pwm_get
+  devm_regmap_add_irq_chip
   __devm_regmap_init
   __devm_regmap_init_i2c
   __devm_regmap_init_spi
@@ -503,6 +511,7 @@
   downgrade_write
   down_interruptible
   down_read
+  down_read_trylock
   down_timeout
   down_trylock
   down_write
@@ -721,6 +730,7 @@
   file_path
   filp_close
   filp_open_block
+  find_extend_vma
   find_get_pid
   find_next_bit
   find_next_zero_bit
@@ -972,7 +982,6 @@
   kasprintf
   kernel_cpustat
   kernel_kobj
-  kernel_read
   kernel_restart
   kern_mount
   kern_unmount
@@ -1456,6 +1465,7 @@
   regmap_bulk_read
   regmap_bulk_write
   regmap_get_device
+  regmap_irq_get_virq
   regmap_multi_reg_write
   regmap_multi_reg_write_bypassed
   regmap_raw_read
@@ -1580,6 +1590,7 @@
   __sg_page_iter_next
   __sg_page_iter_start
   sg_scsi_ioctl
+  shmem_file_setup
   simple_attr_open
   simple_attr_read
   simple_attr_release
@@ -1631,7 +1642,9 @@
   snd_soc_card_get_kcontrol
   snd_soc_card_jack_new
   snd_soc_component_disable_pin
+  snd_soc_component_enable_pin
   snd_soc_component_force_enable_pin
+  snd_soc_component_get_pin_status
   snd_soc_component_read
   snd_soc_component_set_jack
   snd_soc_component_set_pll
@@ -1642,6 +1655,7 @@
   snd_soc_dai_set_sysclk
   snd_soc_dai_set_tdm_slot
   snd_soc_dapm_add_routes
+  snd_soc_dapm_del_routes
   snd_soc_dapm_disable_pin
   snd_soc_dapm_disable_pin_unlocked
   snd_soc_dapm_force_enable_pin_unlocked
@@ -1659,10 +1673,13 @@
   snd_soc_get_enum_double
   snd_soc_get_volsw
   snd_soc_get_volsw_range
+  snd_soc_get_volsw_sx
   snd_soc_info_enum_double
   snd_soc_info_volsw
   snd_soc_info_volsw_range
+  snd_soc_info_volsw_sx
   snd_soc_jack_report
+  snd_soc_lookup_component
   snd_soc_new_compress
   snd_soc_of_get_dai_link_codecs
   snd_soc_of_get_dai_name
@@ -1673,6 +1690,7 @@
   snd_soc_put_enum_double
   snd_soc_put_volsw
   snd_soc_put_volsw_range
+  snd_soc_put_volsw_sx
   snd_soc_register_card
   snd_soc_register_component
   snd_soc_runtime_set_dai_fmt
@@ -1763,6 +1781,7 @@
   sysrq_mask
   system_freezing_cnt
   system_highpri_wq
+  system_long_wq
   system_power_efficient_wq
   system_state
   system_unbound_wq
@@ -1773,6 +1792,7 @@
   __tasklet_schedule
   task_may_not_preempt
   __task_pid_nr_ns
+  task_rq_lock
   tcpci_get_tcpm_port
   tcpci_irq
   tcpci_register_port
@@ -2025,6 +2045,7 @@
   usb_role_switch_get_drvdata
   usb_role_switch_register
   usb_role_switch_unregister
+  usb_speed_string
   usb_string_id
   usb_unregister_notify
   __usecs_to_jiffies
