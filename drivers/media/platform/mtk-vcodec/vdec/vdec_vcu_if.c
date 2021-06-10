@@ -110,10 +110,11 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	}
 
 	vcu = (struct vdec_vcu_inst *)(unsigned long)msg->ap_inst_addr;
-	if ((vcu != priv) && msg->msg_id < VCU_IPIMSG_DEC_WAITISR) {
-		pr_info("%s, vcu:%p != priv:%p\n", __func__, vcu, priv);
+	/*if ((vcu != priv) && msg->msg_id < VCU_IPIMSG_DEC_WAITISR) {
+		pr_info("%s, id=%X vcu:%p != priv:%p\n", __func__, msg->msg_id, vcu, priv);
+		msg->status = -1;
 		return 1;
-	}
+	}*/
 
 	if (vcu->daemon_pid != current->tgid) {
 		pr_info("%s, vcu->daemon_pid:%d != current %d\n",
@@ -122,8 +123,8 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	}
 
 	vsi = (struct vdec_vsi *)vcu->vsi;
-	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n",
-		msg->msg_id, msg->status);
+	mtk_vcodec_debug(vcu, "+ id=%X status = %d vcu:%p\n",
+		msg->msg_id, msg->status, vcu);
 
 	if (vcu->abort)
 		return -EINVAL;
