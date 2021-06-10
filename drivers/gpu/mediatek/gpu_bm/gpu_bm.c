@@ -13,9 +13,9 @@
 #include <linux/module.h>
 
 
-#ifdef MTK_QOS_FRAMEWORK
+#if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 #include <mtk_qos_ipi.h>
-#endif
+#endif /* CONFIG_MTK_QOS_FRAMEWORK */
 #include <mt-plat/mtk_gpu_utility.h>
 #include <mtk_gpufreq.h>
 
@@ -93,7 +93,7 @@ static DECLARE_DELAYED_WORK(g_setupfw_work, setupfw_work_handler);
 
 static void setupfw_work_handler(struct work_struct *work)
 {
-#ifdef MTK_QOS_FRAMEWORK
+#if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 	struct qos_ipi_data qos_d;
 	int ret;
 
@@ -101,7 +101,18 @@ static void setupfw_work_handler(struct work_struct *work)
 	qos_d.u.gpu_info.addr = (unsigned int)setupfw_data.phyaddr;
 	qos_d.u.gpu_info.addr_hi = (unsigned int)(setupfw_data.phyaddr >> 32);
 	qos_d.u.gpu_info.size = (unsigned int)setupfw_data.size;
+
+#ifdef MTK_SCMI
+	pr_debug("%s: MTK_SCMI defined!\n", __func__);
+
+	ret = qos_ipi_to_sspm_scmi_command(qos_d.cmd,
+		qos_d.u.gpu_info.addr,
+		qos_d.u.gpu_info.addr_hi,
+		qos_d.u.gpu_info.size, 0);
+#else
+	pr_debug("%s: MTK_SCMI not defined! \n", __func__);
 	ret = qos_ipi_to_sspm_command(&qos_d, 4);
+#endif /* MTK_SCMI */
 
 	pr_debug("%s: addr:0x%x, addr_hi:0x%x, ret:%d\n",
 		__func__,
@@ -117,7 +128,7 @@ static void setupfw_work_handler(struct work_struct *work)
 	}
 #else
 	pr_debug("%s: sspm_ipi is not support!\n", __func__);
-#endif
+#endif /* MTK_QOS_FRAMEWORK */
 }
 
 static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
