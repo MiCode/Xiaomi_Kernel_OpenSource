@@ -89,20 +89,29 @@ int tcpci_set_low_power_mode(struct tcpc_device *tcpc, bool en, int pull);
 int tcpci_idle_poll_ctrl(struct tcpc_device *tcpc, bool en, bool lock);
 int tcpci_set_watchdog(struct tcpc_device *tcpc, bool en);
 int tcpci_alert_vendor_defined_handler(struct tcpc_device *tcpc);
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+int tcpci_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en);
+int tcpci_get_vbus_voltage(struct tcpc_device *tcpc, u32 *vbus);
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 int tcpci_is_vsafe0v(struct tcpc_device *tcpc);
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_WATER_DETECTION
 int tcpci_is_water_detected(struct tcpc_device *tcpc);
 int tcpci_set_water_protection(struct tcpc_device *tcpc, bool en);
 int tcpci_set_usbid_polling(struct tcpc_device *tcpc, bool en);
 int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected);
-#endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+int tcpci_notify_fod_status(struct tcpc_device *tcpc);
+
+int tcpci_notify_typec_otp(struct tcpc_device *tcpc);
+
+int tcpci_set_cc_hidet(struct tcpc_device *tcpc, bool en);
+int tcpci_notify_plug_out(struct tcpc_device *tcpc);
+
 int tcpci_notify_cable_type(struct tcpc_device *tcpc);
-#endif /* CONFIG_CABLE_TYPE_DETECTION */
+
+int tcpci_set_floating_ground(struct tcpc_device *tcpc, bool en);
+
+int tcpci_set_otp_fwen(struct tcpc_device *tcpc, bool en);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
@@ -123,7 +132,7 @@ int tcpci_set_bist_test_mode(struct tcpc_device *tcpc, bool en);
 
 int tcpci_set_bist_carrier_mode(struct tcpc_device *tcpc, uint8_t pattern);
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 int tcpci_retransmit(struct tcpc_device *tcpc);
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 #endif	/* CONFIG_USB_POWER_DELIVERY */
@@ -177,7 +186,7 @@ int tcpci_notify_uvdm(struct tcpc_device *tcpc, bool ack);
 int tcpci_dc_notify_en_unlock(struct tcpc_device *tcpc);
 #endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 #ifdef CONFIG_USB_PD_REV30_ALERT_REMOTE
 int tcpci_notify_alert(struct tcpc_device *tcpc, uint32_t ado);

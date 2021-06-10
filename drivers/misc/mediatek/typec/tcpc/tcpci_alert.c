@@ -28,7 +28,7 @@ static int tcpci_alert_cc_changed(struct tcpc_device *tcpc_dev)
 	return tcpc_typec_handle_cc_change(tcpc_dev);
 }
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 
 static inline int tcpci_alert_vsafe0v(struct tcpc_device *tcpc_dev)
 {
@@ -55,7 +55,7 @@ void tcpci_vbus_level_init(struct tcpc_device *tcpc_dev, uint16_t power_status)
 			power_status & TCPC_REG_POWER_STATUS_VBUS_PRES ?
 			TCPC_VBUS_VALID : TCPC_VBUS_INVALID;
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	if (power_status & TCPC_REG_POWER_STATUS_EXT_VSAFE0V) {
 		if (tcpc_dev->vbus_level == TCPC_VBUS_INVALID)
 			tcpc_dev->vbus_level = TCPC_VBUS_SAFE0V;
@@ -93,7 +93,7 @@ static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc_dev)
 	pd_put_vbus_changed_event(tcpc_dev, true);
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	if (tcpc_dev->vbus_level == TCPC_VBUS_SAFE0V)
 		rv = tcpci_alert_vsafe0v(tcpc_dev);
 #endif	/* CONFIG_TCPC_VSAFE0V_DETECT_IC */
@@ -162,7 +162,7 @@ static int tcpci_alert_tx_discard(struct tcpc_device *tcpc_dev)
 					TCPC_FLAGS_RETRY_CRC_DISCARD) != 0;
 
 		if (retry_crc_discard) {
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 			tcpc_dev->pd_discard_pending = true;
 			tcpc_enable_timer(tcpc_dev, PD_TIMER_DISCARD);
 #else
@@ -239,7 +239,7 @@ static int tcpci_alert_fault(struct tcpc_device *tcpc_dev)
 	return 0;
 }
 
-#ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
+#if CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
 static int tcpci_alert_wakeup(struct tcpc_device *tcpc_dev)
 {
 	if (tcpc_dev->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG) {
@@ -289,7 +289,7 @@ static const struct tcpci_alert_handler tcpci_alert_handlers[] = {
 	DECL_TCPCI_ALERT_HANDLER(10, tcpci_alert_rx_overflow),
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
+#if CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
 	DECL_TCPCI_ALERT_HANDLER(16, tcpci_alert_wakeup),
 #endif /* CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG */
 

@@ -134,7 +134,7 @@ static inline bool pd_process_ctrl_msg(
 			return true;
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_CTRL_NOT_SUPPORTED:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SRC_READY, PE_SRC_NOT_SUPPORTED_RECEIVED))
@@ -202,7 +202,7 @@ static inline bool pd_process_data_msg(
 			return true;
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_ALERT_REMOTE
 	case PD_DATA_ALERT:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
@@ -223,7 +223,7 @@ static inline bool pd_process_data_msg(
 /*
  * [BLOCK] Porcess Extend MSG
  */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 static inline bool pd_process_ext_msg(
 		struct pd_port *pd_port, struct pd_event *pd_event)
@@ -489,7 +489,7 @@ static inline bool pd_process_timer_msg(
 		break;
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_TIMER_CK_NO_SUPPORT:
 		return PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SRC_CHUNK_RECEIVED, PE_SRC_SEND_NOT_SUPPORTED);
@@ -512,7 +512,7 @@ bool pd_process_event_src(struct pd_port *pd_port, struct pd_event *pd_event)
 	case PD_EVT_DATA_MSG:
 		return pd_process_data_msg(pd_port, pd_event);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_EVT_EXT_MSG:
 		return pd_process_ext_msg(pd_port, pd_event);
 #endif	/* CONFIG_USB_PD_REV30 */

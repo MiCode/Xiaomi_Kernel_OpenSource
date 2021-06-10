@@ -730,7 +730,7 @@ struct pe_data {		/* reset after detached */
 	bool power_cable_present;
 	bool during_swap;	/* pr or dr swap */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	bool cable_rev_discovered;
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -793,7 +793,7 @@ struct pe_data {		/* reset after detached */
 	struct svdm_svid_list remote_svid_list;
 #endif	/* CONFIG_USB_PD_KEEP_SVIDS */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_ALERT_REMOTE
 	uint32_t remote_alert;
 #endif	/* CONFIG_USB_PD_REV30_ALERT_REMOTE */
@@ -872,7 +872,7 @@ struct pd_port {
 	uint8_t error_recovery_once;
 #endif	/* CONFIG_USB_PD_ERROR_RECOVERY_ONCE */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	wait_queue_head_t pps_request_event_queue;
 	atomic_t pps_request_event;
 	struct task_struct *pps_request_task;
@@ -892,7 +892,7 @@ struct pd_port {
 	uint8_t id_vdo_nr;
 	uint32_t id_vdos[VDO_MAX_NR];
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	uint32_t id_header;
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -1090,7 +1090,7 @@ static inline uint32_t pd_get_msg_vdm_hdr(struct pd_port *pd_port)
 	return pd_port->curr_vdm_hdr;
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static inline uint8_t pd_get_msg_hdr_ext(struct pd_port *pd_port)
 {
 	return PD_HEADER_EXT(pd_port->curr_msg_hdr);
@@ -1133,7 +1133,7 @@ static inline bool pd_check_timer_msg_event(
 		pd_get_curr_pd_event(pd_port), msg);
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 static inline bool pd_check_rev30(struct pd_port *pd_port)
 {
@@ -1490,7 +1490,7 @@ int pd_reply_wait_reject_msg_no_resp(struct pd_port *pd_port);
 
 int pd_send_swap_msg(struct pd_port *pd_port, uint8_t msg);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 int pd_send_ext_msg(struct pd_port *pd_port,
 	uint8_t sop_type, uint8_t msg, bool request,
 	uint8_t chunk_nr, uint8_t size, const uint8_t *data);
@@ -1608,7 +1608,7 @@ int pd_reply_custom_vdm(struct pd_port *pd_port, uint8_t sop_type,
 	uint8_t cnt, uint32_t *payload);
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 enum {	/* pd_traffic_control */
 	PD_SINK_TX_OK = 0,

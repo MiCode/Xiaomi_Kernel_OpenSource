@@ -170,7 +170,7 @@ bool vdm_is_state_transition_available(struct pd_port *pd_port,
 	uint8_t shift = 1;
 	uint8_t vdm_cmd_flags = state_transition->vdm_cmd_flags;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port) &&
 		(vdm_cmd_flags & VDM_CMD_FLAG_PD30_DUPLEX)) {
 		return true;
@@ -431,7 +431,7 @@ bool pd_process_custom_vdm(struct pd_port *pd_port, bool svdm)
 	if (pd_port->data_role == PD_ROLE_UFP)
 		recv = true;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port) && svdm)
 		recv = true;
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -737,7 +737,7 @@ static inline bool pd_process_tcp_cable_event(
 #ifdef CONFIG_PD_DISCOVER_CABLE_ID
 	bool role_check = true;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		role_check = pd_port->vconn_role;
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -816,7 +816,7 @@ static inline void pd_parse_tcp_dpm_evt_uvdm(struct pd_port *pd_port)
 		vdm_data->vdos, sizeof(uint32_t) * vdm_data->cnt);
 
 #ifdef CONFIG_USB_PD_SVDM
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port) &&
 		(pd_port->uvdm_data[0] & VDO_SVDM_TYPE))
 		pd_port->uvdm_data[0] |= VDO_SVDM_VERS(SVDM_REV20);

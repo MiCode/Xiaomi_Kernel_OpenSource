@@ -382,7 +382,7 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	tcpc->ops = ops;
 	tcpc->typec_local_rp_level = tcpc_desc->rp_lvl;
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	tcpc->tcpc_vconn_supply = tcpc_desc->vconn_supply;
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
@@ -452,7 +452,7 @@ int tcpc_device_irq_enable(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpc_device_irq_enable);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static void bat_update_work_func(struct work_struct *work)
 {
 	struct tcpc_device *tcpc = container_of(work,
@@ -513,7 +513,7 @@ static void tcpc_event_init_work(struct work_struct *work)
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	struct tcpc_device *tcpc = container_of(
 			work, struct tcpc_device, event_init_work.work);
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	int retval;
 #endif /* CONFIG_USB_PD_REV30 */
 
@@ -526,7 +526,7 @@ static void tcpc_event_init_work(struct work_struct *work)
 		pd_put_cc_attached_event(tcpc, tcpc->typec_attach_new);
 	tcpci_unlock_typec(tcpc);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	INIT_DELAYED_WORK(&tcpc->bat_update_work, bat_update_work_func);
 	tcpc->bat_psy = power_supply_get_by_name("battery");
 	if (!tcpc->bat_psy) {
@@ -776,7 +776,7 @@ void tcpc_device_unregister(struct device *dev, struct tcpc_device *tcpc)
 
 	tcpc_typec_deinit(tcpc);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	wakeup_source_unregister(tcpc->pd_port.pps_request_wake_lock);
 #endif /* CONFIG_USB_PD_REV30 */
 	wakeup_source_unregister(tcpc->dettach_temp_wake_lock);

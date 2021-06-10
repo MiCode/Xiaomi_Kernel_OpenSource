@@ -43,7 +43,7 @@ static const char *const pe_state_name[] = {
 	"PE_SRC_VDM_IDENTITY_NAKED",
 #endif	/* PD_CAP_PE_SRC_STARTUP_DISCOVER_ID */
 /* Source for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	"PE_SRC_SEND_NOT_SUPPORTED",
 	"PE_SRC_NOT_SUPPORTED_RECEIVED",
 	"PE_SRC_CHUNK_RECEIVED",
@@ -83,7 +83,7 @@ static const char *const pe_state_name[] = {
 	"PE_SNK_SEND_SOFT_RESET",
 	"PE_SNK_SOFT_RESET",
 /* Sink for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	"PE_SNK_SEND_NOT_SUPPORTED",
 	"PE_SNK_NOT_SUPPORTED_RECEIVED",
 	"PE_SNK_CHUNK_RECEIVED",
@@ -146,7 +146,7 @@ static const char *const pe_state_name[] = {
 	"PE_DR_SNK_GET_SINK_CAP",
 	"PE_DR_SNK_GIVE_SOURCE_CAP",
 /* get same role cap for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 	"PE_DR_SNK_GIVE_SOURCE_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL */
@@ -216,7 +216,7 @@ static const char *const pe_state_name[] = {
 	"PE_DFP_UVDM_NAKED",
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
 /******************* PD30 Common *******************/
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
 	"PE_GET_BATTERY_CAP",
 #endif	/* CONFIG_USB_PD_REV30_BAT_CAP_REMOTE */
@@ -308,7 +308,7 @@ static const char *const pe_state_name[] = {
 	"SRC_VDM_ID_NAK",
 #endif	/* PD_CAP_PE_SRC_STARTUP_DISCOVER_ID */
 /* Source for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	"SRC_NO_SUPP",
 	"SRC_NO_SUPP_RECV",
 	"SRC_CK_RECV",
@@ -349,7 +349,7 @@ static const char *const pe_state_name[] = {
 	"SNK_SEND_SRESET",
 	"SNK_SRESET",
 /* Sink for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	"SNK_NO_SUPP",
 	"SNK_NO_SUPP_RECV",
 	"SNK_CK_RECV",
@@ -413,7 +413,7 @@ static const char *const pe_state_name[] = {
 	"DR_SNK_GET_CAP",
 	"DR_SNK_GIVE_CAP",
 /* get same role cap for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 	"DR_SNK_GIVE_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL */
@@ -483,7 +483,7 @@ static const char *const pe_state_name[] = {
 	"D_UVDM_NAKED",
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
 /******************* PD30 Common *******************/
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
 	"GET_BAT_CAP",
 #endif	/* CONFIG_USB_PD_REV30_BAT_CAP_REMOTE */
@@ -584,7 +584,7 @@ static const struct pe_state_actions pe_state_actions[] = {
 	PE_STATE_ACTIONS(pe_src_vdm_identity_naked),
 #endif	/* PD_CAP_PE_SRC_STARTUP_DISCOVER_ID */
 /* Source for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	PE_STATE_ACTIONS(pe_src_send_not_supported),
 	PE_STATE_ACTIONS(pe_src_not_supported_received),
 	PE_STATE_ACTIONS(pe_src_chunk_received),
@@ -625,7 +625,7 @@ static const struct pe_state_actions pe_state_actions[] = {
 	PE_STATE_ACTIONS(pe_snk_send_soft_reset),
 	PE_STATE_ACTIONS(pe_snk_soft_reset),
 /* Sink for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	PE_STATE_ACTIONS(pe_snk_send_not_supported),
 	PE_STATE_ACTIONS(pe_snk_not_supported_received),
 	PE_STATE_ACTIONS(pe_snk_chunk_received),
@@ -689,7 +689,7 @@ static const struct pe_state_actions pe_state_actions[] = {
 	PE_STATE_ACTIONS(pe_dr_snk_get_sink_cap),
 	PE_STATE_ACTIONS(pe_dr_snk_give_source_cap),
 /* get same role cap for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 	PE_STATE_ACTIONS(pe_dr_snk_give_source_cap_ext),
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL */
@@ -759,7 +759,7 @@ static const struct pe_state_actions pe_state_actions[] = {
 	PE_STATE_ACTIONS(pe_dfp_uvdm_naked),
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
 /******************* PD30 Common *******************/
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
 	PE_STATE_ACTIONS(pe_get_battery_cap),
 #endif	/* CONFIG_USB_PD_REV30_BAT_CAP_REMOTE */
@@ -834,7 +834,7 @@ void (*pe_get_exit_action(uint8_t pe_state))
 	case PE_SRC_GET_SINK_CAP:
 		retval = pe_src_get_sink_cap_exit;
 		break;
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_STATUS_REMOTE
 	case PE_SRC_GET_SINK_STATUS:
 		retval = pe_src_get_sink_status_exit;
@@ -849,7 +849,7 @@ void (*pe_get_exit_action(uint8_t pe_state))
 		retval = pe_snk_select_capability_exit;
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	case PE_SNK_GET_SOURCE_CAP_EXT:
 		retval = pe_snk_get_source_cap_ext_exit;
@@ -882,7 +882,7 @@ void (*pe_get_exit_action(uint8_t pe_state))
 		break;
 
 /* get same role cap for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	case PE_DR_SRC_GET_SOURCE_CAP_EXT:
 		retval = pe_dr_src_get_source_cap_ext_exit;
@@ -892,7 +892,7 @@ void (*pe_get_exit_action(uint8_t pe_state))
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
 /******************* PD30 Common *******************/
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
 	case PE_GET_BATTERY_CAP:
 		retval = pe_get_battery_cap_exit;
@@ -1115,7 +1115,7 @@ static inline bool pd_try_get_vdm_event(
 	return ret;
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 static inline bool pd_check_sink_tx_ok(struct pd_port *pd_port)
 {
@@ -1209,7 +1209,7 @@ static inline bool pd_check_tx_ready(struct pd_port *pd_port)
 	if (pd_port->pe_data.vdm_state_timer)
 		return false;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	return pd_check_pd30_tx_ready(pd_port);
 #else
 	return pd_check_pd20_tx_ready(pd_port);

@@ -641,7 +641,7 @@ bool tcpm_extract_power_cap_val(
 	else
 		cap->ma = info.ma;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (info.type == DPM_PDO_TYPE_APDO) {
 		cap->apdo_type = info.apdo_type;
 		cap->pwr_limit = info.pwr_limit;
@@ -913,7 +913,7 @@ int tcpm_dpm_pd_bist_cm2(struct tcpc_device *tcpc,
 }
 EXPORT_SYMBOL(tcpm_dpm_pd_bist_cm2);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 static int tcpm_put_tcp_dpm_event_cbk2(struct tcpc_device *tcpc,
 	struct tcp_dpm_event *event,
@@ -1530,7 +1530,7 @@ static int tcpm_put_tcp_dummy_event(struct tcpc_device *tcpc)
 	return tcpm_put_tcp_dpm_event(tcpc, &tcp_event);
 }
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 
 int tcpm_dpm_set_vconn_supply_mode(struct tcpc_device *tcpc, uint8_t mode)
 {

@@ -71,7 +71,7 @@ enum pd_event_type {
 	PD_EVT_CTRL_MSG,
 	PD_EVT_DATA_MSG,
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	PD_EVT_EXT_MSG,
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -103,7 +103,7 @@ enum pd_msg_type {
 	PD_CTRL_SOFT_RESET = 13,
 	/* 14-15 Reserved */
 	PD_CTRL_PD30_START = 0x10 + 0,
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	PD_CTRL_NOT_SUPPORTED = 0x10 + 0,
 	PD_CTRL_GET_SOURCE_CAP_EXT = 0x10 + 1,
 	PD_CTRL_GET_STATUS = 0x10 + 2,
@@ -120,7 +120,7 @@ enum pd_msg_type {
 	PD_DATA_BIST = 3,
 	PD_DATA_SINK_CAP = 4,
 	PD_DATA_PD30_START = 5,
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	PD_DATA_BAT_STATUS = 5,
 	PD_DATA_ALERT = 6,
 	PD_DATA_GET_COUNTRY_INFO = 7,
@@ -128,7 +128,7 @@ enum pd_msg_type {
 	/* 7-14 Reserved */
 	PD_DATA_VENDOR_DEF = 15,
 	PD_DATA_MSG_NR,
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 /* Extended message type */
 	/* 0 Reserved */
 	PD_EXT_SOURCE_CAP_EXT = 1,
@@ -245,7 +245,7 @@ static inline bool pd_event_timer_msg_match(
 	return pd_event_msg_match(pd_event, PD_EVT_TIMER_MSG, msg);
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 static inline bool pd_event_ext_msg_match(
 	struct pd_event *pd_event, uint8_t msg)

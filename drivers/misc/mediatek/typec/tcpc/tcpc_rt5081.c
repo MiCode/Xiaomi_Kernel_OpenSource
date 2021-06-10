@@ -445,7 +445,7 @@ static int rt5081_init_rt_mask(struct tcpc_device *tcpc)
 #ifdef CONFIG_TCPC_WATCHDOG_EN
 	rt_mask |= RT5081_REG_M_WATCHDOG;
 #endif /* CONFIG_TCPC_WATCHDOG_EN */
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	rt_mask |= RT5081_REG_M_VBUS_80;
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
@@ -454,7 +454,7 @@ static int rt5081_init_rt_mask(struct tcpc_device *tcpc)
 		rt_mask |= RT5081_REG_M_RA_DETACH;
 #endif /* CONFIG_TYPEC_CAP_RA_DETACH */
 
-#ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
+#if CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
 	if (tcpc->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG)
 		rt_mask |= RT5081_REG_M_WAKEUP;
 #endif	/* CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG */
@@ -609,7 +609,7 @@ int rt5081_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask)
 	int ret;
 	uint16_t mask_t1;
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	uint8_t mask_t2;
 #endif
 
@@ -621,7 +621,7 @@ int rt5081_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask)
 			return ret;
 	}
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	mask_t2 = mask >> 16;
 	if (mask_t2) {
 		ret = rt5081_i2c_write8(tcpc, RT5081_REG_RT_INT, mask_t2);
@@ -808,7 +808,7 @@ int rt5081_get_alert_status(struct tcpc_device *tcpc, uint32_t *alert)
 {
 	int ret;
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	uint8_t v2;
 #endif
 
@@ -818,7 +818,7 @@ int rt5081_get_alert_status(struct tcpc_device *tcpc, uint32_t *alert)
 
 	*alert = (uint16_t) ret;
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = rt5081_i2c_read8(tcpc, RT5081_REG_RT_INT);
 	if (ret < 0)
 		return ret;
@@ -844,7 +844,7 @@ static int rt5081_get_power_status(
 	if (ret & TCPC_V10_REG_POWER_STATUS_VBUS_PRES)
 		*pwr_status |= TCPC_REG_POWER_STATUS_VBUS_PRES;
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = rt5081_i2c_read8(tcpc, RT5081_REG_RT_STATUS);
 	if (ret < 0)
 		return ret;
@@ -999,7 +999,7 @@ static int rt5081_set_vconn(struct tcpc_device *tcpc, int enable)
 	return rv;
 }
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 static int rt5081_is_low_power_mode(struct tcpc_device *tcpc_dev)
 {
 	int rv = rt5081_i2c_read8(tcpc_dev, RT5081_REG_BMC_CTRL);
@@ -1050,7 +1050,7 @@ int rt5081_set_intrst(struct tcpc_device *tcpc_dev, bool en)
 
 static int rt5081_tcpc_deinit(struct tcpc_device *tcpc_dev)
 {
-#ifdef CONFIG_TCPC_SHUTDOWN_CC_DETACH
+#if CONFIG_TCPC_SHUTDOWN_CC_DETACH
 	rt5081_set_cc(tcpc_dev, TYPEC_CC_DRP);
 	rt5081_set_cc(tcpc_dev, TYPEC_CC_OPEN);
 
@@ -1148,7 +1148,7 @@ static int rt5081_set_bist_carrier_mode(
 /* transmit count (1byte) + message header (2byte) + data object (4byte * 7) */
 #define RT5081_TRANSMIT_MAX_SIZE (1 + sizeof(uint16_t) + sizeof(uint32_t) * 7)
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 static int rt5081_retransmit(struct tcpc_device *tcpc)
 {
 	return rt5081_i2c_write8(tcpc, TCPC_V10_REG_TRANSMIT,
@@ -1216,7 +1216,7 @@ static struct tcpc_ops rt5081_tcpc_ops = {
 	.set_vconn = rt5081_set_vconn,
 	.deinit = rt5081_tcpc_deinit,
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 	.is_low_power_mode = rt5081_is_low_power_mode,
 	.set_low_power_mode = rt5081_set_low_power_mode,
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
@@ -1239,7 +1239,7 @@ static struct tcpc_ops rt5081_tcpc_ops = {
 	.set_bist_carrier_mode = rt5081_set_bist_carrier_mode,
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	.retransmit = rt5081_retransmit,
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 };
@@ -1375,7 +1375,7 @@ static int rt5081_tcpcdev_init(struct rt5081_chip *chip, struct device *dev)
 		}
 	}
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	if (of_property_read_u32(np, "rt-tcpc,vconn_supply", &val) >= 0) {
 		if (val >= TCPC_VCONN_SUPPLY_NR)
 			desc->vconn_supply = TCPC_VCONN_SUPPLY_ALWAYS;
@@ -1407,11 +1407,11 @@ static int rt5081_tcpcdev_init(struct rt5081_chip *chip, struct device *dev)
 		TCPC_FLAGS_LPM_WAKEUP_WATCHDOG |
 		TCPC_FLAGS_RETRY_CRC_DISCARD;
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_RETRY_CRC_DISCARD;
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_PD_REV30;
 
 	if (chip->tcpc->tcpc_flags & TCPC_FLAGS_PD_REV30)

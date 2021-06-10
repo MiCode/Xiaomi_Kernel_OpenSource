@@ -47,16 +47,20 @@ extern int tcpc_typec_handle_pe_pr_swap(struct tcpc_device *tcpc_dev);
 extern int tcpc_typec_swap_role(struct tcpc_device *tcpc_dev);
 #endif /* CONFIG_TYPEC_CAP_ROLE_SWAP */
 
-#ifdef CONFIG_WATER_DETECTION
 extern int tcpc_typec_handle_wd(struct tcpc_device *tcpc_dev, bool wd);
-#endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+extern int tcpc_typec_handle_fod(struct tcpc_device *tcpc_dev,
+				 enum tcpc_fod_status);
+extern bool tcpc_typec_ignore_fod(struct tcpc_device *tcpc_dev);
+
+extern int tcpc_typec_handle_otp(struct tcpc_device *tcpc_dev, bool otp);
+
 extern int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 				 enum tcpc_cable_type cable_type);
-#endif /* CONFIG_CABLE_TYPEC_DETECTION */
 
-#ifdef CONFIG_MTK_CHARGER
+extern bool tcpc_typec_is_cc_attach(struct tcpc_device *tcpc_dev);
+
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
 extern int tcpc_get_charger_type(struct tcpc_device *tcpc_dev);
 #endif /* CONFIG_MTK_CHARGER */
 #endif /* #ifndef __LINUX_TCPCI_TYPEC_H */

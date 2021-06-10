@@ -217,7 +217,7 @@ void pe_snk_soft_reset_entry(struct pd_port *pd_port)
 
 /* ---- Policy Engine (PD30) ---- */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 /*
  * [PD3.0] Figure 8-71 Sink Port Not Supported Message State Diagram

@@ -175,7 +175,7 @@ int pd_dpm_send_source_caps(struct pd_port *pd_port)
 
 void pd_dpm_inform_cable_id(struct pd_port *pd_port, bool src_startup)
 {
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	struct pe_data *pe_data = &pd_port->pe_data;
 #endif /* CONFIG_USB_PD_REV30 */
 	uint32_t *payload = pd_get_msg_vdm_data_payload(pd_port);
@@ -189,7 +189,7 @@ void pd_dpm_inform_cable_id(struct pd_port *pd_port, bool src_startup)
 
 		dpm_reaction_clear(pd_port, DPM_REACTION_DISCOVER_CABLE);
 	} else {
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 		if (pe_data->discover_id_counter >= PD_DISCOVER_ID30_COUNT)
 			pd_sync_sop_prime_spec_revision(pd_port, PD_REV20);
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -951,7 +951,7 @@ static inline bool dpm_ufp_update_svid_data_exit_mode(
 
 static int dpm_vdm_ufp_response_id(struct pd_port *pd_port)
 {
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		pd_port->id_vdos[0] = pd_port->id_header;
 	else
@@ -1641,7 +1641,7 @@ void pd_dpm_vcs_evaluate_swap(struct pd_port *pd_port)
 {
 	bool accept = true;
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	struct tcpc_device *tcpc = pd_port->tcpc_dev;
 
 	/* Reject it if we don't want supply vconn */
@@ -1678,7 +1678,7 @@ void pd_dpm_vcs_enable_vconn(struct pd_port *pd_port, uint8_t role)
  * PE : PD3.0
  */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 void pd_dpm_inform_source_cap_ext(struct pd_port *pd_port)
@@ -2027,7 +2027,7 @@ void pd_dpm_inform_not_support(struct pd_port *pd_port)
 
 void pd_dpm_dynamic_enable_vconn(struct pd_port *pd_port)
 {
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	struct tcpc_device *tcpc_dev = pd_port->tcpc_dev;
 
 	if (tcpc_dev->tcpc_vconn_supply <= TCPC_VCONN_SUPPLY_ALWAYS)
@@ -2042,7 +2042,7 @@ void pd_dpm_dynamic_enable_vconn(struct pd_port *pd_port)
 
 void pd_dpm_dynamic_disable_vconn(struct pd_port *pd_port)
 {
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	bool keep_vconn;
 	struct tcpc_device *tcpc = pd_port->tcpc_dev;
 
@@ -2126,7 +2126,7 @@ int pd_dpm_notify_pe_startup(struct pd_port *pd_port)
 		reactions |= DPM_REACTION_DISCOVER_ID;
 #endif	/* CONFIG_USB_PD_ATTEMP_ENTER_MODE */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	reactions |= DPM_REACTION_GET_SOURCE_CAP_EXT;
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
@@ -2263,7 +2263,7 @@ int pd_dpm_core_init(struct pd_port *pd_port)
 
 	pd_port->svid_data_cnt = j;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	pd_port->pps_request_wake_lock = wakeup_source_register(
 			    &pd_port->tcpc_dev->dev, "pd_pps_request_wakelock");
 

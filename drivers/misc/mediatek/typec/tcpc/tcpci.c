@@ -96,12 +96,34 @@ int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpci_check_vbus_valid_from_ic);
 
+int tcpci_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_auto_dischg_discnt)
+		rv = tcpc->ops->set_auto_dischg_discnt(tcpc, en);
+
+	return rv;
+}
+EXPORT_SYMBOL(tcpci_set_auto_dischg_discnt);
+
+int tcpci_get_vbus_voltage(struct tcpc_device *tcpc, u32 *vbus)
+{
+	int rv = 0;
+
+	if (tcpc->ops->get_vbus_voltage)
+		rv = tcpc->ops->get_vbus_voltage(tcpc, vbus);
+
+	return rv;
+}
+EXPORT_SYMBOL(tcpci_get_vbus_voltage);
+
 int tcpci_check_vsafe0v(
 	struct tcpc_device *tcpc, bool detect_en)
 {
 	int ret = 0;
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = (tcpc->vbus_level == TCPC_VBUS_SAFE0V);
 #else
 	ret = (tcpc->vbus_level == TCPC_VBUS_INVALID);
@@ -313,7 +335,7 @@ int tcpci_is_low_power_mode(struct tcpc_device *tcpc)
 {
 	int rv = 1;
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 	if (tcpc->ops->is_low_power_mode)
 		rv = tcpc->ops->is_low_power_mode(tcpc);
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
@@ -327,7 +349,7 @@ int tcpci_set_low_power_mode(
 {
 	int rv = 0;
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 	if (tcpc->ops->set_low_power_mode)
 		rv = tcpc->ops->set_low_power_mode(tcpc, en, pull);
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
@@ -395,7 +417,7 @@ int tcpci_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpci_alert_vendor_defined_handler);
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 int tcpci_is_vsafe0v(struct tcpc_device *tcpc)
 {
 	int rv = -ENOTSUPP;
@@ -408,7 +430,6 @@ int tcpci_is_vsafe0v(struct tcpc_device *tcpc)
 EXPORT_SYMBOL(tcpci_is_vsafe0v);
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_WATER_DETECTION
 int tcpci_is_water_detected(struct tcpc_device *tcpc)
 {
 	if (tcpc->ops->is_water_detected)
@@ -442,9 +463,17 @@ int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected)
 				      TCP_NOTIFY_WD_STATUS);
 }
 EXPORT_SYMBOL(tcpci_notify_wd_status);
-#endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+int tcpci_notify_fod_status(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti;
+
+	tcp_noti.fod_status.fod = tcpc->typec_fod;
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_FOD_STATUS);
+}
+EXPORT_SYMBOL(tcpci_notify_fod_status);
+
 int tcpci_notify_cable_type(struct tcpc_device *tcpc)
 {
 	struct tcp_notify tcp_noti;
@@ -454,7 +483,58 @@ int tcpci_notify_cable_type(struct tcpc_device *tcpc)
 				      TCP_NOTIFY_CABLE_TYPE);
 }
 EXPORT_SYMBOL(tcpci_notify_cable_type);
-#endif /* CONFIG_CABLE_TYPE_DETECTION */
+
+int tcpci_notify_typec_otp(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti;
+
+	tcp_noti.typec_otp.otp = tcpc->typec_otp;
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_TYPEC_OTP);
+}
+EXPORT_SYMBOL(tcpci_notify_typec_otp);
+
+int tcpci_set_cc_hidet(struct tcpc_device *tcpc, bool en)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_cc_hidet)
+		rv = tcpc->ops->set_cc_hidet(tcpc, en);
+
+	return rv;
+}
+EXPORT_SYMBOL(tcpci_set_cc_hidet);
+
+int tcpci_notify_plug_out(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti;
+
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_PLUG_OUT);
+}
+EXPORT_SYMBOL(tcpci_notify_plug_out);
+
+int tcpci_set_floating_ground(struct tcpc_device *tcpc, bool en)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_floating_ground)
+		rv = tcpc->ops->set_floating_ground(tcpc, en);
+
+	return rv;
+}
+EXPORT_SYMBOL(tcpci_set_floating_ground);
+
+int tcpci_set_otp_fwen(struct tcpc_device *tcpc, bool en)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_otp_fwen)
+		rv = tcpc->ops->set_otp_fwen(tcpc, en);
+
+	return rv;
+}
+EXPORT_SYMBOL(tcpci_set_otp_fwen);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
@@ -522,7 +602,7 @@ int tcpci_set_bist_carrier_mode(struct tcpc_device *tcpc, uint8_t pattern)
 }
 EXPORT_SYMBOL(tcpci_set_bist_carrier_mode);
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 int tcpci_retransmit(struct tcpc_device *tcpc)
 {
 	PD_BUG_ON(tcpc->ops->retransmit == NULL);
@@ -1028,7 +1108,7 @@ EXPORT_SYMBOL(tcpci_dc_notify_en_unlock);
 
 /* ---- Policy Engine (PD30) ---- */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 #ifdef CONFIG_USB_PD_REV30_ALERT_REMOTE
 int tcpci_notify_alert(struct tcpc_device *tcpc, uint32_t ado)

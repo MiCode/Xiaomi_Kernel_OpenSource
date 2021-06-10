@@ -226,7 +226,7 @@ static inline bool pd_process_ctrl_msg(
 {
 	bool ret = false;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (!pd_check_rev30(pd_port) &&
 		pd_event->msg >= PD_CTRL_PD30_START) {
 		pd_event->msg = PD_CTRL_MSG_NR;
@@ -286,7 +286,7 @@ static inline bool pd_process_ctrl_msg(
 		ret = pd_process_ctrl_msg_vconn_swap(pd_port, pd_event);
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 #ifdef CONFIG_USB_PD_REV30_COUNTRY_CODE_LOCAL
 	case PD_CTRL_GET_COUNTRY_CODE:
@@ -328,7 +328,7 @@ static inline bool pd_process_data_msg(
 	bool ret = false;
 	uint8_t ready_state = pe_get_curr_ready_state(pd_port);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (!pd_check_rev30(pd_port) &&
 		pd_event->msg >= PD_DATA_PD30_START) {
 		pd_event->msg = PD_DATA_MSG_NR;
@@ -343,7 +343,7 @@ static inline bool pd_process_data_msg(
 			ret = pd_process_data_msg_bist(pd_port, pd_event);
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_STATUS_REMOTE
 	case PD_DATA_BAT_STATUS:
 		ret = PE_MAKE_STATE_TRANSIT_SINGLE(
@@ -369,21 +369,21 @@ static inline bool pd_process_data_msg(
  * [BLOCK] Porcess Extend MSG
  */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static inline bool pd_process_ext_msg(
 		struct pd_port *pd_port, struct pd_event *pd_event)
 {
 	bool ret = false;
 	uint8_t ready_state = pe_get_curr_ready_state(pd_port);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (!pd_check_rev30(pd_port)) {
 		pd_event->msg = PD_DATA_MSG_NR;
 		return false;
 	}
 #endif	/* CONFIG_USB_PD_REV30 */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifndef CONFIG_USB_PD_REV30_CHUNKING_BY_PE
 	if (pd_port->pe_state_curr == ready_state &&
 		pd_check_rev30(pd_port) &&
@@ -479,7 +479,7 @@ static inline bool pd_process_dpm_msg(
 		}
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_DPM_NOT_SUPPORT:
 		if (pd_check_rev30(pd_port)) {
 			PE_TRANSIT_STATE(pd_port, PE_VDM_NOT_SUPPORTED);
@@ -690,7 +690,7 @@ bool pd_process_event_com(
 	case PD_EVT_DATA_MSG:
 		return pd_process_data_msg(pd_port, pd_event);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_EVT_EXT_MSG:
 		return pd_process_ext_msg(pd_port, pd_event);
 #endif	/* CONFIG_USB_PD_REV30 */

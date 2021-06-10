@@ -108,7 +108,7 @@ static inline int pd_handle_tcp_event_cable_softreset(struct pd_port *pd_port)
 
 	role_check = pd_port->data_role == PD_ROLE_DFP;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		role_check = pd_port->vconn_role;
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -205,7 +205,7 @@ static inline int pd_handle_tcp_event_bist_cm2(struct pd_port *pd_port)
 	return TCP_DPM_RET_SENT;
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 static inline int pd_handle_tcp_event_get_source_cap_ext(
@@ -305,7 +305,7 @@ static inline int pd_handle_tcp_dpm_event(
 {
 	int ret = TCP_DPM_RET_DENIED_UNKNOWN;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_event->msg >= TCP_DPM_EVT_PD30_COMMAND
 		&& pd_event->msg < TCP_DPM_EVT_VDM_COMMAND) {
 		if (!pd_check_rev30(pd_port))
@@ -379,7 +379,7 @@ static inline int pd_handle_tcp_dpm_event(
 		ret = pd_handle_tcp_event_bist_cm2(pd_port);
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	case TCP_DPM_EVT_GET_SOURCE_CAP_EXT:
 		ret = pd_handle_tcp_event_get_source_cap_ext(pd_port);

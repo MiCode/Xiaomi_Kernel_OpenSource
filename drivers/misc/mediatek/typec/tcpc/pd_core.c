@@ -340,7 +340,7 @@ static inline void pd_parse_pdata_mfrs(
 	pd_port->id_vdos[2] = VDO_PRODUCT(
 		pid, PD_PRODUCT_BCD(pd_port->id_vdos[2]));
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	pd_port->id_header = pd_port->id_vdos[0];
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -414,7 +414,7 @@ static int pd_parse_pdata(struct pd_port *pd_port)
 			pr_info("%s %d: 0x%08x\n", __func__, i,
 			pd_port->id_vdos[i]);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 		pd_port->id_header = pd_port->id_vdos[0];
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -1020,7 +1020,7 @@ int pd_handle_soft_reset(struct pd_port *pd_port)
 
 void pd_handle_first_pd_command(struct pd_port *pd_port)
 {
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	pd_sync_sop_spec_revision(pd_port);
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -1087,7 +1087,7 @@ int pd_send_message(struct pd_port *pd_port, uint8_t sop_type,
 		msg_hdr_private = 0;
 	}
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_rev >= PD_REV30)
 		tcpc_dev->pd_retry_count = PD30_RETRY_COUNT;
 	else
@@ -1154,7 +1154,7 @@ int pd_reply_wait_reject_msg_no_resp(struct pd_port *pd_port)
 	return pd_send_sop_ctrl_msg(pd_port, msg);
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 int pd_send_ext_msg(struct pd_port *pd_port,
 		uint8_t sop_type, uint8_t msg, bool request,
 		uint8_t chunk_nr, uint8_t size, const uint8_t *data)
@@ -1256,7 +1256,7 @@ int pd_send_svdm_request(struct pd_port *pd_port,
 		return -EINVAL;
 	}
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		ver = SVDM_REV20;
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -1297,7 +1297,7 @@ int pd_reply_svdm_request(struct pd_port *pd_port,
 
 	PD_BUG_ON(cnt > VDO_MAX_NR);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		ver = SVDM_REV20;
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -1422,7 +1422,7 @@ int pd_update_connect_state(struct pd_port *pd_port, uint8_t state)
 	return tcpci_notify_pd_state(pd_port->tcpc_dev, state);
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 /*
  * Collision Avoidance : check tx ok

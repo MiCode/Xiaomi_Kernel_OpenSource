@@ -134,7 +134,7 @@
 
 /* timeout = (tout*2+1) * 6.4ms */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #define RT1711H_REG_IDLE_SET(ck300, ship_dis, auto_idle, tout) \
 	((ck300 << 7) | (ship_dis << 5) | (auto_idle << 3) \
 	| (tout & 0x07) | RT1711H_REG_ENEXTMSG)

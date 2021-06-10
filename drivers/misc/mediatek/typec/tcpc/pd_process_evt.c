@@ -30,7 +30,7 @@ static const char * const pd_ctrl_msg_name[] = {
 	"soft_reset",
 	"ctrlE",
 	"ctrlF",
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	"no_support",
 	"get_src_cap_ex",
 	"get_status",
@@ -52,7 +52,7 @@ static const char * const pd_data_msg_name[] = {
 	"request",
 	"bist",
 	"sink_cap",
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	"bat_status",
 	"alert",
 	"get_ci",
@@ -77,7 +77,7 @@ static inline void print_data_msg_event(uint8_t msg)
 		PE_EVT_INFO("%s\r\n", pd_data_msg_name[msg]);
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 static const char *const pd_ext_msg_name[] = {
 	"ext0",
@@ -178,7 +178,7 @@ static const char *const tcp_dpm_evt_name[] = {
 	"bist_cm2",
 	"dummy",
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	"get_src_cap_ext",
 	"get_status",
 	"fr_swap_snk",
@@ -240,7 +240,7 @@ static inline void print_event(
 		print_data_msg_event(pd_event->msg);
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_EVT_EXT_MSG:
 		print_ext_msg_event(pd_event->msg);
 		break;
@@ -291,7 +291,7 @@ bool pd_make_pe_state_transit(struct pd_port *pd_port,
 
 /*---------------------------------------------------------------------------*/
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static inline bool pd30_process_ready_protocol_error(struct pd_port *pd_port)
 {
 	bool multi_chunk;
@@ -413,7 +413,7 @@ bool pd_process_protocol_error(
 		}
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PE_SNK_READY:
 	case PE_SRC_READY:
 		if (pd30_process_ready_protocol_error(pd_port))
@@ -538,7 +538,7 @@ static void pd_copy_msg_data(struct pd_port *pd_port,
 	pd_port->pd_msg_data_payload = payload;
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static inline void pd_copy_msg_data_from_ext_evt(
 	struct pd_port *pd_port, struct pd_msg *pd_msg)
 {
@@ -565,7 +565,7 @@ static inline void pd_copy_msg_data_from_evt(
 			pd_get_msg_hdr_cnt(pd_port), sizeof(uint32_t));
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_EVT_EXT_MSG:
 		PD_BUG_ON(pd_msg == NULL);
 		pd_copy_msg_data_from_ext_evt(pd_port, pd_msg);
@@ -689,7 +689,7 @@ static inline void pe_translate_pd_msg_event(struct pd_port *pd_port,
 	else
 		pd_event->event_type = PD_EVT_CTRL_MSG;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (PD_HEADER_EXT(msg_hdr))
 		pd_event->event_type = PD_EVT_EXT_MSG;
 

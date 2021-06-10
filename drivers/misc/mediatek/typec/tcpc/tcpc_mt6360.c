@@ -34,7 +34,7 @@
 #endif /* CONFIG_RT_REGMAP */
 
 #if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
-#ifdef CONFIG_MTK_CHARGER
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
 #include <charger_class.h>
 #endif /* CONFIG_MTK_CHARGER */
 #endif /* CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION */
@@ -78,11 +78,11 @@ struct mt6360_chip {
 
 #ifdef CONFIG_WATER_DETECTION
 	atomic_t wd_protect_rty;
-	struct wakeup_source wd_wakeup_src;
+	struct wakeup_source *wd_wakeup_src;
 #endif /* CONFIG_WATER_DETECTION */
 
 #ifdef CONFIG_WD_SBU_POLLING
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 	struct delayed_work usbid_poll_work;
 #endif /* CONFIG_WD_POLLING_ONLY */
 	struct work_struct wd_work;
@@ -96,7 +96,7 @@ struct mt6360_chip {
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
 #if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
-#ifdef CONFIG_MTK_CHARGER
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
 	struct charger_device *chgdev;
 #endif /* CONFIG_MTK_CHARGER */
 #endif /* CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION */
@@ -641,11 +641,11 @@ static int mt6360_init_vend_mask(struct tcpc_device *tcpc)
 				  MT6360_M_VCONN_OV_CC2 |
 				  MT6360_M_VCONN_OCR |
 				  MT6360_M_VCONN_INVALID;
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	mask[MT6360_VEND_INT1] |= MT6360_M_VBUS_SAFE0V;
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
+#if CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
 	if (tcpc->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG)
 		mask[MT6360_VEND_INT1] |= MT6360_M_WAKEUP;
 #endif	/* CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG */
@@ -1171,7 +1171,7 @@ static int mt6360_get_power_status(struct tcpc_device *tcpc, u16 *status)
 	 * Vsafe0v only triggers when vbus falls under 0.8V,
 	 * also update parameter if vbus present triggers
 	 */
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = tcpci_is_vsafe0v(tcpc);
 	if (ret >= 0)
 		tcpc->vbus_safe0v = ret ? true : false;
@@ -1234,7 +1234,7 @@ static int mt6360_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 	return 0;
 }
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6360_enable_vsafe0v_detect(struct tcpc_device *tcpc, bool en)
 {
 	return (en ? mt6360_i2c_set_bit : mt6360_i2c_clr_bit)
@@ -1260,19 +1260,19 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 		if (ret < 0)
 			return ret;
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 		mt6360_enable_vsafe0v_detect(tcpc, false);
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 		mt6360_enable_auto_rpconnect(tcpc, true);
 		mt6360_enable_oneshot_rpconnect(tcpc, true);
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 		tcpci_set_low_power_mode(tcpc, true, pull);
 #endif /* CONFIG_TCPC_LOW_POWER_MODE */
 		ret = mt6360_command(tcpc, TCPM_CMD_LOOK_CONNECTION);
 #ifdef CONFIG_WD_SBU_POLLING
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 		schedule_delayed_work(&chip->usbid_poll_work,
 					msecs_to_jiffies(500));
 #else
@@ -1280,7 +1280,7 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 #endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WD_SBU_POLLING */
 	} else {
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 		cancel_delayed_work(&chip->usbid_poll_work);
 		mt6360_enable_usbid_polling(chip, false);
 #endif /* CONFIG_WD_POLLING_ONLY */
@@ -1371,7 +1371,7 @@ static int mt6360_set_vconn(struct tcpc_device *tcpc, int en)
 	return ret;
 }
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 static int mt6360_is_low_power_mode(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -1392,7 +1392,7 @@ static int mt6360_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 	if (en) {
 		data = MT6360_LPWR_EN | MT6360_LPWR_LDO_EN;
 
-#ifdef CONFIG_TYPEC_CAP_NORP_SRC
+#if CONFIG_TYPEC_CAP_NORP_SRC
 		data |= MT6360_VBUS_DET_EN | MT6360_PD_BG_EN |
 			MT6360_PD_IREF_EN;
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
@@ -1414,7 +1414,7 @@ static int mt6360_set_watchdog(struct tcpc_device *tcpc_dev, bool en)
 
 static int mt6360_tcpc_deinit(struct tcpc_device *tcpc_dev)
 {
-#ifdef CONFIG_TCPC_SHUTDOWN_CC_DETACH
+#if CONFIG_TCPC_SHUTDOWN_CC_DETACH
 	mt6360_set_cc(tcpc_dev, TYPEC_CC_DRP);
 	mt6360_set_cc(tcpc_dev, TYPEC_CC_OPEN);
 
@@ -1427,7 +1427,7 @@ static int mt6360_tcpc_deinit(struct tcpc_device *tcpc_dev)
 	return 0;
 }
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6360_is_vsafe0v(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -1489,7 +1489,7 @@ retry:
 	return 0;
 }
 
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 static void mt6360_usbid_poll_work(struct work_struct *work)
 {
 	int ret, cc1, cc2;
@@ -1607,7 +1607,7 @@ struct irq_mapping_tbl {
 	{ .num = _num, .name = #_name, .hdlr = mt6360_##_name##_irq_handler }
 
 static struct irq_mapping_tbl mt6360_vend_irq_mapping_tbl[] = {
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	MT6360_IRQ_MAPPING(1, vsafe0v),
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
@@ -1749,7 +1749,7 @@ static int mt6360_is_water_detected(struct tcpc_device *tcpc)
 	enum tcpc_cable_type cable_type;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
-	__pm_stay_awake(&chip->wd_wakeup_src);
+	__pm_stay_awake(chip->wd_wakeup_src);
 
 #ifdef CONFIG_WD_SBU_POLLING
 	ret = mt6360_enable_usbid_polling(chip, false);
@@ -1872,7 +1872,7 @@ out:
 err:
 	charger_dev_enable_usbid_floating(chip->chgdev, true);
 	charger_dev_enable_usbid(chip->chgdev, false);
-	__pm_relax(&chip->wd_wakeup_src);
+	__pm_relax(chip->wd_wakeup_src);
 	return ret;
 }
 
@@ -2059,7 +2059,7 @@ static int mt6360_set_bist_carrier_mode(struct tcpc_device *tcpc, u8 pattern)
 #define MT6360_TRANSMIT_MAX_SIZE \
 	(sizeof(u16) + sizeof(u32) * 7)
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 static int mt6360_retransmit(struct tcpc_device *tcpc)
 {
 	return mt6360_i2c_write8(tcpc, TCPC_V10_REG_TRANSMIT,
@@ -2120,11 +2120,11 @@ static struct tcpc_ops mt6360_tcpc_ops = {
 	.deinit = mt6360_tcpc_deinit,
 	.alert_vendor_defined_handler = mt6360_alert_vendor_defined_handler,
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	.is_vsafe0v = mt6360_is_vsafe0v,
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 	.is_low_power_mode = mt6360_is_low_power_mode,
 	.set_low_power_mode = mt6360_set_low_power_mode,
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
@@ -2141,7 +2141,7 @@ static struct tcpc_ops mt6360_tcpc_ops = {
 	.set_bist_carrier_mode = mt6360_set_bist_carrier_mode,
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	.retransmit = mt6360_retransmit,
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
@@ -2159,7 +2159,7 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	u8 ctd_evt;
-#ifdef CONFIG_MTK_CHARGER
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
 	u8 status;
 #endif
 
@@ -2170,7 +2170,7 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 		return ret;
 	if (ctd_evt & MT6360_M_CTD) {
 		mt6360_get_cable_type(chip->tcpc, &chip->init_cable_type);
-#ifdef CONFIG_MTK_CHARGER
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
 		if (chip->init_cable_type == TCPC_CABLE_TYPE_C2C) {
 			ret = charger_dev_get_ctd_dischg_status(chip->chgdev,
 								&status);
@@ -2351,7 +2351,7 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 		}
 	}
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	if (of_property_read_u32(np, "mt-tcpc,vconn_supply", &val) >= 0) {
 		if (val >= TCPC_VCONN_SUPPLY_NR)
 			desc->vconn_supply = TCPC_VCONN_SUPPLY_ALWAYS;
@@ -2378,10 +2378,10 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 	/* Init tcpc_flags */
 	chip->tcpc->tcpc_flags = TCPC_FLAGS_LPM_WAKEUP_WATCHDOG |
 				 TCPC_FLAGS_RETRY_CRC_DISCARD;
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_RETRY_CRC_DISCARD;
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_PD_REV30;
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -2398,6 +2398,9 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 #else
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WATER_DETECTION;
 #endif /* CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB */
+#if CONFIG_WD_POLLING_ONLY
+	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WD_POLLING_ONLY;
+#endif
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_CABLE_TYPE_DETECTION;
 	return 0;
 }
@@ -2493,9 +2496,10 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 		wakeup_source_register(chip->dev, "mt6360_i2c_wakelock");
 
 #ifdef CONFIG_WATER_DETECTION
-	wakeup_source_init(&chip->wd_wakeup_src, "mt6360_wd_wakeup_src");
+	chip->wd_wakeup_src =
+		wakeup_source_register(chip->dev, "mt6360_wd_wakeup_src");
 	atomic_set(&chip->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 	INIT_DELAYED_WORK(&chip->usbid_poll_work, mt6360_usbid_poll_work);
 #endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WATER_DETECTION */
@@ -2516,7 +2520,7 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 #endif /* CONIFG_RT_REGMAP */
 
 #if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
-#ifdef CONFIG_MTK_CHARGER
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
 	chip->chgdev = get_charger_by_name("primary_chg");
 	if (!chip->chgdev) {
 		dev_err(chip->dev, "%s get charger device fail\n", __func__);
@@ -2574,7 +2578,7 @@ static int mt6360_i2c_remove(struct i2c_client *client)
 	if (chip) {
 #ifdef CONFIG_WD_SBU_POLLING
 		cancel_work_sync(&chip->wd_work);
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 		cancel_delayed_work_sync(&chip->usbid_poll_work);
 #endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WD_SBU_POLLING */

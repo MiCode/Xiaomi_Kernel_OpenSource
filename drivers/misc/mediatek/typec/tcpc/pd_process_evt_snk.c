@@ -123,7 +123,7 @@ static inline bool pd_process_ctrl_msg(
 		}
 		break;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_CTRL_NOT_SUPPORTED:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SNK_READY, PE_SNK_NOT_SUPPORTED_RECEIVED))
@@ -179,7 +179,7 @@ static inline bool pd_process_data_msg(
 		break;
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_ALERT_REMOTE
 	case PD_DATA_ALERT:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
@@ -199,7 +199,7 @@ static inline bool pd_process_data_msg(
 /*
  * [BLOCK] Porcess Extend MSG
  */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static inline bool pd_process_ext_msg(
 		struct pd_port *pd_port, struct pd_event *pd_event)
 {
@@ -395,7 +395,7 @@ static inline bool pd_process_timer_msg(
 		break;
 #endif	/* CONFIG_USB_PD_DFP_READY_DISCOVER_ID */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_TIMER_CK_NO_SUPPORT:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SNK_CHUNK_RECEIVED, PE_SNK_SEND_NOT_SUPPORTED))
@@ -428,7 +428,7 @@ bool pd_process_event_snk(struct pd_port *pd_port, struct pd_event *pd_event)
 	case PD_EVT_DATA_MSG:
 		return pd_process_data_msg(pd_port, pd_event);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	case PD_EVT_EXT_MSG:
 		return pd_process_ext_msg(pd_port, pd_event);
 #endif	/* CONFIG_USB_PD_REV30 */

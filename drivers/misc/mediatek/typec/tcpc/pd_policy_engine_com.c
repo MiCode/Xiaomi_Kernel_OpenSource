@@ -157,7 +157,7 @@ void pe_send_soft_reset_standby_entry(struct pd_port *pd_port)
  * Policy Engine Share State Activity
  */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static inline uint8_t pe30_power_ready_entry(struct pd_port *pd_port)
 {
 	uint8_t rx_cap = PD_RX_CAP_PE_READY_UFP;
@@ -205,7 +205,7 @@ void pe_power_ready_entry(struct pd_port *pd_port)
 	pd_port->pe_data.pd_sent_ams_init_cmd = true;
 #endif /* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		rx_cap = pe30_power_ready_entry(pd_port);
 	else
@@ -218,7 +218,7 @@ void pe_power_ready_entry(struct pd_port *pd_port)
 	pd_notify_tcp_event_2nd_result(pd_port, TCP_DPM_RET_SUCCESS);
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 /*
  * [PD3.0] Figure 8-85 Get Battery Capabilities State Diagram

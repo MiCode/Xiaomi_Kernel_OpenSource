@@ -62,7 +62,7 @@ static uint8_t dpm_reaction_vconn_stable_delay(struct pd_port *pd_port)
  * DPM get cap reaction
  */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static uint8_t dpm_reaction_get_source_cap_ext(struct pd_port *pd_port)
 {
 	if (pd_port->power_role == PD_ROLE_SINK)
@@ -143,7 +143,7 @@ static uint8_t dpm_reaction_request_dr_swap(struct pd_port *pd_port)
  * DPM DiscoverCable reaction
  */
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 static uint8_t dpm_reaction_dynamic_vconn(struct pd_port *pd_port)
 {
 	pd_dpm_dynamic_enable_vconn(pd_port);
@@ -162,12 +162,12 @@ static uint8_t dpm_reaction_request_vconn_source(struct pd_port *pd_port)
 	if (pd_port->vconn_role)
 		return 0;
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	if (pd_port->tcpc_dev->tcpc_vconn_supply == TCPC_VCONN_SUPPLY_STARTUP)
 		return_vconn = false;
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		return_vconn = false;
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -240,7 +240,7 @@ static uint8_t dpm_reaction_mode_operation(struct pd_port *pd_port)
  * DPM Local/Remote Alert reaction
  */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 #ifdef CONFIG_USB_PD_DPM_AUTO_SEND_ALERT
 
@@ -349,7 +349,7 @@ static uint8_t dpm_reaction_handle_alert(struct pd_port *pd_port)
 static inline uint8_t dpm_get_pd_connect_state(struct pd_port *pd_port)
 {
 	if (pd_port->power_role == PD_ROLE_SOURCE) {
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 		if (pd_check_rev30(pd_port))
 			return PD_CONNECT_PE_READY_SRC_PD30;
 #endif     /* CONFIG_USB_PD_REV30 */
@@ -357,7 +357,7 @@ static inline uint8_t dpm_get_pd_connect_state(struct pd_port *pd_port)
 		return PD_CONNECT_PE_READY_SRC;
 	}
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port)) {
 		if (pd_is_source_support_apdo(pd_port))
 			return PD_CONNECT_PE_READY_SNK_APDO;
@@ -511,7 +511,7 @@ struct dpm_ready_reaction {
 
 static const struct dpm_ready_reaction dpm_reactions[] = {
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_DPM_AUTO_SEND_ALERT
 	DECL_DPM_REACTION_PD30(
 		DPM_REACTION_CAP_ALWAYS,
@@ -548,7 +548,7 @@ static const struct dpm_ready_reaction dpm_reactions[] = {
 		DPM_REACTION_ATTEMPT_GET_FLAG,
 		dpm_reaction_attemp_get_flag),
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	DECL_DPM_REACTION_PD30_ONE_SHOT(
 		DPM_REACTION_GET_SOURCE_CAP_EXT,
 		dpm_reaction_get_source_cap_ext),
@@ -566,7 +566,7 @@ static const struct dpm_ready_reaction dpm_reactions[] = {
 		dpm_reaction_request_dr_swap),
 #endif	/* CONFIG_USB_PD_DR_SWAP */
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	DECL_DPM_REACTION_DFP_PD30_CHECK_ONCE(
 		DPM_REACTION_DYNAMIC_VCONN,
 		dpm_reaction_dynamic_vconn),
@@ -634,7 +634,7 @@ static inline uint8_t dpm_get_reaction_env(struct pd_port *pd_port)
 	else
 		conditions = DPM_REACCOND_UFP;
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		conditions |= DPM_REACTION_COND_PD30;
 #endif	/* CONFIG_USB_PD_REV30 */

@@ -319,7 +319,7 @@ struct mt6362_tcpc_data {
 	atomic_t wd_protect_rty;
 #endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 	struct delayed_work wd_poll_dwork;
 #endif /* CONFIG_WD_POLLING_ONLY */
 
@@ -459,7 +459,7 @@ static int mt6362_init_vend_mask(struct mt6362_tcpc_data *tdata)
 {
 	u8 mask[MT6362_VEND_INT_NUM] = {0};
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	mask[MT6362_VEND_INT1] |= MT6362_MSK_VBUS80;
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG)
@@ -516,7 +516,7 @@ static int mt6362_enable_force_discharge(struct mt6362_tcpc_data *tdata,
 		(tdata, TCPC_V10_REG_POWER_CTRL, TCPC_V10_REG_FORCE_DISC_EN);
 }
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6362_enable_vsafe0v_detect(struct mt6362_tcpc_data *tdata, bool en)
 {
 	return (en ? mt6362_set_bits : mt6362_clr_bits)
@@ -1070,7 +1070,7 @@ out:
 	return 0;
 }
 
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 static void mt6362_wd_poll_dwork_handler(struct work_struct *work)
 {
 	int ret;
@@ -1099,7 +1099,7 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 	ret = mt6362_write8(tdata, TCPC_V10_REG_ROLE_CTRL, data);
 	if (ret < 0)
 		return ret;
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = mt6362_enable_vsafe0v_detect(tdata, false);
 	if (ret < 0)
 		return ret;
@@ -1108,7 +1108,7 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 	ret = mt6362_write8(tdata, MT6362_REG_LPWRCTRL3, 0xD9);
 	if (ret < 0)
 		return ret;
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 	tcpci_set_low_power_mode(tdata->tcpc, true, pull);
 #endif /* CONFIG_TCPC_LOW_POWER_MODE */
 	udelay(30);
@@ -1117,7 +1117,7 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 	if (ret < 0)
 		return ret;
 #ifdef CONFIG_WD_SBU_POLLING
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 	schedule_delayed_work(&tdata->wd_poll_dwork,
 			msecs_to_jiffies(500));
 #else
@@ -1316,7 +1316,7 @@ static int mt6362_get_power_status(struct tcpc_device *tcpc, u16 *status)
 	 * Vsafe0v only triggers when vbus falls under 0.8V,
 	 * also update parameter if vbus present triggers
 	 */
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = tcpci_is_vsafe0v(tcpc);
 	if (ret < 0)
 		goto out;
@@ -1388,7 +1388,7 @@ static int mt6362_set_cc(struct tcpc_device *tcpc, int pull)
 	if (pull == TYPEC_CC_DRP) {
 		ret = mt6362_set_cc_toggling(tdata, pull);
 	} else {
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 		cancel_delayed_work_sync(&tdata->wd_poll_dwork);
 		mt6362_enable_wd_polling(tdata, false);
 #endif /* CONFIG_WD_POLLING_ONLY */
@@ -1442,7 +1442,7 @@ static int mt6362_set_vconn(struct tcpc_device *tcpc, int en)
 
 static int mt6362_tcpc_deinit(struct tcpc_device *tcpc)
 {
-#ifdef CONFIG_TCPC_SHUTDOWN_CC_DETACH
+#if CONFIG_TCPC_SHUTDOWN_CC_DETACH
 	mt6362_set_cc(tcpc, TYPEC_CC_DRP);
 	mt6362_set_cc(tcpc, TYPEC_CC_OPEN);
 #else
@@ -1461,7 +1461,7 @@ static int mt6362_set_watchdog(struct tcpc_device *tcpc, bool en)
 		(tdata, TCPC_V10_REG_TCPC_CTRL, TCPC_V10_REG_TCPC_CTRL_EN_WDT);
 }
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6362_is_vsafe0v(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -1475,7 +1475,7 @@ static int mt6362_is_vsafe0v(struct tcpc_device *tcpc)
 }
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 static int mt6362_is_low_power_mode(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -1496,12 +1496,12 @@ static int mt6362_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 
 	if (en) {
 		data = MT6362_MSK_LPWR_EN;
-#ifdef CONFIG_TYPEC_CAP_NORP_SRC
+#if CONFIG_TYPEC_CAP_NORP_SRC
 		data |= MT6362_MSK_VBUSDET_EN;
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 	} else {
 		data = MT6362_MSK_VBUSDET_EN | MT6362_MSK_BMCIOOSC_EN;
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 		mt6362_enable_vsafe0v_detect(tdata, true);
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	}
@@ -1611,7 +1611,7 @@ static int mt6362_set_bist_carrier_mode(struct tcpc_device *tcpc, u8 pattern)
 }
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 static int mt6362_retransmit(struct tcpc_device *tcpc)
 {
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
@@ -1655,7 +1655,7 @@ static int mt6362_set_wd_polling(struct tcpc_device *tcpc, bool en)
 {
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
 
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 	if (!en)
 		cancel_delayed_work_sync(&tdata->wd_poll_dwork);
 #endif /* CONFIG_WD_POLLING_ONLY */
@@ -1669,7 +1669,7 @@ static int mt6362_set_wd_polling(struct tcpc_device *tcpc, bool en)
  * ==================================================================
  */
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6362_vsafe0v_irq_handler(struct mt6362_tcpc_data *tdata)
 {
 	int ret;
@@ -1723,7 +1723,7 @@ struct irq_mapping_tbl {
 	{ .num = _num, .name = #_name, .hdlr = mt6362_##_name##_irq_handler }
 
 static struct irq_mapping_tbl mt6362_vend_irq_mapping_tbl[] = {
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	MT6362_IRQ_MAPPING(1, vsafe0v),
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
@@ -1794,11 +1794,11 @@ static struct tcpc_ops mt6362_tcpc_ops = {
 	.set_watchdog = mt6362_set_watchdog,
 	.alert_vendor_defined_handler = mt6362_alert_vendor_defined_handler,
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	.is_vsafe0v = mt6362_is_vsafe0v,
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+#if CONFIG_TCPC_LOW_POWER_MODE
 	.is_low_power_mode = mt6362_is_low_power_mode,
 	.set_low_power_mode = mt6362_set_low_power_mode,
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
@@ -1813,7 +1813,7 @@ static struct tcpc_ops mt6362_tcpc_ops = {
 	.set_bist_carrier_mode = mt6362_set_bist_carrier_mode,
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	.retransmit = mt6362_retransmit,
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
@@ -1900,16 +1900,19 @@ static int mt6362_register_tcpcdev(struct mt6362_tcpc_data *tdata)
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_CABLE_TYPE_DETECTION;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
+#if CONFIG_WD_POLLING_ONLY
+	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WD_POLLING_ONLY;
+#endif
 #ifdef CONFIG_WATER_DETECTION
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_WATER_DETECTION;
 #endif /* CONFIG_WATER_DETECTION */
-#ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
+#if CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_LPM_WAKEUP_WATCHDOG;
 #endif	/* CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG */
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_RETRY_CRC_DISCARD;
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_PD_REV30;
 #endif	/* CONFIG_USB_PD_REV30 */
 	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_PD_REV30)
@@ -1967,7 +1970,7 @@ static int mt6362_parse_dt(struct mt6362_tcpc_data *tdata)
 		}
 	}
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	if (of_property_read_u32(np, "tcpc,vconn_supply", &val) >= 0) {
 		if (val >= TCPC_VCONN_SUPPLY_NR)
 			desc->vconn_supply = TCPC_VCONN_SUPPLY_ALWAYS;
@@ -2138,7 +2141,7 @@ static int mt6362_tcpc_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_WATER_DETECTION
 	atomic_set(&tdata->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 	INIT_DELAYED_WORK(&tdata->wd_poll_dwork, mt6362_wd_poll_dwork_handler);
 #endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WATER_DETECTION */
@@ -2197,7 +2200,7 @@ static int mt6362_tcpc_remove(struct platform_device *pdev)
 
 	if (!tdata)
 		return 0;
-#ifdef CONFIG_WD_POLLING_ONLY
+#if CONFIG_WD_POLLING_ONLY
 	cancel_delayed_work_sync(&tdata->wd_poll_dwork);
 #endif /* CONFIG_WD_POLLING_ONLY */
 	if (tdata->tcpc)

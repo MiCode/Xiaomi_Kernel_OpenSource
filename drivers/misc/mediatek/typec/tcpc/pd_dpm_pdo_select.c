@@ -204,7 +204,7 @@ static bool dpm_select_pdo_from_max_power(
 		return false;
 #endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	if (sink->type == DPM_PDO_TYPE_APDO)
 		return false;
 #endif	/* CONFIG_USB_PD_REV30 */

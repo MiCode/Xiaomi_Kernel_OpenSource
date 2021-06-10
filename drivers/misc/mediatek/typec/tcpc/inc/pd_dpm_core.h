@@ -119,7 +119,7 @@ void pd_dpm_vcs_enable_vconn(struct pd_port *pd_port, uint8_t role);
  * PE : PD3.0
  */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 int pd_dpm_send_source_cap_ext(struct pd_port *pd_port);

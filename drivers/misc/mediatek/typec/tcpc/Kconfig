@@ -75,6 +75,16 @@ config TCPC_MT6370
 	  Also Support Power Delivery
 	  Say N to disable
 
+config TCPC_MT6375
+	tristate "Mediatek MT6375 Type-C chip driver"
+	depends on TCPC_CLASS
+	depends on MFD_MT6375
+	select TCPC_ALERT_V20
+	help
+	  Mediatek MT6375 Type-C chip driver that works with
+	  Type-C Port Controller Manager to provide USB PD and USB
+	  Type-C functionalities.
+
 config USB_PD_VBUS_STABLE_TOUT
 	int "PD VBUS Stable Timeout"
 	depends on USB_POWER_DELIVERY

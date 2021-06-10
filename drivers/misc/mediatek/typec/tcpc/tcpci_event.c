@@ -470,7 +470,7 @@ bool pd_get_deferred_tcp_event(
 
 	mutex_lock(&tcpc_dev->access_lock);
 	ret = __pd_get_deferred_tcp_event(tcpc_dev, tcp_event);
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	if (tcpc_dev->tcp_event_count)
 		tcpc_restart_timer(tcpc_dev, PD_TIMER_DEFERRED_EVT);
@@ -536,7 +536,7 @@ bool pd_put_deferred_tcp_event(
 	}
 
 	ret = __pd_put_deferred_tcp_event(tcpc_dev, tcp_event);
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	if (ret)
 		pd_port->pe_data.pd_traffic_idle = false;
@@ -810,7 +810,7 @@ void pd_put_cc_detached_event(struct tcpc_device *tcpc_dev)
 	tcpc_dev->pd_during_direct_charge = false;
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	tcpc_dev->pd_discard_pending = false;
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
@@ -841,7 +841,7 @@ void pd_put_recv_hard_reset_event(struct tcpc_device *tcpc_dev)
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 	}
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	tcpc_dev->pd_discard_pending = false;
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
@@ -869,7 +869,7 @@ bool pd_put_pd_msg_event(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 {
 	uint32_t cnt, cmd, extend;
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	bool discard_pending = false;
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
@@ -891,7 +891,7 @@ bool pd_put_pd_msg_event(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 		return 0;
 	}
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	if (tcpc_dev->pd_discard_pending &&
 		(pd_msg->frame_type == TCPC_TX_SOP) &&
 		(tcpc_dev->tcpc_flags & TCPC_FLAGS_RETRY_CRC_DISCARD)) {
@@ -932,7 +932,7 @@ bool pd_put_pd_msg_event(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 
 	mutex_unlock(&tcpc_dev->access_lock);
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	if (discard_pending) {
 		tcpc_disable_timer(tcpc_dev, PD_TIMER_DISCARD);
 		pd_put_hw_event(tcpc_dev, PD_HW_TX_DISCARD);

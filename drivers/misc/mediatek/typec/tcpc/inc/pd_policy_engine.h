@@ -162,7 +162,7 @@ enum pd_pe_state {
 #endif	/* PD_CAP_PE_SRC_STARTUP_DISCOVER_ID */
 
 /* Source for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	PE_SRC_SEND_NOT_SUPPORTED,
 	PE_SRC_NOT_SUPPORTED_RECEIVED,
 	PE_SRC_CHUNK_RECEIVED,
@@ -206,7 +206,7 @@ enum pd_pe_state {
 	PE_SNK_SOFT_RESET,
 
 /* Sink for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	PE_SNK_SEND_NOT_SUPPORTED,
 	PE_SNK_NOT_SUPPORTED_RECEIVED,
 	PE_SNK_CHUNK_RECEIVED,
@@ -274,7 +274,7 @@ enum pd_pe_state {
 	PE_DR_SNK_GIVE_SOURCE_CAP,
 
 /* get same role cap for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 	PE_DR_SNK_GIVE_SOURCE_CAP_EXT,
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL */
@@ -355,7 +355,7 @@ enum pd_pe_state {
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
 
 /******************* PD30 Common *******************/
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
 	PE_GET_BATTERY_CAP,
 #endif	/* CONFIG_USB_PD_REV30_BAT_CAP_REMOTE */
@@ -500,7 +500,7 @@ void pe_src_vdm_identity_naked_entry(
 #endif	/* PD_CAP_PE_SRC_STARTUP_DISCOVER_ID */
 
 /* Source for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 void pe_src_send_not_supported_entry(
 	struct pd_port *pd_port);
 void pe_src_not_supported_received_entry(
@@ -572,7 +572,7 @@ void pe_snk_soft_reset_entry(
 	struct pd_port *pd_port);
 
 /* Sink for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 void pe_snk_send_not_supported_entry(
 	struct pd_port *pd_port);
 void pe_snk_not_supported_received_entry(
@@ -693,7 +693,7 @@ void pe_dr_snk_give_source_cap_entry(
 	struct pd_port *pd_port);
 
 /* get same role cap for PD30 */
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 void pe_dr_snk_give_source_cap_ext_entry(
 	struct pd_port *pd_port);
@@ -843,7 +843,7 @@ void pe_dfp_uvdm_naked_entry(
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
 
 /******************* PD30 Common *******************/
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
 void pe_get_battery_cap_entry(
 	struct pd_port *pd_port);

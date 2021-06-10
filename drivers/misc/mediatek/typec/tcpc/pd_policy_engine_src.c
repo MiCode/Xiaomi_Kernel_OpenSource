@@ -211,7 +211,7 @@ void pe_src_vdm_identity_naked_entry(struct pd_port *pd_port)
 #endif	/* CONFIG_USB_PD_SRC_STARTUP_DISCOVER_ID */
 
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 
 /*
  * [PD3.0] Source Port Not Supported Message State Diagram

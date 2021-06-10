@@ -156,7 +156,7 @@ static const char *const tcpc_timer_name[] = {
 	"PD_TIMER_VDM_RESPONSE",
 	"PD_TIMER_SOURCE_TRANSITION",
 	"PD_TIMER_SRC_RECOVER",
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	"PD_TIMER_CK_NO_SUPPORT",
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	"PD_TIMER_SINK_TX",
@@ -178,7 +178,7 @@ static const char *const tcpc_timer_name[] = {
 	"PD_TIMER_VCONN_READY",
 	"PD_PE_VDM_POSTPONE",
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	"PD_TIMER_DEFERRED_EVT",
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
@@ -220,7 +220,7 @@ static const char *const tcpc_timer_name[] = {
 	"TYPEC_TIMER_TRYCCDEBOUNCE",
 	"TYPEC_TIMER_SRCDISCONNECT",
 	"TYPEC_TIMER_DRP_SRC_TOGGLE",
-#ifdef CONFIG_TYPEC_CAP_NORP_SRC
+#if CONFIG_TYPEC_CAP_NORP_SRC
 	"TYPEC_TIMER_NORP_SRC",
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 };
@@ -281,7 +281,7 @@ DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_VDM_RESPONSE, 28, 30),	/* 24 ~ 30 */
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_SOURCE_TRANSITION, 25, 35),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_SRC_RECOVER, 660, 1000),
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_CK_NO_SUPPORT, 40, 50),
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 DECL_TCPC_TIMEOUT(PD_TIMER_SINK_TX, 25),	/* 16 ~ 20 */
@@ -311,7 +311,7 @@ DECL_TCPC_TIMEOUT(PD_TIMER_VCONN_READY,
 
 DECL_TCPC_TIMEOUT_US(PD_PE_VDM_POSTPONE, 3000),
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 DECL_TCPC_TIMEOUT(PD_TIMER_DEFERRED_EVT, 5000),
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
@@ -363,7 +363,7 @@ DECL_TCPC_TIMEOUT_RANGE(TYPEC_TIMER_APPLE_CC_OPEN, 200, 200),
 DECL_TCPC_TIMEOUT_RANGE(TYPEC_TIMER_TRYCCDEBOUNCE, 10, 10),
 DECL_TCPC_TIMEOUT(TYPEC_TIMER_SRCDISCONNECT, 5),
 DECL_TCPC_TIMEOUT(TYPEC_TIMER_DRP_SRC_TOGGLE, 60),
-#ifdef CONFIG_TYPEC_CAP_NORP_SRC
+#if CONFIG_TYPEC_CAP_NORP_SRC
 DECL_TCPC_TIMEOUT(TYPEC_TIMER_NORP_SRC, 300),
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 };
@@ -402,7 +402,7 @@ static inline void on_pe_timer_timeout(
 		break;
 #endif	/* CONFIG_USB_PD_SAFE0V_TIMEOUT */
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	case PD_TIMER_DISCARD:
 		tcpc_dev->pd_discard_pending = false;
 		pd_put_hw_event(tcpc_dev, PD_HW_TX_DISCARD);
@@ -669,7 +669,7 @@ static enum hrtimer_restart tcpc_timer_src_recover(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static enum hrtimer_restart tcpc_timer_ck_no_support(struct hrtimer *timer)
 {
 	int index = PD_TIMER_CK_NO_SUPPORT;
@@ -807,7 +807,7 @@ static enum hrtimer_restart tcpc_timer_vdm_postpone(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 static enum hrtimer_restart tcpc_timer_deferred_evt(struct hrtimer *timer)
 {
@@ -1092,7 +1092,7 @@ static enum hrtimer_restart tcpc_timer_drp_src_toggle(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-#ifdef CONFIG_TYPEC_CAP_NORP_SRC
+#if CONFIG_TYPEC_CAP_NORP_SRC
 static enum hrtimer_restart tcpc_timer_norp_src(struct hrtimer *timer)
 {
 	int index = TYPEC_TIMER_NORP_SRC;
@@ -1130,7 +1130,7 @@ static tcpc_hrtimer_call tcpc_timer_call[PD_TIMER_NR] = {
 	tcpc_timer_vdm_response,
 	tcpc_timer_source_transition,
 	tcpc_timer_src_recover,
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	tcpc_timer_ck_no_support,
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	tcpc_timer_sink_tx,
@@ -1152,7 +1152,7 @@ static tcpc_hrtimer_call tcpc_timer_call[PD_TIMER_NR] = {
 	tcpc_timer_vconn_ready,
 	tcpc_timer_vdm_postpone,
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	tcpc_timer_deferred_evt,
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
@@ -1194,7 +1194,7 @@ static tcpc_hrtimer_call tcpc_timer_call[PD_TIMER_NR] = {
 	tcpc_timer_tryccdebounce,
 	tcpc_timer_srcdisconnect,
 	tcpc_timer_drp_src_toggle,
-#ifdef CONFIG_TYPEC_CAP_NORP_SRC
+#if CONFIG_TYPEC_CAP_NORP_SRC
 	tcpc_timer_norp_src,
 #endif
 };

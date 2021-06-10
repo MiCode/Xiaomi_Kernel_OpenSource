@@ -136,7 +136,9 @@ enum {
 	TCP_NOTIFY_STATUS,
 	TCP_NOTIFY_REQUEST_BAT_INFO,
 	TCP_NOTIFY_WD_STATUS,
+	TCP_NOTIFY_FOD_STATUS,
 	TCP_NOTIFY_CABLE_TYPE,
+	TCP_NOTIFY_TYPEC_OTP,
 	TCP_NOTIFY_PLUG_OUT,
 	TCP_NOTIFY_MISC_END = TCP_NOTIFY_PLUG_OUT,
 };
@@ -333,6 +335,20 @@ struct tcp_ny_wd_status {
 	bool water_detected;
 };
 
+enum tcpc_fod_status {
+	TCPC_FOD_NONE = 0,
+	TCPC_FOD_NORMAL,
+	TCPC_FOD_OV,
+	TCPC_FOD_DISCHG_FAIL,
+	TCPC_FOD_LR,
+	TCPC_FOD_HR,
+	TCPC_FOD_STAT_MAX,
+};
+
+struct tcp_ny_fod_status {
+	enum tcpc_fod_status fod;
+};
+
 enum tcpc_cable_type {
 	TCPC_CABLE_TYPE_NONE = 0,
 	TCPC_CABLE_TYPE_A2C,
@@ -342,6 +358,10 @@ enum tcpc_cable_type {
 
 struct tcp_ny_cable_type {
 	enum tcpc_cable_type type;
+};
+
+struct tcp_ny_typec_otp {
+	bool otp;
 };
 
 struct tcp_notify {
@@ -361,7 +381,9 @@ struct tcp_notify {
 		struct tcp_ny_status status_msg;
 		struct tcp_ny_request_bat request_bat;
 		struct tcp_ny_wd_status wd_status;
+		struct tcp_ny_fod_status fod_status;
 		struct tcp_ny_cable_type cable_type;
+		struct tcp_ny_typec_otp typec_otp;
 	};
 };
 
@@ -625,7 +647,7 @@ enum TCP_DPM_EVT_ID {
 
 	TCP_DPM_EVT_DUMMY,	/* wakeup event thread */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	TCP_DPM_EVT_PD30_COMMAND,
 	TCP_DPM_EVT_GET_SOURCE_CAP_EXT = TCP_DPM_EVT_PD30_COMMAND,
 	TCP_DPM_EVT_GET_STATUS,
@@ -1009,7 +1031,7 @@ extern int tcpm_dpm_pd_request_ex(struct tcpc_device *tcpc,
 extern int tcpm_dpm_pd_bist_cm2(struct tcpc_device *tcpc,
 	const struct tcp_dpm_event_cb_data *data);
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 extern int tcpm_dpm_pd_get_source_cap_ext(struct tcpc_device *tcpc,
 	const struct tcp_dpm_event_cb_data *data,
 	struct pd_source_cap_ext *src_cap_ext);
@@ -1129,13 +1151,13 @@ extern bool tcpm_inquire_during_direct_charge(struct tcpc_device *tcpc);
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 extern int tcpm_dpm_set_vconn_supply_mode(
 	struct tcpc_device *tcpc, uint8_t mode);
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_PPS_SINK
 extern int tcpm_set_apdo_charging_policy(
 	struct tcpc_device *tcpc, uint8_t policy, int mv, int ma,
@@ -1268,7 +1290,7 @@ extern int tcpm_update_pd_status_event(
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #undef USB_POWER_DELIVERY_NA
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #undef USB_PD_REV30_NA
 #ifdef CONFIG_USB_PD_REV30_PPS_SINK
 #undef USB_PD_REV30_PPS_SINK_NA
@@ -1296,7 +1318,7 @@ extern int tcpm_update_pd_status_event(
 #undef USB_PD_DIRECT_CHARGE_NA
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 #undef TCPC_VCONN_SUPPLY_MODE_NA
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 

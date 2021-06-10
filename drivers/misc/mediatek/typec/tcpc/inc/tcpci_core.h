@@ -33,17 +33,17 @@
 #define PE_EVENT_DBG_ENABLE	1
 #define PE_STATE_INFO_ENABLE	1
 #define TCPC_INFO_ENABLE	1
-#define TCPC_TIMER_DBG_EN	0
-#define TCPC_TIMER_INFO_EN	0
+#define TCPC_TIMER_DBG_EN	1
+#define TCPC_TIMER_INFO_EN	1
 #define PE_INFO_ENABLE		1
-#define TCPC_DBG_ENABLE		0
-#define TCPC_DBG2_ENABLE	0
+#define TCPC_DBG_ENABLE		1
+#define TCPC_DBG2_ENABLE	1
 #define DPM_INFO_ENABLE		1
 #define DPM_INFO2_ENABLE	1
-#define DPM_DBG_ENABLE		0
+#define DPM_DBG_ENABLE		1
 #define PD_ERR_ENABLE		1
-#define PE_DBG_ENABLE		0
-#define TYPEC_DBG_ENABLE	0
+#define PE_DBG_ENABLE		1
+#define TYPEC_DBG_ENABLE	1
 
 
 #define DP_INFO_ENABLE		1
@@ -82,7 +82,24 @@ struct tcpc_desc {
 	uint8_t rp_lvl;
 	uint8_t vconn_supply;
 	int notifier_supply_num;
-	char *name;
+	const char *name;
+	bool en_wd;
+	bool en_wd_sbu_polling;
+	bool en_wd_polling_only;
+	bool en_ctd;
+	bool en_fod;
+	bool en_typec_otp;
+	bool en_floatgnd;
+	u32 wd_sbu_calib_init;
+	u32 wd_sbu_pl_bound;
+	u32 wd_sbu_pl_lbound_c2c;
+	u32 wd_sbu_pl_ubound_c2c;
+	u32 wd_sbu_ph_auddev;
+	u32 wd_sbu_ph_lbound;
+	u32 wd_sbu_ph_lbound1_c2c;
+	u32 wd_sbu_ph_ubound1_c2c;
+	u32 wd_sbu_ph_ubound2_c2c;
+	u32 wd_sbu_aud_ubound;
 };
 
 /*---------------------------------------------------------------------------*/
@@ -157,6 +174,11 @@ struct tcpc_desc {
 #define TCPC_FLAGS_WATCHDOG_EN			(1<<8)
 #define TCPC_FLAGS_WATER_DETECTION		(1<<9)
 #define TCPC_FLAGS_CABLE_TYPE_DETECTION		(1<<10)
+#define TCPC_FLAGS_FOREIGN_OBJECT_DETECTION	(1<<11)
+#define TCPC_FLAGS_TYPEC_OTP			(1<<12)
+#define TCPC_FLAGS_FLOATING_GROUND		(1<<13)
+#define TCPC_FLAGS_SBU_POLLING			(1<<14)
+#define TCPC_FLAGS_WD_POLLING_ONLY		(1<<15)
 
 enum tcpc_cc_pull {
 	TYPEC_CC_RA = 0,
@@ -204,18 +226,24 @@ struct tcpc_ops {
 	int (*set_vconn)(struct tcpc_device *tcpc, int enable);
 	int (*deinit)(struct tcpc_device *tcpc);
 	int (*alert_vendor_defined_handler)(struct tcpc_device *tcpc);
+	int (*set_auto_dischg_discnt)(struct tcpc_device *tcpc, bool en);
+	int (*get_vbus_voltage)(struct tcpc_device *tcpc, u32 *vbus);
 
-#ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	int (*is_vsafe0v)(struct tcpc_device *tcpc);
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_WATER_DETECTION
 	int (*is_water_detected)(struct tcpc_device *tcpc);
 	int (*set_water_protection)(struct tcpc_device *tcpc, bool en);
 	int (*set_usbid_polling)(struct tcpc_device *tcpc, bool en);
-#endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
+	int (*set_cc_hidet)(struct tcpc_device *tcpc, bool en);
+
+	int (*set_floating_ground)(struct tcpc_device *tcpc, bool en);
+
+	int (*set_otp_fwen)(struct tcpc_device *tcpc, bool en);
+
+#if CONFIG_TCPC_LOW_POWER_MODE
 	int (*is_low_power_mode)(struct tcpc_device *tcpc);
 	int (*set_low_power_mode)(struct tcpc_device *tcpc, bool en, int pull);
 #endif /* CONFIG_TCPC_LOW_POWER_MODE */
@@ -249,7 +277,7 @@ struct tcpc_ops {
 	int (*set_bist_test_mode)(struct tcpc_device *tcpc, bool en);
 	int (*set_bist_carrier_mode)(struct tcpc_device *tcpc, uint8_t pattern);
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	int (*retransmit)(struct tcpc_device *tcpc);
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
@@ -390,7 +418,7 @@ struct tcpc_device {
 	bool typec_ext_discharge;
 #endif	/* CONFIG_TCPC_EXT_DISCHARGE */
 
-#ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
+#if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	uint8_t tcpc_vconn_supply;
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
@@ -451,7 +479,7 @@ struct tcpc_device {
 	bool pd_during_direct_charge;
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
-#ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
 	bool pd_discard_pending;
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
@@ -461,7 +489,7 @@ struct tcpc_device {
 #endif	/* CONFIG_TCPC_FORCE_DISCHARGE_IC */
 #endif	/* CONFIG_TYPEC_CAP_FORCE_DISCHARGE */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	uint8_t pd_retry_count;
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -470,7 +498,7 @@ struct tcpc_device {
 #endif	/* CONFIG_USB_PD_DISABLE_PE */
 
 	struct pd_port pd_port;
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 	struct notifier_block bat_nb;
 	struct delayed_work bat_update_work;
 	struct power_supply *bat_psy;
@@ -488,12 +516,14 @@ struct tcpc_device {
 	u8 pd_inited_flag:1; /* MTK Only */
 
 	/* TypeC Shield Protection */
-#ifdef CONFIG_WATER_DETECTION
 	int usbid_calib;
-#endif /* CONFIG_WATER_DETECTION */
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+	enum tcpc_fod_status typec_fod;
 	enum tcpc_cable_type typec_cable_type;
-#endif /* CONFIG_CABLE_TYPE_DETECTION */
+	bool typec_otp;
+
+	u32 boot_mode;
+	u32 boot_type;
+	u32 alert_mask;
 };
 
 
