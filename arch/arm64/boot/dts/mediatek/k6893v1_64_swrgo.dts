@@ -562,4 +562,8 @@
 &wifi {
 	flavor_bin = "d";
 };
+
+&bt {
+	flavor_bin = "d";
+};
 /* CONSYS end */
