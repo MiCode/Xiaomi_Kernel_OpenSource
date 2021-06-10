@@ -39,9 +39,15 @@ patternProperties:
         items:
           - enum:
               - HEAP_TYPE_SECURE_CARVEOUT
+              - HEAP_TYPE_CARVEOUT
               - HEAP_TYPE_CMA
         description: |
           The heap type to use for this heap.
+
+      qcom,uncached-heap:
+      Usage: optional
+      Value type: <boolean>
+      Definition: Denotes whether this heap provides uncached memory or not.
 
       qcom,dynamic-heap:
       Usage: optional
