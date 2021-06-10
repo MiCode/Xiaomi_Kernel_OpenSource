@@ -1400,12 +1400,8 @@ void mtk_btag_mictx_eval_tp(
 	ctx->tp_max_time = cur_time;
 	req_begin_time = cur_time - usage;
 
-	if (!ctx->tp_min_time)
+	if (!ctx->tp_min_time || req_begin_time < ctx->tp_min_time)
 		ctx->tp_min_time = req_begin_time;
-	else {
-		if (req_begin_time < ctx->tp_min_time)
-			ctx->tp_min_time = req_begin_time;
-	}
 	spin_unlock_irqrestore(&ctx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_tp);
