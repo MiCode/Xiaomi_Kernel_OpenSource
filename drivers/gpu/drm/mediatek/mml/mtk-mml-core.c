@@ -10,6 +10,7 @@
 #include <linux/of.h>
 
 #include "mtk-mml-core.h"
+#include "mtk-mml-buf.h"
 #include "mtk-mml-tile.h"
 
 int mtk_mml_msg;
@@ -340,6 +341,7 @@ static void core_taskdone(struct work_struct *work)
 {
 	struct mml_task *task;
 	int cnt;
+	u8 i;
 
 	mml_trace_begin("%s", __func__);
 
@@ -349,6 +351,11 @@ static void core_taskdone(struct work_struct *work)
 	/* cnt should be 1 or 2, if dual on and count 2 means pipes done */
 	if (task->config->dual && cnt == 1)
 		goto done;
+
+	for (i = 0; i < task->buf.dest_cnt; i++) {
+		if (task->buf.dest[i].invalid)
+			mml_buf_invalid(&task->buf.dest[i]);
+	}
 
 	/* before clean up, make sure buffer fence signaled */
 	if (task->fence) {
@@ -478,6 +485,13 @@ static s32 core_flush(struct mml_task *task, u32 pipe_id)
 	wait_dma_fence("src", task->buf.src.fence);
 	for (i = 0; i < task->buf.dest_cnt; i++)
 		wait_dma_fence("dest", task->buf.dest[i].fence);
+
+	/* also make sure buffer content flushed by other module */
+	if (task->buf.src.flush)
+		mml_buf_flush(&task->buf.src);
+	for (i = 0; i < task->buf.dest_cnt; i++)
+		if (task->buf.dest[i].flush)
+			mml_buf_flush(&task->buf.dest[i]);
 
 	/* assign error handler */
 	pkt->err_cb.cb = dump_cbs[pipe_id];

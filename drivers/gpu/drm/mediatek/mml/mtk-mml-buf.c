@@ -43,6 +43,7 @@ inline static int dmabuf_to_iova(struct device *dev, struct mml_dma_buf *dma)
 		goto err;
 	}
 
+	dma->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 	dma->sgt = dma_buf_map_attachment(dma->attach, DMA_TO_DEVICE);
 	if (IS_ERR(dma->sgt)) {
 		err = PTR_ERR(dma->sgt);
@@ -68,8 +69,14 @@ int mml_buf_iova_get(struct device *dev, struct mml_file_buf *buf)
 	int ret;
 
 	for (i = 0; i < buf->cnt; i++) {
-		if (!buf->dma[i].dmabuf)
+		if (!buf->dma[i].dmabuf) {
+			/* no fd/dmabuf but need this plane,
+			 * use previous iova
+			 */
+			if (i)
+				buf->dma[i].iova = buf->dma[i-1].iova;
 			continue;
+		}
 		ret = dmabuf_to_iova(dev, &buf->dma[i]);
 		if (ret < 0)
 			return ret;
@@ -80,7 +87,7 @@ int mml_buf_iova_get(struct device *dev, struct mml_file_buf *buf)
 
 inline static void dmabuf_iova_free(struct mml_dma_buf *dma)
 {
-	dma_buf_unmap_attachment(dma->attach, dma->sgt, DMA_TO_DEVICE);
+	dma_buf_unmap_attachment(dma->attach, dma->sgt, DMA_FROM_DEVICE);
 	dma_buf_detach(dma->dmabuf, dma->attach);
 
 	dma->sgt = NULL;
@@ -109,3 +116,28 @@ void mml_buf_put(struct mml_file_buf *buf)
 	}
 }
 
+void mml_buf_flush(struct mml_file_buf *buf)
+{
+	u8 i;
+
+	for (i = 0; i < buf->cnt; i++) {
+		if (!buf->dma[i].dmabuf)
+			continue;
+		buf->dma[i].attach->dma_map_attrs &= ~DMA_ATTR_SKIP_CPU_SYNC;
+		dma_buf_end_cpu_access(buf->dma[i].dmabuf, DMA_TO_DEVICE);
+		buf->dma[i].attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+	}
+}
+
+void mml_buf_invalid(struct mml_file_buf *buf)
+{
+	u8 i;
+
+	for (i = 0; i < buf->cnt; i++) {
+		if (!buf->dma[i].dmabuf)
+			continue;
+		buf->dma[i].attach->dma_map_attrs &= ~DMA_ATTR_SKIP_CPU_SYNC;
+		dma_buf_begin_cpu_access(buf->dma[i].dmabuf, DMA_FROM_DEVICE);
+		buf->dma[i].attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+	}
+}

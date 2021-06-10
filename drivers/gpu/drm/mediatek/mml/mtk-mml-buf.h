@@ -47,5 +47,16 @@ void mml_buf_iova_free(struct mml_file_buf *buf);
  */
 void mml_buf_put(struct mml_file_buf *buf);
 
+/* mml_buf_flush - do flush/clean "cpu to device" sync to buffer
+ *
+ * buf: the mml buffer struct
+ */
+void mml_buf_flush(struct mml_file_buf *buf);
+
+/* mml_buf_invalid - do invalid "device to cpu" sync to buffer
+ *
+ * buf: the mml buffer struct
+ */
+void mml_buf_invalid(struct mml_file_buf *buf);
 
 #endif

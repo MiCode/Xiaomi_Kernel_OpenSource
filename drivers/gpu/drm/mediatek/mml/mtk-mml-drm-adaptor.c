@@ -306,7 +306,8 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	for (i = 0; i < fdbuf->cnt; i++)
 		fbuf->size[i] = fdbuf->size[i];
 	fbuf->cnt = fdbuf->cnt;
-	fbuf->usage = fdbuf->usage;
+	fbuf->flush = fdbuf->flush;
+	fbuf->invalid = fdbuf->invalid;
 
 	fbuf->fence = sync_file_get_fence(fdbuf->fence);
 	mml_msg("get dma fence %p by %d", fbuf->fence, fdbuf->fence);

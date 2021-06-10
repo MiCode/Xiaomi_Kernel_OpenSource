@@ -82,7 +82,7 @@ struct mml_frame_dest {
 	struct mml_crop crop;
 	struct mml_rect compose;
 	uint16_t rotate;
-	bool flip;
+	bool flip:1;
 	struct mml_pq_config pq_config;
 };
 
@@ -100,6 +100,8 @@ struct mml_buffer {
 	uint8_t cnt;
 	int32_t fence;
 	uint32_t usage;
+	bool flush:1;
+	bool invalid:1;
 };
 
 struct mml_frame_buffer {

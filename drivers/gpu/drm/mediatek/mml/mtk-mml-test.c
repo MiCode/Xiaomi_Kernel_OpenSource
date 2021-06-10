@@ -146,6 +146,14 @@ static void case_general_submit(struct mml_test *test,
 		MML_FMT_PLANE(task.info.dest[0].data.format);
 	task.buffer.dest_cnt = 1;
 
+	/* trigger all invalid/flush */
+	task.buffer.src.flush = true;
+	task.buffer.src.invalid = true;
+	task.buffer.dest[0].flush = true;
+	task.buffer.dest[0].invalid = true;
+	task.buffer.dest[1].flush = true;
+	task.buffer.dest[1].invalid = true;
+
 	if (setup)
 		setup(&task, cur);
 
