@@ -41,6 +41,8 @@
 #define MML_FMT_UV_COPLANE(c)		(MML_FMT_PLANE(c) == 2 && \
 					 MML_FMT_IS_YUV(c))
 #define MML_FMT_AUO(c)			(MML_FMT_10BIT_JUMP(c))
+#define MML_FMT_IS_ARGB(c)		(MML_FMT_HW_FORMAT(c) == 2 || \
+					 MML_FMT_HW_FORMAT(c) == 3)
 
 enum mml_color {
 	MML_FMT_UNKNOWN		= 0,
@@ -144,6 +146,44 @@ enum mml_ycbcr_profile {
 	/* V4L2_YCBCR_ENC_BT2020 and V4L2_QUANTIZATION_FULL_RANGE */
 	MML_YCBCR_PROFILE_FULL_BT2020,
 };
+
+/* Minimum Y stride that is accepted by MML HW */
+static inline u32 mml_color_get_min_y_stride(enum mml_color c, u32 width)
+{
+	return ((MML_FMT_BITS_PER_PIXEL(c) * width) + 4) >> 3;
+}
+
+/* Minimum UV stride that is accepted by MML HW */
+static inline u32 mml_color_get_min_uv_stride(enum mml_color c, u32 width)
+{
+	u32 min_stride;
+
+	if (MML_FMT_PLANE(c) == 1)
+		return 0;
+	min_stride = mml_color_get_min_y_stride(c, width) >>
+		MML_FMT_H_SUBSAMPLE(c);
+	if (MML_FMT_UV_COPLANE(c) && !MML_FMT_BLOCK(c))
+		min_stride = min_stride * 2;
+	return min_stride;
+}
+
+/* Minimum Y plane size that is necessary in buffer */
+static inline u32 mml_color_get_min_y_size(enum mml_color c,
+	u32 width, u32 height)
+{
+	if (MML_FMT_BLOCK(c))
+		return ((MML_FMT_BITS_PER_PIXEL(c) * width) >> 8) * height;
+	return mml_color_get_min_y_stride(c, width) * height;
+}
+/* Minimum UV plane size that is necessary in buffer */
+static inline u32 mml_color_get_min_uv_size(enum mml_color c,
+	u32 width, u32 height)
+{
+	height = height >> MML_FMT_V_SUBSAMPLE(c);
+	if (MML_FMT_BLOCK(c) && (1 < MML_FMT_PLANE(c)))
+		return ((MML_FMT_BITS_PER_PIXEL(c) * width) >> 8) * height;
+	return mml_color_get_min_uv_stride(c, width) * height;
+}
 
 #endif	/* __MTK_MML_COLOR_H__ */
 

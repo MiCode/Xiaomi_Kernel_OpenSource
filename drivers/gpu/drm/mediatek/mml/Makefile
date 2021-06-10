@@ -10,13 +10,19 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-# $(error Bad MML)
 
-
+MTK_PLATFORM := mt6893
 
 ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek 	\
              -I$(srctree)/drivers/devfreq/		\
-             -I$(srctree)/drivers/misc/mediatek/mmdvfs/
+             -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
+             -I$(srctree)/drivers/misc/mediatek/smi/ \
+             -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
+             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat	\
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include	\
+             -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
+             -I$(srctree)/drivers/iommu/
 
 obj-$(CONFIG_MTK_MML_MT6893) := mtk-mml-mt6893.o
 

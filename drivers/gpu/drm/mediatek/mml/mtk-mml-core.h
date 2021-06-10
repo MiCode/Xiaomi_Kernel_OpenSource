@@ -183,6 +183,7 @@ struct mml_frame_config {
 struct mml_file_buf {
 	struct file *f[MML_MAX_PLANES];
 	u32 size[MML_MAX_PLANES];
+	u64 iova[MML_MAX_PLANES];
 	u8 cnt;
 	struct file *fence;
 	u32 usage;
@@ -222,6 +223,8 @@ struct mml_task {
 };
 
 struct mml_comp_tile_ops {
+	u32 (*get_out_w)(struct mml_comp_config *ccfg);
+	u32 (*get_out_h)(struct mml_comp_config *ccfg);
 };
 
 struct mml_comp_config_ops {
@@ -249,7 +252,10 @@ struct mml_comp_config_ops {
 };
 
 struct mml_comp_hw_ops {
-
+	s32 (*pw_enable)(struct mml_comp *comp);
+	s32 (*pw_disable)(struct mml_comp *comp);
+	s32 (*clk_enable)(struct mml_comp *comp);
+	s32 (*clk_disable)(struct mml_comp *comp);
 };
 
 struct mml_comp_debug_ops {
