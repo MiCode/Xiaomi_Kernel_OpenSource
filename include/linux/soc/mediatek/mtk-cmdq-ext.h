@@ -187,6 +187,11 @@ struct cmdq_flush_completion {
 	s32 err;
 };
 
+struct cmdq_reuse {
+	u64 *va;
+	u32 val;
+};
+
 u32 cmdq_subsys_id_to_base(struct cmdq_base *cmdq_base, int id);
 
 /**
@@ -283,6 +288,17 @@ s32 cmdq_pkt_write_reg_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 
 s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 	u32 value, u32 mask);
+
+s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
+	u16 src_reg_idx, u32 mask, u64 **curr_buf_va);
+
+s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
+	u32 value, u32 mask, u64 **curr_buf_va);
+
+void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
+	const u32 count);
+
+s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src);
 
 s32 cmdq_pkt_store_value(struct cmdq_pkt *pkt, u16 indirect_dst_reg_idx,
 	u16 dst_addr_low, u32 value, u32 mask);

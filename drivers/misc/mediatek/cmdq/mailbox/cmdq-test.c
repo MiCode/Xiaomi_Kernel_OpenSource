@@ -397,17 +397,15 @@ void cmdq_test_mbox_polling(
 	cmdq_msg("%s end", __func__);
 }
 
-static void cmdq_test_mbox_large_cmd(struct cmdq_test *test)
+static void cmdq_test_mbox_large_cmd(struct cmdq_test *test, const u32 count)
 {
 	unsigned long	va = (unsigned long)(CMDQ_GPR_R32(
 		test->gce.va, CMDQ_GPR_DEBUG_DUMMY));
 	unsigned long	pa = CMDQ_GPR_R32(
 		test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
 
-	struct cmdq_pkt		*pkt;
+	struct cmdq_pkt		*pkt, *pkt2;
 	s32			i, val;
-	bool			perf_en = cmdq_util_is_feature_en((u8)
-		CMDQ_LOG_FEAT_PERF);
 
 	if (clk_prepare_enable(test->gce.clk)) {
 		cmdq_err("clk fail");
@@ -417,19 +415,31 @@ static void cmdq_test_mbox_large_cmd(struct cmdq_test *test)
 	writel(0xdeaddead, (void *)va);
 
 	pkt = cmdq_pkt_create(test->clt);
-	if (!perf_en)
-		cmdq_pkt_perf_begin(pkt);
-	for (i = 0; i < 64 * 1024 / 8; i++) // 64k instructions
+	for (i = 0; i < count; i++)
 		cmdq_pkt_write(pkt, NULL, pa, i, ~0);
-	if (!perf_en)
-		cmdq_pkt_perf_end(pkt);
+
+	pkt2 = cmdq_pkt_create(test->loop);
+	cmdq_pkt_copy(pkt2, pkt);
+	cmdq_pkt_write(pkt2, NULL, pa, i, ~0);
+
+	cmdq_msg("%s: pkt:%p before flush", __func__, pkt);
+	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_flush(pkt);
+	cmdq_msg("%s: pkt:%p after flush", __func__, pkt);
+	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_destroy(pkt);
+
+	cmdq_msg("%s: pkt2:%p before flush", __func__, pkt2);
+	cmdq_dump_pkt(pkt2, 0, true);
+	cmdq_pkt_flush(pkt2);
+	cmdq_msg("%s: pkt2:%p after flush", __func__, pkt2);
+	cmdq_dump_pkt(pkt2, 0, true);
+	cmdq_pkt_destroy(pkt2);
 
 	val = readl((void *)va);
 	clk_disable_unprepare(test->gce.clk);
 
-	if (val != --i)
+	if (val != i)
 		cmdq_err("val:%#x not equal to i:%#x", val, i);
 	else
 		cmdq_msg("val:%#x equals to i:%#x", val, i);
@@ -857,6 +867,59 @@ static void cmdq_test_show_events(struct cmdq_test *test)
 	cmdq_msg("%s end", __func__);
 }
 
+static void cmdq_test_mbox_reuse_buf_va(struct cmdq_test *test)
+{
+	unsigned long	va = (unsigned long)(CMDQ_GPR_R32(
+		test->gce.va, CMDQ_GPR_DEBUG_DUMMY));
+	unsigned long	pa = CMDQ_GPR_R32(
+		test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+
+	struct cmdq_pkt		*pkt;
+	s32			i, j = 0, val;
+	struct cmdq_reuse *reuse;
+	const u32 ans = (CMDQ_INST_SIZE * CMDQ_INST_SIZE - 1) * CMDQ_INST_SIZE;
+
+	reuse = kcalloc(CMDQ_INST_SIZE, sizeof(*reuse), GFP_KERNEL);
+
+	if (clk_prepare_enable(test->gce.clk)) {
+		cmdq_err("clk fail");
+		return;
+	}
+
+	writel(0xdeaddead, (void *)va);
+
+	pkt = cmdq_pkt_create(test->clt);
+	for (i = 0; i < CMDQ_INST_SIZE * CMDQ_INST_SIZE; i++) {
+		if (i % CMDQ_INST_SIZE != CMDQ_INST_SIZE - 1)
+			cmdq_pkt_write(pkt, NULL, pa, i, ~0);
+		else {
+			cmdq_pkt_write_value_addr_reuse(
+				pkt, pa, i, ~0, &reuse[j].va);
+			reuse[j].val = i;
+			cmdq_msg("%s: reuse:%d va:%p val:%#x inst:%#llx",
+				__func__, j,
+				reuse[j].va, reuse[j].val, *reuse[j].va);
+			j += 1;
+		}
+	}
+	cmdq_pkt_flush(pkt);
+
+	for (i = 0; i < j; i++)
+		reuse[i].val *= CMDQ_INST_SIZE;
+	cmdq_pkt_reuse_buf_va(pkt, reuse, CMDQ_INST_SIZE);
+	cmdq_pkt_flush(pkt);
+
+	cmdq_pkt_destroy(pkt);
+
+	val = readl((void *)va);
+	clk_disable_unprepare(test->gce.clk);
+
+	if (val != ans)
+		cmdq_err("val:%#x not equal to ans:%#x", val, ans);
+	else
+		cmdq_msg("val:%#x equals to ans:%#x", val, ans);
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
@@ -881,7 +944,7 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_gpr_sleep(test, false);
 		cmdq_test_mbox_gpr_sleep(test, true);
 		cmdq_test_mbox_loop(test);
-		cmdq_test_mbox_large_cmd(test);
+		cmdq_test_mbox_large_cmd(test, 239);
 		cmdq_test_mbox_cpr(test);
 		break;
 	case 1:
@@ -907,7 +970,7 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_loop(test);
 		break;
 	case 7:
-		cmdq_test_mbox_large_cmd(test);
+		cmdq_test_mbox_large_cmd(test, 237);
 		break;
 	case 8:
 		cmdq_test_mbox_cpr(test);
@@ -935,6 +998,9 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		break;
 	case 16:
 		cmdq_test_show_events(test);
+		break;
+	case 17:
+		cmdq_test_mbox_reuse_buf_va(test);
 		break;
 	default:
 		break;

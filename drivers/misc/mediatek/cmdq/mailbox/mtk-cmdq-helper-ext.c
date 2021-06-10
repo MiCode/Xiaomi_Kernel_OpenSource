@@ -674,6 +674,11 @@ s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 	pkt->cmd_buf_size += CMDQ_INST_SIZE;
 	pkt->avail_buf_size -= CMDQ_INST_SIZE;
 
+	if (unlikely(!pkt->avail_buf_size)) {
+		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
+			return -ENOMEM;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_append_command);
@@ -803,6 +808,126 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 		value, mask);
 }
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr);
+
+s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
+	u16 src_reg_idx, u32 mask, u64 **curr_buf_va)
+{
+	s32 err;
+	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
+
+	err = cmdq_pkt_assign_command(pkt, dst_reg_idx,
+		CMDQ_GET_ADDR_HIGH(addr));
+	if (err != 0)
+		return err;
+
+	err = cmdq_pkt_store_value_reg(pkt, dst_reg_idx,
+		CMDQ_GET_ADDR_LOW(addr), src_reg_idx, mask);
+
+	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	return err;
+}
+EXPORT_SYMBOL(cmdq_pkt_write_reg_addr_reuse);
+
+s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
+	u32 value, u32 mask, u64 **curr_buf_va)
+{
+	s32 err;
+	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
+
+	/* assign bit 47:16 to spr temp */
+	err = cmdq_pkt_assign_command(pkt, dst_reg_idx,
+		CMDQ_GET_ADDR_HIGH(addr));
+	if (err != 0)
+		return err;
+
+	err = cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
+		value, mask);
+
+	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	cmdq_msg("%s: curr_buf_va:%p",
+		__func__, cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE);
+	return err;
+}
+EXPORT_SYMBOL(cmdq_pkt_write_value_addr_reuse);
+
+void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
+	const u32 count)
+{
+	s32 i;
+
+	for (i = 0; i < count; i++) {
+		*reuse[i].va = (*reuse[i].va & GENMASK(63, 32)) | reuse[i].val;
+		cmdq_msg("%s:curr reuse:%d va:%p val:%#x inst:%#llx",
+			__func__, i, reuse[i].va, reuse[i].val, *reuse[i].va);
+	}
+}
+EXPORT_SYMBOL(cmdq_pkt_reuse_buf_va);
+
+s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
+{
+	struct list_head entry;
+	struct cmdq_pkt_buffer *buf, *new, *tmp;
+	struct completion cmplt;
+	struct device *dev = dst->dev;
+	void *cl = dst->cl;
+	u64 *va, i;
+
+	cmdq_pkt_free_buf(dst);
+	INIT_LIST_HEAD(&dst->buf);
+
+	memcpy(&entry, &dst->buf, sizeof(entry));
+	memcpy(&cmplt, &dst->cmplt, sizeof(cmplt));
+	memcpy(dst, src, sizeof(*dst));
+	memcpy(&dst->cmplt, &cmplt, sizeof(cmplt));
+	memcpy(&dst->buf, &entry, sizeof(entry));
+
+	/* copy buf */
+	list_for_each_entry(buf, &src->buf, list_entry) {
+		new = cmdq_pkt_alloc_buf(dst);
+		if (unlikely(IS_ERR(new))) {
+			cmdq_err("alloc singe buffer fail status:%d pkt:0x%p",
+				PTR_ERR(new), dst);
+			return PTR_ERR(new);
+		}
+		memcpy(new->va_base, buf->va_base, CMDQ_CMD_BUFFER_SIZE);
+	}
+
+	list_for_each_entry_safe(buf, tmp, &dst->buf, list_entry) {
+		cmdq_msg("%s: buf:%p va:%p pa:%pa tmp:%p",
+			__func__, buf, buf->va_base, &buf->pa_base, tmp);
+
+		if (!list_is_last(&buf->list_entry, &dst->buf)) {
+			va = buf->va_base + CMDQ_CMD_BUFFER_SIZE -
+				CMDQ_INST_SIZE;
+			*va = ((u64)(CMDQ_CODE_JUMP << 24 | 1) << 32) |
+				CMDQ_REG_SHIFT_ADDR(tmp->pa_base);
+			cmdq_msg("%s: va:%p inst:%#llx", __func__, va, *va);
+		}
+	}
+
+	dst->avail_buf_size = src->avail_buf_size;
+	dst->cmd_buf_size = src->cmd_buf_size;
+	dst->buf_size = src->buf_size;
+
+	/* del eoc & jump */
+	if (cmdq_pkt_is_finalized(dst)) {
+		for (i = 0; i < 2; i++) {
+			dst->avail_buf_size += CMDQ_INST_SIZE;
+			dst->cmd_buf_size -= CMDQ_INST_SIZE;
+			if (!(dst->avail_buf_size % CMDQ_CMD_BUFFER_SIZE)) {
+				buf = list_last_entry(
+					&dst->buf, typeof(*buf), list_entry);
+				list_del(&buf->list_entry);
+			}
+		}
+	}
+
+	dst->cl = cl;
+	dst->dev = dev;
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_pkt_copy);
+
 
 s32 cmdq_pkt_store_value(struct cmdq_pkt *pkt, u16 indirect_dst_reg_idx,
 	u16 dst_addr_low, u32 value, u32 mask)
