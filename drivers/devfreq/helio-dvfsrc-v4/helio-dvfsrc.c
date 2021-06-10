@@ -147,19 +147,9 @@ void dvfsrc_set_sw_req2(int data, int mask, int shift)
 	dvfsrc_rmw(DVFSRC_SW_REQ2, data, mask, shift);
 }
 
-static void dvfsrc_get_timestamp(char *p)
-{
-	u64 sec = local_clock();
-	u64 usec = do_div(sec, 1000000000);
-
-	do_div(usec, 1000000);
-	sprintf(p, "%llu.%llu", sec, usec);
-}
-
 static void dvfsrc_set_force_start(int data)
 {
 	dvfsrc->opp_forced = 1;
-	dvfsrc_get_timestamp(dvfsrc->force_start);
 	dvfsrc_write(DVFSRC_FORCE, data);
 	dvfsrc_rmw(DVFSRC_BASIC_CONTROL, 1,
 			FORCE_EN_TAR_MASK, FORCE_EN_TAR_SHIFT);
@@ -180,7 +170,6 @@ static void dvfsrc_release_force(void)
 	dvfsrc_rmw(DVFSRC_BASIC_CONTROL, 0,
 			FORCE_EN_TAR_MASK, FORCE_EN_TAR_SHIFT);
 	dvfsrc_write(DVFSRC_FORCE, 0);
-	dvfsrc_get_timestamp(dvfsrc->force_end);
 	dvfsrc->opp_forced = 0;
 }
 
@@ -377,8 +366,6 @@ void helio_dvfsrc_enable(int dvfsrc_en)
 	dvfsrc->qos_enabled = 1;
 	dvfsrc->dvfsrc_enabled = dvfsrc_en;
 	dvfsrc->opp_forced = 0;
-	sprintf(dvfsrc->force_start, "0");
-	sprintf(dvfsrc->force_end, "0");
 
 	dvfsrc_restore();
 
@@ -446,9 +433,6 @@ int is_opp_forced(void)
 
 static void get_pm_qos_info(char *p)
 {
-	char timestamp[20];
-
-	dvfsrc_get_timestamp(timestamp);
 	p += sprintf(p, "%-24s: %d\n",
 			"PM_QOS_MEMORY_BW",
 			pm_qos_request(PM_QOS_MEMORY_BANDWIDTH));
@@ -476,12 +460,6 @@ static void get_pm_qos_info(char *p)
 	p += sprintf(p, "%-24s: 0x%x\n",
 			"PM_QOS_PM_DDR_REQ",
 			pm_qos_request(PM_QOS_POWER_MODEL_DDR_REQUEST));
-	p += sprintf(p, "%-24s: %s\n",
-			"Current Timestamp", timestamp);
-	p += sprintf(p, "%-24s: %s\n",
-			"Force Start Timestamp", dvfsrc->force_start);
-	p += sprintf(p, "%-24s: %s\n",
-			"Force End Timestamp", dvfsrc->force_end);
 }
 
 char *dvfsrc_dump_reg(char *ptr)

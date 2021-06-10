@@ -60,8 +60,6 @@ struct helio_dvfsrc {
 	struct reg_config	*init_config;
 
 	bool opp_forced;
-	char			force_start[20];
-	char			force_end[20];
 	int (*suspend)(struct helio_dvfsrc *dvfsrc_dev);
 	int (*resume)(struct helio_dvfsrc *dvfsrc_dev);
 };
