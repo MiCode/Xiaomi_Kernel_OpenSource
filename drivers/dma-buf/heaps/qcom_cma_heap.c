@@ -31,6 +31,7 @@ struct cma_heap {
 	struct cma *cma;
 	/* max_align is in units of page_order, similar to CONFIG_CMA_ALIGNMENT */
 	u32 max_align;
+	bool uncached;
 };
 
 static void cma_heap_free(struct qcom_sg_buffer *buffer)
@@ -77,6 +78,7 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 	INIT_LIST_HEAD(&helper_buffer->attachments);
 	mutex_init(&helper_buffer->lock);
 	helper_buffer->len = size;
+	helper_buffer->uncached = cma_heap->uncached;
 	helper_buffer->free = cma_heap_free;
 
 	cma_pages = cma_alloc(cma_heap->cma, nr_pages, align, false);
@@ -115,6 +117,13 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 	helper_buffer->vmperm = mem_buf_vmperm_alloc(&helper_buffer->sg_table);
 	if (IS_ERR(helper_buffer->vmperm))
 		goto free_sgtable;
+
+	if (helper_buffer->uncached) {
+		dma_map_sgtable(dma_heap_get_dev(heap), &helper_buffer->sg_table,
+				DMA_BIDIRECTIONAL, 0);
+		dma_unmap_sgtable(dma_heap_get_dev(heap), &helper_buffer->sg_table,
+				  DMA_BIDIRECTIONAL, 0);
+	}
 
 	/* create the dmabuf */
 	exp_info.exp_name = dma_heap_get_name(heap);
@@ -163,6 +172,7 @@ static int __add_cma_heap(struct platform_heap *heap_data, void *data)
 	cma_heap->max_align = CONFIG_CMA_ALIGNMENT;
 	if (heap_data->max_align)
 		cma_heap->max_align = heap_data->max_align;
+	cma_heap->uncached = heap_data->is_uncached;
 
 	exp_info.name = heap_data->name;
 	exp_info.ops = &cma_heap_ops;
@@ -175,6 +185,10 @@ static int __add_cma_heap(struct platform_heap *heap_data, void *data)
 		kfree(cma_heap);
 		return ret;
 	}
+
+	if (cma_heap->uncached)
+		dma_coerce_mask_and_coherent(dma_heap_get_dev(heap),
+					     DMA_BIT_MASK(64));
 
 	return 0;
 }
