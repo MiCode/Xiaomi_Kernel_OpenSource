@@ -230,8 +230,6 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 				for (i = 0; i < pfb->num_planes; i++) {
 					vsi->dec.fb_dma[i] = (u64)
 						pfb->fb_base[i].dma_addr;
-					pfb->fb_base[i].buf_fd = (s64)
-						vsi->dec.fb_fd[i];
 					mtk_vcodec_debug(vcu, "+ vsi->dec.fb_fd[%d]:%llx\n",
 						i, vsi->dec.fb_fd[i]);
 				}

@@ -1117,7 +1117,6 @@ static int vdec_vcp_get_param(unsigned long h_vdec,
 	case GET_PARAM_FREE_FRAME_BUFFER:
 	{
 		struct vdec_fb *pfb;
-		int i;
 
 		if (inst->vsi == NULL)
 			return -EINVAL;
@@ -1125,13 +1124,6 @@ static int vdec_vcp_get_param(unsigned long h_vdec,
 
 		pfb = *((struct vdec_fb **)out);
 		if (pfb != NULL) {
-			for (i = 0; i < pfb->num_planes; i++) {
-				if (pfb->fb_base[i].buf_fd >= 0) {
-					mtk_vcodec_debug(inst, "free pfb->fb_base[%d].buf_fd:%llx\n",
-						i, pfb->fb_base[i].buf_fd);
-					pfb->fb_base[i].buf_fd = -1;
-				}
-			}
 			if (pfb->general_buf_fd >= 0) {
 				mtk_vcodec_debug(inst, "free pfb->general_buf_fd:%d pfb->dma_general_buf %p\n",
 					pfb->general_buf_fd,
