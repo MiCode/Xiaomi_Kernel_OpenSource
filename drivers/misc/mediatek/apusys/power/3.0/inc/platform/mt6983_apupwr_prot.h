@@ -7,8 +7,8 @@
 #define __MT6983_APUPWR_PROT_H__
 
 #include "apu_top.h"
+#include "mt6983_apupwr.h"
 
-#define CLUSTER_NUM	(2)
 #define ACX0_LIMIT_OPP_REG      SPARE0_MBOX_DUMMY_0_ADDR
 #define ACX1_LIMIT_OPP_REG      SPARE0_MBOX_DUMMY_1_ADDR
 #define DEV_OPP_SYNC_REG        SPARE0_MBOX_DUMMY_2_ADDR

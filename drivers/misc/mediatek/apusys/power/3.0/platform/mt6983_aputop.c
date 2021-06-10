@@ -22,17 +22,6 @@
 #include "mt6983_apupwr.h"
 #include "mt6983_apupwr_prot.h"
 
-enum t_acx_id {
-	ACX0 = 0,
-	ACX1,
-};
-
-enum t_dev_id {
-	VPU0 = 0,
-	DLA0,
-	DLA1,
-};
-
 /* Below reg_name has to 1-1 mapping DTS's name */
 static const char *reg_name[APUPW_MAX_REGS] = {
 	"sys_spm", "apu_rcx", "apu_vcore", "apu_md32_mbox",
@@ -357,6 +346,86 @@ static void __apu_are_init(struct device *dev)
 			apupw.regs[apu_are2], 0x50, true);
 }
 
+static void __apu_dump_rpc_status(enum t_acx_id id)
+{
+	if (id == ACX0) {
+		pr_info(
+		"%s ACX0 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
+		__func__,
+		apu_readl(apupw.regs[apu_acx0_rpc_lite] + APU_RPC_INTF_PWR_RDY),
+		apu_readl(apupw.regs[apu_acx0] + APU_ACX_CONN_CG_CON));
+
+	} else if (id == ACX1) {
+		pr_info(
+		"%s ACX1 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
+		__func__,
+		apu_readl(apupw.regs[apu_acx1_rpc_lite] + APU_RPC_INTF_PWR_RDY),
+		apu_readl(apupw.regs[apu_acx1] + APU_ACX_CONN_CG_CON));
+
+	} else {
+		pr_info(
+		"%s RCX APU_RPC_INTF_PWR_RDY:0x%08x APU_VCORE_CG_CON:0x%08x APU_RCX_CG_CON:0x%08x\n",
+		__func__,
+		apu_readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
+		apu_readl(apupw.regs[apu_vcore] + APUSYS_VCORE_CG_CON),
+		apu_readl(apupw.regs[apu_rcx] + APU_RCX_CG_CON));
+	}
+}
+
+static int __apu_sleep_rpc_rcx(struct device *dev)
+{
+	uint32_t regValue;
+
+	// REG_WAKEUP_CLR
+	pr_info("%s step1. set REG_WAKEUP_CLR\n", __func__);
+	apu_writel(0x00001000, apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
+	udelay(10);
+
+	// mask RPC IRQ and bypass WFI
+	pr_info("%s step2. mask RPC IRQ and bypass WFI\n", __func__);
+	regValue = 0x0;
+	regValue = apu_readl(apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+	regValue |= 0x9E;
+	regValue |= (0x1 << 10);
+	apu_writel(regValue, apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+	udelay(10);
+
+	// clean up wakeup source (uP part), clear rpc irq
+	pr_info("%s step3. clean wakeup/abort irq bit\n", __func__);
+	regValue = 0x0;
+	regValue = apu_readl(apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
+	regValue |= ((0x1 << 1) | (0x1 << 2));
+	apu_writel(regValue, apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
+	udelay(10);
+
+	// FIXME : remove thie after SB
+	// may need config this in FPGS environment
+	pr_info("%s step4. ignore slp prot\n", __func__);
+	regValue = 0x0;
+	regValue = apu_readl(apupw.regs[apu_rpc] + 0x140);
+	regValue |= (0x1 << 13);
+	apu_writel(regValue, apupw.regs[apu_rpc] + 0x140);
+	udelay(10);
+
+	// sleep request enable
+	// CAUTION!! do NOT request sleep twice in succession
+	// or system may crash (comments from DE)
+	pr_info("%s Step5. sleep request\n", __func__);
+	regValue = 0x0;
+	regValue = apu_readl(apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
+	regValue |= 0x1;
+	apu_writel(regValue, apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
+
+	udelay(100);
+
+	dev_info(dev, "%s RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
+			__func__,
+			(u32)(apupw.phy_addr[apu_rpc] + APU_RPC_INTF_PWR_RDY),
+			readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
+
+	return 0;
+}
+
 static int __apu_wake_rpc_rcx(struct device *dev)
 {
 	int ret = 0, val = 0;
@@ -366,12 +435,6 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			val, (val & 0x1UL),
-			50, 10000);
-
-	apu_writel(0x00001000, apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
-	ret |= readl_relaxed_poll_timeout_atomic(
-			(apupw.regs[apu_rpc] + APU_RPC_STATUS),
-			val, (val & (0x1 << 29)),
 			50, 10000);
 	if (ret) {
 		pr_info("%s wake up apu_rpc fail, ret %d\n", __func__, ret);
@@ -418,11 +481,17 @@ static int __apu_wake_rpc_acx(struct device *dev, enum t_acx_id acx_id)
 	dev_info(dev, "%s ctl p1:%d p2:%d\n",
 			__func__, rpc_lite_base, acx_base);
 
-	/* wake acx0 rpc lite */
+	/* wake acx rpc lite */
 	apu_writel(0x00000100, apupw.regs[rpc_lite_base] + APU_RPC_TOP_CON);
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[rpc_lite_base] + APU_RPC_INTF_PWR_RDY),
 			val, (val & 0x1UL),
+			50, 10000);
+
+	/* polling FSM @RPC-lite to ensure RPC is in on/off stage */
+	ret |= readl_relaxed_poll_timeout_atomic(
+			(apupw.regs[rpc_lite_base] + APU_RPC_STATUS),
+			val, (val & (0x1 << 29)),
 			50, 10000);
 	if (ret) {
 		pr_info("%s wake up acx%d_rpc fail, ret %d\n",
@@ -446,14 +515,16 @@ out:
 	return ret;
 }
 
-static int __apu_wake_up_acx_engines(struct device *dev,
-		enum t_acx_id acx_id, enum t_dev_id dev_id)
+static int __apu_pwr_ctl_acx_engines(struct device *dev,
+		enum t_acx_id acx_id, enum t_dev_id dev_id, int pwron)
 {
 	int ret = 0, val = 0;
 	enum apupw_reg rpc_lite_base;
 	enum apupw_reg acx_base;
 	uint32_t dev_mtcmos_ctl, dev_cg_con, dev_cg_clr;
 	uint32_t dev_mtcmos_chk;
+
+	// we support power only for bringup
 
 	if (acx_id == ACX0) {
 		rpc_lite_base = apu_acx0_rpc_lite;
@@ -542,6 +613,8 @@ static int mt6983_apu_top_off(struct device *dev)
 
 	if (--ref_count > 0)
 		return 0;
+
+	__apu_sleep_rpc_rcx(dev);
 
 #if !CFG_FPGA
 	plt_pwr_res_ctl(0);
@@ -676,28 +749,42 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 	init_hw_setting(&pdev->dev);
 
 #if APU_POWER_BRING_UP
+	pr_info("%s APMCU trigger RCX power ON\n", __func__);
 	mt6983_apu_top_on(&pdev->dev);
-	__apu_wake_rpc_acx(&pdev->dev, ACX0);
-	__apu_wake_rpc_acx(&pdev->dev, ACX1);
+
 #if !CFG_FPGA
 	__apu_on_mdla_mvpu_clk();
 #endif
 	switch (fpga_type) {
+	default:
+	case 0:
+		pr_info("%s bypass engine power ON\n", __func__);
+		break;
 	case 1:
-		__apu_wake_up_acx_engines(&pdev->dev, ACX0, VPU0);
-		__apu_wake_up_acx_engines(&pdev->dev, ACX1, VPU0);
+		__apu_wake_rpc_acx(&pdev->dev, ACX0);
+		__apu_wake_rpc_acx(&pdev->dev, ACX1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, VPU0, 1);
 		break;
 	case 2:
-		__apu_wake_up_acx_engines(&pdev->dev, ACX0, VPU0);
-		__apu_wake_up_acx_engines(&pdev->dev, ACX1, DLA0);
+		__apu_wake_rpc_acx(&pdev->dev, ACX0);
+		__apu_wake_rpc_acx(&pdev->dev, ACX1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
 		break;
-	default:
 	case 3:
-		__apu_wake_up_acx_engines(&pdev->dev, ACX0, DLA0);
-		__apu_wake_up_acx_engines(&pdev->dev, ACX1, DLA0);
+		__apu_wake_rpc_acx(&pdev->dev, ACX0);
+		__apu_wake_rpc_acx(&pdev->dev, ACX1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, DLA0, 1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
+		break;
+	case 4:
+		pr_info("%s APMCU trigger RCX power OFF\n", __func__);
+		mt6983_apu_top_off(&pdev->dev);
 		break;
 	}
-#endif
+#endif // APU_POWER_BRING_UP
+
 	aputop_opp_limiter_init(apupw.regs[apu_md32_mbox]);
 
 	return ret;
@@ -746,24 +833,12 @@ static void aputop_dump_pwr_res(void)
 			__func__, vapu, vcore, vsram);
 #endif
 
-	pr_info(
-	"%s RCX APU_RPC_INTF_PWR_RDY:0x%08x APU_VCORE_CG_CON:0x%08x APU_RCX_CG_CON:0x%08x\n",
-		__func__,
-		apu_readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
-		apu_readl(apupw.regs[apu_vcore] + APUSYS_VCORE_CG_CON),
-		apu_readl(apupw.regs[apu_rcx] + APU_RCX_CG_CON));
+	__apu_dump_rpc_status(RCX);
 
-	pr_info(
-	"%s ACX0 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
-		__func__,
-		apu_readl(apupw.regs[apu_acx0_rpc_lite] + APU_RPC_INTF_PWR_RDY),
-		apu_readl(apupw.regs[apu_acx0] + APU_ACX_CONN_CG_CON));
-
-	pr_info(
-	"%s ACX1 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
-		__func__,
-		apu_readl(apupw.regs[apu_acx1_rpc_lite] + APU_RPC_INTF_PWR_RDY),
-		apu_readl(apupw.regs[apu_acx1] + APU_ACX_CONN_CG_CON));
+#if APU_POWER_BRING_UP
+	__apu_dump_rpc_status(ACX0);
+	__apu_dump_rpc_status(ACX1);
+#endif
 }
 
 static void aputop_pwr_cfg(struct aputop_func_param *aputop)

@@ -18,7 +18,7 @@ struct platform_device *this_pdev;
 static const struct apupwr_plat_data *pwr_data;
 static int aputop_func_sel;
 
-int fpga_type = 3;
+int fpga_type;
 module_param (fpga_type, int, S_IRUGO);
 MODULE_PARM_DESC (fpga_type,
 "[1]ACX0_mvpu+ACX1_mvpu [2]ACX0_mvpu+ACX1_mdla0 [3]ACX0_mdla0+ACX1_mdla0");

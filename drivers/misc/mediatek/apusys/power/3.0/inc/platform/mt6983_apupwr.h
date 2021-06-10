@@ -14,7 +14,20 @@
 #define DEBUG_DUMP_REG		(0)
 #define APU_POWER_BRING_UP	(1)
 #define CFG_FPGA		(1)
-#define APUSYS_CLUSTER_NUM	(2)
+
+enum t_acx_id {
+	ACX0 = 0,
+	ACX1,
+	CLUSTER_NUM,
+	RCX,
+};
+
+enum t_dev_id {
+	VPU0 = 0,
+	DLA0,
+	DLA1,
+	DEVICE_NUM,
+};
 
 enum apupw_reg {
 	sys_spm,
