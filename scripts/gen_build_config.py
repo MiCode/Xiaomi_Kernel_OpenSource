@@ -118,7 +118,10 @@ def main(**args):
     file_text.append("HERMETIC_TOOLCHAIN=")
     file_text.append("DTC='${OUT_DIR}/scripts/dtc/dtc'")
     file_text.append("DEPMOD=")
-    file_text.append("IN_KERNEL_MODULES=")
+    if abi_mode == 'yes':
+        file_text.append("IN_KERNEL_MODULES=1")
+    else:
+        file_text.append("IN_KERNEL_MODULES=")
 
     all_defconfig = ''
     pre_defconfig_cmds = ''
