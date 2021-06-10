@@ -9,12 +9,11 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 
-#define MUTEX_MAX_MOD_REGS	((MML_MAX_COMPONENTS + 31) / 32)
+#define MUTEX_MAX_MOD_REGS	((MML_MAX_COMPONENTS + 31) >> 5)
 
 /* MUTEX register offset */
 #define MUTEX_EN(id)		(0x20 + (id) * 0x20)
@@ -208,7 +207,7 @@ const struct of_device_id mml_mutex_driver_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, mml_mutex_driver_dt_match);
 
-static struct platform_driver mml_mutex_driver = {
+struct platform_driver mml_mutex_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {

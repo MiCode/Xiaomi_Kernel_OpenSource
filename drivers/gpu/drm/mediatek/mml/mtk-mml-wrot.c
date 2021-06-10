@@ -11,13 +11,15 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/math64.h>
 
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 
+#ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
+#endif
 
 /* mtk iommu */
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -80,9 +82,17 @@
 /* register mask */
 #define VIDO_INT_MASK			0x07
 
-/* ceil and floor helper macro */
-#define ceil(n, d) ((u32)(((float)(n) / (d)) + ((n) % (d) != 0)))
-#define floor(n, d) ((u32)((float)(n) / (d)))
+/* ceil_m and floor_m helper macro */
+//#define ceil_m(n, d) ((u32)(((float)(n) / (d)) + ((n) % (d) != 0)))
+//#define floor_m(n, d) ((u32)((float)(n) / (d)))
+u32 ceil_m(u64 n, u64 d) {
+	u32 reminder = do_div((n),(d));
+	return n + (reminder != 0);
+}
+u32 floor_m(u64 n, u64 d) {
+	do_div(n, d);
+	return n;
+}
 
 enum wrot_label {
 	WROT_LABEL_ADDR = 0,
@@ -1194,7 +1204,7 @@ static void wrot_check_buf(const struct mml_frame_dest *dest,
 	/* Checking Y buffer usage
 	 * y_buf_width is just larger than main_blk_width
 	 */
-	buf->y_buf_width = ceil(setting->main_blk_width,
+	buf->y_buf_width = ceil_m(setting->main_blk_width,
 				setting->main_buf_line_num) *
 			   setting->main_buf_line_num;
 	buf->y_buf_usage = buf->y_buf_width * setting->main_buf_line_num;
@@ -1234,7 +1244,7 @@ static void wrot_check_buf(const struct mml_frame_dest *dest,
 		}
 	}
 
-	buf->uv_buf_width = ceil(buf->uv_blk_width, buf->uv_blk_line) *
+	buf->uv_buf_width = ceil_m(buf->uv_blk_width, buf->uv_blk_line) *
 			    buf->uv_blk_line;
 	buf->uv_buf_usage = buf->uv_buf_width * buf->uv_blk_line;
 	if (buf->uv_buf_usage > buf->uv_buf_size) {
@@ -1272,12 +1282,12 @@ static void wrot_calc_setting(struct mml_wrot *wrot,
 	/* Allocate FIFO buffer */
 	setting->main_blk_width = setting->tar_xsize;
 
-	coeff1 = floor(wrot_frm->fifo_max_sz, setting->tar_xsize * 2) * 2;
-	coeff2 = ceil(setting->tar_xsize, coeff1);
-	temp = ceil(setting->tar_xsize, coeff2 * 4) * 4;
+	coeff1 = floor_m(wrot_frm->fifo_max_sz, setting->tar_xsize * 2) * 2;
+	coeff2 = ceil_m(setting->tar_xsize, coeff1);
+	temp = ceil_m(setting->tar_xsize, coeff2 * 4) * 4;
 
 	if (temp > setting->tar_xsize)
-		setting->main_buf_line_num = ceil(setting->tar_xsize, 4) * 4;
+		setting->main_buf_line_num = ceil_m(setting->tar_xsize, 4) * 4;
 	else
 		setting->main_buf_line_num = temp;
 	if (setting->main_buf_line_num > wrot_frm->max_line_cnt)
@@ -1470,11 +1480,17 @@ static s32 wrot_pw_enable(struct mml_comp *comp)
 
 	/* mtk iommu */
 	mml_log("%s larb %hhu", __func__, wrot->larb);
-	if (wrot->larb == 2)
+	if (wrot->larb == 2) {
+        mml_log("[CLOCK] Enable SMI & LARB2 Clock\n");
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_prepare_enable(SMI_LARB2, "MDP");
-	else if (wrot->larb == 3)
+#endif
+    } else if (wrot->larb == 3) {
+        mml_log("[CLOCK] Enable SMI & LARB3 Clock\n");
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_prepare_enable(SMI_LARB3, "MDP");
-	else
+#endif
+	} else 
 		mml_err("[wrot] %s unknown larb %hhu", __func__, wrot->larb);
 
 	return 0;
@@ -1486,11 +1502,17 @@ static s32 wrot_pw_disable(struct mml_comp *comp)
 
 	/* mtk iommu */
 	mml_log("%s larb %hhu", __func__, wrot->larb);
-	if (wrot->larb == 2)
+	if (wrot->larb == 2) {
+        mml_log("[CLOCK] Disable SMI & LARB2 Clock\n");
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_disable_unprepare(SMI_LARB2, "MDP");
-	else if (wrot->larb == 3)
+#endif
+	} else if (wrot->larb == 3) {
+        mml_log("[CLOCK] Disable SMI & LARB3 Clock\n");
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_disable_unprepare(SMI_LARB3, "MDP");
-	else
+#endif
+	} else
 		mml_err("[wrot] %s unknown larb %hhu", __func__, wrot->larb);
 
 	return 0;
@@ -1611,7 +1633,7 @@ const struct of_device_id mtk_mml_wrot_driver_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, mtk_mml_wrot_driver_dt_match);
 
-static struct platform_driver mtk_mml_wrot_driver = {
+struct platform_driver mtk_mml_wrot_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {

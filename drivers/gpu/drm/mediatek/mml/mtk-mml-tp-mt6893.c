@@ -250,14 +250,14 @@ static const struct mml_topology_ops tp_ops_mt6893 = {
 	.select = tp_select
 };
 
-static __init int mml_topology_ip_init(void)
+int mml_topology_ip_init(void)
 {
 	return mml_topology_register_ip(TOPOLOGY_PLATFORM, &tp_ops_mt6893);
 }
-module_init(mml_topology_ip_init);
+//module_init(mml_topology_ip_init);
 
-static __exit void mml_topology_ip_exit(void)
+void mml_topology_ip_exit(void)
 {
 	mml_topology_unregister_ip(TOPOLOGY_PLATFORM);
 }
-module_exit(mml_topology_ip_exit);
+//module_exit(mml_topology_ip_exit);

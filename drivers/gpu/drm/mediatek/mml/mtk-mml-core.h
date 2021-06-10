@@ -20,10 +20,17 @@
 
 #include "mtk-mml.h"
 #include "mtk-mml-driver.h"
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
+extern struct cmdq_client *cmdq_client;
 extern int mtk_mml_msg;
 extern s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
     cmdq_async_flush_cb cb, void *data);
+extern void cmdq_mbox_destroy(struct cmdq_client *client);
+extern struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client);
+extern void cmdq_pkt_destroy(struct cmdq_pkt *pkt);
+extern s32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
+    dma_addr_t addr, u32 value, u32 mask);
 
 #define mml_msg(fmt, args...) \
 do { \

@@ -10,13 +10,14 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 
+#ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
+#endif
 
 /* mtk iommu */
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -995,12 +996,19 @@ static s32 rdma_pw_enable(struct mml_comp *comp)
 
 	/* mtk iommu */
 	mml_log("%s larb %hhu", __func__, rdma->larb);
-	if (rdma->larb == 2)
+	if (rdma->larb == 2) {
+        mml_log("[CLOCK] Enable MDP Larb2 Clock\n");
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_prepare_enable(SMI_LARB2, "MDP");
-	else if (rdma->larb == 3)
+#endif
+    } else if (rdma->larb == 3) {
+        mml_log("[CLOCK] Enable MDP Larb3 Clock\n");
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_prepare_enable(SMI_LARB3, "MDP");
-	else
+#endif
+    } else {
 		mml_err("[rdma] %s unknown larb %hhu", __func__, rdma->larb);
+    }
 
 	return 0;
 }
@@ -1011,12 +1019,19 @@ static s32 rdma_pw_disable(struct mml_comp *comp)
 
 	/* mtk iommu */
 	mml_log("%s larb %hhu", __func__, rdma->larb);
-	if (rdma->larb == 2)
+	if (rdma->larb == 2) {
+        mml_log("[CLOCK] Disable rdma larb2 Clock\n");
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_disable_unprepare(SMI_LARB2, "MDP");
-	else if (rdma->larb == 3)
+#endif
+    } else if (rdma->larb == 3) {
+        mml_log("[CLOCK] Disable rdma larb3 Clock\n");
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_disable_unprepare(SMI_LARB3, "MDP");
-	else
+#endif
+    } else {
 		mml_err("[rdma] %s unknown larb %hhu", __func__, rdma->larb);
+    }
 
 	return 0;
 }
@@ -1139,7 +1154,7 @@ const struct of_device_id mtk_mml_rdma_driver_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, mtk_mml_rdma_driver_dt_match);
 
-static struct platform_driver mtk_mml_rdma_driver = {
+struct platform_driver mtk_mml_rdma_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {

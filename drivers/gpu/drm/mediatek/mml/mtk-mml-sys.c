@@ -8,7 +8,6 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
@@ -308,7 +307,7 @@ static const struct of_device_id mml_sys_of_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, mml_sys_of_ids);
 
-static struct platform_driver mml_sys_driver = {
+struct platform_driver mml_sys_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
@@ -317,7 +316,7 @@ static struct platform_driver mml_sys_driver = {
 		.of_match_table = mml_sys_of_ids,
 	},
 };
-module_platform_driver(mml_sys_driver);
+//module_platform_driver(mml_sys_driver);
 
 MODULE_DESCRIPTION("MediaTek SoC display MMLSYS driver");
 MODULE_AUTHOR("Ping-Hsun Wu <ping-hsun.wu@mediatek.com>");
