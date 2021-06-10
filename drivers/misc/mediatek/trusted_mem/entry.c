@@ -36,12 +36,13 @@
 #define TZ_TA_SECMEM_UUID   "com.mediatek.geniezone.srv.mem"
 
 #endif
+#include "memory_ssmr.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
 #include "private/tmem_device.h"
 #include "private/tmem_priv.h"
 #include "private/tmem_cfg.h"
-#include "memory_ssmr.h"
+#include "public/trusted_mem_api.h"
 
 static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
 {
@@ -227,7 +228,7 @@ parameter_checks_with_alignment_adjust(enum TRUSTED_MEM_TYPE mem_type,
 	return TMEM_OK;
 }
 
-static int tmem_core_region_based_alloc(enum TRUSTED_MEM_TYPE mem_type,
+static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 					  u32 alignment, u32 size,
 					  u32 *refcount, u32 *sec_handle,
 					  u8 *owner, u32 id, u32 clean,
@@ -280,60 +281,33 @@ static int tmem_core_region_based_alloc(enum TRUSTED_MEM_TYPE mem_type,
 	return TMEM_OK;
 }
 
-static int tmem_core_page_based_alloc(enum TRUSTED_MEM_TYPE mem_type,
-				u32 size, u32 *sec_iova)
+int tmem_core_alloc_page(enum TRUSTED_MEM_TYPE mem_type, u32 size,
+			  struct ssheap_buf_info *buf_info)
 {
 	return 1;
 }
 
-static int tmem_core_page_based_free(enum TRUSTED_MEM_TYPE mem_type,
-				u32 *sec_iova)
+int tmem_core_unref_page(enum TRUSTED_MEM_TYPE mem_type,
+			  struct ssheap_buf_info *buf_info)
 {
 	return 1;
-}
-
-static inline enum TRUSTED_MEM_TYPE
-get_region_mem_type(enum TRUSTED_MEM_TYPE req_type)
-{
-	switch (req_type) {
-	case TRUSTED_MEM_SVP_PAGE:
-		return TRUSTED_MEM_SVP_REGION;
-	default:
-		return req_type;
-	}
 }
 
 int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			  u32 size, u32 *refcount, u32 *sec_handle, u8 *owner,
 			  u32 id, u32 clean)
 {
-	if((mem_type == TRUSTED_MEM_SVP_REGION ||
-		mem_type == TRUSTED_MEM_SVP_REGION ||
-		mem_type == TRUSTED_MEM_WFD) &&
-		!is_svp_enabled()) {
-		pr_info("[%d] %s: TMEM_OPERATION_NOT_REGISTERED\n", mem_type, __func__);
-		return TMEM_OPERATION_NOT_REGISTERED;
-	}
 
-	if (is_page_based_memory(mem_type)) {
-		pr_info("[%d] %s: page-base: size = 0x%x\n", mem_type, __func__, size);
-		return tmem_core_page_based_alloc(mem_type, size, sec_handle);
-	} else {
-		mem_type = get_region_mem_type(mem_type);
-
-		pr_info("[%d] %s: region-base: size = 0x%x\n", mem_type, __func__, size);
-		return tmem_core_region_based_alloc(mem_type, alignment, size,
-					      refcount, sec_handle, owner, id, clean, true);
-	}
+	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
+				refcount, sec_handle, owner, id, clean, true);
 }
 
 int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			       u32 size, u32 *refcount, u32 *sec_handle,
 			       u8 *owner, u32 id, u32 clean)
 {
-	return tmem_core_region_based_alloc(mem_type, alignment, size,
-					      refcount, sec_handle, owner, id,
-					      clean, false);
+	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
+				refcount, sec_handle, owner, id, clean, false);
 }
 
 int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
@@ -349,29 +323,25 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 		return TMEM_OPERATION_NOT_REGISTERED;
 	}
 
-	if (is_page_based_memory(mem_type)) {
-		return tmem_core_page_based_free(mem_type, &sec_handle);
-	} else {
-		pr_info("[%d] free handle = 0x%x\n", mem_type, sec_handle);
+	pr_info("[%d] free handle = 0x%x\n", mem_type, sec_handle);
 
-		if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
-			pr_info("[%d] regmgr region is still not online!\n", mem_type);
-			return TMEM_REGION_IS_NOT_READY_BEFORE_MEM_FREE_OPERATION;
-		}
-
-		ret = mem_device->peer_mgr->mgr_sess_mem_free(
-			sec_handle, owner, id, mem_device->peer_ops,
-			&mem_device->peer_mgr->peer_mgr_data, mem_device->dev_desc);
-		if (unlikely(ret)) {
-			pr_info("[%d] free chunk failed!\n", mem_type);
-			return ret;
-		}
-
-		regmgr_region_ref_dec(mem_device->reg_mgr);
-		regmgr_offline(mem_device->reg_mgr);
-
-		return TMEM_OK;
+	if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
+		pr_info("[%d] regmgr region is still not online!\n", mem_type);
+		return TMEM_REGION_IS_NOT_READY_BEFORE_MEM_FREE_OPERATION;
 	}
+
+	ret = mem_device->peer_mgr->mgr_sess_mem_free(
+		sec_handle, owner, id, mem_device->peer_ops,
+		&mem_device->peer_mgr->peer_mgr_data, mem_device->dev_desc);
+	if (unlikely(ret)) {
+		pr_info("[%d] free chunk failed!\n", mem_type);
+		return ret;
+	}
+
+	regmgr_region_ref_dec(mem_device->reg_mgr);
+	regmgr_offline(mem_device->reg_mgr);
+
+	return TMEM_OK;
 }
 
 bool tmem_core_is_regmgr_region_on(enum TRUSTED_MEM_TYPE mem_type)

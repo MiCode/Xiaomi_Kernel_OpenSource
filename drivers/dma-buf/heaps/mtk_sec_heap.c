@@ -155,7 +155,7 @@ static void tmem_free(struct dma_buf *dmabuf)
 
 	sec_handle = buf_info->sec_handle;
 	trusted_mem_api_unref(tmem_type, sec_handle,
-			      (uint8_t *)dma_heap_get_name(buffer->heap), 0);
+			      (uint8_t *)dma_heap_get_name(buffer->heap), 0, NULL);
 
 	//free sgtable
 	/* remove all domains' sgtable */
@@ -296,7 +296,7 @@ static struct dma_buf *tmem_allocate(struct dma_heap *heap,
 	ret = trusted_mem_api_alloc(tmem_type, 0, len, &refcount,
 				    &sec_handle,
 				    (uint8_t *)dma_heap_get_name(heap),
-				    0);
+				    0, NULL);
 
 	if (ret == -ENOMEM) {
 		pr_info("%s security out of memory, heap:%s\n",
@@ -360,7 +360,7 @@ static struct dma_buf *tmem_allocate(struct dma_heap *heap,
 free_buffer:
 	//free secure handle
 	trusted_mem_api_unref(tmem_type, sec_handle,
-			      (uint8_t *)dma_heap_get_name(buffer->heap), 0);
+			      (uint8_t *)dma_heap_get_name(buffer->heap), 0, NULL);
 free_buffer_struct:
 	sg_free_table(table);
 	kfree(info);

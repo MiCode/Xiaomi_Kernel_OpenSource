@@ -12,11 +12,11 @@
 #include <linux/unistd.h>
 #include <linux/version.h>
 
+#include "ssmr/memory_ssmr.h"
 #include "private/tmem_entry.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
 #include "public/trusted_mem_api.h"
-#include "ssmr/memory_ssmr.h"
 
 static inline void trusted_mem_type_enum_validate(void)
 {
@@ -70,12 +70,43 @@ get_mem_type(enum TRUSTED_MEM_REQ_TYPE req_type)
 	}
 }
 
-int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
-			  u32 size, u32 *refcount, u32 *sec_handle,
-			  uint8_t *owner, uint32_t id)
+static inline enum TRUSTED_MEM_TYPE
+get_region_mem_type(enum TRUSTED_MEM_TYPE req_type)
 {
-	return tmem_core_alloc_chunk(get_mem_type(mem_type), alignment, size,
+	switch (req_type) {
+	case TRUSTED_MEM_SVP_PAGE:
+		return TRUSTED_MEM_SVP_REGION;
+	case TRUSTED_MEM_PROT_PAGE:
+		return TRUSTED_MEM_PROT_REGION;
+	default:
+		return req_type;
+	}
+}
+
+int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 alignment,
+			  u32 size, u32 *refcount, u32 *sec_handle,
+			  uint8_t *owner, uint32_t id, struct ssheap_buf_info *buf_info)
+{
+	enum TRUSTED_MEM_TYPE mem_type = get_mem_type(req_mem_type);
+
+	if((mem_type == TRUSTED_MEM_SVP_REGION ||
+		mem_type == TRUSTED_MEM_SVP_PAGE ||
+		mem_type == TRUSTED_MEM_WFD) &&
+		!is_svp_enabled()) {
+		pr_info("[TMEM][%d] %s: TMEM_OPERATION_NOT_REGISTERED\n", mem_type, __func__);
+		return TMEM_OPERATION_NOT_REGISTERED;
+	}
+
+	if (is_page_based_memory(mem_type)) {
+		pr_info("[TMEM][%d] %s: page-base: size = 0x%x\n", mem_type, __func__, size);
+		return tmem_core_alloc_page(mem_type, size, buf_info);
+	} else {
+		mem_type = get_region_mem_type(mem_type);
+
+		pr_info("[TMEM][%d] %s: region-base: size = 0x%x\n", mem_type, __func__, size);
+		return tmem_core_alloc_chunk(mem_type, alignment, size,
 				     refcount, sec_handle, owner, id, 0);
+	}
 }
 EXPORT_SYMBOL(trusted_mem_api_alloc);
 
@@ -88,11 +119,18 @@ int trusted_mem_api_alloc_zero(enum TRUSTED_MEM_REQ_TYPE mem_type,
 }
 EXPORT_SYMBOL(trusted_mem_api_alloc_zero);
 
-int trusted_mem_api_unref(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 sec_handle,
-			  uint8_t *owner, uint32_t id)
+int trusted_mem_api_unref(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 sec_handle,
+			  uint8_t *owner, uint32_t id, struct ssheap_buf_info *buf_info)
 {
-	return tmem_core_unref_chunk(get_mem_type(mem_type), sec_handle, owner,
-				     id);
+	enum TRUSTED_MEM_TYPE mem_type = get_mem_type(req_mem_type);
+
+	if (is_page_based_memory(mem_type)) {
+		return tmem_core_unref_page(mem_type, buf_info);
+	} else {
+		mem_type = get_region_mem_type(mem_type);
+
+		return tmem_core_unref_chunk(mem_type, sec_handle, owner, id);
+	}
 }
 EXPORT_SYMBOL(trusted_mem_api_unref);
 
@@ -115,3 +153,17 @@ int trusted_mem_api_query_pa(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
 #endif
 }
 EXPORT_SYMBOL(trusted_mem_api_query_pa);
+
+enum TRUSTED_MEM_REQ_TYPE trusted_mem_api_get_page_replace(
+                  enum TRUSTED_MEM_REQ_TYPE req_type)
+{
+	switch (req_type) {
+	case TRUSTED_MEM_REQ_SVP_PAGE:
+		return TRUSTED_MEM_REQ_SVP_REGION;
+	case TRUSTED_MEM_REQ_PROT_PAGE:
+		return TRUSTED_MEM_REQ_PROT_REGION;
+	default:
+		return req_type;
+	}
+}
+EXPORT_SYMBOL(trusted_mem_api_get_page_replace);
