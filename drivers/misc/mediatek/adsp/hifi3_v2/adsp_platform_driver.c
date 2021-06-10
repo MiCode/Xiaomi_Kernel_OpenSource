@@ -578,6 +578,8 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	if (!pm_runtime_enabled(&pdev->dev))
 		pr_warn("%s(), pm_runtime_enable fail, %d\n", __func__, ret);
+	// register as syscore_device, not to be turned off when suspend
+	dev_pm_syscore_device(&pdev->dev, true);
 
 #if IS_ENABLED(CONFIG_PM)
 	ret = register_pm_notifier(&adsp_pm_notifier_block);
