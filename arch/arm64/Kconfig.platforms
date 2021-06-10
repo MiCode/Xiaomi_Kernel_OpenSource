@@ -726,6 +726,7 @@ config MACH_MT6877
 	select MTK_SPMTWAM
 	select MTK_PMSR
 	select MTK_LPM_MT6877
+	select MTK_SWPM if !FPGA_EARLY_PORTING
 	select OVERLAY_FS
 	select EXT4_FS
 	select EXT4_FS_SECURITY
