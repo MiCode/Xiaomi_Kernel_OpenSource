@@ -37,7 +37,7 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 	struct platform_device *pdev;
 	struct mtk_vcodec_pm *pm;
 	int larb_index;
-	int i, parent_index = 0;
+	int i = 0;
 	int clk_id = 0;
 	const char *clk_name;
 	struct mtk_vdec_clks_data *clks_data;
@@ -96,20 +96,6 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 		clk_id++;
 	}
 
-	i = 0;
-	while (!of_property_read_u32_index(
-		pdev->dev.of_node, "mediatek,clock-parents", i, (u32 *)&clk_id)) {
-		mtk_v4l2_debug(2, "i: %d, clk_id: %d", i, clk_id);
-		parent_index = i / 2;
-		if (i % 2 == 0) {
-			clks_data->parent_clks[parent_index].parent.clk_id = clk_id;
-			clks_data->parent_clks_len++;
-		} else {
-			clks_data->parent_clks[parent_index].child.clk_id = clk_id;
-		}
-		i++;
-	}
-
 #if DEBUG_GKI
 	// dump main clocks
 	for (i = 0; i < clks_data->main_clks_len; i++) {
@@ -125,13 +111,6 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 	for (i = 0; i < clks_data->lat_clks_len; i++) {
 		mtk_v4l2_debug(8, "lat_clks id: %d, name: %s",
 			clks_data->lat_clks[i].clk_id, clks_data->lat_clks[i].clk_name);
-	}
-	// dump parent set relationship
-	for (i = 0; i < clks_data->parent_clks_len; i++) {
-		mtk_v4l2_debug(
-			8, "clk_set_parent relationship[%d] id: %d, parent:%d child: %d",
-			i, clks_data->parent_clks[i].parent.clk_id,
-			clks_data->parent_clks[i].child.clk_id);
 	}
 #endif
 
@@ -188,8 +167,6 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	void __iomem *vdec_racing_addr;
 	int larb_index;
 	int clk_id;
-	int parent_clk_id;
-	int child_clk_id;
 	struct mtk_vdec_clks_data *clks_data;
 
 	time_check_start(MTK_FMT_DEC, hw_id);
@@ -212,15 +189,6 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 		if (ret)
 			mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
 				clk_id, clks_data->main_clks[j].clk_name, ret);
-	}
-	// set parent clock
-	for (j = 0; j < clks_data->parent_clks_len; j++) {
-		parent_clk_id = clks_data->parent_clks[j].parent.clk_id;
-		child_clk_id = clks_data->parent_clks[j].child.clk_id;
-		ret = clk_set_parent(pm->vdec_clks[child_clk_id], pm->vdec_clks[parent_clk_id]);
-		if (ret)
-			mtk_v4l2_err("clk_set_parent parent: %d, child: %d, fail: %d",
-				parent_clk_id, ret);
 	}
 
 	if (hw_id == MTK_VDEC_CORE) {
