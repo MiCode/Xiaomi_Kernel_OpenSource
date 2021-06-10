@@ -179,6 +179,29 @@ static ssize_t dvfsrc_num_opps_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(dvfsrc_num_opps);
 
+static ssize_t dvfsrc_get_dvfs_time_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	u64 dvfs_time_us;
+
+	const struct dvfsrc_config *config;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	config = dvfsrc->dvd->config;
+
+	if (dvfsrc->force_opp_idx >= dvfsrc->opp_desc->num_opp)
+		return sprintf(buf, "Not in force mode\n");
+
+	if (config->query_dvfs_time)
+		dvfs_time_us = config->query_dvfs_time(dvfsrc);
+	else
+		return sprintf(buf, "Not Suuport query\n");
+
+	return sprintf(buf, "dvfs_time = %llu us\n", dvfs_time_us);
+}
+DEVICE_ATTR_RO(dvfsrc_get_dvfs_time);
+
+
 static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_bw.attr,
 	&dev_attr_dvfsrc_req_hrtbw.attr,
@@ -188,6 +211,7 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_force_vcore_dvfs_opp.attr,
 	&dev_attr_dvfsrc_opp_table.attr,
 	&dev_attr_dvfsrc_num_opps.attr,
+	&dev_attr_dvfsrc_get_dvfs_time.attr,
 	NULL,
 };
 

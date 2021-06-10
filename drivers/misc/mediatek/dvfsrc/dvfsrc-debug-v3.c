@@ -399,7 +399,7 @@ static u32 dvfsrc_get_md_imp_ddr(struct mtk_dvfsrc *dvfsrc)
 		val = (val >> 19) & 0x7;
 	break;
 	case 3:
-		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x24);
+		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x10);
 		val = val & 0xF;
 	break;
 	default:
@@ -491,6 +491,17 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 		dvfsrc_read(dvfsrc, DVFSRC_SW_REQ1, 0x18),
 		dvfsrc_read(dvfsrc, DVFSRC_SW_REQ1, 0x1C));
 
+	p += snprintf(p, buff_end - p,
+		"%-12s: %d, %d, %d, %d, %d, %d, %d\n",
+		"SW_BW_0~6",
+		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x0),
+		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x4),
+		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x8),
+		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0xC),
+		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x10),
+		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x14),
+		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x18));
+
 	if (dvfsrc->dvd->config->ip_verion > 2) {
 		p += snprintf(p, buff_end - p,
 			"%-12s: %d, %d, %d\n",
@@ -500,20 +511,13 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x28));
 	}
 
-	p += snprintf(p, buff_end - p,
-		"%-12s: %d, %d, %d, %d, %d, %d, %d\n",
-		"SW_BW_0~4",
-		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x0),
-		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x4),
-		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x8),
-		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0xC),
-		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x10),
-		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x14),
-		dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x18));
-
 	p += snprintf(p, buff_end - p, "%-12s: %x\n",
 		"INT",
 		dvfsrc_read(dvfsrc, DVFSRC_INT, 0x0));
+
+	p += snprintf(p, buff_end - p, "%-12s: %x\n",
+		"INT_EN",
+		dvfsrc_read(dvfsrc, DVFSRC_INT_EN, 0x0));
 
 	p += snprintf(p, buff_end - p, "%-12s: %d\n",
 		"ISP_HRT",
@@ -521,7 +525,7 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 
 	p += snprintf(p, buff_end - p,
 		"%-12s: %08x, %08x, %08x, %08x\n",
-		"DEBUG_STA",
+		"DEBUG_STA_0",
 		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x0),
 		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x4),
 		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x8),
@@ -529,14 +533,19 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 
 	p += snprintf(p, buff_end - p,
 		"%-12s: %08x, %08x, %08x\n",
-		"DEBUG_STA1",
+		"DEBUG_STA_4",
 		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x10),
 		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x14),
 		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x18));
 
-	p += snprintf(p, buff_end - p, "%-12s: %x\n",
-		"INT_EN",
-		dvfsrc_read(dvfsrc, DVFSRC_INT_EN, 0x0));
+	if (dvfsrc->dvd->config->ip_verion > 2) {
+		p += snprintf(p, buff_end - p,
+		"%-12s: %08x, %08x, %08x\n",
+		"DEBUG_STA_7",
+		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x1C),
+		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x20),
+		dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x24));
+	}
 
 	p += snprintf(p, buff_end - p, "%-12s: %d\n",
 		"MD_RISING",
@@ -609,12 +618,12 @@ static char *dvfsrc_dump_mt6873_spm_info(struct mtk_dvfsrc *dvfsrc,
 	return p;
 }
 
-#define MTK_SIP_VCOREFS_GET_EFUSE 18
-static int dvfsrc_dvfs_get_efuse_data(u32 idx)
+#define MTK_SIP_VCOREFS_GET_VCORE_INFO 18
+static int dvfsrc_dvfs_get_vcore_info_data(u32 idx)
 {
 	struct arm_smccc_res ares;
 
-	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_GET_EFUSE,
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_GET_VCORE_INFO,
 		idx, 0, 0, 0, 0, 0,
 		&ares);
 
@@ -628,27 +637,12 @@ static char *dvfsrc_dump_mt6873_vmode_info(struct mtk_dvfsrc *dvfsrc,
 	char *p, u32 size)
 {
 	char *buff_end = p + size;
-	int max_info = 0;
+	int max_info = 3;
 	int i;
-
-	switch (dvfsrc->dvd->version) {
-	case 0x6873:
-	case 0x6853:
-	case 0x6885:
-	case 0x6833:
-		max_info = 1;
-	break;
-	case 0x6893:
-		max_info = 3;
-	break;
-	default:
-		max_info = 0;
-	break;
-	}
 
 	for (i = 0; i < max_info; i++)
 		p += snprintf(p, buff_end - p, "VBINFO_%d: %08x\n",
-			i, dvfsrc_dvfs_get_efuse_data(i));
+			i, dvfsrc_dvfs_get_vcore_info_data(i));
 
 	p += snprintf(p, buff_end - p, "%s: 0x%08x\n",
 			"V_MODE",
@@ -691,6 +685,29 @@ static int dvfsrc_query_request_status(struct mtk_dvfsrc *dvfsrc, u32 id)
 	return ret;
 }
 
+static u64 dvfsrc_query_dvfs_time(struct mtk_dvfsrc *dvfsrc)
+{
+	u32 last, offset;
+	u64 time_1, time_2;
+	u64 dvfs_time_us;
+
+	last = 	dvfsrc_read(dvfsrc, DVFSRC_LAST, 0);
+	offset = last * 0x20;
+	time_1 = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x4);
+	time_1 = time_1 << 32;
+	time_1 = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x0) + time_1;
+
+	last = (last + 7) % 8;
+	offset = last * 0x20;
+	time_2 = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x4);
+	time_2 = time_2 << 32;
+	time_2 = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x0) + time_2;
+
+	dvfs_time_us = (time_1 - time_2) / 13;
+
+	return dvfs_time_us;
+}
+
 const struct dvfsrc_config mt6779_dvfsrc_config = {
 	.ip_verion = 0, /*mt6779 series*/
 	.regs = mt6779_regs,
@@ -708,6 +725,7 @@ const struct dvfsrc_config mt6873_dvfsrc_config = {
 	.dump_spm_info = dvfsrc_dump_mt6873_spm_info,
 	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
 	.query_request = dvfsrc_query_request_status,
+	.query_dvfs_time = dvfsrc_query_dvfs_time,
 };
 
 const struct dvfsrc_config mt6893_dvfsrc_config = {
@@ -719,6 +737,7 @@ const struct dvfsrc_config mt6893_dvfsrc_config = {
 	.dump_spm_info = dvfsrc_dump_mt6873_spm_info,
 	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
 	.query_request = dvfsrc_query_request_status,
+	.query_dvfs_time = dvfsrc_query_dvfs_time,
 };
 
 const struct dvfsrc_config mt6877_dvfsrc_config = {
@@ -730,6 +749,7 @@ const struct dvfsrc_config mt6877_dvfsrc_config = {
 	.dump_spm_info = dvfsrc_dump_mt6873_spm_info,
 	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
 	.query_request = dvfsrc_query_request_status,
+	.query_dvfs_time = dvfsrc_query_dvfs_time,
 };
 
 const struct dvfsrc_config mt6983_dvfsrc_config = {
@@ -741,5 +761,6 @@ const struct dvfsrc_config mt6983_dvfsrc_config = {
 	.dump_spm_info = dvfsrc_dump_mt6873_spm_info,
 	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
 	.query_request = dvfsrc_query_request_status,
+	.query_dvfs_time = dvfsrc_query_dvfs_time,
 };
 
