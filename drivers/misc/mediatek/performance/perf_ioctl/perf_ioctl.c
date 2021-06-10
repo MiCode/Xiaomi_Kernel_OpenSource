@@ -556,10 +556,15 @@ static long device_ioctl(struct file *filp,
 		break;
 	case FPSGO_GET_CMD:
 		ret = -1;
+		pwr_cmd = -1;
+		value1 = -1;
+		value2 = -1;
 		break;
 	case FPSGO_GBE_GET_CMD:
 		ret = -1;
-		break;
+		pwr_cmd = -1;
+		value1 = -1;
+		value2 = -1;
 		break;
 #endif
 
