@@ -71,6 +71,10 @@ static struct irq_top_t mt6363_ints[] = {
 	MT6363_TOP_GEN(BM),
 };
 
+static const struct mtk_spmi_pmic_data common_data = {
+	.num_pmic_irqs = 0,
+};
+
 static const struct mtk_spmi_pmic_data mt6363_data = {
 	.cells = mt6363_devs,
 	.cell_size = ARRAY_SIZE(mt6363_devs),
@@ -325,19 +329,24 @@ static int mtk_spmi_pmic_probe(struct spmi_device *sdev)
 	}
 
 	core->chip_id = id;
-	core->irq = of_irq_get(np, 0);
-	if (core->irq < 0)
-		dev_err(&sdev->dev, "Failed to get irq(%d)\n", core->irq);
 
-	ret = mtk_spmi_pmic_irq_init(core);
-	if (ret)
-		dev_err(&sdev->dev, "IRQ_init failed(%d)\n", core->irq);
+	if (chip_data->num_pmic_irqs) {
+		core->irq = of_irq_get(np, 0);
+		if (core->irq < 0)
+			dev_err(&sdev->dev, "Failed to get irq(%d)\n", core->irq);
 
-	ret = devm_mfd_add_devices(&sdev->dev, -1, chip_data->cells,
-				   chip_data->cell_size, NULL, 0,
-				   core->irq_domain);
+		ret = mtk_spmi_pmic_irq_init(core);
+		if (ret)
+			dev_err(&sdev->dev, "IRQ_init failed(%d)\n", core->irq);
+
+		ret = devm_mfd_add_devices(&sdev->dev, -1, chip_data->cells,
+					   chip_data->cell_size, NULL, 0,
+					   core->irq_domain);
+		if (ret)
+			irq_domain_remove(core->irq_domain);
+	} else
+		ret = devm_of_platform_populate(&sdev->dev);
 	if (ret) {
-		irq_domain_remove(core->irq_domain);
 		dev_err(&sdev->dev, "Failed to add child devices: %d\n", ret);
 		return ret;
 	}
@@ -350,6 +359,8 @@ static int mtk_spmi_pmic_probe(struct spmi_device *sdev)
 }
 
 static const struct of_device_id mtk_spmi_pmic_of_match[] = {
+	{ .compatible = "mediatek,mt6315", .data = &common_data, },
+	{ .compatible = "mediatek,mt6319", .data = &common_data, },
 	{ .compatible = "mediatek,mt6363", .data = &mt6363_data, },
 	{ }
 };
