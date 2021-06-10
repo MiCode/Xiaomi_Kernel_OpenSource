@@ -11,42 +11,22 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/debugfs.h>
-#include <linux/mutex.h>
-#include <linux/io.h>
-#include <linux/sched/clock.h>
-#include <apusys_secure.h>
-#include <apusys_plat.h>
+#ifndef __APUSYS_MIDWARE_PLATFORM_H__
+#define __APUSYS_MIDWARE_PLATFORM_H__
 
+extern struct dentry *mdw_dbg_root;
+#define APUSYS_VLM_START 0x1D800000 // tcm tmp
+#define APUSYS_VLM_SIZE 0x100000
 #define APUSYS_REG_SIZE (0x100000)
 #define APUSYS_BASE (0x19000000)
-#define APUSYS_TO_INFRA_BASE (0x10000000)
+#define INFRA_BASE (0x10000000)
+#define INFRA_SIZE (0x10000)
 #define NA	(-1)
-#define FORCE_REG_DUMP_ENABLE (0)
 
 char *reg_all_mem;
 bool apusys_dump_force;
-bool apusys_dump_skip_gals;
 static void *apu_top;
 static void *apu_to_infra_top;
-static struct dentry *debug_node;
-static struct mutex dbg_lock;
-static struct mutex dump_lock;
-
-#define DBG_MUX_SEL_COUNT (13)
-
-#define TOTAL_DBG_MUX_COUNT (38)
-#define DBG_MUX_VPU_START_IDX (29)
-#define DBG_MUX_VPU_END_IDX (34)
-
-#define SEGMENT_COUNT (38)
-
-
-struct dbg_mux_sel_value {
-	char name[128];
-	int status_reg_offset;
-	int dbg_sel[DBG_MUX_SEL_COUNT];
-};
 
 struct dbg_mux_sel_info {
 	int offset;
@@ -54,14 +34,7 @@ struct dbg_mux_sel_info {
 	int end_bit;
 };
 
-struct reg_dump_info {
-	char name[128];
-	int base;
-	int size;
-};
-
-struct dbg_mux_sel_info info_table[DBG_MUX_SEL_COUNT] = {
-
+struct dbg_mux_sel_info info_table[] = {
 	{0x29010, 1,  1 }, //vcore_dbg_sel
 	{0x29010, 4,  2 }, //vcore_dbg_sel0
 	{0x29010, 7,  5 }, //vcore_dbg_sel1
@@ -77,8 +50,15 @@ struct dbg_mux_sel_info info_table[DBG_MUX_SEL_COUNT] = {
 	{0x32a10, 10, 10}, //vpu2_apu_gals_m_ctl_sel
 };
 
+#define DBG_MUX_SEL_COUNT (sizeof(info_table)/sizeof(struct dbg_mux_sel_info))
 
-struct dbg_mux_sel_value value_table[TOTAL_DBG_MUX_COUNT] = {
+struct dbg_mux_sel_value {
+	char name[128];
+	int status_reg_offset;
+	int dbg_sel[DBG_MUX_SEL_COUNT];
+};
+
+struct dbg_mux_sel_value value_table[] = {
 
 	{"VCORE2EMI_N0_GALS_TX",      0x2901C,
 		{ 0,  1, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA} },
@@ -138,18 +118,6 @@ struct dbg_mux_sel_value value_table[TOTAL_DBG_MUX_COUNT] = {
 		{NA, NA, NA, NA, NA, NA, NA, NA, NA,  0, NA, NA, NA} },
 	{"MDLA1M12CONN_GALS_TX",      0x3813C,
 		{NA, NA, NA, NA, NA, NA, NA, NA, NA,  1, NA, NA, NA} },
-	{"VPU02CONN_GALS_TX",         0x30A28,
-		{NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,  0, NA, NA} },
-	{"CONN2VPU0_GALS_RX",         0x30A28,
-		{NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,  1, NA, NA} },
-	{"VPU12CONN_GALS_TX",         0x31A28,
-		{NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,  0, NA} },
-	{"CONN2VPU1_GALS_RX",         0x31A28,
-		{NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,  1, NA} },
-	{"VPU22CONN_GALS_TX",         0x32A28,
-		{NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,  0} },
-	{"CONN2VPU2_GALS_RX",         0x32A28,
-		{NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,  1} },
 	{"APUSYS2ACP_VCORE_GALS_TX",  0x2901C,
 		{ 0,  5, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA} },
 	{"APUSYS2ACP_VCORE_GALS_RX",  0x2901C,
@@ -158,7 +126,16 @@ struct dbg_mux_sel_value value_table[TOTAL_DBG_MUX_COUNT] = {
 		{ 0,  7, NA,  3, NA, NA,  5, NA, NA, NA, NA, NA, NA} },
 };
 
-struct reg_dump_info range_table[SEGMENT_COUNT] = {
+#define TOTAL_DBG_MUX_COUNT \
+	(sizeof(value_table)/sizeof(struct dbg_mux_sel_value))
+
+struct reg_dump_info {
+	char name[128];
+	u32 base;
+	u32 size;
+};
+
+struct reg_dump_info range_table[] = {
 
 	{"md32_sysCtrl",         0x19001000, 0x800 },
 	{"md32_sysCtrl_PMU",     0x19001800, 0x800 },
@@ -200,186 +177,6 @@ struct reg_dump_info range_table[SEGMENT_COUNT] = {
 	{"noc_dapc_ap_wrapper",  0x190FC000, 0x4000},
 };
 
-static void set_dbg_sel(int val, int offset, int shift, int mask)
-{
-	void *target = apu_top + offset;
-	u32 tmp = ioread32(target);
+#define SEGMENT_COUNT (sizeof(range_table)/sizeof(struct reg_dump_info))
 
-	tmp = (tmp & ~(mask << shift)) | (val << shift);
-	iowrite32(tmp, target);
-	tmp = ioread32(target);
-}
-
-u32 dbg_read(struct dbg_mux_sel_value sel)
-{
-	int i;
-	int offset;
-	int shift;
-	int length;
-	int mask;
-	void *addr = apu_top + sel.status_reg_offset;
-	struct dbg_mux_sel_info info;
-
-	for (i = 0; i < DBG_MUX_SEL_COUNT; ++i) {
-		if (sel.dbg_sel[i] >= 0) {
-			info = info_table[i];
-			offset = info.offset;
-			shift = info.end_bit;
-			length = info.start_bit - info.end_bit + 1;
-			mask = (1 << length) - 1;
-
-			set_dbg_sel(sel.dbg_sel[i], offset, shift, mask);
-		}
-	}
-
-	return ioread32(addr);
-}
-
-static u32 gals_reg[TOTAL_DBG_MUX_COUNT];
-
-void dump_gals_reg(bool dump_vpu)
-{
-	int i;
-
-	for (i = 0; i < TOTAL_DBG_MUX_COUNT; ++i) {
-
-		/* skip dump vpu gals reg */
-		if (false == dump_vpu &&
-			i >= DBG_MUX_VPU_START_IDX &&
-			i <= DBG_MUX_VPU_END_IDX) {
-			continue;
-		}
-
-		gals_reg[i] = dbg_read(value_table[i]);
-	}
-}
-
-void show_gals(struct seq_file *sfile)
-{
-	int i;
-
-	for (i = 0; i < TOTAL_DBG_MUX_COUNT; ++i)
-		seq_printf(sfile, "%s:0x%08x\n",
-			value_table[i].name, gals_reg[i]);
-}
-
-void apusys_dump_reg_skip_gals(int onoff)
-{
-	if (onoff)
-		apusys_dump_skip_gals = true;
-	else
-		apusys_dump_skip_gals = false;
-}
-
-void apusys_reg_dump(void)
-{
-	int i, offset, size;
-	bool dump_vpu = false;
-
-	mutex_lock(&dump_lock);
-
-	if (reg_all_mem == NULL) {
-
-		reg_all_mem = vzalloc(APUSYS_REG_SIZE);
-		if (reg_all_mem == NULL)
-			goto out;
-	} else {
-		pr_info("[apusys][dump] dump is in process, skip this dump!\n");
-		goto out;
-	}
-
-	if (!apusys_dump_skip_gals)
-		dump_gals_reg(dump_vpu);
-
-	for (i = 0; i < SEGMENT_COUNT; ++i) {
-		offset = range_table[i].base - APUSYS_BASE;
-		size = range_table[i].size;
-
-		memcpy_fromio(reg_all_mem + offset, apu_top + offset, size);
-	}
-
-out:
-	mutex_unlock(&dump_lock);
-}
-
-int dump_show(struct seq_file *sfile, void *v)
-{
-	u64 t;
-	u64 nanosec_rem;
-	int i;
-
-	mutex_lock(&dbg_lock);
-
-	if (apusys_dump_force)
-		apusys_reg_dump();
-
-	mutex_lock(&dump_lock);
-
-	if (reg_all_mem == NULL)
-		goto out;
-
-	t = sched_clock();
-	nanosec_rem = do_div(t, 1000000000);
-
-	seq_printf(sfile, "[%5lu.%06lu] ------- dump GALS -------\n",
-		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
-
-	show_gals(sfile);
-
-	seq_puts(sfile, "---- dump from 0x1900_0000 to 0x190F_FFFF ----\n");
-	for (i = 0; i < SEGMENT_COUNT; ++i)
-		seq_printf(sfile, "%s:0x%08x to 0x%08x\n", range_table[i].name,
-			range_table[i].base,
-			range_table[i].base + range_table[i].size);
-
-	seq_hex_dump(sfile, "", DUMP_PREFIX_OFFSET, 16, 4,
-		reg_all_mem, APUSYS_REG_SIZE, false);
-
-	vfree(reg_all_mem);
-	reg_all_mem = NULL;
-
-out:
-	mutex_unlock(&dump_lock);
-	mutex_unlock(&dbg_lock);
-
-	return 0;
-}
-
-static int dump_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, dump_show, NULL);
-}
-
-static const struct file_operations apu_dump_debug_fops = {
-	.owner = THIS_MODULE,
-	.open = dump_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release
-};
-
-void apusys_dump_init(void)
-{
-	mutex_init(&dbg_lock);
-	mutex_init(&dump_lock);
-	debug_node = debugfs_create_dir("debug", mdw_dbg_root);
-	debugfs_create_file("apusys_reg_all", 0444,
-			debug_node, NULL, &apu_dump_debug_fops);
-#if FORCE_REG_DUMP_ENABLE
-	debugfs_create_bool("force_dump", 0644,
-			debug_node, &apusys_dump_force);
 #endif
-	apu_top = ioremap_nocache(APUSYS_BASE, APUSYS_REG_SIZE);
-	apu_to_infra_top = ioremap_nocache(APUSYS_TO_INFRA_BASE, 0x10000);
-
-	reg_all_mem = NULL;
-	apusys_dump_force = false;
-	apusys_dump_skip_gals = false;
-}
-
-void apusys_dump_exit(void)
-{
-	debugfs_remove_recursive(debug_node);
-	iounmap(apu_top);
-	iounmap(apu_to_infra_top);
-}

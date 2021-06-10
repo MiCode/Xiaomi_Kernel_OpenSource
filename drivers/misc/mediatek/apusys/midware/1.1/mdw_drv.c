@@ -140,6 +140,7 @@ static int mdw_probe(struct platform_device *pdev)
 	}
 
 	mdw_dbg_init();
+	apusys_dump_init(mdw_device);
 	mdw_sysfs_init(mdw_device);
 	mdw_tag_init();
 	mdw_mem_init();
@@ -177,6 +178,7 @@ static int mdw_remove(struct platform_device *pdev)
 	mdw_mem_exit();
 	mdw_tag_exit();
 	mdw_sysfs_exit();
+	apusys_dump_exit(&pdev->dev);
 	mdw_dbg_exit();
 
 	/* Release device */

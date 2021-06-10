@@ -422,15 +422,12 @@ int mdw_dbg_init(void)
 	mdw_dbg_debug_log = debugfs_create_file("log", 0444,
 		mdw_dbg_debug_root, NULL, &mdw_dbg_fops_log);
 
-	apusys_dump_init();
-
 	mdw_flw_debug("-\n");
 	return ret;
 }
 
 int mdw_dbg_exit(void)
 {
-	apusys_dump_exit();
 	debugfs_remove_recursive(mdw_dbg_root);
 	return 0;
 }
