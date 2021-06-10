@@ -1026,7 +1026,9 @@ static inline void core_ctl_main_algo(void)
 		sched_max_util_task(NULL, NULL, &max_util, NULL);
 		big_cluster = &cluster_state[num_clusters - 1];
 		prev_cluster = &cluster_state[big_cluster->cluster_id-1];
+#if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 		big_cpu_ts = get_cpu_temp(big_cluster->first_cpu);
+#endif
 
 		/*
 		 * Check for biggest task in system,
