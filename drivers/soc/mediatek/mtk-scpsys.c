@@ -42,6 +42,7 @@
 #define MTK_SCPD_ALWAYS_ON		BIT(4)
 #define MTK_SCPD_APU_OPS		BIT(5)
 #define MTK_SCPD_SRAM_SLP		BIT(6)
+#define MTK_SCPD_BYPASS_INIT_ON		BIT(7)
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -986,7 +987,10 @@ static void mtk_register_power_domains(struct platform_device *pdev,
 		 * software.  The unused domains will be switched off during
 		 * late_init time.
 		 */
-		on = !WARN_ON(genpd->power_on(genpd) < 0);
+		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_INIT_ON))
+			on = false;
+		else
+			on = !WARN_ON(genpd->power_on(genpd) < 0);
 
 		pm_genpd_init(genpd, NULL, !on);
 	}
@@ -1841,6 +1845,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.ctl_offs = 0x3AC,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6893_POWER_DOMAIN_MD] = {
 		.name = "md",
