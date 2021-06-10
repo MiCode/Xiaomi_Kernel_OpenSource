@@ -13,7 +13,7 @@
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
 #include <dt-bindings/power/mt6893-power.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
-#include <dt-bindings/gce/mt6885-gce.h>
+#include <dt-bindings/gce/mt6893-gce.h>
 #include <dt-bindings/mml/mml-mt6893.h>
 #include <dt-bindings/reset/ti-syscon.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
@@ -1773,7 +1773,7 @@
 		};
 
 		gce: mailbox@10228000 {
-			compatible = "mediatek,mt6885-gce";
+			compatible = "mediatek,mt6893-gce";
 			reg = <0 0x10228000 0 0x4000>;
 			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH 0>;
 			#mbox-cells = <3>;
@@ -7044,12 +7044,12 @@
 				// "CLIENT_SEC_CFG1",
 				// "CLIENT_SEC_CFG2";
 
-			/* define subsys, see mt6885-gce.h */
+			/* define subsys, see mt6893-gce.h */
 			gce-subsys = <&gce 0x14000000 SUBSYS_1400XXXX>,
 				<&gce 0x14010000 SUBSYS_1401XXXX>,
 				<&gce 0x14020000 SUBSYS_1402XXXX>;
 
-			/* define subsys, see mt6885-gce.h */
+			/* define subsys, see mt6893-gce.h */
 			gce-event-names = "disp_mutex0_eof",
 				"disp_mutex1_eof",
 				"disp_token_stream_dirty0",
