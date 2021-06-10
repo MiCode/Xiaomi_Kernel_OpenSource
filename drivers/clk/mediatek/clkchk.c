@@ -247,12 +247,10 @@ int clkchk_pvdck_is_on(struct provider_clk *pvdck)
 			return -1;
 
 		if (pvdck->pwr_mask == INV_MSK) {
-			pr_notice("%s is offf\n", __clk_get_name(pvdck->ck));
 			return 0;
 		}
 
 		if (!pvdck->pwr_mask) {
-			pr_notice("%s is onn\n", __clk_get_name(pvdck->ck));
 			return 1;
 		}
 
