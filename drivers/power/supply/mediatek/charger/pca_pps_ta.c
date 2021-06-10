@@ -313,7 +313,7 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 					if (apdo_pps_tbl[i].max_mv <
 					    data->vta_max)
 						continue;
-					prog_mv = min_t(u32 apdo_pps_tbl[i].prog_mv,
+					prog_mv = min_t(u32, apdo_pps_tbl[i].prog_mv,
 						    data->vta_max);
 					data->pdp = prog_mv * data->ita_max /
 						    1000000;
