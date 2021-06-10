@@ -174,14 +174,7 @@ static void tz_driver_dump_logs(struct tz_log_state *s)
 		 * if log level >= KERN_INFO)
 		 */
 
-		if (likely(is_teei_ready())) {
-#ifdef CONFIG_MTK_TEE_SANITY
-			if (mtk_tee_log_tracing(get_current_cpuid(), 0,
-						s->line_buffer, read_chars))
-#endif
-				IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
-		} else
-			IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
+		IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
 
 		/*
 		 * Dump early log to boot log buffer
