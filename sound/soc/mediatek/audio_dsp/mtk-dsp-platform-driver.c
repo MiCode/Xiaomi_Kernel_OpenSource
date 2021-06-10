@@ -963,8 +963,9 @@ SYNC_READINDEX:
 
 	/* handle for underflow */
 	if (dsp_mem->underflowed) {
-		pr_info("%s id = %d return -1 because underflowed[%d]\n",
-			__func__, id, dsp_mem->underflowed);
+		pr_info("%s %s return -1 because underflowed[%d]\n",
+			__func__, get_str_by_dsp_dai_id(id),
+			dsp_mem->underflowed);
 		dsp_mem->underflowed = 0;
 		spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
 		return -1;
@@ -1041,14 +1042,6 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_RESET) {
 		pr_info("%s %s adsp reset\n", __func__, task_name);
 		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
-		/* notify subsream */
-		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
-	}
-
-	/* adsp reset message */
-	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_UNDERFLOW) {
-		pr_info("%s %s adsp underflowed\n", __func__, task_name);
-		dsp->dsp_mem[id].underflowed = true;
 		/* notify subsream */
 		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
 	}
@@ -1172,7 +1165,10 @@ void mtk_dsp_handler(struct mtk_base_dsp *dsp,
 		mtk_dsp_ul_handler(dsp, ipi_msg, id);
 		break;
 	case AUDIO_DSP_TASK_DL_CONSUME_DATA:
-		mtk_dsp_dl_consume_handler(dsp, ipi_msg, id);
+		if (ipi_msg->param2 == ADSP_DL_CONSUME_UNDERFLOW) {
+			dsp->dsp_mem[id].underflowed = true;
+		}
+		break;
 	default:
 		break;
 	}
