@@ -8,6 +8,7 @@
 #include <linux/slab.h>
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 #include <linux/mtk_vcu_controls.h>
+#include <linux/delay.h>
 
 #include "../mtk_vcodec_drv.h"
 #include "../mtk_vcodec_util.h"
@@ -207,6 +208,7 @@ int vcp_enc_ipi_handler(void *arg)
 	struct mtk_vcodec_msg_node *mq_node;
 	struct venc_vcu_ipi_mem_op *shem_msg;
 	unsigned long flags;
+	unsigned int suspend_block_cnt = 0;
 
 	mtk_v4l2_debug_enter();
 	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_msg_init) > SHARE_BUF_SIZE);
@@ -227,7 +229,18 @@ int vcp_enc_ipi_handler(void *arg)
 		sizeof(struct venc_vcu_ipi_mem_op) > SHARE_BUF_SIZE);
 
 	do {
-		wait_event(dev->mq.wq, atomic_read(&dev->mq.cnt) > 0);
+		ret = wait_event_interruptible(dev->mq.wq, atomic_read(&dev->mq.cnt) > 0);
+		if (ret) {
+			while (dev->is_codec_suspending == 1) {
+				suspend_block_cnt++;
+				if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+					mtk_v4l2_debug(4, "blocked by suspend\n");
+					suspend_block_cnt = 0;
+				}
+				usleep_range(10000, 20000);
+			}
+			continue;
+		}
 
 		spin_lock_irqsave(&dev->mq.lock, flags);
 		mq_node = list_entry(dev->mq.head.next, struct mtk_vcodec_msg_node, list);
