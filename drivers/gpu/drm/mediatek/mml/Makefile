@@ -22,7 +22,8 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek 	\
              -I$(srctree)/drivers/misc/mediatek/include/mt-plat	\
              -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include	\
              -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
-             -I$(srctree)/drivers/iommu/
+             -I$(srctree)/drivers/iommu/ \
+             -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 
 obj-$(CONFIG_MTK_MML_MT6893) := mtk-mml-mt6893.o
 
@@ -51,6 +52,7 @@ mml_drv-objs += tile_core.o
 mml_drv-objs += tile_utility.o
 mml_drv-objs += tile_mdp_func.o
 mml_drv-objs += DpTileScaler.o
+mml_drv-objs += ../mediatek_v2/mtk_sync.o
 
 # for unit test
 mml_drv-objs += mtk-mml-test.o

@@ -18,6 +18,7 @@
 #include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
 #include <linux/mailbox_client.h>
 #include <linux/trace_events.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/types.h>
 #include <linux/time.h>
 #include <linux/workqueue.h>
@@ -25,33 +26,8 @@
 #include "mtk-mml-buf.h"
 #include "mtk-mml-driver.h"
 
-struct cmdq_subsys {
-	u32 base;
-	u8 id;
-};
-
-struct cmdq_base {
-	struct cmdq_subsys subsys[32];
-	u8 count;
-	u16 cpr_base;
-	u8 cpr_cnt;
-};
-
-extern struct cmdq_client *cmdq_client;
 extern int mtk_mml_msg;
-extern s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa);
-extern s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
-    cmdq_async_flush_cb cb, void *data);
-extern void cmdq_mbox_destroy(struct cmdq_client *client);
 extern struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client);
-extern void cmdq_pkt_destroy(struct cmdq_pkt *pkt);
-extern s32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
-    dma_addr_t addr, u32 value, u32 mask);
-extern int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event);
-extern s32 cmdq_pkt_poll(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
-    u32 value, u32 addr, u32 mask, u8 reg_gpr);
-extern s32 cmdq_pkt_set_event(struct cmdq_pkt *pkt, u16 event);
-
 
 #define mml_msg(fmt, args...) \
 do { \

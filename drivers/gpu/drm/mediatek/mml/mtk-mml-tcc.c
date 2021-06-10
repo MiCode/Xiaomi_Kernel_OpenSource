@@ -11,6 +11,7 @@
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
+#include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
 
 #define TCC_CTRL	0x000
@@ -103,7 +104,7 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 	struct mml_tcc *tcc = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
-	s32 ret, temp;
+	s32 ret = -1, temp;
 
 	if (!of_property_read_u32(master->of_node, "comp-count", &temp))
 		mml_master = true;
@@ -115,7 +116,7 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 				dev->of_node->full_name, ret);
 	} else {
 		drm_dev = data;
-		ret = mtk_ddp_comp_register(drm_dev, &tcc->ddp_comp);
+		ret = mml_ddp_comp_register(drm_dev, &tcc->ddp_comp);
 		if (ret < 0)
 			dev_err(dev, "Failed to register ddp component %s: %d\n",
 				dev->of_node->full_name, ret);
@@ -140,7 +141,7 @@ static void mml_unbind(struct device *dev, struct device *master, void *data)
 		mml_unregister_comp(master, &tcc->comp);
 	} else {
 		drm_dev = data;
-		mtk_ddp_comp_unregister(drm_dev, &tcc->ddp_comp);
+		mml_ddp_comp_unregister(drm_dev, &tcc->ddp_comp);
 		tcc->ddp_bound = false;
 	}
 }

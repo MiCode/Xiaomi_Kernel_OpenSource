@@ -9,8 +9,8 @@
 
 #include <linux/platform_device.h>
 #include <linux/types.h>
-
 #include "mtk-mml.h"
+#include "mediatek_v2/mtk_drm_ddp_comp.h"
 
 struct mml_drm_ctx;
 
@@ -55,5 +55,26 @@ void mml_drm_put_context(struct mml_drm_ctx *ctx);
  *		driver core.
  */
 s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit);
+
+/*
+ * mml_ddp_comp_register - register ddp component to drm
+ *
+ * @drm:	Device of drm.
+ * @comp:	The component that will be reigster to drm.
+ *
+ * Return:	Result of component register. In case value < 0 means registeration fail
+ */
+int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp);
+
+
+/*
+ * mml_ddp_comp_unregister - unregister ddp component to drm
+ *
+ * @drm:	Device of drm.
+ * @comp:	The component that will be reigster to drm.
+ *
+ * Return:	None
+ */
+void mml_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp);
 
 #endif	/* __MTK_MML_DRM_ADAPTOR_H__ */

@@ -9,12 +9,15 @@
 #include <linux/module.h>
 #include <linux/sync_file.h>
 
+#include "mediatek_v2/mtk_drm_ddp_comp.h"
+#include "mediatek_v2/mtk_sync.h"
+#include "mediatek_v2/mtk_drm_drv.h"
+
 #include "mtk-mml-buf.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 
-#include "mediatek_v2/mtk_sync.h"
 
 #define MML_QUERY_ADJUST	1
 
@@ -606,3 +609,25 @@ void mml_drm_put_context(struct mml_drm_ctx *ctx)
 	mml_dev_put_drm_ctx(ctx->mml, drm_ctx_release);
 }
 EXPORT_SYMBOL_GPL(mml_drm_put_context);
+
+int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
+{
+	struct mtk_drm_private *private = drm->dev_private;
+
+	if (private->ddp_comp[comp->id])
+		return -EBUSY;
+
+	if (comp->id < 0)
+		return -EINVAL;
+
+	private->ddp_comp[comp->id] = comp;
+	return 0;
+}
+
+void mml_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
+{
+	struct mtk_drm_private *private = drm->dev_private;
+	if (comp && comp->id >= 0)
+		private->ddp_comp[comp->id] = NULL;
+}
+
