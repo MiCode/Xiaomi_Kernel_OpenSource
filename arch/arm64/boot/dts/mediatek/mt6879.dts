@@ -207,6 +207,36 @@
 		clock-frequency = <13000000>;
 	};
 
+	gpio@10005000 {
+		compatible = "mediatek,gpio";
+		reg = <0 0x10005000 0 0x1000>;
+	};
+
+	pio: pinctrl {
+		compatible = "mediatek,mt6879-pinctrl";
+		reg = <0 0x10005000 0 0x1000>,
+		      <0 0x11b00000 0 0x1000>,
+		      <0 0x11c20000 0 0x1000>,
+		      <0 0x11c40000 0 0x1000>,
+		      <0 0x11d30000 0 0x1000>,
+		      <0 0x11d40000 0 0x1000>,
+		      <0 0x11e10000 0 0x1000>,
+		      <0 0x11e30000 0 0x1000>,
+		      <0 0x11ec0000 0 0x1000>;
+ 		reg-names = "gpio",
+ 			    "iocfg_lb",
+			    "iocfg_rm",
+			    "iocfg_rb",
+			    "iocfg_bm",
+			    "iocfg_br",
+			    "iocfg_lm",
+			    "iocfg_lt",
+			    "iocfg_rt";
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-ranges = <&pio 0 0 217>;
+	};
+
 	fhctl@1000ce00 {
 		compatible = "mediatek,mt6983-fhctl";
 		reg = <0 0x1000ce00 0 0x200>, //AP FHCTL base
