@@ -880,6 +880,7 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	memcpy(dst, src, sizeof(*dst));
 	memcpy(&dst->cmplt, &cmplt, sizeof(cmplt));
 	memcpy(&dst->buf, &entry, sizeof(entry));
+	dst->flush_item = NULL;
 
 	/* copy buf */
 	list_for_each_entry(buf, &src->buf, list_entry) {
