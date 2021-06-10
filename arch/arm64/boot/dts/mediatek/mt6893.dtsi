@@ -5845,6 +5845,122 @@
 		vcp: vcp@1ec00000 {
 			compatible = "mediatek,vcp";
 			vcp-support = <0>;
+			status = "okay";
+			reg = <0 0x1ea00000 0 0x40000>, /* tcm */
+			      <0 0x1ea24000 0 0x1000>, /* cfg */
+			      <0 0x1ea21000 0 0x1000>, /* clk*/
+			      <0 0x1ea30000 0 0x1000>, /* cfg core0 */
+			      <0 0x1ea40000 0 0x1000>, /* cfg core1 */
+			      <0 0x1ea52000 0 0x1000>, /* bus tracker */
+			      <0 0x1ea60000 0 0x40000>, /* llc */
+			      <0 0x1eaa5000 0 0x4>, /* cfg_sec */
+			      <0 0x1eafb000 0 0x100>, /* mbox0 base */
+			      <0 0x1eafb100 0 0x4>, /* mbox0 set */
+			      <0 0x1eafb10c 0 0x4>, /* mbox0 clr */
+			      <0 0x1eaa5020 0 0x4>, /* mbox0 init */
+			      <0 0x1eafc000 0 0x100>, /* mbox1 base */
+			      <0 0x1eafc100 0 0x4>, /* mbox1 set */
+			      <0 0x1eafc10c 0 0x4>, /* mbox1 clr */
+			      <0 0x1eaa5024 0 0x4>, /* mbox1 init */
+			      <0 0x1eafd000 0 0x100>, /* mbox2 base */
+			      <0 0x1eafd100 0 0x4>, /* mbox2 set */
+			      <0 0x1eafd10c 0 0x4>, /* mbox2 clr */
+			      <0 0x1eaa5028 0 0x4>, /* mbox2 init */
+			      <0 0x1eafe000 0 0x100>, /* mbox3 base */
+			      <0 0x1eafe100 0 0x4>, /* mbox3 set */
+			      <0 0x1eafe10c 0 0x4>, /* mbox3 clr */
+			      <0 0x1eaa502c 0 0x4>, /* mbox3 init */
+			      <0 0x1eaff000 0 0x100>, /* mbox4 base */
+			      <0 0x1eaff100 0 0x4>, /* mbox4 set */
+			      <0 0x1eaff10c 0 0x4>, /* mbox4 clr */
+			      <0 0x1eaa5030 0 0x4>; /* mbox4 init */
+
+			reg-names = "vcp_sram_base",
+				    "vcp_cfgreg",
+				    "vcp_clkreg",
+				    "vcp_cfgreg_core0",
+				    "vcp_cfgreg_core1",
+				    "vcp_bus_tracker",
+				    "vcp_l1creg",
+				    "vcp_cfgreg_sec",
+				    "mbox0_base",
+				    "mbox0_set",
+				    "mbox0_clr",
+				    "mbox0_init",
+				    "mbox1_base",
+				    "mbox1_set",
+				    "mbox1_clr",
+				    "mbox1_init",
+				    "mbox2_base",
+				    "mbox2_set",
+				    "mbox2_clr",
+				    "mbox2_init",
+				    "mbox3_base",
+				    "mbox3_set",
+				    "mbox3_clr",
+				    "mbox3_init",
+				    "mbox4_base",
+				    "mbox4_set",
+				    "mbox4_clr",
+				    "mbox4_init";
+
+			interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH 0>;
+
+			interrupt-names = "ipc0",
+					  "ipc1",
+					  "mbox0",
+					  "mbox1",
+					  "mbox2",
+					  "mbox3",
+					  "mbox4";
+
+			core_0 = "enable";
+			vcp_sramSize = <0x00040000>;
+			core_nums = <1>;	/* core number */
+			twohart = <1>;		/* two hart arch */
+			mbox_count = <5>;
+			/* id, mbox, send_size*/
+			send_table =
+			< 0 0 18>,/* IPI_OUT_VDEC_1 */
+			< 2 1  2>,/* IPI_OUT_C_SLEEP_0 */
+			< 3 1  1>,/* IPI_OUT_TEST_0 */
+			< 7 1  3>,/* IPI_OUT_VCP_CONNSYS */
+			< 9 2 18>,/* IPI_OUT_VENC_0 */
+			<11 2  4>,/* IPI_OUT_VCP_MPOOL_0 */
+			<13 3  2>,/* IPI_OUT_C_SLEEP_1 */
+			<14 3  1>,/* IPI_OUT_TEST_1 */
+			<15 3  6>,/* IPI_OUT_LOGGER_CTRL */
+			<16 3  2>,/* IPI_OUT_VCPCTL_1 */
+			<21 4  4>;/* IPI_OUT_VCP_MPOOL_1 */
+
+			/* id, mbox, recv_size, recv_opt */
+			recv_table =
+			< 1 0 18 0>,/* IPI_IN_VDEC_1 */
+			< 2 1  1 1>,/* IPI_OUT_C_SLEEP_0 */
+			< 4 1 10 0>,/* IPI_IN_VCP_ERROR_INFO_0 */
+			< 5 1  1 0>,/* IPI_IN_VCP_READY_0 */
+			< 6 1  2 0>,/* IPI_IN_VCP_RAM_DUMP_0 */
+			< 8 1  3 0>,/* IPI_IN_VCP_CONNSYS */
+			<10 2 18 0>,/* IPI_IN_VENC_0 */
+			<12 2  4 0>,/* IPI_IN_VCP_MPOOL_0 */
+			<13 3  1 1>,/* IPI_OUT_C_SLEEP_1 */
+			<17 3 10 0>,/* IPI_IN_VCP_ERROR_INFO_1 */
+			<18 3  6 0>,/* IPI_IN_LOGGER_CTRL */
+			<19 3  1 0>,/* IPI_IN_VCP_READY_1 */
+			<20 3  2 0>,/* IPI_IN_VCP_RAM_DUMP_1 */
+			<22 4  4 0>;/* IPI_IN_VCP_MPOOL_1 */
+
+			vcp_mem_key = "mediatek,reserve-memory-vcp_share";
+			vcp_mem_tbl = <1 0x40000>, /* VDEC_MEM_ID 256KB */
+				      <2 0x8000>; /* VENC_MEM_ID 32KB */
+				      /* <3 0x4000000>, VDEC_WORK_ID 64MB */
+				      /* <4 0x4000000>, VENC_WORK_ID 64MB */
 		};
 
 		mdpsys: mdpsys@1f000000 {
