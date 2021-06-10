@@ -351,15 +351,18 @@ static void msdc_set_busy_timeout(struct msdc_host *host, u64 ns, u64 clks)
 
 static void msdc_gate_clock(struct msdc_host *host)
 {
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	clk_bulk_disable_unprepare(MSDC_NR_CLOCKS, host->bulk_clks);
 	clk_disable_unprepare(host->src_clk_cg);
 	clk_disable_unprepare(host->src_clk);
 	clk_disable_unprepare(host->bus_clk);
 	clk_disable_unprepare(host->h_clk);
+#endif
 }
 
 static void msdc_ungate_clock(struct msdc_host *host)
 {
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	int ret;
 
 	clk_prepare_enable(host->h_clk);
@@ -371,7 +374,7 @@ static void msdc_ungate_clock(struct msdc_host *host)
 		dev_err(host->dev, "Cannot enable pclk/axi/ahb clock gates\n");
 		return;
 	}
-
+#endif
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
 		cpu_relax();
 }
@@ -430,10 +433,12 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 			sclk = host->src_clk_freq >> 1;
 			div = 0; /* div is ignore when bit18 is set */
 		}
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	} else if (hz >= host->src_clk_freq) {
 		mode = 0x1; /* no divisor */
 		div = 0;
 		sclk = host->src_clk_freq;
+#endif
 	} else {
 		mode = 0x0; /* use divisor */
 		if (hz >= (host->src_clk_freq >> 1)) {
@@ -1022,6 +1027,7 @@ static void msdc_set_buswidth(struct msdc_host *host, u32 width)
 
 static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 {
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	struct msdc_host *host = mmc_priv(mmc);
 	int ret;
 
@@ -1045,6 +1051,7 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		else
 			pinctrl_select_state(host->pinctrl, host->pins_default);
 	}
+#endif
 	return 0;
 }
 
@@ -1406,6 +1413,34 @@ static void msdc_init_gpd_bd(struct msdc_host *host, struct msdc_dma *dma)
 	}
 }
 
+#if IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+
+	msdc_set_buswidth(host, ios->bus_width);
+
+	/* Suspend/Resume will do power off/on */
+	switch (ios->power_mode) {
+	case MMC_POWER_UP:
+		msdc_init_hw(host);
+		mmc->regulator_enabled = true;
+		break;
+	case MMC_POWER_ON:
+		host->vqmmc_enabled = true;
+		break;
+	case MMC_POWER_OFF:
+		mmc->regulator_enabled = false;
+		host->vqmmc_enabled = false;
+		break;
+	default:
+		break;
+	}
+
+	if (host->mclk != ios->clock || host->timing != ios->timing)
+		msdc_set_mclk(host, ios->timing, ios->clock);
+}
+#else
 static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct msdc_host *host = mmc_priv(mmc);
@@ -1483,6 +1518,7 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 #endif
 }
+#endif
 
 #if !IS_ENABLED(CONFIG_MMC_AUTOK)
 static u32 test_delay_bit(u32 delay, u32 bit)
@@ -2313,6 +2349,7 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 		host->cqhci = false;
 }
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 static int msdc_of_clock_parse(struct platform_device *pdev,
 			       struct msdc_host *host)
 {
@@ -2354,6 +2391,7 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 
 	return 0;
 }
+#endif
 
 static int msdc_drv_probe(struct platform_device *pdev)
 {
@@ -2390,6 +2428,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 			host->top_base = NULL;
 	}
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	ret = mmc_regulator_get_supply(mmc);
 	if (ret)
 		goto host_free;
@@ -2397,6 +2436,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	ret = msdc_of_clock_parse(pdev, host);
 	if (ret)
 		goto host_free;
+#endif
 
 	host->reset = devm_reset_control_get_optional_exclusive(&pdev->dev,
 								"hrst");
@@ -2411,6 +2451,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		goto host_free;
 	}
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	host->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(host->pinctrl)) {
 		ret = PTR_ERR(host->pinctrl);
@@ -2431,12 +2472,18 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot find pinctrl uhs!\n");
 		goto host_free;
 	}
+#endif
 
 	msdc_of_property_parse(pdev, host);
 
 	host->dev = &pdev->dev;
 	host->dev_comp = of_device_get_match_data(&pdev->dev);
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	host->src_clk_freq = clk_get_rate(host->src_clk);
+#else
+	host->src_clk_freq = FPGA_SRC_CLK;
+	mmc->ocr_avail = MSDC_OCR_AVAIL;
+#endif
 	/* Set host parameters to mmc */
 	mmc->ops = &mt_msdc_ops;
 	if (host->dev_comp->clk_div_bits == 8)

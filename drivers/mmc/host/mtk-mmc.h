@@ -454,6 +454,13 @@
 
 #define DEFAULT_DEBOUNCE	(8)	/* 8 cycles CD debounce */
 #define PAD_DELAY_MAX		32	/* PAD delay cells */
+
+#if IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+#define MSDC_OCR_AVAIL\
+	(MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 \
+	| MMC_VDD_31_32 | MMC_VDD_32_33)
+#define FPGA_SRC_CLK		10000000
+#endif
 /*--------------------------------------------------------------------------*/
 /* Descriptor Structure                                                     */
 /*--------------------------------------------------------------------------*/
