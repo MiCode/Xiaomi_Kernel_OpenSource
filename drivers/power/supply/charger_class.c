@@ -77,6 +77,17 @@ int charger_dev_do_event(struct charger_device *chg_dev, u32 event, u32 args)
 }
 EXPORT_SYMBOL(charger_dev_do_event);
 
+int charger_dev_enable_6pin_battery_charging(struct charger_device *chg_dev,
+					     bool en)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->enable_6pin_battery_charging)
+		return chg_dev->ops->enable_6pin_battery_charging(chg_dev, en);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_enable_6pin_battery_charging);
+
 int charger_dev_set_charging_current(struct charger_device *chg_dev, u32 uA)
 {
 	if (chg_dev != NULL && chg_dev->ops != NULL &&

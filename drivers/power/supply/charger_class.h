@@ -107,6 +107,10 @@ struct charger_ops {
 
 	int (*event)(struct charger_device *dev, u32 event, u32 args);
 
+	/* 6-pin battery */
+	int (*enable_6pin_battery_charging)(struct charger_device *dev,
+					    bool en);
+
 	/* PE+/PE+2.0 */
 	int (*send_ta_current_pattern)(struct charger_device *dev, bool is_inc);
 	int (*send_ta20_current_pattern)(struct charger_device *dev, u32 uV);
@@ -264,6 +268,8 @@ extern int charger_dev_get_mivr_state(
 	struct charger_device *charger_dev, bool *in_loop);
 extern int charger_dev_do_event(
 	struct charger_device *charger_dev, u32 event, u32 args);
+extern int charger_dev_enable_6pin_battery_charging(
+	struct charger_device *charger_dev, bool en);
 extern int charger_dev_is_powerpath_enabled(
 	struct charger_device *charger_dev, bool *en);
 extern int charger_dev_is_safety_timer_enabled(
