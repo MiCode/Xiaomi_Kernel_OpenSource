@@ -43,6 +43,12 @@ static struct pt_regs saved_regs;
 #define PSCI_1_1_RESET2_TYPE_VENDOR     \
 	(1 << PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT)
 
+#if IS_ENABLED(CONFIG_64BIT)
+#define PSCI_FN_NATIVE(version, name)   PSCI_##version##_FN64_##name
+#else
+#define PSCI_FN_NATIVE(version, name)   PSCI_##version##_FN_##name
+#endif
+
 #define DEBUG_COMPATIBLE "mediatek,reserve-memory-mrdump_share"
 
 static void aee_exception_reboot(void)
@@ -50,7 +56,7 @@ static void aee_exception_reboot(void)
 	struct arm_smccc_res res;
 	int opt1 = 1, opt2 = 0;
 
-	arm_smccc_smc(PSCI_1_1_FN_SYSTEM_RESET2,
+	arm_smccc_smc(PSCI_FN_NATIVE(1_1, SYSTEM_RESET2),
 		PSCI_1_1_RESET2_TYPE_VENDOR | opt1,
 		opt2, 0, 0, 0, 0, 0, &res);
 }
