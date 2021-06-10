@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -188,6 +188,22 @@ err:
 	return ret;
 }
 
+#ifdef CONFIG_TRACE_GPU_MEM
+static void kgsl_mmu_trace_gpu_mem_pagetable(struct kgsl_pagetable *pagetable)
+{
+	if (pagetable->name == KGSL_MMU_GLOBAL_PT ||
+			pagetable->name == KGSL_MMU_SECURE_PT)
+		return;
+
+	trace_gpu_mem_total(0, pagetable->name,
+			(u64)atomic_long_read(&pagetable->stats.mapped));
+}
+#else
+static void kgsl_mmu_trace_gpu_mem_pagetable(struct kgsl_pagetable *pagetable)
+{
+}
+#endif
+
 void
 kgsl_mmu_detach_pagetable(struct kgsl_pagetable *pagetable)
 {
@@ -309,6 +325,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				struct kgsl_memdesc *memdesc)
 {
 	int size;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(pagetable->mmu);
 
 	if (!memdesc->gpuaddr)
 		return -EINVAL;
@@ -332,6 +349,12 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		atomic_inc(&pagetable->stats.entries);
 		KGSL_STATS_ADD(size, &pagetable->stats.mapped,
 				&pagetable->stats.max_mapped);
+		kgsl_mmu_trace_gpu_mem_pagetable(pagetable);
+
+		if (!kgsl_memdesc_is_global(memdesc)
+				&& !(memdesc->flags & KGSL_MEMFLAGS_USERMEM_ION)) {
+			kgsl_trace_gpu_mem_total(device, size);
+		}
 
 		memdesc->priv |= KGSL_MEMDESC_MAPPED;
 	}
@@ -413,6 +436,7 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc)
 {
 	int ret = 0;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(pagetable->mmu);
 
 	if (memdesc->size == 0)
 		return -EINVAL;
@@ -433,9 +457,13 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 		atomic_dec(&pagetable->stats.entries);
 		atomic_long_sub(size, &pagetable->stats.mapped);
+		kgsl_mmu_trace_gpu_mem_pagetable(pagetable);
 
-		if (!kgsl_memdesc_is_global(memdesc))
+		if (!kgsl_memdesc_is_global(memdesc)) {
 			memdesc->priv &= ~KGSL_MEMDESC_MAPPED;
+			if (!(memdesc->flags & KGSL_MEMFLAGS_USERMEM_ION))
+				kgsl_trace_gpu_mem_total(device, -(size));
+		}
 	}
 
 	return ret;
