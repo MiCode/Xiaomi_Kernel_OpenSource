@@ -376,8 +376,7 @@ void trigger_hang_db(void)
 		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
 		"	Hang Detect", NULL);
 #else
-		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
-			"Hang Detect", NULL);
+		panic("hang_detect: system blocked");
 #endif
 
 }
@@ -535,7 +534,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 					pgoff, path_p);
 			}
 		} else {
-			const char *name = aee_arch_vma_name(vma);
+			const char *name = hang_arch_vma_name(vma);
 
 			mm = vma->vm_mm;
 			if (!name) {

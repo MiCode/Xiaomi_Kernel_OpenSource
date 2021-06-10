@@ -4,6 +4,8 @@
  */
 #include <asm/stacktrace.h>
 #include "hang_unwind.h"
+
+
 unsigned int hang_kernel_trace(struct task_struct *tsk,
 					unsigned long *store, unsigned int size)
 {
@@ -37,3 +39,28 @@ unsigned int hang_kernel_trace(struct task_struct *tsk,
 	return store_len;
 }
 EXPORT_SYMBOL(hang_kernel_trace);
+
+#ifdef __aarch64__
+
+const char *hang_arch_vma_name(struct vm_area_struct *vma)
+{
+	return NULL;
+}
+
+#else
+
+#ifdef MODULE
+const char *hang_arch_vma_name(struct vm_area_struct *vma)
+{
+	return NULL;
+}
+#else
+const char *hang_arch_vma_name(struct vm_area_struct *vma)
+{
+	return arch_vma_name(vma);
+}
+#endif
+
+#endif
+
+EXPORT_SYMBOL(hang_arch_vma_name);
