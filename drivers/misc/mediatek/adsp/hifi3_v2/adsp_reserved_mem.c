@@ -8,7 +8,7 @@
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 #endif
-#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+#if IS_ENABLED(CONFIG_MTK_EMI)
 #include <soc/mediatek/emi.h>
 #endif
 #include "adsp_reserved_mem.h"
@@ -91,7 +91,7 @@ EXPORT_SYMBOL(adsp_get_reserve_mem_size);
 
 void adsp_set_emimpu_shared_region(void)
 {
-#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+#if IS_ENABLED(CONFIG_MTK_EMI)
 	struct emimpu_region_t adsp_region;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	int ret = 0;
