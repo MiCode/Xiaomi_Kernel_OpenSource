@@ -45,6 +45,7 @@ obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672C_VDO_144HZ) += panel-tianma-nt36672c-vdo-1
 obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672C_CPHY_VDO_90HZ_RT4801_HFP) += panel-tianma-nt36672c-cphy-vdo-90hz-rt4801-hfp.o
 obj-$(CONFIG_DRM_PANEL_JDI_NT36672C_CPHY_VDO_90HZ_RT4801_HFP) += panel-jdi-nt36672c-cphy-vdo-90hz-rt4801-hfp.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_HFP) += panel-tianma-nt36672e-vdo-120hz-hfp.o
+obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_VFP) += panel-tianma-nt36672e-vdo-120hz-vfp.o
 obj-$(CONFIG_DRM_PANEL_K6853V1_64_ALPHA_VDO_01) += k6853v1_64_alpha/panel-k6853v1-64-alpha-vdo-01.o
 obj-$(CONFIG_DRM_PANEL_K6853V1_64_ALPHA_VDO_02) += k6853v1_64_alpha/panel-k6853v1-64-alpha-vdo-02.o
 obj-$(CONFIG_DRM_PANEL_K6853V1_64_ALPHA_VDO_02) += k6853v1_64_alpha/panel-k6853v1-64-alpha-vdo-03.o
