@@ -9,15 +9,11 @@
 
 #include "apu_dbg.h"
 #include "apu_common.h"
-#include "mt-plat/aee.h"
 
 #define APUCLK_PRE	"clk"
 #define aclk_err(dev, fmt, ...) \
 	do { \
 		pr_info("[%s:"APUCLK_PRE"]" fmt, apu_dev_name(dev), ##__VA_ARGS__); \
-		aee_kernel_warning("APU PWR", \
-			"\nCRDISPATCH_KEY:[%s:"APUCLK_PRE"]" fmt, \
-			apu_dev_name(dev), ##__VA_ARGS__); \
 	} while (0)
 #define aclk_info(dev, fmt, ...) \
 	do { \
@@ -33,9 +29,6 @@
 #define argul_err(dev, fmt, ...) \
 	do { \
 		pr_info("[%s:"APURGU_PRE"]" fmt, apu_dev_name(dev), ##__VA_ARGS__); \
-		aee_kernel_warning("APU PWR", \
-			"\nCRDISPATCH_KEY:[%s:"APURGU_PRE"]" fmt, \
-			apu_dev_name(dev), ##__VA_ARGS__); \
 	} while (0)
 #define argul_info(dev, fmt, ...) \
 	do { \
@@ -51,9 +44,6 @@
 #define aprobe_err(dev, fmt, ...) \
 	do { \
 		pr_info("[%s:"APUPROBE_PRE"]" fmt, apu_dev_name(dev), ##__VA_ARGS__); \
-		aee_kernel_warning("APU PWR", \
-			"\nCRDISPATCH_KEY:[%s:"APUPROBE_PRE"]" fmt, \
-			apu_dev_name(dev), ##__VA_ARGS__); \
 	} while (0)
 #define aprobe_info(dev, fmt, ...) \
 	do { \
@@ -69,9 +59,6 @@
 #define apower_err(dev, fmt, ...) \
 	do { \
 		pr_info("[%s:"APUPW_PRE"]" fmt, apu_dev_name(dev), ##__VA_ARGS__); \
-		aee_kernel_warning("APU PWR", \
-			"\nCRDISPATCH_KEY:[%s:"APUPW_PRE"]" fmt, \
-			apu_dev_name(dev), ##__VA_ARGS__); \
 	} while (0)
 #define apower_info(dev, fmt, ...) \
 do { \
@@ -87,9 +74,6 @@ do { \
 #define arpc_err(dev, fmt, ...) \
 	do { \
 		pr_info("[%s:"APURPC_PRE"]" fmt, apu_dev_name(dev), ##__VA_ARGS__); \
-		aee_kernel_warning("APU PWR", \
-			"\nCRDISPATCH_KEY:[%s:"APURPC_PRE"]" fmt, \
-			apu_dev_name(dev), ##__VA_ARGS__); \
 	} while (0)
 #define arpc_info(dev, fmt, ...) \
 do { \
@@ -106,9 +90,6 @@ do { \
 #define aspm_err(dev, fmt, ...) \
 	do { \
 		pr_info("[%s:"APUSPM_PRE"]" fmt, apu_dev_name(dev), ##__VA_ARGS__); \
-		aee_kernel_warning("APU PWR", \
-			"\nCRDISPATCH_KEY:[%s:"APUSPM_PRE"]" fmt, \
-			apu_dev_name(dev), ##__VA_ARGS__); \
 	} while (0)
 #define aspm_info(dev, fmt, ...) \
 do { \
@@ -124,9 +105,6 @@ do { \
 #define advfs_err(dev, fmt, ...) \
 	do { \
 		pr_info("[%s:"APUDVFS_PRE"]" fmt, apu_dev_name(dev), ##__VA_ARGS__); \
-		aee_kernel_warning("APU PWR", \
-			"\nCRDISPATCH_KEY:[%s:"APUDVFS_PRE"]" fmt, \
-			apu_dev_name(dev), ##__VA_ARGS__); \
 	} while (0)
 #define advfs_info(dev, fmt, ...) \
 do { \
