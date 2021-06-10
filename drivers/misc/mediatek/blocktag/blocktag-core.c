@@ -253,23 +253,23 @@ struct mtk_btag_mictx_struct *mtk_btag_mictx_get_ctx(void)
 }
 
 static void mtk_btag_mictx_reset(
-	struct mtk_btag_mictx_struct *ctx,
+	struct mtk_btag_mictx_struct *mictx,
 	__u64 window_begin)
 {
 	if (!window_begin)
 		window_begin = sched_clock();
-	ctx->window_begin = window_begin;
+	mictx->window_begin = window_begin;
 
-	if (!ctx->q_depth)
-		ctx->idle_begin = ctx->window_begin;
+	if (!mictx->q_depth)
+		mictx->idle_begin = mictx->window_begin;
 	else
-		ctx->idle_begin = 0;
+		mictx->idle_begin = 0;
 
-	ctx->idle_total = 0;
-	ctx->tp_min_time = ctx->tp_max_time = 0;
-	ctx->weighted_qd = 0;
-	memset(&ctx->tp, 0, sizeof(struct mtk_btag_throughput));
-	memset(&ctx->req, 0, sizeof(struct mtk_btag_req));
+	mictx->idle_total = 0;
+	mictx->tp_min_time = mictx->tp_max_time = 0;
+	mictx->weighted_qd = 0;
+	memset(&mictx->tp, 0, sizeof(struct mtk_btag_throughput));
+	memset(&mictx->req, 0, sizeof(struct mtk_btag_req));
 }
 
 #if IS_ENABLED(CONFIG_CGROUP_SCHED)
@@ -311,14 +311,14 @@ static struct miscdevice earaio_obj;
 static void mtk_btag_earaio_uevt_worker(struct work_struct *work)
 {
 	#define EVT_STR_SIZE 10
-	struct mtk_btag_mictx_struct *ctx;
+	struct mtk_btag_mictx_struct *mictx;
 	unsigned long flags;
 	char event_string[EVT_STR_SIZE];
 	char *envp[2];
 	bool boost, restart, quit;
 	int ret;
 
-	ctx = container_of(work, struct mtk_btag_mictx_struct,
+	mictx = container_of(work, struct mtk_btag_mictx_struct,
 			   uevt_work);
 
 	envp[0] = event_string;
@@ -326,12 +326,12 @@ static void mtk_btag_earaio_uevt_worker(struct work_struct *work)
 
 start:
 	boost = quit = restart = false;
-	spin_lock_irqsave(&ctx->lock, flags);
-	if (ctx->uevt_state != ctx->uevt_req)
-		boost = ctx->uevt_req;
+	spin_lock_irqsave(&mictx->lock, flags);
+	if (mictx->uevt_state != mictx->uevt_req)
+		boost = mictx->uevt_req;
 	else
 		quit = true;
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_unlock_irqrestore(&mictx->lock, flags);
 
 	if (quit)
 		return;
@@ -347,31 +347,31 @@ start:
 	if (ret) {
 		pr_info("[BLOCK_TAG] send uevt fail:%d", ret);
 	} else {
-		ctx->uevt_state = boost;
+		mictx->uevt_state = boost;
 		if (mtk_btag_mictx_data_dump) {
 			pr_info("[BLOCK_TAG] uevt %s sent",
 				event_string);
 		}
 	}
 
-	spin_lock_irqsave(&ctx->lock, flags);
-	if (ctx->uevt_state != ctx->uevt_req)
+	spin_lock_irqsave(&mictx->lock, flags);
+	if (mictx->uevt_state != mictx->uevt_req)
 		restart = true;
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_unlock_irqrestore(&mictx->lock, flags);
 
 	if (restart)
 		goto start;
 }
 
-static bool mtk_btag_earaio_send_uevt(struct mtk_btag_mictx_struct *ctx,
+static bool mtk_btag_earaio_send_uevt(struct mtk_btag_mictx_struct *mictx,
 				      bool boost)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&ctx->lock, flags);
-	ctx->uevt_req = boost;
-	queue_work(ctx->uevt_workq, &ctx->uevt_work);
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_lock_irqsave(&mictx->lock, flags);
+	mictx->uevt_req = boost;
+	queue_work(mictx->uevt_workq, &mictx->uevt_work);
+	spin_unlock_irqrestore(&mictx->lock, flags);
 
 	return true;
 }
@@ -379,44 +379,44 @@ static bool mtk_btag_earaio_send_uevt(struct mtk_btag_mictx_struct *ctx,
 #define EARAIO_UEVT_THRESHOLD_BYTES (32 * 1024 * 1024)
 void mtk_btag_earaio_boost(bool boost)
 {
-	struct mtk_btag_mictx_struct *ctx;
+	struct mtk_btag_mictx_struct *mictx;
 	unsigned long flags;
 	bool changed = false;
 
-	ctx = mtk_btag_mictx_get_ctx();
-	if (!ctx || !ctx->enabled || !ctx->earaio_enabled)
+	mictx = mtk_btag_mictx_get_ctx();
+	if (!mictx || !mictx->enabled || !mictx->earaio_enabled)
 		return;
 
 	/* Use earaio_obj.minor to indicate if obj is existed */
-	if (!(boost ^ ctx->boosted) || unlikely(!earaio_obj.minor))
+	if (!(boost ^ mictx->boosted) || unlikely(!earaio_obj.minor))
 		return;
 
 	if (boost) {
 		if (mtk_btag_mictx_data_dump) {
 			pr_info("[BLOCK_TAG] boost-chk: size-top:%llu,%llu, fuse-top: %u,%u, boosted: %d\n",
-				ctx->req.r.size_top, ctx->req.w.size_top,
-				ctx->top_r_pages, ctx->top_w_pages,
-				ctx->boosted);
+				mictx->req.r.size_top, mictx->req.w.size_top,
+				mictx->top_r_pages, mictx->top_w_pages,
+				mictx->boosted);
 		}
 
 		/* Establish threshold to avoid lousy uevents */
-		if ((ctx->req.r.size_top >= EARAIO_UEVT_THRESHOLD_BYTES) ||
-			(ctx->req.w.size_top >= EARAIO_UEVT_THRESHOLD_BYTES))
-			changed = mtk_btag_earaio_send_uevt(ctx, true);
+		if ((mictx->req.r.size_top >= EARAIO_UEVT_THRESHOLD_BYTES) ||
+			(mictx->req.w.size_top >= EARAIO_UEVT_THRESHOLD_BYTES))
+			changed = mtk_btag_earaio_send_uevt(mictx, true);
 	} else {
-		changed = mtk_btag_earaio_send_uevt(ctx, false);
+		changed = mtk_btag_earaio_send_uevt(mictx, false);
 	}
 
 	if (changed)
-		ctx->boosted = boost;
+		mictx->boosted = boost;
 
-	if (!ctx->boosted) {
-		spin_lock_irqsave(&ctx->lock, flags);
-		if ((sched_clock() - ctx->window_begin) > 1000000000) {
-			mtk_btag_mictx_reset(ctx, 0);
-			ctx->top_r_pages = ctx->top_w_pages = 0;
+	if (!mictx->boosted) {
+		spin_lock_irqsave(&mictx->lock, flags);
+		if ((sched_clock() - mictx->window_begin) > 1000000000) {
+			mtk_btag_mictx_reset(mictx, 0);
+			mictx->top_r_pages = mictx->top_w_pages = 0;
 		}
-		spin_unlock_irqrestore(&ctx->lock, flags);
+		spin_unlock_irqrestore(&mictx->lock, flags);
 	}
 }
 
@@ -480,7 +480,7 @@ static inline bool mtk_btag_earaio_init(void)
 
 static void _mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 {
-	struct mtk_btag_mictx_struct *ctx;
+	struct mtk_btag_mictx_struct *mictx;
 	struct page_pid_logger *ppl;
 	short pid = current->pid;
 	unsigned long idx;
@@ -500,14 +500,14 @@ static void _mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 	if (mode == PIDLOG_MODE_FS_FUSE) {
 		/* Do not record pid because this is not the real user */
 		if (top) {
-			ctx = mtk_btag_mictx_get_ctx();
-			if (!ctx || !ctx->enabled)
+			mictx = mtk_btag_mictx_get_ctx();
+			if (!mictx || !mictx->enabled)
 				return;
 
 			if (write)
-				ctx->top_w_pages++;
+				mictx->top_w_pages++;
 			else
-				ctx->top_r_pages++;
+				mictx->top_r_pages++;
 		}
 	} else if (mode == PIDLOG_MODE_MM_MARK_DIRTY) {
 		/* keep real requester anyway */
@@ -1383,26 +1383,26 @@ void mtk_btag_mictx_eval_tp(
 	struct mtk_blocktag *btag,
 	unsigned int write, __u64 usage, __u32 size)
 {
-	struct mtk_btag_mictx_struct *ctx = &btag->mictx;
+	struct mtk_btag_mictx_struct *mictx = &btag->mictx;
 	struct mtk_btag_throughput_rw *tprw;
 	unsigned long flags;
 	__u64 cur_time = sched_clock();
 	__u64 req_begin_time;
 
-	if (!ctx->enabled)
+	if (!mictx->enabled)
 		return;
 
-	tprw = (write) ? &ctx->tp.w : &ctx->tp.r;
-	spin_lock_irqsave(&ctx->lock, flags);
+	tprw = (write) ? &mictx->tp.w : &mictx->tp.r;
+	spin_lock_irqsave(&mictx->lock, flags);
 	tprw->size += size;
 	tprw->usage += usage;
 
-	ctx->tp_max_time = cur_time;
+	mictx->tp_max_time = cur_time;
 	req_begin_time = cur_time - usage;
 
-	if (!ctx->tp_min_time || req_begin_time < ctx->tp_min_time)
-		ctx->tp_min_time = req_begin_time;
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	if (!mictx->tp_min_time || req_begin_time < mictx->tp_min_time)
+		mictx->tp_min_time = req_begin_time;
+	spin_unlock_irqrestore(&mictx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_tp);
 
@@ -1410,20 +1410,20 @@ void mtk_btag_mictx_eval_req(
 	struct mtk_blocktag *btag,
 	unsigned int write, __u32 cnt, __u32 size, bool top)
 {
-	struct mtk_btag_mictx_struct *ctx = &btag->mictx;
+	struct mtk_btag_mictx_struct *mictx = &btag->mictx;
 	struct mtk_btag_req_rw *reqrw;
 	unsigned long flags;
 
-	if (!ctx->enabled)
+	if (!mictx->enabled)
 		return;
 
-	reqrw = (write) ? &ctx->req.w : &ctx->req.r;
-	spin_lock_irqsave(&ctx->lock, flags);
+	reqrw = (write) ? &mictx->req.w : &mictx->req.r;
+	spin_lock_irqsave(&mictx->lock, flags);
 	reqrw->count += cnt;
 	reqrw->size += size;
 	if (top)
 		reqrw->size_top += size;
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_unlock_irqrestore(&mictx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_req);
 
@@ -1431,109 +1431,109 @@ void mtk_btag_mictx_update_ctx(
 	struct mtk_blocktag *btag,
 	__u32 q_depth)
 {
-	struct mtk_btag_mictx_struct *ctx = &btag->mictx;
+	struct mtk_btag_mictx_struct *mictx = &btag->mictx;
 	unsigned long flags;
 
-	if (!ctx->enabled)
+	if (!mictx->enabled)
 		return;
 
-	spin_lock_irqsave(&ctx->lock, flags);
-	ctx->q_depth = q_depth;
+	spin_lock_irqsave(&mictx->lock, flags);
+	mictx->q_depth = q_depth;
 
-	if (!ctx->q_depth) {
-		ctx->idle_begin = sched_clock();
+	if (!mictx->q_depth) {
+		mictx->idle_begin = sched_clock();
 	} else {
-		if (ctx->idle_begin) {
-			ctx->idle_total +=
-				(sched_clock() - ctx->idle_begin);
-			ctx->idle_begin = 0;
+		if (mictx->idle_begin) {
+			mictx->idle_total +=
+				(sched_clock() - mictx->idle_begin);
+			mictx->idle_begin = 0;
 		}
 	}
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_unlock_irqrestore(&mictx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_update_ctx);
 
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_iostat_struct *iostat)
 {
-	struct mtk_btag_mictx_struct *ctx;
+	struct mtk_btag_mictx_struct *mictx;
 	struct mtk_blocktag *btag;
 	u64 time_cur, dur, tp_dur;
 	unsigned long flags;
 	int top;
 
-	ctx = mtk_btag_mictx_get_ctx();
-	if (!ctx || !ctx->enabled || !iostat)
+	mictx = mtk_btag_mictx_get_ctx();
+	if (!mictx || !mictx->enabled || !iostat)
 		return -1;
 
-	spin_lock_irqsave(&ctx->lock, flags);
+	spin_lock_irqsave(&mictx->lock, flags);
 
 	time_cur = sched_clock();
-	dur = time_cur - ctx->window_begin;
+	dur = time_cur - mictx->window_begin;
 
 	/* fill-in duration */
 	iostat->duration = dur;
 
 	/* calculate throughput (per-request) */
 	iostat->tp_req_r = mtk_btag_eval_tp_speed(
-		ctx->tp.r.size, ctx->tp.r.usage);
+		mictx->tp.r.size, mictx->tp.r.usage);
 	iostat->tp_req_w = mtk_btag_eval_tp_speed(
-		ctx->tp.w.size, ctx->tp.w.usage);
+		mictx->tp.w.size, mictx->tp.w.usage);
 
 	/* calculate throughput (overlapped, not 100% precise) */
-	tp_dur = ctx->tp_max_time - ctx->tp_min_time;
+	tp_dur = mictx->tp_max_time - mictx->tp_min_time;
 	iostat->tp_all_r = mtk_btag_eval_tp_speed(
-		ctx->tp.r.size, tp_dur);
+		mictx->tp.r.size, tp_dur);
 	iostat->tp_all_w = mtk_btag_eval_tp_speed(
-		ctx->tp.w.size, tp_dur);
+		mictx->tp.w.size, tp_dur);
 
 	/* provide request count and size */
-	iostat->reqcnt_r = ctx->req.r.count;
-	iostat->reqsize_r = ctx->req.r.size;
-	iostat->reqcnt_w = ctx->req.w.count;
-	iostat->reqsize_w = ctx->req.w.size;
+	iostat->reqcnt_r = mictx->req.r.count;
+	iostat->reqsize_r = mictx->req.r.size;
+	iostat->reqcnt_w = mictx->req.w.count;
+	iostat->reqsize_w = mictx->req.w.size;
 
 	/* calculate workload */
-	if (ctx->idle_begin)
-		ctx->idle_total += (time_cur - ctx->idle_begin);
+	if (mictx->idle_begin)
+		mictx->idle_total += (time_cur - mictx->idle_begin);
 
 	iostat->wl = 100 -
-		((__u32)((ctx->idle_total >> 10) * 100) / (__u32)(dur >> 10));
+		((__u32)((mictx->idle_total >> 10) * 100) / (__u32)(dur >> 10));
 
 	if (mtk_btag_mictx_self_test) {
 		pr_info("[BLOCK_TAG] Mictx: fuse-top: %d, %d\n",
-			ctx->top_r_pages, ctx->top_w_pages);
+			mictx->top_r_pages, mictx->top_w_pages);
 	}
 
 	/* calculate top ratio */
-	if (ctx->req.r.size || ctx->req.w.size) {
+	if (mictx->req.r.size || mictx->req.w.size) {
 		unsigned long comp;
 
-		ctx->req.r.size >>= 12;
-		ctx->req.w.size >>= 12;
-		ctx->req.r.size_top >>= 12;
-		ctx->req.w.size_top >>= 12;
+		mictx->req.r.size >>= 12;
+		mictx->req.w.size >>= 12;
+		mictx->req.r.size_top >>= 12;
+		mictx->req.w.size_top >>= 12;
 
-		if (ctx->top_r_pages) {
-			if (ctx->top_r_pages > 0) {
-				comp = ctx->req.r.size - ctx->req.r.size_top;
-				comp = min_t(int, comp, ctx->top_r_pages);
-				ctx->top_r_pages -= comp;
-				ctx->req.r.size_top += comp;
+		if (mictx->top_r_pages) {
+			if (mictx->top_r_pages > 0) {
+				comp = mictx->req.r.size - mictx->req.r.size_top;
+				comp = min_t(int, comp, mictx->top_r_pages);
+				mictx->top_r_pages -= comp;
+				mictx->req.r.size_top += comp;
 			}
 		}
 
-		if (ctx->top_w_pages) {
-			if (ctx->top_w_pages > 0) {
-				comp = ctx->req.w.size - ctx->req.w.size_top;
-				comp = min_t(int, comp, ctx->top_w_pages);
-				ctx->top_w_pages -= comp;
-				ctx->req.w.size_top += comp;
+		if (mictx->top_w_pages) {
+			if (mictx->top_w_pages > 0) {
+				comp = mictx->req.w.size - mictx->req.w.size_top;
+				comp = min_t(int, comp, mictx->top_w_pages);
+				mictx->top_w_pages -= comp;
+				mictx->req.w.size_top += comp;
 			}
 		}
 
-		top = ctx->req.r.size_top + ctx->req.w.size_top;
-		top = top * 100 / (ctx->req.r.size + ctx->req.w.size);
+		top = mictx->req.r.size_top + mictx->req.w.size_top;
+		top = top * 100 / (mictx->req.r.size + mictx->req.w.size);
 	} else {
 		top = 0;
 	}
@@ -1543,25 +1543,25 @@ int mtk_btag_mictx_get_data(
 	/* fill-in cmdq depth */
 	btag = btag_bootdev;
 	if (btag && btag->vops->mictx_eval_wqd) {
-		btag->vops->mictx_eval_wqd(ctx, time_cur);
+		btag->vops->mictx_eval_wqd(mictx, time_cur);
 		iostat->q_depth =
-			DIV_ROUND_UP((u32)(ctx->weighted_qd >> 10),
+			DIV_ROUND_UP((u32)(mictx->weighted_qd >> 10),
 				     (u32)(dur >> 10));
 	} else
-		iostat->q_depth = ctx->q_depth;
+		iostat->q_depth = mictx->q_depth;
 
 	if (mtk_btag_mictx_self_test || mtk_btag_mictx_data_dump) {
 		pr_info("[BLOCK_TAG] Mictx: sz:%llu,%llu, sz-top:%llu,%llu,%u, fuse-top: %d,%d, qd:%u, wl:%u\n",
-			ctx->req.r.size, ctx->req.w.size,
-			ctx->req.r.size_top, ctx->req.w.size_top, top,
-			ctx->top_r_pages, ctx->top_w_pages,
+			mictx->req.r.size, mictx->req.w.size,
+			mictx->req.r.size_top, mictx->req.w.size_top, top,
+			mictx->top_r_pages, mictx->top_w_pages,
 			iostat->q_depth, iostat->wl);
 	}
 
-	/* everything was provided, now we can reset the ctx */
-	mtk_btag_mictx_reset(ctx, time_cur);
+	/* everything was provided, now we can reset the mictx */
+	mtk_btag_mictx_reset(mictx, time_cur);
 
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_unlock_irqrestore(&mictx->lock, flags);
 
 	return 0;
 }
@@ -1569,22 +1569,22 @@ EXPORT_SYMBOL_GPL(mtk_btag_mictx_get_data);
 
 void mtk_btag_mictx_enable(int enable)
 {
-	struct mtk_btag_mictx_struct *ctx;
+	struct mtk_btag_mictx_struct *mictx;
 	unsigned long flags;
 
-	ctx = mtk_btag_mictx_get_ctx();
-	if (!ctx)
+	mictx = mtk_btag_mictx_get_ctx();
+	if (!mictx)
 		return;
 
-	spin_lock_irqsave(&ctx->lock, flags);
-	if (enable == ctx->enabled) {
-		spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_lock_irqsave(&mictx->lock, flags);
+	if (enable == mictx->enabled) {
+		spin_unlock_irqrestore(&mictx->lock, flags);
 		return;
 	}
-	ctx->enabled = enable;
+	mictx->enabled = enable;
 	if (enable)
-		mtk_btag_mictx_reset(ctx, 0);
-	spin_unlock_irqrestore(&ctx->lock, flags);
+		mtk_btag_mictx_reset(mictx, 0);
+	spin_unlock_irqrestore(&mictx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_enable);
 
