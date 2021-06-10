@@ -286,12 +286,17 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 
 static inline bool tp_need_resize(struct mml_frame_info *info)
 {
-	u32 w = info->dest[0].compose.width;
-	u32 h = info->dest[0].compose.height;
+	u32 w = info->dest[0].data.width;
+	u32 h = info->dest[0].data.height;
 
 	if (info->dest[0].rotate == MML_ROT_90 ||
 		info->dest[0].rotate == MML_ROT_270)
 		swap(w, h);
+
+	mml_msg("%s target %ux%u crop %ux%u",
+		__func__, w, h,
+		info->dest[0].crop.r.width,
+		info->dest[0].crop.r.height);
 
 	return info->dest_cnt != 1 ||
 		info->dest[0].crop.r.width != w ||
