@@ -314,41 +314,6 @@
 		reg = <0 0x10002000 0 0x1000>;
 	};
 
-	iocfg_0@10002000 {
-		compatible = "mediatek,iocfg_0";
-		reg = <0 0x10002000 0 0x200>;
-	};
-
-	iocfg_1@10002200 {
-		compatible = "mediatek,iocfg_1";
-		reg = <0 0x10002200 0 0x200>;
-	};
-
-	iocfg_2@10002400 {
-		compatible = "mediatek,iocfg_2";
-		reg = <0 0x10002400 0 0x200>;
-	};
-
-	iocfg_3@10002600 {
-		compatible = "mediatek,iocfg_3";
-		reg = <0 0x10002600 0 0x200>;
-	};
-
-	iocfg_4@10002800 {
-		compatible = "mediatek,iocfg_4";
-		reg = <0 0x10002800 0 0x200>;
-	};
-
-	iocfg_5@10002a00 {
-		compatible = "mediatek,iocfg_5";
-		reg = <0 0x10002a00 0 0x200>;
-	};
-
-	iocfg_6@10002c00 {
-		compatible = "mediatek,iocfg_6";
-		reg = <0 0x10002c00 0 0x200>;
-	};
-
 	pericfg@10003000 {
 		compatible = "mediatek,pericfg";
 		reg = <0 0x10003000 0 0x1000>;
@@ -357,6 +322,41 @@
 	gpio@10005000 {
 		compatible = "mediatek,gpio";
 		reg = <0 0x10005000 0 0x1000>;
+	};
+
+	pio: pinctrl {
+		compatible = "mediatek,mt6983-pinctrl";
+		reg = <0 0x10005000 0 0x1000>,
+		      <0 0x11c20000 0 0x1000>,
+		      <0 0x11c30000 0 0x1000>,
+		      <0 0x11c40000 0 0x1000>,
+		      <0 0x11d10000 0 0x1000>,
+		      <0 0x11d30000 0 0x1000>,
+		      <0 0x11d40000 0 0x1000>,
+		      <0 0x11d50000 0 0x1000>,
+		      <0 0x11e10000 0 0x1000>,
+		      <0 0x11e20000 0 0x1000>,
+		      <0 0x11ea0000 0 0x1000>,
+		      <0 0x11eb0000 0 0x1000>,
+		      <0 0x11f20000 0 0x1000>,
+		      <0 0x11f30000 0 0x1000>;
+ 		reg-names = "gpio",
+			    "iocfg_rm",
+			    "iocfg_rt",
+			    "iocfg_rmm",
+			    "iocfg_bl",
+			    "iocfg_bm",
+			    "iocfg_br",
+			    "iocfg_brr",
+			    "iocfg_lm",
+			    "iocfg_lb",
+			    "iocfg_rtt",
+			    "iocfg_tr",
+			    "iocfg_tl",
+			    "iocfg_lt";
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-ranges = <&pio 0 0 234>;
 	};
 
 	psci {
