@@ -104,9 +104,10 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	void __iomem *base = sram_base_addr;
 	struct em_perf_domain *pd;
 	int this_cpu, gear_id, opp_idx, offset;
-	unsigned int frequency;
+	unsigned int freq_thermal, freq_max, freq_ceiling;
 	unsigned long max_capacity, capacity;
 	u32 opp_ceiling;
+	struct cpufreq_policy *policy;
 
 	this_cpu = cpu_of(rq);
 	pd = em_cpu_get(this_cpu);
@@ -122,14 +123,19 @@ void mtk_tick_entry(void *data, struct rq *rq)
 
 	opp_ceiling = ioread32(base + offset);
 	opp_idx = pd->nr_perf_states - opp_ceiling - 1;
-	frequency = pd->table[opp_idx].frequency;
+	freq_thermal = pd->table[opp_idx].frequency;
+
+	policy = cpufreq_cpu_get(this_cpu);
+	freq_max = policy->max;
+
+	freq_ceiling = min(freq_thermal, freq_max);
 
 	max_capacity = arch_scale_cpu_capacity(this_cpu);
-	capacity = frequency * max_capacity;
+	capacity = freq_ceiling * max_capacity;
 	capacity /= pd->table[pd->nr_perf_states-1].frequency;
 	arch_set_thermal_pressure(to_cpumask(pd->cpus), max_capacity - capacity);
 
-	trace_thermal_frequency_limits(frequency, this_cpu);
+	trace_sched_frequency_limits(this_cpu, freq_thermal, freq_max, freq_ceiling);
 }
 
 /*

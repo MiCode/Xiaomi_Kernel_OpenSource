@@ -197,24 +197,28 @@ TRACE_EVENT(sched_force_migrate,
 /*
  * Tracepoint for task force migrations.
  */
-TRACE_EVENT(thermal_frequency_limits,
+TRACE_EVENT(sched_frequency_limits,
 
-	TP_PROTO(int max_frequency, int cpu_id),
+	TP_PROTO(int cpu_id, int freq_thermal, int freq_max, int freq_ceiling),
 
-	TP_ARGS(max_frequency, cpu_id),
+	TP_ARGS(cpu_id, freq_thermal, freq_max, freq_ceiling),
 
 	TP_STRUCT__entry(
-		__field(unsigned int,  max_frequency)
 		__field(int,  cpu_id)
+		__field(int,  freq_thermal)
+		__field(int,  freq_max)
+		__field(int,  freq_ceiling)
 		),
 
 	TP_fast_assign(
-		__entry->max_frequency   = max_frequency;
 		__entry->cpu_id = cpu_id;
+		__entry->freq_thermal = freq_thermal;
+		__entry->freq_max = freq_max;
+		__entry->freq_ceiling = freq_ceiling;
 		),
 
-	TP_printk("max=%lu cpu_id=%d",
-		__entry->max_frequency, __entry->cpu_id)
+	TP_printk("cpu=%d thermal=%lu cpu_freq_max=%lu sched_ceiling=%lu",
+		__entry->cpu_id, __entry->freq_thermal, __entry->freq_max, __entry->freq_ceiling)
 );
 
 TRACE_EVENT(sched_queue_task,
