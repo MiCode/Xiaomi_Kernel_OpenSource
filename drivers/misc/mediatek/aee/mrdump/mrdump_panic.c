@@ -49,7 +49,7 @@ static struct pt_regs saved_regs;
 #define PSCI_FN_NATIVE(version, name)   PSCI_##version##_FN_##name
 #endif
 
-#define DEBUG_COMPATIBLE "mediatek,reserve-memory-mrdump_share"
+#define DEBUG_COMPATIBLE "mediatek,aee_debug_kinfo"
 
 static void aee_exception_reboot(void)
 {
