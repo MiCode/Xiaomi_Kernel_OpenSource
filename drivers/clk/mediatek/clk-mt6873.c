@@ -4219,12 +4219,12 @@ static const struct mtk_pll_data plls[] = {
 	PLL(APMIXED_APLL1, "apll1", 0x0318 /*con0*/, 0x0328 /*con4*/,
 		BIT(0)/*enmask*/, 0/*isomask*/, 0/*pwronmask*/,
 		PLL_CFLAGS, 0/*rstb*/, 32/*pcwbits*/, 0x031C, 24/* pd */,
-		0, 0xc, 0/* tuner*/, 0x0320, 0/* pcw */, 0/*enreg*/),
+		0x40, 0xc, 0/* tuner*/, 0x0320, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_APLL2, "apll2", 0x032c /*con0*/, 0x033c /*con4*/,
 		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
 		PLL_CFLAGS, 0/*rstb*/, 32/*pcwbits*/, 0x0330, 24/* pd */,
-		0, 0, 0/* tuner*/, 0x0334, 0/* pcw */, 0/*enreg*/),
+		0x44, 0xc, 5/* tuner*/, 0x0334, 0/* pcw */, 0/*enreg*/),
 };
 
 static void __iomem *apmixed_base;
