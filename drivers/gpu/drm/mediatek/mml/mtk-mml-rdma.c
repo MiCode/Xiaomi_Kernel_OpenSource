@@ -1043,6 +1043,106 @@ static const struct mml_comp_hw_ops rdma_hw_ops = {
 	.clk_disable = &mml_comp_clk_disable,
 };
 
+static const char *rdma_state(u32 state)
+{
+	switch (state) {
+	case 0x1:
+		return "idle";
+	case 0x2:
+		return "wait sof";
+	case 0x4:
+		return "reg update";
+	case 0x8:
+		return "clear0";
+	case 0x10:
+		return "clear1";
+	case 0x20:
+		return "int0";
+	case 0x40:
+		return "int1";
+	case 0x80:
+		return "data running";
+	case 0x100:
+		return "wait done";
+	case 0x200:
+		return "warm reset";
+	case 0x400:
+		return "wait reset";
+	default:
+		return "";
+	}
+}
+
+static void rdma_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[17];
+	u32 mon[29];
+	u32 state, grep;
+	u8 i;
+
+	mml_err("rdma component %u dump:", comp->id);
+
+	value[0] = readl(base + RDMA_EN);
+	value[1] = readl(base + RDMA_SRC_CON);
+	value[2] = readl(base + RDMA_COMP_CON);
+	value[3] = readl(base + RDMA_MF_BKGD_SIZE_IN_BYTE);
+	value[4] = readl(base + RDMA_MF_BKGD_SIZE_IN_PXL);
+	value[5] = readl(base + RDMA_MF_SRC_SIZE);
+	value[6] = readl(base + RDMA_MF_CLIP_SIZE);
+	value[7] = readl(base + RDMA_MF_OFFSET_1);
+	value[8] = readl(base + RDMA_MF_BKGD_H_SIZE_IN_PXL);
+	value[9] = readl(base + RDMA_SRC_END_0);
+	value[10] = readl(base + RDMA_SRC_END_1);
+	value[11] = readl(base + RDMA_SRC_END_2);
+	value[12] = readl(base + RDMA_SRC_OFFSET_WP);
+	value[13] = readl(base + RDMA_SRC_OFFSET_HP);
+	value[14] = readl(base + RDMA_SRC_BASE_0);
+	value[15] = readl(base + RDMA_SRC_BASE_1);
+	value[16] = readl(base + RDMA_SRC_BASE_2);
+
+	/* mon sta from 0 ~ 28 */
+	for (i = 0; i < ARRAY_SIZE(mon); i++)
+		mon[i] = readl(base + RDMA_MON_STA_0 + i * 8);
+
+	mml_err("RDMA_EN %#010x RDMA_SRC_CON %#010x RDMA_COMP_CON %#010x",
+		value[0], value[1], value[2]);
+	mml_err("RDMA_MF_BKGD_SIZE_IN_BYTE %#010x RDMA_MF_BKGD_SIZE_IN_PXL %#010x",
+		value[3], value[4]);
+	mml_err("RDMA_MF_SRC_SIZE %#010x RDMA_MF_CLIP_SIZE %#010x ",
+		value[5], value[6]);
+	mml_err("RDMA_MF_OFFSET_1 %#010x RDMA_MF_BKGD_H_SIZE_IN_PXL %#010x",
+		value[7], value[8]);
+	mml_err("RDMA_SRC_END_0 %#010x RDMA_SRC_END_1 %#010x RDMA_SRC_END_2 %#010x",
+		value[9], value[10], value[11]);
+	mml_err("RDMA_SRC_OFFSET_WP %#010x RDMA_SRC_OFFSET_HP %#010x",
+		value[12], value[13]);
+	mml_err("RDMA_SRC BASE_0 %#010x BASE_1 %#010x BASE_2 %#010x",
+		value[14], value[15], value[16]);
+
+	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++)
+		mml_err("RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x",
+			i * 3, mon[i*3],
+			i * 3 + 1, mon[i*3+1],
+			i * 3 + 2, mon[i*3+2]);
+	mml_err("RDMA_MON_STA_28 %#010x", mon[28]);
+
+	/* parse state */
+	mml_err("RDMA ack:%u req:%d ufo:%u",
+		(mon[0] >> 11) & 0x1, (mon[0] >> 10) & 0x1,
+		(mon[0] >> 25) & 0x1);
+	state = (mon[1] >> 8) & 0x7ff;
+	grep = (mon[1] >> 20) & 0x1;
+	mml_err("RDMA state: %#x (%s)", state, rdma_state(state));
+	mml_err("RDMA horz_cnt %u vert_cnt %u",
+		mon[26] & 0xfff, (mon[26] >> 16) & 0xfff);
+	mml_err("RDMA grep:%u => suggest to ask SMI help:%u", grep, grep);
+}
+
+static const struct mml_comp_debug_ops rdma_debug_ops = {
+	.dump = &rdma_debug_dump,
+};
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_rdma *rdma = dev_get_drvdata(dev);
@@ -1114,6 +1214,7 @@ static int probe(struct platform_device *pdev)
 	/* assign ops */
 	priv->comp.config_ops = &rdma_cfg_ops;
 	priv->comp.hw_ops = &rdma_hw_ops;
+	priv->comp.debug_ops = &rdma_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

@@ -329,7 +329,7 @@ struct mml_comp_hw_ops {
 };
 
 struct mml_comp_debug_ops {
-
+	void (*dump)(struct mml_comp *comp);
 };
 
 struct mml_comp {

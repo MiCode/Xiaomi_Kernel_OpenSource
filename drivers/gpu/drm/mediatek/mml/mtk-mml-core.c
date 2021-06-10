@@ -408,22 +408,60 @@ static void wait_dma_fence(const char *name, struct dma_fence *fence)
 			name, fence, ret);
 }
 
+#define call_dbg_op(_comp, op) \
+	((_comp->debug_ops && _comp->debug_ops->op) ? _comp->debug_ops->op(_comp) : 0)
+
+static void core_taskdump_cb(struct mml_task *task, u8 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_comp *comp;
+	u8 i;
+
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_dbg_op(comp, dump);
+	}
+}
+
+static void core_taskdump_pipe0_cb(struct cmdq_cb_data data)
+{
+	struct mml_task *task = (struct mml_task *)data.data;
+
+	core_taskdump_cb(task, 0);
+}
+
+static void core_taskdump_pipe1_cb(struct cmdq_cb_data data)
+{
+	struct mml_task *task = (struct mml_task *)data.data;
+
+	core_taskdump_cb(task, 1);
+}
+
+static const cmdq_async_flush_cb dump_cbs[2] = {
+	[0] = core_taskdump_pipe0_cb,
+	[1] = core_taskdump_pipe1_cb,
+};
+
 static s32 core_flush(struct mml_task *task, u32 pipe_id)
 {
 	int i;
 	s32 err;
+	struct cmdq_pkt *pkt = task->pkts[pipe_id];
 
 	if (mml_pkt_dump)
-		cmdq_pkt_dump_buf(task->pkts[pipe_id], 0);
+		cmdq_pkt_dump_buf(pkt, 0);
 
 	/* before flush, make sure buffer fence signaled */
 	wait_dma_fence("src", task->buf.src.fence);
 	for (i = 0; i < task->buf.dest_cnt; i++)
 		wait_dma_fence("dest", task->buf.dest[i].fence);
 
-	err = cmdq_pkt_flush_async(task->pkts[pipe_id],
-				   core_taskdone_cb,
-				   (void *)task);
+	/* assign error handler */
+	pkt->err_cb.cb = dump_cbs[pipe_id];
+	pkt->err_cb.data = (void *)task;
+
+	err = cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task);
 
 	return err;
 }

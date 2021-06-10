@@ -1467,6 +1467,71 @@ static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.clk_disable = &mml_comp_clk_disable,
 };
 
+static void wrot_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[18];
+	u32 debug[34];
+	u32 dbg_id = 0, i;
+
+	mml_err("wrot component %u dump:", comp->id);
+
+	value[0] = readl(base + VIDO_CTRL);
+	value[1] = readl(base + VIDO_DMA_PERF);
+	value[2] = readl(base + VIDO_MAIN_BUF_SIZE);
+	value[3] = readl(base + VIDO_SOFT_RST);
+	value[4] = readl(base + VIDO_SOFT_RST_STAT);
+	value[5] = readl(base + VIDO_INT);
+	value[6] = readl(base + VIDO_TAR_SIZE);
+	value[7] = readl(base + VIDO_FRAME_SIZE);
+	value[8] = readl(base + VIDO_OFST_ADDR);
+	value[9] = readl(base + VIDO_STRIDE);
+	value[10] = readl(base + VIDO_RSV_1);
+	value[11] = readl(base + VIDO_IN_SIZE);
+	value[12] = readl(base + VIDO_ROT_EN);
+	value[13] = readl(base + VIDO_PVRIC);
+	value[14] = readl(base + VIDO_PENDING_ZERO);
+	value[15] = readl(base + VIDO_BASE_ADDR);
+	value[16] = readl(base + VIDO_BASE_ADDR_C);
+	value[17] = readl(base + VIDO_BASE_ADDR_V);
+
+	/* debug id from 0x0100 ~ 0x2100, count 34 which is debug array size */
+	for (i = 0; i < ARRAY_SIZE(debug); i++) {
+		dbg_id += 0x100;
+		writel(dbg_id, (volatile void *)base + VIDO_INT_EN);
+		debug[i] = readl(base + VIDO_DEBUG);
+	}
+
+	mml_err("VIDO_CTRL %#010x VIDO_DMA_PERF %#010x VIDO_MAIN_BUF_SIZE %#010x",
+		value[0], value[1], value[2]);
+
+	mml_err("VIDO_SOFT_RST %#010x VIDO_SOFT_RST_STAT %#010x VIDO_INT %#010x",
+		value[3], value[4], value[5]);
+
+	mml_err("VIDO_TAR_SIZE %#010x VIDO_FRAME_SIZE %#010x VIDO_OFST_ADDR %#010x",
+		value[6], value[7], value[8]);
+
+	mml_err("VIDO_STRIDE %#010x VIDO_RSV_1 %#010x VIDO_IN_SIZE %#010x",
+		value[9], value[10], value[11]);
+
+	mml_err("VIDO_ROT_EN %#010x VIDO_PVRIC %#010x VIDO_PENDING_ZERO %#010x",
+		value[12], value[13], value[14]);
+
+	mml_err("VIDO_BASE_ADDR %#010x C %#010x V %#010x",
+		value[15], value[16], value[17]);
+
+	for (i = 0; i < ARRAY_SIZE(debug) / 3; i++)
+		mml_err("ROT_DBUGG_%x %#010x ROT_DBUGG_%x %#010x ROT_DBUGG_%x %#010x",
+			i * 3, debug[i*3],
+			i * 3 + 1, debug[i*3+1],
+			i * 3 + 2, debug[i*3+2]);
+	mml_err("ROT_DBUGG_21 %#010x", debug[33]);
+}
+
+static const struct mml_comp_debug_ops wrot_debug_ops = {
+	.dump = &wrot_debug_dump,
+};
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_wrot *wrot = dev_get_drvdata(dev);
@@ -1535,6 +1600,7 @@ static int probe(struct platform_device *pdev)
 	priv->comp.tile_ops = &wrot_tile_ops;
 	priv->comp.config_ops = &wrot_cfg_ops;
 	priv->comp.hw_ops = &wrot_hw_ops;
+	priv->comp.debug_ops = &wrot_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 
