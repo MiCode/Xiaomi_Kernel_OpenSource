@@ -59,6 +59,15 @@ config MTK_CHARGER_THERMAL
 	  This option depends on MTK_CHARGER which is
 	  MTK charger driver.
 
+config MTK_BACKLIGHT_THERMAL
+	tristate "Mediatek backlight cooling framework"
+	depends on LEDS_MTK_PWM || LEDS_MTK_DISP
+	help
+	  Enable this option to turn on backlight throttle mechanisms
+	  for Mediatek platforms.
+	  This option depends on LEDS_MTK which is
+	  MTK leds driver.
+
 config MTK_THERMAL_TRACE
 	tristate "Mediatek thermal ftrace driver"
 	depends on FTRACE
