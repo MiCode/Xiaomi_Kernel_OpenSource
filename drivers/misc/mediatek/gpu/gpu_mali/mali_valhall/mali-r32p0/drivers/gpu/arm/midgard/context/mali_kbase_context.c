@@ -157,6 +157,9 @@ int kbase_context_common_init(struct kbase_context *kctx)
 #if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
 	atomic_set(&kctx->jctx.work_id, 0);
 #endif
+#if defined(MTK_GPU_BM_2)
+	atomic_set(&kctx->jctx.work_id, 0);
+#endif
 #endif
 
 	bitmap_copy(kctx->cookies, &cookies_mask, BITS_PER_LONG);

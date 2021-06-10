@@ -129,7 +129,7 @@ void kbase_jd_dep_clear_locked(struct kbase_jd_atom *katom)
 	KBASE_DEBUG_ASSERT(kbdev);
 
 	/* Check whether the atom's other dependencies were already met. If
-	 * katom is a GPU atom then the job scheduler may be able to represent
+	 * katom is a GPU atom then the job schedufler may be able to represent
 	 * the dependencies, hence we may attempt to submit it before they are
 	 * met. Other atoms must have had both dependencies resolved.
 	 */
@@ -955,6 +955,11 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 
 	katom->age = kctx->age_count++;
 
+#if defined(MTK_GPU_BM_2)
+	/* set up frame number */
+	katom->frame_nr = user_atom->frame_nr;
+#endif
+
 	INIT_LIST_HEAD(&katom->queue);
 	INIT_LIST_HEAD(&katom->jd_item);
 #ifdef CONFIG_MALI_DMA_FENCE
@@ -1176,6 +1181,9 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 	katom->work_id = atomic_inc_return(&jctx->work_id);
 	trace_gpu_job_enqueue(kctx->id, katom->work_id,
 			kbasep_map_core_reqs_to_string(katom->core_req));
+#endif
+#if defined(MTK_GPU_BM_2)
+	katom->work_id = atomic_inc_return(&jctx->work_id);
 #endif
 
 	if (queued && !IS_GPU_ATOM(katom))

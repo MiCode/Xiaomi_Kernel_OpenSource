@@ -122,6 +122,16 @@
 #include "platform/mtk_platform_common.h"
 #include <mtk_gpufreq.h>
 
+#if defined(MTK_GPU_BM_2)
+#include <gpu_bm.h>
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#include <sspm_reservedmem_define.h>
+static phys_addr_t rec_phys_addr, rec_virt_addr;
+static unsigned long long rec_size;
+struct v1_data *gpu_info_ref;
+#endif
+#endif
+
 /* GPU IRQ Tags */
 #define	JOB_IRQ_TAG	0
 #define MMU_IRQ_TAG	1
@@ -168,6 +178,47 @@ static mali_kbase_capability_def kbase_caps_table[MALI_KBASE_NUM_CAPS] = {
 	{ 11,  2 }              /* MEM_PROTECTED	*/
 #endif
 };
+
+#if defined(MTK_GPU_BM_2)
+static void get_rec_addr(void)
+{
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+	   int i;
+	   unsigned char *ptr;
+
+	   /* get sspm reserved mem */
+	   rec_phys_addr = sspm_reserve_mem_get_phys(GPU_MEM_ID);
+	   rec_virt_addr = sspm_reserve_mem_get_virt(GPU_MEM_ID);
+	   rec_size = sspm_reserve_mem_get_size(GPU_MEM_ID);
+
+	   /* clear */
+	   ptr = (unsigned char *)(uintptr_t)rec_virt_addr;
+	   for (i = 0; i < rec_size; i++)
+			ptr[i] = 0x0;
+
+	   gpu_info_ref = (struct v1_data *)(uintptr_t)rec_virt_addr;
+#endif
+}
+
+static int mtk_bandwith_resource_init(struct kbase_device *kbdev)
+{
+		int err = 0;
+
+		get_rec_addr();
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+		if(gpu_info_ref == NULL) {
+			err = -1;
+			pr_debug("%s: get sspm reserved memory fail\n", __func__);
+			return err;
+		}
+		kbdev->v1 = gpu_info_ref;
+		kbdev->v1->version = 1;
+		kbdev->job_status_addr.phyaddr = rec_phys_addr;
+		MTKGPUQoS_setup(kbdev->v1, kbdev->job_status_addr.phyaddr, rec_size);
+#endif
+		return err;
+}
+#endif
 
 /**
  * mali_kbase_supports_cap - Query whether a kbase capability is supported
@@ -5248,6 +5299,9 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 #ifdef MALI_KBASE_BUILD
 #if IS_ENABLED(CONFIG_PROC_FS)
 		mtk_common_procfs_init();
+#endif
+#if defined(MTK_GPU_BM_2)
+		mtk_bandwith_resource_init(kbdev);
 #endif
 		dev_info(kbdev->dev,
 			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
