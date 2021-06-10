@@ -18,6 +18,11 @@
 
 #include "mtk_battery_oc_throttling.h"
 
+#define MT6375_FGADC_CUR_CON1	0x2E9
+#define MT6375_FGADC_CUR_CON2	0x2EB
+#define MT6375_FGADC_ANA_ELR4	0x263
+#define FG_GAINERR_SEL_MASK	GENMASK(1, 0)
+
 /* Customize the setting in dts node */
 #define DEF_BAT_OC_THD_H	5800
 #define DEF_BAT_OC_THD_L	6300
@@ -36,19 +41,38 @@
 #define	MT6359P_DEFAULT_RFG		(50)
 #define	MT6359P_UNIT_FGCURRENT		(610352)
 
+#define	MT6375_UNIT_FGCURRENT		(610352)
+
 struct reg_t {
 	unsigned int addr;
 	unsigned int mask;
+	size_t size;
 };
 
-struct battery_oc_regs_t {
+struct battery_oc_data_t {
+	const char *regmap_source;
+	const char *gauge_node_name;
 	struct reg_t fg_cur_hth;
 	struct reg_t fg_cur_lth;
+	bool cust_rfg;
+	struct reg_t reg_default_rfg;
 };
 
-struct battery_oc_regs_t mt6359p_battery_oc_regs = {
-	.fg_cur_hth = {MT6359P_FGADC_CUR_CON2, 0xFFFF},
-	.fg_cur_lth = {MT6359P_FGADC_CUR_CON1, 0xFFFF},
+struct battery_oc_data_t mt6359p_battery_oc_data = {
+	.regmap_source = "parent_drvdata",
+	.gauge_node_name = "mtk_gauge",
+	.fg_cur_hth = {MT6359P_FGADC_CUR_CON2, 0xFFFF, 1},
+	.fg_cur_lth = {MT6359P_FGADC_CUR_CON1, 0xFFFF, 1},
+	.cust_rfg = false,
+};
+
+struct battery_oc_data_t mt6375_battery_oc_data = {
+	.regmap_source = "dev_get_regmap",
+	.gauge_node_name = "mt6375_gauge",
+	.fg_cur_hth = {MT6375_FGADC_CUR_CON2, 0xFFFF, 2},
+	.fg_cur_lth = {MT6375_FGADC_CUR_CON1, 0xFFFF, 2},
+	.cust_rfg = true,
+	.reg_default_rfg = {MT6375_FGADC_ANA_ELR4, FG_GAINERR_SEL_MASK, 1},
 };
 
 struct battery_oc_priv {
@@ -62,7 +86,7 @@ struct battery_oc_priv {
 	int default_rfg;
 	int car_tune_value;
 	int unit_fg_cur;
-	const struct battery_oc_regs_t *regs;
+	const struct battery_oc_data_t *ocdata;
 };
 
 static int g_battery_oc_stop;
@@ -72,6 +96,31 @@ struct battery_oc_callback_table {
 };
 
 static struct battery_oc_callback_table occb_tb[OCCB_MAX_NUM] = { {0} };
+
+static int __regmap_update_bits(struct regmap *regmap, const struct reg_t *reg,
+				unsigned int val)
+{
+	if (reg->size == 1)
+		return regmap_update_bits(regmap, reg->addr, reg->mask, val);
+	/*
+	 * here we assume those register addresses are continuous and
+	 * there is one and only one function in them.
+	 * please take care of the endian if it is necessary.
+	 * this is not a good assumption but we do this here for compatiblity.
+	 * please abstract the register control if there is a chance to refactor
+	 * this file.
+	 */
+	val &= reg->mask;
+	return regmap_bulk_write(regmap, reg->addr, &val, reg->size);
+}
+
+static int __regmap_read(struct regmap *regmap, const struct reg_t *reg,
+			 unsigned int *val)
+{
+	if (reg->size == 1)
+		return regmap_read(regmap, reg->addr, val);
+	return regmap_bulk_read(regmap, reg->addr, val, reg->size);
+}
 
 void register_battery_oc_notify(battery_oc_callback oc_cb,
 				enum BATTERY_OC_PRIO_TAG prio_val)
@@ -245,13 +294,16 @@ static irqreturn_t fg_cur_l_int_handler(int irq, void *data)
 
 static int battery_oc_parse_dt(struct platform_device *pdev)
 {
-	struct mt6397_chip *pmic = dev_get_drvdata(pdev->dev.parent);
+	struct mt6397_chip *pmic;
 	struct battery_oc_priv *priv = dev_get_drvdata(&pdev->dev);
 	struct device_node *np;
 	int ret = 0;
+	const int r_fg_val[] = { 50, 20, 10, 5 };
+	u32 regval;
 
 	/* Get R_FG_VALUE/CAR_TUNE_VALUE from gauge dts node */
-	np = of_find_node_by_name(pdev->dev.parent->of_node, "mtk_gauge");
+	np = of_find_node_by_name(pdev->dev.parent->of_node,
+				  priv->ocdata->gauge_node_name);
 	if (!np) {
 		dev_notice(&pdev->dev, "get mtk_gauge node fail\n");
 		return -EINVAL;
@@ -287,15 +339,23 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 		priv->oc_thd_l = DEF_BAT_OC_THD_L;
 
 	/* Get DEFAULT_RFG/UNIT_FGCURRENT from pre-defined MACRO */
-	switch (pmic->chip_id) {
-	case MT6359P_CHIP_ID:
-		priv->default_rfg = MT6359P_DEFAULT_RFG;
-		priv->unit_fg_cur = MT6359P_UNIT_FGCURRENT;
-		break;
+	if (priv->ocdata->cust_rfg) {
+		__regmap_read(priv->regmap, &priv->ocdata->reg_default_rfg, &regval);
+		regval &= priv->ocdata->reg_default_rfg.mask;
+		priv->default_rfg = r_fg_val[regval];
+		priv->unit_fg_cur = MT6375_UNIT_FGCURRENT;
+	} else {
+		pmic = dev_get_drvdata(pdev->dev.parent);
+		switch (pmic->chip_id) {
+		case MT6359P_CHIP_ID:
+			priv->default_rfg = MT6359P_DEFAULT_RFG;
+			priv->unit_fg_cur = MT6359P_UNIT_FGCURRENT;
+			break;
 
-	default:
-		dev_info(&pdev->dev, "unsupported chip: 0x%x\n", pmic->chip_id);
-		return -EINVAL;
+		default:
+			dev_info(&pdev->dev, "unsupported chip: 0x%x\n", pmic->chip_id);
+			return -EINVAL;
+		}
 	}
 	dev_info(&pdev->dev, "r_fg=%d car_tune=%d DEFAULT_RFG=%d UNIT_FGCURRENT=%d\n"
 		 , priv->r_fg_value, priv->car_tune_value
@@ -309,19 +369,20 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 	struct battery_oc_priv *priv;
 	struct mt6397_chip *chip;
 
-	chip = dev_get_drvdata(pdev->dev.parent);
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 	dev_set_drvdata(&pdev->dev, priv);
-	priv->regmap = chip->regmap;
-	priv->regs = of_device_get_match_data(&pdev->dev);
+	priv->ocdata = of_device_get_match_data(&pdev->dev);
+	if (!strcmp(priv->ocdata->regmap_source, "parent_drvdata")) {
+		chip = dev_get_drvdata(pdev->dev.parent);
+		priv->regmap = chip->regmap;
+	} else
+		priv->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 
 	/* set Maximum threshold to avoid irq being triggered at init */
-	regmap_update_bits(priv->regmap, priv->regs->fg_cur_hth.addr,
-			   priv->regs->fg_cur_hth.mask, 0x7FFF);
-	regmap_update_bits(priv->regmap, priv->regs->fg_cur_lth.addr,
-			   priv->regs->fg_cur_lth.mask, 0x8000);
+	__regmap_update_bits(priv->regmap, &priv->ocdata->fg_cur_hth, 0x7FFF);
+	__regmap_update_bits(priv->regmap, &priv->ocdata->fg_cur_lth, 0x8000);
 	priv->fg_cur_h_irq = platform_get_irq_byname(pdev, "fg_cur_h");
 	if (priv->fg_cur_h_irq < 0) {
 		dev_notice(&pdev->dev, "failed to get fg_cur_h irq, ret=%d\n",
@@ -335,12 +396,12 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 		return priv->fg_cur_l_irq;
 	}
 	ret = devm_request_threaded_irq(&pdev->dev, priv->fg_cur_h_irq, NULL,
-					fg_cur_h_int_handler, IRQF_TRIGGER_NONE,
+					fg_cur_h_int_handler, IRQF_ONESHOT,
 					"fg_cur_h", priv);
 	if (ret < 0)
 		dev_notice(&pdev->dev, "request fg_cur_h irq fail\n");
 	ret = devm_request_threaded_irq(&pdev->dev, priv->fg_cur_l_irq, NULL,
-					fg_cur_l_int_handler, IRQF_TRIGGER_NONE,
+					fg_cur_l_int_handler, IRQF_ONESHOT,
 					"fg_cur_l", priv);
 	if (ret < 0)
 		dev_notice(&pdev->dev, "request fg_cur_l irq fail\n");
@@ -352,12 +413,10 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	regmap_update_bits(priv->regmap, priv->regs->fg_cur_hth.addr,
-			   priv->regs->fg_cur_hth.mask,
-			   to_fg_code(priv, priv->oc_thd_h));
-	regmap_update_bits(priv->regmap, priv->regs->fg_cur_lth.addr,
-			   priv->regs->fg_cur_lth.mask,
-			   to_fg_code(priv, priv->oc_thd_l));
+	__regmap_update_bits(priv->regmap, &priv->ocdata->fg_cur_hth,
+			     to_fg_code(priv, priv->oc_thd_h));
+	__regmap_update_bits(priv->regmap, &priv->ocdata->fg_cur_lth,
+			     to_fg_code(priv, priv->oc_thd_l));
 	dev_info(&pdev->dev, "%dmA(0x%x), %dmA(0x%x) Done\n",
 		 priv->oc_thd_h, to_fg_code(priv, priv->oc_thd_h),
 		 priv->oc_thd_l, to_fg_code(priv, priv->oc_thd_l));
@@ -403,7 +462,10 @@ static SIMPLE_DEV_PM_OPS(battery_oc_throttling_pm_ops,
 static const struct of_device_id battery_oc_throttling_of_match[] = {
 	{
 		.compatible = "mediatek,mt6359p-battery_oc_throttling",
-		.data = &mt6359p_battery_oc_regs,
+		.data = &mt6359p_battery_oc_data,
+	}, {
+		.compatible = "mediatek,mt6375-battery_oc_throttling",
+		.data = &mt6375_battery_oc_data,
 	}, {
 		/* sentinel */
 	}
