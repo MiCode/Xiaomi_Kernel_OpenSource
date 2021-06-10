@@ -558,12 +558,18 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 	int ret = -EIO;
 	unsigned int i = 0;
 	struct IMGSENSOR             *pimgsensor   = &gimgsensor;
+	struct IMGSENSOR_HW          *phw          = &pimgsensor->hw;
 	struct IMGSENSOR_SENSOR_INST *psensor_inst = &psensor->inst;
 
 	imgsensor_mutex_init(psensor_inst);
-	imgsensor_i2c_init(&psensor_inst->i2c_cfg,
-	imgsensor_custom_config[
-	(unsigned int)psensor_inst->sensor_idx].i2c_dev);
+	if (IS_MT6853(phw->g_platform_id))
+		imgsensor_i2c_init(&psensor_inst->i2c_cfg,
+		imgsensor_custom_config_mt6853[
+		(unsigned int)psensor_inst->sensor_idx].i2c_dev);
+	else
+		imgsensor_i2c_init(&psensor_inst->i2c_cfg,
+		imgsensor_custom_config[
+		(unsigned int)psensor_inst->sensor_idx].i2c_dev);
 	imgsensor_i2c_filter_msg(&psensor_inst->i2c_cfg, true);
 
 	while (pimgsensor->psensor_list[i] && i < MAX_NUM_OF_SUPPORT_SENSOR) {
@@ -690,7 +696,7 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 	PK_DBG("[%s]Entry%d\n", __func__, pSensorGetInfo->SensorId);
 
 	for (i = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
-			i < MSDK_SCENARIO_ID_CUSTOM5;
+			i < MSDK_SCENARIO_ID_MAX;
 			i++) {
 		imgsensor_sensor_get_info(psensor, i, &info, &config);
 
@@ -2152,12 +2158,7 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 
 	/* Get the platform id */
 	phw->g_platform_id = GET_PLATFORM_ID("mediatek,seninf_top");
-	if (!(phw->g_platform_id)) {
-		PK_DBG("get platform id failed: %x\n", phw->g_platform_id);
-		return -ENODEV;
-	} else {
-		PK_DBG("get platform id success: %x\n", phw->g_platform_id);
-	}
+	PK_DBG("get imgsensor platform id: %x\n", phw->g_platform_id);
 
 	/* Register char driver */
 	if (alloc_chrdev_region(&pimgsensor->dev_no, 0, 1,

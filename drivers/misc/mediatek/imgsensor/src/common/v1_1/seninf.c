@@ -186,10 +186,10 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 	PK_DBG("%s %d\n", __func__,
 	       atomic_read(&pseninf->seninf_open_cnt));
 	mutex_unlock(&pseninf->seninf_mutex);
-#endif
 
 #ifdef SENINF_USE_RPM
 	pm_runtime_put_sync(pseninf->dev);
+#endif
 #endif
 
 	return 0;
@@ -487,26 +487,11 @@ static MINT32 seninf_probe(struct platform_device *pDev)
 	pseninf->dev = &pDev->dev;
 
 	/* Get the seninf max num id */
-	pseninf->g_seninf_max_num_id =
-		GET_SENINF_MAX_NUM_ID("mediatek,seninf_top");
-	if (!(pseninf->g_seninf_max_num_id)) {
-		PK_DBG("get seninf_max_num_id failed: %d\n",
-			pseninf->g_seninf_max_num_id);
-		return -ENODEV;
-	} else {
-		PK_DBG("get seninf_max_num_id success: %d\n",
-			pseninf->g_seninf_max_num_id);
-	}
+	pseninf->g_seninf_max_num_id = GET_SENINF_MAX_NUM_ID("mediatek,seninf_top");
+	PK_DBG("get seninf_max_num_id: %d\n", pseninf->g_seninf_max_num_id);
 	/* Get the platform id */
 	pseninf->clk.g_platform_id = GET_PLATFORM_ID("mediatek,seninf_top");
-	if (!(pseninf->clk.g_platform_id)) {
-		PK_DBG("get platform id failed: %x\n",
-			pseninf->clk.g_platform_id);
-		return -ENODEV;
-	} else {
-		PK_DBG("get platform id success: %x\n",
-			pseninf->clk.g_platform_id);
-	}
+	PK_DBG("get seninf platform id: %x\n", pseninf->clk.g_platform_id);
 
 #ifdef SENINF_USE_RPM
 	pm_runtime_enable(pseninf->dev);

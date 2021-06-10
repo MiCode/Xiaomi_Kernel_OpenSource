@@ -341,6 +341,10 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config_mt6853[] = {
 };
 
 struct IMGSENSOR_HW_POWER_SEQ platform_power_sequence[] = {
+	{NULL}
+};
+
+struct IMGSENSOR_HW_POWER_SEQ platform_power_sequence_mt6853[] = {
 	{
 		PLATFORM_POWER_SEQ_NAME,
 		{
