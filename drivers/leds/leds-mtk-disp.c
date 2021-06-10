@@ -12,7 +12,6 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/pwm.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
@@ -46,21 +45,12 @@ struct leds_desp_info {
 	struct led_desp *leds[0];
 };
 
-struct led_pwm_info {
-	struct pwm_device *pwm;
-	const char	*name;
-	u8		active_low;
-	unsigned	pwm_period_ns;
-	unsigned long long duty;
-};
-
 struct mtk_led_data {
 	struct led_desp desp;
 	struct led_conf_info	conf;
 	int last_brightness;
 	int hw_brightness;
 	int last_hw_brightness;
-	struct led_pwm_info info;
 	struct mtk_leds_info	*parent;
 	struct led_debug_info debug;
 };
@@ -70,6 +60,7 @@ struct mtk_leds_info {
 	int			nums;
 	struct mtk_led_data leds[0];
 };
+extern int mtkfb_set_backlight_level(unsigned int level);
 
 static DEFINE_MUTEX(leds_mutex);
 struct leds_desp_info *leds_info;
@@ -93,7 +84,7 @@ int mtk_leds_call_notifier(unsigned long action, void *data)
 }
 EXPORT_SYMBOL_GPL(mtk_leds_call_notifier);
 
-static int call_notifier(int event, struct mtk_led_data *led_dat)
+static int  __maybe_unused call_notifier(int event, struct mtk_led_data *led_dat)
 {
 	int err;
 
@@ -166,43 +157,18 @@ static int brightness_maptolevel(struct led_conf_info *led_dat, int brightness)
 				/ (led_dat->cdev.max_brightness));
 }
 
-static void __led_pwm_set(struct led_pwm_info *led_info)
-{
-	int new_duty = led_info->duty;
-
-	mutex_lock(&leds_mutex);
-
-	pwm_config(led_info->pwm, new_duty, led_info->pwm_period_ns);
-	if (new_duty == 0)
-		pwm_disable(led_info->pwm);
-	else
-		pwm_enable(led_info->pwm);
-
-	mutex_unlock(&leds_mutex);
-}
-
-static int led_level_pwm_set(struct mtk_led_data *led_dat,
+static int led_level_disp_set(struct mtk_led_data *led_dat,
 				int brightness)
 {
-	unsigned int max;
-	unsigned long long duty;
 
 	brightness = min(brightness, led_dat->conf.limit_hw_brightness);
 	if (brightness == led_dat->hw_brightness)
 		return 0;
 
+	mtkfb_set_backlight_level(brightness);
 	led_dat->hw_brightness = brightness;
-	max = led_dat->conf.max_hw_brightness;
-	duty = led_dat->info.pwm_period_ns;
-	duty *= brightness;
-	do_div(duty, max);
 
-	if (led_dat->info.active_low)
-		duty = led_dat->info.pwm_period_ns - duty;
-
-	led_dat->info.duty = duty;
-
-	__led_pwm_set(&led_dat->info);
+	pr_debug("set brightness by disp: %d", brightness);
 
 	return 0;
 }
@@ -230,25 +196,12 @@ int mt_leds_brightness_set(char *name, int level)
 		return -1;
 	}
 
-	led_level_pwm_set(led_dat, level);
+	led_level_disp_set(led_dat, level);
 	led_dat->last_hw_brightness = level;
 
 	return 0;
 }
 EXPORT_SYMBOL(mt_leds_brightness_set);
-
-static int led_pwm_disable(struct led_pwm_info *led_info)
-{
-
-	mutex_lock(&leds_mutex);
-
-	pwm_config(led_info->pwm, 0, led_info->pwm_period_ns);
-	pwm_disable(led_info->pwm);
-
-	mutex_unlock(&leds_mutex);
-
-	return 0;
-}
 
 static int led_level_set(struct led_classdev *led_cdev,
 					  enum led_brightness brightness)
@@ -271,7 +224,7 @@ static int led_level_set(struct led_classdev *led_cdev,
 
 	call_notifier(LED_BRIGHTNESS_CHANGED, led_dat);
 	if (!led_conf->aal_enable) {
-		led_level_pwm_set(led_dat, trans_level);
+		led_level_disp_set(led_dat, trans_level);
 		led_dat->last_hw_brightness = trans_level;
 	}
 
@@ -310,7 +263,7 @@ int setMaxBrightness(char *name, int percent, bool enable)
 	}
 
 	if (led_dat->conf.cdev.brightness != 0)
-		led_level_pwm_set(led_dat, cur_l);
+		led_level_disp_set(led_dat, cur_l);
 
 	pr_info("after: name: %s, cur_l : %d, max_brightness : %d",
 		led_dat->conf.cdev.name, cur_l, led_dat->conf.limit_hw_brightness);
@@ -345,50 +298,12 @@ static int led_data_init(struct device *dev, struct mtk_led_data *s_led)
 	return 0;
 }
 
-static int led_pwm_config_add(struct device *dev,
-		struct mtk_led_data *s_led, struct device_node *leds_np)
-{
-	struct pwm_args pargs;
-	int ret = 0;
-
-	if (leds_np != NULL)
-		s_led->info.pwm = devm_of_pwm_get(dev, leds_np,
-			s_led->info.name);
-	else
-		s_led->info.pwm = devm_pwm_get(dev, s_led->info.name);
-	if (IS_ERR(s_led->info.pwm)) {
-		ret = PTR_ERR(s_led->info.pwm);
-		if (ret != -EPROBE_DEFER) {
-			pr_notice("unable to request PWM for %s, err_code: %d\n",
-				s_led->info.name, ret);
-			goto err;
-		}
-	}
-
-	pwm_apply_args(s_led->info.pwm);
-	pwm_get_args(s_led->info.pwm, &pargs);
-
-	s_led->info.pwm_period_ns = pargs.period;
-	if (!s_led->info.pwm_period_ns && (pargs.period > 0))
-		s_led->info.pwm_period_ns = pargs.period;
-
-	pr_info("set led pwm OK! info.pwm_period_ns = %d!",
-		s_led->info.pwm_period_ns);
-	return ret;
-
- err:
-	pr_notice("add pwm failed!\n");
-	ret = -ENOMEM;
-	return ret;
-
-}
-
 static int mtk_leds_parse_dt(struct device *dev,
 		struct mtk_leds_info *m_leds)
 {
 	struct device_node *child;
 	struct mtk_led_data *s_led;
-	int ret = 0, num = 0, level = 102;
+	int ret = 0, num = 0, level = 0;
 	const char *state;
 
 	if (!dev->of_node) {
@@ -405,22 +320,12 @@ static int mtk_leds_parse_dt(struct device *dev,
 			pr_info("Fail to read label property");
 			goto out_led_dt;
 		}
-		ret = of_property_read_string(child, "pwm-names",
-			&(s_led->info.name));
-		if (ret) {
-			pr_info("Fail to read pwm-names property");
-			goto out_led_dt;
-		}
 		ret = of_property_read_string(child, "default-trigger",
 			&(s_led->conf.cdev.default_trigger ));
 		if (ret) {
 			pr_info("Fail to read default-trigger property");
 			s_led->conf.cdev.default_trigger = NULL;
 		}
-		ret = of_property_read_u8(child, "active-low",
-			&(s_led->info.active_low));
-		if (ret)
-			pr_info("Fail to read active-low property\n");
 		ret = of_property_read_u32(child,
 			"max-brightness", &(s_led->conf.cdev.max_brightness));
 		if (ret) {
@@ -434,7 +339,6 @@ static int mtk_leds_parse_dt(struct device *dev,
 			s_led->conf.max_hw_brightness = 1023;
 		}
 		s_led->conf.limit_hw_brightness = s_led->conf.max_hw_brightness;
-
 		ret = of_property_read_string(child, "default-state", &state);
 		if (!ret) {
 			if (!strcmp(state, "half"))
@@ -443,10 +347,12 @@ static int mtk_leds_parse_dt(struct device *dev,
 				level = s_led->conf.cdev.max_brightness;
 			else
 				level = 0;
+		} else {
+			level = s_led->conf.cdev.max_brightness;
 		}
 		s_led->conf.aal_enable = 0;
-		pr_info("parse %s(%d) leds dt: %s, %d, %d, %d\n",
-			s_led->conf.cdev.name, num, s_led->info.name,
+		pr_info("parse %s(%d) leds dt: %d, %d, %d\n",
+			s_led->conf.cdev.name, num,
 			s_led->conf.cdev.max_brightness,
 			s_led->conf.max_hw_brightness,
 			s_led->conf.aal_enable);
@@ -459,7 +365,6 @@ static int mtk_leds_parse_dt(struct device *dev,
 		ret = led_data_init(dev, s_led);
 		if (ret)
 			goto out_led_dt;
-		led_pwm_config_add(dev, s_led, child);
 		led_level_set(&s_led->conf.cdev, level);
 		num++;
 	}
@@ -548,23 +453,23 @@ static void mtk_leds_shutdown(struct platform_device *pdev)
 		if (!&(m_leds->leds[i]))
 			continue;
 
+		led_level_disp_set(&(m_leds->leds[i]), 0);
 		call_notifier(LED_STATUS_SHUTDOWN, &(m_leds->leds[i]));
-		led_pwm_disable(&(m_leds->leds[i].info));
 	}
 
 }
 
-static const struct of_device_id of_mtk_pwm_leds_match[] = {
-	{ .compatible = "mediatek,pwm-leds", },
+static const struct of_device_id of_mtk_disp_leds_match[] = {
+	{ .compatible = "mediatek,disp-leds", },
 	{},
 };
-MODULE_DEVICE_TABLE(of, of_mtk_pwm_leds_match);
+MODULE_DEVICE_TABLE(of, of_mtk_disp_leds_match);
 
-static struct platform_driver mtk_pwm_leds_driver = {
+static struct platform_driver mtk_disp_leds_driver = {
 	.driver = {
-		   .name = "mtk-pwm-leds",
+		   .name = "mtk-disp-leds",
 		   .owner = THIS_MODULE,
-		   .of_match_table = of_mtk_pwm_leds_match,
+		   .of_match_table = of_mtk_disp_leds_match,
 		   },
 	.probe = mtk_leds_probe,
 	.remove = mtk_leds_remove,
@@ -577,7 +482,7 @@ static int __init mtk_leds_init(void)
 	int ret;
 
 	pr_info("Leds init\n");
-	ret = platform_driver_register(&mtk_pwm_leds_driver);
+	ret = platform_driver_register(&mtk_disp_leds_driver);
 
 	if (ret) {
 		pr_info("driver register error: %d\n", ret);
@@ -589,19 +494,20 @@ static int __init mtk_leds_init(void)
 
 static void __exit mtk_leds_exit(void)
 {
-	platform_driver_unregister(&mtk_pwm_leds_driver);
+	platform_driver_unregister(&mtk_disp_leds_driver);
 }
 
 /* delay leds init, for (1)display has delayed to use clock upstream.
  * (2)to fix repeat switch battary and power supply caused BL KE issue,
- * battary calling bl .shutdown whitch need to call disp_pwm and display
+ * battary calling bl .shutdown whitch need to call display
  * function and they not yet probe.
  */
 late_initcall(mtk_leds_init);
 module_exit(mtk_leds_exit);
 
 MODULE_AUTHOR("Mediatek Corporation");
-MODULE_DESCRIPTION("MTK Disp PWM Backlight Driver");
+MODULE_DESCRIPTION("MTK Disp Backlight Driver");
 MODULE_LICENSE("GPL");
+
 
 

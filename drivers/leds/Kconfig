@@ -973,6 +973,16 @@ config LEDS_MTK_PWM
 	  To compile this driver as a module, choose 'M' here: the module
 	  will be called leds-mtk-pwm.
 
+config LEDS_MTK_DISP
+	tristate "Mediatek DISP LED support"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for Mediatek OLED Display LEDs 
+	  say 'y' to enable this
+
+	  To compile this driver as a module, choose 'M' here: the module
+	  will be called leds-mtk-disp.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
