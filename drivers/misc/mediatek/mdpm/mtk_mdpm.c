@@ -20,11 +20,11 @@
 static u32 cnted_share_mem[SHARE_MEM_SIZE];
 static u32 rfhw_sel;
 static int mt_mdpm_debug;
-static u32 *dbm_share_mem;
 
 static struct md_power_status mdpm_power_sta;
 
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+static u32 *dbm_share_mem;
 static bool md1_ccci_ready;
 #endif
 
