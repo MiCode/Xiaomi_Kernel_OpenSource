@@ -222,18 +222,11 @@ static void mtk_cpu_dlpt_unlimit_by_pbm(void)
 	}
 }
 
-static void mtk_gpufreq_set_power_limit_by_pbm(unsigned int limit_power)
+static void mtk_gpufreq_set_power_limit_by_pbm(int limit_power)
 {
 #if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
-	int oppidx = 0;
-	if (pbm_gpu_cb.set_limit != NULL && pbm_gpu_cb.get_opp_by_pb != NULL) {
-		if (limit_power) {
-			oppidx = pbm_gpu_cb.get_opp_by_pb(TARGET_DEFAULT, limit_power);
-			pbm_gpu_cb.set_limit(TARGET_DEFAULT, LIMIT_PBM, oppidx, GPUPPM_KEEP_IDX);
-		} else {
-			pbm_gpu_cb.set_limit(TARGET_DEFAULT, LIMIT_PBM, GPUPPM_RESET_IDX, GPUPPM_KEEP_IDX);
-		}
-	}
+	if (pbm_gpu_cb.set_limit != NULL)
+		pbm_gpu_cb.set_limit(TARGET_DEFAULT, LIMIT_PBM, limit_power, GPUPPM_KEEP_IDX);
 #else
 	return;
 #endif
@@ -311,20 +304,23 @@ static void pbm_allocate_budget_manager(void)
 			togpu = 1;
 		}
 
+		if (togpu > gpu_max_pb) {
+			togpu = gpu_max_pb;
+			tocpu = _dlpt - gpu_max_pb;
+		}
+
 		if (tocpu < cpu_lower_bound) {
 			tocpu = cpu_lower_bound;
 			togpu = _dlpt - cpu_lower_bound;
 		}
 
+		if (togpu < gpu_min_pb)
+			togpu = gpu_min_pb;
+
 		if (tocpu <= 0)
 			tocpu = 1;
 		if (togpu <= 0)
 			togpu = 1;
-
-		if (togpu > gpu_max_pb)
-			togpu = gpu_max_pb;
-		if (togpu < gpu_min_pb)
-			togpu = gpu_min_pb;
 
 		if (pbm_ctrl.manual_mode != 2) {
 			mtk_cpu_dlpt_set_limit_by_pbm(tocpu);
