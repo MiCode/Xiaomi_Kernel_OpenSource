@@ -5873,7 +5873,13 @@
 			reg = <0 0x1f006000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_RDMA0>;
 			clock-names = "MDP_RDMA0";
-			comp-id = <MML_RDMA0>;
+			comp-ids = <MML_RDMA0>;
+			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
+			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
+			event_frame_start = /bits/ 16 <CMDQ_EVENT_MDP_RDMA0_SOF>;
+			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_RDMA0_FRAME_DONE>;
+			larb = /bits/ 8 <2>;
+			m4u_port = <M4U_PORT_L2_MDP_RDMA0>;
 		};
 
 		mml_rdma1: mml_rdma1@1f007000 {
@@ -5881,7 +5887,13 @@
 			reg = <0 0x1f007000 0 0x1000>;
 			clocks = <&mdpsys CLK_MDP_RDMA1>;
 			clock-names = "MDP_RDMA1";
-			comp-id = <MML_RDMA1>;
+			comp-ids = <MML_RDMA1>;
+			gpr_poll = /bits/ 8 <GCE_GPR_R02>;
+			event_poll = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>;
+			event_frame_start = /bits/ 16 <CMDQ_EVENT_MDP_RDMA1_SOF>;
+			event_frame_done = /bits/ 16 <CMDQ_EVENT_MDP_RDMA1_FRAME_DONE>;
+			larb = /bits/ 8 <3>;
+			m4u_port = <M4U_PORT_L3_MDP_RDMA1>;
 		};
 
 		mml_rsz0: mml_rsz0@1f012000 {
