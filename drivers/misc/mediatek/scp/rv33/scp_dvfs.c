@@ -2095,11 +2095,12 @@ static int mt_scp_dvfs_pdrv_remove(struct platform_device *pdev)
 static int mt_scp_dump_sleep_count(void)
 {
 	int ret = 0;
-	unsigned int ipi_data = SCP_SLEEP_GET_COUNT;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!dvfs.sleep_init_done)
 		slp_ipi_init();
 
+	ipi_data.arg1 = SCP_SLEEP_GET_COUNT;
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
 	if (ret != IPI_ACTION_DONE)
