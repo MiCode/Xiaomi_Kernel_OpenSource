@@ -2330,6 +2330,8 @@ static int usb_enumerate_device(struct usb_device *udev)
 	int err;
 	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
 
+	dev_info(&udev->dev, "%s\n", __func__);
+
 	if (udev->config == NULL) {
 		err = usb_get_configuration(udev);
 		if (err < 0) {
@@ -2345,6 +2347,12 @@ static int usb_enumerate_device(struct usb_device *udev)
 	udev->manufacturer = usb_cache_string(udev,
 					      udev->descriptor.iManufacturer);
 	udev->serial = usb_cache_string(udev, udev->descriptor.iSerialNumber);
+
+	dev_info(&udev->dev, "vid:0x%4x, pid:0x%4x\n",
+		le16_to_cpu(udev->descriptor.idVendor),
+		le16_to_cpu(udev->descriptor.idProduct));
+	dev_info(&udev->dev, "product:%s, manufacturer:%s\n",
+		udev->product, udev->manufacturer);
 
 	err = usb_enumerate_device_otg(udev);
 	if (err < 0)
