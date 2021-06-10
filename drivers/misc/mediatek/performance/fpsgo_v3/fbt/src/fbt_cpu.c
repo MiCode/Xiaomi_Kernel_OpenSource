@@ -4335,7 +4335,8 @@ static void fbt_update_pwd_tbl(void)
 	min_cap_cluster = clamp(min_cap_cluster, 0, cluster_num - 1);
 	fbt_set_cap_limit();
 
-	max_cl_core_num = cpu_dvfs[max_cap_cluster].num_cpu;
+	if (cluster_num > 0 && max_cap_cluster < cluster_num)
+		max_cl_core_num = cpu_dvfs[max_cap_cluster].num_cpu;
 
 	if (!cpu_max_freq) {
 		FPSGO_LOGE("NULL power table\n");
