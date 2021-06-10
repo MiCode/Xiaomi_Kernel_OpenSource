@@ -1137,7 +1137,7 @@ void scd_ctrl_cmd_from_user(void *nl_data, struct sc_nl_msg_t *ret_msg)
 
 	case SC_DAEMON_CMD_PRINT_LOG:
 		{
-			chr_err("%s", &msg->sc_data[0]);
+			chr_err("[%s] %s", SC_TAG, &msg->sc_data[0]);
 		}
 	break;
 
@@ -1145,8 +1145,8 @@ void scd_ctrl_cmd_from_user(void *nl_data, struct sc_nl_msg_t *ret_msg)
 		{
 			memcpy(&info->sc.g_scd_pid, &msg->sc_data[0],
 				sizeof(info->sc.g_scd_pid));
-			chr_err("[fr] SC_DAEMON_CMD_SET_DAEMON_PID = %d(first launch)\n",
-				info->sc.g_scd_pid);
+			chr_err("[%s][fr] SC_DAEMON_CMD_SET_DAEMON_PID = %d(first launch)\n",
+				SC_TAG, info->sc.g_scd_pid);
 		}
 	break;
 
@@ -1157,7 +1157,8 @@ void scd_ctrl_cmd_from_user(void *nl_data, struct sc_nl_msg_t *ret_msg)
 			memcpy(&data, &msg->sc_data[0],
 				sizeof(struct scd_cmd_param_t_1));
 
-			chr_debug("rcv data:%d %d %d %d %d %d %d %d %d %d %d %d %d %d Ans:%d\n",
+			chr_debug("[%s] rcv data:%d %d %d %d %d %d %d %d %d %d %d %d %d %d Ans:%d\n",
+				SC_TAG,
 				data.data[0],
 				data.data[1],
 				data.data[2],
@@ -1184,7 +1185,7 @@ void scd_ctrl_cmd_from_user(void *nl_data, struct sc_nl_msg_t *ret_msg)
 		}
 	break;
 	default:
-		chr_err("bad sc_DAEMON_CTRL_CMD_FROM_USER 0x%x\n", msg->sc_cmd);
+		chr_err("[%s] bad sc_DAEMON_CTRL_CMD_FROM_USER 0x%x\n", SC_TAG, msg->sc_cmd);
 		break;
 	}
 
