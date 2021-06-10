@@ -1,0 +1,10 @@
+config MTK_CAMERA_ISP_MFB_SUPPORT
+	bool "[MFB] Multi Frame Blending"
+	default n
+	depends on MTK_CAMERA_ISP
+	help
+	  Depth-related Engine.
+	  Enable to calculate the occlusion information
+	  between two images on Dual Camera Application.
+	  Disable if it is not supported or not wanted.
+

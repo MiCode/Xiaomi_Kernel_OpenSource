@@ -1,0 +1,28 @@
+#
+# Mediatek net configuration
+#
+
+config NET_VENDOR_MEDIATEK
+	tristate "Mediatek devices"
+	---help---
+	  If you have a network (Ethernet) chipset belonging to this class,
+	  say Y.
+
+	  Note that the answer to this question does not directly affect
+	  the kernel: saying N will just case the configurator to skip all
+	  the questions regarding Mediatek chipsets. If you say Y, you will be asked
+	  for your specific chipset/driver in the following questions.
+
+if NET_VENDOR_MEDIATEK
+
+config MEDIATEK_STAR
+	tristate "Mediatek STAR MAC ethernet support"
+	select MII
+	---help---
+	  If you have a network (Ethernet) chipset belonging to this class,
+	  say Y.
+
+	  To compile this driver as a module, choose Y here. The module
+	  will be called star_mac.
+
+endif

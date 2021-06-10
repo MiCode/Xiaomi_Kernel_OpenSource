@@ -1,0 +1,67 @@
+#
+# MediaTek USB 3.0 Controller Driver
+#
+
+config USBIF_COMPLIANCE
+	tristate "MediaTek MUSB U3 USBIF COMPLIANCE"
+	default n
+	---help---
+	  This selects the MediaTek USB-IF Compliance Test Program.
+	  MediaTek I2C bus adapter is the base for some other I2C client, eg: touch, sensors.
+	  If you want to verify USB-IF COMPLIANCE, say Y.
+	  If unsure, say N.
+
+config USB_MU3D_PIO_ONLY
+	tristate "MediaTek MUSB Gadget support EP0 PIO mode"
+	default n
+	---help---
+	  Say Y here if you want to disable USB DMA function.
+	  All data is copied between memory and FIFO by the CPU.
+	  DMA controllers are ignored.
+	  If unsure, say N.
+
+config USB_MU3D_DRV
+	tristate "MediaTek SSUSB MAC Driver support"
+	default n
+	---help---
+	  This selects the MediaTek USB MAC driver.
+	  Say Y here if your system using Mediatek USB3.0 IP.
+	  It supports super-speed, high-speed and full-speed.
+	  If unsure, say N.
+
+config USB_MU3D_DVT
+	tristate "MediaTek SSUSB DVT support"
+	default n
+	---help---
+	  Say Y here if your system using Mediatek USB3.0 IP
+	  and would like to do verification program.
+	  It just support MediaTek verification use not enable
+	  in full load
+	  If unsure, say N.
+
+config MTK_SIB_USB_SWITCH
+	tristate "MediaTek USB and SIB switch"
+	default n
+	---help---
+	  This selects the MediaTek USB and SIB switch.
+	  Say Y here if you want to enable USB and SIB switch.
+	  Support share USB pin to SIB function.
+	  If unsure, say N.
+
+config USB_MU3D_DEFAULT_U2_MODE
+	tristate "MediaTek SSUSB default in USB High-Speed Mode"
+	default y
+	---help---
+	  This selects the MediaTek USB speed.
+	  Say Y here if you want to keep USB in high speed.
+	  Say N here if you want to enable USB super speed.
+	  If unsure, say Y.
+
+config USB_MU3D_DRV_36BIT
+	tristate "MediaTek SSUSB 36bits addressing support"
+	default n
+	---help---
+	  This selects the MediaTek SSUSB(USB3.0 HW IP) support 36-bits
+	  address accessing.
+	  Say Y here if you want to enable 36-bits addressing support.
+	  If unsure, say N.

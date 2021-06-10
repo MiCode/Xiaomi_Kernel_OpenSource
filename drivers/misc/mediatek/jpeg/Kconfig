@@ -1,0 +1,8 @@
+config MTK_JPEG
+	bool "MTK_JPEG"
+	default n
+	help
+	  This option enables mtk jpeg driver,
+	  if yes, it means this platform supports HW codec,
+	  if no, it means this platform supports SW codec.
+	  The option default disabled.

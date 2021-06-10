@@ -1,0 +1,8 @@
+config MTK_DBGTOP
+	bool "MTK DBGTOP driver"
+	help
+	  This config enable/disable the dbgtop module,
+	  which controls the reset flow of debugging
+	  features, including DDR reserve mode, DFD,
+	  and data latch.
+

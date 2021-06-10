@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+&i2c6 {
+	speaker_amp: speaker_amp@34 {
+		status = "disabled";
+	};
+};
+
+&i2c9 {
+/* AWINIC AW87XXX Smart K PA */
+	aw87xxx_pa_5B@5B {
+		compatible = "awinic,aw87xxx_pa";
+		reg = <0x5B>;
+		reset-gpio = <&pio 24 0>;
+		monitor-flag = <1>;
+		pa-channel = < 0 >;
+		monitor-timer-val = <3000>;
+		monitor-timer-count-max = <5>;
+		status = "okay";
+	};
+
+	aw87xxx_pa_58@58 {
+		compatible = "awinic,aw87xxx_pa";
+		reg = <0x58>;
+		//reset-gpio = <&pio 63 0>;
+		monitor-flag = <1>;
+		pa-channel = < 1 >;
+		monitor-timer-val = <3000>;
+		monitor-timer-count-max = <5>;
+		status = "okay";
+	};
+/* AWINIC AW87XXX Smart K PA End */
+};

@@ -1,0 +1,27 @@
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/mt6768-pinfunc.h>
+
+&i2c0 {
+	ktd@37 {
+	compatible = "ktd,ktd3137";
+	reg = <0x37>;
+	status = "okay";
+        /*ktd,pwm-mode; */
+	ktd,using-lsb = <1>;
+	ktd,pwm-frequency = <100>;
+	ktd,bl-fscal-led = <0x98>;/*default 20.2mA*/
+	ktd,turn-on-ramp = <0>;
+	ktd,turn-off-ramp = <0>;
+	ktd,pwm-trans-dim = <0>;
+	ktd,i2c-trans-dim = <0>;
+	ktd,bl-channel = <2>;
+	ktd,ovp-level = <32>;/*default 32v*/
+	ktd,switching-frequency = <1000>; /*default 1000kHz*/
+	ktd,inductor-current = <2600>; //default 2600mA
+	ktd,linear_ramp = <1>; /*default is exponential*/
+	ktd,linear_backlight = <1>; /*default is exponential*/
+    };
+
+};

@@ -1,0 +1,9 @@
+config MT6360_PMIC
+	bool "Support for MT6360 PMIC part"
+	depends on I2C
+	select RT_REGMAP
+	help
+	  This selects for MediaTek(R) Sub PMIC MT6360 PMU parts.
+	  2-Channel Buck with Thermal Shutdown and Overlord Protection
+	  2-Channel LDO used to DRAM Power
+	  Select Y to enable support for MT6360 PMU.

@@ -1,0 +1,13 @@
+config MTK_CONN_MD
+	bool "Support mtk connsys modem config"
+	default n if MTK_COMBO_CHIP_CONSYS_6885
+	default n if MTK_COMBO_CHIP_CONSYS_6893
+	default y if MTK_CONN_LTE_IDC_SUPPORT
+	help
+	  It is used to config whether IDC feature
+	  is supported or not.
+	  When IDC feature is required,
+	  this config must be enabled to support
+	  SW IDC message exchange.
+	  Usually if a project support both LTE and Wi-Fi,
+	  IDC feature is necessary to avoid interference between LTE and Wi-Fi.

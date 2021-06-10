@@ -1,0 +1,45 @@
+wl2866d: wl2866d@28 {
+	compatible = "xiaomi,wl2866d";
+	reg = <0x28>;/*slave address*/
+	en-gpio = <&pio 195 0x0>;
+
+	wl2866d_dvdd1:wl2866d_dvdd1@0{
+		offset = /bits/ 16 <0x00>;
+		regulator-name ="wl2866d_dvdd1";
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <2130000>;
+		min-dropout-voltage = <80000>;
+		init-voltage = <1200000>;
+		iout_ua = <650000>;
+	};
+
+	wl2866d_dvdd2:wl2866d_dvdd2@1{
+		offset = /bits/ 16 <0x01>;
+		regulator-name ="wl2866d_dvdd2";
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <2130000>;
+		min-dropout-voltage = <72000>;
+		init-voltage = <1050000>;
+		iout_ua = <650000>;
+	};
+
+	wl2866d_avdd1:wl2866d_avdd1@2{
+		offset = /bits/ 16 <0x02>;
+		regulator-name ="wl2866d_avdd1";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <4387500>;
+		min-dropout-voltage = <90000>;
+		init-voltage = <2800000>;
+		iout_ua = <650000>;
+	};
+
+	wl2866d_avdd2:wl2866d_avdd2@3{
+		offset = /bits/ 16 <0x03>;
+		regulator-name ="wl2866d_avdd2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <4387500>;
+		min-dropout-voltage = <90000>;
+		init-voltage = <2800000>;
+		iout_ua = <650000>;
+	};
+};

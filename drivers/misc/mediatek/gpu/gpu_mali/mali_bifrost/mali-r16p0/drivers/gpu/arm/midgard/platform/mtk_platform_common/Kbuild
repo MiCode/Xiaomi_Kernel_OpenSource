@@ -1,0 +1,8 @@
+#MTK port custom Kbuild
+#To Add 1.environment variable
+include $(src)/Kbuild-mtk-custom-env
+
+curr := platform/mtk_platform_common
+
+obj-y += $(curr)/mtk_platform_common.o
+obj-y += $(curr)/mtk_mfg_counter.o

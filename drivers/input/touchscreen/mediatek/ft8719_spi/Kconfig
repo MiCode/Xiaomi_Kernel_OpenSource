@@ -1,0 +1,16 @@
+#
+# Focaltech Touchscreen driver configuration
+#
+
+config TOUCHSCREEN_FTS_C3J1
+    bool "Focaltech Touchscreen"
+    default n
+    help
+      Say Y here if you have Focaltech touch panel.
+      If unsure, say N.
+
+config TOUCHSCREEN_FTS_DIRECTORY
+    string "Focaltech ts directory name"
+    default "fts8719_spi"
+    depends on TOUCHSCREEN_FTS_C3J1
+

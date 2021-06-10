@@ -1,0 +1,20 @@
+config MTK_TINYSYS_SSPM_SUPPORT
+	bool "Specify Interface Support SSPM"
+	default n
+	help
+	  SSPM is a MediaTek in-house hardware for power management under
+	  secure world.
+	  Set Y to enable this feature.
+	  If unsure, set N to stay with legancy feature.
+
+config MTK_TINYSYS_SSPM_PLT_SUPPORT
+	bool "Specify Interface of SSPM on Platform"
+	default n
+	help
+	  SSPM is a MediaTek in-house hardware for power management based
+	  on platform.
+	  Set Y to enable this feature for specific platform.
+	  If unsure, set N to stay with legancy feature.
+
+config MTK_MET_MEM_ALLOC
+	bool "Using dynamic allocate memory for MET"
