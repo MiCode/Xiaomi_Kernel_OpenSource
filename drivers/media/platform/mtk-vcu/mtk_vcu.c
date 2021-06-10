@@ -779,7 +779,7 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 				buff->cmdq_buff.core_id, &vcu->flags[i]);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #if !(IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT6779) ||\
-IS_ENABLED(CONFIG_MACH_MT6785))
+IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(CONFIG_MACH_MT8168))
 			if (buff->cmdq_buff.secure != 0)
 				cmdq_sec_mbox_switch_normal(vcu->clt_venc_sec[0],
 				(buff->cmdq_buff.secure == 3));
