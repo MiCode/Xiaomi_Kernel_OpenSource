@@ -192,6 +192,42 @@ bool is_recovery_mode(void)
 	return false;
 }
 
+/* select gm->charge_power_sel to CHARGE_NORMAL ,CHARGE_R1,CHARGE_R2 */
+/* example: gm->charge_power_sel = CHARGE_NORMAL */
+bool set_charge_power_sel(enum charge_sel select)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	gm->charge_power_sel = select;
+
+	wakeup_fg_algo_cmd(gm, FG_INTR_KERNEL_CMD,
+		FG_KERNEL_CMD_FORCE_BAT_TEMP, select);
+
+	return 0;
+}
+
+int dump_pseudo100(enum charge_sel select)
+{
+	int i = 0;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_err("%s:select=%d\n", __func__, select);
+
+	if (select > MAX_CHARGE_RDC || select < 0)
+		return 0;
+
+	for (i = 0; i < MAX_TABLE; i++) {
+		bm_err("%6d\n",
+			gm->fg_table_cust_data.fg_profile[
+				i].r_pseudo100.pseudo[select]);
+	}
+
+	return 0;
+}
+
 bool is_kernel_power_off_charging(void)
 {
 	struct mtk_battery *gm;
@@ -947,6 +983,7 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	/* ZCV update */
 	fg_cust_data->zcv_suspend_time = ZCV_SUSPEND_TIME;
 	fg_cust_data->sleep_current_avg = SLEEP_CURRENT_AVG;
+	fg_cust_data->zcv_com_vol_limit = ZCV_COM_VOL_LIMIT;
 	fg_cust_data->zcv_car_gap_percentage = ZCV_CAR_GAP_PERCENTAGE;
 
 	/* dod_init */
@@ -1012,6 +1049,17 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->ui_full_limit_soc4 = UI_FULL_LIMIT_SOC4;
 	fg_cust_data->ui_full_limit_ith4 = UI_FULL_LIMIT_ITH4;
 	fg_cust_data->ui_full_limit_time = UI_FULL_LIMIT_TIME;
+
+	fg_cust_data->ui_full_limit_fc_soc0 = UI_FULL_LIMIT_FC_SOC0;
+	fg_cust_data->ui_full_limit_fc_ith0 = UI_FULL_LIMIT_FC_ITH0;
+	fg_cust_data->ui_full_limit_fc_soc1 = UI_FULL_LIMIT_FC_SOC1;
+	fg_cust_data->ui_full_limit_fc_ith1 = UI_FULL_LIMIT_FC_ITH1;
+	fg_cust_data->ui_full_limit_fc_soc2 = UI_FULL_LIMIT_FC_SOC2;
+	fg_cust_data->ui_full_limit_fc_ith2 = UI_FULL_LIMIT_FC_ITH2;
+	fg_cust_data->ui_full_limit_fc_soc3 = UI_FULL_LIMIT_FC_SOC3;
+	fg_cust_data->ui_full_limit_fc_ith3 = UI_FULL_LIMIT_FC_ITH3;
+	fg_cust_data->ui_full_limit_fc_soc4 = UI_FULL_LIMIT_FC_SOC4;
+	fg_cust_data->ui_full_limit_fc_ith4 = UI_FULL_LIMIT_FC_ITH4;
 
 	/* voltage limit for uisoc 1% */
 	fg_cust_data->ui_low_limit_en = UI_LOW_LIMIT_EN;
@@ -1151,8 +1199,8 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 			g_SHUTDOWN_HL_ZCV[i][gm->battery_id];
 
 		for (j = 0; j < 100; j++)
-			if (p[j].resistance2 == 0)
-				p[j].resistance2 = p[j].resistance;
+			if (p[j].charge_r.rdc[0] == 0)
+				p[j].charge_r.rdc[0] = p[j].resistance;
 	}
 
 	/* init battery temperature table */
@@ -1207,7 +1255,8 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 		const char *node_srting,
 		struct fuelgauge_profile_struct *profile_struct, int column)
 {
-	int mah, voltage, resistance, idx, saddles, resistance2;
+	int mah, voltage, resistance, idx, saddles;
+	int i = 0, charge_rdc[MAX_CHARGE_RDC];
 	struct fuelgauge_profile_struct *profile_p;
 
 	profile_p = profile_struct;
@@ -1229,20 +1278,37 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 				np, node_srting, idx, &resistance)) {
 		}
 		idx++;
-		if (column == 4) {
-			if (!of_property_read_u32_index(
-				np, node_srting, idx, &resistance2))
-				idx++;
-		} else
-			resistance2 = resistance;
 
-		bm_debug("%s: mah: %d, voltage: %d, resistance: %d, resistance2: %d\n",
-			__func__, mah, voltage, resistance, resistance2);
+		if (column == 3) {
+			for (i = 0; i < MAX_CHARGE_RDC; i++)
+				charge_rdc[i] = resistance;
+		} else if (column >= 4) {
+			if (!of_property_read_u32_index(
+				np, node_srting, idx, &charge_rdc[0]))
+				idx++;
+		}
+
+		/* read more for column >4 case */
+		if (column > 4) {
+			for (i = 1; i <= column - 4; i++) {
+				if (!of_property_read_u32_index(
+					np, node_srting, idx, &charge_rdc[i]))
+					idx++;
+			}
+		}
+
+		bm_err("%s: mah: %d, voltage: %d, resistance: %d, rdc0:%d rdc:%d %d %d %d\n",
+			__func__, mah, voltage, resistance, charge_rdc[0],
+			charge_rdc[1], charge_rdc[2], charge_rdc[3],
+			charge_rdc[4]);
 
 		profile_p->mah = mah;
 		profile_p->voltage = voltage;
 		profile_p->resistance = resistance;
-		profile_p->resistance2 = resistance2;
+
+		for (i = 0; i < MAX_CHARGE_RDC; i++)
+			profile_p->charge_r.rdc[i] = charge_rdc[i];
+
 		profile_p++;
 
 		if (idx >= (saddles * column))
@@ -1262,10 +1328,14 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 		profile_p->mah = mah;
 		profile_p->voltage = voltage;
 		profile_p->resistance = resistance;
-		profile_p->resistance2 = resistance2;
+
+		for (i = 0; i < MAX_CHARGE_RDC; i++)
+			profile_p->charge_r.rdc[i] = charge_rdc[i];
+
 		idx = idx + column;
 	}
 }
+
 
 void fg_custom_init_from_dts(struct platform_device *dev,
 	struct mtk_battery *gm)
@@ -1273,6 +1343,7 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 	struct device_node *np = dev->dev.of_node;
 	unsigned int val;
 	int bat_id, multi_battery, active_table, i, j, ret, column;
+	int r_pseudo100_raw = 0, r_pseudo100_col = 0;
 	char node_name[128];
 	struct fuel_gauge_custom_data *fg_cust_data;
 	struct fuel_gauge_table_custom_data *fg_table_cust_data;
@@ -1451,6 +1522,8 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		&(fg_cust_data->zcv_suspend_time), 1);
 	fg_read_dts_val(np, "SLEEP_CURRENT_AVG",
 		&(fg_cust_data->sleep_current_avg), 1);
+	fg_read_dts_val(np, "ZCV_COM_VOL_LIMIT",
+		&(fg_cust_data->zcv_com_vol_limit), 1);
 	fg_read_dts_val(np, "ZCV_CAR_GAP_PERCENTAGE",
 		&(fg_cust_data->zcv_car_gap_percentage), 1);
 
@@ -1551,6 +1624,27 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		&(fg_cust_data->ui_full_limit_ith4), 1);
 	fg_read_dts_val(np, "UI_FULL_LIMIT_TIME",
 		&(fg_cust_data->ui_full_limit_time), 1);
+
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_SOC0",
+		&(fg_cust_data->ui_full_limit_fc_soc0), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_ITH0",
+		&(fg_cust_data->ui_full_limit_fc_ith0), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_SOC1",
+		&(fg_cust_data->ui_full_limit_fc_soc1), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_ITH1",
+		&(fg_cust_data->ui_full_limit_fc_ith1), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_SOC2",
+		&(fg_cust_data->ui_full_limit_fc_soc2), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_ITH2",
+		&(fg_cust_data->ui_full_limit_fc_ith2), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_SOC3",
+		&(fg_cust_data->ui_full_limit_fc_soc3), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_ITH3",
+		&(fg_cust_data->ui_full_limit_fc_ith3), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_SOC4",
+		&(fg_cust_data->ui_full_limit_fc_soc4), 1);
+	fg_read_dts_val(np, "UI_FULL_LIMIT_FC_ITH4",
+		&(fg_cust_data->ui_full_limit_fc_ith4), 1);
 
 	/* voltage limit for uisoc 1% */
 	fg_read_dts_val(np, "UI_LOW_LIMIT_EN", &(fg_cust_data->ui_low_limit_en),
@@ -1671,8 +1765,8 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 			&(fg_table_cust_data->fg_profile[i].shutdown_hl_zcv),
 			1);
 		for (j = 0; j < 100; j++) {
-			if (p[j].resistance2 == 0)
-				p[j].resistance2 = p[j].resistance;
+			if (p[j].charge_r.rdc[0] == 0)
+				p[j].charge_r.rdc[0] = p[j].resistance;
 	}
 	}
 
@@ -1747,6 +1841,56 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 			&(fg_table_cust_data->fg_profile[4].temperature), 1);
 	}
 
+//TIMOadd
+	fg_read_dts_val(np, "g_FG_charge_PSEUDO100_row",
+		&(r_pseudo100_raw), 1);
+	fg_read_dts_val(np, "g_FG_charge_PSEUDO100_col",
+		&(r_pseudo100_col), 1);
+
+	/* init for pseudo100 */
+	for (i = 0; i < MAX_TABLE; i++) {
+		for (j = 0; j < MAX_CHARGE_RDC; j++)
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[j]
+				= fg_table_cust_data->fg_profile[i].pseudo100;
+	}
+
+	for (i = 0; i < MAX_TABLE; i++) {
+		bm_err("%6d %6d %6d %6d %6d\n",
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[0],
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[1],
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[2],
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[3],
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[4]
+			);
+	}
+	/* read dtsi from pseudo100 */
+	for (i = 0; i < MAX_TABLE; i++) {
+		for (j = 0; j < r_pseudo100_raw; j++) {
+			fg_read_dts_val_by_idx(np, "g_FG_charge_PSEUDO100",
+				i*r_pseudo100_raw+j,
+				&(fg_table_cust_data->fg_profile[
+					i].r_pseudo100.pseudo[j+1]),
+					UNIT_TRANS_100);
+		}
+	}
+
+
+	bm_err("g_FG_charge_PSEUDO100_row:%d g_FG_charge_PSEUDO100_col:%d\n",
+		r_pseudo100_raw, r_pseudo100_col);
+
+	for (i = 0; i < MAX_TABLE; i++) {
+		bm_err("%6d %6d %6d %6d %6d\n",
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[0],
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[1],
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[2],
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[3],
+			fg_table_cust_data->fg_profile[i].r_pseudo100.pseudo[4]
+			);
+	}
+
+	// END of pseudo100
+
+
 	for (i = 0; i < fg_table_cust_data->active_table_number; i++) {
 		sprintf(node_name, "battery%d_profile_t%d_num", bat_id, i);
 		fg_read_dts_val(np, node_name,
@@ -1758,18 +1902,18 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		if (ret == -1)
 			column = 3;
 
-		if (column < 3 || column > 4) {
+		if (column < 3 || column > 8) {
 			bm_err("%s, %s,column:%d ERROR!",
 				__func__, node_name, column);
 			/* correction */
 			column = 3;
-	}
+		}
 
 		sprintf(node_name, "battery%d_profile_t%d", bat_id, i);
 		fg_custom_parse_table(gm, np, node_name,
 			fg_table_cust_data->fg_profile[i].fg_profile, column);
 	}
-		}
+}
 
 #endif	/* end of CONFIG_OF */
 

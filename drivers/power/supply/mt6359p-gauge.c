@@ -456,6 +456,12 @@ static void fgauge_set_nafg_intr_internal(struct mtk_gauge *gauge,
 	gauge->zcv_reg = mv_to_reg_value(_zcv_mv);
 	gauge->thr_reg = mv_to_reg_value(_thr_mv);
 
+	if (gauge->thr_reg >= 32768) {
+		bm_err("[%s]nag_c_dltv_thr mv=%d ,thr_reg=%d,limit thr_reg to 32767\n",
+			__func__, _thr_mv, gauge->thr_reg);
+		gauge->thr_reg = 32767;
+	}
+
 	NAG_C_DLTV_Threashold_26_16 = (gauge->thr_reg & 0xffff0000) >> 16;
 	NAG_C_DLTV_Threashold_15_0 = (gauge->thr_reg & 0x0000ffff);
 
@@ -495,7 +501,7 @@ static void fgauge_set_nafg_intr_internal(struct mtk_gauge *gauge,
 		0 <<
 		PMIC_AUXADC_NAG_VBAT1_SEL_SHIFT);
 
-	bm_debug("[fg_bat_nafg][fgauge_set_nafg_interrupt_internal] time[%d] zcv[%d:%d] thr[%d:%d] 26_16[0x%x] 15_00[0x%x]\n",
+	bm_err("[fg_bat_nafg][fgauge_set_nafg_interrupt_internal] time[%d] zcv[%d:%d] thr[%d:%d] 26_16[0x%x] 15_00[0x%x]\n",
 		_prd, _zcv_mv, gauge->zcv_reg, _thr_mv, gauge->thr_reg,
 		NAG_C_DLTV_Threashold_26_16, NAG_C_DLTV_Threashold_15_0);
 
