@@ -47,7 +47,7 @@ static const u16 cpufreq_mtk_offsets[REG_ARRAY_SIZE] = {
 	[REG_FREQ_PERF_STATE]	= 0x88,
 	[REG_FREQ_HW_STATE]	= 0x8c,
 	[REG_EM_POWER_TBL]	= 0x90,
-	[REG_FREQ_LATENCY]	= 0x110,
+	[REG_FREQ_LATENCY]	= 0x114,
 };
 
 static struct cpufreq_mtk *mtk_freq_domain_map[NR_CPUS];
