@@ -245,6 +245,7 @@ static struct gpufreq_platform_fp platform_fp = {
 	.get_vgpu_by_idx = __gpufreq_get_vgpu_by_idx,
 	.get_pgpu_by_idx = __gpufreq_get_pgpu_by_idx,
 	.get_idx_by_fgpu = __gpufreq_get_idx_by_fgpu,
+	.get_idx_by_vgpu = __gpufreq_get_idx_by_vgpu,
 	.get_idx_by_pgpu = __gpufreq_get_idx_by_pgpu,
 	.get_vsram_by_vgpu = __gpufreq_get_vsram_by_vgpu,
 	.get_lkg_pgpu = __gpufreq_get_lkg_pgpu,
@@ -275,6 +276,7 @@ static struct gpufreq_platform_fp platform_fp = {
 	.get_vstack_by_idx = __gpufreq_get_vstack_by_idx,
 	.get_pstack_by_idx = __gpufreq_get_pstack_by_idx,
 	.get_idx_by_fstack = __gpufreq_get_idx_by_fstack,
+	.get_idx_by_vstack = __gpufreq_get_idx_by_vstack,
 	.get_idx_by_pstack = __gpufreq_get_idx_by_pstack,
 	.get_lkg_pstack = __gpufreq_get_lkg_pstack,
 	.get_dyn_pstack = __gpufreq_get_dyn_pstack,
@@ -284,9 +286,6 @@ static struct gpufreq_platform_fp platform_fp = {
 	.set_timestamp = __gpufreq_set_timestamp,
 	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
-	.get_batt_oc_idx = __gpufreq_get_batt_oc_idx,
-	.get_batt_percent_idx = __gpufreq_get_batt_percent_idx,
-	.get_low_batt_idx = __gpufreq_get_low_batt_idx,
 	.set_stress_test = __gpufreq_set_stress_test,
 	.set_aging_mode = __gpufreq_set_aging_mode,
 };
@@ -484,6 +483,25 @@ int __gpufreq_get_idx_by_fgpu(unsigned int freq)
 	/* find the smallest index that satisfy given freq */
 	for (idx = g_gpu.min_oppidx; idx >= 0; idx--) {
 		if (g_gpu.working_table[idx].freq >= freq)
+			break;
+	}
+
+	/* found */
+	if (idx >= 0)
+		return idx;
+	/* not found */
+	else
+		return 0;
+}
+
+/* API: get OPP index of GPU via voltage */
+int __gpufreq_get_idx_by_vgpu(unsigned int volt)
+{
+	int idx = 0;
+
+	/* find the smallest index that satisfy given volt */
+	for (idx = g_gpu.min_oppidx; idx >= 0; idx--) {
+		if (g_gpu.working_table[idx].volt >= volt)
 			break;
 	}
 
@@ -989,6 +1007,12 @@ unsigned int __gpufreq_get_pstack_by_idx(int oppidx)
 
 /* API: get OPP index of STACK via frequency */
 int __gpufreq_get_idx_by_fstack(unsigned int freq)
+{
+	return 0;
+}
+
+/* API: get OPP index of STACK via voltage */
+int __gpufreq_get_idx_by_vstack(unsigned int volt)
 {
 	return 0;
 }

@@ -1187,8 +1187,8 @@ EXPORT_SYMBOL(gpufreq_commit);
  Function Name      : gpufreq_set_limit
  Inputs             : target          - Target of GPU DVFS (GPU, STACK, DEFAULT)
                       limiter         - Pre-defined user that set limit to GPU DVFS
-                      ceiling         - Upper limit of working OPP index
-                      floor           - Lower limit of working OPP index
+                      ceiling_info    - Upper limit info (oppidx, freq, volt, power, ...)
+                      floor_info      - Lower limit info (oppidx, freq, volt, power, ...)
  Outputs            : -
  Returns            : GPUFREQ_SUCCESS - Success
                       GPUFREQ_EINVAL  - Failure
@@ -1197,12 +1197,12 @@ EXPORT_SYMBOL(gpufreq_commit);
                       It will immediately trigger DVFS if current OPP violates limit
 ************************************************************************************/
 int gpufreq_set_limit(enum gpufreq_target target,
-	enum gpuppm_limiter limiter, int ceiling, int floor)
+	enum gpuppm_limiter limiter, int ceiling_info, int floor_info)
 {
 	int ret = GPUFREQ_ENOENT;
 
-	GPUFREQ_TRACE_START("target=%d, limiter=%d, ceiling=%d, floor=%d",
-		target, limiter, ceiling, floor);
+	GPUFREQ_TRACE_START("target=%d, limiter=%d, ceiling_info=%d, floor_info=%d",
+		target, limiter, ceiling_info, floor_info);
 
 	if (target >= TARGET_INVALID || target < 0 ||
 		(target == TARGET_STACK && !g_dual_buck)) {
@@ -1218,21 +1218,21 @@ int gpufreq_set_limit(enum gpufreq_target target,
 			target = TARGET_GPU;
 	}
 
-	GPUFREQ_LOGD("target: %s, limiter: %d, ceiling: %d, floor: %d",
+	GPUFREQ_LOGD("target: %s, limiter: %d, ceiling_info: %d, floor_info: %d",
 		target == TARGET_STACK ? "STACK" : "GPU",
-		limiter, ceiling, floor);
+		limiter, ceiling_info, floor_info);
 
 	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
-		ret = gpuppm_fp->set_limit_stack(limiter, ceiling, floor);
+		ret = gpuppm_fp->set_limit_stack(limiter, ceiling_info, floor_info);
 	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
-		ret = gpuppm_fp->set_limit_gpu(limiter, ceiling, floor);
+		ret = gpuppm_fp->set_limit_gpu(limiter, ceiling_info, floor_info);
 	else
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
 	if (unlikely(ret))
-		GPUFREQ_LOGE("fail to set %s limit ceiling: %d, floor: %d (%d)",
+		GPUFREQ_LOGE("fail to set %s limiter: %d ceiling_info: %d, floor_info: %d (%d)",
 			target == TARGET_STACK ? "STACK" : "GPU",
-			ceiling, floor, ret);
+			limiter, ceiling_info, floor_info, ret);
 
 done:
 	GPUFREQ_TRACE_END();
@@ -1356,118 +1356,37 @@ EXPORT_SYMBOL(gpufreq_get_cur_limiter);
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 {
-	int ceiling = GPUPPM_DEFAULT_IDX;
 	int ret = GPUFREQ_ENOENT;
-	enum gpufreq_target target = TARGET_DEFAULT;
 
-	GPUFREQ_TRACE_START("batt_oc_level=%d", batt_oc_level);
-
-	if (g_dual_buck)
-		target = TARGET_STACK;
-	else
-		target = TARGET_GPU;
-
-	if (gpufreq_fp && gpufreq_fp->get_batt_oc_idx)
-		ceiling = gpufreq_fp->get_batt_oc_idx(batt_oc_level);
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
-		ret = gpuppm_fp->set_limit_stack(LIMIT_BATT_OC, ceiling, GPUPPM_KEEP_IDX);
-	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
-		ret = gpuppm_fp->set_limit_gpu(LIMIT_BATT_OC, ceiling, GPUPPM_KEEP_IDX);
-	else
-		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
-
+	ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_BATT_OC, batt_oc_level, GPUPPM_KEEP_IDX);
 	if (unlikely(ret))
-		GPUFREQ_LOGE("fail to set %s limit ceiling: %d (%d)",
-			target == TARGET_STACK ? "STACK" : "GPU",
-			ceiling, ret);
-
-	GPUFREQ_LOGD("target: %s, limiter: %d, battery_oc_level: %d, ceiling: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		LIMIT_BATT_OC, batt_oc_level, ceiling);
-
-	GPUFREQ_TRACE_END();
+		GPUFREQ_LOGE("fail to set LIMIT_BATT_OC limit level: %d (%d)",
+			batt_oc_level, ret);
 }
 #endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
 static void gpufreq_batt_percent_callback(enum BATTERY_PERCENT_LEVEL_TAG batt_percent_level)
 {
-	int ceiling = GPUPPM_DEFAULT_IDX;
 	int ret = GPUFREQ_ENOENT;
-	enum gpufreq_target target = TARGET_DEFAULT;
 
-	GPUFREQ_TRACE_START("batt_percent_level=%d", batt_percent_level);
-
-	if (g_dual_buck)
-		target = TARGET_STACK;
-	else
-		target = TARGET_GPU;
-
-	if (gpufreq_fp && gpufreq_fp->get_batt_percent_idx)
-		ceiling = gpufreq_fp->get_batt_percent_idx(batt_percent_level);
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
-		ret = gpuppm_fp->set_limit_stack(LIMIT_BATT_PERCENT, ceiling, GPUPPM_KEEP_IDX);
-	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
-		ret = gpuppm_fp->set_limit_gpu(LIMIT_BATT_PERCENT, ceiling, GPUPPM_KEEP_IDX);
-	else
-		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
-
+	ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_BATT_PERCENT,
+		batt_percent_level, GPUPPM_KEEP_IDX);
 	if (unlikely(ret))
-		GPUFREQ_LOGE("fail to set %s limit ceiling: %d (%d)",
-			target == TARGET_STACK ? "STACK" : "GPU",
-			ceiling, ret);
-
-
-	GPUFREQ_LOGD("target: %s, limiter: %d, battery_percent_level: %d, ceiling: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		LIMIT_BATT_PERCENT, batt_percent_level, ceiling);
-
-	GPUFREQ_TRACE_END();
+		GPUFREQ_LOGE("fail to set LIMIT_BATT_PERCENT limit level: %d (%d)",
+			batt_percent_level, ret);
 }
 #endif /* CONFIG_MTK_BATTERY_PERCENT_THROTTLING */
 
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 {
-	int ceiling = GPUPPM_DEFAULT_IDX;
 	int ret = GPUFREQ_ENOENT;
-	enum gpufreq_target target = TARGET_DEFAULT;
 
-	GPUFREQ_TRACE_START("low_batt_level=%d", low_batt_level);
-
-	if (g_dual_buck)
-		target = TARGET_STACK;
-	else
-		target = TARGET_GPU;
-
-	if (gpufreq_fp && gpufreq_fp->get_low_batt_idx)
-		ceiling = gpufreq_fp->get_low_batt_idx(low_batt_level);
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
-	if (target == TARGET_STACK && gpuppm_fp && gpuppm_fp->set_limit_stack)
-		ret = gpuppm_fp->set_limit_stack(LIMIT_LOW_BATT, ceiling, GPUPPM_KEEP_IDX);
-	else if (target == TARGET_GPU && gpuppm_fp && gpuppm_fp->set_limit_gpu)
-		ret = gpuppm_fp->set_limit_gpu(LIMIT_LOW_BATT, ceiling, GPUPPM_KEEP_IDX);
-	else
-		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
-
+	ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_LOW_BATT, low_batt_level, GPUPPM_KEEP_IDX);
 	if (unlikely(ret))
-		GPUFREQ_LOGE("fail to set %s limit ceiling: %d (%d)",
-			target == TARGET_STACK ? "STACK" : "GPU",
-			ceiling, ret);
-
-	GPUFREQ_LOGD("target: %s, limiter: %d, low_battery_level: %d, ceiling: %d",
-		target == TARGET_STACK ? "STACK" : "GPU",
-		LIMIT_LOW_BATT, low_batt_level, ceiling);
-
-	GPUFREQ_TRACE_END();
+		GPUFREQ_LOGE("fail to set LIMIT_LOW_BATT limit level: %d (%d)",
+			low_batt_level, ret);
 }
 #endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 

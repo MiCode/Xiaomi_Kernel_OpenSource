@@ -91,7 +91,8 @@ enum gpuppm_reserved_idx {
 enum gpuppm_limiter {
 	LIMIT_SEGMENT = 0,
 	LIMIT_DEBUG = 1,
-	LIMIT_THERMAL,
+	LIMIT_THERMAL_AP,
+	LIMIT_THERMAL_EB,
 	LIMIT_SRAMRC,
 	LIMIT_BATT_OC,
 	LIMIT_BATT_PERCENT,
@@ -148,9 +149,6 @@ struct gpufreq_platform_fp {
 	void (*set_timestamp)(void);
 	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);
-	int (*get_batt_oc_idx)(int batt_oc_level);
-	int (*get_batt_percent_idx)(int batt_percent_level);
-	int (*get_low_batt_idx)(int low_batt_level);
 	void (*set_stress_test)(unsigned int mode);
 	int (*set_aging_mode)(unsigned int mode);
 	void (*set_gpm_mode)(unsigned int mode);
@@ -222,9 +220,9 @@ struct gpufreq_platform_fp {
 struct gpuppm_platform_fp {
 	int (*limited_commit_gpu)(int oppidx);
 	int (*limited_commit_stack)(int oppidx);
-	int (*set_limit_gpu)(enum gpuppm_limiter limiter, int ceiling, int floor);
+	int (*set_limit_gpu)(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
 	int (*switch_limit_gpu)(enum gpuppm_limiter limiter, int c_enable, int f_enable);
-	int (*set_limit_stack)(enum gpuppm_limiter limiter, int ceiling, int floor);
+	int (*set_limit_stack)(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
 	int (*switch_limit_stack)(enum gpuppm_limiter limiter, int c_enable, int f_enable);
 	int (*get_ceiling_gpu)(void);
 	int (*get_floor_gpu)(void);
@@ -285,7 +283,7 @@ unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int 
 unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);
 int gpufreq_set_limit(enum gpufreq_target target,
-	enum gpuppm_limiter limiter, int ceiling, int floor);
+	enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
 int gpufreq_get_cur_limit_idx(enum gpufreq_target target,enum gpuppm_limit_type limit);
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit);
 int gpufreq_power_control(enum gpufreq_power_state power);

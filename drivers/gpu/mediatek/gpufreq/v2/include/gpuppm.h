@@ -60,9 +60,9 @@ struct gpuppm_status {
 int gpuppm_init(unsigned int gpueb_support);
 int gpuppm_limited_commit_gpu(int oppidx);
 int gpuppm_limited_commit_stack(int oppidx);
-int gpuppm_set_limit_gpu(enum gpuppm_limiter limiter, int ceiling, int floor);
+int gpuppm_set_limit_gpu(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
 int gpuppm_switch_limit_gpu(enum gpuppm_limiter limiter, int c_enable, int f_enable);
-int gpuppm_set_limit_stack(enum gpuppm_limiter limiter, int ceiling, int floor);
+int gpuppm_set_limit_stack(enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
 int gpuppm_switch_limit_stack(enum gpuppm_limiter limiter, int c_enable, int f_enable);
 int gpuppm_get_ceiling_gpu(void);
 int gpuppm_get_floor_gpu(void);

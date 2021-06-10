@@ -258,9 +258,6 @@ static struct gpufreq_platform_fp platform_fp = {
 	.set_timestamp = __gpufreq_set_timestamp,
 	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
-	.get_batt_oc_idx = __gpufreq_get_batt_oc_idx,
-	.get_batt_percent_idx = __gpufreq_get_batt_percent_idx,
-	.get_low_batt_idx = __gpufreq_get_low_batt_idx,
 	.set_stress_test = __gpufreq_set_stress_test,
 	.set_aging_mode = __gpufreq_set_aging_mode,
 };
