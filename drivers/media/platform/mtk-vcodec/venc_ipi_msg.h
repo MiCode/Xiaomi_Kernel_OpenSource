@@ -401,6 +401,8 @@ struct venc_vcu_config {
 	__u32 i_p_qp_delta;
 	__u32 qp_control_mode;
 	__u32 frame_level_qp;
+	__u32 maxrefpnum;
+	__u32 maxrefbufFrameNum;
 };
 
 /**
