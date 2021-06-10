@@ -87,7 +87,7 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->sync_flag     = sync_flag;
 		),
 
-	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d uclamp=%d mask=0x%lx latency_sensitive=%d sync=%d",
+	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util_est=%d uclamp=%d mask=0x%lx latency_sensitive=%d sync=%d",
 		__entry->pid,
 		__entry->policy,
 		__entry->prev_cpu,

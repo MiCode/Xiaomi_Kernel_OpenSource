@@ -459,7 +459,7 @@ done:
 	trace_sched_find_energy_efficient_cpu(prev_delta, best_delta, best_energy_cpu,
 			best_idle_cpu, max_spare_cap_cpu_ls, sys_max_spare_cap_cpu);
 	trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
-			task_util(p), uclamp_task_util(p),
+			task_util_est(p), uclamp_task_util(p),
 			latency_sensitive , sync);
 
 	return;
