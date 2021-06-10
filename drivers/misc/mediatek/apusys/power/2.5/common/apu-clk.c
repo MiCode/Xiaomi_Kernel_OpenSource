@@ -399,7 +399,7 @@ static int clk_apu_enable(struct apu_clk_gp *aclk)
 	dst = aclk->sys_mux;
 	if (!IS_ERR_OR_NULL(dst)) {
 		if (!dst->always_on) {
-			ret = clk_bulk_enable(dst->clk_num, dst->clks);
+			ret = clk_bulk_prepare_enable(dst->clk_num, dst->clks);
 			if (ret) {
 				aclk_err(aclk->dev, "[%s] %s fail, ret %d\n",
 					 __func__, dst->clks->id, ret);
@@ -418,7 +418,7 @@ static int clk_apu_enable(struct apu_clk_gp *aclk)
 	dst = aclk->top_mux;
 	if (!IS_ERR_OR_NULL(dst)) {
 		if (!dst->always_on) {
-			ret = clk_bulk_enable(dst->clk_num, dst->clks);
+			ret = clk_bulk_prepare_enable(dst->clk_num, dst->clks);
 			if (ret) {
 				aclk_err(aclk->dev, "[%s] %s fail, ret %d\n",
 					 __func__, dst->clks->id, ret);
@@ -439,7 +439,7 @@ static int clk_apu_enable(struct apu_clk_gp *aclk)
 	dst = aclk->apmix_pll;
 	if (!IS_ERR_OR_NULL(dst)) {
 		if (!dst->always_on) {
-			ret = clk_bulk_enable(dst->clk_num, dst->clks);
+			ret = clk_bulk_prepare_enable(dst->clk_num, dst->clks);
 			if (ret) {
 				aclk_err(aclk->dev, "[%s] fail, ret %d\n", __func__, ret);
 				goto out;
@@ -457,7 +457,7 @@ static int clk_apu_enable(struct apu_clk_gp *aclk)
 	dst = aclk->top_pll;
 	if (!IS_ERR_OR_NULL(dst)) {
 		if (!dst->always_on) {
-			ret = clk_bulk_enable(dst->clk_num, dst->clks);
+			ret = clk_bulk_prepare_enable(dst->clk_num, dst->clks);
 			if (ret) {
 				aclk_err(aclk->dev, "[%s] fail, ret %d\n", __func__, ret);
 				goto out;
@@ -492,7 +492,7 @@ static void clk_apu_disable(struct apu_clk_gp *aclk)
 				goto out;
 		}
 		if (!dst->always_on && !dst->keep_enable)
-			clk_bulk_disable(dst->clk_num, dst->clks);
+			clk_bulk_disable_unprepare(dst->clk_num, dst->clks);
 	}
 
 	dst = aclk->top_mux;
@@ -503,7 +503,7 @@ static void clk_apu_disable(struct apu_clk_gp *aclk)
 				goto out;
 		}
 		if (!dst->always_on && !dst->keep_enable)
-			clk_bulk_disable(dst->clk_num, dst->clks);
+			clk_bulk_disable_unprepare(dst->clk_num, dst->clks);
 	}
 
 	dst = aclk->apmix_pll;
@@ -514,7 +514,7 @@ static void clk_apu_disable(struct apu_clk_gp *aclk)
 				goto out;
 		}
 		if (!dst->always_on && !dst->keep_enable)
-			clk_bulk_disable(dst->clk_num, dst->clks);
+			clk_bulk_disable_unprepare(dst->clk_num, dst->clks);
 	}
 
 	dst = aclk->top_pll;
@@ -525,7 +525,7 @@ static void clk_apu_disable(struct apu_clk_gp *aclk)
 				goto out;
 		}
 		if (!dst->always_on && !dst->keep_enable)
-			clk_bulk_disable(dst->clk_num, dst->clks);
+			clk_bulk_disable_unprepare(dst->clk_num, dst->clks);
 	}
 
 out:
