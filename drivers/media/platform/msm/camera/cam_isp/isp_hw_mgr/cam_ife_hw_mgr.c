@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4664,6 +4665,7 @@ static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 	int i;
 	int rc = 0;
 
+	memset(&isp_hw_dump_args, 0, sizeof(isp_hw_dump_args));
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
 		&isp_hw_dump_args.cpu_addr,
 		&isp_hw_dump_args.buf_len);

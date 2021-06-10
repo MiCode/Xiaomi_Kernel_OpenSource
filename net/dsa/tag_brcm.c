@@ -2,6 +2,7 @@
  * Broadcom tag support
  *
  * Copyright (C) 2014 Broadcom Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -133,6 +134,8 @@ static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
 		2 * ETH_ALEN);
 
 	skb->dev = ds->ports[source_port].netdev;
+
+	skb->offload_fwd_mark = 1;
 
 	return skb;
 }

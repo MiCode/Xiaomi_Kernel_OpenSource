@@ -2,6 +2,7 @@
  * RNG driver for Freescale RNGC
  *
  * Copyright (C) 2008-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2017 Martin Kaiser <martin@kaiser.cx>
  *
  * The code contained herein is licensed under the GNU General Public
@@ -110,8 +111,10 @@ static int imx_rngc_self_test(struct imx_rngc *rngc)
 		return -ETIMEDOUT;
 	}
 
-	if (rngc->err_reg != 0)
+	if (rngc->err_reg != 0) {
+		imx_rngc_irq_mask_clear(rngc);
 		return -EIO;
+	}
 
 	return 0;
 }

@@ -2,6 +2,7 @@
  * f_qdss.c -- QDSS function Driver
  *
  * Copyright (c) 2012-2018, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -1205,8 +1206,6 @@ static struct usb_function *qdss_alloc(struct usb_function_instance *fi)
 	struct f_qdss *usb_qdss = opts->usb_qdss;
 
 	usb_qdss->port.function.name = "usb_qdss";
-	usb_qdss->port.function.fs_descriptors = qdss_fs_desc;
-	usb_qdss->port.function.hs_descriptors = qdss_hs_desc;
 	usb_qdss->port.function.strings = qdss_strings;
 	usb_qdss->port.function.bind = qdss_bind;
 	usb_qdss->port.function.unbind = qdss_unbind;

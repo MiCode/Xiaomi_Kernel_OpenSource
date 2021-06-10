@@ -2,6 +2,7 @@
  * pseries Memory Hotplug infrastructure.
  *
  * Copyright (C) 2008 Badari Pulavarty, IBM Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  *      This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -452,8 +453,10 @@ static bool lmb_is_removable(struct of_drconf_cell *lmb)
 
 	for (i = 0; i < scns_per_block; i++) {
 		pfn = PFN_DOWN(phys_addr);
-		if (!pfn_present(pfn))
+		if (!pfn_present(pfn)) {
+			phys_addr += MIN_MEMORY_BLOCK_SIZE;
 			continue;
+		}
 
 		rc &= is_mem_section_removable(pfn, PAGES_PER_SECTION);
 		phys_addr += MIN_MEMORY_BLOCK_SIZE;

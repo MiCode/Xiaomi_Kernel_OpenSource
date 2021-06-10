@@ -67,6 +67,11 @@ Second Level Node - CAM SMMU context bank device or firmware device
   Value type: boolean
   Definition: Specifies if the context bank is a secure context bank.
 
+- qcom,secure-pixel-cb
+  Usage: optional
+  Value type: boolean
+  Definition: Specifies if the context bank is a secure pixel context bank.
+
 =============================================
 Third Level Node - CAM SMMU memory map device
 =============================================

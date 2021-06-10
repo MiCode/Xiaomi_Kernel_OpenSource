@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2017 Intel Corporation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -367,6 +368,15 @@ static void __init pti_clone_entry_text(void)
 	pti_clone_pmds((unsigned long) __entry_text_start,
 			(unsigned long) __irqentry_text_end,
 		       _PAGE_RW | _PAGE_GLOBAL);
+
+	/*
+	 * If CFI is enabled, also map jump tables, so the entry code can
+	 * make indirect calls.
+	 */
+	if (IS_ENABLED(CONFIG_CFI_CLANG))
+		pti_clone_pmds((unsigned long) __cfi_jt_start,
+			       (unsigned long) __cfi_jt_end,
+			       _PAGE_RW | _PAGE_GLOBAL);
 }
 
 /*

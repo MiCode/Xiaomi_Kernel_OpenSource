@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008-2011 Atheros Communications Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -1455,6 +1456,9 @@ static int ath9k_config(struct ieee80211_hw *hw, u32 changed)
 		ctx->offchannel = !!(conf->flags & IEEE80211_CONF_OFFCHANNEL);
 		ath_chanctx_set_channel(sc, ctx, &hw->conf.chandef);
 	}
+
+	if (changed & IEEE80211_CONF_CHANGE_POWER)
+		ath9k_set_txpower(sc, NULL);
 
 	mutex_unlock(&sc->mutex);
 	ath9k_ps_restore(sc);

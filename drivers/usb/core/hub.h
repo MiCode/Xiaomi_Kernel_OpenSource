@@ -2,6 +2,7 @@
  * usb hub driver head file
  *
  * Copyright (C) 1999 Linus Torvalds
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 1999 Johannes Erdfelt
  * Copyright (C) 1999 Gregory P. Smith
  * Copyright (C) 2001 Brad Hards (bhards@bigpond.net.au)
@@ -69,6 +70,7 @@ struct usb_hub {
 	unsigned		quiescing:1;
 	unsigned		disconnected:1;
 	unsigned		in_reset:1;
+	unsigned		quirk_disable_autosuspend:1;
 
 	unsigned		quirk_check_port_auto_suspend:1;
 

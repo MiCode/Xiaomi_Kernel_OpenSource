@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2007 Patrick McHardy <kaber@trash.net>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -338,6 +339,8 @@ static void macvlan_process_broadcast(struct work_struct *w)
 		if (src)
 			dev_put(src->dev);
 		kfree_skb(skb);
+
+		cond_resched();
 	}
 }
 
@@ -1671,7 +1674,7 @@ static int macvlan_device_event(struct notifier_block *unused,
 						struct macvlan_dev,
 						list);
 
-		if (macvlan_sync_address(vlan->dev, dev->dev_addr))
+		if (vlan && macvlan_sync_address(vlan->dev, dev->dev_addr))
 			return NOTIFY_BAD;
 
 		break;

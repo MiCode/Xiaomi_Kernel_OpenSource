@@ -1,4 +1,5 @@
 /* Copyright 2011-2014 Autronica Fire and Security AS
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -468,13 +469,9 @@ int hsr_get_node_data(struct hsr_priv *hsr,
 	struct hsr_port *port;
 	unsigned long tdiff;
 
-
-	rcu_read_lock();
 	node = find_node_by_AddrA(&hsr->node_db, addr);
-	if (!node) {
-		rcu_read_unlock();
-		return -ENOENT;	/* No such entry */
-	}
+	if (!node)
+		return -ENOENT;
 
 	ether_addr_copy(addr_b, node->MacAddressB);
 
@@ -508,8 +505,6 @@ int hsr_get_node_data(struct hsr_priv *hsr,
 	} else {
 		*addr_b_ifindex = -1;
 	}
-
-	rcu_read_unlock();
 
 	return 0;
 }

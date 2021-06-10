@@ -1,6 +1,7 @@
 /*
  * QLogic Fibre Channel HBA Driver
  * Copyright (c)  2003-2014 QLogic Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * See LICENSE.qla2xxx for copyright and licensing details.
  */
@@ -2516,12 +2517,6 @@ qla83xx_fw_dump_failed:
 /****************************************************************************/
 /*                         Driver Debug Functions.                          */
 /****************************************************************************/
-
-static inline int
-ql_mask_match(uint32_t level)
-{
-	return (level & ql2xextended_error_logging) == level;
-}
 
 /*
  * This function is for formatting and logging debug information.

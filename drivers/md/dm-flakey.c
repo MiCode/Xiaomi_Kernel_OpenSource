@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Sistina Software (UK) Limited.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004, 2010-2011 Red Hat, Inc. All rights reserved.
  *
  * This file is released under the GPL.
@@ -69,6 +70,11 @@ static int parse_features(struct dm_arg_set *as, struct flakey_c *fc,
 	while (argc) {
 		arg_name = dm_shift_arg(as);
 		argc--;
+
+		if (!arg_name) {
+			ti->error = "Insufficient feature arguments";
+			return -EINVAL;
+		}
 
 		/*
 		 * drop_writes

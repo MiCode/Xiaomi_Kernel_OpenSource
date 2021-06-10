@@ -2,6 +2,7 @@
  * Prolific PL2303 USB to serial adaptor driver
  *
  * Copyright (C) 2001-2007 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2003 IBM Corp.
  *
  * Original driver for 2.2.x by anonymous
@@ -96,6 +97,7 @@ static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE(SUPERIAL_VENDOR_ID, SUPERIAL_PRODUCT_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_LD220_PRODUCT_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_LD220TA_PRODUCT_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_LD381_PRODUCT_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_LD960_PRODUCT_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_LD960TA_PRODUCT_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_LCM220_PRODUCT_ID) },

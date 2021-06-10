@@ -61,6 +61,8 @@ enum {
 #define DISK_MAX_PARTS			256
 #define DISK_NAME_LEN			32
 
+#define SD_NUM 8		//bug 434857, guodandan@wt, 2019.03.23, add
+
 #include <linux/major.h>
 #include <linux/device.h>
 #include <linux/smp.h>

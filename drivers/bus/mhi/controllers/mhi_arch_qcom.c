@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -210,7 +211,11 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 	}
 
 	mhi_dev->mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
-	return mhi_pci_probe(pci_dev, NULL);
+	ret = mhi_pci_probe(pci_dev, NULL);
+	if (ret)
+		mhi_dev->powered_on = false;
+
+	return ret;
 }
 
 static void mhi_arch_link_off(struct mhi_controller *mhi_cntrl)

@@ -2,6 +2,7 @@
  * Security plug functions
  *
  * Copyright (C) 2001 WireX Communications, Inc <chris@wirex.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2001-2002 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2001 Networks Associates Technology, Inc <ssmalley@nai.com>
  * Copyright (C) 2016 Mellanox Technologies
@@ -613,14 +614,6 @@ int security_inode_create(struct inode *dir, struct dentry *dentry, umode_t mode
 	return call_int_hook(inode_create, 0, dir, dentry, mode);
 }
 EXPORT_SYMBOL_GPL(security_inode_create);
-
-int security_inode_post_create(struct inode *dir, struct dentry *dentry,
-				umode_t mode)
-{
-	if (unlikely(IS_PRIVATE(dir)))
-		return 0;
-	return call_int_hook(inode_post_create, 0, dir, dentry, mode);
-}
 
 int security_inode_link(struct dentry *old_dentry, struct inode *dir,
 			 struct dentry *new_dentry)

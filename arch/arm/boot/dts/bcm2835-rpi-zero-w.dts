@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Stefan Wahren <stefan.wahren@i2se.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -118,6 +119,7 @@
 &sdhci {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_gpio34 &gpclk2_gpio43>;
 	mmc-pwrseq = <&wifi_pwrseq>;
 	non-removable;

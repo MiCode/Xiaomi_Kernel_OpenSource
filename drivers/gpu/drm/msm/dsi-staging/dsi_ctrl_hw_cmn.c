@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +102,14 @@ void dsi_ctrl_hw_cmn_host_setup(struct dsi_ctrl_hw *ctrl,
 
 	dsi_setup_trigger_controls(ctrl, cfg);
 	dsi_split_link_setup(ctrl, cfg);
+
+	/* Setup T_CLK_PRE extend register */
+	reg_value = DSI_R32(ctrl, DSI_TEST_PATTERN_GEN_VIDEO_ENABLE);
+	if (cfg->t_clk_pre_extend)
+		reg_value |= BIT(0);
+	else
+		reg_value &= ~BIT(0);
+	DSI_W32(ctrl, DSI_TEST_PATTERN_GEN_VIDEO_ENABLE, reg_value);
 
 	/* Setup clocking timing controls */
 	reg_value = ((cfg->t_clk_post & 0x3F) << 8);

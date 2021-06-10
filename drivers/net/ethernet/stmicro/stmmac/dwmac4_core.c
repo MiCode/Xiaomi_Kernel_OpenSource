@@ -5,6 +5,7 @@
  * This only implements the mac core functions for this chip.
  *
  * Copyright (C) 2015  STMicroelectronics Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -699,6 +700,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
 static const struct stmmac_ops dwmac4_ops = {
 	.core_init = dwmac4_core_init,
 	.set_mac = stmmac_set_mac,
+	.set_vlan = stmmac_set_vlan_filter_rx_queue,
 	.rx_ipc = dwmac4_rx_ipc_enable,
 	.rx_queue_enable = dwmac4_rx_queue_enable,
 	.rx_queue_prio = dwmac4_rx_queue_priority,
@@ -730,6 +732,7 @@ static const struct stmmac_ops dwmac4_ops = {
 static const struct stmmac_ops dwmac410_ops = {
 	.core_init = dwmac4_core_init,
 	.set_mac = stmmac_dwmac4_set_mac,
+	.set_vlan = stmmac_set_vlan_filter_rx_queue,
 	.rx_ipc = dwmac4_rx_ipc_enable,
 	.rx_queue_enable = dwmac4_rx_queue_enable,
 	.rx_queue_prio = dwmac4_rx_queue_priority,

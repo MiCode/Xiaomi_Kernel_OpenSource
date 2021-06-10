@@ -2,6 +2,7 @@
  * Intel(R) Trace Hub pci driver
  *
  * Copyright (C) 2014-2015 Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -216,6 +217,11 @@ static const struct pci_device_id intel_th_pci_id_table[] = {
 	{
 		/* Jasper Lake PCH */
 		PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x4da6),
+		.driver_data = (kernel_ulong_t)&intel_th_2x,
+	},
+	{
+		/* Elkhart Lake CPU */
+		PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x4529),
 		.driver_data = (kernel_ulong_t)&intel_th_2x,
 	},
 	{

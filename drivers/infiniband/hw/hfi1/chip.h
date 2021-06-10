@@ -2,6 +2,7 @@
 #define _CHIP_H
 /*
  * Copyright(c) 2015 - 2017 Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  * redistributing this file, you may do so under either license.
@@ -864,6 +865,7 @@ enum {
 	C_DC_PG_STS_TX_MBE_CNT,
 	C_SW_CPU_INTR,
 	C_SW_CPU_RCV_LIM,
+	C_SW_CTX0_SEQ_DROP,
 	C_SW_VTX_WAIT,
 	C_SW_PIO_WAIT,
 	C_SW_PIO_DRAIN,

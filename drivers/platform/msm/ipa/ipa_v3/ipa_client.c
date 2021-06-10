@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,14 +434,33 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
 			}
 		}
 	} else {
-		res = iommu_unmap(smmu_domain,
-		rounddown(iova, PAGE_SIZE),
-		roundup(size + iova - rounddown(iova, PAGE_SIZE),
-		PAGE_SIZE));
-		if (res != roundup(size + iova - rounddown(iova, PAGE_SIZE),
-			PAGE_SIZE)) {
-			IPAERR("Fail to unmap 0x%llx\n", iova);
-			return -EINVAL;
+		if (sgt != NULL) {
+			va = rounddown(iova, PAGE_SIZE);
+			len = 0;
+			for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+				len = PAGE_ALIGN(sg->offset + sg->length);
+				res = iommu_unmap(smmu_domain, va,
+						roundup(len, PAGE_SIZE));
+				if (res !=
+					roundup(len, PAGE_SIZE)) {
+					IPAERR("Fail to unmap iova=%llx\n",
+									iova);
+					return -EINVAL;
+				}
+				va += len;
+				count++;
+			}
+		} else {
+			res = iommu_unmap(smmu_domain,
+					rounddown(iova, PAGE_SIZE),
+					roundup(size + iova -
+						rounddown(iova, PAGE_SIZE),
+						PAGE_SIZE));
+			if (res != roundup(size + iova -
+				rounddown(iova, PAGE_SIZE), PAGE_SIZE)) {
+				IPAERR("Fail to unmap 0x%llx\n", iova);
+				return -EINVAL;
+			}
 		}
 	}
 	IPADBG("Peer buff %s 0x%llx\n", map ? "map" : "unmap", iova);

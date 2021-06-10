@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -47,6 +48,8 @@ static int virtio_gpu_features(struct seq_file *m, void *data)
 
 	virtio_add_bool(m, "virgl", vgdev->has_virgl_3d);
 	virtio_add_bool(m, "edid", vgdev->has_edid);
+	virtio_add_bool(m, "resource blob", vgdev->has_resource_blob);
+	virtio_add_bool(m, "host visible", vgdev->has_host_visible);
 	virtio_add_int(m, "cap sets", vgdev->num_capsets);
 	virtio_add_int(m, "scanouts", vgdev->num_scanouts);
 	return 0;

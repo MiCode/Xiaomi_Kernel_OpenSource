@@ -2,6 +2,7 @@
  * Core MDSS framebuffer driver.
  *
  * Copyright (C) 2007 Google Incorporated
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -5336,10 +5337,12 @@ void mdss_fb_calc_fps(struct msm_fb_data_type *mfd)
 
 void mdss_fb_idle_pc(struct msm_fb_data_type *mfd)
 {
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_overlay_private *mdp5_data;
 
-	if (mdss_fb_is_power_off(mfd))
+	if (!mfd || mdss_fb_is_power_off(mfd))
 		return;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
 
 	if ((mfd->panel_info->type == MIPI_CMD_PANEL) && mdp5_data) {
 		pr_debug("Notify fb%d idle power collapsed\n", mfd->index);

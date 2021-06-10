@@ -2,6 +2,7 @@
  * Core routines and tables shareable across OS platforms.
  *
  * Copyright (c) 1994-2002 Justin T. Gibbs.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2000-2002 Adaptec Inc.
  * All rights reserved.
  *
@@ -2321,7 +2322,7 @@ ahc_find_syncrate(struct ahc_softc *ahc, u_int *period,
 			 * At some speeds, we only support
 			 * ST transfers.
 			 */
-		 	if ((syncrate->sxfr_u2 & ST_SXFR) != 0)
+			if ((syncrate->sxfr_u2 & ST_SXFR) != 0)
 				*ppr_options &= ~MSG_EXT_PPR_DT_REQ;
 			break;
 		}

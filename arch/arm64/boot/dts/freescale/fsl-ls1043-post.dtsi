@@ -2,6 +2,7 @@
  * QorIQ FMan v3 device tree nodes for ls1043
  *
  * Copyright 2015-2016 Freescale Semiconductor Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
  */
@@ -21,6 +22,8 @@
 };
 
 &fman0 {
+	fsl,erratum-a050385;
+
 	/* these aliases provide the FMan ports mapping */
 	enet0: ethernet@e0000 {
 	};

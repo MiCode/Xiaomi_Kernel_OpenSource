@@ -7,6 +7,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2014 Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -62,11 +63,11 @@
  *Visit http://software.intel.com/en-us/articles/
  *and refer to improving-the-performance-of-the-secure-hash-algorithm-1/
  *
- *Updates 20-byte SHA-1 record in 'hash' for even number of
- *'num_blocks' consecutive 64-byte blocks
+ *Updates 20-byte SHA-1 record at start of 'state', from 'input', for
+ *even number of 'blocks' consecutive 64-byte blocks.
  *
  *extern "C" void sha1_transform_avx2(
- *	int *hash, const char* input, size_t num_blocks );
+ *	struct sha1_state *state, const u8* input, int blocks );
  */
 
 #include <linux/linkage.h>

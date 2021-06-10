@@ -295,8 +295,14 @@ static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv, u32 queue)
  */
 static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
 {
-	if (likely(priv->plat->fix_mac_speed))
-		priv->plat->fix_mac_speed(priv->plat->bsp_priv, priv->speed);
+	if (likely(priv->plat->fix_mac_speed)) {
+		if (priv->phydev->link)
+			priv->plat->fix_mac_speed(priv->plat->bsp_priv,
+						  priv->speed);
+		else
+			priv->plat->fix_mac_speed(priv->plat->bsp_priv,
+						  SPEED_10);
+	}
 }
 
 /**
@@ -854,6 +860,7 @@ static void stmmac_adjust_link(struct net_device *dev)
 			priv->oldlink = true;
 		}
 	} else if (priv->oldlink) {
+		stmmac_hw_fix_mac_speed(priv);
 		new_state = true;
 		priv->oldlink = false;
 		priv->speed = SPEED_UNKNOWN;
@@ -866,11 +873,11 @@ static void stmmac_adjust_link(struct net_device *dev)
 	mutex_unlock(&priv->lock);
 
 	if (new_state) {
-		if (phydev->link == 1 && priv->tx_queue[IPA_DMA_TX_CH].skip_sw)
+		if (phydev->link == 1 && priv->hw_offload_enabled)
 			ethqos_ipa_offload_event_handler(priv,
 							 EV_PHY_LINK_UP);
 		else if (phydev->link == 0 &&
-			 priv->tx_queue[IPA_DMA_TX_CH].skip_sw)
+			 priv->hw_offload_enabled)
 			ethqos_ipa_offload_event_handler(priv,
 							 EV_PHY_LINK_DOWN);
 	}
@@ -1058,6 +1065,15 @@ static int stmmac_init_phy(struct net_device *dev)
 	 */
 	if (phydev->is_pseudo_fixed_link)
 		phydev->irq = PHY_POLL;
+
+	if (((phydev->phy_id & phydev->drv->phy_id_mask) == MICREL_PHY_ID) &&
+	    !priv->plat->phy_intr_en) {
+		ret = ethqos_phy_intr_enable(priv);
+		if (ret)
+			pr_alert("qcom-ethqos: Unable to enable PHY interrupt\n");
+		else
+			priv->plat->phy_intr_en = true;
+	}
 
 	if (phy_intr_en) {
 		if (phydev->drv->config_intr &&
@@ -1918,6 +1934,10 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 					       priv->ioaddr +
 					       (0x00000d00 + 0x2c));
 			}
+
+			if (priv->rx_queue[chan].en_fep)
+				priv->hw->dma->enable_rx_fep(priv->ioaddr,
+							     true, chan);
 		}
 
 		for (chan = 0; chan < tx_channels_count; chan++) {
@@ -2154,6 +2174,13 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
 
 		status = priv->hw->dma->dma_interrupt(priv->ioaddr,
 						      &priv->xstats, chan);
+		if (priv->rx_queue[chan].skip_sw && (status & handle_rx))
+			ethqos_ipa_offload_event_handler(
+				&chan, EV_IPA_HANDLE_RX_INTR);
+		if (priv->tx_queue[chan].skip_sw && (status & handle_tx))
+			ethqos_ipa_offload_event_handler(
+				&chan, EV_IPA_HANDLE_TX_INTR);
+
 		if ((likely((status & handle_rx)) || (status & handle_tx)) &&
 		    !rx_q->skip_sw) {
 			if (likely(napi_schedule_prep(&rx_q->napi))) {
@@ -2727,9 +2754,10 @@ static int stmmac_open(struct net_device *dev)
 	struct stmmac_priv *priv = netdev_priv(dev);
 	int ret;
 
-	if (priv->hw->pcs != STMMAC_PCS_RGMII &&
-	    priv->hw->pcs != STMMAC_PCS_TBI &&
-	    priv->hw->pcs != STMMAC_PCS_RTBI) {
+	if (!priv->plat->mac2mac_en &&
+	    (priv->hw->pcs != STMMAC_PCS_RGMII &&
+	     priv->hw->pcs != STMMAC_PCS_TBI &&
+	     priv->hw->pcs != STMMAC_PCS_RTBI)) {
 		ret = stmmac_init_phy(dev);
 		if (ret) {
 			netdev_err(priv->dev,
@@ -2814,8 +2842,28 @@ static int stmmac_open(struct net_device *dev)
 
 	stmmac_enable_all_queues(priv);
 	stmmac_start_all_queues(priv);
-	if (priv->tx_queue[IPA_DMA_TX_CH].skip_sw)
+	if (priv->hw_offload_enabled)
 		ethqos_ipa_offload_event_handler(priv, EV_DEV_OPEN);
+
+	if (priv->plat->mac2mac_en) {
+		u32 ctrl = readl_relaxed(priv->ioaddr + MAC_CTRL_REG);
+
+		ctrl &= ~priv->hw->link.speed_mask;
+
+		if (priv->plat->mac2mac_rgmii_speed == SPEED_1000) {
+			ctrl |= priv->hw->link.speed1000;
+			priv->speed = SPEED_1000;
+		} else if (priv->plat->mac2mac_rgmii_speed == SPEED_100) {
+			ctrl |= priv->hw->link.speed100;
+			priv->speed = SPEED_100;
+		} else {
+			ctrl |= priv->hw->link.speed10;
+			priv->speed = SPEED_10;
+		}
+
+		stmmac_hw_fix_mac_speed(priv);
+		writel_relaxed(ctrl, priv->ioaddr + MAC_CTRL_REG);
+	}
 
 	return 0;
 
@@ -2877,7 +2925,7 @@ static int stmmac_release(struct net_device *dev)
 
 	/* Release and free the Rx/Tx resources */
 	free_dma_desc_resources(priv);
-	if (priv->tx_queue[IPA_DMA_TX_CH].skip_sw)
+	if (priv->hw_offload_enabled)
 		ethqos_ipa_offload_event_handler(priv, EV_DEV_CLOSE);
 
 	/* Disable the MAC Rx/Tx */
@@ -3512,6 +3560,47 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv, u32 queue)
 	rx_q->dirty_rx = entry;
 }
 
+static u16 csum(u16 old_csum)
+{
+	u16 new_checksum = 0;
+
+	new_checksum = ~(~old_csum + (-8) + 0);
+	return new_checksum;
+}
+
+void swap_ip_port(struct sk_buff *skb, unsigned int eth_type)
+{
+	__be32 temp_addr;
+	unsigned char *buf = skb->data;
+	struct icmphdr *icmp_hdr;
+	unsigned char eth_temp[ETH_ALEN] = {};
+	struct ethhdr *eth = (struct ethhdr *)(buf);
+	struct iphdr *ip_header;
+
+	if (eth_type == ETH_P_IP) {
+		ip_header = (struct iphdr *)(buf + sizeof(struct ethhdr));
+		if (ip_header->protocol == IPPROTO_UDP ||
+		    ip_header->protocol ==  IPPROTO_ICMP) {
+			//swap mac address
+			memcpy(eth_temp, eth->h_dest, ETH_ALEN);
+			memcpy(eth->h_dest, eth->h_source, ETH_ALEN);
+			memcpy(eth->h_source, eth_temp, ETH_ALEN);
+			//swap ip address
+			temp_addr = ip_header->daddr;
+			ip_header->daddr = ip_header->saddr;
+			ip_header->saddr = temp_addr;
+
+			icmp_hdr = (struct icmphdr *)(buf
+					+ sizeof(struct ethhdr)
+					+ sizeof(struct iphdr));
+			if (icmp_hdr->type == ICMP_ECHO) {
+				icmp_hdr->type = ICMP_ECHOREPLY;
+				icmp_hdr->checksum = csum(icmp_hdr->checksum);
+			}
+		}
+	}
+}
+
 /**
  * stmmac_rx - manage the receive process
  * @priv: driver private structure
@@ -3526,6 +3615,9 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
 	int coe = priv->hw->rx_csum;
 	unsigned int next_entry = rx_q->cur_rx;
 	unsigned int count = 0;
+#ifndef CONFIG_ETH_IPA_OFFLOAD
+	unsigned int eth_type;
+#endif
 
 	if (netif_msg_rx_status(priv)) {
 		void *rx_head;
@@ -3700,7 +3792,13 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
 			stmmac_get_rx_hwtstamp(priv, p, np, skb);
 
 			stmmac_rx_vlan(priv->dev, skb);
+#ifndef CONFIG_ETH_IPA_OFFLOAD
+			eth_type = dwmac_qcom_get_eth_type(skb->data);
 
+			if (priv->current_loopback > 0 &&
+			    eth_type == ETH_P_IP)
+				swap_ip_port(skb, eth_type);
+#endif
 			skb->protocol = eth_type_trans(skb, priv->dev);
 
 			if (unlikely(!coe))
@@ -4003,6 +4101,7 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		break;
 	case SIOCSHWTSTAMP:
 		ret = stmmac_hwtstamp_ioctl(dev, rq);
+		break;
 	case SIOCDEVPRIVATE:
 		ret = ethqos_handle_prv_ioctl(dev, rq, cmd);
 		break;
@@ -4535,9 +4634,10 @@ int stmmac_dvr_probe(struct device *device,
 
 	stmmac_check_pcs_mode(priv);
 
-	if (priv->hw->pcs != STMMAC_PCS_RGMII  &&
-	    priv->hw->pcs != STMMAC_PCS_TBI &&
-	    priv->hw->pcs != STMMAC_PCS_RTBI) {
+	if (!priv->plat->mac2mac_en &&
+	    (priv->hw->pcs != STMMAC_PCS_RGMII &&
+	     priv->hw->pcs != STMMAC_PCS_TBI &&
+	     priv->hw->pcs != STMMAC_PCS_RTBI)) {
 		/* MDIO bus Registration */
 		ret = stmmac_mdio_register(ndev);
 		if (ret < 0) {

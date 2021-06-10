@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -209,6 +210,7 @@ struct gsi_ctrl_port {
 	atomic_t ctrl_online;
 
 	bool is_open;
+	bool is_suspended;
 
 	wait_queue_head_t read_wq;
 

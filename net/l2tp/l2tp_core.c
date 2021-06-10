@@ -2,6 +2,7 @@
  * L2TP core.
  *
  * Copyright (c) 2008,2009,2010 Katalix Systems Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file contains some code of the original L2TPv2 pppol2tp
  * driver, which has the following copyright:
@@ -358,8 +359,13 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
 
 		spin_lock_bh(&pn->l2tp_session_hlist_lock);
 
+		/* IP encap expects session IDs to be globally unique, while
+		 * UDP encap doesn't.
+		 */
 		hlist_for_each_entry(session_walk, g_head, global_hlist)
-			if (session_walk->session_id == session->session_id) {
+			if (session_walk->session_id == session->session_id &&
+			    (session_walk->tunnel->encap == L2TP_ENCAPTYPE_IP ||
+			     tunnel->encap == L2TP_ENCAPTYPE_IP)) {
 				err = -EEXIST;
 				goto err_tlock_pnlock;
 			}

@@ -1,5 +1,6 @@
 /*
  * Copyright 2012 Red Hat Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -72,6 +73,8 @@ nv50_disp_chan_mthd(struct nv50_disp_chan *chan, int debug)
 	int i, j;
 
 	if (debug > subdev->debug)
+		return;
+	if (!mthd)
 		return;
 
 	for (i = 0; (list = mthd->data[i].mthd) != NULL; i++) {

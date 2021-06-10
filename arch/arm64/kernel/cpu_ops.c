@@ -2,6 +2,7 @@
  * CPU kernel entry/exit control
  *
  * Copyright (C) 2013 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -81,7 +82,7 @@ static const char *__init cpu_read_enable_method(int cpu)
 			 * when spin-table is used for secondaries).
 			 * Don't warn spuriously.
 			 */
-			if (cpu != 0)
+			if (cpu != logical_bootcpu_id)
 				pr_err("%pOF: missing enable-method property\n",
 					dn);
 		}

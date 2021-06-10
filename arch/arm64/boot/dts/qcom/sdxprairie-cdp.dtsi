@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,6 +145,14 @@
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_XO_THERM_PU2>;
 		thermal-governor = "user_space";
 		wake-capable-sensor;
+
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
 	};
 
 	pa-therm1-usr {
@@ -152,6 +161,14 @@
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_AMUX_THM1_PU2>;
 		thermal-governor = "user_space";
 		wake-capable-sensor;
+
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
 	};
 
 	pa-therm2-usr {
@@ -160,6 +177,14 @@
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_AMUX_THM2_PU2>;
 		thermal-governor = "user_space";
 		wake-capable-sensor;
+
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
 	};
 
 	sdx-case-therm-usr {
@@ -168,6 +193,14 @@
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_AMUX_THM3_PU2>;
 		thermal-governor = "user_space";
 		wake-capable-sensor;
+
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
 	};
 
 	ambient-therm-usr {
@@ -176,6 +209,14 @@
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_GPIO1_PU2>;
 		thermal-governor = "user_space";
 		wake-capable-sensor;
+
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
 	};
 };
 

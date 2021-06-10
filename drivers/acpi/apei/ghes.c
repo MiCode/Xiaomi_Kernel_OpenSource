@@ -13,6 +13,7 @@
  * refer to ACPI Specification version 4.0, section 17.3.2.6
  *
  * Copyright 2010,2011 Intel Corp.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *   Author: Huang Ying <ying.huang@intel.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -201,7 +202,7 @@ static int ghes_estatus_pool_expand(unsigned long len)
 	 * New allocation must be visible in all pgd before it can be found by
 	 * an NMI allocating from the pool.
 	 */
-	vmalloc_sync_all();
+	vmalloc_sync_mappings();
 
 	return gen_pool_add(ghes_estatus_pool, addr, PAGE_ALIGN(len), -1);
 }

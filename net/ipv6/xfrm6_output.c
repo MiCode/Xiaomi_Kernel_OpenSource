@@ -1,6 +1,7 @@
 /*
  * xfrm6_output.c - Common IPsec encapsulation code for IPv6.
  * Copyright (C) 2002 USAGI/WIDE Project
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2004 Herbert Xu <herbert@gondor.apana.org.au>
  *
  * This program is free software; you can redistribute it and/or
@@ -130,9 +131,7 @@ int xfrm6_output_finish(struct sock *sk, struct sk_buff *skb)
 {
 	memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
 
-#ifdef CONFIG_NETFILTER
 	IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
-#endif
 
 	return xfrm_output(sk, skb);
 }

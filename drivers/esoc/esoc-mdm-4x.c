@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, 2017-2018, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1119,7 +1120,7 @@ static struct mdm_ops sdxprairie_ops = {
 static struct mdm_ops marmot_ops = {
 	.clink_ops = &mdm_cops,
 	.config_hw = marmot_setup_hw,
-	.pon_ops = &sdx50m_pon_ops,
+	.pon_ops = &sdxmarmot_pon_ops,
 };
 
 static const struct of_device_id mdm_dt_match[] = {

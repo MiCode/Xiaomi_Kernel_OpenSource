@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1053,8 +1054,8 @@ static int cam_context_dump_context(struct cam_context *ctx,
 	struct cam_context_dump_header *hdr;
 	char *dst;
 	uint64_t *addr, *start;
-	uintptr_t cpu_addr;
-	size_t    buf_len;
+	uintptr_t cpu_addr = 0;
+	size_t    buf_len = 0;
 	uint32_t min_len, remain_len;
 	struct cam_ctx_request *req;
 	int i;

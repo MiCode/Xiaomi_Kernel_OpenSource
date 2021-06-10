@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6337,9 +6338,10 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 		return -EINVAL;
 	}
 
-	if (cam_smmu_ops(g_ife_hw_mgr.mgr_common.img_iommu_hdl,
-		CAM_SMMU_ATTACH)) {
-		CAM_ERR(CAM_ISP, "Attach iommu handle failed.");
+	rc = cam_smmu_ops(g_ife_hw_mgr.mgr_common.img_iommu_hdl,
+		CAM_SMMU_ATTACH);
+	if (rc && rc != -EALREADY) {
+		CAM_ERR(CAM_ISP, "Attach iommu handle failed %d", rc);
 		goto attach_fail;
 	}
 

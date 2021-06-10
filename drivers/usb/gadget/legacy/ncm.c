@@ -2,6 +2,7 @@
  * ncm.c -- NCM gadget driver
  *
  * Copyright (C) 2010 Nokia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Contact: Yauheni Kaliuta <yauheni.kaliuta@nokia.com>
  *
  * The driver borrows from ether.c which is:
@@ -203,7 +204,7 @@ static struct usb_composite_driver ncm_driver = {
 	.name		= "g_ncm",
 	.dev		= &device_desc,
 	.strings	= dev_strings,
-	.max_speed	= USB_SPEED_HIGH,
+	.max_speed	= USB_SPEED_SUPER,
 	.bind		= gncm_bind,
 	.unbind		= gncm_unbind,
 };

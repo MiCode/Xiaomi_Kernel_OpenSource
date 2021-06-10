@@ -5,6 +5,7 @@
  * existing ones), and then switching over to them when ready.
  *
  * Copyright (C) 2015-2016  Yinghai Lu
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C)      2016  Kees Cook
  */
 
@@ -35,9 +36,6 @@
 #undef __PAGE_OFFSET
 #define __PAGE_OFFSET __PAGE_OFFSET_BASE
 #include "../../mm/ident_map.c"
-
-/* Used by pgtable.h asm code to force instruction serialization. */
-unsigned long __force_order;
 
 /* Used to track our page table allocation area. */
 struct alloc_pgt_data {

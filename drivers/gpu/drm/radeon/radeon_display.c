@@ -1,5 +1,6 @@
 /*
  * Copyright 2007-8 Advanced Micro Devices, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2008 Red Hat Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -118,6 +119,8 @@ static void dce5_crtc_load_lut(struct drm_crtc *crtc)
 	int i;
 
 	DRM_DEBUG_KMS("%d\n", radeon_crtc->crtc_id);
+
+	msleep(10);
 
 	WREG32(NI_INPUT_CSC_CONTROL + radeon_crtc->crtc_offset,
 	       (NI_INPUT_CSC_GRPH_MODE(NI_INPUT_CSC_BYPASS) |

@@ -1,6 +1,7 @@
 /* Copyright (c) 2015, Sony Mobile Communications, AB.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,6 +92,7 @@
 #define  WLED_SINK_REG_STR_MOD_EN	BIT(7)
 
 #define WLED_SINK_SYNC_DLY_REG(n)	(0x51 + (n * 0x10))
+#define  WLED_SINK_SYNC_DLY_MASK	GENMASK(2, 0)
 #define WLED_SINK_FS_CURR_REG(n)	(0x52 + (n * 0x10))
 #define  WLED_SINK_FS_MASK		GENMASK(3, 0)
 
@@ -124,6 +126,8 @@
 
 #define WLED5_CTRL_TEST4_REG		0xe5
 #define  WLED5_TEST4_EN_SH_SS		BIT(5)
+
+#define WLED5_CTRL_PBUS_WRITE_SYNC_CTL	0xef
 
 /* WLED5 specific sink registers */
 #define WLED5_SINK_MOD_A_EN_REG		0x50
@@ -207,6 +211,7 @@ struct wled_config {
 	int string_cfg;
 	int mod_sel;
 	int cabc_sel;
+	int sync_dly;
 	bool en_cabc;
 	bool ext_pfet_sc_pro_en;
 	bool auto_calib_enabled;
@@ -299,15 +304,34 @@ static inline bool is_wled5(struct wled *wled)
 static int wled_module_enable(struct wled *wled, int val)
 {
 	int rc;
+	int reg;
 
 	if (wled->force_mod_disable)
 		return 0;
+
+	/* Force HFRC off */
+	if (*wled->version == WLED_PM8150L) {
+		reg = val ? 0 : 3;
+		rc = regmap_write(wled->regmap, wled->ctrl_addr +
+				  WLED5_CTRL_PBUS_WRITE_SYNC_CTL, reg);
+		if (rc < 0)
+			return rc;
+	}
 
 	rc = regmap_update_bits(wled->regmap, wled->ctrl_addr +
 			WLED_CTRL_MOD_ENABLE, WLED_CTRL_MOD_EN_MASK,
 			val << WLED_CTRL_MODULE_EN_SHIFT);
 	if (rc < 0)
 		return rc;
+
+	/* Force HFRC off */
+	if (*wled->version == WLED_PM8150L && val) {
+		rc = regmap_write(wled->regmap, wled->sink_addr +
+				  WLED5_SINK_FLASH_SHDN_CLR_REG, 0);
+		if (rc < 0)
+			return rc;
+	}
+
 	/*
 	 * Wait for at least 10ms before enabling OVP fault interrupt after
 	 * enabling the module so that soft start is completed. Keep the OVP
@@ -1254,6 +1278,14 @@ static int wled4_setup(struct wled *wled)
 			if (rc < 0)
 				return rc;
 
+			addr = wled->sink_addr +
+					WLED_SINK_SYNC_DLY_REG(i);
+			rc = regmap_update_bits(wled->regmap, addr,
+						WLED_SINK_SYNC_DLY_MASK,
+						wled->cfg.sync_dly);
+			if (rc < 0)
+				return rc;
+
 			temp = i + WLED_SINK_CURR_SINK_SHFT;
 			sink_en |= 1 << temp;
 		}
@@ -1339,6 +1371,7 @@ static const struct wled_config wled4_config_defaults = {
 	.fs_current = 10,
 	.ovp = 1,
 	.switch_freq = 11,
+	.sync_dly = 2,
 	.string_cfg = 0xf,
 	.mod_sel = -EINVAL,
 	.cabc_sel = -EINVAL,
@@ -1402,6 +1435,15 @@ static const u32 wled4_ovp_values[] = {
 static const struct wled_var_cfg wled4_ovp_cfg = {
 	.values = wled4_ovp_values,
 	.size = ARRAY_SIZE(wled4_ovp_values),
+};
+
+static const u32 wled4_sync_dly_values[] = {
+	0, 200, 400, 600, 800, 1000, 1200, 1400,
+};
+
+static const struct wled_var_cfg wled4_sync_dly_cfg = {
+	.values = wled4_sync_dly_values,
+	.size = ARRAY_SIZE(wled4_sync_dly_values),
 };
 
 static inline u32 wled5_ovp_values_fn(u32 idx)
@@ -2125,6 +2167,11 @@ static int wled_configure(struct wled *wled, struct device *dev)
 			.name = "qcom,string-cfg",
 			.val_ptr = &cfg->string_cfg,
 			.cfg = &wled_string_cfg,
+		},
+		{
+			.name = "qcom,sync-dly",
+			.val_ptr = &cfg->sync_dly,
+			.cfg = &wled4_sync_dly_cfg,
 		},
 	};
 

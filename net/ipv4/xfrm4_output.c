@@ -1,6 +1,7 @@
 /*
  * xfrm4_output.c - Common IPsec encapsulation code for IPv4.
  * Copyright (c) 2004 Herbert Xu <herbert@gondor.apana.org.au>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -76,9 +77,7 @@ int xfrm4_output_finish(struct sock *sk, struct sk_buff *skb)
 {
 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
 
-#ifdef CONFIG_NETFILTER
 	IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
-#endif
 
 	return xfrm_output(sk, skb);
 }

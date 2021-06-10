@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -962,6 +963,11 @@
 		qcom,proc-img-to-load = "cdsp";
 	};
 
+	qcom,eth_dev_qrtr {
+		compatible = "qcom,qrtr-ethernet-dev";
+		qcom,low-latency;
+	};
+
 	qcom,glink {
 		compatible = "qcom,glink";
 		#address-cells = <1>;
@@ -1579,7 +1585,7 @@
 	};
 
 	mtl_tx_setup: tx-queues-config {
-		snps,tx-queues-to-use = <5>;
+		snps,tx-queues-to-use = <4>;
 		snps,tx-sched-sp;
 		queue0 {
 			snps,dcb-algorithm;
@@ -1606,7 +1612,7 @@
 		};
 	};
 
-	ethqos_hw: qcom,ethernet@00020000 {
+	ethqos_hw: qcom,ethernet@07A80000 {
 		compatible = "qcom,stmmac-ethqos";
 		reg = <0x07A80000 0x10000>,
 			  <0x7A96000 0x100>;
@@ -1637,7 +1643,6 @@
 		qcom,bus-vector-names = "0", "10", "100", "1000";
 		snps,tso;
 		snps,pbl = <32>;
-		mac-address = [00 55 7B B5 7D f7];
 		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
 			<&clock_gcc GCC_ETH_SLAVE_AHB_CLK>,
 			<&clock_gcc GCC_ETH_PTP_CLK>,
@@ -1691,6 +1696,7 @@
 			compatible = "qcom,emac-smmu-embedded";
 			iommus = <&apps_smmu 0x1400 0x0>;
 			qcom,iova-mapping = <0x80000000 0x40000000>;
+			qcom,smmu-geometry;
 		};
 	};
 
@@ -1718,9 +1724,9 @@
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 			<98 512 0 0>, <1 781 0 0>,  /* No vote */
-			<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
-			<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
-			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+			<98 512 2500 0>, <1 781 0 40000>,  /* 10Mbps vote */
+			<98 512 25000 0>, <1 781 0 40000>,  /* 100Mbps vote */
+			<98 512 250000 0>, <1 781 0 40000>; /* 1000Mbps vote */
 		qcom,bus-vector-names = "0", "10", "100", "1000";
 		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
 				<&clock_gcc GCC_ETH_PTP_CLK>,

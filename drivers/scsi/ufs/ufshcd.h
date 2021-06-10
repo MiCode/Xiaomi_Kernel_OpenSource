@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * Authors:
@@ -197,6 +198,9 @@ struct ufs_pm_lvl_states {
  * @intr_cmd: Interrupt command (doesn't participate in interrupt aggregation)
  * @issue_time_stamp: time stamp for debug purposes
  * @complete_time_stamp: time stamp for statistics
+ * @crypto_enable: whether or not the request needs inline crypto operations
+ * @crypto_key_slot: the key slot to use for inline crypto
+ * @data_unit_num: the data unit number for the first block for inline crypto
  * @req_abort_skip: skip request abort task flag
  */
 struct ufshcd_lrb {
@@ -221,6 +225,11 @@ struct ufshcd_lrb {
 	bool intr_cmd;
 	ktime_t issue_time_stamp;
 	ktime_t complete_time_stamp;
+#if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO)
+	bool crypto_enable;
+	u8 crypto_key_slot;
+	u64 data_unit_num;
+#endif /* CONFIG_SCSI_UFS_CRYPTO */
 
 	bool req_abort_skip;
 };
@@ -259,6 +268,7 @@ struct ufs_desc_size {
 	int interc_desc;
 	int unit_desc;
 	int conf_desc;
+	int dev_heal_desc;
 	int hlth_desc;
 };
 
@@ -302,6 +312,8 @@ struct ufs_pwr_mode_info {
 	struct ufs_pa_layer_attr info;
 };
 
+union ufs_crypto_cfg_entry;
+
 /**
  * struct ufs_hba_variant_ops - variant specific callbacks
  * @init: called when the driver is initialized
@@ -332,6 +344,7 @@ struct ufs_pwr_mode_info {
  *			 scale down
  * @set_bus_vote: called to vote for the required bus bandwidth
  * @phy_initialization: used to initialize phys
+ * @program_key: program an inline encryption key into a keyslot
  */
 struct ufs_hba_variant_ops {
 	int	(*init)(struct ufs_hba *);
@@ -367,30 +380,8 @@ struct ufs_hba_variant_ops {
 	void	(*add_debugfs)(struct ufs_hba *hba, struct dentry *root);
 	void	(*remove_debugfs)(struct ufs_hba *hba);
 #endif
-};
-
-/**
- * struct ufs_hba_crypto_variant_ops - variant specific crypto callbacks
- * @crypto_req_setup:	retreieve the necessary cryptographic arguments to setup
-			a requests's transfer descriptor.
- * @crypto_engine_cfg_start: start configuring cryptographic engine
- *							 according to tag
- *							 parameter
- * @crypto_engine_cfg_end: end configuring cryptographic engine
- *						   according to tag parameter
- * @crypto_engine_reset: perform reset to the cryptographic engine
- * @crypto_engine_get_status: get errors status of the cryptographic engine
- * @crypto_get_req_status: Check if crypto driver still holds request or not
- */
-struct ufs_hba_crypto_variant_ops {
-	int	(*crypto_req_setup)(struct ufs_hba *, struct ufshcd_lrb *lrbp,
-				    u8 *cc_index, bool *enable, u64 *dun);
-	int	(*crypto_engine_cfg_start)(struct ufs_hba *, unsigned int);
-	int	(*crypto_engine_cfg_end)(struct ufs_hba *, struct ufshcd_lrb *,
-			struct request *);
-	int	(*crypto_engine_reset)(struct ufs_hba *);
-	int	(*crypto_engine_get_status)(struct ufs_hba *, u32 *);
-	int     (*crypto_get_req_status)(struct ufs_hba *);
+	int     (*program_key)(struct ufs_hba *hba,
+			       const union ufs_crypto_cfg_entry *cfg, int slot);
 };
 
 /**
@@ -409,8 +400,30 @@ struct ufs_hba_variant {
 	struct device				*dev;
 	const char				*name;
 	struct ufs_hba_variant_ops		*vops;
-	struct ufs_hba_crypto_variant_ops	*crypto_vops;
 	struct ufs_hba_pm_qos_variant_ops	*pm_qos_vops;
+};
+
+struct keyslot_mgmt_ll_ops;
+struct ufs_hba_crypto_variant_ops {
+	void (*setup_rq_keyslot_manager)(struct ufs_hba *hba,
+					 struct request_queue *q);
+	void (*destroy_rq_keyslot_manager)(struct ufs_hba *hba,
+					   struct request_queue *q);
+	int (*hba_init_crypto)(struct ufs_hba *hba,
+			       const struct keyslot_mgmt_ll_ops *ksm_ops);
+	void (*enable)(struct ufs_hba *hba);
+	void (*disable)(struct ufs_hba *hba);
+	int (*suspend)(struct ufs_hba *hba, enum ufs_pm_op pm_op);
+	int (*resume)(struct ufs_hba *hba, enum ufs_pm_op pm_op);
+	int (*debug)(struct ufs_hba *hba);
+	int (*prepare_lrbp_crypto)(struct ufs_hba *hba,
+				   struct scsi_cmnd *cmd,
+				   struct ufshcd_lrb *lrbp);
+	int (*map_sg_crypto)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+	int (*complete_lrbp_crypto)(struct ufs_hba *hba,
+				    struct scsi_cmnd *cmd,
+				    struct ufshcd_lrb *lrbp);
+	void *priv;
 };
 
 /* clock gating state  */
@@ -558,6 +571,8 @@ struct debugfs_files {
 	struct dentry *show_hba;
 	struct dentry *host_regs;
 	struct dentry *dump_dev_desc;
+	struct dentry *dump_string_desc_serial;
+	struct dentry *dump_heatlth_desc;
 	struct dentry *power_mode;
 	struct dentry *dme_local_read;
 	struct dentry *dme_peer_read;
@@ -733,6 +748,7 @@ enum ufshcd_card_state {
  * @ufs_version: UFS Version to which controller complies
  * @var: pointer to variant specific data
  * @priv: pointer to variant specific private data
+ * @sg_entry_size: size of struct ufshcd_sg_entry (may include variant fields)
  * @irq: Irq number of the controller
  * @active_uic_cmd: handle of active UIC command
  * @uic_cmd_mutex: mutex for uic command
@@ -752,6 +768,7 @@ enum ufshcd_card_state {
  * @uic_error: UFS interconnect layer error status
  * @saved_err: sticky error mask
  * @saved_uic_err: sticky UIC error mask
+ * @silence_err_logs: flag to silence error logs
  * @dev_cmd: ufs device management command information
  * @last_dme_cmd_tstamp: time stamp of the last completed DME command
  * @auto_bkops_enabled: to track whether bkops is enabled in device
@@ -772,6 +789,10 @@ enum ufshcd_card_state {
  * @is_urgent_bkops_lvl_checked: keeps track if the urgent bkops level for
  *  device is known or not.
  * @scsi_block_reqs_cnt: reference counting for scsi block requests
+ * @crypto_capabilities: Content of crypto capabilities register (0x100)
+ * @crypto_cap_array: Array of crypto capabilities
+ * @crypto_cfg_register: Start of the crypto cfg array
+ * @ksm: the keyslot manager tied to this hba
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -816,6 +837,8 @@ struct ufs_hba {
 	u32 ufs_version;
 	struct ufs_hba_variant *var;
 	void *priv;
+	size_t sg_entry_size;
+	const struct ufs_hba_crypto_variant_ops *crypto_vops;
 	unsigned int irq;
 	bool is_irq_enabled;
 	bool crash_on_err;
@@ -904,6 +927,12 @@ struct ufs_hba {
 
 	/* Auto hibern8 support is broken */
 	#define UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8		UFS_BIT(15)
+
+	/*
+	 * This quirk needs to be enabled if the host controller advertises
+	 * inline encryption support but it doesn't work correctly.
+	 */
+	#define UFSHCD_QUIRK_BROKEN_CRYPTO                      UFS_BIT(16)
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
@@ -1017,6 +1046,11 @@ struct ufs_hba {
 	 * in hibern8 then enable this cap.
 	 */
 #define UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8 (1 << 7)
+	/*
+	 * This capability allows the host controller driver to use the
+	 * inline crypto engine, if it is present
+	 */
+#define UFSHCD_CAP_CRYPTO (1 << 8)
 
 	struct devfreq *devfreq;
 	struct ufs_clk_scaling clk_scaling;
@@ -1049,6 +1083,14 @@ struct ufs_hba {
 	bool force_g4;
 	/* distinguish between resume and restore */
 	bool restore;
+
+#ifdef CONFIG_SCSI_UFS_CRYPTO
+	/* crypto */
+	union ufs_crypto_capabilities crypto_capabilities;
+	union ufs_crypto_cap_entry *crypto_cap_array;
+	u32 crypto_cfg_register;
+	struct keyslot_manager *ksm;
+#endif /* CONFIG_SCSI_UFS_CRYPTO */
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
@@ -1266,6 +1308,8 @@ out:
 }
 
 int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size);
+int ufshcd_read_health_desc(struct ufs_hba *hba, u8 *buf, u32 size);
+char *ufs_get_serial(void);
 
 static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 {
@@ -1498,55 +1542,6 @@ static inline void ufshcd_vops_remove_debugfs(struct ufs_hba *hba)
 }
 #endif
 
-static inline int ufshcd_vops_crypto_req_setup(struct ufs_hba *hba,
-	struct ufshcd_lrb *lrbp, u8 *cc_index, bool *enable, u64 *dun)
-{
-	if (hba->var && hba->var->crypto_vops &&
-		hba->var->crypto_vops->crypto_req_setup)
-		return hba->var->crypto_vops->crypto_req_setup(hba, lrbp,
-			cc_index, enable, dun);
-	return 0;
-}
-
-static inline int ufshcd_vops_crypto_engine_cfg_start(struct ufs_hba *hba,
-						unsigned int task_tag)
-{
-	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_engine_cfg_start)
-		return hba->var->crypto_vops->crypto_engine_cfg_start
-				(hba, task_tag);
-	return 0;
-}
-
-static inline int ufshcd_vops_crypto_engine_cfg_end(struct ufs_hba *hba,
-						struct ufshcd_lrb *lrbp,
-						struct request *req)
-{
-	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_engine_cfg_end)
-		return hba->var->crypto_vops->crypto_engine_cfg_end
-				(hba, lrbp, req);
-	return 0;
-}
-
-static inline int ufshcd_vops_crypto_engine_reset(struct ufs_hba *hba)
-{
-	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_engine_reset)
-		return hba->var->crypto_vops->crypto_engine_reset(hba);
-	return 0;
-}
-
-static inline int ufshcd_vops_crypto_engine_get_status(struct ufs_hba *hba,
-		u32 *status)
-{
-	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_engine_get_status)
-		return hba->var->crypto_vops->crypto_engine_get_status(hba,
-			status);
-	return 0;
-}
-
 static inline void ufshcd_vops_pm_qos_req_start(struct ufs_hba *hba,
 		struct request *req)
 {
@@ -1560,15 +1555,6 @@ static inline void ufshcd_vops_pm_qos_req_end(struct ufs_hba *hba,
 {
 	if (hba->var && hba->var->pm_qos_vops && hba->var->pm_qos_vops->req_end)
 		hba->var->pm_qos_vops->req_end(hba, req, lock);
-}
-
-static inline int ufshcd_vops_crypto_engine_get_req_status(struct ufs_hba *hba)
-
-{
-	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_get_req_status)
-		return hba->var->crypto_vops->crypto_get_req_status(hba);
-	return 0;
 }
 
 #endif /* End of Header */

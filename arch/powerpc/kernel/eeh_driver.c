@@ -1,6 +1,7 @@
 /*
  * PCI Error Recovery Driver for RPA-compliant PPC64 platform.
  * Copyright IBM Corp. 2004 2005
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright Linas Vepstas <linas@linas.org> 2004, 2005
  *
  * All rights reserved.
@@ -520,12 +521,6 @@ static void *eeh_rmv_device(void *data, void *userdata)
 
 		pci_iov_remove_virtfn(edev->physfn, pdn->vf_index, 0);
 		edev->pdev = NULL;
-
-		/*
-		 * We have to set the VF PE number to invalid one, which is
-		 * required to plug the VF successfully.
-		 */
-		pdn->pe_number = IODA_INVALID_PE;
 #endif
 		if (rmv_data)
 			list_add(&edev->rmv_list, &rmv_data->edev_list);

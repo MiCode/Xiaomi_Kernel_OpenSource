@@ -1,6 +1,7 @@
 /*
  * QLogic Fibre Channel HBA Driver
  * Copyright (c)  2003-2017 QLogic Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * See LICENSE.qla2xxx for copyright and licensing details.
  */
@@ -578,7 +579,6 @@ static void qla_nvme_remoteport_delete(struct nvme_fc_remote_port *rport)
 }
 
 static struct nvme_fc_port_template qla_nvme_fc_transport = {
-	.module	= THIS_MODULE,
 	.localport_delete = qla_nvme_localport_delete,
 	.remoteport_delete = qla_nvme_remoteport_delete,
 	.create_queue   = qla_nvme_alloc_queue,

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Etnaviv Project
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -132,7 +133,7 @@ static int etnaviv_iommu_find_iova(struct etnaviv_iommu *mmu,
 		 */
 		if (mmu->last_iova) {
 			mmu->last_iova = 0;
-			mmu->need_flush = true;
+			mmu->flush_seq++;
 			continue;
 		}
 
@@ -246,7 +247,7 @@ int etnaviv_iommu_map_gem(struct etnaviv_iommu *mmu,
 	}
 
 	list_add_tail(&mapping->mmu_node, &mmu->mappings);
-	mmu->need_flush = true;
+	mmu->flush_seq++;
 	mutex_unlock(&mmu->lock);
 
 	return ret;
@@ -264,7 +265,7 @@ void etnaviv_iommu_unmap_gem(struct etnaviv_iommu *mmu,
 		etnaviv_iommu_remove_mapping(mmu, mapping);
 
 	list_del(&mapping->mmu_node);
-	mmu->need_flush = true;
+	mmu->flush_seq++;
 	mutex_unlock(&mmu->lock);
 }
 
@@ -346,7 +347,7 @@ int etnaviv_iommu_get_suballoc_va(struct etnaviv_gpu *gpu, dma_addr_t paddr,
 			return ret;
 		}
 		mmu->last_iova = vram_node->start + size;
-		gpu->mmu->need_flush = true;
+		mmu->flush_seq++;
 		mutex_unlock(&mmu->lock);
 
 		*iova = (u32)vram_node->start;

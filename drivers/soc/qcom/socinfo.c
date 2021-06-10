@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -426,7 +427,10 @@ static struct msm_soc_info cpu_of_id[] = {
 	[384] = {MSM_CPU_SA6155, "SA6155"},
 
 	/* trinket ID */
-	[394] = {MSM_CPU_TRINKET, "TRINKET"},
+	/* +Extb HONGMI-68124 for CMCC DM 2019-11-9 */
+	/*[394] = {MSM_CPU_TRINKET, "TRINKET"},*/
+	[394] = {MSM_CPU_TRINKET, "SM6125"},
+	/* -Extb HONGMI-68124 for CMCC DM 2019-11-9 */
 
 	/* qcs610 ID */
 	[401] = {MSM_CPU_QCS610, "QCS610"},
@@ -451,9 +455,11 @@ static struct msm_soc_info cpu_of_id[] = {
 	[416] = {MSM_CPU_SDM429W, "SDM429W"},
 	[437] = {MSM_CPU_SDA429W, "SDA429W"},
 
-	/* QCM6125 IDs*/
-	[467] = {MSM_CPU_QCM6125, "QCM6125"},
-	[468] = {MSM_CPU_QCS6125, "QCS6125"},
+	/* TRINKET-IOT IDs*/
+	[467] = {MSM_CPU_TRINKET_IOT, "TRINKET-IOT"},
+
+	/* TRINKETP-IOT IDs*/
+	[468] = {MSM_CPU_TRINKETP_IOT, "TRINKETP-IOT"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -995,6 +1001,33 @@ msm_get_nmodem_supported(struct device *dev,
 		socinfo_get_nmodem_supported());
 }
 
+/*bug450365, add hwlevel to soc0, bengin*/
+static ssize_t
+msm_get_hwlevel(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	char *hwlevel_start = NULL;
+	char *temp = NULL;
+	char hwlevel[16]= {0};
+	int len = 0;
+
+	hwlevel_start = strstr(saved_command_line,"androidboot.hwlevel=");
+	if(hwlevel_start != NULL){
+		temp = hwlevel_start + strlen("androidboot.hwlevel=");
+		len = strstr(temp, " ") - temp;
+		strncpy(hwlevel, temp, len);
+	}
+	else
+	{
+		pr_err("sarsensor read hwlevel error\n");
+	}
+
+	return snprintf(buf, SMEM_IMAGE_VERSION_VARIANT_SIZE, "%-s\n",
+		hwlevel);
+}
+/*bug450365, add hwlevel to soc0, end*/
+
 static ssize_t
 msm_get_pmic_model(struct device *dev,
 			struct device_attribute *attr,
@@ -1302,6 +1335,12 @@ static struct device_attribute msm_soc_attr_nmodem_supported =
 	__ATTR(nmodem_supported, 0444,
 			msm_get_nmodem_supported, NULL);
 
+/*bug450365, add hwlevel to soc0, bengin*/
+static struct device_attribute hwlevel =
+	__ATTR(hwlevel, 0444,
+			msm_get_hwlevel, NULL);
+/*bug450365, add hwlevel to soc0, end*/
+
 static struct device_attribute msm_soc_attr_pmic_model =
 	__ATTR(pmic_model, 0444,
 			msm_get_pmic_model, NULL);
@@ -1467,13 +1506,13 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 437;
 		strlcpy(dummy_socinfo.build_id, "sda429w - ",
 		sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_qcm6125()) {
+	} else if (early_machine_is_trinket_iot()) {
 		dummy_socinfo.id = 467;
-		strlcpy(dummy_socinfo.build_id, "qcm6125 - ",
+		strlcpy(dummy_socinfo.build_id, "trinket-iot - ",
 		sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_qcs6125()) {
+	} else if (early_machine_is_trinketp_iot()) {
 		dummy_socinfo.id = 468;
-		strlcpy(dummy_socinfo.build_id, "qcm6125 - ",
+		strlcpy(dummy_socinfo.build_id, "trinketp-iot - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",
@@ -1490,6 +1529,7 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	device_create_file(msm_soc_device, &image_crm_version);
 	device_create_file(msm_soc_device, &select_image);
 	device_create_file(msm_soc_device, &images);
+	device_create_file(msm_soc_device, &hwlevel); //bug450365, add hwlevel to soc0
 
 	switch (socinfo_format) {
 	case SOCINFO_VERSION(0, 15):

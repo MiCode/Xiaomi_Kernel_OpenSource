@@ -2,6 +2,7 @@
  * Broadcom Starfighter 2 DSA switch CFP support
  *
  * Copyright (C) 2016, Broadcom
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -130,16 +131,13 @@ static int bcm_sf2_cfp_rule_set(struct dsa_switch *ds, int port,
 	    (fs->m_ext.vlan_etype || fs->m_ext.data[1]))
 		return -EINVAL;
 
-	if (fs->location != RX_CLS_LOC_ANY && fs->location >= CFP_NUM_RULES)
+	if (fs->location != RX_CLS_LOC_ANY &&
+	    fs->location > bcm_sf2_cfp_rule_size(priv))
 		return -EINVAL;
 
 	if (fs->location != RX_CLS_LOC_ANY &&
 	    test_bit(fs->location, priv->cfp.used))
 		return -EBUSY;
-
-	if (fs->location != RX_CLS_LOC_ANY &&
-	    fs->location > bcm_sf2_cfp_rule_size(priv))
-		return -EINVAL;
 
 	ip_frag = be32_to_cpu(fs->m_ext.data[0]);
 
@@ -333,7 +331,7 @@ static int bcm_sf2_cfp_rule_del(struct bcm_sf2_priv *priv, int port,
 	int ret;
 	u32 reg;
 
-	if (loc >= CFP_NUM_RULES)
+	if (loc > bcm_sf2_cfp_rule_size(priv))
 		return -EINVAL;
 
 	/* Refuse deletion of unused rules, and the default reserved rule */

@@ -1,6 +1,7 @@
 /* bit search implementation
  *
  * Copyright (C) 2004 Red Hat, Inc. All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written by David Howells (dhowells@redhat.com)
  *
  * Copyright (C) 2008 IBM Corporation
@@ -133,18 +134,6 @@ EXPORT_SYMBOL(find_last_bit);
 
 #ifdef __BIG_ENDIAN
 
-/* include/linux/byteorder does not support "unsigned long" type */
-static inline unsigned long ext2_swab(const unsigned long y)
-{
-#if BITS_PER_LONG == 64
-	return (unsigned long) __swab64((u64) y);
-#elif BITS_PER_LONG == 32
-	return (unsigned long) __swab32((u32) y);
-#else
-#error BITS_PER_LONG not defined
-#endif
-}
-
 #if !defined(find_next_bit_le) || !defined(find_next_zero_bit_le)
 static unsigned long _find_next_bit_le(const unsigned long *addr,
 		unsigned long nbits, unsigned long start, unsigned long invert)
@@ -157,7 +146,7 @@ static unsigned long _find_next_bit_le(const unsigned long *addr,
 	tmp = addr[start / BITS_PER_LONG] ^ invert;
 
 	/* Handle 1st word. */
-	tmp &= ext2_swab(BITMAP_FIRST_WORD_MASK(start));
+	tmp &= swab(BITMAP_FIRST_WORD_MASK(start));
 	start = round_down(start, BITS_PER_LONG);
 
 	while (!tmp) {
@@ -168,7 +157,7 @@ static unsigned long _find_next_bit_le(const unsigned long *addr,
 		tmp = addr[start / BITS_PER_LONG] ^ invert;
 	}
 
-	return min(start + __ffs(ext2_swab(tmp)), nbits);
+	return min(start + __ffs(swab(tmp)), nbits);
 }
 #endif
 

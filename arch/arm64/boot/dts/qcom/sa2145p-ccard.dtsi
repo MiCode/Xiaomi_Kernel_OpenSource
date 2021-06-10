@@ -1,4 +1,5 @@
 /* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +171,9 @@
 	};
 
 	qmi-tmd-devices {
+
+		/delete-node/ modem;
+
 		adsp {
 			qcom,instance-id = <0x1>;
 
@@ -192,6 +196,9 @@
 &thermal_zones {
 	aoss-lowf {
 		cooling-maps {
+
+			/delete-node/ modem_vdd_cdev;
+
 			adsp_vdd_cdev {
 				trip = <&aoss_lowf>;
 				cooling-device = <&adsp_vdd 0 0>;
@@ -199,6 +206,8 @@
 		};
 	};
 };
+
+#include "sdxprairie-thermal-common.dtsi"
 
 &usb3 {
 	qcom,ignore-wakeup-src-in-hostmode;

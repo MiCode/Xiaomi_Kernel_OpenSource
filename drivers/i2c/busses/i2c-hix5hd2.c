@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014 Linaro Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2014 Hisilicon Limited.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -498,6 +499,7 @@ static int hix5hd2_i2c_remove(struct platform_device *pdev)
 	i2c_del_adapter(&priv->adap);
 	pm_runtime_disable(priv->dev);
 	pm_runtime_set_suspended(priv->dev);
+	clk_disable_unprepare(priv->clk);
 
 	return 0;
 }

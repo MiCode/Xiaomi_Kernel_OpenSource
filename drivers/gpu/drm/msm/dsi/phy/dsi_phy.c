@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -612,10 +613,6 @@ void msm_dsi_phy_disable(struct msm_dsi_phy *phy)
 {
 	if (!phy || !phy->cfg->ops.disable)
 		return;
-
-	/* Save PLL status if it is a clock source */
-	if (phy->usecase != MSM_DSI_PHY_SLAVE)
-		msm_dsi_pll_save_state(phy->pll);
 
 	phy->cfg->ops.disable(phy);
 

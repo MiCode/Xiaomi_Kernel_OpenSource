@@ -17,3 +17,6 @@ qrtr-mhi-dev-y	:= mhi_dev.o
 
 obj-$(CONFIG_QRTR_USB_DEV) += qrtr-usb-dev.o
 qrtr-usb-dev-y      := usb_dev.o
+
+obj-$(CONFIG_QRTR_ETHERNET) += qrtr-ethernet.o
+qrtr-ethernet-y       := ethernet.o

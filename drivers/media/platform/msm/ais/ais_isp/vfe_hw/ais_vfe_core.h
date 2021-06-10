@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +22,7 @@
 #include "ais_vfe_top_ver2.h"
 
 #define AIS_VFE_WORKQ_NUM_TASK             20
-#define AIS_VFE_MAX_BUF                    12
+#define AIS_VFE_MAX_BUF                    20
 #define AIS_VFE_MAX_SOF_INFO               8
 
 enum ais_vfe_hw_irq_event {
@@ -82,6 +83,7 @@ struct ais_vfe_buffer_t {
 	int32_t                    mem_handle;
 	uint64_t                   iova_addr;
 	uint32_t                   bufIdx;
+	struct ais_ife_rdi_timestamps    ts_hw;
 };
 
 struct ais_sof_info_t {
@@ -96,6 +98,7 @@ struct ais_vfe_rdi_output {
 	enum ais_isp_resource_state      state;
 
 	uint32_t                         en_cfg;
+	uint32_t                         secure_mode;
 
 	spinlock_t                       buffer_lock;
 	struct ais_vfe_buffer_t          buffers[AIS_VFE_MAX_BUF];

@@ -7,6 +7,7 @@
  * This is used to derive keys from the fscrypt master keys.
  *
  * Copyright 2019 Google LLC
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <crypto/hash.h>
@@ -113,7 +114,7 @@ out:
  * adds to its application-specific info strings to guarantee that it doesn't
  * accidentally repeat an info string when using HKDF for different purposes.)
  */
-int fscrypt_hkdf_expand(struct fscrypt_hkdf *hkdf, u8 context,
+int fscrypt_hkdf_expand(const struct fscrypt_hkdf *hkdf, u8 context,
 			const u8 *info, unsigned int infolen,
 			u8 *okm, unsigned int okmlen)
 {

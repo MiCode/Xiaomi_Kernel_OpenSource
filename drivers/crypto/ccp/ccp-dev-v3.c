@@ -2,6 +2,7 @@
  * AMD Cryptographic Coprocessor (CCP) driver
  *
  * Copyright (C) 2013,2017 Advanced Micro Devices, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Tom Lendacky <thomas.lendacky@amd.com>
  * Author: Gary R Hook <gary.hook@amd.com>
@@ -590,6 +591,7 @@ const struct ccp_vdata ccpv3_platform = {
 	.setup = NULL,
 	.perform = &ccp3_actions,
 	.offset = 0,
+	.rsamax = CCP_RSA_MAX_WIDTH,
 };
 
 const struct ccp_vdata ccpv3 = {

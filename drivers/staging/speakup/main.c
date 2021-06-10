@@ -5,6 +5,7 @@
  * extensively modified by David Borowski.
  *
  ** Copyright (C) 1998  Kirk Reiser.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *  Copyright (C) 2003  David Borowski.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -567,7 +568,7 @@ static u_long get_word(struct vc_data *vc)
 		return 0;
 	} else if (tmpx < vc->vc_cols - 2 &&
 		   (ch == SPACE || ch == 0 || (ch < 0x100 && IS_WDLM(ch))) &&
-		   get_char(vc, (u_short *)&tmp_pos + 1, &temp) > SPACE) {
+		   get_char(vc, (u_short *)tmp_pos + 1, &temp) > SPACE) {
 		tmp_pos += 2;
 		tmpx++;
 	} else

@@ -2,6 +2,7 @@
  * Header file for dma buffer sharing framework.
  *
  * Copyright(C) 2011 Linaro Limited. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Sumit Semwal <sumit.semwal@ti.com>
  *
  * Many thanks to linaro-mm-sig list, and specially
@@ -417,6 +418,7 @@ struct dma_buf {
 	char *buf_name;
 	ktime_t ktime;
 	const char *name;
+	spinlock_t name_lock;
 	struct module *owner;
 	struct list_head list_node;
 	void *priv;

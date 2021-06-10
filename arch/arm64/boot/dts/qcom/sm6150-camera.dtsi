@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -227,15 +228,15 @@
 		};
 	};
 
-	qcom,cam_smmu {
+	cam_smmu: qcom,cam_smmu {
 		compatible = "qcom,msm-cam-smmu";
 		status = "ok";
 
 		msm_cam_smmu_ife {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x820 0x0>,
+			iommus = <&apps_smmu 0x820 0x40>,
 				<&apps_smmu 0x840 0x0>,
-				<&apps_smmu 0x860 0x0>;
+				<&apps_smmu 0x860 0x40>;
 			label = "ife";
 			ife_iova_mem_map: iova-mem-map {
 				/* IO region is approximately 3.4 GB */

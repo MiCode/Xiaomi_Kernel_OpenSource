@@ -1,6 +1,7 @@
 /* Authentication token and access key management
  *
  * Copyright (C) 2004, 2007 Red Hat, Inc. All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written by David Howells (dhowells@redhat.com)
  *
  * This program is free software; you can redistribute it and/or
@@ -346,7 +347,7 @@ static inline key_serial_t key_serial(const struct key *key)
 extern void key_set_timeout(struct key *, unsigned);
 
 extern key_ref_t lookup_user_key(key_serial_t id, unsigned long flags,
-					key_perm_t perm);
+				 key_perm_t perm);
 
 /*
  * The permissions required on a key that we're looking up.

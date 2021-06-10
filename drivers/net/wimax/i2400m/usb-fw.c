@@ -4,6 +4,7 @@
  *
  *
  * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -354,6 +355,7 @@ out:
 		usb_autopm_put_interface(i2400mu->usb_iface);
 	d_fnend(8, dev, "(i2400m %p ack %p size %zu) = %ld\n",
 		i2400m, ack, ack_size, (long) result);
+	usb_put_urb(&notif_urb);
 	return result;
 
 error_exceeded:

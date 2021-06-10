@@ -4,6 +4,7 @@
  * Based on a patch from Samu Onkalo and the AK8975 IIO driver.
  *
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2010 NVIDIA Corporation.
  * Copyright (C) 2016 Linaro Ltd.
  *
@@ -563,7 +564,7 @@ static int ak8974_read_raw(struct iio_dev *indio_dev,
 		 * We read all axes and discard all but one, for optimized
 		 * reading, use the triggered buffer.
 		 */
-		*val = le16_to_cpu(hw_values[chan->address]);
+		*val = (s16)le16_to_cpu(hw_values[chan->address]);
 
 		ret = IIO_VAL_INT;
 	}

@@ -4,6 +4,7 @@
  *   the basic infra was copied from fs/ubifs/shrinker.c
  *
  * Copyright (c) 2015 Motorola Mobility
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2015 Jaegeuk Kim <jaegeuk@kernel.org>
  */
 #include <linux/fs.h>
@@ -58,7 +59,7 @@ unsigned long f2fs_shrink_count(struct shrinker *shrink,
 		/* count extent cache entries */
 		count += __count_extent_cache(sbi);
 
-		/* shrink clean nat cache entries */
+		/* count clean nat cache entries */
 		count += __count_nat_entries(sbi);
 
 		/* count free nids cache entries */

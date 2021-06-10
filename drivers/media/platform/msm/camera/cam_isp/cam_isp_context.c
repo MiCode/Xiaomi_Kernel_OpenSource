@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,7 +229,7 @@ static void __cam_isp_ctx_dump_state_monitor_array(
 	ctx_monitor = ctx_isp->cam_isp_ctx_state_monitor;
 
 	if (log_rate_limit)
-		CAM_INFO_RATE_LIMIT_CUSTOM(CAM_ISP, 5, 20,
+		CAM_DBG(CAM_ISP,
 			"Dumping state information for preceding requests");
 	else
 		CAM_INFO(CAM_ISP,
@@ -241,7 +242,7 @@ static void __cam_isp_ctx_dump_state_monitor_array(
 			CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES);
 
 		if (log_rate_limit) {
-			CAM_INFO_RATE_LIMIT_CUSTOM(CAM_ISP, 5, 20,
+			CAM_DBG(CAM_ISP,
 			"time[%lld] last reported req_id[%u] frame id[%lld] applied id[%lld] current state[%s] next state[%s] hw_event[%s]",
 			ctx_monitor[index].evt_time_stamp,
 			ctx_monitor[index].last_reported_id,
@@ -876,11 +877,13 @@ static int __cam_isp_ctx_reg_upd_in_epoch_state(
 	else if (ctx_isp->fps && ((rup_event_data->irq_mono_boot_time -
 		ctx_isp->irq_timestamps) > ((1000*1000)/ctx_isp->fps))) {
 		ctx_isp->irq_delay_detect = true;
-		trace_cam_isp_irq_delay_detect("IRQ delay at reg_upd",
-			ctx, req->request_id,
-			ctx_isp->substate_activated,
-			(rup_event_data->irq_mono_boot_time -
-			ctx_isp->irq_timestamps));
+
+		if (req)
+			trace_cam_isp_irq_delay_detect("IRQ delay at reg_upd",
+				ctx, req->request_id,
+				ctx_isp->substate_activated,
+				(rup_event_data->irq_mono_boot_time -
+				ctx_isp->irq_timestamps));
 	}
 
 	ctx_isp->irq_timestamps = rup_event_data->irq_mono_boot_time;
@@ -905,7 +908,7 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	list_del_init(&req->list);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-	if (req_isp->num_fence_map_out != 0) {
+	if (req_isp && req_isp->num_fence_map_out != 0) {
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
 		CAM_DBG(CAM_REQ,
@@ -1196,7 +1199,7 @@ end:
 static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 	void *evt_data)
 {
-	struct cam_ctx_request    *req;
+	struct cam_ctx_request    *req = NULL;
 	struct cam_isp_ctx_req    *req_isp = NULL;
 	struct cam_context        *ctx = ctx_isp->base;
 	uint64_t  request_id = 0;
@@ -1885,7 +1888,7 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 	list_del_init(&req->list);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-	if (req_isp->num_fence_map_out != 0) {
+	if (req_isp && req_isp->num_fence_map_out != 0) {
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
 		CAM_DBG(CAM_REQ, "move request %lld to active list(cnt = %d)",
@@ -1903,7 +1906,7 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 	 * state so change substate here.
 	 */
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_EPOCH;
-	if (req_isp->num_fence_map_out != 1)
+	if (req_isp && req_isp->num_fence_map_out != 1)
 		goto end;
 
 	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger &&
@@ -2308,7 +2311,7 @@ static int __cam_isp_ctx_dump_in_top_state(struct cam_context *ctx,
 	struct timeval cur_time;
 	int rc = 0;
 	uintptr_t cpu_addr;
-	size_t buf_len;
+	size_t buf_len = 0;
 	struct cam_isp_context_dump_header *hdr;
 	uint64_t *addr, *start;
 	uint8_t *dst;
@@ -2343,6 +2346,7 @@ hw_dump:
 			is_dump_only_event_record = true;
 		}
 		ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
+		memset(&cpu_addr, 0, sizeof(cpu_addr));
 		rc  = cam_mem_get_cpu_buf(dump_info->buf_handle,
 			&cpu_addr, &buf_len);
 		if (!cpu_addr || !buf_len || rc) {
@@ -2486,6 +2490,7 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	struct cam_hw_stop_args           stop_args;
 	struct cam_isp_start_args         start_isp;
 	struct cam_hw_reset_args          reset_args;
+
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		CAM_INFO(CAM_ISP, "ctx id:%d Last request id to flush is %lld",
 			ctx->ctx_id, flush_req->req_id);
@@ -3362,7 +3367,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		CAM_INFO(CAM_ISP,
 			"request %lld has been flushed, reject packet",
 			packet->header.request_id);
-		rc = -EINVAL;
+		rc = -EBADR;
 		goto free_cpu_buf;
 	}
 

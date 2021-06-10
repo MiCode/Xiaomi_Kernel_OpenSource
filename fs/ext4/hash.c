@@ -2,6 +2,7 @@
  *  linux/fs/ext4/hash.c
  *
  * Copyright (C) 2002 by Theodore Ts'o
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is released under the GPL v2.
  *
@@ -277,7 +278,7 @@ int ext4fs_dirhash(const struct inode *dir, const char *name, int len,
 		   struct dx_hash_info *hinfo)
 {
 #ifdef CONFIG_UNICODE
-	const struct unicode_map *um = EXT4_SB(dir->i_sb)->s_encoding;
+	const struct unicode_map *um = dir->i_sb->s_encoding;
 	int r, dlen;
 	unsigned char *buff;
 	struct qstr qstr = {.name = name, .len = len };

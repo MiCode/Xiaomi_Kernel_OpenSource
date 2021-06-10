@@ -2,6 +2,7 @@
  * xfrm_device.c - IPsec device offloading code.
  *
  * Copyright (c) 2015 secunet Security Networks AG
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author:
  * Steffen Klassert <steffen.klassert@secunet.com>
@@ -188,6 +189,7 @@ static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void
 		return xfrm_dev_feat_change(dev);
 
 	case NETDEV_DOWN:
+	case NETDEV_UNREGISTER:
 		return xfrm_dev_down(dev);
 	}
 	return NOTIFY_DONE;

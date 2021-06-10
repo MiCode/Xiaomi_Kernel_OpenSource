@@ -90,6 +90,14 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 		    29600, 19600, 18100.
 	            Default: 29600 mV
 
+- qcom,sync-dly
+	Usage:      optional
+	Value type: <u32>
+	Definition: Delay for current sync in us. Values are
+		    0, 200, 400, 600, 800, 1000, 1200, 1400.
+		    Default: 400 us.
+		    This property is only applicable for WLED4.
+
 - qcom,string-cfg
 	Usage:      optional
 	Value type: <u32>

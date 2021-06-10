@@ -3,6 +3,7 @@
  * This is a driver for SMSC's LAN911{5,6,7,8} single-chip Ethernet devices.
  *
  * Copyright (C) 2005 Sensoria Corp
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	   Derived from the unified SMC91x driver by Nicolas Pitre
  *	   and the smsc911x.c reference driver by SMSC
  *
@@ -948,7 +949,7 @@ static void smc911x_phy_configure(struct work_struct *work)
 	if (lp->ctl_rspeed != 100)
 		my_ad_caps &= ~(ADVERTISE_100BASE4|ADVERTISE_100FULL|ADVERTISE_100HALF);
 
-	 if (!lp->ctl_rfduplx)
+	if (!lp->ctl_rfduplx)
 		my_ad_caps &= ~(ADVERTISE_100FULL|ADVERTISE_10FULL);
 
 	/* Update our Auto-Neg Advertisement Register */

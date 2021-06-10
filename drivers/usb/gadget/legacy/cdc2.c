@@ -2,6 +2,7 @@
  * cdc2.c -- CDC Composite driver, with ECM and ACM support
  *
  * Copyright (C) 2008 David Brownell
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2008 Nokia Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -229,7 +230,7 @@ static struct usb_composite_driver cdc_driver = {
 	.name		= "g_cdc",
 	.dev		= &device_desc,
 	.strings	= dev_strings,
-	.max_speed	= USB_SPEED_HIGH,
+	.max_speed	= USB_SPEED_SUPER,
 	.bind		= cdc_bind,
 	.unbind		= cdc_unbind,
 };

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Authors:
@@ -356,7 +357,7 @@ static const struct drm_mode_config_funcs virtio_gpu_mode_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
-int virtio_gpu_modeset_init(struct virtio_gpu_device *vgdev)
+void virtio_gpu_modeset_init(struct virtio_gpu_device *vgdev)
 {
 	int i;
 
@@ -374,7 +375,6 @@ int virtio_gpu_modeset_init(struct virtio_gpu_device *vgdev)
 		vgdev_output_init(vgdev, i);
 
 	drm_mode_config_reset(vgdev->ddev);
-	return 0;
 }
 
 void virtio_gpu_modeset_fini(struct virtio_gpu_device *vgdev)

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011, 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -57,11 +58,8 @@
 #define BRIDGE_RX_QUEUE_SIZE	8
 #define BRIDGE_RX_BUF_SIZE	2048
 #define BRIDGE_TX_QUEUE_SIZE	8
-#if IS_ENABLED(CONFIG_ARCH_SM8150)
-#define BRIDGE_TX_BUF_SIZE  (50 * 1024)
-#else
-#define BRIDGE_TX_BUF_SIZE 2048
-#endif
+#define BRIDGE_TX_BUF_SIZE	2048
+
 #define GS_LOG2_NOTIFY_INTERVAL		5  /* 1 << 5 == 32 msec */
 #define GS_NOTIFY_MAXPACKET		10 /* notification + 2 bytes */
 

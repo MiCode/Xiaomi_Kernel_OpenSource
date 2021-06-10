@@ -81,6 +81,12 @@ config DSI_PARSER
 	  panel configurations. Also, this module provides a set of APIs
 	  which can be used to get the parsed data.
 
+config LAURUS_DISPLAY
+     bool "to seperate different projects"
+     default n
+     help
+       Say Y here to enable LAURUS_DISPLAY project
+
 config DRM_MSM_DSI_PLL
 	bool "Enable DSI PLL driver in MSM DRM"
 	depends on DRM_MSM_DSI && COMMON_CLK

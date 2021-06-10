@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -308,6 +309,18 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_POST_TIMING_SWITCH,
 	DSI_CMD_SET_QSYNC_ON,
 	DSI_CMD_SET_QSYNC_OFF,
+	DSI_CMD_SET_ACL_ON,
+	DSI_CMD_SET_ACL_OFF,
+/*bug430786 sijun.wt,Modify,20190423,add white point function begin*/
+	DSI_CMD_SET_R692A9_PAGE_R60,
+	DSI_CMD_SET_R692A9_PAGE_R00,
+	DSI_CMD_SET_WHITE_ACL,
+	DSI_CMD_SET_DOZE_LB,
+	DSI_CMD_SET_DOZE_HB,
+	DSI_CMD_SET_DIMMING_DBV,
+	DSI_CMD_SET_BACKLIGHT,
+	DSI_CMD_SET_SET_DIMMINGON,
+/*bug430786 sijun.wt,Modify,20190423,add white point function end*/
 	DSI_CMD_SET_MAX
 };
 
@@ -472,6 +485,8 @@ struct dsi_split_link_config {
  * @t_clk_pre:           Number of byte clock cycles that the high spped clock
  *                       shall be driven prior to data lane transitions from LP
  *                       to HS mode.
+ * @t_clk_pre_extend:    Increment t_clk_pre counter by 2 byteclk if set to
+ *                       true, otherwise increment by 1 byteclk.
  * @ignore_rx_eot:       Ignore Rx EOT packets if set to true.
  * @append_tx_eot:       Append EOT packets for forward transmissions if set to
  *                       true.
@@ -497,10 +512,12 @@ struct dsi_host_common_cfg {
 	bool bit_swap_blue;
 	u32 t_clk_post;
 	u32 t_clk_pre;
+	bool t_clk_pre_extend;
 	bool ignore_rx_eot;
 	bool append_tx_eot;
 	u32 ext_bridge_num;
 	u32 ext_bridge_map[MAX_DSI_CTRLS_PER_DISPLAY];
+	bool ext_bridge_mode;
 	bool force_hs_clk_lane;
 	enum dsi_phy_type phy_type;
 	struct dsi_split_link_config split_link;

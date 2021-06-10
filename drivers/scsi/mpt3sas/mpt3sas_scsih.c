@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/mpt3sas/mpt3sas_scsih.c
  * Copyright (C) 2012-2014  LSI Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013-2014 Avago Technologies
  *  (mailto: MPT-FusionLinux.pdl@avagotech.com)
  *
@@ -8280,8 +8281,8 @@ static void scsih_remove(struct pci_dev *pdev)
 
 	ioc->remove_host = 1;
 
-	mpt3sas_wait_for_commands_to_complete(ioc);
-	_scsih_flush_running_cmds(ioc);
+	if (!pci_device_is_present(pdev))
+		_scsih_flush_running_cmds(ioc);
 
 	_scsih_fw_event_cleanup_queue(ioc);
 
@@ -8354,8 +8355,8 @@ scsih_shutdown(struct pci_dev *pdev)
 
 	ioc->remove_host = 1;
 
-	mpt3sas_wait_for_commands_to_complete(ioc);
-	_scsih_flush_running_cmds(ioc);
+	if (!pci_device_is_present(pdev))
+		_scsih_flush_running_cmds(ioc);
 
 	_scsih_fw_event_cleanup_queue(ioc);
 

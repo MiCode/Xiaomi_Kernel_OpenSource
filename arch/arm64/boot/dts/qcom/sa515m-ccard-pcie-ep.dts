@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +49,12 @@
 	qcom,mhi-event-ring-id-limits = <7 11>; /* start and end */
 };
 
+&ethqos_hw {
+	ethqos_emb_smmu: ethqos_emb_smmu {
+		qcom,smmu-s1-bypass;
+	};
+};
+
 &pcie0 {
 	status = "disabled";
 };
@@ -73,6 +80,9 @@
 };
 
 &sdx_ext_ipc {
-	qcom,default-policy-nop;
+	compatible = "qcom,sa515m-ccard";
+	qcom,status-in-gpio = <&tlmm 76 0x00>;
+	qcom,status-out-gpio = <&tlmm 33 0x00>;
+	qcom,status-out2-gpio = <&tlmm 31 0x00>;
 	status = "okay";
 };

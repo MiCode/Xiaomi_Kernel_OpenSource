@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +54,8 @@
 #include <linux/ipc_logging.h>
 #include <linux/in.h>
 #include <linux/ip.h>
+
+
 
 /* Feature enable disable flags*/
 #define VETH_ENABLE_VLAN_TAG
@@ -117,7 +120,7 @@ static void *ipa_veth_logbuf;
 #define VETH_TX_DESC_CNT   256    /*la uses 128*/
 /*IPA can support 2KB max pkt length*/
 
-#define VETH_ETH_FRAME_LEN_IPA	(1<<11)
+#define VETH_ETH_FRAME_LEN_IPA	(1<<12)
 #define VETH_IPA_LOCK() mutex_lock(&pdata->prv_ipa.ipa_lock)
 #define VETH_IPA_UNLOCK() mutex_unlock(&pdata->prv_ipa.ipa_lock)
 
@@ -127,15 +130,13 @@ enum IPA_OFFLOAD_EVENT {
 	EV_DEV_CLOSE,
 	EV_IPA_READY,
 	EV_IPA_UC_READY,
+	EV_IPA_EMAC_INIT,
+	EV_IPA_EMAC_SETUP,
 	EV_PHY_LINK_UP,
-	EV_PHY_LINK_DOWN,
-	EV_DPM_SUSPEND,
-	EV_DPM_RESUME,
-	EV_USR_SUSPEND,
-	EV_USR_RESUME,
-	EV_IPA_OFFLOAD_MAX,
+	EV_EMAC_DEINIT,
+	EV_EMAC_UP,
+	EV_START_OFFLOAD,
 };
-
 
 struct s_RX_NORMAL_DESC {
 	unsigned int RDES0;
@@ -153,6 +154,16 @@ struct s_TX_NORMAL_DESC {
 };
 
 
+struct veth_emac_exp {
+	uint32_t tx_desc_exp_id;
+	uint32_t rx_desc_exp_id;
+	uint32_t tx_buff_exp_id;
+	uint32_t rx_buff_exp_id;
+	uint32_t rx_buf_pool_exp_id;
+	uint32_t tx_buf_pool_exp_id;
+	int      event_id;
+};
+
 struct veth_emac_export_mem {
 	/* IPAs - this is not a virtual address*/
 	void        *tx_desc_mem_va;
@@ -164,7 +175,7 @@ struct veth_emac_export_mem {
 	dma_addr_t   tx_buf_mem_paddr;
 	dma_addr_t   tx_buf_mem_iova;
 
-	uint32_t    *tx_buff_pool_base;
+	uint32_t    *tx_buff_pool_base_va;
 	dma_addr_t   tx_buff_pool_base_iova;
 	dma_addr_t   tx_buff_pool_base_pa;
 
@@ -178,10 +189,17 @@ struct veth_emac_export_mem {
 	dma_addr_t   rx_buf_mem_paddr;
 	dma_addr_t   rx_buf_mem_iova;
 
-	uint32_t    *rx_buff_pool_base;
+	uint32_t    *rx_buff_pool_base_va;
 	dma_addr_t   rx_buff_pool_base_iova;
-	dma_addr_t     rx_buff_pool_base_pa;
+	dma_addr_t   rx_buff_pool_base_pa;
+
+	struct veth_emac_exp exp_id;
+	int    vc_id;
+	bool   link_down;
+	bool   init_complete;
 };
+
+
 
 
 /**
@@ -211,6 +229,7 @@ enum veth_ipa_state {
 	VETH_IPA_CONNECTED,
 	VETH_IPA_UP,
 	VETH_IPA_CONNECTED_AND_UP,
+	VETH_IPA_DOWN,
 	VETH_IPA_INVALID,
 };
 
@@ -228,6 +247,23 @@ enum veth_ipa_operation {
 	VETH_IPA_DISCONNECT,
 	VETH_IPA_CLEANUP,
 };
+
+
+
+/**
+ * enum veth_ipa_emac_commands - enumerations which are used in
+ *
+ * Those enums are used as input for the driver state machine.
+ */
+enum veth_ipa_emac_commands {
+	VETH_IPA_OPEN_EV,
+	VETH_IPA_SETUP_OFFLOAD,
+	VETH_IPA_START_OFFLOAD,
+	VETH_IPA_STOP_OFFLOAD,
+	VETH_IPA_ACK,
+	VETH_IPA_SETUP_COMPLETE,
+};
+
 
 #define VETH_IPA_STATE_DEBUG(veth_ipa_ctx) \
 	VETH_IPA_DEBUG("Driver state - %s\n",\
@@ -261,6 +297,9 @@ struct veth_ipa_client_data {
 
 	/*State of IPA pipes connection*/
 	bool ipa_offload_conn;
+
+	/*EMAC init*/
+	bool emac_init;
 
 	/*Dev state*/
 	struct work_struct ntn_ipa_rdy_work;
@@ -336,9 +375,9 @@ struct veth_ipa_dev {
 	enum veth_ipa_state state;
 	void (*device_ready_notify)(void);
 
-   #ifdef VETH_PM_ENB
+	#ifdef VETH_PM_ENB
 	u32 pm_hdl;
-   #endif
+	#endif
 	bool is_vlan_mode;
 
 	/* Status of EMAC Device*/
@@ -347,6 +386,7 @@ struct veth_ipa_dev {
 	int speed;
 
 	struct veth_ipa_client_data prv_ipa;
+	struct veth_emac_export_mem veth_emac_mem;
 	veth_ipa_callback veth_ipa_rx_dp_notify;
 	veth_ipa_callback veth_ipa_tx_dp_notify;
 	u8 host_ethaddr[ETH_ALEN];   /*not needed for veth driver ?*/
@@ -368,6 +408,26 @@ struct emac_emb_smmu_cb_ctx {
 	int ret;
 };
 
+
+/* Maintain Order same on FE*/
+struct emac_ipa_iovas {
+	/*iova addresses*/
+	void   *tx_desc_mem_iova;
+	void   *tx_buf_mem_iova;
+	void   *tx_buf_pool_base_iova;
+	void   *rx_desc_mem_iova;
+	void   *rx_buf_mem_iova;
+	void   *rx_buf_pool_base_iova;
+};
+
+struct emac_hab_mm_message {
+	int   event_id;
+	union msg_type {
+		struct emac_ipa_iovas iova;
+	} msg_type;
+};
+
+
 #define GET_MEM_PDEV_DEV (emac_emb_smmu_ctx.valid ? \
 			&emac_emb_smmu_ctx.smmu_pdev->dev : &params->pdev->dev)
 
@@ -377,7 +437,7 @@ int veth_ipa_connect(u32 emac_to_ipa_hdl, u32 ipa_to_emac_hdl, void *priv);
 
 int veth_ipa_disconnect(void *priv);
 
-void veth_ipa_cleanup(void *priv);
+void veth_ipa_cleanup(struct veth_ipa_dev *veth_ipa_ctx);
 
 #else /* CONFIG_VETH_IPA*/
 
@@ -396,6 +456,8 @@ static inline void veth_ipa_cleanup(void *priv)
 {
 
 }
+
+
 
 #endif /* CONFIG_VETH_IPA*/
 

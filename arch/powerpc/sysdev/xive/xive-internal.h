@@ -1,5 +1,6 @@
 /*
  * Copyright 2016,2017 IBM Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -8,6 +9,13 @@
  */
 #ifndef __XIVE_INTERNAL_H
 #define __XIVE_INTERNAL_H
+
+/*
+ * A "disabled" interrupt should never fire, to catch problems
+ * we set its logical number to this
+ */
+#define XIVE_BAD_IRQ		0x7fffffff
+#define XIVE_MAX_IRQ		(XIVE_BAD_IRQ - 1)
 
 /* Each CPU carry one of these with various per-CPU state */
 struct xive_cpu {

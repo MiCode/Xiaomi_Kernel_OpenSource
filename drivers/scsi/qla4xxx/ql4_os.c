@@ -1,6 +1,7 @@
 /*
  * QLogic iSCSI HBA Driver
  * Copyright (c)  2003-2013 QLogic Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * See LICENSE.qla4xxx for copyright and licensing details.
  */
@@ -4150,7 +4151,7 @@ static void qla4xxx_mem_free(struct scsi_qla_host *ha)
 		dma_free_coherent(&ha->pdev->dev, ha->queues_len, ha->queues,
 				  ha->queues_dma);
 
-	 if (ha->fw_dump)
+	if (ha->fw_dump)
 		vfree(ha->fw_dump);
 
 	ha->queues_len = 0;

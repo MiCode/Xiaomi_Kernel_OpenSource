@@ -2,6 +2,7 @@
  * kernel/power/hibernate.c - Hibernation (a.k.a suspend-to-disk) support.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2004 Pavel Machek <pavel@ucw.cz>
  * Copyright (c) 2009 Rafael J. Wysocki, Novell Inc.
@@ -897,6 +898,13 @@ static int software_resume(void)
 	error = freeze_processes();
 	if (error)
 		goto Close_Finish;
+
+	error = freeze_kernel_threads();
+	if (error) {
+		thaw_processes();
+		goto Close_Finish;
+	}
+
 	error = load_image_and_restore();
 	thaw_processes();
 	place_marker("M - PM: Thaw processes completed!");

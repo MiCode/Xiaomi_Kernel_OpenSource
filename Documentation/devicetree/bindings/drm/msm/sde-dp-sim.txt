@@ -3,7 +3,34 @@ QTI Snapdragon Display Engine (SDE) DP-MST sideband message emulation driver
 Required properties:
 - compatible:		"qcom,dp-mst-sim"
 
+Optional properties:
+- qcom,dpcd-max-rate:     A u32 property defines dpcd reg 0x1.
+- qcom,dpcd-max-lane:     A u32 property defines dpcd reg 0x2.
+- qcom,dpcd-mst:          A u32 property defines dpcd reg 0x21.
+- qcom,dpcd-regs:         A <addr,val> array property defines dpcd reg addr
+                          and val.
+- qcom,voltage-swing:     A u32 property that overwrite dpcd reg 0x103~0x106.
+- qcom,pre-emphasis:      A u32 property that overwrite dpcd reg 0x103~0x106.
+- qcom,link-training-cnt: A u32 property defines physical link training cnt
+                          before switching to simulation mode.
+- qcom,skip-edid:         A boolean property defines if edid will read from
+                          internal edid buffer.
+- qcom,skip-dpcd-read:    A boolean property defines if dpcd will read from
+                          internal dpcd buffer.
+- qcom,skip-link-training: A boolean property defines if link training will
+                          be skipped.
+- qcom,skip-dpcd-write:   A boolean property defines if dpcd write will be
+                          ignored.
+- qcom,skip-hpd:          A boolean property defines if HPD will be ignored
+                          and always set high.
+- qcom,skip-mst:          A boolean property defines if MST sideband message
+                          need to be simulated.
+
 Each child node represents a port at root branch, with properties:
+- qcom,edid:               A u8 array property defines EDID raw data. Once
+                           defined, below properties will be ignored. For any
+                           mode with horizontal width > 4095, only EDID raw
+                           data format is supported.
 - qcom,mode-h-active:      A u32 property defines the horizontal active size.
 - qcom,mode-h-front-porch: A u32 property defines the horizontal front porch.
 - qcom,mode-h-pulse-width: A u32 property defines the horizontal pulse.

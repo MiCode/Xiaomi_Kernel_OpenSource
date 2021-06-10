@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,6 +126,8 @@ int diag_pcie_register_ops(int proc, int ctx, struct diag_mux_ops *ops)
 		return 0;
 
 	pcie_logger.ops[proc] = ops;
+	DIAG_LOG(DIAG_DEBUG_MUX,
+	"diag: registering pcie for proc: %d\n", proc);
 	err = diag_pcie_register(proc, ctx, ops);
 	if (err) {
 		pr_err("diag: MUX: unable to register pcie operations for proc: %d, err: %d\n",

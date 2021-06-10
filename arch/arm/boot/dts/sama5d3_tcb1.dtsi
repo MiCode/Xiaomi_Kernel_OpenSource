@@ -3,6 +3,7 @@
  * 2 TC blocks.
  *
  * Copyright (C) 2013 Boris BREZILLON <b.brezillon@overkiz.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Licensed under GPLv2.
  */
@@ -23,6 +24,7 @@
 					tcb1_clk: tcb1_clk {
 						#clock-cells = <0>;
 						reg = <27>;
+						atmel,clk-output-range = <0 166000000>;
 					};
 				};
 			};

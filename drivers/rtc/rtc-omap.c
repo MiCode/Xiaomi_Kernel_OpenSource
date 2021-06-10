@@ -2,6 +2,7 @@
  * TI OMAP Real Time Clock interface for Linux
  *
  * Copyright (C) 2003 MontaVista Software, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: George G. Davis <gdavis@mvista.com> or <source@mvista.com>
  *
  * Copyright (C) 2006 David Brownell (new RTC framework)
@@ -559,9 +560,7 @@ static const struct pinctrl_ops rtc_pinctrl_ops = {
 	.dt_free_map = pinconf_generic_dt_free_map,
 };
 
-enum rtc_pin_config_param {
-	PIN_CONFIG_ACTIVE_HIGH = PIN_CONFIG_END + 1,
-};
+#define PIN_CONFIG_ACTIVE_HIGH		(PIN_CONFIG_END + 1)
 
 static const struct pinconf_generic_params rtc_params[] = {
 	{"ti,active-high", PIN_CONFIG_ACTIVE_HIGH, 0},

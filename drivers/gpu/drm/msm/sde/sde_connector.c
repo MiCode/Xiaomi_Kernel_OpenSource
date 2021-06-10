@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,7 @@
 #include "sde_rm.h"
 
 #define BL_NODE_NAME_SIZE 32
+#define LIMIT_PANEL_ERROR_MAX_TIMES 15  //Bug 442815 zhangxiaolong.wt,Modify,20190523,for esd error flag
 
 /* Autorefresh will occur after FRAME_CNT frames. Large values are unlikely */
 #define AUTOREFRESH_MAX_FRAME_CNT 6
@@ -34,6 +36,7 @@
 
 #define SDE_ERROR_CONN(c, fmt, ...) SDE_ERROR("conn%d " fmt,\
 		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
+#define PANEL_BRIGHTNESS_MAX_LEVEL 1023
 
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_NONE,	"sde_none"},
@@ -82,8 +85,8 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 
 	c_conn = bl_get_data(bd);
 	display = (struct dsi_display *) c_conn->display;
-	if (brightness > display->panel->bl_config.bl_max_level)
-		brightness = display->panel->bl_config.bl_max_level;
+	if (brightness > PANEL_BRIGHTNESS_MAX_LEVEL)
+		brightness = PANEL_BRIGHTNESS_MAX_LEVEL;
 
 	/* map UI brightness into driver backlight level with rounding */
 	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
@@ -1124,6 +1127,14 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	struct sde_connector_state *c_state;
 	int idx, rc;
 	uint64_t fence_fd;
+	const char *sde_mode_dpms_str[] = {
+		[SDE_MODE_DPMS_ON] = "SDE_MODE_DPMS_ON",
+		[SDE_MODE_DPMS_LP1] = "SDE_MODE_DPMS_LP1",
+		[SDE_MODE_DPMS_LP2] = "SDE_MODE_DPMS_LP2",
+		[SDE_MODE_DPMS_STANDBY] = "SDE_MODE_DPMS_STANDBY",
+		[SDE_MODE_DPMS_SUSPEND] = "SDE_MODE_DPMS_SUSPEND",
+		[SDE_MODE_DPMS_OFF] = "SDE_MODE_DPMS_OFF",
+	};
 
 	if (!connector || !state || !property) {
 		SDE_ERROR("invalid argument(s), conn %pK, state %pK, prp %pK\n",
@@ -1143,6 +1154,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	/* connector-specific property handling */
 	idx = msm_property_index(&c_conn->property_info, property);
 	switch (idx) {
+	case CONNECTOR_PROP_LP:
+		if(connector->dev) {
+			connector->dev->sde_power_mode = val;
+			pr_info("sde connector set power mode = %s\n", sde_mode_dpms_str[val]);
+		}
+		break;
 	case CONNECTOR_PROP_OUT_FB:
 		/* clear old fb, if present */
 		if (c_state->out_fb)
@@ -1214,7 +1231,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 
 	if (idx == CONNECTOR_PROP_HDR_METADATA) {
 		rc = _sde_connector_set_ext_hdr_info(c_conn,
-			c_state, (void *)(uintptr_t)val);
+			c_state, (void __user *)(uintptr_t)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "cannot set hdr info %d\n", rc);
 	}
@@ -1913,6 +1930,7 @@ int sde_connector_esd_status(struct drm_connector *conn)
 static void sde_connector_check_status_work(struct work_struct *work)
 {
 	struct sde_connector *conn;
+	static int record_panel_error_times = 0; //Bug 442815 zhangxiaolong.wt,Modify,20190523,for esd error flag
 	int rc = 0;
 
 	conn = container_of(to_delayed_work(work),
@@ -1946,8 +1964,17 @@ static void sde_connector_check_status_work(struct work_struct *work)
 			msecs_to_jiffies(interval));
 		return;
 	}
-
-	_sde_connector_report_panel_dead(conn, false);
+	/*Bug 442815 zhangxiaolong.wt,Modify,20190523,for esd error flag--begin*/
+	record_panel_error_times++;
+	if(record_panel_error_times > LIMIT_PANEL_ERROR_MAX_TIMES){
+		SDE_INFO("panel recovery %d times and cancel check work\n",record_panel_error_times);
+		record_panel_error_times = 0;
+		cancel_delayed_work(&conn->status_work);
+		conn->esd_status_check = false;
+		return;
+	}
+	/*Bug 442815 zhangxiaolong.wt,Modify,20190523,for esd error flag--end*/
+	_sde_connector_report_panel_dead(conn,true);
 }
 
 static const struct drm_connector_helper_funcs sde_connector_helper_ops = {

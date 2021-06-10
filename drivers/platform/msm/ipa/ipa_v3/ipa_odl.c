@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -627,7 +628,9 @@ static long ipa_adpl_ioctl(struct file *filp,
 	switch (cmd) {
 	case IPA_IOC_ODL_GET_AGG_BYTE_LIMIT:
 		odl_pipe_info.agg_byte_limit =
-		ipa3_odl_ctx->odl_sys_param.ipa_ep_cfg.aggr.aggr_byte_limit;
+		/*Modem expecting value in bytes. so passing 15 = 15*1024*/
+		(ipa3_odl_ctx->odl_sys_param.ipa_ep_cfg.aggr.aggr_byte_limit *
+			1024);
 		if (copy_to_user((void __user *)arg, &odl_pipe_info,
 					sizeof(odl_pipe_info))) {
 			retval = -EFAULT;

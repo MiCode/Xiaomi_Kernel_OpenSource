@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,7 +44,7 @@
 			reg = <0x100>;
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
-			efficiency = <1024>;
+			capacity-dmips-mhz = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_1>;
 			#cooling-cells = <2>;
@@ -69,7 +70,7 @@
 			reg = <0x101>;
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
-			efficiency = <1024>;
+			capacity-dmips-mhz = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_1>;
 			#cooling-cells = <2>;
@@ -89,7 +90,7 @@
 			reg = <0x102>;
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
-			efficiency = <1024>;
+			capacity-dmips-mhz = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_1>;
 			#cooling-cells = <2>;
@@ -109,7 +110,7 @@
 			reg = <0x103>;
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
-			efficiency = <1024>;
+			capacity-dmips-mhz = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_1>;
 			#cooling-cells = <2>;
@@ -134,9 +135,6 @@
 				1305600	207
 				1497600	256
 				1708800	327
-				1804800	343
-				1958400	445
-				2016000	470
 			>;
 			idle-cost-data = <
 				100 80 60 40
@@ -148,9 +146,6 @@
 				1305600	61
 				1497600	71
 				1708800	85
-				1804800	88
-				1958400	110
-				2016000	120
 			>;
 			idle-cost-data = <
 				4 3 2 1

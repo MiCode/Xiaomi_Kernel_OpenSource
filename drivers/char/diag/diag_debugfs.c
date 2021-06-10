@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -445,8 +446,7 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 			"write count: %lu\n"
 			"read work pending: %d\n"
 			"read done work pending: %d\n"
-			"connect work pending: %d\n"
-			"disconnect work pending: %d\n"
+			"event work pending: %d\n"
 			"max size supported: %d\n\n",
 			usb_info->id,
 			usb_info->name,
@@ -460,8 +460,7 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 			usb_info->write_cnt,
 			work_pending(&usb_info->read_work),
 			work_pending(&usb_info->read_done_work),
-			work_pending(&usb_info->connect_work),
-			work_pending(&usb_info->disconnect_work),
+			work_pending(&usb_info->event_work),
 			usb_info->max_size);
 		bytes_in_buffer += bytes_written;
 

@@ -4,6 +4,7 @@
 * version 2
 *
 * Copyright Adrian McMenamin 2005, 2006, 2007
+ * Copyright (C) 2021 XiaoMi, Inc.
 * <adrian@mcmen.demon.co.uk>
 * Requires firmware (BSD licenced) available from:
 * http://linuxdc.cvs.sourceforge.net/linuxdc/linux-sh-dc/sound/oss/aica/firmware/
@@ -117,10 +118,10 @@ static void spu_memset(u32 toi, u32 what, int length)
 }
 
 /* spu_memload - write to SPU address space */
-static void spu_memload(u32 toi, void *from, int length)
+static void spu_memload(u32 toi, const void *from, int length)
 {
 	unsigned long flags;
-	u32 *froml = from;
+	const u32 *froml = from;
 	u32 __iomem *to = (u32 __iomem *) (SPU_MEMORY_BASE + toi);
 	int i;
 	u32 val;

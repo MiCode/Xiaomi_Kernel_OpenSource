@@ -1,6 +1,7 @@
 /* Applied Micro X-Gene SoC Ethernet Driver
  *
  * Copyright (c) 2014, Applied Micro Circuits Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Authors: Iyappan Subramanian <isubramanian@apm.com>
  *	    Ravi Patel <rapatel@apm.com>
  *	    Keyur Chudgar <kchudgar@apm.com>
@@ -2034,7 +2035,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
 	int ret;
 
 	ndev = alloc_etherdev_mqs(sizeof(struct xgene_enet_pdata),
-				  XGENE_NUM_RX_RING, XGENE_NUM_TX_RING);
+				  XGENE_NUM_TX_RING, XGENE_NUM_RX_RING);
 	if (!ndev)
 		return -ENOMEM;
 

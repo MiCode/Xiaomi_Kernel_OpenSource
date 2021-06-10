@@ -2,6 +2,7 @@
  * net/sched/cls_flower.c		Flower classifier
  *
  * Copyright (c) 2015 Jiri Pirko <jiri@resnulli.us>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -160,6 +161,7 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
 	if (!atomic_read(&head->ht.nelems))
 		return -1;
 
+	flow_dissector_init_keys(&skb_key.control, &skb_key.basic);
 	fl_clear_masked_range(&skb_key, &head->mask);
 
 	info = skb_tunnel_info(skb);
@@ -445,6 +447,7 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
 	[TCA_FLOWER_KEY_IP_TOS_MASK]	= { .type = NLA_U8 },
 	[TCA_FLOWER_KEY_IP_TTL]		= { .type = NLA_U8 },
 	[TCA_FLOWER_KEY_IP_TTL_MASK]	= { .type = NLA_U8 },
+	[TCA_FLOWER_FLAGS]		= { .type = NLA_U32 },
 };
 
 static void fl_set_key_val(struct nlattr **tb,

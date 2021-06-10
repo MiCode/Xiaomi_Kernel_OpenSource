@@ -3,6 +3,7 @@
  * Implement cfg80211 ("iw") support.
  *
  * Copyright (C) 2009 M&N Solutions GmbH, 61191 Rosbach, Germany
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Holger Schurig <hs4233@mail.mn-solutions.de>
  *
  */
@@ -1788,6 +1789,8 @@ static int lbs_ibss_join_existing(struct lbs_private *priv,
 		rates_max = rates_eid[1];
 		if (rates_max > MAX_RATES) {
 			lbs_deb_join("invalid rates");
+			rcu_read_unlock();
+			ret = -EINVAL;
 			goto out;
 		}
 		rates = cmd.bss.rates;

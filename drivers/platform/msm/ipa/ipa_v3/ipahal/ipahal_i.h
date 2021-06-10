@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -624,6 +625,7 @@ struct ipa_pkt_status_hw {
 #define IPA_HDR_UCP_L2TP_UDP_HEADER_ADD		12
 #define IPA_HDR_UCP_L2TP_UDP_HEADER_REMOVE	13
 #define IPA_HDR_UCP_ETHII_TO_ETHII_EX		14
+#define IPA_HDR_UCP_SET_DSCP		16
 
 /* Processing context TLV type */
 #define IPA_PROC_CTX_TLV_TYPE_END 0

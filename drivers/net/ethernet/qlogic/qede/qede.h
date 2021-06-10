@@ -1,5 +1,6 @@
 /* QLogic qede NIC Driver
  * Copyright (c) 2015-2017  QLogic Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -156,6 +157,8 @@ struct qede_rdma_dev {
 	struct list_head entry;
 	struct list_head rdma_event_list;
 	struct workqueue_struct *rdma_wq;
+	struct kref refcnt;
+	struct completion event_comp;
 };
 
 struct qede_ptp;

@@ -2,6 +2,7 @@
  * RTC class driver for "CMOS RTC":  PCs, ACPI, etc
  *
  * Copyright (C) 1996 Paul Gortmaker (drivers/char/rtc.c)
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2006 David Brownell (convert to new framework)
  *
  * This program is free software; you can redistribute it and/or
@@ -806,7 +807,7 @@ cmos_do_probe(struct device *dev, struct resource *ports, int rtc_irq)
 			rtc_cmos_int_handler = cmos_interrupt;
 
 		retval = request_irq(rtc_irq, rtc_cmos_int_handler,
-				IRQF_SHARED, dev_name(&cmos_rtc.rtc->dev),
+				0, dev_name(&cmos_rtc.rtc->dev),
 				cmos_rtc.rtc);
 		if (retval < 0) {
 			dev_dbg(dev, "IRQ %d is already in use\n", rtc_irq);

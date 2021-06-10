@@ -2,6 +2,7 @@
  * Host side test driver to test endpoint functionality
  *
  * Copyright (C) 2017 Texas Instruments
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -466,7 +467,7 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 	int err;
 	int irq = 0;
 	int id;
-	char name[20];
+	char name[24];
 	enum pci_barno bar;
 	void __iomem *base;
 	struct device *dev = &pdev->dev;

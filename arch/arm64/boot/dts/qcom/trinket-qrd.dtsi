@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,8 +32,23 @@
 		qcom,batt-id-range-pct = <15>;
 		#include "qg-batterydata-ascent-3450mah.dtsi"
 		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+               #include "batterydata-wingtech-Sunwoda-4v4-4040mah.dtsi"
+               #include "batterydata-wingtech-Feimaotui-4v4-4040mah.dtsi"
+               #include "batterydata-wingtech-default-battery-4v4-4040mah.dtsi"
 	};
-
+	
+	ts_vdd: gpio-regulator {
+		compatible = "regulator-gpio";
+		regulator-name = "ts_vdd-gpio-supply";
+		regulator-min-microvolt = <0000000>;
+		regulator-max-microvolt = <3300000>;
+		enable-gpio = <&tlmm 83 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		states = <3300000 0x0>;
+		regulator-type = "voltage";
+		startup-delay-us = <70000>;
+	};
+/*
 	fingerprint: fpc1020 {
 		compatible = "fpc,fpc1020";
 		interrupt-parent = <&tlmm>;
@@ -50,12 +66,30 @@
 		pinctrl-1 = <&fpc_reset_high>;
 		pinctrl-2 = <&fpc_int_low>;
 	};
+*/
+	goodix_fp {
+		compatible = "goodix,fingerprint";
+		interrupt-parent = <&tlmm>;
+		interrupt = <92 0x0>;
+		fp-gpio-irq = <&tlmm 92 0x00>;
+		fp-gpio-reset = <&tlmm 93 0x00>;
+		status = "okay";
+	};
+
 };
 
 &pmi632_qg {
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,qg-iterm-ma = <100>;
+	qcom,s2-fifo-length = <4>; /*bug 447555 zhaolinquan.wt, MODIFY, 20190522, Change FIFO to 4 for rise capacity slope*/
+	qcom,qg-iterm-ma = <330>; /*Extb 62849, zhaolinquan.wt, MODIFY, 20190529, for terminal charging current issues*/
+	//qcom,qg-iterm-ma = <100>;
 	qcom,hold-soc-while-full;
+	/*Extb 60233,xujianbang.wt,Modify,20190428,Modify power_on soc.*/
+	/*Extb 62536,xujianbang.wt,Modify,20190517,Modify power_on soc of temp from 15C to 10C.*/
+	qcom,shutdown-temp-diff = <100>; /* 10 degrees C */
+	qcom,ignore-shutdown-soc-secs = <2592000>; /* One month */
+	/*Extb 62481,xujianbang.wt,Modify,20190515,Enlarge SOC diff from 20% to 30%.*/
+	qcom,shutdown_soc_threshold = <40>; /*40%*/
 	qcom,linearize-soc;
 	qcom,qg-use-s7-ocv;
 };
@@ -69,13 +103,29 @@
 	dpdm-supply = <&qusb_phy0>;
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
-	qcom,auto-recharge-soc = <98>;
-	qcom,flash-disable-soc = <10>;
-	qcom,hw-die-temp-mitigation;
-	qcom,hw-connector-mitigation;
+	/*bug 431021  zhaolinquan.wt, MODIFY, 20190301, charger bringup*/
+	qcom,fcc-max-ua = <3000000>;/*bug 432043 zhaolinquan.wt, MODIFY, 20190309, Set charging current to 3A*/
+	qcom,fv-max-uv = <4400000>;
+	/*qcom,auto-recharge-soc = <98>;*/
+	qcom,auto-recharge-soc = <99>;
+	qcom,usb-icl-ua = <2000000>;
+	/*bug 437945 zhaolinquan.wt, MODIFY, 20190411, add term current setting begin*/
+	qcom,chg-term-current-ma = <(-200)>;
+	qcom,chg-term-src = <1>;
+	/*bug 437945 zhaolinquan.wt, MODIFY, 20190411, add term current setting end*/
+        /*ExtB 59648 puxiaojun.wt, MODIFY, 20190701, modify flash current setting for no charging power limiting begin*/
+	/*qcom,flash-disable-soc = <10>;*/
+	qcom,flash-disable-soc = <0>;
+        /*ExtB 59648 puxiaojun.wt, MODIFY, 20190701, modify flash current setting for no charging power limiting begin*/
+	/*qcom,hw-die-temp-mitigation;*/
+	/*qcom,hw-connector-mitigation;*/
+	/*bug 431021  zhaolinquan.wt, MODIFY, 20190301, charger bringup*/
 	qcom,connector-internal-pull-kohm = <100>;
 	qcom,float-option = <1>;
-	qcom,thermal-mitigation = <4200000 3500000 3000000
+	/*qcom,thermal-mitigation = <4200000 3500000 3000000
+			2500000 2000000 1500000 1000000 500000>;*/
+	/*bug 439741 zhaolinquan.wt, MODIFY, 20190423, update thermal-mitigation config*/
+	qcom,thermal-mitigation = <3000000
 			2500000 2000000 1500000 1000000 500000>;
 };
 
@@ -101,6 +151,63 @@
 		synaptics,power-delay-ms = <200>;
 		synaptics,ubl-i2c-addr = <0x20>;
 		synaptics,y-flip;
+	};
+
+	goodix_i2c@5d {
+		compatible = "goodix,gt9883";
+		reg = <0x5d>;
+		status = "ok";
+		interrupt-parent = <&tlmm>;
+		interrupts = <88 0x2800>;
+		vtouch-supply = <&ts_vdd>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		goodix,reset-gpio = <&tlmm 87 0x0>;
+		goodix,irq-gpio = <&tlmm 88 0x2800>;
+		goodix,irq-flags = <2>; /* 1:trigger rising, 2:trigger falling;*/
+		goodix,panel-max-id = <10>;
+		goodix,panel-max-x = <720>;
+		goodix,panel-max-y = <1560>;
+		goodix,panel-max-w = <512>;
+		goodix,panel-max-p = <512>;
+		goodix,power-on-delay-us = <300000>; /*300ms*/
+		goodix,power-off-delay-us = <5000>;
+		touchpanel,rst-gpio = <&tlmm 87 0x0>;
+		touchpanel,irq-gpio = <&tlmm 88 0x0>;
+		touchpanel,open_short_not_use_fw;
+		/*goodix,swap-axis;*/
+		goodix,x2x;
+		goodix,y2y;
+		sensor1 {
+			normal-cfg = [];
+		};
+	};
+
+	focaltech@38{
+		compatible = "focaltech,ft3518";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <88 0x02>;
+		vdd-supply = <&ts_vdd>;
+		focaltech,reset-gpio = <&tlmm 87 0x01>;
+		focaltech,irq-gpio = <&tlmm 88 0x02>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords =  <0 0 720 1560>;
+
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		focaltech,have-key;
+		focaltech,key-number = <3>;
+		focaltech,keys = <139 102 158>;
+		focaltech,key-x-coords = <200 600 800>;
+		focaltech,key-y-coords = <2000 2000 2000>;
+		touchpanel,rst-gpio = <&tlmm 87 0x0>;
+		touchpanel,irq-gpio = <&tlmm 88 0x0>;
+		touchpanel,open_short_not_use_fw;
 	};
 };
 
@@ -220,6 +327,7 @@
 			gpio-key,wakeup;
 		};
 	};
+
 };
 
 &tlmm {
@@ -321,65 +429,47 @@
 	qcom,mdss-dsi-bl-default-level = <102>;
 	qcom,platform-reset-gpio = <&tlmm 90 0>;
 };
+&dsi_s6e8fco_samsung_hdp_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_samsung>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+    	qcom,mdss-dsi-bl-default-level = <268>;
+	qcom,mdss-dsi-bl-min-level = <4>;
+	qcom,mdss-dsi-bl-max-level = <2047>;
+	qcom,mdss-brightness-max-level = <2047>;
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+};
 
-&dsi_td4330_truly_vid_display {
+&dsi_s6e8fco_samsung_hdp_video_display {
 	qcom,dsi-display-active;
 };
 
+&dsi_r692a9_gvo_hdp_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_gvo>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-default-level = <268>;
+	qcom,mdss-dsi-bl-min-level = <4>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <2047>;
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+};
+
+&dsi_r692a9_gvo_hdp_video_display {
+	qcom,dsi-display-active;
+};
+
+#if 0
+&dsi_td4330_truly_vid_display {
+	qcom,dsi-display-active;
+};
+#endif
 &pm6125_pwm {
 	status = "ok";
 };
 
-&sm6150_snd {
-	status = "okay";
-	qcom,model = "trinket-qrd-snd-card";
-	qcom,audio-routing =
-		"AMIC1", "MIC BIAS1",
-		"MIC BIAS1", "Analog Mic1",
-		"AMIC2", "MIC BIAS2",
-		"MIC BIAS2", "Analog Mic2",
-		"AMIC3", "MIC BIAS3",
-		"MIC BIAS3", "Analog Mic3",
-		"TX_AIF1 CAP", "VA_MCLK",
-		"TX_AIF2 CAP", "VA_MCLK",
-		"RX AIF1 PB", "VA_MCLK",
-		"RX AIF2 PB", "VA_MCLK",
-		"RX AIF3 PB", "VA_MCLK",
-		"RX AIF4 PB", "VA_MCLK",
-		"HPHL_OUT", "VA_MCLK",
-		"HPHR_OUT", "VA_MCLK",
-		"AUX_OUT", "VA_MCLK",
-		"IN1_HPHL", "HPHL_OUT",
-		"IN2_HPHR", "HPHR_OUT",
-		"IN3_AUX", "AUX_OUT",
-		"TX SWR_ADC0", "ADC1_OUTPUT",
-		"TX SWR_ADC2", "ADC2_OUTPUT",
-		"WSA SRC0_INP", "SRC0",
-		"WSA_TX DEC0_INP", "TX DEC0 MUX",
-		"WSA_TX DEC1_INP", "TX DEC1 MUX",
-		"RX_TX DEC0_INP", "TX DEC0 MUX",
-		"RX_TX DEC1_INP", "TX DEC1 MUX",
-		"RX_TX DEC2_INP", "TX DEC2 MUX",
-		"RX_TX DEC3_INP", "TX DEC3 MUX",
-		"SpkrLeft IN", "WSA_SPK1 OUT",
-		"WSA_SPK1 OUT", "VA_MCLK";
-		qcom,wsa-max-devs = <1>;
-		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
-		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
-		qcom,msm-mbhc-hphl-swh = <1>;
-		qcom,msm-mbhc-gnd-swh = <1>;
-		asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
-		asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-				   "msm-ext-disp-audio-codec-rx";
-		qcom,codec-max-aux-devs = <1>;
-		qcom,codec-aux-devs = <&wcd937x_codec>;
-		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
-				<&bolero>;
-};
 
 &qusb_phy0 {
 	qcom,qusb-phy-init-seq = <0xc8 0x80
-				0x93 0x84
+				0x33 0x84
 				0x83 0x88
 				0xc7 0x8c
 				0x30 0x08
@@ -389,4 +479,32 @@
 				0x80 0x04
 				0x9f 0x1c
 				0x00 0x18>;
+};
+&firmware{
+	android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,product,dtbo";
+			};
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatble = "android,vendor";
+					dev = "/dev/block/platform/soc/4804000.ufshc/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect,avb";
+					status = "ok";
+				};
+				product {
+					compatble = "android,product";
+					dev = "/dev/block/platform/soc/4804000.ufshc/by-name/product";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect,avb";
+					status = "ok";
+				};
+			};
+		};
 };

@@ -1,6 +1,7 @@
 /*
  * QLogic Fibre Channel HBA Driver
  * Copyright (c)  2003-2014 QLogic Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * See LICENSE.qla2xxx for copyright and licensing details.
  */
@@ -3178,6 +3179,10 @@ qla2x00_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 	    base_vha->mgmt_svr_loop_id, host->sg_tablesize);
 
 	ha->wq = alloc_workqueue("qla2xxx_wq", WQ_MEM_RECLAIM, 0);
+	if (unlikely(!ha->wq)) {
+		ret = -ENOMEM;
+		goto probe_failed;
+	}
 
 	if (ha->mqenable) {
 		bool mq = false;

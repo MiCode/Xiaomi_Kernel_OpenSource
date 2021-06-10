@@ -1,5 +1,6 @@
 /*
  * Copyright 2015 Amazon.com, Inc. or its affiliates.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -42,6 +43,7 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/wait.h>
+#include <linux/netdevice.h>
 
 #include "ena_common_defs.h"
 #include "ena_admin_defs.h"
@@ -630,6 +632,14 @@ int ena_com_rss_init(struct ena_com_dev *ena_dev, u16 log_size);
  * Free all the RSS/RFS resources.
  */
 void ena_com_rss_destroy(struct ena_com_dev *ena_dev);
+
+/* ena_com_get_current_hash_function - Get RSS hash function
+ * @ena_dev: ENA communication layer struct
+ *
+ * Return the current hash function.
+ * @return: 0 or one of the ena_admin_hash_functions values.
+ */
+int ena_com_get_current_hash_function(struct ena_com_dev *ena_dev);
 
 /* ena_com_fill_hash_function - Fill RSS hash function
  * @ena_dev: ENA communication layer struct

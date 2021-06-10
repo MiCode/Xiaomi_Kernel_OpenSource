@@ -2,6 +2,7 @@
  * VMware Detection code.
  *
  * Copyright (C) 2008, VMware, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author : Alok N Kataria <akataria@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -45,7 +46,7 @@
 #define VMWARE_PORT_CMD_VCPU_RESERVED	31
 
 #define VMWARE_PORT(cmd, eax, ebx, ecx, edx)				\
-	__asm__("inl (%%dx)" :						\
+	__asm__("inl (%%dx), %%eax" :					\
 			"=a"(eax), "=c"(ecx), "=d"(edx), "=b"(ebx) :	\
 			"0"(VMWARE_HYPERVISOR_MAGIC),			\
 			"1"(VMWARE_PORT_CMD_##cmd),			\

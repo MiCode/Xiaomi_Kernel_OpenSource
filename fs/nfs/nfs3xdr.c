@@ -5,6 +5,7 @@
  * XDR functions to encode/decode NFSv3 RPC arguments and results.
  *
  * Copyright (C) 1996, 1997 Olaf Kirch
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/param.h>
@@ -2373,6 +2374,7 @@ static int nfs3_xdr_dec_commit3res(struct rpc_rqst *req,
 				   void *data)
 {
 	struct nfs_commitres *result = data;
+	struct nfs_writeverf *verf = result->verf;
 	enum nfs_stat status;
 	int error;
 
@@ -2385,7 +2387,9 @@ static int nfs3_xdr_dec_commit3res(struct rpc_rqst *req,
 	result->op_status = status;
 	if (status != NFS3_OK)
 		goto out_status;
-	error = decode_writeverf3(xdr, &result->verf->verifier);
+	error = decode_writeverf3(xdr, &verf->verifier);
+	if (!error)
+		verf->committed = NFS_FILE_SYNC;
 out:
 	return error;
 out_status:

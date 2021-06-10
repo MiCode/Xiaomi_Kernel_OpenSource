@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016, Linaro Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2018-2019, The Linux Foundation, All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -231,6 +232,7 @@ struct qcom_glink *qcom_glink_smem_register(struct device *parent,
 	ret = device_register(dev);
 	if (ret) {
 		pr_err("failed to register glink edge\n");
+		put_device(dev);
 		kfree(dev);
 		return ERR_PTR(ret);
 	}

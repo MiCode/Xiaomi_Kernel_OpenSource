@@ -3,6 +3,7 @@
  * Dynamic function tracing support.
  *
  * Copyright (C) 2007-2008 Steven Rostedt <srostedt@redhat.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Thanks goes to Ingo Molnar, for suggesting the idea.
  * Mathieu Desnoyers, for suggesting postponing the modifications.
@@ -36,6 +37,7 @@
 #ifdef CONFIG_DYNAMIC_FTRACE
 
 int ftrace_arch_code_modify_prepare(void)
+    __acquires(&text_mutex)
 {
 	mutex_lock(&text_mutex);
 	set_kernel_text_rw();
@@ -44,6 +46,7 @@ int ftrace_arch_code_modify_prepare(void)
 }
 
 int ftrace_arch_code_modify_post_process(void)
+    __releases(&text_mutex)
 {
 	set_all_modules_text_ro();
 	set_kernel_text_ro();

@@ -1,6 +1,7 @@
 /* user-type.h: User-defined key type
  *
  * Copyright (C) 2005 Red Hat, Inc. All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written by David Howells (dhowells@redhat.com)
  *
  * This program is free software; you can redistribute it and/or
@@ -45,8 +46,7 @@ extern int user_update(struct key *key, struct key_preparsed_payload *prep);
 extern void user_revoke(struct key *key);
 extern void user_destroy(struct key *key);
 extern void user_describe(const struct key *user, struct seq_file *m);
-extern long user_read(const struct key *key,
-		      char __user *buffer, size_t buflen);
+extern long user_read(const struct key *key, char *buffer, size_t buflen);
 
 static inline const struct user_key_payload *user_key_payload_rcu(const struct key *key)
 {

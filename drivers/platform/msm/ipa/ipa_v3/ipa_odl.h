@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +14,7 @@
 #ifndef _IPA3_ODL_H_
 #define _IPA3_ODL_H_
 
-#define IPA_ODL_AGGR_BYTE_LIMIT (15 * 1024)
+#define IPA_ODL_AGGR_BYTE_LIMIT 15
 #define IPA_ODL_RX_RING_SIZE 192
 #define MAX_QUEUE_TO_ODL 1024
 #define CONFIG_SUCCESS 1

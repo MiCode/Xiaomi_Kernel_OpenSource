@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3586,10 +3587,11 @@ STREAM_BUFF_END:
 		pr_warn("shutdown cpp node. open cnt:%d\n",
 			cpp_dev->cpp_open_cnt);
 
-		if (atomic_read(&cpp_timer.used))
-			pr_debug("Timer state not cleared\n");
+		//if (atomic_read(&cpp_timer.used))
+		//	pr_debug("Timer state not cleared\n");
 
-		while (cpp_dev->cpp_open_cnt != 0)
+		//while (cpp_dev->cpp_open_cnt != 0)
+                if(cpp_dev->cpp_open_cnt != 0)
 			cpp_close_node(sd, NULL);
 		mutex_lock(&cpp_dev->mutex);
 		rc = 0;

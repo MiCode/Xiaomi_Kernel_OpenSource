@@ -2,6 +2,7 @@
  * Device Tree Source for Renesas r8a7779
  *
  * Copyright (C) 2013 Renesas Solutions Corp.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013 Simon Horman
  *
  * This file is licensed under the terms of the GNU General Public License
@@ -65,6 +66,14 @@
 		interrupt-controller;
 		reg = <0xf0001000 0x1000>,
 		      <0xf0000100 0x100>;
+	};
+
+	timer@f0000200 {
+		compatible = "arm,cortex-a9-global-timer";
+		reg = <0xf0000200 0x100>;
+		interrupts = <GIC_PPI 11
+			(GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_EDGE_RISING)>;
+		clocks = <&cpg_clocks R8A7779_CLK_ZS>;
 	};
 
 	timer@f0000600 {

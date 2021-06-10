@@ -7,6 +7,7 @@
  * License 1: GPLv2
  *
  * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is free software; you may copy, redistribute and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -515,7 +516,7 @@ static void xgbe_isr_task(unsigned long data)
 				xgbe_disable_rx_tx_ints(pdata);
 
 				/* Turn on polling */
-				__napi_schedule_irqoff(&pdata->napi);
+				__napi_schedule(&pdata->napi);
 			}
 		} else {
 			/* Don't clear Rx/Tx status if doing per channel DMA

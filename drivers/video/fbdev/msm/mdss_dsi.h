@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -476,6 +477,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool dsi_irq_line;
 	bool dcs_cmd_insert;
 	atomic_t te_irq_ready;
+	bool idle;
 
 	bool cmd_sync_wait_broadcast;
 	bool cmd_sync_wait_trigger;
@@ -507,6 +509,8 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds lp_on_cmds;
 	struct dsi_panel_cmds lp_off_cmds;
 	struct dsi_panel_cmds status_cmds;
+	struct dsi_panel_cmds idle_on_cmds; /* for lp mode */
+	struct dsi_panel_cmds idle_off_cmds;
 	u32 *status_valid_params;
 	u32 *status_cmds_rlen;
 	u32 *status_value;

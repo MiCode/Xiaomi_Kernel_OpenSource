@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -695,6 +696,7 @@ static int cam_lrme_mgr_hw_dump(void *hw_mgr_priv, void *hw_dump_args)
 		CAM_ERR(CAM_LRME, "Failed to get hw device");
 		return rc;
 	}
+	memset(&lrme_dump_args, 0, sizeof(lrme_dump_args));
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
 		&lrme_dump_args.cpu_addr,
 		&lrme_dump_args.buf_len);

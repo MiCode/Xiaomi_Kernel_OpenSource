@@ -122,6 +122,13 @@ struct mmc_cmdq_host_ops {
 	int (*halt)(struct mmc_host *host, bool halt);
 	void (*reset)(struct mmc_host *host, bool soft);
 	void (*dumpstate)(struct mmc_host *host);
+	/*
+	 * Update the request queue with keyslot manager details. This keyslot
+	 * manager will be used by block crypto to configure the crypto Engine
+	 * for data encryption.
+	 */
+	void (*cqe_crypto_update_queue)(struct mmc_host *host,
+					struct request_queue *queue);
 };
 
 struct mmc_host_ops {

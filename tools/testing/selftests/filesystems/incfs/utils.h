@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright 2019 Google LLC
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <stdbool.h>
 #include <sys/stat.h>
 
-#include "../../include/uapi/linux/incrementalfs.h"
+#include <include/uapi/linux/incrementalfs.h>
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,8 +49,8 @@
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
 			"csiphy_ahb2crif";
-		qcom,clock-rates = <0 0 311000000 0 0 200000000 0
-			0 200000000 0 0>;
+		qcom,clock-rates = <0 0 311000000 0 0 311000000 0
+			0 311000000 0 0>;
 		status = "ok";
 	};
 
@@ -79,8 +80,8 @@
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
 			"csiphy_ahb2crif";
-		qcom,clock-rates = <0 0 311000000 0 0 200000000 0
-			0 200000000 0 0>;
+		qcom,clock-rates = <0 0 311000000 0 0 311000000 0
+			0 311000000 0 0>;
 		status = "ok";
 	};
 
@@ -110,8 +111,8 @@
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
 			"csiphy_ahb2crif";
-		qcom,clock-rates = <0 0 311000000 0 0 200000000 0
-			0 200000000 0 0>;
+		qcom,clock-rates = <0 0 311000000 0 0 311000000 0
+			0 311000000 0 0>;
 		status = "ok";
 	};
 
@@ -144,7 +145,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
 			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "cphy_csid_clk";
-		qcom,clock-rates = <0 0 0 311000000 200000000
+		qcom,clock-rates = <0 0 0 311000000 311000000
 			0 0 0 0 0>;
 		status = "ok";
 	};
@@ -178,7 +179,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
 			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "cphy_csid_clk";
-		qcom,clock-rates = <0 0 0 311000000 200000000
+		qcom,clock-rates = <0 0 0 403000000 311000000
 			0 0 0 0 0>;
 		status = "ok";
 	};
@@ -212,7 +213,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
 			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "cphy_csid_clk";
-		qcom,clock-rates = <0 0 0 311000000 200000000
+		qcom,clock-rates = <0 0 0 311000000 311000000
 			0 0 0 0 0>;
 		status = "ok";
 	};
@@ -246,7 +247,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
 			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "cphy_csid_clk";
-		qcom,clock-rates = <0 0 0 311000000 200000000
+		qcom,clock-rates = <0 0 0 311000000 311000000
 			0 0 0 0 0>;
 		status = "ok";
 	};
@@ -472,8 +473,8 @@
 			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
 			"camss_vfe_vbif_axi_clk", "mmss_throttle_camss_axi_clk",
 			"camss_csi_vfe_clk";
-		qcom,clock-rates = <0 0 403200000 0 0 0 0 0 0 0
-					0 0 480000000 0 0 0 0 0 0 0
+		qcom,clock-rates = <0 0 576000000 0 0 0 0 0 0 0
+					0 0 576000000 0 0 0 0 0 0 0
 					0 0 576000000 0 0 0 0 0 0 0>;
 		status = "ok";
 		qos-entries = <8>;
@@ -550,8 +551,8 @@
 			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
 			"camss_vfe_vbif_axi_clk", "mmss_throttle_camss_axi_clk",
 			"camss_csi_vfe_clk";
-		qcom,clock-rates = <0 0 403200000 0 0 0 0 0 0 0
-					0 0 480000000 0 0 0 0 0 0 0
+		qcom,clock-rates = <0 0 576000000 0 0 0 0 0 0 0
+					0 0 576000000 0 0 0 0 0 0 0
 					0 0 576000000 0 0 0 0 0 0 0>;
 		status = "ok";
 		qos-entries = <8>;

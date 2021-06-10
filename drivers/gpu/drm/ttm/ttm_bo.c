@@ -1,6 +1,7 @@
 /**************************************************************************
  *
  * Copyright (c) 2006-2009 VMware, Inc., Palo Alto, CA., USA
+ * Copyright (C) 2021 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -245,15 +246,23 @@ static int ttm_bo_add_ttm(struct ttm_buffer_object *bo, bool zero_alloc)
 		if (zero_alloc)
 			page_flags |= TTM_PAGE_FLAG_ZERO_ALLOC;
 	case ttm_bo_type_kernel:
-		bo->ttm = bdev->driver->ttm_tt_create(bdev, bo->num_pages << PAGE_SHIFT,
-						      page_flags, glob->dummy_read_page);
+		if (bdev->driver->ttm_tt_create2)
+			bo->ttm = bdev->driver->ttm_tt_create2(bo, page_flags,
+							       glob->dummy_read_page);
+		else
+			bo->ttm = bdev->driver->ttm_tt_create(bdev, bo->num_pages << PAGE_SHIFT,
+							      page_flags, glob->dummy_read_page);
 		if (unlikely(bo->ttm == NULL))
 			ret = -ENOMEM;
 		break;
 	case ttm_bo_type_sg:
-		bo->ttm = bdev->driver->ttm_tt_create(bdev, bo->num_pages << PAGE_SHIFT,
-						      page_flags | TTM_PAGE_FLAG_SG,
-						      glob->dummy_read_page);
+		if (bdev->driver->ttm_tt_create2)
+			bo->ttm = bdev->driver->ttm_tt_create2(bo, page_flags | TTM_PAGE_FLAG_SG,
+							       glob->dummy_read_page);
+		else
+			bo->ttm = bdev->driver->ttm_tt_create(bdev, bo->num_pages << PAGE_SHIFT,
+							      page_flags | TTM_PAGE_FLAG_SG,
+							      glob->dummy_read_page);
 		if (unlikely(bo->ttm == NULL)) {
 			ret = -ENOMEM;
 			break;

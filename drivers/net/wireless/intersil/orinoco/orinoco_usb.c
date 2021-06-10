@@ -2,6 +2,7 @@
  * USB Orinoco driver
  *
  * Copyright (c) 2003 Manuel Estrada Sainz
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * The contents of this file are subject to the Mozilla Public License
  * Version 1.1 (the "License"); you may not use this file except in
@@ -1364,7 +1365,8 @@ static int ezusb_init(struct hermes *hw)
 	int retval;
 
 	BUG_ON(in_interrupt());
-	BUG_ON(!upriv);
+	if (!upriv)
+		return -EINVAL;
 
 	upriv->reply_count = 0;
 	/* Write the MAGIC number on the simulated registers to keep

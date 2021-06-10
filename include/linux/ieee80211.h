@@ -2,6 +2,7 @@
  * IEEE 802.11 defines
  *
  * Copyright (c) 2001-2002, SSH Communications Security Corp and Jouni Malinen
+ * Copyright (C) 2021 XiaoMi, Inc.
  * <jkmaline@cc.hut.fi>
  * Copyright (c) 2002-2003, Jouni Malinen <jkmaline@cc.hut.fi>
  * Copyright (c) 2005, Devicescape Software, Inc.
@@ -619,6 +620,15 @@ static inline bool ieee80211_is_qos_nullfunc(__le16 fc)
 {
 	return (fc & cpu_to_le16(IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) ==
 	       cpu_to_le16(IEEE80211_FTYPE_DATA | IEEE80211_STYPE_QOS_NULLFUNC);
+}
+
+/**
+ * ieee80211_is_any_nullfunc - check if frame is regular or QoS nullfunc frame
+ * @fc: frame control bytes in little-endian byteorder
+ */
+static inline bool ieee80211_is_any_nullfunc(__le16 fc)
+{
+	return (ieee80211_is_nullfunc(fc) || ieee80211_is_qos_nullfunc(fc));
 }
 
 /**

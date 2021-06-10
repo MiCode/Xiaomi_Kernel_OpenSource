@@ -4,6 +4,7 @@
  * 802.11 device and configuration interface
  *
  * Copyright 2006-2010	Johannes Berg <johannes@sipsolutions.net>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2013-2014 Intel Mobile Communications GmbH
  * Copyright 2015-2017	Intel Deutschland GmbH
  *
@@ -64,6 +65,9 @@
 
 /* Indicate backport support for key configuration for Beacon protection*/
 #define CFG80211_BIGTK_CONFIGURATION_SUPPORT 1
+
+/* Indicate backport support for sband iftype data */
+#define CFG80211_SBAND_IFTYPE_DATA_BACKPORT 1
 
 /**
  * DOC: Introduction

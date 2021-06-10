@@ -6,6 +6,7 @@
  * Defines journalling api and structures.
  *
  * Copyright (C) 2003, 2005 Oracle.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -637,9 +638,11 @@ static inline void ocfs2_update_inode_fsync_trans(handle_t *handle,
 {
 	struct ocfs2_inode_info *oi = OCFS2_I(inode);
 
-	oi->i_sync_tid = handle->h_transaction->t_tid;
-	if (datasync)
-		oi->i_datasync_tid = handle->h_transaction->t_tid;
+	if (!is_handle_aborted(handle)) {
+		oi->i_sync_tid = handle->h_transaction->t_tid;
+		if (datasync)
+			oi->i_datasync_tid = handle->h_transaction->t_tid;
+	}
 }
 
 #endif /* OCFS2_JOURNAL_H */

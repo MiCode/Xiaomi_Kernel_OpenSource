@@ -2,6 +2,7 @@
  * efi.c - EFI subsystem
  *
  * Copyright (C) 2001,2003,2004 Dell <Matt_Domsch@dell.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004 Intel Corporation <matthew.e.tolentino@intel.com>
  * Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
  *
@@ -550,7 +551,7 @@ int __init efi_config_parse_tables(void *config_tables, int count, int sz,
 		}
 	}
 
-	if (efi_enabled(EFI_MEMMAP))
+	if (!IS_ENABLED(CONFIG_X86_32) && efi_enabled(EFI_MEMMAP))
 		efi_memattr_init();
 
 	/* Parse the EFI Properties table if it exists */

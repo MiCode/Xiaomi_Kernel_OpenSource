@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2017, Linaro Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -166,6 +167,7 @@ struct qmi_ops {
  * struct qmi_txn - transaction context
  * @qmi:	QMI handle this transaction is associated with
  * @id:		transaction id
+ * @lock:	for synchronization between handler and waiter of messages
  * @completion:	completion object as the transaction receives a response
  * @result:	result code for the completed transaction
  * @ei:		description of the QMI encoded response (optional)
@@ -176,6 +178,7 @@ struct qmi_txn {
 
 	u16 id;
 
+	struct mutex lock;
 	struct completion completion;
 	int result;
 

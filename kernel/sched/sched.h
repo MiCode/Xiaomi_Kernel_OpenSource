@@ -159,7 +159,13 @@ static inline void cpu_load_update_active(struct rq *this_rq) { }
 #ifdef CONFIG_64BIT
 # define NICE_0_LOAD_SHIFT	(SCHED_FIXEDPOINT_SHIFT + SCHED_FIXEDPOINT_SHIFT)
 # define scale_load(w)		((w) << SCHED_FIXEDPOINT_SHIFT)
-# define scale_load_down(w)	((w) >> SCHED_FIXEDPOINT_SHIFT)
+# define scale_load_down(w) \
+({ \
+	unsigned long __w = (w); \
+	if (__w) \
+		__w = max(2UL, __w >> SCHED_FIXEDPOINT_SHIFT); \
+	__w; \
+})
 #else
 # define NICE_0_LOAD_SHIFT	(SCHED_FIXEDPOINT_SHIFT)
 # define scale_load(w)		(w)
@@ -2867,15 +2873,14 @@ extern void clear_top_tasks_bitmap(unsigned long *bitmap);
 #if defined(CONFIG_SCHED_TUNE)
 extern bool task_sched_boost(struct task_struct *p);
 extern int sync_cgroup_colocation(struct task_struct *p, bool insert);
-extern bool same_schedtune(struct task_struct *tsk1, struct task_struct *tsk2);
+extern bool schedtune_task_colocated(struct task_struct *p);
 extern void update_cgroup_boost_settings(void);
 extern void restore_cgroup_boost_settings(void);
 
 #else
-static inline bool
-same_schedtune(struct task_struct *tsk1, struct task_struct *tsk2)
+static inline bool schedtune_task_colocated(struct task_struct *p)
 {
-	return true;
+	return false;
 }
 
 static inline bool task_sched_boost(struct task_struct *p)

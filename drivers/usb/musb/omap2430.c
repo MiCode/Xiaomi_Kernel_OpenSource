@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005-2007 by Texas Instruments
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Some code has been taken from tusb6010.c
  * Copyrights for that are attributable to:
  * Copyright (C) 2006 Nokia Corporation
@@ -387,8 +388,6 @@ static const struct musb_platform_ops omap2430_ops = {
 #endif
 	.init		= omap2430_musb_init,
 	.exit		= omap2430_musb_exit,
-
-	.set_vbus	= omap2430_musb_set_vbus,
 
 	.enable		= omap2430_musb_enable,
 	.disable	= omap2430_musb_disable,

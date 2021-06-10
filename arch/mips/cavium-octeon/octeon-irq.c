@@ -4,6 +4,7 @@
  * for more details.
  *
  * Copyright (C) 2004-2016 Cavium, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/of_address.h>
@@ -2199,6 +2200,9 @@ static int octeon_irq_cib_map(struct irq_domain *d,
 	}
 
 	cd = kzalloc(sizeof(*cd), GFP_KERNEL);
+	if (!cd)
+		return -ENOMEM;
+
 	cd->host_data = host_data;
 	cd->bit = hw;
 

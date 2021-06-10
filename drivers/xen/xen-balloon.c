@@ -2,6 +2,7 @@
  * Xen balloon driver - enables returning/claiming memory to/from Xen.
  *
  * Copyright (c) 2003, B Dragovic
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2003-2004, M Williamson, K Fraser
  * Copyright (c) 2005 Dan M. Smith, IBM Corporation
  *
@@ -82,7 +83,7 @@ static void watch_target(struct xenbus_watch *watch,
 				  "%llu", &static_max) == 1))
 			static_max >>= PAGE_SHIFT - 10;
 		else
-			static_max = new_target;
+			static_max = balloon_stats.current_pages;
 
 		target_diff = (xen_pv_domain() || xen_initial_domain()) ? 0
 				: static_max - balloon_stats.target_pages;

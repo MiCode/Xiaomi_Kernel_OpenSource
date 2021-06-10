@@ -439,17 +439,6 @@ config MMC_SDHCI_MSM
 
 	  If unsure, say N.
 
-config MMC_SDHCI_MSM_ICE
-	bool "Qualcomm Technologies, Inc Inline Crypto Engine for SDHCI core"
-	depends on MMC_SDHCI_MSM && CRYPTO_DEV_QCOM_ICE
-	help
-	  This selects the QTI specific additions to support Inline Crypto
-	  Engine (ICE). ICE accelerates the crypto operations and maintains
-	  the high SDHCI performance.
-
-	  Select this if you have ICE supported for SDHCI on QTI chipset.
-	  If unsure, say N.
-
 config MMC_MXC
 	tristate "Freescale i.MX21/27/31 or MPC512x Multimedia Card support"
 	depends on ARCH_MXC || PPC_MPC512x
@@ -924,3 +913,20 @@ config MMC_SDHCI_XENON
 	  This selects Marvell Xenon eMMC/SD/SDIO SDHCI.
 	  If you have a controller with this interface, say Y or M here.
 	  If unsure, say N.
+
+config MMC_CQ_HCI_CRYPTO
+	bool "CQHCI Crypto Engine Support"
+	depends on MMC_CQ_HCI && BLK_INLINE_ENCRYPTION
+	help
+	  Enable Crypto Engine Support in CQHCI.
+	  Enabling this makes it possible for the kernel to use the crypto
+	  capabilities of the CQHCI device (if present) to perform crypto
+	  operations on data being transferred to/from the device.
+
+config MMC_CQ_HCI_CRYPTO_QTI
+	bool "Vendor specific CQHCI Crypto Engine Support"
+	depends on MMC_CQ_HCI_CRYPTO
+	help
+	 Enable Vendor Crypto Engine Support in CQHCI
+	 Enabling this allows kernel to use CQHCI crypto operations defined
+	 and implemented by QTI.

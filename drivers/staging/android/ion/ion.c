@@ -3,6 +3,7 @@
  * drivers/staging/android/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1133,7 +1134,8 @@ struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
 		    heap->type == ION_HEAP_TYPE_CARVEOUT ||
 		    heap->type == (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA ||
 		    heap->type ==
-			(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE) {
+			(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE ||
+		    heap->type == (enum ion_heap_type)ION_HEAP_TYPE_DMA) {
 			type_valid = true;
 		} else {
 			pr_warn("%s: heap type not supported, type:%d\n",

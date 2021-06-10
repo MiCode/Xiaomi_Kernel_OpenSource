@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Oracle.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -288,7 +289,8 @@ found:
 		csum += count * csum_size;
 		nblocks -= count;
 next:
-		while (count--) {
+		while (count > 0) {
+			count--;
 			disk_bytenr += fs_info->sectorsize;
 			offset += fs_info->sectorsize;
 			page_bytes_left -= fs_info->sectorsize;
@@ -955,7 +957,7 @@ void btrfs_extent_item_to_extent_map(struct btrfs_inode *inode,
 			btrfs_file_extent_num_bytes(leaf, fi);
 	} else if (type == BTRFS_FILE_EXTENT_INLINE) {
 		size_t size;
-		size = btrfs_file_extent_inline_len(leaf, slot, fi);
+		size = btrfs_file_extent_ram_bytes(leaf, fi);
 		extent_end = ALIGN(extent_start + size,
 				   fs_info->sectorsize);
 	}

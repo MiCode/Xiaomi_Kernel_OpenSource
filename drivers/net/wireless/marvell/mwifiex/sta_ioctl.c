@@ -2,6 +2,7 @@
  * Marvell Wireless LAN device driver: functions for station ioctl
  *
  * Copyright (C) 2011-2014, Marvell International Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -274,6 +275,7 @@ static int mwifiex_process_country_ie(struct mwifiex_private *priv,
 
 	if (country_ie_len >
 	    (IEEE80211_COUNTRY_STRING_LEN + MWIFIEX_MAX_TRIPLET_802_11D)) {
+		rcu_read_unlock();
 		mwifiex_dbg(priv->adapter, ERROR,
 			    "11D: country_ie_len overflow!, deauth AP\n");
 		return -EINVAL;

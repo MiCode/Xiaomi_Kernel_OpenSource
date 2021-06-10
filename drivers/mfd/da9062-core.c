@@ -1,6 +1,7 @@
 /*
  * Core, IRQ and I2C device driver for DA9061 and DA9062 PMICs
  * Copyright (C) 2015-2017  Dialog Semiconductor
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -257,7 +258,7 @@ static const struct mfd_cell da9062_devs[] = {
 		.name		= "da9062-watchdog",
 		.num_resources	= ARRAY_SIZE(da9062_wdt_resources),
 		.resources	= da9062_wdt_resources,
-		.of_compatible  = "dlg,da9062-wdt",
+		.of_compatible  = "dlg,da9062-watchdog",
 	},
 	{
 		.name		= "da9062-thermal",

@@ -1,6 +1,7 @@
 /*
  *
  * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Andrey Ryabinin <a.ryabinin@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -157,6 +158,7 @@ static noinline void __init kmalloc_oob_krealloc_more(void)
 	if (!ptr1 || !ptr2) {
 		pr_err("Allocation failed\n");
 		kfree(ptr1);
+		kfree(ptr2);
 		return;
 	}
 

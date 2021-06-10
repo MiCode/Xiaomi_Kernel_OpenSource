@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,8 +35,15 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <asm/dma.h>
+#include <linux/dma-mapping.h>
+
+#include "peripheral-loader.h"
+#include "../../misc/qseecom_kernel.h"
+#include "pil_bg_intf.h"
 
 #define BGCOM "bg_com_dev"
+#define SECURE_APP	"bgapp"
 
 #define BGDAEMON_LDO09_LPM_VTG 0
 #define BGDAEMON_LDO09_NPM_VTG 10000
@@ -73,6 +81,11 @@ struct bgdaemon_priv {
 	struct workqueue_struct *bgdaemon_wq;
 	struct work_struct bgdaemon_load_twm_bg_work;
 	bool bg_twm_wear_load;
+	struct qseecom_handle *qseecom_handle;
+	int app_status;
+	unsigned long attrs;
+	u32 cmd_status;
+	struct device *platform_dev;
 };
 
 struct bg_event {
@@ -130,13 +143,12 @@ static void bgcom_load_twm_bg_work(struct work_struct *work)
 		pr_err("bg-wear is already loaded\n");
 		subsystem_put(dev->pil_h);
 		dev->pil_h = NULL;
-		bg_soft_reset();
 	} else {
 		dev->bg_twm_wear_load = true;
 		dev->pil_h = subsystem_get_with_fwname("bg-wear",
-							"bg-twm-wear");
+							"bg-twm");
 		if (!dev->pil_h)
-			pr_err("failed to load bg-twm-wear\n");
+			pr_err("failed to load bg-twm\n");
 	}
 }
 
@@ -365,6 +377,181 @@ static int adsp_down2_bg(void)
 	return 0;
 }
 
+/**
+ * load_bg_tzapp() - Called to load TZ app.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+static int load_bg_tzapp(void)
+{
+	int rc;
+
+	/* return success if already loaded */
+	if (dev->qseecom_handle && !dev->app_status)
+		return 0;
+	/* Load the APP */
+	rc = qseecom_start_app(&dev->qseecom_handle, SECURE_APP, SZ_4K);
+	if (rc < 0) {
+		pr_err("BG TZ app load failure\n");
+		dev->app_status = RESULT_FAILURE;
+		return -EIO;
+	}
+	dev->app_status = RESULT_SUCCESS;
+	return 0;
+}
+
+/**
+ * get_cmd_rsp_buffers() - Function sets cmd & rsp buffer pointers and
+ *                         aligns buffer lengths
+ * @hdl:	index of qseecom_handle
+ * @cmd:	req buffer - set to qseecom_handle.sbuf
+ * @cmd_len:	ptr to req buffer len
+ * @rsp:	rsp buffer - set to qseecom_handle.sbuf + offset
+ * @rsp_len:	ptr to rsp buffer len
+ *
+ * Return: Success always .
+ */
+static int get_cmd_rsp_buffers(struct qseecom_handle *handle, void **cmd,
+			uint32_t *cmd_len, void **rsp, uint32_t *rsp_len)
+{
+	*cmd = handle->sbuf;
+	if (*cmd_len & QSEECOM_ALIGN_MASK)
+		*cmd_len = QSEECOM_ALIGN(*cmd_len);
+
+	*rsp = handle->sbuf + *cmd_len;
+	if (*rsp_len & QSEECOM_ALIGN_MASK)
+		*rsp_len = QSEECOM_ALIGN(*rsp_len);
+
+	return 0;
+}
+
+/**
+ * tzapp_comm() - Function called to communicate with TZ APP.
+ * @req:	struct containing command and parameters.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+static long tzapp_comm(struct tzapp_bg_req *req)
+{
+	struct tzapp_bg_req *bg_tz_req;
+	struct tzapp_bg_rsp *bg_tz_rsp;
+	int rc, req_len, rsp_len;
+
+	/* Fill command structure */
+	req_len = sizeof(struct tzapp_bg_req);
+	rsp_len = sizeof(struct tzapp_bg_rsp);
+	rc = get_cmd_rsp_buffers(dev->qseecom_handle,
+		(void **)&bg_tz_req, &req_len,
+		(void **)&bg_tz_rsp, &rsp_len);
+	if (rc)
+		goto end;
+
+	bg_tz_req->tzapp_bg_cmd = req->tzapp_bg_cmd;
+	bg_tz_req->address_fw = req->address_fw;
+	bg_tz_req->size_fw = req->size_fw;
+	rc = qseecom_send_command(dev->qseecom_handle,
+		(void *)bg_tz_req, req_len, (void *)bg_tz_rsp, rsp_len);
+	pr_debug("BGAPP  qseecom returned with value 0x%x and status 0x%x\n",
+		rc, bg_tz_rsp->status);
+	if (rc || bg_tz_rsp->status)
+		dev->cmd_status = bg_tz_rsp->status;
+	else
+		dev->cmd_status = 0;
+
+end:
+	return rc;
+}
+
+/**
+ * tzapp_twm_data() - Called to read user data saved by BG in TWM
+ * Allocate region from dynamic memory and pass this region to
+ * tz to dump data content from BG.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+static int tzapp_twm_data(uint32_t num_words, void *read_buf)
+{
+	struct tzapp_bg_req bg_tz_req;
+	phys_addr_t start_addr;
+	void *region;
+	void *buf;
+	int ret = 0;
+	struct device dma_dev = {0};
+	size_t data_len = num_words * 4;
+
+	arch_setup_dma_ops(&dma_dev, 0, 0, NULL, 0);
+
+	dev->attrs = 0;
+	dev->attrs |= DMA_ATTR_SKIP_ZEROING;
+	dev->attrs |= DMA_ATTR_STRONGLY_ORDERED;
+
+	region = dma_alloc_attrs(dev->platform_dev, data_len,
+				&start_addr, GFP_KERNEL, dev->attrs);
+
+	if (region == NULL) {
+		pr_debug(
+			"Failure to allocate twm data region of len %zx\n",
+			data_len);
+		return -ENOMEM;
+	}
+
+	bg_tz_req.tzapp_bg_cmd = BGPIL_TWM_DATA;
+	bg_tz_req.address_fw = start_addr;
+	bg_tz_req.size_fw = data_len;
+
+	ret = tzapp_comm(&bg_tz_req);
+	if (ret || dev->cmd_status) {
+		pr_debug("%s: BG twm data collection failed\n",
+			__func__);
+		dev->cmd_status;
+		goto error;
+	}
+
+	buf = dma_remap(dev->platform_dev, region, start_addr,
+				data_len, dev->attrs);
+	if (!buf) {
+		pr_debug("%s: Remap failed\n", __func__);
+		ret = -EFAULT;
+		goto error;
+	}
+
+	memcpy(read_buf, buf, data_len);
+	ret = 0;
+
+error:
+	dma_free_attrs(dev->platform_dev, data_len, region,
+		       start_addr, dev->attrs);
+	return ret;
+}
+
+/**
+ * twm_data_read() - Called to read user data saved by BG in TWM
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+static int twm_data_read(struct bg_ui_data *fui_obj_msg)
+{
+	void *read_buf;
+	int ret;
+	void __user *result = (void *)
+			(uintptr_t)fui_obj_msg->buffer;
+
+	read_buf = kmalloc_array(fui_obj_msg->num_of_words, sizeof(uint32_t),
+			GFP_KERNEL);
+	if (read_buf == NULL)
+		return -ENOMEM;
+
+	ret = tzapp_twm_data(fui_obj_msg->num_of_words, read_buf);
+
+	if (!ret && copy_to_user(result, read_buf,
+			fui_obj_msg->num_of_words * sizeof(uint32_t))) {
+		pr_err("copy to user failed\n");
+		ret = -EFAULT;
+	}
+	kfree(read_buf);
+	return ret;
+}
+
 static long bg_com_ioctl(struct file *filp,
 		unsigned int ui_bgcom_cmd, unsigned long arg)
 {
@@ -444,6 +631,21 @@ static long bg_com_ioctl(struct file *filp,
 		}
 		ret = 0;
 		break;
+	case BG_TWM_DATA:
+		ret = load_bg_tzapp();
+		if (ret) {
+			pr_err("%s: BG TZ app load failure\n", __func__);
+		} else {
+			pr_debug("bgapp loaded\n");
+			if (copy_from_user(&ui_obj_msg, (void __user *) arg,
+				sizeof(ui_obj_msg))) {
+				pr_err("The copy from user failed\n");
+				ret = -EFAULT;
+			}
+			ret = twm_data_read(&ui_obj_msg);
+			qseecom_shutdown_app(&dev->qseecom_handle);
+		}
+		break;
 	default:
 		ret = -ENOIOCTLCMD;
 		break;
@@ -506,6 +708,7 @@ static int bg_daemon_probe(struct platform_device *pdev)
 		bgdaemon_configure_regulators(false);
 		goto err_ret;
 	}
+	dev->platform_dev = &pdev->dev;
 	pr_info("%s success", __func__);
 
 err_device:
@@ -617,7 +820,9 @@ static int ssr_bg_cb(struct notifier_block *this,
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
 		if (dev->pending_bg_twm_wear_load) {
-			/* Load bg-twm-wear */
+			bg_soft_reset();
+			bgcom_bgdown_handler();
+			/* Load bg-twm */
 			dev->pending_bg_twm_wear_load = false;
 			queue_work(dev->bgdaemon_wq,
 				&dev->bgdaemon_load_twm_bg_work);

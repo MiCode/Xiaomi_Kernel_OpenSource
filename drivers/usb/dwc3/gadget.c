@@ -2,6 +2,7 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -235,6 +236,10 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 			&& dwc3_is_usb31(dwc))
 		mult = 6;
 
+	if ((dep->endpoint.maxburst > 6) &&
+			usb_endpoint_xfer_isoc(dep->endpoint.desc))
+		mult = 6;
+
 	tmp = ((max_packet + mdwidth) * mult) + mdwidth;
 	fifo_size = DIV_ROUND_UP(tmp, mdwidth);
 	dep->fifo_depth = fifo_size;
@@ -320,6 +325,17 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	struct dwc3			*dwc = dep->dwc;
 
 	dwc3_gadget_del_and_unmap_request(dep, req, status);
+
+	if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
+		if (list_empty(&dep->started_list)) {
+			dep->flags |= DWC3_EP_PENDING_REQUEST;
+			dbg_event(dep->number, "STARTEDLISTEMPTY", 0);
+		}
+
+		dbg_log_string("%s(%d): Give back req %pK len(%d) actual(%d))",
+			dep->name, dep->number, &req->request,
+			req->request.length, req->request.actual);
+	}
 
 	spin_unlock(&dwc->lock);
 	usb_gadget_giveback_request(&dep->endpoint, &req->request);
@@ -1011,6 +1027,8 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = __dwc3_gadget_ep_disable(dep);
 	dbg_event(dep->number, "DISABLE", ret);
+	dbg_event(dep->number, "DISABLEFAILPKT", dep->failedpkt_counter);
+	dep->failedpkt_counter = 0;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return ret;
@@ -1289,6 +1307,7 @@ static void dwc3_prepare_one_trb_linear(struct dwc3_ep *dep,
 	unsigned int length = req->request.length;
 	unsigned int maxp = usb_endpoint_maxp(dep->endpoint.desc);
 	unsigned int rem = length % maxp;
+	struct dwc3	*dwc = dep->dwc;
 
 	if ((!length || rem) && usb_endpoint_dir_out(dep->endpoint.desc)) {
 		struct dwc3	*dwc = dep->dwc;
@@ -1324,6 +1343,11 @@ static void dwc3_prepare_one_trb_linear(struct dwc3_ep *dep,
 	} else {
 		dwc3_prepare_one_trb(dep, req, false, 0);
 	}
+
+	if (usb_endpoint_xfer_isoc(dep->endpoint.desc))
+		dbg_log_string("%s(%d): req queue %pK len(%d))",
+			dep->name, dep->number,
+			&req->request, req->request.length);
 }
 
 /*
@@ -1495,7 +1519,7 @@ static void __dwc3_gadget_start_isoc(struct dwc3 *dwc, struct dwc3_ep *dep)
 	if (__dwc3_gadget_get_frame(dwc) < uf)
 		wraparound_bits += BIT(14);
 
-	uf = __dwc3_gadget_get_frame(dwc) + 2 * dep->interval;
+	uf = __dwc3_gadget_get_frame(dwc) + max_t(u32, 16, 2 * dep->interval);
 
 	/* align uf to ep interval */
 	uf = (wraparound_bits | uf) & ~(dep->interval - 1);
@@ -1939,8 +1963,10 @@ static int dwc3_gadget_wakeup_int(struct dwc3 *dwc)
 	link_state = dwc3_get_link_state(dwc);
 
 	switch (link_state) {
+	case DWC3_LINK_STATE_RESET:
 	case DWC3_LINK_STATE_RX_DET:	/* in HS, means Early Suspend */
 	case DWC3_LINK_STATE_U3:	/* in HS, means SUSPEND */
+	case DWC3_LINK_STATE_RESUME:
 		break;
 	case DWC3_LINK_STATE_U1:
 		if (dwc->gadget.speed < USB_SPEED_SUPER) {
@@ -2842,6 +2868,8 @@ static int __dwc3_cleanup_done_trbs(struct dwc3 *dwc, struct dwc3_ep *dep,
 				 * request in the pending_list.
 				 */
 				dep->flags |= DWC3_EP_MISSED_ISOC;
+				dep->failedpkt_counter++;
+				dbg_event(dep->number, "MISSEDFRAME", 0);
 			} else {
 				dev_err(dwc->dev, "incomplete IN transfer %s\n",
 						dep->name);

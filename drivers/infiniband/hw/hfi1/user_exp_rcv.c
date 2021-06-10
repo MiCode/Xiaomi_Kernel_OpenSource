@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2015-2017 Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  * redistributing this file, you may do so under either license.
@@ -89,9 +90,6 @@ int hfi1_user_exp_rcv_init(struct hfi1_filedata *fd,
 {
 	struct hfi1_devdata *dd = uctxt->dd;
 	int ret = 0;
-
-	spin_lock_init(&fd->tid_lock);
-	spin_lock_init(&fd->invalid_lock);
 
 	fd->entry_to_rb = kcalloc(uctxt->expected_count,
 				  sizeof(struct rb_node *),

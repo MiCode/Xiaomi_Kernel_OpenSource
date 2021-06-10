@@ -1,4 +1,5 @@
 /* Copyright (C) 2013-2017  B.A.T.M.A.N. contributors:
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Martin Hundebøll <martin@hundeboll.net>
  *
@@ -500,6 +501,8 @@ int batadv_frag_send_packet(struct sk_buff *skb,
 	 */
 	if (skb->priority >= 256 && skb->priority <= 263)
 		frag_header.priority = skb->priority - 256;
+	else
+		frag_header.priority = 0;
 
 	ether_addr_copy(frag_header.orig, primary_if->net_dev->dev_addr);
 	ether_addr_copy(frag_header.dest, orig_node->orig);

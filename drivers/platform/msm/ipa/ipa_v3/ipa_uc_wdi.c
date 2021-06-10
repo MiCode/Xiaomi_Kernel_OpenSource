@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -638,6 +639,17 @@ static int ipa_create_ap_smmu_mapping_sgt(struct sg_table *sgt,
 	if (len > PAGE_SIZE) {
 		va = roundup(cb->next_addr,
 				roundup_pow_of_two(len));
+		start_iova = va;
+	}
+
+	/*
+	 * In IPA4.5, GSI HW has such requirement:
+	 * Lower 16_bits of Ring base + ring length can’t exceed 16 bits
+	 */
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5 &&
+		((u32)(va & IPA_LOW_16_BIT_MASK) + len) >=
+		IPA4_5_GSI_RING_SIZE_ALIGN) {
+		va = roundup(cb->next_addr, IPA4_5_GSI_RING_SIZE_ALIGN);
 		start_iova = va;
 	}
 

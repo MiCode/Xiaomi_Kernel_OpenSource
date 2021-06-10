@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2005 Voltaire Inc.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2002-2005, Network Appliance, Inc. All rights reserved.
  * Copyright (c) 1999-2005, Mellanox Technologies, Inc. All rights reserved.
  * Copyright (c) 2005 Intel Corporation.  All rights reserved.
@@ -140,7 +141,7 @@ int ib_nl_handle_ip_res_resp(struct sk_buff *skb,
 	if (ib_nl_is_good_ip_resp(nlh))
 		ib_nl_process_good_ip_rsep(nlh);
 
-	return skb->len;
+	return 0;
 }
 
 static int ib_nl_ip_send_msg(struct rdma_dev_addr *dev_addr,

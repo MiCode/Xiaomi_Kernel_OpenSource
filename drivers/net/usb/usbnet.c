@@ -1,6 +1,7 @@
 /*
  * USB Network driver infrastructure
  * Copyright (C) 2000-2005 by David Brownell
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2003-2005 David Hollis <dhollis@davehollis.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1442,7 +1443,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 	struct skb_data		*entry;
 	struct driver_info	*info = dev->driver_info;
 	unsigned long		flags;
-	int retval;
+	int retval = 0;
 	struct timespec64 now;
 
 	if (skb)

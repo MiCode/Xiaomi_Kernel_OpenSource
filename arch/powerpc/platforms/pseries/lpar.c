@@ -1,6 +1,7 @@
 /*
  * pSeries_lpar.c
  * Copyright (C) 2001 Todd Inglett, IBM Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * pSeries LPAR support.
  * 
@@ -1060,7 +1061,7 @@ static int __init vpa_debugfs_init(void)
 {
 	char name[16];
 	long i;
-	static struct dentry *vpa_dir;
+	struct dentry *vpa_dir;
 
 	if (!firmware_has_feature(FW_FEATURE_SPLPAR))
 		return 0;

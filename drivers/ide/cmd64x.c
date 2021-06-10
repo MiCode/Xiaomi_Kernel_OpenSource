@@ -4,6 +4,7 @@
  *           on the 646U2 and not on the 646U.
  *
  * Copyright (C) 1998		Eddie C. Dost  (ecd@skynet.be)
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 1998		David S. Miller (davem@redhat.com)
  *
  * Copyright (C) 1999-2002	Andre Hedrick <andre@linux-ide.org>
@@ -64,6 +65,9 @@ static void cmd64x_program_timings(ide_drive_t *drive, u8 mode)
 	static const u8 drwtim_regs[4] = {DRWTIM0, DRWTIM1, DRWTIM2, DRWTIM3};
 	struct ide_timing t;
 	u8 arttim = 0;
+
+	if (drive->dn >= ARRAY_SIZE(drwtim_regs))
+		return;
 
 	ide_timing_compute(drive, mode, &t, T, 0);
 

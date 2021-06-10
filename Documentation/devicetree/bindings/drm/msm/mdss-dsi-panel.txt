@@ -265,6 +265,8 @@ Optional properties:
 					0x00 = default value.
 - qcom,mdss-dsi-t-clk-pre:		Specifies the byte clock cycles before mode switch.
 					0x00 = default value.
+- qcom,mdss-dsi-t-clk-pre-extend:	Boolean that specifies whether to enable t_clk_pre counter
+					increment by 2 byteclk.
 - qcom,mdss-dsi-stream:			Specifies the packet stream to be used.
 					0 = stream 0 (default)
 					1 = stream 1
@@ -660,6 +662,7 @@ Example:
 		qcom,lanes-per-sublink = <2>;
 		qcom,mdss-dsi-t-clk-post = <0x20>;
 		qcom,mdss-dsi-t-clk-pre = <0x2c>;
+		qcom,mdss-dsi-t-clk-pre-extend;
 		qcom,mdss-dsi-stream = <0>;
 		qcom,mdss-dsi-mdp-trigger = <0>;
 		qcom,mdss-dsi-dma-trigger = <0>;

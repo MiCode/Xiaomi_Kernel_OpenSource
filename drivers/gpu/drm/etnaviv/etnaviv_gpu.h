@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Etnaviv Project
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -138,6 +139,7 @@ struct etnaviv_gpu {
 
 	struct etnaviv_iommu *mmu;
 	struct etnaviv_cmdbuf_suballoc *cmdbuf_suballoc;
+	unsigned int flush_seq;
 
 	/* Power Control: */
 	struct clk *clk_bus;

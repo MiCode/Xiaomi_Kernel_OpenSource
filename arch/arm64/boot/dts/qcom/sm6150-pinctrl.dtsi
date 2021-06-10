@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1141,6 +1142,35 @@
 					pins = "gpio122";
 					drive-strength = <2>; /* 2 mA */
 					bias-pull-down; /* pull down */
+					input-enable;
+				};
+			};
+		};
+
+
+		gpio_jack_det_line_in {
+			jack_det_linein_default: jack_det_linein_default {
+				mux {
+					pins = "gpio1";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio1";
+					bias-pull-up; /* pull up */
+					input-enable;
+				};
+			};
+		};
+
+		gpio_jack_det_line_out {
+			jack_det_lineout_default: jack_det_lineout_default {
+				mux {
+					pins = "gpio60";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio60";
+					bias-pull-up; /* pull up */
 					input-enable;
 				};
 			};

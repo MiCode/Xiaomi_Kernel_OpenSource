@@ -1,6 +1,7 @@
 /*
  * Sony NFC Port-100 Series driver
  * Copyright (c) 2013, Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Partly based/Inspired by Stephen Tiedemann's nfcpy
  *
@@ -574,7 +575,7 @@ static void port100_tx_update_payload_len(void *_frame, int len)
 {
 	struct port100_frame *frame = _frame;
 
-	frame->datalen = cpu_to_le16(le16_to_cpu(frame->datalen) + len);
+	le16_add_cpu(&frame->datalen, len);
 }
 
 static bool port100_rx_frame_is_valid(void *_frame)

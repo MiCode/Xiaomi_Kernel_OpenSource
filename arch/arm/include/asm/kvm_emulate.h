@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 - Virtual Open Systems and Columbia University
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Christoffer Dall <c.dall@virtualopensystems.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -142,6 +143,11 @@ static inline bool kvm_vcpu_dabt_iswrite(struct kvm_vcpu *vcpu)
 static inline bool kvm_vcpu_dabt_issext(struct kvm_vcpu *vcpu)
 {
 	return kvm_vcpu_get_hsr(vcpu) & HSR_SSE;
+}
+
+static inline bool kvm_vcpu_dabt_issf(const struct kvm_vcpu *vcpu)
+{
+	return false;
 }
 
 static inline int kvm_vcpu_dabt_get_rd(struct kvm_vcpu *vcpu)

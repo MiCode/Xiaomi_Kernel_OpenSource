@@ -3,6 +3,7 @@
  * Filesystem-level keyring for fscrypt
  *
  * Copyright 2019 Google LLC
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*
@@ -44,8 +45,9 @@ static void free_master_key(struct fscrypt_master_key *mk)
 	wipe_master_key_secret(&mk->mk_secret);
 
 	for (i = 0; i <= __FSCRYPT_MODE_MAX; i++) {
-		crypto_free_skcipher(mk->mk_direct_tfms[i]);
-		crypto_free_skcipher(mk->mk_iv_ino_lblk_64_tfms[i]);
+		fscrypt_destroy_prepared_key(&mk->mk_direct_keys[i]);
+		fscrypt_destroy_prepared_key(&mk->mk_iv_ino_lblk_64_keys[i]);
+		fscrypt_destroy_prepared_key(&mk->mk_iv_ino_lblk_32_keys[i]);
 	}
 
 	key_put(mk->mk_users);
@@ -469,8 +471,10 @@ static int fscrypt_provisioning_key_preparse(struct key_preparsed_payload *prep)
 {
 	const struct fscrypt_provisioning_key_payload *payload = prep->data;
 
+	BUILD_BUG_ON(FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE < FSCRYPT_MAX_KEY_SIZE);
+
 	if (prep->datalen < sizeof(*payload) + FSCRYPT_MIN_KEY_SIZE ||
-	    prep->datalen > sizeof(*payload) + FSCRYPT_MAX_KEY_SIZE)
+	    prep->datalen > sizeof(*payload) + FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE)
 		return -EINVAL;
 
 	if (payload->type != FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR &&
@@ -568,6 +572,9 @@ out_put:
 	return err;
 }
 
+/* Size of software "secret" derived from hardware-wrapped key */
+#define RAW_SECRET_SIZE 32
+
 /*
  * Add a master encryption key to the filesystem, causing all files which were
  * encrypted with it to appear "unlocked" (decrypted) when accessed.
@@ -598,6 +605,9 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 	struct fscrypt_add_key_arg __user *uarg = _uarg;
 	struct fscrypt_add_key_arg arg;
 	struct fscrypt_master_key_secret secret;
+	u8 _kdf_key[RAW_SECRET_SIZE];
+	u8 *kdf_key;
+	unsigned int kdf_key_size;
 	int err;
 
 	if (copy_from_user(&arg, uarg, sizeof(arg)))
@@ -610,23 +620,26 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 		return -EINVAL;
 
 	memset(&secret, 0, sizeof(secret));
-
 	if (arg.key_id) {
 		if (arg.raw_size != 0)
 			return -EINVAL;
 		err = get_keyring_key(arg.key_id, arg.key_spec.type, &secret);
 		if (err)
 			goto out_wipe_secret;
+		err = -EINVAL;
+		if (!(arg.__flags & __FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED) &&
+		    secret.size > FSCRYPT_MAX_KEY_SIZE)
+			goto out_wipe_secret;
 	} else {
 		if (arg.raw_size < FSCRYPT_MIN_KEY_SIZE ||
-		    arg.raw_size > FSCRYPT_MAX_KEY_SIZE)
+		    arg.raw_size >
+		    ((arg.__flags & __FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED) ?
+		     FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE : FSCRYPT_MAX_KEY_SIZE))
 			return -EINVAL;
-
 		secret.size = arg.raw_size;
 		err = -EFAULT;
-		if (copy_from_user(secret.raw, uarg->raw, secret.size)) {
+		if (copy_from_user(secret.raw, uarg->raw, secret.size))
 			goto out_wipe_secret;
-		}
 	}
 
 	switch (arg.key_spec.type) {
@@ -639,17 +652,36 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 		err = -EACCES;
 		if (!capable(CAP_SYS_ADMIN))
 			goto out_wipe_secret;
+
+		err = -EINVAL;
+		if (arg.__flags & ~__FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
+			goto out_wipe_secret;
 		break;
 	case FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER:
-		err = fscrypt_init_hkdf(&secret.hkdf, secret.raw, secret.size);
+		err = -EINVAL;
+		if (arg.__flags & ~__FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
+			goto out_wipe_secret;
+		if (arg.__flags & __FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED) {
+			kdf_key = _kdf_key;
+			kdf_key_size = RAW_SECRET_SIZE;
+			err = fscrypt_derive_raw_secret(sb, secret.raw,
+							secret.size,
+							kdf_key, kdf_key_size);
+			if (err)
+				goto out_wipe_secret;
+			secret.is_hw_wrapped = true;
+		} else {
+			kdf_key = secret.raw;
+			kdf_key_size = secret.size;
+		}
+		err = fscrypt_init_hkdf(&secret.hkdf, kdf_key, kdf_key_size);
+		/*
+		 * Now that the HKDF context is initialized, the raw HKDF
+		 * key is no longer needed.
+		 */
+		memzero_explicit(kdf_key, kdf_key_size);
 		if (err)
 			goto out_wipe_secret;
-
-		/*
-		 * Now that the HKDF context is initialized, the raw key is no
-		 * longer needed.
-		 */
-		memzero_explicit(secret.raw, secret.size);
 
 		/* Calculate the key identifier and return it to userspace. */
 		err = fscrypt_hkdf_expand(&secret.hkdf,
@@ -779,9 +811,6 @@ static int check_for_busy_inodes(struct super_block *sb,
 	struct list_head *pos;
 	size_t busy_count = 0;
 	unsigned long ino;
-	struct dentry *dentry;
-	char _path[256];
-	char *path = NULL;
 
 	spin_lock(&mk->mk_decrypted_inodes_lock);
 
@@ -800,22 +829,14 @@ static int check_for_busy_inodes(struct super_block *sb,
 					 struct fscrypt_info,
 					 ci_master_key_link)->ci_inode;
 		ino = inode->i_ino;
-		dentry = d_find_alias(inode);
 	}
 	spin_unlock(&mk->mk_decrypted_inodes_lock);
 
-	if (dentry) {
-		path = dentry_path(dentry, _path, sizeof(_path));
-		dput(dentry);
-	}
-	if (IS_ERR_OR_NULL(path))
-		path = "(unknown)";
-
 	fscrypt_warn(NULL,
-		     "%s: %zu inode(s) still busy after removing key with %s %*phN, including ino %lu (%s)",
+		     "%s: %zu inode(s) still busy after removing key with %s %*phN, including ino %lu",
 		     sb->s_id, busy_count, master_key_spec_type(&mk->mk_spec),
 		     master_key_spec_len(&mk->mk_spec), (u8 *)&mk->mk_spec.u,
-		     ino, path);
+		     ino);
 	return -EBUSY;
 }
 

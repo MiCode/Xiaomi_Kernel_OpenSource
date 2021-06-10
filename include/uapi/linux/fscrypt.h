@@ -8,6 +8,7 @@
 #ifndef _UAPI_LINUX_FSCRYPT_H
 #define _UAPI_LINUX_FSCRYPT_H
 
+#include <linux/ioctl.h>
 #include <linux/types.h>
 
 /* Encryption policy flags */
@@ -18,7 +19,8 @@
 #define FSCRYPT_POLICY_FLAGS_PAD_MASK		0x03
 #define FSCRYPT_POLICY_FLAG_DIRECT_KEY		0x04
 #define FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64	0x08
-#define FSCRYPT_POLICY_FLAGS_VALID		0x0F
+#define FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32	0x10
+#define FSCRYPT_POLICY_FLAGS_VALID		0x1F
 
 /* Encryption algorithms */
 #define FSCRYPT_MODE_AES_256_XTS		1
@@ -26,9 +28,8 @@
 #define FSCRYPT_MODE_AES_128_CBC		5
 #define FSCRYPT_MODE_AES_128_CTS		6
 #define FSCRYPT_MODE_ADIANTUM			9
-#define __FSCRYPT_MODE_MAX			9
 #define FSCRYPT_MODE_PRIVATE			127
-
+#define __FSCRYPT_MODE_MAX			127
 /*
  * Legacy policy version; ad-hoc KDF and no key verification.
  * For new encrypted directories, use fscrypt_policy_v2 instead.
@@ -126,6 +127,8 @@ struct fscrypt_add_key_arg {
 	__u32 raw_size;
 	__u32 key_id;
 	__u32 __reserved[7];
+	/* N.B.: "temporary" flag, not reserved upstream */
+#define __FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED		0x00000001
 	__u32 __flags;
 	__u8 raw[];
 };
@@ -164,6 +167,7 @@ struct fscrypt_get_key_status_arg {
 #define FS_IOC_REMOVE_ENCRYPTION_KEY		_IOWR('f', 24, struct fscrypt_remove_key_arg)
 #define FS_IOC_REMOVE_ENCRYPTION_KEY_ALL_USERS	_IOWR('f', 25, struct fscrypt_remove_key_arg)
 #define FS_IOC_GET_ENCRYPTION_KEY_STATUS	_IOWR('f', 26, struct fscrypt_get_key_status_arg)
+#define FS_IOC_GET_ENCRYPTION_NONCE		_IOR('f', 27, __u8[16])
 
 /**********************************************************************/
 

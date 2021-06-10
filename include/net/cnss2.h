@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -208,6 +209,7 @@ extern int cnss_get_platform_cap(struct device *dev,
 extern struct dma_iommu_mapping *cnss_smmu_get_mapping(struct device *dev);
 extern int cnss_smmu_map(struct device *dev,
 			 phys_addr_t paddr, uint32_t *iova_addr, size_t size);
+extern int cnss_smmu_unmap(struct device *dev, uint32_t iova_addr, size_t size);
 extern int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info);
 extern int cnss_request_bus_bandwidth(struct device *dev, int bandwidth);
 extern int cnss_power_up(struct device *dev);
@@ -252,4 +254,5 @@ extern int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode);
 extern int cnss_usb_wlan_register_driver(struct cnss_usb_wlan_driver *driver);
 extern void cnss_usb_wlan_unregister_driver(struct cnss_usb_wlan_driver *
 					    driver);
+extern int cnss_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed);
 #endif /* _NET_CNSS2_H */

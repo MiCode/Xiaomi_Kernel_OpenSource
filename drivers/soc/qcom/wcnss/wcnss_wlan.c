@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1573,6 +1574,7 @@ static int wcnss_ctrl_probe(struct rpmsg_device *rpdev)
 
 static void wcnss_ctrl_remove(struct rpmsg_device *rpdev)
 {
+	penv->smd_channel_ready = 0;
 	of_platform_depopulate(&rpdev->dev);
 }
 
@@ -2377,6 +2379,8 @@ static void wcnss_process_smd_msg(void *buf, int len)
 			 nvresp->status);
 		if (nvresp->status != WAIT_FOR_CBC_IND)
 			penv->is_cbc_done = 1;
+
+		penv->smd_channel_ready = 1;
 
 		if (penv->ops)
 			penv->ops->driver_state(penv->ops->priv_data,

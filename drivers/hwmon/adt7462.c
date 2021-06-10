@@ -1,6 +1,7 @@
 /*
  * A hwmon driver for the Analog Devices ADT7462
  * Copyright (C) 2008 IBM
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Darrick J. Wong <darrick.wong@oracle.com>
  *
@@ -426,7 +427,7 @@ static int ADT7462_REG_VOLT(struct adt7462_data *data, int which)
 			return 0x95;
 		break;
 	}
-	return -ENODEV;
+	return 0;
 }
 
 /* Provide labels for sysfs */

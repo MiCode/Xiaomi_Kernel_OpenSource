@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,7 +149,7 @@ static void send_input_events(struct work_struct *work)
 	list_for_each_safe(pos, temp, &pr_lst_hd) {
 		node = list_entry(pos, struct event_list, list);
 		evnt = node->evnt;
-//		bgrsb_send_input(evnt);
+		bgrsb_send_input(evnt);
 		kfree(evnt);
 		spin_lock(&lst_setup_lock);
 		list_del(&node->list);
@@ -161,6 +162,10 @@ int bgcom_set_spi_state(enum bgcom_spi_state state)
 {
 	struct bg_spi_priv *bg_spi = container_of(bg_com_drv,
 						struct bg_spi_priv, lhandle);
+	const struct device spi_dev = bg_spi->spi->master->dev;
+	ktime_t time_start, delta;
+	s64 time_elapsed;
+
 	if (state < 0 || state > 1)
 		return -EINVAL;
 
@@ -168,6 +173,15 @@ int bgcom_set_spi_state(enum bgcom_spi_state state)
 		return 0;
 
 	mutex_lock(&bg_spi->xfer_mutex);
+	if (state == BGCOM_SPI_BUSY) {
+		time_start = ktime_get();
+		while (!pm_runtime_status_suspended(spi_dev.parent)) {
+			delta = ktime_sub(ktime_get(), time_start);
+			time_elapsed = ktime_to_ms(delta);
+			WARN_ON(time_elapsed > 5 * MSEC_PER_SEC);
+			msleep(100);
+		}
+	}
 	spi_state = state;
 	mutex_unlock(&bg_spi->xfer_mutex);
 	return 0;

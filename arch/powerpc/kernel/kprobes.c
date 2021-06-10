@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) IBM Corporation, 2002, 2004
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * 2002-Oct	Created by Vamsi Krishna S <vamsi_krishna@in.ibm.com> Kernel
  *		Probes initial implementation ( includes contributions from
@@ -277,6 +278,9 @@ int kprobe_handler(struct pt_regs *regs)
 	struct kprobe_ctlblk *kcb;
 
 	if (user_mode(regs))
+		return 0;
+
+	if (!(regs->msr & MSR_IR) || !(regs->msr & MSR_DR))
 		return 0;
 
 	/*

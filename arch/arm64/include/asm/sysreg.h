@@ -2,6 +2,7 @@
  * Macros for accessing system registers with older binutils.
  *
  * Copyright (C) 2014 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Catalin Marinas <catalin.marinas@arm.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -60,7 +61,9 @@
 #ifndef CONFIG_BROKEN_GAS_INST
 
 #ifdef __ASSEMBLY__
-#define __emit_inst(x)			.inst (x)
+// The space separator is omitted so that __emit_inst(x) can be parsed as
+// either an assembler directive or an assembler macro argument.
+#define __emit_inst(x)			.inst(x)
 #else
 #define __emit_inst(x)			".inst " __stringify((x)) "\n\t"
 #endif

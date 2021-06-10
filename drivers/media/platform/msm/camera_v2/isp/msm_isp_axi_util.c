@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1021,6 +1022,8 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 				ISP_EVENT_REG_UPDATE_MISSING);
 		}
 	}
+	vfe_dev->isp_page->kernel_sofid =
+		vfe_dev->axi_data.src_info[frame_src].frame_id;
 }
 
 static void msm_isp_update_pd_stats_idx(struct vfe_device *vfe_dev,
@@ -2569,7 +2572,8 @@ static void msm_isp_input_enable(struct vfe_device *vfe_dev,
 		if (axi_data->src_info[i].active)
 			continue;
 		/* activate the input since it is deactivated */
-		axi_data->src_info[i].frame_id = 0;
+		if (!ext_read)
+			axi_data->src_info[i].frame_id = 0;
 		vfe_dev->irq_sof_id = 0;
 		if (axi_data->src_info[i].input_mux != EXTERNAL_READ)
 			axi_data->src_info[i].active = 1;
@@ -3780,8 +3784,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		return 0;
 	} else if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id +
-		vfe_dev->axi_data.src_info[frame_src].sof_counter_step)) ||
-		((!vfe_dev->axi_data.src_info[frame_src].active))) {
+		vfe_dev->axi_data.src_info[frame_src].sof_counter_step))) {
 		pr_debug("%s:%d invalid frame id %d cur frame id %d pix %d\n",
 			__func__, __LINE__, frame_id,
 			vfe_dev->axi_data.src_info[frame_src].frame_id,

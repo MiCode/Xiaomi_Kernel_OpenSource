@@ -3,6 +3,7 @@
  *   AMD & Fujitsu Standard Vendor Command Set (ID 0x0002)
  *
  * Copyright (C) 2000 Crossnet Co. <info@crossnet.co.jp>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004 Arcom Control Systems Ltd <linux@arcom.com>
  * Copyright (C) 2005 MontaVista Software Inc. <source@mvista.com>
  *
@@ -1883,7 +1884,11 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 			continue;
 		}
 
-		if (time_after(jiffies, timeo) && !chip_ready(map, adr))
+		/*
+		 * We check "time_after" and "!chip_good" before checking "chip_good" to avoid
+		 * the failure due to scheduling.
+		 */
+		if (time_after(jiffies, timeo) && !chip_good(map, adr, datum))
 			break;
 
 		if (chip_good(map, adr, datum)) {

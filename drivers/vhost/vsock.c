@@ -2,6 +2,7 @@
  * vhost transport for vsock
  *
  * Copyright (C) 2013-2015 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Asias He <asias@redhat.com>
  *         Stefan Hajnoczi <stefanha@redhat.com>
  *
@@ -498,6 +499,11 @@ static int vhost_vsock_start(struct vhost_vsock *vsock)
 
 		mutex_unlock(&vq->mutex);
 	}
+
+	/* Some packets may have been queued before the device was started,
+	 * let's kick the send worker to send them.
+	 */
+	vhost_work_queue(&vsock->dev, &vsock->send_pkt_work);
 
 	mutex_unlock(&vsock->dev.mutex);
 	return 0;

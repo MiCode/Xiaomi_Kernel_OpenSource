@@ -3,6 +3,7 @@
  * Common boot and setup code.
  *
  * Copyright (C) 2001 PPC64 Team, IBM Corp
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  *      This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -466,6 +467,8 @@ static bool __init parse_cache_info(struct device_node *np,
 	lsizep = of_get_property(np, propnames[3], NULL);
 	if (bsizep == NULL)
 		bsizep = lsizep;
+	if (lsizep == NULL)
+		lsizep = bsizep;
 	if (lsizep != NULL)
 		lsize = be32_to_cpu(*lsizep);
 	if (bsizep != NULL)

@@ -2,6 +2,7 @@
  * AD7785/AD7792/AD7793/AD7794/AD7795 SPI ADC driver
  *
  * Copyright 2011-2012 Analog Devices Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -543,7 +544,7 @@ static const struct iio_info ad7797_info = {
 	.read_raw = &ad7793_read_raw,
 	.write_raw = &ad7793_write_raw,
 	.write_raw_get_fmt = &ad7793_write_raw_get_fmt,
-	.attrs = &ad7793_attribute_group,
+	.attrs = &ad7797_attribute_group,
 	.validate_trigger = ad_sd_validate_trigger,
 	.driver_module = THIS_MODULE,
 };

@@ -2,6 +2,7 @@
  * u_ether.c -- Ethernet-over-USB link layer utilities for Gadget stack
  *
  * Copyright (C) 2003-2005,2008 David Brownell
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2003-2004 Robert Schwebel, Benedikt Spranger
  * Copyright (C) 2008 Nokia Corporation
  *
@@ -804,7 +805,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	/* apply outgoing CDC or RNDIS filters */
-	if (!test_bit(RMNET_MODE_LLP_IP, &dev->flags) &&
+	if (skb && !test_bit(RMNET_MODE_LLP_IP, &dev->flags) &&
 			!is_promisc(cdc_filter)) {
 		u8		*dest = skb->data;
 
@@ -872,16 +873,17 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	if (dev->wrap) {
 		if (dev->port_usb)
 			skb = dev->wrap(dev->port_usb, skb);
-		if (!skb) {
-			spin_unlock_irqrestore(&dev->lock, flags);
-			/* Multi frame CDC protocols may store the frame for
-			 * later which is not a dropped frame.
-			 */
-			if (dev->port_usb &&
-					dev->port_usb->supports_multi_frame)
-				goto multiframe;
-			goto drop;
-		}
+	}
+
+	if (!skb) {
+		spin_unlock_irqrestore(&dev->lock, flags);
+		/* Multi frame CDC protocols may store the frame for
+		 * later which is not a dropped frame.
+		 */
+		if (dev->port_usb &&
+				dev->port_usb->supports_multi_frame)
+			goto multiframe;
+		goto drop;
 	}
 
 	dev->tx_skb_hold_count++;

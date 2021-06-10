@@ -1,6 +1,7 @@
 /* Freescale QUICC Engine HDLC Device Driver
  *
  * Copyright 2016 Freescale Semiconductor Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -239,6 +240,11 @@ static int uhdlc_init(struct ucc_hdlc_private *priv)
 		dev_err(priv->dev, "Cannot allocate MURAM mem for Transmit internal temp data pointer\n");
 		ret = -ENOMEM;
 		goto free_riptr;
+	}
+	if (riptr != (u16)riptr || tiptr != (u16)tiptr) {
+		dev_err(priv->dev, "MURAM allocation out of addressable range\n");
+		ret = -ENOMEM;
+		goto free_tiptr;
 	}
 
 	/* Set RIPTR, TIPTR */

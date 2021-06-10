@@ -3,6 +3,7 @@
  * and LTC2944 Battery Gas Gauge IC
  *
  * Copyright (C) 2014 Topic Embedded Systems
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Auryn Verwegen
  * Author: Mike Looijmans
@@ -406,7 +407,7 @@ static int ltc294x_i2c_remove(struct i2c_client *client)
 {
 	struct ltc294x_info *info = i2c_get_clientdata(client);
 
-	cancel_delayed_work(&info->work);
+	cancel_delayed_work_sync(&info->work);
 	power_supply_unregister(info->supply);
 	return 0;
 }

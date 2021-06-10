@@ -47,6 +47,7 @@
 #include <linux/bug.h>
 #include <linux/sched.h>
 #include <linux/rculist.h>
+#include <wt_sys/wt_boot_reason.h>
 
 extern struct bug_entry __start___bug_table[], __stop___bug_table[];
 
@@ -190,11 +191,22 @@ enum bug_trap_type report_bug(unsigned long bugaddr, struct pt_regs *regs)
 
 	printk(KERN_DEFAULT "------------[ cut here ]------------\n");
 
-	if (file)
+	if (file) {
 		pr_crit("kernel BUG at %s:%u!\n", file, line);
-	else
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, begin */
+#ifdef CONFIG_WT_BOOT_REASON
+		save_panic_key_log("kernel BUG at %s:%u!\n", file, line);
+#endif
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, end */
+	} else {
 		pr_crit("Kernel BUG at %p [verbose debug info unavailable]\n",
 			(void *)bugaddr);
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, begin */
+#ifdef CONFIG_WT_BOOT_REASON
+		save_panic_key_log("Kernel BUG at %p \n", (void *)bugaddr);
+#endif
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, end */
+	}
 
 	return BUG_TRAP_TYPE_BUG;
 }

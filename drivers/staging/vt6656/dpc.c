@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1996, 2003 VIA Networking Technologies, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -140,7 +141,7 @@ int vnt_rx_data(struct vnt_private *priv, struct vnt_rcb *ptr_rcb,
 
 	vnt_rf_rssi_to_dbm(priv, *rssi, &rx_dbm);
 
-	priv->bb_pre_ed_rssi = (u8)rx_dbm + 1;
+	priv->bb_pre_ed_rssi = (u8)-rx_dbm + 1;
 	priv->current_rssi = priv->bb_pre_ed_rssi;
 
 	frame = skb_data + 8;

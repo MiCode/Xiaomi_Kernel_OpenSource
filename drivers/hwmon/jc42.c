@@ -2,6 +2,7 @@
  * jc42.c - driver for Jedec JC42.4 compliant temperature sensors
  *
  * Copyright (c) 2010  Ericsson AB.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Derived from lm77.c by Andras BALI <drewie@freemail.hu>.
  *
@@ -527,7 +528,7 @@ static int jc42_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	}
 	data->config = config;
 
-	hwmon_dev = devm_hwmon_device_register_with_info(dev, client->name,
+	hwmon_dev = devm_hwmon_device_register_with_info(dev, "jc42",
 							 data, &jc42_chip_info,
 							 NULL);
 	return PTR_ERR_OR_ZERO(hwmon_dev);

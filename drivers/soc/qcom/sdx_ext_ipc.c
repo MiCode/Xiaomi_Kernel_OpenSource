@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -347,7 +348,7 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 
 	if (mdm->gpios[WAKEUP_IN] >= 0) {
 		ret = devm_request_threaded_irq(mdm->dev, mdm->wakeup_irq,
-				NULL, sdx_ext_ipc_wakeup_irq,
+				sdx_ext_ipc_wakeup_irq, NULL,
 				IRQF_TRIGGER_FALLING, "sdx_ext_ipc_wakeup",
 				mdm);
 		if (ret < 0) {
@@ -356,7 +357,6 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 				__func__, mdm->wakeup_irq);
 			goto irq_fail;
 		}
-		disable_irq(mdm->wakeup_irq);
 	}
 
 	if (mdm->gpios[WAKEUP_OUT] >= 0) {

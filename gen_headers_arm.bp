@@ -927,6 +927,7 @@ gen_headers_out_arm = [
     "linux/usb/g_printer.h",
     "linux/usb/gadgetfs.h",
     "linux/usb/midi.h",
+    "linux/usb/raw_gadget.h",
     "linux/usb/tmc.h",
     "linux/usb/usb_ctrl_qti.h",
     "linux/usb/video.h",
@@ -943,6 +944,7 @@ gen_headers_out_arm = [
     "linux/netfilter/ipset/ip_set_bitmap.h",
     "linux/netfilter/ipset/ip_set_hash.h",
     "linux/netfilter/ipset/ip_set_list.h",
+    "linux/msm_eth.h",
 
     // From arch/arm/include/uapi/**/*.h
 

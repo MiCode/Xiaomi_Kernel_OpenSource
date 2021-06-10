@@ -1,4 +1,5 @@
-/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,11 +28,10 @@
 #include "diag_mux.h"
 
 #define FEATURE_SUPPORTED(x)	((feature_mask << (i * 8)) & (1 << x))
-
+#define DIAG_GET_MD_DEVICE_SIG_MASK(proc) (0x100000 * (1 << proc))
 /* tracks which peripheral is undergoing SSR */
 static uint16_t reg_dirty[NUM_PERIPHERALS];
 static uint8_t diag_id = DIAG_ID_APPS;
-static void diag_notify_md_client(uint8_t peripheral, int data);
 
 static void diag_mask_update_work_fn(struct work_struct *work)
 {
@@ -50,7 +50,9 @@ void diag_cntl_channel_open(struct diagfwd_info *p_info)
 		return;
 	driver->mask_update |= PERIPHERAL_MASK(p_info->peripheral);
 	queue_work(driver->cntl_wq, &driver->mask_update_work);
-	diag_notify_md_client(p_info->peripheral, DIAG_STATUS_OPEN);
+	diag_notify_md_client(DIAG_LOCAL_PROC, p_info->peripheral,
+				DIAG_STATUS_OPEN);
+
 }
 
 void diag_cntl_channel_close(struct diagfwd_info *p_info)
@@ -74,7 +76,7 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info)
 	driver->stm_state[peripheral] = DISABLE_STM;
 	driver->stm_state_requested[peripheral] = DISABLE_STM;
 	reg_dirty[peripheral] = 0;
-	diag_notify_md_client(peripheral, DIAG_STATUS_CLOSED);
+	diag_notify_md_client(DIAG_LOCAL_PROC, peripheral, DIAG_STATUS_CLOSED);
 }
 
 static void diag_stm_update_work_fn(struct work_struct *work)
@@ -105,9 +107,9 @@ static void diag_stm_update_work_fn(struct work_struct *work)
 	}
 }
 
-void diag_notify_md_client(uint8_t peripheral, int data)
+void diag_notify_md_client(uint8_t proc, uint8_t peripheral, int data)
 {
-	int stat = 0, proc = DIAG_LOCAL_PROC;
+	int stat = 0;
 	struct siginfo info;
 	struct pid *pid_struct;
 	struct task_struct *result;
@@ -121,7 +123,10 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 	mutex_lock(&driver->md_session_lock);
 	memset(&info, 0, sizeof(struct siginfo));
 	info.si_code = SI_QUEUE;
-	info.si_int = (PERIPHERAL_MASK(peripheral) | data);
+	info.si_int = (DIAG_GET_MD_DEVICE_SIG_MASK(proc) | data);
+	if (proc == DIAG_LOCAL_PROC)
+		info.si_int = info.si_int |
+				(PERIPHERAL_MASK(peripheral) | data);
 	info.si_signo = SIGCONT;
 
 	if (!driver->md_session_map[proc][peripheral] ||
@@ -179,7 +184,7 @@ static void process_pd_status(uint8_t *buf, uint32_t len,
 	pd_msg = (struct diag_ctrl_msg_pd_status *)buf;
 	pd = pd_msg->pd_id;
 	status = (pd_msg->status == 0) ? DIAG_STATUS_OPEN : DIAG_STATUS_CLOSED;
-	diag_notify_md_client(peripheral, status);
+	diag_notify_md_client(DIAG_LOCAL_PROC, peripheral, status);
 }
 
 static void enable_stm_feature(uint8_t peripheral)
@@ -886,6 +891,9 @@ void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 
 	while (read_len + header_len < len) {
 		ctrl_pkt = (struct diag_ctrl_pkt_header_t *)ptr;
+		if (((size_t)read_len + (size_t)ctrl_pkt->len +
+			header_len) > len)
+			return;
 		switch (ctrl_pkt->pkt_id) {
 		case DIAG_CTRL_MSG_REG:
 			process_command_registration(ptr, ctrl_pkt->len,

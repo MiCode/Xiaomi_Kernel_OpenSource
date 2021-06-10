@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3743,12 +3744,12 @@
 
 		bt_en_active: bt_en_active {
 			mux {
-				pins = "gpio172";
+				pins = "gpio172", "gpio171";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio172";
+				pins = "gpio172", "gpio171";
 				drive-strength = <2>;
 				bias-pull-down;
 			};
@@ -4057,6 +4058,75 @@
 					bias-disable;
 				};
 			};
+		};
+
+		qupv3_se4_4uart_pins: qupv3_se4_4uart_pins {
+			qupv3_se4_default_ctsrtsrx:
+				qupv3_se4_default_ctsrtsrx {
+				mux {
+					pins = "gpio51", "gpio52", "gpio54";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio51", "gpio52", "gpio54";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			qupv3_se4_default_tx: qupv3_se4_default_tx {
+				mux {
+					pins = "gpio53";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio53";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			qupv3_se4_ctsrx: qupv3_se4_ctsrx {
+				mux {
+					pins = "gpio51", "gpio54";
+					function = "qup4";
+				};
+
+				config {
+					pins = "gpio51", "gpio54";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se4_rts: qupv3_se4_rts {
+				mux {
+					pins = "gpio52";
+					function = "qup4";
+				};
+
+				config {
+					pins = "gpio52";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			qupv3_se4_tx: qupv3_se4_tx {
+				mux {
+					pins = "gpio53";
+					function = "qup4";
+				};
+
+				config {
+					pins = "gpio53";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
 		};
 
 		/* SE 5 pin mappings */

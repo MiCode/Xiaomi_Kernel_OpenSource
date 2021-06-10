@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -894,8 +895,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		csiphy_dev->config_count--;
 		csiphy_dev->acquire_count--;
 
-		if (csiphy_dev->acquire_count == 0)
+		if (csiphy_dev->acquire_count == 0) {
 			csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
+			/* reset config count */
+			csiphy_dev->config_count = 0;
+		}
 
 		if (csiphy_dev->config_count == 0) {
 			CAM_DBG(CAM_CSIPHY, "reset csiphy_info");

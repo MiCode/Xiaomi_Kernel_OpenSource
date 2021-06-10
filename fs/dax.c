@@ -1,6 +1,7 @@
 /*
  * fs/dax.c - Direct Access filesystem code
  * Copyright (c) 2013-2014 Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Matthew Wilcox <matthew.r.wilcox@intel.com>
  * Author: Ross Zwisler <ross.zwisler@linux.intel.com>
  *
@@ -1056,6 +1057,9 @@ dax_iomap_rw(struct kiocb *iocb, struct iov_iter *iter,
 	} else {
 		lockdep_assert_held(&inode->i_rwsem);
 	}
+
+	if (iocb->ki_flags & IOCB_NOWAIT)
+		flags |= IOMAP_NOWAIT;
 
 	while (iov_iter_count(iter)) {
 		ret = iomap_apply(inode, pos, iov_iter_count(iter), flags, ops,

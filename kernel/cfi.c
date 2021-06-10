@@ -2,6 +2,7 @@
  * CFI (Control Flow Integrity) error and slowpath handling
  *
  * Copyright (C) 2017 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/gfp.h>
@@ -12,7 +13,6 @@
 #include <linux/spinlock.h>
 #include <asm/bug.h>
 #include <asm/cacheflush.h>
-#include <asm/memory.h>
 #include <asm/set_memory.h>
 
 /* Compiler-defined handler names */

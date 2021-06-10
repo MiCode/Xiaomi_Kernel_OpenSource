@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,6 +132,10 @@ static struct qmi_dev_info device_clients[] = {
 	},
 	{
 		.dev_name = "mmw_skin3",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "modem_v2x",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{

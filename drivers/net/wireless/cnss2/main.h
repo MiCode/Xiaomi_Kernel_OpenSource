@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -318,6 +319,8 @@ struct cnss_plat_data {
 	u32 is_converged_dt;
 	struct device_node *dev_node;
 	u8 set_wlaon_pwr_ctrl;
+	bool fw_pcie_gen_switch;
+	u8 pcie_gen_speed;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,9 +38,6 @@ static long cam_cci_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 
 	switch (cmd) {
-	case VIDIOC_MSM_CCI_CFG:
-		rc = cam_cci_core_cfg(sd, arg);
-		break;
 	case VIDIOC_CAM_CONTROL:
 		rc = cam_cci_core_cam_ctrl(sd, arg);
 		break;

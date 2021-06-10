@@ -2,6 +2,7 @@
  * Core driver for the pin control subsystem
  *
  * Copyright (C) 2011-2012 ST-Ericsson SA
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written on behalf of Linaro for ST-Ericsson
  * Based on bits of regulator core, gpio core and clk core
  *
@@ -2031,7 +2032,6 @@ static int pinctrl_claim_hogs(struct pinctrl_dev *pctldev)
 		return PTR_ERR(pctldev->p);
 	}
 
-	kref_get(&pctldev->p->users);
 	pctldev->hog_default =
 		pinctrl_lookup_state(pctldev->p, PINCTRL_STATE_DEFAULT);
 	if (IS_ERR(pctldev->hog_default)) {

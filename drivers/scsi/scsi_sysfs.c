@@ -24,6 +24,10 @@
 #include "scsi_priv.h"
 #include "scsi_logging.h"
 
+//bug 434857, guodandan@wt, 2019.03.23, start
+struct gendisk *ufs_disk[SD_NUM];
+//bug 434857, guodandan@wt, 2019.03.23, end
+
 static struct device_type scsi_dev_type;
 
 static const struct {
@@ -377,6 +381,80 @@ shost_rd_attr(prot_capabilities, "%u\n");
 shost_rd_attr(prot_guard_type, "%hd\n");
 shost_rd_attr2(proc_name, hostt->proc_name, "%s\n");
 
+//bug 434857, guodandan@wt, 2019.03.23, start
+static int calc_mem_size(void)
+{
+	int temp_size;
+	temp_size = (int)totalram_pages/1024; //page size 4K
+
+	if ((temp_size > 0*256) && (temp_size <= 1*256))
+		return 1;
+	else if ((temp_size > 1*256) && (temp_size <= 2*256))
+		return 2;
+	else if ((temp_size > 2*256) && (temp_size <= 3*256))
+		return 3;
+	else if ((temp_size > 3*256) && (temp_size <= 4*256))
+		return 4;
+	else if ((temp_size > 4*256) && (temp_size <= 6*256))
+		return 6;
+	else if ((temp_size > 6*256) && (temp_size <= 8*256))
+		return 8;
+	else
+		return 0;
+}
+
+static int calc_ufs_size(unsigned long long size)
+{
+	int temp_size;
+	temp_size = (int)size/2/1024/1024; //sector size 512B
+
+	if ((temp_size > 8) && (temp_size <= 16))
+		return 16;
+	else if ((temp_size > 16) && (temp_size <= 32))
+		return 32;
+	else if ((temp_size > 32) && (temp_size <= 64))
+		return 64;
+	else if ((temp_size > 64) && (temp_size <= 128))
+		return 128;
+	else if ((temp_size > 128) && (temp_size <= 256))
+		return 256;
+	else
+		return 0;
+}
+
+static ssize_t
+show_flash_name(struct device *dev, struct device_attribute *attr,
+	     char *buf)
+{
+	struct scsi_device *sdev;
+	struct hd_struct *p = NULL;
+	struct gendisk **gd_t = ufs_disk;
+	unsigned long long ufs_size = 0;
+	int i=0,ret=0;
+	char vendor_name[32];
+	char model_name[32];
+
+	sdev = to_scsi_device(dev);
+
+	for(;(*gd_t!=NULL) && (i<SD_NUM);gd_t++)
+	{
+		p = &((*gd_t)->part0);
+		ufs_size += (unsigned long long)part_nr_sects_read(p);
+	}
+
+	ret = sscanf(sdev->vendor, "%s %*s", vendor_name);
+	if (ret != 1)
+		return 0;
+
+	ret = sscanf(sdev->model, "%s %*s", model_name);
+	if (ret != 1)
+		return 0;
+
+	return sprintf(buf, "%s_%s_%dGB_%dGB\n",vendor_name,model_name,calc_mem_size(),calc_ufs_size(ufs_size));
+}
+
+static DEVICE_ATTR(flash_name, S_IRUGO, show_flash_name, NULL);
+//bug 434857, guodandan@wt, 2019.03.23, end
 static ssize_t
 show_host_busy(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -1112,6 +1190,87 @@ static DEVICE_ATTR(queue_ramp_up_period, S_IRUGO | S_IWUSR,
 		   sdev_show_queue_ramp_up_period,
 		   sdev_store_queue_ramp_up_period);
 
+int ufshcd_get_hynix_hr(struct scsi_device *sdev, u8 *buf, u32 size);
+
+static int  hr_flag;
+static ssize_t
+sdev_show_hr(struct device *dev,
+			       struct device_attribute *attr,
+			       char *buf)
+{
+	struct scsi_device *sdev;
+	int i,  n = 0;
+	int err = 0;
+	int len = 512; /*0x200*/
+	char *hr;
+
+	sdev = to_scsi_device(dev);
+	if (!sdev) {
+		pr_err("get sdev fail\n");
+		return n;
+	}
+
+	hr =  kzalloc(len, GFP_KERNEL);
+	if (!hr) {
+		pr_err("kzalloc fail\n");
+		return -ENOMEM;
+	}
+
+	if (!strncmp(sdev->vendor, "WDC", 3)) {
+		err = scsi_sdr(sdev, hr, len);
+	} else if (!strncmp(sdev->vendor, "TOSHIBA", 7)) {
+		err = scsi_hr_inquiry(sdev, hr, len);
+	} else if (!strncmp(sdev->vendor, "SAMSUNG", 7)) {
+			err = scsi_osv(sdev, hr, 0x1c);/*0x200 is the same with 0x1c*/
+	} else if (!strncmp(sdev->vendor, "MICRON", 6)) {
+			err = scsi_mhr(sdev, hr, len);
+	} else if (!strncmp(sdev->vendor, "SKhynix", 7)) {
+		err = ufshcd_get_hynix_hr(sdev, hr, len);
+	} else {
+		n += snprintf(buf,  PAGE_SIZE - n, "NOT SUPPORTED %s\n", sdev->vendor);
+		goto out;
+	}
+
+	if (err) {
+		n += snprintf(buf,  PAGE_SIZE - n, "Fail to get hr, err is: %d\n", err);
+	} else {
+		for (i = 0; i < 512; i++)
+			n += snprintf(buf + n, PAGE_SIZE - n, "%02x", hr[i]);
+		n += snprintf(buf + n, PAGE_SIZE - n, "\n");
+	}
+
+	if (!strncmp(sdev->vendor, "SAMSUNG", 7)) {
+		memset(hr, 0, 512);
+		err = scsi_ss_hr(sdev, hr, 0x4c);
+		if (!err) {
+			for (i = 0; i < 0x4c; i++)
+					snprintf(buf + 128*2 + i*2
+							, PAGE_SIZE - n, "%02x", hr[i]);
+		}
+	}
+
+out:
+	kfree(hr);
+	return n;
+}
+
+static ssize_t
+sdev_store_hr(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
+{
+	if (!strncmp(buf, "osv", 3)) {
+		hr_flag = 1;
+	} else {
+		hr_flag = 0;
+	}
+	return count;
+}
+
+static DEVICE_ATTR(hr, S_IRUGO | S_IWUSR,
+		sdev_show_hr,
+		sdev_store_hr);
+
+
 static umode_t scsi_sdev_attr_is_visible(struct kobject *kobj,
 					 struct attribute *attr, int i)
 {
@@ -1176,12 +1335,14 @@ static struct attribute *scsi_sdev_attrs[] = {
 	&dev_attr_queue_depth.attr,
 	&dev_attr_queue_type.attr,
 	&dev_attr_wwid.attr,
+	&dev_attr_hr.attr,
 #ifdef CONFIG_SCSI_DH
 	&dev_attr_dh_state.attr,
 	&dev_attr_access_state.attr,
 	&dev_attr_preferred_path.attr,
 #endif
 	&dev_attr_queue_ramp_up_period.attr,
+	&dev_attr_flash_name.attr,			//bug 434857, guodandan@wt, 2019.03.23, add
 	REF_EVT(media_change),
 	REF_EVT(inquiry_change_reported),
 	REF_EVT(capacity_change_reported),

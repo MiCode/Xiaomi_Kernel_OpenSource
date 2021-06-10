@@ -1,5 +1,6 @@
 /*
  * Copyright © 2008 Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright © 2016 Collabora Ltd
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -101,8 +102,8 @@ static ssize_t crc_control_write(struct file *file, const char __user *ubuf,
 	if (IS_ERR(source))
 		return PTR_ERR(source);
 
-	if (source[len] == '\n')
-		source[len] = '\0';
+	if (source[len - 1] == '\n')
+		source[len - 1] = '\0';
 
 	spin_lock_irq(&crc->lock);
 

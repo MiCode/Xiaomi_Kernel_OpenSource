@@ -2,6 +2,7 @@
  * fs/sdcardfs/inode.c
  *
  * Copyright (c) 2013 Samsung Electronics Co. Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  *   Authors: Daeho Jeong, Woojoong Lee, Seunghwan Hyun,
  *               Sunghwan Yun, Sungjong Seo
  *
@@ -86,6 +87,9 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 	lower_dentry = lower_path.dentry;
 	lower_dentry_mnt = lower_path.mnt;
 	lower_parent_dentry = lock_parent(lower_dentry);
+
+	if (d_is_positive(lower_dentry))
+		return -EEXIST;
 
 	/* set last 16bytes of mode field to 0664 */
 	mode = (mode & S_IFMT) | 00664;

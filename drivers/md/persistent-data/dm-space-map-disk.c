@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is released under the GPL.
  */
@@ -167,8 +168,10 @@ static int sm_disk_new_block(struct dm_space_map *sm, dm_block_t *b)
 	enum allocation_event ev;
 	struct sm_disk *smd = container_of(sm, struct sm_disk, sm);
 
-	/* FIXME: we should loop round a couple of times */
-	r = sm_ll_find_free_block(&smd->old_ll, smd->begin, smd->old_ll.nr_blocks, b);
+	/*
+	 * Any block we allocate has to be free in both the old and current ll.
+	 */
+	r = sm_ll_find_common_free_block(&smd->old_ll, &smd->ll, smd->begin, smd->ll.nr_blocks, b);
 	if (r)
 		return r;
 

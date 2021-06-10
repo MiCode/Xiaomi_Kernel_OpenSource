@@ -2,6 +2,7 @@
  * Cryptographic API.
  *
  * Copyright (c) 2002 James Morris <jmorris@intercode.com.au>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2005 Herbert Xu <herbert@gondor.apana.org.au>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -84,7 +85,6 @@ void crypto_alg_tested(const char *name, int err);
 void crypto_remove_spawns(struct crypto_alg *alg, struct list_head *list,
 			  struct crypto_alg *nalg);
 void crypto_remove_final(struct list_head *list);
-void crypto_shoot_alg(struct crypto_alg *alg);
 struct crypto_tfm *__crypto_alloc_tfm(struct crypto_alg *alg, u32 type,
 				      u32 mask);
 void *crypto_create_tfm(struct crypto_alg *alg,

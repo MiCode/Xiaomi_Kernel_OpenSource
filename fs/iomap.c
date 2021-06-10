@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2016 Christoph Hellwig.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -14,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/compiler.h>
 #include <linux/fs.h>
+#include <linux/fscrypt.h>
 #include <linux/iomap.h>
 #include <linux/uaccess.h>
 #include <linux/gfp.h>
@@ -825,10 +827,13 @@ static blk_qc_t
 iomap_dio_zero(struct iomap_dio *dio, struct iomap *iomap, loff_t pos,
 		unsigned len)
 {
+	struct inode *inode = file_inode(dio->iocb->ki_filp);
 	struct page *page = ZERO_PAGE(0);
 	struct bio *bio;
 
 	bio = bio_alloc(GFP_KERNEL, 1);
+	fscrypt_set_bio_crypt_ctx(bio, inode, pos >> inode->i_blkbits,
+				  GFP_KERNEL);
 	bio_set_dev(bio, iomap->bdev);
 	bio->bi_iter.bi_sector =
 		iomap->blkno + ((pos - iomap->offset) >> 9);
@@ -908,6 +913,8 @@ iomap_dio_actor(struct inode *inode, loff_t pos, loff_t length,
 			return 0;
 
 		bio = bio_alloc(GFP_KERNEL, nr_pages);
+		fscrypt_set_bio_crypt_ctx(bio, inode, pos >> inode->i_blkbits,
+					  GFP_KERNEL);
 		bio_set_dev(bio, iomap->bdev);
 		bio->bi_iter.bi_sector =
 			iomap->blkno + ((pos - iomap->offset) >> 9);

@@ -3,6 +3,7 @@
 * Marvell Armada-3700 Serial Driver
 * Author: Wilson Ding <dingwei@marvell.com>
 * Copyright (C) 2015 Marvell International Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
 * ***************************************************************************
 * This program is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the Free
@@ -581,7 +582,7 @@ static int mvebu_uart_probe(struct platform_device *pdev)
 
 	port->membase = devm_ioremap_resource(&pdev->dev, reg);
 	if (IS_ERR(port->membase))
-		return -PTR_ERR(port->membase);
+		return PTR_ERR(port->membase);
 
 	data = devm_kzalloc(&pdev->dev, sizeof(struct mvebu_uart_data),
 			    GFP_KERNEL);

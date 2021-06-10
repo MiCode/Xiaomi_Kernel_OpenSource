@@ -4,6 +4,7 @@
  * Quirks for I2C-HID devices that do not supply proper descriptors
  *
  * Copyright (c) 2018 Julian Sax <jsbc@gmx.de>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  */
 
@@ -338,6 +339,14 @@ static const struct dmi_system_id i2c_hid_dmi_desc_override_table[] = {
 		.matches = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "TREKSTOR"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Primebook C11B"),
+		},
+		.driver_data = (void *)&sipodev_desc
+	},
+	{
+		.ident = "Trekstor SURFBOOK E11B",
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "TREKSTOR"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "SURFBOOK E11B"),
 		},
 		.driver_data = (void *)&sipodev_desc
 	},

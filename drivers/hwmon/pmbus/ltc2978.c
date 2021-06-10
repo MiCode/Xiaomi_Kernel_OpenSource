@@ -2,6 +2,7 @@
  * Hardware monitoring driver for LTC2978 and compatible chips.
  *
  * Copyright (c) 2011 Ericsson AB.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013, 2014, 2015 Guenter Roeck
  * Copyright (c) 2015 Linear Technology
  *
@@ -89,8 +90,8 @@ enum chips { ltc2974, ltc2975, ltc2977, ltc2978, ltc2980, ltc3880, ltc3882,
 
 #define LTC_POLL_TIMEOUT		100	/* in milli-seconds */
 
-#define LTC_NOT_BUSY			BIT(5)
-#define LTC_NOT_PENDING			BIT(4)
+#define LTC_NOT_BUSY			BIT(6)
+#define LTC_NOT_PENDING			BIT(5)
 
 /*
  * LTC2978 clears peak data whenever the CLEAR_FAULTS command is executed, which

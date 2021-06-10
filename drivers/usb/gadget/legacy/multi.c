@@ -2,6 +2,7 @@
  * multi.c -- Multifunction Composite driver
  *
  * Copyright (C) 2008 David Brownell
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
  * Author: Michal Nazarewicz (mina86@mina86.com)
@@ -486,7 +487,7 @@ static struct usb_composite_driver multi_driver = {
 	.name		= "g_multi",
 	.dev		= &device_desc,
 	.strings	= dev_strings,
-	.max_speed	= USB_SPEED_HIGH,
+	.max_speed	= USB_SPEED_SUPER,
 	.bind		= multi_bind,
 	.unbind		= multi_unbind,
 	.needs_serial	= 1,

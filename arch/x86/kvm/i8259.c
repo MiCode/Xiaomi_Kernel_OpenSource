@@ -2,6 +2,7 @@
  * 8259 interrupt controller emulation
  *
  * Copyright (c) 2003-2004 Fabrice Bellard
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2007 Intel Corporation
  * Copyright 2009 Red Hat, Inc. and/or its affiliates.
  *
@@ -460,10 +461,14 @@ static int picdev_write(struct kvm_pic *s,
 	switch (addr) {
 	case 0x20:
 	case 0x21:
+		pic_lock(s);
+		pic_ioport_write(&s->pics[0], addr, data);
+		pic_unlock(s);
+		break;
 	case 0xa0:
 	case 0xa1:
 		pic_lock(s);
-		pic_ioport_write(&s->pics[addr >> 7], addr, data);
+		pic_ioport_write(&s->pics[1], addr, data);
 		pic_unlock(s);
 		break;
 	case 0x4d0:

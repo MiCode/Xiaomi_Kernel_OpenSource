@@ -2,6 +2,7 @@
  * This file is part of the Chelsio T4 Ethernet driver for Linux.
  *
  * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -1809,6 +1810,9 @@
 #define MAC_PORT_EPIO_OP_A 0x8d0
 
 #define MAC_PORT_CFG2_A 0x818
+
+#define MAC_PORT_PTP_SUM_LO_A 0x990
+#define MAC_PORT_PTP_SUM_HI_A 0x994
 
 #define MPS_CMN_CTL_A	0x9000
 

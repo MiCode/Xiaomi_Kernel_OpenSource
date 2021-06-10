@@ -2,6 +2,7 @@
  * drivers/pci/iov.c
  *
  * Copyright (C) 2009 Intel Corporation, Yu Zhao <yu.zhao@intel.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * PCI Express I/O Virtualization (IOV) support.
  *   Single Root IOV 1.0
@@ -179,6 +180,7 @@ int pci_iov_add_virtfn(struct pci_dev *dev, int id, int reset)
 failed2:
 	sysfs_remove_link(&dev->dev.kobj, buf);
 failed1:
+	pci_stop_and_remove_bus_device(virtfn);
 	pci_dev_put(dev);
 	pci_stop_and_remove_bus_device(virtfn);
 failed0:

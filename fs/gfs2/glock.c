@@ -1,5 +1,6 @@
 /*
  * Copyright (C) Sistina Software, Inc.  1997-2003 All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004-2008 Red Hat, Inc.  All rights reserved.
  *
  * This copyrighted material is made available to anyone wishing to use,
@@ -635,6 +636,9 @@ __acquires(&gl->gl_lockref.lock)
 		if (find_first_holder(gl))
 			goto out_unlock;
 		if (nonblock)
+			goto out_sched;
+		smp_mb();
+		if (atomic_read(&gl->gl_revokes) != 0)
 			goto out_sched;
 		set_bit(GLF_DEMOTE_IN_PROGRESS, &gl->gl_flags);
 		GLOCK_BUG_ON(gl, gl->gl_demote_state == LM_ST_EXCLUSIVE);

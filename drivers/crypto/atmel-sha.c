@@ -4,6 +4,7 @@
  * Support for ATMEL SHA1/SHA256 HW acceleration.
  *
  * Copyright (c) 2012 Eukréa Electromatique - ATMEL
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Nicolas Royer <nicolas@eukrea.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1921,12 +1922,7 @@ static int atmel_sha_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 {
 	struct atmel_sha_hmac_ctx *hmac = crypto_ahash_ctx(tfm);
 
-	if (atmel_sha_hmac_key_set(&hmac->hkey, key, keylen)) {
-		crypto_ahash_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
-		return -EINVAL;
-	}
-
-	return 0;
+	return atmel_sha_hmac_key_set(&hmac->hkey, key, keylen);
 }
 
 static int atmel_sha_hmac_init(struct ahash_request *req)

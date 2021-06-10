@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2011-2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -1586,6 +1587,30 @@ static struct wmi_pdev_param_map wmi_10_4_pdev_param_map = {
 	.arp_srcaddr = WMI_10_4_PDEV_PARAM_ARP_SRCADDR,
 	.arp_dstaddr = WMI_10_4_PDEV_PARAM_ARP_DSTADDR,
 	.enable_btcoex = WMI_10_4_PDEV_PARAM_ENABLE_BTCOEX,
+};
+
+static const u8 wmi_key_cipher_suites[] = {
+	[WMI_CIPHER_NONE] = WMI_CIPHER_NONE,
+	[WMI_CIPHER_WEP] = WMI_CIPHER_WEP,
+	[WMI_CIPHER_TKIP] = WMI_CIPHER_TKIP,
+	[WMI_CIPHER_AES_OCB] = WMI_CIPHER_AES_OCB,
+	[WMI_CIPHER_AES_CCM] = WMI_CIPHER_AES_CCM,
+	[WMI_CIPHER_WAPI] = WMI_CIPHER_WAPI,
+	[WMI_CIPHER_CKIP] = WMI_CIPHER_CKIP,
+	[WMI_CIPHER_AES_CMAC] = WMI_CIPHER_AES_CMAC,
+	[WMI_CIPHER_AES_GCM] = WMI_CIPHER_AES_GCM,
+};
+
+static const u8 wmi_tlv_key_cipher_suites[] = {
+	[WMI_CIPHER_NONE] = WMI_TLV_CIPHER_NONE,
+	[WMI_CIPHER_WEP] = WMI_TLV_CIPHER_WEP,
+	[WMI_CIPHER_TKIP] = WMI_TLV_CIPHER_TKIP,
+	[WMI_CIPHER_AES_OCB] = WMI_TLV_CIPHER_AES_OCB,
+	[WMI_CIPHER_AES_CCM] = WMI_TLV_CIPHER_AES_CCM,
+	[WMI_CIPHER_WAPI] = WMI_TLV_CIPHER_WAPI,
+	[WMI_CIPHER_CKIP] = WMI_TLV_CIPHER_CKIP,
+	[WMI_CIPHER_AES_CMAC] = WMI_TLV_CIPHER_AES_CMAC,
+	[WMI_CIPHER_AES_GCM] = WMI_TLV_CIPHER_AES_GCM,
 };
 
 static const struct wmi_peer_flags_map wmi_peer_flags_map = {
@@ -8421,6 +8446,7 @@ int ath10k_wmi_attach(struct ath10k *ar)
 		ar->wmi.vdev_param = &wmi_10_4_vdev_param_map;
 		ar->wmi.pdev_param = &wmi_10_4_pdev_param_map;
 		ar->wmi.peer_flags = &wmi_10_2_peer_flags_map;
+		ar->wmi_key_cipher = wmi_key_cipher_suites;
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_10_2_4:
 		ar->wmi.cmd = &wmi_10_2_4_cmd_map;
@@ -8428,6 +8454,7 @@ int ath10k_wmi_attach(struct ath10k *ar)
 		ar->wmi.vdev_param = &wmi_10_2_4_vdev_param_map;
 		ar->wmi.pdev_param = &wmi_10_2_4_pdev_param_map;
 		ar->wmi.peer_flags = &wmi_10_2_peer_flags_map;
+		ar->wmi_key_cipher = wmi_key_cipher_suites;
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_10_2:
 		ar->wmi.cmd = &wmi_10_2_cmd_map;
@@ -8435,6 +8462,7 @@ int ath10k_wmi_attach(struct ath10k *ar)
 		ar->wmi.vdev_param = &wmi_10x_vdev_param_map;
 		ar->wmi.pdev_param = &wmi_10x_pdev_param_map;
 		ar->wmi.peer_flags = &wmi_10_2_peer_flags_map;
+		ar->wmi_key_cipher = wmi_key_cipher_suites;
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_10_1:
 		ar->wmi.cmd = &wmi_10x_cmd_map;
@@ -8442,6 +8470,7 @@ int ath10k_wmi_attach(struct ath10k *ar)
 		ar->wmi.vdev_param = &wmi_10x_vdev_param_map;
 		ar->wmi.pdev_param = &wmi_10x_pdev_param_map;
 		ar->wmi.peer_flags = &wmi_10x_peer_flags_map;
+		ar->wmi_key_cipher = wmi_key_cipher_suites;
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_MAIN:
 		ar->wmi.cmd = &wmi_cmd_map;
@@ -8449,9 +8478,11 @@ int ath10k_wmi_attach(struct ath10k *ar)
 		ar->wmi.vdev_param = &wmi_vdev_param_map;
 		ar->wmi.pdev_param = &wmi_pdev_param_map;
 		ar->wmi.peer_flags = &wmi_peer_flags_map;
+		ar->wmi_key_cipher = wmi_key_cipher_suites;
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_TLV:
 		ath10k_wmi_tlv_attach(ar);
+		ar->wmi_key_cipher = wmi_tlv_key_cipher_suites;
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_UNSET:
 	case ATH10K_FW_WMI_OP_VERSION_MAX:

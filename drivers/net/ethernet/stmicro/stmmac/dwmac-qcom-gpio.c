@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,6 +181,63 @@ void ethqos_disable_regulators(struct qcom_ethqos *ethqos)
 		regulator_disable(ethqos->gdsc_emac);
 		devm_regulator_put(ethqos->gdsc_emac);
 		ethqos->gdsc_emac = NULL;
+	}
+}
+
+void ethqos_reset_phy_enable_interrupt(struct qcom_ethqos *ethqos)
+{
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+	struct phy_device *phydev = priv->dev->phydev;
+
+	/* reset the phy so that it's ready */
+	if (priv->mii) {
+		ETHQOSERR("do mdio reset\n");
+		stmmac_mdio_reset(priv->mii);
+	}
+	/*Enable phy interrupt*/
+	if (phy_intr_en && phydev) {
+		ETHQOSDBG("PHY interrupt Mode enabled\n");
+		phydev->irq = PHY_IGNORE_INTERRUPT;
+		phydev->interrupts =  PHY_INTERRUPT_ENABLED;
+
+		if (phydev->drv->config_intr &&
+		    !phydev->drv->config_intr(phydev)) {
+			ETHQOSERR("config_phy_intr successful after phy on\n");
+		}
+		qcom_ethqos_request_phy_wol(priv->plat);
+	} else if (!phy_intr_en) {
+		phydev->irq = PHY_POLL;
+		ETHQOSDBG("PHY Polling Mode enabled\n");
+	} else {
+		ETHQOSERR("phydev is null , intr value=%d\n", phy_intr_en);
+	}
+}
+
+int ethqos_phy_power_on(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+
+	if (ethqos->reg_emac_phy) {
+		ret = regulator_enable(ethqos->reg_emac_phy);
+		if (ret) {
+			ETHQOSERR("Can not enable <%s>\n",
+				  EMAC_VREG_EMAC_PHY_NAME);
+			return ret;
+		}
+		ethqos->phy_state = PHY_IS_ON;
+	} else {
+		ETHQOSERR("reg_emac_phy is NULL\n");
+	}
+	return ret;
+}
+
+void  ethqos_phy_power_off(struct qcom_ethqos *ethqos)
+{
+	if (ethqos->reg_emac_phy) {
+		regulator_disable(ethqos->reg_emac_phy);
+		ethqos->phy_state = PHY_IS_OFF;
+	} else {
+		ETHQOSERR("reg_emac_phy is NULL\n");
 	}
 }
 

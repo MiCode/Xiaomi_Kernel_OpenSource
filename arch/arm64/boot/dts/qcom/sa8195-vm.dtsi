@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,7 +104,7 @@
 				};
 			};
 
-			cluster2 {
+			cluster1 {
 				core0 {
 					cpu = <&CPU4>;
 				};
@@ -125,6 +126,8 @@
 
 	aliases {
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
+		hsuart0 = &qupv3_se13_4uart;
+		hsuart1 = &qupv3_se4_4uart;
 	};
 };
 
@@ -1033,4 +1036,8 @@
 
 &tlmm {
 	dirconn-list = <37 216 1>;
+};
+
+&iommu_qupv3_0_geni_se_cb {
+	iommus = <&apps_smmu 0x4c3 0x0>;
 };

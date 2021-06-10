@@ -2,6 +2,7 @@
  * Cache control for MicroBlaze cache memories
  *
  * Copyright (C) 2007-2009 Michal Simek <monstr@monstr.eu>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2007-2009 PetaLogix
  * Copyright (C) 2007-2009 John Williams <john.williams@petalogix.com>
  *
@@ -92,7 +93,8 @@ static inline void __disable_dcache_nomsr(void)
 #define CACHE_LOOP_LIMITS(start, end, cache_line_length, cache_size)	\
 do {									\
 	int align = ~(cache_line_length - 1);				\
-	end = min(start + cache_size, end);				\
+	if (start <  UINT_MAX - cache_size)				\
+		end = min(start + cache_size, end);			\
 	start &= align;							\
 } while (0)
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -395,6 +396,7 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 	case MSM_GPI_QUP_MAX_EVENT:
 		/* fall through to stall impacted channel */
 	case MSM_GPI_QUP_CH_ERROR:
+	case MSM_GPI_QUP_FW_ERROR:
 	case MSM_GPI_QUP_PENDING_EVENT:
 	case MSM_GPI_QUP_EOT_DESC_MISMATCH:
 		break;
@@ -412,9 +414,9 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 	}
 	if (cb_str->cb_event != MSM_GPI_QUP_NOTIFY)
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-				"GSI QN err:0x%x, status:0x%x, err:%d\n",
-				cb_str->error_log.error_code,
-				m_stat, cb_str->cb_event);
+			"GSI QN err:0x%x, status:0x%x, err:%d\n",
+			cb_str->error_log.error_code, m_stat,
+			cb_str->cb_event);
 }
 
 static void gi2c_gsi_cb_err(struct msm_gpi_dma_async_tx_cb_param *cb,
@@ -538,6 +540,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		struct msm_gpi_tre *go_t = &gi2c->go_t;
 		struct device *rx_dev = gi2c->wrapper_dev;
 		struct device *tx_dev = gi2c->wrapper_dev;
+		reinit_completion(&gi2c->xfer);
 
 		gi2c->cur = &msgs[i];
 		qcom_geni_i2c_calc_timeout(gi2c);
@@ -708,19 +711,20 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 	int i, ret = 0, timeout = 0;
 
 	gi2c->err = 0;
-	reinit_completion(&gi2c->xfer);
+
+	/* Client to respect system suspend */
+	if (!pm_runtime_enabled(gi2c->dev)) {
+		GENI_SE_ERR(gi2c->ipcl, false, gi2c->dev,
+			"%s: System suspended\n", __func__);
+		return -EACCES;
+	}
+
 	mutex_lock(&gi2c->i2c_ssr.ssr_lock);
 	if (gi2c->i2c_ssr.is_ssr_down) {
 		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
 			"%s: SSR Down\n", __func__);
 		mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
 		return -EINVAL;
-	}
-	/* Client to respect system suspend */
-	if (!pm_runtime_enabled(gi2c->dev)) {
-		GENI_SE_ERR(gi2c->ipcl, false, gi2c->dev,
-			"%s: System suspended\n", __func__);
-		return -EACCES;
 	}
 
 	ret = pm_runtime_get_sync(gi2c->dev);
@@ -856,6 +860,8 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				geni_abort_m_cmd(gi2c->base);
 			}
 		}
+		gi2c->cur_wr = 0;
+		gi2c->cur_rd = 0;
 
 		gi2c->cur_wr = 0;
 		gi2c->cur_rd = 0;
@@ -889,8 +895,6 @@ geni_i2c_txn_ret:
 
 	pm_runtime_mark_last_busy(gi2c->dev);
 	pm_runtime_put_autosuspend(gi2c->dev);
-	gi2c->cur_wr = 0;
-	gi2c->cur_rd = 0;
 	gi2c->cur = NULL;
 	gi2c->err = 0;
 	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
@@ -1009,11 +1013,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,clk-cfg",
 		geni_i2c_clk_map_dt, 5)) {
 		if (of_property_read_u32(pdev->dev.of_node, "qcom,clk-freq-out",
-				&gi2c->i2c_rsc.clk_freq_out)) {
-			dev_info(&pdev->dev,
-				"Bus frequency not specified, default to 400KHz.\n");
+				&gi2c->i2c_rsc.clk_freq_out))
 			gi2c->i2c_rsc.clk_freq_out = KHz(400);
-		}
+
 		ret = geni_i2c_clk_map_idx(gi2c);
 		if (ret) {
 			dev_err(gi2c->dev, "Invalid clk frequency %d KHz: %d\n",
@@ -1030,6 +1032,8 @@ static int geni_i2c_probe(struct platform_device *pdev)
 					gi2c->geni_i2c_clk_param.clk_freq_out;
 		dev_info(&pdev->dev, "Clk-cfg array present\n");
 	}
+	dev_info(&pdev->dev, "Bus frequency is set to %dHz.\n",
+						gi2c->i2c_rsc.clk_freq_out);
 
 	gi2c->irq = platform_get_irq(pdev, 0);
 	if (gi2c->irq < 0) {

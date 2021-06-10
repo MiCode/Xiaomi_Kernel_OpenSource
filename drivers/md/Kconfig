@@ -287,22 +287,25 @@ config DM_CRYPT
 	  If unsure, say N.
 
 config DM_DEFAULT_KEY
-	tristate "Default-key crypt target support"
+	tristate "Default-key target support"
 	depends on BLK_DEV_DM
-	depends on PFK
-	---help---
-	  This (currently Android-specific) device-mapper target allows you to
-	  create a device that assigns a default encryption key to bios that
-	  don't already have one.  This can sit between inline cryptographic
-	  acceleration hardware and filesystems that use it.  This ensures that
-	  where the filesystem doesn't explicitly specify a key, such as for
-	  filesystem metadata, a default key will be used instead, leaving no
-	  sectors unencrypted.
+	depends on BLK_INLINE_ENCRYPTION
+	# dm-default-key doesn't require -o inlinecrypt, but it does currently
+	# rely on the inline encryption hooks being built into the kernel.
+	depends on FS_ENCRYPTION_INLINE_CRYPT
+	help
+	  This device-mapper target allows you to create a device that
+	  assigns a default encryption key to bios that aren't for the
+	  contents of an encrypted file.
 
-	  To compile this code as a module, choose M here: the module will be
-	  called dm-default-key.
+	  This ensures that all blocks on-disk will be encrypted with
+	  some key, without the performance hit of file contents being
+	  encrypted twice when fscrypt (File-Based Encryption) is used.
 
-	  If unsure, say N.
+	  It is only appropriate to use dm-default-key when key
+	  configuration is tightly controlled, like it is in Android,
+	  such that all fscrypt keys are at least as hard to compromise
+	  as the default key.
 
 config DM_SNAPSHOT
        tristate "Snapshot target"

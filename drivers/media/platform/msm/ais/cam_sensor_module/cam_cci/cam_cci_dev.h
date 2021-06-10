@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -324,7 +325,5 @@ static inline struct v4l2_subdev *cam_cci_get_subdev(int cci_dev_index)
 }
 #endif
 
-#define VIDIOC_MSM_CCI_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 23, struct cam_cci_ctrl *)
 
 #endif /* _CAM_CCI_DEV_H_ */

@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +75,11 @@ enum print_reason {
 #define HVDCP2_ICL_VOTER		"HVDCP2_ICL_VOTER"
 #define AICL_THRESHOLD_VOTER		"AICL_THRESHOLD_VOTER"
 #define USBOV_DBC_VOTER			"USBOV_DBC_VOTER"
+#define USBOV_DELAY_VOTER			"USBOV_DELAY_VOTER"
+#define CHG_INSERT_VOTER			"CHG_INSERT_VOTER"
+
+#define BATT_TEMP_VOTER			"BATT_TEMP_VOTER"
+#define CALL_ICL_MAX_VOTER			"CALL_ICL_MAX_VOTER"
 #define CHG_TERMINATION_VOTER		"CHG_TERMINATION_VOTER"
 #define THERMAL_THROTTLE_VOTER		"THERMAL_THROTTLE_VOTER"
 #define VOUT_VOTER			"VOUT_VOTER"
@@ -99,11 +105,12 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1500000
-#define HVDCP_CURRENT_UA		3000000
+#define FLOAT_CURRENT_UA		1000000
+#define DCP_CURRENT_UA			2000000//1500000
+#define HVDCP_CURRENT_UA		2000000//3000000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
-#define TYPEC_HIGH_CURRENT_UA		3000000
+#define TYPEC_HIGH_CURRENT_UA		2000000//3000000
 #define DCIN_ICL_MIN_UA			100000
 #define DCIN_ICL_MAX_UA			1500000
 #define DCIN_ICL_STEP_UA		100000
@@ -466,6 +473,9 @@ struct smb_charger {
 	struct delayed_work	lpd_detach_work;
 	struct delayed_work	thermal_regulation_work;
 	struct delayed_work	usbov_dbc_work;
+	struct delayed_work	usb_current_work;
+	struct delayed_work	period_update_work;
+	struct delayed_work	usbov_delay_report_work;
 	struct delayed_work	role_reversal_check;
 	struct delayed_work	pr_swap_detach_work;
 	struct delayed_work	pr_lock_clear_work;
@@ -567,6 +577,7 @@ struct smb_charger {
 	int			cc_soc_ref;
 	int			last_cc_soc;
 	int			dr_mode;
+	int			old_batt_status;
 	int			term_vbat_uv;
 	int			usbin_forced_max_uv;
 	int			init_thermal_ua;
@@ -582,6 +593,8 @@ struct smb_charger {
 	int			boost_current_ua;
 	int                     qc2_max_pulses;
 	enum qc2_non_comp_voltage qc2_unsupported_voltage;
+
+	bool			usb_type_show;
 	bool			dbc_usbov;
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
@@ -596,6 +609,8 @@ struct smb_charger {
 
 	int			die_health;
 	int			connector_health;
+	int			call_state;
+	int			last_bat_current;
 
 	/* flash */
 	u32			flash_derating_soc;

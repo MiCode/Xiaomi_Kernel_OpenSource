@@ -2,6 +2,7 @@
  * pcrypt - Parallel crypto wrapper.
  *
  * Copyright (C) 2009 secunet Security Networks AG
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2009 Steffen Klassert <steffen.klassert@secunet.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -130,7 +131,6 @@ static void pcrypt_aead_done(struct crypto_async_request *areq, int err)
 	struct padata_priv *padata = pcrypt_request_padata(preq);
 
 	padata->info = err;
-	req->base.flags &= ~CRYPTO_TFM_REQ_MAY_SLEEP;
 
 	padata_do_serial(padata);
 }

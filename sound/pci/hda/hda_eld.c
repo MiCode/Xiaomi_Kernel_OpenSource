@@ -2,6 +2,7 @@
  * Generic routines and proc interface for ELD(EDID Like Data) information
  *
  * Copyright(c) 2008 Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013 Anssi Hannula <anssi.hannula@iki.fi>
  *
  * Authors:
@@ -373,7 +374,7 @@ static void hdmi_print_pcm_rates(int pcm, char *buf, int buflen)
 
 	for (i = 0, j = 0; i < ARRAY_SIZE(alsa_rates); i++)
 		if (pcm & (1 << i))
-			j += snprintf(buf + j, buflen - j,  " %d",
+			j += scnprintf(buf + j, buflen - j,  " %d",
 				alsa_rates[i]);
 
 	buf[j] = '\0'; /* necessary when j == 0 */

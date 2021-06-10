@@ -1,4 +1,5 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017,2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -712,6 +713,7 @@ static struct kgsl_pagetable *nommu_getpagetable(struct kgsl_mmu *mmu,
 static int nommu_init(struct kgsl_mmu *mmu)
 {
 	mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
+	set_bit(KGSL_MMU_STARTED, &mmu->flags);
 	return 0;
 }
 

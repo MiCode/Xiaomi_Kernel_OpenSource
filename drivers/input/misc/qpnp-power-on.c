@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +33,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/hardware_info.h>
 #include <linux/qpnp/qpnp-pbs.h>
 #include <linux/qpnp/qpnp-misc.h>
 
@@ -153,6 +155,9 @@
 #define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
 
 #define QPNP_PON_BUFFER_SIZE			9
+
+#define QPNP_PON_SET_PS_HOLD			0x2
+#define QPNP_PON_SET_POWER_KEY			0x80
 
 #define QPNP_POFF_REASON_UVLO			13
 
@@ -541,6 +546,69 @@ static ssize_t debounce_us_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(debounce_us);
 
+//ExtB HONGMI-57913, zhangrui@wingtech.com, 20190328, add kpdpwr reset node begin
+static ssize_t qpnp_kpdpwr_reset_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(dev);
+	int val;
+	int rc;
+
+	rc = qpnp_pon_read(pon, QPNP_PON_KPDPWR_S2_CNTL2(pon), &val);
+	if (rc) {
+		dev_err(pon->dev, "Unable to pon_dbc_ctl rc=%d\n", rc);
+		return rc;
+	}
+
+	val &= QPNP_PON_S2_RESET_ENABLE;
+	val = val >> 7;
+
+	return snprintf(buf, QPNP_PON_BUFFER_SIZE, "%d\n", val);
+}
+
+static ssize_t qpnp_kpdpwr_reset_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(dev);
+	u32 value;
+	int rc;
+
+	if (size > QPNP_PON_BUFFER_SIZE)
+		return -EINVAL;
+
+	rc = kstrtou32(buf, 10, &value);
+	if (rc)
+		return rc;
+
+	value = value << 7;
+
+	printk("qpnp_kpdpwr_reset_store set value: %d\n", value);
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_KPDPWR_S2_CNTL2(pon),
+				QPNP_PON_S2_RESET_ENABLE, value);
+	if (rc) {
+		dev_err(pon->dev, "Unable to configure kpdpwr reset\n");
+		return rc;
+	}
+
+	return size;
+}
+static DEVICE_ATTR(kpdpwr_reset, 0664, qpnp_kpdpwr_reset_show, qpnp_kpdpwr_reset_store);
+//ExtB HONGMI-57913, zhangrui@wingtech.com, 20190328, add kpdpwr reset node end
+static struct qpnp_pon_config *
+qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
+{
+	int i;
+
+	for (i = 0; i < pon->num_pon_config; i++) {
+		if (pon_type == pon->pon_cfg[i].pon_type)
+			return  &pon->pon_cfg[i];
+	}
+
+	return NULL;
+}
+
 #define PON_TWM_ENTRY_PBS_BIT           BIT(0)
 static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 				 enum pon_power_off_type type)
@@ -548,6 +616,7 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 	int rc;
 	bool disable = false;
 	u16 rst_en_reg;
+	struct qpnp_pon_config *cfg;
 
 	/* Ignore the PS_HOLD reset config if TWM ENTRY is enabled */
 	if (pon->support_twm_config && pon->twm_state == PMIC_TWM_ENABLE) {
@@ -558,6 +627,18 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 							rc);
 			return rc;
 		}
+
+		cfg = qpnp_get_cfg(pon, PON_KPDPWR);
+		if (cfg) {
+			/* configure KPDPWR_S2 to Hard reset */
+			rc = qpnp_pon_masked_write(pon, cfg->s2_cntl_addr,
+						QPNP_PON_S2_CNTL_TYPE_MASK,
+						PON_POWER_OFF_HARD_RESET);
+			if (rc < 0)
+				pr_err("Unable to config KPDPWR_N S2 for hard-reset rc=%d\n",
+					rc);
+		}
+
 		pr_crit("PMIC configured for TWM entry\n");
 		return 0;
 	}
@@ -798,6 +879,60 @@ int qpnp_pon_is_warm_reset(void)
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
 
+int qpnp_pon_is_ps_hold_reset(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	int reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = regmap_read(pon->regmap, QPNP_POFF_REASON1(pon), &reg);
+	if (rc) {
+		dev_err(pon->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_POFF_REASON1(pon), rc);
+		return 0;
+	}
+
+	dev_info(pon->dev, "hw_reset reason1 is 0x%x\n", reg);
+
+	/* The bit 1 is 1, means by PS_HOLD/MSM controlled shutdown */
+	if (reg & QPNP_PON_SET_PS_HOLD)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_ps_hold_reset);
+
+int qpnp_pon_is_lpk(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	int reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = regmap_read(pon->regmap, QPNP_POFF_REASON1(pon), &reg);
+	if (rc) {
+		dev_err(pon->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_POFF_REASON1(pon), rc);
+		return 0;
+	}
+
+	dev_info(pon->dev,
+		"hw_reset reason1 is 0x%x\n", reg);
+
+	/* The bit 7 is 1, means the off reason is powerkey */
+	if (reg & QPNP_PON_SET_POWER_KEY)
+		return 1;
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lpk);
+
 /**
  * qpnp_pon_wd_config() - configure the watch dog behavior for warm reset
  * @enable: to enable or disable the PON watch dog
@@ -917,18 +1052,6 @@ static int qpnp_pon_store_and_clear_warm_reset(struct qpnp_pon *pon)
 	return 0;
 }
 
-static struct qpnp_pon_config *qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
-{
-	int i;
-
-	for (i = 0; i < pon->num_pon_config; i++) {
-		if (pon_type == pon->pon_cfg[i].pon_type)
-			return &pon->pon_cfg[i];
-	}
-
-	return NULL;
-}
-
 static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 {
 	struct qpnp_pon_config *cfg = NULL;
@@ -977,7 +1100,7 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 		return -EINVAL;
 	}
 
-	pr_debug("PMIC input: code=%d, status=0x%02X\n", cfg->key_code,
+	pr_err("PMIC input: code=%d, status=0x%02X\n", cfg->key_code,
 		pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
 
@@ -2308,6 +2431,24 @@ static int qpnp_pon_parse_dt_power_off_config(struct qpnp_pon *pon)
 
 	return 0;
 }
+extern char board_id[HARDWARE_MAX_ITEM_LONGTH];
+void probe_board_and_set(void)
+{
+	char* boadrid_start;
+  char boardid_info[HARDWARE_MAX_ITEM_LONGTH];
+
+	boadrid_start = strstr(saved_command_line,"board_id=");
+	memset(boardid_info, 0, HARDWARE_MAX_ITEM_LONGTH);
+	if(boadrid_start != NULL)
+	{
+        strncpy(boardid_info, boadrid_start+sizeof("board_id=")-1, 9);//skip the header "board_id="
+	}
+	else
+	{
+		sprintf(boardid_info, "boarid not define!");
+	}
+	strlcpy(board_id, boardid_info, HARDWARE_MAX_ITEM_LONGTH);
+}
 
 static int qpnp_pon_probe(struct platform_device *pdev)
 {
@@ -2443,10 +2584,20 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+//ExtB HONGMI-57913, zhangrui@wingtech.com, 20190328, add kpdpwr reset node begin
+	rc = device_create_file(dev, &dev_attr_kpdpwr_reset);
+	if (rc) {
+		dev_err(dev, "sysfs kpdpwr_reset file creation failed rc=%d\n",
+			rc);
+		return rc;
+	}
+//ExtB HONGMI-57913, zhangrui@wingtech.com, 20190328, add kpdpwr reset node end
+
 	if (sys_reset)
 		sys_reset_dev = pon;
 
 	qpnp_pon_debugfs_init(pon);
+	probe_board_and_set();
 
 	return 0;
 }

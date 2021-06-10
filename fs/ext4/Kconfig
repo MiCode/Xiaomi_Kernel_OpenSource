@@ -37,6 +37,7 @@ config EXT4_FS
 	select CRC16
 	select CRYPTO
 	select CRYPTO_CRC32C
+	select FS_ENCRYPTION_ALGS if FS_ENCRYPTION
 	help
 	  This is the next generation of the ext3 filesystem.
 
@@ -108,15 +109,9 @@ config EXT4_ENCRYPTION
 	  files
 
 config EXT4_FS_ENCRYPTION
-	bool "Ext4 FS Encryption"
+	bool
 	default n
 	depends on EXT4_ENCRYPTION
-
-config EXT4_FS_ICE_ENCRYPTION
-	bool "Ext4 Encryption with ICE support"
-	default n
-	depends on EXT4_FS_ENCRYPTION
-	depends on PFK
 
 config EXT4_DEBUG
 	bool "EXT4 debugging support"

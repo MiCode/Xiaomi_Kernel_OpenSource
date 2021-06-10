@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1428,6 +1429,9 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		case IPA_HDR_PROC_802_3_TO_802_3:
 			ctx->cmd.value = IPA_HDR_UCP_802_3_TO_802_3;
 			break;
+		case IPA_HDR_PROC_SET_DSCP:
+			ctx->cmd.value = IPA_HDR_UCP_SET_DSCP;
+			break;
 		default:
 			IPAHAL_ERR("unknown ipa_hdr_proc_type %d", type);
 			WARN_ON(1);
@@ -1479,6 +1483,9 @@ static int ipahal_get_proc_ctx_needed_len_v3(enum ipa_hdr_proc_type type)
 		break;
 	case IPA_HDR_PROC_ETHII_TO_ETHII_EX:
 		ret = sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq_ex);
+		break;
+	case IPA_HDR_PROC_SET_DSCP:
+		ret = sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq);
 		break;
 	default:
 		/* invalid value to make sure failure */
