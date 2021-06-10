@@ -226,6 +226,9 @@ phy_init:
 phy_err:
 	ssusb_phy_exit(ssusb);
 phy_init_err:
+	if (ssusb->plat_type == PLAT_FPGA)
+		return ret;
+
 	ssusb_clks_disable(ssusb);
 clks_err:
 	regulator_disable(ssusb->vusb33);
