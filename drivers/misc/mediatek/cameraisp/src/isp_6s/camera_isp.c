@@ -730,9 +730,57 @@ struct SV_LOG_STR {
 	struct S_START_T _lastIrqTime;
 };
 
+/* If log buffer size(See avaLen in the macro, "IRQ_LOG_KEEPER") is not
+ * enough, dbg msg will be printed out via pr_info/pr_notice. This behavior
+ * costs too much for ISR and CPU. If ISR_NO_PRINT is defined as "true", we'll
+ * hide the dbg msg, when log buffer is not enough.
+ */
+#define ISR_NO_PRINT (true)
+
+static void print_isr_log(unsigned int logtype, char *ptr)
+{
+	int i = 0;
+	unsigned int log_page_num = 0;
+
+	if (logtype == _LOG_DBG)
+		log_page_num = DBG_PAGE;
+	else if (logtype == _LOG_INF)
+		log_page_num = INF_PAGE;
+	else if (logtype == _LOG_ERR)
+		log_page_num = ERR_PAGE;
+
+	for (i = 0; i < log_page_num; i++) {
+		if (ptr[NORMAL_STR_LEN * (i + 1) - 1] != '\0') {
+			ptr[NORMAL_STR_LEN * (i + 1) - 1] = '\0';
+
+			if ((ISR_NO_PRINT) || (logtype == _LOG_DBG))
+				LOG_DBG("%s", &ptr[NORMAL_STR_LEN * i]);
+			else if (logtype == _LOG_INF)
+				LOG_INF("%s", &ptr[NORMAL_STR_LEN * i]);
+			else if (logtype == _LOG_ERR)
+				LOG_NOTICE("%s", &ptr[NORMAL_STR_LEN * i]);
+			else
+				LOG_NOTICE("Not Support logtype(%d)\n", logtype);
+		} else {
+			if ((ISR_NO_PRINT) || (logtype == _LOG_DBG))
+				LOG_DBG("%s", &ptr[NORMAL_STR_LEN * i]);
+			else if (logtype == _LOG_INF)
+				LOG_INF("%s", &ptr[NORMAL_STR_LEN * i]);
+			else if (logtype == _LOG_ERR)
+				LOG_NOTICE("%s", &ptr[NORMAL_STR_LEN * i]);
+			else
+				LOG_NOTICE("Not Support logtype(%d)\n", logtype);
+			break;
+		}
+	}
+}
+
 static void *pLog_kmalloc;
 static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
 static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
+
+#define HW_DON_LOG_ENABLE (0)
+
 #define STR_REG "Addr(0x%x) 0x%8x-0x%8x-0x%8x-0x%8x|0x%8x-0x%8x-0x%8x-0x%8x\n"
 /**
  *   for irq used,keep log until IRQ_LOG_PRINTER being involked,
@@ -754,7 +802,6 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 	int avaLen;\
 	unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
 	unsigned int str_leng;\
-	unsigned int i;\
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	if (logT == _LOG_ERR) {\
 		str_leng = NORMAL_STR_LEN*ERR_PAGE;\
@@ -783,57 +830,13 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 			(*ptr2)++;\
 		} \
 	} else {\
-		LOG_INF("(%d)(%d)log str avalible=0, print log\n", irq, logT);\
+		if (ISR_NO_PRINT) \
+			LOG_DBG("(%d)(%d)log str avalible=0, print log\n", irq, logT);\
+		else \
+			LOG_INF("(%d)(%d)log str avalible=0, print log\n", irq, logT);\
 		ptr = pSrc->_str[ppb][logT];\
 		if (pSrc->_cnt[ppb][logT] != 0) {\
-			if (logT == _LOG_DBG) {\
-				for (i = 0; i < DBG_PAGE; i++) {\
-					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != \
-					    '\0') {\
-						ptr[NORMAL_STR_LEN*(i+1) - 1] =\
-							'\0';\
-						LOG_DBG("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-					} else {\
-						LOG_DBG("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-						break;\
-					} \
-				} \
-			} \
-			else if (logT == _LOG_INF) {\
-				for (i = 0; i < INF_PAGE; i++) {\
-					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != \
-					    '\0') {\
-						ptr[NORMAL_STR_LEN*(i+1) - 1] =\
-						    '\0';\
-						LOG_INF("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-					} else {\
-						LOG_INF("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-						break;\
-					} \
-				} \
-			} \
-			else if (logT == _LOG_ERR) {\
-				for (i = 0; i < ERR_PAGE; i++) {\
-					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != \
-					    '\0') {\
-						ptr[NORMAL_STR_LEN*(i+1) - 1] =\
-							'\0';\
-						LOG_NOTICE("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-					} else {\
-						LOG_NOTICE("%s",\
-						    &ptr[NORMAL_STR_LEN*i]);\
-						break;\
-					} \
-				} \
-			} \
-			else {\
-				LOG_NOTICE("N.S.%d", logT);\
-			} \
+			print_isr_log(logT, ptr); \
 			ptr[0] = '\0';\
 			pSrc->_cnt[ppb][logT] = 0;\
 			avaLen = str_leng - 1;\
@@ -10759,7 +10762,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 #endif
 	}
 
-	if (IrqStatus & HW_PASS1_DON_ST) {
+	if ((IrqStatus & HW_PASS1_DON_ST) && HW_DON_LOG_ENABLE) {
 		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
 			/* reduce SMVR case hw p1 done log */
 			if (Irq2StatusX != 0) {
@@ -10825,6 +10828,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			/*SW p1_don is not reliable */
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
 				gPass1doneLog[module].module = module;
+#ifdef ENABLE_STT_IRQ_LOG
 				if (snprintf(gPass1doneLog[module]._str,
 				P1DONE_STR_LEN,
 				"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)int(0x%x,0x%x,0x%x)FLKBA(0x%x,0x%x,0x%x)AAO(0x%x,0x%x,0x%x)THR14(0x%x,0x%x,0x%x)FBC(0x%x,0x%x,0x%x)exe_us:%d ",
@@ -10867,6 +10871,38 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		usec_sof[module]))) < 0) {
 					LOG_NOTICE("Error: snprintf fail\n");
 				}
+#else
+				if (snprintf(gPass1doneLog[module]._str,
+				P1DONE_STR_LEN,
+				"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)int(0x%x,0x%x,0x%x)exe_us:%d ",
+		'A' + cardinalNum,
+		(sof_count[module])
+			? (sof_count[module] - 1)
+			: (sof_count[module]),
+		(unsigned int)(fbc_ctrl1[0].Raw),
+		(unsigned int)(fbc_ctrl2[0].Raw),
+		(unsigned int)(fbc_ctrl1[1].Raw),
+		(unsigned int)(fbc_ctrl2[1].Raw),
+		Irq2StatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		IrqStatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		(unsigned int)((sec * 1000000 + usec) -
+		(1000000 * sec_sof[module] +
+		usec_sof[module]))) < 0) {
+					LOG_NOTICE("Error: snprintf fail\n");
+				}
+#endif
 			}
 		}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
@@ -11518,10 +11554,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				(unsigned int)ISP_RD32(
 					CAM_REG_YUVO_FH_BASE_ADDR(
 						ISP_CAM_C_INNER_IDX)));
-			else
+			else {
 				IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
-				"%s,%s,CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x/0x%x),int_us:%d,FBC:0x%08x,cq:0x%08x_0x%08x 0x%08x_0x%08x 0x%08x_0x%08x,cq14:0x%08x_0x%08x 0x%08x_0x%08x 0x%08x_0x%08x,Don(0x%08x_0x%08x 0x%08x_0x%08x,0x%08x_0x%08x 0x%08x_0x%08x),DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),CTL_EN(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x),CTL_EN2(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x),FLKO BASE(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x),FLKO FHBase(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x)\n",
+				"%s,%s,CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x/0x%x),int_us:%d,FBC:0x%08x,cq:0x%08x_0x%08x 0x%08x_0x%08x 0x%08x_0x%08x,Don(0x%08x_0x%08x 0x%08x_0x%08x,0x%08x_0x%08x 0x%08x_0x%08x),DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),CTL_EN(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x),CTL_EN2(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x)\n",
 				gPass1doneLog[module]._str,
 				gLostPass1doneLog[module]._str,
 				'A' + cardinalNum, sof_count[module], cur_v_cnt,
@@ -11555,23 +11591,6 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 						ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(
-						ISP_CAM_C_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_A_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CQ_THR14_BASEADDR(
-						ISP_CAM_A_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CQ_THR14_BASEADDR(
-						ISP_CAM_B_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CQ_THR14_BASEADDR(
-						ISP_CAM_B_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CQ_THR14_BASEADDR(
-						ISP_CAM_C_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CQ_THR14_BASEADDR(
 						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CTL_MISC(ISP_CAM_A_IDX)),
@@ -11658,43 +11677,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					CAM_REG_CTL_EN2(ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CTL_EN2(
-						ISP_CAM_C_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_BASE_ADDR(
-						ISP_CAM_A_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_BASE_ADDR(
-						ISP_CAM_A_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_BASE_ADDR(
-						ISP_CAM_B_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_BASE_ADDR(
-						ISP_CAM_B_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_BASE_ADDR(
-						ISP_CAM_C_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_BASE_ADDR(
-						ISP_CAM_C_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_FH_BASE_ADDR(
-						ISP_CAM_A_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_FH_BASE_ADDR(
-						ISP_CAM_A_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_FH_BASE_ADDR(
-						ISP_CAM_B_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_FH_BASE_ADDR(
-						ISP_CAM_B_INNER_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_FH_BASE_ADDR(
-						ISP_CAM_C_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_FH_BASE_ADDR(
 						ISP_CAM_C_INNER_IDX)));
+			}
 #endif
 
 			if (snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\") < 0)
