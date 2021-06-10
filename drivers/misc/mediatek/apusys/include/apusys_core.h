@@ -34,7 +34,8 @@ int reviser_init(struct apusys_core_info *info);
 void reviser_exit(void);
 int devapc_init(struct apusys_core_info *info);
 void devapc_exit(void);
-
+int apumem_init(struct apusys_core_info *info);
+void apumem_exit(void);
 
 int sw_logger_init(void);
 void sw_logger_exit(void);
@@ -61,6 +62,7 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 #ifdef MTK_APU_AOSP_ION_SUPPORT
 	mdw_mem_drv_init,
 #endif
+	apumem_init,
 	mdw_init,
 	sample_init,
 	edma_init,
@@ -88,6 +90,7 @@ static void (*apusys_exit_func[])(void) = {
 	edma_exit,
 	sample_exit,
 	mdw_exit,
+	apumem_exit,
 #ifdef MTK_APU_AOSP_ION_SUPPORT
 	mdw_mem_drv_exit,
 #endif

@@ -9,6 +9,8 @@
 #include <linux/slab.h>
 #include <linux/of_device.h>
 
+
+#include "mdw_mem_rsc.h"
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
 
@@ -37,6 +39,7 @@ struct mdw_mem_dma {
 	struct mutex mtx;
 	struct mdw_device *mdev;
 	struct mdw_mem *mmem;
+	struct device *mem_dev;
 };
 
 #define mdw_mem_dma_show(d) \
@@ -55,14 +58,14 @@ static int mdw_dmabuf_attach(struct dma_buf *dbuf,
 	if (!a)
 		return -ENOMEM;
 
-	ret = dma_get_sgtable(&mdbuf->mdev->pdev->dev, &a->sgt,
+	ret = dma_get_sgtable(attach->dev, &a->sgt,
 		mdbuf->a.vaddr, mdbuf->dma_addr, mdbuf->dma_size);
 	if (ret < 0) {
 		mdw_drv_err("failed to get sgtable\n");
 		kfree(a);
 		return ret;
 	}
-
+	mdw_mem_debug("attach dev %s\n", dev_name(attach->dev));
 	mdw_mem_debug("%s: %d\n", __func__, __LINE__);
 	a->dev = attach->dev;
 	attach->priv = a;
@@ -79,6 +82,7 @@ static void mdw_dmabuf_detach(struct dma_buf *dbuf,
 	struct mdw_mem_dma_attachment *a = attach->priv;
 	struct mdw_mem_dma *mdbuf = dbuf->priv;
 
+	mdw_mem_debug("attach dev %s\n", dev_name(attach->dev));
 	mdw_mem_debug("%s: %d\n", __func__, __LINE__);
 	mutex_lock(&mdbuf->mtx);
 	list_del(&a->node);
@@ -124,8 +128,9 @@ static void mdw_dmabuf_release(struct dma_buf *dbuf)
 	struct mdw_mem_dma *mdbuf = dbuf->priv;
 	struct mdw_mem *m = mdbuf->mmem;
 
+	mdw_mem_debug("mdbuf->mem_dev dev %s\n", dev_name(mdbuf->mem_dev));
 	mdw_mem_dma_show(mdbuf);
-	dma_free_coherent(&mdbuf->mdev->pdev->dev, mdbuf->dma_size,
+	dma_free_coherent(mdbuf->mem_dev, mdbuf->dma_size,
 		mdbuf->a.vaddr, mdbuf->dma_addr);
 
 	kfree(mdbuf);
@@ -139,7 +144,8 @@ static int mdw_dmabuf_mmap(struct dma_buf *dbuf,
 	int ret = 0;
 
 	mdw_mem_debug("%s: %d\n", __func__, __LINE__);
-	ret = dma_mmap_coherent(&mdbuf->mdev->pdev->dev, vma, mdbuf->a.vaddr,
+	mdw_mem_debug("mdbuf->mem_dev dev %s\n", dev_name(mdbuf->mem_dev));
+	ret = dma_mmap_coherent(mdbuf->mem_dev, vma, mdbuf->a.vaddr,
 				mdbuf->dma_addr, mdbuf->dma_size);
 	if (ret)
 		mdw_drv_err("mmap dma-buf error(%d)\n", ret);
@@ -163,6 +169,7 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	struct mdw_mem_dma *mdbuf = NULL;
 	int ret = 0;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct device *dev;
 
 	/* alloc mdw dma-buf container */
 	mdbuf = kzalloc(sizeof(*mdbuf), GFP_KERNEL);
@@ -178,8 +185,23 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	mdw_mem_debug("alloc mem(%p)(%u/%u)\n",
 		mem, mem->size, mdbuf->dma_size);
 
+
+	if (mem->flags & (1ULL << MDW_MEM_IOCTL_ALLOC_32BIT)) {
+		dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
+		mdw_mem_debug("Code %x dev %s\n", mem->flags, dev_name(dev));
+	} else {
+		dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_DATA);
+		mdw_mem_debug("data %x dev %s\n", mem->flags, dev_name(dev));
+	}
+
+	if (!dev) {
+		mdw_drv_err("Dev Invalid\n");
+		ret = -ENOMEM;
+		goto free_mdw_dbuf;
+	}
+
 	/* TODO, handle cache */
-	mdbuf->a.vaddr = dma_alloc_coherent(&mdev->pdev->dev, mdbuf->dma_size,
+	mdbuf->a.vaddr = dma_alloc_coherent(dev, mdbuf->dma_size,
 		&mdbuf->dma_addr, GFP_KERNEL);
 
 	if (!mdbuf->a.vaddr)
@@ -197,6 +219,8 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 
 	mdbuf->dbuf->priv = mdbuf;
 	mdbuf->mmem = mem;
+	mdbuf->mem_dev = dev;
+	mdw_mem_debug("mdbuf->mem_dev %s\n", dev_name(mdbuf->mem_dev));
 
 	/* create fd from dma-buf */
 	mdbuf->a.handle =  dma_buf_fd(mdbuf->dbuf,
@@ -212,12 +236,13 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	mem->vaddr = mdbuf->a.vaddr;
 	mem->priv = mdbuf;
 
+
 	mdw_mem_dma_show(mdbuf);
 
 	return 0;
 
 free_dma_buf:
-	dma_free_coherent(&mdbuf->mdev->pdev->dev, mdbuf->dma_size,
+	dma_free_coherent(dev, mdbuf->dma_size,
 		mdbuf->a.vaddr, mdbuf->dma_addr);
 free_mdw_dbuf:
 	kfree(mdbuf);
@@ -268,7 +293,7 @@ int mdw_mem_dma_import(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	int ret = 0;
 	struct mdw_mem_dma *mdbuf = NULL;
 	struct dma_buf *dbuf = NULL;
-	struct mdw_device *mdev = mpriv->mdev;
+	struct device *dev;
 
 	if (mem->device_va || mem->priv) {
 		mdw_drv_err("mem(%p) already has dva(0x%llx/%p)\n",
@@ -280,6 +305,16 @@ int mdw_mem_dma_import(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	if (IS_ERR_OR_NULL(dbuf))
 		return -ENOMEM;
 
+	// Import Use 32 Bit Buffer
+	dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
+	mdw_mem_debug("Code %x dev %s\n", mem->flags, dev_name(dev));
+
+	if (!dev) {
+		mdw_drv_err("Dev Invalid\n");
+		ret = -ENOMEM;
+		goto put_dbuf;
+	}
+
 	mdbuf = kzalloc(sizeof(*mdbuf), GFP_KERNEL);
 	if (!mdbuf) {
 		ret = -ENOMEM;
@@ -288,7 +323,11 @@ int mdw_mem_dma_import(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 
 	mdbuf->mmem = mem;
 	mdbuf->dbuf = dbuf;
-	mdbuf->m.attach = dma_buf_attach(mdbuf->dbuf, &mdev->pdev->dev);
+	mdbuf->mem_dev = dev;
+
+	mdw_mem_debug("dev %s\n", dev_name(dev));
+
+	mdbuf->m.attach = dma_buf_attach(mdbuf->dbuf, dev);
 	if (IS_ERR(mdbuf->m.attach)) {
 		ret = PTR_ERR(mdbuf->m.attach);
 		mdw_drv_err("dma_buf_attach failed: %d\n", ret);

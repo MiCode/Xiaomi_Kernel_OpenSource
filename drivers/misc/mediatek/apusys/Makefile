@@ -71,6 +71,8 @@ ifeq ($(CONFIG_MTK_ION), y)
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
 endif
 else
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_drv.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_rsc.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_drv.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_ctx.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_dev.o

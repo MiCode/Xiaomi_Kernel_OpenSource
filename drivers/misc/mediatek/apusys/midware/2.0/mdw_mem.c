@@ -11,6 +11,7 @@
 #include "apusys_device.h"
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
+#include "mdw_mem_rsc.h"
 
 struct mdw_mem_mgr {
 	struct list_head mems;
@@ -335,21 +336,14 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data)
 
 int mdw_mem_init(struct mdw_device *mdev)
 {
-	struct device *dev = &mdev->pdev->dev;
+	//struct device *dev = &mdev->pdev->dev;
 	int ret = 0;
 
 	memset(&mmgr, 0, sizeof(mmgr));
 	mutex_init(&mmgr.mtx);
 	INIT_LIST_HEAD(&mmgr.mems);
 
-	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
-	memset(&mdw_dma_params, 0, sizeof(mdw_dma_params));
-	dev->dma_parms = &mdw_dma_params;
-	ret = dma_set_max_seg_size(dev, (unsigned int)DMA_BIT_MASK(32));
-	if (ret)
-		mdw_drv_err("set dma param fail\n");
-
-	mdw_drv_info("set dma param done\n");
+	mdw_drv_info("set mem done\n");
 
 	return ret;
 }
