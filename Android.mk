@@ -4,7 +4,6 @@
 LOCAL_PATH := $(call my-dir)
 
 ifeq ($(notdir $(LOCAL_PATH)),$(strip $(LINUX_KERNEL_VERSION)))
-ifneq ($(strip $(TARGET_NO_KERNEL)),true)
 
 include $(LOCAL_PATH)/kenv.mk
 
@@ -45,8 +44,10 @@ endif#BUILD_KERNEL
 endif #TARGET_PREBUILT_KERNEL is empty
 
 ifeq (yes,$(strip $(BUILD_KERNEL)))
+ifneq ($(strip $(TARGET_NO_KERNEL)),true)
 $(INSTALLED_KERNEL_TARGET): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-target)
+endif#TARGET_NO_KERNEL
 endif#BUILD_KERNEL
 
 .PHONY: kernel save-kernel kernel-savedefconfig kernel-menuconfig menuconfig-kernel savedefconfig-kernel clean-kernel
@@ -74,5 +75,4 @@ include device/mediatek/build/core/build_dtbimage.mk
 MTK_DTBOIMAGE_DTS := $(addsuffix .dts,$(addprefix $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/,$(PROJECT_DTB_NAMES)))
 include device/mediatek/build/core/build_dtboimage.mk
 
-endif #TARGET_NO_KERNEL
 endif #LINUX_KERNEL_VERSION
