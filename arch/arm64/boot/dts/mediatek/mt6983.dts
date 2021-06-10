@@ -1947,6 +1947,25 @@
 		reg = <0 0x14024000 0 0x1000>;
 	};
 
+	mmc0: mmc@11230000 {
+		compatible = "mediatek,mt6983-mmc", "mediatek,mt2712-mmc";
+		reg = <0 0x11230000 0 0x10000>,
+		      <0 0x11f50000 0 0x1000>;
+		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
+                status = "disabled";
+	};
+
+	mmc1: mmc@11240000 {
+		compatible = "mediatek,mt6983-mmc", "mediatek,mt2712-mmc";
+		reg = <0 0x11240000 0 0x1000>,
+		      <0 0x11e70000 0 0x1000>;
+		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH 0>;
+//		clocks = <&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
+//			 <&infracfg_ao_clk CLK_IFRAO_MSDC1>,
+//			 <&infracfg_ao_clk CLK_IFRAO_MSDC1_SRC>;
+//		clock-names = "source", "hclk", "source_cg";
+	};
+
 	reserved@14025000 {
 		compatible = "mediatek,reserved";
 		reg = <0 0x14025000 0 0x1000>;
@@ -2872,3 +2891,5 @@
 		compatible = "mt6893,apusys_power_dummy";
 	};
 };
+
+#include "mediatek/cust_mt6983_msdc.dtsi"
