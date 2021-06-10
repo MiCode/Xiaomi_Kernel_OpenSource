@@ -9,21 +9,35 @@
 #define __MTK_MML_CORE_H__
 
 #include <linux/atomic.h>
+#include <linux/dma-fence.h>
 #include <linux/file.h>
+#include <linux/kref.h>
 #include <linux/list.h>
 #include <linux/mailbox_controller.h>
 #include <linux/mailbox/mtk-cmdq-mailbox.h>
 #include <linux/mailbox_client.h>
+#include <linux/trace_events.h>
 #include <linux/types.h>
 #include <linux/time.h>
 #include <linux/workqueue.h>
-
 #include "mtk-mml.h"
 #include "mtk-mml-driver.h"
-#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+
+struct cmdq_subsys {
+	u32 base;
+	u8 id;
+};
+
+struct cmdq_base {
+	struct cmdq_subsys subsys[32];
+	u8 count;
+	u16 cpr_base;
+	u8 cpr_cnt;
+};
 
 extern struct cmdq_client *cmdq_client;
 extern int mtk_mml_msg;
+extern s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa);
 extern s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
     cmdq_async_flush_cb cb, void *data);
 extern void cmdq_mbox_destroy(struct cmdq_client *client);
@@ -31,6 +45,11 @@ extern struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client);
 extern void cmdq_pkt_destroy(struct cmdq_pkt *pkt);
 extern s32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
     dma_addr_t addr, u32 value, u32 mask);
+extern int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event);
+extern s32 cmdq_pkt_poll(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
+    u32 value, u32 addr, u32 mask, u8 reg_gpr);
+extern s32 cmdq_pkt_set_event(struct cmdq_pkt *pkt, u16 event);
+
 
 #define mml_msg(fmt, args...) \
 do { \
@@ -48,8 +67,40 @@ do { \
 	pr_notice("[mml][err]" fmt "\n", ##args); \
 } while (0)
 
+/* mml ftrace */
+extern int mml_trace;
+#ifdef IF_ZERO // [FIXME] to check with KS team
+#define mml_trace_begin(fmt, args...) do { \
+	preempt_disable(); \
+	event_trace_printk(mml_get_tracing_mark(), \
+		"B|%d|"fmt"\n", current->tgid, ##args); \
+	preempt_enable();\
+} while (0)
+
+#define mml_trace_end() do { \
+	preempt_disable(); \
+	event_trace_printk(mml_get_tracing_mark(), "E\n"); \
+	preempt_enable(); \
+} while (0)
+
+#define mml_trace_ex_begin(fmt, args...) do { \
+	if (mml_trace) \
+		mml_trace_begin(fmt, ##args); \
+} while (0)
+
+#define mml_trace_ex_end() do { \
+	if (mml_trace) \
+		mml_trace_end(); \
+} while (0)
+#else
+#define mml_trace_begin(fmt, args...) do {} while(0)
+#define mml_trace_end() do {} while(0)
+#define mml_trace_ex_begin(fmt, args...) do {} while(0)
+#define mml_trace_ex_end() do {} while(0)
+#endif
+
 #define MML_PIPE_CNT		2
-#define MML_MAX_PATH_NODES	10
+#define MML_MAX_PATH_NODES	12
 #define MML_MAX_PATH_CACHES	6
 
 struct mml_topology_cache;
@@ -164,6 +215,8 @@ struct mml_frame_config {
 	struct list_head tasks;
 	struct list_head await_tasks;
 	struct list_head done_tasks;
+	u32 run_task_cnt;
+	u32 await_task_cnt;
 	u8 done_task_cnt;
 	bool dual;
 	bool alpharot;
@@ -199,7 +252,7 @@ struct mml_file_buf {
 	u32 size[MML_MAX_PLANES];
 	u64 iova[MML_MAX_PLANES];
 	u8 cnt;
-	struct file *fence;
+	struct dma_fence *fence;
 	u32 usage;
 };
 
@@ -211,6 +264,7 @@ struct mml_task_buffer {
 
 enum mml_task_state {
 	MML_TASK_INITIAL,
+	MML_TASK_DUPLICATE,
 	MML_TASK_REUSE,
 	MML_TASK_RUNNING,
 	MML_TASK_IDLE
@@ -222,8 +276,9 @@ struct mml_task {
 	struct mml_frame_config *config;
 	struct mml_task_buffer buf;
 	struct timespec64 end_time;
-	struct file *fence;
+	struct dma_fence *fence;
 	enum mml_task_state state;
+	struct kref ref;
 
 	/* mml context */
 	void *ctx;
@@ -279,15 +334,17 @@ struct mml_comp_debug_ops {
 
 struct mml_comp {
 	u32 id;
+	u32 sub_idx;
 	void __iomem *base;
 	phys_addr_t base_pa;
 	struct clk *clks[2];
 	struct device *larb_dev;
-	bool bound;
 	const struct mml_comp_tile_ops *tile_ops;
 	const struct mml_comp_config_ops *config_ops;
 	const struct mml_comp_hw_ops *hw_ops;
 	const struct mml_comp_debug_ops *debug_ops;
+	const char *name;
+	bool bound;
 };
 
 struct mml_tile_region {
@@ -349,6 +406,15 @@ static inline struct mml_comp *task_comp(struct mml_task *task, u8 pipe,
 					 u8 node_idx)
 {
 	return task->config->path[pipe]->nodes[node_idx].comp;
+}
+
+static inline struct mml_tile_engine *config_get_tile(
+	struct mml_frame_config *cfg, struct mml_comp_config *ccfg, u8 idx)
+{
+	struct mml_tile_engine *engines =
+		cfg->tile_output[ccfg->pipe]->tiles[idx].tile_engines;
+
+	return &engines[ccfg->node_idx];
 }
 
 /*
@@ -420,5 +486,6 @@ void mml_core_deinit_config(struct mml_frame_config *config);
 s32 mml_core_submit_task(struct mml_frame_config *frame_config,
 			 struct mml_task *task);
 
+unsigned long mml_get_tracing_mark(void);
 
 #endif	/* __MTK_MML_CORE_H__ */

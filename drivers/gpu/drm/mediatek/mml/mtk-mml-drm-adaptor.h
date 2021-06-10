@@ -20,10 +20,9 @@ struct mml_drm_ctx;
  *
  * @info:	Frame info which describe frame process by mml.
  *
- * Return:	Capability result which include running and target mode by
- *		giving info.
+ * Return:	Capability result of target mode by giving info.
  */
-struct mml_cap mml_drm_query_cap(struct mml_frame_info *info);
+enum mml_mode mml_drm_query_cap(struct mml_frame_info *info);
 
 /*
  * mml_drm_get_context - Get mml drm context to control mml.

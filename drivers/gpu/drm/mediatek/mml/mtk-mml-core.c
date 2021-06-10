@@ -4,6 +4,7 @@
  * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
  */
 
+#include <linux/dma-fence.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -14,6 +15,14 @@
 int mtk_mml_msg;
 EXPORT_SYMBOL(mtk_mml_msg);
 module_param(mtk_mml_msg, int, 0644);
+
+int mml_pkt_dump;
+EXPORT_SYMBOL(mml_pkt_dump);
+module_param(mml_pkt_dump, int, 0644);
+
+int mml_trace;
+EXPORT_SYMBOL(mml_trace);
+module_param(mml_trace, int, 0644);
 
 struct topology_ip_node {
 	struct list_head entry;
@@ -136,6 +145,10 @@ static void core_prepare(struct mml_task *task, u8 pipe)
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
 	u8 i;
 
+	mml_trace_ex_begin("%s_%u", __func__, pipe);
+
+	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
+
 	for (i = 0; i < path->node_cnt; i++) {
 		/* collect infos for later easy use */
 		cache->cfg[i].pipe = pipe;
@@ -148,9 +161,11 @@ static void core_prepare(struct mml_task *task, u8 pipe)
 
 		call_cfg_op(comp, prepare, task, &cache->cfg[i]);
 	}
+
+	mml_trace_ex_end();
 }
 
-static s32 command_make_frame_change(struct mml_task *task, u8 pipe)
+static s32 command_make(struct mml_task *task, u8 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct cmdq_pkt *pkt = cmdq_pkt_create(path->clt);
@@ -245,13 +260,6 @@ static s32 command_reuse(struct mml_task *task, u8 pipe)
 	return 0;
 }
 
-static s32 command_make(struct mml_task *task, u8 pipe)
-{
-	if (task->state == MML_TASK_INITIAL)
-		return command_make_frame_change(task, pipe);
-	return command_reuse(task, pipe);
-}
-
 static s32 core_enable(struct mml_task *task, u8 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
@@ -313,18 +321,29 @@ static void core_taskdone(struct work_struct *work)
 	struct mml_task *task;
 	int cnt;
 
-	task = container_of(work, struct mml_task, work_wait);
+	mml_trace_begin("%s", __func__);
 
-	task->config->task_ops->frame_done(task);
+	task = container_of(work, struct mml_task, work_wait);
 	cnt = atomic_inc_return(&task->pipe_done);
 
 	/* cnt should be 1 or 2, if dual on and count 2 means pipes done */
 	if (task->config->dual && cnt == 1)
-		return;
+		goto done;
+
+	/* before clean up, make sure buffer fence signaled */
+	if (task->fence) {
+		dma_fence_signal(task->fence);
+		dma_fence_put(task->fence);
+	}
 
 	core_disable(task, 0);
 	if (task->config->dual)
 		core_disable(task, 1);
+
+	task->config->task_ops->frame_done(task);
+
+done:
+	mml_trace_end();
 }
 
 static void core_taskdone_cb(struct cmdq_cb_data data)
@@ -336,26 +355,71 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 
 static s32 core_config(struct mml_task *task, u32 pipe_id)
 {
-	/* prepare data in each component for later tile use */
-	core_prepare(task, pipe_id);
+	if (task->state == MML_TASK_INITIAL) {
+		/* prepare data in each component for later tile use */
+		core_prepare(task, pipe_id);
 
-	/* call to tile to calculate */
-	calc_tile(task, pipe_id);
+		/* call to tile to calculate */
+		mml_trace_ex_begin("%s_tile_%u", __func__, pipe_id);
+		calc_tile(task, pipe_id);
+		mml_trace_ex_end();
 
-	/* dump tile output for debug */
-	dump_tile_output(task, pipe_id);
+		/* dump tile output for debug */
+		dump_tile_output(task, pipe_id);
 
-	/* make commands into pkt for later flash */
-	command_make(task, pipe_id);
+		/* make commands into pkt for later flash */
+		mml_trace_ex_begin("%s_cmd_%u", __func__, pipe_id);
+		command_make(task, pipe_id);
+		mml_trace_ex_end();
+
+	} else if (task->state == MML_TASK_DUPLICATE) {
+		/* skip all other operations since state not initial,
+		 * but still call make commands due to task is new w/o pkt
+		 *
+		 * TODO: replace the command make to copy pkt if possible,
+		 * and use command_reuse if success copy.
+		 */
+		mml_trace_ex_begin("%s_dup_cmd_%u", __func__, pipe_id);
+		command_make(task, pipe_id);
+		mml_trace_ex_end();
+
+	} else {
+		/* pkt exists, reuse it directly */
+		mml_trace_ex_begin("%s_reuse_cmd_%u", __func__, pipe_id);
+		command_reuse(task, pipe_id);
+		mml_trace_ex_end();
+	}
 
 	core_enable(task, pipe_id);
 
 	return 0;
 }
 
+static void wait_dma_fence(const char *name, struct dma_fence *fence)
+{
+	long ret;
+
+	if (!fence)
+		return;
+
+	ret = dma_fence_wait_timeout(fence, true, 3000);
+	if (ret < 0)
+		mml_err("wait %s fence fail %p ret %ld",
+			name, fence, ret);
+}
+
 static s32 core_flush(struct mml_task *task, u32 pipe_id)
 {
+	int i;
 	s32 err;
+
+	if (mml_pkt_dump)
+		cmdq_pkt_dump_buf(task->pkts[pipe_id], 0);
+
+	/* before flush, make sure buffer fence signaled */
+	wait_dma_fence("src", task->buf.src.fence);
+	for (i = 0; i < task->buf.dest_cnt; i++)
+		wait_dma_fence("dest", task->buf.dest[i].fence);
 
 	err = cmdq_pkt_flush_async(task->pkts[pipe_id],
 				   core_taskdone_cb,
@@ -368,6 +432,8 @@ static void core_init_pipe0(struct mml_task *task, u32 pipe_id)
 {
 	s32 err;
 
+	mml_trace_ex_begin("%s", __func__);
+
 	err = core_config(task, 0);
 	if (err < 0) {
 		/* error handling */
@@ -377,12 +443,16 @@ static void core_init_pipe0(struct mml_task *task, u32 pipe_id)
 	if (err < 0) {
 		/* error handling */
 	}
+
+	mml_trace_ex_end();
 }
 
 static void core_init_pipe1(struct work_struct *work)
 {
 	s32 err;
 	struct mml_task *task;
+
+	mml_trace_begin("%s", __func__);
 
 	task = container_of(work, struct mml_task, work_config[1]);
 
@@ -395,22 +465,43 @@ static void core_init_pipe1(struct work_struct *work)
 	if (err < 0) {
 		/* error handling */
 	}
+
+	mml_trace_end();
 }
 
 static void core_config_thread(struct work_struct *work)
 {
 	struct mml_task *task;
 	s32 err;
+	u8 i;
+
+	mml_trace_begin("%s", __func__);
 
 	task = container_of(work, struct mml_task, work_config[0]);
 
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
+		mml_msg("in:%u %u f:%#010x stride %u %u",
+			task->config->info.src.width,
+			task->config->info.src.height,
+			task->config->info.src.format,
+			task->config->info.src.y_stride,
+			task->config->info.src.uv_stride);
+		for (i = 0; i < task->config->info.dest_cnt; i++)
+			mml_msg("out %hhu:%u %u f:%#010x stride %u %u rot:%hu",
+				i,
+				task->config->info.dest[i].data.width,
+				task->config->info.dest[i].data.height,
+				task->config->info.dest[i].data.format,
+				task->config->info.dest[i].data.y_stride,
+				task->config->info.dest[i].data.uv_stride,
+				task->config->info.dest[i].rotate);
+
 		/* topology will fill in path instance */
 		err = topology_select_path(task->config);
 		if (err < 0) {
 			mml_err("%s select path fail %d", __func__, err);
-			return;
+			goto done;
 		}
 	}
 
@@ -423,12 +514,19 @@ static void core_config_thread(struct work_struct *work)
 		queue_work(task->config->wq_config[1], &task->work_config[1]);
 	}
 
+	/* ref count to 2 thus destroy can be one of
+	 * submit done and frame done
+	 */
+	kref_get(&task->ref);
+
 	core_init_pipe0(task, 0);
 
 	/* check pipe 1 done and callback */
-	if (task->config->dual &&
-	    flush_work(&task->work_config[1]))
+	if (!task->config->dual || flush_work(&task->work_config[1]))
 		task->config->task_ops->submit_done(task);
+
+done:
+	mml_trace_end();
 }
 
 struct mml_task *mml_core_create_task(void)
@@ -441,6 +539,7 @@ struct mml_task *mml_core_create_task(void)
 	INIT_WORK(&task->work_config[0], core_config_thread);
 	INIT_WORK(&task->work_config[1], core_init_pipe1);
 	INIT_WORK(&task->work_wait, core_taskdone);
+	kref_init(&task->ref);
 	return task;
 }
 
@@ -448,7 +547,6 @@ void mml_core_destroy_task(struct mml_task *task)
 {
 	int i;
 
-	list_del_init(&task->entry);
 	for (i = 0; i < ARRAY_SIZE(task->pkts); i++)
 		if (task->pkts[i])
 			cmdq_pkt_destroy(task->pkts[i]);
@@ -493,4 +591,17 @@ s32 mml_core_submit_task(struct mml_frame_config *frame_config,
 	queue_work(task->config->wq_config[0], &task->work_config[0]);
 
 	return 0;
+}
+
+unsigned long mml_get_tracing_mark(void)
+{
+	static unsigned long __read_mostly tracing_mark_write_addr;
+
+#ifdef IF_ZERO
+	if (unlikely(tracing_mark_write_addr == 0))
+		tracing_mark_write_addr =
+			kallsyms_lookup_name("tracing_mark_write");
+#endif
+
+	return tracing_mark_write_addr;
 }

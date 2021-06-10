@@ -39,4 +39,11 @@ mml_drv-objs += mtk-mml-rdma.o
 mml_drv-objs += mtk-mml-wrot.o
 mml_drv-objs += mtk-mml-tp-mt6893.o
 mml_drv-objs += mtk-mml-tile.o
+mml_drv-objs += mtk-mml-hdr.o
+mml_drv-objs += mtk-mml-color.o
+mml_drv-objs += mtk-mml-aal.o
+mml_drv-objs += mtk-mml-tdshp.o
+mml_drv-objs += mtk-mml-tcc.o
+mml_drv-objs += mtk-mml-fg.o
+
 

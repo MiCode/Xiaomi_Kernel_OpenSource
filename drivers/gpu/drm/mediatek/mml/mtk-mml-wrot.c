@@ -27,44 +27,43 @@
 #include "mach/pseudo_m4u.h"
 #endif
 
-
 /* WROT register offset */
-#define VIDO_CTRL			0x00
-#define VIDO_DMA_PERF			0x04
-#define VIDO_MAIN_BUF_SIZE		0x08
-#define VIDO_SOFT_RST			0x10
-#define VIDO_SOFT_RST_STAT		0x14
-#define VIDO_INT_EN			0x18
-#define VIDO_INT			0x1c
-#define VIDO_CROP_OFST			0x20
-#define VIDO_TAR_SIZE			0x24
-#define VIDO_FRAME_SIZE			0x28
-#define VIDO_OFST_ADDR			0x2c
-#define VIDO_STRIDE			0x30
-#define VIDO_BKGD			0x34
-#define VIDO_OFST_ADDR_C		0x38
-#define VIDO_STRIDE_C			0x3c
-#define VIDO_ISSUE_REQ_TH		0x40
-#define VIDO_GROUP_REQ_TH		0x44
-#define VIDO_CTRL_2			0x48
-#define VIDO_IN_LINE_ROT		0x50
-#define VIDO_DITHER			0x54
-#define VIDO_OFST_ADDR_V		0x68
-#define VIDO_STRIDE_V			0x6c
-#define VIDO_RSV_1			0x70
-#define VIDO_DMA_PREULTRA		0x74
-#define VIDO_IN_SIZE			0x78
-#define VIDO_ROT_EN			0x7c
-#define VIDO_FIFO_TEST			0x80
-#define VIDO_MAT_CTRL			0x84
-#define VIDO_DEBUG			0xd0
-#define VIDO_ARB_SW_CTL			0xd4
-#define VIDO_PVRIC			0xd8
-#define VIDO_SCAN_10BIT			0xdc
-#define VIDO_PENDING_ZERO		0xe0
-#define VIDO_PVRIC_SETTING		0xe4
-#define VIDO_CRC_CTRL			0xe8
-#define VIDO_CRC_VALUE			0xec
+#define VIDO_CTRL			0x000
+#define VIDO_DMA_PERF			0x004
+#define VIDO_MAIN_BUF_SIZE		0x008
+#define VIDO_SOFT_RST			0x010
+#define VIDO_SOFT_RST_STAT		0x014
+#define VIDO_INT_EN			0x018
+#define VIDO_INT			0x01c
+#define VIDO_CROP_OFST			0x020
+#define VIDO_TAR_SIZE			0x024
+#define VIDO_FRAME_SIZE			0x028
+#define VIDO_OFST_ADDR			0x02c
+#define VIDO_STRIDE			0x030
+#define VIDO_BKGD			0x034
+#define VIDO_OFST_ADDR_C		0x038
+#define VIDO_STRIDE_C			0x03c
+#define VIDO_ISSUE_REQ_TH		0x040
+#define VIDO_GROUP_REQ_TH		0x044
+#define VIDO_CTRL_2			0x048
+#define VIDO_IN_LINE_ROT		0x050
+#define VIDO_DITHER			0x054
+#define VIDO_OFST_ADDR_V		0x068
+#define VIDO_STRIDE_V			0x06c
+#define VIDO_RSV_1			0x070
+#define VIDO_DMA_PREULTRA		0x074
+#define VIDO_IN_SIZE			0x078
+#define VIDO_ROT_EN			0x07c
+#define VIDO_FIFO_TEST			0x080
+#define VIDO_MAT_CTRL			0x084
+#define VIDO_DEBUG			0x0d0
+#define VIDO_ARB_SW_CTL			0x0d4
+#define VIDO_PVRIC			0x0d8
+#define VIDO_SCAN_10BIT			0x0dc
+#define VIDO_PENDING_ZERO		0x0e0
+#define VIDO_PVRIC_SETTING		0x0e4
+#define VIDO_CRC_CTRL			0x0e8
+#define VIDO_CRC_VALUE			0x0ec
 #define VIDO_BASE_ADDR			0xf00
 #define VIDO_BASE_ADDR_C		0xf04
 #define VIDO_BASE_ADDR_V		0xf08
@@ -80,7 +79,7 @@
 #define VIDO_BUS_CTRL			0xf30
 
 /* register mask */
-#define VIDO_INT_MASK			0x07
+#define VIDO_INT_MASK			0x00000007
 
 /* ceil_m and floor_m helper macro */
 //#define ceil_m(n, d) ((u32)(((float)(n) / (d)) + ((n) % (d) != 0)))
@@ -133,6 +132,7 @@ struct wrot_frame_data {
 	u32 out_w;
 	u32 out_h;
 	struct mml_rect compose;
+	u32 uv_stride;
 
 	/* calculate in prepare and use as tile input */
 	u32 out_x_off;
@@ -159,6 +159,11 @@ struct wrot_frame_data {
 };
 
 #define wrot_frm_data(i)	((struct wrot_frame_data *)(i->data))
+
+static inline struct mml_wrot *comp_to_wrot(struct mml_comp *comp)
+{
+	return container_of(comp, struct mml_wrot, comp);
+}
 
 struct wrot_ofst_addr {
 	u32 y;	/* wrot_y_ofst_adr for VIDO_OFST_ADDR */
@@ -220,42 +225,6 @@ static const u32 uv_table[2][4][2][4] = {
 		},
 	}
 };
-
-s32 wrot_query_write(struct mml_frame_config *cfg, u8 out)
-{
-	struct mml_frame_dest *dest = &cfg->info.dest[out];
-
-	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
-		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
-			dest->data.width &= ~1; /* WROT HW constraint */
-			dest->data.height &= ~1;
-		} else if (MML_FMT_V_SUBSAMPLE(dest->data.format)) {
-			dest->data.width &= ~1;
-		}
-
-	        if (MML_FMT_PLANE(dest->data.format) > 1 &&
-		    dest->data.uv_stride <= 0) {
-			dest->data.uv_stride =
-				mml_color_get_min_uv_stride(dest->data.format,
-					dest->data.height);
-		}
-	} else {
-		if (MML_FMT_H_SUBSAMPLE(dest->data.format))
-			dest->data.width &= ~1;
-
-	        if (MML_FMT_V_SUBSAMPLE(dest->data.format))
-			dest->data.height &= ~1;
-
-	        if ((MML_FMT_PLANE(dest->data.format) > 1) &&
-		    dest->data.uv_stride <= 0) {
-			dest->data.uv_stride =
-				mml_color_get_min_uv_stride(dest->data.format,
-					dest->data.width);
-	        }
-	}
-
-	return 0;
-}
 
 static u32 wrot_get_out_w(struct mml_comp_config *ccfg)
 {
@@ -348,6 +317,12 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 		swap(wrot_frm->compose.width, wrot_frm->compose.height);
 	}
 
+	/* make sure uv stride data */
+	wrot_frm->uv_stride = dest->data.uv_stride;
+	if (MML_FMT_PLANE(dest->data.format) > 1 && !wrot_frm->uv_stride)
+		wrot_frm->uv_stride = mml_color_get_min_uv_stride(
+			dest->data.format, wrot_frm->out_w);
+
 	if (cfg->dual) {
 		if (ccfg->pipe == 0)
 			wrot_config_pipe0(dest, wrot_frm);
@@ -366,7 +341,7 @@ static u32 wrot_get_label_count(struct mml_comp *comp, struct mml_task *task)
 static s32 wrot_init(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
-	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
+	struct mml_wrot *wrot = comp_to_wrot(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
@@ -639,7 +614,7 @@ static void wrot_calc_hw_buf_setting(struct mml_wrot *wrot,
 static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
-	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
+	struct mml_wrot *wrot = comp_to_wrot(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct mml_file_buf *dest_buf = &task->buf.dest[wrot_frm->out_idx];
@@ -656,7 +631,6 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const u32 v_subsample = MML_FMT_V_SUBSAMPLE(dest_fmt);
 	const u8 plane = MML_FMT_PLANE(dest_fmt);
 	const u32 crop_en = 1;		/* always enable crop */
-	const u8 ext_mat = 0;		/* not use for now */
 
 	u32 hw_fmt = MML_FMT_HW_FORMAT(dest_fmt);
 	u32 out_swap = MML_FMT_SWAP(dest_fmt);
@@ -708,7 +682,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	calc_plane_offset(wrot_frm->compose.left, wrot_frm->compose.top,
-			  dest->data.y_stride, dest->data.uv_stride,
+			  dest->data.y_stride, wrot_frm->uv_stride,
 			  wrot_frm->bbp_y, wrot_frm->bbp_uv,
 			  wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
 			  dest->data.plane_offset);
@@ -720,6 +694,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	/* DMA_SUPPORT_AFBC */
 	if (MML_FMT_COMPRESS(dest_fmt)) {
 		u32 block_x, addr_c, addr_v, addr;
+		u32 frame_size;
 
 		/* Write frame base address */
 		calc_afbc_block(wrot_frm->bbp_y,
@@ -745,21 +720,16 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 		/* TODO: cmdq should return label of above 3 write */
 
-		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180) {
-			u32 out_height = ((((wrot_frm->out_h + 31) >>
+		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
+			frame_size = ((((wrot_frm->out_h + 31) >>
 					 5) << 5) << 16) +
-					 ((block_x << 5) <<  0);
-
-			cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FRAME_SIZE,
-				       out_height, U32_MAX);
-		} else {
-			u32 out_height = ((((wrot_frm->out_w + 31) >>
+					 ((block_x << 5) << 0);
+		else
+			frame_size = ((((wrot_frm->out_w + 31) >>
 					 5) << 5) << 16) +
-					 ((block_x << 5) <<  0);
-
-			cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FRAME_SIZE,
-				       out_height, U32_MAX);
-		}
+					 ((block_x << 5) << 0);
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FRAME_SIZE,
+			       frame_size, U32_MAX);
 
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_AFBC_YUVTRANS,
 			       MML_FMT_IS_ARGB(dest_fmt), 0x1);
@@ -850,22 +820,21 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	if (preultra)
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_DMA_PREULTRA,
-			       preultra, 0x00ffffff);
+			       preultra, U32_MAX);
 
 	/* Write frame Y stride */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE, dest->data.y_stride,
-		       0x0000ffff);
+		       U32_MAX);
 
 	/* Write frame UV stride */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE_C,
-		       dest->data.uv_stride, 0x0000ffff);
+		       wrot_frm->uv_stride, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE_V,
-		       dest->data.uv_stride, 0x0000ffff);
+		       wrot_frm->uv_stride, U32_MAX);
 
 	/* Write matrix control */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_MAT_CTRL,
 		       (wrot_frm->mat_sel << 4) +
-		       (ext_mat << 1) +
 		       (wrot_frm->mat_en << 0), 0x000000f3);
 
 	/* Set the fixed ALPHA as 0xff */
@@ -878,7 +847,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* Set VIDO_FIFO_TEST */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FIFO_TEST, wrot->data->fifo,
-		       0x00000fff);
+		       U32_MAX);
 
 	/* Filter Enable */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_MAIN_BUF_SIZE,
@@ -891,16 +860,6 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-static struct mml_tile_engine *wrot_get_tile(struct mml_frame_config *cfg,
-					     struct mml_comp_config *ccfg,
-					     u8 idx)
-{
-	struct mml_tile_engine *tile_engines =
-		cfg->tile_output[ccfg->pipe]->tiles[idx].tile_engines;
-
-	return &tile_engines[ccfg->node_idx];
-}
-
 static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 				const struct wrot_frame_data *wrot_frm,
 				const struct mml_tile_engine *tile,
@@ -909,8 +868,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 	/* Following data retrieve from tile calc result */
 	const u32 out_xs = tile->out.xs;
 
-	if (dest->rotate == MML_ROT_0 && !dest->flip)
-	{
+	if (dest->rotate == MML_ROT_0 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = out_xs * 32;
 
@@ -922,9 +880,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 
 		mml_msg("%s No flip and no rotation: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_0 && dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_0 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_w - out_xs - 32) * 32;
 
@@ -933,9 +889,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 
 		mml_msg("%s Flip without rotation: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_90 && !dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((out_xs / 8) + 1) *
 			  ((dest->data.y_stride / 128) - 1) * 1024;
@@ -945,9 +899,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 
 		mml_msg("%s Rotate 90 degree only: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_90 && dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_90 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (out_xs / 8) * (dest->data.y_stride / 128) * 1024;
 
@@ -956,9 +908,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 
 		mml_msg("%s Flip and Rotate 90 degree: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_180 && !dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_180 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = (((wrot_frm->out_h / 8) - 1) *
 			  (dest->data.y_stride / 128) +
@@ -970,9 +920,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 
 		mml_msg("%s Rotate 180 degree only: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_180 && dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_180 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (((wrot_frm->out_h / 8) - 1) *
 			  (dest->data.y_stride / 128) +
@@ -983,9 +931,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 
 		mml_msg("%s Flip and Rotate 180 degree: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_270 && !dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_270 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((wrot_frm->out_w / 8) - (out_xs / 8) - 1) *
 			  (dest->data.y_stride / 128) * 1024;
@@ -995,9 +941,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 
 		mml_msg("%s Rotate 270 degree only: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_270 && dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((wrot_frm->out_w / 8) - (out_xs / 8)) *
 			  ((dest->data.y_stride / 128) - 1) * 1024;
@@ -1019,29 +963,26 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 	const u32 out_xs = tile->out.xs;
 	const u32 out_ys = tile->out.ys;
 
-	if (dest->rotate == MML_ROT_0 && !dest->flip)
-	{
+	if (dest->rotate == MML_ROT_0 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = out_ys * dest->data.y_stride +
 			  (out_xs * wrot_frm->bbp_y >> 3);
 
 		/* Target U offset */
 		ofst->c = (out_ys >> wrot_frm->ver_sh_uv) *
-			  dest->data.uv_stride +
+			  wrot_frm->uv_stride +
 			  ((out_xs >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		/* Target V offset */
 		ofst->v = (out_ys >> wrot_frm->ver_sh_uv) *
-			  dest->data.uv_stride +
+			  wrot_frm->uv_stride +
 			  ((out_xs >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		mml_msg("%s No flip and no rotation: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_0 && dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_0 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = out_ys * dest->data.y_stride +
 			  ((wrot_frm->out_w - out_xs) *
@@ -1049,21 +990,19 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 		/* Target U offset */
 		ofst->c = (out_ys >> wrot_frm->ver_sh_uv) *
-			  dest->data.uv_stride +
+			  wrot_frm->uv_stride +
 			  (((wrot_frm->out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		/* Target V offset */
 		ofst->v = (out_ys >> wrot_frm->ver_sh_uv) *
-			  dest->data.uv_stride +
+			  wrot_frm->uv_stride +
 			  (((wrot_frm->out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		mml_msg("%s Flip without rotation: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_90 && !dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = out_xs * dest->data.y_stride +
 			  ((wrot_frm->out_h - out_ys) *
@@ -1071,42 +1010,38 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 		/* Target U offset */
 		ofst->c = (out_xs >> wrot_frm->ver_sh_uv) *
-			  dest->data.uv_stride +
+			  wrot_frm->uv_stride +
 			  (((wrot_frm->out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		/* Target V offset */
 		ofst->v = (out_xs >> wrot_frm->ver_sh_uv) *
-			  dest->data.uv_stride +
+			  wrot_frm->uv_stride +
 			  (((wrot_frm->out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		mml_msg("%s Rotate 90 degree only: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_90 && dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_90 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = out_xs * dest->data.y_stride +
 			  (out_ys * wrot_frm->bbp_y >> 3);
 
 		/* Target U offset */
 		ofst->c = (out_xs >> wrot_frm->ver_sh_uv) *
-			  dest->data.uv_stride +
+			  wrot_frm->uv_stride +
 			  ((out_ys >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		/* Target V offset */
 		ofst->v = (out_xs >> wrot_frm->ver_sh_uv) *
-			  dest->data.uv_stride +
+			  wrot_frm->uv_stride +
 			  ((out_ys >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		mml_msg("%s Flip and Rotate 90 degree: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_180 && !dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_180 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_h - out_ys - 1) *
 			  dest->data.y_stride +
@@ -1115,21 +1050,19 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 		/* Target U offset */
 		ofst->c = ((wrot_frm->out_h - out_ys - 1) >>
-			  wrot_frm->ver_sh_uv) * dest->data.uv_stride +
+			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  (((wrot_frm->out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		/* Target V offset */
 		ofst->v = ((wrot_frm->out_h - out_ys - 1) >>
-			  wrot_frm->ver_sh_uv) * dest->data.uv_stride +
+			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  (((wrot_frm->out_w - out_xs) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		mml_msg("%s Rotate 180 degree only: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_180 && dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_180 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_h - out_ys - 1) *
 			  dest->data.y_stride +
@@ -1137,21 +1070,19 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 		/* Target U offset */
 		ofst->c = ((wrot_frm->out_h - out_ys - 1) >>
-			  wrot_frm->ver_sh_uv) * dest->data.uv_stride +
+			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  ((out_xs >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		/* Target V offset */
 		ofst->v = ((wrot_frm->out_h - out_ys - 1) >>
-			  wrot_frm->ver_sh_uv) * dest->data.uv_stride +
+			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  ((out_xs >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		mml_msg("%s Flip and Rotate 180 degree: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_270 && !dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_270 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_w - out_xs - 1) *
 			  dest->data.y_stride +
@@ -1159,21 +1090,19 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 		/* Target U offset */
 		ofst->c = ((wrot_frm->out_w - out_xs - 1) >>
-			  wrot_frm->ver_sh_uv) * dest->data.uv_stride +
+			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  ((out_ys >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		/* Target V offset */
 		ofst->v = ((wrot_frm->out_w - out_xs - 1) >>
-			  wrot_frm->ver_sh_uv) * dest->data.uv_stride +
+			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  ((out_ys >> wrot_frm->hor_sh_uv) *
 			  wrot_frm->bbp_uv >> 3);
 
 		mml_msg("%s Rotate 270 degree only: offset Y:%#010x U:%#010x V:%#010x",
 			__func__, ofst->y, ofst->c, ofst->v);
-	}
-	else if (dest->rotate == MML_ROT_270 && dest->flip)
-	{
+	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_w - out_xs - 1) *
 			  dest->data.y_stride +
@@ -1182,13 +1111,13 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 		/* Target U offset */
 		ofst->c = ((wrot_frm->out_w - out_xs - 1) >>
-			  wrot_frm->ver_sh_uv) * dest->data.uv_stride +
+			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  (((wrot_frm->out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
 		/* Target V offset */
 		ofst->v = ((wrot_frm->out_w - out_xs - 1) >>
-			  wrot_frm->ver_sh_uv) * dest->data.uv_stride +
+			  wrot_frm->ver_sh_uv) * wrot_frm->uv_stride +
 			  (((wrot_frm->out_h - out_ys) >>
 			  wrot_frm->hor_sh_uv) * wrot_frm->bbp_uv >> 3) - 1;
 
@@ -1301,7 +1230,7 @@ static void wrot_calc_setting(struct mml_wrot *wrot,
 static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg, u8 idx)
 {
-	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
+	struct mml_wrot *wrot = comp_to_wrot(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
@@ -1311,7 +1240,7 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 	const u32 dest_fmt = dest->data.format;
 
-	struct mml_tile_engine *tile = wrot_get_tile(cfg, ccfg, idx);
+	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 	/* Following data retrieve from tile result */
 	const u32 in_xs = tile->in.xs;
 	const u32 in_xe = tile->in.xe;
@@ -1338,34 +1267,31 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 		wrot_tile_calc(dest, wrot_frm, tile, &ofst);
 
 	/* Write Y pixel offset */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR, ofst.y,
-		       0x0FFFFFFF);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR, ofst.y, U32_MAX);
 
 	/* Write U pixel offset */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR_C, ofst.c,
-		       0x0FFFFFFF);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR_C, ofst.c, U32_MAX);
 
 	/* Write V pixel offset */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR_V, ofst.v,
-		       0x0FFFFFFF);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_OFST_ADDR_V, ofst.v, U32_MAX);
 
 	/* Write source size */
 	wrot_in_xsize = in_xe  - in_xs + 1;
 	wrot_in_ysize = in_ye  - in_ys  + 1;
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_IN_SIZE,
 		       (wrot_in_ysize << 16) + (wrot_in_xsize <<  0),
-		       0xFFFFFFFF);
+		       U32_MAX);
 
 	/* Write target size */
 	wrot_tar_xsize = out_xe - out_xs + 1;
 	wrot_tar_ysize = out_ye - out_ys + 1;
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_TAR_SIZE,
 		       (wrot_tar_ysize << 16) + (wrot_tar_xsize <<  0),
-		       0xFFFFFFFF);
+		       U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_CROP_OFST,
 		       (wrot_crop_ofst_y << 16) + (wrot_crop_ofst_x <<  0),
-		       0xFFFFFFFF);
+		       U32_MAX);
 
 	/* set max internal buffer for tile usage,
 	 * and check for internal buffer size
@@ -1375,12 +1301,12 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_MAIN_BUF_SIZE,
 		       (setting.main_blk_width << 16) +
-		       (setting.main_buf_line_num << 8), 0xFFFF7F00);
+		       (setting.main_buf_line_num << 8), 0xffff7f00);
 
 	/* Set wrot interrupt bit for debug,
 	 * this bit will clear to 0 after wrot done.
 	 */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_INT, 0x1, VIDO_INT_MASK);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_INT, 0x1, U32_MAX);
 
 	/* Enable engine */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_ROT_EN, 0x01, 0x00000001);
@@ -1394,7 +1320,7 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
-	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
+	struct mml_wrot *wrot = comp_to_wrot(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
 	/* wait wrot frame done */
@@ -1423,7 +1349,7 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	calc_plane_offset(wrot_frm->compose.left, wrot_frm->compose.top,
-			  dest->data.y_stride, dest->data.uv_stride,
+			  dest->data.y_stride, wrot_frm->uv_stride,
 			  wrot_frm->bbp_y, wrot_frm->bbp_uv,
 			  wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
 			  dest->data.plane_offset);
@@ -1476,7 +1402,7 @@ static const struct mml_comp_config_ops wrot_cfg_ops = {
 
 static s32 wrot_pw_enable(struct mml_comp *comp)
 {
-	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
+	struct mml_wrot *wrot = comp_to_wrot(comp);
 
 	/* mtk iommu */
 	mml_log("%s larb %hhu", __func__, wrot->larb);
@@ -1498,7 +1424,7 @@ static s32 wrot_pw_enable(struct mml_comp *comp)
 
 static s32 wrot_pw_disable(struct mml_comp *comp)
 {
-	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
+	struct mml_wrot *wrot = comp_to_wrot(comp);
 
 	/* mtk iommu */
 	mml_log("%s larb %hhu", __func__, wrot->larb);
@@ -1522,7 +1448,7 @@ static s32 wrot_clk_enable(struct mml_comp *comp)
 {
 	/* mtk iommu */
 #ifdef CONFIG_MTK_IOMMU_V2
-	struct mml_wrot *wrot = container_of(comp, struct mml_wrot, comp);
+	struct mml_wrot *wrot = comp_to_wrot(comp);
 	struct M4U_PORT_STRUCT port = {
 		.ePortID = wrot->m4u_port,
 		.Virtuality = 1,
@@ -1626,21 +1552,22 @@ static int remove(struct platform_device *pdev)
 }
 
 const struct of_device_id mtk_mml_wrot_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6893-mml_wrot",
-	  .data = &mt6893_wrot_data},
+	{
+		.compatible = "mediatek,mt6893-mml_wrot",
+		.data = &mt6893_wrot_data
+	},
 	{},
 };
-
 MODULE_DEVICE_TABLE(of, mtk_mml_wrot_driver_dt_match);
 
 struct platform_driver mtk_mml_wrot_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
-			.name = "mediatek-mml-wrot",
-			.owner = THIS_MODULE,
-			.of_match_table = mtk_mml_wrot_driver_dt_match,
-		},
+		.name = "mediatek-mml-wrot",
+		.owner = THIS_MODULE,
+		.of_match_table = mtk_mml_wrot_driver_dt_match,
+	},
 };
 
 //module_platform_driver(mtk_mml_wrot_driver);
@@ -1684,7 +1611,7 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 				"  - [%d] mml_comp_id: %d\n", i,
 				dbg_probed_components[i]->comp.id);
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  -      mml_binded: %d\n",
+				"  -      mml_bound: %d\n",
 				dbg_probed_components[i]->comp.bound);
 		}
 	default:

@@ -38,8 +38,8 @@ struct mutex_module {
 	u32 mutex_id;
 	u32 index;
 	u32 field;
-	bool select: 1;
-	bool trigger: 1;
+	bool select:1;
+	bool trigger:1;
 };
 
 struct mml_mutex {
@@ -127,7 +127,7 @@ static int probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, priv);
-	priv->data = (struct mutex_data*)of_device_get_match_data(dev);
+	priv->data = (const struct mutex_data *)of_device_get_match_data(dev);
 
 	ret = mml_comp_init(pdev, &priv->comp);
 	if (ret) {
@@ -200,11 +200,12 @@ static int remove(struct platform_device *pdev)
 }
 
 const struct of_device_id mml_mutex_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6893-mml_mutex",
-	  .data = &mt6893_mutex_data},
+	{
+		.compatible = "mediatek,mt6893-mml_mutex",
+		.data = &mt6893_mutex_data
+	},
 	{},
 };
-
 MODULE_DEVICE_TABLE(of, mml_mutex_driver_dt_match);
 
 struct platform_driver mml_mutex_driver = {

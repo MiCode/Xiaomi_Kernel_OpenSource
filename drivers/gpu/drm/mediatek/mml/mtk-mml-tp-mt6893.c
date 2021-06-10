@@ -16,10 +16,17 @@
 
 /* TODO: change after dual pipe ready */
 #define TOPOLOGY_FORCE_SINGLE	1
+/* force use resize in topology */
+#define TOPOLOGY_FORCE_RESIZE	1
+
 
 enum topology_scenario {
 	PATH_MML_DC_NOPQ_P0 = 0,
 	PATH_MML_DC_NOPQ_P1,
+	PATH_MML_DC_PQ_P0,
+	PATH_MML_DC_PQ_P1,
+	PATH_MML_DC_PQ2_P0,
+	PATH_MML_DC_PQ2_P1,
 	PATH_MML_MAX
 };
 
@@ -48,6 +55,60 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_RDMA1, MML_WROT1,},
 		{MML_WROT1,},
 	},
+
+	[PATH_MML_DC_PQ_P0] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA0, MML_FG0,},
+		{MML_FG0, MML_PQ0_SOUT,},
+		{MML_PQ0_SOUT, MML_RSZ0,},
+		{MML_RSZ0, MML_TDSHP0,},
+		{MML_TDSHP0, MML_COLOR0,},
+		{MML_COLOR0, MML_TCC0,},
+		{MML_TCC0, MML_WROT0,},
+		{MML_WROT0,},
+	},
+	[PATH_MML_DC_PQ_P1] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA1, MML_FG1,},
+		{MML_FG1, MML_PQ1_SOUT,},
+		{MML_PQ1_SOUT, MML_RSZ1,},
+		{MML_RSZ1, MML_TDSHP1,},
+		{MML_TDSHP1, MML_COLOR1,},
+		{MML_COLOR1, MML_TCC1,},
+		{MML_TCC1, MML_WROT1,},
+		{MML_WROT1,},
+	},
+
+	[PATH_MML_DC_PQ2_P0] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA0, MML_FG0,},
+		{MML_FG0, MML_PQ0_SOUT,},
+		{MML_PQ0_SOUT, MML_HDR0,},
+		{MML_HDR0, MML_AAL0,},
+		{MML_AAL0, MML_RSZ0,},
+		{MML_RSZ0, MML_TDSHP0,},
+		{MML_TDSHP0, MML_COLOR0,},
+		{MML_COLOR0, MML_TCC0,},
+		{MML_TCC0, MML_WROT0,},
+		{MML_WROT0,},
+	},
+	[PATH_MML_DC_PQ2_P1] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA1, MML_FG1,},
+		{MML_FG1, MML_PQ1_SOUT,},
+		{MML_PQ1_SOUT, MML_HDR1,},
+		{MML_HDR1, MML_AAL1,},
+		{MML_AAL1, MML_RSZ1,},
+		{MML_RSZ1, MML_TDSHP1,},
+		{MML_TDSHP1, MML_COLOR1,},
+		{MML_COLOR1, MML_TCC1,},
+		{MML_TCC1, MML_WROT1,},
+		{MML_WROT1,},
+	},
 };
 
 enum cmdq_clt_usage {
@@ -58,7 +119,11 @@ enum cmdq_clt_usage {
 
 static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_DC_NOPQ_P0] = MML_CLT_PIPE0,
-	[PATH_MML_DC_NOPQ_P1] = MML_CLT_PIPE1
+	[PATH_MML_DC_NOPQ_P1] = MML_CLT_PIPE1,
+	[PATH_MML_DC_PQ_P0] = MML_CLT_PIPE0,
+	[PATH_MML_DC_PQ_P1] = MML_CLT_PIPE1,
+	[PATH_MML_DC_PQ2_P0] = MML_CLT_PIPE0,
+	[PATH_MML_DC_PQ2_P1] = MML_CLT_PIPE1,
 };
 
 static void tp_dump_path(struct mml_topology_path *path)
@@ -74,6 +139,18 @@ static void tp_dump_path(struct mml_topology_path *path)
 			path->nodes[i].tile_eng_idx,
 			path->nodes[i].out_idx);
 	}
+}
+
+static void tp_dump_path_short(struct mml_topology_path *path)
+{
+	char path_desc[64];
+	u32 len = 0;
+	u8 i;
+
+	for (i = 0; i < path->node_cnt; i++)
+		len += snprintf(path_desc + len, sizeof(path_desc) - len, " %hhu",
+			path->nodes[i].id);
+	mml_log("Topology engines:%s", path_desc);
 }
 
 static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
@@ -207,24 +284,69 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 	return 0;
 }
 
+static inline bool tp_need_resize(struct mml_frame_info *info)
+{
+	u32 w = info->dest[0].compose.width;
+	u32 h = info->dest[0].compose.height;
+
+	if (info->dest[0].rotate == MML_ROT_90 ||
+		info->dest[0].rotate == MML_ROT_270)
+		swap(w, h);
+
+	return info->dest_cnt != 1 ||
+		info->dest[0].crop.r.width != w ||
+		info->dest[0].crop.r.height != h ||
+		info->dest[0].crop.x_sub_px ||
+		info->dest[0].crop.y_sub_px ||
+		info->dest[0].crop.w_sub_px ||
+		info->dest[0].crop.h_sub_px;
+}
+
+static void tp_select_dc(struct mml_topology_cache *cache,
+	struct mml_frame_config *cfg,
+	struct mml_topology_path **path)
+{
+	enum topology_scenario scene[2];
+	bool en_rsz = tp_need_resize(&cfg->info);
+
+#if TOPOLOGY_FORCE_RESIZE == 1
+	en_rsz = true;
+#endif
+
+	if (!en_rsz && !cfg->info.dest[0].pq_config.en) {
+		/* dual pipe, rdma0 to wrot0 / rdma1 to wrot1 */
+		scene[0] = PATH_MML_DC_NOPQ_P0;
+		scene[1] = PATH_MML_DC_NOPQ_P1;
+	} else if (en_rsz && cfg->info.dest_cnt == 1) {
+		/* 1 in 1 out with PQs */
+		if (cfg->info.dest[0].pq_config.aal_en ||
+			cfg->info.dest[0].pq_config.hdr_en) {
+			/* and with HDR/AAL */
+			scene[0] = PATH_MML_DC_PQ2_P0;
+			scene[1] = PATH_MML_DC_PQ2_P1;
+		} else {
+			scene[0] = PATH_MML_DC_PQ_P0;
+			scene[1] = PATH_MML_DC_PQ_P1;
+		}
+	}
+
+	path[0] = &cache->path[scene[0]];
+	path[1] = &cache->path[scene[1]];
+}
+
 static s32 tp_select(struct mml_topology_cache *cache,
 	struct mml_frame_config *cfg)
 {
 	struct mml_topology_path *path[2] = {0};
 
-	if (cfg->info.mode == MML_MODE_MML_DECOUPLE) {
-		if (cfg->info.dest_cnt == 1 &&
-		    !cfg->info.dest[0].pq_config.en) {
-			/* dual pipe, rdma0 to wrot0 / rdma1 to wrot1 */
-#ifdef TOPOLOGY_FORCE_SINGLE
-			cfg->dual = false;
+#if TOPOLOGY_FORCE_SINGLE == 1
+	cfg->dual = false;
 #else
-			cfg->dual = true;
+	cfg->dual = true;
 #endif
-			path[0] = &cache->path[PATH_MML_DC_NOPQ_P0];
-			path[1] = &cache->path[PATH_MML_DC_NOPQ_P1];
-		}
-	}
+
+	if (cfg->info.mode == MML_MODE_MML_DECOUPLE)
+		tp_select_dc(cache, cfg, path);
 
 	if (!path[0])
 		return -EPERM;
@@ -240,6 +362,12 @@ static s32 tp_select(struct mml_topology_cache *cache,
 		for (i = 0; i < cfg->info.dest_cnt && cfg->alpharot; i++)
 			if (!MML_FMT_IS_ARGB(cfg->info.dest[i].data.format))
 				cfg->alpharot = false;
+	}
+
+	if (mtk_mml_msg) {
+		tp_dump_path_short(path[0]);
+		if (path[1])
+			tp_dump_path_short(path[1]);
 	}
 
 	return 0;

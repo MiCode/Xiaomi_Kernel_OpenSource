@@ -13,19 +13,31 @@
 #include "mtk-mml-driver.h"
 
 #define MML_MAX_SYS_COMPONENTS	10
-#define MML_MAX_SYS_MUX_PINS	50
+#define MML_MAX_SYS_MUX_PINS	88
+#define MML_MAX_SYS_DL_INS	4
 
-struct mml_data {
+enum mml_comp_type {
+	MML_CT_COMPONENT = 0,
+	MML_CT_SYS,
+	MML_CT_PATH,
+	MML_CT_DL_IN,
+	MML_CT_DL_OUT,
+
+	MML_COMP_TYPE_TOTAL
 };
 
-static const struct mml_data mt6893_mml_data = {
+struct mml_sys;
+
+struct mml_data {
+	int (*comp_inits[MML_COMP_TYPE_TOTAL])(struct device *dev,
+		struct mml_sys *sys, struct mml_comp *comp);
 };
 
 enum mml_mux_type {
-	UNUSED,
-	MOUT,
-	SOUT,
-	SELIN,
+	MML_MUX_UNUSED = 0,
+	MML_MUX_MOUT,
+	MML_MUX_SOUT,
+	MML_MUX_SELIN,
 };
 
 struct mml_mux_pin {
@@ -46,24 +58,38 @@ struct mml_sys {
 	 * The entry 0 leaves empty for efficiency, do not use. */
 	struct mml_mux_pin mux_pins[MML_MAX_SYS_MUX_PINS + 1];
 	u32 mux_cnt;
-	/* Table of component adjacency with mux pins.
+	u16 dl_offsets[MML_MAX_SYS_DL_INS + 1];
+	u32 dl_cnt;
+
+	/* Table of component or adjacency data index.
 	 *
-	 * The element value is an index to mux pin array.
-	 * In the upper-right tri. are MOUTs or SOUTs by adjacency[from][to];
+	 * The element is an index to data arrays.
+	 * The component data by type is indexed by adjacency[id][id];
+	 * in the upper-right tri. are MOUTs and SOUTs by adjacency[from][to];
 	 * in the bottom-left tri. are SELIN pins by adjacency[to][from].
-	 * Direct-wire is not in this table.
+	 * Direct-wires are not in this table.
+	 *
+	 * Ex.:
+	 *	dl_offsets[adjacency[DLI0][DLI0]] is offset of comp DLI0.
+	 *	mux_pins[adjacency[RDMA0][RSZ0]] is MOUT from RDMA0 to RSZ0.
+	 *	mux_pins[adjacency[RSZ0][RDMA0]] is SELIN from RDMA0 to RSZ0.
 	 *
 	 * array data would be like:
-	 *	[0] = { 0  indices of },
-	 *	[1] = { . 0 . MOUTs & },
-	 *	[2] = { . . 0 . SOUTs },
-	 *	[3] = { . . . 0 . . . },
-	 *	[4] = { . . . . 0 . . },
-	 *	[5] = { indices . 0 . },
-	 *	[6] = { of SELINs . 0 },
+	 *	[0] = { T  indices of },	T: indices of component data
+	 *	[1] = { . T . MOUTs & },	   (by component type, the
+	 *	[2] = { . . T . SOUTs },	    indices refer to different
+	 *	[3] = { . . . T . . . },	    data arrays.)
+	 *	[4] = { . . . . T . . },
+	 *	[5] = { indices . T . },
+	 *	[6] = { of SELINs . T },
 	 */
-	u8 adjacency[MML_MAX_SYS_COMPONENTS][MML_MAX_SYS_COMPONENTS];
+	u8 adjacency[MML_MAX_COMPONENTS][MML_MAX_COMPONENTS];
 };
+
+static inline struct mml_sys *comp_to_sys(struct mml_comp *comp)
+{
+	return container_of(comp, struct mml_sys, comps[comp->sub_idx]);
+}
 
 static void config_mux(struct mml_sys *sys, struct cmdq_pkt *pkt,
 		       const phys_addr_t base_pa, u8 mux_idx,
@@ -76,12 +102,12 @@ static void config_mux(struct mml_sys *sys, struct cmdq_pkt *pkt,
 	mux = &sys->mux_pins[mux_idx];
 
 	switch (mux->type) {
-	case MOUT:
+	case MML_MUX_MOUT:
 		*offset = mux->offset;
 		*mout |= 1 << mux->index;
 		break;
-	case SOUT:
-	case SELIN:
+	case MML_MUX_SOUT:
+	case MML_MUX_SELIN:
 		cmdq_pkt_write(pkt, NULL, base_pa + mux->offset,
 			       mux->index, U32_MAX);
 		break;
@@ -93,7 +119,7 @@ static void config_mux(struct mml_sys *sys, struct cmdq_pkt *pkt,
 static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg, u8 idx)
 {
-	struct mml_sys *sys = container_of(comp, struct mml_sys, comps[0]);
+	struct mml_sys *sys = comp_to_sys(comp);
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
@@ -128,15 +154,33 @@ static const struct mml_comp_config_ops sys_config_ops = {
 	.tile = sys_config_tile
 };
 
-static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
-	const struct component_ops *comp_ops)
+static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,
+			  struct mml_comp_config *ccfg, u8 idx)
 {
-	struct device *dev = &pdev->dev;
-	struct device_node *node = dev->of_node;
-	int mux_cnt, comp_cnt, i;
-	int ret;
+	struct mml_sys *sys = comp_to_sys(comp);
+	struct mml_frame_config *cfg = task->config;
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	const phys_addr_t base_pa = comp->base_pa;
+	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 
-	sys->data = (const struct mml_data *)of_device_get_match_data(dev);
+	u16 offset = sys->dl_offsets[sys->adjacency[comp->id][comp->id]];
+	u32 dl_w = tile->in.xe - tile->in.xs + 1;
+	u32 dl_h = tile->in.ye - tile->in.ys + 1;
+
+	cmdq_pkt_write(pkt, NULL, base_pa + offset,
+		       (dl_h << 16) + dl_w, U32_MAX);
+	return 0;
+}
+
+static const struct mml_comp_config_ops dl_config_ops = {
+	.tile = dl_config_tile
+};
+
+static int sys_comp_init(struct device *dev, struct mml_sys *sys,
+			 struct mml_comp *comp)
+{
+	struct device_node *node = dev->of_node;
+	int mux_cnt, i;
 
 	/* Initialize mux-pins */
 	mux_cnt = of_property_count_elems_of_size(node, "mux-pins",
@@ -152,11 +196,91 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
 	for (i = 1; i <= mux_cnt; i++) {
 		struct mml_mux_pin *mux = &sys->mux_pins[i];
 
-		if (mux->type == SELIN)
+		if (mux->from >= MML_MAX_COMPONENTS ||
+		    mux->to >= MML_MAX_COMPONENTS) {
+			dev_err(dev, "comp idx %hu %hu out of boundary",
+				mux->from, mux->to);
+			continue;
+		}
+		if (mux->type == MML_MUX_SELIN)
 			sys->adjacency[mux->to][mux->from] = i;
 		else
 			sys->adjacency[mux->from][mux->to] = i;
 	}
+
+	comp->config_ops = &sys_config_ops;
+	return 0;
+}
+
+static int dl_comp_init(struct device *dev, struct mml_sys *sys,
+			struct mml_comp *comp)
+{
+	struct device_node *node = dev->of_node;
+	char name[32] = "";
+	u16 offset;
+	int ret;
+
+	if (sys->dl_cnt >= ARRAY_SIZE(sys->dl_offsets) - 1) {
+		dev_err(dev, "out of dl-relay size in component %s: %d\n",
+			node->full_name, sys->dl_cnt + 1);
+		return -EINVAL;
+	}
+	if (!comp->name) {
+		dev_err(dev, "no comp-name of mmlsys comp-%d (type dl-in)\n",
+			comp->sub_idx);
+		return -EINVAL;
+	}
+
+	ret = snprintf(name, sizeof(name), "%s-dl-relay", comp->name);
+	if (ret >= sizeof(name)) {
+		dev_err(dev, "len:%d over name size:%d", ret, sizeof(name));
+		name[sizeof(name) - 1] = '\0';
+	}
+	ret = of_property_read_u16(node, name, &offset);
+	if (ret) {
+		dev_err(dev, "no %s property in node %s\n",
+			name, node->full_name);
+		return ret;
+	}
+
+	sys->dl_offsets[++sys->dl_cnt] = offset;
+	sys->adjacency[comp->id][comp->id] = sys->dl_cnt;
+	comp->config_ops = &dl_config_ops;
+	/* TODO: pmqos_op */
+	return 0;
+}
+
+static int subcomp_init(struct platform_device *pdev, struct mml_sys *sys,
+			int subcomponent)
+{
+	struct device *dev = &pdev->dev;
+	struct mml_comp *comp = &sys->comps[subcomponent];
+	u32 comp_type;
+	int ret;
+
+	ret = mml_subcomp_init(pdev, subcomponent, comp);
+	if (ret)
+		return ret;
+
+	if (of_property_read_u32_index(dev->of_node, "comp-types",
+				       subcomponent, &comp_type)) {
+		dev_info(dev, "no comp-type of mmlsys comp-%d\n", subcomponent);
+		return 0;
+	}
+	if (sys->data->comp_inits[comp_type])
+		ret = sys->data->comp_inits[comp_type](dev, sys, comp);
+	return ret;
+}
+
+static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
+			const struct component_ops *comp_ops)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
+	int comp_cnt, i;
+	int ret;
+
+	sys->data = (const struct mml_data *)of_device_get_match_data(dev);
 
 	/* Initialize component and subcomponents */
 	comp_cnt = of_mml_count_comps(node);
@@ -167,16 +291,13 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
 	}
 
 	for (i = 0; i < comp_cnt; i++) {
-		ret = mml_subcomp_init(pdev, i, &sys->comps[i]);
+		ret = subcomp_init(pdev, sys, i);
 		if (ret) {
 			dev_err(dev, "failed to init mmlsys comp-%d: %d\n",
 				i, ret);
 			return ret;
 		}
 	}
-
-	/* TODO: distinguish component and subcomponents */
-	sys->comps[0].config_ops = &sys_config_ops;
 
 	ret = component_add(dev, comp_ops);
 	if (ret) {
@@ -201,7 +322,7 @@ err_comp_add:
 }
 
 struct mml_sys *mml_sys_create(struct platform_device *pdev,
-	const struct component_ops *comp_ops)
+			       const struct component_ops *comp_ops)
 {
 	struct device *dev = &pdev->dev;
 	struct mml_sys *sys;
@@ -221,7 +342,7 @@ struct mml_sys *mml_sys_create(struct platform_device *pdev,
 }
 
 void mml_sys_destroy(struct platform_device *pdev, struct mml_sys *sys,
-	const struct component_ops *comp_ops)
+		     const struct component_ops *comp_ops)
 {
 	int i;
 
@@ -231,7 +352,7 @@ void mml_sys_destroy(struct platform_device *pdev, struct mml_sys *sys,
 }
 
 int mml_sys_bind(struct device *dev, struct device *master,
-	struct mml_sys *sys)
+		 struct mml_sys *sys)
 {
 	s32 ret;
 
@@ -247,7 +368,7 @@ int mml_sys_bind(struct device *dev, struct device *master,
 }
 
 void mml_sys_unbind(struct device *dev, struct device *master,
-	struct mml_sys *sys)
+		    struct mml_sys *sys)
 {
 	if (WARN_ON(sys->comp_bound <= 0))
 		return;
@@ -288,6 +409,13 @@ static int remove(struct platform_device *pdev)
 	mml_sys_destroy(pdev, platform_get_drvdata(pdev), &mml_comp_ops);
 	return 0;
 }
+
+static const struct mml_data mt6893_mml_data = {
+	.comp_inits = {
+		[MML_CT_SYS] = &sys_comp_init,
+		[MML_CT_DL_IN] = &dl_comp_init,
+	},
+};
 
 const struct of_device_id mtk_mml_of_ids[] = {
 	{

@@ -38,6 +38,12 @@ extern struct platform_driver mtk_mml_wrot_driver;
 extern struct platform_driver mtk_mml_rsz_driver;
 extern struct platform_driver mml_mutex_driver;
 extern struct platform_driver mml_sys_driver;
+extern struct platform_driver mtk_mml_hdr_driver;
+extern struct platform_driver mtk_mml_color_driver;
+extern struct platform_driver mtk_mml_aal_driver;
+extern struct platform_driver mtk_mml_tdshp_driver;
+extern struct platform_driver mtk_mml_tcc_driver;
+extern struct platform_driver mtk_mml_fg_driver;
 
 extern struct cmdq_base *cmdq_register_device(struct device *dev);
 extern struct cmdq_client *cmdq_mbox_create(struct device *dev, int index);
@@ -242,9 +248,9 @@ static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
 				break;
 		}
 		if (!i)
-			dev_warn(dev, "no clks in node %s\n", node->full_name);
+			dev_info(dev, "no clks in node %s\n", node->full_name);
 	} else {
-		dev_warn(dev, "no %s property in node %s\n",
+		dev_info(dev, "no %s property in node %s\n",
 			 clkpropname, node->full_name);
 	}
 	return ret;
@@ -288,11 +294,15 @@ s32 mml_subcomp_init(struct platform_device *comp_pdev,
 		return -EINVAL;
 	}
 	comp->id = comp_id;
+	comp->sub_idx = subcomponent;
 	if (!of_mml_read_comp_name_index(node, subcomponent, &name_ptr)) {
+		comp->name = name_ptr;
 		ret = snprintf(name, sizeof(name), "%s-clock-names", name_ptr);
-		if (ret >= sizeof(name))
+		if (ret >= sizeof(name)) {
 			dev_err(dev, "len:%d over name size:%d",
 				ret, sizeof(name));
+			name[sizeof(name) - 1] = '\0';
+		}
 		name_ptr = name;
 	}
 	ret = __comp_init(comp_pdev, comp, name_ptr);
@@ -537,15 +547,49 @@ static int __init mml_driver_init(void)
 			mml_mutex_driver.driver.name);
 		return ret;
 	}
-#if 0
+
 	ret = platform_driver_register(&mml_sys_driver);
 	if (ret) {
 		mml_err("failed to register %s driver",
 			mml_sys_driver.driver.name);
 		return ret;
 	}
+
+	ret = platform_driver_register(&mtk_mml_hdr_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_hdr_driver.driver.name);
+		return ret;
+	}
+
+	ret = platform_driver_register(&mtk_mml_color_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_color_driver.driver.name);
+		return ret;
+	}
+
+	ret = platform_driver_register(&mtk_mml_aal_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_aal_driver.driver.name);
+		return ret;
+	}
+
+	ret = platform_driver_register(&mtk_mml_tdshp_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_tdshp_driver.driver.name);
+		return ret;
+	}
+
+	ret = platform_driver_register(&mtk_mml_tcc_driver);
+	if (ret) {
+		mml_err("failed to register %s driver",
+			mtk_mml_tcc_driver.driver.name);
+		return ret;
+	}
     mml_topology_ip_init();
-#endif
 	/* register pm notifier */
 
 	return 0;

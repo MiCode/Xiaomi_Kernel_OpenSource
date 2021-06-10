@@ -36,10 +36,10 @@ enum mml_orientation {
 };
 
 struct mml_pq_config {
-	bool en: 1;
-	bool hdr_en: 1;
-	bool aal_en: 1;
-	bool tdshp_en: 1;
+	bool en:1;
+	bool hdr_en:1;
+	bool aal_en:1;
+	bool tdshp_en:1;
 };
 
 struct mml_pq_param {

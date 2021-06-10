@@ -6,14 +6,26 @@
 
 #include <linux/atomic.h>
 #include <linux/file.h>
+#include <linux/module.h>
+#include <linux/sync_file.h>
 
+#include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
+
+#include "mediatek_v2/mtk_sync.h"
+
+#define MML_QUERY_ADJUST	1
 
 #define MML_REF_NAME "mml"
 
 #define MAX_CACHE_CONFIG	0
 #define MAX_CACHE_TASK		0
+
+/* set to 0 to disable reuse config */
+int mml_reuse = 1;
+EXPORT_SYMBOL(mml_reuse);
+module_param(mml_reuse, int, 0644);
 
 struct mml_drm_ctx {
 	struct list_head configs;
@@ -23,27 +35,8 @@ struct mml_drm_ctx {
 	const struct mml_task_ops *task_ops;
 	atomic_t job_serial;
 	struct workqueue_struct *wq_destroy;
+	struct sync_timeline *timeline;
 };
-
-static bool check_hw_cap(struct mml_frame_data *src,
-			 struct mml_frame_dest *dest,
-			 u8 cnt)
-{
-	/* TODO: porting dpframework code */
-	return true;
-}
-
-static bool check_read_format(u32 format)
-{
-	/* TODO: porting dpframework code */
-	return true;
-}
-
-static bool check_write_format(u32 format)
-{
-	/* TODO: porting dpframework code */
-	return true;
-}
 
 static enum mml_mode query_mode(struct mml_frame_info *info)
 {
@@ -51,28 +44,136 @@ static enum mml_mode query_mode(struct mml_frame_info *info)
 	return MML_MODE_MML_DECOUPLE;
 }
 
-struct mml_cap mml_drm_query_cap(struct mml_frame_info *info)
+#if MML_QUERY_ADJUST == 1
+static void mml_adjust_src(struct mml_frame_data *src)
 {
-	struct mml_cap cap = {0};
+	const u32 srcw = src->width;
+	const u32 srch = src->height;
+
+	if (MML_FMT_H_SUBSAMPLE(src->format) && (srcw & 0x1))
+		src->width &= ~1;
+
+	if (MML_FMT_V_SUBSAMPLE(src->format) && (srch & 0x1))
+		src->height &= ~1;
+}
+
+static void mml_adjust_dest(struct mml_frame_data *src,
+	struct mml_frame_dest *dest)
+{
+	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
+		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
+			dest->data.width &= ~1; /* WROT HW constraint */
+			dest->data.height &= ~1;
+		} else if (MML_FMT_V_SUBSAMPLE(dest->data.format)) {
+			dest->data.width &= ~1;
+		}
+	} else {
+		if (MML_FMT_H_SUBSAMPLE(dest->data.format))
+			dest->data.width &= ~1;
+
+	        if (MML_FMT_V_SUBSAMPLE(dest->data.format))
+			dest->data.height &= ~1;
+	}
+
+	/* help user fill in crop if not give */
+	if (!dest->crop.r.width && !dest->crop.r.height) {
+		dest->crop.r.width = src->width;
+		dest->crop.r.height = src->height;
+	}
+
+	if (!dest->compose.width && !dest->compose.height) {
+		dest->compose.width = dest->data.width;
+		dest->compose.height = dest->data.height;
+	}
+}
+#endif
+
+enum mml_mode mml_drm_query_cap(struct mml_frame_info *info)
+{
 	u8 i;
+	const u32 srcw = info->src.width;
+	const u32 srch = info->src.height;
 
-	if (!check_hw_cap(&info->src, info->dest, info->dest_cnt))
+#if MML_QUERY_ADJUST == 0
+	/* following part should adjust later */
+	if (MML_FMT_H_SUBSAMPLE(info->src.format) && (srcw & 0x1)) {
+		mml_err("invalid src width %u alignment format %#010x",
+			srcw, info->src.format);
 		goto not_support;
+	}
 
-	if (!check_read_format(info->src.format))
+	if (MML_FMT_V_SUBSAMPLE(info->src.format) && (srch & 0x1)) {
+		mml_err("invalid src height %u alignment format %#010x",
+			srch, info->src.format);
 		goto not_support;
+	}
+#else
+	mml_adjust_src(&info->src);
+#endif
 
-	for (i = 0; i < info->dest_cnt; i++)
-		if (!check_write_format(info->dest[i].data.format))
+	/* for alpha rotate */
+	if (srcw < 9) {
+		mml_err("exceed HW limitation src width %u < 9", srcw);
+		goto not_support;
+	}
+
+	for (i = 0; i < info->dest_cnt; i++) {
+		const struct mml_frame_dest *dest = &info->dest[i];
+		u32 destw = dest->data.width;
+		u32 desth = dest->data.height;
+
+		if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270)
+			swap(destw, desth);
+
+		if (srcw / destw > 20 || srch / desth > 255 ||
+			destw / srcw > 32 || desth / srch > 32) {
+			mml_err("exceed HW limitation src %ux%u dest %ux%u",
+				srcw, srch, destw, desth);
 			goto not_support;
+		}
 
-	cap.target = query_mode(info);
-	return cap;
+#if MML_QUERY_ADJUST == 0
+		/* following part should adjust later */
+		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
+			if (destw & 0x1) {
+				mml_err("invalid dest width %u alignment format %#010x",
+					destw, dest->data.format);
+				goto not_support;
+			}
+
+			if ((desth & 0x1) && (dest->rotate == MML_ROT_90 ||
+				dest->rotate == MML_ROT_270)) {
+				mml_err("invalid dest %ux%u alignment format %#010x",
+					destw, desth,
+					dest->data.format);
+				goto not_support;
+			}
+		}
+
+		if (MML_FMT_V_SUBSAMPLE(dest->data.format) && (desth & 0x1)) {
+			mml_err("invalid dest height %u alignment format %#010x",
+				desth, dest->data.format);
+			goto not_support;
+		}
+#else
+		/* adjust info data directly for user */
+	        mml_adjust_dest(&info->src, &info->dest[i]);
+#endif
+
+		/* check crop and pq combination */
+		if (dest->pq_config.en && dest->crop.r.width < 48) {
+			mml_err("exceed HW limitation crop width %u < 48 with pq",
+				dest->crop.r.width);
+			goto not_support;
+		}
+	}
+
+	return query_mode(info);
 
 not_support:
-	cap.target = MML_MODE_NOT_SUPPORT;
-	return cap;
+	return MML_MODE_NOT_SUPPORT;
 }
+EXPORT_SYMBOL_GPL(mml_drm_query_cap);
 
 static bool check_frame_change(struct mml_frame_info *info,
 			       struct mml_frame_config *cfg)
@@ -89,15 +190,25 @@ static struct mml_frame_config *frame_config_find_reuse(
 {
 	struct mml_frame_config *cfg;
 
+	if (!mml_reuse)
+		return NULL;
+
+	mml_trace_ex_begin("%s", __func__);
+
 	list_for_each_entry(cfg, &ctx->configs, entry) {
 		if (submit->update && cfg->last_jobid == submit->job->jobid)
-			return cfg;
+			goto done;
 
 		if (check_frame_change(&submit->info, cfg))
-			return cfg;
+			goto done;
 	}
 
-	return NULL;
+	/* not found, give return value to NULL */
+	cfg = NULL;
+
+done:
+	mml_trace_ex_end();
+	return cfg;
 }
 
 static struct mml_task *task_get_idle(struct mml_frame_config *cfg)
@@ -199,19 +310,84 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	fbuf->cnt = fdbuf->cnt;
 	fbuf->usage = fdbuf->usage;
 
-	/* TODO: fence replace with timeline file later */
-	/* fbuf->fence = fdbuf->fence; */
+	fbuf->fence = sync_file_get_fence(fdbuf->fence);
+	mml_msg("get dma fence %p by %d", fbuf->fence, fdbuf->fence);
+}
+
+static void task_move_to_running(struct mml_task *task)
+{
+	/* Must lock ctx->config_mutex before call
+	 * For INITIAL / DUPLICATE state move to running,
+	 * otherwise do nothing.
+	 */
+	if (task->state != MML_TASK_INITIAL &&
+		task->state != MML_TASK_DUPLICATE &&
+		task->state != MML_TASK_REUSE) {
+		mml_msg("%s task %p state conflict %u",
+			__func__, task, task->state);
+		return;
+	}
+
+	list_del_init(&task->entry);
+	task->config->await_task_cnt--;
+	task->state = MML_TASK_RUNNING;
+	list_add_tail(&task->entry, &task->config->tasks);
+	task->config->run_task_cnt++;
+
+	mml_msg("[drm]%s task cnt (%u %u %hhu)",
+		__func__,
+		task->config->await_task_cnt,
+		task->config->run_task_cnt,
+		task->config->done_task_cnt);
+}
+
+static void task_move_to_idle(struct mml_task *task)
+{
+	/* Must lock ctx->config_mutex before call */
+	if (task->state == MML_TASK_INITIAL ||
+		task->state == MML_TASK_DUPLICATE ||
+		task->state == MML_TASK_REUSE) {
+		/* move out from awat list */
+		task->config->await_task_cnt--;
+	} else if (task->state == MML_TASK_RUNNING) {
+		/* move out from tasks list */
+		task->config->run_task_cnt--;
+	} else {
+		/* unknown state transition */
+		mml_err("[drm]%s state conflict %d", __func__, task->state);
+	}
+
+	list_del_init(&task->entry);
+	task->state = MML_TASK_IDLE;
+	list_add_tail(&task->entry, &task->config->done_tasks);
+	task->config->done_task_cnt++;
+
+	mml_msg("[drm]%s task cnt (%u %u %hhu)",
+		__func__,
+		task->config->await_task_cnt,
+		task->config->run_task_cnt,
+		task->config->done_task_cnt);
+}
+
+static void task_move_to_destroy(struct kref *kref)
+{
+	struct mml_task *task = container_of(kref,
+		struct mml_task, ref);
+
+	mml_core_destroy_task(task);
 }
 
 static void task_submit_done(struct mml_task *task)
 {
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 
+	mml_msg("[drm]%s task %p state %u", __func__, task, task->state);
+
 	mutex_lock(&ctx->config_mutex);
-	list_del_init(&task->entry);
-	task->state = MML_TASK_RUNNING;
-	list_add_tail(&task->entry, &task->config->tasks);
+	task_move_to_running(task);
 	mutex_unlock(&ctx->config_mutex);
+
+	kref_put(&task->ref, task_move_to_destroy);
 }
 
 static void task_frame_done(struct mml_task *task)
@@ -219,6 +395,8 @@ static void task_frame_done(struct mml_task *task)
 	struct mml_frame_config *cfg = task->config;
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 	u8 idx_d, idx_p;
+
+	mml_msg("[drm]%s task %p state %u", __func__, task, task->state);
 
 	/* clean up */
 	for (idx_d = 0; idx_d < task->buf.dest_cnt; idx_d++)
@@ -239,21 +417,28 @@ static void task_frame_done(struct mml_task *task)
 	 */
 
 	mutex_lock(&ctx->config_mutex);
-	list_del_init(&task->entry);
-	task->state = MML_TASK_IDLE;
-	list_add_tail(&task->entry, &cfg->done_tasks);
-	cfg->done_task_cnt++;
+	task_move_to_idle(task);
 
 	if (cfg->done_task_cnt >= MAX_CACHE_TASK) {
 		task = list_first_entry(&cfg->done_tasks, typeof(*task),
 			entry);
-		mml_core_destroy_task(task);
+		list_del_init(&task->entry);
+		cfg->done_task_cnt--;
+		mml_msg("[drm]%s task cnt (%u %u %hhu)",
+			__func__,
+			task->config->await_task_cnt,
+			task->config->run_task_cnt,
+			task->config->done_task_cnt);
+		kref_put(&task->ref, task_move_to_destroy);
 	}
 
 	if (ctx->config_cnt >= MAX_CACHE_CONFIG &&
 		list_empty(&cfg->tasks) && list_empty(&cfg->await_tasks)) {
 		list_del_init(&cfg->entry);
 		queue_work(ctx->wq_destroy, &cfg->work_destroy);
+		ctx->config_cnt--;
+		mml_msg("[drm]config %p send destory remain %u",
+			cfg, ctx->config_cnt);
 	}
 
 	mutex_unlock(&ctx->config_mutex);
@@ -265,12 +450,22 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	struct mml_task *task;
 	s32 result;
 	u8 i;
+	struct fence_data fence = {0};
+
+	mml_trace_begin("%s", __func__);
+
+	/* TODO: following code only use in mtk ion test */
+	//fd_to_iova(submit->buffer.src.fd, submit->buffer.src.cnt,
+	//	M4U_PORT_L2_MDP_RDMA0);
+	//for (i = 0; i < submit->buffer.dest_cnt; i++)
+	//	fd_to_iova(submit->buffer.dest[i].fd,
+	//		submit->buffer.dest[i].cnt, M4U_PORT_L2_MDP_WROT0);
 
 	mutex_lock(&ctx->config_mutex);
 
 	cfg = frame_config_find_reuse(ctx, submit);
 	if (cfg) {
-		mml_msg("%s reuse config", __func__);
+		mml_msg("%s reuse config %p", __func__, cfg);
 		task = task_get_idle(cfg);
 		if (task) {
 			/* reuse case change state IDLE to REUSE */
@@ -282,10 +477,11 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 				goto err_unlock_exit;
 			}
 			task->config = cfg;
+			task->state = MML_TASK_DUPLICATE;
 		}
 	} else {
-		mml_msg("%s create config", __func__);
 		cfg = frame_config_create(ctx, &submit->info);
+		mml_msg("%s create config %p", __func__, cfg);
 		if (IS_ERR(cfg)) {
 			result = PTR_ERR(cfg);
 			goto err_unlock_exit;
@@ -304,6 +500,12 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	task->job.jobid = atomic_inc_return(&ctx->job_serial);
 	cfg->last_jobid = task->job.jobid;
 	list_add_tail(&task->entry, &cfg->await_tasks);
+	cfg->await_task_cnt++;
+	mml_msg("[drm]%s task cnt (%u %u %hhu)",
+		__func__,
+		task->config->await_task_cnt,
+		task->config->run_task_cnt,
+		task->config->done_task_cnt);
 
 	mutex_unlock(&ctx->config_mutex);
 
@@ -316,15 +518,31 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 		frame_buf_to_task_buf(&task->buf.dest[i],
 				      &submit->buffer.dest[i]);
 
-	/* TODO: create fence to task->job.fence */
+	/* create fence for this task */
+	fence.value = task->job.jobid;
+	if (submit->job && ctx->timeline &&
+		mtk_sync_fence_create(ctx->timeline, &fence) >= 0) {
+		task->job.fence = fence.fence;
+		task->fence = sync_file_get_fence(task->job.fence);
+	} else {
+		task->job.fence = -1;
+	}
+	mml_msg("present fence fd %d for job %u task %p fence %p",
+		task->job.fence, task->job.jobid, task, task->fence);
 
 	/* submit to core */
 	result = mml_core_submit_task(cfg, task);
 
+	/* copy job content back */
+	if (submit->job)
+		memcpy(submit->job, &task->job, sizeof(*submit->job));
+
+	mml_trace_end();
 	return result;
 
 err_unlock_exit:
 	mutex_unlock(&ctx->config_mutex);
+	mml_trace_end();
 	return result;
 }
 EXPORT_SYMBOL_GPL(mml_drm_submit);
@@ -349,6 +567,13 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)
 	ctx->mml = mml;
 	ctx->task_ops = &drm_task_ops;
 	ctx->wq_destroy = alloc_workqueue("mml_destroy", 0, 0);
+
+	ctx->timeline = mtk_sync_timeline_create("mml_timeline");
+	if (!ctx->timeline)
+		mml_err("[drm]fail to create timeline");
+	else
+		mml_msg("[drm]timeline for mml %p", ctx->timeline);
+
 	return ctx;
 }
 
@@ -381,6 +606,8 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 	mutex_unlock(&ctx->config_mutex);
 	destroy_workqueue(ctx->wq_destroy);
 	kfree(ctx);
+
+	mtk_sync_timeline_destroy(ctx->timeline);
 }
 
 void mml_drm_put_context(struct mml_drm_ctx *ctx)

@@ -188,8 +188,13 @@ struct rdma_frame_data {
 
 #define rdma_frm_data(i)	((struct rdma_frame_data *)(i->data))
 
-static s32 rdma_prepare(struct mml_comp *comp, struct mml_task *task,
-			struct mml_comp_config *ccfg)
+static inline struct mml_rdma *comp_to_rdma(struct mml_comp *comp)
+{
+	return container_of(comp, struct mml_rdma, comp);
+}
+
+static s32 rdma_config_read(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg)
 {
 	ccfg->data = kzalloc(sizeof(struct rdma_frame_data), GFP_KERNEL);
 	return 0;
@@ -203,7 +208,7 @@ static u32 rdma_get_label_count(struct mml_comp *comp, struct mml_task *task)
 static s32 rdma_init(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
+	struct mml_rdma *rdma = comp_to_rdma(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
@@ -530,7 +535,7 @@ static void calc_ufo(struct mml_file_buf *src_buf, struct mml_frame_data *src,
 static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
+	struct mml_rdma *rdma = comp_to_rdma(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
 	struct mml_file_buf *src_buf = &task->buf.src;
@@ -619,7 +624,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       (alpharot << 25),
 		       0x038cfe0f);
 
-	write_mask |= 0xb0000000|0x0603000;
+	write_mask |= 0xb0000000 | 0x0603000;
 	if (rdma_frm->blk_10bit)
 		jump = MML_FMT_10BIT_JUMP(src->format);
 	else
@@ -631,11 +636,9 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 			afbc_y2r = 1;
 		ufbdc = 1;
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_SIZE_IN_PXL,
-			       ((src->width + 31) >> 5) << 5,
-			       0x001FFFFF);
+			       ((src->width + 31) >> 5) << 5, U32_MAX);
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_H_SIZE_IN_PXL,
-			       ((src->height + 7) >> 3) << 3,
-			       0x001FFFFF);
+			       ((src->height + 7) >> 3) << 3, U32_MAX);
 	}
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_COMP_CON,
 		       (rdma_frm->enable_ufo << 31) +
@@ -667,8 +670,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		if (rdma_frm->blk_10bit)
 			cmdq_pkt_write(pkt, NULL,
 				       base_pa + RDMA_MF_BKGD_SIZE_IN_PXL,
-				       (src->y_stride << 2) / 5,
-				       0x001fffff);
+				       (src->y_stride << 2) / 5, U32_MAX);
 	}
 
 	if (MML_FMT_10BIT(src->format) ||
@@ -732,25 +734,16 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		  RDMA_LABEL_BASE_END_2, iova_end[2]);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_SIZE_IN_BYTE,
-		       src->y_stride, 0x001FFFFF);
+		       src->y_stride, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SF_BKGD_SIZE_IN_BYTE,
-		       src->uv_stride, 0x001FFFFF);
+		       src->uv_stride, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_TRANSFORM_0,
 		       (rdma_frm->matrix_sel << 23) +
-		       (rdma_frm->color_tran << 16), 0x0F810000);
+		       (rdma_frm->color_tran << 16), 0x0f810000);
 
+	/* TODO: write ESL settings */
 	return 0;
-}
-
-static struct mml_tile_engine *rdma_get_tile(struct mml_frame_config *cfg,
-					     struct mml_comp_config *ccfg,
-					     u8 idx)
-{
-	struct mml_tile_engine *tile_engines =
-		cfg->tile_output[ccfg->pipe]->tiles[idx].tile_engines;
-
-	return &tile_engines[ccfg->node_idx];
 }
 
 static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
@@ -763,8 +756,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	const phys_addr_t base_pa = comp->base_pa;
 
-	struct mml_tile_engine *tile = rdma_get_tile(cfg,
-		ccfg, idx);
+	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 
 	u32 src_offset_0;
 	u32 src_offset_1;
@@ -801,9 +793,9 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	if (MML_FMT_COMPRESS(src->format)) {
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_WP, in_xs,
-			       0xFFFFFFFF);
+			       U32_MAX);
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_HP, in_ys,
-			       0xFFFFFFFF);
+			       U32_MAX);
 	}
 
 	if (!rdma_frm->blk) {
@@ -844,11 +836,8 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 		/* Set 10bit UFO mode */
 		if (MML_FMT_10BIT_PACKED(src->format) && rdma_frm->enable_ufo)
-		{
 			cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_WP,
-				       (src_offset_0 << 2) / 5,
-				       0xFFFFFFFF);
-		}
+				       (src_offset_0 << 2) / 5, U32_MAX);
 
 		/* Set U pixel offset */
 		src_offset_1 = ((in_xs >> rdma_frm->hor_shift_uv) *
@@ -879,34 +868,29 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 		mf_offset_h_1 = (out_ys  - in_ys) << rdma_frm->field;
 	}
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_0,
-		       src_offset_0,
-		       0xFFFFFFFF);
+		       src_offset_0, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_1,
-		       src_offset_1,
-		       0xFFFFFFFF);
+		       src_offset_1, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SRC_OFFSET_2,
-		       src_offset_2,
-		       0xFFFFFFFF);
+		       src_offset_2, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_SRC_SIZE,
-		       (mf_src_h << 16) + mf_src_w, 0x7FFF7FFF);
+		       (mf_src_h << 16) + mf_src_w, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_CLIP_SIZE,
-		       (mf_clip_h << 16) + mf_clip_w, 0x7FFF7FFF);
-
+		       (mf_clip_h << 16) + mf_clip_w, U32_MAX);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_OFFSET_1,
-		       (mf_offset_h_1 << 16) + mf_offset_w_1,
-		       0x003F001F);
+		       (mf_offset_h_1 << 16) + mf_offset_w_1, U32_MAX);
 	return 0;
 }
 
 static s32 rdma_wait(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
+	struct mml_rdma *rdma = comp_to_rdma(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
 	/* wait rdma frame done */
@@ -981,7 +965,7 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 }
 
 static const struct mml_comp_config_ops rdma_cfg_ops = {
-	.prepare = rdma_prepare,
+	.prepare = rdma_config_read,
 	.get_label_count = rdma_get_label_count,
 	.init = rdma_init,
 	.frame = rdma_config_frame,
@@ -992,7 +976,7 @@ static const struct mml_comp_config_ops rdma_cfg_ops = {
 
 static s32 rdma_pw_enable(struct mml_comp *comp)
 {
-	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
+	struct mml_rdma *rdma = comp_to_rdma(comp);
 
 	/* mtk iommu */
 	mml_log("%s larb %hhu", __func__, rdma->larb);
@@ -1015,7 +999,7 @@ static s32 rdma_pw_enable(struct mml_comp *comp)
 
 static s32 rdma_pw_disable(struct mml_comp *comp)
 {
-	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
+	struct mml_rdma *rdma = comp_to_rdma(comp);
 
 	/* mtk iommu */
 	mml_log("%s larb %hhu", __func__, rdma->larb);
@@ -1040,7 +1024,7 @@ static s32 rdma_clk_enable(struct mml_comp *comp)
 {
 	/* mtk iommu */
 #ifdef CONFIG_MTK_IOMMU_V2
-	struct mml_rdma *rdma = container_of(comp, struct mml_rdma, comp);
+	struct mml_rdma *rdma = comp_to_rdma(comp);
 	struct M4U_PORT_STRUCT port = {
 		.ePortID = rdma->m4u_port,
 		.Virtuality = 1,
@@ -1147,21 +1131,22 @@ static int remove(struct platform_device *pdev)
 }
 
 const struct of_device_id mtk_mml_rdma_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6893-mml_rdma",
-	  .data = &mt6893_rdma_data},
+	{
+		.compatible = "mediatek,mt6893-mml_rdma",
+		.data = &mt6893_rdma_data
+	},
 	{},
 };
-
 MODULE_DEVICE_TABLE(of, mtk_mml_rdma_driver_dt_match);
 
 struct platform_driver mtk_mml_rdma_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
-			.name = "mediatek-mml-rdma",
-			.owner = THIS_MODULE,
-			.of_match_table = mtk_mml_rdma_driver_dt_match,
-		},
+		.name = "mediatek-mml-rdma",
+		.owner = THIS_MODULE,
+		.of_match_table = mtk_mml_rdma_driver_dt_match,
+	},
 };
 
 //module_platform_driver(mtk_mml_rdma_driver);
@@ -1205,7 +1190,7 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 				"  - [%d] mml_comp_id: %d\n", i,
 				dbg_probed_components[i]->comp.id);
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  -      mml_binded: %d\n",
+				"  -      mml_bound: %d\n",
 				dbg_probed_components[i]->comp.bound);
 		}
 	default:
