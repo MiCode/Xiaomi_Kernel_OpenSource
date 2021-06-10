@@ -902,7 +902,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	}
 
 #ifdef CONFIG_DEVAPC_SWP_SUPPORT
-	devapc_swp_ctx->devapc_swp_base = of_iomap(node, 2);
+	devapc_swp_ctx->devapc_swp_base = of_iomap(node, DT_DEVAPC_SWP_IDX);
 	ret = driver_create_file(pdev->dev.driver,
 			&driver_attr_set_swp_addr);
 	if (ret)

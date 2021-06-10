@@ -66,8 +66,9 @@
  ******************************************************************************/
 enum DEVAPC_DT_NODE_INDEX {
 	DT_DEVAPC_PD_IDX = 0,
-	DT_DEVAPC_AO_IDX,
-	DT_SRAMROM_IDX,
+	DT_DEVAPC_AO_IDX = 1,
+	DT_DEVAPC_SWP_IDX = 2,
+	DT_SRAMROM_IDX = 3,
 };
 
 enum DEVAPC_PD_REG_TYPE {
