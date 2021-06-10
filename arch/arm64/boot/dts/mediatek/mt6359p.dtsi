@@ -348,6 +348,10 @@
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1193750>;
 			};
+
+			mt6359p_isnk_load: isnk_load {
+				regulator-name = "isnk_load";
+			};
 		};
 
 		mt6359prtc: mt6359prtc {
@@ -501,7 +505,7 @@
 			clkbuf_ctl = <&clock_buffer_ctrl>;
 		};
 
-		mtk_dynamic_loading_throttling {
+		mt6359p_dynamic_loading_throttling: mtk_dynamic_loading_throttling {
 			compatible = "mediatek,mt6359p-dynamic_loading_throttling";
 			/*charger: mtk_charger_thread*/
 			/*mediatek,charger = <&charger>;*/
@@ -515,7 +519,7 @@
 					   "pmic_batadc";
 		};
 
-		pmic_lbat_service {
+		mt6359p_lbat: pmic_lbat_service {
 			compatible = "mediatek,mt6359p-lbat_service";
 		};
 	};

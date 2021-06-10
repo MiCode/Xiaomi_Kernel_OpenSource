@@ -1244,7 +1244,7 @@
 	interrupt-parent = <&pio>;
 	interrupts = <222 IRQ_TYPE_LEVEL_HIGH 222 0>;
 
-	mtk_battery_oc_throttling {
+	mt6359p_batoc_throttle: mtk_battery_oc_throttling {
 		compatible = "mediatek,mt6359p-battery_oc_throttling";
 		oc-thd-h = <6800>;
 		oc-thd-l = <8000>;
@@ -1418,4 +1418,3 @@
 		};
 	};
 };
-
