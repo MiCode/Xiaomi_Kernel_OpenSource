@@ -13,6 +13,8 @@
 #include <linux/mailbox_controller.h>
 #include <linux/of.h>
 
+#define MML_MAX_COMPONENTS	50
+
 struct mml_comp;
 struct mml_dev;
 struct mml_drm_ctx;

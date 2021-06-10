@@ -17,7 +17,6 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-sys.h"
 
-#define MML_MAX_COMPONENTS	50
 #define MML_MAX_CMDQ_CLTS	4
 
 struct mml_dev {

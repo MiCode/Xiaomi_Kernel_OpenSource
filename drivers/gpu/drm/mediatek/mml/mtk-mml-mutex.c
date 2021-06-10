@@ -8,28 +8,79 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 
+#define MUTEX_MAX_MOD_REGS	((MML_MAX_COMPONENTS + 31) / 32)
+
+/* MUTEX register offset */
+#define MUTEX_EN(id)		(0x20 + (id) * 0x20)
+#define MUTEX_MOD(id, offset)	((offset) + (id) * 0x20)
+#define MUTEX_SOF(id)		(0x2c + (id) * 0x20)
+
 struct mutex_data {
+	/* Count of display mutex HWs */
+	u32 mutex_cnt;
+	/* Offsets and count of MUTEX_MOD registers per mutex */
+	u32 mod_offsets[MUTEX_MAX_MOD_REGS];
+	u32 mod_cnt;
 };
 
-struct mutex_data mt6893_mutex_data = {
+static const struct mutex_data mt6893_mutex_data = {
+	.mutex_cnt = 16,
+	.mod_offsets = {0x30, 0x34},
+	.mod_cnt = 2,
+};
+
+struct mutex_module {
+	u32 mutex_id;
+	u32 index;
+	u32 field;
+	bool select: 1;
+	bool trigger: 1;
 };
 
 struct mml_mutex {
 	struct mml_comp comp;
-	struct mutex_data *data;
+	const struct mutex_data *data;
+
+	struct mutex_module modules[MML_MAX_COMPONENTS];
 };
 
-s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
-		  struct mml_comp_config *cfg)
+static s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
+			 struct mml_comp_config *ccfg)
 {
+	struct mml_mutex *mutex = container_of(comp, struct mml_mutex, comp);
+	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	const phys_addr_t base_pa = comp->base_pa;
+	u32 mutex_id = 0;
+	u32 mutex_mod[MUTEX_MAX_MOD_REGS] = {0};
+	u32 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mutex_module *mod = &mutex->modules[path->nodes[i].id];
+
+		if (mod->select)
+			mutex_id = mod->mutex_id;
+		if (mod->trigger)
+			mutex_mod[mod->index] |= 1 << mod->field;
+	}
+
+	for (i = 0; i < mutex->data->mod_cnt; i++) {
+		u32 offset = mutex->data->mod_offsets[i];
+
+		cmdq_pkt_write(pkt, NULL, base_pa + MUTEX_MOD(mutex_id, offset),
+			       mutex_mod[i], U32_MAX);
+	}
+	cmdq_pkt_write(pkt, NULL, base_pa + MUTEX_SOF(mutex_id), 0x0, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + MUTEX_EN(mutex_id), 0x1, U32_MAX);
 	return 0;
 }
 
-static struct mml_comp_config_ops mutex_config_ops = {
+static const struct mml_comp_config_ops mutex_config_ops = {
 	.mutex = mutex_trigger
 };
 
@@ -65,7 +116,11 @@ static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mml_mutex *priv;
-	s32 ret;
+	struct device_node *node = dev->of_node;
+	struct property *prop;
+	const char *name;
+	u32 mod[3], comp_id, mutex_id;
+	s32 id_count, i, ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
@@ -78,6 +133,53 @@ static int probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "Failed to init mml component: %d\n", ret);
 		return ret;
+	}
+
+	of_property_for_each_string(node, "mutex-comps", prop, name) {
+		ret = of_property_read_u32_array(node, name, mod, 3);
+		if (ret) {
+			dev_err(dev, "no property %s in dts node %s: %d\n",
+				name, dev->of_node->full_name, ret);
+			return ret;
+		}
+		if (mod[0] >= MML_MAX_COMPONENTS) {
+			dev_err(dev, "%s id %u is larger than max:%d\n",
+				name, mod[0], MML_MAX_COMPONENTS);
+			return -EINVAL;
+		}
+		if (mod[1] >= priv->data->mod_cnt) {
+			dev_err(dev,
+				"%s mod index %u is larger than count:%d\n",
+				name, mod[1], priv->data->mod_cnt);
+			return -EINVAL;
+		}
+		if (mod[2] >= 32) {
+			dev_err(dev,
+				"%s mod field %u is larger than bits:32\n",
+				name, mod[2]);
+			return -EINVAL;
+		}
+		priv->modules[mod[0]].index = mod[1];
+		priv->modules[mod[0]].field = mod[2];
+		priv->modules[mod[0]].trigger = true;
+	}
+
+	id_count = of_property_count_u32_elems(node, "mutex-ids");
+	for (i = 0; i + 1 < id_count; i += 2) {
+		of_property_read_u32_index(node, "mutex-ids", i, &comp_id);
+		of_property_read_u32_index(node, "mutex-ids", i + 1, &mutex_id);
+		if (comp_id >= MML_MAX_COMPONENTS) {
+			dev_err(dev, "component id %u is larger than max:%d\n",
+				comp_id, MML_MAX_COMPONENTS);
+			return -EINVAL;
+		}
+		if (mutex_id >= priv->data->mutex_cnt) {
+			dev_err(dev, "mutex id %u is larger than count:%d\n",
+				mutex_id, priv->data->mutex_cnt);
+			return -EINVAL;
+		}
+		priv->modules[comp_id].mutex_id = mutex_id;
+		priv->modules[comp_id].select = true;
 	}
 
 	priv->comp.config_ops = &mutex_config_ops;
@@ -105,7 +207,7 @@ const struct of_device_id mml_mutex_driver_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, mml_mutex_driver_dt_match);
 
-struct platform_driver mml_mutex_driver = {
+static struct platform_driver mml_mutex_driver = {
 	.probe = probe,
 	.remove = remove,
 	.driver = {
