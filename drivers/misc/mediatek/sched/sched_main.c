@@ -104,11 +104,11 @@ static int init_capacity_table(void)
 			offset += CAPACITY_ENTRY_SIZE;
 		}
 
-		/* repeated last cap and 2 bytes of 0 between each cluster */
+		/* repeated last cap 0 between each cluster */
 		end_cap = ioread16(base + offset);
 		if (end_cap != cap)
 			goto err;
-		offset += CAPACITY_ENTRY_SIZE * 2;
+		offset += CAPACITY_ENTRY_SIZE;
 	}
 
 	if (entry_count != count)
