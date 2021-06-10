@@ -83,6 +83,17 @@ int set_cpu_min_opp(int gear, int opp)
 }
 EXPORT_SYMBOL(set_cpu_min_opp);
 
+int set_cpu_active_bitmask(int mask)
+{
+	if (!tm_data.sw_ready)
+		return -ENODEV;
+
+	writel(mask, tm_data.csram_base + CPU_ACTIVE_BITMASK_OFFSET);
+
+	return 0;
+}
+EXPORT_SYMBOL(set_cpu_active_bitmask);
+
 int get_cpu_temp(int cpu_id)
 {
 	int temp = 25000;

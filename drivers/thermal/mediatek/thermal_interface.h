@@ -11,10 +11,11 @@
 #define CPU_HEADROOM_RATIO_OFFSET   (0x40)
 #define CPU_PREDICT_TEMP_OFFSET     (0x60)
 #define AP_NTC_HEADROOM_OFFSET      (0x80)
-#define TPCB_OFFSET      			(0x84)
+#define TPCB_OFFSET                 (0x84)
 #define TTJ_OFFSET                 (0x100)
 #define POWER_BUDGET_OFFSET        (0x110)
 #define CPU_MIN_OPP_HINT_OFFSET    (0x120)
+#define CPU_ACTIVE_BITMASK_OFFSET  (0x130)
 #define ATC_OFFSET                 (0x160)
 #define CPU_LIMIT_OPP_OFFSET       (0x200)
 #define CPU_CUR_OPP_OFFSET         (0x210)
@@ -55,6 +56,7 @@ struct fps_cooler_info {
 extern void update_ap_ntc_headroom(int temp, int polling_interval);
 extern int get_thermal_headroom(enum headroom_id id);
 extern int set_cpu_min_opp(int gear, int opp);
+extern int set_cpu_active_bitmask(int mask);
 extern int get_cpu_temp(int cpu_id);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 extern void __iomem * thermal_csram_base;
