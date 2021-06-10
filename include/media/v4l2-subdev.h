@@ -308,39 +308,6 @@ struct v4l2_subdev_audio_ops {
 	int (*s_stream)(struct v4l2_subdev *sd, int enable);
 };
 
-#define V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA(t) ((t) >= 0x30 && (t) <= 0x37)
-
-enum v4l2_mbus_csi2_user_defined_data_desc {
-	V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_NONE,
-	V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_Y_HIST,
-	V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_AE_HIST,
-	V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_FLICKER,
-	V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_GYRO,
-	V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_PDAF_PIXEL,
-	V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_PDAF_DIFF,
-};
-
-#ifdef CONFIG_VIDEO_MTK_ISP_COMMON
-/**
- * struct v4l2_mbus_frame_desc_entry_csi2
- *
- * @channel: CSI-2 virtual channel
- * @data_type: CSI-2 data type ID
- * @enable: enable this data identifier
- * @hsize: horizontal size
- * @vsize: vertical size
- * @user_data_desc: the description of user defined data
- */
-struct v4l2_mbus_frame_desc_entry_csi2 {
-	u8 channel;
-	u8 data_type;
-	u8 enable;
-	u16 hsize;
-	u16 vsize;
-	enum v4l2_mbus_csi2_user_defined_data_desc user_data_desc;
-};
-#endif
-
 /**
  * enum v4l2_mbus_frame_desc_entry - media bus frame description flags
  *
@@ -364,45 +331,21 @@ enum v4l2_mbus_frame_desc_flags {
  *		%FRAME_DESC_FL_BLOB is not set.
  * @length:	number of octets per frame, valid if @flags
  *		%V4L2_MBUS_FRAME_DESC_FL_LEN_MAX is set.
- * @bus:	Bus specific frame descriptor parameters
- * @bus.csi2:	CSI-2 specific bus configuration
  */
 struct v4l2_mbus_frame_desc_entry {
 	enum v4l2_mbus_frame_desc_flags flags;
 	u32 pixelcode;
 	u32 length;
-#ifdef CONFIG_VIDEO_MTK_ISP_COMMON
-	union {
-		struct v4l2_mbus_frame_desc_entry_csi2 csi2;
-	} bus;
-#endif
 };
 
-#ifdef CONFIG_VIDEO_MTK_ISP_COMMON
-	#define V4L2_FRAME_DESC_ENTRY_MAX	8
-#else
-	#define V4L2_FRAME_DESC_ENTRY_MAX	4
-#endif
-
-#ifdef CONFIG_VIDEO_MTK_ISP_COMMON
-enum v4l2_mbus_frame_desc_type {
-	V4L2_MBUS_FRAME_DESC_TYPE_PLATFORM,
-	V4L2_MBUS_FRAME_DESC_TYPE_PARALLEL,
-	V4L2_MBUS_FRAME_DESC_TYPE_CCP2,
-	V4L2_MBUS_FRAME_DESC_TYPE_CSI2,
-};
-#endif
+#define V4L2_FRAME_DESC_ENTRY_MAX	4
 
 /**
  * struct v4l2_mbus_frame_desc - media bus data frame description
- * @type: type of the bus (enum v4l2_mbus_frame_desc_type)
  * @entry: frame descriptors array
  * @num_entries: number of entries in @entry array
  */
 struct v4l2_mbus_frame_desc {
-#ifdef CONFIG_VIDEO_MTK_ISP_COMMON
-	enum v4l2_mbus_frame_desc_type type;
-#endif
 	struct v4l2_mbus_frame_desc_entry entry[V4L2_FRAME_DESC_ENTRY_MAX];
 	unsigned short num_entries;
 };
