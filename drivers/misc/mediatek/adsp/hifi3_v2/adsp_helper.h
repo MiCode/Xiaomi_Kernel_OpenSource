@@ -123,5 +123,6 @@ extern void hook_ipi_queue_recv_msg_hanlder(
 		uint32_t len,
 		void (*ipi_handler)(int ipi_id, void *buf, unsigned int len)));
 extern void unhook_ipi_queue_recv_msg_hanlder(void);
+extern bool is_adsp_feature_in_active(void);
 
 #endif

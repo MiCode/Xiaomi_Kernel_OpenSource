@@ -771,7 +771,6 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_ul
 	return bytes_to_frames(substream->runtime, ptr_bytes);
 }
 
-
 static unsigned int dsp_word_size_align(unsigned int in_size)
 {
 	unsigned int align_size;
@@ -791,7 +790,6 @@ static int afe_remap_dsp_pointer
 	retval = (retval * src.channel) / dst.channel;
 	return retval;
 }
-
 
 static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 			 (struct snd_pcm_substream *substream)
@@ -927,9 +925,8 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_bridge_s("1 mtk_dsp_dl_handler",
-				&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
-	dump_rbuf_s("1 mtk_dsp_dl_handler",
-				&dsp_mem->ring_buf);
+			   &dsp_mem->adsp_buf.aud_buffer.buf_bridge);
+	dump_rbuf_s("1 mtk_dsp_dl_handler", &dsp_mem->ring_buf);
 #endif
 	ret = sync_ringbuf_readidx(
 		&dsp_mem->ring_buf,
@@ -943,13 +940,12 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 
 #ifdef DEBUG_VERBOSE
 	pr_info("%s id = %d reg_ofs_base = %d reg_ofs_cur = %d pcm_ptr_bytes = %d pcm_remap_ptr_bytes = %d\n",
-		 __func__, id, reg_ofs_base, reg_ofs_cur,
-		 pcm_ptr_bytes, pcm_remap_ptr_bytes);
+		__func__, id, reg_ofs_base, reg_ofs_cur,
+		pcm_ptr_bytes, pcm_remap_ptr_bytes);
 #endif
 
 POINTER_RETURN_FRAMES:
 	return bytes_to_frames(substream->runtime, pcm_remap_ptr_bytes);
-
 
 SYNC_READINDEX:
 
@@ -963,10 +959,6 @@ SYNC_READINDEX:
 
 	/* handle for underflow */
 	if (dsp_mem->underflowed) {
-		pr_info("%s %s return -1 because underflowed[%d]\n",
-			__func__, get_str_by_dsp_dai_id(id),
-			dsp_mem->underflowed);
-		dsp_mem->underflowed = 0;
 		spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
 		return -1;
 	}
@@ -981,7 +973,6 @@ SYNC_READINDEX:
 		 __func__, id, pcm_ptr_bytes, pcm_remap_ptr_bytes);
 #endif
 	return pcm_remap_ptr_bytes;
-
 }
 
 static snd_pcm_uframes_t mtk_dsphw_pcm_pointer
@@ -1033,8 +1024,6 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	}
 
 	if (!snd_pcm_running(dsp->dsp_mem[id].substream)) {
-		pr_info_ratelimited("%s = state[%d]\n", __func__,
-			 dsp->dsp_mem[id].substream->runtime->status->state);
 		return;
 	}
 
@@ -1427,24 +1416,41 @@ static int mtk_dsp_pcm_hw_prepare(struct snd_soc_component *component,
 	return ret;
 }
 
-static int mtk_dsp_start(struct snd_pcm_substream *substream)
+static int mtk_dsp_start(struct snd_pcm_substream *substream,
+			 struct mtk_base_dsp *dsp)
 {
 	int ret = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	int id = cpu_dai->id;
+	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
+	const char *task_name = get_str_by_dsp_dai_id(id);
+
+	dev_info(dsp->dev, "%s() %s %s\n",
+		 __func__, task_name,
+		 dsp_mem->underflowed ? "just underflow" : "");
+
+	dsp_mem->underflowed = 0;
 
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_DIRECT_SEND, AUDIO_DSP_TASK_START,
 			       1, 0, NULL);
 	return ret;
 }
-static int mtk_dsp_stop(struct snd_pcm_substream *substream)
+
+static int mtk_dsp_stop(struct snd_pcm_substream *substream,
+			struct mtk_base_dsp *dsp)
 {
 	int ret = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	int id = cpu_dai->id;
+	const char *task_name = get_str_by_dsp_dai_id(id);
+
+	/* Avoid print high level log in alsa stop. If underflow happens,
+	 * log will be printed in ISR.
+	 */
+	dev_dbg(dsp->dev, "%s() %s\n", __func__, task_name);
 
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_DIRECT_SEND, AUDIO_DSP_TASK_STOP,
@@ -1456,20 +1462,15 @@ static int mtk_dsp_stop(struct snd_pcm_substream *substream)
 static int mtk_dsp_pcm_hw_trigger(struct snd_soc_component *component,
 		struct snd_pcm_substream *substream, int cmd)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_base_dsp *dsp = snd_soc_component_get_drvdata(component);
-	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
-	const char *task_name = get_str_by_dsp_dai_id(cpu_dai->id);
-
-	dev_info(dsp->dev, "%s() %s cmd %d\n", __func__, task_name, cmd);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-		return mtk_dsp_start(substream);
+		return mtk_dsp_start(substream, dsp);
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		return mtk_dsp_stop(substream);
+		return mtk_dsp_stop(substream, dsp);
 	}
 	return -EINVAL;
 }
