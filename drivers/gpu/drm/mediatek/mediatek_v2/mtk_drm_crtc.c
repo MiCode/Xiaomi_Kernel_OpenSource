@@ -77,6 +77,7 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "HDR_ENABLE", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "MSYNC2_0_ENABLE", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "SKIP_CONFIG", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "OVL_DSI_SEQ", 0, UINT_MAX, 0},
 };
 
 bool hdr_en;
@@ -3234,6 +3235,20 @@ static void _ddp_cmdq_cb(struct cmdq_cb_data data)
 		if (mtk_crtc &&
 			!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			mtk_release_present_fence(session_id, fence_idx, mtk_crtc->eof_time);
+		}
+	}
+
+	/* for wfd latency debug */
+	if (id == 0 || id == 2) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		unsigned int ovl_dsi_seq = *(unsigned int *)(cmdq_buf->va_base +
+				DISP_SLOT_OVL_DSI_SEQ(id));
+
+		if (ovl_dsi_seq) {
+			if (id == 0)
+				mtk_drm_trace_async_end("OVL0-DSI|%d", ovl_dsi_seq);
+			else if (id == 2)
+				mtk_drm_trace_async_end("OVL2-WDMA|%d", ovl_dsi_seq);
 		}
 	}
 
@@ -6632,6 +6647,27 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			state->prop_val[CRTC_PROP_PRES_FENCE_IDX], ~0);
 		CRTC_MMP_MARK(index, update_present_fence, 0,
 			state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
+	}
+
+	/* for wfd latency debug */
+	if (index == 0 || index == 2) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		dma_addr_t addr =
+			cmdq_buf->pa_base +
+			DISP_SLOT_OVL_DSI_SEQ(index);
+
+		cmdq_pkt_write(cmdq_handle,
+			mtk_crtc->gce_obj.base, addr,
+			state->prop_val[CRTC_PROP_OVL_DSI_SEQ], ~0);
+
+		if (state->prop_val[CRTC_PROP_OVL_DSI_SEQ]) {
+			if (index == 0)
+				mtk_drm_trace_async_begin("OVL0-DSI|%d",
+					state->prop_val[CRTC_PROP_OVL_DSI_SEQ]);
+			else if (index == 2)
+				mtk_drm_trace_async_begin("OVL2-WDMA|%d",
+			state->prop_val[CRTC_PROP_OVL_DSI_SEQ]);
+		}
 	}
 
 	atomic_set(&mtk_crtc->delayed_trig, 1);
