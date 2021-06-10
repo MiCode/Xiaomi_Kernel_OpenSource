@@ -904,7 +904,7 @@ static int emmc_autok_switch_cqe(struct msdc_host *host, bool enable)
 #ifdef SD_RUNTIME_AUTOK_MERGE
 int sd_runtime_autok_merge(struct msdc_host *host)
 {
-	int merge_result, merge_mode, merge_window, merge_count;
+	int merge_result, merge_mode, merge_window;
 	int i, ret = 0;
 	u8 *res = host->autok_res[AUTOK_VCORE_LEVEL1];
 
