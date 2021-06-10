@@ -208,6 +208,8 @@ struct command_entry {
 	struct apusys_kmem *cmdbuf;
 	int ctx_id;
 	int (*context_callback)(int a, int b, uint8_t c);
+	u32 *cmd_int_backup; /* backup MREG_CMD_TILE_CNT_INT */
+	u32 *cmd_ctrl_1_backup; /* backup MREG_CMD_GENERAL_CTRL_1 */
 };
 
 struct mdla_wait_cmd {

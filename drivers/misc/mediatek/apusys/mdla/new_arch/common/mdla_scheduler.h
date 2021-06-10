@@ -16,6 +16,8 @@ struct command_entry;
 struct mdla_sched_cb_func {
 	void (*split_alloc_cmd_batch)(struct command_entry *ce);
 	void (*del_free_cmd_batch)(struct command_entry *ce);
+	void (*backup_cmd_batch)(struct command_entry *ce);
+	void (*restore_cmd_batch)(struct command_entry *ce);
 };
 
 struct mdla_sched_cb_func *mdla_sched_plat_cb(void);

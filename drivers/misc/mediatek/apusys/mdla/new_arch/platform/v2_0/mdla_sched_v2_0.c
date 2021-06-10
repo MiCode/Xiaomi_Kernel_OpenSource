@@ -200,6 +200,49 @@ static void mdla_split_alloc_command_batch(struct command_entry *ce)
 		}
 }
 
+static void mdla_backup_command_batch(struct command_entry *ce)
+{
+	uint32_t i = 0;
+	void *cmd_kva = NULL;
+
+	if (unlikely(!ce->cmd_int_backup || !ce->cmd_ctrl_1_backup))
+		return;
+
+	apusys_mem_invalidate(ce->cmdbuf);
+	/* backup cmd buffer value */
+	for (i = 1; i <= ce->count; i++) {
+		cmd_kva = ce->kva + (i - 1) * MREG_CMD_SIZE;
+
+		ce->cmd_int_backup[i - 1] =
+			mdla_get_swcmd(cmd_kva, MREG_CMD_TILE_CNT_INT);
+		ce->cmd_ctrl_1_backup[i - 1] =
+			mdla_get_swcmd(cmd_kva, MREG_CMD_GENERAL_CTRL_1);
+	}
+	apusys_mem_flush(ce->cmdbuf);
+}
+
+static void mdla_restore_command_batch(struct command_entry *ce)
+{
+	uint32_t i = 0;
+	void *cmd_kva = NULL;
+
+	if (unlikely(ce->cmdbuf == NULL))
+		return;
+
+	if (unlikely(!ce->cmd_int_backup || !ce->cmd_ctrl_1_backup))
+		return;
+
+	apusys_mem_invalidate(ce->cmdbuf);
+	for (i = 1; i <= ce->count; i++) {
+		cmd_kva = ce->kva + (i - 1) * MREG_CMD_SIZE;
+		mdla_set_swcmd(cmd_kva,
+			MREG_CMD_TILE_CNT_INT, ce->cmd_int_backup[i - 1]);
+		mdla_set_swcmd(cmd_kva,
+			MREG_CMD_GENERAL_CTRL_1, ce->cmd_ctrl_1_backup[i - 1]);
+	}
+	apusys_mem_flush(ce->cmdbuf);
+}
+
 /*
  * NOTE: sched->lock should be acquired by caller
  */
@@ -666,6 +709,8 @@ int mdla_v2_0_sched_init(void)
 	/* set scheduler callback, SW preemption only */
 	sched_cb->split_alloc_cmd_batch = mdla_split_alloc_command_batch;
 	sched_cb->del_free_cmd_batch    = mdla_del_free_command_batch;
+	sched_cb->backup_cmd_batch      = mdla_backup_command_batch;
+	sched_cb->restore_cmd_batch     = mdla_restore_command_batch;
 
 	return 0;
 

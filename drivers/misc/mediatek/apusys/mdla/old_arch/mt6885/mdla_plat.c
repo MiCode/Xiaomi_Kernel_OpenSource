@@ -503,6 +503,26 @@ void mdla_del_free_command_batch(struct command_entry *ce)
 	kfree(ce->batch_list_head);
 }
 
+void mdla_restore_cmd_batch(struct command_entry *ce)
+{
+	uint32_t i = 0;
+	void *cmd_kva = NULL;
+
+	if (ce->cmd_int_backup == NULL || ce->cmd_ctrl_1_backup == NULL)
+		return;
+	if (unlikely(ce->cmdbuf == NULL))
+		return;
+	apusys_mem_invalidate(ce->cmdbuf);
+	for (i = 1; i <= ce->count; i++) {
+		cmd_kva = ce->kva + (i - 1) * MREG_CMD_SIZE;
+		mdla_set_swcmd(cmd_kva,
+			MREG_CMD_TILE_CNT_INT, ce->cmd_int_backup[i - 1]);
+		mdla_set_swcmd(cmd_kva,
+			MREG_CMD_GENERAL_CTRL_1, ce->cmd_ctrl_1_backup[i - 1]);
+	}
+	apusys_mem_flush(ce->cmdbuf);
+}
+
 void mdla_split_command_batch(struct command_entry *ce)
 {
 	size_t i, j;
@@ -522,7 +542,18 @@ void mdla_split_command_batch(struct command_entry *ce)
 		return;
 	if (unlikely(ce->cmdbuf == NULL))
 		return;
+	if (ce->cmd_int_backup == NULL || ce->cmd_ctrl_1_backup == NULL)
+		return;
 	apusys_mem_invalidate(ce->cmdbuf);
+	/* backup cmd buffer value */
+	for (i = 1; i <= cmd_count; i++) {
+		void *cmd_kva = ce->kva + (i - 1) * MREG_CMD_SIZE;
+
+		ce->cmd_int_backup[i - 1] =
+			mdla_get_swcmd(cmd_kva, MREG_CMD_TILE_CNT_INT);
+		ce->cmd_ctrl_1_backup[i - 1] =
+			mdla_get_swcmd(cmd_kva, MREG_CMD_GENERAL_CTRL_1);
+	}
 	// TODO: add default policy when batch_size is zero
 	for (i = 1; i <= cmd_count; cur_batch_len = 0) {
 		for (j = i; j <= cmd_count; ++j) {

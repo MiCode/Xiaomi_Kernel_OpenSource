@@ -183,6 +183,8 @@ struct command_entry {
 	u32 cmd_batch_size;  /* command batch size */
 	bool cmd_batch_en;       /* enable command batch or not */
 	struct list_head *batch_list_head;/* list of command batch */
+	u32 *cmd_int_backup; /* backup MREG_CMD_TILE_CNT_INT */
+	u32 *cmd_ctrl_1_backup; /* backup MREG_CMD_GENERAL_CTRL_1 */
 
 	/* HW preemption information */
 	u32 hw_sync0;

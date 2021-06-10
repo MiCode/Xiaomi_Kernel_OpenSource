@@ -13,6 +13,8 @@ static void mdla_sched_dummy_cmd_batch(struct command_entry *c) {}
 static struct mdla_sched_cb_func mdla_scheduler_callback = {
 	.split_alloc_cmd_batch = mdla_sched_dummy_cmd_batch,
 	.del_free_cmd_batch    = mdla_sched_dummy_cmd_batch,
+	.backup_cmd_batch      = mdla_sched_dummy_cmd_batch,
+	.restore_cmd_batch     = mdla_sched_dummy_cmd_batch,
 };
 
 struct mdla_sched_cb_func *mdla_sched_plat_cb(void)
