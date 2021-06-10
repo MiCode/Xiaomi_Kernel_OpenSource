@@ -23,13 +23,19 @@
 
 #define MML_REF_NAME "mml"
 
-#define MAX_CACHE_CONFIG	0
-#define MAX_CACHE_TASK		0
-
 /* set to 0 to disable reuse config */
 int mml_reuse = 1;
 EXPORT_SYMBOL(mml_reuse);
 module_param(mml_reuse, int, 0644);
+
+int mml_max_cache_task = 4;
+EXPORT_SYMBOL(mml_max_cache_task);
+module_param(mml_max_cache_task, int, 0644);
+
+int mml_max_cache_cfg = 2;
+EXPORT_SYMBOL(mml_max_cache_cfg);
+module_param(mml_max_cache_cfg, int, 0644);
+
 
 struct mml_drm_ctx {
 	struct list_head configs;
@@ -220,8 +226,11 @@ static struct mml_task *task_get_idle(struct mml_frame_config *cfg)
 	struct mml_task *task = list_first_entry_or_null(
 		&cfg->done_tasks, struct mml_task, entry);
 
-	if (task)
+	if (task) {
 		list_del_init(&task->entry);
+		cfg->done_task_cnt--;
+		memset(&task->buf, 0, sizeof(task->buf));
+	}
 	return task;
 }
 
@@ -258,6 +267,7 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 	while (!list_empty(&cfg->done_tasks)) {
 		task = list_first_entry(&cfg->done_tasks, typeof(*task),
 			entry);
+		list_del_init(&task->entry);
 		mml_core_destroy_task(task);
 	}
 
@@ -312,8 +322,10 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	fbuf->flush = fdbuf->flush;
 	fbuf->invalid = fdbuf->invalid;
 
-	fbuf->fence = sync_file_get_fence(fdbuf->fence);
-	mml_msg("get dma fence %p by %d", fbuf->fence, fdbuf->fence);
+	if (fdbuf->fence >= 0) {
+		fbuf->fence = sync_file_get_fence(fdbuf->fence);
+		mml_msg("get dma fence %p by %d", fbuf->fence, fdbuf->fence);
+	}
 }
 
 static void task_move_to_running(struct mml_task *task)
@@ -395,14 +407,20 @@ static void task_submit_done(struct mml_task *task)
 static void task_frame_done(struct mml_task *task)
 {
 	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_config *cfg_tmp;
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 	u8 i;
 
 	mml_msg("[drm]%s task %p state %u", __func__, task, task->state);
 
 	/* clean up */
-	for (i = 0; i < task->buf.dest_cnt; i++)
+	for (i = 0; i < task->buf.dest_cnt; i++) {
+		mml_msg("[drm]release dest %hhu iova %#011llx",
+			i, task->buf.dest[i].dma[0].iova);
 		mml_buf_put(&task->buf.dest[i]);
+	}
+	mml_msg("[drm]release src iova %#011llx",
+		task->buf.src.dma[0].iova);
 	mml_buf_put(&task->buf.src);
 
 	/* TODO: Confirm buf file and fence release correctly,
@@ -412,7 +430,7 @@ static void task_frame_done(struct mml_task *task)
 	mutex_lock(&ctx->config_mutex);
 	task_move_to_idle(task);
 
-	if (cfg->done_task_cnt >= MAX_CACHE_TASK) {
+	if (cfg->done_task_cnt > mml_max_cache_task) {
 		task = list_first_entry(&cfg->done_tasks, typeof(*task),
 			entry);
 		list_del_init(&task->entry);
@@ -425,15 +443,27 @@ static void task_frame_done(struct mml_task *task)
 		kref_put(&task->ref, task_move_to_destroy);
 	}
 
-	if (ctx->config_cnt >= MAX_CACHE_CONFIG &&
-		list_empty(&cfg->tasks) && list_empty(&cfg->await_tasks)) {
+	/* still have room to cache, done */
+	if (ctx->config_cnt <= mml_max_cache_cfg)
+		goto done;
+
+	/* must pick cfg from list which is not running */
+	list_for_each_entry_safe(cfg, cfg_tmp, &ctx->configs, entry) {
+		/* only remove config not running */
+		if (!list_empty(&cfg->tasks) || !list_empty(&cfg->await_tasks))
+			continue;
 		list_del_init(&cfg->entry);
 		queue_work(ctx->wq_destroy, &cfg->work_destroy);
 		ctx->config_cnt--;
-		mml_msg("[drm]config %p send destory remain %u",
+		mml_msg("[drm]config %p send destroy remain %u",
 			cfg, ctx->config_cnt);
+
+		/* check cache num again */
+		if (ctx->config_cnt <= mml_max_cache_cfg)
+			break;
 	}
 
+done:
 	mutex_unlock(&ctx->config_mutex);
 }
 
@@ -447,13 +477,6 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 
 	mml_trace_begin("%s", __func__);
 
-	/* TODO: following code only use in mtk ion test */
-	//fd_to_iova(submit->buffer.src.fd, submit->buffer.src.cnt,
-	//	M4U_PORT_L2_MDP_RDMA0);
-	//for (i = 0; i < submit->buffer.dest_cnt; i++)
-	//	fd_to_iova(submit->buffer.dest[i].fd,
-	//		submit->buffer.dest[i].cnt, M4U_PORT_L2_MDP_WROT0);
-
 	mutex_lock(&ctx->config_mutex);
 
 	cfg = frame_config_find_reuse(ctx, submit);
@@ -463,6 +486,11 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 		if (task) {
 			/* reuse case change state IDLE to REUSE */
 			task->state = MML_TASK_REUSE;
+			init_completion(&task->pkts[0]->cmplt);
+			if (task->pkts[1])
+				init_completion(&task->pkts[1]->cmplt);
+			mml_msg("reuse task %p pkt %p %p",
+				task, task->pkts[0], task->pkts[1]);
 		} else {
 			task = mml_core_create_task();
 			if (IS_ERR(task)) {
@@ -507,6 +535,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	task->end_time.tv_sec = submit->end.sec;
 	task->end_time.tv_nsec = submit->end.nsec;
 	frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src);
+	task->buf.dest_cnt = submit->buffer.dest_cnt;
 	for (i = 0; i < submit->buffer.dest_cnt; i++)
 		frame_buf_to_task_buf(&task->buf.dest[i],
 				      &submit->buffer.dest[i]);
@@ -540,9 +569,53 @@ err_unlock_exit:
 }
 EXPORT_SYMBOL_GPL(mml_drm_submit);
 
+s32 dup_task(struct mml_task *task, u8 pipe)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+	struct mml_task *src;
+
+	if (task->pkts[pipe]) {
+		mml_err("%s task %p pipe %hhu already has pkt before dup",
+			__func__, task, pipe);
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->config_mutex);
+
+	/* check if available done task first */
+	src = list_first_entry_or_null(&cfg->done_tasks, struct mml_task,
+				       entry);
+	if (src && src->pkts[pipe])
+		goto dup_command;
+
+	src = list_first_entry_or_null(&cfg->tasks, struct mml_task, entry);
+	if (src)
+		goto dup_command;
+
+
+	list_for_each_entry_reverse(src, &cfg->await_tasks, entry) {
+		/* the first one should be current task, skip it */
+		if (src == task || !src->pkts[pipe])
+			continue;
+		goto dup_command;
+	}
+
+	mutex_unlock(&ctx->config_mutex);
+	return -EBUSY;
+
+dup_command:
+	task->pkts[pipe] = cmdq_pkt_create(cfg->path[pipe]->clt);
+	cmdq_pkt_copy(task->pkts[pipe], src->pkts[pipe]);
+
+	mutex_unlock(&ctx->config_mutex);
+	return 0;
+}
+
 const static struct mml_task_ops drm_task_ops = {
 	.submit_done = task_submit_done,
 	.frame_done = task_frame_done,
+	.dup_task = dup_task,
 };
 
 static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)

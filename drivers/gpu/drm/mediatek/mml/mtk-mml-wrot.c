@@ -149,8 +149,10 @@ struct wrot_frame_data {
 	u32 fifo_max_sz;
 	u32 max_line_cnt;
 
-	/* use in reuse command */
-	u16 label_array_idx[WROT_LABEL_TOTAL];
+	/* array of indices to one of entry in cache entry list,
+	 * use in reuse command
+	 */
+	u16 labels[WROT_LABEL_TOTAL];
 };
 
 #define wrot_frm_data(i)	((struct wrot_frame_data *)(i->data))
@@ -291,6 +293,7 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct wrot_frame_data *wrot_frm;
 	struct mml_frame_dest *dest;
+	u8 i;
 
 	/* initialize component frame data for current frame config */
 	wrot_frm = kzalloc(sizeof(*wrot_frm), GFP_KERNEL);
@@ -318,6 +321,10 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 		wrot_frm->uv_stride = mml_color_get_min_uv_stride(
 			dest->data.format, wrot_frm->out_w);
 
+	/* plane offset for later use */
+	for (i = 0; i < task->buf.dest[wrot_frm->out_idx].cnt; i++)
+		wrot_frm->plane_offset[i] = dest->data.plane_offset[i];
+
 	if (cfg->dual) {
 		if (ccfg->pipe == 0)
 			wrot_config_pipe0(dest, wrot_frm);
@@ -333,8 +340,6 @@ static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_wrot *wrot = comp_to_wrot(comp);
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
-	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
 	u8 i;
 	s32 ret;
 
@@ -345,15 +350,13 @@ static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 		return ret;
 	}
 
-	mml_msg("%s comp %u iova %#x",
+	mml_msg("%s comp %u iova %#011llx",
 		__func__, comp->id,
 		task->buf.dest[wrot_frm->out_idx].dma[0].iova);
 
-	for (i = 0; i < task->buf.dest[wrot_frm->out_idx].cnt; i++) {
+	for (i = 0; i < task->buf.dest[wrot_frm->out_idx].cnt; i++)
 		wrot_frm->iova[i] =
 			task->buf.dest[wrot_frm->out_idx].dma[i].iova;
-		wrot_frm->plane_offset[i] = dest->data.plane_offset[i];
-	}
 
 	return 0;
 }
@@ -563,28 +566,6 @@ static void calc_plane_offset(u32 left, u32 top,
 		     (top >> hor_sh_uv) * uv_stride;
 }
 
-static void add_label(struct mml_pipe_cache *cache, struct cmdq_pkt *pkt,
-		      u16 *label_array, u32 label, u32 value)
-{
-	if (cache->label_idx >= cache->label_cnt) {
-		mml_err("[wrot] out of label cnt idx %u count %u label %u",
-			cache->label_idx, cache->label_cnt, label);
-		return;
-	}
-
-	label_array[label] = cache->label_idx;
-	cache->labels[cache->label_idx].offset = pkt->cmd_buf_size;
-	cache->labels[cache->label_idx].val = value;
-	cache->label_idx++;
-}
-
-static void update_label(struct mml_pipe_cache *cache,
-			 struct wrot_frame_data *wrot_frm,
-			 u32 label, u32 value)
-{
-	cache->labels[wrot_frm->label_array_idx[label]].val = value;
-}
-
 static void calc_afbc_block(u32 bits_per_pixel, u32 y_stride, u32 vert_stride,
 			    u64 *iova, u32 *offset,
 			    u32 *block_x, u32 *addr_c, u32 *addr_v, u32 *addr)
@@ -726,22 +707,12 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 				&block_x, &addr_c, &addr_v, &addr);
 
 		/* Write frame base address */
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR,
-			       addr, U32_MAX);
-		add_label(cache, pkt, wrot_frm->label_array_idx,
-			  WROT_LABEL_ADDR, addr);
-
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_C,
-			       addr_c, U32_MAX);
-		add_label(cache, pkt, wrot_frm->label_array_idx,
-			  WROT_LABEL_ADDR_C, addr_c);
-
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_V,
-			       addr_v, U32_MAX);
-		add_label(cache, pkt, wrot_frm->label_array_idx,
-			  WROT_LABEL_ADDR_V, addr_v);
-
-		/* TODO: cmdq should return label of above 3 write */
+		mml_write(pkt, base_pa + VIDO_BASE_ADDR, addr, U32_MAX,
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
+		mml_write(pkt, base_pa + VIDO_BASE_ADDR_C, addr_c, U32_MAX,
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
+		mml_write(pkt, base_pa + VIDO_BASE_ADDR_V, addr_v, U32_MAX,
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
 
 		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
 			frame_size = ((((wrot_frm->out_h + 31) >>
@@ -764,20 +735,12 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		};
 
 		/* Write frame base address */
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR,
-			       iova[0], U32_MAX);
-		add_label(cache, pkt, wrot_frm->label_array_idx,
-			  WROT_LABEL_ADDR, iova[0]);
-
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_C,
-			       iova[1], U32_MAX);
-		add_label(cache, pkt, wrot_frm->label_array_idx,
-			  WROT_LABEL_ADDR_C, iova[1]);
-
-		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_V,
-			       iova[2], U32_MAX);
-		add_label(cache, pkt, wrot_frm->label_array_idx,
-			  WROT_LABEL_ADDR_V, iova[2]);
+		mml_write(pkt, base_pa + VIDO_BASE_ADDR, iova[0], U32_MAX,
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
+		mml_write(pkt, base_pa + VIDO_BASE_ADDR_C, iova[1], U32_MAX,
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
+		mml_write(pkt, base_pa + VIDO_BASE_ADDR_V, iova[2], U32_MAX,
+			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
 	}
 
 	/* Write frame related registers */
@@ -1364,16 +1327,8 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	const u32 dest_fmt = dest->data.format;
 	const u32 out_swap = MML_FMT_SWAP(dest_fmt);
 
-	if (out_swap == 1 && MML_FMT_PLANE(dest_fmt) == 3) {
+	if (out_swap == 1 && MML_FMT_PLANE(dest_fmt) == 3)
 		swap(wrot_frm->iova[1], wrot_frm->iova[2]);
-		swap(wrot_frm->plane_offset[1], wrot_frm->plane_offset[2]);
-	}
-
-	calc_plane_offset(wrot_frm->compose.left, wrot_frm->compose.top,
-			  dest->data.y_stride, wrot_frm->uv_stride,
-			  wrot_frm->bbp_y, wrot_frm->bbp_uv,
-			  wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
-			  wrot_frm->plane_offset);
 
 	if (dest->data.secure) {
 		/* TODO: for secure case setup plane offset and reg */
@@ -1390,22 +1345,18 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 				&block_x, &addr_c, &addr_v, &addr);
 
 		/* update frame base address to list */
-		update_label(cache, wrot_frm, WROT_LABEL_ADDR, addr);
-		update_label(cache, wrot_frm, WROT_LABEL_ADDR_C, addr_c);
-		update_label(cache, wrot_frm, WROT_LABEL_ADDR_V, addr_v);
-
-		/* TODO: cmdq should return label of above 3 write */
+		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR], addr);
+		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR_C], addr_c);
+		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR_V], addr_v);
 	} else {
-		u32 iova[3] = {
-			wrot_frm->iova[0] + wrot_frm->plane_offset[0],
-			wrot_frm->iova[1] + wrot_frm->plane_offset[1],
-			wrot_frm->iova[2] + wrot_frm->plane_offset[2],
-		};
+		u32 addr = wrot_frm->iova[0] + wrot_frm->plane_offset[0];
+		u32 addr_c = wrot_frm->iova[1] + wrot_frm->plane_offset[1];
+		u32 addr_v = wrot_frm->iova[2] + wrot_frm->plane_offset[2];
 
 		/* update frame base address to list */
-		update_label(cache, wrot_frm, WROT_LABEL_ADDR, iova[0]);
-		update_label(cache, wrot_frm, WROT_LABEL_ADDR_C, iova[1]);
-		update_label(cache, wrot_frm, WROT_LABEL_ADDR_V, iova[2]);
+		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR], addr);
+		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR_C], addr_c);
+		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR_V], addr_v);
 	}
 
 	return 0;

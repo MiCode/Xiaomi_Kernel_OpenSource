@@ -380,46 +380,43 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 	queue_work(task->config->wq_wait, &task->work_wait);
 }
 
-static s32 core_config(struct mml_task *task, u32 pipe_id)
+static s32 core_config(struct mml_task *task, u8 pipe)
 {
 	if (task->state == MML_TASK_INITIAL) {
 		/* prepare data in each component for later tile use */
-		core_prepare(task, pipe_id);
+		core_prepare(task, pipe);
 
 		/* call to tile to calculate */
-		mml_trace_ex_begin("%s_tile_%u", __func__, pipe_id);
-		calc_tile(task, pipe_id);
+		mml_trace_ex_begin("%s_tile_%hhu", __func__, pipe);
+		calc_tile(task, pipe);
 		mml_trace_ex_end();
 
 		/* dump tile output for debug */
-		dump_tile_output(task, pipe_id);
+		dump_tile_output(task, pipe);
 
 		/* make commands into pkt for later flash */
-		mml_trace_ex_begin("%s_cmd_%u", __func__, pipe_id);
-		command_make(task, pipe_id);
+		mml_trace_ex_begin("%s_cmd_%hhu", __func__, pipe);
+		command_make(task, pipe);
 		mml_trace_ex_end();
-
-	} else if (task->state == MML_TASK_DUPLICATE) {
-		/* skip all other operations since state not initial,
-		 * but still call make commands due to task is new w/o pkt
-		 *
-		 * TODO: replace the command make to copy pkt if possible,
-		 * and use command_reuse if success copy.
-		 */
-		mml_trace_ex_begin("%s_dup_cmd_%u", __func__, pipe_id);
-		core_reuse(task, pipe_id);
-		command_make(task, pipe_id);
-		mml_trace_ex_end();
-
 	} else {
+		mml_trace_ex_begin("%s_reuse_cmd_%hhu", __func__, pipe);
+
+		if (task->state == MML_TASK_DUPLICATE) {
+			/* task need duplcicate before reuse */
+			int ret = task->config->task_ops->dup_task(task, pipe);
+			if (ret < 0) {
+				mml_err("dup task fail %d", ret);
+				return ret;
+			}
+		}
+
 		/* pkt exists, reuse it directly */
-		mml_trace_ex_begin("%s_reuse_cmd_%u", __func__, pipe_id);
-		core_reuse(task, pipe_id);
-		command_reuse(task, pipe_id);
+		core_reuse(task, pipe);
+		command_reuse(task, pipe);
 		mml_trace_ex_end();
 	}
 
-	core_enable(task, pipe_id);
+	core_enable(task, pipe);
 
 	return 0;
 }
@@ -446,7 +443,6 @@ static void core_taskdump_cb(struct mml_task *task, u8 pipe)
 	struct mml_comp *comp;
 	u8 i;
 
-
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
 		call_dbg_op(comp, dump);
@@ -472,11 +468,13 @@ static const cmdq_async_flush_cb dump_cbs[2] = {
 	[1] = core_taskdump_pipe1_cb,
 };
 
-static s32 core_flush(struct mml_task *task, u32 pipe_id)
+static s32 core_flush(struct mml_task *task, u8 pipe)
 {
 	int i;
 	s32 err;
-	struct cmdq_pkt *pkt = task->pkts[pipe_id];
+	struct cmdq_pkt *pkt = task->pkts[pipe];
+
+	mml_msg("%s task %p pipe %hhu pkt %p", __func__, task, pipe, pkt);
 
 	if (mml_pkt_dump)
 		cmdq_pkt_dump_buf(pkt, 0);
@@ -487,14 +485,20 @@ static s32 core_flush(struct mml_task *task, u32 pipe_id)
 		wait_dma_fence("dest", task->buf.dest[i].fence);
 
 	/* also make sure buffer content flushed by other module */
-	if (task->buf.src.flush)
+	if (task->buf.src.flush) {
+		mml_msg("%s flush source", __func__);
 		mml_buf_flush(&task->buf.src);
-	for (i = 0; i < task->buf.dest_cnt; i++)
-		if (task->buf.dest[i].flush)
+	}
+	for (i = 0; i < task->buf.dest_cnt; i++) {
+		if (task->buf.dest[i].flush) {
+			mml_msg("%s flush dest %d plane %hhu",
+				__func__, i, task->buf.dest[i].cnt);
 			mml_buf_flush(&task->buf.dest[i]);
+		}
+	}
 
 	/* assign error handler */
-	pkt->err_cb.cb = dump_cbs[pipe_id];
+	pkt->err_cb.cb = dump_cbs[pipe];
 	pkt->err_cb.data = (void *)task;
 
 	err = cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task);
@@ -502,18 +506,18 @@ static s32 core_flush(struct mml_task *task, u32 pipe_id)
 	return err;
 }
 
-static void core_init_pipe0(struct mml_task *task, u32 pipe_id)
+static void core_init_pipe(struct mml_task *task, u8 pipe)
 {
 	s32 err;
 
-	mml_trace_ex_begin("%s", __func__);
+	mml_trace_ex_begin("%s_%hhu", __func__, pipe);
 
-	err = core_config(task, 0);
+	err = core_config(task, pipe);
 	if (err < 0) {
 		/* error handling */
 	}
 
-	err = core_flush(task, 0);
+	err = core_flush(task, pipe);
 	if (err < 0) {
 		/* error handling */
 	}
@@ -523,24 +527,10 @@ static void core_init_pipe0(struct mml_task *task, u32 pipe_id)
 
 static void core_init_pipe1(struct work_struct *work)
 {
-	s32 err;
 	struct mml_task *task;
 
-	mml_trace_begin("%s", __func__);
-
 	task = container_of(work, struct mml_task, work_config[1]);
-
-	err = core_config(task, 1);
-	if (err < 0) {
-		/* error handling */
-	}
-
-	err = core_flush(task, 1);
-	if (err < 0) {
-		/* error handling */
-	}
-
-	mml_trace_end();
+	core_init_pipe(task, 1);
 }
 
 static void core_config_thread(struct work_struct *work)
@@ -555,21 +545,23 @@ static void core_config_thread(struct work_struct *work)
 
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
-		mml_msg("in:%u %u f:%#010x stride %u %u",
+		mml_msg("in:%u %u f:%#010x stride %u %u fence:%s",
 			task->config->info.src.width,
 			task->config->info.src.height,
 			task->config->info.src.format,
 			task->config->info.src.y_stride,
-			task->config->info.src.uv_stride);
+			task->config->info.src.uv_stride,
+			task->buf.src.fence ? "true" : "false");
 		for (i = 0; i < task->config->info.dest_cnt; i++)
-			mml_msg("out %hhu:%u %u f:%#010x stride %u %u rot:%hu",
+			mml_msg("out %hhu:%u %u f:%#010x stride %u %u rot:%hu fence:%s",
 				i,
 				task->config->info.dest[i].data.width,
 				task->config->info.dest[i].data.height,
 				task->config->info.dest[i].data.format,
 				task->config->info.dest[i].data.y_stride,
 				task->config->info.dest[i].data.uv_stride,
-				task->config->info.dest[i].rotate);
+				task->config->info.dest[i].rotate,
+				task->buf.dest[i].fence ? "true" : "false");
 
 		/* topology will fill in path instance */
 		err = topology_select_path(task->config);
@@ -593,7 +585,7 @@ static void core_config_thread(struct work_struct *work)
 	 */
 	kref_get(&task->ref);
 
-	core_init_pipe0(task, 0);
+	core_init_pipe(task, 0);
 
 	/* check pipe 1 done and callback */
 	if (!task->config->dual || flush_work(&task->work_config[1]))
@@ -665,6 +657,30 @@ s32 mml_core_submit_task(struct mml_frame_config *frame_config,
 	queue_work(task->config->wq_config[0], &task->work_config[0]);
 
 	return 0;
+}
+
+s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
+	struct mml_pipe_cache *cache, u16 *label_idx)
+{
+	if (cache->label_idx >= cache->label_cnt) {
+		mml_err("out of label cnt idx %u count %u",
+			cache->label_idx, cache->label_cnt);
+		return -ENOMEM;
+	}
+
+	cmdq_pkt_write_value_addr_reuse(pkt, addr, value, mask,
+		&cache->labels[cache->label_idx].va);
+
+	*label_idx = cache->label_idx;
+	cache->labels[cache->label_idx].val = value;
+	cache->label_idx++;
+
+	return 0;
+}
+
+void mml_update(struct mml_pipe_cache *cache, u16 label_idx, u32 value)
+{
+	cache->labels[label_idx].val = value;
 }
 
 unsigned long mml_get_tracing_mark(void)

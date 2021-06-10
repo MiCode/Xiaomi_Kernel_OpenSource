@@ -32,18 +32,13 @@ void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u8 cnt);
  */
 int mml_buf_iova_get(struct device *dev, struct mml_file_buf *buf);
 
-/* mml_buf_iova_free - unmap and detach instance when get iova.
+/* mml_buf_put - Unmap and detach instance when get iova. Then release instance
+ * from mml_buf_get
  *
- * buf:	mml buffer structure to store buffer for planes
+ * buf: the mml buffer struct
  *
  * Note: iova will not reset to 0 but will unmap and should not use anymore,
  * except for debug dump. This API may take time to sync cache FROM DMA TO CPU
- */
-void mml_buf_iova_free(struct mml_file_buf *buf);
-
-/* mml_buf_put - release instance from mml_buf_get
- *
- * buf: the mml buffer struct
  */
 void mml_buf_put(struct mml_file_buf *buf);
 

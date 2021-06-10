@@ -94,17 +94,6 @@ inline static void dmabuf_iova_free(struct mml_dma_buf *dma)
 	dma->attach = NULL;
 }
 
-void mml_buf_iova_free(struct mml_file_buf *buf)
-{
-	u8 i;
-
-	for (i = 0; i < buf->cnt; i++) {
-		if (!buf->dma[i].attach)
-			continue;
-		dmabuf_iova_free(&buf->dma[i]);
-	}
-}
-
 void mml_buf_put(struct mml_file_buf *buf)
 {
 	u8 i;
@@ -112,6 +101,8 @@ void mml_buf_put(struct mml_file_buf *buf)
 	for (i = 0; i < buf->cnt; i++) {
 		if (!buf->dma[i].dmabuf)
 			continue;
+		if (buf->dma[i].attach)
+			dmabuf_iova_free(&buf->dma[i]);
 		dma_buf_put(buf->dma[i].dmabuf);
 	}
 }
@@ -123,6 +114,11 @@ void mml_buf_flush(struct mml_file_buf *buf)
 	for (i = 0; i < buf->cnt; i++) {
 		if (!buf->dma[i].dmabuf)
 			continue;
+		if (!buf->dma[i].attach) {
+			mml_err("%s no attach to flush plane %hhu",
+				__func__, i);
+			continue;
+		}
 		buf->dma[i].attach->dma_map_attrs &= ~DMA_ATTR_SKIP_CPU_SYNC;
 		dma_buf_end_cpu_access(buf->dma[i].dmabuf, DMA_TO_DEVICE);
 		buf->dma[i].attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;

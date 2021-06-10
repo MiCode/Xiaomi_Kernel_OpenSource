@@ -17,6 +17,7 @@
 #include <linux/mailbox_controller.h>
 #include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
 #include <linux/mailbox_client.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/trace_events.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/types.h>
@@ -27,7 +28,6 @@
 #include "mtk-mml-driver.h"
 
 extern int mtk_mml_msg;
-extern struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client);
 
 #define mml_msg(fmt, args...) \
 do { \
@@ -89,6 +89,7 @@ struct mml_tile_output;
 struct mml_task_ops {
 	void (*submit_done)(struct mml_task *task);
 	void (*frame_done)(struct mml_task *task);
+	s32 (*dup_task)(struct mml_task *task, u8 pipe);
 };
 
 struct mml_cap {
@@ -171,14 +172,9 @@ struct mml_comp_config {
 	void *data;
 };
 
-struct mml_label {
-	u32 offset;
-	u32 val;
-};
-
 struct mml_pipe_cache {
 	/* make command cache labels for reuse command */
-	struct mml_label *labels;
+	struct cmdq_reuse *labels;
 	u32 label_cnt;
 	u32 label_idx;
 
@@ -476,6 +472,29 @@ void mml_core_deinit_config(struct mml_frame_config *config);
  */
 s32 mml_core_submit_task(struct mml_frame_config *frame_config,
 			 struct mml_task *task);
+
+/* mml_write - write to addr with value and mask. Cache the label of this
+ * instruction to mml_pipe_cache and record its entry into label_array.
+ *
+ * @pkt:	cmdq task
+ * @addr:	register addr or dma addr
+ * @value:	value to write
+ * @mask:	mask to value
+ * @cache:	instruction cache from mml config
+ * @label_idx:	ptr to label entry point to write instruction
+ *
+ * return:	0 if success, error no if fail
+ */
+s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value,
+	u32 mask, struct mml_pipe_cache *cache, u16 *label_idx);
+
+/* mml_update - update new value to cache, which entry index from label.
+ *
+ * @cache:	instruction cache from mml config
+ * @label_idx:	label entry point to instruction want to update
+ * @value:	value to be update
+ */
+void mml_update(struct mml_pipe_cache *cache, u16 label_idx, u32 value);
 
 unsigned long mml_get_tracing_mark(void);
 
