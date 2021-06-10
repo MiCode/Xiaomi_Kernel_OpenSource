@@ -541,26 +541,6 @@ struct scmi_voltage_proto_ops {
 			 s32 *volt_uV);
 };
 
-struct scmi_tinysys_status {
-	u32 status;
-	u32 r1;
-	u32 r2;
-	u32 r3;
-};
-
-/**
- * struct scmi_tinysys_ops - represents the various operations provided
- *	by SCMI Tinysys Protocol
- *
- */
-struct scmi_tinysys_proto_ops {
-	int (*common_set)(const struct scmi_protocol_handle *ph,\
-		u32 p0, u32 p1, u32 p2, u32 p3, u32 p4, u32 p5);
-	int (*common_get)(const struct scmi_protocol_handle *ph, \
-		u32 p0, u32 p1, struct scmi_tinysys_status *rvalue);
-	int (*event_notify)(const struct scmi_protocol_handle *ph, u32 p0, u32 p1);
-};
-
 /**
  * struct scmi_notify_ops  - represents notifications' operations provided by
  * SCMI core
@@ -656,7 +636,6 @@ enum scmi_std_protocol {
 	SCMI_PROTOCOL_SENSOR = 0x15,
 	SCMI_PROTOCOL_RESET = 0x16,
 	SCMI_PROTOCOL_VOLTAGE = 0x17,
-	SCMI_PROTOCOL_TINYSYS = 0x80,
 };
 
 enum scmi_system_events {
@@ -756,7 +735,6 @@ enum scmi_notification_events {
 	SCMI_EVENT_RESET_ISSUED = 0x0,
 	SCMI_EVENT_BASE_ERROR_EVENT = 0x0,
 	SCMI_EVENT_SYSTEM_POWER_STATE_NOTIFIER = 0x0,
-	SCMI_EVENT_TINYSYS_POWER_STATE_NOTIFIER = 0x0,
 };
 
 struct scmi_power_state_changed_report {
@@ -771,15 +749,6 @@ struct scmi_system_power_state_notifier_report {
 	unsigned int	agent_id;
 	unsigned int	flags;
 	unsigned int	system_state;
-};
-
-struct scmi_tinysys_power_state_notifier_report {
-	ktime_t		timestamp;
-	unsigned int	f_id;
-	unsigned int	p1_status;
-	unsigned int	p2_status;
-	unsigned int	p3_status;
-	unsigned int	p4_status;
 };
 
 struct scmi_perf_limits_report {
