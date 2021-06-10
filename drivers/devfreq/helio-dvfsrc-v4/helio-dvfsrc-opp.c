@@ -26,12 +26,18 @@ int get_cur_vcore_dvfs_opp(void)
 
 void set_opp_table(int vcore_dvfs_opp, int vcore_uv, int ddr_khz)
 {
+	if (vcore_dvfs_opp >= VCORE_DVFS_OPP_NUM || vcore_dvfs_opp < 0)
+		return;
+
 	opp_table[vcore_dvfs_opp].vcore_uv = vcore_uv;
 	opp_table[vcore_dvfs_opp].ddr_khz = ddr_khz;
 }
 
 void set_vcore_opp(int vcore_dvfs_opp, int vcore_opp)
 {
+	if (vcore_dvfs_opp >= VCORE_DVFS_OPP_NUM || vcore_dvfs_opp < 0)
+		return;
+
 	vcore_dvfs_to_vcore_opp[vcore_dvfs_opp] = vcore_opp;
 }
 
