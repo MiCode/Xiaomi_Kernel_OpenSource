@@ -16,6 +16,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
+	-I$(srctree)/drivers/misc/mediatek/tinysys_scmi/ \
 	-I$(srctree)/drivers/misc/mediatek/qos \
 	-I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
 	-I$(srctree)/include \
@@ -26,6 +27,8 @@ endif
 
 obj-${CONFIG_MTK_CM_MGR} += mtk_cm_mgr.o
 mtk_cm_mgr-y = mtk_cm_mgr_common.o
+
+obj-${CONFIG_MTK_CM_IPI} += mtk_cm_ipi.o
 
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6893.c),)
 obj-${CONFIG_MTK_CM_MGR_MT6893} += mtk_cm_mgr_mt6893.o

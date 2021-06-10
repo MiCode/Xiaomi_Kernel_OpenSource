@@ -6,6 +6,14 @@ config MTK_CM_MGR
 	  on power table.
 	  If unsure, say N.
 
+config MTK_CM_IPI
+	tristate "MTK CM use IPI"
+	help
+	  This kernel config can be used to enable CM IPI. When enable
+	  this option, we will use ipi on system buffer to improve
+	  performance and power.
+	  If unsure, say N.
+
 config MTK_CM_MGR_LEGACY
 	tristate "MTK CM_MGR for LEGACY"
 	help

@@ -16,10 +16,12 @@ struct mtk_cm_mgr {
 	int *buf;
 };
 
+#if !IS_ENABLED(CONFIG_MTK_CM_IPI)
 struct cm_mgr_data {
 	unsigned int cmd;
 	unsigned int arg;
 };
+#endif /* CONFIG_MTK_CM_IPI */
 
 struct cm_mgr_hook {
 	u32 (*cm_mgr_get_perfs)(int);
@@ -29,6 +31,7 @@ struct cm_mgr_hook {
 	void (*cm_mgr_perf_set_status)(int);
 };
 
+#if !IS_ENABLED(CONFIG_MTK_CM_IPI)
 #define CM_MGR_D_LEN		(2)
 #define IPI_CM_MGR_INIT 0
 #define IPI_CM_MGR_ENABLE 1
@@ -53,11 +56,13 @@ struct cm_mgr_hook {
 #define IPI_CM_MGR_OPP_VOLT_SET 23
 #define IPI_CM_MGR_BCPU_WEIGHT_MAX_SET 24
 #define IPI_CM_MGR_BCPU_WEIGHT_MIN_SET 25
+#endif /* CONFIG_MTK_CM_IPI */
 
 /* common api */
 extern void cm_mgr_update_dram_by_cpu_opp(int cpu_opp);
-extern void cm_mgr_enable_fn(int enable);
+#if !IS_ENABLED(CONFIG_MTK_CM_IPI)
 extern int cm_mgr_to_sspm_command(u32 cmd, int val);
+#endif /* CONFIG_MTK_CM_IPI */
 extern int cm_mgr_check_dts_setting(struct platform_device *pdev);
 extern int cm_mgr_common_init(void);
 extern void cm_mgr_common_exit(void);
