@@ -55,5 +55,3 @@ ccci_util_lib-$(CCCI_OBJ) := ccci_util_lib_fo.o \
 endif
 endif
 
-obj-y += CCCI_UTIL_DUMMY.o # avoid build error
-CCCI_UTIL_DUMMY-y := ccci_util_dummy.o
