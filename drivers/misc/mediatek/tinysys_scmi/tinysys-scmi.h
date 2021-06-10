@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 MediaTek Inc.
  */
-#include <linux/scmi_protocol.h>
+
+#include "protocol.h"
+
 
 #define SCMI_TINYSYS_CB_MAX		20 /* must large/equal than tinysys side define */
 
-struct scmi_tinysys_power_state_notifier_payld {
-	__le32 f_id;
-	__le32 p1;
-	__le32 p2;
-	__le32 p3;
-	__le32 p4;
-};
 
 struct scmi_tinysys_info_st {
 	struct scmi_device *sdev;
