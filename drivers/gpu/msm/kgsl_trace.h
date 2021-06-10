@@ -1221,28 +1221,6 @@ DEFINE_EVENT(hfi_msg_template, kgsl_hfi_receive,
 	TP_ARGS(id, size, seqnum)
 );
 
-TRACE_EVENT(kgsl_opp_notify,
-	TP_PROTO(
-		unsigned long min_freq,
-		unsigned long max_freq
-	),
-	TP_ARGS(
-		min_freq,
-		max_freq
-	),
-	TP_STRUCT__entry(
-		__field(unsigned long, min_freq)
-		__field(unsigned long, max_freq)
-	),
-	TP_fast_assign(
-		__entry->min_freq = min_freq;
-		__entry->max_freq = max_freq;
-	),
-	TP_printk("min freq=%ld max freq=%ld",
-		__entry->min_freq, __entry->max_freq
-	)
-);
-
 TRACE_EVENT(kgsl_timeline_alloc,
 	TP_PROTO(
 		u32 id,
