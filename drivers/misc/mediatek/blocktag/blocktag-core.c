@@ -1603,6 +1603,7 @@ void mtk_btag_mictx_enable(int enable)
 		mtk_btag_mictx_reset(ctx, 0);
 	spin_unlock_irqrestore(&ctx->lock, flags);
 }
+EXPORT_SYMBOL_GPL(mtk_btag_mictx_enable);
 
 static void mtk_btag_mictx_init(const char *name,
 				struct mtk_blocktag *btag,

@@ -42,15 +42,6 @@ static int perf_tracker_on;
 static DEFINE_MUTEX(perf_ctl_mutex);
 
 static struct mtk_btag_mictx_iostat_struct iostat;
-#if IS_ENABLED(CONFIG_MTK_BLOCK_TAG)
-void  __attribute__((weak)) mtk_btag_mictx_enable(int enable) {}
-
-int __attribute__((weak)) mtk_btag_mictx_get_data(
-		struct mtk_btag_mictx_iostat_struct *io)
-{
-	return -1;
-}
-#endif
 
 #if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 static unsigned int gpu_pmu_enable;
@@ -149,7 +140,7 @@ void perf_tracker(u64 wallclock,
 	mm_free = global_zone_page_state(NR_FREE_PAGES);
 	mm_available = si_mem_available();
 
-#if IS_ENABLED(CONFIG_MTK_BLOCK_TAG)
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	/* If getting I/O stat fail, fallback to zero value. */
 	if (mtk_btag_mictx_get_data(iostat_ptr))
 		memset(iostat_ptr, 0,
@@ -198,7 +189,7 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 		val = (val > 0) ? 1 : 0;
 
 		perf_tracker_on = val;
-#if IS_ENABLED(CONFIG_MTK_BLOCK_TAG)
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 		mtk_btag_mictx_enable(val);
 #endif
 #if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)

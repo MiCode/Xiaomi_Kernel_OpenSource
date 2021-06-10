@@ -24,7 +24,7 @@ extern struct ppm_data cluster_ppm_info[MAX_CLUSTER_NR];
 extern int cluster_nr;
 
 #if IS_ENABLED(CONFIG_MTK_PERF_TRACKER)
-#if IS_ENABLED(CONFIG_MTK_BLOCK_TAG)
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 #include <mt-plat/mtk_blocktag.h>
 #else
 struct mtk_btag_mictx_iostat_struct {
