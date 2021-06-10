@@ -25,6 +25,7 @@
 #include <linux/version.h>
 #include <linux/printk.h>
 #include <linux/init.h>
+#include <linux/android_debug_symbols.h>
 
 #define CREATE_TRACE_POINTS
 #include "trace_mmstat.h"
@@ -85,6 +86,9 @@ static int limit_pid = -1;
 #define TRACE_HUNGER_PERCENTAGE	(50)
 static unsigned long hungersize;
 
+/* Number of available swap pages */
+static atomic_long_t *mmstat_available_swap_pages;
+
 const char *
 mmstat_trace_print_arrayset_seq(struct trace_seq *p,
 		const void *buf, int count, int sets)
@@ -144,7 +148,13 @@ static void mmstat_trace_meminfo(void)
 
 	/* available memory */
 	meminfo[num_entries++] = P2K(global_zone_page_state(NR_FREE_PAGES));
-	meminfo[num_entries++] = P2K(atomic_long_read(&nr_swap_pages));
+
+	/* available swap pages */
+	if (IS_ERR(mmstat_available_swap_pages))
+		meminfo[num_entries++] = 0;
+	else
+		meminfo[num_entries++] = P2K(atomic_long_read(mmstat_available_swap_pages));
+
 	meminfo[num_entries++] = P2K(global_node_page_state(NR_FILE_PAGES));
 
 	/* user pages */
@@ -482,6 +492,10 @@ static int __init trace_mmstat_init(void)
 
 	INIT_DELAYED_WORK(&mmstat_work, mmstat_work_handler);
 	queue_delayed_work(system_unbound_wq, &mmstat_work, timer_intval);
+
+	mmstat_available_swap_pages = android_debug_symbol(ADS_NR_SWAP_PAGES);
+	if (IS_ERR(mmstat_available_swap_pages))
+		pr_info("%s: failed to initialize mmstat_available_swap_pages\n", __func__);
 
 	return 0;
 }
