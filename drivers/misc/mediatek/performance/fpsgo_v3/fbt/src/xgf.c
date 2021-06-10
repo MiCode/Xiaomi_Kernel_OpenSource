@@ -777,11 +777,17 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 		iter->prev_ts = 0;
 		iter->event_count = 0;
 		iter->frame_count = 0;
+		iter->u_wake_r = 0;
+		iter->u_wake_r_count = 0;
 		iter->queue.start_ts = 0;
 		iter->queue.end_ts = 0;
 		iter->deque.start_ts = 0;
 		iter->deque.end_ts = 0;
 		iter->ema_runtime = 0;
+		iter->pre_u_runtime = 0;
+		iter->u_avg_runtime = 0;
+		iter->u_runtime_sd = 0;
+		iter->u_runtime_idx = 0;
 		iter->spid = 0;
 		iter->dep_frames = xgf_prev_dep_frames;
 	}

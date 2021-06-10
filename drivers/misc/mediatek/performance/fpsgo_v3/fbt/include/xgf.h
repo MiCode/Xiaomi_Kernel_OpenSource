@@ -19,6 +19,7 @@
 #define XGF_DEP_FRAMES_MIN 2
 #define XGF_DEP_FRAMES_MAX 20
 #define XGF_DO_SP_SUB 0
+#define XGF_MAX_UFRMAES 200
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -74,6 +75,8 @@ struct xgf_render {
 	int event_count;
 
 	int frame_count;
+	int u_wake_r;
+	int u_wake_r_count;
 
 	struct rb_root deps_list;
 	struct rb_root out_deps_list;
@@ -83,6 +86,11 @@ struct xgf_render {
 	struct xgf_sub_sect queue;
 
 	unsigned long long ema_runtime;
+	unsigned long long pre_u_runtime;
+	unsigned long long u_runtime[XGF_MAX_UFRMAES];
+	unsigned long long u_avg_runtime;
+	unsigned long long u_runtime_sd;
+	int u_runtime_idx;
 
 	int spid;
 	int dep_frames;
@@ -153,6 +161,17 @@ struct xgf_hw_event {
 
 	unsigned long long head_ts;
 	unsigned long long tail_ts;
+};
+
+struct xgf_spid {
+	struct hlist_node hlist;
+	char process_name[16];
+	char thread_name[16];
+	int pid;
+	int rpid;
+	int tid;
+	unsigned long long bufID;
+	int action;
 };
 
 extern int (*xgf_est_runtime_fp)(pid_t r_pid,
