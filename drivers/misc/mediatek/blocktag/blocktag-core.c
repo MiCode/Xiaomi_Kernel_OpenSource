@@ -233,16 +233,13 @@ static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
 void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
 	struct bio_vec *bvec)
 {
-	struct page_pid_logger *ppl, tmp;
+	struct page_pid_logger *ppl;
 	unsigned long idx;
 
 	idx = mtk_btag_pidlog_index(bvec->bv_page);
 	ppl = mtk_btag_pidlog_entry(idx);
-
-	tmp.pid = ppl->pid;
+	mtk_btag_pidlog_add(q, bio, ppl->pid, bvec->bv_len);
 	ppl->pid = 0;
-
-	mtk_btag_pidlog_add(q, bio, tmp.pid, bvec->bv_len);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_commit_bio);
 
