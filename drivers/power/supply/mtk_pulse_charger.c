@@ -486,7 +486,7 @@ static void mtk_pulse_charger_parse_dt(struct mtk_charger *info,
 				struct device *dev)
 {
 	struct device_node *np = dev->of_node;
-	u32 val;
+	u32 val = 0;
 	struct pcharger_data *algo_data;
 
 	algo_data = info->algo.algo_data;
