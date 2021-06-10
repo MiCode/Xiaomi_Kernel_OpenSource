@@ -379,6 +379,15 @@ static int mtk_usb_extcon_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void mtk_usb_extcon_shutdown(struct platform_device *pdev)
+{
+	struct mtk_extcon_info *extcon = platform_get_drvdata(pdev);
+
+	dev_info(extcon->dev, "%s\n", __func__);
+
+	mtk_usb_extcon_set_vbus(extcon, false);
+}
+
 static const struct of_device_id mtk_usb_extcon_of_match[] = {
 	{ .compatible = "mediatek,extcon-usb", },
 	{ },
@@ -388,6 +397,7 @@ MODULE_DEVICE_TABLE(of, mtk_usb_extcon_of_match);
 static struct platform_driver mtk_usb_extcon_driver = {
 	.probe		= mtk_usb_extcon_probe,
 	.remove		= mtk_usb_extcon_remove,
+	.shutdown	= mtk_usb_extcon_shutdown,
 	.driver		= {
 		.name	= "mtk-extcon-usb",
 		.of_match_table = mtk_usb_extcon_of_match,
