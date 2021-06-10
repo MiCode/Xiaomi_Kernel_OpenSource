@@ -1650,27 +1650,24 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	btag->rt.index = 0;
 	btag->rt.max = ringtrace_count;
 	spin_lock_init(&btag->rt.lock);
-	btag->rt.trace = kmalloc_array(ringtrace_count,
+	btag->rt.trace = kcalloc(ringtrace_count,
 		sizeof(struct mtk_btag_trace), GFP_NOFS);
 	if (!btag->rt.trace) {
 		kfree(btag);
 		return NULL;
 	}
-	memset(btag->rt.trace, 0,
-		(sizeof(struct mtk_btag_trace) * ringtrace_count));
 	strncpy(btag->name, name, BLOCKTAG_NAME_LEN-1);
 	spin_lock_init(&btag->rt.lock);
 
 	/* context */
 	btag->ctx.count = ctx_count;
 	btag->ctx.size = ctx_size;
-	btag->ctx.priv = kmalloc_array(ctx_count, ctx_size, GFP_NOFS);
+	btag->ctx.priv = kcalloc(ctx_count, ctx_size, GFP_NOFS);
 	if (!btag->ctx.priv) {
 		kfree(btag->rt.trace);
 		kfree(btag);
 		return NULL;
 	}
-	memset(btag->ctx.priv, 0, ctx_size * ctx_count);
 
 	/* vops */
 	btag->vops = vops;
