@@ -26,8 +26,8 @@
 #include "xgf.h"
 #include "mini_top.h"
 #include "uboost.h"
+#include "gbe2.h"
 
-#define API_READY 0
 /*#define FPSGO_COM_DEBUG*/
 
 #ifdef FPSGO_COM_DEBUG
@@ -365,11 +365,9 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 		fpsgo_comp2fstb_enq_end(f_render->pid,
 			f_render->buffer_id,
 			f_render->enqueue_length);
-#if API_READY
 		fpsgo_comp2minitop_queue_update(enqueue_end_time);
 		fpsgo_comp2gbe_frame_update(f_render->pid, f_render->buffer_id);
 
-#endif
 		fpsgo_systrace_c_fbt_gm(-300, 0, f_render->enqueue_length,
 			"%d_%d-enqueue_length", pid, f_render->frame_type);
 		break;
