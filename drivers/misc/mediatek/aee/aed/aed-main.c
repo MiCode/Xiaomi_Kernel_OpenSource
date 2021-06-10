@@ -2061,8 +2061,8 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 	struct timespec64 tv;
 #endif
 
-	if ((attr == AE_DEFECT_EXCEPTION) &&
-		(strstr(msg, "GPUHS") || strstr(module, "cache parity")))
+	if ((attr == AE_DEFECT_EXCEPTION) && (strstr(msg, "GPUHS") ||
+		strstr(module, "cache parity") || strstr(module, "DEVMPU")))
 		slog("#$#kernel#@#%s#:%s", module, msg);
 
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER || (aee_mode ==
