@@ -18,7 +18,7 @@ config TRUSTONIC_TEE_VERSION
 
 config TRUSTONIC_TEE_DEBUG
 	bool "Trustonic TEE driver debug mode"
-	depends on (TRUSTONIC_TEE_SUPPORT) && (TRUSTONIC_TEE_VERSION="311c")
+	depends on TRUSTONIC_TEE_SUPPORT
 	default n
 	---help---
 	  Enable the debug mode in the Trustonic TEE Driver.
