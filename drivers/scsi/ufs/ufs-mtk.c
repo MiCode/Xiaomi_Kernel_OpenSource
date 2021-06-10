@@ -2242,6 +2242,9 @@ void ufs_mtk_runtime_pm_init(struct scsi_device *sdev)
 
 static void ufs_mtk_device_reset(struct ufs_hba *hba)
 {
+	/* disable hba before device reset */
+	ufshcd_hba_stop(hba, true);
+
 	(void)ufs_mtk_pltfrm_ufs_device_reset(hba);
 
 #ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
