@@ -82,6 +82,8 @@ do {									\
 		duration = 1;						\
 	else								\
 		duration = (s32)div_u64(time2 - time1, 1000);		\
+	if (duration == 0)						\
+		duration = 1;						\
 } while (0)
 
 #define DP_BANDWIDTH(data, pixel, throughput, bandwidth)		\
