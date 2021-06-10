@@ -18,17 +18,20 @@
 #include "mtk-mml-sys.h"
 
 #define MML_MAX_ENGINES		50
+#define MML_MAX_CMDQ_CLTS	4
 
 struct mml_dev {
 	struct platform_device *pdev;
 	struct mml_comp *comps[MML_MAX_ENGINES];
 	struct mtk_mml_sys *sys;
 	struct cmdq_base *cmdq_base;
-	struct cmdq_client *cmdq_clt;
+	struct cmdq_client *cmdq_clts[MML_MAX_CMDQ_CLTS];
+	u8 cmdq_clt_cnt;
 
 	atomic_t drm_cnt;
 	struct mml_drm_ctx *drm_ctx;
 	struct mutex drm_ctx_mutex;
+	struct mml_topology_cache *topology;
 };
 
 struct cmdq_base *cmdq_register_device(struct device *dev);
@@ -66,11 +69,21 @@ struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
 {
 	struct mml_drm_ctx *ctx;
 
+	/* make sure topology ready before client can use mml */
+	if (!mml->topology)
+		mml->topology = mml_topology_create(mml, mml->pdev,
+			mml->cmdq_clts, mml->cmdq_clt_cnt);
+	if (IS_ERR(mml->topology)) {
+		mml_err("topology create fail %d", PTR_ERR(mml->topology));
+		return (void *)mml->topology;
+	}
+
 	mutex_lock(&mml->drm_ctx_mutex);
 	if (atomic_inc_return(&mml->drm_cnt) == 1)
 		mml->drm_ctx = ctx_create(mml);
 	ctx = mml->drm_ctx;
 	mutex_unlock(&mml->drm_ctx_mutex);
+
 	return ctx;
 }
 
@@ -92,6 +105,15 @@ void mml_dev_put_drm_ctx(struct mml_dev *mml,
 	WARN_ON(cnt < 0);
 }
 
+struct mml_topology_cache *mml_topology_get_cache(struct mml_dev *mml)
+{
+	return IS_ERR(mml->topology) ? NULL : mml->topology;
+}
+
+struct mml_comp *mml_dev_get_comp_by_id(struct mml_dev *mml, u32 id)
+{
+	return mml->comps[id];
+}
 
 static int master_bind(struct device *dev)
 {
@@ -146,7 +168,8 @@ static int comp_master_init(struct device *dev, struct mml_dev *mml)
 		return -EINVAL;
 	}
 	dev_notice(dev, "%s -- comp-count:%d\n", __func__, comp_count);
-	for (i = 0; i < comp_count; i++)
+	/* engine id 0 leaves empty, so begin with 1 */
+	for (i = 1; i < comp_count; i++)
 		component_match_add_typed(dev, &match, comp_compare, (void *)i);
 
 	ret = component_master_add_with_match(dev, &mml_master_ops, match);
@@ -302,7 +325,8 @@ static int mml_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mml_dev *mml;
-	int ret;
+	u8 i;
+	int ret, thread_cnt;
 
 	mml = devm_kzalloc(dev, sizeof(*mml), GFP_KERNEL);
 	if (!mml)
@@ -321,13 +345,26 @@ static int mml_probe(struct platform_device *pdev)
 		goto err_sys_add;
 	}
 
+	thread_cnt = of_count_phandle_with_args(
+		dev->of_node, "mboxes", "#mbox-cells");
+	if (thread_cnt <= 0 || thread_cnt > MML_MAX_CMDQ_CLTS)
+		thread_cnt = MML_MAX_CMDQ_CLTS;
+
 	mml->cmdq_base = cmdq_register_device(dev);
-	mml->cmdq_clt = cmdq_mbox_create(dev, 0);
-	if (IS_ERR(mml->cmdq_clt)) {
-		dev_err(dev, "unable to create cmdq mbox on %p:%d\n", dev, 0);
-		ret = PTR_ERR(mml->cmdq_clt);
-		goto err_mbox_create;
+	for (i = 0; i < thread_cnt; i++) {
+		mml->cmdq_clts[i] = cmdq_mbox_create(dev, i);
+		if (IS_ERR(mml->cmdq_clts[i])) {
+			ret = PTR_ERR(mml->cmdq_clts[i]);
+			dev_err(dev, "unable to create cmdq mbox on %p:%d err %d",
+				dev, i, ret);
+			mml->cmdq_clts[i] = NULL;
+			if (i == 0)
+				goto err_mbox_create;
+			else
+				break;
+		}
 	}
+	mml->cmdq_clt_cnt = i;
 
 	platform_set_drvdata(pdev, mml);
 	dbg_probed = true;
@@ -335,6 +372,11 @@ static int mml_probe(struct platform_device *pdev)
 
 err_mbox_create:
 	mml_sys_destroy(pdev, mml->sys, &sys_comp_ops);
+	for (i = 0; i < MML_MAX_CMDQ_CLTS; i++)
+		if (mml->cmdq_clts[i]) {
+			cmdq_mbox_destroy(mml->cmdq_clts[i]);
+			mml->cmdq_clts[i] = NULL;
+		}
 err_sys_add:
 	comp_master_deinit(dev);
 err_init_comp:

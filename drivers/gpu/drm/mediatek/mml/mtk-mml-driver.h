@@ -16,6 +16,7 @@
 struct mml_comp;
 struct mml_dev;
 struct mml_drm_ctx;
+struct mml_topology_cache;
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev);
 
@@ -40,5 +41,25 @@ struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
 	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml));
 void mml_dev_put_drm_ctx(struct mml_dev *mml,
 	void (*ctx_release)(struct mml_drm_ctx *ctx));
+
+/*
+ * mml_topology_get_cache - Get topology cache struct store in mml.
+ *
+ * @mml: The mml driver instance.
+ *
+ * Return: Topology cache struct for this mml.
+ */
+struct mml_topology_cache *mml_topology_get_cache(struct mml_dev *mml);
+
+/*
+ * mml_dev_get_comp_by_id - Get component instance by component id, which
+ * represent specific hardware engine in MML.
+ *
+ * @mml: 	The mml driver instance.
+ * @id:		Component ID, one of id in dt-bindings in specific IP.
+ *
+ * Return: pointer of component instance
+ */
+struct mml_comp *mml_dev_get_comp_by_id(struct mml_dev *mml, u32 id);
 
 #endif	/* __MTK_MML_DRIVER_H__ */
