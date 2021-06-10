@@ -4711,16 +4711,30 @@
 			#clock-cells = <1>;
 		};
 
-                mtk_apu_mdw: mtk_apu_mdw {
-                        compatible = "mediatek, apu_mdw";
-                        version = <1>;
-                        dsp_mask = <0xff>;
-                        dla_mask = <0xff>;
-                        dma_mask = <0xff>;
-                        dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
-                        iommus = <&iommu3 M4U_PORT_L21_APU_FAKE_DATA>;
-                };
-
+		mtk_apu_mdw: mtk_apu_mdw {
+			compatible = "mediatek, apu_mdw";
+			version = <1>;
+			dsp_mask = <0xff>;
+			dla_mask = <0xff>;
+			dma_mask = <0xff>;
+			//dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
+			//iommus = <&iommu3 M4U_PORT_L21_APU_FAKE_DATA>;
+		};
+		mtk_apu_mem_code: mtk_apu_mem_code {
+			compatible = "mediatek, apu_mem_code";
+			type = <1>;
+			mask = /bits/ 64 <0x00000003ffffffff>;
+			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
+			iommus = <&iommu3 M4U_PORT_L21_APU_FAKE_DATA>;
+		};
+				
+		mtk_apu_mem_data: mtk_apu_mem_data {
+			compatible = "mediatek, apu_mem_data";
+			type = <2>;
+			mask = /bits/ 64 <0x00000003ffffffff>;
+			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
+			iommus = <&iommu3 M4U_PORT_L21_APU_FAKE_DATA>;
+		};
 		mtk_mdla: mdla@19036000 {
 			compatible = "mediatek, mt6893-mdla";
 			core_num = <2>;
