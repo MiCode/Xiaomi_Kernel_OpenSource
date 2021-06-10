@@ -26,6 +26,11 @@
 #include "mtk_cpu_dbg.h"
 #include <linux/delay.h>
 
+#ifdef pr_fmt
+#undef pr_fmt
+#endif
+#define pr_fmt(fmt) "[cpu_hvfs]: " fmt
+
 #define PLL_CONFIG_PROP_NAME "pll-con"
 #define TBL_OFF_PROP_NAME "tbl-off"
 #define CLK_DIV_PROP_NAME "clk-div"
@@ -447,7 +452,7 @@ static int mtk_cpuhvfs_init(void)
 #ifdef EEM_DBG
 	ret = mtk_eem_init();
 	if (ret)
-		pr_info("eem dbg init fail\n");
+		pr_info("eem dbg init fail: %d\n", ret);
 #endif
 	return 0;
 }

@@ -881,6 +881,8 @@ int mtk_eem_init(void)
 	struct device_node *node = NULL;
 	int enable;
 
+	return -ENOENT; // have not implemented
+
 	eem_base = ioremap(EEM_BASEADDR, EEM_BASESIZE);
 	eem_csram_base = ioremap(EEMSN_CSRAM_BASE, EEMSN_CSRAM_SIZE);
 	sn_base = ioremap(SN_BASEADDR, SN_BASESIZE);
