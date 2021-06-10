@@ -239,6 +239,7 @@ static int neigh_forced_gc(struct neigh_table *tbl)
 
 			write_lock(&n->lock);
 			if ((n->nud_state == NUD_FAILED) ||
+			    (n->nud_state == NUD_NOARP) ||
 			    time_after(tref, n->updated))
 				remove = true;
 			write_unlock(&n->lock);
