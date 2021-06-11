@@ -183,6 +183,14 @@ config ARCH_BENGAL
 	  This enables support for the BENGAL chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_KHAJE
+	bool "Enable Support for Qualcomm Technologies, Inc. KHAJE"
+	depends on ARCH_QCOM
+	select COMMON_CLK_QCOM
+	help
+	  This enables support for the KHAJE chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_SCUBA
 	bool "Enable Support for Qualcomm Technologies, Inc. SCUBA"
 	depends on ARCH_QCOM

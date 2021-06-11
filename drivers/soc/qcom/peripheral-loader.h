@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2019,2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __MSM_PERIPHERAL_LOADER_H
 #define __MSM_PERIPHERAL_LOADER_H
@@ -103,7 +103,7 @@ struct pil_image_info {
  */
 struct pil_reset_ops {
 	int (*init_image)(struct pil_desc *pil, const u8 *metadata,
-			  size_t size);
+			  size_t size, phys_addr_t mdata_phys, void *region);
 	int (*mem_setup)(struct pil_desc *pil, phys_addr_t addr, size_t size);
 	int (*verify_blob)(struct pil_desc *pil, phys_addr_t phy_addr,
 			   size_t size);

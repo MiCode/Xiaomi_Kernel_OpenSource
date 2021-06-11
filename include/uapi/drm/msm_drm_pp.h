@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_DRM_PP_H_
@@ -573,4 +573,21 @@ struct drm_msm_ad4_manual_str_cfg {
 	__u32 in_str;
 	__u32 out_str;
 };
+
+#define RC_DATA_SIZE_MAX   2720
+#define RC_CFG_SIZE_MAX       4
+
+struct drm_msm_rc_mask_cfg {
+	__u64 flags;
+	__u32 cfg_param_01;
+	__u32 cfg_param_02;
+	__u32 cfg_param_03;
+	__u32 cfg_param_04[RC_CFG_SIZE_MAX];
+	__u32 cfg_param_05[RC_CFG_SIZE_MAX];
+	__u32 cfg_param_06[RC_CFG_SIZE_MAX];
+	__u64 cfg_param_07;
+	__u32 cfg_param_08;
+	__u64 cfg_param_09[RC_DATA_SIZE_MAX];
+};
+
 #endif /* _MSM_DRM_PP_H_ */

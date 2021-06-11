@@ -72,7 +72,23 @@ static inline enum imem_type read_imem_type(struct platform_device *pdev)
 						IMEM_NONE;
 
 }
+static inline void msm_vidc_free_bus_table(
+		struct msm_vidc_platform_resources *res)
+{
+	int i = 0;
+	struct msm_vidc_bus_table_gov *data = res->gov_data;
 
+	if (!data) {
+		dprintk(VIDC_ERR, "%s: invalid args %pK\n",
+			__func__, data);
+	}
+
+	for (i = 0; i < data->count; i++)
+		data->bus_prof_entries[i].bus_table = NULL;
+
+	data->bus_prof_entries = NULL;
+	data->count = 0;
+}
 static inline void msm_vidc_free_allowed_clocks_table(
 		struct msm_vidc_platform_resources *res)
 {
@@ -174,6 +190,7 @@ void msm_vidc_free_platform_resources(
 			struct msm_vidc_platform_resources *res)
 {
 	msm_vidc_free_clock_table(res);
+	msm_vidc_free_bus_table(res);
 	msm_vidc_free_regulator_table(res);
 	msm_vidc_free_freq_table(res);
 	msm_vidc_free_platform_version_table(res);
@@ -1065,7 +1082,108 @@ err_load_clk_prop_fail:
 err_load_clk_table_fail:
 	return rc;
 }
+static int msm_vidc_load_bus_table(struct msm_vidc_platform_resources *res)
+{
+	int rc = 0, i = 0, j = 0;
+	struct bus_profile_entry *entry = NULL;
+	struct device_node *parent_node = NULL;
+	struct device_node *child_node = NULL;
+	struct msm_vidc_bus_table_gov *gov_data;
+	struct platform_device *pdev = res->pdev;
 
+	dprintk(VIDC_DBG, "%s\n", __func__);
+	if (!pdev) {
+		dprintk(VIDC_ERR, "%s: invalid args %pK\n",
+			__func__, pdev);
+		return -EINVAL;
+	}
+
+	res->gov_data = devm_kzalloc(&pdev->dev, sizeof(*gov_data), GFP_KERNEL);
+	if (!res->gov_data) {
+		dprintk(VIDC_ERR, "%s: allocation failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	gov_data = res->gov_data;
+	parent_node = of_find_node_by_name(pdev->dev.of_node,
+			"qcom,bus-freq-table");
+	if (!parent_node) {
+		dprintk(VIDC_DBG, "Node qcom,bus-freq-table not found.\n");
+		return 0;
+	}
+
+	gov_data->count = of_get_child_count(parent_node);
+	if (!gov_data->count) {
+		dprintk(VIDC_DBG, "No child nodes in qcom,bus-freq-table\n");
+		return 0;
+	}
+
+	gov_data->bus_prof_entries = devm_kzalloc(&pdev->dev,
+			sizeof(*gov_data->bus_prof_entries) * gov_data->count,
+			GFP_KERNEL);
+	if (!gov_data->bus_prof_entries) {
+		dprintk(VIDC_DBG, "no memory to allocate bus_prof_entries\n");
+		return -ENOMEM;
+	}
+
+	for_each_child_of_node(parent_node, child_node) {
+
+		if (i >= gov_data->count) {
+			dprintk(VIDC_ERR,
+				"qcom,bus-freq-table: invalid child node %d, max is %d\n",
+				i, gov_data->count);
+			break;
+		}
+		entry = &gov_data->bus_prof_entries[i];
+
+		if (of_find_property(child_node, "qcom,codec-mask", NULL)) {
+			rc = of_property_read_u32(child_node,
+					"qcom,codec-mask", &entry->codec_mask);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"qcom,codec-mask not found\n");
+				break;
+			}
+		}
+
+		if (of_find_property(child_node, "qcom,low-power-mode", NULL))
+			entry->profile = VIDC_BUS_PROFILE_LOW;
+		else if (of_find_property(child_node, "qcom,ubwc-mode", NULL))
+			entry->profile = VIDC_BUS_PROFILE_UBWC;
+		else
+			entry->profile = VIDC_BUS_PROFILE_NORMAL;
+
+		if (of_find_property(child_node,
+					"qcom,load-busfreq-tbl", NULL)) {
+			rc = msm_vidc_load_u32_table(pdev, child_node,
+						"qcom,load-busfreq-tbl",
+						sizeof(*entry->bus_table),
+						(u32 **)&entry->bus_table,
+						&entry->bus_table_size);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"qcom,load-busfreq-tbl failed\n");
+				break;
+			}
+		} else {
+			entry->bus_table = NULL;
+			entry->bus_table_size = 0;
+		}
+
+		dprintk(VIDC_DBG,
+			"qcom,load-busfreq-tbl: size %d, codec_mask %#x, profile %#x\n",
+			entry->bus_table_size, entry->codec_mask,
+			entry->profile);
+		for (j = 0; j < entry->bus_table_size; j++)
+			dprintk(VIDC_DBG, "   load %8d freq %8d\n",
+				entry->bus_table[j].load,
+				entry->bus_table[j].freq);
+
+		i++;
+	}
+
+	return rc;
+}
 int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res)
 {
@@ -1185,6 +1303,13 @@ int read_platform_resources_from_dt(
 		goto err_load_allowed_clocks_table;
 	}
 
+	rc = msm_vidc_load_bus_table(res);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to load bus table: %d\n", rc);
+		goto err_load_bus_table;
+	}
+
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,max-hw-load",
 			&res->max_load);
 	if (rc) {
@@ -1216,9 +1341,6 @@ int read_platform_resources_from_dt(
 	dprintk(VIDC_DBG, "Power collapse supported = %s\n",
 		res->sw_power_collapsible ? "yes" : "no");
 
-	res->never_unload_fw = of_property_read_bool(pdev->dev.of_node,
-			"qcom,never-unload-fw");
-
 	of_property_read_u32(pdev->dev.of_node,
 			"qcom,pm-qos-latency-us", &res->pm_qos_latency_us);
 
@@ -1236,6 +1358,8 @@ int read_platform_resources_from_dt(
 err_setup_legacy_cb:
 err_load_max_hw_load:
 	msm_vidc_free_allowed_clocks_table(res);
+err_load_bus_table:
+	msm_vidc_free_bus_table(res);
 err_load_allowed_clocks_table:
 	msm_vidc_free_cycles_per_mb_table(res);
 err_load_cycles_per_mb_table:

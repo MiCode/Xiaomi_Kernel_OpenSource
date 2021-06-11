@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,26 @@ struct clock_freq_table {
 	u32 count;
 };
 
+enum bus_profile {
+	VIDC_BUS_PROFILE_NORMAL			= BIT(0),
+	VIDC_BUS_PROFILE_LOW			= BIT(1),
+	VIDC_BUS_PROFILE_UBWC			= BIT(2),
+};
+
+struct bus_profile_entry {
+	struct {
+		u32 load, freq;
+	} *bus_table;
+	u32 bus_table_size;
+	u32 codec_mask;
+	enum bus_profile profile;
+};
+
+struct msm_vidc_bus_table_gov {
+	struct bus_profile_entry *bus_prof_entries;
+	u32 count;
+};
+
 struct msm_vidc_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
@@ -176,6 +196,7 @@ struct msm_vidc_platform_resources {
 	struct platform_device *pdev;
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;
+	struct msm_vidc_bus_table_gov *gov_data;
 	struct bus_set bus_set;
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
@@ -185,7 +206,6 @@ struct msm_vidc_platform_resources {
 	bool thermal_mitigable;
 	const char *fw_name;
 	const char *hfi_version;
-	bool never_unload_fw;
 	uint32_t pm_qos_latency_us;
 	uint32_t max_inst_count;
 	uint32_t max_secure_inst_count;

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPAHAL_FLTRT_I_H_
@@ -44,6 +44,7 @@ enum ipa_fltrt_equations {
 #define IPA3_0_HW_TBL_ADDR_MASK (127)
 #define IPA3_0_HW_RULE_BUF_SIZE (256)
 #define IPA3_0_HW_RULE_START_ALIGNMENT (7)
+#define IPA3_0_HW_RULE_PREFETCH_BUF_SIZE (128)
 
 
 /*
