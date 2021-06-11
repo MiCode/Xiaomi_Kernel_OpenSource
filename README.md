@@ -8,6 +8,7 @@
 | apollo-q-oss | Redmi K30S Ultra | Android Q | LA.UM.8.12.r1-10600-sm8250.0 | [apollo-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/apollo-q-oss) |
 | begonia-p-oss | Redmi Note 8 Pro | Android P | MTK | [begonia-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/begonia-p-oss) |
 | begonia-q-oss | Redmi Note 8 Pro | Android Q | MTK | [begonia-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/begonia-q-oss) |
+| biloba-r-oss | Redmi Note 8 | Android R | MTK | [biloba-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/biloba-r-oss) |
 | bomb-q-oss | Redmi 10X, Redmi 10X Pro | Android Q | MTK | [bomb-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bomb-q-oss) |
 | cactus-o-oss | Redmi 6A, Redmi 6 | Android O | MTK | [cactus-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cactus-o-oss) |
 | cactus-p-oss | Redmi 6A, Redmi 6 | Android P | MTK | [cactus-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cactus-p-oss) |
