@@ -181,16 +181,16 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 	tailid = descring.tail_id;
 	headid = descring.head_id;
 
-	rem_buf_sz = boot_log_buf_size - off;
-	if (!rem_buf_sz || rem_buf_sz < sizeof(struct printk_record))
-		return;
-
 	if (!copy_early_boot_log) {
 		if (!r->info->text_len)
 			return;
 
-		if (rem_buf_sz < r->info->text_len)
-			rem_buf_sz = r->info->text_len;
+		if ((off + r->info->text_len) > boot_log_buf_size)
+			return;
+
+		rem_buf_sz = boot_log_buf_size - off;
+		if (!rem_buf_sz || rem_buf_sz < sizeof(struct printk_record))
+			return;
 
 		memcpy(&boot_log_buf[off], &r->text_buf[0], r->info->text_len);
 		off += record_print_text(r->info, &boot_log_buf[off],
@@ -227,9 +227,10 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			if (end - text_start < textlen)
 				textlen = end - text_start;
 
+			if ((off + textlen) > boot_log_buf_size)
+				break;
+
 			rem_buf_sz = boot_log_buf_size - off;
-			if (textlen > rem_buf_sz)
-				textlen = rem_buf_sz;
 
 			memcpy(&boot_log_buf[off],
 				&textdata_ring.data[text_start],
