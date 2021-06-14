@@ -1302,10 +1302,8 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct iommu_debug_
 
 		for (i = 0; i < ddev->nr_iters; ++i) {
 			tbefore = ktime_get();
-			if (iommu_map_sg(domain, __ALIGN_MASK(iova, align_mask),
-					 table.sgl, table.nents,
-					 IOMMU_READ | IOMMU_WRITE)
-			    != size) {
+			if (iommu_map_sgtable(domain, __ALIGN_MASK(iova, align_mask),
+					      &table, IOMMU_READ | IOMMU_WRITE) != size) {
 				seq_puts(s, "Failed to map_sg\n");
 				goto next;
 			}
