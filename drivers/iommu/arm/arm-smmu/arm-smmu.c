@@ -4046,9 +4046,17 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	tbu->sid_start = of_read_number(cell, 1);
 	tbu->num_sids = of_read_number(cell + 1, 1);
 
+	/* Return -EINVAL only if property not present */
+	tbu->has_micro_idle = of_property_read_bool(dev->of_node, "qcom,micro-idle");
+
 	tbu->pwr = arm_smmu_init_power_resources(dev);
 	if (IS_ERR(tbu->pwr))
 		return PTR_ERR(tbu->pwr);
+
+	if (tbu->has_micro_idle) {
+		tbu->pwr->resume = arm_smmu_micro_idle_wake;
+		tbu->pwr->suspend = arm_smmu_micro_idle_allow;
+	}
 
 	dev_set_drvdata(dev, tbu);
 	return 0;
