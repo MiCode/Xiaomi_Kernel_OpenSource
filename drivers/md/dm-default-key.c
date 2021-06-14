@@ -391,11 +391,14 @@ static int default_key_map(struct dm_target *ti, struct bio *bio)
 	if (WARN_ON_ONCE(dun[0] > dkc->max_dun))
 		return DM_MAPIO_KILL;
 
-	if (!bio_has_crypt_ctx(bio))
+	if (!bio_has_crypt_ctx(bio)) {
 		bio_crypt_set_ctx(bio, &dkc->key, dun, GFP_NOIO);
-
-	if (dkc->set_dun)
-		default_key_map_dun(bio, dun);
+		if (dkc->set_dun)
+			default_key_map_dun(bio, dun);
+	} else {
+		if (dkc->set_dun && bio->bi_crypt_context->is_ext4)
+			default_key_map_dun(bio, dun);
+	}
 
 	return DM_MAPIO_REMAPPED;
 }
