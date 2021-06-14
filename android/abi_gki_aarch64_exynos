@@ -1462,6 +1462,7 @@
   static_key_initialized
   static_key_slow_dec
   static_key_slow_inc
+  stpcpy
   strcasecmp
   strcat
   strchr
