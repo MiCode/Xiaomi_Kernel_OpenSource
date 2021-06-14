@@ -3895,11 +3895,13 @@ include/trace/hooks/cgroup.h
 include/trace/hooks/cpufreq.h
 include/trace/hooks/cpu.h
 include/trace/hooks/cpuidle.h
+include/trace/hooks/cpuidle_psci.h
 include/trace/hooks/creds.h
 include/trace/hooks/debug.h
 include/trace/hooks/dtask.h
 include/trace/hooks/epoch.h
 include/trace/hooks/fault.h
+include/trace/hooks/fips140.h
 include/trace/hooks/fpsimd.h
 include/trace/hooks/fs.h
 include/trace/hooks/ftrace_dump.h
@@ -3935,6 +3937,7 @@ include/trace/hooks/topology.h
 include/trace/hooks/traps.h
 include/trace/hooks/typec.h
 include/trace/hooks/ufshcd.h
+include/trace/hooks/user.h
 include/trace/hooks/v4l2core.h
 include/trace/hooks/v4l2mc.h
 include/trace/hooks/vendor_hooks.h
