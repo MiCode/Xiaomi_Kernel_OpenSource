@@ -134,11 +134,11 @@ struct walt_sched_cluster {
 	unsigned int		max_possible_freq;
 	unsigned int		max_freq;
 	u64			aggr_grp_load;
+
+	u16			util_to_cost[1024];
 };
 
 extern struct walt_sched_cluster *sched_cluster[WALT_NR_CPUS];
-
-extern struct walt_sched_cluster *rq_cluster(struct rq *rq);
 
 /*END SCHED.H PORT*/
 
@@ -147,7 +147,7 @@ extern unsigned int sched_capacity_margin_up[WALT_NR_CPUS];
 extern unsigned int sched_capacity_margin_down[WALT_NR_CPUS];
 extern cpumask_t asym_cap_sibling_cpus;
 extern cpumask_t __read_mostly **cpu_array;
-
+extern int cpu_l2_sibling[WALT_NR_CPUS];
 extern void sched_update_nr_prod(int cpu, int enq);
 extern unsigned int walt_big_tasks(int cpu);
 extern void walt_rotate_work_init(void);
@@ -883,4 +883,5 @@ void walt_lb_tick(struct rq *rq);
 extern __read_mostly unsigned int walt_scale_demand_divisor;
 #define scale_demand(d) ((d)/walt_scale_demand_divisor)
 
+void create_util_to_cost(void);
 #endif /* _WALT_H */
