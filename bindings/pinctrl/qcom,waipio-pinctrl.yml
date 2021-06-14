@@ -52,6 +52,10 @@ properties:
       mux function to select on those pin(s)/group(s), and various pin configuration
       parameters, such as pull-up, drive strength, etc.
 
+  qcom,gpios-reserved:
+    description:
+      A list of reserved gpios that should not be used by the kernel drivers.
+
 
 # PIN CONFIGURATION NODES
 patternPropetries:
