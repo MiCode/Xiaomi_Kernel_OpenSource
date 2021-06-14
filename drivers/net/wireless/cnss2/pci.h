@@ -136,6 +136,7 @@ struct cnss_pci_data {
 	struct cnss_misc_reg *syspm_reg;
 	unsigned long misc_reg_dev_mask;
 	u8 iommu_geometry;
+	bool drv_supported;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)
