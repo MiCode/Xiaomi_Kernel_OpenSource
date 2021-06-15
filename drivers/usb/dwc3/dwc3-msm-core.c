@@ -5191,6 +5191,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			} else {
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
 			}
+			dev_pm_syscore_device(&udev->dev, true);
 		} else {
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
@@ -5199,6 +5200,10 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			mdwc->max_rh_port_speed = USB_SPEED_UNKNOWN;
 			dwc3_msm_update_bus_bw(mdwc, mdwc->default_bus_vote);
 		}
+	} else if (!udev->parent) {
+		/* USB root hub device */
+		if (event == USB_DEVICE_ADD)
+			dev_pm_syscore_device(&udev->dev, true);
 	}
 
 	return NOTIFY_DONE;
