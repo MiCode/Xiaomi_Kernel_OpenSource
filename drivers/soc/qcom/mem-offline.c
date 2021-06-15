@@ -62,6 +62,7 @@ static bool has_pend_offline_req;
 static struct workqueue_struct *migrate_wq;
 #define MODULE_CLASS_NAME	"mem-offline"
 #define MEMBLOCK_NAME		"memory%lu"
+#define SEGMENT_NAME		"segment%lu"
 #define BUF_LEN			100
 #define MIGRATE_TIMEOUT_SEC	20
 
@@ -83,9 +84,57 @@ enum memory_states {
 	MAX_STATE,
 };
 
+struct segment_info {
+	signed long start_addr;
+	unsigned long seg_size;
+	unsigned long num_kernel_blks;
+	unsigned int bitmask_kernel_blk;
+	enum memory_states state;
+};
+
+#define MAX_NUM_SEGMENTS 16
+#define MAX_NUM_DDR_REGIONS 10
+
+struct ddr_region {
+	/* region physical address */
+	unsigned long start_address;
+
+	/* size of region in bytes */
+	unsigned long length;
+
+	/* size of segments in MB (1024 * 1024 bytes) */
+	unsigned long granule_size;
+
+	/* index of first full segment in a region */
+	unsigned int segments_start_idx;
+
+	/* offset in bytes to first full segment */
+	unsigned long segments_start_offset;
+
+};
+
+static struct segment_info *segment_infos;
+
+static struct ddr_region *ddr_regions;
+
+static int differing_segment_sizes;
+
+static int num_ddr_regions, num_segments;
+
+/*
+ * start_addr_HIGH, start_addr_LOW,
+ * length_HIGH, length_LOW,
+ * segment_start_offset_HIGH, segment_start_offset_LOW,
+ * segment_start_idx_HIGH, segment_start_idx_LOW,
+ * granule_size_HIGH, granule_size_LOW
+ */
+#define DDR_REGIONS_NUM_CELLS       10
+
 static enum memory_states *mem_sec_state;
 
 static phys_addr_t bootmem_dram_end_addr;
+
+static phys_addr_t offlinable_region_start_addr;
 
 static struct mem_offline_mailbox {
 	struct mbox_client cl;
@@ -180,35 +229,48 @@ static int aop_send_msg(unsigned long addr, bool online)
 	return (mbox_send_message(mailbox.mbox, &pkt) < 0);
 }
 
-/*
- * When offline_granule >= memory block size, this returns the number of
- * sections in a offlineable segment.
- * When offline_granule < memory block size, returns the sections_per_block.
- */
-static unsigned long get_rounded_sections_per_segment(void)
+static long get_memblk_bits(unsigned int seg_idx, unsigned long memblk_addr)
 {
+	if (memblk_addr > segment_infos[seg_idx].start_addr +
+			segment_infos[seg_idx].seg_size)
+		return -EINVAL;
 
-	return max(((offline_granule * SZ_1M) / memory_block_size_bytes()) *
-		     sections_per_block,
-		     (unsigned long)sections_per_block);
+	return (1 << ((memblk_addr - segment_infos[seg_idx].start_addr) /
+				memory_block_size_bytes()));
+}
+
+static long get_segment_addr_to_idx(unsigned long addr)
+{
+	int i;
+
+	for (i = 0; i < num_segments; i++) {
+		if (addr >= segment_infos[i].start_addr &&
+			addr < segment_infos[i].start_addr + segment_infos[i].seg_size)
+			return i;
+	}
+
+	return -EINVAL;
 }
 
 static int send_msg(struct memory_notify *mn, bool online, int count)
 {
-	unsigned long segment_size = offline_granule * SZ_1M;
-	unsigned long start, base_sec_nr, sec_nr, sections_per_segment;
-	int ret, idx, i;
+	unsigned long segment_size, start, addr, base_addr;
+	int ret, i, seg_idx;
 
 	if (bypass_send_msg)
 		return 0;
 
-	sections_per_segment = get_rounded_sections_per_segment();
-	sec_nr = pfn_to_section_nr(SECTION_ALIGN_DOWN(mn->start_pfn));
-	idx = (sec_nr - start_section_nr) / sections_per_segment;
-	base_sec_nr = start_section_nr + (idx * sections_per_segment);
-	start = section_nr_to_pfn(base_sec_nr);
+	addr = __pfn_to_phys(SECTION_ALIGN_DOWN(mn->start_pfn));
+	seg_idx = get_segment_addr_to_idx(addr);
+	base_addr = segment_infos[seg_idx].start_addr;
 
 	for (i = 0; i < count; ++i) {
+
+		seg_idx = get_segment_addr_to_idx(addr);
+		segment_size = segment_infos[seg_idx].seg_size;
+		start = __phys_to_pfn(segment_infos[seg_idx].start_addr);
+		addr = segment_infos[seg_idx].start_addr;
+
 		if (is_rpm_controller)
 			ret = mem_region_refresh_control(start,
 						 segment_size >> PAGE_SHIFT,
@@ -224,12 +286,17 @@ static int send_msg(struct memory_notify *mn, bool online, int count)
 			goto undo;
 		}
 
-		start = __phys_to_pfn(__pfn_to_phys(start) + segment_size);
+		pr_info("mem-offline: sent msg successfully to %s segment at phys addr 0x%lx\n",
+					online ? "online" : "offline", __pfn_to_phys(start));
+		addr += segment_size;
 	}
 
 	return 0;
 undo:
-	start = section_nr_to_pfn(base_sec_nr);
+	addr = base_addr;
+	seg_idx = get_segment_addr_to_idx(addr);
+	start = __phys_to_pfn(base_addr);
+
 	while (i-- > 0) {
 		int ret;
 
@@ -242,65 +309,117 @@ undo:
 
 		if (ret)
 			panic("Failed to completely online/offline a hotpluggable segment. A quasi state of memblock can cause randomn system failures.");
+		segment_size = segment_infos[seg_idx].seg_size;
+		addr += segment_size;
+		seg_idx = get_segment_addr_to_idx(addr);
 		start = __phys_to_pfn(__pfn_to_phys(start) + segment_size);
 	}
 
 	return ret;
 }
 
-static bool need_to_send_remote_request(struct memory_notify *mn,
-				    enum memory_states request)
+static void set_memblk_bitmap_online(unsigned long addr)
 {
-	int i, idx, cur_idx;
-	int base_sec_nr, sec_nr;
-	unsigned long sections_per_segment;
+	unsigned long seg_idx;
+	long cur_blk_bit;
 
-	sections_per_segment = get_rounded_sections_per_segment();
-	sec_nr = pfn_to_section_nr(SECTION_ALIGN_DOWN(mn->start_pfn));
-	idx = (sec_nr - start_section_nr) / sections_per_segment;
-	cur_idx = (sec_nr - start_section_nr) / sections_per_block;
-	base_sec_nr = start_section_nr + (idx * sections_per_segment);
+	seg_idx = get_segment_addr_to_idx(addr);
+	cur_blk_bit = get_memblk_bits(seg_idx, addr);
 
+	if (cur_blk_bit < 0) {
+		pr_err("mem-offline: couldn't get current block bitmap\n");
+		return;
+	}
+
+	if (segment_infos[seg_idx].bitmask_kernel_blk & cur_blk_bit) {
+		pr_warn("mem-offline: memblk 0x%lx in bitmap already onlined\n", addr);
+		return;
+	}
+
+	segment_infos[seg_idx].bitmask_kernel_blk |= cur_blk_bit;
+}
+
+static void set_memblk_bitmap_offline(unsigned long addr)
+{
+	unsigned long seg_idx;
+	long cur_blk_bit;
+
+	seg_idx = get_segment_addr_to_idx(addr);
+	cur_blk_bit = get_memblk_bits(seg_idx, addr);
+
+	if (cur_blk_bit < 0) {
+		pr_err("mem-offline: couldn't get current block bitmap\n");
+		return;
+	}
+
+	if (!(segment_infos[seg_idx].bitmask_kernel_blk & cur_blk_bit)) {
+		pr_warn("mem-offline: memblk 0x%lx in bitmap already offlined\n", addr);
+		return;
+	}
+
+	segment_infos[seg_idx].bitmask_kernel_blk &= ~cur_blk_bit;
+}
+
+static bool need_to_send_remote_request(struct memory_notify *mn,
+					enum memory_states request)
+{
+	int seg_idx;
+	unsigned long addr;
+	long cur_blk_bit, mask;
+
+	addr = SECTION_ALIGN_DOWN(mn->start_pfn) << PAGE_SHIFT;
+	seg_idx = get_segment_addr_to_idx(addr);
+
+	cur_blk_bit = get_memblk_bits(seg_idx, addr);
+
+	if (cur_blk_bit < 0) {
+		pr_err("mem-offline: couldn't get current block bitmap\n");
+		return false;
+	}
 	/*
 	 * For MEM_OFFLINE, don't send the request if there are other online
 	 * blocks in the segment.
 	 * For MEM_ONLINE, don't send the request if there is already one
 	 * online block in the segment.
 	 */
-	if (request == MEMORY_OFFLINE || request == MEMORY_ONLINE) {
-		for (i = base_sec_nr;
-		     i < (base_sec_nr + sections_per_segment);
-		     i += sections_per_block) {
-			idx = (i - start_section_nr) / sections_per_block;
-			/* current operating block */
-			if (idx == cur_idx)
-				continue;
-			if (mem_sec_state[idx] == MEMORY_ONLINE)
-				goto out;
-		}
-		return true;
-	}
-out:
-	return false;
+
+
+	/* check if other memblocks are ONLINE, if so then return false */
+	mask = segment_infos[seg_idx].bitmask_kernel_blk & (~cur_blk_bit);
+	if (mask)
+		return false;
+
+	return true;
 }
 
 /*
  * This returns the number of hotpluggable segments in a memory block.
  */
-static int get_num_memblock_hotplug_segments(void)
+static int get_num_memblock_hotplug_segments(unsigned long addr)
 {
-	unsigned long segment_size = offline_granule * SZ_1M;
+	unsigned long segment_size;
 	unsigned long block_size = memory_block_size_bytes();
+	unsigned long end_addr = addr + block_size;
+	int seg_idx, count = 0;
 
-	if (segment_size < block_size) {
+	seg_idx = get_segment_addr_to_idx(addr);
+	segment_size = segment_infos[seg_idx].seg_size;
+
+	if (segment_size >= block_size)
+		return 1;
+
+	while ((addr < end_addr) && (addr + segment_size < end_addr)) {
 		if (block_size % segment_size) {
 			pr_warn("PASR is unusable. Offline granule size should be in multiples for memory_block_size_bytes.\n");
 			return 0;
 		}
-		return block_size / segment_size;
+		addr += segment_size;
+		seg_idx = get_segment_addr_to_idx(addr);
+		segment_size = segment_infos[seg_idx].seg_size;
+		count++;
 	}
 
-	return 1;
+	return count;
 }
 
 static int mem_change_refresh_state(struct memory_notify *mn,
@@ -311,6 +430,8 @@ static int mem_change_refresh_state(struct memory_notify *mn,
 	bool online = (state == MEMORY_ONLINE) ? true : false;
 	unsigned long idx = (sec_nr - start_section_nr) / sections_per_block;
 	int ret, count;
+	unsigned long addr;
+	int seg_idx;
 
 	if (mem_sec_state[idx] == state) {
 		/* we shouldn't be getting this request */
@@ -319,7 +440,10 @@ static int mem_change_refresh_state(struct memory_notify *mn,
 		return 0;
 	}
 
-	count = get_num_memblock_hotplug_segments();
+	addr = __pfn_to_phys(SECTION_ALIGN_DOWN(mn->start_pfn));
+	seg_idx = get_segment_addr_to_idx(addr);
+
+	count = get_num_memblock_hotplug_segments(addr);
 	if (!count)
 		return -EINVAL;
 
@@ -333,6 +457,7 @@ static int mem_change_refresh_state(struct memory_notify *mn,
 			BUG_ON(IS_ENABLED(CONFIG_BUG_ON_HW_MEM_ONLINE_FAIL));
 		return -EINVAL;
 	}
+	segment_infos[seg_idx].state = state;
 out:
 	mem_sec_state[idx] = state;
 	return 0;
@@ -382,6 +507,7 @@ static int mem_event_callback(struct notifier_block *self,
 	ktime_t delay = 0;
 	phys_addr_t start_addr, end_addr;
 	unsigned int idx = end_section_nr - start_section_nr + 1;
+	unsigned long seg_idx;
 
 	start = SECTION_ALIGN_DOWN(mn->start_pfn);
 	end = SECTION_ALIGN_UP(mn->start_pfn + mn->nr_pages);
@@ -404,6 +530,7 @@ static int mem_event_callback(struct notifier_block *self,
 				sec_nr);
 		return NOTIFY_OK;
 	}
+
 	switch (action) {
 	case MEM_GOING_ONLINE:
 		pr_debug("mem-offline: MEM_GOING_ONLINE : start = 0x%llx end = 0x%llx\n",
@@ -420,8 +547,12 @@ static int mem_event_callback(struct notifier_block *self,
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_ONLINE);
 		cur = 0;
+		set_memblk_bitmap_online(start_addr);
 		pr_info("mem-offline: Onlined memory block mem%pK\n",
 			(void *)sec_nr);
+		seg_idx = get_segment_addr_to_idx(start_addr);
+		pr_debug("mem-offline: Segment %d memblk_bitmap 0x%lx\n",
+				seg_idx, segment_infos[seg_idx].bitmask_kernel_blk);
 		break;
 	case MEM_GOING_OFFLINE:
 		pr_debug("mem-offline: MEM_GOING_OFFLINE : start = 0x%llx end = 0x%llx\n",
@@ -443,8 +574,12 @@ static int mem_event_callback(struct notifier_block *self,
 		record_stat(sec_nr, delay, MEMORY_OFFLINE);
 		cur = 0;
 		has_pend_offline_req = false;
+		set_memblk_bitmap_offline(start_addr);
 		pr_info("mem-offline: Offlined memory block mem%pK\n",
 			(void *)sec_nr);
+		seg_idx = get_segment_addr_to_idx(start_addr);
+		pr_debug("mem-offline: Segment %d memblk_bitmap 0x%lx\n",
+				seg_idx, segment_infos[seg_idx].bitmask_kernel_blk);
 		break;
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%llx end = 0x%llx\n",
@@ -518,6 +653,59 @@ static ssize_t show_block_allocated_bytes(struct kobject *kobj,
 	return scnprintf(buf, BUF_LEN, "%lu\n", allocd_mem);
 }
 
+static ssize_t show_seg_memblk_start(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	unsigned long memblk_start;
+	unsigned long seg_nr;
+	int ret;
+
+	ret = sscanf(kobject_name(kobj), SEGMENT_NAME, &seg_nr);
+	if (ret != 1) {
+		pr_err("mem-offline: couldn't get segment number! ret %d\n", ret);
+		return 0;
+	}
+
+	memblk_start =
+		pfn_to_section_nr(PFN_DOWN(segment_infos[seg_nr].start_addr));
+
+	return scnprintf(buf, BUF_LEN, "%lu\n", memblk_start);
+}
+
+static ssize_t show_num_memblks(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	unsigned long num_memblks;
+	unsigned long seg_nr;
+	int ret;
+
+	ret = sscanf(kobject_name(kobj), SEGMENT_NAME, &seg_nr);
+	if (ret != 1) {
+		pr_err("mem-offline: couldn't get num_memblks! ret %d\n", ret);
+		return 0;
+	}
+	num_memblks = segment_infos[seg_nr].num_kernel_blks;
+
+	return scnprintf(buf, BUF_LEN, "%lu\n", num_memblks);
+}
+
+static ssize_t show_seg_size(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	unsigned long seg_size;
+	unsigned long seg_nr;
+	int ret;
+
+	ret = sscanf(kobject_name(kobj), SEGMENT_NAME, &seg_nr);
+	if (ret != 1) {
+		pr_err("mem-offline: couldn't get segment size! ret %d\n", ret);
+		return 0;
+	}
+	seg_size = segment_infos[seg_nr].seg_size;
+
+	return scnprintf(buf, BUF_LEN, "%lu\n", seg_size);
+}
+
 static ssize_t show_mem_offline_granule(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
@@ -525,6 +713,19 @@ static ssize_t show_mem_offline_granule(struct kobject *kobj,
 			(unsigned long)offline_granule * SZ_1M);
 }
 
+static ssize_t show_differing_seg_sizes(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%lu\n",
+			(unsigned int)differing_segment_sizes);
+}
+
+static ssize_t show_num_segments(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%lu\n",
+			(unsigned long)num_segments);
+}
 
 static unsigned int print_blk_residency_percentage(char *buf, size_t sz,
 			unsigned int tot_blks, ktime_t *total_time,
@@ -958,6 +1159,7 @@ static struct attribute_group mem_attr_group = {
 	.attrs = mem_root_attrs,
 };
 
+/* memblock allocated bytes attribute group */
 static struct kobj_attribute block_allocated_bytes_attr =
 		__ATTR(allocated_bytes, 0444, show_block_allocated_bytes, NULL);
 
@@ -970,6 +1172,73 @@ static struct attribute_group mem_block_attr_group = {
 	.attrs = mem_block_attrs,
 };
 
+/* differing segment attribute group */
+static struct kobj_attribute differing_seg_sizes_attr =
+		__ATTR(differing_seg_sizes, 0444, show_differing_seg_sizes, NULL);
+
+static struct kobj_attribute num_segments_attr =
+		__ATTR(num_segment, 0444, show_num_segments, NULL);
+
+static struct attribute *differing_segments_attrs[] = {
+		&differing_seg_sizes_attr.attr,
+		&num_segments_attr.attr,
+		NULL,
+};
+
+static struct attribute_group differing_segments_attr_group = {
+	.attrs = differing_segments_attrs,
+};
+
+/* segment info attribute group */
+static struct kobj_attribute seg_memblk_start_attr =
+		__ATTR(memblk_start, 0444, show_seg_memblk_start, NULL);
+
+static struct kobj_attribute seg_num_memblks_attr =
+		__ATTR(num_memblks, 0444, show_num_memblks, NULL);
+
+static struct kobj_attribute seg_size_attr =
+		__ATTR(seg_size, 0444, show_seg_size, NULL);
+
+static struct attribute *seg_info_attrs[] = {
+		&seg_memblk_start_attr.attr,
+		&seg_num_memblks_attr.attr,
+		&seg_size_attr.attr,
+		NULL,
+};
+
+static struct attribute_group seg_info_attr_group = {
+	.attrs = seg_info_attrs,
+};
+
+static int mem_sysfs_create_seginfo(struct kobject *parent_kobj)
+{
+	struct kobject *segment_kobj, *seg_info_kobj;
+	char segmentstr[BUF_LEN];
+	unsigned long segnum;
+	int ret;
+
+	if (sysfs_create_group(parent_kobj, &differing_segments_attr_group)) {
+		kobject_put(kobj);
+		return -EINVAL;
+	}
+
+	ret = scnprintf(segmentstr, sizeof(segmentstr), "seg_info");
+	seg_info_kobj = kobject_create_and_add(segmentstr, parent_kobj);
+	if (!seg_info_kobj)
+		return -ENOMEM;
+
+	for (segnum = 0; segnum < num_segments; segnum++) {
+		ret = scnprintf(segmentstr, sizeof(segmentstr), SEGMENT_NAME, segnum);
+		segment_kobj = kobject_create_and_add(segmentstr, seg_info_kobj);
+		if (!segment_kobj)
+			return -ENOMEM;
+
+		if (sysfs_create_group(segment_kobj, &seg_info_attr_group))
+			kobject_put(segment_kobj);
+	}
+
+	return 0;
+}
 static int mem_sysfs_create_memblocks(struct kobject *parent_kobj)
 {
 	struct kobject *memblk_kobj;
@@ -1009,6 +1278,12 @@ static int mem_sysfs_init(void)
 		return -EINVAL;
 	}
 
+	/* create sysfs nodes for segment info if ddr has differing segment sizes */
+	if (differing_segment_sizes && mem_sysfs_create_seginfo(kobj)) {
+		pr_err("mem-offline: failed to create seginfo sysfs nodes\n");
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -1028,8 +1303,8 @@ static int mem_parse_dt(struct platform_device *pdev)
 	}
 	offline_granule = be32_to_cpup(val);
 	if (!offline_granule || (offline_granule & (offline_granule - 1)) ||
-	    ((offline_granule * SZ_1M < MIN_MEMORY_BLOCK_SIZE) &&
-	     (MIN_MEMORY_BLOCK_SIZE % (offline_granule * SZ_1M)))) {
+		((offline_granule * SZ_1M < MIN_MEMORY_BLOCK_SIZE) &&
+		 (MIN_MEMORY_BLOCK_SIZE % (offline_granule * SZ_1M)))) {
 		pr_err("mem-offine: invalid granule property\n");
 		return -EINVAL;
 	}
@@ -1059,6 +1334,232 @@ static struct notifier_block hotplug_memory_callback_nb = {
 	.notifier_call = mem_event_callback,
 	.priority = 0,
 };
+
+static unsigned int get_num_offlinable_segments(void)
+{
+	uint8_t r = 0; // region index
+	unsigned long region_end, segment_start, segment_size, addr;
+	unsigned int count = 0;
+
+	/* iterate through regions */
+	for (r = 0; r < num_ddr_regions; r++) {
+
+		region_end = ddr_regions[r].start_address + ddr_regions[r].length;
+
+		/* Calculate segment starting address */
+		segment_start = ddr_regions[r].start_address +
+				ddr_regions[r].segments_start_offset;
+
+		/* If DDR region granule_size is 0, this region cannot be offlined */
+		if (!ddr_regions[r].granule_size)
+			continue;
+
+		/* Calculate size of segments in bytes */
+		segment_size  = ddr_regions[r].granule_size << 20;
+
+		/* now iterate through segments within the region */
+		for (addr = segment_start; addr < region_end; addr += segment_size) {
+
+			/* Check if segment extends beyond region */
+			if ((addr + segment_size) > region_end)
+				break;
+
+			/* populate segment info only for ones in offlinable region */
+			if (addr < offlinable_region_start_addr)
+				continue;
+
+			count++;
+		}
+	}
+
+	return count;
+}
+
+static int get_segment_region_info(void)
+{
+	uint8_t r = 0; // region index
+	unsigned long region_end, segment_start, segment_size, r0_segment_size;
+	unsigned long num_kernel_blks, seg_idx = 0, addr;
+	int i;
+
+	num_segments = get_num_offlinable_segments();
+
+	segment_infos = kcalloc(num_segments, sizeof(*segment_infos), GFP_KERNEL);
+	if (!segment_infos)
+		return -ENOMEM;
+
+	for (i = 0; i < num_segments; i++)
+		segment_infos[i].start_addr = -1;
+
+	r0_segment_size = ddr_regions[0].granule_size << 20;
+
+	/* iterate through regions */
+	for (r = 0; r < num_ddr_regions; r++) {
+
+		region_end = ddr_regions[r].start_address + ddr_regions[r].length;
+
+		/* Calculate segment starting address */
+		segment_start = ddr_regions[r].start_address +
+				ddr_regions[r].segments_start_offset;
+
+		/* Calculate size of segments in bytes */
+		segment_size  = ddr_regions[r].granule_size << 20;
+
+		/* If DDR region granule_size is 0, this region cannot be offlined */
+		if (!segment_size)
+			continue;
+
+		/* Check if we have diferring segment sizes */
+		if (r0_segment_size != segment_size)
+			differing_segment_sizes = 1;
+
+		/* now iterate through segments within the region */
+		for (addr = segment_start; addr < region_end; addr += segment_size) {
+
+			/* Check if segment extends beyond region */
+			if ((addr + segment_size) > region_end)
+				break;
+
+			/* populate segment info only for ones in offlinable region */
+			if (addr < offlinable_region_start_addr)
+				continue;
+
+			if (segment_size > memory_block_size_bytes())
+				num_kernel_blks = segment_size / memory_block_size_bytes();
+			else
+				num_kernel_blks = 1;
+
+			segment_infos[seg_idx].start_addr = addr;
+			segment_infos[seg_idx].seg_size = segment_size;
+			segment_infos[seg_idx].num_kernel_blks = num_kernel_blks;
+
+			segment_infos[seg_idx].bitmask_kernel_blk =
+				GENMASK_ULL(num_kernel_blks - 1, 0);
+
+			seg_idx++;
+		}
+	}
+
+	if (differing_segment_sizes)
+		pr_info("mem-offline: system has DDR type of differing segment sizes\n");
+
+	return 0;
+}
+
+static unsigned int get_num_ddr_regions(struct device_node *node)
+{
+	int i, len;
+	char str[20];
+
+	for (i = 0; i < MAX_NUM_DDR_REGIONS; i++) {
+
+		snprintf(str, sizeof(str), "region%d", i);
+		if (!of_find_property(node, str, &len))
+			break;
+	}
+
+	return i;
+}
+
+static int get_ddr_regions_info(void)
+{
+	struct device_node *node;
+	struct property *prop;
+	int len, num_cells;
+	u64 val;
+	int nr_address_cells;
+	const __be32 *pos;
+	char str[20];
+	int i;
+
+	node = of_find_node_by_name(of_root, "ddr-regions");
+	if (!node) {
+		pr_err("mem-offine: ddr-regions node not found in DT\n");
+		return -EINVAL;
+	}
+
+	num_ddr_regions = get_num_ddr_regions(node);
+
+	ddr_regions = kcalloc(num_ddr_regions, sizeof(*ddr_regions), GFP_KERNEL);
+	if (!ddr_regions)
+		return -ENOMEM;
+
+	nr_address_cells = of_n_addr_cells(of_root);
+
+	for (i = 0; i < num_ddr_regions; i++) {
+
+		snprintf(str, sizeof(str), "region%d", i);
+		prop = of_find_property(node, str, &len);
+
+		if (!prop)
+			return -EINVAL;
+
+		num_cells = len / sizeof(__be32);
+		if (num_cells != DDR_REGIONS_NUM_CELLS)
+			return -EINVAL;
+
+		pos = prop->value;
+
+		val = of_read_number(pos, nr_address_cells);
+		pos += nr_address_cells;
+		ddr_regions[i].start_address = val;
+
+		val = of_read_number(pos, nr_address_cells);
+		pos += nr_address_cells;
+		ddr_regions[i].length = val;
+
+		val = of_read_number(pos, nr_address_cells);
+		pos += nr_address_cells;
+		ddr_regions[i].segments_start_offset = val;
+
+		val = of_read_number(pos, nr_address_cells);
+		pos += nr_address_cells;
+		ddr_regions[i].segments_start_idx = val;
+
+		val = of_read_number(pos, nr_address_cells);
+		pos += nr_address_cells;
+		ddr_regions[i].granule_size = val;
+	}
+
+	for (i = 0; i < num_ddr_regions; i++) {
+
+		pr_info("region%d: seg_start 0x%lx len 0x%lx granule 0x%lx seg_start_offset 0x%lx seg_start_idx 0x%lx\n",
+				i, ddr_regions[i].start_address, ddr_regions[i].length,
+				ddr_regions[i].granule_size,
+				ddr_regions[i].segments_start_offset,
+				ddr_regions[i].segments_start_idx);
+	}
+
+	return 0;
+}
+
+static int check_segment_granule_alignment(void)
+{
+	int seg_idx;
+	unsigned long granule_size;
+
+	for (seg_idx = 0; seg_idx < num_segments; seg_idx++) {
+		granule_size = segment_infos[seg_idx].seg_size;
+
+		if (granule_size & (granule_size - 1)) {
+			pr_err("mem-offline: invalid granule property for segment %d granule_size 0x%lx\n",
+					seg_idx, granule_size);
+			return -EINVAL;
+		}
+
+		/* check for granule size alignment */
+		if (((granule_size < MIN_MEMORY_BLOCK_SIZE) &&
+			(MIN_MEMORY_BLOCK_SIZE % granule_size)) ||
+			((granule_size > MIN_MEMORY_BLOCK_SIZE) &&
+			(granule_size % MIN_MEMORY_BLOCK_SIZE))) {
+			pr_err("mem-offline: granule size for segment %d granule_size 0x%lx is not aligned to memblock size\n",
+					seg_idx, granule_size);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
 
 static int get_bootmem_dram_end_address(phys_addr_t *bootmem_dram_end_addr)
 {
@@ -1117,13 +1618,32 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	offlinable_region_start_addr = memblock_end_of_DRAM();
+
 	ret = mem_online_remaining_blocks();
 	if (ret < 0)
 		return -ENODEV;
 
 	if (ret > 0)
 		pr_err("mem-offline: !!ERROR!! Auto onlining some memory blocks failed. System could run with less RAM\n");
+	else
+		pr_debug("mem-offline: offlinable_region_start_addr 0X%lx\n",
+				offlinable_region_start_addr);
 
+	ret = get_ddr_regions_info();
+	if (ret)
+		return ret;
+
+	ret = get_segment_region_info();
+	if (ret)
+		return ret;
+
+	ret = check_segment_granule_alignment();
+	if (ret)
+		return ret;
+
+	pr_info("mem-offline: num_ddr_regions %d num_segments %d\n",
+			num_ddr_regions, num_segments);
 	total_blks = (end_section_nr - start_section_nr + 1) /
 			sections_per_block;
 	mem_info = kcalloc(total_blks * MAX_STATE, sizeof(*mem_info),
