@@ -192,4 +192,16 @@ config JZ4770_PHY
 	  This driver provides PHY support for the USB controller found
 	  on the JZ-series and X-series SoCs from Ingenic.
 
+config USB_QCOM_EMU_PHY
+	tristate "Qualcomm Technologies, Inc. emulation USB PHY driver"
+	depends on ARCH_QCOM || COMPILE_TEST
+	select USB_PHY
+	help
+	  Enable this to support the USB transceiver used on
+	  Qualcomm Technologies, Inc. emulation platforms. It simply performs
+	  PHY initialization given a basic register write sequence.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called phy-qcom-emu.
+
 endmenu
