@@ -20,6 +20,7 @@ enum icnss_uevent {
 	ICNSS_UEVENT_FW_CRASHED,
 	ICNSS_UEVENT_FW_DOWN,
 	ICNSS_UEVENT_HANG_DATA,
+	ICNSS_UEVENT_SMMU_FAULT,
 };
 
 struct icnss_uevent_hang_data {
