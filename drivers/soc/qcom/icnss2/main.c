@@ -3901,7 +3901,7 @@ static int icnss_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&priv->event_list);
 
 	priv->soc_wake_wq = alloc_workqueue("icnss_soc_wake_event",
-					    WQ_UNBOUND, 1);
+					    WQ_UNBOUND|WQ_HIGHPRI, 1);
 	if (!priv->soc_wake_wq) {
 		icnss_pr_err("Soc wake Workqueue creation failed\n");
 		ret = -EFAULT;
