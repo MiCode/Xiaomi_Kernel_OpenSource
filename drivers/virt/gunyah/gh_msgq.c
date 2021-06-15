@@ -12,15 +12,18 @@
 #include <linux/interrupt.h>
 #include <linux/ratelimit.h>
 
-#include <linux/gunyah/hcall.h>
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_errno.h>
+#include "hcall_msgq.h"
 
 /* HVC call specific mask: 0 to 31 */
 #define GH_MSGQ_HVC_FLAGS_MASK GENMASK_ULL(31, 0)
 
+struct gh_msgq_cap_table;
+
 struct gh_msgq_desc {
-	enum gh_msgq_label label;
+	int label;
+	struct gh_msgq_cap_table *cap_table;
 };
 
 struct gh_msgq_cap_table {
@@ -40,10 +43,57 @@ struct gh_msgq_cap_table {
 	bool rx_empty;
 	wait_queue_head_t tx_wq;
 	wait_queue_head_t rx_wq;
+
+	int label;
+	struct list_head entry;
 };
 
-static bool gh_msgq_initialized;
-static struct gh_msgq_cap_table gh_msgq_cap_table[GH_MSGQ_LABEL_MAX];
+static LIST_HEAD(gh_msgq_cap_list);
+static DEFINE_SPINLOCK(gh_msgq_cap_list_lock);
+
+struct gh_msgq_cap_table *gh_msgq_alloc_entry(int label)
+{
+	int ret;
+	struct gh_msgq_cap_table *cap_table_entry = NULL;
+
+	cap_table_entry = kzalloc(sizeof(struct gh_msgq_cap_table), GFP_KERNEL);
+	if (!cap_table_entry)
+		return ERR_PTR(-ENOMEM);
+
+	cap_table_entry->tx_cap_id = GH_CAPID_INVAL;
+	cap_table_entry->rx_cap_id = GH_CAPID_INVAL;
+	cap_table_entry->tx_full = false;
+	cap_table_entry->rx_empty = true;
+	init_waitqueue_head(&cap_table_entry->tx_wq);
+	init_waitqueue_head(&cap_table_entry->rx_wq);
+	spin_lock_init(&cap_table_entry->tx_lock);
+	spin_lock_init(&cap_table_entry->rx_lock);
+	spin_lock_init(&cap_table_entry->cap_entry_lock);
+
+	cap_table_entry->tx_irq_name =
+		kasprintf(GFP_KERNEL, "gh_msgq_tx_%d", label);
+	if (!cap_table_entry->tx_irq_name) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	cap_table_entry->rx_irq_name =
+		kasprintf(GFP_KERNEL, "gh_msgq_rx_%d", label);
+	if (!cap_table_entry->rx_irq_name) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	spin_lock(&gh_msgq_cap_list_lock);
+	list_add(&cap_table_entry->entry, &gh_msgq_cap_list);
+	spin_unlock(&gh_msgq_cap_list_lock);
+	return cap_table_entry;
+err:
+	kfree(cap_table_entry->tx_irq_name);
+	kfree(cap_table_entry->rx_irq_name);
+	kfree(cap_table_entry);
+	return ERR_PTR(ret);
+}
 
 static irqreturn_t gh_msgq_rx_isr(int irq, void *dev)
 {
@@ -143,7 +193,10 @@ int gh_msgq_recv(void *msgq_client_desc,
 	if (buff_size > GH_MSGQ_MAX_MSG_SIZE_BYTES)
 		return -E2BIG;
 
-	cap_table_entry = &gh_msgq_cap_table[client_desc->label];
+	if (client_desc->cap_table == NULL)
+		return -EAGAIN;
+
+	cap_table_entry = client_desc->cap_table;
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -269,7 +322,10 @@ int gh_msgq_send(void *msgq_client_desc,
 	if (size > GH_MSGQ_MAX_MSG_SIZE_BYTES)
 		return -E2BIG;
 
-	cap_table_entry = &gh_msgq_cap_table[client_desc->label];
+	if (client_desc->cap_table == NULL)
+		return -EAGAIN;
+
+	cap_table_entry = client_desc->cap_table;
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -334,18 +390,28 @@ EXPORT_SYMBOL(gh_msgq_send);
  * the return value using IS_ERR_OR_NULL() and PTR_ERR() to extract the error
  * code.
  */
-void *gh_msgq_register(enum gh_msgq_label label)
+void *gh_msgq_register(int label)
 {
-	struct gh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_cap_table *cap_table_entry = NULL, *tmp_entry;
 	struct gh_msgq_desc *client_desc;
 
-	if (!gh_msgq_initialized)
-		return ERR_PTR(-EPROBE_DEFER);
-
-	if (label < 0 || label >= GH_MSGQ_LABEL_MAX)
+	if (label < 0)
 		return ERR_PTR(-EINVAL);
 
-	cap_table_entry = &gh_msgq_cap_table[label];
+	spin_lock(&gh_msgq_cap_list_lock);
+	list_for_each_entry(tmp_entry, &gh_msgq_cap_list, entry) {
+		if (label == tmp_entry->label) {
+			cap_table_entry = tmp_entry;
+			break;
+		}
+	}
+	spin_unlock(&gh_msgq_cap_list_lock);
+
+	if (cap_table_entry == NULL) {
+		cap_table_entry = gh_msgq_alloc_entry(label);
+		if (IS_ERR(cap_table_entry))
+			return cap_table_entry;
+	}
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -362,6 +428,7 @@ void *gh_msgq_register(enum gh_msgq_label label)
 		return ERR_PTR(ENOMEM);
 
 	client_desc->label = label;
+	client_desc->cap_table = cap_table_entry;
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 	cap_table_entry->client_desc = client_desc;
@@ -388,7 +455,7 @@ int gh_msgq_unregister(void *msgq_client_desc)
 	if (!client_desc)
 		return -EINVAL;
 
-	cap_table_entry = &gh_msgq_cap_table[client_desc->label];
+	cap_table_entry = client_desc->cap_table;
 
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
@@ -413,16 +480,12 @@ int gh_msgq_unregister(void *msgq_client_desc)
 }
 EXPORT_SYMBOL(gh_msgq_unregister);
 
-int gh_msgq_populate_cap_info(enum gh_msgq_label label, u64 cap_id,
-				int direction, int irq)
+int gh_msgq_populate_cap_info(int label, u64 cap_id, int direction, int irq)
 {
-	struct gh_msgq_cap_table *cap_table_entry;
+	struct gh_msgq_cap_table *cap_table_entry = NULL, *tmp_entry;
 	int ret;
 
-	if (!gh_msgq_initialized)
-		return -EAGAIN;
-
-	if (label < 0 || label >= GH_MSGQ_LABEL_MAX) {
+	if (label < 0) {
 		pr_err("%s: Invalid label passed\n", __func__);
 		return -EINVAL;
 	}
@@ -432,7 +495,20 @@ int gh_msgq_populate_cap_info(enum gh_msgq_label label, u64 cap_id,
 		return -ENXIO;
 	}
 
-	cap_table_entry = &gh_msgq_cap_table[label];
+	spin_lock(&gh_msgq_cap_list_lock);
+	list_for_each_entry(tmp_entry, &gh_msgq_cap_list, entry) {
+		if (label == tmp_entry->label) {
+			cap_table_entry = tmp_entry;
+			break;
+		}
+	}
+	spin_unlock(&gh_msgq_cap_list_lock);
+
+	if (cap_table_entry == NULL) {
+		cap_table_entry = gh_msgq_alloc_entry(label);
+		if (IS_ERR(cap_table_entry))
+			return PTR_ERR(cap_table_entry);
+	}
 
 	if (direction == GH_MSGQ_DIRECTION_TX) {
 		ret = request_irq(irq, gh_msgq_tx_isr, 0,
@@ -473,12 +549,18 @@ int gh_msgq_populate_cap_info(enum gh_msgq_label label, u64 cap_id,
 	return 0;
 
 err:
+	spin_lock(&gh_msgq_cap_list_lock);
+	list_del(&cap_table_entry->entry);
+	spin_unlock(&gh_msgq_cap_list_lock);
+	kfree(cap_table_entry->tx_irq_name);
+	kfree(cap_table_entry->rx_irq_name);
+	kfree(cap_table_entry);
 	return ret;
 }
 EXPORT_SYMBOL(gh_msgq_populate_cap_info);
 
-static int gh_msgq_probe_direction(struct platform_device *pdev,
-			enum gh_msgq_label label, int direction, int idx)
+static int gh_msgq_probe_direction(struct platform_device *pdev, int label,
+				   int direction, int idx)
 {
 	int irq, ret;
 	u64 capid;
@@ -499,7 +581,7 @@ static int gh_msgq_probe_direction(struct platform_device *pdev,
 	return gh_msgq_populate_cap_info(label, capid, direction, irq);
 }
 
-int gh_msgq_probe(struct platform_device *pdev, enum gh_msgq_label label)
+int gh_msgq_probe(struct platform_device *pdev, int label)
 {
 	int ret, idx = 0;
 	struct device_node *node = pdev->dev.of_node;
@@ -526,68 +608,28 @@ int gh_msgq_probe(struct platform_device *pdev, enum gh_msgq_label label)
 }
 EXPORT_SYMBOL(gh_msgq_probe);
 
-static void gh_msgq_cleanup(int begin_idx)
+static void gh_msgq_cleanup(void)
 {
 	struct gh_msgq_cap_table *cap_table_entry;
-	int i;
 
-	if (begin_idx >= GH_MSGQ_LABEL_MAX)
-		begin_idx = GH_MSGQ_LABEL_MAX - 1;
-
-	for (i = begin_idx; i >= 0; i--) {
-		cap_table_entry = &gh_msgq_cap_table[i];
-
+	spin_lock(&gh_msgq_cap_list_lock);
+	list_for_each_entry(cap_table_entry, &gh_msgq_cap_list, entry) {
 		kfree(cap_table_entry->tx_irq_name);
 		kfree(cap_table_entry->rx_irq_name);
+		kfree(cap_table_entry);
 	}
+	spin_unlock(&gh_msgq_cap_list_lock);
 }
 
 static int __init gh_msgq_init(void)
 {
-	struct gh_msgq_cap_table *cap_table_entry;
-	int ret;
-	int i;
-
-	for (i = 0; i < GH_MSGQ_LABEL_MAX; i++) {
-		cap_table_entry = &gh_msgq_cap_table[i];
-
-		cap_table_entry->tx_cap_id = GH_CAPID_INVAL;
-		cap_table_entry->rx_cap_id = GH_CAPID_INVAL;
-		cap_table_entry->tx_full = false;
-		cap_table_entry->rx_empty = true;
-		init_waitqueue_head(&cap_table_entry->tx_wq);
-		init_waitqueue_head(&cap_table_entry->rx_wq);
-		spin_lock_init(&cap_table_entry->tx_lock);
-		spin_lock_init(&cap_table_entry->rx_lock);
-		spin_lock_init(&cap_table_entry->cap_entry_lock);
-
-		cap_table_entry->tx_irq_name = kasprintf(GFP_KERNEL,
-							"gh_msgq_tx_%d", i);
-		if (!cap_table_entry->tx_irq_name) {
-			ret = -ENOMEM;
-			goto err;
-		}
-
-		cap_table_entry->rx_irq_name = kasprintf(GFP_KERNEL,
-							"gh_msgq_rx_%d", i);
-		if (!cap_table_entry->rx_irq_name) {
-			ret = -ENOMEM;
-			goto err;
-		}
-	}
-
-	gh_msgq_initialized = true;
 	return 0;
-
-err:
-	gh_msgq_cleanup(i);
-	return ret;
 }
 module_init(gh_msgq_init);
 
 static void __exit gh_msgq_exit(void)
 {
-	gh_msgq_cleanup(GH_MSGQ_LABEL_MAX - 1);
+	gh_msgq_cleanup();
 }
 module_exit(gh_msgq_exit);
 

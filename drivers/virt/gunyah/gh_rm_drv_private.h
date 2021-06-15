@@ -327,6 +327,5 @@ struct gh_vm_get_id_resp_entry *
 gh_rm_vm_get_id(gh_vmid_t vmid, u32 *out_n_entries);
 struct gh_vm_get_hyp_res_resp_entry *
 gh_rm_vm_get_hyp_res(gh_vmid_t vmid, u32 *out_n_entries);
-int gh_msgq_populate_cap_info(enum gh_msgq_label label, u64 cap_id,
-					int direction, int irq);
+int gh_msgq_populate_cap_info(int label, u64 cap_id, int direction, int irq);
 #endif /* __GH_RM_DRV_PRIVATE_H */

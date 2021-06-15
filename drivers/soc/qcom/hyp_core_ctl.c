@@ -23,9 +23,9 @@
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
 
-#include <linux/gunyah/hcall.h>
 #include <linux/gunyah/gh_errno.h>
 #include <linux/gunyah/gh_rm_drv.h>
+#include "hcall_core_ctl.h"
 
 #include <linux/sched/walt.h>
 
