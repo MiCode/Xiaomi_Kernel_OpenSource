@@ -335,6 +335,27 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 }
 #endif
 
+static void kgsl_process_sub_stats(struct kgsl_process_private *priv,
+	unsigned int type, uint64_t size)
+{
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+	struct task_struct *task;
+	struct mm_struct *mm;
+
+	task = get_pid_task(priv->pid, PIDTYPE_PID);
+	if (task) {
+		mm = get_task_mm(task);
+		if (mm) {
+			add_mm_counter(mm, MM_UNRECLAIMABLE,
+					-(size >> PAGE_SHIFT));
+			mmput(mm);
+		}
+		put_task_struct(task);
+	}
+#endif
+	atomic64_sub(size, &priv->stats[type].cur);
+}
+
 void
 kgsl_mem_entry_destroy(struct kref *kref)
 {
@@ -349,7 +370,7 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	/* pull out the memtype before the flags get cleared */
 	memtype = kgsl_memdesc_usermem_type(&entry->memdesc);
 
-	atomic64_sub(entry->memdesc.size, &entry->priv->stats[memtype].cur);
+	kgsl_process_sub_stats(entry->priv, memtype, entry->memdesc.size);
 
 	/* Detach from process list */
 	kgsl_mem_entry_detach_process(entry);
@@ -2753,9 +2774,11 @@ static void kgsl_process_add_stats(struct kgsl_process_private *priv,
 
 	if (ret > priv->stats[type].max)
 		priv->stats[type].max = ret;
+
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+	add_mm_counter(current->mm, MM_UNRECLAIMABLE, (size >> PAGE_SHIFT));
+#endif
 }
-
-
 
 long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
