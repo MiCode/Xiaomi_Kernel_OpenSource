@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config QCOM_MEM_BUF
+	tristate "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
+	depends on GH_MSGQ && GH_RM_DRV
+	select QCOM_MEM_BUF_DEV
+	help
+	  Add support for lending memory from one virtual machine to another.
+	  This driver communicates with the hypervisor, as well as other
+	  virtual machines, to request and lend memory from and to VMs
+	  respectively.
+	  If unsure, say N
+
+config QCOM_MEM_BUF_DEV
+	tristate
