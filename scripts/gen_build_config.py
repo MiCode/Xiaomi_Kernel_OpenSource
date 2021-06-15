@@ -10,17 +10,6 @@ import stat
 import shutil
 import re
 
-def get_rel_path(path):
-    rel_path = ''
-    split_path = path.split("/")
-    count = 0
-    while True:
-       if count == len(split_path):
-           break
-       count = count + 1
-       rel_path = '%s../' % (rel_path)
-    return '%s' % (rel_path.rstrip('/'))
-
 # Parse project defconfig to get special config file, build config file and out-of-tree kernel modules
 def get_config_in_defconfig(file_name, kernel_dir):
     file_handle = open(file_name, 'r')
@@ -67,6 +56,28 @@ def main(**args):
     current_file_path = os.path.abspath(sys.argv[0])
     abs_kernel_dir = os.path.dirname(os.path.dirname(current_file_path))
 
+    gen_build_config = out_file
+    gen_build_config_dir = os.path.dirname(gen_build_config)
+    if not os.path.exists(gen_build_config_dir):
+        os.makedirs(gen_build_config_dir)
+    gki_build_config = '%s/build.config.gki.aarch64' % (abs_kernel_dir)
+    gen_build_config_gki = '%s/build.config.gki.aarch64' % (gen_build_config_dir)
+    file_text = []
+    if abi_mode == 'yes':
+        if os.path.exists(gki_build_config):
+            file_handle = open(gki_build_config, 'r')
+            for line in file_handle.readlines():
+                line_strip = line.strip()
+                pattern_source = re.compile('^\.\s.+$')
+                result = pattern_source.match(line_strip)
+                if not result:
+                    file_text.append(line_strip)
+            file_handle.close()
+        file_handle = open(gen_build_config_gki, 'w')
+        for line in file_text:
+            file_handle.write(line + '\n')
+        file_handle.close()
+
     mode_config = ''
     if (build_mode == 'eng') or (build_mode == 'userdebug'):
         mode_config = '%s.config' % (build_mode)
@@ -95,30 +106,41 @@ def main(**args):
     build_config = '%s/%s' % (abs_kernel_dir, build_config)
     file_text = []
     if os.path.exists(build_config):
-      file_handle = open(build_config, 'r')
-      for line in file_handle.readlines():
-          line_strip = line.strip()
-          pattern_cc = re.compile('^CC\s*=\s*(.+)$')
-          result = pattern_cc.match(line_strip)
-          if result:
-              line_strip = 'CC=\"${CC_WRAPPER} %s\"' % (result.group(1).strip())
-          line_strip = line_strip.replace("$$","$")
-          file_text.append(line_strip)
-          pattern_kernel_dir = re.compile('^KERNEL_DIR\s*=\s*(.+)$')
-          result = pattern_kernel_dir.match(line_strip)
-          if result:
-              kernel_dir = result.group(1).strip('')
-      file_handle.close()
+        file_handle = open(build_config, 'r')
+        for line in file_handle.readlines():
+            line_strip = line.strip()
+            pattern_cc = re.compile('^CC\s*=\s*(.+)$')
+            result = pattern_cc.match(line_strip)
+            if result:
+                line_strip = 'CC=\"${CC_WRAPPER} %s\"' % (result.group(1).strip())
+            line_strip = line_strip.replace("$$","$")
+            file_text.append(line_strip)
+            pattern_kernel_dir = re.compile('^KERNEL_DIR\s*=\s*(.+)$')
+            result = pattern_kernel_dir.match(line_strip)
+            if result:
+                kernel_dir = result.group(1).strip('')
+        file_handle.close()
     else:
-      print 'Error: cannot get build.config under ' + abs_kernel_dir + '.'
-      print 'Please check whether ' + project_defconfig + ' defined CONFIG_BUILD_CONFIG_FILE.'
-      sys.exit(2)
+        print 'Error: cannot get build.config under ' + abs_kernel_dir + '.'
+        print 'Please check whether ' + project_defconfig + ' defined CONFIG_BUILD_CONFIG_FILE.'
+        sys.exit(2)
 
-    file_text.append("PATH=${ROOT_DIR}/prebuilts/perl/linux-x86/bin:${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/bin:/usr/bin:/bin:$PATH")
+    file_text.append("PATH=${ROOT_DIR}/../prebuilts/perl/linux-x86/bin:${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/bin:/usr/bin:/bin:$PATH")
     file_text.append("HERMETIC_TOOLCHAIN=")
     file_text.append("DTC='${OUT_DIR}/scripts/dtc/dtc'")
     file_text.append("DEPMOD=")
-    file_text.append("IN_KERNEL_MODULES=")
+    file_text.append("unset MAKE_GOALS")
+    file_text.append("TRIM_NONLISTED_KMI=")
+    file_text.append("KMI_SYMBOL_LIST_STRICT_MODE=")
+    file_text.append("MODULES_ORDER=")
+    file_text.append("KMI_ENFORCED=1")
+    if abi_mode == 'yes':
+        file_text.append("IN_KERNEL_MODULES=1")
+        file_text.append("KMI_SYMBOL_LIST_MODULE_GROUPING=0")
+        file_text.append("KMI_SYMBOL_LIST_ADD_ONLY=1")
+        file_text.append('ADDITIONAL_KMI_SYMBOL_LISTS="${ADDITIONAL_KMI_SYMBOL_LISTS} android/abi_gki_aarch64"')
+    else:
+        file_text.append("IN_KERNEL_MODULES=")
 
     all_defconfig = ''
     pre_defconfig_cmds = ''
@@ -126,8 +148,9 @@ def main(**args):
         all_defconfig = '%s %s' % (project_defconfig_name, mode_config)
     else:
         # get relative path from {kernel dir} to curret working dir
-        rel_o_path = get_rel_path(kernel_dir)
-        all_defconfig = '%s ../../../%s/${OUT_DIR}/%s.config %s' % (special_defconfig, rel_o_path, project, mode_config)
+        rel_kernel_path = 'REL_KERNEL_PATH=`./${KERNEL_DIR}/scripts/get_rel_path.sh ${ROOT_DIR} %s`' % (kernel_dir)
+        file_text.append(rel_kernel_path)
+        all_defconfig = '%s ../../../${REL_KERNEL_PATH}/${OUT_DIR}/%s.config %s' % (special_defconfig, project, mode_config)
         pre_defconfig_cmds = 'PRE_DEFCONFIG_CMDS=\"cp -p ${KERNEL_DIR}/%s/%s ${OUT_DIR}/%s.config\"' % (defconfig_dir, project_defconfig_name, project)
     all_defconfig = 'DEFCONFIG=\"%s\"' % (all_defconfig.strip())
     file_text.append(all_defconfig)
@@ -137,12 +160,12 @@ def main(**args):
     ext_modules_list = ''
     ext_modules_file = '%s/kernel/configs/ext_modules.list' % (abs_kernel_dir)
     if os.path.exists(ext_modules_file):
-      file_handle = open(ext_modules_file, 'r')
-      for line in file_handle.readlines():
-          line_strip = line.strip()
-          ext_modules_list = '%s %s' % (ext_modules_list, line_strip)
-      ext_modules_list = 'EXT_MODULES=\"%s\"' % (ext_modules_list.strip())
-      file_handle.close()
+        file_handle = open(ext_modules_file, 'r')
+        for line in file_handle.readlines():
+            line_strip = line.strip()
+            ext_modules_list = '%s %s' % (ext_modules_list, line_strip)
+        ext_modules_list = 'EXT_MODULES=\"%s\"' % (ext_modules_list.strip())
+        file_handle.close()
     if ext_modules:
         ext_modules_list = 'EXT_MODULES=\"%s\"' % (ext_modules.strip())
     file_text.append(ext_modules_list)
@@ -157,8 +180,9 @@ def main(**args):
         file_text.append(post_defconfig_cmds)
         clean_empty_folder_func = 'function clean_empty_folder() {\n\
     out_dir=${OUT_DIR}\n\
+    rel_kernel_dir=`./${KERNEL_DIR}/scripts/get_rel_path.sh ${ROOT_DIR} ${KERNEL_DIR}`\n\
     rel_out_dir=`./${KERNEL_DIR}/scripts/get_rel_path.sh ${out_dir} ${ROOT_DIR}`\n\
-    abs_out_dir=$(readlink -m ${rel_out_dir}/%s/../../../${rel_out_dir%%/$KERNEL_DIR})\n\
+    abs_out_dir=$(readlink -m ${rel_out_dir}/${rel_kernel_dir}/../../../${rel_out_dir%%/$KERNEL_DIR})\n\
     if [ -d "${abs_out_dir}" ]; then\n\
         tmp_dir=${abs_out_dir}/\n\
         cd ${tmp_dir}\n\
@@ -170,25 +194,25 @@ def main(**args):
             cd ..\n\
         done\n\
     fi\n\
-    cd ${ROOT_DIR}\n}' % (rel_o_path)
+    cd ${ROOT_DIR}\n}'
         file_text.append(clean_empty_folder_func)
 
-    gen_build_config = out_file
-    gen_build_config_dir = os.path.dirname(gen_build_config)
-    if not os.path.exists(gen_build_config_dir):
-        os.makedirs(gen_build_config_dir)
     gen_build_config_mtk = '%s.mtk' % (gen_build_config)
+    file_handle = open(gen_build_config_mtk, 'w')
+    for line in file_text:
+        file_handle.write(line + '\n')
+    file_handle.close()
+
     file_handle = open(gen_build_config, 'w')
     kernel_dir_line = 'KERNEL_DIR=%s' % (kernel_dir)
     file_handle.write(kernel_dir_line + '\n')
     rel_gen_build_config_dir = 'REL_GEN_BUILD_CONFIG_DIR=`./${KERNEL_DIR}/scripts/get_rel_path.sh %s ${ROOT_DIR}`' % (gen_build_config_dir)
     file_handle.write(rel_gen_build_config_dir + '\n')
-    build_config_fragments = 'BUILD_CONFIG_FRAGMENTS="${KERNEL_DIR}/build.config.common ${REL_GEN_BUILD_CONFIG_DIR}/%s"' % (os.path.basename(gen_build_config_mtk))
+    if abi_mode == 'yes':
+        build_config_fragments = 'BUILD_CONFIG_FRAGMENTS="${KERNEL_DIR}/build.config.common ${REL_GEN_BUILD_CONFIG_DIR}/%s ${REL_GEN_BUILD_CONFIG_DIR}/%s"' % (os.path.basename(gen_build_config_gki), os.path.basename(gen_build_config_mtk))
+    else:
+        build_config_fragments = 'BUILD_CONFIG_FRAGMENTS="${KERNEL_DIR}/build.config.common ${REL_GEN_BUILD_CONFIG_DIR}/%s"' % (os.path.basename(gen_build_config_mtk))
     file_handle.write(build_config_fragments)
-    file_handle.close()
-    file_handle = open(gen_build_config_mtk, 'w')
-    for line in file_text:
-        file_handle.write(line + '\n')
     file_handle.close()
 
 if __name__ == '__main__':
