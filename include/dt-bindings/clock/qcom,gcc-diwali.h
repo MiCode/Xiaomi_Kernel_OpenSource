@@ -177,5 +177,8 @@
 #define GCC_VIDEO_BCR					23
 #define GCC_VIDEO_AXI0_CLK_ARES				24
 #define GCC_VIDEO_AXI1_CLK_ARES				25
+#define GCC_PCIE_PHY_BCR				26
+#define GCC_QUSB2PHY_PRIM_BCR				27
+#define GCC_QUSB2PHY_SEC_BCR				28
 
 #endif
