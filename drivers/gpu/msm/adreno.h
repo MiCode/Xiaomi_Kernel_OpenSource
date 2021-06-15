@@ -799,11 +799,6 @@ struct adreno_gpudev {
 			struct kgsl_power_stats *stats);
 	int (*setproperty)(struct kgsl_device_private *priv, u32 type,
 		void __user *value, u32 sizebytes);
-	/**
-	 * @gpu_model - Copy the gpu model string into the provided buffer
-	 */
-	size_t (*gpu_model)(struct adreno_device *adreno_dev,
-			char *str, size_t bufsz);
 };
 
 /**

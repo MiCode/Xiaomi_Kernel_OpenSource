@@ -11,17 +11,11 @@
 
 static ssize_t _gpu_model_show(struct kgsl_device *device, char *buf)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	if (gpudev->gpu_model)
-		return gpudev->gpu_model(adreno_dev, buf, PAGE_SIZE);
-
 	return scnprintf(buf, PAGE_SIZE, adreno_get_gpu_model(device));
 }
 
 static ssize_t gpu_model_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
+		struct device_attribute *attr, char *buf)
 {
 	struct kgsl_device *device = dev_get_drvdata(dev);
 
