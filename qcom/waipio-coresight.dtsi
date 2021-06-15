@@ -1485,6 +1485,63 @@
 		};
 	};
 
+	gladiator: gladiator {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-gladiator";
+		qcom,dummy-source;
+
+		atid = <96>;
+
+		out-ports {
+			port {
+				gladiator_out_funnel_ddr_dl1: endpoint {
+					remote-endpoint =
+					<&funnel_ddr_dl1_in_gladiator>;
+				};
+			};
+		};
+	};
+
+	funnel_ddr_dl1: funnel@10d0f000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb908>;
+
+		reg = <0x10d0f000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-ddr_dl1";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@6 {
+				reg = <6>;
+				funnel_ddr_dl1_in_gladiator: endpoint {
+					remote-endpoint =
+					<&gladiator_out_funnel_ddr_dl1>;
+				};
+			};
+		};
+
+		out-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_ddr_dl1_out_funnel_ddr_dl0: endpoint {
+					remote-endpoint =
+					<&funnel_ddr_dl0_in_funnel_ddr_dl1>;
+				};
+			};
+		};
+
+	};
+
 	funnel_ddr_dl0: funnel@10d05000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb908>;
@@ -1533,6 +1590,13 @@
 				};
 			};
 
+			port@4 {
+				reg = <4>;
+				funnel_ddr_dl0_in_funnel_ddr_dl1: endpoint {
+					remote-endpoint =
+					<&funnel_ddr_dl1_out_funnel_ddr_dl0>;
+				};
+			};
 		};
 
 		out-ports {
@@ -1575,6 +1639,13 @@
 				};
 			};
 
+			port@4 {
+				reg = <4>;
+				funnel_ddr_dl0_out_funnel_dl_center: endpoint {
+					remote-endpoint =
+					<&funnel_dl_center_in_funnel_ddr_dl0>;
+				};
+			};
 		};
 	};
 
@@ -2655,6 +2726,14 @@
 				funnel_dl_center_in_tpda_dl_center: endpoint {
 					remote-endpoint =
 					<&tpda_dl_center_out_funnel_dl_center>;
+				};
+			};
+
+			port@4 {
+				reg = <4>;
+				funnel_dl_center_in_funnel_ddr_dl0: endpoint {
+					remote-endpoint =
+					<&funnel_ddr_dl0_out_funnel_dl_center>;
 				};
 			};
 
