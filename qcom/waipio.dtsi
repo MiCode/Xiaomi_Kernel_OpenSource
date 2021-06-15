@@ -155,7 +155,7 @@
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
-			capacity-dmips-mhz = <1740>;
+			capacity-dmips-mhz = <1980>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_4: l2-cache {
@@ -176,7 +176,7 @@
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
-			capacity-dmips-mhz = <1740>;
+			capacity-dmips-mhz = <1980>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_5: l2-cache {
@@ -196,7 +196,7 @@
 			power-domains = <&CPU_PD6>;
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			power-domain-names = "psci";
-			capacity-dmips-mhz = <1740>;
+			capacity-dmips-mhz = <1980>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_6: l2-cache {
@@ -216,7 +216,7 @@
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 2 4>;
-			capacity-dmips-mhz = <1843>;
+			capacity-dmips-mhz = <2097>;
 			dynamic-power-coefficient = <396>;
 			#cooling-cells = <2>;
 			L2_7: l2-cache {
