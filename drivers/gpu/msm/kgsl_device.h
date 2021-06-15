@@ -437,6 +437,7 @@ struct kgsl_context {
  * @fd_count: Counter for the number of FDs for this process
  * @ctxt_count: Count for the number of contexts for this process
  * @ctxt_count_lock: Spinlock to protect ctxt_count
+ * @frame_count: Count for the number of frames processed
  */
 struct kgsl_process_private {
 	unsigned long priv;
@@ -460,6 +461,7 @@ struct kgsl_process_private {
 	int fd_count;
 	atomic_t ctxt_count;
 	spinlock_t ctxt_count_lock;
+	atomic64_t frame_count;
 };
 
 /**

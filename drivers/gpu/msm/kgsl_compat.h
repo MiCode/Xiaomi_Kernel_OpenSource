@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2017,2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017,2019,2021 The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_COMPAT_H
 #define __KGSL_COMPAT_H
 
+#include <uapi/linux/msm_kgsl.h>
 #include <linux/compat.h>
-#include <linux/msm_kgsl.h>
 
 #ifdef CONFIG_COMPAT
 

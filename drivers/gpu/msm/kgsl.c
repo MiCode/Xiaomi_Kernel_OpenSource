@@ -12,6 +12,7 @@
 #include <linux/ion.h>
 #include <linux/mman.h>
 #include <linux/mm_types.h>
+#include <linux/msm_kgsl.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/pm_runtime.h>
@@ -1063,6 +1064,24 @@ done:
 	mutex_unlock(&kgsl_driver.process_mutex);
 	return private;
 }
+
+int kgsl_gpu_frame_count(pid_t pid, u64 *frame_count)
+{
+	struct kgsl_process_private *p;
+
+	if (!frame_count)
+		return -EINVAL;
+
+	p = kgsl_process_private_find(pid);
+	if (!p)
+		return -ENOENT;
+
+	*frame_count = atomic64_read(&p->frame_count);
+	kgsl_process_private_put(p);
+
+	return 0;
+}
+EXPORT_SYMBOL(kgsl_gpu_frame_count);
 
 static int kgsl_close_device(struct kgsl_device *device)
 {
