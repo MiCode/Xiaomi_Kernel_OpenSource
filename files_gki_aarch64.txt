@@ -1201,6 +1201,8 @@ drivers/net/phy/phy.c
 drivers/net/phy/phy-c45.c
 drivers/net/phy/phy-core.c
 drivers/net/phy/phy_device.c
+drivers/net/phy/phylink.c
+drivers/net/phy/sfp.h
 drivers/net/phy/swphy.c
 drivers/net/phy/swphy.h
 drivers/net/ppp/bsd_comp.c
@@ -5576,6 +5578,7 @@ net/sched/sch_api.c
 net/sched/sch_blackhole.c
 net/sched/sch_codel.c
 net/sched/sch_fifo.c
+net/sched/sch_fq.c
 net/sched/sch_fq_codel.c
 net/sched/sch_generic.c
 net/sched/sch_htb.c
