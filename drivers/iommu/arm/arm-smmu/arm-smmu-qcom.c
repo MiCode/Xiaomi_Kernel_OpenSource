@@ -423,9 +423,15 @@ struct qsmmuv500_tbu_device {
 	spinlock_t			halt_lock;
 	u32				halt_count;
 
-	bool				has_micro_idle;
 	unsigned int			*irqs;
 };
+
+struct arm_tbu_device {
+	struct qsmmuv500_tbu_device tbu;
+	bool has_micro_idle;
+};
+
+#define to_arm_tbu(tbu)			container_of(tbu, struct arm_tbu_device, tbu)
 
 static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 				struct arm_smmu_domain *smmu_domain)
@@ -973,7 +979,7 @@ bug:
  * Prior to accessing registers in the TBU local register space,
  * TBU must be woken from micro idle.
  */
-static int __arm_smmu_micro_idle_cfg(struct arm_smmu_device *smmu,
+static int __arm_tbu_micro_idle_cfg(struct arm_smmu_device *smmu,
 					    u32 val, u32 mask)
 {
 	void __iomem *reg;
@@ -1010,36 +1016,62 @@ static int __arm_smmu_micro_idle_cfg(struct arm_smmu_device *smmu,
 	return ret;
 }
 
-int arm_smmu_micro_idle_wake(struct arm_smmu_power_resources *pwr)
+int arm_tbu_micro_idle_wake(struct arm_smmu_power_resources *pwr)
 {
 	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
+	struct arm_tbu_device *arm_tbu = to_arm_tbu(tbu);
 	u32 val;
 
-	if (!tbu->has_micro_idle)
+	if (!arm_tbu->has_micro_idle)
 		return 0;
 
 	val = tbu->sid_start >> 10;
 	val = 1 << val;
-	return __arm_smmu_micro_idle_cfg(tbu->smmu, val, val);
+	return __arm_tbu_micro_idle_cfg(tbu->smmu, val, val);
 }
 
-void arm_smmu_micro_idle_allow(struct arm_smmu_power_resources *pwr)
+void arm_tbu_micro_idle_allow(struct arm_smmu_power_resources *pwr)
 {
 	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
+	struct arm_tbu_device *arm_tbu = to_arm_tbu(tbu);
 	u32 val;
 
-	if (!tbu->has_micro_idle)
+	if (!arm_tbu->has_micro_idle)
 		return;
 
 	val = tbu->sid_start >> 10;
 	val = 1 << val;
-	__arm_smmu_micro_idle_cfg(tbu->smmu, 0, val);
+	__arm_tbu_micro_idle_cfg(tbu->smmu, 0, val);
 }
 
 static const struct of_device_id qsmmuv500_tbu_of_match[] = {
 	{.compatible = "qcom,qsmmuv500-tbu"},
 	{}
 };
+
+static struct qsmmuv500_tbu_device *arm_tbu_impl_init(struct qsmmuv500_tbu_device *tbu)
+{
+	struct arm_tbu_device *arm_tbu;
+	struct device *dev = tbu->dev;
+
+	arm_tbu = devm_krealloc(dev, tbu, sizeof(*arm_tbu), GFP_KERNEL);
+	if (!arm_tbu)
+		return ERR_PTR(-ENOMEM);
+
+	arm_tbu->has_micro_idle = of_property_read_bool(dev->of_node, "qcom,micro-idle");
+
+	if (arm_tbu->has_micro_idle) {
+		arm_tbu->tbu.pwr->resume = arm_tbu_micro_idle_wake;
+		arm_tbu->tbu.pwr->suspend = arm_tbu_micro_idle_allow;
+	}
+
+	return &arm_tbu->tbu;
+}
+
+static struct qsmmuv500_tbu_device *qsmmuv500_tbu_impl_init(struct qsmmuv500_tbu_device *tbu)
+{
+	return arm_tbu_impl_init(tbu);
+}
 
 static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 {
@@ -1053,8 +1085,23 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	if (!tbu)
 		return -ENOMEM;
 
-	INIT_LIST_HEAD(&tbu->list);
 	tbu->dev = dev;
+
+	/*
+	 * ARM TBUs need to have power resources initialized before its
+	 * implementation defined initialization occurs to setup the
+	 * suspend and resure power callbacks.
+	 */
+	tbu->pwr = arm_smmu_init_power_resources(dev);
+	if (IS_ERR(tbu->pwr))
+		return PTR_ERR(tbu->pwr);
+
+	tbu = qsmmuv500_tbu_impl_init(tbu);
+	if (IS_ERR(tbu))
+		return PTR_ERR(tbu);
+
+	INIT_LIST_HEAD(&tbu->list);
+
 	spin_lock_init(&tbu->halt_lock);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
@@ -1068,18 +1115,6 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 
 	tbu->sid_start = of_read_number(cell, 1);
 	tbu->num_sids = of_read_number(cell + 1, 1);
-
-	/* Return -EINVAL only if property not present */
-	tbu->has_micro_idle = of_property_read_bool(dev->of_node, "qcom,micro-idle");
-
-	tbu->pwr = arm_smmu_init_power_resources(dev);
-	if (IS_ERR(tbu->pwr))
-		return PTR_ERR(tbu->pwr);
-
-	if (tbu->has_micro_idle) {
-		tbu->pwr->resume = arm_smmu_micro_idle_wake;
-		tbu->pwr->suspend = arm_smmu_micro_idle_allow;
-	}
 
 	dev_set_drvdata(dev, tbu);
 	return 0;
