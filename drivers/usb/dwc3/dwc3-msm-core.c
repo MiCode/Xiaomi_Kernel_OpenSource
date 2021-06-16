@@ -499,6 +499,9 @@ struct dwc3_msm {
 	atomic_t                in_p3;
 	atomic_t		in_lpm;
 	unsigned int		lpm_to_suspend_delay;
+	struct dev_pm_ops	*dwc3_pm_ops;
+	struct dev_pm_ops	*xhci_pm_ops;
+
 	u32			num_gsi_event_buffers;
 	struct dwc3_event_buffer **gsi_ev_buff;
 	int pm_qos_latency;
@@ -4554,13 +4557,23 @@ static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static void dwc3_host_complete(struct device *dev);
+static int dwc3_host_prepare(struct device *dev);
 static int dwc3_core_prepare(struct device *dev);
 static void dwc3_core_complete(struct device *dev);
+
+static void dwc3_msm_override_pm_ops(struct device *dev, struct dev_pm_ops *pm_ops,
+					bool is_host)
+{
+	(*pm_ops) = (*dev->driver->pm);
+	pm_ops->prepare = is_host ? dwc3_host_prepare : dwc3_core_prepare;
+	pm_ops->complete = is_host ? dwc3_host_complete : dwc3_core_complete;
+	dev->driver->pm = pm_ops;
+}
 
 static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 {
 	struct device_node *node = mdwc->dev->of_node, *dwc3_node;
-	struct dev_pm_ops *pm_ops;
 	struct dwc3	*dwc;
 	int ret = 0;
 	u32 val;
@@ -4627,14 +4640,15 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 		goto depopulate;
 	}
 
-	pm_ops = devm_kzalloc(dwc->dev, sizeof(struct dev_pm_ops), GFP_ATOMIC);
-	if (!pm_ops)
+	mdwc->dwc3_pm_ops = kzalloc(sizeof(struct dev_pm_ops), GFP_ATOMIC);
+	if (!mdwc->dwc3_pm_ops)
 		goto depopulate;
 
-	(*pm_ops) = (*dwc->dev->driver->pm);
-	pm_ops->prepare = dwc3_core_prepare;
-	pm_ops->complete = dwc3_core_complete;
-	dwc->dev->driver->pm = pm_ops;
+	dwc3_msm_override_pm_ops(dwc->dev, mdwc->dwc3_pm_ops, false);
+
+	mdwc->xhci_pm_ops = kzalloc(sizeof(struct dev_pm_ops), GFP_ATOMIC);
+	if (!mdwc->xhci_pm_ops)
+		goto free_dwc_pm_ops;
 
 	val = dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID);
 	mdwc->ip = DWC3_GSNPS_ID(val);
@@ -4644,6 +4658,9 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	pm_runtime_allow(dwc->dev);
 
 	return 0;
+
+free_dwc_pm_ops:
+	kfree(mdwc->dwc3_pm_ops);
 
 depopulate:
 	of_platform_depopulate(mdwc->dev);
@@ -5133,6 +5150,9 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	ipc_log_context_destroy(mdwc->dwc_dma_ipc_log_ctxt);
 	mdwc->dwc_dma_ipc_log_ctxt = NULL;
 
+	kfree(mdwc->xhci_pm_ops);
+	kfree(mdwc->dwc3_pm_ops);
+
 	dwc3_msm_kretprobe_exit();
 
 	return 0;
@@ -5259,6 +5279,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
 			flush_work(&dwc->drd_work);
+		dwc3_msm_override_pm_ops(&dwc->xhci->dev, mdwc->xhci_pm_ops, true);
 		mdwc->in_host_mode = true;
 		pm_runtime_use_autosuspend(&dwc->xhci->dev);
 		pm_runtime_set_autosuspend_delay(&dwc->xhci->dev, 1000);
@@ -5724,6 +5745,36 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	}
 	/* kick in otg state machine */
 	queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+
+	return 0;
+}
+
+static void dwc3_host_complete(struct device *dev)
+{
+	int ret = 0;
+
+	if (dev->power.direct_complete) {
+		ret = pm_runtime_resume(dev);
+		if (ret < 0) {
+			dev_err(dev, "failed to runtime resume, ret %d\n", ret);
+			return;
+		}
+	}
+}
+
+static int dwc3_host_prepare(struct device *dev)
+{
+	/*
+	 * It is recommended to use the PM prepare callback to handle situations
+	 * where the device is already runtime suspended, in order to avoid
+	 * executing the PM suspend callback (duplicate suspend).  When the
+	 * prepare callback returns a positive value, the PM core will set the
+	 * direct_complete parameter to true, and avoid calling the PM suspend
+	 * and PM resume callbacks, and allowing the driver to issue a resume
+	 * using PM runtime instead. (within the complete() callback)
+	 */
+	if (pm_runtime_enabled(dev) && pm_runtime_suspended(dev))
+		return 1;
 
 	return 0;
 }
