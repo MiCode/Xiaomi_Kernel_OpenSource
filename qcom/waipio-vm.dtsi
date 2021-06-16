@@ -294,11 +294,17 @@
 	 * QUPv3 Instances
 	 * North 4 : SE 4
 	 */
+	qup_iommu_group: qup_common_iommu_group {
+			qcom,iommu-dma-addr-pool = <0x00020000 0xfffe0000>;
+	};
 
 	/* QUPv3_0 wrapper instance: North QUP */
 	qupv3_0: qcom,qupv3_0_geni_se@9c0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0x9c0000 0x2000>;
+		iommus = <&apps_smmu 0x5b8 0x0>;
+		qcom,iommu-group = <&qup_iommu_group>;
+		dma-coherent;
 		status = "ok";
 	};
 
@@ -308,6 +314,9 @@
 		#dma-cells = <5>;
 		reg = <0x900000 0x60000>;
 		reg-names = "gpi-top";
+		iommus = <&apps_smmu 0x5b8 0x0>;
+		qcom,iommu-group = <&qup_iommu_group>;
+		dma-coherent;
 		interrupts = <GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
