@@ -367,18 +367,21 @@ void tick_broadcast(const struct cpumask *mask)
 }
 #endif
 
-static void __init omap2_gp_clockevent_init(int gptimer_id,
-						const char *fck_source,
-						const char *property)
+static void __init dmtimer_clkevt_init_common(struct dmtimer_clockevent *clkevt,
+					      int gptimer_id,
+					      const char *fck_source,
+					      unsigned int features,
+					      const struct cpumask *cpumask,
+					      const char *property,
+					      int rating, const char *name)
 {
-	struct dmtimer_clockevent *clkevt = &clockevent;
 	struct omap_dm_timer *timer = &clkevt->timer;
 	int res;
 
 	timer->id = gptimer_id;
 	timer->errata = omap_dm_timer_get_errata();
-	clkevt->dev.features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT;
-	clkevt->dev.rating = 300;
+	clkevt->dev.features = features;
+	clkevt->dev.rating = rating;
 	clkevt->dev.set_next_event = omap2_gp_timer_set_next_event;
 	clkevt->dev.set_state_shutdown = omap2_gp_timer_shutdown;
 	clkevt->dev.set_state_periodic = omap2_gp_timer_set_periodic;
@@ -396,18 +399,14 @@ static void __init omap2_gp_clockevent_init(int gptimer_id,
 				     &clkevt->dev.name, OMAP_TIMER_POSTED);
 	BUG_ON(res);
 
-	clkevt->dev.cpumask = cpu_possible_mask;
+	clkevt->dev.cpumask = cpumask;
 	clkevt->dev.irq = omap_dm_timer_get_irq(timer);
 
-	if (request_irq(timer->irq, omap2_gp_timer_interrupt,
-			IRQF_TIMER | IRQF_IRQPOLL, "gp_timer", clkevt))
-		pr_err("Failed to request irq %d (gp_timer)\n", timer->irq);
+	if (request_irq(clkevt->dev.irq, omap2_gp_timer_interrupt,
+			IRQF_TIMER | IRQF_IRQPOLL, name, clkevt))
+		pr_err("Failed to request irq %d (gp_timer)\n", clkevt->dev.irq);
 
 	__omap_dm_timer_int_enable(timer, OMAP_TIMER_INT_OVERFLOW);
-
-	clockevents_config_and_register(&clkevt->dev, timer->rate,
-					3, /* Timer internal resynch latency */
-					0xffffffff);
 
 	if (soc_is_am33xx() || soc_is_am43xx()) {
 		clkevt->dev.suspend = omap_clkevt_idle;
@@ -558,7 +557,12 @@ static void __init __omap_sync32k_timer_init(int clkev_nr, const char *clkev_src
 {
 	omap_clk_init();
 	omap_dmtimer_init();
-	omap2_gp_clockevent_init(clkev_nr, clkev_src, clkev_prop);
+	dmtimer_clkevt_init_common(&clockevent, clkev_nr, clkev_src,
+				   CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
+				   cpu_possible_mask, clkev_prop, 300, "clockevent");
+	clockevents_config_and_register(&clockevent.dev, clockevent.timer.rate,
+					3, /* Timer internal resynch latency */
+					0xffffffff);
 
 	/* Enable the use of clocksource="gp_timer" kernel parameter */
 	if (use_gptimer_clksrc || gptimer)
