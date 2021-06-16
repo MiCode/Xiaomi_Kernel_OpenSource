@@ -12,6 +12,7 @@
  */
 struct binder_transaction;
 struct task_struct;
+struct seq_file;
 DECLARE_HOOK(android_vh_binder_transaction_init,
 	TP_PROTO(struct binder_transaction *t),
 	TP_ARGS(t));
@@ -37,6 +38,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_binder_transaction,
 	TP_PROTO(struct binder_proc *target_proc, struct binder_proc *proc,
 		struct binder_thread *thread, struct binder_transaction_data *tr),
 	TP_ARGS(target_proc, proc, thread, tr), 1);
+DECLARE_HOOK(android_vh_binder_print_transaction_info,
+	TP_PROTO(struct seq_file *m, struct binder_proc *proc,
+		 const char *prefix, struct binder_transaction *t),
+	TP_ARGS(m, proc, prefix, t));
+
 #endif /* _TRACE_HOOK_BINDER_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
