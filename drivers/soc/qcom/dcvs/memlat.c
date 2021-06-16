@@ -538,7 +538,7 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 			max_cpufreq_scaled = stats->freq_mhz;
 			if (mon->freq_scale_pct && stats->freq_mhz &&
 			    (stats->freq_mhz < mon->freq_scale_limit_mhz) &&
-			    (stats->stall_pct > mon->stall_floor)) {
+			    (stats->stall_pct >= mon->stall_floor)) {
 				max_cpufreq_scaled += (stats->freq_mhz * ipm_diff *
 					mon->freq_scale_pct) / (mon->ipm_ceil * 100);
 				max_cpufreq_scaled = min(mon->freq_scale_limit_mhz,
