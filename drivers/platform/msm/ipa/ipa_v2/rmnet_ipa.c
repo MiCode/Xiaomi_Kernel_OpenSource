@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -2837,6 +2837,16 @@ static int rmnet_ipa_query_tethering_stats_modem(
 	struct ipa_get_data_stats_resp_msg_v01 *resp;
 	int pipe_len, rc;
 
+	if (data != NULL) {
+		/* prevent string buffer overflows */
+		data->upstreamIface[IFNAMSIZ-1] = '\0';
+		data->tetherIface[IFNAMSIZ-1] = '\0';
+	} else if (!reset) {
+		/* only reset can have data == NULL*/
+		IPAWANERR("query without allocate tether_stats strucutre\n");
+		return -EINVAL;
+	}
+
 	req = kzalloc(sizeof(struct ipa_get_data_stats_req_msg_v01),
 			GFP_KERNEL);
 	if (!req) {
@@ -2860,7 +2870,13 @@ static int rmnet_ipa_query_tethering_stats_modem(
 		IPAWANDBG("reset the pipe stats\n");
 	} else {
 		/* print tethered-client enum */
-		IPAWANDBG_LOW("Tethered-client enum(%d)\n", data->ipa_client);
+		if (data == NULL) {
+			kfree(req);
+			kfree(resp);
+			return -EINVAL;
+		}
+		IPAWANDBG_LOW("Tethered-client enum(%d)\n",
+				data->ipa_client);
 	}
 
 	rc = ipa_qmi_get_data_stats(req, resp);
