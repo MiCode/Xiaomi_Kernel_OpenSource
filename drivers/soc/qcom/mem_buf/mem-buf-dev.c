@@ -82,20 +82,19 @@ static int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 {
 	u32 src_vmid[] = {current_vmid};
 	u32 src_perm[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
-	int ret;
+	int ret, i;
 	struct gh_sgl_desc *gh_sgl;
 	struct gh_acl_desc *gh_acl;
-
-	/* Due to hyp-assign batching */
-	if (sgt->nents > 1) {
-		pr_err_ratelimited("Operation requires physically contiguous memory\n");
-		return -EINVAL;
-	}
+	size_t size;
+	struct scatterlist *sgl;
 
 	/* Due to memory-hotplug */
-	if (!IS_ALIGNED(sg_phys(sgt->sgl), SUBSECTION_SIZE) ||
-	    !IS_ALIGNED(sgt->sgl->length, SUBSECTION_SIZE)) {
-		pr_err_ratelimited("Operation requires SUBSECTION_SIZE alignemnt\n");
+	size = 0;
+	for_each_sgtable_sg(sgt, sgl, i)
+		size += sgl->length;
+	if (!IS_ALIGNED(size, SUBSECTION_SIZE)) {
+		pr_err_ratelimited("Operation requires SUBSECTION_SIZE alignemnt, size = %zx\n",
+				   size);
 		return -EINVAL;
 	}
 
@@ -257,6 +256,9 @@ struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
 					struct gh_acl_desc *acl_desc)
 {
 	struct gh_sgl_desc *sgl_desc;
+	u8 flags = GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
+		   GH_RM_MEM_ACCEPT_MAP_IPA_CONTIGUOUS |
+		   GH_RM_MEM_ACCEPT_DONE;
 
 	if (!acl_desc)
 		return ERR_PTR(-EINVAL);
@@ -264,8 +266,7 @@ struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
 	pr_debug("%s: adding CPU MMU stage 2 mappings\n", __func__);
 	sgl_desc = gh_rm_mem_accept(memparcel_hdl, GH_RM_MEM_TYPE_NORMAL,
 				    mem_buf_get_mem_xfer_type(acl_desc),
-				    GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
-				    GH_RM_MEM_ACCEPT_DONE, 0, acl_desc, NULL,
+				    flags, 0, acl_desc, NULL,
 				    NULL, 0);
 	if (IS_ERR(sgl_desc)) {
 		pr_err("%s failed to map memory in stage 2 rc: %d\n", __func__,
