@@ -385,7 +385,6 @@ struct qsmmuv500_tbu_device {
 	struct device			*dev;
 	struct arm_smmu_device		*smmu;
 	void __iomem			*base;
-	void __iomem			*status_reg;
 
 	struct arm_smmu_power_resources *pwr;
 	u32				sid_start;
@@ -660,7 +659,6 @@ static const struct of_device_id qsmmuv500_tbu_of_match[] = {
 
 static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 {
-	struct resource *res;
 	struct device *dev = &pdev->dev;
 	struct qsmmuv500_tbu_device *tbu;
 	const __be32 *cell;
@@ -674,8 +672,7 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	tbu->dev = dev;
 	spin_lock_init(&tbu->halt_lock);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
-	tbu->base = devm_ioremap_resource(dev, res);
+	tbu->base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
 	if (IS_ERR(tbu->base))
 		return PTR_ERR(tbu->base);
 
