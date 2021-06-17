@@ -40,6 +40,7 @@
 struct gh_rm_connection {
 	u32 msg_id;
 	u16 seq;
+	u8 type;
 	void *recv_buff;
 	u32 reply_err_code;
 	size_t recv_buff_size;
@@ -51,6 +52,14 @@ struct gh_rm_connection {
 	void *current_recv_buff;
 };
 
+struct gh_rm_notif_validate {
+	void *recv_buff;
+	void *payload;
+	size_t recv_buff_size;
+	struct gh_rm_connection *conn;
+	struct work_struct validate_work;
+};
+
 static struct task_struct *gh_rm_drv_recv_task;
 static struct gh_msgq_desc *gh_rm_msgq_desc;
 static gh_virtio_mmio_cb_t gh_virtio_mmio_fn;
@@ -59,7 +68,6 @@ static gh_vcpu_affinity_cb_t gh_vcpu_affinity_fn;
 static DEFINE_MUTEX(gh_rm_call_idr_lock);
 static DEFINE_MUTEX(gh_virtio_mmio_fn_lock);
 static DEFINE_IDR(gh_rm_call_idr);
-static struct gh_rm_connection *curr_connection;
 static DEFINE_MUTEX(gh_rm_send_lock);
 
 static DEFINE_IDA(gh_rm_free_virq_ida);
@@ -75,7 +83,8 @@ bool gh_rm_core_initialized;
 static void gh_rm_get_svm_res_work_fn(struct work_struct *work);
 static DECLARE_WORK(gh_rm_get_svm_res_work, gh_rm_get_svm_res_work_fn);
 
-static struct gh_rm_connection *gh_rm_alloc_connection(u32 msg_id)
+static struct gh_rm_connection *gh_rm_alloc_connection(u32 msg_id,
+							bool needed)
 {
 	struct gh_rm_connection *connection;
 
@@ -83,7 +92,8 @@ static struct gh_rm_connection *gh_rm_alloc_connection(u32 msg_id)
 	if (!connection)
 		return ERR_PTR(-ENOMEM);
 
-	init_completion(&connection->seq_done);
+	if (needed)
+		init_completion(&connection->seq_done);
 
 	connection->msg_id = msg_id;
 
@@ -115,6 +125,7 @@ gh_rm_init_connection_buff(struct gh_rm_connection *connection,
 	connection->current_recv_buff += payload_size;
 	connection->recv_buff_size = payload_size;
 	connection->num_fragments = hdr->fragments;
+	connection->type = hdr->type;
 
 	return 0;
 }
@@ -136,26 +147,20 @@ gh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
 {
 	struct gh_rm_rpc_hdr *hdr = recv_buff;
 	struct gh_rm_connection *connection;
+	bool seq_done_needed = false;
 	size_t payload_size;
 	int ret = 0;
 
-	connection = gh_rm_alloc_connection(hdr->msg_id);
+	connection = gh_rm_alloc_connection(hdr->msg_id, seq_done_needed);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
 	payload_size = recv_buff_size - sizeof(*hdr);
-	curr_connection = connection;
 
 	ret = gh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*hdr), payload_size);
 	if (ret < 0)
 		goto out;
-
-	if (wait_for_completion_interruptible(&connection->seq_done)) {
-		ret = -ERESTARTSYS;
-		goto out;
-	}
-
 	return connection;
 
 out:
@@ -163,39 +168,25 @@ out:
 	return ERR_PTR(ret);
 }
 
-static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
+static void gh_rm_validate_notif(struct work_struct *work)
 {
 	struct gh_rm_connection *connection = NULL;
-	struct gh_rm_rpc_hdr *hdr = recv_buff;
-	u32 notification = hdr->msg_id;
-	void *payload = NULL;
-	int ret = 0;
+	struct gh_rm_notif_validate *validate_work;
+	void *recv_buff;
+	size_t recv_buff_size;
+	void *payload;
+	struct gh_rm_rpc_hdr *hdr;
+	u32 notification;
 
+	validate_work = container_of(work, struct gh_rm_notif_validate,
+							validate_work);
+	recv_buff = validate_work->recv_buff;
+	recv_buff_size = validate_work->recv_buff_size;
+	payload = validate_work->payload;
+	connection = validate_work->conn;
+	hdr = recv_buff;
+	notification = hdr->msg_id;
 	pr_debug("Notification received from RM-VM: %x\n", notification);
-
-	if (curr_connection) {
-		pr_err("Received new notification from RM-VM before completing last connection\n");
-		return -EINVAL;
-	}
-
-	if (recv_buff_size > sizeof(*hdr))
-		payload = recv_buff + sizeof(*hdr);
-
-	/* If the notification payload is split-up into
-	 * fragments, wait until all them arrive.
-	 */
-	if (hdr->fragments) {
-		connection = gh_rm_wait_for_notif_fragments(recv_buff,
-								recv_buff_size);
-		if (IS_ERR_OR_NULL(connection))
-			return PTR_ERR(connection);
-
-		/* In the case of fragments, the complete payload
-		 * is contained under connection->recv_buff
-		 */
-		payload = connection->recv_buff;
-		recv_buff_size = connection->recv_buff_size;
-	}
 
 	switch (notification) {
 	case GH_RM_NOTIF_VM_STATUS:
@@ -203,7 +194,6 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			sizeof(struct gh_rm_notif_vm_status_payload)) {
 			pr_err("%s: Invalid size for VM_STATUS notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
-			ret = -EINVAL;
 			goto err;
 		}
 		break;
@@ -212,7 +202,6 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			sizeof(struct gh_rm_notif_vm_irq_lent_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_LENT notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
-			ret = -EINVAL;
 			goto err;
 		}
 		break;
@@ -221,7 +210,6 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			sizeof(struct gh_rm_notif_vm_irq_released_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_REL notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
-			ret = -EINVAL;
 			goto err;
 		}
 		break;
@@ -230,7 +218,6 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			sizeof(struct gh_rm_notif_vm_irq_accepted_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_ACCEPTED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
-			ret = -EINVAL;
 			goto err;
 		}
 		break;
@@ -239,7 +226,6 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			sizeof(struct gh_rm_notif_mem_shared_payload)) {
 			pr_err("%s: Invalid size for MEM_SHARED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
-			ret = -EINVAL;
 			goto err;
 		}
 		break;
@@ -248,7 +234,6 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			sizeof(struct gh_rm_notif_mem_released_payload)) {
 			pr_err("%s: Invalid size for MEM_RELEASED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
-			ret = -EINVAL;
 			goto err;
 		}
 		break;
@@ -257,7 +242,6 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			sizeof(struct gh_rm_notif_mem_accepted_payload)) {
 			pr_err("%s: Invalid size for MEM_ACCEPTED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
-			ret = -EINVAL;
 			goto err;
 		}
 		break;
@@ -274,7 +258,6 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 				recv_buff_size) {
 				pr_err("%s: Invalid size for VM_CONSOLE_CHARS notify %u\n",
 				       __func__, recv_buff_size - sizeof(*hdr));
-				ret = -EINVAL;
 				goto err;
 			}
 		}
@@ -282,22 +265,53 @@ static int gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 	default:
 		pr_err("%s: Unknown notification received: %u\n", __func__,
 			notification);
-		ret = -EINVAL;
 		goto err;
 	}
 
 	srcu_notifier_call_chain(&gh_rm_notifier, notification, payload);
-
 err:
-	if (connection) {
-		kfree(connection->recv_buff);
+	kfree(recv_buff);
+	if (connection)
 		kfree(connection);
-	}
-
-	return ret;
+	kfree(validate_work);
 }
 
-static int gh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
+static
+struct gh_rm_connection *gh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
+{
+	struct gh_rm_connection *connection = NULL;
+	struct gh_rm_notif_validate *validate_work;
+	struct gh_rm_rpc_hdr *hdr = recv_buff;
+	void *payload = NULL;
+
+	if (recv_buff_size > sizeof(*hdr))
+		payload = recv_buff + sizeof(*hdr);
+
+	/* If the notification payload is split-up into
+	 * fragments, wait until all them arrive.
+	 */
+	if (hdr->fragments) {
+		connection = gh_rm_wait_for_notif_fragments(recv_buff,
+							recv_buff_size);
+		return connection;
+	}
+
+	/* Validate the notification received if there are no more
+	 * fragments to follow.
+	 */
+	validate_work = kzalloc(sizeof(*validate_work), GFP_KERNEL);
+	validate_work->recv_buff = recv_buff;
+	validate_work->recv_buff_size = recv_buff_size;
+	validate_work->payload = payload;
+	validate_work->conn = connection;
+	INIT_WORK(&validate_work->validate_work, gh_rm_validate_notif);
+
+	schedule_work(&validate_work->validate_work);
+	return connection;
+}
+
+static
+struct gh_rm_connection *gh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 {
 	struct gh_rm_rpc_reply_hdr *reply_hdr = recv_buff;
 	struct gh_rm_rpc_hdr *hdr = recv_buff;
@@ -305,14 +319,9 @@ static int gh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	size_t payload_size;
 	int ret = 0;
 
-	if (curr_connection) {
-		pr_err("Received new reply from RM-VM before completing last connection\n");
-		return -EINVAL;
-	}
-
 	if (mutex_lock_interruptible(&gh_rm_call_idr_lock)) {
 		ret = -ERESTARTSYS;
-		goto out;
+		return ERR_PTR(ret);
 	}
 
 	connection = idr_find(&gh_rm_call_idr, hdr->seq);
@@ -323,16 +332,15 @@ static int gh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 		pr_err("%s: Failed to get the connection info for seq: %d\n",
 			__func__, hdr->seq);
 		ret = -EINVAL;
-		goto out;
+		return ERR_PTR(ret);
 	}
 
 	payload_size = recv_buff_size - sizeof(*reply_hdr);
-	curr_connection = connection;
 
 	ret = gh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*reply_hdr), payload_size);
 	if (ret < 0)
-		return ret;
+		return ERR_PTR(ret);
 
 	connection->reply_err_code = reply_hdr->err_code;
 
@@ -344,18 +352,22 @@ static int gh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	 * this buffer as and when the fragments arrive, and finally
 	 * wakeup the receiver upon reception of the last fragment.
 	 */
-	if (!hdr->fragments) {
-		curr_connection = NULL;
+	if (!hdr->fragments)
 		complete(&connection->seq_done);
-	}
-out:
-	return ret;
+
+	/* All the processing functions would have trimmed-off the header
+	 * and copied the data to connection->recv_buff. Hence, it's okay
+	 * to release the original packet that arrived.
+	 */
+	kfree(recv_buff);
+	return connection;
 }
 
-static int gh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
+static int gh_rm_process_cont(struct gh_rm_connection *connection,
+			void *recv_buff, size_t recv_buff_size)
 {
+	struct gh_rm_notif_validate *validate_work;
 	struct gh_rm_rpc_hdr *hdr = recv_buff;
-	struct gh_rm_connection *connection = curr_connection;
 	size_t payload_size;
 
 	if (!connection) {
@@ -387,56 +399,43 @@ static int gh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 	connection->current_recv_buff += payload_size;
 	connection->recv_buff_size += payload_size;
 
-	connection->fragments_received++;
-	if (connection->fragments_received == connection->num_fragments) {
-		curr_connection = NULL;
-		complete(&connection->seq_done);
+	if (++connection->fragments_received ==
+					connection->num_fragments) {
+		switch (connection->type) {
+		case GH_RM_RPC_TYPE_RPLY:
+			complete(&connection->seq_done);
+			/* All the processing functions would have trimmed-off the header
+			 * and copied the data to connection->recv_buff. Hence, it's okay
+			 * to release the original packet that arrived.
+			 */
+			kfree(recv_buff);
+			break;
+		case GH_RM_RPC_TYPE_NOTIF:
+			validate_work = kzalloc(sizeof(*validate_work),
+						GFP_KERNEL);
+			validate_work->recv_buff = recv_buff;
+			validate_work->recv_buff_size =
+					connection->recv_buff_size;
+			validate_work->payload = connection->recv_buff;
+			validate_work->conn = connection;
+			INIT_WORK(&validate_work->validate_work,
+					gh_rm_validate_notif);
+
+			schedule_work(&validate_work->validate_work);
+			break;
+		default:
+			pr_err("%s: Invalid message type (%d) received\n",
+				__func__, hdr->type);
+		}
 	}
 
 	return 0;
 }
 
-struct gh_rm_msgq_data {
-	void *recv_buff;
-	size_t recv_buff_size;
-	struct work_struct recv_work;
-};
-
-static void gh_rm_process_recv_work(struct work_struct *work)
-{
-	struct gh_rm_msgq_data *msgq_data;
-	struct gh_rm_rpc_hdr *hdr;
-	void *recv_buff;
-
-	msgq_data = container_of(work, struct gh_rm_msgq_data, recv_work);
-	recv_buff = hdr = msgq_data->recv_buff;
-
-	switch (hdr->type) {
-	case GH_RM_RPC_TYPE_NOTIF:
-		gh_rm_process_notif(recv_buff, msgq_data->recv_buff_size);
-		break;
-	case GH_RM_RPC_TYPE_RPLY:
-		gh_rm_process_rply(recv_buff, msgq_data->recv_buff_size);
-		break;
-	case GH_RM_RPC_TYPE_CONT:
-		gh_rm_process_cont(recv_buff, msgq_data->recv_buff_size);
-		break;
-	default:
-		pr_err("%s: Invalid message type (%d) received\n",
-			__func__, hdr->type);
-	}
-
-	/* All the processing functions would have trimmed-off the header
-	 * and copied the data to connection->recv_buff. Hence, it's okay
-	 * to release the original packet that arrived and free the msgq_data.
-	 */
-	kfree(recv_buff);
-	kfree(msgq_data);
-}
-
 static int gh_rm_recv_task_fn(void *data)
 {
-	struct gh_rm_msgq_data *msgq_data;
+	struct gh_rm_connection *connection = NULL;
+	struct gh_rm_rpc_hdr *hdr = NULL;
 	size_t recv_buff_size;
 	void *recv_buff;
 	int ret;
@@ -461,23 +460,26 @@ static int gh_rm_recv_task_fn(void *data)
 			continue;
 		}
 
-		/* Process this message in the background, while leaving
-		 * this thread to receive the next message.
-		 */
-		msgq_data = kzalloc(sizeof(*msgq_data), GFP_KERNEL);
-		if (!msgq_data) {
-			kfree(recv_buff);
-			continue;
+		hdr = recv_buff;
+		switch (hdr->type) {
+		case GH_RM_RPC_TYPE_NOTIF:
+			connection = gh_rm_process_notif(recv_buff,
+							recv_buff_size);
+			break;
+		case GH_RM_RPC_TYPE_RPLY:
+			connection = gh_rm_process_rply(recv_buff,
+							recv_buff_size);
+			break;
+		case GH_RM_RPC_TYPE_CONT:
+			gh_rm_process_cont(connection, recv_buff,
+							recv_buff_size);
+			break;
+		default:
+			pr_err("%s: Invalid message type (%d) received\n",
+				__func__, hdr->type);
 		}
-
 		print_hex_dump_debug("gh_rm_recv: ", DUMP_PREFIX_OFFSET,
 				     4, 1, recv_buff, recv_buff_size, false);
-
-		msgq_data->recv_buff = recv_buff;
-		msgq_data->recv_buff_size = recv_buff_size;
-		INIT_WORK(&msgq_data->recv_work, gh_rm_process_recv_work);
-
-		schedule_work(&msgq_data->recv_work);
 	}
 
 	return 0;
@@ -593,13 +595,14 @@ void *gh_rm_call(gh_rm_msgid_t message_id,
 			size_t *resp_buff_size, int *reply_err_code)
 {
 	struct gh_rm_connection *connection;
+	bool seq_done_needed = true;
 	int req_ret;
 	void *ret;
 
 	if (!message_id || !req_buff || !resp_buff_size || !reply_err_code)
 		return ERR_PTR(-EINVAL);
 
-	connection = gh_rm_alloc_connection(message_id);
+	connection = gh_rm_alloc_connection(message_id, seq_done_needed);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
