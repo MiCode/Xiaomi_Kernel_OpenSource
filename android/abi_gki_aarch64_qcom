@@ -276,6 +276,8 @@
   cpu_latency_qos_remove_request
   cpu_latency_qos_request_active
   cpu_latency_qos_update_request
+  cpu_maps_update_begin
+  cpu_maps_update_done
   cpumask_any_but
   cpumask_next
   cpumask_next_and
@@ -375,6 +377,7 @@
   dev_alloc_name
   dev_coredumpv
   _dev_crit
+  __dev_direct_xmit
   dev_driver_string
   _dev_emerg
   _dev_err
@@ -391,6 +394,7 @@
   __dev_get_by_index
   dev_get_by_index
   dev_get_by_name
+  dev_get_by_name_rcu
   dev_get_regmap
   device_add
   device_add_disk
@@ -860,6 +864,7 @@
   drm_universal_plane_init
   drm_vblank_init
   drm_wait_one_vblank
+  dst_release
   dump_stack
   __dynamic_dev_dbg
   __dynamic_pr_debug
@@ -981,6 +986,7 @@
   get_zeroed_page
   gfp_zone
   gic_nonsecure_priorities
+  gic_resume
   gov_attr_set_init
   gov_attr_set_put
   governor_sysfs_ops
@@ -1169,6 +1175,7 @@
   __iowrite32_copy
   ip_compute_csum
   ipi_desc_get
+  ip_route_output_flow
   iput
   __ipv6_addr_type
   ipv6_ext_hdr
@@ -1227,6 +1234,7 @@
   isolate_and_split_free_page
   isolate_anon_lru_page
   is_vmalloc_addr
+  iterate_fd
   jiffies
   jiffies_to_msecs
   jiffies_to_usecs
@@ -1436,7 +1444,10 @@
   napi_gro_receive
   __napi_schedule
   napi_schedule_prep
+  neigh_destroy
+  __neigh_event_send
   neigh_lookup
+  neigh_xmit
   __netdev_alloc_skb
   netdev_rx_handler_register
   netdev_rx_handler_unregister
@@ -1619,20 +1630,26 @@
   param_set_copystring
   param_set_int
   pause_cpus
+  pci_aer_clear_nonfatal_status
   pci_alloc_irq_vectors_affinity
   pci_assign_resource
   pci_bus_type
   pci_clear_master
   pci_d3cold_disable
   pci_device_group
+  pci_device_is_present
   pci_dev_present
   pci_disable_device
   pci_disable_msi
+  pci_disable_pcie_error_reporting
+  pcie_capability_clear_and_set_word
   pcie_capability_read_word
   pci_enable_device
+  pci_enable_pcie_error_reporting
   pci_find_ext_capability
   pci_free_irq_vectors
   pci_get_device
+  pci_get_domain_bus_and_slot
   pci_host_probe
   pci_iomap
   pci_irq_vector
@@ -2113,6 +2130,7 @@
   sg_pcopy_from_buffer
   sg_pcopy_to_buffer
   sg_scsi_ioctl
+  shmem_mark_page_lazyfree
   shmem_truncate_range
   show_rcu_gp_kthreads
   show_regs
@@ -2364,6 +2382,7 @@
   task_may_not_preempt
   __task_pid_nr_ns
   __task_rq_lock
+  thermal_cooling_device_register
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
   thermal_pressure
@@ -2452,13 +2471,18 @@
   __traceiter_android_vh_binder_wakeup_ilocked
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
+  __traceiter_android_vh_cpuidle_psci_enter
+  __traceiter_android_vh_cpuidle_psci_exit
   __traceiter_android_vh_dump_throttled_rt_tasks
+  __traceiter_android_vh_force_compatible_post
+  __traceiter_android_vh_force_compatible_pre
   __traceiter_android_vh_freq_table_limits
   __traceiter_android_vh_ftrace_dump_buffer
   __traceiter_android_vh_ftrace_format_check
   __traceiter_android_vh_ftrace_oops_enter
   __traceiter_android_vh_ftrace_oops_exit
   __traceiter_android_vh_ftrace_size_check
+  __traceiter_android_vh_gic_resume
   __traceiter_android_vh_gpio_block_read
   __traceiter_android_vh_iommu_setup_dma_ops
   __traceiter_android_vh_ipi_stop
@@ -2542,19 +2566,25 @@
   __tracepoint_android_vh_check_uninterruptible_tasks_dn
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
+  __tracepoint_android_vh_cpuidle_psci_enter
+  __tracepoint_android_vh_cpuidle_psci_exit
   __tracepoint_android_vh_dump_throttled_rt_tasks
+  __tracepoint_android_vh_force_compatible_post
+  __tracepoint_android_vh_force_compatible_pre
   __tracepoint_android_vh_freq_table_limits
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
   __tracepoint_android_vh_ftrace_oops_enter
   __tracepoint_android_vh_ftrace_oops_exit
   __tracepoint_android_vh_ftrace_size_check
+  __tracepoint_android_vh_gic_resume
   __tracepoint_android_vh_gpio_block_read
   __tracepoint_android_vh_iommu_setup_dma_ops
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_printk_hotplug
+  __tracepoint_android_vh_process_killed
   __tracepoint_android_vh_psi_event
   __tracepoint_android_vh_psi_group
   __tracepoint_android_vh_scheduler_tick

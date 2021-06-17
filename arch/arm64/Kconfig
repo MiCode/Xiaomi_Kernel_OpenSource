@@ -666,6 +666,22 @@ config ARM64_ERRATUM_1508412
 
 	  If unsure, say Y.
 
+config ARM64_ERRATUM_1974925
+	bool "Kryo 7XX: 1974925: Incorrect read value for Performance Monitors Common Event Identification Register"
+	default y
+	depends on HW_PERF_EVENTS
+	help
+	  This option adds a workaround for QCOM Kryo erratum 1974925.
+
+	  Affected cores return an incorrect value of the AArch64 System
+	  Register Performance Monitors Common Event Identification Register 0
+	  (PMCEID0_EL0) in which bits corresponding to those events that are
+	  fully implemented are not set, which is incorrect.
+
+	  Work around this issue by manually setting those bits to true.
+
+	  If unsure, say Y.
+
 config CAVIUM_ERRATUM_22375
 	bool "Cavium erratum 22375, 24313"
 	default y
