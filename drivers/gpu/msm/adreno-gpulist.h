@@ -1839,7 +1839,6 @@ static const struct adreno_genc_core adreno_gpu_core_c500 = {
 	.gbif_count = ARRAY_SIZE(c500_gbif_regs),
 	.hang_detect_cycles = 0xcfffff,
 	.protected_regs = c500_protected_regs,
-	.ctxt_record_size = 2496 * 1024,
 	.highest_bank_bit = 16,
 };
 

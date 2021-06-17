@@ -2325,6 +2325,13 @@ static int genc_power_off(struct adreno_device *adreno_dev)
 
 	kgsl_pwrctrl_clear_l3_vote(device);
 
+	/*
+	 * Reset the context records so that CP can start
+	 * at the correct read pointer for BV thread after
+	 * coming out of slumber.
+	 */
+	genc_reset_preempt_records(adreno_dev);
+
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_SLUMBER);
 
 	return ret;
