@@ -1500,6 +1500,10 @@ static const struct msm_pingroup khaje_groups[] = {
 	[120] = UFS_RESET(ufs_reset, 0x178000),
 };
 
+static const int khaje_reserved_gpios[] = {
+	0, 1, 2, 3, 82, 86, 14, 15, 16, 17, -1
+};
+
 static const struct msm_pinctrl_soc_data khaje_pinctrl = {
 	.pins = khaje_pins,
 	.npins = ARRAY_SIZE(khaje_pins),
@@ -1507,6 +1511,7 @@ static const struct msm_pinctrl_soc_data khaje_pinctrl = {
 	.nfunctions = ARRAY_SIZE(khaje_functions),
 	.groups = khaje_groups,
 	.ngroups = ARRAY_SIZE(khaje_groups),
+	.reserved_gpios = khaje_reserved_gpios,
 	.ngpios = 113,
 };
 
