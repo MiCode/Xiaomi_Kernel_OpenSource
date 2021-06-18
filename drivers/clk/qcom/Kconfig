@@ -738,4 +738,13 @@ config QCOM_GDSC_REGULATOR
 	  Say Y if you want to support clients using regulator framework APIs
 	  to control GDSCs.
 
+config SM_GCC_DIWALI
+	tristate "DIWALI Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  DIWALI devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
 endif
