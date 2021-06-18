@@ -386,6 +386,7 @@ struct qsmmuv500_tbu_device {
 	struct arm_smmu_device		*smmu;
 	void __iomem			*base;
 
+	const struct qsmmuv500_tbu_impl	*impl;
 	struct arm_smmu_power_resources *pwr;
 	u32				sid_start;
 	u32				num_sids;
@@ -396,6 +397,15 @@ struct qsmmuv500_tbu_device {
 	u32				halt_count;
 };
 
+struct qsmmuv500_tbu_impl {
+	int (*halt_req)(struct qsmmuv500_tbu_device *tbu);
+	int (*halt_poll)(struct qsmmuv500_tbu_device *tbu);
+	void (*resume)(struct qsmmuv500_tbu_device *tbu);
+	phys_addr_t (*trigger_atos)(struct qsmmuv500_tbu_device *tbu, dma_addr_t iova, u32 sid,
+				    unsigned long trans_flags);
+	void (*write_sync)(struct qsmmuv500_tbu_device *tbu);
+};
+
 struct arm_tbu_device {
 	struct qsmmuv500_tbu_device tbu;
 	bool has_micro_idle;
@@ -403,17 +413,236 @@ struct arm_tbu_device {
 
 #define to_arm_tbu(tbu)			container_of(tbu, struct arm_tbu_device, tbu)
 
+static int arm_tbu_halt_req(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *tbu_base = tbu->base;
+	u32 halt;
+
+	halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+	halt |= DEBUG_SID_HALT_REQ;
+	writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
+
+	return 0;
+}
+
+static int arm_tbu_halt_poll(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *tbu_base = tbu->base;
+	u32 halt, status;
+
+	if (readl_poll_timeout_atomic(tbu_base + DEBUG_SR_HALT_ACK_REG, status,
+					(status & DEBUG_SR_HALT_ACK_VAL),
+					0, TBU_DBG_TIMEOUT_US)) {
+		dev_err(tbu->dev, "Couldn't halt TBU!\n");
+
+		halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+		halt &= ~DEBUG_SID_HALT_REQ;
+		writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
+
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static void arm_tbu_resume(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *base = tbu->base;
+	u32 val;
+
+	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_REQ;
+	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
+}
+
+static phys_addr_t arm_tbu_trigger_atos(struct qsmmuv500_tbu_device *tbu, dma_addr_t iova, u32 sid,
+					unsigned long trans_flags)
+{
+	void __iomem *tbu_base = tbu->base;
+	phys_addr_t phys = 0;
+	u64 val;
+	ktime_t timeout;
+	bool ecats_timedout = false;
+
+	/* Set address and stream-id */
+	val = readq_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_SID;
+	val |= FIELD_PREP(DEBUG_SID_HALT_SID, sid);
+	writeq_relaxed(val, tbu_base + DEBUG_SID_HALT_REG);
+	writeq_relaxed(iova, tbu_base + DEBUG_VA_ADDR_REG);
+	val = FIELD_PREP(DEBUG_AXUSER_CDMID, DEBUG_AXUSER_CDMID_VAL);
+	writeq_relaxed(val, tbu_base + DEBUG_AXUSER_REG);
+
+	/* Write-back Read and Write-Allocate */
+	val = FIELD_PREP(DEBUG_TXN_AXCACHE, 0xF);
+
+	/* Non-secure Access */
+	val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_NSEC);
+
+	/* Write or Read Access */
+	if (trans_flags & IOMMU_TRANS_WRITE)
+		val |= DEBUG_TXN_WRITE;
+
+	/* Priviledged or Unpriviledged Access */
+	if (trans_flags & IOMMU_TRANS_PRIV)
+		val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_PRIV);
+
+	/* Data or Instruction Access */
+	if (trans_flags & IOMMU_TRANS_INST)
+		val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_INST);
+
+	val |= DEBUG_TXN_TRIGGER;
+	writeq_relaxed(val, tbu_base + DEBUG_TXN_TRIGG_REG);
+
+	timeout = ktime_add_us(ktime_get(), TBU_DBG_TIMEOUT_US);
+	for (;;) {
+		val = readl_relaxed(tbu_base + DEBUG_SR_HALT_ACK_REG);
+		if (!(val & DEBUG_SR_ECATS_RUNNING_VAL))
+			break;
+		val = readl_relaxed(tbu_base + DEBUG_PAR_REG);
+		if (val & DEBUG_PAR_FAULT_VAL)
+			break;
+		if (ktime_compare(ktime_get(), timeout) > 0) {
+			ecats_timedout = true;
+			break;
+		}
+	}
+
+	val = readq_relaxed(tbu_base + DEBUG_PAR_REG);
+	if (val & DEBUG_PAR_FAULT_VAL)
+		dev_err(tbu->dev, "ECATS generated a fault interrupt! PAR = %llx, SID=0x%x\n",
+			val, sid);
+	else if (ecats_timedout)
+		dev_err_ratelimited(tbu->dev, "ECATS translation timed out!\n");
+	else
+		phys = FIELD_GET(DEBUG_PAR_PA, val);
+
+	/* Reset hardware */
+	writeq_relaxed(0, tbu_base + DEBUG_TXN_TRIGG_REG);
+	writeq_relaxed(0, tbu_base + DEBUG_VA_ADDR_REG);
+	val = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_SID;
+	writel_relaxed(val, tbu_base + DEBUG_SID_HALT_REG);
+
+	return phys;
+}
+
+static void arm_tbu_write_sync(struct qsmmuv500_tbu_device *tbu)
+{
+	readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
+}
+
+static const struct qsmmuv500_tbu_impl arm_tbu_impl = {
+	.halt_req = arm_tbu_halt_req,
+	.halt_poll = arm_tbu_halt_poll,
+	.resume = arm_tbu_resume,
+	.trigger_atos = arm_tbu_trigger_atos,
+	.write_sync = arm_tbu_write_sync,
+};
+
+/*
+ * Prior to accessing registers in the TBU local register space,
+ * TBU must be woken from micro idle.
+ */
+static int __arm_tbu_micro_idle_cfg(struct arm_smmu_device *smmu,
+					    u32 val, u32 mask)
+{
+	void __iomem *reg;
+	u32 tmp, new;
+	unsigned long flags;
+	int ret;
+
+	/* Protect APPS_SMMU_TBU_REG_ACCESS register. */
+	spin_lock_irqsave(&smmu->global_sync_lock, flags);
+	new = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF5,
+			APPS_SMMU_TBU_REG_ACCESS_REQ_NS);
+	new &= ~mask;
+	new |= val;
+	arm_smmu_writel(smmu, ARM_SMMU_IMPL_DEF5,
+			APPS_SMMU_TBU_REG_ACCESS_REQ_NS,
+			new);
+
+	reg = arm_smmu_page(smmu, ARM_SMMU_IMPL_DEF5);
+	reg += APPS_SMMU_TBU_REG_ACCESS_ACK_NS;
+	ret = readl_poll_timeout_atomic(reg, tmp, ((tmp & mask) == val), 0, 200);
+	if (ret)
+		WARN(1, "%s: Timed out configuring micro idle! %x instead of %x\n",
+			tmp, new);
+	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
+	return ret;
+}
+
+int arm_tbu_micro_idle_wake(struct arm_smmu_power_resources *pwr)
+{
+	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
+	struct arm_tbu_device *arm_tbu = to_arm_tbu(tbu);
+	u32 val;
+
+	if (!arm_tbu->has_micro_idle)
+		return 0;
+
+	val = tbu->sid_start >> 10;
+	val = 1 << val;
+	return __arm_tbu_micro_idle_cfg(tbu->smmu, val, val);
+}
+
+void arm_tbu_micro_idle_allow(struct arm_smmu_power_resources *pwr)
+{
+	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
+	struct arm_tbu_device *arm_tbu = to_arm_tbu(tbu);
+	u32 val;
+
+	if (!arm_tbu->has_micro_idle)
+		return;
+
+	val = tbu->sid_start >> 10;
+	val = 1 << val;
+	__arm_tbu_micro_idle_cfg(tbu->smmu, 0, val);
+}
+
+static struct qsmmuv500_tbu_device *arm_tbu_impl_init(struct qsmmuv500_tbu_device *tbu)
+{
+	struct arm_tbu_device *arm_tbu;
+	struct device *dev = tbu->dev;
+
+	arm_tbu = devm_krealloc(dev, tbu, sizeof(*arm_tbu), GFP_KERNEL);
+	if (!arm_tbu)
+		return ERR_PTR(-ENOMEM);
+
+	arm_tbu->tbu.impl = &arm_tbu_impl;
+	arm_tbu->has_micro_idle = of_property_read_bool(dev->of_node, "qcom,micro-idle");
+
+	if (arm_tbu->has_micro_idle) {
+		arm_tbu->tbu.pwr->resume = arm_tbu_micro_idle_wake;
+		arm_tbu->tbu.pwr->suspend = arm_tbu_micro_idle_allow;
+	}
+
+	return &arm_tbu->tbu;
+}
+
+static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(struct arm_smmu_device *smmu, u32 sid)
+{
+	struct qsmmuv500_tbu_device *tbu = NULL;
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
+
+	list_for_each_entry(tbu, &data->tbus, list) {
+		if (tbu->sid_start <= sid &&
+		    sid < tbu->sid_start + tbu->num_sids)
+			return tbu;
+	}
+
+	return NULL;
+}
+
 static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
-				struct arm_smmu_domain *smmu_domain)
+			      struct arm_smmu_domain *smmu_domain)
 {
 	unsigned long flags;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	int idx = smmu_domain->cfg.cbndx;
-	u32 halt, fsr, status;
-	void __iomem *tbu_base;
+	int ret = 0, idx = smmu_domain->cfg.cbndx;
+	u32 fsr;
 
-	if (of_property_read_bool(tbu->dev->of_node,
-						"qcom,opt-out-tbu-halting")) {
+	if (of_property_read_bool(tbu->dev->of_node, "qcom,opt-out-tbu-halting")) {
 		dev_notice(tbu->dev, "TBU opted-out for halting!\n");
 		return -EBUSY;
 	}
@@ -421,14 +650,12 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 	spin_lock_irqsave(&tbu->halt_lock, flags);
 	if (tbu->halt_count) {
 		tbu->halt_count++;
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return 0;
+		goto out;
 	}
 
-	tbu_base = tbu->base;
-	halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
-	halt |= DEBUG_SID_HALT_REQ;
-	writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
+	ret = tbu->impl->halt_req(tbu);
+	if (ret)
+		goto out;
 
 	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 	if ((fsr & ARM_SMMU_FSR_FAULT) && (fsr & ARM_SMMU_FSR_SS)) {
@@ -455,63 +682,34 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 	}
 
-	if (readl_poll_timeout_atomic(tbu_base + DEBUG_SR_HALT_ACK_REG, status,
-					(status & DEBUG_SR_HALT_ACK_VAL),
-					0, TBU_DBG_TIMEOUT_US)) {
-		dev_err(tbu->dev, "Couldn't halt TBU!\n");
-
-		halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
-		halt &= ~DEBUG_SID_HALT_REQ;
-		writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
-
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return -ETIMEDOUT;
-	}
+	ret = tbu->impl->halt_poll(tbu);
+	if (ret)
+		goto out;
 
 	tbu->halt_count = 1;
+out:
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
-	return 0;
+	return ret;
 }
 
 static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 {
 	unsigned long flags;
-	u32 val;
-	void __iomem *base;
 
 	spin_lock_irqsave(&tbu->halt_lock, flags);
-	if (!tbu->halt_count) {
-		WARN(1, "%s: bad tbu->halt_count", dev_name(tbu->dev));
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return;
+	if (WARN(!tbu->halt_count, "%s bad tbu->halt_count", dev_name(tbu->dev))) {
+		goto out;
 
 	} else if (tbu->halt_count > 1) {
 		tbu->halt_count--;
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return;
+		goto out;
 	}
 
-	base = tbu->base;
-	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
-	val &= ~DEBUG_SID_HALT_REQ;
-	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
+	tbu->impl->resume(tbu);
 
 	tbu->halt_count = 0;
+out:
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
-}
-
-static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(struct arm_smmu_device *smmu, u32 sid)
-{
-	struct qsmmuv500_tbu_device *tbu = NULL;
-	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		if (tbu->sid_start <= sid &&
-		    sid < tbu->sid_start + tbu->num_sids)
-			return tbu;
-	}
-
-	return NULL;
 }
 
 /*
@@ -600,90 +798,6 @@ bug:
 	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 }
 
-/*
- * Prior to accessing registers in the TBU local register space,
- * TBU must be woken from micro idle.
- */
-static int __arm_tbu_micro_idle_cfg(struct arm_smmu_device *smmu,
-					    u32 val, u32 mask)
-{
-	void __iomem *reg;
-	u32 tmp, new;
-	unsigned long flags;
-	int ret;
-
-	/* Protect APPS_SMMU_TBU_REG_ACCESS register. */
-	spin_lock_irqsave(&smmu->global_sync_lock, flags);
-	new = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF5,
-			APPS_SMMU_TBU_REG_ACCESS_REQ_NS);
-	new &= ~mask;
-	new |= val;
-	arm_smmu_writel(smmu, ARM_SMMU_IMPL_DEF5,
-			APPS_SMMU_TBU_REG_ACCESS_REQ_NS,
-			new);
-
-	reg = arm_smmu_page(smmu, ARM_SMMU_IMPL_DEF5);
-	reg += APPS_SMMU_TBU_REG_ACCESS_ACK_NS;
-	ret = readl_poll_timeout_atomic(reg, tmp, ((tmp & mask) == val), 0, 200);
-	if (ret)
-		WARN(1, "%s: Timed out configuring micro idle! %x instead of %x\n",
-			tmp, new);
-	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
-	return ret;
-}
-
-int arm_tbu_micro_idle_wake(struct arm_smmu_power_resources *pwr)
-{
-	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
-	struct arm_tbu_device *arm_tbu = to_arm_tbu(tbu);
-	u32 val;
-
-	if (!arm_tbu->has_micro_idle)
-		return 0;
-
-	val = tbu->sid_start >> 10;
-	val = 1 << val;
-	return __arm_tbu_micro_idle_cfg(tbu->smmu, val, val);
-}
-
-void arm_tbu_micro_idle_allow(struct arm_smmu_power_resources *pwr)
-{
-	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
-	struct arm_tbu_device *arm_tbu = to_arm_tbu(tbu);
-	u32 val;
-
-	if (!arm_tbu->has_micro_idle)
-		return;
-
-	val = tbu->sid_start >> 10;
-	val = 1 << val;
-	__arm_tbu_micro_idle_cfg(tbu->smmu, 0, val);
-}
-
-static const struct of_device_id qsmmuv500_tbu_of_match[] = {
-	{.compatible = "qcom,qsmmuv500-tbu"},
-	{}
-};
-
-static struct qsmmuv500_tbu_device *arm_tbu_impl_init(struct qsmmuv500_tbu_device *tbu)
-{
-	struct arm_tbu_device *arm_tbu;
-	struct device *dev = tbu->dev;
-
-	arm_tbu = devm_krealloc(dev, tbu, sizeof(*arm_tbu), GFP_KERNEL);
-	if (!arm_tbu)
-		return ERR_PTR(-ENOMEM);
-
-	arm_tbu->has_micro_idle = of_property_read_bool(dev->of_node, "qcom,micro-idle");
-
-	if (arm_tbu->has_micro_idle) {
-		arm_tbu->tbu.pwr->resume = arm_tbu_micro_idle_wake;
-		arm_tbu->tbu.pwr->suspend = arm_tbu_micro_idle_allow;
-	}
-
-	return &arm_tbu->tbu;
-}
-
 static struct qsmmuv500_tbu_device *qsmmuv500_tbu_impl_init(struct qsmmuv500_tbu_device *tbu)
 {
 	return arm_tbu_impl_init(tbu);
@@ -737,6 +851,11 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, tbu);
 	return 0;
 }
+
+static const struct of_device_id qsmmuv500_tbu_of_match[] = {
+	{.compatible = "qcom,qsmmuv500-tbu"},
+	{}
+};
 
 struct platform_driver qsmmuv500_tbu_driver = {
 	.driver	= {
@@ -859,25 +978,24 @@ static bool smr_is_subset(struct arm_smmu_smr *smr2, struct arm_smmu_smr *smr)
 /*
  * Zero means failure.
  */
-static phys_addr_t qsmmuv500_iova_to_phys(
-		struct arm_smmu_domain *smmu_domain, dma_addr_t iova, u32 sid,
-		unsigned long trans_flags)
+static phys_addr_t qsmmuv500_iova_to_phys(struct arm_smmu_domain *smmu_domain, dma_addr_t iova,
+					   u32 sid, unsigned long trans_flags)
 {
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	struct qsmmuv500_tbu_device *tbu;
-	int ret;
 	phys_addr_t phys = 0;
-	u64 val, fsr;
-	unsigned long spinlock_flags;
 	int idx = cfg->cbndx;
-	u32 sctlr_orig, sctlr;
 	int needs_redo = 0;
-	ktime_t timeout;
+	u32 sctlr_orig, sctlr, fsr;
+	unsigned long spinlock_flags;
 
 	tbu = qsmmuv500_find_tbu(smmu, sid);
 	if (!tbu)
+		return 0;
+
+	if (arm_smmu_power_on(tbu->pwr))
 		return 0;
 
 	if (iova >= (1ULL << tbu->iova_width)) {
@@ -885,12 +1003,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 		return 0;
 	}
 
-	ret = arm_smmu_power_on(tbu->pwr);
-	if (ret)
-		return 0;
-
-	ret = qsmmuv500_tbu_halt(tbu, smmu_domain);
-	if (ret)
+	if (qsmmuv500_tbu_halt(tbu, smmu_domain))
 		goto out_power_off;
 
 	/*
@@ -923,93 +1036,28 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	/* Only one concurrent atos operation */
 	spin_lock_irqsave(&data->atos_lock, spinlock_flags);
 
-redo:
-	/* Set address and stream-id */
-	val = readq_relaxed(tbu->base + DEBUG_SID_HALT_REG);
-	val &= ~DEBUG_SID_HALT_SID;
-	val |= FIELD_PREP(DEBUG_SID_HALT_SID, sid);
-	writeq_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
-	writeq_relaxed(iova, tbu->base + DEBUG_VA_ADDR_REG);
-	val = FIELD_PREP(DEBUG_AXUSER_CDMID, DEBUG_AXUSER_CDMID_VAL);
-	writeq_relaxed(val, tbu->base + DEBUG_AXUSER_REG);
-
-	/* Write-back Read and Write-Allocate */
-	val = FIELD_PREP(DEBUG_TXN_AXCACHE, 0xF);
-
-	/* Non-secure Access */
-	val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_NSEC);
-
-	/* Write or Read Access */
-	if (trans_flags & IOMMU_TRANS_WRITE)
-		val |= DEBUG_TXN_WRITE;
-
-	/* Priviledged or Unpriviledged Access */
-	if (trans_flags & IOMMU_TRANS_PRIV)
-		val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_PRIV);
-
-	/* Data or Instruction Access */
-	if (trans_flags & IOMMU_TRANS_INST)
-		val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_INST);
-
-	val |= DEBUG_TXN_TRIGGER;
-	writeq_relaxed(val, tbu->base + DEBUG_TXN_TRIGG_REG);
-
-	ret = 0;
-	timeout = ktime_add_us(ktime_get(), TBU_DBG_TIMEOUT_US);
-	for (;;) {
-		val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
-		if (!(val & DEBUG_SR_ECATS_RUNNING_VAL))
-			break;
-		val = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-		if (val & ARM_SMMU_FSR_FAULT)
-			break;
-		if (ktime_compare(ktime_get(), timeout) > 0) {
-			dev_err_ratelimited(tbu->dev, "ECATS translation timed out!\n");
-			ret = -ETIMEDOUT;
-			break;
-		}
-	}
-
-	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
-	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-	if (val & DEBUG_PAR_FAULT_VAL) {
-		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx, SID=0x%x\n",
-			fsr, sid);
-
-		dev_err(tbu->dev, "ECATS translation failed! PAR = %llx\n",
-			val);
-		/* Clear pending interrupts */
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
-		/*
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation.
-		 */
-		wmb();
-
-		if (fsr & ARM_SMMU_FSR_SS)
-			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
-					  ARM_SMMU_RESUME_TERMINATE);
-
-		ret = -EINVAL;
-	}
-
-	phys = FIELD_GET(DEBUG_PAR_PA, val);
-	if (ret < 0)
-		phys = 0;
-
-	/* Reset hardware */
-	writeq_relaxed(0, tbu->base + DEBUG_TXN_TRIGG_REG);
-	writeq_relaxed(0, tbu->base + DEBUG_VA_ADDR_REG);
-	val = readl_relaxed(tbu->base + DEBUG_SID_HALT_REG);
-	val &= ~DEBUG_SID_HALT_SID;
-	writel_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
-
 	/*
 	 * After a failed translation, the next successful translation will
 	 * incorrectly be reported as a failure.
 	 */
-	if (!phys && needs_redo++ < 2)
-		goto redo;
+	do {
+		phys = tbu->impl->trigger_atos(tbu, iova, sid, trans_flags);
+
+		fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+		if (fsr & ARM_SMMU_FSR_FAULT) {
+			/* Clear pending interrupts */
+			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+			/*
+			 * Barrier required to ensure that the FSR is cleared
+			 * before resuming SMMU operation.
+			 */
+			wmb();
+
+			if (fsr & ARM_SMMU_FSR_SS)
+				arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+						  ARM_SMMU_RESUME_TERMINATE);
+		}
+	} while (!phys && needs_redo++ < 2);
 
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 	spin_unlock_irqrestore(&data->atos_lock, spinlock_flags);
@@ -1017,7 +1065,7 @@ redo:
 
 out_power_off:
 	/* Read to complete prior write transcations */
-	val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
+	tbu->impl->write_sync(tbu);
 
 	/* Wait for read to complete before off */
 	rmb();
