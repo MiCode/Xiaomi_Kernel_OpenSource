@@ -78,6 +78,8 @@
 #define FTS_VTG_MIN_UV                      3000000
 #define FTS_VTG_MAX_UV                      3300000
 #define FTS_LOAD_MAX_UA                     30000
+#define FTS_LOAD_AVDD_UA                    10000
+#define FTS_LOAD_DISABLE_UA                 0
 #define FTS_I2C_VTG_MIN_UV                  1800000
 #define FTS_I2C_VTG_MAX_UV                  1800000
 #endif
@@ -2159,6 +2161,75 @@ static int fts_pinctrl_select_release(struct fts_ts_data *ts)
 }
 #endif /* FTS_PINCTRL_EN */
 
+static int fts_power_configure(struct fts_ts_data *ts_data, bool enable)
+{
+	int ret = 0;
+
+	FTS_FUNC_ENTER();
+
+	if (enable) {
+		if (regulator_count_voltages(ts_data->vdd) > 0) {
+			ret = regulator_set_load(ts_data->vdd, FTS_LOAD_MAX_UA);
+			if (ret) {
+				FTS_ERROR("vdd regulator set_load failed ret=%d", ret);
+				return ret;
+			}
+
+			ret = regulator_set_voltage(ts_data->vdd, FTS_VTG_MIN_UV,
+						FTS_VTG_MAX_UV);
+			if (ret) {
+				FTS_ERROR("vdd regulator set_vtg failed ret=%d", ret);
+				goto err_vdd_load;
+			}
+		}
+
+		if (!IS_ERR_OR_NULL(ts_data->vcc_i2c)) {
+			if (regulator_count_voltages(ts_data->vcc_i2c) > 0) {
+				ret = regulator_set_load(ts_data->vcc_i2c, FTS_LOAD_AVDD_UA);
+				if (ret) {
+					FTS_ERROR("vcc_i2c regulator set_load failed ret=%d", ret);
+					goto err_vdd_load;
+				}
+
+				ret = regulator_set_voltage(ts_data->vcc_i2c,
+							FTS_I2C_VTG_MIN_UV,
+							FTS_I2C_VTG_MAX_UV);
+				if (ret) {
+					FTS_ERROR("vcc_i2c regulator set_vtg failed,ret=%d", ret);
+					goto err_vcc_load;
+				}
+			}
+		}
+	} else {
+		if (regulator_count_voltages(ts_data->vdd) > 0) {
+			ret = regulator_set_load(ts_data->vdd, FTS_LOAD_DISABLE_UA);
+			if (ret) {
+				FTS_ERROR("vdd regulator set_load failed ret=%d", ret);
+				return ret;
+			}
+		}
+
+		if (!IS_ERR_OR_NULL(ts_data->vcc_i2c)) {
+			if (regulator_count_voltages(ts_data->vcc_i2c) > 0) {
+				ret = regulator_set_load(ts_data->vcc_i2c, FTS_LOAD_DISABLE_UA);
+				if (ret) {
+					FTS_ERROR("vcc_i2c regulator set_load failed ret=%d", ret);
+					return ret;
+				}
+			}
+		}
+	}
+
+	FTS_FUNC_EXIT();
+	return ret;
+
+err_vcc_load:
+	regulator_set_load(ts_data->vcc_i2c, FTS_LOAD_DISABLE_UA);
+err_vdd_load:
+	regulator_set_load(ts_data->vdd, FTS_LOAD_DISABLE_UA);
+	return ret;
+}
+
 static int fts_ts_enable_reg(struct fts_ts_data *ts_data, bool enable)
 {
 	int ret = 0;
@@ -2169,6 +2240,7 @@ static int fts_ts_enable_reg(struct fts_ts_data *ts_data, bool enable)
 	}
 
 	if (enable) {
+		fts_power_configure(ts_data, true);
 		ret = regulator_enable(ts_data->vdd);
 		if (ret)
 			FTS_ERROR("enable vdd regulator failed,ret=%d", ret);
@@ -2187,6 +2259,7 @@ static int fts_ts_enable_reg(struct fts_ts_data *ts_data, bool enable)
 			if (ret)
 				FTS_ERROR("disable vcc_i2c regulator failed,ret=%d", ret);
 		}
+		fts_power_configure(ts_data, false);
 	}
 
 	return ret;
@@ -2250,35 +2323,9 @@ static int fts_power_source_init(struct fts_ts_data *ts_data)
 		return ret;
 	}
 
-	if (regulator_count_voltages(ts_data->vdd) > 0) {
-		ret = regulator_set_voltage(ts_data->vdd, FTS_VTG_MIN_UV,
-						FTS_VTG_MAX_UV);
-		if (ret) {
-			FTS_ERROR("vdd regulator set_vtg failed ret=%d", ret);
-			regulator_put(ts_data->vdd);
-			return ret;
-		}
-
-		ret = regulator_set_load(ts_data->vdd, FTS_LOAD_MAX_UA);
-		if (ret) {
-			FTS_ERROR("vdd regulator set_load failed ret=%d", ret);
-			regulator_put(ts_data->vdd);
-			return ret;
-		}
-	}
-
 	ts_data->vcc_i2c = regulator_get(ts_data->dev, "vcc_i2c");
-	if (!IS_ERR_OR_NULL(ts_data->vcc_i2c)) {
-		if (regulator_count_voltages(ts_data->vcc_i2c) > 0) {
-			ret = regulator_set_voltage(ts_data->vcc_i2c,
-						FTS_I2C_VTG_MIN_UV,
-						FTS_I2C_VTG_MAX_UV);
-			if (ret) {
-				FTS_ERROR("vcc_i2c regulator set_vtg failed,ret=%d", ret);
-				regulator_put(ts_data->vcc_i2c);
-			}
-		}
-	}
+	if (IS_ERR_OR_NULL(ts_data->vcc_i2c))
+		FTS_INFO("get vcc_i2c regulator failed");
 
 #if FTS_PINCTRL_EN
 	fts_pinctrl_init(ts_data);
