@@ -133,7 +133,7 @@ static void tcs_cmd_data(struct bcm *bcms, int count, u32 ab, u32 ib,
 
 		if (bcms[i].fixed) {
 			if (!ab && !ib)
-				data[i] = BCM_TCS_CMD(commit, false, 0x0, 0x8);
+				data[i] = BCM_TCS_CMD(commit, false, 0x0, 0x0);
 			else
 				data[i] = BCM_TCS_CMD(commit, true, 0x0, 0x8);
 			continue;
