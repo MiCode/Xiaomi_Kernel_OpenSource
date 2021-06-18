@@ -1622,6 +1622,10 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	return ret;
 err_gsi_geni_transfer_one:
 	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
+	if (mas->gsi_mode) {
+		pr_err("SMP:%s: dump GSI registers\n", __func__);
+		gpi_dump_for_geni(mas->tx);
+	}
 	if (!mas->is_le_vm) {
 		dmaengine_terminate_all(mas->tx);
 	} else {

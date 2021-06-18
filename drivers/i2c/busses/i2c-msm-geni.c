@@ -235,6 +235,11 @@ static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 			     gi2c_log[err].msg);
 	}
 	geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base, gi2c->ipcl);
+
+	if (gi2c->se_mode == GSI_ONLY) {
+		pr_err("SMP:%s: DUMP GSI registers\n", __func__);
+		gpi_dump_for_geni(gi2c->tx_c);
+	}
 err_ret:
 	gi2c->err = gi2c_log[err].err;
 }
