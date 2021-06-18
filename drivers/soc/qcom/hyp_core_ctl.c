@@ -692,6 +692,11 @@ static int gh_vcpu_populate_affinity_info(gh_label_t cpu_idx, gh_capid_t cap_id)
 		return -ENXIO;
 	}
 
+	if (nr_vcpus >= MAX_RESERVE_CPUS) {
+		pr_err("Exceeded max vcpus in the system %d\n", nr_vcpus);
+		return -ENXIO;
+	}
+
 	if (!is_vcpu_info_populated) {
 		gh_cpumap[nr_vcpus].cap_id = cap_id;
 		gh_cpumap[nr_vcpus].pcpu = cpu_idx;
@@ -1019,7 +1024,7 @@ static void hyp_core_ctl_debugfs_init(void)
 
 static int hyp_core_ctl_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret, i;
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
@@ -1039,6 +1044,11 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	if (!hcd) {
 		ret = -ENOMEM;
 		goto unregister_rm_notifier;
+	}
+
+	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
+		hcd->cpumap[i].cap_id = GH_CAPID_INVAL;
+		gh_cpumap[i].cap_id = GH_CAPID_INVAL;
 	}
 
 	spin_lock_init(&hcd->lock);
