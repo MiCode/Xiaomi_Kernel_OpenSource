@@ -3520,6 +3520,7 @@ static const struct snd_soc_component_driver mt6873_afe_component = {
 	.name           = AFE_PCM_NAME,
 	.probe          = mt6873_afe_component_probe,
 	.pointer        = mtk_afe_pcm_pointer,
+	.copy_user      = mtk_afe_pcm_copy_user,
 	.pcm_construct  = mtk_afe_pcm_new,
 };
 

@@ -760,7 +760,7 @@ static int snd_pcm_hw_params(struct snd_pcm_substream *substream,
 
 		if (runtime->info & SNDRV_PCM_INFO_MMAP)
 			size = PAGE_ALIGN(size);
-		memset_io(runtime->dma_area, 0, size);
+		memset(runtime->dma_area, 0, size);
 	}
 
 	snd_pcm_timer_resolution_change(substream);

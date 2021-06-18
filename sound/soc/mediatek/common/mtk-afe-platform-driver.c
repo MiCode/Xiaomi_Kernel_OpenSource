@@ -157,13 +157,11 @@ static int default_read_copy(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-int mtk_afe_pcm_copy_user(struct snd_pcm_substream *substream,
+int mtk_afe_pcm_copy_user(struct snd_soc_component *component,
+			  struct snd_pcm_substream *substream,
 			  int channel, unsigned long hwoff,
-			  void *buf, unsigned long bytes)
+			  void __user *buf, unsigned long bytes)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_component *component =
-		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
 	int is_playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	mtk_sp_copy_f sp_copy;
@@ -183,6 +181,7 @@ int mtk_afe_pcm_copy_user(struct snd_pcm_substream *substream,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_afe_pcm_copy_user);
 
 int mtk_afe_pcm_ack(struct snd_pcm_substream *substream)
 {
