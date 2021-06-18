@@ -142,7 +142,6 @@ $(if $(filter-out $(words $(required_mixed_files)), \
 	$(error KBUILD_MIXED_TREE=$(KBUILD_MIXED_TREE) doesn't contain $(required_mixed_files)))
 endif
 
-mixed-build-prefix = $(if $(KBUILD_MIXED_TREE),$(KBUILD_MIXED_TREE)/)
 export KBUILD_MIXED_TREE
 
 # Kbuild will save output files in the current working directory.
@@ -412,6 +411,8 @@ export KCONFIG_CONFIG
 
 # Default file for 'make defconfig'. This may be overridden by arch-Makefile.
 export KBUILD_DEFCONFIG := defconfig
+
+mixed-build-prefix = $(if $(KBUILD_MIXED_TREE),$(KBUILD_MIXED_TREE)/)
 
 # SHELL used by kbuild
 CONFIG_SHELL := sh
