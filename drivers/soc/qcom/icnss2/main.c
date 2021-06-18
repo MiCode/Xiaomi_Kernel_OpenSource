@@ -1656,6 +1656,36 @@ static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 	}
 }
 
+static char *icnss_subsys_notify_state_to_str(enum subsys_notif_type code)
+{
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		return "BEFORE_SHUTDOWN";
+	case SUBSYS_AFTER_SHUTDOWN:
+		return "AFTER_SHUTDOWN";
+	case SUBSYS_BEFORE_POWERUP:
+		return "BEFORE_POWERUP";
+	case SUBSYS_AFTER_POWERUP:
+		return "AFTER_POWERUP";
+	case SUBSYS_BEFORE_AUTH_AND_RESET:
+		return "BEFORE_AUTH_AND_RESET";
+	case SUBSYS_RAMDUMP_NOTIFICATION:
+		return "RAMDUMP_NOTIFICATION";
+	case SUBSYS_POWERUP_FAILURE:
+		return "POWERUP_FAILURE";
+	case SUBSYS_PROXY_VOTE:
+		return "PROXY_VOTE";
+	case SUBSYS_PROXY_UNVOTE:
+		return "PROXY_UNVOTE";
+	case SUBSYS_SOC_RESET:
+		return "SOC_RESET";
+	case SUBSYS_NOTIF_TYPE_COUNT:
+		return "NOTIF_TYPE_COUNT";
+	default:
+		return "UNKNOWN";
+	}
+};
+
 static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
@@ -1666,7 +1696,8 @@ static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 					       wpss_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
-	icnss_pr_vdbg("WPSS-Notify: event %lu\n", code);
+	icnss_pr_vdbg("WPSS-Notify: event %s(%lu)\n",
+		      icnss_subsys_notify_state_to_str(code), code);
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
@@ -1723,7 +1754,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 					       modem_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
-	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
+	icnss_pr_vdbg("Modem-Notify: event %s(%lu)\n",
+		      icnss_subsys_notify_state_to_str(code), code);
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
