@@ -810,4 +810,52 @@ struct payload_section {
 /* GPU BV encountered a CP hw fault error */
 #define GMU_CP_BV_HW_FAULT_ERROR 611
 
+/**
+ * hfi_update_read_idx - Update the read index of an hfi queue
+ * hdr: Pointer to the hfi queue header
+ * index: New read index
+ *
+ * This function makes sure that kgsl has consumed f2h packets
+ * before GMU sees the updated read index. This avoids a corner
+ * case where GMU might over-write f2h packets that have not yet
+ * been consumed by kgsl.
+ */
+static inline void hfi_update_read_idx(struct hfi_queue_header *hdr, u32 index)
+{
+	/*
+	 * This is to make sure packets are consumed before gmu sees the updated
+	 * read index
+	 */
+	mb();
+
+	hdr->read_index = index;
+}
+
+/**
+ * hfi_update_write_idx - Update the write index of an hfi queue
+ * hdr: Pointer to the hfi queue header
+ * index: New write index
+ *
+ * This function makes sure that the h2f packets are written out
+ * to memory before GMU sees the updated write index. This avoids
+ * corner cases where GMU might fetch stale entries that can happen
+ * if write index is updated before new packets have been written
+ * out to memory.
+ */
+static inline void hfi_update_write_idx(struct hfi_queue_header *hdr, u32 index)
+{
+	/*
+	 * This is to make sure packets are written out before gmu sees the
+	 * updated write index
+	 */
+	wmb();
+
+	hdr->write_index = index;
+
+	/*
+	 * Memory barrier to make sure write index is written before an
+	 * interrupt is raised
+	 */
+	wmb();
+}
 #endif

@@ -80,7 +80,8 @@ int genc_hfi_queue_read(struct genc_gmu_device *gmu, u32 queue_idx,
 	}
 
 	read = ALIGN(read, SZ_4) % hdr->queue_size;
-	hdr->read_index = read;
+
+	hfi_update_read_idx(hdr, read);
 
 	/* For acks, trace the packet for which this ack was sent */
 	if (MSG_HDR_GET_TYPE(msg_hdr) == HFI_MSG_ACK)
@@ -135,7 +136,7 @@ int genc_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
 		write = (write + 1) % hdr->queue_size;
 	}
 
-	hdr->write_index = write;
+	hfi_update_write_idx(hdr, write);
 
 	return 0;
 }
