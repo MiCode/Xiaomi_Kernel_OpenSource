@@ -29,8 +29,9 @@
 #include <linux/android_debug_symbols.h>
 #ifdef CONFIG_QCOM_MINIDUMP_PSTORE
 #include <linux/math64.h>
-#include <linux/of_address.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_reserved_mem.h>
 #endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
@@ -148,20 +149,6 @@ char *md_dma_buf_procs_addr;
 static struct seq_buf *md_mod_info_seq_buf;
 static DEFINE_SPINLOCK(md_modules_lock);
 #endif	/* CONFIG_MODULES */
-#endif
-
-#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
-struct minidump_pstore {
-	phys_addr_t paddr;
-	unsigned long size;
-	unsigned long record_size;
-	unsigned long ftrace_size;
-	unsigned long console_size;
-	unsigned long pmsg_size;
-	unsigned int  record_cnt;
-};
-
-static struct minidump_pstore pstore_data;
 #endif
 
 static void register_log_buf(void)
@@ -1234,53 +1221,90 @@ static void md_register_module_data(void)
 #ifdef CONFIG_QCOM_MINIDUMP_PSTORE
 static void register_pstore_info(void)
 {
+	int ret;
 	struct device_node *node;
 	struct resource resource;
-	unsigned int value;
-	unsigned long dump_sz;
-	int ret;
+	struct reserved_mem *rmem = NULL;
+	unsigned int size;
+	phys_addr_t paddr;
+	unsigned long total_size;
 	struct md_region md_entry;
-	struct minidump_pstore *pstore = &pstore_data;
 
-	for_each_compatible_node(node, NULL, "ramoops") {
-		ret = of_property_read_u32(node, "record-size", &value);
-		if (!ret)
-			pstore->record_size = value;
-
-		ret = of_property_read_u32(node, "ftrace-size", &value);
-		if (!ret)
-			pstore->ftrace_size = value;
-
-		ret = of_property_read_u32(node, "console-size", &value);
-		if (!ret)
-			pstore->console_size = value;
-
-		ret = of_property_read_u32(node, "pmsg-size", &value);
-		if (!ret)
-			pstore->pmsg_size = value;
-
-		ret = of_address_to_resource(node, 0, &resource);
-		if (!ret) {
-			pstore->paddr = resource.start;
-			pstore->size = resource_size(&resource);
-		} else {
-			pr_err("Failed to get pstore resource %d\n", ret);
-			return;
-		}
+	node = of_find_compatible_node(NULL, NULL, "ramoops");
+	if (IS_ERR(node)) {
+		pr_err("Failed to get pstore node\n");
+		return;
 	}
 
-	dump_sz = pstore->size - pstore->pmsg_size
-		  - pstore->console_size - pstore->ftrace_size;
+	ret = of_address_to_resource(node, 0, &resource);
+	if (ret) {
+		rmem = of_reserved_mem_lookup(node);
+		if (rmem) {
+			paddr = rmem->base;
+			total_size = rmem->size;
+		} else {
+			pr_err("Failed to get pstore mem\n");
+			return;
+		}
+	} else {
+		paddr = resource.start;
+		total_size = resource_size(&resource);
+	}
 
-	pstore->record_cnt = div_u64(dump_sz, pstore->record_size);
+	paddr = rmem->base;
+	total_size = rmem->size;
 
-	strlcpy(md_entry.name, "KPSTORE", sizeof(md_entry.name));
-	md_entry.virt_addr = (uintptr_t)phys_to_virt(pstore->paddr);
-	md_entry.phys_addr = pstore->paddr;
-	md_entry.size = pstore->size;
+	ret = of_property_read_u32(node, "record-size", &size);
+	if (!ret && size > 0) {
+		strlcpy(md_entry.name, "KDMESG", sizeof(md_entry.name));
+		md_entry.virt_addr = (uintptr_t)phys_to_virt(paddr);
+		md_entry.phys_addr = paddr;
+		md_entry.size = size;
 
-	if (msm_minidump_add_region(&md_entry) < 0)
-		pr_err("Failed to add pstore data in Minidump\n");
+		if (msm_minidump_add_region(&md_entry) < 0)
+			pr_err("Failed to add dmesg in Minidump\n");
+
+		paddr += size;
+	}
+
+	ret = of_property_read_u32(node, "console-size", &size);
+	if (!ret && size > 0) {
+		strlcpy(md_entry.name, "KCONSOLE", sizeof(md_entry.name));
+		md_entry.virt_addr = (uintptr_t)phys_to_virt(paddr);
+		md_entry.phys_addr = paddr;
+		md_entry.size = size;
+
+		if (msm_minidump_add_region(&md_entry) < 0)
+			pr_err("Failed to add console in Minidump\n");
+
+		paddr += size;
+	}
+
+	ret = of_property_read_u32(node, "ftrace-size", &size);
+	if (!ret && size > 0) {
+		strlcpy(md_entry.name, "KFTRACE", sizeof(md_entry.name));
+		md_entry.virt_addr = (uintptr_t)phys_to_virt(paddr);
+		md_entry.phys_addr = paddr;
+		md_entry.size = size;
+
+		if (msm_minidump_add_region(&md_entry) < 0)
+			pr_err("Failed to add ftrace in Minidump\n");
+
+		paddr += size;
+	}
+
+	ret = of_property_read_u32(node, "pmsg-size", &size);
+	if (!ret && size > 0) {
+		strlcpy(md_entry.name, "KPMSG", sizeof(md_entry.name));
+		md_entry.virt_addr = (uintptr_t)phys_to_virt(paddr);
+		md_entry.phys_addr = paddr;
+		md_entry.size = size;
+
+		if (msm_minidump_add_region(&md_entry) < 0)
+			pr_err("Failed to add pmsg in Minidump\n");
+
+		paddr += size;
+	}
 }
 #endif
 
