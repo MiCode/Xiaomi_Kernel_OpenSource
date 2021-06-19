@@ -163,6 +163,49 @@ static size_t record_print_text(struct printk_info *pinfo, char *text,
 	return len;
 }
 
+static void register_log_minidump(struct printk_ringbuffer *prb)
+{
+	struct prb_desc_ring descring = prb->desc_ring;
+	struct prb_data_ring textdata_ring = prb->text_data_ring;
+	struct prb_desc *descaddr = descring.descs;
+	struct printk_info *p_infos = descring.infos;
+	struct md_region md_entry;
+	int ret;
+
+	strlcpy(md_entry.name, "LOG_PRB", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)prb;
+	md_entry.phys_addr = virt_to_phys(prb);
+	md_entry.size = sizeof(*prb);
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add log_prb entry in minidump table\n");
+
+	strlcpy(md_entry.name, "LOG_TEXT", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)textdata_ring.data;
+	md_entry.phys_addr = virt_to_phys(textdata_ring.data);
+	md_entry.size = _DATA_SIZE(textdata_ring.size_bits);
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add log_text entry in minidump table\n");
+
+	strlcpy(md_entry.name, "LOG_DESC", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)descaddr;
+	md_entry.phys_addr = virt_to_phys(descaddr);
+	md_entry.size = sizeof(struct prb_desc) * _DESCS_COUNT(descring.count_bits);
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add log_desc entry in minidump table\n");
+
+	strlcpy(md_entry.name, "LOG_INFO", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)p_infos;
+	md_entry.phys_addr = virt_to_phys(p_infos);
+	md_entry.size = sizeof(struct printk_info) * _DESCS_COUNT(descring.count_bits);
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add log_info entry in minidump table\n");
+}
+
+
 static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 					struct printk_record *r)
 {
@@ -199,6 +242,7 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 	}
 
 	copy_early_boot_log = false;
+	register_log_minidump(prb);
 	did = atomic_long_read(&tailid);
 	while (true) {
 		ind = did % _DESCS_COUNT(descring.count_bits);
