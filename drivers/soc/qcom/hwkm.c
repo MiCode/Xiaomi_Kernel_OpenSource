@@ -32,7 +32,7 @@
 #define ASYNC_CMD_HANDLING false
 
 // Maximum number of times to poll
-#define MAX_RETRIES 20000
+#define MAX_RETRIES 1000
 
 int retries;
 #define WAIT_UNTIL(cond)			\
@@ -89,20 +89,34 @@ static int qti_handle_set_tpkey(const struct hwkm_cmd *cmd_in,
 				struct hwkm_rsp *rsp_in)
 {
 	int status = 0;
+	int retries = 0;
 	struct tme_ext_err_info errinfo = {0};
 
 	if (cmd_in->dest != KM_MASTER) {
-		pr_err("Invalid dest %d, only master supported\n", cmd_in->dest);
+		pr_err("Invalid dest %d, only master supported\n",
+						cmd_in->dest);
 		return -EINVAL;
 	}
 
 	status = tme_hwkm_master_broadcast_transportkey(&errinfo);
 	if (status) {
-		pr_err("Error in tme hwkm tpkey call, status = %d\n", status);
+		if ((status == -ENODEV) || (status == -EAGAIN)) {
+			while (((status == -ENODEV) || (status == -EAGAIN)) &&
+					(retries < MAX_RETRIES)) {
+				usleep_range(8000, 12000);
+				status =
+				tme_hwkm_master_broadcast_transportkey(
+							&errinfo);
+				if (status == 0)
+					goto ret;
+				retries++;
+			}
+		}
+		pr_err("Err in tme hwkm tpkey call, sts = %d\n", status);
 		print_err_info(&errinfo);
-		return status;
 	}
 
+ret:
 	return status;
 }
 
