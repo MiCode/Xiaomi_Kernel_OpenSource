@@ -564,7 +564,12 @@ static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
 		 * the state machine to find a replacement CPU.
 		 */
 		if (cpumask_test_cpu(cpu, &the_hcd->our_paused_cpus)) {
-			resume_cpu(cpu);
+			ret = resume_cpu(cpu);
+			if (ret < 0) {
+				pr_err("fail to unpause CPU%d. ret=%d\n",
+				       cpu, ret);
+				goto out;
+			}
 			cpumask_clear_cpu(cpu, &the_hcd->our_paused_cpus);
 			if (freq_qos_init_done) {
 				qos_req = &per_cpu(qos_min_req, cpu);
