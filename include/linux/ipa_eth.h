@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_ETH_H_
@@ -1094,5 +1094,9 @@ int ipa_eth_client_set_perf_profile(struct ipa_eth_client *client,
 	struct ipa_eth_perf_profile *profile);
 int ipa_eth_client_conn_evt(struct ipa_ecm_msg *msg);
 int ipa_eth_client_disconn_evt(struct ipa_ecm_msg *msg);
+enum ipa_client_type ipa_eth_get_ipa_client_type_from_eth_type(
+	enum ipa_eth_client_type eth_client_type, enum ipa_eth_pipe_direction dir);
+bool ipa_eth_client_exist(
+	enum ipa_eth_client_type eth_client_type, int inst_id);
 
 #endif // _IPA_ETH_H_
