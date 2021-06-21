@@ -510,19 +510,23 @@ static int host_stage2_adjust_range(u64 addr, struct kvm_mem_range *range)
 int host_stage2_idmap_locked(phys_addr_t addr, u64 size,
 			     enum kvm_pgtable_prot prot)
 {
-	hyp_assert_lock_held(&host_kvm.lock);
-
 	return host_stage2_try(__host_stage2_idmap, addr, addr + size, prot);
 }
 
-int host_stage2_set_owner_locked(phys_addr_t addr, u64 size, u8 owner_id)
+#define KVM_INVALID_PTE_OWNER_MASK	GENMASK(9, 2)
+static kvm_pte_t kvm_init_invalid_leaf_owner(u8 owner_id)
 {
+	return FIELD_PREP(KVM_INVALID_PTE_OWNER_MASK, owner_id);
+}
+
+int host_stage2_set_owner_locked(phys_addr_t addr, u64 size,
+				 u8 owner_id)
+{
+	kvm_pte_t annotation = kvm_init_invalid_leaf_owner(owner_id);
 	int ret;
 
-	hyp_assert_lock_held(&host_kvm.lock);
-
-	ret = host_stage2_try(kvm_pgtable_stage2_set_owner, &host_kvm.pgt,
-			      addr, size, &host_s2_pool, owner_id);
+	ret = host_stage2_try(kvm_pgtable_stage2_annotate, &host_kvm.pgt,
+			      addr, size, &host_s2_pool, annotation);
 
 	if (!ret && kvm_iommu_ops.host_stage2_set_owner)
 		kvm_iommu_ops.host_stage2_set_owner(addr, size, owner_id);
