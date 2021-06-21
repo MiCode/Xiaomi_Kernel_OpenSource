@@ -233,8 +233,10 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 					sizeof(struct synx_bind_desc));
 				/* clear the hash table entry */
 				entry = synx_util_retrieve_data(ext_sync_id, type);
-				if (entry) {
+				if (entry && type == SYNX_TYPE_CSL) {
+					spin_lock_bh(&camera_tbl_lock);
 					hash_del(&entry->node);
+					spin_unlock_bh(&camera_tbl_lock);
 					kfree(entry);
 				} else {
 					pr_err("missing hash entry for %d in cb\n",
@@ -265,8 +267,10 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 
 		/* clear the hash table entry */
 		entry = synx_util_retrieve_data(sync_id, type);
-		if (entry) {
+		if (entry && type == SYNX_TYPE_CSL) {
+			spin_lock_bh(&camera_tbl_lock);
 			hash_del(&entry->node);
+			spin_unlock_bh(&camera_tbl_lock);
 			kfree(entry);
 		} else {
 			pr_err("missing hash entry for id %d\n", sync_id);
@@ -1815,7 +1819,9 @@ static void synx_ipc_signal_handler(struct work_struct *cb_dispatch)
 		if (rc)
 			pr_err("ipc signaling failed on key %u err: %d\n",
 				msg->global_key, rc);
+		spin_lock_bh(&global_tbl_lock);
 		hash_del(&entry->node);
+		spin_unlock_bh(&global_tbl_lock);
 		synx_util_put_object((struct synx_coredata *)entry->data);
 		kfree(entry);
 	} else {
