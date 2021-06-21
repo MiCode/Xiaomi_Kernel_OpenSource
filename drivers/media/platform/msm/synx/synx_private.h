@@ -37,8 +37,8 @@
 #define SYNX_CLIENT_IDX_OBJ_MASK    ((1UL<<(SYNX_CLIENT_HANDLE_SHIFT+SYNX_OBJ_ENCODE_SHIFT))-1)
 
 /* external sync table to be same enum as type */
-#define SYNX_CAMERA_ID_TBL          0
-#define SYNX_GLOBAL_KEY_TBL         1
+#define SYNX_CAMERA_ID_TBL          SYNX_TYPE_CSL
+#define SYNX_GLOBAL_KEY_TBL         SYNX_MAX_BIND_TYPES
 
 /**
  * struct synx_external_data - data passed over to external sync objects
