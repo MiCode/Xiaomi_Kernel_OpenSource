@@ -499,6 +499,11 @@
 		reg = <0x0 0xbb000000 0x0 0x5000000>;
 	};
 
+	mte_mem: mte_region@c0000000 {
+		no-map;
+		reg = <0x0 0xc0000000 0x0 0x20000000>;
+	};
+
 	qheebsp_reserved_mem: qheebsp_reserved_region@e0000000 {
 		no-map;
 		reg = <0x0 0xe0000000 0x0 0x600000>;
