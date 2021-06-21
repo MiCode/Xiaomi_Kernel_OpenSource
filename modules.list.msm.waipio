@@ -11,6 +11,7 @@ dcvs_fp.ko
 debug-regulator.ko
 deferred-free-helper.ko
 dispcc-waipio.ko
+gcc-diwali.ko
 gcc-waipio.ko
 gdsc-regulator.ko
 gh_ctrl.ko
