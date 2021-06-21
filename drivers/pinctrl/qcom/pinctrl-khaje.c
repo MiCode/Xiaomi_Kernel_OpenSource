@@ -22,7 +22,7 @@
 #define EAST		0x00900000
 #define DUMMY		0x0
 #define REG_SIZE	0x1000
-#define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
+#define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9, wake_off, bit)	\
 	{						\
 		.name = "gpio" #id,			\
 		.pins = gpio##id##_pins,		\
