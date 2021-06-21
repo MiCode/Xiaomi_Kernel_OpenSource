@@ -329,8 +329,7 @@ static void handle_pvm_exit_iabt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *sh
 
 static void handle_pvm_exit_dabt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
-	/* FIXME: Revisit once MMIO-guard is available */
-	shadow_vcpu->mmio_needed = true;
+	shadow_vcpu->mmio_needed = __pkvm_check_ioguard_page(shadow_vcpu);
 
 	if (shadow_vcpu->mmio_needed) {
 		/* r0 as transfer register between the guest and the host. */
