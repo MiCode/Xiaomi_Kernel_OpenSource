@@ -132,8 +132,10 @@ static int mhi_alloc_aligned_ring(struct mhi_controller *mhi_cntrl,
 				  u64 len)
 {
 	ring->alloc_size = len + (len - 1);
-	ring->pre_aligned = dma_alloc_coherent(mhi_cntrl->cntrl_dev, ring->alloc_size,
-					       &ring->dma_handle, GFP_KERNEL);
+	ring->pre_aligned = dma_alloc_coherent(mhi_cntrl->cntrl_dev,
+					       ring->alloc_size,
+					       &ring->dma_handle,
+					       GFP_KERNEL);
 	if (!ring->pre_aligned)
 		return -ENOMEM;
 
