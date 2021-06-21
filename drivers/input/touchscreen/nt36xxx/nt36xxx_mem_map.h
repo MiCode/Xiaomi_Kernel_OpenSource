@@ -16,6 +16,8 @@
  * more details.
  *
  */
+#define CHIP_VER_TRIM_ADDR 0x3F004
+#define CHIP_VER_TRIM_OLD_ADDR 0x1F64E
 
 struct nvt_ts_mem_map {
 	uint32_t EVENT_BUF_ADDR;
@@ -173,6 +175,14 @@ struct nvt_ts_trim_id_table {
 };
 
 static const struct nvt_ts_trim_id_table trim_id_table[] = {
+	{.id = {0x20, 0xFF, 0xFF, 0x72, 0x66, 0x03}, .mask = {1, 0, 0, 1, 1, 1},
+		.mmap = &NT36675_memory_map,  .hwinfo = &NT36675_hw_info},
+	{.id = {0x00, 0xFF, 0xFF, 0x80, 0x66, 0x03}, .mask = {1, 0, 0, 1, 1, 1},
+		.mmap = &NT36675_memory_map,  .hwinfo = &NT36675_hw_info},
+	{.id = {0x0C, 0xFF, 0xFF, 0x25, 0x65, 0x03}, .mask = {1, 0, 0, 1, 1, 1},
+		.mmap = &NT36672A_memory_map, .hwinfo = &NT36672A_hw_info},
+	{.id = {0x0E, 0xFF, 0xFF, 0x72, 0x66, 0x03}, .mask = {1, 0, 0, 1, 1, 1},
+		.mmap = &NT36675_memory_map,  .hwinfo = &NT36675_hw_info},
 	{.id = {0x0C, 0xFF, 0xFF, 0x72, 0x66, 0x03}, .mask = {1, 0, 0, 1, 1, 1},
 		.mmap = &NT36675_memory_map,  .hwinfo = &NT36675_hw_info},
 	{.id = {0xFF, 0xFF, 0xFF, 0x26, 0x65, 0x03}, .mask = {0, 0, 0, 1, 1, 1},
