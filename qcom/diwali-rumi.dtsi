@@ -1,3 +1,4 @@
+#include <dt-bindings/clock/qcom,gcc-diwali.h>
 
 &soc {
 	timer {
@@ -76,4 +77,17 @@
 		dr_mode = "peripheral";
 		maximum-speed = "high-speed";
 	};
+};
+
+&gpucc {
+	clocks = <&bi_tcxo>,
+		<&gcc GCC_GPU_GPLL0_CLK_SRC>,
+		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
+};
+
+&camcc {
+	clocks = <&bi_tcxo>,
+		<&bi_tcxo_ao>,
+		<&sleep_clk>,
+		<&gcc GCC_CAMERA_AHB_CLK>;
 };
