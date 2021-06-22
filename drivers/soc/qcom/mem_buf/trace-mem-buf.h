@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -13,7 +13,7 @@
 #include <linux/mem-buf.h>
 
 #ifdef CREATE_TRACE_POINTS
-static void __maybe_unused hh_acl_to_vmid_perms(struct hh_acl_desc *acl_desc,
+static void __maybe_unused gh_acl_to_vmid_perms(struct gh_acl_desc *acl_desc,
 						u16 *vmids, u8 *perms)
 {
 	unsigned int i;
@@ -25,7 +25,7 @@ static void __maybe_unused hh_acl_to_vmid_perms(struct hh_acl_desc *acl_desc,
 }
 
 static void __maybe_unused
-hh_sgl_to_ipa_bases_sizes(struct hh_sgl_desc *sgl_desc,
+gh_sgl_to_ipa_bases_sizes(struct gh_sgl_desc *sgl_desc,
 			  u64 *ipa_bases, u64 *sizes)
 {
 	unsigned int i;
@@ -61,7 +61,7 @@ TRACE_EVENT(mem_buf_alloc_info,
 
 	TP_PROTO(size_t size, enum mem_buf_mem_type src_mem_type,
 		 enum mem_buf_mem_type dst_mem_type,
-		 struct hh_acl_desc *acl_desc),
+		 struct gh_acl_desc *acl_desc),
 
 	TP_ARGS(size, src_mem_type, dst_mem_type, acl_desc),
 
@@ -79,7 +79,7 @@ TRACE_EVENT(mem_buf_alloc_info,
 		__assign_str(src_type, mem_type_to_str(src_mem_type));
 		__assign_str(dst_type, mem_type_to_str(dst_mem_type));
 		__entry->nr_acl_entries = acl_desc->n_acl_entries;
-		hh_acl_to_vmid_perms(acl_desc, __get_dynamic_array(vmids),
+		gh_acl_to_vmid_perms(acl_desc, __get_dynamic_array(vmids),
 				     __get_dynamic_array(perms));
 	),
 
@@ -115,7 +115,7 @@ DECLARE_EVENT_CLASS(alloc_req_msg_class,
 		__entry->size = req->size;
 		__assign_str(src_type, mem_type_to_str(req->src_mem_type));
 		__entry->nr_acl_entries = req->acl_desc.n_acl_entries;
-		hh_acl_to_vmid_perms(&req->acl_desc, __get_dynamic_array(vmids),
+		gh_acl_to_vmid_perms(&req->acl_desc, __get_dynamic_array(vmids),
 				     __get_dynamic_array(perms));
 	),
 
@@ -151,7 +151,7 @@ DECLARE_EVENT_CLASS(relinquish_req_msg_class,
 
 	TP_STRUCT__entry(
 		__string(msg_type, msg_type_to_str(rel_req->hdr.msg_type))
-		__field(hh_memparcel_handle_t, hdl)
+		__field(gh_memparcel_handle_t, hdl)
 	),
 
 	TP_fast_assign(
@@ -188,7 +188,7 @@ DECLARE_EVENT_CLASS(alloc_resp_class,
 		__field(u32, txn_id)
 		__string(msg_type, msg_type_to_str(resp->hdr.msg_type))
 		__field(s32, ret)
-		__field(hh_memparcel_handle_t, hdl)
+		__field(gh_memparcel_handle_t, hdl)
 	),
 
 	TP_fast_assign(
@@ -220,8 +220,8 @@ DEFINE_EVENT(alloc_resp_class, receive_alloc_resp_msg,
 
 TRACE_EVENT(lookup_sgl,
 
-	TP_PROTO(struct hh_sgl_desc *sgl_desc, int ret,
-		     hh_memparcel_handle_t hdl),
+	TP_PROTO(struct gh_sgl_desc *sgl_desc, int ret,
+		     gh_memparcel_handle_t hdl),
 
 	TP_ARGS(sgl_desc, ret, hdl),
 
@@ -230,12 +230,12 @@ TRACE_EVENT(lookup_sgl,
 		__dynamic_array(u64, ipa_bases, sgl_desc->n_sgl_entries)
 		__dynamic_array(u64, sizes, sgl_desc->n_sgl_entries)
 		__field(int, ret)
-		__field(hh_memparcel_handle_t, hdl)
+		__field(gh_memparcel_handle_t, hdl)
 	),
 
 	TP_fast_assign(
 		__entry->nr_sgl_entries = sgl_desc->n_sgl_entries;
-		hh_sgl_to_ipa_bases_sizes(sgl_desc,
+		gh_sgl_to_ipa_bases_sizes(sgl_desc,
 					  __get_dynamic_array(ipa_bases),
 					  __get_dynamic_array(sizes));
 		__entry->ret = ret;
@@ -254,12 +254,12 @@ TRACE_EVENT(lookup_sgl,
 
 TRACE_EVENT(map_mem_s2,
 
-	TP_PROTO(hh_memparcel_handle_t hdl, struct hh_sgl_desc *sgl_desc),
+	TP_PROTO(gh_memparcel_handle_t hdl, struct gh_sgl_desc *sgl_desc),
 
 	TP_ARGS(hdl, sgl_desc),
 
 	TP_STRUCT__entry(
-		__field(hh_memparcel_handle_t, hdl)
+		__field(gh_memparcel_handle_t, hdl)
 		__field(u16, nr_sgl_entries)
 		__dynamic_array(u64, ipa_bases, sgl_desc->n_sgl_entries)
 		__dynamic_array(u64, sizes, sgl_desc->n_sgl_entries)
@@ -268,7 +268,7 @@ TRACE_EVENT(map_mem_s2,
 	TP_fast_assign(
 		__entry->hdl = hdl;
 		__entry->nr_sgl_entries = sgl_desc->n_sgl_entries;
-		hh_sgl_to_ipa_bases_sizes(sgl_desc,
+		gh_sgl_to_ipa_bases_sizes(sgl_desc,
 					  __get_dynamic_array(ipa_bases),
 					  __get_dynamic_array(sizes));
 	),

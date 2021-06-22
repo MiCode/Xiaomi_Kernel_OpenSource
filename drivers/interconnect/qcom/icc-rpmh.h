@@ -157,5 +157,7 @@ struct icc_node_data *qcom_icc_xlate_extended(struct of_phandle_args *spec, void
 int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev);
 void qcom_icc_pre_aggregate(struct icc_node *node);
 int qcom_icc_get_bw_stub(struct icc_node *node, u32 *avg, u32 *peak);
-
+int qcom_icc_rpmh_probe(struct platform_device *pdev);
+int qcom_icc_rpmh_remove(struct platform_device *pdev);
+void qcom_icc_rpmh_sync_state(struct device *dev);
 #endif

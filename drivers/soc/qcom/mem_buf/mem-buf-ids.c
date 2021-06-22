@@ -27,7 +27,7 @@ int current_vmid;
 static struct mem_buf_vm vm_ ## _lname = {	\
 	.name = "qcom," #_lname,		\
 	.vmid = VMID_ ## _uname,		\
-	.hh_id = HH_VM_MAX,			\
+	.gh_id = GH_VM_MAX,			\
 	.allowed_api = MEM_BUF_API_HYP_ASSIGN,	\
 }
 
@@ -46,15 +46,15 @@ PERIPHERAL_VM(CP_CDSP, cp_cdsp);
 static struct mem_buf_vm vm_trusted_vm = {
 	.name = "qcom,trusted_vm",
 	/* Vmid via dynamic lookup */
-	.hh_id = HH_TRUSTED_VM,
-	.allowed_api = MEM_BUF_API_HAVEN,
+	.gh_id = GH_TRUSTED_VM,
+	.allowed_api = MEM_BUF_API_GUNYAH,
 };
 
 static struct mem_buf_vm vm_hlos = {
 	.name = "qcom,hlos",
 	.vmid = VMID_HLOS,
-	.hh_id = HH_VM_MAX,
-	.allowed_api = MEM_BUF_API_HYP_ASSIGN | MEM_BUF_API_HAVEN,
+	.gh_id = GH_VM_MAX,
+	.allowed_api = MEM_BUF_API_HYP_ASSIGN | MEM_BUF_API_GUNYAH,
 };
 
 struct mem_buf_vm *pdata_array[] = {
@@ -101,8 +101,8 @@ static const struct file_operations mem_buf_vm_fops = {
 static struct mem_buf_vm *find_vm_by_vmid(int vmid)
 {
 	struct mem_buf_vm *vm;
-	enum hh_vm_names vm_name;
-	hh_vmid_t hh_vmid;
+	enum gh_vm_names vm_name;
+	gh_vmid_t gh_vmid;
 	unsigned long idx;
 	int ret;
 
@@ -110,20 +110,20 @@ static struct mem_buf_vm *find_vm_by_vmid(int vmid)
 	if (vm)
 		return vm;
 
-	for (vm_name = HH_PRIMARY_VM; vm_name < HH_VM_MAX; vm_name++) {
-		ret = hh_rm_get_vmid(vm_name, &hh_vmid);
+	for (vm_name = GH_PRIMARY_VM; vm_name < GH_VM_MAX; vm_name++) {
+		ret = gh_rm_get_vmid(vm_name, &gh_vmid);
 		if (ret)
 			return ERR_PTR(ret);
 
-		if (hh_vmid == vmid)
+		if (gh_vmid == vmid)
 			break;
 	}
 
-	if (vm_name == HH_VM_MAX)
+	if (vm_name == GH_VM_MAX)
 		return ERR_PTR(-EINVAL);
 
 	xa_for_each(&mem_buf_vm_minors, idx, vm) {
-		if (vm->hh_id == vm_name)
+		if (vm->gh_id == vm_name)
 			return vm;
 	}
 	WARN_ON(1);
@@ -155,7 +155,7 @@ int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries)
 	if (allowed_api & MEM_BUF_API_HYP_ASSIGN)
 		return MEM_BUF_API_HYP_ASSIGN;
 	else
-		return MEM_BUF_API_HAVEN;
+		return MEM_BUF_API_GUNYAH;
 }
 
 int mem_buf_fd_to_vmid(int fd)
@@ -163,7 +163,7 @@ int mem_buf_fd_to_vmid(int fd)
 	int ret = -EINVAL;
 	struct mem_buf_vm *vm;
 	struct file *file;
-	hh_vmid_t vmid;
+	gh_vmid_t vmid;
 
 	file = fget(fd);
 	if (!file)
@@ -176,14 +176,14 @@ int mem_buf_fd_to_vmid(int fd)
 	}
 
 	vm = file->private_data;
-	if (vm->hh_id == HH_VM_MAX) {
+	if (vm->gh_id == GH_VM_MAX) {
 		fput(file);
 		return vm->vmid;
 	}
 
-	ret = hh_rm_get_vmid(vm->hh_id, &vmid);
+	ret = gh_rm_get_vmid(vm->gh_id, &vmid);
 	if (ret)
-		pr_err("hh_rm_get_vmid %d failed\n", vm->hh_id);
+		pr_err("gh_rm_get_vmid %d failed\n", vm->gh_id);
 	fput(file);
 	return ret ? ret : vmid;
 }
@@ -232,7 +232,7 @@ static int mem_buf_vm_add(struct mem_buf_vm *new_vm)
 	dev_set_drvdata(dev, new_vm);
 	dev_set_name(dev, "%s", new_vm->name);
 
-	if (new_vm->hh_id == HH_VM_MAX) {
+	if (new_vm->gh_id == GH_VM_MAX) {
 		ret = xa_err(xa_store(&mem_buf_vms, new_vm->vmid, new_vm, GFP_KERNEL));
 		if (ret)
 			goto err_xa_store;
@@ -288,7 +288,7 @@ static int mem_buf_vm_add_self(void)
 	/* Create an aliased name */
 	self->name = "qcom,self";
 	self->vmid = vm->vmid;
-	self->hh_id = vm->hh_id;
+	self->gh_id = vm->gh_id;
 	self->allowed_api = vm->allowed_api;
 
 	ret = mem_buf_vm_add(self);

@@ -67,9 +67,12 @@ enum qcom_scm_call_type {
 };
 
 #define SCM_SMC_FNID(s, c)	((((s) & 0xFF) << 8) | ((c) & 0xFF))
-extern int scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
-			struct qcom_scm_res *res,
-			enum qcom_scm_call_type call_type);
+extern int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
+			  enum qcom_scm_convention qcom_convention,
+			  struct qcom_scm_res *res,
+			  enum qcom_scm_call_type call_type);
+#define scm_smc_call(dev, desc, res, atomic) \
+	__scm_smc_call((dev), (desc), qcom_scm_convention, (res), (atomic))
 
 #define SCM_LEGACY_FNID(s, c)	(((s) << 10) | ((c) & 0x3ff))
 extern int scm_legacy_call_atomic(struct device *dev,
@@ -200,6 +203,7 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 #define QCOM_SCM_ICE_RESTORE_KEY_ID		0x06
 
 #define QCOM_SCM_SVC_SMCINVOKE			0x06
+#define QCOM_SCM_SMCINVOKE_INVOKE_LEGACY	0x00
 #define QCOM_SCM_SMCINVOKE_INVOKE		0x02
 #define QCOM_SCM_SMCINVOKE_CB_RSP		0x01
 

@@ -93,9 +93,11 @@ struct mhi_qcom_priv {
 	bool driver_remove;
 };
 
-void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl);
+void mhi_deinit_pci_dev(struct pci_dev *pci_dev,
+			const struct mhi_pci_dev_info *dev_info);
 int mhi_qcom_pci_probe(struct pci_dev *pci_dev,
-		       const struct mhi_pci_dev_info *dev_info);
+		       struct mhi_controller *mhi_cntrl,
+		       struct mhi_qcom_priv *mhi_priv);
 
 #ifdef CONFIG_ARCH_QCOM
 

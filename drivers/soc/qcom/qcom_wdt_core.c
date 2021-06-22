@@ -36,14 +36,6 @@
 #define COMPARE_RET      -1
 
 typedef int (*compare_t) (const void *lhs, const void *rhs);
-
-#ifdef CONFIG_QCOM_INITIAL_LOGBUF
-#define BOOT_LOG_SIZE    SZ_512K
-char *boot_log_buf;
-unsigned int boot_log_buf_size;
-bool copy_early_boot_log = true;
-#endif
-
 static struct msm_watchdog_data *wdog_data;
 
 static void qcom_wdt_dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
@@ -250,63 +242,6 @@ static void queue_irq_counts_work(struct work_struct *irq_counts_work) { }
 static void compute_irq_stat(struct work_struct *work) { }
 #endif
 
-#ifdef CONFIG_QCOM_INITIAL_LOGBUF
-static void boot_log_init(void)
-{
-	void *start;
-	unsigned int size;
-	struct md_region md_entry;
-	uint32_t log_buf_len;
-
-	log_buf_len = log_buf_len_get();
-	if (!log_buf_len) {
-		dev_err(wdog_data->dev, "log_buf_len is zero\n");
-		goto out;
-	}
-
-	if (log_buf_len >= BOOT_LOG_SIZE)
-		size = log_buf_len;
-	else
-		size = BOOT_LOG_SIZE;
-
-	start = kzalloc(size, GFP_KERNEL);
-	if (!start)
-		goto out;
-
-	strlcpy(md_entry.name, "KBOOT_LOG", sizeof(md_entry.name));
-	md_entry.virt_addr = (uintptr_t)start;
-	md_entry.phys_addr = virt_to_phys(start);
-	md_entry.size = size;
-	if (msm_minidump_add_region(&md_entry) < 0) {
-		dev_err(wdog_data->dev, "Failed to add boot log entry\n");
-		kfree(start);
-		goto out;
-	}
-
-	boot_log_buf_size = size;
-	boot_log_buf = (char *)start;
-
-	/* Ensure boot_log_buf and boot_log_buf initialization
-	 * is visible to other CPU's
-	 */
-	smp_mb();
-
-out:
-	return;
-}
-
-static void release_boot_log_buf(void)
-{
-	if (!boot_log_buf)
-		return;
-
-	kfree(boot_log_buf);
-}
-#else
-static void boot_log_init(void) { }
-static void release_boot_log_buf(void) { }
-#endif
-
 #ifdef CONFIG_PM_SLEEP
 /**
  *  qcom_wdt_suspend() - Suspends qcom watchdog functionality.
@@ -375,6 +310,8 @@ int qcom_wdt_pet_suspend(struct device *dev)
 	wdog_dd->freeze_in_progress = true;
 	spin_unlock(&wdog_dd->freeze_lock);
 	del_timer_sync(&wdog_dd->pet_timer);
+	if (wdog_dd->user_pet_enabled)
+		del_timer_sync(&wdog_dd->user_pet_timer);
 	return 0;
 }
 EXPORT_SYMBOL(qcom_wdt_pet_suspend);
@@ -394,6 +331,11 @@ int qcom_wdt_pet_resume(struct device *dev)
 	spin_lock(&wdog_dd->freeze_lock);
 	wdog_dd->pet_timer.expires = jiffies + delay_time;
 	add_timer(&wdog_dd->pet_timer);
+	if (wdog_dd->user_pet_enabled) {
+		delay_time = msecs_to_jiffies(wdog_dd->bark_time + 3 * 1000);
+		wdog_dd->user_pet_timer.expires = jiffies + delay_time;
+		add_timer(&wdog_dd->user_pet_timer);
+	}
 	wdog_dd->freeze_in_progress = false;
 	spin_unlock(&wdog_dd->freeze_lock);
 	return 0;
@@ -484,6 +426,8 @@ static void qcom_wdt_disable(struct msm_watchdog_data *wdog_dd)
 	qcom_wdt_unregister_die_notifier(wdog_dd);
 	unregister_restart_handler(&wdog_dd->restart_blk);
 	del_timer_sync(&wdog_dd->pet_timer);
+	if (wdog_dd->user_pet_enabled)
+		del_timer_sync(&wdog_dd->user_pet_timer);
 	wdog_dd->ops->disable_wdt(wdog_dd);
 	dev_err(wdog_dd->dev, "QCOM Apps Watchdog deactivated\n");
 }
@@ -587,12 +531,20 @@ static ssize_t qcom_wdt_user_pet_enabled_set(struct device *dev,
 {
 	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
 	int ret;
+	unsigned long delay_time = 0;
+	bool already_enabled = wdog_dd->user_pet_enabled;
 
 	ret = strtobool(buf, &wdog_dd->user_pet_enabled);
 	if (ret) {
 		dev_err(wdog_dd->dev, "invalid user input\n");
 		return ret;
 	}
+
+	delay_time = msecs_to_jiffies(wdog_dd->bark_time + 3 * 1000);
+	if (wdog_dd->user_pet_enabled)
+		mod_timer(&wdog_dd->user_pet_timer, jiffies + delay_time);
+	else if (already_enabled)
+		del_timer_sync(&wdog_dd->user_pet_timer);
 
 	__qcom_wdt_user_pet(wdog_dd);
 
@@ -653,6 +605,15 @@ static void qcom_wdt_pet_task_wakeup(struct timer_list *t)
 	wdog_dd->timer_expired = true;
 	wdog_dd->timer_fired = sched_clock();
 	wake_up(&wdog_dd->pet_complete);
+}
+static void qcom_wdt_user_pet_bite(struct timer_list *t)
+{
+	struct msm_watchdog_data *wdog_dd =
+		from_timer(wdog_dd, t, user_pet_timer);
+	if (!wdog_dd->user_pet_complete) {
+		dev_info(wdog_dd->dev, "QCOM Apps Watchdog user pet timeout!\n");
+		qcom_wdt_trigger_bite();
+	}
 }
 
 static __ref int qcom_wdt_kthread(void *arg)
@@ -755,11 +716,12 @@ int qcom_wdt_remove(struct platform_device *pdev)
 	irq_dispose_mapping(wdog_dd->bark_irq);
 	dev_info(wdog_dd->dev, "QCOM Apps Watchdog Exit - Deactivated\n");
 	del_timer_sync(&wdog_dd->pet_timer);
+	if (wdog_dd->user_pet_enabled)
+		del_timer_sync(&wdog_dd->user_pet_timer);
 	wdog_dd->timer_expired = true;
 	wdog_dd->user_pet_complete = true;
 	kthread_stop(wdog_dd->watchdog_task);
 	flush_work(&wdog_dd->irq_counts_work);
-	release_boot_log_buf();
 	return 0;
 }
 EXPORT_SYMBOL(qcom_wdt_remove);
@@ -899,6 +861,7 @@ static int qcom_wdt_init(struct msm_watchdog_data *wdog_dd,
 	timer_setup(&wdog_dd->pet_timer, qcom_wdt_pet_task_wakeup, 0);
 	wdog_dd->pet_timer.expires = jiffies + delay_time;
 	add_timer(&wdog_dd->pet_timer);
+	timer_setup(&wdog_dd->user_pet_timer, qcom_wdt_user_pet_bite, 0);
 	val = BIT(EN);
 	if (wdog_dd->wakeup_irq_enable)
 		val |= BIT(UNMASKED_INT_EN);
@@ -994,8 +957,6 @@ int qcom_wdt_register(struct platform_device *pdev,
 		kthread_stop(wdog_dd->watchdog_task);
 		goto err;
 	}
-
-	boot_log_init();
 
 	/* Add wdog info to minidump table */
 	strlcpy(md_entry.name, "KWDOGDATA", sizeof(md_entry.name));

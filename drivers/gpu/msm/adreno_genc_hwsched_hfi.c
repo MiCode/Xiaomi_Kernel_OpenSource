@@ -937,6 +937,7 @@ static void enable_async_hfi(struct adreno_device *adreno_dev)
 static int enable_preemption(struct adreno_device *adreno_dev)
 {
 	u32 data;
+	int ret;
 
 	if (!adreno_is_preemption_enabled(adreno_dev))
 		return 0;
@@ -950,8 +951,19 @@ static int enable_preemption(struct adreno_device *adreno_dev)
 			FIELD_PREP(BIT(2), adreno_dev->preempt.usesgmem) |
 			FIELD_PREP(BIT(3), adreno_dev->preempt.skipsaverestore);
 
-	return genc_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_PREEMPTION, 1,
+	ret = genc_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_PREEMPTION, 1,
 			data);
+	if (ret)
+		return ret;
+
+	/*
+	 * Bits[3:0] contain the preemption timeout enable bit per ringbuffer
+	 * Bits[31:4] contain the timeout in ms
+	 */
+	return genc_hfi_send_feature_ctrl(adreno_dev, HFI_VALUE_BIN_TIME, 1,
+		FIELD_PREP(GENMASK(31, 4), 3000) |
+		FIELD_PREP(GENMASK(3, 0), 0xf));
+
 }
 
 int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
@@ -996,10 +1008,6 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 			goto err;
 	}
 
-	ret = enable_preemption(adreno_dev);
-	if (ret)
-		goto err;
-
 	if (gmu->log_stream_enable)
 		genc_hfi_send_set_value(adreno_dev,
 			HFI_VALUE_LOG_STREAM_ENABLE, 0, 1);
@@ -1009,6 +1017,10 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 			HFI_VALUE_LOG_GROUP, 0, gmu->log_group_mask);
 
 	ret = genc_hfi_send_core_fw_start(adreno_dev);
+	if (ret)
+		goto err;
+
+	ret = enable_preemption(adreno_dev);
 	if (ret)
 		goto err;
 
@@ -1082,9 +1094,15 @@ static int send_switch_to_unsecure(struct adreno_device *adreno_dev)
 int genc_hwsched_cp_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	genc_unhalt_sqe(adreno_dev);
+	/* Program the ucode base for CP */
+	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_LO,
+		lower_32_bits(fw->memdesc->gpuaddr));
+	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_HI,
+		upper_32_bits(fw->memdesc->gpuaddr));
 
 	ret = cp_init(adreno_dev);
 	if (ret)
@@ -1186,6 +1204,31 @@ int genc_hwsched_hfi_probe(struct adreno_device *adreno_dev)
 	f2h_cache = KMEM_CACHE(f2h_packet, 0);
 
 	return 0;
+}
+
+static void destroy_f2h_list(struct llist_head *head)
+{
+	struct llist_node *list;
+	struct f2h_packet *pkt, *tmp;
+
+	list = llist_del_all(head);
+	if (!list)
+		return;
+
+	llist_for_each_entry_safe(pkt, tmp, list, node)
+		kmem_cache_free(f2h_cache, pkt);
+}
+
+void genc_hwsched_hfi_remove(struct adreno_device *adreno_dev)
+{
+	struct genc_hwsched_hfi *hw_hfi = to_genc_hwsched_hfi(adreno_dev);
+
+	destroy_f2h_list(&hw_hfi->f2h_msglist);
+
+	kmem_cache_destroy(f2h_cache);
+	f2h_cache = NULL;
+
+	kthread_stop(hw_hfi->f2h_task);
 }
 
 static void add_profile_events(struct adreno_device *adreno_dev,

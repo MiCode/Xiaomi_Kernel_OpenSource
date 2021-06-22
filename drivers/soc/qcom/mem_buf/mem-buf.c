@@ -9,8 +9,8 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/idr.h>
-#include <linux/haven/hh_rm_drv.h>
-#include <linux/haven/hh_msgq.h>
+#include <linux/gunyah/gh_rm_drv.h>
+#include <linux/gunyah/gh_msgq.h>
 #include <linux/ion.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
@@ -54,11 +54,11 @@ static LIST_HEAD(mem_buf_list);
 static DEFINE_MUTEX(mem_buf_idr_mutex);
 static DEFINE_IDR(mem_buf_txn_idr);
 static struct task_struct *mem_buf_msgq_recv_thr;
-static void *mem_buf_hh_msgq_hdl;
+static void *mem_buf_gh_msgq_hdl;
 static struct workqueue_struct *mem_buf_wq;
 
-static size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc);
-static struct sg_table *dup_hh_sgl_desc_to_sgt(struct hh_sgl_desc *sgl_desc);
+static size_t mem_buf_get_sgl_buf_size(struct gh_sgl_desc *sgl_desc);
+static struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc);
 static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
 					  const void __user *acl_entries,
 					  int **dst_vmids, int **dst_perms,
@@ -119,7 +119,7 @@ struct mem_buf_xfer_mem {
 	void *mem_type_data;
 	struct sg_table *mem_sgt;
 	bool secure_alloc;
-	hh_memparcel_handle_t hdl;
+	gh_memparcel_handle_t hdl;
 	struct list_head entry;
 	u32 nr_acl_entries;
 	int *dst_vmids;
@@ -130,9 +130,9 @@ struct mem_buf_xfer_mem {
  * struct mem_buf_desc - Internal data structure, which contains information
  * about a particular memory buffer.
  * @size: The size of the memory buffer
- * @acl_desc: A HH ACL descriptor that describes the VMIDs that have access to
+ * @acl_desc: A GH ACL descriptor that describes the VMIDs that have access to
  * the memory, as well as the permissions each VMID has.
- * @sgl_desc: An HH SG-List descriptor that describes the IPAs of the memory
+ * @sgl_desc: An GH SG-List descriptor that describes the IPAs of the memory
  * associated with the memory buffer that was allocated from another VM.
  * @memparcel_hdl: The handle associated with the memparcel that represents the
  * memory buffer.
@@ -148,9 +148,9 @@ struct mem_buf_xfer_mem {
  */
 struct mem_buf_desc {
 	size_t size;
-	struct hh_acl_desc *acl_desc;
-	struct hh_sgl_desc *sgl_desc;
-	hh_memparcel_handle_t memparcel_hdl;
+	struct gh_acl_desc *acl_desc;
+	struct gh_sgl_desc *sgl_desc;
+	gh_memparcel_handle_t memparcel_hdl;
 	enum mem_buf_mem_type src_mem_type;
 	void *src_data;
 	enum mem_buf_mem_type dst_mem_type;
@@ -188,7 +188,7 @@ static int mem_buf_msg_send(void *msg, size_t msg_size)
 {
 	int ret;
 
-	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, msg, msg_size, 0);
+	ret = gh_msgq_send(mem_buf_gh_msgq_hdl, msg, msg_size, 0);
 	if (ret < 0)
 		pr_err("%s: failed to send allocation request rc: %d\n",
 		       __func__, ret);
@@ -305,7 +305,7 @@ static void mem_buf_rmt_free_mem(struct mem_buf_xfer_mem *xfer_mem)
 		mem_buf_rmt_free_dmaheap_mem(xfer_mem);
 }
 
-static int mem_buf_hh_acl_desc_to_vmid_perm_list(struct hh_acl_desc *acl_desc,
+static int mem_buf_gh_acl_desc_to_vmid_perm_list(struct gh_acl_desc *acl_desc,
 						 int **vmids, int **perms)
 {
 	int *vmids_arr = NULL, *perms_arr = NULL;
@@ -338,25 +338,25 @@ static int mem_buf_hh_acl_desc_to_vmid_perm_list(struct hh_acl_desc *acl_desc,
 	return 0;
 }
 
-static struct hh_acl_desc *mem_buf_vmid_perm_list_to_hh_acl(int *vmids, int *perms,
+static struct gh_acl_desc *mem_buf_vmid_perm_list_to_gh_acl(int *vmids, int *perms,
 		unsigned int nr_acl_entries)
 {
-	struct hh_acl_desc *hh_acl;
+	struct gh_acl_desc *gh_acl;
 	size_t size;
 	unsigned int i;
 
-	size = offsetof(struct hh_acl_desc, acl_entries[nr_acl_entries]);
-	hh_acl = kmalloc(size, GFP_KERNEL);
-	if (!hh_acl)
+	size = offsetof(struct gh_acl_desc, acl_entries[nr_acl_entries]);
+	gh_acl = kmalloc(size, GFP_KERNEL);
+	if (!gh_acl)
 		return ERR_PTR(-ENOMEM);
 
-	hh_acl->n_acl_entries = nr_acl_entries;
+	gh_acl->n_acl_entries = nr_acl_entries;
 	for (i = 0; i < nr_acl_entries; i++) {
-		hh_acl->acl_entries[i].vmid = vmids[i];
-		hh_acl->acl_entries[i].perms = perms[i];
+		gh_acl->acl_entries[i].vmid = vmids[i];
+		gh_acl->acl_entries[i].perms = perms[i];
 	}
 
-	return hh_acl;
+	return gh_acl;
 }
 
 static
@@ -419,7 +419,7 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 	xfer_mem->size = req->size;
 	xfer_mem->mem_type = req->src_mem_type;
 	xfer_mem->nr_acl_entries = req->acl_desc.n_acl_entries;
-	ret = mem_buf_hh_acl_desc_to_vmid_perm_list(&req->acl_desc,
+	ret = mem_buf_gh_acl_desc_to_vmid_perm_list(&req->acl_desc,
 						    &xfer_mem->dst_vmids,
 						    &xfer_mem->dst_perms);
 	if (ret) {
@@ -542,7 +542,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 
 	resp_msg->ret = ret;
 	trace_send_alloc_resp_msg(resp_msg);
-	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, resp_msg, sizeof(*resp_msg), 0);
+	ret = gh_msgq_send(mem_buf_gh_msgq_hdl, resp_msg, sizeof(*resp_msg), 0);
 
 	/*
 	 * Free the buffer regardless of the return value as the hypervisor
@@ -571,7 +571,7 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	struct mem_buf_xfer_mem *xfer_mem_iter, *tmp, *xfer_mem = NULL;
 	struct mem_buf_rmt_msg *rmt_msg = to_rmt_msg(work);
 	struct mem_buf_alloc_relinquish *relinquish_msg = rmt_msg->msg;
-	hh_memparcel_handle_t hdl = relinquish_msg->hdl;
+	gh_memparcel_handle_t hdl = relinquish_msg->hdl;
 
 	trace_receive_relinquish_msg(relinquish_msg);
 	mutex_lock(&mem_buf_xfer_mem_list_lock);
@@ -595,7 +595,7 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 }
 
 static int mem_buf_decode_alloc_resp(void *buf, size_t size,
-				     hh_memparcel_handle_t *ret_hdl)
+				     gh_memparcel_handle_t *ret_hdl)
 {
 	struct mem_buf_alloc_resp *alloc_resp = buf;
 
@@ -621,7 +621,7 @@ static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 				       size_t size)
 {
 	struct mem_buf_txn *txn;
-	hh_memparcel_handle_t hdl;
+	gh_memparcel_handle_t hdl;
 
 	mutex_lock(&mem_buf_idr_mutex);
 	txn = idr_find(&mem_buf_txn_idr, hdr->txn_id);
@@ -690,12 +690,12 @@ static int mem_buf_msgq_recv_fn(void *unused)
 	int ret;
 
 	while (!kthread_should_stop()) {
-		buf = kzalloc(HH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
+		buf = kzalloc(GH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
 		if (!buf)
 			continue;
 
-		ret = hh_msgq_recv(mem_buf_hh_msgq_hdl, buf,
-					HH_MSGQ_MAX_MSG_SIZE_BYTES, &size, 0);
+		ret = gh_msgq_recv(mem_buf_gh_msgq_hdl, buf,
+					GH_MSGQ_MAX_MSG_SIZE_BYTES, &size, 0);
 		if (ret < 0) {
 			kfree(buf);
 			pr_err_ratelimited("%s failed to receive message rc: %d\n",
@@ -748,7 +748,7 @@ static void *mem_buf_construct_alloc_req(struct mem_buf_desc *membuf,
 	req->hdr.msg_type = MEM_BUF_ALLOC_REQ;
 	req->size = membuf->size;
 	req->src_mem_type = membuf->src_mem_type;
-	acl_desc_size = offsetof(struct hh_acl_desc,
+	acl_desc_size = offsetof(struct gh_acl_desc,
 				 acl_entries[nr_acl_entries]);
 	memcpy(&req->acl_desc, membuf->acl_desc, acl_desc_size);
 
@@ -765,7 +765,7 @@ static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 	struct mem_buf_txn txn;
 	void *alloc_req_msg;
 	size_t msg_size;
-	hh_memparcel_handle_t resp_hdl;
+	gh_memparcel_handle_t resp_hdl;
 	int ret;
 
 	ret = mem_buf_init_txn(&txn, &resp_hdl);
@@ -814,7 +814,7 @@ static void mem_buf_relinquish_mem(u32 memparcel_hdl)
 	msg->hdl = memparcel_hdl;
 
 	trace_send_relinquish_msg(msg);
-	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, msg, sizeof(*msg), 0);
+	ret = gh_msgq_send(mem_buf_gh_msgq_hdl, msg, sizeof(*msg), 0);
 
 	/*
 	 * Free the buffer regardless of the return value as the hypervisor
@@ -946,20 +946,20 @@ static bool is_valid_mem_buf_perms(u32 mem_buf_perms)
 static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
 {
 	int ret;
-	hh_vmid_t vmid;
-	enum hh_vm_names vm_name;
+	gh_vmid_t vmid;
+	enum gh_vm_names vm_name;
 
 	if (!is_valid_mem_buf_vmid(mem_buf_vmid))
 		return -EINVAL;
 
 	if (mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM)
-		vm_name = HH_PRIMARY_VM;
+		vm_name = GH_PRIMARY_VM;
 	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM)
-		vm_name = HH_TRUSTED_VM;
+		vm_name = GH_TRUSTED_VM;
 	else
 		return -EINVAL;
 
-	ret = hh_rm_get_vmid(vm_name, &vmid);
+	ret = gh_rm_get_vmid(vm_name, &vmid);
 	if (!ret)
 		return vmid;
 	return ret;
@@ -1093,7 +1093,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	int ret;
 	struct file *filp;
 	struct mem_buf_desc *membuf;
-	struct hh_sgl_desc *sgl_desc;
+	struct gh_sgl_desc *sgl_desc;
 
 	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
 		return ERR_PTR(-EOPNOTSUPP);
@@ -1111,7 +1111,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 
 	pr_debug("%s: mem buf alloc begin\n", __func__);
 	membuf->size = ALIGN(alloc_data->size, MEM_BUF_MHP_ALIGNMENT);
-	membuf->acl_desc = mem_buf_vmid_perm_list_to_hh_acl(
+	membuf->acl_desc = mem_buf_vmid_perm_list_to_gh_acl(
 				alloc_data->vmids, alloc_data->perms,
 				alloc_data->nr_acl_entries);
 	if (IS_ERR(membuf->acl_desc)) {
@@ -1270,8 +1270,8 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 {
 	int ret;
 	struct qcom_sg_buffer *buffer;
-	struct hh_acl_desc *acl_desc;
-	struct hh_sgl_desc *sgl_desc;
+	struct gh_acl_desc *acl_desc;
+	struct gh_sgl_desc *sgl_desc;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dmabuf;
 	struct sg_table *sgt;
@@ -1289,11 +1289,11 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 	if (!buffer)
 		return ERR_PTR(-ENOMEM);
 
-	acl_desc = mem_buf_vmid_perm_list_to_hh_acl(arg->vmids, arg->perms,
+	acl_desc = mem_buf_vmid_perm_list_to_gh_acl(arg->vmids, arg->perms,
 				arg->nr_acl_entries);
 	if (IS_ERR(acl_desc)) {
 		ret = PTR_ERR(acl_desc);
-		goto err_hh_acl;
+		goto err_gh_acl;
 	}
 
 	sgl_desc = mem_buf_map_mem_s2(arg->memparcel_hdl, acl_desc);
@@ -1306,7 +1306,7 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 	if (ret < 0)
 		goto err_map_mem_s1;
 
-	sgt = dup_hh_sgl_desc_to_sgt(sgl_desc);
+	sgt = dup_gh_sgl_desc_to_sgt(sgl_desc);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto err_dup_sgt;
@@ -1320,7 +1320,8 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 	buffer->len = mem_buf_get_sgl_buf_size(sgl_desc);
 	buffer->uncached = false;
 	buffer->free = mem_buf_retrieve_release;
-	buffer->vmperm = mem_buf_vmperm_alloc_accept(sgt, arg->memparcel_hdl);
+	buffer->vmperm = mem_buf_vmperm_alloc_accept(&buffer->sg_table,
+						     arg->memparcel_hdl);
 
 	exp_info.size = buffer->len;
 	exp_info.flags = arg->fd_flags;
@@ -1344,7 +1345,7 @@ err_map_mem_s1:
 	mem_buf_unmap_mem_s2(arg->memparcel_hdl);
 err_map_s2:
 	kfree(acl_desc);
-err_hh_acl:
+err_gh_acl:
 	kfree(buffer);
 	return ERR_PTR(ret);
 }
@@ -1500,7 +1501,7 @@ out:
 	return ret;
 }
 
-static size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc)
+static size_t mem_buf_get_sgl_buf_size(struct gh_sgl_desc *sgl_desc)
 {
 	size_t size = 0;
 	unsigned int i;
@@ -1511,7 +1512,7 @@ static size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc)
 	return size;
 }
 
-static struct sg_table *dup_hh_sgl_desc_to_sgt(struct hh_sgl_desc *sgl_desc)
+static struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc)
 {
 	struct sg_table *new_table;
 	int ret, i;
@@ -1779,9 +1780,9 @@ static int mem_buf_msgq_probe(struct platform_device *pdev)
 		goto err_kthread_create;
 	}
 
-	mem_buf_hh_msgq_hdl = hh_msgq_register(HH_MSGQ_LABEL_MEMBUF);
-	if (IS_ERR(mem_buf_hh_msgq_hdl)) {
-		ret = PTR_ERR(mem_buf_hh_msgq_hdl);
+	mem_buf_gh_msgq_hdl = gh_msgq_register(GH_MSGQ_LABEL_MEMBUF);
+	if (IS_ERR(mem_buf_gh_msgq_hdl)) {
+		ret = PTR_ERR(mem_buf_gh_msgq_hdl);
 		if (ret != -EPROBE_DEFER)
 			dev_err(dev,
 				"Message queue registration failed: rc: %d\n",
@@ -1807,8 +1808,8 @@ static int mem_buf_msgq_probe(struct platform_device *pdev)
 err_dev_create:
 	cdev_del(&mem_buf_char_dev);
 err_cdev_add:
-	hh_msgq_unregister(mem_buf_hh_msgq_hdl);
-	mem_buf_hh_msgq_hdl = NULL;
+	gh_msgq_unregister(mem_buf_gh_msgq_hdl);
+	mem_buf_gh_msgq_hdl = NULL;
 err_msgq_register:
 	kthread_stop(mem_buf_msgq_recv_thr);
 	mem_buf_msgq_recv_thr = NULL;
@@ -1834,8 +1835,8 @@ static int mem_buf_msgq_remove(struct platform_device *pdev)
 
 	device_destroy(mem_buf_class, mem_buf_dev_no);
 	cdev_del(&mem_buf_char_dev);
-	hh_msgq_unregister(mem_buf_hh_msgq_hdl);
-	mem_buf_hh_msgq_hdl = NULL;
+	gh_msgq_unregister(mem_buf_gh_msgq_hdl);
+	mem_buf_gh_msgq_hdl = NULL;
 	kthread_stop(mem_buf_msgq_recv_thr);
 	mem_buf_msgq_recv_thr = NULL;
 	destroy_workqueue(mem_buf_wq);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_MMU_H
 #define __KGSL_MMU_H
@@ -98,7 +98,7 @@ struct kgsl_mmu_ops {
 	void (*mmu_close)(struct kgsl_mmu *mmu);
 	int (*mmu_start)(struct kgsl_mmu *mmu);
 	uint64_t (*mmu_get_current_ttbr0)(struct kgsl_mmu *mmu);
-	void (*mmu_pagefault_resume)(struct kgsl_mmu *mmu);
+	void (*mmu_pagefault_resume)(struct kgsl_mmu *mmu, bool terminate);
 	void (*mmu_clear_fsr)(struct kgsl_mmu *mmu);
 	void (*mmu_enable_clk)(struct kgsl_mmu *mmu);
 	void (*mmu_disable_clk)(struct kgsl_mmu *mmu);
@@ -323,10 +323,11 @@ static inline int kgsl_mmu_set_pagefault_policy(struct kgsl_mmu *mmu,
 	return 0;
 }
 
-static inline void kgsl_mmu_pagefault_resume(struct kgsl_mmu *mmu)
+static inline void kgsl_mmu_pagefault_resume(struct kgsl_mmu *mmu,
+	bool terminate)
 {
 	if (MMU_OP_VALID(mmu, mmu_pagefault_resume))
-		return mmu->mmu_ops->mmu_pagefault_resume(mmu);
+		return mmu->mmu_ops->mmu_pagefault_resume(mmu, terminate);
 }
 
 static inline void kgsl_mmu_clear_fsr(struct kgsl_mmu *mmu)

@@ -389,8 +389,6 @@ struct actlr_setting {
 
 struct qsmmuv500_archdata {
 	struct list_head		tbus;
-	void __iomem			*tcu_base;
-	u32				version;
 	struct actlr_setting		*actlrs;
 	u32				actlr_tbl_size;
 	struct work_struct		outstanding_tnx_work;
@@ -718,45 +716,6 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 	return NULL;
 }
 
-static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
-				struct qsmmuv500_tbu_device *tbu,
-				unsigned long *flags)
-	__acquires(&smmu->atos_lock)
-{
-	struct arm_smmu_device *smmu = tbu->smmu;
-	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
-	u32 val;
-
-	spin_lock_irqsave(&data->atos_lock, *flags);
-	/* The status register is not accessible on version 1.0 */
-	if (data->version == 0x01000000)
-		return 0;
-
-	if (readl_poll_timeout_atomic(tbu->status_reg,
-					val, (val == 0x1), 0,
-					TBU_DBG_TIMEOUT_US)) {
-		dev_err(tbu->dev, "ECATS hw busy!\n");
-		spin_unlock_irqrestore(&data->atos_lock, *flags);
-		return  -ETIMEDOUT;
-	}
-
-	return 0;
-}
-
-static void qsmmuv500_ecats_unlock(struct arm_smmu_domain *smmu_domain,
-					struct qsmmuv500_tbu_device *tbu,
-					unsigned long *flags)
-	__releases(&smmu->atos_lock)
-{
-	struct arm_smmu_device *smmu = tbu->smmu;
-	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
-
-	/* The status register is not accessible on version 1.0 */
-	if (data->version != 0x01000000)
-		writel_relaxed(0, tbu->status_reg);
-	spin_unlock_irqrestore(&data->atos_lock, *flags);
-}
-
 /*
  * Zero means failure.
  */
@@ -766,6 +725,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 {
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	struct qsmmuv500_tbu_device *tbu;
 	int ret;
 	phys_addr_t phys = 0;
@@ -823,9 +783,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	}
 
 	/* Only one concurrent atos operation */
-	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &spinlock_flags);
-	if (ret)
-		goto out_resume;
+	spin_lock_irqsave(&data->atos_lock, spinlock_flags);
 
 redo:
 	/* Set address and stream-id */
@@ -916,9 +874,7 @@ redo:
 		goto redo;
 
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
-	qsmmuv500_ecats_unlock(smmu_domain, tbu, &spinlock_flags);
-
-out_resume:
+	spin_unlock_irqrestore(&data->atos_lock, spinlock_flags);
 	qsmmuv500_tbu_resume(tbu);
 
 out_power_off:
@@ -1070,10 +1026,7 @@ static int qsmmuv500_read_actlr_tbl(struct qsmmuv500_archdata *data)
 
 static int qsmmuv500_cfg_probe(struct arm_smmu_device *smmu)
 {
-	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	u32 val;
-
-	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
 
 	val = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_sACR);
 	val &= ~ARM_MMU500_ACR_CACHE_LOCK;
@@ -1165,13 +1118,19 @@ static const struct arm_smmu_impl qsmmuv500_adreno_impl = {
 	.def_domain_type = qsmmuv500_def_domain_type,
 };
 
+/* We only have access to arm-architected registers */
+static const struct arm_smmu_impl qsmmuv500_virt_impl = {
+	.cfg_probe = qsmmuv500_cfg_probe,
+	.init_context_bank = qsmmuv500_init_cb,
+	.device_group = qsmmuv500_device_group,
+	.def_domain_type = qsmmuv500_def_domain_type,
+};
+
 struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
 		const struct arm_smmu_impl *impl)
 {
-	struct resource *res;
 	struct device *dev = smmu->dev;
 	struct qsmmuv500_archdata *data;
-	struct platform_device *pdev;
 	int ret;
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
@@ -1186,16 +1145,6 @@ struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
 	data->smmu = *smmu;
 	data->smmu.impl = impl;
 	devm_kfree(smmu->dev, smmu);
-
-	pdev = to_platform_device(dev);
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
-	if (!res) {
-		dev_err(dev, "Unable to get the tcu-base\n");
-		return ERR_PTR(-EINVAL);
-	}
-	data->tcu_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(data->tcu_base))
-		return ERR_CAST(data->tcu_base);
 
 	ret = qsmmuv500_read_actlr_tbl(data);
 	if (ret)
@@ -1217,6 +1166,9 @@ struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
 {
 	if (of_device_is_compatible(smmu->dev->of_node, "qcom,adreno-smmu"))
 		return qsmmuv500_create(smmu, &qsmmuv500_adreno_impl);
+
+	if (of_device_is_compatible(smmu->dev->of_node, "qcom,virt-smmu"))
+		return qsmmuv500_create(smmu, &qsmmuv500_virt_impl);
 
 	return qsmmuv500_create(smmu, &qsmmuv500_impl);
 }

@@ -415,11 +415,13 @@ static int mhi_debugfs_disable_pci_lpm_set(void *data, u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(debugfs_pci_lpm_fops, mhi_debugfs_disable_pci_lpm_get,
 			 mhi_debugfs_disable_pci_lpm_set, "%llu\n");
 
-void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
+void mhi_deinit_pci_dev(struct pci_dev *pci_dev,
+			const struct mhi_pci_dev_info *dev_info)
 {
-	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
-	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
-	const struct mhi_pci_dev_info *dev_info = mhi_priv->dev_info;
+	struct mhi_controller *mhi_cntrl = dev_get_drvdata(&pci_dev->dev);
+
+	if (!mhi_cntrl)
+		return;
 
 	pm_runtime_mark_last_busy(mhi_cntrl->cntrl_dev);
 	pm_runtime_dont_use_autosuspend(mhi_cntrl->cntrl_dev);
@@ -430,19 +432,23 @@ void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->irq = NULL;
 	iounmap(mhi_cntrl->regs);
 	mhi_cntrl->regs = NULL;
+	mhi_cntrl->regs_len = 0;
+	mhi_cntrl->nr_irqs = 0;
 	pci_clear_master(pci_dev);
 	pci_release_region(pci_dev, dev_info->bar_num);
 	pci_disable_device(pci_dev);
 }
 
-static int mhi_init_pci_dev(struct mhi_controller *mhi_cntrl)
+static int mhi_init_pci_dev(struct pci_dev *pci_dev,
+			    const struct mhi_pci_dev_info *dev_info)
 {
-	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
-	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
-	const struct mhi_pci_dev_info *dev_info = mhi_priv->dev_info;
+	struct mhi_controller *mhi_cntrl = dev_get_drvdata(&pci_dev->dev);
 	phys_addr_t base;
 	int ret;
 	int i;
+
+	if (!mhi_cntrl)
+		return -ENODEV;
 
 	ret = pci_assign_resource(pci_dev, dev_info->bar_num);
 	if (ret) {
@@ -465,13 +471,15 @@ static int mhi_init_pci_dev(struct mhi_controller *mhi_cntrl)
 	pci_set_master(pci_dev);
 
 	base = pci_resource_start(pci_dev, dev_info->bar_num);
-	mhi_controller_set_base(mhi_cntrl, base);
 	mhi_cntrl->regs_len = pci_resource_len(pci_dev, dev_info->bar_num);
 	mhi_cntrl->regs = ioremap(base, mhi_cntrl->regs_len);
 	if (!mhi_cntrl->regs) {
 		MHI_CNTRL_ERR("Error ioremap region\n");
 		goto error_ioremap;
 	}
+
+	/* reserved MSI for BHI plus one for each event ring */
+	mhi_cntrl->nr_irqs = dev_info->config->num_events + 1;
 
 	ret = pci_alloc_irq_vectors(pci_dev, mhi_cntrl->nr_irqs,
 				    mhi_cntrl->nr_irqs, PCI_IRQ_MSI);
@@ -494,8 +502,6 @@ static int mhi_init_pci_dev(struct mhi_controller *mhi_cntrl)
 			goto error_get_irq_vec;
 		}
 	}
-
-	dev_set_drvdata(&pci_dev->dev, mhi_cntrl);
 
 	/* configure runtime pm */
 	pm_runtime_set_autosuspend_delay(mhi_cntrl->cntrl_dev,
@@ -841,35 +847,21 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 	}
 }
 
-static struct mhi_controller *mhi_qcom_register_controller(struct pci_dev *pci_dev,
-						const struct mhi_pci_dev_info *info)
+static int mhi_qcom_register_controller(struct mhi_controller *mhi_cntrl,
+					struct mhi_qcom_priv *mhi_priv)
 {
-	const struct mhi_controller_config *mhi_cntrl_config = info->config;
+	const struct mhi_pci_dev_info *dev_info = mhi_priv->dev_info;
+	const struct mhi_controller_config *mhi_cntrl_config = dev_info->config;
+	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
 	struct device_node *of_node = pci_dev->dev.of_node;
-	struct mhi_controller *mhi_cntrl;
-	struct mhi_qcom_priv *mhi_priv;
 	struct mhi_device *mhi_dev;
 	bool use_s1;
 	u32 addr_win[2];
 	const char *iommu_dma_type;
 	int ret;
 
-	if (!of_node)
-		return ERR_PTR(-ENODEV);
-
-	mhi_cntrl = mhi_alloc_controller();
-	if (!mhi_cntrl)
-		return ERR_PTR(-ENOMEM);
-
-	mhi_priv = kzalloc(sizeof(*mhi_priv), GFP_KERNEL);
-	if (!mhi_priv)
-		return ERR_PTR(-ENOMEM);
-
-	mhi_priv->dev_info = info;
-	mhi_cntrl->cntrl_dev = &pci_dev->dev;
-
 	mhi_cntrl->iova_start = 0;
-	mhi_cntrl->iova_stop = DMA_BIT_MASK(info->dma_data_width);
+	mhi_cntrl->iova_stop = DMA_BIT_MASK(dev_info->dma_data_width);
 
 	of_node = of_parse_phandle(of_node, "qcom,iommu-group", 0);
 	if (of_node) {
@@ -895,7 +887,7 @@ static struct mhi_controller *mhi_qcom_register_controller(struct pci_dev *pci_d
 						addr_win, 2);
 			if (ret) {
 				of_node_put(of_node);
-				return ERR_PTR(-EINVAL);
+				return -EINVAL;
 			}
 
 			/*
@@ -916,36 +908,32 @@ static struct mhi_controller *mhi_qcom_register_controller(struct pci_dev *pci_d
 	mhi_cntrl->runtime_put = mhi_runtime_put;
 	mhi_cntrl->read_reg = mhi_qcom_read_reg;
 	mhi_cntrl->write_reg = mhi_qcom_write_reg;
-	/* reserved MSI for BHI plus one for each event ring */
-	mhi_cntrl->nr_irqs = info->config->num_events + 1;
 
 	ret = mhi_register_controller(mhi_cntrl, mhi_cntrl_config);
 	if (ret)
-		goto error_register;
+		return ret;
+
+	mhi_cntrl->fw_image = dev_info->fw_image;
+	mhi_cntrl->edl_image = dev_info->edl_image;
 
 	mhi_controller_set_privdata(mhi_cntrl, mhi_priv);
+	mhi_controller_set_base(mhi_cntrl,
+				pci_resource_start(pci_dev, dev_info->bar_num));
 
-	mhi_cntrl->fw_image = info->fw_image;
-	mhi_cntrl->edl_image = info->edl_image;
-
-	if (info->sfr_support) {
+	if (dev_info->sfr_support) {
 		ret = mhi_controller_set_sfr_support(mhi_cntrl,
 						     MHI_MAX_SFR_LEN);
-		if (ret) {
-			mhi_unregister_controller(mhi_cntrl);
+		if (ret)
 			goto error_register;
-		}
 	}
 
-	if (info->timesync) {
+	if (dev_info->timesync) {
 		ret = mhi_controller_setup_timesync(mhi_cntrl,
 						    &mhi_qcom_time_get,
 						    &mhi_qcom_lpm_disable,
 						    &mhi_qcom_lpm_enable);
-		if (ret) {
-			mhi_unregister_controller(mhi_cntrl);
+		if (ret)
 			goto error_register;
-		}
 	}
 
 	/* set name based on PCIe BDF format */
@@ -956,72 +944,63 @@ static struct mhi_controller *mhi_qcom_register_controller(struct pci_dev *pci_d
 	mhi_dev->name = dev_name(&mhi_dev->dev);
 
 	mhi_priv->cntrl_ipc_log = ipc_log_context_create(MHI_IPC_LOG_PAGES,
-							 info->name, 0);
+							 dev_info->name, 0);
 
-	return mhi_cntrl;
+	return 0;
 
 error_register:
-	kfree(mhi_priv);
-	mhi_free_controller(mhi_cntrl);
+	mhi_unregister_controller(mhi_cntrl);
 
-	return ERR_PTR(-EINVAL);
+	return -EINVAL;
 }
 
 int mhi_qcom_pci_probe(struct pci_dev *pci_dev,
-		       const struct mhi_pci_dev_info *dev_info)
+		       struct mhi_controller *mhi_cntrl,
+		       struct mhi_qcom_priv *mhi_priv)
 {
-	struct mhi_controller *mhi_cntrl;
-	u32 domain = pci_domain_nr(pci_dev->bus);
-	u32 bus = pci_dev->bus->number;
-	u32 dev_id = pci_dev->device;
-	u32 slot = PCI_SLOT(pci_dev->devfn);
-	struct mhi_qcom_priv *mhi_priv;
-	bool initial_probe = false;
+	const struct mhi_pci_dev_info *dev_info = mhi_priv->dev_info;
 	int ret;
 
-	/* see if we already registered */
-	mhi_cntrl = mhi_bdf_to_controller(domain, bus, slot, dev_id);
-	if (!mhi_cntrl) {
-		initial_probe = true;
-		mhi_cntrl = mhi_qcom_register_controller(pci_dev, dev_info);
+	dev_set_drvdata(&pci_dev->dev, mhi_cntrl);
+	mhi_cntrl->cntrl_dev = &pci_dev->dev;
+
+	ret = mhi_init_pci_dev(pci_dev, dev_info);
+	if (ret)
+		return ret;
+
+	/* driver removal boolen set to true indicates initial probe */
+	if (mhi_priv->driver_remove) {
+		ret = mhi_qcom_register_controller(mhi_cntrl, mhi_priv);
+		if (ret)
+			goto error_init_pci;
 	}
-
-	if (IS_ERR(mhi_cntrl))
-		return PTR_ERR(mhi_cntrl);
-
-	mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
-	if (!mhi_priv)
-		return PTR_ERR(mhi_priv);
 
 	mhi_priv->powered_on = true;
 
 	ret = mhi_arch_pcie_init(mhi_cntrl);
 	if (ret)
-		return ret;
+		goto error_init_pci;
 
 	ret = dma_set_mask_and_coherent(mhi_cntrl->cntrl_dev,
 					DMA_BIT_MASK(dev_info->dma_data_width));
 	if (ret)
 		goto error_init_pci;
 
-	ret = mhi_init_pci_dev(mhi_cntrl);
-	if (ret)
-		goto error_init_pci;
-
-	/* start power up sequence */
 	if (debug_mode) {
 		if (mhi_cntrl->debugfs_dentry)
 			debugfs_create_file("power_up", 0644,
 					    mhi_cntrl->debugfs_dentry,
 					    mhi_cntrl, &debugfs_power_up_fops);
 		mhi_priv->powered_on = false;
-	} else {
-		ret = mhi_qcom_power_up(mhi_cntrl);
-		if (ret) {
-			MHI_CNTRL_ERR("Failed to power up MHI\n");
-			mhi_priv->powered_on = false;
-			goto error_power_up;
-		}
+		return 0;
+	}
+
+	/* start power up sequence */
+	ret = mhi_qcom_power_up(mhi_cntrl);
+	if (ret) {
+		MHI_CNTRL_ERR("Failed to power up MHI\n");
+		mhi_priv->powered_on = false;
+		goto error_power_up;
 	}
 
 	pm_runtime_mark_last_busy(mhi_cntrl->cntrl_dev);
@@ -1029,29 +1008,55 @@ int mhi_qcom_pci_probe(struct pci_dev *pci_dev,
 	return 0;
 
 error_power_up:
-	mhi_deinit_pci_dev(mhi_cntrl);
+	mhi_arch_pcie_deinit(mhi_cntrl);
 
 error_init_pci:
-	if (!initial_probe) {
-		mhi_arch_pcie_deinit(mhi_cntrl);
-		return ret;
-	}
+	mhi_deinit_pci_dev(pci_dev, dev_info);
 
-	mhi_priv->driver_remove = true;
-	mhi_arch_pcie_deinit(mhi_cntrl);
-	mhi_unregister_controller(mhi_cntrl);
-	kfree(mhi_priv);
-	mhi_free_controller(mhi_cntrl);
+	dev_set_drvdata(&pci_dev->dev, NULL);
+	mhi_cntrl->cntrl_dev = NULL;
 
 	return ret;
 }
 
 int mhi_pci_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
 {
-	const struct mhi_pci_dev_info *info =
+	const struct mhi_pci_dev_info *dev_info =
 				(struct mhi_pci_dev_info *) id->driver_data;
+	struct mhi_controller *mhi_cntrl;
+	struct mhi_qcom_priv *mhi_priv;
+	u32 domain = pci_domain_nr(pci_dev->bus);
+	u32 bus = pci_dev->bus->number;
+	u32 dev_id = pci_dev->device;
+	u32 slot = PCI_SLOT(pci_dev->devfn);
+	int ret;
 
-	return mhi_qcom_pci_probe(pci_dev, info);
+	/* see if we already registered */
+	mhi_cntrl = mhi_bdf_to_controller(domain, bus, slot, dev_id);
+	if (!mhi_cntrl) {
+		mhi_cntrl = mhi_alloc_controller();
+		if (!mhi_cntrl)
+			return -ENOMEM;
+	}
+
+	mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
+	if (!mhi_priv) {
+		mhi_priv = kzalloc(sizeof(*mhi_priv), GFP_KERNEL);
+		if (!mhi_priv)
+			return -ENOMEM;
+	}
+
+	/* set as true to initiate clean-up after first probe fails */
+	mhi_priv->driver_remove = true;
+	mhi_priv->dev_info = dev_info;
+
+	ret = mhi_qcom_pci_probe(pci_dev, mhi_cntrl, mhi_priv);
+	if (ret) {
+		kfree(mhi_priv);
+		mhi_free_controller(mhi_cntrl);
+	}
+
+	return ret;
 }
 
 void mhi_pci_remove(struct pci_dev *pci_dev)
@@ -1086,10 +1091,10 @@ void mhi_pci_remove(struct pci_dev *pci_dev)
 
 	/* allow arch driver to free memory and unregister esoc if set */
 	mhi_priv->driver_remove = true;
+	mhi_arch_pcie_deinit(mhi_cntrl);
 
 	/* turn the link off */
-	mhi_deinit_pci_dev(mhi_cntrl);
-	mhi_arch_pcie_deinit(mhi_cntrl);
+	mhi_deinit_pci_dev(pci_dev, mhi_priv->dev_info);
 
 	mhi_unregister_controller(mhi_cntrl);
 	kfree(mhi_priv);

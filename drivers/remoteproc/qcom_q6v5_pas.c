@@ -82,6 +82,7 @@ struct qcom_adsp {
 	int pas_id;
 	struct qcom_mdt_metadata *mdata;
 	unsigned int minidump_id;
+	bool retry_shutdown;
 	struct icc_path *bus_client;
 	int crash_reason_smem;
 	bool has_aggre2_clk;
@@ -366,7 +367,10 @@ static int adsp_stop(struct rproc *rproc)
 	if (ret == -ETIMEDOUT)
 		dev_err(adsp->dev, "timed out on wait\n");
 
-	ret = qcom_scm_pas_shutdown(adsp->pas_id);
+	if (adsp->retry_shutdown)
+		ret = qcom_scm_pas_shutdown_retry(adsp->pas_id);
+	else
+		ret = qcom_scm_pas_shutdown(adsp->pas_id);
 	if (ret)
 		panic("Panicking, remoteproc %s failed to shutdown.\n", rproc->name);
 
@@ -379,7 +383,7 @@ static int adsp_stop(struct rproc *rproc)
 	return ret;
 }
 
-static void *adsp_da_to_va(struct rproc *rproc, u64 da, size_t len)
+static void *adsp_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int offset;
@@ -640,8 +644,10 @@ static int adsp_probe(struct platform_device *pdev)
 	adsp->info_name = desc->sysmon_name;
 	adsp->qmp_name = desc->qmp_name;
 
-	if (desc->free_after_auth_reset)
+	if (desc->free_after_auth_reset) {
 		adsp->mdata = devm_kzalloc(adsp->dev, sizeof(struct qcom_mdt_metadata), GFP_KERNEL);
+		adsp->retry_shutdown = true;
+	}
 	platform_set_drvdata(pdev, adsp);
 
 	device_wakeup_enable(adsp->dev);

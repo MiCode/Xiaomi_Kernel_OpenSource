@@ -343,6 +343,7 @@ struct synaptics_rmi4_device_info {
  * @stylus_enable: flag to indicate reporting of stylus data
  * @eraser_enable: flag to indicate reporting of eraser data
  * @external_afe_buttons: flag to indicate presence of external AFE buttons
+ * @notifier_cookie: touch notifier for panel events
  * @reset_device: pointer to device reset function
  * @irq_enable: pointer to interrupt enable function
  * @sleep_enable: pointer to sleep enable function
@@ -423,6 +424,7 @@ struct synaptics_rmi4_data {
 	bool stylus_enable;
 	bool eraser_enable;
 	bool external_afe_buttons;
+	void *notifier_cookie;
 	int (*reset_device)(struct synaptics_rmi4_data *rmi4_data,
 			bool rebuild);
 	int (*irq_enable)(struct synaptics_rmi4_data *rmi4_data, bool enable,

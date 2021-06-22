@@ -225,8 +225,17 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 
 void *mhi_controller_get_privdata(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+	struct mhi_device *mhi_dev;
+	struct mhi_private *mhi_priv;
 
+	if (!mhi_cntrl)
+		return NULL;
+
+	mhi_dev = mhi_cntrl->mhi_dev;
+	if (!mhi_dev)
+		return NULL;
+
+	mhi_priv = dev_get_drvdata(&mhi_dev->dev);
 	if (!mhi_priv)
 		return NULL;
 
@@ -236,8 +245,17 @@ EXPORT_SYMBOL(mhi_controller_get_privdata);
 
 void mhi_controller_set_privdata(struct mhi_controller *mhi_cntrl, void *priv)
 {
-	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+	struct mhi_device *mhi_dev;
+	struct mhi_private *mhi_priv;
 
+	if (!mhi_cntrl)
+		return;
+
+	mhi_dev = mhi_cntrl->mhi_dev;
+	if (!mhi_dev)
+		return;
+
+	mhi_priv = dev_get_drvdata(&mhi_dev->dev);
 	if (!mhi_priv)
 		return;
 
@@ -1182,7 +1200,8 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	struct mhi_link_info link_info, *cur_info = &mhi_cntrl->mhi_link_info;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
-	int result, ret = -EINVAL;
+	u32 result = MHI_BW_SCALE_NACK;
+	int ret = -EINVAL;
 
 	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
 		goto exit_bw_scale_process;
@@ -1231,17 +1250,23 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
 	ret = mhi_priv->bw_scale(mhi_cntrl, &link_info);
-	if (!ret)
+	if (!ret) {
 		*cur_info = link_info;
+		result = 0;
+	}
 
-	result = ret ? MHI_BW_SCALE_NACK : 0;
-
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
+	write_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_priv->bw_response = MHI_BW_SCALE_RESULT(result,
+						    link_info.sequence_num);
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl))) {
 		mhi_write_reg(mhi_cntrl, mhi_priv->bw_scale_db, 0,
-			      MHI_BW_SCALE_RESULT(result,
-						  link_info.sequence_num));
-	read_unlock_bh(&mhi_cntrl->pm_lock);
+			      mhi_priv->bw_response);
+		mhi_priv->bw_response = 0;
+	} else {
+		MHI_VERB("Cached BW response for seq: %u, result: %d\n",
+			 link_info.sequence_num, mhi_priv->bw_response);
+	}
+	write_unlock_bh(&mhi_cntrl->pm_lock);
 
 	mhi_cntrl->runtime_put(mhi_cntrl);
 	mhi_device_put(mhi_cntrl->mhi_dev);
@@ -1252,6 +1277,19 @@ exit_bw_scale_process:
 	MHI_VERB("exit er_index:%u ret:%d\n", mhi_event->er_index, ret);
 
 	return ret;
+}
+
+void mhi_misc_dbs_pending(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+
+	if (mhi_priv->bw_scale && mhi_priv->bw_response) {
+		mhi_write_reg(mhi_cntrl, mhi_priv->bw_scale_db, 0,
+			      mhi_priv->bw_response);
+		MHI_VERB("Completed BW response: %d\n", mhi_priv->bw_response);
+		mhi_priv->bw_response = 0;
+	}
 }
 
 void mhi_controller_set_bw_scale_cb(struct mhi_controller *mhi_cntrl,

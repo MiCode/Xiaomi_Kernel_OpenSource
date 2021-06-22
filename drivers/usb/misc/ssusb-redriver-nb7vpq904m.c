@@ -587,12 +587,10 @@ int redriver_notify_disconnect(struct device_node *node)
 	    (redriver->op_mode == OP_MODE_NONE))
 		return 0;
 
-	dev_dbg(redriver->dev, "op mode %s -> %s\n",
-		OPMODESTR(redriver->op_mode), OPMODESTR(OP_MODE_NONE));
+	dev_dbg(redriver->dev, "disconnect op mode %s\n",
+		OPMODESTR(redriver->op_mode));
 
-	redriver->op_mode = OP_MODE_NONE;
-
-	ssusb_redriver_gen_dev_set(redriver);
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, 0);
 
 	return 0;
 }
@@ -626,6 +624,42 @@ int redriver_release_usb_lanes(struct device_node *node)
 	return 0;
 }
 EXPORT_SYMBOL(redriver_release_usb_lanes);
+
+/* NOTE: DO NOT change mode in this funciton */
+int redriver_gadget_pullup(struct device_node *node, int is_on)
+{
+	struct ssusb_redriver *redriver;
+	struct i2c_client *client;
+	u8 val = 0;
+
+	if (!node)
+		return -EINVAL;
+
+	client = of_find_i2c_device_by_node(node);
+	if (!client)
+		return -EINVAL;
+
+	redriver = i2c_get_clientdata(client);
+
+	/*
+	 * when redriver connect to a USB hub, and do adb root operation,
+	 * due to redriver rx termination detection issue,
+	 * hub will not detct device logical removal.
+	 * workaround to temp disable/enable redriver when usb pullup operation.
+	 */
+	if (redriver->op_mode == OP_MODE_USB ||
+	    redriver->op_mode == OP_MODE_DEFAULT) {
+		val = redriver->gen_dev_val;
+		if (!is_on)
+			val &= ~CHIP_EN;
+	}
+
+	if (val)
+		redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
+
+	return 0;
+}
+EXPORT_SYMBOL(redriver_gadget_pullup);
 
 static void ssusb_redriver_orientation_gpio_init(
 		struct ssusb_redriver *redriver)

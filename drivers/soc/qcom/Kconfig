@@ -166,6 +166,14 @@ config QCOM_MSM_IPCC
 	  Say Y here to compile the driver as a part of kernel or M to compile
 	  as a module.
 
+config QCOM_TLMM_VM_IRQCHIP
+       tristate "Qualcomm Technologies, Inc. TLMM VM irqchip driver"
+       help
+         Qualcomm Technologies, Inc. TLMM VM irqchip driver for MSM devices. The
+         driver acts as a parent interrupt controller for tlmm driver for VMs.
+         Say Y here to compile the driver as a part of kernel or M to compile
+         as a module.
+
 config QCOM_RIMPS
 	tristate "Qualcomm Technologies, Inc. Rimps driver"
 	depends on MAILBOX
@@ -505,6 +513,15 @@ config QCOM_MINIDUMP
 	  Minidump would dump all registered entries, only when DLOAD mode
 	  is enabled.
 
+config QCOM_VA_MINIDUMP
+	tristate "QCOM VA Minidump Support"
+	depends on QCOM_MINIDUMP
+	help
+	  This enables minidump feature for registering dynamic
+	  data structures. It supports VA based registration
+	  with minidump, which is made into an ELF. The region
+	  for ELF is registered with legacy minidump.
+
 config QCOM_DYN_MINIDUMP_STACK
 	bool "QTI Dynamic Minidump Stack Registration Support"
 	depends on QCOM_MINIDUMP
@@ -560,12 +577,12 @@ config MINIDUMP_MAX_ENTRIES
 
 config QCOM_MICRODUMP
 	tristate "Qualcomm Technologies, Inc. Microdump Support"
-	depends on MSM_SUBSYSTEM_RESTART
+	depends on QCOM_RAMDUMP
 	depends on QCOM_SMEM
 	help
 	  This enables microdump feature. It collects
 	  crash data from SMEM whenever modem subsytem
-	  crashes and stores it under /dev to expose
+	  crashes and stores it under /devcd to expose
 	  to user space.
 
 config QCOM_APR
@@ -862,6 +879,15 @@ config QCOM_IRQ_STAT
 	  This provides additional debug information
 	  for irq counts on cpu and ipi counts.
 
+config QCOM_LOGBUF_VENDOR_HOOKS
+	tristate "QTI Logbuf Vendor Hooks Support"
+	depends on ARCH_QCOM && ANDROID_VENDOR_HOOKS
+	help
+	  This enables to keep copy of initial log_buf
+	  of minimum 512KB from bootup. It can help in
+	  debugging issues which are manifestation
+	  of failure during initial bootup.
+
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite on panic"
 	depends on QCOM_WDT_CORE
@@ -962,6 +988,30 @@ config QCOM_CPU_VENDOR_HOOKS
 	  having scope to upstream.
           If unsure, say N.
 
+choice
+	prompt "Perform Action on spinlock bug"
+	depends on DEBUG_SPINLOCK && QCOM_CPU_VENDOR_HOOKS
+
+	default DEBUG_SPINLOCK_BITE_ON_BUG
+
+	config DEBUG_SPINLOCK_BITE_ON_BUG
+		bool "Cause a Watchdog Bite on Spinlock bug"
+		depends on QCOM_WDT_CORE
+		help
+		  On a spinlock bug, cause a watchdog bite so that we can get
+		  the precise state of the system captured at the time of spin
+		  dump. This is mutually exclusive with the below
+		  DEBUG_SPINLOCK_PANIC_ON_BUG config.
+
+	config DEBUG_SPINLOCK_PANIC_ON_BUG
+		bool "Cause a Kernel Panic on Spinlock bug"
+		help
+		  On a spinlock bug, cause a kernel panic so that we can get the
+		  complete information about the system at the time of spin dump
+		  in the dmesg. This is mutually exclusive with the above
+		  DEBUG_SPINLOCK_BITE_ON_BUG.
+endchoice
+
 config QCOM_SMCINVOKE
 	tristate "Secure QSEE Support"
 	help
@@ -1037,4 +1087,5 @@ config QCOM_PANEL_EVENT_NOTIFIER
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 source "drivers/soc/qcom/sync_fence/Kconfig"
+source "drivers/soc/qcom/tmecom/Kconfig"
 endmenu

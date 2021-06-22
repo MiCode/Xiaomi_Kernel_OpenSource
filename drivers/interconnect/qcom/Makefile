@@ -16,8 +16,6 @@ qnoc-lahaina-objs			:= lahaina.o
 qnoc-sdxlemur-objs			:= sdxlemur.o
 qnoc-shima-objs				:= shima.o
 icc-smd-rpm-objs			:= smd-rpm.o
-icc-bcm-voter-objs			:= bcm-voter.o
-icc-rpmh-obj				:= icc-rpmh.o
 icc-rpm-obj			:= icc-rpm.o
 qnoc-qos-obj			:= qnoc-qos.o
 
@@ -38,7 +36,6 @@ obj-$(CONFIG_INTERCONNECT_QCOM_SHIMA) += qnoc-shima.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SDXLEMUR) += qnoc-sdxlemur.o
 obj-$(CONFIG_INTERCONNECT_QCOM_RPM) += icc-rpm.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SMD_RPM) += icc-smd-rpm.o
-obj-$(CONFIG_INTERCONNECT_QCOM_BCM_VOTER) += icc-bcm-voter.o
 obj-$(CONFIG_INTERCONNECT_QCOM_RPMH) += icc-rpmh.o
 obj-$(CONFIG_INTERCONNECT_QCOM_QOS) += qnoc-qos.o
 obj-$(CONFIG_INTERCONNECT_QCOM_EPSS_L3) += epss-l3.o

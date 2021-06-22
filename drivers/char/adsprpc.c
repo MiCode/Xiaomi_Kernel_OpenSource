@@ -98,7 +98,15 @@
 #define M_DSP_PERF_LIST (12)
 
 #define SESSION_ID_INDEX (30)
+#define SESSION_ID_MASK (1 << SESSION_ID_INDEX)
+#define PROCESS_ID_MASK ((2^SESSION_ID_INDEX) - 1)
 #define FASTRPC_CTX_MAGIC (0xbeeddeed)
+
+/* Process status notifications from DSP will be sent with this unique context */
+#define FASTRPC_NOTIF_CTX_RESERVED 0xABCDABCD
+
+/* Notification worker thread device cid */
+#define NOTIF_DEV_CID 0x10000
 
 /*
  * Fastrpc context ID bit-map:
@@ -165,14 +173,17 @@
 /* timeout in us for busy polling after early response from remote processor */
 #define FASTRPC_POLL_TIME (4000)
 
-/* timeout in us for polling without preempt */
-#define FASTRPC_POLL_TIME_WITHOUT_PREEMPT (500)
+/* timeout in us for polling until memory barrier */
+#define FASTRPC_POLL_TIME_MEM_UPDATE (500)
 
 /* timeout in us for polling completion signal after user early hint */
 #define FASTRPC_USER_EARLY_HINT_TIMEOUT (500)
 
 /* Early wake up poll completion number received from remote processor */
 #define FASTRPC_EARLY_WAKEUP_POLL (0xabbccdde)
+
+/* Poll response number from remote processor for call completion */
+#define FASTRPC_POLL_RESPONSE (0xdecaf)
 
 /* latency in us, early wake up signal used below this value */
 #define FASTRPC_EARLY_WAKEUP_LATENCY (200)
@@ -388,6 +399,13 @@ struct fastrpc_perf {
 	uint64_t tid;
 };
 
+struct smq_notif_rsp {
+	struct list_head notifn;
+	int domain;
+	int session;
+	enum fastrpc_status_flags status;
+};
+
 struct smq_invoke_ctx {
 	struct hlist_node hn;
 	/* Async node to add to async job ctx list */
@@ -439,6 +457,8 @@ struct fastrpc_ctx_lst {
 	uint32_t num_active_ctxs;
 	/* Queue which holds all async job contexts of process */
 	struct list_head async_queue;
+	/* Queue which holds all status notifications of process */
+	struct list_head notif_queue;
 };
 
 struct fastrpc_smmu {
@@ -578,6 +598,17 @@ enum fastrpc_perfkeys {
 	PERF_KEY_MAX = 10,
 };
 
+struct fastrpc_notif_queue {
+	/* Number of pending status notifications in queue */
+	atomic_t notif_queue_count;
+
+	/* Wait queue to synchronize notifier thread and response */
+	wait_queue_head_t notif_wait_queue;
+
+	/* IRQ safe spin lock for protecting notif queue */
+	spinlock_t nqlock;
+};
+
 struct fastrpc_file {
 	struct hlist_node hn;
 	spinlock_t hlock;
@@ -628,6 +659,8 @@ struct fastrpc_file {
 	wait_queue_head_t async_wait_queue;
 	/* IRQ safe spin lock for protecting async queue */
 	spinlock_t aqlock;
+	/* Process status notification queue */
+	struct fastrpc_notif_queue proc_state_notif;
 	uint32_t ws_timeout;
 	bool untrusted_process;
 	struct fastrpc_device *device;
@@ -635,6 +668,12 @@ struct fastrpc_file {
 	struct completion work;
 	/* Flag to indicate ram dump collection status*/
 	bool is_ramdump_pend;
+	/* Flag to indicate type of process (static, dynamic) */
+	uint32_t proc_flags;
+	/* If set, threads will poll for DSP response instead of glink wait */
+	bool poll_mode;
+	/* Threads poll for specified timeout and fall back to glink wait */
+	uint32_t poll_timeout;
 };
 
 static struct fastrpc_apps gfa;
@@ -713,6 +752,9 @@ static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
 static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
 				uint32_t flags, uintptr_t va, uint64_t phys,
 				size_t size, uintptr_t *raddr);
+static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
+	uint64_t ctx, int retval, uint32_t rsp_flags,
+	uint32_t early_wake_time, uint32_t ver, int64_t ns);
 
 /**
  * fastrpc_device_create - Create device for the fastrpc process file
@@ -746,7 +788,8 @@ static inline int64_t get_timestamp_in_ns(void)
 	ns = timespec64_to_ns(&ts);
 	return ns;
 }
-static inline int poll_on_early_response(struct smq_invoke_ctx *ctx)
+
+static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t timeout)
 {
 	int ii, jj, err = -EIO;
 	uint32_t sc = ctx->sc;
@@ -766,27 +809,30 @@ static inline int poll_on_early_response(struct smq_invoke_ctx *ctx)
 	crclist = (uint32_t *)(fdlist + M_FDLIST);
 	poll = (uint32_t *)(crclist + M_CRCLIST);
 
-	/*
-	 * poll on memory for actual completion after receiving
-	 * early response from DSP. Return failure on timeout.
-	 */
-	preempt_disable();
+	/* poll on memory for DSP response. Return failure on timeout */
 	for (ii = 0, jj = 0; ii < FASTRPC_POLL_TIME; ii++, jj++) {
 		if (*poll == FASTRPC_EARLY_WAKEUP_POLL) {
+			/* Remote processor sent early response */
 			err = 0;
 			break;
+		} else if (*poll == FASTRPC_POLL_RESPONSE) {
+			/* Remote processor sent poll response to complete the call */
+			err = 0;
+			ctx->is_work_done = true;
+			ctx->retval = 0;
+			/* Update DSP response history */
+			fastrpc_update_rxmsg_buf(&gfa.channel[ctx->fl->cid],
+				ctx->msg.invoke.header.ctx, 0, POLL_MODE, 0,
+				FASTRPC_RSP_VERSION2, get_timestamp_in_ns());
+			break;
 		}
-		if (jj == FASTRPC_POLL_TIME_WITHOUT_PREEMPT) {
-			/* limit preempt disable time with no rescheduling */
-			preempt_enable();
+		if (jj == FASTRPC_POLL_TIME_MEM_UPDATE) {
 			/* Wait for DSP to finish updating poll memory */
 			rmb();
-			preempt_disable();
 			jj = 0;
 		}
 		udelay(1);
 	}
-	preempt_enable();
 	return err;
 }
 
@@ -2082,6 +2128,55 @@ bail:
 	spin_unlock_irqrestore(&fl->aqlock, flags);
 }
 
+static void fastrpc_queue_pd_status(struct fastrpc_file *fl, int domain, int status, int sessionid)
+{
+	struct smq_notif_rsp *notif_rsp = NULL;
+	unsigned long flags;
+	int err = 0;
+
+	VERIFY(err, NULL != (notif_rsp = kzalloc(sizeof(*notif_rsp), GFP_ATOMIC)));
+	if (err) {
+		ADSPRPC_ERR(
+			"allocation failed for size 0x%zx\n",
+								sizeof(*notif_rsp));
+		return;
+	}
+	notif_rsp->status = status;
+	notif_rsp->domain = domain;
+	notif_rsp->session = sessionid;
+
+	spin_lock_irqsave(&fl->proc_state_notif.nqlock, flags);
+	list_add_tail(&notif_rsp->notifn, &fl->clst.notif_queue);
+	atomic_add(1, &fl->proc_state_notif.notif_queue_count);
+	wake_up_interruptible(&fl->proc_state_notif.notif_wait_queue);
+	spin_unlock_irqrestore(&fl->proc_state_notif.nqlock, flags);
+}
+
+static void fastrpc_notif_find_process(int domain, struct smq_notif_rspv3 *notif)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_file *fl = NULL;
+	struct hlist_node *n;
+	bool is_process_found = false;
+	int sessionid = 0;
+
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if ((fl->tgid == notif->pid || (fl->tgid == (notif->pid & PROCESS_ID_MASK)))
+						&& (fl->cid == NOTIF_DEV_CID)) {
+			is_process_found = true;
+			break;
+		}
+	}
+	spin_unlock(&me->hlock);
+
+	if (!is_process_found)
+		return;
+	if (notif->pid & SESSION_ID_MASK)
+		sessionid = 1;
+	fastrpc_queue_pd_status(fl, domain, notif->status, sessionid);
+}
+
 static void context_notify_user(struct smq_invoke_ctx *ctx,
 		int retval, uint32_t rsp_flags, uint32_t early_wake_time)
 {
@@ -2148,7 +2243,6 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 	}
 	spin_unlock(&me->hlock);
 }
-
 
 static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 {
@@ -2228,6 +2322,8 @@ static void fastrpc_notify_drivers(struct fastrpc_apps *me, int cid)
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (fl->cid == cid)
 			fastrpc_notify_users(fl);
+		else if (fl->cid == NOTIF_DEV_CID)
+			fastrpc_queue_pd_status(fl, cid, FASTRPC_DSP_SSR, 0);
 	}
 	spin_unlock(&me->hlock);
 }
@@ -2252,6 +2348,7 @@ static void context_list_ctor(struct fastrpc_ctx_lst *me)
 	INIT_HLIST_HEAD(&me->pending);
 	me->num_active_ctxs = 0;
 	INIT_LIST_HEAD(&me->async_queue);
+	INIT_LIST_HEAD(&me->notif_queue);
 }
 
 static void fastrpc_context_list_dtor(struct fastrpc_file *fl)
@@ -2830,7 +2927,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	msg->pid = fl->tgid;
 	msg->tid = current->pid;
 	if (fl->sessionid)
-		msg->tid |= (1 << SESSION_ID_INDEX);
+		msg->tid |= SESSION_ID_MASK;
 	if (kernel == KERNEL_MSG_WITH_ZERO_PID)
 		msg->pid = 0;
 	msg->invoke.header.ctx = ctx->ctxid | fl->pd;
@@ -2979,7 +3076,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 
 		/* busy poll on memory for actual job done */
 		case EARLY_RESPONSE:
-			err = poll_on_early_response(ctx);
+			err = poll_for_remote_response(ctx, FASTRPC_POLL_TIME);
 
 			/* Mark job done if poll on memory successful */
 			/* Wait for completion if poll on memory timoeut */
@@ -3025,6 +3122,17 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 					*ptr_isworkdone = true;
 				spin_unlock_irqrestore(&ctx->fl->aqlock, flags);
 				goto bail;
+			}
+			break;
+		case POLL_MODE:
+			err = poll_for_remote_response(ctx, ctx->fl->poll_timeout);
+
+			/* If polling timed out, move to normal response state */
+			if (err)
+				ctx->rsp_flags = NORMAL_RESPONSE;
+			else {
+				*ptr_interrupted = 0;
+				*ptr_isworkdone = true;
 			}
 			break;
 		default:
@@ -3145,6 +3253,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (isasyncinvoke)
 		goto invoke_end;
  wait:
+	/* Poll mode allowed only for non-static handle calls to dynamic CDSP process */
+	if (fl->poll_mode && (invoke->handle > FASTRPC_STATIC_HANDLE_MAX)
+		&& (cid == CDSP_DOMAIN_ID)
+		&& (fl->proc_flags == FASTRPC_INIT_CREATE))
+		ctx->rsp_flags = POLL_MODE;
+
 	fastrpc_wait_for_completion(ctx, &interrupted, kernel, 0, &isworkdone);
 	trace_fastrpc_msg("wait_for_completion: end");
 	VERIFY(err, 0 == (err = interrupted));
@@ -3263,7 +3377,7 @@ read_async_job:
 		PERF_END);
 		if (ierr)
 			goto bail;
-	} else {//Retry again if ctx is NULL
+	} else { // Go back to wait if ctx is invalid
 		ADSPRPC_ERR("Invalid async job wake up\n");
 		goto read_async_job;
 	}
@@ -3286,6 +3400,47 @@ bail:
 	return err;
 }
 
+static int fastrpc_wait_on_notif_queue(
+			struct fastrpc_ioctl_notif_rsp *notif_rsp,
+			struct fastrpc_file *fl)
+{
+	int err = 0, interrupted = 0;
+	unsigned long flags;
+	struct smq_notif_rsp  *notif = NULL, *inotif = NULL, *n = NULL;
+
+read_notif_status:
+	interrupted = wait_event_interruptible(fl->proc_state_notif.notif_wait_queue,
+				atomic_read(&fl->proc_state_notif.notif_queue_count));
+	if (!fl || fl->file_close == 1) {
+		err = -EBADF;
+		goto bail;
+	}
+	VERIFY(err, 0 == (err = interrupted));
+	if (err)
+		goto bail;
+
+	spin_lock_irqsave(&fl->proc_state_notif.nqlock, flags);
+	list_for_each_entry_safe(inotif, n, &fl->clst.notif_queue, notifn) {
+		list_del_init(&inotif->notifn);
+		atomic_sub(1, &fl->proc_state_notif.notif_queue_count);
+		notif = inotif;
+		break;
+	}
+	spin_unlock_irqrestore(&fl->proc_state_notif.nqlock, flags);
+
+	if (notif) {
+		notif_rsp->status = notif->status;
+		notif_rsp->domain = notif->domain;
+		notif_rsp->session = notif->session;
+	} else {// Go back to wait if ctx is invalid
+		ADSPRPC_ERR("Invalid status notification response\n");
+		goto read_notif_status;
+	}
+bail:
+	kfree(notif);
+	return err;
+}
+
 static int fastrpc_get_async_response(
 		struct fastrpc_ioctl_async_response *async_res,
 			void *param, struct fastrpc_file *fl)
@@ -3297,6 +3452,21 @@ static int fastrpc_get_async_response(
 		goto bail;
 	K_COPY_TO_USER(err, 0, param, async_res,
 			sizeof(struct fastrpc_ioctl_async_response));
+bail:
+	return err;
+}
+
+static int fastrpc_get_notif_response(
+		struct fastrpc_ioctl_notif_rsp *notif,
+			void *param, struct fastrpc_file *fl)
+{
+	int err = 0;
+
+	err = fastrpc_wait_on_notif_queue(notif, fl);
+	if (err)
+		goto bail;
+	K_COPY_TO_USER(err, 0, param, notif,
+			sizeof(struct fastrpc_ioctl_notif_rsp));
 bail:
 	return err;
 }
@@ -3377,6 +3547,7 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 		struct fastrpc_ioctl_invoke_async_no_perf inv3;
 		struct fastrpc_ioctl_async_response async_res;
 		uint32_t user_concurrency;
+		struct fastrpc_ioctl_notif_rsp notif;
 	} p;
 	struct fastrpc_dsp_capabilities *dsp_cap_ptr = NULL;
 	uint32_t size = 0;
@@ -3442,6 +3613,16 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 			goto bail;
 		err = fastrpc_create_persistent_headers(fl,
 				p.user_concurrency);
+		break;
+	case FASTRPC_INVOKE2_STATUS_NOTIF:
+		VERIFY(err,
+		sizeof(struct fastrpc_ioctl_notif_rsp) >= inv2->size);
+		if (err) {
+			err = -EBADE;
+			goto bail;
+		}
+		err = fastrpc_get_notif_response(&p.notif,
+						(void *)inv2->invparam, fl);
 		break;
 	default:
 		err = -ENOTTY;
@@ -3909,6 +4090,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	if (err)
 		goto bail;
 
+	fl->proc_flags = init->flags;
 	switch (init->flags) {
 	case FASTRPC_INIT_ATTACH:
 	case FASTRPC_INIT_ATTACH_SENSORS:
@@ -4960,6 +5142,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	int len, void *priv, u32 addr)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)data;
+	struct smq_notif_rspv3 *notif = (struct smq_notif_rspv3 *)data;
 	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_apps *me = &gfa;
@@ -4978,6 +5161,14 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	}
 
 	chan = &me->channel[cid];
+	if (notif && notif->ctx == FASTRPC_NOTIF_CTX_RESERVED) {
+		VERIFY(err, (notif->type == STATUS_RESPONSE &&
+					 len >= sizeof(*notif)));
+		if (err)
+			goto bail;
+		fastrpc_notif_find_process(cid, notif);
+		goto bail;
+	}
 	VERIFY(err, (rsp && len >= sizeof(*rsp)));
 	if (err)
 		goto bail;
@@ -5011,8 +5202,11 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		 * Received an anticipatory COMPLETE_SIGNAL from DSP for a
 		 * context after CPU successfully polling on memory and
 		 * completed processing of context. Ignore the message.
+		 * Also ignore response for a call which was already
+		 * completed by update of poll memory and the context was
+		 * removed from the table.
 		 */
-		ignore_rpmsg_err = (rsp_flags == COMPLETE_SIGNAL) ? 1 : 0;
+		ignore_rpmsg_err = ((rsp_flags == COMPLETE_SIGNAL) || !ctx) ? 1 : 0;
 		goto bail_unlock;
 	}
 
@@ -5111,6 +5305,13 @@ skip_dump_wait:
 	atomic_add(1, &fl->async_queue_job_count);
 	wake_up_interruptible(&fl->async_wait_queue);
 	spin_unlock_irqrestore(&fl->aqlock, flags);
+
+	// Dummy wake up to exit notification worker thread
+	spin_lock_irqsave(&fl->proc_state_notif.nqlock, flags);
+	atomic_add(1, &fl->proc_state_notif.notif_queue_count);
+	wake_up_interruptible(&fl->proc_state_notif.notif_wait_queue);
+	spin_unlock_irqrestore(&fl->proc_state_notif.nqlock, flags);
+
 	if (!IS_ERR_OR_NULL(fl->init_mem))
 		fastrpc_buf_free(fl->init_mem, 0);
 	fastrpc_context_list_dtor(fl);
@@ -5489,11 +5690,13 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	context_list_ctor(&fl->clst);
 	spin_lock_init(&fl->hlock);
 	spin_lock_init(&fl->aqlock);
+	spin_lock_init(&fl->proc_state_notif.nqlock);
 	INIT_HLIST_HEAD(&fl->maps);
 	INIT_HLIST_HEAD(&fl->cached_bufs);
 	fl->num_cached_buf = 0;
 	INIT_HLIST_HEAD(&fl->remote_bufs);
 	init_waitqueue_head(&fl->async_wait_queue);
+	init_waitqueue_head(&fl->proc_state_notif.notif_wait_queue);
 	INIT_HLIST_NODE(&fl->hn);
 	fl->sessionid = 0;
 	fl->tgid_open = current->tgid;
@@ -5640,6 +5843,11 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		goto bail;
 	}
 
+	if (cid == NOTIF_DEV_CID) {
+		fl->cid = cid;
+		goto bail;
+	}
+
 	if (fl->cid == -1) {
 		struct fastrpc_channel_ctx *chan = NULL;
 		VERIFY(err, cid < NUM_CHANNELS);
@@ -5679,6 +5887,37 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 	if (err)
 		goto bail;
 	*info = (fl->sctx->smmu.enabled ? 1 : 0);
+bail:
+	return err;
+}
+
+static int fastrpc_manage_poll_mode(struct fastrpc_file *fl, uint32_t enable, uint32_t timeout)
+{
+	int err = 0;
+	const unsigned int MAX_POLL_TIMEOUT_US = 10000;
+
+	if ((fl->cid != CDSP_DOMAIN_ID) || (fl->proc_flags != FASTRPC_INIT_CREATE)) {
+		err = -EPERM;
+		ADSPRPC_ERR("flags %d, cid %d, poll mode allowed only for dynamic CDSP process\n",
+			fl->proc_flags, fl->cid);
+		goto bail;
+	}
+	if (timeout > MAX_POLL_TIMEOUT_US) {
+		err = -EBADMSG;
+		ADSPRPC_ERR("poll timeout %u is greater than max allowed value %u\n",
+			timeout, MAX_POLL_TIMEOUT_US);
+		goto bail;
+	}
+	spin_lock(&fl->hlock);
+	if (enable) {
+		fl->poll_mode = true;
+		fl->poll_timeout = timeout;
+	} else {
+		fl->poll_mode = false;
+		fl->poll_timeout = 0;
+	}
+	spin_unlock(&fl->hlock);
+	ADSPRPC_INFO("updated poll mode to %d, timeout %u\n", enable, timeout);
 bail:
 	return err;
 }
@@ -5770,6 +6009,11 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
 		(void)fastrpc_release_current_dsp_process(fl);
 		break;
+	case FASTRPC_CONTROL_RPC_POLL:
+		err = fastrpc_manage_poll_mode(fl, cp->lp.enable, cp->lp.latency);
+		if (err)
+			goto bail;
+		break;
 	default:
 		err = -EBADRQC;
 		break;
@@ -5818,7 +6062,7 @@ static int fastrpc_setmode(unsigned long ioctl_param,
 			goto bail;
 		}
 		fl->sessionid = 1;
-		fl->tgid |= (1 << SESSION_ID_INDEX);
+		fl->tgid |= SESSION_ID_MASK;
 		break;
 	default:
 		err = -ENOTTY;

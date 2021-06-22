@@ -9,7 +9,7 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include <linux/dma-buf.h>
-#include <linux/haven/hh_rm_drv.h>
+#include <linux/gunyah/gh_rm_drv.h>
 #include <linux/mem-buf.h>
 #include <linux/slab.h>
 #include <linux/dma-heap.h>
@@ -28,29 +28,29 @@ int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
 					  int *dst_vmids, int *dst_perms,
 					  u32 nr_acl_entries,
-					  hh_memparcel_handle_t *memparcel_hdl);
-struct hh_sgl_desc *mem_buf_map_mem_s2(hh_memparcel_handle_t memparcel_hdl,
-					struct hh_acl_desc *acl_desc);
-int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl);
+					  gh_memparcel_handle_t *memparcel_hdl);
+struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
+					struct gh_acl_desc *acl_desc);
+int mem_buf_unmap_mem_s2(gh_memparcel_handle_t memparcel_hdl);
 
 /* Memory Hotplug */
-int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc);
-int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc);
+int mem_buf_map_mem_s1(struct gh_sgl_desc *sgl_desc);
+int mem_buf_unmap_mem_s1(struct gh_sgl_desc *sgl_desc);
 
 #define MEM_BUF_API_HYP_ASSIGN BIT(0)
-#define MEM_BUF_API_HAVEN BIT(1)
+#define MEM_BUF_API_GUNYAH BIT(1)
 
 /*
  * @vmid - id assigned by hypervisor to uniquely identify a VM
- * @hh_id - id used to request the real vmid from the kernel
- * haven driver. This is a legacy field which should eventually be
+ * @gh_id - id used to request the real vmid from the kernel
+ * gunyah driver. This is a legacy field which should eventually be
  * removed once a better design is present.
  * @allowed_api - Some vms may use a different hypervisor interface.
  */
 struct mem_buf_vm {
 	const char *name;
 	u16 vmid;
-	enum hh_vm_names hh_id;
+	enum gh_vm_names gh_id;
 	u32 allowed_api;
 	struct cdev cdev;
 	struct device dev;

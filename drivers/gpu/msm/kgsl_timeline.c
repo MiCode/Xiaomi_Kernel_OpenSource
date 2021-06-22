@@ -15,8 +15,6 @@
 #include "kgsl_timeline.h"
 #include "kgsl_trace.h"
 
-static DEFINE_SPINLOCK(fence_lock);
-
 struct kgsl_timeline_fence {
 	struct dma_fence base;
 	struct kgsl_timeline *timeline;
@@ -24,14 +22,14 @@ struct kgsl_timeline_fence {
 };
 
 struct dma_fence *kgsl_timelines_to_fence_array(struct kgsl_device *device,
-		u64 timelines, u64 count, u64 usize, bool any)
+		u64 timelines, u32 count, u64 usize, bool any)
 {
 	void __user *uptr = u64_to_user_ptr(timelines);
 	struct dma_fence_array *array;
 	struct dma_fence **fences;
 	int i, ret = 0;
 
-	if (!count)
+	if (!count || count > INT_MAX)
 		return ERR_PTR(-EINVAL);
 
 	fences = kcalloc(count, sizeof(*fences),
@@ -153,6 +151,7 @@ static struct kgsl_timeline *kgsl_timeline_alloc(struct kgsl_device_private *dev
 	trace_kgsl_timeline_alloc(id, initial);
 
 	spin_lock_init(&timeline->lock);
+	spin_lock_init(&timeline->fence_lock);
 
 	kref_init(&timeline->ref);
 
@@ -171,8 +170,7 @@ static void timeline_fence_release(struct dma_fence *fence)
 	struct kgsl_timeline_fence *cur, *temp;
 	unsigned long flags;
 
-	spin_lock_irqsave(&timeline->lock, flags);
-	spin_lock(&fence_lock);
+	spin_lock_irqsave(&timeline->fence_lock, flags);
 
 	/* If the fence is still on the active list, remove it */
 	list_for_each_entry_safe(cur, temp, &timeline->fences, node) {
@@ -182,8 +180,7 @@ static void timeline_fence_release(struct dma_fence *fence)
 		list_del_init(&f->node);
 		break;
 	}
-	spin_unlock(&fence_lock);
-	spin_unlock_irqrestore(&timeline->lock, flags);
+	spin_unlock_irqrestore(&timeline->fence_lock, flags);
 	trace_kgsl_timeline_fence_release(f->timeline->id, fence->seqno);
 	log_kgsl_timeline_fence_release_event(f->timeline->id, fence->seqno);
 
@@ -234,17 +231,17 @@ static void kgsl_timeline_add_fence(struct kgsl_timeline *timeline,
 	struct kgsl_timeline_fence *entry;
 	unsigned long flags;
 
-	spin_lock_irqsave(&fence_lock, flags);
+	spin_lock_irqsave(&timeline->fence_lock, flags);
 	list_for_each_entry(entry, &timeline->fences, node) {
 		if (fence->base.seqno < entry->base.seqno) {
 			list_add_tail(&fence->node, &entry->node);
-			spin_unlock_irqrestore(&fence_lock, flags);
+			spin_unlock_irqrestore(&timeline->fence_lock, flags);
 			return;
 		}
 	}
 
 	list_add_tail(&fence->node, &timeline->fences);
-	spin_unlock_irqrestore(&fence_lock, flags);
+	spin_unlock_irqrestore(&timeline->fence_lock, flags);
 }
 
 void kgsl_timeline_signal(struct kgsl_timeline *timeline, u64 seqno)
@@ -263,22 +260,18 @@ void kgsl_timeline_signal(struct kgsl_timeline *timeline, u64 seqno)
 
 	timeline->value = seqno;
 
-	/* Copy the list out so we can walk it without holding the lock */
-	spin_lock(&fence_lock);
-	list_replace_init(&timeline->fences, &temp);
-	spin_unlock(&fence_lock);
-
-	list_for_each_entry_safe(fence, tmp, &temp, node) {
+	spin_lock(&timeline->fence_lock);
+	list_for_each_entry_safe(fence, tmp, &timeline->fences, node) {
 		if (timeline_fence_signaled(&fence->base)) {
-			list_del_init(&fence->node);
-			dma_fence_signal_locked(&fence->base);
+			dma_fence_get(&fence->base);
+			list_move(&fence->node, &temp);
 		}
 	}
+	spin_unlock(&timeline->fence_lock);
 
-	/* Put the active fences back in the timeline list */
 	list_for_each_entry_safe(fence, tmp, &temp, node) {
-		list_del_init(&fence->node);
-		kgsl_timeline_add_fence(timeline, fence);
+		dma_fence_signal_locked(&fence->base);
+		dma_fence_put(&fence->base);
 	}
 
 unlock:
@@ -538,33 +531,19 @@ long kgsl_ioctl_timeline_destroy(struct kgsl_device_private *dev_priv,
 
 	INIT_LIST_HEAD(&temp);
 
-	spin_lock_irq(&timeline->lock);
-
-	/* Copy any still pending fences to a temporary list */
-	spin_lock(&fence_lock);
-	list_replace_init(&timeline->fences, &temp);
-	spin_unlock(&fence_lock);
-
-	/*
-	 * Set an error on each still pending fence and signal
-	 * them to release any callbacks. Hold the refcount
-	 * to avoid fence getting destroyed during signaling.
-	 */
-	list_for_each_entry_safe(fence, tmp, &temp, node) {
+	spin_lock(&timeline->fence_lock);
+	list_for_each_entry_safe(fence, tmp, &timeline->fences, node)
 		dma_fence_get(&fence->base);
+	list_replace_init(&timeline->fences, &temp);
+	spin_unlock(&timeline->fence_lock);
+
+	spin_lock_irq(&timeline->lock);
+	list_for_each_entry_safe(fence, tmp, &temp, node) {
 		dma_fence_set_error(&fence->base, -ENOENT);
 		dma_fence_signal_locked(&fence->base);
-	}
-	spin_unlock_irq(&timeline->lock);
-
-	/*
-	 * Put the fence refcount taken above outside lock
-	 * to avoid spinlock recursion during fence release.
-	 */
-	list_for_each_entry_safe(fence, tmp, &temp, node) {
-		list_del_init(&fence->node);
 		dma_fence_put(&fence->base);
 	}
+	spin_unlock_irq(&timeline->lock);
 
 	kgsl_timeline_put(timeline);
 

@@ -426,6 +426,8 @@ struct ipa_fmwk_contex {
 	int (*ipa_eth_client_conn_evt)(struct ipa_ecm_msg *msg);
 
 	int (*ipa_eth_client_disconn_evt)(struct ipa_ecm_msg *msg);
+	int (*ipa_get_default_aggr_time_limit)(enum ipa_client_type client,
+		u32 *default_aggr_time_limit);
 };
 
 static struct ipa_fmwk_contex *ipa_fmwk_ctx;
@@ -545,6 +547,7 @@ int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
 	ipa_fmwk_ctx->ipa_register_rmnet_ll_cb = in->ipa_register_rmnet_ll_cb;
 	ipa_fmwk_ctx->ipa_unregister_rmnet_ll_cb =
 		in->ipa_unregister_rmnet_ll_cb;
+	ipa_fmwk_ctx->ipa_get_default_aggr_time_limit = in->ipa_get_default_aggr_time_limit;
 
 	ipa_fmwk_ctx->ipa_ready = true;
 	ipa_trigger_ipa_ready_cbs();
@@ -2264,6 +2267,18 @@ int ipa_eth_client_disconn_evt(struct ipa_ecm_msg *msg)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_eth_client_disconn_evt);
+
+int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
+				u32 *default_aggr_time_limit)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_get_default_aggr_time_limit,
+		client, default_aggr_time_limit);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_default_aggr_time_limit);
 
 /* module functions */
 static int __init ipa_fmwk_init(void)

@@ -409,7 +409,7 @@ static void sysstats_build(struct sysstats_mem *stats)
 
 	stats->memtotal = K(i.totalram);
 	stats->misc_reclaimable =
-		global_node_page_state(NR_KERNEL_MISC_RECLAIMABLE) >> 10;
+		K(global_node_page_state(NR_KERNEL_MISC_RECLAIMABLE));
 	stats->buffer = K(i.bufferram);
 	stats->swap_used = K(i.totalswap - i.freeswap);
 	stats->swap_total = K(i.totalswap);

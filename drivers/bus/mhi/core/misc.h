@@ -165,6 +165,7 @@ struct mhi_private {
 	int (*bw_scale)(struct mhi_controller *mhi_cntrl,
 			struct mhi_link_info *link_info);
 	phys_addr_t base_addr;
+	u32 bw_response;
 	struct mhi_sfr_info *sfr_info;
 	struct mhi_timesync *timesync;
 };
@@ -231,6 +232,7 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 				   struct mhi_event *mhi_event, u32 event_quota);
 void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl);
+void mhi_misc_dbs_pending(struct mhi_controller *mhi_cntrl);
 void mhi_misc_disable(struct mhi_controller *mhi_cntrl);
 void mhi_misc_cmd_configure(struct mhi_controller *mhi_cntrl,
 			    unsigned int type, u64 *ptr, u32 *dword0,
@@ -275,6 +277,10 @@ static inline int mhi_process_misc_tsync_ev_ring
 }
 
 static inline void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
+{
+}
+
+static inline void mhi_special_dbs_pending(struct mhi_controller *mhi_cntrl)
 {
 }
 

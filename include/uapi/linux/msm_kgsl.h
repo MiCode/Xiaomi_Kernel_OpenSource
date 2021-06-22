@@ -342,6 +342,8 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_GAMING_BIN		0x26
 #define KGSL_PROP_QUERY_CAPABILITIES	0x27
 #define KGSL_PROP_CONTEXT_PROPERTY	0x28
+#define KGSL_PROP_GPU_MODEL		0x29
+#define KGSL_PROP_VK_DEVICE_ID		0x2A
 
 /*
  * kgsl_capabilities_properties returns a list of supported properties.
@@ -424,6 +426,10 @@ struct kgsl_context_property_fault {
 	__u32 timestamp;
 };
 
+struct kgsl_gpu_model {
+	char gpu_model[32];
+};
+
 /* Context property sub types */
 #define KGSL_CONTEXT_PROP_FAULTS 1
 
@@ -472,7 +478,15 @@ struct kgsl_context_property_fault {
 #define KGSL_PERFCOUNTER_GROUP_GMU_GMUCLK  0x28
 #define KGSL_PERFCOUNTER_GROUP_GMU_PERF  0x29
 #define KGSL_PERFCOUNTER_GROUP_SW 0x2a
-#define KGSL_PERFCOUNTER_GROUP_MAX 0x2b
+#define KGSL_PERFCOUNTER_GROUP_UFC 0x2b
+#define KGSL_PERFCOUNTER_GROUP_BV_CP 0x2c
+#define KGSL_PERFCOUNTER_GROUP_BV_PC 0x2d
+#define KGSL_PERFCOUNTER_GROUP_BV_VFD 0x2e
+#define KGSL_PERFCOUNTER_GROUP_BV_VPC 0x2f
+#define KGSL_PERFCOUNTER_GROUP_BV_TP 0x30
+#define KGSL_PERFCOUNTER_GROUP_BV_SP 0x31
+#define KGSL_PERFCOUNTER_GROUP_BV_UFC 0x32
+#define KGSL_PERFCOUNTER_GROUP_MAX 0x33
 
 #define KGSL_PERFCOUNTER_NOT_USED 0xFFFFFFFF
 #define KGSL_PERFCOUNTER_BROKEN 0xFFFFFFFE

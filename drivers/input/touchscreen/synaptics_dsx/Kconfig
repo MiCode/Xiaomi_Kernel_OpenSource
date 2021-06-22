@@ -2,12 +2,15 @@
 # Synaptics DSX touchscreen driver configuration
 #
 menuconfig TOUCHSCREEN_SYNAPTICS_DSX
-	bool "Synaptics DSX touchscreen"
+	tristate "Synaptics DSX touchscreen"
 	help
 	  Say Y here if you have a Synaptics DSX touchscreen connected
 	  to your system.
 
 	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx.
 
 if TOUCHSCREEN_SYNAPTICS_DSX
 

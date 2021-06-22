@@ -609,7 +609,7 @@ static void kgsl_device_snapshot_atomic(struct kgsl_device *device)
 
 	/* log buffer info to aid in ramdump fault tolerance */
 	dev_err(device->dev, "Atomic GPU snapshot created at pa %llx++0x%zx\n",
-			device->snapshot_memory_atomic.ptr, snapshot->size);
+			__pa(device->snapshot_memory_atomic.ptr), snapshot->size);
 }
 
 /**

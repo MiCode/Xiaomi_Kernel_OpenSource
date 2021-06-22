@@ -19,12 +19,16 @@
 #include <linux/reset-controller.h>
 #include <linux/arm-smccc.h>
 #include <soc/qcom/qseecom_scm.h>
+#include <linux/delay.h>
 
 #include "qcom_scm.h"
 #include "qtee_shmbridge_internal.h"
 
 static bool download_mode = IS_ENABLED(CONFIG_QCOM_SCM_DOWNLOAD_MODE_DEFAULT);
 module_param(download_mode, bool, 0);
+
+static unsigned int pas_shutdown_retry_delay = 5000;
+module_param(pas_shutdown_retry_delay, uint, 0644);
 
 #define SCM_HAS_CORE_CLK	BIT(0)
 #define SCM_HAS_IFACE_CLK	BIT(1)
@@ -105,14 +109,10 @@ static void qcom_scm_clk_disable(void)
 	clk_disable_unprepare(__scm->bus_clk);
 }
 
-static int __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
-					u32 cmd_id);
+enum qcom_scm_convention qcom_scm_convention = SMC_CONVENTION_UNKNOWN;
+static DEFINE_SPINLOCK(scm_query_lock);
 
-enum qcom_scm_convention qcom_scm_convention;
-static bool has_queried __read_mostly;
-static DEFINE_SPINLOCK(query_lock);
-
-static void __query_convention(void)
+static enum qcom_scm_convention __get_convention(void)
 {
 	unsigned long flags;
 	struct qcom_scm_desc desc = {
@@ -125,36 +125,50 @@ static void __query_convention(void)
 		.owner = ARM_SMCCC_OWNER_SIP,
 	};
 	struct qcom_scm_res res;
+	enum qcom_scm_convention probed_convention;
 	int ret;
+	bool forced = false;
 
-	spin_lock_irqsave(&query_lock, flags);
-	if (has_queried)
-		goto out;
+	if (likely(qcom_scm_convention != SMC_CONVENTION_UNKNOWN))
+		return qcom_scm_convention;
 
-	qcom_scm_convention = SMC_CONVENTION_ARM_64;
-	// Device isn't required as there is only one argument - no device
-	// needed to dma_map_single to secure world
-	ret = scm_smc_call(NULL, &desc, &res, true);
+	/*
+	 * Device isn't required as there is only one argument - no device
+	 * needed to dma_map_single to secure world
+	 */
+	probed_convention = SMC_CONVENTION_ARM_64;
+	ret = __scm_smc_call(NULL, &desc, probed_convention, &res, true);
 	if (!ret && res.result[0] == 1)
-		goto out;
+		goto found;
 
-	qcom_scm_convention = SMC_CONVENTION_ARM_32;
-	ret = scm_smc_call(NULL, &desc, &res, true);
+	/*
+	 * Some SC7180 firmwares didn't implement the
+	 * QCOM_SCM_INFO_IS_CALL_AVAIL call, so we fallback to forcing ARM_64
+	 * calling conventions on these firmwares. Luckily we don't make any
+	 * early calls into the firmware on these SoCs so the device pointer
+	 * will be valid here to check if the compatible matches.
+	 */
+	if (of_device_is_compatible(__scm ? __scm->dev->of_node : NULL, "qcom,scm-sc7180")) {
+		forced = true;
+		goto found;
+	}
+
+	probed_convention = SMC_CONVENTION_ARM_32;
+	ret = __scm_smc_call(NULL, &desc, probed_convention, &res, true);
 	if (!ret && res.result[0] == 1)
-		goto out;
+		goto found;
 
-	qcom_scm_convention = SMC_CONVENTION_LEGACY;
-out:
-	has_queried = true;
-	spin_unlock_irqrestore(&query_lock, flags);
-	pr_info("qcom_scm: convention: %s\n",
-		qcom_scm_convention_names[qcom_scm_convention]);
-}
+	probed_convention = SMC_CONVENTION_LEGACY;
+found:
+	spin_lock_irqsave(&scm_query_lock, flags);
+	if (probed_convention != qcom_scm_convention) {
+		qcom_scm_convention = probed_convention;
+		pr_info("qcom_scm: convention: %s%s\n",
+			qcom_scm_convention_names[qcom_scm_convention],
+			forced ? " (forced)" : "");
+	}
+	spin_unlock_irqrestore(&scm_query_lock, flags);
 
-static inline enum qcom_scm_convention __get_convention(void)
-{
-	if (unlikely(!has_queried))
-		__query_convention();
 	return qcom_scm_convention;
 }
 
@@ -237,8 +251,8 @@ static int qcom_scm_call_noretry(struct device *dev,
 	}
 }
 
-static int __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
-					u32 cmd_id)
+static bool __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
+					 u32 cmd_id)
 {
 	int ret;
 	struct qcom_scm_desc desc = {
@@ -265,7 +279,7 @@ static int __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
 
 	ret = qcom_scm_call(dev, &desc, &res);
 
-	return ret ? : res.result[0];
+	return ret ? false : !!res.result[0];
 }
 
 /**
@@ -655,6 +669,23 @@ int qcom_scm_pas_shutdown(u32 peripheral)
 }
 EXPORT_SYMBOL(qcom_scm_pas_shutdown);
 
+int qcom_scm_pas_shutdown_retry(u32 peripheral)
+{
+	int ret;
+
+	ret = qcom_scm_pas_shutdown(peripheral);
+	if (!ret)
+		return ret;
+
+	pr_err("PAS Shutdown: First call to shutdown failed with error: %d\n", ret);
+	pr_err("PAS Shutdown: Sleeping for: %u\n", pas_shutdown_retry_delay);
+	msleep(pas_shutdown_retry_delay);
+
+	pr_err("PAS Shutdown: Attempting to shutdown peripheral again\n");
+	return qcom_scm_pas_shutdown(peripheral);
+}
+EXPORT_SYMBOL(qcom_scm_pas_shutdown_retry);
+
 /**
  * qcom_scm_pas_supported() - Check if the peripheral authentication service is
  *			      available for the given peripherial
@@ -674,9 +705,8 @@ bool qcom_scm_pas_supported(u32 peripheral)
 	};
 	struct qcom_scm_res res;
 
-	ret = __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_PIL,
-					   QCOM_SCM_PIL_PAS_IS_SUPPORTED);
-	if (ret <= 0)
+	if (!__qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_PIL,
+					  QCOM_SCM_PIL_PAS_IS_SUPPORTED))
 		return false;
 
 	ret = qcom_scm_call(__scm->dev, &desc, &res);
@@ -1801,17 +1831,18 @@ EXPORT_SYMBOL(qcom_scm_derive_raw_secret);
  */
 bool qcom_scm_hdcp_available(void)
 {
+	bool avail;
 	int ret = qcom_scm_clk_enable();
 
 	if (ret)
 		return ret;
 
-	ret = __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_HDCP,
+	avail = __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_HDCP,
 						QCOM_SCM_HDCP_INVOKE);
 
 	qcom_scm_clk_disable();
 
-	return ret > 0 ? true : false;
+	return avail;
 }
 EXPORT_SYMBOL(qcom_scm_hdcp_available);
 
@@ -2249,6 +2280,40 @@ int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
 }
 EXPORT_SYMBOL(qcom_scm_request_encrypted_log);
 
+int qcom_scm_invoke_smc_legacy(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *response_type, unsigned int *data)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_SMCINVOKE,
+		.cmd = QCOM_SCM_SMCINVOKE_INVOKE_LEGACY,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS,
+		.args[0] = in_buf,
+		.args[1] = in_buf_size,
+		.args[2] = out_buf,
+		.args[3] = out_buf_size,
+		.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL,
+			QCOM_SCM_RW, QCOM_SCM_VAL),
+	};
+
+	struct qcom_scm_res res;
+
+	ret = qcom_scm_call(__scm->dev, &desc, &res);
+
+	if (result)
+		*result = res.result[1];
+
+	if (response_type)
+		*response_type = res.result[0];
+
+	if (data)
+		*data = res.result[2];
+
+	return ret;
+}
+EXPORT_SYMBOL(qcom_scm_invoke_smc_legacy);
+
 int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *response_type, unsigned int *data)
@@ -2468,7 +2533,7 @@ static int qcom_scm_probe(struct platform_device *pdev)
 	__scm = scm;
 	__scm->dev = &pdev->dev;
 
-	__query_convention();
+	__get_convention();
 
 	scm->restart_nb.notifier_call = qcom_scm_do_restart;
 	scm->restart_nb.priority = 130;

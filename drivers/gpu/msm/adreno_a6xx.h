@@ -23,6 +23,7 @@ extern const struct adreno_power_ops a6xx_hwsched_power_ops;
 struct a6xx_gpudev {
 	struct adreno_gpudev base;
 	int (*hfi_probe)(struct adreno_device *adreno_dev);
+	void (*hfi_remove)(struct adreno_device *adreno_dev);
 	void (*handle_watchdog)(struct adreno_device *adreno_dev);
 };
 
@@ -299,15 +300,6 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev);
  * time we boot the gpu
  */
 void a6xx_start(struct adreno_device *adreno_dev);
-
-/**
- * a6xx_sqe_unhalt - Unhalt the SQE engine
- * @adreno_dev: An Adreno GPU handle
- *
- * Points the hardware to the microcode location in memory and then
- * unhalts the SQE so that it can fetch instructions from DDR
- */
-void a6xx_unhalt_sqe(struct adreno_device *adreno_dev);
 
 /**
  * a6xx_init - Initialize a6xx resources

@@ -104,7 +104,7 @@ static struct thermal_cooling_device_ops ddr_cdev_ops = {
 
 static int ddr_cdev_probe(struct platform_device *pdev)
 {
-	int ret = 0, opp_ct = 0;
+	int ret = 0, opp_ct = 0, bus_width = 1, idx = 0;
 	struct ddr_cdev *ddr_cdev = NULL;
 	struct device_node *np = pdev->dev.of_node, *freq_np = NULL;
 	struct device *dev = &pdev->dev;
@@ -164,6 +164,15 @@ static int ddr_cdev_probe(struct platform_device *pdev)
 	ddr_cdev->cur_state = 0;
 	ddr_cdev->max_state = opp_ct - 1;
 	ddr_cdev->dev = dev;
+
+	ret = of_property_read_u32(np, "qcom,bus-width", &bus_width);
+	if (ret < 0) {
+		dev_err(dev, "DDR bus width read error:%d\n", ret);
+		goto err_exit;
+	}
+
+	for (idx = 0; idx < opp_ct; idx++)
+		ddr_cdev->freq_table[idx] *= bus_width;
 
 	ret = icc_set_bw(ddr_cdev->icc_path, 0, freq_table[0]);
 	if (ret < 0) {

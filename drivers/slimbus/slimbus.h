@@ -89,6 +89,12 @@
 
 #define SLIM_MAX_TIDS			256
 
+void __slimbus_dbg(const char *func, const char *fmt, ...);
+#define slimbus_dbg(fmt, ...)			\
+	__slimbus_dbg(__func__,			\
+		fmt, ##__VA_ARGS__)		\
+
+
 /* slimbus supported frequency values */
 #define	SLIM_FREQ_441	44100
 #define	SLIM_FREQ_882	88200
@@ -461,6 +467,7 @@ enum {
 /* Default IPC log level INFO */
 #define SLIM_DBG(dev, x...) do { \
 	pr_debug(x); \
+	slimbus_dbg(x); \
 	if (dev->ipc_log_mask >= DBG_LEV) { \
 		ipc_log_string(dev->ipc_slimbus_log, x); \
 	} \
@@ -471,6 +478,7 @@ enum {
 
 #define SLIM_INFO(dev, x...) do { \
 	pr_debug(x); \
+	slimbus_dbg(x); \
 	if (dev->ipc_log_mask >= INFO_LEV) {\
 		ipc_log_string(dev->ipc_slimbus_log, x); \
 	} \
@@ -481,6 +489,7 @@ enum {
 
 /* warnings and errors show up on console always */
 #define SLIM_WARN(dev, x...) do { \
+	slimbus_dbg(x); \
 	if (dev->ipc_log_mask >= WARN_LEV) { \
 		pr_warn(x); \
 		ipc_log_string(dev->ipc_slimbus_log, x); \
@@ -495,6 +504,7 @@ enum {
  * in IPC logging. Further errors continue to log on the error IPC logging.
  */
 #define SLIM_ERR(dev, x...) do { \
+	slimbus_dbg(x); \
 	if (dev->ipc_log_mask >= ERR_LEV) { \
 		pr_err(x); \
 		ipc_log_string(dev->ipc_slimbus_log, x); \

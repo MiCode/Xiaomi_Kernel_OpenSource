@@ -10,7 +10,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
-#include <linux/haven/hh_rm_drv.h>
+#include <linux/gunyah/gh_rm_drv.h>
 #include <soc/qcom/secure_buffer.h>
 
 #include <linux/mem-buf.h>
@@ -80,10 +80,10 @@ EXPORT_SYMBOL(mem_buf_unassign_mem);
 int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
 					  int *dst_vmids, int *dst_perms,
 					  u32 nr_acl_entries,
-					  hh_memparcel_handle_t *memparcel_hdl)
+					  gh_memparcel_handle_t *memparcel_hdl)
 {
-	struct hh_sgl_desc *sgl_desc;
-	struct hh_acl_desc *acl_desc;
+	struct gh_sgl_desc *sgl_desc;
+	struct gh_acl_desc *acl_desc;
 	unsigned int i, nr_sg_entries;
 	struct scatterlist *sg;
 	int ret;
@@ -94,13 +94,13 @@ int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
 		return -EINVAL;
 
 	nr_sg_entries = sgt->nents;
-	sgl_desc_size = offsetof(struct hh_sgl_desc,
+	sgl_desc_size = offsetof(struct gh_sgl_desc,
 				 sgl_entries[nr_sg_entries]);
 	sgl_desc = kzalloc(sgl_desc_size, GFP_KERNEL);
 	if (!sgl_desc)
 		return -ENOMEM;
 
-	acl_desc_size = offsetof(struct hh_acl_desc,
+	acl_desc_size = offsetof(struct gh_acl_desc,
 				 acl_entries[nr_acl_entries]);
 	acl_desc = kzalloc(acl_desc_size, GFP_KERNEL);
 	if (!acl_desc) {
@@ -121,11 +121,11 @@ int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
 	}
 
 
-	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL, 0, acl_desc,
+	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL, 0, acl_desc,
 					sgl_desc, NULL, memparcel_hdl);
 	trace_lookup_sgl(sgl_desc, ret, *memparcel_hdl);
 	if (ret < 0)
-		pr_err("%s: hh_rm_mem_qcom_lookup_sgl failure rc: %d\n",
+		pr_err("%s: gh_rm_mem_qcom_lookup_sgl failure rc: %d\n",
 		       __func__, ret);
 
 	kfree(acl_desc);
@@ -134,34 +134,34 @@ int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
 }
 EXPORT_SYMBOL(mem_buf_retrieve_memparcel_hdl);
 
-static int mem_buf_get_mem_xfer_type(struct hh_acl_desc *acl_desc)
+static int mem_buf_get_mem_xfer_type(struct gh_acl_desc *acl_desc)
 {
 	u32 i, nr_acl_entries = acl_desc->n_acl_entries;
 
 	for (i = 0; i < nr_acl_entries; i++)
 		if (acl_desc->acl_entries[i].vmid == VMID_HLOS &&
 		    acl_desc->acl_entries[i].perms != 0)
-			return HH_RM_TRANS_TYPE_SHARE;
+			return GH_RM_TRANS_TYPE_SHARE;
 
-	return HH_RM_TRANS_TYPE_LEND;
+	return GH_RM_TRANS_TYPE_LEND;
 }
 
 /*
- * FIXME: hh_rm_mem_accept uses kmemdup, which isn't right for large buffers.
+ * FIXME: gh_rm_mem_accept uses kmemdup, which isn't right for large buffers.
  */
-struct hh_sgl_desc *mem_buf_map_mem_s2(hh_memparcel_handle_t memparcel_hdl,
-					struct hh_acl_desc *acl_desc)
+struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
+					struct gh_acl_desc *acl_desc)
 {
-	struct hh_sgl_desc *sgl_desc;
+	struct gh_sgl_desc *sgl_desc;
 
 	if (!acl_desc)
 		return ERR_PTR(-EINVAL);
 
 	pr_debug("%s: adding CPU MMU stage 2 mappings\n", __func__);
-	sgl_desc = hh_rm_mem_accept(memparcel_hdl, HH_RM_MEM_TYPE_NORMAL,
+	sgl_desc = gh_rm_mem_accept(memparcel_hdl, GH_RM_MEM_TYPE_NORMAL,
 				    mem_buf_get_mem_xfer_type(acl_desc),
-				    HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
-				    HH_RM_MEM_ACCEPT_DONE, 0, acl_desc, NULL,
+				    GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
+				    GH_RM_MEM_ACCEPT_DONE, 0, acl_desc, NULL,
 				    NULL, 0);
 	if (IS_ERR(sgl_desc)) {
 		pr_err("%s failed to map memory in stage 2 rc: %d\n", __func__,
@@ -174,12 +174,12 @@ struct hh_sgl_desc *mem_buf_map_mem_s2(hh_memparcel_handle_t memparcel_hdl,
 }
 EXPORT_SYMBOL(mem_buf_map_mem_s2);
 
-int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl)
+int mem_buf_unmap_mem_s2(gh_memparcel_handle_t memparcel_hdl)
 {
 	int ret;
 
 	pr_debug("%s: removing CPU MMU stage 2 mappings\n", __func__);
-	ret = hh_rm_mem_release(memparcel_hdl, 0);
+	ret = gh_rm_mem_release(memparcel_hdl, 0);
 
 	if (ret < 0)
 		pr_err("%s: Failed to release memparcel hdl: 0x%lx rc: %d\n",
@@ -191,7 +191,7 @@ int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl)
 }
 EXPORT_SYMBOL(mem_buf_unmap_mem_s2);
 
-int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
+int mem_buf_map_mem_s1(struct gh_sgl_desc *sgl_desc)
 {
 	u64 base, size;
 	int i, ret;
@@ -221,7 +221,7 @@ out:
 }
 EXPORT_SYMBOL(mem_buf_map_mem_s1);
 
-int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc)
+int mem_buf_unmap_mem_s1(struct gh_sgl_desc *sgl_desc)
 {
 	u64 base, size;
 	int i, ret;

@@ -1,0 +1,32 @@
+What:		/sys/hypervisor/type
+Date:		April 2020
+KernelVersion:	5.4.25
+Description:	If running under Gunyah:
+		Type of hypervisor:
+		"gunyah": Gunyah hypervisor
+
+What:		/sys/hypervisor/version/api
+Date:		April 2020
+KernelVersion:	5.4.25
+Description:	If running under Gunyah:
+		The Gunyah API version.
+
+What:		/sys/hypervisor/version/variant
+Date:		April 2020
+KernelVersion:	5.4.25
+Description:	If running under Gunyah:
+		The Gunyah variant (build) version.
+
+What:		/sys/kernel/debug/gunyah/trace_set
+Date:		April 2020
+KernelVersion:	5.4.25
+Description:	If running under Gunyah with Trace Control support:
+		When reading, gets active trace class flags as a hexadecimal.
+		When writing, adds to the trace class flags.
+
+What:		/sys/kernel/debug/gunyah/trace_clear
+Date:		April 2020
+KernelVersion:	5.4.25
+Description:	If running under Gunyah with Trace Control support:
+		When reading, gets active trace class flags as a hexadecimal.
+		When writing, clears the specified trace class flags.

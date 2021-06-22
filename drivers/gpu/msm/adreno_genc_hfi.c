@@ -250,11 +250,27 @@ static int poll_gmu_reg(struct adreno_device *adreno_dev,
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
+	bool nmi = false;
 
 	while (time_is_after_jiffies(timeout)) {
 		gmu_core_regread(device, offsetdwords, &val);
 		if ((val & mask) == expected_val)
 			return 0;
+
+		/*
+		 * If GMU firmware fails any assertion, error message is sent
+		 * to KMD and NMI is triggered. So check if GMU is in NMI and
+		 * timeout early. Bits [11:9] of A6XX_GMU_CM3_FW_INIT_RESULT
+		 * contain GMU reset status. Non zero value here indicates that
+		 * GMU reset is active, NMI handler would eventually complete
+		 * and GMU would wait for recovery.
+		 */
+		gmu_core_regread(device, GENC_GMU_CM3_FW_INIT_RESULT, &val);
+		if (val & 0xE00) {
+			nmi = true;
+			break;
+		}
+
 		usleep_range(10, 100);
 	}
 
@@ -264,8 +280,9 @@ static int poll_gmu_reg(struct adreno_device *adreno_dev,
 		return 0;
 
 	dev_err(&gmu->pdev->dev,
-		"Reg poll timeout: offset 0x%x, want 0x%x, got 0x%x\n",
-		offsetdwords, expected_val, val & mask);
+		"Reg poll %s: offset 0x%x, want 0x%x, got 0x%x\n",
+		nmi ? "abort" : "timeout", offsetdwords, expected_val,
+		val & mask);
 
 	return -ETIMEDOUT;
 }
@@ -476,11 +493,12 @@ int genc_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev)
 	int ret = 0;
 
 	if (adreno_dev->acd_enabled) {
-		ret = genc_hfi_send_generic_req(adreno_dev,
-			&gmu->hfi.acd_table);
+		ret = genc_hfi_send_feature_ctrl(adreno_dev,
+			HFI_FEATURE_ACD, 1, 0);
+
 		if (!ret)
-			ret = genc_hfi_send_feature_ctrl(adreno_dev,
-				HFI_FEATURE_ACD, 1, 0);
+			ret = genc_hfi_send_generic_req(adreno_dev,
+				&gmu->hfi.acd_table);
 	}
 
 	return ret;

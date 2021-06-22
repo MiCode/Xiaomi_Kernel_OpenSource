@@ -11,8 +11,8 @@
 #include <linux/module.h>
 #include <linux/hrtimer.h>
 #include <linux/dma-mapping.h>
-#ifdef CONFIG_HH_VIRTIO_DEBUG
-#include <trace/events/hh_virtio_frontend.h>
+#ifdef CONFIG_GH_VIRTIO_DEBUG
+#include <trace/events/gh_virtio_frontend.h>
 #endif
 #include <xen/xen.h>
 
@@ -564,7 +564,7 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 
 	pr_debug("Added buffer head %i to %p\n", head, vq);
 	END_USE(vq);
-#ifdef CONFIG_HH_VIRTIO_DEBUG
+#ifdef CONFIG_GH_VIRTIO_DEBUG
 	trace_virtio_vring_split_add(_vq->vdev->index, head,
 			vq->split.avail_idx_shadow-1, descs_used, vq->vq.num_free);
 #endif
@@ -656,7 +656,7 @@ static void detach_buf_split(struct vring_virtqueue *vq, unsigned int head,
 	/* Plus final descriptor */
 	vq->vq.num_free++;
 
-#ifdef CONFIG_HH_VIRTIO_DEBUG
+#ifdef CONFIG_GH_VIRTIO_DEBUG
 	trace_virtio_detach_buf(vq->vq.vdev->index, vq->free_head, vq->vq.num_free);
 #endif
 
@@ -708,7 +708,7 @@ static void *virtqueue_get_buf_ctx_split(struct virtqueue *_vq,
 		return NULL;
 	}
 
-#ifdef CONFIG_HH_VIRTIO_DEBUG
+#ifdef CONFIG_GH_VIRTIO_DEBUG
 	trace_virtio_get_buf_ctx_split(_vq->vdev->index, vq->last_used_idx,
 			virtio16_to_cpu(vq->vq.vdev, vq->split.vring.used->idx));
 #endif

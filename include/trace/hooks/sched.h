@@ -299,6 +299,10 @@ DECLARE_HOOK(android_vh_account_task_time,
 	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick),
 	TP_ARGS(p, rq, user_tick));
 
+DECLARE_HOOK(android_vh_irqtime_account_process_tick,
+	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick, int ticks),
+	TP_ARGS(p, rq, user_tick, ticks));
+
 DECLARE_RESTRICTED_HOOK(android_rvh_post_init_entity_util_avg,
 	TP_PROTO(struct sched_entity *se),
 	TP_ARGS(se), 1);
@@ -353,6 +357,10 @@ DECLARE_HOOK(android_vh_prepare_update_load_avg_se,
 DECLARE_HOOK(android_vh_finish_update_load_avg_se,
 	TP_PROTO(struct sched_entity *se, int flags),
 	TP_ARGS(se, flags));
+
+DECLARE_HOOK(android_vh_dup_task_struct,
+	TP_PROTO(struct task_struct *tsk, struct task_struct *orig),
+	TP_ARGS(tsk, orig));
 
 /* macro versions of hooks are no longer required */
 

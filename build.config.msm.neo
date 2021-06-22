@@ -1,0 +1,34 @@
+################################################################################
+## Inheriting configs from ACK
+. ${ROOT_DIR}/common/build.config.common
+. ${ROOT_DIR}/common/build.config.aarch64
+
+################################################################################
+## Variant setup
+HERMETIC_TOOLCHAIN=0
+MSM_ARCH=neo
+VARIANTS=(defconfig)
+[ -z "${VARIANT}" ] && VARIANT=defconfig
+
+BASE_ADDRESS=0x80000000
+PAGE_SIZE=4096
+DTB_IMG_CREATE=1
+
+################################################################################
+## Define VM parameters
+KERNEL_OFFSET=0xe0b00000
+DTB_OFFSET=0xe2b00000
+RAMDISK_OFFSET=0xe2c00000
+DUMMY_IMG_OFFSET=0xe84ff000
+
+VM_SIZE_EXT4=270000000
+DUMMY_IMG_SIZE=4096
+
+################################################################################
+## Inheriting MSM configs
+. ${KERNEL_DIR}/build.config.msm.common
+
+## Variant branch setup
+BRANCH=msm-neo
+
+. ${KERNEL_DIR}/build.config.msm.vm

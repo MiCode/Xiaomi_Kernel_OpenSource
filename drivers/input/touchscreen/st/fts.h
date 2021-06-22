@@ -2,7 +2,7 @@
 /*
  * FTS Capacitive touch screen controller (FingerTipS)
  *
- * Copyright (C) 2016-2019, STMicroelectronics Limited.
+ * Copyright (C) 2016-2019, 2021, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group) <marco.cali@st.com>
  *
  *
@@ -25,7 +25,7 @@
 /*#include <linux/wakelock.h>*/
 #include <linux/pm_wakeup.h>
 #include <linux/timekeeping.h>
-#include <linux/haven/hh_irq_lend.h>
+#include <linux/gunyah/gh_irq_lend.h>
 
 #include "fts_lib/ftsSoftware.h"
 #include "fts_lib/ftsHardware.h"
@@ -221,10 +221,10 @@ enum trusted_touch_mode_config {
 #define TRUSTED_TOUCH_MEM_LABEL 0x7
 
 struct trusted_touch_vm_info {
-	enum hh_irq_label irq_label;
-	enum hh_vm_names vm_name;
+	enum gh_irq_label irq_label;
+	enum gh_vm_names vm_name;
 	u32 hw_irq;
-	hh_memparcel_handle_t vm_mem_handle;
+	gh_memparcel_handle_t vm_mem_handle;
 	u32 *iomem_bases;
 	u32 *iomem_sizes;
 	u32 iomem_list_size;

@@ -2,7 +2,7 @@
 
 config QCOM_MEM_BUF
 	tristate "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
-	depends on HH_MSGQ && HH_RM_DRV
+	depends on GH_MSGQ && GH_RM_DRV
 	select QCOM_MEM_BUF_DEV
 	help
 	  Add support for lending memory from one virtual machine to another.

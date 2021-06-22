@@ -783,24 +783,6 @@ void a6xx_rdpm_cx_freq_update(struct a6xx_gmu_device *gmu,
 	}
 }
 
-void a6xx_unhalt_sqe(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
-	uint64_t gpuaddr;
-
-	gpuaddr = fw->memdesc->gpuaddr;
-
-	/* Program the ucode base for CP */
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
-				lower_32_bits(gpuaddr));
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
-				upper_32_bits(gpuaddr));
-
-	/* Clear the SQE_HALT to start the CP engine */
-	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
-}
-
 /* This is the start point for non GMU/RGMU targets */
 static int a6xx_nogmu_start(struct adreno_device *adreno_dev)
 {
@@ -930,7 +912,8 @@ void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev,
 		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
-		adreno_dev->cur_rb->id, rptr, wptr, status, status3, intstatus);
+		adreno_dev->cur_rb ? adreno_dev->cur_rb->id : -1, rptr, wptr,
+		status, status3, intstatus);
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
@@ -1050,6 +1033,7 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 cp_rb_cntl = A6XX_CP_RB_CNTL_DEFAULT |
 		(ADRENO_FEATURE(adreno_dev, ADRENO_APRIV) ? 0 : (1 << 27));
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	struct adreno_ringbuffer *rb;
 	uint64_t addr;
 	int ret, i;
@@ -1087,7 +1071,14 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_RB_BASE_HI,
 		upper_32_bits(rb->buffer_desc->gpuaddr));
 
-	a6xx_unhalt_sqe(adreno_dev);
+	/* Program the ucode base for CP */
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
+		lower_32_bits(fw->memdesc->gpuaddr));
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
+		upper_32_bits(fw->memdesc->gpuaddr));
+
+	/* Clear the SQE_HALT to start the CP engine */
+	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
 
 	ret = a6xx_send_cp_init(adreno_dev, rb);
 	if (ret)
@@ -2633,6 +2624,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.hw_isidle = a6xx_hw_isidle,
 	},
 	.hfi_probe = a6xx_hwsched_hfi_probe,
+	.hfi_remove = a6xx_hwsched_hfi_remove,
 	.handle_watchdog = a6xx_hwsched_handle_watchdog,
 };
 

@@ -174,3 +174,11 @@ config QTI_DDR_COOLING_DEVICE
 	   devices will be used by QTI chipset to place a DDR state request
 	   to meet the performance requirement under thermally constrained
 	   conditions.
+
+config QTI_CPUFREQ_CDEV
+	tristate "QTI CPU frequency cooling device"
+	depends on CPU_FREQ && THERMAL && PM_OPP
+	help
+	   This enables the QTI cpufreq cooling device, which will help
+	   register the cpu freq devices with thermal framework and allow
+	   limiting the cpu frequency by userspace.

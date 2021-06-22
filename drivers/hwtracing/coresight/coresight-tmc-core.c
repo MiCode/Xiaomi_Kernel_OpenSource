@@ -181,19 +181,25 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 	ssize_t actual;
 	struct tmc_drvdata *drvdata = container_of(file->private_data,
 						   struct tmc_drvdata, miscdev);
+
+	mutex_lock(&drvdata->mem_lock);
 	actual = tmc_get_sysfs_trace(drvdata, *ppos, len, &bufp);
-	if (actual <= 0)
+	if (actual <= 0) {
+		mutex_unlock(&drvdata->mem_lock);
 		return 0;
+	}
 
 	if (copy_to_user(data, bufp, actual)) {
 		dev_dbg(&drvdata->csdev->dev,
 			"%s: copy_to_user failed\n", __func__);
+		mutex_unlock(&drvdata->mem_lock);
 		return -EFAULT;
 	}
 
 	*ppos += actual;
 	dev_dbg(&drvdata->csdev->dev, "%zu bytes copied\n", actual);
 
+	mutex_unlock(&drvdata->mem_lock);
 	return actual;
 }
 
@@ -533,6 +539,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	desc.access = CSDEV_ACCESS_IOMEM(base);
 
 	spin_lock_init(&drvdata->spinlock);
+	mutex_init(&drvdata->mem_lock);
 
 	devid = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);

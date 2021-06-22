@@ -310,6 +310,7 @@ static int thermal_pause_probe(struct platform_device *pdev)
 	struct of_phandle_iterator it;
 	cpumask_t cpu_mask;
 	unsigned long mask = 0;
+	const char *alias;
 
 	INIT_LIST_HEAD(&thermal_pause_cdev_list);
 	cpumask_clear(&cpus_in_max_cooling_level);
@@ -342,9 +343,14 @@ static int thermal_pause_probe(struct platform_device *pdev)
 			of_node_put(subsys_np);
 			return -ENOMEM;
 		}
-
-		snprintf(thermal_pause_cdev->cdev_name, THERMAL_NAME_LENGTH,
+		ret = of_property_read_string(subsys_np,
+				"qcom,cdev-alias", &alias);
+		if (ret)
+			snprintf(thermal_pause_cdev->cdev_name, THERMAL_NAME_LENGTH,
 				"thermal-pause-%X", mask);
+		else
+			strlcpy(thermal_pause_cdev->cdev_name, alias,
+					THERMAL_NAME_LENGTH);
 
 		thermal_pause_cdev->thermal_pause_level = false;
 		thermal_pause_cdev->cdev = NULL;

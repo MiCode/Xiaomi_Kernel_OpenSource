@@ -2680,8 +2680,7 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 			return ERR_PTR(-EINVAL);
 		}
 
-		if (!group)
-			group = smmu->s2crs[idx].group;
+		group = smmu->s2crs[idx].group;
 	}
 
 	if (group)
@@ -2697,13 +2696,17 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 		if (IS_ERR(group))
 			return NULL;
 	}
-
 finish:
-	if (smmu->impl && smmu->impl->device_group &&
+	if (!IS_ERR(group) && smmu->impl && smmu->impl->device_group &&
 	    smmu->impl->device_group(dev, group)) {
 		iommu_group_put(group);
 		return ERR_PTR(-EINVAL);
 	}
+
+	/* Remember group for faster lookups */
+	if (!IS_ERR(group))
+		for_each_cfg_sme(cfg, fwspec, i, idx)
+			smmu->s2crs[idx].group = group;
 
 	return group;
 }
@@ -3081,7 +3084,7 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 
 	smmu = cfg->smmu;
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
-		if (dir == SID_SWITCH_HLOS_TO_SECURE) {
+		if (dir == SID_RELEASE) {
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), 0);
 		} else {
@@ -4033,11 +4036,6 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	tbu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(tbu->base))
 		return PTR_ERR(tbu->base);
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "status-reg");
-	tbu->status_reg = devm_ioremap_resource(dev, res);
-	if (IS_ERR(tbu->status_reg))
-		return PTR_ERR(tbu->status_reg);
 
 	cell = of_get_property(dev->of_node, "qcom,stream-id-range", &len);
 	if (!cell || len < 8)

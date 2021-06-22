@@ -28,13 +28,13 @@
 #include "main.h"
 #include "qmi.h"
 #include "debug.h"
+#include "genl.h"
 
 #define WLFW_SERVICE_WCN_INS_ID_V01	3
 #define WLFW_SERVICE_INS_ID_V01		0
 #define WLFW_CLIENT_ID			0x4b4e454c
 #define QMI_ERR_PLAT_CCPM_CLK_INIT_FAILED	0x77
 
-#define MAX_BDF_FILE_NAME		13
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
@@ -43,8 +43,12 @@
 #define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
+#define QDSS_TRACE_CONFIG_FILE "qdss_trace_config.cfg"
+
 #define DEVICE_BAR_SIZE			0x200000
 #define M3_SEGMENT_ADDR_MASK		0xFFFFFFFF
+#define DMS_QMI_MAX_MSG_LEN		SZ_256
+#define DMS_MAC_NOT_PROVISIONED		16
 
 #ifdef CONFIG_ICNSS2_DEBUG
 bool ignore_fw_timeout;
@@ -330,6 +334,15 @@ int wlfw_device_info_send_msg(struct icnss_priv *priv)
 				    priv->mem_base_size);
 		goto out;
 	}
+
+	if (resp->mhi_state_info_addr_valid)
+		priv->mhi_state_info_pa = resp->mhi_state_info_addr;
+
+	if (resp->mhi_state_info_size_valid)
+		priv->mhi_state_info_size = resp->mhi_state_info_size;
+
+	if (!priv->mhi_state_info_pa)
+		icnss_pr_err("Fail to get MHI info address\n");
 
 	kfree(resp);
 	kfree(req);
@@ -649,12 +662,14 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 				    ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		ret = -resp->resp.result;
+		if (resp->resp.error == QMI_ERR_PLAT_CCPM_CLK_INIT_FAILED) {
+			icnss_pr_err("RF card not present\n");
+			goto out;
+		}
 		icnss_qmi_fatal_err(
 			"QMI Capability request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
-		ret = -resp->resp.result;
-		if (resp->resp.error == QMI_ERR_PLAT_CCPM_CLK_INIT_FAILED)
-			icnss_qmi_fatal_err("RF card not present\n");
 		goto out;
 	}
 
@@ -711,46 +726,242 @@ out:
 	return ret;
 }
 
+int icnss_qmi_get_dms_mac(struct icnss_priv *priv)
+{
+	struct dms_get_mac_address_req_msg_v01 req;
+	struct dms_get_mac_address_resp_msg_v01 resp;
+	struct qmi_txn txn;
+	int ret = 0;
+
+	if  (!test_bit(ICNSS_QMI_DMS_CONNECTED, &priv->state)) {
+		icnss_pr_err("DMS QMI connection not established\n");
+		return -EAGAIN;
+	}
+	icnss_pr_dbg("Requesting DMS MAC address");
+
+	memset(&resp, 0, sizeof(resp));
+	ret = qmi_txn_init(&priv->qmi_dms, &txn,
+			   dms_get_mac_address_resp_msg_v01_ei, &resp);
+	if (ret < 0) {
+		icnss_pr_err("Failed to initialize txn for dms, err: %d\n",
+			     ret);
+		goto out;
+	}
+	req.device = DMS_DEVICE_MAC_WLAN_V01;
+	ret = qmi_send_request(&priv->qmi_dms, NULL, &txn,
+			       QMI_DMS_GET_MAC_ADDRESS_REQ_V01,
+			       DMS_GET_MAC_ADDRESS_REQ_MSG_V01_MAX_MSG_LEN,
+			       dms_get_mac_address_req_msg_v01_ei, &req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Failed to send QMI_DMS_GET_MAC_ADDRESS_REQ_V01, err: %d\n",
+			     ret);
+		goto out;
+	}
+	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_pr_err("Failed to wait for QMI_DMS_GET_MAC_ADDRESS_RESP_V01, err: %d\n",
+			     ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		if (resp.resp.error == DMS_MAC_NOT_PROVISIONED) {
+			icnss_pr_err("NV MAC address is not provisioned");
+			priv->dms.nv_mac_not_prov = 1;
+		} else {
+			icnss_pr_err("QMI_DMS_GET_MAC_ADDRESS_REQ_V01 failed, result: %d, err: %d\n",
+				     resp.resp.result, resp.resp.error);
+		}
+		ret = -resp.resp.result;
+		goto out;
+	}
+	if (!resp.mac_address_valid ||
+	    resp.mac_address_len != QMI_WLFW_MAC_ADDR_SIZE_V01) {
+		icnss_pr_err("Invalid MAC address received from DMS\n");
+		priv->dms.mac_valid = false;
+		goto out;
+	}
+	priv->dms.mac_valid = true;
+	memcpy(priv->dms.mac, resp.mac_address, QMI_WLFW_MAC_ADDR_SIZE_V01);
+	icnss_pr_info("Received DMS MAC: [%pM]\n", priv->dms.mac);
+out:
+	return ret;
+}
+
+int icnss_wlfw_wlan_mac_req_send_sync(struct icnss_priv *priv,
+				      u8 *mac, u32 mac_len)
+{
+	struct wlfw_mac_addr_req_msg_v01 req;
+	struct wlfw_mac_addr_resp_msg_v01 resp = {0};
+	struct qmi_txn txn;
+	int ret;
+
+	if (!priv || !mac || mac_len != QMI_WLFW_MAC_ADDR_SIZE_V01)
+		return -EINVAL;
+
+	ret = qmi_txn_init(&priv->qmi, &txn,
+			   wlfw_mac_addr_resp_msg_v01_ei, &resp);
+	if (ret < 0) {
+		icnss_pr_err("Failed to initialize txn for mac req, err: %d\n",
+			     ret);
+		ret = -EIO;
+		goto out;
+	}
+
+	icnss_pr_dbg("Sending WLAN mac req [%pM], state: 0x%lx\n",
+			     mac, priv->state);
+	memcpy(req.mac_addr, mac, mac_len);
+	req.mac_addr_valid = 1;
+
+	ret = qmi_send_request(&priv->qmi, NULL, &txn,
+			       QMI_WLFW_MAC_ADDR_REQ_V01,
+			       WLFW_MAC_ADDR_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_mac_addr_req_msg_v01_ei, &req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Failed to send mac req, err: %d\n", ret);
+		ret = -EIO;
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_pr_err("Failed to wait for resp of mac req, err: %d\n",
+			     ret);
+		ret = -EIO;
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("WLAN mac req failed, result: %d, err: %d\n",
+			     resp.resp.result);
+		ret = -resp.resp.result;
+	}
+out:
+	return ret;
+}
+
+static int icnss_dms_connect_to_server(struct icnss_priv *priv,
+				      unsigned int node, unsigned int port)
+{
+	struct qmi_handle *qmi_dms = &priv->qmi_dms;
+	struct sockaddr_qrtr sq = {0};
+	int ret = 0;
+
+	sq.sq_family = AF_QIPCRTR;
+	sq.sq_node = node;
+	sq.sq_port = port;
+
+	ret = kernel_connect(qmi_dms->sock, (struct sockaddr *)&sq,
+			     sizeof(sq), 0);
+	if (ret < 0) {
+		icnss_pr_err("Failed to connect to QMI DMS remote service Node: %d Port: %d\n",
+			     node, port);
+		goto out;
+	}
+
+	set_bit(ICNSS_QMI_DMS_CONNECTED, &priv->state);
+	icnss_pr_info("QMI DMS service connected, state: 0x%lx\n",
+		      priv->state);
+out:
+	return ret;
+}
+
+static int dms_new_server(struct qmi_handle *qmi_dms,
+			  struct qmi_service *service)
+{
+	struct icnss_priv *priv =
+		container_of(qmi_dms, struct icnss_priv, qmi_dms);
+
+	if (!service)
+		return -EINVAL;
+
+	return icnss_dms_connect_to_server(priv, service->node,
+					   service->port);
+}
+
+static void dms_del_server(struct qmi_handle *qmi_dms,
+			   struct qmi_service *service)
+{
+	struct icnss_priv *priv =
+		container_of(qmi_dms, struct icnss_priv, qmi_dms);
+
+	clear_bit(ICNSS_QMI_DMS_CONNECTED, &priv->state);
+	icnss_pr_info("QMI DMS service disconnected, state: 0x%lx\n",
+		      priv->state);
+}
+
+static struct qmi_ops qmi_dms_ops = {
+	.new_server = dms_new_server,
+	.del_server = dms_del_server,
+};
+
+int icnss_dms_init(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	ret = qmi_handle_init(&priv->qmi_dms, DMS_QMI_MAX_MSG_LEN,
+			      &qmi_dms_ops, NULL);
+	if (ret < 0) {
+		icnss_pr_err("Failed to initialize DMS handle, err: %d\n", ret);
+		goto out;
+	}
+
+	ret = qmi_add_lookup(&priv->qmi_dms, DMS_SERVICE_ID_V01,
+			     DMS_SERVICE_VERS_V01, 0);
+	if (ret < 0)
+		icnss_pr_err("Failed to add DMS lookup, err: %d\n", ret);
+out:
+	return ret;
+}
+
+void icnss_dms_deinit(struct icnss_priv *priv)
+{
+	qmi_handle_release(&priv->qmi_dms);
+}
+
 static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 				   u32 bdf_type, char *filename,
 				   u32 filename_len)
 {
+	char filename_tmp[ICNSS_MAX_FILE_NAME];
 	int ret = 0;
 
 	switch (bdf_type) {
 	case ICNSS_BDF_ELF:
 		if (priv->board_id == 0xFF)
-			snprintf(filename, filename_len, ELF_BDF_FILE_NAME);
+			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
 		else if (priv->board_id < 0xFF)
-			snprintf(filename, filename_len,
+			snprintf(filename_tmp, filename_len,
 				 ELF_BDF_FILE_NAME_PREFIX "%02x",
 				 priv->board_id);
 		else
-			snprintf(filename, filename_len,
+			snprintf(filename_tmp, filename_len,
 				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
 				 priv->board_id >> 8 & 0xFF,
 				 priv->board_id & 0xFF);
 		break;
 	case ICNSS_BDF_BIN:
 		if (priv->board_id == 0xFF)
-			snprintf(filename, filename_len, BIN_BDF_FILE_NAME);
+			snprintf(filename_tmp, filename_len, BIN_BDF_FILE_NAME);
 		else if (priv->board_id < 0xFF)
-			snprintf(filename, filename_len,
+			snprintf(filename_tmp, filename_len,
 				 BIN_BDF_FILE_NAME_PREFIX "%02x",
 				 priv->board_id);
 		else
-			snprintf(filename, filename_len,
+			snprintf(filename_tmp, filename_len,
 				 BDF_FILE_NAME_PREFIX "%02x.b%02x",
 				 priv->board_id >> 8 & 0xFF,
 				 priv->board_id & 0xFF);
 		break;
 	case ICNSS_BDF_REGDB:
-		snprintf(filename, filename_len, REGDB_FILE_NAME);
+		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
 		break;
 	case ICNSS_BDF_DUMMY:
 		icnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
-		snprintf(filename, filename_len, DUMMY_BDF_FILE_NAME);
-		ret = MAX_BDF_FILE_NAME;
+		snprintf(filename_tmp, filename_len, DUMMY_BDF_FILE_NAME);
+		ret = ICNSS_MAX_FILE_NAME;
 		break;
 	default:
 		icnss_pr_err("Invalid BDF type: %d\n",
@@ -758,6 +969,10 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 		ret = -EINVAL;
 		break;
 	}
+
+	if (ret >= 0)
+		icnss_add_fw_prefix_name(priv, filename, filename_tmp);
+
 	return ret;
 }
 
@@ -766,7 +981,7 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 	struct wlfw_bdf_download_req_msg_v01 *req;
 	struct wlfw_bdf_download_resp_msg_v01 *resp;
 	struct qmi_txn txn;
-	char filename[MAX_BDF_FILE_NAME];
+	char filename[ICNSS_MAX_FILE_NAME];
 	const struct firmware *fw_entry = NULL;
 	const u8 *temp;
 	unsigned int remaining;
@@ -789,7 +1004,7 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 				      filename, sizeof(filename));
 	if (ret > 0) {
 		temp = DUMMY_BDF_FILE_NAME;
-		remaining = MAX_BDF_FILE_NAME;
+		remaining = ICNSS_MAX_FILE_NAME;
 		goto bypass_bdf;
 	} else if (ret < 0) {
 		goto err_req_fw;
@@ -885,6 +1100,238 @@ err_req_fw:
 	return ret;
 }
 
+int icnss_wlfw_qdss_data_send_sync(struct icnss_priv *priv, char *file_name,
+				   u32 total_size)
+{
+	int ret = 0;
+	struct wlfw_qdss_trace_data_req_msg_v01 *req;
+	struct wlfw_qdss_trace_data_resp_msg_v01 *resp;
+	unsigned char *p_qdss_trace_data_temp, *p_qdss_trace_data = NULL;
+	unsigned int remaining;
+	struct qmi_txn txn;
+
+	icnss_pr_dbg("%s", __func__);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	p_qdss_trace_data = kzalloc(total_size, GFP_KERNEL);
+	if (!p_qdss_trace_data) {
+		ret = ENOMEM;
+		goto end;
+	}
+
+	remaining = total_size;
+	p_qdss_trace_data_temp = p_qdss_trace_data;
+	while (remaining && resp->end == 0) {
+		ret = qmi_txn_init(&priv->qmi, &txn,
+				   wlfw_qdss_trace_data_resp_msg_v01_ei, resp);
+
+		if (ret < 0) {
+			icnss_pr_err("Fail to init txn for QDSS trace resp %d\n",
+				     ret);
+			goto fail;
+		}
+
+		ret = qmi_send_request
+			(&priv->qmi, NULL, &txn,
+			 QMI_WLFW_QDSS_TRACE_DATA_REQ_V01,
+			 WLFW_QDSS_TRACE_DATA_REQ_MSG_V01_MAX_MSG_LEN,
+			 wlfw_qdss_trace_data_req_msg_v01_ei, req);
+
+		if (ret < 0) {
+			qmi_txn_cancel(&txn);
+			icnss_pr_err("Fail to send QDSS trace data req %d\n",
+				     ret);
+			goto fail;
+		}
+
+		ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+
+		if (ret < 0) {
+			icnss_pr_err("QDSS trace resp wait failed with rc %d\n",
+				     ret);
+			goto fail;
+		} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+			icnss_pr_err("QMI QDSS trace request rejected, result:%d error:%d\n",
+				     resp->resp.result, resp->resp.error);
+				     ret = -resp->resp.result;
+			goto fail;
+		} else {
+			ret = 0;
+		}
+
+		icnss_pr_dbg("%s: response total size  %d data len %d",
+			     __func__, resp->total_size, resp->data_len);
+
+		if ((resp->total_size_valid == 1 &&
+		     resp->total_size == total_size) &&
+		    (resp->seg_id_valid == 1 && resp->seg_id == req->seg_id) &&
+		    (resp->data_valid == 1 &&
+		     resp->data_len <= QMI_WLFW_MAX_DATA_SIZE_V01)) {
+			memcpy(p_qdss_trace_data_temp,
+			       resp->data, resp->data_len);
+		} else {
+			icnss_pr_err("%s: Unmatched qdss trace data, Expect total_size %u, seg_id %u, Recv total_size_valid %u, total_size %u, seg_id_valid %u, seg_id %u, data_len_valid %u, data_len %u",
+				     __func__,
+				     total_size, req->seg_id,
+				     resp->total_size_valid,
+				     resp->total_size,
+				     resp->seg_id_valid,
+				     resp->seg_id,
+				     resp->data_valid,
+				     resp->data_len);
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		remaining -= resp->data_len;
+		p_qdss_trace_data_temp += resp->data_len;
+		req->seg_id++;
+	}
+
+	if (remaining == 0 && (resp->end_valid && resp->end)) {
+		ret = icnss_genl_send_msg(p_qdss_trace_data,
+					  ICNSS_GENL_MSG_TYPE_QDSS, file_name,
+					  total_size);
+		if (ret < 0) {
+			icnss_pr_err("Fail to save QDSS trace data: %d\n",
+				     ret);
+		ret = -EINVAL;
+		}
+	} else {
+		icnss_pr_err("%s: QDSS trace file corrupted: remaining %u, end_valid %u, end %u",
+			     __func__,
+			     remaining, resp->end_valid, resp->end);
+		ret = -EINVAL;
+	}
+
+fail:
+	kfree(p_qdss_trace_data);
+
+end:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
+int icnss_wlfw_qdss_dnld_send_sync(struct icnss_priv *priv)
+{
+	struct wlfw_qdss_trace_config_download_req_msg_v01 *req;
+	struct wlfw_qdss_trace_config_download_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	char filename[ICNSS_MAX_FILE_NAME];
+	const struct firmware *fw_entry = NULL;
+	const u8 *temp;
+	unsigned int remaining;
+	int ret = 0;
+
+	icnss_pr_dbg("Sending QDSS config download message, state: 0x%lx\n",
+		     priv->state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	icnss_add_fw_prefix_name(priv, filename, QDSS_TRACE_CONFIG_FILE);
+	ret = request_firmware(&fw_entry, filename,
+			       &priv->pdev->dev);
+	if (ret) {
+		icnss_pr_err("Failed to load QDSS: %s\n",
+			     filename);
+		goto err_req_fw;
+	}
+
+	temp = fw_entry->data;
+	remaining = fw_entry->size;
+
+	icnss_pr_dbg("Downloading QDSS: %s, size: %u\n",
+		     filename, remaining);
+
+	while (remaining) {
+		req->total_size_valid = 1;
+		req->total_size = remaining;
+		req->seg_id_valid = 1;
+		req->data_valid = 1;
+		req->end_valid = 1;
+
+		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
+			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
+		} else {
+			req->data_len = remaining;
+			req->end = 1;
+		}
+
+		memcpy(req->data, temp, req->data_len);
+
+		ret = qmi_txn_init
+			(&priv->qmi, &txn,
+			 wlfw_qdss_trace_config_download_resp_msg_v01_ei,
+			 resp);
+		if (ret < 0) {
+			icnss_pr_err("Failed to initialize txn for QDSS download request, err: %d\n",
+				     ret);
+			goto err_send;
+		}
+
+		ret = qmi_send_request
+		      (&priv->qmi, NULL, &txn,
+		       QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01,
+		       WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN,
+		       wlfw_qdss_trace_config_download_req_msg_v01_ei, req);
+		if (ret < 0) {
+			qmi_txn_cancel(&txn);
+			icnss_pr_err("Failed to send respond QDSS download request, err: %d\n",
+				     ret);
+			goto err_send;
+		}
+
+		ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+		if (ret < 0) {
+			icnss_pr_err("Failed to wait for response of QDSS download request, err: %d\n",
+				     ret);
+			goto err_send;
+		}
+
+		if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+			icnss_pr_err("QDSS download request failed, result: %d, err: %d\n",
+				     resp->resp.result, resp->resp.error);
+			ret = -resp->resp.result;
+			goto err_send;
+		}
+
+		remaining -= req->data_len;
+		temp += req->data_len;
+		req->seg_id++;
+	}
+
+	release_firmware(fw_entry);
+	kfree(req);
+	kfree(resp);
+	return 0;
+
+err_send:
+	release_firmware(fw_entry);
+err_req_fw:
+
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
 int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 		enum wlfw_driver_mode_enum_v01 mode)
 {
@@ -974,8 +1421,96 @@ out:
 	return ret;
 }
 
+static int wlfw_send_qdss_trace_mode_req
+		(struct icnss_priv *priv,
+		 enum wlfw_qdss_trace_mode_enum_v01 mode,
+		 unsigned long long option)
+{
+	int rc = 0;
+	int tmp = 0;
+	struct wlfw_qdss_trace_mode_req_msg_v01 *req;
+	struct wlfw_qdss_trace_mode_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!priv)
+		return -ENODEV;
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->mode_valid = 1;
+	req->mode = mode;
+	req->option_valid = 1;
+	req->option = option;
+
+	tmp = priv->hw_trc_override;
+
+	req->hw_trc_disable_override_valid = 1;
+	req->hw_trc_disable_override =
+	(tmp > QMI_PARAM_DISABLE_V01 ? QMI_PARAM_DISABLE_V01 :
+		 (tmp < 0 ? QMI_PARAM_INVALID_V01 : tmp));
+
+	icnss_pr_dbg("%s: mode %u, option %llu, hw_trc_disable_override: %u",
+		     __func__, mode, option, req->hw_trc_disable_override);
+
+	rc = qmi_txn_init(&priv->qmi, &txn,
+			  wlfw_qdss_trace_mode_resp_msg_v01_ei, resp);
+	if (rc < 0) {
+		icnss_qmi_fatal_err("Fail to init txn for QDSS Mode resp %d\n",
+				    rc);
+		goto out;
+	}
+
+	rc = qmi_send_request(&priv->qmi, NULL, &txn,
+			      QMI_WLFW_QDSS_TRACE_MODE_REQ_V01,
+			      WLFW_QDSS_TRACE_MODE_REQ_MSG_V01_MAX_MSG_LEN,
+			      wlfw_qdss_trace_mode_req_msg_v01_ei, req);
+	if (rc < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_qmi_fatal_err("Fail to send QDSS Mode req %d\n", rc);
+		goto out;
+	}
+
+	rc = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (rc < 0) {
+		icnss_qmi_fatal_err("QDSS Mode resp wait failed with rc %d\n",
+				    rc);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_qmi_fatal_err(
+			"QMI QDSS Mode request rejected, result:%d error:%d\n",
+			resp->resp.result, resp->resp.error);
+		rc = -resp->resp.result;
+		goto out;
+	}
+
+out:
+	kfree(resp);
+	kfree(req);
+	return rc;
+}
+
+int wlfw_qdss_trace_start(struct icnss_priv *priv)
+{
+	return wlfw_send_qdss_trace_mode_req(priv,
+					     QMI_WLFW_QDSS_TRACE_ON_V01, 0);
+}
+
+int wlfw_qdss_trace_stop(struct icnss_priv *priv, unsigned long long option)
+{
+	return wlfw_send_qdss_trace_mode_req(priv, QMI_WLFW_QDSS_TRACE_OFF_V01,
+					     option);
+}
+
 int wlfw_wlan_cfg_send_sync_msg(struct icnss_priv *priv,
-		struct wlfw_wlan_cfg_req_msg_v01 *data)
+				struct wlfw_wlan_cfg_req_msg_v01 *data)
 {
 	int ret;
 	struct wlfw_wlan_cfg_req_msg_v01 *req;
@@ -1945,9 +2480,6 @@ static void wlfw_qdss_trace_save_ind_cb(struct qmi_handle *qmi,
 		     ind_msg->source, ind_msg->total_size,
 		     ind_msg->file_name_valid, ind_msg->file_name);
 
-	if (ind_msg->source == 1)
-		return;
-
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 	if (!event_data)
 		return;
@@ -1975,12 +2507,20 @@ static void wlfw_qdss_trace_save_ind_cb(struct qmi_handle *qmi,
 	if (ind_msg->file_name_valid)
 		strlcpy(event_data->file_name, ind_msg->file_name,
 			QDSS_TRACE_FILE_NAME_MAX + 1);
-	else
-		strlcpy(event_data->file_name, "qdss_trace",
-			QDSS_TRACE_FILE_NAME_MAX + 1);
 
+	if (ind_msg->source == 1) {
+		if (!ind_msg->file_name_valid)
+			strlcpy(event_data->file_name, "qdss_trace_wcss_etb",
+				QDSS_TRACE_FILE_NAME_MAX + 1);
+	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA,
+				0, event_data);
+	} else {
+		if (!ind_msg->file_name_valid)
+			strlcpy(event_data->file_name, "qdss_trace_ddr",
+				QDSS_TRACE_FILE_NAME_MAX + 1);
 	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 				0, event_data);
+	}
 
 	return;
 
@@ -2007,8 +2547,6 @@ static void icnss_wlfw_respond_get_info_ind_cb(struct qmi_handle *qmi,
 {
 	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
 	const struct wlfw_respond_get_info_ind_msg_v01 *ind_msg = data;
-
-	icnss_pr_vdbg("Received QMI WLFW respond get info indication\n");
 
 	if (!txn) {
 		icnss_pr_err("Spurious indication\n");
@@ -2607,9 +3145,6 @@ int icnss_wlfw_get_info_send_sync(struct icnss_priv *plat_priv, int type,
 	struct wlfw_get_info_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	int ret = 0;
-
-	icnss_pr_dbg("Sending get info message, type: %d, cmd length: %d, state: 0x%lx\n",
-		     type, cmd_len, plat_priv->state);
 
 	if (cmd_len > QMI_WLFW_MAX_DATA_SIZE_V01)
 		return -EINVAL;

@@ -379,15 +379,14 @@ static int kgsl_iopgtbl_map(struct kgsl_pagetable *pagetable,
 		struct page *page = iommu_get_guard_page(memdesc);
 		size_t ret;
 
-		if (page) {
+		if (page)
 			ret = _iopgtbl_map_page_to_range(pt, page,
 				memdesc->gpuaddr + mapped, padding,
 				prot & ~IOMMU_WRITE);
 
-			if (ret == 0) {
-				_iopgtbl_unmap(pt, memdesc->gpuaddr, mapped);
-				return -ENOMEM;
-			}
+		if (!page || !ret) {
+			_iopgtbl_unmap(pt, memdesc->gpuaddr, mapped);
+			return -ENOMEM;
 		}
 	}
 
@@ -494,13 +493,13 @@ _kgsl_iommu_map(struct iommu_domain *domain, struct kgsl_memdesc *memdesc)
 		struct page *page = iommu_get_guard_page(memdesc);
 		size_t guard_mapped;
 
-		if (page) {
+		if (page)
 			guard_mapped = _iommu_map_page_to_range(domain, page,
 				memdesc->gpuaddr + mapped, padding, prot & ~IOMMU_WRITE);
-			if (!guard_mapped) {
-				_iommu_unmap(domain, memdesc->gpuaddr, mapped);
-				ret = -ENOMEM;
-			}
+
+		if (!page || !guard_mapped) {
+			_iommu_unmap(domain, memdesc->gpuaddr, mapped);
+			ret = -ENOMEM;
 		}
 	}
 
@@ -830,7 +829,8 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 	}
 
 	trace_kgsl_mmu_pagefault(device, addr,
-			ptname, comm, (flags & IOMMU_WRITE) ? "write" : "read");
+			ptname, comm,
+			(flags & IOMMU_FAULT_WRITE) ? "write" : "read");
 
 	if (flags & IOMMU_FAULT_TRANSLATION)
 		fault_type = "translation";
@@ -856,7 +856,7 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 	dev_crit(device->dev,
 		"context=%s TTBR0=0x%llx (%s %s fault)\n",
 		ctxt->name, ptbase,
-		(flags & IOMMU_WRITE) ? "write" : "read", fault_type);
+		(flags & IOMMU_FAULT_WRITE) ? "write" : "read", fault_type);
 
 	if (gpudev->iommu_fault_block) {
 		u32 fsynr1 = KGSL_IOMMU_GET_CTX_REG(ctxt,
@@ -913,7 +913,8 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 /*
  * Return true if the IOMMU should stall and trigger a snasphot on a pagefault
  */
-static bool kgsl_iommu_check_stall_on_fault(struct kgsl_mmu *mmu, int flags)
+static bool kgsl_iommu_check_stall_on_fault(struct kgsl_iommu_context *ctx,
+	struct kgsl_mmu *mmu, int flags)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 
@@ -923,8 +924,15 @@ static bool kgsl_iommu_check_stall_on_fault(struct kgsl_mmu *mmu, int flags)
 	if (!test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE, &mmu->pfpolicy))
 		return false;
 
-	if (!mutex_trylock(&device->mutex))
+	/*
+	 * Sometimes, there can be multiple invocations of the fault handler.
+	 * Make sure we trigger reset/recovery only once.
+	 */
+	if (ctx->stalled_on_fault)
 		return false;
+
+	if (!mutex_trylock(&device->mutex))
+		return true;
 
 	/*
 	 * Turn off GPU IRQ so we don't get faults from it too.
@@ -955,7 +963,7 @@ static int kgsl_iommu_fault_handler(struct kgsl_mmu *mmu,
 	private = kgsl_iommu_get_process(ptbase);
 	context = kgsl_context_get(device, contextidr);
 
-	stall = kgsl_iommu_check_stall_on_fault(mmu, flags);
+	stall = kgsl_iommu_check_stall_on_fault(ctx, mmu, flags);
 
 	kgsl_iommu_print_fault(mmu, ctx, addr, ptbase, contextidr, flags, private,
 		context);
@@ -1499,55 +1507,59 @@ static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 	}
 }
 
-static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
+static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu, bool terminate)
 {
 	struct kgsl_iommu *iommu = &mmu->iommu;
 	struct kgsl_iommu_context *ctx = &iommu->user_context;
+	u32 sctlr_val = 0;
 
-	if (ctx->stalled_on_fault) {
-		u32 sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx,
-						KGSL_IOMMU_CTX_SCTLR);
+	if (!ctx->stalled_on_fault)
+		return;
 
-		/*
-		 * As part of recovery, GBIF halt sequence should be performed.
-		 * In a worst case scenario, if any GPU block is generating a
-		 * stream of un-ending faulting transactions, SMMU would enter
-		 * stall-on-fault mode again after resuming and not let GBIF
-		 * halt succeed. In order to avoid that situation and terminate
-		 * those faulty transactions, set CFCFG and HUPCF to 0.
-		 */
-		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_CFCFG_SHIFT);
-		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
-		KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_SCTLR, sctlr_val);
-		/*
-		 * Make sure the above register write is not reordered across
-		 * the barrier as we use writel_relaxed to write it.
-		 */
-		wmb();
+	if (!terminate)
+		goto clear_fsr;
 
-		/*
-		 * This will only clear fault bits in FSR. FSR.SS will still
-		 * be set. Writing to RESUME (below) is the only way to clear
-		 * FSR.SS bit.
-		 */
-		KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_FSR, 0xffffffff);
-		/*
-		 * Make sure the above register write is not reordered across
-		 * the barrier as we use writel_relaxed to write it.
-		 */
-		wmb();
+	sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, KGSL_IOMMU_CTX_SCTLR);
+	/*
+	 * As part of recovery, GBIF halt sequence should be performed.
+	 * In a worst case scenario, if any GPU block is generating a
+	 * stream of un-ending faulting transactions, SMMU would enter
+	 * stall-on-fault mode again after resuming and not let GBIF
+	 * halt succeed. In order to avoid that situation and terminate
+	 * those faulty transactions, set CFCFG and HUPCF to 0.
+	 */
+	sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_CFCFG_SHIFT);
+	sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
+	KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_SCTLR, sctlr_val);
+	/*
+	 * Make sure the above register write is not reordered across
+	 * the barrier as we use writel_relaxed to write it.
+	 */
+	wmb();
 
-		/*
-		 * Write 1 to RESUME.TnR to terminate the stalled transaction.
-		 * This will also allow the SMMU to process new transactions.
-		 */
-		KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_RESUME, 1);
-		/*
-		 * Make sure the above register writes are not reordered across
-		 * the barrier as we use writel_relaxed to write them.
-		 */
-		wmb();
-	}
+clear_fsr:
+	/*
+	 * This will only clear fault bits in FSR. FSR.SS will still
+	 * be set. Writing to RESUME (below) is the only way to clear
+	 * FSR.SS bit.
+	 */
+	KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_FSR, 0xffffffff);
+	/*
+	 * Make sure the above register write is not reordered across
+	 * the barrier as we use writel_relaxed to write it.
+	 */
+	wmb();
+
+	/*
+	 * Write 1 to RESUME.TnR to terminate the stalled transaction.
+	 * This will also allow the SMMU to process new transactions.
+	 */
+	KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_RESUME, 1);
+	/*
+	 * Make sure the above register writes are not reordered across
+	 * the barrier as we use writel_relaxed to write them.
+	 */
+	wmb();
 }
 
 static u64
@@ -2298,8 +2310,10 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 				&md->memdesc);
 	}
 
-	device->qdss_desc = kgsl_allocate_global_fixed(device,
-		"qcom,gpu-qdss-stm", "gpu-qdss");
+	/* QDSS is supported only when CORESIGHT is enabled */
+	if (IS_ENABLED(CONFIG_CORESIGHT))
+		device->qdss_desc = kgsl_allocate_global_fixed(device,
+					"qcom,gpu-qdss-stm", "gpu-qdss");
 
 	device->qtimer_desc = kgsl_allocate_global_fixed(device,
 		"qcom,gpu-timer", "gpu-qtimer");

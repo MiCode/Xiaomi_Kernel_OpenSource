@@ -5,7 +5,7 @@ config NEURON
 	tristate "Support for Neuron device-sharing framework"
 	help
 	  This option enables the Neuron device-sharing framework. It is used
-	  by guests of the haven hypervisors to serve or access shared I/O
+	  by guests of the gunyah hypervisors to serve or access shared I/O
 	  devices and other inter-VM services. The Neuron framework is composed
 	  of three buses that represent different layers in the framework
 	  (channel, protocol, application).

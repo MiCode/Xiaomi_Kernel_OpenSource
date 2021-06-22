@@ -2,7 +2,7 @@
  *
  * FocalTech TouchScreen driver.
  *
- * Copyright (c) 2012-2019, FocalTech Systems, Ltd., all rights reserved.
+ * Copyright (c) 2012-2019, 2021, FocalTech Systems, Ltd., all rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -61,10 +61,10 @@
 #include <linux/uaccess.h>
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
-#include "linux/haven/hh_irq_lend.h"
-#include "linux/haven/hh_msgq.h"
-#include "linux/haven/hh_mem_notifier.h"
-#include "linux/haven/hh_rm_drv.h"
+#include "linux/gunyah/gh_irq_lend.h"
+#include "linux/gunyah/gh_msgq.h"
+#include "linux/gunyah/gh_mem_notifier.h"
+#include "linux/gunyah/gh_rm_drv.h"
 #include <linux/sort.h>
 #endif
 
@@ -144,32 +144,32 @@ static void fts_ts_register_for_panel_events(struct device_node *dp,
 
 static void fts_ts_trusted_touch_abort_handler(struct fts_ts_data *fts_data,
 						int error);
-static struct hh_acl_desc *fts_ts_vm_get_acl(enum hh_vm_names vm_name)
+static struct gh_acl_desc *fts_ts_vm_get_acl(enum gh_vm_names vm_name)
 {
-	struct hh_acl_desc *acl_desc;
-	hh_vmid_t vmid;
+	struct gh_acl_desc *acl_desc;
+	gh_vmid_t vmid;
 
-	hh_rm_get_vmid(vm_name, &vmid);
+	gh_rm_get_vmid(vm_name, &vmid);
 
-	acl_desc = kzalloc(offsetof(struct hh_acl_desc, acl_entries[1]),
+	acl_desc = kzalloc(offsetof(struct gh_acl_desc, acl_entries[1]),
 			GFP_KERNEL);
 	if (!acl_desc)
 		return ERR_PTR(ENOMEM);
 
 	acl_desc->n_acl_entries = 1;
 	acl_desc->acl_entries[0].vmid = vmid;
-	acl_desc->acl_entries[0].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl_desc->acl_entries[0].perms = GH_RM_ACL_R | GH_RM_ACL_W;
 
 	return acl_desc;
 }
 
-static struct hh_sgl_desc *fts_ts_vm_get_sgl(
+static struct gh_sgl_desc *fts_ts_vm_get_sgl(
 				struct trusted_touch_vm_info *vm_info)
 {
-	struct hh_sgl_desc *sgl_desc;
+	struct gh_sgl_desc *sgl_desc;
 	int i;
 
-	sgl_desc = kzalloc(offsetof(struct hh_sgl_desc,
+	sgl_desc = kzalloc(offsetof(struct gh_sgl_desc,
 			sgl_entries[vm_info->iomem_list_size]), GFP_KERNEL);
 	if (!sgl_desc)
 		return ERR_PTR(ENOMEM);
@@ -198,8 +198,8 @@ static int fts_ts_populate_vm_info(struct fts_ts_data *fts_data)
 	}
 
 	fts_data->vm_info = vm_info;
-	vm_info->irq_label = HH_IRQ_LABEL_TRUSTED_TOUCH;
-	vm_info->vm_name = HH_TRUSTED_VM;
+	vm_info->irq_label = GH_IRQ_LABEL_TRUSTED_TOUCH;
+	vm_info->vm_name = GH_TRUSTED_VM;
 	rc = of_property_read_u32(np, "focaltech,trusted-touch-spi-irq",
 			&vm_info->hw_irq);
 	if (rc) {
@@ -279,7 +279,7 @@ static void fts_ts_destroy_vm_info(struct fts_ts_data *fts_data)
 static void fts_ts_vm_deinit(struct fts_ts_data *fts_data)
 {
 	if (fts_data->vm_info->mem_cookie)
-		hh_mem_notifier_unregister(fts_data->vm_info->mem_cookie);
+		gh_mem_notifier_unregister(fts_data->vm_info->mem_cookie);
 	fts_ts_destroy_vm_info(fts_data);
 }
 
@@ -359,14 +359,14 @@ static void fts_ts_trusted_touch_set_tvm_driver_state(struct fts_ts_data *fts_da
 
 static int fts_ts_sgl_cmp(const void *a, const void *b)
 {
-	struct hh_sgl_entry *left = (struct hh_sgl_entry *)a;
-	struct hh_sgl_entry *right = (struct hh_sgl_entry *)b;
+	struct gh_sgl_entry *left = (struct gh_sgl_entry *)a;
+	struct gh_sgl_entry *right = (struct gh_sgl_entry *)b;
 
 	return (left->ipa_base - right->ipa_base);
 }
 
-static int fts_ts_vm_compare_sgl_desc(struct hh_sgl_desc *expected,
-		struct hh_sgl_desc *received)
+static int fts_ts_vm_compare_sgl_desc(struct gh_sgl_desc *expected,
+		struct gh_sgl_desc *received)
 {
 	int idx;
 
@@ -378,8 +378,8 @@ static int fts_ts_vm_compare_sgl_desc(struct hh_sgl_desc *expected,
 			sizeof(expected->sgl_entries[0]), fts_ts_sgl_cmp, NULL);
 
 	for (idx = 0; idx < expected->n_sgl_entries; idx++) {
-		struct hh_sgl_entry *left = &expected->sgl_entries[idx];
-		struct hh_sgl_entry *right = &received->sgl_entries[idx];
+		struct gh_sgl_entry *left = &expected->sgl_entries[idx];
+		struct gh_sgl_entry *right = &received->sgl_entries[idx];
 
 		if ((left->ipa_base != right->ipa_base) ||
 				(left->size != right->size)) {
@@ -414,8 +414,8 @@ static int fts_ts_vm_handle_vm_hardware(struct fts_ts_data *fts_data)
 static void fts_ts_trusted_touch_tvm_vm_mode_enable(struct fts_ts_data *fts_data)
 {
 
-	struct hh_sgl_desc *sgl_desc, *expected_sgl_desc;
-	struct hh_acl_desc *acl_desc;
+	struct gh_sgl_desc *sgl_desc, *expected_sgl_desc;
+	struct gh_acl_desc *acl_desc;
 	struct irq_data *irq_data;
 	int rc = 0;
 	int irq = 0;
@@ -428,19 +428,19 @@ static void fts_ts_trusted_touch_tvm_vm_mode_enable(struct fts_ts_data *fts_data
 		return;
 	}
 
-	acl_desc = fts_ts_vm_get_acl(HH_TRUSTED_VM);
+	acl_desc = fts_ts_vm_get_acl(GH_TRUSTED_VM);
 	if (IS_ERR(acl_desc)) {
 		pr_err("failed to populated acl data:rc=%d\n",
 				PTR_ERR(acl_desc));
 		goto accept_fail;
 	}
 
-	sgl_desc = hh_rm_mem_accept(fts_data->vm_info->vm_mem_handle,
-			HH_RM_MEM_TYPE_IO,
-			HH_RM_TRANS_TYPE_LEND,
-			HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
-			HH_RM_MEM_ACCEPT_VALIDATE_LABEL |
-			HH_RM_MEM_ACCEPT_DONE,  TRUSTED_TOUCH_MEM_LABEL,
+	sgl_desc = gh_rm_mem_accept(fts_data->vm_info->vm_mem_handle,
+			GH_RM_MEM_TYPE_IO,
+			GH_RM_TRANS_TYPE_LEND,
+			GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
+			GH_RM_MEM_ACCEPT_VALIDATE_LABEL |
+			GH_RM_MEM_ACCEPT_DONE,  TRUSTED_TOUCH_MEM_LABEL,
 			acl_desc, NULL, NULL, 0);
 	if (IS_ERR_OR_NULL(sgl_desc)) {
 		pr_err("failed to do mem accept :rc=%d\n",
@@ -470,7 +470,7 @@ static void fts_ts_trusted_touch_tvm_vm_mode_enable(struct fts_ts_data *fts_data
 	kfree(expected_sgl_desc);
 	kfree(acl_desc);
 
-	irq = hh_irq_accept(fts_data->vm_info->irq_label, -1, IRQ_TYPE_EDGE_RISING);
+	irq = gh_irq_accept(fts_data->vm_info->irq_label, -1, IRQ_TYPE_EDGE_RISING);
 	fts_trusted_touch_intr_gpio_toggle(fts_data, false);
 	if (irq < 0) {
 		pr_err("failed to accept irq\n");
@@ -515,7 +515,7 @@ accept_fail:
 }
 static void fts_ts_vm_irq_on_lend_callback(void *data,
 					unsigned long notif_type,
-					enum hh_irq_label label)
+					enum gh_irq_label label)
 {
 	struct fts_ts_data *fts_data = data;
 
@@ -530,15 +530,15 @@ static void fts_ts_vm_irq_on_lend_callback(void *data,
 	}
 }
 
-static void fts_ts_vm_mem_on_lend_handler(enum hh_mem_notifier_tag tag,
+static void fts_ts_vm_mem_on_lend_handler(enum gh_mem_notifier_tag tag,
 		unsigned long notif_type, void *entry_data, void *notif_msg)
 {
-	struct hh_rm_notif_mem_shared_payload *payload;
+	struct gh_rm_notif_mem_shared_payload *payload;
 	struct trusted_touch_vm_info *vm_info;
 	struct fts_ts_data *fts_data;
 
-	if (notif_type != HH_RM_NOTIF_MEM_SHARED ||
-			tag != HH_MEM_NOTIFIER_TAG_TOUCH) {
+	if (notif_type != GH_RM_NOTIF_MEM_SHARED ||
+			tag != GH_MEM_NOTIFIER_TAG_TOUCH) {
 		pr_err("Invalid command passed from rm\n");
 		return;
 	}
@@ -555,8 +555,8 @@ static void fts_ts_vm_mem_on_lend_handler(enum hh_mem_notifier_tag tag,
 		return;
 	}
 
-	payload = (struct hh_rm_notif_mem_shared_payload  *)notif_msg;
-	if (payload->trans_type != HH_RM_TRANS_TYPE_LEND ||
+	payload = (struct gh_rm_notif_mem_shared_payload  *)notif_msg;
+	if (payload->trans_type != GH_RM_TRANS_TYPE_LEND ||
 			payload->label != TRUSTED_TOUCH_MEM_LABEL) {
 		pr_err("Invalid label or transaction type\n");
 		return;
@@ -584,13 +584,13 @@ static int fts_ts_vm_mem_release(struct fts_ts_data *fts_data)
 		return -EINVAL;
 	}
 
-	rc = hh_rm_mem_release(fts_data->vm_info->vm_mem_handle, 0);
+	rc = gh_rm_mem_release(fts_data->vm_info->vm_mem_handle, 0);
 	if (rc)
 		pr_err("VM mem release failed: rc=%d\n", rc);
 
-	rc = hh_rm_mem_notify(fts_data->vm_info->vm_mem_handle,
-				HH_RM_MEM_NOTIFY_OWNER_RELEASED,
-				HH_MEM_NOTIFIER_TAG_TOUCH, 0);
+	rc = gh_rm_mem_notify(fts_data->vm_info->vm_mem_handle,
+				GH_RM_MEM_NOTIFY_OWNER_RELEASED,
+				GH_MEM_NOTIFIER_TAG_TOUCH, 0);
 	if (rc)
 		pr_err("Failed to notify mem release to PVM: rc=%d\n");
 	pr_debug("vm mem release succeded\n");
@@ -612,7 +612,7 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 	fts_ts_trusted_touch_set_tvm_driver_state(fts_data,
 				TVM_INTERRUPT_DISABLED);
 
-	rc = hh_irq_release(fts_data->vm_info->irq_label);
+	rc = gh_irq_release(fts_data->vm_info->irq_label);
 	if (rc) {
 		pr_err("Failed to release irq rc:%d\n", rc);
 		goto error;
@@ -620,7 +620,7 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 		fts_ts_trusted_touch_set_tvm_driver_state(fts_data,
 					TVM_IRQ_RELEASED);
 	}
-	rc = hh_irq_release_notify(fts_data->vm_info->irq_label);
+	rc = gh_irq_release_notify(fts_data->vm_info->irq_label);
 	if (rc)
 		pr_err("Failed to notify release irq rc:%d\n", rc);
 
@@ -709,10 +709,10 @@ static void fts_ts_trusted_touch_abort_tvm(struct fts_ts_data *fts_data)
 		fts_irq_disable();
 	case TVM_IRQ_ACCEPTED:
 	case TVM_INTERRUPT_DISABLED:
-		rc = hh_irq_release(fts_data->vm_info->irq_label);
+		rc = gh_irq_release(fts_data->vm_info->irq_label);
 		if (rc)
 			pr_err("Failed to release irq rc:%d\n", rc);
-		rc = hh_irq_release_notify(fts_data->vm_info->irq_label);
+		rc = gh_irq_release_notify(fts_data->vm_info->irq_label);
 		if (rc)
 			pr_err("Failed to notify irq release rc:%d\n", rc);
 	case TVM_I2C_SESSION_ACQUIRED:
@@ -778,14 +778,14 @@ static void fts_ts_trusted_touch_abort_pvm(struct fts_ts_data *fts_data)
 	case PVM_ALL_RESOURCES_RELEASE_NOTIFIED:
 	case PVM_IRQ_LENT:
 	case PVM_IRQ_LENT_NOTIFIED:
-		rc = hh_irq_reclaim(fts_data->vm_info->irq_label);
+		rc = gh_irq_reclaim(fts_data->vm_info->irq_label);
 		if (rc)
 			pr_err("failed to reclaim irq on pvm rc:%d\n", rc);
 	case PVM_IRQ_RECLAIMED:
 	case PVM_IOMEM_LENT:
 	case PVM_IOMEM_LENT_NOTIFIED:
 	case PVM_IOMEM_RELEASE_NOTIFIED:
-		rc = hh_rm_mem_reclaim(fts_data->vm_info->vm_mem_handle, 0);
+		rc = gh_rm_mem_reclaim(fts_data->vm_info->vm_mem_handle, 0);
 		if (rc)
 			pr_err("failed to reclaim iomem on pvm rc:%d\n", rc);
 		fts_data->vm_info->vm_mem_handle = 0;
@@ -876,11 +876,11 @@ static void fts_ts_bus_put(struct fts_ts_data *fts_data)
 	fts_ts_enable_reg(fts_data, false);
 }
 
-static struct hh_notify_vmid_desc *fts_ts_vm_get_vmid(hh_vmid_t vmid)
+static struct gh_notify_vmid_desc *fts_ts_vm_get_vmid(gh_vmid_t vmid)
 {
-	struct hh_notify_vmid_desc *vmid_desc;
+	struct gh_notify_vmid_desc *vmid_desc;
 
-	vmid_desc = kzalloc(offsetof(struct hh_notify_vmid_desc,
+	vmid_desc = kzalloc(offsetof(struct gh_notify_vmid_desc,
 				vmid_entries[1]), GFP_KERNEL);
 	if (!vmid_desc)
 		return ERR_PTR(ENOMEM);
@@ -903,7 +903,7 @@ static void fts_trusted_touch_pvm_vm_mode_disable(struct fts_ts_data *fts_data)
 					PVM_ALL_RESOURCES_RELEASE_NOTIFIED)
 		pr_err("all release notifications are not received yet\n");
 
-	rc = hh_irq_reclaim(fts_data->vm_info->irq_label);
+	rc = gh_irq_reclaim(fts_data->vm_info->irq_label);
 	if (rc) {
 		pr_err("failed to reclaim irq on pvm rc:%d\n", rc);
 		goto error;
@@ -911,7 +911,7 @@ static void fts_trusted_touch_pvm_vm_mode_disable(struct fts_ts_data *fts_data)
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data,
 				PVM_IRQ_RECLAIMED);
 
-	rc = hh_rm_mem_reclaim(fts_data->vm_info->vm_mem_handle, 0);
+	rc = gh_rm_mem_reclaim(fts_data->vm_info->vm_mem_handle, 0);
 	if (rc) {
 		pr_err("Trusted touch VM mem reclaim failed rc:%d\n", rc);
 		goto error;
@@ -936,11 +936,11 @@ error:
 
 static void fts_ts_vm_irq_on_release_callback(void *data,
 					unsigned long notif_type,
-					enum hh_irq_label label)
+					enum gh_irq_label label)
 {
 	struct fts_ts_data *fts_data = data;
 
-	if (notif_type != HH_RM_NOTIF_VM_IRQ_RELEASED) {
+	if (notif_type != GH_RM_NOTIF_VM_IRQ_RELEASED) {
 		pr_err("invalid notification type\n");
 		return;
 	}
@@ -955,19 +955,19 @@ static void fts_ts_vm_irq_on_release_callback(void *data,
 	}
 }
 
-static void fts_ts_vm_mem_on_release_handler(enum hh_mem_notifier_tag tag,
+static void fts_ts_vm_mem_on_release_handler(enum gh_mem_notifier_tag tag,
 		unsigned long notif_type, void *entry_data, void *notif_msg)
 {
-	struct hh_rm_notif_mem_released_payload *release_payload;
+	struct gh_rm_notif_mem_released_payload *release_payload;
 	struct trusted_touch_vm_info *vm_info;
 	struct fts_ts_data *fts_data;
 
-	if (notif_type != HH_RM_NOTIF_MEM_RELEASED) {
+	if (notif_type != GH_RM_NOTIF_MEM_RELEASED) {
 		pr_err(" Invalid notification type\n");
 		return;
 	}
 
-	if (tag != HH_MEM_NOTIFIER_TAG_TOUCH) {
+	if (tag != GH_MEM_NOTIFIER_TAG_TOUCH) {
 		pr_err(" Invalid tag\n");
 		return;
 	}
@@ -984,7 +984,7 @@ static void fts_ts_vm_mem_on_release_handler(enum hh_mem_notifier_tag tag,
 		return;
 	}
 
-	release_payload = (struct hh_rm_notif_mem_released_payload  *)notif_msg;
+	release_payload = (struct gh_rm_notif_mem_released_payload  *)notif_msg;
 	if (release_payload->mem_handle != vm_info->vm_mem_handle) {
 		pr_err("Invalid mem handle detected\n");
 		return;
@@ -1002,14 +1002,14 @@ static void fts_ts_vm_mem_on_release_handler(enum hh_mem_notifier_tag tag,
 
 static int fts_ts_vm_mem_lend(struct fts_ts_data *fts_data)
 {
-	struct hh_acl_desc *acl_desc;
-	struct hh_sgl_desc *sgl_desc;
-	struct hh_notify_vmid_desc *vmid_desc;
-	hh_memparcel_handle_t mem_handle;
-	hh_vmid_t trusted_vmid;
+	struct gh_acl_desc *acl_desc;
+	struct gh_sgl_desc *sgl_desc;
+	struct gh_notify_vmid_desc *vmid_desc;
+	gh_memparcel_handle_t mem_handle;
+	gh_vmid_t trusted_vmid;
 	int rc = 0;
 
-	acl_desc = fts_ts_vm_get_acl(HH_TRUSTED_VM);
+	acl_desc = fts_ts_vm_get_acl(GH_TRUSTED_VM);
 	if (IS_ERR(acl_desc)) {
 		pr_err("Failed to get acl of IO memories for Trusted touch\n");
 		PTR_ERR(acl_desc);
@@ -1024,7 +1024,7 @@ static int fts_ts_vm_mem_lend(struct fts_ts_data *fts_data)
 		goto sgl_error;
 	}
 
-	rc = hh_rm_mem_lend(HH_RM_MEM_TYPE_IO, 0, TRUSTED_TOUCH_MEM_LABEL,
+	rc = gh_rm_mem_lend(GH_RM_MEM_TYPE_IO, 0, TRUSTED_TOUCH_MEM_LABEL,
 			acl_desc, sgl_desc, NULL, &mem_handle);
 	if (rc) {
 		pr_err("Failed to lend IO memories for Trusted touch rc:%d\n",
@@ -1036,12 +1036,12 @@ static int fts_ts_vm_mem_lend(struct fts_ts_data *fts_data)
 
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data, PVM_IOMEM_LENT);
 
-	hh_rm_get_vmid(HH_TRUSTED_VM, &trusted_vmid);
+	gh_rm_get_vmid(GH_TRUSTED_VM, &trusted_vmid);
 
 	vmid_desc = fts_ts_vm_get_vmid(trusted_vmid);
 
-	rc = hh_rm_mem_notify(mem_handle, HH_RM_MEM_NOTIFY_RECIPIENT_SHARED,
-			HH_MEM_NOTIFIER_TAG_TOUCH, vmid_desc);
+	rc = gh_rm_mem_notify(mem_handle, GH_RM_MEM_NOTIFY_RECIPIENT_SHARED,
+			GH_MEM_NOTIFIER_TAG_TOUCH, vmid_desc);
 	if (rc) {
 		pr_err("Failed to notify mem lend to hypervisor rc:%d\n", rc);
 		goto vmid_error;
@@ -1085,7 +1085,7 @@ static int fts_ts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_data *fts_data)
 		goto error;
 	}
 
-	rc = hh_irq_lend_v2(vm_info->irq_label, vm_info->vm_name,
+	rc = gh_irq_lend_v2(vm_info->irq_label, vm_info->vm_name,
 		fts_data->irq, &fts_ts_vm_irq_on_release_callback, fts_data);
 	if (rc) {
 		pr_err("Failed to lend irq\n");
@@ -1095,7 +1095,7 @@ static int fts_ts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_data *fts_data)
 	pr_info("vm irq lend succeded for irq:%d\n", fts_data->irq);
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data, PVM_IRQ_LENT);
 
-	rc = hh_irq_lend_notify(vm_info->irq_label);
+	rc = gh_irq_lend_notify(vm_info->irq_label);
 	if (rc) {
 		pr_err("Failed to notify irq\n");
 		goto error;
@@ -1189,7 +1189,7 @@ static int fts_ts_vm_init(struct fts_ts_data *fts_data)
 
 	vm_info = fts_data->vm_info;
 #ifdef CONFIG_ARCH_QTI_VM
-	mem_cookie = hh_mem_notifier_register(HH_MEM_NOTIFIER_TAG_TOUCH,
+	mem_cookie = gh_mem_notifier_register(GH_MEM_NOTIFIER_TAG_TOUCH,
 			fts_ts_vm_mem_on_lend_handler, fts_data);
 	if (!mem_cookie) {
 		pr_err("Failed to register on lend mem notifier\n");
@@ -1197,12 +1197,12 @@ static int fts_ts_vm_init(struct fts_ts_data *fts_data)
 		goto init_fail;
 	}
 	vm_info->mem_cookie = mem_cookie;
-	rc = hh_irq_wait_for_lend_v2(vm_info->irq_label, HH_PRIMARY_VM,
+	rc = gh_irq_wait_for_lend_v2(vm_info->irq_label, GH_PRIMARY_VM,
 			&fts_ts_vm_irq_on_lend_callback, fts_data);
 	mutex_init(&fts_data->vm_info->tvm_state_mutex);
 	fts_ts_trusted_touch_set_tvm_driver_state(fts_data, TRUSTED_TOUCH_TVM_INIT);
 #else
-	mem_cookie = hh_mem_notifier_register(HH_MEM_NOTIFIER_TAG_TOUCH,
+	mem_cookie = gh_mem_notifier_register(GH_MEM_NOTIFIER_TAG_TOUCH,
 			fts_ts_vm_mem_on_release_handler, fts_data);
 	if (!mem_cookie) {
 		pr_err("Failed to register on release mem notifier\n");
@@ -2802,11 +2802,22 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	}
 #endif
 
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+	fts_ts_trusted_touch_init(ts_data);
+	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
+#endif
+	ret = fts_ts_probe_delayed(ts_data);
+	if (ret) {
+		FTS_ERROR("Failed to enable resources\n");
+		goto err_probe_delayed;
+	}
+
 #if defined(CONFIG_DRM)
 	if (ts_data->ts_workqueue)
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
 
-	fts_ts_register_for_panel_events(ts_data->dev->of_node, ts_data);
+	if (!strcmp(fts_data->touch_environment, "pvm"))
+		fts_ts_register_for_panel_events(ts_data->dev->of_node, ts_data);
 #elif defined(CONFIG_FB)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
@@ -2822,16 +2833,6 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	ts_data->early_suspend.resume = fts_ts_late_resume;
 	register_early_suspend(&ts_data->early_suspend);
 #endif
-
-#ifdef CONFIG_FTS_TRUSTED_TOUCH
-	fts_ts_trusted_touch_init(ts_data);
-	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
-#endif
-	ret = fts_ts_probe_delayed(ts_data);
-	if (ret) {
-		FTS_ERROR("Failed to enable resources\n");
-		goto err_probe_delayed;
-	}
 
 	FTS_FUNC_EXIT();
 	return 0;

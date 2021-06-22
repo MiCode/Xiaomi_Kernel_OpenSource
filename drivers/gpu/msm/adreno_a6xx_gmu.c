@@ -1869,27 +1869,45 @@ static unsigned int a6xx_gmu_ifpc_show(struct kgsl_device *device)
 }
 
 /* Send an NMI to the GMU */
-void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev)
+void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev, bool force)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	u32 val;
-
-	if (!a6xx_gmu_gx_is_on(device))
-		goto done;
 
 	/*
 	 * Do not send NMI if the SMMU is stalled because GMU will not be able
 	 * to save cm3 state to DDR.
 	 */
-	if (a6xx_is_smmu_stalled(device)) {
-		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-
+	if (a6xx_gmu_gx_is_on(device) && a6xx_is_smmu_stalled(device)) {
 		dev_err(&gmu->pdev->dev,
 			"Skipping NMI because SMMU is stalled\n");
 		return;
 	}
 
-done:
+	if (force)
+		goto nmi;
+
+	/*
+	 * We should not send NMI if there was a CM3 fault reported because we
+	 * don't want to overwrite the critical CM3 state captured by gmu before
+	 * it sent the CM3 fault interrupt. Also don't send NMI if GMU reset is
+	 * already active. We could have hit a GMU assert and NMI might have
+	 * already been triggered.
+	 */
+
+	/* make sure we're reading the latest cm3_fault */
+	smp_rmb();
+
+	if (atomic_read(&gmu->cm3_fault))
+		return;
+
+	gmu_core_regread(device, A6XX_GMU_CM3_FW_INIT_RESULT, &val);
+
+	if (val & 0xE00)
+		return;
+
+nmi:
 	/* Mask so there's no interrupt caused by NMI */
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
 
@@ -1906,6 +1924,9 @@ done:
 
 	/* Make sure the NMI is invoked before we proceed*/
 	wmb();
+
+	/* Wait for the NMI to be handled */
+	udelay(200);
 }
 
 static void a6xx_gmu_cooperative_reset(struct kgsl_device *device)
@@ -1932,8 +1953,8 @@ static void a6xx_gmu_cooperative_reset(struct kgsl_device *device)
 	 * If we dont get a snapshot ready from GMU, trigger NMI
 	 * and if we still timeout then we just continue with reset.
 	 */
-	a6xx_gmu_send_nmi(adreno_dev);
-	udelay(200);
+	a6xx_gmu_send_nmi(adreno_dev, true);
+
 	gmu_core_regread(device, A6XX_GMU_CM3_FW_INIT_RESULT, &result);
 	if ((result & 0x800) != 0x800)
 		dev_err(&gmu->pdev->dev,
@@ -1981,22 +2002,7 @@ void a6xx_gmu_handle_watchdog(struct adreno_device *adreno_dev)
 	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_MASK,
 			(mask | GMU_INT_WDOG_BITE));
 
-	/* make sure we're reading the latest cm3_fault */
-	smp_rmb();
-
-	/*
-	 * We should not send NMI if there was a CM3 fault reported
-	 * because we don't want to overwrite the critical CM3 state
-	 * captured by gmu before it sent the CM3 fault interrupt.
-	 */
-	if (!atomic_read(&gmu->cm3_fault))
-		a6xx_gmu_send_nmi(adreno_dev);
-
-	/*
-	 * There is sufficient delay for the GMU to have finished
-	 * handling the NMI before snapshot is taken, as the fault
-	 * worker is scheduled below.
-	 */
+	a6xx_gmu_send_nmi(adreno_dev, false);
 
 	dev_err_ratelimited(&gmu->pdev->dev,
 			"GMU watchdog expired interrupt received\n");
@@ -2037,37 +2043,14 @@ static irqreturn_t a6xx_gmu_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void a6xx_gmu_nmi(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-
-	/* No need to nmi if it was a gpu fault */
-	if (!device->gmu_fault)
-		return;
-
-	/* make sure we're reading the latest cm3_fault */
-	smp_rmb();
-
-	/*
-	 * We should not send NMI if there was a CM3 fault reported because we
-	 * don't want to overwrite the critical CM3 state captured by gmu before
-	 * it sent the CM3 fault interrupt.
-	 */
-	if (!atomic_read(&gmu->cm3_fault)) {
-		a6xx_gmu_send_nmi(adreno_dev);
-
-		/* Wait for the NMI to be handled */
-		udelay(100);
-	}
-}
-
 void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	a6xx_gmu_nmi(adreno_dev);
+	/* Send nmi only if it was a gmu fault */
+	if (device->gmu_fault)
+		a6xx_gmu_send_nmi(adreno_dev, false);
 
 	a6xx_gmu_device_snapshot(device, snapshot);
 
@@ -2620,7 +2603,7 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret;
+	int ret, i;
 
 	gmu->pdev = pdev;
 
@@ -2650,7 +2633,20 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	ret = devm_clk_bulk_get_all(&pdev->dev, &gmu->clks);
 	if (ret < 0)
 		return ret;
-
+	/*
+	 * Voting for apb_pclk will enable power and clocks required for
+	 * QDSS path to function. However, if CORESIGHT is not enabled,
+	 * QDSS is essentially unusable. Hence, if QDSS cannot be used,
+	 * don't vote for this clock.
+	 */
+	if (!IS_ENABLED(CONFIG_CORESIGHT)) {
+		for (i = 0; i < ret; i++) {
+			if (!strcmp(gmu->clks[i].id, "apb_pclk")) {
+				gmu->clks[i].clk = NULL;
+				break;
+			}
+		}
+	}
 	gmu->num_clks = ret;
 
 	/* Set up GMU IOMMU and shared memory with GMU */
@@ -3371,6 +3367,12 @@ static void a6xx_gmu_unbind(struct device *dev, struct device *master,
 		void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct a6xx_gpudev *a6xx_gpudev = to_a6xx_gpudev(gpudev);
+
+	if (a6xx_gpudev->hfi_remove)
+		a6xx_gpudev->hfi_remove(adreno_dev);
 
 	a6xx_gmu_remove(device);
 }

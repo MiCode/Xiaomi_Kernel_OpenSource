@@ -460,7 +460,7 @@ static void ipi_entry(void *ignore, const char *unused)
 static inline s64 get_cpus_qos(const struct cpumask *mask)
 {
 	int cpu;
-	s64 n, latency = ~0U;
+	s64 n, latency = PM_QOS_CPU_LATENCY_DEFAULT_VALUE * NSEC_PER_USEC;
 
 	for_each_cpu(cpu, mask) {
 		if (!check_cpu_isactive(cpu))
@@ -535,6 +535,7 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	if (!cpu_gov)
 		return 0;
 
+	do_div(latency_req, NSEC_PER_USEC);
 	cpu_gov->predicted = 0;
 	cpu_gov->now = ktime_get();
 	histtimer_cancel();

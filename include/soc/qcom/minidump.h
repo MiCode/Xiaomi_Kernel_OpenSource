@@ -60,4 +60,21 @@ static inline struct md_region *md_get_region(char *name) { return NULL; }
 static inline void dump_stack_minidump(u64 sp) {}
 static inline void add_trace_event(char *buf, size_t size) {}
 #endif
+
+
+#define MAX_OWNER_STRING	32
+struct va_md_entry {
+	unsigned long vaddr;
+	unsigned char owner[MAX_OWNER_STRING];
+	unsigned int size;
+	void (*cb)(void *dst, unsigned long size);
+};
+
+#if IS_ENABLED(CONFIG_QCOM_VA_MINIDUMP)
+extern struct atomic_notifier_head qcom_va_md_notifier_list;
+extern int qcom_va_md_add_region(struct va_md_entry *entry);
+#else
+static inline int qcom_va_md_add_region(struct va_md_entry *entry) { return 0; }
+#endif
+
 #endif

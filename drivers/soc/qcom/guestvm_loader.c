@@ -14,7 +14,7 @@
 #include <linux/cpumask.h>
 #include <linux/sched.h>
 #include <linux/workqueue.h>
-#include <linux/haven/hh_rm_drv.h>
+#include <linux/gunyah/gh_rm_drv.h>
 #include <linux/cpu.h>
 #include <linux/of_address.h>
 #include <linux/qcom_scm.h>
@@ -29,12 +29,12 @@
 #define NUM_RESERVED_CPUS 2
 
 const static struct {
-	enum hh_vm_names val;
+	enum gh_vm_names val;
 	const char *str;
 } conversion[] = {
-	{HH_PRIMARY_VM, "pvm"},
-	{HH_TRUSTED_VM, "trustedvm"},
-	{HH_CPUSYS_VM, "cpusys_vm"},
+	{GH_PRIMARY_VM, "pvm"},
+	{GH_TRUSTED_VM, "trustedvm"},
+	{GH_CPUSYS_VM, "cpusys_vm"},
 };
 
 static struct kobj_type guestvm_kobj_type = {
@@ -107,7 +107,7 @@ static void guestvm_timer_callback(struct timer_list *t)
 	complete(&isolation_done);
 }
 
-static inline enum hh_vm_names get_hh_vm_name(const char *str)
+static inline enum gh_vm_names get_gh_vm_name(const char *str)
 {
 	int vmid;
 
@@ -115,20 +115,20 @@ static inline enum hh_vm_names get_hh_vm_name(const char *str)
 		if (!strcmp(str, conversion[vmid].str))
 			return conversion[vmid].val;
 	}
-	return HH_VM_MAX;
+	return GH_VM_MAX;
 }
 
 static int guestvm_loader_nb_handler(struct notifier_block *this,
 					unsigned long cmd, void *data)
 {
 	struct guestvm_loader_private *priv;
-	struct hh_rm_notif_vm_status_payload *vm_status_payload = data;
+	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
 	u8 vm_status = vm_status_payload->vm_status;
 	int ret;
 
 	priv = container_of(this, struct guestvm_loader_private, guestvm_nb);
 
-	if (cmd != HH_RM_NOTIF_VM_STATUS)
+	if (cmd != GH_RM_NOTIF_VM_STATUS)
 		return NOTIFY_DONE;
 
 	if (priv->vmid != vm_status_payload->vmid) {
@@ -144,23 +144,23 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 	 * and DBL.
 	 */
 	switch (vm_status) {
-	case HH_RM_VM_STATUS_READY:
-		priv->vm_status = HH_RM_VM_STATUS_READY;
-		ret = hh_rm_populate_hyp_res(vm_status_payload->vmid, priv->vm_name);
+	case GH_RM_VM_STATUS_READY:
+		priv->vm_status = GH_RM_VM_STATUS_READY;
+		ret = gh_rm_populate_hyp_res(vm_status_payload->vmid, priv->vm_name);
 		if (ret < 0) {
 			dev_err(priv->dev, "Failed to get hyp resources for vmid = %d ret = %d\n",
 				vm_status_payload->vmid, ret);
 			complete_all(&priv->vm_start);
 			return NOTIFY_DONE;
 		}
-		ret = hh_rm_get_vm_id_info(get_hh_vm_name(priv->vm_name),
+		ret = gh_rm_get_vm_id_info(get_gh_vm_name(priv->vm_name),
 							priv->vmid);
 		if (ret < 0)
 			dev_err(priv->dev, "Couldn't obtain VM ID info.\n");
 
 		complete_all(&priv->vm_start);
 		break;
-	case HH_RM_VM_STATUS_RUNNING:
+	case GH_RM_VM_STATUS_RUNNING:
 		dev_info(priv->dev, "vm(%d) started running\n", vm_status_payload->vmid);
 		break;
 	default:
@@ -257,8 +257,8 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 	}
 
 	if (boot) {
-		priv->vm_status = HH_RM_VM_STATUS_INIT;
-		ret = hh_rm_vm_alloc_vmid(get_hh_vm_name(priv->vm_name),
+		priv->vm_status = GH_RM_VM_STATUS_INIT;
+		ret = gh_rm_vm_alloc_vmid(get_gh_vm_name(priv->vm_name),
 							&priv->vmid);
 		if (ret < 0) {
 			dev_err(priv->dev, "Couldn't allocate VMID.\n");
@@ -278,7 +278,7 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 			return count;
 		}
 
-		priv->vm_status = HH_RM_VM_STATUS_RUNNING;
+		priv->vm_status = GH_RM_VM_STATUS_RUNNING;
 
 		if (priv->iso_needed) {
 			INIT_WORK(&unisolation_work, guestvm_unisolate_work);
@@ -288,7 +288,7 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 				msecs_to_jiffies(guestvm_unisolate_timeout));
 		}
 
-		ret = hh_rm_vm_start(priv->vmid);
+		ret = gh_rm_vm_start(priv->vmid);
 		if (ret)
 			dev_err(priv->dev, "VM start failed for vmid = %d ret = %d\n",
 				priv->vmid, ret);
@@ -347,7 +347,7 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	init_completion(&isolation_done);
 	priv->guestvm_nb.notifier_call = guestvm_loader_nb_handler;
 	priv->guestvm_nb.priority = 1;
-	ret = hh_rm_register_notifier(&priv->guestvm_nb);
+	ret = gh_rm_register_notifier(&priv->guestvm_nb);
 	if (ret)
 		return ret;
 
@@ -380,7 +380,7 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	timer_setup(&guestvm_cpu_isolate_timer, guestvm_timer_callback, 0);
 
 no_iso:
-	priv->vm_status = HH_RM_VM_STATUS_NO_STATE;
+	priv->vm_status = GH_RM_VM_STATUS_NO_STATE;
 	return 0;
 
 error_return:

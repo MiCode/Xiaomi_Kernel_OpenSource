@@ -184,7 +184,9 @@ static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 	byte_cntr_data->read_active = false;
 
 	atomic_set(&byte_cntr_data->irq_cnt, 0);
-	coresight_csr_set_byte_cntr(byte_cntr_data->csr,
+
+	if (byte_cntr_data->enable)
+		coresight_csr_set_byte_cntr(byte_cntr_data->csr,
 				byte_cntr_data->irqctrl_offset, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 

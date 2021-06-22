@@ -10,7 +10,11 @@
 #include <linux/dma-direction.h>
 #include <linux/pci.h>
 
+#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
+
 bool qcom_dma_iommu_is_ready(void);
+extern int __init qcom_dma_iommu_generic_driver_init(void);
+extern void qcom_dma_iommu_generic_driver_exit(void);
 
 struct pci_host_bridge *qcom_pci_find_host_bridge(struct pci_bus *bus);
 
@@ -63,5 +67,19 @@ int qcom_iommu_dma_get_sgtable(struct device *dev, struct sg_table *sgt,
 		void *cpu_addr, dma_addr_t dma_addr, size_t size,
 		unsigned long attrs);
 
+#else /*CONFIG_IOMMU_IO_PGTABLE_FAST*/
 
+static inline bool qcom_dma_iommu_is_ready(void)
+{
+	return true;
+}
+
+static inline int __init qcom_dma_iommu_generic_driver_init(void)
+{
+	return 0;
+}
+
+static inline void qcom_dma_iommu_generic_driver_exit(void) {}
+
+#endif /*CONFIG_IOMMU_IO_PGTABLE_FAST*/
 #endif	/* __QCOM_DMA_IOMMU_GENERIC_H */

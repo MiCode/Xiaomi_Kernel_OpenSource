@@ -1722,9 +1722,15 @@ unlock_out:
 static int tmc_enable_etr_sink(struct coresight_device *csdev,
 			       u32 mode, void *data)
 {
+	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	int ret;
+
 	switch (mode) {
 	case CS_MODE_SYSFS:
-		return tmc_enable_etr_sink_sysfs(csdev);
+		mutex_lock(&drvdata->mem_lock);
+		ret = tmc_enable_etr_sink_sysfs(csdev);
+		mutex_unlock(&drvdata->mem_lock);
+		return ret;
 	case CS_MODE_PERF:
 		return tmc_enable_etr_sink_perf(csdev, data);
 	}
@@ -1783,9 +1789,12 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 
 static int tmc_disable_etr_sink(struct coresight_device *csdev)
 {
+	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	int ret;
 
+	mutex_lock(&drvdata->mem_lock);
 	ret = _tmc_disable_etr_sink(csdev, false);
+	mutex_unlock(&drvdata->mem_lock);
 	return ret;
 }
 
@@ -1793,23 +1802,30 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 {
 	enum tmc_etr_out_mode new_mode, old_mode;
 
+	mutex_lock(&drvdata->mem_lock);
 	if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM]))
 		new_mode = TMC_ETR_OUT_MODE_MEM;
 	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
 		if (drvdata->usb_data->usb_mode == TMC_ETR_USB_NONE) {
 			dev_err(&drvdata->csdev->dev,
 					"USB mode is not supported.\n");
+			mutex_unlock(&drvdata->mem_lock);
 			return -EINVAL;
 		}
 		new_mode = TMC_ETR_OUT_MODE_USB;
-	} else
+	} else {
+		mutex_unlock(&drvdata->mem_lock);
 		return -EINVAL;
+	}
 
-	if (new_mode == drvdata->out_mode)
+	if (new_mode == drvdata->out_mode) {
+		mutex_unlock(&drvdata->mem_lock);
 		return 0;
+	}
 
 	if (drvdata->mode == CS_MODE_DISABLED) {
 		drvdata->out_mode = new_mode;
+		mutex_unlock(&drvdata->mem_lock);
 		return 0;
 	}
 
@@ -1824,9 +1840,11 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 				"Switch to %s failed. Fall back to %s.\n",
 				str_tmc_etr_out_mode[new_mode],
 				str_tmc_etr_out_mode[old_mode]);
+		mutex_unlock(&drvdata->mem_lock);
 		return -EINVAL;
 	}
 
+	mutex_unlock(&drvdata->mem_lock);
 	return 0;
 }
 
@@ -1851,6 +1869,7 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 	if (WARN_ON_ONCE(drvdata->config_type != TMC_CONFIG_TYPE_ETR))
 		return -EINVAL;
 
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading) {
 		ret = -EBUSY;
@@ -1879,6 +1898,7 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 	drvdata->reading = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	mutex_unlock(&drvdata->mem_lock);
 
 	return ret;
 }
@@ -1892,6 +1912,7 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 	if (WARN_ON_ONCE(drvdata->config_type != TMC_CONFIG_TYPE_ETR))
 		return -EINVAL;
 
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
 	/* RE-enable the TMC if need be */
@@ -1917,6 +1938,8 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 	/* Free allocated memory out side of the spinlock */
 	if (sysfs_buf)
 		tmc_etr_free_sysfs_buf(sysfs_buf);
+
+	mutex_unlock(&drvdata->mem_lock);
 
 	return 0;
 }

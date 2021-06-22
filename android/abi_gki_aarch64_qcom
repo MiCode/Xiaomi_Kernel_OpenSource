@@ -11,6 +11,8 @@
   add_uevent_var
   add_wait_queue
   adjust_managed_page_count
+  aes_encrypt
+  aes_expandkey
   alarm_cancel
   alarm_init
   alarm_start_relative
@@ -42,6 +44,7 @@
   arm64_const_caps_ready
   arm64_use_ng_mappings
   __arm_smccc_smc
+  arp_tbl
   atomic_notifier_call_chain
   atomic_notifier_chain_register
   atomic_notifier_chain_unregister
@@ -56,6 +59,7 @@
   bdput
   bio_endio
   bitmap_allocate_region
+  __bitmap_andnot
   __bitmap_clear
   bitmap_find_next_zero_area_off
   __bitmap_or
@@ -272,6 +276,7 @@
   cpu_latency_qos_remove_request
   cpu_latency_qos_request_active
   cpu_latency_qos_update_request
+  cpumask_any_but
   cpumask_next
   cpumask_next_and
   cpu_number
@@ -492,6 +497,8 @@
   devm_reset_control_array_get
   __devm_reset_control_get
   devm_reset_controller_register
+  devm_rproc_add
+  devm_rproc_alloc
   devm_rtc_allocate_device
   devm_snd_soc_register_card
   devm_thermal_of_cooling_device_register
@@ -582,6 +589,7 @@
   dma_fence_remove_callback
   dma_fence_signal
   dma_fence_signal_locked
+  dma_fence_signal_timestamp_locked
   dma_fence_wait_timeout
   dma_free_attrs
   dma_get_sgtable_attrs
@@ -1040,6 +1048,7 @@
   i2c_del_adapter
   i2c_del_driver
   i2c_get_dma_safe_msg_buf
+  i2c_new_client_device
   i2c_put_dma_safe_msg_buf
   i2c_register_driver
   i2c_transfer
@@ -1164,6 +1173,7 @@
   ipv6_ext_hdr
   ipv6_find_hdr
   ipv6_skip_exthdr
+  ipv6_stub
   irq_chip_ack_parent
   irq_chip_disable_parent
   irq_chip_enable_parent
@@ -1192,6 +1202,7 @@
   irq_domain_update_bus_token
   irq_domain_xlate_onecell
   irq_domain_xlate_twocell
+  irq_do_set_affinity
   irq_find_mapping
   irq_find_matching_fwspec
   irq_get_irqchip_state
@@ -1234,6 +1245,7 @@
   kern_mount
   kern_unmount
   __kfifo_alloc
+  __kfifo_free
   __kfifo_in
   __kfifo_out
   kfree
@@ -1423,6 +1435,7 @@
   napi_gro_receive
   __napi_schedule
   napi_schedule_prep
+  neigh_lookup
   __netdev_alloc_skb
   netdev_rx_handler_register
   netdev_rx_handler_unregister
@@ -1531,6 +1544,7 @@
   of_graph_is_present
   of_graph_parse_endpoint
   of_hwspin_lock_get_id
+  of_i2c_get_board_info
   of_icc_get
   of_icc_xlate_onecell
   of_iomap
@@ -2383,6 +2397,7 @@
   __traceiter_android_rvh_account_irq
   __traceiter_android_rvh_build_perf_domains
   __traceiter_android_rvh_can_migrate_task
+  __traceiter_android_rvh_cgroup_force_kthread_migration
   __traceiter_android_rvh_check_preempt_wakeup
   __traceiter_android_rvh_cpu_cgroup_attach
   __traceiter_android_rvh_cpu_cgroup_online
@@ -2392,6 +2407,7 @@
   __traceiter_android_rvh_find_busiest_queue
   __traceiter_android_rvh_find_lowest_rq
   __traceiter_android_rvh_flush_task
+  __traceiter_android_rvh_gic_v3_set_affinity
   __traceiter_android_rvh_irqs_disable
   __traceiter_android_rvh_irqs_enable
   __traceiter_android_rvh_migrate_queued_task
@@ -2468,6 +2484,7 @@
   __tracepoint_android_rvh_account_irq
   __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
+  __tracepoint_android_rvh_cgroup_force_kthread_migration
   __tracepoint_android_rvh_check_preempt_wakeup
   __tracepoint_android_rvh_cpu_cgroup_attach
   __tracepoint_android_rvh_cpu_cgroup_online
@@ -2477,6 +2494,7 @@
   __tracepoint_android_rvh_find_busiest_queue
   __tracepoint_android_rvh_find_lowest_rq
   __tracepoint_android_rvh_flush_task
+  __tracepoint_android_rvh_gic_v3_set_affinity
   __tracepoint_android_rvh_irqs_disable
   __tracepoint_android_rvh_irqs_enable
   __tracepoint_android_rvh_migrate_queued_task
@@ -2517,6 +2535,8 @@
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_transaction_init
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_check_uninterruptible_tasks
+  __tracepoint_android_vh_check_uninterruptible_tasks_dn
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_dump_throttled_rt_tasks
@@ -2806,6 +2826,7 @@
   vmalloc_to_page
   vmalloc_to_pfn
   vmap
+  vmemdup_user
   vmf_insert_mixed
   vmf_insert_pfn
   vm_get_page_prot

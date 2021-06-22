@@ -54,6 +54,7 @@
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
 #include <trace/hooks/debug.h>
 #endif
+#include "minidump_memory.h"
 #endif
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
@@ -116,6 +117,27 @@ static int die_cpu = -1;
 static struct seq_buf *md_cntxt_seq_buf;
 static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 #endif
+
+/* Meminfo */
+static struct seq_buf *md_meminfo_seq_buf;
+
+/* Slabinfo */
+#ifdef CONFIG_SLUB_DEBUG
+static struct seq_buf *md_slabinfo_seq_buf;
+#endif
+
+#ifdef CONFIG_PAGE_OWNER
+size_t md_pageowner_dump_size = SZ_2M;
+char *md_pageowner_dump_addr;
+#endif
+
+#ifdef CONFIG_SLUB_DEBUG
+size_t md_slabowner_dump_size = SZ_2M;
+char *md_slabowner_dump_addr;
+#endif
+
+size_t md_dma_buf_info_size = SZ_256K;
+char *md_dma_buf_info_addr;
 
 /* Modules information */
 #ifdef CONFIG_MODULES
@@ -1060,6 +1082,25 @@ dump_rq:
 #ifdef CONFIG_MODULES
 	md_dump_module_data();
 #endif
+	if (md_meminfo_seq_buf)
+		md_dump_meminfo(md_meminfo_seq_buf);
+
+#ifdef CONFIG_SLUB_DEBUG
+	if (md_slabinfo_seq_buf)
+		md_dump_slabinfo(md_slabinfo_seq_buf);
+#endif
+
+#ifdef CONFIG_PAGE_OWNER
+	if (md_pageowner_dump_addr)
+		md_dump_pageowner(md_pageowner_dump_addr, md_pageowner_dump_size);
+#endif
+
+#ifdef CONFIG_SLUB_DEBUG
+	if (md_slabowner_dump_addr)
+		md_dump_slabowner(md_slabowner_dump_addr, md_slabowner_dump_size);
+#endif
+	if (md_dma_buf_info_addr)
+		md_dma_buf_info(md_dma_buf_info_addr, md_dma_buf_info_size);
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
 }
@@ -1124,6 +1165,8 @@ err_seq_buf:
 
 static void md_register_panic_data(void)
 {
+	struct dentry *minidump_dir = NULL;
+
 	md_register_panic_entries(MD_RUNQUEUE_PAGES, "KRUNQUEUE",
 				  &md_runq_seq_buf);
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
@@ -1131,6 +1174,28 @@ static void md_register_panic_data(void)
 				  &md_cntxt_seq_buf);
 	register_trace_android_vh_ipi_stop(md_ipi_stop, NULL);
 #endif
+	md_register_panic_entries(MD_MEMINFO_PAGES, "MEMINFO",
+				  &md_meminfo_seq_buf);
+#ifdef CONFIG_SLUB_DEBUG
+	md_register_panic_entries(MD_SLABINFO_PAGES, "SLABINFO",
+				  &md_slabinfo_seq_buf);
+#endif
+	if (!minidump_dir)
+		minidump_dir = debugfs_create_dir("minidump", NULL);
+#ifdef CONFIG_PAGE_OWNER
+	if (is_page_owner_enabled()) {
+		md_register_memory_dump(md_pageowner_dump_size, "PAGEOWNER");
+		md_debugfs_pageowner(minidump_dir);
+	}
+#endif
+#ifdef CONFIG_SLUB_DEBUG
+	if (is_slub_debug_enabled()) {
+		md_register_memory_dump(md_slabowner_dump_size, "SLABOWNER");
+		md_debugfs_slabowner(minidump_dir);
+	}
+#endif
+	md_register_memory_dump(md_dma_buf_info_size, "DMABUF_INFO");
+	md_debugfs_dmabufinfo(minidump_dir);
 }
 
 #ifdef CONFIG_MODULES

@@ -474,21 +474,6 @@ int genc_start(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-void genc_unhalt_sqe(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
-
-	/* Program the ucode base for CP */
-	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_LO,
-				lower_32_bits(fw->memdesc->gpuaddr));
-	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_HI,
-				upper_32_bits(fw->memdesc->gpuaddr));
-
-	/* Clear the SQE_HALT to start the CP engine */
-	kgsl_regwrite(device, GENC_CP_SQE_CNTL, 1);
-}
-
 void genc_spin_idle_debug(struct adreno_device *adreno_dev,
 				const char *str)
 {
@@ -509,7 +494,8 @@ void genc_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev,
 		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
-		adreno_dev->cur_rb->id, rptr, wptr, status, status3, intstatus);
+		adreno_dev->cur_rb ? adreno_dev->cur_rb->id : -1, rptr, wptr,
+		status, status3, intstatus);
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
@@ -592,6 +578,7 @@ static int genc_post_start(struct adreno_device *adreno_dev)
 int genc_rb_start(struct adreno_device *adreno_dev)
 {
 	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	u64 addr;
@@ -631,7 +618,14 @@ int genc_rb_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, GENC_CP_RB_BASE_HI,
 		upper_32_bits(rb->buffer_desc->gpuaddr));
 
-	genc_unhalt_sqe(adreno_dev);
+	/* Program the ucode base for CP */
+	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_LO,
+		lower_32_bits(fw->memdesc->gpuaddr));
+	kgsl_regwrite(device, GENC_CP_SQE_INSTR_BASE_HI,
+		upper_32_bits(fw->memdesc->gpuaddr));
+
+	/* Clear the SQE_HALT to start the CP engine */
+	kgsl_regwrite(device, GENC_CP_SQE_CNTL, 1);
 
 	ret = genc_send_cp_init(adreno_dev, rb);
 	if (ret)
@@ -1296,6 +1290,7 @@ const struct genc_gpudev adreno_genc_hwsched_gpudev = {
 		.hw_isidle = genc_hw_isidle,
 	},
 	.hfi_probe = genc_hwsched_hfi_probe,
+	.hfi_remove = genc_hwsched_hfi_remove,
 	.handle_watchdog = genc_hwsched_handle_watchdog,
 };
 

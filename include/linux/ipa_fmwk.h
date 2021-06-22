@@ -132,6 +132,8 @@ struct ipa_core_data {
 		void *user_data3);
 
 	int (*ipa_unregister_rmnet_ll_cb)(void);
+	int (*ipa_get_default_aggr_time_limit)(enum ipa_client_type client,
+		u32 *default_aggr_time_limit);
 };
 
 struct ipa_usb_data {
@@ -346,6 +348,9 @@ int ipa_fmwk_register_ipa_qdss(const struct ipa_qdss_data *in);
 
 int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in);
 
+int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
+	u32 *default_aggr_time_limit);
+
 #else /* IS_ENABLED(CONFIG_IPA3) */
 
 int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
@@ -389,6 +394,12 @@ int ipa_fmwk_register_ipa_wigig(const struct ipa_wigig_data *in)
 }
 
 int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in)
+{
+	return -EPERM;
+}
+
+static inline int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
+	u32 *default_aggr_time_limit)
 {
 	return -EPERM;
 }

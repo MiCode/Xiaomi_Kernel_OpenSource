@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2020 The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2020-2021 The Linux Foundation. All rights reserved. */
 
 /* Neuron Message Queue transport layer header file */
 #ifndef __NEURON_MQ_H
@@ -78,15 +78,15 @@ struct neuron_mq_data_priv {
 	u32 interrupt_counter;
 	/* name of peer vm */
 	u32 peer_name;
-	/* label to get haven resources like doorbell and shm */
-	u32 haven_label;
-	/* haven tx doorbell descriptor */
+	/* label to get gunyah resources like doorbell and shm */
+	u32 gunyah_label;
+	/* gunyah tx doorbell descriptor */
 	void *tx_dbl;
-	/* haven rx doorbell descriptor */
+	/* gunyah rx doorbell descriptor */
 	void *rx_dbl;
 	/* memparcel handle after assigning label to shared memory */
 	u32 shm_memparcel;
-	/* haven rm status notifier block */
+	/* gunyah rm status notifier block */
 	struct notifier_block rm_nb;
 	/* pointer to the device structure */
 	struct neuron_channel *dev;

@@ -498,9 +498,6 @@ static int genc_hwsched_gpu_boot(struct adreno_device *adreno_dev)
 	/* Clear the busy_data stats - we're starting over from scratch */
 	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
-	/* Restore performance counter registers with saved values */
-	adreno_perfcounter_restore(adreno_dev);
-
 	genc_start(adreno_dev);
 
 	/* Re-initialize the coresight registers if applicable */
@@ -705,9 +702,6 @@ static int genc_hwsched_power_off(struct adreno_device *adreno_dev)
 
 	/* Save active coresight registers if applicable */
 	adreno_coresight_stop(adreno_dev);
-
-	/* Save physical performance counter values before GPU power down*/
-	adreno_perfcounter_save(adreno_dev);
 
 	adreno_irqctrl(adreno_dev, 0);
 
@@ -1005,22 +999,7 @@ void genc_hwsched_handle_watchdog(struct adreno_device *adreno_dev)
 	gmu_core_regwrite(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
 			(mask | GMU_INT_WDOG_BITE));
 
-	/* make sure we're reading the latest cm3_fault */
-	smp_rmb();
-
-	/*
-	 * We should not send NMI if there was a CM3 fault reported
-	 * because we don't want to overwrite the critical CM3 state
-	 * captured by gmu before it sent the CM3 fault interrupt.
-	 */
-	if (!atomic_read(&gmu->cm3_fault))
-		genc_gmu_send_nmi(adreno_dev);
-
-	/*
-	 * There is sufficient delay for the GMU to have finished
-	 * handling the NMI before snapshot is taken, as the fault
-	 * worker is scheduled below.
-	 */
+	genc_gmu_send_nmi(adreno_dev, false);
 
 	dev_err_ratelimited(&gmu->pdev->dev,
 			"GMU watchdog expired interrupt received\n");
@@ -1119,6 +1098,9 @@ int genc_hwsched_probe(struct platform_device *pdev,
 	timer_setup(&device->idle_timer, hwsched_idle_timer, 0);
 
 	adreno_dev->irq_mask = GENC_HWSCHED_INT_MASK;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 
 	return adreno_hwsched_init(adreno_dev, &genc_hwsched_ops);
 }

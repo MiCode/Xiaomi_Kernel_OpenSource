@@ -468,6 +468,7 @@ static void __qseecom_free_coherent_buf(uint32_t size,
 
 #define QSEECOM_SCM_EBUSY_WAIT_MS 30
 #define QSEECOM_SCM_EBUSY_MAX_RETRY 67
+#define QSEE_RESULT_FAIL_APP_BUSY 315
 
 static int __qseecom_scm_call2_locked(uint32_t smc_id, struct qseecom_scm_desc *desc)
 {
@@ -476,14 +477,14 @@ static int __qseecom_scm_call2_locked(uint32_t smc_id, struct qseecom_scm_desc *
 
 	do {
 		ret = qcom_scm_qseecom_call(smc_id, desc, false);
-		if (ret == -EBUSY) {
+		if ((ret == -EBUSY) || (desc && (desc->ret[0] == -QSEE_RESULT_FAIL_APP_BUSY))) {
 			mutex_unlock(&app_access_lock);
 			msleep(QSEECOM_SCM_EBUSY_WAIT_MS);
 			mutex_lock(&app_access_lock);
 		}
 		if (retry_count == 33)
 			pr_warn("secure world has been busy for 1 second!\n");
-	} while (ret == -EBUSY &&
+	} while (((ret == -EBUSY) || (desc && (desc->ret[0] == -QSEE_RESULT_FAIL_APP_BUSY))) &&
 			(retry_count++ < QSEECOM_SCM_EBUSY_MAX_RETRY));
 	return ret;
 }
@@ -3006,8 +3007,9 @@ static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 			sizeof(struct qseecom_unload_app_ireq),
 			&resp, sizeof(resp));
 	if (ret) {
-		pr_err("scm_call to unload app (id = %d) failed\n", app_id);
-		return -EFAULT;
+		pr_err("scm_call to unload app (id = %d) failed ret: %d\n",
+			app_id, ret);
+		return ret;
 	}
 	switch (resp.result) {
 	case QSEOS_RESULT_SUCCESS:

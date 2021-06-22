@@ -296,6 +296,14 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw, const 
 			break;
 		}
 
+		if (phdr->p_filesz > phdr->p_memsz) {
+			dev_err(dev,
+				"refusing to load segment %d with p_filesz > p_memsz\n",
+				i);
+			ret = -EINVAL;
+			break;
+		}
+
 		ptr = mem_region + offset;
 
 		if (phdr->p_filesz) {
@@ -309,6 +317,15 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw, const 
 								ptr, phdr->p_filesz);
 				if (ret) {
 					dev_err(dev, "failed to load %s\n", fw_name);
+					break;
+				}
+
+				if (seg_fw->size != phdr->p_filesz) {
+					dev_err(dev,
+						"failed to load segment %d from truncated file %s\n",
+						i, fw_name);
+					release_firmware(seg_fw);
+					ret = -EINVAL;
 					break;
 				}
 
@@ -419,8 +436,8 @@ EXPORT_SYMBOL(qcom_mdt_load_no_free);
 void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
 			    int err)
 {
-	if (err)
-		qcom_scm_pas_shutdown(pas_id);
+	if (err && qcom_scm_pas_shutdown_retry(pas_id))
+		panic("Panicking, failed to shutdown peripheral %d\n", pas_id);
 	if (mdata)
 		dma_free_coherent(dev, mdata->size, mdata->buf, mdata->buf_phys);
 }

@@ -465,7 +465,7 @@ config NEURON_APP_BLOCK_CLIENT
 	select NEURON_PROT_BLOCK_CLIENT
 	help
 	  Neuron is a device-sharing framework which is used by guests of the
-	  haven hypervisor to serve or access shared I/O devices and other
+	  gunyah hypervisor to serve or access shared I/O devices and other
 	  inter-VM services.
 
 	  This option enables the Neuron block client, which can access block
@@ -482,7 +482,7 @@ config NEURON_APP_BLOCK_SERVER
 	select NEURON_PROT_BLOCK_SERVER
 	help
 	  Neuron is a device-sharing framework which is used by guests of the
-	  haven hypervisors to serve or access shared I/O devices and other
+	  gunyah hypervisors to serve or access shared I/O devices and other
 	  inter-VM services.
 
 	  This option enables the Neuron block device server, which exposes a

@@ -11,6 +11,7 @@
 #include <linux/sched.h>
 #include <linux/usb/dwc3-msm.h>
 #include "core.h"
+#include "gadget.h"
 
 struct kprobe_data {
 	void *x0;
@@ -100,6 +101,18 @@ static int exit_dwc3_gadget_conndone_interrupt(struct kretprobe_instance *ri,
 	return 0;
 }
 
+static int entry_dwc3_gadget_pullup(struct kretprobe_instance *ri,
+				   struct pt_regs *regs)
+{
+	struct usb_gadget *g = (struct usb_gadget *)regs->regs[0];
+	int is_on = (int)regs->regs[1];
+	struct dwc3 *dwc = gadget_to_dwc(g);
+
+	dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_PULLUP, is_on);
+
+	return 0;
+}
+
 #define ENTRY_EXIT(name) {\
 	.handler = exit_##name,\
 	.entry_handler = entry_##name,\
@@ -120,6 +133,7 @@ static struct kretprobe dwc3_msm_probes[] = {
 	ENTRY(dwc3_send_gadget_ep_cmd),
 	ENTRY(dwc3_gadget_reset_interrupt),
 	ENTRY_EXIT(dwc3_gadget_conndone_interrupt),
+	ENTRY(dwc3_gadget_pullup),
 };
 
 

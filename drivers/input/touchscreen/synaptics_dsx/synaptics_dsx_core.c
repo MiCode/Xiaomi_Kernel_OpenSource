@@ -41,6 +41,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/input/synaptics_dsx.h>
+#include <linux/soc/qcom/panel_event_notifier.h>
 #include "synaptics_dsx_core.h"
 #ifdef KERNEL_ABOVE_2_6_38
 #include <linux/input/mt.h>
@@ -126,6 +127,14 @@ static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data);
 static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
 static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 		bool rebuild);
+
+#ifdef CONFIG_DRM
+static void synaptics_rmi4_dsi_panel_notifier_cb(
+		enum panel_event_notifier_tag tag,
+		struct panel_event_notification *notification,
+		void *client_data);
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #ifndef CONFIG_FB
 #define USE_EARLYSUSPEND
@@ -3690,8 +3699,8 @@ static int synaptics_rmi4_get_reg(struct synaptics_rmi4_data *rmi4_data,
 	}
 
 	retval = regulator_set_voltage(rmi4_data->pwr_reg,
-			3000000,
-			3008000);
+			3296000,
+			3304000);
 	if (retval < 0) {
 		dev_err(rmi4_data->pdev->dev.parent,
 				"%s: Failed to set regulator voltage avdd\n",
@@ -4222,9 +4231,33 @@ exit:
 }
 EXPORT_SYMBOL(synaptics_rmi4_new_function);
 
+#ifdef CONFIG_DRM
+static void synaptics_register_for_panel_events(
+		struct synaptics_rmi4_data *rmi4_data, struct device *dev)
+{
+	void *cookie;
+
+	cookie = panel_event_notifier_register(
+			PANEL_EVENT_NOTIFICATION_PRIMARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH,
+			active_panel,
+			&synaptics_rmi4_dsi_panel_notifier_cb,
+			&rmi4_data->fb_notifier);
+	if (!cookie) {
+		pr_err("Failed to register for panel events\n");
+		return;
+	}
+
+	pr_debug("Registered for panel notifications on panel: 0x%x\n",
+			active_panel);
+	rmi4_data->notifier_cookie = cookie;
+
+}
+#endif
+
 static int synaptics_rmi4_probe(struct platform_device *pdev)
 {
-	int retval;
+	int retval = 0;
 	struct synaptics_rmi4_data *rmi4_data;
 	const struct synaptics_dsx_hw_interface *hw_if;
 	const struct synaptics_dsx_board_data *bdata;
@@ -4276,6 +4309,18 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	vir_button_map = bdata->vir_button_map;
 
 	rmi4_data->initialized = false;
+
+#ifdef CONFIG_DRM
+	if (active_panel) {
+		pr_debug("panel detected, registering notifier\n");
+		synaptics_register_for_panel_events(rmi4_data,
+			&pdev->dev);
+	} else {
+		pr_debug("panel not detected, freeing data\n");
+		retval = -1;
+		goto err_drm_reg;
+	}
+#endif
 	rmi4_data->rmi4_probe_wq = create_singlethread_workqueue(
 						"Synaptics_rmi4_probe_wq");
 	if (!rmi4_data->rmi4_probe_wq) {
@@ -4290,6 +4335,13 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	return retval;
 
 err_probe_wq:
+#ifdef CONFIG_DRM
+	if (active_panel && rmi4_data->notifier_cookie) {
+		pr_debug("unregistering panel notifications\n");
+		panel_event_notifier_unregister(
+				&rmi4_data->notifier_cookie);
+	}
+#endif
 err_drm_reg:
 	kfree(rmi4_data);
 
@@ -4520,6 +4572,12 @@ err_enable_reg:
 
 err_get_reg:
 err_drm_init_wait:
+#ifdef CONFIG_DRM
+	if (active_panel && rmi4_data->notifier_cookie) {
+		pr_debug("unregistering panel_events\n");
+		panel_event_notifier_unregister(&rmi4_data->notifier_cookie);
+	}
+#endif
 	cancel_work_sync(&rmi4_data->rmi4_probe_work);
 	destroy_workqueue(rmi4_data->rmi4_probe_wq);
 	kfree(rmi4_data);
@@ -4558,6 +4616,13 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 	}
 
 	synaptics_rmi4_irq_enable(rmi4_data, false, false);
+
+#ifdef CONFIG_DRM
+	if (active_panel) {
+		pr_debug("unregistering panel_events\n");
+		panel_event_notifier_unregister(&rmi4_data->notifier_cookie);
+	}
+#endif
 
 #ifdef USE_EARLYSUSPEND
 	unregister_early_suspend(&rmi4_data->early_suspend);
@@ -4600,6 +4665,59 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+#ifdef CONFIG_DRM
+static void synaptics_rmi4_dsi_panel_notifier_cb(
+		enum panel_event_notifier_tag tag,
+		struct panel_event_notification *notification,
+		void *client_data)
+{
+	struct synaptics_rmi4_data *rmi4_data =
+			container_of(client_data, struct synaptics_rmi4_data,
+			fb_notifier);
+
+	if (!notification) {
+		pr_err("Invalid notification\n");
+		return;
+	}
+	pr_debug("Notification type: %d, early trigger:%d\n",
+			notification->notif_type,
+			notification->notif_data.early_trigger);
+
+	if (!client_data) {
+		pr_err("No client data\n");
+		return;
+	}
+
+	switch (notification->notif_type) {
+	case DRM_PANEL_EVENT_UNBLANK:
+		if (rmi4_data->initialized)
+			synaptics_rmi4_resume(&rmi4_data->pdev->dev);
+		else
+			complete(&rmi4_data->drm_init_done);
+		rmi4_data->fb_ready = true;
+		break;
+	case DRM_PANEL_EVENT_BLANK:
+		if (rmi4_data->initialized)
+			synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
+		rmi4_data->fb_ready = false;
+		break;
+	case DRM_PANEL_EVENT_BLANK_LP:
+		pr_debug("received lp event\n");
+		break;
+	case DRM_PANEL_EVENT_FPS_CHANGE:
+		pr_debug("received fps change old fps:%d new fps:%d\n",
+			notification->notif_data.old_fps,
+			notification->notif_data.new_fps);
+		break;
+	default:
+		pr_debug("notification serviced :%d\n",
+			notification->notif_type);
+		break;
+	}
+
+}
+#endif
 
 #ifdef USE_EARLYSUSPEND
 static int synaptics_rmi4_early_suspend(struct early_suspend *h)
@@ -4876,7 +4994,7 @@ static void __exit synaptics_rmi4_exit(void)
 	synaptics_rmi4_bus_exit();
 }
 
-late_initcall(synaptics_rmi4_init);
+module_init(synaptics_rmi4_init);
 module_exit(synaptics_rmi4_exit);
 
 MODULE_AUTHOR("Synaptics, Inc.");

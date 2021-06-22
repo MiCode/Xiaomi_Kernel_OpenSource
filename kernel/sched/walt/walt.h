@@ -157,6 +157,7 @@ extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
 extern void core_ctl_check(u64 wallclock);
 extern int sched_set_boost(int enable);
+extern void walt_boost_init(void);
 extern int sched_wake_up_idle_show(struct seq_file *m, void *v);
 extern ssize_t sched_wake_up_idle_write(struct file *file,
 		const char __user *buf, size_t count, loff_t *offset);
@@ -181,7 +182,7 @@ extern int sched_boost_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
 extern int sched_busy_hyst_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
-extern u64 sched_ktime_clock(void);
+extern u64 walt_ktime_get_ns(void);
 extern void clear_walt_request(int cpu);
 extern void walt_init_tg(struct task_group *tg);
 extern void walt_init_topapp_tg(struct task_group *tg);
@@ -276,6 +277,7 @@ extern unsigned int sysctl_sched_walt_rotate_big_tasks;
 extern unsigned int sysctl_sched_task_unfilter_period;
 extern unsigned int __read_mostly sysctl_sched_asym_cap_sibling_freq_match_pct;
 extern unsigned int sysctl_walt_low_latency_task_threshold; /* disabled by default */
+extern unsigned int sysctl_sched_sync_hint_enable;
 extern struct ctl_table walt_table[];
 extern struct ctl_table walt_base_table[];
 extern void walt_tunables(void);
@@ -363,7 +365,7 @@ static inline void waltgov_run_callback(struct rq *rq, unsigned int flags)
 
 	cb = rcu_dereference_sched(*per_cpu_ptr(&waltgov_cb_data, cpu_of(rq)));
 	if (cb)
-		cb->func(cb, sched_ktime_clock(), flags);
+		cb->func(cb, walt_ktime_get_ns(), flags);
 }
 
 extern unsigned long cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load);
@@ -861,7 +863,6 @@ static inline bool walt_fair_task(struct task_struct *p)
 	return p->prio >= MAX_RT_PRIO && !is_idle_task(p);
 }
 
-
 #define WALT_MVP_SLICE		3000000U
 #define WALT_MVP_LIMIT		(4 * WALT_MVP_SLICE)
 
@@ -874,5 +875,6 @@ static inline bool walt_fair_task(struct task_struct *p)
 void walt_cfs_enqueue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_tick(struct rq *rq);
+void walt_lb_tick(struct rq *rq);
 
 #endif /* _WALT_H */

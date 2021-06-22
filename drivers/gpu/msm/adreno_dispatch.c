@@ -268,7 +268,7 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 	kgsl_drawobj_destroy(drawobj);
 }
 
-static int _check_context_queue(struct adreno_context *drawctxt)
+static int _check_context_queue(struct adreno_context *drawctxt, u32 count)
 {
 	int ret;
 
@@ -282,7 +282,7 @@ static int _check_context_queue(struct adreno_context *drawctxt)
 	if (kgsl_context_invalid(&drawctxt->base))
 		ret = 1;
 	else
-		ret = drawctxt->queued < _context_drawqueue_size ? 1 : 0;
+		ret = ((drawctxt->queued + count) < _context_drawqueue_size) ? 1 : 0;
 
 	spin_unlock(&drawctxt->lock);
 
@@ -612,16 +612,6 @@ static int sendcmd(struct adreno_device *adreno_dev,
 			if (!test_and_set_bit(ADRENO_DISPATCHER_ACTIVE,
 				&dispatcher->priv))
 				reinit_completion(&dispatcher->idle_gate);
-
-			/*
-			 * We update power stats generally at the expire of
-			 * cmdbatch. In cases where the cmdbatch takes a long
-			 * time to finish, it will delay power stats update,
-			 * in effect it will delay DCVS decision. Start a
-			 * timer to update power state on expire of this timer.
-			 */
-			kgsl_pwrscale_midframe_timer_restart(device);
-
 		} else {
 			adreno_active_count_put(adreno_dev);
 			clear_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
@@ -804,7 +794,7 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 	 * or marker commands and we have room in the context queue.
 	 */
 
-	if (_check_context_queue(drawctxt))
+	if (_check_context_queue(drawctxt, 0))
 		wake_up_all(&drawctxt->wq);
 
 	if (!ret)
@@ -1139,17 +1129,22 @@ static inline int _verify_cmdobj(struct kgsl_device_private *dev_priv,
 }
 
 static inline int _wait_for_room_in_context_queue(
-	struct adreno_context *drawctxt) __must_hold(&drawctxt->lock)
+	struct adreno_context *drawctxt, u32 count) __must_hold(&drawctxt->lock)
 {
 	int ret = 0;
 
-	/* Wait for room in the context queue */
-	while (drawctxt->queued >= _context_drawqueue_size) {
+	/*
+	 * There is always a possibility that dispatcher may end up pushing
+	 * the last popped draw object back to the context drawqueue. Hence,
+	 * we can only queue up to _context_drawqueue_size - 1 here to make
+	 * sure we never let drawqueue->queued exceed _context_drawqueue_size.
+	 */
+	if ((drawctxt->queued + count) > (_context_drawqueue_size - 1)) {
 		trace_adreno_drawctxt_sleep(drawctxt);
 		spin_unlock(&drawctxt->lock);
 
 		ret = wait_event_interruptible_timeout(drawctxt->wq,
-			_check_context_queue(drawctxt),
+			_check_context_queue(drawctxt, count),
 			msecs_to_jiffies(_context_queue_wait));
 
 		spin_lock(&drawctxt->lock);
@@ -1159,27 +1154,24 @@ static inline int _wait_for_room_in_context_queue(
 		 * Account for the possibility that the context got invalidated
 		 * while we were sleeping
 		 */
-
-		if (ret > 0) {
+		if (ret > 0)
 			ret = _check_context_state(&drawctxt->base);
-			if (ret)
-				return ret;
-		} else
-			return (ret == 0) ? -ETIMEDOUT : (int) ret;
+		else if (ret == 0)
+			ret = -ETIMEDOUT;
 	}
 
-	return 0;
+	return ret;
 }
 
 static unsigned int _check_context_state_to_queue_cmds(
-	struct adreno_context *drawctxt)
+	struct adreno_context *drawctxt, u32 count)
 {
 	int ret = _check_context_state(&drawctxt->base);
 
 	if (ret)
 		return ret;
 
-	return _wait_for_room_in_context_queue(drawctxt);
+	return _wait_for_room_in_context_queue(drawctxt, count);
 }
 
 static void _queue_drawobj(struct adreno_context *drawctxt,
@@ -1316,7 +1308,13 @@ static int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 	int ret;
 	unsigned int i, user_ts;
 
-	if (!count)
+	/*
+	 * There is always a possibility that dispatcher may end up pushing
+	 * the last popped draw object back to the context drawqueue. Hence,
+	 * we can only queue up to _context_drawqueue_size - 1 here to make
+	 * sure we never let drawqueue->queued exceed _context_drawqueue_size.
+	 */
+	if (!count || count > _context_drawqueue_size - 1)
 		return -EINVAL;
 
 	ret = _check_context_state(&drawctxt->base);
@@ -1338,7 +1336,7 @@ static int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 
 	spin_lock(&drawctxt->lock);
 
-	ret = _check_context_state_to_queue_cmds(drawctxt);
+	ret = _check_context_state_to_queue_cmds(drawctxt, count);
 	if (ret) {
 		spin_unlock(&drawctxt->lock);
 		kmem_cache_free(jobs_cache, job);
@@ -2114,7 +2112,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 
 	/* Terminate the stalled transaction and resume the IOMMU */
 	if (fault & ADRENO_IOMMU_PAGE_FAULT)
-		kgsl_mmu_pagefault_resume(&device->mmu);
+		kgsl_mmu_pagefault_resume(&device->mmu, true);
 
 	/* Reset the dispatcher queue */
 	dispatcher->inflight = 0;

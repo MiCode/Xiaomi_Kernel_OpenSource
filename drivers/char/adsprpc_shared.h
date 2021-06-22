@@ -30,6 +30,8 @@
 #define FASTRPC_IOCTL_MEM_UNMAP _IOWR('R', 20, struct fastrpc_ioctl_mem_unmap)
 #define FASTRPC_IOCTL_INVOKE_PERF \
 		_IOWR('R', 21, struct fastrpc_ioctl_invoke_perf)
+#define FASTRPC_IOCTL_NOTIF_RSP \
+		_IOWR('R', 22, struct fastrpc_ioctl_notif_rsp)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -262,10 +264,17 @@ struct fastrpc_ioctl_async_response {
 	uint32_t sc;
 };
 
+struct fastrpc_ioctl_notif_rsp {
+	int domain;					/* Domain of User PD */
+	int session;				/* Session ID of User PD */
+	uint32_t status;			/* Status of the process */
+};
+
 enum fastrpc_invoke2_type {
 	FASTRPC_INVOKE2_ASYNC		   = 1,
 	FASTRPC_INVOKE2_ASYNC_RESPONSE = 2,
 	FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS,
+	FASTRPC_INVOKE2_STATUS_NOTIF,
 };
 
 struct fastrpc_ioctl_invoke2 {
@@ -427,6 +436,7 @@ enum fastrpc_control_type {
 	FASTRPC_CONTROL_PM		=	5,
 /* Clean process on DSP */
 	FASTRPC_CONTROL_DSPPROCESS_CLEAN	=	6,
+	FASTRPC_CONTROL_RPC_POLL = 7,
 };
 
 struct fastrpc_ctrl_latency {
@@ -502,7 +512,9 @@ enum fastrpc_response_flags {
 	NORMAL_RESPONSE = 0,
 	EARLY_RESPONSE = 1,
 	USER_EARLY_SIGNAL = 2,
-	COMPLETE_SIGNAL = 3
+	COMPLETE_SIGNAL = 3,
+	STATUS_RESPONSE = 4,
+	POLL_MODE = 5,
 };
 
 struct smq_invoke_rspv2 {
@@ -511,6 +523,21 @@ struct smq_invoke_rspv2 {
 	uint32_t flags;		  /* early response flags */
 	uint32_t early_wake_time; /* user predicted early wakeup time in us */
 	uint32_t version;	  /* Version number for validation */
+};
+
+enum fastrpc_status_flags {
+	FASTRPC_USERPD_UP = 0,
+	FASTRPC_USERPD_EXIT = 1,
+	FASTRPC_USERPD_FORCE_KILL = 2,
+	FASTRPC_USERPD_EXCEPTION = 3,
+	FASTRPC_DSP_SSR = 4,
+};
+
+struct smq_notif_rspv3 {
+	uint64_t ctx;		  /* response context */
+	uint32_t type;        /* Notification type */
+	int pid;		      /* user process pid */
+	uint32_t status;	  /* userpd status notification */
 };
 
 static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,

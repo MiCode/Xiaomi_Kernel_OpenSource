@@ -1427,6 +1427,9 @@ static int _get_clocks(struct kgsl_device *device)
 		for (i = 0; i < KGSL_MAX_CLKS; i++) {
 			if (pwr->grp_clks[i] || strcmp(clocks[i], name))
 				continue;
+			/* apb_pclk should only be enabled if CORESIGHT is enabled */
+			if (!strcmp(name, "apb_pclk") && !IS_ENABLED(CONFIG_CORESIGHT))
+				continue;
 
 			pwr->grp_clks[i] = devm_clk_get(dev, name);
 
@@ -1822,7 +1825,6 @@ static int _init(struct kgsl_device *device)
 	case KGSL_STATE_ACTIVE:
 		kgsl_pwrctrl_irq(device, false);
 		del_timer_sync(&device->idle_timer);
-		kgsl_pwrscale_midframe_timer_cancel(device);
 		device->ftbl->stop(device);
 		fallthrough;
 	case KGSL_STATE_AWARE:
@@ -1943,7 +1945,6 @@ _aware(struct kgsl_device *device)
 	case KGSL_STATE_ACTIVE:
 		kgsl_pwrctrl_irq(device, false);
 		del_timer_sync(&device->idle_timer);
-		kgsl_pwrscale_midframe_timer_cancel(device);
 		break;
 	case KGSL_STATE_SLUMBER:
 		status = kgsl_pwrctrl_enable(device);
@@ -1968,7 +1969,6 @@ _nap(struct kgsl_device *device)
 			return -EBUSY;
 		}
 
-		kgsl_pwrscale_midframe_timer_cancel(device);
 
 		/*
 		 * Read HW busy counters before going to NAP state.
@@ -2035,7 +2035,6 @@ _slumber(struct kgsl_device *device)
 	case KGSL_STATE_MINBW:
 		del_timer_sync(&device->pwrctrl.minbw_timer);
 		del_timer_sync(&device->idle_timer);
-		kgsl_pwrscale_midframe_timer_cancel(device);
 		kgsl_pwrctrl_irq(device, false);
 		/* make sure power is on to stop the device*/
 		status = kgsl_pwrctrl_enable(device);

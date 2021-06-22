@@ -160,6 +160,8 @@ arch/arm64/include/asm/unistd32.h
 arch/arm64/include/asm/unistd.h
 arch/arm64/include/asm/uprobes.h
 arch/arm64/include/asm/vdso/clocksource.h
+arch/arm64/include/asm/vdso/compat_barrier.h
+arch/arm64/include/asm/vdso/compat_gettimeofday.h
 arch/arm64/include/asm/vdso/gettimeofday.h
 arch/arm64/include/asm/vdso.h
 arch/arm64/include/asm/vdso/processor.h
@@ -258,6 +260,10 @@ arch/arm64/kernel/time.c
 arch/arm64/kernel/topology.c
 arch/arm64/kernel/trace-events-emulation.h
 arch/arm64/kernel/traps.c
+arch/arm64/kernel/vdso32/note.c
+arch/arm64/kernel/vdso32/vdso.lds.S
+arch/arm64/kernel/vdso32/vdso.S
+arch/arm64/kernel/vdso32/vgettimeofday.c
 arch/arm64/kernel/vdso.c
 arch/arm64/kernel/vdso/note.S
 arch/arm64/kernel/vdso/sigreturn.S
@@ -392,6 +398,7 @@ arch/arm64/mm/pgd.c
 arch/arm64/mm/proc.S
 arch/arm64/net/bpf_jit_comp.c
 arch/arm64/net/bpf_jit.h
+arch/arm/vdso/vdsomunge.c
 block/badblocks.c
 block/bfq-cgroup.c
 block/bfq-iosched.c
@@ -434,7 +441,6 @@ block/blk-stat.h
 block/blk-sysfs.c
 block/blk-timeout.c
 block/blk-wbt.h
-block/bounce.c
 block/bsg.c
 block/bsg-lib.c
 block/elevator.c
@@ -906,6 +912,7 @@ drivers/gpu/drm/ttm/ttm_resource.c
 drivers/gpu/drm/ttm/ttm_tt.c
 drivers/gpu/trace/trace_gpu_mem.c
 drivers/hid/hid-apple.c
+drivers/hid/hid-betopff.c
 drivers/hid/hid-core.c
 drivers/hid/hid-debug.c
 drivers/hid/hid-elecom.c
@@ -978,6 +985,9 @@ drivers/i2c/i2c-core-base.c
 drivers/i2c/i2c-core.h
 drivers/i2c/i2c-core-of.c
 drivers/i2c/i2c-core-smbus.c
+drivers/i3c/device.c
+drivers/i3c/internals.h
+drivers/i3c/master.c
 drivers/iio/iio_core.h
 drivers/iio/iio_core_trigger.h
 drivers/iio/industrialio-buffer.c
@@ -1013,6 +1023,7 @@ drivers/iommu/iommu-sysfs.c
 drivers/iommu/iommu-traces.c
 drivers/iommu/io-pgtable-arm.c
 drivers/iommu/io-pgtable-arm.h
+drivers/iommu/io-pgtable-arm-v7s.c
 drivers/iommu/io-pgtable.c
 drivers/iommu/iova.c
 drivers/iommu/of_iommu.c
@@ -2213,6 +2224,7 @@ include/crypto/internal/akcipher.h
 include/crypto/internal/blake2b.h
 include/crypto/internal/blake2s.h
 include/crypto/internal/chacha.h
+include/crypto/internal/cipher.h
 include/crypto/internal/geniv.h
 include/crypto/internal/hash.h
 include/crypto/internal/kpp.h
@@ -2644,6 +2656,7 @@ include/linux/hidraw.h
 include/linux/hid-roccat.h
 include/linux/highmem.h
 include/linux/highuid.h
+include/linux/hmm.h
 include/linux/hrtimer_defs.h
 include/linux/hrtimer.h
 include/linux/huge_mm.h
@@ -2657,6 +2670,9 @@ include/linux/hypervisor.h
 include/linux/i2c-algo-bit.h
 include/linux/i2c.h
 include/linux/i2c-smbus.h
+include/linux/i3c/ccc.h
+include/linux/i3c/device.h
+include/linux/i3c/master.h
 include/linux/i8042.h
 include/linux/icmp.h
 include/linux/icmpv6.h
@@ -3869,9 +3885,12 @@ include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/gpiolib.h
+include/trace/hooks/hung_task.h
+include/trace/hooks/i2c.h
 include/trace/hooks/iommu.h
 include/trace/hooks/logbuf.h
 include/trace/hooks/memory.h
+include/trace/hooks/mmc_core.h
 include/trace/hooks/mm.h
 include/trace/hooks/module.h
 include/trace/hooks/mpam.h
@@ -4767,15 +4786,6 @@ lib/kobject.c
 lib/kobject_uevent.c
 lib/kstrtox.c
 lib/kstrtox.h
-lib/kunit/assert.c
-lib/kunit/debugfs.c
-lib/kunit/debugfs.h
-lib/kunit/executor.c
-lib/kunit/string-stream.c
-lib/kunit/string-stream.h
-lib/kunit/test.c
-lib/kunit/try-catch.c
-lib/kunit/try-catch-impl.h
 lib/libcrc32c.c
 lib/linear_ranges.c
 lib/list_debug.c
@@ -4925,6 +4935,7 @@ mm/filemap.c
 mm/frame_vector.c
 mm/gup.c
 mm/highmem.c
+mm/hmm.c
 mm/huge_memory.c
 mm/init-mm.c
 mm/internal.h

@@ -16,8 +16,8 @@
 #include <linux/blk-mq-virtio.h>
 #include <linux/numa.h>
 #include <uapi/linux/virtio_ring.h>
-#ifdef CONFIG_HH_VIRTIO_DEBUG
-#include <trace/events/hh_virtio_frontend.h>
+#ifdef CONFIG_GH_VIRTIO_DEBUG
+#include <trace/events/gh_virtio_frontend.h>
 #endif
 
 #define PART_BITS 4
@@ -191,7 +191,7 @@ static void virtblk_done(struct virtqueue *vq)
 
 			if (likely(!blk_should_fake_timeout(req->q)))
 				blk_mq_complete_request(req);
-#ifdef CONFIG_HH_VIRTIO_DEBUG
+#ifdef CONFIG_GH_VIRTIO_DEBUG
 			trace_virtio_block_done(vq->vdev->index, req_op(req), blk_rq_pos(req));
 #endif
 			req_done = true;
@@ -284,7 +284,7 @@ static blk_status_t virtio_queue_rq(struct blk_mq_hw_ctx *hctx,
 
 	spin_lock_irqsave(&vblk->vqs[qid].lock, flags);
 	err = virtblk_add_req(vblk->vqs[qid].vq, vbr, vbr->sg, num);
-#ifdef CONFIG_HH_VIRTIO_DEBUG
+#ifdef CONFIG_GH_VIRTIO_DEBUG
 	trace_virtio_block_submit(vblk->vqs[qid].vq->vdev->index,
 		vbr->out_hdr.type, vbr->out_hdr.sector, vbr->out_hdr.ioprio, err, num);
 #endif

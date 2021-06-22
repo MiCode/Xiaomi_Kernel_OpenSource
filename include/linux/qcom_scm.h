@@ -114,6 +114,7 @@ extern int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr,
 				  phys_addr_t size);
 extern int qcom_scm_pas_auth_and_reset(u32 peripheral);
 extern int qcom_scm_pas_shutdown(u32 peripheral);
+extern int qcom_scm_pas_shutdown_retry(u32 peripheral);
 extern bool qcom_scm_pas_supported(u32 peripheral);
 
 extern int qcom_scm_get_sec_dump_state(u32 *dump_state);
@@ -244,6 +245,9 @@ extern int qcom_scm_ice_restore_cfg(void);
 extern int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *response_type, unsigned int *data);
+extern int qcom_scm_invoke_smc_legacy(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *response_type, unsigned int *data);
 extern int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
 		size_t out_buf_size, int32_t *result, u64 *response_type,
 		unsigned int *data);
@@ -275,6 +279,7 @@ static inline int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr,
 static inline int qcom_scm_pas_auth_and_reset(u32 peripheral)
 		{ return -ENODEV; }
 static inline int qcom_scm_pas_shutdown(u32 peripheral) { return -ENODEV; }
+static inline int qcom_scm_pas_shutdown_retry(u32 peripheral) { return -ENODEV; }
 static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }
 
 static inline int qcom_scm_get_sec_dump_state(u32 *dump_state)
@@ -444,6 +449,9 @@ static inline int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
 static inline int qcom_scm_ice_restore_cfg(void) { return -ENODEV; }
 
 static inline int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *request_type, unsigned int *data)	{ return -ENODEV; }
+static inline int qcom_scm_invoke_smc_legacy(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *request_type, unsigned int *data)	{ return -ENODEV; }
 static inline int qcom_scm_invoke_callback_response(phys_addr_t out_buf,

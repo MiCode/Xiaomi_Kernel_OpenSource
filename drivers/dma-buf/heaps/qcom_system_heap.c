@@ -244,7 +244,8 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 		if (!page)
 			continue;
 
-		if (dynamic_pool_count_below_lowmark(pools[i]))
+		if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAP_PAGE_POOL_REFILL) &&
+		    dynamic_pool_count_below_lowmark(pools[i]))
 			wake_up_process(pools[i]->refill_worker);
 
 		return page;
@@ -334,6 +335,7 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	}
 
 	/* create the dmabuf */
+	exp_info.exp_name = dma_heap_get_name(heap);
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;
@@ -430,24 +432,26 @@ int qcom_system_heap_create(char *name, bool uncached)
 		goto free_heap;
 	}
 
-	refill_worker = kthread_run(system_heap_refill_worker, sys_heap->pool_list,
-				    "%s-pool-refill-thread", name);
-	if (IS_ERR(refill_worker)) {
-		pr_err("%s: failed to create %s-pool-refill-thread: %ld\n",
-			__func__, name, PTR_ERR(refill_worker));
-		ret = PTR_ERR(refill_worker);
-		goto free_pools;
-	}
+	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAP_PAGE_POOL_REFILL)) {
+		refill_worker = kthread_run(system_heap_refill_worker, sys_heap->pool_list,
+					    "%s-pool-refill-thread", name);
+		if (IS_ERR(refill_worker)) {
+			pr_err("%s: failed to create %s-pool-refill-thread: %ld\n",
+				__func__, name, PTR_ERR(refill_worker));
+			ret = PTR_ERR(refill_worker);
+			goto free_pools;
+		}
 
-	ret = sched_setattr(refill_worker, &attr);
-	if (ret) {
-		pr_warn("%s: failed to set task priority for %s-pool-refill-thread: ret = %d\n",
-			__func__, name, ret);
-		goto stop_worker;
-	}
+		ret = sched_setattr(refill_worker, &attr);
+		if (ret) {
+			pr_warn("%s: failed to set task priority for %s-pool-refill-thread: ret = %d\n",
+				__func__, name, ret);
+			goto stop_worker;
+		}
 
-	for (i = 0; i < NUM_ORDERS; i++)
-		sys_heap->pool_list[i]->refill_worker = refill_worker;
+		for (i = 0; i < NUM_ORDERS; i++)
+			sys_heap->pool_list[i]->refill_worker = refill_worker;
+	}
 
 	heap = dma_heap_add(&exp_info);
 	if (IS_ERR(heap)) {
@@ -463,7 +467,8 @@ int qcom_system_heap_create(char *name, bool uncached)
 	return 0;
 
 stop_worker:
-	kthread_stop(refill_worker);
+	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAP_PAGE_POOL_REFILL))
+		kthread_stop(refill_worker);
 
 free_pools:
 	dynamic_page_pool_release_pools(sys_heap->pool_list);

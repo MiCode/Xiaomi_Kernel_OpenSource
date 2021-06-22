@@ -544,7 +544,8 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	if (sync && (need_idle || (is_rtg && curr_is_rtg)))
 		sync = 0;
 
-	if (sync && bias_to_this_cpu(p, cpu, start_cpu)) {
+	if (sysctl_sched_sync_hint_enable && sync
+			&& bias_to_this_cpu(p, cpu, start_cpu)) {
 		best_energy_cpu = cpu;
 		fbt_env.fastpath = SYNC_WAKEUP;
 		goto done;
@@ -720,6 +721,7 @@ static void binder_restore_priority_hook(void *data,
 		wts->boost = bndrtrans->android_vendor_data1;
 
 }
+
 /*
  * Higher prio mvp can preempt lower prio mvp.
  *
@@ -804,6 +806,18 @@ static void walt_cfs_account_mvp_runtime(struct rq *rq, struct task_struct *curr
 	s64 delta;
 	unsigned int limit;
 
+	lockdep_assert_held(&rq->lock);
+
+	/*
+	 * RQ clock update happens in tick path in the scheduler.
+	 * Since we drop the lock in the scheduler before calling
+	 * into vendor hook, it is possible that update flags are
+	 * reset by another rq lock and unlock. Do the update here
+	 * if required.
+	 */
+	if (!(rq->clock_update_flags & RQCF_UPDATED))
+		update_rq_clock(rq);
+
 	/* sum_exec_snapshot can be ahead. See below increment */
 	delta = curr->se.sum_exec_runtime - wts->sum_exec_snapshot;
 	if (delta < 0)
@@ -881,8 +895,10 @@ void walt_cfs_tick(struct rq *rq)
 	if (unlikely(walt_disabled))
 		return;
 
+	raw_spin_lock(&rq->lock);
+
 	if (list_empty(&wts->mvp_list))
-		return;
+		goto out;
 
 	walt_cfs_account_mvp_runtime(rq, rq->curr);
 	/*
@@ -891,6 +907,9 @@ void walt_cfs_tick(struct rq *rq)
 	 */
 	if ((wrq->mvp_tasks.next != &wts->mvp_list) && rq->cfs.h_nr_running > 1)
 		resched_curr(rq);
+
+out:
+	raw_spin_unlock(&rq->lock);
 }
 
 /*

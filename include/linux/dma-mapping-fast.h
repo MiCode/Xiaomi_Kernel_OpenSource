@@ -57,12 +57,12 @@ static inline int fast_smmu_init_mapping(struct device *dev,
 static inline void fast_smmu_put_dma_cookie(struct iommu_domain *domain) {}
 static inline void fast_smmu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size) {}
 
-static int __init dma_mapping_fast_init(void)
+static inline int __init dma_mapping_fast_init(void)
 {
 	return 0;
 }
 
-void dma_mapping_fast_exit(void) {}
+static inline void dma_mapping_fast_exit(void) {}
 #endif
 
 #endif /* __LINUX_DMA_MAPPING_FAST_H */

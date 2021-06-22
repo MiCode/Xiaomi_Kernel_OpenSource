@@ -42,7 +42,7 @@ static struct kmem_cache *addr_page_cache;
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
-	int page_count;
+	unsigned int page_count;
 	unsigned int reserved_pages;
 	spinlock_t list_lock;
 	struct rb_root pool_rbtree;
@@ -120,7 +120,7 @@ static void kgsl_pool_cache_init(void)
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
-	int page_count;
+	unsigned int page_count;
 	unsigned int reserved_pages;
 	spinlock_t list_lock;
 	struct list_head page_list;
@@ -278,6 +278,49 @@ static int kgsl_pool_size_total(void)
 	return total;
 }
 
+/* Returns the total number of pages in all pools excluding reserved pages */
+static unsigned long kgsl_pool_size_nonreserved(void)
+{
+	int i;
+	unsigned long total = 0;
+
+	for (i = 0; i < kgsl_num_pools; i++) {
+		struct kgsl_page_pool *pool = &kgsl_pools[i];
+
+		spin_lock(&pool->list_lock);
+		if (pool->page_count > pool->reserved_pages)
+			total += (pool->page_count - pool->reserved_pages) *
+					(1 << pool->pool_order);
+		spin_unlock(&pool->list_lock);
+	}
+
+	return total;
+}
+
+/*
+ * Returns a page from specified pool only if pool
+ * currently holds more number of pages than reserved
+ * pages.
+ */
+static struct page *
+_kgsl_pool_get_nonreserved_page(struct kgsl_page_pool *pool)
+{
+	struct page *p = NULL;
+
+	spin_lock(&pool->list_lock);
+	if (pool->page_count <= pool->reserved_pages) {
+		spin_unlock(&pool->list_lock);
+		return NULL;
+	}
+
+	p = __kgsl_pool_get_page(pool);
+	spin_unlock(&pool->list_lock);
+	if (p != NULL)
+		mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
+				-(1 << pool->pool_order));
+	return p;
+}
+
 /*
  * This will shrink the specified pool by num_pages or by
  * (page_count - reserved_pages), whichever is smaller.
@@ -288,19 +331,21 @@ _kgsl_pool_shrink(struct kgsl_page_pool *pool,
 {
 	int j;
 	unsigned int pcount = 0;
+	struct page *(*get_page)(struct kgsl_page_pool *) =
+		_kgsl_pool_get_nonreserved_page;
 
 	if (pool == NULL || num_pages == 0)
 		return pcount;
 
-	num_pages = num_pages >> pool->pool_order;
+	num_pages = (num_pages + (1 << pool->pool_order) - 1) >>
+				pool->pool_order;
 
-	/* This is to ensure that we don't free reserved pages */
-	if (!exit)
-		num_pages =  min(num_pages, (pool->page_count -
-				pool->reserved_pages));
+	/* This is to ensure that we free reserved pages */
+	if (exit)
+		get_page = _kgsl_pool_get_page;
 
 	for (j = 0; j < num_pages; j++) {
-		struct page *page = _kgsl_pool_get_page(pool);
+		struct page *page = get_page(pool);
 
 		if (!page)
 			break;
@@ -626,15 +671,21 @@ kgsl_pool_shrink_scan_objects(struct shrinker *shrinker,
 					struct shrink_control *sc)
 {
 	/* sc->nr_to_scan represents number of pages to be removed*/
-	return kgsl_pool_reduce(sc->nr_to_scan, false);
+	unsigned long pcount = kgsl_pool_reduce(sc->nr_to_scan, false);
+
+	/* If pools are exhausted return SHRINK_STOP */
+	return pcount ? pcount : SHRINK_STOP;
 }
 
 static unsigned long
 kgsl_pool_shrink_count_objects(struct shrinker *shrinker,
 					struct shrink_control *sc)
 {
-	/* Return total pool size as everything in pool can be freed */
-	return kgsl_pool_size_total();
+	/*
+	 * Return non-reserved pool size as we don't
+	 * want shrinker to free reserved pages.
+	 */
+	return kgsl_pool_size_nonreserved();
 }
 
 /* Shrinker callback data*/

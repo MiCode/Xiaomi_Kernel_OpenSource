@@ -349,6 +349,9 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 	int context_count = 0;
 	u64 busy_time;
 
+	if (!priv)
+		return 0;
+
 	/* keeps stats.private_data == NULL   */
 	result = devfreq_update_stats(devfreq);
 	if (result) {
@@ -482,6 +485,9 @@ static int tz_suspend(struct devfreq *devfreq)
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
 	unsigned int scm_data[2] = {0, 0};
 
+	if (!priv)
+		return 0;
+
 	__secure_tz_reset_entry2(scm_data, sizeof(scm_data), priv->is_64);
 
 	priv->bin.total_time = 0;
@@ -540,6 +546,7 @@ static struct devfreq_governor msm_adreno_tz = {
 	.name = "msm-adreno-tz",
 	.get_target_freq = tz_get_target_freq,
 	.event_handler = tz_handler,
+	.immutable = 1,
 };
 
 int msm_adreno_tz_init(void)
