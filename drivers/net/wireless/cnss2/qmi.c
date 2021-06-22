@@ -26,7 +26,11 @@
 #define CHIP_ID_GF_MASK			0x10
 
 #define QDSS_TRACE_CONFIG_FILE		"qdss_trace_config"
-#define DEBUG_STR			"debug"
+#ifdef CONFIG_CNSS2_DEBUG
+#define QDSS_DEBUG_FILE_STR		"debug_"
+#else
+#define QDSS_DEBUG_FILE_STR		""
+#endif
 #define HW_V1_NUMBER			"v1"
 #define HW_V2_NUMBER			"v2"
 
@@ -956,37 +960,24 @@ end:
 	return ret;
 }
 
-#ifdef CONFIG_CNSS2_DEBUG
 void cnss_get_qdss_cfg_filename(struct cnss_plat_data *plat_priv,
 				char *filename, u32 filename_len)
 {
 	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
+	char *debug_str = QDSS_DEBUG_FILE_STR;
+
+	if (plat_priv->device_id == WCN7850_DEVICE_ID)
+		debug_str = "";
 
 	if (plat_priv->device_version.major_version == FW_V2_NUMBER)
 		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
-			 "_%s_%s.cfg", DEBUG_STR, HW_V2_NUMBER);
+			 "_%s%s.cfg", debug_str, HW_V2_NUMBER);
 	else
 		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
-			 "_%s_%s.cfg", DEBUG_STR, HW_V1_NUMBER);
+			 "_%s%s.cfg", debug_str, HW_V1_NUMBER);
 
 	cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
 }
-#else
-void cnss_get_qdss_cfg_filename(struct cnss_plat_data *plat_priv,
-				char *filename, u32 filename_len)
-{
-	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
-
-	if (plat_priv->device_version.major_version == FW_V2_NUMBER)
-		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
-			 "_%s.cfg", HW_V2_NUMBER);
-	else
-		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
-			 "_%s.cfg", HW_V1_NUMBER);
-
-	cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
-}
-#endif
 
 int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 {
