@@ -356,6 +356,47 @@ static const struct arm_smmu_impl qcom_smmu_impl = {
 #define TNX_TCR_CNTL_2			0x178
 #define TNX_TCR_CNTL_2_CAP1_VALID	BIT(0)
 
+/* QTB constants */
+#define QTB_DBG_TIMEOUT_US		100
+
+#define QTB_SWID_LOW			0x0
+
+#define QTB_OVR_DBG_FENCEREQ		0x410
+#define QTB_OVR_DBG_FENCEREQ_HALT	BIT(0)
+
+#define QTB_OVR_DBG_FENCEACK		0x418
+#define QTB_OVR_DBG_FENCEACK_ACK	BIT(0)
+
+#define QTB_OVR_ECATS_INFLD0			0x430
+#define QTB_OVR_ECATS_INFLD0_PCIE_NO_SNOOP	BIT(21)
+#define QTB_OVR_ECATS_INFLD0_SEC_SID		BIT(20)
+#define QTB_OVR_ECATS_INFLD0_QAD		GENMASK(19, 16)
+#define QTB_OVR_ECATS_INFLD0_SID		GENMASK(9, 0)
+
+#define QTB_OVR_ECATS_INFLD1		0x438
+#define QTB_OVR_ECATS_INFLD1_PNU	BIT(13)
+#define QTB_OVR_ECATS_INFLD1_IND	BIT(12)
+#define QTB_OVR_ECATS_INFLD1_DIRTY	BIT(11)
+#define QTB_OVR_ECATS_INFLD1_TR_TYPE	GENMASK(10, 8)
+#define QTB_OVR_ECATS_INFLD1_TR_TYPE_SHARED 4
+#define QTB_OVR_ECATS_INFLD1_ALLOC	GENMASK(7, 4)
+#define QTB_OVR_ECATS_INFLD1_NON_SEC	BIT(3)
+#define QTB_OVR_ECATS_INFLD1_OPC	GENMASK(2, 0)
+#define QTB_OVR_ECATS_INFLD1_OPC_WRI	1
+
+#define QTB_OVR_ECATS_INFLD2	0x440
+
+#define QTB_OVR_ECATS_TRIGGER		0x448
+#define QTB_OVR_ECATS_TRIGGER_START	BIT(0)
+
+#define QTB_OVR_ECATS_STATUS		0x450
+#define QTB_OVR_ECATS_STATUS_DONE	BIT(0)
+
+#define QTB_OVR_ECATS_OUTFLD0			0x458
+#define QTB_OVR_ECATS_OUTFLD0_PA		GENMASK(63, 12)
+#define QTB_OVR_ECATS_OUTFLD0_FAULT_TYPE	GENMASK(5, 4)
+#define QTB_OVR_ECATS_OUTFLD0_FAULT		BIT(0)
+
 struct actlr_setting {
 	struct arm_smmu_smr smr;
 	u32 actlr;
@@ -413,6 +454,13 @@ struct arm_tbu_device {
 };
 
 #define to_arm_tbu(tbu)			container_of(tbu, struct arm_tbu_device, tbu)
+
+struct qtb500_device {
+	struct qsmmuv500_tbu_device tbu;
+	bool no_halt;
+};
+
+#define to_qtb500(tbu)		container_of(tbu, struct qtb500_device, tbu)
 
 static int arm_tbu_halt_req(struct qsmmuv500_tbu_device *tbu)
 {
@@ -666,6 +714,160 @@ static struct qsmmuv500_tbu_device *arm_tbu_impl_init(struct qsmmuv500_tbu_devic
 	return &arm_tbu->tbu;
 }
 
+static int qtb500_tbu_halt_req(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *qtb_base = tbu->base;
+	struct qtb500_device *qtb = to_qtb500(tbu);
+	u64 val;
+
+	if (qtb->no_halt)
+		return 0;
+
+	val = readq_relaxed(qtb_base + QTB_OVR_DBG_FENCEREQ);
+	val |= QTB_OVR_DBG_FENCEREQ_HALT;
+	writeq_relaxed(val, qtb_base  + QTB_OVR_DBG_FENCEREQ);
+
+	return 0;
+}
+
+static int qtb500_tbu_halt_poll(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *qtb_base = tbu->base;
+	struct qtb500_device *qtb = to_qtb500(tbu);
+	u64 val, status;
+
+	if (qtb->no_halt)
+		return 0;
+
+	if (readq_poll_timeout_atomic(qtb_base + QTB_OVR_DBG_FENCEACK, status,
+				      (status &  QTB_OVR_DBG_FENCEACK_ACK), 0,
+				      QTB_DBG_TIMEOUT_US)) {
+		dev_err(tbu->dev, "Couldn't halt QTB\n");
+
+		val = readq_relaxed(qtb_base + QTB_OVR_DBG_FENCEREQ);
+		val &= ~QTB_OVR_DBG_FENCEREQ_HALT;
+		writeq_relaxed(val, qtb_base + QTB_OVR_DBG_FENCEREQ);
+
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static void qtb500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *qtb_base = tbu->base;
+	struct qtb500_device *qtb = to_qtb500(tbu);
+	u64 val;
+
+	if (qtb->no_halt)
+		return;
+
+	val = readq_relaxed(qtb_base + QTB_OVR_DBG_FENCEREQ);
+	val &= ~QTB_OVR_DBG_FENCEREQ_HALT;
+	writeq_relaxed(val, qtb_base  + QTB_OVR_DBG_FENCEREQ);
+}
+
+static phys_addr_t qtb500_trigger_atos(struct qsmmuv500_tbu_device *tbu, dma_addr_t iova,
+				       u32 sid, unsigned long trans_flags)
+{
+	void __iomem *qtb_base = tbu->base;
+	u64 infld0, infld1, infld2, val;
+	phys_addr_t phys = 0;
+	ktime_t timeout;
+	bool ecats_timedout = false;
+
+	/*
+	 * Recommended to set:
+	 *
+	 * QTB_OVR_ECATS_INFLD0.QAD == 0 (AP Access Domain)
+	 * QTB_OVR_EACTS_INFLD0.PCIE_NO_SNOOP == 0 (IO-Coherency enabled)
+	 */
+	infld0 = FIELD_PREP(QTB_OVR_ECATS_INFLD0_SID, sid);
+	if (trans_flags & IOMMU_TRANS_SEC)
+		infld0 |= QTB_OVR_ECATS_INFLD0_SEC_SID;
+
+	infld1 = 0;
+	if (trans_flags & IOMMU_TRANS_PRIV)
+		infld1 |= QTB_OVR_ECATS_INFLD1_PNU;
+	if (trans_flags & IOMMU_TRANS_INST)
+		infld1 |= QTB_OVR_ECATS_INFLD1_IND;
+	/*
+	 * Recommended to set:
+	 *
+	 * QTB_OVR_ECATS_INFLD1.DIRTY == 0,
+	 * QTB_OVR_ECATS_INFLD1.TR_TYPE == 4 (Cacheable and Shareable memory)
+	 * QTB_OVR_ECATS_INFLD1.ALLOC == 0 (No allocation in TLB/caches)
+	 */
+	infld1 |= FIELD_PREP(QTB_OVR_ECATS_INFLD1_TR_TYPE, QTB_OVR_ECATS_INFLD1_TR_TYPE_SHARED);
+	if (!(trans_flags & IOMMU_TRANS_SEC))
+		infld1 |= QTB_OVR_ECATS_INFLD1_NON_SEC;
+	if (trans_flags & IOMMU_TRANS_WRITE)
+		infld1 |= FIELD_PREP(QTB_OVR_ECATS_INFLD1_OPC, QTB_OVR_ECATS_INFLD1_OPC_WRI);
+
+	infld2 = iova;
+
+	writeq_relaxed(infld0, qtb_base + QTB_OVR_ECATS_INFLD0);
+	writeq_relaxed(infld1, qtb_base + QTB_OVR_ECATS_INFLD1);
+	writeq_relaxed(infld2, qtb_base + QTB_OVR_ECATS_INFLD2);
+	writeq_relaxed(QTB_OVR_ECATS_TRIGGER_START, qtb_base + QTB_OVR_ECATS_TRIGGER);
+
+	timeout = ktime_add_us(ktime_get(), QTB_DBG_TIMEOUT_US);
+	for (;;) {
+		val = readq_relaxed(qtb_base + QTB_OVR_ECATS_STATUS);
+		if (val & QTB_OVR_ECATS_STATUS_DONE)
+			break;
+		val = readq_relaxed(qtb_base + QTB_OVR_ECATS_OUTFLD0);
+		if (val & QTB_OVR_ECATS_OUTFLD0_FAULT)
+			break;
+		if (ktime_compare(ktime_get(), timeout) > 0) {
+			ecats_timedout = true;
+			break;
+		}
+	}
+
+	val = readq_relaxed(qtb_base + QTB_OVR_ECATS_OUTFLD0);
+	if (val & QTB_OVR_ECATS_OUTFLD0_FAULT)
+		dev_err(tbu->dev, "ECATS generated a fault interrupt! OUTFLD0 = 0x%llx SID = 0x%x\n",
+			val, sid);
+	else if (ecats_timedout)
+		dev_err_ratelimited(tbu->dev, "ECATS translation timed out!\n");
+	else
+		phys = FIELD_GET(QTB_OVR_ECATS_OUTFLD0_PA, val);
+
+	/* Reset hardware for next transaction. */
+	writeq_relaxed(0, qtb_base + QTB_OVR_ECATS_TRIGGER);
+
+	return phys;
+}
+
+static void qtb500_tbu_write_sync(struct qsmmuv500_tbu_device *tbu)
+{
+	readl_relaxed(tbu->base + QTB_SWID_LOW);
+}
+
+static const struct qsmmuv500_tbu_impl qtb500_impl = {
+	.halt_req = qtb500_tbu_halt_req,
+	.halt_poll = qtb500_tbu_halt_poll,
+	.resume = qtb500_tbu_resume,
+	.trigger_atos = qtb500_trigger_atos,
+	.write_sync = qtb500_tbu_write_sync,
+};
+
+static struct qsmmuv500_tbu_device *qtb500_impl_init(struct qsmmuv500_tbu_device *tbu)
+{
+	struct qtb500_device *qtb;
+
+	qtb = devm_krealloc(tbu->dev, tbu, sizeof(*qtb), GFP_KERNEL);
+	if (!qtb)
+		return ERR_PTR(-ENOMEM);
+
+	qtb->tbu.impl = &qtb500_impl;
+	qtb->no_halt = of_property_read_bool(tbu->dev->of_node, "qcom,no-qtb-atos-halt");
+
+	return &qtb->tbu;
+}
+
 static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(struct arm_smmu_device *smmu, u32 sid)
 {
 	struct qsmmuv500_tbu_device *tbu = NULL;
@@ -806,6 +1008,9 @@ bug:
 
 static struct qsmmuv500_tbu_device *qsmmuv500_tbu_impl_init(struct qsmmuv500_tbu_device *tbu)
 {
+	if (of_device_is_compatible(tbu->dev->of_node, "qcom,qtb500"))
+		return qtb500_impl_init(tbu);
+
 	return arm_tbu_impl_init(tbu);
 }
 
