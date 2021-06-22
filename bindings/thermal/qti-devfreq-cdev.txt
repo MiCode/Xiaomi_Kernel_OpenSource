@@ -1,0 +1,24 @@
+QTI devfreq cooling devices.
+
+The devfreq cooling device will be used by userspace thermal daemon to
+vote for frequency cap under thermal conditions. This driver will register a
+cooling device for the GPU phandle specified in the devicetree.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,devfreq-cdev"
+
+Cooling device node:
+- qcom,devfreq:
+	Usage: required
+	Value type: <devfreq phandle>
+	Definition: Phandle to the GPU devfreq. This will register the GPU
+			devfreq as a cooling device with thermal framework.
+
+Example:
+	qcom,devfreq-cdev {
+		compatible = "qcom,devfreq-cdev";
+		qcom,devfreq = <&msm_gpu>;
+        };

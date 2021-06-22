@@ -32,10 +32,16 @@ Cooling device node:
 			the desired interconnect path. Please refer to
 			<devicetree/bindings/interconnect/interconnect.txt>
 			for more details.
+
+- qcom,bus-width:
+	Usage: required
+	Definition: Provides the bus width for DDR.
+
 Example:
 	qcom,ddr-cdev {
 		compatible = "qcom,ddr-cooling-device";
 		qcom,freq-table = <&ddr_freq_table>;
+		qcom,bus-width = <4>;
 		#cooling-cells = <2>;
 		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
         };

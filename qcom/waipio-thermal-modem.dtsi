@@ -92,7 +92,7 @@
 				#cooling-cells = <2>;
 			};
 
-			mmw_ul_throttling_dsc: mmw_ul_throttling_dsc {
+			mmw_ul_throttle_dsc: mmw_ul_throttling_dsc {
 				qcom,qmi-dev-name = "mmw_ul_throttling_dsc";
 				#cooling-cells = <2>;
 			};
@@ -156,7 +156,7 @@
 };
 
 &thermal_zones {
-	modem-lte-sub6-pa1 {
+	pa {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -176,7 +176,7 @@
 		};
 	};
 
-	modem-lte-sub6 {
+	pa1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -196,7 +196,7 @@
 		};
 	};
 
-	modem-beamer {
+	qtm-therm {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -216,7 +216,7 @@
 		};
 	};
 
-	modem-wifi {
+	sys-therm1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -236,7 +236,7 @@
 		};
 	};
 
-	modem-ambient {
+	sys-therm2 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -256,7 +256,7 @@
 		};
 	};
 
-	modem-bcl-warn {
+	bcl-warn {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -276,7 +276,7 @@
 		};
 	};
 
-	modem-sdr0-pa0 {
+	sdr0-pa0 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -296,7 +296,7 @@
 		};
 	};
 
-	modem-sdr0-pa1 {
+	sdr0-pa1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -316,7 +316,7 @@
 		};
 	};
 
-	modem-sdr0-pa2 {
+	sdr0-pa2 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -336,7 +336,7 @@
 		};
 	};
 
-	modem-sdr0-pa3 {
+	sdr0-pa3 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -356,7 +356,7 @@
 		};
 	};
 
-	modem-sdr0-pa4 {
+	sdr0-pa4 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -376,7 +376,7 @@
 		};
 	};
 
-	modem-sdr0 {
+	sdr0 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -396,7 +396,7 @@
 		};
 	};
 
-	modem-sdr1-pa0 {
+	sdr1-pa0 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -416,7 +416,7 @@
 		};
 	};
 
-	modem-sdr1-pa1 {
+	sdr1-pa1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -436,7 +436,7 @@
 		};
 	};
 
-	modem-sdr1-pa2 {
+	sdr1-pa2 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -456,7 +456,7 @@
 		};
 	};
 
-	modem-sdr1-pa3 {
+	sdr1-pa3 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -476,7 +476,7 @@
 		};
 	};
 
-	modem-sdr1-pa4 {
+	sdr1-pa4 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -496,7 +496,7 @@
 		};
 	};
 
-	modem-sdr1-pa5 {
+	sdr1-pa5 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -516,7 +516,7 @@
 		};
 	};
 
-	modem-sdr1 {
+	sdr1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -536,7 +536,7 @@
 		};
 	};
 
-	modem-mmw0 {
+	mmw0 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -556,7 +556,7 @@
 		};
 	};
 
-	modem-mmw1 {
+	mmw1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -576,7 +576,7 @@
 		};
 	};
 
-	modem-mmw2 {
+	mmw2 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -596,7 +596,7 @@
 		};
 	};
 
-	modem-mmw3 {
+	mmw3 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
@@ -616,7 +616,7 @@
 		};
 	};
 
-	modem-mmw-ific0 {
+	mmw-ific0 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor

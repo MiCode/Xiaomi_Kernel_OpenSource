@@ -93,27 +93,27 @@
 			qcom,dump-id = <0x134>;
 		};
 
-		goldplus_scan {
+		gold3_scan {
 			qcom,dump-size = <0x81100>;
 			qcom,dump-id = <0x135>;
 		};
 
-		l3_slice0_scan {
+		l3slice0scan {
 			qcom,dump-size = <0x4cd00>;
 			qcom,dump-id = <0x136>;
 		};
 
-		l3_slice1_scan {
+		l3slice1scan {
 			qcom,dump-size = <0x14e00>;
 			qcom,dump-id = <0x137>;
 		};
 
-		l3_slice2_scan {
+		l3slice2scan {
 			qcom,dump-size = <0x14e00>;
 			qcom,dump-id = <0x138>;
 		};
 
-		l3_slice3_scan {
+		l3slice3scan {
 			qcom,dump-size = <0x14e00>;
 			qcom,dump-id = <0x139>;
 		};
@@ -323,162 +323,162 @@
 			qcom,dump-id = <0x127>;
 		};
 
-		l1_dcache_dirty_0 {
+		l1dcdirty0 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x170>;
 		};
 
-		l1_dcache_dirty_100 {
+		l1dcdirty100 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x171>;
 		};
 
-		l1_dcache_dirty_200 {
+		l1dcdirty200 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x172>;
 		};
 
-		l1_dcache_dirty_300 {
+		l1dcdirty300 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x173>;
 		};
 
-		l1_dcache_mte_0 {
+		l1dcmte0 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x180>;
 		};
 
-		l1_dcache_mte_100 {
+		l1dcmte100 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x181>;
 		};
 
-		l1_dcache_mte_200 {
+		l1dcmte200 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x182>;
 		};
 
-		l1_dcache_mte_300 {
+		l1dcmte300 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x183>;
 		};
 
-		l2_dcache_mte_0 {
+		l2dcmte0 {
 			qcom,dump-size = <0x4100>;
 			qcom,dump-id = <0x190>;
 		};
 
-		l2_dcache_mte_100 {
+		l2dcmte100 {
 			qcom,dump-size = <0x4100>;
 			qcom,dump-id = <0x191>;
 		};
 
-		l2_dcache_mte_200 {
+		l2dcmte200 {
 			qcom,dump-size = <0x4100>;
 			qcom,dump-id = <0x192>;
 		};
 
-		l2_dcache_mte_300 {
+		l2dcmte300 {
 			qcom,dump-size = <0x4100>;
 			qcom,dump-id = <0x193>;
 		};
 
-		l0_mop_cache400 {
+		l0mopca400 {
 			qcom,dump-size = <0x6100>;
 			qcom,dump-id = <0x1a4>;
 		};
 
-		l0_mop_cache500 {
+		l0mopca500 {
 			qcom,dump-size = <0x6100>;
 			qcom,dump-id = <0x1a5>;
 		};
 
-		l0_mop_cache600 {
+		l0mopca600 {
 			qcom,dump-size = <0x6100>;
 			qcom,dump-id = <0x1a6>;
 		};
 
-		l0_mop_cache700 {
+		l0mopca700 {
 			qcom,dump-size = <0xc100>;
 			qcom,dump-id = <0x1a7>;
 		};
 
-		l1_btb_core400 {
+		l1btb400 {
 			qcom,dump-size = <0x10100>;
 			qcom,dump-id = <0x1b4>;
 		};
 
-		l1_btb_core500 {
+		l1btb500 {
 			qcom,dump-size = <0x10100>;
 			qcom,dump-id = <0x1b5>;
 		};
 
-		l1_btb_core600 {
+		l1btb600 {
 			qcom,dump-size = <0x10100>;
 			qcom,dump-id = <0x1b6>;
 		};
 
-		l1_btb_core700 {
+		l1btb700 {
 			qcom,dump-size = <0x10100>;
 			qcom,dump-id = <0x1b7>;
 		};
 
-		l1_ghb_core400 {
+		l1ghb400 {
 			qcom,dump-size = <0x4100>;
 			qcom,dump-id = <0x1c4>;
 		};
 
-		l1_ghb_core500 {
+		l1ghb500 {
 			qcom,dump-size = <0x4100>;
 			qcom,dump-id = <0x1c5>;
 		};
 
-		l1_ghb_core600 {
+		l1ghb600 {
 			qcom,dump-size = <0x4100>;
 			qcom,dump-id = <0x1c6>;
 		};
 
-		l1_ghb_core700 {
+		l1ghb700 {
 			qcom,dump-size = <0x8100>;
 			qcom,dump-id = <0x1c7>;
 		};
 
-		l1_bim_core400 {
+		l1bim400 {
 			qcom,dump-size = <0x2100>;
 			qcom,dump-id = <0x1d4>;
 		};
 
-		l1_bim_core500 {
+		l1bim500 {
 			qcom,dump-size = <0x2100>;
 			qcom,dump-id = <0x1d5>;
 		};
 
-		l1_bim_core600 {
+		l1bim600 {
 			qcom,dump-size = <0x2100>;
 			qcom,dump-id = <0x1d6>;
 		};
 
-		l1_bim_core700 {
+		l1bim700 {
 			qcom,dump-size = <0x4100>;
 			qcom,dump-id = <0x1d7>;
 		};
 
-		l2_victim_core400 {
+		l2victim400 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x1e4>;
 		};
 
-		l2_victim_core500 {
+		l2victim500 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x1e5>;
 		};
 
-		l2_victim_core600 {
+		l2victim600 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x1e6>;
 		};
 
-		l2_victim_core700 {
+		l2victim700 {
 			qcom,dump-size = <0x1100>;
 			qcom,dump-id = <0x1e7>;
 		};
@@ -558,22 +558,22 @@
 			qcom,dump-id = <0x104>;
 		};
 
-		llcc_1_dcache {
+		llcc1dc {
 			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x140>;
 		};
 
-		llcc_2_dcache {
+		llcc2dc {
 			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x141>;
 		};
 
-		llcc_3_dcache {
+		llcc3dc {
 			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x142>;
 		};
 
-		llcc_4_dcache {
+		llcc4dc {
 			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x143>;
 		};

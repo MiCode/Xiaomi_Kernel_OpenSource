@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "waipiop-v2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. WaipioP v2 SoC";
+	compatible = "qcom,waipiop";
+	qcom,board-id = <0 0>;
+};

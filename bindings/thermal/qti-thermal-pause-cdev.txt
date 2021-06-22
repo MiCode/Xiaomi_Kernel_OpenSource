@@ -21,12 +21,20 @@ Cooling device node:
 			a part of this cooling device.
 
 -#cooling-cells:
-	Usage: required
+	Usage: optional
 	Value type: <integer>
 	Definition: Must be 2. Needed for of_thermal as cooling device
 			identifier. Please refer to
 			<devicetree/bindings/thermal/thermal.txt> for more
-			details.
+			details. This is not needed for devicetree based
+			cooling devices.
+
+- qcom,cdev-alias:
+	Usage: optional
+	Value type: <string>
+	Definition: Alias name for the cooling device. When specified, this
+			name will be used to create a cooling device instead
+			of using the default name based on CPU mask.
 Example:
 	qcom,thermal-pause {
 		compatible = "qcom,thermal-pause";
@@ -34,7 +42,7 @@ Example:
 		/* pause a single cpu, cpu 0 */
 		thermal_pause-01: thermal-pause-01 {
 			qcom,cpus = <&CPU0>;
-			#cooling-cells = <2>;
+			qcom,cdev-alias = "pause_cpu0";
 		};
 
 		/* pause a group of cpus, cpus 0-3 */

@@ -91,20 +91,20 @@ dtbo-$(CONFIG_ARCH_WAIPIO) += waipio-rumi-overlay.dtbo \
 	waipio-lemur-cdp-pm8008-overlay.dtbo \
 	waipio-lemur-cdp-pm8010-overlay.dtbo
 
-waipio-rumi-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-mtp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-cdp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-qrd-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-atp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-mtp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-cdp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-qrd-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-qrd-pm8010-2s-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-atp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb
-waipio-lemur-mtp-pm8008-overlay.dtbo-base := waipio.dtb
-waipio-lemur-mtp-pm8010-overlay.dtbo-base := waipio.dtb
-waipio-lemur-cdp-pm8008-overlay.dtbo-base := waipio.dtb
-waipio-lemur-cdp-pm8010-overlay.dtbo-base := waipio.dtb
+waipio-rumi-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-mtp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-cdp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-qrd-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-atp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-mtp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-cdp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-qrd-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-qrd-pm8010-2s-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-atp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
+waipio-lemur-mtp-pm8008-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
+waipio-lemur-mtp-pm8010-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
+waipio-lemur-cdp-pm8008-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
+waipio-lemur-cdp-pm8010-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
 else
 dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
 	waipio-mtp-pm8008.dtb \
@@ -123,6 +123,23 @@ dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
 	waipiop-cdp-pm8010.dtb \
 	waipiop-qrd-pm8010.dtb \
 	waipiop-qrd-pm8010-2s.dtb
+# Waipio V2
+dtb-$(CONFIG_ARCH_WAIPIO) += waipio-v2-mtp-pm8008.dtb \
+	waipio-v2-cdp-pm8008.dtb \
+	waipio-v2-qrd-pm8008.dtb \
+	waipio-v2-atp-pm8008.dtb \
+	waipio-v2-mtp-pm8010.dtb \
+	waipio-v2-cdp-pm8010.dtb \
+	waipio-v2-qrd-pm8010.dtb \
+	waipio-v2-qrd-pm8010-2s.dtb \
+	waipio-v2-atp-pm8010.dtb \
+	waipiop-v2-mtp-pm8008.dtb \
+	waipiop-v2-cdp-pm8008.dtb \
+	waipiop-v2-qrd-pm8008.dtb \
+	waipiop-v2-mtp-pm8010.dtb \
+	waipiop-v2-cdp-pm8010.dtb \
+	waipiop-v2-qrd-pm8010.dtb \
+	waipiop-v2-qrd-pm8010-2s.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

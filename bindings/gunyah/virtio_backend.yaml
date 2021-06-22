@@ -1,9 +1,9 @@
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/haven/virtio_backend.yaml#
+$id: http://devicetree.org/schemas/gunyah/virtio_backend.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Virtio backend device for Haven hypervisor
+title: Virtio backend device for Gunyah hypervisor
 
 maintainers:
   - Srivatsa Vaddagiri <svaddagi@qti.qualcomm.com>
@@ -11,10 +11,10 @@ maintainers:
 
 description: |+
   Configuration properties for Virtio backend device. This device is
-  specific to virtio support found in Haven hypervisor. The
+  specific to virtio support found in Gunyah hypervisor. The
   device helps a virtio backend driver in one Virtual Machine
   establish connection with its frontend counterpart in another Virtual
-  Machine, with both VMs running on Haven hypervisor.
+  Machine, with both VMs running on Gunyah hypervisor.
 
 properties:
   compatible:

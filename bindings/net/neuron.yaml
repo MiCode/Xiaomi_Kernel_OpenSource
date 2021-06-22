@@ -65,7 +65,7 @@ patternProperties:
         enum:
           - qcom,neuron-channel-mq-loopback
           - qcom,neuron-channel-mq-shmem
-          - qcom,neuron-channel-haven-shmem
+          - qcom,neuron-channel-gunyah-shmem
 
       direction:
         oneOf:

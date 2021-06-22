@@ -726,6 +726,7 @@
 		atid = <65>;
 		coresight-name = "coresight-tpdm-dcc";
 
+		qcom,hw-enable-check;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 
@@ -3825,6 +3826,94 @@
 		coresight-name = "coresight-cti-spss_cti";
 
 		status = "disabled";
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	cpu0: cti@12010000 {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x12010000 0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-cpu0";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	cpu1: cti@12020000 {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x12020000 0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-cpu1";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	cpu2: cti@12030000 {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x12030000 0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-cpu2";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	cpu3: cti@12040000 {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x12040000 0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-cpu3";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	cpu4: cti@12050000 {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x12050000 0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-cpu4";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	cpu5: cti@112060000 {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x12060000 0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-cpu5";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	cpu6: cti@12070000 {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x12070000 0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-cpu6";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	cpu7: cti@12080000 {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x12080000 0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-cpu7";
+
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 	};

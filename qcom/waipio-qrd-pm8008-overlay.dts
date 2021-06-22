@@ -7,6 +7,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. Waipio QRD with PM8008";
 	compatible = "qcom,waipio-qrd", "qcom,waipio", "qcom,qrd";
-	qcom,msm-id = <457 0x10000>, <482 0x10000>;
+	qcom,msm-id = <457 0x10000>, <482 0x10000>, <457 0x20000>, <482 0x20000>;
 	qcom,board-id = <0x1000B 0>;
 };

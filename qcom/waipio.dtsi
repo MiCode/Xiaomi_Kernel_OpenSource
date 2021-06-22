@@ -26,12 +26,21 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
-		bootargs = "nokaslr console=ttyMSM0,115200n8 loglevel=6 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 reap_mem_when_killed_by=lmkd";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=6 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 reap_mem_when_killed_by=lmkd irqaffinity=0-3";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
 	reserved_memory: reserved-memory { };
+
+	mem-offline {
+		compatible = "qcom,mem-offline";
+		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
+				<0x1 0xc0000000 0x0 0xc0000000>,
+				<0x2 0xc0000000 0x1 0x40000000>;
+		granule = <512>;
+		mboxes = <&qmp_aop 0>;
+	};
 
 	aliases: aliases {
 		serial0 = &qupv3_se7_2uart;
@@ -319,7 +328,7 @@
 		compatible = "android,firmware";
 		vbmeta {
 			compatible = "android,vbmeta";
-			parts = "vbmeta,boot,system,vendor,dtbo";
+			parts = "vbmeta,boot,system,vendor,dtbo,recovery";
 		};
 
 		fstab {
@@ -515,22 +524,16 @@
 		reg = <0x0 0xe0b00000 0x0 0x7a00000>;
 	};
 
-	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e85fc000 {
+	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e8509000 {
 		no-map;
-		reg = <0x0 0xe85fc000 0x0 0x4000>;
-		haven-label = <0x10>;
+		reg = <0x0 0xe8509000 0x0 0x4000>;
+		gunyah-label = <0x11>;
 	};
 
-	trust_ui_vm_vblk1_ring: trust_ui_vm_vblk1_ring@e8600000 {
+	trust_ui_vm_swiotlb: trust_ui_vm_swiotlb@e850d000 {
 		no-map;
-		reg = <0x0 0xe8600000 0x0 0x4000>;
-		haven-label = <0x11>;
-	};
-
-	trust_ui_vm_swiotlb: trust_ui_vm_swiotlb@e8604000 {
-		no-map;
-		reg = <0x0 0xe8604000 0x0 0x1fc000>;
-		haven-label = <0x12>;
+		reg = <0x0 0xe850d000 0x0 0x100000>;
+		gunyah-label = <0x12>;
 	};
 
 	trust_ui_vm_qrtr: trust_ui_vm_qrtr@e8500000 {
@@ -572,6 +575,13 @@
 		compatible = "shared-dma-pool";
 		reusable;
 		reg = <0x0 0xf2800000 0x0 0xd800000>;
+	};
+
+	va_md_mem: va_md_mem_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		size = <0 0x1000000>;
 	};
 
 	sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
@@ -949,8 +959,18 @@
 		compatible = "qcom,dload-mode";
 	};
 
+	microdump_modem {
+		compatible = "qcom,microdump_modem";
+	};
+
 	mini_dump_mode {
 		compatible = "qcom,minidump";
+		status = "ok";
+	};
+
+	va_mini_dump {
+		compatible = "qcom,va-minidump";
+		memory-region = <&va_md_mem>;
 		status = "ok";
 	};
 
@@ -1445,7 +1465,7 @@
 		compatible = "qcom,waipio-llcc", "qcom,llcc-v21";
 		reg = <0x19200000 0x580000> , <0x19A00000 0x80000>;
 		reg-names = "llcc_base", "llcc_broadcast_base";
-		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
 		cap-based-alloc-and-pwr-collapse;
 		clocks = <&aoss_qmp QDSS_CLK>;
 		clock-names = "qdss_clk";
@@ -1629,10 +1649,10 @@
 		};
 	};
 
-	qrtr-haven {
-		compatible = "qcom,qrtr-haven";
+	qrtr-gunyah {
+		compatible = "qcom,qrtr-gunyah";
 		qcom,master;
-		haven-label = <3>;
+		gunyah-label = <3>;
 		peer-name = <2>;
 		shared-buffer = <&trust_ui_vm_qrtr>;
 	};
@@ -2196,6 +2216,7 @@
 			label = "ns_context";
 			iommus = <&apps_smmu 0x588 0x0>,
 				<&apps_smmu 0x59A 0x0>,
+				<&apps_smmu 0x59F 0x0>,
 				<&apps_smmu 0x598 0x5>;
 		};
 
@@ -2216,33 +2237,6 @@
 		reg = <0x10c3000 0x1000>;
 		qcom,no-qrng-config;
 		qcom,no-clock-support;
-	};
-
-	qcom_crypto: qcrypto@1de0000 {
-		compatible = "qcom,qcrypto";
-		reg = <0x1de0000 0x20000>,
-			 <0x1dc4000 0x24000>;
-		reg-names = "crypto-base","crypto-bam-base";
-		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
-		qcom,bam-pipe-pair = <2>;
-		qcom,ce-hw-instance = <0>;
-		qcom,ce-device = <0>;
-		qcom,bam-ee = <0>;
-		qcom,ce-hw-shared;
-		qcom,clk-mgmt-sus-res;
-		qcom,use-sw-aes-cbc-ecb-ctr-algo;
-		qcom,use-sw-aes-xts-algo;
-		qcom,use-sw-aes-ccm-algo;
-		qcom,use-sw-ahash-algo;
-		qcom,use-sw-aead-algo;
-		qcom,use-sw-hmac-algo;
-		qcom,smmu-s1-enable;
-		qcom,no-clock-support;
-		interconnect-names = "data_path";
-		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
-		iommus = <&apps_smmu 0x0584 0x0011>,
-			 <&apps_smmu 0x0594 0x0011>;
-		qcom,iommu-dma = "atomic";
 	};
 
 	smem: qcom,smem {
@@ -2284,8 +2278,9 @@
 	ufshc_mem: ufshc@1d84000 {
 		compatible = "qcom,ufshc";
 		reg = <0x1d84000 0x3000>,
-		      <0x1d88000 0x8000>;
-		reg-names = "ufs_mem", "ufs_ice";
+		      <0x1d88000 0x8000>,
+		      <0x1d90000 0x9000>;
+		reg-names = "ufs_mem", "ufs_ice", "ufs_ice_hwkm";
 		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";
@@ -2446,7 +2441,7 @@
 
 		iommus = <&apps_smmu 0x4a0 0x0>;
 		dma-coherent;
-		qcom,iommu-dma = "bypass";
+		qcom,iommu-dma = "fastmap";
 
 		interconnects = <&aggre2_noc MASTER_SDCC_2 &mc_virt SLAVE_EBI1>,
 			      <&gem_noc MASTER_APPSS_PROC &config_noc
@@ -3014,6 +3009,7 @@
 
 	llcc_freq_table: llcc-freq-table {
 		qcom,freq-tbl =
+			<  150000 >,
 			<  300000 >,
 			<  466000 >,
 			<  600000 >,
@@ -3169,6 +3165,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,cpufreq-memfreq-tbl =
+					<  300000  150000 >,
 					<  691200  300000 >,
 					< 1459200  466000 >,
 					< 1900800  600000 >;
@@ -3179,6 +3176,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,cpufreq-memfreq-tbl =
+					<  300000  150000 >,
 					<  672000  300000 >,
 					< 1017600  466000 >,
 					< 1305600  600000 >,
@@ -3192,7 +3190,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					< 1804800  300000 >,
+					< 1804800  150000 >,
 					< 2400000  600000 >;
 				qcom,sampling-enabled;
 				qcom,compute-mon;
@@ -3312,19 +3310,13 @@
 		qcom,target-dev = <&qcom_ddr_dcvs_hw>;
 	};
 
-	trust_ui_vm: qcom,trust_ui_vm@e85fc000 {
-		reg = <0xe85fc000 0x204000>;
+	trust_ui_vm: qcom,trust_ui_vm@e8509000 {
+		reg = <0xe8509000 0x104000>;
 		vm_name = "trustedvm";
-		shared-buffers = <&trust_ui_vm_vblk0_ring &trust_ui_vm_vblk1_ring &trust_ui_vm_swiotlb>;
+		shared-buffers = <&trust_ui_vm_vblk0_ring &trust_ui_vm_swiotlb>;
 	};
 
 	qcom,virtio_backend@0 {
-		compatible = "qcom,virtio_backend";
-		qcom,vm = <&trust_ui_vm>;
-		qcom,label = <0x10>;
-	};
-
-	qcom,virtio_backend@1 {
 		compatible = "qcom,virtio_backend";
 		qcom,vm = <&trust_ui_vm>;
 		qcom,label = <0x11>;
@@ -3437,10 +3429,8 @@
 		qcom,ipa-cfg-offset = <0x0140000>;
 		interrupts =
 			<0 654 IRQ_TYPE_LEVEL_HIGH>,
-			<0 432 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 489 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 490 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "ipa-irq", "gsi-irq", "msi-irq-rmnet-ctl", "msi-irq-rmnet-ll";
+			<0 432 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ipa-irq", "gsi-irq";
 		qcom,ipa-hw-ver = <22>; /* IPA core version = IPAv5.1 */
 		qcom,ipa-hw-mode = <0>;
 		qcom,platform-type = <1>; /* MSM platform */
@@ -3460,10 +3450,6 @@
 		qcom,wan-use-skb-page;
 		qcom,rmnet-ctl-enable;
 		qcom,rmnet-ll-enable;
-		qcom,gsi-msi-addr = <0x17110040>;
-		qcom,gsi-msi-clear-addr = <0x17110048>;
-		qcom,gsi-rmnet-ctl-evt-ring-intvec = <521>;
-		qcom,gsi-rmnet-ll-evt-ring-intvec = <522>;
 		qcom,ipa-uc-holb-monitor;
 		qcom,ipa-holb-monitor-poll-period = <5>;
 		qcom,ipa-holb-monitor-max-cnt-wlan = <10>;

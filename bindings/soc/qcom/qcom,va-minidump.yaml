@@ -1,0 +1,36 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/soc/qcom/qcom,va-minidump.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. VA Minidump driver
+
+description: |
+  VA based minidump driver helps in registering dynamic data structures
+  from vendor modules with minidump. This driver works on VA, which
+  would be contiguous even if physical pages are scattered. Each client
+  can register area with contiguous VA as a section for ELF. This driver
+  creates ELF in panic notifier, combining all the section registered
+  by client drivers.
+
+properties:
+  compatible:
+    items:
+      - const: qcom,va-minidump
+
+  memory-region:
+    $ref: '/schemas/types.yaml#/definitions/phandle'
+    maxItems: 1
+    description: |
+      CMA region which is owned by this device.
+
+required:
+  - compatible
+  - memory-region
+
+examples:
+  - |
+    va_mini_dump {
+        compatible = "qcom,va-minidump";
+        memory-region = <&va_md_mem>;
+    };

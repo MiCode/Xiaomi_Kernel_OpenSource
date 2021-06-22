@@ -1,0 +1,31 @@
+#include "waipio.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio v2";
+	compatible = "qcom,waipio";
+	qcom,msm-id = <457 0x20000>;
+};
+
+&CPU4 {
+	dynamic-power-coefficient = <259>;
+};
+
+&CPU5 {
+	dynamic-power-coefficient = <259>;
+};
+
+&CPU6 {
+	dynamic-power-coefficient = <259>;
+};
+
+&CPU7 {
+	dynamic-power-coefficient = <450>;
+};
+
+&clock_camcc {
+	compatible = "qcom,waipio-camcc-v2", "syscon";
+};
+
+&clock_gpucc {
+	compatible = "qcom,waipio-gpucc-v2", "syscon";
+};

@@ -8,6 +8,7 @@ Required properties:
 			Must include "qcom,adreno-gpu-a619-holi" for Holi target.
 			Must include "qcom,adreno-gpu-a660-shima" for Shima target.
 			Must include "qcom,adreno-gpu-c500" for Waipio target.
+			Must include "qcom,adreno-gpu-c500v2" for Waipio V2 target.
 - reg:			Specifies the list of register regions for the device.
 - reg-names:		Resource names used for the register regions specified
 			in reg.
@@ -97,6 +98,7 @@ Optional Properties:
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
 - qcom,gpu-model:	   If it exists this property is used for GPU model name.
+- qcom,vk-device-id:	   If it exists this property is used to specify vulkan device ID.
 - qcom,disable-wake-on-touch:   Boolean. Disables the GPU power up on a touch input event.
 - qcom,disable-busy-time-burst:
 				Boolean. Disables the busy time burst to avoid switching
@@ -204,11 +206,6 @@ Optional Properties:
 				Specify the names of GPU thermal zones. These will be used
 				to get gpu temperature from the thermal driver API.
 
-- qcom,enable-midframe-timer:
-				Boolean. Enables the use of midframe sampling timer. This timer
-				samples the GPU powerstats if the cmdbatch expiry takes longer than
-				the threshold set by KGSL_GOVERNOR_CALL_INTERVAL. Enable only if
-				target has NAP state enabled.
  nvmem-cells:
 				A phandle to the configuration data such as gpu speed bin, gpu gaming mode,
 				gpu model name provided by a nvmem device. If unspecified default values shall be used.
@@ -266,12 +263,16 @@ Properties:
 		Defines a GPU model name for specific GPU model ID.
 
 Properties:
+- compatible:
+		May also include "qcom,adreno-gpu-*" for few targets.
 -  qcom,gpu-model-id:
 		Identifier for the specific GPU hardware configuration  - must match the value read
 		from the hardware.
 - qcom,gpu-model:
 		GPU model name for a specific GPU hardware.
 
+- qcom,vk-device-id:
+		Vulkan device id unique for specific GPU hardware model.
 SOC Hardware revisions:
 - qcom,soc-hw-revisions:
 		Container of sets of SOC hardware revisions specified by
@@ -425,8 +426,16 @@ Example of A330 GPU in MSM8916:
 			compatible="qcom,gpu-models";
 
 			qcom,gpu-model@0 {
+				compatible="qcom,adreno-gpu-a642l";
 				qcom,gpu-model-id = <0>;
 				qcom,gpu-model = "Adreno642Lv1";
+				qcom,vk-device-id= <0x06030500>;
+			};
+			qcom,gpu-model@1 {
+				compatible="qcom,adreno-gpu-a645";
+				qcom,gpu-model-id = <190>;
+				qcom,gpu-model = "Adreno645";
+				qcom,vk-device-id= <0x06030500>;
 			};
 		}
 

@@ -1,0 +1,31 @@
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	vm-config {
+		vdevices {
+			vsmmu@15000000 {
+				vdevice-type = "vsmmu-v2";
+				smmu-handle = <0x15000000>;
+				num-cbs = <0x2>;
+				num-smrs = <0x3>;
+				patch = "/soc/apps-smmu@15000000";
+			};
+		};
+	};
+};
+
+&soc {
+	apps_smmu: apps-smmu@15000000 {
+		/*
+		 * reg, #global-interrupts & interrupts  properties will
+		 * be added dynamically by bootloader.
+		 */
+		compatible = "qcom,qsmmu-v500", "qcom,virt-smmu";
+		#iommu-cells = <2>;
+		qcom,use-3-lvl-tables;
+		dma-coherent;
+		qcom,actlr =
+			<0x2803 0x0400 0x00000001>,
+			<0x2804 0x0402 0x00000001>;
+	};
+};

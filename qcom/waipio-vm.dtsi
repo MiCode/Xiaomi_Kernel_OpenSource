@@ -82,9 +82,9 @@
 		};
 	};
 
-	qrtr-haven {
-		compatible = "qcom,qrtr-haven";
-		haven-label = <3>;
+	qrtr-gunyah {
+		compatible = "qcom,qrtr-gunyah";
+		gunyah-label = <3>;
 	};
 
 	qcom,vm-config {
@@ -150,24 +150,9 @@
 				dma-coherent;
 				dma_base = <0x0 0x0>;
 				memory {
-					qcom,label = <0x10>;
-					#address-cells = <0x2>;
-					base = <0x0 0xFFDFC000>;
-				};
-			};
-
-			virtio-mmio@1 {
-				vdevice-type = "virtio-mmio";
-				generate = "/virtio-mmio";
-				peer-default;
-				vqs-num = <0x1>;
-				push-compatible = "virtio,mmio";
-				dma-coherent;
-				dma_base = <0x0 0x4000>;
-				memory {
 					qcom,label = <0x11>;
 					#address-cells = <0x2>;
-					base = <0x0 0xFFE00000>;
+					base = <0x0 0xFFEFC000>;
 				};
 			};
 
@@ -176,11 +161,11 @@
 				generate = "/swiotlb";
 				push-compatible = "swiotlb";
 				peer-default;
-				dma_base = <0x0 0x8000>;
+				dma_base = <0x0 0x4000>;
 				memory {
 					qcom,label = <0x12>;
 					#address-cells = <0x2>;
-					base = <0x0 0xFFE04000>;
+					base = <0x0 0xFFF00000>;
 				};
 			};
 
@@ -205,7 +190,7 @@
 			qrtr-shm {
 				vdevice-type = "shm-doorbell";
 				generate = "/hypervisor/qrtr-shm";
-				push-compatible = "qcom,qrtr-haven-gen";
+				push-compatible = "qcom,qrtr-gunyah-gen";
 				peer-default;
 				memory {
 					qcom,label = <0x3>;
@@ -262,7 +247,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		/* Valid pins */
-		gpios = /bits/ 16 <0 1>;
+		gpios = /bits/ 16 <64 65 66 67 0 4 86 87>;
 	};
 
 	psci {
@@ -363,8 +348,10 @@
 
 	qtee_shmbridge {
 		compatible = "qcom,tee-shared-memory-bridge";
+		qcom,custom-bridge-size = <512>;
 		qcom,support-hypervisor;
 	};
 };
 
 #include "waipio-vm-dma-heaps.dtsi"
+#include "msm-arm-smmu-waipio-vm.dtsi"

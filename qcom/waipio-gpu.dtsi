@@ -15,12 +15,13 @@
 
 		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
-			<&clock_gpucc GPU_CC_AHB_CLK>;
+			<&clock_gpucc GPU_CC_AHB_CLK>,
+			<&aoss_qmp QDSS_CLK>;
 		clock-names = "gcc_gpu_memnoc_gfx",
 				"gcc_gpu_snoc_dvm_gfx",
-				"gpu_cc_ahb";
+				"gpu_cc_ahb", "apb_pclk";
 
-		qcom,initial-pwrlevel = <4>;
+		qcom,initial-pwrlevel = <6>;
 
 		qcom,no-nap;
 
@@ -76,8 +77,8 @@
 				qcom,gpu-freq = <640000000>;
 				qcom,level = <RPMH_REGULATOR_LEVEL_SVS_L2>;
 
-				qcom,bus-freq = <9>;
-				qcom,bus-min = <8>;
+				qcom,bus-freq = <10>;
+				qcom,bus-min = <6>;
 				qcom,bus-max = <10>;
 			};
 
@@ -93,22 +94,42 @@
 
 			qcom,gpu-pwrlevel@3 {
 				reg = <3>;
-				qcom,gpu-freq = <492000000>;
-				qcom,level = <RPMH_REGULATOR_LEVEL_SVS>;
+				qcom,gpu-freq = <545000000>;
+				qcom,level = <RPMH_REGULATOR_LEVEL_SVS_L0>;
 
-				qcom,bus-freq = <6>;
-				qcom,bus-min = <5>;
-				qcom,bus-max = <8>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <6>;
+				qcom,bus-max = <9>;
 			};
 
 			qcom,gpu-pwrlevel@4 {
 				reg = <4>;
+				qcom,gpu-freq = <492000000>;
+				qcom,level = <RPMH_REGULATOR_LEVEL_SVS>;
+
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <6>;
+				qcom,bus-max = <8>;
+			};
+
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <421000000>;
+				qcom,level = <RPMH_REGULATOR_LEVEL_LOW_SVS_L1>;
+
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <3>;
+				qcom,bus-max = <8>;
+			};
+
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
 				qcom,gpu-freq = <350000000>;
 				qcom,level = <RPMH_REGULATOR_LEVEL_LOW_SVS>;
 
-				qcom,bus-freq = <3>;
+				qcom,bus-freq = <2>;
 				qcom,bus-min = <1>;
-				qcom,bus-max = <5>;
+				qcom,bus-max = <6>;
 			};
 		};
 
@@ -204,13 +225,17 @@
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			<&clock_gpucc GPU_CC_AHB_CLK>,
-			<&clock_gpucc GPU_CC_HUB_CX_INT_CLK>;
+			<&clock_gpucc GPU_CC_HUB_CX_INT_CLK>,
+			<&aoss_qmp>;
 
 		clock-names = "gmu_clk", "cxo_clk", "axi_clk",
-			"memnoc_clk", "ahb_clk", "hub_clk";
+			"memnoc_clk", "ahb_clk", "hub_clk", "apb_pclk";
 
 
 		iommus = <&kgsl_smmu 0x5 0x400>;
 		qcom,iommu-dma = "disabled";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
 	};
 };

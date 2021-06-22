@@ -1,0 +1,17 @@
+QTI Microdump Collector Driver
+
+This driver collects crash data from SMEM whenever modem subsytem
+crashes and stores it under /devcd to expose to user space.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,microdump_modem"
+
+= EXAMPLE
+
+&soc {
+	microdump_modem {
+		compatible = "qcom,microdump_modem";
+	};
+};
