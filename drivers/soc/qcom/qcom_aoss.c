@@ -582,7 +582,7 @@ static ssize_t aoss_dbg_write(struct file *file, const char __user *userstr,
 	if (ret)
 		return -EFAULT;
 
-	ret = qmp_send(qmp, buf, QMP_MSG_LEN);
+	ret = qmp_send(qmp, strim(buf), QMP_MSG_LEN);
 
 	return ret ? ret : len;
 }
