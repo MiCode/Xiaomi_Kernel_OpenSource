@@ -869,11 +869,25 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	struct kgsl_process_private *private = container_of(kref,
 			struct kgsl_process_private, refcount);
 
+	mutex_lock(&kgsl_driver.process_mutex);
+	debugfs_remove_recursive(private->debug_root);
+	kgsl_process_uninit_sysfs(private);
+
+	/* When using global pagetables, do not detach global pagetable */
+	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
+		kgsl_mmu_detach_pagetable(private->pagetable);
+
+	/* Remove the process struct from the master list */
+	write_lock(&kgsl_driver.proclist_lock);
+	list_del(&private->list);
+	write_unlock(&kgsl_driver.proclist_lock);
+	mutex_unlock(&kgsl_driver.process_mutex);
+
 	put_pid(private->pid);
 	idr_destroy(&private->mem_idr);
 	idr_destroy(&private->syncsource_idr);
 
-	/* When using global pagetables, do not detach global pagetable */
+	/* When using global pagetables, do not put global pagetable */
 	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
 		kgsl_mmu_putpagetable(private->pagetable);
 
@@ -962,7 +976,14 @@ static struct kgsl_process_private *kgsl_process_private_new(
 
 		kfree(private);
 		private = ERR_PTR(err);
+		return private;
 	}
+
+	kgsl_process_init_sysfs(device, private);
+	kgsl_process_init_debugfs(private);
+	write_lock(&kgsl_driver.proclist_lock);
+	list_add(&private->list, &kgsl_driver.process_list);
+	write_unlock(&kgsl_driver.proclist_lock);
 
 	return private;
 }
@@ -1008,26 +1029,14 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	}
 
 	/*
-	 * If this is the last file on the process take down the debug
-	 * directories and garbage collect any outstanding resources
+	 * If this is the last file on the process garbage collect
+	 * any outstanding resources
 	 */
 
 	process_release_memory(private);
 
 	/* Release all syncsource objects from process private */
 	kgsl_syncsource_process_release_syncsources(private);
-
-	debugfs_remove_recursive(private->debug_root);
-	kgsl_process_uninit_sysfs(private);
-
-	/* When using global pagetables, do not detach global pagetable */
-	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
-		kgsl_mmu_detach_pagetable(private->pagetable);
-
-	/* Remove the process struct from the master list */
-	write_lock(&kgsl_driver.proclist_lock);
-	list_del(&private->list);
-	write_unlock(&kgsl_driver.proclist_lock);
 
 	mutex_unlock(&kgsl_driver.process_mutex);
 
@@ -1046,19 +1055,7 @@ static struct kgsl_process_private *kgsl_process_private_open(
 	if (IS_ERR(private))
 		goto done;
 
-	/*
-	 * If this is a new process create the debug directories and add it to
-	 * the process list
-	 */
-
-	if (private->fd_count++ == 0) {
-		kgsl_process_init_sysfs(device, private);
-		kgsl_process_init_debugfs(private);
-
-		write_lock(&kgsl_driver.proclist_lock);
-		list_add(&private->list, &kgsl_driver.process_list);
-		write_unlock(&kgsl_driver.proclist_lock);
-	}
+	private->fd_count++;
 
 done:
 	mutex_unlock(&kgsl_driver.process_mutex);
