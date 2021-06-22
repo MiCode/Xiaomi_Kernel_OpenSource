@@ -494,17 +494,6 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 	return 0;
 }
 
-/*
- * Set by default in kgsl_memdesc_init() for the usermem functions that don't
- * define their own operations
- */
-
-static void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc);
-
-static struct kgsl_memdesc_ops kgsl_default_ops = {
-	.put_gpuaddr = kgsl_unmap_and_put_gpuaddr,
-};
-
 void kgsl_memdesc_init(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, uint64_t flags)
 {
@@ -551,8 +540,6 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 	align = max_t(unsigned int,
 		kgsl_memdesc_get_align(memdesc), ilog2(PAGE_SIZE));
 	kgsl_memdesc_set_align(memdesc, align);
-
-	memdesc->ops = &kgsl_default_ops;
 
 	spin_lock_init(&memdesc->lock);
 }
@@ -904,7 +891,7 @@ static void kgsl_free_system_pages(struct kgsl_memdesc *memdesc)
 	memdesc->pages = NULL;
 }
 
-static void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc)
+void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc)
 {
 	if (!memdesc->size || !memdesc->gpuaddr)
 		return;
