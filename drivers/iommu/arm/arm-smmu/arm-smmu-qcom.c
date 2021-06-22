@@ -397,6 +397,8 @@ static const struct arm_smmu_impl qcom_smmu_impl = {
 #define QTB_OVR_ECATS_OUTFLD0_FAULT_TYPE	GENMASK(5, 4)
 #define QTB_OVR_ECATS_OUTFLD0_FAULT		BIT(0)
 
+#define QTB_NS_DBG_PORT_N_OT_SNAPSHOT(port_num)	(0xc10 + (0x10 * port_num))
+
 struct actlr_setting {
 	struct arm_smmu_smr smr;
 	u32 actlr;
@@ -458,6 +460,7 @@ struct arm_tbu_device {
 struct qtb500_device {
 	struct qsmmuv500_tbu_device tbu;
 	bool no_halt;
+	u32 num_ports;
 };
 
 #define to_qtb500(tbu)		container_of(tbu, struct qtb500_device, tbu)
@@ -846,23 +849,44 @@ static void qtb500_tbu_write_sync(struct qsmmuv500_tbu_device *tbu)
 	readl_relaxed(tbu->base + QTB_SWID_LOW);
 }
 
+static void qtb500_log_outstanding_transactions(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *qtb_base = tbu->base;
+	struct qtb500_device *qtb = to_qtb500(tbu);
+	u64 outstanding_tnx;
+	int i;
+
+	for (i = 0; i < qtb->num_ports; i++) {
+		outstanding_tnx = readq_relaxed(qtb_base + QTB_NS_DBG_PORT_N_OT_SNAPSHOT(i));
+		dev_err(tbu->dev, "port %d outstanding transactions bitmap: 0x%llx\n", i,
+			outstanding_tnx);
+	}
+}
+
 static const struct qsmmuv500_tbu_impl qtb500_impl = {
 	.halt_req = qtb500_tbu_halt_req,
 	.halt_poll = qtb500_tbu_halt_poll,
 	.resume = qtb500_tbu_resume,
 	.trigger_atos = qtb500_trigger_atos,
 	.write_sync = qtb500_tbu_write_sync,
+	.log_outstanding_transactions = qtb500_log_outstanding_transactions,
 };
 
 static struct qsmmuv500_tbu_device *qtb500_impl_init(struct qsmmuv500_tbu_device *tbu)
 {
 	struct qtb500_device *qtb;
+	int ret;
 
 	qtb = devm_krealloc(tbu->dev, tbu, sizeof(*qtb), GFP_KERNEL);
 	if (!qtb)
 		return ERR_PTR(-ENOMEM);
 
 	qtb->tbu.impl = &qtb500_impl;
+
+	ret = of_property_read_u32(tbu->dev->of_node, "qcom,num-qtb-ports", &qtb->num_ports);
+	if (ret)
+		return ERR_PTR(ret);
+
 	qtb->no_halt = of_property_read_bool(tbu->dev->of_node, "qcom,no-qtb-atos-halt");
 
 	return &qtb->tbu;
