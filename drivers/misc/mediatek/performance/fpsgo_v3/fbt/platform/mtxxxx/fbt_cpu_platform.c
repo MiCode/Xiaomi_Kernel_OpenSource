@@ -64,7 +64,7 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 	rcu_read_unlock();
 
 	if (likely(p)) {
-		ret = sched_setattr_nocheck(p, &attr);
+		/* ret = sched_setattr_nocheck(p, &attr); */
 		put_task_struct(p);
 	}
 
