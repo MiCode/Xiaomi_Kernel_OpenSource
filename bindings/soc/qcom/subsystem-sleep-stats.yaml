@@ -23,9 +23,12 @@ properties:
    Value type: <string>
    Definition: Should be "qcom,subsystem-sleep-stats".
 
+  reg:
+    maxItems: 1
 
 example:
   - |
     subsystem-sleep-stats {
 		compatible = "qcom,subsystem-sleep-stats";
+		reg = <0xc3f0000 0 0x400>;
 	};
