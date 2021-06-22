@@ -129,10 +129,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_attach,
 	TP_PROTO(struct cgroup_taskset *tset),
 	TP_ARGS(tset), 1);
 
-DECLARE_RESTRICTED_HOOK(android_vh_nice_check,
-	TP_PROTO(long *nice, bool *allowed),
-		TP_ARGS(nice, allowed), 1);
-
 DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_can_attach,
 	TP_PROTO(struct cgroup_taskset *tset, int *retval),
 	TP_ARGS(tset, retval), 1);
