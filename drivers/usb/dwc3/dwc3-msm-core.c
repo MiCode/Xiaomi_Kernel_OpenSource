@@ -5272,8 +5272,11 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 		flush_work(&dwc->drd_work);
 		mdwc->in_host_mode = true;
-
+		pm_runtime_use_autosuspend(&dwc->xhci->dev);
+		pm_runtime_set_autosuspend_delay(&dwc->xhci->dev, 1000);
 		pm_runtime_allow(&dwc->xhci->dev);
+		pm_runtime_mark_last_busy(&dwc->xhci->dev);
+
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
 				DWC3_GUSB3PIPECTL_SUSPHY, 1);
 
