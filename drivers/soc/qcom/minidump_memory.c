@@ -20,9 +20,14 @@
 #include <linux/jhash.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-resv.h>
+#include <linux/fdtable.h>
 #include "minidump_memory.h"
 #include "../../../mm/slab.h"
 #include "../mm/internal.h"
+
+#define DMA_BUF_HASH_SIZE (1 << 20)
+#define DMA_BUF_HASH_SEED 0x9747b28c
+static bool dma_buf_hash[DMA_BUF_HASH_SIZE];
 
 struct priv_buf {
 	char *buf;
@@ -32,6 +37,7 @@ struct priv_buf {
 
 struct dma_buf_priv {
 	struct priv_buf *priv_buf;
+	struct task_struct *task;
 	int count;
 	size_t size;
 };
@@ -266,6 +272,8 @@ bool md_register_memory_dump(int size, char *name)
 #endif
 	if (!strcmp(name, "DMABUF_INFO"))
 		WRITE_ONCE(md_dma_buf_info_addr, buffer_start);
+	if (!strcmp(name, "DMABUF_PROCS"))
+		WRITE_ONCE(md_dma_buf_procs_addr, buffer_start);
 	return true;
 }
 
@@ -1196,4 +1204,142 @@ void md_debugfs_dmabufinfo(struct dentry *minidump_dir)
 {
 	debugfs_create_file("dma_buf_info_size_mb", 0400, minidump_dir, NULL,
 			    &proc_dma_buf_info_size_ops);
+}
+
+static int get_dma_info(const void *data, struct file *file, unsigned int n)
+{
+	struct priv_buf *buf;
+	struct dma_buf_priv *dma_buf_priv;
+	struct dma_buf *dmabuf;
+	struct task_struct *task;
+	int ret;
+	u32 index;
+
+	if (!is_dma_buf_file(file))
+		return 0;
+
+	dma_buf_priv = (struct dma_buf_priv *)data;
+	buf = dma_buf_priv->priv_buf;
+	task = dma_buf_priv->task;
+	if (dma_buf_priv->count == 0) {
+		ret = scnprintf(buf->buf + buf->offset, buf->size - buf->offset,
+				"\n%s (PID %d)\nDMA Buffers:\n",
+				task->comm, task->tgid);
+		buf->offset += ret;
+		if (buf->offset == buf->size - 1)
+			return -EINVAL;
+	}
+	dmabuf = (struct dma_buf *)file->private_data;
+	index = jhash(dmabuf, sizeof(struct dma_buf), DMA_BUF_HASH_SEED);
+	index = index  & (DMA_BUF_HASH_SIZE - 1);
+	if (dma_buf_hash[index])
+		return 0;
+	dma_buf_hash[index] = true;
+	dma_buf_priv->count += 1;
+	ret = scnprintf(buf->buf + buf->offset, buf->size - buf->offset,
+			"%-8s\t%-8s\t%-8s\t%-8s\texp_name\t%-8s\n",
+			"size", "flags", "mode", "count", "ino");
+	buf->offset += ret;
+	if (buf->offset == buf->size - 1)
+		return -EINVAL;
+	ret = scnprintf(buf->buf + buf->offset, buf->size - buf->offset,
+			"%08zu\t%08x\t%08x\t%08ld\t%s\t%08lu\t%s\n",
+			dmabuf->size,
+			dmabuf->file->f_flags, dmabuf->file->f_mode,
+			file_count(dmabuf->file),
+			dmabuf->exp_name,
+			file_inode(dmabuf->file)->i_ino,
+			dmabuf->name ?: "");
+	buf->offset += ret;
+	if (buf->offset == buf->size - 1)
+		return -EINVAL;
+	dma_buf_priv->size += dmabuf->size;
+	return 0;
+}
+
+void md_dma_buf_procs(char *m, size_t dump_size)
+{
+	struct task_struct *task, *thread;
+	struct files_struct *files;
+	int ret = 0;
+	struct priv_buf buf;
+	struct dma_buf_priv dma_buf_priv;
+
+	buf.buf = m;
+	buf.size = dump_size;
+	buf.offset = 0;
+	dma_buf_priv.priv_buf = &buf;
+	dma_buf_priv.count = 0;
+	dma_buf_priv.size = 0;
+
+	rcu_read_lock();
+	for_each_process(task) {
+		struct files_struct *group_leader_files = NULL;
+
+		dma_buf_priv.task = task;
+		for_each_thread(task, thread) {
+			task_lock(thread);
+			if (unlikely(!group_leader_files))
+				group_leader_files = task->group_leader->files;
+			files = thread->files;
+			if (files && (group_leader_files != files ||
+				      thread == task->group_leader))
+				ret = iterate_fd(files, 0, get_dma_info, &dma_buf_priv);
+			task_unlock(thread);
+			if (ret)
+				goto err;
+		}
+		if (dma_buf_priv.count) {
+			ret = scnprintf(buf.buf + buf.offset, buf.size - buf.offset,
+				"\nTotal %d objects, %zu bytes\n",
+				dma_buf_priv.count, dma_buf_priv.size);
+			buf.offset += ret;
+			if (buf.offset == buf.size - 1)
+				goto err;
+			dma_buf_priv.count = 0;
+			dma_buf_priv.size = 0;
+			memset(dma_buf_hash, 0, sizeof(dma_buf_hash));
+		}
+	}
+	rcu_read_unlock();
+	return;
+err:
+	rcu_read_unlock();
+	pr_err("DMABUF_PROCS Minidump region exhausted\n");
+}
+
+static ssize_t dma_buf_procs_size_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	unsigned long long  size;
+
+	if (kstrtoull_from_user(ubuf, count, 0, &size)) {
+		pr_err_ratelimited("Invalid format for size\n");
+		return -EINVAL;
+	}
+	update_dump_size("DMABUF_PROCS", size,
+			&md_dma_buf_procs_addr, &md_dma_buf_procs_size);
+	return count;
+}
+
+static ssize_t dma_buf_procs_size_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	char buf[100];
+
+	snprintf(buf, sizeof(buf), "%llu MB\n", md_dma_buf_procs_size/SZ_1M);
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+}
+
+static const struct file_operations proc_dma_buf_procs_size_ops = {
+	.open	= simple_open,
+	.write	= dma_buf_procs_size_write,
+	.read	= dma_buf_procs_size_read,
+};
+
+void md_debugfs_dmabufprocs(struct dentry *minidump_dir)
+{
+	debugfs_create_file("dma_buf_procs_size_mb", 0400, minidump_dir, NULL,
+			&proc_dma_buf_procs_size_ops);
 }
