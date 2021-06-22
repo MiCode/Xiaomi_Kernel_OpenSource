@@ -1247,8 +1247,10 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 	unsigned int cmd;
 	int ret = 0;
 
-	if (should_wake)
+	if (should_wake) {
+		pr_info("%s: %d triggered %s\n", __func__, irq, glink->irqname);
 		pm_system_wakeup();
+	}
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
 
