@@ -29,6 +29,6 @@ DUMMY_IMG_SIZE=4096
 . ${KERNEL_DIR}/build.config.msm.common
 
 ## Variant branch setup
-BRANCH=msm-neo
+BRANCH=neo
 
 . ${KERNEL_DIR}/build.config.msm.vm

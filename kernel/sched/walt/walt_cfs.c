@@ -11,6 +11,46 @@
 #include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
 
+static void create_util_to_cost_pd(struct em_perf_domain *pd)
+{
+	int util, cpu = cpumask_first(to_cpumask(pd->cpus));
+	unsigned long fmax;
+	unsigned long scale_cpu;
+	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
+	struct walt_sched_cluster *cluster = wrq->cluster;
+
+	fmax = (u64)pd->table[pd->nr_perf_states - 1].frequency;
+	scale_cpu = arch_scale_cpu_capacity(cpu);
+
+	for (util = 0; util < 1024; util++) {
+		int j;
+
+		int f = (fmax * util) / scale_cpu;
+		struct em_perf_state *ps = &pd->table[0];
+
+		for (j = 0; j < pd->nr_perf_states; j++) {
+			ps = &pd->table[j];
+			if (ps->frequency >= f)
+				break;
+		}
+		cluster->util_to_cost[util] = ps->cost;
+	}
+}
+
+void create_util_to_cost(void)
+{
+	struct perf_domain *pd;
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+
+	rcu_read_lock();
+	pd = rcu_dereference(rd->pd);
+	for (; pd; pd = pd->next)
+		create_util_to_cost_pd(pd->em_pd);
+	rcu_read_unlock();
+}
+
+DECLARE_PER_CPU(unsigned long, gov_last_util);
+
 /* Migration margins */
 unsigned int sched_capacity_margin_up[WALT_NR_CPUS] = {
 			[0 ... WALT_NR_CPUS-1] = 1078 /* ~5% margin */
@@ -50,6 +90,7 @@ struct find_best_target_env {
 	int	end_index;
 	bool	strict_max;
 	int	skip_cpu;
+	u64	prs[8];
 };
 
 /*
@@ -112,8 +153,10 @@ static inline bool walt_target_ok(int target_cpu, int order_index)
 		 (target_cpu == cpumask_first(&cpu_array[order_index][0])));
 }
 
+#define MIN_UTIL_FOR_ENERGY_EVAL	10
 static void walt_get_indicies(struct task_struct *p, int *order_index,
-		int *end_index, int task_boost, bool uclamp_boost)
+		int *end_index, int per_task_boost, bool is_uclamp_boosted,
+		bool *energy_eval_needed)
 {
 	int i = 0;
 
@@ -123,12 +166,14 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 	if (num_sched_clusters <= 1)
 		return;
 
-	if (task_boost > TASK_BOOST_ON_MID) {
+	if (per_task_boost > TASK_BOOST_ON_MID) {
 		*order_index = num_sched_clusters - 1;
+		*energy_eval_needed = false;
 		return;
 	}
 
 	if (is_full_throttle_boost()) {
+		*energy_eval_needed = false;
 		*order_index = num_sched_clusters - 1;
 		if ((*order_index > 1) && task_demand_fits(p,
 			cpumask_first(&cpu_array[*order_index][1])))
@@ -136,10 +181,12 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		return;
 	}
 
-	if (uclamp_boost || task_boost ||
+	if (is_uclamp_boosted || per_task_boost ||
 		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
-		walt_task_skip_min_cpu(p))
+		walt_task_skip_min_cpu(p)) {
+		*energy_eval_needed = false;
 		*order_index = 1;
+	}
 
 	for (i = *order_index ; i < num_sched_clusters - 1; i++) {
 		if (task_demand_fits(p, cpumask_first(&cpu_array[i][0])))
@@ -147,6 +194,17 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 	}
 
 	*order_index = i;
+
+	if (*order_index == 0 &&
+			(task_util(p) >= MIN_UTIL_FOR_ENERGY_EVAL) &&
+			!(p->in_iowait && task_in_related_thread_group(p)) &&
+			!walt_get_rtg_status(p) &&
+			!(sched_boost_type == CONSERVATIVE_BOOST && task_sched_boost(p))
+			)
+		*end_index = 1;
+
+	if (p->in_iowait && task_in_related_thread_group(p))
+		*energy_eval_needed = false;
 }
 
 enum fastpaths {
@@ -154,6 +212,13 @@ enum fastpaths {
 	SYNC_WAKEUP,
 	PREV_CPU_FASTPATH,
 };
+
+static inline bool is_complex_sibling_idle(int cpu)
+{
+	if (cpu_l2_sibling[cpu] != -1)
+		return available_idle_cpu(cpu_l2_sibling[cpu]);
+	return false;
+}
 
 static void walt_find_best_target(struct sched_domain *sd,
 					cpumask_t *candidates,
@@ -164,8 +229,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 	long target_max_spare_cap = 0;
 	unsigned long best_idle_cuml_util = ULONG_MAX;
 	unsigned int min_exit_latency = UINT_MAX;
-	int best_idle_cpu = -1;
-	int target_cpu = -1;
 	int i, start_cpu;
 	long spare_wake_cap, most_spare_wake_cap = 0;
 	int most_spare_cap_cpu = -1;
@@ -202,13 +265,21 @@ static void walt_find_best_target(struct sched_domain *sd,
 				cpu_active(prev_cpu) && cpu_online(prev_cpu) &&
 				available_idle_cpu(prev_cpu) &&
 				cpumask_test_cpu(prev_cpu, p->cpus_ptr)) {
-		target_cpu = prev_cpu;
 		fbt_env->fastpath = PREV_CPU_FASTPATH;
-		cpumask_set_cpu(target_cpu, candidates);
+		cpumask_set_cpu(prev_cpu, candidates);
 		goto out;
 	}
 
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
+		int best_idle_cpu_cluster = -1;
+		int target_cpu_cluster = -1;
+		int this_complex_idle = 0;
+		int best_complex_idle = 0;
+
+		target_max_spare_cap = 0;
+		min_exit_latency = INT_MAX;
+		best_idle_cuml_util = ULONG_MAX;
+
 		cpumask_and(&visit_cpus, &p->cpus_mask,
 				&cpu_array[order_index][cluster]);
 		for_each_cpu(i, &visit_cpus) {
@@ -216,8 +287,11 @@ static void walt_find_best_target(struct sched_domain *sd,
 			unsigned long wake_util, new_util, new_util_cuml;
 			long spare_cap;
 			unsigned int idle_exit_latency = UINT_MAX;
+			struct walt_rq *wrq = (struct walt_rq *) cpu_rq(i)->android_vendor_data1;
 
 			trace_sched_cpu_util(i);
+			/* record the prss as we visit cpus in a cluster */
+			fbt_env->prs[i] = wrq->prev_runnable_sum + wrq->grp_time.prev_runnable_sum;
 
 			if (!cpu_active(i))
 				continue;
@@ -284,6 +358,10 @@ static void walt_find_best_target(struct sched_domain *sd,
 			if (available_idle_cpu(i)) {
 				idle_exit_latency = walt_get_idle_exit_latency(cpu_rq(i));
 
+				this_complex_idle = is_complex_sibling_idle(i) ? 1 : 0;
+
+				if (this_complex_idle < best_complex_idle)
+					continue;
 				/*
 				 * Prefer shallowest over deeper idle state cpu,
 				 * of same capacity cpus.
@@ -293,16 +371,21 @@ static void walt_find_best_target(struct sched_domain *sd,
 
 				new_util_cuml = cpu_util_cum(i);
 				if (min_exit_latency == idle_exit_latency &&
-					(best_idle_cpu == prev_cpu ||
+					(best_idle_cpu_cluster == prev_cpu ||
 					(i != prev_cpu &&
 					new_util_cuml > best_idle_cuml_util)))
 					continue;
 
 				min_exit_latency = idle_exit_latency;
 				best_idle_cuml_util = new_util_cuml;
-				best_idle_cpu = i;
+				best_idle_cpu_cluster = i;
+				best_complex_idle = this_complex_idle;
 				continue;
 			}
+
+			/* skip visiting any more busy if idle was found */
+			if (best_idle_cpu_cluster != -1)
+				continue;
 
 			if (per_task_boost(cpu_rq(i)->curr) ==
 					TASK_BOOST_STRICT_MAX)
@@ -338,106 +421,179 @@ static void walt_find_best_target(struct sched_domain *sd,
 
 			target_max_spare_cap = spare_cap;
 			target_nr_rtg_high_prio = walt_nr_rtg_high_prio(i);
-			target_cpu = i;
+			target_cpu_cluster = i;
 		}
 
-		if (best_idle_cpu != -1)
-			break;
+		if (best_idle_cpu_cluster != -1)
+			cpumask_set_cpu(best_idle_cpu_cluster, candidates);
+		else if (target_cpu_cluster != -1)
+			cpumask_set_cpu(target_cpu_cluster, candidates);
 
-		if ((cluster >= end_index) && (target_cpu != -1) &&
-			walt_target_ok(target_cpu, order_index))
+		if ((cluster >= end_index) && (!cpumask_empty(candidates)) &&
+			walt_target_ok(target_cpu_cluster, order_index))
 			break;
 
 		if (most_spare_cap_cpu != -1 && cluster >= stop_index)
 			break;
 	}
 
-	if (best_idle_cpu != -1)
-		target_cpu = -1;
 	/*
-	 * We set both idle and target as long as they are valid CPUs.
+	 * We have set idle or target as long as they are valid CPUs.
 	 * If we don't find either, then we fallback to most_spare_cap,
 	 * If we don't find most spare cap, we fallback to prev_cpu,
 	 * provided that the prev_cpu is active.
 	 * If the prev_cpu is not active, we fallback to active_candidate.
 	 */
 
-	if (unlikely(target_cpu == -1)) {
-		if (best_idle_cpu != -1)
-			target_cpu = best_idle_cpu;
-		else if (most_spare_cap_cpu != -1)
-			target_cpu = most_spare_cap_cpu;
+	if (unlikely(cpumask_empty(candidates))) {
+		if (most_spare_cap_cpu != -1)
+			cpumask_set_cpu(most_spare_cap_cpu, candidates);
 		else if (!cpu_active(prev_cpu))
-			target_cpu = active_candidate;
+			cpumask_set_cpu(active_candidate, candidates);
 	}
 
-	if (target_cpu != -1)
-		cpumask_set_cpu(target_cpu, candidates);
-	if (best_idle_cpu != -1 && target_cpu != best_idle_cpu)
-		cpumask_set_cpu(best_idle_cpu, candidates);
 out:
-	trace_sched_find_best_target(p, min_util, start_cpu,
-			     best_idle_cpu, most_spare_cap_cpu,
-			     target_cpu, order_index, end_index,
+	trace_sched_find_best_target(p, min_util, start_cpu, cpumask_bits(candidates)[0],
+			     most_spare_cap_cpu, order_index, end_index,
 			     fbt_env->skip_cpu, task_on_rq_queued(p));
 }
 
-static inline unsigned long
-cpu_util_next_walt(int cpu, struct task_struct *p, int dst_cpu)
+static inline u64
+cpu_util_next_walt_prs(int cpu, struct task_struct *p, int dst_cpu, bool prev_dst_same_cluster,
+											u64 *prs)
 {
-	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
-	unsigned long util = wrq->walt_stats.cumulative_runnable_avg_scaled;
-	bool queued = task_on_rq_queued(p);
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+	long util = prs[cpu];
 
-	/*
-	 * When task is queued,
-	 * (a) The evaluating CPU (cpu) is task's current CPU. If the
-	 * task is migrating, discount the task contribution from the
-	 * evaluation cpu.
-	 * (b) The evaluating CPU (cpu) is task's current CPU. If the
-	 * task is NOT migrating, nothing to do. The contribution is
-	 * already present on the evaluation CPU.
-	 * (c) The evaluating CPU (cpu) is not task's current CPU. But
-	 * the task is migrating to the evaluating CPU. So add the
-	 * task contribution to it.
-	 * (d) The evaluating CPU (cpu) is neither the current CPU nor
-	 * the destination CPU. don't care.
-	 *
-	 * When task is NOT queued i.e waking. Task contribution is not
-	 * present on any CPU.
-	 *
-	 * (a) If the evaluating CPU is the destination CPU, add the task
-	 * contribution.
-	 * (b) The evaluation CPU is not the destination CPU, don't care.
-	 */
-	if (unlikely(queued)) {
-		if (task_cpu(p) == cpu) {
-			if (dst_cpu != cpu)
-				util = max_t(long, util - task_util(p), 0);
-		} else if (dst_cpu == cpu) {
-			util += task_util(p);
+	if (wts->prev_window) {
+		if (!prev_dst_same_cluster) {
+			/* intercluster migration of non rtg task - mimic fixups */
+			util -= wts->prev_window_cpu[cpu];
+			if (util < 0)
+				util = 0;
+			if (cpu == dst_cpu)
+				util += wts->prev_window;
 		}
-	} else if (dst_cpu == cpu) {
-		util += task_util(p);
+	} else {
+		if (cpu == dst_cpu)
+			util += wts->demand;
 	}
 
-	return min_t(unsigned long, util, capacity_orig_of(cpu));
+	return util;
+}
+
+/**
+ * walt_em_cpu_energy() - Estimates the energy consumed by the CPUs of a
+		performance domain
+ * @pd		: performance domain for which energy has to be estimated
+ * @max_util	: highest utilization among CPUs of the domain
+ * @sum_util	: sum of the utilization of all CPUs in the domain
+ *
+ * This function must be used only for CPU devices. There is no validation,
+ * i.e. if the EM is a CPU type and has cpumask allocated. It is called from
+ * the scheduler code quite frequently and that is why there is not checks.
+ *
+ * Return: the sum of the energy consumed by the CPUs of the domain assuming
+ * a capacity state satisfying the max utilization of the domain.
+ */
+static inline unsigned long walt_em_cpu_energy(struct em_perf_domain *pd,
+				unsigned long max_util, unsigned long sum_util,
+				struct compute_energy_output *output, unsigned int x)
+{
+	unsigned long scale_cpu;
+	int cpu;
+	struct walt_rq *wrq;
+
+	if (!sum_util)
+		return 0;
+
+	/*
+	 * In order to predict the capacity state, map the utilization of the
+	 * most utilized CPU of the performance domain to a requested frequency,
+	 * like schedutil.
+	 */
+	cpu = cpumask_first(to_cpumask(pd->cpus));
+	scale_cpu = arch_scale_cpu_capacity(cpu);
+
+	max_util = max_util + (max_util >> 2); /* account  for TARGET_LOAD usually 80 */
+	max_util = max(max_util,
+			(arch_scale_freq_capacity(cpu) * capacity_orig_of(cpu)) >>
+			SCHED_CAPACITY_SHIFT);
+
+	/*
+	 * The capacity of a CPU in the domain at the performance state (ps)
+	 * can be computed as:
+	 *
+	 *             ps->freq * scale_cpu
+	 *   ps->cap = --------------------                          (1)
+	 *                 cpu_max_freq
+	 *
+	 * So, ignoring the costs of idle states (which are not available in
+	 * the EM), the energy consumed by this CPU at that performance state
+	 * is estimated as:
+	 *
+	 *             ps->power * cpu_util
+	 *   cpu_nrg = --------------------                          (2)
+	 *                   ps->cap
+	 *
+	 * since 'cpu_util / ps->cap' represents its percentage of busy time.
+	 *
+	 *   NOTE: Although the result of this computation actually is in
+	 *         units of power, it can be manipulated as an energy value
+	 *         over a scheduling period, since it is assumed to be
+	 *         constant during that interval.
+	 *
+	 * By injecting (1) in (2), 'cpu_nrg' can be re-expressed as a product
+	 * of two terms:
+	 *
+	 *             ps->power * cpu_max_freq   cpu_util
+	 *   cpu_nrg = ------------------------ * ---------          (3)
+	 *                    ps->freq            scale_cpu
+	 *
+	 * The first term is static, and is stored in the em_perf_state struct
+	 * as 'ps->cost'.
+	 *
+	 * Since all CPUs of the domain have the same micro-architecture, they
+	 * share the same 'ps->cost', and the same CPU capacity. Hence, the
+	 * total energy of the domain (which is the simple sum of the energy of
+	 * all of its CPUs) can be factorized as:
+	 *
+	 *            ps->cost * \Sum cpu_util
+	 *   pd_nrg = ------------------------                       (4)
+	 *                  scale_cpu
+	 */
+	if (max_util >= 1024)
+		max_util = 1023;
+
+	wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
+
+	if (output) {
+		output->cost[x] = wrq->cluster->util_to_cost[max_util];
+		output->max_util[x] = max_util;
+		output->sum_util[x] = sum_util;
+	}
+	return wrq->cluster->util_to_cost[max_util] * sum_util / scale_cpu;
 }
 
 /*
- * compute_energy(): Estimates the energy that @pd would consume if @p was
+ * walt_pd_compute_energy(): Estimates the energy that @pd would consume if @p was
  * migrated to @dst_cpu. compute_energy() predicts what will be the utilization
  * landscape of @pd's CPUs after the task migration, and uses the Energy Model
  * to compute what would be the energy if we decided to actually migrate that
  * task.
  */
 static long
-compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
+walt_pd_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd, u64 *prs,
+		struct compute_energy_output *output, unsigned int x)
 {
 	struct cpumask *pd_mask = perf_domain_span(pd);
 	unsigned long max_util = 0, sum_util = 0;
 	int cpu;
 	unsigned long cpu_util;
+	bool prev_dst_same_cluster = false;
+
+	if (same_cluster(task_cpu(p), dst_cpu))
+		prev_dst_same_cluster = true;
 
 	/*
 	 * The capacity state of CPUs of the current rd can be driven by CPUs
@@ -449,21 +605,36 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 	 * its pd list and will not be accounted by compute_energy().
 	 */
 	for_each_cpu_and(cpu, pd_mask, cpu_online_mask) {
-		cpu_util = cpu_util_next_walt(cpu, p, dst_cpu);
+		cpu_util = cpu_util_next_walt_prs(cpu, p, dst_cpu, prev_dst_same_cluster, prs);
 		sum_util += cpu_util;
 		max_util = max(max_util, cpu_util);
 	}
 
-	return em_cpu_energy(pd->em_pd, max_util, sum_util);
+	max_util = scale_demand(max_util);
+	sum_util = scale_demand(sum_util);
+
+	if (output)
+		output->cluster_first_cpu[x] = cpumask_first(pd_mask);
+
+	return walt_em_cpu_energy(pd->em_pd, max_util, sum_util, output, x);
 }
 
 static inline long
-walt_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
+walt_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
+			cpumask_t *candidates, u64 *prs, struct compute_energy_output *output)
 {
 	long energy = 0;
+	unsigned int x = 0;
 
-	for (; pd; pd = pd->next)
-		energy += compute_energy(p, dst_cpu, pd);
+	for (; pd; pd = pd->next) {
+		struct cpumask *pd_mask = perf_domain_span(pd);
+
+		if (cpumask_intersects(candidates, pd_mask)
+				|| cpumask_test_cpu(task_cpu(p), pd_mask)) {
+			energy += walt_pd_compute_energy(p, dst_cpu, pd, prs, output, x);
+			x++;
+		}
+	}
 
 	return energy;
 }
@@ -517,6 +688,9 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	int task_boost = per_task_boost(p);
 	bool uclamp_boost = uclamp_boosted(p);
 	int start_cpu, order_index, end_index;
+	int max_cap_cpu = -1;
+	bool energy_eval_needed = true;
+	struct compute_energy_output output;
 
 	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
 			cpumask_test_cpu(prev_cpu, &p->cpus_mask))
@@ -525,7 +699,8 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	if (unlikely(!cpu_array))
 		return -EPERM;
 
-	walt_get_indicies(p, &order_index, &end_index, task_boost, uclamp_boost);
+	walt_get_indicies(p, &order_index, &end_index, task_boost, uclamp_boost,
+								&energy_eval_needed);
 	start_cpu = cpumask_first(&cpu_array[order_index][0]);
 
 	is_rtg = task_in_related_thread_group(p);
@@ -572,38 +747,59 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	if (!weight)
 		goto unlock;
 
-	/* If there is only one sensible candidate, select it now. */
-	cpu = cpumask_first(candidates);
-	if (weight == 1 && (available_idle_cpu(cpu) || cpu == prev_cpu)) {
-		best_energy_cpu = cpu;
+	max_cap_cpu = cpumask_first(candidates);
+	if (weight == 1) {
+		if (available_idle_cpu(max_cap_cpu) || max_cap_cpu == prev_cpu) {
+			best_energy_cpu = max_cap_cpu;
+			goto unlock;
+		}
+	}
+
+	for_each_cpu(cpu, candidates) {
+		if (capacity_orig_of(max_cap_cpu) < capacity_orig_of(cpu))
+			max_cap_cpu = cpu;
+	}
+
+	if (!energy_eval_needed) {
+		best_energy_cpu = max_cap_cpu;
 		goto unlock;
 	}
 
 	if (p->state == TASK_WAKING)
 		delta = task_util(p);
 
-	if (task_placement_boost_enabled(p) || fbt_env.need_idle ||
-	    uclamp_boost || task_boost || is_rtg ||
-	    __cpu_overutilized(prev_cpu, delta) || !task_fits_max(p, prev_cpu) ||
-	    !cpu_active(prev_cpu)) {
-		best_energy_cpu = cpu;
-		goto unlock;
-	}
+	if (cpumask_test_cpu(prev_cpu, &p->cpus_mask) && !__cpu_overutilized(prev_cpu, delta)) {
+		if (trace_sched_compute_energy_enabled()) {
+			memset(&output, 0, sizeof(output));
+			prev_energy = walt_compute_energy(p, prev_cpu, pd, candidates, fbt_env.prs,
+					&output);
+		} else {
+			prev_energy = walt_compute_energy(p, prev_cpu, pd, candidates, fbt_env.prs,
+					NULL);
+		}
 
-	if (cpumask_test_cpu(prev_cpu, &p->cpus_mask))
-		prev_energy = best_energy =
-			walt_compute_energy(p, prev_cpu, pd);
-	else
+		best_energy = prev_energy;
+		trace_sched_compute_energy(p, prev_cpu, prev_energy, 0, 0, 0, &output);
+	} else {
 		prev_energy = best_energy = ULONG_MAX;
+	}
 
 	/* Select the best candidate energy-wise. */
 	for_each_cpu(cpu, candidates) {
 		if (cpu == prev_cpu)
 			continue;
 
-		cur_energy = walt_compute_energy(p, cpu, pd);
+		if (trace_sched_compute_energy_enabled()) {
+			memset(&output, 0, sizeof(output));
+			cur_energy = walt_compute_energy(p, cpu, pd, candidates, fbt_env.prs,
+					&output);
+		} else {
+			cur_energy = walt_compute_energy(p, cpu, pd, candidates, fbt_env.prs,
+					NULL);
+		}
+
 		trace_sched_compute_energy(p, cpu, cur_energy,
-			prev_energy, best_energy, best_energy_cpu);
+			prev_energy, best_energy, best_energy_cpu, &output);
 
 		if (cur_energy < best_energy) {
 			best_energy = cur_energy;
@@ -617,9 +813,6 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		}
 	}
 
-unlock:
-	rcu_read_unlock();
-
 	/*
 	 * Pick the prev CPU, if best energy CPU can't saves at least 6% of
 	 * the energy used by prev_cpu.
@@ -627,9 +820,12 @@ unlock:
 	if (!(available_idle_cpu(best_energy_cpu) &&
 	    walt_get_idle_exit_latency(cpu_rq(best_energy_cpu)) <= 1) &&
 	    (prev_energy != ULONG_MAX) && (best_energy_cpu != prev_cpu) &&
-	    ((prev_energy - best_energy) <= prev_energy >> 4) &&
+	    ((prev_energy - best_energy) <= prev_energy >> 5) &&
 	    (capacity_orig_of(prev_cpu) <= capacity_orig_of(start_cpu)))
 		best_energy_cpu = prev_cpu;
+
+unlock:
+	rcu_read_unlock();
 
 done:
 	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,

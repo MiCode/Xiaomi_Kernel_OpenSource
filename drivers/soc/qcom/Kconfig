@@ -174,6 +174,15 @@ config QCOM_TLMM_VM_IRQCHIP
          Say Y here to compile the driver as a part of kernel or M to compile
          as a module.
 
+config QCOM_GIC_INTERRUPT_ROUTING
+       tristate "Qualcomm Technologies, Inc. GIC Interrupt Routing driver"
+       depends on ARM_GIC_V3
+       help
+         Qualcomm Technologies, Inc. GIC interrupt routing driver for MSM devices.
+         The driver manages interrupt routing for shared peripheral interrupts.
+         Say Y here to compile the driver as a part of kernel or M to compile
+         as a module.
+
 config QCOM_RIMPS
 	tristate "Qualcomm Technologies, Inc. Rimps driver"
 	depends on MAILBOX
@@ -1011,6 +1020,15 @@ choice
 		  in the dmesg. This is mutually exclusive with the above
 		  DEBUG_SPINLOCK_BITE_ON_BUG.
 endchoice
+
+config QCOM_HUNG_TASK_ENH
+	tristate "QTI Hung Task Enhancement"
+	depends on ARCH_QCOM
+	help
+	  Add options at sysfs to enhance khungtask, allow user to
+	  select and monitor tasks in black/white list mode. Also
+	  processes in iowait for specific situation will be monitored
+	  to avoid devices long time no response.
 
 config QCOM_SMCINVOKE
 	tristate "Secure QSEE Support"

@@ -6,6 +6,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/interconnect.h>
 #include <linux/of_platform.h>
+#include <linux/iopoll.h>
 #include "arm-smmu.h"
 
 #define ARM_SMMU_ICC_AVG_BW		0
@@ -125,83 +126,65 @@ out:
 	return ret;
 }
 
-static int arm_smmu_disable_regulators(struct arm_smmu_power_resources *pwr)
+/*
+ * Prior to accessing registers in the TBU local register space,
+ * TBU must be woken from micro idle.
+ */
+static int __arm_smmu_micro_idle_cfg(struct arm_smmu_device *smmu,
+					    u32 val, u32 mask)
 {
-	struct regulator_bulk_data *consumers;
-	int i;
-	int num_consumers, ret, r;
+	void __iomem *reg;
+	u32 tmp, new;
+	unsigned long flags;
+	int ret;
 
-	num_consumers = pwr->num_gdscs;
-	consumers = pwr->gdscs;
-	for (i = num_consumers - 1; i >= 0; --i) {
-		ret = regulator_disable_deferred(consumers[i].consumer,
-						 pwr->regulator_defer);
-		if (ret != 0)
-			goto err;
-	}
+	/* Protect APPS_SMMU_TBU_REG_ACCESS register. */
+	spin_lock_irqsave(&smmu->global_sync_lock, flags);
+	new = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF5,
+			APPS_SMMU_TBU_REG_ACCESS_REQ_NS);
+	new &= ~mask;
+	new |= val;
+	arm_smmu_writel(smmu, ARM_SMMU_IMPL_DEF5,
+			APPS_SMMU_TBU_REG_ACCESS_REQ_NS,
+			new);
 
-	return 0;
-
-err:
-	pr_err("Failed to disable %s: %d\n", consumers[i].supply, ret);
-	for (++i; i < num_consumers; ++i) {
-		r = regulator_enable(consumers[i].consumer);
-		if (r != 0)
-			pr_err("Failed to rename %s: %d\n",
-			       consumers[i].supply, r);
-	}
-
+	reg = arm_smmu_page(smmu, ARM_SMMU_IMPL_DEF5);
+	reg += APPS_SMMU_TBU_REG_ACCESS_ACK_NS;
+	ret = readl_poll_timeout_atomic(reg, tmp, ((tmp & mask) == val), 0, 200);
+	if (ret)
+		WARN(1, "%s: Timed out configuring micro idle! %x instead of %x\n",
+			tmp, new);
+	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
 	return ret;
 }
 
-/* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
-static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
+int arm_smmu_micro_idle_wake(struct arm_smmu_power_resources *pwr)
 {
-	int ret = 0;
-	unsigned long flags;
+	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
+	u32 val;
 
-	spin_lock_irqsave(&pwr->clock_refs_lock, flags);
-	if (pwr->clock_refs_count > 0) {
-		pwr->clock_refs_count++;
-		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
+	if (!tbu->has_micro_idle)
 		return 0;
-	}
 
-	ret = arm_smmu_enable_clocks(pwr);
-	if (!ret)
-		pwr->clock_refs_count = 1;
-
-	spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
-	return ret;
+	val = tbu->sid_start >> 10;
+	val = 1 << val;
+	return __arm_smmu_micro_idle_cfg(tbu->smmu, val, val);
 }
 
-/* Clocks should be unprepared after this (arm_smmu_unprepare_clocks) */
-static void arm_smmu_power_off_atomic(struct arm_smmu_device *smmu,
-				      struct arm_smmu_power_resources *pwr)
+void arm_smmu_micro_idle_allow(struct arm_smmu_power_resources *pwr)
 {
-	unsigned long flags;
+	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(pwr->dev);
+	u32 val;
 
-	arm_smmu_arch_write_sync(smmu);
-
-	spin_lock_irqsave(&pwr->clock_refs_lock, flags);
-	if (pwr->clock_refs_count == 0) {
-		WARN(1, "%s: bad clock_ref_count\n", dev_name(pwr->dev));
-		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
+	if (!tbu->has_micro_idle)
 		return;
 
-	} else if (pwr->clock_refs_count > 1) {
-		pwr->clock_refs_count--;
-		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
-		return;
-	}
-
-	arm_smmu_disable_clocks(pwr);
-
-	pwr->clock_refs_count = 0;
-	spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
+	val = tbu->sid_start >> 10;
+	val = 1 << val;
+	__arm_smmu_micro_idle_cfg(tbu->smmu, 0, val);
 }
 
-static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
+int arm_smmu_power_on(struct arm_smmu_power_resources *pwr)
 {
 	int ret;
 
@@ -224,10 +207,23 @@ static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
 	if (ret)
 		goto out_disable_regulators;
 
+	ret = arm_smmu_enable_clocks(pwr);
+	if (ret)
+		goto out_unprepare_clocks;
+
+	if (pwr->resume) {
+		ret = pwr->resume(pwr);
+		if (ret)
+			goto out_disable_clocks;
+	}
+
 	pwr->power_count = 1;
 	mutex_unlock(&pwr->power_lock);
 	return 0;
-
+out_disable_clocks:
+	arm_smmu_disable_clocks(pwr);
+out_unprepare_clocks:
+	arm_smmu_unprepare_clocks(pwr);
 out_disable_regulators:
 	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
 out_disable_bus:
@@ -237,7 +233,11 @@ out_unlock:
 	return ret;
 }
 
-static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
+/*
+ * Needing to pass smmu to this api for arm_smmu_arch_write_sync is awkward.
+ */
+void arm_smmu_power_off(struct arm_smmu_device *smmu,
+			struct arm_smmu_power_resources *pwr)
 {
 	mutex_lock(&pwr->power_lock);
 	if (pwr->power_count == 0) {
@@ -251,37 +251,16 @@ static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 		return;
 	}
 
+	if (pwr->suspend)
+		pwr->suspend(pwr);
+
+	arm_smmu_arch_write_sync(smmu);
+	arm_smmu_disable_clocks(pwr);
 	arm_smmu_unprepare_clocks(pwr);
-	arm_smmu_disable_regulators(pwr);
+	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
 	arm_smmu_lower_interconnect_bw(pwr);
 	pwr->power_count = 0;
 	mutex_unlock(&pwr->power_lock);
-}
-
-int arm_smmu_power_on(struct arm_smmu_power_resources *pwr)
-{
-	int ret;
-
-	ret = arm_smmu_power_on_slow(pwr);
-	if (ret)
-		return ret;
-
-	ret = arm_smmu_power_on_atomic(pwr);
-	if (ret)
-		goto out_disable;
-
-	return 0;
-
-out_disable:
-	arm_smmu_power_off_slow(pwr);
-	return ret;
-}
-
-void arm_smmu_power_off(struct arm_smmu_device *smmu,
-			struct arm_smmu_power_resources *pwr)
-{
-	arm_smmu_power_off_atomic(smmu, pwr);
-	arm_smmu_power_off_slow(pwr);
 }
 
 static int arm_smmu_init_clocks(struct arm_smmu_power_resources *pwr)
@@ -351,12 +330,6 @@ static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 	if (!pwr->gdscs)
 		return -ENOMEM;
 
-	if (!of_property_read_u32(dev->of_node,
-				  "qcom,deferred-regulator-disable-delay",
-				  &(pwr->regulator_defer)))
-		dev_info(dev, "regulator defer delay %d\n",
-			pwr->regulator_defer);
-
 	i = 0;
 	of_property_for_each_string(dev->of_node, "qcom,regulator-names",
 				prop, cname)
@@ -394,19 +367,17 @@ static int arm_smmu_init_interconnect(struct arm_smmu_power_resources *pwr)
  * Cleanup done by devm. Any non-devm resources must clean up themselves.
  */
 struct arm_smmu_power_resources *arm_smmu_init_power_resources(
-						struct platform_device *pdev)
+						struct device *dev)
 {
 	struct arm_smmu_power_resources *pwr;
 	int ret;
 
-	pwr = devm_kzalloc(&pdev->dev, sizeof(*pwr), GFP_KERNEL);
+	pwr = devm_kzalloc(dev, sizeof(*pwr), GFP_KERNEL);
 	if (!pwr)
 		return ERR_PTR(-ENOMEM);
 
-	pwr->dev = &pdev->dev;
-	pwr->pdev = pdev;
+	pwr->dev = dev;
 	mutex_init(&pwr->power_lock);
-	spin_lock_init(&pwr->clock_refs_lock);
 
 	ret = arm_smmu_init_clocks(pwr);
 	if (ret)

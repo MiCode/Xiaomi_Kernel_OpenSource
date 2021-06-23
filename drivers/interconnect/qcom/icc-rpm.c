@@ -15,7 +15,6 @@
 #include <linux/soc/qcom/smd-rpm.h>
 
 #include "icc-rpm.h"
-#include "qnoc-qos.h"
 
 static int qcom_icc_rpm_smd_send_msg(int ctx, int rsc_type, int rpm_id, u64 val)
 {
@@ -77,9 +76,6 @@ int qcom_icc_rpm_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 			qn->max_peak[i] = max_t(u32, qn->max_peak[i], peak_bw);
 		}
 	}
-
-	*agg_avg += avg_bw;
-	*agg_peak = max_t(u32, *agg_peak, peak_bw);
 
 	qn->dirty = true;
 
@@ -211,22 +207,6 @@ int qcom_icc_rpm_set(struct icc_node *src, struct icc_node *dst)
 				qn->last_sum_avg[i] = qn->sum_avg[i];
 			}
 		}
-	}
-
-	qn = node->data;
-	/* Defer setting QoS until the first non-zero bandwidth request. */
-	if (qn && qn->qosbox && !qn->qosbox->initialized &&
-		(node->avg_bw || node->peak_bw)) {
-		ret = clk_bulk_prepare_enable(qp->num_qos_clks, qp->qos_clks);
-		if (ret) {
-			pr_err("%s: Clock enable failed for node %s\n",
-			__func__, node->name);
-			return ret;
-		}
-
-		qn->noc_ops->set_qos(qn);
-		clk_bulk_disable_unprepare(qp->num_qos_clks, qp->qos_clks);
-		qn->qosbox->initialized = true;
 	}
 
 	return 0;

@@ -5,6 +5,7 @@ config QCOM_KGSL
 	depends on QCOM_QFPROM
 	select QCOM_MDT_LOADER
 	select INTERVAL_TREE
+	select TRACE_GPU_MEM
 	help
 	  3D graphics driver for the Adreno family of GPUs from QTI.
 	  Required to use hardware accelerated OpenGL, compute and Vulkan

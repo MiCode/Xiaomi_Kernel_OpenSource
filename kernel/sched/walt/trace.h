@@ -589,6 +589,41 @@ TRACE_EVENT(sched_get_nr_running_avg,
 		__entry->nr_scaled)
 );
 
+TRACE_EVENT(sched_busy_hyst_time,
+
+	TP_PROTO(int cpu, u64 hyst_time, unsigned long nr_run,
+		unsigned long cpu_util, u64 busy_hyst_time,
+		u64 coloc_hyst_time, u64 util_hyst_time),
+
+	TP_ARGS(cpu, hyst_time, nr_run, cpu_util, busy_hyst_time,
+		coloc_hyst_time, util_hyst_time),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(u64, hyst_time)
+		__field(unsigned long, nr_run)
+		__field(unsigned long, cpu_util)
+		__field(u64, busy_hyst_time)
+		__field(u64, coloc_hyst_time)
+		__field(u64, util_hyst_time)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->hyst_time = hyst_time;
+		__entry->nr_run = nr_run;
+		__entry->cpu_util = cpu_util;
+		__entry->busy_hyst_time = busy_hyst_time;
+		__entry->coloc_hyst_time = coloc_hyst_time;
+		__entry->util_hyst_time = util_hyst_time;
+	),
+
+	TP_printk("cpu=%d hyst_time=%llu nr_run=%lu cpu_util=%lu busy_hyst_time=%llu coloc_hyst_time=%llu util_hyst_time=%llu",
+		__entry->cpu, __entry->hyst_time, __entry->nr_run,
+		__entry->cpu_util, __entry->busy_hyst_time,
+		__entry->coloc_hyst_time, __entry->util_hyst_time)
+);
+
 TRACE_EVENT(sched_ravg_window_change,
 
 	TP_PROTO(unsigned int sched_ravg_window, unsigned int new_sched_ravg_window
@@ -846,9 +881,11 @@ TRACE_EVENT(sched_cpu_util,
 		__field(int,		reserved)
 		__field(int,		high_irq_load)
 		__field(unsigned int,	nr_rtg_high_prio_tasks)
+		__field(u64,	prs_gprs)
 	),
 
 	TP_fast_assign(
+		struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
 		__entry->cpu		= cpu;
 		__entry->nr_running	= cpu_rq(cpu)->nr_running;
 		__entry->cpu_util	= cpu_util(cpu);
@@ -863,15 +900,16 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->reserved		= is_reserved(cpu);
 		__entry->high_irq_load		= sched_cpu_high_irqload(cpu);
 		__entry->nr_rtg_high_prio_tasks	= walt_nr_rtg_high_prio(cpu);
+		__entry->prs_gprs	= wrq->prev_runnable_sum + wrq->grp_time.prev_runnable_sum;
 	),
 
-	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%u capacity=%u capacity_orig=%u idle_exit_latency=%u irqload=%llu online=%u, inactive=%u, reserved=%u, high_irq_load=%u nr_rtg_hp=%u",
+	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%u capacity=%u capacity_orig=%u idle_exit_latency=%u irqload=%llu online=%u, inactive=%u, reserved=%u, high_irq_load=%u nr_rtg_hp=%u prs_gprs=%llu",
 		__entry->cpu, __entry->nr_running, __entry->cpu_util,
 		__entry->cpu_util_cum, __entry->capacity_curr,
 		__entry->capacity, __entry->capacity_orig,
 		__entry->idle_exit_latency, __entry->irqload, __entry->online,
 		__entry->inactive, __entry->reserved, __entry->high_irq_load,
-		__entry->nr_rtg_high_prio_tasks)
+		__entry->nr_rtg_high_prio_tasks, __entry->prs_gprs)
 );
 
 TRACE_EVENT(sched_compute_energy,
@@ -880,10 +918,11 @@ TRACE_EVENT(sched_compute_energy,
 		unsigned long eval_energy,
 		unsigned long prev_energy,
 		unsigned long best_energy,
-		unsigned long best_energy_cpu),
+		unsigned long best_energy_cpu,
+		struct compute_energy_output *o),
 
 	TP_ARGS(p, eval_cpu, eval_energy, prev_energy, best_energy,
-		best_energy_cpu),
+		best_energy_cpu, o),
 
 	TP_STRUCT__entry(
 		__field(int,		pid)
@@ -895,6 +934,18 @@ TRACE_EVENT(sched_compute_energy,
 		__field(unsigned long,	eval_energy)
 		__field(int,		best_energy_cpu)
 		__field(unsigned long,	best_energy)
+		__field(unsigned int,	cluster_first_cpu0)
+		__field(unsigned int,	cluster_first_cpu1)
+		__field(unsigned int,	cluster_first_cpu2)
+		__field(unsigned long,	s0)
+		__field(unsigned long,	s1)
+		__field(unsigned long,	s2)
+		__field(unsigned long,	m0)
+		__field(unsigned long,	m1)
+		__field(unsigned long,	m2)
+		__field(u16,	c0)
+		__field(u16,	c1)
+		__field(u16,	c2)
 	),
 
 	TP_fast_assign(
@@ -907,12 +958,27 @@ TRACE_EVENT(sched_compute_energy,
 		__entry->eval_energy		= eval_energy;
 		__entry->best_energy_cpu	= best_energy_cpu;
 		__entry->best_energy		= best_energy;
+		__entry->cluster_first_cpu0	= o->cluster_first_cpu[0];
+		__entry->cluster_first_cpu1	= o->cluster_first_cpu[1];
+		__entry->cluster_first_cpu2	= o->cluster_first_cpu[2];
+		__entry->s0	= o->sum_util[0];
+		__entry->s1	= o->sum_util[1];
+		__entry->s2	= o->sum_util[2];
+		__entry->m0	= o->max_util[0];
+		__entry->m1	= o->max_util[1];
+		__entry->m2	= o->max_util[2];
+		__entry->c0	= o->cost[0];
+		__entry->c1	= o->cost[1];
+		__entry->c2	= o->cost[2];
 	),
 
-	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d prev_energy=%lu eval_cpu=%d eval_energy=%lu best_energy_cpu=%d best_energy=%lu",
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d prev_energy=%lu eval_cpu=%d eval_energy=%lu best_energy_cpu=%d best_energy=%lu, fcpu s m c = %u %u %u %u, %u %u %u %u, %u %u %u %u",
 		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
 		__entry->prev_energy, __entry->eval_cpu, __entry->eval_energy,
-		__entry->best_energy_cpu, __entry->best_energy)
+		__entry->best_energy_cpu, __entry->best_energy,
+		__entry->cluster_first_cpu0, __entry->s0, __entry->m0, __entry->c0,
+		__entry->cluster_first_cpu1, __entry->s1, __entry->m1, __entry->c1,
+		__entry->cluster_first_cpu2, __entry->s2, __entry->m2, __entry->c2)
 )
 
 TRACE_EVENT(sched_task_util,
@@ -987,12 +1053,13 @@ TRACE_EVENT(sched_find_best_target,
 
 	TP_PROTO(struct task_struct *tsk,
 		 unsigned long min_util, int start_cpu,
-		 int best_idle, int most_spare_cap, int target,
+		 unsigned long candidates,
+		 int most_spare_cap,
 		 int order_index, int end_index,
 		 int skip, bool running),
 
-	TP_ARGS(tsk, min_util, start_cpu,
-		best_idle, most_spare_cap, target,
+	TP_ARGS(tsk, min_util, start_cpu, candidates,
+		most_spare_cap,
 		order_index, end_index, skip, running),
 
 	TP_STRUCT__entry(
@@ -1000,9 +1067,8 @@ TRACE_EVENT(sched_find_best_target,
 		__field(pid_t,		pid)
 		__field(unsigned long,	min_util)
 		__field(int,		start_cpu)
-		__field(int,		best_idle)
+		__field(unsigned long,	candidates)
 		__field(int,		most_spare_cap)
-		__field(int,		target)
 		__field(int,		order_index)
 		__field(int,		end_index)
 		__field(int,		skip)
@@ -1014,21 +1080,19 @@ TRACE_EVENT(sched_find_best_target,
 		__entry->pid		= tsk->pid;
 		__entry->min_util	= min_util;
 		__entry->start_cpu	= start_cpu;
-		__entry->best_idle	= best_idle;
-		__entry->most_spare_cap	= most_spare_cap;
-		__entry->target		= target;
+		__entry->candidates	= candidates;
+		__entry->most_spare_cap = most_spare_cap;
 		__entry->order_index	= order_index;
 		__entry->end_index	= end_index;
 		__entry->skip		= skip;
 		__entry->running	= running;
 		),
 
-	TP_printk("pid=%d comm=%s start_cpu=%d best_idle=%d most_spare_cap=%d target=%d order_index=%d end_index=%d skip=%d running=%d",
+	TP_printk("pid=%d comm=%s start_cpu=%d candidates=%#lx most_spare_cap=%d order_index=%d end_index=%d skip=%d running=%d",
 		  __entry->pid, __entry->comm,
 		  __entry->start_cpu,
-		  __entry->best_idle,
+		  __entry->candidates,
 		  __entry->most_spare_cap,
-		  __entry->target,
 		  __entry->order_index,
 		  __entry->end_index,
 		  __entry->skip,
@@ -1150,6 +1214,28 @@ DEFINE_EVENT(walt_cfs_mvp_task_template, walt_cfs_mvp_wakeup_nopreempt,
 DEFINE_EVENT(walt_cfs_mvp_task_template, walt_cfs_mvp_wakeup_preempt,
 	     TP_PROTO(struct task_struct *p, struct walt_task_struct *wts, unsigned int limit),
 	     TP_ARGS(p, wts, limit));
+
+#define SPAN_SIZE	(NR_CPUS/4)
+
+TRACE_EVENT(sched_overutilized,
+
+	TP_PROTO(int overutilized, char *span),
+
+	TP_ARGS(overutilized, span),
+
+	TP_STRUCT__entry(
+	__field(int,	overutilized)
+	__array(char,	span,	SPAN_SIZE)
+	),
+
+	TP_fast_assign(
+	__entry->overutilized	= overutilized;
+	strscpy(__entry->span, span, SPAN_SIZE);
+	),
+
+	TP_printk("overutilized=%d span=0x%s",
+	 __entry->overutilized, __entry->span)
+);
 
 #endif /* _TRACE_WALT_H */
 

@@ -50,10 +50,8 @@ static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
 	 * to make sure BV doesn't race ahead while BR is still switching
 	 * pagetables.
 	 */
-	if (is_concurrent_binning(drawctxt)) {
-		cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
-	}
+	cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
 
 	return count;
 }
@@ -68,26 +66,21 @@ static int genc_rb_context_switch(struct adreno_device *adreno_dev,
 	int count = 0;
 	u32 cmds[42];
 
+	/* Sync both threads */
+	cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BOTH;
+	/* Reset context state */
+	cmds[count++] = cp_type7_packet(CP_RESET_CONTEXT_STATE, 1);
+	cmds[count++] = CP_CLEAR_BV_BR_COUNTER | CP_CLEAR_RESOURCE_TABLE |
+			CP_CLEAR_ON_CHIP_TS;
 	/*
 	 * Enable/disable concurrent binning for pagetable switch and
 	 * set the thread to BR since only BR can execute the pagetable
 	 * switch packets.
 	 */
-	if (is_concurrent_binning(drawctxt)) {
-		/* Sync both threads */
-		cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BOTH;
-		/* Reset context state */
-		cmds[count++] = cp_type7_packet(CP_RESET_CONTEXT_STATE, 1);
-		cmds[count++] = CP_CLEAR_BV_BR_COUNTER | CP_CLEAR_RESOURCE_TABLE |
-				CP_CLEAR_ON_CHIP_TS;
-		/* Sync both threads and enable BR only */
-		cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
-	} else {
-		cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[count++] = CP_SYNC_THREADS | CP_CONCURRENT_BIN_DISABLE;
-	}
+	/* Sync both threads and enable BR only */
+	cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
 
 	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
 		count += genc_rb_pagetable_switch(adreno_dev, rb,
@@ -216,7 +209,7 @@ int genc_ringbuffer_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-#define GENC_SUBMIT_MAX 89
+#define GENC_SUBMIT_MAX 100
 
 int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
@@ -255,18 +248,14 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	index += genc_preemption_pre_ibsubmit(adreno_dev, rb, drawctxt,
 		&cmds[index]);
 
-	if (is_concurrent_binning(drawctxt)) {
-		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[index++] = CP_SET_THREAD_BOTH;
-	}
+	cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[index++] = CP_SET_THREAD_BOTH;
 
 	cmds[index++] = cp_type7_packet(CP_SET_MARKER, 1);
 	cmds[index++] = 0x101; /* IFPC disable */
 
-	if (is_concurrent_binning(drawctxt)) {
-		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[index++] = CP_SET_THREAD_BR;
-	}
+	cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[index++] = CP_SET_THREAD_BR;
 
 	profile_gpuaddr = adreno_profile_preib_processing(adreno_dev,
 		drawctxt, &profile_dwords);
@@ -293,6 +282,9 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	cmds[index++] = rb->timestamp;
 
 	if (IS_SECURE(flags)) {
+		/* Sync BV and BR if entering secure mode */
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_SYNC_THREADS | CP_CONCURRENT_BIN_DISABLE;
 		cmds[index++] = cp_type7_packet(CP_SET_SECURE_MODE, 1);
 		cmds[index++] = 1;
 	}
@@ -339,26 +331,26 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		cmds[index++] = rb->timestamp;
 	}
 
-	if (is_concurrent_binning(drawctxt)) {
-		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[index++] = CP_SET_THREAD_BOTH;
-	}
-
-	cmds[index++] = cp_type7_packet(CP_SET_MARKER, 1);
-	cmds[index++] = 0x100; /* IFPC enable */
-
-	if (is_concurrent_binning(drawctxt)) {
-		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[index++] = CP_SET_THREAD_BR;
-	}
-
 	if (IS_WFI(flags))
 		cmds[index++] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
 
 	if (IS_SECURE(flags)) {
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_CONCURRENT_BIN_DISABLE;
 		cmds[index++] = cp_type7_packet(CP_SET_SECURE_MODE, 1);
 		cmds[index++] = 0;
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_SYNC_THREADS;
 	}
+
+	cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[index++] = CP_SET_THREAD_BOTH;
+
+	cmds[index++] = cp_type7_packet(CP_SET_MARKER, 1);
+	cmds[index++] = 0x100; /* IFPC enable */
+
+	cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[index++] = CP_SET_THREAD_BR;
 
 	/* 10 dwords */
 	index += genc_preemption_post_ibsubmit(adreno_dev, &cmds[index]);

@@ -27,11 +27,11 @@
 #include <linux/gh_virtio_backend.h>
 #include <linux/of_irq.h>
 #include <uapi/linux/virtio_mmio.h>
-#include <linux/gunyah/hcall.h>
 #include <linux/gunyah/gh_rm_drv.h>
 #include <linux/pgtable.h>
 #include <soc/qcom/secure_buffer.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "hcall_virtio.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/gh_virtio_backend.h>
@@ -65,6 +65,8 @@ static dev_t vbe_dev;
 struct shared_memory {
 	struct resource r;
 	u32 gunyah_label, shm_memparcel;
+	/* Remove once API transition complete */
+	bool has_lookup_sgl;
 };
 
 struct virt_machine {
@@ -1268,12 +1270,23 @@ done:
 }
 
 static int
-unshare_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, struct resource *r)
+unshare_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, struct resource *r,
+		    struct shared_memory *shmem)
 {
 	u32 src_vmlist[2] = {self, peer};
 	int dst_vmlist[1] = {self};
 	int dst_perms[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 	int ret;
+
+	if (!shmem->has_lookup_sgl) {
+		ret = gh_rm_mem_reclaim(shmem->shm_memparcel, 0);
+		if (ret) {
+			pr_err("%s: gh_rm_mem_reclaim failed for handle %x addr=%llx size=%lld err=%d\n",
+				VIRTIO_PRINT_MARKER, shmem->shm_memparcel, r->start,
+				resource_size(r), ret);
+			return ret;
+		}
+	}
 
 	ret = hyp_assign_phys(r->start, resource_size(r), src_vmlist, 2,
 				      dst_vmlist, dst_perms, 1);
@@ -1285,9 +1298,11 @@ unshare_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, struct resource *r)
 }
 
 static int share_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, int gunyah_label,
-				struct resource *r, u32 *shm_memparcel)
+				struct resource *r, u32 *shm_memparcel,
+				struct shared_memory *shmem)
 {
 	u32 src_vmlist[1] = {self};
+	int src_perms[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 	int dst_vmlist[2] = {self, peer};
 	int dst_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
 	struct gh_acl_desc *acl;
@@ -1322,11 +1337,24 @@ static int share_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, int gunyah_label,
 	sgl->n_sgl_entries = 1;
 	sgl->sgl_entries[0].ipa_base = r->start;
 	sgl->sgl_entries[0].size = resource_size(r);
+
+	/*
+	 * gh_rm_mem_qcom_lookup_sgl is no longer supported and is replaced with
+	 * gh_rm_mem_share. To ease this transition, fall back to the later on error.
+	 */
+	shmem->has_lookup_sgl = true;
 	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL,
 			gunyah_label, acl, sgl, NULL, shm_memparcel);
 	if (ret) {
-		pr_err("%s: lookup_sgl failed %d\n", VIRTIO_PRINT_MARKER, ret);
-		unshare_a_vm_buffer(self, peer, r);
+		shmem->has_lookup_sgl = false;
+		ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, 0, gunyah_label,
+				      acl, sgl, NULL, shm_memparcel);
+	}
+	if (ret) {
+		pr_err("%s: Sharing memory failed %d\n", VIRTIO_PRINT_MARKER, ret);
+		/* Attempt to assign resource back to HLOS */
+		hyp_assign_phys(r->start, resource_size(r), dst_vmlist, 2,
+				      src_vmlist, src_perms, 1);
 	}
 
 	kfree(acl);
@@ -1346,7 +1374,7 @@ static int share_vm_buffers(struct virt_machine *vm, gh_vmid_t peer)
 
 	for (i = 0; i < vm->shmem_entries; ++i) {
 		ret = share_a_vm_buffer(self_vmid, peer, vm->shmem[i].gunyah_label,
-				&vm->shmem[i].r, &vm->shmem[i].shm_memparcel);
+				&vm->shmem[i].r, &vm->shmem[i].shm_memparcel, &vm->shmem[i]);
 		if (ret) {
 			i--;
 			goto unshare;
@@ -1358,7 +1386,7 @@ static int share_vm_buffers(struct virt_machine *vm, gh_vmid_t peer)
 
 unshare:
 	for (; i >= 0; --i)
-		unshare_a_vm_buffer(self_vmid, peer, &vm->shmem[i].r);
+		unshare_a_vm_buffer(self_vmid, peer, &vm->shmem[i].r, &vm->shmem[i]);
 
 	return ret;
 }

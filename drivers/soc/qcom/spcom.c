@@ -349,59 +349,52 @@ static inline bool spcom_is_channel_connected(struct spcom_channel *ch)
  */
 static int spcom_create_predefined_channels_chardev(void)
 {
-	int i;
-	int ret;
+	int i, j;
+	int ret, rc;
 	static bool is_predefined_created;
+	const char *name;
 
 	if (is_predefined_created)
 		return 0;
 
 	for (i = 0; i < SPCOM_MAX_CHANNELS; i++) {
-		const char *name = spcom_dev->predefined_ch_name[i];
+		name = spcom_dev->predefined_ch_name[i];
 
 		if (name[0] == 0)
 			break;
+
 		mutex_lock(&spcom_dev->chdev_count_lock);
 		ret = spcom_create_channel_chardev(name, false);
 		mutex_unlock(&spcom_dev->chdev_count_lock);
 		if (ret) {
-			spcom_pr_err("failed to create chardev [%s], ret [%d]\n",
+			spcom_pr_err("fail to create chardev [%s], ret [%d]\n",
 			       name, ret);
-			return -EFAULT;
+			goto destroy_channels;
 		}
 	}
 
 	is_predefined_created = true;
 
 	return 0;
-}
 
-static int spcom_destroy_predefined_channels_chardev(void)
-{
-	int i;
-	int ret;
-	static bool is_predefined_created;
-
-	if (!is_predefined_created)
-		return 0;
-
-	for (i = 0; i < SPCOM_MAX_CHANNELS; i++) {
-		const char *name = spcom_dev->predefined_ch_name[i];
+destroy_channels:
+	/* destroy previously created channels */
+	for (j = 0; j < i; j++) {
+		name = spcom_dev->predefined_ch_name[j];
 
 		if (name[0] == 0)
 			break;
-		ret = spcom_destroy_channel_chardev(name);
-		if (ret) {
-			spcom_pr_err("failed to destroy chardev [%s], ret [%d]\n",
-			       name, ret);
-			return -EFAULT;
+
+		rc = spcom_destroy_channel_chardev(name);
+		if (rc) {
+			spcom_pr_err("fail to destroy chardev [%s], ret [%d]\n",
+			       name, rc);
 		}
 	}
 
-	is_predefined_created = false;
-
-	return 0;
+	return ret;
 }
+
 /*======================================================================*/
 /*		UTILITIES						*/
 /*======================================================================*/
@@ -2033,7 +2026,7 @@ exit_destroy_channel:
 	mutex_lock(&ch->lock);
 	memset(ch->name, 0, SPCOM_CHANNEL_NAME_SIZE);
 	mutex_unlock(&ch->lock);
-	return -EFAULT;
+	return ret;
 }
 
 // TODO: error handling
@@ -2053,7 +2046,6 @@ static int spcom_destroy_channel_chardev(const char *name)
 	ret = spcom_unregister_rpmsg_drv(ch);
 	if (ret < 0) {
 		spcom_pr_err("unregister rpmsg driver failed %d\n", ret);
-		return ret;
 	}
 
 	mutex_lock(&ch->lock);
@@ -2074,7 +2066,6 @@ static int spcom_register_chardev(void)
 	int ret;
 	unsigned int baseminor = 0;
 	unsigned int count = 1;
-	void *priv = spcom_dev;
 
 	ret = alloc_chrdev_region(&spcom_dev->device_no, baseminor, count,
 				 DEVICE_NAME);
@@ -2091,8 +2082,7 @@ static int spcom_register_chardev(void)
 	}
 
 	spcom_dev->class_dev = device_create(spcom_dev->driver_class, NULL,
-				  spcom_dev->device_no, priv,
-				  DEVICE_NAME);
+				  spcom_dev->device_no, spcom_dev, DEVICE_NAME);
 
 	if (IS_ERR(spcom_dev->class_dev)) {
 		spcom_pr_err("class_device_create failed %d\n", ret);
@@ -2460,6 +2450,7 @@ static int spcom_probe(struct platform_device *pdev)
 	struct spcom_device *dev = NULL;
 	struct device_node *np;
 	struct property *prop;
+	struct rproc *spss_rproc;
 
 	if (!pdev) {
 		pr_err("invalid pdev\n");
@@ -2472,22 +2463,26 @@ static int spcom_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+
+	prop = of_find_property(np, "qcom,rproc-handle", NULL);
+	if (!prop) {
+		spcom_pr_err("can't find qcom,rproc-hable property");
+		return -EINVAL;
+	}
+
+	spss_rproc = rproc_get_by_phandle(be32_to_cpup(prop->value));
+	if (!spss_rproc) {
+		pr_err("can't find remote proc phandle %d\n", be32_to_cpup(prop->value));
+		return -EPROBE_DEFER;
+	}
+
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (dev == NULL)
 		return -ENOMEM;
 
 	spcom_dev = dev;
 	spcom_dev->pdev = pdev;
-
-	prop = of_find_property(np, "qcom,rproc-handle", NULL);
-	if (!prop)
-		return -EINVAL;
-
-	spcom_dev->spss_rproc = rproc_get_by_phandle(be32_to_cpup(prop->value));
-	if (!spcom_dev->spss_rproc) {
-		pr_err("device not found\n");
-		return -EPROBE_DEFER;
-	}
+	spcom_dev->spss_rproc = spss_rproc;
 
 	atomic_set(&spcom_dev->rx_active_count, 0);
 	/* start counting exposed channel char devices from 1 */
@@ -2517,7 +2512,7 @@ static int spcom_probe(struct platform_device *pdev)
 
 	ret = spcom_create_predefined_channels_chardev();
 	if (ret < 0) {
-		pr_err("create character device failed\n");
+		pr_err("create character device failed (%d)\n", ret);
 		goto fail_reg_chardev;
 	}
 
@@ -2528,6 +2523,7 @@ static int spcom_probe(struct platform_device *pdev)
 
 	spcom_pr_dbg("Driver Initialization ok\n");
 	return 0;
+
 fail_reg_chardev:
 	pr_err("failed to init driver\n");
 	spcom_unregister_chrdev();
@@ -2538,7 +2534,6 @@ fail_while_chardev_reg:
 	return -ENODEV;
 }
 
-
 static int spcom_remove(struct platform_device *pdev)
 {
 	int ret;
@@ -2548,23 +2543,10 @@ static int spcom_remove(struct platform_device *pdev)
 
 	atomic_inc(&spcom_dev->remove_in_progress);
 
-	/* trigger SSR to release all connected channels */
-	rproc_report_crash(spcom_dev->spss_rproc, RPROC_FATAL_ERROR);
-	rproc_put(spcom_dev->spss_rproc);
-
-	pr_debug("wait for remove of %d rpmsg devices\n",
-		 atomic_read(&spcom_dev->rpmsg_dev_count));
-
-	reinit_completion(&spcom_dev->rpmsg_state_change);
-	ret = wait_for_completion_interruptible(&spcom_dev->rpmsg_state_change);
-
-	pr_debug("channels removed, : rpmsg_dev_count=%d\n",
-	       atomic_read(&spcom_dev->rpmsg_dev_count));
-
-	ret = spcom_destroy_predefined_channels_chardev();
-	if (ret < 0) {
-		spcom_pr_err("failed to destroy predefined channels %d\n", ret);
-		goto remove_error;
+	if (spcom_dev->spss_rproc) {
+		spcom_pr_info("shutdown spss\n");
+		rproc_shutdown(spcom_dev->spss_rproc);
+		spcom_dev->spss_rproc = NULL;
 	}
 	/* destroy existing channel char devices */
 	for (i = 0; i < SPCOM_MAX_CHANNELS; i++) {
@@ -2578,6 +2560,7 @@ static int spcom_remove(struct platform_device *pdev)
 			       name, ret);
 			return -EFAULT;
 		}
+		spcom_pr_dbg("destroyed channel %s", name);
 	}
 
 	/* destroy control char device */
@@ -2598,23 +2581,23 @@ static int spcom_remove(struct platform_device *pdev)
 		kfree(rx_item);
 	}
 	spin_unlock_irqrestore(&spcom_dev->rx_lock, flags);
+	spcom_pr_dbg("released uncompleted rx\n");
 
 	if (spcom_ipc_log_context)
 		ipc_log_context_destroy(spcom_ipc_log_context);
 
-	// free global device struct
+	/* free global device struct */
 	kfree(spcom_dev);
 	spcom_dev = NULL;
-	pr_debug("successfully released all module resources\n");
+	pr_info("successfully released all module resources\n");
 
 	return 0;
-remove_error:
-	return ret; // TODO: find more precise error
 }
 static const struct of_device_id spcom_match_table[] = {
 	{ .compatible = "qcom,spcom", },
 	{ },
 };
+MODULE_DEVICE_TABLE(of, spcom_match_table);
 
 static struct platform_driver spcom_driver = {
 	.probe = spcom_probe,
@@ -2626,23 +2609,6 @@ static struct platform_driver spcom_driver = {
 	},
 };
 
-static int __init spcom_init(void)
-{
-	int ret;
-
-	ret = platform_driver_register(&spcom_driver);
-	if (ret)
-		spcom_pr_err("spcom_driver register failed %d\n", ret);
-
-	return ret;
-}
-module_init(spcom_init);
-
-static void __exit spcom_exit(void)
-{
-	platform_driver_unregister(&spcom_driver);
-}
-module_exit(spcom_exit)
-
+module_platform_driver(spcom_driver);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Communication");

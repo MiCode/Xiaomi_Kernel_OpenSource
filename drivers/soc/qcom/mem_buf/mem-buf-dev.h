@@ -20,15 +20,18 @@
 extern unsigned char mem_buf_capability;
 extern struct device *mem_buf_dev;
 
+struct gh_acl_desc *mem_buf_vmid_perm_list_to_gh_acl(int *vmids, int *perms,
+		unsigned int nr_acl_entries);
+struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt);
+
 /* Hypervisor Interface */
-int mem_buf_assign_mem(struct sg_table *sgt, int *dst_vmids,
-			      int *dst_perms, unsigned int nr_acl_entries);
+int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
+		       struct mem_buf_lend_kernel_arg *arg,
+		       bool *has_lookup_sgl);
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
-				unsigned int nr_acl_entries);
-int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
-					  int *dst_vmids, int *dst_perms,
-					  u32 nr_acl_entries,
-					  gh_memparcel_handle_t *memparcel_hdl);
+			 unsigned int nr_acl_entries,
+			 gh_memparcel_handle_t hdl,
+			 bool has_lookup_sgl);
 struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
 					struct gh_acl_desc *acl_desc);
 int mem_buf_unmap_mem_s2(gh_memparcel_handle_t memparcel_hdl);

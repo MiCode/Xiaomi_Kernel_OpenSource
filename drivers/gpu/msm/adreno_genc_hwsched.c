@@ -104,7 +104,7 @@ static u32 genc_copy_gpu_global(struct adreno_device *adreno_dev,
 	u32 i;
 
 	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
-		struct kgsl_memdesc *md = hw_hfi->mem_alloc_table[i].gpu_md;
+		struct kgsl_memdesc *md = hw_hfi->mem_alloc_table[i].md;
 
 		if (md && (gpuaddr >= md->gpuaddr) &&
 			((gpuaddr + size) <= (md->gpuaddr + md->size))) {
@@ -216,29 +216,29 @@ void genc_hwsched_snapshot(struct adreno_device *adreno_dev,
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_RB_V2,
 				snapshot, adreno_hwsched_snapshot_rb,
-				entry->gpu_md);
+				entry->md);
 
 		if (entry->desc.mem_kind == HFI_MEMKIND_SCRATCH)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
-				entry->gpu_md);
+				entry->md);
 
 		if (entry->desc.mem_kind == HFI_MEMKIND_PROFILE)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
-				entry->gpu_md);
+				entry->md);
 
 		if (entry->desc.mem_kind == HFI_MEMKIND_CSW_SMMU_INFO)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
-				entry->gpu_md);
+				entry->md);
 
 		if (entry->desc.mem_kind == HFI_MEMKIND_CSW_PRIV_NON_SECURE)
 			snapshot_preemption_records(device, snapshot,
-				entry->gpu_md);
+				entry->md);
 	}
 
 	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
@@ -659,6 +659,25 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 	ret = genc_hwsched_gpu_boot(adreno_dev);
 	if (ret)
 		return ret;
+
+	/*
+	 * There is a possible deadlock scenario during kgsl firmware reading
+	 * (request_firmware) and devfreq update calls. During first boot, kgsl
+	 * device mutex is held and then request_firmware is called for reading
+	 * firmware. request_firmware internally takes dev_pm_qos_mtx lock.
+	 * Whereas in case of devfreq update calls triggered by thermal/bcl or
+	 * devfreq sysfs, it first takes the same dev_pm_qos_mtx lock and then
+	 * tries to take kgsl device mutex as part of get_dev_status/target
+	 * calls. This results in deadlock when both thread are unable to acquire
+	 * the mutex held by other thread. Enable devfreq updates now as we are
+	 * done reading all firmware files.
+	 */
+	ret = kgsl_pwrscale_enable_devfreq(device, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
+	if (ret) {
+		genc_disable_gpu_irq(adreno_dev);
+		genc_hwsched_gmu_power_off(adreno_dev);
+		return ret;
+	}
 
 	adreno_get_bus_counters(adreno_dev);
 

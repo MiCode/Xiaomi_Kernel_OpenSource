@@ -817,20 +817,7 @@ static inline void clear_page_guard(struct zone *zone, struct page *page,
  */
 void init_mem_debugging_and_hardening(void)
 {
-	if (_init_on_alloc_enabled_early) {
-		if (page_poisoning_enabled())
-			pr_info("mem auto-init: CONFIG_PAGE_POISONING is on, "
-				"will take precedence over init_on_alloc\n");
-		else
-			static_branch_enable(&init_on_alloc);
-	}
-	if (_init_on_free_enabled_early) {
-		if (page_poisoning_enabled())
-			pr_info("mem auto-init: CONFIG_PAGE_POISONING is on, "
-				"will take precedence over init_on_free\n");
-		else
-			static_branch_enable(&init_on_free);
-	}
+	bool page_poisoning_requested = false;
 
 #ifdef CONFIG_PAGE_POISONING
 	/*
@@ -839,9 +826,26 @@ void init_mem_debugging_and_hardening(void)
 	 */
 	if (page_poisoning_enabled() ||
 	     (!IS_ENABLED(CONFIG_ARCH_SUPPORTS_DEBUG_PAGEALLOC) &&
-	      debug_pagealloc_enabled()))
+	      debug_pagealloc_enabled())) {
 		static_branch_enable(&_page_poisoning_enabled);
+		page_poisoning_requested = true;
+	}
 #endif
+
+	if (_init_on_alloc_enabled_early) {
+		if (page_poisoning_requested)
+			pr_info("mem auto-init: CONFIG_PAGE_POISONING is on, "
+				"will take precedence over init_on_alloc\n");
+		else
+			static_branch_enable(&init_on_alloc);
+	}
+	if (_init_on_free_enabled_early) {
+		if (page_poisoning_requested)
+			pr_info("mem auto-init: CONFIG_PAGE_POISONING is on, "
+				"will take precedence over init_on_free\n");
+		else
+			static_branch_enable(&init_on_free);
+	}
 
 #ifdef CONFIG_DEBUG_PAGEALLOC
 	if (!debug_pagealloc_enabled())
@@ -8559,7 +8563,7 @@ static void alloc_contig_dump_pages(struct list_head *page_list)
 			}
 			dump_page(page, "migration failure");
 		}
-		pr_warn("total dump_pages %u skipping %u\n", nr_pages, nr_skip);
+		pr_warn("total dump_pages %lu skipping %lu\n", nr_pages, nr_skip);
 	}
 }
 #else
@@ -8617,8 +8621,10 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 
 	lru_cache_enable();
 	if (ret < 0) {
-		alloc_contig_dump_pages(&cc->migratepages);
-		page_pinner_mark_migration_failed_pages(&cc->migratepages);
+		if (ret == -EBUSY) {
+			alloc_contig_dump_pages(&cc->migratepages);
+			page_pinner_mark_migration_failed_pages(&cc->migratepages);
+		}
 		putback_movable_pages(&cc->migratepages);
 		return ret;
 	}
@@ -9048,6 +9054,8 @@ bool take_page_off_buddy(struct page *page)
 			del_page_from_free_list(page_head, zone, page_order);
 			break_down_buddy_pages(zone, page_head, page, 0,
 						page_order, migratetype);
+			if (!is_migrate_isolate(migratetype))
+				__mod_zone_freepage_state(zone, -1, migratetype);
 			ret = true;
 			break;
 		}

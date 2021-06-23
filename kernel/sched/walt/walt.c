@@ -16,6 +16,7 @@
 
 #include <trace/hooks/sched.h>
 #include <trace/hooks/cpufreq.h>
+#include <trace/hooks/topology.h>
 #include <trace/events/power.h>
 
 #include "walt.h"
@@ -169,8 +170,7 @@ static unsigned int __read_mostly sysctl_sched_init_task_load_pct = 15;
 static const unsigned int top_tasks_bitmap_size =
 		BITS_TO_LONGS(NUM_LOAD_INDICES + 1) * sizeof(unsigned long);
 
-static __read_mostly unsigned int walt_scale_demand_divisor;
-#define scale_demand(d) ((d)/walt_scale_demand_divisor)
+__read_mostly unsigned int walt_scale_demand_divisor;
 
 #define SCHED_PRINT(arg)	printk_deferred("%s=%llu", #arg, arg)
 #define STRG(arg)		#arg
@@ -2517,6 +2517,41 @@ static void walt_get_possible_siblings(int cpuid, struct cpumask *cluster_cpus)
 	}
 }
 
+int cpu_l2_sibling[WALT_NR_CPUS] = {[0 ... WALT_NR_CPUS-1] = -1};
+static void find_cache_siblings(void)
+{
+	int cpu, cpu2;
+	struct device_node *cpu_dev, *cpu_dev2, *cpu_l2_cache_node, *cpu_l2_cache_node2;
+
+	for_each_possible_cpu(cpu) {
+		cpu_dev = of_get_cpu_node(cpu, NULL);
+		if (!cpu_dev)
+			continue;
+
+		cpu_l2_cache_node = of_parse_phandle(cpu_dev, "next-level-cache", 0);
+		if (!cpu_l2_cache_node)
+			continue;
+
+		for_each_possible_cpu(cpu2) {
+			if (cpu == cpu2)
+				continue;
+
+			cpu_dev2 = of_get_cpu_node(cpu2, NULL);
+			if (!cpu_dev2)
+				continue;
+
+			cpu_l2_cache_node2 = of_parse_phandle(cpu_dev2, "next-level-cache", 0);
+			if (!cpu_l2_cache_node2)
+				continue;
+
+			if (cpu_l2_cache_node == cpu_l2_cache_node2) {
+				cpu_l2_sibling[cpu] = cpu2;
+				break;
+			}
+		}
+	}
+}
+
 static void walt_update_cluster_topology(void)
 {
 	struct cpumask cpus = *cpu_possible_mask;
@@ -2584,7 +2619,9 @@ static void walt_update_cluster_topology(void)
 
 	init_cpu_array();
 	build_cpu_array();
+	find_cache_siblings();
 
+	create_util_to_cost();
 	walt_clusters_parsed = true;
 }
 
@@ -4082,6 +4119,20 @@ static void android_rvh_build_perf_domains(void *unused, bool *eas_check)
 	*eas_check = true;
 }
 
+static void android_vh_force_compatible_pre(void *unused, void *unused2)
+{
+	if (unlikely(walt_disabled))
+		return;
+	cpu_maps_update_begin();
+}
+
+static void android_vh_force_compatible_post(void *unused, void *unused2)
+{
+	if (unlikely(walt_disabled))
+		return;
+	cpu_maps_update_done();
+}
+
 static void register_walt_hooks(void)
 {
 	register_trace_android_rvh_wake_up_new_task(android_rvh_wake_up_new_task, NULL);
@@ -4111,6 +4162,8 @@ static void register_walt_hooks(void)
 	register_trace_android_rvh_sched_exec(android_rvh_sched_exec, NULL);
 	register_trace_android_rvh_build_perf_domains(android_rvh_build_perf_domains, NULL);
 	register_trace_cpu_frequency_limits(walt_cpu_frequency_limits, NULL);
+	register_trace_android_vh_force_compatible_pre(android_vh_force_compatible_pre, NULL);
+	register_trace_android_vh_force_compatible_post(android_vh_force_compatible_post, NULL);
 }
 
 atomic64_t walt_irq_work_lastq_ws;
@@ -4174,11 +4227,13 @@ static void walt_init_tg_pointers(void)
 	rcu_read_unlock();
 }
 
-static void walt_init(void)
+static void walt_init(struct work_struct *work)
 {
 	struct ctl_table_header *hdr;
 	static atomic_t already_inited = ATOMIC_INIT(0);
 	int i;
+
+	might_sleep();
 
 	if (atomic_cmpxchg(&already_inited, 0, 1))
 		return;
@@ -4215,38 +4270,10 @@ static void walt_init(void)
 	}
 }
 
-static bool are_cpufreq_policies_available(void)
+static DECLARE_WORK(walt_init_work, walt_init);
+static void android_vh_update_topology_flags_workfn(void *unused, void *unused2)
 {
-	int cpu;
-
-	for_each_possible_cpu(cpu) {
-		if (!cpufreq_cpu_get_raw(cpu))
-			return false;
-	}
-
-	return true;
-}
-
-struct work_struct walt_cpufreq_policy_work;
-
-static int walt_cpufreq_notifier_cb(struct notifier_block *nb,
-				    unsigned long action,
-				    void *data)
-{
-	if (are_cpufreq_policies_available())
-		schedule_work(&walt_cpufreq_policy_work);
-
-	return 0;
-}
-
-static struct notifier_block walt_cpufreq_notifier_block = {
-	.notifier_call  = walt_cpufreq_notifier_cb
-};
-
-static void walt_wq_cpufreq_policy_update(struct work_struct *work)
-{
-	walt_init();
-	cpufreq_unregister_notifier(&walt_cpufreq_notifier_block, CPUFREQ_POLICY_NOTIFIER);
+	schedule_work(&walt_init_work);
 }
 
 #define WALT_VENDOR_DATA_SIZE_TEST(wstruct, kstruct)		\
@@ -4260,15 +4287,18 @@ static int walt_module_init(void)
 	WALT_VENDOR_DATA_SIZE_TEST(struct walt_rq, struct rq);
 	WALT_VENDOR_DATA_SIZE_TEST(struct walt_task_group, struct task_group);
 
-	INIT_WORK(&walt_cpufreq_policy_work, walt_wq_cpufreq_policy_update);
-	cpufreq_register_notifier(&walt_cpufreq_notifier_block,
-					CPUFREQ_POLICY_NOTIFIER);
+	register_trace_android_vh_update_topology_flags_workfn(
+			android_vh_update_topology_flags_workfn, NULL);
 
-	if (are_cpufreq_policies_available())
-		walt_init();
+	if (topology_update_done)
+		schedule_work(&walt_init_work);
 
 	return 0;
 }
 
 module_init(walt_module_init);
 MODULE_LICENSE("GPL v2");
+
+#if IS_ENABLED(CONFIG_SCHED_WALT_DEBUG)
+MODULE_SOFTDEP("pre: sched-walt-debug");
+#endif

@@ -1255,23 +1255,6 @@ static int genc_setproperty(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
-static size_t genc_gpu_model(struct adreno_device *adreno_dev,
-		char *str, size_t bufsz)
-{
-	int ver = 0;
-
-	/*
-	 * GenC does not include a 'chipid' in the device tree. It also does
-	 * not follow the old school naming conventions. Force the gpu model
-	 * to the agreed upon Cxxxvx naming convention.
-	 */
-	if (adreno_is_c500(adreno_dev))
-		ver = 500;
-
-	return scnprintf(str, bufsz, "AdrenoC%dv%ld", ver,
-			ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
-}
-
 const struct genc_gpudev adreno_genc_hwsched_gpudev = {
 	.base = {
 		.reg_offsets = genc_register_offsets,
@@ -1286,7 +1269,6 @@ const struct genc_gpudev adreno_genc_hwsched_gpudev = {
 		.power_ops = &genc_hwsched_power_ops,
 		.power_stats = genc_power_stats,
 		.setproperty = genc_setproperty,
-		.gpu_model = genc_gpu_model,
 		.hw_isidle = genc_hw_isidle,
 	},
 	.hfi_probe = genc_hwsched_hfi_probe,
@@ -1313,7 +1295,6 @@ const struct genc_gpudev adreno_genc_gmu_gpudev = {
 		.ringbuffer_submitcmd = genc_ringbuffer_submitcmd,
 		.power_stats = genc_power_stats,
 		.setproperty = genc_setproperty,
-		.gpu_model = genc_gpu_model,
 	},
 	.hfi_probe = genc_gmu_hfi_probe,
 	.handle_watchdog = genc_gmu_handle_watchdog,

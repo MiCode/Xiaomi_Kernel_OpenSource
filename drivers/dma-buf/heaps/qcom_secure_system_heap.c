@@ -648,7 +648,7 @@ static int create_prefetch_workqueue(void)
 	return 0;
 }
 
-int qcom_secure_system_heap_create(char *name, int vmid)
+void qcom_secure_system_heap_create(const char *name, const char *secure_system_alias, int vmid)
 {
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
@@ -691,7 +691,23 @@ int qcom_secure_system_heap_create(char *name, int vmid)
 	list_add(&sys_heap->list, &secure_heaps);
 
 	pr_info("%s: DMA-BUF Heap: Created '%s'\n", __func__, name);
-	return 0;
+
+	if (secure_system_alias != NULL) {
+		exp_info.name = secure_system_alias;
+
+		heap = dma_heap_add(&exp_info);
+		if (IS_ERR(heap)) {
+			pr_err("%s: Failed to create '%s', error is %d\n", __func__,
+			       secure_system_alias, PTR_ERR(heap));
+			return;
+		}
+
+		dma_coerce_mask_and_coherent(dma_heap_get_dev(heap), DMA_BIT_MASK(64));
+
+		pr_info("%s: DMA-BUF Heap: Created '%s'\n", __func__, secure_system_alias);
+	}
+
+	return;
 
 free_pools:
 	dynamic_page_pool_release_pools(sys_heap->pool_list);
@@ -701,6 +717,4 @@ free_heap:
 
 out:
 	pr_err("%s: Failed to create '%s', error is %d\n", __func__, name, ret);
-
-	return ret;
 }

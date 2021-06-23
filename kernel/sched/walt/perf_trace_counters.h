@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2014, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2017, 2021, The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -98,6 +98,8 @@ TRACE_EVENT(sched_switch_with_ctrs,
 
 #endif
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH ../../arch/arm64/kernel
+#define TRACE_INCLUDE_PATH ../../kernel/sched/walt
+
+#undef TRACE_INCLUDE_FILE
 #define TRACE_INCLUDE_FILE perf_trace_counters
 #include <trace/define_trace.h>

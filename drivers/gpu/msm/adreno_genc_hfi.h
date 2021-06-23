@@ -18,7 +18,7 @@ struct genc_hfi {
 	 */
 	atomic_t seqnum;
 	/** @hfi_mem: Memory descriptor for the hfi memory */
-	struct gmu_memdesc *hfi_mem;
+	struct kgsl_memdesc *hfi_mem;
 	/** @bw_table: HFI BW table buffer */
 	struct hfi_bwtable_cmd bw_table;
 	/** @acd_table: HFI table for ACD data */
@@ -152,6 +152,14 @@ int genc_hfi_send_generic_req(struct adreno_device *adreno_dev, void *cmd);
  * Return: 0 on success or negative error on failure
  */
 int genc_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev);
+
+/**
+ * genc_hfi_send_ifpc_feature_ctrl - Send the ipfc feature hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int genc_hfi_send_ifpc_feature_ctrl(struct adreno_device *adreno_dev);
 
 /*
  * genc_hfi_process_queue - Check hfi queue for messages from gmu

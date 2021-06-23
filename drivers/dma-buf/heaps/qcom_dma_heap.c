@@ -17,20 +17,17 @@
 
 static int qcom_dma_heap_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret = 0;
 	int i;
 	struct platform_data *heaps;
 
-	qcom_system_heap_create("system", false);
-	qcom_system_heap_create("qcom,system", false);
+	qcom_system_heap_create("qcom,system", "system", false);
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED
-	qcom_system_heap_create("qcom,system-uncached", true);
+	qcom_system_heap_create("qcom,system-uncached", NULL, true);
 #endif
-	qcom_secure_system_heap_create("system-secure",
+	qcom_secure_system_heap_create("qcom,secure-pixel", NULL,
 				       QCOM_DMA_HEAP_FLAG_CP_PIXEL);
-	qcom_secure_system_heap_create("qcom,secure-pixel",
-				       QCOM_DMA_HEAP_FLAG_CP_PIXEL);
-	qcom_secure_system_heap_create("qcom,secure-non-pixel",
+	qcom_secure_system_heap_create("qcom,secure-non-pixel", NULL,
 				       QCOM_DMA_HEAP_FLAG_CP_NON_PIXEL);
 
 	heaps = parse_heap_dt(pdev);
@@ -76,7 +73,7 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 
 	free_pdata(heaps);
 
-	return 0;
+	return ret;
 }
 
 static const struct of_device_id qcom_dma_heap_match_table[] = {

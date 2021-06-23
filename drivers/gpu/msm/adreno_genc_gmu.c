@@ -208,36 +208,15 @@ int genc_load_pdc_ucode(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-/*
- * The lowest 16 bits of this value are the number of XO clock cycles
- * for main hysteresis. This is the first hysteresis. Here we set it
- * to 0x1680 cycles, or 300 us. The highest 16 bits of this value are
- * the number of XO clock cycles for short hysteresis. This happens
- * after main hysteresis. Here we set it to 0xa cycles, or 0.5 us.
- */
-#define GMU_PWR_COL_HYST 0x000a1680
-
 /* Configure and enable GMU low power mode */
 static void genc_gmu_power_config(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-
-	/* Configure registers for idle setting. The setting is cumulative */
 
 	/* Disable GMU WB/RB buffer and caches at boot */
 	gmu_core_regwrite(device, GENC_GMU_SYS_BUS_CONFIG, 0x1);
 	gmu_core_regwrite(device, GENC_GMU_ICACHE_CONFIG, 0x1);
 	gmu_core_regwrite(device, GENC_GMU_DCACHE_CONFIG, 0x1);
-
-	gmu_core_regwrite(device, GENC_GMU_PWR_COL_INTER_FRAME_CTRL, 0x9c40400);
-
-	if (gmu->idle_level == GPU_HW_IFPC) {
-		gmu_core_regwrite(device, GENC_GMU_PWR_COL_INTER_FRAME_HYST,
-				GMU_PWR_COL_HYST);
-		gmu_core_regrmw(device, GENC_GMU_PWR_COL_INTER_FRAME_CTRL,
-				IFPC_ENABLE_MASK, IFPC_ENABLE_MASK);
-	}
 }
 
 static void gmu_ao_sync_event(struct adreno_device *adreno_dev)
@@ -379,13 +358,13 @@ int genc_rscc_sleep_sequence(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static struct gmu_memdesc *find_gmu_memdesc(struct genc_gmu_device *gmu,
+static struct kgsl_memdesc *find_gmu_memdesc(struct genc_gmu_device *gmu,
 	u32 addr, u32 size)
 {
 	int i;
 
 	for (i = 0; i < gmu->global_entries; i++) {
-		struct gmu_memdesc *md = &gmu->gmu_globals[i];
+		struct kgsl_memdesc *md = &gmu->gmu_globals[i];
 
 		if ((addr >= md->gmuaddr) &&
 				(((addr + size) <= (md->gmuaddr + md->size))))
@@ -454,7 +433,7 @@ int genc_gmu_load_fw(struct adreno_device *adreno_dev)
 				GENC_GMU_CM3_DTCM_START,
 				gmu->vma[GMU_DTCM].start, blk);
 		} else {
-			struct gmu_memdesc *md =
+			struct kgsl_memdesc *md =
 				find_gmu_memdesc(gmu, blk->addr, blk->size);
 
 			if (!md) {
@@ -850,44 +829,40 @@ void genc_gmu_register_config(struct adreno_device *adreno_dev)
 	genc_gmu_power_config(adreno_dev);
 }
 
-struct gmu_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
+struct kgsl_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
 	u32 addr, u32 size, u32 vma_id)
 {
 	int ret;
-	struct gmu_memdesc *md;
+	struct kgsl_memdesc *md;
 	struct gmu_vma_entry *vma = &gmu->vma[vma_id];
+	struct kgsl_device *device = KGSL_DEVICE(genc_gmu_to_adreno(gmu));
 
 	if (gmu->global_entries == ARRAY_SIZE(gmu->gmu_globals))
 		return ERR_PTR(-ENOMEM);
 
 	md = &gmu->gmu_globals[gmu->global_entries];
 
-	md->size = PAGE_ALIGN(size);
-
-	md->hostptr = dma_alloc_attrs(&gmu->pdev->dev, (size_t)md->size,
-		&md->physaddr, GFP_KERNEL, 0);
-
-	if (md->hostptr == NULL)
+	ret = kgsl_allocate_kernel(device, md, size, 0, KGSL_MEMDESC_SYSMEM);
+	if (ret) {
+		memset(md, 0x0, sizeof(*md));
 		return ERR_PTR(-ENOMEM);
-
-	memset(md->hostptr, 0x0, size);
+	}
 
 	if (!addr)
 		addr = vma->next_va;
 
-	md->gmuaddr = addr;
-
-	ret = iommu_map(gmu->domain, addr,
-		md->physaddr, md->size, IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV);
+	ret = gmu_core_map_memdesc(gmu->domain, md, addr,
+		IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV);
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
 			"Unable to map GMU kernel block: addr:0x%08x size:0x%x :%d\n",
-			md->gmuaddr, md->size, ret);
-		dma_free_attrs(&gmu->pdev->dev, (size_t)size,
-			(void *)md->hostptr, md->physaddr, 0);
-		memset(md, 0, sizeof(*md));
-		return ERR_PTR(ret);
+			addr, md->size, ret);
+			kgsl_sharedmem_free(md);
+			memset(md, 0, sizeof(*md));
+			return ERR_PTR(-ENOMEM);
 	}
+
+	md->gmuaddr = addr;
 
 	vma->next_va = md->gmuaddr + md->size;
 
@@ -899,7 +874,7 @@ struct gmu_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,
 static int genc_gmu_process_prealloc(struct genc_gmu_device *gmu,
 	struct gmu_block_header *blk)
 {
-	struct gmu_memdesc *md;
+	struct kgsl_memdesc *md;
 
 	int id = find_vma_block(gmu, blk->addr, blk->value);
 
@@ -1711,7 +1686,7 @@ static void genc_free_gmu_globals(struct genc_gmu_device *gmu)
 	int i;
 
 	for (i = 0; i < gmu->global_entries; i++) {
-		struct gmu_memdesc *md = &gmu->gmu_globals[i];
+		struct kgsl_memdesc *md = &gmu->gmu_globals[i];
 
 		if (!md->gmuaddr)
 			continue;
@@ -2266,6 +2241,25 @@ static int genc_first_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
+	/*
+	 * There is a possible deadlock scenario during kgsl firmware reading
+	 * (request_firmware) and devfreq update calls. During first boot, kgsl
+	 * device mutex is held and then request_firmware is called for reading
+	 * firmware. request_firmware internally takes dev_pm_qos_mtx lock.
+	 * Whereas in case of devfreq update calls triggered by thermal/bcl or
+	 * devfreq sysfs, it first takes the same dev_pm_qos_mtx lock and then
+	 * tries to take kgsl device mutex as part of get_dev_status/target
+	 * calls. This results in deadlock when both thread are unable to acquire
+	 * the mutex held by other thread. Enable devfreq updates now as we are
+	 * done reading all firmware files.
+	 */
+	ret = kgsl_pwrscale_enable_devfreq(device, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
+	if (ret) {
+		genc_disable_gpu_irq(adreno_dev);
+		genc_gmu_power_off(adreno_dev);
+		return ret;
+	}
+
 	adreno_get_bus_counters(adreno_dev);
 
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
@@ -2330,6 +2324,13 @@ static int genc_power_off(struct adreno_device *adreno_dev)
 	kgsl_pwrscale_sleep(device);
 
 	kgsl_pwrctrl_clear_l3_vote(device);
+
+	/*
+	 * Reset the context records so that CP can start
+	 * at the correct read pointer for BV thread after
+	 * coming out of slumber.
+	 */
+	genc_reset_preempt_records(adreno_dev);
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_SLUMBER);
 

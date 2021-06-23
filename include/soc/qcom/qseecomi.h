@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QSEECOMI_H_
@@ -71,7 +71,8 @@ enum qseecom_qceos_cmd_id {
 	QSEOS_FSM_OEM_FUSE_READ_ROW = 0x302,
 	QSEOS_FSM_ENCFS_REQ_CMD = 0x403,
 	QSEOS_FSM_ENCFS_REQ_RSP_CMD = 0x404,
-
+	QSEOS_DIAG_FUSE_REQ_CMD = 0x501,
+	QSEOS_DIAG_FUSE_REQ_RSP_CMD = 0x502,
 	QSEOS_CMD_MAX     = 0xEFFFFFFF
 };
 
@@ -321,7 +322,7 @@ struct qseecom_qteec_64bit_ireq {
 	uint32_t    sglistinfo_len;
 } __attribute__((__packed__));
 
-struct qseecom_client_send_fsm_key_req {
+struct qseecom_client_send_fsm_diag_req {
 	uint32_t qsee_cmd_id;
 	uint32_t req_ptr;
 	uint32_t req_len;
@@ -341,6 +342,7 @@ struct qseecom_continue_blocked_request_ireq {
 #define TZ_SVC_EXTERNAL                  3     /* External image loading */
 #define TZ_SVC_RPMB                      4     /* RPMB */
 #define TZ_SVC_KEYSTORE                  5     /* Keystore management */
+#define TZ_SVC_FUSE                      8     /* Fuse services */
 #define TZ_SVC_ES                        16    /* Enterprise Security */
 #define TZ_SVC_MDTP                      18    /* Mobile Device Theft */
 
@@ -502,6 +504,16 @@ struct qseecom_continue_blocked_request_ireq {
 
 #define TZ_OS_UNLOAD_SERVICES_IMAGE_ID_PARAM_ID \
 	TZ_SYSCALL_CREATE_PARAM_ID_0
+
+#define TZ_SECBOOT_GET_FUSE_INFO \
+	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_FUSE, 0x09)
+
+#define TZ_SECBOOT_GET_FUSE_INFO_PARAM_ID \
+	TZ_SYSCALL_CREATE_PARAM_ID_4(\
+	TZ_SYSCALL_PARAM_TYPE_BUF_RO, \
+	TZ_SYSCALL_PARAM_TYPE_VAL, \
+	TZ_SYSCALL_PARAM_TYPE_BUF_RW, \
+	TZ_SYSCALL_PARAM_TYPE_VAL)
 
 #define TZ_OS_REGISTER_LISTENER_ID \
 	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_QSEE_OS, TZ_SVC_LISTENER, 0x01)

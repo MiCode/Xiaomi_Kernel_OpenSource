@@ -6,6 +6,7 @@
 #ifndef __DRIVERS_INTERCONNECT_QCOM_ICC_RPMH_H__
 #define __DRIVERS_INTERCONNECT_QCOM_ICC_RPMH_H__
 
+#include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <dt-bindings/interconnect/qcom,icc.h>
 

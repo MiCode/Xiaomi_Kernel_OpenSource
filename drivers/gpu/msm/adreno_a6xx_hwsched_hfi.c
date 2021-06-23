@@ -331,7 +331,7 @@ static void process_ctx_bad(struct adreno_device *adreno_dev)
 
 static u32 peek_next_header(struct a6xx_gmu_device *gmu, uint32_t queue_idx)
 {
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	u32 *queue;
@@ -391,6 +391,7 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	u32 rcvd[MAX_RCVD_SIZE];
 	bool recovery = false;
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
 
 	while (a6xx_hfi_queue_read(gmu, HFI_DBG_ID, rcvd, sizeof(rcvd)) > 0) {
 
@@ -403,8 +404,10 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_DEBUG)
 			adreno_a6xx_receive_debug_req(gmu, rcvd);
 
-		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK)
+		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK) {
 			add_f2h_packet(adreno_dev, rcvd);
+			wake_up_interruptible(&hfi->f2h_wq);
+		}
 	}
 
 	if (!recovery)
@@ -615,7 +618,6 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int attrs = get_attrs(flags);
-	struct kgsl_memdesc *gpu_md = entry->gpu_md;
 	struct gmu_vma_entry *vma = &gmu->vma[GMU_NONCACHED_KERNEL];
 	struct hfi_mem_alloc_desc *desc = &entry->desc;
 	int ret;
@@ -630,15 +632,15 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 		return -ENOMEM;
 	}
 
-	desc->gmu_addr = vma->next_va;
 
-	ret = gmu_core_map_memdesc(gmu->domain, gpu_md, desc->gmu_addr, attrs);
+	ret = gmu_core_map_memdesc(gmu->domain, entry->md, vma->next_va, attrs);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "gmu map err: 0x%08x, %x\n",
-			desc->gmu_addr, attrs);
+			vma->next_va, attrs);
 		return ret;
 	}
 
+	entry->md->gmuaddr = vma->next_va;
 	vma->next_va += desc->size;
 	return 0;
 }
@@ -699,31 +701,32 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 		flags |= KGSL_MEMFLAGS_SECURE;
 
 	if (!(desc->flags & HFI_MEMFLAG_GFX_ACC)) {
-		entry->gmu_md = reserve_gmu_kernel_block(gmu, 0, desc->size,
+		entry->md = reserve_gmu_kernel_block(gmu, 0, desc->size,
 				(desc->flags & HFI_MEMFLAG_GMU_CACHEABLE) ?
 				GMU_CACHE : GMU_NONCACHED_KERNEL);
-		if (IS_ERR(entry->gmu_md)) {
-			int ret = PTR_ERR(entry->gmu_md);
+		if (IS_ERR(entry->md)) {
+			int ret = PTR_ERR(entry->md);
 
 			memset(entry, 0, sizeof(*entry));
 			return ERR_PTR(ret);
 		}
-		entry->desc.size = entry->gmu_md->size;
-		entry->desc.gmu_addr = entry->gmu_md->gmuaddr;
+		entry->desc.size = entry->md->size;
+		entry->desc.gmu_addr = entry->md->gmuaddr;
 
 		goto done;
 	}
 
-	entry->gpu_md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
+	entry->md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
 		memkind_string);
-	if (IS_ERR(entry->gpu_md)) {
-		int ret = PTR_ERR(entry->gpu_md);
+	if (IS_ERR(entry->md)) {
+		int ret = PTR_ERR(entry->md);
 
 		memset(entry, 0, sizeof(*entry));
 		return ERR_PTR(ret);
 	}
 
-	entry->desc.size = entry->gpu_md->size;
+	entry->desc.size = entry->md->size;
+	entry->desc.gpu_addr = entry->md->gpuaddr;
 
 	if (!(desc->flags & HFI_MEMFLAG_GMU_ACC))
 		goto done;
@@ -736,11 +739,12 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
 			"gpuaddr: 0x%llx size: %lld bytes lost\n",
-			entry->gpu_md->gpuaddr, entry->gpu_md->size);
+			entry->md->gpuaddr, entry->md->size);
 		memset(entry, 0, sizeof(*entry));
 		return ERR_PTR(ret);
 	}
 
+	entry->desc.gmu_addr = entry->md->gmuaddr;
 done:
 	hfi->mem_alloc_entries++;
 
@@ -756,9 +760,10 @@ static int process_mem_alloc(struct adreno_device *adreno_dev,
 	if (IS_ERR(entry))
 		return PTR_ERR(entry);
 
-	if (entry->gpu_md)
-		mad->gpu_addr = entry->gpu_md->gpuaddr;
-	mad->gmu_addr = entry->desc.gmu_addr;
+	if (entry->md) {
+		mad->gpu_addr = entry->md->gpuaddr;
+		mad->gmu_addr = entry->md->gmuaddr;
+	}
 
 	/*
 	 * GMU uses the host_mem_handle to check if this memalloc was
@@ -1457,12 +1462,6 @@ skipib:
 		(u32 *)cmd);
 	if (ret)
 		goto free;
-
-	/*
-	 * Memory barrier to make sure packet and write index are written before
-	 * an interrupt is raised
-	 */
-	wmb();
 
 	add_profile_events(adreno_dev, drawobj, &time);
 

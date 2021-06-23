@@ -24,7 +24,17 @@ GKI_SKIP_IF_VERSION_MATCHES=1
 GKI_SKIP_CP_KERNEL_HDR=1
 
 function sanity_check_abi() {
-	[ -z "${GKI_BUILD_CONFIG}" ] && return
+	if [ -z "${GKI_BUILD_CONFIG}" ] ; then
+		# When running build_abi.sh, mixed build is explicitly disabled
+		# In that case, turn on some options for trimming and strict mode
+		# which would normally be disabled because they conflict with
+		# mixed build
+		if [ "${VARIANT}" = gki ]; then
+			TRIM_NONLISTED_KMI=1
+			KMI_SYMBOL_LIST_STRICT_MODE=1
+		fi
+		return
+	fi
 
 	if ! diff -q "${ROOT_DIR}/${KERNEL_DIR}/android/abi_gki_aarch64.xml" \
 		     "${ROOT_DIR}/${GKI_KERNEL_DIR}/android/abi_gki_aarch64.xml" ; then

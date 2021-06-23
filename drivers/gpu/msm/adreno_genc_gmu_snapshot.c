@@ -74,7 +74,7 @@ static const u32 genc_rscc_registers[] = {
 static_assert(IS_ALIGNED(sizeof(genc_rscc_registers), 8));
 
 struct gmu_mem_type_desc {
-	struct gmu_memdesc *memdesc;
+	struct kgsl_memdesc *memdesc;
 	u32 type;
 };
 
@@ -161,7 +161,7 @@ static void genc_gmu_snapshot_memories(struct kgsl_device *device,
 	struct genc_gmu_device *gmu, struct kgsl_snapshot *snapshot)
 {
 	struct gmu_mem_type_desc desc;
-	struct gmu_memdesc *md;
+	struct kgsl_memdesc *md;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(gmu->gmu_globals); i++) {

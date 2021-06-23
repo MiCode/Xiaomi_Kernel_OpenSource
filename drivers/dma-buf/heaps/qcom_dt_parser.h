@@ -17,6 +17,7 @@
  * @size:	size of the heap in bytes if applicable
  * @dev:	the device associated with the heap's DT node
  * @is_dynamic:	indicates if memory can be added or removed from carveout heaps
+ * is_uncached:	indicates if this heap provides uncached memory or not
  * @token:	the end points to which memory for secure carveout memory is
  *		assigned to
  * @max_align:  page order of the maximum alignment. Used by cma heap.
@@ -29,6 +30,7 @@ struct platform_heap {
 	phys_addr_t base;
 	size_t size;
 	struct device *dev;
+	bool is_uncached;
 	bool is_dynamic;
 	u32 token;
 	u32 max_align;

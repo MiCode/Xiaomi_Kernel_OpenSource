@@ -134,11 +134,11 @@ struct walt_sched_cluster {
 	unsigned int		max_possible_freq;
 	unsigned int		max_freq;
 	u64			aggr_grp_load;
+
+	u16			util_to_cost[1024];
 };
 
 extern struct walt_sched_cluster *sched_cluster[WALT_NR_CPUS];
-
-extern struct walt_sched_cluster *rq_cluster(struct rq *rq);
 
 /*END SCHED.H PORT*/
 
@@ -147,7 +147,7 @@ extern unsigned int sched_capacity_margin_up[WALT_NR_CPUS];
 extern unsigned int sched_capacity_margin_down[WALT_NR_CPUS];
 extern cpumask_t asym_cap_sibling_cpus;
 extern cpumask_t __read_mostly **cpu_array;
-
+extern int cpu_l2_sibling[WALT_NR_CPUS];
 extern void sched_update_nr_prod(int cpu, int enq);
 extern unsigned int walt_big_tasks(int cpu);
 extern void walt_rotate_work_init(void);
@@ -210,6 +210,9 @@ extern unsigned int sysctl_sched_coloc_busy_hyst_enable_cpus;
 extern unsigned int sysctl_sched_coloc_busy_hyst_cpu[WALT_NR_CPUS];
 extern unsigned int sysctl_sched_coloc_busy_hyst_max_ms;
 extern unsigned int sysctl_sched_coloc_busy_hyst_cpu_busy_pct[WALT_NR_CPUS];
+extern unsigned int sysctl_sched_util_busy_hyst_enable_cpus;
+extern unsigned int sysctl_sched_util_busy_hyst_cpu[WALT_NR_CPUS];
+extern unsigned int sysctl_sched_util_busy_hyst_cpu_util[WALT_NR_CPUS];
 extern unsigned int sysctl_sched_boost; /* To/from userspace */
 extern unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS];
 extern unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS];
@@ -225,6 +228,9 @@ extern unsigned int sysctl_sched_many_wakeup_threshold;
 extern unsigned int sysctl_walt_rtg_cfs_boost_prio;
 extern __read_mostly unsigned int sysctl_sched_force_lb_enable;
 extern const int sched_user_hint_max;
+extern unsigned int sysctl_sched_dynamic_tp_enable;
+extern int sched_dynamic_tp_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
 
 extern struct list_head cluster_head;
 #define for_each_sched_cluster(cluster) \
@@ -877,4 +883,14 @@ void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_tick(struct rq *rq);
 void walt_lb_tick(struct rq *rq);
 
+extern __read_mostly unsigned int walt_scale_demand_divisor;
+#define scale_demand(d) ((d)/walt_scale_demand_divisor)
+
+void create_util_to_cost(void);
+struct compute_energy_output {
+	unsigned long	sum_util[MAX_CLUSTERS];
+	unsigned long	max_util[MAX_CLUSTERS];
+	u16		cost[MAX_CLUSTERS];
+	unsigned int	cluster_first_cpu[MAX_CLUSTERS];
+};
 #endif /* _WALT_H */

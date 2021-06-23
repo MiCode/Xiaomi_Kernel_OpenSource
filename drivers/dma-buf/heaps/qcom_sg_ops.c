@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
+ * mmap() algorithm taken from drivers/staging/android/ion/ion_heap.c as
+ * of commit a3ec289e74b4 ("arm-smmu: Fix missing qsmmuv500 callback")
+ *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2019, 2020 Linaro Ltd.
  *
@@ -379,9 +382,11 @@ static int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct sg_table *table = &buffer->sg_table;
+	struct scatterlist *sg;
 	unsigned long addr = vma->vm_start;
-	struct sg_page_iter piter;
+	unsigned long offset = vma->vm_pgoff * PAGE_SIZE;
 	int ret;
+	int i;
 
 	mem_buf_vmperm_pin(buffer->vmperm);
 	if (!mem_buf_vmperm_can_mmap(buffer->vmperm, vma)) {
@@ -394,16 +399,27 @@ static int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	if (buffer->uncached)
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
-	for_each_sgtable_page(table, &piter, vma->vm_pgoff) {
-		struct page *page = sg_page_iter_page(&piter);
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		struct page *page = sg_page(sg);
+		unsigned long remainder = vma->vm_end - addr;
+		unsigned long len = sg->length;
 
-		ret = remap_pfn_range(vma, addr, page_to_pfn(page), PAGE_SIZE,
+		if (offset >= sg->length) {
+			offset -= sg->length;
+			continue;
+		} else if (offset) {
+			page += offset / PAGE_SIZE;
+			len = sg->length - offset;
+			offset = 0;
+		}
+		len = min(len, remainder);
+		ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
 				      vma->vm_page_prot);
 		if (ret) {
 			mem_buf_vmperm_unpin(buffer->vmperm);
 			return ret;
 		}
-		addr += PAGE_SIZE;
+		addr += len;
 		if (addr >= vma->vm_end)
 			return 0;
 	}

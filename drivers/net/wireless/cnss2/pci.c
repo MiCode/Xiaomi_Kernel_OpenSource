@@ -3063,11 +3063,13 @@ int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv)
 static bool cnss_pci_is_drv_supported(struct cnss_pci_data *pci_priv)
 {
 	struct pci_dev *root_port = pcie_find_root_port(pci_priv->pci_dev);
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	struct device_node *root_of_node;
 	bool drv_supported = false;
 
 	if (!root_port) {
 		cnss_pr_err("PCIe DRV is not supported as root port is null\n");
+		pci_priv->drv_supported = false;
 		return drv_supported;
 	}
 
@@ -3079,6 +3081,10 @@ static bool cnss_pci_is_drv_supported(struct cnss_pci_data *pci_priv)
 
 	cnss_pr_dbg("PCIe DRV is %s\n",
 		    drv_supported ? "supported" : "not supported");
+	pci_priv->drv_supported = drv_supported;
+
+	if (drv_supported)
+		plat_priv->cap.cap_flag |= CNSS_HAS_DRV_SUPPORT;
 
 	return drv_supported;
 }
@@ -3314,7 +3320,8 @@ static int cnss_pci_suspend(struct device *dev)
 	if (!cnss_is_device_powered_on(plat_priv))
 		goto out;
 
-	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks)) {
+	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks) &&
+	    pci_priv->drv_supported) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
 		if (!pci_priv->drv_connected_last) {
@@ -3456,7 +3463,8 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 		return -EAGAIN;
 	}
 
-	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks)) {
+	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks) &&
+	    pci_priv->drv_supported) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
 		if (!pci_priv->drv_connected_last) {

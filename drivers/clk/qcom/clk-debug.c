@@ -19,6 +19,7 @@
 
 #include "clk-regmap.h"
 #include "clk-debug.h"
+#include "gdsc-debug.h"
 
 static struct clk_hw *measure;
 static bool debug_suspend;
@@ -939,15 +940,21 @@ void clk_debug_exit(void)
 
 /**
  * qcom_clk_dump - dump the HW specific registers associated with this clock
+ * and regulator
  * @clk: clock source
+ * @regulator: regulator
  * @calltrace: indicates whether calltrace is required
  *
  * This function attempts to print all the registers associated with the
- * clock and it's parents.
+ * clock, it's parents and regulator.
  */
-void qcom_clk_dump(struct clk *clk, bool calltrace)
+void qcom_clk_dump(struct clk *clk, struct regulator *regulator,
+		   bool calltrace)
 {
 	struct clk_hw *hw;
+
+	if (!IS_ERR_OR_NULL(regulator))
+		gdsc_debug_print_regs(regulator);
 
 	if (IS_ERR_OR_NULL(clk))
 		return;
@@ -963,22 +970,27 @@ EXPORT_SYMBOL(qcom_clk_dump);
 
 /**
  * qcom_clk_bulk_dump - dump the HW specific registers associated with clocks
- * @clks: the clk_bulk_data table of consumer
+ * and regulator
  * @num_clks: the number of clk_bulk_data
+ * @clks: the clk_bulk_data table of consumer
+ * @regulator: regulator source
  * @calltrace: indicates whether calltrace is required
  *
  * This function attempts to print all the registers associated with the
- * clock and it's parents for all the clocks in the list.
+ * clocks in the list and regulator.
  */
 void qcom_clk_bulk_dump(int num_clks, struct clk_bulk_data *clks,
-			bool calltrace)
+			struct regulator *regulator, bool calltrace)
 {
 	int i;
+
+	if (!IS_ERR_OR_NULL(regulator))
+		gdsc_debug_print_regs(regulator);
 
 	if (IS_ERR_OR_NULL(clks))
 		return;
 
 	for (i = 0; i < num_clks; i++)
-		qcom_clk_dump(clks[i].clk, calltrace);
+		qcom_clk_dump(clks[i].clk, NULL, calltrace);
 }
 EXPORT_SYMBOL(qcom_clk_bulk_dump);

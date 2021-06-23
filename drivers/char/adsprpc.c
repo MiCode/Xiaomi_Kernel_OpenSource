@@ -210,6 +210,10 @@
 
 #define PERF_CAPABILITY   (1 << 1)
 
+#define MD_GMSG_BUFFER (1000)
+
+#define MINI_DUMP_DBG_SIZE (200*1024)
+
 /* Fastrpc remote process attributes */
 enum fastrpc_proc_attr {
 	/* Macro for Debug attr */
@@ -525,6 +529,8 @@ struct fastrpc_channel_ctx {
 	spinlock_t ctxlock;
 	struct fastrpc_rpmsg_log gmsg_log;
 	struct hlist_head initmems;
+	/* Store gfa structure debug details */
+	struct fastrpc_buf *buf;
 };
 
 struct fastrpc_apps {
@@ -2293,6 +2299,8 @@ static void fastrpc_ramdump_collection(int cid)
 			fl->is_ramdump_pend = true;
 		}
 	}
+	if (chan->buf)
+		hlist_add_head(&chan->buf->hn_init, &chan->initmems);
 	spin_unlock(&me->hlock);
 
 	hlist_for_each_entry_safe(buf, n, &chan->initmems, hn_init) {
@@ -2304,6 +2312,10 @@ static void fastrpc_ramdump_collection(int cid)
 
 		if (fl && fl->sctx && fl->sctx->smmu.dev)
 			ret = fastrpc_ramdump(fl->sctx->smmu.dev, &ramdump_entry, true);
+		else {
+			if (me->dev != NULL)
+				ret = fastrpc_ramdump(me->dev, &ramdump_entry, true);
+		}
 		if (ret < 0)
 			ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
 				__func__, ret);
@@ -5345,6 +5357,7 @@ skip_dump_wait:
 	mutex_destroy(&fl->map_mutex);
 	mutex_destroy(&fl->internal_map_mutex);
 	kfree(fl->dev_pm_qos_req);
+	kfree(fl->gidlist.gids);
 	kfree(fl);
 	return 0;
 }
@@ -5793,9 +5806,9 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 			pr_warn("Error: %s: %s: failed to create debugfs file %s\n",
 				cur_comm, __func__, fl->debug_buf);
 			fl->debugfs_file = NULL;
-			kfree(fl->debug_buf);
-			fl->debug_buf = NULL;
 		}
+		kfree(fl->debug_buf);
+		fl->debug_buf = NULL;
 	}
 	return err;
 }
@@ -6398,6 +6411,253 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	return err;
 }
 
+/*
+ *  fastrpc_smq_ctx_detail : Store  smq_invoke_ctx structure parameter.
+ *  Input :
+ *        structure smq_invoke_ctx
+ *        void* mini_dump_buff
+ */
+static void fastrpc_smq_ctx_detail(struct smq_invoke_ctx *smq_ctx, int cid, void *mini_dump_buff)
+{
+	int i = 0;
+	remote_arg64_t *rpra = NULL;
+	struct fastrpc_mmap *map = NULL;
+
+	if (!smq_ctx)
+		return;
+	if (smq_ctx->buf && smq_ctx->buf->virt)
+		rpra = smq_ctx->buf->virt;
+	for (i = 0; rpra &&
+		i < (REMOTE_SCALARS_INBUFS(smq_ctx->sc) + REMOTE_SCALARS_OUTBUFS(smq_ctx->sc));
+		++i) {
+		map = smq_ctx->maps[i];
+		if (map) {
+			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+					smq_invoke_ctx_params, fastrpc_mmap_params,
+					smq_ctx->pid, smq_ctx->tgid, smq_ctx->handle,
+					smq_ctx->sc, smq_ctx->fl, smq_ctx->fds,
+					smq_ctx->magic, map->fd, map->flags, map->buf,
+					map->phys, map->size, map->va,
+					map->raddr, map->len, map->refs,
+					map->secure);
+		} else {
+			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+					smq_invoke_ctx_params, smq_ctx->pid, smq_ctx->tgid,
+					smq_ctx->handle, smq_ctx->sc, smq_ctx->fl, smq_ctx->fds,
+					smq_ctx->magic);
+		}
+		break;
+	}
+}
+
+/*
+ *  fastrpc_print_fastrpcbuf : Print fastrpc_buf structure parameter.
+ *  Input :
+ *        structure fastrpc_buf
+ *        void* buffer
+ */
+static void fastrpc_print_fastrpcbuf(struct fastrpc_buf *buf, void *buffer)
+{
+	if (!buf || !buffer)
+		return;
+
+	scnprintf(buffer + strlen(buffer),
+			MINI_DUMP_DBG_SIZE - strlen(buffer),
+			fastrpc_buf_params, buf->fl, buf->phys,
+			buf->virt, buf->size, buf->dma_attr, buf->raddr,
+			buf->flags, buf->type, buf->in_use);
+}
+
+/*
+ *  fastrpc_print_debug_data : Print debug structure variable in CMA memory.
+ *  Input cid: Channel id
+ */
+static void  fastrpc_print_debug_data(int cid)
+{
+	unsigned int i = 0, count = 0, gmsg_log_iter = 3, err = 0;
+	unsigned int tx_index = 0, rx_index = 0;
+	unsigned long flags = 0;
+	char *gmsg_log_tx = NULL;
+	char *gmsg_log_rx = NULL;
+	void *mini_dump_buff = NULL;
+	struct fastrpc_apps *me = &gfa;
+	struct smq_invoke_rspv2 *rsp = NULL;
+	struct fastrpc_file *fl = NULL;
+	struct fastrpc_channel_ctx *chan = NULL;
+	struct hlist_node *n = NULL;
+	struct smq_invoke_ctx *ictx = NULL;
+	struct fastrpc_tx_msg *tx_msg = NULL;
+	struct fastrpc_buf *buf = NULL;
+	struct fastrpc_mmap *map = NULL;
+
+	VERIFY(err, NULL != (gmsg_log_tx = kzalloc(MD_GMSG_BUFFER, GFP_KERNEL)));
+	if (err) {
+		err = -ENOMEM;
+		return;
+	}
+	VERIFY(err, NULL != (gmsg_log_rx = kzalloc(MD_GMSG_BUFFER, GFP_KERNEL)));
+	if (err) {
+		err = -ENOMEM;
+		return;
+	}
+
+	chan = &me->channel[cid];
+	if (!chan->buf)
+		return;
+
+	mini_dump_buff = chan->buf->virt;
+	if (!mini_dump_buff)
+		return;
+
+	if (chan) {
+		tx_index = chan->gmsg_log.tx_index;
+		rx_index = chan->gmsg_log.rx_index;
+	}
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if (fl->cid == cid) {
+			scnprintf(mini_dump_buff +
+					strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE -
+					strlen(mini_dump_buff),
+					"\nfastrpc_file: %p\n", fl);
+			scnprintf(mini_dump_buff +
+					strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE -
+					strlen(mini_dump_buff),
+					fastrpc_file_params, fl->tgid,
+					fl->cid, fl->ssrcount, fl->pd,
+					fl->profile, fl->mode,
+					fl->tgid_open, fl->num_cached_buf,
+					fl->num_pers_hdrs, fl->sessionid,
+					fl->servloc_name, fl->file_close,
+					fl->dsp_proc_init, fl->apps,
+					fl->qos_request, fl->dev_minor,
+					fl->debug_buf,
+					fl->debug_buf_alloced_attempted,
+					fl->wake_enable,
+					fl->ws_timeout,
+					fl->untrusted_process);
+			scnprintf(mini_dump_buff +
+					strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE -
+					strlen(mini_dump_buff),
+					"\nSession Maps\n");
+			hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+				scnprintf(mini_dump_buff +
+						strlen(mini_dump_buff),
+						MINI_DUMP_DBG_SIZE -
+						strlen(mini_dump_buff),
+						fastrpc_mmap_params,
+						map->fd,
+						map->flags, map->buf,
+						map->phys, map->size,
+						map->va, map->raddr,
+						map->len, map->refs,
+						map->secure);
+			}
+			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+					"\ncached_bufs\n");
+			hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
+				fastrpc_print_fastrpcbuf(buf, mini_dump_buff);
+			}
+			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+					"\ninit_mem: %p\n", fl->init_mem);
+			fastrpc_print_fastrpcbuf(fl->init_mem, mini_dump_buff);
+			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+					"\npers_hdr_buf: %p\n", fl->pers_hdr_buf);
+			fastrpc_print_fastrpcbuf(fl->pers_hdr_buf, mini_dump_buff);
+			snprintf(mini_dump_buff + strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+					"\nhdr_bufs: %p\n", fl->hdr_bufs);
+			fastrpc_print_fastrpcbuf(fl->hdr_bufs, mini_dump_buff);
+			if (fl->debugfs_file) {
+				scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+					   MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+					   "\nfl->debugfs_file.d_iname : %s\n",
+					   fl->debugfs_file->d_iname);
+			}
+			if (fl->sctx) {
+				scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+						MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+						"\nfl->sctx->smmu.cb : %d\n",
+						fl->sctx->smmu.cb);
+			}
+			if (fl->secsctx) {
+				scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+					"\nfl->secsctx->smmu.cb : %d\n",
+					fl->secsctx->smmu.cb);
+			}
+			spin_lock(&fl->hlock);
+			scnprintf(mini_dump_buff +
+					strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE -
+					strlen(mini_dump_buff),
+					"\nPending Ctx:\n");
+				hlist_for_each_entry_safe(ictx, n, &fl->clst.pending, hn) {
+					fastrpc_smq_ctx_detail(ictx,
+							cid, mini_dump_buff);
+				}
+			scnprintf(mini_dump_buff +
+					strlen(mini_dump_buff),
+					MINI_DUMP_DBG_SIZE -
+					strlen(mini_dump_buff),
+					"\nInterrupted Ctx:\n");
+			hlist_for_each_entry_safe(ictx, n,
+					&fl->clst.interrupted,
+					hn) {
+				fastrpc_smq_ctx_detail(ictx,
+						cid, mini_dump_buff);
+			}
+			spin_unlock(&fl->hlock);
+		}
+	}
+	spin_unlock(&me->hlock);
+	spin_lock_irqsave(&chan->gmsg_log.lock, flags);
+	if (rx_index) {
+		for (i = rx_index, count = 0; i > 0 &&
+				count <= gmsg_log_iter; i--, count++) {
+			rsp = &chan->gmsg_log.rx_msgs[i].rsp;
+			scnprintf(gmsg_log_rx + strlen(gmsg_log_rx), MD_GMSG_BUFFER,
+					"ctx: 0x%x , retval: %d, flags: %d, early_wake_time: %d, version: %d\n",
+					rsp->ctx, rsp->retval, rsp->flags,
+					rsp->early_wake_time, rsp->version);
+		}
+	}
+	if (tx_index) {
+		for (i = tx_index, count = 0;
+				i > 0 && count <= gmsg_log_iter;
+				i--, count++) {
+			tx_msg = &chan->gmsg_log.tx_msgs[i];
+			scnprintf(gmsg_log_tx + strlen(gmsg_log_tx), MD_GMSG_BUFFER,
+					"pid: %d, tid: %d, ctx: 0x%x, handle: 0x%x, sc: 0x%x, addr: 0x%x, size:%d\n",
+					tx_msg->msg.pid,
+					tx_msg->msg.tid,
+					tx_msg->msg.invoke.header.ctx,
+					tx_msg->msg.invoke.header.handle,
+					tx_msg->msg.invoke.header.sc,
+					tx_msg->msg.invoke.page.addr,
+					tx_msg->msg.invoke.page.size);
+		}
+	}
+	spin_unlock_irqrestore(&chan->gmsg_log.lock, flags);
+	scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+			MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+			"gmsg_log_tx:\n%s\n", gmsg_log_tx);
+	scnprintf(mini_dump_buff + strlen(mini_dump_buff),
+			MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
+			"gmsg_log_rx:\n %s\n", gmsg_log_rx);
+	chan->buf->size = strlen(mini_dump_buff);
+	kfree(gmsg_log_tx);
+	kfree(gmsg_log_rx);
+}
+
 static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 					unsigned long code,
 					void *data)
@@ -6435,8 +6695,12 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 				me->channel[RH_CID].ramdumpenabled = 0;
 			}
 		}
-		if (cid == CDSP_DOMAIN_ID && dump_enabled())
+		if (cid == CDSP_DOMAIN_ID && dump_enabled()) {
+			mutex_lock(&me->channel[cid].smd_mutex);
+			fastrpc_print_debug_data(cid);
+			mutex_unlock(&me->channel[cid].smd_mutex);
 			fastrpc_ramdump_collection(cid);
+		}
 		fastrpc_notify_drivers(me, cid);
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
@@ -7152,6 +7416,10 @@ static int __init fastrpc_device_init(void)
 {
 	struct fastrpc_apps *me = &gfa;
 	int err = 0, i;
+	uintptr_t attr = 0;
+	dma_addr_t region_phys = 0;
+	void *region_vaddr = NULL;
+	struct fastrpc_buf *buf = NULL;
 
 	debugfs_root = debugfs_create_dir("adsprpc", NULL);
 	if (IS_ERR_OR_NULL(debugfs_root)) {
@@ -7220,8 +7488,6 @@ static int __init fastrpc_device_init(void)
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		me->jobid[i] = 1;
 		me->channel[i].dev = me->secure_dev;
-		if (i == CDSP_DOMAIN_ID)
-			me->channel[i].dev = me->non_secure_dev;
 		me->channel[i].ssrcount = 0;
 		me->channel[i].prevssrcount = 0;
 		me->channel[i].issubsystemup = 1;
@@ -7231,6 +7497,31 @@ static int __init fastrpc_device_init(void)
 		me->channel[i].handle = qcom_register_ssr_notifier(
 							gcinfo[i].subsys,
 							&me->channel[i].nb);
+		if (i == CDSP_DOMAIN_ID) {
+			me->channel[i].dev = me->non_secure_dev;
+			attr |= DMA_ATTR_SKIP_ZEROING;
+			err = fastrpc_alloc_cma_memory(&region_phys,
+								&region_vaddr,
+								MINI_DUMP_DBG_SIZE,
+								(unsigned long)attr);
+			if (err)
+				ADSPRPC_WARN("%s: CMA alloc failed  err 0x%x\n",
+						__func__, err);
+			VERIFY(err, NULL != (buf = kzalloc(sizeof(*buf), GFP_KERNEL)));
+			if (err) {
+				err = -ENOMEM;
+				ADSPRPC_WARN("%s: CMA alloc failed  err 0x%x\n",
+							__func__, err);
+			}
+			INIT_HLIST_NODE(&buf->hn);
+			buf->virt = region_vaddr;
+			buf->phys = (uintptr_t)region_phys;
+			buf->size = MINI_DUMP_DBG_SIZE;
+			buf->dma_attr = attr;
+			buf->raddr = 0;
+			ktime_get_real_ts64(&buf->buf_start_time);
+			me->channel[i].buf = buf;
+		}
 		if (IS_ERR_OR_NULL(me->channel[i].handle))
 			pr_warn("adsprpc: %s: SSR notifier register failed for %s with err %d\n",
 				__func__, gcinfo[i].subsys,
@@ -7294,6 +7585,8 @@ static void __exit fastrpc_device_exit(void)
 	wakeup_source_unregister(me->wake_source);
 	wakeup_source_unregister(me->wake_source_secure);
 	for (i = 0; i < NUM_CHANNELS; i++) {
+		if (i == CDSP_DOMAIN_ID)
+			kfree(me->channel[i].buf);
 		if (!gcinfo[i].name)
 			continue;
 		qcom_unregister_ssr_notifier(me->channel[i].handle,

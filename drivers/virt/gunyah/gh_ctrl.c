@@ -12,8 +12,8 @@
 #include <linux/of.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
-#include <linux/gunyah/hcall.h>
 #include <linux/gunyah/gh_errno.h>
+#include "hcall_ctrl.h"
 
 #define QC_HYP_SMCCC_CALL_UID                                                  \
 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \

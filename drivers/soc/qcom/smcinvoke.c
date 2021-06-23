@@ -18,19 +18,19 @@
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
 #include <linux/dma-buf.h>
+#include <linux/delay.h>
 #include <linux/kref.h>
 #include <linux/signal.h>
 #include <linux/msm_ion.h>
 #include <linux/mem-buf.h>
 #include <linux/of_platform.h>
-
+#include <linux/firmware.h>
 #include <linux/qcom_scm.h>
 #include <asm/cacheflush.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
-
 #include "smcinvoke_object.h"
-#include "../../misc/qseecom_kernel.h"
+#include <misc/qseecom_kernel.h>
 
 #define SMCINVOKE_DEV                   "smcinvoke"
 #define SMCINVOKE_TZ_ROOT_OBJ           1
@@ -45,9 +45,13 @@
 #define SMCINVOKE_DECREMENT             0
 #define SMCINVOKE_OBJ_TYPE_TZ_OBJ       0
 #define SMCINVOKE_OBJ_TYPE_SERVER       1
+#define SMCINVOKE_OBJ_TYPE_TZ_OBJ_FOR_KERNEL	2
 #define SMCINVOKE_MEM_MAP_OBJ           0
 #define SMCINVOKE_MEM_RGN_OBJ           1
 #define SMCINVOKE_MEM_PERM_RW           6
+#define SMCINVOKE_SCM_EBUSY_WAIT_MS 30
+#define SMCINVOKE_SCM_EBUSY_MAX_RETRY 67
+
 
 /* TZ defined values - Start */
 #define SMCINVOKE_INVOKE_PARAM_ID       0x224
@@ -720,8 +724,9 @@ static int get_fd_for_obj(uint32_t obj_type, uint32_t obj, int32_t *fd)
 		ret = -ENOMEM;
 		goto out;
 	}
-	if (obj_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ) {
-		cxt->context_type = SMCINVOKE_OBJ_TYPE_TZ_OBJ;
+	if (obj_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ ||
+		obj_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ_FOR_KERNEL) {
+		cxt->context_type = obj_type;
 		cxt->tzhandle = obj;
 	} else if (obj_type == SMCINVOKE_OBJ_TYPE_SERVER) {
 		cxt->context_type = SMCINVOKE_OBJ_TYPE_SERVER;
@@ -753,7 +758,7 @@ out:
 }
 
 static int get_uhandle_from_tzhandle(int32_t tzhandle, int32_t srvr_id,
-				int32_t *uhandle, bool lock)
+			int32_t *uhandle, bool lock, uint32_t context_type)
 {
 	int ret = -1;
 
@@ -789,8 +794,8 @@ exit_lock:
 		MUTEX_UNLOCK(lock)
 	} else if (TZHANDLE_IS_REMOTE(tzhandle)) {
 		/* if execution comes here => tzhandle is an unsigned int */
-		ret = get_fd_for_obj(SMCINVOKE_OBJ_TYPE_TZ_OBJ,
-						(uint32_t)tzhandle, uhandle);
+		ret = get_fd_for_obj(context_type,
+					(uint32_t)tzhandle, uhandle);
 	}
 out:
 	return ret;
@@ -1150,7 +1155,8 @@ out:
 
 static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 				struct smcinvoke_cmd_req *req,
-				union smcinvoke_arg *args_buf)
+				union smcinvoke_arg *args_buf,
+				uint32_t context_type)
 {
 	int ret = -EINVAL, i = 0;
 	int32_t temp_fd = UHANDLE_NULL;
@@ -1177,11 +1183,18 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 			pr_err("%s: buffer overflow detected\n", __func__);
 			goto out;
 		}
-		if (copy_to_user((void __user *)(uintptr_t)(args_buf[i].b.addr),
-			(uint8_t *)(buf) + tz_args->b.offset,
-						tz_args->b.size)) {
-			pr_err("Error %d copying ctxt to user\n", ret);
-			goto out;
+		if (context_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ) {
+			if (copy_to_user(
+				(void __user *)(uintptr_t)(args_buf[i].b.addr),
+					(uint8_t *)(buf) + tz_args->b.offset,
+					tz_args->b.size)) {
+				pr_err("Error %d copying ctxt to user\n", ret);
+				goto out;
+			}
+		} else {
+			memcpy((uint8_t *)(args_buf[i].b.addr),
+				(uint8_t *)(buf) + tz_args->b.offset,
+				tz_args->b.size);
 		}
 		tz_args++;
 	}
@@ -1197,8 +1210,8 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 		temp_fd = UHANDLE_NULL;
 
 		ret = get_uhandle_from_tzhandle(tz_args->handle,
-					TZHANDLE_GET_SERVER(tz_args->handle),
-				&temp_fd, NO_LOCK);
+				TZHANDLE_GET_SERVER(tz_args->handle),
+				&temp_fd, NO_LOCK, context_type);
 
 		args_buf[i].o.fd = temp_fd;
 
@@ -1224,10 +1237,10 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 				size_t out_buf_len,
 				struct smcinvoke_cmd_req *req,
 				union smcinvoke_arg *args_buf,
-				bool *tz_acked,
+				bool *tz_acked, uint32_t context_type,
 				struct qtee_shm *in_shm, struct  qtee_shm *out_shm)
 {
-	int ret = 0, cmd;
+	int ret = 0, cmd, retry_count = 0;
 	u64 response_type;
 	unsigned int data;
 	struct file *arr_filp[OBJECT_COUNTS_MAX_OO] = {NULL};
@@ -1250,16 +1263,26 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	while (1) {
 		mutex_lock(&g_smcinvoke_lock);
 
-		ret = invoke_cmd_handler(cmd, in_paddr, in_buf_len, out_buf,
-			out_paddr, out_buf_len, &req->result, &response_type,
-			&data, in_shm, out_shm);
+		do {
+			ret = invoke_cmd_handler(cmd, in_paddr, in_buf_len, out_buf,
+				out_paddr, out_buf_len, &req->result, &response_type,
+				&data, in_shm, out_shm);
+
+			if (ret == -EBUSY) {
+				pr_err("Secure side is busy,will retry after 30 ms\n");
+				msleep(SMCINVOKE_SCM_EBUSY_WAIT_MS);
+			}
+
+		} while ((ret == -EBUSY) &&
+			(retry_count++ < SMCINVOKE_SCM_EBUSY_MAX_RETRY));
 
 		if (!ret && !is_inbound_req(response_type)) {
 			/* dont marshal if Obj returns an error */
 			if (!req->result) {
 				if (args_buf != NULL)
 					ret = marshal_out_invoke_req(in_buf,
-						in_buf_len, req, args_buf);
+						in_buf_len, req, args_buf,
+						context_type);
 			}
 			*tz_acked = true;
 		}
@@ -1280,7 +1303,8 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 			if (!req->result &&
 			response_type != SMCINVOKE_RESULT_INBOUND_REQ_NEEDED) {
 				ret = marshal_out_invoke_req(in_buf,
-						in_buf_len, req, args_buf);
+						in_buf_len, req, args_buf,
+						context_type);
 			}
 			*tz_acked = true;
 		}
@@ -1332,7 +1356,7 @@ static size_t compute_in_msg_size(const struct smcinvoke_cmd_req *req,
 static int marshal_in_invoke_req(const struct smcinvoke_cmd_req *req,
 			const union smcinvoke_arg *args_buf, uint32_t tzhandle,
 			uint8_t *buf, size_t buf_size, struct file **arr_filp,
-			int32_t *tzhandles_to_release)
+			int32_t *tzhandles_to_release, uint32_t context_type)
 {
 	int ret = -EINVAL, i = 0, j = 0, k = 0;
 	const struct smcinvoke_msg_hdr msg_hdr = {
@@ -1360,12 +1384,15 @@ static int marshal_in_invoke_req(const struct smcinvoke_cmd_req *req,
 
 		tz_args[i].b.offset = offset;
 		tz_args[i].b.size = args_buf[i].b.size;
-
-		if (copy_from_user(buf + offset,
-			(void __user *)(uintptr_t)(args_buf[i].b.addr),
+		if (context_type != SMCINVOKE_OBJ_TYPE_TZ_OBJ_FOR_KERNEL) {
+			if (copy_from_user(buf + offset,
+				(void __user *)(uintptr_t)(args_buf[i].b.addr),
 						args_buf[i].b.size))
-			goto out;
-
+				goto out;
+		} else {
+			memcpy(buf + offset, (void *)(args_buf[i].b.addr),
+					args_buf[i].b.size);
+		}
 		offset += args_buf[i].b.size;
 	}
 	FOR_ARGS(i, req->counts, BO) {
@@ -1411,7 +1438,8 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 
 	user_req->txn_id = cb_txn->txn_id;
 	if (get_uhandle_from_tzhandle(tzcb_req->hdr.tzhandle, srvr_id,
-				&user_req->cbobj_id, TAKE_LOCK)) {
+				&user_req->cbobj_id, TAKE_LOCK,
+				SMCINVOKE_OBJ_TYPE_TZ_OBJ)) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1475,7 +1503,7 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 		temp_fd = UHANDLE_NULL;
 
 		ret = get_uhandle_from_tzhandle(tz_args[i].handle, srvr_id,
-					&temp_fd, TAKE_LOCK);
+					&temp_fd, TAKE_LOCK, SMCINVOKE_OBJ_TYPE_TZ_OBJ);
 
 		tmp_arg.o.fd = temp_fd;
 
@@ -1785,7 +1813,7 @@ out:
 }
 
 static long process_invoke_req(struct file *filp, unsigned int cmd,
-						unsigned long arg)
+				unsigned long arg)
 {
 	int    ret = -1, nr_args = 0;
 	struct smcinvoke_cmd_req req = {0};
@@ -1806,23 +1834,28 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	 */
 	int32_t tzhandles_to_release[OBJECT_COUNTS_MAX_OO] = {0};
 	bool tz_acked = false;
+	uint32_t context_type = tzobj->context_type;
 
-	if (_IOC_SIZE(cmd) != sizeof(req)) {
+	if (context_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ &&
+		_IOC_SIZE(cmd) != sizeof(req)) {
 		pr_err("command size for invoke req is invalid\n");
 		return -EINVAL;
 	}
 
-	if (tzobj->context_type != SMCINVOKE_OBJ_TYPE_TZ_OBJ) {
-		pr_err("object type for invoke req is invalid\n");
+	if (context_type != SMCINVOKE_OBJ_TYPE_TZ_OBJ &&
+		context_type != SMCINVOKE_OBJ_TYPE_TZ_OBJ_FOR_KERNEL) {
+		pr_err("invalid context_type %d\n", context_type);
 		return -EPERM;
 	}
-
-	ret = copy_from_user(&req, (void __user *)arg, sizeof(req));
-	if (ret) {
-		pr_err("copying invoke req failed\n");
-		return -EFAULT;
+	if (context_type != SMCINVOKE_OBJ_TYPE_TZ_OBJ_FOR_KERNEL) {
+		ret = copy_from_user(&req, (void __user *)arg, sizeof(req));
+		if (ret) {
+			pr_err("copying invoke req failed\n");
+			return -EFAULT;
+		}
+	} else {
+		req = *(struct smcinvoke_cmd_req *)arg;
 	}
-
 	if (req.argsize != sizeof(union smcinvoke_arg)) {
 		pr_err("arguments size for invoke req is invalid\n");
 		return -EINVAL;
@@ -1835,13 +1868,17 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 		args_buf = kcalloc(nr_args, req.argsize, GFP_KERNEL);
 		if (!args_buf)
 			return -ENOMEM;
-
-		ret = copy_from_user(args_buf, u64_to_user_ptr(req.args),
+		if (context_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ) {
+			ret = copy_from_user(args_buf,
+				u64_to_user_ptr(req.args),
 					nr_args * req.argsize);
-
-		if (ret) {
-			ret = -EFAULT;
-			goto out;
+			if (ret) {
+				ret = -EFAULT;
+				goto out;
+			}
+		} else {
+			memcpy(args_buf, (void *)(req.args),
+				nr_args * req.argsize);
 		}
 	}
 
@@ -1866,7 +1903,8 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	out_msg = out_shm.vaddr;
 
 	ret = marshal_in_invoke_req(&req, args_buf, tzobj->tzhandle, in_msg,
-			inmsg_size, filp_to_release, tzhandles_to_release);
+			inmsg_size, filp_to_release, tzhandles_to_release,
+			context_type);
 	if (ret) {
 		pr_err("failed to marshal in invoke req, ret :%d\n", ret);
 		goto out;
@@ -1874,7 +1912,8 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 
 	ret = prepare_send_scm_msg(in_msg, in_shm.paddr, inmsg_size,
 					out_msg, out_shm.paddr, outmsg_size,
-					&req, args_buf, &tz_acked, &in_shm, &out_shm);
+					&req, args_buf, &tz_acked, context_type,
+					&in_shm, &out_shm);
 
 	/*
 	 * If scm_call is success, TZ owns responsibility to release
@@ -1897,13 +1936,22 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 		 * occurs. Releasing FD from user space is much simpler than
 		 * doing here. ORing of ret is reqd not to miss past error
 		 */
-		ret |=  copy_to_user(u64_to_user_ptr(req.args), args_buf,
-					nr_args * req.argsize);
+		if (context_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ)
+			ret |=  copy_to_user(u64_to_user_ptr(req.args),
+					args_buf, nr_args * req.argsize);
+		else
+			memcpy((void *)(req.args), args_buf,
+				nr_args * req.argsize);
+
 	}
 	/* copy result of invoke op */
-	ret |=  copy_to_user((void __user *)arg, &req, sizeof(req));
-	if (ret)
-		goto out;
+	if (context_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ) {
+		ret |=  copy_to_user((void __user *)arg, &req, sizeof(req));
+		if (ret)
+			goto out;
+	} else {
+		memcpy((void *)arg, (void *)&req, sizeof(req));
+	}
 
 	/* Outbuf could be carrying local objs to be released. */
 	process_piggyback_data(out_msg, outmsg_size);
@@ -1946,6 +1994,74 @@ static long smcinvoke_ioctl(struct file *filp, unsigned int cmd,
 	return ret;
 }
 
+int get_root_fd(int *root_fd)
+{
+	if (!root_fd)
+		return -EINVAL;
+	else
+		return get_fd_for_obj(SMCINVOKE_OBJ_TYPE_TZ_OBJ_FOR_KERNEL,
+				SMCINVOKE_TZ_ROOT_OBJ, root_fd);
+}
+
+int process_invoke_request_from_kernel_client(int fd,
+			struct smcinvoke_cmd_req *req)
+{
+	struct file *filp = NULL;
+	int ret = 0;
+
+	if (!req) {
+		pr_err("NULL req\n");
+		return -EINVAL;
+	}
+
+	filp = fget(fd);
+	if (!filp) {
+		pr_err("Invalid fd %d\n", fd);
+		return -EINVAL;
+	}
+	ret = process_invoke_req(filp, 0, (uintptr_t)req);
+	fput(filp);
+	pr_debug("%s fd = %d, filp = %p, f_count = %d\n", __func__,
+				fd, filp, file_count(filp));
+	return ret;
+}
+
+int firmware_request_from_smcinvoke(const struct firmware **fw_entry,
+						char *fw_name)
+{
+	return firmware_request_nowarn(fw_entry, fw_name, class_dev);
+}
+EXPORT_SYMBOL(firmware_request_from_smcinvoke);
+
+int smcinvoke_alloc_coherent_buf(
+			uint32_t size, uint8_t **vaddr, phys_addr_t *paddr)
+{
+	dma_addr_t coh_pmem;
+	void *buf = NULL;
+
+	if (!vaddr || !paddr) {
+		pr_err("NULL addr\n");
+		return -EINVAL;
+	}
+	/* Allocate a contiguous kernel buffer */
+	size = (size + PAGE_SIZE) & PAGE_MASK;
+	buf = dma_alloc_coherent(&smcinvoke_pdev->dev,
+			size, &coh_pmem, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	*vaddr = buf;
+	*paddr = coh_pmem;
+	return 0;
+}
+
+void smcinvoke_free_coherent_buf(uint32_t size,
+				u8 *vaddr, phys_addr_t paddr)
+{
+	size = (size + PAGE_SIZE) & PAGE_MASK;
+	dma_free_coherent(&smcinvoke_pdev->dev, size, vaddr, paddr);
+}
+
 static int smcinvoke_open(struct inode *nodp, struct file *filp)
 {
 	struct smcinvoke_file_data *tzcxt = NULL;
@@ -1973,7 +2089,7 @@ static int release_cb_server(uint16_t server_id)
 	return 0;
 }
 
-static int smcinvoke_release(struct inode *nodp, struct file *filp)
+int smcinvoke_release_filp(struct file *filp)
 {
 	int ret = 0;
 	bool release_handles;
@@ -1984,6 +2100,10 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 	struct smcinvoke_cmd_req req = {0};
 	uint32_t tzhandle = 0;
 	struct qtee_shm in_shm = {0}, out_shm = {0};
+
+	pr_debug("%s: files = %p, filp = %p, f_count = %u, cxt_type = %d\n",
+			__func__, current->files, filp, file_count(filp),
+			file_data->context_type);
 
 	if (file_data->context_type == SMCINVOKE_OBJ_TYPE_SERVER) {
 		ret = release_cb_server(file_data->server_id);
@@ -2019,15 +2139,49 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 	ret = prepare_send_scm_msg(in_buf, in_shm.paddr,
 		SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf, out_shm.paddr,
 		SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL, &release_handles,
-		&in_shm, &out_shm);
+		file_data->context_type, &in_shm, &out_shm);
 
 	process_piggyback_data(out_buf, SMCINVOKE_TZ_MIN_BUF_SIZE);
 out:
 	kfree(filp->private_data);
+	filp->private_data = NULL;
 	qtee_shmbridge_free_shm(&in_shm);
 	qtee_shmbridge_free_shm(&out_shm);
 
 	return ret;
+
+}
+
+int smcinvoke_release_from_kernel_client(int fd)
+{
+	struct file *filp = NULL;
+
+	/* use fget() to get filp, but this will increase file ref_cnt to 1,
+	 * then decrease file ref_cnt to 0 with fput().
+	 */
+	filp = fget(fd);
+	if (!filp) {
+		pr_err("invalid fd %d to release\n", fd);
+		return -EINVAL;
+	}
+	pr_debug("%s: files = %p, filp = %p, f_count = %d\n", __func__,
+		current->files, filp, file_count(filp));
+	/* free filp, notify TZ to release object */
+	smcinvoke_release_filp(filp);
+	fput(filp);
+	return 0;
+}
+
+static int smcinvoke_release(struct inode *nodp, struct file *filp)
+{
+	pr_debug("%s:files = %p, filp = %p, f_count = %d, private_data = %p\n",
+		__func__, current->files, filp, file_count(filp),
+		filp->private_data);
+
+	if (filp->private_data)
+		return smcinvoke_release_filp(filp);
+	else
+		return 0;
 }
 
 static int smcinvoke_probe(struct platform_device *pdev)

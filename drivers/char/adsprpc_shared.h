@@ -38,6 +38,15 @@
 #define DEVICE_NAME      "adsprpc-smd"
 #define DEVICE_NAME_SECURE "adsprpc-smd-secure"
 
+/* Pre-defined parameter for print gfa structure*/
+
+#define smq_invoke_ctx_params "pid: %d, tgid: %d, handle: %p, sc: 0x%x, fl: %p, fd: %p, magic: %d\n"
+
+#define fastrpc_file_params "fl->tgid: %d, fl->cid: %d, fl->ssrcount: %p, fl->pd: %d, fl->profile: %p, fl->mode: %p, fl->tgid_open: %d, fl->num_cached_buf: %d, num_pers_hdrs: %d, fl->sessionid: %d, fl->servloc_name: %s, fl->file_close: %d, fl->dsp_proc_init: %d,fl->apps: %p, fl->qos_request: %d, fl->dev_minor: %d, fl->debug_buf: %s fl->debug_buf_alloced_attempted: %d, fl->wake_enable: %d, fl->ws_timeout: %d, fl->untrusted_process: %d\n"
+
+#define fastrpc_mmap_params "fl: %p, apps: %p, fd: %d, flags: %p, buf: %p, phys: %p, size : %d, va : %p, map->raddr: %p, len : %d, refs : %d, secure: %d\n"
+
+#define fastrpc_buf_params "buf->fl: %p, buf->phys: %p, buf->virt: %p, buf->size: %d, buf->dma_attr: %ld, buf->raddr: %p, buf->flags: %d, buf->type: %d, buf->in_use: %d\n"
 /* Set for buffers that have no virtual mapping in userspace */
 #define FASTRPC_ATTR_NOVA 0x1
 

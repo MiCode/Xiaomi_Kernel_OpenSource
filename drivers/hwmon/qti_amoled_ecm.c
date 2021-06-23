@@ -55,6 +55,7 @@
 
 #define ECM_SDAM0_INDEX				0x52
 #define ECM_SDAM1_INDEX				0x53
+#define ECM_SDAM2_INDEX				0x61
 
 #define ECM_MODE				0x54
  #define ECM_CONTINUOUS				0
@@ -77,12 +78,15 @@
 #define ECM_SEND_IRQ				0x5F
  #define SEND_SDAM0_IRQ				BIT(0)
  #define SEND_SDAM1_IRQ				BIT(1)
+ #define SEND_SDAM2_IRQ				BIT(2)
 
 #define ECM_WRITE_TO_SDAM			0x60
  #define WRITE_SDAM0_DATA			BIT(0)
  #define WRITE_SDAM1_DATA			BIT(1)
+ #define WRITE_SDAM2_DATA			BIT(2)
  #define OVERWRITE_SDAM0_DATA			BIT(4)
  #define OVERWRITE_SDAM1_DATA			BIT(5)
+ #define OVERWRITE_SDAM2_DATA			BIT(6)
 
 #define ECM_AVERAGE_LSB				0x61
 #define ECM_AVERAGE_MSB				0x62
@@ -188,10 +192,8 @@ static struct amoled_ecm_sdam_config ecm_reset_config[] = {
 	{ ECM_STATUS_CLR,	0xFF },
 	{ ECM_SDAM0_INDEX,	0x6C },
 	{ ECM_SDAM1_INDEX,	0x46 },
+	{ ECM_SDAM2_INDEX,	0x46 },
 	{ ECM_MODE,		0x00 },
-	/* Valid only when ECM uses 2 SDAMs */
-	{ ECM_SEND_IRQ,		0x03 },
-	{ ECM_WRITE_TO_SDAM,	0x03 }
 };
 
 static int ecm_nvmem_device_write(struct nvmem_device *nvmem,
@@ -210,6 +212,7 @@ static int ecm_nvmem_device_write(struct nvmem_device *nvmem,
 static int ecm_reset_sdam_config(struct amoled_ecm *ecm)
 {
 	int rc, i;
+	u8 val = 0, val2 = 0;
 
 	for (i = 0; i < ARRAY_SIZE(ecm_reset_config); i++) {
 		rc = ecm_nvmem_device_write(ecm->sdam[0].nvmem,
@@ -221,6 +224,23 @@ static int ecm_reset_sdam_config(struct amoled_ecm *ecm)
 			return rc;
 		}
 	}
+
+	for (i = 0; i < ecm->num_sdams; i++) {
+		val |= (SEND_SDAM0_IRQ << i);
+		val2 |= (WRITE_SDAM0_DATA << i);
+	}
+
+	rc = ecm_nvmem_device_write(ecm->sdam[0].nvmem, ECM_SEND_IRQ, 1, &val);
+	if (rc < 0) {
+		pr_err("Failed to write %u to ECM_SEND_IRQ, rc=%d\n", val, rc);
+		return rc;
+	}
+
+	rc = ecm_nvmem_device_write(ecm->sdam[0].nvmem, ECM_WRITE_TO_SDAM, 1,
+					&val2);
+	if (rc < 0)
+		pr_err("Failed to write %u to ECM_WRITE_TO_SDAM, rc=%d\n", val2,
+			rc);
 
 	usleep_range(10000, 12000);
 
@@ -537,6 +557,27 @@ static int handle_ecm_abort(struct amoled_ecm *ecm)
 	return rc;
 }
 
+static int get_sdam_index(struct nvmem_device *nvmem, int sdam_num, u8 *index)
+{
+	unsigned int addr;
+
+	switch (sdam_num) {
+	case 0:
+		addr = ECM_SDAM0_INDEX;
+		break;
+	case 1:
+		addr = ECM_SDAM1_INDEX;
+		break;
+	case 2:
+		addr = ECM_SDAM2_INDEX;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return nvmem_device_read(nvmem, addr, 1, index);
+}
+
 static irqreturn_t sdam_full_irq_handler(int irq, void *_ecm)
 {
 	struct amoled_ecm *ecm = _ecm;
@@ -575,8 +616,7 @@ static irqreturn_t sdam_full_irq_handler(int irq, void *_ecm)
 		}
 	}
 
-	rc = nvmem_device_read(ecm->sdam[0].nvmem,
-			(ECM_SDAM0_INDEX + sdam_num), 1, &sdam_index);
+	rc = get_sdam_index(ecm->sdam[0].nvmem, sdam_num, &sdam_index);
 	if (rc < 0) {
 		pr_err("Failed to read SDAM index, rc=%d\n", rc);
 		goto irq_exit;

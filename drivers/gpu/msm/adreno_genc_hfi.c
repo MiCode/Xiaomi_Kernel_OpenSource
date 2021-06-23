@@ -33,7 +33,7 @@ struct genc_hfi *to_genc_hfi(struct adreno_device *adreno_dev)
 int genc_hfi_queue_read(struct genc_gmu_device *gmu, u32 queue_idx,
 		unsigned int *output, unsigned int max_size)
 {
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	u32 *queue;
@@ -80,7 +80,8 @@ int genc_hfi_queue_read(struct genc_gmu_device *gmu, u32 queue_idx,
 	}
 
 	read = ALIGN(read, SZ_4) % hdr->queue_size;
-	hdr->read_index = read;
+
+	hfi_update_read_idx(hdr, read);
 
 	/* For acks, trace the packet for which this ack was sent */
 	if (MSG_HDR_GET_TYPE(msg_hdr) == HFI_MSG_ACK)
@@ -135,7 +136,7 @@ int genc_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
 		write = (write + 1) % hdr->queue_size;
 	}
 
-	hdr->write_index = write;
+	hfi_update_write_idx(hdr, write);
 
 	return 0;
 }
@@ -164,7 +165,7 @@ int genc_hfi_cmdq_write(struct adreno_device *adreno_dev, u32 *msg)
 static void init_queues(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	int i;
 	struct hfi_queue_table *tbl;
 	struct hfi_queue_header *hdr;
@@ -504,11 +505,21 @@ int genc_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+int genc_hfi_send_ifpc_feature_ctrl(struct adreno_device *adreno_dev)
+{
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+
+	if (gmu->idle_level == GPU_HW_IFPC)
+		return genc_hfi_send_feature_ctrl(adreno_dev,
+				HFI_FEATURE_IFPC, 1, 0x1680);
+	return 0;
+}
+
 int genc_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr;
 	int result, i;
@@ -543,6 +554,10 @@ int genc_hfi_start(struct adreno_device *adreno_dev)
 	if (result)
 		goto err;
 
+	result = genc_hfi_send_ifpc_feature_ctrl(adreno_dev);
+	if (result)
+		goto err;
+
 	result = genc_hfi_send_core_fw_start(adreno_dev);
 	if (result)
 		goto err;
@@ -568,7 +583,7 @@ err:
 void genc_hfi_stop(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	struct gmu_memdesc *mem_addr = gmu->hfi.hfi_mem;
+	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);

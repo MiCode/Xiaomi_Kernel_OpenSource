@@ -65,7 +65,7 @@ static void *kgsl_eventlog_alloc(u32 eventid, u32 size)
 	spin_lock_irqsave(&lock, flags);
 	if (eventlog_wptr + datasize > (EVENTLOG_SIZE - sizeof(*header))) {
 		add_skip_header(eventlog_wptr);
-		eventlog_wptr = 0;
+		eventlog_wptr = datasize;
 		data = kgsl_eventlog;
 	} else {
 		data = kgsl_eventlog + eventlog_wptr;
@@ -173,6 +173,7 @@ void log_kgsl_syncpoint_fence_event(u32 id, char *fence_name)
 		return;
 
 	entry->id = id;
+	memset(entry->name, 0, sizeof(entry->name));
 	strlcpy(entry->name, fence_name, sizeof(entry->name));
 }
 
@@ -188,6 +189,7 @@ void log_kgsl_syncpoint_fence_expire_event(u32 id, char *fence_name)
 		return;
 
 	entry->id = id;
+	memset(entry->name, 0, sizeof(entry->name));
 	strlcpy(entry->name, fence_name, sizeof(entry->name));
 }
 

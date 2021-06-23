@@ -24,6 +24,9 @@
 #include <linux/sched_clock.h>
 #include <linux/smp.h>
 
+#define ERRATUM_1974925_MASK (BIT(12) | BIT(16) | BIT(17) | BIT(18) | BIT(19) | BIT(24) | BIT(25)  \
+			     | BIT(26) | BIT(27))
+
 /* ARMv8 Cortex-A53 specific event types. */
 #define ARMV8_A53_PERFCTR_PREF_LINEFILL				0xC2
 
@@ -1014,6 +1017,13 @@ struct armv8pmu_probe_info {
 	bool present;
 };
 
+#ifdef CONFIG_ARM64_ERRATUM_1974925
+static void armv8pmu_overwrite_pmceid0_el0(u64 *val)
+{
+	(*val) |= (ERRATUM_1974925_MASK | (ERRATUM_1974925_MASK << 32));
+}
+#endif
+
 static void __armv8pmu_probe_pmu(void *info)
 {
 	struct armv8pmu_probe_info *probe = info;
@@ -1039,7 +1049,11 @@ static void __armv8pmu_probe_pmu(void *info)
 	/* Add the CPU cycles counter */
 	cpu_pmu->num_events += 1;
 
-	pmceid[0] = pmceid_raw[0] = read_sysreg(pmceid0_el0);
+	pmceid_raw[0] = read_sysreg(pmceid0_el0);
+#ifdef CONFIG_ARM64_ERRATUM_1974925
+	armv8pmu_overwrite_pmceid0_el0(&pmceid_raw[0]);
+#endif
+	pmceid[0] = pmceid_raw[0];
 	pmceid[1] = pmceid_raw[1] = read_sysreg(pmceid1_el0);
 
 	bitmap_from_arr32(cpu_pmu->pmceid_bitmap,

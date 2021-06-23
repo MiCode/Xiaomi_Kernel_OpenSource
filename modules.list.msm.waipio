@@ -11,6 +11,7 @@ dcvs_fp.ko
 debug-regulator.ko
 deferred-free-helper.ko
 dispcc-waipio.ko
+gcc-diwali.ko
 gcc-waipio.ko
 gdsc-regulator.ko
 gh_ctrl.ko
@@ -48,6 +49,7 @@ qcom_cpu_vendor_hooks.ko
 qcom-dcvs.ko
 qcom-dload-mode.ko
 qcom_dma_heaps.ko
+qcom_gic_intr_routing.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
 qcom_ipcc.ko
@@ -78,3 +80,4 @@ stub-regulator.ko
 tmecom-intf.ko
 ufshcd-crypto-qti.ko
 ufs_qcom.ko
+sched-walt-debug.ko

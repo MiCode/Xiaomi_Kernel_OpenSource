@@ -32,18 +32,162 @@ EXPORT_SYMBOL(mem_buf_dev);
 unsigned char mem_buf_capability;
 EXPORT_SYMBOL(mem_buf_capability);
 
-int mem_buf_assign_mem(struct sg_table *sgt, int *dst_vmids,
-			      int *dst_perms, unsigned int nr_acl_entries)
+struct gh_acl_desc *mem_buf_vmid_perm_list_to_gh_acl(int *vmids, int *perms,
+		unsigned int nr_acl_entries)
 {
-	u32 src_vmid = VMID_HLOS;
-	int ret;
+	struct gh_acl_desc *gh_acl;
+	size_t size;
+	unsigned int i;
 
-	if (!sgt || !dst_vmids || !dst_perms || !nr_acl_entries)
+	size = offsetof(struct gh_acl_desc, acl_entries[nr_acl_entries]);
+	gh_acl = kmalloc(size, GFP_KERNEL);
+	if (!gh_acl)
+		return ERR_PTR(-ENOMEM);
+
+	gh_acl->n_acl_entries = nr_acl_entries;
+	for (i = 0; i < nr_acl_entries; i++) {
+		gh_acl->acl_entries[i].vmid = vmids[i];
+		gh_acl->acl_entries[i].perms = perms[i];
+	}
+
+	return gh_acl;
+}
+EXPORT_SYMBOL(mem_buf_vmid_perm_list_to_gh_acl);
+
+struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt)
+{
+	struct gh_sgl_desc *gh_sgl;
+	size_t size;
+	int i;
+	struct scatterlist *sg;
+
+	size = offsetof(struct gh_sgl_desc, sgl_entries[sgt->orig_nents]);
+	gh_sgl = kvmalloc(size, GFP_KERNEL);
+	if (!gh_sgl)
+		return ERR_PTR(-ENOMEM);
+
+	gh_sgl->n_sgl_entries = sgt->orig_nents;
+	for_each_sgtable_sg(sgt, sg, i) {
+		gh_sgl->sgl_entries[i].ipa_base = sg_phys(sg);
+		gh_sgl->sgl_entries[i].size = sg->length;
+	}
+
+	return gh_sgl;
+}
+EXPORT_SYMBOL(mem_buf_sgt_to_gh_sgl_desc);
+
+static int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
+				struct mem_buf_lend_kernel_arg *arg,
+				bool *has_lookup_sgl)
+{
+	u32 src_vmid[] = {current_vmid};
+	u32 src_perm[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	int ret, i;
+	struct gh_sgl_desc *gh_sgl;
+	struct gh_acl_desc *gh_acl;
+	size_t size;
+	struct scatterlist *sgl;
+
+	/* Due to memory-hotplug */
+	size = 0;
+	for_each_sgtable_sg(sgt, sgl, i)
+		size += sgl->length;
+	if (!IS_ALIGNED(size, SUBSECTION_SIZE)) {
+		pr_err_ratelimited("Operation requires SUBSECTION_SIZE alignemnt, size = %zx\n",
+				   size);
 		return -EINVAL;
+	}
+
+	gh_sgl = mem_buf_sgt_to_gh_sgl_desc(sgt);
+	if (IS_ERR(gh_sgl))
+		return PTR_ERR(gh_sgl);
+
+	gh_acl = mem_buf_vmid_perm_list_to_gh_acl(arg->vmids, arg->perms,
+						  arg->nr_acl_entries);
+	if (IS_ERR(gh_acl)) {
+		ret = PTR_ERR(gh_acl);
+		goto err_gh_acl;
+	}
 
 	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
-	ret = hyp_assign_table(sgt, &src_vmid, 1, dst_vmids, dst_perms,
-			       nr_acl_entries);
+	ret = hyp_assign_table(sgt, src_vmid, ARRAY_SIZE(src_vmid),
+			       arg->vmids, arg->perms, arg->nr_acl_entries);
+	if (ret < 0) {
+		pr_err("%s: failed to assign memory for rmt allocation rc:%d\n",
+		       __func__, ret);
+		goto err_hyp_assign;
+	} else {
+		pr_debug("%s: Memory assigned to target VMIDs\n", __func__);
+	}
+
+	/*
+	 * gh_rm_mem_qcom_lookup_sgl is no longer supported and is replaced with
+	 * gh_rm_mem_share. To ease this transition, fall back to the later on error.
+	 */
+	*has_lookup_sgl = true;
+	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL, arg->label,
+					gh_acl, gh_sgl, NULL,
+					&arg->memparcel_hdl);
+	trace_lookup_sgl(gh_sgl, ret, arg->memparcel_hdl);
+	if (ret) {
+		*has_lookup_sgl = false;
+		pr_debug("%s: Invoking Gunyah Lend/Share\n", __func__);
+		if (is_lend)
+			ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, arg->flags,
+					     arg->label, gh_acl, gh_sgl,
+					     NULL /* Default memory attributes */,
+					     &arg->memparcel_hdl);
+		else
+			ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, arg->flags,
+					     arg->label, gh_acl, gh_sgl,
+					     NULL /* Default memory attributes */,
+					     &arg->memparcel_hdl);
+	}
+	if (ret < 0) {
+		pr_err("%s: Gunyah lend/share failed rc:%d\n",
+		       __func__, ret);
+		goto err_gunyah;
+	}
+
+	kfree(gh_acl);
+	kvfree(gh_sgl);
+	return 0;
+
+err_gunyah:
+	ret = hyp_assign_table(sgt, arg->vmids, arg->nr_acl_entries,
+			       src_vmid, src_perm, ARRAY_SIZE(src_vmid));
+	if (ret)
+		ret = -EADDRNOTAVAIL;
+
+err_hyp_assign:
+	kfree(gh_acl);
+err_gh_acl:
+	kvfree(gh_sgl);
+
+	return ret;
+}
+
+int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
+			struct mem_buf_lend_kernel_arg *arg,
+			bool *has_lookup_sgl)
+{
+	u32 src_vmid = current_vmid;
+	int ret;
+	int api;
+
+	if (!sgt || !arg->nr_acl_entries || !arg->vmids || !arg->perms)
+		return -EINVAL;
+
+	api = mem_buf_vm_get_backend_api(arg->vmids, arg->nr_acl_entries);
+	if (api < 0)
+		return -EINVAL;
+
+	if (api == MEM_BUF_API_GUNYAH)
+		return mem_buf_assign_mem_gunyah(is_lend, sgt, arg, has_lookup_sgl);
+
+	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
+	ret = hyp_assign_table(sgt, &src_vmid, 1, arg->vmids, arg->perms,
+			       arg->nr_acl_entries);
 	if (ret < 0)
 		pr_err("%s: failed to assign memory for rmt allocation rc:%d\n",
 		       __func__, ret);
@@ -55,18 +199,34 @@ int mem_buf_assign_mem(struct sg_table *sgt, int *dst_vmids,
 EXPORT_SYMBOL(mem_buf_assign_mem);
 
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
-				unsigned int nr_acl_entries)
+			 unsigned int nr_acl_entries,
+			 gh_memparcel_handle_t memparcel_hdl,
+			 bool has_lookup_sgl)
 {
-	int dst_vmid = VMID_HLOS;
-	int dst_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
-	int ret;
+	int dst_vmid[] = {current_vmid};
+	int dst_perm[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	int ret, api;
 
 	if (!sgt || !src_vmids || !nr_acl_entries)
 		return -EINVAL;
 
+	api = mem_buf_vm_get_backend_api(src_vmids, nr_acl_entries);
+	if (api < 0)
+		return -EINVAL;
+
+	if (api == MEM_BUF_API_GUNYAH && !has_lookup_sgl) {
+		pr_debug("%s: Beginning gunyah reclaim\n", __func__);
+		ret = gh_rm_mem_reclaim(memparcel_hdl, 0);
+		if (ret) {
+			pr_err("%s: Gunyah reclaim failed\n", __func__);
+			return ret;
+		}
+		pr_debug("%s: Finished gunyah reclaim\n", __func__);
+	}
+
 	pr_debug("%s: Unassigning memory to HLOS\n", __func__);
-	ret = hyp_assign_table(sgt, src_vmids, nr_acl_entries, &dst_vmid,
-			       &dst_perms, 1);
+	ret = hyp_assign_table(sgt, src_vmids, nr_acl_entries,
+			       dst_vmid, dst_perm, ARRAY_SIZE(dst_vmid));
 	if (ret < 0)
 		pr_err("%s: failed to assign memory from rmt allocation rc: %d\n",
 		       __func__, ret);
@@ -76,63 +236,6 @@ int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 	return ret;
 }
 EXPORT_SYMBOL(mem_buf_unassign_mem);
-
-int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
-					  int *dst_vmids, int *dst_perms,
-					  u32 nr_acl_entries,
-					  gh_memparcel_handle_t *memparcel_hdl)
-{
-	struct gh_sgl_desc *sgl_desc;
-	struct gh_acl_desc *acl_desc;
-	unsigned int i, nr_sg_entries;
-	struct scatterlist *sg;
-	int ret;
-	size_t sgl_desc_size, acl_desc_size;
-
-	if (!sgt || !dst_vmids || !dst_perms || !nr_acl_entries ||
-	    !memparcel_hdl)
-		return -EINVAL;
-
-	nr_sg_entries = sgt->nents;
-	sgl_desc_size = offsetof(struct gh_sgl_desc,
-				 sgl_entries[nr_sg_entries]);
-	sgl_desc = kzalloc(sgl_desc_size, GFP_KERNEL);
-	if (!sgl_desc)
-		return -ENOMEM;
-
-	acl_desc_size = offsetof(struct gh_acl_desc,
-				 acl_entries[nr_acl_entries]);
-	acl_desc = kzalloc(acl_desc_size, GFP_KERNEL);
-	if (!acl_desc) {
-		kfree(sgl_desc);
-		return -ENOMEM;
-	}
-
-	sgl_desc->n_sgl_entries = nr_sg_entries;
-	for_each_sg(sgt->sgl, sg, nr_sg_entries, i) {
-		sgl_desc->sgl_entries[i].ipa_base = page_to_phys(sg_page(sg));
-		sgl_desc->sgl_entries[i].size = sg->length;
-	}
-
-	acl_desc->n_acl_entries = nr_acl_entries;
-	for (i = 0; i < nr_acl_entries; i++) {
-		acl_desc->acl_entries[i].vmid = dst_vmids[i];
-		acl_desc->acl_entries[i].perms = dst_perms[i];
-	}
-
-
-	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL, 0, acl_desc,
-					sgl_desc, NULL, memparcel_hdl);
-	trace_lookup_sgl(sgl_desc, ret, *memparcel_hdl);
-	if (ret < 0)
-		pr_err("%s: gh_rm_mem_qcom_lookup_sgl failure rc: %d\n",
-		       __func__, ret);
-
-	kfree(acl_desc);
-	kfree(sgl_desc);
-	return ret;
-}
-EXPORT_SYMBOL(mem_buf_retrieve_memparcel_hdl);
 
 static int mem_buf_get_mem_xfer_type(struct gh_acl_desc *acl_desc)
 {
@@ -153,6 +256,9 @@ struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
 					struct gh_acl_desc *acl_desc)
 {
 	struct gh_sgl_desc *sgl_desc;
+	u8 flags = GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
+		   GH_RM_MEM_ACCEPT_MAP_IPA_CONTIGUOUS |
+		   GH_RM_MEM_ACCEPT_DONE;
 
 	if (!acl_desc)
 		return ERR_PTR(-EINVAL);
@@ -160,8 +266,7 @@ struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
 	pr_debug("%s: adding CPU MMU stage 2 mappings\n", __func__);
 	sgl_desc = gh_rm_mem_accept(memparcel_hdl, GH_RM_MEM_TYPE_NORMAL,
 				    mem_buf_get_mem_xfer_type(acl_desc),
-				    GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
-				    GH_RM_MEM_ACCEPT_DONE, 0, acl_desc, NULL,
+				    flags, 0, acl_desc, NULL,
 				    NULL, 0);
 	if (IS_ERR(sgl_desc)) {
 		pr_err("%s failed to map memory in stage 2 rc: %d\n", __func__,
