@@ -1003,10 +1003,13 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	 * If this is the last file on the process take down the debug
 	 * directories and garbage collect any outstanding resources
 	 */
-	kobject_put(&private->kobj);
+	process_release_memory(private);
 
 	/* Release all syncsource objects from process private */
 	kgsl_syncsource_process_release_syncsources(private);
+
+	debugfs_remove_recursive(private->debug_root);
+	kobject_put(&private->kobj);
 
 	/* When using global pagetables, do not detach global pagetable */
 	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
@@ -1017,15 +1020,8 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	list_del(&private->list);
 	write_unlock(&kgsl_driver.proclist_lock);
 
-	debugfs_remove_recursive(private->debug_root);
-
-	/*
-	 * Unlock the mutex before releasing the memory - this prevents a
-	 * deadlock with the IOMMU mutex if a page fault occurs.
-	 */
 	mutex_unlock(&kgsl_driver.process_mutex);
 
-	process_release_memory(private);
 	kgsl_process_private_put(private);
 }
 
