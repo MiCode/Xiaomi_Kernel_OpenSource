@@ -1,0 +1,18 @@
+/* SPDX-License-Identifier: GPL-2.0
+ *
+ * Copyright (c) 2020 MediaTek Inc.
+ * Author: Chiawen Lee <chiawen.lee@mediatek.com>
+ */
+
+#ifndef _DT_BINDINGS_APUSYS_MT8195_POWER_H
+#define _DT_BINDINGS_APUSYS_MT8195_POWER_H
+
+#define MT8195_POWER_DOMAIN_APUSYS_TOP  0
+#define MT8195_POWER_DOMAIN_APUSYS_VPU0 1
+#define MT8195_POWER_DOMAIN_APUSYS_VPU1 2
+#define MT8195_POWER_DOMAIN_APUSYS_MDLA0 3
+#define MT8195_POWER_DOMAIN_APUSYS_MDLA1 4
+
+
+
+#endif /* _DT_BINDINGS_APUSYS_MT8195_POWER_H */
