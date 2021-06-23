@@ -671,8 +671,8 @@ static const struct alpha_pll_config gpll9_config = {
 	.l = 0x4B,
 	.alpha = 0x0,
 	.config_ctl_val = 0x08200800,
-	.config_ctl_hi_val = 0x05022001,
-	.config_ctl_hi1_val = 0x00000010,
+	.config_ctl_hi_val = 0x05022011,
+	.config_ctl_hi1_val = 0x08000000,
 	.user_ctl_val = 0x00000301,
 };
 
@@ -1227,13 +1227,6 @@ static struct clk_rcg2 gcc_camss_top_ahb_clk_src = {
 			[VDD_LOWER] = 19200000,
 			[VDD_LOW] = 80000000},
 	},
-};
-
-static const struct freq_tbl ftbl_gcc_cpuss_ahb_clk_src[] = {
-	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
-	F(100000000, P_GPLL0_OUT_EVEN, 3, 0, 0),
-	{ }
 };
 
 static const struct freq_tbl ftbl_gcc_gp1_clk_src[] = {
