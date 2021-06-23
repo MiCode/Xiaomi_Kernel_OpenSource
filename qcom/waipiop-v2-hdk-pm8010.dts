@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "waipiop-v2.dtsi"
+#include "waipio-hdk.dtsi"
+#include "waipio-pm8010-spmi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. v2 WaipioP HDK with PM8010";
+	compatible = "qcom,waipiop-hdk", "qcom,waipiop", "qcom,hdk";
+	qcom,board-id = <0x1001f 0>;
+};

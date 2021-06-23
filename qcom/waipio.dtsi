@@ -155,7 +155,7 @@
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
-			capacity-dmips-mhz = <1740>;
+			capacity-dmips-mhz = <1980>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_4: l2-cache {
@@ -176,7 +176,7 @@
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
-			capacity-dmips-mhz = <1740>;
+			capacity-dmips-mhz = <1980>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_5: l2-cache {
@@ -196,7 +196,7 @@
 			power-domains = <&CPU_PD6>;
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			power-domain-names = "psci";
-			capacity-dmips-mhz = <1740>;
+			capacity-dmips-mhz = <1980>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_6: l2-cache {
@@ -216,7 +216,7 @@
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 2 4>;
-			capacity-dmips-mhz = <1843>;
+			capacity-dmips-mhz = <2097>;
 			dynamic-power-coefficient = <396>;
 			#cooling-cells = <2>;
 			L2_7: l2-cache {
@@ -521,24 +521,24 @@
 
 	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
 		no-map;
-		reg = <0x0 0xe0b00000 0x0 0x7a00000>;
+		reg = <0x0 0xe0b00000 0x0 0x4af3000>;
 	};
 
-	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e8509000 {
+	trust_ui_vm_qrtr: trust_ui_vm_qrtr@e55f3000 {
 		no-map;
-		reg = <0x0 0xe8509000 0x0 0x4000>;
+		reg = <0x0 0xe55f3000 0x0 0x9000>;
+	};
+
+	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e55fc000 {
+		no-map;
+		reg = <0x0 0xe55fc000 0x0 0x4000>;
 		gunyah-label = <0x11>;
 	};
 
-	trust_ui_vm_swiotlb: trust_ui_vm_swiotlb@e850d000 {
+	trust_ui_vm_swiotlb: trust_ui_vm_swiotlb@e5600000 {
 		no-map;
-		reg = <0x0 0xe850d000 0x0 0x100000>;
+		reg = <0x0 0xe5600000 0x0 0x100000>;
 		gunyah-label = <0x12>;
-	};
-
-	trust_ui_vm_qrtr: trust_ui_vm_qrtr@e8500000 {
-		no-map;
-		reg = <0x0 0xe8500000 0x0 0x9000>;
 	};
 
 	tz_stat_mem: tz_stat_region@e8800000 {
@@ -869,6 +869,11 @@
 			reg = <0x80>;
 			#clock-cells = <1>;
 		};
+
+		scmi_pmu: protocol@86 {
+			reg = <0x86>;
+			#clock-cells = <1>;
+		};
 	};
 
 	rimps_log: qcom,rimps_log@17d09c00 {
@@ -952,7 +957,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		wakeup-parent = <&pdc>;
-		reserved-gpios = <28 29 30 31 36 37 38 39>;
+		qcom,gpios-reserved = <28 29 30 31 36 37 38 39>;
 	};
 
 	dload_mode {
@@ -2986,11 +2991,11 @@
 		compatible = "qcom,pmu";
 		qcom,long-counter;
 		qcom,pmu-events-tbl =
-			< 0x0008 0xFF >,
-			< 0x0011 0xFF >,
-			< 0x0017 0xFF >,
-			< 0x002A 0xFF >,
-			< 0x1000 0xFF >;
+			< 0x0008 0xFF 0x02 0xFF >,
+			< 0x0011 0xFF 0x01 0xFF >,
+			< 0x0017 0xFF 0xFF 0xFF >,
+			< 0x002A 0xFF 0xFF 0xFF >,
+			< 0x1000 0xFF 0xFF 0xFF >;
 	};
 
 	ddr_freq_table: ddr-freq-table {
@@ -3310,8 +3315,8 @@
 		qcom,target-dev = <&qcom_ddr_dcvs_hw>;
 	};
 
-	trust_ui_vm: qcom,trust_ui_vm@e8509000 {
-		reg = <0xe8509000 0x104000>;
+	trust_ui_vm: qcom,trust_ui_vm@e55fc000 {
+		reg = <0xe55fc000 0x104000>;
 		vm_name = "trustedvm";
 		shared-buffers = <&trust_ui_vm_vblk0_ring &trust_ui_vm_swiotlb>;
 	};

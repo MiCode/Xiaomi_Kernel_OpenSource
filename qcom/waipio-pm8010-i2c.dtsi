@@ -49,7 +49,7 @@
 		#size-cells = <0>;
 
 		qcom,pm8010i-regulator {
-			compatible = "qcom,pm8008-regulator";
+			compatible = "qcom,pm8010-regulator";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -151,7 +151,7 @@
 		#size-cells = <0>;
 
 		qcom,pm8010j-regulator {
-			compatible = "qcom,pm8008-regulator";
+			compatible = "qcom,pm8010-regulator";
 			#address-cells = <1>;
 			#size-cells = <0>;
 

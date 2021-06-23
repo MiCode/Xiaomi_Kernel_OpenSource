@@ -21,6 +21,8 @@
 				"gcc_gpu_snoc_dvm_gfx",
 				"gpu_cc_ahb", "apb_pclk";
 
+		qcom,gpu-model = "AdrenoC500v1";
+
 		qcom,initial-pwrlevel = <6>;
 
 		qcom,no-nap;
@@ -30,6 +32,8 @@
 		qcom,ubwc-mode = <4>;
 
 		qcom,gpu-qdss-stm = <0x161c0000 0x40000>; /* base addr, size */
+
+		qcom,tzone-names = "gpuss-0", "gpuss-1";
 
 		interconnects = <&gem_noc MASTER_GFX3D &mc_virt SLAVE_EBI1>;
 		interconnect-names = "gpu_icc_path";
