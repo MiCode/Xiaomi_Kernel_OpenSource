@@ -28,6 +28,7 @@ struct qcom_glink_pipe {
 
 struct qcom_glink;
 extern const struct dev_pm_ops glink_native_pm_ops;
+extern int glink_resume_pkt;
 
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   unsigned long features,
