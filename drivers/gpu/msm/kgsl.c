@@ -20,6 +20,7 @@
 #include <linux/security.h>
 #include <linux/sort.h>
 #include <soc/qcom/of_common.h>
+#include <linux/msm_kgsl.h>
 
 #include "kgsl_compat.h"
 #include "kgsl_debugfs.h"
@@ -797,6 +798,24 @@ kgsl_context_destroy(struct kref *kref)
 	device->ftbl->drawctxt_destroy(context);
 }
 
+struct kgsl_device *kgsl_get_device(int dev_idx)
+{
+	int i;
+	struct kgsl_device *ret = NULL;
+
+	mutex_lock(&kgsl_driver.devlock);
+
+	for (i = 0; i < ARRAY_SIZE(kgsl_driver.devp); i++) {
+		if (kgsl_driver.devp[i] && kgsl_driver.devp[i]->id == dev_idx) {
+			ret = kgsl_driver.devp[i];
+			break;
+		}
+	}
+
+	mutex_unlock(&kgsl_driver.devlock);
+	return ret;
+}
+
 static struct kgsl_device *kgsl_get_minor(int minor)
 {
 	struct kgsl_device *ret = NULL;
@@ -1040,6 +1059,24 @@ done:
 	mutex_unlock(&kgsl_driver.process_mutex);
 	return private;
 }
+
+int kgsl_gpu_frame_count(pid_t pid, u64 *frame_count)
+{
+	struct kgsl_process_private *p;
+
+	if (!frame_count)
+		return -EINVAL;
+
+	p = kgsl_process_private_find(pid);
+	if (!p)
+		return -ENOENT;
+
+	*frame_count = atomic64_read(&p->frame_count);
+	kgsl_process_private_put(p);
+
+	return 0;
+}
+EXPORT_SYMBOL(kgsl_gpu_frame_count);
 
 static int kgsl_close_device(struct kgsl_device *device)
 {

@@ -10,7 +10,7 @@
 #include <linux/interrupt.h>
 #include <linux/kthread.h>
 #include <linux/mm.h>
-#include <linux/msm_kgsl.h>
+#include <uapi/linux/msm_kgsl.h>
 #include <linux/uaccess.h>
 
 #include "kgsl_gmu_core.h"
