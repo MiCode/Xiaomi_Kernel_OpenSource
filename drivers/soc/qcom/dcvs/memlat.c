@@ -1171,8 +1171,11 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	mon->wb_pct_thres = 100;
 	mon->wb_filter_ipm = 25000;
 
-	if (of_parse_phandle(dev->of_node, COREDEV_TBL_PROP, 0))
-		of_node = of_parse_phandle(dev->of_node, COREDEV_TBL_PROP, 0);
+	if (of_parse_phandle(of_node, COREDEV_TBL_PROP, 0))
+		of_node = of_parse_phandle(of_node, COREDEV_TBL_PROP, 0);
+	if (of_get_child_count(of_node))
+		of_node = qcom_dcvs_get_ddr_child_node(of_node);
+
 	mon->freq_map = init_cpufreq_memfreq_map(dev, of_node);
 	if (!mon->freq_map) {
 		dev_err(dev, "error importing cpufreq-memfreq table!\n");
