@@ -502,3 +502,4 @@
 &video_cc_mvs1c_gdsc {
 	status = "ok";
 };
+#include "diwali-stub-regulator.dtsi"
