@@ -569,6 +569,25 @@ int qcom_dcvs_hw_minmax_get(enum dcvs_hw_type hw_type, u32 *min, u32 *max)
 }
 EXPORT_SYMBOL(qcom_dcvs_hw_minmax_get);
 
+struct device_node *qcom_dcvs_get_ddr_child_node(
+				struct device_node *of_parent)
+{
+	struct device_node *of_child;
+	int dcvs_ddr_type = -1;
+	int of_ddr_type = of_fdt_get_ddrtype();
+	int ret;
+
+	for_each_child_of_node(of_parent, of_child) {
+		ret = of_property_read_u32(of_child, "qcom,ddr-type",
+						&dcvs_ddr_type);
+		if (!ret && (dcvs_ddr_type == of_ddr_type))
+			return of_child;
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(qcom_dcvs_get_ddr_child_node);
+
 static bool qcom_dcvs_hw_and_paths_inited(void)
 {
 	int i;
@@ -596,6 +615,8 @@ static int populate_freq_table(struct device *dev, u32 **freq_table)
 
 	if (of_parse_phandle(of_node, FTBL_PROP, 0))
 		of_node = of_parse_phandle(of_node, FTBL_PROP, 0);
+	if (of_get_child_count(of_node))
+		of_node = qcom_dcvs_get_ddr_child_node(of_node);
 
 	if (!of_find_property(of_node, FTBL_PROP, &len)) {
 		dev_err(dev, "Unable to find freq tbl prop\n");
