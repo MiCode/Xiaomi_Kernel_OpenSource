@@ -175,6 +175,10 @@ struct kgsl_pwrctrl {
 	u32 minbw_timeout;
 	/** @ddr_qos_devfreq: Devfreq device for setting DDR qos policy */
 	struct devfreq *ddr_qos_devfreq;
+	/** @time_in_pwrlevel: Each pwrlevel active duration in usec */
+	u64 time_in_pwrlevel[KGSL_MAX_PWRLEVELS];
+	/** @last_stat_updated: The last time stats were updated */
+	ktime_t last_stat_updated;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);

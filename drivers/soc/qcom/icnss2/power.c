@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -26,6 +26,7 @@ static struct icnss_vreg_cfg icnss_adrestea_vreg_list[] = {
 	{"vdd-1.3-rfa", 1304000, 1304000, 0, 0, 0, false, true},
 	{"vdd-3.3-ch1", 3312000, 3312000, 0, 0, 0, false, true},
 	{"vdd-3.3-ch0", 3312000, 3312000, 0, 0, 0, false, true},
+	{"vdd-smps", 984000, 984000, 0, 0, 0, false, true},
 };
 
 static struct icnss_clk_cfg icnss_clk_list[] = {

@@ -549,7 +549,6 @@ int incfs_read_file_header(struct backing_file_context *bfc,
 	if (!bfc || !first_md_off)
 		return -EFAULT;
 
-	LOCK_REQUIRED(bfc->bc_mutex);
 	bytes_read = incfs_kread(bfc, &fh, sizeof(fh), 0);
 	if (bytes_read < 0)
 		return bytes_read;

@@ -49,6 +49,7 @@ static bool is_rpm_controller;
 static bool has_pend_offline_req;
 static atomic_long_t totalram_pages_with_offline = ATOMIC_INIT(0);
 static struct workqueue_struct *migrate_wq;
+static unsigned long movable_bitmap;
 
 #define MODULE_CLASS_NAME	"mem-offline"
 #define MIGRATE_TIMEOUT_SEC	(20)
@@ -752,6 +753,63 @@ static int mem_event_callback(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
+static int update_movable_bitmap(void)
+{
+	struct device_node *node;
+	struct property *prop;
+	int len, num_cells, num_entries;
+	u64 base, size, end, section_size;
+	u64 movable_start, movable_end;
+	int nr_address_cells, nr_size_cells;
+	const __be32 *pos;
+
+	node = of_find_node_by_name(of_root, "memory");
+	if (!node) {
+		pr_err("mem-offine: memory node not found in DT\n");
+		return -EINVAL;
+	}
+
+	nr_address_cells = of_n_addr_cells(of_root);
+	nr_size_cells = of_n_size_cells(of_root);
+
+	prop = of_find_property(node, "reg", &len);
+
+	num_cells = len / sizeof(__be32);
+	num_entries = num_cells / (nr_address_cells + nr_size_cells);
+
+	pos = prop->value;
+
+	section_size = MIN_MEMORY_BLOCK_SIZE;
+	movable_start = memblock_end_of_DRAM();
+	movable_end = bootloader_memory_limit - 1;
+
+	while (num_entries--) {
+		u64 new_base, new_end;
+		u64 new_start_bitmap, bitmap_size;
+
+		base = of_read_number(pos, nr_address_cells);
+		size = of_read_number(pos + nr_address_cells, nr_size_cells);
+		pos += nr_address_cells + nr_size_cells;
+		end = base + size;
+
+		if (end <= movable_start)
+			continue;
+
+		if (base < movable_start)
+			new_base = movable_start;
+		else
+			new_base = base;
+		new_end = end;
+
+		new_start_bitmap = (new_base - movable_start) / section_size;
+		bitmap_size = (new_end - new_base) / section_size;
+		bitmap_set(&movable_bitmap, new_start_bitmap, bitmap_size);
+	}
+
+	pr_debug("mem-offline: movable_bitmap is %lx\n", movable_bitmap);
+	return 0;
+}
+
 static int mem_online_remaining_blocks(void)
 {
 	unsigned long memblock_end_pfn = __phys_to_pfn(memblock_end_of_DRAM());
@@ -760,6 +818,7 @@ static int mem_online_remaining_blocks(void)
 	unsigned int nid;
 	phys_addr_t phys_addr;
 	int fail = 0;
+	int ret;
 
 	block_size = memory_block_size_bytes();
 	sections_per_block = block_size / MIN_MEMORY_BLOCK_SIZE;
@@ -771,8 +830,17 @@ static int mem_online_remaining_blocks(void)
 		pr_info("mem-offline: System booted with no zone movable memory blocks. Cannot perform memory offlining\n");
 		return -EINVAL;
 	}
+
+	ret = update_movable_bitmap();
+	if (ret < 0)
+		return -ENODEV;
+
 	for (memblock = start_section_nr; memblock <= end_section_nr;
 			memblock += sections_per_block) {
+
+		if (!test_bit(memblock - start_section_nr, &movable_bitmap))
+			continue;
+
 		pfn = section_nr_to_pfn(memblock);
 		phys_addr = __pfn_to_phys(pfn);
 

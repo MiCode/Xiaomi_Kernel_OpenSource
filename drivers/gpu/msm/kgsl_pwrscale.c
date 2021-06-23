@@ -122,6 +122,7 @@ void kgsl_pwrscale_update_stats(struct kgsl_device *device)
 
 	if (device->state == KGSL_STATE_ACTIVE) {
 		struct kgsl_power_stats stats;
+		ktime_t cur_time = ktime_get();
 
 		device->ftbl->power_stats(device, &stats);
 		device->pwrscale.accum_stats.busy_time += stats.busy_time;
@@ -129,6 +130,9 @@ void kgsl_pwrscale_update_stats(struct kgsl_device *device)
 		device->pwrscale.accum_stats.ram_wait += stats.ram_wait;
 		pwrctrl->clock_times[pwrctrl->active_pwrlevel] +=
 				stats.busy_time;
+		pwrctrl->time_in_pwrlevel[pwrctrl->active_pwrlevel] +=
+			ktime_us_delta(cur_time, pwrctrl->last_stat_updated);
+		pwrctrl->last_stat_updated = cur_time;
 	}
 }
 

@@ -2941,7 +2941,14 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 			no_copy = false;
 
 		ops->datbuf = no_copy ? actual_buf : bounce_buf;
-		if (info->nand_chip.caps & MSM_NAND_CAP_PAGE_SCOPE_READ)
+
+		/*
+		 * Do a Pagescope read only if PAGE_SCOPE_READ is enabled
+		 * and request length is greater than codeword size or
+		 * the page offset is not aligned to start of the page.
+		 */
+		if ((info->nand_chip.caps & MSM_NAND_CAP_PAGE_SCOPE_READ) &&
+				((len > ONE_CODEWORD_SIZE) || (offset != 0)))
 			err = msm_nand_read_pagescope(mtd, aligned_from, ops);
 		else {
 			if ((len <= ONE_CODEWORD_SIZE) && (offset == 0))

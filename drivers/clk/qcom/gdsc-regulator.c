@@ -661,7 +661,10 @@ static struct regmap_config gdsc_regmap_config = {
 
 void gdsc_debug_print_regs(struct regulator *regulator)
 {
-	struct gdsc *sc = rdev_get_drvdata(regulator->rdev);
+	struct regulator_dev *rdev = regulator->rdev;
+	struct gdsc *sc = rdev_get_drvdata(rdev);
+	struct regulator *reg;
+	const char *supply_name;
 	uint32_t regvals[3] = {0};
 	int ret;
 
@@ -669,6 +672,23 @@ void gdsc_debug_print_regs(struct regulator *regulator)
 		pr_err("Failed to get GDSC Handle\n");
 		return;
 	}
+
+	ww_mutex_lock(&rdev->mutex, NULL);
+
+	if (rdev->open_count)
+		pr_info("%-32s EN\n", "Device-Supply");
+
+	list_for_each_entry(reg, &rdev->consumer_list, list) {
+		if (reg->supply_name)
+			supply_name = reg->supply_name;
+		else
+			supply_name = "(null)-(null)";
+
+		pr_info("%-32s %c\n", supply_name,
+			(reg->enable_count ? 'Y' : 'N'));
+	}
+
+	ww_mutex_unlock(&rdev->mutex);
 
 	ret = regmap_bulk_read(sc->regmap, REG_OFFSET, regvals,
 			gdsc_regmap_config.max_register ? 3 : 1);

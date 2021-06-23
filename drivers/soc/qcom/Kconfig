@@ -1050,6 +1050,16 @@ config CDSPRM_VTCM_DYNAMIC_DEBUG
 	  enabled, the vtcm partition details are sent to the CDSP via rpmsg
 	  channel.
 
+config QCOM_SYSMON_SUBSYSTEM_STATS
+	tristate "Qualcomm Technologies SysMon DSP subsystem stats"
+	depends on QCOM_SMEM
+	help
+	  sysMon subsystem stats driver exposes API to query DSP
+	  subsystem's load and power statistics stored in SMEM.
+	  SMEM region for each DSP subsystem is updated periodically
+	  by the respective subsystem. Power stats gets updated after
+	  DSP clock change event.
+
 config QCOM_WDT_CORE
 	tristate "Qualcomm Technologies, Inc. Watchdog Support"
 	depends on ARCH_QCOM
@@ -1061,6 +1071,15 @@ config QCOM_WDT_CORE
 	   only enables the framework, an individual Qualcomm Technologies, Inc.
 	   watchdog module must be loaded along with this for watchdog
 	   functionality.
+
+config QCOM_CX_IPEAK
+	tristate "Common driver to handle Cx iPeak limitation"
+	help
+	  Cx ipeak HW module is used to limit the current drawn by various
+	  subsystem blocks on Cx power rail. Each client needs to set their
+	  bit in tcsr register if it is going to cross its own threshold.
+	  If all clients are going to cross their thresholds then Cx ipeak
+	  hw module will raise an interrupt to cDSP block to throttle cDSP fmax.
 
 config QCOM_SOC_WATCHDOG
 	tristate "Qualcomm Technologies, Inc. Soc Watchdog"

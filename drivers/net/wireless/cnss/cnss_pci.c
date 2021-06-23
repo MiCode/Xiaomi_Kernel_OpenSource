@@ -79,9 +79,9 @@
 #define WLAN_BOOTSTRAP_GPIO_NAME "wlan-bootstrap-gpio"
 #define PM_OPTIONS		0
 #define PM_OPTIONS_SUSPEND_LINK_DOWN \
-	(MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN)
+	(PM_OPTIONS | MSM_PCIE_CONFIG_LINKDOWN)
 #define PM_OPTIONS_RESUME_LINK_DOWN \
-	(MSM_PCIE_CONFIG_NO_CFG_RESTORE)
+	(PM_OPTIONS)
 
 #define SOC_SWREG_VOLT_MAX	1200000
 #define SOC_SWREG_VOLT_MIN	1200000
@@ -231,6 +231,7 @@ static struct cnss_data {
 	bool pci_register_again;
 	bool notify_modem_status;
 	struct pci_saved_state *saved_state;
+	struct pci_saved_state *default_state;
 	u16 revision_id;
 	bool recovery_in_progress;
 	atomic_t fw_available;
@@ -1518,7 +1519,7 @@ int cnss_pci_load_and_free_saved_state(struct pci_dev *dev,
 
 int cnss_msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
 {
-	return msm_pcie_shadow_control(dev, enable);
+	return 0;
 }
 
 int cnss_msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
@@ -1528,7 +1529,12 @@ int cnss_msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 
 int cnss_msm_pcie_recover_config(struct pci_dev *dev)
 {
-	return msm_pcie_recover_config(dev);
+	if (penv->saved_state)
+		cnss_pci_load_and_free_saved_state(dev, &penv->saved_state);
+	else
+		pci_load_saved_state(dev, penv->default_state);
+
+	pci_restore_state(dev);
 }
 
 int cnss_msm_pcie_register_event(struct msm_pcie_register_event *reg)
@@ -1661,6 +1667,8 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 	if (penv->pcie_link_state) {
 		pci_save_state(pdev);
 		penv->saved_state = cnss_pci_store_saved_state(pdev);
+		/* Save default config space */
+		penv->default_state = cnss_pci_store_saved_state(pdev);
 
 		ret = cnss_msm_pcie_pm_control(MSM_PCIE_SUSPEND,
 					       cnss_get_pci_dev_bus_number(pdev),
@@ -1733,6 +1741,9 @@ static void cnss_wlan_pci_remove(struct pci_dev *pdev)
 
 	if (!penv)
 		return;
+
+	if (penv->default_state)
+		pci_load_and_free_saved_state(penv->pdev, &penv->default_state);
 
 	dev = &penv->pldev->dev;
 	cnss_pcie_reset_platform_ops(dev);
