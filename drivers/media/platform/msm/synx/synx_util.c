@@ -14,6 +14,9 @@
 static DECLARE_HASHTABLE(synx_global_key_tbl, 8);
 static DECLARE_HASHTABLE(synx_camera_id_tbl, 8);
 
+spinlock_t camera_tbl_lock;
+spinlock_t global_tbl_lock;
+
 extern void synx_external_callback(s32 sync_obj, int status, void *data);
 
 int synx_util_init_coredata(struct synx_coredata *synx_obj,
@@ -169,8 +172,10 @@ void synx_util_object_destroy(struct synx_coredata *synx_obj)
 
 		/* clear the hash table entry */
 		entry = synx_util_retrieve_data(sync_id, type);
-		if (entry) {
+		if (entry && type == SYNX_TYPE_CSL) {
+			spin_lock_bh(&camera_tbl_lock);
 			hash_del(&entry->node);
+			spin_unlock_bh(&camera_tbl_lock);
 			kfree(entry);
 		}
 
@@ -1258,6 +1263,10 @@ int synx_util_init_table(void)
 {
 	hash_init(synx_global_key_tbl);
 	hash_init(synx_camera_id_tbl);
+
+	spin_lock_init(&global_tbl_lock);
+	spin_lock_init(&camera_tbl_lock);
+
 	return 0;
 }
 
@@ -1278,11 +1287,15 @@ int synx_util_save_data(u32 key, u32 tbl, void *data)
 
 	switch (tbl) {
 	case SYNX_CAMERA_ID_TBL:
+		spin_lock_bh(&camera_tbl_lock);
 		hash_add(synx_camera_id_tbl, &entry->node, key);
+		spin_unlock_bh(&camera_tbl_lock);
 		break;
 	case SYNX_GLOBAL_KEY_TBL:
 		synx_util_get_object((struct synx_coredata *) data);
+		spin_lock_bh(&global_tbl_lock);
 		hash_add(synx_global_key_tbl, &entry->node, key);
+		spin_unlock_bh(&global_tbl_lock);
 		break;
 	default:
 		pr_err("invalid hash table selection\n");
@@ -1301,6 +1314,7 @@ struct hash_key_data *synx_util_retrieve_data(u32 key,
 
 	switch (tbl) {
 	case SYNX_CAMERA_ID_TBL:
+		spin_lock_bh(&camera_tbl_lock);
 		hash_for_each_possible(synx_camera_id_tbl,
 			curr, node, key) {
 			if (curr->key == key) {
@@ -1308,8 +1322,10 @@ struct hash_key_data *synx_util_retrieve_data(u32 key,
 				break;
 			}
 		}
+		spin_unlock_bh(&camera_tbl_lock);
 		break;
 	case SYNX_GLOBAL_KEY_TBL:
+		spin_lock_bh(&global_tbl_lock);
 		hash_for_each_possible(synx_global_key_tbl,
 			curr, node, key) {
 			if (curr->key == key) {
@@ -1317,6 +1333,7 @@ struct hash_key_data *synx_util_retrieve_data(u32 key,
 				break;
 			}
 		}
+		spin_unlock_bh(&global_tbl_lock);
 		break;
 	default:
 		pr_err("invalid hash table selection %d\n",
