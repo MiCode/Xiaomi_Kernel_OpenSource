@@ -38,12 +38,12 @@
 #include <linux/thermal.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/secure_buffer.h>
-#include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/ramdump.h>
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
+#include <linux/remoteproc.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include "main.h"
 #include "qmi.h"
 #include "debug.h"
@@ -1625,7 +1625,7 @@ static int icnss_msa0_ramdump(struct icnss_priv *priv)
 static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 							void *data)
 {
-	struct notif_data *notif = data;
+	struct qcom_ssr_notify_data *notif = data;
 	int ret = 0;
 
 	if (!notif->crashed) {
@@ -1661,20 +1661,20 @@ static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 				  void *data)
 {
 	struct icnss_event_pd_service_down_data *event_data;
-	struct notif_data *notif = data;
+	struct qcom_ssr_notify_data *notif = data;
 	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
 					       wpss_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
 	icnss_pr_vdbg("WPSS-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_SHUTDOWN) {
+	if (code == QCOM_SSR_AFTER_SHUTDOWN) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
 		icnss_msa0_ramdump(priv);
 		goto out;
 	}
 
-	if (code != SUBSYS_BEFORE_SHUTDOWN)
+	if (code != QCOM_SSR_BEFORE_SHUTDOWN)
 		goto out;
 
 	priv->is_ssr = true;
@@ -1718,20 +1718,20 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 				  void *data)
 {
 	struct icnss_event_pd_service_down_data *event_data;
-	struct notif_data *notif = data;
+	struct qcom_ssr_notify_data *notif = data;
 	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
 					       modem_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
 	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_SHUTDOWN) {
+	if (code == QCOM_SSR_AFTER_SHUTDOWN) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
 		icnss_msa0_ramdump(priv);
 		goto out;
 	}
 
-	if (code != SUBSYS_BEFORE_SHUTDOWN)
+	if (code != QCOM_SSR_BEFORE_SHUTDOWN)
 		goto out;
 
 	priv->is_ssr = true;
@@ -1798,7 +1798,7 @@ static int icnss_wpss_ssr_register_notifier(struct icnss_priv *priv)
 	priv->wpss_ssr_nb.priority = 1;
 
 	priv->wpss_notify_handler =
-		subsys_notif_register_notifier("wpss", &priv->wpss_ssr_nb);
+		qcom_register_ssr_notifier("wpss", &priv->wpss_ssr_nb);
 
 	if (IS_ERR(priv->wpss_notify_handler)) {
 		ret = PTR_ERR(priv->wpss_notify_handler);
@@ -1822,7 +1822,7 @@ static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 	priv->modem_ssr_nb.priority = 1;
 
 	priv->modem_notify_handler =
-		subsys_notif_register_notifier("modem", &priv->modem_ssr_nb);
+		qcom_register_ssr_notifier("modem", &priv->modem_ssr_nb);
 
 	if (IS_ERR(priv->modem_notify_handler)) {
 		ret = PTR_ERR(priv->modem_notify_handler);
@@ -1839,8 +1839,8 @@ static int icnss_wpss_ssr_unregister_notifier(struct icnss_priv *priv)
 	if (!test_and_clear_bit(ICNSS_SSR_REGISTERED, &priv->state))
 		return 0;
 
-	subsys_notif_unregister_notifier(priv->wpss_notify_handler,
-					 &priv->wpss_ssr_nb);
+	qcom_unregister_ssr_notifier(priv->wpss_notify_handler,
+				     &priv->wpss_ssr_nb);
 	priv->wpss_notify_handler = NULL;
 
 	return 0;
@@ -1851,8 +1851,8 @@ static int icnss_modem_ssr_unregister_notifier(struct icnss_priv *priv)
 	if (!test_and_clear_bit(ICNSS_SSR_REGISTERED, &priv->state))
 		return 0;
 
-	subsys_notif_unregister_notifier(priv->modem_notify_handler,
-					 &priv->modem_ssr_nb);
+	qcom_unregister_ssr_notifier(priv->modem_notify_handler,
+				     &priv->modem_ssr_nb);
 	priv->modem_notify_handler = NULL;
 
 	return 0;
@@ -3302,17 +3302,29 @@ static ssize_t hw_trc_override_store(struct device *dev,
 static void icnss_wpss_load(struct work_struct *wpss_load_work)
 {
 	struct icnss_priv *priv = icnss_get_plat_priv();
+	phandle rproc_phandle;
 
-	priv->subsys = subsystem_get("wpss");
-	if (IS_ERR(priv->subsys))
-		icnss_pr_err("Failed to load wpss subsys");
+	if (of_property_read_u32(priv->pdev->dev.of_node, "qcom,rproc-handle",
+				 &rproc_phandle)) {
+		icnss_pr_err("error reading rproc phandle\n");
+	}
+
+	priv->rproc = rproc_get_by_phandle(rproc_phandle);
+	if (IS_ERR(priv->rproc))
+		icnss_pr_err("Failed to load wpss rproc");
+
+	if (rproc_boot(priv->rproc)) {
+		icnss_pr_err("Failed to boot wpss rproc");
+		rproc_put(priv->rproc);
+	}
 }
 
 static inline void icnss_wpss_unload(struct icnss_priv *priv)
 {
-	if (priv->subsys) {
-		subsystem_put(priv->subsys);
-		priv->subsys = NULL;
+	if (priv && priv->rproc) {
+		rproc_shutdown(priv->rproc);
+		rproc_put(priv->rproc);
+		priv->rproc = NULL;
 	}
 }
 
@@ -3321,21 +3333,21 @@ static ssize_t wpss_boot_store(struct device *dev,
 			       const char *buf, size_t count)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
-	int wpss_subsys = 0;
+	int wpss_rproc = 0;
 
 	if (priv->device_id != WCN6750_DEVICE_ID)
 		return count;
 
-	if (sscanf(buf, "%du", &wpss_subsys) != 1) {
-		icnss_pr_err("Failed to read wpss_subsys info");
+	if (sscanf(buf, "%du", &wpss_rproc) != 1) {
+		icnss_pr_err("Failed to read wpss rproc info");
 		return -EINVAL;
 	}
 
-	icnss_pr_dbg("WPSS Subsystem: %s", wpss_subsys ? "GET" : "PUT");
+	icnss_pr_dbg("WPSS Remote Processor: %s", wpss_rproc ? "GET" : "PUT");
 
-	if (wpss_subsys == 1)
+	if (wpss_rproc == 1)
 		schedule_work(&wpss_loader);
-	else if (wpss_subsys == 0)
+	else if (wpss_rproc == 0)
 		icnss_wpss_unload(priv);
 
 	return count;
@@ -3993,6 +4005,7 @@ static int icnss_remove(struct platform_device *pdev)
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		icnss_wpss_ssr_unregister_notifier(priv);
+		rproc_put(priv->rproc);
 		destroy_ramdump_device(priv->m3_dump_dev_seg1);
 		destroy_ramdump_device(priv->m3_dump_dev_seg2);
 		destroy_ramdump_device(priv->m3_dump_dev_seg3);
