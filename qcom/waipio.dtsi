@@ -2048,14 +2048,21 @@
 		compatible = "qcom,cpufreq-hw-epss";
 		reg = <0x17D91000 0x1000>,
 		      <0x17D92000 0x1000>,
-		      <0x17D93000 0x1000>;
+		      <0x17D93000 0x1000>,
+		      <0x17D09804 0x4>,
+		      <0x17D09808 0x4>,
+		      <0x17D0980C 0x4>;
 		reg-names = "freq-domain0",
 			    "freq-domain1",
-			    "freq-domain2";
+			    "freq-domain2",
+			    "pdmem-domain0",
+			    "pdmem-domain1",
+			    "pdmem-domain2";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>, <&clock_gcc GCC_GPLL0>;
 		clock-names = "xo", "alternate";
 		qcom,lut-row-size = <4>;
 		qcom,skip-enable-check;
+		qcom,perf-lock-support;
 		interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
