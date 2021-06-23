@@ -3616,34 +3616,3 @@
 		reg = <0x42>;
 	};
 };
-
-&pcie1_rp {
-	#address-cells = <5>;
-	#size-cells = <0>;
-
-	mhi0: qcom,mhi@0 {
-		reg = <0 0 0 0 0 >;
-
-		interconnects = <&pcie_noc MASTER_PCIE_1 &mc_virt SLAVE_EBI1>;
-		interconnect-names = "pcie_to_ddr";
-
-		qcom,mhi-bus-bw-cfg =
-		<0 0>, /* no vote */
-		<250000 0>, /* avg bw / AB: 2 GBps, peak bw / IB: no vote */
-		<500000 0>, /* avg bw / AB: 4 GBps, peak bw / IB: no vote */
-		<1000000 0>, /* avg bw / AB: 8 GBps, peak bw / IB: no vote */
-		<2000000 0>; /* avg bw / AB: 16 GBps, peak bw / IB: no vote */
-
-		qcom,iommu-group = <&mhi0_iommu_group>;
-
-		#address-cells = <1>;
-		#size-cells = <1>;
-
-		mhi0_iommu_group: mhi0_iommu_group {
-			qcom,iommu-msi-size = <0x1000>;
-			qcom,iommu-dma-addr-pool = <0x20000000 0x0fffffff>;
-			qcom,iommu-dma = "fastmap";
-			qcom,iommu-pagetable = "coherent";
-		};
-	};
-};
