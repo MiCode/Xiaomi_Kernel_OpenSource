@@ -144,7 +144,6 @@ DECLARE_HOOK(android_vh_em_cpu_energy,
 		unsigned long max_util, unsigned long sum_util,
 		unsigned long *energy),
 	TP_ARGS(pd, max_util, sum_util, energy));
-
 #endif /* _TRACE_HOOK_SCHED_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
