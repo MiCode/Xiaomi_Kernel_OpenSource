@@ -47,6 +47,16 @@ struct hw_resource_status {
 void aputop_opp_limit(struct aputop_func_param *aputop,
 		enum apu_opp_limit_type type);
 void aputop_curr_status(struct aputop_func_param *aputop);
+void aputop_pwr_cfg(struct aputop_func_param *aputop);
+void aputop_pwr_ut(struct aputop_func_param *aputop);
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+int mt6983_apu_top_dbg_open(struct inode *inode, struct file *file);
+ssize_t mt6983_apu_top_dbg_write(
+		struct file *flip, const char __user *buffer,
+		size_t count, loff_t *f_pos);
+#endif
+
 int aputop_opp_limiter_init(void __iomem *reg_base);
 
 #endif

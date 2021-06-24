@@ -6,8 +6,17 @@
 #define __APU_TOP_H__
 
 #include <linux/clk.h>
+#include <linux/device.h>
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+#include <linux/debugfs.h>
+#endif
 #include <linux/io.h>
 #include <linux/platform_device.h>
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+#include <linux/pm_wakeup.h>
+#endif
+
+#include "apu_top_entry.h"
 
 enum aputop_func_id {
 	APUTOP_FUNC_PWR_OFF = 0,
@@ -23,23 +32,37 @@ enum aputop_func_id {
 
 struct aputop_func_param {
 	enum aputop_func_id func_id; //param0
-	unsigned int param1;
-	unsigned int param2;
-	unsigned int param3;
-	unsigned int param4;
+	int param1;
+	int param2;
+	int param3;
+	int param4;
 };
 
 struct apupwr_plat_data {
 	const char *plat_name;
-	int ( *plat_apu_top_on)(struct device *dev);
-	int ( *plat_apu_top_off)(struct device *dev);
-	int ( *plat_apu_top_pb)(struct platform_device *pdev);
-	int ( *plat_apu_top_rm)(struct platform_device *pdev);
-	int ( *plat_apu_top_func)(struct platform_device *pdev,
+	int ( *plat_aputop_on)(struct device *dev);
+	int ( *plat_aputop_off)(struct device *dev);
+	int ( *plat_aputop_pb)(struct platform_device *pdev);
+	int ( *plat_aputop_rm)(struct platform_device *pdev);
+	int ( *plat_aputop_func)(struct platform_device *pdev,
 			enum aputop_func_id func_id,
 			struct aputop_func_param *aputop);
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	int ( *plat_aputop_dbg_open)(struct inode *inode,
+			struct file *file);
+	ssize_t ( *plat_aputop_dbg_write)(struct file *flip,
+			const char __user *buffer,
+			size_t count, loff_t *f_pos);
+#endif
 	int bypass_pwr_on;
 	int bypass_pwr_off;
+};
+
+struct apupwr_dbg {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	/* below used for debugfs */
+	struct dentry *file;
+#endif
 };
 
 extern int fpga_type;

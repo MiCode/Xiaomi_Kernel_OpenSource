@@ -5,10 +5,14 @@
 
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/of_platform.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+#include <linux/pm_wakeup.h>
+#endif
 #include <linux/uaccess.h>
 
 #include "apu_top.h"
@@ -16,12 +20,45 @@
 
 struct platform_device *this_pdev;
 static const struct apupwr_plat_data *pwr_data;
+static struct apupwr_dbg aputop_dbg;
 static int aputop_func_sel;
+static DEFINE_MUTEX(aputop_func_mtx);
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+struct wakeup_source *ws;
+#endif
 
 int fpga_type;
 module_param (fpga_type, int, S_IRUGO);
 MODULE_PARM_DESC (fpga_type,
 "[1]ACX0_mvpu+ACX1_mvpu [2]ACX0_mvpu+ACX1_mdla0 [3]ACX0_mdla0+ACX1_mdla0");
+
+static void apu_pwr_wake_lock(void)
+{
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	__pm_stay_awake(ws);
+#endif
+}
+
+static void apu_pwr_wake_unlock(void)
+{
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	__pm_relax(ws);
+#endif
+}
+
+static void apu_pwr_wake_init(void)
+{
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	ws = wakeup_source_register(NULL, pwr_data->plat_name);
+#endif
+}
+
+static void apu_pwr_wake_exit(void)
+{
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	wakeup_source_unregister(ws);
+#endif
+}
 
 // FIXME: fix me in mt6983
 void __register_aputop_post_power_off_cb(
@@ -104,6 +141,8 @@ static int check_pwr_data(void)
 
 static int aputop_pwr_on_rpm_cb(struct device *dev)
 {
+	int ret = 0;
+
 	if (check_pwr_data())
 		return -ENODEV;
 
@@ -113,11 +152,16 @@ static int aputop_pwr_on_rpm_cb(struct device *dev)
 	}
 
 	dev_info(dev, "%s %s\n", __func__, pwr_data->plat_name);
-	return pwr_data->plat_apu_top_on(dev);
+	apu_pwr_wake_lock();
+	ret =  pwr_data->plat_aputop_on(dev);
+
+	return ret;
 }
 
 static int aputop_pwr_off_rpm_cb(struct device *dev)
 {
+	int ret = 0;
+
 	if (check_pwr_data())
 		return -ENODEV;
 
@@ -127,7 +171,10 @@ static int aputop_pwr_off_rpm_cb(struct device *dev)
 	}
 
 	dev_info(dev, "%s %s\n", __func__, pwr_data->plat_name);
-	return pwr_data->plat_apu_top_off(dev);
+	ret = pwr_data->plat_aputop_off(dev);
+	apu_pwr_wake_unlock();
+
+	return ret;
 }
 
 static int apu_top_probe(struct platform_device *pdev)
@@ -142,6 +189,8 @@ static int apu_top_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "%s %s\n", __func__, pwr_data->plat_name);
 
+	apu_pwr_wake_init();
+
 	this_pdev = pdev;
 	g_apupw_drv_ver = 3;
 
@@ -151,7 +200,7 @@ static int apu_top_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	return pwr_data->plat_apu_top_pb(pdev);
+	return pwr_data->plat_aputop_pb(pdev);
 }
 
 static int apu_top_remove(struct platform_device *pdev)
@@ -160,8 +209,9 @@ static int apu_top_remove(struct platform_device *pdev)
 		return -ENODEV;
 
 	dev_info(&pdev->dev, "%s %s\n", __func__, pwr_data->plat_name);
-	pwr_data->plat_apu_top_rm(pdev);
+	pwr_data->plat_aputop_rm(pdev);
 	pm_runtime_disable(&pdev->dev);
+	apu_pwr_wake_exit();
 
 	return 0;
 }
@@ -196,21 +246,23 @@ static int set_aputop_func_param(const char *buf,
 		const struct kernel_param *kp)
 {
 	struct aputop_func_param aputop;
-	int result = 0;
+	int ret = 0, arg_cnt = 0;
+
+	mutex_lock(&aputop_func_mtx);
 
 	if (check_pwr_data())
 		return -ENODEV;
 
 	memset(&aputop, 0, sizeof(struct aputop_func_param));
 
-	result = sscanf(buf, "%d %d %d %d %d",
+	arg_cnt = sscanf(buf, "%d %d %d %d %d",
 				&aputop.func_id,
 				&aputop.param1, &aputop.param2,
 				&aputop.param3, &aputop.param4);
 
-	if (result > 5) {
-		pr_notice("%s invalid input: %s, result(%d)\n",
-				__func__, buf, result);
+	if (arg_cnt > 5) {
+		pr_notice("%s invalid input: %s, arg_cnt(%d)\n",
+				__func__, buf, arg_cnt);
 		return -EINVAL;
 	}
 
@@ -220,7 +272,10 @@ static int set_aputop_func_param(const char *buf,
 		aputop.param1, aputop.param2,
 		aputop.param3, aputop.param4);
 
-	return pwr_data->plat_apu_top_func(this_pdev, aputop.func_id, &aputop);
+	ret = pwr_data->plat_aputop_func(this_pdev, aputop.func_id, &aputop);
+
+	mutex_unlock(&aputop_func_mtx);
+	return ret;
 }
 
 static int get_aputop_func_param(char *buf, const struct kernel_param *kp)
@@ -239,6 +294,52 @@ static struct kernel_param_ops aputop_func_ops = {
 __MODULE_PARM_TYPE(aputop_func_sel, "int");
 module_param_cb(aputop_func_sel, &aputop_func_ops, &aputop_func_sel, 0644);
 MODULE_PARM_DESC(aputop_func_sel, "trigger apu top func by parameter");
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+static int aputop_dbg_open(struct inode *inode, struct file *file)
+{
+	if (pwr_data->plat_aputop_dbg_open)
+		return pwr_data->plat_aputop_dbg_open(inode, file);
+	else
+		return 0;
+}
+
+static ssize_t aputop_dbg_write(struct file *flip, const char __user *buffer,
+		size_t count, loff_t *f_pos)
+{
+	if (pwr_data->plat_aputop_dbg_write)
+		return pwr_data->plat_aputop_dbg_write(
+				flip, buffer, count, f_pos);
+	else
+		return 0;
+}
+
+static const struct file_operations aputop_dbg_fops = {
+	.open = aputop_dbg_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = aputop_dbg_write,
+};
+
+int aputop_dbg_init(struct apusys_core_info *info)
+{
+        /* creating power file */
+	aputop_dbg.file = debugfs_create_file("power", (0644),
+			info->dbg_root, NULL, &aputop_dbg_fops);
+	if (IS_ERR_OR_NULL(aputop_dbg.file)) {
+		pr_info("failed to create \"power\" debug file.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+void aputop_dbg_exit(void)
+{
+	debugfs_remove(aputop_dbg.file);
+}
+#endif
 
 int apu_top_3_init(void)
 {

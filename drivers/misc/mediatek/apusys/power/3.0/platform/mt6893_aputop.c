@@ -382,11 +382,11 @@ static int mt6893_apu_top_func(struct platform_device *pdev,
 
 const struct apupwr_plat_data mt6893_plat_data = {
 	.plat_name = "mt6893_apupwr",
-	.plat_apu_top_on = mt6893_apu_top_on,
-	.plat_apu_top_off = mt6893_apu_top_off,
-	.plat_apu_top_pb = mt6893_apu_top_pb,
-	.plat_apu_top_rm = mt6893_apu_top_rm,
-	.plat_apu_top_func = mt6893_apu_top_func,
+	.plat_aputop_on = mt6893_apu_top_on,
+	.plat_aputop_off = mt6893_apu_top_off,
+	.plat_aputop_pb = mt6893_apu_top_pb,
+	.plat_aputop_rm = mt6893_apu_top_rm,
+	.plat_aputop_func = mt6893_apu_top_func,
 	.bypass_pwr_on = APU_POWER_BRING_UP,
 	.bypass_pwr_off = APU_POWER_BRING_UP,
 };

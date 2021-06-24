@@ -18,5 +18,7 @@ void apupw_dbg_exit(void);
 /* for init/exit apusys power 3.0 */
 int apu_top_3_init(void);
 void apu_top_3_exit(void);
+int aputop_dbg_init(struct apusys_core_info *info);
+void aputop_dbg_exit(void);
 
 #endif

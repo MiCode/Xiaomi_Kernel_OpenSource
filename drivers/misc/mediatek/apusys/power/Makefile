@@ -28,5 +28,9 @@ endif
 
 SRC += apu_top_entry.o
 
+ifneq (,$(findstring aging,$(PROJECT_DTB_NAMES)))
+subdir-ccflags-y += -DAGING_MARGIN
+endif
+
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apu_top.o
 apu_top-objs = $(SRC)

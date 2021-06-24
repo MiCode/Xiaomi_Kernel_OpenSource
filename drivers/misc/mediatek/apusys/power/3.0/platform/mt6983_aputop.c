@@ -25,13 +25,15 @@
 /* Below reg_name has to 1-1 mapping DTS's name */
 static const char *reg_name[APUPW_MAX_REGS] = {
 	"sys_spm", "apu_rcx", "apu_vcore", "apu_md32_mbox",
-	"apu_rpc", "apu_pcu", "apu_ao_ctl", "apu_acc",
+	"apu_rpc", "apu_pcu", "apu_ao_ctl", "apu_pll", "apu_acc",
 	"apu_are0", "apu_are1", "apu_are2",
 	"apu_acx0", "apu_acx0_rpc_lite", "apu_acx1", "apu_acx1_rpc_lite",
 };
 
 static struct apu_power apupw;
-static unsigned int ref_count;
+static uint32_t ref_count;
+
+static void aputop_dump_pwr_res(void);
 
 #if !CFG_FPGA
 /* regulator id */
@@ -47,22 +49,28 @@ static int init_plat_pwr_res(struct platform_device *pdev)
 	int ret = 0;
 	int ret_clk = 0;
 
-	//vapu Buck
+	// vapu Buck
 	vapu_reg_id = regulator_get(&pdev->dev, "vapu");
 	if (!vapu_reg_id) {
 		pr_info("regulator_get vapu_reg_id failed\n");
 		return -ENOENT;
 	}
 
-	//Vcore
+	// enable vapu buck
+	regulator_enable(vapu_reg_id);
+
+	// set vapu to 0.6v
+	regulator_set_voltage(vapu_reg_id, 600000, 600000);
+
+	// vcore
 	vcore_reg_id = regulator_get(&pdev->dev, "vcore");
 	if (!vcore_reg_id) {
 		pr_info("regulator_get vcore_reg_id failed\n");
 		return -ENOENT;
 	}
 
-	//Vsram
-	vsram_reg_id = regulator_get(&pdev->dev, "vsram");
+	// vsram
+	vsram_reg_id = regulator_get(&pdev->dev, "vsram_core");
 	if (!vsram_reg_id) {
 		pr_info("regulator_get vsram_reg_id failed\n");
 		return -ENOENT;
@@ -123,48 +131,136 @@ static void plt_pwr_res_ctl(int enable)
 	}
 }
 
-static void __apu_clk_init(void)
+static uint32_t get_pll_pcw(uint32_t clk_rate,
+                uint32_t postdiv_val, uint32_t postdiv_reg)
+{
+        uint32_t fvco = clk_rate;
+        uint32_t pcw_val;
+
+        while (fvco <= 1500) {
+                postdiv_val= postdiv_val << 1;
+                postdiv_reg = postdiv_reg + 1;
+                fvco = fvco << 1;
+        }
+
+        pcw_val = (fvco * 1 << 14) / 26;
+
+        if (postdiv_reg == 0) { //Fvco * 2 with post_divider = 2
+                pcw_val = pcw_val * 2;
+                postdiv_val = postdiv_val << 1;
+                postdiv_reg = postdiv_reg + 1;
+        } //Post divider is 1 is not available
+
+	pr_info("%s postdiv_reg:%d, pcw_val:%x\n",
+			__func__, postdiv_reg, pcw_val);
+
+        return pcw_val;
+}
+
+/*
+ * default PLL output clock rate:
+ * MVPU	540 MHz
+ * MDLA	485 MHz
+ * MNOC	388 MHz
+ * uP	485 MHz
+ */
+static void __apu_pll_init(void)
+{
+	uint32_t pll_base_arr[] = {MNOC_PLL_BASE, UP_PLL_BASE,
+					MDLA_PLL_BASE, MVPU_PLL_BASE};
+	uint32_t pll_freq_pcw[] = {0x0, 0x0, 0x0, 0x0};
+	int pll_arr_size = sizeof(pll_base_arr) / sizeof(uint32_t);
+	int pll_idx;
+
+	pr_info("PLL init %s %d ++\n", __func__, __LINE__);
+
+	// Step4. Initial PLL setting
+	pll_freq_pcw[0] = get_pll_pcw(1552, 2, 0x1); // mnoc 388 MHz
+	pll_freq_pcw[1] = get_pll_pcw(1940, 2, 0x1); // uP 485 MHz
+	pll_freq_pcw[2] = get_pll_pcw(1940, 2, 0x1); // mdla 485 MHz
+	pll_freq_pcw[3] = get_pll_pcw(2160, 2, 0x1); // mvpu 540 MHz
+
+	for (pll_idx = 0 ; pll_idx < pll_arr_size ; pll_idx++) {
+		// PCW value always from hopping function: ofs 0x100
+		apu_setl(0x1 << 0, apupw.regs[apu_pll]
+			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_HP_EN);
+		// Hopping function clock enable: ofs 0x108
+		apu_setl(0x1 << 0, apupw.regs[apu_pll]
+			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_CLK_CON);
+		// Hopping function enable: ofs 0x114
+		apu_setl((0x1 << 0) | (0x1 << 2), apupw.regs[apu_pll]
+			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL0_CFG);
+
+		// POSTDIV: ofs 0x000C , [26:24] RG_PLL_POSDIV
+		// 3'b000: /1 , 3'b001: /2 , 3'b010: /4
+		// 3'b011: /8 , 3'b100: /16
+		apu_setl((0x1 << 24), apupw.regs[apu_pll]
+			+ pll_base_arr[pll_idx] + PLL1U_PLL1_CON1);
+
+		// PCW register: ofs 0x011C
+		// [31] FHCTL0_PLL_TGL_ORG
+		// [21:0] FHCTL0_PLL_ORG set to PCW value
+		apu_writel(((0x1 << 31) | pll_freq_pcw[pll_idx]),
+			apupw.regs[apu_pll]
+			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL0_DDS);
+	}
+
+	pr_info("PLL init %s %d --\n", __func__, __LINE__);
+}
+
+static void __apu_acc_init(void)
 {
 	char buf[32];
+
+	pr_info("ACC init %s %d ++\n", __func__, __LINE__);
 
 	// Step6. Initial ACC setting (@ACC)
 
 	/* mnoc clk setting */
 	pr_info("mnoc clk setting %s %d \n", __func__, __LINE__);
+	// CGEN_SOC
 	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR0);
-	apu_writel(0x00008000, apupw.regs[apu_acc] + APU_ACC_CONFG_SET0);
+	// HW_CTRL_EN, SEL_APU_DIV2
+	apu_writel(0x00008400, apupw.regs[apu_acc] + APU_ACC_CONFG_SET0);
 
 	/* iommu clk setting */
 	pr_info("iommu clk setting %s %d \n", __func__, __LINE__);
+	// CGEN_SOC
 	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR1);
-	apu_writel(0x00008000, apupw.regs[apu_acc] + APU_ACC_CONFG_SET1);
+	// HW_CTRL_EN, SEL_APU_DIV2
+	apu_writel(0x00008400, apupw.regs[apu_acc] + APU_ACC_CONFG_SET1);
 
 	/* mvpu clk setting */
 	pr_info("mvpu clk setting %s %d \n", __func__, __LINE__);
+	// CGEN_SOC
 	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR2);
-	apu_writel(0x00008000, apupw.regs[apu_acc] + APU_ACC_CONFG_SET2);
+	// HW_CTRL_EN, SEL_APU_DIV2
+	apu_writel(0x00008400, apupw.regs[apu_acc] + APU_ACC_CONFG_SET2);
+	// CLK_REQ_SW_EN
 	apu_writel(0x00000100, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET2);
 
 	/* mdla clk setting */
 	pr_info("mdla clk setting %s %d \n", __func__, __LINE__);
+	// CGEN_SOC
 	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR3);
-	apu_writel(0x00008000, apupw.regs[apu_acc] + APU_ACC_CONFG_SET3);
+	// HW_CTRL_EN, SEL_APU_DIV2
+	apu_writel(0x00008400, apupw.regs[apu_acc] + APU_ACC_CONFG_SET3);
+	// CLK_REQ_SW_EN
 	apu_writel(0x00000100, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET3);
 
 	/* clk invert setting */
 	pr_info("clk invert setting %s %d \n", __func__, __LINE__);
-	apu_writel(0x00000008, apupw.regs[apu_acc] + APU_ACC_CLK_INV_EN_SET);
-	apu_writel(0x00000020, apupw.regs[apu_acc] + APU_ACC_CLK_INV_EN_SET);
-	apu_writel(0x00000080, apupw.regs[apu_acc] + APU_ACC_CLK_INV_EN_SET);
-	apu_writel(0x00000200, apupw.regs[apu_acc] + APU_ACC_CLK_INV_EN_SET);
-	apu_writel(0x00000800, apupw.regs[apu_acc] + APU_ACC_CLK_INV_EN_SET);
-	apu_writel(0x00002000, apupw.regs[apu_acc] + APU_ACC_CLK_INV_EN_SET);
-	apu_writel(0x00008000, apupw.regs[apu_acc] + APU_ACC_CLK_INV_EN_SET);
+	// MVPU1_CLK_INV_EN MVPU3_CLK_INV_EN MVPU5_CLK_INV_EN
+	// MDLA1_CLK_INV_EN MDLA3_CLK_INV_EN
+	// MDLA5_CLK_INV_EN MDLA7_CLK_INV_EN
+	apu_writel(0x0000AAA8, apupw.regs[apu_acc] + APU_ACC_CLK_INV_EN_SET);
 
 	memset(buf, 0, sizeof(buf));
 	snprintf(buf, 32, "phys 0x%08x: ", (u32)(apupw.phy_addr[apu_acc]));
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			apupw.regs[apu_acc], 0x100, true);
+
+	pr_info("ACC init %s %d --\n", __func__, __LINE__);
 }
 
 static int __apu_on_mdla_mvpu_clk(void)
@@ -215,8 +311,53 @@ static void aputop_dump_all_reg(void)
 }
 #endif
 
+/*
+ * low 32-bit data for PMIC control
+ *	APU_PCU_PMIC_TAR_BUF1 (or APU_PCU_BUCK_ON_DAT0_L)
+ *	[31:16] offset to update
+ *	[15:00] data to update
+ *
+ * high 32-bit data for PMIC control
+ *	APU_PCU_PMIC_TAR_BUF2 (or APU_PCU_BUCK_ON_DAT0_H)
+ *	[2:0] cmd_op, read:0x3 , write:0x7
+ *	[7:4] pmic slave id
+ */
+static void __apu_pcu_init(void)
+{
+	uint32_t cmd_op_w = 0x7;
+	uint32_t slave_id = SUB_PMIC_ID;
+	uint32_t en_set_offset = BUCK_VAPU_PMIC_REG_EN_SET_ADDR;
+	uint32_t en_clr_offset = BUCK_VAPU_PMIC_REG_EN_CLR_ADDR;
+	uint32_t en_shift = BUCK_VAPU_PMIC_REG_EN_SHIFT;
+
+	pr_info("PCU init %s %d ++\n", __func__, __LINE__);
+
+	// Step1. enable auto buck on/off function of command0
+	// [0]: cmd0 enable auto ON, [4]: cmd0 enable auto OFF
+	apu_writel(0x11, apupw.regs[apu_pcu] + APU_PCU_BUCK_STEP_SEL);
+
+	// Step2. fill-in command0 for vapu auto buck ON
+	apu_writel((en_set_offset << 16) + (0x1 << en_shift),
+			apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_DAT0_L);
+	apu_writel((slave_id << 4) + cmd_op_w,
+			apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_DAT0_H);
+
+	// Step3. fill-in command0 for vapu auto buck OFF
+	apu_writel((en_clr_offset << 16) + (0x1 << en_shift),
+			apupw.regs[apu_pcu] + APU_PCU_BUCK_OFF_DAT0_L);
+	apu_writel((slave_id << 4) + cmd_op_w,
+			apupw.regs[apu_pcu] + APU_PCU_BUCK_OFF_DAT0_H);
+
+	// Step4. update buck settle time for vapu by SEL0
+	apu_writel(VAPU_BUCK_ON_SETTLE_TIME,
+			apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_SLE0);
+
+	pr_info("PCU init %s %d --\n", __func__, __LINE__);
+}
+
 static void __apu_rpc_init(void)
 {
+	pr_info("RPC init %s %d ++\n", __func__, __LINE__);
 
 	// Step7. RPC: memory types (sleep or PD type)
 	// RPC: iTCM in uP need to setup to sleep type
@@ -245,105 +386,79 @@ static void __apu_rpc_init(void)
 	// Step9. RPCtop initial
 	// RPC
 	apu_setl(0x0800501E, apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+	// BUCK_PROT_SEL
+	apu_setl((0x1 << 20), apupw.regs[apu_rpc] + APU_RPC_TOP_SEL_1);
 
 	// RPC-Lite
 	apu_setl(0x0000009E, apupw.regs[apu_acx0_rpc_lite] + APU_RPC_TOP_SEL);
 	apu_setl(0x0000009E, apupw.regs[apu_acx1_rpc_lite] + APU_RPC_TOP_SEL);
+
+	pr_info("RPC init %s %d --\n", __func__, __LINE__);
 }
 
-static void __apu_are_init(struct device *dev)
+static int __apu_are_init(struct device *dev)
 {
-	char buf[32];
 	u32 tmp = 0;
+	int ret, val = 0;
+	int are_id;
+	uint32_t are_entry2_cfg_h[] = {0x000F0000, 0x000F0000, 0x000F0000};
+	uint32_t are_entry2_cfg_l[] = {0x001F0705, 0x001F0707, 0x001F0707};
 
 	// Step10. ARE initial
 
 	/* TINFO="Wait for sare1 fsm to transition to IDLE" */
-	while (apu_readl(apupw.regs[apu_are2] + 0x48) != 0x1);
+	ret = readl_relaxed_poll_timeout_atomic(
+			(apupw.regs[apu_are2] + 0x48),
+			val, (val & 0x1UL),
+			50, 10000);
+	if (ret) {
+		pr_info("%s timeout to wait sram1 fsm to idle, ret %d\n",
+				__func__, ret);
+		return -1;
+	}
 
-	/* ARE entry 0 initial */
-	pr_info("ARE init %s %d \n", __func__, __LINE__);
-	apu_writel(0x01234567, apupw.regs[apu_are0] + APU_ARE_ETRY0_SRAM_H);
-	apu_writel(0x89ABCDEF, apupw.regs[apu_are0] + APU_ARE_ETRY0_SRAM_L);
-	apu_writel(0x01234567, apupw.regs[apu_are1] + APU_ARE_ETRY0_SRAM_H);
-	apu_writel(0x89ABCDEF, apupw.regs[apu_are1] + APU_ARE_ETRY0_SRAM_L);
-	apu_writel(0x01234567, apupw.regs[apu_are2] + APU_ARE_ETRY0_SRAM_H);
-	apu_writel(0x89ABCDEF, apupw.regs[apu_are2] + APU_ARE_ETRY0_SRAM_L);
+	pr_info("ARE init %s %d ++\n", __func__, __LINE__);
 
-	/* ARE entry 1 initial */
-	apu_writel(0xFEDCBA98, apupw.regs[apu_are0] + APU_ARE_ETRY1_SRAM_H);
-	apu_writel(0x76543210, apupw.regs[apu_are0] + APU_ARE_ETRY1_SRAM_L);
-	apu_writel(0xFEDCBA98, apupw.regs[apu_are1] + APU_ARE_ETRY1_SRAM_H);
-	apu_writel(0x76543210, apupw.regs[apu_are1] + APU_ARE_ETRY1_SRAM_L);
-	apu_writel(0xFEDCBA98, apupw.regs[apu_are2] + APU_ARE_ETRY1_SRAM_H);
-	apu_writel(0x76543210, apupw.regs[apu_are2] + APU_ARE_ETRY1_SRAM_L);
+	for (are_id = apu_are0 ; are_id <= apu_are2 ; are_id++) {
+		/* ARE entry 0 initial */
+		apu_writel(0x01234567, apupw.regs[are_id]
+						+ APU_ARE_ETRY0_SRAM_H);
+		apu_writel(0x89ABCDEF, apupw.regs[are_id]
+						+ APU_ARE_ETRY0_SRAM_L);
 
-	/* ARE entry 2 initial */
-	apu_writel(0x000F0000, apupw.regs[apu_are0] + APU_ARE_ETRY2_SRAM_H);
-	apu_writel(0x001F0705, apupw.regs[apu_are0] + APU_ARE_ETRY2_SRAM_L);
-	apu_writel(0x000F0000, apupw.regs[apu_are1] + APU_ARE_ETRY2_SRAM_H);
-	apu_writel(0x001F0707, apupw.regs[apu_are1] + APU_ARE_ETRY2_SRAM_L);
-	apu_writel(0x000F0000, apupw.regs[apu_are2] + APU_ARE_ETRY2_SRAM_H);
-	apu_writel(0x001F0706, apupw.regs[apu_are2] + APU_ARE_ETRY2_SRAM_L);
+		/* ARE entry 1 initial */
+		apu_writel(0xFEDCBA98, apupw.regs[are_id]
+						+ APU_ARE_ETRY1_SRAM_H);
+		apu_writel(0x76543210, apupw.regs[are_id]
+						+ APU_ARE_ETRY1_SRAM_L);
 
-	/* dummy read ARE entry0/1/2 H/L sram */
-	tmp = readl(apupw.regs[apu_are0] + APU_ARE_ETRY2_SRAM_H);
-	tmp = readl(apupw.regs[apu_are0] + APU_ARE_ETRY2_SRAM_L);
-	tmp = readl(apupw.regs[apu_are1] + APU_ARE_ETRY2_SRAM_H);
-	tmp = readl(apupw.regs[apu_are1] + APU_ARE_ETRY2_SRAM_L);
-	tmp = readl(apupw.regs[apu_are2] + APU_ARE_ETRY2_SRAM_H);
-	tmp = readl(apupw.regs[apu_are2] + APU_ARE_ETRY2_SRAM_L);
+		/* ARE entry 2 initial */
+		apu_writel(are_entry2_cfg_h[are_id], apupw.regs[are_id]
+						+ APU_ARE_ETRY2_SRAM_H);
+		apu_writel(are_entry2_cfg_l[are_id], apupw.regs[are_id]
+						+ APU_ARE_ETRY2_SRAM_L);
 
-	/* update ARE sram */
-	pr_info("update ARE sram %s %d \n", __func__, __LINE__);
-	apu_writel(0x00000004, apupw.regs[apu_are0] + APU_ARE_INI_CTRL);
-	apu_writel(0x00000004, apupw.regs[apu_are1] + APU_ARE_INI_CTRL);
-	apu_writel(0x00000004, apupw.regs[apu_are2] + APU_ARE_INI_CTRL);
+		/* dummy read ARE entry0/1/2 H/L sram */
+		tmp = readl(apupw.regs[are_id] + APU_ARE_ETRY2_SRAM_H);
+		tmp = readl(apupw.regs[are_id] + APU_ARE_ETRY2_SRAM_L);
 
-	dev_info(dev, "%s ARE phys 0x%x = 0x%x\n",
+		/* update ARE sram */
+		apu_writel(0x00000004, apupw.regs[are_id] + APU_ARE_INI_CTRL);
+
+		dev_info(dev, "%s ARE entry2_H phys 0x%x = 0x%x\n",
 			__func__,
-			(u32)(apupw.phy_addr[apu_are0] + APU_ARE_ETRY2_SRAM_H),
-			readl(apupw.regs[apu_are0] + APU_ARE_ETRY2_SRAM_H));
+			(u32)(apupw.phy_addr[are_id] + APU_ARE_ETRY2_SRAM_H),
+			readl(apupw.regs[are_id] + APU_ARE_ETRY2_SRAM_H));
 
-	dev_info(dev, "%s ARE phys 0x%x = 0x%x\n",
+		dev_info(dev, "%s ARE entry2_L phys 0x%x = 0x%x\n",
 			__func__,
-			(u32)(apupw.phy_addr[apu_are0] + APU_ARE_ETRY2_SRAM_L),
-			readl(apupw.regs[apu_are0] + APU_ARE_ETRY2_SRAM_H));
+			(u32)(apupw.phy_addr[are_id] + APU_ARE_ETRY2_SRAM_L),
+			readl(apupw.regs[are_id] + APU_ARE_ETRY2_SRAM_L));
+	}
 
-	dev_info(dev, "%s ARE phys 0x%x = 0x%x\n",
-			__func__,
-			(u32)(apupw.phy_addr[apu_are1] + APU_ARE_ETRY2_SRAM_H),
-			readl(apupw.regs[apu_are1] + APU_ARE_ETRY2_SRAM_H));
+	pr_info("ARE init %s %d --\n", __func__, __LINE__);
 
-	dev_info(dev, "%s ARE phys 0x%x = 0x%x\n",
-			__func__,
-			(u32)(apupw.phy_addr[apu_are1] + APU_ARE_ETRY2_SRAM_L),
-			readl(apupw.regs[apu_are1] + APU_ARE_ETRY2_SRAM_H));
-
-	dev_info(dev, "%s ARE phys 0x%x = 0x%x\n",
-			__func__,
-			(u32)(apupw.phy_addr[apu_are2] + APU_ARE_ETRY2_SRAM_H),
-			readl(apupw.regs[apu_are2] + APU_ARE_ETRY2_SRAM_H));
-
-	dev_info(dev, "%s ARE phys 0x%x = 0x%x\n",
-			__func__,
-			(u32)(apupw.phy_addr[apu_are2] + APU_ARE_ETRY2_SRAM_L),
-			readl(apupw.regs[apu_are2] + APU_ARE_ETRY2_SRAM_H));
-
-	memset(buf, 0, sizeof(buf));
-	snprintf(buf, 32, "phys 0x%08x: ", (u32)(apupw.phy_addr[apu_are0]));
-	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-			apupw.regs[apu_are0], 0x50, true);
-
-	memset(buf, 0, sizeof(buf));
-	snprintf(buf, 32, "phys 0x%08x: ", (u32)(apupw.phy_addr[apu_are1]));
-	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-			apupw.regs[apu_are1], 0x50, true);
-
-	memset(buf, 0, sizeof(buf));
-	snprintf(buf, 32, "phys 0x%08x: ", (u32)(apupw.phy_addr[apu_are2]));
-	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-			apupw.regs[apu_are2], 0x50, true);
+	return 0;
 }
 
 static void __apu_dump_rpc_status(enum t_acx_id id)
@@ -591,25 +706,27 @@ out:
 
 static int mt6983_apu_top_on(struct device *dev)
 {
-
-	/* pr_info("%s +\n", __func__); */
+	pr_info("%s +\n", __func__);
 
 	if (ref_count++ > 0)
 		return 0;
 
+// FIXME: remove this since it should be auto ctl by RPC flow
 #if !CFG_FPGA
 	plt_pwr_res_ctl(1);
 #endif
 
 	__apu_wake_rpc_rcx(dev);
 
-	/* pr_info("%s -\n", __func__); */
+	pr_info("%s -\n", __func__);
 	return 0;
 }
 
 static int mt6983_apu_top_off(struct device *dev)
 {
-	/* pr_info("%s +\n", __func__); */
+	pr_info("%s +\n", __func__);
+
+	// FIXME: remove this power off flow since it should be triggered by uP
 
 	if (--ref_count > 0)
 		return 0;
@@ -619,36 +736,50 @@ static int mt6983_apu_top_off(struct device *dev)
 #if !CFG_FPGA
 	plt_pwr_res_ctl(0);
 #endif
-
-	/* pr_info("%s -\n", __func__); */
-
+	pr_info("%s -\n", __func__);
 	return 0;
 }
 
 static void __apu_aoc_init(void)
 {
+	pr_info("AOC init %s %d ++\n", __func__, __LINE__);
+
 #if !CFG_FPGA
-	// Step1. Switch APU AOC control signal from SW register to HW path (RPC)
-	apu_clearl((0x1 << 5), apupw.regs[sys_spm] + 0xf30);
+	// Step1. Switch APU AOC control signal from SW register
+	//	  to HW path (RPC)
+	// rpc_sram_ctrl_mux_sel
 	apu_setl((0x1 << 0), apupw.regs[sys_spm] + 0x414);
+	// apu_vcore_off_iso_en
+	apu_clearl((0x1 << 1), apupw.regs[sys_spm] + 0x414);
+	// apu_are_req
+	apu_setl((0x1 << 4), apupw.regs[sys_spm] + 0x414);
 
 	// Step2. Manually disable Buck els enable @SOC
-	//	(disable SW mode to manually control Buck on/off)
+	//	  (disable SW mode to manually control Buck on/off)
+	// vapu_ext_buck_iso
 	apu_clearl((0x1 << 4), apupw.regs[sys_spm] + 0xf30);
 #endif
 
 	// Step3. Roll back to APU Buck on stage
 	// 	The following setting need to in order
 	// 	and wait 1uS before setup next control signal
-	udelay(10);
+	// APU_BUCK_ELS_EN
 	apu_writel(0x00000800, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
+
+	// APU_BUCK_RST_B
 	apu_writel(0x00001000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
+
+	// APU_BUCK_PROT_REQ
 	apu_writel(0x00008000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
+
+	// SRAM_AOC_ISO
 	apu_writel(0x00000080, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
+
+	pr_info("AOC init %s %d --\n", __func__, __LINE__);
 }
 
 #if !CFG_FPGA
@@ -658,19 +789,28 @@ static void __apu_buck_off(void)
 	// a. Setup Buck control signal
 	// 	 The following setting need to in order,
 	//  	 and wait 1uS before setup next control signal
-	udelay(10);
+	// APU_BUCK_PROT_REQ
 	apu_writel(0x00004000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
+	// SRAM_AOC_LHENB
 	apu_writel(0x00000010, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
+	// SRAM_AOC_ISO
 	apu_writel(0x00000040, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
+	// APU_BUCK_ELS_EN
 	apu_writel(0x00000400, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
+	// APU_BUCK_RST_B
 	apu_writel(0x00002000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
 
 	// b. Manually turn off Buck (by configuring register in PMIC)
+	// set vapu to 0.6v
+	regulator_set_voltage(vapu_reg_id, 600000, 600000);
+
+	// disable vapu buck
+	regulator_disable(vapu_reg_id);
 }
 #endif
 
@@ -678,10 +818,18 @@ static int init_hw_setting(struct device *dev)
 {
 	__apu_aoc_init();
 #if !CFG_FPGA
-	__apu_clk_init();
+	__apu_pll_init();
+	__apu_acc_init();
 #endif
+	__apu_pcu_init();
 	__apu_rpc_init();
 	__apu_are_init(dev);
+
+#ifdef AGING_MARGIN
+	// TODO: update aging param into spare register,
+	// then uP shall read it to aware need to handle aging or not
+#endif
+
 #if 0
 	//*APU_ACC_CLK_EN_CLR = (0x1<<1);
 	apu_writel((0x1<<1), apupw.regs[apu_acc] + 0xe4);
@@ -726,8 +874,9 @@ static int init_reg_base(struct platform_device *pdev)
 					__func__, reg_name[idx]);
 			return -ENOMEM;
 		} else
-			pr_info("%s: %s remap base 0x%x pass\n",
-					__func__, reg_name[idx], res->start);
+			pr_info("%s: %s remap base 0x%x to 0x%x\n",
+					__func__, reg_name[idx],
+					res->start, apupw.regs[idx]);
 
 		apupw.phy_addr[idx] = res->start;
 	}
@@ -749,8 +898,6 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 	init_hw_setting(&pdev->dev);
 
 #if APU_POWER_BRING_UP
-	pr_info("%s APMCU trigger RCX power ON\n", __func__);
-	mt6983_apu_top_on(&pdev->dev);
 
 #if !CFG_FPGA
 	__apu_on_mdla_mvpu_clk();
@@ -758,34 +905,34 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 	switch (fpga_type) {
 	default:
 	case 0:
-		pr_info("%s bypass engine power ON\n", __func__);
+		pr_info("%s bypass pre-power-ON\n", __func__);
 		break;
 	case 1:
+		mt6983_apu_top_on(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, VPU0, 1);
 		break;
 	case 2:
+		mt6983_apu_top_on(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
 		break;
 	case 3:
+		mt6983_apu_top_on(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, DLA0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
 		break;
-	case 4:
-		pr_info("%s APMCU trigger RCX power OFF\n", __func__);
-		mt6983_apu_top_off(&pdev->dev);
-		break;
 	}
 #endif // APU_POWER_BRING_UP
 
 	aputop_opp_limiter_init(apupw.regs[apu_md32_mbox]);
+	aputop_dump_pwr_res();
 
 	return ret;
 }
@@ -811,9 +958,9 @@ static int mt6983_apu_top_rm(struct platform_device *pdev)
 static void aputop_dump_pwr_res(void)
 {
 #if !CFG_FPGA
-	unsigned int vapu = 0;
-	unsigned int vcore = 0;
-	unsigned int vsram = 0;
+	uint32_t vapu = 0;
+	uint32_t vcore = 0;
+	uint32_t vsram = 0;
 
 	if (vapu_reg_id)
 		vapu = regulator_get_voltage(vapu_reg_id);
@@ -841,22 +988,10 @@ static void aputop_dump_pwr_res(void)
 #endif
 }
 
-static void aputop_pwr_cfg(struct aputop_func_param *aputop)
-{
-
-}
-
-static void aputop_pwr_ut(struct aputop_func_param *aputop)
-{
-
-}
-
 static int mt6983_apu_top_func(struct platform_device *pdev,
 		enum aputop_func_id func_id, struct aputop_func_param *aputop)
 {
 	pr_info("%s func_id : %d\n", __func__, aputop->func_id);
-
-	// TODO: add mutex lock here
 
 	switch (aputop->func_id) {
 	case APUTOP_FUNC_PWR_OFF:
@@ -891,18 +1026,20 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	// TODO: add mutex unlock here
-
 	return 0;
 }
 
 const struct apupwr_plat_data mt6983_plat_data = {
 	.plat_name = "mt6983_apupwr",
-	.plat_apu_top_on = mt6983_apu_top_on,
-	.plat_apu_top_off = mt6983_apu_top_off,
-	.plat_apu_top_pb = mt6983_apu_top_pb,
-	.plat_apu_top_rm = mt6983_apu_top_rm,
-	.plat_apu_top_func = mt6983_apu_top_func,
-	.bypass_pwr_on = APU_POWER_BRING_UP,
-	.bypass_pwr_off = APU_POWER_BRING_UP,
+	.plat_aputop_on = mt6983_apu_top_on,
+	.plat_aputop_off = mt6983_apu_top_off,
+	.plat_aputop_pb = mt6983_apu_top_pb,
+	.plat_aputop_rm = mt6983_apu_top_rm,
+	.plat_aputop_func = mt6983_apu_top_func,
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	.plat_aputop_dbg_open = mt6983_apu_top_dbg_open,
+	.plat_aputop_dbg_write = mt6983_apu_top_dbg_write,
+#endif
+	.bypass_pwr_on = 0,
+	.bypass_pwr_off = 0,
 };
