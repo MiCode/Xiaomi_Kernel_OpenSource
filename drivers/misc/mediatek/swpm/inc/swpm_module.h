@@ -119,6 +119,5 @@ extern int swpm_pmu_enable(enum swpm_pmu_user id,
 
 extern int swpm_reserve_mem_init(phys_addr_t *virt,
 				 unsigned long long *size);
-extern int swpm_set_periodic_timer(void (*func)(struct timer_list *));
 
 #endif

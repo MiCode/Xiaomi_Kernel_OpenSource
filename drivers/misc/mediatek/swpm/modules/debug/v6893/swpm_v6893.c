@@ -8,7 +8,9 @@
 #include <linux/kernel.h>
 #include <linux/notifier.h>
 #include <linux/perf_event.h>
+#include <linux/spinlock.h>
 #include <linux/timer.h>
+#include <linux/workqueue.h>
 
 #if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 #include <mtk_qos_ipi.h>
@@ -34,7 +36,7 @@ EXPORT_TRACEPOINT_SYMBOL(swpm_power_idx);
  *  Global Variables
  ****************************************************************************/
 /* index snapshot */
-struct mutex swpm_snap_lock;
+DEFINE_SPINLOCK(swpm_snap_spinlock);
 struct mem_swpm_index mem_idx_snap;
 struct power_rail_data swpm_power_rail[NR_POWER_RAIL] = {
 	[VPROC2] = {0, "VPROC2"},
@@ -51,6 +53,10 @@ struct share_wrap *wrap_d;
  *  Local Variables
  ****************************************************************************/
 static unsigned int swpm_init_state;
+static void swpm_init_retry(struct work_struct *work);
+static struct workqueue_struct *swpm_init_retry_work_queue;
+DECLARE_WORK(swpm_init_retry_work, swpm_init_retry);
+
 static unsigned char avg_window = DEFAULT_AVG_WINDOW;
 static unsigned int swpm_log_mask = DEFAULT_LOG_MASK;
 
@@ -68,44 +74,10 @@ static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
 #endif
 
-#define swpm_pmu_get_sta(u)  ((swpm_pmu_sta & (1 << u)) >> u)
-#define swpm_pmu_set_sta(u)  (swpm_pmu_sta |= (1 << u))
-#define swpm_pmu_clr_sta(u)  (swpm_pmu_sta &= ~(1 << u))
-static struct mutex swpm_pmu_mutex;
-static unsigned int swpm_pmu_sta;
-
 struct swpm_rec_data *swpm_info_ref;
 struct core_swpm_rec_data *core_ptr;
 struct mem_swpm_rec_data *mem_ptr;
 struct me_swpm_rec_data *me_ptr;
-
-static DEFINE_PER_CPU(struct perf_event *, l3dc_events);
-static DEFINE_PER_CPU(struct perf_event *, inst_spec_events);
-static DEFINE_PER_CPU(struct perf_event *, cycle_events);
-static struct perf_event_attr l3dc_event_attr = {
-	.type           = PERF_TYPE_RAW,
-	.config         = 0x2B,
-	.size           = sizeof(struct perf_event_attr),
-	.pinned         = 1,
-/*	.disabled       = 1, */
-	.sample_period  = 0, /* 1000000000, */ /* ns ? */
-};
-static struct perf_event_attr inst_spec_event_attr = {
-	.type           = PERF_TYPE_RAW,
-	.config         = 0x1B,
-	.size           = sizeof(struct perf_event_attr),
-	.pinned         = 1,
-/*	.disabled       = 1, */
-	.sample_period  = 0, /* 1000000000, */ /* ns ? */
-};
-static struct perf_event_attr cycle_event_attr = {
-	.type           = PERF_TYPE_HARDWARE,
-	.config         = PERF_COUNT_HW_CPU_CYCLES,
-	.size           = sizeof(struct perf_event_attr),
-	.pinned         = 1,
-/*	.disabled       = 1, */
-	.sample_period  = 0, /* 1000000000, */ /* ns ? */
-};
 
 /* rt => /100000, uA => *1000, res => 100 */
 #if 0
@@ -543,7 +515,9 @@ static unsigned int swpm_get_avg_power(enum power_rail type)
 
 	pwr = sum / avg_window;
 
-	pr_info("avg pwr of meter %d = %d uA\n", type, pwr);
+#if SWPM_TEST
+	pr_notice("avg pwr of meter %d = %d uA\n", type, pwr);
+#endif
 
 	return pwr;
 }
@@ -560,136 +534,6 @@ static void swpm_send_enable_ipi(unsigned int type, unsigned int enable)
 	qos_ipi_to_sspm_scmi_command(qos_d.cmd, type, enable, 0,
 				     QOS_IPI_SCMI_SET);
 #endif
-}
-
-static void swpm_pmu_start(int cpu)
-{
-	struct perf_event *l3_event = per_cpu(l3dc_events, cpu);
-	struct perf_event *i_event = per_cpu(inst_spec_events, cpu);
-	struct perf_event *c_event = per_cpu(cycle_events, cpu);
-
-	if (l3_event)
-		perf_event_enable(l3_event);
-	if (i_event)
-		perf_event_enable(i_event);
-	if (c_event)
-		perf_event_enable(c_event);
-}
-
-static void swpm_pmu_stop(int cpu)
-{
-	struct perf_event *l3_event = per_cpu(l3dc_events, cpu);
-	struct perf_event *i_event = per_cpu(inst_spec_events, cpu);
-	struct perf_event *c_event = per_cpu(cycle_events, cpu);
-
-	if (l3_event)
-		perf_event_disable(l3_event);
-	if (i_event)
-		perf_event_disable(i_event);
-	if (c_event)
-		perf_event_disable(c_event);
-}
-
-static void swpm_pmu_set_enable(int cpu, int enable)
-{
-	struct perf_event *event;
-	struct perf_event *l3_event = per_cpu(l3dc_events, cpu);
-	struct perf_event *i_event = per_cpu(inst_spec_events, cpu);
-	struct perf_event *c_event = per_cpu(cycle_events, cpu);
-
-	if (enable) {
-		if (!l3_event) {
-			event = perf_event_create_kernel_counter(
-				&l3dc_event_attr, cpu, NULL, NULL, NULL);
-			if (IS_ERR(event)) {
-				pr_notice("create l3dc counter error (%d)!\n",
-					  (unsigned long)event);
-				return;
-			}
-			per_cpu(l3dc_events, cpu) = event;
-		}
-		if (!i_event && cpu >= NR_CPU_L_CORE) {
-			event = perf_event_create_kernel_counter(
-				&inst_spec_event_attr, cpu, NULL, NULL, NULL);
-			if (IS_ERR(event)) {
-				pr_notice("create inst_spec counter error!\n");
-				return;
-			}
-			per_cpu(inst_spec_events, cpu) = event;
-		}
-		if (!c_event && cpu >= NR_CPU_L_CORE) {
-			event = perf_event_create_kernel_counter(
-				&cycle_event_attr, cpu,	NULL, NULL, NULL);
-			if (IS_ERR(event)) {
-				pr_notice("create cycle counter error!\n");
-				return;
-			}
-			per_cpu(cycle_events, cpu) = event;
-		}
-
-		swpm_pmu_start(cpu);
-	} else {
-		swpm_pmu_stop(cpu);
-
-		if (l3_event) {
-			per_cpu(l3dc_events, cpu) = NULL;
-			perf_event_release_kernel(l3_event);
-		}
-		if (i_event) {
-			per_cpu(inst_spec_events, cpu) = NULL;
-			perf_event_release_kernel(i_event);
-		}
-		if (c_event) {
-			per_cpu(cycle_events, cpu) = NULL;
-			perf_event_release_kernel(c_event);
-		}
-	}
-}
-
-static void swpm_pmu_set_enable_all(unsigned int enable)
-{
-	int i;
-	unsigned int swpm_pmu_user, swpm_pmu_en;
-
-	swpm_pmu_user = enable >> SWPM_CODE_USER_BIT;
-	swpm_pmu_en = enable & 0x1;
-
-	if (swpm_pmu_user > NR_SWPM_PMU_USER) {
-		pr_notice("pmu_user invalid = %d\n",
-			 swpm_pmu_user);
-		return;
-	}
-
-	swpm_lock(&swpm_pmu_mutex);
-	get_online_cpus();
-	if (swpm_pmu_en) {
-		if (!swpm_pmu_sta) {
-#if IS_ENABLED(CONFIG_MTK_CACHE_CONTROL)
-			ca_force_stop_set_in_kernel(1);
-#endif
-			for (i = 0; i < num_possible_cpus(); i++)
-				swpm_pmu_set_enable(i, swpm_pmu_en);
-		}
-		if (!swpm_pmu_get_sta(swpm_pmu_user))
-			swpm_pmu_set_sta(swpm_pmu_user);
-
-	} else {
-		if (swpm_pmu_get_sta(swpm_pmu_user))
-			swpm_pmu_clr_sta(swpm_pmu_user);
-
-		if (!swpm_pmu_sta) {
-			for (i = 0; i < num_possible_cpus(); i++)
-				swpm_pmu_set_enable(i, swpm_pmu_en);
-#if IS_ENABLED(CONFIG_MTK_CACHE_CONTROL)
-			ca_force_stop_set_in_kernel(0);
-#endif
-		}
-	}
-	put_online_cpus();
-	swpm_unlock(&swpm_pmu_mutex);
-
-	pr_notice("pmu_enable: %d, user_sta: %d\n",
-		 swpm_pmu_en, swpm_pmu_sta);
 }
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
@@ -741,9 +585,9 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 	idx_output_size =
 		(sizeof(struct share_index)/sizeof(unsigned int)) - 1;
 
+#if SWPM_TEST
 	pr_notice("share_index size check = %zu bytes\n",
 		 sizeof(struct share_index));
-#if SWPM_TEST
 	pr_notice("wrap_d = 0x%p, wrap index addr = 0x%p, wrap ctrl addr = 0x%p\n",
 		 wrap_d, wrap_d->share_index_addr, wrap_d->share_ctrl_addr);
 	pr_notice("share_idx_ref = 0x%p, share_idx_ctrl = 0x%p\n",
@@ -772,19 +616,28 @@ static inline void swpm_pass_to_sspm(void)
 
 static void swpm_idx_snap(void)
 {
+	unsigned long flags;
+
 	if (share_idx_ref) {
-		swpm_lock(&swpm_snap_lock);
 		/* directly copy due to 8 bytes alignment problem */
+		spin_lock_irqsave(&swpm_snap_spinlock, flags);
 		mem_idx_snap.read_bw[0] = share_idx_ref->mem_idx.read_bw[0];
 		mem_idx_snap.read_bw[1] = share_idx_ref->mem_idx.read_bw[1];
 		mem_idx_snap.write_bw[0] = share_idx_ref->mem_idx.write_bw[0];
 		mem_idx_snap.write_bw[1] = share_idx_ref->mem_idx.write_bw[1];
-		swpm_unlock(&swpm_snap_lock);
+		spin_unlock_irqrestore(&swpm_snap_spinlock, flags);
 	}
 }
 
-static char idx_buf[POWER_INDEX_CHAR_SIZE] = { 0 };
+static void swpm_init_retry(struct work_struct *work)
+{
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+	if (!swpm_init_state)
+		swpm_pass_to_sspm();
+#endif
+}
 
+static char idx_buf[POWER_INDEX_CHAR_SIZE] = { 0 };
 static void swpm_log_loop(struct timer_list *t)
 {
 	char buf[256] = {0};
@@ -799,9 +652,8 @@ static void swpm_log_loop(struct timer_list *t)
 #endif
 
 	/* initialization retry */
-	if (!swpm_init_state) {
-		swpm_pass_to_sspm();
-	}
+	if (swpm_init_retry_work_queue && !swpm_init_state)
+		queue_work(swpm_init_retry_work_queue, &swpm_init_retry_work);
 
 	for (i = 0; i < NR_POWER_RAIL; i++) {
 		if ((1 << i) & swpm_log_mask) {
@@ -863,6 +715,21 @@ static void swpm_log_loop(struct timer_list *t)
 #endif
 
 	mod_timer(t, jiffies + msecs_to_jiffies(swpm_log_interval_ms));
+}
+
+/* critical section function */
+static void swpm_timer_init(void)
+{
+	swpm_lock(&swpm_mutex);
+
+	swpm_timer.function = swpm_log_loop;
+	timer_setup(&swpm_timer, swpm_log_loop, TIMER_DEFERRABLE);
+#if SWPM_TEST
+	/* Timer triggered by enable command */
+	mod_timer(&swpm_timer, jiffies + msecs_to_jiffies(swpm_log_interval_ms));
+#endif
+
+	swpm_unlock(&swpm_mutex);
 }
 
 #endif /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) : 684 */
@@ -968,6 +835,8 @@ static void swpm_init_pwr_data(void)
 	ret = swpm_mem_addr_request(ME_SWPM_TYPE, &ptr);
 	if (!ret)
 		me_ptr = (struct me_swpm_rec_data *)ptr;
+
+	/* TBD lkg data flow */
 #if 0
 	swpm_core_static_data_init();
 #endif
@@ -1127,7 +996,6 @@ static void swpm_cmd_dispatcher(unsigned int type,
 {
 	switch (type) {
 	case SET_PMU:
-		swpm_pmu_set_enable_all(val);
 		break;
 	}
 }
@@ -1206,18 +1074,16 @@ int swpm_v6893_init(void)
 {
 	int ret = 0;
 
-#ifdef BRINGUP_DISABLE
-	pr_notice("swpm is disabled\n");
-	goto end;
-#endif
-
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	swpm_get_rec_addr(&rec_phys_addr,
 			  &rec_virt_addr,
 			  &rec_size);
 	/* CONFIG_PHYS_ADDR_T_64BIT */
 	swpm_info_ref = (struct swpm_rec_data *)rec_virt_addr;
-	pr_notice("rec_virt_addr = 0x%llx, swpm_info_ref = 0x%llx\n", rec_virt_addr, swpm_info_ref);
+#if SWPM_TEST
+	pr_notice("rec_virt_addr = 0x%llx, swpm_info_ref = 0x%llx\n",
+		  rec_virt_addr, swpm_info_ref);
+#endif
 #endif
 
 	if (!swpm_info_ref) {
@@ -1238,13 +1104,16 @@ int swpm_v6893_init(void)
 
 	swpm_core_ops_register(&plat_ops);
 
-	swpm_pmu_enable(SWPM_PMU_CPU_DVFS, 1);
+	if (!swpm_init_retry_work_queue) {
+		swpm_init_retry_work_queue =
+			create_workqueue("swpm_init_retry");
+		if (!swpm_init_retry_work_queue)
+			pr_debug("swpm_init_retry workqueue create failed\n");
+	}
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	swpm_pass_to_sspm();
-
-	/* set preiodic timer task */
-	swpm_set_periodic_timer(swpm_log_loop);
+	if (!swpm_init_state)
+		swpm_pass_to_sspm();
 #endif
 
 #if SWPM_TEST
@@ -1252,15 +1121,20 @@ int swpm_v6893_init(void)
 
 	/* enable all pwr meter and set swpm timer to start */
 	swpm_set_enable(ALL_METER_TYPE, EN_POWER_METER_ONLY);
-	mod_timer(&swpm_timer,
-		  jiffies + msecs_to_jiffies(swpm_log_interval_ms));
 #endif
+
+	/* Only setup timer function */
+	swpm_timer_init();
 end:
 	return ret;
 }
 
 void swpm_v6893_exit(void)
 {
+	swpm_lock(&swpm_mutex);
+
+	del_timer(&swpm_timer);
 	swpm_set_enable(ALL_METER_TYPE, 0);
-	/* swpm_sp_exit(); */
+
+	swpm_unlock(&swpm_mutex);
 }

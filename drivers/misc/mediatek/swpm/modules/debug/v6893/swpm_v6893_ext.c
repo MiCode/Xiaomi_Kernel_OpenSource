@@ -337,8 +337,10 @@ void swpm_v6893_ext_init(void)
 		share_idx_ctrl_ext = NULL;
 	}
 
+#if SWPM_TEST
 	pr_notice("share_index_ext size = %zu bytes\n",
 		sizeof(struct share_index_ext));
+#endif
 
 	swpm_sp_timer_init();
 

@@ -7,13 +7,18 @@ config MTK_SWPM_MODULE
 	  Select "n" if unsure.
 
 config MTK_SWPM_DBG_COMMON
-	bool "Meditaek Software Power Model common debug Module"
+	tristate "Meditaek Software Power Model common debug Module"
 	help
 	  Select MTK_SWPM_DBG_COMMON then Mediatek Software Power Model
 	  common debug feature will be enabled. The common debug
 	  feature will support basic debug control and show the
 	  information to console and ftrace.
 
+config MTK_SWPM_PERF_ARMV8_PMU
+	tristate "Meditaek Software Power Model Power Model uses ARMV8 and L3-cache PMU"
+	help
+	   Select MTK_SWPM_PERF_ARMV8_PMU then support for the
+	   ARMV8 PMU and L3 cache performance monitor unit (PMU).
 
 config MTK_SWPM_MT6853
 	tristate "Specify Mediatek SWPM Platform is MT6853"

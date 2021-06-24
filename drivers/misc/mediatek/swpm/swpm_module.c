@@ -132,9 +132,10 @@ int swpm_pmu_enable(enum swpm_pmu_user id,
 {
 	unsigned int cmd_code;
 
-	if (!swpm_m.plat_ready)
+	if (!swpm_m.plat_ready) {
+		pr_notice("swpm platform init not ready\n");
 		return SWPM_INIT_ERR;
-	else if (id >= NR_SWPM_PMU_USER)
+	} else if (id >= NR_SWPM_PMU_USER)
 		return SWPM_ARGS_ERR;
 
 	cmd_code = (!!enable) | (id << SWPM_CODE_USER_BIT);
@@ -161,24 +162,6 @@ int swpm_reserve_mem_init(phys_addr_t *virt,
 	return 0;
 }
 EXPORT_SYMBOL(swpm_reserve_mem_init);
-
-int swpm_set_periodic_timer(void (*func)(struct timer_list *))
-{
-	swpm_lock(&swpm_mutex);
-
-	if (func != NULL) {
-		swpm_timer.function = func;
-		/* no "data" member in k510 */
-		/* swpm_timer.data = (unsigned long)&swpm_timer; */
-		timer_setup(&swpm_timer, func, TIMER_DEFERRABLE);
-		mod_timer(&swpm_timer,
-			  jiffies + msecs_to_jiffies(swpm_log_interval_ms));
-	}
-	swpm_unlock(&swpm_mutex);
-
-	return 0;
-}
-EXPORT_SYMBOL(swpm_set_periodic_timer);
 
 static int __init swpm_init(void)
 {

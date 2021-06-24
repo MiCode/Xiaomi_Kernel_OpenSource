@@ -410,7 +410,7 @@ struct swpm_rec_data {
 #endif
 
 extern struct power_rail_data swpm_power_rail[NR_POWER_RAIL];
-extern struct mutex swpm_snap_lock;
+extern spinlock_t swpm_snap_spinlock;
 extern struct mem_swpm_index mem_idx_snap;
 extern struct swpm_rec_data *swpm_info_ref;
 extern struct core_swpm_rec_data *core_ptr;

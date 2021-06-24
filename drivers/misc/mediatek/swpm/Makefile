@@ -54,9 +54,12 @@ SWPM_MODULE += swpm_module_ext.o
 
 #Generic build
 SWPM_SRC = $(SWPM_MODULE) $(MTK_SWPM_FS)
-obj-$(CONFIG_MTK_SWPM_MODULE) = mtk-swpm.o
-mtk-swpm-objs += $(SWPM_SRC)
+obj-$(CONFIG_MTK_SWPM_MODULE) += mtk-swpm.o
+mtk-swpm-objs := $(SWPM_SRC)
 
+#PERF ARM PMU with CAP_SYS_ADMIN privilege
+obj-$(CONFIG_MTK_SWPM_PERF_ARMV8_PMU) += mtk-swpm-perf-arm-pmu.o
+mtk-swpm-perf-arm-pmu-objs := swpm_perf_arm_pmu.o
 
 #Generic subdir build
 obj-$(CONFIG_MTK_SWPM_MODULE) += modules/

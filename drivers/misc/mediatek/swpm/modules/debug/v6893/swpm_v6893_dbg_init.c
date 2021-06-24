@@ -110,17 +110,18 @@ static const struct mtk_swpm_sysfs_op dump_power_fops = {
 static ssize_t dram_bw_read(char *ToUser, size_t sz, void *priv)
 {
 	char *p = ToUser;
+	unsigned long flags;
 
 	if (!ToUser)
 		return -EINVAL;
 
-	swpm_lock(&swpm_snap_lock);
+	spin_lock_irqsave(&swpm_snap_spinlock, flags);
 	swpm_dbg_log("DRAM BW [N]R/W=%d/%d,[S]R/W=%d/%d\n",
 		mem_idx_snap.read_bw[0],
 		mem_idx_snap.write_bw[0],
 		mem_idx_snap.read_bw[1],
 		mem_idx_snap.write_bw[1]);
-	swpm_unlock(&swpm_snap_lock);
+	spin_unlock_irqrestore(&swpm_snap_spinlock, flags);
 
 	return p - ToUser;
 }
