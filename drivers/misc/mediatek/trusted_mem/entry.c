@@ -238,6 +238,7 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 	struct trusted_mem_device *mem_device =
 		get_trusted_mem_device(mem_type);
 	struct trusted_mem_configs *mem_cfg;
+	struct region_mgr_desc *mgr_desc = mem_device->reg_mgr;
 
 	if (unlikely(is_invalid_hooks(mem_device))) {
 		pr_err("%s:%d %d:mem device may not be registered!\n", __func__,
@@ -276,8 +277,11 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 		return ret;
 	}
 
-	pr_info("[%d] alloc handle = 0x%x, size = 0x%x\n", mem_type, *sec_handle, size);
 	regmgr_region_ref_inc(mem_device->reg_mgr, mem_device->mem_type);
+
+	pr_info("[%d] alloc handle = 0x%x, size = 0x%x, inuse_count=%d\n",
+			mem_type, *sec_handle, size, mgr_desc->valid_ref_count);
+
 	return TMEM_OK;
 }
 
@@ -316,14 +320,13 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 	int ret = TMEM_OK;
 	struct trusted_mem_device *mem_device =
 		get_trusted_mem_device(mem_type);
+	struct region_mgr_desc *mgr_desc = mem_device->reg_mgr;
 
 	if (unlikely(is_invalid_hooks(mem_device))) {
 		pr_err("%s:%d %d:mem device may not be registered!\n", __func__,
 		       __LINE__, mem_type);
 		return TMEM_OPERATION_NOT_REGISTERED;
 	}
-
-	pr_info("[%d] free handle = 0x%x\n", mem_type, sec_handle);
 
 	if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
 		pr_info("[%d] regmgr region is still not online!\n", mem_type);
@@ -340,6 +343,9 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 
 	regmgr_region_ref_dec(mem_device->reg_mgr);
 	regmgr_offline(mem_device->reg_mgr);
+
+	pr_info("[%d] free handle = 0x%x, inuse_count=%d\n",
+			mem_type, sec_handle, mgr_desc->valid_ref_count);
 
 	return TMEM_OK;
 }
