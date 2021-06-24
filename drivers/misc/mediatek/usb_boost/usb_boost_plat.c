@@ -63,8 +63,7 @@ static int freq_hold(struct act_arg_obj *arg)
 
 	list_for_each_entry(req_policy, &usb_policy_list, list) {
 		USB_BOOST_NOTICE("%s: update request cpu(%x)\n", __func__, req_policy->policy->cpu);
-		freq_qos_update_request(&req_policy->qos_req, policy->max);
-		cpu = cpumask_last(req_policy->policy->related_cpus);
+		freq_qos_update_request(&req_policy->qos_req, req_policy->policy->max);
 	}
 
 	return 0;

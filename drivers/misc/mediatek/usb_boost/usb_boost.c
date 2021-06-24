@@ -247,7 +247,7 @@ static void dump_info(int id)
 }
 static int update_time(int id)
 {
-	ktime_get_real_ts64(&boost_inst[id].tv_ref_time);
+	ktime_get_ts64(&boost_inst[id].tv_ref_time);
 	USB_BOOST_DBG("id:%d, ref<%d,%d>\n", id,
 		(int)boost_inst[id].tv_ref_time.tv_sec,
 		(int)boost_inst[id].tv_ref_time.tv_nsec);
@@ -568,8 +568,11 @@ static int create_sys_fs(void)
 }
 
 static void vh_usb_profile (void *ignore, const char *function)
-{	
-	usb_boost();
+{
+	if (!strcmp(function, "mtp") || !strcmp(function, "mass_storage")) {
+		USB_BOOST_DBG("function name(%s)\n", function);
+		usb_boost();
+	}
 }
 
 int usb_boost_init(void)
