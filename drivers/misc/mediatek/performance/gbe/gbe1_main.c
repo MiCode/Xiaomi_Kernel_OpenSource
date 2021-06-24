@@ -222,9 +222,6 @@ static void gbe_notifier_wq_cb(struct work_struct *psWork)
 		GBE_CONTAINER_OF(psWork,
 				struct GBE_NOTIFIER_PUSH_TAG, sWork);
 
-	if (!vpPush)
-		return;
-
 	switch (vpPush->ePushType) {
 	case GBE_NOTIFIER_RTID:
 		gbe_notifier_wq_cb_rtid(vpPush->list);

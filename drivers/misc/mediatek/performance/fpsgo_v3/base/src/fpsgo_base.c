@@ -118,6 +118,7 @@ void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
 	char buf2[256];
 	va_list args;
 	int len;
+	int ret = 0;
 
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
@@ -133,13 +134,15 @@ void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
 		log[255] = '\0';
 
 	if (!bufID) {
-		snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", pid, log, val);
+		ret = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", pid, log, val);
 		tracing_mark_write(buf2);
 	} else {
-		snprintf(buf2, sizeof(buf2), "C|%d|%s|%d|0x%llx\n",
+		ret = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d|0x%llx\n",
 			pid, log, val, bufID);
 		tracing_mark_write(buf2);
 	}
+	if (ret < 0)
+		FPSGO_LOGE("%s snprintf legnth wrong\n", __func__);
 }
 
 void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
@@ -148,6 +151,7 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 	char buf2[256];
 	va_list args;
 	int len;
+	int ret = 0;
 
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
@@ -162,18 +166,24 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 	else if (unlikely(len == 256))
 		log[255] = '\0';
 
-	snprintf(buf2, sizeof(buf2), "B|%d|%s\n", tgid, log);
+	ret = snprintf(buf2, sizeof(buf2), "B|%d|%s\n", tgid, log);
 	tracing_mark_write(buf2);
+	if (ret < 0)
+		FPSGO_LOGE("%s snprintf legnth wrong\n", __func__);
 }
 
 void __fpsgo_systrace_e(void)
 {
 	char buf2[256];
+	int ret = 0;
+
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
 
-	snprintf(buf2, sizeof(buf2), "E\n");
+	ret = snprintf(buf2, sizeof(buf2), "E\n");
 	tracing_mark_write(buf2);
+	if (ret < 0)
+		FPSGO_LOGE("%s snprintf legnth wrong\n", __func__);
 }
 
 void fpsgo_main_trace(const char *fmt, ...)
