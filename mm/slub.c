@@ -40,6 +40,7 @@
 
 #include <linux/debugfs.h>
 #include <trace/events/kmem.h>
+#include <trace/hooks/mm.h>
 
 #include "internal.h"
 
@@ -734,6 +735,7 @@ static void set_track(struct kmem_cache *s, void *object,
 		p->cpu = smp_processor_id();
 		p->pid = current->pid;
 		p->when = jiffies;
+		trace_android_vh_save_track_hash(alloc == TRACK_ALLOC, p);
 	} else {
 		memset(p, 0, sizeof(struct track));
 	}
