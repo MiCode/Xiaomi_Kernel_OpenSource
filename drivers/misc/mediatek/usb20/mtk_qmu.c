@@ -1032,6 +1032,14 @@ void qmu_done_rx(struct musb *musb, u8 ep_num)
 		Rx_gpd_free_count[ep_num]++;
 		musb_g_giveback(musb_ep, request, 0);
 		req = next_request(musb_ep);
+
+		if (!req) {
+			QMU_ERR(
+				"[RXD]%s Cannot get next request of %d, but QMU has done.\n"
+				, __func__, ep_num);
+			return;
+		}
+
 		request = &req->request;
 	}
 
