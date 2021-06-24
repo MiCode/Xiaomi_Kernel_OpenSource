@@ -52,6 +52,7 @@ static void __iomem *apmixedsys_base;  /* APMIXEDSYS */
 #define APMIXEDSYS(ofs)     (apmixedsys_base + ofs)
 
 #undef SPM_PWR_STATUS
+#define SPM_PWR_STATUS_2ND  SPM_REG(0x0184)
 #define SPM_PWR_STATUS      SPM_REG(0x0180)
 #define	INFRA_SW_CG_0_STA   INFRA_REG(0x0094)
 #define	INFRA_SW_CG_1_STA   INFRA_REG(0x0090)
@@ -354,7 +355,8 @@ void mtk_idle_cond_update_state(void)
 		idle_value[i] = clk[i] = 0;
 
 		/* check mtcmos, if off set idle_value and clk to 0 disable */
-		if (!(idle_readl(SPM_PWR_STATUS) & idle_cg_info[i].subsys_mask))
+		if (!(idle_readl(SPM_PWR_STATUS) & idle_cg_info[i].subsys_mask) ||
+			!(idle_readl(SPM_PWR_STATUS_2ND) & idle_cg_info[i].subsys_mask))
 			continue;
 		/* check clkmux */
 		if (check_clkmux_pdn(idle_cg_info[i].clkmux_id))
