@@ -131,6 +131,9 @@ obj-$(CONFIG_MTK_LCM) += ext_disp/
 ifneq ($(CONFIG_CUSTOM_KERNEL_HDMI), "")
 obj-$(CONFIG_MTK_HDMI_SUPPORT) += hdmi/
 endif
+ifeq (,$(filter $(CONFIG_MTK_PLATFORM_NAME), "mt6768" "mt6785"))
+obj-y += spi_slave_drv/
+endif
 obj-$(CONFIG_MTK_MT6382_BDG) += hifi4dsp_spi/
 obj-$(CONFIG_MTK_FB) += video/
 obj-$(CONFIG_MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT) += dfrc/

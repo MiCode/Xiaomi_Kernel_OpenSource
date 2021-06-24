@@ -261,7 +261,6 @@ void DSI_dynfps_send_cmd(
 
 /*-------------------------------DynFPS end------------------------------*/
 #endif
-
 #ifdef __cplusplus
 }
 #endif

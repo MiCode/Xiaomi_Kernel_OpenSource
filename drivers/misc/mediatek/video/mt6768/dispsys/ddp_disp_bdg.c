@@ -60,6 +60,7 @@ unsigned int dsc_en;
 unsigned int mt6382_init;
 unsigned int bdg_tx_mode;
 static int bdg_eint_irq;
+static int mt6382_connected;
 static bool irq_already_requested;
 
 #define T_DCO		5  // nominal: 200MHz
@@ -111,7 +112,7 @@ unsigned int mtk_spi_read(u32 addr)
 
 #ifdef SW_EARLY_PORTING
 #else
-	dsp_spi_read_ex(addr, &value, 4, SPI_SPEED);
+	spislv_read(addr, &value, 4);
 #endif
 //	DISPMSG("%s, addr=0x%08x, value=0x%08x\n", __func__, addr, value);
 	return value;
@@ -125,7 +126,7 @@ int mtk_spi_write(u32 addr, unsigned int regval)
 //	DISPMSG("mt6382, %s, addr=0x%08x, value=0x%x\n", __func__, addr, value);
 #ifdef SW_EARLY_PORTING
 #else
-	ret = dsp_spi_write_ex(addr, &value, 4, SPI_SPEED);
+	ret = spislv_write(addr, &value, 4);
 #endif
 	return ret;
 }
@@ -146,7 +147,7 @@ int mtk_spi_mask_write(u32 addr, u32 msk, u32 value)
 #ifdef SW_EARLY_PORTING
 	return 0;
 #else
-	return spi_write_register_mask(addr, value, msk, SPI_SPEED);
+	return spislv_write_register_mask(addr, value, msk);
 #endif
 }
 
@@ -166,7 +167,7 @@ int mtk_spi_mask_field_write(u32 addr, u32 msk, u32 value)
 #ifdef SW_EARLY_PORTING
 	return 0;
 #else
-	return spi_write_register_mask(addr, value, msk, SPI_SPEED);
+	return spislv_write_register_mask(addr, value, msk);
 #endif
 }
 
@@ -181,13 +182,11 @@ do { \
 
 #define DSI_OUTREG32(cmdq, addr, val) \
 do { \
-	DISPDBG("%s\n", __func__); \
 	mtk_spi_write((unsigned long)(&addr), val); \
 } while (0)
 
 #define DSI_MASKREG32(cmdq, addr, mask, val) \
 do { \
-	DISPDBG("%s\n", __func__); \
 	mtk_spi_mask_write((unsigned long)(addr), mask, val); \
 } while (0)
 #else
@@ -235,6 +234,24 @@ do { \
 	} \
 } while (0)
 #endif
+
+int bdg_is_bdg_connected(void)
+{
+	DISPFUNCSTART();
+	if (mt6382_connected == 0) {
+		unsigned int ret = 0;
+#ifdef CONFIG_MTK_MT6382_BDG
+		spislv_init();
+		spislv_switch_speed_hz(SPI_TX_LOW_SPEED_HZ, SPI_RX_LOW_SPEED_HZ);
+		ret = mtk_spi_read(0x0);
+#endif
+		if (ret == 0)
+			mt6382_connected = -1;
+		else
+			mt6382_connected = 1;
+	}
+	return mt6382_connected;
+}
 
 void bdg_tx_pull_6382_reset_pin(void)
 {
@@ -509,8 +526,11 @@ void ana_macro_on(void *cmdq)
 	 * bit 16-17 is display mm clk 1(270m)/2(405m)/3(540m)
 	 * dsc_on:vact * hact * vrefresh * (vtotal / vact) * bubble_ratio
 	 */
+#ifdef _90HZ_
 	reg = (3 << 24) | (1 << 16) | (1 << 8) | (1 << 0); //270M for 90Hz
-//	reg = (3 << 24) | (2 << 16) | (1 << 8) | (1 << 0); //405M for 120Hz
+#else
+	reg = (3 << 24) | (2 << 16) | (1 << 8) | (1 << 0); //405M for 120Hz
+#endif
 //	reg = (3 << 24) | (3 << 16) | (1 << 8) | (1 << 0); //540M
 	DSI_OUTREG32(cmdq, TOPCKGEN->CLK_CFG_0_SET, reg);
 	//config update
@@ -1528,7 +1548,7 @@ int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_VBP_NL,
 					(tx_params->vertical_backporch));
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_VFP_NL,
-					(tx_params->vertical_frontporch));
+					(tx_params->vertical_frontporch - 1));
 
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_HSA_WC, hsa_byte);
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_HBP_WC, hbp_byte);
@@ -1717,18 +1737,28 @@ int bdg_tx_start(enum DISP_BDG_ENUM module, void *cmdq)
 	return 0;
 }
 
+int bdg_tx_clr_sta(enum DISP_BDG_ENUM module, void *cmdq)
+{
+	int i;
+
+	DISPFUNCSTART();
+
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++)
+		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_INTSTA, 0);
+
+	return 0;
+}
+
 int bdg_set_dcs_read_cmd(bool enable, void *cmdq)
 {
 	DISPFUNCSTART();
 
 	if (enable) {
-		DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_CLK_MGR_CFG_OS, 55);
 		DSI_OUTREGBIT(cmdq, struct DSI_TX_RACK_REG,
 			TX_REG[0]->DSI_TX_RACK, DSI_TX_RACK_BYPASS, 1);
 		DSI_OUTREGBIT(cmdq, struct MIPI_RX_POST_CTRL_REG,
 			DISPSYS_REG->MIPI_RX_POST_CTRL, MIPI_RX_MODE_SEL, 0);
 	} else {
-		DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_CLK_MGR_CFG_OS, 0);
 		DSI_OUTREGBIT(cmdq, struct DSI_TX_RACK_REG,
 			TX_REG[0]->DSI_TX_RACK, DSI_TX_RACK_BYPASS, 0);
 		DSI_OUTREGBIT(cmdq, struct MIPI_RX_POST_CTRL_REG,
@@ -1816,34 +1846,299 @@ int bdg_mutex_trigger(enum DISP_BDG_ENUM module, void *cmdq)
 	return 0;
 }
 
-int bdg_dsi_dump_reg(enum DISP_BDG_ENUM module)
+int bdg_dsi_dump_reg(enum DISP_BDG_ENUM module, unsigned int level)
 {
-	unsigned int i, k;
+	unsigned int i, k, tmp;
 
-	DISPFUNCSTART();
-
+#if 0
+	DISPMSG("0x%08x: 0x%08x\n", 0x0000d314, mtk_spi_read(0x0000d314));
+	DISPMSG("0x%08x: 0x%08x\n", 0x00007310, mtk_spi_read(0x00007310));
+	DISPMSG("0x%08x: 0x%08x\n", 0x000231a8, mtk_spi_read(0x000231a8));
+	DISPMSG("0x%08x: 0x%08x\n", 0x00023174, mtk_spi_read(0x00023174));
+	DISPMSG("0x%08x: 0x%08x\n", 0x0002106c, mtk_spi_read(0x0002106c));
+	DISPMSG("0x%08x: 0x%08x\n", 0x00021300, mtk_spi_read(0x00021300));
+	DISPMSG("0x%08x: 0x%08x\n", 0x00003010, mtk_spi_read(0x00003010));
+#endif
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		unsigned long dsc_base_addr = (unsigned long)DSC_REG;
 		unsigned long dsi_base_addr = (unsigned long)TX_REG[i];
 		unsigned long mipi_base_addr = (unsigned long)MIPI_TX_REG;
 
 		DISPMSG("========================== mt6382 RX REGS ==\n", i);
+		tmp = mtk_spi_read(0x0000d00c);
+		DISPMSG("INT_ST_MAIN(0x0000d00c): 0x%08x\n", tmp);
+		if (tmp != 0) {
+			if (tmp & (1 << 0))
+				DISPMSG("INT_ST_MAIN(bit0), int_st_phy_fatal\n");
+			if (tmp & (1 << 1))
+				DISPMSG("INT_ST_MAIN(bit1), int_st_dsi_fatal\n");
+			if (tmp & (1 << 2))
+				DISPMSG("INT_ST_MAIN(bit2), int_st_ddi_fatal\n");
+			if (tmp & (1 << 3))
+				DISPMSG("INT_ST_MAIN(bit3), int_st_ipi_fatal\n");
+			if (tmp & (1 << 4))
+				DISPMSG("INT_ST_MAIN(bit4), int_st_fifo_fatal\n");
+			if (tmp & (1 << 16))
+				DISPMSG("INT_ST_MAIN(bit16), int_st_phy\n");
+			if (tmp & (1 << 17))
+				DISPMSG("INT_ST_MAIN(bit17), int_st_dsi\n");
+			if (tmp & (1 << 18))
+				DISPMSG("INT_ST_MAIN(bit18), int_st_ddi\n");
+			if (tmp & (1 << 19))
+				DISPMSG("INT_ST_MAIN(bit19), int_st_ipi\n");
+			if (tmp & (1 << 21))
+				DISPMSG("INT_ST_MAIN(bit21), int_st_err_rpt\n");
+			if (tmp & (1 << 22))
+				DISPMSG("INT_ST_MAIN(bit22), int_st_rx_triggers\n");
+		}
 
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d00c, mtk_spi_read(0x0000d00c));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d2d0, mtk_spi_read(0x0000d2d0));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d2b0, mtk_spi_read(0x0000d2b0));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d270, mtk_spi_read(0x0000d270));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d250, mtk_spi_read(0x0000d250));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d230, mtk_spi_read(0x0000d230));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d210, mtk_spi_read(0x0000d210));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d280, mtk_spi_read(0x0000d280));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d260, mtk_spi_read(0x0000d260));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d240, mtk_spi_read(0x0000d240));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d220, mtk_spi_read(0x0000d220));
-		DISPMSG("0x%08x: 0x%08x\n", 0x0000d200, mtk_spi_read(0x0000d200));
+		tmp = mtk_spi_read(0x0000d200);
+		if (tmp != 0) {
+			DISPMSG("INT_ST_PHY_FATAL(0x0000d200): 0x%08x\n", tmp);
+			if (tmp & (1 << 0))
+				DISPMSG("Lane 0 Start-of-Transmission Synchronization Error.\n");
+			if (tmp & (1 << 1))
+				DISPMSG("Lane 0 Escape Entry Error.\n");
+			if (tmp & (1 << 2))
+				DISPMSG("Lane 0 Control Error.\n");
+			if (tmp & (1 << 3))
+				DISPMSG("Lane 0 LP Data Transmission Synchronization Error.\n");
+			if (tmp & (1 << 4))
+				DISPMSG("Lane 0 LP0 Contention Error.\n");
+			if (tmp & (1 << 5))
+				DISPMSG("Lane 0 LP1 Contention Error.\n");
+			if (tmp & (1 << 7)) {
+				DISPMSG("Peripheral LPTX timeout defined in DSI ");
+				DISPMSG("protocol, avoid to bus contention.\n");
+			}
+			if (tmp & (1 << 8))
+				DISPMSG("Lane 1 Start-of-Transmission Synchronization Error.\n");
+			if (tmp & (1 << 9))
+				DISPMSG("Lane 1 Escape Entry Error.\n");
+			if (tmp & (1 << 10))
+				DISPMSG("Lane 1 Control Error.\n");
+			if (tmp & (1 << 11)) {
+				DISPMSG("Skew between lanes is greater than ");
+				DISPMSG("maximum allowed value.\n");
+			}
+			if (tmp & (1 << 16))
+				DISPMSG("Lane 2 Start-of-Transmission Synchronization Error.\n");
+			if (tmp & (1 << 17))
+				DISPMSG("Lane 2 Escape Entry Error.\n");
+			if (tmp & (1 << 18))
+				DISPMSG("Lane 2 Control Error.\n");
+			if (tmp & (1 << 24))
+				DISPMSG("Lane 3 Start-of-Transmission Synchronization Error.\n");
+		}
+
+		tmp = mtk_spi_read(0x0000d220);
+		if (tmp != 0) {
+			DISPMSG("INT_ST_DSI_FATAL(0x0000d220): 0x%08x\n", tmp);
+			if (tmp & (1 << 0))
+				DISPMSG("Payload Checksum error detected on VC 0.\n");
+			if (tmp & (1 << 1))
+				DISPMSG("Payload Checksum error detected on VC 1.\n");
+			if (tmp & (1 << 2))
+				DISPMSG("Payload Checksum error detected on VC 2.\n");
+			if (tmp & (1 << 3))
+				DISPMSG("Payload Checksum error detected on VC 3.\n");
+			if (tmp & (1 << 4)) {
+				DISPMSG("LPRX only. Payload size Mismatch error ");
+				DISPMSG("detected on VC 0. Causes Payload Checksum error.\n");
+			}
+			if (tmp & (1 << 5)) {
+				DISPMSG("LPRX only. Payload size Mismatch error ");
+				DISPMSG("detected on VC 1. Causes Payload Checksum error.\n");
+			}
+			if (tmp & (1 << 6)) {
+				DISPMSG("LPRX only. Payload size Mismatch error ");
+				DISPMSG("detected on VC 2. Causes Payload Checksum error.\n");
+			}
+			if (tmp & (1 << 7)) {
+				DISPMSG("LPRX only. Payload size Mismatch error ");
+				DISPMSG("detected on VC 3. Causes Payload Checksum error.\n");
+			}
+			if (tmp & (1 << 16))
+				DISPMSG("Header error unrecoverable.\n");
+			if (tmp & (1 << 17)) {
+				DISPMSG("Read or TE command is followed by another read ");
+				DISPMSG("or write command instead of BTA.\n");
+			}
+			if (tmp & (1 << 18))
+				DISPMSG("Invalid data type detected.\n");
+		}
+
+		tmp = mtk_spi_read(0x0000d240);
+		DISPMSG("INT_ST_DDI_FATAL(0x0000d240): 0x%08x\n", tmp);
+		if (tmp & (1 << 0)) {
+			DISPMSG("This timeout should rise when the DSI Display panel is not ");
+			DISPMSG("outputting response data during programmed value.\n");
+			DISPMSG("Data received after this timeout are ignored and ");
+			DISPMSG("related logic will be reset.\n");
+		}
+		if (tmp & (1 << 1))
+			DISPMSG("Reports error when panel responds an invalid data type.\n");
+
+		tmp = mtk_spi_read(0x0000d260);
+		DISPMSG("INT_ST_IPI_FATAL(0x0000d260): 0x%08x\n", tmp);
+		if (tmp & (1 << 0)) {
+			DISPMSG("This bit asserts when receiving error IPI timing information, ");
+			DISPMSG("e.g. no HSE after HSS in pulse mode.\n");
+		}
+		if (tmp & (1 << 1)) {
+			DISPMSG("This bit asserts when receiving non-integer pixel ");
+			DISPMSG("number video packet.\n");
+		}
+		tmp = mtk_spi_read(0x0000d280);
+		if (tmp != 0) {
+			DISPMSG("INT_ST_FIFO_FATAL(0x0000d280): 0x%08x\n", tmp);
+			if (tmp & (1 << 0))
+				DISPMSG("LPRX FIFO overflow, caused by LPRX from PHY.\n");
+			if (tmp & (1 << 1))
+				DISPMSG("LPTX FIFO overflow, caused by LPTX from DDI.\n");
+			if (tmp & (1 << 4))
+				DISPMSG("D-PHY HSRX elastbuf overflow, caused by D-PHY HSRX.\n");
+			if (tmp & (1 << 8))
+				DISPMSG("DDI Header FIFO overflow, caused by HSRX from PPI.\n");
+			if (tmp & (1 << 9))
+				DISPMSG("DDI Payload FIFO overflow, caused by HSRX from PPI.\n");
+			if (tmp & (1 << 16))
+				DISPMSG("IPI Control FIFO overflow, caused by HSRX from PPI.\n");
+			if (tmp & (1 << 17))
+				DISPMSG("IPI Pixel FIFO overflow, caused by HSRX from PPI.\n");
+			if (tmp & (1 << 18))
+				DISPMSG("IPI Pixel FIFO overflow, caused by read from IPI.\n");
+		}
+
+		tmp = mtk_spi_read(0x0000d210);
+		if (tmp != 0) {
+			DISPMSG("INT_ST_PHY(0x0000d210): 0x%08x\n", tmp);
+			if (tmp & (1 << 0))
+				DISPMSG("Lane 0 Start-of-Transmission(SoT) Error.\n");
+			if (tmp & (1 << 1))
+				DISPMSG("Lane 1 Start-of-Transmission(SoT) Error.\n");
+			if (tmp & (1 << 2))
+				DISPMSG("Lane 2 Start-of-Transmission(SoT) Error.\n");
+			if (tmp & (1 << 3))
+				DISPMSG("Lane 3 Start-of-Transmission(SoT) Error.\n");
+			if (tmp & (1 << 4))
+				DISPMSG("HS Invalid Code Word Detection on lane 0.\n");
+			if (tmp & (1 << 5))
+				DISPMSG("HS Invalid Code Word Detection on lane 1.\n");
+			if (tmp & (1 << 6))
+				DISPMSG("HS Invalid Code Word Detection on lane 2.\n");
+			if (tmp & (1 << 16)) {
+				DISPMSG("This timeout is to inform the user when the LPDT ");
+				DISPMSG("transmission duration is more than programmed time.\n");
+			}
+			if (tmp & (1 << 17)) {
+				DISPMSG("This timeout is to inform the user when the high-speed ");
+				DISPMSG("reception duration is more than the programmed time.\n");
+			}
+		}
+
+		tmp = mtk_spi_read(0x0000d230);
+		if (tmp != 0) {
+			DISPMSG("INT_ST_DSI(0x0000d230): 0x%08x\n", tmp);
+			if (tmp & (1 << 0))
+				DISPMSG("Header ECC Check error detected on VC 0.\n");
+			if (tmp & (1 << 1))
+				DISPMSG("Header ECC Check error detected on VC 1.\n");
+			if (tmp & (1 << 2))
+				DISPMSG("Header ECC Check error detected on VC 2.\n");
+			if (tmp & (1 << 3))
+				DISPMSG("Header ECC Check error detected on VC 3.\n");
+			if (tmp & (1 << 4)) {
+				DISPMSG("EoT packet detected error, according the configuration ");
+				DISPMSG("EOTP_CFG.\n");
+			}
+		}
+		tmp = mtk_spi_read(0x0000d250);
+		if (tmp != 0) {
+			DISPMSG("INT_ST_DDI(0x0000d250): 0x%08x\n", tmp);
+			if (tmp & (1 << 0)) {
+				DISPMSG("This timeout should rise when the DSI Display panel is ");
+				DISPMSG("not accepting incoming data during programmed value.\n");
+			}
+			if (tmp & (1 << 1)) {
+				DISPMSG("This field reports when DSI2 host sends an invalid ");
+				DISPMSG("virtual channel for DDI command packets.\n");
+			}
+			if (tmp & (1 << 4)) {
+				DISPMSG("This field reports when received response packet number ");
+				DISPMSG("mismatch with the value in WC.\n");
+			}
+			if (tmp & (1 << 5))
+				DISPMSG("This field reports when panel responds an invalid VC.\n");
+			if (tmp & (1 << 6)) {
+				DISPMSG("This field reports when panel responds data after ");
+				DISPMSG("response timeout is fired.\n");
+			}
+		}
+
+		tmp = mtk_spi_read(0x0000d270);
+		DISPMSG("INT_ST_IPI(0x0000d270): 0x%08x\n", tmp);
+		if (tmp & (1 << 0)) {
+			DISPMSG("This bit asserts when receiving invalid virtual channel packets ");
+			DISPMSG("according the configuration IPI_VALID_VC_CFG.\n");
+		}
+		if (tmp & (1 << 1)) {
+			DISPMSG("This bit asserts when frame timing information is corrupted ");
+			DISPMSG("because of back pressure.\n");
+		}
+		tmp = mtk_spi_read(0x0000d2b0);
+		if (tmp != 0) {
+			DISPMSG("INT_ST_ERR_RPT(0x0000d2b0): 0x%08x\n", tmp);
+			if (tmp & (1 << 0))
+				DISPMSG("SOT Error.\n");
+			if (tmp & (1 << 1))
+				DISPMSG("SOT Sync Error.\n");
+			if (tmp & (1 << 2))
+				DISPMSG("EOT Error.\n");
+			if (tmp & (1 << 3))
+				DISPMSG("Escape mode Entry Command Error.\n");
+			if (tmp & (1 << 4))
+				DISPMSG("Low-power Transmit Sync Error.\n");
+			if (tmp & (1 << 5))
+				DISPMSG("Peripheral Timeout Error.\n");
+			if (tmp & (1 << 6))
+				DISPMSG("False Control Error.\n");
+			if (tmp & (1 << 7))
+				DISPMSG("Contention detected.\n");
+			if (tmp & (1 << 8))
+				DISPMSG("ECC Error, single-bit(detected and corrected).\n");
+			if (tmp & (1 << 9))
+				DISPMSG("ECC Error, multi-bit(detected and not corrected).\n");
+			if (tmp & (1 << 10))
+				DISPMSG("Payload Checksum Error(long packet only).\n");
+			if (tmp & (1 << 11))
+				DISPMSG("DSI Data Type Not Recognized.\n");
+			if (tmp & (1 << 12)) {
+				DISPMSG("DSI VC ID invalid, both DDI_VALID_VC_CFG & ");
+				DISPMSG("IPI_VALID_VC_CFG related error will assert this bit.\n");
+			}
+			if (tmp & (1 << 13))
+				DISPMSG("Invalid Transmission Length.\n");
+			if (tmp & (1 << 15))
+				DISPMSG("DSI Protocol Violation.\n");
+			if (tmp & (1 << 16))
+				DISPMSG("High-speed Invalid Code Word Detection on lane.\n");
+		}
+
+		tmp = mtk_spi_read(0x0000d2d0);
+		if (tmp != 0) {
+			DISPMSG("INT_ST_RX_TRIGGERS(0x0000d2d0): 0x%08x\n", tmp);
+			if (tmp & (1 << 0))
+				DISPMSG("Trigger 0\n");
+			if (tmp & (1 << 1))
+				DISPMSG("Trigger 1\n");
+			if (tmp & (1 << 2))
+				DISPMSG("Trigger 2\n");
+			if (tmp & (1 << 3))
+				DISPMSG("Trigger 3\n");
+		}
 
 		DISPMSG("========================== mt6382 DSI%d REGS ==\n", i);
-
 //		for (k = 0; k < sizeof(struct BDG_TX_REGS); k += 16) {
 		for (k = 0; k < 0x210; k += 16) {
 			DISPMSG("0x%08x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
@@ -1855,38 +2150,39 @@ int bdg_dsi_dump_reg(enum DISP_BDG_ENUM module)
 
 		DISPMSG("========================== mt6382 DSI%d CMD REGS ==\n", i);
 		for (k = 0; k < 32; k += 16) { /* only dump first 32 bytes cmd */
-			DISPMSG("0x%08x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			DISPMSG("0x%08x: 0x%08x 0x%08x 0x%08x 0x%08x\n", 0xd00 + k,
 				mtk_spi_read((dsi_base_addr + 0xd00 + k)),
 				mtk_spi_read((dsi_base_addr + 0xd00 + k + 0x4)),
 				mtk_spi_read((dsi_base_addr + 0xd00 + k + 0x8)),
 				mtk_spi_read((dsi_base_addr + 0xd00 + k + 0xc)));
 		}
 
-		DISPMSG("========================== mt6382 MIPI%d REGS ==\n", i);
-//		for (k = 0; k < sizeof(struct BDG_MIPI_TX_REGS); k += 16) {
-		for (k = 0; k < 0x100; k += 16) {
-			DISPMSG("0x%08x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
-				mtk_spi_read(mipi_base_addr + k),
-				mtk_spi_read(mipi_base_addr + k + 0x4),
-				mtk_spi_read(mipi_base_addr + k + 0x8),
-				mtk_spi_read(mipi_base_addr + k + 0xc));
-		}
-
-		if (dsc_en) {
-			DISPMSG("========================== mt6382 DSC%d REGS ==\n", i);
-			for (k = 0; k < sizeof(struct BDG_DISP_DSC_REGS); k += 16) {
+		if (level) {
+			DISPMSG("========================== mt6382 MIPI%d REGS ==\n", i);
+//			for (k = 0; k < sizeof(struct BDG_MIPI_TX_REGS); k += 16) {
+			for (k = 0; k < 0x100; k += 16) {
 				DISPMSG("0x%08x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
-					mtk_spi_read(dsc_base_addr + k),
-					mtk_spi_read(dsc_base_addr + k + 0x4),
-					mtk_spi_read(dsc_base_addr + k + 0x8),
-					mtk_spi_read(dsc_base_addr + k + 0xc));
+					mtk_spi_read(mipi_base_addr + k),
+					mtk_spi_read(mipi_base_addr + k + 0x4),
+					mtk_spi_read(mipi_base_addr + k + 0x8),
+					mtk_spi_read(mipi_base_addr + k + 0xc));
+			}
+
+			if (dsc_en) {
+				DISPMSG("========================== mt6382 DSC%d REGS ==\n", i);
+				for (k = 0; k < sizeof(struct BDG_DISP_DSC_REGS); k += 16) {
+					DISPMSG("0x%08x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+						mtk_spi_read(dsc_base_addr + k),
+						mtk_spi_read(dsc_base_addr + k + 0x4),
+						mtk_spi_read(dsc_base_addr + k + 0x8),
+						mtk_spi_read(dsc_base_addr + k + 0xc));
+				}
 			}
 		}
 	}
 
 	return 0;
 }
-
 
 int bdg_tx_wait_for_idle(enum DISP_BDG_ENUM module)
 {
@@ -1909,7 +2205,8 @@ int bdg_tx_wait_for_idle(enum DISP_BDG_ENUM module)
 		}
 	}
 	if (timeout == 0) {
-//		dsi_dump_reg(module, 0);
+		bdg_tx_reset(module, NULL);
+
 		DISPMSG("%s, wait timeout!\n", __func__);
 		return -1;
 	}
@@ -2113,15 +2410,26 @@ unsigned int get_dsc_state(void)
 
 	return dsc_en;
 }
-void set_mt6382_init(bool inited)
+
+void set_mt6382_init(unsigned int value)
 {
-	mt6382_init = inited;
+	DISPMSG("%s, mt6382_init=%d->%d\n", __func__, mt6382_init, value);
+
+	mt6382_init = value;
 }
+
 unsigned int get_mt6382_init(void)
 {
 	DISPMSG("%s, mt6382_init=%d\n", __func__, mt6382_init);
 
 	return mt6382_init;
+}
+
+void set_bdg_tx_mode(unsigned int value)
+{
+	DISPMSG("%s: %u\n", __func__, value);
+
+	bdg_tx_mode = value;
 }
 
 unsigned int get_bdg_tx_mode(void)
@@ -3592,6 +3900,7 @@ int bdg_tx_init(enum DISP_BDG_ENUM module,
 	ret |= bdg_dsi_line_timing_dphy_setting(module, cmdq, tx_params);
 
 	DSI_OUTREG32(cmdq, TX_REG[0]->DSI_TX_INTEN, 0x1004);
+	DSI_OUTREG32(cmdq, TX_REG[0]->DSI_TX_SHADOW_DEBUG, 0x80005);
 	/* panel init*/
 //	ret |= bdg_lcm_init(pgc->plcm, 1);
 
@@ -3622,6 +3931,7 @@ int bdg_tx_deinit(enum DISP_BDG_ENUM module, void *cmdq)
 //		DSI_INT_DONE[i] = 0;
 
 	/* dsi_dump_info(module, 1); */
+
 	DISPFUNCEND();
 	return 0;
 }
@@ -3912,7 +4222,7 @@ int polling_status(void)
 	while (timeout) {
 		status = mtk_spi_read((unsigned long)(&TX_REG[0]->DSI_TX_STATE_DBG7));
 
-		DISPMSG("%s, status=0x%x, timeout=%d\n", __func__, status, timeout);
+//		DISPMSG("%s, status=0x%x, timeout=%d\n", __func__, status, timeout);
 
 		if ((status & 0x800) == 0x800)
 			break;
@@ -3923,7 +4233,7 @@ int polling_status(void)
 
 	if (timeout == 0) {
 		DISPMSG("%s, wait timeout!\n", __func__);
-		bdg_dsi_dump_reg(DISP_BDG_DSI0);
+		bdg_dsi_dump_reg(DISP_BDG_DSI0, 0);
 		return -1;
 	}
 
@@ -3959,7 +4269,6 @@ void disp_init_bdg_gce_obj(void)
 	disp_bdg_gce_base = cmdq_register_device(dev);
 	if (disp_bdg_gce_base == NULL)
 		DISPERR("%s register client fail\n", __func__);
-
 
 	bdg_dsi0_eof_gce_event = cmdq_dev_get_event(dev, "bdg_dsi0_eof");
 	if (bdg_dsi0_eof_gce_event == 0)
@@ -4010,6 +4319,45 @@ static void bdg_cmdq_cb(struct cmdq_cb_data data)
 //      kfree(cmdq_handle);
 }
 
+int bdg_dsi_stop_vdo_gce(void)
+{
+	struct cmdq_pkt *cmdq_handle;
+	int i;
+
+	if (!disp_bdg_gce_client) {
+		DDPERR("%s not valid gce client\n", __func__);
+		return -1;
+	}
+
+	cmdq_handle = cmdq_pkt_create(disp_bdg_gce_client);
+
+	cmdq_pkt_clear_event(cmdq_handle, bdg_rdma0_eof_gce_event);
+
+	cmdq_pkt_wait_no_clear(cmdq_handle, bdg_rdma0_eof_gce_event);
+
+	cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x0002100c, 0x0, ~0);
+
+#if 0 /* stop dsi through AP DSI DCS CMD */
+	cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x00021000, 0x0, ~0);
+	cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x00021014, 0x0, ~0);
+
+	cmdq_pkt_poll(cmdq_handle, disp_bdg_gce_base, 0x0, 0x0002100c, 0x80000000, 0x7);
+#endif
+	/* trigger TE signal */
+	cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x000231a8, 0x0, ~0);
+	cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x000231a8, 0x100, ~0);
+	for (i = 0 ; i < 300 ; i++)
+		cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x00021098, 0x0, ~0);
+
+	cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x000231a8, 0x0, ~0);
+
+	cmdq_pkt_flush(cmdq_handle);
+
+	cmdq_pkt_destroy(cmdq_handle);
+
+	return 0;
+}
+
 void bdg_dsi_vfp_gce(unsigned int vfp)
 {
 	struct cmdq_pkt *cmdq_handle;
@@ -4033,6 +4381,8 @@ void bdg_dsi_vfp_gce(unsigned int vfp)
 	/* set DSI TARGET_LINE unmask */
 	/* TODO: remove fixed TARGET_NL count */
 	/* TODO: not to usd fixed address */
+	/* set 6382 TE source to target line */
+	cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x000231a8, 0x2e, ~0);
 	cmdq_pkt_write(cmdq_handle, disp_bdg_gce_base, 0x00021300, 0x107d0, ~0);
 	cmdq_pkt_wait_no_clear(cmdq_handle, bdg_dsi0_target_gce_event);
 	/* set BDG VFP to vfp - 1 */
@@ -4101,104 +4451,136 @@ LEGACY_VFP:
 
 	cmdqRecDestroy(handle);
 }
-
-#define _n36672c_
 int bdg_dsc_init(enum DISP_BDG_ENUM module,
 			void *cmdq, struct LCM_DSI_PARAMS *tx_params)
 {
-	unsigned int width, height;
+#ifdef CONFIG_MTK_MT6382_BDG
+	unsigned long width = tx_params->horizontal_active_pixel / 1;
+	unsigned long height = tx_params->vertical_active_line;
+	unsigned int init_delay_limit, init_delay_height;
+	unsigned int pic_group_width_m1;
+	unsigned int pic_height_m1, pic_height_ext_m1, pic_height_ext_num;
+	unsigned int slice_group_width_m1;
+	unsigned int pad_num;
+	unsigned int val;
+	struct LCM_DSC_CONFIG_PARAMS *params = &tx_params->dsc_params;
 
 	DISPFUNCSTART();
-	width = tx_params->horizontal_active_pixel / 1;
-	height = tx_params->vertical_active_line;
+	if (!dsc_en) {
+		DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_H, height - 1);
+		DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_W, width);
+		return 0;
+	}
 
-#ifdef _n36672c_
-/*
- * Resolution = 1080x2400
- * Slice width = 540
- * Slice height = 8
- * Format = RGB888
- * DSC version = v1.1
- * Compression rate = 1/3
- */
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_W, 0x01670438);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_H, 0x095f095f);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SLICE_W, 0x00b3021c);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SLICE_H, 0x012b0007);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_CHUNK_SIZE, 0x0000021c);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_BUF_SIZE, 0x000010e0);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_MODE, 0x00000101);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_CFG, 0x0000d022);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PAD, 0x00000000);
+	if (params->pic_width != width || params->pic_height != height) {
+		DISPERR("%s size mismatch...", __func__);
+		return 1;
+	}
+	DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+		DSC_REG->DISP_DSC_CON, DSC_UFOE_SEL, 1);
 
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_OBUF, 0x00000000);
+	/* DSC Empty flag always high */
+	DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+		DSC_REG->DISP_DSC_CON, DSC_EMPTY_FLAG_SEL, 1);
 
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[0], 0x000c8089);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[1], 0x020e00aa);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[2], 0x002b0020);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[3], 0x000c0007);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[4], 0x0cb70db7);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[5], 0x1ba01800);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[6], 0x20000c03);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[7], 0x330b0b06);
+	/* DSC output buffer as FHD(plus) */
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_OBUF, 0x800002C2);
+
+	init_delay_limit =
+		((128 + (params->xmit_delay + 2) / 3) * 3 +
+		params->slice_width - 1) / params->slice_width;
+	init_delay_height =
+		(init_delay_limit > 15) ? 15 : init_delay_limit;
+
+	val = params->slice_mode + (init_delay_height << 8) + (1 << 16);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_MODE, val);
+
+	pic_group_width_m1 = (width + 2) / 3 - 1;
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_W,
+		(pic_group_width_m1 << 16) + width);
+
+	pic_height_m1 = height - 1;
+	pic_height_ext_num = (height + params->slice_height - 1) /
+	    params->slice_height;
+	pic_height_ext_m1 = pic_height_ext_num * params->slice_height - 1;
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_H,
+		(pic_height_ext_m1 << 16) + pic_height_m1);
+
+	slice_group_width_m1 = (params->slice_width + 2) / 3 - 1;
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SLICE_W,
+		(slice_group_width_m1 << 16) + params->slice_width);
+
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SLICE_H,
+		((params->slice_width % 3) << 30) +
+		((pic_height_ext_num - 1) << 16) + params->slice_height - 1);
+
+	DSI_OUTREG32(cmdq,  DSC_REG->DISP_DSC_CHUNK_SIZE,
+		params->chunk_size);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_BUF_SIZE,
+		params->chunk_size * params->slice_height);
+
+	pad_num = (params->chunk_size + 2) / 3 * 3 - params->chunk_size;
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PAD, pad_num);
+
+	if (params->dsc_cfg)
+		DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_CFG, params->dsc_cfg);
+	else
+		DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_CFG, 0x22);
+
+	if ((params->ver & 0xf) == 2)
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_SHADOW_REG,
+			DSC_REG->DISP_DSC_SHADOW, DSC_VERSION_MINOR, 0x2);
+
+	else
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_SHADOW_REG,
+			DSC_REG->DISP_DSC_SHADOW, DSC_VERSION_MINOR, 0x1);
+
+	/* set PPS */
+	val = params->dsc_line_buf_depth + (params->bit_per_channel << 4) +
+		(params->bit_per_pixel << 8) + (params->rct_on << 18) +
+		(params->bp_enable << 19);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[0], val);
+
+	val = (params->xmit_delay) + (params->dec_delay << 16);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[1], val);
+
+	val = (params->scale_value) + (params->increment_interval << 16);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[2], val);
+
+	val = (params->decrement_interval) + (params->line_bpg_offset << 16);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[3], val);
+
+	val = (params->nfl_bpg_offset) + (params->slice_bpg_offset << 16);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[4], val);
+
+	val = (params->initial_offset) + (params->final_offset << 16);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[5], val);
+
+	val = (params->flatness_minqp) + (params->flatness_maxqp << 8) +
+		(params->rc_model_size << 16);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[6], val);
+
+	val = (params->rc_edge_factor) + (params->rc_quant_incr_limit0 << 8) +
+		(params->rc_quant_incr_limit1 << 16) +
+		(params->rc_tgt_offset_hi << 24) +
+		(params->rc_tgt_offset_lo << 28);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[7], val);
+
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[8], 0x382a1c0e);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[9], 0x69625446);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[10], 0x7b797770);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[11], 0x00007e7d);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[12], 0x00800880);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[11], 0x7e7d);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[12], 0x800880);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[13], 0xf8c100a1);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[14], 0xe8e3f0e3);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[15], 0xe103e0e3);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[16], 0xd943e123);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[17], 0xd185d965);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[18], 0xd1a7d1a5);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[19], 0x0000d1ed);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SHADOW, 0x00000020);
-#else
-/*
- * r66451 cmd mode
- * Resolution = 1080x2340
- * Slice width = 540
- * Slice height = 20
- * Format = RGB888
- * DSC version = v1.1
- * Compression rate = 1/3
- */
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_W, 0x01670438);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_H, 0x09230923);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SLICE_W, 0x00b3021c);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SLICE_H, 0x00740013);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_CHUNK_SIZE, 0x0000021c);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_BUF_SIZE, 0x00002a30);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_MODE, 0x00000201);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_CFG, 0x0000d022);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PAD, 0x00000000);
+	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[19], 0xd1ed);
 
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_OBUF, 0x00000000);
-
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[0], 0x000c8089);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[1], 0x020e0200);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[2], 0x01e80020);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[3], 0x000c0007);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[4], 0x0516050e);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[5], 0x10f01800);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[6], 0x20000c03);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[7], 0x330b0b06);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[8], 0x382a1c0e);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[9], 0x69625446);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[10], 0x7b797770);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[11], 0x00007e7d);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[12], 0x00800880);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[13], 0xf8c100a1);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[14], 0xe8e3f0e3);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[15], 0xe103e0e3);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[16], 0xd943e123);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[17], 0xd185d965);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[18], 0xd1a7d1a5);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[19], 0x0000d1ed);
-	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SHADOW, 0x00000020);
-#endif
 	DISPFUNCEND();
+#endif
 	return 0;
 }
 
@@ -4305,7 +4687,12 @@ int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
 	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_RDY_TO_CNT_OS, 0);
 	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_RESP_TO_CNT_OS, 0);
 	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_VALID_VC_CFG_OS, 0xf);
-	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_CLK_MGR_CFG_OS, 0);
+	/* 0x1b for MMCLK 270M 0x37 for MMCLK 407M */
+#ifdef _90HZ_
+	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_CLK_MGR_CFG_OS, 0x1b);
+#else
+	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_CLK_MGR_CFG_OS, 0x37);
+#endif
 //	}
 
 	//video mode/ipi
@@ -5451,7 +5838,7 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 	mtk_spi_write(MIPI_RX_PHY_BASE + CORE_DIG_COMMON_RW_DESKEW_FINE_MEM * 4,
 		0x07FC);
 
-/* _Disable_HS_DCO_ */
+#ifdef _Disable_HS_DCO_
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 		CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
 		CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_EN_OVR_EN_MASK,
@@ -5468,10 +5855,10 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 		CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
 		CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_LP_DCO_PON_OVR_VAL_MASK,
 		0);
-
-/* _Disable_LP_TX_L123_ */
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1228 * 4,	0x80, 1);
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1228 * 4,	0x40, 1);
+#endif
+#ifdef _Disable_LP_TX_L023_
+	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4,	0x80, 1);
+	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4,	0x40, 1);
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1428 * 4,	0x80, 1);
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1428 * 4,	0x40, 1);
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1628 * 4,	0x80, 1);
@@ -5479,10 +5866,23 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1828 * 4,	0x80, 1);
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1828 * 4,	0x40, 1);
 
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1227 * 4, 0xf, 0);
+	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1027 * 4, 0xf, 0);
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1427 * 4, 0xf, 0);
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1627 * 4, 0xf, 0);
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1827 * 4, 0xf, 0);
+#endif
+#ifdef _G_MODE_EN_
+	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
+		CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_9 * 4, 0x18, 0);
+	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
+		CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_9 * 4, 0x18, 0);
+	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
+		CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_9 * 4, 0x18, 0);
+	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
+		CORE_DIG_IOCTRL_RW_AFE_LANE3_CTRL_2_9 * 4, 0x18, 0);
+	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
+		CORE_DIG_IOCTRL_RW_AFE_LANE4_CTRL_2_9 * 4, 0x18, 0);
+#endif
 
 	DISPFUNCEND();
 }
@@ -5517,6 +5917,8 @@ void output_debug_signal(void)
 }
 void bdg_first_init(void)
 {
+	DISPFUNCSTART();
+
 	DISPSYS_REG = (struct BDG_DISPSYS_CONFIG_REGS *)DISPSYS_BDG_MMSYS_CONFIG_BASE;
 	DSI2_REG = (struct BDG_MIPIDSI2_REGS *)DISPSYS_BDG_MIPIDSI2_DEVICE_BASE;
 	SYS_REG = (struct BDG_SYSREG_CTRL_REGS *)DISPSYS_BDG_SYSREG_CTRL_BASE;
@@ -5532,13 +5934,21 @@ void bdg_first_init(void)
 	EFUSE = (struct BDG_EFUSE_REGS *)DISPSYS_BDG_EFUSE_BASE;
 	GPIO = (struct BDG_GPIO_REGS *)DISPSYS_BDG_GPIO_BASE;
 	TX_CMDQ_REG[0] = (struct DSI_TX_CMDQ_REGS *)(DISPSYS_BDG_TX_DSI0_BASE + 0xd00);
-	clk_buf_disp_ctrl(true);
-	spislv_init();
-	spislv_switch_speed_hz(SPI_TX_MAX_SPEED_HZ, SPI_RX_MAX_SPEED_HZ);
 
+	spislv_init();
+	spislv_switch_speed_hz(SPI_TX_LOW_SPEED_HZ, SPI_RX_LOW_SPEED_HZ);
+
+	DSI_OUTREGBIT(NULL, struct GPIO_MODE1_REG, GPIO->GPIO_MODE1, GPIO12, 1);
+	output_debug_signal();
+
+	DSI_OUTREG32(cmdq, TX_REG[0]->DSI_TARGET_NL, 0x7d0);
+	DSI_OUTREG32(cmdq, TX_REG[0]->DSI_TX_SHADOW_DEBUG, 0x80005);
+	// request eint irq
 	bdg_request_eint_irq();
 
+	DISPFUNCEND();
 }
+
 int bdg_common_init(enum DISP_BDG_ENUM module,
 			struct disp_ddp_path_config *config, void *cmdq)
 {
@@ -5546,8 +5956,9 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 	struct LCM_DSI_PARAMS *tx_params;
 
 	DISPFUNCSTART();
-	bdg_tx_pull_6382_reset_pin();
 	clk_buf_disp_ctrl(true);
+	bdg_tx_pull_6382_reset_pin();
+	mdelay(1);
 	spislv_init();
 	spislv_switch_speed_hz(SPI_TX_LOW_SPEED_HZ, SPI_RX_LOW_SPEED_HZ);
 
@@ -5631,6 +6042,9 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 	}
 
 	calculate_datarate_cfgs_rx(ap_tx_data_rate);
+	if (!disp_bdg_gce_client)
+		disp_init_bdg_gce_obj();
+
 	startup_seq_common(cmdq);
 
 	if (tx_params->IsCphy) {
@@ -5643,8 +6057,6 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 
 	//TODO: Fix TARGET line
 	DSI_OUTREG32(cmdq, TX_REG[0]->DSI_TARGET_NL, 0x7d0);
-
-	DSI_OUTREG32(cmdq, DISPSYS_REG->TE_OUT_CON, 0x2e);
 
 	// request eint irq
 //	bdg_request_eint_irq();
@@ -5815,7 +6227,7 @@ int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VBP_LINES_OS,
 			(tx_params->vertical_backporch));
 	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VFP_LINES_OS,
-			(tx_params->vertical_frontporch));
+			(tx_params->vertical_frontporch - 1));
 	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VACTIVE_LINES_OS,
 			(tx_params->vertical_active_line));
 	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_EN_OS, 1);
@@ -5864,7 +6276,8 @@ static void bdg_dsi_irq_handler(void)
 	DSI_OUTREG32(NULL, TX_REG[0]->DSI_TX_INTSTA, ~val);
 }
 
-irqreturn_t bdg_eint_thread_handler(int irq, void *data)
+static struct work_struct bdg_eint_work;
+static void bdg_eint_work_thread(struct work_struct *data)
 {
 	unsigned int irq_ctrl3 = 0;
 
@@ -5881,7 +6294,7 @@ irqreturn_t bdg_eint_thread_handler(int irq, void *data)
 		// callback function for checking module's rg status
 		// todo..
 	}
-
+#ifdef CONFIG_MTK_MT6382_BDG
 	if (irq_ctrl3 & BIT(10)) {
 		s32 ret;
 
@@ -5891,6 +6304,7 @@ irqreturn_t bdg_eint_thread_handler(int irq, void *data)
 
 		ret = cmdq_bdg_irq_handler();
 	}
+#endif
 
 	if (irq_ctrl3 & BIT(4)) {
 		DSI_OUTREGBIT(NULL, struct IRQ_MSK_CLR_SET_REG,
@@ -5904,6 +6318,11 @@ irqreturn_t bdg_eint_thread_handler(int irq, void *data)
 	}
 	// disable irq (can't use disable_irq() in ISR)
 	/* disable_irq_nosync(bdg_eint_irq); */
+}
+
+irqreturn_t bdg_eint_thread_handler(int irq, void *data)
+{
+	schedule_work(&bdg_eint_work);
 
 	return IRQ_HANDLED;
 }
@@ -5939,6 +6358,8 @@ void bdg_request_eint_irq(void)
 	irq_already_requested = true;
 
 	// enable irq
+	INIT_WORK(&bdg_eint_work, bdg_eint_work_thread);
+
 	enable_irq(bdg_eint_irq);
 }
 
@@ -6044,4 +6465,3 @@ int bdg_mipi_clk_change(int msg, int en)
 
 	return 0;
 }
-

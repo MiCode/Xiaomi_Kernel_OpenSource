@@ -1022,7 +1022,7 @@ static void process_dbg_opt(const char *opt)
 
 	} else if (strncmp(opt, "xdump", 5) == 0) {
 
-		bdg_dsi_dump_reg(DISP_BDG_DSI0);
+		bdg_dsi_dump_reg(DISP_BDG_DSI0, 1);
 
 	} else if (strncmp(opt, "bdg_int", 7) == 0) {
 		struct LCM_PARAMS *lcm_param = NULL;

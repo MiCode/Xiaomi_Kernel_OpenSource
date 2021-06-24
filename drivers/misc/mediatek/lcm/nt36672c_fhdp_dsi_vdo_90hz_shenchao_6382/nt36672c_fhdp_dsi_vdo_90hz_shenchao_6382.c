@@ -614,6 +614,38 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->dsi.ssc_disable = 1;
 #ifdef CONFIG_MTK_MT6382_BDG
 	params->dsi.bdg_ssc_disable = 1;
+	params->dsi.dsc_params.ver = 17;
+	params->dsi.dsc_params.slice_mode = 1;
+	params->dsi.dsc_params.rgb_swap = 0;
+	params->dsi.dsc_params.dsc_cfg = 34;
+	params->dsi.dsc_params.rct_on = 1;
+	params->dsi.dsc_params.bit_per_channel = 8;
+	params->dsi.dsc_params.dsc_line_buf_depth = 9;
+	params->dsi.dsc_params.bp_enable = 1;
+	params->dsi.dsc_params.bit_per_pixel = 128;
+	params->dsi.dsc_params.pic_height = 2400;
+	params->dsi.dsc_params.pic_width = 1080;
+	params->dsi.dsc_params.slice_height = 8;
+	params->dsi.dsc_params.slice_width = 540;
+	params->dsi.dsc_params.chunk_size = 540;
+	params->dsi.dsc_params.xmit_delay = 170;
+	params->dsi.dsc_params.dec_delay = 526;
+	params->dsi.dsc_params.scale_value = 32;
+	params->dsi.dsc_params.increment_interval = 43;
+	params->dsi.dsc_params.decrement_interval = 7;
+	params->dsi.dsc_params.line_bpg_offset = 12;
+	params->dsi.dsc_params.nfl_bpg_offset = 3511;
+	params->dsi.dsc_params.slice_bpg_offset = 3255;
+	params->dsi.dsc_params.initial_offset = 6144;
+	params->dsi.dsc_params.final_offset = 7072;
+	params->dsi.dsc_params.flatness_minqp = 3;
+	params->dsi.dsc_params.flatness_maxqp = 12;
+	params->dsi.dsc_params.rc_model_size = 8192;
+	params->dsi.dsc_params.rc_edge_factor = 6;
+	params->dsi.dsc_params.rc_quant_incr_limit0 = 11;
+	params->dsi.dsc_params.rc_quant_incr_limit1 = 11;
+	params->dsi.dsc_params.rc_tgt_offset_hi = 3;
+	params->dsi.dsc_params.rc_tgt_offset_lo = 3;
 #endif
 	params->dsi.dsc_enable = 0;
 #ifndef CONFIG_FPGA_EARLY_PORTING

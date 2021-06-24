@@ -1015,12 +1015,13 @@ struct LCM_UTIL_FUNCS {
 	void (*mipi_dsi_cmds_tx)(void *cmdq, struct dsi_cmd_desc *cmds);
 	unsigned int (*mipi_dsi_cmds_rx)(char *out,
 		struct dsi_cmd_desc *cmds, unsigned int len);
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	/*Dynfps*/
 	void (*dsi_dynfps_send_cmd)(
 		void *cmdq, unsigned int cmd,
 		unsigned char count, unsigned char *para_list,
 		unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
-
+#endif
 };
 enum LCM_DRV_IOCTL_CMD {
 	LCM_DRV_IOCTL_ENABLE_CMD_MODE = 0x100,

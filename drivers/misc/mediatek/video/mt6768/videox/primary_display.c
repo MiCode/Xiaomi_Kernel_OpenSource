@@ -1137,18 +1137,16 @@ int primary_display_get_debug_state(char *stringbuf, int buf_len)
 			return -1;
 		}
 		len += scnprintf(stringbuf + len, buf_len - len,
-			"|LCM Driver=[%s]\tResolution=%dx%d,Interface:%s, LCM Connected:%s, HBM=%d\n",
+			"|LCM Driver=[%s]\tResolution=%dx%d,Interface:%s, LCM Connected:%s\n",
 			lcm_drv->name, lcm_param->width, lcm_param->height,
 			(lcm_param->type == LCM_TYPE_DSI) ? "DSI" : "Other",
-			islcmconnected ? "Y" : "N",
-			disp_lcm_get_hbm_state(pgc->plcm));
+			islcmconnected ? "Y" : "N");
 	}
 
 	if (len > buf_len) {
 		DISPERR("%s, buffer is too small", __func__);
 		return -1;
 	}
-
 	len += scnprintf(stringbuf + len, buf_len - len,
 		"|State=%s\tlcm_fps=%d\tmax_layer=%d\tmode:%s\tvsync_drop=%d\n",
 		pgc->state == DISP_ALIVE ? "Alive" : "Sleep", pgc->lcm_fps,
@@ -10311,7 +10309,7 @@ void primary_display_dynfps_chg_fps(int cfg_id)
 		cmdqRecFlushAsync(qhandle);
 
 #ifdef CONFIG_MTK_MT6382_BDG
-		ddp_dsi_bdg_dynfps_chg_fps(DISP_MODULE_DSI0, NULL,
+		ddp_dsi_dynfps_chg_fps(DISP_MODULE_DSI0, NULL,
 			last_dynfps, new_dynfps, fps_change_index);
 #endif
 
