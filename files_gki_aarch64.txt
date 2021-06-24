@@ -5652,6 +5652,7 @@ net/wireless/core.c
 net/wireless/core.h
 net/wireless/debugfs.h
 net/wireless/ethtool.c
+net/wireless/extra-certs.c
 net/wireless/ibss.c
 net/wireless/mesh.c
 net/wireless/mlme.c
