@@ -6964,7 +6964,7 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	/* check last ovl status: should be idle when config */
 	if (primary_display_is_video_mode() &&
 		!primary_display_is_decouple_mode()) {
-#ifdef FT_HDCP_FEATURE
+#ifdef CONFIG_MTK_DX_HDCP_DDP_SUPPORT
 		/* last OVL is DISP_MODULE_OVL0_2L */
 		unsigned long ovl_base = ovl_base_addr(DISP_MODULE_OVL0);
 #else

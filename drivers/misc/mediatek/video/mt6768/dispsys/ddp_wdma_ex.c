@@ -673,7 +673,7 @@ wdma_golden_setting(enum DISP_MODULE_ENUM module,
 		res = p_golden_setting->dst_width *
 			p_golden_setting->dst_height;
 	} else {
-#ifdef FT_HDCP_FEATURE
+#ifdef CONFIG_MTK_DX_HDCP_DDP_SUPPORT
 		res = 1920 * 1080;
 		frame_rate = 60;
 #else
@@ -1210,7 +1210,7 @@ static int wdma_config_l(enum DISP_MODULE_ENUM module,
 {
 
 	struct WDMA_CONFIG_STRUCT *config = &pConfig->wdma_config;
-#ifdef FT_HDCP_FEATURE
+#ifdef CONFIG_MTK_DX_HDCP_DDP_SUPPORT
 	unsigned int is_primary_flag = 0; /*primary or external*/
 #else
 	unsigned int is_primary_flag = 1; /*primary or external*/

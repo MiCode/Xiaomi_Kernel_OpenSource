@@ -39,9 +39,5 @@ endif
 	obj-$(CONFIG_MACH_MT6853) += common/
 	obj-$(CONFIG_MACH_MT6893) += common/
 	obj-$(CONFIG_MACH_MT6833) += common/
-
-ifeq ($(MTK_DX_HDCP_SUPPORT), yes)
-subdir-ccflags-y += -DFT_HDCP_FEATURE
-endif
 endif
 

@@ -167,3 +167,12 @@ config MTK_DRE30_SUPPORT
 	  display visual enhancement ver.3.
 	  This feature requires the cowork of AAL user-space algorithm process.
 	  Please also turn on MTK_AAL_SUPPORT amd MTK_DRE30_SUPPORT in ProjectConfig.mk.
+
+config MTK_DX_HDCP_DDP_SUPPORT
+	bool "enable display driver support HDCP"
+	default n
+	help
+	  define CONFIG_MTK_DX_HDCP_DDP_SUPPORT to enable display driver support HDCP.
+	  If you want to use HDCP feature, first should make sure MTK_DX_HDCP_DDP_SUPPORT set as "yes".
+	  Then please make sure CONFIG_MTK_DX_HDCP_DDP_SUPPORT set as Y in xxx_defconfig.mk.
+	  If unsure, set N.

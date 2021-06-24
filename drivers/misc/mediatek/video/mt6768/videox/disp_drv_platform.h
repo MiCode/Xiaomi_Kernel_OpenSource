@@ -50,7 +50,7 @@
 /* #define HW_OVERLAY_COUNT                  (4) */
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-#ifdef FT_HDCP_FEATURE
+#ifdef CONFIG_MTK_DX_HDCP_DDP_SUPPORT
 /* phy(4+1) + ext(3+2) */
 #define PRIMARY_SESSION_INPUT_LAYER_COUNT (5)
 #else
@@ -58,7 +58,7 @@
 #define PRIMARY_SESSION_INPUT_LAYER_COUNT (10)
 #endif
 #else
-#ifdef FT_HDCP_FEATURE
+#ifdef CONFIG_MTK_DX_HDCP_DDP_SUPPORT
 /* phy(4+2) + ext(3+3) */
 #define PRIMARY_SESSION_INPUT_LAYER_COUNT (7)
 #else

@@ -417,7 +417,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_ARR_PHASE_1, 0);
 	/* HW does not support this */
 	disp_helper_set_option(DISP_OPT_RSZ, 0);
-#ifdef FT_HDCP_FEATURE
+#ifdef CONFIG_MTK_DX_HDCP_DDP_SUPPORT
 	disp_helper_set_option(DISP_OPT_RPO, 0);
 #else
 	disp_helper_set_option(DISP_OPT_RPO, 1);
@@ -428,7 +428,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_ROUND_CORNER, 1);
 
 	/* OVL SBCH */
-#ifdef FT_HDCP_FEATURE
+#ifdef CONFIG_MTK_DX_HDCP_DDP_SUPPORT
 	disp_helper_set_option(DISP_OPT_OVL_SBCH, 0);
 #else
 	disp_helper_set_option(DISP_OPT_OVL_SBCH, 1);
