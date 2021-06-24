@@ -4,6 +4,7 @@
  */
 
 #include <linux/vmalloc.h>      /* needed by vmalloc */
+#include <linux/io.h>
 #include "adsp_core.h"
 #include "adsp_platform.h"
 #include "adsp_mbox.h"
@@ -91,6 +92,25 @@ void unhook_ipi_queue_recv_msg_hanlder(void)
 }
 EXPORT_SYMBOL(unhook_ipi_queue_recv_msg_hanlder);
 
+void adsp_mbox_dump(void)
+{
+	int mbox = 0;
+	struct mtk_mbox_info *minfo;
+
+	for (mbox = 0; mbox < ADSP_IPI_CH_CNT; mbox++) {
+		mtk_mbox_dump(&adsp_mboxdev, mbox);
+
+		minfo = &adsp_mbox_table[mbox];
+		pr_info("adsp_mbox%d reg:(0x%x,0x%x,0x%x,0x%x,0x%x)",
+			mbox,
+			readl(minfo->set_irq_reg),
+			readl(minfo->clr_irq_reg),
+			readl(minfo->init_base_reg),
+			readl(minfo->send_status_reg),
+			readl(minfo->recv_status_reg));
+	}
+}
+
 int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 		unsigned int wait)
 {
@@ -98,6 +118,7 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 	struct mtk_mbox_device *mbdev = &adsp_mboxdev;
 	ktime_t start_time;
 	s64 time_ipc_us;
+	struct mtk_ipi_msg *ipi_msg = (struct mtk_ipi_msg *)msg;
 
 	if (mutex_trylock(&pin_send->mutex_send) == 0) {
 		pr_info("%s, mbox %d mutex_trylock busy",
@@ -124,6 +145,13 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 
 	result = mtk_mbox_trigger_irq(mbdev, pin_send->mbox,
 				      0x1 << pin_send->pin_index);
+
+	/* debug of core1 mbox */
+	if (pin_send->mbox == ADSP_MBOX2_CH_ID &&
+	    ipi_msg->ipihd.id == ADSP_IPI_DVFS_SUSPEND)
+		pr_info("adsp_mbox 2 trigger irq for suspend ipi: status= 0x%x",
+			readl(adsp_mbox_table[ADSP_MBOX2_CH_ID].send_status_reg));
+
 	if (result != MBOX_DONE) {
 		pr_err("%s() error mbox%d trigger, result %d\n",
 		       __func__, pin_send->mbox, result);

@@ -230,6 +230,28 @@ static bool is_adsp_core_suspend(struct adsp_priv *pdata)
 	}
 }
 
+static void show_adsp_core_suspend(struct adsp_priv *pdata)
+{
+	u32 status = 0;
+
+	if (unlikely(!pdata))
+		return;
+
+	adsp_copy_from_sharedmem(pdata,
+				 ADSP_SHAREDMEM_SYS_STATUS,
+				 &status, sizeof(status));
+
+	if (pdata->id == ADSP_A_ID)
+		pr_info("%s(), IS_WFI(%d), IS_BUS_IDLE(%d), STATUS(%d)", __func__,
+			check_hifi_status(ADSP_A_IS_WFI),
+			check_hifi_status(ADSP_AXI_BUS_IS_IDLE),
+			status);
+	else /* ADSP_B_ID */
+		pr_info("%s(), IS_WFI(%d), STATUS(%d)", __func__,
+			check_hifi_status(ADSP_B_IS_WFI),
+			status);
+}
+
 int adsp_core0_suspend(void)
 {
 	int ret = 0, retry = 10;
@@ -255,6 +277,7 @@ int adsp_core0_suspend(void)
 			usleep_range(100, 200);
 
 		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
+			show_adsp_core_suspend(pdata);
 			ret = -ETIME;
 			goto ERROR;
 		}
@@ -339,6 +362,8 @@ int adsp_core1_suspend(void)
 			usleep_range(100, 200);
 
 		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
+			show_adsp_core_suspend(pdata);
+			adsp_mbox_dump();
 			ret = -ETIME;
 			goto ERROR;
 		}
