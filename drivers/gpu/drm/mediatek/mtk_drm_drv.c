@@ -439,6 +439,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+		int disp_idx;
 
 		if (!rsz_enable[i] || mtk_crtc->fake_layer.fake_layer_mask) {
 			src_total_roi[i].x = 0;
@@ -467,6 +468,20 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 			src_total_roi[i].height, dst_total_roi[i].x,
 			dst_total_roi[i].y, dst_total_roi[i].width,
 			dst_total_roi[i].height);
+
+		/*
+		 * RSZ component must disconnect in path
+		 * if width or height in RSZ roi is zero
+		 */
+		if (!(src_total_roi[i].width && src_total_roi[i].height &&
+			dst_total_roi[i].width && dst_total_roi[i].height)) {
+			for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++)
+				if ((state->lye_state.scn[disp_idx] == ONE_SCALING) ||
+						(state->lye_state.scn[disp_idx] == TWO_SCALING)) {
+					state->lye_state.scn[disp_idx] = NONE;
+					DDPPR_ERR("layer roi is zero!!! RSZ force disconnected\n");
+				}
+		}
 	}
 }
 
