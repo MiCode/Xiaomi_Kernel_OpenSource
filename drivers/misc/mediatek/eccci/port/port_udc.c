@@ -1021,6 +1021,7 @@ retry_kick:
 			ap_read = rw_index->md_des_ins1.read;
 			md_write = rw_index->md_des_ins1.write;
 		}
+		ctl->curr_state = atomic_read(&udc_status);
 
 		while (ap_read != md_write) {
 			if (inst_id == 0) {
