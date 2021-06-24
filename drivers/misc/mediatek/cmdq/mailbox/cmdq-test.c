@@ -920,6 +920,134 @@ static void cmdq_test_mbox_reuse_buf_va(struct cmdq_test *test)
 		cmdq_msg("val:%#x equals to ans:%#x", val, ans);
 }
 
+static void cmdq_test_mbox_atf_prebuilt_instr(struct cmdq_test *test)
+{
+	struct cmdq_pkt *pkt;
+	struct cmdq_pkt_buffer *buf;
+	struct cmdq_operand lop, rop;
+	u64 *inst, *inst2;
+	s32 mark, mark2, i;
+	/* configure */
+	const unsigned long event = 686, mod = CMDQ_PREBUILT_VFMT;
+	const u16 spr = CMDQ_THR_SPR_IDX3;
+#if 1
+	const unsigned long pa0 = 0x1f006000, pa1 = 0x1f007000;
+	const unsigned long reg[20] = {
+		0x118, 0x120, 0x128, 0x148, 0x150, 0x200,
+		0xf00, 0xf08, 0xf10, 0xf20, 0xf28, 0xf30, 0xf34,
+		0xf38, 0xf3c, 0xf40, 0xf44, 0xf48, 0xf4c, 0xf50};
+#else
+	const unsigned long pa0 =
+		CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_TIMER);
+	const unsigned long pa1 =
+		CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+	const unsigned long reg[20] = {0};
+#endif
+
+	pkt = cmdq_pkt_create(test->clt);
+	cmdq_pkt_wfe(pkt, event);
+
+	/* conditional jump */
+	mark = pkt->cmd_buf_size;
+	inst = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_assign_command(pkt, spr, 0);
+
+	lop.reg = true;
+	lop.idx = CMDQ_CPR_PREBUILT_PIPE(mod);
+	rop.reg = false;
+	rop.value = 1;
+	cmdq_pkt_cond_jump(pkt, spr, &lop, &rop, CMDQ_EQUAL);
+
+	/* pipe 0 */
+	for (i = 0; i < 20; i++)
+		cmdq_pkt_write_reg_addr(pkt, pa0 + reg[i],
+			CMDQ_CPR_PREBUILT(mod, 0, i), UINT_MAX);
+
+	mark2 = pkt->cmd_buf_size;
+	inst2 = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_jump(pkt, 0);
+
+	/* pipe 1 */
+	*inst |= CMDQ_REG_SHIFT_ADDR(
+		(s32)pkt->cmd_buf_size - mark - CMDQ_INST_SIZE);
+	for (i = 0; i < 20; i++)
+		cmdq_pkt_write_reg_addr(pkt, pa1 + reg[i],
+			CMDQ_CPR_PREBUILT(mod, 1, i), UINT_MAX);
+
+	*inst2 |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark2);
+	cmdq_pkt_set_event(pkt, event + 1);
+	cmdq_pkt_finalize_loop(pkt);
+
+	buf = list_first_entry_or_null(&pkt->buf, typeof(*buf), list_entry);
+	cmdq_msg("%s: pkt:%p pa:%#lx cmd_buf_size:%#lx",
+		__func__, pkt, (unsigned long)buf->pa_base, pkt->cmd_buf_size);
+
+	cmdq_dump_pkt(pkt, 0, true);
+	for (i = 0; i < pkt->cmd_buf_size / CMDQ_INST_SIZE; i++)
+		cmdq_msg(",%d,%#llx,", i, *((u64 *)buf->va_base + i));
+
+	cmdq_pkt_destroy(pkt);
+}
+
+static void cmdq_test_mbox_prebuilt(struct cmdq_test *test, const bool pipe,
+	const bool timeout)
+{
+	const u32	mask = (1 << 16);
+	const u32	pttn = (1 << 0) | (1 << 2) | (1 << 16);
+	unsigned long	va = (unsigned long)
+		CMDQ_GPR_R32(test->gce.va, CMDQ_GPR_DEBUG_DUMMY);
+	unsigned long	pa =
+		CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+	const unsigned long event = 686, mod = CMDQ_PREBUILT_VFMT;
+
+	struct cmdq_client	*clt = test->clt;
+	struct cmdq_pkt		*pkt;
+	s32			val;
+	s32			i, j;
+
+	cmdq_msg("%s: event:%lu mod:%lu pipe:%d timeout:%d",
+		__func__, event, mod, pipe, timeout);
+	cmdq_msg("va:%#lx pa:%#lx pttn:%#x mask:%#x clt:%p",
+		va, pa, pttn, mask, clt);
+
+	if (clk_prepare_enable(test->gce.clk)) {
+		cmdq_err("clk fail");
+		return;
+	}
+
+	writel(0xdeadbeaf, (void *)va);
+
+	pkt = cmdq_pkt_create(clt);
+
+	for (i = 0; i < 2; i++)
+		for (j = 0; j < 20; j++)
+			cmdq_pkt_assign_command(pkt,
+				CMDQ_CPR_PREBUILT(mod, i, j), i * 20 + j);
+	cmdq_pkt_assign_command(pkt, CMDQ_CPR_PREBUILT_PIPE(mod), pipe ? 0 : 1);
+
+	cmdq_pkt_set_event(pkt, event);
+	cmdq_pkt_wfe(pkt, event + (timeout ? 2 : 1));
+	if (pipe)
+		cmdq_pkt_write(pkt, NULL, pa, pttn, ~mask);
+	else
+		cmdq_pkt_write(pkt, NULL, pa, pttn, mask);
+
+	cmdq_pkt_flush(pkt);
+
+	val = readl((void *)va);
+	if (val != (pttn & mask)) {
+		cmdq_err("wrong val:%#x ans:%#x", val, pttn & mask);
+		cmdq_pkt_dump_buf(pkt, 0);
+	} else
+		cmdq_msg("right val:%#x ans:%#x", val, pttn & mask);
+
+	cmdq_pkt_destroy(pkt);
+
+	clk_disable_unprepare(test->gce.clk);
+
+	cmdq_msg("%s end", __func__);
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
@@ -1001,6 +1129,13 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		break;
 	case 17:
 		cmdq_test_mbox_reuse_buf_va(test);
+		break;
+	case 18:
+		cmdq_test_mbox_atf_prebuilt_instr(test);
+		break;
+	case 19:
+		cmdq_test_mbox_prebuilt(test, 0, false);
+		cmdq_test_mbox_prebuilt(test, 1, true);
 		break;
 	default:
 		break;

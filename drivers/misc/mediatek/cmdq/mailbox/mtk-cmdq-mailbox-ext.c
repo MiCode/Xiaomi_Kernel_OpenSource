@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 #include <linux/atomic.h>
 #include <linux/sched/clock.h>
+#include <linux/pm_runtime.h>
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include "cmdq-util.h"
@@ -163,6 +164,7 @@ struct cmdq {
 	void			*init_cmds_base;
 	dma_addr_t		init_cmds;
 	bool			sw_ddr_en;
+	struct cmdq_client	*prebuilt_clt;
 };
 
 struct gce_plat {
@@ -1580,6 +1582,30 @@ static int cmdq_resume(struct device *dev)
 	return 0;
 }
 
+static int cmdq_prebuilt_resume(struct device *dev)
+{
+	struct cmdq *cmdq = dev_get_drvdata(dev);
+
+	cmdq_log("%s: hwid:%u", __func__, cmdq->hwid);
+
+	WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
+	WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
+
+	cmdq_util_prebuilt_enable(dev, cmdq->hwid);
+	return 0;
+}
+
+static int cmdq_prebuilt_suspend(struct device *dev)
+{
+	struct cmdq *cmdq = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(cmdq->clock_timer);
+	clk_disable_unprepare(cmdq->clock);
+
+	cmdq_log("%s: hwid:%u", __func__, cmdq->hwid);
+	return 0;
+}
+
 static int cmdq_remove(struct platform_device *pdev)
 {
 	struct cmdq *cmdq = platform_get_drvdata(pdev);
@@ -1875,6 +1901,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->timeout_wq = create_singlethread_workqueue(
 		"cmdq_timeout_handler");
 
+	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, cmdq);
 	WARN_ON(clk_prepare(cmdq->clock) < 0);
 	WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
@@ -1891,10 +1918,14 @@ static int cmdq_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq->hwid = cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
+	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
 	return 0;
 }
 
 static const struct dev_pm_ops cmdq_pm_ops = {
+	SET_RUNTIME_PM_OPS(cmdq_prebuilt_suspend, cmdq_prebuilt_resume, NULL)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(
+		pm_runtime_force_suspend, pm_runtime_force_resume)
 	.suspend = cmdq_suspend,
 	.resume = cmdq_resume,
 };
@@ -2024,6 +2055,7 @@ s32 cmdq_mbox_set_hw_id(void *cmdq_mbox)
 	if (!cmdq)
 		return -EINVAL;
 	cmdq->hwid = (u8)cmdq_util_get_hw_id(cmdq->base_pa);
+	cmdq_util_prebuilt_set_client(cmdq->hwid, cmdq->prebuilt_clt);
 	return 0;
 }
 

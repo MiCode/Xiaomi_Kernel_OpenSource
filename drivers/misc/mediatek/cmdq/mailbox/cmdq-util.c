@@ -6,8 +6,10 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
 #include <linux/sched/clock.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/arm-smccc.h>
 
 #include "cmdq-util.h"
@@ -95,6 +97,7 @@ struct cmdq_util {
 	u32 mbox_cnt;
 	u32 mbox_sec_cnt;
 	const char *first_err_mod[CMDQ_HW_MAX];
+	struct cmdq_client *prebuilt_clt[CMDQ_HW_MAX];
 };
 static struct cmdq_util	util;
 
@@ -393,11 +396,95 @@ DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feature_fops,
 /* sync with request in atf */
 enum cmdq_smc_request {
 	CMDQ_ENABLE_DEBUG,
+	CMDQ_ENABLE_PREBUILT,
+	CMDQ_ENABLE_PREBUILT_DUMP,
 };
 
 #ifdef CMDQ_SMC_SUPPORT
 static atomic_t cmdq_dbg_ctrl = ATOMIC_INIT(0);
 #endif
+
+void cmdq_util_prebuilt_enable(struct device *dev, const u16 hwid)
+{
+	struct arm_smccc_res res;
+
+	cmdq_log("%s: dev:%p hwid:%u", __func__, dev, hwid);
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_PREBUILT, hwid,
+		0, 0, 0, 0, 0, &res);
+}
+
+void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event)
+{
+	struct cmdq_pkt *pkt;
+	struct arm_smccc_res res;
+	const u16 mod = (event - CMDQ_TOKEN_PREBUILT_MDP_WAIT) /
+		(CMDQ_TOKEN_PREBUILT_MML_WAIT - CMDQ_TOKEN_PREBUILT_MDP_WAIT);
+	u32 val[CMDQ_CPR_PREBUILT_PIPE_CNT * CMDQ_CPR_PREBUILT_REG_CNT + 1];
+	struct device *dev = util.prebuilt_clt[hwid]->client.dev;
+	dma_addr_t pa = 0;
+	void *va = dma_alloc_coherent(dev, PAGE_SIZE, &pa, GFP_KERNEL);
+	s32 i, j;
+
+	cmdq_msg("%s: mod:%hu event:%hu pa:%pa", __func__, mod, event, &pa);
+
+	pkt = cmdq_pkt_create(util.prebuilt_clt[hwid]);
+	cmdq_pkt_jump(pkt, CMDQ_JUMP_PASS);
+
+	for (i = 0; i < CMDQ_CPR_PREBUILT_PIPE_CNT; i++)
+		for (j = 0; j < CMDQ_CPR_PREBUILT_REG_CNT; j++)
+			cmdq_pkt_write_indriect(pkt, NULL, pa +
+				(CMDQ_CPR_PREBUILT_REG_CNT * i + j) * 4,
+				CMDQ_CPR_PREBUILT(mod, i, j), UINT_MAX);
+
+	cmdq_pkt_write_indriect(pkt, NULL, pa +
+		CMDQ_CPR_PREBUILT_PIPE_CNT * CMDQ_CPR_PREBUILT_REG_CNT * 4,
+		CMDQ_CPR_PREBUILT_PIPE(mod), UINT_MAX);
+	cmdq_pkt_flush(pkt);
+
+	for (i = 0; i <=
+		CMDQ_CPR_PREBUILT_PIPE_CNT * CMDQ_CPR_PREBUILT_REG_CNT; i++)
+		val[i] = *(u32 *)(va + i * 4);
+	cmdq_pkt_destroy(pkt);
+	dma_free_coherent(dev, PAGE_SIZE, va, pa);
+
+	cmdq_msg(
+		"%s: pipe:%#x cpr:%#x val:%#x %#x %#x %#x %#x %#x %#x %#x %#x %#x",
+		__func__, val[40], CMDQ_CPR_PREBUILT(mod, 0, 0),
+		val[0], val[1], val[2], val[3], val[4],
+		val[5], val[6], val[7], val[8], val[9]);
+
+	cmdq_msg(
+		"%s: pipe:%#x cpr:%#x val:%#x %#x %#x %#x %#x %#x %#x %#x %#x %#x",
+		__func__, val[40], CMDQ_CPR_PREBUILT(mod, 0, 10),
+		val[10], val[11], val[12], val[13], val[14],
+		val[15], val[16], val[17], val[18], val[19]);
+
+	cmdq_msg(
+		"%s: pipe:%#x cpr:%#x val:%#x %#x %#x %#x %#x %#x %#x %#x %#x %#x",
+		__func__, val[40], CMDQ_CPR_PREBUILT(mod, 1, 0),
+		val[20], val[21], val[22], val[23], val[24],
+		val[25], val[26], val[27], val[28], val[29]);
+
+	cmdq_msg(
+		"%s: pipe:%#x cpr:%#x val:%#x %#x %#x %#x %#x %#x %#x %#x %#x %#x",
+		__func__, val[40], CMDQ_CPR_PREBUILT(mod, 1, 10),
+		val[30], val[31], val[32], val[33], val[34],
+		val[35], val[36], val[37], val[38], val[39]);
+
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_PREBUILT_DUMP,
+		mod, event,
+		0, 0, 0, 0, &res);
+}
+
+void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client)
+{
+	if (hwid >= CMDQ_HW_MAX)
+		cmdq_err("invalid hwid:%u", hwid);
+	else
+		util.prebuilt_clt[hwid] = client;
+	cmdq_msg("hwid:%u client:%p", hwid, client);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_set_client);
 
 void cmdq_util_dump_dbg_reg(void *chan)
 {

@@ -49,15 +49,25 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #define CMDQ_TPR_ID			56
 #define CMDQ_HANDSHAKE_REG		59
 #define CMDQ_GPR_CNT_ID			32
+#define CMDQ_EVENT_MAX			0x3FF
+#define SUBSYS_NO_SUPPORT		99
+
+#define GCE_CPR_COUNT			1312
 #define CMDQ_CPR_STRAT_ID		0x8000
 #define CMDQ_CPR_TPR_MASK		0x8000
 #define CMDQ_CPR_DISP_CNT		0x8001
-#define CMDQ_EVENT_MAX			0x3FF
 #define CMDQ_CPR_DDR_USR_CNT		0x8002
 
-#define CMDQ_GPR_CNT_ID			32
-#define CMDQ_CPR_STRAT_ID		0x8000
-#define SUBSYS_NO_SUPPORT		99
+/* ATF PREBUILT */
+#define CMDQ_CPR_PREBUILT_PIPE_CNT	2
+#define CMDQ_CPR_PREBUILT_REG_CNT	20
+enum {CMDQ_PREBUILT_MDP, CMDQ_PREBUILT_MML, CMDQ_PREBUILT_VFMT,
+	CMDQ_PREBUILT_DISP, CMDQ_PREBUILT_MOD};
+#define CMDQ_CPR_PREBUILT_PIPE(mod)	(0x8003 + (mod))
+#define CMDQ_CPR_PREBUILT(mod, pipe, index) \
+	(0x8010 + \
+	(mod) * (CMDQ_CPR_PREBUILT_PIPE_CNT) * (CMDQ_CPR_PREBUILT_REG_CNT) + \
+	(pipe) * (CMDQ_CPR_PREBUILT_REG_CNT) + (index))
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
@@ -117,6 +127,19 @@ enum gce_event {
 
 	CMDQ_TOKEN_SECURE_THR_EOF = 647,
 	CMDQ_TOKEN_TPR_LOCK = 652,
+
+	/* ATF PREBUILT sw token */
+	CMDQ_TOKEN_PREBUILT_MDP_WAIT = 680,
+	CMDQ_TOKEN_PREBUILT_MDP_SET = 681,
+	CMDQ_TOKEN_PREBUILT_MDP_LOCK = 682,
+
+	CMDQ_TOKEN_PREBUILT_MML_WAIT = 683,
+	CMDQ_TOKEN_PREBUILT_MML_SET = 684,
+	CMDQ_TOKEN_PREBUILT_MML_LOCK = 685,
+
+	CMDQ_TOKEN_PREBUILT_DISP_WAIT = 689,
+	CMDQ_TOKEN_PREBUILT_DISP_SET = 690,
+	CMDQ_TOKEN_PREBUILT_DISP_LOCK = 691,
 
 	/* GPR timer token, 994 to 1009 (for gpr r0 to r15) */
 	CMDQ_EVENT_GPR_TIMER = 994,
@@ -338,6 +361,12 @@ s32 cmdq_pkt_logic_command(struct cmdq_pkt *pkt, enum CMDQ_LOGIC_ENUM s_op,
 s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset);
 
 s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, dma_addr_t addr);
+
+s32 cmdq_pkt_cond_jump(struct cmdq_pkt *pkt,
+	u16 offset_reg_idx,
+	struct cmdq_operand *left_operand,
+	struct cmdq_operand *right_operand,
+	enum CMDQ_CONDITION_ENUM condition_operator);
 
 s32 cmdq_pkt_cond_jump_abs(struct cmdq_pkt *pkt,
 	u16 addr_reg_idx,

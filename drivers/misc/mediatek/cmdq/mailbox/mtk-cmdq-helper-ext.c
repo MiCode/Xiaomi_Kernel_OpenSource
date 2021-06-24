@@ -1752,6 +1752,20 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 		if (len >= ARRAY_SIZE(text_gpr))
 			cmdq_log("len:%d over text_gpr size:%d",
 				len, ARRAY_SIZE(text_gpr));
+	} else if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
+		inst->arg_a <= CMDQ_TOKEN_PREBUILT_DISP_LOCK) {
+		const u16 mod = (inst->arg_a - CMDQ_TOKEN_PREBUILT_MDP_WAIT) /
+			(CMDQ_TOKEN_PREBUILT_MML_WAIT -
+			CMDQ_TOKEN_PREBUILT_MDP_WAIT);
+		const u16 event = CMDQ_TOKEN_PREBUILT_MDP_WAIT + mod *
+			(CMDQ_TOKEN_PREBUILT_MML_WAIT -
+			CMDQ_TOKEN_PREBUILT_MDP_WAIT);
+
+		cmdq_util_user_msg(chan,
+				"CMDQ_PREBUILT: mod:%hu event %hu:%#x %#x %#x",
+			mod, event, cmdq_get_event(chan, event),
+			cmdq_get_event(chan, event + 1),
+			cmdq_get_event(chan, event + 2));
 	}
 
 	cmdq_util_user_msg(chan, "curr inst: %s value:%u%s",
@@ -1806,9 +1820,14 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
 #endif
 
-	if (inst && inst->op == CMDQ_CODE_WFE)
+	if (inst && inst->op == CMDQ_CODE_WFE) {
 		cmdq_print_wait_summary(client->chan, pc, inst);
-	else if (inst)
+
+		if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
+			inst->arg_a <= CMDQ_TOKEN_PREBUILT_DISP_LOCK)
+			cmdq_util_prebuilt_dump(
+				cmdq_util_get_hw_id(gce_pa), inst->arg_a);
+	} else if (inst)
 		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc,
 			"curr inst:", client->chan);
 	else
