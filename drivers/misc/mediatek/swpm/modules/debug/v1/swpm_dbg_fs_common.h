@@ -6,9 +6,7 @@
 #ifndef __SWPM_DBG_FS_COMMON_H__
 #define __SWPM_DBG_FS_COMMON_H__
 
-#if 0
-int swpm_dbg_init(void);
-int swpm_dbg_deinit(void);
-#endif
+#include <mtk_swpm_common_sysfs.h>
+#include <mtk_swpm_sysfs.h>
 
 #endif /* __SWPM_DBG_FS_COMMON_H__ */
