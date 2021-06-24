@@ -40,6 +40,7 @@ source "drivers/misc/mediatek/cam_timesync/Kconfig"
 source "drivers/misc/mediatek/camera_mem/Kconfig"
 source "drivers/misc/mediatek/vow/Kconfig"
 source "drivers/misc/mediatek/ccu/src/Kconfig"
+source "drivers/misc/mediatek/vdec_fmt/Kconfig"
 endmenu # MultiMedia, Display, Camera
 
 menu "Security"

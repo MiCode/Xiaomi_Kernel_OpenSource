@@ -33,6 +33,7 @@ obj-$(CONFIG_MTK_CAM_TIMESYNC) += cam_timesync/
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq/
 obj-$(CONFIG_MTK_MDP) += mdp/
 obj-$(CONFIG_MTK_JPEG) += jpeg/
+obj-$(CONFIG_MTK_VDEC_FMT) += vdec_fmt/
 obj-$(CONFIG_MTK_DVFSRC_HELPER) += dvfsrc/
 obj-$(CONFIG_MTK_V4L2_LENS) += lens/
 obj-$(CONFIG_MTK_LENS)      += lens/
