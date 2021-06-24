@@ -1167,9 +1167,8 @@ config SND_SOC_ZX_AUD96P22
 config SND_SOC_MT6660
 	tristate "Mediatek MT6660 speaker amplifier"
 	depends on I2C
-	select CRC32
-	select CRYPTO_SHA256
-	select CRYPTO_RSA
+	select RT_REGMAP
+	select SND_RICHTEK_SPM
 	help
 	  Config of MT6660. It is a Smart power
 	  amplifier which contain speaker protection,

@@ -242,7 +242,7 @@ snd-soc-rt5509-objs := rt5509.o rt5509-regmap.o rt5509-calib.o
 snd-soc-rt5512-objs := rt5512.o
 
 # Amp
-snd-soc-mt6660-objs := mt6660.o mt6660-regmap.o mt6660-param.o
+snd-soc-mt6660-objs := mt6660.o mt6660-regmap.o
 snd-soc-dio2125-objs := dio2125.o
 snd-soc-max9877-objs := max9877.o
 snd-soc-max98504-objs := max98504.o

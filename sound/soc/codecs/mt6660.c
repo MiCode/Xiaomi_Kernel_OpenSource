@@ -33,81 +33,9 @@ struct codec_reg_val {
 	u32 data;
 };
 
-static const struct codec_reg_val e1_reg_inits[] = {
-	{ MT6660_REG_WDT_CTRL, 0x80, 0x00 },
-	{ MT6660_REG_SPS_CTRL, 0x01, 0x00 },
-	{ MT6660_REG_HPF1_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_HPF2_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_SIG_GAIN, 0xff, 0x7b },
-	{ MT6660_REG_PWM_CTRL, 0x08, 0x00 },
-	{ MT6660_REG_TDM_CFG3, 0x400, 0x400 },
-	{ MT6660_REG_AUDIO_IN2_SEL, 0x1c, 0x04 },
-	{ MT6660_REG_RESV1, 0xc0, 0x00 },
-	{ MT6660_REG_RESV2, 0xe0, 0x20 },
-	{ MT6660_REG_RESV3, 0xc0, 0x80 },
-	{ MT6660_REG_RESV11, 0x0c, 0x00 },
-	{ MT6660_REG_RESV17, 0x7777, 0x7272 },
-	{ MT6660_REG_RESV19, 0x08, 0x08 },
-	{ MT6660_REG_RESV21, 0x8f, 0x0f },
-	{ MT6660_REG_RESV31, 0x03, 0x03 },
-	{ MT6660_REG_RESV40, 0x01, 0x00 },
-};
-
-static const struct codec_reg_val e2_reg_inits[] = {
-	{ MT6660_REG_WDT_CTRL, 0x80, 0x00 },
-	{ MT6660_REG_SPS_CTRL, 0x01, 0x01 },
-	{ MT6660_REG_AUDIO_IN2_SEL, 0x1c, 0x04 },
-	{ MT6660_REG_RESV11, 0x0c, 0x00 },
-	{ MT6660_REG_RESV31, 0x03, 0x03 },
-	{ MT6660_REG_RESV40, 0x01, 0x00 },
-	{ MT6660_REG_RESV0, 0x44, 0x04 },
-	{ MT6660_REG_RESV17, 0x7777, 0x7273 },
-	{ MT6660_REG_RESV16, 0x07, 0x03 },
-	{ MT6660_REG_DRE_CORASE, 0xe0, 0x20 },
-	{ MT6660_REG_ADDA_CLOCK, 0xff, 0x70 },
-	{ MT6660_REG_RESV21, 0xff, 0x20 },
-	{ MT6660_REG_DRE_THDMODE, 0xff, 0xa2 },
-	{ MT6660_REG_RESV23, 0xffff, 0x17f8 },
-	{ MT6660_REG_PWM_CTRL, 0xff, 0x04 },
-	{ MT6660_REG_INTERNAL_CFG, 0xff, 0x42 },
-	{ MT6660_REG_ADC_USB_MODE, 0xff, 0x00 },
-	{ MT6660_REG_PROTECTION_CFG, 0xff, 0x1d },
-	{ MT6660_REG_HPF1_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_HPF2_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_SIGMAX, 0xffff, 0x7fff },
-	{ MT6660_REG_DA_GAIN, 0xffff, 0x0116 },
-	{ MT6660_REG_SIG_GAIN, 0xff, 0x58 },
-	{ MT6660_REG_RESV6, 0xff, 0xce },
-};
-
-static const struct codec_reg_val e3_reg_inits[] = {
-	{ MT6660_REG_WDT_CTRL, 0x80, 0x00 },
-	{ MT6660_REG_SPS_CTRL, 0x01, 0x01 },
-	{ MT6660_REG_AUDIO_IN2_SEL, 0x1c, 0x04 },
-	{ MT6660_REG_RESV11, 0x0c, 0x00 },
-	{ MT6660_REG_RESV31, 0x03, 0x03 },
-	{ MT6660_REG_RESV40, 0x01, 0x00 },
-	{ MT6660_REG_RESV0, 0x44, 0x04 },
-	{ MT6660_REG_RESV17, 0x7777, 0x7273 },
-	{ MT6660_REG_RESV16, 0x07, 0x03 },
-	{ MT6660_REG_DRE_CORASE, 0xe0, 0x20 },
-	{ MT6660_REG_ADDA_CLOCK, 0xff, 0x70 },
-	{ MT6660_REG_RESV21, 0xff, 0x20 },
-	{ MT6660_REG_DRE_THDMODE, 0xff, 0xa2 },
-	{ MT6660_REG_RESV23, 0xffff, 0x17f8 },
-	{ MT6660_REG_PWM_CTRL, 0xff, 0x04 },
-	{ MT6660_REG_INTERNAL_CFG, 0xff, 0x42 },
-	{ MT6660_REG_ADC_USB_MODE, 0xff, 0x00 },
-	{ MT6660_REG_PROTECTION_CFG, 0xff, 0x1d },
-	{ MT6660_REG_HPF1_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_HPF2_COEF, 0xffffffff, 0x7fdb7ffe },
-	{ MT6660_REG_SIG_GAIN, 0xff, 0x58 },
-	{ MT6660_REG_RESV6, 0xff, 0xce },
-};
-
 static const struct codec_reg_val e4_reg_inits[] = {
 	{ MT6660_REG_WDT_CTRL, 0x80, 0x00 },
-	{ MT6660_REG_SPS_CTRL, 0x01, 0x01 },
+	{ MT6660_REG_SPS_CTRL, 0x01, 0x00 },
 	{ MT6660_REG_AUDIO_IN2_SEL, 0x1c, 0x04 },
 	{ MT6660_REG_RESV11, 0x0c, 0x00 },
 	{ MT6660_REG_RESV31, 0x03, 0x03 },
@@ -119,7 +47,7 @@ static const struct codec_reg_val e4_reg_inits[] = {
 	{ MT6660_REG_DRE_CORASE, 0xe0, 0x20 },
 	{ MT6660_REG_ADDA_CLOCK, 0xff, 0x70 },
 	{ MT6660_REG_RESV21, 0xff, 0x20 },
-	{ MT6660_REG_DRE_THDMODE, 0xff, 0xa2 },
+	{ MT6660_REG_DRE_THDMODE, 0xff, 0x40 },
 	{ MT6660_REG_RESV23, 0xffff, 0x17f8 },
 	{ MT6660_REG_PWM_CTRL, 0xff, 0x15 },
 	{ MT6660_REG_ADC_USB_MODE, 0xff, 0x00 },
@@ -128,6 +56,10 @@ static const struct codec_reg_val e4_reg_inits[] = {
 	{ MT6660_REG_HPF2_COEF, 0xffffffff, 0x7fdb7ffe },
 	{ MT6660_REG_SIG_GAIN, 0xff, 0x58 },
 	{ MT6660_REG_RESV6, 0xff, 0xce },
+	{ MT6660_REG_SIGMAX, 0xffff, 0x7fff },
+	{ MT6660_REG_DA_GAIN, 0xffff, 0x0116 },
+	{ MT6660_REG_TDM_CFG3, 0x1800, 0x0800 },
+	{ MT6660_REG_DRE_CTRL, 0x1f, 0x07 },
 };
 
 static unsigned int mt6660_codec_io_read(struct snd_soc_codec *codec,
@@ -276,23 +208,12 @@ level_change_skip:
 
 static int mt6660_codec_init_setting(struct snd_soc_codec *codec)
 {
-	struct mt6660_chip *chip = snd_soc_codec_get_drvdata(codec);
 	const struct codec_reg_val *init_table;
 	int i, len, ret = 0;
 
-	if (chip->chip_rev >= 0x01e2) {
-		init_table = e4_reg_inits;
-		len = ARRAY_SIZE(e4_reg_inits);
-	} else if (chip->chip_rev >= 0x00e2) {
-		init_table = e3_reg_inits;
-		len = ARRAY_SIZE(e3_reg_inits);
-	} else if (chip->chip_rev >= 0x00e1) {
-		init_table = e2_reg_inits;
-		len = ARRAY_SIZE(e2_reg_inits);
-	} else {
-		init_table = e1_reg_inits;
-		len = ARRAY_SIZE(e1_reg_inits);
-	}
+	init_table = e4_reg_inits;
+	len = ARRAY_SIZE(e4_reg_inits);
+
 	for (i = 0; i < len; i++) {
 		ret = snd_soc_update_bits(codec, init_table[i].addr,
 				init_table[i].mask, init_table[i].data);
@@ -301,64 +222,6 @@ static int mt6660_codec_init_setting(struct snd_soc_codec *codec)
 	}
 	return 0;
 }
-
-static int mt6660_codec_register_param_device(struct mt6660_chip *chip)
-{
-	chip->param_dev =  platform_device_register_data(chip->dev,
-				"mt6660-param", chip->dev_cnt, NULL, 0);
-	if (!chip->param_dev)
-		return -EINVAL;
-	return 0;
-}
-
-static void mt6660_codec_unregister_param_device(struct mt6660_chip *chip)
-{
-	platform_device_unregister(chip->param_dev);
-}
-
-int mt6660_codec_trigger_param_write(struct mt6660_chip *chip,
-				     void *param, int size)
-{
-	struct snd_soc_codec *codec = chip->codec;
-	u8 *data = (u8 *)param;
-	int i = 0, ret = 0;
-
-	dev_dbg(codec->dev, "%s: ++\n", __func__);
-	mutex_lock(&chip->var_lock);
-	ret = chip->pwr_cnt;
-	mutex_unlock(&chip->var_lock);
-	if (ret) {
-		dev_err(codec->dev, "pwr is not at off state\n");
-		return -EINVAL;
-	}
-	ret = mt6660_chip_power_on(codec, 1);
-	if (ret < 0)
-		dev_err(codec->dev, "%s: power on fail\n", __func__);
-	dev_info(codec->dev, "writing proprietary param\n");
-	while (i < size) {
-		dev_dbg(codec->dev, "[%02x] [%02x] -> [%02x]\n",
-			data[i], data[i + 1], *(data + i + 2));
-#ifdef CONFIG_RT_REGMAP
-		ret = rt_regmap_block_write(chip->regmap, data[i],
-					    data[i + 1], data + i + 2);
-#else
-		ret = i2c_smbus_write_i2c_block_data(chip->i2c, data[i],
-						     data[i + 1], data + i + 2);
-#endif /* CONFIG_RT_REGMAP */
-		if (ret <  0) {
-			dev_err(codec->dev,
-				"reg[0x%02x] write fail\n", data[i]);
-			break;
-		}
-		i += (data[i + 1] + 2);
-	}
-	ret = mt6660_chip_power_on(codec, 0);
-	if (ret < 0)
-		dev_err(codec->dev, "%s: power off fail\n", __func__);
-	dev_dbg(codec->dev, "%s: --\n", __func__);
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt6660_codec_trigger_param_write);
 
 static int mt6660_codec_probe(struct snd_soc_codec *codec)
 {
@@ -381,12 +244,16 @@ static int mt6660_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "config bias off fail\n");
 		return ret;
 	}
-	ret = mt6660_codec_register_param_device(chip);
+	chip->codec = codec;
+
+	chip->spm.max_pwr = 5100;
+	chip->spm.min_pwr = 4000;
+	ret = richtek_spm_classdev_register(codec->dev, &chip->spm);
 	if (ret < 0) {
-		dev_err(codec->dev, "create param device fail\n");
+		dev_err(codec->dev, "spm class register faled\n");
 		return ret;
 	}
-	chip->codec = codec;
+
 	dev_info(codec->dev, "%s--\n", __func__);
 	return 0;
 }
@@ -397,7 +264,7 @@ static int mt6660_codec_remove(struct snd_soc_codec *codec)
 
 	dev_dbg(codec->dev, "%s++\n", __func__);
 	chip->codec = NULL;
-	mt6660_codec_unregister_param_device(chip);
+	richtek_spm_classdev_unregister(&chip->spm);
 	dev_dbg(codec->dev, "%s--\n", __func__);
 	return 0;
 }
@@ -417,6 +284,7 @@ static int mt6660_codec_classd_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct mt6660_chip *chip = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
 	switch (event) {
@@ -437,8 +305,13 @@ static int mt6660_codec_classd_event(struct snd_soc_dapm_widget *w,
 			dev_err(codec->dev, "enable voltage sensing fail\n");
 			return ret;
 		}
+		dev_info(codec->dev, "mt6660 amp on\n");
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		dev_info(codec->dev, "mt6660 amp off\n");
+		ret = richtek_spm_classdev_trigger_ampoff(&chip->spm);
+		if (ret < 0)
+			dev_err(codec->dev, "spm ampoff faled\n");
 		/* voltage sensing disable */
 		ret = snd_soc_update_bits(codec, MT6660_REG_RESV7, 0x04, 0x00);
 		if (ret < 0) {
@@ -860,7 +733,7 @@ module_exit(mt6660_driver_exit);
 MODULE_AUTHOR("CY_Huang <cy_huang@richtek.com>");
 MODULE_DESCRIPTION("MT6660 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.0.4_G");
+MODULE_VERSION("1.0.5_G");
 
 /*
  * Driver Version
@@ -873,4 +746,7 @@ MODULE_VERSION("1.0.4_G");
  *	clear irq when BIAS OFF
  * 1.0.4_G
  *	update id check function and init setting
+ * 1.0.5_G
+ *	remove old init setting table
+ *	add big data function, use richtek_spm_cls
  */
