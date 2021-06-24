@@ -27,8 +27,7 @@
 
 #include "mtk_imgsys-data.h"
 
-#define NOT_FPGA
-#define CLK_READY
+/* #define CLK_READY */
 
 static int mtk_imgsys_sd_subscribe_event(struct v4l2_subdev *subdev,
 				      struct v4l2_fh *fh,
