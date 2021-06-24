@@ -131,7 +131,6 @@ static int get_vb_volt(int vcore_opp)
 
 static int is_rising_need(void)
 {
-#if 0
 	int idx;
 	int ptpod = get_devinfo_with_index(69);
 
@@ -140,7 +139,7 @@ static int is_rising_need(void)
 	idx = ptpod & 0xF;
 	if (idx == 1 || idx == 2)
 		return idx;
-#endif
+
 	return 0;
 }
 
