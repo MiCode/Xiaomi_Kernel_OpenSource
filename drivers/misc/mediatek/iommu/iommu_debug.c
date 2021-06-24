@@ -2350,7 +2350,7 @@ struct iova_map_list {
 };
 
 static struct iova_map_list map_list = {.init_flag = ATOMIC_INIT(0)};
-
+static bool g_debug_log = 1;
 void mtk_iova_map(u64 iova, size_t size)
 {
 	u32 id = (iova >> 32);
@@ -2374,8 +2374,11 @@ void mtk_iova_map(u64 iova, size_t size)
 	iova_buf->time_low = do_div(iova_buf->time_high, 1000000);
 	iova_buf->iova = iova;
 	iova_buf->size = size;
+
 	spin_lock_irqsave(&map_list.lock, flags);
-	list_add(&iova_buf->list_node, &map_list.head[id]);
+	// TODO: add for mdp tf, need remove
+	if (iova > 0x200000000 && iova < 0x300000000)
+		list_add(&iova_buf->list_node, &map_list.head[id]);
 	spin_unlock_irqrestore(&map_list.lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_iova_map);
@@ -2391,6 +2394,7 @@ void mtk_iova_unmap(u64 iova, size_t size)
 
 	spin_lock_irqsave(&map_list.lock, flags);
 	start_t = sched_clock();
+
 	list_for_each_entry_safe(plist, tmp_plist,
 				 &map_list.head[id], list_node) {
 		if (plist->iova >= iova &&
@@ -2688,6 +2692,10 @@ static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 			__func__, dev_name(dev), size);
 		return mtk_iova_dbg_dump(dev);
 	}
+	// TODO: add for mdp tf, need remove
+	if (g_debug_log && iova > 0x200000000 && iova < 0x300000000)
+		pr_info("iommu alloc iova:0x%llx, 0x%zx, end:0x%llx, dev:%s\n",
+			iova, size, iova + size - 1, dev_name(dev));
 
 	if (!atomic_cmpxchg(&iova_list.init_flag, 0, 1)) {
 		/* pr_info("iommu debug info init\n"); */
@@ -2722,6 +2730,9 @@ static void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
 		}
 	}
 	spin_unlock(&iova_list.lock);
+	// TODO: add for mdp tf, need remove
+	if (g_debug_log && iova > 0x200000000 && iova < 0x300000000)
+		pr_info("iommu free iova:0x%llx, 0x%zx\n", iova, size);
 }
 
 /* all code inside alloc_iova_hook can't be scheduled! */
