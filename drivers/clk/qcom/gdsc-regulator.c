@@ -44,7 +44,7 @@
 #define REG_OFFSET		0x0
 
 /* Timeout Delay */
-#define TIMEOUT_US		100
+#define TIMEOUT_US		500
 
 struct collapse_vote {
 	struct regmap	*regmap;
@@ -382,7 +382,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 			 * right after it was disabled does not put it in a
 			 * weird state.
 			 */
-			udelay(TIMEOUT_US);
+			udelay(100);
 		} else {
 			ret = poll_gdsc_status(sc, DISABLED);
 			if (ret) {
