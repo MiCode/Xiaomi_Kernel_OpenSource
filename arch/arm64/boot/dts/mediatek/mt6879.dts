@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/power/mt6879-power.h>
+#include <dt-bindings/memory/mt6879-larb-port.h>
 
 / {
 	model = "MT6879";
@@ -1062,6 +1063,180 @@
 		compatible = "mediatek,mt6879-mdpsys", "syscon";
 		reg = <0 0x1f000000 0 0x1000>;
 		#clock-cells = <1>;
+	};
+
+	mtk_iommu_debug {
+			compatible = "mediatek,mt6879-iommu-debug";
+	};
+
+	disp_iommu_bank1: iommu@1e803000 {
+			compatible = "mediatek,common-disp-iommu-bank1";
+		  mediatek,bank-id = <1>;
+			reg = <0 0x1e803000 0 0x1000>;
+			interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	disp_iommu_bank2: iommu@1e804000 {
+			compatible = "mediatek,common-disp-iommu-bank2";
+			mediatek,bank-id = <2>;
+			reg = <0 0x1e804000 0 0x1000>;
+			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	disp_iommu_bank3: iommu@1e805000 {
+			compatible = "mediatek,common-disp-iommu-bank3";
+			mediatek,bank-id = <3>;
+			reg = <0 0x1e805000 0 0x1000>;
+			interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	disp_iommu_bank4: iommu@1e806000 {
+			compatible = "mediatek,common-disp-iommu-bank4";
+			mediatek,bank-id = <4>;
+			reg = <0 0x1e806000 0 0x1000>;
+			interrupts = <GIC_SPI 427 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	disp_iommu: iommu@1e802000 {
+			compatible = "mediatek,mt6879-disp-iommu";
+			reg = <0 0x1e802000 0 0x1000>;
+			mediatek,iommu_banks = <&disp_iommu_bank1 &disp_iommu_bank2
+						&disp_iommu_bank3 &disp_iommu_bank4>;
+			interrupts = <GIC_SPI 423 IRQ_TYPE_LEVEL_HIGH 0>;
+			#iommu-cells = <1>;
+	};
+
+	peri_iommu_m4_bank1: iommu@10331000 {
+			compatible = "mediatek,common-peri-iommu-m4-bank1";
+			mediatek,bank-id = <1>;
+			reg = <0 0x10331000 0 0x1000>;
+	};
+
+	peri_iommu_m4_bank2: iommu@10332000 {
+			compatible = "mediatek,common-peri-iommu-m4-bank2";
+			mediatek,bank-id = <2>;
+			reg = <0 0x10332000 0 0x1000>;
+	};
+
+	peri_iommu_m4_bank3: iommu@10333000 {
+			compatible = "mediatek,common-peri-iommu-m4-bank3";
+			mediatek,bank-id = <3>;
+			reg = <0 0x10333000 0 0x1000>;
+	};
+
+	peri_iommu_m4_bank4: iommu@10334000 {
+			compatible = "mediatek,common-peri-iommu-m4-bank4";
+			mediatek,bank-id = <4>;
+			reg = <0 0x10334000 0 0x1000>;
+	};
+
+	peri_iommu_m4: iommu@10330000 {
+			compatible = "mediatek,mt6879-peri-iommu-m4";
+			reg = <0 0x10330000 0 0x1000>;
+			mediatek,iommu_banks = <&peri_iommu_m4_bank1 &peri_iommu_m4_bank2
+						&peri_iommu_m4_bank3 &peri_iommu_m4_bank4>;
+			#iommu-cells = <1>;
+	};
+
+	peri_iommu_m6_bank1: iommu@10336000 {
+			compatible = "mediatek,common-peri-iommu-m6-bank1";
+			mediatek,bank-id = <1>;
+			reg = <0 0x10336000 0 0x1000>;
+	};
+
+	peri_iommu_m6_bank2: iommu@10337000 {
+			compatible = "mediatek,common-peri-iommu-m6-bank2";
+			mediatek,bank-id = <2>;
+			reg = <0 0x10337000 0 0x1000>;
+	};
+
+	peri_iommu_m6_bank3: iommu@10338000 {
+			compatible = "mediatek,common-peri-iommu-m6-bank3";
+			mediatek,bank-id = <3>;
+			reg = <0 0x10338000 0 0x1000>;
+	};
+
+	peri_iommu_m6_bank4: iommu@10339000 {
+			compatible = "mediatek,common-peri-iommu-m6-bank4";
+			mediatek,bank-id = <4>;
+			reg = <0 0x10339000 0 0x1000>;
+	};
+
+	peri_iommu_m6: iommu@10335000 {
+			compatible = "mediatek,mt6879-peri-iommu-m6";
+			reg = <0 0x10335000 0 0x1000>;
+			mediatek,iommu_banks = <&peri_iommu_m6_bank1 &peri_iommu_m6_bank2
+						&peri_iommu_m6_bank3 &peri_iommu_m6_bank4>;
+			#iommu-cells = <1>;
+	};
+
+	peri_iommu_m7_bank1: iommu@1033b000 {
+			compatible = "mediatek,common-peri-iommu-m7-bank1";
+			mediatek,bank-id = <1>;
+			reg = <0 0x1033b000 0 0x1000>;
+	};
+
+	peri_iommu_m7_bank2: iommu@1033c000 {
+			compatible = "mediatek,common-peri-iommu-m7-bank2";
+			mediatek,bank-id = <2>;
+			reg = <0 0x1033c000 0 0x1000>;
+	};
+
+	peri_iommu_m7_bank3: iommu@1033d000 {
+			compatible = "mediatek,common-peri-iommu-m7-bank3";
+			mediatek,bank-id = <3>;
+			reg = <0 0x1033d000 0 0x1000>;
+	};
+
+	peri_iommu_m7_bank4: iommu@1033e000 {
+			compatible = "mediatek,common-peri-iommu-m7-bank4";
+			mediatek,bank-id = <4>;
+			reg = <0 0x1033e000 0 0x1000>;
+	};
+
+	peri_iommu_m7: iommu@1033a000 {
+			compatible = "mediatek,mt6879-peri-iommu-m7";
+			reg = <0 0x1033a000 0 0x1000>;
+			mediatek,iommu_banks = <&peri_iommu_m7_bank1 &peri_iommu_m7_bank2
+						&peri_iommu_m7_bank3 &peri_iommu_m7_bank4>;
+			#iommu-cells = <1>;
+	};
+
+	apu_iommu0_bank1: iommu@19011000 {
+			compatible = "mediatek,common-apu-iommu0-bank1";
+			mediatek,bank-id = <1>;
+			reg = <0 0x19011000 0 0x1000>;
+			interrupts = <GIC_SPI 580 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	apu_iommu0_bank2: iommu@19012000 {
+			compatible = "mediatek,common-apu-iommu0-bank2";
+			mediatek,bank-id = <2>;
+			reg = <0 0x19012000 0 0x1000>;
+			interrupts = <GIC_SPI 581 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	apu_iommu0_bank3: iommu@19013000 {
+			compatible = "mediatek,common-apu-iommu0-bank3";
+			mediatek,bank-id = <3>;
+			reg = <0 0x19013000 0 0x1000>;
+			interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	apu_iommu0_bank4: iommu@19014000 {
+			compatible = "mediatek,common-apu-iommu0-bank4";
+			mediatek,bank-id = <4>;
+			reg = <0 0x19014000 0 0x1000>;
+			interrupts = <GIC_SPI 583 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	apu_iommu0: iommu@19010000 {
+			compatible = "mediatek,mt6879-apu-iommu0";
+			reg = <0 0x19010000 0 0x1000>;
+			mediatek,iommu_banks = <&apu_iommu0_bank1 &apu_iommu0_bank2
+						&apu_iommu0_bank3 &apu_iommu0_bank4>;
+			interrupts = <GIC_SPI 579 IRQ_TYPE_LEVEL_HIGH 0>;
+			#iommu-cells = <1>;
 	};
 };
 
