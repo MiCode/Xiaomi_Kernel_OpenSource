@@ -17,6 +17,7 @@
 /* #define SPOWER_NOT_READY 1 */
 
 /* #define WITHOUT_LKG_EFUSE */
+#define PRECISE_NODE
 
 /* mv */
 #define V_OF_FUSE_CPU	950
