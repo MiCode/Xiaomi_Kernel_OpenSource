@@ -597,6 +597,8 @@ int mtk_rollback_resize_layer_to_GPU_range(
 		    (lc->src_width != lc->dst_width)) {
 			if (mtk_has_layer_cap(lc, MTK_MDP_RSZ_LAYER))
 				continue;
+			if (mtk_has_layer_cap(lc, MTK_MML_OVL_LAYER))
+				continue;
 
 			if (disp_info->gles_head[disp_idx] == -1 ||
 			    disp_info->gles_head[disp_idx] > i)
@@ -2449,6 +2451,52 @@ static unsigned int resizing_rule(struct drm_device *dev,
 	return scale_num;
 }
 
+static enum MTK_LAYERING_CAPS query_MML(struct mtk_drm_private *priv)
+{
+	if (!priv || !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY))
+		return MTK_MML_DISP_NOT_SUPPORT;
+
+	return MTK_MML_DISP_DECOUPLE_LAYER;
+}
+
+static void check_is_mml_layer(const int disp_idx,
+	struct drm_mtk_layering_info *disp_info, struct drm_device *dev)
+{
+	int i = 0;
+	struct drm_mtk_layer_config *c = NULL;
+
+	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
+		c = & disp_info->input_config[disp_idx][i];
+		if (MTK_MML_OVL_LAYER & c->layer_caps) {
+			c->layer_caps |= query_MML(dev->dev_private);
+			if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps ||
+				MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
+				// if layer can use MML direct link or inline rotate handle,
+				// we don't use DISP RSZ
+				c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
+			} else if (MTK_MML_DISP_NOT_SUPPORT & c->layer_caps) {
+				if (disp_info->gles_head[disp_idx] == -1 ||
+					disp_info->gles_head[disp_idx] > i)
+					disp_info->gles_head[disp_idx] = i;
+				if (disp_info->gles_tail[disp_idx] == -1 ||
+					disp_info->gles_tail[disp_idx] < i)
+					disp_info->gles_tail[disp_idx] = i;
+			}
+		}
+	}
+
+	if (disp_info->gles_head[disp_idx] != -1) {
+		for (i = disp_info->gles_head[disp_idx];
+		     i <= disp_info->gles_tail[disp_idx]; i++) {
+			c = &disp_info->input_config[disp_idx][i];
+			c->ext_sel_layer = -1;
+			if (MTK_MML_OVL_LAYER & c->layer_caps) {
+				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+			}
+		}
+	}
+}
+
 static unsigned int get_scn_decision_flag(
 	struct drm_mtk_layering_info *disp_info)
 {
@@ -2591,6 +2639,11 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 			HRT_SECONDARY);
 		mtk_rollback_all_resize_layer_to_GPU(&layering_info,
 			HRT_THIRD);
+	}
+
+	/* Check can do MML or not */
+	if (layering_info.layer_num[HRT_PRIMARY] > 0) {
+		check_is_mml_layer(disp_idx, &layering_info, dev);
 	}
 
 	/* fbdc_rule should be after resizing_rule

@@ -56,6 +56,7 @@
 #endif
 //#include "swpm_me.h"
 //#include "include/pmic_api_buck.h"
+#include <../drivers/gpu/drm/mediatek/mml/mtk-mml.h>
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -2276,6 +2277,11 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 			caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_MSYNC2_0;
 	}
+
+	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_MML_PRIMARY))
+		caps_info->disp_feature_flag |=
+				DRM_DISP_FEATURE_MML_PRIMARY;
+
 	return ret;
 }
 
@@ -2852,6 +2858,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_HDMI_GET_CAPABILITY, mtk_drm_dp_get_cap,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 #endif
+	DRM_IOCTL_DEF_DRV(MTK_MML_GEM_SUBMIT, mtk_drm_ioctl_mml_gem_submit,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 };
 
 static const struct file_operations mtk_drm_fops = {

@@ -22,6 +22,11 @@
 #include "mtk_iommu_ext.h"
 #endif
 
+#include "../mml/mtk-mml.h"
+#include "../mml/mtk-mml-drm-adaptor.h"
+#include "../mml/mtk-mml-driver.h"
+#include <linux/of_platform.h>
+
 static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 						unsigned long size)
 {
@@ -633,4 +638,86 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 
 	return 0;
 }
+
+int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv)
+{
+	int ret = 0;
+	int i = 0;
+	struct mml_submit *submit_user = (struct mml_submit *)data;
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct platform_device *plat_dev = NULL;
+	struct platform_device *mml_pdev = NULL;// = mml_get_plat_device(pdev);
+	struct mml_drm_ctx *mml_ctx = NULL;// = mml_drm_get_context(mml_pdev);
+	struct mml_submit* submit_kernel;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY)) {
+		return -EINVAL;
+	}
+
+	submit_kernel = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
+	memcpy(submit_kernel, submit_user, sizeof(struct mml_submit));
+	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
+
+	if (submit_user->job) {
+		copy_from_user(submit_kernel->job, submit_user->job, sizeof(struct mml_job));
+	} else {
+		DDPMSG("mtk_drm_ioctl_mml_gem_submit submit_user->job is null\n");
+	}
+
+	for (i = 0; i < MML_MAX_OUTPUTS; i++)
+	{
+		if (submit_user->pq_param[i]) {
+			submit_kernel->pq_param[i] = kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
+			copy_from_user(submit_kernel->pq_param[i], submit_user->pq_param[i],
+				sizeof(struct mml_pq_param));
+			//copy_from_user(submit_kernel->pq_param[i]->gralloc_extra_handle,
+			//	submit_user->pq_param[i]->gralloc_extra_handle, sizeof(void *));
+		} else {
+			DDPMSG("mtk_drm_ioctl_mml_gem_submit submit_user->pq_param[i] is null\n");
+		}
+	}
+
+	plat_dev = of_find_device_by_node(priv->mutex_node);
+	if (!plat_dev)
+	{
+		DDPMSG("mtk_drm_ioctl_mml_gem_submit of_find_device_by_node open fail \n");
+		return ret;
+	}
+
+	mml_pdev = mml_get_plat_device(plat_dev);
+	if (!mml_pdev)
+	{
+		DDPMSG("mtk_drm_ioctl_mml_gem_submit mml_get_plat_device open fail \n");
+		return ret;
+	}
+
+	mml_ctx = mml_drm_get_context(mml_pdev);
+	if (mml_ctx <= 0) {
+		DDPMSG("mml_drm_get_context fail. mml_ctx:%p\n", mml_ctx);
+	}
+
+	if (mml_ctx > 0) {
+		ret = mml_drm_submit(mml_ctx, submit_kernel);
+		if (ret) {
+			DDPMSG("submit failed: %d\n", ret);
+		}
+	}
+
+	if (submit_user && submit_user->job) {
+		copy_to_user(submit_user->job, submit_kernel->job, sizeof(struct mml_job));
+	}
+
+	for (i = 0; i < MML_MAX_OUTPUTS; i++)
+	{
+		if (submit_user->pq_param[i]) {
+			kfree(submit_kernel->pq_param[i]);
+		}
+	}
+	kfree(submit_kernel->job);
+	kfree(submit_kernel);
+
+	return ret;
+}
+
 

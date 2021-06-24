@@ -83,4 +83,6 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 					      size_t size, phys_addr_t fb_base,
 					      unsigned int vramsize);
 void mtk_drm_fb_gem_release(struct drm_device *dev);
+int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv);
 #endif

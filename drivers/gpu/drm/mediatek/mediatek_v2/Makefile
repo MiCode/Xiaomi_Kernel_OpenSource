@@ -84,6 +84,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/        \
              -I$(srctree)/drivers/misc/mediatek/iommu/		\
              -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/        \
+             -I$(srctree)/drivers/gpu/drm/mediatek \
 
 ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
 

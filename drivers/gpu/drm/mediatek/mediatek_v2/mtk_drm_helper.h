@@ -58,6 +58,8 @@ enum MTK_DRM_HELPER_OPT {
 	MTK_DRM_OPT_PRIM_DUAL_PIPE,
 	/*Msync2.0*/
 	MTK_DRM_OPT_MSYNC2_0,
+	/* MML primary display */
+	MTK_DRM_OPT_MML_PRIMARY,
 	MTK_DRM_OPT_NUM
 };
 

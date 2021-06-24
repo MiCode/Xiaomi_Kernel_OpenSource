@@ -70,6 +70,8 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_PRIM_DUAL_PIPE, 0, "MTK_DRM_OPT_PRIM_DUAL_PIPE"},
 	/*Msync2.0*/
 	{MTK_DRM_OPT_MSYNC2_0, 0, "MTK_DRM_OPT_MSYNC2_0"},
+	/* MML Primary */
+	{MTK_DRM_OPT_MML_PRIMARY, 0, "MTK_DRM_OPT_MML_PRIMARY"},
 };
 
 static const char *mtk_drm_helper_opt_spy(struct mtk_drm_helper *helper_opt,
