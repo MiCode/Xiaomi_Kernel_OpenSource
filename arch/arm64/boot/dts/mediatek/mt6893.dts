@@ -974,6 +974,14 @@
 		};
 	};
 
+	usb_boos: usb_boost_manager {
+		compatible = "mediatek,usb_boost";
+		boost_period = <30>;
+		interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>;
+		interconnect-names = "icc-bw";
+		required-opps = <&dvfsrc_freq_opp0>;
+	};
+
 	pd_adapter: pd_adapter {
 		compatible = "mediatek,pd_adapter";
 		adapter_name = "pd_adapter";
