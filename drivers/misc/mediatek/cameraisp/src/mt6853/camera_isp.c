@@ -8073,16 +8073,48 @@ static int __init ISP_Init(void)
 
 	SV_SetPMQOS(E_CLK_ADD, ISP_IRQ_TYPE_INT_CAMSV_START_ST, NULL);
 
+	/* for IMGO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_IMGO_R1_A,
+		isp_m4u_fault_callback,
+		NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_IMGO_R1_B,
+		isp_m4u_fault_callback,
+		NULL);
+	/* for YUVO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_YUVO_R1_A,
+		isp_m4u_fault_callback,
+		NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_YUVO_R1_B,
+		isp_m4u_fault_callback,
+		NULL);
 	/* for CRZO debug usage */
 	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_CRZO_R1_A,
-			isp_m4u_fault_callback,
-			NULL);
+		isp_m4u_fault_callback,
+		NULL);
 	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_CRZO_R1_B,
-			isp_m4u_fault_callback,
-			NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L18_CAM_CRZO_R1_C,
-			isp_m4u_fault_callback,
-			NULL);
+		isp_m4u_fault_callback,
+		NULL);
+	/* for AFO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_AFO_R1_A,
+		isp_m4u_fault_callback,
+		NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_AFO_R1_B,
+		isp_m4u_fault_callback,
+		NULL);
+	/* for FLKO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_FLKO_R1_A,
+		isp_m4u_fault_callback,
+		NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_FLKO_R1_B,
+		isp_m4u_fault_callback,
+		NULL);
+	/* for CQI debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_CQI_R1_A,
+		isp_m4u_fault_callback,
+		NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_CQI_R1_B,
+		isp_m4u_fault_callback,
+		NULL);
 
 	LOG_DBG("- E. Ret: %d.", Ret);
 	return Ret;
