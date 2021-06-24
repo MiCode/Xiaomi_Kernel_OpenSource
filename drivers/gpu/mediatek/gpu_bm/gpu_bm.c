@@ -124,7 +124,7 @@ static void setupfw_work_handler(struct work_struct *work)
 		pr_debug("%s: sspm_ipi success! (%d)\n", __func__, ret);
 	} else {
 		pr_debug("%s: sspm_ipi fail (%d)\n", __func__, ret);
-		schedule_delayed_work(&g_setupfw_work, 5 * HZ);
+		//schedule_delayed_work(&g_setupfw_work, 5 * HZ);
 	}
 #else
 	pr_debug("%s: sspm_ipi is not support!\n", __func__);
