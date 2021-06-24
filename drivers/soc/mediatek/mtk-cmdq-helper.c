@@ -1139,7 +1139,8 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 
 	/* read current buffer pa as end mark and fill preview assign */
 	inst = cmdq_pkt_get_va_by_offset(pkt, end_addr_mark);
-	*inst |= CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_curr_buf_pa(pkt));
+	if (inst)
+		*inst |= CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_curr_buf_pa(pkt));
 
 	lop.reg = true;
 	lop.idx = CMDQ_CPR_TPR_MASK;
