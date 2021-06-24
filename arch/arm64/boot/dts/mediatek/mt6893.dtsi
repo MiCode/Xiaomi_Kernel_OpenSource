@@ -763,6 +763,14 @@
 			alloc-ranges = <0 0x80000000 0 0xc0000000>;
 		};
 
+		ssheap_cma_mem: ssheap-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x200000>;
+			alloc-ranges = <0 0x80000000 0 0xc0000000>;
+		};
+
 		gps_mem: gps-reserve-memory {
 			compatible = "mediatek,gps-reserve-memory";
 			no-map;
@@ -802,6 +810,11 @@
 	ssmr {
 		compatible = "mediatek,trusted_mem";
 		memory-region = <&ssmr_cma_mem>;
+	};
+
+	ssheap {
+		compatible = "mediatek,trusted_mem_ssheap";
+		memory-region = <&ssheap_cma_mem>;
 	};
 
 	timer: timer {
