@@ -1988,21 +1988,6 @@
 		reg = <0 0x1024c000 0 0x1000>;
 	};
 
-	md_ccif4@1024d000 {
-		compatible = "mediatek,md_ccif4";
-		reg = <0 0x1024d000 0 0x1000>;
-	};
-
-	md_ccif4@1024e000 {
-		compatible = "mediatek,md_ccif4";
-		reg = <0 0x1024e000 0 0x1000>;
-	};
-
-	md_ccif5@1024e000 {
-		compatible = "mediatek,md_ccif5";
-		reg = <0 0x1024e000 0 0x2000>;
-	};
-
 	dramc_ch1_top0@10250000 {
 		compatible = "mediatek,dramc_ch1_top0";
 		reg = <0 0x10250000 0 0x2000>;
@@ -2041,11 +2026,6 @@
 	ap_ccif5@1025c000 {
 		compatible = "mediatek,ap_ccif5";
 		reg = <0 0x1025c000 0 0x1000>;
-	};
-
-	md_ccif5@1025d000 {
-		compatible = "mediatek,md_ccif5";
-		reg = <0 0x1025d000 0 0x1000>;
 	};
 
 	mm_vpu_m0_sub_common@1025e000 {
