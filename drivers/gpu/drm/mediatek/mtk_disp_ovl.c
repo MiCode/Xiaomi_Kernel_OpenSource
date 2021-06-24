@@ -1052,7 +1052,7 @@ static u32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 	static bool inited;
 
 	if (out < 0) {
-		DDPPR_ERR("%s: Invalid ovl colorspace in:%d\n", __func__, out);
+		DDPPR_ERR("%s: Invalid ovl colorspace out:%d\n", __func__, out);
 		out = 0;
 	}
 
