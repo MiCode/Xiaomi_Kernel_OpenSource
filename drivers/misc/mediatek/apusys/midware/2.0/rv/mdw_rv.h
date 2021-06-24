@@ -10,8 +10,9 @@
 #include "mdw_msg.h"
 
 struct mdw_rv_dev {
-	struct mdw_ipi_msg msg; // buffer for communication with up
-	struct mdw_ipi_msg tmp_msg;
+	struct rpmsg_device *rpdev;
+	struct rpmsg_endpoint *ept;
+	struct mdw_device *mdev;
 
 	struct mdw_ipi_param param;
 
@@ -27,6 +28,7 @@ struct mdw_rv_dev {
 	uint32_t rv_version;
 	uint64_t dev_bitmask;
 	uint8_t dev_num[MDW_DEV_MAX];
+	uint8_t meta_data[MDW_DEV_MAX][MDW_DEV_META_SIZE];
 };
 
 struct mdw_rv_cmd {
@@ -74,8 +76,8 @@ struct mdw_rv_cmdbuf_v2 {
 	uint32_t size;
 } __attribute__((__packed__));
 
-int mdw_rv_dev_init(void);
-void mdw_rv_dev_deinit(void);
+int mdw_rv_dev_init(struct mdw_device *mdev);
+void mdw_rv_dev_deinit(struct mdw_device *mdev);
 struct mdw_rv_dev *mdw_rv_dev_get(void);
 int mdw_rv_dev_handshake(void);
 int mdw_rv_dev_run_cmd(struct mdw_rv_cmd *rc);
@@ -85,6 +87,6 @@ int mdw_rv_dev_set_param(uint32_t idx, uint32_t val);
 uint32_t mdw_rv_dev_get_param(uint32_t idx);
 
 int mdw_rv_cmd_exec(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
-int mdw_rv_cmd_wait(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
+void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret);
 
 #endif

@@ -99,24 +99,28 @@ int mdw_sysfs_init(struct mdw_device *mdev)
 
 	g_sched_plcy_show = 0;
 
-	/* create /sys/devices/platform/apusys/device/xxx */
-	ret = sysfs_create_group(&mdev->pdev->dev.kobj,
+	/* create /sys/class/misc/apusys/device/xxx */
+	ret = sysfs_create_group(&mdev->misc_dev.this_device->kobj,
 		&mdw_devinfo_attr_group);
 	if (ret)
 		mdw_drv_err("create mdw devinfo attr fail, ret %d\n", ret);
-	ret = sysfs_create_group(&mdev->pdev->dev.kobj,
+	ret = sysfs_create_group(&mdev->misc_dev.this_device->kobj,
 		&mdw_sched_attr_group);
 	if (ret)
 		mdw_drv_err("create mdw sched attr fail, ret %d\n", ret);
-
-	ret = sysfs_create_group(&mdev->pdev->dev.kobj,
+	ret = sysfs_create_group(&mdev->misc_dev.this_device->kobj,
 		&mdw_mem_attr_group);
 	if (ret)
 		mdw_drv_err("create mdw mem attr fail, ret %d\n", ret);
+
 	return ret;
 }
 
 void mdw_sysfs_deinit(struct mdw_device *mdev)
 {
-	sysfs_remove_group(&mdev->pdev->dev.kobj, &mdw_devinfo_attr_group);
+	struct device *dev = mdev->misc_dev.this_device;
+
+	sysfs_remove_group(&dev->kobj, &mdw_mem_attr_group);
+	sysfs_remove_group(&dev->kobj, &mdw_sched_attr_group);
+	sysfs_remove_group(&dev->kobj, &mdw_devinfo_attr_group);
 }

@@ -24,7 +24,7 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 		args->out.basic.meta_size = MDW_DEV_META_SIZE;
 		args->out.basic.vlm_start = mdev->vlm_start;
 		args->out.basic.vlm_size = mdev->vlm_size;
-		mdw_drv_debug("version(%u) dev mask(0x%llx)\n",
+		mdw_flw_debug("version(%u) dev mask(0x%llx)\n",
 			args->out.basic.version, args->out.basic.dev_bitmask);
 		break;
 
@@ -45,7 +45,7 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 		args->out.dev.num = mdev->dinfos[type]->num;
 		memcpy(args->out.dev.meta, mdev->dinfos[type]->meta,
 			sizeof(args->out.dev.meta));
-		mdw_drv_debug("dev(%u) num(%u) meta(%s)\n",
+		mdw_flw_debug("dev(%u) num(%u) meta(%s)\n",
 			args->out.dev.type, args->out.dev.num,
 			mdev->dinfos[type]->meta);
 		break;

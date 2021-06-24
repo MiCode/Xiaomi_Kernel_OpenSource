@@ -81,11 +81,21 @@ struct mdw_mem {
 struct mdw_dinfo {
 	uint32_t type;
 	uint32_t num;
-	char meta[MDW_DEV_META_SIZE];
+	uint8_t meta[MDW_DEV_META_SIZE];
+};
+
+enum mdw_driver_type {
+	MDW_DRIVER_TYPE_PLATFORM,
+	MDW_DRIVER_TYPE_RPMSG,
 };
 
 struct mdw_device {
-	struct platform_device *pdev;
+	enum mdw_driver_type driver_type;
+	union {
+		struct platform_device *pdev;
+		struct rpmsg_device *rpdev;
+	};
+	struct device *dev;
 	struct miscdevice misc_dev;
 
 	uint64_t vlm_start;
@@ -100,6 +110,7 @@ struct mdw_device {
 	struct mdw_dinfo *dinfos[MDW_DEV_MAX];
 
 	const struct mdw_dev_func *dev_funcs;
+	void *dev_specific;
 };
 
 struct mdw_fpriv {

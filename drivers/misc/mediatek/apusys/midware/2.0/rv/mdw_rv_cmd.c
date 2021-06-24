@@ -44,6 +44,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		goto free_rc;
 	}
 
+
 	/* assign cmd info */
 	rc_v2 = (struct mdw_rv_cmd_v2 *)rc->cb->vaddr;
 	rc_v2->priority = c->priority;
@@ -55,6 +56,12 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rc_v2->subcmds_offset = subcmds_offset;
 	rc_v2->cmdbufs_offset = cmdbufs_offset;
 	rc_v2->adj_matrix_offset = adj_matrix_offset;
+	mdw_drv_debug("cb(%p/%u/0x%llx)(%u/%u/%u/%u/%u/%u/%u/%u)\n",
+		rc->cb->vaddr, cb_size, rc->cb->device_va,
+		rc_v2->priority, rc_v2->hardlimit, rc_v2->softlimit,
+		rc_v2->power_save, rc_v2->num_subcmds,
+		rc_v2->num_cmdbufs, rc_v2->subcmds_offset,
+		rc_v2->cmdbufs_offset);
 
 	/* copy adj matrix */
 	memcpy((void *)rc_v2 + rc_v2->adj_matrix_offset, c->adj_matrix,
@@ -102,12 +109,12 @@ out:
 	return rc;
 }
 
-static int mdw_rv_cmd_delete(struct mdw_fpriv *mpriv, struct mdw_rv_cmd *rc)
+static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 {
 	if (!rc)
 		return -EINVAL;
 
-	mdw_mem_free(mpriv, rc->cb);
+	mdw_mem_free(rc->c->mpriv, rc->cb);
 	vfree(rc);
 
 	return 0;
@@ -123,11 +130,16 @@ int mdw_rv_cmd_exec(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	if (!rc)
 		return -ENOMEM;
 	mdw_flw_debug("\n");
-
 	ret = mdw_rv_dev_run_cmd(rc);
-
-	mdw_flw_debug("\n");
-	ret = mdw_rv_cmd_delete(mpriv, rc);
 	mdw_flw_debug("\n");
 	return ret;
+}
+
+void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
+{
+	struct mdw_cmd *c = rc->c;
+
+	mdw_flw_debug("\n");
+	mdw_rv_cmd_delete(rc);
+	c->complete(c, ret);
 }

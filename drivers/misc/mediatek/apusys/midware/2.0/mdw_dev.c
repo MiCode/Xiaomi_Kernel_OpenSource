@@ -8,22 +8,18 @@
 #include "mdw_cmn.h"
 #include "mdw_export.h"
 
-enum {
-	APU_MDW_VERSION_AP = 1,
-	APU_MDW_VERSION_RV = 2,
-};
-
 int mdw_dev_init(struct mdw_device *mdev)
 {
 	int ret = 0;
 
-	mdw_drv_info("mdw dev init version(%u)\n", mdev->version);
+	mdw_drv_info("mdw dev init type(%d-%u)\n",
+		mdev->driver_type, mdev->version);
 
-	switch (mdev->version) {
-	case APU_MDW_VERSION_AP:
+	switch (mdev->driver_type) {
+	case MDW_DRIVER_TYPE_PLATFORM:
 		mdw_ap_set_func(mdev);
 		break;
-	case APU_MDW_VERSION_RV:
+	case MDW_DRIVER_TYPE_RPMSG:
 		mdw_rv_set_func(mdev);
 		break;
 	default:
@@ -67,10 +63,16 @@ uint32_t mdw_dev_get_param(struct mdw_device *mdev, uint32_t idx)
 
 int mdw_dev_lock(void)
 {
-	return -EINVAL;
+	if (!mdw_dev)
+		return mdw_dev->dev_funcs->lock();
+
+	return -ENODEV;
 }
 
 int mdw_dev_unlock(void)
 {
-	return 0;
+	if (!mdw_dev)
+		return mdw_dev->dev_funcs->unlock();
+
+	return -ENODEV;
 }

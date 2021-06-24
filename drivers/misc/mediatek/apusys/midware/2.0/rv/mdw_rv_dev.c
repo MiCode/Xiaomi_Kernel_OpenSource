@@ -3,18 +3,15 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
+#include <linux/rpmsg.h>
 #include "mdw_cmn.h"
 #include "mdw_rv.h"
 #include "mdw_msg.h"
-#ifdef MDW_UP_POC_SUPPORT
-#include "apu_ctrl_rpmsg.h"
-#endif
 
 #define MDW_CMD_IPI_TIMEOUT (2*1000) //ms
 
-static struct mdw_rv_dev rdev;
+static struct mdw_rv_dev mrdev;
 
-#ifdef MDW_UP_POC_SUPPORT
 static struct mdw_ipi_msg_sync *mdw_rv_dev_get_msg(uint64_t sync_id)
 {
 	struct mdw_ipi_msg_sync *s_msg = NULL;
@@ -22,18 +19,17 @@ static struct mdw_ipi_msg_sync *mdw_rv_dev_get_msg(uint64_t sync_id)
 
 	mdw_drv_debug("get msg(0x%llx)\n", sync_id);
 
-	mutex_lock(&rdev.msg_mtx);
-	list_for_each_safe(list_ptr, tmp, &rdev.s_list) {
+	mutex_lock(&mrdev.msg_mtx);
+	list_for_each_safe(list_ptr, tmp, &mrdev.s_list) {
 		s_msg = list_entry(list_ptr, struct mdw_ipi_msg_sync, ud_item);
 		if (s_msg->msg.sync_id == sync_id)
 			break;
 		s_msg = NULL;
 	}
-	mutex_unlock(&rdev.msg_mtx);
+	mutex_unlock(&mrdev.msg_mtx);
 
 	return s_msg;
 }
-#endif
 
 static int mdw_rv_dev_send_msg(struct mdw_ipi_msg_sync *s_msg)
 {
@@ -42,23 +38,26 @@ static int mdw_rv_dev_send_msg(struct mdw_ipi_msg_sync *s_msg)
 	s_msg->msg.sync_id = (uint64_t)s_msg;
 	mdw_drv_debug("sync id(0x%llx)\n", s_msg->msg.sync_id);
 
-	mutex_lock(&rdev.msg_mtx);
-	list_add_tail(&s_msg->ud_item, &rdev.s_list);
-	mutex_unlock(&rdev.msg_mtx);
+	mutex_lock(&mrdev.msg_mtx);
+	list_add_tail(&s_msg->ud_item, &mrdev.s_list);
+	mutex_unlock(&mrdev.msg_mtx);
 
 	/* send */
-#ifdef MDW_UP_POC_SUPPORT
-	ret = apu_ctrl_send_msg(MDW_SEND_CMD_ID,
-		&s_msg->msg, sizeof(struct mdw_ipi_msg), 0);
-#endif
+	ret = rpmsg_send(mrdev.ept, &s_msg->msg, sizeof(s_msg->msg));
 	if (ret) {
 		mdw_drv_err("send msg(0x%llx) fail\n", s_msg->msg.sync_id);
-		mutex_lock(&rdev.msg_mtx);
+		mutex_lock(&mrdev.msg_mtx);
 		list_del(&s_msg->ud_item);
-		mutex_unlock(&rdev.msg_mtx);
+		mutex_unlock(&mrdev.msg_mtx);
 	}
 
 	return ret;
+}
+
+static void mdw_rv_ipi_cmplt_sync(struct mdw_ipi_msg_sync *s_msg)
+{
+	mdw_flw_debug("\n");
+	complete(&s_msg->cmplt);
 }
 
 static int mdw_rv_dev_send_sync(struct mdw_ipi_msg *msg)
@@ -73,22 +72,23 @@ static int mdw_rv_dev_send_sync(struct mdw_ipi_msg *msg)
 
 	memcpy(&s_msg->msg, msg, sizeof(*s_msg));
 	init_completion(&s_msg->cmplt);
+	s_msg->complete = mdw_rv_ipi_cmplt_sync;
 
-	mutex_lock(&rdev.mtx);
+	mutex_lock(&mrdev.mtx);
 	/* send */
 	ret = mdw_rv_dev_send_msg(s_msg);
 	if (ret) {
 		mdw_drv_err("send msg fail\n");
 		goto fail_send_sync;
 	}
-	mutex_unlock(&rdev.mtx);
+	mutex_unlock(&mrdev.mtx);
 
 	/* wait for response */
 	if (!wait_for_completion_timeout(&s_msg->cmplt, timeout)) {
 		mdw_drv_err("ipi no response\n");
-		mutex_lock(&rdev.msg_mtx);
+		mutex_lock(&mrdev.msg_mtx);
 		list_del(&s_msg->ud_item);
-		mutex_unlock(&rdev.msg_mtx);
+		mutex_unlock(&mrdev.msg_mtx);
 		ret = -ETIME;
 	} else {
 		memcpy(msg, &s_msg->msg, sizeof(*msg));
@@ -100,11 +100,20 @@ static int mdw_rv_dev_send_sync(struct mdw_ipi_msg *msg)
 	goto out;
 
 fail_send_sync:
-	mutex_unlock(&rdev.mtx);
+	mutex_unlock(&mrdev.mtx);
 out:
 	vfree(s_msg);
 
 	return ret;
+}
+
+static void mdw_rv_ipi_cmplt_cmd(struct mdw_ipi_msg_sync *s_msg)
+{
+	struct mdw_rv_cmd *rc =
+		container_of(s_msg, struct mdw_rv_cmd, s_msg);
+
+	mdw_flw_debug("\n");
+	mdw_rv_cmd_done(rc, 0);
 }
 
 static int mdw_rv_dev_send_cmd(struct mdw_rv_cmd *rc)
@@ -118,6 +127,7 @@ static int mdw_rv_dev_send_cmd(struct mdw_rv_cmd *rc)
 	rc->s_msg.msg.c.iova = rc->cb->device_va;
 	rc->s_msg.msg.c.size = rc->cb->size;
 	rc->s_msg.msg.c.start_ts_ns = rc->start_ts_ns;
+	rc->s_msg.complete = mdw_rv_ipi_cmplt_cmd;
 
 	/* send */
 	ret = mdw_rv_dev_send_msg(&rc->s_msg);
@@ -132,12 +142,12 @@ int mdw_rv_dev_run_cmd(struct mdw_rv_cmd *rc)
 	int ret = 0;
 
 	mdw_drv_debug("run rc(0%llx)\n", (uint64_t)rc);
-	mutex_lock(&rdev.mtx);
-	if (atomic_read(&rdev.clock_flag))
-		list_add_tail(&rc->d_item, &rdev.c_list);
+	mutex_lock(&mrdev.mtx);
+	if (atomic_read(&mrdev.clock_flag))
+		list_add_tail(&rc->d_item, &mrdev.c_list);
 	else
 		ret = mdw_rv_dev_send_cmd(rc);
-	mutex_unlock(&rdev.mtx);
+	mutex_unlock(&mrdev.mtx);
 
 	return ret;
 }
@@ -146,24 +156,24 @@ int mdw_rv_dev_lock(void)
 {
 	int ret = 0;
 
-	mutex_lock(&rdev.mtx);
+	mutex_lock(&mrdev.mtx);
 	/* check flag */
-	if (atomic_read(&rdev.clock_flag)) {
+	if (atomic_read(&mrdev.clock_flag)) {
 		mdw_drv_err("md_msg lock twice\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
 	/* check msg list empty */
-	mutex_lock(&rdev.msg_mtx);
-	if (!list_empty_careful(&rdev.s_list))
+	mutex_lock(&mrdev.msg_mtx);
+	if (!list_empty_careful(&mrdev.s_list))
 		ret = -EBUSY;
 	else
-		atomic_set(&rdev.clock_flag, 1);
-	mutex_unlock(&rdev.msg_mtx);
+		atomic_set(&mrdev.clock_flag, 1);
+	mutex_unlock(&mrdev.msg_mtx);
 
 out:
-	mutex_unlock(&rdev.mtx);
+	mutex_unlock(&mrdev.mtx);
 	return ret;
 }
 
@@ -171,19 +181,19 @@ int mdw_rv_dev_unlock(void)
 {
 	int ret = 0;
 
-	mutex_lock(&rdev.mtx);
+	mutex_lock(&mrdev.mtx);
 	/* check flag */
-	if (!atomic_read(&rdev.clock_flag)) {
+	if (!atomic_read(&mrdev.clock_flag)) {
 		mdw_drv_err("md msg unlock twice\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
-	atomic_set(&rdev.clock_flag, 0);
-	schedule_work(&(rdev.c_wk));
+	atomic_set(&mrdev.clock_flag, 0);
+	schedule_work(&(mrdev.c_wk));
 
 out:
-	mutex_unlock(&rdev.mtx);
+	mutex_unlock(&mrdev.mtx);
 	return ret;
 }
 
@@ -192,12 +202,12 @@ static void mdw_rv_dev_unlock_func(struct work_struct *wk)
 	struct mdw_rv_cmd *rc = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 
-	mutex_lock(&rdev.mtx);
+	mutex_lock(&mrdev.mtx);
 
-	if (atomic_read(&rdev.clock_flag))
+	if (atomic_read(&mrdev.clock_flag))
 		goto out;
 
-	list_for_each_safe(list_ptr, tmp, &rdev.c_list) {
+	list_for_each_safe(list_ptr, tmp, &mrdev.c_list) {
 		rc = list_entry(list_ptr, struct mdw_rv_cmd, d_item);
 
 		mdw_flw_debug("re-trigger cmd(0x%llx)\n", rc->c->kid);
@@ -208,31 +218,31 @@ static void mdw_rv_dev_unlock_func(struct work_struct *wk)
 	}
 
 out:
-	mutex_unlock(&rdev.mtx);
+	mutex_unlock(&mrdev.mtx);
 }
 
-#ifdef MDW_UP_POC_SUPPORT
-static void mdw_ipi_callback(u32 id, void *priv, void *data, u32 len)
+static int mdw_rv_callback(struct rpmsg_device *rpdev, void *data,
+	int len, void *priv, u32 src)
 {
 	struct mdw_ipi_msg *msg = (struct mdw_ipi_msg *)data;
 	struct mdw_ipi_msg_sync *s_msg = NULL;
-	struct mdw_cmd *c = NULL;
 
 	mdw_drv_debug("callback msg(%d/0x%llx)\n", msg->id, msg->sync_id);
 
 	s_msg = mdw_rv_dev_get_msg(msg->sync_id);
-	if (!s_msg)
+	if (!s_msg) {
 		mdw_drv_err("get msg fail(0x%llx)\n", msg->sync_id);
-	else {
+	} else {
 		memcpy(&s_msg->msg, msg, sizeof(*msg));
-		mutex_lock(&rdev.msg_mtx);
+		mutex_lock(&mrdev.msg_mtx);
 		list_del(&s_msg->ud_item);
-		mutex_unlock(&rdev.msg_mtx);
-
-		complete(&s_msg->cmplt);
+		mutex_unlock(&mrdev.msg_mtx);
+		/* complete callback */
+		s_msg->complete(s_msg);
 	}
+
+	return 0;
 }
-#endif
 
 int mdw_rv_dev_set_param(uint32_t idx, uint32_t val)
 {
@@ -241,7 +251,7 @@ int mdw_rv_dev_set_param(uint32_t idx, uint32_t val)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.id = MDW_IPI_PARAM;
-	memcpy(&msg.p, &rdev.param, sizeof(msg.p));
+	memcpy(&msg.p, &mrdev.param, sizeof(msg.p));
 	switch (idx) {
 	case MDW_PARAM_UPLOG:
 		msg.p.uplog = val;
@@ -258,7 +268,7 @@ int mdw_rv_dev_set_param(uint32_t idx, uint32_t val)
 
 	ret = mdw_rv_dev_send_sync(&msg);
 	if (!ret)
-		memcpy(&rdev.param, &msg.p, sizeof(msg.p));
+		memcpy(&mrdev.param, &msg.p, sizeof(msg.p));
 
 	return ret;
 }
@@ -269,13 +279,13 @@ uint32_t mdw_rv_dev_get_param(uint32_t idx)
 
 	switch (idx) {
 	case MDW_PARAM_UPLOG:
-		ret = (int)rdev.param.uplog;
+		ret = (int)mrdev.param.uplog;
 		break;
 	case MDW_PARAM_PREEMPT_POLICY:
-		ret = (int)rdev.param.preempt_policy;
+		ret = (int)mrdev.param.preempt_policy;
 		break;
 	case MDW_PARAM_SCHED_POLICY:
-		ret = (int)rdev.param.sched_policy;
+		ret = (int)mrdev.param.sched_policy;
 		break;
 	default:
 		ret = -EINVAL;
@@ -302,15 +312,15 @@ int mdw_rv_dev_handshake(void)
 		goto out;
 	}
 
-	rdev.dev_bitmask = msg.h.basic.dev_bmp;
+	mrdev.dev_bitmask = msg.h.basic.dev_bmp;
 	/* TODO, rv version */
-	rdev.rv_version = msg.h.basic.version;
+	mrdev.rv_version = msg.h.basic.version;
 
 	mdw_drv_debug("rv info(%u/0x%llx/%u)\n",
-		rdev.rv_version, rdev.dev_bitmask);
+		mrdev.rv_version, mrdev.dev_bitmask);
 
 	do {
-		type = find_next_bit((unsigned long *)&rdev.dev_bitmask,
+		type = find_next_bit((unsigned long *)&mrdev.dev_bitmask,
 			APUSYS_DEVICE_MAX, type);
 		if (type >= APUSYS_DEVICE_MAX)
 			break;
@@ -329,7 +339,9 @@ int mdw_rv_dev_handshake(void)
 			break;
 		}
 
-		rdev.dev_num[msg.h.dev.type] = msg.h.dev.num;
+		mrdev.dev_num[msg.h.dev.type] = msg.h.dev.num;
+		memcpy(&mrdev.meta_data[msg.h.dev.type][0],
+			msg.h.dev.meta, sizeof(msg.h.dev.meta));
 		mdw_drv_debug("type(%d) num(%u)\n", type, msg.h.dev.num);
 		type++;
 	} while (type < APUSYS_DEVICE_MAX);
@@ -340,47 +352,48 @@ out:
 
 struct mdw_rv_dev *mdw_rv_dev_get(void)
 {
-	return &rdev;
+	return &mrdev;
 }
 
-int mdw_rv_dev_init(void)
+int mdw_rv_dev_init(struct mdw_device *mdev)
 {
+	struct rpmsg_channel_info chinfo = {};
 	int ret = 0;
 
-	memset(&rdev, 0, sizeof(rdev));
-
-	/* register ipi for cmd send */
-#ifdef MDW_UP_POC_SUPPORT
-	ret = apu_ctrl_register_channel(MDW_SEND_CMD_ID, NULL, &rdev,
-		&rdev.tmp_msg, sizeof(rdev.tmp_msg));
-#endif
-	if (ret) {
-		mdw_drv_err("register send ipi fail\n");
+	if (!mdev->rpdev || mdev->driver_type != MDW_DRIVER_TYPE_RPMSG) {
+		mdw_drv_err("no rpdev(%d)\n", mdev->driver_type);
+		ret = -EINVAL;
 		goto out;
 	}
 
-	/* register ipi for cmd send */
-#ifdef MDW_UP_POC_SUPPORT
-	ret = apu_ctrl_register_channel(MDW_RECV_CMD_ID, mdw_ipi_callback,
-		&rdev, &rdev.msg, sizeof(rdev.msg));
-#endif
-	if (ret) {
-		mdw_drv_err("register recv ipi fail\n");
+	memset(&mrdev, 0, sizeof(mrdev));
+	mrdev.mdev = mdev;
+	mrdev.rpdev = mdev->rpdev;
+
+	strscpy(chinfo.name, mrdev.rpdev->id.name, RPMSG_NAME_SIZE);
+	chinfo.src = mrdev.rpdev->src;
+	chinfo.dst = RPMSG_ADDR_ANY;
+	mrdev.ept = rpmsg_create_ept(mrdev.rpdev,
+		mdw_rv_callback, &mrdev, chinfo);
+	if (!mrdev.ept) {
+		mdw_drv_err("create ept fail\n");
+		ret = -ENODEV;
 		goto out;
 	}
 
 	/* init up dev */
-	mutex_init(&rdev.msg_mtx);
-	mutex_init(&rdev.mtx);
-	atomic_set(&rdev.clock_flag, 0);
-	INIT_LIST_HEAD(&rdev.s_list);
-	INIT_LIST_HEAD(&rdev.c_list);
-	INIT_WORK(&(rdev.c_wk), &mdw_rv_dev_unlock_func);
+	mutex_init(&mrdev.msg_mtx);
+	mutex_init(&mrdev.mtx);
+	atomic_set(&mrdev.clock_flag, 0);
+	INIT_LIST_HEAD(&mrdev.s_list);
+	INIT_LIST_HEAD(&mrdev.c_list);
+	INIT_WORK(&(mrdev.c_wk), &mdw_rv_dev_unlock_func);
 
 out:
 	return ret;
 }
 
-void mdw_rv_dev_deinit(void)
+void mdw_rv_dev_deinit(struct mdw_device *mdev)
 {
+	rpmsg_destroy_ept(mrdev.ept);
 }

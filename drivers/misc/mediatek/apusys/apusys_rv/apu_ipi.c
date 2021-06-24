@@ -20,7 +20,8 @@ static const char *ipi_lock_name[APU_IPI_MAX] = {
 	"init",
 	"name-service",
 	"power-on-dummy",
-	"apu-ctrl"
+	"apu-ctrl",
+	"apu-mdw",
 };
 static struct lock_class_key ipi_lock_key[APU_IPI_MAX];
 

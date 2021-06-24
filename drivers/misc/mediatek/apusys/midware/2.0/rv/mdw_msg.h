@@ -52,6 +52,7 @@ struct mdw_ipi_handshake {
 		struct {
 			uint32_t type;
 			uint32_t num;
+			uint8_t meta[MDW_DEV_META_SIZE];
 		} dev;
 	};
 };
@@ -78,6 +79,7 @@ struct mdw_ipi_msg_sync {
 	struct mdw_ipi_msg msg;
 	struct list_head ud_item;
 	struct completion cmplt;
+	void (*complete)(struct mdw_ipi_msg_sync *s_msg);
 };
 
 #endif

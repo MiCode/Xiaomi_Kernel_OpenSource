@@ -32,6 +32,7 @@ static int mdw_rv_sw_init(struct mdw_device *mdev)
 
 		d->num = rdev->dev_num[i];
 		d->type = i;
+		memcpy(d->meta, &rdev->meta_data[i][0], sizeof(d->meta));
 		mdw_drv_debug("dev(%u) support (%u)core\n", d->type, d->num);
 
 		/* TODO meta data */
@@ -63,12 +64,12 @@ static int mdw_rv_late_init(struct mdw_device *mdev)
 	mdev->vlm_start = 0x1D800000;
 	mdev->vlm_size = 0x100000;
 
-	return mdw_rv_dev_init();
+	return mdw_rv_dev_init(mdev);
 }
 
 static void mdw_rv_late_deinit(struct mdw_device *mdev)
 {
-	mdw_rv_dev_deinit();
+	mdw_rv_dev_deinit(mdev);
 }
 
 static int mdw_rv_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)

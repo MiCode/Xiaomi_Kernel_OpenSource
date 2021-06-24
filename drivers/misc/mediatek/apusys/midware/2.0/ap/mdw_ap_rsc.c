@@ -1160,6 +1160,7 @@ void mdw_rsc_deinit(void)
 	struct mdw_dev_info *d = NULL;
 	struct mdw_rsc_tab *tab = NULL;
 
+	rsc_mgr.is_inited = false;
 	mdw_sched_deinit();
 
 	for (type = 0; type < MDW_DEV_MAX; type++) {
