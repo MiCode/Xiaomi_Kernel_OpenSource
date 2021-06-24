@@ -33,9 +33,7 @@ ${MTK_LPM_DBG_COMMON_NAME}-objs += lpm_dbg_pm.o
 ${MTK_LPM_DBG_COMMON_NAME}-objs += $(LPM_MODULE_DEBUG_COMMON)
 
 
-ifeq ($(CONFIG_MTK_LPM_GS_DUMP_SUPPORT), y)
 ${MTK_LPM_DBG_COMMON_NAME}-objs += lpm_pwr_gs.o
 ${MTK_LPM_DBG_COMMON_NAME}-objs += gs/${MTK_LPM_GS_DUMP_VERSION}/lpm_pwr_gs_common.o
 ${MTK_LPM_DBG_COMMON_NAME}-objs += gs/${MTK_LPM_GS_DUMP_VERSION}/lpm_pwr_gs_dump_clk.o
 ${MTK_LPM_DBG_COMMON_NAME}-objs += gs/${MTK_LPM_GS_DUMP_VERSION}/lpm_pwr_gs_dump_pmic.o
-endif
