@@ -10,7 +10,7 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 #
-demo_mkp =
+demo_mkp = true
 ifdef demo_mkp
 ccflags-y += -DDEMO_MKP
 endif
@@ -28,5 +28,8 @@ mkp-$(CONFIG_MTK_MKP) += mkp_hvc.o
 mkp-$(CONFIG_MTK_MKP) += mkp_api.o
 mkp-$(CONFIG_MTK_MKP) += ksym.o
 ifdef demo_mkp
+mkp-$(CONFIG_MTK_MKP) += mkp_demo.o
 mkp-$(CONFIG_MTK_MKP) += mkp_rbtree.o
+mkp-$(CONFIG_MTK_MKP) += helper.o
+mkp-$(CONFIG_MTK_MKP) += mkp_module.o
 endif

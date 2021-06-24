@@ -12,6 +12,10 @@
 #include <linux/mutex.h>
 #include <linux/kernel.h> // round_up
 
+#ifdef DEMO_MKP
+#include "mkp_demo.h"
+#endif
+
 #include "mkp.h"
 
 static int __init mkp_init(void)
@@ -19,6 +23,9 @@ static int __init mkp_init(void)
 	int ret = 0;
 
 	pr_info("%s:%d start\n", __func__, __LINE__);
+#ifdef DEMO_MKP
+	ret = mkp_demo_init();
+#endif
 
 	if (ret)
 		pr_info("%s: failed, ret: %d\n", __func__, ret);

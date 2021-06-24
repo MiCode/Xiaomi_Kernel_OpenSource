@@ -3,9 +3,12 @@
  * Copyright (C) 2021 MediaTek Inc.
  */
 
-#ifndef _MKP_H
-#define _MKP_H
+#ifndef _MKP_MODULE_H_
+#define _MKP_MODULE_H_
 
+#include <linux/types.h> // for phys_addr_t
+#include <linux/rbtree.h>
+#include <linux/types.h> // for phys_addr_t
 #include <linux/random.h>
 
 #include <linux/memblock.h>
@@ -36,12 +39,10 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-direct.h>
 
-#include "mkp_rbtree.h"
-#include "ksym.h"
-#include "mkp_api.h"
-#include "mkp_hvc.h"
 #include "helper.h"
-#include "mkp_module.h"
-#include "mkp_demo.h"
 
-#endif /* _MKP_H */
+void module_enable_x(const struct module *mod, uint32_t policy);
+void module_enable_ro(const struct module *mod, bool after_init, uint32_t policy);
+void module_enable_nx(const struct module *mod, uint32_t policy);
+
+#endif
