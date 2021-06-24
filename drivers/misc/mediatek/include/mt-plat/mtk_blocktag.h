@@ -284,7 +284,7 @@ void mtk_btag_mictx_eval_req(
 	unsigned int rw, __u32 cnt, __u32 size, bool top);
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_iostat_struct *iostat);
-void mtk_btag_mictx_update_ctx(struct mtk_blocktag *btag, __u32 q_depth);
+void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth);
 
 int ufs_mtk_biolog_init(bool qos_allowed, bool boot_device);
 int ufs_mtk_biolog_exit(void);
@@ -311,7 +311,7 @@ void rs_index_init(struct mtk_blocktag *btag,
 #define mtk_btag_mictx_eval_tp(...)
 #define mtk_btag_mictx_eval_req(...)
 #define mtk_btag_mictx_get_data(...)
-#define mtk_btag_mictx_update_ctx(...)
+#define mtk_btag_mictx_update(...)
 
 #define ufs_mtk_biolog_init(...)
 #define ufs_mtk_biolog_exit(...)

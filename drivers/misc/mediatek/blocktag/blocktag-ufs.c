@@ -169,7 +169,7 @@ void ufs_mtk_biolog_send_command(unsigned int task_id,
 		ctx->period_start_t = tsk->t[tsk_send_cmd];
 
 	ctx->q_depth++;
-	mtk_btag_mictx_update_ctx(ufs_mtk_btag, ctx->q_depth);
+	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth);
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
@@ -270,7 +270,7 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
 		ctx->q_depth = 0;
 	else
 		ctx->q_depth--;
-	mtk_btag_mictx_update_ctx(ufs_mtk_btag, ctx->q_depth);
+	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth);
 	ufs_mtk_bio_mictx_cnt_signle_wqd(tsk, &ufs_mtk_btag->mictx, 0);
 
 	/* clear this task */

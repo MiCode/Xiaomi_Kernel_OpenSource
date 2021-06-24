@@ -244,7 +244,7 @@ void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_commit_bio);
 
 static inline
-struct mtk_btag_mictx_struct *mtk_btag_mictx_get_ctx(void)
+struct mtk_btag_mictx_struct *mtk_btag_mictx_get(void)
 {
 	if (btag_bootdev)
 		return &btag_bootdev->mictx;
@@ -383,7 +383,7 @@ void mtk_btag_earaio_boost(bool boost)
 	unsigned long flags;
 	bool changed = false;
 
-	mictx = mtk_btag_mictx_get_ctx();
+	mictx = mtk_btag_mictx_get();
 	if (!mictx || !mictx->enabled || !mictx->earaio_enabled)
 		return;
 
@@ -500,7 +500,7 @@ static void _mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 	if (mode == PIDLOG_MODE_FS_FUSE) {
 		/* Do not record pid because this is not the real user */
 		if (top) {
-			mictx = mtk_btag_mictx_get_ctx();
+			mictx = mtk_btag_mictx_get();
 			if (!mictx || !mictx->enabled)
 				return;
 
@@ -1216,7 +1216,7 @@ static ssize_t mtk_btag_mictx_sub_write(struct file *file,
 err:
 	return -1;
 }
-static int mtk_btag_mctx_sub_show(struct seq_file *s, void *data)
+static int mtk_btag_mictx_sub_show(struct seq_file *s, void *data)
 {
 	int ready = 0;
 
@@ -1238,7 +1238,7 @@ static int mtk_btag_mctx_sub_show(struct seq_file *s, void *data)
 
 static int mtk_btag_mictx_sub_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, mtk_btag_mctx_sub_show, inode->i_private);
+	return single_open(file, mtk_btag_mictx_sub_show, inode->i_private);
 }
 
 static const struct proc_ops mtk_btag_mictx_sub_fops = {
@@ -1427,7 +1427,7 @@ void mtk_btag_mictx_eval_req(
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_req);
 
-void mtk_btag_mictx_update_ctx(
+void mtk_btag_mictx_update(
 	struct mtk_blocktag *btag,
 	__u32 q_depth)
 {
@@ -1451,7 +1451,7 @@ void mtk_btag_mictx_update_ctx(
 	}
 	spin_unlock_irqrestore(&mictx->lock, flags);
 }
-EXPORT_SYMBOL_GPL(mtk_btag_mictx_update_ctx);
+EXPORT_SYMBOL_GPL(mtk_btag_mictx_update);
 
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_iostat_struct *iostat)
@@ -1462,7 +1462,7 @@ int mtk_btag_mictx_get_data(
 	unsigned long flags;
 	int top;
 
-	mictx = mtk_btag_mictx_get_ctx();
+	mictx = mtk_btag_mictx_get();
 	if (!mictx || !mictx->enabled || !iostat)
 		return -1;
 
@@ -1572,7 +1572,7 @@ void mtk_btag_mictx_enable(int enable)
 	struct mtk_btag_mictx_struct *mictx;
 	unsigned long flags;
 
-	mictx = mtk_btag_mictx_get_ctx();
+	mictx = mtk_btag_mictx_get();
 	if (!mictx)
 		return;
 
