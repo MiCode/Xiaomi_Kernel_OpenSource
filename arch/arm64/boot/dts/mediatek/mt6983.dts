@@ -223,6 +223,14 @@
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
+
+		reserve-memory-scp_share {
+			compatible = "mediatek,reserve-memory-scp_share";
+			no-map;
+			size = <0 0x00300000>; /*3 MB share mem size */
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
+		};
 	};
 
 	gic: interrupt-controller {
@@ -3629,13 +3637,13 @@
 			    "mbox4_clr",
 			    "mbox4_init";
 
-		interrupts = <GIC_SPI 682 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 683 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 687 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 688 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 650 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 651 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 652 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 653 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 654 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 655 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 656 IRQ_TYPE_LEVEL_HIGH 0>;
 
 		interrupt-names = "ipc0",
 				  "ipc1",
