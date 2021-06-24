@@ -11,5 +11,5 @@
 # GNU General Public License for more details.
 #
 
-obj-y += rv33/
+obj-y += rv/
 
