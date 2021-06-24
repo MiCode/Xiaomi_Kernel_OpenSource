@@ -1572,6 +1572,16 @@ s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
 	return err;
 }
 
+s32 cmdq_op_assign_reg_idx_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u16 reg_idx, CMDQ_VARIABLE value)
+{
+	return cmdq_instr_encoder(handle, cmd_buf,
+		CMDQ_GET_ARG_C(value), CMDQ_GET_ARG_B(value), reg_idx,
+		CMDQ_LOGIC_ASSIGN,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE,
+		CMDQ_CODE_LOGIC);
+}
+
 s32 cmdq_op_read_reg_to_mem_ex(struct cmdqRecStruct *handle,
 	struct cmdq_command_buffer *cmd_buf,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr)
