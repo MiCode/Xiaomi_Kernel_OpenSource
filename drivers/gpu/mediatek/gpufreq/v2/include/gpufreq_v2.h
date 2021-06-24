@@ -152,6 +152,7 @@ struct gpufreq_platform_fp {
 	void (*set_stress_test)(unsigned int mode);
 	int (*set_aging_mode)(unsigned int mode);
 	void (*set_gpm_mode)(unsigned int mode);
+	struct gpufreq_asensor_info (*get_asensor_info)(void);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
 	unsigned int (*get_max_fgpu)(void);

@@ -106,6 +106,14 @@ static enum gpufreq_postdiv __gpufreq_get_real_posdiv_gpu(void);
 static enum gpufreq_postdiv __gpufreq_get_real_posdiv_stack(void);
 static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq);
 static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq);
+/* aging sensor function */
+static void __gpufreq_asensor_read_register(u32 *lvt, u32 *ulvt);
+static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_lvt_rt, u32 *a_t0_ulvt_rt,
+	u32 *a_shift_error, u32 *efuse_error);
+static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt_rt,
+	u32 a_shift_error, u32 efuse_error, u32 a_tn_lvt_cnt, u32 a_tn_ulvt_cnt,
+	unsigned int is_efuse_read_success);
+static struct gpufreq_asensor_info __gpufreq_get_asensor_info(void);
 /* power control function */
 static int __gpufreq_cg_control(enum gpufreq_power_state power);
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
@@ -206,16 +214,20 @@ static void __iomem *g_infra_peri_debug2;
 static void __iomem *g_infra_peri_debug3;
 static void __iomem *g_infra_peri_debug4;
 static void __iomem *g_avs_efuse_base;
+static void __iomem *g_mfg_cpe_control_base;
+static void __iomem *g_mfg_cpe_sensor_base;
+static void __iomem *g_cpe_0p65v_rt_blow_base;
 static struct gpufreq_pmic_info *g_pmic;
 static struct gpufreq_clk_info *g_clk;
 static struct gpufreq_mtcmos_info *g_mtcmos;
 static struct gpufreq_status g_gpu;
 static struct gpufreq_status g_stack;
+static struct gpufreq_asensor_info g_asensor_info;
 static unsigned int g_shader_present;
 static unsigned int g_stress_test_enable;
+static unsigned int g_gpueb_support;
 static unsigned int g_aging_enable;
 static unsigned int g_aging_load;
-static unsigned int g_gpueb_support;
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock);
 
@@ -260,6 +272,7 @@ static struct gpufreq_platform_fp platform_fp = {
 	.dump_infra_status = __gpufreq_dump_infra_status,
 	.set_stress_test = __gpufreq_set_stress_test,
 	.set_aging_mode = __gpufreq_set_aging_mode,
+	.get_asensor_info = __gpufreq_get_asensor_info,
 };
 
 /**
@@ -548,6 +561,37 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_stack(void)
 	struct gpufreq_debug_opp_info opp_info = {};
 
 	return opp_info;
+}
+
+/* API: get asensor info for Proc show */
+static struct gpufreq_asensor_info __gpufreq_get_asensor_info(void)
+{
+	struct gpufreq_asensor_info asensor_info = {};
+
+#if GPUFREQ_ASENSOR_ENABLE
+	mutex_lock(&gpufreq_lock);
+	asensor_info.aging_table_idx_choosed = g_asensor_info.aging_table_idx_choosed;
+	asensor_info.aging_table_idx_most_agrresive = g_asensor_info.aging_table_idx_most_agrresive;
+	asensor_info.efuse_val1_addr = g_asensor_info.efuse_val1_addr;
+	asensor_info.efuse_val1 = g_asensor_info.efuse_val1;
+	asensor_info.efuse_val2_addr = g_asensor_info.efuse_val2_addr;
+	asensor_info.efuse_val2 = g_asensor_info.efuse_val2;
+	asensor_info.efuse_val3_addr = g_asensor_info.efuse_val3_addr;
+	asensor_info.efuse_val3 = g_asensor_info.efuse_val3;
+	asensor_info.a_t0_lvt_rt = g_asensor_info.a_t0_lvt_rt;
+	asensor_info.a_t0_ulvt_rt = g_asensor_info.a_t0_ulvt_rt;
+	asensor_info.a_t0_ulvtll_rt = g_asensor_info.a_t0_ulvtll_rt;
+	asensor_info.a_tn_lvt_cnt = g_asensor_info.a_tn_lvt_cnt;
+	asensor_info.a_tn_ulvt_cnt = g_asensor_info.a_tn_ulvt_cnt;
+	asensor_info.a_tn_ulvtll_cnt = g_asensor_info.a_tn_ulvtll_cnt;
+	asensor_info.tj1 = g_asensor_info.tj1;
+	asensor_info.tj2 = g_asensor_info.tj2;
+	asensor_info.adiff1 = g_asensor_info.adiff1;
+	asensor_info.adiff2 = g_asensor_info.adiff2;
+	asensor_info.leakage_power = g_asensor_info.leakage_power;
+	mutex_unlock(&gpufreq_lock);
+#endif
+	return asensor_info;
 }
 
 /* API: get Freq of GPU via OPP index */
@@ -2695,44 +2739,238 @@ done:
 	GPUFREQ_TRACE_END();
 }
 
-static void __gpufreq_aging_adjustment()
+/* API: get Aging sensor data from EFUSE, return if success*/
+static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_lvt_rt, u32 *a_t0_ulvt_rt,
+	u32 *a_shift_error, u32 *efuse_error)
 {
-#if GPUFREQ_AGING_ENABLE
-	struct gpufreq_adj_info *aging_adj = NULL;
-	int adj_num = 0;
-	unsigned int efuse_id = 0x0;
-	int ret = GPUFREQ_SUCCESS;
+#if GPUFREQ_ASENSOR_ENABLE
+	u32 efuse_val1 = 0, efuse_val2 = 0;
+	
+	/*
+	 * A_T0_LVT_RT   : 0x11F10AB8 [9:0]
+	 * A_T0_ULVT_RT  : 0x11F10AB8 [19:10]
+	 * A_shift_error : 0x11F10AB8 [31]
+	 * efuse_error   : 0x11F10ABC [31]
+	 */
+	efuse_val1 = readl(g_cpe_0p65v_rt_blow_base + 0x0);
+	efuse_val2 = readl(g_cpe_0p65v_rt_blow_base + 0x4);
+	if (efuse_val1 == 0 || efuse_val2 == 0)
+		return false;
 
-#if defined(GPUFREQ_TODO_AGING)
+	// todo: Check shift value, DE is SIMing
+	*a_t0_lvt_rt = (efuse_val1 & 0x3FF) + 800;
+	*a_t0_ulvt_rt = ((efuse_val1 & 0xFFC00) >> 10) + 1300;
+	*a_shift_error = efuse_val1 >> 31;
+	*efuse_error = efuse_val2 >> 31;
+
+	g_asensor_info.efuse_val1 = efuse_val1;
+	g_asensor_info.efuse_val2 = efuse_val2;
+	g_asensor_info.efuse_val1_addr = 0x11F10AB8;
+	g_asensor_info.efuse_val2_addr = 0x11F10ABC;
+	g_asensor_info.a_t0_lvt_rt = *a_t0_lvt_rt;
+	g_asensor_info.a_t0_ulvt_rt = *a_t0_ulvt_rt;
+
+	GPUFREQ_LOGD("efuse_val1=0x%08x, efuse_val2=0x%08x, *a_t0_lvt_rt=%08x, *a_t0_ulvt_rt=%08x, \
+		*a_shift_error=%08x, *efuse_error=%08x", efuse_val1, efuse_val2, *a_t0_lvt_rt,
+		*a_t0_ulvt_rt, *a_shift_error, *efuse_error);
+
+	return true;
+#else
+	GPUFREQ_UNREFERENCED(a_t0_lvt_rt);
+	GPUFREQ_UNREFERENCED(a_t0_ulvt_rt);
+	GPUFREQ_UNREFERENCED(a_shift_error);
+	GPUFREQ_UNREFERENCED(efuse_error);
+	return false;
+#endif /* GPUFREQ_ASENSOR_ENABLE */
+}
+
+static void __gpufreq_asensor_read_register(u32 *a_tn_lvt_cnt, u32 *a_tn_ulvt_cnt)
+{
+#if GPUFREQ_ASENSOR_ENABLE
+	u32 aging_data0 = 0, aging_data1 =0;
+
+	/*
+	 * Enable sensor bclk cg
+	 * MFG_SENSOR_BCLK_CG 0x13fb_ff98 = 0x0000_0001
+	 */
+	writel(0x1, g_g3d_base + 0xf98);
+
+	/*
+	 * Config window setting
+	 * CPE_CTRL_MCU_REG_CPEMONCTL 0x13fb_9c00 = 0x0901_031f
+	 */
+	writel(0x0901031f, g_mfg_cpe_control_base + 0x0);
+
+	/*
+	 * Enable CPE
+	 * CPE_CTRL_MCU_REG_CEPEN  0x13fb9c04 = 0x0000_ffff
+	 */
+	writel(0x0000ffff, g_mfg_cpe_control_base + 0x4);
+
+	/* wait 50us */
+	udelay(50);
+
+	/*
+	 * Readout the data
+	 * MFG_CPE_CTRL_SENSOR_REG_C0ASENSORDATA0 0x13FB6000 [31:16]
+	 * MFG_CPE_CTRL_SENSOR_REG_C0ASENSORDATA1 0x13FB6004 [15:0]
+	 */
+	aging_data0 = readl(g_mfg_cpe_sensor_base + 0x0);
+	aging_data1 = readl(g_mfg_cpe_sensor_base + 0x4);
+
+	*a_tn_lvt_cnt = (aging_data0 & 0xFFFF0000) >> 16;
+	*a_tn_ulvt_cnt = (aging_data1 & 0xFFFF);
+
+	g_asensor_info.a_tn_lvt_cnt = *a_tn_lvt_cnt;
+	g_asensor_info.a_tn_ulvt_cnt = *a_tn_ulvt_cnt;
+
+	GPUFREQ_LOGD("aging_data0 = 0x%08x, aging_data1 = 0x%08x, *a_tn_lvt_cnt=0x%08x, \
+		*a_tn_ulvt_cnt=0x%08x", aging_data0, aging_data1, *a_tn_lvt_cnt, *a_tn_ulvt_cnt);
+#else
+	GPUFREQ_UNREFERENCED(a_tn_lvt_cnt);
+	GPUFREQ_UNREFERENCED(a_tn_ulvt_cnt);
+#endif /* GPUFREQ_ASENSOR_ENABLE */
+}
+
+static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt_rt, u32 a_shift_error,
+	u32 efuse_error, u32 a_tn_lvt_cnt, u32 a_tn_ulvt_cnt, unsigned int is_efuse_read_success)
+{
+	unsigned int aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE_IDX;
+
+#if GPUFREQ_ASENSOR_ENABLE
+	int tj = 0, tj1 = 0, tj2 = 0;
+	int adiff = 0, adiff1 = 0, adiff2 = 0;
+	unsigned int leakage_power = 0;
+
+	/*
+	 * todo: Need to check the API for 2 tj sensor belong to GPU.
+	 * Ex:
+	 * tj1 = get_immediate_tslvts3_0_wrap() / 1000;
+	 * tj2 = get_immediate_tslvts3_1_wrap() / 1000;
+	 */
+
+	tj1 = 40;
+	tj2 = 40;
+
+	/* todo: Need to check correct fomula */
+	tj = (((MAX(tj1, tj2) - 25) * 5) / 40) + 1;
+
+	adiff1 = a_t0_lvt_rt + tj - a_tn_lvt_cnt;
+	adiff2 = a_t0_ulvt_rt + tj - a_tn_ulvt_cnt;
+	adiff = MAX(adiff1, adiff2);
+
+	/*
+	 * todo: Check how to get leackage power
+	 * apply volt=0.8V, temp=30C to get leakage information.
+	 * For leakage < 16 (mW), DISABLE aging reduction.
+	 */
+	leakage_power = __gpufreq_get_lkg_pgpu(0);
+
+	g_asensor_info.tj1 = tj1;
+	g_asensor_info.tj2 = tj2;
+	g_asensor_info.adiff1 = adiff1;
+	g_asensor_info.adiff2 = adiff2;
+	g_asensor_info.leakage_power = leakage_power;
+
+	GPUFREQ_LOGD("tj1=%d, tj2=%d, tj=%d, adiff1=%d, adiff2=%d, adiff=%d, leakage_power=%d, \
+		is_efuse_read_success=%d", tj1, tj2, tj, adiff1, adiff2, adiff, leakage_power,
+		is_efuse_read_success);
+
+	if (g_aging_load)
+		aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE_IDX;
+	else if (!is_efuse_read_success)
+		aging_table_idx = 3;
+	else if (MIN(tj1, tj2) < 25)
+		aging_table_idx = 3;
+	else if (a_shift_error || efuse_error)
+		aging_table_idx = 3;
+	else if (leakage_power < 16)
+		aging_table_idx = 3;
+	else if (adiff < GPUFREQ_AGING_GAP_MIN)
+		aging_table_idx = 3;
+	else if ((adiff >= GPUFREQ_AGING_GAP_MIN)
+		&& (adiff < GPUFREQ_AGING_GAP_1))
+		aging_table_idx = 0;
+	else if ((adiff >= GPUFREQ_AGING_GAP_1)
+		&& (adiff < GPUFREQ_AGING_GAP_2))
+		aging_table_idx = 1;
+	else if ((adiff >= GPUFREQ_AGING_GAP_2)
+		&& (adiff < GPUFREQ_AGING_GAP_3))
+		aging_table_idx = 2;
+	else if (adiff >= GPUFREQ_AGING_GAP_3)
+		aging_table_idx = 3;
+	else {
+		GPUFREQ_LOGW("non of the condition is true for aging_table_idx\n");
+		aging_table_idx = 3;
+	}
+#else
+	GPUFREQ_UNREFERENCED(a_t0_lvt_rt);
+	GPUFREQ_UNREFERENCED(a_t0_ulvt_rt);
+	GPUFREQ_UNREFERENCED(a_shift_error);
+	GPUFREQ_UNREFERENCED(efuse_error);
+	GPUFREQ_UNREFERENCED(a_tn_lvt_cnt);
+	GPUFREQ_UNREFERENCED(a_tn_ulvt_cnt);
+	GPUFREQ_UNREFERENCED(is_efuse_read_success);
+#endif /* GPUFREQ_ASENSOR_ENABLE */
+
+	/* check the MostAgrresive setting */
+	aging_table_idx = MAX(aging_table_idx, GPUFREQ_AGING_MOST_AGRRESIVE_IDX);
+
+	return aging_table_idx;
+}
+
+static void __gpufreq_aging_adjustment(void)
+{
+	int adj_num = 0;
+	int i;
+	u32 a_tn_lvt_cnt = 0, a_tn_ulvt_cnt = 0;
+	u32 a_t0_lvt_rt = 0, a_t0_ulvt_rt = 0;
+	u32 a_shift_error = 0, efuse_error = 0;
+	unsigned int is_efuse_read_success = false;
+	unsigned int aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE_IDX;
+	struct gpufreq_adj_info *aging_adj = NULL;
+
 	if (__gpufreq_dvfs_enable()) {
+		/* park the volt to 0.65V for A sensor working */
 		__gpufreq_pause_dvfs(GPUFREQ_AGING_KEEP_FREQ, GPUFREQ_AGING_KEEP_VOLT);
-		// read efuse of aging sensor
+
+		/* get aging efuse data */
+		is_efuse_read_success = __gpufreq_asensor_read_efuse(&a_t0_lvt_rt, &a_t0_ulvt_rt,
+								&a_shift_error, &efuse_error);
+
+		/* get aging sensor data */
+		__gpufreq_asensor_read_register(&a_tn_lvt_cnt, &a_tn_ulvt_cnt);
+
+		/* resume DVFS */
 		__gpufreq_resume_dvfs();
-		// choose aging table, by efuse or aging load
-	} else {
-		// aging table = default aging table
+
+		/* compute aging_table_idx with aging efuse data and aging sensor data */
+		aging_table_idx = __gpufreq_get_aging_table_idx(a_t0_lvt_rt, a_t0_ulvt_rt, a_shift_error,
+						efuse_error, a_tn_lvt_cnt, a_tn_ulvt_cnt, is_efuse_read_success);
 	}
 
-	// create aging adjustment
+
+	g_asensor_info.aging_table_idx_most_agrresive = GPUFREQ_AGING_MOST_AGRRESIVE_IDX;
+	g_asensor_info.aging_table_idx_choosed = aging_table_idx;
+
 	adj_num = g_gpu.signed_opp_num;
+
+	/* prepare aging adj */
 	aging_adj = kcalloc(adj_num, sizeof(struct gpufreq_adj_info), GFP_KERNEL);
 	if (!aging_adj) {
 		GPUFREQ_LOGE("fail to alloc gpufreq_adj_info (ENOMEM)");
-		ret = GPUFREQ_ENOMEM;
-		goto done;
+		return;
 	}
 
 	for (i = 0; i < adj_num; i++) {
 		aging_adj[i].oppidx = i;
-		aging_adj[i].vaging = vaging;
+		aging_adj[i].vaging = g_aging_table[aging_table_idx][i];
 	}
 
 	/* apply aging to signed table */
 	__gpufreq_apply_adjust(TARGET_GPU, aging_adj, adj_num);
 
 	kfree(aging_adj);
-#endif
-#endif /* GPUFREQ_AGING_ENABLE */
 }
 
 static void __gpufreq_avs_adjustment(void)
@@ -2894,11 +3132,16 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 			g_gpu.working_table[i].vsram, g_gpu.working_table[i].vaging);
 	}
 
-#if GPUFREQ_AGING_ENABLE
-	/* default apply aging volt to working table volt */
-	__gpufreq_apply_aging(TARGET_GPU, true);
+
+#if GPUFREQ_ASENSOR_ENABLE
+	/* apply aging volt to working table volt if Asensor works */
 	g_aging_enable = true;
-#endif /* GPUFREQ_AGING_ENABLE */
+#else
+	/* apply aging volt to working table volt depending on Aging load */
+	g_aging_enable = g_aging_load;
+#endif /* GPUFREQ_ASENSOR_ENABLE */
+	if (g_aging_enable)
+		__gpufreq_apply_aging(TARGET_GPU, true);
 
 	/* set power info to working table */
 	__gpufreq_measure_power(TARGET_GPU);
@@ -3135,6 +3378,45 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	if (!g_avs_efuse_base) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
 			"fail to ioremap avs_efuse (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+#endif
+
+#if GPUFREQ_ASENSOR_ENABLE
+	/*
+	 * todo:
+	 * 1. Add reg = <0 0x13FB9C00 0 0x100> for ioremap
+	 * 2. Correct the idx of __gpufreq_of_ioremap
+	 */
+	g_mfg_cpe_control_base = of_iomap(of_gpufreq, 7);
+	if (!g_mfg_cpe_control_base) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"fail to ioremap mfg_cpe_control (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+	/*
+	 * todo:
+	 * 1. Add reg = <0 0x13FB6000 0 0x1000> for ioremap
+	 * 2. Correct the idx of __gpufreq_of_ioremap
+	 */
+	g_mfg_cpe_sensor_base = of_iomap(of_gpufreq, 8);
+	if (!g_mfg_cpe_sensor_base) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"fail to ioremap cpe_sensor (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+	/*
+	 * todo:
+	 * 1. Add reg = <0 0x11F10AB8 0 0x8> for ioremap
+	 * 2. Correct the idx of __gpufreq_of_ioremap
+	 */
+	g_cpe_0p65v_rt_blow_base = of_iomap(of_gpufreq, 9);
+	if (!g_cpe_0p65v_rt_blow_base) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"fail to ioremap cpe_0p65v_rt_blow (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}

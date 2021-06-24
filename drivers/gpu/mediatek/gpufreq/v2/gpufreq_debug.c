@@ -631,6 +631,57 @@ done:
 	return (ret < 0) ? ret : count;
 }
 
+/* PROCFS: show current info of aging*/
+static int asensor_info_proc_show(struct seq_file *m, void *v)
+{
+	struct gpufreq_asensor_info asensor_info = {};
+
+	if (gpufreq_fp && gpufreq_fp->get_asensor_info)
+		asensor_info = gpufreq_fp->get_asensor_info();
+
+	mutex_lock(&gpufreq_debug_lock);
+
+	seq_printf(m,
+		"Aging: %s\n\n"
+		"choosed_aging_table_id = %d, most_agrresive_aging_table_id = %d\n"
+		"efuse_val1(0x%08x) = 0x%08x\n"
+		"efuse_val2(0x%08x) = 0x%08x\n"
+		"efuse_val3(0x%08x) = 0x%08x\n"
+		"a_t0_lvt_rt = %d, "
+		"a_t0_ulvt_rt = %d, "
+		"a_t0_ulvtll_rt = %d\n"
+		"a_tn_lvt_cnt = %d, "
+		"a_tn_ulvt_cnt = %d, "
+		"a_tn_ulvtll_cnt = %d\n"
+		"tj1 = %d, tj2 = %d\n"
+		"adiff1 = %d, adiff2 = %d, adiff3 = %d, leakage_power = %d\n",
+		(g_aging_enable) ? "Enable" : "Disable",
+		asensor_info.aging_table_idx_choosed,
+		asensor_info.aging_table_idx_most_agrresive,
+		asensor_info.efuse_val1_addr,
+		asensor_info.efuse_val1,
+		asensor_info.efuse_val2_addr,
+		asensor_info.efuse_val2,
+		asensor_info.efuse_val3_addr,
+		asensor_info.efuse_val3,
+		asensor_info.a_t0_lvt_rt,
+		asensor_info.a_t0_ulvt_rt,
+		asensor_info.a_t0_ulvtll_rt,
+		asensor_info.a_tn_lvt_cnt,
+		asensor_info.a_tn_ulvt_cnt,
+		asensor_info.a_tn_ulvtll_cnt,
+		asensor_info.tj1,
+		asensor_info.tj2,
+		asensor_info.adiff1,
+		asensor_info.adiff2,
+		asensor_info.adiff3,
+		asensor_info.leakage_power);
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+	return GPUFREQ_SUCCESS;
+}
+
 /* PROCFS: show current state of aging mode */
 static int aging_mode_proc_show(struct seq_file *m, void *v)
 {
@@ -758,6 +809,7 @@ PROC_FOPS_RO(gpu_working_opp_table);
 PROC_FOPS_RO(gpu_signed_opp_table);
 PROC_FOPS_RO(stack_working_opp_table);
 PROC_FOPS_RO(stack_signed_opp_table);
+PROC_FOPS_RO(asensor_info);
 PROC_FOPS_RW(limit_table);
 PROC_FOPS_RW(fix_target_opp_index);
 PROC_FOPS_RW(fix_custom_freq_volt);
@@ -782,6 +834,7 @@ static int gpufreq_create_procfs(void)
 		PROC_ENTRY(gpufreq_pikachu),
 		PROC_ENTRY(gpu_working_opp_table),
 		PROC_ENTRY(gpu_signed_opp_table),
+		PROC_ENTRY(asensor_info),
 		PROC_ENTRY(limit_table),
 		PROC_ENTRY(fix_target_opp_index),
 		PROC_ENTRY(fix_custom_freq_volt),
