@@ -74,6 +74,12 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 
 	ctx = mtk_vcodec_get_curr_ctx(dev, 0);
 
+	if (ctx->dec_params.svp_mode) {
+		mtk_v4l2_debug(4, "svp_mode %d don't handle",
+			ctx->dec_params.svp_mode);
+		return IRQ_HANDLED;
+	}
+
 	/* check if HW active or not */
 	cg_status = readl(dev->dec_reg_base[0]);
 	if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
@@ -175,7 +181,8 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 
 	dev->dec_irq[0] = platform_get_irq(pdev, 0);
 	ret = devm_request_irq(&pdev->dev, dev->dec_irq[0],
-		mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
+		mtk_vcodec_dec_irq_handler,
+		IRQF_NO_THREAD | IRQF_SHARED | IRQF_PROBE_SHARED, pdev->name, dev);
 	if (ret) {
 		mtk_v4l2_debug(1, "Failed to install dev->dec_irq %d (%d)",
 				dev->dec_irq[0],
