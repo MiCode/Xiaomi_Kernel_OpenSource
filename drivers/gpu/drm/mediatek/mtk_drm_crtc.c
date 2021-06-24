@@ -6282,8 +6282,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		struct mtk_cmdq_cb_data *sf_cb_data;
 		dma_addr_t addr;
 
-		cmdq_handle =
-			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 		sf_cb_data = kmalloc(sizeof(*sf_cb_data), GFP_KERNEL);
 		if (!sf_cb_data) {
