@@ -15,6 +15,9 @@
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
 
+#include "tile_driver.h"
+#include "tile_mdp_reg.h"
+
 #define AAL_EN				0x000
 #define AAL_RESET			0x004
 #define AAL_INTEN			0x008
@@ -133,12 +136,18 @@
 #define AAL_DRE_BILATERAL_BLENDING	0x564
 
 struct aal_data {
+	u32 min_tile_width;
+	u32 tile_width;
+	u32 min_hist_width;
 };
 
 static const struct aal_data mt6893_aal_data = {
+	.min_tile_width = 50,
+	.tile_width = 560,
+	.min_hist_width = 128
 };
 
-struct mml_aal {
+struct mml_comp_aal {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct aal_data *data;
@@ -152,6 +161,11 @@ struct aal_frame_data {
 
 #define aal_frm_data(i)	((struct aal_frame_data *)(i->data))
 
+static inline struct mml_comp_aal *comp_to_aal(struct mml_comp *comp)
+{
+	return container_of(comp, struct mml_comp_aal, comp);
+}
+
 static s32 aal_prepare(struct mml_comp *comp, struct mml_task *task,
 		       struct mml_comp_config *ccfg)
 {
@@ -164,6 +178,52 @@ static s32 aal_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	return 0;
 }
+
+static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg,
+			    void *ptr_func, void *tile_data)
+{
+	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
+	struct mml_tile_data *data = (struct mml_tile_data*)tile_data;
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_data *src = &cfg->info.src;
+	struct mml_frame_dest *dest = &cfg->info.dest[aal_frm->out_idx];
+	struct mml_comp_aal *aal = comp_to_aal(comp);
+
+	data->aal_data.max_width = aal->data->tile_width;
+	data->aal_data.min_hist_width = aal->data->min_hist_width;
+	data->aal_data.min_width = aal->data->min_tile_width;
+	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(&data->aal_data);
+
+	func->enable_flag = dest->pq_config.en_dre;
+
+	if (cfg->info.dest_cnt == 1 &&
+	    (dest->crop.r.width != src->width ||
+	    dest->crop.r.height != src->height)) {
+		u32 in_crop_w, in_crop_h;
+
+		in_crop_w = dest->crop.r.width;
+		in_crop_h = dest->crop.r.height;
+		if (in_crop_w + dest->crop.r.left > src->width)
+			in_crop_w = src->width - dest->crop.r.left;
+		if (in_crop_h + dest->crop.r.top > src->height)
+			in_crop_h = src->height - dest->crop.r.top;
+		func->full_size_x_in = in_crop_w + dest->crop.r.left;
+		func->full_size_y_in = in_crop_h + dest->crop.r.top;
+	} else {
+ 		func->full_size_x_in = src->width;
+		func->full_size_y_in = src->height;
+	}
+	func->full_size_x_out = func->full_size_x_in;
+	func->full_size_y_out = func->full_size_y_in;
+
+	return 0;
+}
+
+static const struct mml_comp_tile_ops aal_tile_ops = {
+	.prepare = aal_tile_prepare,
+};
 
 static s32 aal_init(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg)
@@ -271,7 +331,7 @@ static const struct mml_comp_debug_ops aal_debug_ops = {
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_aal *aal = dev_get_drvdata(dev);
+	struct mml_comp_aal *aal = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 ret = -1, temp;
@@ -299,7 +359,7 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_aal *aal = dev_get_drvdata(dev);
+	struct mml_comp_aal *aal = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 temp;
@@ -321,13 +381,13 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mml_aal *dbg_probed_components[2];
+static struct mml_comp_aal *dbg_probed_components[2];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mml_aal *priv;
+	struct mml_comp_aal *priv;
 	s32 ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -344,6 +404,7 @@ static int probe(struct platform_device *pdev)
 	}
 
 	/* assign ops */
+	priv->comp.tile_ops = &aal_tile_ops;
 	priv->comp.config_ops = &aal_cfg_ops;
 	priv->comp.debug_ops = &aal_debug_ops;
 

@@ -17,6 +17,9 @@
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
 
+#include "tile_driver.h"
+#include "tile_mdp_reg.h"
+
 #define RSZ_ENABLE			0x000
 #define RSZ_CON_1			0x004
 #define RSZ_CON_2			0x008
@@ -77,12 +80,14 @@
 #define RSZ_ETC_BLEND			0x254
 
 struct rsz_data {
+	u32 tile_width;
 };
 
 static const struct rsz_data mt6893_rsz_data = {
+	.tile_width = 544
 };
 
-struct mml_rsz {
+struct mml_comp_rsz {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct rsz_data *data;
@@ -99,6 +104,11 @@ struct rsz_frame_data {
 
 #define rsz_frm_data(i)	((struct rsz_frame_data *)(i->data))
 
+static inline struct mml_comp_rsz *comp_to_rsz(struct mml_comp *comp)
+{
+	return container_of(comp, struct mml_comp_rsz, comp);
+}
+
 static s32 rsz_config_scale(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
@@ -111,6 +121,86 @@ static s32 rsz_config_scale(struct mml_comp *comp, struct mml_task *task,
 
 	return 0;
 }
+
+static bool rsz_relay(struct mml_frame_config *cfg,
+		      struct mml_frame_data *src,
+		      struct mml_frame_dest *dest)
+{
+	if (cfg->info.dest_cnt == 1) {
+		u32 out_width, out_height;
+
+		if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
+			out_width = dest->data.height;
+			out_height = dest->data.width;
+		} else {
+			out_width = dest->data.width;
+			out_height = dest->data.height;
+		}
+		if (dest->crop.r.width == src->width &&
+		    src->width == out_width &&
+		    dest->crop.r.height == src->height &&
+		    src->height == out_height &&
+		    dest->crop.x_sub_px == 0 && dest->crop.y_sub_px == 0)
+			return true;
+		else
+			return false;
+	} else
+		return false;
+}
+
+static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg,
+			    void *ptr_func, void *tile_data)
+{
+	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
+	struct mml_tile_data *data = (struct mml_tile_data*)tile_data;
+	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_data *src = &cfg->info.src;
+	struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
+	struct mml_comp_rsz *rsz = comp_to_rsz(comp);
+	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
+	u32 in_crop_w, in_crop_h;
+
+	data->rsz_data.max_width = rsz->data->tile_width;
+	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(&data->rsz_data);
+
+
+	if (rsz_relay_mode)
+		func->enable_flag = false;
+	else
+		func->enable_flag = true;
+
+	in_crop_w = dest->crop.r.width;
+	in_crop_h = dest->crop.r.height;
+	if (in_crop_w + dest->crop.r.left > src->width)
+		in_crop_w = src->width - dest->crop.r.left;
+	if (in_crop_h + dest->crop.r.top > src->height)
+		in_crop_h = src->height - dest->crop.r.top;
+	if (cfg->info.dest_cnt == 1 &&
+	    (dest->crop.r.width != src->width ||
+	    dest->crop.r.height != src->height)) {
+		func->full_size_x_in = in_crop_w + dest->crop.r.left;
+		func->full_size_y_in = in_crop_h + dest->crop.r.top;
+	} else {
+		func->full_size_x_in = src->width;
+		func->full_size_y_in = src->height;
+	}
+	if (dest->rotate == MML_ROT_90 ||
+	    dest->rotate == MML_ROT_270) {
+		func->full_size_x_out = dest->data.height;
+		func->full_size_y_out = dest->data.width;
+	} else {
+		func->full_size_x_out = dest->data.width;
+		func->full_size_y_out = dest->data.height;
+	}
+
+	return 0;
+}
+
+static const struct mml_comp_tile_ops rsz_tile_ops = {
+	.prepare = rsz_tile_prepare,
+};
 
 static s32 rsz_init(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg)
@@ -128,30 +218,16 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_info *frame_info = &cfg->info;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
-	const struct mml_frame_data *src = &cfg->info.src;
-	const struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
-	u32 out_width, out_height;
-
-	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
-		out_width = dest->data.height;
-		out_height = dest->data.width;
-	} else {
-		out_width = dest->data.width;
-		out_height = dest->data.height;
-	}
+	struct mml_frame_data *src = &cfg->info.src;
+	struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
+	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ETC_CONTROL, 0x0, U32_MAX);
 
-	if (frame_info->dest_cnt == 1 &&
-	    dest->crop.r.width == src->width &&
-	    src->width == out_width &&
-	    dest->crop.r.height == src->height &&
-	    src->height == out_height &&
-	    dest->crop.x_sub_px == 0 && dest->crop.y_sub_px == 0) {
+	if (rsz_relay_mode) {
 		/* relay mode */
 		cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ENABLE, 0, 0x00000001);
 		return 0;
@@ -366,7 +442,7 @@ static const struct mml_comp_debug_ops rsz_debug_ops = {
 };
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_rsz *rsz = dev_get_drvdata(dev);
+	struct mml_comp_rsz *rsz = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 ret = -1, temp;
@@ -394,7 +470,7 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_rsz *rsz = dev_get_drvdata(dev);
+	struct mml_comp_rsz *rsz = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 temp;
@@ -416,13 +492,13 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mml_rsz *dbg_probed_components[2];
+static struct mml_comp_rsz *dbg_probed_components[2];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mml_rsz *priv;
+	struct mml_comp_rsz *priv;
 	s32 ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -439,6 +515,7 @@ static int probe(struct platform_device *pdev)
 	}
 
 	/* assign ops */
+	priv->comp.tile_ops = &rsz_tile_ops;
 	priv->comp.config_ops = &rsz_cfg_ops;
 	priv->comp.debug_ops = &rsz_debug_ops;
 

@@ -157,65 +157,38 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 	const struct mml_topology_path *path)
 {
 	ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-	int module_no = 0;
-	int used_en_func_no = 0;
-	int engine_cnt = 0;
-	int i = 0;
-	int j = 0;
+	int module_no, used_en_func_no, eng_cnt;
+	int i;
 
 	/* reset ptr_tile_func_param */
 	ptr_tile_func_param->for_recursive_count = 0;
 
-	engine_cnt = 0;
-	for (i = 0; i < path->node_cnt; i++) {
-		const struct mml_path_node *node = &path->nodes[i];
-		int has_link = 0;
-
-		for (j = 0; j < ARRAY_SIZE(node->next); j++)
-			if (node->next[j])
-				has_link++;
+	eng_cnt = path->tile_engine_cnt;
+	for (i = 0; i < eng_cnt; i++) {
+		const struct mml_path_node *node = &path->nodes[path->tile_engines[i]];
+		memset(&ptr_tile_func_param->func_list[i], 0x0, sizeof(TILE_FUNC_BLOCK_STRUCT));
+		ptr_tile_func_param->func_list[i].func_num = node->id;
+		sprintf(ptr_tile_func_param->func_list[i].func_name, "%d", node->id);
+		ptr_tile_func_param->func_list[i].tot_prev_num = 1;
+		ptr_tile_func_param->func_list[i].group_num = TILE_MDP_GROUP_NUM;
 
 		if (node->prev)
-			has_link++;
-
-		if (has_link) {
-			memset(&ptr_tile_func_param->func_list[engine_cnt], 0x0, sizeof(TILE_FUNC_BLOCK_STRUCT));
-			ptr_tile_func_param->func_list[engine_cnt].func_num = node->id;
-			sprintf(ptr_tile_func_param->func_list[engine_cnt].func_name, "%d", node->id);
-			ptr_tile_func_param->func_list[engine_cnt].tot_prev_num = 1;
-			ptr_tile_func_param->func_list[engine_cnt].group_num = TILE_MDP_GROUP_NUM;
-
-			if (node->prev)
-				ptr_tile_func_param->func_list[engine_cnt].last_func_num[0] = (node->prev)->id;
-			else
-				ptr_tile_func_param->func_list[engine_cnt].last_func_num[0] = LAST_MODULE_ID_OF_START;
-
-			engine_cnt++;
-		}
+			ptr_tile_func_param->func_list[i].last_func_num[0] = (node->prev)->id;
+		else
+			ptr_tile_func_param->func_list[i].last_func_num[0] = LAST_MODULE_ID_OF_START;
 	}
-	module_no = engine_cnt;
-	ptr_tile_func_param->used_func_no = engine_cnt;
+	module_no = eng_cnt;
+	ptr_tile_func_param->used_func_no = eng_cnt;
 
 	/* enable table lut */
 	if (ISP_MESSAGE_TILE_OK == result) {
-		engine_cnt = 0;
-		for (i = 0; i < path->node_cnt; i++) {
-			const struct mml_path_node *node = &path->nodes[i];
-			int has_link = 0;
-
-			for (j = 0; j < ARRAY_SIZE(node->next); j++)
-				if (node->next[j])
-					has_link++;
-			if (node->prev)
-				has_link++;
-			if (has_link) {
-				ptr_tile_func_param->func_en_list[engine_cnt].enable_flag = true;
-				ptr_tile_func_param->func_en_list[engine_cnt].func_num = node->id;
-				engine_cnt++;
-			}
+		for (i = 0; i < eng_cnt; i++) {
+			const struct mml_path_node *node = &path->nodes[path->tile_engines[i]];
+			ptr_tile_func_param->func_en_list[i].enable_flag = true;
+			ptr_tile_func_param->func_en_list[i].func_num = node->id;
 		}
-		used_en_func_no = engine_cnt;
-		ptr_tile_func_param->used_en_func_no = engine_cnt;
+		used_en_func_no = eng_cnt;
+		ptr_tile_func_param->used_en_func_no = eng_cnt;
 	}
 	/* output disable table lut */
 	if (ISP_MESSAGE_TILE_OK == result)

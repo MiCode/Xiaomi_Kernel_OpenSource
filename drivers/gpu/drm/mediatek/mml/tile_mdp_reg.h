@@ -50,9 +50,9 @@ struct hdr_tile_data {
 };
 
 struct aal_tile_data{
-	u32 max_width;
-	u32 hist_min_width;
 	u32 min_width;
+	u32 max_width;
+	u32 min_hist_width;
 };
 
 struct rsz_tile_data {
@@ -77,9 +77,7 @@ struct rsz_tile_data {
 };
 
 struct tdshp_tile_data {
-	bool enable_hfg;
 	u32 max_width;
-	u32 hfg_min_width;
 };
 
 struct wrot_tile_data {
@@ -90,7 +88,6 @@ struct wrot_tile_data {
 	bool enable_crop;
 	s32 crop_left;
 	s32 crop_width;
-	u32 max_fifo;
 	u32 max_width;
 };
 

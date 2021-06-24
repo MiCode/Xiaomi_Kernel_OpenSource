@@ -16,6 +16,8 @@
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
+#include "tile_driver.h"
+#include "tile_mdp_reg.h"
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -146,7 +148,7 @@ static const struct rdma_data mt6893_rdma_data = {
 	.tile_width = 640
 };
 
-struct mml_rdma {
+struct mml_comp_rdma {
 	struct mml_comp comp;
 	const struct rdma_data *data;
 	struct device *dev;	/* for dmabuf to iova */
@@ -183,9 +185,9 @@ struct rdma_frame_data {
 
 #define rdma_frm_data(i)	((struct rdma_frame_data *)(i->data))
 
-static inline struct mml_rdma *comp_to_rdma(struct mml_comp *comp)
+static inline struct mml_comp_rdma *comp_to_rdma(struct mml_comp *comp)
 {
-	return container_of(comp, struct mml_rdma, comp);
+	return container_of(comp, struct mml_comp_rdma, comp);
 }
 
 static s32 rdma_config_read(struct mml_comp *comp, struct mml_task *task,
@@ -198,7 +200,7 @@ static s32 rdma_config_read(struct mml_comp *comp, struct mml_task *task,
 static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 			const struct mml_path_node *node)
 {
-	struct mml_rdma *rdma = comp_to_rdma(comp);
+	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	s32 ret;
 
 	/* get iova */
@@ -218,6 +220,78 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 	return ret;
 }
 
+static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			     struct mml_comp_config *ccfg,
+			     void *ptr_func, void *tile_data)
+{
+	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
+	struct mml_tile_data *data = (struct mml_tile_data*)tile_data;
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_data *src = &cfg->info.src;
+	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
+
+	data->rdma_data.src_fmt = src->format;
+	data->rdma_data.blk_shift_w =
+		MML_FMT_BLOCK(src->format)? 4: 0;
+	data->rdma_data.blk_shift_h =
+		MML_FMT_BLOCK(src->format)? 5: 0;
+	data->rdma_data.alpharot = cfg->alpharot;
+	data->rdma_data.max_width = rdma->data->tile_width;
+	func->func_data =
+		(struct TILE_FUNC_DATA_STRUCT*)
+		(&data->rdma_data);
+	func->enable_flag = true;
+
+	func->full_size_x_in = src->width;
+	func->full_size_y_in = src->height;
+	func->full_size_x_out = src->width;
+	func->full_size_y_out = src->height;
+
+	if (cfg->info.dest_cnt == 1) {
+		struct mml_frame_dest *dest = &cfg->info.dest[0];
+		u32 in_crop_w, in_crop_h;
+
+		data->rdma_data.crop.left =
+			dest->crop.r.left;
+		data->rdma_data.crop.top =
+			dest->crop.r.top;
+		data->rdma_data.crop.width =
+			dest->crop.r.width;
+		data->rdma_data.crop.height =
+			dest->crop.r.height;
+
+		in_crop_w = dest->crop.r.width;
+		in_crop_h = dest->crop.r.height;
+		if (in_crop_w + dest->crop.r.left > src->width)
+			in_crop_w = src->width - dest->crop.r.left;
+		if (in_crop_h + dest->crop.r.top > src->height)
+			in_crop_h = src->height - dest->crop.r.top;
+
+		if (dest->crop.r.width != src->width ||
+		    dest->crop.r.height != src->height) {
+			if (cfg->alpharot) {
+				func->full_size_x_out = in_crop_w;
+				func->full_size_y_out = in_crop_h;
+			} else {
+				func->full_size_x_out = in_crop_w +
+					dest->crop.r.left;
+				func->full_size_y_out = in_crop_h +
+					dest->crop.r.top;
+			}
+		}
+	} else {
+		data->rdma_data.crop.left = 0;
+		data->rdma_data.crop.top = 0;
+		data->rdma_data.crop.width = src->width;
+		data->rdma_data.crop.height = src->height;
+	}
+	return 0;
+}
+
+static const struct mml_comp_tile_ops rdma_tile_ops = {
+	.prepare = rdma_tile_prepare,
+};
+
 static u32 rdma_get_label_count(struct mml_comp *comp, struct mml_task *task)
 {
 	return RDMA_LABEL_TOTAL;
@@ -226,7 +300,7 @@ static u32 rdma_get_label_count(struct mml_comp *comp, struct mml_task *task)
 static s32 rdma_init(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = comp_to_rdma(comp);
+	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
@@ -534,7 +608,7 @@ static void calc_ufo(struct mml_file_buf *src_buf, struct mml_frame_data *src,
 static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = comp_to_rdma(comp);
+	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
 	struct mml_file_buf *src_buf = &task->buf.src;
@@ -881,7 +955,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 static s32 rdma_wait(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg)
 {
-	struct mml_rdma *rdma = comp_to_rdma(comp);
+	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
 	/* wait rdma frame done */
@@ -1089,7 +1163,7 @@ static const struct mml_comp_debug_ops rdma_debug_ops = {
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_rdma *rdma = dev_get_drvdata(dev);
+	struct mml_comp_rdma *rdma = dev_get_drvdata(dev);
 	s32 ret;
 
 	ret = mml_register_comp(master, &rdma->comp);
@@ -1101,7 +1175,7 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_rdma *rdma = dev_get_drvdata(dev);
+	struct mml_comp_rdma *rdma = dev_get_drvdata(dev);
 
 	mml_unregister_comp(master, &rdma->comp);
 }
@@ -1111,13 +1185,13 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mml_rdma *dbg_probed_components[2];
+static struct mml_comp_rdma *dbg_probed_components[2];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mml_rdma *priv;
+	struct mml_comp_rdma *priv;
 	s32 ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -1163,6 +1237,7 @@ static int probe(struct platform_device *pdev)
 		dev_err(dev, "read event poll fail\n");
 
 	/* assign ops */
+	priv->comp.tile_ops = &rdma_tile_ops;
 	priv->comp.config_ops = &rdma_cfg_ops;
 	priv->comp.hw_ops = &rdma_hw_ops;
 	priv->comp.debug_ops = &rdma_debug_ops;

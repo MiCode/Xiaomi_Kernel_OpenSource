@@ -15,6 +15,9 @@
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
 
+#include "tile_driver.h"
+#include "tile_mdp_reg.h"
+
 #define TDSHP_00		0x000
 #define TDSHP_01		0x004
 #define TDSHP_02		0x008
@@ -210,12 +213,14 @@
 #define HFG_OUTPUT_COUNT	0x678
 
 struct tdshp_data {
+	u32 tile_width;
 };
 
 static const struct tdshp_data mt6893_tdshp_data = {
+	.tile_width = 528
 };
 
-struct mml_tdshp {
+struct mml_comp_tdshp {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct tdshp_data *data;
@@ -229,6 +234,11 @@ struct tdshp_frame_data {
 
 #define tdshp_frm_data(i)	((struct tdshp_frame_data *)(i->data))
 
+static inline struct mml_comp_tdshp *comp_to_tdshp(struct mml_comp *comp)
+{
+	return container_of(comp, struct mml_comp_tdshp, comp);
+}
+
 static s32 tdshp_prepare(struct mml_comp *comp, struct mml_task *task,
 			 struct mml_comp_config *ccfg)
 {
@@ -241,6 +251,42 @@ static s32 tdshp_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	return 0;
 }
+
+static s32 tdshp_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg,
+			      void *ptr_func, void *tile_data)
+{
+	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
+	struct mml_tile_data *data = (struct mml_tile_data*)tile_data;
+	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[tdshp_frm->out_idx];
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
+
+	data->tdshp_data.max_width = tdshp->data->tile_width;
+	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(&data->tdshp_data);
+
+	func->enable_flag = dest->pq_config.en_sharp;
+
+	if (dest->rotate == MML_ROT_90 ||
+	    dest->rotate == MML_ROT_270) {
+		func->full_size_x_in = dest->data.height;
+		func->full_size_y_in = dest->data.width;
+		func->full_size_x_out = dest->data.height;
+		func->full_size_y_out = dest->data.height;
+	} else {
+		func->full_size_x_in = dest->data.height;
+		func->full_size_y_in = dest->data.height;
+		func->full_size_x_out = dest->data.height;
+		func->full_size_y_out = dest->data.height;
+	}
+
+	return 0;
+}
+
+static const struct mml_comp_tile_ops tdshp_tile_ops = {
+	.prepare = tdshp_tile_prepare,
+};
 
 static s32 tdshp_init(struct mml_comp *comp, struct mml_task *task,
 		      struct mml_comp_config *ccfg)
@@ -366,7 +412,7 @@ static const struct mml_comp_debug_ops tdshp_debug_ops = {
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_tdshp *tdshp = dev_get_drvdata(dev);
+	struct mml_comp_tdshp *tdshp = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 ret = -1, temp;
@@ -394,7 +440,7 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_tdshp *tdshp = dev_get_drvdata(dev);
+	struct mml_comp_tdshp *tdshp = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 temp;
@@ -416,13 +462,13 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mml_tdshp *dbg_probed_components[2];
+static struct mml_comp_tdshp *dbg_probed_components[2];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mml_tdshp *priv;
+	struct mml_comp_tdshp *priv;
 	s32 ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -439,6 +485,7 @@ static int probe(struct platform_device *pdev)
 	}
 
 	/* assign ops */
+	priv->comp.tile_ops = &tdshp_tile_ops;
 	priv->comp.config_ops = &tdshp_cfg_ops;
 	priv->comp.debug_ops = &tdshp_debug_ops;
 

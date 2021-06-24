@@ -27,11 +27,11 @@ enum mml_comp_type {
 	MML_COMP_TYPE_TOTAL
 };
 
-struct mml_sys;
+struct mml_comp_sys;
 
 struct mml_data {
 	int (*comp_inits[MML_COMP_TYPE_TOTAL])(struct device *dev,
-		struct mml_sys *sys, struct mml_comp *comp);
+		struct mml_comp_sys *sys, struct mml_comp *comp);
 };
 
 enum mml_mux_type {
@@ -53,7 +53,8 @@ struct mml_dbg_reg {
 	char name[16];
 	u32 offset;
 };
-struct mml_sys {
+
+struct mml_comp_sys {
 	const struct mml_data *data;
 	struct mml_comp comps[MML_MAX_SYS_COMPONENTS];
 	u32 comp_cnt;
@@ -93,12 +94,12 @@ struct mml_sys {
 	u32 dbg_reg_cnt;
 };
 
-static inline struct mml_sys *comp_to_sys(struct mml_comp *comp)
+static inline struct mml_comp_sys *comp_to_sys(struct mml_comp *comp)
 {
-	return container_of(comp, struct mml_sys, comps[comp->sub_idx]);
+	return container_of(comp, struct mml_comp_sys, comps[comp->sub_idx]);
 }
 
-static void config_mux(struct mml_sys *sys, struct cmdq_pkt *pkt,
+static void config_mux(struct mml_comp_sys *sys, struct cmdq_pkt *pkt,
 		       const phys_addr_t base_pa, u8 mux_idx,
 		       u16 *offset, u32 *mout)
 {
@@ -126,7 +127,7 @@ static void config_mux(struct mml_sys *sys, struct cmdq_pkt *pkt,
 static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg, u8 idx)
 {
-	struct mml_sys *sys = comp_to_sys(comp);
+	struct mml_comp_sys *sys = comp_to_sys(comp);
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
@@ -164,7 +165,7 @@ static const struct mml_comp_config_ops sys_config_ops = {
 static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,
 			  struct mml_comp_config *ccfg, u8 idx)
 {
-	struct mml_sys *sys = comp_to_sys(comp);
+	struct mml_comp_sys *sys = comp_to_sys(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
@@ -186,7 +187,7 @@ static const struct mml_comp_config_ops dl_config_ops = {
 static void sys_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	struct mml_sys *sys = comp_to_sys(comp);
+	struct mml_comp_sys *sys = comp_to_sys(comp);
 	u32 value;
 	u32 i;
 
@@ -202,7 +203,7 @@ static const struct mml_comp_debug_ops sys_debug_ops = {
 	.dump = &sys_debug_dump,
 };
 
-static int sys_comp_init(struct device *dev, struct mml_sys *sys,
+static int sys_comp_init(struct device *dev, struct mml_comp_sys *sys,
 			 struct mml_comp *comp)
 {
 	struct device_node *node = dev->of_node;
@@ -267,7 +268,7 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 	return 0;
 }
 
-static int dl_comp_init(struct device *dev, struct mml_sys *sys,
+static int dl_comp_init(struct device *dev, struct mml_comp_sys *sys,
 			struct mml_comp *comp)
 {
 	struct device_node *node = dev->of_node;
@@ -305,7 +306,7 @@ static int dl_comp_init(struct device *dev, struct mml_sys *sys,
 	return 0;
 }
 
-static int subcomp_init(struct platform_device *pdev, struct mml_sys *sys,
+static int subcomp_init(struct platform_device *pdev, struct mml_comp_sys *sys,
 			int subcomponent)
 {
 	struct device *dev = &pdev->dev;
@@ -327,7 +328,7 @@ static int subcomp_init(struct platform_device *pdev, struct mml_sys *sys,
 	return ret;
 }
 
-static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
+static int mml_sys_init(struct platform_device *pdev, struct mml_comp_sys *sys,
 			const struct component_ops *comp_ops)
 {
 	struct device *dev = &pdev->dev;
@@ -376,11 +377,11 @@ err_comp_add:
 	return ret;
 }
 
-struct mml_sys *mml_sys_create(struct platform_device *pdev,
-			       const struct component_ops *comp_ops)
+struct mml_comp_sys *mml_sys_create(struct platform_device *pdev,
+				    const struct component_ops *comp_ops)
 {
 	struct device *dev = &pdev->dev;
-	struct mml_sys *sys;
+	struct mml_comp_sys *sys;
 	int ret;
 
 	sys = devm_kzalloc(dev, sizeof(*sys), GFP_KERNEL);
@@ -396,7 +397,7 @@ struct mml_sys *mml_sys_create(struct platform_device *pdev,
 	return sys;
 }
 
-void mml_sys_destroy(struct platform_device *pdev, struct mml_sys *sys,
+void mml_sys_destroy(struct platform_device *pdev, struct mml_comp_sys *sys,
 		     const struct component_ops *comp_ops)
 {
 	int i;
@@ -407,7 +408,7 @@ void mml_sys_destroy(struct platform_device *pdev, struct mml_sys *sys,
 }
 
 int mml_sys_bind(struct device *dev, struct device *master,
-		 struct mml_sys *sys)
+		 struct mml_comp_sys *sys)
 {
 	s32 ret;
 
@@ -423,7 +424,7 @@ int mml_sys_bind(struct device *dev, struct device *master,
 }
 
 void mml_sys_unbind(struct device *dev, struct device *master,
-		    struct mml_sys *sys)
+		    struct mml_comp_sys *sys)
 {
 	if (WARN_ON(sys->comp_bound <= 0))
 		return;
@@ -447,7 +448,7 @@ static const struct component_ops mml_comp_ops = {
 
 static int probe(struct platform_device *pdev)
 {
-	struct mml_sys *priv;
+	struct mml_comp_sys *priv;
 
 	priv = mml_sys_create(pdev, &mml_comp_ops);
 	if (IS_ERR(priv)) {

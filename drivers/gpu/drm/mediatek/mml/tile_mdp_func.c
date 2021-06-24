@@ -189,7 +189,7 @@ static ISP_TILE_MESSAGE_ENUM tile_aal_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TIL
     ptr_func->in_tile_width   = data->max_width;
     ptr_func->out_tile_width  = data->max_width;
     // AAL_TILE_WIDTH > tile > AAL_HIST_MIN_WIDTH for histogram update, unless AAL_HIST_MIN_WIDTH > frame > AAL_MIN_WIDTH
-    ptr_func->in_min_width    = MAX(MIN(data->hist_min_width, ptr_func->full_size_x_in), data->min_width);
+    ptr_func->in_min_width    = MAX(MIN(data->min_hist_width, ptr_func->full_size_x_in), data->min_width);
     ptr_func->in_tile_height  = 16000;
     ptr_func->out_tile_height = 16000;
     ptr_func->l_tile_loss     = 8;
@@ -309,11 +309,6 @@ static ISP_TILE_MESSAGE_ENUM tile_tdshp_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, T
     ptr_func->t_tile_loss     = 2;
     ptr_func->b_tile_loss     = 2;
 
-    if (true == data->enable_hfg)
-    {
-        ptr_func->in_min_width    = data->hfg_min_width;
-    }
-
     return ISP_MESSAGE_TILE_OK;
 }
 
@@ -363,15 +358,6 @@ static ISP_TILE_MESSAGE_ENUM tile_wrot_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TI
             /* To update with rotation */
             ptr_func->out_const_x = 2;
         }
-
-        if (1 == MML_FMT_PLANE(data->dest_fmt))
-        {
-            data->max_fifo  = data->max_width * 32;
-        }
-        else
-        {
-            data->max_fifo  = data->max_width * 48;
-        }
     }
     else if (MML_FMT_H_SUBSAMPLE(data->dest_fmt) &&
         MML_FMT_V_SUBSAMPLE(data->dest_fmt))
@@ -379,25 +365,8 @@ static ISP_TILE_MESSAGE_ENUM tile_wrot_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TI
         // For tile calculation
         ptr_func->out_const_x = 2;
         ptr_func->out_const_y = 2;
-
-        data->max_fifo  = data->max_width * 64;
     }
-    else if (MML_FMT_GREY == data->dest_fmt)
-    {
-        data->max_fifo  = data->max_width * 64;
-    }
-    else if (0 == MML_FMT_GROUP(data->dest_fmt))
-    {
-        if (data->alpharot)
-        {
-            data->max_fifo  = data->max_width * 16;
-        }
-        else
-        {
-            data->max_fifo  = data->max_width * 32;
-        }
-    }
-    else
+    else if ((data->dest_fmt != MML_FMT_GREY) && !MML_FMT_IS_RGB(data->dest_fmt))
     {
         // TODO: set FIFO and Line max for YUV444 (DP_COLOR_I444, DP_COLOR_YV24)
         ASSERT(0);

@@ -280,8 +280,10 @@ struct mml_task {
 };
 
 struct mml_comp_tile_ops {
-	u32 (*get_out_w)(struct mml_comp_config *ccfg);
-	u32 (*get_out_h)(struct mml_comp_config *ccfg);
+	s32 (*prepare)(struct mml_comp *comp, struct mml_task *task,
+		       struct mml_comp_config *priv,
+		       void *ptr_func,
+		       void *tile_data);
 };
 
 struct mml_comp_config_ops {

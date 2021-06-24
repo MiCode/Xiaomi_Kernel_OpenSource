@@ -14,6 +14,9 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk-mml-drm-adaptor.h"
 
+#include "tile_driver.h"
+#include "tile_mdp_reg.h"
+
 #define FG_TRIGGER	0x000
 #define FG_CTRL_0	0x020
 #define FG_CK_EN	0x024
@@ -26,7 +29,7 @@ struct fg_data {
 static const struct fg_data mt6893_fg_data = {
 };
 
-struct mml_fg {
+struct mml_comp_fg {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct fg_data *data;
@@ -52,6 +55,45 @@ static s32 fg_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	return 0;
 }
+
+static s32 fg_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg,
+			   void *ptr_func, void *tile_data)
+{
+	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
+	struct fg_frame_data *fg_frm = fg_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_data *src = &cfg->info.src;
+	struct mml_frame_dest *dest = &cfg->info.dest[fg_frm->out_idx];
+
+	func->enable_flag = true;
+
+	if (cfg->info.dest_cnt == 1 &&
+	    (dest->crop.r.width != src->width ||
+	    dest->crop.r.height != src->height)) {
+		u32 in_crop_w, in_crop_h;
+
+		in_crop_w = dest->crop.r.width;
+		in_crop_h = dest->crop.r.height;
+		if (in_crop_w + dest->crop.r.left > src->width)
+			in_crop_w = src->width - dest->crop.r.left;
+		if (in_crop_h + dest->crop.r.top > src->height)
+			in_crop_h = src->height - dest->crop.r.top;
+		func->full_size_x_in = in_crop_w + dest->crop.r.left;
+		func->full_size_y_in = in_crop_h + dest->crop.r.top;
+	} else {
+ 		func->full_size_x_in = src->width;
+		func->full_size_y_in = src->height;
+	}
+	func->full_size_x_out = func->full_size_x_in;
+	func->full_size_y_out = func->full_size_y_in;
+
+	return 0;
+}
+
+static const struct mml_comp_tile_ops fg_tile_ops = {
+	.prepare = fg_tile_prepare,
+};
 
 static s32 fg_init(struct mml_comp *comp, struct mml_task *task,
 		   struct mml_comp_config *ccfg)
@@ -127,7 +169,7 @@ static const struct mml_comp_debug_ops fg_debug_ops = {
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_fg *fg = dev_get_drvdata(dev);
+	struct mml_comp_fg *fg = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
     s32 ret = -1, temp;
@@ -155,7 +197,7 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_fg *fg = dev_get_drvdata(dev);
+	struct mml_comp_fg *fg = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 temp;
@@ -177,13 +219,13 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mml_fg *dbg_probed_components[2];
+static struct mml_comp_fg *dbg_probed_components[2];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mml_fg *priv;
+	struct mml_comp_fg *priv;
 	s32 ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -200,6 +242,7 @@ static int probe(struct platform_device *pdev)
 	}
 
 	/* assign ops */
+	priv->comp.tile_ops = &fg_tile_ops;
 	priv->comp.config_ops = &fg_cfg_ops;
 	priv->comp.debug_ops = &fg_debug_ops;
 

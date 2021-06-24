@@ -14,6 +14,9 @@
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
 
+#include "tile_driver.h"
+#include "tile_mdp_reg.h"
+
 #define COLOR_CFG_MAIN			0x400
 #define COLOR_PXL_CNT_MAIN		0x404
 #define COLOR_LINE_CNT_MAIN		0x408
@@ -176,7 +179,7 @@ struct color_data {
 static const struct color_data mt6893_color_data = {
 };
 
-struct mml_color {
+struct mml_comp_color {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct color_data *data;
@@ -202,6 +205,37 @@ static s32 color_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	return 0;
 }
+
+static s32 color_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg,
+			      void *ptr_func, void *tile_data)
+{
+	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
+	struct color_frame_data *color_frm = color_frm_data(ccfg);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[color_frm->out_idx];
+
+	func->enable_flag = true;
+
+	if (dest->rotate == MML_ROT_90 ||
+	    dest->rotate == MML_ROT_270) {
+		func->full_size_x_in = dest->data.height;
+		func->full_size_y_in = dest->data.width;
+		func->full_size_x_out = dest->data.height;
+		func->full_size_y_out = dest->data.height;
+	} else {
+		func->full_size_x_in = dest->data.height;
+		func->full_size_y_in = dest->data.height;
+		func->full_size_x_out = dest->data.height;
+		func->full_size_y_out = dest->data.height;
+	}
+
+	return 0;
+}
+
+static const struct mml_comp_tile_ops color_tile_ops = {
+	.prepare = color_tile_prepare,
+};
 
 static s32 color_init(struct mml_comp *comp, struct mml_task *task,
 		      struct mml_comp_config *ccfg)
@@ -292,7 +326,7 @@ static const struct mml_comp_debug_ops color_debug_ops = {
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_color *color = dev_get_drvdata(dev);
+	struct mml_comp_color *color = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 ret = -1, temp;
@@ -320,7 +354,7 @@ static int mml_bind(struct device *dev, struct device *master, void *data)
 
 static void mml_unbind(struct device *dev, struct device *master, void *data)
 {
-	struct mml_color *color = dev_get_drvdata(dev);
+	struct mml_comp_color *color = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = NULL;
 	bool mml_master = false;
 	s32 temp;
@@ -342,13 +376,13 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mml_color *dbg_probed_components[2];
+static struct mml_comp_color *dbg_probed_components[2];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mml_color *priv;
+	struct mml_comp_color *priv;
 	s32 ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -365,6 +399,7 @@ static int probe(struct platform_device *pdev)
 	}
 
 	/* assign ops */
+	priv->comp.tile_ops = &color_tile_ops;
 	priv->comp.config_ops = &color_cfg_ops;
 	priv->comp.debug_ops = &color_debug_ops;
 
