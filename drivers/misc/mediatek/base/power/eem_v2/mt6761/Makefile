@@ -36,6 +36,26 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 endif
 
+ifeq ($(CONFIG_ARCH_MTK_PROJECT),"k61v1_64_bsp_mcl")
+subdir-ccflags-y += -DMT6761
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_ARCH_MTK_PROJECT),"k61v1_64_bsp_2g_1520x720_mcl")
+subdir-ccflags-y += -DMT6761
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_ARCH_MTK_PROJECT),"k61v1_32_bsp_hdp_mcl")
+subdir-ccflags-y += -DMT6761
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_ARCH_MTK_PROJECT),"k61dv1_32_bsp_1g_1680x720_mcl")
+subdir-ccflags-y += -DMT6761
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
 obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o

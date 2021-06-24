@@ -12,7 +12,11 @@
 #define EEM_BANK_SOC (0) /* use voltage bin, so disable it */
 #define EARLY_PORTING (0) /* for detecting real vboot in eem_init01 */
 #define DUMP_DATA_TO_DE (1)
-#define EEM_FAKE_EFUSE (0)
+#ifdef MC50_LOAD
+    #define EEM_FAKE_EFUSE (1)
+#else
+    #define EEM_FAKE_EFUSE (0)
+#endif
 /* FIX ME */
 #define UPDATE_TO_UPOWER (1)
 #define EEM_LOCKTIME_LIMIT (3000)
@@ -143,32 +147,32 @@ NR_MT_CPU_DVFS,
 
 #if SEC_MOD_SEL == 0xF0
 /* Safe EFUSE */
-#define DEVINFO_0 0x0000FF00
+#define DEVINFO_0 0x00000100
 
 /*2-line*/
 /* L_LOW */
-#define DEVINFO_1 0xFFFFFFFF
+#define DEVINFO_1 0x0
 /* L_LOW + LL_LOW */
-#define DEVINFO_2 0xFFFFFFFF
+#define DEVINFO_2 0x0
 /* LL_LOW */
-#define DEVINFO_3 0xFFFFFFFF
+#define DEVINFO_3 0x0
 /* L_HIGH */
-#define DEVINFO_4 0x10bd3c1b
+#define DEVINFO_4 0x0
 /* L_HIGH + LL_HIGH */
-#define DEVINFO_5 0x550055
+#define DEVINFO_5 0x0
 /* LL_HIGH */
-#define DEVINFO_6 0x10bd3c1b
+#define DEVINFO_6 0x0
 /* CCI */
-#define DEVINFO_7 0x07F174EF
-#define DEVINFO_8 0x00540000
+#define DEVINFO_7 0x04045BF7
+#define DEVINFO_8 0x27000000
 
 /*1-line*/
 /* L */
-#define DEVINFO_9 0x12A498E4
+#define DEVINFO_9 0x0
 /* L + LL */
-#define DEVINFO_10 0x003A003B
+#define DEVINFO_10 0x0
 /* LL */
-#define DEVINFO_11 0x12A476FE
+#define DEVINFO_11 0x0
 
 #else
 /* Safe EFUSE */
