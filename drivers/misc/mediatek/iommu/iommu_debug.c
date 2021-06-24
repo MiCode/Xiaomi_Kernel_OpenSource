@@ -11,7 +11,6 @@
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <linux/module.h>
-#include <linux/debugfs.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
@@ -21,6 +20,8 @@
 #if 0 //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif
+#include "mtk_iommu.h"
+#include "iommu_secure.h"
 #include "iommu_debug.h"
 #include "iommu_iova_dbg.h"
 
@@ -85,7 +86,7 @@ struct mtk_iommu_cb {
 
 struct mtk_m4u_data {
 	struct device			*dev;
-	struct dentry			*debug_root;
+	struct proc_dir_entry 	*debug_root;
 	struct mtk_iommu_cb		*m4u_cb;
 	const struct mtk_m4u_plat_data	*plat_data;
 };
@@ -2043,7 +2044,7 @@ void report_custom_iommu_fault(
 	port_list = m4u_data->plat_data->port_list[type];
 	idx = mtk_iommu_get_tf_port_idx(fault_id, type, id);
 	if (idx >= port_nr) {
-		pr_warn("fail,iova:0x%x, port:0x%x\n",
+		pr_warn("fail,iova:0x%llx, port:0x%x\n",
 			fault_iova, fault_id);
 		return;
 	}
@@ -2126,7 +2127,31 @@ static int m4u_debug_set(void *data, u64 val)
 		break;
 	case 4: /* peri translation fault test */
 		report_custom_iommu_fault(0, 0, 0x102, PERI_IOMMU, 0);
-	break;
+		break;
+	case 5:
+		mtk_iommu_dump_bank_base();
+		break;
+	case 6:
+		mtk_iommu_dump_bk0_val(MM_IOMMU, DISP_IOMMU);
+		break;
+	case 7:
+		mtk_iommu_sec_bk_init_by_atf(MM_IOMMU, DISP_IOMMU);
+		break;
+	case 8:
+		mtk_iommu_sec_bk_irq_en_by_atf(MM_IOMMU, DISP_IOMMU);
+		break;
+	case 9:
+		mtk_iommu_secure_bk_backup_by_atf(MM_IOMMU, DISP_IOMMU);
+		break;
+	case 10:
+		mtk_iommu_secure_bk_restore_by_atf(MM_IOMMU, DISP_IOMMU);
+		break;
+	case 11:
+		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 1);
+		break;
+	case 12:
+		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 0);	
+		break;
 	default:
 		pr_err("%s error,val=%llu\n", __func__, val);
 	}
@@ -2140,19 +2165,19 @@ static int m4u_debug_get(void *data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_fops, m4u_debug_get, m4u_debug_set, "%llu\n");
+DEFINE_PROC_ATTRIBUTE(m4u_debug_fops, m4u_debug_get, m4u_debug_set, "%llu\n");
 
 static int m4u_debug_init(struct mtk_m4u_data *data)
 {
-	struct dentry *debug_file;
+	struct proc_dir_entry *debug_file;
 
-	data->debug_root = debugfs_create_dir("m4u", NULL);
+	data->debug_root = proc_mkdir("m4u", NULL);
 
 	if (IS_ERR_OR_NULL(data->debug_root))
 		pr_err("failed to create debug dir.\n");
 
-	debug_file = debugfs_create_file("debug",
-		0644, data->debug_root, NULL, &m4u_debug_fops);
+	debug_file = proc_create_data("debug",
+		S_IFREG | 0644, data->debug_root, &m4u_debug_fops, NULL);
 
 	if (IS_ERR_OR_NULL(debug_file))
 		pr_err("failed to create debug files 2.\n");

@@ -105,6 +105,10 @@
 #define MTK_SIP_SCP_DVFS_CONTROL \
 	MTK_SIP_SMC_CMD(0x232)
 
+/* IOMMU related SMC call */
+#define MTK_IOMMU_SECURE_CONTROL \
+	MTK_SIP_SMC_CMD(0x2B0)
+
 /* USB related SMC call */
 #define MTK_SIP_KERNEL_USB_CONTROL \
 	MTK_SIP_SMC_CMD(0x527)

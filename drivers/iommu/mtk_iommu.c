@@ -484,8 +484,11 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 				data->plat_data->iommu_id, i);
 			if (i == IOMMU_BK4) {
 				int ret;
+				u32 fault_iova_32, fault_pa_32;
 
-				ret = mtk_iommu_sec_bk_tf(type, id, &fault_iova, &fault_pa, &regval);
+				ret = mtk_iommu_secure_bk_tf_dump(type, id, &fault_iova_32, &fault_pa_32, &regval);
+				fault_iova = (u64)fault_iova_32;
+				fault_pa = (u64)fault_pa_32;
 				mtk_iommu_tlb_flush_all(data);
 				if (ret) {
 					dev_warn(dev, "%s secure bank fail, type:%d, id:%d\n",

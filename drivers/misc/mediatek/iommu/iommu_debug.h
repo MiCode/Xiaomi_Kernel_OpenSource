@@ -8,8 +8,27 @@
 #include <linux/ioctl.h>
 #include <linux/fs.h>
 #include <linux/of.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include "mtk_iommu.h"
+
+#define DEFINE_PROC_ATTRIBUTE(__fops, __get, __set, __fmt)		  \
+static int __fops ## _open(struct inode *inode, struct file *file)	  \
+{									  \
+	struct inode local_inode = *inode;				  \
+									  \
+	local_inode.i_private = PDE_DATA(inode);			  \
+	__simple_attr_check_format(__fmt, 0ull);			  \
+	return simple_attr_open(&local_inode, file, __get, __set, __fmt); \
+}									  \
+static const struct proc_ops __fops = {				  	  \
+	.proc_open	 = __fops ## _open,				  \
+	.proc_release = simple_attr_release,				  \
+	.proc_read	 = simple_attr_read,				  \
+	.proc_write	 = simple_attr_write,				  \
+	.proc_lseek	 = generic_file_llseek,				  \
+}
 
 typedef int (*mtk_iommu_fault_callback_t)(int port,
 				dma_addr_t mva, void *cb_data);
