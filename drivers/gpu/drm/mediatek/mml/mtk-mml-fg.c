@@ -43,14 +43,12 @@ struct fg_frame_data {
 static s32 fg_prepare(struct mml_comp *comp, struct mml_task *task,
 		      struct mml_comp_config *ccfg)
 {
-	struct mml_frame_config *cfg = task->config;
-	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct fg_frame_data *fg_frm;
 
 	fg_frm = kzalloc(sizeof(*fg_frm), GFP_KERNEL);
 	ccfg->data = fg_frm;
 	/* cache out index for easy use */
-	fg_frm->out_idx = path->nodes[ccfg->node_idx].out_idx;
+	fg_frm->out_idx = ccfg->node->out_idx;
 
 	return 0;
 }

@@ -102,14 +102,12 @@ struct rsz_frame_data {
 static s32 rsz_config_scale(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
-	struct mml_frame_config *cfg = task->config;
-	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct rsz_frame_data *rsz_frm;
 
 	rsz_frm = kzalloc(sizeof(*rsz_frm), GFP_KERNEL);
 	ccfg->data = rsz_frm;
 	/* cache out index for easy use */
-	rsz_frm->out_idx = path->nodes[ccfg->node_idx].out_idx;
+	rsz_frm->out_idx = ccfg->node->out_idx;
 
 	return 0;
 }

@@ -39,14 +39,12 @@ struct tcc_frame_data {
 static s32 tcc_prepare(struct mml_comp *comp, struct mml_task *task,
 		       struct mml_comp_config *ccfg)
 {
-	struct mml_frame_config *cfg = task->config;
-	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct tcc_frame_data *tcc_frm;
 
 	tcc_frm = kzalloc(sizeof(*tcc_frm), GFP_KERNEL);
 	ccfg->data = tcc_frm;
 	/* cache out index for easy use */
-	tcc_frm->out_idx = path->nodes[ccfg->node_idx].out_idx;
+	tcc_frm->out_idx = ccfg->node->out_idx;
 
 	return 0;
 }

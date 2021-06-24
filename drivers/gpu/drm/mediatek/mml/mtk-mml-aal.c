@@ -155,14 +155,12 @@ struct aal_frame_data {
 static s32 aal_prepare(struct mml_comp *comp, struct mml_task *task,
 		       struct mml_comp_config *ccfg)
 {
-	struct mml_frame_config *cfg = task->config;
-	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct aal_frame_data *aal_frm;
 
 	aal_frm = kzalloc(sizeof(*aal_frm), GFP_KERNEL);
 	ccfg->data = aal_frm;
 	/* cache out index for easy use */
-	aal_frm->out_idx = path->nodes[ccfg->node_idx].out_idx;
+	aal_frm->out_idx = ccfg->node->out_idx;
 
 	return 0;
 }

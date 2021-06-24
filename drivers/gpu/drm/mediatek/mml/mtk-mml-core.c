@@ -154,7 +154,7 @@ static void core_prepare(struct mml_task *task, u8 pipe)
 		/* collect infos for later easy use */
 		cache->cfg[i].pipe = pipe;
 		cache->cfg[i].node = &path->nodes[i];
-		cache->cfg[i].node_idx = path->nodes[i].tile_eng_idx;
+		cache->cfg[i].tile_eng_idx = path->nodes[i].tile_eng_idx;
 	}
 
 	for (i = 0; i < path->node_cnt; i++) {
@@ -276,7 +276,10 @@ static s32 command_reuse(struct mml_task *task, u8 pipe)
 		call_cfg_op(comp, repost, task, &cfg[i]);
 	}
 
-	/* TODO: call cmdq for pkt, to update value by offset in cache */
+	mml_msg("%s task %p pkt %p label cnt %u/%u",
+		__func__, task, task->pkts[pipe],
+		cache->label_idx, cache->label_cnt);
+	cmdq_pkt_reuse_buf_va(task->pkts[pipe], cache->labels, cache->label_idx);
 
 	return 0;
 }

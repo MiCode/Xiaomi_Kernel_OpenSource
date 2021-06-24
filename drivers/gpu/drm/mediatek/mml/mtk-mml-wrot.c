@@ -290,7 +290,6 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
-	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct wrot_frame_data *wrot_frm;
 	struct mml_frame_dest *dest;
 	u8 i;
@@ -300,7 +299,7 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 	ccfg->data = wrot_frm;
 
 	/* cache out index for easy use */
-	wrot_frm->out_idx = path->nodes[ccfg->node_idx].out_idx;
+	wrot_frm->out_idx = ccfg->node->out_idx;
 
 	/* select output port struct */
 	dest = &cfg->info.dest[wrot_frm->out_idx];

@@ -164,7 +164,7 @@ struct mml_topology_cache {
 struct mml_comp_config {
 	u8 pipe;
 	const struct mml_path_node *node;
-	u8 node_idx;
+	u8 tile_eng_idx;
 
 	/* The component private data. Components can store list of labels or
 	 * more info for specific component data in this ptr.
@@ -401,7 +401,7 @@ static inline struct mml_tile_engine *config_get_tile(
 	struct mml_tile_engine *engines =
 		cfg->tile_output[ccfg->pipe]->tiles[idx].tile_engines;
 
-	return &engines[ccfg->node_idx];
+	return &engines[ccfg->tile_eng_idx];
 }
 
 /*

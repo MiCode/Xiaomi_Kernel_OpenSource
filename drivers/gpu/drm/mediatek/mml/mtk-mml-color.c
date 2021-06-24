@@ -193,14 +193,12 @@ struct color_frame_data {
 static s32 color_prepare(struct mml_comp *comp, struct mml_task *task,
 			 struct mml_comp_config *ccfg)
 {
-	struct mml_frame_config *cfg = task->config;
-	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct color_frame_data *color_frm;
 
 	color_frm = kzalloc(sizeof(*color_frm), GFP_KERNEL);
 	ccfg->data = color_frm;
 	/* cache out index for easy use */
-	color_frm->out_idx = path->nodes[ccfg->node_idx].out_idx;
+	color_frm->out_idx = ccfg->node->out_idx;
 
 	return 0;
 }
