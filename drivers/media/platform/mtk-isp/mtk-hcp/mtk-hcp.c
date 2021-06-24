@@ -446,6 +446,7 @@ int mtk_hcp_unregister(struct platform_device *pdev, enum hcp_id id)
 	return -EINVAL;
 }
 EXPORT_SYMBOL(mtk_hcp_unregister);
+static atomic_t seq;
 
 static int hcp_send_internal(struct platform_device *pdev,
 		 enum hcp_id id, void *buf,
@@ -457,6 +458,7 @@ static int hcp_send_internal(struct platform_device *pdev,
 	unsigned long timeout, flag;
 	struct msg *msg;
 	int ret = 0;
+	unsigned int no;
 
 	if (id < HCP_INIT_ID || id >= HCP_MAX_ID ||
 			len > sizeof(send_obj.share_data) || buf == NULL) {
@@ -507,10 +509,11 @@ static int hcp_send_internal(struct platform_device *pdev,
 		msg = list_first_entry(&hcp_dev->msg_list, struct msg, entry);
 		list_del(&msg->entry);
 		spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+		no = atomic_inc_return(&seq);
 
 		memcpy((void *)msg->user_obj.share_data, buf, len);
 		msg->user_obj.len = len;
-		msg->user_obj.id = (int)id;
+		msg->user_obj.id = (int)id | (no << 16);
 
 		spin_lock_irqsave(&hcp_dev->msglock, flag);
 		list_add_tail(&msg->entry, &hcp_dev->chans[module_id]);
@@ -522,7 +525,7 @@ static int hcp_send_internal(struct platform_device *pdev,
 		mutex_unlock(&hcp_dev->hcp_mutex[module_id]);
 		dev_dbg(&pdev->dev,
 			"%s frame_no_%d, message(%d)size(%d) send to user space !!!\n",
-			__func__, frame_no, id, len);
+			__func__, no, id, len);
 
 		if (!wait)
 			return 0;
@@ -1701,6 +1704,7 @@ void mtk_hcp_purge_msg(struct platform_device *pdev)
 		}
 		atomic_set(&hcp_dev->ipi_got[i], 0);
 	}
+	atomic_set(&seq, 0);
 	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 }
 EXPORT_SYMBOL(mtk_hcp_purge_msg);
