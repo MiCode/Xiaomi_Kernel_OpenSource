@@ -118,8 +118,11 @@ def main(**args):
     file_text.append("HERMETIC_TOOLCHAIN=")
     file_text.append("DTC='${OUT_DIR}/scripts/dtc/dtc'")
     file_text.append("DEPMOD=")
+    file_text.append("KMI_ENFORCED=1")
     if abi_mode == 'yes':
         file_text.append("IN_KERNEL_MODULES=1")
+        file_text.append("KMI_SYMBOL_LIST_MODULE_GROUPING=0")
+        file_text.append("KMI_SYMBOL_LIST_ADD_ONLY=1")
     else:
         file_text.append("IN_KERNEL_MODULES=")
 
