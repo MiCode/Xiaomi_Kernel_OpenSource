@@ -1617,16 +1617,12 @@
 				<&infracfg_ao_clk CLK_IFRAO_CCIF_MD>,
 				<&infracfg_ao_clk CLK_IFRAO_CCIF1_AP>,
 				<&infracfg_ao_clk CLK_IFRAO_CCIF1_MD>,
-				<&infracfg_ao_clk CLK_IFRAO_CCIF2_AP>,
-				<&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>,
 				<&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
 				<&infracfg_ao_clk CLK_IFRAO_CCIF5_MD>;
 			clock-names = "infra-ccif-ap",
 				"infra-ccif-md",
 				"infra-ccif1-ap",
 				"infra-ccif1-md",
-				"infra-ccif2-ap",
-				"infra-ccif2-md",
 				"infra-ccif4-md",
 				"infra-ccif5-md";
 		};
@@ -1666,6 +1662,10 @@
 
 		ccci_scp:ccci_scp {
 			compatible = "mediatek,ccci_md_scp";
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF2_AP>,
+				<&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>;
+			clock-names = "infra-ccif2-ap",
+				"infra-ccif2-md";
 		};
 
 		gpio_usage_mapping:gpio {
