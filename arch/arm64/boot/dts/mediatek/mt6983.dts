@@ -2530,83 +2530,93 @@
 
 	hcp: hcp@0 {
 		compatible = "mediatek,hcp";
-		/*
-		ion-supply = <&ion>;
-		iommus = <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_CQ1_A>;
-		*/
+		iommus = <&disp_iommu M4U_PORT_L11_IMG2_WPE_CQ0>;
 	};
 
 	imgsys_fw@15000000 {
 		compatible = "mediatek,imgsys";
-#if 0
-		ion-supply = <&ion>;
 		reg = <0 0x15000000 0 0x4000>,	/* 0 IMGSYS_TOP */
 		      <0 0x15020000 0 0x10000>,	/* 1 IMGSYS_TRAW */
 		      <0 0x15040000 0 0x10000>,	/* 2 IMGSYS_LTRAW */
 		      <0 0x15100000 0 0x10000>,	/* 3 IMGSYS_DIP */
-		      <0 0x15140000 0 0x10000>,	/* 4 IMGSYS_PQDIP_A */
-		      <0 0x15150000 0 0x10000>,	/* 5 IMGSYS_PQDIP_B */
+		      <0 0x15210000 0 0x10000>,	/* 4 IMGSYS_PQDIP_A */
+		      <0 0x15510000 0 0x10000>,	/* 5 IMGSYS_PQDIP_B */
 		      <0 0x15200000 0 0x10000>,	/* 6 IMGSYS_WPE_EIS */
-		      <0 0x15210000 0 0x10000>,	/* 7 IMGSYS_WPE_TNR */
-		      <0 0x15220000 0 0x00100>,	/* 8 IMGSYS_WPE_DIP1 */
+		      <0 0x15500000 0 0x10000>,	/* 7 IMGSYS_WPE_TNR */
+		      <0 0x15600000 0 0x00100>,	/* 8 IMGSYS_WPE_DIP1 */
 		      <0 0x15320000 0 0x10000>;	/* 9 IMGSYS_ME */
 		mediatek,hcp = <&hcp>;
-		mediatek,larb = <&larb9 &larb10 &larb11>;
-		iommus = <&iommu0 M4U_PORT_L9_IMG_IMGI_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_IMGBI_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_IMGCI_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_SMTI_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_TNCSTI_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_TNCSTI_T4_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_TIMGO_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T2_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_IMGI_T1_B>,
-			 <&iommu0 M4U_PORT_L9_IMG_IMGBI_T1_B>,
-			 <&iommu0 M4U_PORT_L9_IMG_IMGCI_T1_B>,
-			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T5_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_SMTI_T1_B>,
-			 <&iommu0 M4U_PORT_L9_IMG_TNCSO_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_SMTO_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_TNCSTO_T1_A>,
-			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T2_B>,
-			 <&iommu0 M4U_PORT_L9_IMG_YUVO_T5_B>,
-			 <&iommu0 M4U_PORT_L9_IMG_SMTO_T1_B>,
-			 <&iommu0 M4U_PORT_L10_IMG_IMGI_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_IMGCI_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_DEPI_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_DMGI_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_VIPI_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_TNRWI_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_RECI_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_SMTI_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_SMTI_D6_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_PIMGI_P1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_PIMGBI_P1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_PIMGCI_P1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_PIMGI_P1_B>,
-			 <&iommu0 M4U_PORT_L10_IMG_PIMGBI_P1_B>,
-			 <&iommu0 M4U_PORT_L10_IMG_PIMGCI_P1_B>,
-			 <&iommu0 M4U_PORT_L10_IMG_IMG3O_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_IMG4O_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_IMG3CO_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_FEO_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_IMG2O_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_TNRWO_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_SMTO_D1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_WROT_P1_A>,
-			 <&iommu0 M4U_PORT_L10_IMG_WROT_P1_B>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_RDMA0_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_RDMA1_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_WDMA0_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_RDMA0_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_RDMA1_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_WDMA0_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_CQ0_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_CQ1_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_CQ0_A>,
-			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_CQ1_A>;
-#endif
+		/* mediatek,larb = <&larb9 &larb10 &larb11>; */
+		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_IMGBI_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_IMGCI_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_SMTI_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_TNCSTI_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_TNCSTI_T4_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_YUVO_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_TIMGO_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_YUVO_T2_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_B>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_IMGBI_T1_B>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_IMGCI_T1_B>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_YUVO_T5_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_SMTI_T4_B>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_TNCSO_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_SMTO_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_TNCSTO_T1_A>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_YUVO_T2_B>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_YUVO_T5_B>,
+			 <&disp_iommu M4U_PORT_L9_IMG1_SMTO_T4_B>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_IMGI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_IMGBI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_IMGCI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_IMGDI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_DEPI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_DMGI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_SMTI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_RECI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_RECI_D1_N>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_TNRWI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_TNRCI_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_TNRCI_D1_N>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_IMG4O_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_IMG4BO_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_SMTI_D8>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_SMTO_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_TNRMO_D1>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_TNRMO_D1_N>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_SMTO_D8>,
+			 <&disp_iommu M4U_PORT_L10_IMG2_DBGO_D1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WPE_RDMA0>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WPE_RDMA1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WPE_RDMA_4P0>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WPE_RDMA_4P1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WPE_CQ0>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WPE_CQ1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_PIMGI_P1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_PIMGBI_P1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_PIMGCI_P1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_IMGI_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_IMGBI_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_IMGCI_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_SMTI_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_SMTI_T4_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_SMTI_T6_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_YUVO_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_YUVBO_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_YUVCO_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WPE_WDMA0>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WPE_WDMA_4P0>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_WROT_P1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_TCCSO_P1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_TCCSI_P1>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_TIMGO_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_YUVO_T2_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_YUVO_T5_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_SMTO_T1_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_SMTO_T4_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_SMTO_T6_C>,
+			 <&disp_iommu M4U_PORT_L11_IMG2_DBGO_T1_C>;
 		mboxes = <&gce_m 0 0 CMDQ_THR_PRIO_1>,
 			 <&gce_m 1 0 CMDQ_THR_PRIO_1>,
 			 <&gce_m 2 0 CMDQ_THR_PRIO_1>,
