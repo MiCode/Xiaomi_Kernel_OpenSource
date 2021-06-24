@@ -335,7 +335,7 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 {
 	int error, index = 0;
 	unsigned int keycount;
-	struct mt6397_chip *pmic_chip = dev_get_drvdata(pdev->dev.parent);
+	struct mt6397_chip *pmic_chip;
 	struct device_node *node = pdev->dev.of_node, *child;
 	struct mtk_pmic_keys *keys;
 	const struct mtk_pmic_regs *mtk_pmic_regs;
@@ -347,8 +347,18 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 	if (!keys)
 		return -ENOMEM;
 
+	keys->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!keys->regmap) {
+		pmic_chip =  dev_get_drvdata(pdev->dev.parent);
+		if (!pmic_chip || !pmic_chip->regmap) {
+			dev_info(keys->dev, "failed to get pmic key regmap\n");
+			return -ENODEV;
+		}
+
+		keys->regmap = pmic_chip->regmap;
+	}
+
 	keys->dev = &pdev->dev;
-	keys->regmap = pmic_chip->regmap;
 	mtk_pmic_regs = of_id->data;
 
 	keys->input_dev = input_dev = devm_input_allocate_device(keys->dev);

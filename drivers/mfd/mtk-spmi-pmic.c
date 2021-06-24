@@ -51,6 +51,13 @@ struct pmic_core {
 	const struct mtk_spmi_pmic_data *chip_data;
 };
 
+static const struct resource mt6363_keys_resources[] = {
+	DEFINE_RES_IRQ(MT6363_IRQ_PWRKEY),
+	DEFINE_RES_IRQ(MT6363_IRQ_HOMEKEY),
+	DEFINE_RES_IRQ(MT6363_IRQ_PWRKEY_R),
+	DEFINE_RES_IRQ(MT6363_IRQ_HOMEKEY_R),
+};
+
 static const struct mfd_cell mt6363_devs[] = {
 	{
 		.name = "mt6363-auxadc",
@@ -63,6 +70,11 @@ static const struct mfd_cell mt6363_devs[] = {
 	{
 		.name = "mt-pmic",
 		.of_compatible = "mediatek,spmi-pmic-debug",
+	}, {
+		.name = "mtk-pmic-keys",
+		.num_resources = ARRAY_SIZE(mt6363_keys_resources),
+		.resources = mt6363_keys_resources,
+		.of_compatible = "mediatek,mt6363-keys"
 	},
 };
 
