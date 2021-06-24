@@ -478,7 +478,7 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 {
 	struct task_struct *p;
 	int dst_capacity;
-	unsigned int util_min;
+	unsigned int task_util;
 	bool latency_sensitive = false;
 
 	lockdep_assert_held(&src_rq->lock);
@@ -494,7 +494,7 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 		if (task_running(src_rq, p))
 			continue;
 
-		util_min = uclamp_eff_value(p, UCLAMP_MIN);
+		task_util = uclamp_task_util(p);
 
 		if (!uclamp_min_ls)
 			latency_sensitive = uclamp_latency_sensitive(p);
@@ -502,7 +502,7 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 			latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
 
 		if (latency_sensitive &&
-			util_min <= dst_capacity &&
+			task_util <= dst_capacity &&
 			src_rq->nr_running > 1) {
 
 			/* detach_task */
