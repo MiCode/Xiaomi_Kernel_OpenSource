@@ -201,6 +201,15 @@
 		compatible = "qcom,devfreq-cdev";
 		qcom,devfreq = <&msm_gpu>;
 	};
+
+	qcom,userspace-cdev {
+		compatible = "qcom,userspace-cooling-devices";
+
+		display_fps: display-fps {
+			qcom,max-level = <4>;
+			#cooling-cells = <2>;
+		};
+	};
 };
 
 #include "waipio-thermal-modem.dtsi"
