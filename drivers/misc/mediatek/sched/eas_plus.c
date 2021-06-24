@@ -3,8 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 #include <linux/module.h>
-#include "../../../../kernel/sched/sched.h"
-#include "sched_main.h"
+#include "eas_plus.h"
 #include <sched_trace.h>
 #include <linux/sort.h>
 #include "../../../../drivers/thermal/mediatek/thermal_interface.h"

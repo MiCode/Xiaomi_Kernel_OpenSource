@@ -18,7 +18,7 @@
 #include <trace/hooks/topology.h>
 #include <trace/hooks/sched.h>
 #include "sched_main.h"
-#include "../../../../kernel/sched/sched.h"
+#include "eas_plus.h"
 
 #define CREATE_TRACE_POINTS
 #include "sched_trace.h"

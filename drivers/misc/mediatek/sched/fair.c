@@ -6,9 +6,8 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <trace/hooks/sched.h>
-#include "../../../../kernel/sched/sched.h"
+#include "eas_plus.h"
 #include "../../../../kernel/sched/pelt.h"
-#include "sched_main.h"
 #include "sched_trace.h"
 
 MODULE_LICENSE("GPL");
