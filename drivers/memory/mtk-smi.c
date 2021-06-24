@@ -19,6 +19,8 @@
 #include <dt-bindings/memory/mt2701-larb-port.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
 
+#include <linux/kthread.h>
+
 /* mt8173 */
 #define SMI_LARB_MMU_EN		0xf00
 
@@ -663,6 +665,34 @@ static const struct of_device_id mtk_smi_larb_of_ids[] = {
 	{}
 };
 
+static s32 smi_cmdq(void *data)
+{
+	struct device *dev = (struct device *)data;
+
+	struct device_node *node = NULL;
+	struct platform_device *pdev = NULL;
+
+	node = of_parse_phandle(dev->of_node, "mediatek,cmdq", 0);
+	if (node) {
+		pdev = of_find_device_by_node(node);
+		of_node_put(node);
+		if (pdev) {
+			while (!platform_get_drvdata(pdev)) {
+				dev_notice(dev, "Failed to get [cmdq]\n");
+				msleep(100);
+			}
+			if (device_link_add(dev, &pdev->dev,
+				DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS))
+				dev_notice(dev, "Success to link [cmdq]\n");
+			else
+				dev_notice(dev, "Failed to link [cmdq]\n");
+		} else
+			dev_notice(dev, "Failed to get [cmdq] pdev\n");
+	} else
+		dev_notice(dev, "Failed to get [cmdq] node\n");
+	return 0;
+}
+
 static int mtk_smi_larb_probe(struct platform_device *pdev)
 {
 	struct mtk_smi_larb *larb;
@@ -955,6 +985,7 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_smi *common;
 	struct resource *res;
+	struct task_struct *kthr;
 	int ret;
 
 	common = devm_kzalloc(dev, sizeof(*common), GFP_KERNEL);
@@ -1008,6 +1039,9 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	}
 	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, common);
+
+	if (of_parse_phandle(dev->of_node, "mediatek,cmdq", 0))
+		kthr = kthread_run(smi_cmdq, dev, __func__);
 	return 0;
 }
 
