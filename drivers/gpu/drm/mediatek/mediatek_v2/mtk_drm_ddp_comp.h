@@ -279,7 +279,7 @@ struct mtk_ddp_fb_info {
 	unsigned int height;
 	unsigned int pitch;
 	size_t size;
-	unsigned int fb_pa;
+	phys_addr_t fb_pa;
 	struct mtk_drm_gem_obj *fb_gem;
 };
 

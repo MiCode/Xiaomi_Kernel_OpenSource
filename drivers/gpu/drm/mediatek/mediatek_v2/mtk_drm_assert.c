@@ -49,7 +49,7 @@ char drm_dal_str_buf[DAL_STR_BUF_LEN];
 static int drm_dal_enable;
 static struct drm_crtc *dal_crtc;
 static void *dal_va;
-static u32 dal_pa;
+static dma_addr_t dal_pa;
 
 static u32 DAL_GetLayerSize(void)
 {

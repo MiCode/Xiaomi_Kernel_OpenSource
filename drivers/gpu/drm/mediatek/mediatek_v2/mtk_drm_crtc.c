@@ -7224,7 +7224,8 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_cwb_info *cwb_info;
 	struct mtk_ddp_comp *comp;
-	unsigned int target_idx, next_idx, addr = 0;
+	unsigned int target_idx, next_idx;
+	dma_addr_t addr = 0;
 	void *user_buffer;
 	struct cmdq_pkt *handle;
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];

@@ -54,7 +54,7 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 					phys_addr_t pa, int cached,
 					struct device *dev,
-					unsigned long *fb_pa)
+					dma_addr_t *fb_pa)
 {
 	phys_addr_t pa_align;
 	//phys_addr_t addr;
@@ -138,7 +138,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct drm_gem_object *obj;
 	struct sg_table *sgt;
-	unsigned long fb_pa = 0;
+	dma_addr_t fb_pa = 0;
 
 	DDPINFO("%s+\n", __func__);
 	mtk_gem = mtk_drm_gem_init(dev, vramsize);
@@ -153,7 +153,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 	sgt = mtk_gem_vmap_pa(mtk_gem, fb_base, 0, dev->dev, &fb_pa);
 
 	mtk_gem->sec = false;
-	mtk_gem->dma_addr = (dma_addr_t)fb_pa;
+	mtk_gem->dma_addr = fb_pa;
 	mtk_gem->kvaddr = mtk_gem->cookie;
 	mtk_gem->sg = sgt;
 

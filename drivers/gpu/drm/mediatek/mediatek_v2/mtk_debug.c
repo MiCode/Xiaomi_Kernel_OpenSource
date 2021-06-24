@@ -1282,7 +1282,7 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 
 		mtk_gem = mtk_drm_gem_create(
 			crtc->dev, mode.width * mode.height * 3, true);
-		cwb_info->buffer[0].addr_mva = (u32)mtk_gem->dma_addr;
+		cwb_info->buffer[0].addr_mva = mtk_gem->dma_addr;
 		cwb_info->buffer[0].addr_va = (u64)mtk_gem->kvaddr;
 
 		cwb_info->buffer[0].fb  =
@@ -1294,7 +1294,7 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 
 		mtk_gem = mtk_drm_gem_create(
 			crtc->dev, mode.width * mode.height * 3, true);
-		cwb_info->buffer[1].addr_mva = (u32)mtk_gem->dma_addr;
+		cwb_info->buffer[1].addr_mva = mtk_gem->dma_addr;
 		cwb_info->buffer[1].addr_va = (u64)mtk_gem->kvaddr;
 
 		cwb_info->buffer[1].fb  =
@@ -1413,7 +1413,7 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 
 		mtk_gem = mtk_drm_gem_create(
 			crtc->dev, mode.width * mode.height * 3, true);
-		cwb_info->buffer[0].addr_mva = (u32)mtk_gem->dma_addr;
+		cwb_info->buffer[0].addr_mva = mtk_gem->dma_addr;
 		cwb_info->buffer[0].addr_va = (u64)mtk_gem->kvaddr;
 
 		cwb_info->buffer[0].fb  =
@@ -1425,7 +1425,7 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 
 		mtk_gem = mtk_drm_gem_create(
 			crtc->dev, mode.width * mode.height * 3, true);
-		cwb_info->buffer[1].addr_mva = (u32)mtk_gem->dma_addr;
+		cwb_info->buffer[1].addr_mva = mtk_gem->dma_addr;
 		cwb_info->buffer[1].addr_va = (u64)mtk_gem->kvaddr;
 
 		cwb_info->buffer[1].fb  =

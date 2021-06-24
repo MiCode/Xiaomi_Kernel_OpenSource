@@ -88,7 +88,7 @@ struct mtk_addon_wdma_config {
 	struct mtk_addon_config_type config_type;
 	struct mtk_rect wdma_src_roi;
 	struct mtk_rect wdma_dst_roi;
-	u32 addr;
+	dma_addr_t addr;
 	struct drm_framebuffer *fb;
 	struct golden_setting_context *p_golden_setting_context;
 };

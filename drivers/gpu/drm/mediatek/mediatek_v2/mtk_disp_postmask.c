@@ -70,6 +70,7 @@
 #define DISP_POSTMASK_PAUSE_REGION 0x110
 #define PAUSE_REGION_FLD_RDMA_PAUSE_END REG_FLD_MSB_LSB(27, 16)
 #define PAUSE_REGION_FLD_RDMA_PAUSE_START REG_FLD_MSB_LSB(11, 0)
+#define DISP_POSTMASK_MEM_ADDR_MSB 0x114
 #define DISP_POSTMASK_RDMA_GREQ_NUM 0x130
 #define GREQ_FLD_IOBUF_FLUSH_ULTRA REG_FLD_MSB_LSB(31, 31)
 #define GREQ_FLD_IOBUF_FLUSH_PREULTRA REG_FLD_MSB_LSB(30, 30)
@@ -105,12 +106,22 @@
 #define DISP_POSTMASK_GRAD_VAL_0 0xA00
 #define DISP_POSTMASK_GRAD_VAL(n) (DISP_POSTMASK_GRAD_VAL_0 + (0x4 * (n)))
 
+struct mtk_disp_postmask_data {
+	bool is_support_34bits;
+};
+
 struct mtk_disp_postmask {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
 	unsigned int underflow_cnt;
 	unsigned int abnormal_cnt;
+	const struct mtk_disp_postmask_data *data;
 };
+
+static inline struct mtk_disp_postmask *comp_to_postmask(struct mtk_ddp_comp *comp)
+{
+	return container_of(comp, struct mtk_disp_postmask, ddp_comp);
+}
 
 static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 {
@@ -182,8 +193,9 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 #else
 	struct mtk_drm_gem_obj *gem;
 	unsigned int size = 0;
-	unsigned int addr = 0;
+	dma_addr_t addr = 0;
 	unsigned int force_relay = 0;
+	struct mtk_disp_postmask *postmask = comp_to_postmask(comp);
 #endif
 #endif
 	unsigned int width;
@@ -273,19 +285,19 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 			    comp->mtk_crtc->round_corner_gem_l &&
 			    panel_ext->corner_pattern_tp_size_l) {
 				gem = comp->mtk_crtc->round_corner_gem_l;
-				addr = (unsigned int)gem->dma_addr;
+				addr = gem->dma_addr;
 				size = panel_ext->corner_pattern_tp_size_l;
 			} else if (comp->id == DDP_COMPONENT_POSTMASK1 &&
 			    comp->mtk_crtc->round_corner_gem_r &&
 			    panel_ext->corner_pattern_tp_size_r) {
 				gem = comp->mtk_crtc->round_corner_gem_r;
-				addr = (unsigned int)gem->dma_addr;
+				addr = gem->dma_addr;
 				size = panel_ext->corner_pattern_tp_size_r;
 			}
 		} else if (comp->mtk_crtc->round_corner_gem &&
 			   panel_ext->corner_pattern_tp_size) {
 			gem = comp->mtk_crtc->round_corner_gem;
-			addr = (unsigned int)gem->dma_addr;
+			addr = gem->dma_addr;
 			size = panel_ext->corner_pattern_tp_size;
 		}
 
@@ -302,6 +314,10 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 
 		mtk_ddp_write_relaxed(comp, addr, DISP_POSTMASK_MEM_ADDR,
 				      handle);
+
+		if (postmask->data->is_support_34bits)
+			mtk_ddp_write_relaxed(comp, (addr >> 32),
+					DISP_POSTMASK_MEM_ADDR_MSB, handle);
 
 		mtk_ddp_write_relaxed(comp, size, DISP_POSTMASK_MEM_LENGTH,
 				      handle);
@@ -360,7 +376,7 @@ int mtk_postmask_dump(struct mtk_ddp_comp *comp)
 	mtk_serial_dump_reg(baddr, 0xA0, 2);
 	mtk_serial_dump_reg(baddr, 0xB0, 3);
 	mtk_serial_dump_reg(baddr, 0x100, 4);
-	mtk_serial_dump_reg(baddr, 0x110, 1);
+	mtk_serial_dump_reg(baddr, 0x110, 2);
 	mtk_serial_dump_reg(baddr, 0x130, 2);
 	mtk_serial_dump_reg(baddr, 0x140, 3);
 
@@ -370,6 +386,8 @@ int mtk_postmask_dump(struct mtk_ddp_comp *comp)
 int mtk_postmask_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
+	struct mtk_disp_postmask *postmask = comp_to_postmask(comp);
+	dma_addr_t addr = 0;
 
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("en=%d,cfg=0x%x,size=(%dx%d)\n",
@@ -386,9 +404,17 @@ int mtk_postmask_analysis(struct mtk_ddp_comp *comp)
 		readl(DISP_POSTMASK_MEM_GMC_SETTING2 + baddr),
 		readl(DISP_POSTMASK_RDMA_BUF_LOW_TH + baddr),
 		readl(DISP_POSTMASK_RDMA_BUF_HIGH_TH + baddr));
+
+	if (postmask->data->is_support_34bits) {
+		addr = readl(DISP_POSTMASK_MEM_ADDR_MSB + baddr);
+		addr = (addr << 32);
+	}
+
+	addr += readl(DISP_POSTMASK_MEM_ADDR + baddr);
+
 	DDPDUMP("mem_addr=0x%x,length=0x%x\n",
-		readl(DISP_POSTMASK_MEM_ADDR + baddr),
-		readl(DISP_POSTMASK_MEM_LENGTH + baddr));
+		addr, readl(DISP_POSTMASK_MEM_LENGTH + baddr));
+
 	DDPDUMP("status=0x%x,cur_pos=0x%x\n",
 		readl(DISP_POSTMASK_STATUS + baddr),
 		readl(DISP_POSTMASK_INPUT_COUNT + baddr));
@@ -543,6 +569,8 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv->data = of_device_get_match_data(dev);
+
 	platform_set_drvdata(pdev, priv);
 
 	ret = devm_request_irq(dev, irq, mtk_postmask_irq_handler,
@@ -577,12 +605,37 @@ static int mtk_disp_postmask_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_disp_postmask_data mt6779_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6885_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6873_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6853_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6833_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
 static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6779-disp-postmask",},
-	{ .compatible = "mediatek,mt6885-disp-postmask",},
-	{ .compatible = "mediatek,mt6873-disp-postmask",},
-	{ .compatible = "mediatek,mt6853-disp-postmask",},
-	{ .compatible = "mediatek,mt6833-disp-postmask",},
+	{ .compatible = "mediatek,mt6779-disp-postmask",
+	  .data = &mt6779_postmask_driver_data},
+	{ .compatible = "mediatek,mt6885-disp-postmask",
+	  .data = &mt6885_postmask_driver_data},
+	{ .compatible = "mediatek,mt6873-disp-postmask",
+	  .data = &mt6873_postmask_driver_data},
+	{ .compatible = "mediatek,mt6853-disp-postmask",
+	  .data = &mt6853_postmask_driver_data},
+	{ .compatible = "mediatek,mt6833-disp-postmask",
+	  .data = &mt6833_postmask_driver_data},
 	{},
 };
 

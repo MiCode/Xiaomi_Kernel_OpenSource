@@ -46,6 +46,7 @@ int disp_met_set(void *data, u64 val);
 #define DISP_REG_RDMA_TARGET_LINE 0x001c
 #define DISP_REG_RDMA_MEM_CON 0x0024
 #define DISP_REG_RDMA_MEM_START_ADDR 0x0f00
+#define DISP_REG_RDMA_MEM_START_ADDR_MSB 0x0f10
 #define DISP_REG_RDMA_MEM_SRC_PITCH 0x002c
 #define DISP_REG_RDMA_MEM_GMC_S0 0x0030
 #define MEM_GMC_S0_FLD_PRE_ULTRA_THRESHOLD_LOW \
@@ -219,10 +220,11 @@ struct mtk_disp_rdma_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
 	bool has_greq_urg_num;
+	bool is_support_34bits;
 };
 
 struct mtk_rdma_backup_info {
-	unsigned long addr;
+	dma_addr_t addr;
 };
 
 struct mtk_rdma_cfg_info {
@@ -800,13 +802,28 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 	mtk_rdma_set_ultra_l(comp, cfg, handle);
 }
 
-static void mtk_rdma_backup_info_cmp(struct mtk_ddp_comp *comp, bool *compare)
+static dma_addr_t mtk_rdma_read_mem_start_addr(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	void __iomem *baddr = comp->regs;
-	unsigned long addr;
+	dma_addr_t addr = 0;
 
-	addr = readl(DISP_REG_RDMA_MEM_START_ADDR + baddr);
+	if (rdma->data->is_support_34bits) {
+		addr = readl(DISP_REG_RDMA_MEM_START_ADDR_MSB + baddr);
+		addr = (addr << 32);
+	}
+
+	addr += readl(DISP_REG_RDMA_MEM_START_ADDR + baddr);
+
+	return addr;
+}
+
+static void mtk_rdma_backup_info_cmp(struct mtk_ddp_comp *comp, bool *compare)
+{
+	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
+	dma_addr_t addr;
+
+	addr = mtk_rdma_read_mem_start_addr(comp);
 
 	if (addr == 0 || (addr != 0 && rdma->backup_info.addr != addr))
 		*compare = 1;
@@ -1022,6 +1039,10 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_MEM_CON + baddr));
 		DDPDUMP("(0xf00)R_M_S_ADDR=0x%x\n",
 			readl(DISP_REG_RDMA_MEM_START_ADDR + baddr));
+		if (rdma->data->is_support_34bits)
+			DDPDUMP("(0xf10)R_M_S_ADDR_MSB=0x%x\n",
+				readl(DISP_REG_RDMA_MEM_START_ADDR_MSB +
+				baddr));
 		DDPDUMP("(0x02c)R_M_SRC_PITCH=0x%x\n",
 			readl(DISP_REG_RDMA_MEM_SRC_PITCH + baddr));
 		DDPDUMP("(0x030)R_M_GMC_SET0=0x%x\n",
@@ -1052,8 +1073,6 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_DUMMY + baddr));
 		DDPDUMP("(0x094)R_OUT_SEL=0x%x\n",
 			readl(DISP_REG_RDMA_DEBUG_OUT_SEL + baddr));
-		DDPDUMP("(0xf00)R_M_START=0x%x\n",
-			readl(DISP_REG_RDMA_MEM_START_ADDR + baddr));
 		DDPDUMP("(0x0a0)R_BG_CON_0=0x%x\n",
 			readl(DISP_REG_RDMA_BG_CON_0 + baddr));
 		DDPDUMP("(0x0a4)R_BG_CON_1=0x%x\n",
@@ -1122,11 +1141,13 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_MODE_SEL, global_ctrl)
 				? "mem" : "DL",
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_SMI_BUSY, global_ctrl));
-	DDPDUMP("wh(%dx%d),pitch=%d,addr=0x%08x\n",
+
+	DDPDUMP("wh(%dx%d),pitch=%d,addr=0x%x\n",
 		readl(DISP_REG_RDMA_SIZE_CON_0 + baddr) & 0xfff,
 		readl(DISP_REG_RDMA_SIZE_CON_1 + baddr) & 0xfffff,
 		readl(DISP_REG_RDMA_MEM_SRC_PITCH + baddr),
-		readl(DISP_REG_RDMA_MEM_START_ADDR + baddr));
+		mtk_rdma_read_mem_start_addr(comp));
+
 	DDPDUMP("fifo_sz=%u,output_valid_threshold=%u,fifo_min=%d\n",
 #ifdef IF_ZERO /* TODO */
 		unified_color_fmt_name(display_fmt_reg_to_unified_fmt(
@@ -1413,6 +1434,7 @@ static const struct mtk_disp_rdma_data mt8173_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
+	.is_support_34bits = false,
 };
 
 static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
@@ -1428,6 +1450,7 @@ static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
+	.is_support_34bits = false,
 };
 
 static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
@@ -1443,6 +1466,7 @@ static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.has_greq_urg_num = true,
+	.is_support_34bits = false,
 };
 
 static const struct mtk_disp_rdma_data mt6853_rdma_driver_data = {
@@ -1458,6 +1482,7 @@ static const struct mtk_disp_rdma_data mt6853_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.has_greq_urg_num = true,
+	.is_support_34bits = false,
 };
 
 static const struct mtk_disp_rdma_data mt6833_rdma_driver_data = {
@@ -1473,6 +1498,7 @@ static const struct mtk_disp_rdma_data mt6833_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.has_greq_urg_num = false,
+	.is_support_34bits = false,
 };
 
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {

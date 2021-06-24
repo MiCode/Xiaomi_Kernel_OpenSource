@@ -567,7 +567,7 @@ struct user_cwb_buffer {
 
 struct mtk_cwb_buffer_info {
 	struct mtk_rect dst_roi;
-	u32 addr_mva;
+	dma_addr_t addr_mva;
 	u64 addr_va;
 	struct drm_framebuffer *fb;
 	unsigned long long timestamp;
