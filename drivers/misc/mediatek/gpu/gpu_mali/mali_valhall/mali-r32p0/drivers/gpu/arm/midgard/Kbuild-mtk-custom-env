@@ -38,7 +38,7 @@ ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DCONFIG_MTK_GPU_COMMON_DVFS
 
 # Enable by specific Family-ID
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
-ifneq ($(CONFIG_MACH_MT6877),y)
+ifneq (y, $(filter y, $(CONFIG_MACH_MT6877) $(CONFIG_MACH_MT6833)))
 ccflags-y += -DMTK_GPU_BM_2
 $(info *GPU defined GPU BM QoS 2.0)
 endif
