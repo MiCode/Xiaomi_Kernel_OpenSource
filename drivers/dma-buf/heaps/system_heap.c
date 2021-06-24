@@ -10,6 +10,8 @@
  *	Andrew F. Davis <afd@ti.com>
  */
 
+#define pr_fmt(fmt) "dma_heap: system "fmt
+
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-heap.h>

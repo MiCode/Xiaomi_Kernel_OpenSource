@@ -17,12 +17,19 @@ config DMABUF_HEAPS_SYSTEM
 
 config DMABUF_HEAPS_MTK_MM
 	tristate "DMA-BUF MTK_MM Heap"
-	depends on DMABUF_HEAPS
-	select DMABUF_HEAPS_PAGE_POOL
-	select DMABUF_HEAPS_DEFERRED_FREE
+	depends on DMABUF_HEAPS && DMABUF_HEAPS_DEFERRED_FREE && DMABUF_HEAPS_PAGE_POOL
 	help
 	  Choose this option to enable the mtk_mm dmabuf heap. The mtk_mm heap
 	  is backed by pages from the buddy allocator. If in doubt, say Y.
+
+config DMABUF_HEAPS_DEBUG
+	tristate "DMA-BUF debug Heap"
+	depends on DMABUF_HEAPS_MTK_MM && DMABUF_HEAPS_SYSTEM
+	help
+	  Choose this option to enable the mtk debug heap.
+	  This debug tool can be use to dump dmabuf usage for users
+	  If you want use it, say Y if you are not using GKI
+	  say m and add ko into your system for GKI.
 
 config DMABUF_HEAPS_CMA
 	tristate "DMA-BUF CMA Heap"

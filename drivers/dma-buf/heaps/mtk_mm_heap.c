@@ -67,15 +67,6 @@ struct mm_heap_priv {
 	char                    tid_name[TASK_COMM_LEN];
 };
 
-struct dma_heap_attachment {
-	struct device *dev;
-	struct sg_table *table;
-	struct list_head list;
-	bool mapped;
-
-	bool uncached;
-};
-
 #define HIGH_ORDER_GFP  (((GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN \
 				| __GFP_NORETRY) & ~__GFP_RECLAIM) \
 				| __GFP_COMP)
@@ -831,67 +822,23 @@ static char *mm_get_buf_dump_fmt(const struct dma_heap *heap) {
 
 }
 
-static int mm_dump_buf_attach_cb(const struct dma_buf *dmabuf,
-				 void *priv) {
-	int attach_count = 0;
-	struct mtk_heap_dump_t *dump_param = priv;
-	struct seq_file *s = dump_param->file;
-	struct dma_heap *dump_heap = dump_param->heap;
-	struct mtk_mm_heap_buffer *buf;
-	struct dma_heap *buf_heap;
-	struct mtk_heap_priv_info *heap_priv = NULL;
-	struct dma_buf_attachment *attach_obj;
-
-	if (dump_heap != mtk_mm_uncached_heap &&
-	    dump_heap != mtk_mm_heap)
-		return 0;
-
-	buf = dmabuf->priv;
-	buf_heap = buf->heap;
-	heap_priv = mtk_heap_priv_get(buf_heap);
-
-	if (buf_heap != dump_heap)
-		return 0;
-
-	dmabuf_dump(s, "\tdmabuf=%p, size:0x%lx, exp_name:%s, dbg_name:%s, file_cnt:%d\n",
-		    dmabuf, dmabuf->size,
-		    dmabuf->exp_name,
-		    dmabuf->name ?: "NULL",
-		    file_count(dmabuf->file));
-	dmabuf_dump(s, "\t\tDevice \tdma_map_attrs \tdma_data_dir\n");
-	list_for_each_entry(attach_obj, &dmabuf->attachments, node) {
-		dmabuf_dump(s, "\t\t%s \t%lu \t%d\n",
-			    dev_name(attach_obj->dev),
-			    attach_obj->dma_map_attrs,
-			    attach_obj->dir);
-		attach_count++;
-	}
-	dmabuf_dump(s, "\t--Total %d devices attached.\n\n",
-		    attach_count);
-
-	return 0;
-}
-
+#ifndef SKIP_DMBUF_BUFFER_DUMP
 static int mm_dump_buf_info_cb(const struct dma_buf *dmabuf,
 			       void *priv) {
 	struct mtk_heap_dump_t *dump_param = priv;
 	struct seq_file *s = dump_param->file;
 	struct dma_heap *dump_heap = dump_param->heap;
-	struct mtk_mm_heap_buffer *buf;
+	struct mtk_mm_heap_buffer *buf = dmabuf->priv;
 	struct dma_heap *buf_heap;
 	struct mtk_heap_priv_info *heap_priv = NULL;
 	char *buf_dump_str = NULL;
 
-	if (dump_heap != mtk_mm_uncached_heap &&
-	    dump_heap != mtk_mm_heap)
+	/* dmabuf check */
+	if (!buf || !buf->heap || buf->heap != dump_heap)
 		return 0;
 
-	buf = dmabuf->priv;
 	buf_heap = buf->heap;
 	heap_priv = mtk_heap_priv_get(buf_heap);
-
-	if (buf_heap != dump_heap)
-		return 0;
 
 	buf_dump_str = heap_priv->get_buf_dump_str(dmabuf, dump_heap);
 	dmabuf_dump(s, "%s\n", buf_dump_str);
@@ -900,50 +847,36 @@ static int mm_dump_buf_info_cb(const struct dma_buf *dmabuf,
 
 	return 0;
 }
+#endif
 
 static void mm_dmaheap_show(struct dma_heap *heap,
 			    void* seq_file) {
 	struct seq_file *s = seq_file;
-	long pool_sz = -1;
-	const char *heap_name = dma_heap_get_name(heap);
 	struct mtk_heap_dump_t dump_param;
-	struct dma_heap_export_info *exp_info = (typeof(exp_info))heap;
-	struct mtk_heap_priv_info *heap_priv = NULL;
-	const char * dump_fmt = NULL;
-
-	if (heap != mtk_mm_heap &&
-	    heap != mtk_mm_uncached_heap)
-		return;
+	//struct mtk_heap_priv_info *heap_priv = NULL;
+	//const char * dump_fmt = NULL;
 
 	dump_param.heap = heap;
 	dump_param.file = seq_file;
 
-	dmabuf_dump(s, "------[%s] dmabuf heap show START @ %llu ms------\n",
-		    heap_name, get_current_time_ms());
-	dmabuf_dump(s, "\t------heap_total------\n");
-	dmabuf_dump(s, "\tNEED updated\n");
+	__HEAP_DUMP_START(s, heap);
+	__HEAP_TOTAL_BUFFER_SZ_DUMP(s, heap);
+	__HEAP_PAGE_POOL_DUMP(s, heap);
 
-	dmabuf_dump(s, "\t------page_pool show------\n");
+#ifndef SKIP_DMBUF_BUFFER_DUMP
+	__HEAP_BUF_DUMP_START(s, heap);
+
 	heap_priv = mtk_heap_priv_get(heap);
-	if (exp_info->ops->get_pool_size)
-		pool_sz = exp_info->ops->get_pool_size(heap);
-
-	dmabuf_dump(s, "\tpool size(Byte): %ld\n", pool_sz);
-
-	//mtk_dmabuf_heap_buffer_dump(s);
-	dmabuf_dump(s, "\t------buffer dump start @%llu ms------\n", get_current_time_ms());
-
 	dump_fmt = heap_priv->get_buf_dump_fmt(heap);
 	dmabuf_dump(s, "\t%s\n", dump_fmt);
 	kfree(dump_fmt);
-
 	get_each_dmabuf(mm_dump_buf_info_cb, &dump_param);
+#endif
+	__HEAP_ATTACH_DUMP_STAT(s, heap);
+	get_each_dmabuf(dma_heap_default_attach_dump_cb, &dump_param);
+	__HEAP_ATTACH_DUMP_END(s, heap);
 
-	dmabuf_dump(s, "\tattachment list dump\n");
-	get_each_dmabuf(mm_dump_buf_attach_cb, &dump_param);
-
-	dmabuf_dump(s, "------[%s] dmabuf heap show END @ %llu ms------\n",
-		    heap_name, get_current_time_ms());
+	__HEAP_DUMP_END(s, heap);
 
 }
 
