@@ -4888,7 +4888,7 @@
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
 			iommus = <&iommu3 M4U_PORT_L21_APU_FAKE_DATA>;
 		};
-				
+
 		mtk_apu_mem_data: mtk_apu_mem_data {
 			compatible = "mediatek, apu_mem_data";
 			type = <2>;
@@ -6022,33 +6022,33 @@
 			vcp-support = <0>;
 			status = "okay";
 			reg = <0 0x1ea00000 0 0x40000>, /* tcm */
-			      <0 0x1ea24000 0 0x1000>, /* cfg */
-			      <0 0x1ea21000 0 0x1000>, /* clk*/
-			      <0 0x1ea30000 0 0x1000>, /* cfg core0 */
-			      <0 0x1ea40000 0 0x1000>, /* cfg core1 */
-			      <0 0x1ea52000 0 0x1000>, /* bus tracker */
-			      <0 0x1ea60000 0 0x40000>, /* llc */
-			      <0 0x1eaa5000 0 0x4>, /* cfg_sec */
-			      <0 0x1eafb000 0 0x100>, /* mbox0 base */
-			      <0 0x1eafb100 0 0x4>, /* mbox0 set */
-			      <0 0x1eafb10c 0 0x4>, /* mbox0 clr */
-			      <0 0x1eaa5020 0 0x4>, /* mbox0 init */
-			      <0 0x1eafc000 0 0x100>, /* mbox1 base */
-			      <0 0x1eafc100 0 0x4>, /* mbox1 set */
-			      <0 0x1eafc10c 0 0x4>, /* mbox1 clr */
-			      <0 0x1eaa5024 0 0x4>, /* mbox1 init */
-			      <0 0x1eafd000 0 0x100>, /* mbox2 base */
-			      <0 0x1eafd100 0 0x4>, /* mbox2 set */
-			      <0 0x1eafd10c 0 0x4>, /* mbox2 clr */
-			      <0 0x1eaa5028 0 0x4>, /* mbox2 init */
-			      <0 0x1eafe000 0 0x100>, /* mbox3 base */
-			      <0 0x1eafe100 0 0x4>, /* mbox3 set */
-			      <0 0x1eafe10c 0 0x4>, /* mbox3 clr */
-			      <0 0x1eaa502c 0 0x4>, /* mbox3 init */
-			      <0 0x1eaff000 0 0x100>, /* mbox4 base */
-			      <0 0x1eaff100 0 0x4>, /* mbox4 set */
-			      <0 0x1eaff10c 0 0x4>, /* mbox4 clr */
-			      <0 0x1eaa5030 0 0x4>; /* mbox4 init */
+			      <0 0x1ec24000 0 0x1000>, /* cfg */
+			      <0 0x1ec21000 0 0x1000>, /* clk*/
+			      <0 0x1ec30000 0 0x1000>, /* cfg core0 */
+			      <0 0x1ec40000 0 0x1000>, /* cfg core1 */
+			      <0 0x1ec52000 0 0x1000>, /* bus tracker */
+			      <0 0x1ec60000 0 0x40000>, /* llc */
+			      <0 0x1eca5000 0 0x4>, /* cfg_sec */
+			      <0 0x1ecfb000 0 0x100>, /* mbox0 base */
+			      <0 0x1ecfb100 0 0x4>, /* mbox0 set */
+			      <0 0x1ecfb10c 0 0x4>, /* mbox0 clr */
+			      <0 0x1eca5020 0 0x4>, /* mbox0 init */
+			      <0 0x1ecfc000 0 0x100>, /* mbox1 base */
+			      <0 0x1ecfc100 0 0x4>, /* mbox1 set */
+			      <0 0x1ecfc10c 0 0x4>, /* mbox1 clr */
+			      <0 0x1eca5024 0 0x4>, /* mbox1 init */
+			      <0 0x1ecfd000 0 0x100>, /* mbox2 base */
+			      <0 0x1ecfd100 0 0x4>, /* mbox2 set */
+			      <0 0x1ecfd10c 0 0x4>, /* mbox2 clr */
+			      <0 0x1eca5028 0 0x4>, /* mbox2 init */
+			      <0 0x1ecfe000 0 0x100>, /* mbox3 base */
+			      <0 0x1ecfe100 0 0x4>, /* mbox3 set */
+			      <0 0x1ecfe10c 0 0x4>, /* mbox3 clr */
+			      <0 0x1eca502c 0 0x4>, /* mbox3 init */
+			      <0 0x1ecff000 0 0x100>, /* mbox4 base */
+			      <0 0x1ecff100 0 0x4>, /* mbox4 set */
+			      <0 0x1ecff10c 0 0x4>, /* mbox4 clr */
+			      <0 0x1eca5030 0 0x4>; /* mbox4 init */
 
 			reg-names = "vcp_sram_base",
 				    "vcp_cfgreg",
@@ -6133,9 +6133,23 @@
 
 			vcp_mem_key = "mediatek,reserve-memory-vcp_share";
 			vcp_mem_tbl = <1 0x40000>, /* VDEC_MEM_ID 256KB */
-				      <2 0x8000>; /* VENC_MEM_ID 32KB */
-				      /* <3 0x4000000>, VDEC_WORK_ID 64MB */
-				      /* <4 0x4000000>, VENC_WORK_ID 64MB */
+				      <2 0x8000>, /* VENC_MEM_ID 32KB */
+				      <3 0x180000>; /* LOGGER */
+		};
+
+		vcp_iommu_vdec {
+			vcp-support = <0>;
+			compatible =  "mediatek,vcp-io-vdec";
+		};
+
+		vcp_iommu_venc {
+			vcp-support = <0>;
+			compatible =  "mediatek,vcp-io-venc";
+		};
+
+		vcp_iommu_work {
+			vcp-support = <0>;
+			compatible = "mediatek,vcp-io-work";
 		};
 
 		mdpsys: mdpsys@1f000000 {
