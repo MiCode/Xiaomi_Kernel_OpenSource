@@ -20,12 +20,19 @@
 #define EARA_ENABLE                 _IOW('g', 1, int)
 
 struct _EARA_THRM_PACKAGE {
+	__s32 type;
 	__s32 request;
 	__s32 pair_pid[EARA_MAX_COUNT];
 	__u64 pair_bufid[EARA_MAX_COUNT];
 	__s32 pair_tfps[EARA_MAX_COUNT];
 	__s32 pair_diff[EARA_MAX_COUNT];
 	char proc_name[EARA_MAX_COUNT][EARA_PROC_NAME_LEN];
+};
+
+struct _EARA_THRM_ENABLE {
+	__s32 type;
+	__s32 enable;
+	__s32 pid;
 };
 
 static int eara_enable;
@@ -54,11 +61,12 @@ static void set_tfps_diff(int max_cnt, int *pid, unsigned long long *buf_id, int
 	mutex_unlock(&pre_lock);
 }
 
-static void switch_eara(int enable)
+static void switch_eara(int enable, int pid)
 {
+	pr_debug(TAG "%s enable:%d\n", __func__, enable);
 	mutex_lock(&pre_lock);
 	eara_enable = enable;
-	eara_pid = task_pid_nr(current);
+	eara_pid = pid;
 	mutex_unlock(&pre_lock);
 
 }
@@ -91,6 +99,7 @@ int pre_change_event(void)
 	struct _EARA_THRM_PACKAGE change_msg;
 	int ret = 0;
 
+	pr_debug("eara_enable %d\n", eara_enable);
 	mutex_lock(&pre_lock);
 	if (!eara_enable) {
 		mutex_unlock(&pre_lock);
@@ -146,6 +155,7 @@ static void eara_nl_data_handler(struct sk_buff *skb)
 	void *data;
 	struct nlmsghdr *nlh;
 	struct _EARA_THRM_PACKAGE *change_msg;
+	struct _EARA_THRM_ENABLE *enable_msg;
 	//int size = 0;
 
 	nlh = (struct nlmsghdr *)skb->data;
@@ -159,8 +169,12 @@ static void eara_nl_data_handler(struct sk_buff *skb)
 	 */
 	data = NLMSG_DATA(nlh);
 	change_msg = (struct _EARA_THRM_PACKAGE *) NLMSG_DATA(nlh);
-	set_tfps_diff(EARA_MAX_COUNT, change_msg->pair_pid,
+	enable_msg = (struct _EARA_THRM_ENABLE *) NLMSG_DATA(nlh);
+	if (change_msg->type == 0)
+		set_tfps_diff(EARA_MAX_COUNT, change_msg->pair_pid,
 			change_msg->pair_bufid, change_msg->pair_tfps, change_msg->pair_diff);
+	else
+		switch_eara(enable_msg->enable, enable_msg->pid);
 }
 
 
@@ -184,69 +198,6 @@ int eara_netlink_init(void)
 	return 0;
 }
 
-static int fps_cooler_show(struct seq_file *m, void *v)
-{
-	return 0;
-}
-
-static int fps_cooler_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, fps_cooler_show, inode->i_private);
-}
-
-static int fps_cooler_release(struct inode *inode, struct file *file)
-{
-	return single_release(inode, file);
-}
-
-static long fps_cooler_ioctl(struct file *filp,
-		unsigned int cmd, unsigned long arg)
-{
-	ssize_t ret = 0;
-
-	switch (cmd) {
-	case EARA_ENABLE:
-		switch_eara(arg);
-		break;
-	default:
-		pr_debug(TAG "%s %d: unknown cmd %x\n",
-				__FILE__, __LINE__, cmd);
-		ret = -1;
-	}
-	return ret;
-}
-
-static const struct proc_ops fps_cooler_Fops = {
-	.proc_compat_ioctl = fps_cooler_ioctl,
-	.proc_open = fps_cooler_open,
-	.proc_read = seq_read,
-	.proc_lseek = seq_lseek,
-	.proc_release = fps_cooler_release,
-};
-
-static int init_proc(void)
-{
-	struct proc_dir_entry *pe;
-	struct proc_dir_entry *parent;
-	int ret_val = 0;
-
-
-	pr_debug(TAG"init proc ioctl\n");
-
-	parent = proc_mkdir("fps_cooler", NULL);
-
-	pe = proc_create("control", 0664, parent, &fps_cooler_Fops);
-	if (!pe) {
-		pr_debug(TAG"%s failed with %d\n",
-				"Creating file node ",
-				ret_val);
-		ret_val = -ENOMEM;
-	}
-	pr_debug(TAG"init proc ioctl done\n");
-
-	return ret_val;
-}
-
 void __exit eara_thrm_pre_exit(void)
 {
 	eara_pre_change_fp = NULL;
@@ -257,7 +208,6 @@ int __init eara_thrm_pre_init(void)
 {
 	eara_pre_change_fp = pre_change_event;
 	eara_pre_change_single_fp =  pre_change_single_event;
-	init_proc();
 	eara_netlink_init();
 	return 0;
 }
