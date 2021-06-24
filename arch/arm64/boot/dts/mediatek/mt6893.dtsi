@@ -3825,6 +3825,12 @@
 		compatible = "mediatek,mt6893-iommu-debug";
 		};
 
+		iommu_test {
+			compatible = "mediatek,ktf-iommu-test";
+			mediatek,larb = <&larb0>;
+			iommus = <&iommu0 M4U_PORT_L0_OVL_RDMA0>;
+		};
+
 		mtk_sec_dmaheap {
 			compatible = "mediatek,dmaheap-region-base";
 			iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
