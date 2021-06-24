@@ -21,7 +21,7 @@
 #define XGF_DEP_FRAMES_MAX 20
 #define XGF_DO_SP_SUB 0
 #define XGF_MAX_UFRMAES 200
-#define XGF_UBOOST 1
+#define XGF_UBOOST 0
 #define XGF_UBOOST_STDDEV_M 1
 #define TIME_50MS  50000000
 #define UB_SKIP_FRAME 20
