@@ -164,18 +164,27 @@ TRACE_EVENT(sched_set_user_nice,
 )
 
 TRACE_EVENT(select_turbo_cpu,
-	TP_PROTO(int target_cpu),
-	TP_ARGS(target_cpu),
+	TP_PROTO(int target_cpu, struct task_struct *task, int max_spare_cap, int max_spare_cpu),
+	TP_ARGS(target_cpu, task, max_spare_cap, max_spare_cpu),
 	TP_STRUCT__entry(
 		__field(int, target_cpu)
+		__field(int, pid)
+		__field(int, max_spare_cap)
+		__field(int, max_spare_cpu)
 	),
 
 	TP_fast_assign(
 		__entry->target_cpu = target_cpu;
+		__entry->pid = task->pid;
+		__entry->max_spare_cap = max_spare_cap;
+		__entry->max_spare_cpu = max_spare_cpu;
 	),
 
-	TP_printk("target_cpu=%d",
-		__entry->target_cpu)
+	TP_printk("target_cpu=%d pid=%d max_spare_cap=%d max_spare_cpu=%d",
+		__entry->target_cpu,
+		__entry->pid,
+		__entry->max_spare_cap,
+		__entry->max_spare_cpu)
 );
 
 #endif /*_TRACE_TASK_TURBO_H */
