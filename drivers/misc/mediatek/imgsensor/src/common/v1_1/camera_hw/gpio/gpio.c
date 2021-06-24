@@ -22,6 +22,10 @@ struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 	{"rst0"},
 	{"ldo_vcama_1"},
 	{"ldo_vcama_0"},
+#ifdef CONFIG_REGULATOR_RT5133
+	{"ldo_vcama1_1"},
+	{"ldo_vcama1_0"},
+#endif
 	{"ldo_vcamd_1"},
 	{"ldo_vcamd_0"},
 	{"ldo_vcamio_1"},
