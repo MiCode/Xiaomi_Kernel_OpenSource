@@ -3087,6 +3087,7 @@
 			i2c_lcd_bias_mtk:i2c_lcd_bias@3e {
 				compatible = "mediatek,i2c_lcd_bias";
 				reg = <0x3e>;
+				id = <6>;
 				status = "okay";
 			};
 		};
@@ -7672,6 +7673,10 @@
 			mediatek,larb = <&larb0>;
 			mediatek,smi-id = <0>;
 			iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
+		gateic0: gateic@0 {
+			compatible = "mediatek,mtk-drm-gateic-drv";
 		};
 
 		dsi0: dsi@1400e000 {

@@ -9,6 +9,8 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
 #include <dt-bindings/clock/mt6893-clk.h>
+#include <dt-bindings/lcm/td4330_fhdp_dphy_vdo_truly.dtsi>
+#include <dt-bindings/lcm/ft8756_fhdp_dphy_vdo_truly.dtsi>
 
 &gpio_usage_mapping {
 	GPIO_SIM1_HOT_PLUG = <&pio 43 0>;
@@ -252,7 +254,7 @@
 	atag,videolfb-fps= <6000>;
 	atag,videolfb-vramSize= <0x1be0000>;
 	atag,videolfb-lcmname=
-		"td4330_fhdp_dsi_vdo_auo_rt5081_drv";
+		"ft8756_fhdp_dphy_vdo_truly";
 };
 
 &mtk_leds {
@@ -344,34 +346,25 @@
 	status = "okay";
 };
 
+&gateic0 {
+	compatible = "mediatek,mtk-drm-gateic-drv-rt4801h";
+	pm-enable-gpios = <&pio 41 0>;
+	reset-gpios = <&pio 42 0>;
+	bias-gpios = <&pio 28 0>,
+		<&pio 29 0>;
+	pinctrl-names = "default";
+};
+
 &dsi0 {
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	panel1@0 {
-		compatible = "truly,td4330,vdo";
+	panel@0 {
+		compatible = "mediatek,mtk-drm-panel-drv-dsi";
 		reg = <0>;
-		pm-enable-gpios = <&pio 41 0>;
-		reset-gpios = <&pio 42 0>;
-		bias-gpios = <&pio 28 0>,
-			<&pio 29 0>;
-		pinctrl-names = "default";
+		panel_resource = <&ft8756_fhdp_dphy_vdo_truly>;
 		port {
-			panel_in1: endpoint {
-				remote-endpoint = <&dsi_out>;
-			};
-		};
-	};
-	panel2@0 {
-		compatible = "truly,ft8756,vdo";
-		reg = <1>;
-		pm-enable-gpios = <&pio 41 0>;
-		reset-gpios = <&pio 42 0>;
-		bias-gpios = <&pio 28 0>,
-			<&pio 29 0>;
-		pinctrl-names = "default";
-		port {
-			panel_in2: endpoint {
+			panel_in: endpoint {
 				remote-endpoint = <&dsi_out>;
 			};
 		};
@@ -379,7 +372,7 @@
 	ports {
 		port {
 			dsi_out: endpoint {
-				remote-endpoint = <&panel_in2>;
+				remote-endpoint = <&panel_in>;
 			};
 		};
 	};
