@@ -186,13 +186,13 @@ int fbt_get_default_uboost(void)
 
 int fbt_get_default_qr_enable(void)
 {
-	return 1;
+	return 0;
 }
 
 
 int fbt_get_default_gcc_enable(void)
 {
-	return 1;
+	return 0;
 }
 
 int fbt_get_l_min_bhropp(void)
