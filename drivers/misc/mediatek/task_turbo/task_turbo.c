@@ -181,6 +181,10 @@ static void probe_android_rvh_finish_prio_fork(void *ignore, struct task_struct 
 static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_struct *p,
 						struct task_struct *pi_task)
 {
+	int queued, running;
+	struct rq_flags rf;
+	struct rq *rq;
+
 	/* if rt boost, recover prio with backup */
 	if (unlikely(is_turbo_task(p))) {
 		if (!dl_prio(p->prio) && !rt_prio(p->prio)) {
@@ -190,8 +194,30 @@ static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_
 			turbo_data = get_task_turbo_t(p);
 			backup = turbo_data->nice_backup;
 
-			if (backup >= MIN_NICE && backup <= MAX_NICE)
-				set_user_nice(p, 0xbeee);
+			if (backup >= MIN_NICE && backup <= MAX_NICE) {
+				rq = __task_rq_lock(p, &rf);
+				update_rq_clock(rq);
+
+				queued = task_on_rq_queued(p);
+				running = task_current(rq, p);
+				if (queued)
+					deactivate_task(rq, p,
+						DEQUEUE_SAVE | DEQUEUE_NOCLOCK);
+				if (running)
+					put_prev_task(rq, p);
+
+				p->static_prio = NICE_TO_PRIO(backup);
+				p->prio = p->normal_prio = p->static_prio;
+				set_load_weight(p, false);
+
+				if (queued)
+					activate_task(rq, p,
+						ENQUEUE_RESTORE | ENQUEUE_NOCLOCK);
+				if (running)
+					set_next_task(rq, p);
+
+				__task_rq_unlock(rq, &rf);
+			}
 		}
 	}
 }
