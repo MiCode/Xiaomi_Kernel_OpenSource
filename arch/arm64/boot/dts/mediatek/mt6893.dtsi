@@ -4801,7 +4801,7 @@
 		};
 
 		apusys_debug: apusys_debug {
-			compatible = "mediatek,mt6873-debug";
+			compatible = "mediatek,mt6885-debug";
 		};
 
 		vcore_opp_table: opp_table0 {
