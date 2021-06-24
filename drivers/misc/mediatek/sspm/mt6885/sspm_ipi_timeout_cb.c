@@ -15,6 +15,7 @@
 #include <mt-plat/sync_write.h>
 #include "sspm_define.h"
 #include "sspm_ipi_id.h"
+#include "mtk_wcn_cmb_stub.h"
 
 /* debug API */
 #include <memory/mediatek/emi.h>
@@ -49,6 +50,9 @@ void sspm_ipi_timeout_cb(int ipi_id)
 		ipi_id, pin_name[ipi_id]);
 
 	ipi_monitor_dump(&sspm_ipidev);
+
+	/* Connsys dump */
+	mtk_wcn_conninfra_conn_bus_dump();
 
 	BUG_ON(1);
 }

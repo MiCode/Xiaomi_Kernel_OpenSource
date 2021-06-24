@@ -29,6 +29,7 @@ typedef void (*wmt_bridge_connsys_clock_fail_dump_cb)(void);
 
 typedef int (*wmt_bridge_conninfra_reg_readable)(void);
 typedef int (*wmt_bridge_conninfra_reg_is_bus_hang)(void);
+typedef int (*wmt_bridge_conninfra_reg_is_bus_hang_no_lock)(void);
 
 struct wmt_platform_bridge {
 	wmt_bridge_thermal_query_cb thermal_query_cb;
@@ -38,6 +39,7 @@ struct wmt_platform_bridge {
 	/* for CONNAC 2 */
 	wmt_bridge_conninfra_reg_readable conninfra_reg_readable_cb;
 	wmt_bridge_conninfra_reg_is_bus_hang conninfra_reg_is_bus_hang_cb;
+	wmt_bridge_conninfra_reg_is_bus_hang_no_lock conninfra_reg_is_bus_hang_no_lock_cb;
 };
 
 void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb);
