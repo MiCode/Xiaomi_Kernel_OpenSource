@@ -569,6 +569,23 @@
 		reg = <0 0x1000d000 0 0x1000>;
 		status = "disabled";
 	};
+
+	keypad: kp@1c00e000 {
+		compatible = "mediatek,kp";
+		reg = <0 0x1c00e000 0 0x1000>;
+		interrupts = <GIC_SPI 106 IRQ_TYPE_EDGE_RISING 0>;
+		mediatek,key-debounce-ms = <1024>;
+		mediatek,hw-map-num = <72>;
+		mediatek,hw-init-map = <114 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0>;
+		clocks = <&clk26m>;
+		clock-names = "kpd";
+	};
+
 	scp: scp@1c700000 {
 		compatible = "mediatek,scp";
 		status = "okay";
