@@ -5013,7 +5013,7 @@ void rt_mutex_setprio(struct task_struct *p, struct task_struct *pi_task)
 				queued = task_on_rq_queued(p);
 				running = task_current(rq, p);
 				if (queued)
-					dequeue_task(rq, p, queue_flag);
+					dequeue_task(rq, p, DEQUEUE_SAVE | DEQUEUE_NOCLOCK);
 				if (running)
 					put_prev_task(rq, p);
 
@@ -5023,7 +5023,7 @@ void rt_mutex_setprio(struct task_struct *p, struct task_struct *pi_task)
 				set_load_weight(p);
 
 				if (queued)
-					enqueue_task(rq, p, queue_flag);
+					enqueue_task(rq, p, ENQUEUE_RESTORE | ENQUEUE_NOCLOCK);
 				if (running)
 					set_curr_task(rq, p);
 			}
