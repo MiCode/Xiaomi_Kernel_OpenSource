@@ -289,32 +289,45 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 				free_frame_buffer->index, free_frame_buffer->fb_base[i].dmabuf);
 		}
 		dstbuf->used = false;
-		if (free_frame_buffer->status & FB_ST_EOS) {
-			ctx->dec_eos_vb = (void*)&dstbuf->vb;
-			free_frame_buffer->status &= ~FB_ST_EOS;
-			mtk_v4l2_debug(2,
-				"[%d]status=%x queue id=%d to rdy_queue %d %d for EOS",
-				ctx->id, free_frame_buffer->status,
-				dstbuf->vb.vb2_buf.index,
-				dstbuf->queued_in_vb2, dstbuf->queued_in_v4l2);
-			dstbuf->queued_in_vb2 = true;
-			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb);
-		} else if ((dstbuf->queued_in_vb2) &&
-			(dstbuf->queued_in_v4l2) &&
-			(free_frame_buffer->status == FB_ST_FREE)) {
-			/*
-			 * After decode sps/pps or non-display buffer, we don't
-			 * need to return capture buffer to user space, but
-			 * just re-queue this capture buffer to vb2 queue.
-			 * This reduce overheads that dq/q unused capture
-			 * buffer. In this case, queued_in_vb2 = true.
-			 */
-			mtk_v4l2_debug(2,
-				"[%d]status=%x queue id=%d to rdy_queue %d",
-				ctx->id, free_frame_buffer->status,
-				dstbuf->vb.vb2_buf.index,
-				dstbuf->queued_in_vb2);
-			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb);
+		if ((dstbuf->queued_in_vb2) && (dstbuf->queued_in_v4l2)) {
+			if ((free_frame_buffer->status & FB_ST_EOS) &&
+				(ctx->input_driven == INPUT_DRIVEN_PUT_FRM) &&
+				(ctx->dec_eos_vb == NULL)) {
+				/*
+				 * Buffer status has EOS flag, which is capture buffer
+				 * used for EOS when input driven. So set to dec_eos_vb
+				 * and don't queue to rdy_queue to avoid double dq
+				 * from vb2 queue
+				 */
+				ctx->dec_eos_vb = (void*)&dstbuf->vb;
+				mtk_v4l2_debug(2, "[%d]status=%x not queue id=%d to rdy_queue %d %d for EOS",
+					ctx->id, free_frame_buffer->status,
+					dstbuf->vb.vb2_buf.index,
+					dstbuf->queued_in_vb2,
+					dstbuf->queued_in_v4l2);
+				free_frame_buffer->status &= ~FB_ST_EOS;
+				dstbuf->queued_in_vb2 = false; // not queue to rdy_queue
+			} else if (free_frame_buffer->status == FB_ST_FREE) {
+				/*
+				 * After decode sps/pps or non-display buffer, we don't
+				 * need to return capture buffer to user space, but
+				 * just re-queue this capture buffer to vb2 queue.
+				 * This reduce overheads that dq/q unused capture
+				 * buffer. In this case, queued_in_vb2 = true.
+				 */
+				mtk_v4l2_debug(2, "[%d]status=%x queue id=%d to rdy_queue %d",
+					ctx->id, free_frame_buffer->status,
+					dstbuf->vb.vb2_buf.index,
+					dstbuf->queued_in_vb2);
+				v4l2_m2m_buf_queue_check(
+					ctx->m2m_ctx, &dstbuf->vb);
+			} else {
+				mtk_v4l2_debug(4, "[%d]status=%x reference free queue id=%d %d %d",
+					ctx->id, free_frame_buffer->status,
+					dstbuf->vb.vb2_buf.index,
+					dstbuf->queued_in_vb2,
+					dstbuf->queued_in_v4l2);
+			}
 		} else if ((dstbuf->queued_in_vb2 == false) &&
 				   (dstbuf->queued_in_v4l2 == true)) {
 			/*
@@ -614,8 +627,6 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type)
 				dst_vb2_v4l2 =
 				    (struct vb2_v4l2_buffer *)ctx->dec_eos_vb;
 				dst_buf = &(dst_vb2_v4l2->vb2_buf);
-				v4l2_m2m_dst_buf_remove_by_buf(
-					ctx->m2m_ctx, dst_vb2_v4l2);
 				ctx->dec_eos_vb = NULL;
 			} else {
 				if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM)
