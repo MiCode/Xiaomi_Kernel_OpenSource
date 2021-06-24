@@ -430,8 +430,11 @@ static int ssusb_role_sw_set(struct usb_role_switch *sw, enum usb_role role)
 	if (!!(sw_state & MTU3_SW_ID_GROUND) ^ id_event) {
 		if (id_event)
 			ssusb_set_mailbox(otg_sx, MTU3_ID_GROUND);
-		else
+		else {
+			/* wait for device remove done, e.g. usb audio */
+			mdelay(100);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
+		}
 	}
 
 	return 0;
