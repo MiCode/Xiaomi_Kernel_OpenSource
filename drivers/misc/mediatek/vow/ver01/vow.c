@@ -107,7 +107,9 @@ static bool file_recog_data_open;
  ****************************************************************************/
 static void vow_service_getVoiceData(void);
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-static void vow_ipi_reg_ok(short uuid, int confidence_lv);
+static void vow_ipi_reg_ok(short uuid,
+			   int confidence_lv,
+			   unsigned int extradata_len);
 static bool vow_IPICmd_Send(uint8_t data_type,
 			    uint8_t ack_type,
 			    uint16_t msg_id,
@@ -147,6 +149,10 @@ static struct
 	short                *voicedata_kernel_ptr;
 	char                 *voicddata_scp_ptr;
 	dma_addr_t           voicedata_scp_addr;
+	char                 *extradata_ptr;
+	dma_addr_t           extradata_addr;
+	char                 *extradata_mem_ptr;
+	unsigned int         extradata_bytelen;
 	unsigned int         voicedata_idx;
 	bool                 scp_command_flag;
 	bool                 recording_flag;
@@ -292,7 +298,8 @@ static void vow_IPICmd_Received(struct ipi_msg_t *ipi_msg)
 				if (vowserv.bypass_enter_phase3 == false) {
 					vow_ipi_reg_ok(
 					    (short)ipi_ptr->recog_ok_uuid,
-					    ipi_ptr->confidence_lv);
+					    ipi_ptr->confidence_lv,
+					    ipi_ptr->extra_data_len);
 				}
 			}
 		}
@@ -437,7 +444,9 @@ static bool vow_IPICmd_Send(uint8_t data_type,
 	return ret;
 }
 
-static void vow_ipi_reg_ok(short uuid, int confidence_lv)
+static void vow_ipi_reg_ok(short uuid,
+			   int confidence_lv,
+			   unsigned int extradata_len)
 {
 	int slot;
 
@@ -448,6 +457,13 @@ static void vow_ipi_reg_ok(short uuid, int confidence_lv)
 		return;
 	vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	vowserv.confidence_level = confidence_lv;
+	if (extradata_len <= VOW_EXTRA_DATA_SIZE)
+		vowserv.extradata_bytelen = extradata_len;
+	else
+		vowserv.extradata_bytelen = 0;
+
+	/*VOWDRV_DEBUG("%s(), extradata_bytelen = %d\r",  */
+	/*	     __func__, vowserv.extradata_bytelen);*/
 	VowDrv_Wait_Queue_flag = 1;
 	wake_up_interruptible(&VowDrv_Wait_Queue);
 }
@@ -500,7 +516,7 @@ static void vow_service_Init(void)
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 	int I;
 	bool ret;
-	unsigned int vow_ipi_buf[1];
+	unsigned int vow_ipi_buf[3];
 
 	VOWDRV_DEBUG("%s():%x\n", __func__, init_flag);
 	audio_load_task(TASK_SCENE_VOW);
@@ -546,8 +562,15 @@ static void vow_service_Init(void)
 		    + VOW_VOICEDATA_OFFSET;
 		vowserv.voicedata_scp_addr =
 		    scp_get_reserve_mem_phys(VOW_MEM_ID) + VOW_VOICEDATA_OFFSET;
-		/* VOWDRV_DEBUG("Set Debug1 Buffer Address:%x\n", */
-		/* vowserv.voicedata_scp_addr); */
+		/* Extra data */
+		vowserv.extradata_ptr =
+		    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
+		    + VOW_EXTRA_DATA_OFFSET;
+		vowserv.extradata_addr =
+		    scp_get_reserve_mem_phys(VOW_MEM_ID)
+		    + VOW_EXTRA_DATA_OFFSET;
+		vowserv.extradata_mem_ptr = 0;
+		vowserv.extradata_bytelen = 0;
 		vowserv.voicedata_kernel_ptr = NULL;
 		vowserv.voicedata_idx = 0;
 		wakeup_source_init(&VOW_suspend_lock, "VOW wakelock");
@@ -570,11 +593,20 @@ static void vow_service_Init(void)
 		    + VOW_VOICEDATA_OFFSET;
 		vowserv.voicedata_scp_addr =
 		    scp_get_reserve_mem_phys(VOW_MEM_ID) + VOW_VOICEDATA_OFFSET;
+		/*Extra data*/
+		vowserv.extradata_ptr =
+		    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
+		    + VOW_EXTRA_DATA_OFFSET;
+		vowserv.extradata_addr =
+		    scp_get_reserve_mem_phys(VOW_MEM_ID)
+		    + VOW_EXTRA_DATA_OFFSET;
 		vow_ipi_buf[0] = vowserv.voicedata_scp_addr;
+		vow_ipi_buf[1] = vowserv.extradata_addr;
+		vow_ipi_buf[2] = VOW_EXTRA_DATA_SIZE;
 		ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
 				      AUDIO_IPI_MSG_BYPASS_ACK,
 				      IPIMSG_VOW_APREGDATA_ADDR,
-				      sizeof(unsigned int) * 1, 0,
+				      sizeof(unsigned int) * 3, 0,
 				      (char *)&vow_ipi_buf[0]);
 		if (ret == 0) {
 			VOWDRV_DEBUG(
@@ -934,6 +966,10 @@ static bool vow_service_SetModelStatus(bool enable, unsigned long arg)
 		vowserv.vow_speaker_model[slot].enabled = 1;
 		vowserv.vow_speaker_model[slot].confidence_lv =
 			model_start.confidence_level;
+		vowserv.vow_speaker_model[slot].rx_inform_addr =
+			model_start.dsp_inform_addr;
+		vowserv.vow_speaker_model[slot].rx_inform_size_addr =
+			model_start.dsp_inform_size_addr;
 		VOWDRV_DEBUG("VOW_MODEL_START, id:%d\n",
 			     (int)model_start.handle);
 		/* send model status to scp */
@@ -943,6 +979,10 @@ static bool vow_service_SetModelStatus(bool enable, unsigned long arg)
 	} else {  /* VOW_MODEL_STATUS_STOP */
 		vowserv.vow_speaker_model[slot].confidence_lv =
 			model_start.confidence_level;
+		vowserv.vow_speaker_model[slot].rx_inform_addr =
+			model_start.dsp_inform_addr;
+		vowserv.vow_speaker_model[slot].rx_inform_size_addr =
+			model_start.dsp_inform_size_addr;
 		/* send model status to scp */
 		ret = vow_service_SendModelStatus(slot, enable);
 		if (ret == false)
@@ -1014,6 +1054,12 @@ static bool vow_service_Enable(void)
 	bool ret = false;
 
 	VOWDRV_DEBUG("+%s()\n", __func__);
+
+	/* extra data memory locate */
+	if (vowserv.extradata_mem_ptr == NULL) {
+		vowserv.extradata_mem_ptr =
+		    vmalloc(VOW_EXTRA_DATA_SIZE);
+	}
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 	ret = vow_IPICmd_Send(AUDIO_IPI_MSG_ONLY,
 			      AUDIO_IPI_MSG_BYPASS_ACK,
@@ -1041,6 +1087,12 @@ static bool vow_service_Disable(void)
 #else
 	VOWDRV_DEBUG("vow:SCP no support\n\r");
 #endif
+	/* extra data memory release */
+	if (vowserv.extradata_mem_ptr != NULL) {
+		vfree(vowserv.extradata_mem_ptr);
+		vowserv.extradata_mem_ptr = NULL;
+	}
+
 	/* release lock */
 	if (vowserv.suspend_lock == 1) {
 		vowserv.suspend_lock = 0;
@@ -1149,7 +1201,7 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 		ret = copy_to_user(
 		      (void __user *)(vowserv.voicedata_user_return_size_addr),
 		      &vowserv.transfer_length,
-		      4);
+		      sizeof(unsigned int));
 
 		mutex_lock(&vow_vmalloc_lock);
 		ret = copy_to_user(
@@ -2755,6 +2807,10 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		err |= put_user(l, &data->handle);
 		err |= get_user(l, &data32->confidence_level);
 		err |= put_user(l, &data->confidence_level);
+		err |= get_user(l, &data32->dsp_inform_addr);
+		err |= put_user(l, &data->dsp_inform_addr);
+		err |= get_user(l, &data32->dsp_inform_size_addr);
+		err |= put_user(l, &data->dsp_inform_size_addr);
 
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
 	}
@@ -2834,6 +2890,8 @@ static ssize_t VowDrv_read(struct file *fp,
 	unsigned int time_diff_ipi_read = 0;
 	unsigned long long vow_read_cycle = 0;
 	int ret = 0;
+	int slot = 0;
+	bool dsp_inform_tx_flag = false;
 
 	VOWDRV_DEBUG("+%s()+\n", __func__);
 	VowDrv_SetVowEINTStatus(VOW_EINT_RETRY);
@@ -2870,6 +2928,8 @@ static ssize_t VowDrv_read(struct file *fp,
 							  HZ);
 				}
 				vowserv.scp_command_flag = false;
+				if (vowserv.extradata_bytelen > 0)
+					dsp_inform_tx_flag = true;
 			} else {
 				VOWDRV_DEBUG("vow Wakeup by other(%d,%d)\n",
 					     VowDrv_Wait_Queue_flag,
@@ -2885,6 +2945,41 @@ static ssize_t VowDrv_read(struct file *fp,
 	read_count = copy_to_user((void __user *)data,
 				  &vowserv.vow_eint_data_struct,
 				  sizeof(struct vow_eint_data_struct_t));
+	if (dsp_inform_tx_flag) {
+		/* int i; */
+
+		dsp_inform_tx_flag = false;
+
+		if (vowserv.extradata_mem_ptr == NULL)
+			goto exit;
+		if (vowserv.extradata_ptr == NULL)
+			goto exit;
+		if (vowserv.vow_speaker_model[slot].rx_inform_size_addr == 0)
+			goto exit;
+		if (vowserv.vow_speaker_model[slot].rx_inform_addr == 0)
+			goto exit;
+		VOWDRV_DEBUG("%s(), copy to user, extra data len=%d\n",
+		     __func__, vowserv.extradata_bytelen);
+
+		/* copy extra data from DRAM */
+		memcpy(vowserv.extradata_mem_ptr,
+		       vowserv.extradata_ptr,
+		       vowserv.extradata_bytelen);
+		/* copy extra data into user space */
+		copy_to_user(
+		    (void __user *)
+		    vowserv.vow_speaker_model[slot].rx_inform_size_addr,
+		    &vowserv.extradata_bytelen,
+		    sizeof(unsigned int));
+
+		copy_to_user(
+		    (void __user *)
+		    vowserv.vow_speaker_model[slot].rx_inform_addr,
+		    vowserv.extradata_mem_ptr,
+		    vowserv.extradata_bytelen);
+	}
+
+exit:
 	VOWDRV_DEBUG("+%s()-, recog id: %d, confidence_lv=%d\n",
 		     __func__,
 		     vowserv.scp_command_id,
