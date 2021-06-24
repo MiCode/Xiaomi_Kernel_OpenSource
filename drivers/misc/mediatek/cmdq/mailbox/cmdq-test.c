@@ -894,7 +894,7 @@ static void cmdq_test_mbox_reuse_buf_va(struct cmdq_test *test)
 			cmdq_pkt_write(pkt, NULL, pa, i, ~0);
 		else {
 			cmdq_pkt_write_value_addr_reuse(
-				pkt, pa, i, ~0, &reuse[j].va);
+				pkt, pa, i, ~0, &reuse[j].va, &reuse[j].offset);
 			reuse[j].val = i;
 			cmdq_msg("%s: reuse:%d va:%p val:%#x inst:%#llx",
 				__func__, j,
