@@ -578,3 +578,14 @@
 	flavor_bin = "d";
 };
 /* CONSYS end */
+
+&scp {
+		secure_dump = "enable";	/* secure dump via ATF */
+		secure_dump_size = <0x380000>; /* 3.5MB */
+};
+
+&reserved_memory {
+		reserve-memory-scp_share {
+			size = <0 0>; /* disable this, since having allocated in LK */
+		};
+};

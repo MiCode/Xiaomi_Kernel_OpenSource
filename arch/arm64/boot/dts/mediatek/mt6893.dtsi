@@ -2158,15 +2158,20 @@
 					  <5 77>,  /* vcore */
 					  <6 200>, /* barge in */
 					  <7 10>;  /* vow dump */
+
+			secure_dump = "disable";	/* disabled in default */
+			secure_dump_size = <0>;
+
 			scp_mem_key = "mediatek,reserve-memory-scp_share";
-			scp_mem_tbl = <0 0x4a700>, /* vow */
-				      <1 0x100000>, /* sensor main*/
-				      <2 0x180000>, /* logger */
-				      <3 0x19000>, /* audio */
-				      <4 0xa000>, /* vow bargein */
-				      <7 0x10000>, /* sensor supper*/
-				      <8 0x1000>, /* sensor list */
-				      <9 0x2000>; /* sensor debug */
+			scp_mem_tbl = <0 0x0>, /* secure dump, its size is in secure_dump_size */
+				      <1 0x4a700>, /* vow */
+				      <2 0x100000>, /* sensor main*/
+				      <3 0x180000>, /* logger */
+				      <4 0x19000>, /* audio */
+				      <5 0xa000>, /* vow bargein */
+				      <8 0x10000>, /* sensor supper*/
+				      <9 0x1000>, /* sensor list */
+				      <10 0x2000>; /* sensor debug */
 
 			memorydump =
 			<0x180000>, /* l2tcm */
