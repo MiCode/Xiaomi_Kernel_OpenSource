@@ -5,7 +5,6 @@
 
 #include <linux/types.h>
 #include <linux/printk.h>
-#include <mach/upmu_sw.h>
 #include "conn_power_throttling.h"
 int conn_pwr_core_init(void)
 {

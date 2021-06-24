@@ -6,7 +6,6 @@
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/printk.h>
-#include <mach/upmu_sw.h>
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -15,13 +14,10 @@
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
 #include <linux/kernel.h>
-#ifdef CONFIG_COMPAT
-#include <linux/compat.h>
-#endif
 #include "conn_power_throttling.h"
 
 /* unit-test related */
-#ifdef CONN_PWR_UT
+#if IS_ENABLED(CONFIG_CONN_PWR_DEBUG)
 static int conn_pwr_ut_send_msg(int par1, int par2, int par3);
 static int conn_pwr_ut_thermal(int par1, int par2, int par3);
 static int conn_pwr_ut_start(int par1, int par2, int par3);
@@ -30,6 +26,8 @@ static int conn_pwr_ut_notify(int par1, int par2, int par3);
 static int conn_pwr_ut_get_temp(int par1, int par2, int par3);
 static int conn_pwr_ut_get_plat_level(int par1, int par2, int par3);
 static int conn_pwr_ut_set_customer_level(int par1, int par2, int par3);
+static int conn_pwr_ut_set_battery_level(int par1, int par2, int par3);
+static int conn_pwr_ut_set_max_temp(int par1, int par2, int par3);
 static int conn_pwr_ut_event_cb_bt(enum conn_pwr_event_type event, void *data);
 static int conn_pwr_ut_event_cb_fm(enum conn_pwr_event_type event, void *data);
 static int conn_pwr_ut_event_cb_gps(enum conn_pwr_event_type event, void *data);
@@ -46,6 +44,8 @@ static const CONN_PWR_TEST_FUNC conn_pwr_test_func[] = {
 	[0x5] = conn_pwr_ut_get_temp,
 	[0x6] = conn_pwr_ut_get_plat_level,
 	[0x7] = conn_pwr_ut_set_customer_level,
+	[0x8] = conn_pwr_ut_set_max_temp,
+	[0x9] = conn_pwr_ut_set_battery_level,
 };
 
 static const CONN_PWR_EVENT_CB ut_cb_tbl[] = {
@@ -54,9 +54,11 @@ static const CONN_PWR_EVENT_CB ut_cb_tbl[] = {
 	conn_pwr_ut_event_cb_gps,
 	conn_pwr_ut_event_cb_wifi
 };
-#endif
 
-#ifdef CONN_PWR_UT
+static int ut_battery_level;
+static int ut_max_temp = 100;
+static int ut_recovery_temp = 60;
+
 ssize_t conn_pwr_dev_write(struct file *filp, const char __user *buffer, size_t count,
 					loff_t *f_pos)
 {
@@ -209,10 +211,10 @@ static int conn_pwr_ut_notify(int par1, int par2, int par3)
 	struct conn_pwr_event_max_temp data;
 
 	if (par3 == CONN_PWR_EVENT_LEVEL)
-		conn_pwr_notify_event(par2, par3, &par3);
+		conn_pwr_notify_event(par2, par3, &ut_battery_level);
 	else if (par3 == CONN_PWR_EVENT_MAX_TEMP) {
-		data.max_temp = 100;
-		data.recovery_temp = 60;
+		data.max_temp = ut_max_temp;
+		data.recovery_temp = ut_recovery_temp;
 		conn_pwr_notify_event(par2, par3, &data);
 	}
 	return 0;
@@ -243,6 +245,22 @@ static int conn_pwr_ut_set_customer_level(int par1, int par2, int par3)
 	conn_pwr_set_customer_level(par2, par3);
 	pr_info("%s type = %d, level = %d\n", __func__, par2, par3);
 
+	return 0;
+}
+
+static int conn_pwr_ut_set_battery_level(int par1, int par2, int par3)
+{
+	ut_battery_level = par2;
+	conn_pwr_set_battery_level(par2);
+	return 0;
+}
+
+/* this is used to set temp to notfiy driver later */
+static int conn_pwr_ut_set_max_temp(int par1, int par2, int par3)
+{
+	ut_max_temp = par2;
+	ut_recovery_temp = par3;
+	pr_info("%s max = %d, recovery = %d\n", par2, par3);
 	return 0;
 }
 #endif
