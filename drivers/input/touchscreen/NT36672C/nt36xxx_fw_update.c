@@ -390,61 +390,7 @@ return:
 loff_t file_offset;
 static int32_t nvt_read_ram_and_save_file(uint32_t addr, uint16_t len, char *name)
 {
-	char file[256] = "";
-	uint8_t *fbufp = NULL;
-	int32_t ret = 0;
-	struct file *fp = NULL;
-	mm_segment_t org_fs;
-
-	sprintf(file, "%s/dump_%s.bin", NVT_DUMP_PARTITION_PATH, name);
-	NVT_LOG("Dump [%s] from 0x%08X to 0x%08X\n", file, addr, addr + len);
-
-	fbufp = (uint8_t *) kzalloc(len + 1, GFP_KERNEL);
-	if (fbufp == NULL) {
-		NVT_ERR("kzalloc for fbufp failed!\n");
-		ret = -ENOMEM;
-		goto alloc_buf_fail;
-	}
-
-	org_fs = get_fs();
-	set_fs(KERNEL_DS);
-	fp = filp_open(file, O_RDWR | O_CREAT, 0644);
-	if (fp == NULL || IS_ERR(fp)) {
-		ret = -ENOMEM;
-		NVT_ERR("open file failed\n");
-		goto open_file_fail;
-	}
-
-	/* SPI read */
-	//---set xdata index to addr---
-	nvt_set_page(addr);
-
-	fbufp[0] = addr & 0x7F;	//offset
-	CTP_SPI_READ(ts->client, fbufp, len + 1);
-
-	/* Write to file */
-	ret = kernel_write(fp, (const void *)fbufp + 1, len, &file_offset);
-	if (ret != len) {
-		NVT_ERR("write file failed\n");
-		goto open_file_fail;
-	} else {
-		ret = 0;
-	}
-
-open_file_fail:
-	set_fs(org_fs);
-	if (!IS_ERR_OR_NULL(fp)) {
-		filp_close(fp, NULL);
-		fp = NULL;
-	}
-
-	if (!IS_ERR_OR_NULL(fbufp)) {
-		kfree(fbufp);
-		fbufp = NULL;
-	}
-alloc_buf_fail:
-
-	return ret;
+	return 0;
 }
 
 /*******************************************************

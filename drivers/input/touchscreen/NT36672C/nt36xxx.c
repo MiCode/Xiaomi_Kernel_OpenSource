@@ -1491,7 +1491,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 #endif
 
 
-	NVT_LOG("start\n");
+	NVT_LOG("nvt start\n");
 
 	ts = kmalloc(sizeof(struct nvt_ts_data), GFP_KERNEL);
 	if (ts == NULL) {
