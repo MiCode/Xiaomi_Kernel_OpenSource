@@ -150,6 +150,9 @@
 #define MTK_IOMMU_HAS_FLAG(pdata, _x) \
 		((((pdata)->flags) & (_x)) == (_x))
 
+#define MTK_IOMMU_ISR_COUNT_MAX			5
+#define MTK_IOMMU_ISR_DISABLE_TIME		10
+
 struct mtk_iommu_domain {
 	struct io_pgtable_cfg		cfg;
 	struct io_pgtable_ops		*iop;
@@ -285,6 +288,100 @@ static struct mtk_iommu_data *mtk_iommu_get_m4u_data(void)
 static struct mtk_iommu_domain *to_mtk_domain(struct iommu_domain *dom)
 {
 	return container_of(dom, struct mtk_iommu_domain, domain);
+}
+
+static inline void mtk_iommu_isr_setup(unsigned long enable)
+{
+	struct mtk_iommu_data *data;
+	u32 regval;
+	int i;
+
+	pr_info("%s, enable:%d\n", __func__, enable);
+	for_each_m4u(data) {
+		for (i = IOMMU_BK0; i < IOMMU_BK_NUM; i++) {
+			void __iomem *base = NULL;
+
+			if (i == IOMMU_BK0) {
+				base = data->base;
+			} else {
+				if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_BK_EN))
+					break;
+				base = data->bk_base[i];
+			}
+
+			if (!base || IS_ERR(base)) {
+				pr_info("%s, invalid base addr, dev:%s, (%d,%d,%d)\n",
+					__func__, dev_name(data->dev),
+					data->plat_data->iommu_type,
+					data->plat_data->iommu_id, i);
+				break;
+			}
+
+			if (enable) {
+				regval = F_L2_MULIT_HIT_EN |
+						F_TABLE_WALK_FAULT_INT_EN |
+						F_PREETCH_FIFO_OVERFLOW_INT_EN |
+						F_MISS_FIFO_OVERFLOW_INT_EN |
+						F_PREFETCH_FIFO_ERR_INT_EN |
+						F_MISS_FIFO_ERR_INT_EN;
+				writel_relaxed(regval, base + REG_MMU_INT_CONTROL0);
+
+				regval = F_INT_TRANSLATION_FAULT |
+						F_INT_MAIN_MULTI_HIT_FAULT |
+						F_INT_INVALID_PA_FAULT |
+						F_INT_ENTRY_REPLACEMENT_FAULT |
+						F_INT_TLB_MISS_FAULT |
+						F_INT_MISS_TRANSACTION_FIFO_FAULT |
+						F_INT_PRETETCH_TRANSATION_FIFO_FAULT;
+				writel_relaxed(regval, base + REG_MMU_INT_MAIN_CONTROL);
+			} else {
+				writel_relaxed(0, base + REG_MMU_INT_CONTROL0);
+				writel_relaxed(0, base + REG_MMU_INT_MAIN_CONTROL);
+			}
+		}
+	}
+}
+
+static void mtk_iommu_isr_restart(struct timer_list *t)
+{
+	mtk_iommu_isr_setup(1);
+}
+
+static int mtk_iommu_isr_pause_timer_init(struct mtk_iommu_data *data)
+{
+	timer_setup(&data->iommu_isr_pause_timer, mtk_iommu_isr_restart, 0);
+	return 0;
+}
+
+static int mtk_iommu_isr_pause(struct mtk_iommu_data *data, int delay)
+{
+	if (!timer_pending(&data->iommu_isr_pause_timer)) {
+		/* disable all intr */
+		mtk_iommu_isr_setup(0);
+		/* delay seconds */
+		data->iommu_isr_pause_timer.expires = jiffies + delay * HZ;
+		add_timer(&data->iommu_isr_pause_timer);
+	}
+	return 0;
+}
+
+static void mtk_iommu_isr_record(struct mtk_iommu_data *data)
+{
+	static int isr_cnt;
+	static unsigned long first_jiffies;
+
+	/* we allow one irq in 1s, or we will disable them after isr_cnt s. */
+	if (!isr_cnt || time_after(jiffies, first_jiffies + isr_cnt * HZ)) {
+		isr_cnt = 1;
+		first_jiffies = jiffies;
+	} else {
+		isr_cnt++;
+		if (isr_cnt >= MTK_IOMMU_ISR_COUNT_MAX) {
+			/* irq too many! disable irq for a while, to avoid HWT timeout*/
+			mtk_iommu_isr_pause(data, MTK_IOMMU_ISR_DISABLE_TIME);
+			isr_cnt = 0;
+		}
+	}
 }
 
 static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
@@ -469,6 +566,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	writel_relaxed(regval, base + REG_MMU_INT_CONTROL0);
 
 	mtk_iommu_tlb_flush_all(data);
+
+	mtk_iommu_isr_record(data);
 
 	return IRQ_HANDLED;
 }
@@ -955,13 +1054,11 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data)
 			dev = data->dev;
 			irq = data->irq;
 		} else {
-			if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_BK_EN)) {
-				base = data->bk_base[i];
-				dev = data->bk_dev[i];
-				irq = data->bk_irq[i];
-			} else {
+			if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_BK_EN))
 				break;
-			}
+			base = data->bk_base[i];
+			dev = data->bk_dev[i];
+			irq = data->bk_irq[i];
 		}
 		/*
 		 * If iommu don't find bank1~4 node in dtsi(not support bank1~4),
@@ -1294,6 +1391,9 @@ skip_smi:
 		if (ret)
 			goto out_bus_set_null;
 	}
+
+	mtk_iommu_isr_pause_timer_init(data);
+
 	pr_info("%s done dev:%s\n", __func__, dev_name(dev));
 
 	return ret;
