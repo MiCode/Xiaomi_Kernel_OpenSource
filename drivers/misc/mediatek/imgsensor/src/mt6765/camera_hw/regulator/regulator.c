@@ -29,7 +29,8 @@ struct reg_oc_debug_t {
 	bool is_md_reg;
 };
 
-static struct reg_oc_debug_t reg_oc_debug[REGULATOR_TYPE_MAX_NUM];
+static struct reg_oc_debug_t
+	reg_oc_debug[IMGSENSOR_SENSOR_IDX_MAX_NUM][REGULATOR_TYPE_MAX_NUM];
 
 static const int regulator_voltage[] = {
 	REGULATOR_VOLTAGE_0,
@@ -93,16 +94,15 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 					!Is_Notify_call[sensor_idx][i]
 				) {
 				/* oc notifier callback function */
-				if (reg_oc_debug[i].name == NULL)
-					reg_oc_debug[i].name = regulator_control[i].pregulator_type;
-				if (reg_oc_debug[i].regulator == NULL)
-					reg_oc_debug[i].regulator =
-						preg_own->pregulator[sensor_idx][i];
-				reg_oc_debug[i].nb.notifier_call =
+				reg_oc_debug[sensor_idx][i].name =
+					regulator_control[i].pregulator_type;
+				reg_oc_debug[sensor_idx][i].regulator =
+					preg_own->pregulator[sensor_idx][i];
+				reg_oc_debug[sensor_idx][i].nb.notifier_call =
 					regulator_oc_notify;
 				ret = devm_regulator_register_notifier(
 					preg_own->pregulator[sensor_idx][i],
-					&reg_oc_debug[i].nb);
+					&reg_oc_debug[sensor_idx][i].nb);
 				Is_Notify_call[sensor_idx][i] = true;
 
 				if (ret) {
@@ -126,13 +126,13 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 
 		for (i = 0; i < REGULATOR_TYPE_MAX_NUM; i++) {
 			if (preg_own->pregulator[sensor_idx][i] &&
-				!regulator_is_enabled(preg_own->pregulator[sensor_idx][i]) &&
+				regulator_is_enabled(preg_own->pregulator[sensor_idx][i]) &&
 				Is_Notify_call[sensor_idx][i]
 				) {
 				/* oc notifier callback function */
 				devm_regulator_unregister_notifier(
 					preg_own->pregulator[sensor_idx][i],
-					&reg_oc_debug[i].nb);
+					&reg_oc_debug[sensor_idx][i].nb);
 				Is_Notify_call[sensor_idx][i] = false;
 				pr_info("Unregister OC notifier");
 			}

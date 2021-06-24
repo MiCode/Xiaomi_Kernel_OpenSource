@@ -412,6 +412,10 @@ imgsensor_sensor_close(struct IMGSENSOR_SENSOR *psensor)
 
 		psensor_func->psensor_inst = psensor_inst;
 
+		if (pgimgsensor->imgsensor_oc_irq_enable != NULL)
+			pgimgsensor->imgsensor_oc_irq_enable(
+					psensor->inst.sensor_idx, false);
+
 		ret = psensor_func->SensorClose();
 		if (ret != ERROR_NONE) {
 			PK_DBG(" [%s]error : %d\n", __func__, ret);
