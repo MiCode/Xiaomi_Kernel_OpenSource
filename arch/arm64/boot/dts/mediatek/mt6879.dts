@@ -550,7 +550,7 @@
 		compatible = "mediatek,common-mmc";
 		reg = <0 0x11240000 0 0x1000>,
 		      <0 0x11c00000 0 0x1000>;
-		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH 0>;
 #if 0
 		clocks = <&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
 			 <&infracfg_ao_clk CLK_IFRAO_MSDC1>,
