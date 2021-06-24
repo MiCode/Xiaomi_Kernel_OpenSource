@@ -401,12 +401,9 @@ static int therm_intf_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	void __iomem *csram;
-/* TODO Wait until CPU DVFS owner ready */
-#if 0
 	struct device_node *cpu_np;
 	struct of_phandle_args args;
 	unsigned int cpu, max_perf_domain = 0;
-#endif
 	int ret;
 
 	if (!pdev->dev.of_node) {
@@ -424,8 +421,6 @@ static int therm_intf_probe(struct platform_device *pdev)
 	tm_data.csram_base = csram;
 	thermal_csram_base = csram;
 
-/* TODO Wait until CPU DVFS owner ready */
-#if 0
 	/* get CPU cluster num */
 	for_each_possible_cpu(cpu) {
 		cpu_np = of_cpu_device_node_get(cpu);
@@ -446,10 +441,6 @@ static int therm_intf_probe(struct platform_device *pdev)
 
 	tm_data.cpu_cluster_num = max_perf_domain + 1;
 	dev_info(&pdev->dev, "cpu_cluster_num = %d\n", tm_data.cpu_cluster_num);
-
-#else
-	tm_data.cpu_cluster_num = 3;
-#endif
 
 	ret = sysfs_create_group(kernel_kobj, &thermal_attr_group);
 	if (ret) {
