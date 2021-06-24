@@ -2144,6 +2144,13 @@
 				      <7 0x10000>, /* sensor supper*/
 				      <8 0x1000>, /* sensor list */
 				      <9 0x2000>; /* sensor debug */
+
+			memorydump =
+			<0x180000>, /* l2tcm */
+			<0x03c000>, /* l1c */
+			<0x003f00>, /* regdump */
+			<0x000100>, /* trace buffer */
+			<0x100000>; /* dram */
 		};
 
 		scp_par_top_clk: syscon@10720000 {

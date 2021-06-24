@@ -2071,6 +2071,13 @@
 				      <1 0x100000>, /* sensor */
 				      <2 0x180000>, /* logger */
 				      <3 0x19000>; /* audio */
+
+			memorydump =
+			<0x100000>, /* l2tcm */
+			<0x03c000>, /* l1c */
+			<0x003f00>, /* regdump */
+			<0x000100>, /* trace buffer */
+			<0x100000>; /* dram */
 		};
 
 		scp_clk_ctrl: scp_clk_ctrl@10721000 {
