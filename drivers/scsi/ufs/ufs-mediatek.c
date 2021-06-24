@@ -1070,6 +1070,7 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
 	struct arm_smccc_res res;
+	struct scsi_device *sdev;
 
 	if (ufshcd_is_link_hibern8(hba)) {
 		err = ufs_mtk_link_set_lpm(hba);
@@ -1091,6 +1092,23 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	if (ufshcd_is_link_off(hba))
 		ufs_mtk_device_reset_ctrl(0, res);
+
+	/*
+	 * Quiesce all SCSI devices to prevent any non-PM requests sending
+	 * from block layer during and after shutdown.
+	 *
+	 * Note. Using scsi_autopm_get_device() instead of pm_runtime_disable()
+	 * is to prevent noisy message by below checking,
+	 * WARN_ON_ONCE(sdev->quiesced_by && sdev->quiesced_by != current);
+	 * This warning shows up if we try to quiesce a runtime-suspended
+	 * SCSI device. This is possible during our new shutdown flow.
+	 * Using scsi_autopm_get_device() to resume all SCSI devices first
+	 * can prevent it.
+	 */
+	if (pm_op == UFS_SHUTDOWN_PM) {
+		shost_for_each_device(sdev, hba->host)
+			scsi_device_quiesce(sdev);
+	}
 
 	return 0;
 fail:
