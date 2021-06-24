@@ -224,8 +224,6 @@ static const struct  proc_ops testmode_fops = {
 
 static void xhci_mtk_procfs_init(struct xhci_hcd_mtk *mtk)
 {
-	proc_mkdir(PROC_MTK_USB, NULL);
-
 	mtk->testmode_file = proc_create_data(PROC_TEST_MODE, 0644,
 		NULL, &testmode_fops, mtk);
 	if (!mtk->testmode_file)
