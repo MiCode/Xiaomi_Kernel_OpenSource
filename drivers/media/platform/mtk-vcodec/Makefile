@@ -66,6 +66,7 @@ ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vcodec
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-videobuf
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/slbc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
 ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/arch/arm
 ccflags-y += -I$(srctree)/drivers/staging/android/ion

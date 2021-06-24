@@ -258,6 +258,7 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i = 0, reg_index = 0, ret;
 	const char *name = NULL;
+	u32 port_id;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -292,15 +293,27 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	while (!of_property_read_string_index(pdev->dev.of_node, "reg-names", i, &name)) {
-		if (!strcmp(MTK_VDEC_REG_NAME_VDEC_SYS, name)) {
+	for (i = 0; i < NUM_MAX_VDEC_REG_BASE; i++)
+		dev->dec_reg_base[i] = NULL;
+	for (i = 0; !of_property_read_string_index(pdev->dev.of_node, "reg-names", i, &name); i++) {
+		if (!strcmp(MTK_VDEC_REG_NAME_VDEC_BASE, name)) {
+			reg_index = VDEC_BASE;
+		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_SYS, name)) {
 			reg_index = VDEC_SYS;
 		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_VLD, name)) {
 			reg_index = VDEC_VLD;
+		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_MC, name)) {
+			reg_index = VDEC_MC;
+		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_MV, name)) {
+			reg_index = VDEC_MV;
 		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_MISC, name)) {
 			reg_index = VDEC_MISC;
 		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_LAT_MISC, name)) {
 			reg_index = VDEC_LAT_MISC;
+		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_LAT_VLD, name)) {
+			reg_index = VDEC_LAT_VLD;
+		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_SOC_GCON, name)) {
+			reg_index = VDEC_SOC_GCON;
 		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_RACING_CTRL, name)) {
 			reg_index = VDEC_RACING_CTRL;
 		} else {
@@ -320,8 +333,6 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 		}
 		mtk_v4l2_debug(2, "reg[%d] base=0x%px",
 			reg_index, dev->dec_reg_base[reg_index]);
-
-		i++;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
@@ -335,8 +346,11 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_res;
 
-	for (i = 0; i < MTK_VDEC_HW_NUM; i++)
+	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
 		sema_init(&dev->dec_sem[i], 1);
+		spin_lock_init(&dev->dec_power_lock[i]);
+		dev->dec_is_power_on[i] = false;
+	}
 	mutex_init(&dev->dev_mutex);
 	mutex_init(&dev->ipi_mutex);
 	mutex_init(&dev->dec_dvfs_mutex);
@@ -394,6 +408,27 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 		goto err_dec_reg;
 	}
 
+	for (i = 0; i < NUM_MAX_VDEC_M4U_PORT; i++)
+		dev->dec_m4u_ports[i] = 0;
+	for (i = 0; !of_property_read_string_index(
+			pdev->dev.of_node, "m4u-port-names", i, &name); i++) {
+		reg_index = mtk_vdec_m4u_port_name_to_index(name);
+		if (reg_index < 0) {
+			dev_info(&pdev->dev, "invalid m4u port name: %s, index: %d", name, i);
+			return -EINVAL;
+		}
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+			"m4u-ports", i, &port_id);
+		if (ret) {
+			dev_info(&pdev->dev, "get m4u port name: %s (%d), index: %d fail %d",
+				name, reg_index, i, ret);
+			return -EINVAL;
+		}
+		dev->dec_m4u_ports[reg_index] = (int)port_id;
+		mtk_v4l2_debug(2, "dec_m4u_ports[%d]=0x%x",
+			reg_index, dev->dec_m4u_ports[reg_index]);
+	}
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 	dev->io_domain = iommu_get_domain_for_dev(&pdev->dev);
 	if (dev->io_domain == NULL) {
@@ -409,9 +444,7 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
-#ifdef DEC_TF_CALLBACK
 	mtk_vdec_translation_fault_callback_setting(dev);
-#endif
 #endif
 	mtk_v4l2_debug(0, "decoder registered as /dev/video%d",
 				   vfd_dec->num);
