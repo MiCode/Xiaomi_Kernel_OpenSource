@@ -189,6 +189,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				uint32_t fail_uinfo_idx));
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd);
 
+#if DVFS_QOS_READY
 void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmdvfs_uninit(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
@@ -202,4 +203,5 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
+#endif
 

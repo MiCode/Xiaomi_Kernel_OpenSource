@@ -554,6 +554,7 @@ void imgsys_cmdq_setevent(u64 u_id)
 	}
 }
 
+#if DVFS_QOS_READY
 void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
@@ -1115,4 +1116,5 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 	#endif
 
 }
+#endif
 
