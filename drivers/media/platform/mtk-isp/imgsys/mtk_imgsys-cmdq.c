@@ -182,9 +182,9 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			/* PMQOS API */
 			tsDvfsQosStart = ktime_get_boottime_ns()/1000;
 			IMGSYS_SYSTRACE_BEGIN(
-				"%s_%s|ReqNo:%d FrmNo:%d ReqFd:%d own(%llx)\n",
-				__func__, "dvfs_qos", cb_param->frm_info->request_no,
-				cb_param->frm_info->frame_no, cb_param->frm_info->request_fd,
+				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+				__func__, "dvfs_qos", cb_param->frm_info->frame_no,
+				cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 				cb_param->frm_info->frm_owner);
 			mutex_lock(&(imgsys_dev->dvfs_qos_lock));
 			#if DVFS_QOS_READY
@@ -200,9 +200,9 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			user_cb_data.data = (void *)cb_param->frm_info;
 			cb_param->cmdqTs.tsUserCbStart = ktime_get_boottime_ns()/1000;
 			IMGSYS_SYSTRACE_BEGIN(
-				"%s_%s|ReqNo:%d FrmNo:%d ReqFd:%d own(%llx)\n",
-				__func__, "user_cb", cb_param->frm_info->request_no,
-				cb_param->frm_info->frame_no, cb_param->frm_info->request_fd,
+				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+				__func__, "user_cb", cb_param->frm_info->frame_no,
+				cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 				cb_param->frm_info->frm_owner);
 			cb_param->user_cmdq_cb(user_cb_data);
 			IMGSYS_SYSTRACE_END();
@@ -213,9 +213,12 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			__func__, cb_param, is_stream_off);
 
 	IMGSYS_SYSTRACE_BEGIN(
-		"%s_%s|cb:%p frm(%d/%d/%d) hw_comb:0x%x DvfsSt(%lld) SetCmd(%lld) HW(%lld) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
-		__func__, "wait_pkt", cb_param, cb_param->frm_idx,
-		cb_param->frm_num, cb_frm_cnt, hw_comb,
+		"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb:%p frm(%d/%d/%d) DvfsSt(%lld) SetCmd(%lld) HW(%lld) Cmdqcb(%lld) WK(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
+		__func__, "wait_pkt", cb_param->frm_info->frame_no,
+		cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
+		cb_param->frm_info->user_info[cb_param->frm_idx].subfrm_idx, hw_comb,
+		cb_param->frm_info->frm_owner, cb_param,
+		cb_param->frm_idx, cb_param->frm_num, cb_frm_cnt,
 		(cb_param->cmdqTs.tsDvfsQosEnd-cb_param->cmdqTs.tsDvfsQosStart),
 		(cb_param->cmdqTs.tsFlushStart-cb_param->cmdqTs.tsReqStart),
 		(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart),
@@ -319,8 +322,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* PMQOS API */
 	tsDvfsQosStart = ktime_get_boottime_ns()/1000;
-	IMGSYS_SYSTRACE_BEGIN("%s_%s|ReqNo:%d FrmNo:%d ReqFd:%d own(%llx)\n",
-		__func__, "dvfs_qos", frm_info->request_no, frm_info->frame_no,
+	IMGSYS_SYSTRACE_BEGIN("%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx\n",
+		__func__, "dvfs_qos", frm_info->frame_no, frm_info->request_no,
 		frm_info->request_fd, frm_info->frm_owner);
 	mutex_lock(&(imgsys_dev->dvfs_qos_lock));
 	#if DVFS_QOS_READY
@@ -398,11 +401,11 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				pkt->priority = IMGSYS_PRI_HIGH;
 
 			IMGSYS_SYSTRACE_BEGIN(
-				"%s_%s|ReqNo:%d FrmNo:%d ReqFd:%d own(%llx) frm(%d/%d) blk(%d) hw_comb(0x%x)\n",
-				__func__, "cmd_parser", frm_info->request_no, frm_info->frame_no,
-				frm_info->request_fd, frm_info->frm_owner,
-				frm_idx, frm_num, blk_idx,
-				frm_info->user_info[frm_idx].hw_comb);
+				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)\n",
+				__func__, "cmd_parser", frm_info->frame_no, frm_info->request_no,
+				frm_info->request_fd, frm_info->user_info[frm_idx].subfrm_idx,
+				frm_info->user_info[frm_idx].hw_comb, frm_info->frm_owner,
+				frm_idx, frm_num, blk_idx);
 			do {
 				pr_debug(
 				"%s: parsing idx(%d) with cmd(%d)\n", __func__, cmd_idx,
@@ -447,11 +450,12 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			/* flush synchronized, block API */
 			cb_param->cmdqTs.tsFlushStart = ktime_get_boottime_ns()/1000;
 			IMGSYS_SYSTRACE_BEGIN(
-				"%s_%s|ReqNo:%d FrmNo:%d ReqFd:%d own(%llx) cb(%p) frm(%d/%d) blk(%d) hw_comb(0x%x)\n",
-				__func__, "pkt_flush", frm_info->request_no, frm_info->frame_no,
-				frm_info->request_fd, frm_info->frm_owner,
-				cb_param, frm_idx, frm_num, blk_idx,
-				frm_info->user_info[frm_idx].hw_comb);
+				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb(%p) frm(%d/%d) blk(%d)\n",
+				__func__, "pkt_flush", frm_info->frame_no, frm_info->request_no,
+				frm_info->request_fd, frm_info->user_info[frm_idx].subfrm_idx,
+				frm_info->user_info[frm_idx].hw_comb, frm_info->frm_owner,
+				cb_param, frm_idx, frm_num, blk_idx);
+
 			ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb,
 								(void *)cb_param);
 			IMGSYS_SYSTRACE_END();
