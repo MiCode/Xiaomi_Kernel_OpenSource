@@ -18,6 +18,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include "xhci.h"
 #include "xhci-mtk.h"
@@ -69,10 +71,171 @@
 #define SSC_IP_SLEEP_EN	BIT(4)
 #define SSC_SPM_INT_EN		BIT(1)
 
+/* testmode*/
+#define HOST_CMD_STOP               0x0
+#define HOST_CMD_TEST_J             0x1
+#define HOST_CMD_TEST_K             0x2
+#define HOST_CMD_TEST_SE0_NAK       0x3
+#define HOST_CMD_TEST_PACKET        0x4
+#define PMSC_PORT_TEST_CTRL_OFFSET  28
+
+#define PROC_MTK_USB "mtk_usb"
+#define PROC_TEST_MODE PROC_MTK_USB "/testmode"
+
 enum ssusb_uwk_vers {
 	SSUSB_UWK_V1 = 1,
 	SSUSB_UWK_V2,
 };
+
+
+static int xhci_mtk_halt(struct xhci_hcd *xhci)
+{
+	u32 result;
+	int ret;
+	u32 halted;
+	u32 cmd;
+	u32 mask;
+
+	mask = ~(XHCI_IRQS);
+	halted = readl(&xhci->op_regs->status) & STS_HALT;
+	if (!halted)
+		mask &= ~CMD_RUN;
+
+	cmd = readl(&xhci->op_regs->command);
+	cmd &= mask;
+	writel(cmd, &xhci->op_regs->command);
+
+	ret = readl_poll_timeout_atomic(&xhci->op_regs->status, result,
+					(result & STS_HALT) == STS_HALT ||
+					result == U32_MAX,
+					1, XHCI_MAX_HALT_USEC);
+	if (result == U32_MAX)		/* card removed */
+		ret = -ENODEV;
+
+	if (ret) {
+		xhci_warn(xhci, "Host halt failed, %d\n", ret);
+		return ret;
+	}
+	xhci->xhc_state |= XHCI_STATE_HALTED;
+	xhci->cmd_ring_state = CMD_RING_STATE_STOPPED;
+	return ret;
+}
+
+static int xhci_mtk_testmode_show(struct seq_file *s, void *unused)
+{
+	struct xhci_hcd_mtk *mtk = s->private;
+	struct xhci_hcd	*xhci = hcd_to_xhci(mtk->hcd);
+
+	switch (xhci->test_mode) {
+	case HOST_CMD_STOP:
+		seq_puts(s, "0\n");
+		break;
+	case HOST_CMD_TEST_J:
+		seq_puts(s, "test J\n");
+		break;
+	case HOST_CMD_TEST_K:
+		seq_puts(s, "test K\n");
+		break;
+	case HOST_CMD_TEST_SE0_NAK:
+		seq_puts(s, "test SE0 NAK\n");
+		break;
+	case HOST_CMD_TEST_PACKET:
+		seq_puts(s, "test packet\n");
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int xhci_mtk_testmode_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, xhci_mtk_testmode_show, PDE_DATA(inode));
+}
+
+static ssize_t xhci_mtk_testmode_write(struct file *file,  const char __user *ubuf,
+			       size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xhci_hcd_mtk *mtk = s->private;
+	struct xhci_hcd	*xhci = hcd_to_xhci(mtk->hcd);
+	int ports = HCS_MAX_PORTS(xhci->hcs_params1);
+	char buf[32];
+	unsigned long flags;
+	u8 testmode = HOST_CMD_STOP;
+	u32 temp;
+	u32 __iomem *addr;
+	int i;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (!strncmp(buf, "test packet", 10))
+		testmode = HOST_CMD_TEST_PACKET;
+	else if (!strncmp(buf, "test K", 6))
+		testmode = HOST_CMD_TEST_K;
+	else if (!strncmp(buf, "test J", 6))
+		testmode = HOST_CMD_TEST_J;
+	else if (!strncmp(buf, "test SE0 NAK", 12))
+		testmode = HOST_CMD_TEST_SE0_NAK;
+
+	if (testmode >= HOST_CMD_STOP && testmode <= HOST_CMD_TEST_PACKET) {
+		xhci_info(xhci, "set test mode %d\n", testmode);
+
+		spin_lock_irqsave(&xhci->lock, flags);
+
+		/* set the Run/Stop in USBCMD to 0 */
+		addr = &xhci->op_regs->command;
+		temp = readl(addr);
+		temp &= ~CMD_RUN;
+		writel(temp, addr);
+
+		/*  wait for HCHalted */
+		xhci_mtk_halt(xhci);
+
+		/* test mode */
+		for (i = 0; i < ports; i++) {
+			addr = &xhci->op_regs->port_power_base +
+				NUM_PORT_REGS * (i & 0xff);
+			temp = readl(addr);
+			temp &= ~(0xf << PMSC_PORT_TEST_CTRL_OFFSET);
+			temp |= (testmode << PMSC_PORT_TEST_CTRL_OFFSET);
+			writel(temp, addr);
+		}
+
+		xhci->test_mode = testmode;
+		spin_unlock_irqrestore(&xhci->lock, flags);
+	} else {
+		pr_info("%s: invalid value\n", __func__);
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static const struct  proc_ops testmode_fops = {
+	.proc_open = xhci_mtk_testmode_open,
+	.proc_write = xhci_mtk_testmode_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static void xhci_mtk_procfs_init(struct xhci_hcd_mtk *mtk)
+{
+	proc_mkdir(PROC_MTK_USB, NULL);
+
+	mtk->testmode_file = proc_create_data(PROC_TEST_MODE, 0644,
+		NULL, &testmode_fops, mtk);
+	if (!mtk->testmode_file)
+		pr_info("%s: fail to create testmode node\n", __func__);
+}
+
+static void xhci_mtk_procfs_exit(struct xhci_hcd_mtk *mtk)
+{
+	proc_remove(mtk->testmode_file);
+}
 
 static int xhci_mtk_host_enable(struct xhci_hcd_mtk *mtk)
 {
@@ -572,6 +735,8 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	if (ret)
 		goto dealloc_usb2_hcd;
 
+	xhci_mtk_procfs_init(mtk);
+
 	return 0;
 
 dealloc_usb2_hcd:
@@ -621,6 +786,7 @@ static int xhci_mtk_remove(struct platform_device *dev)
 	xhci_mtk_sch_exit(mtk);
 	xhci_mtk_clks_disable(mtk);
 	xhci_mtk_ldos_disable(mtk);
+	xhci_mtk_procfs_exit(mtk);
 
 	return 0;
 }
