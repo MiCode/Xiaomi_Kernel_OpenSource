@@ -81,10 +81,6 @@ enum {
 	MD_CFG_RAT_STR5,
 };
 
-enum MD_RAT_CHK_FLAG {
-	MD_RAT_FLAG_C2K_DEP = 0,
-};
-
 enum {
 	ALL_CCIF = 0,
 	AP_MD1_CCIF,

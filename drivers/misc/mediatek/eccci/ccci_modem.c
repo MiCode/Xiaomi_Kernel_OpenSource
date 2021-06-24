@@ -956,7 +956,7 @@ int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
 		md->per_md_data.md_dbg_dump_flag : data[MD_CFG_DUMP_FLAG];
 
 	rat_flag = data[MD_CFG_RAT_CHK_FLAG];
-	if (MD_RAT_FLAG_C2K_DEP & rat_flag) {
+	if (rat_flag) {
 		if (check_rat_at_md_img(md_id, "C") == 0) {
 			char aee_info[32];
 
