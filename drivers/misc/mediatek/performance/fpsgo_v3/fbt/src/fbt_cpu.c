@@ -755,6 +755,8 @@ static void fbt_set_ceiling(struct cpu_ctrl_data *pld,
 		for (i = 0 ; i < cluster_num; i++)
 			fpsgo_systrace_c_fbt(pid, buffer_id, -2,
 					"cluster%d ceiling_freq", i);
+
+		kfree(pld_release);
 	}
 
 }
@@ -1283,6 +1285,8 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			max_cap = min(max_cap,
 				(int)cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
 	}
+	kfree(clus_floor_freq);
+	kfree(clus_opp);
 
 	if (loading_th || boost_affinity)
 		fbt_query_dep_list_loading(thr);

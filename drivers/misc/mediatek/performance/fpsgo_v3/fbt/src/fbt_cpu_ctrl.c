@@ -457,6 +457,8 @@ void update_userlimit_cpu_freq(int kicker, int cluster_num, struct cpu_ctrl_data
 
 	fbt_set_cpu_freq_ceiling(cluster_num, freq);
 
+	kfree(freq);
+
 	return;
 }
 
