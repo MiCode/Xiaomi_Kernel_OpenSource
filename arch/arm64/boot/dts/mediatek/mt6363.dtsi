@@ -100,6 +100,21 @@
 			compatible = "mediatek,mt6363-efuse";
 		};
 
+		mt6363keys: mt6363keys {
+			compatible = "mediatek,mt6363-keys";
+			mediatek,long-press-mode = <1>;
+			power-off-time-sec = <0>;
+
+			power {
+				linux,keycodes = <116>;
+				wakeup-source;
+			};
+
+			home {
+				linux,keycodes = <115>;
+			};
+		};
+
 		regulators {
 			mt6363_vs2: VS2 {
 				regulator-compatible = "VS2";
