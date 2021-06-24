@@ -35,6 +35,7 @@ int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
 	int ret = -1;
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(monitor_ctl->md_id);
 
+	needforcestop = 1;
 	if (!ctl) {
 		CCCI_ERROR_LOG(-1, FSM,
 			"%s:fsm_get_entity_by_md_id fail\n",
@@ -70,7 +71,8 @@ void mdee_set_ex_time_str(unsigned char md_id, unsigned int type, char *str)
 static struct ccci_fsm_command *fsm_check_for_ee(struct ccci_fsm_ctl *ctl,
 	int xip)
 {
-	struct ccci_fsm_command *cmd, *next = NULL;
+	struct ccci_fsm_command *cmd = NULL;
+	struct ccci_fsm_command *next = NULL;
 	unsigned long flags;
 
 	spin_lock_irqsave(&ctl->command_lock, flags);
@@ -115,8 +117,10 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 
 static void fsm_routine_zombie(struct ccci_fsm_ctl *ctl)
 {
-	struct ccci_fsm_event *event, *evt_next;
-	struct ccci_fsm_command *cmd, *cmd_next;
+	struct ccci_fsm_event *event = NULL;
+	struct ccci_fsm_event *evt_next = NULL;
+	struct ccci_fsm_command *cmd = NULL;
+	struct ccci_fsm_command *cmd_next = NULL;
 	unsigned long flags;
 
 	CCCI_ERROR_LOG(ctl->md_id, FSM,
@@ -149,7 +153,7 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 {
 	int count = 0, ex_got = 0;
 	int rec_ok_got = 0, pass_got = 0;
-	struct ccci_fsm_event *event;
+	struct ccci_fsm_event *event = NULL;
 	unsigned long flags;
 
 	CCCI_NORMAL_LOG(ctl->md_id, FSM,
@@ -259,7 +263,8 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 {
 	int ret;
 	int count = 0, user_exit = 0, hs1_got = 0, hs2_got = 0;
-	struct ccci_fsm_event *event, *next;
+	struct ccci_fsm_event *event = NULL;
+	struct ccci_fsm_event  *next = NULL;
 	unsigned long flags;
 
 	/* 1. state sanity check */
@@ -309,7 +314,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 		goto fail;
 	ctl->boot_count++;
 	count = 0;
-	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
+	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
 		spin_lock_irqsave(&ctl->event_lock, flags);
 		if (!list_empty(&ctl->event_queue)) {
 			event = list_first_entry(&ctl->event_queue,
@@ -368,6 +373,10 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 			count++;
 		msleep(EVENT_POLL_INTEVAL);
 	}
+	if (needforcestop) {
+		fsm_finish_command(ctl, cmd, -1);
+		return;
+	}
 	/* 4. check result, finish command */
 fail:
 	if (hs1_got)
@@ -398,14 +407,17 @@ success:
 static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd)
 {
-	struct ccci_fsm_event *event, *next;
+	struct ccci_fsm_event *event = NULL;
+	struct ccci_fsm_event *next = NULL;
 	struct ccci_fsm_command *ee_cmd = NULL;
+	struct port_t *port = NULL;
+	struct sk_buff *skb = NULL;
 	unsigned long flags;
 
 	/* 1. state sanity check */
 	if (ctl->curr_state == CCCI_FSM_GATED)
 		goto success;
-	if (ctl->curr_state != CCCI_FSM_READY
+	if (ctl->curr_state != CCCI_FSM_READY && !needforcestop
 			&& ctl->curr_state != CCCI_FSM_EXCEPTION) {
 		fsm_finish_command(ctl, cmd, -1);
 		fsm_routine_zombie(ctl);
@@ -450,6 +462,20 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	spin_unlock_irqrestore(&ctl->event_lock, flags);
 	/* 6. always end in stopped state */
 success:
+	needforcestop = 0;
+	/* when MD is stopped, the skb list of ccci_fs should be clean */
+	port = port_get_by_channel(ctl->md_id, CCCI_FS_RX);
+	if (port == NULL) {
+		CCCI_ERROR_LOG(ctl->md_id, FSM, "port_get_by_channel fail");
+		return;
+	}
+
+	if (port->flags & PORT_F_CLEAN) {
+		spin_lock_irqsave(&port->rx_skb_list.lock, flags);
+		while ((skb = __skb_dequeue(&port->rx_skb_list)) != NULL)
+			ccci_free_skb(skb);
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+	}
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_GATED;
 	fsm_broadcast_state(ctl, GATED);
@@ -717,13 +743,19 @@ struct ccci_fsm_ctl *fsm_get_entity_by_md_id(int md_id)
 
 int ccci_fsm_init(int md_id)
 {
-	struct ccci_fsm_ctl *ctl;
+	struct ccci_fsm_ctl *ctl = NULL;
 	int ret = 0;
 
 	if (md_id < 0 || md_id >= ARRAY_SIZE(ccci_fsm_entries))
 		return -CCCI_ERR_INVALID_PARAM;
 
 	ctl = kzalloc(sizeof(struct ccci_fsm_ctl), GFP_KERNEL);
+	if (ctl == NULL) {
+		CCCI_ERROR_LOG(md_id, FSM,
+					"%s kzalloc ccci_fsm_ctl fail\n",
+					__func__);
+		return -1;
+	}
 	ctl->md_id = md_id;
 	ctl->last_state = CCCI_FSM_INVALID;
 	ctl->curr_state = CCCI_FSM_GATED;
@@ -825,7 +857,7 @@ int ccci_fsm_recv_control_packet(int md_id, struct sk_buff *skb)
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
 	struct ccci_header *ccci_h = (struct ccci_header *)skb->data;
 	int ret = 0, free_skb = 1;
-	struct c2k_ctrl_port_msg *c2k_ctl_msg;
+	struct c2k_ctrl_port_msg *c2k_ctl_msg = NULL;
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
 
 	if (!ctl)
