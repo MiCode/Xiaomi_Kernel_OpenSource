@@ -25,6 +25,8 @@ struct pd_capacity_info {
 	struct cpumask cpus;
 };
 
+extern int mtk_static_power_init(void);
+
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 extern int pd_freq_to_opp(int cpu, unsigned long freq);
 extern unsigned long pd_get_opp_capacity(int cpu, int opp);

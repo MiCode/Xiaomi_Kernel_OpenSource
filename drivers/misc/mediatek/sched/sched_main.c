@@ -458,6 +458,7 @@ static int __init mtk_scheduler_init(void)
 
 	mtk_sched_trace_init();
 
+	mtk_static_power_init();
 	return ret;
 
 }
