@@ -318,7 +318,7 @@ static int mtk_wdma_is_busy(struct mtk_ddp_comp *comp)
 	int ret, tmp;
 
 	tmp = readl(comp->regs + DISP_REG_WDMA_FLOW_CTRL_DBG);
-	ret = ((tmp & FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL) != 0x1) ? 1 : 0;
+	ret = ((tmp & REG_FLD_MASK(FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL)) != 0x1) ? 1 : 0;
 
 	DDPINFO("%s:%d is:%d regs:0x%x\n", __func__, __LINE__, ret, tmp);
 
