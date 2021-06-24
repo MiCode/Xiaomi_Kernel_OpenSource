@@ -489,7 +489,7 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 		if (task_running(src_rq, p))
 			continue;
 
-		util_min = uclamp_boosted(p);
+		util_min = uclamp_eff_value(p, UCLAMP_MIN);
 
 		if (!uclamp_min_ls)
 			latency_sensitive = uclamp_latency_sensitive(p);
