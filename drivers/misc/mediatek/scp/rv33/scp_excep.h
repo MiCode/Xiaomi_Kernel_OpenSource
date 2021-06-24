@@ -42,6 +42,7 @@ extern void aed_scp_exception_api(const int *log, int log_size,
 		const int *phy, int phy_size, const char *detail,
 		const int db_opt);
 extern void scp_excep_cleanup(void);
+extern uint32_t memorydump_size_probe(struct platform_device *pdev);
 enum { r0, r1, r2, r3, r12, lr, pc, psr};
 extern int scp_ee_enable;
 extern int scp_reset_counts;
@@ -51,20 +52,14 @@ extern struct scp_status_reg *c0_t1_m;
 extern struct scp_status_reg *c1_m;
 extern struct scp_status_reg *c1_t1_m;
 
-#define MDUMP_L2TCM_SIZE     0x200000 /* L2_TCM , for all scp maximum sram size */
-#define MDUMP_L1C_SIZE       0x03c000
-#define MDUMP_REGDUMP_SIZE   0x003c00 /* register backup (max size) */
-#define MDUMP_TBUF_SIZE      0x000400
-#define MDUMP_DRAM_SIZE      SCP_DRAM_MAPSIZE
-
-struct MemoryDump {
-	/*scp sram*/
-	char l2tcm[MDUMP_L2TCM_SIZE];
-	char l1c[MDUMP_L1C_SIZE];
-	/*scp reg*/
-	char regdump[MDUMP_REGDUMP_SIZE];
-	char tbuf[MDUMP_TBUF_SIZE];
-	char dram[MDUMP_DRAM_SIZE];
-};
+typedef enum MDUMP {
+	MDUMP_DUMMY,
+	MDUMP_L2TCM,
+	MDUMP_L1C,
+	MDUMP_REGDUMP,
+	MDUMP_TBUF,
+	MDUMP_DRAM,
+	MDUMP_TOTAL
+} MDUMP_t;
 
 #endif

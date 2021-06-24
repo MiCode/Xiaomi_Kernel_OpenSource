@@ -2087,6 +2087,11 @@ static int scp_device_probe(struct platform_device *pdev)
 	}
 #endif
 
+	/* scp memorydump size probe */
+	ret = memorydump_size_probe(pdev);
+	if (ret)
+		return ret;
+
 	return ret;
 }
 

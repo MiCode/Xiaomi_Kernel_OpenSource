@@ -14,6 +14,7 @@
 #include <linux/sched_clock.h>
 #include <linux/ratelimit.h>
 #include <linux/delay.h>
+#include <linux/of.h> /* probe dts */
 #include "scp.h"
 #include "scp_ipi_pin.h"
 #include "scp_helper.h"
@@ -25,6 +26,8 @@ struct scp_dump_st {
 	uint8_t *detail_buff;
 	uint8_t *ramdump;
 	uint32_t ramdump_length;
+	/* use prefix to get size or offset in O(1) to save memory */
+	uint32_t prefix[MDUMP_TOTAL];
 };
 
 struct reg_save_st {
@@ -65,6 +68,35 @@ void (*scp_do_tbufdump)(uint32_t*, uint32_t*) = NULL;
 static struct mutex scp_excep_mutex;
 int scp_ee_enable;
 int scp_reset_counts = 100000;
+static uint32_t get_MDUMP_size(MDUMP_t type)
+{
+	return scp_dump.prefix[type] - scp_dump.prefix[type - 1];
+}
+
+static uint32_t get_MDUMP_size_accumulate(MDUMP_t type)
+{
+	return scp_dump.prefix[type];
+}
+
+static uint8_t* get_MDUMP_addr(MDUMP_t type)
+{
+	return (uint8_t*)(scp_dump.ramdump + scp_dump.prefix[type - 1]);
+}
+
+uint32_t memorydump_size_probe(struct platform_device *pdev)
+{
+	uint32_t i, ret;
+	for (i = MDUMP_L2TCM; i < MDUMP_TOTAL; ++i) {
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+			"memorydump", i - 1, &scp_dump.prefix[i]);
+		if (ret) {
+			pr_notice("[SCP] %s:Cannot get memorydump size(%d)\n", __func__, i - 1);
+			return -1;
+		}
+		scp_dump.prefix[i] += scp_dump.prefix[i - 1];
+	}
+	return 0;
+}
 
 void scp_dump_last_regs(void)
 {
@@ -188,15 +220,16 @@ void scp_do_l1cdump(uint32_t *out, uint32_t *out_end)
 {
 	uint32_t *buf = out;
 	uint32_t tmp;
+	uint32_t l1c_size = get_MDUMP_size(MDUMP_L1C);
 
 	tmp = readl(R_SEC_CTRL);
 	/* enable cache debug */
 	writel(tmp | B_CORE0_CACHE_DBG_EN | B_CORE1_CACHE_DBG_EN, R_SEC_CTRL);
-	if ((void *)buf + MDUMP_L1C_SIZE > (void *)out_end) {
+	if ((void *)buf + l1c_size > (void *)out_end) {
 		pr_notice("[SCP] %s overflow\n", __func__);
 		return;
 	}
-	memcpy_from_scp(buf, R_CORE0_CACHE_RAM, MDUMP_L1C_SIZE);
+	memcpy_from_scp(buf, R_CORE0_CACHE_RAM, l1c_size);
 	/* disable cache debug */
 	writel(tmp, R_SEC_CTRL);
 }
@@ -314,12 +347,10 @@ void scp_do_tbufdump_RV55(uint32_t *out, uint32_t *out_end)
 /*
  * this function need SCP to keeping awaken
  * scp_crash_dump: dump scp tcm info.
- * @param MemoryDump:   scp dump struct
  * @param scp_core_id:  core id
  * @return:             scp dump size
  */
-static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
-		enum scp_core_id id)
+static unsigned int scp_crash_dump(enum scp_core_id id)
 {
 	unsigned int scp_dump_size;
 	unsigned int scp_awake_fail_flag;
@@ -335,18 +366,17 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 		scp_awake_fail_flag = 1;
 	}
 
-	memcpy_from_scp((void *)&(pMemoryDump->l2tcm),
+	memcpy_from_scp((void *)get_MDUMP_addr(MDUMP_L2TCM),
 		(void *)(SCP_TCM),
 		(SCP_A_TCM_SIZE));
-	scp_do_l1cdump((void *)&(pMemoryDump->l1c),
-		(void *)&(pMemoryDump->regdump));
+	scp_do_l1cdump((void *)get_MDUMP_addr(MDUMP_L1C),
+		(void *)get_MDUMP_addr(MDUMP_REGDUMP));
 	/* dump sys registers */
-	scp_do_regdump((void *)&(pMemoryDump->regdump),
-		(void *)&(pMemoryDump->tbuf));
-	scp_do_tbufdump((void *)&(pMemoryDump->tbuf),
-		(void *)&(pMemoryDump->dram));
-	scp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_L1C_SIZE
-		+ MDUMP_REGDUMP_SIZE + MDUMP_TBUF_SIZE;
+	scp_do_regdump((void *)get_MDUMP_addr(MDUMP_REGDUMP),
+		(void *)get_MDUMP_addr(MDUMP_TBUF));
+	scp_do_tbufdump((void *)get_MDUMP_addr(MDUMP_TBUF),
+		(void *)get_MDUMP_addr(MDUMP_DRAM));
+	scp_dump_size = get_MDUMP_size_accumulate(MDUMP_TBUF);
 
 	/* dram support? */
 	if ((int)(scp_region_info_copy.ap_dram_size) <= 0) {
@@ -355,7 +385,7 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 		dram_start = scp_region_info_copy.ap_dram_start;
 		dram_size = scp_region_info_copy.ap_dram_size;
 		/* copy dram data*/
-		memcpy((void *)&(pMemoryDump->dram),
+		memcpy((void *)get_MDUMP_addr(MDUMP_DRAM),
 			scp_ap_dram_virt, dram_size);
 		scp_dump_size += roundup(dram_size, 4);
 	}
@@ -380,7 +410,6 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 static void scp_prepare_aed_dump(char *aed_str,
 		enum scp_core_id id)
 {
-	struct MemoryDump *md = (struct MemoryDump *) scp_dump.ramdump;
 	char *scp_A_log = NULL;
 	size_t offset = 0;
 
@@ -434,11 +463,11 @@ end:
 
 	/*prepare scp A db file*/
 	scp_dump.ramdump_length = 0;
-	memset(md, 0x0, sizeof(*md));
-	scp_dump.ramdump_length = scp_crash_dump(md, SCP_A_ID);
+	memset(scp_dump.ramdump, 0x0, get_MDUMP_size_accumulate(MDUMP_DRAM));
+	scp_dump.ramdump_length = scp_crash_dump(SCP_A_ID);
 
 	pr_notice("[SCP] %s ends, @%p, size = %x\n", __func__,
-		md, scp_dump.ramdump_length);
+		scp_dump.ramdump, scp_dump.ramdump_length);
 }
 
 /*
@@ -555,7 +584,7 @@ int scp_excep_init(void)
 	if ((int)(scp_region_info->ap_dram_size) > 0)
 		dram_size = scp_region_info->ap_dram_size;
 
-	scp_dump.ramdump = vmalloc(sizeof(struct MemoryDump));
+	scp_dump.ramdump = vmalloc(get_MDUMP_size_accumulate(MDUMP_DRAM));
 	if (!scp_dump.ramdump)
 		return -1;
 
