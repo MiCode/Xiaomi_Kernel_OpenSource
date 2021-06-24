@@ -66,8 +66,8 @@
 #define PIN_IN_SIZE_CHRE_0		14
 #define PIN_IN_SIZE_SENSOR_0		14
 
-#define PIN_OUT_SIZE_SCP_CONNSYS         3
-#define PIN_IN_SIZE_SCP_CONNSYS          3
+#define PIN_OUT_SIZE_SCP_CONNSYS         10
+#define PIN_IN_SIZE_SCP_CONNSYS          10
 
 
 #endif
