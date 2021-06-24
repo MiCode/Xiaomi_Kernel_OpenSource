@@ -221,7 +221,7 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 		DDPPR_ERR("%s:allocate qos_ctx failed\n", __func__);
 		return -ENOMEM;
 	}
-
+	mtk_mmqos_register_bw_throttle_notifier(&pmqos_hrt_notifier);
 	return 0;
 }
 
