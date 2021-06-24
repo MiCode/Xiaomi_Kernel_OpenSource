@@ -519,7 +519,19 @@ static bool dump_interrupted(void)
 	 * but then we need to teach dump_write() to restart and clear
 	 * TIF_SIGPENDING.
 	 */
+#ifdef CONFIG_MTK_AVOID_TRUNCATE_COREDUMP
+	/* avoid coredump truncated */
+	int ret = signal_pending(current);
+
+	if (ret) {
+		pr_info("%s: clear sig pending flag\n", __func__);
+		clear_thread_flag(TIF_SIGPENDING);
+		ret = signal_pending(current);
+	}
+	return ret;
+#else
 	return signal_pending(current);
+#endif
 }
 
 static void wait_for_dump_helpers(struct file *file)
@@ -574,6 +586,52 @@ static int umh_pipe_setup(struct subprocess_info *info, struct cred *new)
 	return err;
 }
 
+#ifdef CONFIG_MTK_AVOID_TRUNCATE_COREDUMP
+#include <linux/suspend.h>
+
+static atomic_t coredump_request_count = ATOMIC_INIT(0);
+
+static int coredump_pm_notifier_cb(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		if (atomic_read(&coredump_request_count) > 0) {
+			pr_info("%s coredump is on going", __func__);
+			return NOTIFY_BAD;
+		} else
+			return NOTIFY_DONE;
+	default:
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_DONE;
+}
+
+/* Hibernation and suspend events */
+static struct notifier_block coredump_pm_notifier_block = {
+	.notifier_call = coredump_pm_notifier_cb,
+};
+
+static int __init init_coredump(void)
+{
+	/* register pm notifier */
+	int ret = register_pm_notifier(&coredump_pm_notifier_block);
+
+	if (ret)
+		pr_info("%s: failed to register_pm_notifier(%d)\n",
+				__func__, ret);
+	return 0;
+}
+
+static void __exit exit_coredump(void)
+{
+	/* unregister pm notifier */
+	unregister_pm_notifier(&coredump_pm_notifier_block);
+}
+
+late_initcall(init_coredump);
+module_exit(exit_coredump);
+#endif
 void do_coredump(const kernel_siginfo_t *siginfo)
 {
 	struct core_state core_state;
@@ -602,6 +660,10 @@ void do_coredump(const kernel_siginfo_t *siginfo)
 		 */
 		.mm_flags = mm->flags,
 	};
+
+#ifdef CONFIG_MTK_AVOID_TRUNCATE_COREDUMP
+	atomic_inc(&coredump_request_count);
+#endif
 
 	audit_core_dumps(siginfo->si_signo);
 
@@ -826,6 +888,9 @@ fail_unlock:
 fail_creds:
 	put_cred(cred);
 fail:
+#ifdef CONFIG_MTK_AVOID_TRUNCATE_COREDUMP
+	atomic_dec(&coredump_request_count);
+#endif
 	return;
 }
 
