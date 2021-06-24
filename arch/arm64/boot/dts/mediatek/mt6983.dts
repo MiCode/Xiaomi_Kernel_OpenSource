@@ -7,6 +7,8 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gce/mt6983-gce.h>
+#include <dt-bindings/clock/mt6983-clk.h>
+#include <dt-bindings/power/mt6983-power.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/memory/mt6983-larb-port.h>
 
@@ -142,6 +144,52 @@
 		reg = <0 0x40000000 0 0x40000000>;
 	};
 
+	clkitg: clkitg {
+		compatible = "simple-bus";
+	};
+
+	disable_unused: disable_unused {
+		compatible = "simple-bus";
+	};
+
+	clocks {
+		clk_null: clk_null {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <0>;
+		};
+
+		clk32k: clk32k {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32000>;
+		};
+
+		clk10m: clk10m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <10000000>;
+		};
+
+		clk26m: clk26m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <26000000>;
+		};
+
+		clk13m: clk13m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <13000000>;
+		};
+
+		ulposc: ulposc {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <260000000>;
+		};
+	};
+
 	pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupt-parent = <&gic>;
@@ -174,14 +222,6 @@
 			size = <0 0x00080000>; /* 512KB */
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
-		};
-	};
-
-	clocks {
-		clk10m: clk10m {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <10000000>;
 		};
 	};
 
@@ -298,6 +338,297 @@
 				  "mbox5",
 				  "mbox6",
 				  "mbox7";
+	};
+
+	topckgen_clk: syscon@10000000 {
+		compatible = "mediate,mt6983-topckgen", "syscon";
+		reg = <0 0x10000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	infracfg_ao_clk: syscon@10001000 {
+		compatible = "mediate,mt6983-infracfg_ao", "syscon";
+		reg = <0 0x10001000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	scpsys: power-controller@10006000 {
+		compatible = "mediate,mt6983-scpsys", "syscon";
+		reg = <0 0x10006000 0 0x1000>;
+		#power-domain-cells = <1>;
+		clocks = <&topckgen_clk CLK_TOPCKGEN_UFS_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_ADSP_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_MMINFRA_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_MFG_SEL_0>,
+		<&topckgen_clk CLK_TOPCKGEN_MFG_REF_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_MMUP_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_IMG1_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_DISP0_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_DISP1_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_CAM_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_MFG_SEL_1>,
+		<&topckgen_clk CLK_TOPCKGEN_MFGSC_REF_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_AUDIO_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_AUD_INTBUS_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_AUDIO_H_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_VDEC_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_VENC_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_MDP0_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_VDEC_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_VENC_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_MDP1_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_IPE_SEL>;
+		clock-names = "ufs0_0",
+		"adsp_ao_0",
+		"mm_infra_0",
+		"mfg0_dormant_0",
+		"mfg0_dormant_1",
+		"mm_proc_dormant_0",
+		"isp_vcore_0",
+		"dis0_0",
+		"dis1_0",
+		"cam_vcore_0",
+		"mfg1_0",
+		"mfg1_1",
+		"audio_0",
+		"audio_1",
+		"audio_2",
+		"vde0_0",
+		"ven0_0",
+		"mdp0_0",
+		"vde1_0",
+		"ven1_0",
+		"mdp1_0",
+		"isp_ipe_0";
+		infracfg = <&infracfg_ao_clk>;
+	};
+
+	apmixedsys_clk: syscon@1000c000 {
+		compatible = "mediate,mt6983-apmixedsys", "syscon";
+		reg = <0 0x1000c000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap_clk: syscon@11000000 {
+		compatible = "mediate,mt6983-imp_iic_wrap", "syscon";
+		reg = <0 0x11000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	pericfg_ao_clk: syscon@11036000 {
+		compatible = "mediate,mt6983-pericfg_ao", "syscon";
+		reg = <0 0x11036000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mfg_clk: syscon@13fa0000 {
+		compatible = "mediate,mt6983-mfg", "syscon";
+		reg = <0 0x13fa0000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mfg_top_config_clk: syscon@13fbf000 {
+		compatible = "mediate,mt6983-mfg_top_config", "syscon";
+		reg = <0 0x13fbf000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	dispsys_config_clk: syscon@14000000 {
+		compatible = "mediate,mt6983-dispsys_config", "syscon";
+		reg = <0 0x14000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imgsys_main_clk: syscon@15000000 {
+		compatible = "mediate,mt6983-imgsys_main", "syscon";
+		reg = <0 0x15000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	dip_top_dip1_clk: syscon@15110000 {
+		compatible = "mediate,mt6983-dip_top_dip1", "syscon";
+		reg = <0 0x15110000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	dip_nr_dip1_clk: syscon@15130000 {
+		compatible = "mediate,mt6983-dip_nr_dip1", "syscon";
+		reg = <0 0x15130000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	wpe1_dip1_clk: syscon@15220000 {
+		compatible = "mediate,mt6983-wpe1_dip1", "syscon";
+		reg = <0 0x15220000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	ipesys_clk: syscon@15330000 {
+		compatible = "mediate,mt6983-ipesys", "syscon";
+		reg = <0 0x15330000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	wpe2_dip1_clk: syscon@15520000 {
+		compatible = "mediate,mt6983-wpe2_dip1", "syscon";
+		reg = <0 0x15520000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	wpe3_dip1_clk: syscon@15620000 {
+		compatible = "mediate,mt6983-wpe3_dip1", "syscon";
+		reg = <0 0x15620000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	vdec_soc_gcon_base_clk: syscon@1600f000 {
+		compatible = "mediate,mt6983-vdec_soc_gcon_base", "syscon";
+		reg = <0 0x1600f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	vdec_gcon_base_clk: syscon@1602f000 {
+		compatible = "mediate,mt6983-vdec_gcon_base", "syscon";
+		reg = <0 0x1602f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	venc_gcon_clk: syscon@17000000 {
+		compatible = "mediate,mt6983-venc_gcon", "syscon";
+		reg = <0 0x17000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	venc_gcon_core1_clk: syscon@17800000 {
+		compatible = "mediate,mt6983-venc_gcon_core1", "syscon";
+		reg = <0 0x17800000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apu_rcx_config_clk: syscon@19020000 {
+		compatible = "mediate,mt6983-apu_rcx_config", "syscon";
+		reg = <0 0x19020000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apu_rcx_vcore_config_clk: syscon@190e0000 {
+		compatible = "mediate,mt6983-apu_rcx_vcore_config", "syscon";
+		reg = <0 0x190e0000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apu_clk: syscon@190f3000 {
+		compatible = "mediate,mt6983-apu", "syscon";
+		reg = <0 0x190f3000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apu_dla_0_config_clk: syscon@19130000 {
+		compatible = "mediate,mt6983-apu_dla_0_config", "syscon";
+		reg = <0 0x19130000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apu_dla_1_config_clk: syscon@19134000 {
+		compatible = "mediate,mt6983-apu_dla_1_config", "syscon";
+		reg = <0 0x19134000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apu_dla_2_config_clk: syscon@19230000 {
+		compatible = "mediate,mt6983-apu_dla_2_config", "syscon";
+		reg = <0 0x19230000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apu_dla_3_config_clk: syscon@19234000 {
+		compatible = "mediate,mt6983-apu_dla_3_config", "syscon";
+		reg = <0 0x19234000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apu_acx_config_clk: syscon@1923c000 {
+		compatible = "mediate,mt6983-apu_acx_config", "syscon";
+		reg = <0 0x1923c000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	cam_main_r1a_clk: syscon@1a000000 {
+		compatible = "mediate,mt6983-cam_main_r1a", "syscon";
+		reg = <0 0x1a000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_rawa_clk: syscon@1a04f000 {
+		compatible = "mediate,mt6983-camsys_rawa", "syscon";
+		reg = <0 0x1a04f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_yuva_clk: syscon@1a06f000 {
+		compatible = "mediate,mt6983-camsys_yuva", "syscon";
+		reg = <0 0x1a06f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_rawb_clk: syscon@1a08f000 {
+		compatible = "mediate,mt6983-camsys_rawb", "syscon";
+		reg = <0 0x1a08f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_yuvb_clk: syscon@1a0af000 {
+		compatible = "mediate,mt6983-camsys_yuvb", "syscon";
+		reg = <0 0x1a0af000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_rawc_clk: syscon@1a0cf000 {
+		compatible = "mediate,mt6983-camsys_rawc", "syscon";
+		reg = <0 0x1a0cf000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_yuvc_clk: syscon@1a0ef000 {
+		compatible = "mediate,mt6983-camsys_yuvc", "syscon";
+		reg = <0 0x1a0ef000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_mraw_clk: syscon@1a170000 {
+		compatible = "mediate,mt6983-camsys_mraw", "syscon";
+		reg = <0 0x1a170000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	ccu_main_clk: syscon@1b200000 {
+		compatible = "mediate,mt6983-ccu_main", "syscon";
+		reg = <0 0x1b200000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	adsp_clk: syscon@1e000000 {
+		compatible = "mediate,mt6983-adsp", "syscon";
+		reg = <0 0x1e000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	afe_clk: syscon@1e100000 {
+		compatible = "mediate,mt6983-afe", "syscon";
+		reg = <0 0x1e100000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mdpsys_config_clk: syscon@1f000000 {
+		compatible = "mediate,mt6983-mdpsys_config", "syscon";
+		reg = <0 0x1f000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mdpsys1_config_clk: syscon@1f800000 {
+		compatible = "mediate,mt6983-mdpsys1_config", "syscon";
+		reg = <0 0x1f800000 0 0x1000>;
+		#clock-cells = <1>;
 	};
 
 	topckgen@10000000 {
