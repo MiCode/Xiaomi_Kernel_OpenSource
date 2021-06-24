@@ -685,15 +685,15 @@ static struct PERIAXI_ID_INFO paxi_int_mi_id_to_master[] = {
 };
 
 static struct TOPAXI_ID_INFO topaxi_mi0_id_to_master[] = {
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 0, 0,	0, 0, 0, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 0, 0,	1, 0, 0, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 2, 2,	2, 2, 1, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 0, 0,	0, 0, 0, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 0, 0,	1, 0, 0, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 0,	0, 0, 0, 0,	0, 1, 0, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 1,	0, 0, 0, 0,	0, 1, 0, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 2, 2,	2, 2, 1, 0,	0, 0 } },
-	{"MCUSYS",            { 0, 0, 2, 2,	2, 2, 2, 2,	2, 2, 2, 1,	0, 0 } },
+	{"APMCU_Write",       { 0, 0, 2, 2,	2, 2, 0, 0,	0, 0, 0, 0,	0, 0 } },
+	{"APMCU_Write",       { 0, 0, 2, 2,	2, 2, 0, 0,	1, 0, 0, 0,	0, 0 } },
+	{"APMCU_Write",       { 0, 0, 2, 2,	2, 2, 2, 2,	2, 2, 1, 0,	0, 0 } },
+	{"APMCU_Read",        { 0, 0, 2, 2,	2, 2, 0, 0,	0, 0, 0, 0,	0, 0 } },
+	{"APMCU_Read",        { 0, 0, 2, 2,	2, 2, 0, 0,	1, 0, 0, 0,	0, 0 } },
+	{"APMCU_Read",        { 0, 0, 2, 0,	0, 0, 0, 0,	0, 1, 0, 0,	0, 0 } },
+	{"APMCU_Read",        { 0, 0, 2, 1,	0, 0, 0, 0,	0, 1, 0, 0,	0, 0 } },
+	{"APMCU_Read",        { 0, 0, 2, 2,	2, 2, 2, 2,	2, 2, 1, 0,	0, 0 } },
+	{"APMCU_Read",        { 0, 0, 2, 2,	2, 2, 2, 2,	2, 2, 2, 1,	0, 0 } },
 	{"DEBUGSYS",          { 1, 0, 0, 0,	0, 2, 0, 0,	0, 0, 0, 0,	0, 0 } },
 	{"MSDC0",             { 1, 0, 1, 0,	0, 0, 0, 0,	2, 2, 0, 0,	0, 0 } },
 	{"PWM",               { 1, 0, 1, 0,	0, 1, 0, 0,	0, 0, 0, 0,	0, 0 } },
@@ -872,22 +872,30 @@ const char *bus_id_to_master(int bus_id, uint32_t vio_addr, int vio_idx)
 /* violation index corresponds to subsys */
 const char *index_to_subsys(uint32_t index)
 {
-	if (index >= MFGSYS_START && index <= MFGSYS_END)
-		return "MFGSYS";
-	else if (index == SMI_LARB0 || index == SMI_LARB1 ||
-		index == SMI_COMMON || index == SMI_LARB5 ||
-		index == SMI_LARB2 || index == VENCSYS_SMI_LARB ||
-		index == VDECSYS_SMI_LARB || index == SMI_LARB6 ||
-		index == SMI_LARB3)
+	if (index == SMI_COMMON || index == SMI_LARB0 ||
+		index == SMI_LARB1 ||
+		index == DISP_SMI_2X1_SUB_COMMON_U0 ||
+		index == DISP_SMI_2X1_SUB_COMMON_U1 ||
+		index == IMG1_SMI_2X1_SUB_COMMON ||
+		index == SMI_LARB9 || index == SMI_LARB11 ||
+		index == SMI_LARB12 || index == SMI_LARB7 ||
+		index == SMI_LARB13 || index == SMI_LARB14 ||
+		index == CAM_SIM_3X1_SUB_COMMON_U0 ||
+		index == CAM_SIM_4X1_SUB_COMMON_U0 ||
+		index == SMI_LARB_16 || index == SMI_LARB_17 ||
+		index == SMI_LARB0_S ||
+		index == IPE_SMI_2X1_SUB_COMMON ||
+		index == SMI_LARB20 ||
+		index == SMI_LARB19)
 		return "SMI";
-	else if ((index >= MMSYS_MDP_START && index <= MMSYS_MDP_END) ||
-		(index >= MMSYS_MDP2_START && index <= MMSYS_MDP2_END))
+	else if (index >= MMSYS_MDP_START && index <= MMSYS_MDP_END)
 		return "MMSYS_MDP";
 	else if (index >= MMSYS_DISP_START && index <= MMSYS_DISP_END)
 		return "MMSYS_DISP";
-	else if (index >= IMGSYS_START && index <= IMGSYS_END)
+	else if (index == IMGSYS1_TOP || index == IMGSYS2_TOP)
 		return "IMGSYS";
-	else if (index >= VENCSYS_START && index <= VENCSYS_END)
+	else if (index == VENC_GLOBAL_CON || index == VENC ||
+		index == VENC_MBIST_CTR)
 		return "VENCSYS";
 	else if (index >= VDECSYS_START && index <= VDECSYS_END)
 		return "VDECSYS";
@@ -896,10 +904,6 @@ const char *index_to_subsys(uint32_t index)
 		return "CAMSYS";
 	else if (index >= CAMSYS_SENINF_START && index <= CAMSYS_SENINF_END)
 		return "CAMSYS_SENINF";
-	else if (index >= CAMSYS_CCU_START && index <= CAMSYS_CCU_END)
-		return "CAMSYS_CCU";
-	else if (index >= APUSYS_START && index <= APUSYS_END)
-		return "APUSYS";
 	else if (index < ARRAY_SIZE(mt6781_infra_devices))
 		return mt6781_infra_devices[index].device;
 	else
@@ -1037,6 +1041,7 @@ static struct mtk_devapc_soc mt6781_data = {
 	.sramrom_sec_vios = &mt6781_sramrom_sec_vios,
 	.devapc_pds = &mt6781_devapc_pds,
 	.master_get = &bus_id_to_master,
+	.subsys_get = &index_to_subsys,
 	.shift_group_get = &mt6781_shift_group_get,
 };
 
