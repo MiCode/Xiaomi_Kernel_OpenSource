@@ -483,7 +483,7 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 		vi = &alg->prog;
 		alg->a.entry_off = info->pAddr - addr;
 	} else {
-		memset(&dummy_iova, 0, sizeof(dummy_iova));
+		size = 0;
 		vi = &dummy_iova;
 		pr_info("%s: vpu%d: unexpected segment: flags: %x\n",
 			__func__, vd->id, info->flag);
@@ -492,8 +492,10 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 	mva = preload_iova_alloc(vd, vi, addr, size, info->off);
 	alg->a.mva = mva;
 
-	if (!alg->a.mva)
+	if (!alg->a.mva) {
+		vpu_alg_free(alg);
 		goto out;
+	}
 
 	alg->builtin = true;
 	list_add_tail(&alg->list, &al->a);
