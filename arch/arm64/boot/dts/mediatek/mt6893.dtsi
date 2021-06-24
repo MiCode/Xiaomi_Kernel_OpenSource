@@ -2219,6 +2219,7 @@
 
 		adsp_common: adsp_common@10800000 {
 			compatible = "mediatek,adsp_common";
+			status = "okay";
 			reg = <0 0x1080b000 0 0x50>, /* CFG SECURE */
 				<0 0x10806000 0 0x100>, /* MBOX0 base */
 				<0 0x10806100 0 0x4>, /* MBOX0 set */
@@ -2289,6 +2290,7 @@
 				"clk_top_clk26m",
 				"clk_top_adsppll",
 				"clk_top_scp_sel";
+			core_num = <2>;    /* core number */
 			adsp-rsv-ipidma-a = <0x100000>;
 			adsp-rsv-ipidma-b = <0x100000>;
 			adsp-rsv-logger-a = <0x80000>;
@@ -2303,6 +2305,7 @@
 
 		adsp_core0: adsp_core0@10820000 {
 			compatible = "mediatek,adsp_core_0";
+			status = "okay";
 			reg = <0 0x10800000 0 0x6000>, /* CFG */
 				<0 0x10840000 0 0x9000>, /* ITCM */
 				<0 0x10820000 0 0x8000>; /* DTCM */
@@ -2317,6 +2320,7 @@
 
 		adsp_core1: adsp_core1@10850000 {
 			compatible = "mediatek,adsp_core_1";
+			status = "okay";
 			reg = <0 0x10800000 0 0x6000>, /* CFG */
 				<0 0x10870000 0 0x9000>, /* ITCM */
 				<0 0x10850000 0 0x8000>; /* DTCM */
