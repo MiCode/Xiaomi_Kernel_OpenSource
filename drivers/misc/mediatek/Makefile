@@ -178,3 +178,4 @@ obj-y += subpmic/
 obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
 obj-$(CONFIG_MTK_OTP) += otp/
 obj-$(CONFIG_MTK_SDA) += sda/
+obj-$(CONFIG_MTK_MT6382_BDG) += hifi4dsp_spi/

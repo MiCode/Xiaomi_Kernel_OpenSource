@@ -1301,6 +1301,7 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&ft8756_fhdp_dsi_vdo_auo_rt4801_lcm_drv,
 #endif
 
+
 #if defined(HX83102P_WUXGA2000_DSI_VDO_BOE)
 	&hx83102p_wuxga2000_dsi_vdo_boe_lcm_drv,
 #endif

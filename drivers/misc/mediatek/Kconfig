@@ -204,6 +204,14 @@ config MTK_DRM_KEY_MNG_SUPPORT
 	  relative options including: MTK_SEC_VIDEO_PATH_SUPPORT and
 	  MTK_PERSIST_PARTITION_SUPPORT.
 
+config MTK_MT6382_BDG
+	bool "Support Bridge IC 6382"
+	help
+	  This config decide if device with BridgeIC 6382
+	  BridgeIC 6382 can support VESA-1.2 DSC, compressing display framedata
+	  Normal project will disable it first
+	  If you are not sure about this, do not set it to y
+
 source "drivers/misc/mediatek/cameraisp/Kconfig"
 source "drivers/misc/mediatek/cam_cal/Kconfig"
 source "drivers/misc/mediatek/cmdq/Kconfig"
