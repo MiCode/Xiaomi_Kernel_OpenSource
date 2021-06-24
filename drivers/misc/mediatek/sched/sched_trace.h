@@ -266,8 +266,33 @@ TRACE_EVENT(sched_find_energy_efficient_cpu,
 		__entry->best_delta,
 		__entry->best_energy_cpu,
 		__entry->best_idle_cpu,
-		__entry->max_spare_cap_cpu_ls, 
+		__entry->max_spare_cap_cpu_ls,
 		__entry->sys_max_spare_cap_cpu)
+);
+
+TRACE_EVENT(sched_find_busiest_group,
+
+	TP_PROTO(int src_cpu, int dst_cpu,
+		int out_balance),
+
+	TP_ARGS(src_cpu, dst_cpu, out_balance),
+
+	TP_STRUCT__entry(
+		__field(int, src_cpu)
+		__field(int, dst_cpu)
+		__field(int, out_balance)
+		),
+
+	TP_fast_assign(
+		__entry->src_cpu 	 = src_cpu;
+		__entry->dst_cpu         = dst_cpu;
+		__entry->out_balance     = out_balance;
+		),
+
+	TP_printk("src_cpu=%d dst_cpu=%d out_balance=%d",
+		__entry->src_cpu,
+		__entry->dst_cpu,
+		__entry->out_balance)
 );
 
 TRACE_EVENT(sched_cpu_overutilized,

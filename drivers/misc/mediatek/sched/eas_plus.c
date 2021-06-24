@@ -40,6 +40,8 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 
 			if (cpumask_test_cpu(src_cpu, perf_domain_span(pd)))
 				*out_balance = 0;
+
+			trace_sched_find_busiest_group(src_cpu, dst_cpu, *out_balance);
 	}
 }
 
