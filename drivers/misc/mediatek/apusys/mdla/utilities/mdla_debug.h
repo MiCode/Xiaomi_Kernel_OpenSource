@@ -9,6 +9,7 @@
 #include <linux/printk.h>
 #include <linux/seq_file.h>
 #include <linux/device.h>
+#include <linux/proc_fs.h>
 
 #include <common/mdla_device.h>
 
@@ -209,11 +210,13 @@ const char *mdla_dbg_get_u32_node_str(int node);
 /* debugfs node name : used to show information */
 #define DBGFS_HW_REG_NAME   "register"
 #define DBGFS_CMDBUF_NAME   "mdla_memory"
+#define PROCFS_CMDBUF_NAME  DBGFS_CMDBUF_NAME
 
 void mdla_dbg_dump(struct mdla_dev *mdla_info, struct command_entry *ce);
 void mdla_dbg_ce_info(u32 core_id, struct command_entry *ce);
 
 struct dentry *mdla_dbg_get_fs_root(void);
+struct proc_dir_entry *mdla_dbg_get_procfs_dir(void);
 
 void mdla_dbg_fs_setup(struct device *dev);
 void mdla_dbg_fs_init(struct dentry *apusys_dbg_root);

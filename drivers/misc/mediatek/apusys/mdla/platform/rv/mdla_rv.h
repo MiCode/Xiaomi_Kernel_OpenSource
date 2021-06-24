@@ -10,14 +10,14 @@
  *************************/
 /* Same as uP v2 enum MDLA_DEBUG_MASK */
 enum V2_DEBUG_MASK {
-	V2_DBG_DRV	   = 0x01,
-	V2_DBG_CMD	   = 0x04,
-	V2_DBG_PMU	   = 0x08,
-	V2_DBG_PERF	   = 0x10,
-	V2_DBG_TIMEOUT	   = 0x40,
-	V2_DBG_DVFS	   = 0x80,
+	V2_DBG_DRV         = 0x01,
+	V2_DBG_CMD         = 0x04,
+	V2_DBG_PMU         = 0x08,
+	V2_DBG_PERF        = 0x10,
+	V2_DBG_TIMEOUT     = 0x40,
+	V2_DBG_DVFS        = 0x80,
 	V2_DBG_TIMEOUT_ALL = 0x100,
-	V2_DBG_ERROR	   = 0x200,
+	V2_DBG_ERROR       = 0x200,
 };
 
 /*************************

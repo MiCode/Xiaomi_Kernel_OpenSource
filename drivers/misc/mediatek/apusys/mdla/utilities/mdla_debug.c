@@ -15,7 +15,10 @@
 #include <utilities/mdla_debug.h>
 #include <utilities/mdla_profile.h>
 
+#include <platform/mdla_plat_api.h>
+
 static struct dentry *mdla_dbg_root;
+static struct proc_dir_entry *mdla_procfs_dir;
 
 static u32 ip_ver;
 
@@ -254,6 +257,26 @@ struct dentry *mdla_dbg_get_fs_root(void)
 	return mdla_dbg_root;
 }
 
+struct proc_dir_entry *mdla_dbg_get_procfs_dir(void)
+{
+	return mdla_procfs_dir;
+}
+
+static void mdla_procfs_init(void)
+{
+	if (mdla_plat_micro_p_support())
+		return;
+
+	mdla_procfs_dir = proc_mkdir("mdla", NULL);
+
+	if (IS_ERR_OR_NULL(mdla_procfs_dir)) {
+		mdla_err("fail to create /proc/mdla @ %s()\n", __func__);
+		return;
+	}
+
+	proc_create_single(PROCFS_CMDBUF_NAME, 0, mdla_procfs_dir, mdla_dbg_memory_show);
+}
+
 void mdla_dbg_fs_setup(struct device *dev)
 {
 	struct mdla_dbgfs_file *file;
@@ -289,10 +312,11 @@ void mdla_dbg_fs_setup(struct device *dev)
 		}
 	}
 
-	debugfs_create_devm_seqfile(dev, DBGFS_HW_REG_NAME, mdla_dbg_root,
+	if (!mdla_plat_micro_p_support())
+		debugfs_create_devm_seqfile(dev, DBGFS_HW_REG_NAME, mdla_dbg_root,
 				mdla_dbg_register_show);
-	debugfs_create_devm_seqfile(dev, DBGFS_CMDBUF_NAME, mdla_dbg_root,
-				mdla_dbg_memory_show);
+
+	mdla_procfs_init();
 
 	/* Platform debug node */
 	mdla_debug_callback.dbgfs_plat_init(dev, mdla_dbg_root);
@@ -313,5 +337,7 @@ void mdla_dbg_fs_init(struct dentry *droot)
 void mdla_dbg_fs_exit(void)
 {
 	debugfs_remove_recursive(mdla_dbg_root);
+	if (mdla_procfs_dir)
+		proc_remove(mdla_procfs_dir);
 }
 

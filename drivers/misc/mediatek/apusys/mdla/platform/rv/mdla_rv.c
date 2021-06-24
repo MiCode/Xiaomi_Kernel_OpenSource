@@ -5,6 +5,10 @@
 #include <linux/of_device.h>
 #include <linux/debugfs.h>
 #include <linux/mutex.h>
+#include <linux/slab.h>
+#include <linux/seq_file.h>
+#include <linux/uaccess.h>
+#include <linux/dma-mapping.h>
 
 #include <common/mdla_power_ctrl.h>
 
@@ -17,36 +21,39 @@
 #include "mdla_rv.h"
 
 #define DBGFS_USAGE_NAME    "help"
+#define DBGFS_MEM_NAME      "dbg_mem"
 
 static struct mdla_dev *mdla_plat_devices;
 
-DEFINE_IPI_DBGFS_ATTRIBUTE(ulog,          MDLA_IPI_ULOG,         0, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(timeout,       MDLA_IPI_TIMEOUT,      0, "%llu ms\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(pwrtime,       MDLA_IPI_PWR_TIME,     0, "%llu ms\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(cmd_check,     MDLA_IPI_CMD_CHECK,    0, "%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(pmu_trace,     MDLA_IPI_TRACE_ENABLE, 0, "%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C1,            MDLA_IPI_PMU_COUNT,    1, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C2,            MDLA_IPI_PMU_COUNT,    2, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C3,            MDLA_IPI_PMU_COUNT,    3, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C4,            MDLA_IPI_PMU_COUNT,    4, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C5,            MDLA_IPI_PMU_COUNT,    5, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C6,            MDLA_IPI_PMU_COUNT,    6, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C7,            MDLA_IPI_PMU_COUNT,    7, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C8,            MDLA_IPI_PMU_COUNT,    8, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C9,            MDLA_IPI_PMU_COUNT,    9, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C10,           MDLA_IPI_PMU_COUNT,   10, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C11,           MDLA_IPI_PMU_COUNT,   11, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C12,           MDLA_IPI_PMU_COUNT,   12, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C13,           MDLA_IPI_PMU_COUNT,   13, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C14,           MDLA_IPI_PMU_COUNT,   14, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(C15,           MDLA_IPI_PMU_COUNT,   15, "0x%llx\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(preempt_times, MDLA_IPI_PREEMPT_CNT,  0, "%llu\n");
-DEFINE_IPI_DBGFS_ATTRIBUTE(rsv,           MDLA_IPI_RSV,          0, "%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(ulog,           MDLA_IPI_ULOG,           0, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(timeout,        MDLA_IPI_TIMEOUT,        0, "%llu ms\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(pwrtime,        MDLA_IPI_PWR_TIME,       0, "%llu ms\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(cmd_check,      MDLA_IPI_CMD_CHECK,      0, "%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(pmu_trace,      MDLA_IPI_TRACE_ENABLE,   0, "%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C1,             MDLA_IPI_PMU_COUNT,      1, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C2,             MDLA_IPI_PMU_COUNT,      2, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C3,             MDLA_IPI_PMU_COUNT,      3, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C4,             MDLA_IPI_PMU_COUNT,      4, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C5,             MDLA_IPI_PMU_COUNT,      5, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C6,             MDLA_IPI_PMU_COUNT,      6, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C7,             MDLA_IPI_PMU_COUNT,      7, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C8,             MDLA_IPI_PMU_COUNT,      8, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C9,             MDLA_IPI_PMU_COUNT,      9, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C10,            MDLA_IPI_PMU_COUNT,     10, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C11,            MDLA_IPI_PMU_COUNT,     11, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C12,            MDLA_IPI_PMU_COUNT,     12, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C13,            MDLA_IPI_PMU_COUNT,     13, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C14,            MDLA_IPI_PMU_COUNT,     14, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(C15,            MDLA_IPI_PMU_COUNT,     15, "0x%llx\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(preempt_times,  MDLA_IPI_PREEMPT_CNT,    0, "%llu\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(force_pwr_on,   MDLA_IPI_FORCE_PWR_ON,   0, "%d\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(dump_cmdbuf_en, MDLA_IPI_DUMP_CMDBUF_EN, 0, "%d\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(info,           MDLA_IPI_INFO,           0, "%d\n");
 
 struct mdla_dbgfs_ipi_file {
 	int type0;
 	int type1;
-	unsigned int sup_mask;			/* 1'b << IP major version */
+	u32 sup_mask;			/* 1'b << IP major version */
 	umode_t mode;
 	char *str;
 	const struct file_operations *fops;
@@ -54,35 +61,56 @@ struct mdla_dbgfs_ipi_file {
 };
 
 static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
-	{MDLA_IPI_PWR_TIME,      0, BIT(2) | BIT(3), 0660, "poweroff_time",       &pwrtime_fops, 0},
-	{MDLA_IPI_TIMEOUT,       0, BIT(2) | BIT(3), 0660,       "timeout",       &timeout_fops, 0},
-	{MDLA_IPI_ULOG,          0, BIT(2) | BIT(3), 0660,          "ulog",          &ulog_fops, 0},
-	{MDLA_IPI_CMD_CHECK,     0,          BIT(2), 0660,     "cmd_check",     &cmd_check_fops, 0},
-	{MDLA_IPI_TRACE_ENABLE,  0,          BIT(2), 0660,     "pmu_trace",     &pmu_trace_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     1,          BIT(2), 0660,            "c1",            &C1_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     2,          BIT(2), 0660,            "c2",            &C2_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     3,          BIT(2), 0660,            "c3",            &C3_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     4,          BIT(2), 0660,            "c4",            &C4_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     5,          BIT(2), 0660,            "c5",            &C5_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     6,          BIT(2), 0660,            "c6",            &C6_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     7,          BIT(2), 0660,            "c7",            &C7_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     8,          BIT(2), 0660,            "c8",            &C8_fops, 0},
-	{MDLA_IPI_PMU_COUNT,     9,          BIT(2), 0660,            "c9",            &C9_fops, 0},
-	{MDLA_IPI_PMU_COUNT,    10,          BIT(2), 0660,           "c10",           &C10_fops, 0},
-	{MDLA_IPI_PMU_COUNT,    11,          BIT(2), 0660,           "c11",           &C11_fops, 0},
-	{MDLA_IPI_PMU_COUNT,    12,          BIT(2), 0660,           "c12",           &C12_fops, 0},
-	{MDLA_IPI_PMU_COUNT,    13,          BIT(2), 0660,           "c13",           &C13_fops, 0},
-	{MDLA_IPI_PMU_COUNT,    14,          BIT(2), 0660,           "c14",           &C14_fops, 0},
-	{MDLA_IPI_PMU_COUNT,    15,          BIT(2), 0660,           "c15",           &C15_fops, 0},
-	{MDLA_IPI_PREEMPT_CNT,   0,          BIT(2), 0660, "preempt_times", &preempt_times_fops, 0},
-	{MDLA_IPI_RSV,           0,          BIT(3), 0660,           "rsv",           &rsv_fops, 0},
-	{NF_MDLA_IPI_TYPE_0,     0,               0,    0,            NULL,                NULL, 0}
+	{MDLA_IPI_PWR_TIME,       0, 0xC, 0660,  "poweroff_time",        &pwrtime_fops, 0},
+	{MDLA_IPI_TIMEOUT,        0, 0xC, 0660,        "timeout",        &timeout_fops, 0},
+	{MDLA_IPI_ULOG,           0, 0xC, 0660,           "ulog",           &ulog_fops, 0},
+	{MDLA_IPI_CMD_CHECK,      0, 0x4, 0660,      "cmd_check",      &cmd_check_fops, 0},
+	{MDLA_IPI_TRACE_ENABLE,   0, 0x4, 0660,      "pmu_trace",      &pmu_trace_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      1, 0x4, 0660,             "c1",             &C1_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      2, 0x4, 0660,             "c2",             &C2_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      3, 0x4, 0660,             "c3",             &C3_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      4, 0x4, 0660,             "c4",             &C4_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      5, 0x4, 0660,             "c5",             &C5_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      6, 0x4, 0660,             "c6",             &C6_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      7, 0x4, 0660,             "c7",             &C7_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      8, 0x4, 0660,             "c8",             &C8_fops, 0},
+	{MDLA_IPI_PMU_COUNT,      9, 0x4, 0660,             "c9",             &C9_fops, 0},
+	{MDLA_IPI_PMU_COUNT,     10, 0x4, 0660,            "c10",            &C10_fops, 0},
+	{MDLA_IPI_PMU_COUNT,     11, 0x4, 0660,            "c11",            &C11_fops, 0},
+	{MDLA_IPI_PMU_COUNT,     12, 0x4, 0660,            "c12",            &C12_fops, 0},
+	{MDLA_IPI_PMU_COUNT,     13, 0x4, 0660,            "c13",            &C13_fops, 0},
+	{MDLA_IPI_PMU_COUNT,     14, 0x4, 0660,            "c14",            &C14_fops, 0},
+	{MDLA_IPI_PMU_COUNT,     15, 0x4, 0660,            "c15",            &C15_fops, 0},
+	{MDLA_IPI_PREEMPT_CNT,    0, 0x4, 0660,  "preempt_times",  &preempt_times_fops, 0},
+	{MDLA_IPI_FORCE_PWR_ON,   0, 0x8, 0660,   "force_pwr_on",   &force_pwr_on_fops, 0},
+	{MDLA_IPI_DUMP_CMDBUF_EN, 0, 0x8, 0660, "dump_cmdbuf_en", &dump_cmdbuf_en_fops, 0},
+	{MDLA_IPI_INFO,           0, 0x8, 0660,           "info",           &info_fops, 0},
+	{NF_MDLA_IPI_TYPE_0,      0,   0,    0,             NULL,                 NULL, 0}
 };
+
+struct mdla_rv_dbg_mem {
+	void *buf;
+	dma_addr_t da;
+	size_t size;
+};
+
+static struct mdla_rv_dbg_mem dbg_mem;
+
+static char *mdla_plat_get_ipi_str(int idx)
+{
+	u32 i;
+
+	for (i = 0; ipi_dbgfs_file[i].str != NULL; i++) {
+		if (ipi_dbgfs_file[i].type0 == idx)
+			return ipi_dbgfs_file[i].str;
+	}
+	return "unknown";
+}
 
 static void mdla_plat_v2_dbgfs_usage(struct seq_file *s, void *data)
 {
 	seq_puts(s, "\n---- Set uP debug log mask ----\n");
-	seq_printf(s, "echo [mask(hex)] > /d/mdla/%s\n", ipi_dbgfs_file[MDLA_IPI_ULOG].str);
+	seq_printf(s, "echo [mask(hex)] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_ULOG));
 	seq_printf(s, "\tMDLA_DBG_DRV         = 0x%x\n", V2_DBG_DRV);
 	seq_printf(s, "\tMDLA_DBG_CMD         = 0x%x\n", V2_DBG_CMD);
 	seq_printf(s, "\tMDLA_DBG_PMU         = 0x%x\n", V2_DBG_PMU);
@@ -96,8 +124,8 @@ static void mdla_plat_v2_dbgfs_usage(struct seq_file *s, void *data)
 
 static void mdla_plat_v3_dbgfs_usage(struct seq_file *s, void *data)
 {
-	seq_puts(s, "\n---- Set uP debug log mask ----\n");
-	seq_printf(s, "echo [mask(hex)] > /d/mdla/%s\n", ipi_dbgfs_file[MDLA_IPI_ULOG].str);
+	seq_puts(s, "\n----------- Set uP debug log mask -----------\n");
+	seq_printf(s, "echo [mask(hex)] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_ULOG));
 	seq_printf(s, "\tMDLA_DBG_DRV     = 0x%x\n", 1U << V3_DBG_DRV);
 	seq_printf(s, "\tMDLA_DBG_CMD     = 0x%x\n", 1U << V3_DBG_CMD);
 	seq_printf(s, "\tMDLA_DBG_PMU     = 0x%x\n", 1U << V3_DBG_PMU);
@@ -110,15 +138,31 @@ static void mdla_plat_v3_dbgfs_usage(struct seq_file *s, void *data)
 	seq_printf(s, "\tMDLA_DBG_LOCK    = 0x%x\n", 1U << V3_DBG_LOCK);
 	seq_printf(s, "\tMDLA_DBG_TMR     = 0x%x\n", 1U << V3_DBG_TMR);
 	seq_printf(s, "\tMDLA_DBG_FW      = 0x%x\n", 1U << V3_DBG_FW);
+
+	seq_puts(s, "\n--------------- power control ---------------\n");
+	seq_printf(s, "echo [0|1] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_FORCE_PWR_ON));
+	seq_puts(s, "\t0: force power down and reset command queue\n");
+	seq_puts(s, "\t1: force power up and keep power on\n");
+
+	seq_puts(s, "\n------------- show information -------------\n");
+	seq_printf(s, "echo [item] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_INFO));
+	seq_puts(s, "and then cat /proc/apusys_logger/seq_log\n");
+	seq_printf(s, "\t%d: show power status\n", MDLA_IPI_INFO_PWR);
+	seq_printf(s, "\t%d: show register value\n", MDLA_IPI_INFO_REG);
+	seq_printf(s, "\t%d: show the last cmdbuf (if dump_cmdbuf_en != 0)\n",
+				MDLA_IPI_INFO_CMDBUF);
+
+	seq_puts(s, "\n----------- allocate debug memory -----------\n");
+	seq_printf(s, "echo [size(dec)] > /d/mdla/%s\n", DBGFS_MEM_NAME);
 }
 
 static int mdla_plat_dbgfs_usage(struct seq_file *s, void *data)
 {
 	/* Common */
-	seq_puts(s, "\n---- Command timeout setting ----\n");
+	seq_puts(s, "\n---------- Command timeout setting ----------\n");
 	seq_printf(s, "echo [ms(dec)] > /d/mdla/%s\n", ipi_dbgfs_file[MDLA_IPI_TIMEOUT].str);
 
-	seq_puts(s, "\n---- Set delay time of power off ----\n");
+	seq_puts(s, "\n-------- Set delay time of power off --------\n");
 	seq_printf(s, "echo [ms(dec)] > /d/mdla/%s\n", ipi_dbgfs_file[MDLA_IPI_PWR_TIME].str);
 
 	/* IP */
@@ -130,10 +174,123 @@ static int mdla_plat_dbgfs_usage(struct seq_file *s, void *data)
 	return 0;
 }
 
+static int mdla_rv_alloc_dbg_mem(u32 size)
+{
+	struct device *dev;
+
+	if (mdla_plat_devices && mdla_plat_devices[0].dev)
+		dev = mdla_plat_devices[0].dev;
+	else
+		return -ENXIO;
+
+	if (size > 0x200000 || size < 0x10) {
+		dev_info(dev, "%s() dma_alloc_coherent invalid size(%u)\n\n", __func__, size);
+		return -EINVAL;
+	}
+
+	dbg_mem.buf = dma_alloc_coherent(dev, size, &dbg_mem.da, GFP_KERNEL);
+	if (dbg_mem.buf == NULL || dbg_mem.da == 0) {
+		dev_info(dev, "%s() dma_alloc_coherent bootcode fail\n\n", __func__);
+		return -1;
+	}
+
+	dbg_mem.size = size;
+	memset(dbg_mem.buf, 0, size);
+
+	mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA, (u64)dbg_mem.da);
+	mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA_SZ, (u64)dbg_mem.size);
+
+	return 0;
+}
+
+static void mdla_rv_free_dbg_mem(void)
+{
+	if (dbg_mem.buf && dbg_mem.da && dbg_mem.size) {
+		dma_free_coherent(mdla_plat_devices[0].dev,
+				dbg_mem.size, dbg_mem.buf, dbg_mem.da);
+		dbg_mem.buf  = NULL;
+		dbg_mem.size = 0;
+		dbg_mem.da   = 0;
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA, 0);
+	}
+}
+
+static int mdla_rv_dbg_mem_show(struct seq_file *s, void *data)
+{
+	u32 i = 0, *buf;
+
+	if (!dbg_mem.buf || !dbg_mem.da || !dbg_mem.size) {
+		seq_puts(s, "No debug data!\n");
+		return 0;
+	}
+
+	buf = (u32 *)dbg_mem.buf;
+
+	for (i = 0; i < dbg_mem.size / 4; i += 4) {
+		seq_printf(s, "0x%08x: %08x %08x %08x %08x\n",
+				4 * i,
+				buf[i],
+				buf[i + 1],
+				buf[i + 2],
+				buf[i + 3]);
+	}
+
+	return 0;
+}
+
+
+static int mdla_rv_dbg_mem_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mdla_rv_dbg_mem_show, inode->i_private);
+}
+
+static ssize_t mdla_rv_dbg_mem_write(struct file *flip,
+		const char __user *buffer,
+		size_t count, loff_t *f_pos)
+{
+	char *buf;
+	u32 size;
+	int ret;
+
+	buf = kzalloc(count + 1, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	ret = copy_from_user(buf, buffer, count);
+	if (ret)
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtouint(buf, 10, &size) != 0) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	mdla_rv_free_dbg_mem();
+
+	if (size == 0)
+		goto out;
+
+	mdla_rv_alloc_dbg_mem(size);
+
+out:
+	kfree(buf);
+	return count;
+}
+
+static const struct file_operations mdla_rv_dbg_mem_fops = {
+	.open = mdla_rv_dbg_mem_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = mdla_rv_dbg_mem_write,
+};
+
 static void mdla_plat_dbgfs_init(struct device *dev, struct dentry *parent)
 {
 	struct mdla_dbgfs_ipi_file *file;
-	unsigned int mask;
+	u32 mask;
 	int i;
 
 	if (!dev || !parent)
@@ -149,6 +306,9 @@ static void mdla_plat_dbgfs_init(struct device *dev, struct dentry *parent)
 		if ((mask & file->sup_mask) != 0)
 			debugfs_create_file(file->str, file->mode, parent, &file->val, file->fops);
 	}
+
+	debugfs_create_file(DBGFS_MEM_NAME, 0644, parent, NULL,
+				&mdla_rv_dbg_mem_fops);
 }
 
 /* platform public functions */
@@ -195,6 +355,7 @@ void mdla_rv_deinit(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
 	mdla_ipi_deinit();
+	mdla_rv_free_dbg_mem();
 
 	if (mdla_plat_pwr_drv_ready()
 			&& mdla_pwr_device_unregister(pdev))
