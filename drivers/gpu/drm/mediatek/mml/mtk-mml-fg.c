@@ -101,8 +101,8 @@ static s32 fg_init(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + FG_TRIGGER, 1 << 1, 0x00000002);
-	cmdq_pkt_write(pkt, NULL, base_pa + FG_TRIGGER, 0, 0x00000002);
+	cmdq_pkt_write(pkt, NULL, base_pa + FG_TRIGGER, 1 << 2, 0x00000007);
+	cmdq_pkt_write(pkt, NULL, base_pa + FG_TRIGGER, 0, 0x00000007);
 	return 0;
 }
 
