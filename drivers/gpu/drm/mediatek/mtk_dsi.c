@@ -4938,9 +4938,9 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, struct drm_crtc_state *old_state)
 {
-	struct cmdq_pkt *cmdq_handle;
-	struct cmdq_pkt *cmdq_handle2;
-	struct mtk_crtc_state *state;
+	struct cmdq_pkt *cmdq_handle = NULL;
+	struct cmdq_pkt *cmdq_handle2 = NULL;
+	struct mtk_crtc_state *state = NULL;
 	struct mtk_crtc_state *old_mtk_state = to_mtk_crtc_state(old_state);
 	unsigned int src_mode =
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
@@ -4950,11 +4950,14 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	unsigned int clk_cnt = 0;
 	struct mtk_drm_private *priv = NULL;
 
-	if (mtk_crtc)
-		state = to_mtk_crtc_state(mtk_crtc->base.state);
+	if (IS_ERR_OR_NULL(mtk_crtc) || IS_ERR_OR_NULL(old_state) ||
+	    IS_ERR_OR_NULL(dsi))
+		return;
+
+	state = to_mtk_crtc_state(mtk_crtc->base.state);
 
 	/* use no mipi clk change solution */
-	if (mtk_crtc && mtk_crtc->base.dev)
+	if (mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
 
 	if (!(priv && mtk_drm_helper_get_opt(priv->helper_opt,
