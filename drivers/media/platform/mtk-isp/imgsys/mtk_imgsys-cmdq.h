@@ -171,6 +171,7 @@ struct dip_bw_t {
 struct frame_bw_t {
 	struct wpe_bw_t wpe_eis;
 	struct wpe_bw_t wpe_tnr;
+	struct wpe_bw_t wpe_lite;
 	struct me_bw_t me;
 	struct pqdip_bw_t pqdip_a;
 	struct pqdip_bw_t pqdip_b;

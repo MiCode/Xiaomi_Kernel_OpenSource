@@ -43,6 +43,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.module_id = IMGSYS_MOD_WPE,
 		.init = imgsys_wpe_set_initial_value,
 		.dump = imgsys_wpe_debug_dump,
+		.uninit = imgsys_wpe_uninit,
 	},
 };
 #define MTK_IMGSYS_MODULE_NUM	ARRAY_SIZE(imgsys_isp7_modules)
