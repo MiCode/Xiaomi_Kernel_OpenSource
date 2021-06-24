@@ -18,10 +18,21 @@
 #include "tile_mdp_reg.h"
 
 #define FG_TRIGGER	0x000
+#define FG_STATUS	0x004
 #define FG_CTRL_0	0x020
 #define FG_CK_EN	0x024
+#define FG_BACK_DOOR_0	0x02c
+#define FG_PIC_INFO_0	0x400
+#define FG_PIC_INFO_1	0x404
 #define FG_TILE_INFO_0	0x418
 #define FG_TILE_INFO_1	0x41c
+#define FG_DEBUG_0	0x500
+#define FG_DEBUG_1	0x504
+#define FG_DEBUG_2	0x508
+#define FG_DEBUG_3	0x50c
+#define FG_DEBUG_4	0x510
+#define FG_DEBUG_5	0x514
+#define FG_DEBUG_6	0x518
 
 struct fg_data {
 };
@@ -148,19 +159,40 @@ static const struct mml_comp_config_ops fg_cfg_ops = {
 static void fg_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	u32 value[4];
+	u32 value[16];
 
 	mml_err("fg component %u dump:", comp->id);
 
-	value[0] = readl(base + FG_CTRL_0);
-	value[1] = readl(base + FG_CK_EN);
-	value[2] = readl(base + FG_TILE_INFO_0);
-	value[3] = readl(base + FG_TILE_INFO_1);
+	value[0] = readl(base + FG_TRIGGER);
+	value[1] = readl(base + FG_STATUS);
+	value[2] = readl(base + FG_CTRL_0);
+	value[3] = readl(base + FG_CK_EN);
+	value[4] = readl(base + FG_BACK_DOOR_0);
+	value[5] = readl(base + FG_PIC_INFO_0);
+	value[6] = readl(base + FG_PIC_INFO_1);
+	value[7] = readl(base + FG_TILE_INFO_0);
+	value[8] = readl(base + FG_TILE_INFO_1);
+	value[9] = readl(base + FG_DEBUG_0);
+	value[10] = readl(base + FG_DEBUG_1);
+	value[11] = readl(base + FG_DEBUG_2);
+	value[12] = readl(base + FG_DEBUG_3);
+	value[13] = readl(base + FG_DEBUG_4);
+	value[14] = readl(base + FG_DEBUG_5);
+	value[15] = readl(base + FG_DEBUG_6);
 
-	mml_err("FG_CTRL_0 %#010x FG_CK_EN %#010x",
+	mml_err("FG_TRIGGER %#010x FG_STATUS %#010x",
 		value[0], value[1]);
-	mml_err("FG_TILE_INFO_0 %#010x FG_TILE_INFO_1 %#010x",
+	mml_err("FG_CTRL_0 %#010x FG_CK_EN %#010x",
 		value[2], value[3]);
+	mml_err("FG_BACK_DOOR_0 %#010x FG_PIC_INFO_0 %#010x FG_PIC_INFO_1 %#010x",
+		value[4], value[5], value[6]);
+	mml_err("FG_TILE_INFO_0 %#010x FG_TILE_INFO_1 %#010x",
+		value[7], value[8]);
+	mml_err("FG_DEBUG_0 %#010x FG_DEBUG_1 %#010x FG_DEBUG_2 %#010x",
+		value[9], value[10], value[11]);
+	mml_err("FG_DEBUG_3 %#010x FG_DEBUG_4 %#010x FG_DEBUG_5 %#010x",
+		value[12], value[13], value[14]);
+	mml_err("FG_DEBUG_6 %#010x ", value[15]);
 }
 
 static const struct mml_comp_debug_ops fg_debug_ops = {
