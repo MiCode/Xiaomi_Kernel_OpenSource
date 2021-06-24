@@ -25,7 +25,11 @@
 #define MTK_VDEC_MIN_H  64U
 #define DFT_CFG_WIDTH   MTK_VDEC_MIN_W
 #define DFT_CFG_HEIGHT  MTK_VDEC_MIN_H
+#define MTK_VDEC_MAX_W  mtk_vdec_max_width
+#define MTK_VDEC_MAX_H  mtk_vdec_max_heigh
 
+static unsigned int mtk_vdec_max_width = 0;
+static unsigned int mtk_vdec_max_heigh = 0;
 static struct mtk_video_fmt
 	mtk_video_formats[MTK_MAX_DEC_CODECS_SUPPORT] = { {0} };
 static struct mtk_codec_framesizes
@@ -114,6 +118,10 @@ static void get_supported_framesizes(struct mtk_vcodec_ctx *ctx)
 				mtk_vdec_framesizes[i].stepwise.min_height,
 				mtk_vdec_framesizes[i].stepwise.max_height,
 				mtk_vdec_framesizes[i].stepwise.step_height);
+				if (mtk_vdec_framesizes[i].stepwise.max_width > mtk_vdec_max_width)
+					mtk_vdec_max_width = mtk_vdec_framesizes[i].stepwise.max_width ;
+				if (mtk_vdec_framesizes[i].stepwise.max_height > mtk_vdec_max_heigh)
+					mtk_vdec_max_heigh = mtk_vdec_framesizes[i].stepwise.max_height ;
 			}
 		}
 	}
@@ -509,16 +517,39 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 	ret = vdec_if_decode(ctx, NULL, NULL, &src_chg);
 	}
 
+	q = &ctx->m2m_ctx->cap_q_ctx.q;
 	if (ret) {
 		mtk_v4l2_err("DecodeFinal failed, ret=%d", ret);
+		mutex_lock(&ctx->buf_lock);
+		for (i = 0; i < q->num_buffers; i++) {
+			dst_vb2_v4l2 = container_of(
+				q->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
+			dstbuf = container_of(
+				dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
+			if (ret == -EIO) {
+				// codec exception handling
+				mtk_v4l2_debug(8, "[%d]num_buffers %d status=%x queue id=%d %p %llx q_cnt %d %d %d %d state %d",
+					ctx->id, q->num_buffers, dstbuf->frame_buffer.status,
+					dstbuf->vb.vb2_buf.index, &dstbuf->frame_buffer,
+					(unsigned long)(&dstbuf->frame_buffer),
+					atomic_read(&q->owned_by_drv_count),
+					dstbuf->queued_in_vb2,
+					dstbuf->queued_in_v4l2, dstbuf->used, dst_vb2_v4l2->vb2_buf.state);
+				if (dstbuf->used && dstbuf->queued_in_v4l2 &&
+					(dstbuf->frame_buffer.status == FB_ST_NORMAL ||
+					(dstbuf->frame_buffer.status == FB_ST_DISPLAY && !dstbuf->ready_to_display ))) {
+					v4l2_m2m_buf_done(&dstbuf->vb, VB2_BUF_STATE_ERROR);
+					dstbuf->frame_buffer.status = FB_ST_FREE;
+				}
+			}
+		}
+		mutex_unlock(&ctx->buf_lock);
 		return;
 	}
 
 	clean_free_bs_buffer(ctx, current_bs);
 	clean_display_buffer(ctx, 0);
 	clean_free_fm_buffer(ctx);
-
-	q = &ctx->m2m_ctx->cap_q_ctx.q;
 
 	/* check buffer status */
 	mutex_lock(&ctx->buf_lock);
@@ -536,7 +567,6 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 			dstbuf->queued_in_v4l2, dstbuf->used);
 	}
 	mutex_unlock(&ctx->buf_lock);
-	/* vb2_wait_for_all_buffers(q); */
 }
 
 static void mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
@@ -785,7 +815,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		memset(&drain_fb, 0, sizeof(struct vdec_fb));
 		if (src_buf->planes[0].bytesused == 0)
-			drain_fb.status = EOS;
+			drain_fb.status = FB_ST_EOS;
 		vdec_if_decode(ctx, NULL, &drain_fb, &src_chg);
 
 		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER);
@@ -1756,14 +1786,7 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 		fsize->reserved[0] = mtk_vdec_framesizes[i].profile;
 		fsize->reserved[1] = mtk_vdec_framesizes[i].level;
 		fsize->stepwise = mtk_vdec_framesizes[i].stepwise;
-		if (!(ctx->dev->dec_capability &
-			  VCODEC_CAPABILITY_4K_DISABLED)) {
-			mtk_v4l2_debug(1, "4K is enabled");
-			fsize->stepwise.max_width =
-				VCODEC_DEC_4K_CODED_WIDTH;
-			fsize->stepwise.max_height =
-				VCODEC_DEC_4K_CODED_HEIGHT;
-		}
+
 		mtk_v4l2_debug(1, "%x, %d %d %d %d %d %d %d %d",
 					   ctx->dev->dec_capability,
 					   fsize->stepwise.min_width,
