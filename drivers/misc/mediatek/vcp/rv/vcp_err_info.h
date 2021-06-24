@@ -25,10 +25,5 @@ struct error_info {
 	char context[ERR_MAX_CONTEXT_LEN];
 };
 
-
-__attribute__((weak)) void report_hub_dmd(uint32_t case_id, uint32_t sensor_id,
-						char *context);
-
-
 #endif  // VCP_ERR_INFO_H
 

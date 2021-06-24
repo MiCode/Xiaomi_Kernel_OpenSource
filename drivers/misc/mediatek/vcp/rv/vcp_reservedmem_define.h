@@ -8,61 +8,19 @@
 
 static struct vcp_reserve_mblock vcp_reserve_mblock[] = {
 	{
-		.num = VOW_MEM_ID,
+		.num = VDEC_MEM_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.size = 0x0,
 	},
 	{
-		.num = SENS_MEM_ID,
+		.num = VENC_MEM_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.size = 0x0,
 	},
 	{
 		.num = VCP_A_LOGGER_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.size = 0x0,
-	},
-	{
-		.num = AUDIO_IPI_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.size = 0x0,
-	},
-	{
-		.num = VOW_BARGEIN_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.size = 0x0,
-	},
-	{
-		.num = VCP_DRV_PARAMS_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.size = 0x0,
-	},
-	{
-		.num = ULTRA_MEM_ID,
-		.start_phys = 0,
-		.start_virt = 0,
-		.size = 0x0,
-	},
-	{
-		.num = SENS_SUPER_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.size = 0x0,
-	},
-	{
-		.num = SENS_LIST_MEM_ID,
-		.start_phys = 0x0,
-		.start_virt = 0x0,
-		.size = 0x0,
-	},
-	{
-		.num = SENS_DEBUG_MEM_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.size = 0x0,

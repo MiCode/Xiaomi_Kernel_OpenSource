@@ -134,22 +134,14 @@ enum vcp_ipi_id {
 	VCP_NR_IPI,
 };
 
+#define VENC_WORK_ID 0xFFFFFFFF
+#define VDEC_WORK_ID 0xFFFFFFFF
+
 /* vcp reserve memory ID definition*/
 enum vcp_reserve_mem_id_t {
-	VDEC_WORK_ID,
-	VENC_WORK_ID,
 	VDEC_MEM_ID,
 	VENC_MEM_ID,
-	VOW_MEM_ID,
-	SENS_MEM_ID,
 	VCP_A_LOGGER_MEM_ID,
-	AUDIO_IPI_MEM_ID,
-	VOW_BARGEIN_MEM_ID,
-	VCP_DRV_PARAMS_MEM_ID,
-	ULTRA_MEM_ID,
-	SENS_SUPER_MEM_ID,
-	SENS_LIST_MEM_ID,
-	SENS_DEBUG_MEM_ID,
 	NUMS_MEM_ID,
 };
 

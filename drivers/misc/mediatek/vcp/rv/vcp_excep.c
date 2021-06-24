@@ -177,8 +177,6 @@ void vcp_do_regdump(uint32_t *out, uint32_t *out_end)
 		*buf = reg_save_list[i].size;
 		buf++;
 		from = vcp_regdump_virt + (reg_save_list[i].addr & 0xfffff);
-		if ((reg_save_list[i].addr & 0xfff00000) < 0x10700000)
-			from = vcpreg.vcpsys + (reg_save_list[i].addr & 0xfff);
 		memcpy_from_vcp(buf, from, reg_save_list[i].size);
 		buf += (reg_save_list[i].size / sizeof(uint32_t));
 	}

@@ -51,7 +51,7 @@ extern struct vcp_status_reg *c0_t1_m;
 extern struct vcp_status_reg *c1_m;
 extern struct vcp_status_reg *c1_t1_m;
 
-#define MDUMP_L2TCM_SIZE     0x200000 /* L2_TCM , for all vcp maximum sram size */
+#define MDUMP_L2TCM_SIZE     0x40000 /* L2_TCM , for all vcp maximum sram size */
 #define MDUMP_L1C_SIZE       0x03c000
 #define MDUMP_REGDUMP_SIZE   0x003c00 /* register backup (max size) */
 #define MDUMP_TBUF_SIZE      0x000400

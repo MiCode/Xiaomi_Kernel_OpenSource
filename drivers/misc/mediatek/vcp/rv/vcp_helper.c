@@ -160,6 +160,14 @@ struct vcp_ipi_irq vcp_ipi_irqs[] = {
 };
 #define IRQ_NUMBER  (sizeof(vcp_ipi_irqs)/sizeof(struct vcp_ipi_irq))
 
+#define NUM_IO_DOMAINS 4
+struct device *vcp_io_devs[NUM_IO_DOMAINS];
+
+#undef pr_notice
+#define pr_notice pr_info
+#undef pr_debug
+#define pr_debug pr_info
+
 static int vcp_ipi_dbg_resume_noirq(struct device *dev)
 {
 	int i = 0;
@@ -543,11 +551,6 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
 	pr_notice("[VCP] Error_info: case id: %u\n", info->case_id);
 	pr_notice("[VCP] Error_info: sensor id: %u\n", info->sensor_id);
 	pr_notice("[VCP] Error_info: context: %s\n", info->context);
-
-	if (report_hub_dmd)
-		report_hub_dmd(info->case_id, info->sensor_id, info->context);
-	else
-		pr_debug("[VCP] warning: report_hub_dmd() not defined.\n");
 }
 
 
@@ -1875,6 +1878,29 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 	return true;
 }
 
+static int vcp_io_device_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+
+	pr_debug("[VCP_IO] %s", __func__);
+
+	of_property_read_u32(pdev->dev.of_node, "vcp-support",
+		 &vcp_support);
+	if (vcp_support == 0 || vcp_support == 1) {
+		pr_info("Bypass the VCP driver probe\n");
+		return -1;
+	}
+	// VCP iommu devices
+	vcp_io_devs[vcp_support-1] = dev;
+
+	return 0;
+}
+
+static int vcp_io_device_remove(struct platform_device *dev)
+{
+	return 0;
+}
+
 static int vcp_device_probe(struct platform_device *pdev)
 {
 	int ret = 0, i = 0;
@@ -1883,11 +1909,18 @@ static int vcp_device_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 
+	pr_debug("[VCP] %s", __func__);
+
 	of_property_read_u32(pdev->dev.of_node, "vcp-support",
 		 &vcp_support);
 	if (vcp_support == 0) {
 		pr_info("Bypass the VCP driver probe\n");
 		return 0;
+	} else {
+		// VCP iommu devices
+		vcp_io_devs[vcp_support-1] = dev;
+		if (vcp_support > 1)
+			return 0;
 	}
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	vcpreg.sram = devm_ioremap_resource(dev, res);
@@ -2115,17 +2148,52 @@ static struct platform_driver mtk_vcp_device = {
 	.driver = {
 		.name = "vcp",
 		.owner = THIS_MODULE,
-
-#if IS_ENABLED(CONFIG_OF)
 		.of_match_table = vcp_of_ids,
-#endif
 		.pm = &vcp_ipi_dbg_pm_ops,
 	},
 };
 
-static const struct of_device_id vcpsys_of_ids[] = {
-	{ .compatible = "mediatek,vcpinfra", },
+static const struct of_device_id vcp_vdec_of_ids[] = {
+	{ .compatible = "mediatek,vcp-io-vdec", },
 	{}
+};
+static const struct of_device_id vcp_venc_of_ids[] = {
+	{ .compatible = "mediatek,vcp-io-venc", },
+	{}
+};
+static const struct of_device_id vcp_work_of_ids[] = {
+	{ .compatible = "mediatek,vcp-io-work", },
+	{}
+};
+
+static struct platform_driver mtk_vcp_io_vdec = {
+	.probe = vcp_io_device_probe,
+	.remove = vcp_io_device_remove,
+	.driver = {
+		.name = "vcp_io_vdec ",
+		.owner = THIS_MODULE,
+		.of_match_table = vcp_vdec_of_ids,
+	},
+};
+
+static struct platform_driver mtk_vcp_io_venc = {
+	.probe = vcp_io_device_probe,
+	.remove = vcp_io_device_remove,
+	.driver = {
+		.name = "vcp_io_venc",
+		.owner = THIS_MODULE,
+		.of_match_table = vcp_venc_of_ids,
+	},
+};
+
+static struct platform_driver mtk_vcp_io_work = {
+	.probe = vcp_io_device_probe,
+	.remove = vcp_io_device_remove,
+	.driver = {
+		.name = "vcp_io_work",
+		.owner = THIS_MODULE,
+		.of_match_table = vcp_work_of_ids,
+	},
 };
 
 /*
@@ -2155,6 +2223,20 @@ static int __init vcp_init(void)
 		pr_info("[VCP] vcp probe fail\n");
 		return -1;
 	}
+
+	if (platform_driver_register(&mtk_vcp_io_vdec)) {
+		pr_info("[VCP] mtk_vcp_io_vdec probe fail\n");
+		return -1;
+	}
+	if (platform_driver_register(&mtk_vcp_io_venc)) {
+		pr_info("[VCP] mtk_vcp_io_venc probe fail\n");
+		return -1;
+	}
+	if (platform_driver_register(&mtk_vcp_io_work)) {
+		pr_info("[VCP] mtk_vcp_io_work probe fail\n");
+		return -1;
+	}
+
 	if (!vcp_support) {
 		return 0;
 	}

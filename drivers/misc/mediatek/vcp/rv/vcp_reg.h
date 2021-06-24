@@ -177,13 +177,4 @@
 #define R_CORE0_CACHE_RAM		(vcpreg.l1cctrl + 0x00000)
 #define R_CORE1_CACHE_RAM		(vcpreg.l1cctrl + 0x20000)
 
-/* INFRA_IRQ (always on register) */
-#define INFRA_IRQ_SET			(vcpreg.vcpsys + 0x0B14)
-	#define AP_AWAKE_LOCK		(0)
-	#define AP_AWAKE_UNLOCK		(1)
-	#define CONNSYS_AWAKE_LOCK	(2)
-	#define CONNSYS_AWAKE_UNLOCK	(3)
-#define INFRA_IRQ_CLEAR			(vcpreg.vcpsys + 0x0B18)
-#define VCP_SYS_INFRA_MON		(vcpreg.vcpsys + 0x0D50)
-
 #endif

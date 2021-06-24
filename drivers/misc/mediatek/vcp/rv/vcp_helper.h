@@ -77,7 +77,6 @@ enum VCP_RESET_TYPE {
 };
 
 struct vcp_regs {
-	void __iomem *vcpsys;
 	void __iomem *sram;
 	void __iomem *cfg;
 	void __iomem *clkctrl;

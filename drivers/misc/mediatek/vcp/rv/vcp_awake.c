@@ -52,9 +52,7 @@ int vcp_awake_lock(void *_vcp_id)
 	unsigned long spin_flags;
 	char *core_id;
 	int *vcp_awake_count;
-	int count = 0;
 	int ret = -1;
-	unsigned int tmp;
 
 	if (vcp_id >= VCP_CORE_TOTAL) {
 		pr_notice("%s: VCP ID >= VCP_CORE_TOTAL\n", __func__);
@@ -76,33 +74,6 @@ int vcp_awake_lock(void *_vcp_id)
 		spin_unlock_irqrestore(&vcp_awake_spinlock, spin_flags);
 		return 0;
 	}
-
-	/*set a direct IPI to awake VCP */
-	/*pr_debug("vcp_awake_lock: try to awake %s\n", core_id);*/
-	writel(0xA0 | (1 << AP_AWAKE_LOCK), INFRA_IRQ_SET);
-
-	count = 0;
-	while (++count != VCP_AWAKE_TIMEOUT) {
-#if VCP_RECOVERY_SUPPORT
-		if (atomic_read(&vcp_reset_status) == RESET_STATUS_START) {
-			pr_notice("%s: resetting vcp, break\n", __func__);
-			break;
-		}
-#endif  // VCP_RECOVERY_SUPPORT
-
-		tmp = readl(INFRA_IRQ_SET);
-		if ((tmp & 0xA0) != 0xA0) {
-			pr_notice("%s: INFRA_IRQ_SET %x\n", __func__, tmp);
-			break;
-		}
-		if (!((tmp & 0x0f) & (1 << AP_AWAKE_LOCK))) {
-			ret = 0;
-			break;
-		}
-		udelay(10);
-	}
-	/* clear status */
-	writel(0xA0 | (1 << AP_AWAKE_LOCK), INFRA_IRQ_CLEAR);
 
 	/* vcp lock awake success*/
 	if (ret != -1)
@@ -143,9 +114,7 @@ int vcp_awake_unlock(void *_vcp_id)
 	unsigned long spin_flags;
 	int *vcp_awake_count;
 	char *core_id;
-	int count = 0;
 	int ret = -1;
-	unsigned int tmp;
 
 	if (vcp_id >= VCP_CORE_TOTAL) {
 		pr_notice("%s: VCP ID >= VCP_CORE_TOTAL\n", __func__);
@@ -167,32 +136,6 @@ int vcp_awake_unlock(void *_vcp_id)
 		spin_unlock_irqrestore(&vcp_awake_spinlock, spin_flags);
 		return 0;
 	}
-
-	/* WE1: set a direct IPI to release awake VCP */
-	/*pr_debug("vcp_awake_lock: try to awake %s\n", core_id);*/
-	writel(0xA0 | (1 << AP_AWAKE_UNLOCK), INFRA_IRQ_SET);
-
-	count = 0;
-	while (++count != VCP_AWAKE_TIMEOUT) {
-#if VCP_RECOVERY_SUPPORT
-		if (atomic_read(&vcp_reset_status) == RESET_STATUS_START) {
-			pr_notice("%s: vcp is being reset, break\n", __func__);
-			break;
-		}
-#endif  // VCP_RECOVERY_SUPPORT
-		tmp = readl(INFRA_IRQ_SET);
-		if ((tmp & 0xA0) != 0xA0) {
-			pr_notice("%s: INFRA7_IRQ_SET %x\n", __func__, tmp);
-			break;
-		}
-		if (!((tmp & 0x0f) & (1 << AP_AWAKE_UNLOCK))) {
-			ret = 0;
-			break;
-		}
-		udelay(10);
-	}
-	/* clear status */
-	writel(0xA0 | (1 << AP_AWAKE_UNLOCK), INFRA_IRQ_CLEAR);
 
 	/* vcp unlock awake success*/
 	if (ret != -1) {
