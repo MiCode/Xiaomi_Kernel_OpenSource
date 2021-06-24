@@ -70,7 +70,7 @@ static void minitop_trace(const char *fmt, ...)
 	if (unlikely(len == 256))
 		log[255] = '\0';
 	va_end(args);
-	fpsgo_main_trace(log);
+	trace_printk(log);
 }
 
 static int __util_cmp(const void *a, const void *b)
