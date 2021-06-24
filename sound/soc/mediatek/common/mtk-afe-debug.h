@@ -9,6 +9,8 @@
 
 #include <linux/debugfs.h>
 
+struct mtk_base_afe;
+
 struct mtk_afe_debug_cmd {
 	const char *cmd;
 	void (*fn)(struct file *file, void *arg);
@@ -26,5 +28,6 @@ ssize_t mtk_afe_debugfs_write(struct file *f, const char __user *buf,
 
 /* debug function */
 void mtk_afe_debug_write_reg(struct file *file, void *arg);
+void mtk_afe_write_reg(struct mtk_base_afe *afe, void *arg);
 
 #endif
