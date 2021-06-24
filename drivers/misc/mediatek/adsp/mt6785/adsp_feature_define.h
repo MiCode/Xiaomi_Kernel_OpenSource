@@ -57,6 +57,7 @@ enum adsp_feature_id {
 	KTV_FEATURE_ID                  = 19,
 	CAPTURE_RAW_FEATURE_ID          = 20,
 	FM_ADSP_FEATURE_ID              = 21,
+	VOICE_CALL_SUB_FEATURE_ID       = 22,
 	ADSP_NUM_FEATURE_ID,
 };
 
