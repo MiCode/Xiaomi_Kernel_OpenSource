@@ -51,7 +51,9 @@ obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_proc.o
 obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_sensor_list.o
 obj-y				+= ../common/$(COMMON_VERSION)/seninf.o
 ifneq ($(ARCH_MTK_PROJECT), k6833v1_64_mt6317)
+ifneq ($(CONFIG_MACH_MT6781),y)
 obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_pwr_seq.o
+endif
 endif
 ifeq ($(CONFIG_MACH_MT6781),y)
 obj-y				+= ../common/v1_1/n3d_fsync/
