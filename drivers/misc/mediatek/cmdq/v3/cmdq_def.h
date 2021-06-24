@@ -248,8 +248,16 @@ enum CMDQ_SCENARIO_ENUM {
 	/* Trigger loop scenario does not enable HWs */
 	CMDQ_SCENARIO_TRIGGER_LOOP_SUB = 47,
 
+	/* bridge */
+	CMDQ_BDG_SCENARIO_DISP_TEST,
+	CMDQ_BDG_SCENARIO_DISP_TEST2,
+	/* TODO */
+
 	CMDQ_MAX_SCENARIO_COUNT	/* ALWAYS keep at the end */
 };
+
+#define CMDQ_BDG_TASK(thread) \
+	(((thread) & BIT(5)) ? true : false)
 
 /* General Purpose Register */
 enum cmdq_gpr_reg {
