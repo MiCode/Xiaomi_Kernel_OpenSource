@@ -54,8 +54,6 @@ static struct ccci_clk_node ccif_clk_table[] = {
 	{ NULL, "infra-ccif-md"},
 	{ NULL, "infra-ccif1-ap"},
 	{ NULL, "infra-ccif1-md"},
-	{ NULL, "infra-ccif2-ap"},
-	{ NULL, "infra-ccif2-md"},
 	{ NULL, "infra-ccif4-md"},
 	{ NULL, "infra-ccif5-md"},
 };

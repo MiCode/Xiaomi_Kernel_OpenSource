@@ -9,9 +9,12 @@
 #include <linux/kernel.h>
 #include <linux/of.h>
 #endif
+#include <linux/clk.h> /* for clk_prepare/un* */
+
 #include "ccci_config.h"
 #include "ccci_common_config.h"
 #include "ccci_fsm_internal.h"
+#include "md_sys1_platform.h"
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 #include "scp_ipi.h"
@@ -22,6 +25,11 @@ void ccci_scp_md_state_sync(int md_state);
 struct ccci_fsm_scp ccci_scp_ctl = {
 	.md_id = 0,
 	.md_state_sync = &ccci_scp_md_state_sync,
+};
+
+static struct ccci_clk_node scp_clk_table[] = {
+	{ NULL, "infra-ccif2-ap"},
+	{ NULL, "infra-ccif2-md"},
 };
 
 void ccci_scp_md_state_sync(int md_state)
@@ -72,7 +80,7 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 	scp_ipi_tx_msg.op_id = op_id;
 	scp_ipi_tx_msg.data[0] = *((u32 *)data);
 	CCCI_NORMAL_LOG(scp_ipi_tx_msg.md_id, FSM,
-		"IPI send %d/0x%x, %d\n",
+		"IPI send op_id=%d/data=0x%x, size=%d\n",
 		scp_ipi_tx_msg.op_id, scp_ipi_tx_msg.data[0],
 		(int)sizeof(struct ccci_ipi_msg));
 #if (MD_GENERATION >= 6297)
@@ -103,6 +111,35 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 	return ret;
 }
 
+static int scp_set_clk_cg(unsigned int on)
+{
+	int idx, ret;
+
+	if (!(on == 0 || on == 1)) {
+		CCCI_ERROR_LOG(MD_SYS1, FSM,
+			"%s:on=%u is invalid\n", __func__, on);
+		return -1;
+	}
+
+	for (idx = 0; idx < ARRAY_SIZE(scp_clk_table); idx++) {
+		if (on) {
+			ret = clk_prepare_enable(scp_clk_table[idx].clk_ref);
+			if (ret) {
+				CCCI_ERROR_LOG(MD_SYS1, FSM,
+					"open scp clk fail:%s,ret=%d\n",
+					scp_clk_table[idx].clk_name, ret);
+				return -1;
+			}
+		} else
+			clk_disable_unprepare(scp_clk_table[idx].clk_ref);
+	}
+
+	CCCI_NORMAL_LOG(MD_SYS1, FSM, "%s:on=%u set done!\n",
+		__func__, on);
+
+	return 0;
+}
+
 static void ccci_scp_md_state_sync_work(struct work_struct *work)
 {
 	struct ccci_fsm_scp *scp_ctl = container_of(work,
@@ -114,8 +151,7 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 
 	switch (state) {
 	case MD_STATE_READY:
-		switch (scp_ctl->md_id) {
-		case MD_SYS1:
+		if (scp_ctl->md_id == MD_SYS1) {
 			while (count < SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
 				if (atomic_read(&scp_state) ==
 					SCP_CCCI_STATE_BOOTING
@@ -129,6 +165,13 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 				CCCI_ERROR_LOG(scp_ctl->md_id, FSM,
 					"SCP init not ready!\n");
 			else {
+				ret = scp_set_clk_cg(1);
+				if (ret) {
+					CCCI_ERROR_LOG(scp_ctl->md_id, FSM,
+						"fail to set scp clk, ret = %d\n", ret);
+					break;
+				}
+
 				ret = ccci_port_send_msg_to_md(scp_ctl->md_id,
 					CCCI_SYSTEM_TX, CCISM_SHM_INIT, 0, 1);
 				if (ret < 0)
@@ -136,16 +179,8 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 						"fail to send CCISM_SHM_INIT %d\n",
 						ret);
 			}
+		} else
 			break;
-		case MD_SYS3:
-			ret = ccci_port_send_msg_to_md(scp_ctl->md_id,
-				CCCI_CONTROL_TX, C2K_CCISM_SHM_INIT, 0, 1);
-			if (ret < 0)
-				CCCI_ERROR_LOG(scp_ctl->md_id, CORE,
-					"fail to send CCISM_SHM_INIT %d\n",
-					ret);
-			break;
-		};
 		break;
 	case MD_STATE_EXCEPTION:
 	case MD_STATE_INVALID:
@@ -161,7 +196,7 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 {
 	struct ccci_ipi_msg *ipi_msg_ptr = NULL;
 	struct sk_buff *skb = NULL;
-	int data;
+	int data, ret;
 
 	while (!skb_queue_empty(&scp_ipi_rx_skb_list.skb_list)) {
 		skb = ccci_skb_dequeue(&scp_ipi_rx_skb_list);
@@ -219,6 +254,10 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 			case SCP_CCCI_STATE_INVALID:
 				CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, FSM,
 						"MD INVALID,scp send ack to ap\n");
+				ret = scp_set_clk_cg(0);
+				if (ret)
+					CCCI_ERROR_LOG(ipi_msg_ptr->md_id, FSM,
+						"fail to set scp clk, ret = %d\n", ret);
 				break;
 			default:
 				break;
@@ -393,11 +432,36 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl)
 	return ret;
 }
 
+static int ccif_scp_clk_init(struct device *dev)
+{
+	int idx;
+
+	for (idx = 0; idx < ARRAY_SIZE(scp_clk_table); idx++) {
+		scp_clk_table[idx].clk_ref = devm_clk_get(dev,
+			scp_clk_table[idx].clk_name);
+		if (IS_ERR(scp_clk_table[idx].clk_ref)) {
+			CCCI_ERROR_LOG(-1, FSM,
+				"%s:scp get %s failed\n",
+				scp_clk_table[idx].clk_name);
+			scp_clk_table[idx].clk_ref = NULL;
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 #ifdef CCCI_KMODULE_ENABLE
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 int ccci_scp_probe(struct platform_device *pdev)
 {
 	int ret;
+
+	ret = ccif_scp_clk_init(&pdev->dev);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, FSM, "ccif scp clk init fail");
+		return ret;
+	}
 
 	ret = fsm_scp_init(&ccci_scp_ctl);
 	if (ret < 0) {
@@ -428,14 +492,14 @@ static int __init ccci_scp_init(void)
 {
 	int ret;
 
-CCCI_NORMAL_LOG(-1, FSM, "ccci scp driver init start\n");
+	CCCI_NORMAL_LOG(-1, FSM, "ccci scp driver init start\n");
 
 	ret = platform_driver_register(&ccci_scp_driver);
 	if (ret) {
 		CCCI_ERROR_LOG(-1, FSM, "ccci scp driver init fail %d", ret);
 		return ret;
 	}
-CCCI_NORMAL_LOG(-1, FSM, "ccci scp driver init end\n");
+	CCCI_NORMAL_LOG(-1, FSM, "ccci scp driver init end\n");
 	return 0;
 }
 
