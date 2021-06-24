@@ -67,3 +67,15 @@ int mkp_rbtree_insert(struct rb_root *root, struct mkp_rb_node *ins)
 
 	return 0;
 }
+
+int mkp_rbtree_erase(struct rb_root *root, phys_addr_t addr)
+{
+	struct mkp_rb_node *data = mkp_rbtree_search(root, addr);
+
+	if (data) {
+		rb_erase(&data->rb_node, root);
+		kfree(data);
+		return 0;
+	}
+	return -1;
+}

@@ -61,4 +61,5 @@ void traverse_rbtree(struct rb_root *root)
 
 struct mkp_rb_node *mkp_rbtree_search(struct rb_root *root, phys_addr_t addr);
 int mkp_rbtree_insert(struct rb_root *root, struct mkp_rb_node *ins);
+int mkp_rbtree_erase(struct rb_root *root, phys_addr_t addr);
 #endif /* _MKP_RBTREE_H */
