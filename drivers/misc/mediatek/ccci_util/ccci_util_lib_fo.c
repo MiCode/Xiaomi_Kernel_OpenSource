@@ -1431,7 +1431,7 @@ static void cal_md_settings(int md_id)
 
 static void cal_md_settings_v2(struct device_node *node)
 {
-	unsigned int tmp;
+	unsigned int tmp = 0;
 	char tmp_buf[30];
 	int i;
 
