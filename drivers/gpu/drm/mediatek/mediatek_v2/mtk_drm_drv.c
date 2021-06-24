@@ -370,6 +370,13 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 			mtk_rect_make(&dst_layer_roi,
 				dst_x, dst_y,
 				dst_w, dst_h);
+
+			/* not enable resizer for the case that plane ROI is different from HRT
+			 * (e.g. layer composed by GPU
+			 */
+			if (src_layer_roi.width == dst_layer_roi.width &&
+				src_layer_roi.height == dst_layer_roi.height)
+				continue;
 			mtk_rect_join(&src_layer_roi,
 				      &src_total_roi[drm_crtc_index(
 					      plane_state->crtc)],
