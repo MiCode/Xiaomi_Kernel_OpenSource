@@ -1,7 +1,15 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+config MTK_MML_LEGACY
+	tristate "DRM MML Legacy Support for Mediatek SoCs"
+	help
+	  Choose this option if you have a Mediatek SoCs.
+	  The module will be called mml in mediatek-drm
+	  This driver provides kernel mode setting and
+	  buffer management to display driver.
+
 config MTK_MML_MT6893
-	tristate "DRM MML Support for Mediatek SoCs"
+	tristate "DRM MML MT6893 Support for Mediatek SoCs"
 	help
 	  Choose this option if you have a Mediatek SoCs.
 	  The module will be called mml in mediatek-drm
@@ -9,7 +17,7 @@ config MTK_MML_MT6893
 	  buffer management to display driver.
 
 config MTK_MML_MT6983
-	tristate "DRM MML Support for Mediatek SoCs"
+	tristate "DRM MML MT6983 Support for Mediatek SoCs"
 	help
 	  Choose this option if you have a Mediatek SoCs.
 	  The module will be called mml in mediatek-drm

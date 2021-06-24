@@ -26,8 +26,10 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek 	\
              -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 
 obj-$(CONFIG_MTK_MML_MT6893) := mtk-mml-mt6893.o
+obj-$(CONFIG_MTK_MML_LEGACY) := mtk-mml-legacy.o
 
 mtk-mml-mt6893-objs := mml_drv.o
+mtk-mml-legacy-objs := mml_drv.o
 # mml_drv_v1.o if ipbased
 
 mml_drv-objs += mtk-mml-driver.o
