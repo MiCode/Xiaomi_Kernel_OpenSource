@@ -53,11 +53,10 @@ ifneq ($(KERNELRELEASE),)
         # SCP
         $(MODULE_NAME)-objs += conap_scp/msg_thread.o
         $(MODULE_NAME)-objs += conap_scp/ring_buffer.o
-        $(MODULE_NAME)-objs += conap_scp/conap_scp_shm.o
         $(MODULE_NAME)-objs += conap_scp/conap_scp_core.o
         $(MODULE_NAME)-objs += conap_scp/conap_scp_ipi.o
         $(MODULE_NAME)-objs += conap_scp/conap_platform_data.o
-        $(MODULE_NAME)-objs += conap_scp/conap_scp_test.o
+        #$(MODULE_NAME)-objs += conap_scp/conap_scp_test.o
         ###########################################################################
         # Aoltest
         ifeq ($(CONFIG_MTK_AOL_DEBUG),y)

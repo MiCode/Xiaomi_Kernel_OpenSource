@@ -14,6 +14,7 @@ struct conap_scp_shm_config {
 	uint32_t conap_scp_shm_size;
 	uint32_t conap_scp_shm_master_rbf_size;
 	uint32_t conap_scp_shm_slave_rbf_size;
+	uint32_t conap_scp_ipi_mbox_size;
 };
 
 
@@ -24,5 +25,6 @@ struct conap_scp_shm_config* conap_scp_get_shm_info(void);
 uint32_t connsys_scp_shm_get_addr(void);
 uint32_t connsys_scp_shm_get_size(void);
 
+uint32_t connsys_scp_ipi_mbox_size(void);
 
 #endif

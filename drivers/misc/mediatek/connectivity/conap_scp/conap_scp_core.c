@@ -13,10 +13,9 @@
 
 #include "conap_scp.h"
 #include "conap_scp_priv.h"
+#include "conap_platform_data.h"
 #include "msg_thread.h"
-#include "conap_scp_shm.h"
 #include "conap_scp_ipi.h"
-#include "ring_buffer.h"
 
 struct conap_scp_drv_user g_drv_user[CONAP_SCP_DRV_NUM];
 struct conap_scp_core_ctx {
@@ -25,94 +24,197 @@ struct conap_scp_core_ctx {
 	phys_addr_t emi_phy_addr;
 	unsigned int state; /* stop: 0, ready : 1 */
 	struct mutex lock;
-	struct task_struct *rx_thread;
 	struct msg_thread_ctx tx_msg_thread;
-	wait_queue_head_t waitQueue;
+
+	struct completion msg_send_comp;
+	struct completion msg_recv_comp;
 };
 
 static struct conap_scp_core_ctx g_core_ctx;
 
-static int opfunc_init_handshake(struct msg_op_data *op);
 static int opfunc_send_msg(struct msg_op_data *op);
 static int opfunc_is_drv_ready(struct msg_op_data *op);
+static int opfunc_is_drv_ready_ack(struct msg_op_data *op);
+static int opfunc_scp_state_change(struct msg_op_data *op);
+static int opfunc_recv_msg(struct msg_op_data *op);
 
 static const msg_opid_func conap_scp_core_opfunc[] = {
-	[CONAP_SCP_OPID_INIT_HANDSHAKE] = opfunc_init_handshake,
+	[CONAP_SCP_OPID_STATE_CHANGE] = opfunc_scp_state_change,
 	[CONAP_SCP_OPID_SEND_MSG] = opfunc_send_msg,
 	[CONAP_SCP_OPID_DRV_READY] = opfunc_is_drv_ready,
+	[CONAP_SCP_OPID_DRV_READY_ACK] = opfunc_is_drv_ready_ack,
+	[CONAP_SCP_OPID_RECV_MSG] = opfunc_recv_msg,
 };
 
-uint32_t g_msg_buf[1024];
-uint32_t g_send_seq_num = 0;
-uint32_t g_recv_seq_num = 0;
+#define MAX_MSG_SZ		1024
+uint8_t g_msg_buf[MAX_MSG_SZ];
 
-enum conap_core_event {
-	CONAP_CORE_DRV_QRY = 0,
-	CONAP_CORE_SCP_STATE_CHANGE = 1,
-	CONAP_CORE_EVENT_NUM
+uint16_t g_cur_msg_drv;
+uint16_t g_cur_msg_id;
+uint16_t g_cur_recv_sz;
+uint8_t *g_cur_msg_recv_buf;
+
+struct msg_data_2 {
+	uint32_t param0;
+	uint32_t param1;
 };
-struct conap_core_rb g_core_rb;
-struct conap_core_rb g_drv_rdy_rb;
 
+
+static int _send_msg(enum conap_scp_drv_type drv_type, uint16_t msg_id,
+				uint8_t *msg_buf, uint32_t msg_sz)
+{
+	uint32_t sent_len = 0, sz = 0;
+	int wait_ret;
+	int ret;
+	const unsigned int ipi_msg_data_sz = conap_scp_ipi_msg_sz();
+
+	if (!conap_scp_ipi_is_scp_ready()) {
+		pr_warn("[%s] scp is not ready", __func__);
+		return -1;
+	}
+
+	reinit_completion(&g_core_ctx.msg_send_comp);
+
+	/* send tx request */
+	ret = conap_scp_ipi_send_cmd(DRV_TYPE_CORE, CONAP_SCP_CORE_REQ_TX, drv_type, msg_sz);
+	if (ret < 0) {
+		pr_warn("[%s] ipi_send fail, rety", __func__);
+		return -1;
+	}
+
+	/* wait for tx request accept */
+	wait_ret = wait_for_completion_timeout(&g_core_ctx.msg_send_comp,
+					msecs_to_jiffies(2000));
+	if (wait_ret == 0) {
+		pr_warn("[%s] send msg comp timeout", __func__);
+		return CONN_TIMEOUT;
+	}
+
+	pr_info("[%s] >>>> type=[%d] id=[%d] sz=[%d] ipi_sz=[%d]", __func__,
+			drv_type, msg_id, msg_sz, ipi_msg_data_sz);
+	while (sent_len <= msg_sz) {
+		sz = min(ipi_msg_data_sz, msg_sz - sent_len);
+
+		ret = conap_scp_ipi_send_data(drv_type, msg_id, msg_sz,
+				(msg_buf != NULL ? &(msg_buf[sent_len]) : NULL), sz);
+		if (ret < 0) {
+			pr_warn("[%s] ipi_send fail, rety", __func__);
+			continue;
+		}
+		sent_len += ret;
+		if (sent_len >= msg_sz)
+			break;
+	}
+	//pr_info("[_send_msg] send data done");
+	return 0;
+}
 
 /*********************************************************************/
 /* CORE OP FUNC */
 /*********************************************************************/
-static int opfunc_init_handshake(struct msg_op_data *op)
-{
-	int ret = 0;
-
-	ret = conap_scp_ipi_handshake();
-	if (ret) {
-		pr_info("[%s] ======= =[%d]", __func__, ret);
-		return ret;
-	}
-
-	return ret;
-}
-
 static int opfunc_send_msg(struct msg_op_data *op)
 {
-	int ret = 0;
-	struct scif_msg_header msg_header;
-
 	unsigned int drv_type = (unsigned int)op->op_data[0];
 	unsigned int msg_id = (unsigned int)op->op_data[1];
-	unsigned char* buf = (unsigned char*)op->op_data[2];
-	unsigned int size = (unsigned int)op->op_data[3];
+	unsigned char *msg_buf = (unsigned char *)op->op_data[2];
+	unsigned int msg_sz = (unsigned int)op->op_data[3];
 
-	msg_header.guard_pattern = SCIF_MSG_GUARD_PATTERN;
-	msg_header.msg_len = size + sizeof(struct scif_msg_header);
-	msg_header.src_mod_id = drv_type;
-	msg_header.dst_mod_id = drv_type;
-	msg_header.msg_id = msg_id;
-	msg_header.seq_num = g_send_seq_num++;
-	msg_header.timestamp = 0; /* TODO: TBD */
-
-	ret = conap_scp_shm_write_rbf(&msg_header, buf, size);
-
-	if (ret) {
-		pr_err("[%s] write shm fail [%d]", __func__, ret);
-		return -1;
-	}
-	ret = conap_scp_ipi_send((enum conap_scp_drv_type)drv_type, msg_id, 0, 0);
-	if (ret) {
-		pr_err("[%s] ipi fail [%d]", __func__, ret);
-		return -2;
-	}
-	return 0;
+	return _send_msg(drv_type, msg_id, msg_buf, msg_sz);
 }
 
 static int opfunc_is_drv_ready(struct msg_op_data *op)
 {
 	int ret = 0;
-
 	unsigned int drv_type = (unsigned int)op->op_data[0];
-	ret = conap_scp_ipi_send(DRV_TYPE_CORE, CONAP_SCP_CORE_DRV_QRY, drv_type, 0);
+
+	pr_info("[%s] drv=[%d] ", __func__, drv_type);
+	ret = conap_scp_ipi_send_cmd(DRV_TYPE_CORE, CONAP_SCP_CORE_DRV_QRY, drv_type, 0);
+
 	if (ret) {
-		pr_err("[%s] ipi fail [%d]", __func__, ret);
+		pr_warn("[%s] fail [%d]", __func__, ret);
 		return -2;
 	}
+	return 0;
+}
+
+static int opfunc_is_drv_ready_ack(struct msg_op_data *op)
+{
+	unsigned int drv_type = (unsigned int)op->op_data[0];
+	int ret;
+
+	ret = g_drv_user[drv_type].enable;
+	pr_info("[%s] ack type=[%d] ret=[%d]", __func__, drv_type, ret);
+	ret = conap_scp_ipi_send_cmd(DRV_TYPE_CORE, CONAP_SCP_CORE_DRV_QRY_ACK, drv_type, ret);
+	if (ret)
+		pr_warn("[%s] send ipi cmd fail [%d]", __func__, ret);
+	return ret;
+}
+
+
+static int opfunc_scp_state_change(struct msg_op_data *op)
+{
+	unsigned int cur_state = (unsigned int)op->op_data[0];
+	int ret, i;
+
+	/* SCP ready */
+	if (cur_state == 1) {
+		ret = conap_scp_ipi_send_cmd(DRV_TYPE_CORE, CONAP_SCP_CORE_INIT,
+					connsys_scp_shm_get_addr(), connsys_scp_shm_get_size());
+		if (ret) {
+			pr_info("[SCP_STATE_CHG] ipi handshake ret=[%d]", ret);
+			return -1;
+		}
+	}
+
+	for (i = 0; i < CONAP_SCP_DRV_NUM; i++) {
+		if (g_drv_user[i].enable && g_drv_user[i].drv_cb.conap_scp_state_notify_cb)
+			(*g_drv_user[i].drv_cb.conap_scp_state_notify_cb)(cur_state);
+	}
+	g_core_ctx.state = cur_state;
+
+	return 0;
+}
+
+static int opfunc_recv_msg(struct msg_op_data *op)
+{
+	uint16_t msg_drv = (uint16_t)op->op_data[0];
+	uint16_t msg_sz = (uint16_t)op->op_data[1];
+	int ret, wait_ret;
+
+	g_cur_msg_drv = msg_drv;
+	g_cur_recv_sz = 0;
+	g_cur_msg_recv_buf = &(g_msg_buf[0]);
+
+	reinit_completion(&g_core_ctx.msg_recv_comp);
+	ret = conap_scp_ipi_send_cmd(DRV_TYPE_CORE, CONAP_SCP_CORE_TX_ACCEP, msg_drv, 0);
+	if (ret) {
+		g_cur_msg_drv = 0;
+		g_cur_recv_sz = 0;
+		g_cur_msg_recv_buf = NULL;
+		pr_warn("[recv_msg] timeout ret=[%d]", ret);
+		return CONN_TIMEOUT;
+	}
+
+	wait_ret = wait_for_completion_timeout(&g_core_ctx.msg_recv_comp,
+					msecs_to_jiffies(2000));
+
+	if (wait_ret == 0) {
+		pr_warn("[%s] send msg timeout");
+		return CONN_TIMEOUT;
+	}
+
+	//pr_info("[%s] recv done [%d][%d]", __func__, g_cur_recv_sz, msg_sz);
+	if (g_cur_recv_sz == msg_sz) {
+		if (g_cur_msg_drv < CONAP_SCP_DRV_NUM && g_drv_user[g_cur_msg_drv].enable) {
+			(*g_drv_user[g_cur_msg_drv].drv_cb.conap_scp_msg_notify_cb)(g_cur_msg_id,
+							(unsigned int *)&(g_msg_buf[0]), msg_sz);
+		}
+	}
+
+	g_cur_msg_drv = 0;
+	g_cur_recv_sz = 0;
+	g_cur_msg_recv_buf = NULL;
+
 	return 0;
 }
 
@@ -131,81 +233,87 @@ static int _conap_scp_is_scp_ready(void)
 	return 1;
 }
 
-int conap_scp_init_handshake(void)
+static void conap_scp_msg_notify(uint16_t drv_type, uint16_t msg_id,
+			uint16_t total_sz, uint8_t *data, uint32_t this_sz)
 {
 	int ret;
 
-	ret = msg_thread_send(&g_core_ctx.tx_msg_thread, CONAP_SCP_OPID_INIT_HANDSHAKE);
-	if (ret)
-		pr_info("[%s] handshake ret=[%d]", __func__, ret);
-
-	return ret;
-}
-
-int msg_notify = 0;
-static void conap_scp_msg_notify(uint16_t drv_type, uint16_t msg_id, uint32_t param0, uint32_t param1)
-{
-	struct conap_rb_data *drv_rdy_data = NULL;
-	struct conap_rb_data *core_data;
-	unsigned long flags;
-
 	if (drv_type == DRV_TYPE_CORE) {
-		if (msg_id == CONAP_SCP_CORE_DRV_QRY_ACK) {
-			spin_lock_irqsave(&g_drv_rdy_rb.lock, flags);
-			drv_rdy_data = conap_core_rb_pop_active(&g_drv_rdy_rb);
-			spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
-			if (drv_rdy_data) {
-				drv_rdy_data->param0 = param0;
-				complete(&drv_rdy_data->comp);
-
-				if (atomic_dec_and_test(&drv_rdy_data->ref_count) == 0) {
-					spin_lock_irqsave(&g_drv_rdy_rb.lock, flags);
-					conap_core_rb_push_free(&g_drv_rdy_rb, drv_rdy_data);
-					spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
-				}
-			} else {
-				pr_warn("[%s] not found rdy_data", __func__);
-			}
+		if (msg_id == CONAP_SCP_CORE_ACK) {
+			complete(&g_core_ctx.msg_send_comp);
 			return;
 		} else if (msg_id == CONAP_SCP_CORE_DRV_QRY) {
-			spin_lock_irqsave(&g_core_rb.lock, flags);
-			core_data = conap_core_rb_pop_free(&g_core_rb);
-			if (core_data) {
-				core_data->param0 = CONAP_CORE_DRV_QRY;
-				core_data->param1 = param0;
-				conap_core_rb_push_active(&g_core_rb, core_data);
-			} else {
-				pr_err("[%s] core_rb is NULL", __func__);
+			struct msg_data_2 *drv_rdy = (struct msg_data_2 *)data;
+
+			ret = msg_thread_send_1(&g_core_ctx.tx_msg_thread
+						, CONAP_SCP_OPID_DRV_READY_ACK
+						, (size_t)drv_rdy->param0);
+			if (ret)
+				pr_warn("[conap_msg_notify] send msg fail [%d]", ret);
+			return;
+		} else if (msg_id == CONAP_SCP_CORE_DRV_QRY_ACK) {
+			struct msg_data_2 *rdy_ack = (struct msg_data_2 *)data;
+			struct conap_scp_drv_user *user = NULL;
+
+			if (rdy_ack->param0 >= CONAP_SCP_DRV_NUM) {
+				pr_warn("[conap_msg_notify] invalid drv [%d]", rdy_ack->param0);
+				return;
 			}
-			spin_unlock_irqrestore(&g_core_rb.lock, flags);
+			user = &g_drv_user[rdy_ack->param0];
+			user->is_rdy_ret = rdy_ack->param1;
+			complete(&user->is_rdy_comp);
+			return;
+		} else if (msg_id == CONAP_SCP_CORE_REQ_TX) {
+			struct msg_data_2 *msg = (struct msg_data_2 *)data;
+
+			ret = msg_thread_send_2(&g_core_ctx.tx_msg_thread
+						, CONAP_SCP_OPID_RECV_MSG
+						, (size_t)msg->param0, (size_t)msg->param1);
+			if (ret)
+				pr_warn("[conap_msg_notify] send msg fail [%d]", ret);
+			return;
+
+		} else if (msg_id == CONAP_SCP_CORE_TX_ACCEP) {
+			complete(&g_core_ctx.msg_send_comp);
+			return;
 		}
 	}
 
-	msg_notify = 1;
-	wake_up_interruptible(&g_core_ctx.waitQueue);
+	if (total_sz > MAX_MSG_SZ) {
+		pr_warn("[%s] invalid size [%d]", __func__, total_sz);
+		return;
+	}
+	if (g_cur_recv_sz > total_sz) {
+		pr_warn("[%s] msg invalid size [%d][%d]", __func__, g_cur_recv_sz, total_sz);
+		return;
+	}
+	if (g_cur_msg_recv_buf == NULL) {
+		pr_warn("[%s] msg buf is null", __func__);
+		return;
+	}
+
+	g_cur_msg_id = msg_id;
+	memcpy(&(g_cur_msg_recv_buf[g_cur_recv_sz]), data, this_sz);
+	g_cur_recv_sz += this_sz;
+	if (g_cur_recv_sz == total_sz)
+		complete(&g_core_ctx.msg_recv_comp);
+
 }
 
 static void conap_scp_ipi_ctrl_notify(unsigned int state)
 {
-	struct conap_rb_data *core_data;
-	unsigned long flags;
+	int ret;
 
 	if ((g_core_ctx.state == 1 && state == 1) ||
 		(g_core_ctx.state == 0 && state == 0))
 		return;
 
-	spin_lock_irqsave(&g_core_rb.lock, flags);
-	core_data = conap_core_rb_pop_free(&g_core_rb);
-	if (core_data) {
-		core_data->param0 = CONAP_CORE_SCP_STATE_CHANGE;
-		core_data->param1 = state;
-		conap_core_rb_push_active(&g_core_rb, core_data);
-	} else {
-		pr_err("[%s] core_rb is NULL", __func__);
-	}
-	spin_unlock_irqrestore(&g_core_rb.lock, flags);
+	pr_info("[%s] state=[%d]->[%d]", __func__, g_core_ctx.state, state);
 
-	wake_up_interruptible(&g_core_ctx.waitQueue);
+	ret = msg_thread_send_1(&g_core_ctx.tx_msg_thread,
+			CONAP_SCP_OPID_STATE_CHANGE, (size_t)state);
+	if (ret)
+		pr_warn("[%s] msg_send fail [%d]", __func__, ret);
 }
 
 
@@ -224,7 +332,7 @@ int conap_scp_send_message(enum conap_scp_drv_type type,
 	if (type == DRV_TYPE_CORE || type >= CONAP_SCP_DRV_NUM)
 		return CONN_INVALID_ARGUMENT;
 
-	if (size > SCIF_MAX_MSG_SIZE || size % 4 > 0)
+	if (size > MAX_MSG_SZ || size % 4 > 0)
 		return CONN_INVALID_ARGUMENT;
 
 	if (_conap_scp_is_scp_ready() != 1)
@@ -233,7 +341,7 @@ int conap_scp_send_message(enum conap_scp_drv_type type,
 	ret = msg_thread_send_wait_4(&g_core_ctx.tx_msg_thread, CONAP_SCP_OPID_SEND_MSG, MSG_OP_TIMEOUT,
 					(size_t)type, msg_id, (size_t)buf, size);
 	if (ret)
-		pr_info("[%s] msg_thread_send_wait ret=[%d]", __func__, ret);
+		pr_warn("[%s] msg_send fail [%d]", __func__, ret);
 
 	return ret;
 }
@@ -242,54 +350,34 @@ EXPORT_SYMBOL(conap_scp_send_message);
 int conap_scp_is_drv_ready(enum conap_scp_drv_type type)
 {
 	int ret = 0, wait_ret=1;
-	struct conap_rb_data *drv_rdy_data = NULL;
-	unsigned long flags;
+	struct conap_scp_drv_user *user = NULL;
 	int is_ready = 0;
-	int refcnt;
-
-	if (g_core_ctx.enable == 0)
-		return CONN_CONAP_NOT_SUPPORT;
 
 	if (_conap_scp_is_scp_ready() != 1)
 		return CONN_NOT_READY;
 
-	/* acquire op cmd */
-	spin_lock_irqsave(&g_drv_rdy_rb.lock, flags);
+	if (type >= CONAP_SCP_DRV_NUM)
+		return CONN_INVALID_ARGUMENT;
 
-	drv_rdy_data = conap_core_rb_pop_free(&g_drv_rdy_rb);
-	if (drv_rdy_data == NULL) {
-		spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
-		pr_err("[%s] core_rb is NULL", __func__);
-		return -1;
-	}
-
-	atomic_set(&drv_rdy_data->ref_count, 2);
-	drv_rdy_data->param0 = 0;
-
-	reinit_completion(&drv_rdy_data->comp);
-	conap_core_rb_push_active(&g_drv_rdy_rb, drv_rdy_data);
-
-	spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
+	user = &g_drv_user[type];
+	user->is_rdy_ret = 0;
+	reinit_completion(&user->is_rdy_comp);
 
 	/* send msg */
 	ret = msg_thread_send_1(&g_core_ctx.tx_msg_thread, CONAP_SCP_OPID_DRV_READY, (size_t)type);
-	if (ret)
-		pr_info("[%s] ----- msg send ret=[%d]", __func__, ret);
+	if (ret) {
+		pr_warn("[%s] send msg fail [%d]", __func__, ret);
+		return ret;
+	}
 
-	wait_ret = wait_for_completion_timeout(&drv_rdy_data->comp,
+	wait_ret = wait_for_completion_timeout(&user->is_rdy_comp,
 				msecs_to_jiffies(2000));
 
 	if (wait_ret == 0)
 		return CONN_TIMEOUT;
 
-	is_ready = drv_rdy_data->param0;
-
-	refcnt = atomic_dec_and_test(&drv_rdy_data->ref_count);
-	if (refcnt == 0) {
-		spin_lock_irqsave(&g_drv_rdy_rb.lock, flags);
-		conap_core_rb_push_free(&g_drv_rdy_rb, drv_rdy_data);
-		spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
-	}
+	is_ready = user->is_rdy_ret;
+	pr_info("[%s] is drv ready type=[%d] ret=[%d]", __func__, type, is_ready);
 
 	return is_ready;
 }
@@ -335,188 +423,12 @@ int conap_scp_unregister_drv(enum conap_scp_drv_type type)
 }
 EXPORT_SYMBOL(conap_scp_unregister_drv);
 
-static void read_pkt_from_shm(void)
-{
-	int sz;
-	unsigned drv_type;
-	struct scif_msg_header header;
-
-	while (1) {
-		sz = conap_scp_shm_has_pending_data(&header);
-
-		if (sz == 0) {
-			break;
-		}
-		/* sz < 0, shm corrupted */
-		if (sz < 0) {
-			pr_err("pending data fail [%d]\n", sz);
-			/* TODO: trigger remote assert */
-			//trigger_remote_assert(ch, SCIF_MSG_SIZE_ERROR);
-			break;
-		}
-
-		/* check gauard pattern & seq num */
-		if (header.guard_pattern != SCIF_MSG_GUARD_PATTERN) {
-			pr_err("[conn_recv] sz=[%d] header invalid [%x][%x][%x][%x] [%x][%x][%x][%x]\n", sz,
-					header.guard_pattern, header.msg_len, header.src_mod_id,
-					header.dst_mod_id, header.msg_id, header.seq_num,
-					header.timestamp, header.checksum32);
-			/* TODO: trigger remote assert */
-			//trigger_remote_assert(ch, SCIF_GUARD_ERROR);
-			break;
-		}
-
-		if (header.seq_num != g_recv_seq_num) {
-			//atomicbit_clearbit(&g_task_recv_state, type);
-			pr_info("[conn_recv] header seq=[%d][%d]\n",
-					header.seq_num, g_recv_seq_num);
-			//trigger_remote_assert(ch, SCIF_SEQUENCE_ERROR);
-			break;
-		}
-		g_recv_seq_num++;
-
-		pr_info("read_data sz=[%d] len=[%d] [%d][%d] msg=[%d] time=[%x]\n",
-				sz, header.msg_len, header.src_mod_id, header.dst_mod_id, header.msg_id,
-				header.timestamp);
-
-		if (header.msg_len > conap_scp_shm_get_slave_rbf_len() ||
-			(header.msg_len % 4) || header.msg_len > SCIF_MAX_MSG_SIZE) {
-			pr_info("[conn_recv] header invalid msglen=[%d] buflen=[%d]\n",
-						header.msg_len, conap_scp_shm_get_slave_rbf_len());
-			/* TODO: trigger remote assert */
-			//trigger_remote_assert(ch, SCIF_MSG_SIZE_ERROR);
-			break;
-		}
-
-		conap_scp_shm_collect_msg_body(&header, (uint32_t*)&g_msg_buf[0], SCIF_MAX_MSG_SIZE);
-
-		drv_type  = header.dst_mod_id;
-
-		if (drv_type < CONAP_SCP_DRV_NUM && g_drv_user[drv_type].enable) {
-			(*g_drv_user[drv_type].drv_cb.conap_scp_msg_notify_cb)(header.msg_id,
-						(unsigned int*)&g_msg_buf[0], header.msg_len - sizeof(struct scif_msg_header));
-		}
-
-	}
-}
-
-static int _conap_scp_state_change_handler(int cur_state)
-{
-	int ret = 0, i;
-	struct conap_scp_shm_config *shm_config;
-
-	if (mutex_lock_killable(&g_core_ctx.lock))
-		return -1;
-
-	/* SCP ready */
-	if (cur_state == 1) {
-		g_send_seq_num = 0;
-		g_recv_seq_num = 0;
-
-		shm_config = conap_scp_get_shm_info();
-		if (shm_config == NULL)
-			return -1;
-
-		/* reset shm */
-		ret = conap_scp_shm_reset(shm_config);
-		if (ret) {
-			pr_info("[SCP_STATE_CHG] shm reset ret=[%d]", ret);
-			return -1;
-		}
-		/* ipi handshake */
-		ret = conap_scp_ipi_handshake();
-		if (ret) {
-			pr_info("[SCP_STATE_CHG] ipi handshake ret=[%d]", ret);
-			return -1;
-		}
-	}
-
-	for (i = 0; i < CONAP_SCP_DRV_NUM; i++) {
-		if (g_drv_user[i].enable && g_drv_user[i].drv_cb.conap_scp_state_notify_cb)
-		(*g_drv_user[i].drv_cb.conap_scp_state_notify_cb)(cur_state);
-	}
-	g_core_ctx.state = cur_state;
-
-	mutex_unlock(&g_core_ctx.lock);
-	return 0;
-}
-
-static int conap_scp_rx_thread(void *pvData)
-{
-	struct conap_rb_data *core_data;
-	int ret;
-	unsigned long flags;
-
-	for (;;) {
-
-		wait_event_interruptible(g_core_ctx.waitQueue, (msg_notify == 1 ||
-								conap_core_rb_has_pending_data(&g_core_rb) ||
-								kthread_should_stop()));
-
-		if (kthread_should_stop())
-			break;
-
-		while (conap_core_rb_has_pending_data(&g_core_rb)) {
-			spin_lock_irqsave(&g_core_rb.lock, flags);
-			core_data = conap_core_rb_pop_active(&g_core_rb);
-			spin_unlock_irqrestore(&g_core_rb.lock, flags);
-			if (core_data) {
-				if (core_data->param0 == CONAP_CORE_DRV_QRY) {
-					ret = -1;
-					if (core_data->param1 < CONAP_SCP_DRV_NUM) {
-						ret = g_drv_user[core_data->param1].enable;
-						pr_info("[%s] DRV_QUERY_ACK type=[%d] ret=[%d]", __func__, core_data->param1, ret);
-					}
-					ret = conap_scp_ipi_send(DRV_TYPE_CORE, CONAP_SCP_CORE_DRV_QRY_ACK, ret, 0);
-					if (ret)
-						pr_info("[%s] DRV_QUERY_ACK fail ret=[%d]", __func__, ret);
-				} else if (core_data->param0 == CONAP_CORE_SCP_STATE_CHANGE) {
-
-					/* Notify users that state was changed */
-					_conap_scp_state_change_handler(core_data->param1);
-				}
-				spin_lock_irqsave(&g_core_rb.lock, flags);
-				conap_core_rb_push_free(&g_core_rb, core_data);
-				spin_unlock_irqrestore(&g_core_rb.lock, flags);
-			}
-
-		}
-
-#if 0
-		/* SCP state Event */
-		while (atomic_read(&g_scp_state_ridx) != atomic_read(&g_scp_state_widx)) {
-
-			cur_idx = (atomic_read(&g_scp_state_ridx) + 1) % SCP_STATE_OP_SZ;
-			cur_state = g_scp_state_op_cmd[cur_idx];
-			atomic_set(&g_scp_state_ridx, cur_idx);
-			for (i = 0; i < CONAP_SCP_DRV_NUM; i++) {
-				if (g_drv_user[i].enable && g_drv_user[i].drv_cb.conap_scp_state_notify_cb)
-					(*g_drv_user[i].drv_cb.conap_scp_state_notify_cb)(cur_state);
-			}
-			g_core_ctx.state = cur_state;
-			pr_info("[SCP_STATE] change to=[%d]", g_core_ctx.state);
-		}
-#endif
-
-		/* scp was stop */
-		if (g_core_ctx.state == 0) {
-			continue;
-		}
-		// need a lock to protect user register/unregister
-		read_pkt_from_shm();
-		msg_notify = 0;
-	}
-
-	return 0;
-}
-
 /*********************************************************************/
 /* init/deinit */
 /*********************************************************************/
 int conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
 {
 	int ret, i;
-	struct task_struct *p_thread;
 	struct conap_scp_ipi_cb ipi_cb;
 
 	memset(&g_core_ctx, 0, sizeof(struct conap_scp_core_ctx));
@@ -535,48 +447,31 @@ int conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
 	g_core_ctx.enable = 1;
 
 	/* init drv_user */
-	for (i = 0; i < CONAP_SCP_DRV_NUM; i++)
+	for (i = 0; i < CONAP_SCP_DRV_NUM; i++) {
 		memset(&g_drv_user[i], 0, sizeof(struct conap_scp_drv_user));
-
-	/* init shm */
-	ret = conap_scp_shm_init(emi_phy_addr);
-	if (ret) {
-		pr_err("shm init fail [%d]", ret);
-		return -1;
+		init_completion(&(g_drv_user[i].is_rdy_comp));
 	}
 
 	/* tx msg thread */
 	ret = msg_thread_init(&g_core_ctx.tx_msg_thread, "conap_scp_core",
 					conap_scp_core_opfunc, CONAP_SCP_OPID_MAX);
 	if (ret) {
-		pr_err("msg thread init fail [%d]", ret);
+		pr_warn("msg thread init fail [%d]", ret);
 		return -1;
 	}
 
 	mutex_init(&g_core_ctx.lock);
 
 	/* rx thread */
-	p_thread = kthread_create(conap_scp_rx_thread,
-				&g_core_ctx, "conap_rxd");
-	if (IS_ERR(p_thread)) {
-		pr_err("[%s] create thread fail", __func__);
-		return -1;
-	}
-	g_core_ctx.rx_thread = p_thread;
-	init_waitqueue_head(&g_core_ctx.waitQueue);
-
-	/* core ringbuffer */
-	conap_core_rb_init(&g_drv_rdy_rb);
-	conap_core_rb_init(&g_core_rb);
-
-	wake_up_process(p_thread);
+	init_completion(&g_core_ctx.msg_send_comp);
+	init_completion(&g_core_ctx.msg_recv_comp);
 
 	/* init ipi */
 	ipi_cb.conap_scp_ipi_msg_notify = conap_scp_msg_notify;
 	ipi_cb.conap_scp_ipi_ctrl_notify = conap_scp_ipi_ctrl_notify;
 	ret = conap_scp_ipi_init(&ipi_cb);
 	if (ret) {
-		pr_err("msg thread init fail [%d]", ret);
+		pr_warn("msg thread init fail [%d]", ret);
 		return -1;
 	}
 
@@ -586,11 +481,8 @@ int conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
 
 int conap_scp_deinit(void)
 {
-	conap_core_rb_deinit(&g_drv_rdy_rb);
-	conap_core_rb_deinit(&g_core_rb);
+	conap_scp_ipi_deinit();
 	msg_thread_deinit(&g_core_ctx.tx_msg_thread);
-
-	conap_scp_shm_deinit();
 	mutex_destroy(&g_core_ctx.lock);
 	return 0;
 }

@@ -8,24 +8,30 @@
 
 #include "conap_scp.h"
 #include "conap_scp_priv.h"
-#include "conap_scp_shm.h"
 #include "conap_scp_ipi.h"
-
-#include "scp.h"
-//#include "scp_ipi_pin.h"
-//#include "scp_mbox_layout.h"
-//#include "scp_helper.h"
 #include "conap_platform_data.h"
+/* SCP */
+#include "scp.h"
 
-struct ipi_data {
+#define MAX_IPI_SEND_DATA_SZ 56
+struct ipi_send_data {
 	uint16_t drv_type;
 	uint16_t msg_id;
-	uint32_t param0;
-	uint32_t param1;
+	uint16_t total_sz;
+	uint16_t this_sz;
+	char data[MAX_IPI_SEND_DATA_SZ];
 };
 
-struct ipi_data g_ipi_data;
-static char g_ipi_ack_data[12];
+struct ipi_ack_data {
+	uint16_t drv_type;
+	uint16_t msg_id;
+	uint16_t total_sz;
+	uint16_t this_sz;
+};
+
+static struct ipi_send_data g_send_data;
+
+static char g_ipi_ack_data[128];
 
 int scp_ctrl_event_handler(struct notifier_block *this,
 	unsigned long event, void *ptr);
@@ -63,67 +69,97 @@ unsigned int conap_scp_ipi_is_scp_ready(void)
 	return is_scp_ready(SCP_A_ID);
 }
 
+
+unsigned int conap_scp_ipi_msg_sz(void)
+{
+	return (connsys_scp_ipi_mbox_size() - (sizeof(uint16_t) * 4));
+}
+
 int ipi_recv_cb(unsigned int id, void *prdata, void *data, unsigned int len)
 {
-	struct ipi_data *idata;
+	struct ipi_send_data *msg;
+	struct timespec64 t1, t2;
 
-	idata = (struct ipi_data*)data;
+	ktime_get_real_ts64(&t1);
+	msg = (struct ipi_send_data *)data;
+
 	if (g_ipi_cb.conap_scp_ipi_msg_notify)
-		(*g_ipi_cb.conap_scp_ipi_msg_notify)(idata->drv_type, idata->msg_id, idata->param0, idata->param1);
+		(*g_ipi_cb.conap_scp_ipi_msg_notify)(msg->drv_type, msg->msg_id,
+				msg->total_sz, &(msg->data[0]), msg->this_sz);
 
+	ktime_get_real_ts64(&t2);
+	if ((t2.tv_nsec - t1.tv_nsec) > 3000000)
+		pr_info("[ipi_recv_cb] ===[%09ld]", (t2.tv_nsec - t1.tv_nsec));
 	return 0;
 }
 
-int conap_scp_ipi_send(enum conap_scp_drv_type drv_type, uint16_t msg_id, uint32_t param0, uint32_t param1)
+int conap_scp_ipi_send_data(enum conap_scp_drv_type drv_type, uint16_t msg_id, uint32_t total_sz,
+						uint8_t *buf, uint32_t size)
 {
 	unsigned int retry_time = 500;
 	unsigned int retry_cnt = 0;
 	int ipi_result = -1;
 
-	if (!conap_scp_ipi_is_scp_ready()) {
-		pr_warn("[%s] spc status fail", __func__);
-		return -1;
-	}
-	g_ipi_data.drv_type = drv_type;
-	g_ipi_data.msg_id = msg_id;
-	g_ipi_data.param0 = param0;
-	g_ipi_data.param1 = param1;
+	if (size + (sizeof(uint16_t)*2) > connsys_scp_ipi_mbox_size())
+		return -99;
+
+	g_send_data.drv_type = drv_type;
+	g_send_data.msg_id = msg_id;
+	g_send_data.total_sz = total_sz;
+	g_send_data.this_sz = size;
+
+	if (buf != NULL && size > 0)
+		memcpy(&(g_send_data.data[0]), buf, size);
 
 	for (retry_cnt = 0; retry_cnt <= retry_time; retry_cnt++) {
 		ipi_result = mtk_ipi_send(&scp_ipidev,
 							IPI_OUT_SCP_CONNSYS,
 							0,
-							&g_ipi_data,
-							PIN_OUT_SIZE_SCP_CONNSYS,
+							&g_send_data,
+							connsys_scp_ipi_mbox_size()/4,
 							0);
 		if (ipi_result == IPI_ACTION_DONE)
 			break;
 		msleep(1);
 	}
 	if (ipi_result != 0) {
-		pr_err("[%s] ipi fail=[%d]", __func__, ipi_result);
+		pr_err("[ipi_send_data] send fail [%d]", ipi_result);
 		return -1;
 	}
 
-	return 0;
+	return size;
 }
 
 
-int conap_scp_ipi_is_drv_ready(enum conap_scp_drv_type drv_type)
+int conap_scp_ipi_send_cmd(enum conap_scp_drv_type drv_type, uint16_t msg_id,
+					uint32_t p0, uint32_t p1)
 {
-	int ret;
+	struct msg_cmd cmd;
+	unsigned int retry_time = 500;
+	unsigned int retry_cnt = 0;
+	int ipi_result = -1;
 
-	ret = conap_scp_ipi_send(DRV_TYPE_CORE, CONAP_SCP_CORE_DRV_QRY, drv_type, 0);
-
-	return ret;
-}
-
-int conap_scp_ipi_handshake(void)
-{
-	pr_info("[%s]", __func__);
-	conap_scp_ipi_send(DRV_TYPE_CORE, CONAP_SCP_CORE_INIT,
-							connsys_scp_shm_get_addr(),
-							connsys_scp_shm_get_size());
+	cmd.drv_type = drv_type;
+	cmd.msg_id = msg_id;
+	cmd.total_sz = 8;
+	cmd.this_sz = 8;
+	cmd.param0 = p0;
+	cmd.param1 = p1;
+	for (retry_cnt = 0; retry_cnt <= retry_time; retry_cnt++) {
+		ipi_result = mtk_ipi_send(&scp_ipidev,
+							IPI_OUT_SCP_CONNSYS,
+							0,
+							&cmd,
+							sizeof(struct msg_cmd)/4,
+							0);
+		if (ipi_result == IPI_ACTION_DONE)
+			break;
+		mdelay(1);
+	}
+	if (ipi_result != 0) {
+		pr_err("[ipi_send_cmd] send cmd fail=[%d]", ipi_result);
+		return -1;
+	}
 	return 0;
 }
 

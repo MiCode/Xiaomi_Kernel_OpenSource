@@ -102,32 +102,26 @@ do { \
  */
 static int msg_evt_put_op_to_q(struct msg_op_q *op_q, struct msg_op *op)
 {
-	int ret;
+	int ret = 0;
+	unsigned long flags;
 
 	if (!op_q || !op) {
 		pr_err("invalid input param: pOpQ(0x%p), pLxOp(0x%p)\n", op_q, op);
 		return -1;
 	}
 
-	ret = mutex_lock_killable(&op_q->lock);
-	if (ret) {
-		pr_warn("mutex_lock_killableret(%d)\n", ret);
-		return -2;
-	}
+	spin_lock_irqsave(&op_q->lock, flags);
 
 	/* acquire lock success */
 	if (!MSG_OP_FULL(op_q))
 		MSG_OP_PUT(op_q, op);
 	else {
 		pr_warn("MSG_OP_FULL(%p -> %p)\n", op, op_q);
-		ret = -4;
+		ret = -3;
 	}
 
-	mutex_unlock(&op_q->lock);
-
-	if (ret)
-		return ret;
-	return 0;
+	spin_unlock_irqrestore(&op_q->lock, flags);
+	return ret;
 }
 
 
@@ -136,23 +130,20 @@ static int msg_evt_put_op_to_q(struct msg_op_q *op_q, struct msg_op *op)
  */
 static struct msg_op *msg_evt_get_op_from_q(struct msg_op_q *op_q)
 {
+	unsigned long flags;
 	struct msg_op *op;
-	int ret;
 
 	if (op_q == NULL) {
 		pr_err("pOpQ = NULL\n");
 		return NULL;
 	}
 
-	ret = mutex_lock_killable(&op_q->lock);
-	if (ret) {
-		pr_err("mutex_lock_killable ret(%d)\n", ret);
-		return NULL;
-	}
+	spin_lock_irqsave(&op_q->lock, flags);
 
 	/* acquire lock success */
 	MSG_OP_GET(op_q, op);
-	mutex_unlock(&op_q->lock);
+
+	spin_unlock_irqrestore(&op_q->lock, flags);
 
 	if (op == NULL)
 		pr_warn("MSG_OP_GET(%p) return NULL\n", op_q);
@@ -220,11 +211,10 @@ int msg_evt_put_op_to_active(struct msg_thread_ctx *ctx, struct msg_op *op)
 			break;
 		}
 
-		/* wake up */
+		/* wake up thread */
 		wake_up_interruptible(&ctx->waitQueue);
 
 		if (signal->timeoutValue == 0) {
-			//ret = -1;
 			break;
 		}
 
@@ -283,6 +273,35 @@ int msg_thread_send_2(struct msg_thread_ctx *ctx, int opid, size_t param1, size_
 	ret = msg_evt_put_op_to_active(ctx, op);
 
 	return ret;
+}
+
+int msg_thread_send_5(struct msg_thread_ctx *ctx, int opid, size_t param1,
+							size_t param2, size_t param3,
+							size_t param4, size_t param5)
+{
+	struct msg_op *op = NULL;
+	struct msg_op_signal *signal;
+	int ret;
+
+	op = msg_evt_get_free_op(ctx);
+	if (!op) {
+		pr_err("[%s] can't get free op\n", __func__);
+		return -1;
+	}
+	op->op.op_id = opid;
+	op->op.op_data[0] = param1;
+	op->op.op_data[1] = param2;
+	op->op.op_data[2] = param3;
+	op->op.op_data[3] = param4;
+	op->op.op_data[4] = param5;
+
+	signal = &op->signal;
+	signal->timeoutValue = 0;
+
+	ret = msg_evt_put_op_to_active(ctx, op);
+
+	return ret;
+
 }
 
 int msg_thread_send_wait(struct msg_thread_ctx *ctx, int opid, int timeout)
@@ -464,8 +483,8 @@ int msg_thread_init(struct msg_thread_ctx *ctx, const char *name, const msg_opid
 	ctx->pThread = p_thread;
 
 	init_waitqueue_head(&ctx->waitQueue);
-	mutex_init(&ctx->active_op_q.lock);
-	mutex_init(&ctx->free_op_q.lock);
+	spin_lock_init(&ctx->active_op_q.lock);
+	spin_lock_init(&ctx->free_op_q.lock);
 
 	/* Initialize op queue */
 	MSG_OP_INIT(&ctx->free_op_q, MSG_THREAD_OP_BUF_SIZE);
@@ -473,7 +492,6 @@ int msg_thread_init(struct msg_thread_ctx *ctx, const char *name, const msg_opid
 
 	/* Put all to free Q */
 	for (i = 0; i < MSG_THREAD_OP_BUF_SIZE; i++) {
-
 		init_completion(&(ctx->op_q_inst[i].signal.comp));
 		msg_evt_put_op_to_free_queue(ctx, &(ctx->op_q_inst[i]));
 	}
@@ -505,11 +523,8 @@ int msg_thread_deinit(struct msg_thread_ctx *ctx)
 	}
 
 	if (retry == 10) {
-		pr_info("[%s] Fail to stop msg thread\n", __func__);
+		pr_err("[%s] Fail to stop msg thread\n", __func__);
 	}
-
-	mutex_destroy(&ctx->free_op_q.lock);
-	mutex_destroy(&ctx->active_op_q.lock);
 
 	memset(ctx, 0, sizeof(struct msg_thread_ctx));
 

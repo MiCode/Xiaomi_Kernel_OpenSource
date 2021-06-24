@@ -6,9 +6,9 @@
 #ifndef __CONAP_SCP_TEST_H__
 #define __CONAP_SCP_TEST_H__
 
-int conap_scp_test_send_msg(void);
-int conap_spc_test_stress(int enable);
-int conap_spc_test_is_driver_ready(void);
+//int conap_scp_test_send_msg(void);
+//int conap_spc_test_stress(int enable);
+//int conap_spc_test_is_driver_ready(void);
 
 int conap_scp_test_init(void);
 int conap_scp_test_deinit(void);

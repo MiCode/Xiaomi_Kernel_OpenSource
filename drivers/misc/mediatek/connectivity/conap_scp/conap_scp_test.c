@@ -13,20 +13,42 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+#include <linux/proc_fs.h>
+#include <linux/cdev.h>
 
 #include "conap_scp.h"
 #include "conap_scp_priv.h"
 #include "conap_scp_test.h"
 
+#define CONAP_DEV_NUM 1
+#define CONAP_DRVIER_NAME "conap_drv"
+#define CONAP_DEVICE_NAME "conap_dev"
+#define CONAP_DEV_MAJOR 155
+#define CONAP_DEV_IOC_MAGIC 0xc2
 
-#define TEST_DATA_GUARD_PATN_1 0x5a5a5a5a
-#define TEST_DATA_GUARD_PATN_2 0x5b5b5b5b
+/* device node related */
+static int g_conap_major = CONAP_DEV_MAJOR;
+static struct class *p_conap_class;
+static struct device *p_conap_dev;
+static struct cdev g_conap_dev;
+static ssize_t conap_dev_write(struct file *filp, const char __user *buffer, size_t count,
+					loff_t *f_pos);
 
-/*********************************************/
-/* Golbal */
-/*********************************************/
+const struct file_operations g_conap_dev_fops = {
+	.write = conap_dev_write,
+};
 
+typedef int(*CONAP_TEST_FUNC) (int par1, int par2, int par3);
+static int conap_ut_send_msg(int par1, int par2, int par3);
 
+static const CONAP_TEST_FUNC conap_test_func[] = {
+	[0x1] = conap_ut_send_msg,
+};
+
+/**************************************************************************************/
+/**************************************************************************************/
 #define CONAP_SCP_TEST_INST_SZ 2
 struct conap_scp_test_ctx {
 	enum conap_scp_drv_type drv_type;
@@ -34,103 +56,48 @@ struct conap_scp_test_ctx {
 	struct task_struct *thread;
 	struct conap_scp_drv_cb scp_test_cb;
 };
-//static struct conap_scp_test_ctx g_scp_test_ctx[CONAP_SCP_TEST_INST_SZ];
 struct conap_scp_test_ctx *g_em_test_ctx = NULL;
 struct conap_scp_test_ctx *g_gps_test_ctx = NULL;
 
-struct test_data_1 {
-	unsigned int param0;
-	unsigned int param1;
-	unsigned int param2;
-	unsigned int param3;
+
+#define ELEM_MAX_LEN_SSID		32
+#define MAC_ADDR_LEN			6
+struct wlan_sensorhub_beacon_frame {
+	uint16_t ucRcpiValue;			/* Rcpi */
+	uint8_t aucBSSID[MAC_ADDR_LEN];		/* BSSID */
+	uint8_t	ucChannel;			/* Channel */
+	uint8_t ucBand;				/* 0: 2G4, 1: 5G, 2: 6G*/
+	uint8_t	aucSsid[ELEM_MAX_LEN_SSID];	/* Ssid */
 };
 
-struct test_data_2 {
-	unsigned int param0;
-	unsigned int param1;
-	unsigned int param2;
-	unsigned int param3;
-	unsigned int param4;
-};
-
-
-/******************************************************/
-/* WiFi */
-/******************************************************/
-enum conap_scp_msg_id {
-	CHRETEST_MSG_ID_DEFAULT = 0,
-	CHRETEST_MSG_ID_WIFI,
-	CHRETEST_MSG_ID_BT,
-	CHRETEST_MSG_ID_GPS,
-	CHRETEST_MSG_ID_MAX
-};
-
-
-#define MAC_ADDR_LEN 			6
-struct wlan_out_beacon_frame {
-	uint16_t ucRcpiValue;
-	uint8_t aucBSSID[MAC_ADDR_LEN];
-	uint8_t ucChannel;
-};
-
-#define WF_SCAN_INFO_MAX_SZ  10
+#define WF_SCAN_INFO_MAX_SZ  12
 struct wlan_out_data {
 	int result;
-	int size;
-	struct wlan_out_beacon_frame frame[WF_SCAN_INFO_MAX_SZ];
+	uint32_t timestamp;
+	uint32_t size;
+	struct wlan_sensorhub_beacon_frame frame[WF_SCAN_INFO_MAX_SZ];
 };
-
-
-int conap_scp_test_send_msg(void);
-
-
-static void error_handler(void)
-{
-	if (g_em_test_ctx)
-		kthread_stop(g_em_test_ctx->thread);
-	if (g_gps_test_ctx)
-		kthread_stop(g_gps_test_ctx->thread);
-}
-
-
-
+struct wlan_out_data g_wlan_out_data;
 
 /*********************************************/
 /* callback functions */
 /*********************************************/
 void conap_scp_test_em_msg_notify_cb(unsigned int msg_id, unsigned int *buf, unsigned int size)
 {
-	struct wlan_out_data *data = NULL;
+	struct wlan_out_data *out_data;
+	struct wlan_sensorhub_beacon_frame *frame;
 	int i;
 
-	pr_info("[%s] msg_id=[%d]", __func__, msg_id);
-	if (msg_id == CHRETEST_MSG_ID_WIFI) {
-		data = (struct wlan_out_data*) buf;
-		pr_info("[%s] result=[%d] size=[%d]", __func__, data->result, data->size);
-		for (i = 0; i < data->size; i++) {
-			pr_info("[%s] RCPI=[%d] [%x-%x-%x-%x-%x-%x]", __func__, data->frame[i].ucRcpiValue,
-						data->frame[i].aucBSSID[0], data->frame[i].aucBSSID[1],
-						data->frame[i].aucBSSID[2], data->frame[i].aucBSSID[3],
-						data->frame[i].aucBSSID[4], data->frame[i].aucBSSID[5]);
-		}
-	}
-#if 0
-	struct test_data_1 *data;
+	out_data = (struct wlan_out_data *)buf;
 
-	data = (struct test_data_1*)buf;
-	pr_info("[%s] msg_id=[%d] [%x][%x][%x][%x]", __func__, msg_id,
-				data->param0, data->param1, data->param2, data->param3);
-
-	if (msg_id == 0) {
-		if (data->param0 != TEST_DATA_GUARD_PATN_1 || data->param1 != 0x99776644 ||
-			data->param2 != 0xff7766ff || data->param3 != TEST_DATA_GUARD_PATN_2) {
-			pr_err("[%s] =ERROR= msgid=[%d] [%x][%x][%x][%x]", __func__, msg_id,
-						data->param0, data->param1, data->param2, data->param3);
-			error_handler();
-		}
-	} else {
+	pr_info("[%s] result=[%x][%x][%x]", __func__, out_data->result,
+				out_data->timestamp, out_data->size);
+	for (i = 0; i < 12; i++) {
+		frame = &(out_data->frame[i]);
+		pr_info("[%s] [%x] [%x-%x-%x-%x-%x-%x]", __func__, frame->ucRcpiValue,
+					frame->aucBSSID[0], frame->aucBSSID[1], frame->aucBSSID[2],
+					frame->aucBSSID[3], frame->aucBSSID[4], frame->aucBSSID[5]);
 	}
-#endif
 }
 
 void conap_scp_test_em_state_change(int state)
@@ -138,180 +105,26 @@ void conap_scp_test_em_state_change(int state)
 	pr_info("[%s] reason=[%d]", __func__, state);
 }
 
-
-
-void conap_scp_test_gps_msg_notify_cb(uint32_t msg_id, uint32_t *buf, uint32_t size)
-{
-	pr_info("");
-}
-
-void conap_scp_test_gps_state_change(int state)
-{
-	if (state == 0) {
-		error_handler();
-	}
-}
-
-
-/*********************************************/
-/* send msg functions */
-/*********************************************/
-int conap_scp_test_send_msg(void)
-{
-	int ret;
-	struct test_data_1 c_test_data;
-
-	c_test_data.param0 = 0xaabbccdd;
-	c_test_data.param1 = 0x55667788;
-	c_test_data.param2 = 0xaabbccdd;
-	c_test_data.param3 = 0x55667788;
-
-	ret = conap_scp_send_message(DRV_TYPE_EM, 0, (unsigned char*)&c_test_data, sizeof(struct test_data_1));
-	pr_info("[%s] send msg=[%d]", __func__, ret);
-
-	return ret;
-}
-
-
-
-int conap_spc_test_stress(int enable)
-{
-	//int ret;
-
-#if 0
-	if (enable) {
-		//alarm_timer_init();
-		//alarm_timer_fired();
-
-	} else {
-		return alarm_cancel(&g_alarm_timer);
-	}
-#endif
-
-	//return ret;
-	return 0;
-}
-
-
-int conap_spc_test_is_driver_ready(void)
-{
-	int ret;
-	ret = conap_scp_is_drv_ready(DRV_TYPE_EM);
-	pr_info("[%s] EM ready =[%d]", __func__, ret);
-
-	ret = conap_scp_is_drv_ready(DRV_TYPE_GPS);
-	pr_info("[%s] GPS ready =[%d]", __func__, ret);
-
-	return 0;
-}
-
-int (*test_case_func)(struct conap_scp_test_ctx *ctx);
-
-int test_case_func_1(struct conap_scp_test_ctx *ctx)
-{
-	int ret = 0;
-	struct test_data_1 c_test_data;
-	int drv_type;
-
-	drv_type = ctx->drv_type;
-	pr_info("[%s][Test-1] ctx=[%p] drv=[%d][%d] thread=[%x] 111 ",
-				ctx->thread_name, ctx, ctx->drv_type, drv_type, ctx->thread);
-	ret = conap_scp_is_drv_ready(ctx->drv_type);
-
-	pr_info("[%s][Test-1] ctx=[%p] drv=[%d][%d] thread=[%x] 222 ",
-				ctx->thread_name, ctx, ctx->drv_type, drv_type, ctx->thread);
-
-	c_test_data.param0 = TEST_DATA_GUARD_PATN_1;
-	c_test_data.param1 = ctx->drv_type;
-	c_test_data.param2 = 0xaabbccdd;
-	c_test_data.param3 = TEST_DATA_GUARD_PATN_1;
-
-	ret = conap_scp_send_message(ctx->drv_type, 0, (unsigned char*)&c_test_data, sizeof(struct test_data_1));
-	pr_info("[%s] send msg [%d]", ctx->thread_name, ret);
-
-	return 0;
-}
-
-int test_case_func_2(struct conap_scp_test_ctx *ctx)
-{
-	int ret;
-	struct test_data_2 c_test_data;
-
-	ret = conap_scp_is_drv_ready(ctx->drv_type);
-	pr_info("[%s][Test-2] drv=[%d] EM ready =[%d]", __func__, ctx->drv_type, ret);
-
-	c_test_data.param0 = TEST_DATA_GUARD_PATN_2;
-	c_test_data.param1 = ctx->drv_type;
-	c_test_data.param2 = 0xaabbccdd;
-	c_test_data.param3 = 0x55667788;
-	c_test_data.param4 = TEST_DATA_GUARD_PATN_2;
-
-	ret = conap_scp_send_message(ctx->drv_type, 1, (unsigned char*)&c_test_data, sizeof(struct test_data_2));
-	pr_info("[%s] send msg [%d]", ctx->thread_name, ret);
-
-	return 0;
-}
-
-/***********************************************************/
-/* */
-/***********************************************************/
-struct em_test_info {
-	uint32_t wifi_enabled;
-	uint32_t wifi_scan_intvl;
-	uint32_t wifi_cb_intvl;
-	uint32_t bt_enabled;
-	uint32_t bt_scan_intvl;
-	uint32_t bt_cb_intvl;
-	uint32_t gps_enabled;
-	uint32_t gps_scan_intvl;
-	uint32_t gps_cb_intvl;
-};
-
-enum em_commd_id {
-	EM_MSG_DEFAULT = 0,
-	EM_MSG_START_TEST = 1,
-	EM_MSG_STOP_TEST = 2,
-	EM_MSG_START_DATA_TRANS = 3,
-	EM_MSG_STOP_DATA_TRANS = 4,
-	EM_MSG_MAX_SIZE
-};
-
-
+#define EM_MSG_START_TEST 1
 int test_case_func_3(struct conap_scp_test_ctx *ctx)
 {
-	struct em_test_info test_info;
 	int ret;
+	int i;
 
 	ret = conap_scp_is_drv_ready(ctx->drv_type);
 	pr_info("[%s][Test-3] drv=[%d] EM ready =[%d]", __func__, ctx->drv_type, ret);
 
-	memset(&test_info, 0, sizeof(struct em_test_info));
-#if 1
-	test_info.wifi_enabled = 1;
-	test_info.wifi_scan_intvl = 10; // 30 sec
-	test_info.wifi_cb_intvl = 10;
-#else
+	memset(&g_wlan_out_data, 0, sizeof(struct wlan_out_data));
 
-	test_info.bt_enabled = 1;
-	test_info.bt_scan_intvl = 10; // 30 sec
-	test_info.bt_cb_intvl = 10;
-#endif
+	g_wlan_out_data.result = 0x99;
+	g_wlan_out_data.timestamp = 0x32;
+	g_wlan_out_data.size = WF_SCAN_INFO_MAX_SZ;
+	for (i = 0; i < WF_SCAN_INFO_MAX_SZ; i++)
+		memset(&(g_wlan_out_data.frame[i]), 0x11+i,
+					sizeof(struct wlan_sensorhub_beacon_frame));
 
 	ret = conap_scp_send_message(ctx->drv_type, EM_MSG_START_TEST,
-				(unsigned char*)&test_info, sizeof(struct em_test_info));
-	pr_info("[%s] send msg [%d]", ctx->thread_name, ret);
-	return 0;
-}
-
-int test_case_func_4(struct conap_scp_test_ctx * ctx)
-{
-	int ret;
-
-	ret = conap_scp_is_drv_ready(ctx->drv_type);
-	pr_info("[%s][Test-4] drv=[%d] EM ready =[%d]", __func__, ctx->drv_type, ret);
-
-	ret = conap_scp_send_message(ctx->drv_type, EM_MSG_STOP_TEST,
-				NULL, 0);
+				(unsigned char *)&g_wlan_out_data, sizeof(struct wlan_out_data));
 	pr_info("[%s] send msg [%d]", ctx->thread_name, ret);
 	return 0;
 }
@@ -331,21 +144,11 @@ static int conap_scp_test_thread(void *pvData)
 		if (kthread_should_stop())
 			break;
 		pr_info("[test_thread] loop =%d=", loop);
-		msleep(3000);
+		msleep(1000);
 		test_case_func_3(ctx);
-		msleep(15000);
-		//test_case_func_4(ctx);
+		msleep(1000);
 
-		if (true) break;
-#if 0
-		msleep(3000);
-		test_case_func_1(ctx);
-		msleep(2000);
-		test_case_func_2(ctx);
-		msleep(5000);
-		test_case_func_1(ctx);
-		//break;
-#endif
+		//if (true) break;
 		loop++;
 	}
 
@@ -353,10 +156,8 @@ static int conap_scp_test_thread(void *pvData)
 	return 0;
 }
 
-
-int conap_scp_test_init(void)
+int conap_ut_send_msg(int par1, int par2, int par3)
 {
-	//int i;
 	struct conap_scp_test_ctx *test_ctx;
 	//struct conap_scp_drv_cb scp_test_cb;
 
@@ -387,40 +188,140 @@ int conap_scp_test_init(void)
 		}
 		wake_up_process(test_ctx->thread);
 	//}
-
-#if 0
-	/* ======= GPS ====== */
-	g_gps_test_ctx = kmalloc(sizeof(struct conap_scp_test_ctx), GFP_KERNEL);
-	if (g_gps_test_ctx == NULL) {
-		pr_err("[%s] malloc fail", __func__);
-		return -1;
-	}
-	test_ctx = g_gps_test_ctx;
-	memset(test_ctx, 0, sizeof(struct conap_scp_test_ctx));
-	test_ctx->drv_type = DRV_TYPE_GPS;
-	test_ctx->scp_test_cb.conap_scp_msg_notify_cb = conap_scp_test_gps_msg_notify_cb;
-	test_ctx->scp_test_cb.conap_scp_state_notify_cb = conap_scp_test_gps_state_change;
-	snprintf(test_ctx->thread_name, 64, "conap_test_gps");
-	test_ctx->thread = kthread_create(conap_scp_test_thread, test_ctx,
-									test_ctx->thread_name);
-
-	if (IS_ERR(test_ctx->thread)) {
-		kfree(g_gps_test_ctx);
-		return -1;
-	}
-	wake_up_process(test_ctx->thread);
-#endif
 	return 0;
+}
+/**************************************************************************************/
+
+ssize_t conap_dev_write(struct file *filp, const char __user *buffer, size_t count,
+					loff_t *f_pos)
+{
+	size_t len = count;
+	char buf[256];
+	char *pBuf;
+	char *pDelimiter = " \t";
+	int x = 0, y = 0, z = 0;
+	char *pToken = NULL;
+	long res = 0;
+	//static int test_enabled = -1;
+
+	pr_info("write parameter len = %d\n\r", (int) len);
+	if (len >= sizeof(buf)) {
+		pr_info("input handling fail!\n");
+		len = sizeof(buf) - 1;
+		return -1;
+	}
+
+	if (copy_from_user(buf, buffer, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+	pr_info("write parameter data = %s\n\r", buf);
+
+	pBuf = buf;
+	pToken = strsep(&pBuf, pDelimiter);
+	if (pToken != NULL) {
+		kstrtol(pToken, 16, &res);
+		x = (int)res;
+	} else {
+		x = 0;
+	}
+
+	pToken = strsep(&pBuf, "\t\n ");
+	if (pToken != NULL) {
+		kstrtol(pToken, 16, &res);
+		y = (int)res;
+		pr_info("y = 0x%08x\n\r", y);
+	}
+
+	pToken = strsep(&pBuf, "\t\n ");
+	if (pToken != NULL) {
+		kstrtol(pToken, 16, &res);
+		z = (int)res;
+	}
+
+	pr_info("x(0x%08x), y(0x%08x), z(0x%08x)\n\r", x, y, z);
+
+	if (ARRAY_SIZE(conap_test_func) > x &&
+		conap_test_func[x] != NULL)
+		(*conap_test_func[x]) (x, y, z);
+	else
+		pr_info("no handler defined for command id(0x%08x)\n\r", x);
+
+	return len;
+}
+
+
+int conap_scp_test_init(void)
+{
+	dev_t dev_id = MKDEV(g_conap_major, 0);
+	int ret = 0;
+
+	ret = register_chrdev_region(dev_id, CONAP_DEV_NUM,
+						CONAP_DRVIER_NAME);
+	if (ret) {
+		pr_info("fail to register chrdev.(%d)\n", ret);
+		return -1;
+	}
+
+	cdev_init(&g_conap_dev, &g_conap_dev_fops);
+	g_conap_dev.owner = THIS_MODULE;
+
+	ret = cdev_add(&g_conap_dev, dev_id, CONAP_DEV_NUM);
+	if (ret) {
+		pr_info("cdev_add() fails (%d)\n", ret);
+		goto err1;
+	}
+
+	p_conap_class = class_create(THIS_MODULE, CONAP_DEVICE_NAME);
+	if (IS_ERR(p_conap_class)) {
+		pr_info("class create fail, error code(%ld)\n",
+						PTR_ERR(p_conap_class));
+		goto err2;
+	}
+
+	p_conap_dev = device_create(p_conap_class, NULL, dev_id,
+						NULL, CONAP_DEVICE_NAME);
+	if (IS_ERR(p_conap_dev)) {
+		pr_info("device create fail, error code(%ld)\n",
+						PTR_ERR(p_conap_dev));
+		goto err3;
+	}
+
+	return 0;
+err3:
+
+	pr_info("[%s] err3", __func__);
+	if (p_conap_class) {
+		class_destroy(p_conap_class);
+		p_conap_class = NULL;
+	}
+err2:
+	pr_info("[%s] err2", __func__);
+	cdev_del(&g_conap_dev);
+
+err1:
+	pr_info("[%s] err1", __func__);
+	unregister_chrdev_region(dev_id, CONAP_DEV_NUM);
+
+	return -1;
 }
 
 int conap_scp_test_deinit(void)
 {
-	conap_scp_deinit();
+	dev_t dev_id = MKDEV(g_conap_major, 0);
 
-	if (g_em_test_ctx)
-		kfree(g_em_test_ctx);
+	if (p_conap_dev) {
+		device_destroy(p_conap_class, dev_id);
+		p_conap_dev = NULL;
+	}
 
-	if (g_gps_test_ctx)
-		kfree(g_gps_test_ctx);
+	if (p_conap_class) {
+		class_destroy(p_conap_class);
+		p_conap_class = NULL;
+	}
+
+	cdev_del(&g_conap_dev);
+	unregister_chrdev_region(dev_id, CONAP_DEV_NUM);
+
 	return 0;
 }

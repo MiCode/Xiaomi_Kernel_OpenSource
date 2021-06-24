@@ -57,7 +57,8 @@ struct msg_op {
 };
 
 struct msg_op_q {
-	struct mutex lock;
+	//struct mutex lock;
+	spinlock_t lock;
 	unsigned int write;
 	unsigned int read;
 	unsigned int size;
@@ -78,8 +79,6 @@ struct msg_thread_ctx {
 
 	int op_func_size;
 	const msg_opid_func *op_func;
-
-	//struct osal_op_history op_history;
 };
 
 
@@ -100,6 +99,10 @@ int msg_thread_deinit(struct msg_thread_ctx *ctx);
 int msg_thread_send(struct msg_thread_ctx *ctx, int opid);
 int msg_thread_send_1(struct msg_thread_ctx *ctx, int opid, size_t param1);
 int msg_thread_send_2(struct msg_thread_ctx *ctx, int opid, size_t param1, size_t param2);
+
+int msg_thread_send_5(struct msg_thread_ctx *ctx, int opid, size_t param1,
+							size_t param2, size_t param3,
+							size_t param4, size_t param5);
 
 int msg_thread_send_wait(struct msg_thread_ctx *ctx, int opid, int timeout);
 int msg_thread_send_wait_1(struct msg_thread_ctx *ctx, int opid, int timeout, size_t param1);

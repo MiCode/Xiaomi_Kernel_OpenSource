@@ -16,7 +16,8 @@ struct conap_scp_shm_config g_adp_shm_mt6893 = {
 	.conap_scp_shm_offset = 0x1E0000,
 	.conap_scp_shm_size = 0x50000,
 	.conap_scp_shm_master_rbf_size = 51200,
-	.conap_scp_shm_slave_rbf_size = 51200 
+	.conap_scp_shm_slave_rbf_size = 51200,
+	.conap_scp_ipi_mbox_size = 40,
 };
 
 #endif
@@ -42,6 +43,14 @@ uint32_t connsys_scp_shm_get_size(void)
 struct conap_scp_shm_config* conap_scp_get_shm_info(void)
 {
 	return g_adp_shm_ptr;
+}
+
+
+uint32_t connsys_scp_ipi_mbox_size(void)
+{
+	if (g_adp_shm_ptr == NULL)
+		return 0;
+	return g_adp_shm_ptr->conap_scp_ipi_mbox_size;
 }
 
 
