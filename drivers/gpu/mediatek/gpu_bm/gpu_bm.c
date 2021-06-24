@@ -137,7 +137,7 @@ static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
 	setupfw_data.phyaddr = phyaddr;
 	setupfw_data.size = size;
 
-	schedule_delayed_work(&g_setupfw_work, 1);
+	//schedule_delayed_work(&g_setupfw_work, 1);
 }
 
 static void bw_v1_gpu_power_change_notify(int power_on)

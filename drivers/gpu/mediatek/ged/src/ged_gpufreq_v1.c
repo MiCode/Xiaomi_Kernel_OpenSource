@@ -30,7 +30,7 @@ int ged_get_min_oppidx(void)
     return mt_gpufreq_get_dvfs_table_num() - 1;
 }
 
-unsigned int ged_get_opp_num(void)
+int ged_get_opp_num(void)
 {
     return mt_gpufreq_get_dvfs_table_num();
 }
@@ -88,12 +88,12 @@ unsigned int ged_get_cur_limiter_floor(void)
     return mt_gpufreq_get_limit_user(0);
 }
 
-int ged_gpufreq_set_limit_ceil(int ceil)
+int ged_set_limit_ceil(int limiter ,int ceil)
 {
     return 0;
 }
 
-int ged_gpufreq_set_limit_floor(int floor)
+int ged_set_limit_floor(int limiter, int floor)
 {
     return 0;
 }

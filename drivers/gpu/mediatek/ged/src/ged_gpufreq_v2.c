@@ -89,17 +89,28 @@ unsigned int ged_get_cur_limiter_floor(void)
     return gpufreq_get_cur_limiter(TARGET_DEFAULT, GPUPPM_FLOOR);
 }
 
-int ged_gpufreq_set_limit_ceil(int ceil)
+int ged_set_limit_ceil(int limiter ,int ceil)
 {
-    return gpufreq_set_limit(TARGET_DEFAULT, LIMIT_FPSGO , ceil, GPUPPM_KEEP_IDX);
+    if(limiter)
+        return gpufreq_set_limit(TARGET_DEFAULT,
+                LIMIT_APIBOOST, ceil, GPUPPM_KEEP_IDX);
+    else
+        return gpufreq_set_limit(TARGET_DEFAULT,
+                LIMIT_FPSGO, ceil, GPUPPM_KEEP_IDX);
 }
 
-int ged_gpufreq_set_limit_floor(int floor)
+int ged_set_limit_floor(int limiter, int floor)
 {
-    return gpufreq_set_limit(TARGET_DEFAULT, LIMIT_APIBOOST, GPUPPM_KEEP_IDX, floor);
+    if(limiter)
+        return gpufreq_set_limit(TARGET_DEFAULT,
+                LIMIT_APIBOOST, GPUPPM_KEEP_IDX, floor);
+    else
+        return gpufreq_set_limit(TARGET_DEFAULT,
+                LIMIT_FPSGO, GPUPPM_KEEP_IDX, floor);
 }
 
 int ged_gpufreq_commit(int oppidx)
 {
     return gpufreq_commit(TARGET_DEFAULT, oppidx);
 }
+

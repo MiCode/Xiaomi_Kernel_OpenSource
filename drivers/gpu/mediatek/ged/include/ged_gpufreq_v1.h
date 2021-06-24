@@ -10,7 +10,7 @@ unsigned int ged_get_cur_volt(void);
 int ged_get_cur_oppidx(void);
 int ged_get_max_oppidx(void);
 int ged_get_min_oppidx(void);
-unsigned int ged_get_opp_num(void);
+int ged_get_opp_num(void);
 unsigned int ged_get_freq_by_idx(int oppidx);
 unsigned int ged_get_volt_by_idx(int oppidx);
 unsigned int ged_get_power_by_idx(int oppidx);
@@ -24,8 +24,8 @@ int ged_get_cur_limit_idx_ceil(void);
 int ged_get_cur_limit_idx_floor(void);
 unsigned int ged_get_cur_limiter_ceil(void);
 unsigned int ged_get_cur_limiter_floor(void);
-int ged_gpufreq_set_limit_ceil(int ceil);
-int ged_gpufreq_set_limit_floor(int floor);
+int ged_set_limit_ceil(int limiter , int ceil);
+int ged_set_limit_floor(int limiter, int floor);
 
 int ged_gpufreq_commit(int oppidx);
 

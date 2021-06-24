@@ -66,6 +66,9 @@ static unsigned int g_cust_upbound_freq_id;
 static unsigned int g_cust_boost_freq_id;
 static unsigned int g_computed_freq_id;
 
+#define LIMITER_FPSGO 0
+#define LIMITER_APIBOOST 1
+
 unsigned int g_gpu_timer_based_emu;
 // unsigned int gpu_bw_err_debug;
 
@@ -126,6 +129,12 @@ static unsigned int g_ui32BoostValue = 100;
 static unsigned int ged_commit_freq;
 static unsigned int ged_commit_opp_freq;
 
+/* global to store the platform min/max Freq/idx */
+static unsigned int g_minfreq;
+static unsigned int g_maxfreq;
+static int g_minfreq_idx;
+static int g_maxfreq_idx;
+
 void ged_dvfs_last_and_target_cb(int t_gpu_target, int boost_accum_gpu)
 {
 	g_ui32TargetPeriod_us = t_gpu_target;
@@ -165,6 +174,7 @@ static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int g_tb_dvfs_margin_value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int g_tb_dvfs_margin_value_min = MIN_TB_DVFS_MARGIN;
 static unsigned int g_tb_dvfs_margin_mode = CONFIGURE_TIMER_BASED_MODE;
+
 
 static void _init_loading_ud_table(void)
 {
@@ -220,13 +230,13 @@ unsigned long ged_query_info(GED_INFO eType)
 	case GED_CUR_FREQ_IDX:
 		return ged_get_cur_oppidx();
 	case GED_MAX_FREQ_IDX:
-		return ged_get_min_oppidx();
+		return g_minfreq_idx;
 	case GED_MAX_FREQ_IDX_FREQ:
-		return ged_get_freq_by_idx(ged_get_min_oppidx());
+		return g_maxfreq;
 	case GED_MIN_FREQ_IDX:
-		return ged_get_max_oppidx();
+		return g_minfreq_idx;
 	case GED_MIN_FREQ_IDX_FREQ:
-		return ged_get_freq_by_idx(ged_get_max_oppidx());
+		return g_minfreq;
 	case GED_3D_FENCE_DONE_TIME:
 		return ged_monitor_3D_fence_done_time();
 	case GED_VSYNC_OFFSET:
@@ -506,7 +516,6 @@ int ged_dvfs_vsync_offset_level_get(void)
 GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 {
 #ifdef ENABLE_COMMON_DVFS
-	int i32MaxLevel = 0;
 	unsigned int ui32NewFreqID;
 	int i;
 	unsigned long gpu_freq;
@@ -515,7 +524,6 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 
 	unsigned long ui32IRQFlags;
 
-	i32MaxLevel = ged_get_min_oppidx();
 	ui32CurFreqID = ged_get_cur_oppidx();
 
 	if (g_gpu_timer_based_emu)
@@ -577,8 +585,8 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 		g_policy_tar_freq = g_um_gpu_tar_freq;
 		g_mode = 1;
 
-		ui32NewFreqID = i32MaxLevel;
-		for (i = 0; i <= i32MaxLevel; i++) {
+		ui32NewFreqID = g_minfreq_idx;
+		for (i = 0; i <= g_minfreq_idx; i++) {
 			gpu_freq = ged_get_freq_by_idx(i);
 
 			if (gpu_tar_freq > gpu_freq) {
@@ -670,7 +678,7 @@ static void ged_dvfs_trigger_fb_dvfs(void)
 static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	int target_fps_margin, unsigned int force_fallback)
 {
-	int i, i32MaxLevel, gpu_freq_tar, ui32NewFreqID = 0;
+	int i, gpu_freq_tar, ui32NewFreqID = 0;
 	int ret_freq = -1;
 	static int gpu_freq_pre = -1;
 	static int num_pre_frames;
@@ -820,7 +828,6 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	t_gpu_target = t_gpu_target * (1000 - gx_fb_dvfs_margin) / 1000;
 
-	i32MaxLevel = ged_get_min_oppidx();
 	gpu_freq_pre = ged_get_cur_freq() >> 10;
 
 	busy_cycle_cur = t_gpu * gpu_freq_pre;
@@ -852,8 +859,8 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	cur_frame_idx = (cur_frame_idx + 1) %
 		GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM;
 
-	ui32NewFreqID = i32MaxLevel;
-	for (i = 0; i <= i32MaxLevel; i++) {
+	ui32NewFreqID = g_minfreq_idx;
+	for (i = 0; i <= g_minfreq_idx; i++) {
 		int gpu_freq;
 
 		gpu_freq = ged_get_freq_by_idx(i);
@@ -911,7 +918,6 @@ static bool ged_dvfs_policy(
 		unsigned long t, long phase, unsigned long ul3DFenceDoneTime,
 		bool bRefreshed)
 {
-	int i32MaxLevel = ged_get_min_oppidx();
 	unsigned int ui32GPUFreq = ged_get_cur_oppidx();
 	unsigned int sentinalLoading = 0;
 	unsigned int ui32GPULoading_avg;
@@ -986,7 +992,7 @@ static bool ged_dvfs_policy(
 		if (ui32GPULoading >= 99)
 			i32NewFreqID = 0;
 		else if (ui32GPULoading <= 1)
-			i32NewFreqID = i32MaxLevel;
+			i32NewFreqID = g_minfreq_idx;
 		else if (ui32GPULoading >= 85)
 			i32NewFreqID -= 2;
 		else if (ui32GPULoading <= 30)
@@ -1119,8 +1125,8 @@ static bool ged_dvfs_policy(
 		g_CommitType = MTK_GPU_DVFS_TYPE_FALLBACK;
 	}
 
-	if (i32NewFreqID > i32MaxLevel)
-		i32NewFreqID = i32MaxLevel;
+	if (i32NewFreqID > g_minfreq_idx)
+		i32NewFreqID = g_minfreq_idx;
 	else if (i32NewFreqID < 0)
 		i32NewFreqID = 0;
 
@@ -1161,26 +1167,24 @@ void ged_dvfs_boost_gpu_freq(void)
 	ged_dvfs_freq_input_boostCB(0);
 }
 
+/* Set buttom gpufreq by from PowerHal  API Boost */
 static void ged_dvfs_set_bottom_gpu_freq(unsigned int ui32FreqLevel)
 {
-	unsigned int ui32MaxLevel;
 	static unsigned int s_bottom_freq_id;
 
 	if (gpu_debug_enable)
 		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
-	ui32MaxLevel = ged_get_min_oppidx();
-
-	if (ui32MaxLevel < ui32FreqLevel)
-		ui32FreqLevel = ui32MaxLevel;
+	if (g_minfreq_idx < ui32FreqLevel)
+		ui32FreqLevel = g_minfreq_idx;
 
 	mutex_lock(&gsDVFSLock);
 
 	/* 0 => The highest frequency */
 	/* table_num - 1 => The lowest frequency */
-	s_bottom_freq_id = ui32MaxLevel - ui32FreqLevel;
+	s_bottom_freq_id = g_minfreq_idx - ui32FreqLevel;
 
-	ged_gpufreq_set_limit_floor(s_bottom_freq_id);
+	ged_set_limit_floor(LIMITER_APIBOOST, s_bottom_freq_id);
 
 	gpu_bottom_freq = ged_get_freq_by_idx(s_bottom_freq_id);
 	if (g_bottom_freq_id < s_bottom_freq_id) {
@@ -1210,17 +1214,14 @@ static unsigned int ged_dvfs_get_gpu_freq_level_count(void)
 	return ged_get_opp_num();
 }
 
+/* set buttom gpufreq from PowerHal by MIN_FREQ */
 static void ged_dvfs_custom_boost_gpu_freq(unsigned int ui32FreqLevel)
 {
-	unsigned int ui32MaxLevel;
-
 	if (gpu_debug_enable)
 		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
-	ui32MaxLevel = ged_get_min_oppidx();
-
-	if (ui32MaxLevel < ui32FreqLevel)
-		ui32FreqLevel = ui32MaxLevel;
+	if (g_minfreq_idx < ui32FreqLevel)
+		ui32FreqLevel = g_minfreq_idx;
 
 	mutex_lock(&gsDVFSLock);
 
@@ -1228,7 +1229,7 @@ static void ged_dvfs_custom_boost_gpu_freq(unsigned int ui32FreqLevel)
 	/* table_num - 1 => The lowest frequency */
 	g_cust_boost_freq_id = ui32FreqLevel;
 
-	ged_gpufreq_set_limit_floor(g_cust_boost_freq_id);
+	ged_set_limit_floor(LIMITER_FPSGO, g_cust_boost_freq_id);
 
 	gpu_cust_boost_freq = ged_get_freq_by_idx(g_cust_boost_freq_id);
 	if (g_cust_boost_freq_id < ged_get_cur_oppidx()) {
@@ -1239,17 +1240,14 @@ static void ged_dvfs_custom_boost_gpu_freq(unsigned int ui32FreqLevel)
 	mutex_unlock(&gsDVFSLock);
 }
 
+/* set buttom gpufreq from PowerHal by MAX_FREQ */
 static void ged_dvfs_custom_ceiling_gpu_freq(unsigned int ui32FreqLevel)
 {
-	unsigned int ui32MaxLevel;
-
 	if (gpu_debug_enable)
 		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
-	ui32MaxLevel = ged_get_min_oppidx();
-
-	if (ui32MaxLevel < ui32FreqLevel)
-		ui32FreqLevel = ui32MaxLevel;
+	if (g_minfreq_idx < ui32FreqLevel)
+		ui32FreqLevel = g_minfreq_idx;
 
 	mutex_lock(&gsDVFSLock);
 
@@ -1257,7 +1255,7 @@ static void ged_dvfs_custom_ceiling_gpu_freq(unsigned int ui32FreqLevel)
 	/* table_num - 1 => The lowest frequency */
 	g_cust_upbound_freq_id = ui32FreqLevel;
 
-	ged_gpufreq_set_limit_ceil(g_cust_upbound_freq_id);
+	ged_set_limit_ceil(LIMITER_FPSGO, g_cust_upbound_freq_id);
 
 	gpu_cust_upbound_freq = ged_get_freq_by_idx(g_cust_upbound_freq_id);
 	if (g_cust_upbound_freq_id > ged_get_cur_oppidx())
@@ -1269,7 +1267,7 @@ static void ged_dvfs_custom_ceiling_gpu_freq(unsigned int ui32FreqLevel)
 
 static unsigned int ged_dvfs_get_bottom_gpu_freq(void)
 {
-	unsigned int ui32MaxLevel = ged_get_min_oppidx();
+	unsigned int ui32MaxLevel = g_minfreq_idx;
 	return ui32MaxLevel - g_bottom_freq_id;
 }
 
@@ -1769,10 +1767,15 @@ GED_ERROR ged_dvfs_system_init(void)
 
 	g_dvfs_skip_round = 0;
 
-	g_bottom_freq_id = ged_get_min_oppidx();
+	g_minfreq_idx = ged_get_min_oppidx();
+	g_maxfreq_idx = 0;
+	g_minfreq = ged_get_freq_by_idx(g_minfreq_idx);
+	g_maxfreq = ged_get_freq_by_idx(g_maxfreq_idx);
+
+	g_bottom_freq_id = g_minfreq_idx;
 	gpu_bottom_freq = ged_get_freq_by_idx(g_bottom_freq_id);
 
-	g_cust_boost_freq_id = ged_get_min_oppidx();
+	g_cust_boost_freq_id = g_minfreq_idx;
 	gpu_cust_boost_freq = ged_get_freq_by_idx(g_cust_boost_freq_id);
 
 	g_cust_upbound_freq_id = 0;
