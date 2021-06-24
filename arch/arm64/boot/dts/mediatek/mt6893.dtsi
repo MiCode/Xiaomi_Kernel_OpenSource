@@ -998,6 +998,11 @@
 			offs-cap=<0xFA0>;
 		};
 
+ 		lkg: lkg@00115400 {
+ 			compatible = "mediatek,mtk-lkg";
+			reg = <0 0x00115400 0 0xc00>;
+		};
+
 		cpuhvfs: cpuhvfs@00115400{
 			compatible = "mediatek,cpufreq-hybrid";
 			reg = <0 0x00115400 0 0xC00>,
