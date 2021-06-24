@@ -45,7 +45,8 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 
 #undef SCHED_FEAT
 
-#define TOP_APP_GROUP_ID	4
+/*TODO: find the magic bias number */
+#define TOP_APP_GROUP_ID	(4-1)*9
 #define TURBO_PID_COUNT		8
 #define RENDER_THREAD_NAME	"RenderThread"
 #define TAG			"Task-Turbo"
@@ -55,15 +56,40 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #define UTIL_AVG_UNCHANGED	0x1
 #define type_offset(type)		 (type * 4)
 #define task_turbo_nice(nice) (nice == 0xbeef || nice == 0xbeee)
+#define task_restore_nice(nice) (nice == 0xbeee)
 #define type_number(type)		 (1U << type_offset(type))
 #define get_value_with_type(value, type)				\
 	(value & ((unsigned int)(0x0000000f) << (type_offset(type))))
 #define for_each_hmp_domain_L_first(hmpd) \
 		list_for_each_entry_reverse(hmpd, &hmp_domains, hmp_domains)
 #define hmp_cpu_domain(cpu)     (per_cpu(hmp_cpu_domain, (cpu)))
-#define lsub_positive(_ptr, _val) do {			\
-	typeof(_ptr) ptr = (_ptr);			\
-	*ptr -= min_t(typeof(*ptr), *ptr, _val);	\
+
+/*
+ * Unsigned subtract and clamp on underflow.
+ *
+ * Explicitly do a load-store to ensure the intermediate value never hits
+ * memory. This allows lockless observations without ever seeing the negative
+ * values.
+ */
+#define sub_positive(_ptr, _val) do {				\
+	typeof(_ptr) ptr = (_ptr);				\
+	typeof(*ptr) val = (_val);				\
+	typeof(*ptr) res, var = READ_ONCE(*ptr);		\
+	res = var - val;					\
+	if (res > var)						\
+		res = 0;					\
+	WRITE_ONCE(*ptr, res);					\
+} while (0)
+
+/*
+ * Remove and clamp on negative, from a local variable.
+ *
+ * A variant of sub_positive(), which does not use explicit load-store
+ * and is thus optimized for local variable updates.
+ */
+#define lsub_positive(_ptr, _val) do {				\
+	typeof(_ptr) ptr = (_ptr);				\
+	*ptr -= min_t(typeof(*ptr), *ptr, _val);		\
 } while (0)
 
 #define RWSEM_READER_OWNED	(1UL << 0)
@@ -86,7 +112,7 @@ static pid_t turbo_pid[TURBO_PID_COUNT] = {0};
 static unsigned int task_turbo_feats;
 
 static bool is_turbo_task(struct task_struct *p);
-static void set_load_weight_turbo(struct task_struct *p);
+static void set_load_weight(struct task_struct *p, bool update_load);
 static void rwsem_stop_turbo_inherit(struct rw_semaphore *sem);
 static void rwsem_list_add(struct task_struct *task, struct list_head *entry,
 				struct list_head *head);
@@ -109,7 +135,6 @@ static bool is_inherit_turbo(struct task_struct *task, int type);
 static bool test_turbo_cnt(struct task_struct *task);
 static int select_turbo_cpu(struct task_struct *p);
 static int find_best_turbo_cpu(struct task_struct *p);
-static void get_fastest_cpus(struct cpumask *cpus);
 static void init_hmp_domains(void);
 static void hmp_cpu_mask_setup(void);
 static int arch_get_nr_clusters(void);
@@ -119,13 +144,11 @@ static inline void fillin_cluster(struct cluster_info *cinfo,
 		struct hmp_domain *hmpd);
 static void sys_set_turbo_task(struct task_struct *p);
 static unsigned long capacity_of(int cpu);
-static unsigned long cpu_runnable_load(struct rq *rq);
-static unsigned long cpu_util_without(int cpu, struct task_struct *p);
 static void init_turbo_attr(struct task_struct *p);
-static inline unsigned long cfs_rq_runnable_avg(struct cfs_rq *cfs_rq);
 static inline unsigned long cpu_util(int cpu);
 static inline unsigned long task_util(struct task_struct *p);
 static inline unsigned long _task_util_est(struct task_struct *p);
+
 
 static void probe_android_rvh_prepare_prio_fork(void *ignore, struct task_struct *p)
 {
@@ -134,7 +157,13 @@ static void probe_android_rvh_prepare_prio_fork(void *ignore, struct task_struct
 	init_turbo_attr(p);
 	if (unlikely(is_turbo_task(current))) {
 		turbo_data = get_task_turbo_t(current);
-		set_user_nice(p, turbo_data->nice_backup);
+		if (task_has_dl_policy(p) || task_has_rt_policy(p))
+			p->static_prio = NICE_TO_PRIO(turbo_data->nice_backup);
+		else {
+			p->static_prio = NICE_TO_PRIO(turbo_data->nice_backup);
+			p->prio = p->normal_prio = p->static_prio;
+			set_load_weight(p, false);
+		}
 	}
 }
 
@@ -161,11 +190,8 @@ static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_
 			turbo_data = get_task_turbo_t(p);
 			backup = turbo_data->nice_backup;
 
-			if (backup >= MIN_NICE && backup <= MAX_NICE) {
-				p->static_prio = NICE_TO_PRIO(backup);
-				p->prio = p->normal_prio = p->static_prio;
-				set_load_weight_turbo(p);
-			}
+			if (backup >= MIN_NICE && backup <= MAX_NICE)
+				set_user_nice(p, 0xbeee);
 		}
 	}
 }
@@ -186,7 +212,7 @@ static void probe_android_rvh_set_user_nice(void *ignore, struct task_struct *p,
 	if (!task_turbo_nice(*nice))
 		turbo_data->nice_backup = *nice;
 
-	if (is_turbo_task(p)) {
+	if (is_turbo_task(p) && !task_restore_nice(*nice)) {
 		*nice = rlimit_to_nice(task_rlimit(p, RLIMIT_NICE));
 		if (unlikely(*nice > MAX_NICE)) {
 			pr_warn("%s: pid=%d RLIMIT_NICE=%ld is not set\n",
@@ -319,46 +345,47 @@ static inline bool is_rwsem_reader_owned(struct rw_semaphore *sem)
 	return rwsem_test_oflags(sem, RWSEM_READER_OWNED);
 }
 
-static unsigned long cpu_runnable_load(struct rq *rq)
-{
-	return cfs_rq_runnable_avg(&rq->cfs);
-}
-
-static inline unsigned long cfs_rq_runnable_avg(struct cfs_rq *cfs_rq)
-{
-	return cfs_rq->avg.runnable_avg;
-}
-
 static unsigned long capacity_of(int cpu)
 {
 	return cpu_rq(cpu)->cpu_capacity;
 }
 
-static unsigned long cpu_util_without(int cpu, struct task_struct *p)
+/*
+ * Predicts what cpu_util(@cpu) would return if @p was migrated (and enqueued)
+ * to @dst_cpu.
+ */
+static unsigned long cpu_util_next(int cpu, struct task_struct *p, int dst_cpu)
 {
-	struct cfs_rq *cfs_rq;
-	unsigned int util;
+	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
+	unsigned long util_est, util = READ_ONCE(cfs_rq->avg.util_avg);
 
-	/* Task has no contribution or is new */
-	if (cpu != task_cpu(p) || !READ_ONCE(p->se.avg.last_update_time))
-		return cpu_util(cpu);
-
-	cfs_rq = &cpu_rq(cpu)->cfs;
-	util = READ_ONCE(cfs_rq->avg.util_avg);
-
-	/* Discount task's util from CPU's util */
-	lsub_positive(&util, task_util(p));
+	/*
+	 * If @p migrates from @cpu to another, remove its contribution. Or,
+	 * if @p migrates from another CPU to @cpu, add its contribution. In
+	 * the other cases, @cpu is not impacted by the migration, so the
+	 * util_avg should already be correct.
+	 */
+	if (task_cpu(p) == cpu && dst_cpu != cpu)
+		sub_positive(&util, task_util(p));
+	else if (task_cpu(p) != cpu && dst_cpu == cpu)
+		util += task_util(p);
 
 	if (sched_feat(UTIL_EST)) {
-		unsigned int estimated =
-			READ_ONCE(cfs_rq->avg.util_est.enqueued);
-		if (unlikely(task_on_rq_queued(p) || current == p))
-			lsub_positive(&estimated, _task_util_est(p));
+		util_est = READ_ONCE(cfs_rq->avg.util_est.enqueued);
 
-		util = max(util, estimated);
+		/*
+		 * During wake-up, the task isn't enqueued yet and doesn't
+		 * appear in the cfs_rq->avg.util_est.enqueued of any rq,
+		 * so just add it (if needed) to "simulate" what will be
+		 * cpu_util() after the task has been enqueued.
+		 */
+		if (dst_cpu == cpu)
+			util_est += _task_util_est(p);
+
+		util = max(util, util_est);
 	}
 
-	return min_t(unsigned long, util, capacity_orig_of(cpu));
+	return min(util, capacity_orig_of(cpu));
 }
 
 static inline unsigned long cpu_util(int cpu)
@@ -387,58 +414,64 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 	return (max(ue.ewma, ue.enqueued) | UTIL_AVG_UNCHANGED);
 }
 
-static void get_fastest_cpus(struct cpumask *cpus)
-{
-	struct list_head *pos;
-	struct hmp_domain *domain;
-
-	pos = hmp_domains.next;
-	domain = list_entry(pos, struct hmp_domain, hmp_domains);
-	cpumask_copy(cpus, &domain->possible_cpus);
-}
-
 int find_best_turbo_cpu(struct task_struct *p)
 {
+	struct hmp_domain *domain;
+	struct hmp_domain *tmp_domain[5] = {0, 0, 0, 0, 0};
+	int i, domain_cnt = 0;
 	int iter_cpu;
-	int best_cpu = -1;
+	unsigned long spare_cap, max_spare_cap = 0;
 	const struct cpumask *tsk_cpus_ptr = p->cpus_ptr;
-	struct cpumask fast_cpu_mask;
-	unsigned long min_load = ULONG_MAX;
+	int max_spare_cpu = -1;
+	int new_cpu = -1;
 
-	cpumask_clear(&fast_cpu_mask);
-	/* only choose big-core cluster */
-	get_fastest_cpus(&fast_cpu_mask);
-	//cpumask_and(&fast_cpu_mask, &fast_cpu_mask, tsk_cpus_ptr);
-	cpumask_andnot(&fast_cpu_mask, tsk_cpus_ptr, &fast_cpu_mask);
+	/* The order is B, BL, LL cluster */
+	for_each_hmp_domain_L_first(domain) {
+		tmp_domain[domain_cnt] = domain;
+		domain_cnt++;
+	}
 
-	/* task is not allowed in big core */
-	if (cpumask_empty(&fast_cpu_mask))
-		return -1;
-
-	for_each_cpu(iter_cpu, &fast_cpu_mask) {
-		if (!cpu_online(iter_cpu))
-			continue;
-
-#if IS_ENABLED(CONFIG_MTK_SCHED_INTEROP)
-		if (cpu_rq(iter_cpu)->rt.rt_nr_running &&
-			likely(!is_rt_throttle(iter_cpu)))
-			continue;
-#endif
-		/* If utils of fastest cpu is over 90% */
-		if (capacity_of(iter_cpu) * 1024 < (cpu_util_without(iter_cpu, p) * 1138))
-			continue;
-
-		if (idle_cpu(iter_cpu)) {
-			best_cpu = iter_cpu;
+	for (i = 0; i < domain_cnt; i++) {
+		domain = tmp_domain[i];
+		/* check fastest domain for turbo task */
+		if (i != 0)
 			break;
-		}
+		for_each_cpu(iter_cpu, &domain->possible_cpus) {
+			unsigned long cpu_cap, util;
 
-		if (cpu_runnable_load(cpu_rq(iter_cpu)) < min_load) {
-			min_load = cpu_runnable_load(cpu_rq(iter_cpu));
-			best_cpu = iter_cpu;
+			if (!cpu_online(iter_cpu) ||
+			    !cpumask_test_cpu(iter_cpu, tsk_cpus_ptr) ||
+			    !cpu_active(iter_cpu))
+				continue;
+
+			/*
+			 * favor tasks that prefer idle cpus
+			 * to improve latency
+			 */
+			if (idle_cpu(iter_cpu)) {
+				new_cpu = iter_cpu;
+				goto out;
+			}
+
+			util = cpu_util_next(iter_cpu, p, iter_cpu);
+			cpu_cap = capacity_of(iter_cpu);
+			spare_cap = cpu_cap;
+			lsub_positive(&spare_cap, util);
+
+			/*
+			 * trace_printk("util:%d cpu_cap: %d  spare_cap: %d max_spare_cap: %d \n",
+			 *		util, cpu_cap, spare_cap, max_spare_cap);
+			 */
+			if (spare_cap > max_spare_cap) {
+				max_spare_cap = spare_cap;
+				max_spare_cpu = iter_cpu;
+			}
 		}
 	}
-	return best_cpu;
+	if (max_spare_cpu > 0)
+		new_cpu = max_spare_cpu;
+out:
+	return new_cpu;
 }
 
 int select_turbo_cpu(struct task_struct *p)
@@ -448,13 +481,17 @@ int select_turbo_cpu(struct task_struct *p)
 	if (!is_turbo_task(p))
 		return -1;
 
+	if (!sub_feat_enable(SUB_FEAT_FLAVOR_BIGCORE))
+		return -1;
+
 	target_cpu = find_best_turbo_cpu(p);
 	trace_select_turbo_cpu(target_cpu);
 
 	return target_cpu;
 }
 
-static void set_load_weight_turbo(struct task_struct *p)
+/* copy from sched/core.c */
+static void set_load_weight(struct task_struct *p, bool update_load)
 {
 	int prio = p->static_prio - MAX_RT_PRIO;
 	struct load_weight *load = &p->se.load;
@@ -462,16 +499,22 @@ static void set_load_weight_turbo(struct task_struct *p)
 	/*
 	 * SCHED_IDLE tasks get minimal weight:
 	 */
-	if (idle_policy(p->policy)) {
+	if (task_has_idle_policy(p)) {
 		load->weight = scale_load(WEIGHT_IDLEPRIO);
 		load->inv_weight = WMULT_IDLEPRIO;
-		p->se.runnable_weight = load->weight;
 		return;
 	}
 
-	load->weight = scale_load(sched_prio_to_weight[prio]);
-	load->inv_weight = sched_prio_to_wmult[prio];
-	p->se.runnable_weight = load->weight;
+	/*
+	 * SCHED_OTHER tasks have to update their load when changing their
+	 * weight
+	 */
+	if (update_load && p->sched_class == &fair_sched_class) {
+		reweight_task(p, prio);
+	} else {
+		load->weight = scale_load(sched_prio_to_weight[prio]);
+		load->inv_weight = sched_prio_to_wmult[prio];
+	}
 }
 
 int idle_cpu(int cpu)
