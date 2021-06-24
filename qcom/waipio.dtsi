@@ -3549,6 +3549,13 @@
 			qcom,iommu-group = <>;
 		};
 	};
+
+	mhi_qrtr_cnss {
+		compatible = "qcom,qrtr-mhi";
+		qcom,dev-id = <0x1103>;
+		qcom,net-id = <0>;
+		qcom,low-latency;
+	};
 };
 
 #include "ipcc-test.dtsi"
