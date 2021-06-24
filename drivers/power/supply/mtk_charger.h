@@ -349,6 +349,9 @@ struct mtk_charger {
 	struct sock *daemo_nl_sk;
 	u_int g_scd_pid;
 	struct scd_cmd_param_t_1 sc_data;
+
+	/*charger IC charging status*/
+	bool is_charging;
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,

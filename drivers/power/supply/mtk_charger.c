@@ -2301,6 +2301,37 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 	}
 }
 
+static void charger_status_check(struct mtk_charger *info)
+{
+	union power_supply_propval online, status;
+	struct power_supply *chg_psy = NULL;
+	int ret;
+	bool charging = true;
+
+	chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
+						       "charger");
+	if (IS_ERR_OR_NULL(chg_psy)) {
+		chr_err("%s Couldn't get chg_psy\n", __func__);
+	} else {
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_ONLINE, &online);
+
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_STATUS, &status);
+
+		if (!online.intval)
+			charging = false;
+		else {
+			if (status.intval == POWER_SUPPLY_STATUS_NOT_CHARGING)
+				charging = false;
+		}
+	}
+	if (charging != info->is_charging)
+		power_supply_changed(info->psy1);
+	info->is_charging = charging;
+}
+
+
 static char *dump_charger_type(int chg_type, int usb_type)
 {
 	switch (chg_type) {
@@ -2383,6 +2414,7 @@ static int charger_routine_thread(void *arg)
 				info->algo.do_algorithm(info);
 			sc_update(info);
 			wakeup_sc_algo_cmd(&info->sc.data, SC_EVENT_CHARGING, 0);
+			charger_status_check(info);
 		} else {
 			chr_debug("disable charging %d %d %d\n",
 			    is_disable_charger(info), is_charger_on, info->can_charging);
@@ -2856,6 +2888,9 @@ int chg_alg_event(struct notifier_block *notifier,
 	return NOTIFY_DONE;
 }
 
+static char *mtk_charger_supplied_to[] = {
+	"battery"
+};
 
 static int mtk_charger_probe(struct platform_device *pdev)
 {
@@ -2913,6 +2948,8 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->psy_desc1.external_power_changed =
 		mtk_charger_external_power_changed;
 	info->psy_cfg1.drv_data = info;
+	info->psy_cfg1.supplied_to = mtk_charger_supplied_to;
+	info->psy_cfg1.num_supplicants = ARRAY_SIZE(mtk_charger_supplied_to);
 	info->psy1 = power_supply_register(&pdev->dev, &info->psy_desc1,
 			&info->psy_cfg1);
 
@@ -2992,6 +3029,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->chg_alg_nb.notifier_call = chg_alg_event;
 
 	info->fast_charging_indicator = 0;
+	info->is_charging = false;
 
 	kthread_run(charger_routine_thread, info, "charger_thread");
 
