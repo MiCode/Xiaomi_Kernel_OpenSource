@@ -1342,7 +1342,7 @@ static int mtk_wdt_probe(struct platform_device *dev)
 		wdt_irq_id = irq_of_parse_and_map(dev->dev.of_node, 0);
 		if (!wdt_irq_id) {
 			pr_info("get wdt_irq_id failed, ret: %d\n", wdt_irq_id);
-			return -ENODEV;
+			wdt_irq_id = 0;
 		}
 	}
 
@@ -1383,16 +1383,18 @@ static int mtk_wdt_probe(struct platform_device *dev)
 	#ifdef CONFIG_KICK_SPM_WDT
 	ret = spm_wdt_register_irq((irq_handler_t)mtk_wdt_isr);
 	#else
-	ret = request_irq(AP_RGU_WDT_IRQ_ID, (irq_handler_t)mtk_wdt_isr,
-			IRQF_TRIGGER_NONE, "mt_wdt", NULL);
+	if (AP_RGU_WDT_IRQ_ID)
+		ret = request_irq(AP_RGU_WDT_IRQ_ID, (irq_handler_t)mtk_wdt_isr,
+				    IRQF_TRIGGER_NONE, "mt_wdt", NULL);
 	#endif		/* CONFIG_KICK_SPM_WDT */
 #else
 	pr_debug("CONFIG_FIQ_GLUE: request FIQ\n");
 	#ifdef CONFIG_KICK_SPM_WDT
 	ret = spm_wdt_register_fiq(wdt_fiq);
 	#else
-	ret = request_fiq(AP_RGU_WDT_IRQ_ID, wdt_fiq,
-			IRQF_TRIGGER_FALLING, NULL);
+	if (AP_RGU_WDT_IRQ_ID)
+		ret = request_fiq(AP_RGU_WDT_IRQ_ID, wdt_fiq,
+				    IRQF_TRIGGER_FALLING, NULL);
 	#endif		/* CONFIG_KICK_SPM_WDT */
 #endif
 
@@ -1481,7 +1483,8 @@ static int mtk_wdt_remove(struct platform_device *dev)
 	pr_debug("******** MTK wdt driver remove!! ********\n");
 
 #ifndef __USING_DUMMY_WDT_DRV__ /* FPGA will set this flag */
-	free_irq(AP_RGU_WDT_IRQ_ID, NULL);
+	if (AP_RGU_WDT_IRQ_ID)
+		free_irq(AP_RGU_WDT_IRQ_ID, NULL);
 #endif
 	return 0;
 }
