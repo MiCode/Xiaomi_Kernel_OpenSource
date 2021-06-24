@@ -568,18 +568,12 @@ const char * const *get_mt6893_all_clk_names(void)
  */
 static const struct fmeter_clk *get_all_fmeter_clks(void)
 {
-	return get_fmeter_clks();
+	return mt_get_fmeter_clks();
 }
 
 static u32 fmeter_freq_op(const struct fmeter_clk *fclk)
 {
-	if (fclk->type == ABIST)
-		return mt_get_abist_freq(fclk->id);
-	else if (fclk->type == ABIST_2)
-		return mt_get_abist2_freq(fclk->id);
-	else if (fclk->type == CKGEN)
-		return mt_get_ckgen_freq(fclk->id);
-	return 0;
+	return mt_get_fmeter_freq(fclk->id, fclk->type);
 }
 
 /*

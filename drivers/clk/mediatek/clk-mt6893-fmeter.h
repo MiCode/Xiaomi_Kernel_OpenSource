@@ -137,8 +137,4 @@
 #define FM_CKMON3_CK				62
 #define FM_CKMON4_CK				63
 
-extern unsigned int mt_get_ckgen_freq(unsigned int ID);
-extern unsigned int mt_get_abist_freq(unsigned int ID);
-extern unsigned int mt_get_abist2_freq(unsigned int ID);
-
 #endif /* _CLK_MT6893_FMETER_H */

@@ -23,6 +23,7 @@
 #include <linux/module.h>
 #include <linux/version.h>
 
+#include "clk-fmeter.h"
 #include "clkdbg.h"
 #include "clkchk.h"
 

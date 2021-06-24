@@ -10,7 +10,7 @@
 #include <linux/slab.h>
 
 #include "clk-fmeter.h"
-#include "clkchk.h"
+#include "clk-mt6893-fmeter.h"
 
 #define FM_TIMEOUT		30
 
@@ -171,11 +171,10 @@ static void __iomem *topck_base;
 static void __iomem *apmixed_base;
 static void __iomem *spm_base;
 
-const struct fmeter_clk *get_fmeter_clks(void)
+const struct fmeter_clk *mt6893_get_fmeter_clks(void)
 {
 	return fclks;
 }
-EXPORT_SYMBOL(get_fmeter_clks);
 
 static unsigned int check_mux_pdn(unsigned int ID)
 {
@@ -265,7 +264,7 @@ static int __mt_get_freq(unsigned int ID, int type)
 
 }
 
-unsigned int mt_get_ckgen_freq(unsigned int ID)
+static unsigned int mt6893_get_ckgen_freq(unsigned int ID)
 {
 	if (check_mux_pdn(ID)) {
 		pr_notice("ID-%d: MUX PDN, return 0.\n", ID);
@@ -274,19 +273,40 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 
 	return __mt_get_freq(ID, CKGEN);
 }
-EXPORT_SYMBOL(mt_get_ckgen_freq);
 
-unsigned int mt_get_abist_freq(unsigned int ID)
+static unsigned int mt6893_get_abist_freq(unsigned int ID)
 {
 	return __mt_get_freq(ID, ABIST);
 }
-EXPORT_SYMBOL(mt_get_abist_freq);
 
-unsigned int mt_get_abist2_freq(unsigned int ID)
+static unsigned int mt6893_get_abist2_freq(unsigned int ID)
 {
 	return __mt_get_freq(ID, ABIST_2);
 }
-EXPORT_SYMBOL(mt_get_abist2_freq);
+
+static unsigned int mt6893_get_fmeter_freq(unsigned int id, enum  FMETER_TYPE type)
+{
+	if (type == CKGEN)
+		return mt6893_get_ckgen_freq(id);
+	else if (type == ABIST)
+		return mt6893_get_abist_freq(id);
+	else if (type == ABIST_2)
+		return mt6893_get_abist2_freq(id);
+
+	return FT_NULL;
+}
+
+static int mt6893_get_fmeter_id(enum FMETER_ID fid)
+{
+	if (fid == FID_DISP_PWM)
+		return FM_FDISP_PWM_CK;
+	else if (fid == FID_ULPOSC1)
+		return FM_ULPOSC_CK;
+	else if (fid == FID_ULPOSC2)
+		return FM_ULPOSC2_CK;
+
+	return FID_NULL;;
+}
 
 static void __iomem *get_base_from_comp(const char *comp)
 {
@@ -310,6 +330,19 @@ static void __iomem *get_base_from_comp(const char *comp)
 	return ERR_PTR(-EINVAL);
 }
 
+/*
+ * init functions
+ */
+
+static struct fmeter_ops fm_ops = {
+	.get_fmeter_clks = mt6893_get_fmeter_clks,
+	.get_ckgen_freq = mt6893_get_ckgen_freq,
+	.get_abist_freq = mt6893_get_abist_freq,
+	.get_abist2_freq = mt6893_get_abist2_freq,
+	.get_fmeter_freq = mt6893_get_fmeter_freq,
+	.get_fmeter_id = mt6893_get_fmeter_id,
+};
+
 static int clk_fmeter_mt6893_probe(struct platform_device *pdev)
 {
 	topck_base = get_base_from_comp("mediatek,mt6893-topckgen");
@@ -323,6 +356,8 @@ static int clk_fmeter_mt6893_probe(struct platform_device *pdev)
 	spm_base = get_base_from_comp("mediatek,mt6893-scpsys");
 	if (IS_ERR(spm_base))
 		goto ERR;
+
+	fmeter_set_ops(&fm_ops);
 
 	return 0;
 ERR:

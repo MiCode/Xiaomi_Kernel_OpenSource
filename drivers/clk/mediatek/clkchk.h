@@ -24,26 +24,11 @@ struct seq_file;
 #define ADDR(rn)	(rn->base->virt + rn->ofs)
 #define PHYSADDR(rn)	(rn->base->phys + rn->ofs)
 
-enum FMETER_TYPE {
-	FT_NULL,
-	ABIST,
-	CKGEN,
-	ABIST_2,
-};
-
 enum PWR_STA_TYPE {
 	PWR_STA,
 	PWR_STA2,
 	OTHER_STA,
 	STA_NUM,
-};
-
-struct fmeter_clk {
-	enum FMETER_TYPE type;
-	u32 id;
-	const char *name;
-	u32 ofs;
-	u32 pdn;
 };
 
 struct provider_clk {
