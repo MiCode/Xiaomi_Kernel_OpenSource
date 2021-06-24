@@ -19,6 +19,10 @@
 #define SCP_ULPOSC_SEL_CORE		(0x4)
 #define SCP_ULPOSC_SEL_PERI		(0x8)
 
+#define CAL_EXT_BITS		(2)
+#define CAL_MIN_VAL_EXT		(0)
+#define CAL_MAX_VAL_EXT		(0x2)
+#define CAL_BITS			(7)
 #define CAL_MIN_VAL			(0)
 #define CAL_MAX_VAL			(0x7F)
 #define CALI_MIS_RATE			(40)
@@ -56,6 +60,7 @@ enum scp_dvfs_err_enum {
 	ESCP_DVFS_REGMAP_INIT_FAILED,
 	ESCP_DVFS_INIT_FAILED,
 	ESCP_DVFS_DBG_INVALID_CMD,
+	ESCP_DVFS_DVS_SHOULD_BE_BYPASSED,
 };
 
 enum scp_cmd_type {
@@ -101,7 +106,8 @@ enum scp_ipi_cmd {
 };
 
 enum ulposc_ver_enum {
-	ULPOSC_VER_1,
+	ULPOSC_VER_1, /* APMIXED_SYS */
+	ULPOSC_VER_2, /* VLP_CKSYS */
 	MAX_ULPOSC_VERSION,
 };
 
@@ -114,6 +120,7 @@ enum scp_dvfs_chip_hw_enum {
 
 enum clk_dbg_ver_enum {
 	CLK_DBG_VER_1,
+	CLK_DBG_VER_2,
 	MAX_CLK_DBG_VERSION,
 };
 
@@ -143,7 +150,8 @@ struct reg_info {
 
 struct ulposc_cali_regs {
 	struct reg_info _con0;
-	struct reg_info _cali;
+	struct reg_info _cali_ext;	/* turning factor 1, maybe unused,  */
+	struct reg_info _cali;		/* turning factor 2 */
 	struct reg_info _con1;
 	struct reg_info _con2;
 };
@@ -163,6 +171,7 @@ struct clk_cali_regs {
 	struct reg_info _abist_clk;
 
 	struct reg_info _clk26cali_0;
+	struct reg_info _fmeter_rst; // using carefully, if set to 0, fmeter will reset
 	struct reg_info _fmeter_en;
 	struct reg_info _trigger_cal;
 
@@ -172,12 +181,13 @@ struct clk_cali_regs {
 };
 
 struct ulposc_cali_hw {
-	struct regmap *topck_regmap;
-	struct regmap *apmixed_regmap;
+	struct regmap *fmeter_regmap;
+	struct regmap *ulposc_regmap;
 	struct ulposc_cali_regs *ulposc_regs;
 	struct ulposc_cali_config *cali_configs;
 	struct clk_cali_regs *clkdbg_regs;
 	unsigned int cali_nums;
+	unsigned short *cali_val_ext;
 	unsigned short *cali_val;
 	unsigned short *cali_freq;
 	bool do_ulposc_cali;
@@ -219,6 +229,8 @@ struct scp_dvfs_hw {
 	struct scp_pmic_regs *pmic_regs;
 	struct ulposc_cali_hw ulposc_hw;
 	struct scp_clk_hw *clk_hw;
+	bool vlpck_support;
+	bool vlp_support;
 	bool pmic_sshub_en;
 	bool sleep_init_done;
 	bool pre_mux_en;

@@ -31,6 +31,8 @@
 #include <linux/string.h>
 #include <linux/suspend.h>
 #include <linux/uaccess.h>
+#include <linux/bits.h>
+#include <linux/build_bug.h>
 
 #if IS_ENABLED(CONFIG_MFD_MT6397)
 #include <linux/mfd/mt6397/core.h>
@@ -65,8 +67,8 @@
 #define PMIC_PHANDLE_NAME		"pmic"
 #define GPIO_PHANDLE_NAME		"gpio-base"
 #define SCP_CLK_CTRL_PHANDLE_NAME	"scp_clk_ctrl"
-#define TOPCK_PHANDLE_NAME		"topckgen"
-#define APMIX_PHANDLE_NAME		"apmixedsys"
+#define FM_CLK_PHANDLE_NAME		"fmeter_clksys"
+#define ULPOSC_CLK_PHANDLE_NAME		"ulposc_clksys"
 
 unsigned int scp_ipi_ackdata0, scp_ipi_ackdata1;
 struct ipi_tx_data_t {
@@ -97,10 +99,12 @@ static struct regulator *reg_vsram;
 
 const char *ulposc_ver[MAX_ULPOSC_VERSION] __initconst = {
 	[ULPOSC_VER_1] = "v1",
+	[ULPOSC_VER_2] = "v2",
 };
 
 const char *clk_dbg_ver[MAX_CLK_DBG_VERSION] __initconst = {
 	[CLK_DBG_VER_1] = "v1",
+	[CLK_DBG_VER_2] = "v2",
 };
 
 const char *scp_clk_ver[MAX_SCP_CLK_VERSION] __initconst = {
@@ -116,9 +120,16 @@ const char *scp_dvfs_hw_chip_ver[MAX_SCP_DVFS_CHIP_HW] __initconst = {
 struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
 	[ULPOSC_VER_1] = {
 		REG_DEFINE(con0, 0x2C0, REG_MAX_MASK, 0)
-		REG_DEFINE(cali, 0x2C0, 0x7F, 0)
+		REG_DEFINE(cali, 0x2C0, GENMASK(CAL_BITS, 0), 0)
 		REG_DEFINE(con1, 0x2C4, REG_MAX_MASK, 0)
 		REG_DEFINE(con2, 0x2C8, REG_MAX_MASK, 0)
+	},
+	[ULPOSC_VER_2] = { /* Suppose VLP_CKSYS is from 0x1C013000 */
+		REG_DEFINE(con0, 0x210, REG_MAX_MASK, 0)
+		REG_DEFINE(cali_ext, 0x210, GENMASK(CAL_EXT_BITS, 0), 7)
+		REG_DEFINE_WITH_INIT(cali, 0x210, GENMASK(CAL_BITS, 0), 0, 0, 0x40)
+		REG_DEFINE(con1, 0x214, REG_MAX_MASK, 0)
+		REG_DEFINE(con2, 0x218, REG_MAX_MASK, 0)
 	},
 };
 
@@ -128,8 +139,8 @@ struct clk_cali_regs clk_dbg_reg[MAX_CLK_DBG_VERSION] __initdata = {
 		REG_DEFINE_WITH_INIT(meter_div, 0x140, 0xFF, 24, 0, 0)
 
 		REG_DEFINE(clk_dbg_cfg, 0x17C, 0x3, 0)
-		REG_DEFINE_WITH_INIT(fmeter_ck_sel, 0x17C, 0x3, 0, 0, 0)
-		REG_DEFINE_WITH_INIT(abist_clk, 0x17C, 0x3F, 16, 36, 0)
+		REG_DEFINE_WITH_INIT(fmeter_ck_sel, 0x17C, 0x3F, 16, 36, 0)
+		REG_DEFINE_WITH_INIT(abist_clk, 0x17C, 0x3, 0, 0, 0)
 
 		REG_DEFINE(clk26cali_0, 0x220, REG_MAX_MASK, 0)
 		REG_DEFINE_WITH_INIT(fmeter_en, 0x220, 0x1, 12, 1, 0)
@@ -138,6 +149,17 @@ struct clk_cali_regs clk_dbg_reg[MAX_CLK_DBG_VERSION] __initdata = {
 		REG_DEFINE(clk26cali_1, 0x224, REG_MAX_MASK, 0)
 		REG_DEFINE(cal_cnt, 0x224, 0xFFFF, 0)
 		REG_DEFINE_WITH_INIT(load_cnt, 0x224, 0x3FF, 16, 0x1FF, 0)
+	},
+	[CLK_DBG_VER_2] = {/* Suppose VLP_CKSYS is from 0x1C013000 */
+		REG_DEFINE(clk26cali_0, 0x230, REG_MAX_MASK, 0)
+		REG_DEFINE_WITH_INIT(fmeter_ck_sel, 0x230, 0x1F, 16, 0x16, 0)
+		REG_DEFINE_WITH_INIT(fmeter_rst, 0x230, 0x1, 15, 0x1, 0)
+		REG_DEFINE_WITH_INIT(fmeter_en, 0x230, 0x1, 12, 0x1, 0)
+		REG_DEFINE_WITH_INIT(trigger_cal, 0x230, 0x1, 4, 1, 0)
+
+		REG_DEFINE(clk26cali_1, 0x234, REG_MAX_MASK, 0)
+		REG_DEFINE(cal_cnt, 0x234, 0xFFFF, 0)
+		REG_DEFINE_WITH_INIT(load_cnt, 0x234, 0x3FF, 16, 0x1FF, 0)
 	},
 };
 
@@ -289,6 +311,12 @@ static int scp_update_pmic_vow_lp_mode(bool on)
 {
 	int ret = 0;
 
+	if (dvfs.vlp_support) {
+		pr_notice("[%s]: VCORE DVS is not supported\n", __func__);
+		WARN_ON(1);
+		return -ESCP_DVFS_DVS_SHOULD_BE_BYPASSED;
+	}
+
 	if (on)
 		ret = scp_reg_update(dvfs.pmic_regmap,
 			&dvfs.pmic_regs->_sshub_op_cfg, 1);
@@ -306,6 +334,12 @@ static int scp_set_pmic_vcore(unsigned int cur_freq)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	int idx = 0;
 	unsigned int ret_vc = 0, ret_vs = 0;
+
+	if (dvfs.vlp_support) {
+		pr_notice("[%s]: VCORE DVS is not supported\n", __func__);
+		WARN_ON(1);
+		return -ESCP_DVFS_DVS_SHOULD_BE_BYPASSED;
+	}
 
 	idx = scp_get_freq_idx(cur_freq);
 	if (idx >= 0 && idx < dvfs.scp_opp_nums) {
@@ -385,6 +419,9 @@ static void scp_vcore_request(unsigned int clk_opp)
 	int ret = 0;
 
 	pr_debug("[%s]: opp(%d)\n", __func__, clk_opp);
+
+	if (dvfs.vlp_support)
+		return;
 
 	/* SCP vcore request to PMIC */
 	if (dvfs.pmic_sshub_en)
@@ -1143,6 +1180,8 @@ static void __init mt_pmic_sshub_init(void)
 #endif
 }
 
+static_assert(CAL_BITS + CAL_EXT_BITS <= 8 * sizeof(unsigned short),
+"error: there are only 16bits available in IPI\n");
 void sync_ulposc_cali_data_to_scp(void)
 {
 	unsigned int sel_clk = 0;
@@ -1165,15 +1204,18 @@ void sync_ulposc_cali_data_to_scp(void)
 		slp_ipi_init();
 
 	ipi_data[0] = SCP_SYNC_ULPOSC_CALI;
-
 	for (i = 0; i < dvfs.ulposc_hw.cali_nums; i++) {
 		*p = dvfs.ulposc_hw.cali_freq[i];
-		*(p + 1) = dvfs.ulposc_hw.cali_val[i];
+		if (!dvfs.vlpck_support)
+			*(p + 1) = dvfs.ulposc_hw.cali_val[i];
+		else
+			*(p + 1) = dvfs.ulposc_hw.cali_val[i] |
+				(dvfs.ulposc_hw.cali_val_ext[i] << CAL_BITS);
 
 		pr_notice("[%s]: ipi to scp: freq=%d, cali_val=0x%x\n",
 			__func__,
 			dvfs.ulposc_hw.cali_freq[i],
-			dvfs.ulposc_hw.cali_val[i]);
+			*(p + 1));
 
 		ret = mtk_ipi_send_compl(&scp_ipidev,
 					IPI_OUT_C_SLEEP_0,
@@ -1185,7 +1227,7 @@ void sync_ulposc_cali_data_to_scp(void)
 			pr_notice("[%s]: ipi send ulposc cali val(%d, 0x%x) fail\n",
 				__func__,
 				dvfs.ulposc_hw.cali_freq[i],
-				dvfs.ulposc_hw.cali_val[i]);
+				*(p + 1));
 			WARN_ON(1);
 		}
 	}
@@ -1214,77 +1256,160 @@ static inline bool __init is_ulposc_cali_pass(unsigned int cur,
 	return 0;
 }
 
-static unsigned int __init get_ulposc_clk_by_fmeter(void)
+static unsigned int __init get_ulposc_clk_by_fmeter_vlp(void)
 {
 	unsigned int i = 0, result = 0;
-	unsigned int misc_org, dbg_org, cali0_org, cali1_org;
-	unsigned int measure_done = 0;
+	unsigned int vlp_fqmtr_con0_bk, vlp_fqmtr_con1_bk;
+	unsigned int wait_for_measure = 0;
 	int is_fmeter_timeout = 0;
 
-	/* backup regsiters */
-	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
-		&dvfs.ulposc_hw.clkdbg_regs->_clk_misc_cfg0, &misc_org);
-	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
-		&dvfs.ulposc_hw.clkdbg_regs->_clk_dbg_cfg, &dbg_org);
-	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
-		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_0, &cali0_org);
-	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
-		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_1, &cali1_org);
+	/* 0. backup regsiters */
+	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_0, &vlp_fqmtr_con0_bk);
+	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_1, &vlp_fqmtr_con1_bk);
 
-	/* set load cnt */
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	/* 1. set load cnt */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_load_cnt,
 		dvfs.ulposc_hw.clkdbg_regs->_load_cnt.init_config);
 
-	/* select meter clock input CLK_DBG_CFG[1:0] = 0x0 */
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	/*
+	* 2. select clock source VLP_FQMTR_CON0[20:16] =
+	* ULPOSC_1 (0x16), ULPOSC_2 (0x17)
+	*/
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_ck_sel,
 		dvfs.ulposc_hw.clkdbg_regs->_fmeter_ck_sel.init_config);
 
-	/* select clock source CLK_DBG_CFG[21:16] */
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
-		&dvfs.ulposc_hw.clkdbg_regs->_abist_clk,
-		dvfs.ulposc_hw.clkdbg_regs->_abist_clk.init_config);
-
-	/* select meter div CLK_MISC_CFG_0[31:24] = 0x3 for div 1 */
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
-		&dvfs.ulposc_hw.clkdbg_regs->_meter_div,
-		dvfs.ulposc_hw.clkdbg_regs->_meter_div.init_config);
+	/*
+	* Make sure @_fmeter_rst which is used to reset fmeter keeps 1.
+	*     If it accidentally set to 0, fmeter would be reset. Maybe
+	* someone would have initialized it to 1 previously, so you do
+	* not need to set it by yourself.
+	*/
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_rst,
+		dvfs.ulposc_hw.clkdbg_regs->_fmeter_rst.init_config);
 
 	/* enable fmeter */
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_en,
 		dvfs.ulposc_hw.clkdbg_regs->_fmeter_en.init_config);
 
-	/* trigger fmeter to start measure */
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	/* 3. trigger fmeter to start measure */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal,
 		dvfs.ulposc_hw.clkdbg_regs->_trigger_cal.init_config);
 
-	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
-		&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal, &measure_done);
-
-	/* wait for frequency measurement done */
-	while (measure_done) {
+	/* 4. wait for frequency measurement done */
+	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal, &wait_for_measure);
+	while (wait_for_measure) {
 		i++;
 		udelay(10);
 		if (i > 40000) {
 			is_fmeter_timeout = 1;
 			break;
 		}
-		scp_reg_read(dvfs.ulposc_hw.topck_regmap,
-			&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal,
-			&measure_done);
+		scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+			&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal, &wait_for_measure);
 	}
 
 	/* disable fmeter */
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_en,
+		!dvfs.ulposc_hw.clkdbg_regs->_fmeter_en.init_config);
+
+	/* 5. get fmeter result */
+	if (!is_fmeter_timeout) {
+		scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+			&dvfs.ulposc_hw.clkdbg_regs->_cal_cnt,
+			&result);
+	} else {
+		result = 0;
+	}
+
+	/* 0. restore freq meter registers */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_0, vlp_fqmtr_con0_bk);
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_1, vlp_fqmtr_con1_bk);
+
+	return result;
+}
+
+static unsigned int __init get_ulposc_clk_by_fmeter(void)
+{
+	unsigned int i = 0, result = 0;
+	unsigned int misc_org, dbg_org, cali0_org, cali1_org;
+	unsigned int wait_for_measure = 0;
+	int is_fmeter_timeout = 0;
+
+	/* backup regsiters */
+	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk_misc_cfg0, &misc_org);
+	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk_dbg_cfg, &dbg_org);
+	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_0, &cali0_org);
+	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_1, &cali1_org);
+
+	/* set load cnt */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_load_cnt,
+		dvfs.ulposc_hw.clkdbg_regs->_load_cnt.init_config);
+
+	/* select meter clock input CLK_DBG_CFG[1:0] = 0x0 */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_abist_clk,
+		dvfs.ulposc_hw.clkdbg_regs->_abist_clk.init_config);
+
+	/* select clock source CLK_DBG_CFG[21:16] */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_ck_sel,
+		dvfs.ulposc_hw.clkdbg_regs->_fmeter_ck_sel.init_config);
+
+	/* select meter div CLK_MISC_CFG_0[31:24] = 0x3 for div 1 */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_meter_div,
+		dvfs.ulposc_hw.clkdbg_regs->_meter_div.init_config);
+
+	/* enable fmeter */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_en,
+		dvfs.ulposc_hw.clkdbg_regs->_fmeter_en.init_config);
+
+	/* trigger fmeter to start measure */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal,
+		dvfs.ulposc_hw.clkdbg_regs->_trigger_cal.init_config);
+
+	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal, &wait_for_measure);
+
+	/* wait for frequency measurement done */
+	while (wait_for_measure) {
+		i++;
+		udelay(10);
+		if (i > 40000) {
+			is_fmeter_timeout = 1;
+			break;
+		}
+		scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
+			&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal,
+			&wait_for_measure);
+	}
+
+	/* disable fmeter */
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_en,
 		!dvfs.ulposc_hw.clkdbg_regs->_fmeter_en.init_config);
 
 	/* get fmeter result */
 	if (!is_fmeter_timeout) {
-		scp_reg_read(dvfs.ulposc_hw.topck_regmap,
+		scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
 			&dvfs.ulposc_hw.clkdbg_regs->_cal_cnt,
 			&result);
 	} else {
@@ -1292,27 +1417,134 @@ static unsigned int __init get_ulposc_clk_by_fmeter(void)
 	}
 
 	/* restore freq meter registers */
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_clk_misc_cfg0, misc_org);
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_clk_dbg_cfg, dbg_org);
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_0, cali0_org);
-	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+	scp_reg_update(dvfs.ulposc_hw.fmeter_regmap,
 		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_1, cali1_org);
 
 	return result;
+}
+
+static void __init set_ulposc_cali_value_ext(unsigned int cali_val)
+{
+	int ret = 0;
+
+	ret = scp_reg_update(dvfs.ulposc_hw.ulposc_regmap,
+		&dvfs.ulposc_hw.ulposc_regs->_cali_ext,
+		cali_val);
+
+	udelay(50);
 }
 
 static void __init set_ulposc_cali_value(unsigned int cali_val)
 {
 	int ret = 0;
 
-	ret = scp_reg_update(dvfs.ulposc_hw.apmixed_regmap,
+	ret = scp_reg_update(dvfs.ulposc_hw.ulposc_regmap,
 		&dvfs.ulposc_hw.ulposc_regs->_cali,
 		cali_val);
 
 	udelay(50);
+}
+
+/*
+*		Since available frequencies are expanded when SCP using VLP_CKSYS,
+*	we use 2 phases calibration to widen the searching range.
+*		1. dvfs.ulposc_hw.ulposc_regs->_cali_ext
+*		2. dvfs.ulposc_hw.ulposc_regs->_cali
+*/
+static int __init ulposc_cali_process_vlp(unsigned int cali_idx,
+		unsigned short *cali_res1, unsigned short *cali_res2)
+{
+	unsigned int target_val = 0, current_val = 0;
+	unsigned int min = CAL_MIN_VAL, max = CAL_MAX_VAL, mid;
+	unsigned int diff_by_min = 0, diff_by_max = 0xffff;
+	target_val = dvfs.ulposc_hw.cali_freq[cali_idx] * CALI_DIV_VAL / 26;
+
+	/* phase1 */
+	set_ulposc_cali_value(dvfs.ulposc_hw.ulposc_regs->_cali.init_config); // fixed in phase1
+	min = CAL_MIN_VAL_EXT, max = CAL_MAX_VAL_EXT;
+	do {
+		mid = (min + max) / 2;
+		if (mid == min) {
+			pr_debug("turning_factor1 mid(%u) == min(%u)\n", mid, min);
+			break;
+		}
+
+		set_ulposc_cali_value_ext(mid);
+		current_val = get_ulposc_clk_by_fmeter_vlp();
+
+		if (current_val > target_val)
+			max = mid;
+		else
+			min = mid;
+	} while (min <= max);
+
+	set_ulposc_cali_value_ext(min);
+	current_val = get_ulposc_clk_by_fmeter_vlp();
+	diff_by_min = (current_val > target_val) ?
+		(current_val - target_val):(target_val - current_val);
+
+	set_ulposc_cali_value_ext(max);
+	current_val = get_ulposc_clk_by_fmeter_vlp();
+	diff_by_max = (current_val > target_val) ?
+		(current_val - target_val):(target_val - current_val);
+
+	*cali_res1 = (diff_by_min < diff_by_max) ? min : max;
+	set_ulposc_cali_value_ext(*cali_res1);
+
+	/* phase2 */
+	min = CAL_MIN_VAL, max = CAL_MAX_VAL;
+	do {
+		mid = (min + max) / 2;
+		if (mid == min) {
+			pr_debug("turning_factor2 mid(%u) == min(%u)\n", mid, min);
+			break;
+		}
+
+		set_ulposc_cali_value(mid);
+		current_val = get_ulposc_clk_by_fmeter_vlp();
+
+		if (current_val > target_val)
+			max = mid;
+		else
+			min = mid;
+	} while (min <= max);
+
+	set_ulposc_cali_value(min);
+	current_val = get_ulposc_clk_by_fmeter_vlp();
+	diff_by_min = (current_val > target_val) ?
+		(current_val - target_val):(target_val - current_val);
+
+	set_ulposc_cali_value(max);
+	current_val = get_ulposc_clk_by_fmeter_vlp();
+	diff_by_max = (current_val > target_val) ?
+		(current_val - target_val):(target_val - current_val);
+
+	*cali_res2 = (diff_by_min < diff_by_max) ? min : max;
+	set_ulposc_cali_value(*cali_res2);
+
+	/* Checking final calibration result */
+	current_val = get_ulposc_clk_by_fmeter_vlp();
+	if (!is_ulposc_cali_pass(current_val, target_val)) {
+		pr_notice("[%s]: calibration failed for: %dMHz\n",
+			__func__,
+			dvfs.ulposc_hw.cali_freq[cali_idx]);
+		*cali_res1 = 0;
+		*cali_res2 = 0;
+		return -ESCP_DVFS_CALI_FAILED;
+	}
+
+	pr_notice("[%s]: target: %uMhz, calibrated = %uMHz\n",
+		__func__,
+		(target_val * 26) / CALI_DIV_VAL,
+		(current_val * 26) / CALI_DIV_VAL);
+
+	return 0;
 }
 
 static int __init ulposc_cali_process(unsigned int cali_idx,
@@ -1408,13 +1640,13 @@ static int __init mt_scp_dvfs_do_ulposc_cali_process(void)
 	for (i = 0; i < dvfs.ulposc_hw.cali_nums; i++) {
 		turn_onoff_ulposc2(ULPOSC_OFF);
 
-		ret += scp_reg_update(dvfs.ulposc_hw.apmixed_regmap,
+		ret += scp_reg_update(dvfs.ulposc_hw.ulposc_regmap,
 			&dvfs.ulposc_hw.ulposc_regs->_con0,
 			dvfs.ulposc_hw.cali_configs[i].con0_val);
-		ret += scp_reg_update(dvfs.ulposc_hw.apmixed_regmap,
+		ret += scp_reg_update(dvfs.ulposc_hw.ulposc_regmap,
 			&dvfs.ulposc_hw.ulposc_regs->_con1,
 			dvfs.ulposc_hw.cali_configs[i].con1_val);
-		ret += scp_reg_update(dvfs.ulposc_hw.apmixed_regmap,
+		ret += scp_reg_update(dvfs.ulposc_hw.ulposc_regmap,
 			&dvfs.ulposc_hw.ulposc_regs->_con2,
 			dvfs.ulposc_hw.cali_configs[i].con2_val);
 		if (ret) {
@@ -1425,7 +1657,10 @@ static int __init mt_scp_dvfs_do_ulposc_cali_process(void)
 
 		turn_onoff_ulposc2(ULPOSC_ON);
 
-		ret = ulposc_cali_process(i, &dvfs.ulposc_hw.cali_val[i]);
+		if (dvfs.vlpck_support)
+			ret = ulposc_cali_process_vlp(i, &dvfs.ulposc_hw.cali_val_ext[i], &dvfs.ulposc_hw.cali_val[i]);
+		else
+			ret = ulposc_cali_process(i, &dvfs.ulposc_hw.cali_val[i]);
 		if (ret) {
 			pr_notice("[%s]: cali %uMHz ulposc failed\n",
 				__func__, dvfs.ulposc_hw.cali_freq[i]);
@@ -1567,13 +1802,23 @@ static int __init mt_scp_dts_get_cali_target(struct device_node *node,
 		return ret;
 	}
 
+	if (dvfs.vlpck_support) {
+		cali_hw->cali_val_ext = kcalloc(cali_hw->cali_nums, sizeof(unsigned short),
+					GFP_KERNEL);
+		if (!cali_hw->cali_val_ext)
+			return -ENOMEM;
+	} else {
+		cali_hw->cali_val_ext = NULL;
+	}
+
 	cali_hw->cali_val = kcalloc(cali_hw->cali_nums, sizeof(unsigned short),
 				GFP_KERNEL);
-	if (!cali_hw->cali_val)
-		return -ENOMEM;
+	if (!cali_hw->cali_val) {
+		ret = -ENOMEM;
+		goto CALI_EXT_TARGET_ALLOC_FAILED;
+	}
 
-	cali_hw->cali_freq = kcalloc(cali_hw->cali_nums,
-				sizeof(unsigned short),
+	cali_hw->cali_freq = kcalloc(cali_hw->cali_nums, sizeof(unsigned short),
 				GFP_KERNEL);
 	if (!cali_hw->cali_freq) {
 		ret = -ENOMEM;
@@ -1597,6 +1842,8 @@ FIND_TARGET_FAILED:
 	kfree(cali_hw->cali_freq);
 CALI_TARGET_ALLOC_FAILED:
 	kfree(cali_hw->cali_val);
+CALI_EXT_TARGET_ALLOC_FAILED:
+	kfree(cali_hw->cali_val_ext);
 	return ret;
 }
 
@@ -1673,19 +1920,19 @@ static int __init mt_scp_dts_init_cali_regmap(struct device_node *node,
 		struct ulposc_cali_hw *cali_hw)
 {
 	/* init regmap for calibration process */
-	cali_hw->topck_regmap = syscon_regmap_lookup_by_phandle(node,
-							TOPCK_PHANDLE_NAME);
-	if (IS_ERR(cali_hw->topck_regmap)) {
-		pr_notice("topck regmap init failed: %d\n",
-			PTR_ERR(cali_hw->topck_regmap));
-		return PTR_ERR(cali_hw->topck_regmap);
+	cali_hw->fmeter_regmap = syscon_regmap_lookup_by_phandle(node,
+							FM_CLK_PHANDLE_NAME);
+	if (IS_ERR(cali_hw->fmeter_regmap)) {
+		pr_notice("fmeter regmap init failed: %d\n",
+			PTR_ERR(cali_hw->fmeter_regmap));
+		return PTR_ERR(cali_hw->fmeter_regmap);
 	}
-	cali_hw->apmixed_regmap = syscon_regmap_lookup_by_phandle(node,
-							APMIX_PHANDLE_NAME);
-	if (IS_ERR(cali_hw->apmixed_regmap)) {
-		pr_notice("apmixedsys regmap init failed: %d\n",
-			PTR_ERR(cali_hw->apmixed_regmap));
-		return PTR_ERR(cali_hw->apmixed_regmap);
+	cali_hw->ulposc_regmap = syscon_regmap_lookup_by_phandle(node,
+							ULPOSC_CLK_PHANDLE_NAME);
+	if (IS_ERR(cali_hw->ulposc_regmap)) {
+		pr_notice("ulposc regmap init failed: %d\n",
+			PTR_ERR(cali_hw->ulposc_regmap));
+		return PTR_ERR(cali_hw->ulposc_regmap);
 	}
 
 	return 0;
@@ -1826,7 +2073,7 @@ static int __init mt_scp_dts_init_dvfs_data(struct device_node *node,
 			pr_notice("Cannot get property dvfsrc opp(%d)\n", ret);
 			goto OPP_INIT_FAILED;
 		}
-		if ((*opp)[i].dvfsrc_opp != 0xff) {
+		if ((!dvfs.vlp_support) && ((*opp)[i].dvfsrc_opp != 0xff)) {
 			ret = scp_get_vcore_table((*opp)[i].dvfsrc_opp);
 			if (ret > 0) {
 				(*opp)[i].tuned_vcore = ret;
@@ -1914,6 +2161,9 @@ static int __init mt_scp_dts_regmap_init(struct platform_device *pdev,
 	dvfs.gpio_regmap = regmap;
 
 	/* get PMIC regmap */
+	if (dvfs.vlp_support)
+		goto BYPASS_PMIC;
+
 	pmic_node = of_parse_phandle(node, PMIC_PHANDLE_NAME, 0);
 	if (!pmic_node) {
 		dev_notice(&pdev->dev, "fail to find pmic node\n");
@@ -1941,6 +2191,7 @@ static int __init mt_scp_dts_regmap_init(struct platform_device *pdev,
 
 	dvfs.pmic_regmap = regmap;
 
+BYPASS_PMIC:
 	return 0;
 REGMAP_FIND_FAILED:
 	WARN_ON(1);
@@ -1959,13 +2210,29 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = of_property_read_u32(node, "vow-lp-en-gear",
-		&dvfs.vow_lp_en_gear);
-	if (ret) {
-		pr_notice("[%s]: no vow-lp-enable-gear property, set gear to -1\n",
-			__func__);
+	/*
+	* if set, no VCORE DVS is needed & PMIC setting should
+	* be done in SCP side.
+	*/
+	dvfs.vlp_support = of_property_read_bool(node, "vlp-support");
+	if (dvfs.vlp_support)
+		pr_notice("[%s]: VCORE DVS sould be bypassed\n", __func__);
+	
+	if (dvfs.vlp_support) {
 		dvfs.vow_lp_en_gear = -1;
+	} else {
+		ret = of_property_read_u32(node, "vow-lp-en-gear",
+			&dvfs.vow_lp_en_gear);
+		if (ret) {
+			pr_notice("[%s]: no vow-lp-enable-gear property, set gear to -1\n",
+				__func__);
+			dvfs.vow_lp_en_gear = -1;
+		}
 	}
+
+	dvfs.vlpck_support = of_property_read_bool(node, "vlpck-support");
+	if (dvfs.vlpck_support)
+		pr_notice("[%s]: Use VLP_CKSYS in calibration flow\n", __func__);
 
 	ret = of_property_read_u32(node, "scp-cores",
 		&dvfs.core_nums);
@@ -1975,7 +2242,10 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		dvfs.core_nums = 1;
 	}
 
-	dvfs.pmic_sshub_en = of_property_read_bool(node, "pmic-sshub-support");
+	if (dvfs.vlp_support)
+		dvfs.pmic_sshub_en = false;
+	else
+		dvfs.pmic_sshub_en = of_property_read_bool(node, "pmic-sshub-support");
 
 	ret = mt_scp_dts_regmap_init(pdev, node);
 	if (ret) {
@@ -1984,9 +2254,11 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		goto DTS_FAILED;
 	}
 
-	ret = mt_scp_dts_init_pmic_data();
-	if (ret)
-		goto DTS_FAILED;
+	if (!dvfs.vlp_support) {
+		ret = mt_scp_dts_init_pmic_data();
+		if (ret)
+			goto DTS_FAILED;
+	}
 
 	/* init dvfs data */
 	ret = mt_scp_dts_init_dvfs_data(node, &dvfs.opp);
@@ -2012,27 +2284,29 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		goto DTS_FAILED_FREE_RES;
 	}
 
-	/* get dvfsrc regulator */
-	dvfsrc_vscp_power = regulator_get(&pdev->dev, "dvfsrc-vscp");
-	if (IS_ERR(dvfsrc_vscp_power) || !dvfsrc_vscp_power) {
-		pr_notice("regulator dvfsrc-vscp is not available\n");
-		ret = PTR_ERR(dvfsrc_vscp_power);
-		goto PASS;
-	}
+	if (!dvfs.vlp_support) {
+		/* get dvfsrc regulator */
+		dvfsrc_vscp_power = regulator_get(&pdev->dev, "dvfsrc-vscp");
+		if (IS_ERR(dvfsrc_vscp_power) || !dvfsrc_vscp_power) {
+			pr_notice("regulator dvfsrc-vscp is not available\n");
+			ret = PTR_ERR(dvfsrc_vscp_power);
+			goto PASS;
+		}
 
-	/* get Vcore/Vsram Regulator */
-	reg_vcore = devm_regulator_get_optional(&pdev->dev, "sshub-vcore");
-	if (IS_ERR(reg_vcore) || !reg_vcore) {
-		pr_notice("regulator vcore sshub supply is not available\n");
-		ret = PTR_ERR(reg_vcore);
-		goto PASS;
-	}
+		/* get Vcore/Vsram Regulator */
+		reg_vcore = devm_regulator_get_optional(&pdev->dev, "sshub-vcore");
+		if (IS_ERR(reg_vcore) || !reg_vcore) {
+			pr_notice("regulator vcore sshub supply is not available\n");
+			ret = PTR_ERR(reg_vcore);
+			goto PASS;
+		}
 
-	reg_vsram = devm_regulator_get_optional(&pdev->dev, "sshub-vsram");
-	if (IS_ERR(reg_vsram) || !reg_vsram) {
-		pr_notice("regulator vsram sshub supply is not available\n");
-		ret = PTR_ERR(reg_vsram);
-		goto PASS;
+		reg_vsram = devm_regulator_get_optional(&pdev->dev, "sshub-vsram");
+		if (IS_ERR(reg_vsram) || !reg_vsram) {
+			pr_notice("regulator vsram sshub supply is not available\n");
+			ret = PTR_ERR(reg_vsram);
+			goto PASS;
+		}
 	}
 PASS:
 	return 0;
@@ -2060,7 +2334,8 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		goto GPIO_CHECK_FAILED;
 
 	/* init sshub */
-	mt_pmic_sshub_init();
+	if (!dvfs.vlp_support)
+		mt_pmic_sshub_init();
 
 	/* do ulposc calibration */
 	mt_scp_dvfs_do_ulposc_cali_process();
@@ -2086,6 +2361,7 @@ DTS_INIT_FAILED:
 static int mt_scp_dvfs_pdrv_remove(struct platform_device *pdev)
 {
 	kfree(dvfs.opp);
+	kfree(dvfs.ulposc_hw.cali_val_ext);
 	kfree(dvfs.ulposc_hw.cali_val);
 	kfree(dvfs.ulposc_hw.cali_freq);
 	kfree(dvfs.ulposc_hw.cali_configs);
