@@ -1012,14 +1012,14 @@
 			offs-cap=<0xFA0>;
 		};
 
- 		lkg: lkg@00115400 {
- 			compatible = "mediatek,mtk-lkg";
-			reg = <0 0x00115400 0 0xc00>;
+		lkg: lkg@00110400 {
+			compatible = "mediatek,mtk-lkg";
+			reg = <0 0x00110400 0 0xc00>;
 		};
 
-		cpuhvfs: cpuhvfs@00115400{
+		cpuhvfs: cpuhvfs@00110400{
 			compatible = "mediatek,cpufreq-hybrid";
-			reg = <0 0x00115400 0 0xC00>,
+			reg = <0 0x00110400 0 0xC00>,
 				<0 0x0011bc00 0 0x1400>;
 			reg-names="USRAM","CSRAM";
 			cslog-range =<0x03d0>,<0x0fa0>;
