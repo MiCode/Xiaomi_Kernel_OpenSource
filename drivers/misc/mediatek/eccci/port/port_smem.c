@@ -35,7 +35,7 @@ static unsigned int s_dl_active_bitmap;
 static unsigned int dl_active_scan(void)
 {
 	unsigned int i;
-	struct buffer_header *ptr;
+	struct buffer_header *ptr = NULL;
 	unsigned int bit_mask;
 
 	if (!s_ccb_ctl_head_tbl)
@@ -115,7 +115,7 @@ static enum hrtimer_restart smem_tx_timer_func(struct hrtimer *timer)
 static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 {
 	unsigned int i, j, len, curr_size;
-	struct ccci_smem_region *prev, *curr;
+	struct ccci_smem_region *prev = NULL, *curr = NULL;
 
 	if (md_id != MD_SYS1)
 		return;
@@ -400,7 +400,7 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 	struct ccci_smem_region *ccb_ctl =
 		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_CCB_CTRL);
 	struct ccb_ctrl_info ctrl_info;
-	struct port_t *s_port;
+	struct port_t *s_port = NULL;
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
 
@@ -761,10 +761,10 @@ static const struct file_operations smem_dev_fops = {
 
 int port_smem_init(struct port_t *port)
 {
-	struct cdev *dev;
+	struct cdev *dev = NULL;
 	int ret = 0;
 	int md_id = port->md_id;
-	struct ccci_smem_port *smem_port;
+	struct ccci_smem_port *smem_port = NULL;
 	struct ccci_smem_region *smem_region =
 		ccci_md_get_smem_by_user_id(md_id, port->minor);
 
@@ -797,6 +797,11 @@ int port_smem_init(struct port_t *port)
 
 	port->private_data = smem_port =
 		kzalloc(sizeof(struct ccci_smem_port), GFP_KERNEL);
+	if (smem_port == NULL) {
+		CCCI_ERROR_LOG(port->md_id, CHAR,
+			"alloc ccci_smem_port fail\n");
+		return -1;
+	}
 	kmemleak_ignore(smem_port);
 	/*user ID is from 0*/
 	smem_port->user_id = port->minor - CCCI_SMEM_MINOR_BASE;
@@ -822,6 +827,12 @@ int port_smem_init(struct port_t *port)
 	smem_port->poll_save_idx = 0;
 }
 	s_dl_last_w = kmalloc(sizeof(int) * ccb_configs_len, GFP_KERNEL);
+	if (!s_dl_last_w) {
+		CCCI_ERROR_LOG(port->md_id, CHAR,
+			"%s:kmalloc s_dl_last_w fail\n",
+			__func__);
+		return -1;
+	}
 	kmemleak_ignore(s_dl_last_w);
 #endif
 	return 0;

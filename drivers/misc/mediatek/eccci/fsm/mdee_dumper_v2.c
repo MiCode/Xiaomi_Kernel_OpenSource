@@ -32,7 +32,7 @@
 #endif
 
 static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
-	char *aed_str, int db_opt)
+	const char *aed_str, int db_opt)
 {
 	void *ex_log_addr = NULL;
 	int ex_log_len = 0;
@@ -45,7 +45,7 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 #if defined(CONFIG_MTK_AEE_FEATURE)
 	char buf_fail[] = "Fail alloc mem for exception\n";
 #endif
-	char *img_inf;
+	char *img_inf = NULL;
 	struct mdee_dumper_v2 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
 	struct ccci_smem_region *mdss_dbg =
@@ -102,7 +102,7 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	}
 	if (buff == NULL) {
 #if defined(CONFIG_MTK_AEE_FEATURE)
-		if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM))
+		if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,
 				md_img_addr, md_img_len, buf_fail, db_opt);
 		else
@@ -130,6 +130,12 @@ static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 	char *ex_info_temp = NULL;
 	int ret = 0;
 	int val = 0;
+
+	if (mdee == NULL) {
+		CCCI_ERROR_LOG(0, FSM, "mdee is NULL");
+		return;
+	}
+	md_id = mdee->md_id;
 
 	switch (debug_info->type) {
 	case MD_EX_DUMP_ASSERT:
@@ -505,7 +511,8 @@ static char mdee_plstr[MD_EX_PL_FATALE_TOTAL + MD_EX_OTHER_CORE_EXCEPTIN -
 	"Fatal error (CC spc)"
 };
 
-static void strmncopy(char *src, char *dst, int src_len, int dst_len)
+static void strmncopy(char *src, char *dst, const int src_len,
+	const int dst_len)
 {
 	int temp_m, temp_n, temp_i;
 
@@ -781,7 +788,7 @@ static int mdee_md32_core_parse(int md_id, struct debug_info_t *debug_info,
 	return ee_case;
 }
 
-static void mdee_set_core_name(int md_id, struct debug_info_t *debug_info,
+static void mdee_set_core_name(const int md_id, struct debug_info_t *debug_info,
 	char *core_name)
 {
 	unsigned int temp_i;
@@ -800,7 +807,7 @@ static void mdee_set_core_name(int md_id, struct debug_info_t *debug_info,
 
 static void mdee_info_prepare_v2(struct ccci_fsm_ee *mdee)
 {
-	struct ex_overview_t *ex_overview;
+	struct ex_overview_t *ex_overview = NULL;
 	int ee_case = 0;
 	struct mdee_dumper_v2 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
@@ -811,9 +818,9 @@ static void mdee_info_prepare_v2(struct ccci_fsm_ee *mdee)
 	int ret = 0;
 
 	struct ex_PL_log *ex_pl_info = (struct ex_PL_log *)dumper->ex_pl_info;
-	struct ex_PL_log *ex_PLloginfo;
-	struct ex_cs_log *ex_csLogInfo;
-	struct ex_md32_log *ex_md32LogInfo;
+	struct ex_PL_log *ex_PLloginfo = NULL;
+	struct ex_cs_log *ex_csLogInfo = NULL;
+	struct ex_md32_log *ex_md32LogInfo = NULL;
 	struct ccci_smem_region *mdss_dbg =
 	ccci_md_get_smem_by_user_id(mdee->md_id, SMEM_USER_RAW_MDSS_DBG);
 

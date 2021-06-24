@@ -54,9 +54,15 @@ int boot_md_show(int md_id, char *buf, int size)
 {
 	int curr = 0;
 
-	if (get_modem_is_enabled(md_id))
+	if (get_modem_is_enabled(md_id)) {
 		curr += snprintf(&buf[curr], size, "md%d:%d",
 			md_id + 1, ccci_fsm_get_md_state(md_id));
+		if (curr <= 0 || curr >= size) {
+			CCCI_ERROR_LOG(-1, CORE, "%s:snprintf md_state fail\n",
+				__func__);
+			return -1;
+		}
+	}
 	return curr;
 }
 
@@ -156,7 +162,8 @@ static int __init ccci_init(void)
 	return 0;
 }
 
-static void receive_wakeup_src_notify(int md_id, char *buf, unsigned int len)
+static void receive_wakeup_src_notify(int md_id,
+		const char *buf, unsigned int len)
 {
 	int tmp_data = 0;
 
@@ -309,6 +316,12 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 			CCMSG_ID_SYSMSGSVC_LOWPWR_APSTS_NOTIFY,
 			*((int *)buf), 1);
 		break;
+	case MD_CAMERA_FRE_HOPPING:
+		tmp_data = 0;
+		memcpy((void *)&tmp_data, buf, len);
+		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+			id, tmp_data, 0);
+		break;
 	default:
 		ret = -CCCI_ERR_FUNC_ID_ERROR;
 		break;
@@ -318,8 +331,8 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 
 int aee_dump_ccci_debug_info(int md_id, void **addr, int *size)
 {
-	struct ccci_smem_region *mdccci_dbg;
-	struct ccci_per_md *per_md_data;
+	struct ccci_smem_region *mdccci_dbg = NULL;
+	struct ccci_per_md *per_md_data = NULL;
 
 	md_id--; /* EE string use 1 and 2, not 0 and 1 */
 	if (!get_modem_is_enabled(md_id))
@@ -342,7 +355,7 @@ int ccci_register_dev_node(const char *name, int major_id, int minor)
 	dev_t dev_n;
 	struct device *dev;
 
-	dev_n = MKDEV(major_id, minor);
+	dev_n = MKDEV((unsigned int)major_id, (unsigned int)minor);
 	dev = device_create(dev_class, NULL, dev_n, NULL, "%s", name);
 
 	if (IS_ERR(dev))

@@ -1436,7 +1436,7 @@ struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
 
 void ccci_md_clear_smem(int md_id, int first_boot)
 {
-	struct ccci_smem_region *region;
+	struct ccci_smem_region *region = NULL;
 	unsigned int size;
 
 	if (md_id < 0 || md_id >= MAX_MD_NUM) {
@@ -2052,7 +2052,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 	u32 total_len;
 	int j;
 	/*runtime data buffer */
-	struct ccci_smem_region *region;
+	struct ccci_smem_region *region = NULL;
 	struct ccci_smem_region *rt_data_region =
 		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_RUNTIME_DATA);
 	char *rt_data = (char *)rt_data_region->base_ap_view_vir;
@@ -2064,7 +2064,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 #if (MD_GENERATION >= 6297)
 	struct ccci_runtime_md_mem_ap_addr rt_mem_view[4];
 #endif
-	struct md_query_ap_feature *md_feature;
+	struct md_query_ap_feature *md_feature = NULL;
 	struct md_query_ap_feature md_feature_ap;
 	struct ccci_runtime_boot_info boot_info;
 	unsigned int random_seed = 0;

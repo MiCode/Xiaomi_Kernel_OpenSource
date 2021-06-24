@@ -870,7 +870,7 @@ static void config_ap_runtime_data_v2_1(struct ccci_modem *md,
 static struct sk_buff *md_cd_init_rt_header(struct ccci_modem *md,
 	int packet_size, unsigned int tx_ch, int skb_from_pool)
 {
-	struct ccci_header *ccci_h;
+	struct ccci_header *ccci_h = NULL;
 	struct sk_buff *skb = NULL;
 
 	skb = ccci_alloc_skb(packet_size, skb_from_pool, 1);
@@ -898,8 +898,8 @@ static int md_cd_send_runtime_data_v2(struct ccci_modem *md,
 #if (MD_GENERATION <= 6292)
 	struct sk_buff *skb = NULL;
 #endif
-	struct ap_query_md_feature *ap_rt_data;
-	struct ap_query_md_feature_v2_1 *ap_rt_data_v2_1;
+	struct ap_query_md_feature *ap_rt_data = NULL;
+	struct ap_query_md_feature_v2_1 *ap_rt_data_v2_1 = NULL;
 	int ret;
 
 	if (md->runtime_version < AP_MD_HS_V2) {
@@ -1134,8 +1134,8 @@ static int md_cd_dump_info(struct ccci_modem *md,
 	}
 	if (flag & DUMP_FLAG_SMEM_CCB_DATA) {
 		int i, j;
-		unsigned char *curr_ch_p;
-		unsigned int *curr_p;
+		unsigned char *curr_ch_p = NULL;
+		unsigned int *curr_p = NULL;
 		struct ccci_smem_region *ccb_data =
 			ccci_md_get_smem_by_user_id(md->index,
 				SMEM_USER_CCB_START);
@@ -1437,8 +1437,8 @@ static struct syscore_ops ccci_modem_sysops = {
 static u64 cldma_dmamask = DMA_BIT_MASK(36);
 static int ccci_modem_probe(struct platform_device *plat_dev)
 {
-	struct ccci_modem *md;
-	struct md_sys1_info *md_info;
+	struct ccci_modem *md = NULL;
+	struct md_sys1_info *md_info = NULL;
 	int md_id;
 	struct ccci_dev_cfg dev_cfg;
 	int ret;

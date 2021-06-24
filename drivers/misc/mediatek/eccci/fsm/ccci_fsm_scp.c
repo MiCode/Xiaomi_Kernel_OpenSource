@@ -32,7 +32,7 @@ static unsigned int init_work_done;
 static struct ccci_ipi_msg scp_ipi_rx_msg;
 #endif
 
-static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
+static int ccci_scp_ipi_send(int md_id, const int op_id, void *data)
 {
 	int ret = 0;
 #if (MD_GENERATION >= 6297)

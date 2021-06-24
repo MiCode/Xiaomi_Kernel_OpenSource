@@ -328,7 +328,7 @@ void get_dtsi_eint_node(int md_id)
 {
 	static int init; /*default is 0*/
 	int i;
-	struct device_node *node;
+	struct device_node *node = NULL;
 
 	if (init)
 		return;
@@ -341,7 +341,7 @@ void get_dtsi_eint_node(int md_id)
 		node = of_find_node_by_name(NULL,
 			eint_node_prop.name[i].node_name);
 		if (node != NULL) {
-			eint_node_prop.ExistFlag |= (1 << i);
+			eint_node_prop.ExistFlag |= (1U << i);
 			get_eint_attr_val(md_id, node, i);
 		} else {
 			CCCI_INIT_LOG(md_id, RPC, "%s: node %d no found\n",
@@ -350,7 +350,7 @@ void get_dtsi_eint_node(int md_id)
 	}
 }
 
-int get_eint_attr_DTSVal(int md_id, char *name, unsigned int name_len,
+int get_eint_attr_DTSVal(int md_id, const char *name, unsigned int name_len,
 			unsigned int type, char *result, unsigned int *len)
 {
 	int i, sim_value;
@@ -362,7 +362,7 @@ int get_eint_attr_DTSVal(int md_id, char *name, unsigned int name_len,
 		return ERR_SIM_HOT_PLUG_QUERY_TYPE;
 
 	for (i = 0; i < MD_SIM_MAX; i++) {
-		if ((eint_node_prop.ExistFlag & (1 << i)) == 0)
+		if ((eint_node_prop.ExistFlag & (1U << i)) == 0)
 			continue;
 		if (!(strncmp(name,
 			eint_node_prop.name[i].node_name, name_len))) {
@@ -1223,7 +1223,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 	struct rpc_buffer *rpc_buf = (struct rpc_buffer *)skb->data;
 	int i, data_len, AlignLength, ret;
 	struct rpc_pkt pkt[RPC_MAX_ARG_NUM];
-	char *ptr, *ptr_base;
+	char *ptr = NULL, *ptr_base = NULL;
 	/* unsigned int tmp_data[128]; */
 	/* size of tmp_data should be >= any RPC output result */
 	unsigned int *tmp_data =
@@ -1350,7 +1350,7 @@ static const struct file_operations rpc_dev_fops = {
 };
 static int port_rpc_init(struct port_t *port)
 {
-	struct cdev *dev;
+	struct cdev *dev = NULL;
 	int ret = 0;
 	static int first_init = 1;
 

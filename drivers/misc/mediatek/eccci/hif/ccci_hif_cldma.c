@@ -926,7 +926,7 @@ static int cldma_net_rx_push_thread(void *arg)
 	int count = 0;
 	int ret;
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		if (skb_queue_empty(&queue->skb_list.skb_list)) {
 			cldma_queue_broadcast_state(md_ctrl, RX_FLUSH,
 				IN, queue->index);
@@ -934,10 +934,9 @@ static int cldma_net_rx_push_thread(void *arg)
 			ret = wait_event_interruptible(queue->rx_wq,
 				!skb_queue_empty(&queue->skb_list.skb_list));
 			if (ret == -ERESTARTSYS)
-				continue;	/* FIXME */
+				continue;
 		}
-		if (kthread_should_stop())
-			break;
+
 		skb = ccci_skb_dequeue(&queue->skb_list);
 		if (!skb)
 			continue;
@@ -1388,7 +1387,10 @@ static void cldma_rx_ring_init(struct md_cd_ctrl *md_ctrl,
 			item->skb = ccci_alloc_skb(ring->pkt_size, 1, 1);
 			if (item->skb == NULL) {
 				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
-					"%s:ccci_alloc_skb fail\n", __func__);
+					"%s:alloc skb fail,stop init\n",
+					__func__);
+				dma_pool_free(md_ctrl->gpd_dmapool,
+					item->gpd, item->gpd_addr);
 				kfree(item);
 				return;
 			}

@@ -240,7 +240,7 @@ int ccmni_send_pkt(int md_id, int ccmni_idx, void *data, int is_ack)
 {
 	struct port_t *port = NULL;
 	/* struct ccci_request *req = NULL; */
-	struct ccci_header *ccci_h;
+	struct ccci_header *ccci_h = NULL;
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct ccmni_ch *channel = ccmni_ops.get_ch(md_id, ccmni_idx);
 	int tx_ch = is_ack ? channel->dl_ack : channel->tx;
@@ -402,7 +402,7 @@ static int port_net_init(struct port_t *port)
 static void recv_from_port_list(struct port_t *port)
 {
 	unsigned long flags;
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
 
 	spin_lock_irqsave(&port->port_rx_list.lock, flags);
 	skb = __skb_dequeue(&port->port_rx_list);
@@ -419,8 +419,8 @@ int mtk_ccci_handle_port_list(int status, char *name)
 {
 	int ret = 0, channel;
 	unsigned long flags;
-	struct port_t *port;
-	struct sk_buff *skb;
+	struct port_t *port = NULL;
+	struct sk_buff *skb = NULL;
 
 	channel = mtk_ccci_request_port(name);
 	ret = find_port_by_channel(channel, &port);
@@ -602,7 +602,7 @@ void port_net_md_dump_info(struct port_t *port, unsigned int flag)
 void mtk_ccci_net_port_init(char *name)
 {
 	int ret = 0, channel;
-	struct port_t *port;
+	struct port_t *port = NULL;
 
 	channel = mtk_ccci_request_port(name);
 	if (channel < 0) {

@@ -280,7 +280,7 @@ static void ccci_dump_opt_tbl(void)
 static void parse_option_setting_from_lk(void)
 {
 	int i = 0;
-	int val;
+	int val = 0;
 	char *name = NULL;
 	int using_default = 1;
 	int using_lk_setting;
@@ -333,6 +333,7 @@ static void parse_option_setting_from_lk(void)
 #define LK_LOAD_MD_ERR_LK_INFO_FAIL	(1<<3)
 #define LK_KERNEL_SETTING_MIS_SYNC	(1<<4)
 #define LK_TAG_BUFF_SIZE_NOT_ENOUGH	(1<<5)
+
 
 
 
@@ -686,7 +687,7 @@ static void share_memory_info_parsing(void)
 static void md_mem_info_parsing(void)
 {
 	struct _modem_info md_inf[4];
-	struct _modem_info *curr;
+	struct _modem_info *curr = NULL;
 	int md_num = 0;
 	int md_id;
 
@@ -1058,7 +1059,7 @@ static int __init collect_lk_boot_arguments(void)
 {
 	/* Device tree method */
 	int ret;
-	unsigned int *raw_ptr;
+	unsigned int *raw_ptr = NULL;
 
 	/* This function will initialize s_g_dt_chosen_node */
 	ret = of_scan_flat_dt(early_init_dt_get_chosen, NULL);
@@ -1412,9 +1413,7 @@ struct _mpu_cfg *get_mpu_region_cfg_info(int region_id)
 	return NULL;
 }
 
-/**************************************************************/
-/* The following functions are back up for old platform       */
-/**************************************************************/
+
 static void cal_md_settings(int md_id)
 {
 	unsigned int md_en = 0;
@@ -1543,7 +1542,7 @@ static void cal_md_settings(int md_id)
 
 static void cal_md_settings_v2(struct device_node *node)
 {
-	unsigned int tmp;
+	unsigned int tmp = 0;
 	char tmp_buf[30];
 	int i;
 
@@ -1684,7 +1683,7 @@ int ccci_reserve_mem_of_init(struct reserved_mem *rmem)
 			&rptr, rsize);
 	md_resv_mem_list[md_id] = rptr;
 	md_resv_size_list[md_id] = rsize;
-	s_g_md_usage_case |= (1 << md_id);
+	s_g_md_usage_case |= (1U << md_id);
 	return 0;
 }
 

@@ -91,7 +91,7 @@ EXPORT_SYMBOL(set_ccmni_rps);
 static inline int is_ack_skb(int md_id, struct sk_buff *skb)
 {
 	u32 packet_type;
-	struct tcphdr *tcph;
+	struct tcphdr *tcph = NULL;
 	int ret = 0;
 	unsigned int count = 0;
 #if defined(CONFIG_MTK_MDDP_WH_SUPPORT) || defined(CONFIG_MTK_MDDP_USB_SUPPORT)
@@ -161,9 +161,10 @@ static inline int is_ack_skb(int md_id, struct sk_buff *skb)
 static inline int arp_reply(int md_id, struct net_device *dev,
 	struct ethhdr *eth, struct sk_buff *skb)
 {
-	struct arphdr_in *request, *reply;
-	struct sk_buff *new_skb;
-	struct ethhdr *new_eth;
+	struct arphdr_in *request = NULL;
+	struct arphdr_in *reply = NULL;
+	struct sk_buff *new_skb = NULL;
+	struct ethhdr *new_eth = NULL;
 	static unsigned char fake_sha[6] = {
 		0x06, 0x16, 0x26, 0x36, 0x46, 0x56 };
 
@@ -274,13 +275,14 @@ static inline int ccmni_forward_rx(struct ccmni_instance *ccmni,
 {
 	bool flt_ok = false;
 	bool flt_flag = true;
-	unsigned int pkt_type;
+	unsigned int pkt_type = 0;
 	struct iphdr *iph;
 	struct ipv6hdr *iph6;
 	struct ccmni_fwd_filter flt_tmp;
 	unsigned int i, j;
 	u16 mask;
-	u32 *addr1, *addr2;
+	u32 *addr1 = NULL;
+	u32 *addr2 = NULL;
 
 	if (ccmni->flt_cnt) {
 		for (i = 0; i < CCMNI_FLT_NUM; i++) {
@@ -499,7 +501,7 @@ static int ccmni_close(struct net_device *dev)
 
 static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-	int ret;
+	int ret = 0;
 	int skb_len = skb->len;
 	struct ccmni_instance *ccmni =
 		(struct ccmni_instance *)netdev_priv(dev);
@@ -510,9 +512,9 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct md_tag_packet *tag = NULL;
 	unsigned int count = 0;
 #endif
-	struct ethhdr *eth;
+	struct ethhdr *eth = NULL;
 	__be16 type;
-	struct iphdr *iph;
+	struct iphdr *iph = NULL;
 
 #if defined(CCMNI_MET_DEBUG)
 	char tag_name[32] = { '\0' };
@@ -711,8 +713,8 @@ static void ccmni_tx_timeout(struct net_device *dev)
 
 static int ccmni_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
-	int md_id, md_id_irat, usage_cnt;
-	struct ccmni_instance *ccmni_irat;
+	int md_id = 0, md_id_irat = 0, usage_cnt = 0;
+	struct ccmni_instance *ccmni_irat = NULL;
 	struct ccmni_instance *ccmni =
 		(struct ccmni_instance *)netdev_priv(dev);
 	struct ccmni_instance *ccmni_tmp = NULL;
@@ -1070,8 +1072,23 @@ static inline int ccmni_inst_init(int md_id, struct ccmni_instance *ccmni,
 	ccmni->ctlb = ctlb;
 	ccmni->md_id = md_id;
 	ccmni->napi = kzalloc(sizeof(struct napi_struct), GFP_KERNEL);
+	if (ccmni->napi == NULL) {
+		CCMNI_PR_DBG(md_id, "%s kzalloc ccmni->napi fail\n",
+			__func__);
+		return -1;
+	}
 	ccmni->timer = kzalloc(sizeof(struct timer_list), GFP_KERNEL);
+	if (ccmni->timer == NULL) {
+		CCMNI_PR_DBG(md_id, "%s kzalloc ccmni->timer fail\n",
+			__func__);
+		return -1;
+	}
 	ccmni->spinlock = kzalloc(sizeof(spinlock_t), GFP_KERNEL);
+	if (ccmni->spinlock == NULL) {
+		CCMNI_PR_DBG(md_id, "%s kzalloc ccmni->spinlock fail\n",
+			__func__);
+		return -1;
+	}
 	ccmni->ack_prio_en = ccmni->ch.multiq ? 1 : 0;
 
 	/* register napi device */
@@ -1398,8 +1415,9 @@ int ccmni_header(int md_id, int ccmni_idx, struct sk_buff *skb)
 		struct ccmni_ctl_block *ctlb = NULL;
 		struct ccmni_instance *ccmni = NULL;
 		struct net_device *dev = NULL;
-		int pkt_type, skb_len;
-		struct iphdr *iph;
+		int pkt_type = 0;
+		int skb_len = 0;
+		struct iphdr *iph = NULL;
 
 		int is_gro = 0;
 
@@ -1460,7 +1478,8 @@ int ccmni_rx_list_push(int md_id, int ccmni_idx, struct list_head *head,
 	struct ccmni_ctl_block *ctlb = NULL;
 	struct ccmni_instance *ccmni = NULL;
 #ifdef ENABLE_WQ_GRO
-	struct sk_buff *skb, *next;
+	struct sk_buff *skb = NULL;
+	struct sk_buff *next = NULL;
 #endif
 
 	if (md_id < 0 || md_id >= MAX_MD_NUM || ccmni_idx < 0) {
@@ -1819,8 +1838,8 @@ static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 	struct net_device *dev = NULL;
 	struct netdev_queue *dev_queue = NULL;
 	struct netdev_queue *ack_queue = NULL;
-	struct Qdisc *qdisc;
-	struct Qdisc *ack_qdisc;
+	struct Qdisc *qdisc = NULL;
+	struct Qdisc *ack_qdisc = NULL;
 
 	if (md_id < 0 || md_id >= MAX_MD_NUM || ccmni_idx < 0) {
 		CCMNI_INF_MSG(-1, "invalid md_id or index:md_id = %d,index = %d\n",

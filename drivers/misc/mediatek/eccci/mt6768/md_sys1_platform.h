@@ -17,6 +17,7 @@
 #include <linux/skbuff.h>
 #include "ccif_hif_platform.h"
 #include <mt-plat/mtk_secure_api.h>
+#include "ccci_platform.h"
 
 /* this is the platform header file for CLDMA MODEM, not just CLDMA! */
 

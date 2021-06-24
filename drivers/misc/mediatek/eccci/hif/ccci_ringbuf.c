@@ -243,8 +243,8 @@ int ccci_ringbuf_write(int md_id, struct ccci_ringbuf *ringbuf,
 {
 	int aligned_data_len;
 	unsigned int read, write, length;
-	unsigned char *tx_buffer;
-	unsigned char *h_ptr;
+	unsigned char *tx_buffer = NULL;
+	unsigned char *h_ptr = NULL;
 
 	unsigned int header[2] = { CCIF_PKG_HEADER, 0x0 };
 	unsigned int footer[2] = { CCIF_PKG_FOOTER, CCIF_PKG_FOOTER };
@@ -265,7 +265,7 @@ int ccci_ringbuf_write(int md_id, struct ccci_ringbuf *ringbuf,
 		write -= length;
 	CCIF_RBF_WRITE(tx_buffer, data, data_len, write, length);
 	/* 8 byte align */
-	aligned_data_len = (((data_len + 7) >> 3) << 3);
+	aligned_data_len = ((((unsigned int)(data_len + 7)) >> 3) << 3);
 	write += aligned_data_len;
 	if (write >= length)
 		write -= length;
@@ -289,7 +289,8 @@ int ccci_ringbuf_write(int md_id, struct ccci_ringbuf *ringbuf,
 
 int ccci_ringbuf_readable(int md_id, struct ccci_ringbuf *ringbuf)
 {
-	unsigned char *rx_buffer, *outptr;
+	unsigned char *rx_buffer = NULL;
+	unsigned char *outptr = NULL;
 	unsigned int read, write, ccci_pkg_len, ccif_pkg_len;
 	unsigned int footer_pos, length;
 	unsigned int header[2] = { 0 };

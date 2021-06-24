@@ -80,7 +80,7 @@ static char *get_md_img_cap_str(int md_img_type)
 {
 	int ret = 0;
 
-	if (md_img_type >= ARRAY_SIZE(md_img_type_str) || md_img_type < 0) {
+	if ((unsigned int)md_img_type >= ARRAY_SIZE(md_img_type_str) || md_img_type < 0) {
 		ret = snprintf(invalid_img_str, 32, "err_img_type%d", md_img_type);
 		if (ret <= 0 || ret >= 32)
 			CCCI_UTIL_ERR_MSG_WITH_ID(0,
@@ -121,7 +121,8 @@ static int check_md_header_v3(int md_id, void *parse_addr,
 	bool md_size_check = false;
 	int idx;
 	unsigned int md_size = 0;
-	unsigned char *start, *ptr;
+	unsigned char *start = NULL;
+	unsigned char *ptr = NULL;
 	int region_id, domain_id; /* add for v4 v5 */
 	/* struct md_check_header_v3 *head = &md_img_header_v3[md_id]; */
 	struct md_check_header_v4 *head = &md_img_header_v4[md_id];
@@ -362,7 +363,8 @@ static int md_check_header_parser(int md_id, void *parse_addr,
 	unsigned int md_size = 0;
 	unsigned int header_size;
 	int idx, header_up;
-	unsigned char *start, *ptr;
+	unsigned char *start = NULL;
+	unsigned char *ptr = NULL;
 	int region_id, domain_id; /* add for v4 v5 */
 
 	struct md_check_header_struct *head = NULL;
@@ -654,7 +656,8 @@ static int check_md_header(int md_id, void *parse_addr,
 	unsigned int md_size = 0;
 	unsigned int header_size;
 	int idx;
-	unsigned char *start, *ptr;
+	unsigned char *start = NULL;
+	unsigned char *ptr = NULL;
 	struct md_check_header *head = &md_img_header[md_id];
 
 	get_md_resv_mem_info(md_id, NULL, &md_size, NULL, NULL);
@@ -825,7 +828,7 @@ char *ccci_get_md_info_str(int md_id)
 	return md_img_info_str[md_id];
 }
 
-void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
+void get_md_postfix(int md_id, const char k[], char buf[], char buf_ex[])
 {
 	/* name format: modem_X_YY_K_Ex.img */
 	int X, Ex = 0;
@@ -1254,7 +1257,7 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 {
 	int ret = 0;
 	struct ccci_image_info *img_ptr = (struct ccci_image_info *)img_inf;
-	char *img_str;
+	char *img_str = NULL;
 	char *buf;
 	int has_write = 0;
 
@@ -1319,7 +1322,7 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 
 int check_if_bypass_header(void *buf, int *img_size)
 {
-	union prt_img_hdr *hdr_ptr;
+	union prt_img_hdr *hdr_ptr = NULL;
 
 	if (buf == NULL) {
 		CCCI_UTIL_ERR_MSG("buffer is NULL, no need bypass\n");

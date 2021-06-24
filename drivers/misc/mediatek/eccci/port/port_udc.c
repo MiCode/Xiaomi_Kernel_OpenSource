@@ -122,11 +122,11 @@ int udc_cmd_check(struct port_t *port,
 {
 	int md_id = port->md_id;
 	unsigned long flags, flag;
-	struct ccci_udc_comm_param_t *ccci_udc_com;
-	struct ccci_udc_actv_param_t *ccci_udc_actv;
+	struct ccci_udc_comm_param_t *ccci_udc_com = NULL;
+	struct ccci_udc_actv_param_t *ccci_udc_actv = NULL;
 	int skb_len, skb_tmp_len;
 	int ret = -1;
-	struct sk_buff *skb_tmp;
+	struct sk_buff *skb_tmp = NULL;
 	int inst_id_tmp = -1;
 
 	if (!skb_queue_empty(&port->rx_skb_list_hp) ||
@@ -255,8 +255,8 @@ int udc_actv_handler(struct z_stream_s *zcpr, enum udc_dict_opt_e dic_option,
 int udc_deactv_handler(struct z_stream_s *zcpr, u32 inst_id)
 {
 	int deflate_end_flag = 0;
-	struct udc_comp_req_t *req_des;
-	struct udc_comp_rslt_t *rslt_des;
+	struct udc_comp_req_t *req_des = NULL;
+	struct udc_comp_rslt_t *rslt_des = NULL;
 	unsigned int ap_read = 0, ap_write = 0, md_write = 0, md_read = 0;
 	struct udc_comp_req_t *req_des_base = NULL;
 	struct udc_comp_rslt_t *rslt_des_base = NULL;
@@ -414,8 +414,8 @@ static int check_cmp_buf(u32 inst_id,
 	int max_output_size)
 {
 	unsigned int ap_read = 0, ap_write = 0, md_read = 0, md_read_len = 0;
-	struct udc_comp_req_t *req_des, *req_des_base = NULL;
-	struct udc_comp_rslt_t *rslt_des, *rslt_des_base = NULL;
+	struct udc_comp_req_t *req_des = NULL, *req_des_base = NULL;
+	struct udc_comp_rslt_t *rslt_des = NULL, *rslt_des_base = NULL;
 
 	if (inst_id == 0) {
 		req_des_base = req_des_0_base;
@@ -468,7 +468,7 @@ static int check_cmp_buf(u32 inst_id,
 static int cal_udc_param(struct z_stream_s *zcpr, u32 inst_id,
 	int *max_output_size, int *udc_chksum)
 {
-	struct udc_comp_req_t *req_des_tmp, *req_des_base = NULL;
+	struct udc_comp_req_t *req_des_tmp = NULL, *req_des_base = NULL;
 	unsigned int ap_read = 0, md_write = 0;
 	unsigned int uncomp_len_total = 0;
 	int j = 0;
@@ -575,11 +575,11 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	static unsigned int udc_chksum;
 	static unsigned int is_rst;
 	unsigned int ap_read = 0, ap_write = 0, md_read = 0, md_write = 0;
-	struct udc_comp_req_t *req_des, *req_des_base = NULL;
-	struct udc_comp_rslt_t *rslt_des, *rslt_des_base = NULL;
+	struct udc_comp_req_t *req_des = NULL, *req_des_base = NULL;
+	struct udc_comp_rslt_t *rslt_des = NULL, *rslt_des_base = NULL;
 	unsigned int uncomp_len, comp_len = 0;
 	unsigned int remain_len;
-	unsigned char *uncomp_data;
+	unsigned char *uncomp_data = NULL;
 	/* reserved 8k for reduce memcpy op */
 	unsigned int rsvd_len = MAX_PACKET_SIZE - 8*1024;
 
@@ -722,13 +722,13 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 void udc_cmd_handler(struct port_t *port, struct sk_buff *skb)
 {
 	int md_id = port->md_id;
-	struct ccci_smem_region *region;
+	struct ccci_smem_region *region = NULL;
 	int ret = -UDC_GENERAL_ERR;
 	unsigned int udc_cmd = 0;
 	static unsigned char *comp_data[2];
-	struct ccci_udc_deactv_param_t *ccci_udc_deactv;
-	struct ccci_udc_disc_param_t *ccci_udc_disc;
-	struct ccci_udc_actv_param_t *ccci_udc_actv;
+	struct ccci_udc_deactv_param_t *ccci_udc_deactv = NULL;
+	struct ccci_udc_disc_param_t *ccci_udc_disc = NULL;
+	struct ccci_udc_actv_param_t *ccci_udc_actv = NULL;
 	static struct z_stream_s zcpr0, zcpr1;
 	unsigned int md_write = 0, ap_read = 0;
 
@@ -993,17 +993,16 @@ static int port_udc_kthread_handler(void *arg)
 	CCCI_DEBUG_LOG(md_id, UDC,
 		"udc port %s's thread running\n", port->name);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		if (skb_queue_empty(&port->rx_skb_list) ||
 			skb_queue_empty(&port->rx_skb_list_hp)) {
 			ret = wait_event_interruptible(port->rx_wq,
 				!skb_queue_empty(&port->rx_skb_list) ||
 				!skb_queue_empty(&port->rx_skb_list_hp));
 			if (ret == -ERESTARTSYS)
-				continue;	/* FIXME */
+				continue;
 		}
-		if (kthread_should_stop())
-			break;
+
 		CCCI_DEBUG_LOG(md_id, UDC, "read on %s\n", port->name);
 		/* 1. dequeue */
 		if (!skb_queue_empty(&port->rx_skb_list_hp)) {

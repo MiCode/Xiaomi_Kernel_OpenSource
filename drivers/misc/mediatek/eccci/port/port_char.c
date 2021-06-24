@@ -75,7 +75,7 @@ static const struct file_operations char_dev_fops = {
 };
 static int port_char_init(struct port_t *port)
 {
-	struct cdev *dev;
+	struct cdev *dev = NULL;
 	int ret = 0;
 	int md_id = port->md_id;
 

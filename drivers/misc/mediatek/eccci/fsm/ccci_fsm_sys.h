@@ -21,7 +21,7 @@ struct mdee_info_collect {
 	char mdee_info[AED_STR_LEN];
 };
 
-void fsm_sys_mdee_info_notify(char *buf);
+void fsm_sys_mdee_info_notify(const char *buf);
 int fsm_sys_init(void);
 
 #endif /* __CCCI_FSM_SYS_H__ */

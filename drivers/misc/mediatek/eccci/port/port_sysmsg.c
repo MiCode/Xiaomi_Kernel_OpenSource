@@ -102,7 +102,7 @@ int register_ccci_sys_call_back(int md_id, unsigned int id,
 	ccci_sys_cb_func_t func)
 {
 	int ret = 0;
-	struct ccci_sys_cb_func_info *info_ptr;
+	struct ccci_sys_cb_func_info *info_ptr = NULL;
 
 	if (md_id >= MAX_MD_NUM) {
 		CCCI_ERROR_LOG(md_id, SYS,
@@ -137,7 +137,7 @@ void exec_ccci_sys_call_back(int md_id, int cb_id, int data)
 {
 	ccci_sys_cb_func_t func;
 	int id;
-	struct ccci_sys_cb_func_info *curr_table;
+	struct ccci_sys_cb_func_info *curr_table = NULL;
 
 	if (md_id >= MAX_MD_NUM) {
 		CCCI_ERROR_LOG(md_id, SYS,

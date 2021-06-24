@@ -374,9 +374,9 @@ static  struct dvfs_ref s_dl_dvfs_tbl[] = {
 
 static  struct dvfs_ref s_ul_dvfs_tbl[] = {
 	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps*/
-	{600000000LL, 2700000, 2706000, -1, -1, 0, 0x02, 0xF0, 0xF0},
-	{500000000LL, 1700000, 1706000, -1, -1, 0, 0x02, 0xF0, 0xF0},
-	{300000000LL, 1500000, 1500000, -1, -1, 1, 0xFF, 0xFF, 0x0D},
+	{600000000LL, 2700000, 2706000, -1, -1, 0, 0x02, 0xC0, 0xC0},
+	{500000000LL, 1700000, 1706000, -1, -1, 0, 0x02, 0xC0, 0xC0},
+	{300000000LL, 1500000, 1500000, -1, -1, 1, 0xFF, 0xFF, 0x3D},
 	{250000000LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},
 	/* normal */
 	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},

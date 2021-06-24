@@ -27,6 +27,9 @@ struct md_pll_reg {
 
 	void __iomem *md_boot_stats_select;
 	void __iomem *md_boot_stats;
+#ifdef CCCI_PLATFORM_MT6781
+	void __iomem *md_l2sram_base;
+#endif
 };
 struct md_hw_info {
 	/* HW info - Register Address */

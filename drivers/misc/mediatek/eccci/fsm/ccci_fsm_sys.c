@@ -18,7 +18,7 @@
 
 struct mdee_info_collect mdee_collect;
 
-void fsm_sys_mdee_info_notify(char *buf)
+void fsm_sys_mdee_info_notify(const char *buf)
 {
 	int ret = 0;
 

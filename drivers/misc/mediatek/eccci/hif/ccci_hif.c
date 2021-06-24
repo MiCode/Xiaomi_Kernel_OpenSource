@@ -200,7 +200,7 @@ void ccci_md_add_log_history(struct ccci_hif_traffic *tinfo,
 			= is_droped;
 		tinfo->tx_history_ptr[queue_index]++;
 		tinfo->tx_history_ptr[queue_index]
-		&= (PACKET_HISTORY_DEPTH - 1);
+		&= (unsigned int)(PACKET_HISTORY_DEPTH - 1);
 	}
 	if (dir == IN) {
 		memcpy(&tinfo->rx_history[queue_index][

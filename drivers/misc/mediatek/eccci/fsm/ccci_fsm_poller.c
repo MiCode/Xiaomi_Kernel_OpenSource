@@ -158,7 +158,7 @@ int fsm_poller_init(struct ccci_fsm_poller *poller_ctl)
 int ccci_fsm_recv_status_packet(int md_id, struct sk_buff *skb)
 {
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
-	struct ccci_fsm_poller *poller_ctl;
+	struct ccci_fsm_poller *poller_ctl = NULL;
 
 	if (!ctl)
 		return -CCCI_ERR_INVALID_PARAM;

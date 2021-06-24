@@ -131,7 +131,7 @@ static const struct file_operations char_dev_fops = {
 int fsm_monitor_send_message(int md_id, enum CCCI_MD_MSG msg, u32 resv)
 {
 	struct sk_buff *skb = NULL;
-	struct ccci_header *ccci_h;
+	struct ccci_header *ccci_h = NULL;
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
 	struct ccci_fsm_monitor *monitor_ctl = NULL;
 

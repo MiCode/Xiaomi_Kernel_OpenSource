@@ -273,7 +273,7 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 {
 	int i, rx_qno;
 	unsigned char md_id = hif_ctrl->md_id;
-	struct dpmaif_rx_queue *rxq;
+	struct dpmaif_rx_queue *rxq = NULL;
 
 	if (!dump_multi && (qno >= DPMAIF_RXQ_NUM)) {
 		CCCI_MEM_LOG_TAG(md_id, TAG, "invalid rxq%d\n", qno);
@@ -360,7 +360,7 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 static void dpmaif_dump_txq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 	unsigned int qno, int dump_multi)
 {
-	struct dpmaif_tx_queue *txq;
+	struct dpmaif_tx_queue *txq = NULL;
 	int i, tx_qno;
 	unsigned char md_id = hif_ctrl->md_id;
 
@@ -906,7 +906,7 @@ static int dpmaif_net_rx_push_thread(void *arg)
 	CCCI_BOOTUP_LOG(-1, TAG, "Using batch !!!\r\n");
 #endif
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		if (skb_queue_empty(&queue->skb_list.skb_list)) {
 #ifdef USING_BATCHING
 			if (!list_empty(&gro_head)) {
@@ -930,10 +930,9 @@ static int dpmaif_net_rx_push_thread(void *arg)
 				(!skb_queue_empty(&queue->skb_list.skb_list) ||
 				kthread_should_stop()));
 			if (ret == -ERESTARTSYS)
-				continue;	/* FIXME */
+				continue;
 		}
-		if (kthread_should_stop())
-			break;
+
 		skb = ccci_skb_dequeue(&queue->skb_list);
 		if (!skb)
 			continue;
@@ -1063,10 +1062,10 @@ static inline void dpmaif_rx_msg_pit(struct dpmaif_rx_queue *rxq,
 static int dpmaif_alloc_rx_frag(struct dpmaif_bat_request *bat_req,
 		unsigned char q_num, unsigned int buf_cnt, int blocking)
 {
-	struct dpmaif_bat_t *cur_bat;
-	struct dpmaif_bat_page_t *cur_page;
-	void *data;
-	struct page *page;
+	struct dpmaif_bat_t *cur_bat = NULL;
+	struct dpmaif_bat_page_t *cur_page = NULL;
+	void *data = NULL;
+	struct page *page = NULL;
 	unsigned long long data_base_addr;
 	unsigned long offset;
 	int size = L1_CACHE_ALIGN(bat_req->pkt_buf_sz);
@@ -1390,8 +1389,8 @@ static int dpmaif_alloc_rx_buf(struct dpmaif_bat_request *bat_req,
 		unsigned char q_num, unsigned int buf_cnt, int blocking)
 {
 	struct sk_buff *new_skb = NULL;
-	struct dpmaif_bat_t *cur_bat;
-	struct dpmaif_bat_skb_t *cur_skb;
+	struct dpmaif_bat_t *cur_bat = NULL;
+	struct dpmaif_bat_skb_t *cur_skb = NULL;
 	int ret = 0;
 	unsigned int i;
 	unsigned int buf_space;
@@ -1497,7 +1496,7 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	int data_offset = 0;
 	#endif
 	unsigned int data_len;
-	unsigned int *temp_u32;
+	unsigned int *temp_u32 = NULL;
 
 	/* rx current skb data unmapping */
 	dma_unmap_single(ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
@@ -1687,7 +1686,7 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	struct sk_buff *new_skb = cur_skb->skb;
 	int ret = 0;
 
-	struct lhif_header *lhif_h; /* for uplayer: port/ccmni */
+	struct lhif_header *lhif_h = NULL; /* for uplayer: port/ccmni */
 	struct ccci_header ccci_h; /* for collect debug info. */
 
 #if MD_GENERATION >= 6297
@@ -1897,7 +1896,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 #ifndef PIT_USING_CACHE_MEM
 	struct dpmaifq_normal_pit pkt_inf_s;
 #endif
-	struct dpmaifq_normal_pit *pkt_inf_t;
+	struct dpmaifq_normal_pit *pkt_inf_t = NULL;
 	unsigned short rx_cnt;
 	unsigned int pit_len = rxq->pit_size_cnt;
 	unsigned int cur_pit;
@@ -2323,9 +2322,10 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 	unsigned int release_cnt)
 {
 	unsigned int drb_entry_num, idx;
-	unsigned int *temp;
+	unsigned int *temp = NULL;
 	unsigned short cur_idx;
-	struct dpmaif_drb_pd *cur_drb, *drb_base =
+	struct dpmaif_drb_pd *cur_drb = NULL;
+	struct dpmaif_drb_pd *drb_base =
 		(struct dpmaif_drb_pd *)(dpmaif_ctrl->txq[q_num].drb_base);
 	struct sk_buff *skb_free = NULL;
 	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[q_num];
@@ -2504,14 +2504,13 @@ int dpmaif_tx_done_kernel_thread(void *arg)
 
 	sched_setaffinity(0, &tmask);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		ret = wait_event_interruptible(txq->tx_done_wait,
 				(atomic_read(&txq->txq_done)
 				|| kthread_should_stop()));
-		if (kthread_should_stop())
-			break;
 		if (ret == -ERESTARTSYS)
 			continue;
+
 		atomic_set(&txq->txq_done, 0);
 		/* This is used to avoid race condition which may cause KE */
 		if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) {
@@ -2659,7 +2658,7 @@ static void set_drb_msg(unsigned char q_num, unsigned short cur_idx,
 		((struct dpmaif_drb_msg *)dpmaif_ctrl->txq[q_num].drb_base +
 		cur_idx);
 #ifdef DPMAIF_DEBUG_LOG
-	unsigned int *temp;
+	unsigned int *temp = NULL;
 #endif
 
 	drb->dtyp = DES_DTYP_MSG;
@@ -2696,7 +2695,7 @@ static void set_drb_payload(unsigned char q_num, unsigned short cur_idx,
 		((struct dpmaif_drb_pd *)dpmaif_ctrl->txq[q_num].drb_base +
 		cur_idx);
 #ifdef DPMAIF_DEBUG_LOG
-	unsigned int *temp;
+	unsigned int *temp = NULL;
 #endif
 
 	drb->dtyp = DES_DTYP_PD;
@@ -2759,9 +2758,9 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	struct sk_buff *skb, int skb_from_pool, int blocking)
 {
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
-	struct dpmaif_tx_queue *txq;
+	struct dpmaif_tx_queue *txq = NULL;
 	struct skb_shared_info *info = NULL;
-	void *data_addr;
+	void *data_addr = NULL;
 	unsigned int data_len;
 	int ret = 0;
 	unsigned short cur_idx, is_frag, is_last_one;
@@ -3307,7 +3306,7 @@ static irqreturn_t dpmaif_isr(int irq, void *data)
 void mtk_ccci_affinity_rta(u32 irq_cpus, u32 push_cpus, int cpu_nr)
 {
 	struct cpumask imask, tmask;
-	int i;
+	unsigned int i;
 
 	cpumask_clear(&imask);
 	cpumask_clear(&tmask);
@@ -3705,8 +3704,8 @@ static int dpmaif_txq_init(struct dpmaif_tx_queue *txq)
 /* we put initializations which takes too much time here: SW init only */
 int dpmaif_late_init(unsigned char hif_id)
 {
-	struct dpmaif_rx_queue *rx_q;
-	struct dpmaif_tx_queue *tx_q;
+	struct dpmaif_rx_queue *rx_q = NULL;
+	struct dpmaif_tx_queue *tx_q = NULL;
 	int ret, i;
 	unsigned int reg_val;
 
@@ -3803,8 +3802,8 @@ void __weak ccci_set_clk_by_id(int idx, unsigned int on)
 
 int dpmaif_start(unsigned char hif_id)
 {
-	struct dpmaif_rx_queue *rxq;
-	struct dpmaif_tx_queue *txq;
+	struct dpmaif_rx_queue *rxq = NULL;
+	struct dpmaif_tx_queue *txq = NULL;
 	int i, ret = 0;
 #ifdef MT6297
 	unsigned int reg_value;
@@ -3963,8 +3962,8 @@ int dpmaif_start(unsigned char hif_id)
  */
 void dpmaif_stop_hw(void)
 {
-	struct dpmaif_rx_queue *rxq;
-	struct dpmaif_tx_queue *txq;
+	struct dpmaif_rx_queue *rxq = NULL;
+	struct dpmaif_tx_queue *txq = NULL;
 	unsigned int que_cnt, ret;
 	int count;
 
@@ -4113,10 +4112,10 @@ static int dpmaif_stop_txq(struct dpmaif_tx_queue *txq)
 static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 {
 	struct sk_buff *skb = NULL;
-	struct dpmaif_bat_skb_t *cur_skb;
+	struct dpmaif_bat_skb_t *cur_skb = NULL;
 #ifdef HW_FRG_FEATURE_ENABLE
 	struct page *page = NULL;
-	struct dpmaif_bat_page_t *cur_page;
+	struct dpmaif_bat_page_t *cur_page = NULL;
 #endif
 	int j, cnt;
 
@@ -4198,7 +4197,7 @@ static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 
 int dpmaif_stop_rx_sw(unsigned char hif_id)
 {
-	struct dpmaif_rx_queue *rxq;
+	struct dpmaif_rx_queue *rxq = NULL;
 	int i;
 
 	/* rx rx clear */
@@ -4211,7 +4210,7 @@ int dpmaif_stop_rx_sw(unsigned char hif_id)
 
 int dpmaif_stop_tx_sw(unsigned char hif_id)
 {
-	struct dpmaif_tx_queue *txq;
+	struct dpmaif_tx_queue *txq = NULL;
 	int i;
 
 	/*flush and release UL descriptor*/
@@ -4368,7 +4367,7 @@ static int dpmaif_start_queue(unsigned char hif_id, unsigned char qno,
 static int dpmaif_resume(unsigned char hif_id)
 {
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
-	struct dpmaif_tx_queue *queue;
+	struct dpmaif_tx_queue *queue = NULL;
 	int i, ret = 0;
 	unsigned int rel_cnt = 0;
 

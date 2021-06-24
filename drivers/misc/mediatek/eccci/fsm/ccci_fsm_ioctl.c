@@ -319,7 +319,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			per_md_data->sim_setting.sim_mode = sim_slot_cfg[1];
 			per_md_data->sim_setting.slot1_mode = sim_slot_cfg[2];
 			per_md_data->sim_setting.slot2_mode = sim_slot_cfg[3];
-			data = ((data << 16)
+			data = (((unsigned int)data << 16)
 					| per_md_data->sim_setting.sim_mode);
 			switch_sim_mode(md_id, (char *)&data, sizeof(data));
 			fsm_monitor_send_message(md_id,

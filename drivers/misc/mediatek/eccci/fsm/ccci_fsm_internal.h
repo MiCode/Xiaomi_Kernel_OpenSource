@@ -305,6 +305,6 @@ extern void inject_md_status_event(int md_id, int event_type, char reason[]);
 extern void ccci_set_mem_access_protection_second_stage(int md_id);
 #endif
 extern void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl,
-	unsigned int type, char *str);
+	const unsigned int type, const char *str);
 #endif /* __CCCI_FSM_INTERNAL_H__ */
 

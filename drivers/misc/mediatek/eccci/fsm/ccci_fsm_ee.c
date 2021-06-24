@@ -18,7 +18,7 @@
 #endif
 
 void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl,
-	unsigned int type, char *str)
+	const unsigned int type, const char *str)
 {
 	u64 ts_nsec;
 	unsigned long rem_nsec;

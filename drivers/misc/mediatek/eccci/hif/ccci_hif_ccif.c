@@ -326,7 +326,7 @@ static void md_ccif_sram_rx_work(struct work_struct *work)
 		container_of(work, struct md_ccif_ctrl, ccif_sram_work);
 	struct ccci_header *dl_pkg =
 		&md_ctrl->ccif_sram_layout->dl_header;
-	struct ccci_header *ccci_h;
+	struct ccci_header *ccci_h = NULL;
 	struct ccci_header ccci_hdr;
 	struct sk_buff *skb = NULL;
 	int pkg_size, ret = 0, retry_cnt = 0;
@@ -404,7 +404,7 @@ static void md_ccif_sram_rx_work(struct work_struct *work)
 static void c2k_mem_dump(void *start_addr, int len)
 {
 	unsigned int *curr_p = (unsigned int *)start_addr;
-	unsigned char *curr_ch_p;
+	unsigned char *curr_ch_p = NULL;
 	int _16_fix_num = len / 16;
 	int tail_num = len % 16;
 	char buf[16];
@@ -548,6 +548,11 @@ static void md_ccif_traffic_work_func(struct work_struct *work)
 static void md_ccif_traffic_monitor_func(unsigned long data)
 {
 	struct md_ccif_ctrl *md_ctrl = (struct md_ccif_ctrl *)data;
+	if (!md_ctrl) {
+		CCCI_ERROR_LOG(0, TAG, "%s: md_ctl get fail\n",
+			__func__);
+		return;
+	}
 
 	schedule_work(&md_ctrl->traffic_info.traffic_work_struct);
 }
@@ -561,13 +566,13 @@ static int ccif_rx_collect(struct md_ccif_queue *queue, int budget,
 {
 
 	struct ccci_ringbuf *rx_buf = queue->ringbuf;
-	unsigned char *data_ptr;
+	unsigned char *data_ptr = NULL;
 	int ret = 0, count = 0, pkg_size;
 	unsigned long flags;
 	int qno = queue->index;
 	struct ccci_header *ccci_h = NULL;
 	struct ccci_header ccci_hdr;
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
 	int c2k_to_ccci_ch = 0;
 	unsigned char from_pool;
 	struct md_ccif_ctrl *md_ctrl =
@@ -774,7 +779,7 @@ void ccif_polling_ready(unsigned char hif_id, int step)
 	cnt = CCCI_EE_HS_POLLING_TIME / time_once;
 #endif
 	while (cnt > 0) {
-		if (md_ctrl->channel_id & (1 << step)) {
+		if (md_ctrl->channel_id & (1U << step)) {
 			clear_bit(step, &md_ctrl->channel_id);
 			CCCI_DEBUG_LOG(md_ctrl->md_id, TAG,
 				"poll RCHNUM %ld\n", md_ctrl->channel_id);
@@ -1027,7 +1032,7 @@ static void md_ccif_launch_work(struct md_ccif_ctrl *md_ctrl)
 	}
 #endif
 	for (i = 0; i < QUEUE_NUM; i++) {
-		if (md_ctrl->channel_id & (1 << (i + D2H_RINGQ0))) {
+		if (md_ctrl->channel_id & (1U << (i + D2H_RINGQ0))) {
 			md_ctrl->traffic_info.latest_q_rx_isr_time[i]
 				= local_clock();
 			clear_bit(i + D2H_RINGQ0, &md_ctrl->channel_id);
@@ -1119,7 +1124,7 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 	unsigned long flags;
 	int ccci_to_c2k_ch = 0;
 	int md_flow_ctrl = 0;
-	struct ccci_header *ccci_h;
+	struct ccci_header *ccci_h = NULL;
 	int md_cap = ccci_md_get_cap_by_id(md_ctrl->md_id);
 	struct ccci_per_md *per_md_data =
 		ccci_get_per_md_data(md_ctrl->md_id);
@@ -1215,7 +1220,7 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 		spin_unlock_irqrestore(&queue->tx_lock, flags);
 	} else {
 		md_flow_ctrl = ccif_is_md_flow_ctrl_supported(md_ctrl);
-		if (likely(md_cap & MODEM_CAP_TXBUSY_STOP)
+		if (likely((unsigned int)md_cap & MODEM_CAP_TXBUSY_STOP)
 			&& md_flow_ctrl > 0) {
 			ccif_set_busy_queue(md_ctrl, qno);
 			/* double check tx buffer after set busy bit.
@@ -1339,7 +1344,7 @@ static int md_ccif_start_queue(unsigned char hif_id,
 	unsigned long flags;
 
 	if (dir == OUT
-		&& likely(ccci_md_get_cap_by_id(md_ctrl->md_id)
+		&& likely((unsigned int)ccci_md_get_cap_by_id(md_ctrl->md_id)
 		& MODEM_CAP_TXBUSY_STOP
 		&& (qno < QUEUE_NUM))) {
 		queue = &md_ctrl->txq[qno];
@@ -1396,7 +1401,7 @@ int md_ccif_ring_buf_init(unsigned char hif_id)
 	unsigned char *buf;
 	int bufsize = 0;
 	struct md_ccif_ctrl *md_ctrl;
-	struct ccci_ringbuf *ringbuf;
+	struct ccci_ringbuf *ringbuf = NULL;
 	struct ccci_smem_region *ccism;
 
 	md_ctrl = (struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
@@ -1600,6 +1605,12 @@ int ccci_ccif_hif_init(unsigned char hif_id, unsigned char md_id)
 	struct md_ccif_ctrl *md_ctrl;
 
 	md_ctrl = kzalloc(sizeof(struct md_ccif_ctrl), GFP_KERNEL);
+	if (md_ctrl == NULL) {
+		CCCI_ERROR_LOG(md_id, TAG,
+			"%s:alloc md_ccif_ctrl memory fail\n",
+			__func__);
+		return -1;
+	}
 
 	INIT_WORK(&md_ctrl->ccif_sram_work, md_ccif_sram_rx_work);
 	init_timer(&md_ctrl->traffic_monitor);
