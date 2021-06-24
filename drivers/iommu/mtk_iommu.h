@@ -96,6 +96,7 @@ struct mtk_iommu_plat_data {
 
 	u32		    tbw_reg_val;
 	u32		    reg_val;
+	u32                 normal_dom;
 	int		    iommu_id;
 	enum mtk_iommu_type iommu_type;
 	unsigned int				iova_region_nr;
@@ -155,5 +156,17 @@ static inline void mtk_iommu_unbind(struct device *dev)
 
 	component_unbind_all(dev, &data->larb_imu);
 }
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU)
+
+int dev_is_normal_region(struct device *dev);
+
+#else
+
+int dev_is_normal_region(struct device *dev)
+{
+	return 0;
+}
+#endif
 
 #endif

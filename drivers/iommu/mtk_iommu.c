@@ -582,6 +582,25 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+int dev_is_normal_region(struct device *dev)
+{
+	struct mtk_iommu_data *data;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	int domid;
+
+	if (!fwspec) {
+		pr_err("%s err, dev(%s) is not iommu-dev\n", __func__, dev_name(dev));
+		return 0;
+	}
+
+	data = dev_iommu_priv_get(dev);
+	domid = MTK_M4U_TO_DOM(fwspec->ids[0]);
+
+	pr_info("%s, domid:%d -- %u\n", __func__, domid, data->plat_data->normal_dom);
+	return domid == data->plat_data->normal_dom;
+}
+EXPORT_SYMBOL_GPL(dev_is_normal_region);
+
 static int mtk_iommu_get_domain_id(struct device *dev,
 				   const struct mtk_iommu_plat_data *plat_data)
 {
@@ -1554,8 +1573,9 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu0 = {
 	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	 = DISP_IOMMU,
 	.iommu_type      = MM_IOMMU,
+	.normal_dom	 = 0,
 	.iova_region     = mt6873_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6873_multi_dom),
+	.iova_region_nr  = ARRAY_SIZE(mt6873_multi_dom),
 };
 
 static const struct mtk_iommu_plat_data mt6893_data_iommu1 = {
@@ -1567,6 +1587,7 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu1 = {
 	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	 = MDP_IOMMU,
 	.iommu_type      = MM_IOMMU,
+	.normal_dom	 = 0,
 	.iova_region     = mt6873_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6873_multi_dom),
 };
@@ -1576,6 +1597,7 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu2 = {
 	.flags           = LINK_WITH_APU | IOVA_34_EN | GET_DOM_ID_LEGACY,
 	.iommu_id	 = APU_IOMMU0,
 	.iommu_type      = APU_IOMMU,
+	.normal_dom      = 0,
 	.inv_sel_reg	 = REG_MMU_INV_SEL_GEN2,
 	.iova_region	 = mt6873_multi_dom,
 	/* not use larbid_remap */
@@ -1588,6 +1610,7 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu3 = {
 	.flags           = LINK_WITH_APU,
 	.iommu_id	 = APU_IOMMU1,
 	.iommu_type      = APU_IOMMU,
+	.normal_dom	 = 0,
 	.inv_sel_reg	 = REG_MMU_INV_SEL_GEN2,
 	.iova_region	 = mt6873_multi_dom,
 	/* not use larbid_remap */
@@ -1603,6 +1626,7 @@ static const struct mtk_iommu_plat_data mt6983_data_disp = {
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
+	.normal_dom	= 0,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
@@ -1621,6 +1645,7 @@ static const struct mtk_iommu_plat_data mt6983_data_mdp = {
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= MDP_IOMMU,
 	.iommu_type     = MM_IOMMU,
+	.normal_dom	= 0,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
@@ -1637,6 +1662,7 @@ static const struct mtk_iommu_plat_data mt6983_data_apu0 = {
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU0,
 	.iommu_type     = APU_IOMMU,
+	.normal_dom	= 0,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
@@ -1648,6 +1674,7 @@ static const struct mtk_iommu_plat_data mt6983_data_apu1 = {
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU1,
 	.iommu_type     = APU_IOMMU,
+	.normal_dom	= 0,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
@@ -1661,6 +1688,7 @@ static const struct mtk_iommu_plat_data mt6983_data_peri_m4 = {
 	.tbw_reg_val	= 0x3ffc3ffd,
 	.iommu_id	= PERI_IOMMU_M4,
 	.iommu_type     = PERI_IOMMU,
+	.normal_dom	= 0,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
@@ -1674,6 +1702,7 @@ static const struct mtk_iommu_plat_data mt6983_data_peri_m6 = {
 	.tbw_reg_val	= 0x03fc03fd,
 	.iommu_id	= PERI_IOMMU_M6,
 	.iommu_type     = PERI_IOMMU,
+	.normal_dom	= 0,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
@@ -1686,6 +1715,7 @@ static const struct mtk_iommu_plat_data mt6983_data_peri_m7 = {
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= PERI_IOMMU_M7,
 	.iommu_type     = PERI_IOMMU,
+	.normal_dom	= 0,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
 	/* not use larbid_remap */
