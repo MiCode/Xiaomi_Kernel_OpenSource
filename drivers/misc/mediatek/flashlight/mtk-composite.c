@@ -52,6 +52,8 @@ fl_async_bound(struct v4l2_async_notifier *notifier,
 	int i;
 
 	pr_info("%s\n", __func__);
+	pr_info("%s v4l2:%s\n", __func__,
+		to_of_node(asd[0].match.fwnode)->name);
 	for (i = 0; i < ARRAY_SIZE(pfdev->asd); i++) {
 		if (pfdev->asd[i]->match.fwnode ==
 			asd[0].match.fwnode) {
