@@ -22,6 +22,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mkp
 ccflags-y += -I$(srctree)/security/selinux/include/
 obj-$(CONFIG_MTK_MKP) += mkp.o
+mkp-$(CONFIG_MTK_MKP) := mkp_main.o
 mkp-$(CONFIG_MTK_MKP) += policy.o
 mkp-$(CONFIG_MTK_MKP) += mkp_hvc.o
 mkp-$(CONFIG_MTK_MKP) += mkp_api.o
