@@ -105,6 +105,15 @@
 #define ADSP_SLEEP_STATUS_REG       (ADSP_BASE + 0x0158)
 #define ADSP_BUS_MON_BASE           (ADSP_BASE + 0x5000)
 
+/* dma */
+#define ADSP_DMA_BASE_REG           (ADSP_BASE + 0x2000)
+#define ADSP_DMA_BASE_CH(ch)        (ADSP_DMA_BASE_REG + (ch + 1) * 0x100)
+#define ADSP_DMA_CHANNEL            (4)
+#define ADSP_DMA_START_CLR_BIT      (0x00008000)
+#define ADSP_DMA_ACK_BIT            (0x00008000)
+#define ADSP_DMA_START(base)        (base + 0x0018)
+#define ADSP_DMA_ACKINT(base)       (base + 0x0020)
+
 /* adsp power state*/
 #define ADSP_A_IS_RESET             (0x00)
 #define ADSP_A_IS_ACTIVE            (0x10)
