@@ -4526,7 +4526,6 @@ static signed int DPE_probe(struct platform_device *pDev)
 	struct DPE_device *_dpe_dev;
 	struct video_device *vfd = NULL;
 	struct device_node *node;
-	int ret;
 #if IS_ENABLED(CONFIG_OF)
 	struct DPE_device *DPE_dev;
 #endif
@@ -4730,17 +4729,7 @@ if (DPE_dev->irq > 0) {
 		}
 #ifdef KERNEL_DMA_BUFFER
 	gdev = &pDev->dev;
-	//dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34));
-	if(!gdev->dma_parms){
-		gdev->dma_parms =
-			devm_kzalloc(&pDev->dev, sizeof(*gdev->dma_parms),
-				     GFP_KERNEL);
-	}
-	ret = dma_set_max_seg_size(gdev, (unsigned int)DMA_BIT_MASK(34));
-	if (ret) {
-		dev_dbg(gdev, "Failed to set DMA segment size\n");
-		goto EXIT;
-	}
+	dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34));
 	kernel_dpebuf =
 	vb2_dc_alloc(gdev, DMA_ATTR_WRITE_COMBINE, WB_TOTAL_SIZE,
 	DMA_FROM_DEVICE, 0);
