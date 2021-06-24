@@ -34,6 +34,7 @@ struct mdw_rsc_mgr {
 
 	struct list_head r_list;
 	struct mutex mtx;
+	bool is_inited;
 };
 
 static struct mdw_rsc_mgr rsc_mgr;
@@ -1132,6 +1133,8 @@ uint32_t mdw_rsc_get_preempt_plcy(void)
 
 int mdw_rsc_init(void)
 {
+	int ret = 0;
+
 	memset(&rsc_mgr, 0, sizeof(rsc_mgr));
 	rsc_mgr.tabs = vzalloc
 		(sizeof(struct mdw_rsc_tab *) * MDW_DEV_MAX);
@@ -1144,7 +1147,11 @@ int mdw_rsc_init(void)
 	mutex_init(&rsc_mgr.mtx);
 	mdw_rsc_ws_init();
 
-	return mdw_sched_init();
+	ret = mdw_sched_init();
+	if (!ret)
+		rsc_mgr.is_inited = true;
+
+	return ret;
 }
 
 void mdw_rsc_deinit(void)
@@ -1171,6 +1178,7 @@ void mdw_rsc_deinit(void)
 
 	mdw_rsc_ws_destroy();
 	vfree(rsc_mgr.tabs);
+	rsc_mgr.is_inited = false;
 	mdw_flw_debug("\n");
 }
 
@@ -1178,8 +1186,10 @@ int apusys_register_device(struct apusys_device *dev)
 {
 	int ret = 0;
 
-	if (!dev)
-		return -EINVAL;
+	if (!dev || rsc_mgr.is_inited != true) {
+		pr_info("apusys mdw not init\n");
+		return -ENODEV;
+	}
 
 	if (dev->dev_type > APUSYS_DEVICE_NONE &&
 		dev->dev_type < MDW_DEV_MAX)
@@ -1193,6 +1203,11 @@ int apusys_unregister_device(struct apusys_device *dev)
 	struct mdw_rsc_tab *tab = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct mdw_dev_info *d = NULL;
+
+	if (!dev || rsc_mgr.is_inited != true) {
+		pr_info("apusys mdw not init\n");
+		return -ENODEV;
+	}
 
 	mdw_flw_debug("dev(%d-#%d)\n", dev->dev_type, dev->idx);
 

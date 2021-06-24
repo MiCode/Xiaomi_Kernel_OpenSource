@@ -201,13 +201,15 @@ int mdw_init(struct apusys_core_info *info)
 	g_info = info;
 	mdw_driver.driver.of_match_table = mdw_of_match;
 
-	ret =  platform_driver_register(&mdw_driver);
-	if (ret) {
-		pr_info("failed to register apu mdw driver\n");
-		goto out;
+	if (!mdw_pwr_check()) {
+		pr_info("apusys mdw disable\n");
+		return -ENODEV;
 	}
 
-out:
+	ret =  platform_driver_register(&mdw_driver);
+	if (ret)
+		pr_info("failed to register apu mdw driver\n");
+
 	return ret;
 }
 
