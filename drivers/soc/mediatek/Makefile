@@ -6,6 +6,12 @@ obj-$(CONFIG_MTK_IPI) += mtk_tinysys_ipi.o
 obj-$(CONFIG_MTK_MBOX) += mtk-mbox.o
 obj-$(CONFIG_MTK_PMIC_WRAP) += mtk-pmic-wrap.o
 obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys.o mtk-pm-domain-disable-unused.o
+ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6893.c),)
+obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6893.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6879.c),)
+obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6879.o
+endif
 obj-$(CONFIG_MTK_MMSYS) += mtk-mmsys.o
 obj-$(CONFIG_MTK_DEVAPC) += devapc/
 obj-$(CONFIG_MTK_DEVMPU) += devmpu/
