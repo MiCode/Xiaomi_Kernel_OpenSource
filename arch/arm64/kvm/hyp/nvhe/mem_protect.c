@@ -322,10 +322,17 @@ int host_stage2_idmap_locked(phys_addr_t addr, u64 size,
 
 int host_stage2_set_owner_locked(phys_addr_t addr, u64 size, u8 owner_id)
 {
+	int ret;
+
 	hyp_assert_lock_held(&host_kvm.lock);
 
-	return host_stage2_try(kvm_pgtable_stage2_set_owner, &host_kvm.pgt,
-			       addr, size, &host_s2_pool, owner_id);
+	ret = host_stage2_try(kvm_pgtable_stage2_set_owner, &host_kvm.pgt,
+			      addr, size, &host_s2_pool, owner_id);
+
+	if (!ret && kvm_iommu_ops.host_stage2_set_owner)
+		kvm_iommu_ops.host_stage2_set_owner(addr, size, owner_id);
+
+	return ret;
 }
 
 static bool host_stage2_force_pte_cb(u64 addr, u64 end, enum kvm_pgtable_prot prot)
