@@ -3856,10 +3856,11 @@
 		reg = <0 0x1c001000 0 0x1000>,		// sys_spm
 			<0 0x19020000 0 0x1000>,	// apu_rcx
 			<0 0x190e0000 0 0x1000>,	// apu_vcore
-			<0 0x19001000 0 0x1000>,	// apu_md32_mbox
+			<0 0x190e1000 0 0x1000>,	// apu_md32_mbox 0
 			<0 0x190f0000 0 0x1000>,	// apu_rpc
 			<0 0x190f1000 0 0x1000>,	// apu_pcu
 			<0 0x190f2000 0 0x1000>,	// apu_ao_ctl
+			<0 0x190f3000 0 0x1000>,	// apu_pll
 			<0 0x190f4000 0 0x1000>,	// apu_acc
 			<0 0x190f6000 0 0x1000>,	// apu_are0
 			<0 0x190f7000 0 0x1000>,	// apu_are1
@@ -3872,10 +3873,11 @@
 			"sys_spm",
 			"apu_rcx",
 			"apu_vcore",
-			"apu_md32_mbox",
+			"apu_md32_mbox",	// apu_mbox0
 			"apu_rpc",
 			"apu_pcu",
 			"apu_ao_ctl",
+			"apu_pll",
 			"apu_acc",
 			"apu_are0",
 			"apu_are1",
