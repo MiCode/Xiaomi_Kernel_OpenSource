@@ -11,9 +11,12 @@
 struct  ccci_plat_val {
 	struct regmap *infra_ao_base;
 	struct regmap *topckgen_clk_base;
+	struct regmap *spm_sleep_base;
 	unsigned int md_gen;
 	unsigned long offset_epof_md1;
 	void __iomem *md_plat_info;
+	int srclkena_setting;
+	int srclken_o1_bit;
 };
 
 struct ccci_clk_node {
@@ -56,7 +59,6 @@ struct md_hw_info {
 	unsigned long ap_ccif_base;
 	unsigned long md_ccif_base;
 	unsigned int sram_size;
-	unsigned long spm_sleep_base;
 
 	/* HW info - Interrutpt ID */
 	unsigned int ap_ccif_irq1_id;
