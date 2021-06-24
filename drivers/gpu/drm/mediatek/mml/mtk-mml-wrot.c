@@ -657,6 +657,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 
 	const phys_addr_t base_pa = comp->base_pa;
@@ -739,11 +740,11 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 				&block_x, &addr_c, &addr_v, &addr);
 
 		/* Write frame base address */
-		mml_write(pkt, base_pa + VIDO_BASE_ADDR, addr, U32_MAX,
+		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR, addr, U32_MAX,
 			cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
-		mml_write(pkt, base_pa + VIDO_BASE_ADDR_C, addr_c, U32_MAX,
+		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_C, addr_c, U32_MAX,
 			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
-		mml_write(pkt, base_pa + VIDO_BASE_ADDR_V, addr_v, U32_MAX,
+		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_V, addr_v, U32_MAX,
 			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
 
 		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
@@ -773,11 +774,11 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 			iova[2], wrot_frm->plane_offset[2]);
 
 		/* Write frame base address */
-		mml_write(pkt, base_pa + VIDO_BASE_ADDR, iova[0], U32_MAX,
+		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR, iova[0], U32_MAX,
 			cache, &wrot_frm->labels[WROT_LABEL_ADDR]);
-		mml_write(pkt, base_pa + VIDO_BASE_ADDR_C, iova[1], U32_MAX,
+		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_C, iova[1], U32_MAX,
 			cache, &wrot_frm->labels[WROT_LABEL_ADDR_C]);
-		mml_write(pkt, base_pa + VIDO_BASE_ADDR_V, iova[2], U32_MAX,
+		mml_write(pkt, reuse, base_pa + VIDO_BASE_ADDR_V, iova[2], U32_MAX,
 			cache, &wrot_frm->labels[WROT_LABEL_ADDR_V]);
 	}
 
@@ -1360,7 +1361,7 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_config *cfg = task->config;
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
-	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 
 	const u32 dest_fmt = dest->data.format;
 	const u32 out_swap = MML_FMT_SWAP(dest_fmt);
@@ -1383,18 +1384,18 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 				&block_x, &addr_c, &addr_v, &addr);
 
 		/* update frame base address to list */
-		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR], addr);
-		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR_C], addr_c);
-		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR_V], addr_v);
+		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR], addr);
+		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR_C], addr_c);
+		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR_V], addr_v);
 	} else {
 		u32 addr = wrot_frm->iova[0] + wrot_frm->plane_offset[0];
 		u32 addr_c = wrot_frm->iova[1] + wrot_frm->plane_offset[1];
 		u32 addr_v = wrot_frm->iova[2] + wrot_frm->plane_offset[2];
 
 		/* update frame base address to list */
-		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR], addr);
-		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR_C], addr_c);
-		mml_update(cache, wrot_frm->labels[WROT_LABEL_ADDR_V], addr_v);
+		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR], addr);
+		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR_C], addr_c);
+		mml_update(reuse, wrot_frm->labels[WROT_LABEL_ADDR_V], addr_v);
 	}
 
 	return 0;

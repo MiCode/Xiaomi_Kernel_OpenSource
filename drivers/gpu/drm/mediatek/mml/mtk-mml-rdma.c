@@ -614,6 +614,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_file_buf *src_buf = &task->buf.src;
 	struct mml_frame_data *src = &cfg->info.src;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 
 	const phys_addr_t base_pa = comp->base_pa;
@@ -732,11 +733,11 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		calc_ufo(src_buf, src, &ufo_dec_length_y, &ufo_dec_length_c,
 			 &u4pic_size_bs, &u4pic_size_y_bs);
 
-		mml_write(pkt, base_pa + RDMA_UFO_DEC_LENGTH_BASE_Y,
+		mml_write(pkt, reuse, base_pa + RDMA_UFO_DEC_LENGTH_BASE_Y,
 			ufo_dec_length_y, U32_MAX, cache,
 			&rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y]);
 
-		mml_write(pkt, base_pa + RDMA_UFO_DEC_LENGTH_BASE_C,
+		mml_write(pkt, reuse, base_pa + RDMA_UFO_DEC_LENGTH_BASE_C,
 			ufo_dec_length_c, U32_MAX, cache,
 			&rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C]);
 
@@ -778,11 +779,11 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_msg("%s src %#x %#x %#x",
 		__func__, iova[0], iova[1], iova[2]);
 
-	mml_write(pkt, base_pa + RDMA_SRC_BASE_0, iova[0], U32_MAX, cache,
+	mml_write(pkt, reuse, base_pa + RDMA_SRC_BASE_0, iova[0], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_0]);
-	mml_write(pkt, base_pa + RDMA_SRC_BASE_1, iova[1], U32_MAX, cache,
+	mml_write(pkt, reuse, base_pa + RDMA_SRC_BASE_1, iova[1], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_1]);
-	mml_write(pkt, base_pa + RDMA_SRC_BASE_2, iova[2], U32_MAX, cache,
+	mml_write(pkt, reuse, base_pa + RDMA_SRC_BASE_2, iova[2], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_2]);
 
 	mml_msg("%s end %#x %#x %#x",
@@ -791,11 +792,11 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	iova_end[0] = iova[0] + src_buf->size[0];
 	iova_end[1] = iova[1] + src_buf->size[1];
 	iova_end[2] = iova[2] + src_buf->size[2];
-	mml_write(pkt, base_pa + RDMA_SRC_END_0, iova_end[0], U32_MAX, cache,
+	mml_write(pkt, reuse, base_pa + RDMA_SRC_END_0, iova_end[0], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_END_0]);
-	mml_write(pkt, base_pa + RDMA_SRC_END_1, iova_end[1], U32_MAX, cache,
+	mml_write(pkt, reuse, base_pa + RDMA_SRC_END_1, iova_end[1], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_END_1]);
-	mml_write(pkt, base_pa + RDMA_SRC_END_2, iova_end[2], U32_MAX, cache,
+	mml_write(pkt, reuse, base_pa + RDMA_SRC_END_2, iova_end[2], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_END_2]);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_SIZE_IN_BYTE,
@@ -972,7 +973,7 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
  	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
 	struct mml_file_buf *src_buf = &task->buf.src;
 	struct mml_frame_data *src = &cfg->info.src;
-	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 
 	u32 iova[3];
 	u32 iova_end[3];
@@ -989,9 +990,9 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		calc_ufo(src_buf, src, &ufo_dec_length_y, &ufo_dec_length_c,
 			 &u4pic_size_bs, &u4pic_size_y_bs);
 
-		mml_update(cache, rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
+		mml_update(reuse, rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_Y],
 			ufo_dec_length_y);
-		mml_update(cache, rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
+		mml_update(reuse, rdma_frm->labels[RDMA_LABEL_UFO_DEC_BASE_C],
 			ufo_dec_length_c);
 	}
 
@@ -1015,20 +1016,17 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 	}
 
-	mml_update(cache, rdma_frm->labels[RDMA_LABEL_BASE_0], iova[0]);
-	mml_update(cache, rdma_frm->labels[RDMA_LABEL_BASE_1], iova[1]);
-	mml_update(cache, rdma_frm->labels[RDMA_LABEL_BASE_2], iova[2]);
+	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_0], iova[0]);
+	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_1], iova[1]);
+	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_2], iova[2]);
 
 	iova_end[0] = iova[0] + src_buf->size[0];
 	iova_end[1] = iova[1] + src_buf->size[1];
 	iova_end[2] = iova[2] + src_buf->size[2];
 
-	mml_update(cache, rdma_frm->labels[RDMA_LABEL_BASE_END_0],
-		iova_end[0]);
-	mml_update(cache, rdma_frm->labels[RDMA_LABEL_BASE_END_1],
-		iova_end[1]);
-	mml_update(cache, rdma_frm->labels[RDMA_LABEL_BASE_END_2],
-		iova_end[2]);
+	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_END_0], iova_end[0]);
+	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_END_1], iova_end[1]);
+	mml_update(reuse, rdma_frm->labels[RDMA_LABEL_BASE_END_2], iova_end[2]);
 
 	return 0;
 }

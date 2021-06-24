@@ -101,7 +101,7 @@ static void case_general_submit(struct mml_test *test,
 	const u32 src_h = the_case.cfg_src_h;
 	s32 ret;
 
-	mml_log("[test]%s begin cast %d", __func__, mml_case);
+	mml_log("[test]%s begin case %d", __func__, mml_case);
 
 	mml_pdev = mml_get_plat_device(test->pdev);
 	if (!mml_pdev) {

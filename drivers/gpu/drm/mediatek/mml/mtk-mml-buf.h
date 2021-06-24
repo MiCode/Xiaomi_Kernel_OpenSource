@@ -18,7 +18,7 @@ struct mml_file_buf;
  *
  * Note: Call mml_buf_put for same mml_file_buf later to release it.
  */
-void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u8 cnt);
+void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u32 cnt);
 
 /* mml_buf_iova_get - get iova by device and dmabuf
  *

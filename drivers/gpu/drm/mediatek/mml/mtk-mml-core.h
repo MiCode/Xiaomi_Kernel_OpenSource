@@ -90,7 +90,7 @@ struct mml_tile_output;
 struct mml_task_ops {
 	void (*submit_done)(struct mml_task *task);
 	void (*frame_done)(struct mml_task *task);
-	s32 (*dup_task)(struct mml_task *task, u8 pipe);
+	s32 (*dup_task)(struct mml_task *task, u32 pipe);
 };
 
 struct mml_cap {
@@ -174,10 +174,7 @@ struct mml_comp_config {
 };
 
 struct mml_pipe_cache {
-	/* make command cache labels for reuse command */
-	struct cmdq_reuse *labels;
 	u32 label_cnt;
-	u32 label_idx;
 
 	/* Fillin when core call prepare. Use in prepare and make command */
 	struct mml_comp_config cfg[MML_MAX_PATH_NODES];
@@ -258,6 +255,11 @@ enum mml_task_state {
 	MML_TASK_IDLE
 };
 
+struct mml_task_reuse {
+	struct cmdq_reuse *labels;
+	u32 label_idx;
+};
+
 struct mml_task {
 	struct list_head entry;
 	struct mml_job job;
@@ -274,6 +276,9 @@ struct mml_task {
 
 	/* command */
 	struct cmdq_pkt *pkts[MML_PIPE_CNT];
+
+	/* make command cache labels for reuse command */
+	struct mml_task_reuse reuse[MML_PIPE_CNT];
 
 	/* workqueue */
 	struct work_struct work_config[MML_PIPE_CNT];
@@ -467,45 +472,56 @@ struct mml_task *mml_core_create_task(void);
 void mml_core_destroy_task(struct mml_task *task);
 
 /*
+ * mml_core_init_config - initialize data use in core.
+ *
+ * @cfg: The frame config to be init.
+ */
+void mml_core_init_config(struct mml_frame_config *cfg);
+
+/*
  * mml_core_deinit_config - destroy meta or content store in frame config
  * which allocated in core.
  *
- * @config: The frame config to be deinit.
+ * @cfg: The frame config to be deinit.
  */
-void mml_core_deinit_config(struct mml_frame_config *config);
+void mml_core_deinit_config(struct mml_frame_config *cfg);
 
 /**
- * mml_core_submit_task -
- * @frame_config:
- * @task:
+ * mml_core_submit_task - queue the task in config work thread
  *
- * Return:
+ * @cfg:	the frame config to queue
+ * @task:	task to execute
  */
-s32 mml_core_submit_task(struct mml_frame_config *frame_config,
-			 struct mml_task *task);
+void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task);
 
 /* mml_write - write to addr with value and mask. Cache the label of this
  * instruction to mml_pipe_cache and record its entry into label_array.
  *
  * @pkt:	cmdq task
+ * @reuse:	label cache for cmdq_reuse from task, which caches label of
+ *		this task and pipe.
  * @addr:	register addr or dma addr
  * @value:	value to write
  * @mask:	mask to value
- * @cache:	instruction cache from mml config
+ * @cache:	task cache from mml config
  * @label_idx:	ptr to label entry point to write instruction
  *
  * return:	0 if success, error no if fail
  */
-s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value,
-	u32 mask, struct mml_pipe_cache *cache, u16 *label_idx);
+s32 mml_write(struct cmdq_pkt *pkt, struct mml_task_reuse *reuse,
+	dma_addr_t addr, u32 value, u32 mask,
+	struct mml_pipe_cache *cache, u16 *label_idx);
+
 
 /* mml_update - update new value to cache, which entry index from label.
  *
- * @cache:	instruction cache from mml config
+ * @reuse:	label cache for cmdq_reuse from task, which caches label of
+ *		this task and pipe.
  * @label_idx:	label entry point to instruction want to update
  * @value:	value to be update
  */
-void mml_update(struct mml_pipe_cache *cache, u16 label_idx, u32 value);
+void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value);
+
 
 unsigned long mml_get_tracing_mark(void);
 

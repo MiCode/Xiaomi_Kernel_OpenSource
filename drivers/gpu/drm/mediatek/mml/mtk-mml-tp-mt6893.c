@@ -400,11 +400,9 @@ static s32 tp_select(struct mml_topology_cache *cache,
 				cfg->alpharot = false;
 	}
 
-	if (mtk_mml_msg) {
-		tp_dump_path_short(path[0]);
-		if (path[1])
-			tp_dump_path_short(path[1]);
-	}
+	tp_dump_path_short(path[0]);
+	if (path[1])
+		tp_dump_path_short(path[1]);
 
 	return 0;
 }

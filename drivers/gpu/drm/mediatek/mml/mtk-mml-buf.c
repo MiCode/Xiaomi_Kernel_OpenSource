@@ -13,13 +13,16 @@
 #include "mtk-mml-buf.h"
 #include "mtk-mml-core.h"
 
-void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u8 cnt)
+void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u32 cnt)
 {
 	u32 i;
+	struct dma_buf *dmabuf;
 
 	for (i = 0; i < cnt; i++) {
-		struct dma_buf *dmabuf = dma_buf_get(fd[i]);
+		if (fd[i] < 0)
+			continue;
 
+		dmabuf = dma_buf_get(fd[i]);
 		if (!dmabuf || IS_ERR(dmabuf)) {
 			mml_err("%s fail to get dma_buf %u by fd %d err %d",
 				__func__, i, fd[i], PTR_ERR(dmabuf));

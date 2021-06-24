@@ -184,13 +184,13 @@ static s32 command_make(struct mml_task *task, u8 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct cmdq_pkt *pkt = cmdq_pkt_create(path->clt);
+	struct mml_task_reuse *reuse = &task->reuse[pipe];
 
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
 	struct mml_comp_config *cfg = cache->cfg;
 
 	struct mml_comp *comp;
 	u8 i, tile;
-	u32 label_cnt = 0;
 	s32 ret;
 
 	if (IS_ERR(pkt)) {
@@ -200,18 +200,18 @@ static s32 command_make(struct mml_task *task, u8 pipe)
 	task->pkts[pipe] = pkt;
 
 	/* get total label count to create label array */
+	cache->label_cnt = 0;
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		label_cnt += call_cfg_op(comp, get_label_count, task);
+		cache->label_cnt += call_cfg_op(comp, get_label_count, task);
 	}
 
-	cache->labels = kcalloc(label_cnt, sizeof(*cache->labels), GFP_KERNEL);
-	if (!cache->labels) {
+	reuse->labels = kcalloc(cache->label_cnt, sizeof(*reuse->labels), GFP_KERNEL);
+	if (!reuse->labels) {
 		mml_err("%s not able to alloc label table", __func__);
 		ret = -ENOMEM;
 		goto err;
 	}
-	cache->label_cnt = label_cnt;
 
 	/* call all component init and frame op, include mmlsys and mutex */
 	for (i = 0; i < path->node_cnt; i++) {
@@ -258,13 +258,13 @@ err:
 	return ret;
 }
 
-static s32 command_reuse(struct mml_task *task, u8 pipe)
+static s32 command_reuse(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
 	struct mml_comp_config *cfg = cache->cfg;
 	struct mml_comp *comp;
-	u8 i;
+	u32 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
@@ -276,10 +276,11 @@ static s32 command_reuse(struct mml_task *task, u8 pipe)
 		call_cfg_op(comp, repost, task, &cfg[i]);
 	}
 
-	mml_msg("%s task %p pkt %p label cnt %u/%u",
-		__func__, task, task->pkts[pipe],
-		cache->label_idx, cache->label_cnt);
-	cmdq_pkt_reuse_buf_va(task->pkts[pipe], cache->labels, cache->label_idx);
+	mml_msg("%s task %p pipe %u pkt %p label cnt %u/%u",
+		__func__, task, pipe, task->pkts[pipe],
+		task->reuse[pipe].label_idx, cache->label_cnt);
+	cmdq_pkt_reuse_buf_va(task->pkts[pipe], task->reuse[pipe].labels,
+		task->reuse[pipe].label_idx);
 
 	return 0;
 }
@@ -440,11 +441,14 @@ static void wait_dma_fence(const char *name, struct dma_fence *fence)
 #define call_dbg_op(_comp, op) \
 	((_comp->debug_ops && _comp->debug_ops->op) ? _comp->debug_ops->op(_comp) : 0)
 
-static void core_taskdump_cb(struct mml_task *task, u8 pipe)
+static void core_taskdump_cb(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_comp *comp;
 	u8 i;
+
+	mml_err("error dump task %p pipe %u config %p",
+		task, pipe, task->config);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
@@ -563,23 +567,29 @@ static void core_config_thread(struct work_struct *work)
 {
 	struct mml_task *task;
 	s32 err;
-	u8 i;
+	u32 i;
 
 	mml_trace_begin("%s", __func__);
 
 	task = container_of(work, struct mml_task, work_config[0]);
 
+	mml_msg("%s begin task %p config %p",
+		__func__, task, task->config);
+
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
-		mml_msg("in:%u %u f:%#010x stride %u %u fence:%s",
+		mml_log("in:%u %u f:%#010x stride %u %u fence:%s plane:%hhu%s",
 			task->config->info.src.width,
 			task->config->info.src.height,
 			task->config->info.src.format,
 			task->config->info.src.y_stride,
 			task->config->info.src.uv_stride,
-			task->buf.src.fence ? "true" : "false");
-		for (i = 0; i < task->config->info.dest_cnt; i++)
-			mml_msg("out %hhu:%u %u f:%#010x stride %u %u rot:%hu fence:%s",
+			task->buf.src.fence ? "true" : "false",
+			task->buf.src.cnt,
+			task->buf.src.flush ? " flush" : "");
+		for (i = 0; i < task->config->info.dest_cnt; i++) {
+			mml_log(
+				"out %u:%u %u f:%#010x stride %u %u rot:%hu f:%hhu fence:%s plane:%hhu%s%s",
 				i,
 				task->config->info.dest[i].data.width,
 				task->config->info.dest[i].data.height,
@@ -587,7 +597,18 @@ static void core_config_thread(struct work_struct *work)
 				task->config->info.dest[i].data.y_stride,
 				task->config->info.dest[i].data.uv_stride,
 				task->config->info.dest[i].rotate,
-				task->buf.dest[i].fence ? "true" : "false");
+				(u8)task->config->info.dest[i].flip,
+				task->buf.dest[i].fence ? "true" : "false",
+				task->buf.dest[i].cnt,
+				task->buf.dest[i].flush ? " flush" : "",
+				task->buf.dest[i].invalid ? " invalid" : "");
+			mml_log("crop %u:%u %u %u %u",
+				i,
+				task->config->info.dest[i].crop.r.left,
+				task->config->info.dest[i].crop.r.top,
+				task->config->info.dest[i].crop.r.width,
+				task->config->info.dest[i].crop.r.height);
+		}
 
 		/* topology will fill in path instance */
 		err = topology_select_path(task->config);
@@ -604,7 +625,7 @@ static void core_config_thread(struct work_struct *work)
 	if (task->config->dual) {
 		if (!task->config->wq_config[1])
 			task->config->wq_config[1] =
-				alloc_workqueue("mml_work1", 0, 0);
+				alloc_ordered_workqueue("mml_work1", 0, 0);
 
 		queue_work(task->config->wq_config[1], &task->work_config[1]);
 	}
@@ -642,6 +663,9 @@ void mml_core_destroy_task(struct mml_task *task)
 {
 	int i;
 
+	for (i = 0; i < ARRAY_SIZE(task->reuse); i++)
+		kfree(task->reuse[i].labels);
+
 	for (i = 0; i < ARRAY_SIZE(task->pkts); i++)
 		if (task->pkts[i])
 			cmdq_pkt_destroy(task->pkts[i]);
@@ -655,61 +679,60 @@ void mml_core_destroy_task(struct mml_task *task)
 	} \
 } while (0);
 
-void mml_core_deinit_config(struct mml_frame_config *config)
+void mml_core_init_config(struct mml_frame_config *cfg)
+{
+	/* mml create work_thread 0, wait thread */
+	cfg->wq_config[0] = alloc_ordered_workqueue("mml_work0", 0, 0);
+	cfg->wq_wait = alloc_ordered_workqueue("mml_wait", 0, 0);
+}
+
+void mml_core_deinit_config(struct mml_frame_config *cfg)
 {
 	u8 pipe, i;
 
 	/* make command, engine allocated private data */
 	for (pipe = 0; pipe < MML_PIPE_CNT; pipe++) {
-		for (i = 0; i < config->path[pipe]->node_cnt; i++)
-			kfree(config->cache[pipe].cfg[i].data);
-		kfree(config->cache[pipe].labels);
-		destroy_tile_output(config->tile_output[pipe]);
+		for (i = 0; i < cfg->path[pipe]->node_cnt; i++)
+			kfree(cfg->cache[pipe].cfg[i].data);
+		destroy_tile_output(cfg->tile_output[pipe]);
 	}
-	for (i = 0; i < ARRAY_SIZE(config->wq_config); i++)
-		core_destroy_wq(config->wq_config[i]);
-	core_destroy_wq(config->wq_wait);
+	for (i = 0; i < ARRAY_SIZE(cfg->wq_config); i++)
+		core_destroy_wq(cfg->wq_config[i]);
+	core_destroy_wq(cfg->wq_wait);
 }
 
-s32 mml_core_submit_task(struct mml_frame_config *frame_config,
-			 struct mml_task *task)
+void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task)
 {
-	/* mml create work_thread 0, wait thread */
-	if (!task->config->wq_config[0])
-		task->config->wq_config[0] = alloc_workqueue("mml_work0", 0, 0);
-	if (!task->config->wq_wait)
-		task->config->wq_wait= alloc_workqueue("mml_wait", 0, 0);
-
 	/* reset to 0 in case reuse task */
 	atomic_set(&task->pipe_done, 0);
 
-	queue_work(task->config->wq_config[0], &task->work_config[0]);
-
-	return 0;
+	queue_work(cfg->wq_config[0], &task->work_config[0]);
 }
 
-s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
+s32 mml_write(struct cmdq_pkt *pkt, struct mml_task_reuse *reuse,
+	dma_addr_t addr, u32 value, u32 mask,
 	struct mml_pipe_cache *cache, u16 *label_idx)
 {
-	if (cache->label_idx >= cache->label_cnt) {
+	if (reuse->label_idx >= cache->label_cnt) {
 		mml_err("out of label cnt idx %u count %u",
-			cache->label_idx, cache->label_cnt);
+			reuse->label_idx, cache->label_cnt);
 		return -ENOMEM;
 	}
 
 	cmdq_pkt_write_value_addr_reuse(pkt, addr, value, mask,
-		&cache->labels[cache->label_idx].va);
+		&reuse->labels[reuse->label_idx].va,
+		&reuse->labels[reuse->label_idx].offset);
 
-	*label_idx = cache->label_idx;
-	cache->labels[cache->label_idx].val = value;
-	cache->label_idx++;
+	*label_idx = reuse->label_idx;
+	reuse->labels[reuse->label_idx].val = value;
+	reuse->label_idx++;
 
 	return 0;
 }
 
-void mml_update(struct mml_pipe_cache *cache, u16 label_idx, u32 value)
+void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value)
 {
-	cache->labels[label_idx].val = value;
+	reuse->labels[label_idx].val = value;
 }
 
 unsigned long mml_get_tracing_mark(void)
