@@ -12,8 +12,6 @@ struct reviser_plat {
 	int (*uninit)(struct platform_device *pdev);
 
 	unsigned int bank_size;
-	unsigned int rmp_max;
-	unsigned int ctx_max;
 	unsigned int mdla_max;
 	unsigned int vpu_max;
 	unsigned int edma_max;
@@ -26,4 +24,6 @@ int reviser_plat_uninit(struct platform_device *pdev);
 int reviser_v1_0_init(struct platform_device *pdev);
 int reviser_v1_0_uninit(struct platform_device *pdev);
 
+int reviser_vrv_init(struct platform_device *pdev);
+int reviser_vrv_uninit(struct platform_device *pdev);
 #endif

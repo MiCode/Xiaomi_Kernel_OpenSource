@@ -16,6 +16,7 @@
 
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/rpmsg.h>
 
 #include "reviser_plat.h"
 #include "reviser_device.h"
@@ -25,6 +26,8 @@
 #include <linux/of_platform.h>
 #endif
 #include "apusys_core.h"
+#include "apu.h"
+#include "apu_config.h"
 
 #include "reviser_drv.h"
 #include "reviser_cmn.h"
@@ -36,7 +39,8 @@
 #include "reviser_mem.h"
 #include "reviser_power.h"
 #include "reviser_hw_mgt.h"
-
+#include "reviser_remote.h"
+#include "reviser_remote_cmd.h"
 /* define */
 #define APUSYS_DRV_NAME "apusys_drv_reviser"
 #define APUSYS_DEV_NAME "apusys_reviser"
@@ -60,25 +64,6 @@ static int reviser_create_node(struct platform_device *pdev);
 static int reviser_delete_node(void *drvinfo);
 static void reviser_power_on_cb(void *para);
 static void reviser_power_off_cb(void *para);
-static irqreturn_t reviser_interrupt(int irq, void *private_data);
-
-static irqreturn_t reviser_interrupt(int irq, void *private_data)
-{
-	struct reviser_dev_info *rdv;
-	int ret = 0;
-
-
-	DEBUG_TAG;
-
-	rdv = (struct reviser_dev_info *)private_data;
-
-	ret = reviser_mgt_isr_cb(rdv);
-	if (ret)
-		return IRQ_NONE;
-
-	return IRQ_HANDLED;
-
-}
 
 static int reviser_memory_func(void *arg)
 {
@@ -94,6 +79,39 @@ static int reviser_memory_func(void *arg)
 
 	return 0;
 }
+int reviser_set_init_info(struct mtk_apu *apu)
+{
+	struct reviser_dev_info *rdv;
+	struct reviser_init_info *rv_info;
+	int i = 0;
+
+	rdv = g_rdv;
+
+	if (!rdv) {
+		LOG_ERR("No reviser_dev_info!\n");
+		return -EINVAL;
+	}
+
+	rv_info = (struct reviser_init_info *)
+		   get_apu_config_user_ptr(apu->conf_buf, eREVISER_INIT_INFO);
+
+	memset((void *)rv_info, 0, sizeof(struct reviser_init_info));
+
+//	if (reviser_dram_remap_init(rdv)) {
+//		LOG_ERR("Could not set memory for reviser\n");
+//		return -ENOMEM;
+//	}
+
+	rv_info->boundary = rdv->plat.boundary;
+	for (i = 0; i < rdv->plat.dram_max; i++)
+		rv_info->dram[i] = rdv->plat.dram[i];
+
+
+	LOG_INFO("reviser info init\n");
+
+	return 0;
+}
+EXPORT_SYMBOL(reviser_set_init_info);
 
 static void reviser_power_on_cb(void *para)
 {
@@ -120,6 +138,7 @@ static void reviser_power_on_cb(void *para)
 		return;
 	}
 
+	LOG_INFO("reviser power-on callback Done\n");
 }
 
 static void reviser_power_off_cb(void *para)
@@ -130,11 +149,14 @@ static void reviser_power_off_cb(void *para)
 		LOG_ERR("Not Found rdv\n");
 		return;
 	}
+
 	reviser_mgt_set_int(g_rdv, 0);
 
 	spin_lock_irqsave(&g_rdv->lock.lock_power, flags);
 	g_rdv->power.power = false;
 	spin_unlock_irqrestore(&g_rdv->lock.lock_power, flags);
+
+	LOG_INFO("reviser power-off callback Done\n");
 }
 
 
@@ -154,8 +176,8 @@ static int reviser_open(struct inode *inode, struct file *filp)
 			struct reviser_dev_info, reviser_cdev);
 
 	filp->private_data = rdv;
-	LOG_DEBUG("rdv  %p\n", rdv);
-	LOG_DEBUG("filp->private_data  %p\n", filp->private_data);
+	LOG_DBG_RVR_FLW("rdv  %p\n", rdv);
+	LOG_DBG_RVR_FLW("filp->private_data  %p\n", filp->private_data);
 	return 0;
 }
 
@@ -171,6 +193,8 @@ static int reviser_init_para(struct reviser_dev_info *rdv)
 	mutex_init(&rdv->lock.mutex_ctx_pgt);
 	mutex_init(&rdv->lock.mutex_remap);
 	mutex_init(&rdv->lock.mutex_power);
+
+
 	init_waitqueue_head(&rdv->lock.wait_ctx);
 	init_waitqueue_head(&rdv->lock.wait_tcm);
 	spin_lock_init(&rdv->lock.lock_power);
@@ -219,8 +243,6 @@ static int reviser_get_addr(struct platform_device *pdev, void **reg, int num,
 static int reviser_map_dts(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct device *dev = &pdev->dev;
-	int irq;
 	struct reviser_dev_info *rdv = platform_get_drvdata(pdev);
 
 	DEBUG_TAG;
@@ -236,7 +258,8 @@ static int reviser_map_dts(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto out;
 	}
-	if (reviser_get_addr(pdev, &rdv->rsc.vlm.base, 1, &rdv->rsc.vlm.addr, &rdv->rsc.vlm.size)) {
+	if (reviser_get_addr(pdev, &rdv->rsc.vlm.base, 1,
+			&rdv->rsc.vlm.addr, &rdv->rsc.vlm.size)) {
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
 		goto free_ctrl;
@@ -246,52 +269,37 @@ static int reviser_map_dts(struct platform_device *pdev)
 	rdv->plat.vlm_bank_max = rdv->plat.vlm_size / rdv->plat.bank_size;
 
 
-	ret = reviser_get_addr(pdev, &rdv->rsc.tcm.base, 2, &rdv->rsc.tcm.addr, &rdv->rsc.tcm.size);
+	ret = reviser_get_addr(pdev, &rdv->rsc.pool[0].base,
+			2, &rdv->rsc.pool[0].addr, &rdv->rsc.pool[0].size);
 	if (ret && (ret != -ENOMEM)) {
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
 		goto free_vlm;
 	}
-	rdv->plat.tcm_addr = rdv->rsc.tcm.addr;
-	rdv->plat.tcm_size = rdv->rsc.tcm.size;
-	rdv->plat.vlm_bank_max = rdv->plat.vlm_size / rdv->plat.bank_size;
-	rdv->plat.tcm_bank_max = rdv->plat.tcm_size / rdv->plat.bank_size;
 
-	if (reviser_get_addr(pdev, &rdv->rsc.isr.base, 3, &rdv->rsc.isr.addr, &rdv->rsc.isr.size)) {
+	rdv->plat.vlm_bank_max = rdv->plat.vlm_size / rdv->plat.bank_size;
+	rdv->plat.pool_addr[0] = rdv->rsc.pool[0].addr;
+	rdv->plat.pool_size[0] = rdv->rsc.pool[0].size;
+	rdv->plat.pool_bank_max[0] = rdv->plat.pool_size[0] / rdv->plat.bank_size;
+	rdv->plat.pool_max++;
+
+	if (reviser_get_addr(pdev, &rdv->rsc.isr.base, 3,
+			&rdv->rsc.isr.addr, &rdv->rsc.isr.size)) {
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
 		goto free_tcm;
 	}
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		ret = -ENODEV;
-		LOG_ERR("platform_get_irq Failed to request irq %d: %d\n",
-				irq, ret);
-		goto free_int;
-	}
 
-	ret = devm_request_irq(dev, irq, reviser_interrupt,
-			IRQF_TRIGGER_HIGH | IRQF_SHARED,
-			dev_name(dev),
-			rdv);
-	if (ret < 0) {
-		LOG_ERR("devm_request_irq Failed to request irq %d: %d\n",
-				irq, ret);
-		ret = -ENODEV;
-		goto free_int;
-	}
+	rdv->rsc.dram.addr = rdv->plat.dram[0];
+	LOG_DBG_RVR_FLW("rdv->rsc.dram.addr %x\n", rdv->rsc.dram.addr);
 
-	if (of_property_read_u32(pdev->dev.of_node, "default-dram", &rdv->plat.dram_offset)) {
-		LOG_ERR("devm_request_irq Failed to request irq %d: %d\n",
-				irq, ret);
+	if (of_property_read_u32(pdev->dev.of_node,
+			"boundary", &rdv->plat.boundary)) {
+		LOG_ERR("Invalid boundary %d\n", ret);
+
 		goto free_int;
 	}
-	if (of_property_read_u32(pdev->dev.of_node, "boundary", &rdv->plat.boundary)) {
-		LOG_ERR("devm_request_irq Failed to request irq %d: %d\n",
-				irq, ret);
-		goto free_int;
-	}
-	LOG_DEBUG("addr: %08xh, boundary: %08xh\n", rdv->plat.dram_offset, rdv->plat.boundary);
+	LOG_DBG_RVR_FLW("boundary: %08xh\n", rdv->plat.boundary);
 
 
 	return ret;
@@ -299,8 +307,8 @@ static int reviser_map_dts(struct platform_device *pdev)
 free_int:
 	iounmap(rdv->rsc.isr.base);
 free_tcm:
-	if (!rdv->rsc.tcm.base)
-		iounmap(rdv->rsc.tcm.base);
+	if (!rdv->rsc.pool[0].base)
+		iounmap(rdv->rsc.pool[0].base);
 free_vlm:
 	iounmap(rdv->rsc.vlm.base);
 free_ctrl:
@@ -320,8 +328,8 @@ static int reviser_unmap_dts(struct platform_device *pdev)
 		LOG_ERR("No reviser_dev_info!\n");
 		return -EINVAL;
 	}
-	if (!rdv->rsc.tcm.base)
-		iounmap(rdv->rsc.tcm.base);
+	if (!rdv->rsc.pool[0].base)
+		iounmap(rdv->rsc.pool[0].base);
 	iounmap(rdv->rsc.vlm.base);
 	iounmap(rdv->rsc.ctrl.base);
 
@@ -348,7 +356,7 @@ static int reviser_create_node(struct platform_device *pdev)
 		goto out;
 	}
 
-	/* Attatch file operation. */
+	/* Attach file operation. */
 	cdev_init(&rdv->reviser_cdev, &reviser_fops);
 	rdv->reviser_cdev.owner = THIS_MODULE;
 
@@ -356,7 +364,7 @@ static int reviser_create_node(struct platform_device *pdev)
 	ret = cdev_add(&rdv->reviser_cdev,
 			rdv->reviser_devt, 1);
 	if (ret < 0) {
-		LOG_ERR("Attatch file operation failed, %d\n", ret);
+		LOG_ERR("Attach file operation failed, %d\n", ret);
 		goto free_chrdev_region;
 	}
 
@@ -439,7 +447,7 @@ static int reviser_probe(struct platform_device *pdev)
 	power_pdev = of_find_device_by_node(power_node);
 
 	if (!power_pdev || !power_pdev->dev.driver) {
-		LOG_DEBUG("Waiting for %s\n",
+		LOG_WARN("Waiting for %s\n",
 				power_node->full_name);
 		return -EPROBE_DEFER;
 	}
@@ -503,13 +511,15 @@ static int reviser_probe(struct platform_device *pdev)
 	}
 
 	apu_power_device_register(REVISER, pdev);
-	/* Workaround for power all on mode*/
-	//reviser_power_on(NULL);
 
 	g_rdv = rdv;
 
+	/* Workaround for power all on mode*/
+	//reviser_power_on(rdv);
 
 	rdv->init_done = true;
+
+
 
 	LOG_INFO("probe done\n");
 
@@ -547,30 +557,87 @@ static int reviser_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int reviser_suspend(struct platform_device *pdev, pm_message_t mesg)
-{
-	return 0;
-}
-
-static int reviser_resume(struct platform_device *pdev)
-{
-	return 0;
-}
-
 
 
 static struct platform_driver reviser_driver = {
 	.probe = reviser_probe,
 	.remove = reviser_remove,
-	.suspend = reviser_suspend,
-	.resume  = reviser_resume,
-	//.pm = apusys_pm_qos,
 	.driver = {
 		.name = APUSYS_DRV_NAME,
 		.owner = THIS_MODULE,
 	},
 };
 
+static int reviser_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
+				 int len, void *priv, u32 src)
+{
+	int ret = 0;
+
+	//LOG_INFO("reviser len=%d, priv=%p, src=%d\n", len, priv, src);
+	ret = reviser_remote_rx_cb(data, len);
+
+	return ret;
+}
+
+static int reviser_rpmsg_probe(struct rpmsg_device *rpdev)
+{
+	struct reviser_dev_info *rdv;
+	int ret = 0;
+
+	LOG_INFO("%s: name=%s, src=%d\n", rpdev->id.name, rpdev->src);
+
+	if (!g_rdv) {
+		LOG_ERR("No Reviser Driver Init\n");
+		return -ENODEV;
+	}
+
+	rdv = g_rdv;
+	rdv->rpdev = rpdev;
+	reviser_remote_init();
+
+//	ret = reviser_remote_handshake(rdv, NULL);
+//	if (ret) {
+//		LOG_ERR("Remote Handshake fail %d\n", ret);
+//	}
+//	LOG_ERR("Try Again\n");
+//	ret = reviser_remote_handshake(rdv, NULL);
+//	if (ret) {
+//		LOG_ERR("Remote Handshake fail %d\n", ret);
+//		return -ENODEV;
+//	}
+
+	dev_set_drvdata(&rpdev->dev, rdv);
+
+
+
+	/* Workaround for power all on mode*/
+	//reviser_power_on(rdv);
+
+	LOG_INFO("Done\n");
+	return ret;
+}
+
+static void reviser_rpmsg_remove(struct rpmsg_device *rpdev)
+{
+	reviser_remote_exit();
+
+	LOG_INFO("Done\n");
+}
+
+static const struct of_device_id reviser_rpmsg_of_match[] = {
+	{ .compatible = "mediatek,apu-reviser-rpmsg", },
+	{ },
+};
+
+static struct rpmsg_driver reviser_rpmsg_driver = {
+	.drv	= {
+		.name	= "apu-reviser-rpmsg",
+		.of_match_table = reviser_rpmsg_of_match,
+	},
+	.probe	= reviser_rpmsg_probe,
+	.remove	= reviser_rpmsg_remove,
+	.callback = reviser_rpmsg_cb,
+};
 
 int reviser_init(struct apusys_core_info *info)
 {
@@ -594,12 +661,19 @@ int reviser_init(struct apusys_core_info *info)
 	}
 
 
+	if (register_rpmsg_driver(&reviser_rpmsg_driver)) {
+		LOG_ERR("failed to register RMPSG driver");
+		return -ENODEV;
+	}
+
+
 	return ret;
 }
 
 
 void reviser_exit(void)
 {
+	unregister_rpmsg_driver(&reviser_rpmsg_driver);
 	platform_driver_unregister(&reviser_driver);
 }
 

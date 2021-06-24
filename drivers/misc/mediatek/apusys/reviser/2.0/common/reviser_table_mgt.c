@@ -127,7 +127,7 @@ static int _reviser_alloc_pgt(struct pgt_tcm *pgt, unsigned long nbits)
 
 	pgt->page_num = 0;
 	size = BITS_TO_LONGS(nbits);
-	//LOG_DEBUG("size %x\n", size);
+	//LOG_DBG_RVR_TBL("size %x\n", size);
 	if (!size) {
 		//Set Min size to avoid access zero length array
 		//LOG_ERR("size is Zero\n");
@@ -171,7 +171,7 @@ static int _reviser_copy_pgt(struct pgt_tcm *dst, struct pgt_tcm *src, unsigned 
 	}
 
 	size = BITS_TO_LONGS(nbits);
-	LOG_DEBUG("size %x\n", size);
+	LOG_DBG_RVR_TBL("size %x\n", size);
 
 	//dst->pgt[0] = src->pgt[0];
 	if (size)
@@ -187,7 +187,7 @@ static int _reviser_clear_pgt(struct pgt_tcm *pgt, unsigned long nbits)
 	unsigned long size = 0;
 
 	size = BITS_TO_LONGS(nbits);
-	//LOG_DEBUG("size %x\n", size);
+	//LOG_DBG_RVR_TBL("size %x\n", size);
 	if (size)
 		memset(pgt->pgt, 0, sizeof(unsigned long) * size);
 	pgt->page_num = 0;
@@ -309,14 +309,14 @@ int reviser_table_get_ctx_sync(void *drvinfo, unsigned long *ctx)
 
 	while (1) {
 		if (reviser_table_get_ctx(drvinfo, ctx)) {
-			LOG_DEBUG("Wait for Getting ctx\n");
+			LOG_DBG_RVR_TBL("Wait for Getting ctx\n");
 			wait_event_interruptible(rdv->lock.wait_ctx,
 					!g_ctx_empty);
 		} else {
 			break;
 		}
 	}
-	//LOG_DEBUG("Sync Get ctx %lu\n", *ctx);
+	//LOG_DBG_RVR_TBL("Sync Get ctx %lu\n", *ctx);
 
 	return 0;
 }
@@ -349,7 +349,7 @@ int reviser_table_get_ctx(void *drvinfo, unsigned long *ctx)
 		ret = -EBUSY;
 		goto free_mutex;
 	}
-	LOG_DEBUG("[out] ctx(%lu) g_table_ctx(%08lx)\n",
+	LOG_DBG_RVR_TBL("[out] ctx(%lu) g_table_ctx(%08lx)\n",
 			*ctx, g_table_ctx[0]);
 
 	mutex_unlock(&rdv->lock.mutex_ctx);
@@ -387,14 +387,14 @@ int reviser_table_free_ctx(void *drvinfo, unsigned long ctx)
 
 		bitmap_clear(g_table_ctx, ctx, 1);
 		g_ctx_empty = false;
-		//LOG_DEBUG("Clear table for ctx %lu\n", ctx);
+		//LOG_DBG_RVR_TBL("Clear table for ctx %lu\n", ctx);
 		wake_up_interruptible(&rdv->lock.wait_ctx);
 	} else {
 		LOG_ERR("Out of range %lu\n", ctx);
 		ret = -EINVAL;
 		goto free_mutex;
 	}
-	LOG_DEBUG("[in] ctx(%lu) [out] g_table_ctx(%08lx)\n"
+	LOG_DBG_RVR_TBL("[in] ctx(%lu) [out] g_table_ctx(%08lx)\n"
 			, ctx, g_table_ctx[0]);
 
 	mutex_unlock(&rdv->lock.mutex_ctx);
@@ -449,7 +449,7 @@ int reviser_table_init_tcm(void *drvinfo)
 
 	mutex_lock(&rdv->lock.mutex_tcm);
 
-	g_tcm_nbits = rdv->plat.tcm_bank_max;
+	g_tcm_nbits = rdv->plat.pool_bank_max[0];
 	g_tcm_size = BITS_TO_LONGS(g_tcm_nbits);
 
 
@@ -517,7 +517,7 @@ int reviser_table_get_tcm_sync(void *drvinfo,
 
 	while (1) {
 		if (reviser_table_get_tcm(drvinfo, page_num, pgt_tcm)) {
-			LOG_DEBUG("Wait for Getting tcm\n");
+			LOG_DBG_RVR_TBL("Wait for Getting tcm\n");
 			wait_event_interruptible(rdv->lock.wait_tcm,
 					g_tcm_free >= page_num);
 		} else {
@@ -550,16 +550,16 @@ int reviser_table_get_tcm(void *drvinfo,
 	mutex_lock(&rdv->lock.mutex_tcm);
 
 	if (g_tcm_free == 0) {
-		LOG_DEBUG("No free TCM (%u/%u)\n",
+		LOG_DBG_RVR_TBL("No free TCM (%u/%u)\n",
 				page_num, g_tcm_free);
 		pgt_tcm->page_num = 0;
 		goto free_mutex;
 	}
 
 	setbits = bitmap_weight(g_table_tcm, g_tcm_nbits);
-	//LOG_DEBUG("setbits %lu\n", setbits);
+	//LOG_DBG_RVR_TBL("setbits %lu\n", setbits);
 	if (g_tcm_nbits - setbits < page_num) {
-		LOG_DEBUG("No free page (%u/%lu)\n",
+		LOG_DBG_RVR_TBL("No free page (%u/%lu)\n",
 				page_num, g_tcm_nbits - setbits);
 		pgt_tcm->page_num = 0;
 		goto free_mutex;
@@ -576,7 +576,7 @@ int reviser_table_get_tcm(void *drvinfo,
 		}
 	}
 
-	LOG_DEBUG("[in] pg(%u) [out] g_tcm(%lx) g_tcm_free(%d) tcm_pgtb(%lx)\n",
+	LOG_DBG_RVR_TBL("[in] pg(%u) [out] g_tcm(%lx) g_tcm_free(%d) tcm_pgtb(%lx)\n",
 			page_num,
 			g_table_tcm[0], g_tcm_free, pgt_tcm->pgt[0]);
 	mutex_unlock(&rdv->lock.mutex_tcm);
@@ -606,7 +606,7 @@ int reviser_table_free_tcm(void *drvinfo, struct pgt_tcm *pgt_tcm)
 	}
 
 	if (pgt_tcm->page_num == 0) {
-		LOG_DEBUG("[in] pg(%u)\n",
+		LOG_DBG_RVR_TBL("[in] pg(%u)\n",
 				pgt_tcm->page_num);
 		return 0;
 	}
@@ -630,7 +630,7 @@ int reviser_table_free_tcm(void *drvinfo, struct pgt_tcm *pgt_tcm)
 		goto free_mutex;
 	}
 
-	LOG_DEBUG("[in] pg(%u) [out] g_tcm(%lx) g_tcm_free(%d)\n",
+	LOG_DBG_RVR_TBL("[in] pg(%u) [out] g_tcm(%lx) g_tcm_free(%d)\n",
 			pgt_tcm->page_num,
 			g_table_tcm[0], g_tcm_free);
 
@@ -773,7 +773,7 @@ static int _reviser_set_ctx_pgt(void *drvinfo,
 	for (i = 0; i < pgt_vlm->tcm.page_num; i++) {
 		index = find_next_bit(pgt_vlm->tcm.pgt,
 				g_tcm_nbits, index);
-		LOG_DEBUG("Find Bit index %lu!!\n", index);
+		LOG_DBG_RVR_TBL("Find Bit index %lu!!\n", index);
 		g_ctx_pgt[ctx].bank[i].type = REVISER_MEM_TYPE_TCM;
 		g_ctx_pgt[ctx].bank[i].dst = index;
 
@@ -795,7 +795,7 @@ static int _reviser_set_ctx_pgt(void *drvinfo,
 	g_ctx_pgt[ctx].vlm.sys_num = g_ctx_pgt[ctx].vlm.tcm.page_num;
 
 	DEBUG_TAG;
-	LOG_DEBUG("[out] ctx(%lu) sys(%u) pg(%d) tcm_pg(%d)\n",
+	LOG_DBG_RVR_TBL("[out] ctx(%lu) sys(%u) pg(%d) tcm_pg(%d)\n",
 			ctx,
 			g_ctx_pgt[ctx].vlm.sys_num,
 			g_ctx_pgt[ctx].vlm.page_num,
@@ -839,7 +839,7 @@ static int _reviser_clear_ctx_pgt(void *drvinfo,
 	_reviser_clear_bank_vlm(g_ctx_pgt[ctx].bank);
 	_reviser_clear_pgt_vlm(&g_ctx_pgt[ctx].vlm);
 
-	LOG_DEBUG("ctx(%lu)\n", ctx);
+	LOG_DBG_RVR_TBL("ctx(%lu)\n", ctx);
 	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
 
 	return 0;
@@ -867,7 +867,7 @@ int reviser_table_get_vlm(void *drvinfo,
 	}
 
 	pgt_vlm.page_num = DIV_ROUND_UP(requset_size, rdv->plat.bank_size);
-	LOG_DEBUG("[in] requset_size(%x) page_num(%u) force(%d)\n",
+	LOG_DBG_RVR_TBL("[in] requset_size(%x) page_num(%u) force(%d)\n",
 			requset_size, pgt_vlm.page_num, force);
 
 	if (reviser_table_get_ctx_sync(drvinfo, &ctx)) {
@@ -875,9 +875,9 @@ int reviser_table_get_vlm(void *drvinfo,
 		goto fail;
 	}
 
-	//LOG_DEBUG("ctx: %lu\n", ctx);
+	//LOG_DBG_RVR_TBL("ctx: %lu\n", ctx);
 	if (g_tcm_nbits == 0) {
-		LOG_DEBUG("Force set to false because TCM is zero\n");
+		LOG_DBG_RVR_TBL("Force set to false because TCM is zero\n");
 		force = false;
 	}
 
@@ -895,7 +895,7 @@ int reviser_table_get_vlm(void *drvinfo,
 		if (reviser_table_get_tcm(drvinfo,
 				pgt_vlm.page_num,
 				&pgt_vlm.tcm)) {
-			LOG_DEBUG("Use Dram ctx %lu\n", ctx);
+			LOG_DBG_RVR_TBL("Use Dram ctx %lu\n", ctx);
 		}
 	}
 
@@ -918,14 +918,14 @@ int reviser_table_get_vlm(void *drvinfo,
 		goto free_vlm;
 	}
 
-	LOG_DEBUG("[out] vlm page_num(%u) ctx(%lu)\n",
+	LOG_DBG_RVR_TBL("[out] vlm page_num(%u) ctx(%lu)\n",
 			pgt_vlm.tcm.page_num,
 			ctx);
 
 	*tcm_size = pgt_vlm.tcm.page_num * rdv->plat.bank_size;
 	*id = ctx;
 
-	LOG_DEBUG("[out] ctx(%lu) page_num(%u)\n",
+	LOG_DBG_RVR_TBL("[out] ctx(%lu) page_num(%u)\n",
 			ctx,
 			pgt_vlm.tcm.page_num);
 
@@ -958,7 +958,7 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctx)
 	int ret = 0;
 
 	_reviser_alloc_pgt_vlm(&pgt_vlm);
-	//LOG_DEBUG("free ctx: %u\n", ctx);
+	//LOG_DBG_RVR_TBL("free ctx: %u\n", ctx);
 	if (ctx >= g_ctxpgt_max) {
 		LOG_ERR("invalid argument\n");
 		ret = -EINVAL;
@@ -970,14 +970,14 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctx)
 		goto power_off;
 	}
 
-	//LOG_DEBUG("reviser_table_clear_remap done %d\n", ctx);
+	//LOG_DBG_RVR_TBL("reviser_table_clear_remap done %d\n", ctx);
 	if (_reviser_clear_ctx_pgt(drvinfo, ctx, &pgt_vlm)) {
 		LOG_ERR("Clear VLM PageTable Fail\n");
 		ret = -1;
 		goto power_off;
 	}
 
-	//LOG_DEBUG("_reviser_clear_vlm_pgtable ctx(%d)\n", ctx);
+	//LOG_DBG_RVR_TBL("_reviser_clear_vlm_pgtable ctx(%d)\n", ctx);
 
 	if (reviser_table_free_tcm(drvinfo, &pgt_vlm.tcm)) {
 		LOG_ERR("Free TCM Fail\n");
@@ -990,7 +990,7 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctx)
 		ret = -1;
 		goto power_off;
 	}
-	LOG_DEBUG("ctx(%u) page_num(%u)\n",
+	LOG_DBG_RVR_TBL("ctx(%u) page_num(%u)\n",
 			ctx, pgt_vlm.tcm.page_num);
 
 power_off:
@@ -1087,7 +1087,7 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctx)
 	for (i = 0; i < g_ctx_pgt[ctx].vlm.sys_num; i++) {
 		index = find_next_zero_bit(g_rmp.valid,
 				g_rmp_nbits, index);
-		//LOG_DEBUG("Find Zero Bit index %lu!!\n", index);
+		//LOG_DBG_RVR_TBL("Find Zero Bit index %lu!!\n", index);
 		if (index == g_rmp_nbits) {
 			LOG_ERR("CanNot Find Zero Bit!!\n");
 			goto free_mutex;
@@ -1163,7 +1163,7 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctx)
 	/* DEBUG and force set remap to specific value*/
 	_reviser_force_remap(drvinfo);
 
-	LOG_DEBUG("ctx [%lu]\n", ctx);
+	LOG_DBG_RVR_TBL("ctx [%lu]\n", ctx);
 
 	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
 	mutex_unlock(&rdv->lock.mutex_remap);

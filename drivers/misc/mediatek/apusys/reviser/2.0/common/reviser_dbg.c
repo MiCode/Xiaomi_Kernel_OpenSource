@@ -10,14 +10,18 @@
 #include <linux/debugfs.h>
 #include <linux/errno.h>
 #include <linux/io.h>
+#include <linux/uaccess.h>
+#include <linux/string.h>
 
 #include "reviser_drv.h"
 #include "reviser_cmn.h"
 #include "reviser_dbg.h"
-#include "reviser_table_mgt.h"
 #include "reviser_mem.h"
 #include "reviser_hw_mgt.h"
 #include "reviser_power.h"
+#include "reviser_table_mgt.h"
+#include "reviser_remote.h"
+#include "reviser_remote_cmd.h"
 
 static struct dentry *reviser_dbg_root;
 //hw
@@ -39,6 +43,8 @@ static struct dentry *reviser_dbg_mem_tcm;
 static struct dentry *reviser_dbg_mem_vlm;
 
 static struct dentry *reviser_dbg_mem_dram;
+static struct dentry *reviser_dbg_remote_log;
+static struct dentry *reviser_dbg_remote_op;
 
 static struct dentry *reviser_dbg_err;
 static struct dentry *reviser_dbg_err_info;
@@ -46,7 +52,9 @@ static struct dentry *reviser_dbg_err_reg;
 static struct dentry *reviser_dbg_err_debug;
 
 
-u8 g_reviser_log_level = REVISER_LOG_INFO;
+u32 g_rvr_klog;
+//static uint32_t g_rvr_remote_op = 0;
+static uint32_t g_rvr_remote_klog;
 static uint32_t g_reviser_vlm_ctx;
 static uint32_t g_reviser_mem_tcm_bank;
 static uint32_t g_reviser_mem_dram_bank;
@@ -62,6 +70,7 @@ static int reviser_dbg_show_remap_table(struct seq_file *s, void *unused)
 		LOG_ERR("Can Not Read when power disable\n");
 		return -EINVAL;
 	}
+
 	reviser_mgt_dmp_rmp(rdv, s);
 	return 0;
 }
@@ -91,6 +100,7 @@ static int reviser_dbg_show_context_ID(struct seq_file *s, void *unused)
 		LOG_ERR("Can Not Read when power disable\n");
 		return -EINVAL;
 	}
+
 	reviser_mgt_dmp_ctx(rdv, s);
 	return 0;
 }
@@ -120,6 +130,7 @@ static int reviser_dbg_show_boundary(struct seq_file *s, void *unused)
 		LOG_ERR("Can Not Read when power disable\n");
 		return -EINVAL;
 	}
+
 	reviser_mgt_dmp_boundary(rdv, s);
 	return 0;
 }
@@ -146,6 +157,7 @@ static int reviser_dbg_show_iova(struct seq_file *s, void *unused)
 		LOG_ERR("Can Not Read when power disable\n");
 		return -EINVAL;
 	}
+
 	reviser_mgt_dmp_default(rdv, s);
 	return 0;
 }
@@ -246,11 +258,11 @@ static ssize_t reviser_dbg_read_mem_tcm(struct file *filp, char *buffer,
 	int res = 0;
 	unsigned char *vbuffer;
 
-	if (!rdv->rsc.tcm.base) {
+	if (!rdv->rsc.pool[0].base) {
 		LOG_ERR("No TCM\n");
 		return -EINVAL;
 	}
-	if (g_reviser_mem_tcm_bank >= rdv->plat.tcm_bank_max) {
+	if (g_reviser_mem_tcm_bank >= rdv->plat.pool_bank_max[0]) {
 		LOG_ERR("copy TCM out of range. %d\n", g_reviser_mem_tcm_bank);
 		return -EINVAL;
 	}
@@ -261,16 +273,15 @@ static ssize_t reviser_dbg_read_mem_tcm(struct file *filp, char *buffer,
 	}
 
 	vbuffer = (unsigned char *)
-			__get_free_pages(GFP_KERNEL, get_order(rdv->plat.bank_size));
+		__get_free_pages(GFP_KERNEL, get_order(rdv->plat.bank_size));
 
 	if (vbuffer == NULL) {
 		LOG_ERR("allocate fail 0x%x\n", rdv->plat.bank_size);
 		return res;
 	}
-	LOG_DEBUG("copy buffer size 0x%x ...\n", rdv->plat.bank_size);
 
 	memcpy_fromio(vbuffer,
-			rdv->rsc.tcm.base +
+			rdv->rsc.pool[0].base +
 			g_reviser_mem_tcm_bank * rdv->plat.bank_size,
 			rdv->plat.bank_size);
 
@@ -308,8 +319,10 @@ static ssize_t reviser_dbg_read_mem_dram(struct file *filp, char *buffer,
 		return res;
 	}
 
-	ctx_max = rdv->plat.mdla_max + rdv->plat.vpu_max
-			+ rdv->plat.edma_max + rdv->plat.up_max;
+	ctx_max = rdv->plat.device[REVISER_DEVICE_MDLA]
+			+ rdv->plat.device[REVISER_DEVICE_VPU]
+			+ rdv->plat.device[REVISER_DEVICE_EDMA]
+			+ rdv->plat.device[REVISER_DEVICE_SECURE_MD32];
 
 
 	if (g_reviser_mem_dram_ctx >= ctx_max) {
@@ -318,7 +331,7 @@ static ssize_t reviser_dbg_read_mem_dram(struct file *filp, char *buffer,
 		return res;
 	}
 
-	dram_max = rdv->plat.vlm_size * ctx_max;
+	dram_max = rdv->plat.vlm_size * rdv->plat.dram_max;
 
 	dram_offset = g_reviser_mem_dram_ctx * rdv->plat.vlm_size +
 			g_reviser_mem_dram_bank * rdv->plat.bank_size;
@@ -326,7 +339,6 @@ static ssize_t reviser_dbg_read_mem_dram(struct file *filp, char *buffer,
 		LOG_ERR("copy dram out of range. 0x%llx\n", dram_offset);
 		return res;
 	}
-
 
 	res = simple_read_from_buffer(buffer, length, offset,
 			rdv->rsc.dram.base + dram_offset, rdv->plat.bank_size);
@@ -349,6 +361,7 @@ static void reviser_print_plat(void *drvinfo, void *s_file)
 {
 	struct reviser_dev_info *rdv = NULL;
 	struct seq_file *s = (struct seq_file *)s_file;
+	int i;
 
 	DEBUG_TAG;
 
@@ -362,22 +375,32 @@ static void reviser_print_plat(void *drvinfo, void *s_file)
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser platform info\n");
 	LOG_CON(s, "-----------------------------\n");
-	LOG_CON(s, "boundary: 0x%x\n", rdv->plat.boundary);
-	LOG_CON(s, "bank_size: 0x%x\n", rdv->plat.bank_size);
-	LOG_CON(s, "vlm_size: 0x%x\n", rdv->plat.vlm_size);
-	LOG_CON(s, "vlm_bank_max: 0x%x\n", rdv->plat.vlm_bank_max);
-	LOG_CON(s, "rmp_max: 0x%x\n", rdv->plat.rmp_max);
-	LOG_CON(s, "ctx_max: 0x%x\n", rdv->plat.ctx_max);
-	LOG_CON(s, "tcm_size: 0x%x\n", rdv->plat.tcm_size);
-	LOG_CON(s, "tcm_bank_max: 0x%x\n", rdv->plat.tcm_bank_max);
-	LOG_CON(s, "mdla_max: 0x%x\n", rdv->plat.mdla_max);
-	LOG_CON(s, "vpu_max: 0x%x\n", rdv->plat.vpu_max);
-	LOG_CON(s, "edma_max: 0x%x\n", rdv->plat.edma_max);
-	LOG_CON(s, "up_max: 0x%x\n", rdv->plat.up_max);
-	LOG_CON(s, "dram_offset: 0x%x\n", rdv->plat.dram_offset);
-	LOG_CON(s, "tcm_addr: 0x%x\n", rdv->plat.tcm_addr);
-	LOG_CON(s, "vlm_addr: 0x%x\n", rdv->plat.vlm_addr);
-	LOG_CON(s, "hw_ver: 0x%x\n", rdv->plat.hw_ver);
+	LOG_CON(s, "boundary: 0x%lx\n", rdv->plat.boundary);
+	LOG_CON(s, "bank_size: 0x%lx\n", rdv->plat.bank_size);
+	LOG_CON(s, "vlm_size: 0x%lx\n", rdv->plat.vlm_size);
+	LOG_CON(s, "vlm_bank_max: 0x%lx\n", rdv->plat.vlm_bank_max);
+	LOG_CON(s, "vlm_addr: 0x%lx\n", rdv->plat.vlm_addr);
+	LOG_CON(s, "dram_max: 0x%lx\n", rdv->plat.dram_max);
+	LOG_CON(s, "pool_max: 0x%lx\n", rdv->plat.pool_max);
+	for (i = 0; i < rdv->plat.pool_max; i++) {
+		LOG_CON(s, "-----------Pool[%d]--------------\n", i);
+		LOG_CON(s, "pool_type: 0x%lx\n", rdv->plat.pool_type[i]);
+		LOG_CON(s, "pool_base: 0x%lx\n", rdv->plat.pool_base[i]);
+		LOG_CON(s, "pool_step: 0x%lx\n", rdv->plat.pool_step[i]);
+		LOG_CON(s, "pool_size: 0x%lx\n", rdv->plat.pool_size[i]);
+		LOG_CON(s, "pool_bank_max: 0x%lx\n", rdv->plat.pool_bank_max[i]);
+		LOG_CON(s, "pool_addr: 0x%lx\n", rdv->plat.pool_addr[i]);
+		LOG_CON(s, "-----------Pool[%d]--------------\n", i);
+	}
+
+	LOG_CON(s, "device[REVISER_DEVICE_MDLA]: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_MDLA]);
+	LOG_CON(s, "device[REVISER_DEVICE_VPU]: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_VPU]);
+	LOG_CON(s, "edma_max: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_EDMA]);
+	LOG_CON(s, "up_max: 0x%lx\n", rdv->plat.device[REVISER_DEVICE_SECURE_MD32]);
+	LOG_CON(s, "dram: 0x%llx\n", rdv->plat.dram[0]);
+
+	LOG_CON(s, "hw_ver: 0x%lx\n", rdv->plat.hw_ver);
+	LOG_CON(s, "sw_ver: 0x%lx\n", rdv->plat.sw_ver);
 	LOG_CON(s, "=============================\n");
 }
 //----------------------------------------------
@@ -421,7 +444,12 @@ static void reviser_print_error(void *drvinfo, void *s_file)
 		return;
 	}
 
+
 	rdv = (struct reviser_dev_info *)drvinfo;
+
+	/* Workaround for power all on mode*/
+	//reviser_power_on(rdv);
+
 
 	spin_lock_irqsave(&rdv->lock.lock_dump, flags);
 	count = rdv->dump.err_count;
@@ -495,6 +523,7 @@ static int reviser_dbg_show_err_reg(struct seq_file *s, void *unused)
 		LOG_ERR("Can Not Read when power disable\n");
 		return 0;
 	}
+
 	reviser_mgt_dmp_exception(rdv, s);
 	return 0;
 }
@@ -513,10 +542,95 @@ static const struct file_operations reviser_dbg_fops_err_reg = {
 	//.write = seq_write,
 };
 //----------------------------------------------
+// log_level
+static int reviser_dbg_read_remotelog(void *data, u64 *val)
+{
+	struct reviser_dev_info *rdv = data;
+	int ret = 0;
+	uint32_t level = 0;
+
+	ret = reviser_remote_get_dbg_loglevel(rdv, &level);
+	if (ret)
+		return ret;
+
+	g_rvr_remote_klog = level;
+	*val = g_rvr_remote_klog;
+	return ret;
+}
+
+static int reviser_dbg_write_remotelog(void *data, u64 val)
+{
+	struct reviser_dev_info *rdv = data;
+	int ret = 0;
+
+	ret = reviser_remote_set_dbg_loglevel(rdv, val);
+	if (ret)
+		return ret;
+	g_rvr_remote_klog = val;
+
+	return ret;
+}
+DEFINE_SIMPLE_ATTRIBUTE(reviser_dbg_fops_remotelog,
+		reviser_dbg_read_remotelog, reviser_dbg_write_remotelog, "%llx\n");
+
+//----------------------------------------------
+static ssize_t reviser_dbg_write_op(struct file *file, const char __user *user_buf,
+			size_t count, loff_t *ppos)
+{
+
+#define MAX_ARG 5
+	struct reviser_dev_info *rdv = file->private_data;
+	char *tmp, *token, *cursor;
+	uint32_t argv[MAX_ARG];
+	int ret, i;
+
+	tmp = kzalloc(count + 1, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+
+	copy_from_user(tmp, user_buf, count);
+
+	tmp[count] = '\0';
+	cursor = tmp;
+
+	/* parse arguments */
+	for (i = 0; i < MAX_ARG && (token = strsep(&cursor, " ")); i++) {
+		ret = kstrtouint(token, 16, &argv[i]);
+		if (ret) {
+			LOG_ERR("fail to parse argv[%d]\n", i);
+			goto out;
+		}
+	}
+
+	for (i = 0; i < MAX_ARG; i++)
+		LOG_INFO("args[%d][%d]\n", i, argv[i]);
+
+
+	ret = reviser_remote_set_op(rdv, argv, MAX_ARG);
+	if (ret) {
+		LOG_ERR("set OP fail %d\n", ret);
+		goto out;
+	}
+	ret = count;
+out:
+	kfree(tmp);
+	return ret;
+
+}
+static const struct file_operations reviser_dbg_fops_remoteop = {
+	.open = simple_open,
+	.write = reviser_dbg_write_op,
+	.llseek = default_llseek,
+	//.write = seq_write,
+};
+
+//----------------------------------------------
 int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 {
 	int ret = 0;
 
+	g_rvr_klog = 0;
+	g_rvr_remote_klog = 0;
 	g_reviser_vlm_ctx = 0;
 	g_reviser_mem_tcm_bank = 0;
 	g_reviser_mem_dram_bank = 0;
@@ -630,6 +744,7 @@ int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 			reviser_dbg_mem,
 			&g_reviser_mem_dram_bank);
 
+
 	debugfs_create_u32("dram_ctx", 0644,
 			reviser_dbg_mem,
 			&g_reviser_mem_dram_ctx);
@@ -645,10 +760,32 @@ int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 	}
 
 	/* create log level */
-	debugfs_create_u8("log_level", 0644,
-			reviser_dbg_root, &g_reviser_log_level);
+	debugfs_create_u32("klog", 0644,
+			reviser_dbg_root, &g_rvr_klog);
+	DEBUG_TAG;
 
 
+	/* create remote log level */
+	reviser_dbg_remote_log = debugfs_create_file("remote_klog", 0644,
+			reviser_dbg_root, rdv,
+			&reviser_dbg_fops_remotelog);
+	ret = IS_ERR_OR_NULL(reviser_dbg_remote_log);
+	if (ret) {
+		LOG_ERR("failed to create debug node(remote_klog).\n");
+		goto out;
+	}
+
+	/* create remote log level */
+	reviser_dbg_remote_op = debugfs_create_file("op", 0644,
+			reviser_dbg_root, rdv,
+			&reviser_dbg_fops_remoteop);
+	ret = IS_ERR_OR_NULL(reviser_dbg_remote_op);
+	if (ret) {
+		LOG_ERR("failed to create debug node(op).\n");
+		goto out;
+	}
+
+	DEBUG_TAG;
 	reviser_dbg_err_info = debugfs_create_file("info", 0644,
 			reviser_dbg_err, rdv,
 			&reviser_dbg_fops_err_info);

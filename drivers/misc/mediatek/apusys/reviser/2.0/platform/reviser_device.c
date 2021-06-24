@@ -14,8 +14,6 @@ static struct reviser_plat mt6893_drv = {
 	.uninit					= reviser_v1_0_uninit,
 
 	.bank_size				= 0x40000,
-	.rmp_max				= 0xD,
-	.ctx_max				= 32,
 	.mdla_max				= 2,
 	.vpu_max				= 3,
 	.edma_max				= 2,
@@ -27,8 +25,6 @@ static struct reviser_plat mt6885_drv = {
 	.uninit					= reviser_v1_0_uninit,
 
 	.bank_size				= 0x40000,
-	.rmp_max				= 0xD,
-	.ctx_max				= 32,
 	.mdla_max				= 2,
 	.vpu_max				= 3,
 	.edma_max				= 2,
@@ -40,8 +36,6 @@ static struct reviser_plat mt6873_drv = {
 	.uninit					= reviser_v1_0_uninit,
 
 	.bank_size				= 0x40000,
-	.rmp_max				= 0xD,
-	.ctx_max				= 32,
 	.mdla_max				= 1,
 	.vpu_max				= 2,
 	.edma_max				= 1,
@@ -53,11 +47,20 @@ static struct reviser_plat mt6853_drv = {
 	.uninit					= reviser_v1_0_uninit,
 
 	.bank_size				= 0x40000,
-	.rmp_max				= 0xD,
-	.ctx_max				= 32,
 	.mdla_max				= 0,
 	.vpu_max				= 2,
 	.edma_max				= 0,
+	.up_max					= 1,
+};
+
+static struct reviser_plat rv_drv = {
+	.init					= reviser_vrv_init,
+	.uninit					= reviser_vrv_uninit,
+
+	.bank_size				= 0x40000,
+	.mdla_max				= 2,
+	.vpu_max				= 3,
+	.edma_max				= 2,
 	.up_max					= 1,
 };
 
@@ -67,6 +70,7 @@ static const struct of_device_id reviser_of_match[] = {
 	{ .compatible = "mediatek, mt6885-reviser", .data = &mt6885_drv},
 	{ .compatible = "mediatek, mt6873-reviser", .data = &mt6873_drv},
 	{ .compatible = "mediatek, mt6853-reviser", .data = &mt6853_drv},
+	{ .compatible = "mediatek, rv-reviser", .data = &rv_drv},
 	{/* end of list */},
 };
 

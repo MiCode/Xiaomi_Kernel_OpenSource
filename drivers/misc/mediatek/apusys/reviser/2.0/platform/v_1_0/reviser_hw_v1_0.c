@@ -71,9 +71,9 @@ int reviser_isr(void *drvinfo)
 	}
 
 	// Check if INT is for reviser
-	if (reviser_check_int_valid(rdv)) {
+	if (reviser_check_int_valid(rdv))
 		return -EINVAL;
-	}
+
 
 	if (!reviser_get_interrupt_offset(rdv)) {
 		//reviser_print_remap_table(private_data, NULL);
@@ -162,7 +162,7 @@ void reviser_print_boundary(void *drvinfo, void *s_file)
 	LOG_CON(s, " reviser driver boundary info\n");
 	LOG_CON(s, "-----------------------------\n");
 
-	for (i = 0; i < rdv->plat.mdla_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_MDLA]; i++) {
 		offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, i);
 		if (offset == REVISER_FAIL)
 			goto fail_offset;
@@ -171,7 +171,7 @@ void reviser_print_boundary(void *drvinfo, void *s_file)
 		LOG_CON(s, "MDLA%d: %.8x\n", i, mdla);
 	}
 
-	for (i = 0; i < rdv->plat.vpu_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_VPU]; i++) {
 		offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, i);
 		if (offset == REVISER_FAIL)
 			goto fail_offset;
@@ -181,7 +181,7 @@ void reviser_print_boundary(void *drvinfo, void *s_file)
 
 	}
 
-	for (i = 0; i < rdv->plat.edma_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_EDMA]; i++) {
 		offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, i);
 		if (offset == REVISER_FAIL)
 			goto fail_offset;
@@ -219,7 +219,7 @@ void reviser_print_context_ID(void *drvinfo, void *s_file)
 	LOG_CON(s, " reviser driver ID info\n");
 	LOG_CON(s, "-----------------------------\n");
 
-	for (i = 0; i < rdv->plat.mdla_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_MDLA]; i++) {
 		offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, i);
 		if (offset == REVISER_FAIL)
 			goto fail_offset;
@@ -229,7 +229,7 @@ void reviser_print_context_ID(void *drvinfo, void *s_file)
 	}
 
 
-	for (i = 0; i < rdv->plat.vpu_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_VPU]; i++) {
 		offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, i);
 		if (offset == REVISER_FAIL)
 			goto fail_offset;
@@ -239,7 +239,7 @@ void reviser_print_context_ID(void *drvinfo, void *s_file)
 	}
 
 
-	for (i = 0; i < rdv->plat.edma_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_EDMA]; i++) {
 		offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, i);
 		if (offset == REVISER_FAIL)
 			goto fail_offset;
@@ -578,7 +578,7 @@ int reviser_set_remap_table(void *drvinfo,
 		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
-	LOG_DEBUG("index: %u valid: %u ID: %u src: %u dst: %u\n",
+	LOG_DBG_RVR_HW("index: %u valid: %u ID: %u src: %u dst: %u\n",
 			index, valid, ID,	src_page, dst_page);
 
 	offset = _reviser_get_remap_offset(index);
@@ -632,7 +632,7 @@ int reviser_set_boundary(void *drvinfo,
 #if APUSYS_SECURE
 	value = ((BOUNDARY_ALL_NO_CHANGE) & ~(BOUNDARY_BIT_MASK << (index*4)));
 	value = (value | boundary << (index*4));
-	//LOG_DEBUG("value 0x%x\n", value);
+	//LOG_DBG_RVR_HW("value 0x%x\n", value);
 
 	switch (type) {
 	case REVISER_DEVICE_MDLA:
@@ -679,7 +679,7 @@ int reviser_set_context_ID(void *drvinfo, int type,
 	DEBUG_TAG;
 
 	if (type == APUSYS_DEVICE_SAMPLE) {
-		LOG_DEBUG("Ignore Set context\n");
+		LOG_WARN("Ignore Set context\n");
 		return ret;
 	}
 
@@ -822,6 +822,7 @@ int reviser_set_default_iova(void *drvinfo)
 	int ret = 0;
 	struct reviser_dev_info *rdv = NULL;
 	struct arm_smccc_res res;
+	uint32_t iova;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
@@ -829,14 +830,17 @@ int reviser_set_default_iova(void *drvinfo)
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	if (rdv->plat.dram_offset == 0) {
+	if (rdv->plat.dram[0] == 0) {
 		LOG_ERR("invalid iova\n");
 		return -EINVAL;
 	}
+
+	iova = rdv->plat.dram[0];
+
 #if APUSYS_SECURE
 	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
 			MTK_APUSYS_KERNEL_OP_REVISER_SET_DEFAULT_IOVA,
-			rdv->plat.dram_offset, 0, 0, 0, 0, 0, &res);
+			iova, 0, 0, 0, 0, 0, &res);
 	ret = res.a0;
 	if (ret) {
 		LOG_ERR("Set IOVA Fail\n");
@@ -844,10 +848,10 @@ int reviser_set_default_iova(void *drvinfo)
 	}
 
 #else
-	_reviser_set_default_iova(drvinfo, rdv->plat.dram_offset);
+	_reviser_set_default_iova(drvinfo, iova);
 #endif
 
-	LOG_DEBUG("Set IOVA %x\n", rdv->plat.dram_offset);
+	LOG_DBG_RVR_HW("Set IOVA %x\n", iova);
 
 	return ret;
 }
@@ -866,9 +870,9 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 	DEBUG_TAG;
-	LOG_DEBUG("boundary %u\n", boundary);
+	LOG_DBG_RVR_HW("boundary %u\n", boundary);
 
-	for (i = 0; i < rdv->plat.mdla_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_MDLA]; i++) {
 		if (reviser_set_boundary(
 			drvinfo, REVISER_DEVICE_MDLA,
 			i, boundary)) {
@@ -876,7 +880,7 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 		}
 	}
 
-	for (i = 0; i < rdv->plat.vpu_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_VPU]; i++) {
 		if (reviser_set_boundary(
 			drvinfo, REVISER_DEVICE_VPU,
 			i, boundary)) {
@@ -885,7 +889,7 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 	}
 
 
-	for (i = 0; i < rdv->plat.edma_max; i++) {
+	for (i = 0; i < rdv->plat.device[REVISER_DEVICE_EDMA]; i++) {
 		if (reviser_set_boundary(
 			drvinfo, REVISER_DEVICE_EDMA,
 			i, boundary)) {

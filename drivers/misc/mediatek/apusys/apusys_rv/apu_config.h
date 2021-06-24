@@ -38,7 +38,7 @@ struct logger_init_info {
 
 struct reviser_init_info {
 	uint32_t boundary;
-	uint32_t dram[32];
+	uint64_t dram[32];
 } __attribute__ ((__packed__));
 
 struct mvpu_preempt_data {

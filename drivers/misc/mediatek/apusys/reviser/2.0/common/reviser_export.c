@@ -39,7 +39,7 @@ int reviser_get_vlm(uint32_t request_size, bool force,
 	if (!reviser_table_get_vlm(g_rdv,
 			request_size, force,
 			ctx, tcm_size)) {
-		LOG_DEBUG("request(0x%x) force(%d) ctx(%lu) tcm_size(0x%x)\n",
+		LOG_DBG_RVR_VLM("request(0x%x) force(%d) ctx(%lu) tcm_size(0x%x)\n",
 				request_size, force, *ctx, *tcm_size);
 	} else {
 		ret = -EINVAL;
@@ -71,7 +71,7 @@ int reviser_free_vlm(uint32_t ctx)
 		return ret;
 	}
 
-	LOG_DEBUG("ctx(%d)\n", ctx);
+	LOG_DBG_RVR_VLM("ctx(%d)\n", ctx);
 	return ret;
 }
 
@@ -106,7 +106,7 @@ int reviser_set_context(int type,
 
 
 
-	LOG_DEBUG("type/index/ctx(%d/%d/%d)\n", type, index, ctx);
+	LOG_DBG_RVR_VLM("type/index/ctx(%d/%d/%d)\n", type, index, ctx);
 
 	return ret;
 }
@@ -130,7 +130,7 @@ int reviser_get_resource_vlm(uint32_t *addr, uint32_t *size)
 	}
 
 	*addr = (uint32_t) g_rdv->plat.vlm_addr;
-	*size = (uint32_t) g_rdv->plat.tcm_size;
+	*size = (uint32_t) g_rdv->plat.pool_size[0];
 
 	return 0;
 }

@@ -20,7 +20,7 @@ APUSYS_VERSION_SAMPLE = 2.0
 APUSYS_VERSION_DEBUG = 1.0
 APUSYS_VERSION_MNOC = 1.5
 APUSYS_VERSION_VPU = 4.5
-APUSYS_VERSION_REVISER = 1.5
+APUSYS_VERSION_REVISER = 2.0
 
 # target object
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apusys.o
@@ -130,6 +130,8 @@ apusys-objs += $(REVISER_COMN)/reviser_hw_mgt.o
 apusys-objs += $(REVISER_COMN)/reviser_mem.o
 apusys-objs += $(REVISER_COMN)/reviser_power.o
 apusys-objs += $(REVISER_COMN)/reviser_table_mgt.o
+apusys-objs += $(REVISER_COMN)/reviser_remote.o
+apusys-objs += $(REVISER_COMN)/reviser_remote_cmd.o
 
 apusys-objs += $(REVISER_PLAT)/reviser_device.o
 apusys-objs += $(REVISER_PLAT)/reviser_plat.o
@@ -137,6 +139,8 @@ apusys-objs += $(REVISER_PLAT)/reviser_plat.o
 apusys-objs += $(REVISER_PLAT)/v_1_0/reviser_hw_v1_0.o
 apusys-objs += $(REVISER_PLAT)/v_1_0/reviser_plat_v1_0.o
 apusys-objs += $(REVISER_PLAT)/v_1_0/reviser_reg_v1_0.o
+apusys-objs += $(REVISER_PLAT)/v_rv/reviser_hw_vrv.o
+apusys-objs += $(REVISER_PLAT)/v_rv/reviser_plat_vrv.o
 
 
 

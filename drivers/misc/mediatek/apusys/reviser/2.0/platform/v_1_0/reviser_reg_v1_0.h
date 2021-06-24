@@ -35,6 +35,7 @@
 
 
 #define VLM_CTXT_BASE            (0x0300)
+#define REMAP_DRAM_BASE          (0x4000000)
 
 #define VLM_CTXT_MDLA_0          (VLM_CTXT_BASE + 0x08)
 #define VLM_CTXT_MDLA_1          (VLM_CTXT_BASE + 0x0C)

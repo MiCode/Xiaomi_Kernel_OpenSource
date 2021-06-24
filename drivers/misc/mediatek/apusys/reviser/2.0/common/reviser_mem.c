@@ -60,7 +60,7 @@ static int __reviser_get_sgt(const char *buf,
 		return -ENOMEM;
 
 	p = buf - offset_in_page(buf);
-	LOG_DEBUG("start p: %llx buf: %llx\n",
+	LOG_DBG_RVR_MEM("start p: %llx buf: %llx\n",
 			(uint64_t)p, (uint64_t)buf);
 
 	for (index = 0; index < nr_pages; index++) {
@@ -87,7 +87,7 @@ static int __reviser_get_sgt(const char *buf,
 
 
 
-	LOG_DEBUG("buf: %p, len: %lx, sgt: %p nr_pages: %d\n",
+	LOG_DBG_RVR_MEM("buf: %p, len: %lx, sgt: %p nr_pages: %d\n",
 		buf, len, sgt, nr_pages);
 
 	return 0;
@@ -134,10 +134,6 @@ err:
 int reviser_mem_free(struct device *dev, struct reviser_mem *mem)
 {
 	int ret = 0;
-	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
-
-
-	LOG_ERR("iova dram_offset (0x%llx)\n", rdv->plat.dram_offset);
 
 	kvfree((void *) mem->kva);
 
@@ -178,8 +174,8 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 	}
 
 	iova = __reviser_get_iova(dev, mem->sgt.sgl, mem->sgt.nents,
-			mem->size, rdv->plat.dram_offset);
-	if ((!iova) || ((uint32_t)iova != rdv->plat.dram_offset)) {
+			mem->size, rdv->plat.dram[0]);
+	if ((!iova) || ((uint32_t)iova != rdv->plat.dram[0])) {
 		LOG_ERR("iova wrong (0x%llx)\n", iova);
 		goto error;
 	}
@@ -220,6 +216,7 @@ int reviser_dram_remap_init(void *drvinfo)
 {
 	struct reviser_dev_info *rdv = NULL;
 	unsigned int ctx_max = 0;
+	unsigned int i = 0;
 
 	DEBUG_TAG;
 
@@ -229,10 +226,14 @@ int reviser_dram_remap_init(void *drvinfo)
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	ctx_max = rdv->plat.mdla_max + rdv->plat.vpu_max
-			+ rdv->plat.edma_max + rdv->plat.up_max;
-	//ctx_max * 2 = ctx_max + ctx_preemption_max
-	g_mem_sys.size = rdv->plat.vlm_size * ctx_max * 2;
+	ctx_max = rdv->plat.device[REVISER_DEVICE_MDLA]
+				+ rdv->plat.device[REVISER_DEVICE_VPU]
+				+ rdv->plat.device[REVISER_DEVICE_EDMA]
+				+ rdv->plat.device[REVISER_DEVICE_SECURE_MD32];
+
+	// dram_ctx = preemption_ctx + ip_ctx
+	rdv->plat.dram_max = ctx_max * 2;
+	g_mem_sys.size = rdv->plat.vlm_size * rdv->plat.dram_max;
 	if (reviser_mem_alloc(rdv->dev, &g_mem_sys)) {
 		LOG_ERR("alloc fail\n");
 		return -ENOMEM;
@@ -241,6 +242,8 @@ int reviser_dram_remap_init(void *drvinfo)
 	//_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
 
 	rdv->rsc.dram.base = (void *) g_mem_sys.kva;
+	for (i = 0; i < rdv->plat.dram_max; i++)
+		rdv->plat.dram[i] = g_mem_sys.iova + rdv->plat.vlm_size * i;
 
 	return 0;
 }
@@ -281,8 +284,10 @@ void reviser_print_dram(void *drvinfo, void *s_file)
 	rdv = (struct reviser_dev_info *)drvinfo;
 	data = (unsigned char *)rdv->rsc.dram.base;
 
-	ctx_max = rdv->plat.mdla_max + rdv->plat.vpu_max
-			+ rdv->plat.edma_max + rdv->plat.up_max;
+	ctx_max = rdv->plat.device[REVISER_DEVICE_MDLA]
+			+ rdv->plat.device[REVISER_DEVICE_VPU]
+			+ rdv->plat.device[REVISER_DEVICE_EDMA]
+			+ rdv->plat.device[REVISER_DEVICE_SECURE_MD32];
 	vlm_size = rdv->plat.vlm_size;
 	vlm_bank_size = rdv->plat.bank_size;
 
@@ -295,12 +300,16 @@ void reviser_print_dram(void *drvinfo, void *s_file)
 	LOG_CON(s, "-----------------------------\n");
 
 	for (index = 0; index < ctx_max; index++) {
-		LOG_CON(s, "== PAGE[%02d] == [%02x][%02x][%02x][%02x]\n",
+		LOG_CON(s, "== PAGE[%02d] == [%02x][%02x][%02x][%02x][%02x][%02x][%02x][%02x]\n",
 				index,
 				*(data + vlm_size*index + vlm_bank_size*0),
 				*(data + vlm_size*index + vlm_bank_size*1),
 				*(data + vlm_size*index + vlm_bank_size*2),
-				*(data + vlm_size*index + vlm_bank_size*3));
+				*(data + vlm_size*index + vlm_bank_size*3),
+				*(data + vlm_size*index + vlm_bank_size*4),
+				*(data + vlm_size*index + vlm_bank_size*5),
+				*(data + vlm_size*index + vlm_bank_size*6),
+				*(data + vlm_size*index + vlm_bank_size*7));
 
 	}
 
@@ -327,17 +336,17 @@ void reviser_print_tcm(void *drvinfo, void *s_file)
 	rdv = (struct reviser_dev_info *)drvinfo;
 	vlm_bank_size = rdv->plat.bank_size;
 
-	if (rdv->plat.tcm_size == 0) {
+	if (rdv->plat.pool_size[0] == 0) {
 		LOG_ERR("invalid TCM\n");
 		return;
 	}
 
-	memcpy_fromio(bank0, rdv->rsc.tcm.base + vlm_bank_size*0, 32);
-	memcpy_fromio(bank1, rdv->rsc.tcm.base + vlm_bank_size*1, 32);
-	memcpy_fromio(bank2, rdv->rsc.tcm.base + vlm_bank_size*2, 32);
-	memcpy_fromio(bank3, rdv->rsc.tcm.base + vlm_bank_size*3, 32);
+	memcpy_fromio(bank0, rdv->rsc.pool[0].base + vlm_bank_size*0, 32);
+	memcpy_fromio(bank1, rdv->rsc.pool[0].base + vlm_bank_size*1, 32);
+	memcpy_fromio(bank2, rdv->rsc.pool[0].base + vlm_bank_size*2, 32);
+	memcpy_fromio(bank3, rdv->rsc.pool[0].base + vlm_bank_size*3, 32);
 	LOG_CON(s, "=============================\n");
-	LOG_CON(s, " reviser tcm table info\n");
+	LOG_CON(s, " reviser pool[0] table info\n");
 	LOG_CON(s, "-----------------------------\n");
 	LOG_CON(s, "== BANK[NUM] == [DATA][DATA][DATA][DATA]\n");
 	LOG_CON(s, "-----------------------------\n");

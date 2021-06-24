@@ -36,6 +36,18 @@ int reviser_v1_0_init(struct platform_device *pdev)
 	cb->isr_cb = reviser_isr;
 	cb->set_int = reviser_enable_interrupt;
 
+	//Set TCM Info
+	rdv->plat.pool_type[0] = 2;
+	rdv->plat.pool_base[0] = 0;
+	rdv->plat.pool_step[0] = 1;
+	//Set DRAM fallback
+	rdv->plat.dram[0] = REMAP_DRAM_BASE;
+
+	//Set remap max
+	rdv->plat.rmp_max = VLM_REMAP_TABLE_MAX;
+	//Set ctx max
+	rdv->plat.ctx_max = VLM_CTXT_CTX_ID_MAX;
+
 	rdv->plat.hw_ver = 0x100;
 
 	return 0;
