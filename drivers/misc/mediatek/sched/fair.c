@@ -194,6 +194,8 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		cpu_util = schedutil_cpu_util(cpu, util_cfs, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
 		max_util = max(max_util, cpu_util);
+
+		trace_sched_energy_util(dst_cpu, max_util, sum_util, cpu, util_cfs, cpu_util);
 	}
 
 	trace_android_vh_em_cpu_energy(pd->em_pd, max_util, sum_util, &energy);
@@ -459,7 +461,7 @@ done:
 	trace_sched_find_energy_efficient_cpu(prev_delta, best_delta, best_energy_cpu,
 			best_idle_cpu, max_spare_cap_cpu_ls, sys_max_spare_cap_cpu);
 	trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
-			task_util_est(p), uclamp_task_util(p),
+			task_util(p), task_util_est(p), uclamp_task_util(p),
 			latency_sensitive , sync);
 
 	return;
