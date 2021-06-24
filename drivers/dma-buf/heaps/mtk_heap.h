@@ -10,6 +10,6 @@
 #include <linux/dma-buf.h>
 
 /* return 0 means error */
-u32 dmabuf_to_secure_handle (struct dma_buf *dmabuf);
+u32 dmabuf_to_secure_handle(struct dma_buf *dmabuf);
 
 #endif /* _MTK_DMABUFHEAP_DEBUG_H */
