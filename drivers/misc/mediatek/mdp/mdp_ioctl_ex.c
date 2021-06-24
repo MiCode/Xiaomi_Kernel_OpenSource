@@ -28,6 +28,8 @@
 #include "cmdq_record.h"
 #include "cmdq_device.h"
 
+#include "mdp_rdma_ex.h"
+
 #define MDP_TASK_PAENDING_TIME_MAX	10000000
 
 struct mdpsys_con_context {
@@ -95,6 +97,17 @@ static dma_addr_t translate_read_id(u32 read_id)
 
 	return translate_read_id_ex(read_id, &slot_offset)
 		+ slot_offset * sizeof(u32);
+}
+
+static u32 translate_engine_rdma(u32 engine)
+{
+	s32 rdma_idx = cmdq_mdp_get_rdma_idx(engine);
+
+	if (rdma_idx < 0) {
+		CMDQ_ERR("invalia rdma idx, set rdma0 as default\n");
+		rdma_idx = 0;
+	}
+	return rdma_idx;
 }
 
 static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
@@ -317,12 +330,98 @@ static s32 translate_meta(struct op_meta *meta,
 		break;
 	}
 	case CMDQ_MOP_WRITE:
+	{
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
 			return -EINVAL;
 		status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr,
 					meta->value, meta->mask);
 		break;
+	}
+	case CMDQ_MOP_WRITE_FD_RDMA:
+	{
+		unsigned long mva = translate_fd(meta, mapping_job);
+		u32 rdma_idx = translate_engine_rdma(meta->engine);
+
+		if (!mva) {
+			CMDQ_ERR("%s: op:%u, get mva fail, engine %d, fd 0x%x, fd_offset 0x%x\n",
+				 __func__, meta->op, meta->engine, meta->fd, meta->fd_offset);
+			return -EINVAL;
+		}
+
+		if (meta->cpr_idx >= CPR_IDX_MDP_RDMA_SRC_OFFSET_0 &&
+		    meta->cpr_idx <= CPR_IDX_MDP_RDMA_AFBC_PAYLOAD_OST) {
+
+			if (rdma_idx == 0 || rdma_idx == 1) { /* for rdma0 and rdma1 */
+				status = cmdq_op_assign_reg_idx_ex(
+					handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP, meta->pipe_idx,
+							  meta->cpr_idx),
+					mva);
+			} else if (rdma_idx == 2 || rdma_idx == 3) {
+				status = cmdq_op_assign_reg_idx_ex(
+					handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
+							  meta->pipe_idx,
+							  meta->cpr_idx),
+					mva);
+			} else {
+				CMDQ_ERR("%s: meta op:%u, invalid engine %d\n",
+					 __func__, meta->op, meta->engine);
+			}
+		} else {
+			CMDQ_ERR("%s: meta op:%u, invalid cpr_idx %d\n",
+				 __func__, meta->op, meta->cpr_idx);
+		}
+		break;
+	}
+	case CMDQ_MOP_WRITE_RDMA:
+	{
+		u32 rdma_idx = translate_engine_rdma(meta->engine);
+
+		if (meta->cpr_idx == CPR_IDX_MDP_RDMA_PIPE_IDX) {
+			if (rdma_idx == 0 || rdma_idx == 1) { /* for rdma0 and rdma1 */
+				status = cmdq_op_assign_reg_idx_ex(
+					handle, cmd_buf,
+					CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MDP),
+					meta->pipe_idx);
+			} else if (rdma_idx == 2 || rdma_idx == 3) {
+				status = cmdq_op_assign_reg_idx_ex(
+					handle, cmd_buf,
+					CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MML),
+					meta->pipe_idx);
+			} else {
+				CMDQ_ERR("%s: meta op:%u, invalid engine %d\n",
+					 __func__, meta->op, meta->engine);
+			}
+		} else if (meta->cpr_idx >= CPR_IDX_MDP_RDMA_SRC_OFFSET_0 &&
+		           meta->cpr_idx <= CPR_IDX_MDP_RDMA_AFBC_PAYLOAD_OST) {
+
+			if (rdma_idx == 0 || rdma_idx == 1) {  /* for rdma0 and rdma1 */
+				status = cmdq_op_assign_reg_idx_ex(
+					handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+							  meta->pipe_idx,
+							  meta->cpr_idx),
+					meta->value);
+			} else if (rdma_idx == 2 || rdma_idx == 3) {
+				status = cmdq_op_assign_reg_idx_ex(
+					handle, cmd_buf,
+					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MML,
+							  meta->pipe_idx,
+							  meta->cpr_idx),
+					meta->value);
+			} else {
+				CMDQ_ERR("%s: meta op:%u, invalid engine %d\n",
+					 __func__, meta->op, meta->engine);
+			}
+		} else {
+			CMDQ_ERR("%s: meta op:%u, invalid cpr_idx %d\n",
+				 __func__, meta->op, meta->cpr_idx);
+		}
+
+		break;
+	}
 	case CMDQ_MOP_READ:
 	{
 		u32 offset;

@@ -2925,6 +2925,31 @@ void cmdq_mdp_compose_readback(struct cmdqRecStruct *handle,
 	}
 }
 
+static s32 mdp_get_rdma_idx(u32 eng_base)
+{
+	s32 rdma_idx = -1;
+
+	switch (eng_base) {
+	case ENGBASE_MDP_RDMA0:
+		rdma_idx = 0;
+		break;
+	case ENGBASE_MDP_RDMA1:
+		rdma_idx = 1;
+		break;
+	case ENGBASE_MDP_RDMA2:
+		rdma_idx = 2;
+		break;
+	case ENGBASE_MDP_RDMA3:
+		rdma_idx = 3;
+		break;
+	default:
+		CMDQ_ERR("%s engine not support:%d\n", __func__, eng_base);
+		break;
+	}
+
+	return rdma_idx;
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -2976,6 +3001,7 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getEngineBaseCount = mdp_engine_base_count;
 	pFunc->getEngineGroupName = mdp_get_engine_group_name;
 	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
+	pFunc->getRDMAIndex = mdp_get_rdma_idx;
 }
 EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 

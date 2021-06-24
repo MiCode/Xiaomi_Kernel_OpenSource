@@ -120,6 +120,8 @@ typedef void (*CmdqMdpComposeReadback) (struct cmdqRecStruct *handle,
 typedef void (*CmdqMdpReadbackEngine) (struct cmdqRecStruct *handle,
 	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param);
 
+typedef s32 (*MdpGetRDMAIndex) (u32);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -178,6 +180,8 @@ struct cmdqMDPFuncStruct {
 	CmdqMdpComposeReadback mdpComposeReadback;
 	CmdqMdpReadbackEngine mdpReadbackAal;
 	CmdqMdpReadbackEngine mdpReadbackHdr;
+	MdpGetRDMAIndex getRDMAIndex;
+
 };
 
 struct mdp_pmqos_record {
@@ -303,6 +307,7 @@ void testcase_clkmgr_mdp(void);
 
 u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset);
 u32 cmdq_mdp_get_hw_port(u32 base);
+s32 cmdq_mdp_get_rdma_idx(u32 base);
 
 struct device *mdp_larb_dev_get(void);
 

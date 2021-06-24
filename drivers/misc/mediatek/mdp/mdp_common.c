@@ -3224,6 +3224,12 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
 }
 
+static s32 mdp_get_rdma_idx_virtual(u32 eng_base)
+{
+	CMDQ_ERR("%s no support\n", __func__);
+	return -1;
+}
+
 void cmdq_mdp_virtual_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc;
@@ -3294,6 +3300,8 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->getEngineBaseCount = mdp_get_engine_base_count_dummy;
 	pFunc->mdpReadbackAal = mdp_readback_aal_virtual;
 	pFunc->mdpReadbackHdr = mdp_readback_hdr_virtual;
+	pFunc->getRDMAIndex = mdp_get_rdma_idx_virtual;
+
 }
 EXPORT_SYMBOL(cmdq_mdp_virtual_function_setting);
 
@@ -4106,6 +4114,12 @@ u32 cmdq_mdp_get_hw_port(u32 base)
 	return mdp_engine_port[base];
 }
 #endif
+
+s32 cmdq_mdp_get_rdma_idx(u32 base)
+{
+	return cmdq_mdp_get_func()->getRDMAIndex(base);
+}
+EXPORT_SYMBOL(cmdq_mdp_get_rdma_idx);
 
 #ifdef MDP_COMMON_ENG_SUPPORT
 void cmdq_mdp_platform_function_setting(void)
