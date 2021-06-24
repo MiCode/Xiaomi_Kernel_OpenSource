@@ -2528,6 +2528,14 @@
 		reg = <0 0x14800000 0 0x800000>;
 	};
 
+	hcp: hcp@0 {
+		compatible = "mediatek,hcp";
+		/*
+		ion-supply = <&ion>;
+		iommus = <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_CQ1_A>;
+		*/
+	};
+
 	imgsys_fw@15000000 {
 		compatible = "mediatek,imgsys";
 #if 0
