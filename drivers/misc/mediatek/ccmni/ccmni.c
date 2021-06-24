@@ -207,10 +207,12 @@ static int is_skb_gro(struct sk_buff *skb)
 
 	packet_type = skb->data[0] & 0xF0;
 	if (packet_type == IPV4_VERSION &&
-		ip_hdr(skb)->protocol == IPPROTO_TCP)
+		(ip_hdr(skb)->protocol == IPPROTO_TCP ||
+		ip_hdr(skb)->protocol == IPPROTO_UDP))
 		return 1;
 	else if (packet_type == IPV6_VERSION &&
-		ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+		(ipv6_hdr(skb)->nexthdr == IPPROTO_TCP ||
+		ipv6_hdr(skb)->nexthdr == IPPROTO_UDP))
 		return 1;
 	else
 		return 0;
@@ -1030,6 +1032,7 @@ static inline void ccmni_dev_init(int md_id, struct net_device *dev)
 			(~IFF_BROADCAST & ~IFF_MULTICAST);
 	/* not support VLAN */
 	dev->features = NETIF_F_VLAN_CHALLENGED;
+	dev->features |= NETIF_F_GRO_FRAGLIST;
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_SGIO) {
 		dev->features |= NETIF_F_SG;
 		dev->hw_features |= NETIF_F_SG;
