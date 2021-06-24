@@ -50,8 +50,6 @@
 #define IF_ONE
 #endif
 
-extern int g_msync_dy;
-
 /* TODO: BW report module should not hardcode */
 enum DISP_PMQOS_SLOT {
 	DISP_PMQOS_OVL0_BW = 0,
@@ -619,6 +617,36 @@ struct mtk_cwb_info {
 	const struct mtk_cwb_funcs *funcs;
 };
 
+#define MSYNC_MAX_RECORD 5
+#define MSYNC_LOWFRAME_THRESHOLD 3
+#define MSYNC_MIN_FPS 46.1
+
+enum MSYNC_RECORD_TYPE {
+	INVALID,
+	ENABLE_MSYNC,
+	DISABLE_MSYNC,
+	FRAME_TIME,
+};
+
+struct msync_record {
+	enum MSYNC_RECORD_TYPE type;
+	u64 time;
+	bool low_frame;
+};
+
+struct mtk_msync2_dy {
+	int dy_en;
+	struct msync_record record[MSYNC_MAX_RECORD];
+	int record_index;
+};
+
+struct mtk_msync2 {
+	struct mtk_msync2_dy msync_dy;
+	bool msync_disabled;
+	bool LFR_disabled;
+	atomic_t LFR_final_state;
+};
+
 /**
  * struct mtk_drm_crtc - MediaTek specific crtc structure.
  * @base: crtc object.
@@ -739,6 +767,8 @@ struct mtk_drm_crtc {
 	struct cmdq_cb_data cb_data;
 	atomic_t cmdq_done;
 	wait_queue_head_t signal_fence_task_wq;
+
+	struct mtk_msync2 msync2;
 };
 
 struct mtk_crtc_state {

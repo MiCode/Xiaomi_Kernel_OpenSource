@@ -1551,10 +1551,22 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_mobile_log = 0;
 	} else if (strncmp(opt, "msync_dy:", 9) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
 		if (strncmp(opt + 9, "on", 2) == 0)
-			g_msync_dy = 1;
+			mtk_crtc->msync2.msync_dy.dy_en = 1;
 		else if (strncmp(opt + 9, "off", 3) == 0)
-			g_msync_dy = 0;
+			mtk_crtc->msync2.msync_dy.dy_en = 0;
 	} else if (strncmp(opt, "fence:", 6) == 0) {
 		if (strncmp(opt + 6, "on", 2) == 0)
 			g_fence_log = 1;

@@ -860,6 +860,7 @@ static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 	unsigned int refresh_rate =
 		drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 
+	atomic_set(&mtk_crtc->msync2.LFR_final_state, en);
 	if (mtk_dsi_is_LFR_Enable(dsi))
 		return -1;
 
