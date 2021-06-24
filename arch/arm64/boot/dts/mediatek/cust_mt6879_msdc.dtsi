@@ -47,8 +47,9 @@
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
 #endif
-	no-mmc;
+	no-sd;
 	no-sdio;
+	non-removable;
 };
 
 #if 0
