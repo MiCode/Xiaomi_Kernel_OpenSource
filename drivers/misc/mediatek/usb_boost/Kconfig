@@ -1,0 +1,10 @@
+#
+# MediaTek USB Boost Driver
+#
+
+config MTK_USB_BOOST
+	tristate "Mediatek USB BOOST Driver"
+	help
+	  Enables to support usb-boost.
+	  If unsure, say N.
+
