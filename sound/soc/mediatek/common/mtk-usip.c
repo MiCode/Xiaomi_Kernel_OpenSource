@@ -275,6 +275,26 @@ static void usip_send_emi_info_to_dsp(void)
 		pr_info("%s(), scp_ipi send fail\n", __func__);
 	else
 		pr_debug("%s(), scp_ipi send succeed\n", __func__);
+
+	/* Send EMI Address to Hifi3 Via IPI*/
+	if ((usip.adsp_phone_call_enh_config & 0x2) == 0x2) {
+		ipi_msg.task_scene = TASK_SCENE_PHONE_CALL_SUB;
+		adsp_register_feature(VOICE_CALL_SUB_FEATURE_ID);
+		send_result = audio_send_ipi_msg(
+					 &ipi_msg, TASK_SCENE_PHONE_CALL_SUB,
+					 AUDIO_IPI_LAYER_TO_DSP,
+					 AUDIO_IPI_PAYLOAD,
+					 AUDIO_IPI_MSG_BYPASS_ACK,
+					 IPI_MSG_A2D_GET_EMI_ADDRESS,
+					 sizeof(usip_emi_info),
+					 0,
+					 (char *)&usip_emi_info);
+		adsp_deregister_feature(VOICE_CALL_SUB_FEATURE_ID);
+		if (send_result != 0)
+			pr_info("%s(), scp_ipi send sub fail\n", __func__);
+		else
+			pr_debug("%s(), scp_ipi send sub succeed\n", __func__);
+	}
 }
 
 static int audio_call_event_receive(struct notifier_block *this,
