@@ -124,7 +124,8 @@ EXPORT_SYMBOL(cmdq_subsys_id_to_base);
 int cmdq_pkt_realloc_cmd_buffer(struct cmdq_pkt *pkt, size_t size)
 {
 	while (pkt->buf_size < size)
-		cmdq_pkt_add_cmd_buffer(pkt);
+		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
+			return -ENOMEM;
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_realloc_cmd_buffer);
