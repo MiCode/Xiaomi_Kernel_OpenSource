@@ -4213,22 +4213,6 @@ static int mt_vow_amic_connect(struct snd_soc_dapm_widget *source,
 		return 0;
 }
 
-static int mt_normal_amic_connect(struct snd_soc_dapm_widget *source,
-				  struct snd_soc_dapm_widget *sink)
-{
-
-	struct snd_soc_dapm_widget *w = sink;
-	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
-	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	if (IS_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
-	    IS_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_1]) ||
-	    IS_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_2]))
-		return 0;
-	else
-		return 1;
-}
-
 static int mt_vow_amic_dcc_connect(struct snd_soc_dapm_widget *source,
 				   struct snd_soc_dapm_widget *sink)
 {
@@ -4358,7 +4342,7 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	 * amic fifo ch1/2 clk from ADC_L,
 	 * enable ADC_L even use ADC_R only
 	 */
-	{"ADC_R", NULL, "ADC_L_EN", mt_normal_amic_connect},
+	{"ADC_R", NULL, "ADC_L_EN"},
 	{"ADC_3", NULL, "ADC_3_Mux"},
 	{"ADC_3", NULL, "ADC_CLKGEN"},
 	{"ADC_3", NULL, "ADC_3_EN"},
