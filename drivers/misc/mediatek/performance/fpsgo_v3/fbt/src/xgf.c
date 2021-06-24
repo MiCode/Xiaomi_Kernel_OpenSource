@@ -427,6 +427,7 @@ static int xgf_render_setup_wspid_list(struct xgf_render *render)
 	struct xgf_spid *xgf_spid_iter;
 	struct task_struct *gtsk, *sib;
 	struct xgf_spid *new_xgf_spid;
+	int tlen = 0;
 
 	rcu_read_lock();
 	gtsk = find_task_by_vpid(render->parent);
@@ -440,7 +441,9 @@ static int xgf_render_setup_wspid_list(struct xgf_render *render)
 				if (strncmp(gtsk->comm, xgf_spid_iter->process_name, 16))
 					continue;
 
-				if (!strncmp(sib->comm, xgf_spid_iter->thread_name, 16)) {
+				tlen = strlen(xgf_spid_iter->thread_name);
+
+				if (!strncmp(sib->comm, xgf_spid_iter->thread_name, tlen)) {
 					new_xgf_spid = xgf_alloc(sizeof(*new_xgf_spid));
 					if (!new_xgf_spid) {
 						ret = -ENOMEM;
