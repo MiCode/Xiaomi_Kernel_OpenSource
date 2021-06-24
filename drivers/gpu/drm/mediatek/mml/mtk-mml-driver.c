@@ -17,6 +17,7 @@
 
 #include "mtk-mml-driver.h"
 #include "mtk-mml-core.h"
+#include "mtk-mml-pq-core.h"
 #include "mtk-mml-sys.h"
 
 #define MML_MAX_CMDQ_CLTS	4
@@ -666,6 +667,7 @@ static int __init mml_driver_init(void)
 	/* make sure topology for platform ready */
 	mml_topology_ip_init();
 
+	mml_pq_core_init();
 	/* register pm notifier */
 
 	return 0;

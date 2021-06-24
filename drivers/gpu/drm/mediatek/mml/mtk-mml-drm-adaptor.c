@@ -553,6 +553,11 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	mml_msg("present fence fd %d for job %u task %p fence %p",
 		task->job.fence, task->job.jobid, task, task->fence);
 
+	/* copy pq parameters */
+	for (i = 0; i < submit->buffer.dest_cnt && submit->pq_param[i]; i++)
+		memcpy(&task->pq_param[i], submit->pq_param[i], sizeof(struct mml_pq_param));
+	mml_msg("after copy pq param\n");
+
 	/* submit to core */
 	result = mml_core_submit_task(cfg, task);
 

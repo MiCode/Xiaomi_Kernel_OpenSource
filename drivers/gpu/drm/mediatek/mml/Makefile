@@ -34,6 +34,7 @@ mtk-mml-legacy-objs := mml_drv.o
 
 mml_drv-objs += mtk-mml-driver.o
 mml_drv-objs += mtk-mml-core.o
+mml_drv-objs += mtk-mml-pq-core.o
 mml_drv-objs += mtk-mml-drm-adaptor.o
 mml_drv-objs += mtk-mml-buf.o
 mml_drv-objs += mtk-mml-sys.o

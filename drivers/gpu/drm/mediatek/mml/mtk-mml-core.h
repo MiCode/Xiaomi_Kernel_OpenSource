@@ -26,6 +26,7 @@
 #include "mtk-mml.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-driver.h"
+#include "mtk-mml-pq.h"
 
 extern int mtk_mml_msg;
 
@@ -262,6 +263,7 @@ struct mml_task {
 	struct mml_job job;
 	struct mml_frame_config *config;
 	struct mml_task_buffer buf;
+	struct mml_pq_param pq_param[MML_MAX_OUTPUTS];
 	struct timespec64 end_time;
 	struct dma_fence *fence;
 	enum mml_task_state state;
@@ -277,6 +279,9 @@ struct mml_task {
 	struct work_struct work_config[MML_PIPE_CNT];
 	struct work_struct work_wait;
 	atomic_t pipe_done;
+
+	/* mml pq task */
+	struct mml_pq_task *pq_task;
 };
 
 struct mml_comp_tile_ops {
