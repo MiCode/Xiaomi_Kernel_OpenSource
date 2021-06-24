@@ -109,6 +109,7 @@ endmenu # Other Peripheral
 
 menu "Performance"
 source "drivers/misc/mediatek/sched/Kconfig"
+source "drivers/misc/mediatek/cache-auditor/Kconfig"
 source "drivers/misc/mediatek/performance/Kconfig"
 source "drivers/misc/mediatek/perf_common/Kconfig"
 source "drivers/misc/mediatek/rps/Kconfig"
