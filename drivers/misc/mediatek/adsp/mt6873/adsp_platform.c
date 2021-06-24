@@ -26,6 +26,18 @@
 static void __iomem *mt_base;
 static void __iomem *mt_secure;
 
+static void adsp_mt_clr_dma(void)
+{
+	u32 ch = 0;
+	void __iomem *dma_base;
+
+	for (ch = 0; ch < ADSP_DMA_CHANNEL; ch++) {
+		dma_base =  ADSP_DMA_BASE_CH(ch);
+		CLR_BITS(ADSP_DMA_START(dma_base), ADSP_DMA_START_CLR_BIT);
+		SET_BITS(ADSP_DMA_ACKINT(dma_base), ADSP_DMA_ACK_BIT);
+	}
+}
+
 void adsp_mt_sw_reset(u32 cid)
 {
 	unsigned long flags;
@@ -94,6 +106,7 @@ void adsp_mt_clear(void)
 	writel(0x0, ADSP_B_IRQ_EN);
 	writel(0x0, ADSP_A_WDT_REG);
 	writel(0x0, ADSP_B_WDT_REG);
+	adsp_mt_clr_dma();
 }
 
 void adsp_mt_clr_spm(u32 cid)
