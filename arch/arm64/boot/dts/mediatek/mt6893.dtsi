@@ -1637,7 +1637,8 @@
 			mediatek,md_generation = <6297>;
 			mediatek,offset_apon_md1 = <0x2844>;
 			mediatek,cldma_capability = <6>;
-			mediatek,srclkena_setting = <2>;
+			/* bit0~1: srcclkena|srclken_o1_on */
+			mediatek,srclkena_setting = <3>;
 			/* srclken_o1 set value |= 1<<21 */
 			mediatek,srclken_o1 = <0x200000>;
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
