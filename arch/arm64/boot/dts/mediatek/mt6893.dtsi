@@ -2202,8 +2202,8 @@
 			sshub-vsram-supply = <&mt6359p_vsram_others_sshub_ldo>;
 
 			do-ulposc-cali;
-			topckgen = <&topckgen_clk>;
-			apmixedsys = <&apmixedsys_clk>;
+			fmeter_clksys = <&topckgen_clk>;
+			ulposc_clksys = <&apmixedsys_clk>;
 			scp_clk_ctrl = <&scp_clk_ctrl>;
 			scp-clk-hw-ver = "v1";
 			ulposc-cali-ver = "v1";
