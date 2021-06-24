@@ -60,6 +60,7 @@ obj-$(CONFIG_MTK_PBM) += pbm/
 obj-$(CONFIG_MTK_CCU) += ccu/src/
 obj-$(CONFIG_MEDIATEK_CPUFREQ_DEBUG) += cpufreq_v1/
 obj-$(CONFIG_MTK_PTPOD_GPU) += eemgpu/
+obj-$(CONFIG_MTK_MKP) += mkp/
 obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table/
 obj-$(CONFIG_EXTCON_MTK_USB) += extcon/
 obj-$(CONFIG_MTK_VOW_SUPPORT) += vow/

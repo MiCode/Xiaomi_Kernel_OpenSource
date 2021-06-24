@@ -1,0 +1,7 @@
+config MTK_MKP
+	tristate "MTK MKP feature"
+	help
+	  Protect the kernel section and module section, and
+	  provide hook implementation to detect the changes
+	  of critical kernel data. It uses some mechanisms
+	  provided by EL2 to set memory type in S2 page table.
