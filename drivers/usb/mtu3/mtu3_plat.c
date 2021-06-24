@@ -159,6 +159,12 @@ int ssusb_clks_enable(struct ssusb_mtk *ssusb)
 		goto ref_clk_err;
 	}
 
+	ret = clk_prepare_enable(ssusb->host_clk);
+	if (ret) {
+		dev_info(ssusb->dev, "failed to enable host_clk\n");
+		goto host_clk_err;
+	}
+
 	ret = clk_prepare_enable(ssusb->mcu_clk);
 	if (ret) {
 		dev_err(ssusb->dev, "failed to enable mcu_clk\n");
@@ -176,6 +182,8 @@ int ssusb_clks_enable(struct ssusb_mtk *ssusb)
 dma_clk_err:
 	clk_disable_unprepare(ssusb->mcu_clk);
 mcu_clk_err:
+	clk_disable_unprepare(ssusb->host_clk);
+host_clk_err:
 	clk_disable_unprepare(ssusb->ref_clk);
 ref_clk_err:
 	clk_disable_unprepare(ssusb->sys_clk);
@@ -187,6 +195,7 @@ void ssusb_clks_disable(struct ssusb_mtk *ssusb)
 {
 	clk_disable_unprepare(ssusb->dma_clk);
 	clk_disable_unprepare(ssusb->mcu_clk);
+	clk_disable_unprepare(ssusb->host_clk);
 	clk_disable_unprepare(ssusb->ref_clk);
 	clk_disable_unprepare(ssusb->sys_clk);
 }
@@ -296,6 +305,10 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	ssusb->ref_clk = devm_clk_get_optional(dev, "ref_ck");
 	if (IS_ERR(ssusb->ref_clk))
 		return PTR_ERR(ssusb->ref_clk);
+
+	ssusb->host_clk = devm_clk_get_optional(dev, "host_ck");
+	if (IS_ERR(ssusb->host_clk))
+		return PTR_ERR(ssusb->host_clk);
 
 	ssusb->mcu_clk = devm_clk_get_optional(dev, "mcu_ck");
 	if (IS_ERR(ssusb->mcu_clk))

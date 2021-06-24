@@ -263,6 +263,7 @@ struct otg_switch_mtk {
  * @ref_clk: reference clock
  * @mcu_clk: mcu_bus_ck clock for AHB bus etc
  * @dma_clk: dma_bus_ck clock for AXI bus etc
+ * @host_clk: clock for host IP
  * @dr_mode: works in which mode:
  *		host only, device only or dual-role mode
  * @u2_ports: number of usb2.0 host ports
@@ -289,6 +290,7 @@ struct ssusb_mtk {
 	struct clk *ref_clk;
 	struct clk *mcu_clk;
 	struct clk *dma_clk;
+	struct clk *host_clk;
 	/* otg */
 	struct otg_switch_mtk otg_switch;
 	enum usb_dr_mode dr_mode;
