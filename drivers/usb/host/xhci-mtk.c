@@ -18,6 +18,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include "xhci.h"
 #include "xhci-mtk.h"
@@ -68,10 +70,146 @@
 #define SSC_IP_SLEEP_EN	BIT(4)
 #define SSC_SPM_INT_EN		BIT(1)
 
+/*testmode*/
+#define HOST_CMD_STOP				0x0
+#define HOST_CMD_TEST_J             0x1
+#define HOST_CMD_TEST_K             0x2
+#define HOST_CMD_TEST_SE0_NAK       0x3
+#define HOST_CMD_TEST_PACKET        0x4
+#define PMSC_PORT_TEST_CTRL_OFFSET  28
+
+/*procfs node*/
+#define PROC_FILES_NUM 1
+static struct proc_dir_entry *proc_files[PROC_FILES_NUM] = {
+	NULL};
+
 enum ssusb_uwk_vers {
 	SSUSB_UWK_V1 = 1,
 	SSUSB_UWK_V2,
 };
+
+static int xhci_testmode_show(struct seq_file *s, void *unused)
+{
+	struct xhci_hcd_mtk *mtk = s->private;
+	struct xhci_hcd	*xhci = hcd_to_xhci(mtk->hcd);
+
+	switch (xhci->test_mode) {
+	case HOST_CMD_STOP:
+		seq_puts(s, "0\n");
+		break;
+	case HOST_CMD_TEST_J:
+		seq_puts(s, "test J\n");
+		break;
+	case HOST_CMD_TEST_K:
+		seq_puts(s, "test K\n");
+		break;
+	case HOST_CMD_TEST_SE0_NAK:
+		seq_puts(s, "test SE0 NAK\n");
+		break;
+	case HOST_CMD_TEST_PACKET:
+		seq_puts(s, "test packet\n");
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int xhci_testmode_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, xhci_testmode_show, PDE_DATA(inode));
+}
+
+static ssize_t xhci_testmode_write(struct file *file,  const char __user *ubuf,
+			       size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xhci_hcd_mtk *mtk = s->private;
+	struct xhci_hcd	*xhci = hcd_to_xhci(mtk->hcd);
+	int ports = HCS_MAX_PORTS(xhci->hcs_params1);
+	char buf[32];
+	unsigned long flags;
+	u8 testmode = HOST_CMD_STOP;
+	u32 temp;
+	u32 __iomem *addr;
+	int i;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (!strncmp(buf, "test packet", 10))
+		testmode = HOST_CMD_TEST_PACKET;
+	else if (!strncmp(buf, "test K", 6))
+		testmode = HOST_CMD_TEST_K;
+	else if (!strncmp(buf, "test J", 6))
+		testmode = HOST_CMD_TEST_J;
+	else if (!strncmp(buf, "test SE0 NAK", 12))
+		testmode = HOST_CMD_TEST_SE0_NAK;
+
+	if (testmode >= HOST_CMD_STOP && testmode <= HOST_CMD_TEST_PACKET) {
+		xhci_info(xhci, "set test mode %d\n", testmode);
+
+		spin_lock_irqsave(&xhci->lock, flags);
+
+		/* set the Run/Stop in USBCMD to 0 */
+		addr = &xhci->op_regs->command;
+		temp = readl(addr);
+		temp &= ~CMD_RUN;
+		writel(temp, addr);
+
+		/*  wait for HCHalted */
+		xhci_halt(xhci);
+
+		/* test mode */
+		for (i = 0; i < ports; i++) {
+			addr = &xhci->op_regs->port_power_base +
+				NUM_PORT_REGS * (i & 0xff);
+			temp = readl(addr);
+			temp &= ~(0xf << PMSC_PORT_TEST_CTRL_OFFSET);
+			temp |= (testmode << PMSC_PORT_TEST_CTRL_OFFSET);
+			writel(temp, addr);
+		}
+
+		xhci->test_mode = testmode;
+		spin_unlock_irqrestore(&xhci->lock, flags);
+	} else {
+		pr_info("%s: invalid value\n", __func__);
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static const struct file_operations testmode_fops = {
+	.open			= xhci_testmode_open,
+	.write			= xhci_testmode_write,
+	.read			= seq_read,
+	.llseek			= seq_lseek,
+	.release		= single_release,
+};
+
+static void xhci_mtk_dbg_init(struct xhci_hcd_mtk *mtk)
+{
+	u8 idx = 0;
+
+	proc_mkdir("mtk_usb", NULL);
+
+	proc_files[idx] = proc_create_data("mtk_usb/testmode", 0644, NULL, &testmode_fops, mtk);
+	if (!proc_files[idx])
+		pr_info("%s: fail to create testmode node in procfs\n", __func__);
+	idx++;
+}
+
+static void xhci_mtk_dbg_exit(struct xhci_hcd_mtk *mtk)
+{
+	u8 idx = 0;
+
+	for (; idx < PROC_FILES_NUM; idx++) {
+		if (proc_files[idx])
+			proc_remove(proc_files[idx]);
+	}
+}
 
 static int xhci_mtk_host_enable(struct xhci_hcd_mtk *mtk)
 {
@@ -553,6 +691,8 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	if (ret)
 		goto dealloc_usb2_hcd;
 
+	xhci_mtk_dbg_init(mtk);
+
 	return 0;
 
 dealloc_usb2_hcd:
@@ -602,6 +742,7 @@ static int xhci_mtk_remove(struct platform_device *dev)
 	xhci_mtk_sch_exit(mtk);
 	xhci_mtk_clks_disable(mtk);
 	xhci_mtk_ldos_disable(mtk);
+	xhci_mtk_dbg_exit(mtk);
 
 	return 0;
 }
