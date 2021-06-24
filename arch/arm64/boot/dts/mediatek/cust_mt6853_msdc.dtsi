@@ -105,13 +105,13 @@
 				<PINMUX_GPIO126__FUNC_MSDC1_CMD>;
 			input-enable;
 			drive-strength = <3>;
-			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
 
 		pins_clk {
 			pinmux = <PINMUX_GPIO125__FUNC_MSDC1_CLK>;
 			drive-strength = <3>;
-			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
 	};
 	mmc1_pins_uhs: mmc1@0{
@@ -123,13 +123,13 @@
 				<PINMUX_GPIO126__FUNC_MSDC1_CMD>;
 			input-enable;
 			drive-strength = <3>;
-			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
 
 		pins_clk {
 			pinmux = <PINMUX_GPIO125__FUNC_MSDC1_CLK>;
 			drive-strength = <3>;
-			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
 	};
 };
