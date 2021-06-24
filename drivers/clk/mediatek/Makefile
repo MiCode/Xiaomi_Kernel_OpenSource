@@ -67,6 +67,21 @@ obj-$(CONFIG_COMMON_CLK_MT6853_SCP_ADSP) += clk-mt6853-scp_par.o
 obj-$(CONFIG_COMMON_CLK_MT6853_VDEC_GCON) += clk-mt6853-vdec.o
 obj-$(CONFIG_COMMON_CLK_MT6853_VENC_GCON) += clk-mt6853-venc.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6879.c),)
+obj-$(CONFIG_COMMON_CLK_MT6879) += clk-mt6879.o clk-bringup.o
+obj-$(CONFIG_COMMON_CLK_MT6879_ADSP) += clk-mt6879-adsp.o
+obj-$(CONFIG_COMMON_CLK_MT6879_APU) += clk-mt6879-apu.o
+obj-$(CONFIG_COMMON_CLK_MT6879_CAM) += clk-mt6879-cam.o
+obj-$(CONFIG_COMMON_CLK_MT6879_CCU) += clk-mt6879-ccu.o
+obj-$(CONFIG_COMMON_CLK_MT6879_IMG) += clk-mt6879-img.o
+obj-$(CONFIG_COMMON_CLK_MT6879_MMSYS) += clk-mt6879-mmsys.o
+obj-$(CONFIG_COMMON_CLK_MT6879_PERI) += clk-mt6879-peri.o
+obj-$(CONFIG_COMMON_CLK_MT6879_BUS) += clk-mt6879-bus.o
+obj-$(CONFIG_COMMON_CLK_MT6879_MDPSYS) += clk-mt6879-mdp.o
+obj-$(CONFIG_COMMON_CLK_MT6879_MFG) += clk-mt6879-mfgcfg.o
+obj-$(CONFIG_COMMON_CLK_MT6879_DPMAIF) += clk-mt6879-dpma.o
+obj-$(CONFIG_COMMON_CLK_MT6879_VCODEC) += clk-mt6879-vcodec.o
+endif
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6893.c),)
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-mt6893.o
 obj-$(CONFIG_COMMON_CLK_MT6893_APU0) += clk-mt6893-apu0.o
@@ -172,6 +187,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-chk-mt6853.o
 clk-chk-mt6853-$(CONFIG_COMMON_CLK_MT6853) += clkchk-mt6853.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6879.c),)
+obj-$(CONFIG_COMMON_CLK_MT6879) += clk-fmeter-mt6879.o
+clk-fmeter-mt6879-$(CONFIG_COMMON_CLK_MT6879) += clk-fmeter-mt6879.o
 endif
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6893.c),)
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-chk-mt6893.o
