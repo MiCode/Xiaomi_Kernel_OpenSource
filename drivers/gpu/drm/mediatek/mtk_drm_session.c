@@ -196,8 +196,7 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 					mode_tb[session_mode].ddp_mode[i], 1);
 		}
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) && \
-		defined(CONFIG_MTK_TEE_GP_SUPPORT) && \
-		defined(CONFIG_MACH_MT6877)
+		defined(CONFIG_MTK_TEE_GP_SUPPORT)
 #if !defined(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 		/* For wfd secure region */
 		DDPINFO("Switch WFD: display call m4u_sec_init\n");
