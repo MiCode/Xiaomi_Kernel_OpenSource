@@ -148,7 +148,6 @@ int disp_met_set(void *data, u64 val);
 #define RDMA_FIFO_PSEUDO_SIZE(bytes) (((bytes) / 16UL) << 16)
 #define RDMA_OUTPUT_VALID_FIFO_THRESHOLD(bytes) ((bytes) / 16)
 #define RDMA_FIFO_SIZE(module) ((module)->data->fifo_size)
-#define DISP_RDMA_MEM_START_ADDR 0x0f00
 
 #define MATRIX_INT_MTX_SEL_DEFAULT 0x000000
 
@@ -228,7 +227,7 @@ struct mtk_rdma_backup_info {
 };
 
 struct mtk_rdma_cfg_info {
-	unsigned int addr;
+	dma_addr_t addr;
 	unsigned int width;
 	unsigned int height;
 	unsigned int fmt;
@@ -737,6 +736,20 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 #endif
 }
 
+static void mtk_rdma_write_mem_start_addr_cmdq(struct mtk_ddp_comp *comp,
+						dma_addr_t addr,
+						struct cmdq_pkt *handle)
+{
+	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
+
+	mtk_ddp_write_relaxed(comp, addr, DISP_REG_RDMA_MEM_START_ADDR,
+			handle);
+
+	if (rdma->data->is_support_34bits)
+		mtk_ddp_write_relaxed(comp, (addr >> 32),
+			DISP_REG_RDMA_MEM_START_ADDR_MSB, handle);
+}
+
 static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 			    struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
@@ -778,8 +791,7 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_relaxed(comp, 0, DISP_REG_RDMA_MEM_CON, handle);
 		mtk_ddp_write_mask(comp, 0, DISP_REG_RDMA_GLOBAL_CON,
 				   RDMA_MODE_MEMORY, handle);
-		mtk_ddp_write_relaxed(comp, 0, DISP_RDMA_MEM_START_ADDR,
-				      handle);
+		mtk_rdma_write_mem_start_addr_cmdq(comp, 0, handle);
 	}
 
 #ifdef IF_ZERO
@@ -1233,7 +1245,7 @@ static void mtk_rdma_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	struct mtk_rdma_cfg_info *cfg_info = &rdma->cfg_info;
 	struct mtk_plane_pending_state *pending = &state->pending;
-	unsigned int addr = pending->addr;
+	dma_addr_t addr = pending->addr;
 	unsigned int pitch = pending->pitch & 0xffff;
 	unsigned int fmt = pending->format;
 	unsigned int con;
@@ -1253,7 +1265,8 @@ static void mtk_rdma_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		mtk_ddp_write_mask(comp, MATRIX_INT_MTX_SEL_DEFAULT,
 				   DISP_REG_RDMA_SIZE_CON_0, 0xff0000, handle);
 
-	mtk_ddp_write_relaxed(comp, addr, DISP_RDMA_MEM_START_ADDR, handle);
+	mtk_rdma_write_mem_start_addr_cmdq(comp, addr, handle);
+
 	mtk_ddp_write_relaxed(comp, pitch, DISP_RDMA_MEM_SRC_PITCH, handle);
 
 	cfg_info->addr = addr;

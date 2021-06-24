@@ -399,7 +399,7 @@ struct mtk_ovl_backup_info {
 	unsigned int layer;
 	unsigned int layer_en;
 	unsigned int con;
-	unsigned long addr;
+	dma_addr_t addr;
 	unsigned int src_size;
 	unsigned int src_pitch;
 	unsigned int data_path_con;
@@ -1297,7 +1297,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       struct cmdq_pkt *handle)
 {
 	struct mtk_plane_pending_state *pending = &state->pending;
-	unsigned int addr = pending->addr;
+	dma_addr_t addr = pending->addr;
 	unsigned int fmt = pending->format;
 	unsigned int pitch = pending->pitch & 0xffff;
 	unsigned int pitch_msb = ((pending->pitch >> 16) & 0xf);
@@ -1536,7 +1536,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	DDPINFO("%s+ id %d, idx:%d, enable:%d, fmt:0x%x, ",
 		__func__, comp->id, idx, pending->enable, pending->format);
-	DDPINFO("addr 0x%lx, compr %d, con 0x%x\n",
+	DDPINFO("addr 0x%x, compr %d, con 0x%x\n",
 		pending->addr, pending->prop_val[PLANE_PROP_COMPRESS], con);
 
 	if (rotate) {
@@ -2590,7 +2590,7 @@ static void mtk_ovl_backup_info_cmp(struct mtk_ddp_comp *comp, bool *compare)
 		cur_info[i].layer = i;
 		cur_info[i].layer_en = src_on & (0x1 << i);
 		if (!cur_info[i].layer_en) {
-			DDPMSG("%s:layer%d,en %d,size 0x%x,addr %lu\n",
+			DDPMSG("%s:layer%d,en %d,size 0x%x,addr 0x%x\n",
 			       __func__, i, cur_info[i].layer_en,
 			       cur_info[i].src_size, cur_info[i].addr);
 			continue;
