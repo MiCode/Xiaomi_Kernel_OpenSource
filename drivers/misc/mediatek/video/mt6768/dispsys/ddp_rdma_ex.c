@@ -659,6 +659,7 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 		fifo_off_drs_leave = 1;
 		fifo_off_spm = 50; /* 10 times*/
 		fifo_off_dvfs = 2;
+
 		if (is_wrot_sram) {
 			if (rdma_golden_setting->dst_height > 2340)
 				fifo_off_ultra = 40;
@@ -692,6 +693,7 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 
 		do_div(consume_rate, 1000);
 	}
+
 	consume_rate *= 1250;
 	do_div(consume_rate, 16*1000);
 	consume_rate_div_tmp = consume_rate;

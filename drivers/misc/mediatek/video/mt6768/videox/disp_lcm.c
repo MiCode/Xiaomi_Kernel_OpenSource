@@ -1102,7 +1102,6 @@ struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 			isLCMInited = false;
 			DISPCHECK("LCM not init\n");
 		}
-
 		lcmindex = 0;
 	} else {
 		if (plcm_name == NULL) {
@@ -1430,6 +1429,7 @@ int disp_lcm_suspend(struct disp_lcm_handle *plcm)
 		return 0;
 	}
 	DISPERR("lcm_drv is null\n");
+
 	return -1;
 }
 
@@ -1455,6 +1455,7 @@ int disp_lcm_resume(struct disp_lcm_handle *plcm)
 		return 0;
 	}
 	DISPERR("lcm_drv is null\n");
+
 	return -1;
 }
 

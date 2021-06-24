@@ -77,7 +77,6 @@
 			pr_info("[DISP]func|%s\n", __func__);		\
 	} while (0)
 
-#ifdef CONFIG_MTK_MT6382_BDG
 #define DISPFUNCSTART()							\
 	do {								\
 		dprec_logger_pr(DPREC_LOGGER_DEBUG, "func|%s START\n", __func__); \
@@ -91,7 +90,6 @@
 		if (g_mobilelog)					\
 			pr_info("[DISP]mt6382 %s end, line:%d", __func__, __LINE__);\
 	} while (0)
-#endif
 
 #define DISPDBGFUNC() DISPFUNC()
 

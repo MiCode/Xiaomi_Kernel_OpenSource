@@ -68,9 +68,7 @@
 #ifdef MTK_FB_MMDVFS_SUPPORT
 //#include "mmdvfs_mgr.h"
 #endif
-#ifdef CONFIG_MTK_MT6382_BDG
 #include "ddp_disp_bdg.h"
-#endif
 
 /* device tree */
 #include <linux/of.h>
@@ -336,19 +334,16 @@ int primary_display_dsi_vfp_change(int state)
 	struct cmdqRecStruct *handle = NULL;
 	struct LCM_PARAMS *params;
 	unsigned int apply_vfp = 0;
-
-#ifndef CONFIG_MTK_MT6382_BDG
-	cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &handle);
-#else
-	cmdqRecCreate(CMDQ_SCENARIO_DISP_ESD_CHECK, &handle);
-#endif
+	if (bdg_is_bdg_connected() == 1)
+		cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &handle);
+	else
+		cmdqRecCreate(CMDQ_SCENARIO_DISP_ESD_CHECK, &handle);
 
 	cmdqRecReset(handle);
 
 	/* make sure token rdma_sof is clear */
-#ifndef CONFIG_MTK_MT6382_BDG
-	cmdqRecClearEventToken(handle, CMDQ_EVENT_DISP_RDMA0_SOF);
-#endif
+	if (bdg_is_bdg_connected() == 1)
+		cmdqRecClearEventToken(handle, CMDQ_EVENT_DISP_RDMA0_SOF);
 
 	/* for chips later than M17,VFP can be set at anytime
 	 * So don't need to wait-SOF here
@@ -383,30 +378,27 @@ int primary_display_dsi_vfp_change(int state)
 	}
 
 	if (state == 1 || state == 0) {
-#ifdef CONFIG_MTK_MT6382_BDG
-		if (get_dsc_state()) {
-			cmdqRecClearEventToken(handle,
+		if (bdg_is_bdg_connected() == 1) {
+			if (get_dsc_state()) {
+				cmdqRecClearEventToken(handle,
 					CMDQ_EVENT_DSI_TE);
-		}
-#endif
-#ifdef CONFIG_MTK_MT6382_BDG
-		if (get_dsc_state()) {
-			cmdqRecWaitNoClear(handle,
+				cmdqRecWaitNoClear(handle,
 					CMDQ_EVENT_DSI_TE);
+			}
 		}
-#endif
 		dpmgr_path_ioctl(primary_get_dpmgr_handle(), handle,
 			DDP_DSI_PORCH_CHANGE,
 			&apply_vfp);
 	}
-#ifdef CONFIG_MTK_MT6382_BDG
-	_blocking_flush();
-#endif
+	if (bdg_is_bdg_connected() == 1)
+		_blocking_flush();
+
 	cmdqRecFlushAsync(handle);
-#ifdef CONFIG_MTK_MT6382_BDG
-	if (apply_vfp)
-		bdg_dsi_vfp_gce(apply_vfp);
-#endif
+
+	if (bdg_is_bdg_connected() == 1)
+		if (apply_vfp)
+			bdg_dsi_vfp_gce(apply_vfp);
+
 	cmdqRecDestroy(handle);
 	return ret;
 }
@@ -1253,7 +1245,6 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 			primary_display_request_dvfs_perf(0,
 				HRT_LEVEL_DEFAULT);
 #endif
-
 		primary_display_manual_unlock();
 
 		wait_event_interruptible(idlemgr_pgc->idlemgr_wait_queue,

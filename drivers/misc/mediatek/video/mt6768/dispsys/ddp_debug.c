@@ -328,7 +328,7 @@ static void process_dbg_opt(const char *opt)
 			backup_vfp_for_lp_cust(vfp);
 	} else if (strncmp(opt, "irq_log:", 8) == 0) {
 		char *p = (char *)opt + 8;
-		unsigned int enable;
+		unsigned int enable = 0;
 
 		ret = kstrtouint(p, 0, &enable);
 		if (ret) {
@@ -550,7 +550,7 @@ static void process_dbg_opt(const char *opt)
 
 	} else if (strncmp(opt, "debug:", 6) == 0) {
 		char *p = (char *)opt + 6;
-		unsigned int enable;
+		unsigned int enable = 0;
 
 		ret = kstrtouint(p, 0, &enable);
 		if (ret) {
@@ -674,9 +674,9 @@ static void process_dbg_opt(const char *opt)
 		test.count = para_cnt;
 		for (i = 0; i < 15; i++)
 			test.para_list[i] = para[i];
-		pr_info("set_dsi_cmd cmd=0x%x\n", cmd);
+		DDPMSG("set_dsi_cmd cmd=0x%x\n", cmd);
 		for (i = 0; i < para_cnt; i++)
-			pr_info("para[%d] = 0x%x\n", i, para[i]);
+			DDPMSG("para[%d] = 0x%x\n", i, para[i]);
 		set_lcm(&test, 1, hs);
 
 	} else if (strncmp(opt, "read_customer_cmd:", 18) == 0) {

@@ -14,8 +14,6 @@
 #ifndef __DSI_DRV_H__
 #define __DSI_DRV_H__
 
-
-
 #include "lcm_drv.h"
 #include "ddp_hal.h"
 #include "fbconfig_kdebug.h"
@@ -103,7 +101,6 @@ enum DSI_CMDQ_RPT {
 	ENABLE_RPT = 1,
 };
 
-
 struct DSI_CMDQ_CONFG {
 	unsigned type:2;
 	unsigned BTA:1;
@@ -113,7 +110,6 @@ struct DSI_CMDQ_CONFG {
 	unsigned Rsv:1;
 	unsigned RPT:1;
 };
-
 
 struct DSI_T0_INS {
 	unsigned CONFG:8;
@@ -201,7 +197,8 @@ void DSI_Set_LFR(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	unsigned int mode, unsigned int type, unsigned int enable,
 	unsigned int skip_num);
 enum DSI_STATUS DSI_BIST_Pattern_Test(enum DISP_MODULE_ENUM module,
-	struct cmdqRecStruct *cmdq,	bool enable, unsigned int color);
+				      struct cmdqRecStruct *cmdq, bool enable,
+				      unsigned int color);
 int ddp_dsi_start(enum DISP_MODULE_ENUM module, void *cmdq);
 enum DSI_STATUS DSI_DumpRegisters(enum DISP_MODULE_ENUM module, int level);
 void DSI_ForceConfig(int forceconfig);
@@ -209,8 +206,8 @@ int DSI_set_roi(int x, int y);
 int DSI_check_roi(void);
 int ddp_dsi_trigger(enum DISP_MODULE_ENUM module, void *cmdq);
 void DSI_set_cmdq_V2(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
-	unsigned int cmd, unsigned char count, unsigned char *para_list,
-	unsigned char force_update);
+		    unsigned int cmd, unsigned char count,
+		    unsigned char *para_list, unsigned char force_update);
 void DSI_send_cmdq_to_bdg(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 		    unsigned int cmd, unsigned char count,
 		    unsigned char *para_list, unsigned char force_update);
@@ -249,9 +246,6 @@ unsigned int ddp_dsi_fps_change_index(
 void ddp_dsi_dynfps_chg_fps(
 	enum DISP_MODULE_ENUM module, void *handle,
 	unsigned int last_fps, unsigned int new_fps, unsigned int chg_index);
-void ddp_dsi_bdg_dynfps_chg_fps(
-	enum DISP_MODULE_ENUM module, void *handle,
-	unsigned int last_fps, unsigned int new_fps, unsigned int chg_index);
 void ddp_dsi_dynfps_get_vfp_info(unsigned int disp_fps,
 	unsigned int *vfp, unsigned int *vfp_for_lp);
 void DSI_dynfps_send_cmd(
@@ -264,4 +258,4 @@ void DSI_dynfps_send_cmd(
 #ifdef __cplusplus
 }
 #endif
-#endif				/* __DPI_DRV_H__ */
+#endif /* __DSI_DRV_H__ */

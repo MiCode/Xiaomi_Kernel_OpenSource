@@ -12,6 +12,7 @@
 #
 
 #$(call all-subdir-src-or-makefile)
+export MTK_PLATFORM_NAME := $(CONFIG_MTK_PLATFORM)
 export MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 subdir-ccflags-y += -Werror
 
@@ -134,7 +135,6 @@ endif
 ifeq (,$(filter $(CONFIG_MTK_PLATFORM_NAME), "mt6768" "mt6785"))
 obj-y += spi_slave_drv/
 endif
-obj-$(CONFIG_MTK_MT6382_BDG) += hifi4dsp_spi/
 obj-$(CONFIG_MTK_FB) += video/
 obj-$(CONFIG_MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT) += dfrc/
 obj-$(CONFIG_MTK_PMIC_WRAP_HAL) += pmic_wrap/

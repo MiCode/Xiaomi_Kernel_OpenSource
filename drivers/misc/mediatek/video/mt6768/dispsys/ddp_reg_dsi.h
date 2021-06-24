@@ -536,6 +536,10 @@ struct DSI_INPUT_DEBUG_REG {
 	unsigned INP_REDUNDANT_REGION:1;
 };
 
+struct DSI_CMDQ_REG {
+	unsigned rsv0:32;
+};
+
 struct DSI_REGS {
 	struct DSI_START_REG DSI_START;	/* 0000 */
 	struct DSI_STATUS_REG DSI_STA;	/* 0004 */
@@ -615,6 +619,10 @@ struct DSI_REGS {
 	UINT32 DSI_VM_CMD_DATA1C;	/* 0018C */
 	struct DSI_SHADOW_DEBUG_REG DSI_SHADOW_DEBUG;	/* 0190 */
 	struct DSI_SHADOW_STA_REG DSI_SHADOW_STA;	/* 0194 */
+	UINT32 rsv_0198[26];				/* 0198..01fc */
+	struct DSI_CMDQ_REG DSI_CMDQ0;			/* 200 */
+	struct DSI_CMDQ_REG DSI_CMDQ1;			/* 204 */
+	struct DSI_CMDQ_REG DSI_CMDQ2;			/* 208 */
 };
 
 /* 0~1 TYPE ,2 BTA,3 HS, 4 CL,5 TE,6~7 RESV,

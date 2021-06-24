@@ -1298,12 +1298,11 @@ int dpmgr_path_trigger(disp_path_handle dp_handle, void *trigger_loop_handle,
 	int module_num, module_name;
 	int i;
 	struct DDP_MODULE_DRIVER *mod_drv;
-#ifdef CONFIG_MTK_MT6382_BDG
 	char para[7] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
 	char para1[7] = {0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00};
 	char para2[7] = {0x50, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
 	char para3[7] = {0x50, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00};
-#endif
+
 	if (!dp_handle) {
 		ASSERT(0);
 		return -1;
@@ -1313,7 +1312,7 @@ int dpmgr_path_trigger(disp_path_handle dp_handle, void *trigger_loop_handle,
 		ddp_get_scenario_name(handle->scenario));
 	modules = ddp_get_scenario_list(handle->scenario);
 	module_num = ddp_get_module_num(handle->scenario);
-#ifdef CONFIG_MTK_MT6382_BDG
+	if (bdg_is_bdg_connected() == 1) {
 		if (get_mt6382_init() && (get_bdg_tx_mode() == CMD_MODE)) {
 			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
 					0x00, 7, para, 1);
@@ -1324,7 +1323,7 @@ int dpmgr_path_trigger(disp_path_handle dp_handle, void *trigger_loop_handle,
 			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
 					0x20, 7, para3, 1);
 		}
-#endif
+	}
 	ddp_mutex_enable(handle->hwmutexid, handle->scenario, handle->mode,
 		trigger_loop_handle);
 	for (i = 0; i < module_num; i++) {

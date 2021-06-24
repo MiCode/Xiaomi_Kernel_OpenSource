@@ -94,13 +94,10 @@ enum LCM_IOCTL {
 	LCM_IOCTL_NULL = 0,
 };
 
-
-
 enum LCM_Send_Cmd_Mode {
 	LCM_SEND_IN_CMD = 0,
 	LCM_SEND_IN_VDO
 };
-
 
 /* DBI related enumerations */
 
@@ -579,7 +576,6 @@ struct vsync_trigger_time {
 	unsigned int config_expense_time;
 };
 
-
 /*DynFPS*/
 enum DynFPS_LEVEL {
 	DFPS_LEVEL0 = 0,
@@ -633,7 +629,6 @@ struct dfps_info {
 	/*real fps during active*/
 	unsigned int vact_timing_fps_dyn;
 };
-
 
 struct LCM_DSI_PARAMS {
 	enum LCM_DSI_MODE_CON mode;
@@ -1086,7 +1081,6 @@ struct LCM_DRIVER {
 	void (*set_pwm_for_mix)(int enable);
 
 	void (*aod)(int enter);
-
 	/* /////////////DynFPS///////////////////////////// */
 	void (*dfps_send_lcm_cmd)(void *cmdq_handle,
 		unsigned int from_level, unsigned int to_level, struct LCM_PARAMS *params);

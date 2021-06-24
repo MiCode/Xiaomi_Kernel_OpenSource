@@ -33,10 +33,8 @@ static const char *this_state_name[DTS_GPIO_STATE_MAX] = {
 	"lcd_bias_enp1_gpio",
 	"tp_rst_out1_gpio",
 	"tp_rst_out0_gpio",
-#ifdef CONFIG_MTK_MT6382_BDG
 	"6382_rst_out1_gpio",
 	"6382_rst_out0_gpio"
-#endif
 };
 
 /* pinctrl implementation */
