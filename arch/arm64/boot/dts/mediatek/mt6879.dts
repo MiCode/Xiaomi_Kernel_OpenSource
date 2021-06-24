@@ -84,7 +84,7 @@
 		  <0 0x10006000 0 0x1000>,	/* spm */
 		  <0 0x10000000 0 0x1000>;	/* topckgen */
 	    #clock-cells = <1>;
-	}
+	};
 
 	nemi_reg_clk: syscon@10219000 {
 		compatible = "mediatek,mt6879-nemi_reg", "syscon";
