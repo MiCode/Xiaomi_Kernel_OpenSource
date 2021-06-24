@@ -543,6 +543,7 @@
 		reg = <0 0x11230000 0 0x10000>,
 		      <0 0x11f50000 0 0x1000>;
 		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
+		status = "disabled";
 	};
 
 	mmc1: mmc@11240000 {
