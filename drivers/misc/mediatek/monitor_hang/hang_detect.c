@@ -20,6 +20,7 @@
 #include <linux/sched/clock.h>
 #include <linux/sched/debug.h>
 #include <linux/sched/rt.h>
+#include <linux/sched/signal.h>
 #include <linux/sched/task.h>
 #include <linux/semaphore.h>
 #include <linux/slab.h>
@@ -1074,14 +1075,11 @@ static void show_task_backtrace(void)
 	log_hang_info("dump backtrace end: %llu\n", local_clock());
 	if (Hang_Detect_first == false) {
 		if (aee_aed_task)
-			send_sig_info(SIGUSR1, SEND_SIG_PRIV,
-				aee_aed_task);
+			send_sig(SIGUSR1, aee_aed_task, 1);
 		if (system_server_task)
-			send_sig_info(SIGQUIT, SEND_SIG_PRIV,
-				system_server_task);
+			send_sig(SIGQUIT, system_server_task, 1);
 		if (monkey_task)
-			send_sig_info(SIGQUIT, SEND_SIG_PRIV,
-				monkey_task);
+			send_sig(SIGQUIT, monkey_task, 1);
 	}
 }
 
