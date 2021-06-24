@@ -334,7 +334,6 @@ bool mtk_adsp_dai_id_support_share_mem(int dai_id)
 	case MT6781_MEMIF_DAI:
 	case MT6781_MEMIF_DAI2:
 	case MT6781_MEMIF_MOD_DAI:
-	case MT6781_MEMIF_HDMI:
 		return false;
 	default:
 		return false;
