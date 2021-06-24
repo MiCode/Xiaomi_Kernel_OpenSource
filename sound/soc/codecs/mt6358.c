@@ -78,7 +78,6 @@ enum {
 	SUPPLY_SEQ_CLK_BUF,
 	SUPPLY_SEQ_AUD_GLB,
 	SUPPLY_SEQ_CLKSQ,
-	SUPPLY_SEQ_VOW_AUD_LPW,
 	SUPPLY_SEQ_AUD_VOW,
 	SUPPLY_SEQ_VOW_CLK,
 	SUPPLY_SEQ_VOW_LDO,
@@ -2715,47 +2714,6 @@ static int mt_vow_ldo_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
-				struct snd_kcontrol *kcontrol,
-				int event)
-{
-	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
-	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	dev_info(priv->dev, "%s(), event 0x%x, MIC_TYPE %x\n",
-		 __func__, event, priv->mux_select[MUX_MIC_TYPE]);
-
-	if (!(IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE]))) {
-		dev_info(priv->dev, "%s(), no AMIC, return\n", __func__);
-		return 0;
-	}
-
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		/* add delay for RC Calibration */
-		usleep_range(1000, 1200);
-		/* Enable audio uplink LPW mode */
-		/* Enable Audio ADC 1st Stage LPW */
-		/* Enable Audio ADC 2nd & 3rd LPW */
-		/* Enable Audio ADC flash Audio ADC flash */
-		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
-				   0x0039, 0x0039);
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		/* Disable audio uplink LPW mode */
-		/* Disable Audio ADC 1st Stage LPW */
-		/* Disable Audio ADC 2nd & 3rd LPW */
-		/* Disable Audio ADC flash Audio ADC flash */
-		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
-				   0x0039, 0x0000);
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
 static int mt_vow_out_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol,
 			    int event)
@@ -3260,6 +3218,15 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON3,
 				   0x1 << 12, 0x0);
 	}
+	usleep_range(1000, 1200);
+	/* Enable audio uplink LPW mode */
+	/* Enable Audio ADC 1st Stage LPW */
+	/* Enable Audio ADC 2nd & 3rd LPW */
+	/* Enable Audio ADC flash Audio ADC flash */
+	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
+			   0x0039, 0x0039);
+	dev_info(priv->dev, "%s(), mt_vow_aud_lpw_enable 0x39\n",
+		 __func__);
 	return 0;
 }
 
@@ -3270,7 +3237,14 @@ static int mt6358_vow_amic_disable(struct mt6358_priv *priv)
 
 	dev_info(priv->dev, "%s(), mux, mic %u, pga l %u\n",
 		 __func__, mic_type, mux_pga_l);
-
+	/* Disable audio uplink LPW mode */
+	/* Disable Audio ADC 1st Stage LPW */
+	/* Disable Audio ADC 2nd & 3rd LPW */
+	/* Disable Audio ADC flash Audio ADC flash */
+	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
+			   0x0039, 0x0000);
+	dev_info(priv->dev, "%s(), mt_vow_aud_lpw_disable 0x0\n",
+		 __func__);
 	/* L ADC input sel : off, disable L ADC */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 			   0xf000, 0x0000);
@@ -3585,10 +3559,6 @@ static const struct snd_soc_dapm_widget mt6358_dapm_widgets[] = {
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* vow */
-	SND_SOC_DAPM_SUPPLY_S("VOW_AUD_LPW", SUPPLY_SEQ_VOW_AUD_LPW,
-			      SND_SOC_NOPM, 0, 0,
-			      mt_vow_aud_lpw_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY_S("AUD_VOW", SUPPLY_SEQ_AUD_VOW,
 			      MT6358_AUDENC_ANA_CON1,
 			      RG_AUDIO_VOW_EN_SFT, 0, NULL, 0),
@@ -3878,7 +3848,6 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 	{"VOW TX", NULL, "CLK_BUF"},
 	{"VOW TX", NULL, "AUDGLB"},
 	{"VOW TX", NULL, "AUD_CK"},
-	{"VOW TX", NULL, "VOW_AUD_LPW"},
 	{"VOW TX", NULL, "VOW_CLK"},
 	{"VOW TX", NULL, "AUD_VOW"},
 	{"VOW TX", NULL, "VOW_LDO"},
