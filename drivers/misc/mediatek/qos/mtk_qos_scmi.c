@@ -27,8 +27,7 @@ static int qos_sspm_ready;
 int qos_ipi_ackdata;
 struct qos_ipi_data qos_recv_ackdata;
 
-#if 0
-static int qos_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
+static void qos_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
 {
 	unsigned int cmd, arg;
 
@@ -36,23 +35,22 @@ static int qos_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
 	/* need fix */
 	//mtk_ipi_recv(&sspm_ipidev, IPIR_I_QOS);
 
-	cmd = report->p1;
-	arg = report->p2;
+		cmd = report->p1;
+		arg = report->p2;
 
-	if (cmd == QOS_IPI_QOS_BOUND)
-		qos_notifier_call_chain(
-				arg,
-				get_qos_bound());
-	else
-		pr_info("wrong QoS IPI command: %d\n", cmd);
+		if (cmd == QOS_IPI_QOS_BOUND)
+			qos_notifier_call_chain(
+					arg,
+					get_qos_bound());
+		else
+			pr_info("wrong QoS IPI command: %d\n", cmd);
 
 
-	return 0;
+		return;
 }
-#endif
 
 int qos_ipi_to_sspm_scmi_command(unsigned int cmd, unsigned int p1, unsigned int p2,
-		unsigned int p3,unsigned int p4)
+			unsigned int p3,unsigned int p4)
 {
 
 	int ret = 0, ackdata = 0;
@@ -69,37 +67,41 @@ int qos_ipi_to_sspm_scmi_command(unsigned int cmd, unsigned int p1, unsigned int
 		pr_info("qos ipi not ready, skip cmd=%d\n", cmd);
 		goto error;
 	}
+	switch (p4) {
+		case QOS_IPI_SCMI_SET:
+			ret = scmi_tinysys_common_set(_tinfo->ph, scmi_qos_id,
+				cmd, p1, p2, p3, p4);
+			if (ret) {
+				pr_info("qos ipi cmd %d send fail ret %d\n",
+				cmd, ret);
+				goto error;
+			}
+			pr_info("qos send ipi to sspm cmd %d success\n", cmd);
+			ackdata = rvalue.r1;
+			break;
+		case QOS_IPI_SCMI_GET:
+			ret = scmi_tinysys_common_get(_tinfo->ph,
+					      scmi_qos_id, cmd, &rvalue);
+			if (ret) {
+				pr_info("qos ipi cmd %d ack fail ret %d return_val %d %d\n",
+				cmd, ret, rvalue.r1, rvalue.r2);
+				goto error;
+			}
+			ackdata = rvalue.r1;
+			pr_info("QOS_IPI_SCMI_GET, ackdata %d, %d, %d, ret %d\n",
+		        	rvalue.r1, rvalue.r2, rvalue.r3, ret);
 
-	ret = scmi_tinysys_common_set(_tinfo->ph, scmi_qos_id,
-			cmd, p1, p2, p3, p4);
-
-	if (ret) {
-		pr_info("qos ipi cmd %d send fail\n",
-		cmd);
-		goto error;
-	}
-	ret = scmi_tinysys_common_get(_tinfo->ph, scmi_qos_id, cmd, &rvalue);
-
-	if (ret) {
-		pr_info("qos ipi cmd %d ack fail ret %d\n",
-		cmd, ret);
-		goto error;
-	}
-
-
-	ackdata = rvalue.r1;
-
-
-	if (!ackdata) {
-		pr_info("qos ipi cmd %d ack fail, ackdata=%d\n",
-		cmd, ackdata);
-		goto error;
+			if (!ackdata) {
+				pr_info("qos ipi cmd %d ack fail, ackdata=%d\n",
+				cmd, ackdata);
+				goto error;
+			}
+			break;
 	}
 	mutex_unlock(&qos_ipi_mutex);
 	return ackdata;
 error:
 	mutex_unlock(&qos_ipi_mutex);
-
 	return -1;
 
 }
@@ -129,11 +131,11 @@ void qos_ipi_init(struct mtk_qos *qos)
 		return;
 	}
 
-	//scmi_tinysys_register_event_notifier(scmi_qos_id,
-	//	(f_handler_t)qos_scmi_handler);
-	//ret = scmi_tinysys_event_notify(scmi_qos_id, 1);
-	//if (ret)
-	//	pr_info("qos event notify fail ...");
+	scmi_tinysys_register_event_notifier(scmi_qos_id,
+		(f_handler_t)qos_scmi_handler);
+	ret = scmi_tinysys_event_notify(scmi_qos_id, 1);
+	if (ret)
+		pr_info("qos event notify fail ...");
 
 	qos_sspm_ready = 1;
 	qos_sspm_enable();

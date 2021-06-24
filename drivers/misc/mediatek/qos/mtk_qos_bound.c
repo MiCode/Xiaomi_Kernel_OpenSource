@@ -43,16 +43,14 @@ void qos_bound_enable(int enable)
 	smp_mb(); /* init bound before flag enabled */
 #elif defined(MTK_SCMI)
 	struct qos_ipi_data qos_ipi_d;
-	unsigned int ack;
+	int ack;
 
-	return;
+	//return;
 	qos_ipi_d.cmd = QOS_IPI_QOS_BOUND_ENABLE;
 	qos_ipi_d.u.qos_bound_enable.enable = enable;
 	ack = qos_ipi_to_sspm_scmi_command(qos_ipi_d.cmd,
-			qos_ipi_d.u.qos_bound_enable.enable, 0, 0, 0);
-	//bound = (struct qos_bound *)sspm_sbuf_get(ack);
-	//bound = (struct qos_bound *)
-	//	sspm_sbuf_get(qos_ipi_to_sspm_scmi_command(qos_ipi_d.cmd, qos_ipi_d.u.qos_bound_enable.enable, 0, 0, 0));
+			qos_ipi_d.u.qos_bound_enable.enable, 0, 0, QOS_IPI_SCMI_GET);
+	bound = (struct qos_bound *)sspm_sbuf_get(ack);
 	smp_mb(); /* init bound before flag enabled */
 #endif
 	qos_bound_enabled = enable;

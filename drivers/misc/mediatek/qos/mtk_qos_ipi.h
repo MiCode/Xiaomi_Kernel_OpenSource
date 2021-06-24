@@ -11,6 +11,11 @@ struct qos_ipi_cmd {
 	bool valid;
 };
 
+
+enum {
+	QOS_IPI_SCMI_SET,
+	QOS_IPI_SCMI_GET,
+};
 enum {
 	QOS_IPI_QOS_ENABLE,
 	QOS_IPI_DVFSRC_ENABLE,
@@ -97,7 +102,7 @@ struct qos_ipi_data {
 	} u;
 };
 
-#ifdef MTK_SCMI
+#if IS_ENABLED(CONFIG_MTK_QOS_MT6893)
 extern int qos_ipi_to_sspm_scmi_command(unsigned int cmd, unsigned int p1, unsigned int p2,
 		unsigned int p3,unsigned int p4);
 #else
