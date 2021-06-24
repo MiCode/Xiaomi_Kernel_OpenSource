@@ -156,7 +156,7 @@ vpu_mem_alloc(struct device *dev,
 {
 	int ret = 0;
 	void *kva;
-	dma_addr_t iova;
+	dma_addr_t iova = 0;
 	struct vpu_config *cfg = vpu_drv->vp->cfg;
 	struct vpu_mem_ops *mops = vpu_drv->vp->mops;
 
@@ -195,6 +195,7 @@ vpu_mem_alloc(struct device *dev,
 
 	goto out;
 error:
+	i->iova = iova;
 	kvfree(kva);
 out:
 	return ret;
@@ -451,6 +452,12 @@ static dma_addr_t vpu_iova_alloc(struct device *dev,
 
 	vpu_mem_debug("%s: %s: iova: 0x%llx, size: %x\n",
 		__func__, vd->name, i->iova, i->size);
+
+	if (!iova) {
+		i->iova = (uint64_t)iova;
+		goto out;
+	}
+
 	mutex_lock(&vpu_drv->vi_lock);
 	i->time = sched_clock();
 	list_add_tail(&i->list, &vpu_drv->vi);
