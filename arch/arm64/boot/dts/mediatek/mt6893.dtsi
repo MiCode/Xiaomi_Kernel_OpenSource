@@ -2353,7 +2353,7 @@
 				<GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adsp_common 0>, /*channel 0*/
 				<&adsp_common 1>; /*channel 1*/
-			feature_control_bits = <0x2703ff>;
+			feature_control_bits = <0x6703ff>;
 		};
 
 		adsp_core1: adsp_core1@10850000 {
@@ -8156,7 +8156,7 @@
 	/* feature: $enable */
 	speech_usip_mem: speech_usip_mem {
 		compatible = "mediatek,speech_usip_mem";
-		adsp_phone_call_enh_enable = <0x1>;
+		adsp_phone_call_enh_enable = <0x3>;
 	};
 
 	mtk_lpm: mtk_lpm {
