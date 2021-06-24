@@ -364,6 +364,8 @@ static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 }
 
 static const struct dma_buf_ops system_heap_buf_ops = {
+	/* one attachment can only map once */
+	.cache_sgt_mapping = 1,
 	.attach = system_heap_attach,
 	.detach = system_heap_detach,
 	.map_dma_buf = system_heap_map_dma_buf,

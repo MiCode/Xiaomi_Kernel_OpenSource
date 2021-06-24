@@ -673,6 +673,8 @@ static int fill_heap_sgtable(struct secure_heap *sec_heap)
 }
 
 static const struct dma_buf_ops sec_buf_ops = {
+	/* one attachment can only map once */
+	.cache_sgt_mapping = 1,
 	.attach = mtk_sec_heap_attach,
 	.detach = mtk_sec_heap_detach,
 	.map_dma_buf = mtk_sec_heap_map_dma_buf,
