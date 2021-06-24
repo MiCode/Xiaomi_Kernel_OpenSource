@@ -1179,9 +1179,6 @@ int mtk_wdt_dfd_timeout(int value)
 	tmp |= (value|MTK_WDT_LATCH_CTL2_KEY);
 	mt_reg_sync_writel(tmp, MTK_WDT_LATCH_CTL2);
 
-	pr_debug("%s:MTK_WDT_LATCH_CTL2(0x%x)\n",
-		  __func__, __raw_readl(MTK_WDT_LATCH_CTL2));
-
 	return 0;
 }
 
