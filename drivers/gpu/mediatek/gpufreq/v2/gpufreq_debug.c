@@ -216,7 +216,7 @@ done:
 static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 	int i = 0;
 
 	if (gpufreq_fp && gpufreq_fp->get_working_table_gpu)
@@ -241,7 +241,7 @@ static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
 static int stack_working_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 	int i = 0;
 
 	if (gpufreq_fp && gpufreq_fp->get_working_table_stack)
@@ -266,7 +266,7 @@ static int stack_working_opp_table_proc_show(struct seq_file *m, void *v)
 static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 	int i = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
@@ -298,7 +298,7 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 static int stack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 	int i = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
@@ -413,7 +413,7 @@ done:
 static int fix_target_opp_index_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 	int fixed_idx = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
@@ -433,7 +433,7 @@ static int fix_target_opp_index_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, "[%02d] freq: %d, volt: %d, vsram: %d\n",
 			fixed_idx, opp_table[fixed_idx].freq,
 			opp_table[fixed_idx].volt, opp_table[fixed_idx].vsram);
-	} else if (fixed_idx == GPUFREQ_DBG_DEFAULT_IDX)
+	} else if (fixed_idx == -1)
 		seq_puts(m, "[GPUFREQ-DEBUG] fixed OPP index is disabled\n");
 	else
 		seq_printf(m, "[GPUFREQ-DEBUG] invalid state of OPP index: %d\n",
@@ -446,7 +446,7 @@ static int fix_target_opp_index_proc_show(struct seq_file *m, void *v)
 
 /*
  * PROCFS: keep OPP index
- * GPUFREQ_DBG_DEFAULT_IDX: free run
+ * -1: free run
  * others: OPP index to be kept
  */
 static ssize_t fix_target_opp_index_proc_write(struct file *file,
@@ -510,8 +510,7 @@ static int fix_custom_freq_volt_proc_show(struct seq_file *m, void *v)
 		seq_puts(m, "[GPUFREQ-DEBUG] fixed freq and volt are enabled\n");
 		seq_printf(m, "[**] freq: %d, volt: %d\n",
 			fixed_freq, fixed_volt);
-	} else if (fixed_freq == GPUFREQ_DBG_DEFAULT_FREQ &&
-		fixed_volt == GPUFREQ_DBG_DEFAULT_VOLT)
+	} else if (fixed_freq == 0 && fixed_volt == 0)
 		seq_puts(m, "[GPUFREQ-DEBUG] fixed freq and volt are disabled\n");
 	else
 		seq_printf(m, "[GPUFREQ-DEBUG] invalid state of freq: %d and volt: %d\n",
@@ -524,7 +523,7 @@ static int fix_custom_freq_volt_proc_show(struct seq_file *m, void *v)
 
 /*
  * PROCFS: keep freq and volt
- * GPUFREQ_DBG_DEFAULT_FREQ VOLT: free run
+ * 0 0: free run
  * others others: freq and volt to be kept
  */
 static ssize_t fix_custom_freq_volt_proc_write(struct file *file,
@@ -871,15 +870,15 @@ int gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support)
 
 	g_debug_gpu.opp_num = 0;
 	g_debug_gpu.signed_opp_num = 0;
-	g_debug_gpu.fixed_oppidx = GPUFREQ_DBG_DEFAULT_IDX;
-	g_debug_gpu.fixed_freq = GPUFREQ_DBG_DEFAULT_FREQ;
-	g_debug_gpu.fixed_volt = GPUFREQ_DBG_DEFAULT_VOLT;
+	g_debug_gpu.fixed_oppidx = -1;
+	g_debug_gpu.fixed_freq = 0;
+	g_debug_gpu.fixed_volt = 0;
 
 	g_debug_stack.opp_num = 0;
 	g_debug_stack.signed_opp_num = 0;
-	g_debug_stack.fixed_oppidx = GPUFREQ_DBG_DEFAULT_IDX;
-	g_debug_stack.fixed_freq = GPUFREQ_DBG_DEFAULT_FREQ;
-	g_debug_stack.fixed_volt = GPUFREQ_DBG_DEFAULT_VOLT;
+	g_debug_stack.fixed_oppidx = -1;
+	g_debug_stack.fixed_freq = 0;
+	g_debug_stack.fixed_volt = 0;
 
 #if defined(CONFIG_PROC_FS)
 	ret = gpufreq_create_procfs();

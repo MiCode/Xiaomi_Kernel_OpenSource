@@ -65,7 +65,7 @@ static void __gpufreq_resume_dvfs(void);
 static void __gpufreq_interpolate_volt(enum gpufreq_target target);
 static void __gpufreq_apply_aging(enum gpufreq_target target, unsigned int apply_aging);
 static void __gpufreq_apply_adjust(enum gpufreq_target target,
-	struct gpufreq_adj_info *adj_table, unsigned int adj_num);
+	struct gpufreq_adj_info *adj_table, int adj_num);
 /* dvfs function */
 static int __gpufreq_generic_scale_gpu(
 	unsigned int freq_old, unsigned int freq_new,
@@ -117,13 +117,14 @@ static void __gpufreq_acp_control(void);
 /* init function */
 static void __gpufreq_init_shader_present(void);
 static void __gpufreq_segment_adjustment(struct platform_device *pdev);
-static void __gpufreq_avs_adjustment(struct platform_device *pdev);
-static void __gpufreq_aging_adjustment(struct platform_device *pdev);
+static void __gpufreq_avs_adjustment(void);
+static void __gpufreq_aging_adjustment(void);
 static int __gpufreq_init_opp_idx(void);
 static int __gpufreq_init_opp_table(struct platform_device *pdev);
 static int __gpufreq_init_segment_id(struct platform_device *pdev);
 static int __gpufreq_init_clk(struct platform_device *pdev);
 static int __gpufreq_init_pmic(struct platform_device *pdev);
+static int __gpufreq_init_platform_info(struct platform_device *pdev);
 static int __gpufreq_pdrv_probe(struct platform_device *pdev);
 static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev);
 static int __gpufreq_mtcmos_pdrv_remove(struct platform_device *pdev);
@@ -194,7 +195,6 @@ static struct platform_driver g_gpufreq_mtcmos_pdrv = {
 	},
 };
 
-static void __iomem *g_apmixed_base;
 static void __iomem *g_mfg_pll_base;
 static void __iomem *g_mfg_rpc_base;
 static void __iomem *g_g3d_base;
@@ -212,9 +212,9 @@ static struct gpufreq_mtcmos_info *g_mtcmos;
 static struct gpufreq_status g_gpu;
 static struct gpufreq_status g_stack;
 static unsigned int g_shader_present;
-static unsigned int g_probe_done;
 static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
+static unsigned int g_aging_load;
 static unsigned int g_gpueb_support;
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock);
@@ -448,25 +448,25 @@ int __gpufreq_get_min_idx_stack(void)
 }
 
 /* API: get number of working OPP of GPU */
-unsigned int __gpufreq_get_opp_num_gpu(void)
+int __gpufreq_get_opp_num_gpu(void)
 {
 	return g_gpu.opp_num;
 }
 
 /* API: get number of working OPP of STACK */
-unsigned int __gpufreq_get_opp_num_stack(void)
+int __gpufreq_get_opp_num_stack(void)
 {
 	return 0;
 }
 
 /* API: get number of signed OPP of GPU */
-unsigned int __gpufreq_get_signed_opp_num_gpu(void)
+int __gpufreq_get_signed_opp_num_gpu(void)
 {
 	return g_gpu.signed_opp_num;
 }
 
 /* API: get number of signed OPP of STACK */
-unsigned int __gpufreq_get_signed_opp_num_stack(void)
+int __gpufreq_get_signed_opp_num_stack(void)
 {
 	return 0;
 }
@@ -762,8 +762,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		g_gpu.power_count++;
 	} else {
 		g_gpu.power_count--;
-		/* todo */
-		// check_pending_info();
+		__gpufreq_check_pending_exception();
 	}
 	__gpufreq_footprint_power_count(g_gpu.power_count);
 
@@ -909,7 +908,7 @@ int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 	/* GPU */
 	struct gpufreq_opp_info *working_gpu = g_gpu.working_table;
 	int cur_oppidx_gpu = 0, target_oppidx_gpu = 0;
-	unsigned int opp_num_gpu = g_gpu.opp_num;
+	int opp_num_gpu = g_gpu.opp_num;
 	unsigned int cur_fgpu = 0, cur_vgpu = 0, cur_vsram_gpu = 0;
 	unsigned int target_fgpu = 0, target_vgpu = 0, target_vsram_gpu = 0;
 	int ret = GPUFREQ_SUCCESS;
@@ -990,7 +989,7 @@ int __gpufreq_generic_commit_stack(int target_oppidx, enum gpufreq_dvfs_state ke
 /* API: fix OPP of GPU via given OPP index */
 int __gpufreq_fix_target_oppidx_gpu(int oppidx)
 {
-	unsigned int opp_num = g_gpu.opp_num;
+	int opp_num = g_gpu.opp_num;
 	unsigned int min_oppidx = g_gpu.min_oppidx;
 	int ret = GPUFREQ_SUCCESS;
 
@@ -1000,7 +999,7 @@ int __gpufreq_fix_target_oppidx_gpu(int oppidx)
 		goto done;
 	}
 
-	if (oppidx == GPUFREQ_DBG_DEFAULT_IDX) {
+	if (oppidx == -1) {
 		ret = __gpufreq_generic_commit_gpu(min_oppidx, DVFS_DEBUG_KEEP);
 		if (unlikely(ret)) {
 			GPUFREQ_LOGE("fail to commit GPU OPP index: %d (%d)",
@@ -1057,7 +1056,7 @@ int __gpufreq_fix_custom_freq_volt_gpu(unsigned int freq, unsigned int volt)
 	max_volt = VGPU_MAX_VOLT;
 	min_volt = VGPU_MIN_VOLT;
 
-	if (freq == GPUFREQ_DBG_DEFAULT_FREQ && volt == GPUFREQ_DBG_DEFAULT_VOLT) {
+	if (freq == 0 && volt == 0) {
 		ret = __gpufreq_generic_commit_gpu(min_oppidx, DVFS_DEBUG_KEEP);
 		if (unlikely(ret)) {
 			GPUFREQ_LOGE("fail to commit GPU OPP index: %d (%d)",
@@ -1134,7 +1133,7 @@ void __gpufreq_dump_infra_status(void)
 		g_gpu.cur_oppidx, g_gpu.cur_freq,
 		g_gpu.cur_volt, g_gpu.cur_vsram);
 
-	// 0x1020E
+	/* 0x1020E000 */
 	if (g_infracfg_base) {
 		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
 			0x1020E810, readl(g_infracfg_base + 0x810));
@@ -1143,7 +1142,7 @@ void __gpufreq_dump_infra_status(void)
 			0x1020E814, readl(g_infracfg_base + 0x814));
 	}
 
-	// 0x1021E
+	/* 0x1021E000 */
 	if (g_infra_bpi_bsi_slv0) {
 		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
 			0x1021E230, readl(g_infra_bpi_bsi_slv0 + 0x230));
@@ -1152,7 +1151,7 @@ void __gpufreq_dump_infra_status(void)
 			0x1021E234, readl(g_infra_bpi_bsi_slv0 + 0x234));
 	}
 
-	// 0x10023000
+	/* 0x10023000 */
 	if (g_infra_peri_debug1) {
 		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
 			0x10023000, readl(g_infra_peri_debug1 + 0x000));
@@ -1164,7 +1163,7 @@ void __gpufreq_dump_infra_status(void)
 			0x10023444, readl(g_infra_peri_debug1 + 0x444));
 	}
 
-	// 0x10025000
+	/* 0x10025000 */
 	if (g_infra_peri_debug2) {
 		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
 			0x10025000, readl(g_infra_peri_debug2 + 0x000));
@@ -1173,19 +1172,19 @@ void __gpufreq_dump_infra_status(void)
 			0x1002542C, readl(g_infra_peri_debug2 + 0x42C));
 	}
 
-	// 0x1002B000
+	/* 0x1002B000 */
 	if (g_infra_peri_debug3) {
 		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
 			0x1002B000, readl(g_infra_peri_debug3 + 0x000));
 	}
 
-	// 0x1002E000
+	/* 0x1002E000 */
 	if (g_infra_peri_debug4) {
 		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
 			0x1002E000, readl(g_infra_peri_debug4 + 0x000));
 	}
 
-	// 0x10006000
+	/* 0x10006000 */
 	if (g_sleep) {
 		GPUFREQ_LOGI("pwr status (0x%x): 0x%08x 0x%08x 0x%08x 0x%08x",
 			0x10006000 + 0x308, readl(g_sleep + 0x308),
@@ -1365,9 +1364,8 @@ static int __gpufreq_generic_scale_gpu(
 
 	/* freq of GPU and STACK should always be equal */
 	if (g_gpu.cur_freq != g_stack.cur_freq) {
-		GPUFREQ_LOGE("unequal Fgpu: %d and Fstack: %d",
-			g_gpu.cur_freq, g_stack.cur_freq);
-		// abort();
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"unequal Fgpu: %d and Fstack: %d", g_gpu.cur_freq, g_stack.cur_freq);
 	}
 
 done:
@@ -1566,7 +1564,7 @@ static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_post
 
 static enum gpufreq_postdiv __gpufreq_get_real_posdiv_gpu(void)
 {
-	unsigned long mfgpll = 0;
+	unsigned int mfgpll = 0;
 	enum gpufreq_postdiv postdiv = POSDIV_POWER_1;
 
 	mfgpll = readl(MFGPLL_GPU_CON1);
@@ -1578,7 +1576,7 @@ static enum gpufreq_postdiv __gpufreq_get_real_posdiv_gpu(void)
 
 static enum gpufreq_postdiv __gpufreq_get_real_posdiv_stack(void)
 {
-	unsigned long mfgpll = 0;
+	unsigned int mfgpll = 0;
 	enum gpufreq_postdiv postdiv = POSDIV_POWER_1;
 
 	mfgpll = readl(MFGPLL_STACK_CON1);
@@ -1653,7 +1651,7 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 	if (parking) {
 		ret = __gpufreq_switch_clksrc(TARGET_GPU, CLOCK_SUB);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch clock source (%d)", ret);
+			GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
 			goto done;
 		}
 		/*
@@ -1667,28 +1665,30 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 
 		ret = __gpufreq_switch_clksrc(TARGET_GPU, CLOCK_MAIN);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch clock source (%d)", ret);
+			GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
 			goto done;
 		}
 	} else {
 #if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 		ret = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to hopping pcw: 0x%x (%d)",
-				pcw, ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
 			goto done;
 		}
 #endif /* CONFIG_MTK_FREQ_HOPPING */
 	}
 
 	g_gpu.cur_freq = __gpufreq_get_real_fgpu();
+	if (unlikely(g_gpu.cur_freq != freq_new))
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"inconsistent scaled Fgpu, cur_freq: %d, target_freq: %d",
+			g_gpu.cur_freq, freq_new);
 
 	GPUFREQ_LOGD("Fgpu: %d, pcw: 0x%x, pll: 0x%08x, parking: %d",
 		g_gpu.cur_freq, pcw, pll, parking);
 
 	/* todo: GED log buffer (gpufreq_pr_logbuf) */
-
-	/* todo: hopping failed assert */
 
 done:
 	GPUFREQ_TRACE_END();
@@ -1733,7 +1733,7 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 	if (parking) {
 		ret = __gpufreq_switch_clksrc(TARGET_STACK, CLOCK_SUB);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch clock source (%d)", ret);
+			GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
 			goto done;
 		}
 		/*
@@ -1747,28 +1747,30 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 
 		ret = __gpufreq_switch_clksrc(TARGET_STACK, CLOCK_MAIN);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch clock source (%d)", ret);
+			GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
 			goto done;
 		}
 	} else {
 #if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 		ret = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to hopping pcw: 0x%x (%d)",
-				pcw, ret);
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
 			goto done;
 		}
 #endif /* CONFIG_MTK_FREQ_HOPPING */
 	}
 
 	g_stack.cur_freq = __gpufreq_get_real_fstack();
+	if (unlikely(g_stack.cur_freq != freq_new))
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"inconsistent scaled Fstack, cur_freq: %d, target_freq: %d",
+			g_stack.cur_freq, freq_new);
 
 	GPUFREQ_LOGD("Fstack: %d, PCW: 0x%x, PLL: 0x%08x, parking: %d",
 		g_stack.cur_freq, pcw, pll, parking);
 
 	/* todo: GED log buffer (gpufreq_pr_logbuf) */
-
-	/* todo: hopping failed assert */
 
 done:
 	GPUFREQ_TRACE_END();
@@ -1899,10 +1901,14 @@ static int __gpufreq_volt_scale_gpu(
 
 	g_gpu.cur_volt = __gpufreq_get_real_vgpu();
 	g_gpu.cur_vsram = vsram_new;
+	if (unlikely(g_gpu.cur_volt != volt_new))
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"inconsistent scaled Vgpu, cur_volt: %d, target_volt: %d",
+			g_gpu.cur_volt, volt_new);
 
 	/* todo: GED log buffer (gpufreq_pr_logbuf) */
 
-	GPUFREQ_LOGD("Vgpu: %d, Vsram_gpu: %d, udelay: %d",
+	GPUFREQ_LOGD("Vgpu: %d, Vsram: %d, udelay: %d",
 		g_gpu.cur_volt, g_gpu.cur_vsram, t_settle_volt);
 
 done:
@@ -1933,10 +1939,10 @@ static void __gpufreq_dump_bringup_status(void)
 	if (!__gpufreq_bringup())
 		return;
 
-	/* 0x1000C000 */
-	g_apmixed_base = __gpufreq_of_ioremap("mediatek,mt6893-apmixedsys", 0);
-	if (!g_apmixed_base) {
-		GPUFREQ_LOGE("fail to ioremap APMIXED (ENOENT)");
+	/* 0x13FA0000 */
+	g_mfg_pll_base = __gpufreq_of_ioremap("mediatek,mfg_pll", 0);
+	if (!g_mfg_pll_base) {
+		GPUFREQ_LOGE("fail to ioremap mfg_pll (ENOENT)");
 		goto done;
 	}
 
@@ -1983,10 +1989,10 @@ static unsigned int __gpufreq_get_fmeter_fstack(void)
  */
 static unsigned int __gpufreq_get_real_fgpu(void)
 {
-	unsigned long mfgpll = 0;
+	unsigned int mfgpll = 0;
 	unsigned int posdiv_power = 0;
 	unsigned int freq = 0;
-	unsigned long pcw = 0;
+	unsigned int pcw = 0;
 
 	mfgpll = readl(MFGPLL_GPU_CON1);
 
@@ -2006,10 +2012,10 @@ static unsigned int __gpufreq_get_real_fgpu(void)
  */
 static unsigned int __gpufreq_get_real_fstack(void)
 {
-	unsigned long mfgpll = 0;
+	unsigned int mfgpll = 0;
 	unsigned int posdiv_power = 0;
 	unsigned int freq = 0;
-	unsigned long pcw = 0;
+	unsigned int pcw = 0;
 
 	mfgpll = readl(MFGPLL_STACK_CON1);
 
@@ -2048,7 +2054,7 @@ static unsigned int __gpufreq_get_real_vsram(void)
 	unsigned int volt = 0;
 
 #if defined(GPUFREQ_TODO_SRAMRC_REQUEST)
-	// get Vsram from SRAMRC
+	/* get Vsram from SRAMRC */
 	vsram_level = sramrc_get_sram_cur_level();
 #endif
 
@@ -2421,7 +2427,7 @@ static void __gpufreq_measure_power(enum gpufreq_target target)
 	unsigned int p_total = 0, p_dynamic = 0, p_leakage = 0;
 	int i = 0;
 	struct gpufreq_opp_info *working_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 
 	GPUFREQ_TRACE_START("target=%d", target);
 
@@ -2519,12 +2525,13 @@ done:
  */
 static void __gpufreq_interpolate_volt(enum gpufreq_target target)
 {
-	unsigned int avs_num = 0;
+	int avs_num = 0;
 	int front_idx = 0, rear_idx = 0, inner_idx = 0;
 	unsigned int large_volt = 0, small_volt = 0;
 	unsigned int large_freq = 0, small_freq = 0;
 	unsigned int inner_volt = 0, inner_freq = 0;
-	unsigned int range = 0;
+	unsigned int previous_volt = 0;
+	int range = 0;
 	int slope = 0;
 	int i = 0, j = 0;
 	struct gpufreq_opp_info *signed_table = NULL;
@@ -2555,10 +2562,9 @@ static void __gpufreq_interpolate_volt(enum gpufreq_target target)
 		/* slope = volt / freq */
 		slope = (large_volt - small_volt) / (large_freq - small_freq);
 
-		if (unlikely(slope < 0)) {
-			dump_stack();
-			/* todo: gpu_assert */
-		}
+		if (unlikely(slope < 0))
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+				"invalid slope when interpolate OPP Volt: %d", slope);
 
 		GPUFREQ_LOGD("%s[%02d*] Freq: %d, Volt: %d, slope: %d",
 			(target == TARGET_STACK) ? "STACK" : "GPU",
@@ -2571,7 +2577,12 @@ static void __gpufreq_interpolate_volt(enum gpufreq_target target)
 			inner_volt = small_volt + slope * (inner_freq - small_freq);
 			inner_volt = VOLT_NORMALIZATION(inner_volt);
 
-			/* todo: gpu_assert */
+			/* compare interpolated volt with volt of previous OPP idx */
+			previous_volt = signed_table[inner_idx + 1].volt;
+			if (inner_volt < previous_volt)
+				__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+					"invalid interpolated [%02d*] Volt: %d < [%02d*] Volt: %d",
+					inner_idx, inner_volt, inner_idx + 1, previous_volt);
 
 			signed_table[inner_idx].volt = inner_volt;
 			signed_table[inner_idx].vsram = __gpufreq_get_vsram_by_vgpu(inner_volt);
@@ -2596,7 +2607,7 @@ static void __gpufreq_apply_aging(enum gpufreq_target target, unsigned int apply
 {
 	int i = 0;
 	struct gpufreq_opp_info *working_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 
 	GPUFREQ_TRACE_START("apply_aging=%d, target=%d", apply_aging, target);
 
@@ -2630,12 +2641,12 @@ static void __gpufreq_apply_aging(enum gpufreq_target target, unsigned int apply
 
 /* API: apply given adjustment table to signed table */
 static void __gpufreq_apply_adjust(enum gpufreq_target target,
-	struct gpufreq_adj_info *adj_table, unsigned int adj_num)
+	struct gpufreq_adj_info *adj_table, int adj_num)
 {
 	int i = 0;
 	int oppidx = 0;
 	struct gpufreq_opp_info *signed_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 
 	GPUFREQ_TRACE_START("adj_table=0x%x, adj_num=%d, target=%d",
 		adj_table, adj_num, target);
@@ -2684,15 +2695,14 @@ done:
 	GPUFREQ_TRACE_END();
 }
 
-static void __gpufreq_aging_adjustment(struct platform_device *pdev)
+static void __gpufreq_aging_adjustment()
 {
 #if GPUFREQ_AGING_ENABLE
 	struct gpufreq_adj_info *aging_adj = NULL;
-	unsigned int adj_num = 0;
+	int adj_num = 0;
 	unsigned int efuse_id = 0x0;
 	int ret = GPUFREQ_SUCCESS;
 
-	GPUFREQ_UNREFERENCED(pdev);
 #if defined(GPUFREQ_TODO_AGING)
 	if (__gpufreq_dvfs_enable()) {
 		__gpufreq_pause_dvfs(GPUFREQ_AGING_KEEP_FREQ, GPUFREQ_AGING_KEEP_VOLT);
@@ -2725,24 +2735,12 @@ static void __gpufreq_aging_adjustment(struct platform_device *pdev)
 #endif /* GPUFREQ_AGING_ENABLE */
 }
 
-static void __gpufreq_avs_adjustment(struct platform_device *pdev)
+static void __gpufreq_avs_adjustment(void)
 {
 #if GPUFREQ_AVS_ENABLE
 	u32 val = 0, temp_volt = 0, temp_freq = 0;
-	int i;
-
-	GPUFREQ_UNREFERENCED(pdev);
-
-	/*
-	 * todo:
-	 * 1. Add reg = <0 0x11F105C0 0 0xC> for ioremap
-	 * 2. Correct the idx of __gpufreq_of_ioremap
-	 */
-	g_avs_efuse_base = __gpufreq_of_ioremap("mediatek,gpufreq", 0);
-	if (!g_avs_efuse_base) {
-		GPUFREQ_LOGE("fail to ioremap avs_efuse");
-		return;
-	}
+	int i = 0;
+	int adj_num = AVS_ADJ_NUM;
 
 	/*
 	 * Read AVS efuse
@@ -2758,10 +2756,10 @@ static void __gpufreq_avs_adjustment(struct platform_device *pdev)
 	 * the binning result for rescue yeild.
 	 */
 
-	for (i = 0; i < AVS_ADJ_NUM; i++) {
+	for (i = 0; i < adj_num; i++) {
 		val = readl(g_avs_efuse_base + (i * 0x4));
 
-		// Check Freq (MHz) in efuse
+		/* Check Freq (MHz) in efuse */
 		temp_freq |= (val & 0x00100000) >> 10; // Get freq[10] from efuse[20]
 		temp_freq |= (val & 0x00000C00) >> 2;  // Get freq[9:8] from efuse[11:10]
 		temp_freq |= (val & 0x00000003) << 6;  // Get freq[7:6] from efuse[1:0]
@@ -2770,32 +2768,30 @@ static void __gpufreq_avs_adjustment(struct platform_device *pdev)
 		temp_freq |= (val & 0x00003000) >> 12; // Get freq[1:0] from efuse[13:12]
 
 		if ((temp_freq * 1000) != g_gpu.signed_table[g_avs_adj[i].oppidx].freq)
-			GPUFREQ_LOGW("OPP[%d]: AVS efuse[%d].freq(%d) != signed-off.freq(%d)",
+			GPUFREQ_LOGW("OPP[%02d]: AVS efuse[%d].freq(%d) != signed-off.freq(%d)",
 				g_avs_adj[i].oppidx, i, temp_freq,
 				g_gpu.signed_table[g_avs_adj[i].oppidx].freq);
 
-		// Compute volt (unit: 6.25mv) result of AVS
+		/* Compute volt (unit: 6.25mv) result of AVS */
 		temp_volt |= (val & 0x0003C000) >> 14; // Get volt[3:0] from efuse[17:14]
 		temp_volt |= (val & 0x00000030);       // Get volt[5:4] from efuse[5:4]
 		temp_volt |= (val & 0x0000000C) << 4;  // Get volt[7:6] from efuse[3:2]
-		// Volt is stored in efuse with 6.25mv unit
+		/* Volt is stored in efuse with 6.25mv unit */
 		g_avs_adj[i].volt = temp_volt * 625;
 	}
 
 	/* apply AVS to signed table */
-	__gpufreq_apply_adjust(TARGET_GPU, g_avs_adj, AVS_ADJ_NUM);
+	__gpufreq_apply_adjust(TARGET_GPU, g_avs_adj, adj_num);
 
 	/* interpolate volt of non-sign-off OPP */
 	__gpufreq_interpolate_volt(TARGET_GPU);
-#else
-	GPUFREQ_UNREFERENCED(pdev);
 #endif /* GPUFREQ_AVS_ENABLE */
 }
 
 static void __gpufreq_segment_adjustment(struct platform_device *pdev)
 {
 	struct gpufreq_adj_info *segment_adj;
-	unsigned int adj_num = 0;
+	int adj_num = 0;
 	unsigned int efuse_id = 0x0;
 
 	switch (efuse_id) {
@@ -2872,9 +2868,9 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	/* apply segment adjustment to GPU signed table */
 	__gpufreq_segment_adjustment(pdev);
 	/* apply AVS adjustment to GPU signed table */
-	__gpufreq_avs_adjustment(pdev);
+	__gpufreq_avs_adjustment();
 	/* apply aging adjustment to GPU signed table */
-	__gpufreq_aging_adjustment(pdev);
+	__gpufreq_aging_adjustment();
 	/* after these, signed table is settled down */
 
 	g_gpu.working_table = kcalloc(g_gpu.opp_num, sizeof(struct gpufreq_opp_info), GFP_KERNEL);
@@ -2959,30 +2955,6 @@ static int __gpufreq_init_clk(struct platform_device *pdev)
 		goto done;
 	}
 
-	/* 0x13FA0000 */
-	g_mfg_pll_base = __gpufreq_of_ioremap("mediatek,mfg_pll", 0);
-	if (!g_mfg_pll_base) {
-		GPUFREQ_LOGE("fail to ioremap mfg_pll (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	/* 0x13F90000 */
-	g_mfg_rpc_base = __gpufreq_of_ioremap("mediatek,mfg_rpc", 0);
-	if (!g_mfg_rpc_base) {
-		GPUFREQ_LOGE("fail to ioremap mfg_rpc (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	/* 0x13FBF000 */
-	g_g3d_base = __gpufreq_of_ioremap("mediatek,g3d_config", 0);
-	if (!g_g3d_base) {
-		GPUFREQ_LOGE("fail to ioremap g3d_config (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
 	g_clk->clk_mux = devm_clk_get(&pdev->dev, "clk_mux");
 	if (IS_ERR(g_clk->clk_mux)) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
@@ -3014,58 +2986,6 @@ static int __gpufreq_init_clk(struct platform_device *pdev)
 		ret = PTR_ERR(g_clk->subsys_mfg_cg);
 		goto done;
 	}
-
-	/* 0x10006000 */
-	g_sleep = __gpufreq_of_ioremap("mediatek,sleep", 0);
-	if (!g_sleep) {
-		GPUFREQ_LOGE("fail to ioremap sleep (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-#if defined(GPUFREQ_TODO_INFRA)
-	g_infracfg_base = __gpufreq_of_ioremap("mediatek,infracfg", 0);
-	if (!g_infracfg_base) {
-		GPUFREQ_LOGE("fail to ioremap infracfg (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	g_infra_bpi_bsi_slv0 = __gpufreq_of_ioremap("mediatek,bpi_bsi_slv0", 0);
-	if (!g_infra_bpi_bsi_slv0) {
-		GPUFREQ_LOGE("fail to ioremap bpi_bsi_slv0 (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	g_infra_peri_debug1 = __gpufreq_of_ioremap("mediatek,devapc_ao_infra_peri_debug1", 0);
-	if (!g_infra_peri_debug1) {
-		GPUFREQ_LOGE("fail to ioremap devapc_ao_infra_peri_debug1 (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	g_infra_peri_debug2 = __gpufreq_of_ioremap("mediatek,devapc_ao_infra_peri_debug2", 0);
-	if (!g_infra_peri_debug2) {
-		GPUFREQ_LOGE("fail to ioremap devapc_ao_infra_peri_debug2 (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	g_infra_peri_debug3 = __gpufreq_of_ioremap("mediatek,devapc_ao_infra_peri_debug3", 0);
-	if (!g_infra_peri_debug3) {
-		GPUFREQ_LOGE("fail to ioremap devapc_ao_infra_peri_debug3 (ENOENT)",);
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	g_infra_peri_debug4 = __gpufreq_of_ioremap("mediatek,devapc_ao_infra_peri_debug4", 0);
-	if (!g_infra_peri_debug4) {
-		GPUFREQ_LOGE("fail to ioremap devapc_ao_infra_peri_debug4 (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-#endif /* GPUFREQ_TODO */
 
 done:
 	GPUFREQ_TRACE_END();
@@ -3109,27 +3029,147 @@ done:
 	return ret;
 }
 
-/*
- * API: gpufreq driver probe
- */
+/* API: init reg base address and flavor config of the platform */
+static int __gpufreq_init_platform_info(struct platform_device *pdev)
+{
+	struct device_node *of_gpufreq = pdev->dev.of_node;
+	int ret = GPUFREQ_SUCCESS;
+
+	GPUFREQ_TRACE_START("pdev=0x%x", pdev);
+
+	if (!of_gpufreq) {
+		ret = GPUFREQ_ENOENT;
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to find gpufreq of_node (ENOENT)");
+		goto done;
+	}
+
+	/* ignore return error and use default value if property doesn't exist */
+	of_property_read_u32(of_gpufreq, "aging-load", &g_aging_load);
+
+	/* return error should be handled */
+	/* 0x13FA0000 */
+	g_mfg_pll_base = __gpufreq_of_ioremap("mediatek,mfg_pll", 0);
+	if (!g_mfg_pll_base) {
+		GPUFREQ_LOGE("fail to ioremap mfg_pll (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	/* 0x13F90000 */
+	g_mfg_rpc_base = __gpufreq_of_ioremap("mediatek,mfg_rpc", 0);
+	if (!g_mfg_rpc_base) {
+		GPUFREQ_LOGE("fail to ioremap mfg_rpc (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	/* 0x13FBF000 */
+	g_g3d_base = __gpufreq_of_ioremap("mediatek,g3d_config", 0);
+	if (!g_g3d_base) {
+		GPUFREQ_LOGE("fail to ioremap g3d_config (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	/* 0x10006000 */
+	g_sleep = __gpufreq_of_ioremap("mediatek,sleep", 0);
+	if (!g_sleep) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap sleep (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infracfg_base = of_iomap(of_gpufreq, 0);
+	if (!g_infracfg_base) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap infracfg (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_bpi_bsi_slv0 = of_iomap(of_gpufreq, 1);
+	if (!g_infra_bpi_bsi_slv0) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap bpi_bsi_slv0 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_peri_debug1 = of_iomap(of_gpufreq, 2);
+	if (!g_infra_peri_debug1) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"fail to ioremap devapc_ao_infra_peri_debug1 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_peri_debug2 = of_iomap(of_gpufreq, 3);
+	if (!g_infra_peri_debug2) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"fail to ioremap devapc_ao_infra_peri_debug2 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_peri_debug3 = of_iomap(of_gpufreq, 4);
+	if (!g_infra_peri_debug3) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"fail to ioremap devapc_ao_infra_peri_debug3 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_peri_debug4 = of_iomap(of_gpufreq, 5);
+	if (!g_infra_peri_debug4) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"fail to ioremap devapc_ao_infra_peri_debug4 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+#if GPUFREQ_AVS_ENABLE
+	/*
+	 * todo:
+	 * 1. Add reg = <0 0x11F105C0 0 0xC> for ioremap
+	 * 2. Correct the idx of __gpufreq_of_ioremap
+	 */
+	g_avs_efuse_base = of_iomap(of_gpufreq, 6);
+	if (!g_avs_efuse_base) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+			"fail to ioremap avs_efuse (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+#endif
+
+done:
+	GPUFREQ_TRACE_END();
+
+	return ret;
+}
+
+/* API: gpufreq driver probe */
 static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 {
-	struct device_node *gpufreq;
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_LOGI("start to probe gpufreq platform driver");
 
-	/* keep probe successful but do nothing */
-	if (__gpufreq_bringup() || g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq platform driver probe when bringup or gpueb is supported");
+	/* keep probe successful but do nothing when bringup */
+	if (__gpufreq_bringup()) {
+		GPUFREQ_LOGI("skip gpufreq platform driver probe when bringup");
 		__gpufreq_dump_bringup_status();
 		goto done;
 	}
 
-	gpufreq = of_find_matching_node(NULL, g_gpufreq_of_match);
-	if (!gpufreq) {
-		GPUFREQ_LOGE("fail to find gpufreq node");
-		ret = GPUFREQ_ENOENT;
+	/* init reg base address and flavor config of the platform in both AP and EB mode */
+	ret = __gpufreq_init_platform_info(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init platform info (%d)", ret);
+		goto done;
+	}
+
+	/* probe only init register base in EB mode */
+	if (g_gpueb_support) {
+		GPUFREQ_LOGI("skip gpufreq platform driver probe when in EB mode");
 		goto done;
 	}
 
@@ -3181,7 +3221,6 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
-	g_probe_done = true;
 	GPUFREQ_LOGI("gpufreq platform driver probe done");
 
 done:
@@ -3258,7 +3297,7 @@ static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev)
 
 	/* keep probe successful but do nothing */
 	if (__gpufreq_bringup() || g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or gpueb is supported");
+		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or in EB mode");
 		goto done;
 	}
 
@@ -3293,7 +3332,7 @@ static int __gpufreq_mtcmos_pdrv_remove(struct platform_device *pdev)
 
 	/* skip remove because do nothing in probe */
 	if (__gpufreq_bringup() || g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq mtcmos remove when bringup or gpueb is supported");
+		GPUFREQ_LOGI("skip gpufreq mtcmos remove when bringup or in EB mode");
 		goto done;
 	}
 
@@ -3312,9 +3351,7 @@ done:
 	return ret;
 }
 
-/*
- * API: register gpufreq platform driver
- */
+/* API: register gpufreq platform driver */
 static int __init __gpufreq_init(void)
 {
 	struct device_node *gpueb;
@@ -3355,7 +3392,7 @@ static int __init __gpufreq_init(void)
 		goto done;
 	}
 
-	/* register gpufreq platform function to wrapper */
+	/* register gpufreq platform function to wrapper in both AP and EB mode */
 	gpufreq_register_gpufreq_fp(&platform_fp);
 	gpufreq_debug_register_gpufreq_fp(&platform_fp);
 
@@ -3376,9 +3413,7 @@ done:
 	return ret;
 }
 
-/*
- * API: unregister gpufreq driver
- */
+/* API: unregister gpufreq driver */
 static void __exit __gpufreq_exit(void)
 {
 	kfree(g_gpu.working_table);

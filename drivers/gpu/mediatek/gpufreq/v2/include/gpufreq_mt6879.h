@@ -201,10 +201,10 @@ struct gpufreq_status {
 	int cg_count;
 	int power_count;
 	unsigned int segment_id;
-	unsigned int signed_opp_num;
+	int signed_opp_num;
 	int segment_upbound;
 	int segment_lowbound;
-	unsigned int opp_num;
+	int opp_num;
 	int max_oppidx;
 	int min_oppidx;
 	int cur_oppidx;

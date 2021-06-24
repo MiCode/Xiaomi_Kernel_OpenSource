@@ -65,7 +65,7 @@ static void __gpufreq_resume_dvfs(void);
 static void __gpufreq_interpolate_volt(enum gpufreq_target target);
 static void __gpufreq_apply_aging(enum gpufreq_target target, unsigned int apply_aging);
 static void __gpufreq_apply_adjust(enum gpufreq_target target,
-	struct gpufreq_adj_info *adj_table, unsigned int adj_num);
+	struct gpufreq_adj_info *adj_table, int adj_num);
 /* dvfs function */
 static int __gpufreq_generic_scale_gpu(
 	unsigned int freq_old, unsigned int freq_new,
@@ -447,25 +447,25 @@ int __gpufreq_get_min_idx_stack(void)
 }
 
 /* API: get number of working OPP of GPU */
-unsigned int __gpufreq_get_opp_num_gpu(void)
+int __gpufreq_get_opp_num_gpu(void)
 {
 	return g_gpu.opp_num;
 }
 
 /* API: get number of working OPP of STACK */
-unsigned int __gpufreq_get_opp_num_stack(void)
+int __gpufreq_get_opp_num_stack(void)
 {
 	return 0;
 }
 
 /* API: get number of signed OPP of GPU */
-unsigned int __gpufreq_get_signed_opp_num_gpu(void)
+int __gpufreq_get_signed_opp_num_gpu(void)
 {
 	return g_gpu.signed_opp_num;
 }
 
 /* API: get number of signed OPP of STACK */
-unsigned int __gpufreq_get_signed_opp_num_stack(void)
+int __gpufreq_get_signed_opp_num_stack(void)
 {
 	return 0;
 }
@@ -908,7 +908,7 @@ int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 	/* GPU */
 	struct gpufreq_opp_info *working_gpu = g_gpu.working_table;
 	int cur_oppidx_gpu = 0, target_oppidx_gpu = 0;
-	unsigned int opp_num_gpu = g_gpu.opp_num;
+	int opp_num_gpu = g_gpu.opp_num;
 	unsigned int cur_fgpu = 0, cur_vgpu = 0, cur_vsram_gpu = 0;
 	unsigned int target_fgpu = 0, target_vgpu = 0, target_vsram_gpu = 0;
 	int ret = GPUFREQ_SUCCESS;
@@ -989,7 +989,7 @@ int __gpufreq_generic_commit_stack(int target_oppidx, enum gpufreq_dvfs_state ke
 /* API: fix OPP of GPU via given OPP index */
 int __gpufreq_fix_target_oppidx_gpu(int oppidx)
 {
-	unsigned int opp_num = g_gpu.opp_num;
+	int opp_num = g_gpu.opp_num;
 	unsigned int min_oppidx = g_gpu.min_oppidx;
 	int ret = GPUFREQ_SUCCESS;
 
@@ -999,7 +999,7 @@ int __gpufreq_fix_target_oppidx_gpu(int oppidx)
 		goto done;
 	}
 
-	if (oppidx == GPUFREQ_DBG_DEFAULT_IDX) {
+	if (oppidx == -1) {
 		ret = __gpufreq_generic_commit_gpu(min_oppidx, DVFS_DEBUG_KEEP);
 		if (unlikely(ret)) {
 			GPUFREQ_LOGE("fail to commit GPU OPP index: %d (%d)",
@@ -1056,7 +1056,7 @@ int __gpufreq_fix_custom_freq_volt_gpu(unsigned int freq, unsigned int volt)
 	max_volt = VGPU_MAX_VOLT;
 	min_volt = VGPU_MIN_VOLT;
 
-	if (freq == GPUFREQ_DBG_DEFAULT_FREQ && volt == GPUFREQ_DBG_DEFAULT_VOLT) {
+	if (freq == 0 && volt == 0) {
 		ret = __gpufreq_generic_commit_gpu(min_oppidx, DVFS_DEBUG_KEEP);
 		if (unlikely(ret)) {
 			GPUFREQ_LOGE("fail to commit GPU OPP index: %d (%d)",
@@ -2372,7 +2372,7 @@ static void __gpufreq_measure_power(enum gpufreq_target target)
 	unsigned int p_total = 0, p_dynamic = 0, p_leakage = 0;
 	int i = 0;
 	struct gpufreq_opp_info *working_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 
 	GPUFREQ_TRACE_START("target=%d", target);
 
@@ -2470,7 +2470,7 @@ done:
  */
 static void __gpufreq_interpolate_volt(enum gpufreq_target target)
 {
-	unsigned int avs_num = 0;
+	int avs_num = 0;
 	int front_idx = 0, rear_idx = 0, inner_idx = 0;
 	unsigned int large_volt = 0, small_volt = 0;
 	unsigned int large_freq = 0, small_freq = 0;
@@ -2547,7 +2547,7 @@ static void __gpufreq_apply_aging(enum gpufreq_target target, unsigned int apply
 {
 	int i = 0;
 	struct gpufreq_opp_info *working_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 
 	GPUFREQ_TRACE_START("apply_aging=%d, target=%d", apply_aging, target);
 
@@ -2581,12 +2581,12 @@ static void __gpufreq_apply_aging(enum gpufreq_target target, unsigned int apply
 
 /* API: apply given adjustment table to signed table */
 static void __gpufreq_apply_adjust(enum gpufreq_target target,
-	struct gpufreq_adj_info *adj_table, unsigned int adj_num)
+	struct gpufreq_adj_info *adj_table, int adj_num)
 {
 	int i = 0;
 	int oppidx = 0;
 	struct gpufreq_opp_info *signed_table = NULL;
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 
 	GPUFREQ_TRACE_START("adj_table=0x%x, adj_num=%d, target=%d",
 		adj_table, adj_num, target);
@@ -2639,7 +2639,7 @@ static void __gpufreq_aging_adjustment(struct platform_device *pdev)
 {
 #if GPUFREQ_AGING_ENABLE
 	struct gpufreq_adj_info *aging_adj = NULL;
-	unsigned int adj_num = 0;
+	int adj_num = 0;
 	unsigned int efuse_id = 0x0;
 	int ret = GPUFREQ_SUCCESS;
 
@@ -2680,7 +2680,7 @@ static void __gpufreq_avs_adjustment(struct platform_device *pdev)
 {
 #if defined(GPUFREQ_AVS_ENABLE)
 	struct gpufreq_adj_info *avs_adj = NULL;
-	unsigned int adj_num = 0;
+	int adj_num = 0;
 	unsigned int efuse_id = 0x0;
 
 	GPUFREQ_UNREFERENCED(pdev);
@@ -2712,7 +2712,7 @@ static void __gpufreq_avs_adjustment(struct platform_device *pdev)
 static void __gpufreq_segment_adjustment(struct platform_device *pdev)
 {
 	struct gpufreq_adj_info *segment_adj;
-	unsigned int adj_num = 0;
+	int adj_num = 0;
 	unsigned int efuse_id = 0x0;
 
 	switch (efuse_id) {

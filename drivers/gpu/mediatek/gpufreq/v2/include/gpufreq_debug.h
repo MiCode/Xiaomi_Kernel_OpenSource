@@ -9,9 +9,6 @@
 /**************************************************
  * Definition
  **************************************************/
-#define GPUFREQ_DBG_DEFAULT_IDX         (-1)
-#define GPUFREQ_DBG_DEFAULT_FREQ        (0)
-#define GPUFREQ_DBG_DEFAULT_VOLT        (0)
 #define GPUFREQ_DBG_KEY                 "detective"
 
 #if defined(CONFIG_PROC_FS)
@@ -63,8 +60,8 @@
  * Structure
  **************************************************/
 struct gpufreq_debug_status {
-	unsigned int opp_num;
-	unsigned int signed_opp_num;
+	int opp_num;
+	int signed_opp_num;
 	int fixed_oppidx;
 	unsigned int fixed_freq;
 	unsigned int fixed_volt;
@@ -84,8 +81,8 @@ struct gpufreq_debug_opp_info {
 	int cg_count;
 	int power_count;
 	unsigned int segment_id;
-	unsigned int opp_num;
-	unsigned int signed_opp_num;
+	int opp_num;
+	int signed_opp_num;
 	unsigned int dvfs_state;
 	unsigned int shader_present;
 	unsigned int aging_enable;

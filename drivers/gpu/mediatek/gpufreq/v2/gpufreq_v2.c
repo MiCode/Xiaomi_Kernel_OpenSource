@@ -726,9 +726,9 @@ EXPORT_SYMBOL(gpufreq_get_min_oppidx);
  Returns            : opp_num - # of OPP index in working table of given target
  Description        : Query number of OPP index in working table of the target
 ************************************************************************************/
-unsigned int gpufreq_get_opp_num(enum gpufreq_target target)
+int gpufreq_get_opp_num(enum gpufreq_target target)
 {
-	unsigned int opp_num = 0;
+	int opp_num = 0;
 
 	if (target >= TARGET_INVALID || target < 0 ||
 		(target == TARGET_STACK && !g_dual_buck)) {

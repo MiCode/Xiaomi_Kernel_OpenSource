@@ -201,19 +201,22 @@ static void __gpuppm_sort_limit(enum gpufreq_target target)
 			cur_floor = cur_ceiling;
 	}
 
-	GPUFREQ_LOGD("[%s ceiling] index: %d, limiter: %s, priority: %d",
-		(target == TARGET_STACK) ? "STACK" : "GPU",
-		cur_ceiling, limit_table[cur_c_limiter].name, cur_c_priority);
-	GPUFREQ_LOGD("[%s floor] index: %d, limiter: %s, priority: %d",
-		(target == TARGET_STACK) ? "STACK" : "GPU",
-		cur_floor, limit_table[cur_f_limiter].name, cur_f_priority);
+	/* only update if both limiter of ceiling/floor are found */
+	if (cur_c_limiter != LIMIT_NUM && cur_f_limiter != LIMIT_NUM) {
+		GPUFREQ_LOGD("[%s ceiling] index: %d, limiter: %s, priority: %d",
+			(target == TARGET_STACK) ? "STACK" : "GPU",
+			cur_ceiling, limit_table[cur_c_limiter].name, cur_c_priority);
+		GPUFREQ_LOGD("[%s floor] index: %d, limiter: %s, priority: %d",
+			(target == TARGET_STACK) ? "STACK" : "GPU",
+			cur_floor, limit_table[cur_f_limiter].name, cur_f_priority);
 
-	cur_status->ceiling = cur_ceiling;
-	cur_status->c_limiter = cur_c_limiter;
-	cur_status->c_priority = cur_c_priority;
-	cur_status->floor = cur_floor;
-	cur_status->f_limiter = cur_f_limiter;
-	cur_status->f_priority = cur_f_priority;
+		cur_status->ceiling = cur_ceiling;
+		cur_status->c_limiter = cur_c_limiter;
+		cur_status->c_priority = cur_c_priority;
+		cur_status->floor = cur_floor;
+		cur_status->f_limiter = cur_f_limiter;
+		cur_status->f_priority = cur_f_priority;
+	}
 
 	GPUFREQ_TRACE_END();
 }
@@ -632,7 +635,7 @@ int gpuppm_set_limit_stack(enum gpuppm_limiter limiter, int ceiling_info, int fl
 		mutex_lock(&gpuppm_lock);
 
 		/* covert input limit info to OPP index */
-		ret = __gpuppm_covert_limit_to_idx(TARGET_GPU, limiter,
+		ret = __gpuppm_covert_limit_to_idx(TARGET_STACK, limiter,
 			ceiling_info, floor_info, &ceiling_idx, &floor_idx);
 		if (unlikely(ret)) {
 			GPUFREQ_LOGE("fail to covert limit info to OPP index (%d)", ret);
@@ -812,11 +815,11 @@ int gpuppm_init(unsigned int gpueb_support)
 
 	g_gpueb_support = gpueb_support;
 
-	/* register gpuppm function to wrapper */
+	/* register gpuppm function to wrapper in both AP and EB mode */
 	gpufreq_register_gpuppm_fp(&platform_fp);
 	gpufreq_debug_register_gpuppm_fp(&platform_fp);
 
-	/* AP mode */
+	/* init only in AP mode */
 	if (!g_gpueb_support) {
 		opp_num_gpu = __gpufreq_get_opp_num_gpu();
 		max_oppidx_gpu = __gpufreq_get_max_idx_gpu();
