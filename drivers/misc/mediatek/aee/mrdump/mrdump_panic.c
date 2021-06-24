@@ -182,6 +182,12 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 	int last_step;
 	int next_step;
 
+        if (!aee_is_enable()) {
+                pr_notice("%s: ipanic: mrdump is disable\n", __func__);
+                panic(msg);
+                return 0;
+        }
+
 	num_die++;
 
 	last_step = aee_rr_curr_fiq_step();
@@ -337,6 +343,11 @@ static int __init mrdump_panic_init(void)
 	struct device_node *rmem_node;
 	struct reserved_mem *rmem;
 	void *kinfo_vaddr;
+
+        if (!aee_is_enable()) {
+                pr_notice("%s: ipanic: mrdump is disable\n", __func__);
+                return 0;
+        }
 
 	/* Get reserved memory */
 	rmem_node = of_find_compatible_node(NULL, NULL, DEBUG_COMPATIBLE);

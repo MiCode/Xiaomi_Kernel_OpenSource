@@ -12,7 +12,6 @@ void aee_register_api(struct aee_kernel_api *aee_api)
 {
 	g_aee_api = aee_api;
 }
-EXPORT_SYMBOL(aee_register_api);
 
 void aee_disable_api(void)
 {
@@ -21,7 +20,6 @@ void aee_disable_api(void)
 		g_aee_api = NULL;
 	}
 }
-EXPORT_SYMBOL(aee_disable_api);
 
 void aee_kernel_exception_api_func(const char *file, const int line,
 		const int db_opt, const char *module, const char *msg, ...)

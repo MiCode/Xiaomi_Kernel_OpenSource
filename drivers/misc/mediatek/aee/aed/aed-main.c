@@ -2358,6 +2358,11 @@ static int __init aed_init(void)
 {
 	int err;
 
+	if (!aee_is_enable()) {
+		pr_info("%s: aee is disable\n", __func__);
+		return 0;
+	}
+
 	err = aed_proc_init();
 	if (err != 0)
 		return err;
@@ -2398,6 +2403,9 @@ static int __init aed_init(void)
 
 static void __exit aed_exit(void)
 {
+	if (!aee_is_enable())
+		return;
+
 	misc_deregister(&aed_ee_dev);
 	misc_deregister(&aed_ke_dev);
 
