@@ -1455,6 +1455,7 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	struct RingBuf *ringbuf = &dsp_mem->ring_buf;
 	struct ringbuf_bridge *buf_bridge =
 		&(dsp_mem->adsp_buf.aud_buffer.buf_bridge);
+	unsigned long flags = 0;
 	spinlock_t *ringbuf_lock = &dsp_mem->ringbuf_lock;
 
 
@@ -1470,9 +1471,9 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	Ringbuf_Bridge_Check(
 		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 
-	spin_lock(ringbuf_lock);
+	spin_lock_irqsave(ringbuf_lock, flags);
 	availsize = RingBuf_getFreeSpace(ringbuf);
-	spin_unlock(ringbuf_lock);
+	spin_unlock_irqrestore(ringbuf_lock, flags);
 	if (availsize < copy_size) {
 		pr_info("%s, id = %d, fail copy_size = %d availsize = %d\n",
 			__func__, id, copy_size, RingBuf_getFreeSpace(ringbuf));
@@ -1523,6 +1524,7 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	int id = cpu_dai->id;
 	struct RingBuf *ringbuf = &(dsp_mem->ring_buf);
+	unsigned long flags = 0;
 	spinlock_t *ringbuf_lock = &dsp_mem->ringbuf_lock;
 
 #ifdef DEBUG_VERBOSE
@@ -1534,9 +1536,9 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 	Ringbuf_Bridge_Check(
 			&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 
-	spin_lock(ringbuf_lock);
+	spin_lock_irqsave(ringbuf_lock, flags);
 	availsize = RingBuf_getDataCount(ringbuf);
-	spin_unlock(ringbuf_lock);
+	spin_unlock_irqrestore(ringbuf_lock, flags);
 
 	if (availsize < copy_size) {
 		pr_info("%s fail copy_size = %d availsize = %d\n", __func__,
@@ -1546,10 +1548,10 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 
 	/* get audio_buffer from ring buffer */
 	ringbuf_copyto_user_linear(buf, &dsp_mem->ring_buf, copy_size);
-	spin_lock(ringbuf_lock);
+	spin_lock_irqsave(ringbuf_lock, flags);
 	sync_bridge_ringbuf_readidx(&dsp_mem->adsp_buf.aud_buffer.buf_bridge,
 				    &dsp_mem->ring_buf);
-	spin_unlock(ringbuf_lock);
+	spin_unlock_irqrestore(ringbuf_lock, flags);
 	dsp_mem->adsp_buf.counter++;
 
 	ipi_audio_buf = (void *)dsp_mem->msg_atod_share_buf.va_addr;
