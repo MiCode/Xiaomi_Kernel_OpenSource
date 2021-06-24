@@ -17,6 +17,8 @@ extern void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 extern void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p,
 		int prev_cpu, int sync, int *new_cpu);
 
+extern void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
+		unsigned long max_util, unsigned long sum_util, unsigned long *energy);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 extern int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order);
 #endif

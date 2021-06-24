@@ -82,6 +82,103 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 
 #endif
 
+/**
+ * em_cpu_energy() - Estimates the energy consumed by the CPUs of a
+		performance domain
+ * @pd		: performance domain for which energy has to be estimated
+ * @max_util	: highest utilization among CPUs of the domain
+ * @sum_util	: sum of the utilization of all CPUs in the domain
+ *
+ * This function must be used only for CPU devices. There is no validation,
+ * i.e. if the EM is a CPU type and has cpumask allocated. It is called from
+ * the scheduler code quite frequently and that is why there is not checks.
+ *
+ * Return: the sum of the energy consumed by the CPUs of the domain assuming
+ * a capacity state satisfying the max utilization of the domain.
+ */
+void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
+		unsigned long max_util, unsigned long sum_util, unsigned long *energy)
+{
+	unsigned long freq, scale_cpu;
+	struct em_perf_state *ps;
+	int i, cpu;
+
+	if (!sum_util) {
+		energy = 0;
+		return;
+	}
+
+	/*
+	 * In order to predict the performance state, map the utilization of
+	 * the most utilized CPU of the performance domain to a requested
+	 * frequency, like schedutil.
+	 */
+	cpu = cpumask_first(to_cpumask(pd->cpus));
+	scale_cpu = arch_scale_cpu_capacity(cpu);
+	ps = &pd->table[pd->nr_perf_states - 1];
+#if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
+	mtk_map_util_freq(NULL, max_util, ps->frequency, scale_cpu, &freq);
+#else
+	freq = map_util_freq(max_util, ps->frequency, scale_cpu);
+#endif
+
+
+	/*
+	 * Find the lowest performance state of the Energy Model above the
+	 * requested frequency.
+	 */
+	for (i = 0; i < pd->nr_perf_states; i++) {
+		ps = &pd->table[i];
+		if (ps->frequency >= freq)
+			break;
+	}
+
+	/*
+	 * The capacity of a CPU in the domain at the performance state (ps)
+	 * can be computed as:
+	 *
+	 *             ps->freq * scale_cpu
+	 *   ps->cap = --------------------                          (1)
+	 *                 cpu_max_freq
+	 *
+	 * So, ignoring the costs of idle states (which are not available in
+	 * the EM), the energy consumed by this CPU at that performance state
+	 * is estimated as:
+	 *
+	 *             ps->power * cpu_util
+	 *   cpu_nrg = --------------------                          (2)
+	 *                   ps->cap
+	 *
+	 * since 'cpu_util / ps->cap' represents its percentage of busy time.
+	 *
+	 *   NOTE: Although the result of this computation actually is in
+	 *         units of power, it can be manipulated as an energy value
+	 *         over a scheduling period, since it is assumed to be
+	 *         constant during that interval.
+	 *
+	 * By injecting (1) in (2), 'cpu_nrg' can be re-expressed as a product
+	 * of two terms:
+	 *
+	 *             ps->power * cpu_max_freq   cpu_util
+	 *   cpu_nrg = ------------------------ * ---------          (3)
+	 *                    ps->freq            scale_cpu
+	 *
+	 * The first term is static, and is stored in the em_perf_state struct
+	 * as 'ps->cost'.
+	 *
+	 * Since all CPUs of the domain have the same micro-architecture, they
+	 * share the same 'ps->cost', and the same CPU capacity. Hence, the
+	 * total energy of the domain (which is the simple sum of the energy of
+	 * all of its CPUs) can be factorized as:
+	 *
+	 *            ps->cost * \Sum cpu_util
+	 *   pd_nrg = ------------------------                       (4)
+	 *                  scale_cpu
+	 */
+
+	*energy = (ps->cost * sum_util/ scale_cpu);
+}
+
 #define CSRAM_BASE 0x0011BC00
 #define OFFS_THERMAL_LIMIT_S 0x1208
 #define THERMAL_INFO_SIZE 200
