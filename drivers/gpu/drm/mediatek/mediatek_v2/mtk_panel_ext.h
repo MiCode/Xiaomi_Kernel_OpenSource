@@ -120,6 +120,12 @@ enum FPS_CHANGE_INDEX {
 	DYNFPS_DSI_MIPI_CLK = 4,
 };
 
+enum MTK_LCM_DUMP_FLAG {
+	MTK_DRM_PANEL_DUMP_PARAMS,
+	MTK_DRM_PANEL_DUMP_OPS,
+	MTK_DRM_PANEL_DUMP_ALL
+};
+
 struct mtk_panel_dsc_params {
 	unsigned int enable;
 	unsigned int ver; /* [7:4] major [3:0] minor */
@@ -339,6 +345,8 @@ struct mtk_panel_funcs {
 	void (*hbm_get_state)(struct drm_panel *panel, bool *state);
 	void (*hbm_get_wait_state)(struct drm_panel *panel, bool *wait);
 	bool (*hbm_set_wait_state)(struct drm_panel *panel, bool wait);
+
+	void (*lcm_dump)(struct drm_panel *panel, enum MTK_LCM_DUMP_FLAG flag);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

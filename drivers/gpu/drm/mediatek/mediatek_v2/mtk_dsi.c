@@ -3017,6 +3017,12 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_TYPE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_SKIP_NUM, reg_val));
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	if (dsi->ext && dsi->ext->funcs &&
+	    dsi->ext->funcs->lcm_dump)
+		dsi->ext->funcs->lcm_dump(dsi->panel, MTK_DRM_PANEL_DUMP_PARAMS);
+#endif
+
 	return 0;
 }
 
@@ -5978,7 +5984,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 			dsi->bridge = of_drm_find_bridge(remote_node);
 			dsi->panel = of_drm_find_panel(remote_node);
 			of_node_put(remote_node);
-			if (!dsi->bridge && IS_ERR(dsi->panel)) {
+			if (IS_ERR_OR_NULL(dsi->bridge) && IS_ERR_OR_NULL(dsi->panel)) {
 				dev_info(dev, "Waiting for bridge or panel driver\n");
 				dsi->panel = NULL;
 				ret = -EPROBE_DEFER;

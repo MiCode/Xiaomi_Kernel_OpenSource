@@ -65,3 +65,20 @@ obj-$(CONFIG_DRM_PANEL_SC_NT36672C_VDO_120HZ) += panel-sc-nt36672c-vdo-120hz.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_R66451_CMD_120HZ) += panel-tianma-r66451-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_HFP) += panel-tianma-nt36672e-vdo-120hz-hfp.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO) += panel-alpha-jdi-nt36672e-cphy-vdo.o
+
+mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
+		  mtk_drm_gateic_rt4801h.o \
+		  mtk_drm_gateic.o
+
+mediatek-drm-panel-drv-y :=  \
+		  mtk_drm_panel_helper.o \
+		  mtk_drm_panel_helper_dbi.o \
+		  mtk_drm_panel_helper_dpi.o \
+		  mtk_drm_panel_helper_dsi.o \
+		  mtk_drm_panel_drv_dbi.o \
+		  mtk_drm_panel_drv_dpi.o \
+		  mtk_drm_panel_drv_dsi.o \
+		  mtk_drm_panel_drv.o
+
+obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-drm-gateic.o
+obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-drm-panel-drv.o

@@ -609,4 +609,17 @@ config DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO
 	  CPHY vdo mode Full HD Plus panel. The panel has a 1080x2400
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
+
+config DRM_MEDIATEK_PANEL
+	tristate "drm panel common driver"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for panel common driver.
+	  support C-PHY and D-PHY, support HD, FHD resolution,
+	  support CMD and VDO mode, support high frame rate.
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
 endmenu
