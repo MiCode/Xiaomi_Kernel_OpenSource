@@ -810,7 +810,7 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr);
 
 s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
-	u16 src_reg_idx, u32 mask, u64 **curr_buf_va)
+	u16 src_reg_idx, u32 mask, u64 **curr_buf_va, u32 *inst_offset)
 {
 	s32 err;
 	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
@@ -824,12 +824,13 @@ s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
 		CMDQ_GET_ADDR_LOW(addr), src_reg_idx, mask);
 
 	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_write_reg_addr_reuse);
 
 s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
-	u32 value, u32 mask, u64 **curr_buf_va)
+	u32 value, u32 mask, u64 **curr_buf_va, u32 *inst_offset)
 {
 	s32 err;
 	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
@@ -844,8 +845,9 @@ s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
 		value, mask);
 
 	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
-	cmdq_msg("%s: curr_buf_va:%p",
-		__func__, cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE);
+	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	cmdq_msg("%s: curr_buf_va:%p idx:%u",
+		__func__, *curr_buf_va, *inst_offset);
 	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr_reuse);
@@ -862,6 +864,31 @@ void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
 	}
 }
 EXPORT_SYMBOL(cmdq_pkt_reuse_buf_va);
+
+void cmdq_reuse_refresh(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse, u32 cnt)
+{
+	struct cmdq_pkt_buffer *buf;
+	u32 reuse_idx = 0;
+	u32 cur_off = 0;
+	u32 next_off;
+
+	list_for_each_entry(buf, &pkt->buf, list_entry) {
+		next_off = cur_off + CMDQ_CMD_BUFFER_SIZE;
+		while (reuse_idx < cnt &&
+			reuse[reuse_idx].offset >= cur_off &&
+			reuse[reuse_idx].offset < next_off) {
+			reuse[reuse_idx].va = (u64 *)(buf->va_base +
+				(reuse[reuse_idx].offset % CMDQ_CMD_BUFFER_SIZE));
+			reuse_idx++;
+		}
+
+		if (reuse_idx >= cnt)
+			break;
+
+		cur_off = next_off;
+	}
+}
+EXPORT_SYMBOL(cmdq_reuse_refresh);
 
 s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 {
