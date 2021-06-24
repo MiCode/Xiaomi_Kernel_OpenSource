@@ -1217,7 +1217,7 @@ static inline void smi_dram_init(void)
 	smi_dram.node = debugfs_create_file(
 		"smi_mon", 0444, NULL, (void *)0, &smi_dram_file_opers);
 	if (IS_ERR(smi_dram.node))
-		SMIERR("debugfs_create_file failed: %ld\n",
+		pr_info("debugfs_create_file failed: %ld\n",
 			PTR_ERR(smi_dram.node));
 }
 
