@@ -85,6 +85,22 @@ static struct lock_class_key hw_lock_key[MAX_CORE_NUM];
 
 /* platform static functions */
 
+static bool mdla_check_cmd_valid(
+	uint64_t out_end,
+	struct command_entry *ce)
+{
+	uint64_t out_size;
+
+	if ((uint64_t)ce->kva == 0)
+		return false;
+	if (out_end < (uint64_t)ce->kva)
+		return -EINVAL;
+	out_size = out_end - (uint64_t)ce->kva;
+	if (out_size < ce->count*MREG_CMD_SIZE)
+		return false;
+	return true;
+}
+
 static int mdla_plat_zero_skip_detect(u32 core_id)
 {
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
@@ -616,6 +632,7 @@ int mdla_v1_x_init(struct platform_device *pdev)
 	cmd_cb->get_irq_num         = mdla_v1_x_get_irq_num;
 	cmd_cb->get_wait_time       = mdla_plat_get_wait_time;
 	cmd_cb->process_command     = mdla_plat_process_command;
+	cmd_cb->check_cmd_valid     = mdla_check_cmd_valid;
 
 	/* set debug callback */
 	dbg_cb->destroy_dump_cmdbuf = mdla_plat_destroy_dump_cmdbuf;

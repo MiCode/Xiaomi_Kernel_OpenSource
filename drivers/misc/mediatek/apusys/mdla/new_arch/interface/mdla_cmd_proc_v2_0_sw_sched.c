@@ -28,7 +28,7 @@
 #include <utilities/mdla_debug.h>
 
 #include "mdla_cmd_data_v2_0.h"
-
+#include "platform/v2_0/mdla_hw_reg_v2_0.h"
 
 static void mdla_cmd_prepare_v2_0_sw_sched(struct mdla_run_cmd *cd,
 	struct apusys_cmd_hnd *apusys_hd,
@@ -186,6 +186,7 @@ int mdla_cmd_run_sync_v2_0_sw_sched(struct mdla_run_cmd_sync *cmd_data,
 	struct mdla_run_cmd *cd = &cmd_data->req;
 	struct command_entry *ce;
 	struct mdla_scheduler *sched = mdla_info->sched;
+	uint64_t out_end;
 
 	u32 core_id = mdla_info->mdla_id;
 
@@ -227,6 +228,10 @@ int mdla_cmd_run_sync_v2_0_sw_sched(struct mdla_run_cmd_sync *cmd_data,
 
 	/* prepare CE */
 	mdla_cmd_prepare_v2_0_sw_sched(cd, apusys_hd, ce, priority);
+
+	out_end = apusys_hd->cmd_entry + apusys_hd->cmd_size;
+	if (mdla_cmd_plat_cb()->check_cmd_valid(out_end, ce) == false)
+		return -EINVAL;
 
 	ce->poweron_t = pwron_t;
 

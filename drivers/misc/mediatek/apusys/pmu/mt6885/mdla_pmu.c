@@ -404,11 +404,15 @@ void pmu_init(u32 mdlaid)
 int pmu_apusys_pmu_addr_check(struct apusys_cmd_hnd *apusys_hd)
 {
 	int ret = 0;
+	struct mdla_pmu_hnd *pmu_hnd;
 
 	if ((apusys_hd == NULL) ||
 		(apusys_hd->pmu_kva == apusys_hd->cmd_entry) ||
 		(apusys_hd->pmu_kva == 0))
 		return ret = -1;
+	pmu_hnd = (struct mdla_pmu_hnd *)apusys_hd->pmu_kva;
+	if (pmu_hnd->number_of_event > MPC)
+		return -1;
 	mdla_pmu_debug("command entry:%08llx, pmu kva: %08llx\n",
 		apusys_hd->cmd_entry,
 		apusys_hd->pmu_kva);
@@ -541,32 +545,63 @@ int pmu_set_reg(u32 mdlaid, u16 priority)
 }
 #endif
 
-void pmu_command_counter_prt(struct mdla_dev *mdla_info, u16 priority)
+void pmu_command_counter_prt(
+	struct apusys_cmd_hnd *apusys_hd,
+	struct mdla_dev *mdla_info,
+	u16 priority,
+	struct command_entry *ce)
 {
 	int i;
 	struct mdla_pmu_result result;
 	struct mdla_pmu_result check;
 	void *base = NULL, *desc = NULL, *src = NULL;
-	int sz = 0, event_num = 0;
+	uint32_t sz = 0;
+	uint16_t event_num = 0;
 	int offset = 0;
 	u16 final_len = 0;
 	u16 loop_count =
 		mdla_info->pmu[priority].pmu_hnd->number_of_event;
 	u32 cid = mdla_info->mdlaid;
+	uint32_t repeat_sz = 0;
+	uint32_t out_sz = 0;
+	uint32_t out_length = 0;
 
 	result.cmd_len = l_cmd_cnt[mdla_info->mdlaid][priority];
 	result.cmd_id = pmu_get_perf_cmdid(mdla_info->mdlaid, priority);
 	event_num = mdla_info->pmu[priority].pmu_hnd->number_of_event + 1;
 
 	sz = sizeof(u16) * 2 + sizeof(u32) * event_num;
+	repeat_sz = sz - sizeof(u16);
 
 	if (mdla_info->mdlaid == 0) {
 		base = (void *)mdla_info->pmu[priority].PMU_res_buf_addr0;
+		out_sz = apusys_hd->cmd_entry -
+				mdla_info->pmu[priority].PMU_res_buf_addr0 +
+				apusys_hd->cmd_size;
 	} else if (mdla_info->mdlaid == 1) {
 		base = (void *)mdla_info->pmu[priority].PMU_res_buf_addr1;
+		out_sz = apusys_hd->cmd_entry -
+				mdla_info->pmu[priority].PMU_res_buf_addr1 +
+				apusys_hd->cmd_size;
 	} else {
 		mdla_pmu_debug("unknown mdlaid: %d\n", mdla_info->mdlaid);
 		return;
+	}
+	if (apusys_hd->cmd_entry > (uint64_t)base)
+		return;
+	if ((uint64_t)base > (apusys_hd->cmd_entry + apusys_hd->cmd_size))
+		return;
+	if (out_sz < sizeof(uint16_t))
+		return;
+	out_length = (out_sz - sizeof(uint16_t)) / repeat_sz;
+	if (loop_count > MDLA_PMU_COUNTERS)
+		return;
+	if (mdla_info->pmu[priority].pmu_mode == PER_CMD) {
+		if (ce->count > out_length)
+			return;
+	} else if (mdla_info->pmu[priority].pmu_mode == NORMAL) {
+		if (out_sz < sz)
+			return;
 	}
 
 	mdla_pmu_debug("mode: %d, cmd_len: %d, cmd_id: %d, sz: %d\n",

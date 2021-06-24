@@ -18,6 +18,7 @@
 #include "apusys_device.h"
 #include "mdw_cmd.h"
 #include <linux/kref.h>
+#include <linux/idr.h>
 
 struct mdw_usr_mgr {
 	struct list_head list;
@@ -37,7 +38,7 @@ struct mdw_usr {
 	struct mutex mtx;
 	struct kref	kref;
 
-	struct list_head cmd_list; // for cmd
+	struct idr cmds_idr;
 	struct list_head mem_list; // for mem
 	struct list_head sdev_list; // for sec dev
 };

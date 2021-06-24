@@ -51,5 +51,8 @@ void mdw_mem_get_vlm(unsigned int *start, unsigned int *size);
 
 void mdw_mem_u2k(struct apusys_mem *umem, struct apusys_kmem *kmem);
 void mdw_mem_k2u(struct apusys_kmem *kmem, struct apusys_mem *umem);
+int mdw_mem_create_idr(uint64_t handle, int *id);
+int mdw_mem_u2k_handle(struct apusys_kmem *kmem, struct apusys_mem *umem);
+int mdw_mem_delete_idr(int id);
 
 #endif

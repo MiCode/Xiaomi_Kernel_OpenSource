@@ -70,11 +70,11 @@ void mdla_util_plat_deinit(struct platform_device *pdev)
 static void mdla_util_dummy_cnt_save(u32 a0, struct mdla_pmu_info *a1) {}
 static void mdla_util_dummy_cnt_read(u32 a0, u32 *a1) {}
 static void mdla_util_dummy_cnt_clr(struct mdla_pmu_info *pmu) {}
-static u32 mdla_util_dummy_get_num_evt(u32 a0, int a1)
+static u32 mdla_util_dummy_get_num_evt(u32 a0, u16 a1)
 {
 	return 0;
 }
-static void mdla_util_dummy_set_num_evt(u32 a0, int a1, int a2) {}
+static void mdla_util_dummy_set_num_evt(u32 a0, u16 a1, u32 a2) {}
 static void mdla_util_dummy_set_mode(struct mdla_pmu_info *a0, u32 a1) {}
 static int mdla_util_dummy_get_mode(struct mdla_pmu_info *a0)
 {
@@ -222,6 +222,9 @@ int mdla_util_apu_pmu_handle(struct mdla_dev *mdla_info,
 	pmu_ops.set_num_evt(core_id, priority,
 					evt_num);
 
+	if (pmu_ops.apu_pmu_valid(mdla_info, apusys_hd, priority) == false)
+		return -1;
+
 	mdla_pmu_debug("PMU number_of_event:%d, mode: %d\n",
 			evt_num,
 			pmu_mode);
@@ -258,6 +261,8 @@ void mdla_util_apu_pmu_update(struct mdla_dev *mdla_info,
 
 	if (mdla_util_pmu_addr_is_invalid(apusys_hd))
 		return;
+	if (pmu_ops.apu_pmu_valid(mdla_info, apusys_hd, priority) == false)
+		return;
 
 	core_id = mdla_info->mdla_id;
 	pmu = pmu_ops.get_info(core_id, priority);
@@ -270,7 +275,8 @@ void mdla_util_apu_pmu_update(struct mdla_dev *mdla_info,
 
 	//loop_count = pmu->pmu_hnd->number_of_event;
 	loop_count = pmu_ops.get_hnd_evt_num(pmu);
-
+	if (loop_count == 0)
+		return;
 	//event_num = loop_count + 1;
 
 	//result.cmd_len = pmu->data.l_cmd_cnt;

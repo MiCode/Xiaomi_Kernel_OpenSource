@@ -45,7 +45,7 @@ static unsigned int apu_file_poll(struct file *file, poll_table *wait)
 	struct apu_poll_desc *d = file->private_data;
 	struct mdw_usr *u;
 	struct mdw_apu_cmd *c;
-	struct list_head *tmp = NULL, *list_ptr = NULL;
+	int id = 0;
 
 	if (d == NULL)
 		return POLLIN;
@@ -62,20 +62,22 @@ static unsigned int apu_file_poll(struct file *file, poll_table *wait)
 
 	/* Check cmd */
 	mutex_lock(&u->mtx);
-	list_for_each_safe(list_ptr, tmp, &u->cmd_list) {
-		c = list_entry(list_ptr, struct mdw_apu_cmd, u_item);
-		mdw_flw_debug("poll cmd(0x%llx/0x%llx) matching...\n", c, d->c);
+	idr_for_each_entry(&u->cmds_idr, c, id) {
+		mdw_flw_debug("poll cmd(0x%llx/0x%llx) matching...\n",
+			(uint64_t)c, (uint64_t)d->c);
 
 		if (c == d->c)
 			break;
 		c = NULL;
 	}
+	if (c)
+		idr_remove(&u->cmds_idr, c->id);
 	mutex_unlock(&u->mtx);
 
 	if (c == NULL)
 		goto out;
 
-	mdw_wait_cmd(d->c);
+	mdw_wait_cmd(u, d->c);
 out:
 	mdw_usr_put(u);
 	return POLLIN;

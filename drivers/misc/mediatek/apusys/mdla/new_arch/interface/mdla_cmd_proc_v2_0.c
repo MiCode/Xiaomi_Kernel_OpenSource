@@ -55,7 +55,6 @@ static void mdla_cmd_prepare_v2_0(struct mdla_run_cmd *cd,
 			cd->size);
 }
 
-
 static void mdla_cmd_ut_prepare_v2_0(struct ioctl_run_cmd *cd,
 					struct command_entry *ce)
 {
@@ -91,6 +90,7 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 	int ret = 0, boost_val;
 	u32 core_id = 0;
 	u16 prio = (u16)priority;
+	uint64_t out_end;
 
 	cmd_start_t = sched_clock();
 
@@ -106,6 +106,10 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 	mdla_pwr_ops_get()->wake_lock(core_id);
 
 	mdla_cmd_prepare_v2_0(cd, apusys_hd, &ce);
+
+	out_end = apusys_hd->cmd_entry + apusys_hd->cmd_size;
+	if (mdla_cmd_plat_cb()->check_cmd_valid(out_end, &ce) == false)
+		return -EINVAL;
 
 	deadline = get_jiffies_64()
 			+ msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));

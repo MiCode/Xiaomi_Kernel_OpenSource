@@ -79,6 +79,7 @@ int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 	struct command_entry ce;
 	int ret = 0, boost_val;
 	u32 core_id = 0;
+	uint64_t out_end;
 
 	memset(&ce, 0, sizeof(struct command_entry));
 	core_id = mdla_info->mdla_id;
@@ -89,6 +90,10 @@ int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 	mdla_pwr_ops_get()->wake_lock(core_id);
 
 	mdla_cmd_prepare_v1_x(cd, apusys_hd, &ce);
+
+	out_end = apusys_hd->cmd_entry + apusys_hd->cmd_size;
+	if (mdla_cmd_plat_cb()->check_cmd_valid(out_end, &ce) == false)
+		return -EINVAL;
 
 	deadline = get_jiffies_64()
 			+ msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));

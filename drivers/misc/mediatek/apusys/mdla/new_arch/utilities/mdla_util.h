@@ -68,8 +68,8 @@ struct mdla_util_pmu_ops {
 
 	void (*clr_counter_variable)(struct mdla_pmu_info *pmu);
 	void (*clr_cycle_variable)(struct mdla_pmu_info *pmu);
-	u32 (*get_num_evt)(u32 core_id, int priority);
-	void (*set_num_evt)(u32 core_id, int priority, int val);
+	u32 (*get_num_evt)(u32 core_id, u16 priority);
+	void (*set_num_evt)(u32 core_id, u16 priority, u32 val);
 	void (*set_percmd_mode)(struct mdla_pmu_info *pmu, u32 mode);
 	int (*get_curr_mode)(struct mdla_pmu_info *pmu);
 	u32 (*get_perf_end)(struct mdla_pmu_info *pmu);
@@ -95,6 +95,8 @@ struct mdla_util_pmu_ops {
 			u32 counter_idx, u32 val);
 	struct mdla_pmu_info *(*get_info)(u32 core_id, u16 priority);
 	int (*apu_cmd_prepare)(struct mdla_dev *mdla_info,
+			struct apusys_cmd_hnd *apusys_hd, u16 priority);
+	bool (*apu_pmu_valid)(struct mdla_dev *mdla_info,
 			struct apusys_cmd_hnd *apusys_hd, u16 priority);
 };
 

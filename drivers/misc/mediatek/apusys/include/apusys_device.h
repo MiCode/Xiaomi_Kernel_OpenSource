@@ -86,6 +86,7 @@ struct apusys_kmem {
 	int mem_type;
 	int fd;
 	unsigned long long khandle;
+	int uidr;
 	int property;
 };
 
@@ -111,6 +112,9 @@ struct apusys_cmd_hnd {
 	int boost_val;
 	int cluster_size;
 
+	/* mdw priv*/
+	uint64_t m_kva;
+
 	/* multicore info */
 	uint32_t multicore_total; // how many cores to exec this subcmd
 	uint32_t multicore_idx; // which part of subcmd
@@ -118,9 +122,9 @@ struct apusys_cmd_hnd {
 	/* mdla specific */
 	uint64_t pmu_kva;
 	uint64_t cmd_entry;
+	uint32_t cmd_size;
 
 	/* For preemption */
-
 	int (*context_callback)(int a, int b, uint8_t c);
 	int ctx_id;
 };

@@ -45,6 +45,10 @@ struct mdla_cmd_cb_func {
 	unsigned long (*get_wait_time)(u32 core_id);
 	int (*get_irq_num)(u32 core_id);
 
+	/* Check cmd is valid */
+	bool (*check_cmd_valid)(uint64_t out_end,
+		struct command_entry *ce);
+
 	/* HW error handing */
 	int (*wait_cmd_hw_detect)(u32 core_id);
 	int (*post_cmd_hw_detect)(u32 core_id);

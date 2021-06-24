@@ -74,6 +74,12 @@ const struct mdla_cmd_ops *mdla_cmd_ops_get(void)
 	return &mdla_command;
 }
 
+static bool mdla_cmd_check_dummp(uint64_t out_end,
+	struct command_entry *ce)
+{
+	return false;
+}
+
 static int mdla_cmd_dummy_ops(u32 a0) { return 0; }
 static unsigned long mdla_cmd_dummy_uint_int(u32 a0) { return 0; }
 static void mdla_cmd_dummy_info(u32 a0) {}
@@ -86,6 +92,7 @@ static struct mdla_cmd_cb_func mdla_command_callback = {
 
 	.pre_cmd_handle           = mdla_cmd_dummy_ce_ops,
 	.pre_cmd_info             = mdla_cmd_dummy_info,
+	.check_cmd_valid          = mdla_cmd_check_dummp,
 	.process_command          = mdla_cmd_dummy_ce_ops,
 	.process_command_no_lock  = mdla_cmd_dummy_ce_ops,
 	.post_cmd_handle          = mdla_cmd_dummy_ce_ops,

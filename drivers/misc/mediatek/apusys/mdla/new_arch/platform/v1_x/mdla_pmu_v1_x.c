@@ -23,6 +23,7 @@
 #include "mdla_pmu_v1_x.h"
 #include "mdla_hw_reg_v1_x.h"
 
+#include <interface/mdla_cmd_data_v1_x.h>
 
 #define biu_read(id, ofs) \
 	mdla_util_io_ops_get()->biu.read(id, ofs)
@@ -164,6 +165,50 @@ static int mdla_pmu_cmd_prepare(struct mdla_dev *mdla_info,
 	return 0;
 }
 
+static bool mdla_pmu_apusys_valid(struct mdla_dev *mdla_info,
+	struct apusys_cmd_hnd *apusys_hd, u16 priority)
+{
+	struct mdla_pmu_info *pmu;
+	struct mdla_run_cmd_sync *cmd_data;
+	struct mdla_run_cmd *cd;
+	uint32_t count;
+	uint64_t out_size = 0;
+	uint64_t out_end = 0;
+	uint32_t out_length = 0;
+	uint32_t repeat_sz = 0;
+	uint32_t evt_num = 0;
+	uint32_t sz = 0;
+
+	cmd_data = (struct mdla_run_cmd_sync *)apusys_hd->kva;
+	cd = &cmd_data->req;
+	count = cd->count;
+	pmu = &mdla_info->pmu_info[priority];
+
+	evt_num = mdla_pmu_get_hnd_evt_num(pmu);
+
+	if (evt_num > MDLA_PMU_COUNTERS)
+		return false;
+	out_end = apusys_hd->cmd_entry + apusys_hd->cmd_size;
+	if (apusys_hd->cmd_entry > pmu->PMU_res_buf_addr)
+		return false;
+	if (out_end < pmu->PMU_res_buf_addr)
+		return false;
+	out_size = out_end - pmu->PMU_res_buf_addr;
+	if (pmu->pmu_mode == PER_CMD) {
+		if (out_size < sizeof(u16))
+			return false;
+		repeat_sz = sizeof(u16) + sizeof(u32) * (evt_num + 1);
+		out_length = (out_size - sizeof(u16)) / repeat_sz;
+		if (out_length < count)
+			return false;
+	} else if (pmu->pmu_mode == NORMAL) {
+		sz = sizeof(u16) * 2 + sizeof(u32) * (evt_num + 1);
+		if (out_size < sz)
+			return false;
+	}
+	return true;
+}
+
 static int mdla_pmu_event_write(u32 core_id, u32 handle, u32 val)
 {
 	if (val == COUNTER_CLEAR) {
@@ -201,7 +246,7 @@ static void mdla_pmu_event_write_all(u32 core_id, u16 priority)
 	}
 }
 
-static u32 mdla_pmu_get_num_evt(u32 core_id, int priority)
+static u32 mdla_pmu_get_num_evt(u32 core_id, u16 priority)
 {
 	if (mdla_prof_use_dbgfs_pmu_event(core_id))
 		return MDLA_PMU_COUNTERS;
@@ -212,7 +257,7 @@ static u32 mdla_pmu_get_num_evt(u32 core_id, int priority)
 	return mdla_get_device(core_id)->pmu_info[priority].number_of_event;
 }
 
-static void mdla_pmu_set_num_evt(u32 core_id, int prio, int val)
+static void mdla_pmu_set_num_evt(u32 core_id, u16 prio, u32 val)
 {
 	if (prio < PRIORITY_LEVEL)
 		mdla_get_device(core_id)->pmu_info[prio].number_of_event = val;
@@ -667,6 +712,7 @@ void mdla_v1_x_pmu_init(struct mdla_dev *mdla_info)
 	pmu_ops->set_evt_handle       = mdla_pmu_set_evt_handle;
 	pmu_ops->get_info             = mdla_pmu_get_info;
 	pmu_ops->apu_cmd_prepare      = mdla_pmu_cmd_prepare;
+	pmu_ops->apu_pmu_valid        = mdla_pmu_apusys_valid;
 
 	if (mdla_plat_nn_pmu_support())
 		mdla_util_apusys_pmu_support(true);

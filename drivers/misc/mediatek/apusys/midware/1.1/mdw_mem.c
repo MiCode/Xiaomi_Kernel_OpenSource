@@ -13,6 +13,7 @@
 
 #include <linux/slab.h>
 #include <linux/list.h>
+#include <linux/idr.h>
 
 #include "apusys_drv.h"
 #include "mdw_cmn.h"
@@ -20,6 +21,7 @@
 #include "mdw_mem_cmn.h"
 #include "reviser_export.h"
 
+static DEFINE_IDR(apusys_mem_idr);
 
 #define APUSYS_OPTIONS_MEM_ION
 #define APUSYS_OPTIONS_MEM_VLM
@@ -27,7 +29,7 @@
 struct mdw_mem_mgr {
 	struct list_head list;
 	struct mutex mtx;
-
+	struct mutex mtx_idr;
 	struct mdw_mem_ops *dops; //dram mem ops
 };
 
@@ -36,7 +38,7 @@ static struct mdw_mem_mgr m_mgr;
 //----------------------------------------------
 void mdw_mem_u2k(struct apusys_mem *umem, struct apusys_kmem *kmem)
 {
-	kmem->khandle = umem->khandle;
+	kmem->khandle = 0;
 	kmem->uva = umem->uva;
 	kmem->iova = umem->iova;
 	kmem->size = umem->size;
@@ -50,12 +52,64 @@ void mdw_mem_u2k(struct apusys_mem *umem, struct apusys_kmem *kmem)
 
 void mdw_mem_k2u(struct apusys_kmem *kmem, struct apusys_mem *umem)
 {
+	int id = 0;
+
 	umem->iova = kmem->iova;
 	umem->size = kmem->size;
 	umem->iova_size = kmem->iova_size;
-	umem->khandle = kmem->khandle;
+	if (!mdw_mem_create_idr(kmem->khandle, &id)) {
+		umem->khandle = id;
+		kmem->uidr = id;
+	}
 }
 
+int mdw_mem_create_idr(uint64_t handle, int *id)
+{
+	int value = 0;
+
+	mutex_lock(&m_mgr.mtx_idr);
+	value = idr_alloc(&apusys_mem_idr, (void *)handle, 1, 0, GFP_KERNEL);
+	mutex_unlock(&m_mgr.mtx_idr);
+	if (value > 0) {
+		*id = value;
+	} else {
+		mdw_drv_err("IDR create fail 0x%llx\n", handle);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+int mdw_mem_u2k_handle(struct apusys_kmem *kmem, struct apusys_mem *umem)
+{
+	unsigned long long handle = 0;
+	int ret = 0;
+
+	mutex_lock(&m_mgr.mtx_idr);
+	handle = (uint64_t) idr_find(&apusys_mem_idr, umem->khandle);
+	mutex_unlock(&m_mgr.mtx_idr);
+	if (!handle) {
+		mdw_drv_err("Invalid %llx\n", umem->khandle);
+		mdw_drv_err("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx/%d)\n",
+				kmem->fd, kmem->uva, kmem->iova, kmem->size,
+				kmem->iova_size, kmem->khandle, kmem->kva,
+				kmem->uidr);
+		mdw_drv_err("umem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/%d)\n",
+				umem->fd, umem->uva, umem->iova, umem->size,
+				umem->iova_size, umem->khandle, umem->mem_type);
+		ret = -EINVAL;
+	} else {
+		kmem->khandle = (uint64_t) handle;
+	}
+
+	return ret;
+}
+int mdw_mem_delete_idr(int id)
+{
+	mutex_lock(&m_mgr.mtx_idr);
+	idr_remove(&apusys_mem_idr, id);
+	mutex_unlock(&m_mgr.mtx_idr);
+	return 0;
+}
 static void mdw_mem_list_add(struct mdw_mem *mmem)
 {
 	mutex_lock(&m_mgr.mtx);
@@ -253,6 +307,7 @@ int mdw_mem_init(void)
 	memset(&m_mgr, 0, sizeof(m_mgr));
 
 	mutex_init(&m_mgr.mtx);
+	mutex_init(&m_mgr.mtx_idr);
 	INIT_LIST_HEAD(&m_mgr.list);
 
 	m_mgr.dops = mdw_mem_ion_init();
@@ -281,6 +336,8 @@ uint64_t apusys_mem_query_kva(uint32_t iova)
 		m = list_entry(list_ptr, struct mdw_mem, m_item);
 		if (iova >= m->kmem.iova &&
 			iova < m->kmem.iova + m->kmem.iova_size) {
+			if (!m->kmem.kva)
+				break;
 			kva = m->kmem.kva + (uint64_t)(iova - m->kmem.iova);
 			mdw_mem_debug("query kva (0x%x->0x%llx)\n", iova, kva);
 		}
@@ -303,6 +360,8 @@ uint32_t apusys_mem_query_iova(uint64_t kva)
 		m = list_entry(list_ptr, struct mdw_mem, m_item);
 		if (m->kmem.kva >= kva &&
 			m->kmem.kva + m->kmem.size < kva) {
+			if (!m->kmem.iova)
+				break;
 			iova = m->kmem.iova + (uint32_t)(kva - m->kmem.kva);
 			mdw_mem_debug("query iova (0x%llx->0x%x)\n", kva, iova);
 		}

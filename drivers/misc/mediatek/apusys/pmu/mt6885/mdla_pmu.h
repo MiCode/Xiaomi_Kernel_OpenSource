@@ -81,7 +81,11 @@ int pmu_command_prepare(struct mdla_dev *mdla_info,
 int pmu_apusys_pmu_addr_check(struct apusys_cmd_hnd *apusys_hd);
 int pmu_cmd_handle(struct mdla_dev *mdla_info,
 	struct apusys_cmd_hnd *apusys_hd, u16 priority);
-void pmu_command_counter_prt(struct mdla_dev *mdla_info, u16 priority);
+void pmu_command_counter_prt(
+	struct apusys_cmd_hnd *apusys_hd,
+	struct mdla_dev *mdla_info,
+	u16 priority,
+	struct command_entry *ce);
 
 #endif
 

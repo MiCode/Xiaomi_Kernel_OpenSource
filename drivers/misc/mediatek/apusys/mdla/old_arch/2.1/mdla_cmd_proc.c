@@ -106,6 +106,7 @@ int mdla_run_command_sync(
 	/*forward compatibility temporary, This will be replaced by apusys*/
 	int opp_rand = 0;
 	int boost_val = 0;
+	uint32_t cmdbuf_size = 0;
 
 	if (unlikely(cd == NULL || mdla_info == NULL))
 		return -EINVAL;
@@ -159,6 +160,15 @@ int mdla_run_command_sync(
 
 	/* prepare CE */
 	mdla_run_command_prepare(cd, apusys_hd, ce, priority);
+
+	/* check kva and mva are valid */
+	if (ce->kva == 0)
+		return -EINVAL;
+	/* check ce->count is valid */
+	cmdbuf_size =
+		apusys_hd->cmd_entry + apusys_hd->size - (uint64_t)ce->kva;
+	if (ce->count * MREG_CMD_SIZE > cmdbuf_size)
+		return -EINVAL;
 
 #ifdef __APUSYS_MDLA_PMU_SUPPORT__
 	if (likely(!pmu_apusys_pmu_addr_check(apusys_hd))) {
@@ -253,7 +263,9 @@ int mdla_run_command_sync(
 	cd->id = ce->fin_cid;
 #ifdef __APUSYS_MDLA_PMU_SUPPORT__
 	if (!pmu_apusys_pmu_addr_check(apusys_hd))
-		pmu_command_counter_prt(mdla_info, ce->priority);
+		pmu_command_counter_prt(
+			apusys_hd, mdla_info,
+			(u16)ce->priority, ce);
 #endif
 
 error_handle:
