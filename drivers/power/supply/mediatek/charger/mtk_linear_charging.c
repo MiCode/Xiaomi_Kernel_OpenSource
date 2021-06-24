@@ -479,7 +479,7 @@ static int mtk_linear_charger_parse_dt(struct charger_manager *info)
 	struct linear_charging_alg_data *algo_data = info->algorithm_data;
 	struct device *dev = &(info->pdev->dev);
 	struct device_node *np = dev->of_node;
-	u32 val;
+	u32 val = 0;
 
 	if (of_property_read_u32(np, "recharge_offset", &val) >= 0) {
 		algo_data->recharge_offset = val;
