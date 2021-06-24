@@ -219,9 +219,8 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 
 		dstbuf->ready_to_display = true;
 
-		if (ctx->input_driven != NON_INPUT_DRIVEN)
-			dstbuf->vb.vb2_buf.timestamp =
-				disp_frame_buffer->timestamp;
+		dstbuf->vb.vb2_buf.timestamp =
+			disp_frame_buffer->timestamp;
 
 		if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM)
 			max_ts = ctx->early_eos_ts;
