@@ -3713,6 +3713,12 @@
 			      <7 0x10000>, /* sensor supper*/
 			      <8 0x1000>, /* sensor list */
 			      <9 0x2000>; /* sensor debug */
+
+		memorydump = <0x200000>, /* l2tcm */
+			     <0x03c000>, /* l1c */
+			     <0x003c00>, /* regdump */
+			     <0x000400>, /* trace buffer */
+			     <0x100000>; /* dram */
 	};
 
 	gce: gce@1e980000 {

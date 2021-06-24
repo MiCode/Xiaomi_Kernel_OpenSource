@@ -78,6 +78,14 @@
 		#clock-cells = <1>;
 	};
 
+	scp_infra: scp_infra@10001000 {
+	    compatible = "mediatek,scpinfra";
+	    reg = <0 0x10001000 0 0x1000>,	/* infracfg_ao */
+		  <0 0x10006000 0 0x1000>,	/* spm */
+		  <0 0x10000000 0 0x1000>;	/* topckgen */
+	    #clock-cells = <1>;
+	}
+
 	nemi_reg_clk: syscon@10219000 {
 		compatible = "mediatek,mt6879-nemi_reg", "syscon";
 		reg = <0 0x10219000 0 0x1000>;
@@ -732,6 +740,12 @@
 			      <7 0x10000>, /* sensor supper*/
 			      <8 0x1000>, /* sensor list */
 			      <9 0x2000>; /* sensor debug */
+
+		memorydump = <0x100000>, /* l2tcm */
+			     <0x03c000>, /* l1c */
+			     <0x003c00>, /* regdump */
+			     <0x000400>, /* trace buffer */
+			     <0x100000>; /* dram */
 	};
 
 	mfg_pll_ctrl_clk: syscon@13fa0000 {
