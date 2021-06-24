@@ -4387,16 +4387,26 @@
 			compatible = "mediatek,mt6885-vcodec-dec";
 			mediatek,platform = "platform:mt6885";
 			mediatek,ipm = <2>;
-			reg = <0 0x16000000 0 0x1000>,		/* VDEC_SYS */
+			reg = <0 0x16000000 0 0x1000>,		/* VDEC_BASE */
+				<0 0x1602f000 0 0x1000>,	/* VDEC_SYS */
 				<0 0x16020000 0 0x1000>,	/* VDEC_VLD */
+				<0 0x16021000 0 0x1000>,	/* VDEC_MC */
+				<0 0x16023000 0 0x1000>,	/* VDEC_MV */
 				<0 0x16025000 0 0x4000>,	/* VDEC_MISC */
 				<0 0x16010000 0 0x1000>,	/* VDEC_LAT_MISC */
+				<0 0x16011000 0 0x400>,		/* VDEC_LAT_VLD */
+				<0 0x1600f000 0 0x1000>,	/* VDEC_SOC_GCON */
 				<0 0x16004000 0 0x1000>;	/* VDEC_RACING_CTRL */
 			reg-names =
+				"VDEC_BASE",
 				"VDEC_SYS",
 				"VDEC_VLD",
+				"VDEC_MC",
+				"VDEC_MV",
 				"VDEC_MISC",
 				"VDEC_LAT_MISC",
+				"VDEC_LAT_VLD",
+				"VDEC_SOC_GCON",
 				"VDEC_RACING_CTRL";
 			iommus = <&iommu1 M4U_PORT_L4_VDEC_MC_EXT_MDP>,
 				<&iommu1 M4U_PORT_L4_VDEC_UFO_EXT_MDP>,
@@ -4480,6 +4490,46 @@
 					"path_lat0_avc_mv", "path_lat0_pred_rd",
 					"path_lat0_tile", "path_lat0_wdma",
 					"path_lat0_rg_ctrl", "path_vdec_ufo_enc";
+			m4u-ports =
+				<M4U_PORT_L4_VDEC_MC_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_UFO_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_PP_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_PRED_RD_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_PRED_WR_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_PPWRAP_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_TILE_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_VLD_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_VLD2_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_AVC_MV_EXT_MDP>,
+				<M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT_MDP>,
+				<M4U_PORT_L5_VDEC_LAT0_VLD_EXT_DISP>,
+				<M4U_PORT_L5_VDEC_LAT0_VLD2_EXT_DISP>,
+				<M4U_PORT_L5_VDEC_LAT0_AVC_MV_EXT_DISP>,
+				<M4U_PORT_L5_VDEC_LAT0_PRED_RD_EXT_DISP>,
+				<M4U_PORT_L5_VDEC_LAT0_TILE_EXT_DISP>,
+				<M4U_PORT_L5_VDEC_LAT0_WDMA_EXT_DISP>,
+				<M4U_PORT_L5_VDEC_LAT0_RG_CTRL_DMA_EXT_DISP>,
+				<M4U_PORT_L5_VDEC_UFO_ENC_EXT_DISP>;
+			m4u-port-names =
+				"M4U_PORT_VDEC_MC",
+				"M4U_PORT_VDEC_UFO",
+				"M4U_PORT_VDEC_PP",
+				"M4U_PORT_VDEC_PRED_RD",
+				"M4U_PORT_VDEC_PRED_WR",
+				"M4U_PORT_VDEC_PPWRAP",
+				"M4U_PORT_VDEC_TILE",
+				"M4U_PORT_VDEC_VLD",
+				"M4U_PORT_VDEC_VLD2",
+				"M4U_PORT_VDEC_AVC_MV",
+				"M4U_PORT_VDEC_RG_CTRL_DMA",
+				"M4U_PORT_VDEC_LAT0_VLD",
+				"M4U_PORT_VDEC_LAT0_VLD2",
+				"M4U_PORT_VDEC_LAT0_AVC_MV",
+				"M4U_PORT_VDEC_LAT0_PRED_RD",
+				"M4U_PORT_VDEC_LAT0_TILE",
+				"M4U_PORT_VDEC_LAT0_WDMA",
+				"M4U_PORT_VDEC_LAT0_RG_CTRL_DMA",
+				"M4U_PORT_VDEC_UFO_ENC";
 		};
 
 		larb5: larb@1600d000 {
