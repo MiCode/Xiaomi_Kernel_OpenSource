@@ -18,10 +18,12 @@
 #include <linux/compat.h>
 #endif
 #include "conn_power_throttling.h"
-
+#include <mtk_low_battery_throttling.h>
 
 /* termal related macro */
-//#define CONN_PWR_LOW_BATTERY_ENABLE
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
+#define CONN_PWR_LOW_BATTERY_ENABLE
+#endif
 #define CONN_PWR_INVALID_TEMP (-888)
 #define CONN_PWR_MAX_TEMP_HIGH  110
 #define CONN_PWR_MAX_TEMP_LOW    60
@@ -52,7 +54,7 @@ static int gConnPwrMajor = CONN_PWR_DEV_MAJOR;
 static struct class *pConnPwrClass;
 static struct device *pConnPwrDev;
 static struct cdev gConnPwrdev;
-#ifdef CONN_PWR_UT
+#if IS_ENABLED(CONFIG_CONN_PWR_DEBUG)
 extern ssize_t conn_pwr_dev_write(struct file *filp, const char __user *buffer, size_t count,
 					loff_t *f_pos);
 #endif
@@ -61,7 +63,7 @@ static long conn_pwr_dev_unlocked_ioctl(struct file *filp, unsigned int cmd, uns
 static long conn_pwr_dev_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 #endif
 const struct file_operations gConnPwrDevFops = {
-#ifdef CONN_PWR_UT
+#if IS_ENABLED(CONFIG_CONN_PWR_DEBUG)
 	.write = conn_pwr_dev_write,
 #endif
 	.unlocked_ioctl = conn_pwr_dev_unlocked_ioctl,
@@ -111,6 +113,21 @@ int conn_pwr_set_max_temp(unsigned long arg)
 	return 0;
 }
 
+int conn_pwr_set_battery_level(int level)
+{
+	struct conn_pwr_update_info info;
+
+	pr_info("%s level = %d\n", __func__, level);
+	if (level < LOW_BATTERY_LEVEL_0 || level >= LOW_BATTERY_LEVEL_NUM) {
+		pr_info("invalid level %d\n", level);
+		return -1;
+	}
+	g_low_battery_level = level;
+	info.reason = CONN_PWR_ARB_LOW_BATTERY;
+	conn_pwr_arbitrate(&info);
+	return 0;
+}
+
 static long conn_pwr_dev_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
@@ -139,14 +156,9 @@ static long conn_pwr_dev_compat_ioctl(struct file *filp, unsigned int cmd, unsig
 #endif
 
 #ifdef CONN_PWR_LOW_BATTERY_ENABLE
-static void conn_pwr_low_battery_cb(LOW_BATTERY_LEVEL level)
+static void conn_pwr_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 {
-	struct conn_pwr_update_info info;
-
-	pr_info("%s level = %d\n", __func__, level);
-	g_low_battery_level = level;
-	info.reason = CONN_PWR_ARB_LOW_BATTERY;
-	conn_pwr_arbitrate(&info);
+	conn_pwr_set_battery_level(level);
 }
 #endif
 
@@ -201,9 +213,14 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 }
 EXPORT_SYMBOL(conn_pwr_set_customer_level);
 
-int conn_pwr_get_chipid(void)
+int conn_pwr_get_chip_id(void)
 {
 	return g_plat_info.chip_id;
+}
+
+int conn_pwr_get_adie_id(void)
+{
+	return g_plat_info.adie_id;
 }
 
 int conn_pwr_get_temp(int *temp, int cached)

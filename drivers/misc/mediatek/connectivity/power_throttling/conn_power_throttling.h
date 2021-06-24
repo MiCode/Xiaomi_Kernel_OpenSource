@@ -8,12 +8,9 @@
 
 #define CONN_PWR_GET_CUSTOMER_POWER_LEVEL(value, index) ((value >> (index * 8)) & 0xFF)
 
-#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
-#define CONN_PWR_UT 1
-#endif
-
 struct conn_pwr_plat_info {
-	int chip_id;            /* platform chip id */
+	int chip_id;		/* platform chip id */
+	int adie_id;		/* a die chip id */
 	int (*get_temp)(int *temp); /* callback for getting connsys temperature */
 };
 
@@ -83,7 +80,8 @@ struct conn_pwr_event_max_temp {
 typedef int (*CONN_PWR_EVENT_CB)(enum conn_pwr_event_type type, void *data);
 
 /* called by conn_pwr_core */
-int conn_pwr_get_chipid(void);
+int conn_pwr_get_chip_id(void);
+int conn_pwr_get_adie_id(void);
 int conn_pwr_get_temp(int *temp, int cached);
 int conn_pwr_get_plat_level(enum conn_pwr_plat_type type, int *data);
 int conn_pwr_get_drv_status(enum conn_pwr_drv_type type);
@@ -124,4 +122,4 @@ int conn_pwr_report_level_required(enum conn_pwr_drv_type type,
 
 /* called by UT */
 int conn_pwr_set_max_temp(unsigned long arg);
-
+int conn_pwr_set_battery_level(int level);

@@ -23,6 +23,7 @@ ifneq ($(KERNELRELEASE),)
     subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/
     subdir-ccflags-y += -I$(srctree)/drivers/clk/mediatek/
     subdir-ccflags-y += -I$(srctree)/drivers/pinctrl/mediatek/
+    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
 
     ifneq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),)
         # SCP
@@ -43,7 +44,9 @@ ifneq ($(KERNELRELEASE),)
     $(MODULE_NAME)-objs += common/wmt_build_in_adapter.o
     $(MODULE_NAME)-objs += power_throttling/adapter.o
     $(MODULE_NAME)-objs += power_throttling/core.o
-    $(MODULE_NAME)-objs += power_throttling/test.o
+    ifeq ($(CONFIG_CONN_PWR_DEBUG),y)
+        $(MODULE_NAME)-objs += power_throttling/test.o
+    endif
 
     ifneq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),)
         ###########################################################################
