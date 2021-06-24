@@ -69,7 +69,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 600,
-		.mipi_pixel_rate = 954600000,
+		.mipi_pixel_rate = 956000000,
 	},
 	.cap = {
 		.pclk = 115200000,
@@ -81,7 +81,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.normal_video = {
 		.pclk = 115200000,
@@ -93,7 +93,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 2256,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.hs_video = {
 		.pclk = 115200000,
@@ -105,7 +105,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 720,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 1200,
-		.mipi_pixel_rate = 528000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.slim_video = {
 		.pclk = 115200000,
@@ -117,7 +117,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 2600,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.custom1 = {
 		.pclk = 115200000,
@@ -129,8 +129,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 583600000,
-
+		.mipi_pixel_rate = 548000000,
 	},
 	.custom2 = {
 		.pclk = 115200000,
@@ -142,7 +141,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 2160,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.custom3 = {
 		.pclk = 115200000,
@@ -154,7 +153,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 6000,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 100,
-		.mipi_pixel_rate = 584000000,
+		.mipi_pixel_rate = 548000000,
 	},
 	.custom4 = {
 		.pclk = 115200000,
@@ -166,8 +165,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 1128,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 2400,
-		.mipi_pixel_rate = 716000000,
-	  },
+		.mipi_pixel_rate = 832900000,
+	},
 	.custom5 = {
 		.pclk = 115200000,
 		.linelength = 1200,
@@ -178,7 +177,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_height = 2600,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 476000000,
+		.mipi_pixel_rate = 548000000,
 	},
 
 	.margin = 22,					/* sensor framelength & shutter margin */
@@ -271,7 +270,7 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 		0x00, 0x2b, 0x0FA0, 0x0BB8, 0x00, 0x00, 0x0280, 0x0001,
-		0x00, 0x2b, 0x01F0, 0x05D8, 0x03, 0x00, 0x0000, 0x0000
+		0x01, 0x2b, 0x01F0, 0x05D8, 0x03, 0x00, 0x0000, 0x0000
 	},
 	/* Capture mode setting  496(Pixel)*1496*/
 	{
@@ -683,7 +682,7 @@ static void preview_setting(void)
 {
 	int _length = 0;
 
-	pr_debug("%s RES_4000x3000_30fps\n", __func__);
+	pr_debug("%s RES_4000x3000_60fps\n", __func__);
 	_length = sizeof(addr_data_pair_preview_ov48b2q) / sizeof(kal_uint16);
 	if (!_is_seamless) {
 		ov48b2q_table_write_cmos_sensor(
@@ -764,7 +763,7 @@ static void hs_video_setting(void)
 {
 	int _length = 0;
 
-	pr_debug("%s RES_1280x720_160fps\n", __func__);
+	pr_debug("%s RES_1280x720_120fps\n", __func__);
 	_length = sizeof(addr_data_pair_hs_video_ov48b2q) / sizeof(kal_uint16);
 	if (!_is_seamless) {
 		ov48b2q_table_write_cmos_sensor(
@@ -968,18 +967,18 @@ static kal_uint16 ov48b_PDC_setting_burst[720*2];
 
 static void read_sensor_Cali(void)
 {
-	kal_uint16 idx = 0, eeprom_PDC_addr = 0x24A4;
+	kal_uint16 idx = 0, eeprom_PDC_addr = 0x1638;
 	kal_uint16 sensor_PDC_addr1 = 0x5C0E, sensor_PDC_addr2 = 0x5900;
 
 	for (idx = 0; idx < 8; idx++) {
-		eeprom_PDC_addr = 0x24A4 + idx;
+		eeprom_PDC_addr = 0x1638 + idx;
 		sensor_PDC_addr1 = 0x5C0E + idx;
 		ov48b_PDC_setting[2 * idx] = sensor_PDC_addr1;
 		ov48b_PDC_setting[2 * idx + 1] =
 			read_cmos_eeprom_8(eeprom_PDC_addr);
 	}
 	for (idx = 8; idx < 728; idx++) {
-		eeprom_PDC_addr = 0x24A4 + idx;
+		eeprom_PDC_addr = 0x1638 + idx;
 		sensor_PDC_addr2 = 0x5900 + idx - 8;
 		ov48b_PDC_setting_burst[2 * (idx-8)] = sensor_PDC_addr2;
 		ov48b_PDC_setting_burst[2 * (idx-8) + 1] =
@@ -1838,18 +1837,7 @@ static kal_uint32 get_sensor_temperature(void)
 	else
 		temperature_convert = 192 - temperature / 256;
 
-	if (temperature_convert > 192) {
-		//pr_debug("Temperature too high: %d\n",
-				//temperature_convert);
-		temperature_convert = 192;
-	} else if (temperature_convert < -64) {
-		//pr_debug("Temperature too low: %d\n",
-				//temperature_convert);
-		temperature_convert = -64;
-	}
-
-	return 20;
-	//return temperature_convert;
+	return temperature_convert;
 }
 
 static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id,
@@ -2328,7 +2316,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[3],
 			       sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
-
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		default:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
@@ -2415,7 +2402,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_GET_BINNING_TYPE:
 		switch (*(feature_data + 1)) {
 		case MSDK_SCENARIO_ID_CUSTOM4:
-			*feature_return_para_32 = 2;
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+			*feature_return_para_32 = 2; /*BINNING_SUMMED*/
 			break;
 		default:
 			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
