@@ -543,11 +543,6 @@ static void scp_err_info_handler(int id, void *prdata, void *data,
 	pr_notice("[SCP] Error_info: case id: %u\n", info->case_id);
 	pr_notice("[SCP] Error_info: sensor id: %u\n", info->sensor_id);
 	pr_notice("[SCP] Error_info: context: %s\n", info->context);
-
-	if (report_hub_dmd)
-		report_hub_dmd(info->case_id, info->sensor_id, info->context);
-	else
-		pr_debug("[SCP] warning: report_hub_dmd() not defined.\n");
 }
 
 
