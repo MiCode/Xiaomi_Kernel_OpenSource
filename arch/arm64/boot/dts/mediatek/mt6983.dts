@@ -810,6 +810,12 @@
 		#clock-cells = <1>;
 	};
 
+	mminfra_config_clk: syscon@1e800000 {
+		compatible = "mediate,mt6983-mminfra_config", "syscon";
+		reg = <0 0x1e800000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	topckgen@10000000 {
 		compatible = "mediatek,topckgen";
 		reg = <0 0x10000000 0 0x1000>;
