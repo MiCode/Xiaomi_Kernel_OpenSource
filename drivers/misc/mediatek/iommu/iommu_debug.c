@@ -1896,7 +1896,7 @@ void mtk_iova_map(u64 iova, size_t size)
 		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE2]);
 		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE3]);
 	}
-	iova_buf = kzalloc(sizeof(*iova_buf), GFP_KERNEL);
+	iova_buf = kzalloc(sizeof(*iova_buf), GFP_ATOMIC);
 	if (!iova_buf)
 		return;
 
@@ -2219,7 +2219,7 @@ static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 		spin_lock_init(&iova_list.lock);
 		INIT_LIST_HEAD(&iova_list.head);
 	}
-	iova_buf = kzalloc(sizeof(*iova_buf), GFP_KERNEL);
+	iova_buf = kzalloc(sizeof(*iova_buf), GFP_ATOMIC);
 	if (!iova_buf)
 		return;
 
