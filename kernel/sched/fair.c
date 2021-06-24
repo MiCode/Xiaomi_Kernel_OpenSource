@@ -804,6 +804,12 @@ void post_init_entity_util_avg(struct sched_entity *se)
 	struct sched_avg *sa = &se->avg;
 	long cpu_scale = arch_scale_cpu_capacity(NULL, cpu_of(rq_of(cfs_rq)));
 	long cap = (long)(cpu_scale - cfs_rq->avg.util_avg) / 2;
+	int forked_ramup_factor = sched_forked_ramup_factor();
+
+	if (forked_ramup_factor != 0) {
+
+		cap = (long) SCHED_CAPACITY_SCALE * forked_ramup_factor / 100;
+	}
 
 	if (cap > 0) {
 		if (cfs_rq->avg.util_avg != 0) {
