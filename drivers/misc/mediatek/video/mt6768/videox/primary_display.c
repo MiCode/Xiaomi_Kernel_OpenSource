@@ -3831,8 +3831,13 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 
 	dprec_init();
 	dpmgr_init();
-	if (bdg_is_bdg_connected() == 1)
-		bdg_first_init();
+	if (bdg_is_bdg_connected() == 1) {
+		if (is_lcm_inited) {
+			bdg_first_init();
+			set_mt6382_init(1);
+		} else
+			set_mt6382_init(0);
+	}
 
 	init_cmdq_slots(&(pgc->ovl_config_time), 3, 0);
 	init_cmdq_slots(&(pgc->cur_config_fence),
@@ -4229,12 +4234,6 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	DISPCHECK("%s done\n", __func__);
 
 done:
-
-	if (is_lcm_inited)
-		set_mt6382_init(1);
-	else
-		set_mt6382_init(0);
-
 	DISPCHECK("init and hold wakelock...\n");
 	wakeup_source_init(&pri_wk_lock, "pri_disp_wakelock");
 	lock_primary_wake_lock(1);

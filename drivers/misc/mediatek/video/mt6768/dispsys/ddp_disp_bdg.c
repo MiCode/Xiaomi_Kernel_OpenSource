@@ -237,7 +237,6 @@ do { \
 
 int bdg_is_bdg_connected(void)
 {
-	DISPFUNCSTART();
 	if (mt6382_connected == 0) {
 		unsigned int ret = 0;
 #ifdef CONFIG_MTK_MT6382_BDG
@@ -1548,7 +1547,7 @@ int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_VBP_NL,
 					(tx_params->vertical_backporch));
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_VFP_NL,
-					(tx_params->vertical_frontporch - 1));
+					(tx_params->vertical_frontporch));
 
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_HSA_WC, hsa_byte);
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_HBP_WC, hbp_byte);

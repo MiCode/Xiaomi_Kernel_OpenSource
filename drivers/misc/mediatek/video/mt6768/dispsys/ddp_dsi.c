@@ -880,7 +880,7 @@ int ddp_dsi_porch_setting(enum DISP_MODULE_ENUM module, void *handle,
 			DISPINFO("set dsi%d vfp to %d\n", i, value);
 			DSI_OUTREG32(handle, &DSI_REG[i]->DSI_VFP_NL, value);
 			if (bdg_is_bdg_connected() == 1)
-				ddp_dsi_set_bdg_porch_setting(module, handle, value - 1);
+				ddp_dsi_set_bdg_porch_setting(module, handle, value);
 		}
 		if (type == DSI_VSA) {
 			DISPINFO("set dsi%d vsa to %d\n", i, value);
@@ -4806,7 +4806,7 @@ void DSI_send_cmdq_to_bdg(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cm
 		DISPINFO("%s, not support vdo mode\n", __func__);
 	} else { /* cmd mode */
 		dsi_wait_not_busy(module, cmdq);
-		mdelay(1);
+		udelay(200);
 		DSI_config_bdg_reg(cmdq, module, 1, REGFLAG_ESCAPE_ID, cmd,
 					count, para_list, force_update);
 	}
@@ -6670,6 +6670,10 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 					struct DSI_INT_STATUS_REG,
 					DSI_REG[dsi_i]->DSI_INTSTA,
 					RD_RDY, 0x00000000);
+				DSI_OUTREGBIT(cmdq_trigger_handle,
+					struct DSI_INT_STATUS_REG,
+					DSI_REG[dsi_i]->DSI_INTSTA,
+					RD_RDY, 0x00000000);
 			}
 			/* 2. save RX data */
 			if (hSlot[0] && hSlot[1] && hSlot[2] && hSlot[3]) {
@@ -6687,6 +6691,15 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 					&DSI_REG[0]->DSI_RX_DATA3);
 			}
 			/* 3. write RX_RACK */
+			DSI_OUTREGBIT(cmdq_trigger_handle, struct DSI_RACK_REG,
+				DSI_REG[dsi_i]->DSI_RACK, DSI_RACK, 1);
+
+			DSI_OUTREGBIT(cmdq_trigger_handle, struct DSI_RACK_REG,
+				DSI_REG[dsi_i]->DSI_RACK, DSI_RACK, 1);
+
+			DSI_OUTREGBIT(cmdq_trigger_handle, struct DSI_RACK_REG,
+				DSI_REG[dsi_i]->DSI_RACK, DSI_RACK, 1);
+
 			DSI_OUTREGBIT(cmdq_trigger_handle, struct DSI_RACK_REG,
 				DSI_REG[dsi_i]->DSI_RACK, DSI_RACK, 1);
 
@@ -6737,7 +6750,7 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 
 			lcm_esd_tb = &dsi_params->lcm_esd_check_table[i];
 
-			DISPDBG("[DSI]enter cmp read_data0 byte0~1=0x%x~0x%x\n",
+			DISPCHECK("[DSI]enter cmp read_data0 byte0~1=0x%x~0x%x\n",
 				read_data0.byte0, read_data0.byte1);
 			DISPDBG("[DSI]enter cmp read_data0 byte2~3=0x%x~0x%x\n",
 				read_data0.byte2, read_data0.byte3);
@@ -6756,7 +6769,7 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 
 			DISPDBG("[DSI]enter cmp check_tab cmd=0x%x,cnt=0x%x\n",
 				lcm_esd_tb->cmd, lcm_esd_tb->count);
-			DISPDBG
+			DISPCHECK
 	("[DSI]para_list[0]=0x%x,para_list[1]=0x%x, para_list[2]=0x%x\n",
 				lcm_esd_tb->para_list[0],
 				lcm_esd_tb->para_list[1],
@@ -6787,7 +6800,7 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 					+ read_data0.byte2 * 16;
 
 				if (recv_data_cnt > RT_MAX_NUM) {
-					DISPDBG
+					DISPCHECK
 			("DSI read long packet data exceeds 10 bytes\n");
 					recv_data_cnt = RT_MAX_NUM;
 				}
@@ -6839,9 +6852,10 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 			/*do read data cmp*/
 			for (j = 0; j < lcm_esd_tb->count; j++) {
 
-				DISPDBG("buffer[%d]=0x%x\n", j, buffer[j]);
+				DISPCHECK("buffer[%d]=0x%x, count=%d\n",
+					j, buffer[j], lcm_esd_tb->count);
 				if (buffer[j] != lcm_esd_tb->para_list[j]) {
-					DISPDBG
+					DISPCHECK
 			("buffer[%d]0x%x != lcm_esd_tb->para_list[%d]0x%x\n",
 				j, buffer[j], j, lcm_esd_tb->para_list[j]);
 
@@ -6876,10 +6890,12 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 #ifdef CONFIG_MTK_MT6382_BDG
 		unsigned char stopdsi[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x00
 		unsigned char setcmd[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x14
+		unsigned char reset0[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x10
+		unsigned char reset1[] = {0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x10
 #endif
 		/* use cmdq to stop dsi vdo mode */
 		/* 0. set dsi cmd mode */
-		DSI_SetMode(module, cmdq_trigger_handle, CMD_MODE);
+		//DSI_SetMode(module, cmdq_trigger_handle, CMD_MODE);
 
 		/* 2.dual dsi need do reset DSI_DUAL_EN/DSI_START */
 		if (module == DISP_MODULE_DSIDUAL) {
@@ -6918,9 +6934,15 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 			DSI_POLLREG32(cmdq_trigger_handle,
 				&DSI_REG[i]->DSI_INTSTA, 0x80000000, 0);
 
+		DSI_SetMode(module, cmdq_trigger_handle, CMD_MODE);
+
 #ifdef CONFIG_MTK_MT6382_BDG
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x00, 7,
 				stopdsi, 1);
+		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x10, 7,
+				reset1, 1);
+		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x10, 7,
+				reset0, 1);
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x14, 7,
 				setcmd, 1);
 #endif
@@ -8030,33 +8052,6 @@ void ddp_dsi_dynfps_chg_fps(
 	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
-#if 0
-		if (chg_index & DYNFPS_DSI_MIPI_CLK) {
-			DDPMSG("%s, change MIPI Clock\n", __func__);
-			/* ToDo, may be not only mipi clock chaged
-			 * need also check other parameters
-			 * apply all related parameters
-			 */
-			DSI_PHY_TIMCONFIG(module, handle, dsi);
-//			DSI_Calc_VDO_Timing(module, dsi);
-			DSI_Config_VDO_Timing(module, handle, dsi);
-
-			/* pll off -> on */
-			dsi_phy_clk_switch_gce(module, handle, false);
-			dsi_phy_clk_switch_gce(module, handle, true);
-
-		} else if (chg_index & DYNFPS_DSI_HFP) {
-			DDPMSG("%s, change HFP\n", __func__);
-			/* DynFPS ToDo whether need change PHY timing */
-			/* DSI_PHY_TIMCONFIG(module, handle, dsi); */
-#if 0			/* maybe not only HFP changed, update all parameters */
-			ddp_dsi_porch_setting(module, handle, DSI_HFP,
-					_dsi_context[i].hfp_byte);
-#endif
-			DSI_Config_VDO_Timing(module, handle, dsi);
-
-	} else
-#endif
 		if (chg_index & DYNFPS_DSI_VFP) {
 			DDPMSG("%s, change VFP\n", __func__);
 
@@ -8101,33 +8096,6 @@ void ddp_dsi_bdg_dynfps_chg_fps(
 	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
-#if 0
-		if (chg_index & DYNFPS_DSI_MIPI_CLK) {
-			DDPMSG("%s, change MIPI Clock\n", __func__);
-			/* ToDo, may be not only mipi clock chaged
-			 * need also check other parameters
-			 * apply all related parameters
-			 */
-			DSI_PHY_TIMCONFIG(module, handle, dsi);
-//			DSI_Calc_VDO_Timing(module, dsi);
-			DSI_Config_VDO_Timing(module, handle, dsi);
-
-			/* pll off -> on */
-			dsi_phy_clk_switch_gce(module, handle, false);
-			dsi_phy_clk_switch_gce(module, handle, true);
-
-		} else if (chg_index & DYNFPS_DSI_HFP) {
-			DDPMSG("%s, change HFP\n", __func__);
-			/* DynFPS ToDo whether need change PHY timing */
-			/* DSI_PHY_TIMCONFIG(module, handle, dsi); */
-#if 0			/* maybe not only HFP changed, update all parameters */
-			ddp_dsi_porch_setting(module, handle, DSI_HFP,
-					_dsi_context[i].hfp_byte);
-#endif
-			DSI_Config_VDO_Timing(module, handle, dsi);
-
-	} else
-#endif
 		if (chg_index & DYNFPS_DSI_VFP) {
 			DDPMSG("%s, change VFP %u\n", __func__,
 				dfps_params_new->vertical_frontporch);

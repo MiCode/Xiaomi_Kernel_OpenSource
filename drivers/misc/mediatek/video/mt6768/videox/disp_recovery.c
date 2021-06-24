@@ -192,24 +192,6 @@ int _esd_check_config_handle_cmd(struct cmdqRecStruct *qhandle)
  * Config cmdq_handle_config_esd
  * return value: 0:success, 1:fail
  */
-#ifdef CONFIG_MTK_MT6382_BDG
-static atomic_t flag_6382 = ATOMIC_INIT(0);
-static int esd_callback(unsigned long userdata)
-{
-	int ret = 0;
-	CmdqInterruptCB orig_callback = (CmdqInterruptCB)userdata;
-
-	if (orig_callback)
-		ret = orig_callback(0);
-
-	atomic_set(&flag_6382, 1);
-	DDPMSG("MIPI_RX_POST_CTRL %x, DDIPOST_SETTING %x, DDI_POST_DEBUG0 %x\n",
-		mtk_spi_read(0x00023170), mtk_spi_read(0x00023174), mtk_spi_read(0x00023180));
-
-	return ret;
-}
-#endif
-
 int _esd_check_config_handle_vdo(struct cmdqRecStruct *qhandle)
 {
 	int ret = 0;
@@ -232,10 +214,6 @@ int _esd_check_config_handle_vdo(struct cmdqRecStruct *qhandle)
 
 	esd_checking = 1;
 
-#ifdef CONFIG_MTK_MT6382_BDG
-	atomic_set(&flag_6382, 0);
-	cmdqRecWait(qhandle, CMDQ_EVENT_DSI_TE);
-#endif
 	/* 2.stop dsi vdo mode */
 	dpmgr_path_build_cmdq(phandle, qhandle, CMDQ_STOP_VDO_MODE, 0);
 
@@ -252,24 +230,10 @@ int _esd_check_config_handle_vdo(struct cmdqRecStruct *qhandle)
 	/* mutex sof wait*/
 	ddp_mutex_set_sof_wait(dpmgr_path_get_mutex(phandle), qhandle, 0);
 
-
 	/* 6.flush instruction */
 	dprec_logger_start(DPREC_LOGGER_ESD_CMDQ, 0, 0);
-#ifdef CONFIG_MTK_MT6382_BDG
-	_blocking_flush();
-
-	ret = cmdqRecFlushAsyncCallback(qhandle, esd_callback, 0);
-#else
 	ret = cmdqRecFlush(qhandle);
-#endif
 	dprec_logger_done(DPREC_LOGGER_ESD_CMDQ, 0, 0);
-
-#ifdef CONFIG_MTK_MT6382_BDG
-	udelay(500);
-	bdg_dsi_stop_vdo_gce();
-	while (atomic_read(&flag_6382) != 1)
-		udelay(50);
-#endif
 	DISPINFO("[ESD]%s ret=%d\n", __func__, ret);
 	primary_display_manual_unlock();
 
@@ -349,8 +313,8 @@ int do_esd_check_read(void)
 		primary_display_is_video_mode(), GPIO_DSI_MODE);
 
 	/* only cmd mode read & with disable mmsys clk will kick */
-	if (disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS) &&
-	    !primary_display_is_video_mode())
+	if ((disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS) &&
+	    !primary_display_is_video_mode()) || bdg_is_bdg_connected() == 1)
 		primary_display_idlemgr_kick((char *)__func__, 1);
 
 	/* 0.create esd check cmdq */
@@ -666,7 +630,11 @@ int primary_display_esd_check(void)
 	mmprofile_log_ex(mmp_rd, MMPROFILE_FLAG_END, 0, ret);
 
 done:
-	DISPINFO("[ESD]ESD check %s\n", ret ? "fail" : "pass");
+	if (ret)
+		DISPERR("[ESD]ESD check fail!\n");
+	else
+		DISPINFO("[ESD]ESD check pass!\n");
+
 	mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_END, 0, ret);
 	dprec_logger_done(DPREC_LOGGER_ESD_CHECK, 0, 0);
 	return ret;

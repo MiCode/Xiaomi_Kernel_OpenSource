@@ -341,10 +341,6 @@ int primary_display_dsi_vfp_change(int state)
 
 	cmdqRecReset(handle);
 
-	/* make sure token rdma_sof is clear */
-	if (bdg_is_bdg_connected() == 1)
-		cmdqRecClearEventToken(handle, CMDQ_EVENT_DISP_RDMA0_SOF);
-
 	/* for chips later than M17,VFP can be set at anytime
 	 * So don't need to wait-SOF here
 	 */
@@ -379,25 +375,35 @@ int primary_display_dsi_vfp_change(int state)
 
 	if (state == 1 || state == 0) {
 		if (bdg_is_bdg_connected() == 1) {
-			if (get_dsc_state()) {
-				cmdqRecClearEventToken(handle,
-					CMDQ_EVENT_DSI_TE);
-				cmdqRecWaitNoClear(handle,
-					CMDQ_EVENT_DSI_TE);
-			}
+			cmdqRecWait(handle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
+
+			/* 2.stop dsi vdo mode */
+			dpmgr_path_build_cmdq(primary_get_dpmgr_handle(), handle,
+						CMDQ_STOP_VDO_MODE, 0);
+
+			cmdqRecClearEventToken(handle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
+
+			dpmgr_path_ioctl(primary_get_dpmgr_handle(), handle,
+						DDP_DSI_PORCH_CHANGE, &apply_vfp);
+
+			dpmgr_path_build_cmdq(primary_get_dpmgr_handle(), handle,
+						CMDQ_START_VDO_MODE, 0);
+			dpmgr_path_trigger(primary_get_dpmgr_handle(), handle, CMDQ_ENABLE);
+
+			ddp_mutex_set_sof_wait(dpmgr_path_get_mutex(primary_get_dpmgr_handle()),
+						handle, 0);
+
+			_blocking_flush();
+
+			cmdqRecFlush(handle);
+		} else {
+			dpmgr_path_ioctl(primary_get_dpmgr_handle(), handle,
+						DDP_DSI_PORCH_CHANGE, &apply_vfp);
 		}
-		dpmgr_path_ioctl(primary_get_dpmgr_handle(), handle,
-			DDP_DSI_PORCH_CHANGE,
-			&apply_vfp);
 	}
-	if (bdg_is_bdg_connected() == 1)
-		_blocking_flush();
 
-	cmdqRecFlushAsync(handle);
-
-	if (bdg_is_bdg_connected() == 1)
-		if (apply_vfp)
-			bdg_dsi_vfp_gce(apply_vfp);
+	if (bdg_is_bdg_connected() != 1)
+		cmdqRecFlushAsync(handle);
 
 	cmdqRecDestroy(handle);
 	return ret;
