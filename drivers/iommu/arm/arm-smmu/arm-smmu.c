@@ -493,7 +493,7 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 	    test_and_set_bit_lock(0, &smmu->sync_timed_out))
 		goto out;
 
-	trace_tlbsync_timeout(smmu->dev, 0);
+	trace_tlbsync_timeout(smmu->dev);
 	if (smmu->impl && smmu->impl->tlb_sync_timeout)
 		smmu->impl->tlb_sync_timeout(smmu);
 out:
@@ -536,9 +536,11 @@ static void arm_smmu_tlb_inv_context_s1(void *cookie)
 	 * current CPU are visible beforehand.
 	 */
 	wmb();
+	trace_tlbi_start(smmu_domain);
 	arm_smmu_cb_write(smmu_domain->smmu, smmu_domain->cfg.cbndx,
 			  ARM_SMMU_CB_S1_TLBIASID, smmu_domain->cfg.asid);
 	arm_smmu_tlb_sync_context(smmu_domain);
+	trace_tlbi_end(smmu_domain);
 }
 
 static void arm_smmu_tlb_inv_context_s2(void *cookie)
@@ -1362,6 +1364,8 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 	gather->end = max(iova + granule - 1, gather->end);
 	list_add(&page->lru, &smmu_domain->iotlb_gather_freelist);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+
+	trace_tlb_add_walk(smmu_domain, iova, granule);
 }
 
 static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
@@ -2317,6 +2321,8 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 
 out:
 	arm_smmu_secure_domain_unlock(smmu_domain);
+	if (!ret)
+		trace_map_pages(smmu_domain, iova, pgsize, pgcount);
 
 	return ret;
 }
@@ -2343,6 +2349,8 @@ static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 
 out:
 	arm_smmu_secure_domain_unlock(smmu_domain);
+	if (!ret)
+		trace_map_sg(smmu_domain, iova, sg, nents);
 
 	return ret;
 }
@@ -2371,6 +2379,9 @@ static size_t arm_smmu_unmap_pages(struct iommu_domain *domain, unsigned long io
 	/* Also unassign any pages that were free'd during unmap */
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
+
+	if (!ret)
+		trace_unmap_pages(smmu_domain, iova, pgsize, pgcount);
 	return ret;
 }
 
