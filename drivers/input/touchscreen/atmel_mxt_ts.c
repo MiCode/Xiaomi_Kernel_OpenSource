@@ -2032,25 +2032,28 @@ static int mxt_regulator_enable(struct mxt_data *data)
 
 	gpiod_set_value(data->reset_gpio, 0);
 
-	error = regulator_enable(data->reg_vdd);
-	if (error) {
-		dev_err(&data->client->dev,
-			"vdd enable failed, error=%d\n", error);
-		return error;
-	}
 	error = regulator_enable(data->reg_avdd);
 	if (error) {
 		dev_err(&data->client->dev,
 			"avdd enable failed, error=%d\n", error);
-		goto err_dis_vdd;
+		return error;
+	}
+	usleep_range(10000, 15000);
+
+	error = regulator_enable(data->reg_vdd);
+	if (error) {
+		dev_err(&data->client->dev,
+			"vdd enable failed, error=%d\n", error);
+		goto err_dis_avdd;
 	}
 
 	if (!IS_ERR(data->reg_xvdd)) {
+		usleep_range(10000, 15000);
 		error = regulator_enable(data->reg_xvdd);
 		if (error) {
 			dev_err(&data->client->dev,
 				"xvdd enable failed, error=%d\n", error);
-			goto err_dis_avdd;
+			goto err_dis_vdd;
 		}
 	}
 	msleep(MXT_REGULATOR_DELAY);
@@ -2061,10 +2064,10 @@ static int mxt_regulator_enable(struct mxt_data *data)
 
 	return 0;
 
-err_dis_avdd:
-	regulator_disable(data->reg_avdd);
 err_dis_vdd:
 	regulator_disable(data->reg_vdd);
+err_dis_avdd:
+	regulator_disable(data->reg_avdd);
 	return error;
 }
 
