@@ -24,6 +24,7 @@
 #include <dt-bindings/power/mt6797-power.h>
 #include <dt-bindings/power/mt6853-power.h>
 #include <dt-bindings/power/mt6873-power.h>
+#include <dt-bindings/power/mt6879-power.h>
 #include <dt-bindings/power/mt6893-power.h>
 #include <dt-bindings/power/mt7622-power.h>
 #include <dt-bindings/power/mt7623a-power.h>
@@ -43,6 +44,8 @@
 #define MTK_SCPD_APU_OPS		BIT(5)
 #define MTK_SCPD_SRAM_SLP		BIT(6)
 #define MTK_SCPD_BYPASS_INIT_ON		BIT(7)
+#define MTK_SCPD_IS_PWR_CON_ON		BIT(8)
+#define MTK_SCPD_L2TCM_SRAM		BIT(9)
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -101,6 +104,12 @@
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
+#define MAX_SRAM_STEPS	4
+
+struct sram_ctl {
+	u32 offs;
+	bool wait_ack;
+};
 
 /**
  * struct scp_domain_data - scp domain data for power on/off flow
@@ -116,6 +125,7 @@
  *                     before releasing bus protection.
  * @caps: The flag for active wake-up action.
  * @bp_table: The mask table for multiple step bus protection.
+ * @sram_offs_table: The offset table for L2TCM SRAM control.
  */
 struct scp_domain_data {
 	const char *name;
@@ -129,8 +139,9 @@ struct scp_domain_data {
 	u32 extb_iso_bits;
 	const char *basic_clk_name[MAX_CLKS];
 	const char *subsys_clk_prefix;
-	u8 caps;
+	u16 caps;
 	struct bus_prot bp_table[MAX_STEPS];
+	struct sram_ctl sram_table[MAX_SRAM_STEPS];
 };
 
 struct scp;
@@ -156,6 +167,7 @@ struct scp {
 	void __iomem *base;
 	struct regmap *infracfg;
 	struct regmap *smi_common;
+	struct regmap *vlpcfg;
 	struct scp_ctrl_reg ctrl_reg;
 };
 
@@ -216,6 +228,25 @@ static int scpsys_domain_is_on(struct scp_domain *scpd)
 	return -EINVAL;
 }
 
+static int scpsys_pwr_con_is_on(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
+	u32 status = readl(ctl_addr) & scpd->data->sta_mask;
+
+	/*
+	 * A power domain is on when status mask are all set. If only one is set
+	 * return an error. This happens while powering up a domain
+	 */
+
+	if (status == scpd->data->sta_mask)
+		return true;
+	if (!status)
+		return false;
+
+	return -EINVAL;
+}
+
 static int scpsys_md_domain_is_on(struct scp_domain *scpd)
 {
 	struct scp *scp = scpd->scp;
@@ -269,7 +300,7 @@ static int scpsys_clk_enable(struct clk *clk[], int max_num)
 	return ret;
 }
 
-static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
+static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr, bool wait_ack)
 {
 	u32 val;
 	int tmp;
@@ -301,11 +332,13 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 			ack_mask = scpd->data->sram_pdn_ack_bits;
 			ack_sta = 0;
 		}
-		ret = readl_poll_timeout_atomic(ctl_addr, tmp,
-			(tmp & ack_mask) == ack_sta,
-			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
-		if (ret < 0)
-			return ret;
+		if (wait_ack) {
+			ret = readl_poll_timeout_atomic(ctl_addr, tmp,
+				(tmp & ack_mask) == ack_sta,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
@@ -319,11 +352,12 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 	return 0;
 }
 
-static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
+static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr, bool wait_ack)
 {
 	u32 val;
 	u32 ack_mask, ack_sta;
 	int tmp;
+	int ret = 0;
 
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
 		val = readl(ctl_addr) | PWR_SRAM_CLKISO_BIT;
@@ -345,9 +379,52 @@ static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
 	writel(val, ctl_addr);
 
 	/* Either wait until SRAM_PDN_ACK all 1 or 0 */
-	return readl_poll_timeout_atomic(ctl_addr, tmp,
-		(tmp & ack_mask) == ack_sta,
-		MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (wait_ack)
+		ret = readl_poll_timeout_atomic(ctl_addr, tmp,
+				(tmp & ack_mask) == ack_sta,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	
+	return ret;
+}
+
+static int scpsys_sram_table_enable(struct scp_domain *scpd)
+{
+	const struct sram_ctl *sram_table = scpd->data->sram_table;
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < MAX_SRAM_STEPS; i++) {
+		if (sram_table[i].offs) {
+			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
+
+			ret = scpsys_sram_enable(scpd, ctl_addr, sram_table[i].wait_ack);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return ret;
+}
+
+static int scpsys_sram_table_disable(struct scp_domain *scpd)
+{
+	const struct sram_ctl *sram_table = scpd->data->sram_table;
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < MAX_SRAM_STEPS; i++) {
+		if (sram_table[i].offs) {
+			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
+
+			ret = scpsys_sram_disable(scpd, ctl_addr, sram_table[i].wait_ack);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return ret;
 }
 
 static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
@@ -410,6 +487,7 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 	const struct bus_prot *bp_table = scpd->data->bp_table;
 	struct regmap *infracfg = scp->infracfg;
 	struct regmap *smi_common = scp->smi_common;
+	struct regmap *vlpcfg = scp->vlpcfg;
 	int i;
 
 	for (i = 0; i < MAX_STEPS; i++) {
@@ -421,6 +499,8 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 			map = infracfg;
 		else if (bp.type == SMI_TYPE)
 			map = smi_common;
+		else if (bp.type == VLP_TYPE)
+			map = vlpcfg;
 		else
 			break;
 
@@ -439,6 +519,7 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd)
 	const struct bus_prot *bp_table = scpd->data->bp_table;
 	struct regmap *infracfg = scp->infracfg;
 	struct regmap *smi_common = scp->smi_common;
+	struct regmap *vlpcfg = scp->vlpcfg;
 	int i;
 
 	for (i = MAX_STEPS - 1; i >= 0; i--) {
@@ -450,6 +531,8 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd)
 			map = infracfg;
 		else if (bp.type == SMI_TYPE)
 			map = smi_common;
+		else if (bp.type == VLP_TYPE)
+			map = vlpcfg;
 		else
 			continue;
 
@@ -516,7 +599,11 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 1 */
-	ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp > 0,
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
+		ret = readx_poll_timeout_atomic(scpsys_pwr_con_is_on, scpd, tmp, tmp > 0,
+				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	else
+		ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp > 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_pwr_ack;
@@ -534,7 +621,13 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_pwr_ack;
 
-	ret = scpsys_sram_enable(scpd, ctl_addr);
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
+		ret = scpsys_sram_table_enable(scpd);
+		if (ret < 0)
+			goto err_sram;
+	}
+
+	ret = scpsys_sram_enable(scpd, ctl_addr, true);
 	if (ret < 0)
 		goto err_sram;
 
@@ -568,7 +661,13 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto out;
 
-	ret = scpsys_sram_disable(scpd, ctl_addr);
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
+		ret = scpsys_sram_table_disable(scpd);
+		if (ret < 0)
+			goto out;
+	}
+
+	ret = scpsys_sram_disable(scpd, ctl_addr, true);
 	if (ret < 0)
 		goto out;
 
@@ -592,7 +691,11 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 0 */
-	ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp == 0,
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
+		ret = readx_poll_timeout_atomic(scpsys_pwr_con_is_on, scpd, tmp, tmp == 0,
+				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	else
+		ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp == 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
@@ -648,7 +751,7 @@ static int scpsys_md_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_pwr_ack;
 
-	ret = scpsys_sram_enable(scpd, ctl_addr);
+	ret = scpsys_sram_enable(scpd, ctl_addr, true);
 	if (ret < 0)
 		goto err_sram;
 
@@ -683,7 +786,7 @@ static int scpsys_md_power_off(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto out;
 
-	ret = scpsys_sram_disable(scpd, ctl_addr);
+	ret = scpsys_sram_disable(scpd, ctl_addr, true);
 	if (ret < 0)
 		goto out;
 
@@ -901,6 +1004,16 @@ static struct scp *init_scp(struct platform_device *pdev,
 		return ERR_CAST(scp->smi_common);
 	}
 
+	scp->vlpcfg = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"vlpcfg");
+	if (scp->vlpcfg == ERR_PTR(-ENODEV)) {
+		scp->vlpcfg = NULL;
+	} else if (IS_ERR(scp->vlpcfg)) {
+		dev_err(&pdev->dev, "Cannot find infracfg controller: %ld\n",
+				PTR_ERR(scp->vlpcfg));
+		return ERR_CAST(scp->vlpcfg);
+	}
+
 	for (i = 0; i < num; i++) {
 		struct scp_domain *scpd = &scp->domains[i];
 		const struct scp_domain_data *data = &scp_domain_data[i];
@@ -953,6 +1066,7 @@ static struct scp *init_scp(struct platform_device *pdev,
 			genpd->power_off = scpsys_power_off;
 			genpd->power_on = scpsys_power_on;
 		}
+
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_ACTIVE_WAKEUP))
 			genpd->flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_ALWAYS_ON))
@@ -1532,6 +1646,344 @@ static const struct scp_subdomain scp_subdomain_mt6853[] = {
 	{MT6853_POWER_DOMAIN_DISP, MT6853_POWER_DOMAIN_CAM},
 	{MT6853_POWER_DOMAIN_CAM, MT6853_POWER_DOMAIN_CAM_RAWA},
 	{MT6853_POWER_DOMAIN_CAM, MT6853_POWER_DOMAIN_CAM_RAWB},
+};
+
+/*
+ * MT6879 power domain support
+ */
+
+static const struct scp_domain_data scp_domain_data_mt6879[] = {
+	[MT6879_POWER_DOMAIN_MD] = {
+		.name = "md",
+		.sta_mask = BIT(0),
+		.ctl_offs = 0xE00,
+		.caps = MTK_SCPD_MD_OPS,
+		.extb_iso_offs = 0xF2C,
+		.extb_iso_bits = 0x3,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS1_MD),
+		},
+	},
+	[MT6879_POWER_DOMAIN_CONN] = {
+		.name = "conn",
+		.sta_mask = BIT(1),
+		.ctl_offs = 0xE04,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C94, 0x0C98, 0x0C90, 0x0C9C,
+				MT6879_TOP_AXI_PROT_EN_MCU0_CONN),
+			BUS_PROT(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS1_CONN),
+			BUS_PROT(IFR_TYPE, 0x0C94, 0x0C98, 0x0C90, 0x0C9C,
+				MT6879_TOP_AXI_PROT_EN_MCU0_CONN_2ND),
+			BUS_PROT(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS0_CONN),
+		},
+	},
+	[MT6879_POWER_DOMAIN_UFS0_DORMANT] = {
+		.name = "ufs0_dormant",
+		.sta_mask = BIT(4),
+		.ctl_offs = 0xE10,
+		.sram_slp_bits = GENMASK(9, 9),
+		.sram_slp_ack_bits = GENMASK(13, 13),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C84, 0x0C88, 0x0C80, 0x0C8C,
+				MT6879_TOP_AXI_PROT_EN_PERISYS0_UFS0),
+			BUS_PROT(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
+				MT6879_VLP_AXI_PROT_EN_UFS0),
+			BUS_PROT(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
+				MT6879_VLP_AXI_PROT_EN_UFS0_2ND),
+		},
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
+	},
+	[MT6879_POWER_DOMAIN_AUDIO] = {
+		.name = "audio",
+		.sta_mask = BIT(5),
+		.ctl_offs = 0xE14,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6879_POWER_DOMAIN_ADSP_TOP_DORMANT] = {
+		.name = "adsp_top_dormant",
+		.sta_mask = BIT(6),
+		.ctl_offs = 0xE18,
+		.sram_slp_bits = GENMASK(9, 9),
+		.sram_slp_ack_bits = GENMASK(13, 13),
+		.bp_table = {
+			BUS_PROT(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
+				MT6879_VLP_AXI_PROT_EN_ADSP_TOP),
+			BUS_PROT(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
+				MT6879_VLP_AXI_PROT_EN_ADSP_TOP_2ND),
+		},
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
+	},
+	[MT6879_POWER_DOMAIN_ADSP_INFRA] = {
+		.name = "adsp_infra",
+		.sta_mask = BIT(7),
+		.ctl_offs = 0xE1C,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS1_ADSP_INFRA),
+			BUS_PROT(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS0_ADSP_INFRA),
+			BUS_PROT(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
+				MT6879_VLP_AXI_PROT_EN_ADSP_INFRA),
+			BUS_PROT(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
+				MT6879_VLP_AXI_PROT_EN_ADSP_INFRA_2ND),
+		},
+	},
+	[MT6879_POWER_DOMAIN_ADSP_AO] = {
+		.name = "adsp_ao",
+		.sta_mask = BIT(8),
+		.ctl_offs = 0xE20,
+	},
+	[MT6879_POWER_DOMAIN_ISP_MAIN] = {
+		.name = "isp_main",
+		.sta_mask = BIT(9),
+		.ctl_offs = 0xE24,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS2_ISP_MAIN),
+		},
+	},
+	[MT6879_POWER_DOMAIN_ISP_DIP1] = {
+		.name = "isp_dip1",
+		.sta_mask = BIT(10),
+		.ctl_offs = 0xE28,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6879_POWER_DOMAIN_ISP_IPE] = {
+		.name = "isp_ipe",
+		.sta_mask = BIT(11),
+		.ctl_offs = 0xE2C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6879_POWER_DOMAIN_ISP_VCORE] = {
+		.name = "isp_vcore",
+		.sta_mask = BIT(12),
+		.ctl_offs = 0xE30,
+	},
+	[MT6879_POWER_DOMAIN_VDE0] = {
+		.name = "vde0",
+		.sta_mask = BIT(13),
+		.ctl_offs = 0xE34,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS0_VDE0),
+			BUS_PROT(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS1_VDE0),
+		},
+	},
+	[MT6879_POWER_DOMAIN_VEN0] = {
+		.name = "ven0",
+		.sta_mask = BIT(15),
+		.ctl_offs = 0xE3C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS0_VEN0),
+			BUS_PROT(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS1_VEN0),
+		},
+	},
+	[MT6879_POWER_DOMAIN_CAM_MAIN] = {
+		.name = "cam_main",
+		.sta_mask = BIT(17),
+		.ctl_offs = 0xE44,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS0_CAM_MAIN),
+			BUS_PROT(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
+				MT6879_TOP_AXI_PROT_EN_DRAMC0_CAM_MAIN),
+			BUS_PROT(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS2_CAM_MAIN),
+			BUS_PROT(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
+				MT6879_TOP_AXI_PROT_EN_DRAMC0_CAM_MAIN_2ND),
+		},
+	},
+	[MT6879_POWER_DOMAIN_CAM_MRAW] = {
+		.name = "cam_mraw",
+		.sta_mask = BIT(18),
+		.ctl_offs = 0xE48,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6879_POWER_DOMAIN_CAM_SUBA] = {
+		.name = "cam_suba",
+		.sta_mask = BIT(19),
+		.ctl_offs = 0xE4C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6879_POWER_DOMAIN_CAM_SUBB] = {
+		.name = "cam_subb",
+		.sta_mask = BIT(20),
+		.ctl_offs = 0xE50,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6879_POWER_DOMAIN_CAM_VCORE] = {
+		.name = "cam_vcore",
+		.sta_mask = BIT(22),
+		.ctl_offs = 0xE58,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS2_CAM_VCORE),
+			BUS_PROT(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
+				MT6879_TOP_AXI_PROT_EN_DRAMC0_CAM_VCORE),
+			BUS_PROT(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS0_CAM_VCORE),
+		},
+	},
+	[MT6879_POWER_DOMAIN_DISP] = {
+		.name = "disp",
+		.sta_mask = BIT(25),
+		.ctl_offs = 0xE64,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS0_DISP),
+		},
+	},
+	[MT6879_POWER_DOMAIN_MM_INFRA] = {
+		.name = "mm_infra",
+		.sta_mask = BIT(27),
+		.ctl_offs = 0xE6C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS1_MM_INFRA),
+			BUS_PROT(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS1_MM_INFRA),
+			BUS_PROT(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS1_MM_INFRA_2ND),
+			BUS_PROT(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS0_MM_INFRA),
+		},
+	},
+	[MT6879_POWER_DOMAIN_MM_PROC_DORMANT] = {
+		.name = "mm_proc_dormant",
+		.sta_mask = BIT(28),
+		.ctl_offs = 0xE70,
+		.sram_slp_bits = GENMASK(9, 9),
+		.sram_slp_ack_bits = GENMASK(13, 13),
+		.bp_table = {
+			BUS_PROT(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
+				MT6879_VLP_AXI_PROT_EN_MM_PROC),
+			BUS_PROT(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
+				MT6879_VLP_AXI_PROT_EN_MM_PROC_2ND),
+		},
+		.sram_table = {{0xEA0, false}, {0xEA4, false}, {0xEA8, false}, {0xEB0, false}},
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_L2TCM_SRAM,
+	},
+	[MT6879_POWER_DOMAIN_CSI_RX] = {
+		.name = "csi_rx",
+		.sta_mask = GENMASK(31, 30),
+		.ctl_offs = 0xF48,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
+	},
+	[MT6879_POWER_DOMAIN_MFG0_DORMANT] = {
+		.name = "mfg0_dormant",
+		.sta_mask = GENMASK(31, 30),
+		.ctl_offs = 0xEB8,
+		.sram_slp_bits = GENMASK(9, 9),
+		.sram_slp_ack_bits = GENMASK(13, 13),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
+				MT6879_TOP_AXI_PROT_EN_MD0_MFG0),
+			BUS_PROT(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
+				MT6879_TOP_AXI_PROT_EN_INFRASYS0_MFG0),
+		},
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_IS_PWR_CON_ON,
+	},
+	[MT6879_POWER_DOMAIN_MFG1] = {
+		.name = "mfg1",
+		.sta_mask = GENMASK(31, 30),
+		.ctl_offs = 0xEBC,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
+				MT6879_TOP_AXI_PROT_EN_MD0_MFG1),
+			BUS_PROT(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
+				MT6879_TOP_AXI_PROT_EN_MD0_MFG1_2ND),
+			BUS_PROT(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
+				MT6879_TOP_AXI_PROT_EN_MD0_MFG1_3RD),
+			BUS_PROT(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
+				MT6879_TOP_AXI_PROT_EN_MD0_MFG1_4RD),
+		},
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
+	},
+	[MT6879_POWER_DOMAIN_MFG2] = {
+		.name = "mfg2",
+		.sta_mask = GENMASK(31, 30),
+		.ctl_offs = 0xEC0,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
+	},
+	[MT6879_POWER_DOMAIN_MFG3] = {
+		.name = "mfg3",
+		.sta_mask = GENMASK(31, 30),
+		.ctl_offs = 0xEC4,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
+	},
+	[MT6879_POWER_DOMAIN_MFG4] = {
+		.name = "mfg4",
+		.sta_mask = GENMASK(31, 30),
+		.ctl_offs = 0xEC8,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
+	},
+	[MT6879_POWER_DOMAIN_MFG5] = {
+		.name = "mfg5",
+		.sta_mask = GENMASK(31, 30),
+		.ctl_offs = 0xECC,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
+	},
+	[MT6879_POWER_DOMAIN_APU] = {
+		.name = "apu",
+		.caps = MTK_SCPD_APU_OPS,
+	},
+};
+
+static const struct scp_subdomain scp_subdomain_mt6879[] = {
+	{MT6879_POWER_DOMAIN_ADSP_INFRA, MT6879_POWER_DOMAIN_ADSP_TOP_DORMANT},
+	{MT6879_POWER_DOMAIN_ADSP_AO, MT6879_POWER_DOMAIN_ADSP_INFRA},
+	{MT6879_POWER_DOMAIN_ISP_VCORE, MT6879_POWER_DOMAIN_ISP_MAIN},
+	{MT6879_POWER_DOMAIN_ISP_MAIN, MT6879_POWER_DOMAIN_ISP_DIP1},
+	{MT6879_POWER_DOMAIN_ISP_MAIN, MT6879_POWER_DOMAIN_ISP_IPE},
+	{MT6879_POWER_DOMAIN_DISP, MT6879_POWER_DOMAIN_VDE0},
+	{MT6879_POWER_DOMAIN_DISP, MT6879_POWER_DOMAIN_VEN0},
+	{MT6879_POWER_DOMAIN_CAM_VCORE, MT6879_POWER_DOMAIN_CAM_MAIN},
+	{MT6879_POWER_DOMAIN_CAM_MAIN, MT6879_POWER_DOMAIN_CAM_MRAW},
+	{MT6879_POWER_DOMAIN_CAM_MAIN, MT6879_POWER_DOMAIN_CAM_SUBA},
+	{MT6879_POWER_DOMAIN_CAM_MAIN, MT6879_POWER_DOMAIN_CAM_SUBB},
+	{MT6879_POWER_DOMAIN_MM_INFRA, MT6879_POWER_DOMAIN_DISP},
+	{MT6879_POWER_DOMAIN_CAM_MAIN, MT6879_POWER_DOMAIN_CSI_RX},
+	{MT6879_POWER_DOMAIN_MFG0_DORMANT, MT6879_POWER_DOMAIN_MFG1},
+	{MT6879_POWER_DOMAIN_MFG1, MT6879_POWER_DOMAIN_MFG2},
+	{MT6879_POWER_DOMAIN_MFG2, MT6879_POWER_DOMAIN_MFG3},
+	{MT6879_POWER_DOMAIN_MFG3, MT6879_POWER_DOMAIN_MFG4},
+	{MT6879_POWER_DOMAIN_MFG4, MT6879_POWER_DOMAIN_MFG5},
 };
 
 /*
@@ -2463,6 +2915,17 @@ static const struct scp_soc_data mt6873_data = {
 	}
 };
 
+static const struct scp_soc_data mt6879_data = {
+	.domains = scp_domain_data_mt6879,
+	.num_domains = MT6879_POWER_DOMAIN_NR,
+	.subdomains = scp_subdomain_mt6879,
+	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt6879),
+	.regs = {
+		.pwr_sta_offs = 0xF34,
+		.pwr_sta2nd_offs = 0xF40,
+	}
+};
+
 static const struct scp_soc_data mt6853_data = {
 	.domains = scp_domain_data_mt6853,
 	.num_domains = MT6853_POWER_DOMAIN_NR,
@@ -2545,6 +3008,9 @@ static const struct of_device_id of_scpsys_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6873-scpsys",
 		.data = &mt6873_data,
+	}, {
+		.compatible = "mediatek,mt6879-scpsys",
+		.data = &mt6879_data,
 	}, {
 		.compatible = "mediatek,mt6893-scpsys",
 		.data = &mt6893_data,
