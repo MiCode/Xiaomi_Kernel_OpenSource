@@ -2316,240 +2316,220 @@
 			 <&iommu0 M4U_PORT_L11_IMG_WPE_EIS_CQ1_A>,
 			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_CQ0_A>,
 			 <&iommu0 M4U_PORT_L11_IMG_WPE_TNR_CQ1_A>;
-		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox 1 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox 2 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox 3 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox 4 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox 5 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox 6 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox 7 0 CMDQ_THR_PRIO_1>;
+#endif
+		mboxes = <&gce_m 0 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 1 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 2 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 3 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 4 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 5 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 16 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 17 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 18 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m 19 0 CMDQ_THR_PRIO_1>;
 		traw_cq_thread0_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_0>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0>;
 		traw_cq_thread1_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_1>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_1>;
 		traw_cq_thread2_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_2>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_2>;
 		traw_cq_thread3_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_3>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_3>;
 		traw_cq_thread4_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_4>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_4>;
 		traw_cq_thread5_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_5>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_5>;
 		traw_cq_thread6_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_6>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_6>;
 		traw_cq_thread7_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_7>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_7>;
 		traw_cq_thread8_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_8>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_8>;
 		traw_cq_thread9_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_9>;
-		traw_cq_thread10_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_10>;
-		traw_cq_thread11_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_11>;
-		traw_cq_thread12_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_12>;
-		traw_cq_thread13_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_13>;
-		traw_cq_thread14_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW0_14>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_9>;
 		ltraw_cq_thread0_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_0>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_0>;
 		ltraw_cq_thread1_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_1>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_1>;
 		ltraw_cq_thread2_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_2>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_2>;
 		ltraw_cq_thread3_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_3>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_3>;
 		ltraw_cq_thread4_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_4>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_4>;
 		ltraw_cq_thread5_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_5>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_5>;
 		ltraw_cq_thread6_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_6>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_6>;
 		ltraw_cq_thread7_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_7>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_7>;
 		ltraw_cq_thread8_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_8>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_8>;
 		ltraw_cq_thread9_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_9>;
-		ltraw_cq_thread10_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_10>;
-		ltraw_cq_thread11_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_11>;
-		ltraw_cq_thread12_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_12>;
-		ltraw_cq_thread13_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_13>;
-		ltraw_cq_thread14_frame_done =
-			/bits/ 16 <CMDQ_EVENT_CQ_THR_DONE_TRAW1_14>;
+			/bits/ 16 <CMDQ_EVENT_IMG_TRAW1_CQ_THR_DONE_TRAW0_9>;
+		xtraw_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_0>;
+		xtraw_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_1>;
+		xtraw_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_2>;
+		xtraw_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_3>;
+		xtraw_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_4>;
+		xtraw_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_5>;
+		xtraw_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_6>;
+		xtraw_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_7>;
+		xtraw_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_8>;
+		xtraw_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_XTRAW_CQ_THR_DONE_TRAW0_9>;
 		dip_cq_thread0_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_0>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_0>;
 		dip_cq_thread1_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_1>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_1>;
 		dip_cq_thread2_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_2>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_2>;
 		dip_cq_thread3_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_3>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_3>;
 		dip_cq_thread4_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_4>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_4>;
 		dip_cq_thread5_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_5>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_5>;
 		dip_cq_thread6_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_6>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_6>;
 		dip_cq_thread7_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_7>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_7>;
 		dip_cq_thread8_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_8>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_8>;
 		dip_cq_thread9_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_9>;
-		dip_cq_thread10_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_10>;
-		dip_cq_thread11_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_11>;
-		dip_cq_thread12_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_12>;
-		dip_cq_thread13_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_13>;
-		dip_cq_thread14_frame_done =
-			/bits/ 16 <CMDQ_EVENT_DIP0_FRAME_DONE_P2_14>;
+			/bits/ 16 <CMDQ_EVENT_IMG_DIP_CQ_THR_DONE_P2_9>;
 		pqa_cq_thread0_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_0>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_0>;
 		pqa_cq_thread1_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_1>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_1>;
 		pqa_cq_thread2_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_2>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_2>;
 		pqa_cq_thread3_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_3>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_3>;
 		pqa_cq_thread4_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_4>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_4>;
 		pqa_cq_thread5_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_5>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_5>;
 		pqa_cq_thread6_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_6>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_6>;
 		pqa_cq_thread7_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_7>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_7>;
 		pqa_cq_thread8_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_8>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_8>;
 		pqa_cq_thread9_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_9>;
-		pqa_cq_thread10_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_10>;
-		pqa_cq_thread11_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_11>;
-		pqa_cq_thread12_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_12>;
-		pqa_cq_thread13_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_13>;
-		pqa_cq_thread14_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQA0_FRAME_DONE_P2_14>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_A_CQ_THR_DONE_P2_9>;
 		pqb_cq_thread0_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_0>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_0>;
 		pqb_cq_thread1_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_1>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_1>;
 		pqb_cq_thread2_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_2>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_2>;
 		pqb_cq_thread3_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_3>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_3>;
 		pqb_cq_thread4_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_4>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_4>;
 		pqb_cq_thread5_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_5>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_5>;
 		pqb_cq_thread6_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_6>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_6>;
 		pqb_cq_thread7_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_7>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_7>;
 		pqb_cq_thread8_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_8>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_8>;
 		pqb_cq_thread9_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_9>;
-		pqb_cq_thread10_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_10>;
-		pqb_cq_thread11_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_11>;
-		pqb_cq_thread12_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_12>;
-		pqb_cq_thread13_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_13>;
-		pqb_cq_thread14_frame_done =
-			/bits/ 16 <CMDQ_EVENT_PQB0_FRAME_DONE_P2_14>;
+			/bits/ 16 <CMDQ_EVENT_IMG_PQDIP_B_CQ_THR_DONE_P2_9>;
 		wpe_eis_cq_thread0_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_0>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_0>;
 		wpe_eis_cq_thread1_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_1>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_1>;
 		wpe_eis_cq_thread2_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_2>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_2>;
 		wpe_eis_cq_thread3_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_3>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_3>;
 		wpe_eis_cq_thread4_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_4>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_4>;
 		wpe_eis_cq_thread5_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_5>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_5>;
 		wpe_eis_cq_thread6_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_6>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_6>;
 		wpe_eis_cq_thread7_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_7>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_7>;
 		wpe_eis_cq_thread8_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_8>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_8>;
 		wpe_eis_cq_thread9_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_9>;
-		wpe_eis_cq_thread10_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_10>;
-		wpe_eis_cq_thread11_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_11>;
-		wpe_eis_cq_thread12_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_12>;
-		wpe_eis_cq_thread13_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_13>;
-		wpe_eis_cq_thread14_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_EIS_FRAME_DONE_P2_14>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_EIS_CQ_THR_DONE_P2_9>;
 		wpe_tnr_cq_thread0_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_0>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_0>;
 		wpe_tnr_cq_thread1_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_1>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_1>;
 		wpe_tnr_cq_thread2_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_2>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_2>;
 		wpe_tnr_cq_thread3_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_3>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_3>;
 		wpe_tnr_cq_thread4_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_4>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_4>;
 		wpe_tnr_cq_thread5_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_5>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_5>;
 		wpe_tnr_cq_thread6_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_6>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_6>;
 		wpe_tnr_cq_thread7_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_7>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_7>;
 		wpe_tnr_cq_thread8_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_8>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_8>;
 		wpe_tnr_cq_thread9_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_9>;
-		wpe_tnr_cq_thread10_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_10>;
-		wpe_tnr_cq_thread11_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_11>;
-		wpe_tnr_cq_thread12_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_12>;
-		wpe_tnr_cq_thread13_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_13>;
-		wpe_tnr_cq_thread14_frame_done =
-			/bits/ 16 <CMDQ_EVENT_WPE0_TNR_FRAME_DONE_P2_14>;
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_TNR_CQ_THR_DONE_P2_9>;
+		wpe_lite_cq_thread0_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_0>;
+		wpe_lite_cq_thread1_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_1>;
+		wpe_lite_cq_thread2_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_2>;
+		wpe_lite_cq_thread3_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_3>;
+		wpe_lite_cq_thread4_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_4>;
+		wpe_lite_cq_thread5_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_5>;
+		wpe_lite_cq_thread6_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_6>;
+		wpe_lite_cq_thread7_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_7>;
+		wpe_lite_cq_thread8_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_8>;
+		wpe_lite_cq_thread9_frame_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_WOE_LITE_CQ_THR_DONE_P2_9>;
 		me_done =
-			/bits/ 16 <CMDQ_EVENT_IMGSYS_IPE_ME_DONE>;
+			/bits/ 16 <CMDQ_EVENT_IMG_IMGSYS_IPE_ME_DONE>;
+		adl_tile_done =
+			/bits/ 16 <CMDQ_EVENT_IMG_ADL_TILE_DONE_EVENT>;
 		wpe_eis_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_WPE_EIS>;
 		wpe_tnr_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_WPE_TNR>;
+		wpe_lite_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_WPE_LITE>;
 		traw_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_TRAW>;
 		ltraw_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_LTRAW>;
+		xtraw_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_XTRAW>;
 		dip_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_DIP>;
 		pqdip_a_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A>;
 		pqdip_b_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B>;
+#if 0
 		sw_sync_token_pool_1 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_1>;
 		sw_sync_token_pool_2 =
