@@ -4,21 +4,20 @@
  * Author: Chao Hao <chao.hao@mediatek.com>
  */
 
-#ifndef _DTS_IOMMU_PORT_MT6873_H_
-#define _DTS_IOMMU_PORT_MT6873_H_
+#ifndef _DTS_IOMMU_PORT_MT6983_H_
+#define _DTS_IOMMU_PORT_MT6983_H_
 
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 
-#define RESV_DOM				(0)
+#define NORMAL_DOM				(0)
 #define APU_SEC_DOM				(1)
 #define APU_CODE_DOM				(2)
-#define NORMAL_DOM				(3)
-#define CCU0_DOM				(4)
-#define CCU1_DOM				(5)
-#define VDO_REGION1				(6)
-#define VDO_REGION2				(7)
-#define VDO_REGION3				(8)
-#define VDO_REGION4				(9)
+#define CCU0_DOM				(3)
+#define CCU1_DOM				(4)
+#define VDO_REGION1				(5)
+#define VDO_REGION2				(6)
+#define VDO_REGION3				(7)
+#define VDO_REGION4				(8)
 
 /* larb0 */
 #define M4U_PORT_L0_DISP_POSTMASK0		MTK_M4U_DOM_ID(NORMAL_DOM, 0, 0)
@@ -570,6 +569,7 @@
 /* fake larb32 */
 #define M4U_PORT_L32_GCE_DM			MTK_M4U_DOM_ID(NORMAL_DOM, 32, 1)
 #define M4U_PORT_L32_GCE_MM			MTK_M4U_DOM_ID(NORMAL_DOM, 32, 2)
+#define M4U_PORT_L32_PERI_MASTER		MTK_M4U_DOM_ID(NORMAL_DOM, 32, 3)
 
 /* fake larb33 reserved */
 #define M4U_PORT_L33_VIDEO_UP_512MB1		MTK_M4U_DOM_ID(VDO_REGION1, 33, 0)
@@ -578,8 +578,8 @@
 #define M4U_PORT_L33_VIDEO_UP_256MB2		MTK_M4U_DOM_ID(VDO_REGION4, 33, 3)
 
 /* fake larb34 */
-#define M4U_PORT_L32_APU_SECURE			MTK_M4U_DOM_ID(APU_SEC_DOM, 34, 0)
-#define M4U_PORT_L32_APU_CODE			MTK_M4U_DOM_ID(APU_CODE_DOM, 34, 1)
-#define M4U_PORT_L32_APU_DATA			MTK_M4U_DOM_ID(NORMAL_DOM, 34, 2)
+#define M4U_PORT_L34_APU_SECURE			MTK_M4U_DOM_ID(APU_SEC_DOM, 34, 0)
+#define M4U_PORT_L34_APU_CODE			MTK_M4U_DOM_ID(APU_CODE_DOM, 34, 1)
+#define M4U_PORT_L34_APU_DATA			MTK_M4U_DOM_ID(NORMAL_DOM, 34, 2)
 
 #endif
