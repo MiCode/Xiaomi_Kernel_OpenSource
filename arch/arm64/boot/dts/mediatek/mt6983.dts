@@ -3152,13 +3152,15 @@
 		reg = <0 0x15000000 0 0x4000>,	/* 0 IMGSYS_TOP */
 		      <0 0x15020000 0 0x10000>,	/* 1 IMGSYS_TRAW */
 		      <0 0x15040000 0 0x10000>,	/* 2 IMGSYS_LTRAW */
-		      <0 0x15100000 0 0x10000>,	/* 3 IMGSYS_DIP */
-		      <0 0x15210000 0 0x10000>,	/* 4 IMGSYS_PQDIP_A */
-		      <0 0x15510000 0 0x10000>,	/* 5 IMGSYS_PQDIP_B */
-		      <0 0x15200000 0 0x10000>,	/* 6 IMGSYS_WPE_EIS */
-		      <0 0x15500000 0 0x10000>,	/* 7 IMGSYS_WPE_TNR */
-		      <0 0x15600000 0 0x00100>,	/* 8 IMGSYS_WPE_DIP1 */
-		      <0 0x15320000 0 0x10000>;	/* 9 IMGSYS_ME */
+		      <0 0x15640000 0 0x10000>,	/* 3 IMGSYS_XTRAW */
+		      <0 0x15100000 0 0x10000>,	/* 4 IMGSYS_DIP */
+		      <0 0x15210000 0 0x10000>,	/* 5 IMGSYS_PQDIP_A */
+		      <0 0x15510000 0 0x10000>,	/* 6 IMGSYS_PQDIP_B */
+		      <0 0x15200000 0 0x10000>,	/* 7 IMGSYS_WPE_EIS */
+		      <0 0x15500000 0 0x10000>,	/* 8 IMGSYS_WPE_TNR */
+		      <0 0x15600000 0 0x10000>,	/* 9 IMGSYS_WPE_LITE */
+		      <0 0x15520000 0 0x00100>,	/* 10 IMGSYS_WPE_DIP1 */
+		      <0 0x15320000 0 0x10000>;	/* 11 IMGSYS_ME */
 		mediatek,hcp = <&hcp>;
 		/* mediatek,larb = <&larb9 &larb10 &larb11>; */
 		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
