@@ -53,6 +53,15 @@ int mml_case;
 EXPORT_SYMBOL(mml_case);
 module_param(mml_case, int, 0644);
 
+int mml_test_w = 1920;
+EXPORT_SYMBOL(mml_test_w);
+module_param(mml_test_w, int, 0644);
+
+int mml_test_h = 1088;
+EXPORT_SYMBOL(mml_test_h);
+module_param(mml_test_h, int, 0644);
+
+
 struct mml_test {
 	struct platform_device *pdev;
 	struct device *dev;
@@ -78,12 +87,6 @@ static void check_fence(int32_t fd, const char *func)
 	put_unused_fd(fd);
 }
 
-#define CASE_SRC_RGB_W	1920
-#define CASE_SRC_RGB_H	1088
-
-#define CASE_RGB_W	1920
-#define CASE_RGB_H	1088
-
 static void case_general_submit(struct mml_test *test,
 	struct mml_test_case *cur,
 	void (*setup)(struct mml_submit *task, struct mml_test_case *cur))
@@ -98,7 +101,7 @@ static void case_general_submit(struct mml_test *test,
 	const u32 src_h = the_case.cfg_src_h;
 	s32 ret;
 
-	mml_log("[test]%s begin", __func__);
+	mml_log("[test]%s begin cast %d", __func__, mml_case);
 
 	mml_pdev = mml_get_plat_device(test->pdev);
 	if (!mml_pdev) {
@@ -180,11 +183,11 @@ static void case_general_submit(struct mml_test *test,
 static void case_config_rgb(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_RGB888;
-	the_case.cfg_dest_w = CASE_RGB_W;
-	the_case.cfg_dest_h = CASE_RGB_H;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
 }
 
 static void case_run_general(struct mml_test *test, struct mml_test_case *cur)
@@ -230,20 +233,20 @@ static void case_run_rgb_rot(struct mml_test *test, struct mml_test_case *cur)
 static void case_config_rgb_compose(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_RGB888;
-	the_case.cfg_dest_w = CASE_RGB_W + CASE_RGB_LEFT;
-	the_case.cfg_dest_h = CASE_RGB_H + CASE_RGB_TOP;
+	the_case.cfg_dest_w = mml_test_w + CASE_RGB_LEFT;
+	the_case.cfg_dest_h = mml_test_h + CASE_RGB_TOP;
 }
 
 static void setup_rgb_compose(struct mml_submit *task,
 	struct mml_test_case *cur)
 {
-	task->info.dest[0].data.width = CASE_SRC_RGB_W;
-	task->info.dest[0].data.height = CASE_SRC_RGB_H;
-	task->info.dest[0].crop.r.width = CASE_SRC_RGB_W;
-	task->info.dest[0].crop.r.height = CASE_SRC_RGB_H;
+	task->info.dest[0].data.width = mml_test_w;
+	task->info.dest[0].data.height = mml_test_h;
+	task->info.dest[0].crop.r.width = mml_test_w;
+	task->info.dest[0].crop.r.height = mml_test_h;
 	task->info.dest[0].compose.left = CASE_RGB_LEFT;
 	task->info.dest[0].compose.top = CASE_RGB_TOP;
 	task->info.dest[0].compose.width = the_case.cfg_dest_w;
@@ -265,11 +268,11 @@ static void case_run_rgb_compose(struct mml_test *test,
 static void case_config_relay_crop(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_RGB888;
-	the_case.cfg_dest_w = CASE_RGB_W;
-	the_case.cfg_dest_h = CASE_RGB_H;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
 }
 
 static void setup_relay(struct mml_submit *task, struct mml_test_case *cur)
@@ -297,11 +300,11 @@ static void case_run_relay(struct mml_test *test, struct mml_test_case *cur)
 static void case_config_rsz_up2(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_RGB888;
-	the_case.cfg_dest_w = CASE_RGB_W * 2;
-	the_case.cfg_dest_h = CASE_RGB_H * 2;
+	the_case.cfg_dest_w = mml_test_w * 2;
+	the_case.cfg_dest_h = mml_test_h * 2;
 }
 
 /* case_config_nv12 / setup_nv12 / setup_nv12
@@ -313,25 +316,57 @@ static void case_config_rsz_up2(void)
 static void case_config_nv12(void)
 {
 	the_case.cfg_src_format = MML_FMT_NV12;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_NV12;
-	the_case.cfg_dest_w = CASE_RGB_W;
-	the_case.cfg_dest_h = CASE_RGB_H;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
 }
 
 static void setup_nv12(struct mml_submit *task, struct mml_test_case *cur)
 {
 	task->info.src.uv_stride = mml_color_get_min_uv_stride(
 		the_case.cfg_src_format, the_case.cfg_src_w);
-	task->info.src.plane_offset[1] = mml_color_get_min_y_size(
+
+	task->buffer.src.fd[0] = cur->fd_in;
+	task->buffer.src.size[0] = mml_color_get_min_y_size(
 		the_case.cfg_src_format,
 		the_case.cfg_src_w, the_case.cfg_src_h);
+
+	task->info.src.plane_offset[1] = task->buffer.src.size[0];
+
+	task->buffer.src.fd[1] = cur->fd_in;
+	task->buffer.src.size[1] = mml_color_get_min_uv_size(
+		the_case.cfg_src_format,
+		the_case.cfg_src_w, the_case.cfg_src_h);
+
+	if (task->buffer.src.size[0] + task->buffer.src.size[1] !=
+		cur->size_in)
+		mml_err("%s case %d src size total %u plane %u %u",
+			__func__, mml_case, cur->size_in,
+			task->buffer.src.size[0] + task->buffer.src.size[1]);
+
+	/* setup dest 0 with 2 plane */
 	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
 		the_case.cfg_dest_format, the_case.cfg_dest_w);
-	task->info.dest[0].data.plane_offset[1] = mml_color_get_min_y_size(
+
+	task->buffer.dest[0].fd[0] = cur->fd_out;
+	task->buffer.dest[0].size[0] = mml_color_get_min_y_size(
 		the_case.cfg_dest_format,
 		the_case.cfg_dest_w, the_case.cfg_dest_h);
+
+	task->info.dest[0].data.plane_offset[1] = task->buffer.dest[0].size[0];
+
+	task->buffer.dest[0].fd[1] = cur->fd_out;
+	task->buffer.dest[0].size[1] = mml_color_get_min_uv_size(
+		the_case.cfg_dest_format,
+		the_case.cfg_dest_w, the_case.cfg_dest_h);
+
+	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=
+		cur->size_out)
+		mml_err("%s case %d dest size total %u plane %u %u",
+			__func__, mml_case, cur->size_out,
+			task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1]);
 }
 
 static void case_run_nv12(struct mml_test *test, struct mml_test_case *cur)
@@ -348,11 +383,11 @@ static void case_run_nv12(struct mml_test *test, struct mml_test_case *cur)
 static void case_config_yuyv_down2(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_YUYV;
-	the_case.cfg_dest_w = CASE_RGB_W / 2;
-	the_case.cfg_dest_h = CASE_RGB_H / 2;
+	the_case.cfg_dest_w = mml_test_w / 2;
+	the_case.cfg_dest_h = mml_test_h / 2;
 }
 
 /* case_config_block_to_nv12
@@ -364,11 +399,11 @@ static void case_config_yuyv_down2(void)
 static void case_config_block_to_nv12(void)
 {
 	the_case.cfg_src_format = MML_FMT_BLK;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_NV12;
-	the_case.cfg_dest_w = CASE_RGB_W;
-	the_case.cfg_dest_h = CASE_RGB_H;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
 }
 
 static void setup_block_to_nv12(struct mml_submit *task,
@@ -376,14 +411,40 @@ static void setup_block_to_nv12(struct mml_submit *task,
 {
 	task->info.src.uv_stride = mml_color_get_min_uv_stride(
 		the_case.cfg_src_format, the_case.cfg_src_w);
-	task->info.src.plane_offset[1] = mml_color_get_min_y_size(
+
+	task->buffer.src.fd[0] = cur->fd_in;
+	task->buffer.src.size[0] = mml_color_get_min_y_size(
 		the_case.cfg_src_format,
 		the_case.cfg_src_w, the_case.cfg_src_h);
+
+	task->info.src.plane_offset[1] = task->buffer.src.size[0];
+
+	task->buffer.src.fd[1] = cur->fd_in;
+	task->buffer.src.size[1] = mml_color_get_min_uv_size(
+		the_case.cfg_src_format,
+		the_case.cfg_src_w, the_case.cfg_src_h);
+
+	/* setup dest 0 with 2 plane */
 	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
 		the_case.cfg_dest_format, the_case.cfg_dest_w);
-	task->info.dest[0].data.plane_offset[1] = mml_color_get_min_y_size(
+
+	task->buffer.dest[0].fd[0] = cur->fd_out;
+	task->buffer.dest[0].size[0] = mml_color_get_min_y_size(
 		the_case.cfg_dest_format,
 		the_case.cfg_dest_w, the_case.cfg_dest_h);
+
+	task->info.dest[0].data.plane_offset[1] = task->buffer.dest[0].size[0];
+
+	task->buffer.dest[0].fd[1] = cur->fd_out;
+	task->buffer.dest[0].size[1] = mml_color_get_min_uv_size(
+		the_case.cfg_dest_format,
+		the_case.cfg_dest_w, the_case.cfg_dest_h);
+
+	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=
+		cur->size_out)
+		mml_err("%s case %d dest size total %u plane %u %u",
+			__func__, mml_case, cur->size_out,
+			task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1]);
 }
 
 static void case_run_block_to_nv12(struct mml_test *test, struct mml_test_case *cur)
@@ -397,34 +458,28 @@ static void case_run_block_to_nv12(struct mml_test *test, struct mml_test_case *
  * format in: RGB888
  * format out: AFBC_RGBA8888
  */
-
-#define CASE_AFBC_W 1920
-#define CASE_AFBC_H 1088
-#define CASE_AFBC_RGB_W 1920
-#define CASE_AFBC_RGB_H 1088
+#define mml_afbc_align(p) (((p + 31) >> 5) << 5)
 
 static void case_config_afbc(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_AFBC_RGB_W;
-	the_case.cfg_src_h = CASE_AFBC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_RGBA8888_AFBC;
-	the_case.cfg_dest_w = CASE_AFBC_W;
-	the_case.cfg_dest_h = CASE_AFBC_H;
+	the_case.cfg_dest_w = mml_afbc_align(mml_test_w);
+	the_case.cfg_dest_h = mml_afbc_align(mml_test_h);
 }
-
-#define mml_afbc_vert_stride(h) (((h + 31) >> 5) << 5)
 
 static void setup_afbc(struct mml_submit *task, struct mml_test_case *cur)
 {
 	task->info.dest[0].compose.left = 0;
 	task->info.dest[0].compose.top = 0;
-	task->info.dest[0].compose.width = CASE_AFBC_W;
-	task->info.dest[0].compose.height = CASE_AFBC_H;
-	task->info.dest[0].data.width = CASE_AFBC_RGB_W;
-	task->info.dest[0].data.height = CASE_AFBC_RGB_H;
+	task->info.dest[0].compose.width = mml_test_w;
+	task->info.dest[0].compose.height = mml_test_h;
+	task->info.dest[0].data.width = mml_test_w;
+	task->info.dest[0].data.height = mml_test_h;
 	task->info.dest[0].data.vert_stride =
-		mml_afbc_vert_stride(task->info.dest[0].data.height);
+		mml_afbc_align(task->info.dest[0].data.height);
 }
 
 static void case_run_afbc(struct mml_test *test, struct mml_test_case *cur)
@@ -433,7 +488,7 @@ static void case_run_afbc(struct mml_test *test, struct mml_test_case *cur)
 }
 
 /* case_config_afbc_to_rgb
- * afbc (from last case) to rgb. Source size height 1088 since afbc 32x32 and
+ * afbc (from last case) to rgb. Source size align 32x32 and
  * this case crop content roi, which is height 1080.
  *
  * format in: AFBC_RGBA8888
@@ -442,11 +497,11 @@ static void case_run_afbc(struct mml_test *test, struct mml_test_case *cur)
 static void case_config_afbc_to_rgb(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGBA8888_AFBC;
-	the_case.cfg_src_w = CASE_AFBC_W;
-	the_case.cfg_src_h = CASE_AFBC_H;
+	the_case.cfg_src_w = mml_afbc_align(mml_test_w);
+	the_case.cfg_src_h = mml_afbc_align(mml_test_h);
 	the_case.cfg_dest_format = MML_FMT_RGB888;
-	the_case.cfg_dest_w = CASE_AFBC_RGB_W;
-	the_case.cfg_dest_h = CASE_AFBC_RGB_H;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
 }
 
 static void setup_afbc_to_rgb(struct mml_submit *task,
@@ -454,8 +509,8 @@ static void setup_afbc_to_rgb(struct mml_submit *task,
 {
 	task->info.dest[0].crop.r.left = 0;
 	task->info.dest[0].crop.r.top = 0;
-	task->info.dest[0].crop.r.width = CASE_AFBC_RGB_W;
-	task->info.dest[0].crop.r.height = CASE_AFBC_RGB_H;
+	task->info.dest[0].crop.r.width = mml_test_w;
+	task->info.dest[0].crop.r.height = mml_test_h;
 }
 
 static void case_run_afbc_to_rgb(struct mml_test *test, struct mml_test_case *cur)
@@ -473,14 +528,14 @@ static void case_run_afbc_to_rgb(struct mml_test *test, struct mml_test_case *cu
 static void case_config_2out(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_NV12;
-	the_case.cfg_dest_w = CASE_RGB_W;
-	the_case.cfg_dest_h = CASE_RGB_H;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
 	the_case.cfg_dest1_format = MML_FMT_RGB888;
-	the_case.cfg_dest1_w = CASE_RGB_W / 2;
-	the_case.cfg_dest1_h = CASE_RGB_H / 2;
+	the_case.cfg_dest1_w = mml_test_w / 2;
+	the_case.cfg_dest1_h = mml_test_h / 2;
 }
 
 static void setup_2out(struct mml_submit *task, struct mml_test_case *cur)
@@ -528,14 +583,14 @@ static void case_run_2out(struct mml_test *test, struct mml_test_case *cur)
 static void case_config_2out_crop(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_NV12;
-	the_case.cfg_dest_w = CASE_RGB_W;
-	the_case.cfg_dest_h = CASE_RGB_H;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
 	the_case.cfg_dest1_format = MML_FMT_RGB888;
-	the_case.cfg_dest1_w = CASE_RGB_W / 2;
-	the_case.cfg_dest1_h = CASE_RGB_H / 2;
+	the_case.cfg_dest1_w = mml_test_w / 2;
+	the_case.cfg_dest1_h = mml_test_h / 2;
 }
 
 static void setup_2out_crop(struct mml_submit *task, struct mml_test_case *cur)
@@ -570,8 +625,8 @@ static void setup_2out_crop(struct mml_submit *task, struct mml_test_case *cur)
 	task->buffer.dest_cnt = 2;
 
 	/* config dest[1] crop */
-	task->info.dest[1].crop.r.left = CASE_RGB_W / 4;
-	task->info.dest[1].crop.r.top = CASE_RGB_W / 4;
+	task->info.dest[1].crop.r.left = mml_test_w / 4;
+	task->info.dest[1].crop.r.top = mml_test_w / 4;
 	task->info.dest[1].crop.r.width = task->info.dest[1].data.width;
 	task->info.dest[1].crop.r.height = task->info.dest[1].data.height;
 }
@@ -594,15 +649,15 @@ static void case_run_2out_crop(struct mml_test *test, struct mml_test_case *cur)
 static void case_config_2out_crop_compose(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_NV12;
-	the_case.cfg_dest_w = CASE_RGB_W;
-	the_case.cfg_dest_h = CASE_RGB_H;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
 	the_case.cfg_dest1_format = MML_FMT_RGB888;
 	/* still use full size cause compose */
-	the_case.cfg_dest1_w = CASE_RGB_W;
-	the_case.cfg_dest1_h = CASE_RGB_H;
+	the_case.cfg_dest1_w = mml_test_w;
+	the_case.cfg_dest1_h = mml_test_h;
 }
 
 #define central(out, in) (out / 2 - in / 2)
@@ -640,14 +695,14 @@ static void setup_2out_crop_compose(struct mml_submit *task,
 	task->buffer.dest_cnt = 2;
 
 	/* config dest[1] crop */
-	task->info.dest[1].crop.r.left = central(CASE_RGB_W, CASE_CROP_W);
-	task->info.dest[1].crop.r.top = central(CASE_RGB_H, CASE_CROP_H);
+	task->info.dest[1].crop.r.left = central(mml_test_w, CASE_CROP_W);
+	task->info.dest[1].crop.r.top = central(mml_test_h, CASE_CROP_H);
 	task->info.dest[1].crop.r.width = task->info.dest[1].data.width;
 	task->info.dest[1].crop.r.height = task->info.dest[1].data.height;
-	task->info.dest[1].compose.left = central(CASE_RGB_W, CASE_CROP_W);
-	task->info.dest[1].compose.top = central(CASE_RGB_H, CASE_CROP_H);
-	task->info.dest[1].compose.width = CASE_RGB_W;
-	task->info.dest[1].compose.height = CASE_RGB_H;
+	task->info.dest[1].compose.left = central(mml_test_w, CASE_CROP_W);
+	task->info.dest[1].compose.top = central(mml_test_h, CASE_CROP_H);
+	task->info.dest[1].compose.width = mml_test_w;
+	task->info.dest[1].compose.height = mml_test_h;
 }
 
 static void case_run_2out_crop_compose(struct mml_test *test,
@@ -661,14 +716,14 @@ static void case_run_2out_crop_compose(struct mml_test *test,
  * format in: RGB888
  * format out0: RGB888 crop
  */
-#define RGB_CROP_OFF_W	(CASE_RGB_W / 2)
-#define RGB_CROP_OFF_H	(CASE_RGB_H / 2)
+#define RGB_CROP_OFF_W	(mml_test_w / 2)
+#define RGB_CROP_OFF_H	(mml_test_h / 2)
 
 static void case_config_crop(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
-	the_case.cfg_src_w = CASE_SRC_RGB_W;
-	the_case.cfg_src_h = CASE_SRC_RGB_H;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
 	the_case.cfg_dest_format = MML_FMT_RGB888;
 	the_case.cfg_dest_w = RGB_CROP_OFF_W;
 	the_case.cfg_dest_h = RGB_CROP_OFF_H;
@@ -676,8 +731,8 @@ static void case_config_crop(void)
 
 static void setup_crop(struct mml_submit *task, struct mml_test_case *cur)
 {
-	task->info.dest[0].crop.r.left = central(CASE_RGB_W, RGB_CROP_OFF_W);
-	task->info.dest[0].crop.r.top = central(CASE_RGB_H, RGB_CROP_OFF_H);
+	task->info.dest[0].crop.r.left = central(mml_test_w, RGB_CROP_OFF_W);
+	task->info.dest[0].crop.r.top = central(mml_test_h, RGB_CROP_OFF_H);
 	task->info.dest[0].crop.r.width = RGB_CROP_OFF_W;
 	task->info.dest[0].crop.r.height = RGB_CROP_OFF_H;
 }
