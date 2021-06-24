@@ -810,7 +810,6 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 	int reg_ofs_cur;
 	unsigned int hw_ptr = 0, hw_base = 0;
 	int ret, pcm_ptr_bytes, pcm_remap_ptr_bytes;
-	unsigned long flags;
 	spinlock_t *ringbuf_lock = &dsp_mem->ringbuf_lock;
 
 	if (dsp->dsp_ver)
@@ -891,7 +890,7 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 			(dsp_mem->adsp_buf.aud_buffer.buf_bridge.pBufBase +
 			 pcm_remap_ptr_bytes);
 
-	spin_lock_irqsave(ringbuf_lock, flags);
+	spin_lock(ringbuf_lock);
 
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_bridge_s("1 mtk_dsp_dl_handler",
@@ -901,7 +900,7 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 	ret = sync_ringbuf_readidx(
 		&dsp_mem->ring_buf,
 		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
-	spin_unlock_irqrestore(ringbuf_lock, flags);
+	spin_unlock(ringbuf_lock);
 
 	if (ret) {
 		pr_info("%s sync_ringbuf_readidx underflow\n", __func__);
@@ -929,10 +928,10 @@ SYNC_READINDEX:
 	if (dsp_mem->underflowed)
 		return -1;
 
-	spin_lock_irqsave(ringbuf_lock, flags);
+	spin_lock(ringbuf_lock);
 	pcm_ptr_bytes = (int)(dsp_mem->ring_buf.pRead -
 			      dsp_mem->ring_buf.pBufBase);
-	spin_unlock_irqrestore(ringbuf_lock, flags);
+	spin_unlock(ringbuf_lock);
 	pcm_remap_ptr_bytes =
 		bytes_to_frames(substream->runtime, pcm_ptr_bytes);
 #ifdef DEBUG_VERBOSE
@@ -975,7 +974,6 @@ DSP_IRQ_HANDLER_ERR:
 static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 			       struct ipi_msg_t *ipi_msg, int id)
 {
-	unsigned long flags;
 	void *ipi_audio_buf;
 	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
 	spinlock_t *ringbuf_lock = &dsp->dsp_mem[id].ringbuf_lock;
@@ -1013,7 +1011,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge.pRead =
 	    dsp->dsp_mem[id].adsp_work_buf.aud_buffer.buf_bridge.pRead;
 
-	spin_lock_irqsave(ringbuf_lock, flags);
+	spin_lock(ringbuf_lock);
 
 #ifdef DEBUG_VERBOSE_IRQ
 	dump_rbuf_s("dl_consume before sync", &dsp->dsp_mem[id].ring_buf);
@@ -1023,7 +1021,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 		&dsp->dsp_mem[id].ring_buf,
 		&dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge);
 
-	spin_unlock_irqrestore(ringbuf_lock, flags);
+	spin_unlock(ringbuf_lock);
 
 #ifdef DEBUG_VERBOSE_IRQ
 	pr_info("%s id = %d\n", __func__, id);
@@ -1449,7 +1447,6 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 			       void __user *buf)
 {
 	int ret = 0, availsize = 0;
-	unsigned long flags = 0;
 	int ack_type;
 	void *ipi_audio_buf; /* dsp <-> audio data struct */
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -1473,13 +1470,12 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	Ringbuf_Bridge_Check(
 		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 
-	spin_lock_irqsave(ringbuf_lock, flags);
+	spin_lock(ringbuf_lock);
 	availsize = RingBuf_getFreeSpace(ringbuf);
-	spin_unlock_irqrestore(ringbuf_lock, flags);
+	spin_unlock(ringbuf_lock);
 	if (availsize < copy_size) {
 		pr_info("%s, id = %d, fail copy_size = %d availsize = %d\n",
 			__func__, id, copy_size, RingBuf_getFreeSpace(ringbuf));
-		spin_unlock_irqrestore(ringbuf_lock, flags);
 		return -1;
 	}
 
@@ -1522,7 +1518,6 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 			       void __user *buf)
 {
 	int ret = 0, availsize = 0;
-	unsigned long flags = 0;
 	void *ipi_audio_buf; /* dsp <-> audio data struct */
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
@@ -1539,9 +1534,9 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 	Ringbuf_Bridge_Check(
 			&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 
-	spin_lock_irqsave(ringbuf_lock, flags);
+	spin_lock(ringbuf_lock);
 	availsize = RingBuf_getDataCount(ringbuf);
-	spin_unlock_irqrestore(ringbuf_lock, flags);
+	spin_unlock(ringbuf_lock);
 
 	if (availsize < copy_size) {
 		pr_info("%s fail copy_size = %d availsize = %d\n", __func__,
@@ -1551,10 +1546,10 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 
 	/* get audio_buffer from ring buffer */
 	ringbuf_copyto_user_linear(buf, &dsp_mem->ring_buf, copy_size);
-	spin_lock_irqsave(ringbuf_lock, flags);
+	spin_lock(ringbuf_lock);
 	sync_bridge_ringbuf_readidx(&dsp_mem->adsp_buf.aud_buffer.buf_bridge,
 				    &dsp_mem->ring_buf);
-	spin_unlock_irqrestore(ringbuf_lock, flags);
+	spin_unlock(ringbuf_lock);
 	dsp_mem->adsp_buf.counter++;
 
 	ipi_audio_buf = (void *)dsp_mem->msg_atod_share_buf.va_addr;
@@ -1642,8 +1637,11 @@ void audio_irq_handler(int irq, void *data, int core_id)
 	/* using semaphore to sync ap <=> adsp */
 	if (get_adsp_semaphore(SEMA_AUDIO))
 		pr_info("%s get semaphore fail\n", __func__);
+
 	pdtoa = (unsigned long *)
 		&dsp->core_share_mem.ap_adsp_core_mem[core_id]->dtoa_flag;
+
+	release_adsp_semaphore(SEMA_AUDIO);
 
 	loop_count = DSP_IRQ_LOOP_COUNT;
 	/* read dram data need mb()  */
@@ -1671,7 +1669,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 #ifdef DEBUG_VERBOSE_IRQ
 	pr_info("leave %s\n", __func__);
 #endif
-	release_adsp_semaphore(SEMA_AUDIO);
+
 	return;
 IRQ_ERROR:
 	pr_info("IRQ_ERROR irq[%d] data[%p] core_id[%d] dsp[%p]\n",
