@@ -22,7 +22,7 @@
 #define MTK_LARB_COM_MAX	16
 #define MTK_LARB_SUBCOM_MAX	4
 
-#define MTK_IOMMU_GROUP_MAX	8
+#define MTK_IOMMU_GROUP_MAX	MTK_M4U_DOM_NR_MAX
 
 struct mtk_iommu_suspend_reg {
 	union {

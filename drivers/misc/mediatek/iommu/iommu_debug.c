@@ -17,7 +17,7 @@
 #include <linux/sched/clock.h>
 #include <linux/export.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#if 0 //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif
 #include "iommu_debug.h"
@@ -37,7 +37,7 @@ enum mtk_iova_space {
 	MTK_IOVA_SPACE_NUM
 };
 
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#if 0 //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define m4u_aee_print(string, args...) do {\
 		char m4u_name[100];\
 		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
@@ -1774,12 +1774,12 @@ static const struct mtk_iommu_port mm_port_mt6983[] = {
 
 	/* larb30 */
 	MM_IOMMU_PORT_INIT("L30_CAM3_YUVO_R1", DISP_IOMMU, 30, 0x34, 0),
-	MM_IOMMU_PORT_INIT("L30_CAM3_YUVO_R3", DISP_IOMMU, 30, 0x34, 0),
-	MM_IOMMU_PORT_INIT("L30_CAM3_YUVCO_R1", DISP_IOMMU, 30, 0x34, 0),
-	MM_IOMMU_PORT_INIT("L30_CAM3_YUVO_R2", DISP_IOMMU, 30, 0x34, 0),
-	MM_IOMMU_PORT_INIT("L30_CAM3_RZH1N2TO_R1", DISP_IOMMU, 30, 0x34, 0),
-	MM_IOMMU_PORT_INIT("L30_CAM3_DRZS4NO_R1", DISP_IOMMU, 30, 0x34, 0),
-	MM_IOMMU_PORT_INIT("L30_CAM3_TNCSO_R1", DISP_IOMMU, 30, 0x34, 0),
+	MM_IOMMU_PORT_INIT("L30_CAM3_YUVO_R3", DISP_IOMMU, 30, 0x34, 1),
+	MM_IOMMU_PORT_INIT("L30_CAM3_YUVCO_R1", DISP_IOMMU, 30, 0x34, 2),
+	MM_IOMMU_PORT_INIT("L30_CAM3_YUVO_R2", DISP_IOMMU, 30, 0x34, 3),
+	MM_IOMMU_PORT_INIT("L30_CAM3_RZH1N2TO_R1", DISP_IOMMU, 30, 0x34, 4),
+	MM_IOMMU_PORT_INIT("L30_CAM3_DRZS4NO_R1", DISP_IOMMU, 30, 0x34, 5),
+	MM_IOMMU_PORT_INIT("L30_CAM3_TNCSO_R1", DISP_IOMMU, 30, 0x34, 6),
 
 	/* Larb31 -- 2 */
 	MM_IOMMU_PORT_INIT("CCU0", MDP_IOMMU, 31, 0x36, 0),

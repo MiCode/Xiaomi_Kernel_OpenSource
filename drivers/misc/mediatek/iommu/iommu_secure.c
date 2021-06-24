@@ -16,8 +16,7 @@
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
 #include <linux/export.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#if 0 //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif
 
@@ -62,6 +61,18 @@ static const struct of_device_id mtk_iommu_bank_of_ids[] = {
 	{ .compatible = "mediatek,common-apu-iommu1-bank2"},
 	{ .compatible = "mediatek,common-apu-iommu1-bank3"},
 	{ .compatible = "mediatek,common-apu-iommu1-bank4"},
+	{ .compatible = "mediatek,common-peri-iommu-m4-bank1"},
+	{ .compatible = "mediatek,common-peri-iommu-m4-bank2"},
+	{ .compatible = "mediatek,common-peri-iommu-m4-bank3"},
+	{ .compatible = "mediatek,common-peri-iommu-m4-bank4"},
+	{ .compatible = "mediatek,common-peri-iommu-m6-bank1"},
+	{ .compatible = "mediatek,common-peri-iommu-m6-bank2"},
+	{ .compatible = "mediatek,common-peri-iommu-m6-bank3"},
+	{ .compatible = "mediatek,common-peri-iommu-m6-bank4"},
+	{ .compatible = "mediatek,common-peri-iommu-m7-bank1"},
+	{ .compatible = "mediatek,common-peri-iommu-m7-bank2"},
+	{ .compatible = "mediatek,common-peri-iommu-m7-bank3"},
+	{ .compatible = "mediatek,common-peri-iommu-m7-bank4"},
 	{},
 };
 
