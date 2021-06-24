@@ -22,6 +22,7 @@ source "drivers/misc/mediatek/eemgpu/Kconfig"
 source "drivers/misc/mediatek/leakage_table/Kconfig"
 source "drivers/misc/mediatek/mdpm/Kconfig"
 source "drivers/misc/mediatek/pbm/Kconfig"
+source "drivers/misc/mediatek/pmsr/Kconfig"
 endmenu # Power
 
 menu "MultiMedia, Display, Camera"
