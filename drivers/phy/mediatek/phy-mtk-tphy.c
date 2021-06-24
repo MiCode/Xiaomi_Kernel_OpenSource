@@ -318,6 +318,8 @@
 #define SIB_STR	"sib"
 #define LOOPBACK_STR "loopback_test"
 
+#define PHY_MODE_UART	"usb2uart_mode=1"
+
 enum mtk_phy_version {
 	MTK_PHY_V1 = 1,
 	MTK_PHY_V2,
@@ -1826,6 +1828,67 @@ static int mtk_phy_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 	return 0;
 }
 
+static bool mtk_phy_uart_mode(struct mtk_tphy *tphy)
+{
+	struct device_node *of_chosen;
+	char *bootargs;
+	bool uart_mode = false;
+
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen) {
+		bootargs = (char *)of_get_property(of_chosen,
+			"bootargs", NULL);
+
+		if (bootargs && strstr(bootargs, PHY_MODE_UART))
+			uart_mode = true;
+	}
+
+	return uart_mode;
+}
+
+static int mtk_phy_uart_init(struct phy *phy)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(phy);
+	struct mtk_tphy *tphy = dev_get_drvdata(phy->dev.parent);
+	int ret;
+
+	if  (instance->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(tphy->dev, "%s\n", __func__);
+
+	ret = clk_prepare_enable(instance->ref_clk);
+	if (ret) {
+		dev_info(tphy->dev, "failed to enable ref_clk\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(instance->da_ref_clk);
+	if (ret) {
+		dev_info(tphy->dev, "failed to enable da_ref\n");
+		clk_disable_unprepare(instance->ref_clk);
+		return ret;
+	}
+	udelay(250);
+
+	return 0;
+}
+
+static int mtk_phy_uart_exit(struct phy *phy)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(phy);
+	struct mtk_tphy *tphy = dev_get_drvdata(phy->dev.parent);
+
+	if  (instance->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(tphy->dev, "%s\n", __func__);
+
+	clk_disable_unprepare(instance->ref_clk);
+	clk_disable_unprepare(instance->da_ref_clk);
+	return 0;
+}
+
 static struct phy *mtk_phy_xlate(struct device *dev,
 					struct of_phandle_args *args)
 {
@@ -1872,6 +1935,12 @@ static struct phy *mtk_phy_xlate(struct device *dev,
 
 	return instance->phy;
 }
+
+static const struct phy_ops mtk_phy_uart_ops = {
+	.init		= mtk_phy_uart_init,
+	.exit		= mtk_phy_uart_exit,
+	.owner		= THIS_MODULE,
+};
 
 static const struct phy_ops mtk_tphy_ops = {
 	.init		= mtk_phy_init,
@@ -2018,6 +2087,10 @@ static int mtk_tphy_probe(struct platform_device *pdev)
 			retval = PTR_ERR(instance->da_ref_clk);
 			goto put_child;
 		}
+
+		/* change ops to usb uart mode */
+		if (mtk_phy_uart_mode(tphy))
+			phy->ops = &mtk_phy_uart_ops;
 	}
 
 	mtk_phy_procfs_init(tphy);
