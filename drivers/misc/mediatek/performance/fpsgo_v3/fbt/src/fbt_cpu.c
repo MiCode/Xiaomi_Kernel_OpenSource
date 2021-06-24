@@ -128,8 +128,6 @@ static int loading_adj_cnt;
 static int loading_debnc_cnt;
 static int loading_time_diff;
 static int adjust_loading;
-static int rescue_percent_90;
-static int rescue_percent_120;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -152,8 +150,6 @@ module_param(loading_adj_cnt, int, 0644);
 module_param(loading_debnc_cnt, int, 0644);
 module_param(loading_time_diff, int, 0644);
 module_param(adjust_loading, int, 0644);
-module_param(rescue_percent_90, int, 0644);
-module_param(rescue_percent_120, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -1609,36 +1605,8 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 	unsigned long long next_vsync, queue_end, rescue_length;
 	unsigned long long t2wnt = 0ULL;
 	unsigned long long ts = fpsgo_get_time();
-	int fps_rescue_percent, fps_short_rescue_ns, fps_min_rescue_percent;
 
 	mutex_lock(&fbt_mlock);
-
-	switch (_gdfrc_fps_limit) {
-	case 60:
-		fps_rescue_percent = rescue_percent;
-		fps_short_rescue_ns = short_rescue_ns;
-		fps_min_rescue_percent = min_rescue_percent;
-		break;
-	case 90:
-		fps_rescue_percent = rescue_percent_90;
-		fps_min_rescue_percent = rescue_percent_90;
-		fps_short_rescue_ns =
-			(rescue_percent_90 == DEF_RESCUE_PERCENT)
-			? DEF_RESCUE_NS_TH : vsync_period;
-		break;
-	case 120:
-	default:
-		fps_rescue_percent = rescue_percent_120;
-		fps_min_rescue_percent = rescue_percent_120;
-		fps_short_rescue_ns =
-			(rescue_percent_120 == DEF_RESCUE_PERCENT)
-			? DEF_RESCUE_NS_TH : vsync_period;
-		break;
-	}
-
-	xgf_trace("fps=%d, rescue@(%d, %d, %d)", _gdfrc_fps_limit,
-			fps_rescue_percent, fps_min_rescue_percent,
-			fps_short_rescue_ns);
 
 	queue_end = queue_start + t_cpu_target;
 	next_vsync = fbt_get_next_vsync_locked(queue_end);
@@ -1651,7 +1619,7 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 			ts, next_vsync, short_min_rescue_p);
 	else {
 		t2wnt = fbt_cal_t2wnt(t_cpu_target,
-				ts, next_vsync, fps_rescue_percent);
+				ts, next_vsync, rescue_percent);
 		if (t2wnt == 0ULL)
 			goto ERROR;
 
@@ -1659,10 +1627,10 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 			t2wnt = t_cpu_target;
 
 			rescue_length = next_vsync - t2wnt - queue_start;
-			if (rescue_length <= fps_short_rescue_ns)
+			if (rescue_length <= short_rescue_ns)
 				t2wnt = fbt_cal_t2wnt(t_cpu_target,
 					ts, next_vsync,
-					fps_min_rescue_percent);
+					min_rescue_percent);
 		}
 	}
 ERROR:
@@ -3303,8 +3271,6 @@ int __init fbt_cpu_init(void)
 	rescue_percent = DEF_RESCUE_PERCENT;
 	min_rescue_percent = 10;
 	short_rescue_ns = DEF_RESCUE_NS_TH;
-	rescue_percent_90 = DEF_RESCUE_PERCENT;
-	rescue_percent_120 = DEF_RESCUE_PERCENT;
 	short_min_rescue_p = 0;
 	run_time_percent = 50;
 	deqtime_bound = TIME_3MS;
