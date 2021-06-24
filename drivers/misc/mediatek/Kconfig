@@ -124,6 +124,14 @@ config BUILD_CONFIG_FILE
 	  Specify the build.config file which record toolchain environment
 	  Such as "build.config.mtk.aarch64"
 
+config ABI_MONITOR
+	bool "abi monitor support"
+	help
+	  Used to enable abi monitor check for KMI,
+	  which is the interface between kernel modules and kernel(vmlinux).
+	  Say Y here if you are need abi monitor support.
+	  If unsure, say N
+
 config EXT_MODULES
 	string "out-of-tree kernel modules"
 	help
