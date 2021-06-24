@@ -73,6 +73,7 @@ int send_new_time_to_new_md(int md_id, int tz)
 	int ret;
 	int index;
 	char *name = "ccci_0_202";
+	int has_write;
 
 	do_gettimeofday(&tv);
 	timeinfo[0] = tv.tv_sec;
@@ -80,8 +81,13 @@ int send_new_time_to_new_md(int md_id, int tz)
 	timeinfo[2] = tz;
 	timeinfo[3] = sys_tz.tz_dsttime;
 
-	snprintf(ccci_time, sizeof(ccci_time), "%010u,%010u,%010u,%010u",
+	has_write = snprintf(ccci_time, sizeof(ccci_time), "%010u,%010u,%010u,%010u",
 			timeinfo[0], timeinfo[1], timeinfo[2], timeinfo[3]);
+	if (has_write < 0 || has_write >= sizeof(ccci_time)) {
+		CCCI_ERROR_LOG(-1, CHAR, "get ccci time fail, has_write = %d\n",
+			has_write);
+		return -1;
+	}
 	index = mtk_ccci_request_port(name);
 	ret = mtk_ccci_send_data(index, ccci_time, strlen(ccci_time) + 1);
 
