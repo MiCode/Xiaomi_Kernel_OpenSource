@@ -423,6 +423,8 @@ static int __init mtk_scheduler_init(void)
 		pr_info("register android_vh_arch_set_freq_scale failed\n");
 #endif
 
+	mtk_static_power_init();
+
 #if IS_ENABLED(CONFIG_MTK_EAS)
 	ret = init_sram_info();
 	if (ret)
@@ -463,7 +465,6 @@ static int __init mtk_scheduler_init(void)
 
 	mtk_sched_trace_init();
 
-	mtk_static_power_init();
 	return ret;
 
 }
