@@ -7,6 +7,7 @@
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/mailbox_controller.h>
 #include <linux/sched/clock.h>
+#include <linux/interrupt.h>
 #include <linux/of_device.h>
 #include <linux/workqueue.h>
 #include <linux/atomic.h>
@@ -14,14 +15,16 @@
 #include <linux/timer.h>
 #include <linux/clk.h>
 
-#include <hifi4dsp_spi.h>
-#define SPI_SPEED_WRITE		SPI_SPEED_HIGH
-#define SPI_SPEED_READ		(SPI_SPEED_WRITE / 2)
-
+#include <spi_slave.h>
 #include <mmprofile.h>
+
+#include "cmdq-bdg.h"
 #if IS_ENABLED(CONFIG_MTK_CMDQ_V3)
 #include "cmdq_helper_ext.h"
 #endif
+
+#define SYSREG_IRQ_CTRL2	0x1c
+#define SYSREG_IRQ_MSK_CLR	0x74
 
 #define SYSBUF_BASE		0xA000
 #define SYSBUF_SIZE		0x2000
@@ -30,6 +33,9 @@
 #define CMDQ_SYSBUF_SIZE	(CMDQ_SYSBUF_COPY_SIZE + CMDQ_INST_SIZE)
 
 #define GCE_BASE		0x10000
+#define GCE_DBG_CTL		0x3000
+#define GCE_DBG0		0x3004
+#define GCE_DBG2		0x300c
 
 #define CMDQ_THR_SLOT_CYCLES	0x30
 
@@ -45,6 +51,7 @@
 #define CMDQ_THR_PC		0x20
 #define CMDQ_THR_END_ADDR	0x24
 #define CMDQ_THR_QOS		0x40
+#define CMDQ_THR_SPR0		0x60
 
 #define CMDQ_THR_SLOT_CYCLES_UNIT	64
 #define CMDQ_THR_SLOT_CYCLES_COUNT	128
@@ -81,14 +88,16 @@ struct cmdq {
 	u32			irq;
 	struct clk		*clock;
 	struct clk		*clock_timer;
+	atomic_t		usage;
 	struct mbox_controller	mbox;
 	struct cmdq_thread	thread[CMDQ_THR_MAX_COUNT];
 	struct workqueue_struct	*timeout_wq;
-	struct cmdq_mmp		mmp;
 	struct list_head	sysbuf;
 	atomic_t		buf_count;
-	atomic_t		usage;
+	struct cmdq_mmp		mmp;
 };
+
+struct cmdq *g_cmdq;
 
 struct cmdq_task {
 	struct list_head	list_entry;
@@ -104,23 +113,23 @@ inline u32 spi_read_reg(const u32 addr)
 {
 	u32 val = UINT_MAX;
 
-	spi_read_register(addr, &val, SPI_SPEED_READ);
+	spislv_read_register(addr, &val);
 	return val;
 }
 
 inline s32 spi_write_reg(const u32 addr, const u32 val)
 {
-	return spi_write_register(addr, val, SPI_SPEED_WRITE);
+	return spislv_write_register(addr, val);
 }
 
 inline s32 spi_read_mem(const u32 addr, void *val, const s32 len)
 {
-	return dsp_spi_read_ex(addr, val, len, SPI_SPEED_READ);
+	return spislv_read(addr, val, len);
 }
 
 inline s32 spi_write_mem(const u32 addr, void *val, const s32 len)
 {
-	return dsp_spi_write_ex(addr, val, len, SPI_SPEED_WRITE);
+	return spislv_write(addr, val, len);
 }
 
 static inline u32 cmdq_bdg_thread_get_reg(struct cmdq_thread *thread,
@@ -270,7 +279,7 @@ static void cmdq_bdg_clk_disable(struct cmdq_thread *thread)
 		&cmdq->base_pa, thread->idx, atomic_read(&cmdq->usage));
 }
 
-static void cmdq_bdg_dump_sysbuf(const phys_addr_t pa, const size_t size)
+static void cmdq_bdg_dump_sysbuf(const phys_addr_t base, const size_t size)
 {
 	u64 *command;
 	s32 i;
@@ -279,10 +288,10 @@ static void cmdq_bdg_dump_sysbuf(const phys_addr_t pa, const size_t size)
 	if (!command)
 		return;
 
-	cmdq_msg("%s: pa:%pa size:%ld", __func__, &pa, size);
-	spi_read_mem(pa, command, size);
+	cmdq_msg("%s: base:%pa size:%ld", __func__, &base, size);
+	spi_read_mem(base, command, size);
 	for (i = 0; i < size / CMDQ_INST_SIZE; i++)
-		cmdq_msg("inst[%d]:%#llx", i, *(command + i));
+		cmdq_msg("%s: inst[%d]:%#llx", __func__, i, *(command + i));
 
 	kfree(command);
 }
@@ -390,7 +399,7 @@ static void cmdq_bdg_task_callback(struct cmdq_pkt *pkt, const s32 err)
 {
 	struct cmdq_cb_data data;
 
-	if (pkt->cb.cb) {
+	if (pkt && pkt->cb.cb) {
 		data.err = err;
 		data.data = pkt->cb.data;
 		pkt->cb.cb(data);
@@ -401,7 +410,7 @@ static void cmdq_bdg_task_error_callback(struct cmdq_pkt *pkt, const s32 err)
 {
 	struct cmdq_cb_data data;
 
-	if (pkt->err_cb.cb) {
+	if (pkt && pkt->err_cb.cb) {
 		data.err = err;
 		data.data = pkt->err_cb.data;
 		pkt->err_cb.cb(data);
@@ -414,17 +423,21 @@ static void cmdq_bdg_task_done(struct cmdq_task *task, const s32 err)
 	s32 count = 0;
 
 	cmdq_bdg_task_callback(task->pkt, err);
+	list_del_init(&task->list_entry);
+	mmprofile_log_ex(task->cmdq->mmp.task_done, MMPROFILE_FLAG_PULSE,
+		((s16)err << 16) | task->thread->idx, (unsigned long)task->pkt);
+
+	if (task->pkt->reuse) {
+		cmdq_msg("%s: thread:%u pkt:%p task:%p err:%d reuse",
+			__func__, task->thread->idx, task->pkt, task, err);
+		return;
+	}
 
 	list_for_each_entry_safe(buf, temp, &task->sysbuf, list_entry) {
 		list_move_tail(&buf->list_entry, &task->cmdq->sysbuf);
 		count += 1;
 	}
 	atomic_add_return(count, &task->cmdq->buf_count);
-
-	mmprofile_log_ex(task->cmdq->mmp.task_done, MMPROFILE_FLAG_PULSE,
-		((s16)err << 16) | task->thread->idx, (unsigned long)task->pkt);
-
-	list_del_init(&task->list_entry);
 	kfree(task);
 }
 
@@ -444,8 +457,8 @@ static void cmdq_bdg_thread_irq_handler(struct cmdq_thread *thread)
 
 	irq = cmdq_bdg_thread_get_reg(thread, CMDQ_THR_IRQ_FLAG);
 	cmdq_bdg_thread_set_reg(thread, CMDQ_THR_IRQ_FLAG, ~irq);
-	cmdq_msg("%s: thread:%u pc:%pa end:%pa irq:%#x",
-		__func__, thread->idx, &pc, &end, irq);
+	cmdq_msg("%s: thread:%u irq:%#x pc:%pa end:%pa",
+		__func__, thread->idx, irq, &pc, &end);
 
 	irq &= (CMDQ_THR_IRQ_DONE | CMDQ_THR_IRQ_ERROR);
 	if (!irq)
@@ -472,8 +485,8 @@ static void cmdq_bdg_thread_irq_handler(struct cmdq_thread *thread)
 			u64 inst;
 
 			spi_read_mem(pc, &inst, CMDQ_INST_SIZE);
-			cmdq_err("irq:%#x thread:%u pkt:%p pc:%pa inst:%#llx",
-				irq, thread->idx, task->pkt, &pc, inst);
+			cmdq_err("thread:%u irq:%#x pkt:%p pc:%pa inst:%#llx",
+				thread->idx, irq, task->pkt, &pc, inst);
 			cmdq_bdg_task_done(task, -EINTR);
 
 			next = list_first_entry_or_null(&thread->task_busy_list,
@@ -495,6 +508,46 @@ static void cmdq_bdg_thread_irq_handler(struct cmdq_thread *thread)
 	} else
 		cmdq_msg("%s: thread:%u without task", __func__, thread->idx);
 }
+
+s32 cmdq_bdg_irq_handler(void)
+{
+	struct cmdq *cmdq = g_cmdq;
+	struct cmdq_thread *thread;
+	s32 bit, ret = atomic_read(&cmdq->usage);
+	unsigned long irq;
+
+	if (!ret)
+		cmdq_err("cmdq:%pa usage:%#x have disabled",
+			&cmdq->base_pa, ret);
+
+	irq = spi_read_reg(cmdq->base_pa + CMDQ_THR_IRQ_FLAG);
+	cmdq_msg("%s: cmdq:%pa usage:%#x irq:%#x:%#x",
+		__func__, &cmdq->base_pa, ret, CMDQ_THR_IRQ_FLAG, irq);
+
+	if (irq == UINT_MAX)
+		return IRQ_NONE;
+
+	ret = IRQ_HANDLED;
+	for_each_clear_bit(bit, &irq, 32) {
+		thread = &cmdq->thread[bit];
+		cmdq_msg("%s: bit:%d thread:%u occupied:%d",
+			__func__, bit, thread->idx, thread->occupied);
+
+		if (!thread->occupied) {
+			ret = IRQ_NONE;
+			continue;
+		}
+		cmdq_bdg_thread_irq_handler(thread);
+	}
+
+	spi_write_reg(cmdq->base_pa + CMDQ_THR_IRQ_FLAG, UINT_MAX);
+	cmdq_msg("%s: cmdq:%pa usage:%#x irq:%#x:%#x",
+		__func__, &cmdq->base_pa, ret, CMDQ_THR_IRQ_FLAG,
+		spi_read_reg(cmdq->base_pa + CMDQ_THR_IRQ_FLAG));
+
+	return ret;
+}
+EXPORT_SYMBOL(cmdq_bdg_irq_handler);
 
 static void cmdq_bdg_thread_timeout_work(struct work_struct *work)
 {
@@ -607,13 +660,77 @@ static void cmdq_bdg_thread_shutdown(struct cmdq_thread *thread)
 	cmdq_bdg_clk_disable(thread);
 }
 
-void cmdq_bdg_client_shutdown(void *cl)
+void cmdq_bdg_client_shutdown(struct cmdq_client *cl)
 {
-	struct cmdq_client *client = (struct cmdq_client *)cl;
-
-	cmdq_bdg_thread_shutdown(client->chan->con_priv);
+	cmdq_bdg_thread_shutdown(cl->chan->con_priv);
 }
 EXPORT_SYMBOL(cmdq_bdg_client_shutdown);
+
+static inline void cmdq_bdg_mbox_write_sysbuf(struct cmdq_task *task)
+{
+	struct cmdq_pkt *pkt = task->pkt;
+	struct cmdq_pkt_buffer *pkt_buf, *pkt_temp;
+	struct cmdq_sysbuf *buf, *temp;
+	s32 count, remain;
+
+	remain = CMDQ_CMD_BUFFER_SIZE / CMDQ_SYSBUF_COPY_SIZE;
+	buf = list_first_entry(&task->sysbuf, typeof(*buf), list_entry);
+	list_for_each_entry_safe(pkt_buf, pkt_temp, &pkt->buf, list_entry) {
+		if (list_is_last(&pkt_buf->list_entry, &pkt->buf))
+			remain = ceil(pkt->cmd_buf_size % CMDQ_CMD_BUFFER_SIZE,
+				CMDQ_SYSBUF_COPY_SIZE);
+		cmdq_msg("%s: pkt_buf va:%p pa:%pa remain:%d",
+			__func__, pkt_buf->va_base, &pkt_buf->pa_base, remain);
+
+		count = 0;
+		list_for_each_entry_safe_from(
+			buf, temp, &task->sysbuf, list_entry) {
+			u64 inst = ((u64)CMDQ_OP_JUMP_PA << 32) |
+				CMDQ_SET_ADDR(temp->base);
+
+			cmdq_msg("%s: count:%d remain:%d buf(%d):%pa", __func__,
+				count, remain, buf->index, &buf->base);
+
+			if (list_is_last(&buf->list_entry, &task->sysbuf)) {
+				spi_write_mem(buf->base, pkt_buf->va_base +
+					CMDQ_SYSBUF_COPY_SIZE * count,
+					task->cmd_size % CMDQ_SYSBUF_SIZE);
+				break;
+			}
+
+			spi_write_mem(buf->base, pkt_buf->va_base +
+				CMDQ_SYSBUF_COPY_SIZE * count,
+				CMDQ_SYSBUF_COPY_SIZE);
+
+			if (++count == remain) { // replace jump
+				cmdq_msg("%s:jump pc:%pa:%#x inst:%#llx",
+					__func__, &buf->base,
+					CMDQ_SYSBUF_COPY_SIZE - CMDQ_INST_SIZE,
+					inst);
+				spi_write_mem(buf->base +
+					CMDQ_SYSBUF_COPY_SIZE - CMDQ_INST_SIZE,
+					&inst, CMDQ_INST_SIZE);
+				break;
+			}
+
+			// insert jump
+			cmdq_msg("%s:jump pc:%pa:%#x inst:%#llx",
+				__func__, &buf->base,
+				CMDQ_SYSBUF_COPY_SIZE, inst);
+			spi_write_mem(buf->base +
+				CMDQ_SYSBUF_COPY_SIZE, &inst, CMDQ_INST_SIZE);
+		}
+	}
+
+	if (pkt->loop) {
+		u64 inst = ((u64)CMDQ_OP_JUMP_PA << 32) |
+			CMDQ_SET_ADDR(task->cmd_base);
+		phys_addr_t end = cmdq_bdg_task_get_end(task) - CMDQ_INST_SIZE;
+
+		spi_write_mem(end, &inst, CMDQ_INST_SIZE);
+	}
+	cmdq_bdg_dump_sysbuf(buf->base, task->cmd_size % CMDQ_SYSBUF_SIZE);
+}
 
 static inline void cmdq_bdg_task_connect(struct cmdq_task *task,
 	struct cmdq_task *next)
@@ -641,7 +758,7 @@ static inline void cmdq_bdg_task_insert_thread(struct cmdq_task *task,
 		prev = curr;
 		if (next)
 			next->pkt->priority += CMDQ_PKT_PRI_AGE;
-		if (cmdq_bdg_task_running(task, pa))
+		if (cmdq_bdg_task_running(curr, pa))
 			break;
 		if (curr->pkt->priority >= task->pkt->priority)
 			break;
@@ -649,10 +766,10 @@ static inline void cmdq_bdg_task_insert_thread(struct cmdq_task *task,
 	}
 	*pos = &prev->list_entry;
 
-	cmdq_bdg_task_connect(prev, curr);
+	cmdq_bdg_task_connect(prev, task);
 
 	if (next)
-		cmdq_bdg_task_connect(curr, next);
+		cmdq_bdg_task_connect(task, next);
 }
 
 static int cmdq_bdg_mbox_send_data(struct mbox_chan *chan, void *data)
@@ -660,152 +777,97 @@ static int cmdq_bdg_mbox_send_data(struct mbox_chan *chan, void *data)
 	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
 	struct cmdq_thread *thread = chan->con_priv;
 	struct cmdq_pkt *pkt = data;
-	struct cmdq_pkt_buffer *pkt_buf, *pkt_temp;
 	struct cmdq_task *task, *last;
 	struct cmdq_sysbuf *buf, *temp;
 	struct list_head *pos;
 	phys_addr_t pc, end;
 	unsigned long flags;
 	s32 count, remain;
-	u64 tick = sched_clock();
 
-	spin_unlock_irqrestore(&thread->chan->lock, flags);
+	if (!pkt) {
+		cmdq_msg("%s: pkt:%p", __func__, pkt);
+		dump_stack();
+		return 0;
+	}
 
 	if (list_empty(&pkt->buf)) {
 		cmdq_err("thread:%u pkt:%p without command", thread->idx, pkt);
-		cmdq_bdg_task_callback(pkt, -ENOMEM);
-		spin_lock_irqsave(&thread->chan->lock, flags);
+		dump_stack();
+		cmdq_bdg_task_callback(pkt, -EINVAL);
 		return -EINVAL;
 	}
 
-	task = kzalloc(sizeof(*task), GFP_ATOMIC);
-	if (!task) {
-		cmdq_bdg_task_callback(pkt, -ENOMEM);
-		spin_lock_irqsave(&thread->chan->lock, flags);
-		return -ENOMEM;
-	}
-	pkt->task_alloc = true;
+	task = pkt->bdg_data ? (struct cmdq_task *)pkt->bdg_data : NULL;
+	if (task) {
+		if (!pkt->reuse) {
+			cmdq_msg("%s: thread:%u pkt:%p task:%p reuse done",
+				__func__, thread->idx, pkt, task);
+			cmdq_bdg_task_done(task, 0);
+			return 0;
+		}
 
-	task->cmdq = cmdq;
-	task->thread = thread;
-	task->pkt = pkt;
-	INIT_LIST_HEAD(&task->sysbuf);
+		if (task->list_entry.next != &task->list_entry) {
+			cmdq_err("thread:%u pkt:%p task:%p in list",
+				thread->idx, pkt, task);
+			cmdq_bdg_task_callback(pkt, -EEXIST);
+			return -EEXIST;
+		}
 
-	cmdq_msg("%s:allocate task pkt:%p tick:%llu us",
-		__func__, pkt, div_u64(sched_clock() - tick, 1000000));
-	tick = sched_clock();
+		cmdq_msg("%s: thread:%u pkt:%p data:%p task:%p existed",
+			__func__, thread->idx, pkt, pkt->bdg_data, task);
+	} else {
+		task = kzalloc(sizeof(*task), GFP_ATOMIC);
+		if (!task) {
+			cmdq_bdg_task_callback(pkt, -ENOMEM);
+			return -ENOMEM;
+		}
+		pkt->task_alloc = true;
 
-	// allocate sysbuf
-	task->cmd_size = pkt->cmd_buf_size + CMDQ_INST_SIZE *
-		(ceil(pkt->cmd_buf_size, CMDQ_SYSBUF_COPY_SIZE) - 1);
-	count = ceil(task->cmd_size, CMDQ_SYSBUF_SIZE);
+		task->cmdq = cmdq;
+		task->thread = thread;
+		task->pkt = pkt;
+		INIT_LIST_HEAD(&task->sysbuf);
 
-	remain = atomic_read(&cmdq->buf_count);
-	if (remain < count) {
-		cmdq_err(
-			"thread:%u pkt:%p cmd_buf_size:%ld cmd_size:%ld count:%d without enough sysbuf:%d",
-			thread->idx, pkt, pkt->cmd_buf_size,
+		// allocate sysbuf
+		task->cmd_size = pkt->cmd_buf_size + CMDQ_INST_SIZE *
+			(ceil(pkt->cmd_buf_size, CMDQ_SYSBUF_COPY_SIZE) - 1);
+		count = ceil(task->cmd_size, CMDQ_SYSBUF_SIZE);
+
+		remain = atomic_read(&cmdq->buf_count);
+		if (remain < count) {
+			cmdq_err(
+				"thread:%u pkt:%p cmd_buf_size:%ld cmd_size:%ld count:%d without enough sysbuf:%d",
+				thread->idx, pkt, pkt->cmd_buf_size,
+				task->cmd_size, count, remain);
+
+			cmdq_bdg_task_callback(pkt, -ENOMEM);
+			kfree(task);
+			return -ENOMEM;
+		}
+
+		remain = atomic_sub_return(count, &cmdq->buf_count);
+		cmdq_msg(
+			"%s: thread:%u pkt:%p cmd_buf_size:%ld cmd_size:%ld count:%d remain:%d",
+			__func__, thread->idx, pkt, pkt->cmd_buf_size,
 			task->cmd_size, count, remain);
 
-		cmdq_bdg_task_callback(pkt, -ENOMEM);
-		kfree(task);
-		spin_lock_irqsave(&thread->chan->lock, flags);
-		return -ENOMEM;
-	}
-
-	remain = atomic_sub_return(count, &cmdq->buf_count);
-	cmdq_msg(
-		"%s: thread:%u pkt:%p cmd_buf_size:%ld cmd_size:%ld count:%d remain:%d",
-		__func__, thread->idx, pkt, pkt->cmd_buf_size,
-		task->cmd_size, count, remain);
-
-	list_for_each_entry_safe(buf, temp, &cmdq->sysbuf, list_entry) {
-		list_move_tail(&buf->list_entry, &task->sysbuf);
-		if (!task->cmd_base)
-			task->cmd_base = buf->base;
-		if (!--count)
-			break;
-	}
-
-	cmdq_msg("%s:allocate sysbuf pkt:%p tick:%llu us",
-		__func__, pkt, div_u64(sched_clock() - tick, 1000000));
-	tick = sched_clock();
-
-	// write sysbuf
-	remain = CMDQ_CMD_BUFFER_SIZE / CMDQ_SYSBUF_COPY_SIZE;
-	buf = list_first_entry(&task->sysbuf, typeof(*buf), list_entry);
-	list_for_each_entry_safe(pkt_buf, pkt_temp, &pkt->buf, list_entry) {
-		if (list_is_last(&pkt_buf->list_entry, &pkt->buf))
-			remain = ceil(pkt->cmd_buf_size % CMDQ_CMD_BUFFER_SIZE,
-				CMDQ_SYSBUF_COPY_SIZE);
-		cmdq_msg("%s: pkt_buf va:%p pa:%pa remain:%d",
-			__func__, pkt_buf->va_base, &pkt_buf->pa_base, remain);
-
-		count = 0;
-		list_for_each_entry_safe_from(
-			buf, temp, &task->sysbuf, list_entry) {
-			u64 inst;
-
-			inst = ((u64)CMDQ_OP_JUMP_PA << 32) |
-				CMDQ_SET_ADDR(temp->base);
-			cmdq_msg(
-				"%s: count:%d remain:%d buf(%d):%pa temp(%d):%pa inst:%#llx",
-				__func__, count, remain, buf->index, &buf->base,
-				temp->index, &temp->base, inst);
-
-			if (list_is_last(&buf->list_entry, &task->sysbuf)) {
-				spi_write_mem(buf->base, pkt_buf->va_base +
-					CMDQ_SYSBUF_COPY_SIZE * count,
-					task->cmd_size % CMDQ_SYSBUF_SIZE);
+		list_for_each_entry_safe(buf, temp, &cmdq->sysbuf, list_entry) {
+			list_move_tail(&buf->list_entry, &task->sysbuf);
+			if (!task->cmd_base)
+				task->cmd_base = buf->base;
+			if (!--count)
 				break;
-			}
-
-			spi_write_mem(buf->base, pkt_buf->va_base +
-				CMDQ_SYSBUF_COPY_SIZE * count,
-				CMDQ_SYSBUF_COPY_SIZE);
-
-			if (++count == remain) { // replace jump
-				cmdq_msg(
-					"%s: replace jump pc:%pa:%#x inst:%#llx",
-					__func__, &buf->base,
-					CMDQ_SYSBUF_COPY_SIZE - CMDQ_INST_SIZE,
-					inst);
-				spi_write_mem(buf->base +
-					CMDQ_SYSBUF_COPY_SIZE - CMDQ_INST_SIZE,
-					&inst, CMDQ_INST_SIZE);
-				cmdq_bdg_dump_sysbuf(
-					buf->base, CMDQ_SYSBUF_SIZE);
-				break;
-			}
-
-			// insert jump
-			cmdq_msg("%s: insert jump pc:%pa:%#x inst:%#llx",
-				__func__, &buf->base,
-				CMDQ_SYSBUF_COPY_SIZE, inst);
-			spi_write_mem(buf->base +
-				CMDQ_SYSBUF_COPY_SIZE, &inst, CMDQ_INST_SIZE);
-			cmdq_bdg_dump_sysbuf(buf->base, CMDQ_SYSBUF_SIZE);
 		}
+
+		spin_unlock_irqrestore(&thread->chan->lock, flags);
+		cmdq_bdg_mbox_write_sysbuf(task);
+		spin_lock_irqsave(&thread->chan->lock, flags);
+		pkt->bdg_data = (void *)task;
 	}
-
-	if (pkt->loop) {
-		u64 inst = ((u64)CMDQ_OP_JUMP_PA << 32) |
-			CMDQ_SET_ADDR(task->cmd_base);
-
-		end = cmdq_bdg_task_get_end(task) - CMDQ_INST_SIZE;
-		spi_write_mem(end, &inst, CMDQ_INST_SIZE);
-	}
-	cmdq_bdg_dump_sysbuf(buf->base, task->cmd_size % CMDQ_SYSBUF_SIZE);
-
-	cmdq_msg("%s:write sysbuf pkt:%p tick:%llu us",
-		__func__, pkt, div_u64(sched_clock() - tick, 1000000));
-	tick = sched_clock();
 
 	// insert task
+	spin_unlock_irqrestore(&thread->chan->lock, flags);
 	if (list_empty(&thread->task_busy_list)) {
-		cmdq_msg("%s: thread:%u pkt:%p single task",
-			__func__, thread->idx, pkt);
-
 		WARN_ON(cmdq_bdg_clk_enable(thread));
 		WARN_ON(cmdq_bdg_thread_warm_reset(thread));
 
@@ -818,10 +880,6 @@ static int cmdq_bdg_mbox_send_data(struct mbox_chan *chan, void *data)
 		cmdq_bdg_thread_set_reg(thread, CMDQ_THR_IRQ_FLAG_EN,
 			CMDQ_THR_IRQ_DONE | CMDQ_THR_IRQ_ERROR);
 
-		cmdq_msg("%s:write gce pkt:%p tick:%llu us",
-			__func__, pkt, div_u64(sched_clock() - tick, 1000000));
-		tick = sched_clock();
-
 		if (thread->timeout_ms != CMDQ_NO_TIMEOUT) {
 			mod_timer(&thread->timeout,
 				jiffies + msecs_to_jiffies(thread->timeout_ms));
@@ -831,13 +889,15 @@ static int cmdq_bdg_mbox_send_data(struct mbox_chan *chan, void *data)
 
 		pc = cmdq_bdg_thread_get_pc(thread);
 		end = cmdq_bdg_thread_get_end(thread);
-		cmdq_msg("%s: thread:%u pc:%pa end:%pa",
-			__func__, thread->idx, &pc, &end);
+
+		// irq clear
+		spislv_write_register_mask(
+			SYSREG_IRQ_MSK_CLR, BIT(10), BIT(10));
+		cmdq_msg("%s:single pkt:%p thread:%u pc:%pa end:%pa irq:%#x",
+			__func__, pkt, thread->idx, &pc, &end,
+			spi_read_reg(SYSREG_IRQ_CTRL2));
 		cmdq_bdg_thread_enable(thread);
 	} else {
-		cmdq_msg("%s: thread:%u pkt:%p multiple tasks",
-			__func__, thread->idx, pkt);
-
 		WARN_ON(cmdq_bdg_thread_suspend(thread));
 
 		pc = cmdq_bdg_thread_get_pc(thread);
@@ -856,19 +916,16 @@ static int cmdq_bdg_mbox_send_data(struct mbox_chan *chan, void *data)
 			&thread->task_busy_list, typeof(*last), list_entry);
 		cmdq_bdg_thread_set_end(thread, cmdq_bdg_task_get_end(last));
 
-		pc =  cmdq_bdg_thread_get_pc(thread);
+		pc = cmdq_bdg_thread_get_pc(thread);
 		end = cmdq_bdg_thread_get_end(thread);
-		cmdq_msg("%s: thread:%u pc:%pa end:%pa",
-			__func__, thread->idx, &pc, &end);
+		cmdq_msg("%s:multiple pkt:%p thread:%u pc:%pa end:%pa",
+			__func__, pkt, thread->idx, &pc, &end);
 		cmdq_bdg_thread_resume(thread);
 	}
 	mmprofile_log_ex(cmdq->mmp.task_send, MMPROFILE_FLAG_PULSE,
 		thread->idx, (unsigned long)pkt);
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
-
-	cmdq_msg("%s:insert task pkt:%p tick:%llu us",
-		__func__, pkt, div_u64(sched_clock() - tick, 1000000));
 	return 0;
 }
 
@@ -1008,8 +1065,7 @@ static int cmdq_bdg_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	cmdq->timeout_wq =
-		create_singlethread_workqueue("cmdq_bdg_timeout_workqueue");
+	cmdq->timeout_wq = create_singlethread_workqueue("cmdq_bdg_timeout_wq");
 	// cmdq->buf_dump_wq
 
 	INIT_LIST_HEAD(&cmdq->sysbuf);
@@ -1023,12 +1079,13 @@ static int cmdq_bdg_probe(struct platform_device *pdev)
 	}
 	atomic_set(&cmdq->buf_count, SYSBUF_SIZE / CMDQ_SYSBUF_SIZE);
 
+	cmdq_bdg_mmp_init(cmdq);
 	platform_set_drvdata(pdev, cmdq);
 
-	cmdq_msg("%s pdev:%p buf_count:%d",
+	cmdq_msg("%s: pdev:%p buf_count:%d",
 		__func__, pdev, atomic_read(&cmdq->buf_count));
 
-	cmdq_bdg_mmp_init(cmdq);
+	g_cmdq = cmdq;
 	return ret;
 }
 

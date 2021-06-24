@@ -1259,9 +1259,9 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 
 	CMDQ_LOG("%s extension:%d\n", __func__, secData->extension);
 	if (secData->extension & 0x1)
-		cmdq_task_set_secure_id(handle, SEC_ID_WFD);
+		cmdq_task_set_secure_id(handle, MEM_WFD);
 	else
-		cmdq_task_set_secure_id(handle, SEC_ID_SVP);
+		cmdq_task_set_secure_id(handle, MEM_SVP);
 
 	return 0;
 #else
