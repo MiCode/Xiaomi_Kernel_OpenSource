@@ -473,16 +473,39 @@ static void seq_stopl(struct seq_file *s, void *v)
 static int seq_show(struct seq_file *s, void *v)
 {
 	struct sw_logger_seq_data *pSData = v;
+#ifdef SW_LOGGER_DEBUG
+	unsigned int i;
+#else
+	static unsigned int prevIsBinary = 0;
+#endif
 
 	LOGGER_INFO("%s in", __func__);
 
 #ifdef SW_LOGGER_DEBUG
-	seq_printf(s, "dbglog[%d,%d,%d] = %s",
-		pSData->w_ptr, pSData->r_ptr, pSData->i,
-		(sw_log_buf + pSData->i));
+	if ((sw_log_buf[pSData->i] == 0xA5) &&
+		(sw_log_buf[pSData->i+1] == 0xA5)) {
+		seq_printf(s, "dbglog[%d,%d,%d] = ",
+			pSData->w_ptr, pSData->r_ptr, pSData->i);
+		for (i=0; i<LOG_LINE_MAX_LENS; i++)
+			seq_printf(s, "%02X", sw_log_buf + pSData->i + i);
+		seq_printf(s, "\n");
+	} else
+		seq_printf(s, "dbglog[%d,%d,%d] = %s",
+			pSData->w_ptr, pSData->r_ptr, pSData->i,
+			(sw_log_buf + pSData->i));
 #else
-	seq_printf(s, "%s",
-		sw_log_buf + pSData->i);
+	if ((sw_log_buf[pSData->i] == 0xA5) &&
+		(sw_log_buf[pSData->i+1] == 0xA5)) {
+		prevIsBinary = 1;
+		seq_write(s, sw_log_buf + pSData->i, LOG_LINE_MAX_LENS);
+	}
+	else {
+		if (prevIsBinary)
+			seq_printf(s, "\n");
+		prevIsBinary = 0;
+		seq_printf(s, "%s",
+			sw_log_buf + pSData->i);
+	}
 #endif
 
 	return 0;
@@ -491,19 +514,44 @@ static int seq_show(struct seq_file *s, void *v)
 static int seq_showl(struct seq_file *s, void *v)
 {
 	struct sw_logger_seq_data *pSData = v;
+#ifdef SW_LOGGER_DEBUG
+	unsigned int i;
+#else
+	static unsigned int prevIsBinary = 0;
+#endif
 
 	LOGGER_INFO("%s in: %s", __func__,
 		sw_log_buf + pSData->i);
 
 #ifdef SW_LOGGER_DEBUG
-	if (pSData->i != pSData->w_ptr)
-		seq_printf(s, "dbglog[%d,%d,%d] = %s",
-			pSData->w_ptr, pSData->r_ptr, pSData->i,
-			(sw_log_buf + pSData->i));
+	if (pSData->i != pSData->w_ptr) {
+		if ((sw_log_buf[pSData->i] == 0xA5) &&
+			(sw_log_buf[pSData->i+1] == 0xA5)) {
+			seq_printf(s, "dbglog[%d,%d,%d] = ",
+				pSData->w_ptr, pSData->r_ptr, pSData->i);
+			for (i=0; i<LOG_LINE_MAX_LENS; i++)
+				seq_printf(s, "%02X", sw_log_buf + pSData->i + i);
+			seq_printf(s, "\n");
+		} else
+			seq_printf(s, "dbglog[%d,%d,%d] = %s",
+				pSData->w_ptr, pSData->r_ptr, pSData->i,
+				(sw_log_buf + pSData->i));
+	}
 #else
-	if (pSData->i != pSData->w_ptr)
-		seq_printf(s, "%s",
-			sw_log_buf + pSData->i);
+	if (pSData->i != pSData->w_ptr) {
+		if ((sw_log_buf[pSData->i] == 0xA5) &&
+			(sw_log_buf[pSData->i+1] == 0xA5)) {
+			prevIsBinary = 1;
+			seq_write(s, sw_log_buf + pSData->i, LOG_LINE_MAX_LENS);
+		}
+		else {
+			if (prevIsBinary)
+				seq_printf(s, "\n");
+			prevIsBinary = 0;
+			seq_printf(s, "%s",
+				sw_log_buf + pSData->i);
+		}
+	}
 #endif
 
 	return 0;
