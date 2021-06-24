@@ -1225,21 +1225,18 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 					     "ti,syscon-reset");
 	if (!reset_node) {
 		dev_notice(dev, "find ti,syscon-reset fail\n");
-		err = -ENODEV;
-		goto out;
+		goto skip_reset;
 	}
 	reset_pdev = of_find_device_by_node(reset_node);
 	if (!reset_pdev) {
 		dev_notice(dev, "find reset_pdev fail\n");
-		err = -ENODEV;
-		goto out;
+		goto skip_reset;
 	}
 	link = device_link_add(dev, &reset_pdev->dev,
 		DL_FLAG_AUTOPROBE_CONSUMER);
 	if (!link) {
 		dev_notice(dev, "add reset device_link fail\n");
-		err = -ENODEV;
-		goto out;
+		goto skip_reset;
 	}
 	/* supplier is not probed */
 	if (link->status == DL_STATE_DORMANT) {
@@ -1247,6 +1244,7 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+skip_reset:
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);
 
