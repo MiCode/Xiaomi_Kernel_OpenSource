@@ -37,3 +37,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6877
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 endif
+
+# /*set interval to 9600-10000us */
+ccflags-y += -DDEFAULT_PM_POWEROFF_TICK_SHADER=25
+
