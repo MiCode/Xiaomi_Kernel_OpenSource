@@ -521,6 +521,8 @@ void primary_display_update_cfg_id(int cfg_id);
 void primary_display_init_multi_cfg_info(void);
 int primary_display_get_multi_configs(struct multi_configs *p_cfgs);
 void primary_display_dynfps_chg_fps(int cfg_id);
+void primary_display_dynfps_get_vfp_info(
+	unsigned int *vfp, unsigned int *vfp_for_lp);
 
 #if 0
 bool primary_display_need_update_golden_fps(

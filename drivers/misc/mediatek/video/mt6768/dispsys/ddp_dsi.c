@@ -34,6 +34,7 @@
 #include "ddp_mmp.h"
 #include "disp_helper.h"
 #include "ddp_reg.h"
+#include "ddp_disp_bdg.h"
 
 #ifdef CONFIG_MTK_LEGACY
 #include <mach/mt_gpio.h>
@@ -499,7 +500,7 @@ static void _DSI_INTERNAL_IRQ_Handler(enum DISP_MODULE_ENUM module,
 			ddp_get_module_name(module));
 }
 
-static enum DSI_STATUS DSI_Reset(enum DISP_MODULE_ENUM module,
+enum DSI_STATUS DSI_Reset(enum DISP_MODULE_ENUM module,
 	struct cmdqRecStruct *cmdq)
 {
 	int i = 0;
@@ -930,13 +931,42 @@ void DSI_Config_VDO_Timing_with_DSC(enum DISP_MODULE_ENUM module,
 	unsigned int t_hfp, t_hbp, t_hsa;
 	unsigned int t_hbllp, ps_wc, ap_tx_total_word_cnt_no_hfp_wc, ap_tx_total_word_cnt;
 	unsigned int ap_tx_line_cycle, ap_tx_cycle_time;
+	struct dfps_info *dfps_params = NULL;
 
 	DISPFUNC();
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
-		t_vsa = dsi_params->vertical_sync_active;
-		t_vbp = dsi_params->vertical_backporch;
-		t_vfp = dsi_params->vertical_frontporch;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		/*if not power on scenario
+		 * if disp_fps !=0 means dynfps happen
+		 */
+		if (_dsi_context[i].disp_fps) {
+			int j;
+
+			for (j = 0; j < dsi_params->dfps_num; j++) {
+				if ((dsi_params->dfps_params)[j].fps ==
+					_dsi_context[i].disp_fps) {
+					dfps_params =
+					&((dsi_params->dfps_params)[j]);
+					DISPMSG("%s,disp_fps=%d\n",
+					__func__, _dsi_context[i].disp_fps);
+					break;
+				}
+			}
+		}
+#endif
+		t_vsa = (dfps_params) ? ((dfps_params->vertical_sync_active) ?
+				dfps_params->vertical_sync_active :
+				dsi_params->vertical_sync_active) :
+			dsi_params->vertical_sync_active;
+		t_vbp = (dfps_params) ? ((dfps_params->vertical_backporch) ?
+				dfps_params->vertical_backporch :
+				dsi_params->vertical_backporch) :
+			dsi_params->vertical_backporch;
+		t_vfp = (dfps_params) ? ((dfps_params->vertical_frontporch) ?
+				dfps_params->vertical_frontporch :
+				dsi_params->vertical_frontporch) :
+			dsi_params->vertical_frontporch;
 
 		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VSA_NL, t_vsa);
 		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VBP_NL, t_vbp);
@@ -966,7 +996,7 @@ void DSI_Config_VDO_Timing_with_DSC(enum DISP_MODULE_ENUM module,
 		t_hbp = 4;
 		ps_wc = dsi_params->horizontal_active_pixel * dsiTmpBufBpp / 8;
 		t_hbllp = 16 * dsi_params->LANE_NUM;
-		ap_tx_total_word_cnt = (get_bdg_line_cycle() * lanes * 230 + 99) / 100;
+		ap_tx_total_word_cnt = (get_bdg_line_cycle() * lanes * RXTX_RATIO + 99) / 100;
 
 		switch (dsi_params->mode) {
 		case DSI_CMD_MODE:
@@ -1066,17 +1096,49 @@ void DSI_Config_VDO_Timing(enum DISP_MODULE_ENUM module,
 	unsigned int horizontal_frontporch_byte;
 	unsigned int horizontal_bllp_byte;
 	unsigned int dsiTmpBufBpp;
+	unsigned int t_vfp, t_vbp, t_vsa;
+	struct dfps_info *dfps_params = NULL;
 
 	DISPFUNC();
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 #ifdef CONFIG_MTK_MT6382_BDG
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VSA_NL,
-			dsi_params->vertical_sync_active);
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VBP_NL,
-			dsi_params->vertical_backporch);
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VFP_NL,
-			dsi_params->vertical_frontporch);
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		/*if not power on scenario
+		 * if disp_fps !=0 means dynfps happen
+		 */
+		if (_dsi_context[i].disp_fps) {
+			int j;
+
+			for (j = 0; j < dsi_params->dfps_num; j++) {
+				if ((dsi_params->dfps_params)[j].fps ==
+					_dsi_context[i].disp_fps) {
+					dfps_params =
+					&((dsi_params->dfps_params)[j]);
+					DISPMSG("%s,disp_fps=%d\n",
+					__func__, _dsi_context[i].disp_fps);
+					break;
+				}
+			}
+		}
+#endif
+		t_vsa = (dfps_params) ? ((dfps_params->vertical_sync_active) ?
+				dfps_params->vertical_sync_active :
+				dsi_params->vertical_sync_active) :
+			dsi_params->vertical_sync_active;
+		t_vbp = (dfps_params) ? ((dfps_params->vertical_backporch) ?
+				dfps_params->vertical_backporch :
+				dsi_params->vertical_backporch) :
+			dsi_params->vertical_backporch;
+		t_vfp = (dfps_params) ? ((dfps_params->vertical_frontporch) ?
+				dfps_params->vertical_frontporch :
+				dsi_params->vertical_frontporch) :
+			dsi_params->vertical_frontporch;
+
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VSA_NL, t_vsa);
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VBP_NL, t_vbp);
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VFP_NL, t_vfp);
 		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VACT_NL,
 			dsi_params->vertical_active_line);
 
@@ -1152,12 +1214,22 @@ void DSI_Config_VDO_Timing(enum DISP_MODULE_ENUM module,
 		else
 			dsiTmpBufBpp = 3;
 
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VSA_NL,
-			dsi_params->vertical_sync_active);
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VBP_NL,
-			dsi_params->vertical_backporch);
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VFP_NL,
-			dsi_params->vertical_frontporch);
+		t_vsa = (dfps_params) ? ((dfps_params->vertical_sync_active) ?
+				dfps_params->vertical_sync_active :
+				dsi_params->vertical_sync_active) :
+			dsi_params->vertical_sync_active;
+		t_vbp = (dfps_params) ? ((dfps_params->vertical_backporch) ?
+				dfps_params->vertical_backporch :
+				dsi_params->vertical_backporch) :
+			dsi_params->vertical_backporch;
+		t_vfp = (dfps_params) ? ((dfps_params->vertical_frontporch) ?
+				dfps_params->vertical_frontporch :
+				dsi_params->vertical_frontporch) :
+			dsi_params->vertical_frontporch;
+
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VSA_NL, t_vsa);
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VBP_NL, t_vbp);
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VFP_NL, t_vfp);
 		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VACT_NL,
 			dsi_params->vertical_active_line);
 
@@ -1410,6 +1482,8 @@ enum DSI_STATUS DSI_TXRX_Control(enum DISP_MODULE_ENUM module,
 			DSI_OUTREGBIT(cmdq, struct DSI_TXRX_CTRL_REG,
 				DSI_REG[i]->DSI_TXRX_CTRL, EXT_TE_EN, 1);
 		}
+		DSI_OUTREGBIT(cmdq, struct DSI_TXRX_CTRL_REG,
+			DSI_REG[i]->DSI_TXRX_CTRL, EXT_TE_EN, 1);
 
 		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_MEM_CONTI, DSI_WMEM_CONTI);
 	}
@@ -2338,6 +2412,20 @@ enum DSI_STATUS DSI_Start(enum DISP_MODULE_ENUM module,
 			DSI_REG[0]->DSI_START, DSI_START, 0);
 		DSI_OUTREGBIT(cmdq, struct DSI_START_REG,
 			DSI_REG[0]->DSI_START, DSI_START, 1);
+	}
+
+	return DSI_STATUS_OK;
+}
+
+enum DSI_STATUS DSI_Stop(enum DISP_MODULE_ENUM module,
+	struct cmdqRecStruct *cmdq)
+{
+	if (module == DISP_MODULE_DSI1) {
+		DSI_OUTREGBIT(cmdq, struct DSI_START_REG,
+			DSI_REG[1]->DSI_START, DSI_START, 0);
+	} else {
+		DSI_OUTREGBIT(cmdq, struct DSI_START_REG,
+			DSI_REG[0]->DSI_START, DSI_START, 0);
 	}
 
 	return DSI_STATUS_OK;
@@ -4260,8 +4348,6 @@ UINT32 DSI_dcs_read_lcm_reg_v4(enum DISP_MODULE_ENUM module,
 	return recv_data_cnt;
 }
 
-
-
 void DSI_set_cmdq(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	unsigned int *pdata, unsigned int queue_size,
 	unsigned char force_update)
@@ -4306,6 +4392,436 @@ int DSI_Send_ROI(enum DISP_MODULE_ENUM module, void *handle, unsigned int x,
 
 	return 0;
 }
+
+#ifdef CONFIG_MTK_MT6382_BDG
+static void DSI_send_read_cmd_via_bdg(struct cmdqRecStruct *cmdq,
+			enum DISP_MODULE_ENUM module, bool hs,
+			UINT8 cmd)
+{
+	int dsi_i = 0;
+	struct DSI_T0_INS t0;
+
+	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL)
+		dsi_i = 0;
+	else if (module == DISP_MODULE_DSI1)
+		dsi_i = 1;
+	else
+		return;
+
+	DISPFUNCSTART();
+
+	t0.CONFG = 0x04;	/* BTA */
+	if (hs)
+		t0.CONFG |= 8;
+	t0.Data_ID = (cmd < 0xB0) ? DSI_DCS_READ_PACKET_ID
+				: DSI_GERNERIC_READ_LONG_PACKET_ID;
+	t0.Data0 = cmd;
+	t0.Data1 = 0;
+
+	DSI_OUTREG32(cmdq, &DSI_CMDQ_REG[dsi_i]->data[0],
+			AS_UINT32(&t0));
+	DSI_OUTREG32(cmdq, &DSI_REG[dsi_i]->DSI_CMDQ_SIZE,
+			1);
+
+	/* start DSI */
+	DSI_Start(module, cmdq);
+}
+
+static void DSI_send_return_size_cmd(struct cmdqRecStruct *cmdq,
+			enum DISP_MODULE_ENUM module, bool hs,
+			UINT8 buffer_size)
+{
+	int dsi_i = 0;
+	struct DSI_T0_INS t0;
+
+	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL)
+		dsi_i = 0;
+	else if (module == DISP_MODULE_DSI1)
+		dsi_i = 1;
+	else
+		return;
+
+	DISPFUNCSTART();
+
+	t0.CONFG = 0x00;
+	if (hs)
+		t0.CONFG |= 8;
+	t0.Data_ID = 0x37;	/* set max return size */
+	t0.Data0 = buffer_size <= 10 ? buffer_size : 10;
+	t0.Data1 = 0;
+
+	DSI_OUTREG32(cmdq, &DSI_CMDQ_REG[dsi_i]->data[0],
+			AS_UINT32(&t0));
+	DSI_OUTREG32(cmdq, &DSI_REG[dsi_i]->DSI_CMDQ_SIZE,
+			1);
+
+	/* start DSI */
+	DSI_Start(module, cmdq);
+}
+
+void DSI_MIPI_deskew(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq)
+{
+	unsigned int i = 0;
+	unsigned int timeout = 0;
+	unsigned int status = 0;
+	unsigned int phy_syncon = 0;
+
+	DISPFUNCSTART();
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		phy_syncon = DSI_INREG32(struct DSI_PHY_SYNCON_REG, &DSI_REG[i]->DSI_PHY_SYNCON);
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_PHY_SYNCON, 0x00aaffff);
+		DSI_OUTREGBIT(NULL, struct DSI_TIME_CON0_REG,
+		       DSI_REG[i]->DSI_TIME_CON0, SKEWCALL_PRD, 6);
+
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_START, 0);
+
+		dsi_wait_not_busy(module, cmdq);
+
+		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
+			DSI_REG[i]->DSI_PHY_SYNCON, HS_DB_SYNC_EN, 1);
+
+		DSI_OUTREGBIT(cmdq, struct DSI_PHY_TIMCON2_REG,
+			DSI_REG[i]->DSI_PHY_TIMECON2, DA_HS_SYNC, 2);
+
+		DSI_OUTREGBIT(cmdq, struct DSI_INT_STATUS_REG,
+			DSI_REG[i]->DSI_INTSTA, SKEWCAL_DONE_INT_EN, 0);
+
+		DSI_OUTREGBIT(cmdq, struct DSI_START_REG,
+			DSI_REG[i]->DSI_START, SKEWCAL_START, 0);
+
+		DSI_OUTREGBIT(cmdq, struct DSI_START_REG,
+			DSI_REG[i]->DSI_START, SKEWCAL_START, 1);
+
+		timeout = 5000;
+
+		while (timeout) {
+			status = DSI_INREG32(struct DSI_INT_STATUS_REG, &DSI_REG[i]->DSI_INTSTA);
+			DISPMSG("%s, status=0x%x\n", __func__, status);
+
+			if (status & 0x800) {
+				DISPMSG("%s, break, status=0x%x\n", __func__, status);
+				break;
+			}
+			udelay(10);
+			timeout--;
+		}
+
+		if (timeout == 0) {
+			DISPDBG("%s, dsi wait idle timeout!\n", __func__);
+			DSI_DumpRegisters(module, 2);
+			DSI_Reset(module, NULL);
+		}
+
+		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_PHY_SYNCON, phy_syncon);
+		DSI_OUTREGBIT(cmdq, struct DSI_PHY_TIMCON2_REG,
+				DSI_REG[i]->DSI_PHY_TIMECON2, DA_HS_SYNC, 1);
+	}
+	DISPFUNCEND();
+}
+
+static void DSI_config_bdg_reg(struct cmdqRecStruct *cmdq,
+			enum DISP_MODULE_ENUM module,
+			bool hs, unsigned char data_id,
+			unsigned int cmd, unsigned char count,
+			unsigned char *para_list,
+			unsigned char force_update)
+{
+	UINT32 i = 0;
+	int dsi_i = 0;
+	unsigned long goto_addr, mask_para, set_para;
+	struct DSI_T0_INS t0;
+	struct DSI_T2_INS t2;
+	struct DSI_CMDQ *cmdq_reg;
+
+	memset(&t0, 0, sizeof(struct DSI_T0_INS));
+	memset(&t2, 0, sizeof(struct DSI_T2_INS));
+
+	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL)
+		dsi_i = 0;
+	else if (module == DISP_MODULE_DSI1)
+		dsi_i = 1;
+	else
+		return;
+
+	DISPFUNCSTART();
+	cmdq_reg = DSI_CMDQ_REG[dsi_i]->data;
+	if (count > 1) {
+		t2.CONFG = 2;
+		if (hs)
+			t2.CONFG |= 8;
+		if (data_id != REGFLAG_ESCAPE_ID)
+			t2.Data_ID = data_id;
+		else if (cmd < 0xB0)
+			t2.Data_ID = DSI_DCS_LONG_PACKET_ID;
+		else
+			t2.Data_ID = DSI_GERNERIC_LONG_PACKET_ID;
+
+		t2.Data_ID = t2.Data_ID | 0x40;
+		t2.WC16 = count + 1;
+		DSI_OUTREG32(cmdq, &cmdq_reg[0], AS_UINT32(&t2));
+
+//		DISPMSG("%s, t2=0x%08x\n", __func__, t2);
+
+		goto_addr = (unsigned long)(&cmdq_reg[1].byte0);
+		mask_para = (0xFFu << ((goto_addr & 0x3u) * 8));
+		set_para = (cmd << ((goto_addr & 0x3u) * 8));
+		DSI_MASKREG32(cmdq, goto_addr & (~0x3UL),
+					 mask_para, set_para);
+//DISPMSG("%s, mask_para=0x%x, set_para=0x%08x\n", __func__, mask_para, set_para);
+
+		for (i = 0; i < count; i++) {
+			goto_addr = (unsigned long)
+				(&cmdq_reg[1].byte1) + i;
+			mask_para = (0xFFu << ((goto_addr & 0x3u) * 8));
+			set_para = (unsigned long)(para_list[i] <<
+					((goto_addr & 0x3u) * 8));
+			DSI_MASKREG32(cmdq, goto_addr & (~0x3UL),
+						 mask_para, set_para);
+//DISPMSG("%s, i=%d, mask_para=0x%x, set_para=0x%08x\n", __func__, i, mask_para, set_para);
+		}
+
+		DSI_OUTREG32(cmdq, &DSI_REG[dsi_i]->DSI_CMDQ_SIZE,
+					2 + (count) / 4);
+	} else {
+		t0.CONFG = 0;
+		if (hs)
+			t0.CONFG |= 8;
+		t0.Data0 = cmd;
+		if (count) {
+			if (data_id != REGFLAG_ESCAPE_ID)
+				t0.Data_ID = data_id;
+			else if (cmd < 0xB0)
+				t0.Data_ID = DSI_DCS_SHORT_PACKET_ID_1;
+			else
+				t0.Data_ID = DSI_GERNERIC_SHORT_PACKET_ID_2;
+			t0.Data1 = para_list[0];
+		} else {
+			if (data_id != REGFLAG_ESCAPE_ID)
+				t0.Data_ID = data_id;
+			else if (cmd < 0xB0)
+				t0.Data_ID = DSI_DCS_SHORT_PACKET_ID_0;
+			else
+				t0.Data_ID = DSI_GERNERIC_SHORT_PACKET_ID_1;
+			t0.Data1 = 0;
+		}
+		t0.Data_ID = t0.Data_ID | 0x40;
+		DSI_OUTREG32(cmdq, &cmdq_reg[0], AS_UINT32(&t0));
+		DSI_OUTREG32(cmdq, &DSI_REG[dsi_i]->DSI_CMDQ_SIZE, 1);
+	}
+
+	if (force_update) {
+		DSI_Start(module, cmdq);
+		/*
+		 * cannnot use "dsi_wait_not_busy"
+		 * (this function is use for cmd mode)
+		 * but vdo may call here
+		 */
+		_dsi_wait_not_busy_(module, cmdq);
+	}
+}
+
+/* return value: the data length we got */
+UINT32 DSI_dcs_read_lcm_reg_via_bdg(enum DISP_MODULE_ENUM module,
+			       struct cmdqRecStruct *cmdq, UINT8 cmd,
+			       UINT8 *buffer, UINT8 buffer_size)
+{
+	int dsi_i = 0;
+	UINT32 max_try_count = 5;
+	UINT32 recv_data_cnt = 0;
+	unsigned char packet_type;
+	struct DSI_RX_DATA_REG read_data[4];
+	static const long WAIT_TIMEOUT = 2 * HZ; /* 2 sec */
+	long ret;
+	unsigned int i, timeout, status;
+	struct t_condition_wq *waitq;
+
+	/* illegal parameters */
+	ASSERT(cmdq == NULL);
+	if (cmdq != NULL) {
+		DISPDBG("DSI Read Fail: not support cmdq version\n");
+		return 0;
+	}
+
+	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL)
+		dsi_i = 0;
+	else if (module == DISP_MODULE_DSI1)
+		dsi_i = 1;
+	else
+		return 0;
+
+	if (DSI_REG[dsi_i]->DSI_MODE_CTRL.MODE) {
+		/* only cmd mode can read */
+		DISPDBG("DSI Read Fail: DSI Mode is %d\n",
+			 DSI_REG[dsi_i]->DSI_MODE_CTRL.MODE);
+		return 0;
+	}
+
+	DISPFUNCSTART();
+
+	DSI_OUTREGBIT(cmdq, struct DSI_INT_ENABLE_REG,
+			DSI_REG[dsi_i]->DSI_INTEN, RD_RDY, 1);
+
+	do {
+		if (max_try_count == 0) {
+			DISPDBG("DSI Read Fail: try 5 times\n");
+			DSI_OUTREGBIT(cmdq, struct DSI_INT_ENABLE_REG,
+				      DSI_REG[dsi_i]->DSI_INTEN, RD_RDY, 0);
+			return 0;
+		}
+
+		max_try_count--;
+		recv_data_cnt = 0;
+
+		/* 1. wait dsi not busy => can't read if dsi busy */
+		dsi_wait_not_busy(module, NULL);
+		/* 2. check rd_rdy & cmd_done irq */
+		check_rdrdy_cmddone_irq(cmdq, module);
+		/* 3. Send cmd */
+		DSI_send_return_size_cmd(cmdq, module, 0, buffer_size);
+
+		ret = wait_event_timeout(_dsi_context[dsi_i].cmddone_wq.wq,
+					 !(DSI_REG[dsi_i]->DSI_INTSTA.BUSY),
+					 WAIT_TIMEOUT);
+		if (ret == 0) {
+			/* wait cmddone timeout */
+			DISPDBG(
+			"DSI Send Fail: dsi wait idle timeout\n");
+			DSI_DumpRegisters(module, 1);
+			DSI_Reset(module, NULL);
+		}
+
+		DSI_send_read_cmd_via_bdg(cmdq, module, 0, cmd);
+
+		/*
+		 * the following code is to
+		 * 1: wait read ready
+		 * 2: read data
+		 * 3: ack read ready
+		 * 4: wait for CMDQ_DONE(interrupt handler do this op)
+		 */
+		waitq = &(_dsi_context[dsi_i].read_wq);
+		ret = wait_event_timeout(waitq->wq,
+					 atomic_read(&(waitq->condition)),
+					 WAIT_TIMEOUT);
+		atomic_set(&(waitq->condition), 0);
+		if (ret == 0) {
+			/* wait read ready timeout */
+			DISPDBG(
+			"DSI Read Fail: dsi wait read ready timeout\n");
+			DSI_DumpRegisters(module, 2);
+
+			/* do necessary reset here */
+			DSI_OUTREGBIT(cmdq, struct DSI_RACK_REG,
+					DSI_REG[dsi_i]->DSI_RACK, DSI_RACK, 1);
+			DSI_Reset(module, NULL);
+			DSI_OUTREGBIT(cmdq, struct DSI_INT_ENABLE_REG,
+				      DSI_REG[dsi_i]->DSI_INTEN, RD_RDY, 0);
+			return 0;
+		}
+
+		DSI_OUTREGBIT(cmdq, struct DSI_INT_STATUS_REG,
+				DSI_REG[dsi_i]->DSI_INTSTA, RD_RDY, 0);
+
+		/* read data */
+		DSI_OUTREG32(cmdq, &read_data[0],
+			     AS_UINT32(&DSI_REG[dsi_i]->DSI_RX_DATA0));
+		DSI_OUTREG32(cmdq, &read_data[1],
+			     AS_UINT32(&DSI_REG[dsi_i]->DSI_RX_DATA1));
+		DSI_OUTREG32(cmdq, &read_data[2],
+			     AS_UINT32(&DSI_REG[dsi_i]->DSI_RX_DATA2));
+		DSI_OUTREG32(cmdq, &read_data[3],
+			     AS_UINT32(&DSI_REG[dsi_i]->DSI_RX_DATA3));
+
+		DSI_OUTREGBIT(cmdq, struct DSI_RACK_REG,
+					DSI_REG[dsi_i]->DSI_RACK, DSI_RACK, 1);
+		timeout = 5000;
+		while (timeout) {
+			status = DSI_INREG32(struct DSI_INT_STATUS_REG,
+					&DSI_REG[dsi_i]->DSI_INTSTA);
+
+			if ((status & 0x80000000) == 0)
+				break;
+
+			DSI_OUTREGBIT(cmdq, struct DSI_RACK_REG,
+					DSI_REG[dsi_i]->DSI_RACK, DSI_RACK, 1);
+			udelay(2);
+			timeout--;
+		}
+
+		if (timeout == 0) {
+			/* wait cmddone timeout */
+			DISPDBG(
+			"DSI Read Fail: dsi wait cmddone timeout\n");
+			DSI_DumpRegisters(module, 2);
+			DSI_Reset(module, NULL);
+		}
+
+		DISPDBG("DSI read begin i = %d --------------------\n",
+			  5 - max_try_count);
+		DISPDBG("DSI_RX_STA	: 0x%08x\n",
+			  AS_UINT32(&DSI_REG[dsi_i]->DSI_TRIG_STA));
+		DISPDBG("DSI_CMDQ_SIZE	: %d\n",
+			  AS_UINT32(&DSI_REG[dsi_i]->DSI_CMDQ_SIZE));
+		for (i = 0; i < DSI_REG[dsi_i]->DSI_CMDQ_SIZE.CMDQ_SIZE; i++) {
+			DISPDBG("DSI_CMDQ_DATA%d : 0x%08x\n", i,
+				  AS_UINT32(&DSI_CMDQ_REG[dsi_i]->data[i]));
+		}
+		DISPDBG("DSI_RX_DATA0	: 0x%08x\n",
+			  AS_UINT32(&DSI_REG[dsi_i]->DSI_RX_DATA0));
+		DISPDBG("DSI_RX_DATA1	: 0x%08x\n",
+			  AS_UINT32(&DSI_REG[dsi_i]->DSI_RX_DATA1));
+		DISPDBG("DSI_RX_DATA2	: 0x%08x\n",
+			  AS_UINT32(&DSI_REG[dsi_i]->DSI_RX_DATA2));
+		DISPDBG("DSI_RX_DATA3	: 0x%08x\n",
+			  AS_UINT32(&DSI_REG[dsi_i]->DSI_RX_DATA3));
+		DISPDBG("DSI read end ----------------------------\n");
+
+		packet_type = read_data[0].byte0;
+		DISPCHECK("DSI read packet_type is 0x%x\n", packet_type);
+		ret = process_packet(0, read_data, &recv_data_cnt,
+					buffer, buffer_size);
+		if (!ret) {
+			DSI_OUTREGBIT(cmdq, struct DSI_INT_ENABLE_REG,
+				DSI_REG[dsi_i]->DSI_INTEN, RD_RDY, 0);
+			return ret;
+		}
+	} while (packet_type == 0x02);
+	/* here: we may receive a ACK packet which packet type is 0x02
+	 * (incdicates some error happened)
+	 * therefore we try re-read again until no ACK packet
+	 * But: if it is a good way to keep re-trying ???
+	 */
+	DSI_OUTREGBIT(cmdq, struct DSI_INT_ENABLE_REG,
+			DSI_REG[dsi_i]->DSI_INTEN, RD_RDY, 0);
+
+	return recv_data_cnt;
+}
+
+
+void DSI_send_cmdq_to_bdg(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
+		     unsigned int cmd, unsigned char count,
+		     unsigned char *para_list, unsigned char force_update)
+{
+	int dsi_i = 0;
+
+	DISPFUNCSTART();
+	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL)
+		dsi_i = 0;
+	else if (module == DISP_MODULE_DSI1)
+		dsi_i = 1;
+	else
+		return;
+
+	DSI_OUTREG32(cmdq, &DSI_REG[0]->DSI_START, 0);
+
+	if (DSI_REG[dsi_i]->DSI_MODE_CTRL.MODE) { /* vdo cmd */
+	} else { /* cmd mode */
+		dsi_wait_not_busy(module, cmdq);
+		DSI_config_bdg_reg(cmdq, module, 1, REGFLAG_ESCAPE_ID, cmd,
+					count, para_list, force_update);
+	}
+}
+#endif
 
 static void lcm_set_reset_pin(UINT32 value)
 {
@@ -5102,6 +5618,12 @@ int ddp_dsi_config(enum DISP_MODULE_ENUM module,
 		DSI_PHY_clk_switch(module, NULL, true);
 	}
 
+	if (dsi_config->mode != CMD_MODE && DSI_REG[0]->DSI_INTSTA.BUSY &&
+			DSI_REG[0]->DSI_START.DSI_START) {
+		DISPCHECK("skip dsi config in vdo mode busy state\n");
+		return 0;
+	}
+
 	/* c2v */
 	if (dsi_config->mode != CMD_MODE)
 		dsi_currect_mode = 1;
@@ -5204,6 +5726,11 @@ int ddp_dsi_start(enum DISP_MODULE_ENUM module, void *cmdq)
 		     _dsi_context[i].lcm_height);
 	DSI_SetMode(module, cmdq, _dsi_context[i].dsi_params.mode);
 	DSI_clk_HS_mode(module, cmdq, TRUE);
+
+#ifdef CONFIG_MTK_MT6382_BDG
+	if (get_mt6382_init() == 1 && get_ap_data_rate() > RX_V12)
+		DSI_MIPI_deskew(module, cmdq);
+#endif
 
 	return 0;
 }
@@ -5353,7 +5880,7 @@ int ddp_dsi_stop(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 		DSI_OUTREGBIT(cmdq_handle, struct DSI_START_REG,
 			DSI_REG[i]->DSI_START, DSI_START, 0);
 		DSI_SetMode(module, cmdq_handle, CMD_MODE);
-
+		dsi_wait_not_busy(module, cmdq_handle);
 		ret = wait_event_timeout(_dsi_context[i].vm_done_wq.wq,
 			!(DSI_REG[i]->DSI_INTSTA.BUSY), WAIT_TIMEOUT);
 		if (ret == 0) {
@@ -5678,73 +6205,6 @@ int ddp_dsi_ioctl(enum DISP_MODULE_ENUM module, void *cmdq_handle,
 	return ret;
 }
 
-#ifdef CONFIG_MTK_MT6382_BDG
-void DSI_MIPI_deskew(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq)
-{
-	unsigned int i = 0;
-	unsigned int timeout = 0;
-	unsigned int status = 0;
-
-	DISPFUNCSTART();
-	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
-			DSI_REG[i]->DSI_PHY_SYNCON, HS_SYNC_CODE, 0xff);
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
-			DSI_REG[i]->DSI_PHY_SYNCON, HS_SYNC_CODE2, 0xff);
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
-			DSI_REG[i]->DSI_PHY_SYNCON, HS_SKEWCAL_PAT, 0xaa);
-
-		DSI_OUTREGBIT(NULL, struct DSI_TIME_CON0_REG,
-			DSI_REG[i]->DSI_TIME_CON0, SKEWCALL_PRD, 6);
-
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_START, 0);
-
-		dsi_wait_not_busy(module, cmdq);
-
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
-			DSI_REG[i]->DSI_PHY_SYNCON, HS_DB_SYNC_EN, 1);
-
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_TIMCON2_REG,
-			DSI_REG[i]->DSI_PHY_TIMECON2, DA_HS_SYNC, 2);
-
-		DSI_OUTREGBIT(cmdq, struct DSI_INT_STATUS_REG,
-			DSI_REG[i]->DSI_INTSTA, SKEWCAL_DONE_INT_EN, 0);
-
-		DSI_OUTREGBIT(cmdq, struct DSI_START_REG,
-			DSI_REG[i]->DSI_START, SKEWCAL_START, 0);
-
-		DSI_OUTREGBIT(cmdq, struct DSI_START_REG,
-			DSI_REG[i]->DSI_START, SKEWCAL_START, 1);
-
-		timeout = 5000;
-
-		while (timeout) {
-			status = DSI_INREG32(struct DSI_INT_STATUS_REG, &DSI_REG[i]->DSI_INTSTA);
-			DISPMSG("%s, status=0x%x\n", __func__, status);
-
-			if (status & 0x800) {
-				DISPMSG("%s, break, status=0x%x\n", __func__, status);
-				break;
-			}
-			udelay(10);
-			timeout--;
-		}
-
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
-			DSI_REG[i]->DSI_PHY_SYNCON, HS_SYNC_CODE, 0xb8);
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
-			DSI_REG[i]->DSI_PHY_SYNCON, HS_SYNC_CODE2, 0);
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
-			DSI_REG[i]->DSI_PHY_SYNCON, HS_SKEWCAL_PAT, 0);
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_SYNCON_REG,
-			DSI_REG[i]->DSI_PHY_SYNCON, HS_DB_SYNC_EN, 0);
-		DSI_OUTREGBIT(cmdq, struct DSI_PHY_TIMCON2_REG,
-			DSI_REG[i]->DSI_PHY_TIMECON2, DA_HS_SYNC, 1);
-	}
-	DISPFUNCEND();
-}
-#endif
-
 int ddp_dsi_trigger(enum DISP_MODULE_ENUM module, void *cmdq)
 {
 	int i = 0;
@@ -5774,7 +6234,11 @@ int ddp_dsi_trigger(enum DISP_MODULE_ENUM module, void *cmdq)
 	}
 
 #ifdef CONFIG_MTK_MT6382_BDG
-	DSI_MIPI_deskew(module, cmdq);
+	if (get_mt6382_init() &&  (get_bdg_tx_mode() == CMD_MODE)) {
+		bdg_tx_cmd_mode(DISP_BDG_DSI0, NULL);
+		bdg_tx_start(DISP_BDG_DSI0, NULL);
+		bdg_mutex_trigger(DISP_BDG_DSI0, NULL);
+	}
 #endif
 	DSI_Start(module, cmdq);
 
@@ -5859,8 +6323,7 @@ int ddp_dsi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 	/* DSI_RestoreRegisters(module, NULL); */
 	DSI_exit_ULPS(module);
 #ifdef CONFIG_MTK_MT6382_BDG
-	if (check_stopstate(NULL) == 0)
-		bdg_tx_start(DISP_BDG_DSI0, NULL);
+	check_stopstate(NULL);
 #endif
 
 	DSI_Reset(module, NULL);
@@ -7396,6 +7859,187 @@ void DSI_ForceConfig(int forceconfig)
 
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 /*-------------------------------DynFPS start------------------------------*/
+unsigned int ddp_dsi_fps_change_index(
+	unsigned int last_dynfps, unsigned int new_dynfps)
+{
+	struct LCM_DSI_PARAMS *dsi = NULL;
+	struct dfps_info *dfps_params_last = NULL;
+	struct dfps_info *dfps_params_new = NULL;
+	unsigned int i = 0;
+	unsigned int fps_chg_index = 0;
+
+	dsi = &_dsi_context[0].dsi_params;
+
+	for (i = 0; i < dsi->dfps_num; i++) {
+		if ((dsi->dfps_params)[i].fps == last_dynfps)
+			dfps_params_last = &((dsi->dfps_params)[i]);
+		if ((dsi->dfps_params)[i].fps == new_dynfps)
+			dfps_params_new = &((dsi->dfps_params)[i]);
+	}
+
+	if (dfps_params_last == NULL ||
+		dfps_params_new == NULL)
+		return 0;
+
+	if (dfps_params_last->vertical_frontporch !=
+		dfps_params_new->vertical_frontporch) {
+		fps_chg_index |= DYNFPS_DSI_VFP;
+	}
+	if (dfps_params_last->horizontal_frontporch !=
+		dfps_params_new->horizontal_frontporch) {
+		fps_chg_index |= DYNFPS_DSI_HFP;
+	}
+	if (dfps_params_last->PLL_CLOCK !=
+		dfps_params_new->PLL_CLOCK) {
+		fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
+	}
+	if (dfps_params_last->data_rate !=
+		dfps_params_new->data_rate) {
+		fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
+	}
+
+	DDPMSG("%s,chg %d->%d\n", __func__, last_dynfps, new_dynfps);
+	DDPMSG("%s,chg solution:0x%x\n", __func__, fps_chg_index);
+	return fps_chg_index;
+}
+
+void ddp_dsi_dynfps_chg_fps(
+	enum DISP_MODULE_ENUM module, void *handle,
+	unsigned int last_fps, unsigned int new_fps, unsigned int chg_index)
+{
+	struct LCM_DSI_PARAMS *dsi = NULL;
+	struct dfps_info *dfps_params_last = NULL;
+	struct dfps_info *dfps_params_new = NULL;
+	unsigned int i = 0;
+
+	dsi = &_dsi_context[0].dsi_params;
+
+	for (i = 0; i < dsi->dfps_num; i++) {
+		if ((dsi->dfps_params)[i].fps == last_fps)
+			dfps_params_last = &((dsi->dfps_params)[i]);
+		if ((dsi->dfps_params)[i].fps == new_fps)
+			dfps_params_new = &((dsi->dfps_params)[i]);
+	}
+	if (dfps_params_last == NULL ||
+		dfps_params_new == NULL)
+		return;
+
+	DDPMSG("%s,fps %d->%d\n", __func__, last_fps, new_fps);
+	DDPMSG("%s,chg_index=0x%x\n", __func__, chg_index);
+	/*we will not change dsi_params
+	 *will use this disp_fps to choose right params
+	 */
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		_dsi_context[i].disp_fps = new_fps;
+		_dsi_context[i].dynfps_chg_index = chg_index;
+	}
+
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (chg_index & DYNFPS_DSI_VFP) {
+			DDPMSG("%s, change VFP\n", __func__);
+			ddp_dsi_porch_setting(module, handle, DSI_VFP,
+						dfps_params_new->vertical_frontporch);
+		}
+
+	}
+
+}
+extern void bdg_dsi_vfp_gce(unsigned int vfp);
+void ddp_dsi_bdg_dynfps_chg_fps(
+	enum DISP_MODULE_ENUM module, void *handle,
+	unsigned int last_fps, unsigned int new_fps, unsigned int chg_index)
+{
+	struct LCM_DSI_PARAMS *dsi = NULL;
+	struct dfps_info *dfps_params_last = NULL;
+	struct dfps_info *dfps_params_new = NULL;
+	unsigned int i = 0;
+
+	dsi = &_dsi_context[0].dsi_params;
+
+	for (i = 0; i < dsi->dfps_num; i++) {
+		if ((dsi->dfps_params)[i].fps == last_fps)
+			dfps_params_last = &((dsi->dfps_params)[i]);
+		if ((dsi->dfps_params)[i].fps == new_fps)
+			dfps_params_new = &((dsi->dfps_params)[i]);
+	}
+	if (dfps_params_last == NULL ||
+		dfps_params_new == NULL)
+		return;
+
+	DDPMSG("%s,fps %d->%d\n", __func__, last_fps, new_fps);
+	DDPMSG("%s,chg_index=0x%x\n", __func__, chg_index);
+	/*we will not change dsi_params
+	 *will use this disp_fps to choose right params
+	 */
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		_dsi_context[i].disp_fps = new_fps;
+		_dsi_context[i].dynfps_chg_index = chg_index;
+	}
+
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (chg_index & DYNFPS_DSI_VFP) {
+			DDPMSG("%s, change VFP %u\n", __func__,
+				dfps_params_new->vertical_frontporch);
+			bdg_dsi_vfp_gce(dfps_params_new->vertical_frontporch);
+			DDPMSG("%s, change VFP-\n", __func__);
+		}
+
+	}
+
+}
+
+void ddp_dsi_dynfps_get_vfp_info(unsigned int disp_fps,
+	unsigned int *vfp, unsigned int *vfp_for_lp)
+{
+	struct LCM_DSI_PARAMS *dsi = NULL;
+	struct dfps_info *dfps_params = NULL;
+	unsigned int i = 0;
+	unsigned int _vfp = 0;
+	unsigned int _vfp_for_lp = 0;
+
+	dsi = &_dsi_context[0].dsi_params;
+	_vfp = dsi->vertical_frontporch;
+	_vfp_for_lp = dsi->vertical_frontporch_for_low_power;
+
+	for (i = 0; i < dsi->dfps_num; i++) {
+		if ((dsi->dfps_params)[i].fps == disp_fps)
+			dfps_params =
+			&((dsi->dfps_params)[i]);
+	}
+
+	if (dfps_params == NULL) {
+		if (vfp)
+			*vfp = _vfp;
+		if (vfp_for_lp)
+			*vfp_for_lp = _vfp_for_lp;
+		return;
+	}
+
+	_vfp = dfps_params->vertical_frontporch ?
+			dfps_params->vertical_frontporch :
+			dsi->vertical_frontporch;
+	/*add support use different fps when enter idle*/
+#if 0
+	_vfp_for_lp =
+		dfps_params->vertical_frontporch_for_low_power ?
+		dfps_params->vertical_frontporch_for_low_power :
+		dsi->vertical_frontporch_for_low_power;
+#endif
+	_vfp_for_lp =
+		dfps_params->vertical_frontporch_for_low_power;
+
+	DDPMSG("%s,fps=%d,vfp:%d,vfp_for_lp:%d]\n",
+		__func__, disp_fps, _vfp, _vfp_for_lp);
+
+	if (vfp)
+		*vfp = _vfp;
+	if (vfp_for_lp)
+		*vfp_for_lp = _vfp_for_lp;
+
+	return;
+
+}
+
 void DSI_dynfps_send_cmd(
 	void *cmdq, unsigned int cmd,
 	unsigned char count, unsigned char *para_list,
@@ -7408,7 +8052,7 @@ void DSI_dynfps_send_cmd(
 	if (sendmode == LCM_SEND_IN_VDO) {
 		DSI_send_vm_cmd(cmdq, DISP_MODULE_DSI0, REGFLAG_ESCAPE_ID,
 		cmd, count, para_list, force_update);
-	} else{
+	} else {
 		DSI_send_cmd_cmd(cmdq, DISP_MODULE_DSI0, false, REGFLAG_ESCAPE_ID,
 		cmd, count, para_list, force_update);
 	}

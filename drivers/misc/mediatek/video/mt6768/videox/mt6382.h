@@ -14,89 +14,10 @@
 #ifndef _MTK_MT6382_H
 #define _MTK_MT6382_H
 
-//////////////////////////////  JJChen Add /////////////////////////////////
-//------------------------------------------------------------------------
-// MMSYS register map (Project Dependent)
-//------------------------------------------------------------------------
-#define MIPIDSI2_DEVICE_BASE 0x0000d000
-#define MIPI_RX_PHY_BASE 0x00040000
-#define DSI_BASE 0x00021000
-#define MIPI_TX_TOP_BASE 0x00022000
-
-//------------------------------------------------------------------------
-// Mutex register map
-//------------------------------------------------------------------------
-
-//------------------------------------------------------------------------
-// RDMA register map
-//------------------------------------------------------------------------
-
-//------------------------------------------------------------------------
-// DSI register map
-//------------------------------------------------------------------------
-#if 0
-#define DSI_START (DSI_BASE + 0x00)
-#define DSI_INTEN (DSI_BASE + 0x08)
-#define DSI_INTSTA (DSI_BASE + 0x0c)
-#define DSI_COM_CON (DSI_BASE + 0x10)
-#define DSI_MODE_CON (DSI_BASE + 0x14)
-#define DSI_TXRX_CON (DSI_BASE + 0x18)
-#define DSI_PSCON (DSI_BASE + 0x1C)
-#define DSI_VSA_NL (DSI_BASE + 0x20)
-#define DSI_VBP_NL (DSI_BASE + 0x24)
-#define DSI_VFP_NL (DSI_BASE + 0x28)
-#define DSI_VACT_NL (DSI_BASE + 0x2c)
-#define DSI_HSA_WC (DSI_BASE + 0x50)
-#define DSI_HBP_WC (DSI_BASE + 0x54)
-#define DSI_HFP_WC (DSI_BASE + 0x58)
-#define DSI_BLLP_WC (DSI_BASE + 0x5c)
-#define DSI_CMDQ_CON (DSI_BASE + 0x60)
-#define DSI_HSTX_CKLP_WC (DSI_BASE + 0x64)
-#define DSI_RACK (DSI_BASE + 0x84)
-#define DSI_MEM_CONTI (DSI_BASE + 0x90)
-#define DSI_PHY_LCPAT (DSI_BASE + 0x100)
-#define DSI_PHY_LCCON (DSI_BASE + 0x104)
-#define DSI_PHY_LD0CON (DSI_BASE + 0x108)
-#define DSI_PHY_TIMCON0 (DSI_BASE + 0x110)
-#define DSI_PHY_TIMCON1 (DSI_BASE + 0x114)
-#define DSI_PHY_TIMCON2 (DSI_BASE + 0x118)
-#define DSI_PHY_TIMCON3 (DSI_BASE + 0x11C)
-#define DSI_VM_CMD_CON (DSI_BASE + 0x130)
-#define DSI_VM_CMD_DATA0 (DSI_BASE + 0x134)
-#define DSI_VM_CMD_DATA4 (DSI_BASE + 0x138)
-#define DSI_VM_CMD_DATA8 (DSI_BASE + 0x13c)
-#define DSI_VM_CMD_DATAC (DSI_BASE + 0x140)
-#define DSI_VM_CMD_DATA10 (DSI_BASE + 0x180)
-#define DSI_VM_CMD_DATA14 (DSI_BASE + 0x184)
-#define DSI_VM_CMD_DATA18 (DSI_BASE + 0x188)
-#define DSI_VM_CMD_DATA1C (DSI_BASE + 0x18C)
-#define DSI_SHADOW_DBG (DSI_BASE + 0x190) //shadow register
-#define DSI_SIZE_CON (DSI_BASE + 0x038) //limitation
-#define DSI_DEBUG_SEL (DSI_BASE + 0x170)
-#define DSI_SELF_PAT_CON0 (DSI_BASE + 0x178)
-#define DSI_SELF_PAT_CON1 (DSI_BASE + 0x17c)
-#define DSI_RESYNC_CON (DSI_BASE + 0x1f0)
-#define DSI_BUF_CON (DSI_BASE + 0x400)
-#define DSI_BUF_RW_TIMES (DSI_BASE + 0x410)
-#define DSI_CMDQ_BASE (DSI_BASE + 0xd00)
-#define DSI_CMDQ_0 (DSI_CMDQ_BASE + 0x00)
-#define DSI_CMDQ_1 (DSI_CMDQ_BASE + 0x04)
-#define DSI_CMDQ_2 (DSI_CMDQ_BASE + 0x08)
-#define DSI_CMDQ_3 (DSI_CMDQ_BASE + 0x0c)
-#define DSI_CMDQ_4 (DSI_CMDQ_BASE + 0x10)
-#define DSI_CMDQ_5 (DSI_CMDQ_BASE + 0x14)
-#define DSI_CMDQ_6 (DSI_CMDQ_BASE + 0x18)
-#define DSI_CMDQ_7 (DSI_CMDQ_BASE + 0x1c)
-#define DSI_CMDQ_8 (DSI_CMDQ_BASE + 0x20)
-#define DSI_CMDQ_9 (DSI_CMDQ_BASE + 0x24)
-#endif
-//------------------------------------------------------------------------
-// DSC register map
-//------------------------------------------------------------------------
-
 //------------------------------------------------------------------------
 // RX register map
 //------------------------------------------------------------------------
+#define MIPI_RX_PHY_BASE 0x00040000
 
 #define PPI_STARTUP_RW_COMMON_DPHY_0 0xc00
 #define PPI_STARTUP_RW_COMMON_DPHY_1 0xc01
