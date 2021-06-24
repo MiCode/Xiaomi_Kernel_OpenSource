@@ -52,6 +52,8 @@ endif
 # Enabel by specific platform
 ifeq ($(CONFIG_MACH_MT6781),y)
 ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DGED_ENABLE_DVFS_LOADING_MODE
+ccflags-y += -DMTK_GPU_BM_2
+$(info *GPU defined GPU BM QoS 2.0)
 endif
 
 ifeq ($(CONFIG_MTK_IOMMU_V2),y)
