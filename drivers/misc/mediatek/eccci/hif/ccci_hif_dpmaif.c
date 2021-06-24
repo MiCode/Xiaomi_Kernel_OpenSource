@@ -3397,20 +3397,20 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 	CCCI_HISTORY_LOG(-1, TAG, "pit dma_pool_alloc\n");
 #endif
 #endif
+	if (rxq->pit_base == NULL) {
+		CCCI_ERROR_LOG(-1, TAG, "pit request fail\n");
+		return LOW_MEMORY_PIT;
+	}
 #else
 	CCCI_BOOTUP_LOG(-1, TAG, "Using cacheable PIT memory\r\n");
 	rxq->pit_base = kmalloc((rxq->pit_size_cnt
 			* sizeof(struct dpmaifq_normal_pit)), GFP_KERNEL);
 	if (!rxq->pit_base) {
 		CCCI_ERROR_LOG(-1, TAG, "alloc PIT memory fail\r\n");
-		return -1;
+		return LOW_MEMORY_PIT;
 	}
 	rxq->pit_phy_addr = virt_to_phys(rxq->pit_base);
 #endif
-	if (rxq->pit_base == NULL) {
-		CCCI_ERROR_LOG(-1, TAG, "pit request fail\n");
-		return LOW_MEMORY_PIT;
-	}
 	memset(rxq->pit_base, 0, DPMAIF_DL_PIT_SIZE);
 	/* dpmaif_pit_init(rxq->pit_base, rxq->pit_size_cnt); */
 
@@ -3756,7 +3756,9 @@ int dpmaif_late_init(unsigned char hif_id)
 	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
 		rx_q = &dpmaif_ctrl->rxq[i];
 		rx_q->index = i;
-		dpmaif_rxq_init(rx_q);
+		ret = dpmaif_rxq_init(rx_q);
+		if (ret < 0)
+			return ret;
 		rx_q->skb_idx = -1;
 	}
 
@@ -3772,7 +3774,9 @@ int dpmaif_late_init(unsigned char hif_id)
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 		tx_q = &dpmaif_ctrl->txq[i];
 		tx_q->index = i;
-		dpmaif_txq_init(tx_q);
+		ret = dpmaif_txq_init(tx_q);
+		if (ret < 0)
+			return ret;
 	}
 
 	/* wakeup source init */
@@ -3811,8 +3815,11 @@ int dpmaif_start(unsigned char hif_id)
 
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWRON)
 		return 0;
-	else if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_MIN)
-		dpmaif_late_init(hif_id);
+	else if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_MIN) {
+		ret = dpmaif_late_init(hif_id);
+		if (ret < 0)
+			return ret;
+	}
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:start\n");
 #endif
