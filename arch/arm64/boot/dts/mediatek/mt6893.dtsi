@@ -680,6 +680,7 @@
 				scmi_smi = <8>;
 				scmi_cm = <9>;
 				scmi_slbc = <10>;
+				scmi_apmcupm = <11>;
 			};
 		};
 	};
