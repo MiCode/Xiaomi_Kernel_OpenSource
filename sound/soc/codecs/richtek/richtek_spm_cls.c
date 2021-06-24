@@ -163,7 +163,7 @@ static int rt_spm_trigger_calibration(struct device *dev, void *data)
 			break;
 		case RTK_IPI_CMD_VVALIDATION:
 			dev_err(dev, "vvalidation failed...\n");
-			if (rdc->ops->post_vvalid)
+			if (rdc->ops && rdc->ops->post_vvalid)
 				rdc->ops->post_vvalid(rdc);
 			break;
 		default:
@@ -610,7 +610,7 @@ module_exit(richtek_spm_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Richtek BIGDATA Class driver");
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
-MODULE_VERSION("1.0.4_G");
+MODULE_VERSION("1.0.5_G");
 
 /* 1.0.1_G
  * 1. implement calibration interface like LSI Platform
@@ -621,4 +621,6 @@ MODULE_VERSION("1.0.4_G");
  * 1.0.4_G
  * 1. change pwr node show information
  * 2. update check patch
+ * 1.0.5_G
+ * 1. fix null point for vvalidation
  */

@@ -114,13 +114,17 @@ struct rt5512_chip {
 #if GENERIC_DEBUGFS
 static int rt5512_dbg_io_read(void *drvdata, u16 reg, void *val, u16 size)
 {
-	return regmap_bulk_read((struct regmap *)drvdata, reg, val, size/2);
+	struct rt5512_chip *chip = (struct rt5512_chip *)drvdata;
+
+	return i2c_smbus_read_i2c_block_data(chip->i2c, reg, size, val);
 }
 
 static int rt5512_dbg_io_write(void *drvdata, u16 reg,
 			       const void *val, u16 size)
 {
-	return regmap_bulk_write((struct regmap *)drvdata, reg, val, size/2);
+	struct rt5512_chip *chip = (struct rt5512_chip *)drvdata;
+
+	return i2c_smbus_write_i2c_block_data(chip->i2c, reg, size, val);
 }
 #endif /* GENERIC_DEBUGFS */
 
@@ -631,10 +635,8 @@ static int rt5512_codec_put_istcbypass(struct snd_kcontrol *kcontrol,
 		return ret;
 	}
 	ret = rt5512_chip_power_on(chip, 0);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(component->dev, "%s power on fail\n", __func__);
-		return ret;
-	}
 
 	return ret;
 }
@@ -654,16 +656,16 @@ static int rt5512_codec_get_istcbypass(struct snd_kcontrol *kcontrol,
 	}
 	ret = snd_soc_component_test_bits(component, RT5512_REG_PATH_BYPASS,
 					  0x0004, 0x0004);
-	ret = rt5512_chip_power_on(chip, 0);
-	if (ret < 0) {
-		dev_err(component->dev, "%s power on fail\n", __func__);
-		return ret;
-	}
 	if (ret) /* 4A */
 		ucontrol->value.integer.value[0] = 0;
 	else
 		ucontrol->value.integer.value[0] = 1;
 
+	ret = rt5512_chip_power_on(chip, 0);
+	if (ret < 0) {
+		dev_err(component->dev, "%s power on fail\n", __func__);
+		return ret;
+	}
 	return 0;
 }
 
@@ -1258,10 +1260,12 @@ int rt5512_i2c_probe(struct i2c_client *client,
 	chip->dbg_info.dirname = devm_kasprintf(&client->dev,
 						GFP_KERNEL, "RT5512.%s",
 						dev_name(&client->dev));
-	chip->dbg_info.devname = dev_name(&client->dev);
+	chip->dbg_info.devname = devm_kasprintf(&client->dev,
+						GFP_KERNEL, "%s",
+						dev_name(&client->dev));
 	chip->dbg_info.typestr = devm_kasprintf(&client->dev,
 						GFP_KERNEL, "I2C,RT5512");
-	chip->dbg_info.io_drvdata = chip->regmap;
+	chip->dbg_info.io_drvdata = chip;
 	chip->dbg_info.io_read = rt5512_dbg_io_read;
 	chip->dbg_info.io_write = rt5512_dbg_io_write;
 
@@ -1318,4 +1322,9 @@ module_exit(rt5512_driver_exit);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5512 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("2.0.0_Jeff");
+MODULE_VERSION("2.0.1_M");
+/*
+ * 2.0.1
+ * 1. fix is_tc_bypass_get
+ * 2. modify debugfs name
+ */
