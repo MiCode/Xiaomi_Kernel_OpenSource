@@ -1,0 +1,39 @@
+QTI QRTR MHI transport binding
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,qrtr-mhi"
+
+- qcom,dev-id:
+	Usage: optional
+	Value type: <u32>
+	Definition: indicates the dev-id that this transport is for. Should be
+		    passed into the qrtr core logic to determine to match with the
+		    dev-id used by the mhi controller.
+
+- qcom,net-id:
+	Usage: optional
+	Value type: <u32>
+	Definition: indicates what subnet this transport belongs to. If the dev-id
+		    passed above matches the one passed into qrtr logic by mhi core,
+		    then this net-id is passed into the qrtr core logic to determin
+		    if forwarding is needed on this endpoint.
+
+- qcom,low-latency:
+	Usage: optional
+	Value type: <bool>
+	Definition: indicates whether this transport receiving thread needs to
+		    be set to realtime priority for enhanced performance.
+
+= EXAMPLE
+The following example represents the qrtr mhi transport node on a device
+configured as a pcie endpoint and needs to forward data from the host to a
+slpi co-processor.
+
+	mhi_qrtr_cnss {
+		compatible = "qcom,qrtr-mhi";
+		qcom,dev-id = <0x1103>;
+		qcom,net-id = <0>;
+		qcom,low-latency;
+	};
