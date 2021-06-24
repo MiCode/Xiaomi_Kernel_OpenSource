@@ -26,3 +26,6 @@ mkp-$(CONFIG_MTK_MKP) += policy.o
 mkp-$(CONFIG_MTK_MKP) += mkp_hvc.o
 mkp-$(CONFIG_MTK_MKP) += mkp_api.o
 mkp-$(CONFIG_MTK_MKP) += ksym.o
+ifdef demo_mkp
+mkp-$(CONFIG_MTK_MKP) += mkp_rbtree.o
+endif
