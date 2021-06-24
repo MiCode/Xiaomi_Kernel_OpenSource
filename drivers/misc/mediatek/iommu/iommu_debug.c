@@ -2160,7 +2160,6 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 	return 0;
 }
 
-#ifdef _RESTRICTED_IOVA_VENDOR_HOOKS_
 static void mtk_iova_dbg_dump(struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
@@ -2178,7 +2177,6 @@ static void mtk_iova_dbg_dump(struct device *dev)
 				dev_name(plist->dev));
 	spin_unlock(&iova_list.lock);
 }
-#endif
 
 static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 {
@@ -2186,14 +2184,9 @@ static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 
 	if (!iova) {
-#ifdef _RESTRICTED_IOVA_VENDOR_HOOKS_
-		/* un-comment it when using restrict hook */
 		pr_info("[mtk_iommu: debug] %s fail! dev:%s, size:0x%zx\n",
 			__func__, dev_name(dev), size);
 		return mtk_iova_dbg_dump(dev);
-#else
-		return;
-#endif
 	}
 
 	if (!atomic_cmpxchg(&iova_list.init_flag, 0, 1)) {
