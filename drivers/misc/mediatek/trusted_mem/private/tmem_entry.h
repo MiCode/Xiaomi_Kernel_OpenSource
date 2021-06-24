@@ -22,7 +22,7 @@ int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 			  u8 *owner, u32 id);
 int tmem_core_alloc_page(enum TRUSTED_MEM_TYPE mem_type, u32 size,
-			  struct ssheap_buf_info *buf_info);
+			  struct ssheap_buf_info **buf_info);
 int tmem_core_unref_page(enum TRUSTED_MEM_TYPE mem_type,
 			  struct ssheap_buf_info *buf_info);
 

@@ -42,7 +42,10 @@
 #include "private/tmem_device.h"
 #include "private/tmem_priv.h"
 #include "private/tmem_cfg.h"
+#include "private/ssheap_priv.h"
 #include "public/trusted_mem_api.h"
+
+#define HYP_PMM_MASTER_SIDE_PROTECT (0)
 
 static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
 {
@@ -286,15 +289,64 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 }
 
 int tmem_core_alloc_page(enum TRUSTED_MEM_TYPE mem_type, u32 size,
-			  struct ssheap_buf_info *buf_info)
+			  struct ssheap_buf_info **buf_info)
 {
-	return 1;
+	struct ssheap_buf_info *info = NULL;
+#if HYP_PMM_MASTER_SIDE_PROTECT
+	unsigned long smc_ret;
+#endif
+
+	if (!buf_info)
+		return TMEM_PARAMETER_ERROR;
+
+	info = ssheap_alloc_non_contig(size, 0, mem_type);
+	if (!info) {
+		*buf_info = NULL;
+		pr_err("[%d] alloc non contig failed! sz:0x%x\n", mem_type, size);
+		return TMEM_GENERAL_ERROR;
+	}
+
+#if HYP_PMM_MASTER_SIDE_PROTECT
+	smc_ret = mtee_assign_buffer(info, mem_type);
+	if (smc_ret) {
+		pr_err("smc_ret:%x assign buffer failed!\n", smc_ret);
+		ssheap_free_non_contig(info);
+		return TMEM_GENERAL_ERROR;
+	}
+#endif
+
+	*buf_info = info;
+	return TMEM_OK;
 }
 
 int tmem_core_unref_page(enum TRUSTED_MEM_TYPE mem_type,
 			  struct ssheap_buf_info *buf_info)
 {
-	return 1;
+	int ret;
+#if HYP_PMM_MASTER_SIDE_PROTECT
+	unsigned long smc_ret;
+#endif
+
+	if (!buf_info)
+		return TMEM_PARAMETER_ERROR;
+
+	if (buf_info->mem_type != mem_type) {
+		pr_err("mem_type mismatch buf:%x free:%x\n", buf_info->mem_type, mem_type);
+		return TMEM_GENERAL_ERROR;
+	}
+
+#if HYP_PMM_MASTER_SIDE_PROTECT
+	smc_ret = mtee_unassign_buffer(buf_info, mem_type);
+	if (smc_ret)
+		return TMEM_GENERAL_ERROR;
+#endif
+
+	ret = ssheap_free_non_contig(buf_info);
+	if (ret) {
+		pr_err("[%d] free non contig failed:%d\n", mem_type, ret);
+		return TMEM_GENERAL_ERROR;
+	}
+	return TMEM_OK;
 }
 
 int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,

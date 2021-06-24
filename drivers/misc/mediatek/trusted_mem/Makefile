@@ -24,6 +24,7 @@ trusted_mem-y += region_mgr.o
 trusted_mem-y += ssmr_mgr.o
 trusted_mem-y += peer_mgr.o
 trusted_mem-y += proc.o
+trusted_mem-y += ssheap_proc.o
 trusted_mem-y += alloc_api.o
 trusted_mem-y += ssmr/memory_ssmr.o
 
@@ -85,6 +86,7 @@ endif # !CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssmr
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssheap
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
 #==========================================================================

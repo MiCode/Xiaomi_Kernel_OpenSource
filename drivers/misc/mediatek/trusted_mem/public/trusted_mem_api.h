@@ -31,6 +31,7 @@ struct ssheap_buf_info {
 	unsigned long allocated_size;
 	unsigned long elems;
 	struct page *pmm_msg_page;
+	u8 mem_type;
 };
 
 /**********************************************************/
@@ -39,7 +40,7 @@ struct ssheap_buf_info {
 #if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
 			  u32 size, u32 *refcount, u32 *sec_handle,
-			  uint8_t *owner, uint32_t id, struct ssheap_buf_info *buf_info);
+			  uint8_t *owner, uint32_t id, struct ssheap_buf_info **buf_info);
 int trusted_mem_api_alloc_zero(enum TRUSTED_MEM_REQ_TYPE mem_type,
 			       u32 alignment, u32 size, u32 *refcount,
 			       u32 *sec_handle, uint8_t *owner, uint32_t id);

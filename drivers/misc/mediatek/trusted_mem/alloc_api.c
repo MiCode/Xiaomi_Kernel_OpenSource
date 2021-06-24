@@ -85,7 +85,7 @@ get_region_mem_type(enum TRUSTED_MEM_TYPE req_type)
 
 int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 alignment,
 			  u32 size, u32 *refcount, u32 *sec_handle,
-			  uint8_t *owner, uint32_t id, struct ssheap_buf_info *buf_info)
+			  uint8_t *owner, uint32_t id, struct ssheap_buf_info **buf_info)
 {
 	enum TRUSTED_MEM_TYPE mem_type = get_mem_type(req_mem_type);
 

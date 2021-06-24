@@ -18,6 +18,8 @@
 #include <linux/moduleparam.h>
 #include <linux/sizes.h>
 #include <linux/mod_devicetable.h>
+#include <linux/of.h>
+#include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-direct.h>
@@ -32,6 +34,7 @@
 #include "tee_impl/tee_invoke.h"
 
 #include "memory_ssmr.h"
+#include "memory_ssheap.h"
 
 static int tmem_open(struct inode *inode, struct file *file)
 {
@@ -269,6 +272,11 @@ static int trusted_mem_init(struct platform_device *pdev)
 {
 	pr_info("%s:%d\n", __func__, __LINE__);
 
+#if WITH_SSHEAP_PROC
+	if (strncmp(dev_name(&pdev->dev), "ssheap", 6) == 0)
+		return ssheap_init(pdev);
+#endif
+
 	ssmr_init(pdev);
 
 	trusted_mem_subsys_init();
@@ -294,6 +302,11 @@ static int trusted_mem_init(struct platform_device *pdev)
 
 static int trusted_mem_exit(struct platform_device *pdev)
 {
+#if WITH_SSHEAP_PROC
+	if (strncmp(dev_name(&pdev->dev), "ssheap", 6) == 0)
+		return ssheap_exit(pdev);
+#endif
+
 #ifdef MTEE_DEVICES_SUPPORT
 	mtee_mchunks_exit();
 #endif
@@ -314,6 +327,7 @@ static int trusted_mem_exit(struct platform_device *pdev)
 
 static const struct of_device_id tm_of_match_table[] = {
 	{ .compatible = "mediatek,trusted_mem"},
+	{ .compatible = "mediatek,trusted_mem_ssheap"},
 	{},
 };
 
