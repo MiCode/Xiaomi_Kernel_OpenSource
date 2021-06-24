@@ -4,10 +4,33 @@
  */
 
 #include "inc/tcpci.h"
+#include <linux/usb/typec.h>
+#include <linux/usb/typec_mux.h>
 #include <linux/time.h>
 #include <linux/slab.h>
 
 #define TCPC_NOTIFY_OVERTIME	(20) /* ms */
+
+struct typec_port {
+  	unsigned int			id;
+  	struct device			dev;
+  	struct ida			mode_ids;
+
+  	int				prefer_role;
+  	enum typec_data_role		data_role;
+  	enum typec_role			pwr_role;
+  	enum typec_role			vconn_role;
+  	enum typec_pwr_opmode		pwr_opmode;
+  	enum typec_port_type		port_type;
+  	struct mutex			port_type_lock;
+
+  	enum typec_orientation		orientation;
+  	struct typec_switch		*sw;
+  	struct typec_mux		*mux;
+
+  	const struct typec_capability	*cap;
+  	const struct typec_operations   *ops;
+};
 
 #ifdef CONFIG_TCPC_NOTIFICATION_NON_BLOCKING
 struct tcp_notify_work {
@@ -616,12 +639,18 @@ EXPORT_SYMBOL(tcpci_retransmit);
 int tcpci_notify_typec_state(struct tcpc_device *tcpc)
 {
 	struct tcp_notify tcp_noti;
+	struct typec_mux_state state;
 	int ret;
 
 	tcp_noti.typec_state.polarity = tcpc->typec_polarity;
 	tcp_noti.typec_state.old_state = tcpc->typec_attach_old;
 	tcp_noti.typec_state.new_state = tcpc->typec_attach_new;
 	tcp_noti.typec_state.rp_level = tcpc->typec_remote_rp_level;
+
+	state.data = &tcp_noti;
+	state.mode = TCP_NOTIFY_TYPEC_STATE;
+
+	typec_mux_set(tcpc->typec_port->mux, &state);
 
 	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
 		TCP_NOTIFY_IDX_USB, TCP_NOTIFY_TYPEC_STATE);
@@ -960,6 +989,7 @@ int tcpci_report_hpd_state(struct tcpc_device *tcpc, uint32_t dp_status)
 {
 	struct tcp_notify tcp_noti;
 	struct dp_data *dp_data = pd_get_dp_data(&tcpc->pd_port);
+	struct typec_mux_state state;
 
 	/* UFP_D to DFP_D only */
 
@@ -967,6 +997,9 @@ int tcpci_report_hpd_state(struct tcpc_device *tcpc, uint32_t dp_status)
 		tcp_noti.ama_dp_hpd_state.irq = PD_VDO_DPSTS_HPD_IRQ(dp_status);
 		tcp_noti.ama_dp_hpd_state.state =
 					PD_VDO_DPSTS_HPD_LVL(dp_status);
+		state.data = &tcp_noti;
+		state.mode = TCP_NOTIFY_AMA_DP_HPD_STATE;
+		typec_mux_set(tcpc->typec_port->mux, &state);
 		tcpc_check_notify_time(tcpc, &tcp_noti,
 			TCP_NOTIFY_IDX_MODE, TCP_NOTIFY_AMA_DP_HPD_STATE);
 	}
@@ -986,6 +1019,7 @@ EXPORT_SYMBOL(tcpci_dp_status_update);
 int tcpci_dp_configure(struct tcpc_device *tcpc, uint32_t dp_config)
 {
 	struct tcp_notify tcp_noti;
+	struct typec_mux_state state;
 	int ret;
 
 	DP_INFO("LocalCFG: 0x%x\r\n", dp_config);
@@ -1011,6 +1045,12 @@ int tcpci_dp_configure(struct tcpc_device *tcpc, uint32_t dp_config)
 	tcp_noti.ama_dp_state.signal = (dp_config >> 2) & 0x0f;
 	tcp_noti.ama_dp_state.polarity = tcpc->typec_polarity;
 	tcp_noti.ama_dp_state.active = 1;
+
+	state.mode = TCP_NOTIFY_AMA_DP_STATE;
+	state.data = &tcp_noti;
+
+	typec_mux_set(tcpc->typec_port->mux, &state);
+
 	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
 		TCP_NOTIFY_IDX_MODE, TCP_NOTIFY_AMA_DP_STATE);
 	return ret;
