@@ -19,6 +19,9 @@
 #define SPI_SPEED_READ		(SPI_SPEED_WRITE / 2)
 
 #include <mmprofile.h>
+#if IS_ENABLED(CONFIG_MTK_CMDQ_V3)
+#include "cmdq_helper_ext.h"
+#endif
 
 #define SYSBUF_BASE		0xA000
 #define SYSBUF_SIZE		0x2000
@@ -308,6 +311,80 @@ static bool cmdq_bdg_task_running(struct cmdq_task *task, const phys_addr_t pa)
 	}
 	return false;
 }
+
+void cmdq_bdg_client_get_irq(struct cmdq_client *cl, u32 *irq)
+{
+	*irq = cmdq_bdg_thread_get_reg(cl->chan->con_priv, CMDQ_THR_IRQ_FLAG);
+}
+EXPORT_SYMBOL(cmdq_bdg_client_get_irq);
+
+static inline void cmdq_bdg_dump_gce(void)
+{
+	const u32 irq = spi_read_reg(GCE_BASE + CMDQ_THR_IRQ_FLAG);
+#if 0
+	u32 dbg0[3], dbg2[6], i;
+
+	for (i = 0; i < 6; i++) {
+		if (i < 3) {
+			spi_write_reg(GCE_BASE + GCE_DBG_CTL, (i << 8) | i);
+			dbg0[i] = spi_read_reg(GCE_BASE + GCE_DBG0);
+		} else
+			spi_write_reg(GCE_BASE + GCE_DBG_CTL, (i << 8));
+		dbg2[i] = spi_read_reg(GCE_BASE + GCE_DBG2);
+	}
+
+	cmdq_msg(
+		"%s: gce:%#x irq:%#x dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x",
+		__func__, GCE_BASE, irq, dbg0[0], dbg0[1], dbg0[2],
+		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5]);
+#endif
+	cmdq_msg("%s: gce:%#x irq:%#x", __func__, GCE_BASE, irq);
+}
+
+static inline u32 cmdq_bdg_dump_thread(struct cmdq_thread *thread)
+{
+	u32 val[10], pc, end, spr[4];
+	u64 inst;
+
+	spi_read_mem(
+		(u32)thread->base + CMDQ_THR_STATUS, val, sizeof(u32) * 10);
+	pc = cmdq_bdg_thread_get_pc(thread);
+	end = cmdq_bdg_thread_get_end(thread);
+	spi_read_mem((u32)thread->base + CMDQ_THR_SPR0, spr, sizeof(u32) * 4);
+	spi_read_mem(pc, &inst, CMDQ_INST_SIZE);
+
+	cmdq_msg(
+		"%s:%u priority:%d status:%#x irq:%#x pc:%#x inst:%#llx end:%#x cookie:%#x wait:%#x spr:%#x %#x %#x %#x",
+		__func__, thread->idx, thread->priority,
+		val[0], val[1], pc, inst, end, val[7], val[9],
+		spr[0], spr[1], spr[2], spr[3]);
+
+	return pc;
+}
+
+#if IS_ENABLED(CONFIG_MTK_CMDQ_V3)
+void cmdq_bdg_dump_handle(struct cmdqRecStruct *rec, const char *tag)
+{
+#if IS_ENABLED(CONFIG_MTK_CMDQ_V3)
+	struct cmdq_client *client = (struct cmdq_client *)rec->pkt->cl;
+	u32 pc, base;
+
+	cmdq_msg("%s: rec:%p pkt:%p thread:%d scenario:%d engine:%#llx",
+		__func__,
+		rec, rec->pkt, rec->thread, rec->scenario, rec->engineFlag);
+	cmdq_bdg_dump_gce();
+	pc = cmdq_bdg_dump_thread(client->chan->con_priv);
+	if (!strncmp(tag, "ERR", 3)) {
+		base = SYSBUF_BASE + CMDQ_SYSBUF_SIZE *
+			((pc - SYSBUF_BASE) / CMDQ_SYSBUF_SIZE);
+		cmdq_bdg_dump_sysbuf(base, pc - base + CMDQ_INST_SIZE);
+	}
+#else
+	cmdq_msg("%s: rec:%p CMDQ_V3 not support", __func__, ptr);
+#endif
+}
+EXPORT_SYMBOL(cmdq_bdg_dump_handle);
+#endif
 
 static void cmdq_bdg_task_callback(struct cmdq_pkt *pkt, const s32 err)
 {
