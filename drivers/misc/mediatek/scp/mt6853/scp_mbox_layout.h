@@ -58,12 +58,21 @@
 /* ============================================================ */
 
 /* this is mbox pool for 2 cores */
+#ifdef CONFIG_MTK_SENSORHUB
+#define PIN_OUT_SIZE_SCP_MPOOL         4 /* the following will use mbox 2,4 */
+#define PIN_IN_SIZE_SCP_MPOOL          4 /* the following will use mbox 2,4 */
+#else
 #define PIN_OUT_SIZE_SCP_MPOOL         34 /* the following will use mbox 2,4 */
 #define PIN_IN_SIZE_SCP_MPOOL          30 /* the following will use mbox 2,4 */
+#endif
 #define PIN_OUT_SIZE_CHRE_0            34
 #define PIN_OUT_SIZE_CHREX_0           14
 #define PIN_OUT_SIZE_SENSOR_0          14
 #define PIN_IN_SIZE_CHRE_0             14
 #define PIN_IN_SIZE_SENSOR_0           14
 
+#define PIN_OUT_SIZE_SENSOR_CTRL	16 /* core0 mbox 2 */
+#define PIN_IN_SIZE_SENSOR_CTRL		2  /* core0 mbox 2 */
+#define PIN_OUT_SIZE_SENSOR_NOTIFY	7  /* core0 mbox 2 */
+#define PIN_IN_SIZE_SENSOR_NOTIFY	7  /* core0 mbox 2 */
 #endif

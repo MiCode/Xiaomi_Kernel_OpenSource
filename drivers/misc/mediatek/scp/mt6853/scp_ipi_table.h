@@ -90,6 +90,14 @@ struct mtk_mbox_pin_recv scp_mbox_pin_recv[] = {
 	{2, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_MPOOL, 0,
 	 IPI_IN_SCP_MPOOL_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
 	{0, 0, 0, 0, 0, 0} },
+#ifdef CONFIG_MTK_SENSORHUB
+	{2, 0, 0, 0, 1, 0, PIN_IN_SIZE_SENSOR_CTRL, 0,
+	 IPI_IN_SENSOR_CTRL, { 0 }, 0, 0, 0, { { { { 0 } } } },
+	{0, 0, 0, 0, 0, 0} },
+	{2, 0, 0, 0, 1, 0, PIN_IN_SIZE_SENSOR_NOTIFY, 0,
+	 IPI_IN_SENSOR_NOTIFY, { 0 }, 0, 0, 0, { { { { 0 } } } },
+	{0, 0, 0, 0, 0, 0} },
+#endif
 	{3, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_ERROR_INFO_1, 0,
 	 IPI_IN_SCP_ERROR_INFO_1, { 0 }, 0, 0, 0, { { { { 0 } } } },
 	{0, 0, 0, 0, 0, 0} },
@@ -139,6 +147,12 @@ struct mtk_mbox_pin_send scp_mbox_pin_send[] = {
 	 IPI_OUT_AUDIO_ULTRA_SND_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{2, 0, 0, 0, PIN_OUT_SIZE_SCP_MPOOL, 0,
 	 IPI_OUT_SCP_MPOOL_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
+#ifdef CONFIG_MTK_SENSORHUB
+	{2, 0, 0, 0, PIN_OUT_SIZE_SENSOR_CTRL, 0,
+	 IPI_OUT_SENSOR_CTRL, { { 0 } }, { 0 }, { { { { 0 } } } } },
+	{2, 0, 0, 0, PIN_OUT_SIZE_SENSOR_NOTIFY, 0,
+	 IPI_OUT_SENSOR_NOTIFY, { { 0 } }, { 0 }, { { { { 0 } } } } },
+#endif
 	{3, 0, 0, 0, PIN_OUT_SIZE_DVFS_SET_FREQ_1, 0,
 	 IPI_OUT_DVFS_SET_FREQ_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{3, 0, 0, 0, PIN_OUT_C_SIZE_SLEEP_1, 0,

@@ -47,9 +47,9 @@ struct lsm6dsm_device {
 
 static struct sensor_info support_sensors[] = {
 	{
-		.sensor_type = SENSOR_TYPE_ACCELEROMETER,
+		.sensor_type = SENSOR_TYPE_GYRO_SECONDARY,
 		.gain = 1,
-		.name = {'a', 'c', 'c', 'e', 'l'},
+		.name = {'g', 'y', 'r', 'o'},
 		.vendor = {'m', 't', 'k'},
 	}
 };

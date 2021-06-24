@@ -82,12 +82,17 @@ obj-$(CONFIG_MTK_AUXADC)	+= auxadc/
 obj-$(CONFIG_MTK_GPT_SCHEME_SUPPORT)	+= partition/
 obj-$(CONFIG_MTK_PWM)	    += pwm/
 obj-$(CONFIG_MTK_IRTX_PWM_SUPPORT)	    += irtx/
+ifeq ($(CONFIG_MTK_SENSORHUB), y)
+obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
+endif
 ifeq ($(subst ",,$(CONFIG_MTK_SENSOR_ARCHITECTURE)),1.0)
 obj-y += sensors-1.0/
 else
 obj-y += sensor/
 endif
+ifneq ($(CONFIG_MTK_SENSORHUB), y)
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
+endif
 obj-$(CONFIG_MTK_HIFIXDSP_SUPPORT) += hifi_dsp/
 obj-$(CONFIG_MTK_HIFIXDSP_SUPPORT) += hifidsp_audio_ipi/
 obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += adsp/

@@ -1,0 +1,8 @@
+config MTK_SENSORHUB
+	bool "sensorhub architecture for MediaTek package"
+	help
+	  It support mediatek sensorhub architecture.
+	  If this option is set,
+	  it will support
+	  mediatek sensorhub architecture.
+
