@@ -382,7 +382,10 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6853 = {
 .hrt = {
 .hrt_bw = {3344, 0, 0},
 .hrt_total_bw = 8532, /* Todo: Use DRAMC API */
-}
+},
+.comm_port_channels = {
+		{ 0x1, 0x2, 0x2, 0x1, 0x2, 0x2, 0x1, 0x2, 0x3 }
+	},
 };
 static const struct of_device_id mtk_mmqos_mt6853_of_ids[] = {
 {
