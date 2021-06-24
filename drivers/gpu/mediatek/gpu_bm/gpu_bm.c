@@ -108,7 +108,7 @@ static void setupfw_work_handler(struct work_struct *work)
 	ret = qos_ipi_to_sspm_scmi_command(qos_d.cmd,
 		qos_d.u.gpu_info.addr,
 		qos_d.u.gpu_info.addr_hi,
-		qos_d.u.gpu_info.size, 0);
+		qos_d.u.gpu_info.size, QOS_IPI_SCMI_SET);
 #else
 	pr_debug("%s: MTK_SCMI not defined! \n", __func__);
 	ret = qos_ipi_to_sspm_command(&qos_d, 4);
@@ -124,7 +124,7 @@ static void setupfw_work_handler(struct work_struct *work)
 		pr_debug("%s: sspm_ipi success! (%d)\n", __func__, ret);
 	} else {
 		pr_debug("%s: sspm_ipi fail (%d)\n", __func__, ret);
-		//schedule_delayed_work(&g_setupfw_work, 5 * HZ);
+		schedule_delayed_work(&g_setupfw_work, 5 * HZ);
 	}
 #else
 	pr_debug("%s: sspm_ipi is not support!\n", __func__);
@@ -137,7 +137,7 @@ static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
 	setupfw_data.phyaddr = phyaddr;
 	setupfw_data.size = size;
 
-	//schedule_delayed_work(&g_setupfw_work, 1);
+	schedule_delayed_work(&g_setupfw_work, 1);
 }
 
 static void bw_v1_gpu_power_change_notify(int power_on)
