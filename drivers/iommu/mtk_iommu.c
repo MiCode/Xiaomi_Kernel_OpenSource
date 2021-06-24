@@ -298,6 +298,10 @@ static inline void mtk_iommu_isr_setup(unsigned long enable)
 
 	pr_info("%s, enable:%d\n", __func__, enable);
 	for_each_m4u(data) {
+		if (pm_runtime_get_if_in_use(data->dev) <= 0 &&
+			!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN))
+			continue;
+
 		for (i = IOMMU_BK0; i < IOMMU_BK_NUM; i++) {
 			void __iomem *base = NULL;
 
@@ -339,6 +343,9 @@ static inline void mtk_iommu_isr_setup(unsigned long enable)
 				writel_relaxed(0, base + REG_MMU_INT_MAIN_CONTROL);
 			}
 		}
+
+		if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN))
+			pm_runtime_put(data->dev);
 	}
 }
 
