@@ -561,6 +561,8 @@
 
 &typec_mux_switch {
 	orientation-switch;
+	mode-switch;
+	accessory;
 	port {
 		ssusb_mux: endpoint@0 {
 			remote-endpoint = <&tcpc_typec_usb>;
