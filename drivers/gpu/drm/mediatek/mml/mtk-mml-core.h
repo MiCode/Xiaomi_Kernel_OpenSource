@@ -151,7 +151,7 @@ struct mml_topology_ops {
 	s32 (*init_cache)(struct mml_dev *mml,
 			  struct mml_topology_cache *cache,
 			  struct cmdq_client **clts,
-			  u8 clt_cnt);
+			  u32 clt_cnt);
 	s32 (*select)(struct mml_topology_cache *cache,
 		      struct mml_frame_config *cfg);
 };

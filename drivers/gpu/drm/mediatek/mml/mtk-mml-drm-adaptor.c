@@ -13,6 +13,7 @@
 #include "mediatek_v2/mtk_sync.h"
 #include "mediatek_v2/mtk_drm_drv.h"
 
+#include "mtk-mml-drm-adaptor.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
@@ -50,12 +51,6 @@ struct mml_drm_ctx {
 	struct workqueue_struct *wq_destroy;
 	struct sync_timeline *timeline;
 };
-
-static enum mml_mode query_mode(struct mml_frame_info *info)
-{
-	/* TODO: find mode by table */
-	return MML_MODE_MML_DECOUPLE;
-}
 
 #if MML_QUERY_ADJUST == 1
 static void mml_adjust_src(struct mml_frame_data *src)
@@ -181,7 +176,7 @@ enum mml_mode mml_drm_query_cap(struct mml_frame_info *info)
 		}
 	}
 
-	return query_mode(info);
+	return mml_topology_query_mode(info);
 
 not_support:
 	return MML_MODE_NOT_SUPPORT;

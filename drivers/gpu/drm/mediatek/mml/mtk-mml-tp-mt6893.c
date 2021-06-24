@@ -15,6 +15,8 @@
 #define TOPOLOGY_PLATFORM	"mt6893"
 #define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
+#define MML_IR_MAX_FRAME	(3840 * 2176)
+#define MML_IR_MAX_WIDTH	3200
 
 int mml_force_rsz;
 EXPORT_SYMBOL(mml_force_rsz);
@@ -31,12 +33,12 @@ EXPORT_SYMBOL(mml_dual);
 module_param(mml_dual, int, 0644);
 
 enum topology_scenario {
-	PATH_MML_DC_NOPQ_P0 = 0,
-	PATH_MML_DC_NOPQ_P1,
-	PATH_MML_DC_PQ_P0,
-	PATH_MML_DC_PQ_P1,
-	PATH_MML_DC_PQ2_P0,
-	PATH_MML_DC_PQ2_P1,
+	PATH_MML_NOPQ_P0 = 0,
+	PATH_MML_NOPQ_P1,
+	PATH_MML_PQ_P0,
+	PATH_MML_PQ_P1,
+	PATH_MML_PQ2_P0,
+	PATH_MML_PQ2_P1,
 	PATH_MML_MAX
 };
 
@@ -53,20 +55,20 @@ static inline bool engine_wrot(u32 id)
 }
 
 static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
-	[PATH_MML_DC_NOPQ_P0] = {
+	[PATH_MML_NOPQ_P0] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
 		{MML_RDMA0, MML_WROT0,},
 		{MML_WROT0,},
 	},
-	[PATH_MML_DC_NOPQ_P1] = {
+	[PATH_MML_NOPQ_P1] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
 		{MML_RDMA1, MML_WROT1,},
 		{MML_WROT1,},
 	},
 
-	[PATH_MML_DC_PQ_P0] = {
+	[PATH_MML_PQ_P0] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
 		{MML_RDMA0, MML_FG0,},
@@ -78,7 +80,7 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_TCC0, MML_WROT0,},
 		{MML_WROT0,},
 	},
-	[PATH_MML_DC_PQ_P1] = {
+	[PATH_MML_PQ_P1] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
 		{MML_RDMA1, MML_FG1,},
@@ -91,7 +93,7 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_WROT1,},
 	},
 
-	[PATH_MML_DC_PQ2_P0] = {
+	[PATH_MML_PQ2_P0] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
 		{MML_RDMA0, MML_FG0,},
@@ -105,7 +107,7 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_TCC0, MML_WROT0,},
 		{MML_WROT0,},
 	},
-	[PATH_MML_DC_PQ2_P1] = {
+	[PATH_MML_PQ2_P1] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
 		{MML_RDMA1, MML_FG1,},
@@ -128,12 +130,12 @@ enum cmdq_clt_usage {
 };
 
 static const u8 clt_dispatch[PATH_MML_MAX] = {
-	[PATH_MML_DC_NOPQ_P0] = MML_CLT_PIPE0,
-	[PATH_MML_DC_NOPQ_P1] = MML_CLT_PIPE1,
-	[PATH_MML_DC_PQ_P0] = MML_CLT_PIPE0,
-	[PATH_MML_DC_PQ_P1] = MML_CLT_PIPE1,
-	[PATH_MML_DC_PQ2_P0] = MML_CLT_PIPE0,
-	[PATH_MML_DC_PQ2_P1] = MML_CLT_PIPE1,
+	[PATH_MML_NOPQ_P0] = MML_CLT_PIPE0,
+	[PATH_MML_NOPQ_P1] = MML_CLT_PIPE1,
+	[PATH_MML_PQ_P0] = MML_CLT_PIPE0,
+	[PATH_MML_PQ_P1] = MML_CLT_PIPE1,
+	[PATH_MML_PQ2_P0] = MML_CLT_PIPE0,
+	[PATH_MML_PQ2_P1] = MML_CLT_PIPE1,
 };
 
 static void tp_dump_path(struct mml_topology_path *path)
@@ -141,7 +143,8 @@ static void tp_dump_path(struct mml_topology_path *path)
 	u8 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
-		mml_log("engine %hhu (%p) prev %p next %p %p comp %p tile idx %hhu out %hhu",
+		mml_log(
+			"[topology]engine %hhu (%p) prev %p next %p %p comp %p tile idx %hhu out %hhu",
 			path->nodes[i].id, &path->nodes[i],
 			path->nodes[i].prev,
 			path->nodes[i].next[0], path->nodes[i].next[1],
@@ -160,7 +163,7 @@ static void tp_dump_path_short(struct mml_topology_path *path)
 	for (i = 0; i < path->node_cnt; i++)
 		len += snprintf(path_desc + len, sizeof(path_desc) - len, " %hhu",
 			path->nodes[i].id);
-	mml_log("Topology engines:%s", path_desc);
+	mml_log("[topology]engines:%s", path_desc);
 }
 
 static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
@@ -184,7 +187,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 		path->nodes[i].id = eng;
 		path->nodes[i].comp = mml_dev_get_comp_by_id(mml, eng);
 		if (!path->nodes[i].comp)
-			mml_err("no comp idx:%hhu engine:%hhu", i, eng);
+			mml_err("[topology]no comp idx:%hhu engine:%hhu", i, eng);
 
 		if (eng == MML_MMLSYS) {
 			path->mmlsys = path->nodes[i].comp;
@@ -236,10 +239,10 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			 * cannot branch from line 1
 			 */
 			if (next1)
-				mml_err("%s wrong path index %hhu engine %hhu",
+				mml_err("[topology]%s wrong path index %hhu engine %hhu",
 					i, eng);
 		} else {
-			mml_err("connect fail idx:%hhu engine:%hhu"
+			mml_err("[topology]connect fail idx:%hhu engine:%hhu"
 				" next0:%hhu next1:%hhu from:%hhu %hhu",
 				i, eng, next0, next1,
 				connect_eng[0], connect_eng[1]);
@@ -272,18 +275,18 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 }
 
 static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
-	struct cmdq_client **clts, u8 clt_cnt)
+	struct cmdq_client **clts, u32 clt_cnt)
 {
-	u8 i;
+	u32 i;
 
 	if (clt_cnt < MML_CLT_MAX) {
-		mml_err("%s not enough cmdq clients to all path", __func__);
+		mml_err("[topology]%s not enough cmdq clients to all path", __func__);
 		return -ECHILD;
 	}
 
 	for (i = 0; i < PATH_MML_MAX; i++) {
 		tp_parse_path(mml, &cache->path[i], path_map[i]);
-		mml_log("dump path %hhu count %hhu",
+		mml_log("[topology]dump path %hhu count %u",
 			i, cache->path[i].node_cnt);
 		tp_dump_path(&cache->path[i]);
 
@@ -303,7 +306,7 @@ static inline bool tp_need_resize(struct mml_frame_info *info)
 		info->dest[0].rotate == MML_ROT_270)
 		swap(w, h);
 
-	mml_msg("%s target %ux%u crop %ux%u",
+	mml_msg("[topology]%s target %ux%u crop %ux%u",
 		__func__, w, h,
 		info->dest[0].crop.r.width,
 		info->dest[0].crop.r.height);
@@ -317,31 +320,30 @@ static inline bool tp_need_resize(struct mml_frame_info *info)
 		info->dest[0].crop.h_sub_px;
 }
 
-static void tp_select_dc(struct mml_topology_cache *cache,
+static void tp_select_path(struct mml_topology_cache *cache,
 	struct mml_frame_config *cfg,
 	struct mml_topology_path **path)
 {
 	enum topology_scenario scene[2];
 	bool en_rsz = tp_need_resize(&cfg->info);
 
-
 	if (mml_force_rsz)
 		en_rsz = true;
 
 	if (!en_rsz && !cfg->info.dest[0].pq_config.en) {
 		/* dual pipe, rdma0 to wrot0 / rdma1 to wrot1 */
-		scene[0] = PATH_MML_DC_NOPQ_P0;
-		scene[1] = PATH_MML_DC_NOPQ_P1;
+		scene[0] = PATH_MML_NOPQ_P0;
+		scene[1] = PATH_MML_NOPQ_P1;
 	} else if (en_rsz && cfg->info.dest_cnt == 1) {
 		/* 1 in 1 out with PQs */
 		if (cfg->info.dest[0].pq_config.en_dre ||
 			cfg->info.dest[0].pq_config.en_hdr) {
 			/* and with HDR/AAL */
-			scene[0] = PATH_MML_DC_PQ2_P0;
-			scene[1] = PATH_MML_DC_PQ2_P1;
+			scene[0] = PATH_MML_PQ2_P0;
+			scene[1] = PATH_MML_PQ2_P1;
 		} else {
-			scene[0] = PATH_MML_DC_PQ_P0;
-			scene[1] = PATH_MML_DC_PQ_P1;
+			scene[0] = PATH_MML_PQ_P0;
+			scene[1] = PATH_MML_PQ_P1;
 		}
 	}
 
@@ -381,8 +383,10 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	else
 		cfg->dual = tp_need_dual(cfg);
 
-	if (cfg->info.mode == MML_MODE_MML_DECOUPLE)
-		tp_select_dc(cache, cfg, path);
+	if (!cfg->dual && cfg->info.mode == MML_MODE_RACING)
+		mml_err("[topology]racing mode but not dual may fail mml");
+
+	tp_select_path(cache, cfg, path);
 
 	if (!path[0])
 		return -EPERM;
@@ -401,7 +405,7 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	}
 
 	tp_dump_path_short(path[0]);
-	if (path[1])
+	if (cfg->dual && path[1])
 		tp_dump_path_short(path[1]);
 
 	return 0;
@@ -420,4 +424,28 @@ int mml_topology_ip_init(void)
 void mml_topology_ip_exit(void)
 {
 	mml_topology_unregister_ip(TOPOLOGY_PLATFORM);
+}
+
+enum mml_mode mml_topology_query_mode(struct mml_frame_info *info)
+{
+	/* racing only support 1 out */
+	if (info->dest_cnt > 1)
+		goto decouple;
+
+	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180) {
+		if (info->dest[0].compose.width > MML_IR_MAX_WIDTH)
+			goto decouple;
+	} else {
+		if (info->dest[0].compose.height > MML_IR_MAX_WIDTH)
+			goto decouple;
+	}
+
+	if (info->dest[0].compose.width * info->dest[0].compose.height <= MML_IR_MAX_FRAME)
+		goto decouple;
+
+	return MML_MODE_RACING;
+
+decouple:
+
+	return MML_MODE_MML_DECOUPLE;
 }
