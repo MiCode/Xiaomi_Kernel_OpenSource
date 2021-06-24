@@ -106,10 +106,10 @@
 #define DEFAULT_GCC_GPU_BOUND_TIME 90
 #define DEFAULT_GCC_CPU_UNKNOWN_SLEEP 80
 #define DEFAULT_GCC_CHECK_UNDER_BOOST 0
-#define DEFAULT_GCC_ENQ_BOUND_THRS 200
-#define DEFAULT_GCC_ENQ_BOUND_QUOTA 0
-#define DEFAULT_GCC_DEQ_BOUND_THRS 200
-#define DEFAULT_GCC_DEQ_BOUND_QUOTA 100
+#define DEFAULT_GCC_ENQ_BOUND_THRS 20
+#define DEFAULT_GCC_ENQ_BOUND_QUOTA 6
+#define DEFAULT_GCC_DEQ_BOUND_THRS 20
+#define DEFAULT_GCC_DEQ_BOUND_QUOTA 6
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -2505,13 +2505,15 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_cnt = 0;
 		boost_info->quota = 0;
 		boost_info->quota_fps = target_fps;
+		boost_info->enq_sum = 0;
 	}
 
-	if (s32_t_enq_len * 100 > s32_target_time * gcc_enq_bound_thrs ||
+	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs ||
 		s32_t_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs) {
 		boost_info->quota_cur_idx = -1;
 		boost_info->quota_cnt = 0;
 		boost_info->quota = 0;
+		boost_info->enq_sum = 0;
 	}
 
 	new_idx = boost_info->quota_cur_idx + 1;
@@ -2519,7 +2521,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	if (new_idx >= QUOTA_MAX_SIZE)
 		new_idx -= QUOTA_MAX_SIZE;
 
-	if (s32_t_enq_len * 100 > s32_target_time * gcc_enq_bound_thrs)
+	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs)
 		boost_info->quota_raw[new_idx] = s32_target_time * gcc_enq_bound_quota / 100;
 	else if (s32_t_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs)
 		boost_info->quota_raw[new_idx] = s32_target_time * gcc_deq_bound_quota / 100;
@@ -2527,6 +2529,9 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_raw[new_idx] = target_time - s32_t_Q2Q;
 
 	boost_info->quota += boost_info->quota_raw[new_idx];
+
+	boost_info->enq_raw[new_idx] = s32_t_enq_len;
+	boost_info->enq_sum += boost_info->enq_raw[new_idx];
 
 	if (boost_info->quota_cnt >= gcc_window_size) {
 		rm_idx = new_idx - gcc_window_size;
@@ -2538,6 +2543,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 			first_idx -= QUOTA_MAX_SIZE;
 
 		boost_info->quota -= boost_info->quota_raw[rm_idx];
+		boost_info->enq_sum -= boost_info->enq_raw[rm_idx];
 	} else {
 		first_idx = new_idx - boost_info->quota_cnt;
 		if (first_idx < 0)
@@ -2549,6 +2555,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 	/* remove outlier */
 	avg = boost_info->quota / boost_info->quota_cnt;
+	boost_info->enq_avg = boost_info->enq_sum / boost_info->quota_cnt;
 
 
 	if (first_idx <= new_idx)
@@ -2601,10 +2608,12 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	else
 		boost_info->quota_mod = boost_info->quota;
 
-	fpsgo_main_trace("%s raw[%d]:%d raw[%d]:%d cnt:%d sum:%d avg:%d std_sqr:%d quota:%d mod:%d",
+	fpsgo_main_trace(
+		"%s raw[%d]:%d raw[%d]:%d cnt:%d sum:%d avg:%d std_sqr:%d quota:%d mod:%d enq:%d enq_avg:%d",
 		__func__, first_idx, boost_info->quota_raw[first_idx],
 		new_idx, boost_info->quota_raw[new_idx], boost_info->quota_cnt,
-		boost_info->quota, avg, std_square, quota_adj, boost_info->quota_mod);
+		boost_info->quota, avg, std_square, quota_adj, boost_info->quota_mod,
+		s32_t_enq_len, boost_info->enq_avg);
 
 	return s32_target_time;
 }
