@@ -303,6 +303,8 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	struct emimpu_callbacks *mpucb;
 
 	aee_msg_cnt = snprintf(aee_msg, MTK_EMI_MAX_CMD_LEN, "violation\n");
+	if (aee_msg_cnt < 0)
+		pr_info("%s: snprintf error\n", __func__);
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++) {
 		violation = false;
 		emi_cen_base = emimpu_dev_ptr->emi_cen_base[emi_id];
