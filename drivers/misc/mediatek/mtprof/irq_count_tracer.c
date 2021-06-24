@@ -165,6 +165,11 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 	if (!irq_count_tracer)
 		return HRTIMER_NORESTART;
 
+	hrtimer_forward_now(hrtimer, ms_to_ktime(1000));
+	/* skip checking if more than one work is blocked in queue */
+	if (sched_clock() - irq_cnt->t_end < 500000000ULL)
+		return HRTIMER_RESTART;
+
 	/* check irq count on all cpu */
 	if (cpu == 0) {
 		unsigned int pre_idx;
@@ -193,7 +198,6 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 
 	}
 
-	hrtimer_forward_now(hrtimer, ms_to_ktime(1000));
 	irq_cnt->t_start = irq_cnt->t_end;
 	irq_cnt->t_end = sched_clock();
 	t_diff = irq_cnt->t_end - irq_cnt->t_start;
@@ -335,8 +339,10 @@ void irq_count_tracer_init(void)
 	for (i = 0; i < REC_NUM; i++)
 		spin_lock_init(&irq_cpus[i].lock);
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEFAULT_ENABLED)
 	irq_count_tracer = 1;
 	schedule_work(&tracer_work);
+#endif
 }
 
 /* Must holding lock*/

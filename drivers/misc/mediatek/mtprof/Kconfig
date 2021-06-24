@@ -24,3 +24,12 @@ config MTK_IRQ_MONITOR
 	  IRQ disabled duration and burst IRQ. Say Y here to enable MTK
 	  IRQ monitor. If you are not sure about whether to enable it or not,
 	  please set n.
+
+config MTK_IRQ_MONITOR_DEFAULT_ENABLED
+	bool "Enable all tracers of MTK IRQ Monitor by default"
+	depends on MTK_IRQ_MONITOR
+	select TRACE_IRQFLAGS
+
+config MTK_IRQ_MONITOR_IRQ_TIMER_OVERRIDE
+	bool "Override the thresholds of irq duration timer (ms)"
+	depends on MTK_IRQ_MONITOR

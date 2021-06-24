@@ -84,12 +84,15 @@ struct irq_mon_tracer {
 static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
 	.tracing = false,
 	.name = "irq_handler_tracer",
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_IRQ_TIMER_OVERRIDE)
+	.th1_ms = 5,
+	.th2_ms = 5,
+	.th3_ms = 5,
+	.aee_limit = 1,
+#else
 	.th1_ms = 100,
 	.th2_ms = 500,
 	.th3_ms = 500,
-#if IS_ENABLED(CONFIG_KASAN)
-	.aee_limit = 1,
-#else
 	.aee_limit = 0,
 #endif
 };
@@ -626,11 +629,14 @@ static void irq_mon_tracepoint_lookup(struct tracepoint *tp, void *priv)
 /* probe tracepoints for all tracers */
 static int irq_mon_tracepoint_init(void)
 {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEFAULT_ENABLED)
 	struct irq_mon_tracepoint *t;
+#endif
 
 	for_each_kernel_tracepoint(irq_mon_tracepoint_lookup
 					, (void *)irq_mon_tracepoint_table);
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEFAULT_ENABLED)
 	for (t = irq_mon_tracepoint_table; t->name != NULL; t++) {
 		int ret;
 
@@ -651,6 +657,7 @@ static int irq_mon_tracepoint_init(void)
 	ipi_tracer.tracing = true;
 	irq_off_tracer.tracing = true;
 	preempt_off_tracer.tracing = true;
+#endif
 	return 0;
 }
 
