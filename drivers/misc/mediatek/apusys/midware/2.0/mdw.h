@@ -113,7 +113,7 @@ struct mdw_fpriv {
 struct mdw_subcmd_kinfo {
 	struct mdw_subcmd_info *info; //c->subcmds
 	struct mdw_subcmd_cmdbuf *cmdbufs; //from usr
-	struct dma_buf **ori_mems; //pointer to original buf
+	struct mdw_mem **ori_mems; //pointer to original buf
 	uint64_t *kvaddrs; //pointer to duplicated buf
 	uint64_t *daddrs; //pointer to duplicated buf
 	void *priv; //mdw_ap_sc

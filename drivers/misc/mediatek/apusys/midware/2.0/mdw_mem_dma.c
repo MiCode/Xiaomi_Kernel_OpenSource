@@ -38,15 +38,23 @@ struct mdw_mem_dma {
 	};
 
 	struct mutex mtx;
-	struct mdw_device *mdev;
 	struct mdw_mem *mmem;
 	struct device *mem_dev;
+	struct list_head m_item;
+};
+
+struct mdw_mem_dma_mgr {
+	struct list_head mems;
+	struct mutex mtx;
 };
 
 #define mdw_mem_dma_show(d) \
 	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/0x%x)(%d)\n", \
 	d->mmem, d->mmem->handle, (uint64_t)d->mmem->vaddr, d->mmem->size, \
 	d->dma_addr, d->dma_size, current->pid)
+
+
+static struct mdw_mem_dma_mgr mdmgr;
 
 static int mdw_dmabuf_attach(struct dma_buf *dbuf,
 	struct dma_buf_attachment *attach)
@@ -129,6 +137,10 @@ static void mdw_dmabuf_release(struct dma_buf *dbuf)
 	struct mdw_mem_dma *mdbuf = dbuf->priv;
 	struct mdw_mem *m = mdbuf->mmem;
 
+	mutex_lock(&mdmgr.mtx);
+	list_del(&mdbuf->m_item);
+	mutex_unlock(&mdmgr.mtx);
+
 	mdw_mem_debug("mdbuf->mem_dev dev %s\n", dev_name(mdbuf->mem_dev));
 	mdw_mem_dma_show(mdbuf);
 	dma_free_coherent(mdbuf->mem_dev, mdbuf->dma_size,
@@ -164,9 +176,37 @@ static struct dma_buf_ops mdw_dmabuf_ops = {
 	.release = mdw_dmabuf_release,
 };
 
-int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+struct mdw_mem *mdw_mem_dma_get(int handle)
 {
-	struct mdw_device *mdev = mpriv->mdev;
+	struct dma_buf *dbuf = NULL;
+	struct mdw_mem_dma *m = NULL, *pos = NULL, *tmp = NULL;
+
+	dbuf = dma_buf_get(handle);
+	if (IS_ERR_OR_NULL(dbuf)) {
+		mdw_drv_err("get dma_buf handle(%d) fail\n", handle);
+		return NULL;
+	}
+
+	mutex_lock(&mdmgr.mtx);
+	list_for_each_entry_safe(pos, tmp, &mdmgr.mems, m_item) {
+		if (pos->dbuf == dbuf) {
+			m = pos;
+			break;
+		}
+	}
+	mutex_unlock(&mdmgr.mtx);
+
+	dma_buf_put(dbuf);
+	if (!m) {
+		mdw_mem_debug("handle(%d) not belong APU\n", handle);
+		return NULL;
+	}
+
+	return m->mmem;
+}
+
+int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
+{
 	struct mdw_mem_dma *mdbuf = NULL;
 	int ret = 0;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
@@ -179,7 +219,6 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 
 	mutex_init(&mdbuf->mtx);
 	INIT_LIST_HEAD(&mdbuf->a.attachments);
-	mdbuf->mdev = mdev;
 
 	/* alloc buffer by dma */
 	mdbuf->dma_size = PAGE_ALIGN(mem->size);
@@ -224,6 +263,20 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	mdbuf->size = mem->size;
 	mdw_mem_debug("mdbuf->mem_dev %s\n", dev_name(mdbuf->mem_dev));
 
+	/* access data to mdw_mem */
+	mem->device_va = mdbuf->dma_addr;
+	mem->vaddr = mdbuf->a.vaddr;
+	mem->priv = mdbuf;
+	mutex_lock(&mdmgr.mtx);
+	list_add_tail(&mdbuf->m_item, &mdmgr.mems);
+	mutex_unlock(&mdmgr.mtx);
+
+	/* internal use, don't export fd */
+	if (need_handle == false) {
+		mem->handle = -1;
+		goto out;
+	}
+
 	/* create fd from dma-buf */
 	mdbuf->a.handle =  dma_buf_fd(mdbuf->dbuf,
 		(O_RDWR | O_CLOEXEC) & ~O_ACCMODE);
@@ -231,14 +284,9 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 		dma_buf_put(mdbuf->dbuf);
 		return -EINVAL;
 	}
-
-	/* access data to mdw_mem */
-	mem->device_va = mdbuf->dma_addr;
 	mem->handle = mdbuf->a.handle;
-	mem->vaddr = mdbuf->a.vaddr;
-	mem->priv = mdbuf;
 
-
+out:
 	mdw_mem_dma_show(mdbuf);
 
 	return 0;
@@ -252,18 +300,17 @@ free_mdw_dbuf:
 	return ret;
 }
 
-int mdw_mem_dma_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+int mdw_mem_dma_free(struct mdw_mem *mem)
 {
 	struct mdw_mem_dma *mdbuf = mem->priv;
 
 	mdw_mem_dma_show(mdbuf);
-	put_unused_fd(mem->handle);
 	dma_buf_put(mdbuf->dbuf);
 
 	return 0;
 }
 
-int mdw_mem_dma_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+int mdw_mem_dma_map(struct mdw_mem *mem)
 {
 	struct dma_buf *dbuf = NULL;
 	struct mdw_mem_dma *mdbuf = NULL;
@@ -280,7 +327,7 @@ int mdw_mem_dma_map(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	return 0;
 }
 
-int mdw_mem_dma_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+int mdw_mem_dma_unmap(struct mdw_mem *mem)
 {
 	struct mdw_mem_dma *mdbuf = mem->priv;
 
@@ -290,7 +337,7 @@ int mdw_mem_dma_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	return 0;
 }
 
-int mdw_mem_dma_import(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+int mdw_mem_dma_import(struct mdw_mem *mem)
 {
 	int ret = 0;
 	struct mdw_mem_dma *mdbuf = NULL;
@@ -354,6 +401,9 @@ int mdw_mem_dma_import(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	}
 	mem->device_va = mdbuf->dma_addr;
 	mem->priv = mdbuf;
+	mutex_lock(&mdmgr.mtx);
+	list_add_tail(&mdbuf->m_item, &mdmgr.mems);
+	mutex_unlock(&mdmgr.mtx);
 
 	mdw_mem_dma_show(mdbuf);
 
@@ -372,7 +422,7 @@ out:
 	return ret;
 }
 
-int mdw_mem_dma_unimport(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
+int mdw_mem_dma_unimport(struct mdw_mem *mem)
 {
 	struct mdw_mem_dma *mdbuf = NULL;
 
@@ -386,6 +436,10 @@ int mdw_mem_dma_unimport(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 		IS_ERR_OR_NULL(mdbuf->m.sgt))
 		return -EINVAL;
 
+	mutex_lock(&mdmgr.mtx);
+	list_del(&mdbuf->m_item);
+	mutex_unlock(&mdmgr.mtx);
+
 	mem->device_va = 0;
 	mem->priv = NULL;
 	dma_buf_unmap_attachment(mdbuf->m.attach,
@@ -395,4 +449,65 @@ int mdw_mem_dma_unimport(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	kfree(mdbuf);
 
 	return 0;
+}
+
+uint64_t mdw_mem_dma_query_kva(uint64_t iova)
+{
+	struct mdw_mem_dma *pos = NULL, *tmp = NULL;
+	struct mdw_mem *m = NULL;
+	uint64_t kva = 0;
+
+	mutex_lock(&mdmgr.mtx);
+	list_for_each_entry_safe(pos, tmp, &mdmgr.mems, m_item) {
+		m = pos->mmem;
+		if (iova >= m->device_va &&
+			iova < m->device_va + m->size) {
+			if (m->vaddr == NULL)
+				break;
+
+			kva = (uint64_t)m->vaddr + (iova - m->device_va);
+			mdw_mem_debug("query kva (0x%llx->0x%llx)\n",
+				iova, kva);
+		}
+	}
+	mutex_unlock(&mdmgr.mtx);
+
+	return kva;
+}
+
+uint64_t mdw_mem_dma_query_iova(uint64_t kva)
+{
+	struct mdw_mem_dma *pos = NULL, *tmp = NULL;
+	struct mdw_mem *m = NULL;
+	uint64_t iova;
+
+	mutex_lock(&mdmgr.mtx);
+	list_for_each_entry_safe(pos, tmp, &mdmgr.mems, m_item) {
+		m = pos->mmem;
+		if (kva >= (uint64_t)m->vaddr &&
+			kva < (uint64_t)m->vaddr + m->size) {
+			if (!m->device_va)
+				break;
+
+			iova = m->device_va + (kva - (uint64_t)m->vaddr);
+			mdw_mem_debug("query iova (0x%llx->0x%llx)\n",
+				kva, iova);
+		}
+	}
+	mutex_unlock(&mdmgr.mtx);
+
+	return iova;
+}
+
+
+int mdw_mem_dma_init(void)
+{
+	mutex_init(&mdmgr.mtx);
+	INIT_LIST_HEAD(&mdmgr.mems);
+
+	return 0;
+}
+
+void mdw_mem_dma_deinit(void)
+{
 }
