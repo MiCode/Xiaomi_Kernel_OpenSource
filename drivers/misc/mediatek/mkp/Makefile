@@ -24,3 +24,4 @@ ccflags-y += -I$(srctree)/security/selinux/include/
 obj-$(CONFIG_MTK_MKP) += mkp.o
 mkp-$(CONFIG_MTK_MKP) += policy.o
 mkp-$(CONFIG_MTK_MKP) += mkp_hvc.o
+mkp-$(CONFIG_MTK_MKP) += mkp_api.o
