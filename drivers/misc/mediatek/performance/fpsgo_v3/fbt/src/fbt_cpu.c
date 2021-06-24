@@ -2554,11 +2554,11 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	int s32_target_time;
 
 	if (!gcc_fps_margin && target_fps == 60)
-		target_time = vsync_duration_us_60;
+		target_time = max(target_time, (long long)vsync_duration_us_60);
 	if (!gcc_fps_margin && target_fps == 90)
-		target_time = vsync_duration_us_90;
+		target_time = max(target_time, (long long)vsync_duration_us_90);
 	if (!gcc_fps_margin && target_fps == 120)
-		target_time = vsync_duration_us_120;
+		target_time = max(target_time, (long long)vsync_duration_us_120);
 
 	s32_target_time = target_time;
 
