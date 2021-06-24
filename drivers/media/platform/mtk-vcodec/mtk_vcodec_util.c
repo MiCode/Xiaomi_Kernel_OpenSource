@@ -158,6 +158,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 		pfb->num_planes = dst_vb2_v4l2->vb2_buf.num_planes;
 		pfb->index = dst_buf->index;
 
+		mutex_lock(&ctx->buf_lock);
 		for (i = 0; i < dst_vb2_v4l2->vb2_buf.num_planes; i++) {
 			pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
 			pfb->fb_base[i].dma_addr =
@@ -165,22 +166,26 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 			pfb->fb_base[i].size = ctx->picinfo.fb_sz[i];
 			pfb->fb_base[i].length = dst_buf->planes[i].length;
 			pfb->fb_base[i].dmabuf = dst_buf->planes[i].dbuf;
+			if (dst_buf_info->used == false) {
+				get_file(dst_buf->planes[i].dbuf->file);
+				mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref get dma %p", dst_buf->index,
+					dst_buf->planes[i].dbuf);
+			}
 		}
-
 		pfb->status = 0;
-		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p dma_addr[1]=%p Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
-				ctx->id, dst_buf->index, pfb,
+		dst_buf_info->used = true;
+		mutex_unlock(&ctx->buf_lock);
+
+		mtk_v4l2_debug(1, "[%d] id=%d pfb=0x%p %llx VA=%p dma_addr[0]=%lx dma_addr[1]=%lx Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
+				ctx->id, dst_buf->index, pfb, (unsigned long long)pfb,
 				pfb->fb_base[0].va,
-				&pfb->fb_base[0].dma_addr,
-				&pfb->fb_base[1].dma_addr,
+				(unsigned long)pfb->fb_base[0].dma_addr,
+				(unsigned long)pfb->fb_base[1].dma_addr,
 				pfb->fb_base[0].size,
 				dst_buf->planes[0].m.fd,
 				pfb->dma_general_buf,
 				pfb->general_buf_fd);
 
-		mutex_lock(&ctx->buf_lock);
-		dst_buf_info->used = true;
-		mutex_unlock(&ctx->buf_lock);
 		dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 		if (dst_buf != NULL)
 			mtk_v4l2_debug(8, "[%d] index=%d, num_rdy_bufs=%d\n",
