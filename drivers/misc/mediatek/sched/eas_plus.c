@@ -51,10 +51,13 @@ void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long sum_util = 0, sum_cap = 0;
 
+	rcu_read_lock();
 	pd = rcu_dereference(rq->rd->pd);
 	pd = find_pd(pd, cpu);
-	if (!pd)
+	if (!pd) {
+		rcu_read_unlock();
 		return;
+	}
 
 	for_each_cpu(cpu, perf_domain_span(pd)) {
 		sum_util += cpu_util(cpu);
@@ -63,6 +66,8 @@ void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
 
 	*overutilized = !fits_capacity(sum_util, sum_cap);
 	trace_sched_cpu_overutilized(cpu, perf_domain_span(pd), sum_util, sum_cap, *overutilized);
+
+	rcu_read_unlock();
 }
 
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
