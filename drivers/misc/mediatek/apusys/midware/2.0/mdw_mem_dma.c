@@ -23,7 +23,8 @@ struct mdw_mem_dma_attachment {
 struct mdw_mem_dma {
 	struct dma_buf *dbuf;
 	dma_addr_t dma_addr;
-	unsigned int dma_size;
+	uint32_t dma_size;
+	uint32_t size;
 	union {
 		struct {
 			int handle;
@@ -220,6 +221,7 @@ int mdw_mem_dma_alloc(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	mdbuf->dbuf->priv = mdbuf;
 	mdbuf->mmem = mem;
 	mdbuf->mem_dev = dev;
+	mdbuf->size = mem->size;
 	mdw_mem_debug("mdbuf->mem_dev %s\n", dev_name(mdbuf->mem_dev));
 
 	/* create fd from dma-buf */
@@ -324,6 +326,7 @@ int mdw_mem_dma_import(struct mdw_fpriv *mpriv, struct mdw_mem *mem)
 	mdbuf->mmem = mem;
 	mdbuf->dbuf = dbuf;
 	mdbuf->mem_dev = dev;
+	mdbuf->size = mem->size;
 
 	mdw_mem_debug("dev %s\n", dev_name(dev));
 

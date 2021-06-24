@@ -47,6 +47,13 @@ enum {
 struct mdw_fpriv;
 struct mdw_device;
 
+enum mdw_mem_type {
+	MDW_MEM_TYPE_NONE,
+	MDW_MEM_TYPE_INTERNAL,
+	MDW_MEM_TYPE_ALLOC,
+	MDW_MEM_TYPE_IMPORT,
+};
+
 struct mdw_mem {
 	/* in */
 	unsigned int size;
@@ -62,7 +69,8 @@ struct mdw_mem {
 	void *priv;
 
 	/* control */
-	bool is_user;
+	enum mdw_mem_type type;
+	bool is_invalid;
 	bool is_released;
 	struct list_head u_item;
 	struct list_head m_item;
@@ -105,7 +113,7 @@ struct mdw_fpriv {
 struct mdw_subcmd_kinfo {
 	struct mdw_subcmd_info *info; //c->subcmds
 	struct mdw_subcmd_cmdbuf *cmdbufs; //from usr
-	struct mdw_mem **ori_mems; //pointer to original buf
+	struct dma_buf **ori_mems; //pointer to original buf
 	uint64_t *kvaddrs; //pointer to duplicated buf
 	uint64_t *daddrs; //pointer to duplicated buf
 	void *priv; //mdw_ap_sc
@@ -183,10 +191,12 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv);
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);
 
-struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
-	uint32_t align, uint64_t flags);
-int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *mem);
 struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle);
+struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
+	uint32_t align, uint64_t flags, enum mdw_mem_type type);
+int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m);
+int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m);
+int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 
 int mdw_sysfs_init(struct mdw_device *mdev);
 void mdw_sysfs_deinit(struct mdw_device *mdev);

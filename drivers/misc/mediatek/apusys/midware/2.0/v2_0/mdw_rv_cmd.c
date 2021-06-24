@@ -37,7 +37,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	/* allocate communicate buffer */
 	rc->cb = mdw_mem_alloc(mpriv, cb_size, MDW_DEFAULT_ALIGN,
-		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE));
+		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE), MDW_MEM_TYPE_INTERNAL);
 	if (!rc->cb) {
 		mdw_drv_err("c(0x%llx) alloc cb size(%u) fail\n",
 			c->kid, cb_size);

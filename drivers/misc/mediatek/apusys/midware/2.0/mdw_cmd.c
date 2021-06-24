@@ -27,29 +27,28 @@
 	c->num_subcmds, c->cmdbufs, c->num_cmdbufs, c->size_cmdbufs, \
 	c->pid, c->tgid, current->pid)
 
-static struct mdw_mem *mdw_cmd_get_mem(struct mdw_fpriv *mpriv, uint64_t handle)
+static struct dma_buf *mdw_cmd_get_mem(struct mdw_fpriv *mpriv, uint64_t handle)
 {
-	struct mdw_mem *m = NULL;
+	struct dma_buf *dbuf = NULL;
+	void * vaddr = NULL;
 
-	m = mdw_mem_get(mpriv, handle);
-	if (!m)
+	dbuf = dma_buf_get(handle);
+	if (IS_ERR_OR_NULL(dbuf)) {
+		mdw_drv_err("get mem fail(%llu)\n", handle);
 		return NULL;
+	}
 
-	/* inc ref cnt */
-	if (mdw_mem_dma_map(mpriv, m))
-		return NULL;
+	vaddr = dma_buf_vmap(dbuf);
+	mdw_cmd_debug("u(%p) get cmdbuf(%p/%llu)(%p/%p)\n", mpriv, dbuf, handle, vaddr, dbuf->vmap_ptr);
 
-	mdw_cmd_debug("u(%p) get cmdbuf(%llu)\n", mpriv, handle);
-
-	return m;
+	return dbuf;
 }
 
-static int mdw_cmd_put_mem(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+static int mdw_cmd_put_mem(struct mdw_fpriv *mpriv, struct dma_buf *dbuf)
 {
-	mdw_cmd_debug("u(%p) put cmdbuf(%p/%llu)\n", mpriv, m, m->handle);
-
-	/* dec ref cnf */
-	return mdw_mem_dma_unmap(mpriv, m);
+	dma_buf_vunmap(dbuf, dbuf->vmap_ptr);
+	dma_buf_put(dbuf);
+	return 0;
 }
 
 static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
@@ -73,7 +72,7 @@ static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 			}
 		}
 	}
-	mdw_mem_dma_unmap(mpriv, c->cmdbufs);
+	mdw_mem_unmap(mpriv, c->cmdbufs);
 	mdw_mem_free(mpriv, c->cmdbufs);
 	c->cmdbufs = NULL;
 }
@@ -83,21 +82,21 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	unsigned int i = 0, j = 0, ofs = 0;
 	int ret = -EINVAL;
 	struct mdw_subcmd_kinfo *ksubcmd = NULL;
-	struct mdw_mem *m = NULL;
+	struct dma_buf *dbuf = NULL;
 
 	if (!c->size_cmdbufs || c->cmdbufs)
 		goto out;
 
 	/* alloc cmdbuf by dmabuf */
 	c->cmdbufs = mdw_mem_alloc(mpriv, c->size_cmdbufs, MDW_DEFAULT_ALIGN,
-		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE));
+		(1ULL << MDW_MEM_IOCTL_ALLOC_CACHEABLE), MDW_MEM_TYPE_INTERNAL);
 	if (!c->cmdbufs) {
 		mdw_drv_err("cmd(%p.%d) alloc buffer for duplicate fail\n",
 			mpriv, c->id);
 		ret = -ENOMEM;
 		goto out;
 	}
-	ret = mdw_mem_dma_map(mpriv, c->cmdbufs);
+	ret = mdw_mem_map(mpriv, c->cmdbufs);
 	if (ret) {
 		mdw_drv_err("cmd(%p.%d) map buffer for duplicate fail\n",
 			mpriv, c->id);
@@ -121,28 +120,28 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 				i, j, ofs);
 
 			/* get mem from handle */
-			m = mdw_cmd_get_mem(mpriv, ksubcmd->cmdbufs[j].handle);
-			if (!m) {
+			dbuf = mdw_cmd_get_mem(mpriv, ksubcmd->cmdbufs[j].handle);
+			if (IS_ERR_OR_NULL(dbuf)) {
 				mdw_drv_err("get cmdbuf(%u-%u)(%llu) fail\n",
 					i, j, ksubcmd->cmdbufs[j].handle);
 				goto free_cmdbufs;
 			}
 			/* check mem boundary */
-			if (m->vaddr == NULL ||
-				ksubcmd->cmdbufs[j].size != m->size) {
+			if (dbuf->vmap_ptr == NULL ||
+				ksubcmd->cmdbufs[j].size > dbuf->size) {
 				mdw_drv_err("cmdbuf(%u-%u) range invalid(%p/%u/%u)\n",
-					i, j, m->vaddr,
+					i, j, dbuf->vmap_ptr,
 					ksubcmd->cmdbufs[j].size,
-					m->size);
+					dbuf->size);
 				goto free_cmdbufs;
 			}
 
 			/* duplicate cmdbuf */
-			memcpy(c->cmdbufs->vaddr + ofs, m->vaddr,
+			memcpy(c->cmdbufs->vaddr + ofs, dbuf->vmap_ptr,
 			ksubcmd->cmdbufs[j].size);
 
 			/* record buffer info */
-			ksubcmd->ori_mems[j] = m;
+			ksubcmd->ori_mems[j] = dbuf;
 			ksubcmd->kvaddrs[j] =
 				(uint64_t)(c->cmdbufs->vaddr + ofs);
 			ksubcmd->daddrs[j] =
@@ -169,29 +168,29 @@ static int mdw_cmd_duplicate_cmdbuf(struct mdw_subcmd_kinfo *in,
 	int i = 0, ret = -ENOMEM;
 
 	for (i = 0; i < in->info->num_cmdbufs; i++) {
-		if (!in->kvaddrs[i] || in->ori_mems[i]->vaddr == NULL)
+		if (!in->kvaddrs[i] || in->ori_mems[i]->vmap_ptr == NULL)
 			goto out;
 
 		if (before_exec == true) {
 			if (in->cmdbufs[i].direction == MDW_CB_OUT)
 				continue;
 			memcpy((void *)in->kvaddrs[i],
-				(void *)in->ori_mems[i]->vaddr,
+				(void *)in->ori_mems[i]->vmap_ptr,
 				in->cmdbufs[i].size);
 			/* TODO, flush */
 			mdw_cmd_debug("copy in(0x%llx/0x%llx)(0x%x)\n",
 				in->kvaddrs[i],
-				(uint64_t)in->ori_mems[i]->vaddr,
+				(uint64_t)in->ori_mems[i]->vmap_ptr,
 				in->cmdbufs[i].size);
 		} else {
 			if (in->cmdbufs[i].direction == MDW_CB_IN)
 				continue;
 			/* TODO, invalidate */
-			memcpy((void *)in->ori_mems[i]->vaddr,
+			memcpy((void *)in->ori_mems[i]->vmap_ptr,
 				(void *)in->kvaddrs[i],
 				in->cmdbufs[i].size);
 			mdw_cmd_debug("copy out(0x%llx/0x%llx)(0x%x)\n",
-				(uint64_t)in->ori_mems[i]->vaddr,
+				(uint64_t)in->ori_mems[i]->vmap_ptr,
 				in->kvaddrs[i],
 				in->cmdbufs[i].size);
 		}

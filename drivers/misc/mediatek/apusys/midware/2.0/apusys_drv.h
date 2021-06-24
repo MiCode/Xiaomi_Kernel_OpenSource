@@ -60,8 +60,6 @@ enum mdw_mem_ioctl_op {
 	MDW_MEM_IOCTL_FREE,
 	MDW_MEM_IOCTL_MAP,
 	MDW_MEM_IOCTL_UNMAP,
-	MDW_MEM_IOCTL_IMPORT,
-	MDW_MEM_IOCTL_UNIMPORT,
 	MDW_MEM_IOCTL_FLUSH,
 	MDW_MEM_IOCTL_INVALIDATE,
 };
@@ -93,15 +91,6 @@ struct mdw_mem_in {
 		struct {
 			uint64_t handle;
 		} unmap;
-
-		/* import */
-		struct {
-			uint64_t handle;
-			uint32_t size;
-		} import;
-		struct {
-			uint64_t handle;
-		} unimport;
 
 		/* cache operation */
 		struct {
