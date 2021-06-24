@@ -361,18 +361,24 @@ int share_mem_config(void)
 		usage = &shm_usage_table[i];
 		/* must reset init_status to false scp reset each times */
 		usage->init_status = false;
-		if (usage->notify_cmd >= MAX_SENS_COMM_NOTIFY_CMD)
-			continue;
+		if (usage->notify_cmd >= MAX_SENS_COMM_NOTIFY_CMD) {
+			pr_err("notify command %u invalid index %u\n",
+				usage->notify_cmd, i);
+			BUG_ON(1);
+		}
 		handle = &shm_handle[usage->notify_cmd];
-		if (!handle->handler)
-			continue;
+		if (!handle->handler) {
+			pr_err("notify command %u handler NULL index %u\n",
+				usage->notify_cmd, i);
+			BUG_ON(1);
+		}
 		memset(&cfg, 0, sizeof(cfg));
 		cfg.notify_cmd = usage->notify_cmd;
 		cfg.base =
 			(void *)(long)scp_get_reserve_mem_virt(usage->id);
 		cfg.buffer_size =
 			(uint32_t)scp_get_reserve_mem_size(usage->id);
-		WARN_ON(!cfg.base);
+		BUG_ON(!cfg.base);
 		ret = handle->handler(&cfg, handle->private_data);
 		if (ret < 0)
 			continue;
