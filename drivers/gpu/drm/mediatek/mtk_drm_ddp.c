@@ -7015,11 +7015,13 @@ void mutex_dump_analysis_mt6877(struct mtk_disp_mutex *mutex)
 	char *p = NULL;
 	int len = 0;
 	unsigned int val;
+	int string_buf_avail_len = 0;
 
 	DDPDUMP("== DISP Mutex Analysis ==\n");
 	for (i = 0; i < 5; i++) {
 		p = mutex_module;
 		len = 0;
+		string_buf_avail_len = sizeof(mutex_module) - 1;
 		if (readl_relaxed(ddp->regs +
 				  DISP_REG_MUTEX_MOD(ddp->data, i)) == 0)
 			continue;
@@ -7027,23 +7029,35 @@ void mutex_dump_analysis_mt6877(struct mtk_disp_mutex *mutex)
 		val = readl_relaxed(ddp->regs +
 				    DISP_REG_MUTEX_SOF(ddp->data, i));
 
-		len = sprintf(p, "MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(", i,
+		len = snprintf(p, string_buf_avail_len, "MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(", i,
 			      mtk_ddp_get_mutex_sof_name(
 				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF, val)),
 			      mtk_ddp_get_mutex_sof_name(
 				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
 			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
-		if (len >= 0)
+		if (len >= 0 && len <= string_buf_avail_len) {
 			p += len;
+			string_buf_avail_len -= len;
+		} else{
+			DDPPR_ERR("%s: out of mutex_module array range\n", __func__);
+			return;
+		}
+
 		for (j = 0; j < 32; j++) {
 			unsigned int regval = readl_relaxed(
 				ddp->regs + DISP_REG_MUTEX_MOD(ddp->data, i));
 
 			if ((regval & (1 << j))) {
-				len = sprintf(p, "%s,",
+				len = snprintf(p, string_buf_avail_len, "%s,",
 					ddp_get_mutex_module0_name_mt6877(j));
-				if (len >= 0)
+				if (len >= 0 && len <= string_buf_avail_len) {
 					p += len;
+					string_buf_avail_len -= len;
+				} else{
+					DDPPR_ERR("%s: out of mutex_module array range\n",
+						__func__);
+					return;
+				}
 			}
 		}
 		DDPDUMP("%s)\n", mutex_module);
@@ -7112,7 +7126,7 @@ void mutex_dump_analysis_mt6781(struct mtk_disp_mutex *mutex)
 	for (i = 0; i < 5; i++) {
 		p = mutex_module;
 		len = 0;
-		string_buf_avail_len = sizeof(mutex_module);
+		string_buf_avail_len = sizeof(mutex_module) - 1;
 		if (readl_relaxed(ddp->regs +
 				  DISP_REG_MUTEX_MOD(ddp->data, i)) == 0)
 			continue;
@@ -7694,6 +7708,8 @@ void mmsys_config_dump_analysis_mt6877(void __iomem *config_regs)
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
 	char *name;
+	int string_buf_avail_len = 0;
+	int len = 0;
 
 	//same address for 6853
 	unsigned int valid0 =
@@ -7737,18 +7753,56 @@ void mmsys_config_dump_analysis_mt6877(void __iomem *config_regs)
 			continue;
 
 		pos = clock_on;
+		len = 0;
+		string_buf_avail_len = sizeof(clock_on) - 1;
 
-		if ((valid0 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
+		if ((valid0 & (1 << i))) {
+			len = snprintf(pos, string_buf_avail_len, "%s,", "v");
+			if (len >= 0 && len <= string_buf_avail_len) {
+				pos += len;
+				string_buf_avail_len -= len;
+			} else{
+				DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+				return;
+			}
+		} else{
+			len = snprintf(pos, string_buf_avail_len, "%s,", "n");
+			if (len >= 0 && len <= string_buf_avail_len) {
+				pos += len;
+				string_buf_avail_len -= len;
+			} else{
+				DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+				return;
+			}
+		}
+		if ((ready0 & (1 << i))) {
+			len = snprintf(pos, string_buf_avail_len, "%s,", "r");
+			if (len >= 0 && len <= string_buf_avail_len) {
+				pos += len;
+				string_buf_avail_len -= len;
+			} else{
+				DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+				return;
+			}
+		} else{
+			len = snprintf(pos, string_buf_avail_len, "%s,", "n");
+			if (len >= 0 && len <= string_buf_avail_len) {
+				pos += len;
+				string_buf_avail_len -= len;
+			} else{
+				DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+				return;
+			}
+		}
 
-		if ((ready0 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
+		len = snprintf(pos, string_buf_avail_len, ": %s,", name);
+		if (len >= 0 && len <= string_buf_avail_len) {
+			pos += len;
+			string_buf_avail_len -= len;
+		} else{
+			DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+			return;
+		}
 
 		DDPDUMP("%s\n", clock_on);
 	}
@@ -7759,18 +7813,55 @@ void mmsys_config_dump_analysis_mt6877(void __iomem *config_regs)
 			continue;
 
 		pos = clock_on;
+		string_buf_avail_len = sizeof(clock_on) - 1;
 
-		if ((valid1 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
+		if ((valid1 & (1 << i))) {
+			len = snprintf(pos, string_buf_avail_len, "%s,", "v");
+			if (len >= 0 && len <= string_buf_avail_len) {
+				pos += len;
+				string_buf_avail_len -= len;
+			} else{
+				DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+				return;
+			}
+		} else{
+			len = snprintf(pos, string_buf_avail_len, "%s,", "n");
+			if (len >= 0 && len <= string_buf_avail_len) {
+				pos += len;
+				string_buf_avail_len -= len;
+			} else{
+				DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+				return;
+			}
+		}
+		if ((ready1 & (1 << i))) {
+			len = snprintf(pos, string_buf_avail_len, "%s,", "r");
+			if (len >= 0 && len <= string_buf_avail_len) {
+				pos += len;
+				string_buf_avail_len -= len;
+			} else{
+				DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+				return;
+			}
+		} else{
+			len = snprintf(pos, string_buf_avail_len, "%s,", "n");
+			if (len >= 0 && len <= string_buf_avail_len) {
+				pos += len;
+				string_buf_avail_len -= len;
+			} else{
+				DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+				return;
+			}
+		}
 
-		if ((ready1 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
+		len = snprintf(pos, string_buf_avail_len, ": %s,", name);
+		if (len >= 0 && len <= string_buf_avail_len) {
+			pos += len;
+			string_buf_avail_len -= len;
+		} else{
+			DDPPR_ERR("%s: out of clock_on array range\n", __func__);
+			return;
+		}
 
 		DDPDUMP("%s\n", clock_on);
 	}
@@ -7988,7 +8079,7 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 			continue;
 
 		pos = clock_on;
-		string_buf_avail_len = sizeof(clock_on);
+		string_buf_avail_len = sizeof(clock_on) - 1;
 
 		if ((valid0 & (1 << i))) {
 			len = snprintf(pos, string_buf_avail_len, "%s,", "v");
@@ -8010,7 +8101,7 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 			}
 		}
 		if ((ready0 & (1 << i))) {
-			len = snprintf(pos, string_buf_avail_len, "%s,", "v");
+			len = snprintf(pos, string_buf_avail_len, "%s,", "r");
 			if (len >= 0 && len <= string_buf_avail_len) {
 				pos += len;
 				string_buf_avail_len -= len;
@@ -8047,7 +8138,7 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 			continue;
 
 		pos = clock_on;
-		string_buf_avail_len = sizeof(clock_on);
+		string_buf_avail_len = sizeof(clock_on) - 1;
 
 		if ((valid1 & (1 << i))) {
 			len = snprintf(pos, string_buf_avail_len, "%s,", "v");
@@ -8069,7 +8160,7 @@ void mmsys_config_dump_analysis_mt6781(void __iomem *config_regs)
 			}
 		}
 		if ((ready1 & (1 << i))) {
-			len = snprintf(pos, string_buf_avail_len, "%s,", "v");
+			len = snprintf(pos, string_buf_avail_len, "%s,", "r");
 			if (len >= 0 && len <= string_buf_avail_len) {
 				pos += len;
 				string_buf_avail_len -= len;
