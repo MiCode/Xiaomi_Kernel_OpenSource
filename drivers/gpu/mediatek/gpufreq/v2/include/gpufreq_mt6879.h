@@ -29,7 +29,7 @@
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* feature control */
-#define GPUFREQ_HWAPM_ENABLE            (0)
+#define GPUFREQ_PDCv2_ENABLE            (0)
 #define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (1)
 
 /**************************************************
@@ -52,37 +52,25 @@
 #define MFGPLL_FH_PLL                   FH_PLL6
 #define MFGPLL_GPU_CON1                 (g_mfg_pll_base + 0x00C)
 #define MFGPLL_STACK_CON1               (g_mfg_pll_base + 0x03C)
+#define PWR_STATUS_OFS                  (0xF3C)
+#define PWR_STATUS_2ND_OFS              (0xF40)
+#define MFG_0_1_PWR_MASK                (0x6)           /* 0000 0110 */
+#define MFG_0_5_PWR_MASK                (0x7E)          /* 0111 1110 */
+#define MFG_1_5_PWR_MASK                (0x7C)          /* 0111 1100 */
 
 /**************************************************
  * Shader Present Setting
  **************************************************/
-#define MFG2_SHADER_STACK0              (T0C0)        /* MC0 */
-#define MFG3_SHADER_STACK1              (T1C0 | T1C1) /* MC1, 2 */
-#define MFG4_SHADER_STACK2              (T2C0 | T2C1) /* MC3, 4 */
-#define MFG5_SHADER_STACK5              (T5C0 | T5C1) /* MC5, 6 */
-#define MFG6_SHADER_STACK6              (T6C0 | T6C1) /* MC7, 8 */
+#define MFG3_SHADER_STACK0              (T0C0)          /* MFG3 */
+#define MFG4_SHADER_STACK2              (T2C0)          /* MFG4 */
+#define MFG5_SHADER_STACK4              (T4C0)          /* MFG5 */
 
 #define GPU_SHADER_PRESENT_1 \
-	(MFG2_SHADER_STACK0)
+	(MFG3_SHADER_STACK0)
 #define GPU_SHADER_PRESENT_2 \
-	(MFG3_SHADER_STACK1)
+	(MFG3_SHADER_STACK0 | MFG4_SHADER_STACK2)
 #define GPU_SHADER_PRESENT_3 \
-	(MFG2_SHADER_STACK0 | MFG3_SHADER_STACK1)
-#define GPU_SHADER_PRESENT_4 \
-	(MFG3_SHADER_STACK1 | MFG4_SHADER_STACK2)
-#define GPU_SHADER_PRESENT_5 \
-	(MFG2_SHADER_STACK0 | MFG3_SHADER_STACK1 | MFG4_SHADER_STACK2)
-#define GPU_SHADER_PRESENT_6 \
-	(MFG3_SHADER_STACK1 | MFG4_SHADER_STACK2 | MFG5_SHADER_STACK5)
-#define GPU_SHADER_PRESENT_7 \
-	(MFG2_SHADER_STACK0 | MFG3_SHADER_STACK1 | MFG4_SHADER_STACK2 | \
-	MFG5_SHADER_STACK5)
-#define GPU_SHADER_PRESENT_8 \
-	(MFG3_SHADER_STACK1 | MFG4_SHADER_STACK2 | MFG5_SHADER_STACK5 | \
-	MFG6_SHADER_STACK6)
-#define GPU_SHADER_PRESENT_9 \
-	(MFG2_SHADER_STACK0 | MFG3_SHADER_STACK1 | MFG4_SHADER_STACK2 | \
-	MFG5_SHADER_STACK5 | MFG6_SHADER_STACK6)
+	(MFG3_SHADER_STACK0 | MFG4_SHADER_STACK2 | MFG5_SHADER_STACK4)
 
 /**************************************************
  * Reference Power Setting
@@ -97,13 +85,13 @@
  **************************************************/
 /*
  * PMIC hardware range:
- * vgpu      0.3 ~ 1.19375 V
- * vsram     0.5 ~ 1.29375 V
+ * vgpu      0.3 ~ 1.19375 V (MT6368)
+ * vsram     0.4 ~ 1.19375 V (MT6363)
  */
 #define VGPU_MAX_VOLT                   (119375)        /* mV x 100 */
 #define VGPU_MIN_VOLT                   (30000)         /* mV x 100 */
-#define VSRAM_MAX_VOLT                  (129375)        /* mV x 100 */
-#define VSRAM_MIN_VOLT                  (50000)         /* mV x 100 */
+#define VSRAM_MAX_VOLT                  (119375)        /* mV x 100 */
+#define VSRAM_MIN_VOLT                  (40000)         /* mV x 100 */
 #define PMIC_STEP                       (625)           /* mV x 100 */
 /*
  * (Vgpu > THRESH): Vsram = Vgpu + DIFF
@@ -262,18 +250,18 @@ struct gpufreq_opp_info g_default_gpu[] = {
 	GPUOP(634000,  63750, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 26 */
 	GPUOP(616000,  63125, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 27 */
 	GPUOP(598000,  62500, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 28 */
-	GPUOP(580000,  61875, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 29 */
-	GPUOP(563000,  61250, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 30 */
-	GPUOP(545000,  60625, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 31 */
-	GPUOP(527000,  60000, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 32 */
-	GPUOP(509000,  59375, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 33 */
-	GPUOP(491000,  58750, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 34 */
-	GPUOP(474000,  58125, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 35 */
-	GPUOP(456000,  57500, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 36 */
-	GPUOP(438000,  56875, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 37 */
-	GPUOP(420000,  56250, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 38 */
-	GPUOP(402000,  55625, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 39 */
-	GPUOP(385000,  55000, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0),  /* 40 sign off */
+	GPUOP(580000,  61875, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 29 */
+	GPUOP(563000,  61250, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 30 */
+	GPUOP(545000,  60625, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 31 */
+	GPUOP(527000,  60000, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 32 */
+	GPUOP(509000,  59375, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 33 */
+	GPUOP(491000,  58750, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 34 */
+	GPUOP(474000,  58125, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 35 */
+	GPUOP(456000,  57500, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 36 */
+	GPUOP(438000,  56875, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 37 */
+	GPUOP(420000,  56250, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 38 */
+	GPUOP(402000,  55625, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 39 */
+	GPUOP(385000,  55000, VSRAM_LEVEL_0, POSDIV_POWER_4, 0, 0), /* 40 sign off */
 };
 
 /**************************************************
