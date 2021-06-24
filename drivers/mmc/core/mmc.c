@@ -2094,17 +2094,6 @@ static int mmc_can_sleep(struct mmc_card *card)
 	return (card && card->ext_csd.rev >= 3);
 }
 
-static int mmc_can_sleepawake(struct mmc_host *host)
-{
-#if defined(CONFIG_SDC_QTI)
-	return host && (host->caps2 & MMC_CAP2_SLEEP_AWAKE) && host->card &&
-		(host->card->ext_csd.rev >= 3);
-#else
-	return host && host->card && (host->card->ext_csd.rev >= 3);
-#endif
-
-}
-
 static int mmc_sleepawake(struct mmc_host *host, bool sleep)
 {
 	struct mmc_command cmd = {};
@@ -2329,7 +2318,7 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (mmc_can_poweroff_notify(host->card) &&
 		((host->caps2 & MMC_CAP2_FULL_PWR_CYCLE) || !is_suspend))
 		err = mmc_poweroff_notify(host->card, notify_type);
-	if (mmc_can_sleepawake(host)) {
+	if (mmc_can_sleep(host->card)) {
 #if defined(CONFIG_SDC_QTI)
 		memcpy(&host->cached_ios, &host->ios, sizeof(host->cached_ios));
 #endif
@@ -2441,7 +2430,7 @@ static int _mmc_resume(struct mmc_host *host)
 	mmc_log_string(host, "Enter\n");
 	mmc_power_up(host, host->card->ocr);
 
-	if (mmc_can_sleepawake(host)) {
+	if (mmc_can_sleep(host->card)) {
 		err = mmc_sleepawake(host, false);
 		if (!err)
 			err = mmc_partial_init(host);
