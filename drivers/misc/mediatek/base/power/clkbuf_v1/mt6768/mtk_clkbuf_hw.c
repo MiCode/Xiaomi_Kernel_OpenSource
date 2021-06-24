@@ -787,7 +787,6 @@ void clk_buf_disp_ctrl(bool onoff)
 {
 	int pwrap_dcxo_en;
 
-	pr_info("%s:onoff=%d\n", __func__, onoff);
 	pwrap_dcxo_en = clkbuf_readl(DCXO_ENABLE) & ~DCXO_NFC_ENABLE;
 	clkbuf_writel(DCXO_ENABLE, pwrap_dcxo_en);
 	if (onoff) {
@@ -811,7 +810,6 @@ void clk_buf_disp_ctrl(bool onoff)
 			PMIC_XO_EXTBUF3_EN_M_SHIFT);
 		pmic_clk_buf_swctrl[XO_NFC] = 0;
 	}
-
 }
 EXPORT_SYMBOL(clk_buf_disp_ctrl);
 
@@ -1550,6 +1548,7 @@ short is_clkbuf_bringup(void)
 
 void clk_buf_post_init(void)
 {
+#ifndef CONFIG_MTK_MT6382_BDG
 #if defined(CONFIG_MTK_UFS_SUPPORT)
 	int boot_type;
 
@@ -1562,6 +1561,7 @@ void clk_buf_post_init(void)
 #else
 	clk_buf_ctrl_internal(CLK_BUF_UFS, CLK_BUF_FORCE_OFF);
 	CLK_BUF7_STATUS = CLOCK_BUFFER_DISABLE;
+#endif
 #endif
 
 #ifndef CONFIG_NFC_CHIP_SUPPORT
