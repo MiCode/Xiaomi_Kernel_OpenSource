@@ -59,7 +59,6 @@ static void vpu_iova_show(struct seq_file *s)
 static int vpu_mem_init_v1(void)
 {
 	INIT_LIST_HEAD(&vpu_drv->vi);
-	pr_info("[%s:%d] [after init] head->prev: 0x%llX, head->next: 0x%llX\n", __func__, __LINE__, (unsigned long)vpu_drv->vi.prev, (unsigned long)vpu_drv->vi.next);
 	mutex_init(&vpu_drv->vi_lock);
 
 	return 0;
@@ -454,9 +453,7 @@ static dma_addr_t vpu_iova_alloc(struct device *dev,
 		__func__, vd->name, i->iova, i->size);
 	mutex_lock(&vpu_drv->vi_lock);
 	i->time = sched_clock();
-	pr_info("[%s:%d] [before add] list: 0x%llX, head->prev: 0x%llX, head->next: 0x%llX\n", __func__, __LINE__, (unsigned long)&vpu_drv->vi, (unsigned long)vpu_drv->vi.prev, (unsigned long)vpu_drv->vi.next);
 	list_add_tail(&i->list, &vpu_drv->vi);
-	pr_info("[%s:%d] [after add] list: 0x%llX, curr entry: 0x%llX, head->prev: 0x%llX, head->next: 0x%llX\n", __func__, __LINE__, (unsigned long)&vpu_drv->vi, (unsigned long)&i->list, (unsigned long)vpu_drv->vi.prev, (unsigned long)vpu_drv->vi.next);
 	mutex_unlock(&vpu_drv->vi_lock);
 
 out:
