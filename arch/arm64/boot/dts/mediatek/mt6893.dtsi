@@ -3812,7 +3812,32 @@
 		};
 
 		mtk_iommu_debug {
-			compatible = "mediatek,mt6893-iommu-debug";
+		compatible = "mediatek,mt6893-iommu-debug";
+		};
+
+		mtk_sec_dmaheap {
+			compatible = "mediatek,dmaheap-region-base";
+			iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
+		iommu_test_dmabuf_normal {
+			compatible = "mediatek,common-dmabuf-normal";
+			iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
+		iommu_test_dmabuf_prot_region0 {
+			compatible = "mediatek,common-dmabuf-prot-region0";
+			iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
+		iommu_test_dmabuf_prot_region1 {
+			compatible = "mediatek,common-dmabuf-prot-region1";
+			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+			iommus = <&iommu0 M4U_PORT_L5_VDEC_LAT0_VLD2_EXT_DISP>;
+		};
+
+		iommu_test_dmabuf_prot_region2 {
+			compatible = "mediatek,common-dmabuf-prot-region2";
 		};
 
 		iommu0: iommu@1411a000  {
