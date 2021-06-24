@@ -46,12 +46,7 @@
 #define VOW_IOC_MAGIC                  'V'
 #define VOW_PRE_LEARN_MODE             1
 
-#ifdef CONFIG_MTK_VOW_MAX_PDK_NUMBER
-#define MAX_VOW_SPEAKER_MODEL          (CONFIG_MTK_VOW_MAX_PDK_NUMBER + \
-					VOW_GOOGLE_MODEL + VOW_AMAZON_MODEL)
-#else
-#define MAX_VOW_SPEAKER_MODEL          (VOW_GOOGLE_MODEL + VOW_AMAZON_MODEL)
-#endif
+#define MAX_VOW_SPEAKER_MODEL          2
 
 #define VOW_WAITCHECK_INTERVAL_MS      1
 #define MAX_VOW_INFO_LEN               7
@@ -74,14 +69,10 @@
 #define RESERVED_DATA                  4
 #define VOW_RECOVERY_WAIT              100
 
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 #define VOW_MAX_MIC_NUM	(2)
-#else
-#define VOW_MAX_MIC_NUM	(1)
-#endif
 
 /* length limitation sync by audio hal */
-#if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
+#if defined DUAL_CH_TRANSFER
 #define VOW_VBUF_LENGTH      (0x12E80 * VOW_MAX_MIC_NUM)  /* (0x12480 + 0x0A00) * 2 */
 #else
 #define VOW_VBUF_LENGTH      (0x12E80)  /* 0x12480 + 0x0A00 */
@@ -108,7 +99,7 @@
 
 #define VOW_ENGINE_INFO_LENGTH_BYTE    32
 
-#if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
+#if defined DUAL_CH_TRANSFER
 #define VOW_RECOGDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_MAX_MIC_NUM * VOW_VOICEDATA_SIZE)
 #else
 #define VOW_RECOGDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
@@ -152,12 +143,10 @@ struct dump_package_t {
 	uint32_t mic_data_size;
 	uint32_t recog_data_offset;
 	uint32_t recog_data_size;
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 	uint32_t mic_offset_R;
 	uint32_t mic_data_size_R;
 	uint32_t recog_data_offset_R;
 	uint32_t recog_data_size_R;
-#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
 	uint32_t vffp_data_offset_1st_ch;
@@ -178,12 +167,10 @@ struct dump_work_t {
 	uint32_t mic_data_size;
 	uint32_t recog_data_offset;
 	uint32_t recog_data_size;
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 	uint32_t mic_offset_R;
 	uint32_t mic_data_size_R;
 	uint32_t recog_data_offset_R;
 	uint32_t recog_data_size_R;
-#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
 	uint32_t vffp_data_offset_1st_ch;
@@ -212,6 +199,8 @@ enum vow_control_cmd_t {
 	VOWControlCmd_EnableDump,
 	VOWControlCmd_DisableDump,
 	VOWControlCmd_Reset,
+	VOWControlCmd_Mic_Single,
+	VOWControlCmd_Mic_Dual,
 };
 
 enum vow_ipi_msgid_t {
@@ -492,18 +481,14 @@ struct vow_ipi_combined_info_t {
 	/* IPIMSG_VOW_BARGEIN_PCMDUMP_OK */
 	unsigned int mic_dump_size;
 	unsigned int mic_offset;
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 //	unsigned int mic_dump_size_R;
 	unsigned int mic_offset_R;
-#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	unsigned int echo_dump_size;
 	unsigned int echo_offset;
 	unsigned int recog_dump_size;
 	unsigned int recog_dump_offset;
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 //	unsigned int recog_dump_size_R;
 	unsigned int recog_dump_offset_R;
-#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	unsigned int payloaddump_len;
 	unsigned int vffp_dump_size;
 	unsigned int vffp_dump_offset;
