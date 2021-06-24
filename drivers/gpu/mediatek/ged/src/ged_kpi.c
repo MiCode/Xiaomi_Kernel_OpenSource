@@ -196,6 +196,18 @@ struct GED_KPI_GPU_TS {
 	struct dma_fence *psSyncFence;
 } GED_KPI_GPU_TS;
 
+struct GED_KPI_MEOW_DVFS_FREQ_PRED {
+	int gpu_freq_cur;
+	int gpu_freq_max;
+	int gpu_freq_pred;
+	int gift_ratio;
+
+	int target_pid;
+	int target_fps;
+	int gpu_time;
+};
+static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psMEOW;
+
 #define GED_KPI_TOTAL_ITEMS 64
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
 #define SCREEN_IDLE_PERIOD 500000000
@@ -522,7 +534,7 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 		psKPI->t_gpu,
 		psKPI->gpu_done_interval,
 		vsync_period,
-		psKPI->QedBufferDelay,
+		g_psMEOW->gift_ratio,
 
 		psKPI->cpu_gpu_info.gpu.gpu_dvfs,
 		psKPI->cpu_gpu_info.gpu.tb_dvfs_mode,
@@ -1079,6 +1091,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				psKPI->gpu_freq_max =
 					ged_get_freq_by_idx(
 					ged_get_cur_limit_idx_ceil()) / 1000;
+				g_psMEOW->gpu_freq_cur = psKPI->gpu_freq;
+				g_psMEOW->gpu_freq_max = psKPI->gpu_freq_max;
 
 				psHead->pre_TimeStamp2 =
 					psHead->last_TimeStamp2;
@@ -1133,6 +1147,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					psTimeStamp->i32FrameID, ulID);
 					ged_log_perf_trace_counter("gpu_3d_loading",
 					util_ex.util_3d, psTimeStamp->pid,
+					psTimeStamp->i32FrameID, ulID);
+
+					/* hint GiFT ratio to EAT */
+					ged_log_perf_trace_counter(
+					"is_gift_on", g_psMEOW->gift_ratio,
+					psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
 
 					time_spent =
@@ -1199,6 +1219,16 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			psKPI->cpu_gpu_info.gpu.gpu_freq_target
 			= gpu_freq_pre;
 			last_3D_done = cur_3D_done;
+
+			g_psMEOW->gpu_freq_pred = gpu_freq_pre;
+				if (main_head == psHead &&
+					psHead->pid == g_psMEOW->target_pid) {
+					g_psMEOW->target_fps = psHead->target_fps;
+					g_psMEOW->gpu_time = time_spent;
+				} else {
+					g_psMEOW->target_fps = -1;
+					g_psMEOW->gpu_time = -1;
+				}\
 
 			if (!g_force_gpu_dvfs_fallback)
 				ged_set_backup_timer_timeout(0);
@@ -1780,6 +1810,15 @@ GED_ERROR ged_kpi_system_init(void)
 	ghLogBuf_KPI = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
 
+	g_psMEOW = (struct GED_KPI_MEOW_DVFS_FREQ_PRED *)
+		ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
+	if (unlikely(!g_psMEOW)) {
+		GED_PR_DEBUG("[GED_KPI][Exception]:");
+		GED_PR_DEBUG(
+		"ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED)) failed\n");
+		return GED_ERROR_FAIL;
+	}
+
 	g_psWorkQueue =
 		alloc_ordered_workqueue("ged_kpi",
 			WQ_FREEZABLE | WQ_MEM_RECLAIM);
@@ -1815,6 +1854,7 @@ void ged_kpi_system_exit(void)
 	ged_log_buf_free(ghLogBuf_KPI);
 	ghLogBuf_KPI = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
+	ged_free(g_psMEOW, sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
 #endif /* MTK_GED_KPI */
 }
 /* ------------------------------------------------------------------- */
@@ -1948,3 +1988,78 @@ GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 	return ret;
 }
 EXPORT_SYMBOL(ged_kpi_timer_based_pick_riskyBQ);
+
+/* ------------------------------------------------------------------- */
+GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
+	, int *gpu_freq_max, int *gpu_freq_pred)
+{
+#ifdef MTK_GED_KPI
+	if (gpu_freq_cur == NULL
+			|| gpu_freq_max == NULL
+			|| gpu_freq_pred == NULL)
+		return GED_ERROR_FAIL;
+
+	*gpu_freq_cur = g_psMEOW->gpu_freq_cur;
+	*gpu_freq_max = g_psMEOW->gpu_freq_max;
+	*gpu_freq_pred = g_psMEOW->gpu_freq_pred;
+
+	return GED_OK;
+#else
+	return GED_OK;
+#endif /* MTK_GED_KPI */
+}
+EXPORT_SYMBOL(ged_kpi_query_dvfs_freq_pred);
+
+/* ------------------------------------------------------------------- */
+GED_ERROR ged_kpi_query_gpu_dvfs_info(int *gpu_freq_cur
+, int *gpu_freq_max, int *gpu_freq_pred, int *target_fps, int *gpu_time)
+{
+#ifdef MTK_GED_KPI
+	if (gpu_freq_cur == NULL
+			|| gpu_freq_max == NULL
+			|| gpu_freq_pred == NULL
+			|| gpu_time == NULL)
+		return GED_ERROR_FAIL;
+
+	*gpu_freq_cur = g_psMEOW->gpu_freq_cur;
+	*gpu_freq_max = g_psMEOW->gpu_freq_max;
+	*gpu_freq_pred = g_psMEOW->gpu_freq_pred;
+
+	*target_fps = g_psMEOW->target_fps;
+	if (g_psMEOW->gpu_time != -1)
+		*gpu_time = g_psMEOW->gpu_time / 1000; /* micro second*/
+	else
+		*gpu_time = -1;
+
+	return GED_OK;
+#else
+	return GED_OK;
+#endif /* MTK_GED_KPI */
+}
+EXPORT_SYMBOL(ged_kpi_query_gpu_dvfs_info);
+
+/* ------------------------------------------------------------------- */
+GED_ERROR ged_kpi_set_gift_status(int ratio)
+{
+#ifdef MTK_GED_KPI
+	if (ratio > 0)
+		g_psMEOW->gift_ratio = ratio;
+	else
+		g_psMEOW->gift_ratio = 0;
+
+	return GED_OK;
+#endif /* MTK_GED_KPI */
+	return GED_OK;
+}
+EXPORT_SYMBOL(ged_kpi_set_gift_status);
+/* ------------------------------------------------------------------- */
+GED_ERROR ged_kpi_set_gift_target_pid(int pid)
+{
+#ifdef MTK_GED_KPI
+	if (pid != g_psMEOW->target_pid)
+		g_psMEOW->target_pid = pid;
+	return GED_OK;
+#endif /* MTK_GED_KPI */
+	return GED_OK;
+}
+EXPORT_SYMBOL(ged_kpi_set_gift_target_pid);

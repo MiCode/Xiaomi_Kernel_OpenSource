@@ -45,7 +45,6 @@ void ged_kpi_system_exit(void);
 bool ged_kpi_set_cpu_remained_time(long long t_cpu_remained,
 		int QedBuffer_length);
 bool ged_kpi_set_gpu_dvfs_hint(int t_gpu_target, int t_gpu_cur);
-// void ged_kpi_set_game_hint(int mode);
 unsigned int ged_kpi_enabled(void);
 void ged_kpi_set_target_FPS(u64 ulID, int target_FPS);
 void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
@@ -53,6 +52,14 @@ void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 
 GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 	int *pT_gpu_target, unsigned long long *pullWnd);
+
+/* For Gift Usage */
+GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
+	, int *gpu_freq_max, int *gpu_freq_pred);
+GED_ERROR ged_kpi_query_gpu_dvfs_info(int *gpu_freq_cur
+	, int *gpu_freq_max, int *gpu_freq_pred, int *target_fps, int *gpu_time);
+GED_ERROR ged_kpi_set_gift_status(int mode);
+GED_ERROR ged_kpi_set_gift_target_pid(int pid);
 
 extern spinlock_t gsGpuUtilLock;
 
