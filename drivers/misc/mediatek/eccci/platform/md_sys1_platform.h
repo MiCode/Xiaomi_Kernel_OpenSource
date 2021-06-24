@@ -82,6 +82,11 @@ struct cldma_hw_info {
 	unsigned long cldma_irq_flags;
 };
 
+enum {
+	SRCCLKENA_SETTING_BIT,
+	SRCLKEN_O1_BIT,
+};
+
 int md_cd_pccif_send(struct ccci_modem *md, int channel_id);
 #ifndef CCCI_KMODULE_ENABLE
 void md_cd_dump_pccif_reg(struct ccci_modem *md);

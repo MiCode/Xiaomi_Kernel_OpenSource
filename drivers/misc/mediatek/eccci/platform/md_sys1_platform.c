@@ -669,8 +669,13 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 	unsigned int val;
 	int ret;
 
-	if (md_cd_plat_val_ptr.srclkena_setting != 2) /* 2 - need set */
-		return -1;
+	if (!(md_cd_plat_val_ptr.srclkena_setting & (1 << SRCLKEN_O1_BIT))) {
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER ON] bypass %s step\n", __func__);
+		CCCI_ERROR_LOG(md->index, TAG,
+			"[POWER ON] bypass %s step\n", __func__);
+		return 0;
+	}
 
 	if (md_cd_plat_val_ptr.srclken_o1_bit < 0)
 		return -1;
@@ -730,21 +735,20 @@ SRC_CLK_O1_DONE:
 		"[POWER ON]%s: set srclken_o1_on done, ret = %d\n",
 		__func__, ret);
 
-	return 0;
+	return ret;
 }
 
-/**
-  md_cd_plat_val_ptr.srclkena_setting will decide use which flow:
-  0: no need this flow
-  1: need set infar_misc2 reg
-  2: need set infar_misc2 reg and srclken_o1 force on
+/*
+ * md_cd_plat_val_ptr.srclkena_setting will decide use which flow:
+ * bit0: means to set srcclkena
+ * bit1: means to set srclken_o1_on
  */
 static int md_cd_srcclkena_setting(struct ccci_modem *md)
 {
 	unsigned int reg_value;
 	int ret;
 
-	if (md_cd_plat_val_ptr.srclkena_setting == 0) {
+	if (!(md_cd_plat_val_ptr.srclkena_setting & (1 << SRCCLKENA_SETTING_BIT))) {
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"[POWER ON] bypass md_cd_srcclkena_setting step\n");
 		CCCI_ERROR_LOG(md->index, TAG,
