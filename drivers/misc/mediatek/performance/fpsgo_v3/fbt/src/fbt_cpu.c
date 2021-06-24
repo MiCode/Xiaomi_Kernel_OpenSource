@@ -215,20 +215,12 @@ static int loading_adj_cnt;
 static int loading_debnc_cnt;
 static int loading_time_diff;
 static int adjust_loading;
-static int rescue_percent_90;
-static int rescue_percent_120;
 static int fps_level_range;
 static int check_running;
 static int uboost_enhance_f;
 static int boost_affinity;
-static int boost_affinity_90;
-static int boost_affinity_120;
 static int cm_big_cap;
-static int cm_big_cap_90;
-static int cm_big_cap_120;
 static int cm_tdiff;
-static int cm_tdiff_90;
-static int cm_tdiff_120;
 static int rescue_second_time;
 static int rescue_second_group;
 static int rescue_second_copp;
@@ -238,12 +230,6 @@ static int qr_enable;
 static int qr_t2wnt_x;
 static int qr_t2wnt_y_p;
 static int qr_t2wnt_y_n;
-static int qr_t2wnt_x_90;
-static int qr_t2wnt_y_p_90;
-static int qr_t2wnt_y_n_90;
-static int qr_t2wnt_x_120;
-static int qr_t2wnt_y_p_120;
-static int qr_t2wnt_y_n_120;
 static int qr_hwui_hint;
 static int qr_filter_outlier;
 static int qr_mod_frame;
@@ -291,20 +277,12 @@ module_param(loading_adj_cnt, int, 0644);
 module_param(loading_debnc_cnt, int, 0644);
 module_param(loading_time_diff, int, 0644);
 module_param(adjust_loading, int, 0644);
-module_param(rescue_percent_90, int, 0644);
-module_param(rescue_percent_120, int, 0644);
 module_param(fps_level_range, int, 0644);
 module_param(check_running, int, 0644);
 module_param(uboost_enhance_f, int, 0644);
 module_param(boost_affinity, int, 0644);
-module_param(boost_affinity_90, int, 0644);
-module_param(boost_affinity_120, int, 0644);
 module_param(cm_big_cap, int, 0644);
-module_param(cm_big_cap_90, int, 0644);
-module_param(cm_big_cap_120, int, 0644);
 module_param(cm_tdiff, int, 0644);
-module_param(cm_tdiff_90, int, 0644);
-module_param(cm_tdiff_120, int, 0644);
 module_param(rescue_second_time, int, 0644);
 module_param(rescue_second_group, int, 0644);
 module_param(rescue_second_enable, int, 0644);
@@ -313,12 +291,6 @@ module_param(qr_enable, int, 0644);
 module_param(qr_t2wnt_x, int, 0644);
 module_param(qr_t2wnt_y_p, int, 0644);
 module_param(qr_t2wnt_y_n, int, 0644);
-module_param(qr_t2wnt_x_90, int, 0644);
-module_param(qr_t2wnt_y_p_90, int, 0644);
-module_param(qr_t2wnt_y_n_90, int, 0644);
-module_param(qr_t2wnt_x_120, int, 0644);
-module_param(qr_t2wnt_y_p_120, int, 0644);
-module_param(qr_t2wnt_y_n_120, int, 0644);
 module_param(qr_hwui_hint, int, 0644);
 module_param(qr_filter_outlier, int, 0644);
 module_param(qr_mod_frame, int, 0644);
@@ -367,8 +339,6 @@ static int fbt_cap_margin_enable;
 static int ultra_rescue;
 static int loading_policy;
 static int llf_task_policy;
-static int loading_policy_90;
-static int llf_task_policy_90;
 
 static int cluster_num;
 static unsigned int cpu_max_freq;
@@ -1224,7 +1194,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	char *dep_str = NULL;
 	int ret;
 	int heavy_pid = 0;
-	int do_affinity = 0;
 
 	if (!thr)
 		return;
@@ -1249,23 +1218,10 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	if (!size || !thr->dep_arr)
 		return;
 
-	if (boost_affinity || boost_affinity_90 || boost_affinity_120) {
-		int tfps_level;
-
-		tfps_level = fbt_get_fps_level(thr->boost_info.target_fps);
-
-		if (tfps_level == fbt_fps_level[0])
-			do_affinity = boost_affinity;
-		else if (tfps_level == fbt_fps_level[1])
-			do_affinity = boost_affinity_90;
-		else
-			do_affinity = boost_affinity_120;
-	}
-
-	if (loading_th || do_affinity)
+	if (loading_th || boost_affinity)
 		fbt_query_dep_list_loading(thr);
 
-	if (do_affinity)
+	if (boost_affinity)
 		heavy_pid = fbt_get_heavy_pid(thr->dep_valid_size, thr->dep_arr);
 
 	dep_str = kcalloc(size + 1, MAX_PID_DIGIT * sizeof(char),
@@ -1280,7 +1236,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		if (!fl->pid)
 			continue;
 
-		if (loading_th || do_affinity) {
+		if (loading_th || boost_affinity) {
 			fpsgo_systrace_c_fbt_gm(fl->pid, thr->buffer_id,
 				fl->loading, "dep-loading");
 
@@ -1293,37 +1249,25 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		}
 
 		if (fbt_is_light_loading(fl->loading)) {
-			int tfps_level;
-			int fps_loading_policy, fps_llf_task_policy;
-
-			tfps_level = fbt_get_fps_level(thr->boost_info.target_fps);
-			if (tfps_level == fbt_fps_level[0]) {
-				fps_loading_policy = loading_policy;
-				fps_llf_task_policy = llf_task_policy;
-			} else {
-				fps_loading_policy = loading_policy_90;
-				fps_llf_task_policy = llf_task_policy_90;
-			}
-
 			fbt_set_per_task_min_cap(fl->pid,
-				(!fps_loading_policy) ? 0
-				: min_cap * fps_loading_policy / 100);
-			fbt_set_task_policy(fl, fps_llf_task_policy,
+				(!loading_policy) ? 0
+				: min_cap * loading_policy / 100);
+			fbt_set_task_policy(fl, llf_task_policy,
 					FPSGO_PREFER_LITTLE, 0);
 		} else if (heavy_pid && heavy_pid == fl->pid) {
 			fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
 					heavy_pid, "heavy_pid");
 			fbt_set_per_task_min_cap(fl->pid, min_cap);
-			if (do_affinity)
+			if (boost_affinity)
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
 						FPSGO_PREFER_BIG, 1);
-		} else if (do_affinity && thr->pid == fl->pid && max_cl_core_num > 1) {
+		} else if (boost_affinity && thr->pid == fl->pid && max_cl_core_num > 1) {
 			fbt_set_per_task_min_cap(fl->pid, min_cap);
 			fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
 						FPSGO_PREFER_BIG, 1);
 		} else {
 			fbt_set_per_task_min_cap(fl->pid, min_cap);
-			if (do_affinity && heavy_pid && heavy_pid != fl->pid)
+			if (boost_affinity && heavy_pid && heavy_pid != fl->pid)
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
 						FPSGO_PREFER_L_M, 0);
 			else
@@ -2025,8 +1969,7 @@ static unsigned long long fbt_get_next_vsync_locked(
 static void fbt_check_cm_limit(struct render_info *thread_info,
 		long long runtime)
 {
-	int last_blc = 0, tfps_level;
-	int big_cap, time_diff;
+	int last_blc = 0;
 
 	if (!thread_info || !runtime)
 		return;
@@ -2046,20 +1989,8 @@ static void fbt_check_cm_limit(struct render_info *thread_info,
 	if (!last_blc)
 		return;
 
-	tfps_level = fbt_get_fps_level(thread_info->boost_info.target_fps);
-	if (tfps_level == fbt_fps_level[0]) {
-		big_cap = cm_big_cap;
-		time_diff = cm_tdiff;
-	} else if (tfps_level == fbt_fps_level[1]) {
-		big_cap = cm_big_cap_90;
-		time_diff = cm_tdiff_90;
-	} else {
-		big_cap = cm_big_cap_120;
-		time_diff = cm_tdiff_120;
-	}
-
-	if (last_blc > big_cap &&
-		runtime > thread_info->boost_info.target_time + time_diff)
+	if (last_blc > cm_big_cap &&
+		runtime > thread_info->boost_info.target_time + cm_tdiff)
 		fbt_notify_CM_limit(1);
 	else
 		fbt_notify_CM_limit(0);
@@ -2480,41 +2411,15 @@ static unsigned long long fbt_get_t2wnt(int target_fps,
 	unsigned long long next_vsync, queue_end, rescue_length;
 	unsigned long long t2wnt = 0ULL;
 	unsigned long long ts = fpsgo_get_time();
-	int fps_rescue_percent, fps_short_rescue_ns, fps_min_rescue_percent;
 	unsigned long long t_cpu_target;
-	int target_fps_level;
 
 	mutex_lock(&fbt_mlock);
 
 	target_fps = min_t(int, target_fps, TARGET_UNLIMITED_FPS);
 
-	target_fps_level = fbt_get_fps_level(target_fps);
-
 	t_cpu_target = (unsigned long long)FBTCPU_SEC_DIVIDER;
 	t_cpu_target = div64_u64(t_cpu_target,
 		(unsigned long long)target_fps);
-
-	if (target_fps_level == fbt_fps_level[0]) {
-		fps_rescue_percent = rescue_percent;
-		fps_short_rescue_ns = short_rescue_ns;
-		fps_min_rescue_percent = min_rescue_percent;
-	} else if (target_fps_level == fbt_fps_level[1]) {
-		fps_rescue_percent = rescue_percent_90;
-		fps_min_rescue_percent = rescue_percent_90;
-		fps_short_rescue_ns =
-			(rescue_percent_90 == DEF_RESCUE_PERCENT)
-			? DEF_RESCUE_NS_TH : vsync_period;
-	} else {
-		fps_rescue_percent = rescue_percent_120;
-		fps_min_rescue_percent = rescue_percent_120;
-		fps_short_rescue_ns =
-			(rescue_percent_120 == DEF_RESCUE_PERCENT)
-			? DEF_RESCUE_NS_TH : vsync_period;
-	}
-
-	xgf_trace("fps=%d, rescue@(%d, %d, %d)", target_fps_level,
-			fps_rescue_percent, fps_min_rescue_percent,
-			fps_short_rescue_ns);
 
 	queue_end = queue_start + t_cpu_target;
 	next_vsync = fbt_get_next_vsync_locked(queue_end);
@@ -2527,7 +2432,7 @@ static unsigned long long fbt_get_t2wnt(int target_fps,
 			ts, next_vsync, short_min_rescue_p);
 	else {
 		t2wnt = fbt_cal_t2wnt(t_cpu_target,
-				ts, next_vsync, fps_rescue_percent);
+				ts, next_vsync, rescue_percent);
 		if (t2wnt == 0ULL)
 			goto ERROR;
 
@@ -2535,10 +2440,10 @@ static unsigned long long fbt_get_t2wnt(int target_fps,
 			t2wnt = t_cpu_target;
 
 			rescue_length = next_vsync - t2wnt - queue_start;
-			if (rescue_length <= fps_short_rescue_ns)
+			if (rescue_length <= short_rescue_ns)
 				t2wnt = fbt_cal_t2wnt(t_cpu_target,
 					ts, next_vsync,
-					fps_min_rescue_percent);
+					min_rescue_percent);
 		}
 	}
 ERROR:
@@ -3036,23 +2941,6 @@ static int fbt_boost_policy(
 	if (blc_wt) {
 		 /* ignore hwui hint || not hwui */
 		if (qr_enable && (!qr_hwui_hint || thread_info->ux != 1)) {
-			int tfps_level = fbt_get_fps_level(target_fps);
-			int fps_qr_t2wnt_x, fps_qr_t2wnt_y_p, fps_qr_t2wnt_y_n;
-
-			if (tfps_level == fbt_fps_level[0]) {
-				fps_qr_t2wnt_x = qr_t2wnt_x;
-				fps_qr_t2wnt_y_p = qr_t2wnt_y_p;
-				fps_qr_t2wnt_y_n = qr_t2wnt_y_n;
-			} else if (tfps_level == fbt_fps_level[1]) {
-				fps_qr_t2wnt_x = qr_t2wnt_x_90;
-				fps_qr_t2wnt_y_p = qr_t2wnt_y_p_90;
-				fps_qr_t2wnt_y_n = qr_t2wnt_y_n_90;
-			} else {
-				fps_qr_t2wnt_x = qr_t2wnt_x_120;
-				fps_qr_t2wnt_y_p = qr_t2wnt_y_p_120;
-				fps_qr_t2wnt_y_n = qr_t2wnt_y_n_120;
-			}
-
 			rescue_target_t = div64_s64(1000000, target_fps); /* unit:1us */
 
 			/* t2wnt = target_time * (1+x) + quota * y */
@@ -3061,19 +2949,19 @@ static int fbt_boost_policy(
 				rescue_target_t * 1000, "t2wnt");
 
 			/* rescue_target_t, unit: 1us */
-			rescue_target_t = (fps_qr_t2wnt_x) ?
-				rescue_target_t * 10 * (100 + fps_qr_t2wnt_x) :
+			rescue_target_t = (qr_t2wnt_x) ?
+				rescue_target_t * 10 * (100 + qr_t2wnt_x) :
 				rescue_target_t * 1000;
 
 			if (boost_info->quota_mod > 0) { /* qr_quota, unit: 1us */
 				/* qr_t2wnt_y_p: percentage */
-				qr_quota_adj = (fps_qr_t2wnt_y_p != 100) ?
-					boost_info->quota_mod * 10 * fps_qr_t2wnt_y_p :
+				qr_quota_adj = (qr_t2wnt_y_p != 100) ?
+					boost_info->quota_mod * 10 * qr_t2wnt_y_p :
 					boost_info->quota_mod * 1000;
 			} else {
 				 /* qr_t2wnt_y_n: percentage */
-				qr_quota_adj = (fps_qr_t2wnt_y_n != 0) ?
-					boost_info->quota_mod * 10 * fps_qr_t2wnt_y_n :
+				qr_quota_adj = (qr_t2wnt_y_n != 0) ?
+					boost_info->quota_mod * 10 * qr_t2wnt_y_n :
 					0;
 			}
 			t2wnt = (rescue_target_t + qr_quota_adj > 0)
@@ -4394,45 +4282,6 @@ static ssize_t light_loading_policy_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(light_loading_policy);
 
-static ssize_t light_loading_policy_90_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	int val = -1;
-
-	mutex_lock(&fbt_mlock);
-	val = loading_policy_90;
-	mutex_unlock(&fbt_mlock);
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
-}
-
-static ssize_t light_loading_policy_90_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	int val = -1;
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0)
-				val = arg;
-			else
-				return count;
-		}
-	}
-
-	if (val < 0 || val > 100)
-		return count;
-
-	loading_policy_90 = val;
-
-	return count;
-}
-
-static KOBJ_ATTR_RW(light_loading_policy_90);
 
 static ssize_t switch_idleprefer_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -4906,66 +4755,6 @@ static ssize_t llf_task_policy_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(llf_task_policy);
 
-static ssize_t llf_task_policy_90_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	int val = -1;
-
-	mutex_lock(&fbt_mlock);
-	val = llf_task_policy_90;
-	mutex_unlock(&fbt_mlock);
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
-}
-
-static ssize_t llf_task_policy_90_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	int val = 0;
-	int orig_policy;
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0)
-				val = arg;
-			else
-				return count;
-		}
-	}
-
-	mutex_lock(&fbt_mlock);
-	if (!fbt_enable) {
-		mutex_unlock(&fbt_mlock);
-		return count;
-	}
-
-	if (val < FPSGO_TPOLICY_NONE || val >= FPSGO_TPOLICY_MAX) {
-		mutex_unlock(&fbt_mlock);
-		return count;
-	}
-
-	if (llf_task_policy_90 == val) {
-		mutex_unlock(&fbt_mlock);
-		return count;
-	}
-
-	orig_policy = llf_task_policy_90;
-	llf_task_policy_90 = val;
-	fpsgo_main_trace("fpsgo set llf_task_policy_90 %d",
-		llf_task_policy_90);
-	mutex_unlock(&fbt_mlock);
-
-	schedule_work(&llf_switch_policy_work);
-
-	return count;
-}
-
-static KOBJ_ATTR_RW(llf_task_policy_90);
-
 static ssize_t limit_cfreq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -5275,8 +5064,6 @@ void __exit fbt_cpu_exit(void)
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_light_loading_policy);
 	fpsgo_sysfs_remove_file(fbt_kobj,
-			&kobj_attr_light_loading_policy_90);
-	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_fbt_info);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_switch_idleprefer);
@@ -5292,8 +5079,6 @@ void __exit fbt_cpu_exit(void)
 			&kobj_attr_ultra_rescue);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_llf_task_policy);
-	fpsgo_sysfs_remove_file(fbt_kobj,
-			&kobj_attr_llf_task_policy_90);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_boost_ta);
 	fpsgo_sysfs_remove_file(fbt_kobj,
@@ -5325,8 +5110,6 @@ int __init fbt_cpu_init(void)
 	rescue_percent = DEF_RESCUE_PERCENT;
 	min_rescue_percent = 10;
 	short_rescue_ns = DEF_RESCUE_NS_TH;
-	rescue_percent_90 = DEF_RESCUE_PERCENT;
-	rescue_percent_120 = DEF_RESCUE_PERCENT;
 	short_min_rescue_p = 0;
 	run_time_percent = 50;
 	deqtime_bound = TIME_3MS;
@@ -5344,8 +5127,8 @@ int __init fbt_cpu_init(void)
 	fps_level_range = 10;
 	check_running = 1;
 	uboost_enhance_f = fbt_get_default_uboost();
-	cm_big_cap = cm_big_cap_90 = cm_big_cap_120 = 95;
-	cm_tdiff = cm_tdiff_90 = cm_tdiff_120 = TIME_1MS;
+	cm_big_cap = 95;
+	cm_tdiff = TIME_1MS;
 	rescue_second_time = 2;
 	rescue_second_copp = NR_FREQ_CPU - 1;
 
@@ -5369,9 +5152,6 @@ int __init fbt_cpu_init(void)
 	qr_t2wnt_x = DEFAULT_QR_T2WNT_X;
 	qr_t2wnt_y_p = DEFAULT_QR_T2WNT_Y_P;
 	qr_t2wnt_y_n = DEFAULT_QR_T2WNT_Y_N;
-	qr_t2wnt_x_90 = qr_t2wnt_x_120 = DEFAULT_QR_T2WNT_X;
-	qr_t2wnt_y_p_90 = qr_t2wnt_y_p_120 = DEFAULT_QR_T2WNT_Y_P;
-	qr_t2wnt_y_n_90 = qr_t2wnt_y_n_120 = DEFAULT_QR_T2WNT_Y_N;
 	qr_hwui_hint = DEFAULT_QR_HWUI_HINT;
 	qr_filter_outlier = 0;
 	qr_mod_frame = 1;
@@ -5425,8 +5205,6 @@ int __init fbt_cpu_init(void)
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_light_loading_policy);
 		fpsgo_sysfs_create_file(fbt_kobj,
-				&kobj_attr_light_loading_policy_90);
-		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_fbt_info);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_switch_idleprefer);
@@ -5442,8 +5220,6 @@ int __init fbt_cpu_init(void)
 				&kobj_attr_ultra_rescue);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_llf_task_policy);
-		fpsgo_sysfs_create_file(fbt_kobj,
-				&kobj_attr_llf_task_policy_90);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_boost_ta);
 		fpsgo_sysfs_create_file(fbt_kobj,
