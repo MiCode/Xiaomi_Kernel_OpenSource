@@ -6216,6 +6216,42 @@
 				camin2-dl-relay = /bits/ 16 <MML_DL_RELAY1_CFG_WD>;
 				camin3-dl-relay = /bits/ 16 <MML_DL_RELAY2_CFG_WD>;
 				camin4-dl-relay = /bits/ 16 <MML_DL_RELAY3_CFG_WD>;
+			dbg-reg-names = "CG_CON0", "CG_SET0", "CG_CLR0",
+				"CG_CON1", "CG_SET1", "CG_CLR1",
+				"CG_CON2", "CG_SET2", "CG_CLR2",
+				"CG_CON3", "CG_SET3", "CG_CLR3",
+				"CG_CON4", "CG_SET4", "CG_CLR4",
+				"ISP0_MOUT_EN", "ISP1_MOUT_EN", "ISP2_MOUT_EN",
+				"ISP3_MOUT_EN", "RDMA0_MOUT_EN", "RDMA1_MOUT_EN",
+				"RDMA2_MOUT_EN", "RDMA3_MOUT_EN", "PQ0_SEL_IN",
+				"PQ1_SEL_IN", "PQ2_SEL_IN", "PQ3_SEL_IN",
+				"PQ0_SOUT_SEL", "PQ1_SOUT_SEL", "AAL0_MOUT_EN",
+				"AAL1_MOUT_EN", "TCC0_SOUT_SEL", "TCC1_SOUT_SEL",
+				"HDR0_SEL_IN", "HDR1_SEL_IN", "RSZ0_SEL_IN",
+				"RSZ1_SEL_IN", "RSZ2_SEL_IN", "RSZ3_SEL_IN",
+				"WROT0_SEL_IN", "WROT1_SEL_IN", "WROT2_SEL_IN",
+				"WROT3_SEL_IN", "MOUT_MASK0", "MOUT_MASK1",
+				"MOUT_MASK2", "DL_VALID0", "DL_VALID1",
+				"DL_VALID2", "DL_READY0", "DL_READY1",
+				"DL_READY2";
+			dbg-reg-offsets = <CG_CON0>, <CG_SET0>, <CG_CLR0>,
+				<CG_CON1>, <CG_SET1>, <CG_CLR1>,
+				<CG_CON2>, <CG_SET2>, <CG_CLR2>,
+				<CG_CON3>, <CG_SET3>, <CG_CLR3>,
+				<CG_CON4>, <CG_SET4>, <CG_CLR4>,
+				<ISP0_MOUT_EN>, <ISP1_MOUT_EN>, <ISP2_MOUT_EN>,
+				<ISP3_MOUT_EN>, <RDMA0_MOUT_EN>, <RDMA1_MOUT_EN>,
+				<RDMA2_MOUT_EN>, <RDMA3_MOUT_EN>, <PQ0_SEL_IN>,
+				<PQ1_SEL_IN>, <PQ2_SEL_IN>, <PQ3_SEL_IN>,
+				<PQ0_SOUT_SEL>, <PQ1_SOUT_SEL>, <AAL0_MOUT_EN>,
+				<AAL1_MOUT_EN>, <TCC0_SOUT_SEL>, <TCC1_SOUT_SEL>,
+				<HDR0_SEL_IN>, <HDR1_SEL_IN>, <RSZ0_SEL_IN>,
+				<RSZ1_SEL_IN>, <RSZ2_SEL_IN>, <RSZ3_SEL_IN>,
+				<WROT0_SEL_IN>, <WROT1_SEL_IN>, <WROT2_SEL_IN>,
+				<WROT3_SEL_IN>, <MOUT_MASK0>, <MOUT_MASK1>,
+				<MOUT_MASK2>, <DL_VALID0>, <DL_VALID2>,
+				<DL_VALID2>, <DL_READY0>, <DL_READY1>,
+				<DL_READY2>;
 		};
 
 		mml_mutex: mml_mutex@1f001000 {
