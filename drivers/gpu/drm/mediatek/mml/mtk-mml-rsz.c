@@ -16,6 +16,7 @@
 #include "mtk-mml-driver.h"
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk_drm_ddp_comp.h"
+#include "mtk-mml-pq-core.h"
 
 #include "tile_driver.h"
 #include "tile_mdp_reg.h"
@@ -103,6 +104,7 @@ struct rsz_frame_data {
 };
 
 #define rsz_frm_data(i)	((struct rsz_frame_data *)(i->data))
+#define RSZ_WAIT_TIMEOUT_MS 50
 
 static inline struct mml_comp_rsz *comp_to_rsz(struct mml_comp *comp)
 {
@@ -113,13 +115,18 @@ static s32 rsz_config_scale(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
 	struct rsz_frame_data *rsz_frm;
+	s32 ret = 0;
 
 	rsz_frm = kzalloc(sizeof(*rsz_frm), GFP_KERNEL);
 	ccfg->data = rsz_frm;
 	/* cache out index for easy use */
 	rsz_frm->out_idx = ccfg->node->out_idx;
 
-	return 0;
+	ret = mml_pq_tile_init(task);
+	if (ret)
+		return ret;
+
+	return ret;
 }
 
 static bool rsz_relay(struct mml_frame_config *cfg,
@@ -148,22 +155,67 @@ static bool rsz_relay(struct mml_frame_config *cfg,
 		return false;
 }
 
+static struct mml_pq_tile_init_result *get_init_result(struct mml_task *task)
+{
+	struct mml_pq_sub_task *sub_task = NULL;
+
+	if (task->pq_task)
+		sub_task = &task->pq_task->tile_init;
+	if (sub_task)
+		return (struct mml_pq_tile_init_result *)sub_task->result;
+	else
+		return NULL;
+}
+
 static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg,
 			    void *ptr_func, void *tile_data)
 {
 	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	struct mml_tile_data *data = (struct mml_tile_data*)tile_data;
+	struct rsz_tile_data *rsz_data = &((struct mml_tile_data*)tile_data)->rsz_data;
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_data *src = &cfg->info.src;
 	struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
 	struct mml_comp_rsz *rsz = comp_to_rsz(comp);
+	struct mml_pq_tile_init_result *result;
+	struct mml_pq_rsz_tile_init_param *init_param;
 	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
 	u32 in_crop_w, in_crop_h;
+	s32 ret;
 
-	data->rsz_data.max_width = rsz->data->tile_width;
-	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(&data->rsz_data);
+	ret = mml_pq_get_tile_init_result(task, RSZ_WAIT_TIMEOUT_MS);
+	if (!ret) {
+		result = get_init_result(task);
+		if (rsz_frm->out_idx < result->rsz_param_cnt) {
+			mml_log("read rsz param index: %d", rsz_frm->out_idx);
+			init_param = &(result->rsz_param[rsz_frm->out_idx]);
+			rsz_data->coef_step_x = init_param->coeff_step_x;
+			rsz_data->coef_step_y = init_param->coeff_step_y;
+			rsz_data->precision_x = init_param->precision_x;
+			rsz_data->precision_y = init_param->precision_y;
+			rsz_data->crop.r.left = init_param->crop_offset_x;
+			rsz_data->crop.x_sub_px = init_param->crop_subpix_x;
+			rsz_data->crop.r.top = init_param->crop_offset_y;
+			rsz_data->crop.y_sub_px = init_param->crop_subpix_y;
+			rsz_data->hor_scale = init_param->hor_dir_scale;
+			rsz_data->hor_algo = init_param->hor_algorithm;
+			rsz_data->vir_scale = init_param->ver_dir_scale;
+			rsz_data->ver_algo = init_param->ver_algorithm;
+			rsz_data->ver_first = init_param->vertical_first;
+			rsz_data->ver_cubic_trunc = init_param->ver_cubic_trunc;
+			mml_log("read rsz param index: %d done", rsz_frm->out_idx);
+		} else {
+			mml_err("read rsz param index: %d out of count",
+				rsz_frm->out_idx, result->rsz_param_cnt);
+		}
+	} else {
+		mml_err("get rsz param timeout: %d in %dms",
+			ret, RSZ_WAIT_TIMEOUT_MS);
+	}
+
+	rsz_data->max_width = rsz->data->tile_width;
+	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(rsz_data);
 
 
 	if (rsz_relay_mode)
@@ -223,8 +275,10 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
 	struct mml_frame_data *src = &cfg->info.src;
 	struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
+	struct mml_pq_tile_init_result *result;
 	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
 
+	mml_log("%s is called", __func__);
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ETC_CONTROL, 0x0, U32_MAX);
 
 	if (rsz_relay_mode) {
@@ -233,9 +287,26 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 		return 0;
 	}
 
+	result = get_init_result(task);
+	if (result) {
+		s32 i;
+		struct mml_pq_reg *regs = result->rsz_regs;
+		/* TODO: use different regs */
+		mml_log("%s:config rsz regs, count: %d", __func__, result->rsz_reg_cnt);
+		for (i = 0; i < result->rsz_reg_cnt; i++) {
+			cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
+				regs[i].value, regs[i].mask);
+			mml_log("[rsz][config][%x] = %#x mask(%#x)",
+				regs[i].offset, regs[i].value, regs[i].mask);
+		}
+	} else {
+		mml_err("%s: not get result from user lib", __func__);
+	}
+
 	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(src->format);
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_CON_1,
 		       rsz_frm->use121filter << 26, 0x04000000);
+	mml_log("%s is end", __func__);
 	return 0;
 }
 
