@@ -153,13 +153,6 @@
  * Adaptive Volt Scaling (AVS) Setting
  **************************************************/
 #define GPUFREQ_AVS_ENABLE              (0)
-#define AVS_ADJ_NUM                     ARRAY_SIZE(g_avsidx_mapping)
-int g_avsidx_mapping[] = {
-	0, 8, 11, 14,
-	17, 20, 22, 24,
-	26, 28, 30, 32,
-	34, 36, 38, 40
-};
 
 /**************************************************
  * Aging Sensor Setting
@@ -350,6 +343,19 @@ struct gpufreq_adj_info g_segment_adj_stack_1[] = {
 	ADJOP(38, 0, 60625, 0, 0),
 	ADJOP(39, 0, 60625, 0, 0),
 	ADJOP(40, 0, 60000, 0, 0), /* sign off */
+};
+
+/**************************************************
+ * AVS Adjustment
+ **************************************************/
+
+#define AVS_ADJ_NUM                     ARRAY_SIZE(g_avs_adj)
+struct gpufreq_adj_info g_avs_adj[] = {
+	ADJOP(0,  0, 0, 0, 0),
+	ADJOP(8,  0, 0, 0, 0),
+	ADJOP(16, 0, 0, 0, 0),
+	ADJOP(32, 0, 0, 0, 0),
+	ADJOP(40, 0, 0, 0, 0),
 };
 
 #endif /* __GPUFREQ_MT6983_H__ */

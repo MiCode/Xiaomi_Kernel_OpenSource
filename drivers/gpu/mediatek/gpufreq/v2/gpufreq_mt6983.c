@@ -219,6 +219,7 @@ static void __iomem *g_infra_peri_debug1;
 static void __iomem *g_infra_peri_debug2;
 static void __iomem *g_infra_peri_debug3;
 static void __iomem *g_infra_peri_debug4;
+static void __iomem *g_avs_efuse_base;
 static struct gpufreq_pmic_info *g_pmic;
 static struct gpufreq_clk_info *g_clk;
 static struct gpufreq_mtcmos_info *g_mtcmos;
@@ -3200,8 +3201,8 @@ static void __gpufreq_interpolate_volt(enum gpufreq_target target)
 	mutex_lock(&gpufreq_lock);
 
 	for (i = 1; i < avs_num; i++) {
-		front_idx = g_avsidx_mapping[i - 1];
-		rear_idx = g_avsidx_mapping[i];
+		front_idx = g_avs_adj[i - 1].oppidx;
+		rear_idx = g_avs_adj[i].oppidx;
 		range = rear_idx - front_idx;
 
 		/* freq division to amplify slope */
@@ -3365,7 +3366,7 @@ static void __gpufreq_aging_adjustment(struct platform_device *pdev)
 	// create aging adjustment
 	adj_num = g_stack.signed_opp_num;
 	aging_adj = kcalloc(adj_num, sizeof(struct gpufreq_adj_info), GFP_KERNEL);
-	if (!avs_adj) {
+	if (!aging_adj) {
 		GPUFREQ_LOGE("fail to alloc gpufreq_adj_info (ENOMEM)");
 		ret = GPUFREQ_ENOMEM;
 		goto done;
@@ -3386,34 +3387,72 @@ static void __gpufreq_aging_adjustment(struct platform_device *pdev)
 
 static void __gpufreq_avs_adjustment(struct platform_device *pdev)
 {
-#if defined(GPUFREQ_AVS_ENABLE)
-	struct gpufreq_adj_info *avs_adj = NULL;
-	unsigned int adj_num = 0;
-	unsigned int efuse_id = 0x0;
+#if GPUFREQ_AVS_ENABLE
+	u32 val = 0, temp_volt = 0, temp_freq = 0;
+	int i;
 
 	GPUFREQ_UNREFERENCED(pdev);
-#if defined(GPUFREQ_TODO_AVS)
-	// read efuse of AVS
 
-	// compute volt result of AVS
+	/*
+	 * todo:
+	 * 1. Add reg = <0 0x11F105C0 0 0xC> for ioremap
+	 * 2. Correct the idx of __gpufreq_of_ioremap
+	 */
+	g_avs_efuse_base = __gpufreq_of_ioremap("mediatek,gpufreq", 0);
+	if (!g_avs_efuse_base) {
+		GPUFREQ_LOGE("fail to ioremap avs_efuse");
+		return;
+	}
 
-	// create AVS adjustment
-	adj_num = AVS_ADJ_NUM;
-	avs_adj = kcalloc(adj_num, sizeof(struct gpufreq_adj_info), GFP_KERNEL);
-	if (!avs_adj) {
-		GPUFREQ_LOGE("fail to alloc gpufreq_adj_info (ENOMEM)");
-		ret = GPUFREQ_ENOMEM;
-		goto done;
+	/*
+	 * Read AVS efuse
+	 *
+	 * Freq (MHz) | Signedoff Volt (V) | Efuse name | Efuse address
+	 * ============================================================
+	 * 848        | 0.75               | PTPOD21    | 0x11EE_05D4
+	 * 797        | 0.7                | PTPOD22    | 0x11EE_05D8
+	 * 586        | 0.65               | PTPOD23    | 0x11EE_05DC
+	 * 316        | 0.55               | PTPOD24    | 0x11EE_05E0
+	 * 214        | 0.5                | PTPOD25    | 0x11EE_05E4
+	 *
+	 * the binning result of lowest voltage will be 0.45V from 214MHz/0.5V.
+	 *
+	 * todo: Add reg of 0x11EE_05D4 for ioremap - g_avs_efuse_base
+	 */
+
+	for (i = 0; i < AVS_ADJ_NUM; i++) {
+		val = readl(g_avs_efuse_base + (i * 0x4));
+
+		// Check Freq in efuse
+		temp_freq |= (val & 0x00100000) >> 10; 	// Get freq[10]  from efuse[20]
+		temp_freq |= (val & 0x00000C00) >> 2; 	// Get freq[9:8] from efuse[11:10]
+		temp_freq |= (val & 0x00000003) << 6; 	// Get freq[7:6] from efuse[1:0]
+		temp_freq |= (val & 0x000000C0) >> 2; 	// Get freq[5:4] from efuse[7:6]
+		temp_freq |= (val & 0x000C0000) >> 16; 	// Get freq[3:2] from efuse[19:18]
+		temp_freq |= (val & 0x00003000) >> 12; 	// Get freq[1:0] from efuse[13:12]
+
+		if ((temp_freq * 1000) != g_gpu.signed_table[g_avs_adj[i].oppidx].freq)
+			GPUFREQ_LOGW("OPP[%d]: AVS efuse[%d].freq(%d) != signed-off.freq(%d)",
+				g_avs_adj[i].oppidx, i, temp_freq,
+				g_gpu.signed_table[g_avs_adj[i].oppidx].freq);
+
+		// Compute volt result of AVS
+		temp_volt |= (val & 0x0003C000) >> 14;	// Get volt[3:0] from efuse[17:14]
+		temp_volt |= (val & 0x00000030);		// Get volt[5:4] from efuse[5:4]
+		temp_volt |= (val & 0x0000000C) << 4;	// Get volt[7:6] from efuse[3:2]
+		// Volt is stored in efuse with 6.25mv unit
+		g_avs_adj[i].volt = temp_volt * 625;
 	}
 
 	/* apply AVS to signed table */
-	__gpufreq_apply_adjust(TARGET_STACK, avs_adj, adj_num);
+	__gpufreq_apply_adjust(TARGET_STACK, g_avs_adj, AVS_ADJ_NUM);
 
 	/* interpolate volt of non-sign-off OPP */
 	__gpufreq_interpolate_volt(TARGET_STACK);
 
-	kfree(avs_adj);
-#endif
+#else
+	GPUFREQ_UNREFERENCED(pdev);
+
 #endif /* GPUFREQ_AVS_ENABLE */
 }
 
