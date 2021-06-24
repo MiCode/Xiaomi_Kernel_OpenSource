@@ -342,14 +342,14 @@ static s32 core_disable(struct mml_task *task, u8 pipe)
 
 static void core_taskdone(struct work_struct *work)
 {
-	struct mml_task *task;
-	int cnt;
-	u8 i;
+	struct mml_task *task = container_of(work, struct mml_task, work_wait);
+	u32 cnt, i;
 
 	mml_trace_begin("%s", __func__);
 
-	task = container_of(work, struct mml_task, work_wait);
 	cnt = atomic_inc_return(&task->pipe_done);
+
+	mml_msg("%s task %p cnt %d", __func__, task, cnt);
 
 	/* cnt should be 1 or 2, if dual on and count 2 means pipes done */
 	if (task->config->dual && cnt == 1)
@@ -466,7 +466,7 @@ static void core_taskdump_pipe1_cb(struct cmdq_cb_data data)
 	core_taskdump_cb(task, 1);
 }
 
-static const cmdq_async_flush_cb dump_cbs[2] = {
+static const cmdq_async_flush_cb dump_cbs[MML_PIPE_CNT] = {
 	[0] = core_taskdump_pipe0_cb,
 	[1] = core_taskdump_pipe1_cb,
 };
@@ -487,18 +487,27 @@ static s32 core_flush(struct mml_task *task, u8 pipe)
 	for (i = 0; i < task->buf.dest_cnt; i++)
 		wait_dma_fence("dest", task->buf.dest[i].fence);
 
-	/* also make sure buffer content flushed by other module */
-	if (task->buf.src.flush) {
-		mml_msg("%s flush source", __func__);
-		mml_buf_flush(&task->buf.src);
-	}
-	for (i = 0; i < task->buf.dest_cnt; i++) {
-		if (task->buf.dest[i].flush) {
-			mml_msg("%s flush dest %d plane %hhu",
-				__func__, i, task->buf.dest[i].cnt);
-			mml_buf_flush(&task->buf.dest[i]);
+	/* flush only once for both pipe */
+	mutex_lock(&task->config->pipe_mutex);
+
+	if (!task->buf.flushed) {
+		/* also make sure buffer content flushed by other module */
+		if (task->buf.src.flush) {
+			mml_msg("%s flush source", __func__);
+			mml_buf_flush(&task->buf.src);
 		}
+
+		for (i = 0; i < task->buf.dest_cnt; i++) {
+			if (task->buf.dest[i].flush) {
+				mml_msg("%s flush dest %d plane %hhu",
+					__func__, i, task->buf.dest[i].cnt);
+				mml_buf_flush(&task->buf.dest[i]);
+			}
+		}
+
+		task->buf.flushed = true;
 	}
+	mutex_unlock(&task->config->pipe_mutex);
 
 	/* assign error handler */
 	pkt->err_cb.cb = dump_cbs[pipe];
@@ -509,11 +518,11 @@ static s32 core_flush(struct mml_task *task, u8 pipe)
 	return err;
 }
 
-static void core_init_pipe(struct mml_task *task, u8 pipe)
+static void core_init_pipe(struct mml_task *task, u32 pipe)
 {
 	s32 err;
 
-	mml_trace_ex_begin("%s_%hhu", __func__, pipe);
+	mml_trace_ex_begin("%s_%u", __func__, pipe);
 
 	err = core_config(task, pipe);
 	if (err < 0) {
@@ -525,6 +534,8 @@ static void core_init_pipe(struct mml_task *task, u8 pipe)
 		/* error handling */
 	}
 
+	mml_msg("%s task %p pipe %u done", __func__, task, pipe);
+
 	mml_trace_ex_end();
 }
 
@@ -534,6 +545,18 @@ static void core_init_pipe1(struct work_struct *work)
 
 	task = container_of(work, struct mml_task, work_config[1]);
 	core_init_pipe(task, 1);
+}
+
+static void core_buffer_map(struct mml_task *task)
+{
+	const struct mml_topology_path *path = task->config->path[0];
+	u32 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mml_comp *comp = path->nodes[i].comp;
+
+		call_cfg_op(comp, buf_map, task, &path->nodes[i]);
+	}
 }
 
 static void core_config_thread(struct work_struct *work)
@@ -573,6 +596,9 @@ static void core_config_thread(struct work_struct *work)
 			goto done;
 		}
 	}
+
+	/* before pipe1 start, make sure iova map from device by pipe0 */
+	core_buffer_map(task);
 
 	/* dualpipe create work_thread[1] */
 	if (task->config->dual) {

@@ -15,14 +15,14 @@
 
 void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u8 cnt)
 {
-	u8 i;
+	u32 i;
 
 	for (i = 0; i < cnt; i++) {
 		struct dma_buf *dmabuf = dma_buf_get(fd[i]);
 
 		if (!dmabuf || IS_ERR(dmabuf)) {
-			mml_err("%s fail to get dma_buf by fd%hhu %d err %d",
-				i, fd[i], PTR_ERR(dmabuf));
+			mml_err("%s fail to get dma_buf %u by fd %d err %d",
+				__func__, i, fd[i], PTR_ERR(dmabuf));
 			continue;
 		}
 

@@ -298,6 +298,7 @@ static struct mml_frame_config *frame_config_create(
 	ctx->config_cnt++;
 	cfg->info = *info;
 	mutex_init(&cfg->task_mutex);
+	mutex_init(&cfg->pipe_mutex);
 	INIT_LIST_HEAD(&cfg->tasks);
 	INIT_LIST_HEAD(&cfg->await_tasks);
 	INIT_LIST_HEAD(&cfg->done_tasks);

@@ -148,6 +148,12 @@ void dual_pipe_wrot_mt6893(u8 pipe_idx,
 	if (pipe_idx == 0) {
 		wrot_data->crop_left = 0;
 		wrot_data->crop_width = data->width >> 1;
+
+		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
+			wrot_data->crop_width = data->width >> 1;
+		else
+			wrot_data->crop_width = data->height >> 1;
+
 		if (MML_FMT_10BIT_PACKED(data->format) &&
 			(wrot_data->crop_width & 3)) {
 			wrot_data->crop_width =
@@ -160,7 +166,13 @@ void dual_pipe_wrot_mt6893(u8 pipe_idx,
 		} else if (wrot_data->crop_width & 1)
 			wrot_data->crop_width++;
 	} else {
-		wrot_data->crop_left = data->width >> 1;
+
+
+		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
+			wrot_data->crop_left = data->width >> 1;
+		else
+			wrot_data->crop_left = data->height >> 1;
+
 		if (MML_FMT_10BIT_PACKED(data->format) &&
 			(wrot_data->crop_left & 3)) {
 			wrot_data->crop_left =
@@ -172,8 +184,12 @@ void dual_pipe_wrot_mt6893(u8 pipe_idx,
 					data->width - wrot_data->crop_left;
 		} else if (wrot_data->crop_left & 1)
 			wrot_data->crop_left++;
-		wrot_data->crop_width =
-			data->width - wrot_data->crop_left;
+		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
+			wrot_data->crop_width =
+				data->width - wrot_data->crop_left;
+		else
+			wrot_data->crop_width =
+				data->height - wrot_data->crop_left;
 	}
 }
 

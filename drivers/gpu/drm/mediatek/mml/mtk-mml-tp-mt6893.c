@@ -13,12 +13,22 @@
 #include "mtk-mml-core.h"
 
 #define TOPOLOGY_PLATFORM	"mt6893"
+#define MML_DUAL_FRAME		(3840 * 2160)
+#define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
 
-/* TODO: change after dual pipe ready */
-#define TOPOLOGY_FORCE_SINGLE	1
-/* force use resize in topology */
-#define TOPOLOGY_FORCE_RESIZE	0
+int mml_force_rsz;
+EXPORT_SYMBOL(mml_force_rsz);
+module_param(mml_force_rsz, int, 0644);
 
+enum topology_dual {
+	MML_DUAL_NORMAL,
+	MML_DUAL_DISABLE,
+	MML_DUAL_ALWAYS,
+};
+
+int mml_dual;
+EXPORT_SYMBOL(mml_dual);
+module_param(mml_dual, int, 0644);
 
 enum topology_scenario {
 	PATH_MML_DC_NOPQ_P0 = 0,
@@ -314,9 +324,9 @@ static void tp_select_dc(struct mml_topology_cache *cache,
 	enum topology_scenario scene[2];
 	bool en_rsz = tp_need_resize(&cfg->info);
 
-#if TOPOLOGY_FORCE_RESIZE == 1
-	en_rsz = true;
-#endif
+
+	if (mml_force_rsz)
+		en_rsz = true;
 
 	if (!en_rsz && !cfg->info.dest[0].pq_config.en) {
 		/* dual pipe, rdma0 to wrot0 / rdma1 to wrot1 */
@@ -339,16 +349,37 @@ static void tp_select_dc(struct mml_topology_cache *cache,
 	path[1] = &cache->path[scene[1]];
 }
 
+static bool tp_need_dual(struct mml_frame_config *cfg)
+{
+	const struct mml_frame_data *src = &cfg->info.src;
+	u32 min_crop_w, i;
+
+	if (src->width * src->height < MML_DUAL_FRAME)
+		return false;
+
+	min_crop_w = cfg->info.dest[0].crop.r.width;
+	for (i = 1; i < cfg->info.dest_cnt; i++)
+		min_crop_w = min(min_crop_w, cfg->info.dest[i].crop.r.width);
+
+	if (min_crop_w <= AAL_MIN_WIDTH)
+		return false;
+
+	return true;
+}
+
 static s32 tp_select(struct mml_topology_cache *cache,
 	struct mml_frame_config *cfg)
 {
 	struct mml_topology_path *path[2] = {0};
 
-#if TOPOLOGY_FORCE_SINGLE == 1
-	cfg->dual = false;
-#else
-	cfg->dual = true;
-#endif
+	if (mml_dual == MML_DUAL_NORMAL)
+		cfg->dual = tp_need_dual(cfg);
+	else if (mml_dual == MML_DUAL_DISABLE)
+		cfg->dual = false;
+	else if (mml_dual == MML_DUAL_ALWAYS)
+		cfg->dual = true;
+	else
+		cfg->dual = tp_need_dual(cfg);
 
 	if (cfg->info.mode == MML_MODE_MML_DECOUPLE)
 		tp_select_dc(cache, cfg, path);

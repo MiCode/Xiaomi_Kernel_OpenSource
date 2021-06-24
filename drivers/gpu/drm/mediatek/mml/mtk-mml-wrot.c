@@ -125,6 +125,7 @@ struct wrot_frame_data {
 	u32 out_w;
 	u32 out_h;
 	struct mml_rect compose;
+	u32 y_stride;
 	u32 uv_stride;
 	u64 iova[MML_MAX_PLANES];
 	u32 plane_offset[MML_MAX_PLANES];
@@ -253,13 +254,13 @@ static void wrot_config_pipe0(struct mml_frame_dest *dest,
 			      struct wrot_frame_data *wrot_frm)
 {
 	wrot_frm->out_x_off = 0;
-	wrot_frm->out_crop_w = wrot_frm->out_h >> 1;
+	wrot_frm->out_crop_w = wrot_frm->out_w >> 1;
 
 	if (MML_FMT_10BIT_PACKED(dest->data.format) &&
 	    wrot_frm->out_crop_w & 3) {
 		wrot_frm->out_crop_w = (wrot_frm->out_crop_w & ~3) + 4;
 		if (is_change_wx(dest->rotate, dest->flip))
-			wrot_frm->out_crop_w = wrot_frm->out_h -
+			wrot_frm->out_crop_w = wrot_frm->out_w -
 					       wrot_frm->out_crop_w;
 
 	} else if (wrot_frm->out_crop_w & 1) {
@@ -270,20 +271,20 @@ static void wrot_config_pipe0(struct mml_frame_dest *dest,
 static void wrot_config_pipe1(struct mml_frame_dest *dest,
 			      struct wrot_frame_data *wrot_frm)
 {
-	wrot_frm->out_x_off = wrot_frm->out_h >> 1;
+	wrot_frm->out_x_off = wrot_frm->out_w >> 1;
 
 	if (MML_FMT_10BIT_PACKED(dest->data.format) &&
 	    wrot_frm->out_x_off & 3) {
 		wrot_frm->out_x_off = (wrot_frm->out_x_off & ~3) + 4;
 		if (is_change_wx(dest->rotate, dest->flip))
-			wrot_frm->out_x_off = wrot_frm->out_h -
+			wrot_frm->out_x_off = wrot_frm->out_w -
 					      wrot_frm->out_x_off;
 
 	} else if (wrot_frm->out_x_off & 1) {
 		wrot_frm->out_x_off++;
 	}
 
-	wrot_frm->out_crop_w = wrot_frm->out_h - wrot_frm->out_x_off;
+	wrot_frm->out_crop_w = wrot_frm->out_w - wrot_frm->out_x_off;
 }
 
 static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
@@ -305,6 +306,8 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 	dest = &cfg->info.dest[wrot_frm->out_idx];
 
 	wrot_frm->compose = dest->compose;
+	wrot_frm->y_stride = dest->data.y_stride;
+	wrot_frm->uv_stride = dest->data.uv_stride;
 	if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180) {
 		wrot_frm->out_w = dest->data.width;
 		wrot_frm->out_h = dest->data.height;
@@ -315,10 +318,9 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	/* make sure uv stride data */
-	wrot_frm->uv_stride = dest->data.uv_stride;
 	if (MML_FMT_PLANE(dest->data.format) > 1 && !wrot_frm->uv_stride)
 		wrot_frm->uv_stride = mml_color_get_min_uv_stride(
-			dest->data.format, wrot_frm->out_w);
+			dest->data.format, dest->data.width);
 
 	/* plane offset for later use */
 	for (i = 0; i < task->buf.dest[wrot_frm->out_idx].cnt; i++)
@@ -334,28 +336,39 @@ static s32 wrot_config_write(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
-			    struct mml_comp_config *ccfg)
+static s32 wrot_buf_map(struct mml_comp *comp, struct mml_task *task,
+			const struct mml_path_node *node)
 {
 	struct mml_wrot *wrot = comp_to_wrot(comp);
-	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
-	u8 i;
+	struct mml_file_buf *dest_buf = &task->buf.dest[node->out_idx];
 	s32 ret;
 
 	/* get iova */
-	ret = mml_buf_iova_get(wrot->dev, &task->buf.dest[wrot_frm->out_idx]);
-	if (ret < 0) {
+	ret = mml_buf_iova_get(wrot->dev, dest_buf);
+	if (ret < 0)
 		mml_err("%s iova fail %d", __func__, ret);
-		return ret;
-	}
 
-	mml_msg("%s comp %u iova %#011llx",
+	mml_msg("%s comp %u iova %#11llx (%u) %#11llx (%u) %#11llx (%u)",
 		__func__, comp->id,
-		task->buf.dest[wrot_frm->out_idx].dma[0].iova);
+		task->buf.dest[node->out_idx].dma[0].iova,
+		task->buf.dest[node->out_idx].size[0],
+		task->buf.dest[node->out_idx].dma[1].iova,
+		task->buf.dest[node->out_idx].size[1],
+		task->buf.dest[node->out_idx].dma[2].iova,
+		task->buf.dest[node->out_idx].size[2]);
 
-	for (i = 0; i < task->buf.dest[wrot_frm->out_idx].cnt; i++)
-		wrot_frm->iova[i] =
-			task->buf.dest[wrot_frm->out_idx].dma[i].iova;
+	return ret;
+}
+
+static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg)
+{
+	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
+	struct mml_file_buf *dest_buf = &task->buf.dest[wrot_frm->out_idx];
+	u32 i;
+
+	for (i = 0; i < dest_buf->cnt; i++)
+		wrot_frm->iova[i] = dest_buf->dma[i].iova;
 
 	return 0;
 }
@@ -631,7 +644,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const u32 dest_fmt = dest->data.format;
 	const u16 rotate = dest->rotate;
 	const u8 flip = dest->flip ? 1 : 0;
-	const u32 h_subsample = MML_FMT_H_SUBSAMPLE(dest->data.format);
+	const u32 h_subsample = MML_FMT_H_SUBSAMPLE(dest_fmt);
 	const u32 v_subsample = MML_FMT_V_SUBSAMPLE(dest_fmt);
 	const u8 plane = MML_FMT_PLANE(dest_fmt);
 	const u32 crop_en = 1;		/* always enable crop */
@@ -685,7 +698,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	calc_plane_offset(wrot_frm->compose.left, wrot_frm->compose.top,
-			  dest->data.y_stride, wrot_frm->uv_stride,
+			  wrot_frm->y_stride, wrot_frm->uv_stride,
 			  wrot_frm->bbp_y, wrot_frm->bbp_uv,
 			  wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
 			  wrot_frm->plane_offset);
@@ -701,7 +714,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 		/* Write frame base address */
 		calc_afbc_block(wrot_frm->bbp_y,
-				dest->data.y_stride, dest->data.vert_stride,
+				wrot_frm->y_stride, dest->data.vert_stride,
 				wrot_frm->iova, wrot_frm->plane_offset,
 				&block_x, &addr_c, &addr_v, &addr);
 
@@ -732,6 +745,12 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 			wrot_frm->iova[1] + wrot_frm->plane_offset[1],
 			wrot_frm->iova[2] + wrot_frm->plane_offset[2],
 		};
+
+		mml_msg("%s base %#x+%u %#x+%u %#x+%u",
+			__func__,
+			iova[0], wrot_frm->plane_offset[0],
+			iova[1], wrot_frm->plane_offset[1],
+			iova[2], wrot_frm->plane_offset[2]);
 
 		/* Write frame base address */
 		mml_write(pkt, base_pa + VIDO_BASE_ADDR, iova[0], U32_MAX,
@@ -779,9 +798,9 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_CTRL_2, bit_num,
 		       0x00000007);
 
-	if (MML_FMT_COMPRESS(dest->data.format)) {
+	if (MML_FMT_COMPRESS(dest_fmt)) {
 		pvric = pvric | BIT(0);
-		if (MML_FMT_10BIT(dest->data.format))
+		if (MML_FMT_10BIT(dest_fmt))
 			pvric = pvric | BIT(1);
 	}
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_PVRIC, pvric, 0x3);
@@ -808,7 +827,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 			       preultra, U32_MAX);
 
 	/* Write frame Y stride */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE, dest->data.y_stride,
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_STRIDE, wrot_frm->y_stride,
 		       U32_MAX);
 
 	/* Write frame UV stride */
@@ -877,7 +896,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((out_xs / 8) + 1) *
-			  ((dest->data.y_stride / 128) - 1) * 1024;
+			  ((wrot_frm->y_stride / 128) - 1) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
@@ -886,7 +905,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 			__func__, ofst->y, ofst->c, ofst->v);
 	} else if (dest->rotate == MML_ROT_90 && dest->flip) {
 		/* Target Y offset */
-		ofst->y = (out_xs / 8) * (dest->data.y_stride / 128) * 1024;
+		ofst->y = (out_xs / 8) * (wrot_frm->y_stride / 128) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
@@ -896,7 +915,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_180 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = (((wrot_frm->out_h / 8) - 1) *
-			  (dest->data.y_stride / 128) +
+			  (wrot_frm->y_stride / 128) +
 			  ((wrot_frm->out_w / 32) - (out_xs / 32) - 1)) *
 			  1024;
 
@@ -908,7 +927,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_180 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (((wrot_frm->out_h / 8) - 1) *
-			  (dest->data.y_stride / 128) +
+			  (wrot_frm->y_stride / 128) +
 			  (out_xs / 32)) * 1024;
 
 		/* Target U offset */
@@ -919,7 +938,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_270 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((wrot_frm->out_w / 8) - (out_xs / 8) - 1) *
-			  (dest->data.y_stride / 128) * 1024;
+			  (wrot_frm->y_stride / 128) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
@@ -929,7 +948,7 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = ((wrot_frm->out_w / 8) - (out_xs / 8)) *
-			  ((dest->data.y_stride / 128) - 1) * 1024;
+			  ((wrot_frm->y_stride / 128) - 1) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
@@ -950,7 +969,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 
 	if (dest->rotate == MML_ROT_0 && !dest->flip) {
 		/* Target Y offset */
-		ofst->y = out_ys * dest->data.y_stride +
+		ofst->y = out_ys * wrot_frm->y_stride +
 			  (out_xs * wrot_frm->bbp_y >> 3);
 
 		/* Target U offset */
@@ -969,7 +988,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			__func__, ofst->y, ofst->c, ofst->v);
 	} else if (dest->rotate == MML_ROT_0 && dest->flip) {
 		/* Target Y offset */
-		ofst->y = out_ys * dest->data.y_stride +
+		ofst->y = out_ys * wrot_frm->y_stride +
 			  ((wrot_frm->out_w - out_xs) *
 			  wrot_frm->bbp_y >> 3) - 1;
 
@@ -989,7 +1008,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			__func__, ofst->y, ofst->c, ofst->v);
 	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
 		/* Target Y offset */
-		ofst->y = out_xs * dest->data.y_stride +
+		ofst->y = out_xs * wrot_frm->y_stride +
 			  ((wrot_frm->out_h - out_ys) *
 			  wrot_frm->bbp_y >> 3) - 1;
 
@@ -1009,7 +1028,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 			__func__, ofst->y, ofst->c, ofst->v);
 	} else if (dest->rotate == MML_ROT_90 && dest->flip) {
 		/* Target Y offset */
-		ofst->y = out_xs * dest->data.y_stride +
+		ofst->y = out_xs * wrot_frm->y_stride +
 			  (out_ys * wrot_frm->bbp_y >> 3);
 
 		/* Target U offset */
@@ -1029,7 +1048,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_180 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_h - out_ys - 1) *
-			  dest->data.y_stride +
+			  wrot_frm->y_stride +
 			  ((wrot_frm->out_w - out_xs) *
 			  wrot_frm->bbp_y >> 3) - 1;
 
@@ -1050,7 +1069,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_180 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_h - out_ys - 1) *
-			  dest->data.y_stride +
+			  wrot_frm->y_stride +
 			  (out_xs * wrot_frm->bbp_y >> 3);
 
 		/* Target U offset */
@@ -1070,7 +1089,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_270 && !dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_w - out_xs - 1) *
-			  dest->data.y_stride +
+			  wrot_frm->y_stride +
 			  (out_ys * wrot_frm->bbp_y >> 3);
 
 		/* Target U offset */
@@ -1090,7 +1109,7 @@ static void wrot_tile_calc(const struct mml_frame_dest *dest,
 	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		/* Target Y offset */
 		ofst->y = (wrot_frm->out_w - out_xs - 1) *
-			  dest->data.y_stride +
+			  wrot_frm->y_stride +
 			  ((wrot_frm->out_h - out_ys) *
 			  wrot_frm->bbp_y >> 3) - 1;
 
@@ -1339,7 +1358,7 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 		/* Write frame base address */
 		calc_afbc_block(wrot_frm->bbp_y,
-				dest->data.y_stride, dest->data.vert_stride,
+				wrot_frm->y_stride, dest->data.vert_stride,
 				wrot_frm->iova, wrot_frm->plane_offset,
 				&block_x, &addr_c, &addr_v, &addr);
 
@@ -1363,6 +1382,7 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 static const struct mml_comp_config_ops wrot_cfg_ops = {
 	.prepare = wrot_config_write,
+	.buf_map = wrot_buf_map,
 	.buf_prepare = wrot_buf_prepare,
 	.get_label_count = wrot_get_label_count,
 	.init = wrot_init,

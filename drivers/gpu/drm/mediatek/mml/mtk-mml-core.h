@@ -194,6 +194,7 @@ struct mml_frame_config {
 	u8 done_task_cnt;
 	bool dual;
 	bool alpharot;
+	struct mutex pipe_mutex;
 
 	/* platform driver */
 	struct mml_dev *mml;
@@ -245,6 +246,7 @@ struct mml_task_buffer {
 	struct mml_file_buf src;
 	struct mml_file_buf dest[MML_MAX_OUTPUTS];
 	u8 dest_cnt;
+	bool flushed;
 };
 
 enum mml_task_state {
@@ -272,7 +274,7 @@ struct mml_task {
 	struct cmdq_pkt *pkts[MML_PIPE_CNT];
 
 	/* workqueue */
-	struct work_struct work_config[2];
+	struct work_struct work_config[MML_PIPE_CNT];
 	struct work_struct work_wait;
 	atomic_t pipe_done;
 };
@@ -285,6 +287,8 @@ struct mml_comp_tile_ops {
 struct mml_comp_config_ops {
 	s32 (*prepare)(struct mml_comp *comp, struct mml_task *task,
 		       struct mml_comp_config *priv);
+	s32 (*buf_map)(struct mml_comp *comp, struct mml_task *task,
+		       const struct mml_path_node *node);
 	s32 (*buf_prepare)(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg);
 	u32 (*get_label_count)(struct mml_comp *comp, struct mml_task *task);

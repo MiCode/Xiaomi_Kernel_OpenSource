@@ -195,8 +195,8 @@ static s32 rdma_config_read(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-static s32 rdma_buf_prepare(struct mml_comp *comp, struct mml_task *task,
-			    struct mml_comp_config *ccfg)
+static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
+			const struct mml_path_node *node)
 {
 	struct mml_rdma *rdma = comp_to_rdma(comp);
 	s32 ret;
@@ -205,9 +205,15 @@ static s32 rdma_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 	ret = mml_buf_iova_get(rdma->dev, &task->buf.src);
 	if (ret < 0)
 		mml_err("%s iova fail %d", __func__, ret);
-	else
-		mml_msg("%s comp %u iova %#011llx",
-			__func__, comp->id, task->buf.src.dma[0].iova);
+
+	mml_msg("%s comp %u iova %#11llx (%u) %#11llx (%u) %#11llx (%u)",
+		__func__, comp->id,
+		task->buf.src.dma[0].iova,
+		task->buf.src.size[0],
+		task->buf.src.dma[1].iova,
+		task->buf.src.size[1],
+		task->buf.src.dma[2].iova,
+		task->buf.src.size[2]);
 
 	return ret;
 }
@@ -695,12 +701,18 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		iova[2] = src_buf->dma[2].iova + src->plane_offset[2];
 	}
 
+	mml_msg("%s src %#x %#x %#x",
+		__func__, iova[0], iova[1], iova[2]);
+
 	mml_write(pkt, base_pa + RDMA_SRC_BASE_0, iova[0], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_0]);
 	mml_write(pkt, base_pa + RDMA_SRC_BASE_1, iova[1], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_1]);
 	mml_write(pkt, base_pa + RDMA_SRC_BASE_2, iova[2], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_2]);
+
+	mml_msg("%s end %#x %#x %#x",
+		__func__, iova_end[0], iova_end[1], iova_end[2]);
 
 	iova_end[0] = iova[0] + src_buf->size[0];
 	iova_end[1] = iova[1] + src_buf->size[1];
@@ -949,7 +961,7 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 static const struct mml_comp_config_ops rdma_cfg_ops = {
 	.prepare = rdma_config_read,
-	.buf_prepare = rdma_buf_prepare,
+	.buf_map = rdma_buf_map,
 	.get_label_count = rdma_get_label_count,
 	.init = rdma_init,
 	.frame = rdma_config_frame,
