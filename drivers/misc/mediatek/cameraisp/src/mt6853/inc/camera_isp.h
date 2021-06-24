@@ -798,7 +798,7 @@ enum ISP_HALT_DMA_ENUM {
 	_IOWR(ISP_MAGIC, ISP_CMD_SET_VIR_CQCNT, unsigned int*)
 
 #define ISP_POWER_CTRL                            \
-	_IOW(ISP_MAGIC, ISP_CMD_POWER_CTRL, unsigned int*)
+	_IOWR(ISP_MAGIC, ISP_CMD_POWER_CTRL, unsigned int*)
 
 #define ISP_SET_PM_QOS                           \
 	_IOWR(ISP_MAGIC, ISP_CMD_SET_PM_QOS, unsigned int)
