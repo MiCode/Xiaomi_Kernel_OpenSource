@@ -61,9 +61,6 @@ int mtk_imgsys_pipe_init(struct mtk_imgsys_dev *imgsys_dev,
 		spin_lock_init(&pipe->nodes[i].buf_list_lock);
 		INIT_LIST_HEAD(&pipe->nodes[i].buf_list);
 
-		if (pipe->nodes[i].flags & MEDIA_LNK_FL_ENABLED)
-			pipe->nodes_enabled |= (1ULL << i);
-
 		pipe->nodes[i].crop.left = 0;
 		pipe->nodes[i].crop.top = 0;
 		pipe->nodes[i].crop.width =

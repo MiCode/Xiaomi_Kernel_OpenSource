@@ -136,7 +136,7 @@ struct header_desc_norm {
 
 #define IMG_MAX_HW_OUTPUTS	4
 /* TODO */
-#define IMG_MAX_HW_DMAS		64
+#define IMG_MAX_HW_DMAS		68
 struct singlenode_desc {
 	__u8 dmas_enable[IMG_MAX_HW_DMAS][TIME_MAX];
 	struct header_desc	dmas[IMG_MAX_HW_DMAS];

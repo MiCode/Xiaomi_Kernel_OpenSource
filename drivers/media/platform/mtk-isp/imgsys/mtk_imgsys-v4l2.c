@@ -228,9 +228,9 @@ static int mtk_imgsys_link_setup(struct media_entity *entity,
 	mutex_lock(&pipe->lock);
 
 	if (flags & MEDIA_LNK_FL_ENABLED)
-		pipe->nodes_enabled |= 1ULL << pad;
+		pipe->nodes_enabled++;
 	else
-		pipe->nodes_enabled &= ~(1ULL << pad);
+		pipe->nodes_enabled--;
 
 	pipe->nodes[pad].flags &= ~MEDIA_LNK_FL_ENABLED;
 	pipe->nodes[pad].flags |= flags & MEDIA_LNK_FL_ENABLED;
@@ -581,7 +581,7 @@ static int mtk_imgsys_vb2_start_streaming(struct vb2_queue *vq,
 		goto fail_stop_pipeline;
 	}
 
-	pipe->nodes_streaming |= (1ULL << node->desc->id);
+	pipe->nodes_streaming++;
 	if (pipe->nodes_streaming == pipe->nodes_enabled) {
 		/* Start streaming of the whole pipeline */
 		ret = v4l2_subdev_call(&pipe->subdev, video, s_stream, 1);
@@ -640,7 +640,7 @@ static void mtk_imgsys_vb2_stop_streaming(struct vb2_queue *vq)
 				pipe->desc->name, node->desc->name, ret);
 	}
 
-	pipe->nodes_streaming &= ~(1ULL << node->desc->id);
+	pipe->nodes_streaming--;
 
 	mutex_unlock(&pipe->lock);
 
