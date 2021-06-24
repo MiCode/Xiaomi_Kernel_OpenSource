@@ -274,8 +274,8 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 		mem_device->peer_ops, &mem_device->peer_mgr->peer_mgr_data,
 		mem_device->dev_desc);
 	if (unlikely(ret)) {
-		pr_err("[%d] alloc chunk failed:%d, sz:0x%x, align:0x%x\n",
-		       mem_type, ret, size, alignment);
+		pr_info("[%d] alloc handle failed:%d, sz:0x%x, inuse_count=%d\n",
+		       mem_type, ret, size, mgr_desc->valid_ref_count);
 		regmgr_offline(mem_device->reg_mgr);
 		return ret;
 	}
@@ -353,7 +353,6 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			  u32 size, u32 *refcount, u32 *sec_handle, u8 *owner,
 			  u32 id, u32 clean)
 {
-
 	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
 				refcount, sec_handle, owner, id, clean, true);
 }

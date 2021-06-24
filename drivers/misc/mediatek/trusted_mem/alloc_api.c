@@ -84,7 +84,7 @@ get_region_mem_type(enum TRUSTED_MEM_TYPE req_type)
 }
 
 int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 alignment,
-			  u32 size, u32 *refcount, u32 *sec_handle,
+			  u32 *size, u32 *refcount, u32 *sec_handle,
 			  uint8_t *owner, uint32_t id, struct ssheap_buf_info **buf_info)
 {
 	enum TRUSTED_MEM_TYPE mem_type = get_mem_type(req_mem_type);
@@ -98,13 +98,21 @@ int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 alignment,
 	}
 
 	if (is_page_based_memory(mem_type)) {
-		pr_info("[TMEM][%d] %s: page-base: size = 0x%x\n", mem_type, __func__, size);
-		return tmem_core_alloc_page(mem_type, size, buf_info);
+		pr_info("[TMEM][%d] %s: page-base: size = 0x%x\n", mem_type, __func__, *size);
+		return tmem_core_alloc_page(mem_type, *size, buf_info);
 	} else {
-		mem_type = get_region_mem_type(mem_type);
+		/* IOMMU need to map 1MB alignment space */
+		if (alignment == SZ_1M)
+			*size = (((*size - 1) / SZ_1M) + 1) * SZ_1M;
 
-		pr_info("[TMEM][%d] %s: region-base: size = 0x%x\n", mem_type, __func__, size);
-		return tmem_core_alloc_chunk(mem_type, alignment, size,
+		/* return error when page-based memory is not enabled */
+		if (mem_type != get_region_mem_type(mem_type)) {
+			pr_info("[TMEM][%d] %s: page-based disable\n", mem_type, __func__);
+			return TMEM_PARAMETER_ERROR;
+		}
+
+		pr_info("[TMEM][%d] %s: region-base: size = 0x%x\n", mem_type, __func__, *size);
+		return tmem_core_alloc_chunk(mem_type, alignment, *size,
 				     refcount, sec_handle, owner, id, 0);
 	}
 }

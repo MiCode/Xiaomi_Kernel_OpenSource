@@ -693,7 +693,7 @@ static int region_base_alloc(struct secure_heap *sec_heap,
 	pr_info("%s start: [%s], req_size:0x%lx\n",
 		__func__, dma_heap_get_name(sec_heap->heap), buffer->len);
 
-	ret = trusted_mem_api_alloc(sec_heap->tmem_type, 0, buffer->len, &refcount,
+	ret = trusted_mem_api_alloc(sec_heap->tmem_type, 0, (unsigned int *)&buffer->len, &refcount,
 				    &sec_handle,
 				    (uint8_t *)dma_heap_get_name(sec_heap->heap),
 				    0, NULL);
