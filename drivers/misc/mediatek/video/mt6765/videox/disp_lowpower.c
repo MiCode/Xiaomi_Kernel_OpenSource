@@ -735,7 +735,8 @@ void _primary_display_enable_mmsys_clk(void)
 
 		data_config = dpmgr_path_get_last_config(
 			primary_get_ovl2mem_handle());
-		data_config->dst_dirty = 1;
+		if (data_config != NULL)
+			data_config->dst_dirty = 1;
 		dpmgr_path_config(primary_get_ovl2mem_handle(), data_config,
 			NULL);
 		dpmgr_path_ioctl(primary_get_ovl2mem_handle(), NULL,

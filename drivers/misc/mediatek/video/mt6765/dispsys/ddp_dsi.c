@@ -2722,6 +2722,11 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 		ASSERT(0);
 	}
 
+	if (cycle_time == 0) {
+		DISPCHECK("[dsi_dsi.c] cycle_time should not be 0!\n");
+		return;
+	}
+
 
 #define NS_TO_CYCLE(n, c)	((n) / (c))
 
@@ -6303,6 +6308,7 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 	struct DSI_RX_DATA_REG read_data3;
 	unsigned char packet_type;
 	unsigned char buffer[30];
+	memset((void *)buffer, 0, 30);
 	int recv_data_cnt = 0;
 
 	static cmdqBackupSlotHandle hSlot[4] = {0, 0, 0, 0};

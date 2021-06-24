@@ -1168,7 +1168,7 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		DISPCHECK("lcm0_reset\n");
 		if (primary_display_is_video_mode()) {
-			if (pgc->state == DISP_ALIVE) {
+			if (pgc && (pgc->state == DISP_ALIVE)) {
 				DISP_CPU_REG_SET(
 					DISP_REG_CONFIG_MMSYS_LCM_RST_B, 1);
 				msleep(20);

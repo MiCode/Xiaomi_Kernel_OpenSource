@@ -1098,7 +1098,8 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 		if (ret < 0)
 			DISPERR("AOD: set %s failed\n",
-				aod_pm ? "AOD_SUSPEND" : "AOD_RESUME");
+				(aod_pm == MTKFB_AOD_DOZE_SUSPEND) ?
+					"AOD_SUSPEND" : "AOD_RESUME");
 
 		break;
 	}

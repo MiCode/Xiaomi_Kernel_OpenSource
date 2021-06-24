@@ -375,7 +375,7 @@ static void mtkfb_ion_free_handle(struct ion_client *client,
 static size_t mtkfb_ion_phys_mmu_addr(struct ion_client *client,
 	struct ion_handle *handle, unsigned int *mva)
 {
-	size_t size;
+	size_t size = 0;
 	ion_phys_addr_t phy_addr = 0;
 	struct ion_mm_data mm_data;
 

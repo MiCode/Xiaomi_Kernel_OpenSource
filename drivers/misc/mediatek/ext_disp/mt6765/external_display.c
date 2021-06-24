@@ -2054,18 +2054,6 @@ int ext_disp_is_alive(void)
 	return temp;
 }
 
-int ext_disp_is_sleepd(void)
-{
-	unsigned int temp = 0;
-
-	/* EXTDFUNC(); */
-	_ext_disp_path_lock(__func__);
-	temp = !pgc->state;
-	_ext_disp_path_unlock(__func__);
-
-	return temp;
-}
-
 int ext_disp_get_width(unsigned int session)
 {
 	int ret = extd_lcm_params.dpi.width;

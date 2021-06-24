@@ -103,7 +103,6 @@ int ext_disp_frame_cfg_input(struct disp_frame_cfg_t *cfg);
 int ext_disp_get_width(unsigned int session);
 int ext_disp_get_height(unsigned int session);
 int ext_disp_is_alive(void);
-int ext_disp_is_sleepd(void);
 int ext_disp_wait_for_vsync(void *config, unsigned int session);
 int ext_fence_release_callback(unsigned long userdata);
 int ext_disp_trigger(int blocking, void *callback, unsigned int userdata,

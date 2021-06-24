@@ -1624,7 +1624,7 @@ static int _copy_layer_info_from_disp(struct disp_layer_info *disp_info_user,
 	unsigned long layer_size = 0;
 	int ret = 0, layer_num = 0;
 
-	if (l_info->layer_num[disp_idx] <= 0)
+	if (disp_idx < 0 || l_info->layer_num[disp_idx] <= 0)
 		return -EFAULT;
 
 
@@ -1870,7 +1870,8 @@ static void debug_set_layer_data(struct disp_layer_info *disp_info,
 	static int layer_id = -1;
 	struct layer_config *layer_info = NULL;
 
-	if (data_type != HRT_LAYER_DATA_ID && layer_id == -1)
+	if ((data_type != HRT_LAYER_DATA_ID && layer_id == -1) ||
+		disp_id < 0)
 		return;
 
 	layer_info = &disp_info->input_config[disp_id][layer_id];
@@ -1936,6 +1937,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 	struct layer_config *input_config;
 
 	pos = 0;
+	disp_id = 0;
 	test_case = -1;
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
@@ -1991,7 +1993,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			if (disp_info->input_config[disp_id] == NULL)
 				return 0;
 		} else if (strncmp(line_buf, "[set_layer]", 11) == 0) {
-			unsigned long tmp_info;
+			unsigned long tmp_info = 0;
 
 			tok = strchr(line_buf, ']');
 			if (!tok)
