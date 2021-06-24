@@ -97,6 +97,10 @@ static LIST_HEAD(mtk_btag_list);
 phys_addr_t dram_start_addr;
 phys_addr_t dram_end_addr;
 
+/* peeking window */
+#define MS_TO_NS(ms) (ms * 1000000ULL)
+u32 pwd_width_ms = 250;
+
 static struct mtk_blocktag *mtk_btag_find(const char *name)
 {
 	struct mtk_blocktag *btag, *n;
@@ -345,11 +349,12 @@ start:
 			&earaio_obj.this_device->kobj,
 			KOBJ_CHANGE, envp);
 	if (ret) {
-		pr_info("[BLOCK_TAG] send uevt fail:%d", ret);
+		pr_info("[BLOCK_TAG] uevt: %s sent fail:%d",
+			event_string, ret);
 	} else {
 		mictx->uevt_state = boost;
 		if (mtk_btag_mictx_data_dump) {
-			pr_info("[BLOCK_TAG] uevt %s sent",
+			pr_info("[BLOCK_TAG] uevt: %s sent",
 				event_string);
 		}
 	}
@@ -366,17 +371,13 @@ start:
 static bool mtk_btag_earaio_send_uevt(struct mtk_btag_mictx_struct *mictx,
 				      bool boost)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&mictx->lock, flags);
 	mictx->uevt_req = boost;
 	queue_work(mictx->uevt_workq, &mictx->uevt_work);
-	spin_unlock_irqrestore(&mictx->lock, flags);
 
 	return true;
 }
 
-#define EARAIO_UEVT_THRESHOLD_BYTES (32 * 1024 * 1024)
+#define EARAIO_UEVT_THRESHOLD_PAGES ((32 * 1024 * 1024) >> 12)
 void mtk_btag_earaio_boost(bool boost)
 {
 	struct mtk_btag_mictx_struct *mictx;
@@ -384,24 +385,25 @@ void mtk_btag_earaio_boost(bool boost)
 	bool changed = false;
 
 	mictx = mtk_btag_mictx_get();
-	if (!mictx || !mictx->enabled || !mictx->earaio_enabled)
+	if (!mictx || !mictx->enabled || !mictx->earaio_enabled ||
+	    !mictx->earaio_allowed)
 		return;
 
 	/* Use earaio_obj.minor to indicate if obj is existed */
 	if (!(boost ^ mictx->boosted) || unlikely(!earaio_obj.minor))
 		return;
 
-	if (boost) {
-		if (mtk_btag_mictx_data_dump) {
-			pr_info("[BLOCK_TAG] boost-chk: size-top:%llu,%llu, fuse-top: %u,%u, boosted: %d\n",
-				mictx->req.r.size_top, mictx->req.w.size_top,
-				mictx->top_r_pages, mictx->top_w_pages,
-				mictx->boosted);
-		}
+	if (mtk_btag_mictx_data_dump) {
+		pr_info("[BLOCK_TAG] boost: sz-top:%llu,%llu, pwd-top: %u,%u\n",
+			mictx->req.r.size_top, mictx->req.w.size_top,
+			mictx->pwd_top_r_pages, mictx->pwd_top_w_pages);
+	}
 
+	spin_lock_irqsave(&mictx->lock, flags);
+	if (boost) {
 		/* Establish threshold to avoid lousy uevents */
-		if ((mictx->req.r.size_top >= EARAIO_UEVT_THRESHOLD_BYTES) ||
-			(mictx->req.w.size_top >= EARAIO_UEVT_THRESHOLD_BYTES))
+		if ((mictx->pwd_top_r_pages >= EARAIO_UEVT_THRESHOLD_PAGES) ||
+			(mictx->pwd_top_w_pages >= EARAIO_UEVT_THRESHOLD_PAGES))
 			changed = mtk_btag_earaio_send_uevt(mictx, true);
 	} else {
 		changed = mtk_btag_earaio_send_uevt(mictx, false);
@@ -411,13 +413,12 @@ void mtk_btag_earaio_boost(bool boost)
 		mictx->boosted = boost;
 
 	if (!mictx->boosted) {
-		spin_lock_irqsave(&mictx->lock, flags);
-		if ((sched_clock() - mictx->window_begin) > 1000000000) {
+		if ((sched_clock() - mictx->window_begin) > 1000000000)
 			mtk_btag_mictx_reset(mictx, 0);
-			mictx->top_r_pages = mictx->top_w_pages = 0;
-		}
-		spin_unlock_irqrestore(&mictx->lock, flags);
+
+		mictx->pwd_top_r_pages = mictx->pwd_top_r_pages = 0;
 	}
+	spin_unlock_irqrestore(&mictx->lock, flags);
 }
 
 static int mtk_btag_earaio_init(void)
@@ -449,17 +450,16 @@ static int mtk_btag_earaio_init(void)
 
 static void mtk_btag_earaio_init_mictx(struct mtk_blocktag *btag)
 {
-	char wq_name[sizeof("mtk_btag_uevt_0")];
-
 	/* Enable mictx by default if EARA-IO is enabled*/
 	mtk_btag_mictx_enable(1);
 
-	btag->mictx.earaio_enabled = true;
 	btag->mictx.uevt_workq =
-		alloc_ordered_workqueue(wq_name,
+		alloc_ordered_workqueue("mtk_btag_uevt",
 		WQ_MEM_RECLAIM);
 	INIT_WORK(&btag->mictx.uevt_work,
 		  mtk_btag_earaio_uevt_worker);
+	btag->mictx.earaio_enabled = true;
+	btag->mictx.earaio_allowed = true;
 }
 
 #else
@@ -480,7 +480,6 @@ static inline bool mtk_btag_earaio_init(void)
 
 static void _mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 {
-	struct mtk_btag_mictx_struct *mictx;
 	struct page_pid_logger *ppl;
 	short pid = current->pid;
 	unsigned long idx;
@@ -497,19 +496,7 @@ static void _mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 
 	/* we do lockless operation here to favor performance */
 
-	if (mode == PIDLOG_MODE_FS_FUSE) {
-		/* Do not record pid because this is not the real user */
-		if (top) {
-			mictx = mtk_btag_mictx_get();
-			if (!mictx || !mictx->enabled)
-				return;
-
-			if (write)
-				mictx->top_w_pages++;
-			else
-				mictx->top_r_pages++;
-		}
-	} else if (mode == PIDLOG_MODE_MM_MARK_DIRTY) {
+	if (mode == PIDLOG_MODE_MM_MARK_DIRTY) {
 		/* keep real requester anyway */
 		ppl->pid = pid;
 	} else {
@@ -1206,8 +1193,19 @@ static ssize_t mtk_btag_mictx_sub_write(struct file *file,
 		mtk_btag_mictx_data_dump = 1;
 	else if (cmd[0] == '6')
 		mtk_btag_mictx_data_dump = 0;
-	else {
-		pr_info("[pidmap] invalid arg: 0x%x\n", cmd[0]);
+	else if (cmd[0] == '7') {
+		if (btag_bootdev) {
+			btag_bootdev->mictx.earaio_allowed = true;
+			pr_info("[BLOCK_TAG] EARA-IO QoS: allowed\n");
+		}
+	} else if (cmd[0] == '8') {
+		if (btag_bootdev) {
+			mtk_btag_earaio_boost(false);
+			btag_bootdev->mictx.earaio_allowed = false;
+			pr_info("[BLOCK_TAG] EARA-IO QoS: disallowed\n");
+		}
+	} else {
+		pr_info("[BLOCK_TAG] invalid arg: 0x%x\n", cmd[0]);
 		goto err;
 	}
 
@@ -1218,21 +1216,32 @@ err:
 }
 static int mtk_btag_mictx_sub_show(struct seq_file *s, void *data)
 {
-	int ready = 0;
+	bool mictx_active = false;
+	bool earaio_active = false;
 
-	if (btag_bootdev && btag_bootdev->mictx.enabled)
-		ready = 1;
+	if (btag_bootdev) {
+		if (btag_bootdev->mictx.enabled)
+			mictx_active = true;
+		if (btag_bootdev->mictx.earaio_allowed &&
+		    btag_bootdev->mictx.earaio_enabled)
+			earaio_active = true;
+	}
 
 	seq_puts(s, "<MTK Blocktag Mini Context>\n");
 	seq_puts(s, "Status:\n");
-	seq_printf(s, "  Ready: %d\n", ready);
-	seq_puts(s, "Commands:\n");
-	seq_puts(s, "  Enable Mini Context : echo 1 > blockio_mictx\n");
-	seq_puts(s, "  Disable Mini Context: echo 2 > blockio_mictx\n");
-	seq_puts(s, "  Enable Self-Test    : echo 3 > blockio_mictx\n");
-	seq_puts(s, "  Disable Self-Test   : echo 4 > blockio_mictx\n");
-	seq_puts(s, "  Enable Data Dump    : echo 5 > blockio_mictx\n");
-	seq_puts(s, "  Disable Data Dump   : echo 6 > blockio_mictx\n");
+	seq_printf(s, "  Mictx Active: %d\n", mictx_active);
+	seq_printf(s, "  Mictx Self-Test: %d\n", mtk_btag_mictx_self_test);
+	seq_printf(s, "  Mictx Event Dump: %d\n", mtk_btag_mictx_data_dump);
+	seq_printf(s, "  EARA-IO Active: %d\n", earaio_active);
+	seq_puts(s, "Commands: echo n > blockio_mictx, n presents\n");
+	seq_puts(s, "  Enable Mini Context : 1\n");
+	seq_puts(s, "  Disable Mini Context: 2\n");
+	seq_puts(s, "  Enable Self-Test    : 3\n");
+	seq_puts(s, "  Disable Self-Test   : 4\n");
+	seq_puts(s, "  Enable Data Dump    : 5\n");
+	seq_puts(s, "  Disable Data Dump   : 6\n");
+	seq_puts(s, "  Enable EARA-IO QoS  : 7\n");
+	seq_puts(s, "  Disable EARA-IO QoS : 8\n");
 	return 0;
 }
 
@@ -1421,8 +1430,13 @@ void mtk_btag_mictx_eval_req(
 	spin_lock_irqsave(&mictx->lock, flags);
 	reqrw->count += cnt;
 	reqrw->size += size;
-	if (top)
+	if (top) {
 		reqrw->size_top += size;
+		if (write)
+			mictx->pwd_top_w_pages += (size >> 12);
+		else
+			mictx->pwd_top_r_pages += (size >> 12);
+	}
 	spin_unlock_irqrestore(&mictx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_req);
@@ -1450,6 +1464,20 @@ void mtk_btag_mictx_update(
 		}
 	}
 	spin_unlock_irqrestore(&mictx->lock, flags);
+
+	/*
+	 * Peek if I/O workload exceeds the threshold to send boosting
+	 * notification during this window
+	 */
+	if (mictx->q_depth &&
+	    ((sched_clock() - mictx->pwd_begin) >=
+	    MS_TO_NS(pwd_width_ms))) {
+		mtk_btag_earaio_boost(true);
+		spin_lock_irqsave(&mictx->lock, flags);
+		mictx->pwd_begin = sched_clock();
+		mictx->pwd_top_r_pages = mictx->pwd_top_w_pages = 0;
+		spin_unlock_irqrestore(&mictx->lock, flags);
+	}
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_update);
 
@@ -1500,37 +1528,12 @@ int mtk_btag_mictx_get_data(
 	iostat->wl = 100 -
 		((__u32)((mictx->idle_total >> 10) * 100) / (__u32)(dur >> 10));
 
-	if (mtk_btag_mictx_self_test) {
-		pr_info("[BLOCK_TAG] Mictx: fuse-top: %d, %d\n",
-			mictx->top_r_pages, mictx->top_w_pages);
-	}
-
 	/* calculate top ratio */
 	if (mictx->req.r.size || mictx->req.w.size) {
-		unsigned long comp;
-
 		mictx->req.r.size >>= 12;
 		mictx->req.w.size >>= 12;
 		mictx->req.r.size_top >>= 12;
 		mictx->req.w.size_top >>= 12;
-
-		if (mictx->top_r_pages) {
-			if (mictx->top_r_pages > 0) {
-				comp = mictx->req.r.size - mictx->req.r.size_top;
-				comp = min_t(int, comp, mictx->top_r_pages);
-				mictx->top_r_pages -= comp;
-				mictx->req.r.size_top += comp;
-			}
-		}
-
-		if (mictx->top_w_pages) {
-			if (mictx->top_w_pages > 0) {
-				comp = mictx->req.w.size - mictx->req.w.size_top;
-				comp = min_t(int, comp, mictx->top_w_pages);
-				mictx->top_w_pages -= comp;
-				mictx->req.w.size_top += comp;
-			}
-		}
 
 		top = mictx->req.r.size_top + mictx->req.w.size_top;
 		top = top * 100 / (mictx->req.r.size + mictx->req.w.size);
@@ -1551,10 +1554,9 @@ int mtk_btag_mictx_get_data(
 		iostat->q_depth = mictx->q_depth;
 
 	if (mtk_btag_mictx_self_test || mtk_btag_mictx_data_dump) {
-		pr_info("[BLOCK_TAG] Mictx: sz:%llu,%llu, sz-top:%llu,%llu,%u, fuse-top: %d,%d, qd:%u, wl:%u\n",
+		pr_info("[BLOCK_TAG] get: sz:%llu,%llu, sz-top:%llu,%llu,%u, qd:%u, wl:%u\n",
 			mictx->req.r.size, mictx->req.w.size,
 			mictx->req.r.size_top, mictx->req.w.size_top, top,
-			mictx->top_r_pages, mictx->top_w_pages,
 			iostat->q_depth, iostat->wl);
 	}
 
@@ -1582,8 +1584,10 @@ void mtk_btag_mictx_enable(int enable)
 		return;
 	}
 	mictx->enabled = enable;
-	if (enable)
+	if (enable) {
 		mtk_btag_mictx_reset(mictx, 0);
+		mictx->pwd_begin = sched_clock();
+	}
 	spin_unlock_irqrestore(&mictx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_enable);

@@ -125,14 +125,19 @@ struct mtk_btag_mictx_struct {
 	__u64 idle_total;
 	__u64 idle_total_top;
 	__u64 weighted_qd;
-	__u32 top_r_pages;
-	__u32 top_w_pages;
+
+	/* peeking window */
+	__u64 pwd_begin;
+	__u32 pwd_top_r_pages;
+	__u32 pwd_top_w_pages;
+
 	__u16 q_depth;
 	__u16 q_depth_top;
 	spinlock_t lock;
 	bool enabled;
 	bool boosted;
 	bool earaio_enabled;
+	bool earaio_allowed;
 	bool uevt_req;
 	bool uevt_state;
 	struct workqueue_struct *uevt_workq;

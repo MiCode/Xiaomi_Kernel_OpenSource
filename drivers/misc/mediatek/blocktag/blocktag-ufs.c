@@ -135,7 +135,8 @@ static void ufs_mtk_pr_tsk(struct ufs_mtk_bio_context_task *tsk,
 
 void ufs_mtk_biolog_clk_gating(bool clk_on)
 {
-	mtk_btag_earaio_boost(clk_on);
+	if (!clk_on)
+		mtk_btag_earaio_boost(clk_on);
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_clk_gating);
 
