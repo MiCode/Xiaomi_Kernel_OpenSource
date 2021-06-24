@@ -12,14 +12,16 @@
 #include <linux/met_drv.h>
 #endif
 #include <linux/slab.h>
+#define MDP_IOMMU_DEBUG 1
 #ifdef MDP_IOMMU_DEBUG
-#include "mtk_iommu.h"
+#include "iommu_debug.h"
 #endif
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #include <cmdq-sec-iwc-common.h>
 #endif
 
+#undef MTK_M4U_ID
 #include <dt-bindings/memory/mt6885-larb-port.h>
 //#include <linux/interconnect-provider.h>
 #include "mtk-interconnect.h"
@@ -47,7 +49,6 @@ ACTION(CMDQ_ENG_MDP_TDSHP1, MDP_TDSHP1)	\
 ACTION(CMDQ_ENG_MDP_COLOR0, MDP_COLOR0) \
 ACTION(CMDQ_ENG_MDP_WROT0,  MDP_WROT0)	\
 ACTION(CMDQ_ENG_MDP_WROT1,  MDP_WROT1)	\
-ACTION(CMDQ_ENG_MDP_WDMA,   MDP_WDMA)	\
 }
 
 /* mdp */
@@ -766,8 +767,8 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 }
 
 #ifdef MDP_IOMMU_DEBUG
-mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
-	int port, unsigned int mva, void *data)
+int cmdq_TranslationFault_callback(
+	int port, dma_addr_t mva, void *data)
 {
 	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
 
@@ -777,28 +778,28 @@ mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
 	cmdq_core_dump_tasks_info();
 
 	switch (port) {
-	case M4U_PORT_MDP_RDMA0:
+	case M4U_PORT_L2_MDP_RDMA0:
 		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
 		break;
-	case M4U_PORT_MDP_RDMA1:
+	case M4U_PORT_L3_MDP_RDMA1:
 		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
 		break;
-	case M4U_PORT_MDP_RDMA2:
+	case M4U_PORT_L2_MDP_RDMA2:
 		cmdq_mdp_dump_rdma(MDP_RDMA2_BASE, "RDMA2");
 		break;
-	case M4U_PORT_MDP_RDMA3:
+	case M4U_PORT_L3_MDP_RDMA3:
 		cmdq_mdp_dump_rdma(MDP_RDMA3_BASE, "RDMA3");
 		break;
-	case M4U_PORT_MDP_WROT0:
+	case M4U_PORT_L2_MDP_WROT0:
 		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
 		break;
-	case M4U_PORT_MDP_WROT1:
+	case M4U_PORT_L3_MDP_WROT1:
 		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
 		break;
-	case M4U_PORT_MDP_WROT2:
+	case M4U_PORT_L2_MDP_WROT2:
 		cmdq_mdp_dump_rot(MDP_WROT2_BASE, "WROT2");
 		break;
-	case M4U_PORT_MDP_WROT3:
+	case M4U_PORT_L3_MDP_WROT3:
 		cmdq_mdp_dump_rot(MDP_WROT3_BASE, "WROT3");
 		break;
 	default:
@@ -815,7 +816,7 @@ mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
 		"=============== [MDP] Frame Information End ====================================\n");
 	CMDQ_ERR("================= [MDP M4U] Dump End ================\n");
 
-	return MTK_IOMMU_CALLBACK_HANDLED;
+	return 0;
 }
 #endif
 
@@ -2334,24 +2335,22 @@ void cmdqMdpInitialSetting(struct platform_device *pdev)
 	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
 
 	/* Register ION Translation Fault function */
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_RDMA0,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_RDMA1,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_RDMA2,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_RDMA3,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WDMA0,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WROT0,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WROT1,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WROT2,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WROT3,
-		cmdq_TranslationFault_callback, (void *)data);
+	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA0,
+		cmdq_TranslationFault_callback, (void *)data, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L3_MDP_RDMA1,
+		cmdq_TranslationFault_callback, (void *)data, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA2,
+		cmdq_TranslationFault_callback, (void *)data, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L3_MDP_RDMA3,
+		cmdq_TranslationFault_callback, (void *)data, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT0,
+		cmdq_TranslationFault_callback, (void *)data, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L3_MDP_WROT1,
+		cmdq_TranslationFault_callback, (void *)data, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT2,
+		cmdq_TranslationFault_callback, (void *)data, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L3_MDP_WROT3,
+		cmdq_TranslationFault_callback, (void *)data, false);
 #endif
 
 	/* must porting in dts */
