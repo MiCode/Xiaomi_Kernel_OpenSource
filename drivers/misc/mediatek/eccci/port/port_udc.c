@@ -156,7 +156,7 @@ int udc_cmd_check(struct port_t *port,
 			spin_lock_irqsave(&port->rx_skb_list_hp.lock, flags);
 			/* dequeue */
 			*skb = __skb_dequeue(&port->rx_skb_list_hp);
-			if (skb == NULL) {
+			if ((*skb) == NULL) {
 				spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 				CCCI_ERROR_LOG(md_id, UDC,
 					"%s:__skb_dequeue fail\n", __func__);
