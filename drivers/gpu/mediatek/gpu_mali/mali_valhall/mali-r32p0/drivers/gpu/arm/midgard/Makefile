@@ -1,0 +1,186 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# (C) COPYRIGHT 2010-2021 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU license.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, you can access it online at
+# http://www.gnu.org/licenses/gpl-2.0.html.
+#
+#
+
+KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+KDIR ?= $(KERNEL_SRC)
+
+ifeq ($(KDIR),)
+    $(error Must specify KDIR to point to the kernel to target))
+endif
+
+#
+# Default configuration values
+#
+# Dependency resolution is done through statements as Kconfig
+# is not supported for out-of-tree builds.
+#
+
+CONFIG_MALI_MIDGARD ?= m
+ifeq ($(CONFIG_MALI_MIDGARD),m)
+    CONFIG_MALI_GATOR_SUPPORT ?= y
+    CONFIG_MALI_ARBITRATION ?= n
+
+    ifneq ($(CONFIG_MALI_NO_MALI),y)
+        # Prevent misuse when CONFIG_MALI_NO_MALI=y
+        CONFIG_MALI_REAL_HW ?= y
+    endif
+
+    ifeq ($(CONFIG_MALI_MIDGARD_DVFS),y)
+        # Prevent misuse when CONFIG_MALI_MIDGARD_DVFS=y
+        CONFIG_MALI_DEVFREQ ?= n
+    else
+        CONFIG_MALI_DEVFREQ ?= y
+    endif
+
+    ifeq ($(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND), y)
+        # Prevent misuse when CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND=y
+        CONFIG_MALI_DMA_BUF_LEGACY_COMPAT = n
+    endif
+
+    #
+    # Expert/Debug/Test released configurations
+    #
+    ifeq ($(CONFIG_MALI_EXPERT), y)
+        ifeq ($(CONFIG_MALI_NO_MALI), y)
+            CONFIG_MALI_REAL_HW = n
+        else
+            # Prevent misuse when CONFIG_MALI_NO_MALI=n
+            CONFIG_MALI_REAL_HW = y
+            CONFIG_MALI_ERROR_INJECT = n
+        endif
+
+        ifeq ($(CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED), y)
+            # Prevent misuse when CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED=y
+            CONFIG_MALI_HW_ERRATA_1485982_USE_CLOCK_ALTERNATIVE = n
+        endif
+
+        ifeq ($(CONFIG_MALI_DEBUG), y)
+            CONFIG_MALI_MIDGARD_ENABLE_TRACE ?= y
+            CONFIG_MALI_SYSTEM_TRACE ?= y
+            CONFIG_MALI_FENCE_DEBUG ?= y
+        else
+            # Prevent misuse when CONFIG_MALI_DEBUG=n
+            CONFIG_MALI_MIDGARD_ENABLE_TRACE = n
+            CONFIG_MALI_SYSTEM_TRACE = n
+            CONFIG_MALI_FENCE_DEBUG = n
+        endif
+    else
+        # Prevent misuse when CONFIG_MALI_EXPERT=n
+        CONFIG_MALI_CORESTACK = n
+        CONFIG_MALI_2MB_ALLOC = n
+        CONFIG_MALI_PWRSOFT_765 = n
+        CONFIG_MALI_MEMORY_FULLY_BACKED = n
+        CONFIG_MALI_JOB_DUMP = n
+        CONFIG_MALI_NO_MALI = n
+        CONFIG_MALI_REAL_HW = y
+        CONFIG_MALI_ERROR_INJECT = n
+        CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED = n
+        CONFIG_MALI_HW_ERRATA_1485982_USE_CLOCK_ALTERNATIVE = n
+        CONFIG_MALI_PRFCNT_SET_SELECT_VIA_DEBUG_FS = n
+        CONFIG_MALI_DEBUG = n
+        CONFIG_MALI_MIDGARD_ENABLE_TRACE = n
+        CONFIG_MALI_SYSTEM_TRACE = n
+        CONFIG_MALI_FENCE_DEBUG = n
+    endif
+
+    CONFIG_MALI_KUTF ?= y
+    ifeq ($(CONFIG_MALI_KUTF), y)
+        ifeq ($(CONFIG_MALI_DEBUG), y)
+            CONFIG_MALI_IRQ_LATENCY ?= y
+            CONFIG_MALI_CLK_RATE_TRACE_PORTAL ?= y
+        else
+            # Prevent misuse when CONFIG_MALI_DEBUG=n
+            CONFIG_MALI_IRQ_LATENCY = n
+            CONFIG_MALI_CLK_RATE_TRACE_PORTAL = n
+        endif
+    else
+        # Prevent misuse when CONFIG_MALI_KUTF=n
+        CONFIG_MALI_IRQ_LATENCY = n
+        CONFIG_MALI_CLK_RATE_TRACE_PORTAL = n
+    endif
+else
+    # Prevent misuse when CONFIG_MALI_MIDGARD=n
+    CONFIG_MALI_ARBITRATION = n
+    CONFIG_MALI_KUTF = n
+    CONFIG_MALI_IRQ_LATENCY = n
+    CONFIG_MALI_CLK_RATE_TRACE_PORTAL = n
+endif
+
+# All Mali CONFIG should be listed here
+CONFIGS := \
+    CONFIG_MALI_MIDGARD \
+    CONFIG_MALI_CSF_SUPPORT \
+    CONFIG_MALI_GATOR_SUPPORT \
+    CONFIG_MALI_DMA_FENCE \
+    CONFIG_MALI_ARBITER_SUPPORT \
+    CONFIG_MALI_ARBITRATION \
+    CONFIG_MALI_PARTITION_MANAGER \
+    CONFIG_MALI_REAL_HW \
+    CONFIG_MALI_GEM5_BUILD \
+    CONFIG_MALI_DEVFREQ \
+    CONFIG_MALI_MIDGARD_DVFS \
+    CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND \
+    CONFIG_MALI_DMA_BUF_LEGACY_COMPAT \
+    CONFIG_MALI_EXPERT \
+    CONFIG_MALI_CORESTACK \
+    CONFIG_MALI_2MB_ALLOC \
+    CONFIG_MALI_PWRSOFT_765 \
+    CONFIG_MALI_MEMORY_FULLY_BACKED \
+    CONFIG_MALI_JOB_DUMP \
+    CONFIG_MALI_NO_MALI \
+    CONFIG_MALI_ERROR_INJECT \
+    CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED \
+    CONFIG_MALI_HW_ERRATA_1485982_USE_CLOCK_ALTERNATIVE \
+    CONFIG_MALI_PRFCNT_SET_PRIMARY \
+    CONFIG_MALI_PRFCNT_SET_SECONDARY \
+    CONFIG_MALI_PRFCNT_SET_TERTIARY \
+    CONFIG_MALI_PRFCNT_SET_SELECT_VIA_DEBUG_FS \
+    CONFIG_MALI_DEBUG \
+    CONFIG_MALI_MIDGARD_ENABLE_TRACE \
+    CONFIG_MALI_SYSTEM_TRACE \
+    CONFIG_MALI_FENCE_DEBUG \
+    CONFIG_MALI_KUTF \
+    CONFIG_MALI_IRQ_LATENCY \
+    CONFIG_MALI_CLK_RATE_TRACE_PORTAL
+
+
+# Find which config options were enabled. $(value config) is the name of the
+# config option (CONFIG_MALI_...), $(value $(value config)) is its value (y, m,
+# or n).
+ENABLED_CONFIGS := $(foreach config,$(CONFIGS),$(if $(filter y m,$(value $(value config))),$(config)))
+
+# For each enabled option, generate a command line argument e.g.
+# CONFIG_MALI_MIDGARD=m.
+MAKE_ARGS := $(foreach config,$(ENABLED_CONFIGS),$(value config)=$(value $(value config)))
+# For each enabled option, generate a compiler '-DCONFIG_...=$(CONFIG_...)' flag.
+EXTRA_CFLAGS := $(foreach config,$(ENABLED_CONFIGS),-D$(value config)=$(value config))
+
+#
+# KBUILD_EXTRA_SYMBOLS to prevent warnings about unknown functions
+#
+
+all:
+	$(MAKE) -C $(KDIR) M=$(CURDIR) $(MAKE_ARGS) EXTRA_CFLAGS="$(EXTRA_CFLAGS)" KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules
+
+modules_install:
+	$(MAKE) -C $(KDIR) M=$(CURDIR) $(MAKE_ARGS) modules_install
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(CURDIR) $(MAKE_ARGS) clean

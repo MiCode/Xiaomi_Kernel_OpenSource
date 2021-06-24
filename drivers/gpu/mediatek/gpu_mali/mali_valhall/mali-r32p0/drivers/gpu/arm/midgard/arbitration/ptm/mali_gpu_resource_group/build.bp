@@ -1,0 +1,33 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note OR MIT */
+
+/*
+ * (C) COPYRIGHT 2020-2021 Arm Limited or its affiliates. All rights reserved.
+ */
+
+bob_kernel_module {
+    name: "mali_gpu_resource_group",
+    local_include_dirs: [
+        "../../include",
+        "../../mali_arbiter",
+        "../common"
+    ],
+    extra_symbols: [
+        "mali_arbiter",
+    ],
+    srcs: [
+        "Kbuild",
+        "mali_gpu_resource_group_main.c",
+        "../common/mali_gpu_ptm_msg.c"
+    ],
+    enabled: false,
+    build_gpu_resource_group_module: {
+        enabled: true,
+    },
+    add_to_alias: [
+        "kernel",
+    ],
+    defaults: [
+        "mali_ptm_config_defaults",
+        "mali_arbiter_shared_config_defaults",
+    ]
+}

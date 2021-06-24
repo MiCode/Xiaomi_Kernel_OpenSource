@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+#
+# (C) COPYRIGHT 2018-2021 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU license.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, you can access it online at
+# http://www.gnu.org/licenses/gpl-2.0.html.
+#
+#
+
+config UNIT_TEST_KERNEL_MODULES
+	bool
+	default y if UNIT_TEST_CODE && BACKEND_KERNEL
+	default n
+
+config BUILD_IPA_TESTS
+	bool
+	default y if UNIT_TEST_KERNEL_MODULES && MALI_DEVFREQ
+	default n
+
+config BUILD_IPA_UNIT_TESTS
+	bool
+	default y if NO_MALI && BUILD_IPA_TESTS
+	default n
+
+config BUILD_CSF_TESTS
+	bool
+	default y if UNIT_TEST_KERNEL_MODULES && GPU_HAS_CSF
+	default n
+
+config BUILD_ARBIF_TESTS
+	bool
+	default y if UNIT_TEST_CODE && MALI_ARBITER_SUPPORT
+	default n
+
+config BUILD_ARBIF_KERNEL_TESTS
+	bool
+	default y if BUILD_KERNEL_MODULES && BUILD_ARBIF_TESTS
+	default n

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note OR MIT
+#
+# (C) COPYRIGHT 2019-2021 Arm Limited or its affiliates. All rights reserved.
+#
+#
+
+config MALI_ARBITRATION
+	tristate "Enable compilation of arbitration modules"
+	default n
+	default y if MALI_ARBITER_SUPPORT
+	help
+	  This option enables the compilation of arbitration modules needed to
+	  to create a virtualized setup.

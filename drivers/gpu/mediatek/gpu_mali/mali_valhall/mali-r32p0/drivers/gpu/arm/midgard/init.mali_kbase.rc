@@ -1,0 +1,8 @@
+on early-init
+    exec u:r:vendor_modprobe:s0 -- /vendor/bin/modprobe -a -d /vendor/lib/modules \
+    mtk_gpu_hal.ko \
+    mtk_gpufreq_wrapper.ko \
+    mtk_gpufreq_${ro.board.platform}.ko \
+    mtk_gpu_qos.ko \
+    ged.ko \
+    mali_kbase_${ro.board.platform}.ko \

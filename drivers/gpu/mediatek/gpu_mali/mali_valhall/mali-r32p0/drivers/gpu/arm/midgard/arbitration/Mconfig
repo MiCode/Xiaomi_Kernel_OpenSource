@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+#
+# (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU license.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, you can access it online at
+# http://www.gnu.org/licenses/gpl-2.0.html.
+#
+#
+
+config BSP_HAS_HYPERVISOR
+	bool "Kernel has a hypervisor enabled"
+	depends on BUILD_KERNEL_MODULES && !GPU_HAS_CSF
+	default n
+	select MALI_ARBITER_SUPPORT
+
+config MALI_HAS_ARBITER
+	bool "Build a reference arbiter"
+	depends on MALI_MIDGARD
+	default n
+	default y if BSP_HAS_HYPERVISOR || MALI_ARBITER_SUPPORT
+	help
+	  Build a reference arbiter implementation.
+
+	  If unsure, say N.
+
+config BUILD_EMU_ARBITER_MODULE
+	bool "Build an emulated arbiter"
+	depends on BUILD_KERNEL_MODULES
+	default n
+	default y if MALI_ARBITER_SUPPORT
+	help
+	  Build an emulated reference arbiter useful
+	  to test Mali without a Virtual Machine
+
+	  If unsure, say N.
+
+config BUILD_ARBITER_MODULES
+	bool "Build a reference arbiter kernel modules"
+	depends on BUILD_KERNEL_MODULES
+	default n
+	default y if MALI_HAS_ARBITER
+	help
+	  Build a daisy chain reference arbiter useful
+	  to manage Mali to different Virtual Machines
+
+	  If unsure, say N.
+
+config BUILD_ARBITER_TESTS
+	bool "Userspace Arbiter tests enabled"
+	depends on MALI_HAS_ARBITER
+	default n
+	default y if UNIT_TEST_CODE
+
+config BUILD_ARBITER_KERNEL_TESTS
+	bool "Enable arbiter kernel module tests"
+	depends on BUILD_KERNEL_MODULES
+	default n
+	default y if BUILD_ARBITER_MODULES && UNIT_TEST_KERNEL_MODULES
+
+config MALI_ARBITER_LOST_TEST
+	bool "Build the arbiter to aggressively test GPU_LOST"
+	depends on BUILD_ARBITER_KERNEL_TESTS
+	default n
+
+config BUILD_VM_COMMS_TESTS
+	bool "Kernel has vm communication tests enabled"
+	depends on BUILD_KERNEL_MODULES
+	default n
+	default y if BUILD_ARBITER_KERNEL_TESTS && MALI_ARBITER_SUPPORT
+
+config BUILD_GPU_POWER_TESTS
+	bool "Kernel has gpu power tests enabled"
+	depends on BUILD_KERNEL_MODULES
+	default n
+	default y if BUILD_ARBITER_MODULES && UNIT_TEST_KERNEL_MODULES
+
+source "kernel/drivers/gpu/arm/midgard/arbitration/ptm/Mconfig"
