@@ -7,6 +7,8 @@
 #define __SCP_EXCEP_H__
 
 #include <linux/sizes.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "scp_helper.h"
 #include "scp_ipi_pin.h"
 
@@ -29,6 +31,14 @@ struct scp_status_reg {
 	uint32_t pc_latch;
 	uint32_t lr_latch;
 	uint32_t sp_latch;
+};
+
+enum MTK_TINYSYS_SCP_KERNEL_OP {
+	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_START = 0,
+	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_POLLING,
+	MTK_TINYSYS_SCP_KERNEL_OP_RESET_SET,
+	MTK_TINYSYS_SCP_KERNEL_OP_RESET_RELEASE,
+	MTK_TINYSYS_SCP_KERNEL_OP_NUM,
 };
 
 extern void scp_dump_last_regs(void);

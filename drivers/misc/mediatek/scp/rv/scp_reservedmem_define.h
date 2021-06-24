@@ -8,6 +8,12 @@
 
 static struct scp_reserve_mblock scp_reserve_mblock[] = {
 	{
+		.num = SCP_A_SECDUMP_MEM_ID,
+		.start_phys = 0,
+		.start_virt = 0,
+		.size = 0,  /* could be 3.5 MB */
+	},
+	{
 		.num = VOW_MEM_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,

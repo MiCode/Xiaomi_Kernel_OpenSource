@@ -120,3 +120,7 @@
 	MTK_SIP_SMC_CMD(0x527)
 
 #endif
+
+/* SCP */
+#define MTK_SIP_TINYSYS_SCP_CONTROL \
+	MTK_SIP_SMC_CMD(0x528)

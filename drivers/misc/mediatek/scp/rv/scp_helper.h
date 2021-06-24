@@ -93,6 +93,7 @@ struct scp_regs {
 	unsigned int scp_tcmsize;
 	unsigned int core_nums;
 	unsigned int twohart;
+	unsigned int secure_dump;
 };
 
 /* scp work struct definition*/

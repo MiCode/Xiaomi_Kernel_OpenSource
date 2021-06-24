@@ -22,6 +22,14 @@
 #include "scp_feature_define.h"
 #include "scp_l1c.h"
 
+#if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+#include <linux/of_reserved_mem.h>
+#include "scp_reservedmem_define.h"
+#endif
+
+#define POLLING_RETRY 100
+#define SCP_SECURE_DUMP_MEASURE 0
+
 struct scp_dump_st {
 	uint8_t *detail_buff;
 	uint8_t *ramdump;
@@ -344,6 +352,29 @@ void scp_do_tbufdump_RV55(uint32_t *out, uint32_t *out_end)
 	}
 }
 
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+static inline unsigned long scp_do_dump(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_START,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline unsigned long scp_do_polling(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_POLLING,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+#endif
+
 /*
  * this function need SCP to keeping awaken
  * scp_crash_dump: dump scp tcm info.
@@ -356,6 +387,13 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 	unsigned int scp_awake_fail_flag;
 	uint32_t dram_start = 0;
 	uint32_t dram_size = 0;
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
+	struct cal {
+		uint64_t start, end;
+		int type;	//0:dump 1:polling
+	} cal[POLLING_RETRY+1];
+	int idx;
+#endif
 
 	/*flag use to indicate scp awake success or not*/
 	scp_awake_fail_flag = 0;
@@ -366,6 +404,108 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 		scp_awake_fail_flag = 1;
 	}
 
+
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	if (scpreg.secure_dump) {
+#if SCP_SECURE_DUMP_MEASURE
+		memset(cal, 0x0, sizeof(cal));
+		idx = 0;
+		cal[0].type = 1;
+		cal[0].start = ktime_get_boottime_ns();
+#endif
+
+		{
+			int polling = 1;
+			int retry = POLLING_RETRY;
+#if SCP_SECURE_DUMP_MEASURE
+			idx++;
+			cal[idx].type = 2;
+			cal[idx].start = ktime_get_boottime_ns();
+#endif
+
+			scp_do_dump();
+
+#if SCP_SECURE_DUMP_MEASURE
+			cal[idx].end = ktime_get_boottime_ns();
+#endif
+
+			while (polling != 0 && retry > 0) {
+#if SCP_SECURE_DUMP_MEASURE
+				if (idx >= POLLING_RETRY)
+					break;
+				idx++;
+				cal[idx].type = 3;
+				cal[idx].start = ktime_get_boottime_ns();
+#endif
+
+				polling = scp_do_polling();
+
+#if SCP_SECURE_DUMP_MEASURE
+				cal[idx].end = ktime_get_boottime_ns();
+#endif
+
+				if (!polling)
+					break;
+				mdelay(polling);
+				retry--;
+			}
+		}
+
+#if SCP_SECURE_DUMP_MEASURE
+		cal[0].end = ktime_get_boottime_ns();
+		for (idx = 0; idx < POLLING_RETRY; idx++) {
+			if (cal[idx].type == 0)
+				break;
+			pr_notice("MDebug SCP Cal:%d Type:%d %lldns\n", idx, cal[idx].type,
+						(cal[idx].end - cal[idx].start));
+		}
+#endif
+
+		/* tbuf is different between rv33/rv55 */
+		if (scpreg.twohart) {
+			/* RV55 */
+			uint32_t *out = (uint32_t *)get_MDUMP_addr(MDUMP_TBUF);
+			int i;
+
+			for (i = 0; i < 32; i++) {
+				pr_notice("[SCP] C0:%02d:0x%08x::0x%08x\n",
+							i, *(out + i * 2), *(out + i * 2 + 1));
+			}
+			for (i = 0; i < 32; i++) {
+				pr_notice("[SCP] C1:%02d:0x%08x::0x%08x\n",
+							i, *(out + 64 + i * 2),
+							*(out + 64 + i * 2 + 1));
+			}
+		} else {
+			/* RV33 */
+			uint32_t *out = (uint32_t *)get_MDUMP_addr(MDUMP_TBUF);
+			int i;
+
+			for (i = 0; i < 16; i++) {
+				pr_notice("[SCP] C0:%02d:0x%08x::0x%08x\n",
+					i, *(out + i * 2), *(out + i * 2 + 1));
+			}
+			for (i = 0; i < 16; i++) {
+				pr_notice("[SCP] C1:%02d:0x%08x::0x%08x\n",
+					i, *(out + i * 2 + 16), *(out + i * 2 + 17));
+			}
+		}
+
+		scp_dump_size = get_MDUMP_size_accumulate(MDUMP_TBUF);
+
+		/* dram support? */
+		if ((int)(scp_region_info_copy.ap_dram_size) <= 0) {
+			pr_notice("[scp] ap_dram_size <=0\n");
+		} else {
+			dram_start = scp_region_info_copy.ap_dram_start;
+			dram_size = scp_region_info_copy.ap_dram_size;
+			scp_dump_size += roundup(dram_size, 4);
+		}
+
+	} else {
+#else
+	{
+#endif
 	memcpy_from_scp((void *)get_MDUMP_addr(MDUMP_L2TCM),
 		(void *)(SCP_TCM),
 		(SCP_A_TCM_SIZE));
@@ -388,6 +528,7 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 		memcpy((void *)get_MDUMP_addr(MDUMP_DRAM),
 			scp_ap_dram_virt, dram_size);
 		scp_dump_size += roundup(dram_size, 4);
+	}
 	}
 
 	dsb(SY); /* may take lot of time */
@@ -547,6 +688,8 @@ static ssize_t scp_A_dump_show(struct file *filep,
 
 		memcpy(buf, scp_dump.ramdump + offset, size);
 		length = size;
+		//clean the buff after readed
+		memset(scp_dump.ramdump + offset, 0x0, size);
 	}
 
 	mutex_unlock(&scp_excep_mutex);
@@ -584,9 +727,20 @@ int scp_excep_init(void)
 	if ((int)(scp_region_info->ap_dram_size) > 0)
 		dram_size = scp_region_info->ap_dram_size;
 
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	if (scpreg.secure_dump) {
+		scp_dump.ramdump =
+				(uint8_t *)(void *)scp_get_reserve_mem_virt(SCP_A_SECDUMP_MEM_ID);
+		if (!scp_dump.ramdump)
+			return -1;
+	} else {
+#else
+	{
+#endif
 	scp_dump.ramdump = vmalloc(get_MDUMP_size_accumulate(MDUMP_DRAM));
 	if (!scp_dump.ramdump)
 		return -1;
+	}
 
 	/* scp_status_reg init */
 	c0_m = vmalloc(sizeof(struct scp_status_reg));
@@ -641,7 +795,15 @@ void scp_ram_dump_init(void)
 void scp_excep_cleanup(void)
 {
 	vfree(scp_dump.detail_buff);
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	if (scpreg.secure_dump) {
+		scp_dump.ramdump = NULL;
+	} else {
+#else
+	{
+#endif
 	vfree(scp_dump.ramdump);
+	}
 
 	scp_A_task_context_addr = 0;
 

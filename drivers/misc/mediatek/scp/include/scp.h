@@ -115,6 +115,7 @@ enum ipi_id {
 
 /* scp reserve memory ID definition*/
 enum scp_reserve_mem_id_t {
+	SCP_A_SECDUMP_MEM_ID = 0,   /* please keep SCP_A_SECDUMP_MEM_ID=0 */
 	VOW_MEM_ID,
 	SENS_MEM_ID,
 	SCP_A_LOGGER_MEM_ID,

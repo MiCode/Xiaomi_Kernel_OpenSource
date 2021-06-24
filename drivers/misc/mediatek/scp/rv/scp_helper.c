@@ -563,6 +563,29 @@ unsigned int is_scp_ready(enum scp_core_id id)
 }
 EXPORT_SYMBOL_GPL(is_scp_ready);
 
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+static inline unsigned long scp_do_rstn_set(unsigned long boot_ok)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_RESET_SET,
+			boot_ok, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline unsigned long scp_do_rstn_clr(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_RESET_RELEASE,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+#endif
+
 /*
  * reset scp and create a timer waiting for scp notify
  * apps to stop their tasks if needed
@@ -591,10 +614,18 @@ int reset_scp(int reset)
 		/* write scp reserved memory address/size to GRP1/GRP2
 		 * to let scp setup MPU
 		 */
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+		if (scpreg.secure_dump) {
+			scp_do_rstn_clr();
+		} else {
+#else
+		{
+#endif
 		writel((unsigned int)scp_mem_base_phys, DRAM_RESV_ADDR_REG);
 		writel((unsigned int)scp_mem_size, DRAM_RESV_SIZE_REG);
 		writel(1, R_CORE0_SW_RSTN_CLR);  /* release reset */
 		dsb(SY); /* may take lot of time */
+		}
 #if SCP_BOOT_TIME_OUT_MONITOR
 		scp_ready_timer[SCP_A_ID].tl.expires = jiffies + SCP_READY_TIMEOUT;
 		add_timer(&scp_ready_timer[SCP_A_ID].tl);
@@ -1170,10 +1201,17 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 			return -1;
 		}
 
-		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"scp_mem_tbl",
-				(i * MEMORY_TBL_ELEM_NUM) + 1,
-				&m_size);
+		if (i == 0 && scpreg.secure_dump) {
+			/* secure_dump */
+			ret = of_property_read_u32(pdev->dev.of_node,
+					"secure_dump_size",
+					&m_size);
+		} else {
+			ret = of_property_read_u32_index(pdev->dev.of_node,
+					"scp_mem_tbl",
+					(i * MEMORY_TBL_ELEM_NUM) + 1,
+					&m_size);
+		}
 		if (ret) {
 			pr_notice("Cannot get memory size(%d)\n", i);
 			return -1;
@@ -1569,6 +1607,22 @@ void scp_sys_reset_ws(struct work_struct *ws)
 #endif
 	pr_notice("[SCP] %s(): scp_reset_type %d\n", __func__, scp_reset_type);
 	/* scp reset by CMD, WDT or awake fail */
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	if (scpreg.secure_dump) {
+		if ((scp_reset_type == RESET_TYPE_TIMEOUT) ||
+			(scp_reset_type == RESET_TYPE_AWAKE)) {
+			scp_do_rstn_set(0);
+			pr_notice("[SCP] rstn core0 %x core1 %x\n",
+			readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));
+		} else {
+			scp_do_rstn_set(1); /* write CORE_REBOOT_OK to SCP_GPR_CORE0_REBOOT */
+			pr_notice("[SCP] rstn core0 %x core1 %x\n",
+			readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));
+		}
+	} else {
+#else
+	{
+#endif
 	if ((scp_reset_type == RESET_TYPE_TIMEOUT) ||
 		(scp_reset_type == RESET_TYPE_AWAKE)) {
 		/* stop scp */
@@ -1589,6 +1643,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 		pr_notice("[SCP] rstn core0 %x core1 %x\n",
 		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));
 	}
+	}
 
 	/* scp reset */
 	scp_sys_full_reset();
@@ -1605,6 +1660,17 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	scp_reset_awake_counts();
 	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
 
+#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
+	if (scpreg.secure_dump) {
+		pr_notice("[SCP] start scp\n");
+		/* Setup dram reserved address and size for scp*/
+		/* start scp */
+		scp_do_rstn_clr();
+		pr_notice("[SCP] rstn core0 %x\n", readl(R_CORE0_SW_RSTN_CLR));
+	} else {
+#else
+	{
+#endif
 	/* Setup dram reserved address and size for scp*/
 	writel((unsigned int)scp_mem_base_phys, DRAM_RESV_ADDR_REG);
 	writel((unsigned int)scp_mem_size, DRAM_RESV_SIZE_REG);
@@ -1613,6 +1679,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	writel(1, R_CORE0_SW_RSTN_CLR);
 	pr_notice("[SCP] rstn core0 %x\n", readl(R_CORE0_SW_RSTN_CLR));
 	dsb(SY); /* may take lot of time */
+	}
 #if SCP_BOOT_TIME_OUT_MONITOR
 	mod_timer(&scp_ready_timer[SCP_A_ID].tl, jiffies + SCP_READY_TIMEOUT);
 #endif
@@ -1883,6 +1950,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	struct resource *res;
 	const char *core_status = NULL;
 	const char *scp_hwccf = NULL;
+	const char *secure_dump = NULL;
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 
@@ -1996,6 +2064,14 @@ static int scp_device_probe(struct platform_device *pdev)
 						, &scpreg.twohart);
 	pr_notice("[SCP] scpreg.twohart = %d\n", scpreg.twohart);
 
+	/* secure_dump */
+	scpreg.secure_dump = 0;
+	if (!of_property_read_string(pdev->dev.of_node, "secure_dump", &secure_dump)) {
+		if (!strncmp(secure_dump, "enable", strlen("enable"))) {
+			pr_notice("[SCP] secure dump enabled\n");
+			scpreg.secure_dump = 1;
+		}
+	}
 
 	scpreg.irq0 = platform_get_irq_byname(pdev, "ipc0");
 	if (scpreg.irq0 < 0)
