@@ -436,7 +436,6 @@ void clear_lvts_register_value_array(struct lvts_data *lvts_data)
 			g_lvts_device_value_e[i][j] = 0;
 		}
 	}
-
 }
 
 static void dump_lvts_device_register_value(struct lvts_data *lvts_data)
@@ -483,7 +482,7 @@ static void dump_lvts_controller_register_value(struct lvts_data *lvts_data)
 
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
-                dev_info(dev, "[LVTS_ERROR][BEFROE][CONTROLLER_%d][DUMP]\n", i);
+                dev_info(dev, "[LVTS_ERROR][BEFROE][CONTROLLER_%d]\n", i);
 
 		offset = snprintf(buffer, sizeof(buffer),
 				"[LVTS_ERROR][BEFORE][TC][DUMP] ");
@@ -498,7 +497,7 @@ static void dump_lvts_controller_register_value(struct lvts_data *lvts_data)
                 dev_info(dev, "%s\n", buffer);
 
 
-		dev_info(dev, "[LVTS_ERROR][AFTER][CONTROLLER_%d][DUMP]\n", i);
+		dev_info(dev, "[LVTS_ERROR][AFTER][CONTROLLER_%d]\n", i);
 
 		offset = snprintf(buffer, sizeof(buffer),
 				"[LVTS_ERROR][AFTER][TC][DUMP] ");
@@ -511,6 +510,35 @@ static void dump_lvts_controller_register_value(struct lvts_data *lvts_data)
 
                 buffer[offset] = '\0';
 		dev_info(dev, "%s\n", buffer);
+	}
+}
+
+static void dump_lvts_controller_temp_and_raw(struct lvts_data *lvts_data)
+{
+	int i, offset;
+	char buffer[512];
+	struct device *dev = lvts_data->dev;
+        struct tc_settings *tc = lvts_data->tc;
+	unsigned int j, s_index;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+
+                dev_info(dev, "[LVTS_ERROR][CONTROLLER_%d] ", i);
+
+                offset = snprintf(buffer, sizeof(buffer),
+				"[LVTS_ERROR][TEMP][MSR_RAW] ");
+
+		for (j = 0; j < tc[i].num_sensor; j++) {
+			s_index = tc[i].sensor_map[j];
+
+			offset += snprintf(buffer + offset,
+                                	sizeof(buffer) - offset, "[0x%x,%d]",
+					lvts_data->sen_data[s_index].msr_raw,
+					lvts_data->sen_data[s_index].temp);
+		}
+
+		buffer[offset] = '\0';
+                dev_info(dev, "%s\n", buffer);
 	}
 }
 
@@ -578,6 +606,7 @@ void lvts_wait_for_all_sensing_point_idle(struct lvts_data *lvts_data)
 	}
 }
 
+
 void dump_lvts_error_info(struct lvts_data *lvts_data)
 {
 	struct device *dev = lvts_data->dev;
@@ -586,6 +615,7 @@ void dump_lvts_error_info(struct lvts_data *lvts_data)
 
 	/*dump controller registers*/
 	read_controller_reg_when_error(lvts_data);
+	dump_lvts_controller_temp_and_raw(lvts_data);
 
 	/*disable controller by set LVTSMONCTL0[3:0] = 4'h0*/
 	disable_all_sensing_points(lvts_data);
@@ -1184,21 +1214,19 @@ static void tc_irq_handler(struct lvts_data *lvts_data, int tc_id)
 	void __iomem *base;
         int temp;
 
+#ifdef DUMP_MORE_LOG
+	temp = lvts_read_all_tc_temperature(lvts_data);
+        dump_lvts_error_info(lvts_data);
+#endif
+
 	base = GET_BASE_ADDR(tc_id);
 
 	ret = readl(LVTSMONINTSTS_0 + base);
 	/* Write back to clear interrupt status */
 	writel(ret, LVTSMONINTSTS_0 + base);
 
-	temp = lvts_read_all_tc_temperature(lvts_data);
-
 	dev_info(dev, "[Thermal IRQ] LVTS thermal controller %d, LVTSMONINTSTS=0x%08x, T=%d\n",
 		tc_id, ret, temp);
-
-#ifdef DUMP_MORE_LOG
-	dump_lvts_error_info(lvts_data);
-#endif
-
 
 	if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_0)
 		dev_info(dev, "[Thermal IRQ]: Thermal high offset0 interrupt triggered, Thermal sw reset\n");
