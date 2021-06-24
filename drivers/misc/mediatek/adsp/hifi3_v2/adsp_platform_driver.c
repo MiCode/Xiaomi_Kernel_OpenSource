@@ -34,7 +34,7 @@ struct wait_queue_head adsp_waitq;
 struct workqueue_struct *adsp_wq;
 void __iomem *adsp_secure_base;
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
-static u32 adsp_load;
+static u32 adsp_load = 0;
 struct completion adsp_driver_probe_done;
 
 static int adsp_core0_init(struct adsp_priv *pdata);
@@ -542,11 +542,6 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 
-	/* indicate if adsp images is loaded successfully */
-	of_property_read_u32(dev->of_node, "load", &adsp_load);
-	if (!adsp_load)
-		pr_info("%s adsp disable\n", __func__);
-
 	/* get resource from platform_device */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	adsp_secure_base = devm_ioremap_resource(dev, res);
@@ -609,7 +604,7 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	const struct adsp_description *desc;
 	const struct of_device_id *match;
 	struct of_phandle_args spec;
-	u32 temp = 0;
+	u64 system_info[2];
 
 	/* create private data */
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
@@ -658,10 +653,9 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	pdata->irq[ADSP_IRQ_AUDIO_ID].seq = platform_get_irq(pdev, 2);
 	pdata->irq[ADSP_IRQ_AUDIO_ID].clear_irq = adsp_mt_clr_auidoirq;
 
-	of_property_read_u32(dev->of_node, "sysram", &temp);
-	pdata->sysram_phys = (phys_addr_t)temp;
-	of_property_read_u32(dev->of_node, "sysram_size", &temp);
-	pdata->sysram_size = (size_t)temp;
+	of_property_read_u64_array(dev->of_node, "system", system_info, 2);
+	pdata->sysram_phys = (phys_addr_t)system_info[0];
+	pdata->sysram_size = (size_t)system_info[1];
 
 	if (pdata->sysram_phys == 0 || pdata->sysram_size == 0)
 		return -ENODEV;
@@ -810,15 +804,11 @@ int create_adsp_drivers(void)
 		return ret;
 	}
 
-	if (!is_adsp_load()) {
-		pr_err("%s, fail load adsp image", __func__);
-		return -ENXIO;
-	}
-
 	if (!adsp_cores[0] || !adsp_cores[1]) {
 		pr_err("%s, fail to create adsp cores", __func__);
 		return -EFAULT;
 	}
+	adsp_load = 1;
 
 	return 0;
 }
