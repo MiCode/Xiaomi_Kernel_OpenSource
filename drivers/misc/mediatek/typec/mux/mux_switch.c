@@ -11,10 +11,17 @@
 #include <linux/slab.h>
 #include <linux/usb/typec.h>
 #include <linux/usb/typec_mux.h>
-#include <linux/sysfs.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/uaccess.h>
 
 #include "bus.h"
 #include "mux_switch.h"
+
+#define PROC_TYPEC "mtk_typec"
+#define PROC_MUX_SWITCH PROC_TYPEC "/mux_switch"
+#define PROC_MUX "mux"
+#define PROC_SWITCH "switch"
 
 /* struct typec_mux_switch */
 struct typec_mux_switch {
@@ -23,6 +30,7 @@ struct typec_mux_switch {
 	struct typec_mux *mux;
 	int orientation;
 	struct typec_mux_state state;
+	struct proc_dir_entry *root;
 };
 
 /* struct mtk_typec_switch */
@@ -122,14 +130,31 @@ static int mtk_typec_mux_set(struct typec_mux *mux, struct typec_mux_state *stat
 	return ret;
 }
 
-static ssize_t mux_store(struct device *dev,
-			 struct device_attribute *attr,
-			 const char *buf, size_t count)
+static int proc_mux_show(struct seq_file *s, void *unused)
 {
-	struct typec_mux_switch *mux_sw =
-		(struct typec_mux_switch *)dev->driver_data;
-	u32 tmp;
+	struct typec_mux_switch *mux_sw = s->private;
+
+	seq_printf(s, "%d\n", mux_sw->state.mode);
+	return 0;
+}
+
+static int proc_mux_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_mux_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_mux_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct typec_mux_switch *mux_sw = s->private;
 	struct typec_mux_state state = {};
+	char buf[20];
+	u32 tmp;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
 
 	if (kstrtouint(buf, 0, &tmp))
 		return -EINVAL;
@@ -146,15 +171,13 @@ static ssize_t mux_store(struct device *dev,
 	return count;
 }
 
-static ssize_t mux_show(struct device *dev,
-			 struct device_attribute *attr, char *buf)
-{
-	struct typec_mux_switch *mux_sw =
-		(struct typec_mux_switch *)dev->driver_data;
-
-	return sprintf(buf, "%d\n", mux_sw->state.mode);
-}
-static DEVICE_ATTR_RW(mux);
+static const struct proc_ops proc_mux_fops = {
+	.proc_open = proc_mux_open,
+	.proc_write = proc_mux_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
 
 /* SWITCH */
 struct typec_switch *mtk_typec_switch_register(struct device *dev,
@@ -235,13 +258,44 @@ static int mtk_typec_switch_set(struct typec_switch *sw,
 	return ret;
 }
 
-static ssize_t sw_store(struct device *dev,
-			 struct device_attribute *attr,
-			 const char *buf, size_t count)
+static int proc_switch_show(struct seq_file *s, void *unused)
 {
-	struct typec_mux_switch *mux_sw =
-		(struct typec_mux_switch *)dev->driver_data;
+	struct typec_mux_switch *mux_sw = s->private;
+
+	switch (mux_sw->orientation) {
+	case TYPEC_ORIENTATION_NONE:
+		seq_printf(s, "NONE\n");
+		break;
+	case TYPEC_ORIENTATION_NORMAL:
+		seq_printf(s, "NORMAL\n");
+		break;
+	case TYPEC_ORIENTATION_REVERSE:
+		seq_printf(s, "REVERSE\n");
+		break;
+	default:
+		seq_printf(s, "INVALID\n");
+	}
+
+	seq_printf(s, "%d\n", mux_sw->orientation);
+	return 0;
+}
+
+static int proc_switch_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_switch_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_switch_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct typec_mux_switch *mux_sw = s->private;
+	char buf[20];
 	u32 tmp;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
 
 	if (kstrtouint(buf, 0, &tmp))
 		return -EINVAL;
@@ -257,54 +311,57 @@ static ssize_t sw_store(struct device *dev,
 	return count;
 }
 
-static ssize_t sw_show(struct device *dev,
-			 struct device_attribute *attr, char *buf)
-{
-	struct typec_mux_switch *mux_sw =
-		(struct typec_mux_switch *)dev->driver_data;
-	char str[16];
-
-	switch (mux_sw->orientation) {
-	case TYPEC_ORIENTATION_NONE:
-		strncpy(str, "NONE\0", 5);
-		break;
-	case TYPEC_ORIENTATION_NORMAL:
-		strncpy(str, "NORMAL\0", 7);
-		break;
-	case TYPEC_ORIENTATION_REVERSE:
-		strncpy(str, "REVERSE\0", 8);
-		break;
-	default:
-		strncpy(str, "INVALID\0", 8);
-	}
-
-	dev_info(mux_sw->dev, "%s %d %s\n", __func__,
-		 mux_sw->orientation, str);
-
-	return sprintf(buf, "%d\n", mux_sw->orientation);
-}
-static DEVICE_ATTR_RW(sw);
-
-static struct attribute *typec_mux_switch_attrs[] = {
-	&dev_attr_sw.attr,
-	&dev_attr_mux.attr,
-	NULL
+static const struct proc_ops proc_switch_fops = {
+	.proc_open = proc_switch_open,
+	.proc_write = proc_switch_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
-static const struct attribute_group typec_mux_switch_group = {
-	.attrs = typec_mux_switch_attrs,
-};
-
-static int typec_mux_switch_sysfs_init(struct typec_mux_switch *mux_sw)
+static int typec_mux_switch_procfs_init(struct typec_mux_switch *mux_sw)
 {
 	struct device *dev = mux_sw->dev;
+	struct proc_dir_entry *root;
+	struct proc_dir_entry *file;
 	int ret = 0;
 
-	ret = sysfs_create_group(&dev->kobj, &typec_mux_switch_group);
-	if (ret)
-		dev_info(dev, "failed to creat sysfs attributes\n");
+	proc_mkdir(PROC_TYPEC, NULL);
 
+	root = proc_mkdir(PROC_MUX_SWITCH, NULL);
+	if (!root) {
+		dev_info(dev, "failed to creat %d dir\n", PROC_MUX_SWITCH);
+		return -ENOMEM;
+	}
+
+	file = proc_create_data(PROC_SWITCH, 0644,
+			root, &proc_switch_fops, mux_sw);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", PROC_SWITCH);
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	file = proc_create_data(PROC_MUX, 0644,
+			root, &proc_mux_fops, mux_sw);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", PROC_MUX);
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	mux_sw->root = root;
+	return 0;
+
+err:
+	proc_remove(root);
 	return ret;
+}
+
+static int typec_mux_switch_procfs_exit(struct typec_mux_switch *mux_sw)
+{
+	proc_remove(mux_sw->root);
+	return 0;
 }
 
 static int typec_mux_switch_probe(struct platform_device *pdev)
@@ -348,11 +405,19 @@ static int typec_mux_switch_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mux_sw);
 
-	/* create sysfs for half-automation switch */
-	typec_mux_switch_sysfs_init(mux_sw);
+	/* create procfs for half-automation switch */
+	typec_mux_switch_procfs_init(mux_sw);
 
 	dev_info(dev, "%s done\n", __func__);
 	return ret;
+}
+
+static int typec_mux_switch_remove(struct platform_device *pdev)
+{
+	struct typec_mux_switch *mux_sw = dev_get_drvdata(&pdev->dev);
+
+	typec_mux_switch_procfs_exit(mux_sw);
+	return 0;
 }
 
 static const struct of_device_id typec_mux_switch_ids[] = {
@@ -362,6 +427,7 @@ static const struct of_device_id typec_mux_switch_ids[] = {
 
 static struct platform_driver typec_mux_switch_driver = {
 	.probe = typec_mux_switch_probe,
+	.remove = typec_mux_switch_remove,
 	.driver = {
 		.name = "mtk-typec-mux-switch",
 		.of_match_table = typec_mux_switch_ids,
