@@ -56,7 +56,12 @@ static int ext_id_tuning(struct drm_device *dev,
 static unsigned int roll_gpu_for_idle;
 static int g_emi_bound_table[HRT_LEVEL_NUM];
 
+#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833) || \
+	defined(CONFIG_MACH_MT6877)
+#define RSZ_TILE_LENGTH 1088
+#else
 #define RSZ_TILE_LENGTH 1440
+#endif
 #define RSZ_IN_MAX_HEIGHT 4096
 #define DISP_RSZ_LAYER_NUM 2
 
