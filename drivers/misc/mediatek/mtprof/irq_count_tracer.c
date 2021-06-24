@@ -58,6 +58,17 @@ const char *irq_to_name(int irq)
 	return NULL;
 }
 
+const void *irq_to_handler(int irq)
+{
+	struct irq_desc *desc;
+
+	desc = irq_to_desc(irq);
+
+	if (desc && desc->action && desc->action->handler)
+		return (void *)desc->action->handler;
+	return NULL;
+}
+
 #ifdef MODULE
 // workaround for kstat_irqs_cpu & kstat_irqs
 static unsigned int irq_mon_irqs(unsigned int irq)
@@ -246,8 +257,9 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			continue;
 
 		snprintf(aee_msg, sizeof(aee_msg),
-			 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
-			 irq, irq_to_name(irq), count, t_diff_ms,
+			 "irq: %d [<%px>]%pS, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
+			 irq, irq_to_handler(irq), irq_to_handler(irq), irq_to_name(irq),
+			 count, t_diff_ms,
 			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
 			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
 			 raw_smp_processor_id());
@@ -268,8 +280,8 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			do_div(t_diff_ms, 1000000);
 
 			snprintf(msg, sizeof(msg),
-				 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on all CPU",
-				 irq, irq_to_name(irq),
+				 "irq: %d [<%px>]%pS, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on all CPU",
+				 irq, irq_to_handler(irq), irq_to_handler(irq), irq_to_name(irq),
 				 irq_cpus[i].diff[irq], t_diff_ms,
 				 sec_high(irq_cpus[i].ts),
 				 sec_low(irq_cpus[i].ts),
