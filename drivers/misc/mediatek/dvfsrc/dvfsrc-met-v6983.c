@@ -178,6 +178,10 @@ static int dvfsrc_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
 		max_idx = 7;
 		level_mask = 0xFF;
 	break;
+	case 0x6879:
+		max_idx = 6;
+		level_mask = 0x7F;
+	break;
 	default:
 		max_idx = 5;
 		level_mask = 0x3F;
