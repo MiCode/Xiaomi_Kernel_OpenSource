@@ -53,6 +53,11 @@ static const struct mtk_gate cam_mr_clks[] = {
 			"cam_ck"/* parent */, 8),
 };
 
+static const struct mtk_clk_desc cam_mr_mcd = {
+	.clks = cam_mr_clks,
+	.num_clks = ARRAY_SIZE(cam_mr_clks),
+};
+
 static const struct mtk_gate_regs cam_ra_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -75,6 +80,11 @@ static const struct mtk_gate cam_ra_clks[] = {
 			"cam_ck"/* parent */, 1),
 	GATE_CAM_RA(CLK_CAM_RA_CAMTG, "cam_ra_camtg",
 			"cam_ck"/* parent */, 2),
+};
+
+static const struct mtk_clk_desc cam_ra_mcd = {
+	.clks = cam_ra_clks,
+	.num_clks = ARRAY_SIZE(cam_ra_clks),
 };
 
 static const struct mtk_gate_regs cam_rb_cg_regs = {
@@ -101,6 +111,11 @@ static const struct mtk_gate cam_rb_clks[] = {
 			"cam_ck"/* parent */, 2),
 };
 
+static const struct mtk_clk_desc cam_rb_mcd = {
+	.clks = cam_rb_clks,
+	.num_clks = ARRAY_SIZE(cam_rb_clks),
+};
+
 static const struct mtk_gate_regs cam_ya_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -125,6 +140,11 @@ static const struct mtk_gate cam_ya_clks[] = {
 			"cam_ck"/* parent */, 2),
 };
 
+static const struct mtk_clk_desc cam_ya_mcd = {
+	.clks = cam_ya_clks,
+	.num_clks = ARRAY_SIZE(cam_ya_clks),
+};
+
 static const struct mtk_gate_regs cam_yb_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -147,6 +167,11 @@ static const struct mtk_gate cam_yb_clks[] = {
 			"cam_ck"/* parent */, 1),
 	GATE_CAM_YB(CLK_CAM_YB_CAMTG, "cam_yb_camtg",
 			"cam_ck"/* parent */, 2),
+};
+
+static const struct mtk_clk_desc cam_yb_mcd = {
+	.clks = cam_yb_clks,
+	.num_clks = ARRAY_SIZE(cam_yb_clks),
 };
 
 static const struct mtk_gate_regs cam_m_cg_regs = {
@@ -231,193 +256,30 @@ static const struct mtk_gate cam_m_clks[] = {
 			"cam_ck"/* parent */, 31),
 };
 
-static int clk_mt6879_cam_mr_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_CAM_MR_NR_CLK);
-
-	mtk_clk_register_gates(node, cam_mr_clks, ARRAY_SIZE(cam_mr_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_cam_ra_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_CAM_RA_NR_CLK);
-
-	mtk_clk_register_gates(node, cam_ra_clks, ARRAY_SIZE(cam_ra_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_cam_rb_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_CAM_RB_NR_CLK);
-
-	mtk_clk_register_gates(node, cam_rb_clks, ARRAY_SIZE(cam_rb_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_cam_ya_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_CAM_YA_NR_CLK);
-
-	mtk_clk_register_gates(node, cam_ya_clks, ARRAY_SIZE(cam_ya_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_cam_yb_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_CAM_YB_NR_CLK);
-
-	mtk_clk_register_gates(node, cam_yb_clks, ARRAY_SIZE(cam_yb_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_cam_m_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_CAM_M_NR_CLK);
-
-	mtk_clk_register_gates(node, cam_m_clks, ARRAY_SIZE(cam_m_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
+static const struct mtk_clk_desc cam_m_mcd = {
+	.clks = cam_m_clks,
+	.num_clks = ARRAY_SIZE(cam_m_clks),
+};
 
 static const struct of_device_id of_match_clk_mt6879_cam[] = {
 	{
 		.compatible = "mediatek,mt6879-camsys_mraw",
-		.data = clk_mt6879_cam_mr_probe,
+		.data = &cam_mr_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-camsys_rawa",
-		.data = clk_mt6879_cam_ra_probe,
+		.data = &cam_ra_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-camsys_rawb",
-		.data = clk_mt6879_cam_rb_probe,
+		.data = &cam_rb_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-camsys_yuva",
-		.data = clk_mt6879_cam_ya_probe,
+		.data = &cam_ya_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-camsys_yuvb",
-		.data = clk_mt6879_cam_yb_probe,
+		.data = &cam_yb_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-cam_main_r1a",
-		.data = clk_mt6879_cam_m_probe,
+		.data = &cam_m_mcd,
 	}, {
 		/* sentinel */
 	}
@@ -426,18 +288,21 @@ static const struct of_device_id of_match_clk_mt6879_cam[] = {
 
 static int clk_mt6879_cam_grp_probe(struct platform_device *pdev)
 {
-	int (*clk_probe)(struct platform_device *pd);
 	int r;
 
-	clk_probe = of_device_get_match_data(&pdev->dev);
-	if (!clk_probe)
-		return -EINVAL;
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init begin\n", __func__, pdev->name);
+#endif
 
-	r = clk_probe(pdev);
+	r = mtk_clk_simple_probe(pdev);
 	if (r)
 		dev_err(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init end\n", __func__, pdev->name);
+#endif
 
 	return r;
 }

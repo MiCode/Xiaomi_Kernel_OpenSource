@@ -73,6 +73,11 @@ static const struct mtk_gate apu_acx_config_clks[] = {
 			"dsp_ck"/* parent */, 18),
 };
 
+static const struct mtk_clk_desc apu_acx_config_mcd = {
+	.clks = apu_acx_config_clks,
+	.num_clks = ARRAY_SIZE(apu_acx_config_clks),
+};
+
 static const struct mtk_gate_regs apu_dla_0_config_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -121,6 +126,11 @@ static const struct mtk_gate apu_dla_0_config_clks[] = {
 			"dsp4_ck"/* parent */, 20),
 };
 
+static const struct mtk_clk_desc apu_dla_0_config_mcd = {
+	.clks = apu_dla_0_config_clks,
+	.num_clks = ARRAY_SIZE(apu_dla_0_config_clks),
+};
+
 static const struct mtk_gate_regs apu_rcx_config_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -157,6 +167,11 @@ static const struct mtk_gate apu_rcx_config_clks[] = {
 			"dsp_ck"/* parent */, 9),
 };
 
+static const struct mtk_clk_desc apu_rcx_config_mcd = {
+	.clks = apu_rcx_config_clks,
+	.num_clks = ARRAY_SIZE(apu_rcx_config_clks),
+};
+
 static const struct mtk_gate_regs apu_rcx_vcore_config_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -181,6 +196,11 @@ static const struct mtk_gate apu_rcx_vcore_config_clks[] = {
 			"emi_n_ck"/* parent */, 2),
 	GATE_APU_RCX_VCORE_CONFIG(CLK_APU_RCX_VCORE_QOS, "apu_rcx_vcore_qos",
 			"emi_n_ck"/* parent */, 3),
+};
+
+static const struct mtk_clk_desc apu_rcx_vcore_config_mcd = {
+	.clks = apu_rcx_vcore_config_clks,
+	.num_clks = ARRAY_SIZE(apu_rcx_vcore_config_clks),
 };
 
 static const struct mtk_gate_regs mvpu0_top_config_cg_regs = {
@@ -227,162 +247,27 @@ static const struct mtk_gate mvpu0_top_config_clks[] = {
 			"dsp1_ck"/* parent */, 13),
 };
 
-static int clk_mt6879_apu_acx_config_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_APU_ACX_CONFIG_NR_CLK);
-
-	mtk_clk_register_gates(node, apu_acx_config_clks, ARRAY_SIZE(apu_acx_config_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_apu_dla_0_config_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_APU_DLA_0_CONFIG_NR_CLK);
-
-	mtk_clk_register_gates(node, apu_dla_0_config_clks, ARRAY_SIZE(apu_dla_0_config_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_apu_rcx_config_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_APU_RCX_CONFIG_NR_CLK);
-
-	mtk_clk_register_gates(node, apu_rcx_config_clks, ARRAY_SIZE(apu_rcx_config_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_apu_rcx_vcore_config_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_APU_RCX_VCORE_CONFIG_NR_CLK);
-
-	mtk_clk_register_gates(node, apu_rcx_vcore_config_clks, ARRAY_SIZE(apu_rcx_vcore_config_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_mvpu0_top_config_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_MVPU0_TOP_CONFIG_NR_CLK);
-
-	mtk_clk_register_gates(node, mvpu0_top_config_clks, ARRAY_SIZE(mvpu0_top_config_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
+static const struct mtk_clk_desc mvpu0_top_config_mcd = {
+	.clks = mvpu0_top_config_clks,
+	.num_clks = ARRAY_SIZE(mvpu0_top_config_clks),
+};
 
 static const struct of_device_id of_match_clk_mt6879_apu[] = {
 	{
 		.compatible = "mediatek,mt6879-apu_acx_config",
-		.data = clk_mt6879_apu_acx_config_probe,
+		.data = &apu_acx_config_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-apu_dla_0_config",
-		.data = clk_mt6879_apu_dla_0_config_probe,
+		.data = &apu_dla_0_config_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-apu_rcx_config",
-		.data = clk_mt6879_apu_rcx_config_probe,
+		.data = &apu_rcx_config_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-apu_rcx_vcore_config",
-		.data = clk_mt6879_apu_rcx_vcore_config_probe,
+		.data = &apu_rcx_vcore_config_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-mvpu0_top_config",
-		.data = clk_mt6879_mvpu0_top_config_probe,
+		.data = &mvpu0_top_config_mcd,
 	}, {
 		/* sentinel */
 	}
@@ -391,18 +276,21 @@ static const struct of_device_id of_match_clk_mt6879_apu[] = {
 
 static int clk_mt6879_apu_grp_probe(struct platform_device *pdev)
 {
-	int (*clk_probe)(struct platform_device *pd);
 	int r;
 
-	clk_probe = of_device_get_match_data(&pdev->dev);
-	if (!clk_probe)
-		return -EINVAL;
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init begin\n", __func__, pdev->name);
+#endif
 
-	r = clk_probe(pdev);
+	r = mtk_clk_simple_probe(pdev);
 	if (r)
 		dev_err(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init end\n", __func__, pdev->name);
+#endif
 
 	return r;
 }

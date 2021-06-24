@@ -14,6 +14,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
@@ -295,6 +296,30 @@ void mtk_clk_register_dividers(const struct mtk_clk_divider *mcds,
 	}
 }
 EXPORT_SYMBOL(mtk_clk_register_dividers);
+
+
+int mtk_clk_simple_probe(struct platform_device *pdev)
+{
+	const struct mtk_clk_desc *mcd;
+	struct clk_onecell_data *clk_data;
+	struct device_node *node = pdev->dev.of_node;
+	int r;
+
+	mcd = of_device_get_match_data(&pdev->dev);
+	if (!mcd)
+		return -EINVAL;
+
+	clk_data = mtk_alloc_clk_data(mcd->num_clks);
+	if (!clk_data)
+		return -ENOMEM;
+
+	r = mtk_clk_register_gates(node, mcd->clks, mcd->num_clks, clk_data);
+	if (r)
+		return r;
+
+	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+}
+EXPORT_SYMBOL(mtk_clk_simple_probe);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek MTK");

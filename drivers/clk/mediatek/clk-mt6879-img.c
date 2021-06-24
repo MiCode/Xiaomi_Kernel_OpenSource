@@ -41,6 +41,11 @@ static const struct mtk_gate dip_nr_dip1_clks[] = {
 			"img1_ck"/* parent */, 1),
 };
 
+static const struct mtk_clk_desc dip_nr_dip1_mcd = {
+	.clks = dip_nr_dip1_clks,
+	.num_clks = ARRAY_SIZE(dip_nr_dip1_clks),
+};
+
 static const struct mtk_gate_regs dip_top_dip1_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -61,6 +66,11 @@ static const struct mtk_gate dip_top_dip1_clks[] = {
 			"img1_ck"/* parent */, 0),
 	GATE_DIP_TOP_DIP1(CLK_DIP_TOP_DIP1_DIP_TOP, "dip_dip1_dip_top",
 			"img1_ck"/* parent */, 1),
+};
+
+static const struct mtk_clk_desc dip_top_dip1_mcd = {
+	.clks = dip_top_dip1_clks,
+	.num_clks = ARRAY_SIZE(dip_top_dip1_clks),
 };
 
 static const struct mtk_gate_regs img_cg_regs = {
@@ -101,6 +111,11 @@ static const struct mtk_gate img_clks[] = {
 			"img1_ck"/* parent */, 31),
 };
 
+static const struct mtk_clk_desc img_mcd = {
+	.clks = img_clks,
+	.num_clks = ARRAY_SIZE(img_clks),
+};
+
 static const struct mtk_gate_regs ipe_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -129,6 +144,11 @@ static const struct mtk_gate ipe_clks[] = {
 			"ipe_ck"/* parent */, 4),
 };
 
+static const struct mtk_clk_desc ipe_mcd = {
+	.clks = ipe_clks,
+	.num_clks = ARRAY_SIZE(ipe_clks),
+};
+
 static const struct mtk_gate_regs wpe1_dip1_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -149,6 +169,11 @@ static const struct mtk_gate wpe1_dip1_clks[] = {
 			"img1_ck"/* parent */, 0),
 	GATE_WPE1_DIP1(CLK_WPE1_DIP1_WPE, "wpe1_dip1_wpe",
 			"img1_ck"/* parent */, 1),
+};
+
+static const struct mtk_clk_desc wpe1_dip1_mcd = {
+	.clks = wpe1_dip1_clks,
+	.num_clks = ARRAY_SIZE(wpe1_dip1_clks),
 };
 
 static const struct mtk_gate_regs wpe2_dip1_cg_regs = {
@@ -173,6 +198,11 @@ static const struct mtk_gate wpe2_dip1_clks[] = {
 			"img1_ck"/* parent */, 1),
 };
 
+static const struct mtk_clk_desc wpe2_dip1_mcd = {
+	.clks = wpe2_dip1_clks,
+	.num_clks = ARRAY_SIZE(wpe2_dip1_clks),
+};
+
 static const struct mtk_gate_regs wpe3_dip1_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -195,224 +225,33 @@ static const struct mtk_gate wpe3_dip1_clks[] = {
 			"img1_ck"/* parent */, 1),
 };
 
-static int clk_mt6879_dip_nr_dip1_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_DIP_NR_DIP1_NR_CLK);
-
-	mtk_clk_register_gates(node, dip_nr_dip1_clks, ARRAY_SIZE(dip_nr_dip1_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_dip_top_dip1_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_DIP_TOP_DIP1_NR_CLK);
-
-	mtk_clk_register_gates(node, dip_top_dip1_clks, ARRAY_SIZE(dip_top_dip1_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_img_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_IMG_NR_CLK);
-
-	mtk_clk_register_gates(node, img_clks, ARRAY_SIZE(img_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_ipe_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_IPE_NR_CLK);
-
-	mtk_clk_register_gates(node, ipe_clks, ARRAY_SIZE(ipe_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_wpe1_dip1_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_WPE1_DIP1_NR_CLK);
-
-	mtk_clk_register_gates(node, wpe1_dip1_clks, ARRAY_SIZE(wpe1_dip1_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_wpe2_dip1_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_WPE2_DIP1_NR_CLK);
-
-	mtk_clk_register_gates(node, wpe2_dip1_clks, ARRAY_SIZE(wpe2_dip1_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_wpe3_dip1_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_WPE3_DIP1_NR_CLK);
-
-	mtk_clk_register_gates(node, wpe3_dip1_clks, ARRAY_SIZE(wpe3_dip1_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
+static const struct mtk_clk_desc wpe3_dip1_mcd = {
+	.clks = wpe3_dip1_clks,
+	.num_clks = ARRAY_SIZE(wpe3_dip1_clks),
+};
 
 static const struct of_device_id of_match_clk_mt6879_img[] = {
 	{
 		.compatible = "mediatek,mt6879-dip_nr_dip1",
-		.data = clk_mt6879_dip_nr_dip1_probe,
+		.data = &dip_nr_dip1_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-dip_top_dip1",
-		.data = clk_mt6879_dip_top_dip1_probe,
+		.data = &dip_top_dip1_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-imgsys_main",
-		.data = clk_mt6879_img_probe,
+		.data = &img_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-ipesys",
-		.data = clk_mt6879_ipe_probe,
+		.data = &ipe_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-wpe1_dip1",
-		.data = clk_mt6879_wpe1_dip1_probe,
+		.data = &wpe1_dip1_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-wpe2_dip1",
-		.data = clk_mt6879_wpe2_dip1_probe,
+		.data = &wpe2_dip1_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-wpe3_dip1",
-		.data = clk_mt6879_wpe3_dip1_probe,
+		.data = &wpe3_dip1_mcd,
 	}, {
 		/* sentinel */
 	}
@@ -421,18 +260,21 @@ static const struct of_device_id of_match_clk_mt6879_img[] = {
 
 static int clk_mt6879_img_grp_probe(struct platform_device *pdev)
 {
-	int (*clk_probe)(struct platform_device *pd);
 	int r;
 
-	clk_probe = of_device_get_match_data(&pdev->dev);
-	if (!clk_probe)
-		return -EINVAL;
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init begin\n", __func__, pdev->name);
+#endif
 
-	r = clk_probe(pdev);
+	r = mtk_clk_simple_probe(pdev);
 	if (r)
 		dev_err(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init end\n", __func__, pdev->name);
+#endif
 
 	return r;
 }

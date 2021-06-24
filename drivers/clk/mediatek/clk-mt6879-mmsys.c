@@ -142,6 +142,11 @@ static const struct mtk_gate mm_clks[] = {
 			"dpi_ck"/* parent */, 3),
 };
 
+static const struct mtk_clk_desc mm_mcd = {
+	.clks = mm_clks,
+	.num_clks = ARRAY_SIZE(mm_clks),
+};
+
 static const struct mtk_gate_regs gce_d_cg_regs = {
 	.set_ofs = 0xF0,
 	.clr_ofs = 0xF0,
@@ -162,6 +167,11 @@ static const struct mtk_gate gce_d_clks[] = {
 			"axi_ck"/* parent */, 16),
 };
 
+static const struct mtk_clk_desc gce_d_mcd = {
+	.clks = gce_d_clks,
+	.num_clks = ARRAY_SIZE(gce_d_clks),
+};
+
 static const struct mtk_gate_regs gce_m_cg_regs = {
 	.set_ofs = 0xF0,
 	.clr_ofs = 0xF0,
@@ -180,6 +190,11 @@ static const struct mtk_gate_regs gce_m_cg_regs = {
 static const struct mtk_gate gce_m_clks[] = {
 	GATE_GCE_M(CLK_GCE_M_TOP, "gce_m_top",
 			"axi_ck"/* parent */, 16),
+};
+
+static const struct mtk_clk_desc gce_m_mcd = {
+	.clks = gce_m_clks,
+	.num_clks = ARRAY_SIZE(gce_m_clks),
 };
 
 static const struct mtk_gate_regs mminfra_config0_cg_regs = {
@@ -225,131 +240,24 @@ static const struct mtk_gate mminfra_config_clks[] = {
 			"mminfra_ck"/* parent */, 17),
 };
 
-static int clk_mt6879_mm_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_MM_NR_CLK);
-
-	mtk_clk_register_gates(node, mm_clks, ARRAY_SIZE(mm_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_gce_d_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_GCE_D_NR_CLK);
-
-	mtk_clk_register_gates(node, gce_d_clks, ARRAY_SIZE(gce_d_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_gce_m_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_GCE_M_NR_CLK);
-
-	mtk_clk_register_gates(node, gce_m_clks, ARRAY_SIZE(gce_m_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_mminfra_config_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_MMINFRA_CONFIG_NR_CLK);
-
-	mtk_clk_register_gates(node, mminfra_config_clks, ARRAY_SIZE(mminfra_config_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
+static const struct mtk_clk_desc mminfra_config_mcd = {
+	.clks = mminfra_config_clks,
+	.num_clks = ARRAY_SIZE(mminfra_config_clks),
+};
 
 static const struct of_device_id of_match_clk_mt6879_mmsys[] = {
 	{
 		.compatible = "mediatek,mt6879-dispsys_config",
-		.data = clk_mt6879_mm_probe,
+		.data = &mm_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-gce_d",
-		.data = clk_mt6879_gce_d_probe,
+		.data = &gce_d_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-gce_m",
-		.data = clk_mt6879_gce_m_probe,
+		.data = &gce_m_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-mminfra_config",
-		.data = clk_mt6879_mminfra_config_probe,
+		.data = &mminfra_config_mcd,
 	}, {
 		/* sentinel */
 	}
@@ -358,18 +266,21 @@ static const struct of_device_id of_match_clk_mt6879_mmsys[] = {
 
 static int clk_mt6879_mmsys_grp_probe(struct platform_device *pdev)
 {
-	int (*clk_probe)(struct platform_device *pd);
 	int r;
 
-	clk_probe = of_device_get_match_data(&pdev->dev);
-	if (!clk_probe)
-		return -EINVAL;
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init begin\n", __func__, pdev->name);
+#endif
 
-	r = clk_probe(pdev);
+	r = mtk_clk_simple_probe(pdev);
 	if (r)
 		dev_err(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init end\n", __func__, pdev->name);
+#endif
 
 	return r;
 }

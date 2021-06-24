@@ -80,6 +80,11 @@ static const struct mtk_gate vde2_clks[] = {
 			"vdec_ck"/* parent */, 0),
 };
 
+static const struct mtk_clk_desc vde2_mcd = {
+	.clks = vde2_clks,
+	.num_clks = ARRAY_SIZE(vde2_clks),
+};
+
 static const struct mtk_gate_regs ven1_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -106,69 +111,18 @@ static const struct mtk_gate ven1_clks[] = {
 			"venc_ck"/* parent */, 28),
 };
 
-static int clk_mt6879_vde2_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_VDE2_NR_CLK);
-
-	mtk_clk_register_gates(node, vde2_clks, ARRAY_SIZE(vde2_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_ven1_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_VEN1_NR_CLK);
-
-	mtk_clk_register_gates(node, ven1_clks, ARRAY_SIZE(ven1_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
+static const struct mtk_clk_desc ven1_mcd = {
+	.clks = ven1_clks,
+	.num_clks = ARRAY_SIZE(ven1_clks),
+};
 
 static const struct of_device_id of_match_clk_mt6879_vcodec[] = {
 	{
 		.compatible = "mediatek,mt6879-vdec_gcon_base",
-		.data = clk_mt6879_vde2_probe,
+		.data = &vde2_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-vencsys",
-		.data = clk_mt6879_ven1_probe,
+		.data = &ven1_mcd,
 	}, {
 		/* sentinel */
 	}
@@ -177,18 +131,21 @@ static const struct of_device_id of_match_clk_mt6879_vcodec[] = {
 
 static int clk_mt6879_vcodec_grp_probe(struct platform_device *pdev)
 {
-	int (*clk_probe)(struct platform_device *pd);
 	int r;
 
-	clk_probe = of_device_get_match_data(&pdev->dev);
-	if (!clk_probe)
-		return -EINVAL;
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init begin\n", __func__, pdev->name);
+#endif
 
-	r = clk_probe(pdev);
+	r = mtk_clk_simple_probe(pdev);
 	if (r)
 		dev_err(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init end\n", __func__, pdev->name);
+#endif
 
 	return r;
 }

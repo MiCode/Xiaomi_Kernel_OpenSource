@@ -110,6 +110,11 @@ static const struct mtk_gate imp_clks[] = {
 			"i2c_ck"/* parent */, 3),
 };
 
+static const struct mtk_clk_desc imp_mcd = {
+	.clks = imp_clks,
+	.num_clks = ARRAY_SIZE(imp_clks),
+};
+
 static const struct mtk_gate_regs perao0_cg_regs = {
 	.set_ofs = 0x24,
 	.clr_ofs = 0x28,
@@ -271,6 +276,11 @@ static const struct mtk_gate perao_clks[] = {
 			"axip_ck"/* parent */, 6),
 };
 
+static const struct mtk_clk_desc perao_mcd = {
+	.clks = perao_clks,
+	.num_clks = ARRAY_SIZE(perao_clks),
+};
+
 static const struct mtk_gate_regs usb_d_cg_regs = {
 	.set_ofs = 0xC84,
 	.clr_ofs = 0xC84,
@@ -289,6 +299,11 @@ static const struct mtk_gate_regs usb_d_cg_regs = {
 static const struct mtk_gate usb_d_clks[] = {
 	GATE_USB_D(CLK_USB_D_DMA_B, "usb_d_dma_b",
 			"axi_ck"/* parent */, 2),
+};
+
+static const struct mtk_clk_desc usb_d_mcd = {
+	.clks = usb_d_clks,
+	.num_clks = ARRAY_SIZE(usb_d_clks),
 };
 
 static const struct mtk_gate_regs usb_s0_cg_regs = {
@@ -348,6 +363,11 @@ static const struct mtk_gate usb_s_clks[] = {
 			"axi_ck"/* parent */, 0),
 };
 
+static const struct mtk_clk_desc usb_s_mcd = {
+	.clks = usb_s_clks,
+	.num_clks = ARRAY_SIZE(usb_s_clks),
+};
+
 static const struct mtk_gate_regs ufsao0_cg_regs = {
 	.set_ofs = 0x0,
 	.clr_ofs = 0x0,
@@ -405,6 +425,11 @@ static const struct mtk_gate ufsao_clks[] = {
 			"f26m_ck"/* parent */, 4),
 	GATE_UFSAO1(CLK_UFSAO_U_RX_SYM1_0, "ufsao_u_rx_sym1_0",
 			"f26m_ck"/* parent */, 5),
+};
+
+static const struct mtk_clk_desc ufsao_mcd = {
+	.clks = ufsao_clks,
+	.num_clks = ARRAY_SIZE(ufsao_clks),
 };
 
 static const struct mtk_gate_regs ufspdn0_cg_regs = {
@@ -474,193 +499,30 @@ static const struct mtk_gate ufspdn_clks[] = {
 			"mem_sub_ck"/* parent */, 7),
 };
 
-static int clk_mt6879_imp_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_IMP_NR_CLK);
-
-	mtk_clk_register_gates(node, imp_clks, ARRAY_SIZE(imp_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_perao_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_PERAO_NR_CLK);
-
-	mtk_clk_register_gates(node, perao_clks, ARRAY_SIZE(perao_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_usb_d_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_USB_D_NR_CLK);
-
-	mtk_clk_register_gates(node, usb_d_clks, ARRAY_SIZE(usb_d_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_usb_s_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_USB_S_NR_CLK);
-
-	mtk_clk_register_gates(node, usb_s_clks, ARRAY_SIZE(usb_s_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_ufsao_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_UFSAO_NR_CLK);
-
-	mtk_clk_register_gates(node, ufsao_clks, ARRAY_SIZE(ufsao_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6879_ufspdn_probe(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	clk_data = mtk_alloc_clk_data(CLK_UFSPDN_NR_CLK);
-
-	mtk_clk_register_gates(node, ufspdn_clks, ARRAY_SIZE(ufspdn_clks),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
+static const struct mtk_clk_desc ufspdn_mcd = {
+	.clks = ufspdn_clks,
+	.num_clks = ARRAY_SIZE(ufspdn_clks),
+};
 
 static const struct of_device_id of_match_clk_mt6879_peri[] = {
 	{
 		.compatible = "mediatek,mt6879-imp_iic_wrap",
-		.data = clk_mt6879_imp_probe,
+		.data = &imp_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-pericfg_ao",
-		.data = clk_mt6879_perao_probe,
+		.data = &perao_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-ssusb_device",
-		.data = clk_mt6879_usb_d_probe,
+		.data = &usb_d_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-ssusb_sifslv_ippc",
-		.data = clk_mt6879_usb_s_probe,
+		.data = &usb_s_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-ufs_ao_config",
-		.data = clk_mt6879_ufsao_probe,
+		.data = &ufsao_mcd,
 	}, {
 		.compatible = "mediatek,mt6879-ufs_pdn_cfg",
-		.data = clk_mt6879_ufspdn_probe,
+		.data = &ufspdn_mcd,
 	}, {
 		/* sentinel */
 	}
@@ -669,18 +531,21 @@ static const struct of_device_id of_match_clk_mt6879_peri[] = {
 
 static int clk_mt6879_peri_grp_probe(struct platform_device *pdev)
 {
-	int (*clk_probe)(struct platform_device *pd);
 	int r;
 
-	clk_probe = of_device_get_match_data(&pdev->dev);
-	if (!clk_probe)
-		return -EINVAL;
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init begin\n", __func__, pdev->name);
+#endif
 
-	r = clk_probe(pdev);
+	r = mtk_clk_simple_probe(pdev);
 	if (r)
 		dev_err(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s: %s init end\n", __func__, pdev->name);
+#endif
 
 	return r;
 }
