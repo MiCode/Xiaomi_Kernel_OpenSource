@@ -25,6 +25,7 @@
 #include <linux/uaccess.h>
 #include "mtk_cpu_dbg.h"
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -58,6 +59,7 @@ u32 *g_dbg_repo;
 u32 *g_usram_repo;
 u32 *g_cpufreq_debug;
 u32 *g_phyclk;
+u32 *g_phyvolt;
 u32 *g_C0_opp_idx;
 u32 *g_C1_opp_idx;
 u32 *g_C2_opp_idx;
@@ -66,6 +68,8 @@ u32 *g_C3_opp_idx;
 int g_num_cluster;//g_num_cluster<=MAX_CLUSTER_NRS
 struct pll_addr pll_addr[MAX_CLUSTER_NRS];
 unsigned int cluster_off[MAX_CLUSTER_NRS+1];//domain + cci
+
+static struct regulator *vprocs[MAX_CLUSTER_NRS];
 
 static unsigned int pll_to_clk(unsigned int pll_f, unsigned int ckdiv1)
 {
@@ -316,6 +320,23 @@ static int phyclk_proc_show(struct seq_file *m, void *v)
 
 PROC_FOPS_RO(phyclk);
 
+static int phyvolt_proc_show(struct seq_file *m, void *v)
+{
+	int i, cur_uv;
+	static const char * const name_arr[] = {"C0", "C1", "C2"};
+
+	for (i = 0; i < g_num_cluster; i++) {
+		if (!IS_ERR(vprocs[i]) && vprocs[i])
+			cur_uv = regulator_get_voltage(vprocs[i]);
+		else
+			cur_uv = -ENODEV;
+		seq_printf(m, "old cluster: %s, volt = %d\n", name_arr[i], cur_uv);
+	}
+	return 0;
+}
+
+PROC_FOPS_RO(phyvolt);
+
 static int create_cpufreq_debug_fs(void)
 {
 	struct proc_dir_entry *dir = NULL;
@@ -331,6 +352,7 @@ static int create_cpufreq_debug_fs(void)
 		PROC_ENTRY_DATA(dbg_repo),
 		PROC_ENTRY_DATA(cpufreq_debug),
 		PROC_ENTRY_DATA(phyclk),
+		PROC_ENTRY_DATA(phyvolt),
 		PROC_ENTRY_DATA(usram_repo),
 	};
 	const struct pentry clusters[MAX_CLUSTER_NRS+1] = {
@@ -380,6 +402,7 @@ static int mtk_cpuhvfs_init(void)
 	struct device_node *mcucfg_node;
 	struct platform_device *pdev;
 	struct resource *csram_res, *usram_res;
+	static const char * const vproc_names[] = {"proc1", "proc2", "proc3"};
 
 	hvfs_node = of_find_node_by_name(NULL, "cpuhvfs");
 	if (hvfs_node == NULL) {
@@ -447,6 +470,14 @@ static int mtk_cpuhvfs_init(void)
 	for (i = 0; i < g_num_cluster+1; i++)
 		of_property_read_u32_index(hvfs_node, TBL_OFF_PROP_NAME, i, &cluster_off[i]);
 
+	// Get regulators for dvfs debugging
+	for (i = 0; i < g_num_cluster; i++) {
+		vprocs[i] = devm_regulator_get_optional(&pdev->dev, vproc_names[i]);
+		if (!IS_ERR(vprocs[i]) && vprocs[i])
+			pr_info("[cpuhvfs] regulator used for %s was found\n", vproc_names[i]);
+		else
+			pr_info("[cpuhvfs] regulator used for %s was not found\n", vproc_names[i]);
+	}
 
 	create_cpufreq_debug_fs();
 #ifdef EEM_DBG
