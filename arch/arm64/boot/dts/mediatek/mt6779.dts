@@ -4196,7 +4196,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		tui-size = <0 0x4000000>;
 #endif
 #ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
-		wfd-size = <0 0x4000000>;
+		wfd-size = <0 0x5000000>;
 #endif
 #ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 		prot-region-based-size = <0 0x8000000>;
