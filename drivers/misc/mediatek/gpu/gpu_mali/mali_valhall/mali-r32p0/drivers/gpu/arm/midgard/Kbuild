@@ -69,8 +69,6 @@ include $(src)/Kbuild-mtk-custom-env
 include $(src)/platform/mtk_platform_common/Kbuild
 ccflags-y += -I$(src)/include
 subdir-ccflags-y += -I$(src)/include
-# ARM Ticket: CAS-173191-P7F4D1
-DEFINES += -DCONFIG_MALI_DMA_BUF_LEGACY_COMPAT=1
 
 # Driver version string which is returned to userspace via an ioctl
 MALI_RELEASE_NAME ?= '"r32p0-00cet0"'
