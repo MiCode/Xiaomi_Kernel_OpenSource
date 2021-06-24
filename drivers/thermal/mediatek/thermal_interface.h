@@ -12,6 +12,7 @@
 #define CPU_PREDICT_TEMP_OFFSET     (0x60)
 #define AP_NTC_HEADROOM_OFFSET      (0x80)
 #define TPCB_OFFSET                 (0x84)
+#define TARGET_TPCB_OFFSET          (0x88)
 #define TTJ_OFFSET                 (0x100)
 #define POWER_BUDGET_OFFSET        (0x110)
 #define CPU_MIN_OPP_HINT_OFFSET    (0x120)

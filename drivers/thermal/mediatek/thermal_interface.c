@@ -333,6 +333,34 @@ static ssize_t atc_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return len;
 }
 
+static ssize_t target_tpcb_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	void __iomem *target_tpcb_addr = tm_data.csram_base + TARGET_TPCB_OFFSET;
+	int target_tpcb = readl(target_tpcb_addr);
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", target_tpcb);
+
+	return len;
+}
+
+static ssize_t target_tpcb_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int target_tpcb = 0;
+	void __iomem *target_tpcb_addr = tm_data.csram_base + TARGET_TPCB_OFFSET;
+
+	if(sscanf(buf, "%d", &target_tpcb) == 1)
+		writel(target_tpcb, target_tpcb_addr);
+	else {
+		pr_info("[target_tpcb_store] invalid input\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
 static struct kobj_attribute cpu_info_attr = __ATTR_RO(cpu_info);
@@ -342,6 +370,7 @@ static struct kobj_attribute fps_cooler_info_attr = __ATTR_RW(fps_cooler_info);
 static struct kobj_attribute cpu_temp_attr = __ATTR_RO(cpu_temp);
 static struct kobj_attribute headroom_info_attr = __ATTR_RO(headroom_info);
 static struct kobj_attribute atc_attr = __ATTR_RO(atc);
+static struct kobj_attribute target_tpcb_attr = __ATTR_RW(target_tpcb);
 
 static struct attribute *thermal_attrs[] = {
 	&ttj_attr.attr,
@@ -353,6 +382,7 @@ static struct attribute *thermal_attrs[] = {
 	&cpu_temp_attr.attr,
 	&headroom_info_attr.attr,
 	&atc_attr.attr,
+	&target_tpcb_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {
