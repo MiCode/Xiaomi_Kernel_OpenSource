@@ -21,4 +21,14 @@ config MTK_CACHE_PARITY_CHECK
 	  Enable this to get the report on detection or correction
 	  of errors.
 
+config MTK_IRQ_DBG
+	tristate "MediaTek IRQ dbg driver"
+	help
+	  This selects the device driver for the interrupt
+	  debug module. The module provides APIs of irq debug
+	  in the Mediatek SoC.
+
+	  Enable this to get the interrupt related APIs for
+	  debugging only.
+
 endif
