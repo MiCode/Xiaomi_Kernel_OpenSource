@@ -221,6 +221,7 @@ static int is_skb_gro(struct sk_buff *skb)
 static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 {
 	struct timespec64 curr_time, diff;
+	struct napi_struct *napi;
 
 	if (!gro_flush_timer)
 		return;
@@ -228,7 +229,13 @@ static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 	ktime_get_real_ts64(&curr_time);
 	diff = timespec64_sub(curr_time, ccmni->flush_time);
 	if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_timer)) {
-		napi_gro_flush(ccmni->napi, false);
+		napi = ccmni->napi;
+		napi_gro_flush(napi, false);
+		if (napi->rx_count) {
+			netif_receive_skb_list(&napi->rx_list);
+			INIT_LIST_HEAD(&napi->rx_list);
+			napi->rx_count = 0;
+		}
 		timeout_flush_num++;
 		ktime_get_real_ts64(&ccmni->flush_time);
 	}
