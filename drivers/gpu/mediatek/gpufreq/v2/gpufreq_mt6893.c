@@ -48,6 +48,7 @@
 #endif
 #if IS_ENABLED(CONFIG_COMMON_CLK_MT6893)
 #include <clk-fmeter.h>
+#include <clk-mt6893-fmeter.h>
 #endif
 
 /**
