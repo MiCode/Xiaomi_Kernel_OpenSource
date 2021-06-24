@@ -86,6 +86,7 @@
   /* class 8 */
 #define MMC_APP_CMD              55   /* ac   [31:16] RCA        R1  */
 #define MMC_GEN_CMD              56   /* adtc [0] RD/WR          R1  */
+#define MMC_VENDOR_CMD63         63   /* vendor command          R1  */
 
   /* class 11 */
 #define MMC_QUE_TASK_PARAMS      44   /* ac   [20:16] task id    R1  */
