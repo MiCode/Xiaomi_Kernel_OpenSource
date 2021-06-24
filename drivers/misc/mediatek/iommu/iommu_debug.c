@@ -17,10 +17,12 @@
 #include <linux/sched/clock.h>
 #include <linux/export.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
+#include <trace/hooks/iommu.h>
 #if 0 //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif
 #include "iommu_debug.h"
+#include "iommu_iova_dbg.h"
 
 #define ERROR_LARB_PORT_ID		0xFFFF
 #define F_MMU_INT_TF_MSK		GENMASK(12, 2)
@@ -37,6 +39,7 @@ enum mtk_iova_space {
 	MTK_IOVA_SPACE_NUM
 };
 
+static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 #if 0 //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define m4u_aee_print(string, args...) do {\
 		char m4u_name[100];\
@@ -2157,10 +2160,92 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 	return 0;
 }
 
+#ifdef _RESTRICTED_IOVA_VENDOR_HOOKS_
+static void mtk_iova_dbg_dump(struct device *dev)
+{
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct iova_info *plist = NULL;
+	struct iova_info *n = NULL;
+
+	spin_lock(&iova_list.lock);
+	pr_info("%6s %18s %8s %18s\n", "dom_id", "iova", "size", "dev");
+	list_for_each_entry_safe(plist, n, &iova_list.head, list_node)
+		if (plist->dom_id == MTK_M4U_TO_DOM(fwspec->ids[0]))
+			pr_info("%6u %18pa %8zx %18s\n",
+				plist->dom_id,
+				&plist->iova,
+				plist->size,
+				dev_name(plist->dev));
+	spin_unlock(&iova_list.lock);
+}
+#endif
+
+static void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
+{
+	struct iova_info *iova_buf;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+
+	if (!iova) {
+#ifdef _RESTRICTED_IOVA_VENDOR_HOOKS_
+		/* un-comment it when using restrict hook */
+		pr_info("[mtk_iommu: debug] %s fail! dev:%s, size:0x%zx\n",
+			__func__, dev_name(dev), size);
+		return mtk_iova_dbg_dump(dev);
+#else
+		return;
+#endif
+	}
+
+	if (!atomic_cmpxchg(&iova_list.init_flag, 0, 1)) {
+		/* pr_info("iommu debug info init\n"); */
+		spin_lock_init(&iova_list.lock);
+		INIT_LIST_HEAD(&iova_list.head);
+	}
+	iova_buf = kzalloc(sizeof(*iova_buf), GFP_KERNEL);
+	if (!iova_buf)
+		return;
+
+	iova_buf->dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
+	iova_buf->dev = dev;
+	iova_buf->iova = iova;
+	iova_buf->size = size;
+	spin_lock(&iova_list.lock);
+	list_add(&iova_buf->list_node, &iova_list.head);
+	spin_unlock(&iova_list.lock);
+}
+
+static void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
+{
+	struct iova_info *plist;
+	struct iova_info *tmp_plist;
+
+	spin_lock(&iova_list.lock);
+	list_for_each_entry_safe(plist, tmp_plist,
+				 &iova_list.head, list_node) {
+		if (plist->iova == iova && plist->size == size) {
+			list_del(&plist->list_node);
+			kfree(plist);
+			break;
+		}
+	}
+	spin_unlock(&iova_list.lock);
+}
+
+/* all code inside alloc_iova_hook can't be scheduled! */
+static void alloc_iova_hook(void *data, struct device *dev, dma_addr_t iova, size_t size) {
+	return mtk_iova_dbg_alloc(dev, iova, size);
+}
+
+/* all code inside free_iova_hook can't be scheduled! */
+static void free_iova_hook(void *data, dma_addr_t iova, size_t size) {
+	return mtk_iova_dbg_free(iova, size);
+}
+
 static int mtk_m4u_dbg_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	u32 total_port;
+	int ret = 0;
 
 	pr_info("%s start\n", __func__);
 	m4u_data = devm_kzalloc(dev, sizeof(struct mtk_m4u_data), GFP_KERNEL);
@@ -2185,6 +2270,12 @@ static int mtk_m4u_dbg_probe(struct platform_device *pdev)
 		m4u_data->plat_data->port_nr[MM_IOMMU],
 		m4u_data->plat_data->port_list[MM_IOMMU][10].name,
 		F_APU_MMU_INT_TF_MSK(0x111));
+
+	ret = register_trace_android_vh_iommu_alloc_iova(alloc_iova_hook, "mtk_m4u_dbg_probe");
+	pr_debug("add alloc iova hook %s\n", ret ? "fail": "pass");
+	ret = register_trace_android_vh_iommu_free_iova(free_iova_hook, "mtk_m4u_dbg_probe");
+	pr_debug("add free iova hook %s\n", ret ? "fail": "pass");
+
 	return 0;
 }
 
