@@ -1946,10 +1946,12 @@
 		sspm@10400000 {
 			compatible = "mediatek,sspm";
 			reg = <0 0x10400000 0 0x28000>,
-				<0 0x10440000 0 0x10000>;
+				<0 0x10440000 0 0x10000>,
+				<0 0x10480000 0 0x100>;
 
 			reg-names = "sspm_base",
-				"cfgreg";
+				"cfgreg",
+				"mbox_share";
 
 			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>;
 
