@@ -2642,8 +2642,9 @@
 			phys = <&u2port0 PHY_TYPE_USB2>,
 				 <&u3port0 PHY_TYPE_USB3>;
 			clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB>,
+				   <&topckgen_clk CLK_TOP_USB_TOP_SEL>,
 				   <&infracfg_ao_clk CLK_IFRAO_SSUSB_XHCI>;
-			clock-names = "sys_ck","ref_ck";
+			clock-names = "sys_ck", "ref_ck", "host_ck";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
@@ -2662,7 +2663,6 @@
 				interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH 0>;
 				clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB_XHCI>;
 				clock-names = "sys_ck";
-				mediatek,keep-clock-on;
 				status = "okay";
 			};
 		};
