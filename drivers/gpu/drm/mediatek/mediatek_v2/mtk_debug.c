@@ -74,16 +74,14 @@ bool g_detail_log;
 bool g_trace_log;
 unsigned int mipi_volt;
 unsigned int disp_met_en;
+unsigned int lfr_dbg;
+unsigned int lfr_params;
 
 int gCaptureOVLEn;
 int gCaptureWDMAEn;
 int gCapturePriLayerDownX = 20;
 int gCapturePriLayerDownY = 20;
 u64 vfp_backup;
-
-
-static atomic_t lfr_dbg;
-static atomic_t lfr_params;
 
 static struct completion cwb_cmp;
 
@@ -2388,6 +2386,90 @@ out:
 	return simple_read_from_buffer(ubuf, count, ppos, buffer, n);
 }
 
+static int disp_lfr_dbg_proc_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+
+	return 0;
+}
+
+static ssize_t disp_lfr_dbg_proc_set(struct file *file, const char __user *ubuf,
+			size_t count, loff_t *ppos)
+{
+	int ret;
+
+	ret = kstrtouint_from_user(ubuf, count, 0, &lfr_dbg);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static ssize_t disp_lfr_dbg_proc_get(struct file *file, char __user *ubuf,
+			size_t count, loff_t *ppos)
+{
+	int n = 0;
+	char buffer[512];
+
+	if (*ppos != 0)
+		goto out;
+
+	n = scnprintf(buffer, 512, "%u", lfr_dbg);
+out:
+	if (n < 0)
+		return -EINVAL;
+
+	return simple_read_from_buffer(ubuf, count, ppos, buffer, n);
+}
+
+static int disp_lfr_params_proc_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+
+	return 0;
+}
+
+static ssize_t disp_lfr_params_proc_set(struct file *file, const char __user *ubuf,
+			size_t count, loff_t *ppos)
+{
+	int ret;
+
+	ret = kstrtouint_from_user(ubuf, count, 0, &lfr_params);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static ssize_t disp_lfr_params_proc_get(struct file *file, char __user *ubuf,
+			size_t count, loff_t *ppos)
+{
+	int n = 0;
+	char buffer[512];
+
+	if (*ppos != 0)
+		goto out;
+
+	n = scnprintf(buffer, 512, "%u", lfr_params);
+out:
+	if (n < 0)
+		return -EINVAL;
+
+	return simple_read_from_buffer(ubuf, count, ppos, buffer, n);
+}
+
+static const struct proc_ops disp_lfr_dbg_proc_fops = {
+	.proc_read = disp_lfr_dbg_proc_get,
+	.proc_write = disp_lfr_dbg_proc_set,
+	.proc_open = disp_lfr_dbg_proc_open,
+};
+
+static const struct proc_ops disp_lfr_params_proc_fops = {
+	.proc_read = disp_lfr_params_proc_get,
+	.proc_write = disp_lfr_params_proc_set,
+	.proc_open = disp_lfr_params_proc_open,
+};
+
 static const struct proc_ops disp_met_proc_fops = {
 	.proc_read = disp_met_proc_get,
 	.proc_write = disp_met_proc_set,
@@ -2396,14 +2478,13 @@ static const struct proc_ops disp_met_proc_fops = {
 
 int disp_lfr_dbg_set(void *data, u64 val)
 {
-	atomic_set(&lfr_dbg, val);
+	lfr_dbg = val;
 	return 0;
 }
 
 static int disp_lfr_dbg_get(void *data, u64 *val)
 {
-	*val = atomic_read(&lfr_dbg);
-
+	*val = lfr_dbg;
 	return 0;
 }
 
@@ -2412,13 +2493,14 @@ DEFINE_SIMPLE_ATTRIBUTE(disp_lfr_dbg_fops, disp_lfr_dbg_get,
 
 int disp_lfr_params_set(void *data, u64 val)
 {
-	atomic_set(&lfr_params, val);
+
+	lfr_params = val;
 	return 0;
 }
 
 static int disp_lfr_params_get(void *data, u64 *val)
 {
-	*val = atomic_read(&lfr_params);
+	*val = lfr_params;
 	return 0;
 }
 
@@ -2427,50 +2509,38 @@ DEFINE_SIMPLE_ATTRIBUTE(disp_lfr_params_fops, disp_lfr_params_get,
 
 unsigned int mtk_dbg_get_lfr_mode_value(void)
 {
-	unsigned int lfr_mode = (atomic_read(&lfr_params) & 0x03);
-
-	lfr_mode = lfr_mode & 0x03;
+	unsigned int lfr_mode = (lfr_params & 0x03);
 	return lfr_mode;
 }
 unsigned int mtk_dbg_get_lfr_type_value(void)
 {
-	unsigned int lfr_type = (atomic_read(&lfr_params));
-
-	lfr_type = (lfr_type & 0x0C) >> 2;
+	unsigned int lfr_type = (lfr_params & 0x0C) >> 2;
 	return lfr_type;
 }
 unsigned int mtk_dbg_get_lfr_enable_value(void)
 {
-	unsigned int lfr_enable = atomic_read(&lfr_params);
-
-	lfr_enable = (lfr_enable & 0x10) >> 4;
+	unsigned int lfr_enable = (lfr_params & 0x10) >> 4;
 	return lfr_enable;
 }
 unsigned int mtk_dbg_get_lfr_update_value(void)
 {
-	unsigned int lfr_update = atomic_read(&lfr_params);
-
-	lfr_update = (lfr_update & 0x20) >> 5;
+	unsigned int lfr_update = (lfr_params & 0x20) >> 5;
 	return lfr_update;
 }
 unsigned int mtk_dbg_get_lfr_vse_dis_value(void)
 {
-	unsigned int lfr_vse_dis = atomic_read(&lfr_params);
-
-	lfr_vse_dis = (lfr_vse_dis & 0x40) >> 6;
+	unsigned int lfr_vse_dis = (lfr_params & 0x40) >> 6;
 	return lfr_vse_dis;
 }
 unsigned int mtk_dbg_get_lfr_skip_num_value(void)
 {
-	unsigned int lfr_skip_num = atomic_read(&lfr_params);
-
-	lfr_skip_num = (lfr_skip_num & 0x3F00) >> 8;
+	unsigned int lfr_skip_num = (lfr_params & 0x3F00) >> 8;
 	return lfr_skip_num;
 }
 
 unsigned int mtk_dbg_get_lfr_dbg_value(void)
 {
-	return atomic_read(&lfr_dbg);
+	return lfr_dbg;
 }
 
 static void backup_vfp_for_lp_cust(u64 vfp)
@@ -2629,6 +2699,19 @@ void disp_dbg_probe(void)
 	if (!proc_create("disp_met", S_IFREG | 0444,
 		mtkfb_debug_procfs, &disp_met_proc_fops)) {
 		pr_info("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_met\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	if (!proc_create("disp_lfr_dbg", S_IFREG | 0444,
+		mtkfb_debug_procfs, &disp_lfr_dbg_proc_fops)) {
+		pr_info("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_lfr_dbg\n",
+			__func__, __LINE__);
+		goto out;
+	}
+	if (!proc_create("disp_lfr_params", S_IFREG | 0444,
+		mtkfb_debug_procfs, &disp_lfr_params_proc_fops)) {
+		pr_info("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_lfr_params\n",
 			__func__, __LINE__);
 		goto out;
 	}
