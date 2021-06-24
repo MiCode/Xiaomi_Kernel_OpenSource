@@ -256,6 +256,15 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		reserve-memory-mcupm_share {
+			compatible = "mediatek,reserve-memory-mcupm_share";
+			no-map;
+			status = "okay";
+			size = <0 0x610000>; /* 6M + 64K */
+			alignment = <0 0x10000>;
+			alloc-ranges = <0 0x40000000 0 0x60000000>;
+		};
 	};
 
 	gic: interrupt-controller {
@@ -279,6 +288,108 @@
 			<GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <13000000>;
+	};
+
+	mcupm: mcupm@c540000 {
+		compatible = "mediatek,mcupm";
+		reg = <0 0x0c540000 0 0x22000>,
+		      <0 0x0c55fb00 0 0xa0>,
+		      <0 0x0c562004 0 0x4>,
+		      <0 0x0c562018 0 0x4>,
+		      <0 0x0c562000 0 0x4>,
+		      <0 0x0c562010 0 0x4>,
+		      <0 0x0c55fba0 0 0xa0>,
+		      <0 0x0c562004 0 0x4>,
+		      <0 0x0c562018 0 0x4>,
+		      <0 0x0c562000 0 0x4>,
+		      <0 0x0c562010 0 0x4>,
+		      <0 0x0c55fc40 0 0xa0>,
+		      <0 0x0c562004 0 0x4>,
+		      <0 0x0c562018 0 0x4>,
+		      <0 0x0c562000 0 0x4>,
+		      <0 0x0c562010 0 0x4>,
+		      <0 0x0c55fce0 0 0xa0>,
+		      <0 0x0c562004 0 0x4>,
+		      <0 0x0c562018 0 0x4>,
+		      <0 0x0c562000 0 0x4>,
+		      <0 0x0c562010 0 0x4>,
+		      <0 0x0c55fd80 0 0xa0>,
+		      <0 0x0c562004 0 0x4>,
+		      <0 0x0c562018 0 0x4>,
+		      <0 0x0c562000 0 0x4>,
+		      <0 0x0c562010 0 0x4>,
+		      <0 0x0c55fe20 0 0xa0>,
+		      <0 0x0c562004 0 0x4>,
+		      <0 0x0c562018 0 0x4>,
+		      <0 0x0c562000 0 0x4>,
+		      <0 0x0c562010 0 0x4>,
+		      <0 0x0c55fec0 0 0xa0>,
+		      <0 0x0c562004 0 0x4>,
+		      <0 0x0c562018 0 0x4>,
+		      <0 0x0c562000 0 0x4>,
+		      <0 0x0c562010 0 0x4>,
+		      <0 0x0c55ff60 0 0xa0>,
+		      <0 0x0c562004 0 0x4>,
+		      <0 0x0c562018 0 0x4>,
+		      <0 0x0c562000 0 0x4>,
+		      <0 0x0c562010 0 0x4>;
+		reg-names = "mcupm_base",
+			    "mbox0_base",
+			    "mbox0_set",
+			    "mbox0_clr",
+			    "mbox0_send",
+			    "mbox0_recv",
+			    "mbox1_base",
+			    "mbox1_set",
+			    "mbox1_clr",
+			    "mbox1_send",
+			    "mbox1_recv",
+			    "mbox2_base",
+			    "mbox2_set",
+			    "mbox2_clr",
+			    "mbox2_send",
+			    "mbox2_recv",
+			    "mbox3_base",
+			    "mbox3_set",
+			    "mbox3_clr",
+			    "mbox3_send",
+			    "mbox3_recv",
+			    "mbox4_base",
+			    "mbox4_set",
+			    "mbox4_clr",
+			    "mbox4_send",
+			    "mbox4_recv",
+			    "mbox5_base",
+			    "mbox5_set",
+			    "mbox5_clr",
+			    "mbox5_send",
+			    "mbox5_recv",
+			    "mbox6_base",
+			    "mbox6_set",
+			    "mbox6_clr",
+			    "mbox6_send",
+			    "mbox6_recv",
+			    "mbox7_base",
+			    "mbox7_set",
+			    "mbox7_clr",
+			    "mbox7_send",
+			    "mbox7_recv";
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "mbox0",
+				  "mbox1",
+				  "mbox2",
+				  "mbox3",
+				  "mbox4",
+				  "mbox5",
+				  "mbox6",
+				  "mbox7";
 	};
 
 	gpio@10005000 {
