@@ -188,9 +188,7 @@ static struct
 	unsigned int         voice_sample_delay;
 	unsigned int         bargein_dump_cnt1;
 	unsigned int         bargein_dump_cnt2;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 	short                *interleave_pcmdata_ptr;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 	bool                 dump_pcm_flag;
 	bool                 scp_recovering;
 	bool                 vow_recovering;
@@ -201,6 +199,7 @@ static struct
 	unsigned int         scp_dual_mic_switch;
 	unsigned int         mtkif_type;
 	unsigned int         google_engine_version;
+	unsigned int         vow_mic_number;
 	char                 alexa_engine_version[VOW_ENGINE_INFO_LENGTH_BYTE];
 	char                 google_engine_arch[VOW_ENGINE_INFO_LENGTH_BYTE];
 } vowserv;
@@ -302,15 +301,15 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 					//__func__,
 					//dump_work[idx].mic_data_size,
 					//dump_work[idx].mic_offset);
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
-			dump_work[idx].mic_data_size_R =
-					ipi_ptr->mic_dump_size;
-			dump_work[idx].mic_offset_R = ipi_ptr->mic_offset_R;
-			//VOWDRV_DEBUG("%s(), [Input R]dump size %d offset %d\n",
-					//__func__,
-					//dump_work[idx].mic_data_size_R,
-					//dump_work[idx].mic_offset_R);
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
+			if (vowserv.vow_mic_number == 2) {
+				dump_work[idx].mic_data_size_R =
+						ipi_ptr->mic_dump_size;
+				dump_work[idx].mic_offset_R = ipi_ptr->mic_offset_R;
+				//VOWDRV_DEBUG("%s(), [Input R]dump size %d offset %d\n",
+						//__func__,
+						//dump_work[idx].mic_data_size_R,
+						//dump_work[idx].mic_offset_R);
+			}
 			ret = queue_work(dump_workqueue[idx],
 					 &dump_work[idx].work);
 			//if (ret == 0)
@@ -344,12 +343,12 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 				ipi_ptr->recog_dump_size;
 			dump_work[idx].recog_data_offset =
 				ipi_ptr->recog_dump_offset;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
-			dump_work[idx].recog_data_size_R =
-				ipi_ptr->recog_dump_size;
-			dump_work[idx].recog_data_offset_R =
-				ipi_ptr->recog_dump_offset_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
+			if (vowserv.vow_mic_number == 2) {
+				dump_work[idx].recog_data_size_R =
+					ipi_ptr->recog_dump_size;
+				dump_work[idx].recog_data_offset_R =
+					ipi_ptr->recog_dump_offset_R;
+			}
 			ret = queue_work(dump_workqueue[idx],
 					 &dump_work[idx].work);
 			if (ret == 0)
@@ -590,6 +589,9 @@ static void vow_service_Init(void)
 		init_flag = 1;
 		vowserv.dump_pcm_flag = false;
 		vowserv.split_dumpfile_flag = false;
+		// update here when vow support more than 2 mic
+		vowserv.vow_mic_number = VOW_MAX_MIC_NUM;
+		vowserv.interleave_pcmdata_ptr = NULL;
 #if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 		dump_queue = NULL;
 		vow_pcm_dump_init();
@@ -1170,7 +1172,6 @@ static void vow_service_ReadPayloadDumpData(unsigned int buf_length)
 }
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 #if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT)
 static void vow_interleaving(short *out_buf,
 			     short *l_sample,
@@ -1186,7 +1187,6 @@ static void vow_interleaving(short *out_buf,
 		*out_buf++ = *r_sample++;
 	}
 }
-#endif
 #endif
 
 static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
@@ -1208,7 +1208,7 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			vowserv.voicedata_idx = 0;
 		}
 		mutex_lock(&vow_vmalloc_lock);
-#if (IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) && IS_ENABLED(DUAL_CH_TRANSFER))
+#if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
 		/* start interleaving L+R */
 		vow_interleaving(
 			&vowserv.voicedata_kernel_ptr[vowserv.voicedata_idx],
@@ -1233,7 +1233,7 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			vowserv.tx_keyword_start = true;
 		}
 
-#if (IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) && IS_ENABLED(DUAL_CH_TRANSFER))
+#if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
 		/* 2 Channels */
 		vowserv.voicedata_idx += buf_length;
 #else
@@ -1821,21 +1821,30 @@ static int vow_pcm_dump_kthread(void *data)
 		/* VOWDRV_DEBUG("[BargeIn] current_idx = %d\n", current_idx); */
 		switch (dump_package->dump_data_type) {
 		case DUMP_INPUT: {
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 			short *out_buf;
-			/* DRAM to kernel buffer and sample interleaving */
-			vow_interleaving(
-				vowserv.interleave_pcmdata_ptr,
-				(short *)(bargein_resv_dram.vir_addr +
-				    dump_package->mic_offset),
-				(short *)(bargein_resv_dram.vir_addr +
-				    dump_package->mic_offset_R),
-				dump_package->mic_data_size);
+			if (vowserv.vow_mic_number == 2) {
+				/* DRAM to kernel buffer and sample interleaving */
+				vow_interleaving(
+					vowserv.interleave_pcmdata_ptr,
+					(short *)(bargein_resv_dram.vir_addr +
+						dump_package->mic_offset),
+					(short *)(bargein_resv_dram.vir_addr +
+						dump_package->mic_offset_R),
+					dump_package->mic_data_size);
 
-			size = (dump_package->mic_data_size) * 2;
-			writedata = size;
+				size = (dump_package->mic_data_size) * 2;
+				writedata = size;
 
-			out_buf = vowserv.interleave_pcmdata_ptr;
+				out_buf = vowserv.interleave_pcmdata_ptr;
+			} else {
+				/* Bargein dump Mic input data */
+				size = dump_package->mic_data_size;
+				writedata = size;
+				pcm_dump = (struct pcm_dump_t *)
+					   (bargein_resv_dram.vir_addr
+					   + dump_package->mic_offset);
+				out_buf = (short *)pcm_dump->decode_pcm;
+			}
 			if (size <= 0)
 				VOWDRV_DEBUG("[VOW]dump size error %d\n");
 			while (size > 0) {
@@ -1854,36 +1863,8 @@ static int vow_pcm_dump_kthread(void *data)
 					}
 				}
 				size -= writedata;
-				pcm_dump++;
+				//pcm_dump++;
 			}
-#else  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
-			/* Bargein dump Mic input data */
-			size = dump_package->mic_data_size;
-			writedata = size;
-			pcm_dump = (struct pcm_dump_t *)
-				   (bargein_resv_dram.vir_addr
-				   + dump_package->mic_offset);
-			if (size <= 0)
-				VOWDRV_DEBUG("[VOW]dump size error %d\n");
-			while (size > 0) {
-				if (file_bargein_pcm_input_open &&
-				    !IS_ERR(file_bargein_pcm_input)) {
-					old_fs = get_fs();
-					set_fs(KERNEL_DS);
-					ret = kernel_write(file_bargein_pcm_input,
-					    (char __user *)pcm_dump->decode_pcm,
-					    writedata,
-					    &file_bargein_pcm_input->f_pos);
-					set_fs(old_fs);
-					if (ret < 0) {
-						VOWDRV_DEBUG(
-						"[Bargein]vfs write failed\n");
-					}
-				}
-				size -= writedata;
-				pcm_dump++;
-			}
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 		}
 			break;
 		case DUMP_BARGEIN: {
@@ -1942,21 +1923,30 @@ static int vow_pcm_dump_kthread(void *data)
 		}
 			break;
 		case DUMP_RECOG: {
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 			short *out_buf;
-			/* DRAM to kernel buffer and sample interleaving */
-			vow_interleaving(
-				vowserv.interleave_pcmdata_ptr,
-				(short *)(recog_resv_dram.vir_addr +
-				    dump_package->recog_data_offset),
-				(short *)(recog_resv_dram.vir_addr +
-				    dump_package->recog_data_offset_R),
-				dump_package->recog_data_size);
+			if (vowserv.vow_mic_number == 2) {
+				/* DRAM to kernel buffer and sample interleaving */
+				vow_interleaving(
+					vowserv.interleave_pcmdata_ptr,
+					(short *)(recog_resv_dram.vir_addr +
+						dump_package->recog_data_offset),
+					(short *)(recog_resv_dram.vir_addr +
+						dump_package->recog_data_offset_R),
+					dump_package->recog_data_size);
 
-			size = (dump_package->recog_data_size) * 2;
-			writedata = size;
+				size = (dump_package->recog_data_size) * 2;
+				writedata = size;
 
-			out_buf = vowserv.interleave_pcmdata_ptr;
+				out_buf = vowserv.interleave_pcmdata_ptr;
+			} else {
+				/* Recog dump data */
+				size = dump_package->recog_data_size;
+				writedata = size;
+				pcm_dump = (struct pcm_dump_t *)
+					   (recog_resv_dram.vir_addr
+					   + dump_package->recog_data_offset);
+				out_buf = (short *)pcm_dump->decode_pcm;
+			}
 			if (size <= 0)
 				VOWDRV_DEBUG("[VOW]dump size error %d\n");
 			while (size > 0) {
@@ -1975,36 +1965,8 @@ static int vow_pcm_dump_kthread(void *data)
 					}
 				}
 				size -= writedata;
-				pcm_dump++;
+				//pcm_dump++;
 			}
-#else  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
-			/* Recog dump data */
-			size = dump_package->recog_data_size;
-			writedata = size;
-			pcm_dump = (struct pcm_dump_t *)
-				   (recog_resv_dram.vir_addr
-				   + dump_package->recog_data_offset);
-			if (size <= 0)
-				VOWDRV_DEBUG("[VOW]dump size error %d\n");
-			while (size > 0) {
-				if (file_recog_data_open &&
-				    !IS_ERR(file_recog_data)) {
-					old_fs = get_fs();
-					set_fs(KERNEL_DS);
-					ret = kernel_write(file_recog_data,
-					    (char __user *)pcm_dump->decode_pcm,
-					    writedata,
-					    &file_recog_data->f_pos);
-					set_fs(old_fs);
-					if (ret < 0) {
-						VOWDRV_DEBUG(
-						"[Recog]vfs write failed\n");
-					}
-				}
-				size -= writedata;
-				pcm_dump++;
-			}
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 		}
 			break;
 		case DUMP_VFFP: {
@@ -2074,19 +2036,15 @@ static void recog_dump_routine(struct work_struct *ws)
 	struct dump_work_t *dump_work = NULL;
 	uint32_t offset = 0;
 	uint32_t data_size = 0;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 	uint32_t offset_R = 0;
 	uint32_t data_size_R = 0;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 
 	dump_work = container_of(ws, struct dump_work_t, work);
 
 	offset = dump_work->recog_data_offset;
 	data_size = dump_work->recog_data_size;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 	offset_R = dump_work->recog_data_offset_R;
 	data_size_R = dump_work->recog_data_size_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 
 	spin_lock(&vowdrv_lock);
 	dump_queue->dump_package[dump_queue->idx_w].dump_data_type =
@@ -2095,12 +2053,12 @@ static void recog_dump_routine(struct work_struct *ws)
 	    offset;
 	dump_queue->dump_package[dump_queue->idx_w].recog_data_size =
 	    data_size;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
-	dump_queue->dump_package[dump_queue->idx_w].recog_data_offset_R =
-	    offset_R;
-	dump_queue->dump_package[dump_queue->idx_w].recog_data_size_R =
-	    data_size_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
+	if (vowserv.vow_mic_number == 2) {
+		dump_queue->dump_package[dump_queue->idx_w].recog_data_offset_R =
+			offset_R;
+		dump_queue->dump_package[dump_queue->idx_w].recog_data_size_R =
+			data_size_R;
+	}
 
 	dump_queue->idx_w++;
 	spin_unlock(&vowdrv_lock);
@@ -2114,19 +2072,17 @@ static void input_dump_routine(struct work_struct *ws)
 	struct dump_work_t *dump_work = NULL;
 	uint32_t mic_offset = 0;
 	uint32_t mic_data_size = 0;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 	uint32_t mic_offset_R = 0;
 	uint32_t mic_data_size_R = 0;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 
 	dump_work = container_of(ws, struct dump_work_t, work);
 
 	mic_offset = dump_work->mic_offset;
 	mic_data_size = dump_work->mic_data_size;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
-	mic_offset_R = dump_work->mic_offset_R;
-	mic_data_size_R = dump_work->mic_data_size_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
+	if (vowserv.vow_mic_number == 2) {
+		mic_offset_R = dump_work->mic_offset_R;
+		mic_data_size_R = dump_work->mic_data_size_R;
+	}
 
 	spin_lock(&vowdrv_lock);
 	dump_queue->dump_package[dump_queue->idx_w].dump_data_type =
@@ -2135,12 +2091,12 @@ static void input_dump_routine(struct work_struct *ws)
 	    mic_offset;
 	dump_queue->dump_package[dump_queue->idx_w].mic_data_size =
 	    mic_data_size;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
-	dump_queue->dump_package[dump_queue->idx_w].mic_offset_R =
-	    mic_offset_R;
-	dump_queue->dump_package[dump_queue->idx_w].mic_data_size_R =
-	    mic_data_size_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
+	if (vowserv.vow_mic_number == 2) {
+		dump_queue->dump_package[dump_queue->idx_w].mic_offset_R =
+			mic_offset_R;
+		dump_queue->dump_package[dump_queue->idx_w].mic_data_size_R =
+			mic_data_size_R;
+	}
 	dump_queue->idx_w++;
 	spin_unlock(&vowdrv_lock);
 	//vowserv.bargein_dump_cnt1++;
@@ -2223,7 +2179,6 @@ static void vow_pcm_dump_init(void)
 
 	pcm_dump_task = NULL;
 
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 	if (vowserv.interleave_pcmdata_ptr != NULL) {
 		vfree(vowserv.interleave_pcmdata_ptr);
 		vowserv.interleave_pcmdata_ptr = NULL;
@@ -2231,8 +2186,6 @@ static void vow_pcm_dump_init(void)
 	/* Temp buffer for doing DUALMIC L/R channels interleave */
 	vowserv.interleave_pcmdata_ptr =
 		vmalloc(VOW_PCM_DUMP_BYTE_SIZE << 1);
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
-
 }
 
 static void vow_pcm_dump_deinit(void)
@@ -2248,13 +2201,10 @@ static void vow_pcm_dump_deinit(void)
 			dump_workqueue[i] = NULL;
 		}
 	}
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 	if (vowserv.interleave_pcmdata_ptr != NULL) {
 		vfree(vowserv.interleave_pcmdata_ptr);
 		vowserv.interleave_pcmdata_ptr = NULL;
 	}
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
-
 }
 #endif /* #if IS_ENABLED(CONFIG_VOW_KERNEL_DUMP_SUPPORT) */
 /*****************************************************************************
@@ -2909,6 +2859,14 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			break;
 		case VOWControlCmd_DisableDump:
 			vow_pcm_dump_set(false);
+			break;
+		case VOWControlCmd_Mic_Single:
+			vowserv.vow_mic_number = 1;
+			VOWDRV_DEBUG("VOW_SET_CONTROL Set Single Mic VOW");
+			break;
+		case VOWControlCmd_Mic_Dual:
+			vowserv.vow_mic_number = 2;
+			VOWDRV_DEBUG("VOW_SET_CONTROL Set Dual Mic VOW");
 			break;
 		default:
 			VOWDRV_DEBUG("VOW_SET_CONTROL no such command = %lu",

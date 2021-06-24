@@ -41,8 +41,7 @@
 #define VOW_IOC_MAGIC                  'V'
 #define VOW_PRE_LEARN_MODE             1
 
-#define MAX_VOW_SPEAKER_MODEL          (CONFIG_MTK_VOW_MAX_PDK_NUMBER + \
-					VOW_GOOGLE_MODEL + VOW_AMAZON_MODEL)
+#define MAX_VOW_SPEAKER_MODEL          2
 
 #define VOW_WAITCHECK_INTERVAL_MS      1
 #define MAX_VOW_INFO_LEN               7
@@ -65,14 +64,10 @@
 #define RESERVED_DATA                  4
 #define VOW_RECOVERY_WAIT              100
 
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 #define VOW_MAX_MIC_NUM	(2)
-#else
-#define VOW_MAX_MIC_NUM	(1)
-#endif
 
 /* length limitation sync by audio hal */
-#if (IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) && IS_ENABLED(DUAL_CH_TRANSFER))
+#if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
 #define VOW_VBUF_LENGTH      (0x12E80 * VOW_MAX_MIC_NUM)  /*(0x12480 + 0x0A00) * VOW_MAX_MIC_NUM*/
 #else
 #define VOW_VBUF_LENGTH      (0x12E80)  /* 0x12480 + 0x0A00 */
@@ -98,13 +93,14 @@
 
 #define VOW_ENGINE_INFO_LENGTH_BYTE    32
 
-#if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
+#if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
 #define VOW_RECOGDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_MAX_MIC_NUM * VOW_VOICEDATA_SIZE)
 #else
 #define VOW_RECOGDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
 #endif
 #define VOW_VFFPDATA_OFFSET           (VOW_RECOGDATA_OFFSET + RECOG_DUMP_TOTAL_BYTE_CNT)
 #define VOW_EXTRA_DATA_OFFSET         (VOW_VFFPDATA_OFFSET + VFFP_DUMP_TOTAL_BYTE_CNT)
+#define VOW_CUSTOM_MODEL_OFFSET       (VOW_EXTRA_DATA_OFFSET + VOW_EXTRA_DATA_SIZE)
 
 /* below is control message */
 #define VOW_SET_CONTROL               _IOW(VOW_IOC_MAGIC, 0x03, unsigned int)
@@ -121,6 +117,7 @@
 #define VOW_GET_ALEXA_ENGINE_VER      _IOW(VOW_IOC_MAGIC, 0x11, unsigned int)
 #define VOW_GET_GOOGLE_ENGINE_VER     _IOW(VOW_IOC_MAGIC, 0x12, unsigned int)
 #define VOW_GET_GOOGLE_ARCH           _IOW(VOW_IOC_MAGIC, 0x13, unsigned int)
+#define VOW_SET_DSP_AEC_PARAMETER     _IOW(VOW_IOC_MAGIC, 0x14, unsigned int)
 #define VOW_SET_PAYLOADDUMP_INFO      _IOW(VOW_IOC_MAGIC, 0x16, unsigned int)
 #define VOW_READ_VOICE_DATA           _IOW(VOW_IOC_MAGIC, 0x17, unsigned int)
 
@@ -131,19 +128,18 @@
 #endif
 #define VOW_BARGEIN_IRQ_MAX_NUM       32
 
-#define KERNEL_VOW_DRV_VER "2.1.3"
+#define KERNEL_VOW_DRV_VER "2.1.4"
+#define DEFAULT_GOOGLE_ENGINE_VER       2147483647
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
 	uint32_t mic_data_size;
 	uint32_t recog_data_offset;
 	uint32_t recog_data_size;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 	uint32_t mic_offset_R;
 	uint32_t mic_data_size_R;
 	uint32_t recog_data_offset_R;
 	uint32_t recog_data_size_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
 	uint32_t vffp_data_offset;
@@ -162,12 +158,10 @@ struct dump_work_t {
 	uint32_t mic_data_size;
 	uint32_t recog_data_offset;
 	uint32_t recog_data_size;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 	uint32_t mic_offset_R;
 	uint32_t mic_data_size_R;
 	uint32_t recog_data_offset_R;
 	uint32_t recog_data_size_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
 	uint32_t vffp_data_offset;
@@ -194,6 +188,8 @@ enum vow_control_cmd_t {
 	VOWControlCmd_EnableDump,
 	VOWControlCmd_DisableDump,
 	VOWControlCmd_Reset,
+	VOWControlCmd_Mic_Single,
+	VOWControlCmd_Mic_Dual,
 };
 
 enum vow_ipi_msgid_t {
@@ -473,18 +469,14 @@ struct vow_ipi_combined_info_t {
 	/* IPIMSG_VOW_BARGEIN_PCMDUMP_OK */
 	unsigned int mic_dump_size;
 	unsigned int mic_offset;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 //	unsigned int mic_dump_size_R;
 	unsigned int mic_offset_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 	unsigned int echo_dump_size;
 	unsigned int echo_offset;
 	unsigned int recog_dump_size;
 	unsigned int recog_dump_offset;
-#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 //	unsigned int recog_dump_size_R;
 	unsigned int recog_dump_offset_R;
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 	unsigned int payloaddump_len;
 	unsigned int vffp_dump_size;
 	unsigned int vffp_dump_offset;

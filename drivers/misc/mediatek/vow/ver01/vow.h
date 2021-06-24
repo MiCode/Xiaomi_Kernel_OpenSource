@@ -40,12 +40,7 @@
 #define VOW_DEVNAME                    "vow"
 #define VOW_IOC_MAGIC                  'V'
 #define VOW_PRE_LEARN_MODE             1
-#if IS_ENABLED(CONFIG_MTK_VOW_MAX_PDK_NUMBER)
-#define MAX_VOW_SPEAKER_MODEL          (CONFIG_MTK_VOW_MAX_PDK_NUMBER + \
-					VOW_GOOGLE_MODEL + VOW_AMAZON_MODEL)
-#else
-#define MAX_VOW_SPEAKER_MODEL          (VOW_GOOGLE_MODEL + VOW_AMAZON_MODEL)
-#endif
+#define MAX_VOW_SPEAKER_MODEL          2
 #define VOW_WAITCHECK_INTERVAL_MS      1
 #define MAX_VOW_INFO_LEN               6
 #define VOW_VOICE_RECORD_THRESHOLD     2560 /* 80ms */
