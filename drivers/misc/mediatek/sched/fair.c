@@ -421,7 +421,7 @@ unlock:
 	rcu_read_unlock();
 
 	if (latency_sensitive){
-		*new_cpu = best_idle_cpu >= 0 ? best_idle_cpu : max_spare_cap_cpu_ls;
+		*new_cpu = best_idle_cpu >= 0 ? best_idle_cpu : sys_max_spare_cap_cpu;
 		select_reason = LB_LATENCY_SENSITIVE;
 		goto done;
 	}
