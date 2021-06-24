@@ -3371,38 +3371,31 @@
 		};
 
 		gpufreq_mfg0: gpufreq_mfg0 {
-			compatible = "mediatek,mt6893-mfg0",
-						"mediatek,gpufreq";
+			compatible = "mediatek,mt6893-mfg0";
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MFG0>;
 		};
 		gpufreq_mfg1: gpufreq_mfg1 {
-			compatible = "mediatek,mt6893-mfg1",
-						"mediatek,gpufreq";
+			compatible = "mediatek,mt6893-mfg1";
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MFG1>;
 		};
 		gpufreq_mfg2: gpufreq_mfg2 {
-			compatible = "mediatek,mt6893-mfg2",
-						"mediatek,gpufreq";
+			compatible = "mediatek,mt6893-mfg2";
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MFG2>;
 		};
 		gpufreq_mfg3: gpufreq_mfg3 {
-			compatible = "mediatek,mt6893-mfg3",
-						"mediatek,gpufreq";
+			compatible = "mediatek,mt6893-mfg3";
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MFG3>;
 		};
 		gpufreq_mfg4: gpufreq_mfg4 {
-			compatible = "mediatek,mt6893-mfg4",
-						"mediatek,gpufreq";
+			compatible = "mediatek,mt6893-mfg4";
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MFG4>;
 		};
 		gpufreq_mfg5: gpufreq_mfg5 {
-			compatible = "mediatek,mt6893-mfg5",
-						"mediatek,gpufreq";
+			compatible = "mediatek,mt6893-mfg5";
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MFG5>;
 		};
 		gpufreq_mfg6: gpufreq_mfg6 {
-			compatible = "mediatek,mt6893-mfg6",
-						"mediatek,gpufreq";
+			compatible = "mediatek,mt6893-mfg6";
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MFG6>;
 		};
 
