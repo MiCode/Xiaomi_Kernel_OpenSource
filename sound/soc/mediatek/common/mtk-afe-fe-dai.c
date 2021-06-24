@@ -37,6 +37,9 @@
 #include "../ultrasound/ultra_common/mtk-scp-ultra.h"
 #endif
 
+#include "mtk-mmap-ion.h"
+
+
 #define AFE_BASE_END_OFFSET 8
 
 static int mtk_regmap_update_bits(struct regmap *map, int reg,
@@ -153,7 +156,6 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 
 	// mmap don't alloc buffer
 	if (memif->use_mmap_share_mem != 0) {
-#if IS_ENABLED(CONFIG_MTK_ION)
 		unsigned long phy_addr;
 		void *vir_addr;
 
@@ -179,9 +181,6 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 			dev_warn(afe->dev, "mmap share mem %d not support\n",
 				 memif->use_mmap_share_mem);
 		}
-#else
-		dev_err(afe->dev, "%s(), CONFIG_MTK_ION not support\n", __func__);
-#endif
 		goto MEM_ALLOCATE_DONE;
 	}
 
