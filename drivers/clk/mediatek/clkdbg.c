@@ -2177,10 +2177,12 @@ void set_custom_cmds(const struct cmd_fn *cmds)
 static int clkdbg_cmds(struct seq_file *s, void *v);
 
 static const struct cmd_fn common_cmds[] = {
+#if !defined(CONFIG_MACH_MT6781)
 	CMDFN("dump_regs", seq_print_regs),
 	CMDFN("dump_regs2", clkdbg_dump_regs2),
-	CMDFN("dump_state", clkdbg_dump_state_all),
 	CMDFN("dump_clks", clkdbg_dump_provider_clks),
+#endif
+	CMDFN("dump_state", clkdbg_dump_state_all),
 	CMDFN("dump_muxes", clkdbg_dump_muxes),
 	CMDFN("fmeter", seq_print_fmeter_all),
 	CMDFN("pwr_status", clkdbg_pwr_status),
