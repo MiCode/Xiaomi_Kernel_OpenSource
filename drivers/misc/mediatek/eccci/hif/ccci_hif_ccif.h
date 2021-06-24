@@ -30,6 +30,10 @@
 #define QUEUE_NUM   8
 #endif
 
+/* speciall for user: ccci_fsd data[0] */
+#define CCCI_FS_AP_CCCI_WAKEUP (0x40000000)
+#define CCCI_FS_REQ_SEND_AGAIN 0x80000000
+
 /*#define FLOW_CTRL_ENABLE*/
 #define FLOW_CTRL_HEAD		0x464C4F57	/*FLOW*/
 #define FLOW_CTRL_TAIL		0x4354524C	/*CTRL*/

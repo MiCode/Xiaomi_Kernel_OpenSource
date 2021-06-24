@@ -656,6 +656,8 @@ static int ccif_rx_collect(struct md_ccif_queue *queue, int budget,
 				"CCIF_MD wakeup source:(%d/%d/%x)(%u)\n",
 				queue->index, ccci_h->channel,
 				ccci_h->reserved, md_ctrl->wakeup_count);
+			if (ccci_h->channel == CCCI_FS_RX)
+				ccci_h->data[0] |= CCCI_FS_AP_CCCI_WAKEUP;
 		}
 		if (ccci_h->channel == CCCI_C2K_LB_DL)
 			atomic_set(&lb_dl_q, queue->index);
