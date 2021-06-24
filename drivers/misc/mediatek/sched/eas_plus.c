@@ -43,6 +43,26 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 	}
 }
 
+void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
+{
+	struct perf_domain *pd = NULL;
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long sum_util = 0, sum_cap = 0;
+
+	pd = rcu_dereference(rq->rd->pd);
+	pd = find_pd(pd, cpu);
+	if (!pd)
+		return;
+
+	for_each_cpu(cpu, perf_domain_span(pd)) {
+		sum_util += cpu_util(cpu);
+		sum_cap += capacity_of(cpu);
+	}
+
+	*overutilized = !fits_capacity(sum_util, sum_cap);
+	trace_sched_cpu_overutilized(cpu, perf_domain_span(pd), sum_util, sum_cap, *overutilized);
+}
+
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 
 struct thermal_struct{

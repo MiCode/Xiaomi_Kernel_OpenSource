@@ -270,6 +270,39 @@ TRACE_EVENT(sched_find_energy_efficient_cpu,
 		__entry->sys_max_spare_cap_cpu)
 );
 
+TRACE_EVENT(sched_cpu_overutilized,
+
+	TP_PROTO(int cpu, struct cpumask *pd_mask,
+		unsigned long sum_util, unsigned long sum_cap,
+		int overutilized),
+
+	TP_ARGS(cpu, pd_mask, sum_util, sum_cap,
+		overutilized),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(long, cpu_mask)
+		__field(unsigned long, sum_util)
+		__field(unsigned long, sum_cap)
+		__field(int, overutilized)
+		),
+
+	TP_fast_assign(
+		__entry->cpu 		 = cpu;
+		__entry->cpu_mask        = pd_mask->bits[0];
+		__entry->sum_util        = sum_util;
+		__entry->sum_cap         = sum_cap;
+		__entry->overutilized    = overutilized;
+		),
+
+	TP_printk("cpu=%d mask=0x%lx sum_util=%lu sum_cap=%lu overutilized=%d",
+		__entry->cpu,
+		__entry->cpu_mask,
+		__entry->sum_util,
+		__entry->sum_cap,
+		__entry->overutilized)
+);
+
 /*
  * Tracepoint for task force migrations.
  */

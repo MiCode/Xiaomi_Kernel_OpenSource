@@ -13,13 +13,6 @@
 MODULE_LICENSE("GPL");
 
 #ifdef CONFIG_SMP
-/*
- * The margin used when comparing utilization with CPU capacity.
- *
- * (default: ~20%)
- */
-#define fits_capacity(cap, max)	((cap) * 1280 < (max) * 1024)
-
 #ifdef CONFIG_FAIR_GROUP_SCHED
 static inline struct task_struct *task_of(struct sched_entity *se)
 {
@@ -32,8 +25,6 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 	return container_of(se, struct task_struct, se);
 }
 #endif
-
-static unsigned long capacity_of(int cpu);
 #endif
 
 /*
@@ -101,10 +92,24 @@ static inline int task_fits_capacity(struct task_struct *p, long capacity)
 	return fits_capacity(uclamp_task_util(p), capacity);
 }
 
-static unsigned long capacity_of(int cpu)
+unsigned long capacity_of(int cpu)
 {
 	return cpu_rq(cpu)->cpu_capacity;
 
+}
+
+unsigned long cpu_util(int cpu)
+{
+	struct cfs_rq *cfs_rq;
+	unsigned int util;
+
+	cfs_rq = &cpu_rq(cpu)->cfs;
+	util = READ_ONCE(cfs_rq->avg.util_avg);
+
+	if (sched_feat(UTIL_EST))
+		util = max(util, READ_ONCE(cfs_rq->avg.util_est.enqueued));
+
+	return min_t(unsigned long, util, capacity_orig_of(cpu));
 }
 
 /*
