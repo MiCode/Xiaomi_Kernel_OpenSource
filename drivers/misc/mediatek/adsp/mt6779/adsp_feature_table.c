@@ -33,6 +33,7 @@ struct adsp_feature_tb adsp_feature_table[ADSP_NUM_FEATURE_ID] = {
 	[CALL_FINAL_FEATURE_ID]       = ADSP_FEATURE_UNIT("call_final"),
 	[KTV_FEATURE_ID]              = ADSP_FEATURE_UNIT("ktv"),
 	[CAPTURE_RAW_FEATURE_ID]      = ADSP_FEATURE_UNIT("capture_raw"),
+	[VOICE_CALL_SUB_FEATURE_ID]   = ADSP_FEATURE_UNIT("voice_call_sub"),
 };
 
 ssize_t adsp_dump_feature_state(char *buffer, int size)
