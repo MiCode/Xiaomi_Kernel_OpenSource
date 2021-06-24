@@ -46,6 +46,15 @@ config MTK_THERMAL_AWARE_SCHEDULING
 	  Use current Per-core temperature (per-10'c, per-die).
 	  Favor tasks to CPU with lowest thermal pressure.
 
+config MTK_LEAKAGE_AWARE_TEMP
+	bool "MTK leakage aware temperature"
+	depends on MTK_EAS &&  MTK_THERMAL_INTERFACE
+	help
+	  Compute energy will consider CPU leakage and
+	  CPU leakage will aware per-CPU temperature.
+	  Favor to put tasks into CPU with lowest temperature and
+	  to save power.
+
 config MTK_NEWIDLE_BALANCE
 	bool "new idle balance for hint task"
 	depends on MTK_EAS

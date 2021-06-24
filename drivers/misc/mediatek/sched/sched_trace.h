@@ -168,6 +168,72 @@ TRACE_EVENT(sched_energy_util,
 		__entry->cpu_util)
 );
 
+TRACE_EVENT(sched_em_cpu_energy,
+
+	TP_PROTO(int opp,
+		unsigned long freq, unsigned long cost, unsigned long scale_cpu,
+		unsigned long dyn_pwr, unsigned long static_pwr),
+
+	TP_ARGS(opp, freq, cost, scale_cpu, dyn_pwr, static_pwr),
+
+	TP_STRUCT__entry(
+		__field(int, opp)
+		__field(unsigned long, freq)
+		__field(unsigned long, cost)
+		__field(unsigned long, scale_cpu)
+		__field(unsigned long, dyn_pwr)
+		__field(unsigned long, static_pwr)
+		),
+
+	TP_fast_assign(
+		__entry->opp        = opp;
+		__entry->freq       = freq;
+		__entry->cost       = cost;
+		__entry->scale_cpu  = scale_cpu;
+		__entry->dyn_pwr    = dyn_pwr;
+		__entry->static_pwr = static_pwr;
+		),
+
+	TP_printk("opp=%d freq=%lu cost=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
+		__entry->opp,
+		__entry->freq,
+		__entry->cost,
+		__entry->scale_cpu,
+		__entry->dyn_pwr,
+		__entry->static_pwr)
+);
+
+TRACE_EVENT(sched_leakage,
+
+	TP_PROTO(int cpu, int opp, unsigned int temp,
+		unsigned long cpu_static_pwr, unsigned long static_pwr),
+
+	TP_ARGS(cpu, opp, temp, cpu_static_pwr, static_pwr),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(int, opp)
+		__field(unsigned int, temp)
+		__field(unsigned long, cpu_static_pwr)
+		__field(unsigned long, static_pwr)
+		),
+
+	TP_fast_assign(
+		__entry->cpu       = cpu;
+		__entry->opp        = opp;
+		__entry->temp       = temp;
+		__entry->cpu_static_pwr = cpu_static_pwr;
+		__entry->static_pwr = static_pwr;
+		),
+
+	TP_printk("cpu=%d opp=%d temp=%lu lkg=%lu sum_lkg=%lu",
+		__entry->cpu,
+		__entry->opp,
+		__entry->temp,
+		__entry->cpu_static_pwr,
+		__entry->static_pwr)
+);
+
 TRACE_EVENT(sched_find_energy_efficient_cpu,
 
 	TP_PROTO(unsigned long prev_delta, unsigned long best_delta,

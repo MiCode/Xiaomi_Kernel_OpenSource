@@ -19,6 +19,7 @@ extern void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p,
 
 extern void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 		unsigned long max_util, unsigned long sum_util, unsigned long *energy);
+extern unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 extern int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order);
 #endif

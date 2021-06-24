@@ -101,7 +101,8 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 {
 	unsigned long freq, scale_cpu;
 	struct em_perf_state *ps;
-	int i, cpu;
+	int i, cpu, opp = -1;
+	unsigned long dyn_pwr = 0, static_pwr = 0;
 
 	if (!sum_util) {
 		energy = 0;
@@ -132,6 +133,24 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 		if (ps->frequency >= freq)
 			break;
 	}
+
+#if IS_ENABLED(CONFIG_MTK_LEAKAGE_AWARE_TEMP)
+	i = min(i, pd->nr_perf_states - 1);
+	opp = pd->nr_perf_states - i -1;
+
+	for_each_cpu_and(cpu, to_cpumask(pd->cpus), cpu_online_mask) {
+		unsigned int temp;
+		unsigned long cpu_static_pwr;
+
+		temp = get_cpu_temp(cpu);
+		temp /= 1000;
+
+		cpu_static_pwr = mtk_get_leakage(cpu, opp, temp);
+		static_pwr += cpu_static_pwr >> 10;
+
+		trace_sched_leakage(cpu, opp, temp, cpu_static_pwr, static_pwr);
+	}
+#endif
 
 	/*
 	 * The capacity of a CPU in the domain at the performance state (ps)
@@ -176,7 +195,10 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 	 *                  scale_cpu
 	 */
 
-	*energy = (ps->cost * sum_util/ scale_cpu);
+	dyn_pwr = (ps->cost * sum_util/ scale_cpu);
+	*energy = dyn_pwr + static_pwr;
+
+	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
 }
 
 #define CSRAM_BASE 0x0011BC00
