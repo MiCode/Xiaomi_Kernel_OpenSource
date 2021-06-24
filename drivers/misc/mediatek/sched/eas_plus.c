@@ -50,6 +50,7 @@ void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
 	struct perf_domain *pd = NULL;
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long sum_util = 0, sum_cap = 0;
+	int i = 0;
 
 	rcu_read_lock();
 	pd = rcu_dereference(rq->rd->pd);
@@ -59,10 +60,18 @@ void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
 		return;
 	}
 
-	for_each_cpu(cpu, perf_domain_span(pd)) {
-		sum_util += cpu_util(cpu);
-		sum_cap += capacity_of(cpu);
+	if (cpumask_weight(perf_domain_span(pd)) == 1 &&
+		capacity_orig_of(cpu) == SCHED_CAPACITY_SCALE) {
+		*overutilized = 0;
+		rcu_read_unlock();
+		return;
 	}
+
+	for_each_cpu(i, perf_domain_span(pd)) {
+		sum_util += cpu_util(i);
+		sum_cap += capacity_of(i);
+	}
+
 
 	*overutilized = !fits_capacity(sum_util, sum_cap);
 	trace_sched_cpu_overutilized(cpu, perf_domain_span(pd), sum_util, sum_cap, *overutilized);
