@@ -20,7 +20,7 @@ void __init set_policy(int *policy_ctrl)
 	policy_ctrl[MKP_POLICY_SELINUX_AVC] = 1;	/* Policy ID for selinux avc */
 	policy_ctrl[MKP_POLICY_TASK_CRED] = 1;		/* Policy ID for task credential */
 	policy_ctrl[MKP_POLICY_KERNEL_CODE] = 0;	/* Policy ID for kernel text */
-	policy_ctrl[MKP_POLICY_KERNEL_RODATA] = 1;	/* Policy ID for kernel rodata */
+	policy_ctrl[MKP_POLICY_KERNEL_RODATA] = 0;	/* Policy ID for kernel rodata */
 	policy_ctrl[MKP_POLICY_KERNEL_PAGES] = 1;	/* Policy ID for other mapped kernel pages */
 	policy_ctrl[MKP_POLICY_PGTABLE] = 1;		/* Policy ID for page table */
 	policy_ctrl[MKP_POLICY_S1_MMU_CTRL] = 1;	/* Policy ID for stage-1 MMU control */
