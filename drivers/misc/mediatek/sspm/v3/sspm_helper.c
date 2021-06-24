@@ -148,6 +148,15 @@ static int __init sspm_device_probe(struct platform_device *pdev)
 	pr_debug("[SSPM] sspm irq=%d, cfgreg=0x%p\n", sspmreg.irq, sspmreg.cfg);
 
 	sspm_pdev = pdev;
+#ifdef SSPM_MBOX_SHARE_SUPPORT
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mbox_share");
+	sspmreg.mboxshare = devm_ioremap_resource(dev, res);
+
+	if (IS_ERR((void const *) sspmreg.mboxshare)) {
+		pr_err("[SSPM] Unable to ioremap mboxshare\n");
+		return -1;
+	}
+#endif
 
 #ifdef SSPM_SHARE_BUFFER_SUPPORT
 	if (sspm_sbuf_init()) {

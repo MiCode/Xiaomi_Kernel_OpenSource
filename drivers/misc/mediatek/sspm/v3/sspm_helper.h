@@ -10,6 +10,7 @@
 
 struct sspm_regs {
 	void __iomem *cfg;
+	void __iomem *mboxshare;
 	unsigned int cfgregsize;
 	int irq;
 };
