@@ -75,6 +75,7 @@ struct mtk_sec_heap_buffer {
 	int vmap_cnt;
 	void *vaddr;
 	struct deferred_freelist_item deferred_free;
+	struct ssheap_buf_info *ssheap; /* for page base */
 
 	bool uncached;
 
@@ -185,29 +186,14 @@ static struct sg_table *dup_sg_table_sec(struct sg_table *table)
 	return new_table;
 }
 
-static void region_base_free(struct secure_heap *sec_heap, struct mtk_sec_heap_buffer *buffer)
+static int region_base_free(struct secure_heap *sec_heap, struct mtk_sec_heap_buffer *buffer)
 {
-	int i;
+	int i, ret;
 	u32 sec_handle = 0;
 	struct sec_buf_priv *buf_info = buffer->priv;
 
 	pr_info("%s start, [%s] size:0x%lx\n",
 		__func__, sec_heap->heap_name, buffer->len);
-
-	sec_handle = buf_info->sec_handle;
-	trusted_mem_api_unref(sec_heap->tmem_type, sec_handle,
-			      (uint8_t *)dma_heap_get_name(buffer->heap), 0, NULL);
-
-	if (!atomic64_read(&sec_heap->total_size)) {
-		if (sec_heap->heap_mapped) {
-			dma_unmap_sgtable(sec_heap->heap_dev, sec_heap->region_table,
-					  DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
-			sec_heap->heap_mapped = false;
-		}
-		sg_free_table(sec_heap->region_table);
-		kfree(sec_heap->region_table);
-		pr_info("%s: all secure memory already free, unmap heap_region iova\n", __func__);
-	}
 
 	/* remove all domains' sgtable */
 	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
@@ -227,14 +213,39 @@ static void region_base_free(struct secure_heap *sec_heap, struct mtk_sec_heap_b
 		kfree(table);
 	}
 
+	sec_handle = buf_info->sec_handle;
+	ret = trusted_mem_api_unref(sec_heap->tmem_type, sec_handle,
+			      (uint8_t *)dma_heap_get_name(buffer->heap), 0, NULL);
+	if (ret) {
+		pr_err("%s error, trusted_mem_api_unref failed, heap:%s, ret:%d\n",
+		       __func__, sec_heap->heap_name, ret);
+		return ret;
+	}
+
+	if (atomic64_sub_return(buffer->len, &sec_heap->total_size) < 0)
+		pr_warn("%s warn!, total memory overflow, 0x%lx!!\n", __func__,
+			atomic64_read(&sec_heap->total_size));
+
+	if (!atomic64_read(&sec_heap->total_size)) {
+		if (sec_heap->heap_mapped) {
+			dma_unmap_sgtable(sec_heap->heap_dev, sec_heap->region_table,
+					  DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
+			sec_heap->heap_mapped = false;
+		}
+		sg_free_table(sec_heap->region_table);
+		kfree(sec_heap->region_table);
+		pr_info("%s: all secure memory already free, unmap heap_region iova\n", __func__);
+	}
+
 	pr_info("%s done, [%s] size:0x%lx\n",
 		__func__, sec_heap->heap_name, buffer->len);
+	return ret;
 }
 
 
-static void page_base_free(struct secure_heap *sec_heap, struct mtk_sec_heap_buffer *buffer)
+static int page_base_free(struct secure_heap *sec_heap, struct mtk_sec_heap_buffer *buffer)
 {
-	int i;
+	int i, ret;
 	struct sec_buf_priv *buf_info = buffer->priv;
 
 	pr_info("%s start, [%s] size:0x%lx\n",
@@ -257,9 +268,22 @@ static void page_base_free(struct secure_heap *sec_heap, struct mtk_sec_heap_buf
 		sg_free_table(table);
 		kfree(table);
 	}
+	ret = trusted_mem_api_unref(sec_heap->tmem_type, buf_info->sec_handle,
+			      (uint8_t *)dma_heap_get_name(buffer->heap), 0, buffer->ssheap);
+	if (ret) {
+		pr_err("%s error, trusted_mem_api_unref failed, heap:%s, ret:%d\n",
+		       __func__, sec_heap->heap_name, ret);
+		return ret;
+	}
+
+	if (atomic64_sub_return(buffer->len, &sec_heap->total_size) < 0)
+		pr_warn("%s, total memory overflow, 0x%lx!!\n", __func__,
+			atomic64_read(&sec_heap->total_size));
 
 	pr_info("%s done, [%s] size:0x%lx\n",
 		__func__, sec_heap->heap_name, buffer->len);
+
+	return ret;
 }
 
 static void tmem_free(struct dma_buf *dmabuf)
@@ -267,6 +291,7 @@ static void tmem_free(struct dma_buf *dmabuf)
 	struct secure_heap *sec_heap;
 	struct mtk_sec_heap_buffer *buffer = NULL;
 	struct sec_buf_priv *buf_info = NULL;
+	int ret = -EINVAL;
 
 	if (unlikely(!is_mtk_secure_dmabuf(dmabuf))) {
 		pr_err("%s err, dmabuf is not secure\n", __func__);
@@ -285,18 +310,20 @@ static void tmem_free(struct dma_buf *dmabuf)
 	pr_info("%s start, [%s]: heap_ptr:0x%lx\n",
 		__func__, dmabuf->exp_name, (unsigned long)sec_heap);
 
-	if (atomic64_sub_return(buffer->len, &sec_heap->total_size) < 0)
-		pr_warn("%s, total memory overflow, 0x%lx!!", __func__, atomic64_read(&sec_heap->total_size));
-
 	if (sec_heap->heap_type == REGION_BASE)
-		region_base_free(sec_heap, buffer);
+		ret = region_base_free(sec_heap, buffer);
 	else if (sec_heap->heap_type == PAGE_BASE)
-		page_base_free(sec_heap, buffer);
+		ret = page_base_free(sec_heap, buffer);
 	else
 		pr_err("%s err, heap_type(%d) is invalid\n", __func__, sec_heap->heap_type);
 
+	if (ret) {
+		pr_err("%s fail, heap:%s\n", __func__, sec_heap->heap_type);
+		return;
+	}
 	/* TODO: why do you add lock???? */
 	/* mutex_lock(&dmabuf->lock); */
+	sg_free_table(&buffer->sg_table);
 	kfree(buf_info);
 	kfree(buffer);
 	/* mutex_unlock(&dmabuf->lock); */
@@ -358,7 +385,7 @@ static int copy_sec_sg_table(struct sg_table *source, struct sg_table *dest)
 	struct scatterlist *sgl, *dest_sgl;
 
 	if (source->orig_nents != dest->orig_nents) {
-		pr_info("nents not match %d-%d\n",
+		pr_err("%s err, nents not match %d-%d\n", __func__,
 			source->orig_nents, dest->orig_nents);
 
 		return -EINVAL;
@@ -675,19 +702,21 @@ static const struct dma_buf_ops sec_buf_ops = {
 
 /* region base size is 4K alignment */
 static int region_base_alloc(struct secure_heap *sec_heap,
-				struct mtk_sec_heap_buffer *buffer, struct sec_buf_priv *info)
+				struct mtk_sec_heap_buffer *buffer, struct sec_buf_priv *info,
+				 unsigned long req_sz)
 {
 	int ret;
 	u32 sec_handle = 0;
 	u32 refcount = 0;/* tmem refcount */
+	u32 alignment = SZ_1M;
 	uint64_t phy_addr = 0;
 	struct sg_table *table;
 
 	pr_info("%s start: [%s], req_size:0x%lx\n",
 		__func__, dma_heap_get_name(sec_heap->heap), buffer->len);
 
-	ret = trusted_mem_api_alloc(sec_heap->tmem_type, 0, (unsigned int *)&buffer->len, &refcount,
-				    &sec_handle,
+	ret = trusted_mem_api_alloc(sec_heap->tmem_type, alignment, (unsigned int *)&buffer->len,
+				    &refcount, &sec_handle,
 				    (uint8_t *)dma_heap_get_name(sec_heap->heap),
 				    0, NULL);
 	if (ret == -ENOMEM) { //return value ???????????????????
@@ -697,7 +726,7 @@ static int region_base_alloc(struct secure_heap *sec_heap,
 	}
 	if (!sec_handle) {
 		pr_err("%s alloc security memory failed, req_size:0x%lx, total_size 0x%lx\n",
-			__func__, buffer->len, atomic64_read(&sec_heap->total_size));
+			__func__, req_sz, atomic64_read(&sec_heap->total_size));
 		return -ENOMEM;
 	}
 
@@ -730,8 +759,8 @@ static int region_base_alloc(struct secure_heap *sec_heap,
 		goto free_buffer_struct;
 	}
 
-	pr_info("%s done: [%s], req_size:0x%lx, handle:%u, pa:0x%lx\n",
-		__func__, dma_heap_get_name(sec_heap->heap), buffer->len,
+	pr_info("%s done: [%s], req_size:0x%lx, align_sz:0x%lx, handle:%u, pa:0x%lx\n",
+		__func__, dma_heap_get_name(sec_heap->heap), req_sz, buffer->len,
 		info->sec_handle, phy_addr);
 
 	return 0;
@@ -747,9 +776,55 @@ free_buffer:
 }
 
 static int page_base_alloc(struct secure_heap *sec_heap,
-				struct mtk_sec_heap_buffer *buffer, struct sec_buf_priv *info)
+				struct mtk_sec_heap_buffer *buffer,
+				unsigned long req_sz)
 {
+	int ret;
+	u32 sec_handle = 0;
+	u32 refcount = 0;/* tmem refcount */
+	struct ssheap_buf_info *ssheap = NULL;
+	struct sg_table *table = &buffer->sg_table;
+
+	pr_info("%s start: [%s], req_size:0x%lx\n",
+		__func__, dma_heap_get_name(sec_heap->heap), buffer->len);
+
+	ret = trusted_mem_api_alloc(sec_heap->tmem_type, 0, (unsigned int *)&buffer->len,
+				    &refcount, &sec_handle,
+				    (uint8_t *)dma_heap_get_name(sec_heap->heap),
+				    0, &ssheap);
+	if (!ssheap) {
+		pr_err("%s error, alloc page base failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = sg_alloc_table(table, ssheap->table->orig_nents, GFP_KERNEL);
+	if (ret) {
+		pr_err("%s error. sg_alloc_table failed\n", __func__);
+		goto free_tmem;
+	}
+
+	ret = copy_sec_sg_table(ssheap->table, table);
+	if (ret) {
+		pr_err("%s error. copy_sec_sg_table failed\n", __func__);
+		goto free_table;
+	}
+	buffer->len = ssheap->aligned_req_size;
+	buffer->ssheap = ssheap;
+
+	pr_info("%s done: [%s], req_size:0x%lx(0x%lx), align_sz:0x%lx, nent:%u--%lu, align:0x%lx\n",
+		__func__, dma_heap_get_name(sec_heap->heap), buffer->ssheap->req_size, req_sz,
+		buffer->len, buffer->ssheap->table->orig_nents, buffer->ssheap->elems,
+		buffer->ssheap->alignment);
+
 	return 0;
+
+free_table:
+	sg_free_table(table);
+free_tmem:
+	trusted_mem_api_unref(sec_heap->tmem_type, sec_handle,
+			      (uint8_t *)dma_heap_get_name(buffer->heap), 0, ssheap);
+
+	return ret;
 }
 
 static struct dma_buf *tmem_allocate(struct dma_heap *heap,
@@ -788,9 +863,9 @@ static struct dma_buf *tmem_allocate(struct dma_heap *heap,
 	/* all secure memory set as uncached buffer */
 	buffer->uncached = true;
 	if (sec_heap->heap_type == REGION_BASE)
-		ret = region_base_alloc(sec_heap, buffer, info);
+		ret = region_base_alloc(sec_heap, buffer, info, len);
 	else if (sec_heap->heap_type == PAGE_BASE)
-		ret = page_base_alloc(sec_heap, buffer, info);
+		ret = page_base_alloc(sec_heap, buffer, len);
 	else
 		pr_err("%s err, heap_type(%d) is invalid\n", __func__, sec_heap->heap_type);
 
@@ -817,10 +892,10 @@ static struct dma_buf *tmem_allocate(struct dma_heap *heap,
 	get_task_comm(info->tid_name, current);
 	info->pid = task_pid_nr(task);
 	info->tid = task_pid_nr(current);
-	atomic64_add(len, &sec_heap->total_size);
+	atomic64_add(buffer->len, &sec_heap->total_size);
 
-	pr_info("%s done: [%s], req_size:0x%lx, total_size:0x%lx\n",
-		__func__, dma_heap_get_name(heap), buffer->len,
+	pr_info("%s done: [%s], req_size:0x%lx, align_sz:0x%lx, total_size:0x%lx\n",
+		__func__, dma_heap_get_name(heap), len, buffer->len,
 		atomic64_read(&sec_heap->total_size));
 
 	return dmabuf;
