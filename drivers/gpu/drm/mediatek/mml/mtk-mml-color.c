@@ -253,6 +253,43 @@ static const struct mml_comp_config_ops color_cfg_ops = {
 	.tile = color_config_tile,
 };
 
+static void color_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[13];
+
+	mml_err("color component %u dump:", comp->id);
+
+	value[0] = readl(base + COLOR_CFG_MAIN);
+	value[1] = readl(base + COLOR_PXL_CNT_MAIN);
+	value[2] = readl(base + COLOR_LINE_CNT_MAIN);
+	value[3] = readl(base + COLOR_WIN_X_MAIN);
+	value[4] = readl(base + COLOR_WIN_Y_MAIN);
+	value[5] = readl(base + COLOR_DBG_CFG_MAIN);
+	value[6] = readl(base + COLOR_START);
+	value[7] = readl(base + COLOR_INTEN);
+	value[8] = readl(base + COLOR_INTSTA);
+	value[9] = readl(base + COLOR_OUT_SEL);
+	value[10] = readl(base + COLOR_FRAME_DONE_DEL);
+	value[11] = readl(base + COLOR_INTERNAL_IP_WIDTH);
+	value[12] = readl(base + COLOR_INTERNAL_IP_HEIGHT);
+
+	mml_err("COLOR_CFG_MAIN %#010x COLOR_PXL_CNT_MAIN %#010x COLOR_LINE_CNT_MAIN %#010x",
+		value[0], value[1], value[2]);
+	mml_err("COLOR_WIN_X_MAIN %#010x COLOR_WIN_Y_MAIN %#010x",
+		value[3], value[4]);
+	mml_err("COLOR_DBG_CFG_MAIN %#010x COLOR_START %#010x COLOR_INTEN %#010x",
+		value[5], value[6], value[7]);
+	mml_err("COLOR_INTSTA %#010x COLOR_OUT_SEL %#010x COLOR_FRAME_DONE_DEL %#010x",
+		value[8], value[9], value[10]);
+	mml_err("COLOR_INTERNAL_IP_WIDTH %#010x COLOR_INTERNAL_IP_HEIGHT %#010x",
+		value[11], value[12]);
+}
+
+static const struct mml_comp_debug_ops color_debug_ops = {
+	.dump = &color_debug_dump,
+};
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_color *color = dev_get_drvdata(dev);
@@ -329,6 +366,7 @@ static int probe(struct platform_device *pdev)
 
 	/* assign ops */
 	priv->comp.config_ops = &color_cfg_ops;
+	priv->comp.debug_ops = &color_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

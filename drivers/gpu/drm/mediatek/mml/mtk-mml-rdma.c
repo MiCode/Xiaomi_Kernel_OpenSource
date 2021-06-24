@@ -1010,7 +1010,7 @@ static const char *rdma_state(u32 state)
 static void rdma_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	u32 value[17];
+	u32 value[23];
 	u32 mon[29];
 	u32 state, grep;
 	u8 i;
@@ -1029,11 +1029,17 @@ static void rdma_debug_dump(struct mml_comp *comp)
 	value[9] = readl(base + RDMA_SRC_END_0);
 	value[10] = readl(base + RDMA_SRC_END_1);
 	value[11] = readl(base + RDMA_SRC_END_2);
-	value[12] = readl(base + RDMA_SRC_OFFSET_WP);
-	value[13] = readl(base + RDMA_SRC_OFFSET_HP);
-	value[14] = readl(base + RDMA_SRC_BASE_0);
-	value[15] = readl(base + RDMA_SRC_BASE_1);
-	value[16] = readl(base + RDMA_SRC_BASE_2);
+	value[12] = readl(base + RDMA_SRC_OFFSET_0);
+	value[13] = readl(base + RDMA_SRC_OFFSET_1);
+	value[14] = readl(base + RDMA_SRC_OFFSET_2);
+	value[15] = readl(base + RDMA_SRC_OFFSET_W_0);
+	value[16] = readl(base + RDMA_SRC_OFFSET_W_1);
+	value[17] = readl(base + RDMA_SRC_OFFSET_W_2);
+	value[18] = readl(base + RDMA_SRC_OFFSET_WP);
+	value[19] = readl(base + RDMA_SRC_OFFSET_HP);
+	value[20] = readl(base + RDMA_SRC_BASE_0);
+	value[21] = readl(base + RDMA_SRC_BASE_1);
+	value[22] = readl(base + RDMA_SRC_BASE_2);
 
 	/* mon sta from 0 ~ 28 */
 	for (i = 0; i < ARRAY_SIZE(mon); i++)
@@ -1049,10 +1055,14 @@ static void rdma_debug_dump(struct mml_comp *comp)
 		value[7], value[8]);
 	mml_err("RDMA_SRC_END_0 %#010x RDMA_SRC_END_1 %#010x RDMA_SRC_END_2 %#010x",
 		value[9], value[10], value[11]);
+	mml_err("RDMA_SRC_OFFSET_0 %#010x RDMA_SRC_OFFSET_1 %#010x RDMA_SRC_OFFSET_2 %#010x",
+		value[12], value[13], value[14]);
+	mml_err("RDMA_SRC_OFFSET_W_0 %#010x RDMA_SRC_OFFSET_W_1 %#010x RDMA_SRC_OFFSET_W_2 %#010x",
+		value[15], value[16], value[17]);
 	mml_err("RDMA_SRC_OFFSET_WP %#010x RDMA_SRC_OFFSET_HP %#010x",
-		value[12], value[13]);
+		value[18], value[19]);
 	mml_err("RDMA_SRC BASE_0 %#010x BASE_1 %#010x BASE_2 %#010x",
-		value[14], value[15], value[16]);
+		value[20], value[21], value[22]);
 
 	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++)
 		mml_err("RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x",

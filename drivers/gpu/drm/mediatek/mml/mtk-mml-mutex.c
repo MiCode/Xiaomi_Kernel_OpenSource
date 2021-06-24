@@ -112,6 +112,29 @@ static const struct component_ops mml_comp_ops = {
 static struct mml_mutex *dbg_probed_components[2];
 static int dbg_probed_count;
 
+static void mutex_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	struct mml_mutex *mutex = container_of(comp, struct mml_mutex, comp);
+	u8 i, j;
+
+	mml_err("mutex component %u dump:", comp->id);
+
+	for (i = 0; i < mutex->data->mutex_cnt; i++)
+		for (j = 0; j < mutex->data->mod_cnt; j++) {
+			u32 offset = mutex->data->mod_offsets[j];
+			u32 value;
+
+			value = readl(base + MUTEX_MOD(i, offset));
+			mml_err("MDP_MUTEX%d_MOD%d %#010x",
+			i, j, value);
+		}
+}
+
+static const struct mml_comp_debug_ops mutex_debug_ops = {
+	.dump = &mutex_debug_dump,
+};
+
 static int probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -183,6 +206,7 @@ static int probe(struct platform_device *pdev)
 	}
 
 	priv->comp.config_ops = &mutex_config_ops;
+	priv->comp.debug_ops= &mutex_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

@@ -240,6 +240,35 @@ static const struct mml_comp_config_ops aal_cfg_ops = {
 	.tile = aal_config_tile,
 };
 
+static void aal_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[9];
+
+	mml_err("aal component %u dump:", comp->id);
+
+	value[0] = readl(base + AAL_INTSTA);
+	value[1] = readl(base + AAL_STATUS);
+	value[2] = readl(base + AAL_INPUT_COUNT);
+	value[3] = readl(base + AAL_OUTPUT_COUNT);
+	value[4] = readl(base + AAL_SIZE);
+	value[5] = readl(base + AAL_OUTPUT_SIZE);
+	value[6] = readl(base + AAL_OUTPUT_OFFSET);
+	value[7] = readl(base + AAL_TILE_00);
+	value[8] = readl(base + AAL_TILE_01);
+
+	mml_err("AAL_INTSTA %#010x AAL_STATUS %#010x AAL_INPUT_COUNT %#010x AAL_OUTPUT_COUNT %#010x",
+		value[0], value[1], value[2], value[3]);
+	mml_err("AAL_SIZE %#010x AAL_OUTPUT_SIZE %#010x AAL_OUTPUT_OFFSET %#010x",
+		value[4], value[5], value[6]);
+	mml_err("AAL_TILE_00 %#010x AAL_TILE_01 %#010x",
+		value[7], value[8]);
+}
+
+static const struct mml_comp_debug_ops aal_debug_ops = {
+	.dump = &aal_debug_dump,
+};
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_aal *aal = dev_get_drvdata(dev);
@@ -316,6 +345,7 @@ static int probe(struct platform_device *pdev)
 
 	/* assign ops */
 	priv->comp.config_ops = &aal_cfg_ops;
+	priv->comp.debug_ops = &aal_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

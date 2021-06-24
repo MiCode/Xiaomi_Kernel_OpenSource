@@ -333,6 +333,37 @@ static const struct mml_comp_config_ops tdshp_cfg_ops = {
 	.tile = tdshp_config_tile,
 };
 
+static void tdshp_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[10];
+
+	mml_err("tdshp component %u dump:", comp->id);
+
+	value[0] = readl(base + TDSHP_INTEN);
+	value[1] = readl(base + TDSHP_INTSTA);
+	value[2] = readl(base + TDSHP_STATUS);
+	value[3] = readl(base + TDSHP_CFG);
+	value[4] = readl(base + TDSHP_INPUT_COUNT);
+	value[5] = readl(base + TDSHP_OUTPUT_COUNT);
+	value[6] = readl(base + TDSHP_INPUT_SIZE);
+	value[7] = readl(base + TDSHP_OUTPUT_OFFSET);
+	value[8] = readl(base + TDSHP_OUTPUT_SIZE);
+	value[9] = readl(base + TDSHP_BLANK_WIDTH);
+
+	mml_err("TDSHP_INTEN %#010x TDSHP_INTSTA %#010x TDSHP_STATUS %#010x TDSHP_CFG %#010x",
+		value[0], value[1], value[2], value[3]);
+	mml_err("TDSHP_INPUT_COUNT %#010x TDSHP_OUTPUT_COUNT %#010x",
+		value[4], value[5]);
+	mml_err("TDSHP_INPUT_SIZE %#010x TDSHP_OUTPUT_OFFSET %#010x TDSHP_OUTPUT_SIZE %#010x",
+		value[6], value[7], value[8]);
+	mml_err("TDSHP_BLANK_WIDTH %#010x", value[9]);
+}
+
+static const struct mml_comp_debug_ops tdshp_debug_ops = {
+	.dump = &tdshp_debug_dump,
+};
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_tdshp *tdshp = dev_get_drvdata(dev);
@@ -409,6 +440,7 @@ static int probe(struct platform_device *pdev)
 
 	/* assign ops */
 	priv->comp.config_ops = &tdshp_cfg_ops;
+	priv->comp.debug_ops = &tdshp_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

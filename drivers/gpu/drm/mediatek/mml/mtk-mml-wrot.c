@@ -1436,19 +1436,14 @@ static void wrot_debug_dump(struct mml_comp *comp)
 
 	mml_err("VIDO_CTRL %#010x VIDO_DMA_PERF %#010x VIDO_MAIN_BUF_SIZE %#010x",
 		value[0], value[1], value[2]);
-
 	mml_err("VIDO_SOFT_RST %#010x VIDO_SOFT_RST_STAT %#010x VIDO_INT %#010x",
 		value[3], value[4], value[5]);
-
 	mml_err("VIDO_TAR_SIZE %#010x VIDO_FRAME_SIZE %#010x VIDO_OFST_ADDR %#010x",
 		value[6], value[7], value[8]);
-
 	mml_err("VIDO_STRIDE %#010x VIDO_RSV_1 %#010x VIDO_IN_SIZE %#010x",
 		value[9], value[10], value[11]);
-
 	mml_err("VIDO_ROT_EN %#010x VIDO_PVRIC %#010x VIDO_PENDING_ZERO %#010x",
 		value[12], value[13], value[14]);
-
 	mml_err("VIDO_BASE_ADDR %#010x C %#010x V %#010x",
 		value[15], value[16], value[17]);
 

@@ -239,6 +239,47 @@ static const struct mml_comp_config_ops hdr_cfg_ops = {
 	.tile = hdr_config_tile,
 };
 
+static void hdr_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[16];
+
+	mml_err("hdr component %u dump:", comp->id);
+
+	value[0] = readl(base + HDR_TOP);
+	value[1] = readl(base + HDR_RELAY);
+	value[2] = readl(base + HDR_INTSTA);
+	value[3] = readl(base + HDR_ENGSTA);
+	value[4] = readl(base + HDR_SIZE_0);
+	value[5] = readl(base + HDR_SIZE_1);
+	value[6] = readl(base + HDR_SIZE_2);
+	value[7] = readl(base + HDR_HIST_CTRL_0);
+	value[8] = readl(base + HDR_HIST_CTRL_1);
+	value[9] = readl(base + HDR_CURSOR_CTRL);
+	value[10] = readl(base + HDR_CURSOR_POS);
+	value[11] = readl(base + HDR_CURSOR_COLOR);
+	value[12] = readl(base + HDR_TILE_POS);
+	value[13] = readl(base + HDR_CURSOR_BUF0);
+	value[14] = readl(base + HDR_CURSOR_BUF1);
+	value[15] = readl(base + HDR_CURSOR_BUF2);
+
+	mml_err("HDR_TOP %#010x HDR_RELAY %#010x HDR_INTSTA %#010x HDR_ENGSTA %#010x",
+		value[0], value[1], value[2], value[3]);
+	mml_err("HDR_SIZE_0 %#010x HDR_SIZE_1 %#010x HDR_SIZE_2 %#010x",
+		value[4], value[5], value[6]);
+	mml_err("HDR_HIST_CTRL_0 %#010x HDR_HIST_CTRL_1 %#010x",
+		value[7], value[8]);
+	mml_err("HDR_CURSOR_CTRL %#010x HDR_CURSOR_POS %#010x HDR_CURSOR_COLOR %#010x",
+		value[9], value[10], value[11]);
+	mml_err("HDR_TILE_POS %#010x", value[12]);
+	mml_err("HDR_CURSOR_BUF0 %#010x HDR_CURSOR_BUF1 %#010x HDR_CURSOR_BUF2 %#010x",
+		value[13], value[14], value[15]);
+}
+
+static const struct mml_comp_debug_ops hdr_debug_ops = {
+	.dump = &hdr_debug_dump,
+};
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_hdr *hdr = dev_get_drvdata(dev);
@@ -315,6 +356,7 @@ static int probe(struct platform_device *pdev)
 
 	/* assign ops */
 	priv->comp.config_ops = &hdr_cfg_ops;
+	priv->comp.debug_ops = &hdr_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

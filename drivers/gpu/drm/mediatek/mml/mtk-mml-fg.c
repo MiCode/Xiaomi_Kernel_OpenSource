@@ -103,6 +103,28 @@ static const struct mml_comp_config_ops fg_cfg_ops = {
 	.tile = fg_config_tile,
 };
 
+static void fg_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[4];
+
+	mml_err("fg component %u dump:", comp->id);
+
+	value[0] = readl(base + FG_CTRL_0);
+	value[1] = readl(base + FG_CK_EN);
+	value[2] = readl(base + FG_TILE_INFO_0);
+	value[3] = readl(base + FG_TILE_INFO_1);
+
+	mml_err("FG_CTRL_0 %#010x FG_CK_EN %#010x",
+		value[0], value[1]);
+	mml_err("FG_TILE_INFO_0 %#010x FG_TILE_INFO_1 %#010x",
+		value[2], value[3]);
+}
+
+static const struct mml_comp_debug_ops fg_debug_ops = {
+	.dump = &fg_debug_dump,
+};
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_fg *fg = dev_get_drvdata(dev);
@@ -179,6 +201,7 @@ static int probe(struct platform_device *pdev)
 
 	/* assign ops */
 	priv->comp.config_ops = &fg_cfg_ops;
+	priv->comp.debug_ops = &fg_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

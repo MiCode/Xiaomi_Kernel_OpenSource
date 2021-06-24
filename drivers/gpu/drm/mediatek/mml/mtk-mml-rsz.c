@@ -249,6 +249,121 @@ static const struct mml_comp_config_ops rsz_cfg_ops = {
 	.tile = rsz_config_tile,
 };
 
+const char *get_rsz_state(const u32 state)
+{
+	switch (state) {
+	case 0x5:
+		/* 0,1,0,1 */
+		return "downstream hang";
+	case 0xa:
+		/* 1,0,1,0 */
+		return "upstream hang";
+	default:
+		return "";
+	}
+}
+
+static void rsz_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[30];
+	u32 debug[8];
+	u32 state;
+	u32 request[4];
+
+	mml_err("rsz component %u dump:", comp->id);
+
+	value[0] = readl(base + RSZ_ENABLE);
+	value[1] = readl(base + RSZ_CON_1);
+	value[2] = readl(base + RSZ_CON_2);
+	value[3] = readl(base + RSZ_INT_FLAG);
+	value[4] = readl(base + RSZ_INPUT_IMAGE);
+	value[5] = readl(base + RSZ_OUTPUT_IMAGE);
+	value[6] = readl(base + RSZ_HOR_COEFF_STEP);
+	value[7] = readl(base + RSZ_VER_COEFF_STEP);
+	value[8] = readl(base + RSZ_LUMA_HOR_INT_OFFSET);
+	value[9] = readl(base + RSZ_LUMA_HOR_SUB_OFFSET);
+	value[10] = readl(base + RSZ_LUMA_VER_INT_OFFSET);
+	value[11] = readl(base + RSZ_LUMA_VER_SUB_OFFSET);
+	value[12] = readl(base + RSZ_CHROMA_HOR_INT_OFFSET);
+	value[13] = readl(base + RSZ_CHROMA_HOR_SUB_OFFSET);
+	value[14] = readl(base + RSZ_RSV);
+	value[15] = readl(base + RSZ_TAP_ADAPT);
+	value[16] = readl(base + RSZ_IBSE_SOFTCLIP);
+	value[17] = readl(base + RSZ_PAT1_GEN_SET);
+	value[18] = readl(base + RSZ_PAT2_GEN_SET);
+	value[19] = readl(base + RSZ_ETC_CONTROL);
+	value[20] = readl(base + RSZ_ETC_SWITCH_MAX_MIN_1);
+	value[21] = readl(base + RSZ_ETC_SWITCH_MAX_MIN_2);
+	value[22] = readl(base + RSZ_ETC_RING);
+	value[23] = readl(base + RSZ_ETC_RING_GAINCON_1);
+	value[24] = readl(base + RSZ_ETC_RING_GAINCON_2);
+	value[25] = readl(base + RSZ_ETC_RING_GAINCON_3);
+	value[26] = readl(base + RSZ_ETC_SIM_PROT_GAINCON_1);
+	value[27] = readl(base + RSZ_ETC_SIM_PROT_GAINCON_2);
+	value[28] = readl(base + RSZ_ETC_SIM_PROT_GAINCON_3);
+	value[29] = readl(base + RSZ_ETC_BLEND);
+
+	writel(0x1, (volatile void *)base + RSZ_DEBUG_SEL);
+	debug[0] = readl(base + RSZ_DEBUG);
+	writel(0x2, (volatile void *)base + RSZ_DEBUG_SEL);
+	debug[1] = readl(base + RSZ_DEBUG);
+	writel(0x3, (volatile void *)base + RSZ_DEBUG_SEL);
+	debug[2] = readl(base + RSZ_DEBUG);
+	writel(0x9, (volatile void *)base + RSZ_DEBUG_SEL);
+	debug[3] = readl(base + RSZ_DEBUG);
+	writel(0xa, (volatile void *)base + RSZ_DEBUG_SEL);
+	debug[4] = readl(base + RSZ_DEBUG);
+	writel(0xb, (volatile void *)base + RSZ_DEBUG_SEL);
+	debug[5] = readl(base + RSZ_DEBUG);
+	writel(0xd, (volatile void *)base + RSZ_DEBUG_SEL);
+	debug[6] = readl(base + RSZ_DEBUG);
+	writel(0xe, (volatile void *)base + RSZ_DEBUG_SEL);
+	debug[7] = readl(base + RSZ_DEBUG);
+
+	mml_err("RSZ_ENABLE %#010x RSZ_CON_1 %#010x RSZ_CON_2 %#010x RSZ_INT_FLAG %#010x",
+		value[0], value[1], value[2], value[3]);
+	mml_err("RSZ_INPUT_IMAGE %#010x RSZ_OUTPUT_IMAGE %#010x",
+		value[4], value[5]);
+	mml_err("RSZ_HOR_COEFF_STEP %#010x RSZ_VER_COEFF_STEP %#010x",
+		value[6], value[7]);
+	mml_err("RSZ_LUMA_HOR_INT_OFFSET %#010x RSZ_LUMA_HOR_SUB_OFFSET %#010x",
+		value[8], value[9]);
+	mml_err("RSZ_LUMA_VER_INT_OFFSET %#010x RSZ_LUMA_VER_SUB_OFFSET %#010x",
+		value[10], value[11]);
+	mml_err("RSZ_CHROMA_HOR_INT_OFFSET %#010x RSZ_CHROMA_HOR_SUB_OFFSET %#010x",
+		value[12], value[13]);
+	mml_err("RSZ_RSV %#010x RSZ_TAP_ADAPT %#010x RSZ_IBSE_SOFTCLIP %#010x",
+		value[14], value[15], value[16]);
+	mml_err("RSZ_PAT1_GEN_SET %#010x RSZ_PAT2_GEN_SET %#010x",
+		value[17], value[18]);
+	mml_err("RSZ_ETC_CONTROL %#010x RSZ_ETC_RING %#010x RSZ_ETC_BLEND %#010x",
+		value[19], value[22], value[29]);
+	mml_err("RSZ_ETC_SWITCH_MAX_MIN_1 %#010x RSZ_ETC_SWITCH_MAX_MIN_2 %#010x",
+		value[20], value[21]);
+	mml_err("RSZ_ETC_RING_GAINCON_1 %#010x RSZ_ETC_RING_GAINCON_2 %#010x RSZ_ETC_RING_GAINCON_3 %#010x",
+		value[23], value[24], value[25]);
+	mml_err("RSZ_ETC_SIM_PROT_GAINCON_1 %#010x RSZ_ETC_SIM_PROT_GAINCON_2 %#010x RSZ_ETC_SIM_PROT_GAINCON_3 %#010x",
+		value[26], value[27], value[28]);
+	mml_err("RSZ_DEBUG_1 %#010x RSZ_DEBUG_2 %#010x RSZ_DEBUG_3 %#010x",
+		debug[0], debug[1], debug[2]);
+	mml_err("RSZ_DEBUG_9 %#010x RSZ_DEBUG_10 %#010x RSZ_DEBUG_11 %#010x",
+		debug[3], debug[4], debug[5]);
+	mml_err("RSZ_DEBUG_13 %#010x RSZ_DEBUG_14 %#010x",
+		debug[6], debug[7]);
+
+	state = debug[1] & 0xf;
+	request[0] = state & 0x1;
+	request[1] = (state & (0x1 << 1)) >> 1;
+	request[2] = (state & (0x1 << 2)) >> 2;
+	request[3] = (state & (0x1 << 3)) >> 3;
+	mml_err("RSZ inRdy,inRsq,outRdy,outRsq: %d,%d,%d,%d (%s)",
+		request[3], request[2], request[1], request[0], get_rsz_state(state));
+}
+
+static const struct mml_comp_debug_ops rsz_debug_ops = {
+	.dump = &rsz_debug_dump,
+};
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_rsz *rsz = dev_get_drvdata(dev);
@@ -325,6 +440,7 @@ static int probe(struct platform_device *pdev)
 
 	/* assign ops */
 	priv->comp.config_ops = &rsz_cfg_ops;
+	priv->comp.debug_ops = &rsz_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

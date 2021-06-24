@@ -97,6 +97,22 @@ static const struct mml_comp_config_ops tcc_cfg_ops = {
 	.tile = tcc_config_tile,
 };
 
+static void tcc_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 value[1];
+
+	mml_err("tcc component %u dump:", comp->id);
+
+	value[0] = readl(base + TCC_CTRL);
+
+	mml_err("TCC_CTRL %#010x", value[0]);
+}
+
+static const struct mml_comp_debug_ops tcc_debug_ops = {
+	.dump = &tcc_debug_dump,
+};
+
 static int mml_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_tcc *tcc = dev_get_drvdata(dev);
@@ -173,6 +189,7 @@ static int probe(struct platform_device *pdev)
 
 	/* assign ops */
 	priv->comp.config_ops = &tcc_cfg_ops;
+	priv->comp.debug_ops = &tcc_debug_ops;
 
 	dbg_probed_components[dbg_probed_count++] = priv;
 

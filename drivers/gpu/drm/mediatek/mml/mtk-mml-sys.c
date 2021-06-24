@@ -15,6 +15,7 @@
 #define MML_MAX_SYS_COMPONENTS	10
 #define MML_MAX_SYS_MUX_PINS	88
 #define MML_MAX_SYS_DL_INS	4
+#define MML_MAX_SYS_DBG_REGS	60
 
 enum mml_comp_type {
 	MML_CT_COMPONENT = 0,
@@ -48,6 +49,10 @@ struct mml_mux_pin {
 	u16 offset;
 } __attribute__ ((__packed__));
 
+struct mml_dbg_reg {
+	char name[16];
+	u32 offset;
+};
 struct mml_sys {
 	const struct mml_data *data;
 	struct mml_comp comps[MML_MAX_SYS_COMPONENTS];
@@ -84,6 +89,8 @@ struct mml_sys {
 	 *	[6] = { of SELINs . T },
 	 */
 	u8 adjacency[MML_MAX_COMPONENTS][MML_MAX_COMPONENTS];
+	struct mml_dbg_reg dbg_regs[MML_MAX_SYS_DBG_REGS];
+	u32 dbg_reg_cnt;
 };
 
 static inline struct mml_sys *comp_to_sys(struct mml_comp *comp)
@@ -176,11 +183,34 @@ static const struct mml_comp_config_ops dl_config_ops = {
 	.tile = dl_config_tile
 };
 
+static void sys_debug_dump(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	struct mml_sys *sys = comp_to_sys(comp);
+	u32 value;
+	u32 i;
+
+	mml_err("mml component %u dump:", comp->id);
+
+	for (i = 0; i < sys->dbg_reg_cnt; i++) {
+		value = readl(base + sys->dbg_regs[i].offset);
+		mml_err("%s %#010x", sys->dbg_regs[i].name, value);
+	}
+}
+
+static const struct mml_comp_debug_ops sys_debug_ops = {
+	.dump = &sys_debug_dump,
+};
+
 static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 			 struct mml_comp *comp)
 {
 	struct device_node *node = dev->of_node;
 	int mux_cnt, i;
+	struct property *prop;
+	const char *name;
+	const __be32 *p;
+	u32 value;
 
 	/* Initialize mux-pins */
 	mux_cnt = of_property_count_elems_of_size(node, "mux-pins",
@@ -208,7 +238,32 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 			sys->adjacency[mux->from][mux->to] = i;
 	}
 
+	/* Initialize dbg-regs */
+	i = 0;
+	of_property_for_each_u32(node, "dbg-reg-offsets", prop, p, value) {
+		if (i > MML_MAX_SYS_DBG_REGS) {
+			dev_err(dev, "no dbg-reg-offsets or out of size in component %s: %d\n",
+				node->full_name, i);
+				return -EINVAL;
+		}
+		sys->dbg_regs[i].offset = value;
+		i++;
+	}
+	sys->dbg_reg_cnt = i;
+
+	i = 0;
+	of_property_for_each_string(node, "dbg-reg-names", prop, name) {
+		if (i > sys->dbg_reg_cnt) {
+			dev_err(dev, "dbg-reg-names size over offsets size %s: %d\n",
+				node->full_name, i);
+				return -EINVAL;
+		}
+		memcpy(sys->dbg_regs[i].name, name, sizeof(sys->dbg_regs[i].name));
+		i++;
+	}
+
 	comp->config_ops = &sys_config_ops;
+	comp->debug_ops = &sys_debug_ops;
 	return 0;
 }
 
