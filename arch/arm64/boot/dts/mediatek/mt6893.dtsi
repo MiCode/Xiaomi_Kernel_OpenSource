@@ -1029,6 +1029,9 @@
 			tbl-off = <4>,     <76>,    <148>,   <220>;
 			apmixedsys   = <&apmixedsys_clk>;
 			clk-div-base = <&cm_mgr>;
+			proc1-supply = <&mt6315_7_vbuck3>; //L
+			proc2-supply = <&mt6315_6_vbuck1>; //BL
+			proc3-supply = <&mt6315_6_vbuck1>; //B
 		};
 
 		dvfsp: dvfsp@0011bc00 {
