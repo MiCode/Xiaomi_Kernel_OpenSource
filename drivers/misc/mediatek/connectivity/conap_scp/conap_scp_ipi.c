@@ -42,12 +42,12 @@ int scp_ctrl_event_handler(struct notifier_block *this,
 
 	switch(event) {
 	case SCP_EVENT_STOP:
-		pr_info("[%s] scp STOP", __func__);
+		pr_info("[%s] SCP STOP", __func__);
 		if (g_ipi_cb.conap_scp_ipi_ctrl_notify)
 			(*g_ipi_cb.conap_scp_ipi_ctrl_notify)(0);
 		break;
 	case SCP_EVENT_READY:
-		pr_info("[%s] scp READY", __func__);
+		pr_info("[%s] SCP READY", __func__);
 		if (g_ipi_cb.conap_scp_ipi_ctrl_notify)
 			(*g_ipi_cb.conap_scp_ipi_ctrl_notify)(1);
 		break;
@@ -68,9 +68,6 @@ int ipi_recv_cb(unsigned int id, void *prdata, void *data, unsigned int len)
 	struct ipi_data *idata;
 
 	idata = (struct ipi_data*)data;
-	pr_info("[%s] drv=[%d] msg=[%d] param=[%x][%x]", __func__,
-			idata->drv_type, idata->msg_id, idata->param0, idata->param1);
-
 	if (g_ipi_cb.conap_scp_ipi_msg_notify)
 		(*g_ipi_cb.conap_scp_ipi_msg_notify)(idata->drv_type, idata->msg_id, idata->param0, idata->param1);
 
@@ -91,7 +88,6 @@ int conap_scp_ipi_send(enum conap_scp_drv_type drv_type, uint16_t msg_id, uint32
 	g_ipi_data.msg_id = msg_id;
 	g_ipi_data.param0 = param0;
 	g_ipi_data.param1 = param1;
-	pr_info("[%s] drv=[%d] msg=[%d] param=[%x][%x]", __func__, drv_type, msg_id, param0, param1);
 
 	for (retry_cnt = 0; retry_cnt <= retry_time; retry_cnt++) {
 		ipi_result = mtk_ipi_send(&scp_ipidev,
@@ -100,7 +96,6 @@ int conap_scp_ipi_send(enum conap_scp_drv_type drv_type, uint16_t msg_id, uint32
 							&g_ipi_data,
 							PIN_OUT_SIZE_SCP_CONNSYS,
 							0);
-		pr_info("[%s] ipi_result=[%d]", __func__, ipi_result);
 		if (ipi_result == IPI_ACTION_DONE)
 			break;
 		msleep(1);
@@ -122,28 +117,6 @@ int conap_scp_ipi_is_drv_ready(enum conap_scp_drv_type drv_type)
 
 	return ret;
 }
-
-#if 0
-int conap_scp_ipi_send_compl(enum conap_scp_drv_type drv_type, uint16_t msg_id, unsigned int param)
-{
-	int ipi_result = -1;
-
-	pr_info("[%s] send ++++ ", __func__);
-	g_ipi_data.drv_type = drv_type;
-	g_ipi_data.msg_id = msg_id;
-	g_ipi_data.param = param;
-	ipi_result = mtk_ipi_send_compl(&scp_ipidev,
-							IPI_OUT_SCP_CONNSYS,
-							IPI_SEND_WAIT,
-							&g_ipi_data,
-							PIN_OUT_SIZE_SCP_CONNSYS_TST,
-							2000);
-
-	pr_info("[%s] result=[%d] reply=[%d][%x][%x]", __func__, ipi_result,
-				g_ipi_ack_data.drv_type, g_ipi_ack_data.msg_id, g_ipi_ack_data.param);
-	return 0;
-}
-#endif
 
 int conap_scp_ipi_handshake(void)
 {

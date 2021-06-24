@@ -200,6 +200,8 @@ static int opfunc_send_msg(struct msg_op_data *op)
 	pr_info("[%s] cmd=[%d]", __func__, cmd);
 
 	if (cmd == AOLTEST_CMD_START_TEST) {
+		pr_info("[%s] start_test enabled=[%d][%d][%d]", __func__, g_test_info.wifi_enabled, g_test_info.bt_enabled,
+					g_test_info.gps_enabled);
 		g_is_test_started = true;
 		ret = conap_scp_send_message(ctx->drv_type, cmd,
 								(unsigned char*)&g_test_info, sizeof(TEST_INFO));

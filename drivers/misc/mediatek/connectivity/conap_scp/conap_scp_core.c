@@ -95,13 +95,11 @@ static int opfunc_send_msg(struct msg_op_data *op)
 		pr_err("[%s] write shm fail [%d]", __func__, ret);
 		return -1;
 	}
-	pr_info("[%s] drvType=[%d] msg_id=[%d]", __func__, drv_type, msg_id);
 	ret = conap_scp_ipi_send((enum conap_scp_drv_type)drv_type, msg_id, 0, 0);
 	if (ret) {
 		pr_err("[%s] ipi fail [%d]", __func__, ret);
 		return -2;
 	}
-	pr_info("[%s] ======= msg_id=[%d] size=[%d]", __func__, msg_id, size);
 	return 0;
 }
 
@@ -110,14 +108,11 @@ static int opfunc_is_drv_ready(struct msg_op_data *op)
 	int ret = 0;
 
 	unsigned int drv_type = (unsigned int)op->op_data[0];
-	pr_info("[%s] drv=[%d] ", __func__, drv_type);
-
 	ret = conap_scp_ipi_send(DRV_TYPE_CORE, CONAP_SCP_CORE_DRV_QRY, drv_type, 0);
 	if (ret) {
 		pr_err("[%s] ipi fail [%d]", __func__, ret);
 		return -2;
 	}
-	pr_info("[%s] ======= ", __func__);
 	return 0;
 }
 
@@ -140,9 +135,9 @@ int conap_scp_init_handshake(void)
 {
 	int ret;
 
-	pr_info("[%s] +++++", __func__);
 	ret = msg_thread_send(&g_core_ctx.tx_msg_thread, CONAP_SCP_OPID_INIT_HANDSHAKE);
-	pr_info("[%s] -----", __func__);
+	if (ret)
+		pr_info("[%s] handshake ret=[%d]", __func__, ret);
 
 	return ret;
 }
@@ -160,12 +155,10 @@ static void conap_scp_msg_notify(uint16_t drv_type, uint16_t msg_id, uint32_t pa
 			drv_rdy_data = conap_core_rb_pop_active(&g_drv_rdy_rb);
 			spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
 			if (drv_rdy_data) {
-				pr_info("[%s] op=[%p]", __func__, drv_rdy_data);
 				drv_rdy_data->param0 = param0;
 				complete(&drv_rdy_data->comp);
 
 				if (atomic_dec_and_test(&drv_rdy_data->ref_count) == 0) {
-					pr_info("[%s] release op", __func__);
 					spin_lock_irqsave(&g_drv_rdy_rb.lock, flags);
 					conap_core_rb_push_free(&g_drv_rdy_rb, drv_rdy_data);
 					spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
@@ -237,10 +230,10 @@ int conap_scp_send_message(enum conap_scp_drv_type type,
 	if (_conap_scp_is_scp_ready() != 1)
 		return CONN_NOT_READY;
 
-	pr_info("[%s] +++++ type=[%d] msg_id=[%d]", __func__, type, msg_id);
 	ret = msg_thread_send_wait_4(&g_core_ctx.tx_msg_thread, CONAP_SCP_OPID_SEND_MSG, MSG_OP_TIMEOUT,
 					(size_t)type, msg_id, (size_t)buf, size);
-	pr_info("[%s] -----", __func__);
+	if (ret)
+		pr_info("[%s] msg_thread_send_wait ret=[%d]", __func__, ret);
 
 	return ret;
 }
@@ -277,26 +270,22 @@ int conap_scp_is_drv_ready(enum conap_scp_drv_type type)
 	conap_core_rb_push_active(&g_drv_rdy_rb, drv_rdy_data);
 
 	spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
-	pr_info("[%s] op=[%p]", __func__, drv_rdy_data);
 
 	/* send msg */
 	ret = msg_thread_send_1(&g_core_ctx.tx_msg_thread, CONAP_SCP_OPID_DRV_READY, (size_t)type);
-	pr_info("[%s] ----- msg send =[%d]", __func__, ret);
+	if (ret)
+		pr_info("[%s] ----- msg send ret=[%d]", __func__, ret);
 
 	wait_ret = wait_for_completion_timeout(&drv_rdy_data->comp,
 				msecs_to_jiffies(2000));
 
-	if (wait_ret == 0) {
+	if (wait_ret == 0)
 		return CONN_TIMEOUT;
-	}
 
-	pr_info("[%s] wait_ret=[%d] driverReady=[%d][%d]",
-				__func__, wait_ret, drv_rdy_data->param0, ret);
 	is_ready = drv_rdy_data->param0;
 
 	refcnt = atomic_dec_and_test(&drv_rdy_data->ref_count);
 	if (refcnt == 0) {
-		pr_info("[%s] release--", __func__);
 		spin_lock_irqsave(&g_drv_rdy_rb.lock, flags);
 		conap_core_rb_push_free(&g_drv_rdy_rb, drv_rdy_data);
 		spin_unlock_irqrestore(&g_drv_rdy_rb.lock, flags);
@@ -360,7 +349,6 @@ static void read_pkt_from_shm(void)
 		}
 		/* sz < 0, shm corrupted */
 		if (sz < 0) {
-			//atomicbit_clearbit(&g_task_recv_state, type);
 			pr_err("pending data fail [%d]\n", sz);
 			/* TODO: trigger remote assert */
 			//trigger_remote_assert(ch, SCIF_MSG_SIZE_ERROR);
@@ -369,7 +357,6 @@ static void read_pkt_from_shm(void)
 
 		/* check gauard pattern & seq num */
 		if (header.guard_pattern != SCIF_MSG_GUARD_PATTERN) {
-			//atomicbit_clearbit(&g_task_recv_state, type);
 			pr_err("[conn_recv] sz=[%d] header invalid [%x][%x][%x][%x] [%x][%x][%x][%x]\n", sz,
 					header.guard_pattern, header.msg_len, header.src_mod_id,
 					header.dst_mod_id, header.msg_id, header.seq_num,
@@ -391,9 +378,6 @@ static void read_pkt_from_shm(void)
 		pr_info("read_data sz=[%d] len=[%d] [%d][%d] msg=[%d] time=[%x]\n",
 				sz, header.msg_len, header.src_mod_id, header.dst_mod_id, header.msg_id,
 				header.timestamp);
-
-		//if (g_msg_buf[TMP_BUF_SZ-1] != TMP_BUF_GUARD_PATTERN || g_msg_buf[TMP_BUF_SZ-2] != TMP_BUF_GUARD_PATTERN)
-		//	configASSERT(0);
 
 		if (header.msg_len > conap_scp_shm_get_slave_rbf_len() ||
 			(header.msg_len % 4) || header.msg_len > SCIF_MAX_MSG_SIZE) {
@@ -465,11 +449,9 @@ static int conap_scp_rx_thread(void *pvData)
 
 	for (;;) {
 
-		pr_info("[%s] +++++", __func__);
 		wait_event_interruptible(g_core_ctx.waitQueue, (msg_notify == 1 ||
 								conap_core_rb_has_pending_data(&g_core_rb) ||
 								kthread_should_stop()));
-		pr_info("[%s] -----", __func__);
 
 		if (kthread_should_stop())
 			break;

@@ -76,7 +76,6 @@ struct conap_rb_data* conap_core_rb_pop_free(struct conap_core_rb *rb)
 
 	spin_lock_irqsave(&rb->freeQ.lock, flags);
 	RB_GET(&rb->freeQ, data);
-	pr_info("[%s] r=[%d] w=[%d]", __func__, rb->freeQ.read, rb->freeQ.write);
 	spin_unlock_irqrestore(&rb->freeQ.lock, flags);
 
 	return data;
@@ -90,9 +89,8 @@ void conap_core_rb_push_free(struct conap_core_rb *rb, struct conap_rb_data* dat
 	if (!RB_FULL(&rb->freeQ)) {
 		RB_PUT(&rb->freeQ, data);
 	} else
-		pr_err("[%s] freeQ RB full ", __func__);
+		pr_notice("[%s] freeQ RB full r=[%d] w=[%d]", __func__, rb->freeQ.read, rb->freeQ.write);
 
-	pr_info("[%s] r=[%d] w=[%d]", __func__, rb->freeQ.read, rb->freeQ.write);
 	spin_unlock_irqrestore(&rb->freeQ.lock, flags);
 }
 
@@ -104,9 +102,8 @@ void conap_core_rb_push_active(struct conap_core_rb *rb, struct conap_rb_data* d
 	if (!RB_FULL(&rb->activeQ))
 		RB_PUT(&rb->activeQ, data);
 	else
-		pr_err("[%s] freeQ RB full", __func__);
+		pr_notice("[%s] activeQ RB full r=[%d] w=[%d]", __func__, rb->activeQ.read, rb->activeQ.write);
 
-	pr_info("[%s] r=[%d] w=[%d]", __func__, rb->activeQ.read, rb->activeQ.write);
 	spin_unlock_irqrestore(&rb->activeQ.lock, flags);
 
 }
@@ -118,7 +115,6 @@ struct conap_rb_data* conap_core_rb_pop_active(struct conap_core_rb *rb)
 
 	spin_lock_irqsave(&rb->activeQ.lock, flags);
 	RB_GET(&rb->activeQ, data);
-	pr_info("[%s] r=[%d] w=[%d]", __func__, rb->activeQ.read, rb->activeQ.write);
 	spin_unlock_irqrestore(&rb->activeQ.lock, flags);
 
 	return data;

@@ -97,28 +97,6 @@ do { \
 	} \
 } while (0)
 
-
-#if 0
-#if defined(CONFIG_MTK_ENG_BUILD) || defined(CONFIG_MT_ENG_BUILD)
-static bool msg_evt_opq_has_op(struct msg_op_q *op_q, struct msg_op *op)
-{
-	unsigned int rd;
-	unsigned int wt;
-	struct msg_op *tmp_op;
-
-	rd = op_q->read;
-	wt = op_q->write;
-
-	while (rd != wt) {
-		tmp_op = op_q->queue[rd & MSG_OP_MASK(op_q)];
-		if (op == tmp_op)
-			return true;
-		rd++;
-	}
-	return false;
-}
-#endif
-#endif
 /*
  * Utility functions
  */
@@ -136,15 +114,6 @@ static int msg_evt_put_op_to_q(struct msg_op_q *op_q, struct msg_op *op)
 		pr_warn("mutex_lock_killableret(%d)\n", ret);
 		return -2;
 	}
-
-#if 0
-#if defined(CONFIG_MTK_ENG_BUILD) || defined(CONFIG_MT_ENG_BUILD)
-	if (msg_evt_opq_has_op(op_q, op)) {
-		pr_err("Op(%p) already exists in queue(%p)\n", op, op_q);
-		ret = -3;
-	}
-#endif
-#endif
 
 	/* acquire lock success */
 	if (!MSG_OP_FULL(op_q))
@@ -215,8 +184,6 @@ struct msg_op *msg_evt_get_free_op(struct msg_thread_ctx *ctx)
 
 int msg_evt_put_op_to_active(struct msg_thread_ctx *ctx, struct msg_op *op)
 {
-	//P_OSAL_SIGNAL signal = NULL;
-	//struct completion *signal = NULL;
 	struct msg_op_signal *signal = NULL;
 	int wait_ret = -1;
 	int ret = 0;
@@ -247,28 +214,21 @@ int msg_evt_put_op_to_active(struct msg_thread_ctx *ctx, struct msg_op *op)
 		/* put to active Q */
 		ret = msg_evt_put_op_to_q(&ctx->active_op_q, op);
 
-		pr_info("[%s] active=[%d]", __func__, MSG_OP_EMPTY(&ctx->active_op_q));
 		if (ret) {
 			pr_warn("put to active queue fail\n");
 			atomic_dec(&op->ref_count);
 			break;
 		}
 
-		/* wake up conninfra_cored */
-		//osal_trigger_event(&ctx->evt);
-
+		/* wake up */
 		wake_up_interruptible(&ctx->waitQueue);
 
 		if (signal->timeoutValue == 0) {
 			//ret = -1;
-			/* Not set timeout, don't wait */
-			/* pr_info("[%s] timeout is zero", __func__);*/
 			break;
 		}
 
 		/* check result */
-		//wait_ret = osal_wait_for_signal_timeout(signal, &ctx->thread);
-
 		wait_ret = wait_for_completion_timeout(&signal->comp,
 				msecs_to_jiffies(5000)); // 5 sec
 
@@ -397,48 +357,6 @@ int msg_thread_send_wait_4(struct msg_thread_ctx *ctx, int opid, int timeout, si
 
 }
 
-#if 0
-void msg_op_history_save(struct osal_op_history *log_history, struct msg_op *op)
-{
-	struct osal_op_history_entry *entry = NULL;
-	struct ring_segment seg;
-	int index;
-	unsigned long long sec = 0;
-	unsigned long usec = 0;
-	unsigned long flags;
-
-	if (log_history->queue == NULL)
-		return;
-
-	osal_get_local_time(&sec, &usec);
-
-	spin_lock_irqsave(&(log_history->lock), flags);
-	RING_OVERWRITE_FOR_EACH(1, seg, &log_history->ring_buffer) {
-		index = seg.ring_pt - log_history->ring_buffer.base;
-		entry = &log_history->queue[index];
-	}
-
-	if (entry == NULL) {
-		pr_info("Entry is null, size %d\n",
-				RING_SIZE(&log_history->ring_buffer));
-		spin_unlock_irqrestore(&(log_history->lock), flags);
-		return;
-	}
-
-	entry->opbuf_address = op;
-	entry->op_id = op->op.op_id;
-	entry->opbuf_ref_count = atomic_read(&op->ref_count);
-	entry->op_info_bit = op->op.info_bit;
-	entry->param_0 = op->op.op_data[0];
-	entry->param_1 = op->op.op_data[1];
-	entry->param_2 = op->op.op_data[2];
-	entry->param_3 = op->op.op_data[3];
-	entry->ts = sec;
-	entry->usec = usec;
-	spin_unlock_irqrestore(&(log_history->lock), flags);
-}
-#endif
-
 int msg_evt_set_current_op(struct msg_thread_ctx *ctx, struct msg_op *op)
 {
 	ctx->cur_op = op;
@@ -473,7 +391,6 @@ int msg_evt_opid_handler(struct msg_thread_ctx *ctx, struct msg_op_data *op)
 static int msg_evt_thread(void *pvData)
 {
 	struct msg_thread_ctx *ctx = (struct msg_thread_ctx *)pvData;
-	//struct msg_thread_ctx *ctx = &g_msg_thread_ctx;
 	struct task_struct *p_thread = ctx->pThread;
 	struct msg_op *op;
 	int ret;
@@ -486,13 +403,8 @@ static int msg_evt_thread(void *pvData)
 	for (;;) {
 		op = NULL;
 
-		pr_info("[%s] +++++", __func__);
-		//wait_event_interruptible(ctx->waitQueue, msg_evt_wait_event_checker(p_thread));
 		wait_event_interruptible(ctx->waitQueue, (!MSG_OP_EMPTY(&ctx->active_op_q) || kthread_should_stop()));
-					   //osal_thread_should_stop(pThread)
-					   //|| (*pChecker) (pThread)));
 
-		pr_info("[%s] ----", __func__);
 		if ((p_thread) && !IS_ERR_OR_NULL(p_thread) && kthread_should_stop()) {
 			pr_info("msg_evt_thread thread should stop now...\n");
 			/* TODO: clean up active opQ */
@@ -566,9 +478,6 @@ int msg_thread_init(struct msg_thread_ctx *ctx, const char *name, const msg_opid
 		msg_evt_put_op_to_free_queue(ctx, &(ctx->op_q_inst[i]));
 	}
 
-	/* TODO: op history */
-	//osal_op_history_init(&ctx->op_history, 16);
-
 	wake_up_process(p_thread);
 	ctx->thread_stop = false;
 
@@ -589,8 +498,6 @@ int msg_thread_deinit(struct msg_thread_ctx *ctx)
 		}
 	}
 
-	//for (i = 0; i < MSG_THREAD_OP_BUF_SIZE; i++)
-	//	osal_signal_deinit(&(ctx->op_q_inst[i].signal));
 	while (retry < 10 && !ctx->thread_stop) {
 		// Waiting for thread to stop
 		msleep(20);

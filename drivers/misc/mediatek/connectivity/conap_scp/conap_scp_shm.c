@@ -21,20 +21,6 @@
 
 /* TODO: should be config by projects */
 
-#if 0
-#define SCIF_CONAP2SCP_MASTER_RBF_SIZE		51200
-#define SCIF_CONAP2SCP_SLAVE_RBF_SIZE		51200
-
-const unsigned int conap_scp_shm_offset = 0x1E0000;
-const unsigned int conap_scp_shm_size = 0x50000;
-
-/* offset & size of adp */
-struct conap_scp_shm_layout g_common_adp_shm = {
-	.offset = 0x1F9000,
-	.size = 0x1E000
-};
-#endif
-
 struct scif_shm_layout {
 	struct scif_shm_header header;
 	struct scif_control master;
@@ -55,21 +41,8 @@ struct conap_scp_shm_info {
 	unsigned int *slave_rbf;
 };
 
-//extern phys_addr_t gConEmiPhyBase;
 struct conap_scp_shm_info g_shm_info;
 const unsigned int g_msg_hdr_sz = sizeof(struct scif_msg_header);
-
-#if 0
-unsigned int conap_scp_shm_get_addr(void)
-{
-	return gConEmiPhyBase + conap_scp_shm_offset;
-}
-
-unsigned int conap_scp_shm_get_size(void)
-{
-	return conap_scp_shm_size;
-}
-#endif
 
 unsigned int conap_scp_shm_get_master_rbf_len(void)
 {
@@ -112,15 +85,15 @@ int conap_scp_shm_write_rbf(struct scif_msg_header *msg_header,
 	if (write_idx == buf_len)
 		write_idx = 0;
 
-	pr_info("[%s] =a= master rbf=[%x] buf_len=[%d] widx=[%d] ridx=[%d]", __func__, g_shm_info.slave_rbf,
-				buf_len, write_idx, read_idx);
+	//pr_info("[%s] =a= master rbf=[%x] buf_len=[%d] widx=[%d] ridx=[%d]", __func__, g_shm_info.slave_rbf,
+	//			buf_len, write_idx, read_idx);
 
 	bewrite = write_idx + msg_header->msg_len;
 
 	/* Queue full */
 	if ((write_idx < read_idx && bewrite > read_idx) ||
 		(bewrite > buf_len && (bewrite % buf_len) > read_idx)) {
-		pr_warn("[%s] WWW widx=[%d] ridx=[%d] msgLen=[%d]", __func__,
+		pr_warn("[conap_write_rbf] widx=[%d] ridx=[%d] msgLen=[%d]",
 					write_idx, read_idx, msg_header->msg_len);
 		return SCIF_ERR_QUEUE_FULL;
 	}
@@ -134,9 +107,6 @@ int conap_scp_shm_write_rbf(struct scif_msg_header *msg_header,
 		_memcpy((uint8_t*)(rbf_addr), ((uint8_t*)msg_header) + cpsz1, cpsz2);
 		write_idx = cpsz2;
 	} else {
-
-		pr_info("[%s] =aaaa= slave rbf=[%p] widx=[%d] hdr=[%d]", __func__
-						, rbf_addr, write_idx, g_msg_hdr_sz);
 
 		_memcpy((uint8_t*)(rbf_addr + write_idx), (uint8_t*)msg_header, g_msg_hdr_sz);
 		write_idx += g_msg_hdr_sz;
@@ -161,8 +131,8 @@ int conap_scp_shm_write_rbf(struct scif_msg_header *msg_header,
 
 	mctrl->tx_write_idx = write_idx;
 
-	pr_info("[%s] =c= rbf_addr=[%x] widx=[%d] ridx=[%d] msg_len=[%d]", __func__,
-			rbf_addr, write_idx, read_idx, msg_header->msg_len);
+	//pr_info("[%s] =c= rbf_addr=[%x] widx=[%d] ridx=[%d] msg_len=[%d]", __func__,
+	//		rbf_addr, write_idx, read_idx, msg_header->msg_len);
 	return 0;
 }
 
@@ -185,7 +155,7 @@ int conap_scp_shm_has_pending_data(struct scif_msg_header *header)
 		return 0;
 	}
 
-	pr_info("pending_data w=[%x] r=[%x] txbuflen=[%d]\n", widx, ridx, sctrl->tx_buf_len);
+	//pr_info("pending_data w=[%x] r=[%x] txbuflen=[%d]\n", widx, ridx, sctrl->tx_buf_len);
 	if (widx > sctrl->tx_buf_len || ridx > mctrl->tx_buf_len) {
 		return SCIF_ERR_SHM_CORRUPTED;
 	}
