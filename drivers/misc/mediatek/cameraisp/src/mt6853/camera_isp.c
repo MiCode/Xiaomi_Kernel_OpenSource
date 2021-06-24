@@ -2285,6 +2285,31 @@ static inline void Prepare_Enable_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_CAMTG clock\n");
 
+#ifndef DISABLE_SV_TOP0
+	if (module == ISP_CAMSV0_IDX || module == ISP_CAMSV1_IDX) {
+		ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV0);
+		if (ret)
+			LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV0 clock\n");
+	}
+
+	if (module == ISP_CAMSV2_IDX || module == ISP_CAMSV3_IDX) {
+		ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV1);
+		if (ret)
+			LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV1 clock\n");
+	}
+
+	if (module == ISP_CAMSV4_IDX || module == ISP_CAMSV5_IDX) {
+		ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV2);
+		if (ret)
+			LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV2 clock\n");
+	}
+
+	if (module == ISP_CAMSV6_IDX || module == ISP_CAMSV7_IDX) {
+		ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV3);
+		if (ret)
+			LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV2 clock\n");
+	}
+#else
 	if (module == ISP_CAMSV2_IDX || module == ISP_CAMSV3_IDX) {
 		ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV0);
 		if (ret)
@@ -2302,6 +2327,7 @@ static inline void Prepare_Enable_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 		if (ret)
 			LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV2 clock\n");
 	}
+#endif
 
 	if (module == ISP_CAM_A_IDX) {
 		ret = clk_prepare_enable(isp_clk.ISP_CAM_LARB16_RAWA);
@@ -2351,12 +2377,23 @@ static inline void Disable_Unprepare_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 		clk_disable_unprepare(isp_clk.ISP_CAM_LARB16_RAWA);
 	}
 
+#ifndef DISABLE_SV_TOP0
+	if (module == ISP_CAMSV0_IDX || module == ISP_CAMSV1_IDX)
+		clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV0);
+	if (module == ISP_CAMSV2_IDX || module == ISP_CAMSV3_IDX)
+		clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV1);
+	if (module == ISP_CAMSV4_IDX || module == ISP_CAMSV5_IDX)
+		clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV2);
+	if (module == ISP_CAMSV6_IDX || module == ISP_CAMSV7_IDX)
+		clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV3);
+#else
 	if (module == ISP_CAMSV2_IDX || module == ISP_CAMSV3_IDX)
 		clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV0);
 	if (module == ISP_CAMSV4_IDX || module == ISP_CAMSV5_IDX)
 		clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV1);
 	if (module == ISP_CAMSV6_IDX || module == ISP_CAMSV7_IDX)
 		clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV2);
+#endif
 
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
