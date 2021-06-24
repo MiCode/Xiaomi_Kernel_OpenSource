@@ -90,6 +90,7 @@ void sched_max_util_task_tracking(void *data, struct rq *rq)
 	spin_unlock_irqrestore(&global_max_util_lock, flag);
 
 	for_each_possible_cpu(cpu) {
+		spin_lock_irqsave(&per_cpu(nr_over_thres_lock, cpu), flag);
 		cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
 
 		if (cpu_online(cpu) &&
@@ -101,6 +102,7 @@ void sched_max_util_task_tracking(void *data, struct rq *rq)
 
 		cpu_over_thres->max_task_util = 0;
 		cpu_over_thres->max_task_pid = 0;
+		spin_unlock_irqrestore(&per_cpu(nr_over_thres_lock, cpu), flag);
 	}
 
 	global_task_util = max_util;
@@ -445,10 +447,10 @@ static void over_thresh_chg_notify(void)
 				(int)(cluster_over_thres_table[cid].max_capacity*
 					over_threshold)/100;
 		}
-		spin_unlock(&per_cpu(nr_over_thres_lock, cpu));
 
 		/* pick next cpu if not online */
 		if (!cpu_online(cpu)) {
+			spin_unlock(&per_cpu(nr_over_thres_lock, cpu));
 			raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
 			continue;
 		}
@@ -472,7 +474,6 @@ static void over_thresh_chg_notify(void)
 		 * Threshold for over_thres is changed.
 		 * Need to reset stats
 		 */
-		spin_lock(&per_cpu(nr_over_thres_lock, cpu));
 		cpu_over_thres->nr_over_up_thres = nr_over_up_thres;
 		cpu_over_thres->nr_over_up_thres_prod_sum = 0;
 		cpu_over_thres->up_last_update_time = curr_time;
@@ -480,8 +481,8 @@ static void over_thresh_chg_notify(void)
 		cpu_over_thres->nr_over_dn_thres = nr_over_dn_thres;
 		cpu_over_thres->nr_over_dn_thres_prod_sum = 0;
 		cpu_over_thres->dn_last_update_time = curr_time;
-		spin_unlock(&per_cpu(nr_over_thres_lock, cpu));
 
+		spin_unlock(&per_cpu(nr_over_thres_lock, cpu));
 		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
 	}
 }
