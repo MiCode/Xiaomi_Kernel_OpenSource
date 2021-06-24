@@ -1230,7 +1230,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int ret;
 	int heavy_pid = 0;
 	int do_affinity = 0;
-#if 1
 	int *clus_opp;
 	unsigned int *clus_floor_freq;
 	int tgt_opp = 0;
@@ -1239,9 +1238,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int bhr_opp_local;
 	int bhr_local;
 	int cluster = 0;
-	unsigned int max_cap_base = 100;
-	unsigned int max_cap_jerk = 0;
-#endif
 	int max_cap = 100;
 
 
@@ -1265,13 +1261,11 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 				0, "fail dep-list");
 			return;
 		}
-#if 1
 		bhr_opp_local = bhr_opp;
 		bhr_local = bhr;
 	} else {
 		bhr_opp_local = rescue_opp_c;
 		bhr_local = 0;
-#endif
 	}
 
 	size = thr->dep_valid_size;
@@ -1291,7 +1285,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			do_affinity = boost_affinity_120;
 	}
 
-#if 1
 	clus_opp =
 		kcalloc(cluster_num, sizeof(int), GFP_KERNEL);
 	if (!clus_opp) {
@@ -1329,24 +1322,12 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			if (cpu_dvfs[cluster].power[i] > mbhr)
 				break;
 		}
-		if (i < 0)
-			mbhr = -1;
-		else
-			mbhr = cpu_dvfs[cluster].power[i];
 
-		if (mbhr >= 0 && mbhr_opp >= 0) {
-			if (!jerk)
-				max_cap_base = min(max_cap_base,
-					cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
-			else
-				max_cap_jerk = max(max_cap_jerk,
-					cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
-		}
+		if (mbhr_opp > 0 && i > 0)
+			max_cap = min(max_cap,
+				(int)cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
 	}
 
-	max_cap_jerk = max_cap_jerk == 0 ? 100 : max_cap_jerk;
-	max_cap = jerk ? max_cap_jerk : max_cap_base;
-#endif
 	if (loading_th || do_affinity)
 		fbt_query_dep_list_loading(thr);
 
