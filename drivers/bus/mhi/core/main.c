@@ -421,8 +421,7 @@ irqreturn_t mhi_irq_handler(int irq_number, void *priv)
 	void *dev_rp;
 
 	if (!is_valid_ring_ptr(ev_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event ring rp points outside of the event ring\n");
+		MHI_ERR("Event ring rp points outside of the event ring\n");
 		return IRQ_HANDLED;
 	}
 
@@ -598,8 +597,7 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 		u16 xfer_len;
 
 		if (!is_valid_ring_ptr(tre_ring, ptr)) {
-			dev_err(&mhi_cntrl->mhi_dev->dev,
-				"Event element points outside of the tre ring\n");
+			MHI_ERR("Event element points outside of the tre ring\n");
 			break;
 		}
 		/* Get the TRB this event points to */
@@ -764,8 +762,7 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 	u32 chan;
 
 	if (!is_valid_ring_ptr(mhi_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event element points outside of the cmd ring\n");
+		MHI_ERR("Event element points outside of the cmd ring\n");
 		return;
 	}
 
@@ -819,8 +816,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 		return -EIO;
 
 	if (!is_valid_ring_ptr(ev_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event ring rp points outside of the event ring\n");
+		MHI_ERR("Event ring rp points outside of the event ring\n");
 		return -EIO;
 	}
 
@@ -949,8 +945,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 
 		ptr = er_ctxt->rp;
 		if (!is_valid_ring_ptr(ev_ring, ptr)) {
-			dev_err(&mhi_cntrl->mhi_dev->dev,
-				"Event ring rp points outside of the event ring\n");
+			MHI_ERR("Event ring rp points outside of the event ring\n");
 			return -EIO;
 		}
 
@@ -984,8 +979,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 		return -EIO;
 
 	if (!is_valid_ring_ptr(ev_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event ring rp points outside of the event ring\n");
+		MHI_ERR("Event ring rp points outside of the event ring\n");
 		return -EIO;
 	}
 
@@ -1024,8 +1018,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 
 		ptr = er_ctxt->rp;
 		if (!is_valid_ring_ptr(ev_ring, ptr)) {
-			dev_err(&mhi_cntrl->mhi_dev->dev,
-				"Event ring rp points outside of the event ring\n");
+			MHI_ERR("Event ring rp points outside of the event ring\n");
 			return -EIO;
 		}
 
@@ -1641,8 +1634,7 @@ static void mhi_mark_stale_events(struct mhi_controller *mhi_cntrl,
 
 	ptr = er_ctxt->rp;
 	if (!is_valid_ring_ptr(ev_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event ring rp points outside of the event ring\n");
+		MHI_ERR("Event ring rp points outside of the event ring\n");
 		dev_rp = ev_ring->rp;
 	} else {
 		dev_rp = mhi_to_virtual(ev_ring, ptr);
