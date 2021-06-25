@@ -2259,8 +2259,11 @@ int qcom_scm_query_encrypted_log_feature(u64 *enabled)
 }
 EXPORT_SYMBOL(qcom_scm_query_encrypted_log_feature);
 
-int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
-						uint32_t log_id)
+int qcom_scm_request_encrypted_log(phys_addr_t buf,
+				   size_t len,
+				   uint32_t log_id,
+				   bool is_full_tz_logs_supported,
+				   bool is_full_tz_logs_enabled)
 {
 	int ret;
 	struct qcom_scm_desc desc = {
@@ -2269,11 +2272,21 @@ int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
 		.owner = ARM_SMCCC_OWNER_TRUSTED_OS,
 		.args[0] = buf,
 		.args[1] = len,
-		.args[2] = log_id,
-		.arginfo = QCOM_SCM_ARGS(3, QCOM_SCM_RW),
+		.args[2] = log_id
 	};
 	struct qcom_scm_res res;
-
+	if (is_full_tz_logs_supported) {
+		if (is_full_tz_logs_enabled) {
+			/* requesting full logs */
+			desc.args[3] = 1;
+		} else {
+			/* requesting incremental logs */
+			desc.args[3] = 0;
+		}
+		desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW);
+	} else {
+		desc.arginfo = QCOM_SCM_ARGS(3, QCOM_SCM_RW);
+	}
 	ret = qcom_scm_call(__scm->dev, &desc, &res);
 
 	return ret ? : res.result[0];
