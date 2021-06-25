@@ -3082,7 +3082,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 				| KGSL_MEMFLAGS_SECURE
 				| KGSL_MEMFLAGS_IOCOHERENT);
 
-	if (kgsl_is_compat_task())
+	if (is_compat_task())
 		flags |= KGSL_MEMFLAGS_FORCE_32BIT;
 
 	kgsl_memdesc_init(device, &entry->memdesc, flags);
@@ -3535,6 +3535,10 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	struct kgsl_mem_entry *entry;
 	struct kgsl_device *device = dev_priv->device;
 
+	/* For 32-bit kernel world nothing to do with this flag */
+	if (BITS_PER_LONG == 32)
+		flags &= ~((uint64_t) KGSL_MEMFLAGS_FORCE_32BIT);
+
 	if (flags & KGSL_MEMFLAGS_VBO)
 		return gpumem_alloc_vbo_entry(dev_priv, size, flags);
 
@@ -3647,7 +3651,7 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	/* Legacy functions doesn't support these advanced features */
 	flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 
-	if (kgsl_is_compat_task())
+	if (is_compat_task())
 		flags |= KGSL_MEMFLAGS_FORCE_32BIT;
 
 	entry = gpumem_alloc_entry(dev_priv, (uint64_t) param->size, flags);
@@ -3672,7 +3676,7 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 	struct kgsl_mem_entry *entry;
 	uint64_t flags = param->flags;
 
-	if (kgsl_is_compat_task())
+	if (is_compat_task())
 		flags |= KGSL_MEMFLAGS_FORCE_32BIT;
 
 	entry = gpumem_alloc_entry(dev_priv, (uint64_t) param->size, flags);

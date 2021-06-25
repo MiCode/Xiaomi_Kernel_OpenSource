@@ -1304,7 +1304,7 @@ static struct kgsl_pagetable *kgsl_iopgtbl_pagetable(struct kgsl_mmu *mmu, u32 n
 	pt->base.va_start = KGSL_IOMMU_VA_BASE64;
 	pt->base.va_end = KGSL_IOMMU_VA_END64;
 
-	if (kgsl_is_compat_task()) {
+	if ((BITS_PER_LONG == 32) || is_compat_task()) {
 		pt->base.svm_start = KGSL_IOMMU_SVM_BASE32;
 		pt->base.svm_end = KGSL_IOMMU_SECURE_BASE(mmu);
 	} else {
