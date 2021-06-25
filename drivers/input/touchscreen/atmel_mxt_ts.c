@@ -2500,12 +2500,12 @@ static int mxt_initialize(struct mxt_data *data)
 			error = mxt_probe_bootloader(data, true);
 			if (error) {
 				/* Chip is not in appmode or bootloader mode */
-				return error;
+				dev_err(&client->dev, "Fail probe boot, continue\n");
 			}
 		}
 
 		/* OK, we are in bootloader, see if we can recover */
-		if (++recovery_attempts > 1) {
+		if (++recovery_attempts > 10) {
 			dev_err(&client->dev, "Could not recover from bootloader mode\n");
 			/*
 			 * We can reflash from this state, so do not
