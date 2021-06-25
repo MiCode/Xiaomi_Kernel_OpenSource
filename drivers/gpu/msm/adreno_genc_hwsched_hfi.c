@@ -315,6 +315,9 @@ static void log_gpu_fault(struct adreno_device *adreno_dev)
 			cur, cur_rptr, cur_wptr, next, next_rptr, next_wptr);
 		}
 		break;
+	case GMU_CP_GPC_ERROR:
+		dev_crit_ratelimited(dev, "RBBM: GPC error\n");
+		break;
 	case GMU_CP_BV_OPCODE_ERROR:
 		dev_crit_ratelimited(dev,
 			"CP BV opcode error | opcode=0x%8.8x\n",
@@ -337,6 +340,14 @@ static void log_gpu_fault(struct adreno_device *adreno_dev)
 			genc_hwsched_lookup_key_value(adreno_dev, PAYLOAD_FAULT_REGS,
 				KEY_CP_HW_FAULT));
 		break;
+	case GMU_CP_BV_ILLEGAL_INST_ERROR:
+		dev_crit_ratelimited(dev, "CP BV Illegal instruction error\n");
+		break;
+	case GMU_CP_BV_UCODE_ERROR:
+		dev_crit_ratelimited(dev, "CP BV ucode error interrupt\n");
+		break;
+	case GMU_CP_UNKNOWN_ERROR:
+		fallthrough;
 	default:
 		dev_crit_ratelimited(dev, "Unknown GPU fault: %u\n",
 			cmd->error);
@@ -965,7 +976,7 @@ static int enable_preemption(struct adreno_device *adreno_dev)
 	 * Bits[3:0] contain the preemption timeout enable bit per ringbuffer
 	 * Bits[31:4] contain the timeout in ms
 	 */
-	return genc_hfi_send_feature_ctrl(adreno_dev, HFI_VALUE_BIN_TIME, 1,
+	return genc_hfi_send_set_value(adreno_dev, HFI_VALUE_BIN_TIME, 1,
 		FIELD_PREP(GENMASK(31, 4), 3000) |
 		FIELD_PREP(GENMASK(3, 0), 0xf));
 
