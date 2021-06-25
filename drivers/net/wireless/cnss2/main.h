@@ -505,6 +505,7 @@ struct cnss_plat_data {
 	u32 is_converged_dt;
 	struct device_node *dev_node;
 	u64 feature_list;
+	bool adsp_pc_enabled;
 };
 
 #ifdef CONFIG_ARCH_QCOM

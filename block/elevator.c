@@ -630,7 +630,10 @@ static struct elevator_type *elevator_get_default(struct request_queue *q)
 {
 	if (q->nr_hw_queues != 1)
 		return NULL;
-
+#if defined(CONFIG_SDC_QTI) || defined(CONFIG_SCSI_UFSHCD_QTI)
+	if (IS_ENABLED(CONFIG_IOSCHED_BFQ))
+		return elevator_get(q, "bfq", false);
+#endif
 	return elevator_get(q, "mq-deadline", false);
 }
 

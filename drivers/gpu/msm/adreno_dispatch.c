@@ -304,6 +304,9 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 				context->id, drawobj->timestamp,
 				!!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
 
+	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME)
+		atomic64_inc(&context->proc_priv->frame_count);
+
 	/*
 	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
 	 * rptr scratch out address. At this point GPU clocks turned off.
@@ -2354,6 +2357,9 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 			       pid_nr(context->proc_priv->pid),
 			       context->id, drawobj->timestamp,
 			       !!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
+
+	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME)
+		atomic64_inc(&context->proc_priv->frame_count);
 
 	/*
 	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of

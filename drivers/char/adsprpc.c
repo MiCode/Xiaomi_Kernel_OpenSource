@@ -2280,7 +2280,13 @@ static void fastrpc_ramdump_collection(int cid)
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
-		if (fl->cid == cid && fl->init_mem) {
+	/*
+	 * On SSR call back, dumps collected only when process is initialized,
+	 * And, process is not cleaned on DSP to avoid UAF for init_mem.
+	 */
+		if (fl->cid == cid && fl->init_mem &&
+			fl->file_close < FASTRPC_PROCESS_DSP_EXIT_COMPLETE &&
+			fl->dsp_proc_init) {
 			hlist_add_head(&fl->init_mem->hn_init, &chan->initmems);
 			fl->is_ramdump_pend = true;
 		}
@@ -3308,7 +3314,7 @@ static int fastrpc_wait_on_async_queue(
 read_async_job:
 	interrupted = wait_event_interruptible(fl->async_wait_queue,
 				atomic_read(&fl->async_queue_job_count));
-	if (!fl || fl->file_close == FASTRPC_PROCESS_EXIT_START) {
+	if (!fl || fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
 		err = -EBADF;
 		goto bail;
 	}
@@ -4213,9 +4219,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.perf_kernel = NULL;
 	ioctl.perf_dsp = NULL;
 	ioctl.job = NULL;
-	spin_lock(&fl->hlock);
+	spin_lock(&fl->apps->hlock);
 	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_INIT;
-	spin_unlock(&fl->hlock);
+	spin_unlock(&fl->apps->hlock);
 	/*
 	 * Pass 2 for "kernel" arg to send kernel msg to DSP
 	 * with non-zero msg PID for the DSP to directly use
@@ -4223,9 +4229,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	 */
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_NONZERO_PID, &ioctl)));
-	spin_lock(&fl->hlock);
+	spin_lock(&fl->apps->hlock);
 	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_COMPLETE;
-	spin_unlock(&fl->hlock);
+	spin_unlock(&fl->apps->hlock);
 	if (err && fl->dsp_proc_init)
 		ADSPRPC_ERR(
 			"releasing DSP process failed with %d (0x%x) for %s\n",
@@ -5164,12 +5170,11 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	if (!fl)
 		return 0;
 	cid = fl->cid;
-	spin_lock(&fl->hlock);
+	spin_lock(&fl->apps->hlock);
 	fl->file_close = FASTRPC_PROCESS_EXIT_START;
-	spin_unlock(&fl->hlock);
+	spin_unlock(&fl->apps->hlock);
 
 	(void)fastrpc_release_current_dsp_process(fl);
-
 	spin_lock(&fl->apps->hlock);
 	if (!fl->is_ramdump_pend) {
 		spin_unlock(&fl->apps->hlock);
@@ -5185,7 +5190,6 @@ skip_dump_wait:
 	spin_unlock(&fl->apps->hlock);
 	kfree(fl->debug_buf);
 	kfree(fl->gidlist.gids);
-
 	if (!fl->sctx) {
 		kfree(fl->dev_pm_qos_req);
 		kfree(fl);

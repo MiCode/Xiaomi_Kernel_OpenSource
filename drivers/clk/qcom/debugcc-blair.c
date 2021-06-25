@@ -349,7 +349,7 @@ static int gcc_debug_mux_sels[] = {
 	0x15B,		/* gcc_video_venus_ctl_clk */
 	0x3F,		/* gcc_video_xo_clk */
 	0xFB,		/* gpu_cc_debug_mux */
-	0xA9,		/* mc_cc_debug_mux */
+	0xAE,		/* mc_cc_debug_mux */
 	0x38,		/* measure_only_gcc_camera_ahb_clk */
 	0x40,		/* measure_only_gcc_camera_xo_clk */
 	0xBA,		/* measure_only_gcc_cpuss_gnoc_clk */

@@ -1350,6 +1350,10 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 	    mode == QMI_WLFW_OFF_V01)
 		return 0;
 
+	if (!test_bit(ICNSS_MODE_ON, &priv->state) &&
+	    mode == QMI_WLFW_OFF_V01)
+		return 0;
+
 	icnss_pr_dbg("Sending Mode request, state: 0x%lx, mode: %d\n",
 		     priv->state, mode);
 
