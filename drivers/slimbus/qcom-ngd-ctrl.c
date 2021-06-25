@@ -929,12 +929,7 @@ static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
 	}
 
 	ret = check_hw_state(ctrl, txn);
-	/* HW restarting, channel removal should succeed */
-	if (ret == -EINVAL) {
-		SLIM_WARN(ctrl, "ADSP slimbus not up MC:0x%x,mt:0x%x ret:%d\n",
-						txn->mc, txn->mt, ret);
-		return 0;
-	} else if (ret) {
+	if (ret) {
 		SLIM_WARN(ctrl, "ADSP slimbus not up MC:0x%x,mt:0x%x ret:%d\n",
 						txn->mc, txn->mt, ret);
 		return ret;
@@ -1055,12 +1050,18 @@ static int qcom_slim_ngd_xfer_msg_sync(struct slim_controller *ctrl,
 	int ret, timeout;
 
 	pm_runtime_get_sync(ctrl->dev);
+	SLIM_INFO(dev, "SLIM %s: PM get_sync count:%d TID:%d\n",
+		__func__, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
 
 	txn->comp = &done;
 
 	ret = qcom_slim_ngd_xfer_msg(ctrl, txn);
-	if (ret)
+	if (ret) {
+		pm_runtime_put_sync(ctrl->dev);
+		SLIM_INFO(dev, "SLIM %s: PM put_sync count:%d TID:%d\n",
+		__func__, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
 		return ret;
+	}
 
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout) {
@@ -1129,6 +1130,7 @@ static int qcom_slim_ngd_enable_stream(struct slim_stream_runtime *rt)
 	struct slim_msg_txn txn = {0,};
 	int i, ret;
 
+	SLIM_INFO(dev, "%s start %d\n", __func__, true);
 	txn.mt = SLIM_MSG_MT_DEST_REFERRED_USER;
 	txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 	txn.la = SLIM_LA_MGR;
@@ -1210,6 +1212,7 @@ static int qcom_slim_ngd_enable_stream(struct slim_stream_runtime *rt)
 				txn.mt);
 	}
 
+	SLIM_INFO(dev, "%s End ret : %d\n", __func__, ret);
 	return ret;
 }
 
@@ -1225,6 +1228,7 @@ static int qcom_slim_ngd_disable_stream(struct slim_stream_runtime *rt)
 	struct slim_msg_txn txn = {0,};
 	int i, ret;
 
+	SLIM_INFO(dev, "%s start %d\n", __func__, true);
 	txn.mt = SLIM_MSG_MT_DEST_REFERRED_USER;
 	txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 	txn.la = SLIM_LA_MGR;
@@ -1282,6 +1286,7 @@ static int qcom_slim_ngd_disable_stream(struct slim_stream_runtime *rt)
 				txn.mc,	txn.mt, ret);
 	}
 
+	SLIM_INFO(dev, "%s End ret %d\n", __func__, ret);
 	return ret;
 }
 
@@ -1291,6 +1296,8 @@ static int qcom_slim_ngd_get_laddr(struct slim_controller *ctrl,
 	struct slim_val_inf msg =  {0};
 	u8 failed_ea[6] = {0, 0, 0, 0, 0, 0};
 	struct slim_msg_txn txn;
+	struct qcom_slim_ngd_ctrl *dev =
+		container_of(ctrl, struct qcom_slim_ngd_ctrl, ctrl);
 	u8 wbuf[10] = {0};
 	u8 rbuf[10] = {0};
 	int ret;
@@ -1325,6 +1332,7 @@ static int qcom_slim_ngd_get_laddr(struct slim_controller *ctrl,
 
 	*laddr = rbuf[6];
 
+	SLIM_INFO(dev, "%s end ret : %d\n", __func__, ret);
 	return ret;
 }
 
@@ -1531,6 +1539,7 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 	struct qcom_slim_ngd_ctrl *ctrl = dev_get_drvdata(dev);
 	int ret = 0;
 
+	SLIM_INFO(ctrl, "Slim runtime resume\n");
 	if (!ctrl->qmi.handle)
 		return 0;
 
@@ -1570,6 +1579,8 @@ static int qcom_slim_ngd_enable(struct qcom_slim_ngd_ctrl *ctrl, bool enable)
 
 		pm_runtime_mark_last_busy(ctrl->ctrl.dev);
 		pm_runtime_put(ctrl->ctrl.dev);
+		SLIM_INFO(ctrl, "SLIM %s: PM put count:%d\n",
+			__func__, atomic_read(&ctrl->ctrl.dev->power.usage_count));
 		SLIM_INFO(ctrl, "SLIM NGD Enable\n");
 	} else {
 		qcom_slim_qmi_exit(ctrl);
@@ -1692,6 +1703,8 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 		mutex_lock(&ctrl->tx_lock);
 		if (ctrl->state != QCOM_SLIM_NGD_CTRL_DOWN) {
 			pm_runtime_get_noresume(ctrl->ctrl.dev);
+			SLIM_INFO(ctrl, "SLIM %s: PM get_no_resume count:%d\n",
+				__func__, atomic_read(&ctrl->ctrl.dev->power.usage_count));
 			ctrl->state = QCOM_SLIM_NGD_CTRL_DOWN;
 			qcom_slim_ngd_down(ctrl);
 			qcom_slim_ngd_exit_dma(ctrl);
@@ -1820,6 +1833,8 @@ static int qcom_slim_ngd_probe(struct platform_device *pdev)
 	pm_runtime_set_suspended(dev);
 	pm_runtime_enable(dev);
 	pm_runtime_get_noresume(dev);
+	SLIM_INFO(ctrl, "SLIM %s:PM get_noresume count:%d\n", __func__,
+		atomic_read(&ctrl->ctrl.dev->power.usage_count));
 	ret = qcom_slim_ngd_qmi_svc_event_init(ctrl);
 	if (ret) {
 		dev_err(&pdev->dev, "QMI service registration failed:%d", ret);
@@ -2059,7 +2074,10 @@ static int __maybe_unused qcom_slim_ngd_runtime_suspend(struct device *dev)
 	struct qcom_slim_ngd_ctrl *ctrl = dev_get_drvdata(dev);
 	int ret = 0;
 
+	SLIM_INFO(ctrl, "Slim runtime suspend\n");
+
 	qcom_slim_ngd_exit_dma(ctrl);
+
 	if (!ctrl->qmi.handle)
 		return 0;
 
