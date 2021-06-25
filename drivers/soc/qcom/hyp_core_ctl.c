@@ -690,16 +690,28 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
  * Called when vm_status is STATUS_READY, multiple times before status
  * moves to STATUS_RUNNING
  */
-static int gh_vcpu_populate_affinity_info(gh_label_t cpu_idx, gh_capid_t cap_id)
+static int gh_vcpu_populate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx, gh_capid_t cap_id)
 {
+	gh_vmid_t cpusys_vmid;
+	int ret;
+
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
-		return -ENXIO;
+		ret = -ENXIO;
+		goto out;
+	}
+
+	ret = gh_rm_get_vmid(GH_CPUSYS_VM, &cpusys_vmid);
+	if (!ret && cpusys_vmid == vmid) {
+		pr_info("Skip populating VCPU affinity info for CPUSYS VM\n");
+		ret = 0;
+		goto out;
 	}
 
 	if (nr_vcpus >= MAX_RESERVE_CPUS) {
 		pr_err("Exceeded max vcpus in the system %d\n", nr_vcpus);
-		return -ENXIO;
+		ret = -ENXIO;
+		goto out;
 	}
 
 	if (!is_vcpu_info_populated) {
@@ -712,7 +724,9 @@ static int gh_vcpu_populate_affinity_info(gh_label_t cpu_idx, gh_capid_t cap_id)
 					cpu_idx, cap_id, nr_vcpus);
 	}
 
-	return 0;
+	ret = 0;
+out:
+	return ret;
 }
 
 static int gh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
@@ -720,6 +734,14 @@ static int gh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 {
 	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
 	u8 vm_status = vm_status_payload->vm_status;
+	gh_vmid_t cpusys_vmid;
+	int ret;
+
+	ret = gh_rm_get_vmid(GH_CPUSYS_VM, &cpusys_vmid);
+	if (!ret && cpusys_vmid == vm_status_payload->vmid) {
+		pr_info("Reservation scheme skipped for CPUSYS VM\n");
+		goto out;
+	}
 
 	if (cmd == GH_RM_NOTIF_VM_STATUS &&
 			vm_status == GH_RM_VM_STATUS_RUNNING &&
@@ -730,6 +752,7 @@ static int gh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 		mutex_unlock(&the_hcd->reservation_mutex);
 	}
 
+out:
 	return NOTIFY_DONE;
 }
 
