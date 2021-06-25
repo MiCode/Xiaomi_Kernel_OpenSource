@@ -333,7 +333,14 @@ static int kgsl_iopgtbl_map_zero_page_to_range(struct kgsl_pagetable *pt,
 {
 	struct kgsl_iommu *iommu = &pt->mmu->iommu;
 	struct iommu_domain *domain = to_iommu_domain(&iommu->user_context);
-	u32 flags = IOMMU_READ | IOMMU_NOEXEC | get_llcc_flags(domain);
+	/*
+	 * The SMMU only does the PRT compare at the bottom level of the page table, because
+	 * there is not an easy way for the hardware to perform this check at earlier levels.
+	 * Mark this page writable to avoid page faults while writing to it. Since the address
+	 * of this zero page is programmed in PRR register, MMU will intercept any accesses to
+	 * the page before they go to DDR and will terminate the transaction.
+	 */
+	u32 flags = IOMMU_READ | IOMMU_WRITE | IOMMU_NOEXEC | get_llcc_flags(domain);
 	struct kgsl_iommu_pt *iommu_pt = to_iommu_pt(pt);
 	struct page *page = kgsl_vbo_zero_page;
 
