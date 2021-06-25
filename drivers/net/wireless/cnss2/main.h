@@ -4,17 +4,21 @@
 #ifndef _CNSS_MAIN_H
 #define _CNSS_MAIN_H
 
+#if IS_ENABLED(CONFIG_ARM) || IS_ENABLED(CONFIG_ARM64)
 #include <asm/arch_timer.h>
+#endif
 #if IS_ENABLED(CONFIG_ESOC)
 #include <linux/esoc_client.h>
 #endif
 #include <linux/etherdevice.h>
+#include <linux/firmware.h>
 #if IS_ENABLED(CONFIG_INTERCONNECT)
 #include <linux/interconnect.h>
 #endif
 #include <linux/mailbox_client.h>
 #include <linux/pm_qos.h>
 #include <linux/platform_device.h>
+#include <linux/time64.h>
 #include <net/cnss2.h>
 #if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
 #include <soc/qcom/memory_dump.h>
@@ -511,7 +515,7 @@ struct cnss_plat_data {
 	const char *vreg_ol_cpr, *vreg_ipa;
 };
 
-#ifdef CONFIG_ARCH_QCOM
+#if IS_ENABLED(CONFIG_ARCH_QCOM)
 static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 {
 	u64 ticks = __arch_counter_get_cntvct();
@@ -523,11 +527,11 @@ static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 #else
 static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 {
-	struct timespec ts;
+	struct timespec64 ts;
 
-	ktime_get_ts(&ts);
+	ktime_get_ts64(&ts);
 
-	return ((u64)ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
+	return (ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
 }
 #endif
 
