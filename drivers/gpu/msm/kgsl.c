@@ -12,6 +12,7 @@
 #include <linux/fdtable.h>
 #include <linux/io.h>
 #include <linux/ion.h>
+#include <linux/mem-buf.h>
 #include <linux/mman.h>
 #include <linux/mm_types.h>
 #include <linux/of.h>
@@ -2971,22 +2972,15 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	entry->priv_data = meta;
 	entry->memdesc.sgt = sg_table;
 
-	/* Calculate the size of the memdesc from the sglist */
-	for (s = entry->memdesc.sgt->sgl; s != NULL; s = sg_next(s)) {
-		int priv = (entry->memdesc.priv & KGSL_MEMDESC_SECURE) ? 1 : 0;
-
-		/*
-		 * Check that each chunk of of the sg table matches the secure
-		 * flag.
-		 */
-
-		if (PagePrivate(sg_page(s)) != priv) {
-			ret = -EPERM;
-			goto out;
-		}
-
-		entry->memdesc.size += (uint64_t) s->length;
+	if ((entry->memdesc.priv & KGSL_MEMDESC_SECURE) &&
+		mem_buf_dma_buf_exclusive_owner(dmabuf)) {
+		ret = -EPERM;
+		goto out;
 	}
+
+	/* Calculate the size of the memdesc from the sglist */
+	for (s = entry->memdesc.sgt->sgl; s != NULL; s = sg_next(s))
+		entry->memdesc.size += (uint64_t) s->length;
 
 	if (!entry->memdesc.size) {
 		ret = -EINVAL;
