@@ -69,6 +69,7 @@
 			min-residency-us = <4488>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
+			status = "nok";
 		};
 
 		CLUSTER_PWR_DWN: d4 { /* C4+D4 */
@@ -79,6 +80,7 @@
 			min-residency-us = <6118>;
 			arm,psci-suspend-param = <0x40000044>;
 			local-timer-stop;
+			status = "nok";
 		};
 	};
 
