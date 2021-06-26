@@ -6,7 +6,9 @@
 
 #include <linux/iommu.h>
 #include <linux/mhi.h>
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 #include <linux/mhi_misc.h>
+#endif
 #if IS_ENABLED(CONFIG_PCI_MSM)
 #include <linux/msm_pcie.h>
 #endif
