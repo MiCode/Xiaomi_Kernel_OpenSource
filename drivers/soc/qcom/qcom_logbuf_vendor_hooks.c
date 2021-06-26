@@ -32,6 +32,7 @@ static size_t print_time(u64 ts, char *buf, size_t buf_sz)
 }
 
 #ifdef CONFIG_PRINTK_CALLER
+#define PREFIX_MAX              48
 static size_t print_caller(u32 id, char *buf, size_t buf_sz)
 {
 	char caller[12];
@@ -41,6 +42,7 @@ static size_t print_caller(u32 id, char *buf, size_t buf_sz)
 	return scnprintf(buf, buf_sz, "[%6s]", caller);
 }
 #else
+#define PREFIX_MAX            32
 #define print_caller(id, buf) 0
 #endif
 
@@ -56,12 +58,6 @@ static size_t info_print_prefix(const struct printk_info *info, char *buf,
 	return len;
 }
 
-#ifdef CONFIG_PRINTK_CALLER
-#define PREFIX_MAX              48
-#else
-#define PREFIX_MAX              32
-#endif
-
 static size_t record_print_text(struct printk_info *pinfo, char *text,
 					size_t buf_size)
 {
@@ -73,14 +69,7 @@ static size_t record_print_text(struct printk_info *pinfo, char *text,
 	size_t len = 0;
 	char *next;
 
-	/*
-	 * If the message was truncated because the buffer was not large
-	 * enough, treat the available text as if it were the full text.
-	 */
-	if (text_len > buf_size)
-		text_len = buf_size;
-
-	prefix_len = info_print_prefix(pinfo, prefix, buf_size);
+	prefix_len = info_print_prefix(pinfo, prefix, PREFIX_MAX);
 
 	/*
 	 * @text_len: bytes of unprocessed text
@@ -220,6 +209,7 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 	static unsigned int off;
 	enum desc_state state;
 	size_t rem_buf_sz;
+	int ret;
 
 	tailid = descring.tail_id;
 	headid = descring.head_id;
@@ -236,8 +226,12 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			return;
 
 		memcpy(&boot_log_buf[off], &r->text_buf[0], r->info->text_len);
-		off += record_print_text(r->info, &boot_log_buf[off],
+		ret = record_print_text(r->info, &boot_log_buf[off],
 			rem_buf_sz);
+		if (!ret)
+			off += r->info->text_len;
+
+		off += ret;
 		return;
 	}
 
@@ -279,10 +273,12 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			memcpy(&boot_log_buf[off],
 				&textdata_ring.data[text_start],
 				textlen);
-			off += record_print_text(&p_infos[ind],
-						&boot_log_buf[off], rem_buf_sz);
-			if (off > boot_log_buf_size)
-				break;
+			ret = record_print_text(&p_infos[ind],
+					&boot_log_buf[off], rem_buf_sz);
+			if (!ret)
+				off += r->info->text_len;
+
+			off += ret;
 		}
 
 		if (did == atomic_long_read(&headid))
