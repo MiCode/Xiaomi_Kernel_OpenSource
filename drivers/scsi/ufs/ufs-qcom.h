@@ -415,6 +415,8 @@ struct ufs_qcom_host {
 	unsigned int min_cpu_scale_freq;
 	unsigned int max_cpu_scale_freq;
 	int config_cpu;
+	void *ufs_ipc_log_ctx;
+	bool dbg_en;
 };
 
 static inline u32
