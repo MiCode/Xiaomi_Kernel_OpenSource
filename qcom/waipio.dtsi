@@ -1231,6 +1231,12 @@
 		memory-region = <&cpusys_vm_mem>;
 	};
 
+	tlmm-vm-mem-access {
+		compatible = "qcom,tlmm-vm-mem-access";
+		qcom,master;
+		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388>;
+	};
+
 	ssc_sensors: qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 		status = "ok";
