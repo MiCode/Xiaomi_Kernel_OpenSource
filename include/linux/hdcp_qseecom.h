@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __HDCP_QSEECOM_H
@@ -31,6 +31,15 @@ struct hdcp2_app_data {
 	struct hdcp2_buffer response;	// responses from TA, sent to sink
 };
 
+struct hdcp1_topology {
+	uint32_t depth;
+	uint32_t device_count;
+	uint32_t max_devices_exceeded;
+	uint32_t max_cascade_exceeded;
+	uint32_t hdcp2LegacyDeviceDownstream;
+	uint32_t hdcp1DeviceDownstream;
+};
+
 static inline const char *hdcp2_app_cmd_str(enum hdcp2_app_cmd cmd)
 {
 	switch (cmd) {
@@ -58,6 +67,7 @@ void hdcp1_deinit(void *data);
 bool hdcp1_feature_supported(void *data);
 int hdcp1_start(void *data, u32 *aksv_msb, u32 *aksv_lsb);
 int hdcp1_set_enc(void *data, bool enable);
+int hdcp1_ops_notify(void *data, void *topology, bool is_authenticated);
 void hdcp1_stop(void *data);
 
 void *hdcp2_init(u32 device_type);
@@ -85,6 +95,11 @@ static inline bool hdcp1_feature_supported(void *data)
 }
 
 static inline int hdcp1_start(void *data, u32 *aksv_msb, u32 *aksv_lsb)
+{
+	return 0;
+}
+
+static inline int hdcp1_ops_notify(void *data, void *topology, bool is_authenticated)
 {
 	return 0;
 }
