@@ -3235,6 +3235,22 @@
 				qcom,sampling-enabled;
 			};
 
+			silver-latboost {
+				compatible = "qcom,memlat-mon";
+				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+				qcom,cpufreq-memfreq-tbl =
+					<  300000  300000 >,
+					<  403200  710400 >,
+					<  499200  806400 >,
+					<  691200  998400 >,
+					<  806400 1094400 >,
+					<  998400 1248000 >,
+					< 1190400 1344000 >,
+					< 1286400 1440000 >,
+					< 1459200 1516800 >;
+				qcom,sampling-enabled;
+			};
+
 			gold {
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6>;
@@ -3246,6 +3262,18 @@
 					< 1689600 1248000 >,
 					< 1900800 1344000 >,
 					< 2188800 1440000 >,
+					< 2400000 1516800 >;
+				qcom,sampling-enabled;
+			};
+
+			gold-latboost {
+				compatible = "qcom,memlat-mon";
+				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+				qcom,cpufreq-memfreq-tbl =
+					<  300000  300000 >,
+					<  787200 1248000 >,
+					< 1209600 1344000 >,
+					< 1497600 1440000 >,
 					< 2400000 1516800 >;
 				qcom,sampling-enabled;
 			};
