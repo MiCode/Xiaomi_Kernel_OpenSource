@@ -64,6 +64,7 @@ struct gh_msgq_cap_table *gh_msgq_alloc_entry(int label)
 	cap_table_entry->rx_cap_id = GH_CAPID_INVAL;
 	cap_table_entry->tx_full = false;
 	cap_table_entry->rx_empty = true;
+	cap_table_entry->label = label;
 	init_waitqueue_head(&cap_table_entry->tx_wq);
 	init_waitqueue_head(&cap_table_entry->rx_wq);
 	spin_lock_init(&cap_table_entry->tx_lock);
