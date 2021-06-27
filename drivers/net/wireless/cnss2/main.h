@@ -84,6 +84,7 @@ struct cnss_pinctrl_info {
 	struct pinctrl_state *wlan_en_active;
 	struct pinctrl_state *wlan_en_sleep;
 	int bt_en_gpio;
+	int sw_ctrl_gpio;
 };
 
 #ifdef CONFIG_MSM_SUBSYSTEM_RESTART
@@ -481,4 +482,6 @@ unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 			      enum cnss_timeout_type);
 int cnss_pci_update_qtime_sync_period(struct device *dev,
 				      unsigned int qtime_sync_period);
+int cnss_get_gpio_value(struct cnss_plat_data *plat_priv, int gpio_num);
+
 #endif /* _CNSS_MAIN_H */
