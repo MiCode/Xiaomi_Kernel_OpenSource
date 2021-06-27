@@ -10,6 +10,10 @@
 #include <dt-bindings/pinctrl/mt6873-pinfunc.h>
 #include <dt-bindings/clock/mt6873-clk.h>
 
+&atf_logger {
+	compatible = "mediatek,tfa_debug";
+};
+
 &gpio_usage_mapping {
 	GPIO_SIM1_HOT_PLUG = <&pio 43 0>;
 	GPIO_SIM2_SCLK = <&pio 45 0>;
