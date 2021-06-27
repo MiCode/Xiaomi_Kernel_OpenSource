@@ -276,6 +276,7 @@ struct spcom_device {
 	struct mutex ioctl_lock;
 	atomic_t subsys_req;
 	struct rproc *spss_rproc;
+	struct property *rproc_prop;
 };
 
 /* Device Driver State */
@@ -685,6 +686,12 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 
 	spcom_pr_dbg("restart - PIL FW loading initiated: preloaded=%d\n",
 		cmd->arg);
+
+	spcom_dev->spss_rproc = rproc_get_by_phandle(be32_to_cpup(spcom_dev->rproc_prop->value));
+	if (!spcom_dev->spss_rproc) {
+		pr_err("rproc device not found\n");
+		return -EFAULT;
+	}
 
 	ret = rproc_boot(spcom_dev->spss_rproc);
 	if (ret) {
@@ -2450,7 +2457,6 @@ static int spcom_probe(struct platform_device *pdev)
 	struct spcom_device *dev = NULL;
 	struct device_node *np;
 	struct property *prop;
-	struct rproc *spss_rproc;
 
 	if (!pdev) {
 		pr_err("invalid pdev\n");
@@ -2463,17 +2469,10 @@ static int spcom_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-
 	prop = of_find_property(np, "qcom,rproc-handle", NULL);
 	if (!prop) {
 		spcom_pr_err("can't find qcom,rproc-hable property");
 		return -EINVAL;
-	}
-
-	spss_rproc = rproc_get_by_phandle(be32_to_cpup(prop->value));
-	if (!spss_rproc) {
-		pr_err("can't find remote proc phandle %d\n", be32_to_cpup(prop->value));
-		return -EPROBE_DEFER;
 	}
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -2482,7 +2481,7 @@ static int spcom_probe(struct platform_device *pdev)
 
 	spcom_dev = dev;
 	spcom_dev->pdev = pdev;
-	spcom_dev->spss_rproc = spss_rproc;
+	spcom_dev->rproc_prop = prop;
 
 	atomic_set(&spcom_dev->rx_active_count, 0);
 	/* start counting exposed channel char devices from 1 */
@@ -2521,7 +2520,8 @@ static int spcom_probe(struct platform_device *pdev)
 	if (!spcom_ipc_log_context)
 		pr_err("Unable to create IPC log context\n");
 
-	spcom_pr_dbg("Driver Initialization ok\n");
+	spcom_pr_info("Driver Initialization completed ok\n");
+
 	return 0;
 
 fail_reg_chardev:
