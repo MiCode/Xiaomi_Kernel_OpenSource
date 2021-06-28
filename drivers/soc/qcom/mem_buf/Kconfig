@@ -2,7 +2,7 @@
 
 config QCOM_MEM_BUF
 	tristate "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
-	depends on GH_MSGQ && GH_RM_DRV
+	depends on GH_MSGQ
 	select QCOM_MEM_BUF_DEV
 	help
 	  Add support for lending memory from one virtual machine to another.
@@ -11,5 +11,19 @@ config QCOM_MEM_BUF
 	  respectively.
 	  If unsure, say N
 
+config QCOM_MEM_BUF_GH
+	bool "Qualcomm Technologies, Inc. Memory Buffer Gunyah Hypervisor Support"
+	depends on GH_RM_DRV
+	select QCOM_MEM_BUF_DEV_GH
+	help
+	  Enables additional support for sharing memory with VMs that have their own
+	  operating systems, as opposed to peripheral VMs, which do not have their
+	  own operating systems. These VMs are managed by the Gunyah Hypervisor, and thus
+	  sharing memory with them requires interacting with the Gunyah Hypervisor.
+	  If unsure, say N.
+
 config QCOM_MEM_BUF_DEV
 	tristate
+
+config QCOM_MEM_BUF_DEV_GH
+	bool
