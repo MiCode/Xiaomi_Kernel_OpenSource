@@ -12,6 +12,7 @@
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_trace.h"
 
 #ifdef CONFIG_QCOM_KGSL_SORT_POOL
 
@@ -196,9 +197,11 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 
 	if (__kgsl_pool_add_page(pool, p)) {
 		__free_pages(p, pool->pool_order);
+		trace_kgsl_pool_free_page(pool->pool_order);
 		return;
 	}
 
+	trace_kgsl_pool_add_page(pool->pool_order, pool->page_count);
 	mod_node_page_state(page_pgdat(p),  NR_KERNEL_MISC_RECLAIMABLE,
 				(1 << pool->pool_order));
 }
@@ -212,9 +215,11 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 	spin_lock(&pool->list_lock);
 	p = __kgsl_pool_get_page(pool);
 	spin_unlock(&pool->list_lock);
-	if (p != NULL)
+	if (p != NULL) {
+		trace_kgsl_pool_get_page(pool->pool_order, pool->page_count);
 		mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
 				-(1 << pool->pool_order));
+	}
 	return p;
 }
 
@@ -272,9 +277,11 @@ _kgsl_pool_get_nonreserved_page(struct kgsl_page_pool *pool)
 
 	p = __kgsl_pool_get_page(pool);
 	spin_unlock(&pool->list_lock);
-	if (p != NULL)
+	if (p != NULL) {
+		trace_kgsl_pool_get_page(pool->pool_order, pool->page_count);
 		mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
 				-(1 << pool->pool_order));
+	}
 	return p;
 }
 
@@ -309,6 +316,7 @@ _kgsl_pool_shrink(struct kgsl_page_pool *pool,
 
 		__free_pages(page, pool->pool_order);
 		pcount += (1 << pool->pool_order);
+		trace_kgsl_pool_free_page(pool->pool_order);
 	}
 
 	return pcount;
@@ -424,6 +432,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			} else
 				return -ENOMEM;
 		}
+		trace_kgsl_pool_alloc_page_system(order);
 		goto done;
 	}
 
@@ -443,6 +452,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			page = alloc_pages(gfp_mask, order);
 			if (page == NULL)
 				return -ENOMEM;
+			trace_kgsl_pool_alloc_page_system(order);
 			goto done;
 		}
 	}
@@ -465,6 +475,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			} else
 				return -ENOMEM;
 		}
+		trace_kgsl_pool_alloc_page_system(order);
 	}
 
 done:
@@ -479,6 +490,7 @@ done:
 	return pcount;
 
 eagain:
+	trace_kgsl_pool_try_page_lower(get_order(*page_size));
 	*page_size = kgsl_get_page_size(size, ilog2(size));
 	*align = ilog2(*page_size);
 	return -EAGAIN;
@@ -505,6 +517,7 @@ void kgsl_pool_free_page(struct page *page)
 
 	/* Give back to system as not added to pool */
 	__free_pages(page, page_order);
+	trace_kgsl_pool_free_page(page_order);
 }
 
 /* Functions for the shrinker */
