@@ -1014,7 +1014,8 @@ static int spi_geni_unprepare_message(struct spi_master *spi_mas,
 				GENI_SE_ERR(mas->ipc, false, NULL,
 					"suspend usage count mismatch:%d",
 								count);
-		} else {
+		} else if (!pm_runtime_status_suspended(mas->dev) &&
+				pm_runtime_enabled(mas->dev)) {
 			pm_runtime_mark_last_busy(mas->dev);
 			pm_runtime_put_autosuspend(mas->dev);
 		}
@@ -1314,7 +1315,8 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 		if (count < 0)
 			GENI_SE_ERR(mas->ipc, false, NULL,
 				"suspend usage count mismatch:%d", count);
-	} else {
+	} else if (!pm_runtime_status_suspended(mas->dev) &&
+			pm_runtime_enabled(mas->dev)) {
 		pm_runtime_mark_last_busy(mas->dev);
 		pm_runtime_put_autosuspend(mas->dev);
 	}
