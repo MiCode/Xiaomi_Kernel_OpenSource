@@ -677,6 +677,7 @@ drivers/clocksource/timer-of.h
 drivers/clocksource/timer-probe.c
 drivers/clocksource/timer-sp804.c
 drivers/clocksource/timer-sp.h
+drivers/clocksource/timer-sprd.c
 drivers/clocksource/timer-sun4i.c
 drivers/cpufreq/cpufreq.c
 drivers/cpufreq/cpufreq_conservative.c
