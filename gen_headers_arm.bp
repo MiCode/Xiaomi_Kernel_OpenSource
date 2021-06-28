@@ -477,6 +477,8 @@ gen_headers_out_arm = [
     "linux/qemu_fw_cfg.h",
     "linux/qg-profile.h",
     "linux/qg.h",
+    "linux/qbg-profile.h",
+    "linux/qbg.h",
     "linux/qnx4_fs.h",
     "linux/qnxtypes.h",
     "linux/qrng.h",
