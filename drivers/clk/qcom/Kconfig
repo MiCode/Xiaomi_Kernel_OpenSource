@@ -747,4 +747,13 @@ config SM_GCC_DIWALI
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, etc.
 
+config SM_CAMCC_DIWALI
+	tristate "DIWALI Camera Clock Controller"
+	select SM_GCC_DIWALI
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  DIWALI devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 endif
