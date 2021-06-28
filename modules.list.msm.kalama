@@ -2,4 +2,5 @@ pinctrl-msm.ko
 pinctrl-kalama.ko
 clk-qcom.ko
 clk-dummy.ko
+debug-regulator.ko
 stub-regulator.ko
