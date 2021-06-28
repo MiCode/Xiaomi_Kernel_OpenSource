@@ -5598,19 +5598,19 @@ static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
 free_irq:
 	free_irq(pci_priv->wake_irq, pci_priv);
 free_gpio:
-	gpio_free(pci_priv->wake_irq);
+	gpio_free(pci_priv->wake_gpio);
 out:
 	return ret;
 }
 
 static void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv)
 {
-	if (pci_priv->wake_irq < 0)
+	if (pci_priv->wake_gpio < 0)
 		return;
 
 	disable_irq_wake(pci_priv->wake_irq);
 	free_irq(pci_priv->wake_irq, pci_priv);
-	gpio_free(pci_priv->wake_irq);
+	gpio_free(pci_priv->wake_gpio;
 }
 #else
 static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
