@@ -2933,7 +2933,8 @@ static int fts_ts_suspend(struct device *dev)
 		return 0;
 	}
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
-	if (atomic_read(&fts_data->trusted_touch_underway))
+	if (atomic_read(&fts_data->trusted_touch_underway)
+			|| atomic_read(&fts_data->trusted_touch_enabled))
 		wait_for_completion_interruptible(
 			&fts_data->trusted_touch_powerdown);
 #endif
