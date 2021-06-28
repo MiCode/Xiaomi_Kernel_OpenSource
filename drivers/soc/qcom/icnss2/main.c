@@ -1656,6 +1656,22 @@ static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 	}
 }
 
+static char *icnss_qcom_ssr_notify_state_to_str(enum qcom_ssr_notify_type code)
+{
+	switch (code) {
+	case QCOM_SSR_BEFORE_POWERUP:
+		return "BEFORE_POWERUP";
+	case QCOM_SSR_AFTER_POWERUP:
+		return "AFTER_POWERUP";
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		return "BEFORE_SHUTDOWN";
+	case QCOM_SSR_AFTER_SHUTDOWN:
+		return "AFTER_SHUTDOWN";
+	default:
+		return "UNKNOWN";
+	}
+};
+
 static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
@@ -1666,7 +1682,8 @@ static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 					       wpss_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
-	icnss_pr_vdbg("WPSS-Notify: event %lu\n", code);
+	icnss_pr_vdbg("WPSS-Notify: event %s(%lu)\n",
+		      icnss_qcom_ssr_notify_state_to_str(code), code);
 
 	if (code == QCOM_SSR_AFTER_SHUTDOWN) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
@@ -1723,7 +1740,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 					       modem_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
-	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
+	icnss_pr_vdbg("Modem-Notify: event %s(%lu)\n",
+		      icnss_qcom_ssr_notify_state_to_str(code), code);
 
 	if (code == QCOM_SSR_AFTER_SHUTDOWN) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
