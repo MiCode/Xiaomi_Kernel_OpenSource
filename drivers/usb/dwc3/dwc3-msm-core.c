@@ -4515,7 +4515,6 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
 	mdwc->ss_release_called = true;
-	mdwc->ss_phy->flags |= PHY_DP_MODE;
 	if (mdwc->id_state == DWC3_ID_GROUND) {
 		/* stop USB host mode */
 		ret = dwc3_start_stop_host(mdwc, false);
@@ -4524,6 +4523,7 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 
 		/* restart USB host mode into high speed */
 		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
+		mdwc->ss_phy->flags |= PHY_DP_MODE;
 		dwc3_start_stop_host(mdwc, true);
 	} else if (mdwc->vbus_active) {
 		/* stop USB device mode */
@@ -4533,10 +4533,12 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 
 		/* restart USB device mode into high speed */
 		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
+		mdwc->ss_phy->flags |= PHY_DP_MODE;
 		dwc3_start_stop_device(mdwc, true);
 	} else {
 		dbg_log_string("USB is not active.\n");
 		dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
+		mdwc->ss_phy->flags |= PHY_DP_MODE;
 	}
 
 	return 0;
