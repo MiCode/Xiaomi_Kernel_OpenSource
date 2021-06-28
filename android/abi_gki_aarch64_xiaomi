@@ -16,6 +16,13 @@
   regcache_drop_region
   snd_soc_dapm_del_routes
 
+# required by us_prox.ko
+  iio_device_unregister
+  iio_device_free
+  __iio_device_register
+  __kfifo_to_user
+  iio_device_alloc
+
 # required by tfa98xx_dlkm.ko
   device_remove_bin_file
   snd_pcm_hw_constraint_mask64
@@ -32,15 +39,21 @@
 
 # required by msm_drm.ko
   kobject_set_name
+  wakeup_source_destroy
+  wakeup_source_remove
+  wakeup_source_add
+  wakeup_source_create
 
 # required by exfat.ko
   block_write_full_page
   __blockdev_direct_IO
   __bread_gfp
   __brelse
+  clear_nlink
   cont_write_begin
   d_find_alias
   d_move
+  d_splice_alias
   filemap_fdatawait_range
   filemap_fdatawrite_range
   full_name_hash
@@ -53,6 +66,7 @@
   generic_fillattr
   generic_write_end
   __getblk_gfp
+  igrab
   ilookup
   in_group_p
   inc_nlink
@@ -76,14 +90,20 @@
   sb_min_blocksize
   sb_set_blocksize
   setattr_copy
+  setattr_prepare
+  set_nlink
   sync_blockdev
   sync_dirty_buffer
   sync_mapping_buffers
   __remove_inode_hash
   touch_buffer
   truncate_pagecache
+  truncate_setsize
   unload_nls
   unlock_buffer
   utf16s_to_utf8s
   utf8s_to_utf16s
   write_inode_now
+
+# required by incrementalfs.ko
+  revert_creds
