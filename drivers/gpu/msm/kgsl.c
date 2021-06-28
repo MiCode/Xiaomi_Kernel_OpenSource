@@ -3042,9 +3042,20 @@ void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
 	}
 	spin_unlock(&kgsl_dmabuf_lock);
 }
+
+unsigned long kgsl_get_dmabuf_inode_number(struct kgsl_mem_entry *entry)
+{
+	struct kgsl_dma_buf_meta *meta = entry->priv_data;
+
+	return meta ? file_inode(meta->dmabuf->file)->i_ino : 0;
+}
 #else
 void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
 		int *egl_surface_count, int *egl_image_count)
+{
+}
+
+unsigned long kgsl_get_dmabuf_inode_number(struct kgsl_mem_entry *entry)
 {
 }
 #endif
