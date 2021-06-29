@@ -718,14 +718,23 @@ static void hyp_core_ctl_deinit_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	pr_info("deinit: reserve_cpus=%*pbl\n", cpumask_pr_args(&hcd->reserve_cpus));
 }
 
+static inline bool is_cpusys_vm(gh_vmid_t vmid)
+{
+	gh_vmid_t cpusys_vmid;
+
+	if (!gh_rm_get_vmid(GH_CPUSYS_VM, &cpusys_vmid) && cpusys_vmid == vmid)
+		return true;
+
+	return false;
+}
+
 /*
  * Called when vm_status is STATUS_READY, multiple times before status
  * moves to STATUS_RUNNING
  */
 static int gh_vcpu_populate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx, gh_capid_t cap_id)
 {
-	gh_vmid_t cpusys_vmid;
-	int ret;
+	int ret = 0;
 
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
@@ -733,10 +742,8 @@ static int gh_vcpu_populate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx, gh
 		goto out;
 	}
 
-	ret = gh_rm_get_vmid(GH_CPUSYS_VM, &cpusys_vmid);
-	if (!ret && cpusys_vmid == vmid) {
+	if (is_cpusys_vm(vmid)) {
 		pr_info("Skip populating VCPU affinity info for CPUSYS VM\n");
-		ret = 0;
 		goto out;
 	}
 
@@ -756,7 +763,6 @@ static int gh_vcpu_populate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx, gh
 					cpu_idx, cap_id, nr_vcpus);
 	}
 
-	ret = 0;
 out:
 	return ret;
 }
@@ -768,6 +774,11 @@ static int gh_vcpu_unpopulate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx)
 		return -ENXIO;
 	}
 
+	if (is_cpusys_vm(vmid)) {
+		pr_info("Skip unpopulating VCPU affinity info for CPUSYS VM\n");
+		goto out;
+	}
+
 	if (is_vcpu_info_populated) {
 		gh_cpumap[nr_vcpus].cap_id = GH_CAPID_INVAL;
 		gh_cpumap[nr_vcpus].pcpu = U32_MAX;
@@ -777,6 +788,7 @@ static int gh_vcpu_unpopulate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx)
 			nr_vcpus--;
 	}
 
+out:
 	return 0;
 }
 
@@ -785,11 +797,8 @@ static int gh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 {
 	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
 	u8 vm_status = vm_status_payload->vm_status;
-	gh_vmid_t cpusys_vmid;
-	int ret;
 
-	ret = gh_rm_get_vmid(GH_CPUSYS_VM, &cpusys_vmid);
-	if (!ret && cpusys_vmid == vm_status_payload->vmid) {
+	if (is_cpusys_vm(vm_status_payload->vmid)) {
 		pr_info("Reservation scheme skipped for CPUSYS VM\n");
 		goto out;
 	}
@@ -868,12 +877,19 @@ static int gh_vpm_grp_populate_info(gh_vmid_t vmid, gh_capid_t cap_id, int virq_
 
 	if (!init_done) {
 		pr_err("%s: Driver probe failed\n", __func__);
-		return -ENXIO;
+		ret = -ENXIO;
+		goto out;
+	}
+
+	if (is_cpusys_vm(vmid)) {
+		pr_info("Skip populating VPM GRP info for CPUSYS VM\n");
+		goto out;
 	}
 
 	if (virq_num < 0) {
 		pr_err("%s: Invalid IRQ number\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	vpmg_cap_id = cap_id;
@@ -881,13 +897,14 @@ static int gh_vpm_grp_populate_info(gh_vmid_t vmid, gh_capid_t cap_id, int virq_
 			"gh_susp_res_irq", NULL);
 	if (ret < 0) {
 		pr_err("%s: IRQ registration failed ret=%d\n", __func__, ret);
-		return ret;
+		goto out;
 	}
 
 	susp_res_irq = virq_num;
 	timer_setup(&gh_suspend_timer, gh_suspend_timer_callback, 0);
 	is_vpm_group_info_populated = true;
 
+out:
 	return ret;
 }
 
@@ -898,6 +915,11 @@ static int gh_vpm_grp_unpopulate_info(gh_vmid_t vmid, int *irq)
 		return -ENXIO;
 	}
 
+	if (is_cpusys_vm(vmid)) {
+		pr_info("Skip unpopulating VPM GRP info for CPUSYS VM\n");
+		goto out;
+	}
+
 	if (is_vpm_group_info_populated) {
 		*irq = susp_res_irq;
 		free_irq(susp_res_irq, NULL);
@@ -906,6 +928,7 @@ static int gh_vpm_grp_unpopulate_info(gh_vmid_t vmid, int *irq)
 		is_vpm_group_info_populated = false;
 	}
 
+out:
 	return 0;
 }
 
