@@ -21,7 +21,7 @@
 				"gcc_gpu_snoc_dvm_gfx",
 				"gpu_cc_ahb", "apb_pclk";
 
-		qcom,gpu-model = "AdrenoC500v1";
+		qcom,gpu-model = "Adreno730v1";
 
 		qcom,initial-pwrlevel = <6>;
 
