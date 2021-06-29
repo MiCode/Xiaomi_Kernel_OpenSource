@@ -51,6 +51,7 @@ static int create_cluster_state_node(struct device *dev, struct qcom_cluster_nod
 	if (!d->attrs)
 		return -ENOMEM;
 
+	sysfs_attr_init(&attr->attr);
 	attr->attr.name = "disable";
 	attr->attr.mode = 0644;
 	attr->show = cluster_idle_get;
