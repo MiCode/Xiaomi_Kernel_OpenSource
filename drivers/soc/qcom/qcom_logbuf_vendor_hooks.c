@@ -19,9 +19,12 @@
 #include "../../../kernel/printk/printk_ringbuffer.h"
 
 #define BOOT_LOG_SIZE    SZ_512K
+#define LOG_NEWLINE          2
+
 char *boot_log_buf;
 unsigned int boot_log_buf_size;
 bool copy_early_boot_log = true;
+static unsigned int off;
 
 static size_t print_time(u64 ts, char *buf, size_t buf_sz)
 {
@@ -184,6 +187,22 @@ static void register_log_minidump(struct printk_ringbuffer *prb)
 		pr_err("Failed to add log_info entry in minidump table\n");
 }
 
+static void copy_boot_log_pr_cont(void *unused, struct printk_record *r, size_t text_len)
+{
+	if (!r->info->text_len || ((off + r->info->text_len) > boot_log_buf_size))
+		return;
+
+	if (boot_log_buf[off - 1] == '\n')
+		off = off - 1;
+
+	memcpy(&boot_log_buf[off], &r->text_buf[r->info->text_len - text_len], text_len);
+	off += text_len;
+	if (r->info->flags & LOG_NEWLINE) {
+		boot_log_buf[off] = '\n';
+		boot_log_buf[off + 1] = 0;
+		off += 1;
+	}
+}
 
 static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 					struct printk_record *r)
@@ -196,7 +215,6 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 	unsigned long did, ind, sv;
 	unsigned int textdata_size = _DATA_SIZE(textdata_ring.size_bits);
 	unsigned long begin, end;
-	static unsigned int off;
 	enum desc_state state;
 	size_t rem_buf_sz;
 
@@ -216,7 +234,7 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			return;
 
 		rem_buf_sz = boot_log_buf_size - off;
-		if (!rem_buf_sz || rem_buf_sz < sizeof(struct printk_record))
+		if (!rem_buf_sz)
 			return;
 
 		memcpy(&boot_log_buf[off], &r->text_buf[0], r->info->text_len);
@@ -346,6 +364,14 @@ static int logbuf_vendor_hooks_driver_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register android_vh_logbuf hook\n");
 		kfree(boot_log_buf);
+		return ret;
+	}
+
+	ret = register_trace_android_vh_logbuf_pr_cont(copy_boot_log_pr_cont, NULL);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register android_vh_logbuf_pr_cont hook\n");
+		unregister_trace_android_vh_logbuf(copy_boot_log, NULL);
+		kfree(boot_log_buf);
 	}
 
 	return ret;
@@ -353,6 +379,7 @@ static int logbuf_vendor_hooks_driver_probe(struct platform_device *pdev)
 
 static int logbuf_vendor_hooks_driver_remove(struct platform_device *pdev)
 {
+	unregister_trace_android_vh_logbuf_pr_cont(copy_boot_log_pr_cont, NULL);
 	unregister_trace_android_vh_logbuf(copy_boot_log, NULL);
 	release_boot_log_buf();
 	return 0;
