@@ -101,6 +101,7 @@ obj-$(CONFIG_SM_GPUCC_8150) += gpucc-sm8150.o
 obj-$(CONFIG_SM_GPUCC_8250) += gpucc-sm8250.o
 obj-$(CONFIG_SM_VIDEOCC_8150) += videocc-sm8150.o
 obj-$(CONFIG_SM_VIDEOCC_8250) += videocc-sm8250.o
+obj-$(CONFIG_SM_GPUCC_DIWALI) += gpucc-diwali.o
 obj-$(CONFIG_SM_GPUCC_HOLI) += gpucc-holi.o
 obj-$(CONFIG_SM_GPUCC_SHIMA) += gpucc-shima.o
 obj-$(CONFIG_SM_VIDEOCC_SHIMA) += videocc-shima.o
