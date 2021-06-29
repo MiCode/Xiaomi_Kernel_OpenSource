@@ -31,6 +31,18 @@ struct snapshot_obj_itr {
 	size_t write;   /* Bytes written so far */
 };
 
+static inline u64 snapshot_phy_addr(struct kgsl_device *device)
+{
+	return device->snapshot_memory.dma_handle ?
+		device->snapshot_memory.dma_handle : __pa(device->snapshot_memory.ptr);
+}
+
+static inline u64 atomic_snapshot_phy_addr(struct kgsl_device *device)
+{
+	return device->snapshot_memory_atomic.ptr == device->snapshot_memory.ptr ?
+		snapshot_phy_addr(device) : __pa(device->snapshot_memory_atomic.ptr);
+}
+
 static void add_to_minidump(struct kgsl_device *device)
 {
 	struct md_region md_entry = {0};
@@ -41,7 +53,7 @@ static void add_to_minidump(struct kgsl_device *device)
 
 	scnprintf(md_entry.name, sizeof(md_entry.name), "GPU_SNAPSHOT");
 	md_entry.virt_addr = (u64)(device->snapshot_memory.ptr);
-	md_entry.phys_addr = __pa(device->snapshot_memory.ptr);
+	md_entry.phys_addr = snapshot_phy_addr(device);
 	md_entry.size = device->snapshot_memory.size;
 	ret = msm_minidump_add_region(&md_entry);
 	if (ret < 0)
@@ -599,7 +611,7 @@ static void kgsl_device_snapshot_atomic(struct kgsl_device *device)
 		scnprintf(md_entry.name, sizeof(md_entry.name),
 				"ATOMIC_GPU_SNAPSHOT");
 		md_entry.virt_addr = (u64)(device->snapshot_memory_atomic.ptr);
-		md_entry.phys_addr = __pa(device->snapshot_memory_atomic.ptr);
+		md_entry.phys_addr = atomic_snapshot_phy_addr(device);
 		md_entry.size = device->snapshot_memory_atomic.size;
 		ret = msm_minidump_add_region(&md_entry);
 		if (ret < 0)
@@ -609,7 +621,7 @@ static void kgsl_device_snapshot_atomic(struct kgsl_device *device)
 
 	/* log buffer info to aid in ramdump fault tolerance */
 	dev_err(device->dev, "Atomic GPU snapshot created at pa %llx++0x%zx\n",
-			__pa(device->snapshot_memory_atomic.ptr), snapshot->size);
+			atomic_snapshot_phy_addr(device), snapshot->size);
 }
 
 /**
@@ -700,7 +712,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 
 	/* log buffer info to aid in ramdump fault tolerance */
 	dev_err(device->dev, "%s snapshot created at pa %llx++0x%zx\n",
-			gmu_fault ? "GMU" : "GPU", device->snapshot_memory.dma_handle,
+			gmu_fault ? "GMU" : "GPU", snapshot_phy_addr(device),
 			snapshot->size);
 
 	add_to_minidump(device);
@@ -1138,7 +1150,7 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 
 		scnprintf(md_entry.name, sizeof(md_entry.name), "GPU_SNAPSHOT");
 		md_entry.virt_addr = (u64)(device->snapshot_memory.ptr);
-		md_entry.phys_addr = __pa(device->snapshot_memory.ptr);
+		md_entry.phys_addr = snapshot_phy_addr(device);
 		md_entry.size = device->snapshot_memory.size;
 		if (msm_minidump_remove_region(&md_entry) < 0)
 			dev_err(device->dev, "Failed to remove snapshot with minidump\n");
