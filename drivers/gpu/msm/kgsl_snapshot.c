@@ -468,7 +468,7 @@ static void kgsl_free_snapshot(struct kgsl_snapshot *snapshot)
 static void isdb_write(void __iomem *base, u32 offset)
 {
 	/* To set the SCHBREAKTYPE bit */
-	__raw_writel(0x800, base + SP0_ISDB_ISDB_BRKPT_CFG + offset);
+	__raw_writel(0x801, base + SP0_ISDB_ISDB_BRKPT_CFG + offset);
 
 	/*
 	 * ensure the configurations are set before
@@ -511,13 +511,15 @@ static void set_isdb_breakpoint_registers(struct kgsl_device *device)
 		goto err;
 	}
 
-	/* Issue break command for all six SPs */
+	/* Issue break command for all eight SPs */
 	isdb_write(device->qdss_gfx_virt, 0x0000);
 	isdb_write(device->qdss_gfx_virt, 0x1000);
 	isdb_write(device->qdss_gfx_virt, 0x2000);
 	isdb_write(device->qdss_gfx_virt, 0x3000);
 	isdb_write(device->qdss_gfx_virt, 0x4000);
 	isdb_write(device->qdss_gfx_virt, 0x5000);
+	isdb_write(device->qdss_gfx_virt, 0x6000);
+	isdb_write(device->qdss_gfx_virt, 0x7000);
 
 	clk_disable_unprepare(clk);
 	clk_put(clk);

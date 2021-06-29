@@ -971,6 +971,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 			snapshot, adreno_snapshot_global, device->memstore);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+			snapshot, adreno_snapshot_global, device->scratch);
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 			snapshot, adreno_snapshot_global,
 			adreno_dev->pwron_fixup);
 

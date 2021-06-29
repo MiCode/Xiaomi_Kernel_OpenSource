@@ -671,8 +671,9 @@ static size_t genc_snapshot_dbgc_side_debugbus_block(struct kgsl_device *device,
 	const u32 *block = priv;
 	int i;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	size_t size = (GENC_DEBUGBUS_BLOCK_SIZE * sizeof(unsigned int)) + sizeof(*header);
 
-	if (remain < GENC_DEBUGBUS_BLOCK_SIZE) {
+	if (remain < size) {
 		SNAPSHOT_ERR_NOMEM(device, "DEBUGBUS");
 		return 0;
 	}
@@ -684,7 +685,7 @@ static size_t genc_snapshot_dbgc_side_debugbus_block(struct kgsl_device *device,
 	for (i = 0; i < GENC_DEBUGBUS_BLOCK_SIZE; i++)
 		data[i] = genc_dbgc_side_debug_bus_read(device, *block, i);
 
-	return GENC_DEBUGBUS_BLOCK_SIZE;
+	return size;
 }
 
 /* genc_cx_dbgc_debug_bus_read() - Read data from trace bus */
@@ -773,8 +774,9 @@ static size_t genc_snapshot_cx_side_dbgc_debugbus_block(struct kgsl_device *devi
 	const u32 *block = priv;
 	int i;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	size_t size = (GENC_DEBUGBUS_BLOCK_SIZE * sizeof(unsigned int)) + sizeof(*header);
 
-	if (remain < GENC_DEBUGBUS_BLOCK_SIZE) {
+	if (remain < size) {
 		SNAPSHOT_ERR_NOMEM(device, "DEBUGBUS");
 		return 0;
 	}
@@ -786,7 +788,7 @@ static size_t genc_snapshot_cx_side_dbgc_debugbus_block(struct kgsl_device *devi
 	for (i = 0; i < GENC_DEBUGBUS_BLOCK_SIZE; i++)
 		genc_cx_side_debug_bus_read(device, *block, i, &data[i]);
 
-	return GENC_DEBUGBUS_BLOCK_SIZE;
+	return size;
 }
 
 /* genc_snapshot_debugbus() - Capture debug bus data */
