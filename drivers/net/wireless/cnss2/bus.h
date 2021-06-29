@@ -32,6 +32,7 @@ void cnss_bus_deinit(struct cnss_plat_data *plat_priv);
 void cnss_bus_add_fw_prefix_name(struct cnss_plat_data *plat_priv,
 				 char *prefix_name, char *name);
 int cnss_bus_load_m3(struct cnss_plat_data *plat_priv);
+int cnss_bus_handle_dev_sol_irq(struct cnss_plat_data *plat_priv);
 int cnss_bus_alloc_fw_mem(struct cnss_plat_data *plat_priv);
 int cnss_bus_alloc_qdss_mem(struct cnss_plat_data *plat_priv);
 void cnss_bus_free_qdss_mem(struct cnss_plat_data *plat_priv);

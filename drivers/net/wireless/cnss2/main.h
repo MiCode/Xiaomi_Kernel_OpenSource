@@ -421,6 +421,13 @@ enum cnss_timeout_type {
 	CNSS_TIMEOUT_DAEMON_CONNECTION,
 };
 
+struct cnss_sol_gpio {
+	int dev_sol_gpio;
+	int dev_sol_irq;
+	u32 dev_sol_counter;
+	int host_sol_gpio;
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -428,6 +435,7 @@ struct cnss_plat_data {
 	struct list_head vreg_list;
 	struct list_head clk_list;
 	struct cnss_pinctrl_info pinctrl_info;
+	struct cnss_sol_gpio sol_gpio;
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 	struct cnss_subsys_info subsys_info;
 #endif
@@ -573,6 +581,13 @@ int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
 void cnss_power_off_device(struct cnss_plat_data *plat_priv);
 bool cnss_is_device_powered_on(struct cnss_plat_data *plat_priv);
+int cnss_enable_dev_sol_irq(struct cnss_plat_data *plat_priv);
+int cnss_disable_dev_sol_irq(struct cnss_plat_data *plat_priv);
+int cnss_get_dev_sol_value(struct cnss_plat_data *plat_priv);
+int cnss_init_dev_sol_irq(struct cnss_plat_data *plat_priv);
+int cnss_deinit_dev_sol_irq(struct cnss_plat_data *plat_priv);
+int cnss_set_host_sol_value(struct cnss_plat_data *plat_priv, int value);
+int cnss_get_host_sol_value(struct cnss_plat_data *plat_priv);
 int cnss_register_subsys(struct cnss_plat_data *plat_priv);
 void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);

@@ -1413,10 +1413,11 @@ static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
 
 	cnss_fatal_err("MHI power up returns timeout\n");
 
-	if (cnss_mhi_scan_rddm_cookie(pci_priv, DEVICE_RDDM_COOKIE)) {
-		/* Wait for RDDM if RDDM cookie is set. If RDDM times out,
-		 * PBL/SBL error region may have been erased so no need to
-		 * dump them either.
+	if (cnss_mhi_scan_rddm_cookie(pci_priv, DEVICE_RDDM_COOKIE) ||
+	    cnss_get_dev_sol_value(plat_priv) > 0) {
+		/* Wait for RDDM if RDDM cookie is set or device SOL GPIO is
+		 * high. If RDDM times out, PBL/SBL error region may have been
+		 * erased so no need to dump them either.
 		 */
 		if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
 		    !pci_priv->pci_link_down_ind) {
@@ -1424,7 +1425,7 @@ static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
 				  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
 		}
 	} else {
-		cnss_pr_dbg("RDDM cookie is not set\n");
+		cnss_pr_dbg("RDDM cookie is not set and device SOL is low\n");
 		cnss_mhi_debug_reg_dump(pci_priv);
 		cnss_pci_soc_scratch_reg_dump(pci_priv);
 		/* Dump PBL/SBL error log if RDDM cookie is not set */
@@ -4435,6 +4436,17 @@ static void cnss_pci_dump_debug_reg(struct cnss_pci_data *pci_priv)
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_10);
 }
 
+static int cnss_pci_assert_host_sol(struct cnss_pci_data *pci_priv)
+{
+	if (cnss_get_host_sol_value(pci_priv->plat_priv))
+		return -EINVAL;
+
+	cnss_pr_dbg("Assert host SOL GPIO to retry RDDM, expecting link down\n");
+	cnss_set_host_sol_value(pci_priv->plat_priv, 1);
+
+	return 0;
+}
+
 int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 {
 	int ret;
@@ -4475,6 +4487,8 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 			return 0;
 		}
 		cnss_fatal_err("Failed to trigger RDDM, err = %d\n", ret);
+		if (!cnss_pci_assert_host_sol(pci_priv))
+			return 0;
 		cnss_pci_dump_debug_reg(pci_priv);
 		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
 				       CNSS_REASON_DEFAULT);
@@ -4656,6 +4670,10 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	} else {
 		if (cnss_pci_check_link_status(pci_priv))
 			return;
+		/* Inside panic handler, reduce timeout for RDDM to avoid
+		 * unnecessary hypervisor watchdog bite.
+		 */
+		pci_priv->mhi_ctrl->timeout_ms /= 2;
 	}
 
 	cnss_mhi_debug_reg_dump(pci_priv);
@@ -4668,6 +4686,8 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	if (ret) {
 		cnss_fatal_err("Failed to download RDDM image, err = %d\n",
 			       ret);
+		if (!cnss_pci_assert_host_sol(pci_priv))
+			return;
 		cnss_pci_dump_debug_reg(pci_priv);
 		return;
 	}
@@ -4941,6 +4961,9 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 
 	cnss_fatal_err("Timeout waiting for RDDM notification\n");
 
+	if (!cnss_pci_assert_host_sol(pci_priv))
+		return;
+
 	if (mhi_get_exec_env(pci_priv->mhi_ctrl) == MHI_EE_PBL)
 		cnss_pr_err("Unable to collect ramdumps due to abrupt reset\n");
 
@@ -4980,6 +5003,25 @@ static void cnss_boot_debug_timeout_hdlr(struct timer_list *t)
 		  jiffies + msecs_to_jiffies(BOOT_DEBUG_TIMEOUT_MS));
 }
 
+static int cnss_pci_handle_mhi_sys_err(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	cnss_ignore_qmi_failure(true);
+	set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+	del_timer(&plat_priv->fw_boot_timer);
+	mod_timer(&pci_priv->dev_rddm_timer,
+		  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
+	cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
+
+	return 0;
+}
+
+int cnss_pci_handle_dev_sol_irq(struct cnss_pci_data *pci_priv)
+{
+	return cnss_pci_handle_mhi_sys_err(pci_priv);
+}
+
 static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl,
 				   enum mhi_callback reason)
 {
@@ -5010,12 +5052,7 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl,
 		cnss_reason = CNSS_REASON_DEFAULT;
 		break;
 	case MHI_CB_SYS_ERROR:
-		cnss_ignore_qmi_failure(true);
-		set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
-		del_timer(&plat_priv->fw_boot_timer);
-		mod_timer(&pci_priv->dev_rddm_timer,
-			  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
-		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
+		cnss_pci_handle_mhi_sys_err(pci_priv);
 		return;
 	case MHI_CB_EE_RDDM:
 		cnss_ignore_qmi_failure(true);

@@ -965,6 +965,8 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 	}
 
 	plat_priv->powered_on = true;
+	cnss_enable_dev_sol_irq(plat_priv);
+	cnss_set_host_sol_value(plat_priv, 0);
 
 	return 0;
 
@@ -983,6 +985,7 @@ void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 		return;
 	}
 
+	cnss_disable_dev_sol_irq(plat_priv);
 	cnss_select_pinctrl_state(plat_priv, false);
 	cnss_clk_off(plat_priv, &plat_priv->clk_list);
 	cnss_vreg_off_type(plat_priv, CNSS_VREG_PRIM);

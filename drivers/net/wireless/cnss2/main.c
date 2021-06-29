@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/pm_wakeup.h>
 #include <linux/reboot.h>
 #include <linux/rwsem.h>
@@ -1208,6 +1209,206 @@ static inline int cnss_register_esoc(struct cnss_plat_data *plat_priv)
 
 static inline void cnss_unregister_esoc(struct cnss_plat_data *plat_priv) {}
 #endif
+
+int cnss_enable_dev_sol_irq(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int ret = 0;
+
+	if (sol_gpio->dev_sol_gpio < 0 || sol_gpio->dev_sol_irq <= 0)
+		return 0;
+
+	ret = enable_irq_wake(sol_gpio->dev_sol_irq);
+	if (ret)
+		cnss_pr_err("Failed to enable device SOL as wake IRQ, err = %d\n",
+			    ret);
+
+	return ret;
+}
+
+int cnss_disable_dev_sol_irq(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int ret = 0;
+
+	if (sol_gpio->dev_sol_gpio < 0 || sol_gpio->dev_sol_irq <= 0)
+		return 0;
+
+	ret = disable_irq_wake(sol_gpio->dev_sol_irq);
+	if (ret)
+		cnss_pr_err("Failed to disable device SOL as wake IRQ, err = %d\n",
+			    ret);
+
+	return ret;
+}
+
+int cnss_get_dev_sol_value(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->dev_sol_gpio < 0)
+		return -EINVAL;
+
+	return gpio_get_value(sol_gpio->dev_sol_gpio);
+}
+
+static irqreturn_t cnss_dev_sol_handler(int irq, void *data)
+{
+	struct cnss_plat_data *plat_priv = data;
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	sol_gpio->dev_sol_counter++;
+	cnss_pr_dbg("WLAN device SOL IRQ (%u) is asserted #%u\n",
+		    irq, sol_gpio->dev_sol_counter);
+
+	/* Make sure abort current suspend */
+	cnss_pm_stay_awake(plat_priv);
+	cnss_pm_relax(plat_priv);
+	pm_system_wakeup();
+
+	cnss_bus_handle_dev_sol_irq(plat_priv);
+
+	return IRQ_HANDLED;
+}
+
+static int cnss_init_dev_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int ret = 0;
+
+	sol_gpio->dev_sol_gpio = of_get_named_gpio(dev->of_node,
+						   "wlan-dev-sol-gpio", 0);
+	if (sol_gpio->dev_sol_gpio < 0)
+		goto out;
+
+	cnss_pr_dbg("Get device SOL GPIO (%d) from device node\n",
+		    sol_gpio->dev_sol_gpio);
+
+	ret = gpio_request(sol_gpio->dev_sol_gpio, "wlan_dev_sol_gpio");
+	if (ret) {
+		cnss_pr_err("Failed to request device SOL GPIO, err = %d\n",
+			    ret);
+		goto out;
+	}
+
+	gpio_direction_input(sol_gpio->dev_sol_gpio);
+	sol_gpio->dev_sol_irq = gpio_to_irq(sol_gpio->dev_sol_gpio);
+
+	ret = request_irq(sol_gpio->dev_sol_irq, cnss_dev_sol_handler,
+			  IRQF_TRIGGER_FALLING, "wlan_dev_sol_irq", plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to request device SOL IRQ, err = %d\n", ret);
+		goto free_gpio;
+	}
+
+	return 0;
+
+free_gpio:
+	gpio_free(sol_gpio->dev_sol_gpio);
+out:
+	return ret;
+}
+
+static void cnss_deinit_dev_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->dev_sol_gpio < 0)
+		return;
+
+	free_irq(sol_gpio->dev_sol_irq, plat_priv);
+	gpio_free(sol_gpio->dev_sol_gpio);
+}
+
+int cnss_set_host_sol_value(struct cnss_plat_data *plat_priv, int value)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->host_sol_gpio < 0)
+		return -EINVAL;
+
+	if (value)
+		cnss_pr_dbg("Assert host SOL GPIO\n");
+	gpio_set_value(sol_gpio->host_sol_gpio, value);
+
+	return 0;
+}
+
+int cnss_get_host_sol_value(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->host_sol_gpio < 0)
+		return -EINVAL;
+
+	return gpio_get_value(sol_gpio->host_sol_gpio);
+}
+
+static int cnss_init_host_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int ret = 0;
+
+	sol_gpio->host_sol_gpio = of_get_named_gpio(dev->of_node,
+						    "wlan-host-sol-gpio", 0);
+	if (sol_gpio->host_sol_gpio < 0)
+		goto out;
+
+	cnss_pr_dbg("Get host SOL GPIO (%d) from device node\n",
+		    sol_gpio->host_sol_gpio);
+
+	ret = gpio_request(sol_gpio->host_sol_gpio, "wlan_host_sol_gpio");
+	if (ret) {
+		cnss_pr_err("Failed to request host SOL GPIO, err = %d\n",
+			    ret);
+		goto out;
+	}
+
+	gpio_direction_output(sol_gpio->host_sol_gpio, 0);
+
+	return 0;
+
+out:
+	return ret;
+}
+
+static void cnss_deinit_host_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->host_sol_gpio < 0)
+		return;
+
+	gpio_free(sol_gpio->host_sol_gpio);
+}
+
+static int cnss_init_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+
+	ret = cnss_init_dev_sol_gpio(plat_priv);
+	if (ret)
+		goto out;
+
+	ret = cnss_init_host_sol_gpio(plat_priv);
+	if (ret)
+		goto deinit_dev_sol;
+
+	return 0;
+
+deinit_dev_sol:
+	cnss_deinit_dev_sol_gpio(plat_priv);
+out:
+	return ret;
+}
+
+static void cnss_deinit_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	cnss_deinit_host_sol_gpio(plat_priv);
+	cnss_deinit_dev_sol_gpio(plat_priv);
+}
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 static int cnss_subsys_powerup(const struct subsys_desc *subsys_desc)
@@ -3169,6 +3370,10 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 {
 	int ret;
 
+	ret = cnss_init_sol_gpio(plat_priv);
+	if (ret)
+		return ret;
+
 	timer_setup(&plat_priv->fw_boot_timer,
 		    cnss_bus_fw_boot_timeout_hdlr, 0);
 
@@ -3225,6 +3430,7 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
 	wakeup_source_unregister(plat_priv->recovery_ws);
+	cnss_deinit_sol_gpio(plat_priv);
 }
 
 static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
