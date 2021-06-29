@@ -195,19 +195,19 @@ static const struct mhi_event_config modem_qcom_sdx65_mhi_events[] = {
 			 MHI_ER_PRIORITY_HI_SLEEP, MHI_DB_BRST_DISABLE, false,
 			 false, false, 0),
 	/* Hardware channels request dedicated hardware event rings */
-	MHI_EVENT_CONFIG(6, 7, MHI_ER_DATA, 1024, 0,
+	MHI_EVENT_CONFIG(6, 7, MHI_ER_DATA, 1024, 5,
 			 MHI_ER_PRIORITY_DEFAULT_NOSLEEP, MHI_DB_BRST_ENABLE,
 			 true, false, false, 100),
-	MHI_EVENT_CONFIG(7, 7, MHI_ER_DATA, 2048, 0,
+	MHI_EVENT_CONFIG(7, 7, MHI_ER_DATA, 2048, 5,
 			 MHI_ER_PRIORITY_DEFAULT_NOSLEEP,
 			 MHI_DB_BRST_ENABLE, true, true, false, 101),
 	MHI_EVENT_CONFIG(8, 8, MHI_ER_DATA, 0, 0,
 			 MHI_ER_PRIORITY_DEFAULT_NOSLEEP, MHI_DB_BRST_ENABLE,
 			 true, true, true, 102),
-	MHI_EVENT_CONFIG(9, 9, MHI_ER_DATA, 1024, 0,
+	MHI_EVENT_CONFIG(9, 9, MHI_ER_DATA, 1024, 5,
 			 MHI_ER_PRIORITY_DEFAULT_NOSLEEP, MHI_DB_BRST_DISABLE,
 			 true, false, false, 103),
-	MHI_EVENT_CONFIG(10, 10, MHI_ER_DATA, 1024, 0,
+	MHI_EVENT_CONFIG(10, 10, MHI_ER_DATA, 1024, 1,
 			 MHI_ER_PRIORITY_HI_NOSLEEP, MHI_DB_BRST_ENABLE, true,
 			 false, false, 0),
 	MHI_EVENT_CONFIG(11, 11, MHI_ER_DATA, 0, 0,
@@ -216,7 +216,7 @@ static const struct mhi_event_config modem_qcom_sdx65_mhi_events[] = {
 	MHI_EVENT_CONFIG(12, 12, MHI_ER_DATA, 0, 0,
 			 MHI_ER_PRIORITY_DEFAULT_NOSLEEP, MHI_DB_BRST_ENABLE,
 			 true, true, true, 108),
-	MHI_EVENT_CONFIG(13, 13, MHI_ER_DATA, 1024, 0,
+	MHI_EVENT_CONFIG(13, 13, MHI_ER_DATA, 1024, 1,
 			 MHI_ER_PRIORITY_HI_NOSLEEP, MHI_DB_BRST_DISABLE, true,
 			 false, false, 109),
 	MHI_EVENT_CONFIG(14, 15, MHI_ER_DATA, 1024, 0,
@@ -245,7 +245,7 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx65_info = {
 	.allow_m1 = false,
 	.skip_forced_suspend = true,
 	.sfr_support = true,
-	.timesync = true
+	.timesync = true,
 };
 
 static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
@@ -259,7 +259,7 @@ static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
 	.allow_m1 = true,
 	.skip_forced_suspend = true,
 	.sfr_support = false,
-	.timesync = false
+	.timesync = false,
 };
 
 static const struct pci_device_id mhi_pcie_device_id[] = {
