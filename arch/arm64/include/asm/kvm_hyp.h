@@ -125,6 +125,7 @@ extern u64 kvm_nvhe_sym(id_aa64mmfr2_el1_sys_val);
 
 struct kvm_iommu_ops {
 	int (*init)(void);
+	bool (*host_smc_handler)(struct kvm_cpu_context *host_ctxt);
 };
 
 extern struct kvm_iommu_ops kvm_iommu_ops;
