@@ -152,8 +152,7 @@ int qcom_pil_info_store(const char *image, phys_addr_t base, size_t size)
 	return -ENOMEM;
 
 found_unused:
-	entry_size = strlen(image);
-	entry_size = entry_size < PIL_RELOC_ENTRY_SIZE ? entry_size : PIL_RELOC_ENTRY_SIZE;
+	entry_size = min(strlen(image), PIL_RELOC_ENTRY_SIZE - 1);
 	memcpy_toio(entry, image, entry_size);
 found_existing:
 	/* Use two writel() as base is only aligned to 4 bytes on odd entries */
