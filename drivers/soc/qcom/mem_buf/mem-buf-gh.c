@@ -12,6 +12,7 @@
 
 #include "../../../../drivers/dma-buf/heaps/qcom_sg_ops.h"
 #include "mem-buf-gh.h"
+#include "mem-buf-msgq.h"
 #include "trace-mem-buf.h"
 
 #define MEM_BUF_MHP_ALIGNMENT (1UL << SUBSECTION_SHIFT)
@@ -22,21 +23,9 @@
 static DEFINE_MUTEX(mem_buf_list_lock);
 static LIST_HEAD(mem_buf_list);
 
-/**
- * struct mem_buf_txn: Represents a transaction (request/response pair) in the
- * membuf driver.
- * @txn_id: Transaction ID used to match requests and responses (i.e. a new ID
- * is allocated per request, and the response will have a matching ID).
- * @txn_ret: The return value of the transaction.
- * @txn_done: Signals that a response has arrived.
- * @resp_buf: A pointer to a buffer where the response should be decoded into.
- */
-struct mem_buf_txn {
-	int txn_id;
-	int txn_ret;
-	struct completion txn_done;
-	void *resp_buf;
-};
+/* Data structures for tracking message queue usage. */
+static struct workqueue_struct *mem_buf_wq;
+static void *mem_buf_msgq_hdl;
 
 /* Maintains a list of memory buffers lent out to other VMs */
 static DEFINE_MUTEX(mem_buf_xfer_mem_list_lock);
@@ -124,73 +113,6 @@ struct mem_buf_xfer_dmaheap_mem {
 	struct dma_buf *dmabuf;
 	struct dma_buf_attachment *attachment;
 };
-
-/*
- * Data structures for tracking request/reply transactions, as well as message
- * queue usage
- */
-static DEFINE_MUTEX(mem_buf_idr_mutex);
-static DEFINE_IDR(mem_buf_txn_idr);
-static struct task_struct *mem_buf_msgq_recv_thr;
-static void *mem_buf_gh_msgq_hdl;
-static struct workqueue_struct *mem_buf_wq;
-
-static int mem_buf_init_txn(struct mem_buf_txn *txn, void *resp_buf)
-{
-	int ret;
-
-	mutex_lock(&mem_buf_idr_mutex);
-	ret = idr_alloc_cyclic(&mem_buf_txn_idr, txn, 0, U16_MAX, GFP_KERNEL);
-	mutex_unlock(&mem_buf_idr_mutex);
-	if (ret < 0) {
-		pr_err("%s: failed to allocate transaction id rc: %d\n",
-		       __func__, ret);
-		return ret;
-	}
-
-	txn->txn_id = ret;
-	init_completion(&txn->txn_done);
-	txn->resp_buf = resp_buf;
-	return 0;
-}
-
-static int mem_buf_msg_send(void *msg, size_t msg_size)
-{
-	int ret;
-
-	ret = gh_msgq_send(mem_buf_gh_msgq_hdl, msg, msg_size, 0);
-	if (ret < 0)
-		pr_err("%s: failed to send allocation request rc: %d\n",
-		       __func__, ret);
-	else
-		pr_debug("%s: alloc request sent\n", __func__);
-
-	return ret;
-}
-
-static int mem_buf_txn_wait(struct mem_buf_txn *txn)
-{
-	int ret;
-
-	pr_debug("%s: waiting for allocation response\n", __func__);
-	ret = wait_for_completion_timeout(&txn->txn_done,
-					  msecs_to_jiffies(MEM_BUF_TIMEOUT_MS));
-	if (ret == 0) {
-		pr_err("%s: timed out waiting for allocation response\n",
-		       __func__);
-		return -ETIMEDOUT;
-	}
-	pr_debug("%s: alloc response received\n", __func__);
-
-	return txn->txn_ret;
-}
-
-static void mem_buf_destroy_txn(struct mem_buf_txn *txn)
-{
-	mutex_lock(&mem_buf_idr_mutex);
-	idr_remove(&mem_buf_txn_idr, txn->txn_id);
-	mutex_unlock(&mem_buf_idr_mutex);
-}
 
 /* Functions invoked when treating allocation requests from other VMs. */
 static int mem_buf_rmt_alloc_dmaheap_mem(struct mem_buf_xfer_mem *xfer_mem)
@@ -320,21 +242,19 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 {
 	int ret;
 	struct mem_buf_xfer_mem *xfer_mem;
-	struct mem_buf_alloc_req *req = req_msg;
-	u32 nr_acl_entries = req->acl_desc.n_acl_entries;
-	size_t alloc_req_msg_size = offsetof(struct mem_buf_alloc_req,
-					acl_desc.acl_entries[nr_acl_entries]);
-	void *arb_payload = req_msg + alloc_req_msg_size;
+	u32 nr_acl_entries = get_alloc_req_nr_acl_entries(req_msg);
+	void *arb_payload = get_alloc_req_arb_payload(req_msg);
+	enum mem_buf_mem_type mem_type = get_alloc_req_src_mem_type(req_msg);
 	void *mem_type_data;
 
 	xfer_mem = kzalloc(sizeof(*xfer_mem), GFP_KERNEL);
 	if (!xfer_mem)
 		return ERR_PTR(-ENOMEM);
 
-	xfer_mem->size = req->size;
-	xfer_mem->mem_type = req->src_mem_type;
-	xfer_mem->nr_acl_entries = req->acl_desc.n_acl_entries;
-	ret = mem_buf_gh_acl_desc_to_vmid_perm_list(&req->acl_desc,
+	xfer_mem->size = get_alloc_req_size(req_msg);
+	xfer_mem->mem_type = mem_type;
+	xfer_mem->nr_acl_entries = nr_acl_entries;
+	ret = mem_buf_gh_acl_desc_to_vmid_perm_list(get_alloc_req_gh_acl_desc(req_msg),
 						    &xfer_mem->dst_vmids,
 						    &xfer_mem->dst_perms);
 	if (ret) {
@@ -343,8 +263,7 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 		kfree(xfer_mem);
 		return ERR_PTR(ret);
 	}
-	mem_type_data = mem_buf_alloc_xfer_mem_type_data(req->src_mem_type,
-							 arb_payload);
+	mem_type_data = mem_buf_alloc_xfer_mem_type_data(mem_type, arb_payload);
 	if (IS_ERR(mem_type_data)) {
 		pr_err("%s: failed to allocate mem type specific data: %d\n",
 		       __func__, PTR_ERR(mem_type_data));
@@ -382,12 +301,11 @@ static int mem_buf_get_mem_xfer_type(int *vmids, int *perms, unsigned int nr_acl
 static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 {
 	int ret;
-	struct mem_buf_alloc_req *req_msg = req;
 	struct mem_buf_xfer_mem *xfer_mem;
 	struct mem_buf_lend_kernel_arg arg = {0};
 	bool is_lend;
 
-	xfer_mem = mem_buf_prep_xfer_mem(req_msg);
+	xfer_mem = mem_buf_prep_xfer_mem(req);
 	if (IS_ERR(xfer_mem))
 		return xfer_mem;
 
@@ -445,51 +363,49 @@ static void mem_buf_cleanup_alloc_req(struct mem_buf_xfer_mem *xfer_mem)
 static void mem_buf_alloc_req_work(struct work_struct *work)
 {
 	struct mem_buf_rmt_msg *rmt_msg = to_rmt_msg(work);
-	struct mem_buf_alloc_req *req_msg = rmt_msg->msg;
-	struct mem_buf_alloc_resp *resp_msg;
+	void *req_msg = rmt_msg->msg;
+	void *resp_msg;
 	struct mem_buf_xfer_mem *xfer_mem;
-	int ret = 0;
+	gh_memparcel_handle_t hdl = 0;
+	int ret;
 
 	trace_receive_alloc_req(req_msg);
-	resp_msg = kzalloc(sizeof(*resp_msg), GFP_KERNEL);
-	if (!resp_msg)
-		goto err_alloc_resp;
-	resp_msg->hdr.txn_id = req_msg->hdr.txn_id;
-	resp_msg->hdr.msg_type = MEM_BUF_ALLOC_RESP;
-
-	xfer_mem = mem_buf_process_alloc_req(rmt_msg->msg);
+	xfer_mem = mem_buf_process_alloc_req(req_msg);
 	if (IS_ERR(xfer_mem)) {
 		ret = PTR_ERR(xfer_mem);
 		pr_err("%s: failed to process rmt memory alloc request: %d\n",
 		       __func__, ret);
 	} else {
-		resp_msg->hdl = xfer_mem->hdl;
+		ret = 0;
+		hdl = xfer_mem->hdl;
 	}
 
-	resp_msg->ret = ret;
-	trace_send_alloc_resp_msg(resp_msg);
-	ret = gh_msgq_send(mem_buf_gh_msgq_hdl, resp_msg, sizeof(*resp_msg), 0);
+	resp_msg = mem_buf_construct_alloc_resp(req_msg, ret, hdl);
+	kfree(rmt_msg->msg);
+	kfree(rmt_msg);
+	if (IS_ERR(resp_msg))
+		goto out_err;
 
+	trace_send_alloc_resp_msg(resp_msg);
+	ret = mem_buf_msgq_send(mem_buf_msgq_hdl, resp_msg);
 	/*
 	 * Free the buffer regardless of the return value as the hypervisor
 	 * would have consumed the data in the case of a success.
 	 */
 	kfree(resp_msg);
-
 	if (ret < 0) {
 		pr_err("%s: failed to send memory allocation response rc: %d\n",
 		       __func__, ret);
-		mutex_lock(&mem_buf_xfer_mem_list_lock);
-		list_del(&xfer_mem->entry);
-		mutex_unlock(&mem_buf_xfer_mem_list_lock);
-		mem_buf_cleanup_alloc_req(xfer_mem);
-	} else {
-		pr_debug("%s: Allocation response sent\n", __func__);
+		goto out_err;
 	}
+	pr_debug("%s: Allocation response sent\n", __func__);
+	return;
 
-err_alloc_resp:
-	kfree(rmt_msg->msg);
-	kfree(rmt_msg);
+out_err:
+	mutex_lock(&mem_buf_xfer_mem_list_lock);
+	list_del(&xfer_mem->entry);
+	mutex_unlock(&mem_buf_xfer_mem_list_lock);
+	mem_buf_cleanup_alloc_req(xfer_mem);
 }
 
 static void mem_buf_relinquish_work(struct work_struct *work)
@@ -520,192 +436,89 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	kfree(rmt_msg);
 }
 
-static int mem_buf_decode_alloc_resp(void *buf, size_t size,
-				     gh_memparcel_handle_t *ret_hdl)
+static int mem_buf_alloc_resp_hdlr(void *hdlr_data, void *msg_buf, size_t size, void *out_buf)
 {
-	struct mem_buf_alloc_resp *alloc_resp = buf;
-
-	if (size != sizeof(*alloc_resp)) {
-		pr_err("%s response received is not of correct size\n",
-		       __func__);
-		return -EINVAL;
-	}
-
-	trace_receive_alloc_resp_msg(alloc_resp);
-	if (alloc_resp->ret < 0)
-		pr_err("%s remote allocation failed rc: %d\n", __func__,
-		       alloc_resp->ret);
-	else
-		*ret_hdl = alloc_resp->hdl;
-
-	return alloc_resp->ret;
-}
-
-static void mem_buf_relinquish_mem(u32 memparcel_hdl);
-
-static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
-				       size_t size)
-{
-	struct mem_buf_txn *txn;
-	gh_memparcel_handle_t hdl;
-
-	mutex_lock(&mem_buf_idr_mutex);
-	txn = idr_find(&mem_buf_txn_idr, hdr->txn_id);
-	if (!txn) {
-		pr_err("%s no txn associated with id: %d\n", __func__,
-		       hdr->txn_id);
-		/*
-		 * If this was a legitimate allocation, we should let the
-		 * allocator know that the memory is not in use, so that
-		 * it can be reclaimed.
-		 */
-		if (!mem_buf_decode_alloc_resp(buf, size, &hdl))
-			mem_buf_relinquish_mem(hdl);
-	} else {
-		txn->txn_ret = mem_buf_decode_alloc_resp(buf, size,
-							 txn->resp_buf);
-		complete(&txn->txn_done);
-	}
-	mutex_unlock(&mem_buf_idr_mutex);
-}
-
-static void mem_buf_process_msg(void *buf, size_t size)
-{
-	struct mem_buf_msg_hdr *hdr = buf;
-	struct mem_buf_rmt_msg *rmt_msg;
-	work_func_t work_fn;
-
-	pr_debug("%s: mem-buf message received\n", __func__);
-	if (size < sizeof(*hdr)) {
-		pr_err("%s: message received is not of a proper size: 0x%lx\n",
-		       __func__, size);
-		kfree(buf);
-		return;
-	}
-
-	if ((hdr->msg_type == MEM_BUF_ALLOC_RESP) &&
-	    (mem_buf_capability & MEM_BUF_CAP_CONSUMER)) {
-		mem_buf_process_alloc_resp(hdr, buf, size);
-		kfree(buf);
-	} else if ((hdr->msg_type == MEM_BUF_ALLOC_REQ ||
-		    hdr->msg_type == MEM_BUF_ALLOC_RELINQUISH) &&
-		   (mem_buf_capability & MEM_BUF_CAP_SUPPLIER)) {
-		rmt_msg = kmalloc(sizeof(*rmt_msg), GFP_KERNEL);
-		if (!rmt_msg) {
-			kfree(buf);
-			return;
-		}
-		rmt_msg->msg = buf;
-		rmt_msg->msg_size = size;
-		work_fn = hdr->msg_type == MEM_BUF_ALLOC_REQ ?
-			mem_buf_alloc_req_work : mem_buf_relinquish_work;
-		INIT_WORK(&rmt_msg->work, work_fn);
-		queue_work(mem_buf_wq, &rmt_msg->work);
-	} else {
-		pr_err("%s: received message of unknown type: %d\n", __func__,
-		       hdr->msg_type);
-		kfree(buf);
-		return;
-	}
-}
-
-static int mem_buf_msgq_recv_fn(void *unused)
-{
-	void *buf;
-	size_t size;
+	struct mem_buf_alloc_resp *alloc_resp = msg_buf;
+	gh_memparcel_handle_t *ret_hdl = out_buf;
 	int ret;
 
-	while (!kthread_should_stop()) {
-		buf = kzalloc(GH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
-		if (!buf)
-			continue;
-
-		ret = gh_msgq_recv(mem_buf_gh_msgq_hdl, buf,
-					GH_MSGQ_MAX_MSG_SIZE_BYTES, &size, 0);
-		if (ret < 0) {
-			kfree(buf);
-			pr_err_ratelimited("%s failed to receive message rc: %d\n",
-					   __func__, ret);
-		} else {
-			mem_buf_process_msg(buf, size);
-		}
+	trace_receive_alloc_resp_msg(alloc_resp);
+	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER)) {
+		kfree(msg_buf);
+		return -EPERM;
 	}
 
-	return 0;
+	ret = get_alloc_resp_retval(alloc_resp);
+	if (ret < 0)
+		pr_err("%s remote allocation failed rc: %d\n", __func__, ret);
+	else
+		*ret_hdl = get_alloc_resp_hdl(alloc_resp);
+
+	kfree(msg_buf);
+	return ret;
 }
 
 /* Functions invoked when treating allocation requests to other VMs. */
-static size_t mem_buf_get_mem_type_alloc_req_size(enum mem_buf_mem_type type)
+static void mem_buf_alloc_req_hdlr(void *hdlr_data, void *buf, size_t size)
 {
-	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
-		return MEM_BUF_MAX_DMAHEAP_NAME_LEN;
+	struct mem_buf_rmt_msg *rmt_msg;
 
-	return 0;
+	if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER)) {
+		kfree(buf);
+		return;
+	}
+
+	rmt_msg = kmalloc(sizeof(*rmt_msg), GFP_KERNEL);
+	if (!rmt_msg) {
+		kfree(buf);
+		return;
+	}
+
+	rmt_msg->msg = buf;
+	rmt_msg->msg_size = size;
+	INIT_WORK(&rmt_msg->work, mem_buf_alloc_req_work);
+	queue_work(mem_buf_wq, &rmt_msg->work);
 }
 
-static void mem_buf_populate_alloc_req_arb_payload(void *dst, void *src,
-						   enum mem_buf_mem_type type)
+static void mem_buf_relinquish_hdlr(void *hdlr_data, void *buf, size_t size)
 {
-	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
-		strscpy(dst, src, MEM_BUF_MAX_DMAHEAP_NAME_LEN);
-}
+	struct mem_buf_rmt_msg *rmt_msg;
 
-static void *mem_buf_construct_alloc_req(struct mem_buf_desc *membuf,
-					 int txn_id, size_t *msg_size_ptr)
-{
-	size_t tot_size, alloc_req_size, acl_desc_size;
-	void *req_buf, *arb_payload;
-	unsigned int nr_acl_entries = membuf->acl_desc->n_acl_entries;
-	struct mem_buf_alloc_req *req;
+	if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER)) {
+		kfree(buf);
+		return;
+	}
 
-	alloc_req_size = offsetof(struct mem_buf_alloc_req,
-				  acl_desc.acl_entries[nr_acl_entries]);
-	tot_size = alloc_req_size +
-		   mem_buf_get_mem_type_alloc_req_size(membuf->src_mem_type);
+	rmt_msg = kmalloc(sizeof(*rmt_msg), GFP_KERNEL);
+	if (!rmt_msg) {
+		kfree(buf);
+		return;
+	}
 
-	req_buf = kzalloc(tot_size, GFP_KERNEL);
-	if (!req_buf)
-		return ERR_PTR(-ENOMEM);
-
-	*msg_size_ptr = tot_size;
-
-	req = req_buf;
-	req->hdr.txn_id = txn_id;
-	req->hdr.msg_type = MEM_BUF_ALLOC_REQ;
-	req->size = membuf->size;
-	req->src_mem_type = membuf->src_mem_type;
-	acl_desc_size = offsetof(struct gh_acl_desc,
-				 acl_entries[nr_acl_entries]);
-	memcpy(&req->acl_desc, membuf->acl_desc, acl_desc_size);
-
-	arb_payload = req_buf + alloc_req_size;
-	mem_buf_populate_alloc_req_arb_payload(arb_payload, membuf->src_data,
-					       membuf->src_mem_type);
-
-	trace_send_alloc_req(req);
-	return req_buf;
+	rmt_msg->msg = buf;
+	rmt_msg->msg_size = size;
+	INIT_WORK(&rmt_msg->work, mem_buf_relinquish_work);
+	queue_work(mem_buf_wq, &rmt_msg->work);
 }
 
 static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 {
-	struct mem_buf_txn txn;
-	void *alloc_req_msg;
-	size_t msg_size;
+	void *alloc_req_msg, *txn;
 	gh_memparcel_handle_t resp_hdl;
 	int ret;
 
-	ret = mem_buf_init_txn(&txn, &resp_hdl);
-	if (ret)
-		return ret;
+	txn = mem_buf_init_txn(mem_buf_msgq_hdl, &resp_hdl);
+	if (IS_ERR(txn))
+		return PTR_ERR(txn);
 
-	alloc_req_msg = mem_buf_construct_alloc_req(membuf, txn.txn_id,
-						    &msg_size);
+	alloc_req_msg = mem_buf_construct_alloc_req(txn, membuf->size, membuf->acl_desc,
+						    membuf->src_mem_type, membuf->src_data);
 	if (IS_ERR(alloc_req_msg)) {
 		ret = PTR_ERR(alloc_req_msg);
 		goto out;
 	}
 
-	ret = mem_buf_msg_send(alloc_req_msg, msg_size);
+	ret = mem_buf_msgq_send(mem_buf_msgq_hdl, alloc_req_msg);
 
 	/*
 	 * Free the buffer regardless of the return value as the hypervisor
@@ -716,43 +529,45 @@ static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 	if (ret < 0)
 		goto out;
 
-	ret = mem_buf_txn_wait(&txn);
+	ret = mem_buf_txn_wait(txn);
 	if (ret < 0)
 		goto out;
 
 	membuf->memparcel_hdl = resp_hdl;
 
 out:
-	mem_buf_destroy_txn(&txn);
+	mem_buf_destroy_txn(mem_buf_msgq_hdl, txn);
 	return ret;
 }
 
 static void mem_buf_relinquish_mem(u32 memparcel_hdl)
 {
-	struct mem_buf_alloc_relinquish *msg;
+	void *relinquish_msg;
 	int ret;
 
-	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
-	if (!msg)
+	relinquish_msg = mem_buf_construct_relinquish_msg(memparcel_hdl);
+	if (IS_ERR(relinquish_msg))
 		return;
 
-	msg->hdr.msg_type = MEM_BUF_ALLOC_RELINQUISH;
-	msg->hdl = memparcel_hdl;
-
-	trace_send_relinquish_msg(msg);
-	ret = gh_msgq_send(mem_buf_gh_msgq_hdl, msg, sizeof(*msg), 0);
+	trace_send_relinquish_msg(relinquish_msg);
+	ret = mem_buf_msgq_send(mem_buf_msgq_hdl, relinquish_msg);
 
 	/*
 	 * Free the buffer regardless of the return value as the hypervisor
 	 * would have consumed the data in the case of a success.
 	 */
-	kfree(msg);
+	kfree(relinquish_msg);
 
 	if (ret < 0)
 		pr_err("%s failed to send memory relinquish message rc: %d\n",
 		       __func__, ret);
 	else
 		pr_debug("%s: allocation relinquish message sent\n", __func__);
+}
+
+static void mem_buf_relinquish_memparcel_hdl(void *hdlr_data, gh_memparcel_handle_t hdl)
+{
+	mem_buf_relinquish_mem(hdl);
 }
 
 static int mem_buf_add_dmaheap_mem(struct sg_table *sgt, void *dst_data)
@@ -1360,14 +1175,18 @@ err_retrieve:
 	return ret;
 }
 
-/*
- * The msgq needs to live in the same module as the ioctl handling code because it
- * directly calls into mem_buf_process_alloc_resp without using a function
- * pointer. Ideally msgq would support a client registration API which would
- * associated a 'struct mem_buf_msg_hdr->msg_type' with a handler callback.
- */
+static const struct mem_buf_msgq_ops msgq_ops = {
+	.alloc_req_hdlr = mem_buf_alloc_req_hdlr,
+	.alloc_resp_hdlr = mem_buf_alloc_resp_hdlr,
+	.relinquish_hdlr = mem_buf_relinquish_hdlr,
+	.relinquish_memparcel_hdl = mem_buf_relinquish_memparcel_hdl,
+};
+
 int mem_buf_msgq_alloc(struct device *dev)
 {
+	struct mem_buf_msgq_hdlr_info info = {
+		.msgq_ops = &msgq_ops,
+	};
 	int ret;
 
 	mem_buf_wq = alloc_workqueue("mem_buf_wq", WQ_HIGHPRI | WQ_UNBOUND, 0);
@@ -1376,32 +1195,16 @@ int mem_buf_msgq_alloc(struct device *dev)
 		return -EINVAL;
 	}
 
-	mem_buf_msgq_recv_thr = kthread_create(mem_buf_msgq_recv_fn, NULL,
-					       "mem_buf_rcvr");
-	if (IS_ERR(mem_buf_msgq_recv_thr)) {
-		dev_err(dev, "Failed to create msgq receiver thread rc: %d\n",
-			PTR_ERR(mem_buf_msgq_recv_thr));
-		ret = PTR_ERR(mem_buf_msgq_recv_thr);
-		goto err_kthread_create;
-	}
-
-	mem_buf_gh_msgq_hdl = gh_msgq_register(GH_MSGQ_LABEL_MEMBUF);
-	if (IS_ERR(mem_buf_gh_msgq_hdl)) {
-		ret = PTR_ERR(mem_buf_gh_msgq_hdl);
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev,
-				"Message queue registration failed: rc: %d\n",
-				ret);
+	mem_buf_msgq_hdl = mem_buf_msgq_register("trusted_vm", &info);
+	if (IS_ERR(mem_buf_msgq_hdl)) {
+		ret = PTR_ERR(mem_buf_msgq_hdl);
+		dev_err(dev, "Unable to register for mem-buf message queue\n");
 		goto err_msgq_register;
 	}
 
-	wake_up_process(mem_buf_msgq_recv_thr);
 	return 0;
 
 err_msgq_register:
-	kthread_stop(mem_buf_msgq_recv_thr);
-	mem_buf_msgq_recv_thr = NULL;
-err_kthread_create:
 	destroy_workqueue(mem_buf_wq);
 	mem_buf_wq = NULL;
 	return ret;
@@ -1420,11 +1223,8 @@ void mem_buf_msgq_free(struct device *dev)
 		dev_err(mem_buf_dev,
 			"Removing mem-buf driver while memory is still lent\n");
 	mutex_unlock(&mem_buf_xfer_mem_list_lock);
-
-	gh_msgq_unregister(mem_buf_gh_msgq_hdl);
-	mem_buf_gh_msgq_hdl = NULL;
-	kthread_stop(mem_buf_msgq_recv_thr);
-	mem_buf_msgq_recv_thr = NULL;
+	mem_buf_msgq_unregister(mem_buf_msgq_hdl);
+	mem_buf_msgq_hdl = NULL;
 	destroy_workqueue(mem_buf_wq);
 	mem_buf_wq = NULL;
 }
