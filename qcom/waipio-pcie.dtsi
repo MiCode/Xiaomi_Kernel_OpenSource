@@ -294,13 +294,14 @@
 		vreg-0p9-supply = <&pm8450_l2>;
 		vreg-cx-supply = <&VDD_CX_LEVEL>;
 		vreg-mx-supply = <&VDD_MXA_LEVEL>;
+		qcom,target-link-speed = <3>; /* Set max link speed to Gen3 */
 
 		qcom,vreg-1p8-voltage-level = <1200000 1200000 26100>;
-		qcom,vreg-0p9-voltage-level = <912000 912000 193000>;
+		qcom,vreg-0p9-voltage-level = <880000 912000 193000>;
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
-						RPMH_REGULATOR_LEVEL_NOM 0>;
+						RPMH_REGULATOR_LEVEL_LOW_SVS 0>;
 		qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
-						RPMH_REGULATOR_LEVEL_NOM 0>;
+						RPMH_REGULATOR_LEVEL_LOW_SVS 0>;
 		qcom,bw-scale = /* Gen1 */
 				<RPMH_REGULATOR_LEVEL_LOW_SVS
 				RPMH_REGULATOR_LEVEL_LOW_SVS
@@ -312,10 +313,6 @@
 				/* Gen3 */
 				RPMH_REGULATOR_LEVEL_LOW_SVS
 				RPMH_REGULATOR_LEVEL_LOW_SVS
-				100000000
-				/* Gen4 */
-				RPMH_REGULATOR_LEVEL_NOM
-				RPMH_REGULATOR_LEVEL_NOM
 				100000000>;
 
 		interconnect-names = "icc_path";
