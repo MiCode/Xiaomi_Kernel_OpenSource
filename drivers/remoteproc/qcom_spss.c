@@ -58,6 +58,7 @@ struct qcom_spss {
 
 	struct qcom_rproc_glink glink_subdev;
 	struct qcom_rproc_ssr ssr_subdev;
+	struct qcom_sysmon *sysmon_subdev;
 	void __iomem *irq_status;
 	void __iomem *irq_clr;
 	void __iomem *irq_mask;
@@ -564,6 +565,11 @@ static int qcom_spss_probe(struct platform_device *pdev)
 
 	qcom_add_glink_spss_subdev(rproc, &spss->glink_subdev, "spss");
 	qcom_add_ssr_subdev(rproc, &spss->ssr_subdev, desc->ssr_name);
+	spss->sysmon_subdev = qcom_add_sysmon_subdev(rproc, desc->ssr_name, -EINVAL);
+	if (IS_ERR(spss->sysmon_subdev)) {
+		dev_err(spss->dev, "failed to add sysmon subdevice\n");
+		goto free_rproc;
+	}
 
 	mask_scsr_irqs(spss);
 	spss->generic_irq = platform_get_irq(pdev, 0);
@@ -571,15 +577,17 @@ static int qcom_spss_probe(struct platform_device *pdev)
 					IRQF_TRIGGER_RISING | IRQF_ONESHOT, "generic-irq", spss);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to acquire generic IRQ\n");
-		goto free_rproc;
+		goto remove_subdev;
 	}
 
 	ret = rproc_add(rproc);
 	if (ret)
-		goto free_rproc;
+		goto remove_subdev;
 
 	return 0;
 
+remove_subdev:
+	qcom_remove_sysmon_subdev(spss->sysmon_subdev);
 free_rproc:
 	rproc_free(rproc);
 
@@ -593,6 +601,7 @@ static int qcom_spss_remove(struct platform_device *pdev)
 	rproc_del(spss->rproc);
 	qcom_remove_glink_spss_subdev(spss->rproc, &spss->glink_subdev);
 	qcom_remove_ssr_subdev(spss->rproc, &spss->ssr_subdev);
+	qcom_remove_sysmon_subdev(spss->sysmon_subdev);
 	rproc_free(spss->rproc);
 
 	return 0;
