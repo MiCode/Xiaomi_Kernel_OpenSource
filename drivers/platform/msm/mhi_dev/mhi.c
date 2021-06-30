@@ -2171,15 +2171,14 @@ static void mhi_dev_process_ring_pending(struct work_struct *work)
 		}
 
 		ch = &mhi->ch[ring->id - mhi->ch_ring_start];
-		mutex_lock(&ch->ch_lock);
 
 		rc = mhi_dev_process_ring(ring);
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
 				"error processing ring %d\n", ring->id);
-			mutex_unlock(&ch->ch_lock);
 			goto exit;
 		}
+		mutex_lock(&ch->ch_lock);
 		ch->db_pending = false;
 
 		if (ch->reset_pending) {
@@ -2261,20 +2260,29 @@ static void mhi_dev_queue_channel_db(struct mhi_dev *mhi,
 				pr_err("Error disabling chdb\n");
 				return;
 			}
-			queue_work(mhi->pending_ring_wq, &mhi->pending_work);
 		}
 	}
 }
 
-static void mhi_dev_check_channel_interrupt(struct mhi_dev *mhi)
+/*
+ * mhi_dev_check_channel_interrupt () - function called
+ * to check if CH DB interrupts are present to process.
+ *
+ * Return : true if valid interrupts are present
+ * to process, false if not.
+ */
+
+static bool mhi_dev_check_channel_interrupt(struct mhi_dev *mhi)
 {
 	int i, rc = 0;
+	bool pending_work = false;
 	uint32_t chintr_value = 0, ch_num = 0;
 
 	rc = mhi_dev_mmio_read_chdb_status_interrupts(mhi);
 	if (rc) {
-		pr_err("Read channel db\n");
-		return;
+		mhi_log(MHI_MSG_ERROR,
+			"Error while reading CH DB\n");
+		return pending_work;
 	}
 
 	for (i = 0; i < MHI_MASK_ROWS_CH_EV_DB; i++) {
@@ -2282,6 +2290,7 @@ static void mhi_dev_check_channel_interrupt(struct mhi_dev *mhi)
 		/* Process channel status whose mask is enabled */
 		chintr_value = (mhi->chdb[i].status & mhi->chdb[i].mask);
 		if (chintr_value) {
+			pending_work = true;
 			mhi_log(MHI_MSG_VERBOSE,
 				"processing id: %d, ch interrupt 0x%x\n",
 							i, chintr_value);
@@ -2289,11 +2298,13 @@ static void mhi_dev_check_channel_interrupt(struct mhi_dev *mhi)
 			rc = mhi_dev_mmio_write(mhi, MHI_CHDB_INT_CLEAR_A7_n(i),
 							mhi->chdb[i].status);
 			if (rc) {
-				pr_err("Error writing interrupt clear for A7\n");
-				return;
+				mhi_log(MHI_MSG_ERROR,
+					"Error writing interrupt clear for A7\n");
+				return pending_work;
 			}
 		}
 	}
+	return pending_work;
 }
 
 static void mhi_update_state_info_all(enum mhi_ctrl_info info)
@@ -2459,6 +2470,7 @@ static void mhi_dev_scheduler(struct work_struct *work)
 	struct mhi_dev *mhi = container_of(work,
 				struct mhi_dev, chdb_ctrl_work);
 	int rc = 0;
+	bool work_pending = false;
 	uint32_t int_value = 0;
 	struct mhi_dev_ring *ring;
 	enum mhi_dev_state state;
@@ -2512,11 +2524,13 @@ static void mhi_dev_scheduler(struct work_struct *work)
 			"processing cmd db interrupt with %d\n", int_value);
 		ring = &mhi->ring[MHI_RING_CMD_ID];
 		ring->state = RING_STATE_PENDING;
-		queue_work(mhi->pending_ring_wq, &mhi->pending_work);
+		work_pending = true;
 	}
 
 	/* get the specific channel interrupts */
-	mhi_dev_check_channel_interrupt(mhi);
+	work_pending |= mhi_dev_check_channel_interrupt(mhi);
+	if (work_pending)
+		queue_work(mhi->pending_ring_wq, &mhi->pending_work);
 
 fail:
 	mutex_unlock(&mhi_ctx->mhi_lock);
@@ -3262,9 +3276,9 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 	mutex_lock(&ch->ch_lock);
 
 	do {
-		if (ch->state == MHI_DEV_CH_STOPPED) {
+		if (ch->state == MHI_DEV_CH_STOPPED || ch->reset_pending) {
 			mhi_log(MHI_MSG_VERBOSE,
-				"channel (%d) already stopped\n",
+				"channel (%d) already stopped or RST pending\n",
 				mreq->chan);
 			bytes_read = -1;
 			goto exit;
@@ -3445,9 +3459,10 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	}
 
 	ch->pend_wr_count++;
-	if (ch->state == MHI_DEV_CH_STOPPED) {
+	if (ch->state == MHI_DEV_CH_STOPPED || ch->reset_pending) {
 		mhi_log(MHI_MSG_ERROR,
-			"channel %d already stopped\n", wreq->chan);
+			"channel %d already stopped or RST pending\n",
+			wreq->chan);
 		bytes_written = -1;
 		goto exit;
 	}
