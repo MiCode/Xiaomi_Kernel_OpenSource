@@ -3870,8 +3870,12 @@ void scheduler_tick(void)
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 
-	if (idle_cpu(cpu) && is_reserved(cpu))
+#ifdef CONFIG_SMP
+	rq_lock(rq, &rf);
+	if (idle_cpu(cpu) && is_reserved(cpu) && !rq->active_balance)
 		clear_reserved(cpu);
+	rq_unlock(rq, &rf);
+#endif
 
 	trace_android_vh_scheduler_tick(rq);
 }
