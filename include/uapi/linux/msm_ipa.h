@@ -504,9 +504,12 @@ enum ipa_client_type {
 
 	/* RESERVED PROD                        = 124, */
 	IPA_CLIENT_TPUT_CONS                    = 125,
+
+	/* RESERVED PROD                        = 126, */
+	IPA_CLIENT_APPS_LAN_COAL_CONS           = 127,
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_TPUT_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_APPS_LAN_COAL_CONS + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -534,6 +537,7 @@ enum ipa_client_type {
 #define IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD
 #define IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS
 #define IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD
+#define IPA_CLIENT_APPS_LAN_COAL_CONS IPA_CLIENT_APPS_LAN_COAL_CONS
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -975,6 +979,7 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v4_11: IPA hardware version 4.11
  * @IPA_HW_v5_0: IPA hardware version 5.0
  * @IPA_HW_v5_1: IPA hardware version 5.1
+ * @IPA_HW_v5_5: IPA hardware version 5.5
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -998,8 +1003,9 @@ enum ipa_hw_type {
 	IPA_HW_v4_11 = 20,
 	IPA_HW_v5_0 = 21,
 	IPA_HW_v5_1 = 22,
+	IPA_HW_v5_5 = 23,
 };
-#define IPA_HW_MAX (IPA_HW_v5_1 + 1)
+#define IPA_HW_MAX (IPA_HW_v5_5 + 1)
 
 #define IPA_HW_v4_0 IPA_HW_v4_0
 #define IPA_HW_v4_1 IPA_HW_v4_1
@@ -1010,6 +1016,7 @@ enum ipa_hw_type {
 #define IPA_HW_v4_11 IPA_HW_v4_11
 #define IPA_HW_v5_0 IPA_HW_v5_0
 #define IPA_HW_v5_1 IPA_HW_v5_1
+#define IPA_HW_v5_5 IPA_HW_v5_5
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
