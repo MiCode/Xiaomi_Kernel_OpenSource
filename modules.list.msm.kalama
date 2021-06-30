@@ -4,3 +4,8 @@ clk-qcom.ko
 clk-dummy.ko
 debug-regulator.ko
 stub-regulator.ko
+qcom-scm.ko
+phy-qcom-ufs.ko
+phy-qcom-ufs-qmp-v4-kalama.ko
+phy-qcom-ufs-qrbtc-sdm845.ko
+ufs_qcom.ko
