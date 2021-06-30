@@ -210,6 +210,9 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 
 	new_level = kgsl_pwrctrl_adjust_pwrlevel(device, new_level);
 
+	if (new_level == old_level)
+		return;
+
 	kgsl_pwrscale_update_stats(device);
 
 	/*
