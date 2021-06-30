@@ -318,6 +318,9 @@ static void ssctl_request_shutdown(struct qcom_sysmon *sysmon)
 	struct qmi_txn txn;
 	int ret;
 
+	if (sysmon->ssctl_instance == -EINVAL)
+		return;
+
 	reinit_completion(&sysmon->ind_comp);
 	reinit_completion(&sysmon->shutdown_comp);
 	ret = qmi_txn_init(&sysmon->qmi, &txn, ssctl_shutdown_resp_ei, &resp);
@@ -366,6 +369,9 @@ static void ssctl_send_event(struct qcom_sysmon *sysmon,
 	struct ssctl_subsys_event_with_tid_req req;
 	struct qmi_txn txn;
 	int ret;
+
+	if (sysmon->ssctl_instance == -EINVAL)
+		return;
 
 	memset(&resp, 0, sizeof(resp));
 	ret = qmi_txn_init(&sysmon->qmi, &txn, ssctl_subsys_event_with_tid_resp_ei, &resp);
@@ -644,6 +650,9 @@ struct qcom_sysmon *qcom_add_sysmon_subdev(struct rproc *rproc,
 	timer_setup(&sysmon->timeout_data.timer, sysmon_notif_timeout_handler, 0);
 	mutex_init(&sysmon->lock);
 
+	if (sysmon->ssctl_instance == -EINVAL)
+		goto add_subdev_callbacks;
+
 	sysmon->shutdown_irq = of_irq_get_byname(sysmon->dev->of_node,
 						 "shutdown-ack");
 	if (sysmon->shutdown_irq < 0) {
@@ -675,6 +684,7 @@ struct qcom_sysmon *qcom_add_sysmon_subdev(struct rproc *rproc,
 
 	qmi_add_lookup(&sysmon->qmi, 43, 0, 0);
 
+add_subdev_callbacks:
 	sysmon->subdev.prepare = sysmon_prepare;
 	sysmon->subdev.start = sysmon_start;
 	sysmon->subdev.stop = sysmon_stop;
@@ -710,7 +720,8 @@ void qcom_remove_sysmon_subdev(struct qcom_sysmon *sysmon)
 
 	rproc_remove_subdev(sysmon->rproc, &sysmon->subdev);
 
-	qmi_handle_release(&sysmon->qmi);
+	if (sysmon->ssctl_instance != -EINVAL)
+		qmi_handle_release(&sysmon->qmi);
 
 	kfree(sysmon);
 }
