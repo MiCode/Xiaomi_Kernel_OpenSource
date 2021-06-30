@@ -14,14 +14,6 @@
 #define PREEMPT_SMMU_RECORD(_field) \
 		offsetof(struct gen7_cp_smmu_info, _field)
 
-enum {
-	SET_PSEUDO_REGISTER_SAVE_REGISTER_SMMU_INFO = 0,
-	SET_PSEUDO_REGISTER_SAVE_REGISTER_PRIV_NON_SECURE_SAVE_ADDR,
-	SET_PSEUDO_REGISTER_SAVE_REGISTER_PRIV_SECURE_SAVE_ADDR,
-	SET_PSEUDO_REGISTER_SAVE_REGISTER_NON_PRIV_SAVE_ADDR,
-	SET_PSEUDO_REGISTER_SAVE_REGISTER_COUNTER,
-};
-
 static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer,
 	bool atomic)
 {
@@ -471,36 +463,28 @@ u32 gen7_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 		u32 *cmds)
 {
 	u32 *cmds_orig = cmds;
-	u64 gpuaddr = 0;
 
 	if (!adreno_is_preemption_enabled(adreno_dev))
 		return 0;
 
+	if (test_and_set_bit(ADRENO_RB_SET_PSEUDO_DONE, &rb->flags))
+		goto done;
+
 	*cmds++ = cp_type7_packet(CP_THREAD_CONTROL, 1);
 	*cmds++ = CP_SET_THREAD_BR;
 
-	if (drawctxt) {
-		gpuaddr = drawctxt->base.user_ctxt_record->memdesc.gpuaddr;
-		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 15);
-	} else {
-		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 12);
-	}
+	*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 12);
 
 	/* NULL SMMU_INFO buffer - we track in KMD */
-	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_SMMU_INFO;
+	*cmds++ = SET_PSEUDO_SMMU_INFO;
 	cmds += cp_gpuaddr(adreno_dev, cmds, 0x0);
 
-	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_PRIV_NON_SECURE_SAVE_ADDR;
+	*cmds++ = SET_PSEUDO_PRIV_NON_SECURE_SAVE_ADDR;
 	cmds += cp_gpuaddr(adreno_dev, cmds, rb->preemption_desc->gpuaddr);
 
-	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_PRIV_SECURE_SAVE_ADDR;
+	*cmds++ = SET_PSEUDO_PRIV_SECURE_SAVE_ADDR;
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->secure_preemption_desc->gpuaddr);
-
-	if (drawctxt) {
-		*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_NON_PRIV_SAVE_ADDR;
-		cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
-	}
 
 	/*
 	 * There is no need to specify this address when we are about to
@@ -509,14 +493,16 @@ u32 gen7_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 	 * the context record and thus knows from where to restore
 	 * the saved perfcounters for the new ringbuffer.
 	 */
-	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_COUNTER;
+	*cmds++ = SET_PSEUDO_COUNTER;
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->perfcounter_save_restore_desc->gpuaddr);
 
+done:
 	if (drawctxt) {
 		struct adreno_ringbuffer *rb = drawctxt->rb;
 		u64 dest = adreno_dev->preempt.scratch->gpuaddr
 			+ (rb->id * sizeof(u64));
+		u64 gpuaddr = drawctxt->base.user_ctxt_record->memdesc.gpuaddr;
 
 		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 2);
 		cmds += cp_gpuaddr(adreno_dev, cmds, dest);
@@ -598,6 +584,8 @@ void gen7_preemption_start(struct adreno_device *adreno_dev)
 
 		adreno_ringbuffer_set_pagetable(device, rb,
 			device->mmu.defaultpagetable);
+
+		clear_bit(ADRENO_RB_SET_PSEUDO_DONE, &rb->flags);
 	}
 }
 

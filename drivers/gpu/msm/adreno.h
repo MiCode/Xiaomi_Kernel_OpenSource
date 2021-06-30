@@ -16,6 +16,17 @@
 #include "adreno_ringbuffer.h"
 #include "kgsl_sharedmem.h"
 
+/* Used to point CP to the SMMU record during preemption */
+#define SET_PSEUDO_SMMU_INFO 0
+/* Used to inform CP where to save preemption data at the time of switch out */
+#define SET_PSEUDO_PRIV_NON_SECURE_SAVE_ADDR 1
+/* Used to inform CP where to save secure preemption data at the time of switch out */
+#define SET_PSEUDO_PRIV_SECURE_SAVE_ADDR 2
+/* Used to inform CP where to save per context non-secure data at the time of switch out */
+#define SET_PSEUDO_NON_PRIV_SAVE_ADDR 3
+/* Used to inform CP where to save preemption counter data at the time of switch out */
+#define SET_PSEUDO_COUNTER 4
+
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
 #define ADRENO_DEVICE(device) \
 		container_of(device, struct adreno_device, dev)
