@@ -298,6 +298,16 @@ static inline bool kgsl_cachemode_is_cached(u64 flags)
 		mode != KGSL_CACHEMODE_WRITECOMBINE);
 }
 
+/**
+ * kgsl_unmap_and_put_gpuaddr - Unmap the memory and release the gpuaddr
+ * assigned to a memdesc
+ * @memdesc: Pointer to a GPU memory object
+ *
+ * Remove the mapping from pagetable and release the GPU address assigned
+ * to the memdesc
+ */
+void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc);
+
 struct kgsl_sharedmem_bind_op_range {
 	u64 start;
 	u64 last;
