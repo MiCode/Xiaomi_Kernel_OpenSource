@@ -3,6 +3,8 @@
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 
+#define pr_fmt(fmt)	"%s: " fmt, __func__
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -189,6 +191,7 @@ static int spec_sync_create_array(struct fence_create_data *f)
 	dma_fence_get(&fence_array->base);
 	list_add_tail(&node->list, &sync_dev.fence_array_list);
 
+	pr_debug("spec fd:%d num_fences:%u\n", fd, f->num_fences);
 	return fd;
 
 err:
@@ -223,14 +226,13 @@ static int spec_sync_bind_array(struct fence_bind_data *sync_bind_info)
 	struct dma_fence *fence = NULL;
 	struct dma_fence *user_fence = NULL;
 	struct dma_fence *fence_list = NULL;
-	int *user_fds, ret = 0;
-	int i, num_fences;
+	int *user_fds, ret = 0, i;
+	u32 num_fences, counter;
 
 	fence = sync_file_get_fence(sync_bind_info->out_bind_fd);
 	if (!fence) {
 		pr_err("dma fence failure out_fd:%d\n", sync_bind_info->out_bind_fd);
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	fence_array = container_of(fence, struct dma_fence_array, base);
@@ -241,10 +243,13 @@ static int spec_sync_bind_array(struct fence_bind_data *sync_bind_info)
 		goto end;
 	}
 	num_fences = fence_array->num_fences;
+	counter = num_fences;
 
 	user_fds = kzalloc(num_fences * (sizeof(int)), GFP_KERNEL);
-	if (!user_fds)
-		return -ENOMEM;
+	if (!user_fds) {
+		ret = -ENOMEM;
+		goto end;
+	}
 
 	fence_list = kmalloc_array(num_fences, sizeof(void *), GFP_KERNEL|__GFP_ZERO);
 	if (!fence_list) {
@@ -263,13 +268,15 @@ static int spec_sync_bind_array(struct fence_bind_data *sync_bind_info)
 	for (i = 0; i < num_fences; i++) {
 		user_fence = sync_file_get_fence(user_fds[i]);
 		if (!user_fence) {
-			pr_err("bind fences are invalid !! user_fd: %d\n", user_fds[i]);
-			kfree(fence_list);
-			fence_array->fences = NULL;
+			pr_err("bind fences are invalid !! user_fd:%d out_bind_fd:%d\n",
+				user_fds[i], sync_bind_info->out_bind_fd);
+			counter = i;
 			ret = -EINVAL;
-			goto out;
+			goto bind_invalid;
 		}
 		fence_array->fences[i] = user_fence;
+		pr_debug("spec fd:%d i:%d bind fd:%d error:%d\n", sync_bind_info->out_bind_fd,
+			 i, user_fds[i], fence_array->fences[i]->error);
 	}
 
 	clear_bit(DMA_FENCE_FLAG_ENABLE_SIGNAL_BIT, &fence->flags);
@@ -277,9 +284,21 @@ static int spec_sync_bind_array(struct fence_bind_data *sync_bind_info)
 
 	clear_fence_array_tracker(false);
 
+bind_invalid:
+	for (i = counter - 1; i >= 0; i--)
+		dma_fence_put(fence_array->fences[i]);
+
+	if (ret) {
+		kfree(fence_list);
+		fence_array->fences = NULL;
+		dma_fence_set_error(fence, -EINVAL);
+		dma_fence_signal(fence);
+		clear_fence_array_tracker(true);
+	}
 out:
 	kfree(user_fds);
 end:
+	dma_fence_put(fence);
 	return ret;
 }
 
