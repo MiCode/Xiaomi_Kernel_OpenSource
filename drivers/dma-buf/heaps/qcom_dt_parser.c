@@ -13,6 +13,12 @@
 #include <linux/qcom_dma_heap.h>
 #include "qcom_dt_parser.h"
 
+#ifdef CONFIG_PANIC_ON_QCOM_DMA_HEAPS_FAILURE
+#define QCOM_DMA_HEAP_WARN(fmt...) panic(fmt)
+#else /* CONFIG_PANIC_ON_QCOM_DMA_HEAPS_FAILURE */
+#define QCOM_DMA_HEAP_WARN(fmt...) WARN(1, fmt)
+#endif /* CONFIG_PANIC_ON_QCOM_DMA_HEAPS_FAILURE */
+
 static int populate_heap(struct device_node *node,
 			 struct platform_heap *heap)
 {
@@ -24,8 +30,11 @@ static int populate_heap(struct device_node *node,
 		goto err;
 
 	ret = of_property_read_u32(node, "qcom,dma-heap-type", &heap->type);
-	if (ret)
+	if (ret) {
+		pr_err("Reading %s property in node %s failed with err %d.\n",
+		       "qcom,dma-heap-type", of_node_full_name(node), ret);
 		goto err;
+	}
 
 	/* Optional properties */
 	heap->is_dynamic = of_property_read_bool(node, "qcom,dynamic-heap");
@@ -44,8 +53,8 @@ static int populate_heap(struct device_node *node,
 
 err:
 	if (ret)
-		pr_err("%s: Unable to populate heap, error: %d\n", __func__,
-		       ret);
+		QCOM_DMA_HEAP_WARN("%s: Unable to populate heap %s, err: %d\n",
+				   __func__, of_node_full_name(node), ret);
 	return ret;
 }
 
