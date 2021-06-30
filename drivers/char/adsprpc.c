@@ -4971,12 +4971,6 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	mutex_lock(&fl->internal_map_mutex);
 	if ((ud->flags == ADSP_MMAP_ADD_PAGES) ||
 	    (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)) {
-		if (ud->vaddrin) {
-			err = -EINVAL;
-			ADSPRPC_ERR(
-				"adding user allocated pages is not supported\n");
-			goto bail;
-		}
 		dma_attr = DMA_ATTR_EXEC_MAPPING |
 					DMA_ATTR_DELAYED_UNMAP |
 					DMA_ATTR_NO_KERNEL_MAPPING;
