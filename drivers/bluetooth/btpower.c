@@ -27,7 +27,8 @@
 
 #if defined CONFIG_BT_SLIM_QCA6390 || \
 	defined CONFIG_BT_SLIM_QCA6490 || \
-	defined CONFIG_BTFM_SLIM_WCN3990
+	defined CONFIG_BTFM_SLIM_WCN3990  || \
+	defined CONFIG_BTFM_SLIM_WCN7850
 #include "btfm_slim.h"
 #endif
 #include <linux/fs.h>
@@ -125,6 +126,26 @@ static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
 		{BT_VDD_ASD_LDO, BT_VDD_ASD_LDO_CURRENT}},
 };
 
+
+// Regulator structure for WCN7850 BT SoC series
+static struct bt_power_vreg_data bt_vregs_info_wcn7850[] = {
+	{NULL, "qcom,bt-vdd-io",      1800000, 1800000, 0, false, true,
+		{BT_VDD_IO_LDO, BT_VDD_IO_LDO_CURRENT}},
+	{NULL, "qcom,bt-vdd-aon",     950000,  950000,  0, false, true,
+		{BT_VDD_AON_LDO, BT_VDD_AON_LDO_CURRENT}},
+	{NULL, "qcom,bt-vdd-rfacmn",  950000,  950000,  0, false, true,
+		{BT_VDD_RFACMN, BT_VDD_RFACMN_CURRENT}},
+	/* BT_CX_MX */
+	{NULL, "qcom,bt-vdd-dig",      950000,  950000,  0, false, true,
+		{BT_VDD_DIG_LDO, BT_VDD_DIG_LDO_CURRENT}},
+	{NULL, "qcom,bt-vdd-rfa-0p8",  950000,  952000,  0, false, true,
+		{BT_VDD_RFA_0p8, BT_VDD_RFA_0p8_CURRENT}},
+	{NULL, "qcom,bt-vdd-rfa1",     1900000, 1900000, 0, false, true,
+		{BT_VDD_RFA1_LDO, BT_VDD_RFA1_LDO_CURRENT}},
+	{NULL, "qcom,bt-vdd-rfa2",     1350000, 1350000, 0, false, true,
+		{BT_VDD_RFA2_LDO, BT_VDD_RFA2_LDO_CURRENT}},
+};
+
 // Regulator structure for WCN399x BT SoC series
 static struct bt_power bt_vreg_info_wcn399x = {
 	.compatible = "qcom,wcn3990",
@@ -159,11 +180,18 @@ static struct bt_power bt_vreg_info_qca6490 = {
 	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6x9x),
 };
 
+static struct bt_power bt_vreg_info_wcn7850 = {
+	.compatible = "qcom,wcn7850",
+	.vregs = bt_vregs_info_wcn7850,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_wcn7850),
+};
+
 static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qcom,qca6174", .data = &bt_vreg_info_qca6174},
 	{	.compatible = "qcom,wcn3990", .data = &bt_vreg_info_wcn399x},
 	{	.compatible = "qcom,qca6390", .data = &bt_vreg_info_qca6390},
 	{	.compatible = "qcom,qca6490", .data = &bt_vreg_info_qca6490},
+	{	.compatible = "qcom,wcn7850", .data = &bt_vreg_info_wcn7850},
 	{},
 };
 
@@ -1006,7 +1034,8 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case BT_CMD_SLIM_TEST:
 #if (defined CONFIG_BT_SLIM_QCA6390 || \
 	defined CONFIG_BT_SLIM_QCA6490 || \
-	defined CONFIG_BTFM_SLIM_WCN3990)
+	defined CONFIG_BTFM_SLIM_WCN3990 || \
+	defined CONFIG_BTFM_SLIM_WCN7850)
 		if (!bt_power_pdata->slim_dev) {
 			pr_err("%s: slim_dev is null\n", __func__);
 			return -EINVAL;
