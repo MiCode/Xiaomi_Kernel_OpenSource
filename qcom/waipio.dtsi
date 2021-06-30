@@ -632,7 +632,7 @@
 		size = <0x0 0x1C00000>;
 	};
 
-	cdsp_eva_mem: cdsp_region {
+	cdsp_eva_mem: cdsp_eva_region {
 		compatible = "shared-dma-pool";
 		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 		reusable;
