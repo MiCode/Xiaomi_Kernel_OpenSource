@@ -63,8 +63,6 @@
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
 #define TZ_PIL_AUTH_QDSP6_PROC 1
 
-#define FASTRPC_DMAHANDLE_NOMAP (16)
-
 #define FASTRPC_ENOSUCH 39
 #define DEBUGFS_SIZE 3072
 #define UL_SIZE 25
@@ -1237,7 +1235,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			dma_free_attrs(me->dev, map->size, (void *)map->va,
 			(dma_addr_t)map->phys, (unsigned long)map->attr);
 		}
-	} else if (map->flags == FASTRPC_DMAHANDLE_NOMAP) {
+	} else if (map->flags == FASTRPC_MAP_FD_NOMAP) {
 		trace_fastrpc_dma_unmap(fl->cid, map->phys, map->size);
 		if (!IS_ERR_OR_NULL(map->table))
 			dma_buf_unmap_attachment(map->attach, map->table,
@@ -1362,7 +1360,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 					fl->tgid, map->phys, map->size);
 			}
 		}
-	} else if (mflags == FASTRPC_DMAHANDLE_NOMAP) {
+	} else if (mflags == FASTRPC_MAP_FD_NOMAP) {
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err) {
 			ADSPRPC_ERR("dma_buf_get failed for fd %d ret %ld\n",
@@ -1405,6 +1403,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 		}
 		map->phys = sg_dma_address(map->table->sgl);
 		map->size = len;
+		map->flags = FASTRPC_MAP_FD_DELAYED;
 		trace_fastrpc_dma_map(fl->cid, fd, map->phys, map->size,
 			len, mflags, map->attach->dma_map_attrs);
 	} else {
@@ -2409,6 +2408,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	uint32_t *crclist = NULL;
 	uint32_t early_hint;
 	uint64_t *perf_counter = NULL;
+	struct fastrpc_dsp_capabilities *dsp_cap_ptr = NULL;
 
 	if (ctx->fl->profile)
 		perf_counter = (uint64_t *)ctx->perf + PERF_COUNT;
@@ -2442,8 +2442,11 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		int dmaflags = 0;
 
 		if (ctx->attrs && (ctx->attrs[i] & FASTRPC_ATTR_NOMAP))
-			dmaflags = FASTRPC_DMAHANDLE_NOMAP;
-		if (ctx->fds && (ctx->fds[i] != -1))
+			dmaflags = FASTRPC_MAP_FD_NOMAP;
+		dsp_cap_ptr = &gcinfo[ctx->fl->cid].dsp_cap_kernel;
+		// Skip cpu mapping if DMA_HANDLE_REVERSE_RPC_CAP is true.
+		if (!dsp_cap_ptr->dsp_attributes[DMA_HANDLE_REVERSE_RPC_CAP] &&
+					ctx->fds && (ctx->fds[i] != -1))
 			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i], NULL,
 					FASTRPC_ATTR_NOVA, 0, 0, dmaflags,
 					&ctx->maps[i]);
