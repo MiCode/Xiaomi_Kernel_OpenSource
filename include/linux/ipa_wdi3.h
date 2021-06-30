@@ -256,6 +256,11 @@ int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
  */
 int ipa_get_wdi_version(void);
 
+/** ipa_wdi_is_tx1_used - return if DBS mode is active
+ *
+ * @Return bool
+ */
+bool ipa_wdi_is_tx1_used(void);
 
 /**
  * ipa_wdi_cleanup - Client should call this function to
@@ -401,6 +406,11 @@ static inline int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 }
 
 static inline int ipa_get_wdi_version(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_wdi_is_tx1_used(void)
 {
 	return -EPERM;
 }
