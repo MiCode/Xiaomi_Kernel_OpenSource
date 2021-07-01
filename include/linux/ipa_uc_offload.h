@@ -143,10 +143,14 @@ struct ipa_ntn_conn_in_params {
  * @ul_uc_db_pa: physical address of IPA uc doorbell for UL
  * @dl_uc_db_pa: physical address of IPA uc doorbell for DL
  * @clnt_hdl: opaque handle assigned to offload client
+ * @ul_uc_db_iomem: iomem address of IPA uc doorbell for UL
+ * @dl_uc_db_iomem: iomem address of IPA uc doorbell for DL
  */
 struct ipa_ntn_conn_out_params {
 	phys_addr_t ul_uc_db_pa;
 	phys_addr_t dl_uc_db_pa;
+	void __iomem *ul_uc_db_iomem;
+	void __iomem *dl_uc_db_iomem;
 };
 
 /**
