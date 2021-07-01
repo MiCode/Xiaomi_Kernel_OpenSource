@@ -105,21 +105,12 @@ static irqreturn_t md_cd_wdt_isr(int irq, void *data)
 
 	ccci_event_log("md%d: MD WDT IRQ\n", md->index);
 #ifndef DISABLE_MD_WDT_PROCESS
-	/* 1. disable MD WDT */
-#ifdef ENABLE_MD_WDT_DBG
-	unsigned int state;
-
-	state = ccci_read32(md->md_rgu_base, WDT_MD_STA);
-	ccci_write32(md->md_rgu_base, WDT_MD_MODE, WDT_MD_MODE_KEY);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"WDT IRQ disabled for debug, state=%X\n", state);
 #ifdef L1_BASE_ADDR_L1RGU
 	state = ccci_read32(md->l1_rgu_base, REG_L1RSTCTL_WDT_STA);
 	ccci_write32(md->l1_rgu_base,
 		REG_L1RSTCTL_WDT_MODE, L1_WDT_MD_MODE_KEY);
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"WDT IRQ disabled for debug, L1 state=%X\n", state);
-#endif
 #endif
 #endif
 	ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_WDT);
@@ -1208,18 +1199,6 @@ static int md_cd_dump_info(struct ccci_modem *md,
 			low_pwr->size);
 	}
 	if (flag & DUMP_FLAG_MD_WDT) {
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD RGU registers\n");
-		md_cd_lock_modem_clock_src(1);
-#ifdef BASE_ADDR_MDRSTCTL
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			md_info->md_rgu_base, 0x88);
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			(md_info->md_rgu_base + 0x200), 0x5c);
-#else
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			md_info->md_rgu_base, 0x30);
-#endif
-		md_cd_lock_modem_clock_src(0);
 		CCCI_MEM_LOG_TAG(md->index, TAG, "wdt_enabled=%d\n",
 			atomic_read(&md->wdt_enabled));
 #ifdef CONFIG_MTK_GIC_V3_EXT

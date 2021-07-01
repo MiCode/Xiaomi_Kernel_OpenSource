@@ -375,9 +375,14 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 			mdss_dbg->base_ap_view_vir, mdss_dbg->size);
 #ifdef CCCI_PLATFORM_MT6781
-		if (md_reg->md_l2sram_base)
+		if (md_reg->md_l2sram_base) {
+			md_cd_lock_modem_clock_src(1);
+
 			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 				md_reg->md_l2sram_base, MD_L2SRAM_SIZE);
+
+			md_cd_lock_modem_clock_src(0);
+		}
 #endif
 	}
 
@@ -903,8 +908,11 @@ static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
 					mdss_dbg->base_ap_view_vir,
 						mdss_dbg->size);
 #ifdef CCCI_PLATFORM_MT6781
+				md_cd_lock_modem_clock_src(1);
 				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 					md_reg->md_l2sram_base, MD_L2SRAM_SIZE);
+				md_cd_lock_modem_clock_src(0);
+
 #endif
 			}
 
@@ -920,8 +928,10 @@ static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
 			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 				mdss_dbg->base_ap_view_vir, mdss_dbg->size);
 #ifdef CCCI_PLATFORM_MT6781
+			md_cd_lock_modem_clock_src(1);
 			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 				md_reg->md_l2sram_base, MD_L2SRAM_SIZE);
+			md_cd_lock_modem_clock_src(0);
 #endif
 		}
 		/*dump md register on no response EE*/

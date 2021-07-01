@@ -164,7 +164,6 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		hw_info->md_wdt_irq_flags = IRQF_TRIGGER_NONE;
 
 		hw_info->sram_size = CCIF_SRAM_SIZE;
-		hw_info->md_rgu_base = MD_RGU_BASE;
 		hw_info->md_boot_slave_En = MD_BOOT_VECTOR_EN;
 		for (idx = 0; idx < ARRAY_SIZE(clk_table); idx++) {
 			clk_table[idx].clk_ref = devm_clk_get(&dev_ptr->dev,
@@ -323,9 +322,7 @@ int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
 
 	md_info->md_boot_slave_En =
-	 ioremap_nocache(md->hw_info->md_boot_slave_En, 0x4);
-	md_info->md_rgu_base =
-	 ioremap_nocache(md->hw_info->md_rgu_base, 0x300);
+		ioremap_nocache(md->hw_info->md_boot_slave_En, 0x4);
 
 	md_reg = kzalloc(sizeof(struct md_pll_reg), GFP_KERNEL);
 	if (md_reg == NULL) {
