@@ -1611,8 +1611,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	 * during alloc_io_pgtable_ops
 	 */
 	arm_smmu_secure_domain_lock(smmu_domain);
-	arm_smmu_assign_table(smmu_domain);
+	ret = arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
+	if (ret) {
+		dev_err(dev, "Failed to hyp-assign page table memory\n");
+		goto out_clear_smmu;
+	}
 
 	iop = container_of(pgtbl_ops, struct io_pgtable, ops);
 	ret = iommu_logger_register(&smmu_domain->logger, domain,
@@ -2306,8 +2310,14 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 	arm_smmu_secure_domain_lock(smmu_domain);
 	ret = ops->map_pages(ops, iova, paddr, pgsize, pgcount, prot, gfp, mapped);
 
-	arm_smmu_assign_table(smmu_domain);
+	if (ret)
+		goto out;
+
+	ret = arm_smmu_assign_table(smmu_domain);
+
+out:
 	arm_smmu_secure_domain_unlock(smmu_domain);
+
 	return ret;
 }
 
@@ -2326,7 +2336,12 @@ static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	arm_smmu_secure_domain_lock(smmu_domain);
 	ret = ops->map_sg(ops, iova, sg, nents, prot, gfp, mapped);
 
-	arm_smmu_assign_table(smmu_domain);
+	if (ret)
+		goto out;
+
+	ret = arm_smmu_assign_table(smmu_domain);
+
+out:
 	arm_smmu_secure_domain_unlock(smmu_domain);
 
 	return ret;
