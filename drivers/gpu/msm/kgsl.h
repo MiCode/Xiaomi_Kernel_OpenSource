@@ -599,9 +599,4 @@ static inline bool kgsl_addr_range_overlap(uint64_t gpuaddr1,
 	return !(((gpuaddr1 + size1) <= gpuaddr2) ||
 		(gpuaddr1 >= (gpuaddr2 + size2)));
 }
-
-static inline bool kgsl_is_compat_task(void)
-{
-	return (BITS_PER_LONG == 32) || is_compat_task();
-}
 #endif /* __KGSL_H */
