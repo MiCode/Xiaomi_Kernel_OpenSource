@@ -1761,6 +1761,20 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
+	/*
+	 * There is a possible deadlock scenario during kgsl firmware reading
+	 * (request_firmware) and devfreq update calls. During first boot, kgsl
+	 * device mutex is held and then request_firmware is called for reading
+	 * firmware. request_firmware internally takes dev_pm_qos_mtx lock.
+	 * Whereas in case of devfreq update calls triggered by thermal/bcl or
+	 * devfreq sysfs, it first takes the same dev_pm_qos_mtx lock and then
+	 * tries to take kgsl device mutex as part of get_dev_status/target
+	 * calls. This results in deadlock when both thread are unable to acquire
+	 * the mutex held by other thread. Enable devfreq updates now as we are
+	 * done reading all firmware files.
+	 */
+	device->pwrscale.devfreq_enabled = true;
+
 	return 0;
 
 error_pwr_off:
