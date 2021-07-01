@@ -566,15 +566,12 @@
 		reg = <0x0 0xed900000 0x0 0x3b00000>;
 	};
 
-	/*
-	 * Statically determine address to ensure that this CMA area's
-	 * allocation is not impacted by fragmentation from smaller regions
-	 * being allocated first.
-	 */
 	non_secure_display_memory: non_secure_display_region {
 		compatible = "shared-dma-pool";
 		reusable;
-		reg = <0x0 0xf2800000 0x0 0xd800000>;
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		size = <0x0 0xa400000>;
+		alignment = <0x0 0x400000>;
 	};
 
 	va_md_mem: va_md_mem_region {
