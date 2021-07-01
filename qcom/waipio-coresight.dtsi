@@ -247,7 +247,6 @@
 		atid = <78>;
 		coresight-name = "coresight-tpdm-ddr";
 
-		status = "disabled";
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 
@@ -268,7 +267,6 @@
 		reg-names = "tpdm-base";
 
 		atid = <78>;
-		status = "disabled";
 		coresight-name = "coresight-tpdm-shrm";
 
 		clocks = <&aoss_qmp>;
