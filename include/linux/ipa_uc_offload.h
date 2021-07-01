@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_UC_OFFLOAD_H_
@@ -19,6 +19,7 @@ enum ipa_uc_offload_proto {
 	IPA_UC_INVALID = 0,
 	IPA_UC_WDI = 1,
 	IPA_UC_NTN = 2,
+	IPA_UC_NTN_V2X = 3,
 	IPA_UC_MAX_PROT_SIZE
 };
 
@@ -89,6 +90,7 @@ struct ntn_buff_smmu_map {
  * @num_buffers: Rx/Tx buffer pool size (in terms of elements)
  * @data_buff_size: size of the each data buffer allocated in DDR
  * @ntn_reg_base_ptr_pa: physical address of the Tx/Rx NTN Ring's
+ * @u8 db_mode: 0 means irq mode, 1 means db mode
  *						tail pointer
  */
 struct ipa_ntn_setup_info {
@@ -111,6 +113,8 @@ struct ipa_ntn_setup_info {
 	u32 data_buff_size;
 
 	phys_addr_t ntn_reg_base_ptr_pa;
+
+	u8 db_mode;
 };
 
 /**
@@ -176,10 +180,12 @@ struct ipa_uc_offload_conn_out_params {
  * struct  ipa_perf_profile - To set BandWidth profile
  *
  * @client: type of "client" (IPA_CLIENT_ODU#_PROD/CONS)
+ * @proto: uC offload protocol type
  * @max_supported_bw_mbps: maximum bandwidth needed (in Mbps)
  */
 struct ipa_perf_profile {
 	enum ipa_client_type client;
+	enum ipa_uc_offload_proto proto;
 	u32 max_supported_bw_mbps;
 };
 
