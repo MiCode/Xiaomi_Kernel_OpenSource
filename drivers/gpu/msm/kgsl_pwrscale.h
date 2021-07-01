@@ -65,6 +65,8 @@ struct kgsl_pwrscale {
 	struct device busmondev;
 	/** @bus_devfreq: Pointer to the bus devfreq device */
 	struct devfreq *bus_devfreq;
+	/** @devfreq_enabled: Whether or not devfreq is enabled */
+	bool devfreq_enabled;
 };
 
 /**
