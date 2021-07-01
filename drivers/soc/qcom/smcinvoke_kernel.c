@@ -26,8 +26,7 @@ struct qseecom_compat_context {
 	void *dev; /* in/out */
 	unsigned char *sbuf; /* in/out */
 	uint32_t sbuf_len; /* in/out */
-
-	phys_addr_t sbuf_pa;
+	struct qtee_shm shm;
 	uint8_t app_arch;
 	struct Object client_env;
 	struct Object app_loader;
@@ -315,13 +314,17 @@ static int32_t get_client_env_object(struct Object *clientEnvObj)
 static int load_app(struct qseecom_compat_context *cxt, const char *app_name)
 {
 	size_t fw_size = 0;
-	uint8_t *imgbuf_va = NULL;
-	phys_addr_t imgbuf_pa = 0;
+	u8 *imgbuf_va = NULL;
 	int ret = 0;
-	char fw_name[MAX_APP_NAME_SIZE] = {0};
 	char dist_name[MAX_APP_NAME_SIZE] = {0};
 	size_t dist_name_len = 0;
-	const struct firmware *fw_entry = NULL;
+	struct qtee_shm shm = {0};
+
+	if (strnlen(app_name, MAX_APP_NAME_SIZE) == MAX_APP_NAME_SIZE) {
+		pr_err("The app_name (%s) with length %zu is not valid\n",
+			app_name, strnlen(app_name, MAX_APP_NAME_SIZE));
+		return -EINVAL;
+	}
 
 	ret = IQSEEComCompatAppLoader_lookupTA(cxt->app_loader,
 		app_name, strlen(app_name), &cxt->app_controller);
@@ -329,19 +332,12 @@ static int load_app(struct qseecom_compat_context *cxt, const char *app_name)
 		pr_info("app %s exists\n", app_name);
 		return ret;
 	}
-	scnprintf(fw_name, MAX_APP_NAME_SIZE, "%s.mbn", app_name);
 
-	ret = firmware_request_from_smcinvoke(&fw_entry, fw_name);
-	if (ret) {
-		pr_err("failed to get firmware for app %s\n", fw_name);
-		return ret;
+	imgbuf_va = firmware_request_from_smcinvoke(app_name, &fw_size, &shm);
+	if (imgbuf_va == NULL) {
+		pr_err("Failed on firmware_request_from_smcinvoke\n");
+		return -EINVAL;
 	}
-
-	fw_size = fw_entry->size;
-	ret = smcinvoke_alloc_coherent_buf(fw_size, &imgbuf_va, &imgbuf_pa);
-	if (ret)
-		goto exit_release_fw;
-	memcpy(imgbuf_va, fw_entry->data, fw_size);
 
 	ret = IQSEEComCompatAppLoader_loadFromBuffer(
 			cxt->app_loader, imgbuf_va, fw_size,
@@ -351,14 +347,15 @@ static int load_app(struct qseecom_compat_context *cxt, const char *app_name)
 	if (ret) {
 		pr_err("loadFromBuffer failed for app %s, ret = %d\n",
 				app_name, ret);
+		goto exit_release_shm;
 	}
 	cxt->app_arch = *(uint8_t *)(imgbuf_va + EI_CLASS);
 
-	pr_warn("%s %d, loaded app %s, dist_name %s, dist_name_len %zu\n",
+	pr_info("%s %d, loaded app %s, dist_name %s, dist_name_len %zu\n",
 		__func__, __LINE__, app_name, dist_name, dist_name_len);
-	smcinvoke_free_coherent_buf(fw_size, imgbuf_va, imgbuf_pa);
-exit_release_fw:
-	release_firmware(fw_entry);
+
+exit_release_shm:
+	qtee_shmbridge_free_shm(&shm);
 	return ret;
 }
 
@@ -367,8 +364,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 {
 	int ret = 0;
 	struct qseecom_compat_context *cxt = NULL;
-	uint8_t *sbuf_va = NULL;
-	phys_addr_t sbuf_pa = 0;
 
 	pr_warn("%s, start app %s, size %zu\n",
 		__func__, app_name, size);
@@ -409,16 +404,15 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	}
 
 	/* Get the physical address of the req/resp buffer */
-	ret = smcinvoke_alloc_coherent_buf(size, &sbuf_va, &sbuf_pa);
+	ret = qtee_shmbridge_allocate_shm(size, &cxt->shm);
+
 	if (ret) {
-		pr_err("Cannot get phys_addr for the Ion Client, ret = %d\n",
-			ret);
+		pr_err("qtee_shmbridge_allocate_shm failed, ret :%d\n", ret);
 		ret = -EINVAL;
 		goto exit_release_appcontroller;
 	}
-	cxt->sbuf = sbuf_va;
+	cxt->sbuf = cxt->shm.vaddr;
 	cxt->sbuf_len = size;
-	cxt->sbuf_pa = sbuf_pa;
 	*handle = (struct qseecom_handle *)cxt;
 
 	return ret;
@@ -445,7 +439,8 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 		pr_err("Handle is NULL\n");
 		return -EINVAL;
 	}
-	smcinvoke_free_coherent_buf(cxt->sbuf_len, cxt->sbuf, cxt->sbuf_pa);
+
+	qtee_shmbridge_free_shm(&cxt->shm);
 	Object_release(cxt->app_controller);
 	Object_release(cxt->app_loader);
 	Object_release(cxt->client_env);

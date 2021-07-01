@@ -7,6 +7,7 @@
 
 #include <linux/types.h>
 #include <linux/firmware.h>
+#include <linux/qtee_shmbridge.h>
 
 /*
  * Method bits are not modified by transport layers.  These describe the
@@ -189,15 +190,6 @@ int get_root_fd(int *root_fd);
 int process_invoke_request_from_kernel_client(
 		int fd, struct smcinvoke_cmd_req *req);
 
-int firmware_request_from_smcinvoke(
-		const struct firmware **fw_entry, char *fw_name);
+char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, struct qtee_shm *shm);
 
-int smcinvoke_alloc_coherent_buf(
-		uint32_t size, uint8_t **vaddr, phys_addr_t *paddr);
-
-void smcinvoke_free_coherent_buf(
-		uint32_t size, uint8_t *vaddr, phys_addr_t paddr);
-
-int firmware_request_from_smcinvoke(
-		const struct firmware **fw_entry, char *fw_name);
 #endif /* __SMCINVOKE_OBJECT_H */
