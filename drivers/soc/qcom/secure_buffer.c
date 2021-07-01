@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/highmem.h>
@@ -19,11 +19,220 @@
 #define CREATE_TRACE_POINTS
 #include "trace_secure_buffer.h"
 
+#include <linux/stackdepot.h>
+
+
 #define BATCH_MAX_SIZE SZ_2M
 #define BATCH_MAX_SECTIONS 32
 
 static struct device *qcom_secure_buffer_dev;
 static bool vmid_cp_camera_preview_ro;
+
+struct hyp_assign_debug_track {
+	depot_stack_handle_t hdl;
+	int vmids[10];
+	int perms[10];
+	int nr_acl_entries;
+	u32 refcount;
+};
+
+#ifdef CONFIG_HYP_ASSIGN_DEBUG
+/*
+ * Contains a pointer to struct hyp_assign_debug_track for each pfn which
+ * is in an assigned state.
+ */
+static DEFINE_XARRAY(xa_pfns);
+static DEFINE_MUTEX(xarray_lock);
+static depot_stack_handle_t failure_handle;
+#define HYP_ASSIGN_STACK_DEPTH (16)
+
+static depot_stack_handle_t create_dummy_stack(void)
+{
+	unsigned long entries[4];
+	unsigned int nr_entries;
+
+	nr_entries = stack_trace_save(entries, ARRAY_SIZE(entries), 0);
+	return stack_depot_save(entries, nr_entries, GFP_KERNEL);
+}
+
+static void hyp_assign_show_err(const char *msg, unsigned long pfn,
+			struct hyp_assign_debug_track *track)
+{
+	int i;
+	unsigned long *stack_entries;
+	unsigned int nr_stack_entries;
+
+	pr_err("HYP_ASSIGN_DEBUG: %s pfn=0x%llx\n", msg, pfn);
+	if (!track)
+		goto out;
+	pr_err("currently assigned to:\n");
+	nr_stack_entries = stack_depot_fetch(track->hdl, &stack_entries);
+	stack_trace_print(stack_entries, nr_stack_entries, 0);
+
+	for (i = 0; i < track->nr_acl_entries; i++) {
+		pr_err("VMID: %d %s%s%s\n",
+			track->vmids[i],
+			track->perms[i] & PERM_READ ? "R" : " ",
+			track->perms[i] & PERM_WRITE ? "W" : " ",
+			track->perms[i] & PERM_EXEC ? "X" : " ");
+	}
+
+out:
+	BUG();
+}
+
+static struct hyp_assign_debug_track *
+alloc_debug_tracking(int *dst_vmids, int *dst_perms, int dest_nelems)
+{
+	unsigned long stack_entries[HYP_ASSIGN_STACK_DEPTH];
+	u32 nr_stack_entries;
+	struct hyp_assign_debug_track *track;
+	u32 nr_acl_entries;
+
+	track = kzalloc(sizeof(*track), GFP_KERNEL);
+	if (!track)
+		return NULL;
+
+	nr_acl_entries = min_t(u32, dest_nelems, ARRAY_SIZE(track->vmids));
+	track->nr_acl_entries = nr_acl_entries;
+	memcpy(track->vmids, dst_vmids, nr_acl_entries * sizeof(*dst_vmids));
+	memcpy(track->perms, dst_perms, nr_acl_entries * sizeof(*dst_perms));
+
+
+	nr_stack_entries = stack_trace_save(stack_entries, ARRAY_SIZE(stack_entries), 2);
+	track->hdl = stack_depot_save(stack_entries, nr_stack_entries, GFP_KERNEL);
+	if (!track->hdl)
+		track->hdl = failure_handle;
+
+	track->refcount = 1;
+	return track;
+}
+
+/* caller holds xarray_lock */
+static void get_track(struct hyp_assign_debug_track *track)
+{
+	track->refcount++;
+}
+
+/* caller holds xarray_lock */
+static void put_track(struct hyp_assign_debug_track *track)
+{
+	if (!track)
+		return;
+
+	track->refcount--;
+	if (!track->refcount)
+		kfree(track);
+}
+
+static bool is_reclaim(struct qcom_scm_current_perm_info *newvms, size_t newvms_sz)
+{
+	int vmid;
+	int perm;
+
+	vmid = le32_to_cpu(newvms->vmid);
+	perm = le32_to_cpu(newvms->perm);
+	return (newvms_sz == sizeof(*newvms)) &&
+		(vmid == VMID_HLOS) &&
+		(perm == (PERM_READ | PERM_WRITE | PERM_EXEC));
+}
+
+static void check_debug_tracking(struct qcom_scm_mem_map_info *mem_regions,
+				size_t mem_regions_sz, u32 *srcvms,
+				size_t src_sz,
+				struct qcom_scm_current_perm_info *newvms,
+				size_t newvms_sz)
+{
+	struct qcom_scm_mem_map_info *p, *mem_regions_end;
+	unsigned long pfn;
+	bool reclaim = is_reclaim(newvms, newvms_sz);
+	struct hyp_assign_debug_track *track;
+
+	mem_regions_end = mem_regions + mem_regions_sz/sizeof(*mem_regions);
+
+	mutex_lock(&xarray_lock);
+	for (p = mem_regions; p < mem_regions_end; p++) {
+		unsigned long start_pfn;
+		unsigned long nr_pages;
+
+		start_pfn = PHYS_PFN(le32_to_cpu(p->mem_addr));
+		nr_pages = le32_to_cpu(p->mem_size) >> PAGE_SHIFT;
+
+		for (pfn = start_pfn; pfn < start_pfn + nr_pages; pfn++) {
+			track = xa_load(&xa_pfns, pfn);
+			if (reclaim && !track) {
+				hyp_assign_show_err("PFN not assigned",
+						    pfn, NULL);
+				break;
+			} else if (!reclaim && track) {
+				hyp_assign_show_err("PFN already assigned",
+						    pfn, track);
+				break;
+			}
+		}
+	}
+	mutex_unlock(&xarray_lock);
+}
+
+static void update_debug_tracking(struct qcom_scm_mem_map_info *mem_regions,
+				size_t mem_regions_sz, u32 *srcvms,
+				size_t src_sz,
+				struct qcom_scm_current_perm_info *newvms,
+				size_t newvms_sz,
+				struct hyp_assign_debug_track *new)
+{
+	struct qcom_scm_mem_map_info *p, *mem_regions_end;
+	unsigned long pfn;
+	bool reclaim = is_reclaim(newvms, newvms_sz);
+	struct hyp_assign_debug_track *track;
+
+	mem_regions_end = mem_regions + mem_regions_sz/sizeof(*mem_regions);
+
+	mutex_lock(&xarray_lock);
+	for (p = mem_regions; p < mem_regions_end; p++) {
+		unsigned long start_pfn;
+		unsigned long nr_pages;
+
+		start_pfn = PHYS_PFN(le32_to_cpu(p->mem_addr));
+		nr_pages = le32_to_cpu(p->mem_size) >> PAGE_SHIFT;
+
+		for (pfn = start_pfn; pfn < start_pfn + nr_pages; pfn++) {
+			if (reclaim) {
+				track = xa_erase(&xa_pfns, pfn);
+				put_track(track);
+			} else {
+				get_track(new);
+				xa_store(&xa_pfns, pfn, new, GFP_KERNEL);
+			}
+		}
+	}
+	mutex_unlock(&xarray_lock);
+}
+#else /* CONFIG_HYP_ASSIGN_DEBUG */
+static struct hyp_assign_debug_track *
+alloc_debug_tracking(int *dst_vmids, int *dst_perms, int dest_nelems)
+{
+	return NULL;
+}
+static void put_track(struct hyp_assign_debug_track *track)
+{
+}
+static void check_debug_tracking(struct qcom_scm_mem_map_info *mem_regions,
+				size_t mem_regions_sz, u32 *srcvms,
+				size_t src_sz,
+				struct qcom_scm_current_perm_info *newvms,
+				size_t newvms_sz)
+{
+}
+static void update_debug_tracking(struct qcom_scm_mem_map_info *mem_regions,
+				size_t mem_regions_sz, u32 *srcvms,
+				size_t src_sz,
+				struct qcom_scm_current_perm_info *newvms,
+				size_t newvms_sz,
+				struct hyp_assign_debug_track *new)
+{
+}
+#endif /* CONFIG_HYP_ASSIGN_DEBUG */
 
 static struct qcom_scm_current_perm_info *
 populate_dest_info(int *dest_vmids, int nelements, int *dest_perms,
@@ -76,7 +285,8 @@ static unsigned int get_batches_from_sgl(struct qcom_scm_mem_map_info *sgt_copy,
 static int batched_hyp_assign(struct sg_table *table, u32 *source_vmids,
 			      size_t source_size,
 			      struct qcom_scm_current_perm_info *destvms,
-			      size_t destvms_size)
+			      size_t destvms_size,
+			      struct hyp_assign_debug_track *track)
 {
 	unsigned int batch_start = 0;
 	unsigned int batches_processed;
@@ -113,6 +323,10 @@ static int batched_hyp_assign(struct sg_table *table, u32 *source_vmids,
 			break;
 		}
 
+		check_debug_tracking(mem_regions_buf, mem_regions_buf_size,
+				     source_vmids, source_size,
+				     destvms, destvms_size);
+
 		trace_hyp_assign_batch_start(mem_regions_buf,
 					     batches_processed);
 		batch_assign_start_ts = ktime_get();
@@ -138,6 +352,9 @@ static int batched_hyp_assign(struct sg_table *table, u32 *source_vmids,
 			break;
 		}
 
+		update_debug_tracking(mem_regions_buf, mem_regions_buf_size,
+				     source_vmids, source_size,
+				     destvms, destvms_size, track);
 		batch_start += batches_processed;
 	}
 	total_delta = ktime_us_delta(ktime_get(), first_assign_ts);
@@ -187,6 +404,7 @@ int hyp_assign_table(struct sg_table *table,
 	struct qcom_scm_current_perm_info *dest_vm_copy;
 	size_t dest_vm_copy_size;
 	dma_addr_t source_dma_addr, dest_dma_addr;
+	struct hyp_assign_debug_track *track;
 
 	if (!qcom_secure_buffer_dev)
 		return -EPROBE_DEFER;
@@ -226,12 +444,15 @@ int hyp_assign_table(struct sg_table *table,
 		goto out_free_dest;
 	}
 
+	/* Save stacktrace & hyp_assign parameters */
+	track = alloc_debug_tracking(dest_vmids, dest_perms, dest_nelems);
+
 	trace_hyp_assign_info(source_vm_list, source_nelems, dest_vmids,
 			      dest_perms, dest_nelems);
 
 
 	ret = batched_hyp_assign(table, source_vm_copy, source_vm_copy_size,
-				 dest_vm_copy, dest_vm_copy_size);
+				 dest_vm_copy, dest_vm_copy_size, track);
 
 	if (!ret) {
 		while (dest_nelems--) {
@@ -248,6 +469,9 @@ int hyp_assign_table(struct sg_table *table,
 
 	dma_unmap_single(qcom_secure_buffer_dev, dest_dma_addr,
 			 dest_vm_copy_size, DMA_TO_DEVICE);
+
+	/* Drop initial refcount from alloc_debug_tracking */
+	put_track(track);
 out_free_dest:
 	kfree(dest_vm_copy);
 out_unmap_source:
@@ -381,6 +605,10 @@ static struct platform_driver qcom_secure_buffer_driver = {
 
 static int __init qcom_secure_buffer_init(void)
 {
+#ifdef CONFIG_HYP_ASSIGN_DEBUG
+	failure_handle = create_dummy_stack();
+#endif
+
 	return platform_driver_register(&qcom_secure_buffer_driver);
 }
 subsys_initcall(qcom_secure_buffer_init);
