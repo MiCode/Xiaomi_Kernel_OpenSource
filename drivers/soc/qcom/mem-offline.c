@@ -553,6 +553,7 @@ static int mem_event_callback(struct notifier_block *self,
 		seg_idx = get_segment_addr_to_idx(start_addr);
 		pr_debug("mem-offline: Segment %d memblk_bitmap 0x%lx\n",
 				seg_idx, segment_infos[seg_idx].bitmask_kernel_blk);
+		totalram_pages_add(-(memory_block_size_bytes()/PAGE_SIZE));
 		break;
 	case MEM_GOING_OFFLINE:
 		pr_debug("mem-offline: MEM_GOING_OFFLINE : start = 0x%llx end = 0x%llx\n",
@@ -580,6 +581,7 @@ static int mem_event_callback(struct notifier_block *self,
 		seg_idx = get_segment_addr_to_idx(start_addr);
 		pr_debug("mem-offline: Segment %d memblk_bitmap 0x%lx\n",
 				seg_idx, segment_infos[seg_idx].bitmask_kernel_blk);
+		totalram_pages_add(memory_block_size_bytes()/PAGE_SIZE);
 		break;
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%llx end = 0x%llx\n",
