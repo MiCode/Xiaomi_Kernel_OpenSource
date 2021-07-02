@@ -41,6 +41,7 @@
 #include <linux/stddef.h>
 #include <linux/mount.h>
 #include <linux/cred.h>
+#include <linux/android_kabi.h>
 
 #include <asm/byteorder.h>
 #include <uapi/linux/fs.h>
