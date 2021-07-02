@@ -2571,8 +2571,6 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 	vma = find_vma(current->mm, hostptr);
 
 	if (vma && vma->vm_file) {
-		int fd;
-
 		ret = check_vma_flags(vma, entry->memdesc.flags);
 		if (ret) {
 			mmap_read_unlock(current->mm);
@@ -2593,22 +2591,10 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 			return -ENODEV;
 		}
 
-		fd = get_unused_fd_flags(0);
-		if (fd < 0) {
-			mmap_read_unlock(current->mm);
-			return -ENOSPC;
-		}
+		/* Take a refcount because dma_buf_put() decrements the refcount */
+		get_file(vma->vm_file);
 
-		fd_install(fd, vma->vm_file);
-
-		dmabuf = dma_buf_get(fd);
-
-		put_unused_fd(fd);
-
-		if (IS_ERR(dmabuf)) {
-			mmap_read_unlock(current->mm);
-			return PTR_ERR(dmabuf);
-		}
+		dmabuf = vma->vm_file->private_data;
 	}
 
 	if (!dmabuf) {
