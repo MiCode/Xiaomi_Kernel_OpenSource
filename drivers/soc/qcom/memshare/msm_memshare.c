@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -480,6 +480,15 @@ static void handle_alloc_generic_req(struct qmi_handle *handle,
 		}
 	}
 
+	if (!client_node) {
+		dev_err(memsh_drv->dev,
+			"memshare_alloc: No valid client node found\n");
+		kfree(alloc_resp);
+		alloc_resp = NULL;
+		mutex_unlock(&memsh_drv->mem_share);
+		return;
+	}
+
 	if (client_id >= MAX_CLIENTS) {
 		dev_err(memsh_drv->dev,
 			"memshare_alloc: client not found, requested client: %d, proc_id: %d\n",
@@ -574,7 +583,12 @@ static void handle_free_generic_req(struct qmi_handle *handle,
 			break;
 		}
 	}
-
+	if (!client_node) {
+		dev_err(memsh_drv->dev,
+			"memshare_free: No valid client node found\n");
+		mutex_unlock(&memsh_drv->mem_free);
+		return;
+	}
 	if (client_id == DHMS_MEM_CLIENT_INVALID) {
 		dev_err(memsh_drv->dev, "memshare_free: invalid client request to free memory\n");
 		flag = 1;
