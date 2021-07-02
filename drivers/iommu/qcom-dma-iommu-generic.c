@@ -27,6 +27,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/iommu.h>
 #include <linux/qcom-iommu-util.h>
+#include <linux/workqueue.h>
 #include "qcom-dma-iommu-generic.h"
 
 static bool probe_finished;
@@ -278,54 +279,104 @@ void qcom_dma_common_free_remap(void *cpu_addr, size_t size)
 static struct gen_pool *atomic_pool __ro_after_init;
 
 #define DEFAULT_DMA_COHERENT_POOL_SIZE  SZ_256K
-static unsigned long atomic_pool_size = DEFAULT_DMA_COHERENT_POOL_SIZE;
+static size_t atomic_pool_size = DEFAULT_DMA_COHERENT_POOL_SIZE;
 
-static int dma_atomic_pool_init(struct device *dev)
+/* Dynamic background expansion when the atomic pool is near capacity */
+static struct work_struct atomic_pool_work;
+
+static int atomic_pool_expand(struct gen_pool *pool, size_t pool_size,
+			      gfp_t gfp)
 {
-	unsigned int pool_size_order = get_order(atomic_pool_size);
-	unsigned long nr_pages = atomic_pool_size >> PAGE_SHIFT;
-	struct page *page;
+	unsigned int order;
+	struct page *page = NULL;
 	void *addr;
-	int ret;
+	int ret = -ENOMEM;
 
-	page = qcom_dma_alloc_from_contiguous(dev, nr_pages,
-					pool_size_order, false);
+	/* Cannot allocate larger than MAX_ORDER - 1 */
+	order = min(get_order(pool_size), MAX_ORDER - 1);
+
+	do {
+		pool_size = 1 << (PAGE_SHIFT + order);
+
+		if (qcom_dev_get_cma_area(NULL))
+			page = qcom_dma_alloc_from_contiguous(NULL, 1 << order,
+							      order, false);
+		else
+			page = alloc_pages(gfp, order);
+	} while (!page && order-- > 0);
 	if (!page)
 		goto out;
 
-	qcom_arch_dma_prep_coherent(page, atomic_pool_size);
+	qcom_arch_dma_prep_coherent(page, pool_size);
 
-	atomic_pool = gen_pool_create(PAGE_SHIFT, -1);
-	if (!atomic_pool)
+	addr = qcom_dma_common_contiguous_remap(page, pool_size,
+						pgprot_dmacoherent(PAGE_KERNEL),
+						__builtin_return_address(0));
+	if (!addr)
 		goto free_page;
 
-	addr = qcom_dma_common_contiguous_remap(page, atomic_pool_size,
-					   pgprot_dmacoherent(PAGE_KERNEL),
-					   __builtin_return_address(0));
-	if (!addr)
-		goto destroy_genpool;
-
-	ret = gen_pool_add_virt(atomic_pool, (unsigned long)addr,
-				page_to_phys(page), atomic_pool_size, -1);
+	ret = gen_pool_add_virt(pool, (unsigned long)addr, page_to_phys(page),
+				pool_size, NUMA_NO_NODE);
 	if (ret)
 		goto remove_mapping;
-	gen_pool_set_algo(atomic_pool, gen_pool_first_fit_order_align, NULL);
 
-	pr_info("DMA: preallocated %zu KiB pool for atomic allocations\n",
-		atomic_pool_size / 1024);
 	return 0;
 
 remove_mapping:
-	qcom_dma_common_free_remap(addr, atomic_pool_size);
-destroy_genpool:
-	gen_pool_destroy(atomic_pool);
-	atomic_pool = NULL;
+	qcom_dma_common_free_remap(addr, pool_size);
 free_page:
-	qcom_dma_release_from_contiguous(dev, page, nr_pages);
+	if (!qcom_dma_release_from_contiguous(NULL, page, 1 << order))
+		__free_pages(page, order);
 out:
-	pr_err("DMA: failed to allocate %zu KiB pool for atomic coherent allocation\n",
-		atomic_pool_size / 1024);
-	return -ENOMEM;
+	return ret;
+}
+
+static void atomic_pool_resize(struct gen_pool *pool, gfp_t gfp)
+{
+	if (pool && gen_pool_avail(pool) < atomic_pool_size)
+		atomic_pool_expand(pool, gen_pool_size(pool), gfp);
+}
+
+static void atomic_pool_work_fn(struct work_struct *work)
+{
+	atomic_pool_resize(atomic_pool, GFP_KERNEL);
+}
+
+static __init struct gen_pool *__dma_atomic_pool_init(size_t pool_size, gfp_t gfp)
+{
+	struct gen_pool *pool;
+	int ret;
+
+	pool = gen_pool_create(PAGE_SHIFT, NUMA_NO_NODE);
+	if (!pool)
+		return NULL;
+
+	gen_pool_set_algo(pool, gen_pool_first_fit_order_align, NULL);
+
+	ret = atomic_pool_expand(pool, pool_size, gfp);
+	if (ret) {
+		gen_pool_destroy(pool);
+		pr_err("DMA: failed to allocate %zu KiB %pGg pool for atomic allocation\n",
+		       pool_size >> 10, &gfp);
+		return NULL;
+	}
+
+	pr_info("DMA preallocated %zu KiB %pGg pool for atomic allocations\n",
+		gen_pool_size(pool) >> 10, &gfp);
+	return pool;
+}
+
+static int dma_atomic_pool_init(struct device *dev)
+{
+	int ret = 0;
+
+	INIT_WORK(&atomic_pool_work, atomic_pool_work_fn);
+
+	atomic_pool = __dma_atomic_pool_init(atomic_pool_size, GFP_KERNEL);
+	if (!atomic_pool)
+		return -ENOMEM;
+
+	return ret;
 }
 
 static bool qcom_dma_in_atomic_pool(void *start, size_t size)
@@ -359,6 +410,8 @@ void *qcom_dma_alloc_from_pool(struct device *dev, size_t size,
 		ptr = (void *)val;
 		memset(ptr, 0, size);
 	}
+	if (gen_pool_avail(atomic_pool) < atomic_pool_size)
+		schedule_work(&atomic_pool_work);
 
 	return ptr;
 }
@@ -378,7 +431,13 @@ static void qcom_dma_atomic_pool_exit(struct device *dev)
 	struct page *page;
 
 	/*
-	 * Find the starting address. Pool is expected to be unused
+	 * Find the starting address. Pool is expected to be unused.
+	 *
+	 * While the pool size can expand, it is okay to use the initial size
+	 * here, as this function can only ever be called prior to the pool
+	 * ever being used. The pool can only expand when an allocation is satisfied
+	 * from it, which would not be possible by the time this function is called.
+	 * Therefore the size of the pool will be the initial size.
 	 */
 	addr = (void *)gen_pool_alloc(atomic_pool, atomic_pool_size);
 	if (!addr) {
