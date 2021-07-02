@@ -223,6 +223,8 @@ struct ufshcd_lrb {
 #endif
 
 	bool req_abort_skip;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -402,6 +404,8 @@ struct ufs_clk_gating {
 	bool is_initialized;
 	int active_reqs;
 	struct workqueue_struct *clk_gating_workq;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct ufs_saved_pwr_info {
@@ -448,6 +452,8 @@ struct ufs_clk_scaling {
 	bool is_initialized;
 	bool is_busy_started;
 	bool is_suspended;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 #define UFS_EVENT_HIST_LENGTH 8

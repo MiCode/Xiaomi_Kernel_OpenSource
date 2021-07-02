@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/percpu-refcount.h>
 #include <linux/bpfptr.h>
+#include <linux/android_kabi.h>
 
 struct bpf_verifier_env;
 struct bpf_verifier_log;
@@ -151,6 +152,9 @@ struct bpf_map_ops {
 
 	/* bpf_iter info used to open a seq_file */
 	const struct bpf_iter_seq_info *iter_seq_info;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 struct bpf_map {
@@ -257,6 +261,8 @@ struct bpf_map_dev_ops {
 	int (*map_update_elem)(struct bpf_offloaded_map *map,
 			       void *key, void *value, u64 flags);
 	int (*map_delete_elem)(struct bpf_offloaded_map *map, void *key);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct bpf_offloaded_map {
@@ -511,6 +517,7 @@ struct bpf_verifier_ops {
 				 enum bpf_access_type atype,
 				 u32 *next_btf_id);
 	bool (*check_kfunc_call)(u32 kfunc_btf_id);
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct bpf_prog_offload_ops {
@@ -526,6 +533,7 @@ struct bpf_prog_offload_ops {
 	int (*prepare)(struct bpf_prog *prog);
 	int (*translate)(struct bpf_prog *prog);
 	void (*destroy)(struct bpf_prog *prog);
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct bpf_prog_offload {
@@ -538,6 +546,7 @@ struct bpf_prog_offload {
 	bool			opt_failed;
 	void			*jited_image;
 	u32			jited_len;
+	ANDROID_KABI_RESERVE(1);
 };
 
 enum bpf_cgroup_storage_type {
@@ -921,6 +930,7 @@ struct bpf_prog_aux {
 		struct work_struct work;
 		struct rcu_head	rcu;
 	};
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct bpf_array_aux {
@@ -959,6 +969,7 @@ struct bpf_link_ops {
 	void (*show_fdinfo)(const struct bpf_link *link, struct seq_file *seq);
 	int (*fill_link_info)(const struct bpf_link *link,
 			      struct bpf_link_info *info);
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct bpf_link_primer {
@@ -988,6 +999,7 @@ struct bpf_struct_ops {
 	struct btf_func_model func_models[BPF_STRUCT_OPS_MAX_NR_MEMBERS];
 	u32 type_id;
 	u32 value_id;
+	ANDROID_KABI_RESERVE(1);
 };
 
 #if defined(CONFIG_BPF_JIT) && defined(CONFIG_BPF_SYSCALL)

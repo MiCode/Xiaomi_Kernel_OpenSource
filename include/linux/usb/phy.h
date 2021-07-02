@@ -14,6 +14,7 @@
 #include <linux/extcon.h>
 #include <linux/notifier.h>
 #include <linux/usb.h>
+#include <linux/android_kabi.h>
 #include <uapi/linux/usb/charger.h>
 
 enum usb_phy_interface {
@@ -158,6 +159,7 @@ struct usb_phy {
 	enum usb_charger_type (*charger_detect)(struct usb_phy *x);
 
 	ANDROID_VENDOR_DATA(1);
+	ANDROID_KABI_RESERVE(1);
 };
 
 /* for board-specific init logic */
