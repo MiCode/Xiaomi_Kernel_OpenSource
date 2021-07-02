@@ -1544,6 +1544,11 @@ bool msm_gpio_get_pin_address(unsigned int gpio_num, struct resource *res)
 					msm_pinctrl_data->soc->tiles[g->tile]);
 	else
 		tile_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!tile_res) {
+		dev_err(&pdev->dev, "failed to get resource\n");
+		return false;
+	}
+
 	res->start = tile_res->start + g->ctl_reg;
 	res->end = res->start + (g->reg_size_4k ? : DEFAULT_REG_SIZE_4K) * SZ_4K - 1;
 
