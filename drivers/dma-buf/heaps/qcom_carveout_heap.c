@@ -31,6 +31,17 @@
 
 #define CARVEOUT_ALLOCATE_FAIL -1
 
+
+/*
+ * @pool_refcount_priv -
+ *	Cookie set by carveout_heap_add_memory for use with its callbacks.
+ *	Cookie provider will call carveout_heap_remove_memory if refcount
+ *	reaches zero.
+ * @pool_refcount_get -
+ *	Function callback to Increase refcount. Returns 0
+ *	on success and fails if refcount is already zero.
+ * @pool_refcount_put - Function callback to decrease refcount.
+ */
 struct carveout_heap {
 	struct dma_heap *heap;
 	struct rw_semaphore mem_sem;
@@ -39,6 +50,10 @@ struct carveout_heap {
 	bool is_secure;
 	bool is_nomap;
 	phys_addr_t base;
+
+	void *pool_refcount_priv;
+	int (*pool_refcount_get)(void *priv);
+	void (*pool_refcount_put)(void *priv);
 };
 
 struct secure_carveout_heap {
@@ -64,6 +79,22 @@ void pages_sync_for_device(struct device *dev, struct page *page,
 	dma_sync_sg_for_device(dev, &sg, 1, dir);
 }
 
+static int carveout_pool_refcount_get(struct carveout_heap *carveout_heap)
+{
+	if (!carveout_heap->pool_refcount_get)
+		return 0;
+
+	return carveout_heap->pool_refcount_get(carveout_heap->pool_refcount_priv);
+}
+
+static void carveout_pool_refcount_put(struct carveout_heap *carveout_heap)
+{
+	if (!carveout_heap->pool_refcount_put)
+		return;
+
+	carveout_heap->pool_refcount_put(carveout_heap->pool_refcount_priv);
+}
+
 static phys_addr_t carveout_allocate(struct carveout_heap *carveout_heap,
 				     unsigned long size)
 {
@@ -71,9 +102,13 @@ static phys_addr_t carveout_allocate(struct carveout_heap *carveout_heap,
 
 	down_read(&carveout_heap->mem_sem);
 	if (carveout_heap->pool) {
+		if (carveout_pool_refcount_get(carveout_heap))
+			goto unlock;
+
 		offset = gen_pool_alloc(carveout_heap->pool, size);
 		if (!offset) {
 			offset = CARVEOUT_ALLOCATE_FAIL;
+			carveout_pool_refcount_put(carveout_heap);
 			goto unlock;
 		}
 	}
@@ -92,6 +127,7 @@ static void carveout_free(struct carveout_heap *carveout_heap,
 	down_read(&carveout_heap->mem_sem);
 	if (carveout_heap->pool)
 		gen_pool_free(carveout_heap->pool, addr, size);
+	carveout_pool_refcount_put(carveout_heap);
 	up_read(&carveout_heap->mem_sem);
 }
 
@@ -308,8 +344,8 @@ static int carveout_init_heap_memory(struct carveout_heap *co_heap,
 	return 0;
 }
 
-int carveout_heap_add_memory(char *heap_name,
-			     struct sg_table *sgt)
+int carveout_heap_add_memory(char *heap_name, struct sg_table *sgt, void *cookie,
+			int (*get)(void *), void (*put)(void *))
 {
 	struct dma_heap *heap;
 	struct carveout_heap *carveout_heap;
@@ -319,8 +355,15 @@ int carveout_heap_add_memory(char *heap_name,
 		return -EINVAL;
 
 	heap = dma_heap_find(heap_name);
-	if (!heap)
+	if (!heap) {
+		pr_err_ratelimited("%s: No heap named %s\n", __func__, heap_name);
 		return -EINVAL;
+	}
+
+	if (!get || !put || !cookie) {
+		pr_err_ratelimited("%s: Missing refcount callbacks\n", __func__);
+		return -EINVAL;
+	}
 
 	carveout_heap = dma_heap_get_drvdata(heap);
 
@@ -333,6 +376,13 @@ int carveout_heap_add_memory(char *heap_name,
 	ret = carveout_init_heap_memory(carveout_heap,
 					page_to_phys(sg_page(sgt->sgl)),
 					sgt->sgl->length, true);
+	if (ret)
+		goto unlock;
+
+	carveout_heap->pool_refcount_priv = cookie;
+	carveout_heap->pool_refcount_get = get;
+	carveout_heap->pool_refcount_put = put;
+
 unlock:
 	up_write(&carveout_heap->mem_sem);
 	return ret;
@@ -376,6 +426,9 @@ int carveout_heap_remove_memory(char *heap_name,
 
 	gen_pool_destroy(carveout_heap->pool);
 	carveout_heap->pool = NULL;
+	carveout_heap->pool_refcount_priv = NULL;
+	carveout_heap->pool_refcount_get = NULL;
+	carveout_heap->pool_refcount_put = NULL;
 unlock:
 	up_write(&carveout_heap->mem_sem);
 	return ret;
