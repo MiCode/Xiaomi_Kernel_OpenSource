@@ -521,8 +521,10 @@ struct sk_buff *udp_gro_receive(struct list_head *head, struct sk_buff *skb,
 			NAPI_GRO_CB(skb)->is_flist = sk ? !udp_sk(sk)->gro_enabled : 1;
 
 		if ((sk && udp_sk(sk)->gro_enabled) || NAPI_GRO_CB(skb)->is_flist)
-			pp = call_gro_receive(udp_gro_receive_segment, head, skb);
-		return pp;
+			return call_gro_receive(udp_gro_receive_segment, head, skb);
+
+		/* no GRO, be sure flush the current packet */
+		goto out;
 	}
 
 	if (NAPI_GRO_CB(skb)->encap_mark ||
