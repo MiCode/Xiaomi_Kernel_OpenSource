@@ -608,3 +608,36 @@ config CLOCK_CPU_SDM
 	 Support for the cpu clock controller on SDM based devices(e.g. QM215/SDM429).
 	 Say Y if you want to support CPU clock scaling using
 	 CPUfreq drivers for dynamic power management.
+
+config SM_GCC_KHAJE
+	tristate "KHAJE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the global clock controller on KHAJE devices.
+	 Say Y if you want to use peripheral devices such as UART, SPI,
+	 I2C, USB, UFS, SDCC, PCIe, Camera, Video etc.
+
+config SM_GPUCC_KHAJE
+	tristate "KHAJE Graphics Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the graphics clock controller on Qualcomm Technologies, Inc
+	 KHAJE devices.
+	 Say Y if you want to support graphics controller devices.
+
+config SM_DISPCC_KHAJE
+	tristate "KHAJE Display Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the display clock controller on Qualcomm Technologies, Inc.
+	 KHAJE devices.
+	 Say Y if you want to support display devices and functionality such as
+	 splash screen.
+
+config SM_DEBUGCC_KHAJE
+	tristate "KHAJE Debug Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the debug clock controller on Qualcomm Technologies, Inc
+	 KHAJE devices.
+	 Say Y if you want to support the clock measurement functionality.

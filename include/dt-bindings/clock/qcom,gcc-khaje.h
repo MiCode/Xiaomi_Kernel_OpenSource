@@ -170,6 +170,7 @@
 #define GCC_VIDEO_VENUS_CLK_SRC				160
 #define GCC_VIDEO_VENUS_CTL_CLK				161
 #define GCC_VIDEO_XO_CLK				162
+#define GCC_USB3_PRIM_PHY_PIPE_CLK_SRC			163
 
 /* GCC resets */
 #define GCC_QUSB2PHY_PRIM_BCR				0
@@ -184,5 +185,6 @@
 #define GCC_VCODEC0_BCR					9
 #define GCC_VENUS_BCR					10
 #define GCC_VIDEO_INTERFACE_BCR				11
+#define GCC_USB3_DP_PHY_PRIM_BCR			12
 
 #endif
