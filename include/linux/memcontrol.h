@@ -356,6 +356,7 @@ struct mem_cgroup {
 
 	/* for dynamic low */
 	ANDROID_VENDOR_DATA(1);
+	ANDROID_OEM_DATA_ARRAY(1, 2);
 
 	struct mem_cgroup_per_node *nodeinfo[];
 };
