@@ -597,9 +597,11 @@ static int mem_online_remaining_blocks(void)
 	unsigned long memblock_end_pfn = __phys_to_pfn(memblock_end_of_DRAM());
 	unsigned long ram_end_pfn = __phys_to_pfn(bootmem_dram_end_addr - 1);
 	unsigned long block_size, memblock, pfn;
-	unsigned int nid;
+	unsigned int nid, delta;
 	phys_addr_t phys_addr;
 	int fail = 0;
+
+	pr_debug("mem-offline: memblock_end_of_DRAM 0x%lx\n", memblock_end_of_DRAM());
 
 	block_size = memory_block_size_bytes();
 	sections_per_block = block_size / MIN_MEMORY_BLOCK_SIZE;
@@ -611,6 +613,49 @@ static int mem_online_remaining_blocks(void)
 		pr_info("mem-offline: System booted with no zone movable memory blocks. Cannot perform memory offlining\n");
 		return -EINVAL;
 	}
+
+	if (memblock_end_of_DRAM() % block_size) {
+		delta = block_size - (memblock_end_of_DRAM() % block_size);
+		pr_err("mem-offline: !!ERROR!! memblock end of dram address is not aligned to memory block size!\n");
+		pr_err("mem-offline: memory%lu could be partially available. %lukB of memory will be missing from RAM!\n",
+				start_section_nr, delta / SZ_1K);
+
+		/*
+		 * since this section is partially added during boot, we cannot
+		 * add the remaining part of section using add_memory since it
+		 * won't be size aligned to block size. We have to start the
+		 * offlinable region from the next section onwards.
+		 */
+		start_section_nr += 1;
+
+	}
+
+	if (bootmem_dram_end_addr % block_size) {
+		delta = bootmem_dram_end_addr % block_size;
+		pr_err("mem-offline: !!ERROR!! bootmem end of dram address is not aligned to memory block size!\n");
+		pr_err("mem-offline: memory%lu will not be added. %lukB of memory will be missing from RAM!\n",
+				end_section_nr, delta / SZ_1K);
+
+		/*
+		 * since this section cannot be added, the last section of offlinable
+		 * region will be the previous section.
+		 */
+		end_section_nr -= 1;
+	}
+
+	offlinable_region_start_addr =
+		section_nr_to_pfn(__pfn_to_phys(start_section_nr));
+
+	/*
+	 * below check holds true if there were only one offlinable section
+	 * and that was partially added during boot. In such case, bail out.
+	 */
+	if (start_section_nr > end_section_nr)
+		return 1;
+
+	pr_debug("mem-offline: offlinable_region_start_addr 0X%lx\n",
+		offlinable_region_start_addr);
+
 	for (memblock = start_section_nr; memblock <= end_section_nr;
 			memblock += sections_per_block) {
 		pfn = section_nr_to_pfn(memblock);
@@ -1618,17 +1663,12 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	offlinable_region_start_addr = memblock_end_of_DRAM();
-
 	ret = mem_online_remaining_blocks();
 	if (ret < 0)
 		return -ENODEV;
 
 	if (ret > 0)
 		pr_err("mem-offline: !!ERROR!! Auto onlining some memory blocks failed. System could run with less RAM\n");
-	else
-		pr_debug("mem-offline: offlinable_region_start_addr 0X%lx\n",
-				offlinable_region_start_addr);
 
 	ret = get_ddr_regions_info();
 	if (ret)
@@ -1644,6 +1684,7 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 
 	pr_info("mem-offline: num_ddr_regions %d num_segments %d\n",
 			num_ddr_regions, num_segments);
+
 	total_blks = (end_section_nr - start_section_nr + 1) /
 			sections_per_block;
 	mem_info = kcalloc(total_blks * MAX_STATE, sizeof(*mem_info),
