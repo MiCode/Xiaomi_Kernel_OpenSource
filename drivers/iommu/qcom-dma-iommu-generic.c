@@ -279,8 +279,7 @@ void qcom_dma_common_free_remap(void *cpu_addr, size_t size)
 
 static struct gen_pool *atomic_pool __ro_after_init;
 
-#define DEFAULT_DMA_COHERENT_POOL_SIZE  SZ_256K
-static size_t atomic_pool_size = DEFAULT_DMA_COHERENT_POOL_SIZE;
+static size_t atomic_pool_size;
 static unsigned long current_pool_size;
 
 /* Dynamic background expansion when the atomic pool is near capacity */
@@ -388,7 +387,12 @@ static __init struct gen_pool *__dma_atomic_pool_init(size_t pool_size, gfp_t gf
 static int dma_atomic_pool_init(struct device *dev)
 {
 	int ret = 0;
+	unsigned long pages;
 
+	/* Default the pool size to 128KB per 1 GB of memory, min 128 KB, max MAX_ORDER - 1. */
+	pages = totalram_pages() / (SZ_1G / SZ_128K);
+	pages = min_t(unsigned long, pages, MAX_ORDER_NR_PAGES);
+	atomic_pool_size = max_t(size_t, pages << PAGE_SHIFT, SZ_128K);
 	INIT_WORK(&atomic_pool_work, atomic_pool_work_fn);
 
 	atomic_pool = __dma_atomic_pool_init(atomic_pool_size, GFP_KERNEL);
