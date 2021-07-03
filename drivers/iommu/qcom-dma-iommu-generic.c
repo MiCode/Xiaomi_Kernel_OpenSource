@@ -399,14 +399,6 @@ static int dma_atomic_pool_init(struct device *dev)
 	return ret;
 }
 
-static bool qcom_dma_in_atomic_pool(void *start, size_t size)
-{
-	if (unlikely(!atomic_pool))
-		return false;
-
-	return gen_pool_has_addr(atomic_pool, (unsigned long)start, size);
-}
-
 /*
  * Couldn't implement this via dma_alloc_attrs(qcom_iommu_dma_dev, GFP_ATOMIC)
  * due to dma_free_from_pool only passing in cpu_addr & not dma_handle.
@@ -438,7 +430,7 @@ void *qcom_dma_alloc_from_pool(struct device *dev, size_t size,
 
 bool qcom_dma_free_from_pool(struct device *dev, void *start, size_t size)
 {
-	if (!qcom_dma_in_atomic_pool(start, size))
+	if (!atomic_pool || !gen_pool_has_addr(atomic_pool, (unsigned long)start, size))
 		return false;
 	gen_pool_free(atomic_pool, (unsigned long)start, size);
 	return true;
