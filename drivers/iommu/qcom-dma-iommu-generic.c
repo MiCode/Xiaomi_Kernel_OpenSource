@@ -28,6 +28,7 @@
 #include <linux/iommu.h>
 #include <linux/qcom-iommu-util.h>
 #include <linux/workqueue.h>
+#include <linux/debugfs.h>
 #include "qcom-dma-iommu-generic.h"
 
 static bool probe_finished;
@@ -280,9 +281,26 @@ static struct gen_pool *atomic_pool __ro_after_init;
 
 #define DEFAULT_DMA_COHERENT_POOL_SIZE  SZ_256K
 static size_t atomic_pool_size = DEFAULT_DMA_COHERENT_POOL_SIZE;
+static unsigned long current_pool_size;
 
 /* Dynamic background expansion when the atomic pool is near capacity */
 static struct work_struct atomic_pool_work;
+
+static void __init dma_atomic_pool_debugfs_init(void)
+{
+	struct dentry *root;
+
+	root = debugfs_create_dir("qcom_dma_pools", NULL);
+	if (IS_ERR_OR_NULL(root))
+		return;
+
+	debugfs_create_ulong("pool_size", 0400, root, &current_pool_size);
+}
+
+static void dma_atomic_pool_size_add(gfp_t gfp, size_t size)
+{
+	current_pool_size += size;
+}
 
 static int atomic_pool_expand(struct gen_pool *pool, size_t pool_size,
 			      gfp_t gfp)
@@ -320,6 +338,7 @@ static int atomic_pool_expand(struct gen_pool *pool, size_t pool_size,
 	if (ret)
 		goto remove_mapping;
 
+	dma_atomic_pool_size_add(gfp, pool_size);
 	return 0;
 
 remove_mapping:
@@ -376,6 +395,7 @@ static int dma_atomic_pool_init(struct device *dev)
 	if (!atomic_pool)
 		return -ENOMEM;
 
+	dma_atomic_pool_debugfs_init();
 	return ret;
 }
 
