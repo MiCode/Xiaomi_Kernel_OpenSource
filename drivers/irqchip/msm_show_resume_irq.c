@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011, 2014-2016, 2018, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2014-2016, 2018, 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -9,16 +9,17 @@
 
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/irqdomain.h>
 #include <linux/irqchip/arm-gic-v3.h>
 #include <trace/hooks/gic.h>
 
 int msm_show_resume_irq_mask;
-
 module_param_named(debug_mask, msm_show_resume_irq_mask, int, 0664);
 
-static void msm_show_resume_irqs(void *data, struct irq_domain *domain,
-				 void __iomem *base)
+static void msm_show_resume_irqs(void *data, struct gic_chip_data *gic_data)
 {
+	struct irq_domain *domain;
+	void __iomem *base;
 	unsigned int i;
 	u32 enabled;
 	u32 pending[32];
@@ -27,6 +28,9 @@ static void msm_show_resume_irqs(void *data, struct irq_domain *domain,
 
 	if (!msm_show_resume_irq_mask)
 		return;
+
+	base = gic_data->dist_base;
+	domain = gic_data->domain;
 
 	typer = readl_relaxed(base + GICD_TYPER);
 	gic_line_nr = min(GICD_TYPER_SPIS(typer), 1023u);
@@ -44,12 +48,15 @@ static void msm_show_resume_irqs(void *data, struct irq_domain *domain,
 		struct irq_desc *desc = irq_to_desc(irq);
 		const char *name = "null";
 
+		if (i < 32)
+			continue;
+
 		if (desc == NULL)
 			name = "stray irq";
 		else if (desc->action && desc->action->name)
 			name = desc->action->name;
 
-		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+		pr_warn("%s: IRQ %d HWIRQ %u triggered %s\n", __func__, irq, i, name);
 	}
 }
 
