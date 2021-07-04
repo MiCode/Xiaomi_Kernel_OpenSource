@@ -999,7 +999,7 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 			/* TODO: Call the unpopulate callback */
 			break;
 		case GH_RM_RES_TYPE_VIRTIO_MMIO:
-			/* TODO: Call the unpopulate callback */
+			/* Virtio cleanup is handled in gh_virtio_mmio_exit() */
 			break;
 		case GH_RM_RES_TYPE_VPMGRP:
 			break;

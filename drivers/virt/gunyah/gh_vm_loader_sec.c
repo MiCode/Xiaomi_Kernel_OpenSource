@@ -22,6 +22,7 @@
 #include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_rm_drv.h>
 
+#include "gh_virtio_backend.h"
 #include "gh_vm_loader_private.h"
 
 /* Structure per VM device node */
@@ -191,6 +192,10 @@ static void gh_vm_loader_sec_cleanup_res(struct gh_sec_vm_struct *sec_vm_struct)
 	ret = gh_vm_loader_sec_reset(sec_vm_struct);
 	if (ret)
 		dev_warn(dev, "VM reset unsuccessful\n");
+
+	ret = gh_virtio_mmio_exit(vmid, vm_dev->vm_name);
+	if (ret)
+		dev_warn(dev, "Failed to free virtio resources : %d\n", ret);
 
 	ret = qcom_scm_pas_shutdown(vm_dev->pas_id);
 	if (ret)
