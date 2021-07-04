@@ -1155,6 +1155,10 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 	sysfs_remove_files(&device->snapshot_kobj, snapshot_attrs);
 
 	kobject_put(&device->snapshot_kobj);
+
+	if (device->snapshot_memory.dma_handle)
+		dma_free_coherent(&device->pdev->dev, device->snapshot_memory.size,
+			device->snapshot_memory.ptr, device->snapshot_memory.dma_handle);
 }
 
 /**
