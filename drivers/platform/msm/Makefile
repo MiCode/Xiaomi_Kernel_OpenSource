@@ -5,6 +5,7 @@
 #
 
 obj-$(CONFIG_IPA3) += ipa_fmwk/
+CFLAGS_msm-geni-se.o := -D__DISABLE_TRACE_MMIO__
 obj-$(CONFIG_MSM_GENI_SE) += msm-geni-se.o
 obj-$(CONFIG_USB_BAM) += usb_bam.o
 obj-$(CONFIG_QPNP_REVID) += qpnp-revid.o
