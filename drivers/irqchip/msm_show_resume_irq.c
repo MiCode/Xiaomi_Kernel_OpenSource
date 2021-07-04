@@ -3,6 +3,7 @@
  * Copyright (c) 2011, 2014-2016, 2018, 2020-2021, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/cpuidle.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -11,6 +12,7 @@
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
 #include <linux/irqchip/arm-gic-v3.h>
+#include <trace/hooks/cpuidle_psci.h>
 #include <trace/hooks/gic.h>
 
 int msm_show_resume_irq_mask;
@@ -60,8 +62,32 @@ static void msm_show_resume_irqs(void *data, struct gic_chip_data *gic_data)
 	}
 }
 
+static atomic_t cpus_in_s2idle;
+
+static void gic_s2idle_enter(void *unused, struct cpuidle_device *dev, bool s2idle)
+{
+	if (!s2idle)
+		return;
+
+	atomic_inc(&cpus_in_s2idle);
+}
+
+static void gic_s2idle_exit(void *unused, struct cpuidle_device *dev, bool s2idle)
+{
+	if (!s2idle)
+		return;
+
+	if (atomic_read(&cpus_in_s2idle) == num_online_cpus())
+		gic_resume();
+
+	atomic_dec(&cpus_in_s2idle);
+}
+
 static int __init msm_show_resume_irq_init(void)
 {
+	register_trace_prio_android_vh_cpuidle_psci_enter(gic_s2idle_enter, NULL, INT_MAX);
+	register_trace_prio_android_vh_cpuidle_psci_exit(gic_s2idle_exit, NULL, INT_MAX);
+
 	return register_trace_android_vh_gic_resume(msm_show_resume_irqs, NULL);
 }
 
