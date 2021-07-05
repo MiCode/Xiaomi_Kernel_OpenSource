@@ -1055,7 +1055,8 @@
 			qcom,pmic_glink_log_rpmsg {
 				qcom,glink-channels = "PMIC_LOGS_ADSP_APPS";
 				qcom,intents = <0x800 5
-						0xc00 3>;
+						0xc00 3
+						0x2000 1>;
 			};
 
 		};
@@ -1422,6 +1423,10 @@
 
 		qcom,battery_debug {
 			compatible = "qcom,battery-debug";
+		};
+
+		qcom,charger_ulog_glink {
+			compatible = "qcom,charger-ulog-glink";
 		};
 
 		qcom,spmi_glink_debug {
