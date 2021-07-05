@@ -1,0 +1,52 @@
+Userspace cooling devices.
+
+Certain Cooling devices reside in userspace and they also needs to be
+mitigated for thermal conditions. Thermal framework will send netlink message
+to userspace, when a cooling device level changes for any cooling device.
+This cooling device expects the userspace cooling device to listen to the
+netlink message and take necessary action.
+
+Devicetree will define the name of the cooling device and the max mitigation
+level a cooling device can support. Each child node will be an individual
+cooling device.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,userspace-cooling-devices"
+
+
+Subsystem properties:
+	Minimum one child node is required. Child node name is used as
+	cooling device name and phandle for that cooling device.
+
+	Cooling device node properties:
+	-qcom,max-level:
+		Usage: required
+		Value type: <integer>
+		Definition: The max level this cooling device can support.
+			The cooling device levels start from 0 to max level
+			inclusive.
+
+	-#cooling-cells:
+		Usage: optional
+		Value type: <integer>
+		Definition: Must be 2. Needed for of_thermal as cooling device
+			identifier. Please refer to
+			<devicetree/bindings/thermal/thermal.txt> for more
+			details.
+Example:
+
+	qcom,userspace-cdev {
+		compatible = "qcom,userspace-cooling-devices";
+
+		display_fps: display-fps {
+			qcom,max-level = <4>;
+			/*levels supported
+			* 0, 1, 2, 3, 4
+			*/
+			#cooling-cells = <2>;
+		};
+	};
