@@ -438,6 +438,11 @@
 		reg = <0xc221000 0x1000>;
 		clock-frequency = <32768>;
 	};
+
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
 };
 
 #include "diwali-pinctrl.dtsi"
