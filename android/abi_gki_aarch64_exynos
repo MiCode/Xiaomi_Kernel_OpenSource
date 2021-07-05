@@ -1598,6 +1598,7 @@
   uart_update_timeout
   uart_write_wakeup
   __udelay
+  ufshcd_config_pwr_mode
   ufshcd_dme_get_attr
   ufshcd_dme_set_attr
   ufshcd_pltfrm_init

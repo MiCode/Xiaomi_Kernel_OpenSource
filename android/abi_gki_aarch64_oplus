@@ -198,6 +198,7 @@
   remove_proc_subtree
   request_firmware
   rtc_time64_to_tm
+  spi_set_cs_timing
   spi_sync
   strcat
   system_wq
