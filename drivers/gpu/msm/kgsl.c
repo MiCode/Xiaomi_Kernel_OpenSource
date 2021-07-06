@@ -293,8 +293,12 @@ static void remove_dmabuf_list(struct kgsl_dma_buf_meta *meta)
 }
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
-static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
+static void kgsl_destroy_ion(struct kgsl_memdesc *memdesc)
 {
+	struct kgsl_mem_entry *entry = container_of(memdesc,
+				struct kgsl_mem_entry, memdesc);
+	struct kgsl_dma_buf_meta *meta = entry->priv_data;
+
 	if (meta != NULL) {
 		remove_dmabuf_list(meta);
 		dma_buf_unmap_attachment(meta->attach, meta->table,
@@ -303,13 +307,44 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 		dma_buf_put(meta->dmabuf);
 		kfree(meta);
 	}
-}
-#else
-static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
-{
 
+	/*
+	 * Ion takes care of freeing the sg_table for us so
+	 * clear the sg table to ensure kgsl_sharedmem_free
+	 * doesn't try to free it again
+	 */
+	memdesc->sgt = NULL;
 }
+
+static struct kgsl_memdesc_ops kgsl_dmabuf_ops = {
+	.free = kgsl_destroy_ion,
+};
 #endif
+
+static void kgsl_destroy_anon(struct kgsl_memdesc *memdesc)
+{
+	int i = 0, j;
+	struct scatterlist *sg;
+	struct page *page;
+
+	for_each_sg(memdesc->sgt->sgl, sg, memdesc->sgt->nents, i) {
+		page = sg_page(sg);
+		for (j = 0; j < (sg->length >> PAGE_SHIFT); j++) {
+			/*
+			 * Mark the page in the scatterlist as dirty if they
+			 * were writable by the GPU.
+			 */
+			if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
+				set_page_dirty_lock(nth_page(page, j));
+
+			/*
+			 * Put the page reference taken using get_user_pages
+			 * during memdesc_sg_virt.
+			 */
+			put_page(nth_page(page, j));
+		}
+	}
+}
 
 static void mem_entry_destroy(struct kgsl_mem_entry *entry)
 {
@@ -329,40 +364,7 @@ static void mem_entry_destroy(struct kgsl_mem_entry *entry)
 		atomic_long_sub(entry->memdesc.size,
 			&kgsl_driver.stats.mapped);
 
-	/*
-	 * Ion takes care of freeing the sg_table for us so
-	 * clear the sg table before freeing the sharedmem
-	 * so kgsl_sharedmem_free doesn't try to free it again
-	 */
-	if (memtype == KGSL_MEM_ENTRY_ION)
-		entry->memdesc.sgt = NULL;
-
-	if ((memtype == KGSL_MEM_ENTRY_USER)
-		&& !(entry->memdesc.flags & KGSL_MEMFLAGS_GPUREADONLY)) {
-		int i = 0, j;
-		struct scatterlist *sg;
-		struct page *page;
-		/*
-		 * Mark all of pages in the scatterlist as dirty since they
-		 * were writable by the GPU.
-		 */
-		for_each_sg(entry->memdesc.sgt->sgl, sg,
-			    entry->memdesc.sgt->nents, i) {
-			page = sg_page(sg);
-			for (j = 0; j < (sg->length >> PAGE_SHIFT); j++)
-				set_page_dirty_lock(nth_page(page, j));
-		}
-	}
-
 	kgsl_sharedmem_free(&entry->memdesc);
-
-	switch (memtype) {
-	case KGSL_MEM_ENTRY_ION:
-		kgsl_destroy_ion(entry->priv_data);
-		break;
-	default:
-		break;
-	}
 
 	kfree(entry);
 }
@@ -2496,6 +2498,10 @@ out:
 	return ret;
 }
 
+static struct kgsl_memdesc_ops kgsl_usermem_ops = {
+	.free = kgsl_destroy_anon,
+};
+
 static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 	struct kgsl_mem_entry *entry, unsigned long hostptr,
 	size_t offset, size_t size)
@@ -2510,6 +2516,7 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = (uint64_t) size;
 	entry->memdesc.flags |= (uint64_t)KGSL_MEMFLAGS_USERMEM_ADDR;
+	entry->memdesc.ops = &kgsl_usermem_ops;
 
 	if (kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
 		/* Register the address in the database */
@@ -2835,11 +2842,6 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	return 0;
 
 unmap:
-	if (kgsl_memdesc_usermem_type(&entry->memdesc) == KGSL_MEM_ENTRY_ION) {
-		kgsl_destroy_ion(entry->priv_data);
-		entry->memdesc.sgt = NULL;
-	}
-
 	kgsl_sharedmem_free(&entry->memdesc);
 
 out:
@@ -2944,6 +2946,7 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	entry->priv_data = meta;
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = 0;
+	entry->memdesc.ops = &kgsl_dmabuf_ops;
 	/* USE_CPU_MAP is not impemented for ION. */
 	entry->memdesc.flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 	entry->memdesc.flags |= (uint64_t)KGSL_MEMFLAGS_USERMEM_ION;
@@ -3149,14 +3152,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	return result;
 
 error_attach:
-	switch (kgsl_memdesc_usermem_type(&entry->memdesc)) {
-	case KGSL_MEM_ENTRY_ION:
-		kgsl_destroy_ion(entry->priv_data);
-		entry->memdesc.sgt = NULL;
-		break;
-	default:
-		break;
-	}
 	kgsl_sharedmem_free(&entry->memdesc);
 error:
 	/* Clear gpuaddr here so userspace doesn't get any wrong ideas */
