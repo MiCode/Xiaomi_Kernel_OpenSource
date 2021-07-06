@@ -18,6 +18,8 @@ Required properties:
   - iommus: SMMUs and corresponding Stream IDs needed by WLAN
   - qcom,wlan-smmu-iova-address: I/O virtual address range as <start length>
     format to be used for allocations associated between WLAN and SMMU
+  - qcom,wlan: Signature string for WLAN devices which all CNSS family drivers
+               are able to search for
 
 Optional properties:
   - <supply-name>-supply: phandle to the regulator device tree node
@@ -50,6 +52,7 @@ Example:
         iommus = <&anoc2_smmu 0x1900>,
                  <&anoc2_smmu 0x1901>;
         qcom,wlan-smmu-iova-address = <0 0x10000000>;
+        qcom,wlan;
         interrupts =
 		   <0 130 0 /* CE0 */ >,
 		   <0 131 0 /* CE1 */ >,
