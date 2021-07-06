@@ -1,5 +1,6 @@
 arm_smmu.ko
 bwmon.ko
+cfg80211.ko
 clk-dummy.ko
 clk-qcom.ko
 clk-rpmh.ko
@@ -26,6 +27,7 @@ icc-rpmh.ko
 iommu-logger.ko
 kryo_arm64_edac.ko
 llcc-qcom.ko
+mac80211.ko
 mem_buf_dev.ko
 mem_buf.ko
 mem-hooks.ko
