@@ -1287,6 +1287,9 @@ static void cnss_pci_handle_linkdown(struct cnss_pci_data *pci_priv)
 	pci_priv->pci_link_down_ind = true;
 	spin_unlock_irqrestore(&pci_link_down_lock, flags);
 
+	/* Notify MHI about link down */
+	mhi_control_error(pci_priv->mhi_ctrl);
+
 	if (pci_dev->device == QCA6174_DEVICE_ID)
 		disable_irq(pci_dev->irq);
 
