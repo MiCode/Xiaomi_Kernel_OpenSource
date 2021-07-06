@@ -1473,17 +1473,6 @@ lpm_start:
 	if (motg->err_event_seen)
 		msm_otg_reset(phy);
 
-	/* Enable line state difference wakeup fix for only device and host
-	 * bus suspend scenarios.  Otherwise PHY can not be suspended when
-	 * a charger that pulls DP/DM high is connected.
-	 */
-	config2 = readl_relaxed(USB_GENCONFIG_2);
-	if (device_bus_suspend)
-		config2 |= GENCONFIG_2_LINESTATE_DIFF_WAKEUP_EN;
-	else
-		config2 &= ~GENCONFIG_2_LINESTATE_DIFF_WAKEUP_EN;
-	writel_relaxed(config2, USB_GENCONFIG_2);
-
 	/*
 	 * Abort suspend when,
 	 * 1. host mode activation in progress due to Micro-A cable insertion
@@ -1500,6 +1489,17 @@ lpm_start:
 			enable_irq(motg->phy_irq);
 		return -EBUSY;
 	}
+
+	/* Enable line state difference wakeup fix for only device and host
+	 * bus suspend scenarios.  Otherwise PHY can not be suspended when
+	 * a charger that pulls DP/DM high is connected.
+	 */
+	config2 = readl_relaxed(USB_GENCONFIG_2);
+	if (device_bus_suspend)
+		config2 |= GENCONFIG_2_LINESTATE_DIFF_WAKEUP_EN;
+	else
+		config2 &= ~GENCONFIG_2_LINESTATE_DIFF_WAKEUP_EN;
+	writel_relaxed(config2, USB_GENCONFIG_2);
 
 	if (motg->caps & ALLOW_VDD_MIN_WITH_RETENTION_DISABLED) {
 		/* put the controller in non-driving mode */
