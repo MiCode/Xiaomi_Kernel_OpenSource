@@ -1,0 +1,2 @@
+source "drivers/misc/mediatek/sensor/2.0/lsm6dsm_secondary/Kconfig"
+source "drivers/misc/mediatek/sensor/2.0/test/Kconfig"

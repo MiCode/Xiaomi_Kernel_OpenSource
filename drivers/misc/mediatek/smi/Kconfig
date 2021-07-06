@@ -1,0 +1,9 @@
+config MTK_SMI_EXT
+	bool "MediaTek SMI Support"
+	select MEMORY
+	select MTK_SMI
+	help
+	  This driver is for the memory controller module in MediaTek SoCs,
+	  mainly help arbitrate memory bandwidth of multimedia,
+	  and optimize multimedia memory usage in different scenarios.
+	  If you are not sure about this, set y.

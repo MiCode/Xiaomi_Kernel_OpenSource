@@ -1,0 +1,46 @@
+menuconfig MTK_DEBUG_LATCH
+	bool "MediaTek Debug Latch Configuration"
+	help
+	  Select to enable MediaTek Debug Latch configuration.
+	  Includes LASTPC and LASTBUS module for latching the
+	  system status. Also, PLAT_SRAM_FLAG provides APIs to
+	  access debugging flags.
+
+if  MTK_DEBUG_LATCH
+
+config MTK_PLAT_SRAM_FLAG
+	bool "MediaTek PLATFORM SRAM FLAG"
+	default n
+	help
+	  PLAT_SRAM_FLAG provides APIs to access debugging flags.
+	  Which are kept after exception occurs, and we can dump
+	  these flags as hints or inputs to post-processing scripts
+	  for further analyze.
+
+config MTK_CACHE_PARITY_CHECK
+	bool "MediaTek CACHE PARITY CHECK"
+	default n
+	help
+	  Cache parity check is a debugging feature on MCUSYS to
+	  latch the parity error in Cachelines supporting parity.
+	  Enable this feature would provide some interfaces and irq
+	  handling.
+
+config MTK_L2C_PARITY_CHECK
+	bool "MediaTek L2 CACHE PARITY CHECK"
+	default n
+	help
+	  L2 cache parity check is a debugging feature on MCUSYS to
+	  latch the parity error in L2 Cachelines. Enable this feature
+	  would provide some interfaces and irq handling.
+	  if you don't know how to set please leave it as n
+
+config MTK_LASTBUS_INTERFACE
+	bool "MTK_LASTBUS"
+	default n
+	help
+	  LASTBUS is a tool to get the snapshot of peri and infra bus.
+	  Enable this feature, you can dump LASTBUS status for peri and
+	  infra bus for debug purpose.
+
+endif

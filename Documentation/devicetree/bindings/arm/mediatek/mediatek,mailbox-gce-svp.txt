@@ -1,0 +1,25 @@
+MediaTek GCE Secure Video Path Support Driver
+===============
+
+The Global Command Engine (GCE) is used to help read/write registers with
+critical time limitation, such as updating display configuration during the
+vblank. The GCE can be used to implement the Command Queue (CMDQ) driver.
+Secure Video Path driver can protect premium video content leakage
+
+Required properties:
+- compatible: Must be "mediatek,mailbox-gce-svp"
+- reg: Address range of the GCE unit
+- interrupts: The interrupt signal from the GCE block
+- clock: Clocks according to the common clock binding
+- clock-names: Must be "gce" to stand for GCE clock
+
+Example:
+
+	gce_mbox_svp: gce_mbox_svp@10238000 {
+		compatible = "mediatek,mailbox-gce-svp";
+		reg = <0 0x10238000 0 0x1000>;
+		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>;
+		clock-names = "gce";
+	};
+

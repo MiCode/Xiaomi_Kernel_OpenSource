@@ -1,0 +1,69 @@
+#
+# MediaTek USB TYPEC Driver
+#
+
+config MTK_USB_TYPEC
+	bool "Mediatek USB TYPE-C Driver"
+	---help---
+	  Enables to support usb-c. So the usb device and host driver register
+	  the callback func to the usb-c driver. When the usb-c driver detect
+	  a device/host plugged in/out, it will notify the device/host driver
+	  by callback func.
+	  If unsure, say N.
+
+config MTK_USB_TYPEC_DP_MUX
+	bool "Mediatek USB TYPE-C USB DP Mux"
+	---help---
+	  Enables to support USB DP mux in usb-c.
+	  To support TYPE-C USB DP must have a MUX to switch
+	  SSRX1/SSTX1/SSRX2/SSTX2 pins.
+	  Say Y to enable TYPEC DP Mux
+	  If unsure, say N.
+
+config MTK_USB_TYPEC_U3_MUX
+	bool "Mediatek USB TYPE-C USB 3.0 Mux"
+	---help---
+	  Enables to support USB3.0 mux in usb-c.
+	  To support TYPE-C USB3.0 must have a MUX to switch
+	  SSRX1/SSTX1/SSRX2/SSTX2 pins.
+	  Say Y to enable TYPEC USB3.0 Mux
+	  If unsure, say N.
+
+config TCPC_MT6360
+	bool "MediaTek MT6360 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	select TCPC_ALERT_V20
+	help
+	  Say Y to enable MediaTek MT6370
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_ALERT_V20
+	bool "TCPCI Alert v2.0"
+	depends on TCPC_CLASS
+	help
+	  Say Y to use tcpci_alert_v20
+	  Vendor defined interrupts
+	  should be handled by
+	  tcpc driver itself
+
+config MTK_TYPEC_WATER_DETECT
+	bool "Water detection function for type-c connector"
+	depends on TCPC_CLASS
+	help
+	  Say Yes to enable water detection on type-c connector.
+	  If water is detected on the connector, it will show
+	  warning to notify end user.
+	  If unsure, say N.
+
+config MTK_TYPEC_WATER_DETECT_BY_PCB
+	bool "Let PCB decides enabling water detection or not"
+	depends on MTK_TYPEC_WATER_DETECT
+	help
+	  Query GPIO on PCB to judge whether type-c water detection
+	  need to be enabled.
+	  Say Yes to let PCB decides enabling water detection or not.
+	  If unsure, say N.
+
+source "drivers/misc/mediatek/typec/tcpc/Kconfig"
