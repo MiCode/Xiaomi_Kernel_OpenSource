@@ -2699,10 +2699,17 @@ EXPORT_SYMBOL(icnss_get_mhi_state);
 int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 {
 	int ret;
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
 
 	if (test_bit(ICNSS_FW_DOWN, &penv->state) ||
 	    !test_bit(ICNSS_FW_READY, &penv->state)) {
@@ -2723,10 +2730,12 @@ EXPORT_SYMBOL(icnss_set_fw_log_mode);
 
 int icnss_force_wake_request(struct device *dev)
 {
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
 
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
@@ -2750,10 +2759,12 @@ EXPORT_SYMBOL(icnss_force_wake_request);
 
 int icnss_force_wake_release(struct device *dev)
 {
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
 
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
@@ -3325,11 +3336,14 @@ static void icnss_wpss_load(struct work_struct *wpss_load_work)
 	if (of_property_read_u32(priv->pdev->dev.of_node, "qcom,rproc-handle",
 				 &rproc_phandle)) {
 		icnss_pr_err("error reading rproc phandle\n");
+		return;
 	}
 
 	priv->rproc = rproc_get_by_phandle(rproc_phandle);
-	if (IS_ERR(priv->rproc))
-		icnss_pr_err("Failed to load wpss rproc");
+	if (IS_ERR_OR_NULL(priv->rproc)) {
+		icnss_pr_err("rproc not found");
+		return;
+	}
 
 	if (rproc_boot(priv->rproc)) {
 		icnss_pr_err("Failed to boot wpss rproc");
