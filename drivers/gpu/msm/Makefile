@@ -58,17 +58,17 @@ msm_kgsl-y += \
 	adreno_cp_parser.o \
 	adreno_dispatch.o \
 	adreno_drawctxt.o \
-	adreno_genc.o \
-	adreno_genc_gmu.o \
-	adreno_genc_gmu_snapshot.o \
-	adreno_genc_hfi.o \
-	adreno_genc_hwsched.o \
-	adreno_genc_hwsched_hfi.o \
-	adreno_genc_perfcounter.o \
-	adreno_genc_preempt.o \
-	adreno_genc_ringbuffer.o \
-	adreno_genc_rpmh.o \
-	adreno_genc_snapshot.o \
+	adreno_gen7.o \
+	adreno_gen7_gmu.o \
+	adreno_gen7_gmu_snapshot.o \
+	adreno_gen7_hfi.o \
+	adreno_gen7_hwsched.o \
+	adreno_gen7_hwsched_hfi.o \
+	adreno_gen7_perfcounter.o \
+	adreno_gen7_preempt.o \
+	adreno_gen7_ringbuffer.o \
+	adreno_gen7_rpmh.o \
+	adreno_gen7_snapshot.o \
 	adreno_hwsched.o \
 	adreno_ioctl.o \
 	adreno_perfcounter.o \

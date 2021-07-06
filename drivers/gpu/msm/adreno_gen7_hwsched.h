@@ -3,23 +3,23 @@
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 
-#ifndef _ADRENO_GENC_HWSCHED_H_
-#define _ADRENO_GENC_HWSCHED_H_
+#ifndef _ADRENO_GEN7_HWSCHED_H_
+#define _ADRENO_GEN7_HWSCHED_H_
 
-#include "adreno_genc_hwsched_hfi.h"
+#include "adreno_gen7_hwsched_hfi.h"
 
 /**
- * struct genc_hwsched_device - Container for the genc hwscheduling device
+ * struct gen7_hwsched_device - Container for the gen7 hwscheduling device
  */
-struct genc_hwsched_device {
-	/** @genc_dev: Container for the genc device */
-	struct genc_device genc_dev;
+struct gen7_hwsched_device {
+	/** @gen7_dev: Container for the gen7 device */
+	struct gen7_device gen7_dev;
 	/** @hwsched_hfi: Container for hwscheduling specific hfi resources */
-	struct genc_hwsched_hfi hwsched_hfi;
+	struct gen7_hwsched_hfi hwsched_hfi;
 };
 
 /**
- * genc_hwsched_probe - Target specific probe for hwsched
+ * gen7_hwsched_probe - Target specific probe for hwsched
  * @pdev: Pointer to the platform device
  * @chipid: Chipid of the target
  * @gpucore: Pointer to the gpucore
@@ -28,35 +28,35 @@ struct genc_hwsched_device {
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_hwsched_probe(struct platform_device *pdev,
+int gen7_hwsched_probe(struct platform_device *pdev,
 		u32 chipid, const struct adreno_gpu_core *gpucore);
 
 /**
- * genc_hwsched_reset - Restart the gmu and gpu
+ * gen7_hwsched_reset - Restart the gmu and gpu
  * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_hwsched_reset(struct adreno_device *adreno_dev);
+int gen7_hwsched_reset(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_snapshot - take genc hwsched snapshot
+ * gen7_hwsched_snapshot - take gen7 hwsched snapshot
  * @adreno_dev: Pointer to the adreno device
  * @snapshot: Pointer to the snapshot instance
  *
- * Snapshot the faulty ib and then snapshot rest of genc gmu things
+ * Snapshot the faulty ib and then snapshot rest of gen7 gmu things
  */
-void genc_hwsched_snapshot(struct adreno_device *adreno_dev,
+void gen7_hwsched_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 
 /**
- * genc_hwsched_handle_watchdog - Handle watchdog interrupt
+ * gen7_hwsched_handle_watchdog - Handle watchdog interrupt
  * @adreno_dev: Pointer to the adreno device
  */
-void genc_hwsched_handle_watchdog(struct adreno_device *adreno_dev);
+void gen7_hwsched_handle_watchdog(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_active_count_get - Increment the active count
+ * gen7_hwsched_active_count_get - Increment the active count
  * @adreno_dev: Pointer to the adreno device
  *
  * This function increments the active count. If active count
@@ -64,14 +64,14 @@ void genc_hwsched_handle_watchdog(struct adreno_device *adreno_dev);
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_hwsched_active_count_get(struct adreno_device *adreno_dev);
+int gen7_hwsched_active_count_get(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_active_count_put - Put back the active count
+ * gen7_hwsched_active_count_put - Put back the active count
  * @adreno_dev: Pointer to the adreno device
  *
  * This function decrements the active count sets the idle
  * timer if active count is zero.
  */
-void genc_hwsched_active_count_put(struct adreno_device *adreno_dev);
+void gen7_hwsched_active_count_put(struct adreno_device *adreno_dev);
 #endif

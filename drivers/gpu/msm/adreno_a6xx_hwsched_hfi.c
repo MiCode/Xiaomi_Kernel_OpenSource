@@ -1093,7 +1093,7 @@ int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev)
 
 static bool is_queue_empty(struct adreno_device *adreno_dev, u32 queue_idx)
 {
-	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];

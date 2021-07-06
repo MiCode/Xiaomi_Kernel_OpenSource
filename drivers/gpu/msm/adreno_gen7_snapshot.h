@@ -2,11 +2,11 @@
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
-#ifndef __ADRENO_GENC_SNAPSHOT_H
-#define __ADRENO_GENC_SNAPSHOT_H
+#ifndef __ADRENO_GEN7_SNAPSHOT_H
+#define __ADRENO_GEN7_SNAPSHOT_H
 
 #include "adreno.h"
-#include "adreno_genc.h"
+#include "adreno_gen7.h"
 
 #define PIPE_NONE 0
 #define PIPE_BR 1
@@ -32,7 +32,7 @@
 #define STATE_FORCE_CTXT_0 2
 #define STATE_FORCE_CTXT_1 3
 
-enum c500_debugbus_ids {
+enum gen7_debugbus_ids {
 	DEBUGBUS_CP_0_0           = 1,
 	DEBUGBUS_CP_0_1           = 2,
 	DEBUGBUS_RBBM             = 3,
@@ -109,7 +109,7 @@ enum c500_debugbus_ids {
 	DEBUGBUS_USPTP_7          = 337,
 };
 
-static const u32 genc_debugbus_blocks[] = {
+static const u32 gen7_debugbus_blocks[] = {
 	DEBUGBUS_CP_0_0,
 	DEBUGBUS_CP_0_1,
 	DEBUGBUS_RBBM,
@@ -182,7 +182,7 @@ static const u32 genc_debugbus_blocks[] = {
 	DEBUGBUS_USPTP_7,
 };
 
-enum c500_statetype_ids {
+enum gen7_statetype_ids {
 	TP0_NCTX_REG              = 0,
 	TP0_CTX0_3D_CVS_REG       = 1,
 	TP0_CTX0_3D_CPS_REG       = 2,
@@ -257,31 +257,31 @@ static const struct sel_reg {
 	unsigned int host_reg;
 	unsigned int cd_reg;
 	unsigned int val;
-} c500_rb_rac_sel = {
-	.host_reg = GENC_RB_RB_SUB_BLOCK_SEL_CNTL_HOST,
-	.cd_reg = GENC_RB_RB_SUB_BLOCK_SEL_CNTL_CD,
+} gen7_0_0_rb_rac_sel = {
+	.host_reg = GEN7_RB_RB_SUB_BLOCK_SEL_CNTL_HOST,
+	.cd_reg = GEN7_RB_RB_SUB_BLOCK_SEL_CNTL_CD,
 	.val = 0x0,
 },
-c500_rb_rbp_sel = {
-	.host_reg = GENC_RB_RB_SUB_BLOCK_SEL_CNTL_HOST,
-	.cd_reg = GENC_RB_RB_SUB_BLOCK_SEL_CNTL_CD,
+gen7_0_0_rb_rbp_sel = {
+	.host_reg = GEN7_RB_RB_SUB_BLOCK_SEL_CNTL_HOST,
+	.cd_reg = GEN7_RB_RB_SUB_BLOCK_SEL_CNTL_CD,
 	.val = 0x9,
 };
 
-static const u32 genc_pre_crashdumper_registers[] = {
+static const u32 gen7_pre_crashdumper_registers[] = {
 	0x00210, 0x00210, 0x00212, 0x00213, 0x03c00, 0x03c0b, 0x03c40, 0x03c42,
 	0x03c45, 0x03c47, 0x03c49, 0x03c4a, 0x03cc0, 0x03cd1,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_pre_crashdumper_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_pre_crashdumper_registers), 8));
 
-static const u32 genc_post_crashdumper_registers[] = {
+static const u32 gen7_post_crashdumper_registers[] = {
 	0x00535, 0x00535,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_post_crashdumper_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_post_crashdumper_registers), 8));
 
-static const u32 genc_gpu_registers[] = {
+static const u32 gen7_gpu_registers[] = {
 	0x00000, 0x00000, 0x00002, 0x00002, 0x00011, 0x00012, 0x00016, 0x0001b,
 	0x0001f, 0x00032, 0x00038, 0x0003c, 0x00042, 0x00042, 0x00044, 0x00044,
 	0x00047, 0x00047, 0x00049, 0x0004a, 0x0004c, 0x0004c, 0x00050, 0x00050,
@@ -310,15 +310,15 @@ static const u32 genc_gpu_registers[] = {
 	0x00e1b, 0x00e2b, 0x00e30, 0x00e32, 0x00e38, 0x00e3c,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_gpu_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_gpu_registers), 8));
 
-static const u32 genc_cx_misc_registers[] = {
+static const u32 gen7_cx_misc_registers[] = {
 	0x27800, 0x27800, 0x27810, 0x27814, 0x27820, 0x27824, 0x27832, 0x27857,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_cx_misc_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_cx_misc_registers), 8));
 
-static const u32 genc_cpr_registers[] = {
+static const u32 gen7_cpr_registers[] = {
 	0x26800, 0x26805, 0x26808, 0x2680c, 0x26814, 0x26814, 0x2681c, 0x2681c,
 	0x26820, 0x26838, 0x26840, 0x26840, 0x26848, 0x26848, 0x26850, 0x26850,
 	0x26880, 0x26898, 0x26980, 0x269b0, 0x269c0, 0x269c8, 0x269e0, 0x269ee,
@@ -326,16 +326,16 @@ static const u32 genc_cpr_registers[] = {
 	0x27440, 0x27441, 0x27444, 0x27444, 0x27480, 0x274a2, 0x274ac, 0x274ac,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_cpr_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_cpr_registers), 8));
 
-static const u32 genc_dpm_registers[] = {
+static const u32 gen7_dpm_registers[] = {
 	0x1aa00, 0x1aa06, 0x1aa09, 0x1aa0a, 0x1aa0c, 0x1aa0d, 0x1aa0f, 0x1aa12,
 	0x1aa14, 0x1aa47, 0x1aa50, 0x1aa51,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_dpm_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_dpm_registers), 8));
 
-static const u32 genc_gpucc_registers[] = {
+static const u32 gen7_gpucc_registers[] = {
 	0x24000, 0x2400e, 0x24400, 0x2440e, 0x24800, 0x24805, 0x24c00, 0x24cff,
 	0x25800, 0x25804, 0x25c00, 0x25c04, 0x26000, 0x26004, 0x26400, 0x26405,
 	0x26414, 0x2641d, 0x2642a, 0x26430, 0x26432, 0x26432, 0x26441, 0x26455,
@@ -345,9 +345,9 @@ static const u32 genc_gpucc_registers[] = {
 	0x26540, 0x26570, 0x26600, 0x26616, 0x26620, 0x2662d,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(genc_gpucc_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_gpucc_registers), 8));
 
-static const u32 c500_noncontext_pipe_br_registers[] = {
+static const u32 gen7_0_0_noncontext_pipe_br_registers[] = {
 	0x00887, 0x0088c, 0x08600, 0x08600, 0x08602, 0x08602, 0x08610, 0x0861b,
 	0x08620, 0x08620, 0x08630, 0x08630, 0x08637, 0x08639, 0x08640, 0x08640,
 	0x09600, 0x09600, 0x09602, 0x09603, 0x0960a, 0x09616, 0x09624, 0x0963a,
@@ -358,9 +358,9 @@ static const u32 c500_noncontext_pipe_br_registers[] = {
 	0x0a630, 0x0a631, 0x0a638, 0x0a638,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_noncontext_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_noncontext_pipe_br_registers), 8));
 
-static const u32 c500_noncontext_pipe_bv_registers[] = {
+static const u32 gen7_0_0_noncontext_pipe_bv_registers[] = {
 	0x00887, 0x0088c, 0x08600, 0x08600, 0x08602, 0x08602, 0x08610, 0x0861b,
 	0x08620, 0x08620, 0x08630, 0x08630, 0x08637, 0x08639, 0x08640, 0x08640,
 	0x09600, 0x09600, 0x09602, 0x09603, 0x0960a, 0x09616, 0x09624, 0x0963a,
@@ -371,67 +371,67 @@ static const u32 c500_noncontext_pipe_bv_registers[] = {
 	0x0a630, 0x0a631, 0x0a638, 0x0a638,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_noncontext_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_noncontext_pipe_bv_registers), 8));
 
-static const u32 c500_noncontext_pipe_lpac_registers[] = {
+static const u32 gen7_0_0_noncontext_pipe_lpac_registers[] = {
 	0x00887, 0x0088c, 0x00f80, 0x00f80,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_noncontext_pipe_lpac_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_noncontext_pipe_lpac_registers), 8));
 
-static const u32 c500_noncontext_rb_rac_pipe_br_registers[] = {
+static const u32 gen7_0_0_noncontext_rb_rac_pipe_br_registers[] = {
 	0x08e10, 0x08e1c, 0x08e20, 0x08e25, 0x08e51, 0x08e5a,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_noncontext_rb_rac_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_noncontext_rb_rac_pipe_br_registers), 8));
 
-static const u32 c500_noncontext_rb_rbp_pipe_br_registers[] = {
+static const u32 gen7_0_0_noncontext_rb_rbp_pipe_br_registers[] = {
 	0x08e01, 0x08e01, 0x08e04, 0x08e04, 0x08e06, 0x08e09, 0x08e0c, 0x08e0c,
 	0x08e28, 0x08e28, 0x08e2c, 0x08e35, 0x08e3b, 0x08e3f, 0x08e50, 0x08e50,
 	0x08e5b, 0x08e5d, 0x08e5f, 0x08e5f, 0x08e61, 0x08e61, 0x08e63, 0x08e65,
 	0x08e68, 0x08e68, 0x08e70, 0x08e79, 0x08e80, 0x08e8f,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_noncontext_rb_rbp_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_noncontext_rb_rbp_pipe_br_registers), 8));
 
 /* Block: GRAS Cluster: CLUSTER_GRAS Pipeline: PIPE_BR */
-static const u32 c500_gras_cluster_gras_pipe_br_registers[] = {
+static const u32 gen7_0_0_gras_cluster_gras_pipe_br_registers[] = {
 	0x08000, 0x08008, 0x08010, 0x08092, 0x08094, 0x08099, 0x0809b, 0x0809d,
 	0x080a0, 0x080a7, 0x080af, 0x080f1, 0x080f4, 0x080f6, 0x080f8, 0x080fa,
 	0x08100, 0x08107, 0x08109, 0x0810b, 0x08110, 0x08110, 0x08120, 0x0813f,
 	0x08400, 0x08406, 0x0840a, 0x0840b,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_gras_cluster_gras_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_gras_cluster_gras_pipe_br_registers), 8));
 
 /* Block: GRAS Cluster: CLUSTER_GRAS Pipeline: PIPE_BV */
-static const u32 c500_gras_cluster_gras_pipe_bv_registers[] = {
+static const u32 gen7_0_0_gras_cluster_gras_pipe_bv_registers[] = {
 	0x08000, 0x08008, 0x08010, 0x08092, 0x08094, 0x08099, 0x0809b, 0x0809d,
 	0x080a0, 0x080a7, 0x080af, 0x080f1, 0x080f4, 0x080f6, 0x080f8, 0x080fa,
 	0x08100, 0x08107, 0x08109, 0x0810b, 0x08110, 0x08110, 0x08120, 0x0813f,
 	0x08400, 0x08406, 0x0840a, 0x0840b,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_gras_cluster_gras_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_gras_cluster_gras_pipe_bv_registers), 8));
 
 /* Block: PC Cluster: CLUSTER_FE Pipeline: PIPE_BR */
-static const u32 c500_pc_cluster_fe_pipe_br_registers[] = {
+static const u32 gen7_0_0_pc_cluster_fe_pipe_br_registers[] = {
 	0x09800, 0x09804, 0x09806, 0x0980a, 0x09810, 0x09811, 0x09884, 0x09886,
 	0x09b00, 0x09b08,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_pc_cluster_fe_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_pc_cluster_fe_pipe_br_registers), 8));
 
 /* Block: PC Cluster: CLUSTER_FE Pipeline: PIPE_BV */
-static const u32 c500_pc_cluster_fe_pipe_bv_registers[] = {
+static const u32 gen7_0_0_pc_cluster_fe_pipe_bv_registers[] = {
 	0x09800, 0x09804, 0x09806, 0x0980a, 0x09810, 0x09811, 0x09884, 0x09886,
 	0x09b00, 0x09b08,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_pc_cluster_fe_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_pc_cluster_fe_pipe_bv_registers), 8));
 
 /* Block: RB_RAC Cluster: CLUSTER_PS Pipeline: PIPE_BR */
-static const u32 c500_rb_rac_cluster_ps_pipe_br_registers[] = {
+static const u32 gen7_0_0_rb_rac_cluster_ps_pipe_br_registers[] = {
 	0x08802, 0x08802, 0x08804, 0x08806, 0x08809, 0x0880a, 0x0880e, 0x08811,
 	0x08818, 0x0881e, 0x08821, 0x08821, 0x08823, 0x08826, 0x08829, 0x08829,
 	0x0882b, 0x0882e, 0x08831, 0x08831, 0x08833, 0x08836, 0x08839, 0x08839,
@@ -444,10 +444,10 @@ static const u32 c500_rb_rac_cluster_ps_pipe_br_registers[] = {
 	0x08c00, 0x08c01, 0x08c18, 0x08c1f, 0x08c26, 0x08c34,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_rb_rac_cluster_ps_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_rb_rac_cluster_ps_pipe_br_registers), 8));
 
 /* Block: RB_RBP Cluster: CLUSTER_PS Pipeline: PIPE_BR */
-static const u32 c500_rb_rbp_cluster_ps_pipe_br_registers[] = {
+static const u32 gen7_0_0_rb_rbp_cluster_ps_pipe_br_registers[] = {
 	0x08800, 0x08801, 0x08803, 0x08803, 0x0880b, 0x0880d, 0x08812, 0x08812,
 	0x08820, 0x08820, 0x08822, 0x08822, 0x08827, 0x08828, 0x0882a, 0x0882a,
 	0x0882f, 0x08830, 0x08832, 0x08832, 0x08837, 0x08838, 0x0883a, 0x0883a,
@@ -459,10 +459,10 @@ static const u32 c500_rb_rbp_cluster_ps_pipe_br_registers[] = {
 	0x08c17, 0x08c17, 0x08c20, 0x08c25,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_rb_rbp_cluster_ps_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_rb_rbp_cluster_ps_pipe_br_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_BR Location: HLSQ_State */
-static const u32 c500_sp_cluster_sp_ps_pipe_br_hlsq_state_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_br_hlsq_state_registers[] = {
 	0x0a980, 0x0a980, 0x0a982, 0x0a984, 0x0a99e, 0x0a99e, 0x0a9a7, 0x0a9a7,
 	0x0a9aa, 0x0a9aa, 0x0a9ae, 0x0a9b0, 0x0a9b3, 0x0a9b5, 0x0a9ba, 0x0a9ba,
 	0x0a9bc, 0x0a9bc, 0x0a9c4, 0x0a9c4, 0x0a9cd, 0x0a9cd, 0x0a9e0, 0x0a9fc,
@@ -470,90 +470,90 @@ static const u32 c500_sp_cluster_sp_ps_pipe_br_hlsq_state_registers[] = {
 	0x0ab05, 0x0ab05, 0x0ab0a, 0x0ab1b, 0x0ab20, 0x0ab20, 0x0ab40, 0x0abbf,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_br_hlsq_state_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_br_hlsq_state_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_BR Location: HLSQ_DP */
-static const u32 c500_sp_cluster_sp_ps_pipe_br_hlsq_dp_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_br_hlsq_dp_registers[] = {
 	0x0a9b1, 0x0a9b1, 0x0a9c6, 0x0a9cb, 0x0a9d4, 0x0a9df,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_br_hlsq_dp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_br_hlsq_dp_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_BR Location: SP_TOP */
-static const u32 c500_sp_cluster_sp_ps_pipe_br_sp_top_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_br_sp_top_registers[] = {
 	0x0a980, 0x0a980, 0x0a982, 0x0a984, 0x0a99e, 0x0a9a2, 0x0a9a7, 0x0a9a8,
 	0x0a9aa, 0x0a9aa, 0x0a9ae, 0x0a9ae, 0x0a9b0, 0x0a9b1, 0x0a9b3, 0x0a9b5,
 	0x0a9ba, 0x0a9bc, 0x0a9e0, 0x0a9f9, 0x0aa00, 0x0aa00, 0x0ab00, 0x0ab00,
 	0x0ab02, 0x0ab02, 0x0ab04, 0x0ab05, 0x0ab0a, 0x0ab1b, 0x0ab20, 0x0ab20,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_br_sp_top_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_br_sp_top_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_BR Location: uSPTP */
-static const u32 c500_sp_cluster_sp_ps_pipe_br_usptp_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_br_usptp_registers[] = {
 	0x0a980, 0x0a982, 0x0a985, 0x0a9a6, 0x0a9a8, 0x0a9a9, 0x0a9ab, 0x0a9ae,
 	0x0a9b0, 0x0a9b3, 0x0a9b6, 0x0a9b9, 0x0a9bb, 0x0a9bf, 0x0a9c2, 0x0a9c3,
 	0x0a9cd, 0x0a9cd, 0x0a9d0, 0x0a9d3, 0x0aa30, 0x0aa31, 0x0aa40, 0x0aabf,
 	0x0ab00, 0x0ab05, 0x0ab21, 0x0ab22, 0x0ab40, 0x0abbf,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_br_usptp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_br_usptp_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_BV Location: HLSQ_State */
-static const u32 c500_sp_cluster_sp_ps_pipe_bv_hlsq_state_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_bv_hlsq_state_registers[] = {
 	0x0ab00, 0x0ab02, 0x0ab0a, 0x0ab1b, 0x0ab20, 0x0ab20, 0x0ab40, 0x0abbf,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_bv_hlsq_state_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_bv_hlsq_state_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_BV Location: SP_TOP */
-static const u32 c500_sp_cluster_sp_ps_pipe_bv_sp_top_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_bv_sp_top_registers[] = {
 	0x0ab00, 0x0ab00, 0x0ab02, 0x0ab02, 0x0ab0a, 0x0ab1b, 0x0ab20, 0x0ab20,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_bv_sp_top_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_bv_sp_top_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_BV Location: uSPTP */
-static const u32 c500_sp_cluster_sp_ps_pipe_bv_usptp_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_bv_usptp_registers[] = {
 	0x0ab00, 0x0ab02, 0x0ab21, 0x0ab22, 0x0ab40, 0x0abbf,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_bv_usptp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_bv_usptp_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_LPAC Location: HLSQ_State */
-static const u32 c500_sp_cluster_sp_ps_pipe_lpac_hlsq_state_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_lpac_hlsq_state_registers[] = {
 	0x0a9b0, 0x0a9b0, 0x0a9b3, 0x0a9b5, 0x0a9ba, 0x0a9ba, 0x0a9bc, 0x0a9bc,
 	0x0a9c4, 0x0a9c4, 0x0a9cd, 0x0a9cd, 0x0a9e2, 0x0a9e3, 0x0a9e6, 0x0a9fc,
 	0x0aa00, 0x0aa00, 0x0aa31, 0x0aa31, 0x0ab00, 0x0ab01,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_lpac_hlsq_state_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_lpac_hlsq_state_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_LPAC Location: HLSQ_DP */
-static const u32 c500_sp_cluster_sp_ps_pipe_lpac_hlsq_dp_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_lpac_hlsq_dp_registers[] = {
 	0x0a9b1, 0x0a9b1, 0x0a9d4, 0x0a9df,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_lpac_hlsq_dp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_lpac_hlsq_dp_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_LPAC Location: SP_TOP */
-static const u32 c500_sp_cluster_sp_ps_pipe_lpac_sp_top_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_lpac_sp_top_registers[] = {
 	0x0a9b0, 0x0a9b1, 0x0a9b3, 0x0a9b5, 0x0a9ba, 0x0a9bc, 0x0a9e2, 0x0a9e3,
 	0x0a9e6, 0x0a9f9, 0x0aa00, 0x0aa00, 0x0ab00, 0x0ab00,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_lpac_sp_top_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_lpac_sp_top_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_PS Pipeline: PIPE_LPAC Location: uSPTP */
-static const u32 c500_sp_cluster_sp_ps_pipe_lpac_usptp_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_ps_pipe_lpac_usptp_registers[] = {
 	0x0a9b0, 0x0a9b3, 0x0a9b6, 0x0a9b9, 0x0a9bb, 0x0a9be, 0x0a9c2, 0x0a9c3,
 	0x0a9cd, 0x0a9cd, 0x0a9d0, 0x0a9d3, 0x0aa31, 0x0aa31, 0x0ab00, 0x0ab01,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_ps_pipe_lpac_usptp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_ps_pipe_lpac_usptp_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_VS Pipeline: PIPE_BR Location: HLSQ_State */
-static const u32 c500_sp_cluster_sp_vs_pipe_br_hlsq_state_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_vs_pipe_br_hlsq_state_registers[] = {
 	0x0a800, 0x0a800, 0x0a81b, 0x0a81d, 0x0a822, 0x0a822, 0x0a824, 0x0a824,
 	0x0a827, 0x0a82a, 0x0a830, 0x0a830, 0x0a833, 0x0a835, 0x0a83a, 0x0a83a,
 	0x0a83c, 0x0a83c, 0x0a83f, 0x0a840, 0x0a85b, 0x0a85d, 0x0a862, 0x0a862,
@@ -563,10 +563,10 @@ static const u32 c500_sp_cluster_sp_vs_pipe_br_hlsq_state_registers[] = {
 	0x0ab0a, 0x0ab1b, 0x0ab20, 0x0ab20, 0x0ab40, 0x0abbf,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_vs_pipe_br_hlsq_state_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_vs_pipe_br_hlsq_state_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_VS Pipeline: PIPE_BR Location: SP_TOP */
-static const u32 c500_sp_cluster_sp_vs_pipe_br_sp_top_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_vs_pipe_br_sp_top_registers[] = {
 	0x0a800, 0x0a800, 0x0a81c, 0x0a81d, 0x0a822, 0x0a824, 0x0a830, 0x0a831,
 	0x0a834, 0x0a835, 0x0a83a, 0x0a83c, 0x0a840, 0x0a840, 0x0a85c, 0x0a85d,
 	0x0a862, 0x0a864, 0x0a870, 0x0a871, 0x0a88d, 0x0a88e, 0x0a893, 0x0a895,
@@ -574,20 +574,20 @@ static const u32 c500_sp_cluster_sp_vs_pipe_br_sp_top_registers[] = {
 	0x0ab0a, 0x0ab1b, 0x0ab20, 0x0ab20,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_vs_pipe_br_sp_top_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_vs_pipe_br_sp_top_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_VS Pipeline: PIPE_BR Location: uSPTP */
-static const u32 c500_sp_cluster_sp_vs_pipe_br_usptp_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_vs_pipe_br_usptp_registers[] = {
 	0x0a800, 0x0a81b, 0x0a81e, 0x0a821, 0x0a823, 0x0a827, 0x0a830, 0x0a833,
 	0x0a836, 0x0a839, 0x0a83b, 0x0a85b, 0x0a85e, 0x0a861, 0x0a863, 0x0a867,
 	0x0a870, 0x0a88c, 0x0a88f, 0x0a892, 0x0a894, 0x0a898, 0x0a8c0, 0x0a8c3,
 	0x0ab00, 0x0ab05, 0x0ab21, 0x0ab22, 0x0ab40, 0x0abbf,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_vs_pipe_br_usptp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_vs_pipe_br_usptp_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_VS Pipeline: PIPE_BV Location: HLSQ_State */
-static const u32 c500_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers[] = {
 	0x0a800, 0x0a800, 0x0a81b, 0x0a81d, 0x0a822, 0x0a822, 0x0a824, 0x0a824,
 	0x0a827, 0x0a82a, 0x0a830, 0x0a830, 0x0a833, 0x0a835, 0x0a83a, 0x0a83a,
 	0x0a83c, 0x0a83c, 0x0a83f, 0x0a840, 0x0a85b, 0x0a85d, 0x0a862, 0x0a862,
@@ -597,10 +597,10 @@ static const u32 c500_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers[] = {
 	0x0ab20, 0x0ab20, 0x0ab40, 0x0abbf,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_VS Pipeline: PIPE_BV Location: SP_TOP */
-static const u32 c500_sp_cluster_sp_vs_pipe_bv_sp_top_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_vs_pipe_bv_sp_top_registers[] = {
 	0x0a800, 0x0a800, 0x0a81c, 0x0a81d, 0x0a822, 0x0a824, 0x0a830, 0x0a831,
 	0x0a834, 0x0a835, 0x0a83a, 0x0a83c, 0x0a840, 0x0a840, 0x0a85c, 0x0a85d,
 	0x0a862, 0x0a864, 0x0a870, 0x0a871, 0x0a88d, 0x0a88e, 0x0a893, 0x0a895,
@@ -608,173 +608,173 @@ static const u32 c500_sp_cluster_sp_vs_pipe_bv_sp_top_registers[] = {
 	0x0ab20, 0x0ab20,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_vs_pipe_bv_sp_top_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_vs_pipe_bv_sp_top_registers), 8));
 
 /* Block: SP Cluster: CLUSTER_SP_VS Pipeline: PIPE_BV Location: uSPTP */
-static const u32 c500_sp_cluster_sp_vs_pipe_bv_usptp_registers[] = {
+static const u32 gen7_0_0_sp_cluster_sp_vs_pipe_bv_usptp_registers[] = {
 	0x0a800, 0x0a81b, 0x0a81e, 0x0a821, 0x0a823, 0x0a827, 0x0a830, 0x0a833,
 	0x0a836, 0x0a839, 0x0a83b, 0x0a85b, 0x0a85e, 0x0a861, 0x0a863, 0x0a867,
 	0x0a870, 0x0a88c, 0x0a88f, 0x0a892, 0x0a894, 0x0a898, 0x0a8c0, 0x0a8c3,
 	0x0ab00, 0x0ab02, 0x0ab21, 0x0ab22, 0x0ab40, 0x0abbf,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_cluster_sp_vs_pipe_bv_usptp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_cluster_sp_vs_pipe_bv_usptp_registers), 8));
 
 /* Block: TPL1 Cluster: CLUSTER_SP_PS Pipeline: PIPE_BR */
-static const u32 c500_tpl1_cluster_sp_ps_pipe_br_registers[] = {
+static const u32 gen7_0_0_tpl1_cluster_sp_ps_pipe_br_registers[] = {
 	0x0b180, 0x0b183, 0x0b190, 0x0b195, 0x0b2c0, 0x0b2d5, 0x0b300, 0x0b307,
 	0x0b309, 0x0b309, 0x0b310, 0x0b310,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_tpl1_cluster_sp_ps_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_tpl1_cluster_sp_ps_pipe_br_registers), 8));
 
 /* Block: TPL1 Cluster: CLUSTER_SP_PS Pipeline: PIPE_BV */
-static const u32 c500_tpl1_cluster_sp_ps_pipe_bv_registers[] = {
+static const u32 gen7_0_0_tpl1_cluster_sp_ps_pipe_bv_registers[] = {
 	0x0b300, 0x0b307, 0x0b309, 0x0b309, 0x0b310, 0x0b310,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_tpl1_cluster_sp_ps_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_tpl1_cluster_sp_ps_pipe_bv_registers), 8));
 
 /* Block: TPL1 Cluster: CLUSTER_SP_PS Pipeline: PIPE_LPAC */
-static const u32 c500_tpl1_cluster_sp_ps_pipe_lpac_registers[] = {
+static const u32 gen7_0_0_tpl1_cluster_sp_ps_pipe_lpac_registers[] = {
 	0x0b180, 0x0b181, 0x0b300, 0x0b301, 0x0b307, 0x0b307, 0x0b309, 0x0b309,
 	0x0b310, 0x0b310,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_tpl1_cluster_sp_ps_pipe_lpac_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_tpl1_cluster_sp_ps_pipe_lpac_registers), 8));
 
 /* Block: TPL1 Cluster: CLUSTER_SP_VS Pipeline: PIPE_BR */
-static const u32 c500_tpl1_cluster_sp_vs_pipe_br_registers[] = {
+static const u32 gen7_0_0_tpl1_cluster_sp_vs_pipe_br_registers[] = {
 	0x0b300, 0x0b307, 0x0b309, 0x0b309, 0x0b310, 0x0b310,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_tpl1_cluster_sp_vs_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_tpl1_cluster_sp_vs_pipe_br_registers), 8));
 
 /* Block: TPL1 Cluster: CLUSTER_SP_VS Pipeline: PIPE_BV */
-static const u32 c500_tpl1_cluster_sp_vs_pipe_bv_registers[] = {
+static const u32 gen7_0_0_tpl1_cluster_sp_vs_pipe_bv_registers[] = {
 	0x0b300, 0x0b307, 0x0b309, 0x0b309, 0x0b310, 0x0b310,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_tpl1_cluster_sp_vs_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_tpl1_cluster_sp_vs_pipe_bv_registers), 8));
 
 /* Block: VFD Cluster: CLUSTER_FE Pipeline: PIPE_BR */
-static const u32 c500_vfd_cluster_fe_pipe_br_registers[] = {
+static const u32 gen7_0_0_vfd_cluster_fe_pipe_br_registers[] = {
 	0x0a000, 0x0a009, 0x0a00e, 0x0a0ef,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_vfd_cluster_fe_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_vfd_cluster_fe_pipe_br_registers), 8));
 
 /* Block: VFD Cluster: CLUSTER_FE Pipeline: PIPE_BV */
-static const u32 c500_vfd_cluster_fe_pipe_bv_registers[] = {
+static const u32 gen7_0_0_vfd_cluster_fe_pipe_bv_registers[] = {
 	0x0a000, 0x0a009, 0x0a00e, 0x0a0ef,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_vfd_cluster_fe_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_vfd_cluster_fe_pipe_bv_registers), 8));
 
 /* Block: VPC Cluster: CLUSTER_FE Pipeline: PIPE_BR */
-static const u32 c500_vpc_cluster_fe_pipe_br_registers[] = {
+static const u32 gen7_0_0_vpc_cluster_fe_pipe_br_registers[] = {
 	0x09300, 0x09307,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_vpc_cluster_fe_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_vpc_cluster_fe_pipe_br_registers), 8));
 
 /* Block: VPC Cluster: CLUSTER_FE Pipeline: PIPE_BV */
-static const u32 c500_vpc_cluster_fe_pipe_bv_registers[] = {
+static const u32 gen7_0_0_vpc_cluster_fe_pipe_bv_registers[] = {
 	0x09300, 0x09307,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_vpc_cluster_fe_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_vpc_cluster_fe_pipe_bv_registers), 8));
 
 /* Block: VPC Cluster: CLUSTER_PC_VS Pipeline: PIPE_BR */
-static const u32 c500_vpc_cluster_pc_vs_pipe_br_registers[] = {
+static const u32 gen7_0_0_vpc_cluster_pc_vs_pipe_br_registers[] = {
 	0x09101, 0x0910c, 0x09300, 0x09307,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_vpc_cluster_pc_vs_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_vpc_cluster_pc_vs_pipe_br_registers), 8));
 
 /* Block: VPC Cluster: CLUSTER_PC_VS Pipeline: PIPE_BV */
-static const u32 c500_vpc_cluster_pc_vs_pipe_bv_registers[] = {
+static const u32 gen7_0_0_vpc_cluster_pc_vs_pipe_bv_registers[] = {
 	0x09101, 0x0910c, 0x09300, 0x09307,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_vpc_cluster_pc_vs_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_vpc_cluster_pc_vs_pipe_bv_registers), 8));
 
 /* Block: VPC Cluster: CLUSTER_VPC_PS Pipeline: PIPE_BR */
-static const u32 c500_vpc_cluster_vpc_ps_pipe_br_registers[] = {
+static const u32 gen7_0_0_vpc_cluster_vpc_ps_pipe_br_registers[] = {
 	0x09200, 0x0920f, 0x09212, 0x09216, 0x09218, 0x09236, 0x09300, 0x09307,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_vpc_cluster_vpc_ps_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_vpc_cluster_vpc_ps_pipe_br_registers), 8));
 
 /* Block: VPC Cluster: CLUSTER_VPC_PS Pipeline: PIPE_BV */
-static const u32 c500_vpc_cluster_vpc_ps_pipe_bv_registers[] = {
+static const u32 gen7_0_0_vpc_cluster_vpc_ps_pipe_bv_registers[] = {
 	0x09200, 0x0920f, 0x09212, 0x09216, 0x09218, 0x09236, 0x09300, 0x09307,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_vpc_cluster_vpc_ps_pipe_bv_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_vpc_cluster_vpc_ps_pipe_bv_registers), 8));
 
 /* Block: SP Cluster: noncontext Pipeline: PIPE_BR Location: HLSQ_State */
-static const u32 c500_sp_noncontext_pipe_br_hlsq_state_registers[] = {
+static const u32 gen7_0_0_sp_noncontext_pipe_br_hlsq_state_registers[] = {
 	0x0ae52, 0x0ae52, 0x0ae60, 0x0ae67, 0x0ae69, 0x0ae73,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_noncontext_pipe_br_hlsq_state_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_noncontext_pipe_br_hlsq_state_registers), 8));
 
 /* Block: SP Cluster: noncontext Pipeline: PIPE_BR Location: SP_TOP */
-static const u32 c500_sp_noncontext_pipe_br_sp_top_registers[] = {
+static const u32 gen7_0_0_sp_noncontext_pipe_br_sp_top_registers[] = {
 	0x0ae00, 0x0ae00, 0x0ae02, 0x0ae04, 0x0ae06, 0x0ae09, 0x0ae0c, 0x0ae0c,
 	0x0ae0f, 0x0ae0f, 0x0ae28, 0x0ae2b, 0x0ae35, 0x0ae35, 0x0ae3a, 0x0ae3f,
 	0x0ae50, 0x0ae52, 0x0ae80, 0x0aea3,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_noncontext_pipe_br_sp_top_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_noncontext_pipe_br_sp_top_registers), 8));
 
 /* Block: SP Cluster: noncontext Pipeline: PIPE_BR Location: uSPTP */
-static const u32 c500_sp_noncontext_pipe_br_usptp_registers[] = {
+static const u32 gen7_0_0_sp_noncontext_pipe_br_usptp_registers[] = {
 	0x0ae00, 0x0ae00, 0x0ae02, 0x0ae04, 0x0ae06, 0x0ae09, 0x0ae0c, 0x0ae0c,
 	0x0ae0f, 0x0ae0f, 0x0ae30, 0x0ae32, 0x0ae35, 0x0ae35, 0x0ae3a, 0x0ae3b,
 	0x0ae3e, 0x0ae3f, 0x0ae50, 0x0ae52,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_noncontext_pipe_br_usptp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_noncontext_pipe_br_usptp_registers), 8));
 
 /* Block: SP Cluster: noncontext Pipeline: PIPE_LPAC Location: HLSQ_State */
-static const u32 c500_sp_noncontext_pipe_lpac_hlsq_state_registers[] = {
+static const u32 gen7_0_0_sp_noncontext_pipe_lpac_hlsq_state_registers[] = {
 	0x0af88, 0x0af8a,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_noncontext_pipe_lpac_hlsq_state_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_noncontext_pipe_lpac_hlsq_state_registers), 8));
 
 /* Block: SP Cluster: noncontext Pipeline: PIPE_LPAC Location: SP_TOP */
-static const u32 c500_sp_noncontext_pipe_lpac_sp_top_registers[] = {
+static const u32 gen7_0_0_sp_noncontext_pipe_lpac_sp_top_registers[] = {
 	0x0af80, 0x0af84,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_noncontext_pipe_lpac_sp_top_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_noncontext_pipe_lpac_sp_top_registers), 8));
 
 /* Block: SP Cluster: noncontext Pipeline: PIPE_LPAC Location: uSPTP */
-static const u32 c500_sp_noncontext_pipe_lpac_usptp_registers[] = {
+static const u32 gen7_0_0_sp_noncontext_pipe_lpac_usptp_registers[] = {
 	0x0af80, 0x0af84, 0x0af90, 0x0af92,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_sp_noncontext_pipe_lpac_usptp_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_sp_noncontext_pipe_lpac_usptp_registers), 8));
 
 /* Block: TPl1 Cluster: noncontext Pipeline: PIPE_BR */
-static const u32 c500_tpl1_noncontext_pipe_br_registers[] = {
+static const u32 gen7_0_0_tpl1_noncontext_pipe_br_registers[] = {
 	0x0b600, 0x0b600, 0x0b602, 0x0b602, 0x0b604, 0x0b604, 0x0b608, 0x0b60c,
 	0x0b60f, 0x0b621, 0x0b630, 0x0b633,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_tpl1_noncontext_pipe_br_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_tpl1_noncontext_pipe_br_registers), 8));
 
 /* Block: TPl1 Cluster: noncontext Pipeline: PIPE_LPAC */
-static const u32 c500_tpl1_noncontext_pipe_lpac_registers[] = {
+static const u32 gen7_0_0_tpl1_noncontext_pipe_lpac_registers[] = {
 	0x0b780, 0x0b780,
 	UINT_MAX, UINT_MAX,
 };
-static_assert(IS_ALIGNED(sizeof(c500_tpl1_noncontext_pipe_lpac_registers), 8));
+static_assert(IS_ALIGNED(sizeof(gen7_0_0_tpl1_noncontext_pipe_lpac_registers), 8));
 
-struct genc_cluster_registers {
+struct gen7_cluster_registers {
 	/* cluster_id: Cluster identifier */
 	int cluster_id;
 	/* pipe_id: Pipe Identifier */
@@ -789,76 +789,76 @@ struct genc_cluster_registers {
 	unsigned int offset;
 };
 
-static struct genc_cluster_registers genc_clusters[] = {
+static struct gen7_cluster_registers gen7_clusters[] = {
 	{ CLUSTER_NONE, PIPE_BR, STATE_NON_CONTEXT,
-		c500_noncontext_pipe_br_registers, },
+		gen7_0_0_noncontext_pipe_br_registers, },
 	{ CLUSTER_NONE, PIPE_BV, STATE_NON_CONTEXT,
-		c500_noncontext_pipe_bv_registers, },
+		gen7_0_0_noncontext_pipe_bv_registers, },
 	{ CLUSTER_NONE, PIPE_LPAC, STATE_NON_CONTEXT,
-		c500_noncontext_pipe_lpac_registers, },
+		gen7_0_0_noncontext_pipe_lpac_registers, },
 	{ CLUSTER_NONE, PIPE_BR, STATE_NON_CONTEXT,
-		c500_noncontext_rb_rac_pipe_br_registers, &c500_rb_rac_sel, },
+		gen7_0_0_noncontext_rb_rac_pipe_br_registers, &gen7_0_0_rb_rac_sel, },
 	{ CLUSTER_NONE, PIPE_BR, STATE_NON_CONTEXT,
-		c500_noncontext_rb_rbp_pipe_br_registers, &c500_rb_rbp_sel, },
+		gen7_0_0_noncontext_rb_rbp_pipe_br_registers, &gen7_0_0_rb_rbp_sel, },
 	{ CLUSTER_GRAS, PIPE_BR, STATE_FORCE_CTXT_0,
-		c500_gras_cluster_gras_pipe_br_registers, },
+		gen7_0_0_gras_cluster_gras_pipe_br_registers, },
 	{ CLUSTER_GRAS, PIPE_BV, STATE_FORCE_CTXT_0,
-		c500_gras_cluster_gras_pipe_bv_registers, },
+		gen7_0_0_gras_cluster_gras_pipe_bv_registers, },
 	{ CLUSTER_GRAS, PIPE_BR, STATE_FORCE_CTXT_1,
-		c500_gras_cluster_gras_pipe_br_registers, },
+		gen7_0_0_gras_cluster_gras_pipe_br_registers, },
 	{ CLUSTER_GRAS, PIPE_BV, STATE_FORCE_CTXT_1,
-		c500_gras_cluster_gras_pipe_bv_registers, },
+		gen7_0_0_gras_cluster_gras_pipe_bv_registers, },
 	{ CLUSTER_FE, PIPE_BR, STATE_FORCE_CTXT_0,
-		c500_pc_cluster_fe_pipe_br_registers, },
+		gen7_0_0_pc_cluster_fe_pipe_br_registers, },
 	{ CLUSTER_FE, PIPE_BV, STATE_FORCE_CTXT_0,
-		c500_pc_cluster_fe_pipe_bv_registers, },
+		gen7_0_0_pc_cluster_fe_pipe_bv_registers, },
 	{ CLUSTER_FE, PIPE_BR, STATE_FORCE_CTXT_1,
-		c500_pc_cluster_fe_pipe_br_registers, },
+		gen7_0_0_pc_cluster_fe_pipe_br_registers, },
 	{ CLUSTER_FE, PIPE_BV, STATE_FORCE_CTXT_1,
-		c500_pc_cluster_fe_pipe_bv_registers, },
+		gen7_0_0_pc_cluster_fe_pipe_bv_registers, },
 	{ CLUSTER_PS, PIPE_BR, STATE_FORCE_CTXT_0,
-		c500_rb_rac_cluster_ps_pipe_br_registers, &c500_rb_rac_sel, },
+		gen7_0_0_rb_rac_cluster_ps_pipe_br_registers, &gen7_0_0_rb_rac_sel, },
 	{ CLUSTER_PS, PIPE_BR, STATE_FORCE_CTXT_1,
-		c500_rb_rac_cluster_ps_pipe_br_registers, &c500_rb_rac_sel, },
+		gen7_0_0_rb_rac_cluster_ps_pipe_br_registers, &gen7_0_0_rb_rac_sel, },
 	{ CLUSTER_PS, PIPE_BR, STATE_FORCE_CTXT_0,
-		c500_rb_rbp_cluster_ps_pipe_br_registers, &c500_rb_rbp_sel, },
+		gen7_0_0_rb_rbp_cluster_ps_pipe_br_registers, &gen7_0_0_rb_rbp_sel, },
 	{ CLUSTER_PS, PIPE_BR, STATE_FORCE_CTXT_1,
-		c500_rb_rbp_cluster_ps_pipe_br_registers, &c500_rb_rbp_sel, },
+		gen7_0_0_rb_rbp_cluster_ps_pipe_br_registers, &gen7_0_0_rb_rbp_sel, },
 	{ CLUSTER_FE, PIPE_BR, STATE_FORCE_CTXT_0,
-		c500_vfd_cluster_fe_pipe_br_registers, },
+		gen7_0_0_vfd_cluster_fe_pipe_br_registers, },
 	{ CLUSTER_FE, PIPE_BV, STATE_FORCE_CTXT_0,
-		c500_vfd_cluster_fe_pipe_bv_registers, },
+		gen7_0_0_vfd_cluster_fe_pipe_bv_registers, },
 	{ CLUSTER_FE, PIPE_BR, STATE_FORCE_CTXT_1,
-		c500_vfd_cluster_fe_pipe_br_registers, },
+		gen7_0_0_vfd_cluster_fe_pipe_br_registers, },
 	{ CLUSTER_FE, PIPE_BV, STATE_FORCE_CTXT_1,
-		c500_vfd_cluster_fe_pipe_bv_registers, },
+		gen7_0_0_vfd_cluster_fe_pipe_bv_registers, },
 	{ CLUSTER_FE, PIPE_BR, STATE_FORCE_CTXT_0,
-		c500_vpc_cluster_fe_pipe_br_registers, },
+		gen7_0_0_vpc_cluster_fe_pipe_br_registers, },
 	{ CLUSTER_FE, PIPE_BV, STATE_FORCE_CTXT_0,
-		c500_vpc_cluster_fe_pipe_bv_registers, },
+		gen7_0_0_vpc_cluster_fe_pipe_bv_registers, },
 	{ CLUSTER_FE, PIPE_BR, STATE_FORCE_CTXT_1,
-		c500_vpc_cluster_fe_pipe_br_registers, },
+		gen7_0_0_vpc_cluster_fe_pipe_br_registers, },
 	{ CLUSTER_FE, PIPE_BV, STATE_FORCE_CTXT_1,
-		c500_vpc_cluster_fe_pipe_bv_registers, },
+		gen7_0_0_vpc_cluster_fe_pipe_bv_registers, },
 	{ CLUSTER_PC_VS, PIPE_BR, STATE_FORCE_CTXT_0,
-		c500_vpc_cluster_pc_vs_pipe_br_registers, },
+		gen7_0_0_vpc_cluster_pc_vs_pipe_br_registers, },
 	{ CLUSTER_PC_VS, PIPE_BV, STATE_FORCE_CTXT_0,
-		c500_vpc_cluster_pc_vs_pipe_bv_registers, },
+		gen7_0_0_vpc_cluster_pc_vs_pipe_bv_registers, },
 	{ CLUSTER_PC_VS, PIPE_BR, STATE_FORCE_CTXT_1,
-		c500_vpc_cluster_pc_vs_pipe_br_registers, },
+		gen7_0_0_vpc_cluster_pc_vs_pipe_br_registers, },
 	{ CLUSTER_PC_VS, PIPE_BV, STATE_FORCE_CTXT_1,
-		c500_vpc_cluster_pc_vs_pipe_bv_registers, },
+		gen7_0_0_vpc_cluster_pc_vs_pipe_bv_registers, },
 	{ CLUSTER_VPC_PS, PIPE_BR, STATE_FORCE_CTXT_0,
-		c500_vpc_cluster_vpc_ps_pipe_br_registers, },
+		gen7_0_0_vpc_cluster_vpc_ps_pipe_br_registers, },
 	{ CLUSTER_VPC_PS, PIPE_BV, STATE_FORCE_CTXT_0,
-		c500_vpc_cluster_vpc_ps_pipe_bv_registers, },
+		gen7_0_0_vpc_cluster_vpc_ps_pipe_bv_registers, },
 	{ CLUSTER_VPC_PS, PIPE_BR, STATE_FORCE_CTXT_1,
-		c500_vpc_cluster_vpc_ps_pipe_br_registers, },
+		gen7_0_0_vpc_cluster_vpc_ps_pipe_br_registers, },
 	{ CLUSTER_VPC_PS, PIPE_BV, STATE_FORCE_CTXT_1,
-		c500_vpc_cluster_vpc_ps_pipe_bv_registers, },
+		gen7_0_0_vpc_cluster_vpc_ps_pipe_bv_registers, },
 };
 
-struct genc_sptp_cluster_registers {
+struct gen7_sptp_cluster_registers {
 	/* cluster_id: Cluster identifier */
 	int cluster_id;
 	/* cluster_id: SP block state type for the cluster */
@@ -877,92 +877,92 @@ struct genc_sptp_cluster_registers {
 	unsigned int offset;
 };
 
-static struct genc_sptp_cluster_registers genc_sptp_clusters[] = {
+static struct gen7_sptp_cluster_registers gen7_sptp_clusters[] = {
 	{ CLUSTER_NONE, SP_NCTX_REG, PIPE_BR, 0, HLSQ_State,
-		c500_sp_noncontext_pipe_br_hlsq_state_registers, 0xae00 },
+		gen7_0_0_sp_noncontext_pipe_br_hlsq_state_registers, 0xae00 },
 	{ CLUSTER_NONE, SP_NCTX_REG, PIPE_BR, 0, SP_TOP,
-		c500_sp_noncontext_pipe_br_sp_top_registers, 0xae00 },
+		gen7_0_0_sp_noncontext_pipe_br_sp_top_registers, 0xae00 },
 	{ CLUSTER_NONE, SP_NCTX_REG, PIPE_BR, 0, USPTP,
-		c500_sp_noncontext_pipe_br_usptp_registers, 0xae00 },
+		gen7_0_0_sp_noncontext_pipe_br_usptp_registers, 0xae00 },
 	{ CLUSTER_NONE, SP_NCTX_REG, PIPE_LPAC, 0, HLSQ_State,
-		c500_sp_noncontext_pipe_lpac_hlsq_state_registers, 0xaf80 },
+		gen7_0_0_sp_noncontext_pipe_lpac_hlsq_state_registers, 0xaf80 },
 	{ CLUSTER_NONE, SP_NCTX_REG, PIPE_LPAC, 0, SP_TOP,
-		c500_sp_noncontext_pipe_lpac_sp_top_registers, 0xaf80 },
+		gen7_0_0_sp_noncontext_pipe_lpac_sp_top_registers, 0xaf80 },
 	{ CLUSTER_NONE, SP_NCTX_REG, PIPE_LPAC, 0, USPTP,
-		c500_sp_noncontext_pipe_lpac_usptp_registers, 0xaf80 },
+		gen7_0_0_sp_noncontext_pipe_lpac_usptp_registers, 0xaf80 },
 	{ CLUSTER_NONE, TP0_NCTX_REG, PIPE_BR, 0, USPTP,
-		c500_tpl1_noncontext_pipe_br_registers, 0xb600 },
+		gen7_0_0_tpl1_noncontext_pipe_br_registers, 0xb600 },
 	{ CLUSTER_NONE, TP0_NCTX_REG, PIPE_LPAC, 0, USPTP,
-		c500_tpl1_noncontext_pipe_lpac_registers, 0xb780 },
+		gen7_0_0_tpl1_noncontext_pipe_lpac_registers, 0xb780 },
 	{ CLUSTER_SP_PS, SP_CTX0_3D_CPS_REG, PIPE_BR, 0, HLSQ_State,
-		c500_sp_cluster_sp_ps_pipe_br_hlsq_state_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_br_hlsq_state_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX0_3D_CPS_REG, PIPE_BR, 0, HLSQ_DP,
-		c500_sp_cluster_sp_ps_pipe_br_hlsq_dp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_br_hlsq_dp_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX0_3D_CPS_REG, PIPE_BR, 0, SP_TOP,
-		c500_sp_cluster_sp_ps_pipe_br_sp_top_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_br_sp_top_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX0_3D_CPS_REG, PIPE_BR, 0, USPTP,
-		c500_sp_cluster_sp_ps_pipe_br_usptp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_br_usptp_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX1_3D_CPS_REG, PIPE_BR, 1, HLSQ_State,
-		c500_sp_cluster_sp_ps_pipe_br_hlsq_state_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_br_hlsq_state_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX1_3D_CPS_REG, PIPE_BR, 1, HLSQ_DP,
-		c500_sp_cluster_sp_ps_pipe_br_hlsq_dp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_br_hlsq_dp_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX1_3D_CPS_REG, PIPE_BR, 1, SP_TOP,
-		c500_sp_cluster_sp_ps_pipe_br_sp_top_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_br_sp_top_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX1_3D_CPS_REG, PIPE_BR, 1, USPTP,
-		c500_sp_cluster_sp_ps_pipe_br_usptp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_br_usptp_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX0_3D_CPS_REG, PIPE_LPAC, 0, HLSQ_State,
-		c500_sp_cluster_sp_ps_pipe_lpac_hlsq_state_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_lpac_hlsq_state_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX0_3D_CPS_REG, PIPE_LPAC, 0, HLSQ_DP,
-		c500_sp_cluster_sp_ps_pipe_lpac_hlsq_dp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_lpac_hlsq_dp_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX0_3D_CPS_REG, PIPE_LPAC, 0, SP_TOP,
-		c500_sp_cluster_sp_ps_pipe_lpac_sp_top_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_lpac_sp_top_registers, 0xa800 },
 	{ CLUSTER_SP_PS, SP_CTX0_3D_CPS_REG, PIPE_LPAC, 0, USPTP,
-		c500_sp_cluster_sp_ps_pipe_lpac_usptp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_ps_pipe_lpac_usptp_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX0_3D_CVS_REG, PIPE_BR, 0, HLSQ_State,
-		c500_sp_cluster_sp_vs_pipe_br_hlsq_state_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_br_hlsq_state_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX0_3D_CVS_REG, PIPE_BV, 0, HLSQ_State,
-		c500_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX0_3D_CVS_REG, PIPE_BR, 0, SP_TOP,
-		c500_sp_cluster_sp_vs_pipe_br_sp_top_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_br_sp_top_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX0_3D_CVS_REG, PIPE_BV, 0, SP_TOP,
-		c500_sp_cluster_sp_vs_pipe_bv_sp_top_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_bv_sp_top_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX0_3D_CVS_REG, PIPE_BR, 0, USPTP,
-		c500_sp_cluster_sp_vs_pipe_br_usptp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_br_usptp_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX0_3D_CVS_REG, PIPE_BV, 0, USPTP,
-		c500_sp_cluster_sp_vs_pipe_bv_usptp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_bv_usptp_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX1_3D_CVS_REG, PIPE_BR, 1, HLSQ_State,
-		c500_sp_cluster_sp_vs_pipe_br_hlsq_state_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_br_hlsq_state_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX1_3D_CVS_REG, PIPE_BV, 1, HLSQ_State,
-		c500_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_bv_hlsq_state_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX1_3D_CVS_REG, PIPE_BR, 1, SP_TOP,
-		c500_sp_cluster_sp_vs_pipe_br_sp_top_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_br_sp_top_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX1_3D_CVS_REG, PIPE_BV, 1, SP_TOP,
-		c500_sp_cluster_sp_vs_pipe_bv_sp_top_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_bv_sp_top_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX1_3D_CVS_REG, PIPE_BR, 1, USPTP,
-		c500_sp_cluster_sp_vs_pipe_br_usptp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_br_usptp_registers, 0xa800 },
 	{ CLUSTER_SP_VS, SP_CTX1_3D_CVS_REG, PIPE_BV, 1, USPTP,
-		c500_sp_cluster_sp_vs_pipe_bv_usptp_registers, 0xa800 },
+		gen7_0_0_sp_cluster_sp_vs_pipe_bv_usptp_registers, 0xa800 },
 	{ CLUSTER_SP_PS, TP0_CTX0_3D_CPS_REG, PIPE_BR, 0, USPTP,
-		c500_tpl1_cluster_sp_ps_pipe_br_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_ps_pipe_br_registers, 0xb000 },
 	{ CLUSTER_SP_PS, TP0_CTX1_3D_CPS_REG, PIPE_BR, 1, USPTP,
-		c500_tpl1_cluster_sp_ps_pipe_br_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_ps_pipe_br_registers, 0xb000 },
 	{ CLUSTER_SP_PS, TP0_CTX2_3D_CPS_REG, PIPE_BR, 2, USPTP,
-		c500_tpl1_cluster_sp_ps_pipe_br_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_ps_pipe_br_registers, 0xb000 },
 	{ CLUSTER_SP_PS, TP0_CTX3_3D_CPS_REG, PIPE_BR, 3, USPTP,
-		c500_tpl1_cluster_sp_ps_pipe_br_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_ps_pipe_br_registers, 0xb000 },
 	{ CLUSTER_SP_PS, TP0_CTX0_3D_CPS_REG, PIPE_LPAC, 0, USPTP,
-		c500_tpl1_cluster_sp_ps_pipe_lpac_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_ps_pipe_lpac_registers, 0xb000 },
 	{ CLUSTER_SP_VS, TP0_CTX0_3D_CVS_REG, PIPE_BR, 0, USPTP,
-		c500_tpl1_cluster_sp_vs_pipe_br_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_vs_pipe_br_registers, 0xb000 },
 	{ CLUSTER_SP_VS, TP0_CTX0_3D_CVS_REG, PIPE_BV, 0, USPTP,
-		c500_tpl1_cluster_sp_vs_pipe_bv_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_vs_pipe_bv_registers, 0xb000 },
 	{ CLUSTER_SP_VS, TP0_CTX1_3D_CVS_REG, PIPE_BR, 1, USPTP,
-		c500_tpl1_cluster_sp_vs_pipe_br_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_vs_pipe_br_registers, 0xb000 },
 	{ CLUSTER_SP_VS, TP0_CTX1_3D_CVS_REG, PIPE_BV, 1, USPTP,
-		c500_tpl1_cluster_sp_vs_pipe_bv_registers, 0xb000 },
+		gen7_0_0_tpl1_cluster_sp_vs_pipe_bv_registers, 0xb000 },
 };
 
-struct genc_shader_block {
+struct gen7_shader_block {
 	/* statetype: Type identifer for the block */
 	u32 statetype;
 	/* size: Size of the block (in dwords) */
@@ -979,7 +979,7 @@ struct genc_shader_block {
 	u64 offset;
 };
 
-static struct genc_shader_block genc_shader_blocks[] = {
+static struct gen7_shader_block gen7_shader_blocks[] = {
 	{TP0_TMO_DATA,               0x200, 0, 0, PIPE_BR, USPTP},
 	{TP0_SMO_DATA,               0x80, 0, 0, PIPE_BR, USPTP},
 	{TP0_MIPMAP_BASE_DATA,       0x3c0, 0, 0, PIPE_BR, USPTP},
@@ -1250,18 +1250,18 @@ static struct genc_shader_block genc_shader_blocks[] = {
 	{SP_LB_12_DATA,              0x200, 3, 1, PIPE_BR, USPTP},
 };
 
-static const u32 genc_gbif_debugbus_blocks[] = {
+static const u32 gen7_gbif_debugbus_blocks[] = {
 	DEBUGBUS_GBIF_CX,
 	DEBUGBUS_GBIF_GX,
 };
 
-static const u32 genc_cx_dbgc_debugbus_blocks[] = {
+static const u32 gen7_cx_dbgc_debugbus_blocks[] = {
 	DEBUGBUS_GMU_CX,
 	DEBUGBUS_CX,
 };
 
-struct genc_shader_block_info {
-	struct genc_shader_block *block;
+struct gen7_shader_block_info {
+	struct gen7_shader_block *block;
 	u32 bank;
 	u64 offset;
 };
@@ -1270,26 +1270,26 @@ static struct reg_list {
 	const u32 *regs;
 	const struct sel_reg *sel;
 	u64 offset;
-} genc_reg_list[] = {
-	{ genc_gpu_registers, NULL },
-	{ genc_cx_misc_registers, NULL },
-	{ genc_dpm_registers, NULL },
+} gen7_reg_list[] = {
+	{ gen7_gpu_registers, NULL },
+	{ gen7_cx_misc_registers, NULL },
+	{ gen7_dpm_registers, NULL },
 };
 
 static struct cp_indexed_reg_list {
 	u32 addr;
 	u32 data;
 	u32 size;
-} genc_cp_indexed_reg_list[] = {
-	{ GENC_CP_SQE_STAT_ADDR, GENC_CP_SQE_STAT_DATA, 0x33},
-	{ GENC_CP_DRAW_STATE_ADDR, GENC_CP_DRAW_STATE_DATA, 0x100},
-	{ GENC_CP_SQE_UCODE_DBG_ADDR, GENC_CP_SQE_UCODE_DBG_DATA, 0x8000},
-	{ GENC_CP_BV_SQE_STAT_ADDR, GENC_CP_BV_SQE_STAT_DATA, 0x33},
-	{ GENC_CP_BV_DRAW_STATE_ADDR, GENC_CP_BV_DRAW_STATE_DATA, 0x100},
-	{ GENC_CP_BV_SQE_UCODE_DBG_ADDR, GENC_CP_BV_SQE_UCODE_DBG_DATA, 0x8000},
-	{ GENC_CP_SQE_AC_STAT_ADDR, GENC_CP_SQE_AC_STAT_DATA, 0x33},
-	{ GENC_CP_LPAC_DRAW_STATE_ADDR, GENC_CP_LPAC_DRAW_STATE_DATA, 0x100},
-	{ GENC_CP_SQE_AC_UCODE_DBG_ADDR, GENC_CP_SQE_AC_UCODE_DBG_DATA, 0x8000},
-	{ GENC_CP_LPAC_FIFO_DBG_ADDR, GENC_CP_LPAC_FIFO_DBG_DATA, 0x40},
+} gen7_cp_indexed_reg_list[] = {
+	{ GEN7_CP_SQE_STAT_ADDR, GEN7_CP_SQE_STAT_DATA, 0x33},
+	{ GEN7_CP_DRAW_STATE_ADDR, GEN7_CP_DRAW_STATE_DATA, 0x100},
+	{ GEN7_CP_SQE_UCODE_DBG_ADDR, GEN7_CP_SQE_UCODE_DBG_DATA, 0x8000},
+	{ GEN7_CP_BV_SQE_STAT_ADDR, GEN7_CP_BV_SQE_STAT_DATA, 0x33},
+	{ GEN7_CP_BV_DRAW_STATE_ADDR, GEN7_CP_BV_DRAW_STATE_DATA, 0x100},
+	{ GEN7_CP_BV_SQE_UCODE_DBG_ADDR, GEN7_CP_BV_SQE_UCODE_DBG_DATA, 0x8000},
+	{ GEN7_CP_SQE_AC_STAT_ADDR, GEN7_CP_SQE_AC_STAT_DATA, 0x33},
+	{ GEN7_CP_LPAC_DRAW_STATE_ADDR, GEN7_CP_LPAC_DRAW_STATE_DATA, 0x100},
+	{ GEN7_CP_SQE_AC_UCODE_DBG_ADDR, GEN7_CP_SQE_AC_UCODE_DBG_DATA, 0x8000},
+	{ GEN7_CP_LPAC_FIFO_DBG_ADDR, GEN7_CP_LPAC_FIFO_DBG_DATA, 0x40},
 };
-#endif /*_ADRENO_GENC_SNAPSHOT_H */
+#endif /*_ADRENO_GEN7_SNAPSHOT_H */

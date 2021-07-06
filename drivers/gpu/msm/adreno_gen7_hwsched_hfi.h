@@ -3,15 +3,15 @@
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 
-#ifndef _ADRENO_GENC_HWSCHED_HFI_H_
-#define _ADRENO_GENC_HWSCHED_HFI_H_
+#ifndef _ADRENO_GEN7_HWSCHED_HFI_H_
+#define _ADRENO_GEN7_HWSCHED_HFI_H_
 
 /* Maximum number of IBs in a submission */
 #define HWSCHED_MAX_NUMIBS \
 	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
 		/ sizeof(struct hfi_issue_ib))
 
-struct genc_hwsched_hfi {
+struct gen7_hwsched_hfi {
 	struct hfi_mem_alloc_entry mem_alloc_table[32];
 	u32 mem_alloc_entries;
 	/** @irq_mask: Store the hfi interrupt mask */
@@ -31,21 +31,21 @@ struct genc_hwsched_hfi {
 struct kgsl_drawobj_cmd;
 
 /**
- * genc_hwsched_hfi_probe - Probe hwsched hfi resources
+ * gen7_hwsched_hfi_probe - Probe hwsched hfi resources
  * @adreno_dev: Pointer to adreno device structure
  *
  * Return: 0 on success and negative error on failure.
  */
-int genc_hwsched_hfi_probe(struct adreno_device *adreno_dev);
+int gen7_hwsched_hfi_probe(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_hfi_remove - Release hwsched hfi resources
+ * gen7_hwsched_hfi_remove - Release hwsched hfi resources
  * @adreno_dev: Pointer to adreno device structure
  */
-void genc_hwsched_hfi_remove(struct adreno_device *adreno_dev);
+void gen7_hwsched_hfi_remove(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_hfi_init - Initialize hfi resources
+ * gen7_hwsched_hfi_init - Initialize hfi resources
  * @adreno_dev: Pointer to adreno device structure
  *
  * This function is used to initialize hfi resources
@@ -53,28 +53,28 @@ void genc_hwsched_hfi_remove(struct adreno_device *adreno_dev);
  *
  * Return: 0 on success and negative error on failure.
  */
-int genc_hwsched_hfi_init(struct adreno_device *adreno_dev);
+int gen7_hwsched_hfi_init(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_hfi_start - Start hfi resources
+ * gen7_hwsched_hfi_start - Start hfi resources
  * @adreno_dev: Pointer to adreno device structure
  *
  * Send the various hfi packets before booting the gpu
  *
  * Return: 0 on success and negative error on failure.
  */
-int genc_hwsched_hfi_start(struct adreno_device *adreno_dev);
+int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_hfi_stop - Stop the hfi resources
+ * gen7_hwsched_hfi_stop - Stop the hfi resources
  * @adreno_dev: Pointer to the adreno device
  *
  * This function does the hfi cleanup when powering down the gmu
  */
-void genc_hwsched_hfi_stop(struct adreno_device *adreno_dev);
+void gen7_hwsched_hfi_stop(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwched_cp_init - Send CP_INIT via HFI
+ * gen7_hwched_cp_init - Send CP_INIT via HFI
  * @adreno_dev: Pointer to adreno device structure
  *
  * This function is used to send CP INIT packet and bring
@@ -82,10 +82,10 @@ void genc_hwsched_hfi_stop(struct adreno_device *adreno_dev);
  *
  * Return: 0 on success and negative error on failure.
  */
-int genc_hwsched_cp_init(struct adreno_device *adreno_dev);
+int gen7_hwsched_cp_init(struct adreno_device *adreno_dev);
 
 /**
- * genc_hfi_send_cmd_async - Send an hfi packet
+ * gen7_hfi_send_cmd_async - Send an hfi packet
  * @adreno_dev: Pointer to adreno device structure
  * @data: Data to be sent in the hfi packet
  *
@@ -94,10 +94,10 @@ int genc_hwsched_cp_init(struct adreno_device *adreno_dev);
  *
  * Return: 0 on success and negative error on failure.
  */
-int genc_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
+int gen7_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 
 /**
- * genc_hwsched_submit_cmdobj - Dispatch IBs to dispatch queues
+ * gen7_hwsched_submit_cmdobj - Dispatch IBs to dispatch queues
  * @adreno_dev: Pointer to adreno device structure
  * @cmdobj: The command object which needs to be submitted
  *
@@ -106,23 +106,23 @@ int genc_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 
  * Return: 0 on success and negative error on failure
  */
-int genc_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
+int gen7_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj);
 
 /**
- * genc_hwsched_context_detach - Unregister a context with GMU
+ * gen7_hwsched_context_detach - Unregister a context with GMU
  * @drawctxt: Pointer to the adreno context
  *
  * This function sends context unregister HFI and waits for the ack
  * to ensure all submissions from this context have retired
  */
-void genc_hwsched_context_detach(struct adreno_context *drawctxt);
+void gen7_hwsched_context_detach(struct adreno_context *drawctxt);
 
-/* Helper function to get to genc hwsched hfi device from adreno device */
-struct genc_hwsched_hfi *to_genc_hwsched_hfi(struct adreno_device *adreno_dev);
+/* Helper function to get to gen7 hwsched hfi device from adreno device */
+struct gen7_hwsched_hfi *to_gen7_hwsched_hfi(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_preempt_count_get - Get preemption count from GMU
+ * gen7_hwsched_preempt_count_get - Get preemption count from GMU
  * @adreno_dev: Pointer to adreno device
  *
  * This function sends a GET_VALUE HFI packet to get the number of
@@ -130,10 +130,10 @@ struct genc_hwsched_hfi *to_genc_hwsched_hfi(struct adreno_device *adreno_dev);
  *
  * Return: Preemption count
  */
-u32 genc_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
+u32 gen7_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
 
 /**
- * genc_hwsched_parse_payload - Parse payload to look up a key
+ * gen7_hwsched_parse_payload - Parse payload to look up a key
  * @payload: Pointer to a payload section
  * @key: The key who's value is to be looked up
  *
@@ -142,14 +142,14 @@ u32 genc_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
  *
  * Return: The value of the key or 0 if key is not found
  */
-u32 genc_hwsched_parse_payload(struct payload_section *payload, u32 key);
+u32 gen7_hwsched_parse_payload(struct payload_section *payload, u32 key);
 
 /**
- * genc_hwsched_process_msgq - Process hfi msg queue
+ * gen7_hwsched_process_msgq - Process hfi msg queue
  * @adreno_dev: Pointer to adreno device
  *
  * Process any pending firmware to host packets in the message
  * queue
  */
-void genc_hwsched_process_msgq(struct adreno_device *adreno_dev);
+void gen7_hwsched_process_msgq(struct adreno_device *adreno_dev);
 #endif

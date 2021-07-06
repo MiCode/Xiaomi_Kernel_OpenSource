@@ -4,7 +4,7 @@
  */
 
 #include "adreno.h"
-#include "adreno_genc.h"
+#include "adreno_gen7.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
 #include "adreno_trace.h"
@@ -18,7 +18,7 @@ static bool is_concurrent_binning(struct adreno_context *drawctxt)
 	return !(drawctxt->base.flags & KGSL_CONTEXT_SECURE);
 }
 
-static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
+static int gen7_rb_pagetable_switch(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
 		struct kgsl_pagetable *pagetable, u32 *cmds)
 {
@@ -56,7 +56,7 @@ static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
 	return count;
 }
 
-static int genc_rb_context_switch(struct adreno_device *adreno_dev,
+static int gen7_rb_context_switch(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,
 		struct adreno_context *drawctxt)
 {
@@ -83,12 +83,12 @@ static int genc_rb_context_switch(struct adreno_device *adreno_dev,
 	cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
 
 	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
-		count += genc_rb_pagetable_switch(adreno_dev, rb,
+		count += gen7_rb_pagetable_switch(adreno_dev, rb,
 			drawctxt, pagetable, &cmds[count]);
 	else {
 		struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 		u32 id = drawctxt ? drawctxt->base.id : 0;
-		u32 offset = GENC_SMMU_BASE + (iommu->cb0_offset >> 2) + 0x0d;
+		u32 offset = GEN7_SMMU_BASE + (iommu->cb0_offset >> 2) + 0x0d;
 
 		/*
 		 * Set the CONTEXTIDR register to the current context id so we
@@ -119,7 +119,7 @@ static int genc_rb_context_switch(struct adreno_device *adreno_dev,
 	cmds[count++] = cp_type7_packet(CP_EVENT_WRITE, 1);
 	cmds[count++] = 0x31;
 
-	return genc_ringbuffer_addcmds(adreno_dev, rb, NULL, F_NOTPROTECTED,
+	return gen7_ringbuffer_addcmds(adreno_dev, rb, NULL, F_NOTPROTECTED,
 			cmds, count, 0, NULL);
 }
 
@@ -133,7 +133,7 @@ static int genc_rb_context_switch(struct adreno_device *adreno_dev,
 #define CTXT_EOPTIMESTAMP(device, drawctxt) \
 	MEMSTORE_ID_GPU_ADDR(device, (drawctxt)->base.id, eoptimestamp)
 
-int genc_ringbuffer_submit(struct adreno_ringbuffer *rb,
+int gen7_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time)
 {
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
@@ -148,8 +148,8 @@ int genc_ringbuffer_submit(struct adreno_ringbuffer *rb,
 	if (adreno_in_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE)) {
 		if (adreno_dev->cur_rb == rb) {
 			kgsl_pwrscale_busy(device);
-			ret = genc_fenced_write(adreno_dev,
-				GENC_CP_RB_WPTR, rb->_wptr,
+			ret = gen7_fenced_write(adreno_dev,
+				GEN7_CP_RB_WPTR, rb->_wptr,
 				FENCE_STATUS_WRITEDROPPED0_MASK);
 			rb->skip_inline_wptr = false;
 		}
@@ -174,7 +174,7 @@ int genc_ringbuffer_submit(struct adreno_ringbuffer *rb,
 	return ret;
 }
 
-int genc_ringbuffer_init(struct adreno_device *adreno_dev)
+int gen7_ringbuffer_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int i, ret;
@@ -205,19 +205,19 @@ int genc_ringbuffer_init(struct adreno_device *adreno_dev)
 	}
 
 	timer_setup(&adreno_dev->preempt.timer, adreno_preemption_timer, 0);
-	genc_preemption_init(adreno_dev);
+	gen7_preemption_init(adreno_dev);
 	return 0;
 }
 
-#define GENC_SUBMIT_MAX 100
+#define GEN7_SUBMIT_MAX 100
 
-int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
+int gen7_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
 		u32 flags, u32 *in, u32 dwords, u32 timestamp,
 		struct adreno_submit_time *time)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	u32 size = GENC_SUBMIT_MAX + dwords;
+	u32 size = GEN7_SUBMIT_MAX + dwords;
 	u32 *cmds, index = 0;
 	u64 profile_gpuaddr;
 	u32 profile_dwords;
@@ -245,7 +245,7 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	cmds[index++] = drawctxt ? CMD_IDENTIFIER : CMD_INTERNAL_IDENTIFIER;
 
 	/* This is 21 dwords when drawctxt is not NULL */
-	index += genc_preemption_pre_ibsubmit(adreno_dev, rb, drawctxt,
+	index += gen7_preemption_pre_ibsubmit(adreno_dev, rb, drawctxt,
 		&cmds[index]);
 
 	cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
@@ -353,18 +353,18 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	cmds[index++] = CP_SET_THREAD_BR;
 
 	/* 10 dwords */
-	index += genc_preemption_post_ibsubmit(adreno_dev, &cmds[index]);
+	index += gen7_preemption_post_ibsubmit(adreno_dev, &cmds[index]);
 
 	/* Adjust the thing for the number of bytes we actually wrote */
 	rb->_wptr -= (size - index);
 
-	return genc_ringbuffer_submit(rb, time);
+	return gen7_ringbuffer_submit(rb, time);
 }
 
-static u32 genc_get_alwayson_counter(u32 *cmds, u64 gpuaddr)
+static u32 gen7_get_alwayson_counter(u32 *cmds, u64 gpuaddr)
 {
 	cmds[0] = cp_type7_packet(CP_REG_TO_MEM, 3);
-	cmds[1] = GENC_CP_ALWAYS_ON_COUNTER_LO | (1 << 30) | (2 << 18);
+	cmds[1] = GEN7_CP_ALWAYS_ON_COUNTER_LO | (1 << 30) | (2 << 18);
 	cmds[2] = lower_32_bits(gpuaddr);
 	cmds[3] = upper_32_bits(gpuaddr);
 
@@ -374,12 +374,12 @@ static u32 genc_get_alwayson_counter(u32 *cmds, u64 gpuaddr)
 #define PROFILE_IB_DWORDS 4
 #define PROFILE_IB_SLOTS (PAGE_SIZE / (PROFILE_IB_DWORDS << 2))
 
-static u64 genc_get_user_profiling_ib(struct adreno_ringbuffer *rb,
+static u64 gen7_get_user_profiling_ib(struct adreno_ringbuffer *rb,
 		struct kgsl_drawobj_cmd *cmdobj, u32 target_offset, u32 *cmds)
 {
 	u32 offset = rb->profile_index * (PROFILE_IB_DWORDS << 2);
 	u32 *ib = rb->profile_desc->hostptr + offset;
-	u32 dwords = genc_get_alwayson_counter(ib,
+	u32 dwords = gen7_get_alwayson_counter(ib,
 		cmdobj->profiling_buffer_gpuaddr + target_offset);
 
 	cmds[0] = cp_type7_packet(CP_INDIRECT_BUFFER_PFE, 3);
@@ -392,7 +392,7 @@ static u64 genc_get_user_profiling_ib(struct adreno_ringbuffer *rb,
 	return 4;
 }
 
-static int genc_drawctxt_switch(struct adreno_device *adreno_dev,
+static int gen7_drawctxt_switch(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,
 		struct adreno_context *drawctxt)
 {
@@ -409,7 +409,7 @@ static int genc_drawctxt_switch(struct adreno_device *adreno_dev,
 
 	trace_adreno_drawctxt_switch(rb, drawctxt);
 
-	genc_rb_context_switch(adreno_dev, rb, drawctxt);
+	gen7_rb_context_switch(adreno_dev, rb, drawctxt);
 
 	/* Release the current drawctxt as soon as the new one is switched */
 	adreno_put_drawctxt_on_timestamp(device, rb->drawctxt_active,
@@ -420,20 +420,20 @@ static int genc_drawctxt_switch(struct adreno_device *adreno_dev,
 }
 
 
-#define GENC_USER_PROFILE_IB(rb, cmdobj, cmds, field) \
-	genc_get_user_profiling_ib((rb), (cmdobj), \
+#define GEN7_USER_PROFILE_IB(rb, cmdobj, cmds, field) \
+	gen7_get_user_profiling_ib((rb), (cmdobj), \
 		offsetof(struct kgsl_drawobj_profiling_buffer, field), \
 		(cmds))
 
-#define GENC_KERNEL_PROFILE(dev, cmdobj, cmds, field) \
-	genc_get_alwayson_counter((cmds), \
+#define GEN7_KERNEL_PROFILE(dev, cmdobj, cmds, field) \
+	gen7_get_alwayson_counter((cmds), \
 		(dev)->profile_buffer->gpuaddr + \
 			ADRENO_DRAWOBJ_PROFILE_OFFSET((cmdobj)->profile_index, \
 				field))
 
-#define GENC_COMMAND_DWORDS 38
+#define GEN7_COMMAND_DWORDS 38
 
-int genc_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
+int gen7_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj, u32 flags,
 		struct adreno_submit_time *time)
 {
@@ -452,7 +452,7 @@ int genc_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			numibs++;
 	}
 
-	cmds = kmalloc((GENC_COMMAND_DWORDS + (numibs * 5)) << 2, GFP_KERNEL);
+	cmds = kmalloc((GEN7_COMMAND_DWORDS + (numibs * 5)) << 2, GFP_KERNEL);
 	if (!cmds) {
 		ret = -ENOMEM;
 		goto done;
@@ -463,12 +463,12 @@ int genc_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	/* Kernel profiling: 4 dwords */
 	if (IS_KERNEL_PROFILE(flags))
-		index += GENC_KERNEL_PROFILE(adreno_dev, cmdobj, &cmds[index],
+		index += GEN7_KERNEL_PROFILE(adreno_dev, cmdobj, &cmds[index],
 			started);
 
 	/* User profiling: 4 dwords */
 	if (IS_USER_PROFILE(flags))
-		index += GENC_USER_PROFILE_IB(rb, cmdobj, &cmds[index],
+		index += GEN7_USER_PROFILE_IB(rb, cmdobj, &cmds[index],
 			gpu_ticks_submitted);
 
 	if (is_concurrent_binning(drawctxt)) {
@@ -514,18 +514,18 @@ int genc_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	/* 4 dwords */
 	if (IS_KERNEL_PROFILE(flags))
-		index += GENC_KERNEL_PROFILE(adreno_dev, cmdobj, &cmds[index],
+		index += GEN7_KERNEL_PROFILE(adreno_dev, cmdobj, &cmds[index],
 			retired);
 
 	/* 4 dwords */
 	if (IS_USER_PROFILE(flags))
-		index += GENC_USER_PROFILE_IB(rb, cmdobj, &cmds[index],
+		index += GEN7_USER_PROFILE_IB(rb, cmdobj, &cmds[index],
 			gpu_ticks_retired);
 
 	cmds[index++] = cp_type7_packet(CP_NOP, 1);
 	cmds[index++] = END_IB_IDENTIFIER;
 
-	ret = genc_drawctxt_switch(adreno_dev, rb, drawctxt);
+	ret = gen7_drawctxt_switch(adreno_dev, rb, drawctxt);
 
 	/*
 	 * In the unlikely event of an error in the drawctxt switch,
@@ -544,7 +544,7 @@ int genc_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	adreno_drawobj_set_constraint(device, drawobj);
 
-	ret = genc_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
+	ret = gen7_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
 		flags, cmds, index, drawobj->timestamp, time);
 
 done:
