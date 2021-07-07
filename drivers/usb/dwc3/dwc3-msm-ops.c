@@ -6,9 +6,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
-#include <linux/irq.h>
-#include <linux/irqdesc.h>
-#include <linux/sched.h>
 #include <linux/usb/dwc3-msm.h>
 #include "core.h"
 #include "gadget.h"
@@ -25,29 +22,7 @@ static int entry_dwc3_gadget_run_stop(struct kretprobe_instance *ri,
 	struct dwc3 *dwc = (struct dwc3 *)regs->regs[0];
 	int is_on = (int)regs->regs[1];
 
-	if (is_on) {
-		/*
-		 * DWC3 gadget IRQ uses a threaded handler which normally runs
-		 * at SCHED_FIFO priority.  If it gets busy processing a high
-		 * volume of events (usually EP events due to heavy traffic) it
-		 * can potentially starve non-RT taks from running and trigger
-		 * RT throttling in the scheduler; on some build configs this
-		 * will panic.  So lower the thread's priority to run as non-RT
-		 * (with a nice value equivalent to a high-priority workqueue).
-		 * It has been found to not have noticeable performance impact.
-		 */
-		struct irq_desc *irq_desc = irq_to_desc(dwc->irq_gadget);
-		struct irqaction *action = irq_desc->action;
-
-		for ( ; action != NULL; action = action->next) {
-			if (action->thread) {
-				dev_info(dwc->dev, "Set IRQ thread:%s pid:%d to SCHED_NORMAL prio\n",
-					action->thread->comm, action->thread->pid);
-				sched_set_normal(action->thread, MIN_NICE);
-				break;
-			}
-		}
-	} else {
+	if (!is_on) {
 		dwc3_core_stop_hw_active_transfers(dwc);
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
 		dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
