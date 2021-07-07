@@ -667,6 +667,8 @@ static inline struct psi_group *cgroup_psi(struct cgroup *cgrp)
 	return &cgrp->psi;
 }
 
+bool cgroup_psi_enabled(void);
+
 static inline void cgroup_init_kthreadd(void)
 {
 	/*
@@ -729,6 +731,11 @@ static inline struct cgroup *cgroup_parent(struct cgroup *cgrp)
 static inline struct psi_group *cgroup_psi(struct cgroup *cgrp)
 {
 	return NULL;
+}
+
+static inline bool cgroup_psi_enabled(void)
+{
+	return false;
 }
 
 static inline bool task_under_cgroup_hierarchy(struct task_struct *task,
