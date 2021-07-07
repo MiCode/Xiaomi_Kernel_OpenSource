@@ -135,5 +135,6 @@ struct kvm_iommu_ops {
 };
 
 extern struct kvm_iommu_ops kvm_iommu_ops;
+extern const struct kvm_iommu_ops kvm_s2mpu_ops;
 
 #endif /* __ARM64_KVM_HYP_H__ */
