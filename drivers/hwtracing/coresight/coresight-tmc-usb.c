@@ -42,6 +42,15 @@ static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 		return -EINVAL;
 	}
 
+	offset = tmc_sg_get_rwp_offset(tmcdrvdata);
+	if (offset < 0) {
+		dev_err(&tmcdrvdata->csdev->dev,
+			"%s: invalid rwp offset value\n", __func__);
+		mutex_unlock(&byte_cntr_data->usb_bypass_lock);
+		return offset;
+	}
+	byte_cntr_data->offset = offset;
+
 	/*Ensure usbch is ready*/
 	if (!tmcdrvdata->usb_data->usbch) {
 		int i;
@@ -61,15 +70,6 @@ static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 		}
 	}
 	atomic_set(&byte_cntr_data->usb_free_buf, USB_BUF_NUM);
-
-	offset = tmc_sg_get_rwp_offset(tmcdrvdata);
-	if (offset < 0) {
-		dev_err(&tmcdrvdata->csdev->dev,
-			"%s: invalid rwp offset value\n", __func__);
-		mutex_unlock(&byte_cntr_data->usb_bypass_lock);
-		return offset;
-	}
-	byte_cntr_data->offset = offset;
 
 	byte_cntr_data->read_active = true;
 	/*
