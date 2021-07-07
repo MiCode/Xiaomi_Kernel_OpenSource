@@ -792,6 +792,9 @@ static int register_l3_voter(struct kgsl_device *device)
 
 	mutex_lock(&device->mutex);
 
+	if (!device->l3_vote)
+		goto done;
+
 	/* This indicates that we are already set up */
 	if (device->num_l3_pwrlevels != 0)
 		goto done;
@@ -1275,6 +1278,9 @@ int adreno_device_probe(struct platform_device *pdev,
 
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_L3_VOTE))
+		device->l3_vote = true;
 
 #ifdef CONFIG_INPUT
 

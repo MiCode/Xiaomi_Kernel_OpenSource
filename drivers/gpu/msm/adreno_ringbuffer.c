@@ -211,6 +211,9 @@ void adreno_drawobj_set_constraint(struct kgsl_device *device,
 			int ret = 0;
 			struct dcvs_freq freq = {0};
 
+			if (!device->l3_vote)
+				return;
+
 			sub_type = context->l3_pwr_constraint.sub_type;
 
 			/*

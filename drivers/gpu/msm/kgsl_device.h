@@ -297,6 +297,8 @@ struct kgsl_device {
 	spinlock_t timelines_lock;
 	/** @fence_trace_array: A local trace array for fence debugging */
 	struct trace_array *fence_trace_array;
+	/** @l3_vote: Enable/Disable l3 voting */
+	bool l3_vote;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
