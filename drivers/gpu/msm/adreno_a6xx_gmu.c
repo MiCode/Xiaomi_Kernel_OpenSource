@@ -2664,11 +2664,11 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 		return ret;
 	/*
 	 * Voting for apb_pclk will enable power and clocks required for
-	 * QDSS path to function. However, if CORESIGHT is not enabled,
+	 * QDSS path to function. However, if QCOM_KGSL_QDSS_STM is not enabled,
 	 * QDSS is essentially unusable. Hence, if QDSS cannot be used,
 	 * don't vote for this clock.
 	 */
-	if (!IS_ENABLED(CONFIG_CORESIGHT)) {
+	if (!IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM)) {
 		for (i = 0; i < ret; i++) {
 			if (!strcmp(gmu->clks[i].id, "apb_pclk")) {
 				gmu->clks[i].clk = NULL;
