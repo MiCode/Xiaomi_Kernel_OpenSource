@@ -1739,6 +1739,7 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 
 static const struct file_operations mem_buf_dev_fops = {
 	.unlocked_ioctl = mem_buf_dev_ioctl,
+	.compat_ioctl = compat_ptr_ioctl,
 };
 
 /*
