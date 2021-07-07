@@ -49,7 +49,6 @@
 struct llcc_slice_desc {
 	u32 slice_id;
 	size_t slice_size;
-	atomic_t refcount;
 };
 
 /**
@@ -103,6 +102,7 @@ struct llcc_drv_data {
 	int ecc_irq;
 	int llcc_ver;
 	bool cap_based_alloc_and_pwr_collapse;
+	atomic_t refcount;
 };
 
 #if IS_ENABLED(CONFIG_QCOM_LLCC)
