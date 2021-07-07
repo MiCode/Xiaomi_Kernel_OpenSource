@@ -1102,3 +1102,11 @@ config MMC_OWL
 
 config MMC_SDHCI_EXTERNAL_DMA
 	bool
+
+config MMC_CRYPTO_QTI
+        tristate "Vendor specific CQHCI Crypto Engine Support"
+        depends on MMC_CRYPTO
+        help
+         Enable Vendor Crypto Engine Support in CQHCI
+         Enabling this allows kernel to use CQHCI crypto operations defined
+         and implemented by QTI.

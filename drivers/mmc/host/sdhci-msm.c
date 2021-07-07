@@ -29,6 +29,7 @@
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
 #include "../core/core.h"
+#include <linux/crypto-qti-common.h>
 
 #define CORE_MCI_VERSION		0x50
 #define CORE_VERSION_MAJOR_SHIFT	28
@@ -426,7 +427,12 @@ enum constraint {
 struct sdhci_msm_host {
 	struct platform_device *pdev;
 	void __iomem *core_mem;	/* MSM SDCC mapped address */
+#ifdef CONFIG_MMC_CRYPTO
 	void __iomem *ice_mem;	/* MSM ICE mapped address (if available) */
+#endif
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+	void __iomem *ice_hwkm_mem;
+#endif
 	int pwr_irq;		/* power irq */
 	struct clk *bus_clk;	/* SDHC bus voter clock */
 	struct clk *xo_clk;	/* TCXO clk needed for FLL feature of cm_dll*/
@@ -2677,15 +2683,18 @@ static int sdhci_msm_ice_init(struct sdhci_msm_host *msm_host,
 {
 	struct mmc_host *mmc = msm_host->mmc;
 	struct device *dev = mmc_dev(mmc);
-	struct resource *res;
+	struct resource *ice_base_res;
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+	struct resource *ice_hwkm_res;
+#endif
 	int err;
 
 	if (!(cqhci_readl(cq_host, CQHCI_CAP) & CQHCI_CAP_CS))
 		return 0;
 
-	res = platform_get_resource_byname(msm_host->pdev, IORESOURCE_MEM,
-					   "ice");
-	if (!res) {
+	ice_base_res = platform_get_resource_byname(msm_host->pdev, IORESOURCE_MEM,
+					   "cqhci_ice");
+	if (!ice_base_res) {
 		dev_warn(dev, "ICE registers not found\n");
 		goto disable;
 	}
@@ -2695,12 +2704,28 @@ static int sdhci_msm_ice_init(struct sdhci_msm_host *msm_host,
 		goto disable;
 	}
 
-	msm_host->ice_mem = devm_ioremap_resource(dev, res);
+	msm_host->ice_mem = devm_ioremap_resource(dev, ice_base_res);
 	if (IS_ERR(msm_host->ice_mem)) {
 		err = PTR_ERR(msm_host->ice_mem);
 		dev_err(dev, "Failed to map ICE registers; err=%d\n", err);
 		return err;
 	}
+
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+	ice_hwkm_res = platform_get_resource_byname(msm_host->pdev,
+						    IORESOURCE_MEM,
+						    "cqhci_ice_hwkm");
+	if (!ice_hwkm_res) {
+		dev_warn(dev, "ICE HWKM registers not found\n");
+		goto disable;
+	}
+	msm_host->ice_hwkm_mem = devm_ioremap_resource(dev, ice_hwkm_res);
+	if (IS_ERR(msm_host->ice_hwkm_mem)) {
+		err = PTR_ERR(msm_host->ice_hwkm_mem);
+		dev_err(dev, "Failed to map ICE HWKM registers; err=%d\n", err);
+		return err;
+	}
+#endif
 
 	if (!sdhci_msm_ice_supported(msm_host))
 		goto disable;
@@ -2826,6 +2851,15 @@ static int sdhci_msm_program_key(struct cqhci_host *cq_host,
 	memzero_explicit(&key, sizeof(key));
 	return err;
 }
+
+void sdhci_msm_ice_disable(struct sdhci_msm_host *msm_host)
+{
+	if (!(msm_host->mmc->caps2 & MMC_CAP2_CRYPTO))
+		return;
+#if IS_ENABLED(CONFIG_MMC_CRYPTO_QTI)
+	crypto_qti_disable();
+#endif
+}
 #else /* CONFIG_MMC_CRYPTO */
 static inline struct clk *sdhci_msm_ice_get_clk(struct device *dev)
 {
@@ -2844,6 +2878,11 @@ static inline void sdhci_msm_ice_enable(struct sdhci_msm_host *msm_host)
 
 static inline int __maybe_unused
 sdhci_msm_ice_resume(struct sdhci_msm_host *msm_host)
+{
+	return 0;
+}
+
+void sdhci_msm_ice_disable(struct sdhci_msm_host *msm_host)
 {
 	return 0;
 }
