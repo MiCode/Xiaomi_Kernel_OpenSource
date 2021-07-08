@@ -50,6 +50,7 @@ static void set_tfps_diff(int max_cnt, int *pid, unsigned long long *buf_id, int
 		mutex_unlock(&pre_lock);
 		return;
 	}
+	mutex_unlock(&pre_lock);
 
 	for (i = 0; i < max_cnt; i++) {
 		if (pid[i] == 0)
@@ -57,8 +58,6 @@ static void set_tfps_diff(int max_cnt, int *pid, unsigned long long *buf_id, int
 		pr_debug(TAG "Set %d %llu: %d\n", pid[i], buf_id[i], diff[i]);
 		eara2fstb_tfps_mdiff(pid[i], buf_id[i], diff[i], tfps[i]);
 	}
-
-	mutex_unlock(&pre_lock);
 }
 
 static void switch_eara(int enable, int pid)
