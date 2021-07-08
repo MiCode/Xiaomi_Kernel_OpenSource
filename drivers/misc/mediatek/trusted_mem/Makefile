@@ -45,6 +45,7 @@ ifeq ($(CONFIG_TEST_MTK_TRUSTED_MEMORY),m)
 trusted_mem-y += tests/ut_common.o
 trusted_mem-y += tests/ut_server.o
 trusted_mem-y += tests/ut_cases.o
+trusted_mem-y += tests/ut_ssheap.o
 endif # !CONFIG_TEST_MTK_TRUSTED_MEMORY
 
 ifneq ($(filter y m,$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)),)

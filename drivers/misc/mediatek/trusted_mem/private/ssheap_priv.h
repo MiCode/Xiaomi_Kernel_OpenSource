@@ -16,4 +16,13 @@ uint64_t ssheap_get_used_size(void);
 unsigned long mtee_assign_buffer(struct ssheap_buf_info *info, uint8_t mem_type);
 unsigned long mtee_unassign_buffer(struct ssheap_buf_info *info, uint8_t mem_type);
 
+
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
+extern struct device *ssheap_dev;
+extern phys_addr_t ssheap_base;
+extern phys_addr_t ssheap_size;
+extern atomic64_t ssheap_total_allocated_size;
+void create_ssheap_ut_device(void);
+#endif
+
 #endif
