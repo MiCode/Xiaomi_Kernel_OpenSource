@@ -7,10 +7,8 @@ Required properties:
 			May also includes "qcom,adreno-gpu-*" for few targets.
 			Must include "qcom,adreno-gpu-a619-holi" for Holi target.
 			Must include "qcom,adreno-gpu-a660-shima" for Shima target.
-			Must include "qcom,adreno-gpu-c500" and
-				"qcom,adreno-gpu-gen7-0-0" for Waipio target.
-			Must include "qcom,adreno-gpu-c500v2" and
-				"qcom,adreno-gpu-gen7-0-1" for Waipio V2 target.
+			Must include "qcom,adreno-gpu-gen7-0-0" for Waipio target.
+			Must include "qcom,adreno-gpu-gen7-0-1" for Waipio V2 target.
 - reg:			Specifies the list of register regions for the device.
 - reg-names:		Resource names used for the register regions specified
 			in reg.

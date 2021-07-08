@@ -1,6 +1,6 @@
 &msm_gpu {
 
-	compatible = "qcom,adreno-gpu-c500v2", "qcom,adreno-gpu-gen7-0-1", "qcom,kgsl-3d0";
+	compatible = "qcom,adreno-gpu-gen7-0-1", "qcom,kgsl-3d0";
 
 	qcom,initial-pwrlevel = <9>;
 
