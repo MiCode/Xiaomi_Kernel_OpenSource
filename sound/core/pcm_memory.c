@@ -54,6 +54,15 @@ static void do_free_pages(struct snd_card *card, struct snd_dma_buffer *dmab)
 	if (!dmab->area)
 		return;
 	mutex_lock(&card->memory_mutex);
+#ifdef CONFIG_HAS_DMA
+	switch (dmab->dev.type) {
+	case SNDRV_DMA_TYPE_DEV:
+		if (card->shutdown) {
+			pr_info("free pages in shutdown case\n");
+			return;
+		}
+	}
+#endif
 	WARN_ON(card->total_pcm_alloc_bytes < dmab->bytes);
 	card->total_pcm_alloc_bytes -= dmab->bytes;
 	mutex_unlock(&card->memory_mutex);
