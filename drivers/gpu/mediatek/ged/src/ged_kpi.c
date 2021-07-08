@@ -1159,13 +1159,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					(int)(cur_3D_done - last_3D_done)
 					/ 100 * psTimeStamp->i32GPUloading;
 					psKPI->gpu_done_interval = time_spent;
-
-					if (time_spent > psKPI->t_gpu)
-						psKPI->t_gpu =
+					psKPI->t_gpu =
 							psHead->t_gpu_latest =
 							time_spent;
-					else
-						time_spent = psKPI->t_gpu;
+
 				} else {
 					psKPI->t_gpu
 						= time_spent
