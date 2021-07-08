@@ -28,7 +28,7 @@
 #define GAMMA_LUT_EN BIT(1)
 #define GAMMA_RELAYMODE BIT(0)
 
-static unsigned int g_gamma_relay_value[DISP_GAMMA_TOTAL] = { 0x1, 0x1 };
+static unsigned int g_gamma_relay_value[DISP_GAMMA_TOTAL];
 #define index_of_gamma(module) ((module == DDP_COMPONENT_GAMMA0) ? 0 : 1)
 
 static struct DISP_GAMMA_LUT_T *g_disp_gamma_lut[DISP_GAMMA_TOTAL] = { NULL };
