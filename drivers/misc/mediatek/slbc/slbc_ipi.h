@@ -36,13 +36,13 @@ extern unsigned int slbc_ipi_to_sspm_command(void *buffer, int slot);
 
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
 extern void slbc_suspend_resume_notify(int suspend);
-extern void slbc_ipi_init(void);
+extern int slbc_ipi_init(void);
 extern void slbc_sspm_enable(int enable);
 extern int slbc_get_ipi_enable(void);
 extern void slbc_set_ipi_enable(int enable);
 #else
 __weak void slbc_suspend_resume_notify(int) { }
-__weak void slbc_ipi_recv_init(void) { }
+__weak int slbc_ipi_init(void) { return 0; }
 __weak void slbc_sspm_enable(int enable) { }
 __weak int slbc_get_ipi_enable(void) { return 0; }
 __weak void slbc_set_ipi_enable(int enable) { }

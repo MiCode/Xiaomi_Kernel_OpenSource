@@ -304,18 +304,23 @@ static inline void slbc_pass_to_sspm(void)
 	slbc_ipi_to_sspm_command(&slbc_ipi_d, 2);
 }
 
-void slbc_ipi_init(void)
+int slbc_ipi_init(void)
 {
 	unsigned int ret;
 
 	_tinfo = get_scmi_tinysys_info();
+
+	if (!_tinfo) {
+		pr_info("call get_scmi_tinysys_info() fail\n");
+		return -EPROBE_DEFER;
+	}
 
 	ret = of_property_read_u32(_tinfo->sdev->dev.of_node, "scmi_slbc",
 			&scmi_slbc_id);
 	if (ret) {
 		pr_info("get scmi_slbc fail, ret %d\n", ret);
 		slbc_sspm_ready = -2;
-		return;
+		return -EINVAL;
 	}
 	pr_info("#@# %s(%d) scmi_slbc_id %d\n",
 			__func__, __LINE__, scmi_slbc_id);
@@ -325,8 +330,10 @@ void slbc_ipi_init(void)
 
 	ret = scmi_tinysys_event_notify(scmi_slbc_id, 1);
 
-	if (ret)
+	if (ret) {
 		pr_info("event notify fail ...");
+		return -EINVAL;
+	}
 
 	slbc_sspm_ready = 1;
 	slbc_sspm_enable(slbc_ipi_enable);
@@ -335,6 +342,8 @@ void slbc_ipi_init(void)
 	slbc_get_rec_addr(&mem_phys_addr, &mem_virt_addr, &mem_size);
 	slbc_reserve_mem_init(&mem_virt_addr, &mem_size);
 	slbc_pass_to_sspm();
+
+	return 0;
 }
 EXPORT_SYMBOL(slbc_ipi_init);
 

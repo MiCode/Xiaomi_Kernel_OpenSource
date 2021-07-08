@@ -54,7 +54,6 @@ static struct task_struct *slbc_release_task;
 static struct wakeup_source *slbc_ws;
 #endif /* CONFIG_PM_SLEEP */
 
-static u32 slbc_probe_done;
 static struct platform_device *pslbcdev;
 
 static int slbc_enable = 1;
@@ -1378,6 +1377,12 @@ static int slbc_probe(struct platform_device *dev)
 	const char *buf;
 	struct cpuidle_driver *drv = cpuidle_get_driver();
 
+#if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
+	ret = slbc_ipi_init();
+	if (ret < 0)
+		return ret;
+#endif /* CONFIG_MTK_SLBC_IPI */
+
 	node = of_find_compatible_node(NULL, NULL,
 			"mediatek,mtk-slbc");
 	if (node) {
@@ -1419,14 +1424,8 @@ static int slbc_probe(struct platform_device *dev)
 			/* PM_QOS_CPU_DMA_LATENCY, */
 			/* PM_QOS_DEFAULT_VALUE); */
 
-#if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
-	slbc_ipi_init();
-#endif /* CONFIG_MTK_SLBC_IPI */
-
 	timer_setup(&slbc_deactivate_timer, slbc_deactivate_timer_fn,
 			TIMER_DEFERRABLE);
-
-	slbc_probe_done = 1;
 
 	return 0;
 }
@@ -1483,15 +1482,11 @@ int __init slbc_module_init(void)
 		return -EINVAL;
 	}
 
-	if (!slbc_probe_done) {
-		pr_info("FAILED TO PROBE SLBC DEVICE\n");
-		return -ENODEV;
-	}
-
 	return 0;
 }
 
 late_initcall(slbc_module_init);
 
+MODULE_SOFTDEP("pre: tinysys-scmi.ko");
 MODULE_DESCRIPTION("SLBC Driver v0.1");
 MODULE_LICENSE("GPL");
