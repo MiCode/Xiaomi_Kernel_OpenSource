@@ -221,12 +221,13 @@ int ao_secure_dbg_switch_by_atf(uint32_t type,
 }
 EXPORT_SYMBOL_GPL(ao_secure_dbg_switch_by_atf);
 
-mtk_iommu_secure_bk_tf_dump(uint32_t type, uint32_t id, u32 *iova, u32 *pa, u32 *fault_id)
+mtk_iommu_secure_bk_tf_dump(uint32_t type, uint32_t id, uint32_t bank,
+		u32 *iova, u32 *pa, u32 *fault_id)
 {
 	int ret;
-	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, IOMMU_BK4, IOMMU_TF_DUMP);
+	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, bank, IOMMU_TF_DUMP);
 
-	ret = mtk_iommu_hw_is_valid(type, id, IOMMU_BK4);
+	ret = mtk_iommu_hw_is_valid(type, id, bank);
 	if (ret) {
 		pr_err("%s, IOMMU HW type is invalid, type:%u, id:%u\n",
 		       __func__, type, id);

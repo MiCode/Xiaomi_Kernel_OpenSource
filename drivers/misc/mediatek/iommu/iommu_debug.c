@@ -2731,10 +2731,11 @@ static int m4u_debug_set(void *data, u64 val)
 		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 1);
 		break;
 	case 12:
-		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 0);	
+		ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 0);
 		break;
 	default:
 		pr_err("%s error,val=%llu\n", __func__, val);
+		break;
 	}
 
 	return 0;
@@ -3002,17 +3003,22 @@ static int mtk_m4u_dbg_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int m4u_get_bits9_tf_id(u32 id)
+static int mt6879_bits9_tf_id(u32 id)
 {
 	return FIELD_GET(GENMASK(12, 9), id);
 }
 
-static int m4u_get_bits10_tf_id(u32 id)
+static int  mt6879_tf_sub_id(u32 id)
+{
+	return FIELD_GET(GENMASK(1, 0), id);
+}
+
+static int mt6983_bits10_tf_id(u32 id)
 {
 	return FIELD_GET(GENMASK(12, 10), id);
 }
 
-static int  m4u_get_tf_sub_id(u32 id)
+static int mt6983_tf_sub_id(u32 id)
 {
 	return FIELD_GET(GENMASK(1, 0), id);
 }
@@ -3050,8 +3056,8 @@ static const struct mtk_m4u_plat_data mt6983_data = {
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6983),
 	.port_list[PERI_IOMMU] = peri_port_mt6983,
 	.port_nr[PERI_IOMMU]   = ARRAY_SIZE(peri_port_mt6983),
-	.mm_tf_com_misc = m4u_get_bits10_tf_id,
-	.mm_tf_sub_misc = m4u_get_tf_sub_id,
+	.mm_tf_com_misc = mt6983_bits10_tf_id,
+	.mm_tf_sub_misc = mt6983_tf_sub_id,
 };
 
 static const struct mtk_m4u_plat_data mt6879_data = {
@@ -3061,8 +3067,8 @@ static const struct mtk_m4u_plat_data mt6879_data = {
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6879),
 	.port_list[PERI_IOMMU] = peri_port_mt6879,
 	.port_nr[PERI_IOMMU]   = ARRAY_SIZE(peri_port_mt6879),
-	.mm_tf_com_misc = m4u_get_bits9_tf_id,
-	.mm_tf_sub_misc = m4u_get_tf_sub_id,
+	.mm_tf_com_misc = mt6879_bits9_tf_id,
+	.mm_tf_sub_misc = mt6879_tf_sub_id,
 };
 
 static const struct of_device_id mtk_m4u_dbg_of_ids[] = {
