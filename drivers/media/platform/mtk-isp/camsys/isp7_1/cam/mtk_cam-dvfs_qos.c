@@ -262,7 +262,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			 __func__, engine_id, pipe->enabled_dmas);
 	if (ctx->sensor) {
 		fi.pad = 1;
-		fi.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+		fi.reserved[0] = V4L2_SUBDEV_FORMAT_ACTIVE;
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
 		fps = fi.interval.denominator / fi.interval.numerator;
 		pipe->res_config.interval.denominator = fi.interval.denominator;

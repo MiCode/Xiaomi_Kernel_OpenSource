@@ -71,8 +71,6 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 
 	if (node->desc.smem_alloc)
 		vq->dma_attrs |= DMA_ATTR_NO_KERNEL_MAPPING;
-	else
-		vq->dma_attrs |= DMA_ATTR_NON_CONSISTENT;
 
 	if (vq->type == V4L2_BUF_TYPE_META_OUTPUT ||
 	    vq->type == V4L2_BUF_TYPE_META_CAPTURE)
@@ -1506,7 +1504,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	vdev->lock = &video->q_lock;
 	strlcpy(vdev->name, video->desc.name, sizeof(vdev->name));
 
-	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
+	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
 	if (ret < 0) {
 		dev_info(v4l2_dev->dev, "Failed to register video device: %d\n",
 			ret);

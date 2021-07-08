@@ -105,7 +105,7 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 	spin_unlock(&req_stream_data_pipe->bufs_lock);
 
 	req_state = &req_stream_data->state;
-	req_state->time_deque = ktime_get_boot_ns() / 1000;
+	req_state->time_deque = ktime_get_boottime_ns() / 1000;
 	if (mtk_cam_is_subsample(ctx))
 		dev_dbg(cam->dev, "[ctx:%d,0x%x/pipe:%d,0x%x/%4d(us)] %6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld\n",
 		ctx->stream_id, req->ctx_used, pipe_id, req->pipe_used,
@@ -1386,7 +1386,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
 	unsigned long flags;
 
-	cam_req->time_syscall_enque = ktime_get_boot_ns() / 1000;
+	cam_req->time_syscall_enque = ktime_get_boottime_ns() / 1000;
 
 	/* reset done status */
 	cam_req->done_status = 0;
@@ -1661,7 +1661,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				 MTK_CAM_REQ_DUMP_FORCE, "Camsys Force Dump");
 
 		stream_data = &req->stream_data[ctx->stream_id];
-		stream_data->state.time_swirq_composed = ktime_get_boot_ns() / 1000;
+		stream_data->state.time_swirq_composed = ktime_get_boottime_ns() / 1000;
 		dev_dbg(dev, "ctx:%d ack frame_num:%d\n",
 			ctx->stream_id, ctx->composed_frame_seq_no);
 
@@ -1728,9 +1728,9 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				buf_entry->buffer.iova, buf_entry->cq_desc_size,
 				buf_entry->cq_desc_offset, 1, buf_entry->sub_cq_desc_size,
 				buf_entry->sub_cq_desc_offset);
-			stream_data->timestamp = ktime_get_boot_ns();
+			stream_data->timestamp = ktime_get_boottime_ns();
 			stream_data->timestamp_mono = ktime_get_ns();
-			stream_data->state.time_cqset = ktime_get_boot_ns() / 1000;
+			stream_data->state.time_cqset = ktime_get_boottime_ns() / 1000;
 
 			return 0;
 		}
@@ -1841,7 +1841,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		cam->ctxs[session->session_id].buf_pool.working_buf_iova;
 	frame_data->cur_workbuf_size = buf_entry->buffer.size;
 
-	req_stream_data->state.time_composing = ktime_get_boot_ns() / 1000;
+	req_stream_data->state.time_composing = ktime_get_boottime_ns() / 1000;
 
 	/* Send CAM_CMD_CONFIG if we change sensor */
 	if (req->ctx_link_update & 1 << ctx->stream_id)

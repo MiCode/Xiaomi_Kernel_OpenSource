@@ -11,7 +11,7 @@
 #include "mtk_cam-meta.h"
 #include "mtk_cam-debug.h"
 #include "mtk_cam-v4l2.h"
-#include <mt-plat/aee.h>
+/* #include <mt-plat/aee.h> */
 
 #define CAMSYS_DUMP_SATATE_INIT		0
 #define CAMSYS_DUMP_SATATE_READY	1

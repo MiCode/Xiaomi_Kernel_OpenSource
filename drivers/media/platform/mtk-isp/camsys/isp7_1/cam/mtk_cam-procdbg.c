@@ -195,13 +195,12 @@ static ssize_t camdbg_write(
 	return 0;
 }
 
-static const struct file_operations camdbg_fops = {
-	.owner		= THIS_MODULE,
-	.open		= camdbg_open,
-	.read		= seq_read,
-	.write		= camdbg_write,
-	.llseek		= seq_lseek,
-	.release	= single_release,
+static const struct proc_ops camdbg_fops = {
+	.proc_open	= camdbg_open,
+	.proc_read	= seq_read,
+	.proc_write	= camdbg_write,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= single_release,
 };
 
 static int __init camdbg_debug_init(void)

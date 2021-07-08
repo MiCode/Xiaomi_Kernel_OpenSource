@@ -757,7 +757,7 @@ static int get_buffered_pixel_rate(struct seninf_ctx *ctx,
 
 	memset(&fi, 0, sizeof(fi));
 	fi.pad = sd_pad_idx;
-	fi.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	fi.reserved[0] = V4L2_SUBDEV_FORMAT_ACTIVE;
 	ret = v4l2_subdev_call(sd, video, g_frame_interval, &fi);
 	if (ret) {
 		dev_info(ctx->dev, "no g_frame_interval in %s\n", sd->name);

@@ -32,6 +32,9 @@
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_debug.h"
 
+#define v4l2_subdev_format_request_fd(x) x->reserved[0]
+#define v4l2_frame_interval_which(x) x->reserved[0]
+
 extern struct clk *__clk_lookup(const char *name);
 
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
@@ -1231,7 +1234,7 @@ static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 
 	sub_overori_cnt = mtk_cam_get_subsample_ratio(
 				dev->pipeline->res_config.raw_feature) - 1;
-	sub_overori_time = ktime_get_boot_ns() /
+	sub_overori_time = ktime_get_boottime_ns() /
 				1000 - dev->sof_time;
 	fps = dev->pipeline->res_config.interval.denominator /
 			dev->pipeline->res_config.interval.numerator;
@@ -1329,7 +1332,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 #if _STAGGER_TRIGGER_CQ_BY_CAMSV_SOF
 	if (irq_status & SOF_INT_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
-		raw_dev->sof_time = ktime_get_boot_ns() / 1000;
+		raw_dev->sof_time = ktime_get_boottime_ns() / 1000;
 		raw_dev->write_cnt =
 			((fbc_fho_r1_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		dev_dbg(dev, "[SOF] fho wcnt:%d\n", raw_dev->write_cnt);
@@ -1969,10 +1972,10 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 	if (!sd->entity.stream_count || fmt->which == V4L2_SUBDEV_FORMAT_TRY)
 		return mtk_raw_call_set_fmt(sd, cfg, fmt);
 
-	if (fmt->request_fd <= 0)
+	if (v4l2_subdev_format_request_fd(fmt) <= 0)
 		return -EINVAL;
 
-	req = media_request_get_by_fd(&cam->media_dev, fmt->request_fd);
+	req = media_request_get_by_fd(&cam->media_dev, v4l2_subdev_format_request_fd(fmt));
 	if (req) {
 		cam_req = to_mtk_cam_req(req);
 		dev_info(cam->dev, "sd:%s pad:%d pending success, req fd(%d)\n",
@@ -1980,6 +1983,11 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 	} else {
 		dev_info(cam->dev, "sd:%s pad:%d pending failed, req fd(%d) invalid\n",
 			sd->name, fmt->pad, fmt->request_fd);
+		dev_info(cam->dev, "sd:%s pad:%d pending success, req fd(%d)\n",
+			sd->name, fmt->pad, v4l2_subdev_format_request_fd(fmt));
+	} else {
+		dev_info(cam->dev, "sd:%s pad:%d pending failed, req fd(%d) invalid\n",
+			sd->name, fmt->pad, v4l2_subdev_format_request_fd(fmt));
 		return -EINVAL;
 	}
 
@@ -2077,7 +2085,7 @@ mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_raw_pipeline, subdev);
 	struct mtk_raw *raw = pipe->raw;
 
-	if (interval->which == V4L2_SUBDEV_FORMAT_TRY) {
+	if (v4l2_frame_interval_which(interval) == V4L2_SUBDEV_FORMAT_TRY) {
 		dev_dbg(raw->cam_dev, "%s:pipe(%d):try res: fps = %d/%d",
 			__func__, pipe->id,
 			interval->interval.numerator,
@@ -2126,7 +2134,6 @@ static const struct v4l2_ioctl_ops mtk_cam_v4l2_vout_ioctl_ops = {
 	.vidioc_querycap = mtk_cam_vidioc_querycap,
 	.vidioc_enum_framesizes = mtk_cam_vidioc_enum_framesizes,
 	.vidioc_enum_fmt_vid_cap = mtk_cam_vidioc_enum_fmt,
-	.vidioc_enum_fmt_vid_cap_mplane = mtk_cam_vidioc_enum_fmt,
 	.vidioc_g_fmt_vid_out_mplane = mtk_cam_vidioc_g_fmt,
 	.vidioc_s_fmt_vid_out_mplane = mtk_cam_vidioc_s_fmt,
 	.vidioc_try_fmt_vid_out_mplane = mtk_cam_vidioc_try_fmt,
@@ -2147,7 +2154,6 @@ static const struct v4l2_ioctl_ops mtk_cam_v4l2_vcap_ioctl_ops = {
 	.vidioc_querycap = mtk_cam_vidioc_querycap,
 	.vidioc_enum_framesizes = mtk_cam_vidioc_enum_framesizes,
 	.vidioc_enum_fmt_vid_cap = mtk_cam_vidioc_enum_fmt,
-	.vidioc_enum_fmt_vid_cap_mplane = mtk_cam_vidioc_enum_fmt,
 	.vidioc_g_fmt_vid_cap_mplane = mtk_cam_vidioc_g_fmt,
 	.vidioc_s_fmt_vid_cap_mplane = mtk_cam_vidioc_s_fmt,
 	.vidioc_try_fmt_vid_cap_mplane = mtk_cam_vidioc_try_fmt,
