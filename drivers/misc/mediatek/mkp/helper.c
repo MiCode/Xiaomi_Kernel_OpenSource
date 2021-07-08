@@ -63,15 +63,29 @@ int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy
 						continue;
 					}
 				}
+				data = kmalloc(sizeof(struct mkp_rb_node), GFP_ATOMIC);
+				if (data == NULL) {
+					start_pfn = 0; count = 1;
+					continue;
+				}
+
 				phys_addr = start_pfn << PAGE_SHIFT;
 				handle = mkp_create_handle(policy, (unsigned long)phys_addr,
 					count*PAGE_SIZE);
 				if (handle == 0) {
 					pr_info("%s:%d: Create handle fail\n", __func__, __LINE__);
 					pr_info("pa: %pa, count: %lu\n", &phys_addr, count);
+					kfree(data);
+					start_pfn = 0; count = 1;
+					continue;
 				}
 				ret = set_memory(policy, handle);
-				data = kmalloc(sizeof(struct mkp_rb_node), GFP_KERNEL);
+				if (ret == -1) {
+					ret = mkp_destroy_handle(policy, handle);
+					kfree(data);
+					start_pfn = 0; count = 1;
+					continue;
+				}
 				data->addr = phys_addr;
 				data->size = count*PAGE_SIZE;
 				data->handle = handle;
