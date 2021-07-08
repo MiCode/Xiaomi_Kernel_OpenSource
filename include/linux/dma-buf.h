@@ -379,8 +379,6 @@ struct dma_buf_ops {
  * @cb_excl: for userspace poll support
  * @cb_shared: for userspace poll support
  * @sysfs_entry: for exposing information about this buffer in sysfs.
- * The attachment_uid member of @sysfs_entry is protected by dma_resv lock
- * and is incremented on each attach.
  * @mmap_count: number of times buffer has been mmapped.
  * @exp_vm_ops: the vm ops provided by the buffer exporter.
  * @vm_ops: the overridden vm_ops used to track mmap_count of the buffer.
@@ -424,8 +422,6 @@ struct dma_buf {
 	struct dma_buf_sysfs_entry {
 		struct kobject kobj;
 		struct dma_buf *dmabuf;
-		unsigned int attachment_uid;
-		struct kset *attach_stats_kset;
 	} *sysfs_entry;
 	int mmap_count;
 	const struct vm_operations_struct *exp_vm_ops;
@@ -482,7 +478,6 @@ struct dma_buf_attach_ops {
  * @importer_priv: importer specific attachment data.
  * @dma_map_attrs: DMA attributes to be used when the exporter maps the buffer
  * through dma_buf_map_attachment.
- * @sysfs_entry: For exposing information about this attachment in sysfs.
  *
  * This structure holds the attachment information between the dma_buf buffer
  * and its user device(s). The list contains one attachment struct per device
@@ -504,13 +499,6 @@ struct dma_buf_attachment {
 	void *importer_priv;
 	void *priv;
 	unsigned long dma_map_attrs;
-#ifdef CONFIG_DMABUF_SYSFS_STATS
-	/* for sysfs stats */
-	struct dma_buf_attach_sysfs_entry {
-		struct kobject kobj;
-		unsigned int map_counter;
-	} *sysfs_entry;
-#endif
 };
 
 /**
