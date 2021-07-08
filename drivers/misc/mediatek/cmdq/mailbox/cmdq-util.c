@@ -18,8 +18,8 @@
 #include "cmdq-sec-mailbox.h"
 #endif
 
-#ifdef CONFIG_MTK_SMI_EXT
-#include "smi_public.h"
+#if IS_ENABLED(CONFIG_MTK_SMI)
+#include <soc/mediatek/smi.h>
 #endif
 #ifdef CONFIG_MTK_DEVAPC
 #include <linux/soc/mediatek/devapc_public.h>
@@ -592,11 +592,9 @@ EXPORT_SYMBOL(cmdq_util_track);
 
 void cmdq_util_dump_smi(void)
 {
-#if defined(CONFIG_MTK_SMI_EXT) && !defined(CONFIG_FPGA_EARLY_PORTING) && \
-	!defined(CONFIG_MTK_SMI_VARIANT)
+#if IS_ENABLED(CONFIG_MTK_SMI)
 	int smi_hang;
-
-	smi_hang = smi_debug_bus_hang_detect(1, "CMDQ");
+	smi_hang = mtk_smi_dbg_hang_detect("CMDQ");
 	cmdq_util_err("smi hang:%d", smi_hang);
 #else
 	cmdq_util_err("[WARNING]not enable SMI dump now");
