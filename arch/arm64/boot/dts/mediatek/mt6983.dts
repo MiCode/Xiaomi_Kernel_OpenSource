@@ -815,6 +815,12 @@
 		#clock-cells = <1>;
 	};
 
+	vlp_cksys_clk: syscon@1c013000 {
+		compatible = "mediate,mt6983-vlp_cksys", "syscon";
+		reg = <0 0x1c013000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	adsp_clk: syscon@1e000000 {
 		compatible = "mediate,mt6983-adsp", "syscon";
 		reg = <0 0x1e000000 0 0x1000>;
