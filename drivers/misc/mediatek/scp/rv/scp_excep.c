@@ -28,7 +28,7 @@
 #endif
 
 #define POLLING_RETRY 100
-#define SCP_SECURE_DUMP_MEASURE 1
+#define SCP_SECURE_DUMP_MEASURE 0
 
 struct scp_dump_st {
 	uint8_t *detail_buff;
