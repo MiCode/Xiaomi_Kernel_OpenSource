@@ -2928,6 +2928,9 @@ static signed int DPE_DumpReg(void)
 static inline void DPE_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
+	ret = clk_prepare_enable(dpe_clk.CG_TOP_MUX_DPE);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_TOP_MUX_DPE clock\n");
 #ifdef smi_en
 	smi_bus_prepare_enable(SMI_LARB19, DPE_DEV_NAME);
 	smi_bus_prepare_enable(SMI_LARB20, DPE_DEV_NAME);
@@ -2944,9 +2947,6 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_INF("mtk_smi_larb20_get larbvdec fail %d\n");
 #endif
-	ret = clk_prepare_enable(dpe_clk.CG_TOP_MUX_DPE);
-	if (ret)
-		LOG_ERR("cannot prepare and enable CG_TOP_MUX_DPE clock\n");
 	ret = clk_prepare_enable(dpe_clk.CG_IPE_SMI_SUBCOM);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IPE_SMI_SUBCOM clock\n");
@@ -3025,7 +3025,7 @@ static void DPE_EnableClock(bool En)
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		g_u4EnableClockCount++;
 		spin_unlock(&(DPEInfo.SpinLockDPE));
-		dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34));
+		//dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34));
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		if (g_u4EnableClockCount == 1) {
@@ -4643,6 +4643,8 @@ if (DPE_dev->irq > 0) {
 	if (!pm_runtime_enabled(DPE_dev->dev))
 		goto EXIT;
 
+	dma_set_mask_and_coherent(DPE_dev->dev, DMA_BIT_MASK(34));
+
 	/* Only register char driver in the 1st time */
 	if (nr_DPE_devs == 2) {
 		/* Register char driver */
@@ -4729,7 +4731,7 @@ if (DPE_dev->irq > 0) {
 		}
 #ifdef KERNEL_DMA_BUFFER
 	gdev = &pDev->dev;
-	dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34));
+	//dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34));
 	kernel_dpebuf =
 	vb2_dc_alloc(gdev, DMA_ATTR_WRITE_COMBINE, WB_TOTAL_SIZE,
 	DMA_FROM_DEVICE, 0);
