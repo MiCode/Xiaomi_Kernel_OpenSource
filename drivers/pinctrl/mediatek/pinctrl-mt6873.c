@@ -1335,14 +1335,6 @@ static const struct mtk_eh_pin_pinmux mt6873_eh_pin_pinmux_list[] = {
 	{205, 1},
 };
 
-static const struct mtk_eint_hw mt6873_eint_hw = {
-	.port_mask = 7,
-	.ports     = 7,
-	.ap_num    = 224,
-	.db_cnt    = 32,
-};
-
-
 static const struct mtk_pin_reg_calc mt6873_reg_cals[PINCTRL_PIN_REG_MAX] = {
 	[PINCTRL_PIN_REG_MODE] = MTK_RANGE(mt6873_pin_mode_range),
 	[PINCTRL_PIN_REG_DIR] = MTK_RANGE(mt6873_pin_dir_range),
@@ -1365,7 +1357,6 @@ static const struct mtk_pin_soc mt6873_data = {
 	.pins = mtk_pins_mt6873,
 	.npins = ARRAY_SIZE(mtk_pins_mt6873),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt6873),
-	.eint_hw = &mt6873_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
 	.capability_flags = FLAG_RACE_FREE_ACCESS

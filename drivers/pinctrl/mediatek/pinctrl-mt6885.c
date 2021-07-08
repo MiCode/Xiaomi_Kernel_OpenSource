@@ -794,19 +794,11 @@ static const struct mtk_eh_pin_pinmux mt6885_eh_pin_pinmux_list[] = {
 	{205, 1},
 };
 
-static const struct mtk_eint_hw mt6885_eint_hw = {
-	.port_mask = 7,
-	.ports     = 7,
-	.ap_num    = 223,
-	.db_cnt    = 32,
-};
-
 static const struct mtk_pin_soc mt6885_data = {
 	.reg_cal = mt6885_reg_cals,
 	.pins = mtk_pins_mt6885,
 	.npins = ARRAY_SIZE(mtk_pins_mt6885),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt6885),
-	.eint_hw = &mt6885_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
 	.capability_flags = FLAG_RACE_FREE_ACCESS
