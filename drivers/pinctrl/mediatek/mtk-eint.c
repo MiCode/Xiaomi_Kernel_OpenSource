@@ -585,7 +585,7 @@ int mtk_eint_do_suspend(struct mtk_eint *eint)
 			port = j >> 5;
 			writel_relaxed(~inst.wake_mask[port],
 				       inst.base + port*4 + eint->comp->regs->mask_set);
-			writel_relaxed(inst.wake_mask[j],
+			writel_relaxed(inst.wake_mask[port],
 				       inst.base + port*4 + eint->comp->regs->mask_clr);
 		}
 	}
@@ -606,7 +606,7 @@ int mtk_eint_do_resume(struct mtk_eint *eint)
 			port = j >> 5;
 			writel_relaxed(~inst.cur_mask[port],
 				       inst.base + port*4 + eint->comp->regs->mask_set);
-			writel_relaxed(inst.cur_mask[j],
+			writel_relaxed(inst.cur_mask[port],
 				       inst.base + port*4 + eint->comp->regs->mask_clr);
 		}
 	}
@@ -984,7 +984,7 @@ int mtk_eint_do_init(struct mtk_eint *eint)
 	}
 
 	for (i = 0; i < eint->instance_number; i++) {
-		size = eint->instances[i].number * sizeof(u8);
+		size = (eint->instances[i].number / 32 + 1) * sizeof(unsigned int);
 		eint->instances[i].wake_mask =
 			devm_kzalloc(eint->dev, size, GFP_KERNEL);
 		eint->instances[i].cur_mask =
