@@ -516,6 +516,7 @@ TZ_RESULT KREE_RegisterSharedmem(KREE_SESSION_HANDLE session,
 	}
 	return TZ_RESULT_SUCCESS;
 }
+EXPORT_SYMBOL(KREE_RegisterSharedmem);
 
 TZ_RESULT KREE_UnregisterSharedmem(KREE_SESSION_HANDLE session,
 	KREE_SHAREDMEM_HANDLE shm_handle)
