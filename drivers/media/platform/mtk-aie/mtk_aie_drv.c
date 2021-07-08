@@ -1794,18 +1794,18 @@ static u32 aie_combine_stride(u16 low, u16 high)
 static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 			  int mode)
 {
-	u32 img_addr;
-	u32 img_addr_UV;
-	u32 img_off;
-	u32 img_off_uv;
-	u32 *yuv2rgb_cfg;
-	u32 srcbuf, srcbuf_UV;
-	u16 xmag_0, ymag_0;
-	u16 pym0_out_w;
-	u16 pym0_out_h;
-	u16 stride_pym0_out_w;
-	u16 src_crop_w;
-	u16 src_crop_h;
+	u32 img_addr = 0;
+	u32 img_addr_UV = 0;
+	u32 img_off = 0;
+	u32 img_off_uv = 0;
+	u32 *yuv2rgb_cfg = NULL;
+	u32 srcbuf = 0, srcbuf_UV = 0;
+	u16 xmag_0 = 0, ymag_0 = 0;
+	u16 pym0_out_w = 0;
+	u16 pym0_out_h = 0;
+	u16 stride_pym0_out_w = 0;
+	u16 src_crop_w = 0;
+	u16 src_crop_h = 0;
 
 	if (aie_cfg->en_roi == false) {
 		img_off = 0;
@@ -2089,15 +2089,15 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 
 static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
-	u32 *rs_cfg;
-	u32 *rs_tbl[2];
-	u16 xmag_0, ymag_0;
-	u16 pym_out_w[3];
-	u16 pym_out_h[3];
-	u16 round_w;
-	u16 src_crop_w;
-	u16 src_crop_h;
-	int i;
+	u32 *rs_cfg = NULL;
+	u32 *rs_tbl[2] = {NULL, NULL};
+	u16 xmag_0 = 0, ymag_0 = 0;
+	u16 pym_out_w[3] = {0, 0, 0};
+	u16 pym_out_h[3] = {0, 0, 0};
+	u16 round_w = 0;
+	u16 src_crop_w = 0;
+	u16 src_crop_h = 0;
+	int i = 0;
 
 	if (aie_cfg->sel_mode == 0) {
 		src_crop_w = fd->base_para->crop_width;
@@ -2183,27 +2183,27 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 static int aie_config_network(struct mtk_aie_dev *fd,
 			      struct aie_enq_info *aie_cfg)
 {
-	u16 conv_width;
-	u16 conv_height;
-	u8 i;
-	u8 j;
-	u8 uch;
-	u8 uloop;
-	u16 fd_xsize[4];
-	void *fd_cfg;
-	u32 *fd_cur_cfg;
-	u32 *fd_cur_set;
-	u16 pyramid0_out_w;
-	u16 pyramid0_out_h;
-	u16 pyramid1_out_h;
-	u16 pyramid2_out_h;
-	u16 input_height;
+	u16 conv_width = 0;
+	u16 conv_height = 0;
+	u8 i = 0;
+	u8 j = 0;
+	u8 uch = 0;
+	u8 uloop = 0;
+	u16 fd_xsize[4] = {0, 0, 0, 0};
+	void *fd_cfg = NULL;
+	u32 *fd_cur_cfg = NULL;
+	u32 *fd_cur_set = NULL;
+	u16 pyramid0_out_w = 0;
+	u16 pyramid0_out_h = 0;
+	u16 pyramid1_out_h = 0;
+	u16 pyramid2_out_h = 0;
+	u16 input_height = 0;
 	u16 out_height = 0;
-	u16 out_ysize_plus_1;
-	u16 out_ysize_plus_1_stride2;
-	u32 src_crop_w;
-	u32 src_crop_h;
-	struct aie_static_info *pstv;
+	u16 out_ysize_plus_1 = 0;
+	u16 out_ysize_plus_1_stride2 = 0;
+	u32 src_crop_w  = 0;
+	u32 src_crop_h = 0;
+	struct aie_static_info *pstv = NULL;
 
 	pstv = &fd->st_info;
 
@@ -2651,6 +2651,8 @@ dram_fail:
 
 	dev_info(fd->dev, "Failed to alloc aie buf: %d\n", err_tag);
 	return ret;
+
+
 }
 
 int aie_init(struct mtk_aie_dev *fd)

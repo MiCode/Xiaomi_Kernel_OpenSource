@@ -548,7 +548,7 @@ static void mtk_aie_vb2_stop_streaming(struct vb2_queue *vq)
 	while ((vb = v4l2_m2m_buf_remove(queue_ctx)))
 		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
 
-	dma_buf_kunmap(fd->dmabuf, 0, (void *)fd->kva);
+	dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
 	dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 	fd->map_count--;
 
@@ -711,7 +711,7 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 
 			fd->dmabuf = dma_buf_get(buf->m.planes[buf->length-1].m.fd);
 			dma_buf_begin_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
-			fd->kva = (u64)dma_buf_kmap(fd->dmabuf, 0);
+			fd->kva = (u64)dma_buf_vmap(fd->dmabuf);
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
 			fd->base_para->rpn_anchor_thrd = (signed short)
 						(g_user_param.feature_threshold & 0x0000FFFF);
@@ -1109,7 +1109,7 @@ static int mtk_aie_video_device_register(struct mtk_aie_dev *fd)
 
 	video_set_drvdata(vfd, fd);
 
-	ret = video_register_device(vfd, VFL_TYPE_GRABBER, 0);
+	ret = video_register_device(vfd, VFL_TYPE_VIDEO, 0);
 	if (ret) {
 		dev_info(dev, "Failed to register video device\n");
 		goto err_free_dev;
