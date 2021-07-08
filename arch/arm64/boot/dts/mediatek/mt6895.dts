@@ -1120,6 +1120,11 @@
 		reg = <0 0x13c62000 0 0x100>;
 	};
 
+	gpueb: gpueb@13c00000 {
+		compatible = "mediatek,gpueb";
+		gpueb-support = <0>;
+	};
+
 	dfd@13d00000 {
 		compatible = "mediatek,dfd";
 		reg = <0 0x13d00000 0 0x100000>;
