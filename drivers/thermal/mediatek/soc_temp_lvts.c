@@ -969,9 +969,9 @@ static int lvts_init(struct lvts_data *lvts_data)
 #ifdef DUMP_MORE_LOG
 		clear_lvts_register_value_array(lvts_data);
 		read_controller_reg_before_active(lvts_data);
-	        read_device_reg_before_active(lvts_data);
 #endif
                 lvts_data->init_done = true;
+				dev_info(dev, "%s, LK init LVTS\n", __func__);
 
                 return ret;
 	}
