@@ -244,7 +244,7 @@ static int mdw_rv_callback(struct rpmsg_device *rpdev, void *data,
 	return 0;
 }
 
-int mdw_rv_dev_set_param(uint32_t idx, uint32_t val)
+int mdw_rv_dev_set_param(enum mdw_info_type type, uint32_t val)
 {
 	struct mdw_ipi_msg msg;
 	int ret = 0;
@@ -252,14 +252,14 @@ int mdw_rv_dev_set_param(uint32_t idx, uint32_t val)
 	memset(&msg, 0, sizeof(msg));
 	msg.id = MDW_IPI_PARAM;
 	memcpy(&msg.p, &mrdev.param, sizeof(msg.p));
-	switch (idx) {
-	case MDW_PARAM_UPLOG:
+	switch (type) {
+	case MDW_INFO_UPLOG:
 		msg.p.uplog = val;
 		break;
-	case MDW_PARAM_PREEMPT_POLICY:
+	case MDW_INFO_PREEMPT_POLICY:
 		msg.p.preempt_policy = val;
 		break;
-	case MDW_PARAM_SCHED_POLICY:
+	case MDW_INFO_SCHED_POLICY:
 		msg.p.sched_policy = val;
 		break;
 	default:
@@ -273,22 +273,29 @@ int mdw_rv_dev_set_param(uint32_t idx, uint32_t val)
 	return ret;
 }
 
-uint32_t mdw_rv_dev_get_param(uint32_t idx)
+uint32_t mdw_rv_dev_get_param(enum mdw_info_type type)
 {
 	uint32_t ret = 0;
 
-	switch (idx) {
-	case MDW_PARAM_UPLOG:
+	switch (type) {
+	case MDW_INFO_UPLOG:
 		ret = (int)mrdev.param.uplog;
 		break;
-	case MDW_PARAM_PREEMPT_POLICY:
+	case MDW_INFO_PREEMPT_POLICY:
 		ret = (int)mrdev.param.preempt_policy;
 		break;
-	case MDW_PARAM_SCHED_POLICY:
+	case MDW_INFO_SCHED_POLICY:
 		ret = (int)mrdev.param.sched_policy;
 		break;
+	case MDW_INFO_NORMAL_TASK_DLA:
+	case MDW_INFO_NORMAL_TASK_DSP:
+	case MDW_INFO_NORMAL_TASK_DMA:
+		mdw_drv_warn("not support(%d)\n", type);
+		break;
 	default:
+		mdw_drv_warn("unknown type(%d)\n", type);
 		ret = -EINVAL;
+		break;
 	}
 
 	return ret;

@@ -116,10 +116,39 @@ static int mdw_ap_set_param(uint32_t idx, uint32_t val)
 	return -EINVAL;
 }
 
-uint32_t mdw_ap_get_param(uint32_t idx)
+static uint32_t mdw_ap_get_info(enum mdw_info_type type)
 {
-	mdw_drv_warn("not support\n");
-	return 0;
+	struct mdw_queue *mq = NULL;
+	uint32_t ret = 0;
+
+	switch (type) {
+	case MDW_INFO_NORMAL_TASK_DLA:
+		mq = mdw_rsc_get_queue(APUSYS_DEVICE_MDLA);
+		if (!mq)
+			break;
+		ret = mq->normal_task_num;
+		break;
+
+	case MDW_INFO_NORMAL_TASK_DSP:
+		mq = mdw_rsc_get_queue(APUSYS_DEVICE_VPU);
+		if (!mq)
+			break;
+		ret = mq->normal_task_num;
+		break;
+
+	case MDW_INFO_NORMAL_TASK_DMA:
+		mq = mdw_rsc_get_queue(APUSYS_DEVICE_EDMA);
+		if (!mq)
+			break;
+		ret = mq->normal_task_num;
+		break;
+
+	default:
+		mdw_drv_warn("unknown type(%d)\n", type);
+		break;
+	}
+
+	return ret;
 }
 
 static const struct mdw_dev_func mdw_ap_func = {
@@ -133,7 +162,7 @@ static const struct mdw_dev_func mdw_ap_func = {
 	.lock = mdw_ap_lock,
 	.unlock = mdw_ap_unlock,
 	.set_param = mdw_ap_set_param,
-	.get_param = mdw_ap_get_param,
+	.get_info = mdw_ap_get_info,
 };
 
 void mdw_ap_set_func(struct mdw_device *mdev)

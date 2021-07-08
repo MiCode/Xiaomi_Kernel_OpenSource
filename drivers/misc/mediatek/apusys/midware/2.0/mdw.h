@@ -36,12 +36,16 @@
 
 #define MDW_ALIGN(x, align) ((x+align-1) & (~(align-1)))
 
-enum {
-	MDW_PARAM_UPLOG,
-	MDW_PARAM_PREEMPT_POLICY,
-	MDW_PARAM_SCHED_POLICY,
+enum mdw_info_type {
+	MDW_INFO_UPLOG,
+	MDW_INFO_PREEMPT_POLICY,
+	MDW_INFO_SCHED_POLICY,
 
-	MDW_PARAM_MAX,
+	MDW_INFO_NORMAL_TASK_DLA,
+	MDW_INFO_NORMAL_TASK_DSP,
+	MDW_INFO_NORMAL_TASK_DMA,
+
+	MDW_INFO_MAX,
 };
 
 struct mdw_fpriv;
@@ -186,8 +190,8 @@ struct mdw_dev_func {
 	int (*unlock)(void);
 	int (*set_power)(uint32_t type, uint32_t idx, uint32_t boost);
 	int (*ucmd)(uint32_t type, void *vaddr, uint32_t size);
-	int (*set_param)(uint32_t idx, uint32_t val);
-	uint32_t (*get_param)(uint32_t idx);
+	int (*set_param)(enum mdw_info_type type, uint32_t val);
+	uint32_t (*get_info)(enum mdw_info_type type);
 };
 
 void mdw_ap_set_func(struct mdw_device *mdev);
@@ -218,7 +222,5 @@ void mdw_dbg_aee(char *name);
 
 int mdw_dev_init(struct mdw_device *mdev);
 void mdw_dev_deinit(struct mdw_device *mdev);
-int mdw_dev_set_param(struct mdw_device *mdev, uint32_t idx, uint32_t val);
-uint32_t mdw_dev_get_param(struct mdw_device *mdev, uint32_t idx);
 
 #endif

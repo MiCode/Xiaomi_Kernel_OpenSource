@@ -102,9 +102,9 @@ static int mdw_rv_set_param(uint32_t idx, uint32_t val)
 	return mdw_rv_dev_set_param(idx, val);
 }
 
-static uint32_t mdw_rv_get_param(uint32_t idx)
+static uint32_t mdw_rv_get_info(enum mdw_info_type type)
 {
-	return mdw_rv_dev_get_param(idx);
+	return mdw_rv_dev_get_param(type);
 }
 
 static const struct mdw_dev_func mdw_rv_func = {
@@ -118,7 +118,7 @@ static const struct mdw_dev_func mdw_rv_func = {
 	.lock = mdw_rv_lock,
 	.unlock = mdw_rv_unlock,
 	.set_param = mdw_rv_set_param,
-	.get_param = mdw_rv_get_param,
+	.get_info = mdw_rv_get_info,
 };
 
 void mdw_rv_set_func(struct mdw_device *mdev)

@@ -149,6 +149,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 		}
 
 		mdw_ap_sc_print(sc);
+		mdw_queue_task_start(sc);
 		list_add_tail(&sc->c_item, &ac->sc_list);
 	}
 	mdw_drv_debug("cmd(%p.%d/0x%llx) create done\n",
@@ -254,6 +255,7 @@ static int mdw_ap_cmd_end_sc(struct mdw_ap_sc *in, struct mdw_ap_sc **out)
 			ac->c->kid, in->idx);
 		/* OR sc return value */
 		ac->ret |= in->ret;
+		mdw_queue_task_end(in);
 	}
 
 	*out = mdw_ap_cmd_get_avilable_sc(ac);

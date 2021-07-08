@@ -41,26 +41,6 @@ void mdw_dev_deinit(struct mdw_device *mdev)
 	}
 }
 
-int mdw_dev_set_param(struct mdw_device *mdev, uint32_t idx, uint32_t val)
-{
-	if (!mdev->dev_funcs || idx >= MDW_PARAM_MAX) {
-		mdw_drv_err("no dev func\n");
-		return -ENODEV;
-	}
-
-	return mdev->dev_funcs->set_param(idx, val);
-}
-
-uint32_t mdw_dev_get_param(struct mdw_device *mdev, uint32_t idx)
-{
-	if (!mdev->dev_funcs || idx >= MDW_PARAM_MAX) {
-		mdw_drv_err("no dev func\n");
-		return 0;
-	}
-
-	return mdev->dev_funcs->get_param(idx);
-}
-
 int mdw_dev_lock(void)
 {
 	if (!mdw_dev)
