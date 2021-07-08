@@ -20,7 +20,6 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_dsi.o \
 		  mtk_mipi_tx.o \
 		  mtk_writeback.o \
-		  mtk_sync.o \
 		  mtk_fence.o \
 		  mtk_drm_session.o \
 		  mtk_dump.o \
@@ -65,6 +64,7 @@ endif
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
 
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
+obj-$(CONFIG_DRM_MEDIATEK) += mtk_sync.o
 
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_panel_ext.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_notify.o

@@ -10,7 +10,7 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-
+#include <linux/module.h>
 #include <linux/sync_file.h>
 
 #include "mtk_sync.h"
@@ -287,16 +287,19 @@ struct sync_timeline *mtk_sync_timeline_create(const char *name)
 
 	return obj;
 }
+EXPORT_SYMBOL_GPL(mtk_sync_timeline_create);
 
 void mtk_sync_timeline_destroy(struct sync_timeline *obj)
 {
 	mtk_sync_timeline_put(obj);
 }
+EXPORT_SYMBOL_GPL(mtk_sync_timeline_destroy);
 
 void mtk_sync_timeline_inc(struct sync_timeline *obj, u32 value, ktime_t time)
 {
 	mtk_sync_timeline_signal(obj, value, time);
 }
+EXPORT_SYMBOL_GPL(mtk_sync_timeline_inc);
 
 int mtk_sync_fence_create(struct sync_timeline *obj, struct fence_data *data)
 {
@@ -331,4 +334,6 @@ err:
 	put_unused_fd(fd);
 	return err;
 }
+EXPORT_SYMBOL_GPL(mtk_sync_fence_create);
 
+MODULE_LICENSE("GPL");

@@ -55,7 +55,6 @@ mml_drv-objs += tile_core.o
 mml_drv-objs += tile_utility.o
 mml_drv-objs += tile_mdp_func.o
 mml_drv-objs += DpTileScaler.o
-mml_drv-objs += ../mediatek_v2/mtk_sync.o
 
 # for unit test
 mml_drv-objs += mtk-mml-test.o
