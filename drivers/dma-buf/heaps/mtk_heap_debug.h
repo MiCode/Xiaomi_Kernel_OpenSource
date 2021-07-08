@@ -9,6 +9,8 @@
 
 #include <linux/dma-heap.h>
 #include <linux/dma-buf.h>
+#include <linux/dma-resv.h>
+
 #include <linux/seq_file.h>
 #include <linux/sched/clock.h>
 
@@ -144,6 +146,7 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 	 * iova here use sgt in dma_buf_attachment,
 	 * need set "cache_sgt_mapping = 1" for dmabuf_ops
 	 */
+	dma_resv_lock(dmabuf->resv, NULL);
 	list_for_each_entry(attach_obj, &dmabuf->attachments, node) {
 		a = attach_obj->priv;
 		if (unlikely(!a)) {
@@ -165,6 +168,7 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 #endif
 			    );
 	}
+	dma_resv_unlock(dmabuf->resv);
 	dmabuf_dump(s, "\n");
 
 	return 0;
