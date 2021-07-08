@@ -41,6 +41,7 @@
 		i2c11 = &i2c11;
 		i2c12 = &i2c12;
 		i2c13 = &i2c13;
+		scp_i2c1 = &scp_i2c1;
 	};
 
 	i2c0: i2c@11e00000 {
@@ -195,6 +196,20 @@
 			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
 		clock-names = "main", "dma";
 		clock-div = <1>;
+	};
+
+	scp_i2c1: i2c@1c7b1000 {
+		compatible = "mediatek,mt6983-i2c";
+		reg = <0 0x1c7b1000 0 0x1000>,
+			<0 0x1c753180 0 0x100>;
+		interrupts = <GIC_SPI 659 IRQ_TYPE_LEVEL_HIGH 0>;
+		/* clocks = <&imp_iic_wrap_e_clk CLK_IMPE_AP_I2C12_RO>, */
+			/* <&infracfg_ao_clk CLK_IFRAO_APDMA>; */
+		clock-names = "main", "dma";
+		clock-div = <1>;
+		clk_src_in_hz = <62500000>;
+		ch_offset_i2c = <0x200>;
+		ch_offset_dma = <0x80>;
 	};
 
 	 mrdump_ext_rst: mrdump_ext_rst {
