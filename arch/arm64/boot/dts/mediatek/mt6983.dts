@@ -5818,6 +5818,11 @@
 		mediatek,clk-mgr;
 		mediatek,usb3-drd;
 		usb-role-switch;
+		port {
+			mtu3_drd_switch: endpoint@0 {
+				remote-endpoint = <&usb_role>;
+			};
+		};
 
 		usb_host: xhci0@11200000 {
 			compatible = "mediatek,mtk-xhci";
@@ -5918,6 +5923,20 @@
 			port = <0>;
 			pclk_phase = <23>;
 			#phy-cells = <1>;
+		};
+	};
+
+	extcon_usb: extcon_usb {
+		compatible = "mediatek,extcon-usb";
+		vbus-supply = <&mt6375_otg_vbus>;
+		vbus-voltage = <5000000>;
+		vbus-current = <1800000>;
+		charger = <&mt6375_chg>;
+		mediatek,bypss-typec-sink = <1>;
+		port {
+			usb_role: endpoint@0 {
+				remote-endpoint = <&mtu3_drd_switch>;
+			};
 		};
 	};
 
