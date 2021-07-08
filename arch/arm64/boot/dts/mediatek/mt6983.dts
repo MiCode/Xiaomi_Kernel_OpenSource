@@ -3841,6 +3841,11 @@
 		reg = <0 0x14017000 0 0x1000>;
 	};
 
+	dsi_te: dsi_te {
+		compatible = "mediatek, dsi_te-eint";
+		status = "disabled";
+	};
+
 	disp_wdma0@14018000 {
 		compatible = "mediatek,disp_wdma0";
 		reg = <0 0x14018000 0 0x1000>;
