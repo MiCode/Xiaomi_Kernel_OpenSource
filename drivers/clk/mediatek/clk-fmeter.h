@@ -69,6 +69,8 @@ unsigned int mt_get_abist_freq(unsigned int id);
 unsigned int mt_get_abist2_freq(unsigned int id);
 unsigned int mt_get_vlpck_freq(unsigned int id);
 unsigned int mt_get_subsys_freq(unsigned int id);
+int mt_get_fmeter_id(enum FMETER_ID fid);
 unsigned int mt_get_fmeter_freq(unsigned int id, enum  FMETER_TYPE type);
+int mt_subsys_freq_register(struct fm_subsys *fm, unsigned int size);
 void fmeter_set_ops(const struct fmeter_ops *ops);
 #endif
