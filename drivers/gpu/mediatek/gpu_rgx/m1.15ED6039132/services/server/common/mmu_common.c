@@ -4006,6 +4006,9 @@ void MMU_CheckFaultAddress(MMU_CONTEXT *psMMUContext,
 {
 	/* Ideally the RGX defs should be via callbacks, but the function is only called from RGX. */
 #if defined(SUPPORT_RGX)
+# define MMU_MASK_VALID_FOR_32BITS(level) \
+		((RGX_MMUCTRL_##level##_DATA_ENTRY_PENDING_EN | \
+		  RGX_MMUCTRL_##level##_DATA_VALID_EN) <= 0xFFFFFFFF)
 # define MMU_VALID_STR(entry,level) \
 		(apszMMUValidStr[((((entry)&(RGX_MMUCTRL_##level##_DATA_ENTRY_PENDING_EN))!=0) << 1)| \
 		                 ((((entry)&(RGX_MMUCTRL_##level##_DATA_VALID_EN))!=0) << 0)])
@@ -4014,6 +4017,7 @@ void MMU_CheckFaultAddress(MMU_CONTEXT *psMMUContext,
 	                                                 /*P-*/ "pending",
 	                                                 /*PV*/ "inconsistent (pending and valid)"};
 #else
+# define MMU_MASK_VALID_FOR_32BITS 0
 # define MMU_VALID_STR(entry,level) ("??")
 #endif
 	MMU_DEVICEATTRIBS *psDevAttrs = psMMUContext->psDevAttrs;
@@ -4082,8 +4086,15 @@ void MMU_CheckFaultAddress(MMU_CONTEXT *psMMUContext,
 				IMG_UINT32 *pui32Ptr = psLevel->sMemDesc.pvCpuVAddr;
 
 				psMMULevelData->ui64Address = pui32Ptr[ui32PCIndex];
-				psMMULevelData->psDebugStr  = MMU_VALID_STR(pui32Ptr[ui32PCIndex] & psConfig->uiProtMask, PC);
-
+				if (MMU_MASK_VALID_FOR_32BITS(PC))
+				{
+					psMMULevelData->psDebugStr  = MMU_VALID_STR(pui32Ptr[ui32PCIndex] & psConfig->uiProtMask, PC);
+				}
+				else
+				{
+					psMMULevelData->psDebugStr = "";
+					PVR_LOG(("Invalid RGX_MMUCTRL_PC_DATA_ENTRY mask for 32-bit entry"));
+				}
 			}
 			else
 			{
@@ -4127,8 +4138,15 @@ void MMU_CheckFaultAddress(MMU_CONTEXT *psMMUContext,
 				IMG_UINT32 *pui32Ptr = psLevel->sMemDesc.pvCpuVAddr;
 
 				psMMULevelData->ui64Address = pui32Ptr[ui32PDIndex];
-				psMMULevelData->psDebugStr  = MMU_VALID_STR(pui32Ptr[ui32PDIndex] & psMMUPDEConfig->uiProtMask, PD);
-
+				if (MMU_MASK_VALID_FOR_32BITS(PD))
+				{
+					psMMULevelData->psDebugStr  = MMU_VALID_STR(pui32Ptr[ui32PDIndex] & psMMUPDEConfig->uiProtMask, PD);
+				}
+				else
+				{
+					psMMULevelData->psDebugStr = "";
+					PVR_LOG(("Invalid RGX_MMUCTRL_PD_DATA_ENTRY mask for 32-bit entry"));
+				}
 
 				if (psDevAttrs->pfnGetPageSizeFromPDE4(pui32Ptr[ui32PDIndex], &ui32Log2PageSize) != PVRSRV_OK)
 				{
@@ -4212,8 +4230,15 @@ void MMU_CheckFaultAddress(MMU_CONTEXT *psMMUContext,
 				IMG_UINT32 *pui32Ptr = psLevel->sMemDesc.pvCpuVAddr;
 
 				psMMULevelData->ui64Address = pui32Ptr[ui32PTIndex];
-				psMMULevelData->psDebugStr  = MMU_VALID_STR(pui32Ptr[ui32PTIndex] & psMMUPTEConfig->uiProtMask, PT);
-
+				if (MMU_MASK_VALID_FOR_32BITS(PT))
+				{
+					psMMULevelData->psDebugStr  = MMU_VALID_STR(pui32Ptr[ui32PTIndex] & psMMUPTEConfig->uiProtMask, PT);
+				}
+				else
+				{
+					psMMULevelData->psDebugStr = "";
+					PVR_LOG(("Invalid RGX_MMUCTRL_PT_DATA_ENTRY mask for 32-bit entry"));
+				}
 			}
 			else
 			{

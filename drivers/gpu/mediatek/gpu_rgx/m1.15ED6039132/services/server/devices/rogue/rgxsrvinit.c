@@ -633,10 +633,19 @@ static PVRSRV_ERROR RGXAcquireMipsBootldrData(PVRSRV_DEVICE_NODE *psDeviceNode,
 		return PVRSRV_ERROR_INIT_FAILURE;
 	}
 
+	/* Confirm page alignment fits in 64-bits */
+	if (psFWMMUDevAttrs->ui32BaseAlign > 63)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Invalid page alignment "
+		         "(psFWMMUDevAttrs->ui32BaseAlign = %u)",
+		         __func__, psFWMMUDevAttrs->ui32BaseAlign));
+		return PVRSRV_ERROR_INIT_FAILURE;
+	}
+
 	for (i = 0; i < puFWParams->sMips.ui32FWPageTableNumPages; i++)
 	{
 		puFWParams->sMips.asFWPageTableAddr[i].uiAddr =
-			sAddr.uiAddr + i * (1U << psFWMMUDevAttrs->ui32BaseAlign);
+		    sAddr.uiAddr + i * (1ULL << psFWMMUDevAttrs->ui32BaseAlign);
 	}
 
 	/* MIPS Stack Pointer Physical Address */
