@@ -1434,7 +1434,7 @@
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
 		mediatek,sram_size = <512>;
-		/* CCIF0 305; CCIF0 306 */
+		/* DTS/GIC_ID: CCIF0 273/305; CCIF0 274/306 */
 		interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH 0>,
 			     <GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF_AP_CG>,
@@ -1466,7 +1466,7 @@
 		mediatek,srclken_o1 = <0>;
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
-		/* GIC ID:MDWDT 317; CCIF0 305; CCIF0 306 */
+		/* DTS/GIC_ID: MDWDT 285/317; CCIF0 273/305; CCIF0 274/306 */
 		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH 0>,
 			     <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH 0>,
 			     <GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -5964,4 +5964,18 @@
 
 &mt6373_vtp {
 	regulator-always-on;
+};
+
+&mddriver {
+	/* for md pmic voltage setting*/
+	md_vmodem-supply = <&mt6363_vbuck6>;
+	md_vmodem = <800000 800000>;
+	md_vsram-supply = <&mt6363_vsram_modem>;
+	md_vsram = <800000 800000>;
+	md_vdigrf-supply = <&mt6363_vbuck1>;
+	md_vdigrf = <700000 700000>;
+};
+
+&md_auxadc {
+	io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN1)>;
 };
