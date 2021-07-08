@@ -742,6 +742,62 @@ static void case_run_crop(struct mml_test *test, struct mml_test_case *cur)
 	case_general_submit(test, cur, setup_crop);
 }
 
+/* case_config_yv12_yuyv/setup_nv12_yuyv/case_run_nv12_yuyv
+ *
+ * format in: MML_FMT_YV12
+ * format out: MML_FMT_YUYV
+ */
+static void case_config_yv12_yuyv(void)
+{
+	the_case.cfg_src_format = MML_FMT_YV12;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
+	the_case.cfg_dest_format = MML_FMT_YUYV;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
+}
+
+static void setup_yv12_yuyv(struct mml_submit *task, struct mml_test_case *cur)
+{
+	task->info.src.uv_stride = mml_color_get_min_uv_stride(
+		the_case.cfg_src_format, the_case.cfg_src_w);
+
+	task->buffer.src.fd[0] = cur->fd_in;
+	task->buffer.src.size[0] = mml_color_get_min_y_size(
+		the_case.cfg_src_format,
+		the_case.cfg_src_w, the_case.cfg_src_h);
+
+	task->info.src.plane_offset[1] = task->buffer.src.size[0];
+
+	task->buffer.src.fd[1] = cur->fd_in;
+	task->buffer.src.size[1] = mml_color_get_min_uv_size(
+		the_case.cfg_src_format,
+		the_case.cfg_src_w, the_case.cfg_src_h);
+
+	if (task->buffer.src.size[0] + task->buffer.src.size[1] !=
+		cur->size_in)
+		mml_err("%s case %d src size total %u plane %u %u",
+			__func__, mml_case, cur->size_in,
+			task->buffer.src.size[0] + task->buffer.src.size[1]);
+
+	task->buffer.src.fd[2] = cur->fd_in;
+	task->buffer.src.size[2] = mml_color_get_min_uv_size(
+		the_case.cfg_src_format,
+		the_case.cfg_src_w, the_case.cfg_src_h);
+
+	if (task->buffer.src.size[0] + task->buffer.src.size[1]
+		+ task->buffer.src.size[2] !=
+		cur->size_in)
+		mml_err("%s case %d src size total %u plane %u %u",
+			__func__, mml_case, cur->size_in,
+			task->buffer.src.size[0] + task->buffer.src.size[1]);
+}
+
+static void case_run_yv12_yuyv(struct mml_test *test, struct mml_test_case *cur)
+{
+	case_general_submit(test, cur, setup_yv12_yuyv);
+}
+
 enum mml_ut_case {
 	MML_UT_RGB,		/* 0 */
 	MML_UT_RGB_ROTATE,	/* 1 */
@@ -757,6 +813,7 @@ enum mml_ut_case {
 	MML_UT_2OUT_CROP,	/* 11 */
 	MML_UT_2OUT_RCC,	/* 12 */
 	MML_UT_CROP,		/* 13 */
+	MML_UT_YV12_YUYV,	/* 14 */
 	MML_UT_TOTAL
 };
 
@@ -816,6 +873,10 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 	[MML_UT_CROP] = {
 		.config = case_config_crop,
 		.run = case_run_crop,
+	},
+	[MML_UT_YV12_YUYV] = {
+		.config = case_config_yv12_yuyv,
+		.run = case_run_yv12_yuyv,
 	},
 };
 

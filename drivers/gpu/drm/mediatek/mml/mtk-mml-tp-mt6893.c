@@ -326,9 +326,11 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 
 	for (i = 0; i < PATH_MML_MAX; i++) {
 		tp_parse_path(mml, &cache->path[i], path_map[i]);
-		mml_log("[topology]dump path %hhu count %u",
-			i, cache->path[i].node_cnt);
-		tp_dump_path(&cache->path[i]);
+		if (mtk_mml_msg) {
+			mml_log("[topology]dump path %hhu count %u",
+				i, cache->path[i].node_cnt);
+			tp_dump_path(&cache->path[i]);
+		}
 
 		/* now dispatch cmdq client (channel) to path */
 		cache->path[i].clt = clts[clt_dispatch[i]];

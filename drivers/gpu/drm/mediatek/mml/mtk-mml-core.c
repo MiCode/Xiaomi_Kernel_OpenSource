@@ -8,6 +8,7 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <soc/mediatek/smi.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-buf.h"
@@ -36,6 +37,9 @@ struct topology_ip_node {
  */
 static LIST_HEAD(tp_ips);
 static DEFINE_MUTEX(tp_mutex);
+
+/* error counter */
+atomic_t mml_err_cnt;
 
 int mml_topology_register_ip(const char *ip, const struct mml_topology_ops *op)
 {
@@ -396,7 +400,8 @@ static s32 core_config(struct mml_task *task, u8 pipe)
 		mml_trace_ex_end();
 
 		/* dump tile output for debug */
-		dump_tile_output(task, pipe);
+		if (mtk_mml_msg)
+			dump_tile_output(task, pipe);
 
 		/* make commands into pkt for later flash */
 		mml_trace_ex_begin("%s_cmd_%hhu", __func__, pipe);
@@ -445,15 +450,23 @@ static void core_taskdump_cb(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_comp *comp;
-	u8 i;
+	u32 i;
+	int cnt = atomic_fetch_inc(&mml_err_cnt);
 
-	mml_err("error dump task %p pipe %u config %p",
-		task, pipe, task->config);
+	mml_err("error dump %d task %p pipe %u config %p",
+		cnt, task, pipe, task->config);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
 		call_dbg_op(comp, dump);
 	}
+
+	if (cnt < 3) {
+		mml_err("dump smi");
+		mtk_smi_dbg_hang_detect("MML");
+	}
+
+	mml_err("error dump %d end", cnt);
 }
 
 static void core_taskdump_pipe0_cb(struct cmdq_cb_data data)
@@ -602,12 +615,16 @@ static void core_config_thread(struct work_struct *work)
 				task->buf.dest[i].cnt,
 				task->buf.dest[i].flush ? " flush" : "",
 				task->buf.dest[i].invalid ? " invalid" : "");
-			mml_log("crop %u:%u %u %u %u",
+			mml_log("crop %u:%u %u %u %u compose %u %u %u %u",
 				i,
 				task->config->info.dest[i].crop.r.left,
 				task->config->info.dest[i].crop.r.top,
 				task->config->info.dest[i].crop.r.width,
-				task->config->info.dest[i].crop.r.height);
+				task->config->info.dest[i].crop.r.height,
+				task->config->info.dest[i].compose.left,
+				task->config->info.dest[i].compose.top,
+				task->config->info.dest[i].compose.width,
+				task->config->info.dest[i].compose.height);
 		}
 
 		/* topology will fill in path instance */

@@ -382,28 +382,30 @@ static const struct mml_comp_config_ops tdshp_cfg_ops = {
 static void tdshp_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	u32 value[10];
+	u32 value[12];
 
 	mml_err("tdshp component %u dump:", comp->id);
 
-	value[0] = readl(base + TDSHP_INTEN);
-	value[1] = readl(base + TDSHP_INTSTA);
-	value[2] = readl(base + TDSHP_STATUS);
-	value[3] = readl(base + TDSHP_CFG);
-	value[4] = readl(base + TDSHP_INPUT_COUNT);
-	value[5] = readl(base + TDSHP_OUTPUT_COUNT);
-	value[6] = readl(base + TDSHP_INPUT_SIZE);
-	value[7] = readl(base + TDSHP_OUTPUT_OFFSET);
-	value[8] = readl(base + TDSHP_OUTPUT_SIZE);
-	value[9] = readl(base + TDSHP_BLANK_WIDTH);
+	value[0] = readl(base + TDSHP_CTRL);
+	value[1] = readl(base + TDSHP_INTEN);
+	value[2] = readl(base + TDSHP_INTSTA);
+	value[3] = readl(base + TDSHP_STATUS);
+	value[4] = readl(base + TDSHP_CFG);
+	value[5] = readl(base + TDSHP_INPUT_COUNT);
+	value[6] = readl(base + TDSHP_OUTPUT_COUNT);
+	value[7] = readl(base + TDSHP_INPUT_SIZE);
+	value[8] = readl(base + TDSHP_OUTPUT_OFFSET);
+	value[9] = readl(base + TDSHP_OUTPUT_SIZE);
+	value[10] = readl(base + TDSHP_BLANK_WIDTH);
+	value[11] = readl(base + HFG_CTRL);
 
-	mml_err("TDSHP_INTEN %#010x TDSHP_INTSTA %#010x TDSHP_STATUS %#010x TDSHP_CFG %#010x",
+	mml_err("TDSHP_CTRL %#010x TDSHP_INTEN %#010x TDSHP_INTSTA %#010x TDSHP_STATUS %#010x",
 		value[0], value[1], value[2], value[3]);
-	mml_err("TDSHP_INPUT_COUNT %#010x TDSHP_OUTPUT_COUNT %#010x",
-		value[4], value[5]);
+	mml_err("TDSHP_CFG %#010x TDSHP_INPUT_COUNT %#010x TDSHP_OUTPUT_COUNT %#010x",
+		value[4], value[5], value[6]);
 	mml_err("TDSHP_INPUT_SIZE %#010x TDSHP_OUTPUT_OFFSET %#010x TDSHP_OUTPUT_SIZE %#010x",
-		value[6], value[7], value[8]);
-	mml_err("TDSHP_BLANK_WIDTH %#010x", value[9]);
+		value[7], value[8], value[9]);
+	mml_err("TDSHP_BLANK_WIDTH %#010x HFG_CTRL %#010x", value[10], value[11]);
 }
 
 static const struct mml_comp_debug_ops tdshp_debug_ops = {

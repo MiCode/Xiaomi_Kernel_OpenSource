@@ -278,7 +278,7 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_pq_tile_init_result *result;
 	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
 
-	mml_log("%s is called", __func__);
+	mml_msg("%s is called", __func__);
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_ETC_CONTROL, 0x0, U32_MAX);
 
 	if (rsz_relay_mode) {
@@ -292,11 +292,11 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 		s32 i;
 		struct mml_pq_reg *regs = result->rsz_regs;
 		/* TODO: use different regs */
-		mml_log("%s:config rsz regs, count: %d", __func__, result->rsz_reg_cnt);
+		mml_msg("%s:config rsz regs, count: %d", __func__, result->rsz_reg_cnt);
 		for (i = 0; i < result->rsz_reg_cnt; i++) {
 			cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
 				regs[i].value, regs[i].mask);
-			mml_log("[rsz][config][%x] = %#x mask(%#x)",
+			mml_msg("[rsz][config][%x] = %#x mask(%#x)",
 				regs[i].offset, regs[i].value, regs[i].mask);
 		}
 	} else {
@@ -306,7 +306,7 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(src->format);
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_CON_1,
 		       rsz_frm->use121filter << 26, 0x04000000);
-	mml_log("%s is end", __func__);
+	mml_msg("%s is end", __func__);
 	return 0;
 }
 

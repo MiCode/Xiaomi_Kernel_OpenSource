@@ -786,9 +786,6 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_write(pkt, reuse, base_pa + RDMA_SRC_BASE_2, iova[2], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_2]);
 
-	mml_msg("%s end %#x %#x %#x",
-		__func__, iova_end[0], iova_end[1], iova_end[2]);
-
 	iova_end[0] = iova[0] + src_buf->size[0];
 	iova_end[1] = iova[1] + src_buf->size[1];
 	iova_end[2] = iova[2] + src_buf->size[2];
@@ -798,6 +795,9 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		&rdma_frm->labels[RDMA_LABEL_BASE_END_1]);
 	mml_write(pkt, reuse, base_pa + RDMA_SRC_END_2, iova_end[2], U32_MAX, cache,
 		&rdma_frm->labels[RDMA_LABEL_BASE_END_2]);
+
+	mml_msg("%s end %#x %#x %#x",
+		__func__, iova_end[0], iova_end[1], iova_end[2]);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_SIZE_IN_BYTE,
 		       src->y_stride, U32_MAX);
