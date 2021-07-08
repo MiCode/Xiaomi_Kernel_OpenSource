@@ -3030,7 +3030,8 @@ static int fbt_boost_policy(
 
 	if (blc_wt) {
 		 /* ignore hwui hint || not hwui */
-		if (qr_enable && (!qr_hwui_hint || thread_info->ux != 1)) {
+		if (qr_enable && (!qr_hwui_hint ||
+			thread_info->hwui != RENDER_INFO_HWUI_TYPE)) {
 			rescue_target_t = div64_s64(1000000, target_fps); /* unit:1us */
 
 			/* t2wnt = target_time * (1+x) + quota * y */
