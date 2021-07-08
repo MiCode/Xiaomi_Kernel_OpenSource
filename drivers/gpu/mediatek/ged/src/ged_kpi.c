@@ -174,6 +174,7 @@ struct GED_KPI {
 	int t_cpu_fpsgo;
 	int gpu_done_interval;
 	int target_fps_margin;
+	int eara_fps_margin;
 
 	unsigned long long t_cpu_slptime;
 };
@@ -207,9 +208,11 @@ struct GED_KPI_MEOW_DVFS_FREQ_PRED {
 
 	int target_pid;
 	int target_fps;
+	int target_fps_margin;
+	int eara_fps_margin;
 	int gpu_time;
 };
-static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psMEOW;
+static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psGIFT;
 
 #define GED_KPI_TOTAL_ITEMS 64
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
@@ -537,7 +540,7 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 		psKPI->t_gpu,
 		psKPI->gpu_done_interval,
 		vsync_period,
-		g_psMEOW->gift_ratio,
+		g_psGIFT->gift_ratio,
 
 		psKPI->cpu_gpu_info.gpu.gpu_dvfs,
 		psKPI->cpu_gpu_info.gpu.tb_dvfs_mode,
@@ -701,8 +704,8 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 	struct GED_KPI_HEAD *psHead,
 	int target_fps,
 	int target_fps_margin,
-	int eara_fps_margin,
 	int cpu_time,
+	int eara_fps_margin,
 	GED_KPI_FRC_MODE_TYPE mode,
 	int client)
 {
@@ -733,8 +736,7 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 		ret = GED_TRUE;
 
 #ifdef GED_KPI_DEBUG
-		GED_LOGE("[GED_KPI] FPSGO info PID:%d ,tfps:%d, fps_margin:%d",
-		"eara_margin:%d, cpu_time:%d\n",
+		GED_LOGI("[GED_KPI]FPSGO info PID:%d,tfps:%d,fps_margin:%d,eara_diff:%d,t_cpu:%d\n",
 			psHead->pid,
 			psHead->target_fps,
 			psHead->target_fps_margin,
@@ -1107,8 +1109,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				psKPI->gpu_freq_max =
 					ged_get_freq_by_idx(
 					ged_get_cur_limit_idx_ceil()) / 1000;
-				g_psMEOW->gpu_freq_cur = psKPI->gpu_freq;
-				g_psMEOW->gpu_freq_max = psKPI->gpu_freq_max;
+				g_psGIFT->gpu_freq_cur = psKPI->gpu_freq;
+				g_psGIFT->gpu_freq_max = psKPI->gpu_freq_max;
 
 				psHead->pre_TimeStamp2 =
 					psHead->last_TimeStamp2;
@@ -1167,7 +1169,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 					/* hint GiFT ratio to EAT */
 					ged_log_perf_trace_counter(
-					"is_gift_on", g_psMEOW->gift_ratio,
+					"is_gift_on", g_psGIFT->gift_ratio,
 					psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
 
@@ -1233,15 +1235,19 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			= gpu_freq_pre;
 			last_3D_done = cur_3D_done;
 
-			g_psMEOW->gpu_freq_pred = gpu_freq_pre;
-				if (main_head == psHead &&
-					psHead->pid == g_psMEOW->target_pid) {
-					g_psMEOW->target_fps = psHead->target_fps;
-					g_psMEOW->gpu_time = time_spent;
-				} else {
-					g_psMEOW->target_fps = -1;
-					g_psMEOW->gpu_time = -1;
-				}\
+			g_psGIFT->gpu_freq_pred = gpu_freq_pre;
+			if (main_head == psHead &&
+				psHead->pid == g_psGIFT->target_pid) {
+				g_psGIFT->target_fps = psHead->target_fps;
+				g_psGIFT->target_fps_margin = psKPI->target_fps_margin;
+				g_psGIFT->eara_fps_margin = psHead->eara_fps_margin;
+				g_psGIFT->gpu_time = time_spent;
+			} else {
+				g_psGIFT->target_fps = -1;
+				g_psGIFT->target_fps_margin = 0;
+				g_psGIFT->eara_fps_margin = 0;
+				g_psGIFT->gpu_time = -1;
+			}
 
 			if (!g_force_gpu_dvfs_fallback)
 				ged_set_backup_timer_timeout(0);
@@ -1422,7 +1428,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		target_FPS = psTimeStamp->i32FrameID;
 		ulID = psTimeStamp->ullWnd;
 		eara_fps_margin = psTimeStamp->i32QedBuffer_length;
-
 		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
 			, (unsigned long)ulID);
 		if (psHead) {
@@ -1826,9 +1831,9 @@ GED_ERROR ged_kpi_system_init(void)
 #endif /* GED_BUFFER_LOG_DISABLE */
 	is_GED_KPI_enabled = ged_gpufreq_bringup() ? 0 : 1;
 
-	g_psMEOW = (struct GED_KPI_MEOW_DVFS_FREQ_PRED *)
+	g_psGIFT = (struct GED_KPI_MEOW_DVFS_FREQ_PRED *)
 		ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
-	if (unlikely(!g_psMEOW)) {
+	if (unlikely(!g_psGIFT)) {
 		GED_PR_DEBUG("[GED_KPI][Exception]:");
 		GED_PR_DEBUG(
 		"ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED)) failed\n");
@@ -1870,7 +1875,7 @@ void ged_kpi_system_exit(void)
 	ged_log_buf_free(ghLogBuf_KPI);
 	ghLogBuf_KPI = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
-	ged_free(g_psMEOW, sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
+	ged_free(g_psGIFT, sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
 #endif /* MTK_GED_KPI */
 }
 /* ------------------------------------------------------------------- */
@@ -2015,9 +2020,9 @@ GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
 			|| gpu_freq_pred == NULL)
 		return GED_ERROR_FAIL;
 
-	*gpu_freq_cur = g_psMEOW->gpu_freq_cur;
-	*gpu_freq_max = g_psMEOW->gpu_freq_max;
-	*gpu_freq_pred = g_psMEOW->gpu_freq_pred;
+	*gpu_freq_cur = g_psGIFT->gpu_freq_cur;
+	*gpu_freq_max = g_psGIFT->gpu_freq_max;
+	*gpu_freq_pred = g_psGIFT->gpu_freq_pred;
 
 	return GED_OK;
 #else
@@ -2027,25 +2032,34 @@ GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
 EXPORT_SYMBOL(ged_kpi_query_dvfs_freq_pred);
 
 /* ------------------------------------------------------------------- */
-GED_ERROR ged_kpi_query_gpu_dvfs_info(int *gpu_freq_cur
-, int *gpu_freq_max, int *gpu_freq_pred, int *target_fps, int *gpu_time)
+GED_ERROR ged_kpi_query_gpu_dvfs_info(
+	struct GED_BRIDGE_OUT_QUERY_GPU_DVFS_INFO *out)
 {
 #ifdef MTK_GED_KPI
-	if (gpu_freq_cur == NULL
-			|| gpu_freq_max == NULL
-			|| gpu_freq_pred == NULL
-			|| gpu_time == NULL)
+	if (out == NULL)
 		return GED_ERROR_FAIL;
 
-	*gpu_freq_cur = g_psMEOW->gpu_freq_cur;
-	*gpu_freq_max = g_psMEOW->gpu_freq_max;
-	*gpu_freq_pred = g_psMEOW->gpu_freq_pred;
+	out->gpu_freq_cur = g_psGIFT->gpu_freq_cur;
+	out->gpu_freq_max = g_psGIFT->gpu_freq_max;
+	out->gpu_freq_dvfs_pred = g_psGIFT->gpu_freq_pred;
+	out->target_fps = g_psGIFT->target_fps;
+	out->target_fps_margin = g_psGIFT->target_fps_margin;
+	out->eara_fps_margin = g_psGIFT->eara_fps_margin;
+	out->gpu_time = (g_psGIFT->gpu_time == -1) ? -1 : g_psGIFT->gpu_time / 1000;
 
-	*target_fps = g_psMEOW->target_fps;
-	if (g_psMEOW->gpu_time != -1)
-		*gpu_time = g_psMEOW->gpu_time / 1000; /* micro second*/
-	else
-		*gpu_time = -1;
+#ifdef GED_KPI_DEBUG
+	GED_LOGI("[GED_KPI] pid:%d,freq_c:%d,freq_max:%d,freq_pre:%d,tfps:%d",
+		g_psGIFT->target_pid,
+		out->gpu_freq_cur,
+		out->gpu_freq_max,
+		out->gpu_freq_dvfs_pred,
+		out->target_fps);
+	GED_LOGI("[GED_KPI] tfps_mar:%d,eara_diff:%d t_gpu:%d,gift_ratio:%d\n",
+		out->target_fps_margin,
+		out->eara_fps_margin,
+		out->gpu_time,
+		g_psGIFT->gift_ratio);
+#endif /* GED_KPI_DEBUG */
 
 	return GED_OK;
 #else
@@ -2059,9 +2073,9 @@ GED_ERROR ged_kpi_set_gift_status(int ratio)
 {
 #ifdef MTK_GED_KPI
 	if (ratio > 0)
-		g_psMEOW->gift_ratio = ratio;
+		g_psGIFT->gift_ratio = ratio;
 	else
-		g_psMEOW->gift_ratio = 0;
+		g_psGIFT->gift_ratio = 0;
 
 	return GED_OK;
 #endif /* MTK_GED_KPI */
@@ -2072,8 +2086,8 @@ EXPORT_SYMBOL(ged_kpi_set_gift_status);
 GED_ERROR ged_kpi_set_gift_target_pid(int pid)
 {
 #ifdef MTK_GED_KPI
-	if (pid != g_psMEOW->target_pid)
-		g_psMEOW->target_pid = pid;
+	if (pid != g_psGIFT->target_pid)
+		g_psGIFT->target_pid = pid;
 	return GED_OK;
 #endif /* MTK_GED_KPI */
 	return GED_OK;

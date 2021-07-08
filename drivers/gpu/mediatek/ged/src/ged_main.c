@@ -278,7 +278,7 @@ static long ged_dispatch(struct file *pFile,
 		case GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO:
 			VALIDATE_ARG(QUERY_GPU_DVFS_INFO);
 			ret = ged_bridge_query_gpu_dvfs_info(pvIn, pvOut);
-		break;
+			break;
 		case GED_BRIDGE_COMMAND_GE_ALLOC:
 			VALIDATE_ARG(GE_ALLOC);
 			ret = ged_bridge_ge_alloc(pvIn, pvOut);

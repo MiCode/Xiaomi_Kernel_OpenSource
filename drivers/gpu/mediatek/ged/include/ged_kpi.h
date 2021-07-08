@@ -7,6 +7,7 @@
 #define __GED_KPI_H__
 
 #include "ged_type.h"
+#include "ged_bridge_id.h"
 /* To-Do: EAS*/
 /*#include "eas_ctrl.h"*/
 #include <linux/sched.h>
@@ -56,8 +57,7 @@ GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 /* For Gift Usage */
 GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
 	, int *gpu_freq_max, int *gpu_freq_pred);
-GED_ERROR ged_kpi_query_gpu_dvfs_info(int *gpu_freq_cur
-	, int *gpu_freq_max, int *gpu_freq_pred, int *target_fps, int *gpu_time);
+GED_ERROR ged_kpi_query_gpu_dvfs_info(struct GED_BRIDGE_OUT_QUERY_GPU_DVFS_INFO *out);
 GED_ERROR ged_kpi_set_gift_status(int mode);
 GED_ERROR ged_kpi_set_gift_target_pid(int pid);
 

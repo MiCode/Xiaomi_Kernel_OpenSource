@@ -364,6 +364,7 @@ struct GED_BRIDGE_OUT_QUERY_DVFS_FREQ_PRED {
 struct GED_BRIDGE_IN_QUERY_GPU_DVFS_INFO {
 	int32_t pid;
 	int32_t hint;
+	int32_t gift_ratio;
 };
 
 /*****************************************************************************
@@ -375,6 +376,8 @@ struct GED_BRIDGE_OUT_QUERY_GPU_DVFS_INFO {
 	int gpu_freq_max;
 	int gpu_freq_dvfs_pred;
 	int target_fps;
+	int target_fps_margin;
+	int eara_fps_margin;
 	int gpu_time;
 };
 
