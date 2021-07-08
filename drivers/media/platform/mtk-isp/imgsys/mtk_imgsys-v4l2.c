@@ -2387,6 +2387,7 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 	imgsys_dev->clks = data->clks;
 	imgsys_dev->num_clks = data->clk_num;
 	imgsys_dev->num_mods = data->mod_num;
+	imgsys_dev->dump = data->dump;
 #ifdef CLK_READY
 	ret = devm_clk_bulk_get(&pdev->dev, imgsys_dev->num_clks,
 							imgsys_dev->clks);
