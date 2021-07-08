@@ -59,6 +59,11 @@
 
 		mt6373_efuse: mt6373-efuse {
 			compatible = "mediatek,mt6373-efuse";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			mt6373_thermal_efuse: mt6373_e_data {
+				reg = <0x60 8>;
+			};
 		};
 
 		mt6373_consys: mt6373-consys {
@@ -326,6 +331,49 @@
 				regulator-enable-ramp-delay = <720>;
 				regulator-allowed-modes = <0 2>;
 			};
+		};
+	};
+};
+
+/ {
+	mt6373_temp: mt6373_temp {
+		compatible = "mediatek,mt6373-pmic-temp";
+		io-channels =
+			<&mt6373_adc AUXADC_CHIP_TEMP>,
+			<&mt6373_adc AUXADC_VCORE_TEMP>,
+			<&mt6373_adc AUXADC_VPROC_TEMP>,
+			<&mt6373_adc AUXADC_VGPU_TEMP>;
+		io-channel-names =
+			"pmic6373_ts1",
+			"pmic6373_ts2",
+			"pmic6373_ts3",
+			"pmic6373_ts4";
+
+		#thermal-sensor-cells = <1>;
+		nvmem-cells = <&mt6373_thermal_efuse>;
+		nvmem-cell-names = "mt6373_e_data";
+	};
+
+	thermal_zones: thermal-zones {
+		pmic6373_bk0 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6373_temp 0>;
+		};
+		pmic6373_ldo {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6373_temp 1>;
+		};
+		pmic6373_bk3_bk7 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6373_temp 2>;
+		};
+		pmic6373_bk4_bk8 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6373_temp 3>;
 		};
 	};
 };
