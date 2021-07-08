@@ -4588,3 +4588,5 @@
 };
 
 #include "mediatek/cust_mt6983_msdc.dtsi"
+#include "mediatek/rt5133.dtsi"
+#include "mediatek/rt6160.dtsi"
