@@ -224,6 +224,11 @@ void mtk_drm_gem_free_object(struct drm_gem_object *obj)
 	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(obj);
 	struct mtk_drm_private *priv = obj->dev->dev_private;
 
+	if (obj->import_attach->dmabuf)
+		DDPFENCE("%s:inode %08lu cnt %u\n",
+			__func__,
+			file_inode(obj->import_attach->dmabuf->file)->i_ino,
+			file_count(obj->import_attach->dmabuf->file));
 	if (mtk_gem->sg)
 		drm_prime_gem_destroy(obj, mtk_gem->sg);
 	else if (!mtk_gem->sec)
@@ -439,6 +444,12 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 			dev,
 			attach,
 			sg);
+
+	if (attach->dmabuf)
+		DDPFENCE("%s:inode %08lu cnt %u\n",
+			__func__,
+			file_inode(attach->dmabuf->file)->i_ino,
+			file_count(attach->dmabuf->file));
 	mtk_gem = mtk_drm_gem_init(dev, attach->dmabuf->size);
 
 	if (IS_ERR(mtk_gem)) {

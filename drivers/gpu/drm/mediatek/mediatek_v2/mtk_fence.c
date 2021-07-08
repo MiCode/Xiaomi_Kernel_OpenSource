@@ -11,6 +11,7 @@
 #include <linux/wait.h>
 #include <linux/file.h>
 #include <linux/sched/clock.h>
+#include <linux/dma-buf.h>
 
 #include <drm/mediatek_drm.h>
 
@@ -440,11 +441,13 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 		if (buf->buf_hnd) {
-			DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p\n",
+			DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p/node %08lu/cnt%u\n",
 				 mtk_fence_session_mode_spy(session_id),
 				 MTK_SESSION_DEV(session_id), layer_id, fence,
 				 current_timeline_idx, layer_info->fence_idx,
-				 buf->idx, buf->buf_hnd);
+				 buf->idx, buf->buf_hnd,
+				 file_inode(buf->buf_hnd->file)->i_ino,
+				 file_count(buf->buf_hnd->file));
 		}
 #else
 		DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d\n",
@@ -835,10 +838,12 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	mutex_unlock(&layer_info->sync_lock);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
-	DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p\n",
+	DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p/node %08lu/cnt%u\n",
 		 mtk_fence_session_mode_spy(session_id),
 		 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-		 buf_info->fence, buf_info->buf_hnd);
+		 buf_info->fence, buf_info->buf_hnd,
+		 file_inode(buf_info->buf_hnd->file)->i_ino,
+		 file_count(buf_info->buf_hnd->file));
 #else
 	DDPFENCE("P+/%s%d/L%d/id%d/fd%d\n",
 		 mtk_fence_session_mode_spy(session_id),
