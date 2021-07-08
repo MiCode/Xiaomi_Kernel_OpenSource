@@ -5942,6 +5942,38 @@
 		compatible = "mt6893,apusys_power_dummy";
 	};
 
+	met {
+		met_emi: met_emi {
+			compatible = "mediatek,met_emi";
+			emi_num = <2>;
+			dram_num = <2>;
+			dramc_ver = <2>;
+			/*0: dram ebg, 1:emi_freq, 2: DRAMC_DCM_CTRL 3:chn_emi_low_effi */
+			met_emi_support_list = <0x7>;
+			cen_emi_reg_base = <0x10219000 0x1021D000>;
+			cen_emi_reg_size = <0x1000>;
+			chn_emi_reg_base = <0x10235000 0x10245000 0x10255000 0x10265000>;
+			chn_emi_reg_size = <0xA90>;
+			dramc_nao_reg_base = <0x10234000 0x10244000 0x10254000 0x10264000>;
+			dramc_nao_reg_size = <0x76C>;
+			ddrphy_ao_reg_base = <0x10238000 0x10248000 0x10258000 0x10268000>;
+			ddrphy_ao_reg_size = <0x1650>;
+			ddrphy_ao_misc_cg_ctrl0 = <0x66C>;
+			ddrphy_ao_misc_cg_ctrl2 = <0x674>;
+			dram_freq_default = <4266>;
+			ddr_ratio_default = <8>;
+			dram_type_default = <3>;
+			apmixedsys_reg_base = <0x1000C000>;
+			apmixedsys_reg_size = <0x410>;
+			slc_pmu_reg_base = <0x10342000 0x10343000>;
+			slc_pmu_reg_size = <0x1000>;
+		};
+		sspm_rts_header:sspm-rts-header {
+			node_0 = "SSPM_PTPOD", "_id,voltage";
+			node_1 = "SSPM_MET_UNIT_TEST", "test";
+		};
+	};
+
 	apusys_rv: apusys_rv {
 		compatible = "mediatek,apusys_rv";
 		status = "disabled";
