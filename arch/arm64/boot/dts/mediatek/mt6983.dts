@@ -210,15 +210,15 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0000>;
-			/*enable-method = "psci";*/
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
-/*
+
 		cpu1: cpu@001 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0100>;
-			enable-method = "psci";
+			/* enable-method = "psci"; */
 			clock-frequency = <2000000000>;
 		};
 
@@ -226,7 +226,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0200>;
-			enable-method = "psci";
+			/* enable-method = "psci"; */
 			clock-frequency = <2000000000>;
 		};
 
@@ -234,48 +234,48 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0300>;
-			enable-method = "psci";
+			/* enable-method = "psci"; */
 			clock-frequency = <2000000000>;
 		};
 
-		cpu4: cpu@004 {
+		cpu4: cpu@100 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a55";
+			compatible = "arm,cortex-a78";
 			reg = <0x0400>;
-			enable-method = "psci";
+			/* enable-method = "psci"; */
 			clock-frequency = <2000000000>;
 		};
 
-		cpu5: cpu@005 {
+		cpu5: cpu@101 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a55";
+			compatible = "arm,cortex-a78";
 			reg = <0x0500>;
-			enable-method = "psci";
+			/* enable-method = "psci"; */
 			clock-frequency = <2000000000>;
 		};
 
-		cpu6: cpu@100 {
+		cpu6: cpu@102 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a76";
+			compatible = "arm,cortex-a78";
 			reg = <0x0600>;
-			enable-method = "psci";
+			/* enable-method = "psci"; */
 			clock-frequency = <2000000000>;
 		};
 
-		cpu7: cpu@101 {
+		cpu7: cpu@200 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a76";
+			compatible = "arm,cortex-a78";
 			reg = <0x0700>;
-			enable-method = "psci";
+			/* enable-method = "psci"; */
 			clock-frequency = <2000000000>;
 		};
-*/
+
 		cpu-map {
 			cluster0 {
 				core0 {
 					cpu = <&cpu0>;
 				};
-/*				core1 {
+				core1 {
 					cpu = <&cpu1>;
 				};
 				core2 {
@@ -284,26 +284,32 @@
 				core3 {
 					cpu = <&cpu3>;
 				};
-				core4 {
-					cpu = <&cpu4>;
+				doe_dvfs_cl0: doe {
 				};
-				core5 {
-					cpu = <&cpu5>;
-				};
-*/
 			};
-		};
-/*
+
 			cluster1 {
 				core0 {
-					cpu = <&cpu6>;
+					cpu = <&cpu4>;
 				};
 				core1 {
+					cpu = <&cpu5>;
+				};
+				core2 {
+					cpu = <&cpu6>;
+				};
+				doe_dvfs_cl1: doe {
+				};
+			};
+
+			cluster2 {
+				core0 {
 					cpu = <&cpu7>;
+				};
+				doe_dvfs_cl2: doe {
 				};
 			};
 		};
-*/
 	};
 
 	drm:drm@1000d000 {
