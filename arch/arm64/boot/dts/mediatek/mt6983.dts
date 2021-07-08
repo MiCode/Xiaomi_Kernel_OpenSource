@@ -4260,16 +4260,16 @@
 			    "mbox4_clr",
 			    "mbox4_init";
 
-		interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 797 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 798 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 799 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 800 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 801 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 802 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 803 IRQ_TYPE_LEVEL_HIGH 0>;
 
-		interrupt-names = "ipc0",
-				  "ipc1",
+		interrupt-names = "wdt",
+				  "reserved",
 				  "mbox0",
 				  "mbox1",
 				  "mbox2",
@@ -4314,9 +4314,9 @@
 		<22 4  4 0>;/* IPI_IN_VCP_MPOOL_1 */
 
 		vcp_mem_key = "mediatek,reserve-memory-vcp_share";
-		vcp_mem_tbl = <1 0x40000>, /* VDEC_MEM_ID 256KB */
-			      <2 0x8000>, /* VENC_MEM_ID 32KB */
-			      <3 0x180000>; /* LOGGER */
+		vcp_mem_tbl = <0 0x40000>, /* VDEC_MEM_ID 256KB */
+			      <1 0x8000>, /* VENC_MEM_ID 32KB */
+			      <2 0x180000>; /* LOGGER */
 	};
 
 	vcp_iommu_vdec {
