@@ -279,6 +279,9 @@ static const struct of_device_id mt635x_efuse_of_match[] = {
 		.compatible = "mediatek,mt6363-efuse",
 		.data = &mt6363_efuse_data
 	}, {
+		.compatible = "mediatek,mt6373-efuse",
+		.data = &mt6363_efuse_data
+	}, {
 		/* sentinel */
 	}
 };
