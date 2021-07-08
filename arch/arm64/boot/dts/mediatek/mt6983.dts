@@ -6350,6 +6350,11 @@
 			compatible = "mediatek,apu-ctrl-rpmsg";
 			mtk,rpmsg-name = "apu-ctrl-rpmsg";
 		};
+
+		apu_top_rpmsg {
+			compatible = "mediatek,aputop-rpmsg";
+			mtk,rpmsg-name = "apu_top_3_rpmsg";
+		};
 	};
 
 	apusys_sw_logger {
