@@ -233,7 +233,7 @@
 	};
 
 	spi0: spi0@11010000 {
-		compatible = "mediatek,mt6765-spi";
+		compatible = "mediatek,mt6983-spi";
 		mediatek,pad-select = <0>;
 		reg = <0 0x11010000 0 0x100>;
 		interrupts = <GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -244,7 +244,7 @@
 	};
 
 	spi1: spi1@11011000 {
-		compatible = "mediatek,mt6765-spi";
+		compatible = "mediatek,mt6983-spi";
 		mediatek,pad-select = <0>;
 		reg = <0 0x11011000 0 0x100>;
 		interrupts = <GIC_SPI 236 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -255,7 +255,7 @@
 	};
 
 	spi2: spi2@11012000 {
-		compatible = "mediatek,mt6765-spi";
+		compatible = "mediatek,mt6983-spi";
 		mediatek,pad-select = <0>;
 		reg = <0 0x11012000 0 0x100>;
 		interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -266,7 +266,7 @@
 	};
 
 	spi3: spi3@11013000 {
-		compatible = "mediatek,mt6765-spi";
+		compatible = "mediatek,mt6983-spi";
 		mediatek,pad-select = <0>;
 		reg = <0 0x11013000 0 0x100>;
 		interrupts = <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -277,7 +277,7 @@
 	};
 
 	spi4: spi4@11014000 {
-		compatible = "mediatek,mt6765-spi";
+		compatible = "mediatek,mt6983-spi";
 		mediatek,pad-select = <0>;
 		reg = <0 0x11014000 0 0x100>;
 		interrupts = <GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -288,7 +288,7 @@
 	};
 
 	spi5: spi5@11015000 {
-		compatible = "mediatek,mt6765-spi";
+		compatible = "mediatek,mt6983-spi";
 		mediatek,pad-select = <0>;
 		reg = <0 0x11015000 0 0x100>;
 		interrupts = <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -299,7 +299,7 @@
 	};
 
 	spi6: spi6@11016000 {
-		compatible = "mediatek,mt6765-spi";
+		compatible = "mediatek,mt6983-spi";
 		mediatek,pad-select = <0>;
 		reg = <0 0x11016000 0 0x100>;
 		interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -310,7 +310,7 @@
 	};
 
 	spi7: spi7@11017000 {
-		compatible = "mediatek,mt6765-spi";
+		compatible = "mediatek,mt6983-spi";
 		mediatek,pad-select = <0>;
 		reg = <0 0x11017000 0 0x100>;
 		interrupts = <GIC_SPI 242 IRQ_TYPE_LEVEL_HIGH 0>;
