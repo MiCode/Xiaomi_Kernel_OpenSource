@@ -7,19 +7,13 @@
 #include "adaptor.h"
 #include "adaptor-i2c.h"
 #include "adaptor-ctrls.h"
+#include "adaptor-common-ctrl.h"
 
 #define ctrl_to_ctx(ctrl) \
 	container_of(ctrl->handler, struct adaptor_ctx, ctrls)
 
 #define sizeof_u32(__struct_name__) (sizeof(__struct_name__) / sizeof(u32))
 #define sizeof_u16(__struct_name__) (sizeof(__struct_name__) / sizeof(u16))
-
-#define USER_DESC_TO_IMGSENSOR_ENUM(DESC) \
-				(DESC - VC_STAGGER_NE + \
-				IMGSENSOR_STAGGER_EXPOSURE_LE)
-#define IS_HDR_STAGGER(DESC) \
-				((DESC >= VC_STAGGER_NE) && \
-				 (DESC <= VC_STAGGER_SE))
 
 #ifdef V4L2_CID_PD_PIXEL_REGION
 static int g_pd_pixel_region(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl)
@@ -230,70 +224,15 @@ static int set_hdr_gain_dual(struct adaptor_ctx *ctx, struct mtk_hdr_gain *info)
 	return 0;
 }
 
-static int g_stagger_info(struct adaptor_ctx *ctx,
-						  int origin_scenario,
-						  struct mtk_stagger_info *info)
-{
-	int ret = 0;
-	struct mtk_mbus_frame_desc fd;
-	int hdr_cnt = 0;
-	unsigned int i = 0;
-
-	if (!info)
-		return 0;
-
-	ret = subdrv_call(ctx, get_frame_desc, origin_scenario, &fd);
-
-	if (!ret) {
-		for (i = 0; i < fd.num_entries; ++i) {
-			u16 udd =
-				fd.entry[i].bus.csi2.user_data_desc;
-
-			if (IS_HDR_STAGGER(udd)) {
-				hdr_cnt++;
-				info->order[i] = USER_DESC_TO_IMGSENSOR_ENUM(udd);
-			}
-		}
-	}
-
-	info->count = hdr_cnt;
-
-	return ret;
-}
-
-static int g_stagger_scenario(struct adaptor_ctx *ctx,
-							  int origin_scenario,
-							  struct mtk_stagger_target_scenario *info)
-{
-	int ret = 0;
-	union feature_para para;
-	u32 len;
-
-	if (!ctx || !info)
-		return 0;
-
-	para.u64[0] = origin_scenario;
-	para.u64[1] = (u64)info->exposure_num;
-	para.u64[2] = SENSOR_SCENARIO_ID_NONE;
-
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_GET_STAGGER_TARGET_SCENARIO,
-		para.u8, &len);
-
-	info->target_scenario_id = (u32)para.u64[2];
-
-	return ret;
-}
-
 static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 						  struct mtk_hdr_ae *ae_ctrl)
 {
 	union feature_para para;
-	int ret = 0;
-	u32 len = 0;
-	struct mtk_stagger_info info;
+	u32 len = 0, exp_count = 0;
 
-	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
+	while (exp_count < IMGSENSOR_STAGGER_EXPOSURE_CNT &&
+		ae_ctrl->exposure.arr[exp_count] != 0)
+		exp_count++;
 
 	dev_info(ctx->dev, "exposure[LLLE->SSSE] %d %d %d %d %d\n",
 			 ae_ctrl->exposure.le_exposure,
@@ -315,7 +254,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	ae_ctrl->gain.ssse_gain /= 16;
 
 
-	switch (info.count) {
+	switch (exp_count) {
 	case 3:
 	{
 		set_hdr_exposure_tri(ctx, &ae_ctrl->exposure);
@@ -350,8 +289,8 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL) {
 		para.u64[0] = 0;
 		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,
-			para.u8, &len);
+					SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,
+					para.u8, &len);
 	}
 
 	ctx->exposure->val = ae_ctrl->exposure.le_exposure;
@@ -453,10 +392,8 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 	case V4L2_CID_MTK_STAGGER_INFO:
 	{
 		struct mtk_stagger_info *info = ctrl->p_new.p;
-		int scenario_id = (info->scenario_id >= SENSOR_SCENARIO_ID_MAX) ?
-			info->scenario_id - SENSOR_SCENARIO_ID_MAX : mode->id;
 
-		g_stagger_info(ctx, scenario_id, info);
+		g_stagger_info(ctx, mode->id, info);
 	}
 		break;
 	case V4L2_CID_MTK_FRAME_DESC:
@@ -503,30 +440,44 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_MAX_EXP_TIME:
 	{
-		u32 len = 0;
-		union feature_para para;
 		struct mtk_stagger_max_exp_time *info = ctrl->p_new.p;
-		int scenario_id = (info->scenario_id >= SENSOR_SCENARIO_ID_MAX) ?
-			info->scenario_id - SENSOR_SCENARIO_ID_MAX : ctx->try_format_mode->id;
 
-		para.u64[0] = scenario_id;
-		para.u64[1] = (u64)info->exposure;
-		para.u64[2] = 0;
-
-		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_GET_STAGGER_MAX_EXP_TIME,
-			para.u8, &len);
-
-		info->max_exp_time = (u32)para.u64[2];
+		g_max_exposure(ctx, ctx->try_format_mode->id, info);
 	}
 		break;
 	case V4L2_CID_STAGGER_TARGET_SCENARIO:
 	{
 		struct mtk_stagger_target_scenario *info = ctrl->p_new.p;
-		int scenario_id = (info->scenario_id >= SENSOR_SCENARIO_ID_MAX) ?
-			info->scenario_id - SENSOR_SCENARIO_ID_MAX : ctx->try_format_mode->id;
 
-		g_stagger_scenario(ctx, scenario_id, info);
+		g_stagger_scenario(ctx, ctx->try_format_mode->id, info);
+	}
+		break;
+	case V4L2_CID_MTK_SENSOR_STATIC_PARAM:
+	{
+		struct mtk_sensor_static_param *info = ctrl->p_new.p;
+		u32 val, len;
+		union feature_para para;
+
+		if (info->scenario_id >= 0 &&
+			info->scenario_id < ctx->mode_cnt) {
+			struct sensor_mode *mode = &ctx->mode[info->scenario_id];
+
+			para.u64[0] = info->scenario_id;
+			para.u64[1] = (u64)&val;
+
+			subdrv_call(ctx, feature_control,
+						SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO,
+						para.u8, &len);
+
+			info->fps = val / 10;
+			info->vblank = mode->fll - mode->height;
+			info->hblank = mode->llp - mode->width;
+			info->pixelrate = mode->mipi_pixel_rate;
+		}
+
+		dev_info(ctx->dev, "%s [scenario %d]:fps: %d vb: %d hb: %d pixelrate: %d\n",
+				 __func__, info->scenario_id, info->fps, info->vblank,
+				 info->hblank, info->pixelrate);
 	}
 		break;
 	default:
@@ -776,7 +727,15 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 					info->ae_ctrl[1].gain.arr[0],
 					info->ae_ctrl[1].gain.arr[1],
 					info->ae_ctrl[1].gain.arr[2]);
-
+			if (info->target_scenario_id == 0 &&
+				info->ae_ctrl[0].exposure.arr[0] == 0 &&
+				info->ae_ctrl[0].gain.arr[0] == 0 &&
+				info->ae_ctrl[1].exposure.arr[0] == 0 &&
+				info->ae_ctrl[1].gain.arr[0] == 0) {
+				dev_info(dev, "V4L2_CID_START_SEAMLESS_SWITCH %u invalid value\n",
+					info->target_scenario_id);
+				break;
+			}
 			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SEAMLESS_SWITCH,
 				para.u8, &len);
@@ -1077,6 +1036,17 @@ static const struct v4l2_ctrl_config cfg_stagger_max_exp_time = {
 	.dims = {sizeof_u32(struct mtk_stagger_max_exp_time)},
 };
 
+static const struct v4l2_ctrl_config cfg_static_param = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_STATIC_PARAM,
+	.name = "static param by scenario",
+	.type = V4L2_CTRL_TYPE_U32,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+	.max = 0xffff,
+	.step = 1,
+	.dims = {sizeof_u32(struct mtk_sensor_static_param)},
+};
+
 static const struct v4l2_ctrl_config cfg_start_seamless_switch = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_START_SEAMLESS_SWITCH,
@@ -1314,6 +1284,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_stagger_scenario, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_stagger_max_exp_time, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_start_seamless_switch, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_static_param, NULL);
 
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_seamless_scenario, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_fd_ctrl, NULL);

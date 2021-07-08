@@ -7,6 +7,7 @@
 #include "imgsensor-user.h"
 #include "adaptor.h"
 #include "adaptor-ioctl.h"
+#include "adaptor-common-ctrl.h"
 #include "adaptor-i2c.h"
 
 #define GAIN_TBL_SIZE 4096
@@ -934,6 +935,20 @@ static int g_custom_readout(struct adaptor_ctx *ctx, void *arg)
 }
 
 
+static int g_stagger_scenario_ioctl(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_stagger_target_scenario *target = arg;
+
+	return g_stagger_scenario(ctx, target->scenario_id, target);
+}
+
+static int g_max_exposure_ioctl(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_stagger_max_exp_time *target = arg;
+
+	return g_max_exposure(ctx, target->scenario_id, target);
+}
+
 static int g_seamless_switch_scenario(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_seamless_target_scenarios *target = arg;
@@ -1183,6 +1198,8 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_EXPOSURE_MARGIN_BY_SCENARIO, g_exposure_margin_by_scenario},
 	{VIDIOC_MTK_G_SEAMLESS_SCENARIO, g_seamless_switch_scenario},
 	{VIDIOC_MTK_G_CUSTOM_READOUT_BY_SCENARIO, g_custom_readout},
+	{VIDIOC_MTK_G_STAGGER_SCENARIO, g_stagger_scenario_ioctl},
+	{VIDIOC_MTK_G_MAX_EXPOSURE, g_max_exposure_ioctl},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},

@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: GPL-2.0
+// Copyright (c) 2021 MediaTek Inc.
+
+#include "kd_imgsensor_define_v4l2.h"
+#include "imgsensor-user.h"
+#include "adaptor.h"
+#include "adaptor-common-ctrl.h"
+
+#define USER_DESC_TO_IMGSENSOR_ENUM(DESC) \
+				(DESC - V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE + \
+				IMGSENSOR_STAGGER_EXPOSURE_LE)
+#define IS_HDR_STAGGER(DESC) \
+				((DESC >= V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE) && \
+				 (DESC <= V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_SE))
+
+int g_stagger_info(struct adaptor_ctx *ctx,
+						  int scenario,
+						  struct mtk_stagger_info *info)
+{
+	int ret = 0;
+	struct v4l2_mbus_frame_desc fd;
+	int hdr_cnt = 0;
+	unsigned int i = 0;
+
+	if (!info)
+		return 0;
+
+	ret = subdrv_call(ctx, get_frame_desc, scenario, &fd);
+
+	if (!ret) {
+		for (i = 0; i < fd.num_entries; ++i) {
+			enum v4l2_mbus_csi2_user_defined_data_desc udd =
+				fd.entry[i].bus.csi2.user_data_desc;
+
+			if (IS_HDR_STAGGER(udd)) {
+				hdr_cnt++;
+				info->order[i] = USER_DESC_TO_IMGSENSOR_ENUM(udd);
+			}
+		}
+	}
+
+	info->count = hdr_cnt;
+
+	return ret;
+}
+
+int g_stagger_scenario(struct adaptor_ctx *ctx,
+							  int scenario,
+							  struct mtk_stagger_target_scenario *info)
+{
+	int ret = 0;
+	union feature_para para;
+	u32 len;
+
+	if (!ctx || !info)
+		return 0;
+
+	para.u64[0] = scenario;
+	para.u64[1] = (u64)info->exposure_num;
+	para.u64[2] = SENSOR_SCENARIO_ID_NONE;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_STAGGER_TARGET_SCENARIO,
+		para.u8, &len);
+
+	info->target_scenario_id = (u32)para.u64[2];
+
+	return ret;
+}
+
+int g_max_exposure(struct adaptor_ctx *ctx,
+				   int scenario,
+				   struct mtk_stagger_max_exp_time *info)
+{
+	u32 len = 0;
+	union feature_para para;
+
+	para.u64[0] = scenario;
+	para.u64[1] = (u64)info->exposure;
+	para.u64[2] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_STAGGER_MAX_EXP_TIME,
+		para.u8, &len);
+
+	info->max_exp_time = (u32)para.u64[2];
+
+	return 0;
+}

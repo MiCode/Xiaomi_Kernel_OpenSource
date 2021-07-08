@@ -20,6 +20,7 @@ imgsensor-objs := \
 	adaptor-i2c.o \
 	adaptor-ctrls.o \
 	adaptor-ioctl.o \
+	adaptor-common-ctrl.o \
 
 define FILTER_DRV
 ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/camera_project/$(IMGSENSOR_PROJECT)/$(1)),)
