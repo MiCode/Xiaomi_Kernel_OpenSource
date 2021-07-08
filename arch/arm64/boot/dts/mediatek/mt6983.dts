@@ -1453,9 +1453,18 @@
 		reg = <0 0x10211000 0 0x1000>;
 	};
 
-	cq_dma@10212000 {
-		compatible = "mediatek,cq_dma";
-		reg = <0 0x10212000 0 0x1000>;
+	cqdma: cq_dma@10212000 {
+		compatible = "mediatek,mt6765-cqdma";
+		reg = <0 0x10212000 0 0x1000>,
+			<0 0x10212100 0 0x1000>,
+			<0 0x10212200 0 0x1000>,
+			<0 0x10212300 0 0x1000>;
+		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH 0>;
+		dma-channels = <4>;
+		dma-channel-mask = <63>;
 	};
 
 	md2md_md2_ccif0@10213000 {
