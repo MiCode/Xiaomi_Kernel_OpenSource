@@ -1930,9 +1930,11 @@ static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt6873-apu-iommu", .data = &mt6873_data_apu},
 	{ .compatible = "mediatek,mt6879-apu-iommu0", .data = &mt6879_data_apu0},
 	{ .compatible = "mediatek,mt6879-disp-iommu", .data = &mt6879_data_disp},
+#ifdef IOMMU_NO_USE
 	{ .compatible = "mediatek,mt6879-peri-iommu_m4", .data = &mt6879_data_peri_m4},
 	{ .compatible = "mediatek,mt6879-peri-iommu_m6", .data = &mt6879_data_peri_m6},
 	{ .compatible = "mediatek,mt6879-peri-iommu_m7", .data = &mt6879_data_peri_m7},
+#endif
 	{ .compatible = "mediatek,mt6893-iommu0", .data = &mt6893_data_iommu0},
 	{ .compatible = "mediatek,mt6893-iommu1", .data = &mt6893_data_iommu1},
 	{ .compatible = "mediatek,mt6893-iommu2", .data = &mt6893_data_iommu2},
@@ -1941,9 +1943,11 @@ static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt6983-apu-iommu1", .data = &mt6983_data_apu1},
 	{ .compatible = "mediatek,mt6983-disp-iommu", .data = &mt6983_data_disp},
 	{ .compatible = "mediatek,mt6983-mdp-iommu", .data = &mt6983_data_mdp},
+#ifdef IOMMU_NO_USE
 	{ .compatible = "mediatek,mt6983-peri-iommu-m4", .data = &mt6983_data_peri_m4},
 	{ .compatible = "mediatek,mt6983-peri-iommu-m6", .data = &mt6983_data_peri_m6},
 	{ .compatible = "mediatek,mt6983-peri-iommu-m7", .data = &mt6983_data_peri_m7},
+#endif
 	{ .compatible = "mediatek,mt8167-m4u", .data = &mt8167_data},
 	{ .compatible = "mediatek,mt8173-m4u", .data = &mt8173_data},
 	{ .compatible = "mediatek,mt8183-m4u", .data = &mt8183_data},
