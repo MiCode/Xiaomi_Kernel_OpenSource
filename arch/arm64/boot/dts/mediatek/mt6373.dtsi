@@ -61,6 +61,10 @@
 			compatible = "mediatek,mt6373-efuse";
 		};
 
+		mt6373_consys: mt6373-consys {
+			compatible = "mediatek,mt6373-consys";
+		};
+
 		regulators {
 			mt6373_vbuck0: VBUCK0 {
 				regulator-compatible = "VBUCK0";

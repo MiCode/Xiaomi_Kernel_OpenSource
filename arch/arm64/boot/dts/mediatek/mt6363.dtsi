@@ -100,6 +100,10 @@
 			compatible = "mediatek,mt6363-efuse";
 		};
 
+		mt6363-consys {
+			compatible = "mediatek,mt6363-consys";
+		};
+
 		mt6363keys: mt6363keys {
 			compatible = "mediatek,mt6363-keys";
 			mediatek,long-press-mode = <1>;
