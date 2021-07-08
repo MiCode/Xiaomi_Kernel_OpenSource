@@ -2293,6 +2293,7 @@
 				<0x3ceb40	0x2900		0x43>,
 				<0x52eb40	0x2900		0x43>;
 			clk-dbg-ver = "v1";
+			ccf-fmeter-support;
 		};
 
 		adsp_common: adsp_common@10800000 {
