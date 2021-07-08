@@ -73,6 +73,7 @@ mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
 		  mtk_drm_gateic.o
 
 mediatek-drm-panel-drv-y :=  \
+		  mtk_round_corner/mtk_drm_rc.o \
 		  mtk_drm_panel_helper.o \
 		  mtk_drm_panel_helper_dbi.o \
 		  mtk_drm_panel_helper_dpi.o \

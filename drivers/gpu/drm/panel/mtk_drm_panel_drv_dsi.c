@@ -14,7 +14,6 @@
 #define MTK_DRM_PANEL_DEBUG
 
 static struct mtk_panel_context *ctx_dsi;
-static unsigned int dsi_current_fps = 60;
 
 static inline struct mtk_panel_context *panel_to_lcm(
 		struct drm_panel *panel)
@@ -171,7 +170,7 @@ static int mtk_drm_panel_unprepare(struct drm_panel *panel)
 	ret = mtk_panel_execute_operation((void *)dsi,
 			ops->unprepare, ops->unprepare_size,
 			ctx_dsi->panel_resource,
-			NULL, 0, "panel_unprepare");
+			NULL, "panel_unprepare");
 
 	if (ret != 0) {
 		DDPPR_ERR("%s,%d: failed to do panel unprepare, %d\n",
@@ -195,20 +194,44 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 {
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mtk_lcm_ops_input_packet input;
 	int ret = 0;
 
 	if (ops == NULL)
 		return -EINVAL;
 
+	/*prepare input data*/
+	if (mtk_lcm_create_input_packet(&input, 1, 1) < 0)
+		return -ENOMEM;
+
+	if (mtk_lcm_create_input(input.condition, 1,
+			MTK_LCM_INPUT_TYPE_CURRENT_FPS) < 0)
+		goto fail2;
+	*(unsigned int *)input.condition->data = atomic_read(&ctx_dsi->current_fps);
+
+	if (mtk_lcm_create_input(input.data, 1,
+			MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0)
+		goto fail1;
+	*(u8 *)input.data->data = atomic_read(&ctx_dsi->current_backlight);
+
+	/*do panel initialization*/
 	ret = mtk_panel_execute_operation((void *)dsi,
 			ops->prepare, ops->prepare_size,
 			ctx_dsi->panel_resource,
-			NULL, 0, "panel_prepare");
+			&input, "panel_prepare");
 
 	if (ret != 0)
 		DDPPR_ERR("%s,%d: failed to do panel prepare\n",
 			__func__, __LINE__);
 
+	/*deallocate input data*/
+	mtk_lcm_destroy_input(input.data);
+	input.data = NULL;
+fail1:
+	mtk_lcm_destroy_input(input.condition);
+	input.condition = NULL;
+fail2:
+	mtk_lcm_destroy_input_packet(&input);
 	return ret;
 }
 
@@ -260,7 +283,7 @@ static int mtk_drm_panel_enable(struct drm_panel *panel)
 	ret = mtk_panel_execute_operation((void *)dsi,
 			ops->enable, ops->enable_size,
 			ctx_dsi->panel_resource,
-			NULL, 0, "panel_enable");
+			NULL, "panel_enable");
 
 	if (ret != 0) {
 		DDPPR_ERR("%s,%d: failed to do panel enable\n",
@@ -301,7 +324,7 @@ static int mtk_drm_panel_disable(struct drm_panel *panel)
 	ret = mtk_panel_execute_operation((void *)dsi,
 			ops->disable, ops->disable_size,
 			ctx_dsi->panel_resource,
-			NULL, 0, "panel_disable");
+			NULL, "panel_disable");
 
 	if (ret != 0) {
 		DDPPR_ERR("%s,%d: failed to do panel disable\n",
@@ -315,6 +338,20 @@ static int mtk_drm_panel_disable(struct drm_panel *panel)
 	return 0;
 }
 
+static struct drm_display_mode *get_mode_by_connector_id(
+	struct drm_connector *connector, unsigned int id)
+{
+	struct drm_display_mode *mode = NULL;
+	unsigned int i = 0;
+
+	list_for_each_entry(mode, &connector->modes, head) {
+		if (i == id)
+			return mode;
+		i++;
+	}
+	return NULL;
+}
+
 static int mtk_panel_ext_param_set(struct drm_panel *panel,
 			struct drm_connector *connector, unsigned int id)
 {
@@ -324,15 +361,21 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 			&ctx_dsi->panel_resource->params.dsi_params;
 	struct mtk_lcm_mode_dsi *mode_node = NULL;
 	bool found = false;
+	struct drm_display_mode *mode = get_mode_by_connector_id(connector, id);
 
 	DDPMSG("%s+\n", __func__);
+	if (IS_ERR_OR_NULL(mode)) {
+		DDPMSG("%s, failed to get mode\n", __func__);
+		return -EINVAL;
+	}
+
 	if (ctx_dsi == NULL ||
 	    ctx_dsi->panel_resource == NULL)
 		return -EINVAL;
 
 
 	list_for_each_entry(mode_node, &params->mode_list, list) {
-		if (mode_node->id == id) {
+		if (mode_node->fps == drm_mode_vrefresh(mode)) {
 			found = true;
 			break;
 		}
@@ -343,8 +386,9 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		return -EINVAL;
 	}
 	ext->params = &mode_node->ext_param;
-	dsi_current_fps = drm_mode_vrefresh(&mode_node->mode);
-	DDPMSG("%s-\n", __func__);
+	atomic_set(&ctx_dsi->current_fps, mode_node->fps);
+	DDPMSG("%s-, id:%u, fps:%u\n", __func__,
+		id, atomic_read(&ctx_dsi->current_fps));
 	return 0;
 }
 
@@ -364,6 +408,10 @@ static int mtk_panel_ext_param_get(
 	}
 
 	list_for_each_entry(mode_node, &params->mode_list, list) {
+		/* this may be failed,
+		 * and should apply as ext_param_set did,
+		 * but w/o connector data
+		 */
 		if (mode_node->id == id) {
 			found = true;
 			break;
@@ -399,6 +447,7 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mtk_lcm_ops_input_packet input;
 	u8 *data = NULL;
 	int ret = 0, i = 0;
 
@@ -406,16 +455,18 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 	if (ops == NULL)
 		return -EINVAL;
 
-	LCM_KZALLOC(data, ops->ata_id_value_length, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(data)) {
-		DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-			__func__, __LINE__);
-		return -ENOMEM;
-	}
+	/*prepare read back buffer*/
+	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
+		return ret;
+
+	if (mtk_lcm_create_input(input.data, ops->ata_id_value_length,
+			MTK_LCM_INPUT_TYPE_READBACK) < 0)
+		goto fail;
+
 	ret = mtk_panel_execute_operation((void *)dsi,
 			ops->ata_check, ops->ata_check_size,
 			ctx_dsi->panel_resource,
-			data, ops->ata_id_value_length, "ata_check");
+			&input, "ata_check");
 	if (ret != 0) {
 		DDPPR_ERR("%s,%d: failed to do ata check\n",
 			__func__, __LINE__);
@@ -432,7 +483,11 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 	}
 
 end:
-	LCM_KFREE(data, ops->ata_id_value_length);
+	/*deallocate read back buffer*/
+	mtk_lcm_destroy_input(input.data);
+	input.data = NULL;
+fail:
+	mtk_lcm_destroy_input_packet(&input);
 	DDPMSG("%s-, %d\n", __func__, ret);
 	return ret;
 }
@@ -466,6 +521,7 @@ static int mtk_panel_set_backlight_cmdq(void *dsi, dcs_write_gce cb,
 			data[id] = (u8)level;
 
 		cb(dsi, handle, data, size);
+		atomic_set(&ctx_dsi->current_backlight, level);
 	}
 
 	DDPMSG("%s-\n", __func__);
@@ -516,6 +572,7 @@ static int mtk_panel_set_backlight_grp_cmdq(void *dsi, dcs_grp_write_gce cb,
 			panel_para->para_list[id] = (u8)level;
 
 		cb(dsi, handle, panel_para, panel_para->count);
+		atomic_set(&ctx_dsi->current_backlight, level);
 	}
 
 end:
@@ -552,18 +609,23 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 	struct mtk_lcm_params *params = &ctx_dsi->panel_resource->params;
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct drm_display_mode *mode = NULL;
 	unsigned int size = 0;
 	char owner[MAX_PANEL_OPERATION_NAME] = {0};
 	struct mtk_lcm_mode_dsi *mode_node = NULL;
 	bool found = false;
 	int ret = 0;
 
+	if (cur_mode == dst_mode)
+		return ret;
+
 	DDPMSG("%s+, cur:%u, dst:%u\n", __func__, cur_mode, dst_mode);
-	if (params == NULL || ops == NULL)
+	mode = get_mode_by_connector_id(connector, dst_mode);
+	if (params == NULL || ops == NULL || mode == NULL)
 		return -EINVAL;
 
 	list_for_each_entry(mode_node, &params->dsi_params.mode_list, list) {
-		if (mode_node->fps == dst_mode) {
+		if (mode_node->fps == drm_mode_vrefresh(mode)) {
 			found = true;
 			break;
 		}
@@ -588,10 +650,10 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 		return -EINVAL;
 	}
 
-	snprintf(owner, sizeof(owner), "fps_switch_%u", dst_mode);
+	snprintf(owner, sizeof(owner), "fps-switch-%u-%u", dst_mode, mode_node->fps);
 	ret = mtk_panel_execute_operation((void *)dsi, table, size,
 				ctx_dsi->panel_resource,
-				NULL, 0, owner);
+				NULL, owner);
 
 	DDPMSG("%s-, %d\n", __func__, ret);
 	return ret;
@@ -866,6 +928,52 @@ static void mtk_panel_dump(struct drm_panel *panel, enum MTK_LCM_DUMP_FLAG flag)
 	}
 }
 
+static struct mtk_lcm_mode_dsi *mtk_drm_panel_get_mode_by_id(
+	struct mtk_lcm_params_dsi *params, unsigned int id)
+{
+	struct mtk_lcm_mode_dsi *mode_node = NULL;
+
+	if (IS_ERR_OR_NULL(params))
+		return NULL;
+
+	list_for_each_entry(mode_node, &params->mode_list, list) {
+		if (mode_node->id != id)
+			continue;
+
+		return mode_node;
+	}
+
+	return NULL;
+}
+
+static struct drm_display_mode *mtk_panel_get_default_mode(struct drm_panel *panel,
+		struct drm_connector *connector)
+{
+	struct mtk_lcm_params *params = NULL;
+	struct drm_display_mode *mode = NULL;
+	unsigned int default_fps = 60;
+	bool found = false;
+
+	if (ctx_dsi->panel_resource == NULL)
+		return NULL;
+
+	params = &ctx_dsi->panel_resource->params;
+	default_fps = params->dsi_params.default_mode->fps;
+
+	list_for_each_entry(mode, &connector->modes, head) {
+		if (default_fps == drm_mode_vrefresh(mode)) {
+			found = true;
+			break;
+		}
+	}
+	if (found == false) {
+		DDPMSG("%s, failed to find default mode\n", __func__);
+		return NULL;
+	}
+
+	return mode;
+}
+
 static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.set_backlight_cmdq = mtk_panel_set_backlight_cmdq,
 	.set_aod_light_mode = mtk_panel_set_aod_light_mode,
@@ -888,6 +996,7 @@ static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.hbm_get_wait_state = mtk_panel_hbm_get_wait_state,
 	.hbm_set_wait_state = mtk_panel_hbm_set_wait_state,
 	.lcm_dump = mtk_panel_dump,
+	.get_default_mode = mtk_panel_get_default_mode,
 };
 
 static void mtk_drm_update_disp_mode_params(struct drm_display_mode *mode)
@@ -923,8 +1032,8 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 					struct drm_connector *connector)
 {
 	struct drm_display_mode *mode = NULL, *mode_src = NULL;
-	struct mtk_lcm_params *params = &ctx_dsi->panel_resource->params;
-	struct mtk_lcm_params_dsi *dsi_params = &params->dsi_params;
+	struct mtk_lcm_params *params = NULL;
+	struct mtk_lcm_params_dsi *dsi_params = NULL;
 	struct mtk_lcm_mode_dsi *mode_node = NULL;
 	int count = 0;
 
@@ -933,8 +1042,23 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 		return 0;
 	}
 
-	list_for_each_entry(mode_node, &dsi_params->mode_list, list) {
+	if (ctx_dsi->panel_resource == NULL) {
+		DDPMSG("%s, %d invalid panel resource\n", __func__, __LINE__);
+		return 0;
+	}
+	params = &ctx_dsi->panel_resource->params;
+	dsi_params = &params->dsi_params;
+
+	while (count < dsi_params->mode_count) {
+		mode_node = mtk_drm_panel_get_mode_by_id(dsi_params, count);
+		if (IS_ERR_OR_NULL(mode_node))
+			break;
+
 		mode_src = &mode_node->mode;
+		DDPMSG("%s, %d, id:%u, fps:%u-%u\n",
+			__func__, __LINE__, mode_node->id, mode_node->fps,
+			drm_mode_vrefresh(mode_src));
+
 		mtk_drm_update_disp_mode_params(mode_src);
 
 		mode = drm_mode_duplicate(connector->dev, mode_src);
@@ -943,12 +1067,14 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 				"failed to add mode %ux%ux@%u\n",
 				mode_src->hdisplay, mode_src->vdisplay,
 				drm_mode_vrefresh(mode_src));
-			return -ENOMEM;
+			return count;
 		}
 
 		drm_mode_set_name(mode);
-		mode->type = DRM_MODE_TYPE_DRIVER |
-			DRM_MODE_TYPE_PREFERRED;
+		mode->type = DRM_MODE_TYPE_DRIVER;
+		if (mode_node->id == params->dsi_params.default_mode->id)
+			mode->type |= DRM_MODE_TYPE_PREFERRED;
+
 		drm_mode_probed_add(connector, mode);
 		count++;
 	}
@@ -1084,6 +1210,8 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 	atomic_set(&ctx_dsi->enabled, 1);
 	atomic_set(&ctx_dsi->error, 0);
 	atomic_set(&ctx_dsi->hbm_en, 0);
+	atomic_set(&ctx_dsi->current_fps, dsi_params->default_mode->fps);
+	atomic_set(&ctx_dsi->current_backlight, 0xFF);
 
 	drm_panel_init(&ctx_dsi->panel, dev,
 			&lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);

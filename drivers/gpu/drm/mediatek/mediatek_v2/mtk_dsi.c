@@ -2828,7 +2828,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 
 	if (panel_ext && panel_ext->funcs &&
 		panel_ext->funcs->ext_param_set) {
-		DDPINFO("old ext_param_set\n");
+		DDPINFO("%s, %d ext_param_set\n", __func__, __LINE__);
 		old_get_sta = panel_ext->funcs->ext_param_set(
 			dsi->panel, &dsi->conn ,src_mode_idx);
 	}
@@ -2846,7 +2846,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 
 	if (panel_ext && panel_ext->funcs &&
 		panel_ext->funcs->ext_param_set) {
-		DDPINFO("new ext_param_set\n");
+		DDPINFO("%s, %d ext_param_set\n", __func__, __LINE__);
 		new_get_sta = panel_ext->funcs->ext_param_set(
 			dsi->panel, &dsi->conn, dst_mode_idx);
 	}
@@ -5140,6 +5140,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
 	}
+
 	cb_data->cmdq_handle = handle;
 	cb_data->crtc = &mtk_crtc->base;
 	if (cmdq_pkt_flush_threaded(handle,
@@ -5296,8 +5297,15 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case DSI_GET_TIMING:
 		mode = (struct drm_display_mode **)params;
-		*mode = list_first_entry(&dsi->conn.modes,
-			struct drm_display_mode, head);
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+
+		if (panel_ext && panel_ext->funcs &&
+			panel_ext->funcs->get_default_mode) {
+			*mode = panel_ext->funcs->get_default_mode(dsi->panel, &dsi->conn);
+		} else {
+			*mode = list_first_entry(&dsi->conn.modes,
+					struct drm_display_mode, head);
+		}
 		break;
 
 	case DSI_GET_MODE_BY_MAX_VREFRESH:

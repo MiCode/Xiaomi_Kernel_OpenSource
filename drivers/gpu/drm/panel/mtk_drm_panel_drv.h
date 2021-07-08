@@ -44,6 +44,12 @@ struct mtk_panel_context {
 
 	/* panel required delay of hight backlight mode*/
 	atomic_t hbm_wait;
+
+	/* current fps mode */
+	atomic_t current_fps;
+
+	/* current fps mode */
+	atomic_t current_backlight;
 };
 
 extern struct platform_driver mtk_drm_panel_dbi_driver;

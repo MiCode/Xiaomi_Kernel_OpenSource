@@ -184,8 +184,6 @@ static void parse_lcm_dsi_dyn(struct device_node *np,
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-dyn_switch_en",
 			&dyn->switch_en);
-	if (dyn->switch_en == 0)
-		return;
 
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-dyn_pll_clk",
@@ -223,7 +221,7 @@ static void parse_lcm_dsi_dyn(struct device_node *np,
 static void parse_lcm_dsi_dyn_fps(struct device_node *np,
 			struct dynamic_fps_params *dyn_fps)
 {
-	unsigned int temp[sizeof(struct dfps_switch_cmd)] = {0};
+	u8 temp[sizeof(struct dfps_switch_cmd)] = {0};
 	int i = 0, j = 0, len = 0;
 	char node[128] = { 0 };
 
@@ -234,9 +232,6 @@ static void parse_lcm_dsi_dyn_fps(struct device_node *np,
 			"lcm-params-dsi-dyn_fps_switch_en",
 			&dyn_fps->switch_en);
 
-	if (dyn_fps->switch_en == 0)
-		return;
-
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-dyn_fps_vact_timing_fps",
 			&dyn_fps->vact_timing_fps);
@@ -246,8 +241,9 @@ static void parse_lcm_dsi_dyn_fps(struct device_node *np,
 	for (i = 0; i < MAX_DYN_CMD_NUM; i++) {
 		snprintf(node, sizeof(node),
 			 "lcm-params-dsi-dyn_fps_dfps_cmd_table%u", i);
-		len = mtk_lcm_dts_read_u32_array(np, node, &temp[0], 0, 2);
-		if (len != 2) {
+		len = mtk_lcm_dts_read_u8_array(np, node, &temp[0], 0,
+					sizeof(struct dfps_switch_cmd));
+		if (len < 0 || len > sizeof(struct dfps_switch_cmd)) {
 			DDPMSG("%s, %d: the %d dyn fps of invalid cmd:%d\n",
 				__func__, __LINE__, i, len);
 			continue;
@@ -256,14 +252,6 @@ static void parse_lcm_dsi_dyn_fps(struct device_node *np,
 		dyn_fps->dfps_cmd_table[i].cmd_num = temp[1];
 		if (dyn_fps->dfps_cmd_table[i].cmd_num == 0)
 			continue;
-		len = mtk_lcm_dts_read_u32_array(np, node, &temp[0], 0,
-				dyn_fps->dfps_cmd_table[i].cmd_num + 2);
-		if (len != dyn_fps->dfps_cmd_table[i].cmd_num + 2) {
-			DDPMSG("%s, %d: the %d dyn fps of invalid cmd length:%d\n",
-				__func__, __LINE__, i, len);
-			dyn_fps->dfps_cmd_table[i].cmd_num = 0;
-			continue;
-		}
 		for (j = 0; j < 64; j++)
 			dyn_fps->dfps_cmd_table[i].para_list[j] =
 					(unsigned char)temp[j + 2];
@@ -332,6 +320,7 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 			struct mtk_panel_params *ext_param)
 {
 	char prop[128] = { 0 };
+	unsigned int pattern_id;
 	u8 temp[RT_MAX_NUM * 2 + 2] = {0};
 	unsigned int i = 0, j = 0;
 	int len = 0;
@@ -366,33 +355,50 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-max_luminance",
 			&ext_param->max_luminance);
+
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-round_corner_en",
 			&ext_param->round_corner_en);
-	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-corner_pattern_height",
-			&ext_param->corner_pattern_height);
-	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-corner_pattern_height_bot",
-			&ext_param->corner_pattern_height_bot);
-	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-corner_pattern_tp_size",
-			&ext_param->corner_pattern_tp_size);
-	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-corner_pattern_tp_size_left",
-			&ext_param->corner_pattern_tp_size_l);
-	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-corner_pattern_tp_size_right",
-			&ext_param->corner_pattern_tp_size_r);
-	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-corner_pattern_lt_addr",
-			(u32 *) (&(ext_param->corner_pattern_lt_addr)));
-	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-corner_pattern_lt_addr_left",
-			(u32 *) (&(ext_param->corner_pattern_lt_addr_l)));
-	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-corner_pattern_lt_addr_right",
-			(u32 *) (&(ext_param->corner_pattern_lt_addr_r)));
+
+	if (ext_param->round_corner_en == 1) {
+		mtk_lcm_dts_read_u32(np,
+				"lcm-params-dsi-corner_pattern_height",
+				&ext_param->corner_pattern_height);
+		mtk_lcm_dts_read_u32(np,
+				"lcm-params-dsi-corner_pattern_height_bot",
+				&ext_param->corner_pattern_height_bot);
+		mtk_lcm_dts_read_u32(np,
+				"lcm-params-dsi-corner_pattern_tp_size",
+				&ext_param->corner_pattern_tp_size);
+		mtk_lcm_dts_read_u32(np,
+				"lcm-params-dsi-corner_pattern_tp_size_left",
+				&ext_param->corner_pattern_tp_size_l);
+		mtk_lcm_dts_read_u32(np,
+				"lcm-params-dsi-corner_pattern_tp_size_right",
+				&ext_param->corner_pattern_tp_size_r);
+
+		mtk_lcm_dts_read_u32(np, "lcm-params-dsi-corner_pattern_name",
+				&pattern_id);
+		if (pattern_id >= MTK_LCM_ROUND_CORNER_COUNT) {
+			DDPMSG("%s,%d: invalid pattern id:%u\n",
+				__func__, __LINE__, pattern_id);
+			return;
+		}
+
+		ext_param->corner_pattern_lt_addr =
+			mtk_lcm_get_rc_addr(pattern_id,
+				RC_LEFT_TOP, &ext_param->corner_pattern_tp_size);
+
+		ext_param->corner_pattern_lt_addr_l =
+			mtk_lcm_get_rc_addr(pattern_id,
+				RC_LEFT_TOP_LEFT, &ext_param->corner_pattern_tp_size_l);
+
+		ext_param->corner_pattern_lt_addr_r =
+			mtk_lcm_get_rc_addr(pattern_id,
+				RC_LEFT_TOP_RIGHT, &ext_param->corner_pattern_tp_size_r);
+
+	}
+
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-physical_width_um",
 			&ext_param->physical_width_um);
@@ -443,7 +449,7 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 				 "lcm-params-dsi-lcm_esd_check_table%u", i);
 			len = mtk_lcm_dts_read_u8_array(np,
 					prop, temp, 0, sizeof(struct esd_check_item));
-			if (len <= 0 || len > sizeof(struct esd_check_item)) {
+			if (len < 0 || len > sizeof(struct esd_check_item)) {
 				DDPMSG("%s, %d: the %d esd table of invalid cmd:%d\n",
 					__func__, __LINE__, i, len);
 				continue;
@@ -704,7 +710,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	struct device_node *mode_np = NULL;
 	struct mtk_lcm_mode_dsi *mode_node = NULL;
 	char mode_name[128] = {0};
-	int len = 0;
+	int len = 0, ret = 0;
 
 	if (IS_ERR_OR_NULL(params) || IS_ERR_OR_NULL(np) || IS_ERR_OR_NULL(ops)) {
 		DDPPR_ERR("%s:%d, ERROR: invalid params/ops\n",
@@ -728,6 +734,13 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->prepare_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->prepare_size == 0) {
+			LCM_KFREE(ops->prepare, sizeof(struct mtk_lcm_ops_data) *
+				ops->prepare_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "unprepare_size",
@@ -745,6 +758,13 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->unprepare_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->unprepare_size == 0) {
+			LCM_KFREE(ops->unprepare, sizeof(struct mtk_lcm_ops_data) *
+				ops->unprepare_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
@@ -784,6 +804,13 @@ int parse_lcm_ops_dsi(struct device_node *np,
 						ops->compare_id_size,
 						MTK_LCM_FUNC_DSI,  cust,
 					MTK_LCM_PHASE_KERNEL);
+			if (ops->compare_id_size == 0) {
+				LCM_KFREE(ops->compare_id, sizeof(struct mtk_lcm_ops_data) *
+					ops->compare_id_size);
+				DDPMSG("%s, %d failed to parsing operation\n",
+					__func__, __LINE__);
+				ret = -EFAULT;
+			}
 		}
 	}
 #endif
@@ -804,6 +831,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->set_backlight_cmdq_size,
 					MTK_LCM_FUNC_DSI,  cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->set_backlight_cmdq_size == 0) {
+			LCM_KFREE(ops->set_backlight_cmdq,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->set_backlight_cmdq_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "set_backlight_grp_cmdq_size",
@@ -822,6 +857,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->set_backlight_grp_cmdq_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->set_backlight_grp_cmdq_size == 0) {
+			LCM_KFREE(ops->set_backlight_grp_cmdq,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->set_backlight_grp_cmdq_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "ata_check_size",
@@ -846,6 +889,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				DDPPR_ERR("%s,%d: failed to parse ata id data, len:%d, expect:%u\n",
 					__func__, __LINE__, len,
 					ops->ata_id_value_length);
+				ret = -EFAULT;
 			}
 
 			LCM_KZALLOC(ops->ata_check, sizeof(struct mtk_lcm_ops_data) *
@@ -860,6 +904,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 						ops->ata_check_size,
 						MTK_LCM_FUNC_DSI, cust,
 						MTK_LCM_PHASE_KERNEL);
+			if (ops->ata_check_size == 0) {
+				LCM_KFREE(ops->ata_check,
+					sizeof(struct mtk_lcm_ops_data) *
+					ops->ata_check_size);
+				DDPMSG("%s, %d failed to parsing operation\n",
+					__func__, __LINE__);
+				ret = -EFAULT;
+			}
 		}
 	}
 
@@ -879,6 +931,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->set_aod_light_high_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->set_aod_light_high_size == 0) {
+			LCM_KFREE(ops->set_aod_light_high,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->set_aod_light_high_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "set_aod_light_low_size",
@@ -897,6 +957,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->set_aod_light_low_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->set_aod_light_low_size == 0) {
+			LCM_KFREE(ops->set_aod_light_low,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->set_aod_light_low_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "doze_enable_size",
@@ -915,6 +983,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->doze_enable_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->doze_enable_size == 0) {
+			LCM_KFREE(ops->doze_enable,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_enable_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "doze_disable_size",
@@ -933,6 +1009,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->doze_disable_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->doze_disable_size == 0) {
+			LCM_KFREE(ops->doze_disable,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_disable_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "doze_enable_start_size",
@@ -951,6 +1035,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->doze_enable_start_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->doze_enable_start_size == 0) {
+			LCM_KFREE(ops->doze_enable_start,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_enable_start_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "doze_area_size",
@@ -968,6 +1060,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->doze_area_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->doze_area_size == 0) {
+			LCM_KFREE(ops->doze_area,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_area_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "doze_post_disp_on_size",
@@ -986,6 +1086,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->doze_post_disp_on_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->doze_post_disp_on_size == 0) {
+			LCM_KFREE(ops->doze_post_disp_on,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_post_disp_on_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	mtk_lcm_dts_read_u32(np, "hbm_set_cmdq_size",
@@ -1008,6 +1116,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->hbm_set_cmdq_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->hbm_set_cmdq_size == 0) {
+			LCM_KFREE(ops->hbm_set_cmdq,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->hbm_set_cmdq_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 
 	for_each_available_child_of_node(np, mode_np) {
@@ -1042,6 +1158,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 							mode_node->fps_switch_bfoff_size,
 							MTK_LCM_FUNC_DSI, cust,
 							MTK_LCM_PHASE_KERNEL);
+					if (mode_node->fps_switch_bfoff_size == 0) {
+						LCM_KFREE(mode_node->fps_switch_bfoff,
+							sizeof(struct mtk_lcm_ops_data) *
+							mode_node->fps_switch_bfoff_size);
+						DDPMSG("%s, %d failed to parsing operation\n",
+							__func__, __LINE__);
+						ret = -EFAULT;
+					}
 				}
 			}
 		}
@@ -1076,6 +1200,14 @@ int parse_lcm_ops_dsi(struct device_node *np,
 							mode_node->fps_switch_afon_size,
 							MTK_LCM_FUNC_DSI, cust,
 							MTK_LCM_PHASE_KERNEL);
+					if (mode_node->fps_switch_afon_size == 0) {
+						LCM_KFREE(mode_node->fps_switch_afon,
+							sizeof(struct mtk_lcm_ops_data) *
+							mode_node->fps_switch_afon_size);
+						DDPMSG("%s, %d failed to parsing operation\n",
+							__func__, __LINE__);
+						ret = -EFAULT;
+					}
 				}
 			}
 		}
@@ -1097,10 +1229,18 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					ops->gpio_test_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
+		if (ops->gpio_test_size == 0) {
+			LCM_KFREE(ops->gpio_test,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->gpio_test_size);
+			DDPMSG("%s, %d failed to parsing operation\n",
+				__func__, __LINE__);
+			ret = -EFAULT;
+		}
 	}
 #endif
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(parse_lcm_ops_dsi);
 
@@ -1184,10 +1324,6 @@ static void dump_lcm_dsi_phy_timcon(struct mtk_dsi_phy_timcon *phy_timcon, unsig
 static void dump_lcm_dsi_dyn(struct dynamic_mipi_params *dyn, unsigned int fps)
 {
 	DDPDUMP("------------- fps%u dyn -------------\n", fps);
-	if (dyn->switch_en == 0) {
-		DDPDUMP("%s: dyn off\n", __func__);
-		return;
-	}
 	DDPDUMP("enable=%u, pll_clk=%u, data_rate=%u\n",
 		dyn->switch_en,
 		dyn->pll_clk,
@@ -1211,10 +1347,6 @@ static void dump_lcm_dsi_dyn_fps(struct dynamic_fps_params *dyn_fps, unsigned in
 	int i = 0, j = 0;
 
 	DDPDUMP("----------------- fps%u dyn_fps -------------------\n", fps);
-	if (dyn_fps->switch_en == 0) {
-		DDPDUMP("%s: dyn_fps off\n", __func__);
-		return;
-	}
 
 	DDPDUMP("enable:%u, vact_fps=%u, data_rate:%u\n",
 		dyn_fps->switch_en,
@@ -1225,7 +1357,7 @@ static void dump_lcm_dsi_dyn_fps(struct dynamic_fps_params *dyn_fps, unsigned in
 			i, dyn_fps->dfps_cmd_table[i].src_fps,
 			dyn_fps->dfps_cmd_table[i].cmd_num);
 		for (j = 0; j < dyn_fps->dfps_cmd_table[i].cmd_num; j++) {
-			DDPDUMP("para%d:0x%x\n", j,
+			DDPDUMP("    para%d:0x%x\n", j,
 				dyn_fps->dfps_cmd_table[i].para_list[j]);
 		}
 	}
@@ -1266,13 +1398,13 @@ static void dump_lcm_dsi_fps_ext_param(struct mtk_panel_params *ext_param, unsig
 		ext_param->round_corner_en,
 		ext_param->corner_pattern_height,
 		ext_param->corner_pattern_height_bot);
-	DDPDUMP("round_corner:(tp_size=(%u,%u,%u), tp_addr=(0x%x,0x%x,0x%x))\n",
+	DDPDUMP("round_corner:(tp_size=(%u,%u,%u), tp_addr=(0x%lx,0x%lx,0x%lx))\n",
 		ext_param->corner_pattern_tp_size,
 		ext_param->corner_pattern_tp_size_l,
 		ext_param->corner_pattern_tp_size_r,
-		ext_param->corner_pattern_lt_addr,
-		ext_param->corner_pattern_lt_addr_l,
-		ext_param->corner_pattern_lt_addr_r);
+		(unsigned long)ext_param->corner_pattern_lt_addr,
+		(unsigned long)ext_param->corner_pattern_lt_addr_l,
+		(unsigned long)ext_param->corner_pattern_lt_addr_r);
 	DDPDUMP("physical:(%u,%u), lane_swap_en=%u, output_mode=%u, cmdif=0x%x\n",
 		ext_param->physical_width_um,
 		ext_param->physical_height_um,

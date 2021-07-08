@@ -17,6 +17,7 @@
 #include "../mediatek/mediatek_v2/mtk_log.h"
 #include "../mediatek/mediatek_v2/mtk_panel_ext.h"
 #include "../mediatek/mediatek_v2/mtk_drm_graphics_base.h"
+#include "mtk_round_corner/mtk_drm_rc.h"
 
 extern unsigned long long mtk_lcm_total_size;
 
@@ -24,18 +25,17 @@ extern unsigned long long mtk_lcm_total_size;
 #define MTK_LCM_MODE_UNIT (4)
 #define MTK_LCM_DEBUG_DUMP (0)
 
-#define MTK_LCM_DATA_ALIGNMENT(data, unit) (((data) + (unit) - 1) & ~((unit) - 1))
 #define DO_LCM_KZALLOC(buf, size, flag, debug) \
 do { \
 	if (debug == 1) \
 		pr_notice("%s, %d, size:%lu, align:%lu, flag:0x%x\n", \
-			__func__, __LINE__, size, MTK_LCM_DATA_ALIGNMENT(size, 4), flag); \
-	buf = kzalloc(MTK_LCM_DATA_ALIGNMENT(size, 4), flag); \
+			__func__, __LINE__, size, roundup(size, 4), flag); \
+	buf = kzalloc(roundup(size, 4), flag); \
 	if (buf != NULL) \
 		mtk_lcm_total_size += size; \
 	if (debug == 1 && buf != NULL) \
 		pr_notice("%s, %d, buf:0x%lx, size:%lu, align:%lu, flag:0x%x\n", \
-			__func__, __LINE__, buf, size, MTK_LCM_DATA_ALIGNMENT(size, 4), flag); \
+			__func__, __LINE__, buf, size, roundup(size, 4), flag); \
 } while (0)
 
 #define LCM_KZALLOC(buf, size, flag) DO_LCM_KZALLOC(buf, size, flag, 0)
@@ -44,9 +44,9 @@ do { \
 do { \
 	if (debug == 1) \
 		pr_notice("%s, %d, size:%lu\n", \
-			__func__, __LINE__, MTK_LCM_DATA_ALIGNMENT(size, 4)); \
-	if (mtk_lcm_total_size >= MTK_LCM_DATA_ALIGNMENT(size, 4)) \
-		mtk_lcm_total_size -= MTK_LCM_DATA_ALIGNMENT(size, 4); \
+			__func__, __LINE__, roundup(size, 4)); \
+	if (mtk_lcm_total_size >= roundup(size, 4)) \
+		mtk_lcm_total_size -= roundup(size, 4); \
 	else \
 		mtk_lcm_total_size = 0; \
 	kfree(buf); \
@@ -144,6 +144,34 @@ struct mtk_lcm_cb_id_data {
 	u8 *buffer_data;
 };
 
+/* mtk_lcm_buf_con_data
+ * used to MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION
+ * condition: the execution condition
+ * name: the input data name
+ * data: the ddic command data
+ * data_len: the ddic command data count
+ */
+struct mtk_lcm_buf_con_data {
+	u8 name;
+	u8 condition;
+	u8 *data;
+	size_t data_len;
+};
+
+/* mtk_lcm_buf_runtime_data
+ * used to MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT
+ * id: the parameter index of runtime input
+ * name: the input data name
+ * data: the ddic command data
+ * data_len: the ddic command data count
+ */
+struct mtk_lcm_buf_runtime_data {
+	u8 name;
+	u8 id;
+	u8 *data;
+	size_t data_len;
+};
+
 /* the union of lcm operation data*/
 union mtk_lcm_ops_data_params {
 	u8 *buffer_data;
@@ -151,6 +179,8 @@ union mtk_lcm_ops_data_params {
 	struct mtk_lcm_dcs_cmd_data cmd_data;
 	struct mtk_lcm_gpio_data gpio_data;
 	struct mtk_lcm_cb_id_data cb_id_data;
+	struct mtk_lcm_buf_con_data buf_con_data;
+	struct mtk_lcm_buf_runtime_data buf_runtime_data;
 	void *cust_data;
 };
 
@@ -253,6 +283,19 @@ struct mtk_lcm_ops {
 	struct mtk_lcm_ops_dsi *dsi_ops;
 };
 
+struct mtk_lcm_ops_input {
+	u8 name;
+	unsigned int length;
+	void *data;
+};
+
+struct mtk_lcm_ops_input_packet {
+	unsigned int data_count;
+	unsigned int condition_count;
+	struct mtk_lcm_ops_input *data;
+	struct mtk_lcm_ops_input *condition;
+};
+
 /* customization callback of private panel operation
  * parse_params:
  *      used to save panel parameters parsed from dtsi
@@ -270,7 +313,7 @@ struct mtk_panel_cust {
 		int type, u8 *data_in, size_t size_in,
 		void *cust_data);
 	int (*func)(struct mtk_lcm_ops_data *op,
-		u8 *data, size_t size);
+		struct mtk_lcm_ops_input_packet *input);
 	void (*dump_params)(void);
 	void (*dump_ops)(struct mtk_lcm_ops_data *op,
 		const char *owner, unsigned int id);
@@ -306,7 +349,7 @@ int parse_lcm_ops_func(struct device_node *np,
 int mtk_panel_execute_operation(void *dev,
 		struct mtk_lcm_ops_data *table, unsigned int table_size,
 		const struct mtk_panel_resource *panel_resource,
-		void *data, size_t size, char *owner);
+		struct mtk_lcm_ops_input_packet *input, char *owner);
 
 void mtk_lcm_dts_read_u32(struct device_node *np, char *prop,
 		u32 *out);
@@ -377,9 +420,6 @@ void dump_lcm_params_dpi(struct mtk_lcm_params_dpi *params,
 void dump_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops,
 		struct mtk_lcm_params_dpi *params,
 		struct mtk_panel_cust *cust);
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-void dump_lcm_round_corner_params(LCM_ROUND_CORNER *params);
-#endif
 void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
 		struct mtk_panel_cust *cust);
 
@@ -402,11 +442,35 @@ int mtk_panel_dsi_dcs_read_buffer(struct mipi_dsi_device *dsi,
 		const void *data_in, size_t len_in,
 		void *data_out, size_t len_out);
 
-
 /* function: free lcm operation data
  * input: operation cmd list, and size
  */
 void free_lcm_ops_table(struct mtk_lcm_ops_data *table,
 		unsigned int table_size);
 void free_lcm_resource(char func, struct mtk_panel_resource *data);
+
+/* function: create an input package
+ * input: the input package address, the data count and condition count
+ * output: 0 for success, else for failed
+ */
+int mtk_lcm_create_input_packet(struct mtk_lcm_ops_input_packet *input,
+		unsigned int data_count, unsigned int condition_count);
+
+/* function: destroy an input package
+ * input: the input package address, the data count and condition count
+ */
+void mtk_lcm_destroy_input_packet(struct mtk_lcm_ops_input_packet *input);
+
+/* function: create an input data
+ * input: the input data address and data length
+ *       name: the input data name
+ * output: 0 for success, else for failed
+ */
+int mtk_lcm_create_input(struct mtk_lcm_ops_input *input,
+		unsigned int data_len, u8 name);
+
+/* function: destroy an input data
+ * input: the input package address and data length
+ */
+void mtk_lcm_destroy_input(struct mtk_lcm_ops_input *input);
 #endif

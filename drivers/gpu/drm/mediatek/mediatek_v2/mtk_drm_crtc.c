@@ -4906,8 +4906,10 @@ void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 
 	mtk_ddp_comp_io_cmd(comp, NULL, DSI_FILL_MODE_BY_CONNETOR, NULL);
 	mtk_ddp_comp_io_cmd(comp, NULL, DSI_GET_TIMING, &timing);
-	if (timing == NULL)
+	if (timing == NULL) {
+		DDPMSG("%s, %d, failed to get default timing\n", __func__, __LINE__);
 		return;
+	}
 
 	crtc->mode.hdisplay = timing->hdisplay;
 	crtc->mode.vdisplay = timing->vdisplay;

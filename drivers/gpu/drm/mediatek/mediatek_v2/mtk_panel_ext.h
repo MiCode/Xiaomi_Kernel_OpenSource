@@ -7,6 +7,7 @@
 #define __MTK_PANEL_EXT_H__
 
 #include <drm/drm_panel.h>
+#include <drm/drm_modes.h>
 
 #define RT_MAX_NUM 10
 #define ESD_CHECK_NUM 3
@@ -347,6 +348,8 @@ struct mtk_panel_funcs {
 	bool (*hbm_set_wait_state)(struct drm_panel *panel, bool wait);
 
 	void (*lcm_dump)(struct drm_panel *panel, enum MTK_LCM_DUMP_FLAG flag);
+	struct drm_display_mode *(*get_default_mode)(struct drm_panel *panel,
+		struct drm_connector *connector);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);
