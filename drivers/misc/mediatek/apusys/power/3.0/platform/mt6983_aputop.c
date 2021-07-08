@@ -913,6 +913,21 @@ static void __apu_buck_off(void)
 }
 #endif
 
+static int init_plat_chip_data(struct platform_device *pdev)
+{
+	struct plat_cfg_data plat_cfg;
+	uint32_t aging_attr = 0x0;
+
+	memset(&plat_cfg, 0, sizeof(plat_cfg));
+
+	of_property_read_u32(pdev->dev.of_node, "aging_load", &aging_attr);
+
+	plat_cfg.aging_flag = (aging_attr & 0xf);
+	plat_cfg.hw_id = 0x0;
+
+	return chip_data_remote_sync(&plat_cfg);
+}
+
 static int init_hw_setting(struct device *dev)
 {
 	__apu_aoc_init();
@@ -927,12 +942,6 @@ static int init_hw_setting(struct device *dev)
 	__apu_rpc_init();
 	__apu_rpclite_init();
 	__apu_are_init(dev);
-
-#ifdef AGING_MARGIN
-	// TODO: update aging param into spare register,
-	// then uP shall read it to aware need to handle aging or not
-#endif
-
 #if 0
 	//*APU_ACC_CLK_EN_CLR = (0x1<<1);
 	apu_writel((0x1<<1), apupw.regs[apu_acc] + 0xe4);
@@ -1005,6 +1014,8 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 	init_plat_pwr_res(pdev);
 #endif
 	init_hw_setting(&pdev->dev);
+	init_remote_data_sync(apupw.regs[apu_md32_mbox]);
+	init_plat_chip_data(pdev);
 
 #if APU_POWER_BRING_UP
 
@@ -1039,8 +1050,6 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 		break;
 	}
 #endif // APU_POWER_BRING_UP
-
-	aputop_opp_limiter_init(apupw.regs[apu_md32_mbox]);
 	aputop_dump_pwr_res();
 
 	return ret;

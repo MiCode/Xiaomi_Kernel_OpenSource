@@ -12,7 +12,7 @@
 
 #define LOCAL_DBG	(1)
 
-static void __iomem *g_reg_base;
+static void __iomem *spare_reg_base;
 
 // for saving data after sync with remote site
 static struct tiny_dvfs_opp_tbl opp_tbl;
@@ -59,11 +59,11 @@ static void _opp_limiter(int vpu_max, int vpu_min, int dla_max, int dla_min,
 
 		reg_offset = opp_limit_tbl[i].opp_lmt_reg;
 
-		apu_writel(reg_data, g_reg_base + reg_offset);
+		apu_writel(reg_data, spare_reg_base + reg_offset);
 #if LOCAL_DBG
 		pr_info("%s cluster%d write:0x%08x, readback:0x%08x\n",
 				__func__, i, reg_data,
-				apu_readl(g_reg_base + reg_offset));
+				apu_readl(spare_reg_base + reg_offset));
 #endif
 	}
 
@@ -168,6 +168,54 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 	return ret;
 }
 
+// boost range : 100 ~ 0 (from fast to slow)
+// opp range : 1 ~ USER_MIN_OPP_VAL (from fast to slow) , opp0 is turbo boost
+static int _apu_boost_to_opp(int boost)
+{
+	int opp, sec;
+	int opp_min_num = USER_MIN_OPP_VAL;
+
+	if (boost > 100)
+		return TURBO_BOOST_OPP;
+
+	if (boost < 0)
+		boost = 0;
+
+	// not include opp 0, adjust here to handle the part of not divisible
+	sec = 100 / opp_min_num;
+	opp = opp_min_num - (boost / sec);
+
+	if (opp > opp_min_num)
+		opp = opp_min_num;
+
+	if (opp <= TURBO_BOOST_OPP)
+		opp = TURBO_BOOST_OPP + 1;
+
+	return opp;
+}
+
+static void plat_dump_boost_mapping(struct seq_file *s)
+{
+	int boost, opp, i;
+	int opp_cnt[USER_MIN_OPP_VAL + 1] = {};
+	int begin, end;
+
+	for (boost = TURBO_BOOST_OPP ; boost >= 0 ; boost--) {
+		opp = _apu_boost_to_opp(boost);
+		opp_cnt[opp]++;
+	}
+
+	begin = TURBO_BOOST_OPP;
+	end = begin - opp_cnt[0] + 1;
+
+	for (i = 0 ; i < USER_MIN_OPP_VAL + 1; i++) {
+		seq_printf(s, "opp%d : boost %d ~ %d (%d)\n",
+					i, begin, end, opp_cnt[i]);
+		begin -= opp_cnt[i];
+		end = begin - opp_cnt[i+1] + 1;
+	}
+}
+
 static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 {
 	struct tiny_dvfs_opp_tbl tbl;
@@ -190,6 +238,10 @@ static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 
 		seq_puts(s, "\n");
 	}
+
+	seq_puts(s, "\n");
+	plat_dump_boost_mapping(s);
+	seq_puts(s, "\n");
 
 	return 0;
 }
@@ -357,12 +409,24 @@ int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 	return ret;
 }
 
-int aputop_opp_limiter_init(void __iomem *reg_base)
+int chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
+{
+	uint32_t reg_data = 0x0;
+
+	reg_data = (plat_cfg->aging_flag & 0xf)
+		| ((plat_cfg->hw_id & 0xf) << 4);
+
+	apu_writel(reg_data, spare_reg_base + PLAT_CFG_SYNC_REG);
+
+	return 0;
+}
+
+int init_remote_data_sync(void __iomem *reg_base)
 {
 	int i;
 	uint32_t reg_offset = 0x0;
 
-	g_reg_base = reg_base;
+	spare_reg_base = reg_base;
 
 	for (i = 0 ; i < CLUSTER_NUM ; i++) {
 		// 0xffff_ffff means no limit
@@ -370,10 +434,10 @@ int aputop_opp_limiter_init(void __iomem *reg_base)
 				sizeof(struct device_opp_limit));
 		reg_offset = opp_limit_tbl[i].opp_lmt_reg;
 #if LOCAL_DBG
-		pr_info("%s g_reg_base:0x%08x, offset:0x%08x\n",
-				__func__, g_reg_base, reg_offset);
+		pr_info("%s spare_reg_base:0x%08x, offset:0x%08x\n",
+				__func__, spare_reg_base, reg_offset);
 #endif
-		apu_writel(0xffffffff, g_reg_base + reg_offset);
+		apu_writel(0xffffffff, spare_reg_base + reg_offset);
 	}
 
 	return 0;

@@ -13,6 +13,7 @@
 #define ACX1_LIMIT_OPP_REG      SPARE0_MBOX_DUMMY_1_ADDR
 #define DEV_OPP_SYNC_REG        SPARE0_MBOX_DUMMY_2_ADDR
 #define HW_RES_SYNC_REG         SPARE0_MBOX_DUMMY_3_ADDR
+#define PLAT_CFG_SYNC_REG	SPARE0_MBOX_DUMMY_4_ADDR
 
 enum {
 	APUPWR_DBG_DEV_CTL = 0,
@@ -26,6 +27,11 @@ enum apu_opp_limit_type {
 	OPP_LIMIT_THERMAL = 0,	// limit by power API
 	OPP_LIMIT_HAL,		// limit by i/o ctl
 	OPP_LIMIT_DEBUG,	// limit by i/o ctl
+};
+
+struct plat_cfg_data {
+	int8_t aging_flag:4,
+	       hw_id:4;
 };
 
 struct device_opp_limit {
@@ -91,7 +97,8 @@ ssize_t mt6983_apu_top_dbg_write(
 		size_t count, loff_t *f_pos);
 #endif
 
-int aputop_opp_limiter_init(void __iomem *reg_base);
+int init_remote_data_sync(void __iomem *reg_base);
+int chip_data_remote_sync(struct plat_cfg_data *plat_cfg);
 int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src);
 
 #endif

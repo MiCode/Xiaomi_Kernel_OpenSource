@@ -16,7 +16,9 @@
 #define DEBUG_DUMP_REG		(0)	// dump overall apu registers for debug
 
 #define VAPU_DEF_VOLT		(750000)	// 0.75v
-#define USER_MIN_OPP_VAL        (7)
+#define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
+#define USER_MIN_OPP_VAL	(7) // slowest speed user can specify
+#define TURBO_BOOST_OPP		USER_MAX_OPP_VAL
 #define MTK_POLL_DELAY_US	(10)
 #define MTK_POLL_TIMEOUT	USEC_PER_SEC
 
@@ -189,10 +191,11 @@ void apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 #define APUSYS_BUCK_ISOLATION		(0x39C)
 
 // mbox offset define (for data exchange with remote)
-#define SPARE0_MBOX_DUMMY_0_ADDR        0x640
-#define SPARE0_MBOX_DUMMY_1_ADDR        0x644
-#define SPARE0_MBOX_DUMMY_2_ADDR        0x648
-#define SPARE0_MBOX_DUMMY_3_ADDR        0x64C
+#define SPARE0_MBOX_DUMMY_0_ADDR        0x640	// mbox6_dummy0
+#define SPARE0_MBOX_DUMMY_1_ADDR        0x644	// mbox6_dummy1
+#define SPARE0_MBOX_DUMMY_2_ADDR        0x648	// mbox6_dummy2
+#define SPARE0_MBOX_DUMMY_3_ADDR        0x64C	// mbox6_dummy3
+#define SPARE0_MBOX_DUMMY_4_ADDR	0x740	// mbox7_dummy0
 
 // PCU initial data
 #define TOP_VRCTL_VR0_EN_SET	0x241
