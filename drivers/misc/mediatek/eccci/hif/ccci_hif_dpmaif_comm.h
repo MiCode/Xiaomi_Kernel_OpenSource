@@ -39,10 +39,6 @@ void ccci_dpmaif_set_clk(unsigned int on,
 
 extern int ccci_dpmaif_hif_init_v2(struct platform_device *pdev);
 extern int ccci_dpmaif_hif_init_v3(struct platform_device *pdev);
-extern void mtk_ccci_affinity_rta_v2(u32 irq_cpus,
-	u32 push_cpus, int cpu_nr);
-extern void mtk_ccci_affinity_rta_v3(u32 irq_cpus,
-	u32 push_cpus, int cpu_nr);
 
 extern int ccci_dpmaif_suspend_noirq_v2(struct device *dev);
 extern int ccci_dpmaif_resume_noirq_v2(struct device *dev);

@@ -327,8 +327,12 @@ struct dpmaif_tx_queue {
 
 	void    *drb_skb_base;
 	wait_queue_head_t req_wq;
-	struct workqueue_struct *worker;
-	struct delayed_work dpmaif_tx_work;
+
+	/* For Tx done Kernel thread */
+	struct hrtimer tx_done_timer;
+	atomic_t txq_done;
+	wait_queue_head_t tx_done_wait;
+	struct task_struct *tx_done_thread;
 
 	spinlock_t tx_lock;
 	atomic_t tx_processing;

@@ -133,6 +133,48 @@ TRACE_EVENT(ccci_skb_rx,
 #endif
 #endif
 
+static void dpmaif_affinity_rta(u32 irq_cpus, u32 push_cpus, int cpu_nr)
+{
+	struct cpumask imask, tmask;
+	int i, irq_cnt = 0, ret;
+
+	cpumask_clear(&imask);
+	cpumask_clear(&tmask);
+
+	for (i = 0; i < cpu_nr; i++) {
+		if (irq_cpus & (1 << i)) {
+			if (irq_cnt > 0)
+				CCCI_ERROR_LOG(-1, TAG,
+					"[%s] error: irq_cpus invalid: %x\n",
+					__func__, irq_cpus);
+			else
+				cpumask_set_cpu(i, &imask);
+
+			irq_cnt++;
+		}
+
+		if (push_cpus & (1 << i))
+			cpumask_set_cpu(i, &tmask);
+	}
+
+	CCCI_REPEAT_LOG(-1, TAG,
+		"[%s] irq_cpus: 0x%x push_cpus: 0x%x\n",
+		__func__, irq_cpus, push_cpus);
+
+	if (dpmaif_ctrl->dpmaif_irq_id) {
+		ret = irq_set_affinity_hint(dpmaif_ctrl->dpmaif_irq_id, &imask);
+		CCCI_NORMAL_LOG(-1, TAG,
+			"[%s] irq_set_affinity_hint(): %d\n",
+			__func__, ret);
+	}
+	if (dpmaif_ctrl->rxq[0].rx_thread) {
+		ret = set_cpus_allowed_ptr(dpmaif_ctrl->rxq[0].rx_thread, &tmask);
+		CCCI_NORMAL_LOG(-1, TAG,
+			"[%s] set_cpus_allowed_ptr(): %d\n",
+			__func__, ret);
+	}
+}
+
 static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	unsigned int skb_idx);
 
@@ -1863,67 +1905,116 @@ static int dpmaif_wait_resume_done(void)
 	return 0;
 }
 
-/*=== tx done =====*/
-static void dpmaif_tx_done(struct work_struct *work)
+static enum hrtimer_restart tx_done_action(struct hrtimer *timer)
 {
-	struct delayed_work *dwork = to_delayed_work(work);
 	struct dpmaif_tx_queue *txq =
-		container_of(dwork, struct dpmaif_tx_queue, dpmaif_tx_work);
+		container_of(timer, struct dpmaif_tx_queue, tx_done_timer);
+
+	atomic_set(&txq->txq_done, 1);
+	wake_up_all(&txq->tx_done_wait);
+
+	return HRTIMER_NORESTART;
+}
+
+static int dpmaif_tx_done_kernel_thread(void *arg)
+{
+	struct dpmaif_tx_queue *txq = (struct dpmaif_tx_queue *)arg;
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
 	int ret;
 	unsigned int L2TISAR0;
+	struct cpumask tmask;
 
-	if (dpmaif_wait_resume_done() < 0)
-		 queue_delayed_work(hif_ctrl->txq[txq->index].worker,
-				&hif_ctrl->txq[txq->index].dpmaif_tx_work,
-				msecs_to_jiffies(1000 / HZ));
+	cpumask_clear(&tmask);
+	cpumask_set_cpu(0, &tmask);
+	cpumask_set_cpu(2, &tmask);
+	cpumask_set_cpu(3, &tmask);
 
-	/* This is used to avoid race condition which may cause KE */
-	if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) {
-		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-			"%s meet hw power down(%d)\n",
-			__func__, txq->index);
-		return;
-	}
-	if (atomic_read(&txq->tx_resume_done)) {
-		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-			"txq%d done/resume: 0x%x, 0x%x, 0x%x\n",
-			txq->index,
-			drv3_dpmaif_ul_get_rwidx(0),
-			drv3_dpmaif_ul_get_rwidx(1),
-			drv3_dpmaif_ul_get_rwidx(3));
-		return;
-	}
-	if (!txq->que_started) {
-		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-			"%s meet queue stop(%d)\n",
-			__func__, txq->index);
-		return;
-	}
+	set_cpus_allowed_ptr(txq->tx_done_thread, &tmask);
+
+	while (1) {
+		ret = wait_event_interruptible(txq->tx_done_wait,
+				(atomic_read(&txq->txq_done)
+				|| kthread_should_stop()));
+		if (kthread_should_stop())
+			break;
+		if (ret == -ERESTARTSYS)
+			continue;
+		atomic_set(&txq->txq_done, 0);
+		/* This is used to avoid race condition which may cause KE */
+		if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) {
+			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+				"%s meet hw power down(%d)\n",
+				__func__, txq->index);
+			continue;
+		}
+		if (atomic_read(&txq->tx_resume_done)) {
+			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+				"txq%d done/resume: 0x%x, 0x%x, 0x%x\n",
+				txq->index,
+				drv3_dpmaif_ul_get_rwidx(0),
+				drv3_dpmaif_ul_get_rwidx(1),
+				drv3_dpmaif_ul_get_rwidx(3));
+			continue;
+		}
+		if (!txq->que_started) {
+			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+				"%s meet queue stop(%d)\n",
+				__func__, txq->index);
+			continue;
+		}
 
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
-	hif_ctrl->tx_done_last_start_time[txq->index] = local_clock();
+		hif_ctrl->tx_done_last_start_time[txq->index] = local_clock();
 #endif
 
-	ret = dpmaif_tx_release(txq->index, txq->drb_size_cnt);
+		ret = dpmaif_tx_release(txq->index, txq->drb_size_cnt);
 
-	L2TISAR0 = drv3_dpmaif_get_ul_isr_event();
-	L2TISAR0 &= (DPMAIF_UL_INT_QDONE_MSK & (1 << (txq->index +
-		UL_INT_DONE_OFFSET)));
-	if (unlikely(ret == ERROR_STOP)) {
+		L2TISAR0 = drv3_dpmaif_get_ul_isr_event();
+		L2TISAR0 &= (DPMAIF_UL_INT_QDONE_MSK & (1 << (txq->index +
+			UL_INT_DONE_OFFSET)));
+		if (ret == ERROR_STOP) {
 
-	} else if (ret == ONCE_MORE || L2TISAR0) {
-		ret = queue_delayed_work(hif_ctrl->txq[txq->index].worker,
-				&hif_ctrl->txq[txq->index].dpmaif_tx_work,
-				msecs_to_jiffies(1000 / HZ));
-		if (L2TISAR0)
-			DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, L2TISAR0);
-	} else {
-		/* clear IP busy register wake up cpu case */
-		drv3_dpmaif_clear_ip_busy();
-		/* enable tx done interrupt */
-		drv3_dpmaif_unmask_ul_interrupt(txq->index);
+		} else if (ret == ONCE_MORE || L2TISAR0) {
+			hrtimer_start(&txq->tx_done_timer,
+					ktime_set(0, 500000), HRTIMER_MODE_REL);
+
+			if (L2TISAR0)
+				DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0,
+							L2TISAR0);
+		} else {
+			/* clear IP busy register wake up cpu case */
+			drv3_dpmaif_clear_ip_busy();
+			/* enable tx done interrupt */
+			drv3_dpmaif_unmask_ul_interrupt(txq->index);
+		}
 	}
+
+	return 0;
+}
+
+static void wait_tx_done_thread_finish(struct dpmaif_tx_queue *txq)
+{
+	int ret;
+
+	if (txq == NULL) {
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"%s meet NULL pointer\n", __func__);
+		return;
+	}
+
+	hrtimer_cancel(&txq->tx_done_timer);
+	msleep(20); /* Make sure hrtimer finish */
+
+	while (!IS_ERR(txq->tx_done_thread)) {
+		ret = kthread_stop(txq->tx_done_thread);
+		if (ret == -EINTR) {
+			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+				"%s stop kthread meet EINTR\n", __func__);
+			continue;
+		} else
+			break;
+	}
+
 }
 
 static void set_drb_msg(unsigned char q_num, unsigned short cur_idx,
@@ -2308,7 +2399,7 @@ static void dpmaif_irq_rx_done(unsigned int rx_done_isr)
 
 static void dpmaif_irq_tx_done(unsigned int tx_done_isr)
 {
-	int i, ret;
+	int i;
 	unsigned int intr_ul_que_done;
 
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
@@ -2325,9 +2416,10 @@ static void dpmaif_irq_tx_done(unsigned int tx_done_isr)
 					drv3_dpmaif_ul_get_rwidx(3));
 			}
 			drv3_dpmaif_mask_ul_que_interrupt(i);
-			ret = queue_delayed_work(dpmaif_ctrl->txq[i].worker,
-					&dpmaif_ctrl->txq[i].dpmaif_tx_work,
-					msecs_to_jiffies(1000 / HZ));
+
+			hrtimer_start(&dpmaif_ctrl->txq[i].tx_done_timer,
+					ktime_set(0, 500000), HRTIMER_MODE_REL);
+
 #ifdef DPMAIF_DEBUG_LOG
 			dpmaif_ctrl->traffic_info.tx_done_isr_cnt[i]++;
 #endif
@@ -2469,33 +2561,6 @@ static irqreturn_t dpmaif_isr(int irq, void *data)
 	dpmaif_irq_cb(hif_ctrl);
 	return IRQ_HANDLED;
 }
-
-#ifdef ENABLE_CPU_AFFINITY
-#include <linux/sched.h>
-void mtk_ccci_affinity_rta_v3(u32 irq_cpus, u32 push_cpus, int cpu_nr)
-{
-	struct cpumask imask, tmask;
-	unsigned int i;
-
-	cpumask_clear(&imask);
-	cpumask_clear(&tmask);
-
-	for (i = 0; i < cpu_nr; i++) {
-		if (irq_cpus & (1 << i))
-			cpumask_set_cpu(i, &imask);
-		if (push_cpus & (1 << i))
-			cpumask_set_cpu(i, &tmask);
-	}
-	CCCI_REPEAT_LOG(-1, TAG, "%s: i:0x%x t:0x%x\r\n",
-			__func__, irq_cpus, push_cpus);
-
-	if (dpmaif_ctrl->dpmaif_irq_id)
-		irq_set_affinity_hint(dpmaif_ctrl->dpmaif_irq_id, &imask);
-	if (dpmaif_ctrl->rxq[0].rx_thread)
-		set_cpus_allowed_ptr(dpmaif_ctrl->rxq[0].rx_thread, &tmask);
-}
-
-#endif
 
 static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 {
@@ -2743,12 +2808,12 @@ static int dpmaif_txq_init(struct dpmaif_tx_queue *txq)
 		return ret;
 	}
 
-	txq->worker =
-	alloc_workqueue("md%d_tx%d_worker",
-		WQ_UNBOUND | WQ_MEM_RECLAIM |
-		(txq->index == 0 ? WQ_HIGHPRI : 0),
-		1, dpmaif_ctrl->md_id + 1, txq->index);
-	INIT_DELAYED_WORK(&txq->dpmaif_tx_work, dpmaif_tx_done);
+	init_waitqueue_head(&txq->tx_done_wait);
+	atomic_set(&txq->txq_done, 0);
+	hrtimer_init(&txq->tx_done_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	txq->tx_done_timer.function = tx_done_action;
+	txq->tx_done_thread = NULL;
+
 	spin_lock_init(&txq->tx_lock);
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 	txq->busy_count = 0;
@@ -2921,6 +2986,18 @@ static int dpmaif_start(unsigned char hif_id)
 		txq = &dpmaif_ctrl->txq[i];
 		txq->que_started = true;
 		dpmaif_tx_hw_init(txq);
+
+		/* start kernel thread */
+		txq->tx_done_thread =
+				kthread_run(dpmaif_tx_done_kernel_thread,
+				(void *)txq, "dpmaif_txq%d_done_kt",
+				txq->index);
+		if (IS_ERR(txq->tx_done_thread)) {
+			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+				"%s tx done kthread_run fail %ld\n", __func__,
+				(long)txq->tx_done_thread);
+			return -1;
+		}
 	}
 
 	drv3_dpmaif_hw_init_done();
@@ -2939,6 +3016,9 @@ static int dpmaif_start(unsigned char hif_id)
 #endif
 
 	atomic_set(&s_tx_busy_assert_on, 0);
+
+	dpmaif_affinity_rta(0x02, 0x04, 8);
+
 	return 0;
 }
 
@@ -3059,9 +3139,8 @@ static int dpmaif_stop_txq(struct dpmaif_tx_queue *txq)
 	if (!txq->drb_base)
 		return -1;
 	txq->que_started = false;
-	/* flush work */
-	cancel_delayed_work(&txq->dpmaif_tx_work);
-	flush_delayed_work(&txq->dpmaif_tx_work);
+
+	wait_tx_done_thread_finish(txq);
 	/* reset sw */
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "stop_txq%d: 0x%x, 0x%x, 0x%x\n",
