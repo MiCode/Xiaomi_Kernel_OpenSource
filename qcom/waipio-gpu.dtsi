@@ -53,7 +53,8 @@
 			<MHZ_TO_KBPS(1708, 4)>, /* index=7  */
 			<MHZ_TO_KBPS(2092, 4)>, /* index=8  */
 			<MHZ_TO_KBPS(2736, 4)>, /* index=9  */
-			<MHZ_TO_KBPS(3196, 4)>; /* index=10  */
+			<MHZ_TO_KBPS(3196, 4)>, /* index=10  */
+			<MHZ_TO_KBPS(3350, 4)>; /* index=11  */
 
 		zap-shader {
 			memory-region = <&gpu_micro_code_mem>;
@@ -71,9 +72,9 @@
 				qcom,gpu-freq = <818000000>;
 				qcom,level = <RPMH_REGULATOR_LEVEL_TURBO>;
 
-				qcom,bus-freq = <10>;
-				qcom,bus-min = <10>;
-				qcom,bus-max = <10>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <11>;
+				qcom,bus-max = <11>;
 
 				qcom,acd-level = <0x882c5ffd>;
 			};
@@ -83,9 +84,9 @@
 				qcom,gpu-freq = <791000000>;
 				qcom,level = <RPMH_REGULATOR_LEVEL_NOM_L1>;
 
-				qcom,bus-freq = <10>;
-				qcom,bus-min = <9>;
-				qcom,bus-max = <10>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <11>;
 
 				qcom,acd-level = <0x882c5ffd>;
 			};
@@ -97,7 +98,7 @@
 
 				qcom,bus-freq = <10>;
 				qcom,bus-min = <9>;
-				qcom,bus-max = <10>;
+				qcom,bus-max = <11>;
 
 				qcom,acd-level = <0x882d5ffd>;
 			};
@@ -109,7 +110,7 @@
 
 				qcom,bus-freq = <10>;
 				qcom,bus-min = <6>;
-				qcom,bus-max = <10>;
+				qcom,bus-max = <11>;
 
 				qcom,acd-level = <0xa82d5ffd>;
 			};
