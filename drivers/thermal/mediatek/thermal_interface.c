@@ -14,6 +14,7 @@
 #include <linux/hrtimer.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/slab.h>
 
 #include <linux/device.h>
 #include <linux/err.h>
@@ -42,6 +43,8 @@ void __iomem * thermal_csram_base;
 EXPORT_SYMBOL(thermal_csram_base);
 struct fps_cooler_info fps_cooler_data;
 EXPORT_SYMBOL(fps_cooler_data);
+
+static struct md_info md_info_data;
 
 static int  therm_intf_read_csram_s32(int offset)
 {
@@ -361,6 +364,164 @@ static ssize_t target_tpcb_store(struct kobject *kobj,
 	return count;
 }
 
+static ssize_t md_sensor_info_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char info_type_s[MAX_MD_NAME_LENGTH];
+	int len = 0, num = 0, val = 0, i = 0;
+	struct md_thermal_sensor_t *ts_info;
+
+	if (sscanf(buf, "%20s %d%n", info_type_s, &num, &len) != 2) {
+		pr_info("%s: wrong scan info_type and num %s\n", __func__, buf);
+		return -EINVAL;
+	}
+
+	if (strncmp(info_type_s, "s_tmp", 5) != 0) {
+		pr_info("%s: wrong info type=%s\n", __func__, info_type_s);
+		return -EINVAL;
+	}
+
+	if (num <= 0) {
+		pr_info("%s: wrong input num=%d\n", __func__, num);
+		return -EINVAL;
+	}
+
+	buf += len;
+
+	if (!md_info_data.sensor_info) {
+		ts_info = devm_kcalloc(tm_data.dev, num,
+			sizeof(struct md_thermal_sensor_t), GFP_KERNEL);
+		if (!ts_info)
+			return -ENOMEM;
+
+		md_info_data.sensor_info = ts_info;
+		md_info_data.sensor_num = num;
+	} else if (md_info_data.sensor_num != num) {
+		pr_info("%s: wrong sensor num=%d %d\n", __func__, md_info_data.sensor_num, num);
+		return -EINVAL;
+	}
+
+	ts_info = md_info_data.sensor_info;
+	for (i = 0; i < md_info_data.sensor_num; i++) {
+		if (sscanf(buf, " %d%n", &val, &len) == 1) {
+			buf += len;
+			ts_info[i].cur_temp = val;
+		}
+	}
+
+	return count;
+}
+
+static ssize_t md_sensor_info_show(struct kobject *kobj, struct kobj_attribute *attr,
+	char *buf)
+{
+	int len = 0, i;
+	struct md_thermal_sensor_t *ts_info;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d", md_info_data.sensor_num);
+
+	if (!md_info_data.sensor_info) {
+		len += snprintf(buf + len, PAGE_SIZE - len, "\n");
+		return len;
+	}
+
+	ts_info = md_info_data.sensor_info;
+	for (i = 0; i < md_info_data.sensor_num; i++)
+		len += snprintf(buf + len, PAGE_SIZE - len, ",%d", ts_info[i].cur_temp);
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
+
+	return len;
+}
+
+static ssize_t md_actuator_info_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char info_type_s[MAX_MD_NAME_LENGTH];
+	int len = 0, num = 0, val = 0, i = 0;
+	struct md_thermal_actuator_t *ta_info;
+
+	if (sscanf(buf, "%20s %d%n", info_type_s, &num, &len) != 2) {
+		pr_info("%s: wrong scan info_type and num %s\n", __func__, buf);
+		return -EINVAL;
+	}
+
+	if (strncmp(info_type_s, "a_ctl", 5) == 0) {
+		md_info_data.md_autonomous_ctrl = num;
+		return count;
+	}
+
+	if (strncmp(info_type_s, "a_cst", 5) != 0 &&
+		strncmp(info_type_s, "a_mst", 5) != 0) {
+		pr_info("%s: wrong info type=%s\n", __func__, info_type_s);
+		return -EINVAL;
+	}
+
+	if (num <= 0) {
+		pr_info("%s: wrong input num=%d\n", __func__, num);
+		return -EINVAL;
+	}
+
+	buf += len;
+
+	if (!md_info_data.actuator_info) {
+		ta_info = devm_kcalloc(tm_data.dev, num,
+			sizeof(struct md_thermal_actuator_t), GFP_KERNEL);
+		if (!ta_info)
+			return -ENOMEM;
+
+		md_info_data.actuator_info = ta_info;
+		md_info_data.actuator_num = num;
+	} else if (md_info_data.actuator_num != num) {
+		pr_info("%s: wrong actuator num=%d %d\n", __func__,
+			md_info_data.actuator_num, num);
+		return -EINVAL;
+	}
+
+	ta_info = md_info_data.actuator_info;
+	if (strncmp(info_type_s, "a_cst", 5) == 0) {
+		for (i = 0; i < md_info_data.actuator_num; i++) {
+			if (sscanf(buf, " %d%n", &val, &len) == 1) {
+				buf += len;
+				ta_info[i].cur_status = val;
+			}
+		}
+	} else {
+		for (i = 0; i < md_info_data.actuator_num; i++) {
+			if (sscanf(buf, " %d%n", &val, &len) == 1) {
+				buf += len;
+				ta_info[i].max_status = val;
+			}
+		}
+	}
+
+	return count;
+}
+
+static ssize_t md_actuator_info_show(struct kobject *kobj, struct kobj_attribute *attr,
+	char *buf)
+{
+	int len = 0, i;
+	struct md_thermal_actuator_t *ta_info;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d", md_info_data.md_autonomous_ctrl);
+	len += snprintf(buf + len, PAGE_SIZE - len, ",%d", md_info_data.actuator_num);
+
+	if (!md_info_data.actuator_info) {
+		len += snprintf(buf + len, PAGE_SIZE - len, "\n");
+		return len;
+	}
+
+	ta_info = md_info_data.actuator_info;
+	for (i = 0; i < md_info_data.actuator_num; i++)
+		len += snprintf(buf + len, PAGE_SIZE - len, ",%d,%d",
+			ta_info[i].cur_status, ta_info[i].max_status);
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
+
+	return len;
+}
+
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
 static struct kobj_attribute cpu_info_attr = __ATTR_RO(cpu_info);
@@ -371,6 +532,8 @@ static struct kobj_attribute cpu_temp_attr = __ATTR_RO(cpu_temp);
 static struct kobj_attribute headroom_info_attr = __ATTR_RO(headroom_info);
 static struct kobj_attribute atc_attr = __ATTR_RO(atc);
 static struct kobj_attribute target_tpcb_attr = __ATTR_RW(target_tpcb);
+static struct kobj_attribute md_sensor_info_attr = __ATTR_RW(md_sensor_info);
+static struct kobj_attribute md_actuator_info_attr = __ATTR_RW(md_actuator_info);
 
 static struct attribute *thermal_attrs[] = {
 	&ttj_attr.attr,
@@ -383,6 +546,8 @@ static struct attribute *thermal_attrs[] = {
 	&headroom_info_attr.attr,
 	&atc_attr.attr,
 	&target_tpcb_attr.attr,
+	&md_sensor_info_attr.attr,
+	&md_actuator_info_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {

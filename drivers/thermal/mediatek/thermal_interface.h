@@ -54,6 +54,29 @@ struct fps_cooler_info {
 	int n_sec_to_ttpcb;
 };
 
+#define MAX_MD_NAME_LENGTH  (20)
+
+struct md_thermal_sensor_t {
+	int id;
+	char sensor_name[MAX_MD_NAME_LENGTH];
+	int cur_temp;
+};
+
+struct md_thermal_actuator_t {
+	int id;
+	char actuator_name[MAX_MD_NAME_LENGTH];
+	int cur_status;
+	int max_status;
+};
+
+struct md_info {
+	int sensor_num;
+	struct md_thermal_sensor_t *sensor_info;
+	int md_autonomous_ctrl;
+	int actuator_num;
+	struct md_thermal_actuator_t *actuator_info;
+};
+
 extern void update_ap_ntc_headroom(int temp, int polling_interval);
 extern int get_thermal_headroom(enum headroom_id id);
 extern int set_cpu_min_opp(int gear, int opp);
