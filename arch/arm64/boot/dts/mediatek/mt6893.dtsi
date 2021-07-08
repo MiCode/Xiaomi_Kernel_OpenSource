@@ -8341,7 +8341,6 @@
 			mediatek,xo-buf-hwbblpm-bypass = <0 0 0 1 0 0 0>;
 			mediatek,clkbuf-conn-inf-target = "XO_WCN";
 			mediatek,clkbuf-nfc-inf-target = "XO_NFC";
-			//mediatek,clkbuf-kernel-init;
 			mediatek,xo-nfc = <0>;
 
 			mediatek,enable;
