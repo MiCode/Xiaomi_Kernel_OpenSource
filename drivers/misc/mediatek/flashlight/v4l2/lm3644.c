@@ -468,6 +468,24 @@ static const struct regmap_config lm3644_regmap = {
 	.max_register = 0xFF,
 };
 
+static void lm3644_v4l2_i2c_subdev_init(struct v4l2_subdev *sd,
+		struct i2c_client *client,
+		const struct v4l2_subdev_ops *ops)
+{
+	v4l2_subdev_init(sd, ops);
+	sd->flags |= V4L2_SUBDEV_FL_IS_I2C;
+	/* the owner is the same as the i2c_client's driver owner */
+	sd->owner = client->dev.driver->owner;
+	sd->dev = &client->dev;
+	/* i2c_client and v4l2_subdev point to one another */
+	v4l2_set_subdevdata(sd, client);
+	i2c_set_clientdata(client, sd);
+	/* initialize name */
+	snprintf(sd->name, sizeof(sd->name), "%s %d-%04x",
+		client->dev.driver->name, i2c_adapter_id(client->adapter),
+		client->addr);
+}
+
 static int lm3644_subdev_init(struct lm3644_flash *flash,
 			      enum lm3644_led_id led_no, char *led_name)
 {
@@ -478,7 +496,8 @@ static int lm3644_subdev_init(struct lm3644_flash *flash,
 
 	// pr_info("%s %d", __func__, led_no);
 
-	v4l2_i2c_subdev_init(&flash->subdev_led[led_no], client, &lm3644_ops);
+	lm3644_v4l2_i2c_subdev_init(&flash->subdev_led[led_no],
+				client, &lm3644_ops);
 	flash->subdev_led[led_no].flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	strscpy(flash->subdev_led[led_no].name, led_name,
 		sizeof(flash->subdev_led[led_no].name));
