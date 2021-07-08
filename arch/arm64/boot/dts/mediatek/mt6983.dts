@@ -1790,6 +1790,28 @@
 			#iommu-cells = <1>;
 	};
 
+	efuse: efuse@11ee0000 {
+			compatible = "mediatek,devinfo";
+			reg = <0 0x11ee0000 0 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			efuse_segment: segment@78 {
+				reg = <0x78 0x4>;
+			};
+
+			lvts_e_data1: data1 {
+				reg = <0x1d4 0xc>;
+			};
+
+			lvts_e_data2: data2 {
+				reg = <0x2d4 0x74>;
+			};
+
+			cpu_version: cpu_data {
+				reg = <0x234 0x4>;
+			};
+	};
+
 	apu_iommu0_bank1: iommu@19011000 {
 			compatible = "mediatek,common-apu-iommu0-bank1";
 			mediatek,bank-id = <1>;
