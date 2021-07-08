@@ -12,6 +12,7 @@ MODULE_LICENSE("GPL");
 
 #define IB_ASYM_MISFIT		(0x02)
 #define IB_SAME_CLUSTER		(0x01)
+#define IB_OVERUTILIZATION	(0x04)
 
 static struct perf_domain *find_pd(struct perf_domain *pd, int cpu)
 {
@@ -40,6 +41,19 @@ static inline bool check_faster_idle_balance(struct sched_group *busiest, struct
 			return true;
 	}
 
+	return false;
+}
+
+static inline bool check_has_overutilize_cpu(struct cpumask *grp)
+{
+
+	int cpu;
+
+	for_each_cpu(cpu, grp) {
+		if (cpu_rq(cpu)->nr_running >= 2 &&
+			!fits_capacity(cpu_util(cpu), capacity_of(cpu)))
+			return true;
+	}
 	return false;
 }
 
@@ -72,6 +86,9 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 			} else if (check_faster_idle_balance(busiest, dst_rq)) {
 				*out_balance = 0;
 				fbg_reason |= IB_ASYM_MISFIT;
+			} else if (check_has_overutilize_cpu(sched_group_span(busiest))) {
+				*out_balance = 0;
+				fbg_reason |= IB_OVERUTILIZATION;
 			}
 
 			trace_sched_find_busiest_group(src_cpu, dst_cpu, *out_balance, fbg_reason);
