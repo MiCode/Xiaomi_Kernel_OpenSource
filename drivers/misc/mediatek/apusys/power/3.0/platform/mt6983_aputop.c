@@ -24,7 +24,7 @@
 
 /* Below reg_name has to 1-1 mapping DTS's name */
 static const char *reg_name[APUPW_MAX_REGS] = {
-	"sys_spm", "apu_rcx", "apu_vcore", "apu_md32_mbox",
+	"sys_vlp", "sys_spm", "apu_rcx", "apu_vcore", "apu_md32_mbox",
 	"apu_rpc", "apu_pcu", "apu_ao_ctl", "apu_pll", "apu_acc",
 	"apu_are0", "apu_are1", "apu_are2",
 	"apu_acx0", "apu_acx0_rpc_lite", "apu_acx1", "apu_acx1_rpc_lite",
@@ -131,30 +131,29 @@ static void plt_pwr_res_ctl(int enable)
 	}
 }
 
-static uint32_t get_pll_pcw(uint32_t clk_rate,
-                uint32_t postdiv_val, uint32_t postdiv_reg)
+static void get_pll_pcw(uint32_t clk_rate, uint32_t *r1, uint32_t *r2)
 {
-        uint32_t fvco = clk_rate;
-        uint32_t pcw_val;
+	unsigned int fvco = clk_rate;
+	unsigned int pcw_val;
+	unsigned int postdiv_val = 1;
+	unsigned int postdiv_reg = 0;
 
-        while (fvco <= 1500) {
-                postdiv_val= postdiv_val << 1;
-                postdiv_reg = postdiv_reg + 1;
-                fvco = fvco << 1;
-        }
+	while (fvco <= 1500) {
+		postdiv_val = postdiv_val << 1;
+		postdiv_reg = postdiv_reg + 1;
+		fvco = fvco << 1;
+	}
 
-        pcw_val = (fvco * 1 << 14) / 26;
+	pcw_val = (fvco * 1 << 14) / 26;
 
-        if (postdiv_reg == 0) { //Fvco * 2 with post_divider = 2
-                pcw_val = pcw_val * 2;
-                postdiv_val = postdiv_val << 1;
-                postdiv_reg = postdiv_reg + 1;
-        } //Post divider is 1 is not available
+	if (postdiv_reg == 0) { //Fvco * 2 with post_divider = 2
+		pcw_val = pcw_val * 2;
+		postdiv_val = postdiv_val << 1;
+		postdiv_reg = postdiv_reg + 1;
+	} //Post divider is 1 is not available
 
-	pr_info("%s postdiv_reg:%d, pcw_val:%x\n",
-			__func__, postdiv_reg, pcw_val);
-
-        return pcw_val;
+	*r1 = postdiv_reg;
+	*r2 = pcw_val;
 }
 
 /*
@@ -168,22 +167,22 @@ static void __apu_pll_init(void)
 {
 	uint32_t pll_base_arr[] = {MNOC_PLL_BASE, UP_PLL_BASE,
 					MDLA_PLL_BASE, MVPU_PLL_BASE};
-	uint32_t pll_freq_pcw[] = {0x0, 0x0, 0x0, 0x0};
+	int32_t pll_freq_out[] = {776, 970, 970, 1080}; // MHz
+	uint32_t pcw_val, posdiv_val;
 	int pll_arr_size = sizeof(pll_base_arr) / sizeof(uint32_t);
 	int pll_idx;
 
 	pr_info("PLL init %s %d ++\n", __func__, __LINE__);
 
 	// Step4. Initial PLL setting
-	pll_freq_pcw[0] = get_pll_pcw(1552, 2, 0x1); // mnoc 388 MHz
-	pll_freq_pcw[1] = get_pll_pcw(1940, 2, 0x1); // uP 485 MHz
-	pll_freq_pcw[2] = get_pll_pcw(1940, 2, 0x1); // mdla 485 MHz
-	pll_freq_pcw[3] = get_pll_pcw(2160, 2, 0x1); // mvpu 540 MHz
 
 	for (pll_idx = 0 ; pll_idx < pll_arr_size ; pll_idx++) {
 		// PCW value always from hopping function: ofs 0x100
 		apu_setl(0x1 << 0, apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_HP_EN);
+		// Hopping function reset release: ofs 0x10C
+		apu_setl(0x1 << 0, apupw.regs[apu_pll]
+			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_RST_CON);
 		// Hopping function clock enable: ofs 0x108
 		apu_setl(0x1 << 0, apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_CLK_CON);
@@ -191,16 +190,20 @@ static void __apu_pll_init(void)
 		apu_setl((0x1 << 0) | (0x1 << 2), apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL0_CFG);
 
+		posdiv_val = 0;
+		pcw_val = 0;
+		get_pll_pcw(pll_freq_out[pll_idx], &posdiv_val, &pcw_val);
+
 		// POSTDIV: ofs 0x000C , [26:24] RG_PLL_POSDIV
 		// 3'b000: /1 , 3'b001: /2 , 3'b010: /4
 		// 3'b011: /8 , 3'b100: /16
-		apu_setl((0x1 << 24), apupw.regs[apu_pll]
+		apu_setl(((posdiv_val << 24) | pcw_val), apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1U_PLL1_CON1);
 
 		// PCW register: ofs 0x011C
 		// [31] FHCTL0_PLL_TGL_ORG
 		// [21:0] FHCTL0_PLL_ORG set to PCW value
-		apu_writel(((0x1 << 31) | pll_freq_pcw[pll_idx]),
+		apu_writel(((0x1 << 31) | pcw_val),
 			apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL0_DDS);
 	}
@@ -271,8 +274,7 @@ static int __apu_on_mdla_mvpu_clk(void)
 	apu_writel(0x00000200, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET2);
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_acc] + APU_ACC_AUTO_STATUS2),
-			val, (val & 0x20UL) == 0x20UL,
-			50, 10000);
+			val, (val & 0x20UL) == 0x20UL, 50, 10000);
 	if (ret) {
 		pr_info("%s turn on mvpu root clk fail, ret %d\n",
 				__func__, ret);
@@ -283,8 +285,7 @@ static int __apu_on_mdla_mvpu_clk(void)
 	apu_writel(0x00000200, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET3);
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_acc] + APU_ACC_AUTO_STATUS3),
-			val, (val & 0x20UL) == 0x20UL,
-			50, 10000);
+			val, (val & 0x20UL) == 0x20UL, 50, 10000);
 	if (ret) {
 		pr_info("%s turn on mdla root clk fail, ret %d\n",
 				__func__, ret);
@@ -320,11 +321,14 @@ static void aputop_dump_all_reg(void)
  * high 32-bit data for PMIC control
  *	APU_PCU_PMIC_TAR_BUF2 (or APU_PCU_BUCK_ON_DAT0_H)
  *	[2:0] cmd_op, read:0x3 , write:0x7
- *	[7:4] pmic slave id
+ *	[3]: pmifid,
+ *	[7:4]: slvid
+ *	[8]: bytecnt
  */
 static void __apu_pcu_init(void)
 {
 	uint32_t cmd_op_w = 0x7;
+	uint32_t pmif_id = 0x0;
 	uint32_t slave_id = SUB_PMIC_ID;
 	uint32_t en_set_offset = BUCK_VAPU_PMIC_REG_EN_SET_ADDR;
 	uint32_t en_clr_offset = BUCK_VAPU_PMIC_REG_EN_CLR_ADDR;
@@ -337,15 +341,15 @@ static void __apu_pcu_init(void)
 	apu_writel(0x11, apupw.regs[apu_pcu] + APU_PCU_BUCK_STEP_SEL);
 
 	// Step2. fill-in command0 for vapu auto buck ON
-	apu_writel((en_set_offset << 16) + (0x1 << en_shift),
+	apu_writel((en_set_offset << 16) | (0x1 << en_shift),
 			apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_DAT0_L);
-	apu_writel((slave_id << 4) + cmd_op_w,
+	apu_writel((slave_id << 4) | (pmif_id << 3) | cmd_op_w,
 			apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_DAT0_H);
 
 	// Step3. fill-in command0 for vapu auto buck OFF
-	apu_writel((en_clr_offset << 16) + (0x1 << en_shift),
+	apu_writel((en_clr_offset << 16) | (0x1 << en_shift),
 			apupw.regs[apu_pcu] + APU_PCU_BUCK_OFF_DAT0_L);
-	apu_writel((slave_id << 4) + cmd_op_w,
+	apu_writel((slave_id << 4) | (pmif_id << 3) | cmd_op_w,
 			apupw.regs[apu_pcu] + APU_PCU_BUCK_OFF_DAT0_H);
 
 	// Step4. update buck settle time for vapu by SEL0
@@ -353,6 +357,37 @@ static void __apu_pcu_init(void)
 			apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_SLE0);
 
 	pr_info("PCU init %s %d --\n", __func__, __LINE__);
+}
+
+static void __apu_rpclite_init(void)
+{
+	uint32_t sleep_type_offset[] = {0x0208, 0x020C, 0x0210, 0x0214,
+					0x0218, 0x021C, 0x0220, 0x0224};
+	enum apupw_reg rpc_lite_base[CLUSTER_NUM];
+	int ofs_arr_size = sizeof(sleep_type_offset) / sizeof(uint32_t);
+	int acx_idx, ofs_idx;
+
+	pr_info("RPC-Lite init %s %d ++\n", __func__, __LINE__);
+
+	rpc_lite_base[0] = apu_acx0_rpc_lite;
+
+	if (CLUSTER_NUM == 2)
+		rpc_lite_base[1] = apu_acx1_rpc_lite;
+
+	for (acx_idx = 0 ; acx_idx < CLUSTER_NUM ; acx_idx++) {
+		for (ofs_idx = 0 ; ofs_idx < ofs_arr_size ; ofs_idx++) {
+			// Memory setting
+			apu_clearl((0x1 << 1),
+					apupw.regs[rpc_lite_base[acx_idx]]
+					+ sleep_type_offset[ofs_idx]);
+		}
+
+		// Control setting
+		apu_setl(0x0000009E, apupw.regs[rpc_lite_base[acx_idx]]
+					+ APU_RPC_TOP_SEL);
+	}
+
+	pr_info("RPC-Lite init %s %d --\n", __func__, __LINE__);
 }
 
 static void __apu_rpc_init(void)
@@ -363,35 +398,11 @@ static void __apu_rpc_init(void)
 	// RPC: iTCM in uP need to setup to sleep type
 	apu_clearl((0x1 << 1), apupw.regs[apu_rpc] + 0x0200);
 
-	// RPC-lite: iTCM in MVPU & MDLA need to setup to sleep type
-	// ACX0
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx0_rpc_lite] + 0x0208);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx0_rpc_lite] + 0x020C);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx0_rpc_lite] + 0x0210);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx0_rpc_lite] + 0x0214);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx0_rpc_lite] + 0x0218);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx0_rpc_lite] + 0x021C);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx0_rpc_lite] + 0x0220);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx0_rpc_lite] + 0x0224);
-	// ACX1
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx1_rpc_lite] + 0x0208);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx1_rpc_lite] + 0x020C);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx1_rpc_lite] + 0x0210);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx1_rpc_lite] + 0x0214);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx1_rpc_lite] + 0x0218);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx1_rpc_lite] + 0x021C);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx1_rpc_lite] + 0x0220);
-	apu_clearl((0x1 << 1), apupw.regs[apu_acx1_rpc_lite] + 0x0224);
-
 	// Step9. RPCtop initial
 	// RPC
 	apu_setl(0x0800501E, apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
 	// BUCK_PROT_SEL
 	apu_setl((0x1 << 20), apupw.regs[apu_rpc] + APU_RPC_TOP_SEL_1);
-
-	// RPC-Lite
-	apu_setl(0x0000009E, apupw.regs[apu_acx0_rpc_lite] + APU_RPC_TOP_SEL);
-	apu_setl(0x0000009E, apupw.regs[apu_acx1_rpc_lite] + APU_RPC_TOP_SEL);
 
 	pr_info("RPC init %s %d --\n", __func__, __LINE__);
 }
@@ -407,10 +418,10 @@ static int __apu_are_init(struct device *dev)
 	// Step10. ARE initial
 
 	/* TINFO="Wait for sare1 fsm to transition to IDLE" */
+	// while ((apu_readl(apupw.regs[apu_are2] + 0x48) & 0x1) != 0x1);
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_are2] + 0x48),
-			val, (val & 0x1UL),
-			50, 10000);
+			val, (val & 0x1UL), 50, 10000);
 	if (ret) {
 		pr_info("%s timeout to wait sram1 fsm to idle, ret %d\n",
 				__func__, ret);
@@ -420,6 +431,9 @@ static int __apu_are_init(struct device *dev)
 	pr_info("ARE init %s %d ++\n", __func__, __LINE__);
 
 	for (are_id = apu_are0 ; are_id <= apu_are2 ; are_id++) {
+
+		pr_info("%s are_id:%d\n", __func__, are_id);
+
 		/* ARE entry 0 initial */
 		apu_writel(0x01234567, apupw.regs[are_id]
 						+ APU_ARE_ETRY0_SRAM_H);
@@ -438,7 +452,7 @@ static int __apu_are_init(struct device *dev)
 		apu_writel(are_entry2_cfg_l[are_id], apupw.regs[are_id]
 						+ APU_ARE_ETRY2_SRAM_L);
 
-		/* dummy read ARE entry0/1/2 H/L sram */
+		/* dummy read ARE entry2 H/L sram */
 		tmp = readl(apupw.regs[are_id] + APU_ARE_ETRY2_SRAM_H);
 		tmp = readl(apupw.regs[are_id] + APU_ARE_ETRY2_SRAM_L);
 
@@ -549,8 +563,7 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 	apu_writel(0x00000100, apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
-			val, (val & 0x1UL),
-			50, 10000);
+			val, (val & 0x1UL), 50, 10000);
 	if (ret) {
 		pr_info("%s wake up apu_rpc fail, ret %d\n", __func__, ret);
 		goto out;
@@ -600,14 +613,12 @@ static int __apu_wake_rpc_acx(struct device *dev, enum t_acx_id acx_id)
 	apu_writel(0x00000100, apupw.regs[rpc_lite_base] + APU_RPC_TOP_CON);
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[rpc_lite_base] + APU_RPC_INTF_PWR_RDY),
-			val, (val & 0x1UL),
-			50, 10000);
+			val, (val & 0x1UL), 50, 10000);
 
 	/* polling FSM @RPC-lite to ensure RPC is in on/off stage */
 	ret |= readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[rpc_lite_base] + APU_RPC_STATUS),
-			val, (val & (0x1 << 29)),
-			50, 10000);
+			val, (val & (0x1 << 29)), 50, 10000);
 	if (ret) {
 		pr_info("%s wake up acx%d_rpc fail, ret %d\n",
 				__func__, acx_id, ret);
@@ -681,8 +692,7 @@ static int __apu_pwr_ctl_acx_engines(struct device *dev,
 			apupw.regs[rpc_lite_base] + APU_RPC_SW_FIFO_WE);
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[rpc_lite_base] + APU_RPC_INTF_PWR_RDY),
-			val, (val & dev_mtcmos_chk) == dev_mtcmos_chk,
-			50, 200);
+			val, (val & dev_mtcmos_chk) == dev_mtcmos_chk, 50, 200);
 	if (ret) {
 		pr_info("%s config acx%d_rpc 0x%x fail, ret %d\n",
 				__func__, acx_id, dev_mtcmos_ctl, ret);
@@ -708,11 +718,12 @@ static int mt6983_apu_top_on(struct device *dev)
 {
 	pr_info("%s +\n", __func__);
 
+	// FIXME: remove this ref_cnt, ref_cnt of rpm can replace of this!
 	if (ref_count++ > 0)
 		return 0;
 
-// FIXME: remove this since it should be auto ctl by RPC flow
 #if !CFG_FPGA
+	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(1);
 #endif
 
@@ -724,16 +735,29 @@ static int mt6983_apu_top_on(struct device *dev)
 
 static int mt6983_apu_top_off(struct device *dev)
 {
+	int ret = 0, val = 0;
+
 	pr_info("%s +\n", __func__);
 
-	// FIXME: remove this power off flow since it should be triggered by uP
-
+	// FIXME: remove this ref_cnt, ref_cnt of rpm can replace of this!
 	if (--ref_count > 0)
 		return 0;
 
+	// FIXME: remove this power off flow since it should be triggered by uP
 	__apu_sleep_rpc_rcx(dev);
 
+	// blocking until sleep success or timeout
+	ret = readl_relaxed_poll_timeout_atomic(
+			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
+			val, (val & 0x1UL) == 0x0, 50, 10000);
+	if (ret) {
+		pr_info("%s timeout to wait RPC sleep, ret %d\n",
+				__func__, ret);
+		return -1;
+	}
+
 #if !CFG_FPGA
+	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(0);
 #endif
 	pr_info("%s -\n", __func__);
@@ -818,11 +842,15 @@ static int init_hw_setting(struct device *dev)
 {
 	__apu_aoc_init();
 #if !CFG_FPGA
+// power bring up shall use soc PLL
+#if !APU_POWER_BRING_UP
 	__apu_pll_init();
 	__apu_acc_init();
 #endif
+#endif
 	__apu_pcu_init();
 	__apu_rpc_init();
+	__apu_rpclite_init();
 	__apu_are_init(dev);
 
 #ifdef AGING_MARGIN
@@ -842,6 +870,12 @@ static int init_hw_setting(struct device *dev)
 #if !CFG_FPGA
 	__apu_buck_off();
 #endif
+
+	// Step12. After APUsys is finished, update the following register to 1,
+	//	   ARE will use this information to ensure the SRAM in ARE is
+	//	   trusted or not
+	apu_setl(0x1 << 0, apupw.regs[sys_vlp] + APUSYS_AO_CTRL_ADDR);
+
 	return 0;
 }
 

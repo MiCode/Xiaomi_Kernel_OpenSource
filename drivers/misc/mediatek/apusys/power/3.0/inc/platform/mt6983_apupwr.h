@@ -30,6 +30,7 @@ enum t_dev_id {
 };
 
 enum apupw_reg {
+	sys_vlp,
 	sys_spm,
 	apu_rcx,
 	apu_vcore,
@@ -67,18 +68,15 @@ struct apu_power {
 #define APU_RPC_INTF_PWR_RDY      0x0044
 
 /* APU PLL1U offset define */
-// APUPLL for MNOC usage
-#define MNOC_PLL_BASE		0x000 // 0x190F3000
-// NPUPLL for uP usage
-#define UP_PLL_BASE		0x400 // 0x190F3400
-// APUPLL1 for MDLA usage
-#define MDLA_PLL_BASE		0x800 // 0x190F3800
-// APUPLL2 for MVPU usage
-#define MVPU_PLL_BASE		0xC00 // 0x190F3C00
+#define MDLA_PLL_BASE		0x000 // 0x190F3000
+#define MVPU_PLL_BASE		0x400 // 0x190F3400
+#define MNOC_PLL_BASE		0x800 // 0x190F3800
+#define UP_PLL_BASE		0xC00 // 0x190F3C00
 
 #define PLL1U_PLL1_CON1		0x00C
 #define PLL1UPLL_FHCTL_HP_EN	0x100
 #define PLL1UPLL_FHCTL_CLK_CON	0x108
+#define PLL1UPLL_FHCTL_RST_CON	0x10C
 #define PLL1UPLL_FHCTL0_CFG	0x114
 #define PLL1UPLL_FHCTL0_DDS	0x11C
 
@@ -155,6 +153,9 @@ struct apu_power {
 #define APU_ACX_MDLA0_CG_CLR    0x30008
 #define APU_ACX_MDLA1_CG_CON    0x34000
 #define APU_ACX_MDLA1_CG_CLR    0x34008
+
+// vlp offset define
+#define APUSYS_AO_CTRL_ADDR	(0x200)
 
 // spm offset define
 #define APUSYS_BUCK_ISOLATION		(0x39C)
