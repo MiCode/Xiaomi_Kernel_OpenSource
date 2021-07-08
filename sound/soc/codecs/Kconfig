@@ -126,6 +126,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_MAX9877
 	imply SND_SOC_MC13783
 	imply SND_SOC_ML26124
+	imply SND_SOC_MT6338
 	imply SND_SOC_MT6351
 	imply SND_SOC_MT6358
 	imply SND_SOC_MT6359
@@ -1755,6 +1756,15 @@ config SND_SOC_MC13783
 config SND_SOC_ML26124
 	tristate
 	depends on I2C
+
+config SND_SOC_MT6338
+	tristate "MediaTek MT6338 Codec driver"
+	depends on MFD_MT6338
+	help
+	  MediaTek MT6338 is a audio codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout).
 
 config SND_SOC_MT6351
 	tristate "MediaTek MT6351 Codec"
