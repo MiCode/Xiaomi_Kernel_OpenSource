@@ -209,6 +209,8 @@ int ged_ge_get(int ge_fd, int region_id, int u32_offset,
 
 	if (file == NULL || file->f_op != &GEEntry_fops) {
 		GED_PDEBUG("fail, invalid ge_fd %d\n", ge_fd);
+		if (file)
+			fput(file);
 		return -EFAULT;
 	}
 
@@ -249,6 +251,8 @@ int ged_ge_set(int ge_fd, int region_id, int u32_offset,
 
 	if (file == NULL || file->f_op != &GEEntry_fops) {
 		GED_PDEBUG("fail, invalid ge_fd %d\n", ge_fd);
+		if (file)
+			fput(file);
 		return -EFAULT;
 	}
 
@@ -316,6 +320,17 @@ int ged_bridge_ge_get(
 	struct GED_BRIDGE_IN_GE_GET *psGET_IN,
 	struct GED_BRIDGE_OUT_GE_GET *psGET_OUT)
 {
+	if (psGET_IN->uint32_offset < 0 ||
+			psGET_IN->uint32_offset >= 0x20000000ULL ||
+			psGET_IN->uint32_size < 0 ||
+			psGET_IN->uint32_size >= 0x20000000ULL) {
+		pr_info("[%s] invalid offset(%d) or size(%d)",
+				__func__,
+				psGET_IN->uint32_offset,
+				psGET_IN->uint32_size);
+		return -EFAULT;
+	}
+
 	psGET_OUT->eError = ged_ge_get(
 			psGET_IN->ge_fd,
 			psGET_IN->region_id,
@@ -329,6 +344,17 @@ int ged_bridge_ge_set(
 	struct GED_BRIDGE_IN_GE_SET *psSET_IN,
 	struct GED_BRIDGE_OUT_GE_SET *psSET_OUT)
 {
+	if (psSET_IN->uint32_offset < 0 ||
+			psSET_IN->uint32_offset >= 0x20000000ULL ||
+			psSET_IN->uint32_size < 0 ||
+			psSET_IN->uint32_size >= 0x20000000ULL) {
+		pr_info("[%s] invalid offset(%d) or size(%d)",
+				__func__,
+				psSET_IN->uint32_offset,
+				psSET_IN->uint32_size);
+		return -EFAULT;
+	}
+
 	psSET_OUT->eError = ged_ge_set(
 			psSET_IN->ge_fd,
 			psSET_IN->region_id,
@@ -346,6 +372,8 @@ int ged_bridge_ge_info(
 
 	if (file == NULL || file->f_op != &GEEntry_fops) {
 		GED_PDEBUG("ged_ge fail, invalid ge_fd %d\n", psINFO_IN->ge_fd);
+		if (file)
+			fput(file);
 		return -EFAULT;
 	}
 
