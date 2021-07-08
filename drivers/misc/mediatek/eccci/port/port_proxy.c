@@ -841,7 +841,8 @@ static void port_dump_string(struct port_t *port, int dir,
 			"[%5lu.%06lu]C:%d,%d(%d,%d,%d) %s: %d<%s\n",
 			(unsigned long)ts_nsec, rem_nsec / 1000,
 			port->flags, port->rx_ch,
-			port->rx_skb_list.qlen, port->rx_pkg_cnt,
+			port->rx_skb_list.qlen,
+			atomic_read(&port->rx_pkg_cnt),
 			port->rx_drop_cnt, "R", len, buf);
 	else
 		CCCI_HISTORY_LOG(port->md_id, TAG,
@@ -887,7 +888,8 @@ static void port_dump_raw_data(struct port_t *port, int dir,
 			"[%5lu.%06lu]C:%d,%d(%d,%d,%d) %s: %d<",
 			(unsigned long)ts_nsec, rem_nsec / 1000,
 			port->flags, port->rx_ch,
-			port->rx_skb_list.qlen, port->rx_pkg_cnt,
+			port->rx_skb_list.qlen,
+			atomic_read(&port->rx_pkg_cnt),
 			port->rx_drop_cnt, "R", len);
 	else
 		CCCI_HISTORY_LOG(port->md_id, TAG,
@@ -1001,7 +1003,7 @@ int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 			}
 		}
 
-		port->rx_pkg_cnt++;
+		atomic_inc(&port->rx_pkg_cnt);
 		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 		__pm_wakeup_event(port->rx_wakelock, jiffies_to_msecs(HZ/2));
 		spin_lock_irqsave(&port->rx_wq.lock, flags);
@@ -1558,7 +1560,7 @@ static inline void proxy_dispatch_md_status(struct port_proxy *proxy_p,
 		port = proxy_p->ports + i;
 		if ((state == GATED) && (port->flags &
 			PORT_F_CH_TRAFFIC)) {
-			port->rx_pkg_cnt = 0;
+			atomic_set(&port->rx_pkg_cnt, 0);
 			port->rx_drop_cnt = 0;
 			port->tx_pkg_cnt = 0;
 		}
