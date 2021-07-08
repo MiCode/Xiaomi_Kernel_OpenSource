@@ -15,7 +15,8 @@
 #include <linux/skbuff.h>
 
 #define DPMAIF_CAP_LRO		(1 << 0)
-
+#define DPMAIF_CAP_2RXQ		(1 << 1)
+#define DPMAIF_CAP_PIT_DEG	(1 << 2)
 
 struct dpmaif_clk_node {
 	struct clk    *clk_ref;

@@ -58,6 +58,7 @@
 #include "ccci_hif_dpmaif_comm.h"
 #include "modem_secure_base.h"
 #include "dpmaif_bat_v3.h"
+#include "net_speed.h"
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
@@ -750,7 +751,7 @@ static int dpmaif_dump_status(unsigned char hif_id,
 			"Dump AP DPMAIF IRQ status not support\n");
 	}
 	if (flag & DUMP_FLAG_TOGGLE_NET_SPD)
-		return mtk_ccci_toggle_net_speed_log();
+		return mtk_ccci_net_spd_cfg(1);
 
 	return 0;
 }
@@ -1004,8 +1005,7 @@ static int dpmaif_net_rx_push_thread(void *arg)
 		if (!skb)
 			continue;
 
-		mtk_ccci_add_dl_pkt_size(skb->len);
-
+		mtk_ccci_add_dl_pkt_bytes(queue->index, skb->len);
 #ifndef CCCI_KMODULE_ENABLE
 #ifdef CCCI_SKB_TRACE
 		per_md_data->netif_rx_profile[6] = sched_clock();
@@ -1419,6 +1419,15 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		pkt_inf_t = (struct dpmaifq_normal_pit *)rxq->pit_base +
 			cur_pit;
 #endif
+		if ((dpmaif_ctrl->enable_pit_debug > 0) &&
+			dpmaif_debug_add_data(&rxq->dbg_data, pkt_inf_t,
+				sizeof(struct dpmaifq_normal_pit)) < 0) {
+			dpmaif_debug_push_data(&rxq->dbg_data,
+				&rxq->skb_list, rxq->cur_chn_idx);
+			dpmaif_debug_add_data(&rxq->dbg_data, pkt_inf_t,
+				sizeof(struct dpmaifq_normal_pit));
+		}
+
 		if (pkt_inf_t->packet_type == DES_PT_MSG) {
 			dpmaif_rx_msg_pit(rxq,
 					(struct dpmaifq_msg_pit *)pkt_inf_t);
@@ -2256,7 +2265,7 @@ retry:
 		ret = 0;
 	}
 	if (ret == 0)
-		mtk_ccci_add_ul_pkt_size(total_size);
+		mtk_ccci_add_ul_pkt_bytes(txq->index, total_size);
 	spin_unlock_irqrestore(&txq->tx_lock, flags);
 __EXIT_FUN:
 #ifdef DPMAIF_DEBUG_LOG
@@ -2655,6 +2664,11 @@ static int dpmaif_rxq_init(struct dpmaif_rx_queue *queue)
 				queue, "dpmaif_rx_push");
 	spin_lock_init(&queue->rx_lock);
 
+	if (dpmaif_ctrl->enable_pit_debug >= 0) {
+		dpmaif_debug_set_fun(ccci_skb_to_list);
+		dpmaif_debug_init_data(&queue->dbg_data, DEBUG_TYPE_RX_DONE,
+			DEBUG_VERION_v3, queue->index);
+	}
 	return 0;
 }
 
@@ -3386,9 +3400,23 @@ static int dpmaif_debug(unsigned char hif_id,
 
 static int dpmaif_pre_stop(unsigned char hif_id)
 {
+	int i;
+	struct dpmaif_rx_queue *rxq;
+
 	if (hif_id != DPMAIF_HIF_ID)
 		return -1;
+
 	dpmaif_stop_hw();
+
+	if (dpmaif_ctrl->enable_pit_debug >= 0) {
+		for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+			rxq = &dpmaif_ctrl->rxq[i];
+			dpmaif_debug_push_data(&rxq->dbg_data,
+				&rxq->skb_list, rxq->cur_chn_idx);
+			NOTIFY_RX_PUSH(rxq);
+		}
+	}
+
 	return 0;
 }
 
@@ -3409,6 +3437,41 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.debug = &dpmaif_debug,
 };
 
+static void dpmaif_total_spd_cb(u64 total_speed)
+{
+	if (total_speed < MAX_SPEED_THRESHOLD)
+		dpmaif_ctrl->enable_pit_debug = 1;
+	else
+		dpmaif_ctrl->enable_pit_debug = 0;
+}
+
+static void dpmaif_init_cap(struct device *dev)
+{
+	unsigned int dpmaif_cap = 0;
+
+	if (of_property_read_u32(dev->of_node,
+			"mediatek,dpmaif_cap", &dpmaif_cap)) {
+		dpmaif_cap = 0;
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] read mediatek,dpmaif_cap fail!\n",
+			__func__);
+	}
+
+	dpmaif_ctrl->support_lro = (dpmaif_cap & DPMAIF_CAP_LRO);
+	if (dpmaif_cap & DPMAIF_CAP_PIT_DEG)
+		dpmaif_ctrl->enable_pit_debug = 1;
+	else
+		dpmaif_ctrl->enable_pit_debug = -1;
+
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] dpmaif_cap: %x; support_lro: %u; pit_debug: %d\n",
+		__func__, dpmaif_cap, dpmaif_ctrl->support_lro,
+		dpmaif_ctrl->enable_pit_debug);
+
+	if (dpmaif_ctrl->enable_pit_debug > -1)
+		mtk_ccci_register_dl_speed_1s_callback(dpmaif_total_spd_cb);
+}
+
 /* =======================================================
  *
  * Descriptions: State Module part End
@@ -3423,7 +3486,6 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 	struct hif_dpmaif_ctrl *hif_ctrl = NULL;
 	int ret = 0;
 	unsigned char md_id = 0;
-	unsigned int dpmaif_cap;
 
 	CCCI_HISTORY_TAG_LOG(-1, TAG,
 			"%s: probe initl\n", __func__);
@@ -3545,21 +3607,10 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 		CCCI_ERROR_LOG(md_id, TAG, "infra_ao_mem error!\n");
 		ret = -1;
 		goto DPMAIF_INIT_FAIL;
-
 	}
 
-	if (of_property_read_u32(dev->of_node,
-			"mediatek,dpmaif_cap", &dpmaif_cap)) {
-		dpmaif_cap = 0;
-		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] read mediatek,dpmaif_cap fail!\n",
-			__func__);
-
-	}
-	dpmaif_ctrl->support_lro = (dpmaif_cap & DPMAIF_CAP_LRO);
-	CCCI_NORMAL_LOG(-1, TAG,
-		"[%s] support_lro: %u\n",
-		__func__, dpmaif_ctrl->support_lro);
+	mtk_ccci_net_speed_init();
+	dpmaif_init_cap(dev);
 
 	dev->dma_mask = &dpmaif_dmamask;
 	dev->coherent_dma_mask = dpmaif_dmamask;
@@ -3576,9 +3627,8 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 	ccci_hif_register(DPMAIF_HIF_ID, (void *)dpmaif_ctrl,
 		&ccci_hif_dpmaif_ops);
 
-	mtk_ccci_speed_monitor_init(dev);
-
 	atomic_set(&dpmaif_ctrl->suspend_flag, 0);
+
 	return 0;
 
 DPMAIF_INIT_FAIL:
