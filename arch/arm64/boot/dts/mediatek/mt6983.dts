@@ -454,6 +454,13 @@
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
 
+		wifi_mem: wifi-reserve-memory {
+			compatible = "shared-dma-pool";
+			no-map;
+			size = <0 0xf20000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
 	};
 
 	gic: interrupt-controller {
@@ -5394,6 +5401,14 @@
 		compatible = "mediatek,vcp-io-work";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_256MB2>;
+	};
+
+	wifi: wifi@18000000 {
+		compatible = "mediatek,wifi";
+		reg = <0 0x18000000 0 0x700000>;
+		interrupts = <GIC_SPI 554 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 557 IRQ_TYPE_LEVEL_HIGH 0>;
+		memory-region = <&wifi_mem>;
 	};
 
 	mdpsys_config@1f000000 {
