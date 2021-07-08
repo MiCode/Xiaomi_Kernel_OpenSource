@@ -77,6 +77,9 @@ static const struct mfd_cell mt6363_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6363_keys_resources),
 		.resources = mt6363_keys_resources,
 		.of_compatible = "mediatek,mt6363-keys"
+	}, {
+		.name = "mt6363-consys",
+		.of_compatible = "mediatek,mt6363-consys",
 	},
 };
 
@@ -92,7 +95,10 @@ static const struct mfd_cell mt6373_devs[] = {
 	}, {
 		.name = "mt6373-efuse",
 		.of_compatible = "mediatek,mt6373-efuse",
-	}
+	}, {
+		.name = "mt6373-consys",
+		.of_compatible = "mediatek,mt6373-consys",
+	},
 };
 
 static struct irq_top_t mt6363_ints[] = {
