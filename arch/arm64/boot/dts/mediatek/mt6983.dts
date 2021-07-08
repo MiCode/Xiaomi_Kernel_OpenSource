@@ -6452,6 +6452,133 @@
 		/* mediatek,headset-codec = <&accdet>; */
 		mediatek,platform = <&afe>;
 	};
+
+	mtk_lpm: mtk_lpm {
+		compatible = "mediatek,mtk-lpm";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		lpm-kernel-suspend = <1>;
+		suspend-method = "disable";
+
+		logger-enable-states = "mcusysoff", "system_mem",
+					"system_pll", "system_bus";
+
+		irq-remain = <0>;
+
+		resource-ctrl = <&bus26m &infra &syspll>,
+				<&dram_s0 &dram_s1>;
+		constraints = <&rc_bus26m &rc_syspll &rc_dram>,
+				<&rc_cpu_buck_ldo>;
+		spm-cond = <&spm_cond_cg &spm_cond_pll>;
+		cg-shift = <0>; /* cg blocking index */
+		pll-shift = <16>; /* pll blocking index */
+
+		power-gs = <0>;
+
+		mcusys-cnt-chk = <1>;
+
+		cpupm_sysram: cpupm-sysram@0011b000 {
+			compatible = "mediatek,cpupm-sysram";
+			reg = <0 0x0011b000 0 0x500>;
+		};
+
+		mcusys_ctrl: mcusys-ctrl@0c53a000 {
+			compatible = "mediatek,mcusys-ctrl";
+			reg = <0 0x0c53a000 0 0x1000>;
+		};
+
+		lpm_sysram: lpm_sysram@0011b500 {
+			compatible = "mediatek,lpm-sysram";
+			reg = <0 0x0011b500 0 0x300>;
+		};
+
+		irq-remain-list {
+		};
+		resource-ctrl-list {
+			bus26m: bus26m {
+				id = <0x00000000>;
+				value = <0>;
+			};
+			infra: infra {
+				id = <0x00000001>;
+				value = <0>;
+			};
+			syspll: syspll {
+				id = <0x00000002>;
+				value = <0>;
+			};
+			dram_s0: dram_s0 {
+				id = <0x00000003>;
+				value = <0>;
+			};
+			dram_s1: dram_s1 {
+				id = <0x00000004>;
+				value = <0>;
+			};
+		};
+		constraint-list {
+			rc_bus26m: rc_bus26m {
+				rc-name = "bus26m";
+				id = <0x00000000>;
+				value = <1>;
+				cond-info = <1>;
+			};
+			rc_syspll: rc_syspll {
+				rc-name = "syspll";
+				id = <0x00000001>;
+				value = <1>;
+				cond-info = <1>;
+			};
+			rc_dram: rc_dram {
+				rc-name = "dram";
+				id = <0x00000002>;
+				value = <1>;
+				cond-info = <1>;
+			};
+			rc_cpu_buck_ldo: rc_cpu_buck_ldo{
+				rc-name = "cpu-buck-ldo";
+				id = <0x00000003>;
+				value = <1>;
+				cond-info = <0>;
+			};
+		};
+
+		spm-cond-list {
+			spm_cond_cg: spm_cond_cg {
+				cg-name = "MTCMOS_0",
+					"INFRA_0",
+					"INFRA_1",
+					"INFRA_2",
+					"INFRA_3",
+					"INFRA_4",
+					"INFRA_5",
+					"PERI_0",
+					"PERI_1",
+					"PERI_2",
+					"MMSYS_0",
+					"MMSYS_1",
+					"MMSYS_2",
+					"MDPSYS_2";
+			};
+			spm_cond_pll: spm_cond_pll {
+				pll-name = "UNIVPLL",
+					"MFGPLL",
+					"MSDCPLL",
+					"TVPLL",
+					"MMPLL",
+					"USBPLL",
+					"ADSPPLL",
+					"APLL1",
+					"APLL2",
+					"APUPLL",
+					"NPUPLL";
+			};
+		};
+
+		power-gs-list {
+		};
+	};
 };
 
 &i2c6 {
