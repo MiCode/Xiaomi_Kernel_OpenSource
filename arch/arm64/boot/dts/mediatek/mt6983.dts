@@ -431,6 +431,13 @@
 			alignment = <0 0x10000>;
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
+		consys_mem: consys-reserve-memory {
+			compatible = "mediatek,consys-reserve-memory";
+			no-map;
+			size = <0 0x780000>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
+		};
 
 		gps_mem: gps-reserve-memory {
 			compatible = "mediatek,gps-reserve-memory";
@@ -5342,6 +5349,55 @@
 			 <&gce_m 23 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+	};
+
+	btif@1100c000 {
+		compatible = "mediatek,btif";
+		reg = <0 0x1100c000 0 0x100>, /*btif base*/
+			<0 0x11301400 0 0x80>,/*btif tx dma base*/
+			<0 0x11301480 0 0x80>;/*btif rx dma base*/
+			/*btif irq, IRQS_Sync ID, btif_irq_b*/
+		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH 0>,
+			/*btif tx dma irq*/
+			<GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>,
+			/*btif rx dma irq*/
+			<GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&pericfg_ao_clk CLK_PERICFG_AO_PERI_BTIF_BCLK_CG>,
+			/*btif clock*/
+			<&pericfg_ao_clk CLK_PERICFG_AO_PERI_APDMA_CG>;
+			/*ap dma clock*/
+		clock-names = "btifc","apdmac";
+	};
+
+	consys: consys@18000000 {
+		compatible = "mediatek,mt6983-consys";
+		#thermal-sensor-cells = <0>;
+		reg =   <0 0x10001000 0 0xee4>, /* 0. 0x1000_1000 infracfg_ao, sz=0xee4 */
+			<0 0x10005000 0 0xa7c>, /* 1. 0x1000_5000 GPIO, sz=0xa7c */
+			<0 0x11c30000 0 0xa04>, /* 2. 0x11c3_0000 IOCFG_RT, sz=0xa04 */
+			<0 0x11ea0000 0 0xa04>, /* 3. 0x11ea_0000 IOCFG_RTT, sz=0xa04 */
+			<0 0x18000000 0 0x470>, /* 4. 0x1800_0000 conn_infra_rgu_on, sz=0x470 */
+			<0 0x18001000 0 0x658>, /* 5. 0x1800_1000 conn_infra_cfg_on, sz=0x658 */
+			<0 0x18003000 0 0x204>, /* 6. 0x1800_3000 conn_wt_slp_ctl_reg, sz=0x204 */
+			<0 0x1800e000 0 0x124>, /* 7. 0x1800_e000 conn_infra_bus_cr_on, sz=0x124*/
+			<0 0x18011000 0 0x138>, /* 8. 0x1801_1000 conn_infra_cfg, sz=0x138 */
+			<0 0x18012000 0 0x98>,  /* 9. 0x1801_2000 conn_infra_clkgen_top,sz=0x98 */
+			<0 0x18020000 0 0x4c>,  /* 10. 0x1802_0000 conn_von_bus_bcrm, sz=0x4c */
+			<0 0x18023000 0 0xe28>, /* 11. 0x1802_3000 conn_dbg_ctl, sz=0xe28 */
+			<0 0x1803b000 0 0x18>,  /* 12. 0x1803_b000 conn_infra_on_bus_bcrm,sz=0x18 */
+			<0 0x18040000 0 0x2c>,  /* 13. 0x1804_0000 conn_therm_ctl, sz=0x2c */
+			<0 0x18041000 0 0x140>, /* 14. 0x1804_1000 conn_afe_ctl, sz=0x140 */
+			<0 0x18042000 0 0x324>, /* 15. 0x1804_2000 conn_rf_spi_mst_reg, sz=0x324 */
+			<0 0x1804b000 0 0x414>, /* 16. 0x1804_b000 conn_infra_bus_cr, sz=0x414 */
+			<0 0x1804d000 0 0x41c>, /* 17. 0x1804_d000 conn_infra_off_debug_ctrl_ao41c*/
+			<0 0x1804f000 0 0x148>, /* 18. 0x1804_f000 conn_infra_off_bus_bcrm,0x148 */
+			<0 0x18053800 0 0x1000>,/* 19. 0x1805_3800 conn_infra_sysram_sw_cr,0x1000*/
+			<0 0x18060000 0 0xc08>, /* 20. 0x1806_0000 conn_host_csr_top, sz=0xc08 */
+			<0 0x18070000 0 0x8004>,/* 21. 0x1807_0000 conn_semaphore, sz=0x8004 */
+			<0 0x1c001000 0 0xfb0>, /* 22. 0x1c00_1000 spm, sz=0xfb0 */
+			<0 0x1c007000 0 0x51c>; /* 23. 0x1c00_7000 top_rgu, sz=0x51c */
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_CONN>;
+		memory-region = <&consys_mem>;
 	};
 
 	vcp: vcp@1ec00000 {
