@@ -1461,7 +1461,7 @@ static int cluster_init(const struct cpumask *mask)
 
 	if (cluster->cluster_id == AB_CLUSTER_ID) {
 		cluster->thermal_degree_thres = 65000;
-		cluster->thermal_down_thres = 85;
+		cluster->thermal_down_thres = 80;
 	} else {
 		cluster->thermal_degree_thres = INT_MAX;
 		cluster->thermal_down_thres = INT_MAX;

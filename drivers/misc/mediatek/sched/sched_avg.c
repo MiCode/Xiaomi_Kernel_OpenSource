@@ -64,7 +64,7 @@ static DEFINE_SPINLOCK(global_max_util_lock);
 #define MAX_UTIL_TRACKER_PERIODIC_MS 	8
 
 static int init_thres_table(void);
-static unsigned int over_thres[OVER_THRES_SIZE] = {80, 75};
+static unsigned int over_thres[OVER_THRES_SIZE] = {80, 70};
 static struct cluster_over_thres_stats cluster_over_thres_table[MAX_CLUSTER_NR];
 
 void sched_max_util_task_tracking(void *data, struct rq *rq)
