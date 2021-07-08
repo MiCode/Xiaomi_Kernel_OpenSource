@@ -33,6 +33,7 @@
 #include <gpuppm.h>
 #include <gpufreq_common.h>
 #include <gpufreq_mt6893.h>
+#include <gpudfd_mt6893.h>
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
@@ -623,13 +624,20 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		}
 		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_4);
 
+		__gpudfd_config_dfd(true);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_5);
+
 		if (g_gpu.power_count == 1)
 			g_dvfs_state &= ~DVFS_POWEROFF;
 	} else {
 		if (g_gpu.power_count == 0)
 			g_dvfs_state |= DVFS_POWEROFF;
 
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_5);
+
+		__gpudfd_config_dfd(false);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_6);
+
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_7);
 
 		ret = __gpufreq_cg_control(POWER_OFF);
 		if (unlikely(ret)) {
@@ -637,7 +645,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_6);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_8);
 
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
 		if (unlikely(ret < 0)) {
@@ -645,7 +653,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_7);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_9);
 
 		ret = __gpufreq_buck_control(POWER_OFF);
 		if (unlikely(ret)) {
@@ -653,7 +661,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_8);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_A);
 	}
 
 	/* return power count if successfully control power */
@@ -2837,6 +2845,12 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug3 (ENOENT)");
 		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	ret = gpudfd_init(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init DFD (%d)", ret);
 		goto done;
 	}
 

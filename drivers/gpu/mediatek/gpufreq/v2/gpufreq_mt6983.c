@@ -30,6 +30,7 @@
 #include <gpuppm.h>
 #include <gpufreq_common.h>
 #include <gpufreq_mt6983.h>
+#include <gpudfd_mt6983.h>
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
@@ -1082,13 +1083,21 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			__gpufreq_gpm_control();
 		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_8);
 
+		/* control DFD */
+		__gpudfd_config_dfd(true);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_9);
+
 		if (g_stack.power_count == 1)
 			g_dvfs_state &= ~DVFS_POWEROFF;
 	} else {
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_9);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_A);
 
 		if (g_stack.power_count == 0)
 			g_dvfs_state |= DVFS_POWEROFF;
+
+		/* control DFD */
+		__gpudfd_config_dfd(false);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_B);
 
 		/* control CG */
 		ret = __gpufreq_cg_control(POWER_OFF);
@@ -1097,7 +1106,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_A);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_C);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -1106,11 +1115,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_B);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_D);
 
 		/* control AOC before MFG_0 off */
 		__gpufreq_aoc_control(POWER_OFF);
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_C);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_E);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -1119,7 +1128,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_D);
+		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_F);
 	}
 
 	/* return power count if successfully control power */
@@ -4503,6 +4512,12 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 #endif /* GPUFREQ_ASENSOR_ENABLE */
+
+	ret = gpudfd_init(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init DFD (%d)", ret);
+		goto done;
+	}
 
 done:
 	GPUFREQ_TRACE_END();

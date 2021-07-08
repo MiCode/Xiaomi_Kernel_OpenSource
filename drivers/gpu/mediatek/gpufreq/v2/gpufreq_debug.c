@@ -22,6 +22,7 @@
 
 #include <gpufreq_v2.h>
 #include <gpufreq_debug.h>
+#include <gpu_misc.h>
 
 /**
  * ===============================================
@@ -767,6 +768,48 @@ done:
 	return (ret < 0) ? ret : count;
 }
 
+/*
+ * PROCFS: cause bug on for DFD data dump when GPU hard stop
+ * 0: do nothing
+ * 1: cause bug on when GPU hard stop
+ * may have other modes, we will not use "enable" and "disable"
+ */
+static int gpudfd_force_dump_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int force_dump_mode = 0;
+
+	seq_puts(m, "0: disable\n");
+	seq_puts(m, "1: force dump\n");
+
+	force_dump_mode = gpufreq_get_dfd_force_dump_mode();
+	seq_printf(m, "DFD force dump mode: %d\n", force_dump_mode);
+
+	return 0;
+}
+
+static ssize_t gpudfd_force_dump_proc_write(
+		struct file *file, const char __user *buffer,
+		size_t count, loff_t *data)
+{
+	int ret = -EFAULT;
+	char buf[64];
+	unsigned int len = 0;
+	unsigned int value = 0;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+
+	if (copy_from_user(buf, buffer, len))
+		goto out;
+
+	buf[len] = '\0';
+
+	if (!kstrtouint(buf, 10, &value))
+		ret = gpufreq_set_dfd_force_dump_mode(value);
+
+out:
+	return (ret < 0) ? ret : count;
+}
+
 /* PROCFS : initialization */
 PROC_FOPS_RO(gpufreq_status);
 PROC_FOPS_RW(gpufreq_pikachu);
@@ -781,8 +824,7 @@ PROC_FOPS_RW(fix_custom_freq_volt);
 PROC_FOPS_RW(opp_stress_test);
 PROC_FOPS_RW(aging_mode);
 PROC_FOPS_RW(gpm_mode);
-// PROC_FOPS_RO(dfd_test);
-// PROC_FOPS_RW(dfd_force_dump);
+PROC_FOPS_RW(gpudfd_force_dump);
 
 static int gpufreq_create_procfs(void)
 {
@@ -806,6 +848,7 @@ static int gpufreq_create_procfs(void)
 		PROC_ENTRY(opp_stress_test),
 		PROC_ENTRY(aging_mode),
 		PROC_ENTRY(gpm_mode),
+		PROC_ENTRY(gpudfd_force_dump),
 	};
 
 	const struct pentry dualbuck_entries[] = {
