@@ -577,6 +577,320 @@ static int mt6893_scen_priority[SCENARIO_NUM] = {
 	S_4G_POS_URGENT
 };
 
+
+static struct tx_power mt6983_mdpm_tx_pwr[TX_DBM_NUM] = {
+	[TX_2G_DBM] = {
+		.dbm_name = "2G",
+		.shm_dbm_idx = {M_2G_DBM_TABLE, M_2G_DBM_1_TABLE},
+		.shm_sec_idx = {M_2G_SECTION_LEVEL, M_2G_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6983[TX_2G_DBM],
+	},
+
+	[TX_3G_DBM] = {
+		.dbm_name = "3G",
+		.shm_dbm_idx = {M_3G_DBM_TABLE, M_3G_DBM_1_TABLE},
+		.shm_sec_idx = {M_3G_SECTION_LEVEL, M_3G_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6983[TX_3G_DBM],
+	},
+
+	[TX_3GTDD_DBM] = {
+		.dbm_name = "3GTDD",
+		.shm_dbm_idx = {M_TDD_DBM_TABLE, M_TDD_DBM_1_TABLE},
+		.shm_sec_idx = {M_TDD_SECTION_LEVEL, M_TDD_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6983[TX_3GTDD_DBM],
+	},
+
+	[TX_4G_CC0_DBM] = {
+		.dbm_name = "4G_CC0",
+		.shm_dbm_idx = {M_4G_DBM_TABLE, M_4G_DBM_2_TABLE},
+		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
+		.rfhw = &rfhw_6983[TX_4G_CC0_DBM],
+	},
+
+	[TX_4G_CC1_DBM] = {
+		.dbm_name = "4G_CC1",
+		.shm_dbm_idx = {M_4G_DBM_1_TABLE, M_4G_DBM_3_TABLE},
+		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
+		.rfhw = &rfhw_6983[TX_4G_CC1_DBM],
+	},
+
+	[TX_C2K_DBM] = {
+		.dbm_name = "C2K",
+		.shm_dbm_idx = {M_C2K_DBM_1_TABLE, M_C2K_DBM_2_TABLE},
+		.shm_sec_idx = {M_C2K_SECTION_1_LEVEL, M_C2K_SECTION_2_LEVEL},
+		.rfhw = &rfhw_6983[TX_C2K_DBM],
+	},
+
+	[TX_NR_CC0_DBM] = {
+		.dbm_name = "NR_CC0",
+		.shm_dbm_idx = {M_NR_DBM_TABLE, M_NR_DBM_1_TABLE},
+		.shm_sec_idx = {M_NR_SECTION_LEVEL, M_NR_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6983[TX_NR_CC0_DBM],
+	},
+
+	[TX_NR_CC1_DBM] = {
+		.dbm_name = "NR_CC1",
+		.shm_dbm_idx = {M_NR_DBM_2_TABLE, M_NR_DBM_3_TABLE},
+		.shm_sec_idx = {M_NR_SECTION_2_LEVEL, M_NR_SECTION_3_LEVEL},
+		.rfhw = &rfhw_6983[TX_NR_CC1_DBM],
+	},
+
+	[TX_MMW_TX1_DBM] = {
+		.dbm_name = "MMW_TX1",
+		.shm_dbm_idx = {M_MMW_DBM_TABLE, M_MMW_DBM_1_TABLE},
+		.shm_sec_idx = {M_MMW_SECTION_LEVEL, M_MMW_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6983[TX_MMW_TX1_DBM],
+	},
+
+	[TX_MMW_TX2_DBM] = {
+		.dbm_name = "MMW_TX2",
+		.shm_dbm_idx = {M_MMW_DBM_2_TABLE, M_MMW_DBM_3_TABLE},
+		.shm_sec_idx = {M_MMW_SECTION_2_LEVEL, M_MMW_SECTION_3_LEVEL},
+		.rfhw = &rfhw_6983[TX_MMW_TX2_DBM],
+	}
+};
+
+static struct mdpm_scenario mt6983_mdpm_scen[SCENARIO_NUM] = {
+	[S_STANDBY] = {
+		.scenario_reg = 0,
+		.scenario_name = "S_STANDBY",
+		.scenario_power = &md_scen_power_6983[S_STANDBY],
+		.tx_power_rat = {0, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_2G_IDLE] = {
+		.scenario_reg = 1 << 1,
+		.scenario_name = "S_2G_IDLE_NON_IDLE",
+		.scenario_power = &md_scen_power_6983[S_2G_IDLE],
+		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_C2K_DATALINK] = {
+		.scenario_reg = 1 << 2,
+		.scenario_name = "S_C2K",
+		.scenario_power = &md_scen_power_6983[S_C2K_DATALINK],
+		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_IDLE] = {
+		.scenario_reg = 1 << 3,
+		.scenario_name = "S_3G_IDLE_TALKING",
+		.scenario_power = &md_scen_power_6983[S_3G_IDLE],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_1C] = {
+		.scenario_reg = 1 << 4,
+		.scenario_name = "S_3G_1C_2C",
+		.scenario_power = &md_scen_power_6983[S_3G_1C],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_0D0U] = {
+		.scenario_reg = 1 << 5,
+		.scenario_name = "S_4G_0D0U",
+		.scenario_power = &md_scen_power_6983[S_4G_0D0U],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_1CC] = {
+		.scenario_reg = 1 << 6,
+		.scenario_name = "S_4G_1CC",
+		.scenario_power = &md_scen_power_6983[S_4G_1CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_2CC] = {
+		.scenario_reg = 1 << 7,
+		.scenario_name = "S_4G_2CC",
+		.scenario_power = &md_scen_power_6983[S_4G_2CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_3CC] = {
+		.scenario_reg = 1 << 8,
+		.scenario_name = "S_4G_3CC_4CC_5CC",
+		.scenario_power = &md_scen_power_6983[S_4G_3CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_NR_0CC_1TG] = {
+		.scenario_reg = 1 << 9,
+		.scenario_name = "S_5G_NR_0CC_1TG",
+		.scenario_power = &md_scen_power_6983[S_5G_NR_0CC_1TG],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_NR_0CC_2TG] = {
+		.scenario_reg = 1 << 10,
+		.scenario_name = "S_5G_NR_0CC_2TG",
+		.scenario_power = &md_scen_power_6983[S_5G_NR_0CC_2TG],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_NR_0CC_3TG] = {
+		.scenario_reg = 1 << 11,
+		.scenario_name = "S_5G_NR_0CC_3TG",
+		.scenario_power = &md_scen_power_6983[S_5G_NR_0CC_3TG],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+
+	[S_5G_FR1_1CC_1TG] = {
+		.scenario_reg = 1 << 12,
+		.scenario_name = "S_5G_FR1_1CC_1TG",
+		.scenario_power = &md_scen_power_6983[S_5G_FR1_1CC_1TG],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_FR1_2CC_1TG] = {
+		.scenario_reg = 1 << 14,
+		.scenario_name = "S_5G_FR1_2CC_1TG",
+		.scenario_power = &md_scen_power_6983[S_5G_FR1_2CC_1TG],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_FR1_3_4CC_1TG] = {
+		.scenario_reg = 1 << 17,
+		.scenario_name = "S_5G_FR1_3_4CC_1TG",
+		.scenario_power = &md_scen_power_6983[S_5G_FR1_3_4CC_1TG],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_FR1_1_4CC_2TG] = {
+		.scenario_reg = 1 << 18,
+		.scenario_name = "S_5G_FR1_1_4CC_2TG",
+		.scenario_power = &md_scen_power_6983[S_5G_FR1_1_4CC_2TG],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_FR2_1CC_1TG] = {
+		.scenario_reg = 1 << 13,
+		.scenario_name = "S_5G_FR2_1CC_1TG",
+		.scenario_power = &md_scen_power_6983[S_5G_FR2_1CC_1TG],
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_FR2_2_4CC_1TG] = {
+		.scenario_reg = 1 << 19,
+		.scenario_name = "S_5G_FR2_2_4CC_1TG",
+		.scenario_power = &md_scen_power_6983[S_5G_FR2_2_4CC_1TG],
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_FR2_5_8CC_1TG] = {
+		.scenario_reg = 1 << 21,
+		.scenario_name = "S_5G_FR2_5_8CC_1TG",
+		.scenario_power = &md_scen_power_6983[S_5G_FR2_5_8CC_1TG],
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_FR2_1_8CC_2TG] = {
+		.scenario_reg = 1 << 22,
+		.scenario_name = "S_5G_FR2_1_8CC_2TG",
+		.scenario_power = &md_scen_power_6983[S_5G_FR2_1_8CC_2TG],
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_FR1_FR2] = {
+		.scenario_reg = 1 << 23,
+		.scenario_name = "S_5G_FR1_FR2",
+		.scenario_power = &md_scen_power_6983[S_5G_FR1_FR2],
+		.tx_power_rat = {RAT_MMW, RAT_5G, 0, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+	[S_5G_FR1_1CC_1TG_4G_1CC] = {
+		.scenario_reg = 1 << 15,
+		.scenario_name = "S_5G_FR1_1CC_1TG_4G_1CC",
+		.scenario_power = &md_scen_power_6983[S_5G_FR1_1CC_1TG_4G_1CC],
+		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+	[S_5G_FR2_1CC_1TG_4G_1CC] = {
+		.scenario_reg = 1 << 16,
+		.scenario_name = "S_5G_FR2_1CC_1TG_4G_1CC",
+		.scenario_power = &md_scen_power_6983[S_5G_FR2_1CC_1TG_4G_1CC],
+		.tx_power_rat = {RAT_MMW, RAT_4G, 0, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+	[S_5G_FR2_2_4CC_1TG_4G_1CC] = {
+		.scenario_reg = 1 << 20,
+		.scenario_name = "S_5G_FR2_2_4CC_1TG_4G_1CC",
+		.scenario_power = &md_scen_power_6983[S_5G_FR2_2_4CC_1TG_4G_1CC],
+		.tx_power_rat = {RAT_MMW, RAT_4G, 0, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+	[S_5G_FR1_FR2_4G] = {
+		.scenario_reg = 1 << 24,
+		.scenario_name = "S_5G_FR1_FR2_4G",
+		.scenario_power = &md_scen_power_6983[S_5G_FR1_FR2_4G],
+		.tx_power_rat = {RAT_MMW, RAT_5G, RAT_4G, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+
+	[S_4G_POS_URGENT] = {
+		.scenario_reg = 1 << 31,
+		.scenario_name = "S_4G_POS_URGENT",
+		.scenario_power = &md_scen_power_6983[S_4G_POS_URGENT],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	}
+};
+
+static int mt6983_scen_priority[SCENARIO_NUM] = {
+	S_5G_FR1_FR2_4G,
+	S_5G_FR2_2_4CC_1TG_4G_1CC,
+	S_5G_FR2_1CC_1TG_4G_1CC,
+	S_5G_FR1_1CC_1TG_4G_1CC,
+	S_5G_FR1_FR2,
+	S_5G_FR2_1_8CC_2TG,
+	S_5G_FR2_5_8CC_1TG,
+	S_5G_FR2_2_4CC_1TG,
+	S_5G_FR2_1CC_1TG,
+	S_5G_FR1_1_4CC_2TG,
+	S_5G_FR1_3_4CC_1TG,
+	S_5G_FR1_2CC_1TG,
+	S_5G_FR1_1CC_1TG,
+	S_5G_NR_0CC_3TG,
+	S_5G_NR_0CC_2TG,
+	S_5G_NR_0CC_1TG,
+	S_4G_3CC,
+	S_4G_2CC,
+	S_4G_1CC,
+	S_3G_1C,
+	S_C2K_DATALINK,
+	S_4G_0D0U,
+	S_3G_IDLE,
+	S_2G_IDLE,
+	S_STANDBY,
+	S_4G_POS_URGENT
+};
+
 static struct tx_power *mdpm_tx_pwr;
 static struct mdpm_scenario *mdpm_scen;
 static int *scen_priority;
@@ -827,8 +1141,10 @@ static int get_shm_idx(enum tx_power_table tx_dbm, int sec_shift, bool get_dbm)
 	} else {
 		/* get section index */
 		mem_idx = mdpm_tx_pwr[tx_dbm].shm_sec_idx[idx];
-		if (mem_idx > SECTION_LEVEL_END
-			|| mem_idx < SECTION_LEVEL_START) {
+		if (!(mem_idx <= SECTION_LEVEL_END
+					&& mem_idx >= SECTION_LEVEL_START)
+				&& !(mem_idx <= SECTION_LEVEL_2_END
+					&& mem_idx >= SECTION_LEVEL_2_START)) {
 			pr_notice("[%s] ERROR, not in section level %d %d %d\n",
 				__func__, idx, tx_dbm, mem_idx);
 				WARN_ON_ONCE(1);
@@ -941,6 +1257,8 @@ void init_md1_section_level(u32 *share_mem)
 
 	for (i = 0; i < DBM_SECTION_NUM; i++) {
 		for (j = 0; j < TX_DBM_NUM; j++) {
+			if (!mdpm_tx_pwr[j].rfhw)
+				continue;
 			if (mdpm_tx_pwr[j].rfhw->section[i] >
 				DBM_SECTION_MASK) {
 				pr_notice("[%s] md1_section_level too large i:%d s:%d !\n",
@@ -956,6 +1274,9 @@ void init_md1_section_level(u32 *share_mem)
 
 	memcpy(&share_mem[SECTION_LEVEL_START], &mem[SECTION_LEVEL_START],
 		sizeof(u32) * (SECTION_LEVEL_END - SECTION_LEVEL_START + 1));
+
+	memcpy(&share_mem[SECTION_LEVEL_2_START], &mem[SECTION_LEVEL_2_START],
+		sizeof(u32) * (SECTION_LEVEL_2_END - SECTION_LEVEL_2_START + 1));
 
 	pr_info("AP2MD1 section, 2G: 0x%08x%08x(0x%08x%08x), 3G: 0x%08x%08x(0x%08x %08x)\n",
 		mem[M_2G_SECTION_LEVEL], mem[M_2G_SECTION_1_LEVEL],
@@ -983,6 +1304,12 @@ void init_md1_section_level(u32 *share_mem)
 		mem[M_NR_SECTION_2_LEVEL], mem[M_NR_SECTION_3_LEVEL],
 		share_mem[M_NR_SECTION_2_LEVEL],
 		share_mem[M_NR_SECTION_3_LEVEL]);
+	pr_info("MMW_TX1:0x%08x%08x(0x%08x%08x),MMW_TX2:0x%08x%08x(0x%08x%08x)\n",
+		mem[M_MMW_SECTION_LEVEL], mem[M_MMW_SECTION_1_LEVEL],
+		share_mem[M_MMW_SECTION_LEVEL], share_mem[M_MMW_SECTION_1_LEVEL],
+		mem[M_MMW_SECTION_2_LEVEL], mem[M_MMW_SECTION_3_LEVEL],
+		share_mem[M_MMW_SECTION_2_LEVEL],
+		share_mem[M_MMW_SECTION_3_LEVEL]);
 }
 
 #ifdef GET_MD_SCEANRIO_BY_SHARE_MEMORY
@@ -1192,6 +1519,18 @@ static int get_md1_tx_power_by_rat(u32 *dbm_mem, u32 *old_dbm_mem,
 			old_dbm_mem, tx_pwr, TX_NR_CC1_DBM, rat, power_type,
 			section_shift, md_power_s);
 		break;
+	case RAT_MMW:
+		tx_pwr = &mdpm_tx_pwr[TX_MMW_TX2_DBM];
+		power = get_md1_tx_power_by_table(dbm_mem,
+			old_dbm_mem, tx_pwr, TX_MMW_TX2_DBM, rat, power_type,
+			section_shift, md_power_s);
+		if (!power) {
+			tx_pwr = &mdpm_tx_pwr[TX_MMW_TX1_DBM];
+			power = get_md1_tx_power_by_table(dbm_mem,
+				old_dbm_mem, tx_pwr, TX_MMW_TX1_DBM, rat, power_type,
+				section_shift, md_power_s);
+		}
+		break;
 	case RAT_C2K:
 		tx_pwr = &mdpm_tx_pwr[TX_C2K_DBM];
 		power = get_md1_tx_power_by_table(dbm_mem,
@@ -1239,7 +1578,7 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 			usedBytes += sprintf(log_buffer + usedBytes, "0x%x ",
 				share_mem[i]);
 
-			if ((i + 1) % 10 == 0) {
+			if ((i + 1) % 10 == 0 || (i + 1) == SHARE_MEM_SIZE) {
 				usedBytes = 0;
 				pr_info("%s\n", log_buffer);
 			}
@@ -1321,7 +1660,8 @@ static int mdpm_probe(struct platform_device *pdev)
 
 enum mdpm_platform {
 	MT6873_MDPM_DATA,
-	MT6893_MDPM_DATA
+	MT6893_MDPM_DATA,
+	MT6983_MDPM_DATA
 };
 
 static struct mdpm_data mt6873_mdpm_data = {
@@ -1338,6 +1678,13 @@ static struct mdpm_data mt6893_mdpm_data = {
 	.prority_t = (void *)&mt6893_scen_priority
 };
 
+static struct mdpm_data mt6983_mdpm_data = {
+	.platform = MT6983_MDPM_DATA,
+	.scenario_power_t = mt6983_mdpm_scen,
+	.tx_power_t = mt6983_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6983_scen_priority
+};
+
 static const struct of_device_id mdpm_of_match[] = {
 	{
 		.compatible = "mediatek,mt6873-mdpm",
@@ -1346,6 +1693,10 @@ static const struct of_device_id mdpm_of_match[] = {
 	{
 		.compatible = "mediatek,mt6893-mdpm",
 		.data = (void *)&mt6893_mdpm_data,
+	},
+	{
+		.compatible = "mediatek,mt6983-mdpm",
+		.data = (void *)&mt6983_mdpm_data,
 	},
 	{
 	},
