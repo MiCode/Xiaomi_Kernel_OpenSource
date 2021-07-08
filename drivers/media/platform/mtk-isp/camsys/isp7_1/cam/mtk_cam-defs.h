@@ -193,8 +193,8 @@ enum mtkcam_ipi_sw_feature_control {
 enum mtkcam_ipi_hw_path_control {
 	MTKCAM_IPI_HW_PATH_ON_THE_FLY				= 0,  /* TG direct link */
 	MTKCAM_IPI_HW_PATH_ON_THE_FLY_M2M			= 1,  /* On device tuning */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE		= 2,  /* Mstreams */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE		= 3,  /* Mstreams */
+	MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE		= 2,  /* Mstream */
+	MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE		= 3,  /* Mstream */
 	MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER		= 4,  /* on the fly stagger */
 	MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER			= 5,  /* offline stagger */
 	MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER		= 6,  /* SRT direct couple */

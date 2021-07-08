@@ -147,6 +147,19 @@ static int ut_raw_trigger_rawi_r6(struct device *dev, int on)
 	return 0;
 }
 
+static int ut_raw_trigger_rawi_r5(struct device *dev, int on)
+{
+	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
+	void __iomem *base = raw->base;
+
+	dev_info(dev, "[%s] ut_raw_trigger_rawi\n", __func__);
+
+	writel_relaxed(0x8, base + REG_CTL_RAWI_TRIG);
+	wmb(); /* TBC */
+
+	return 0;
+}
+
 static void set_steamon_handle(struct device *dev, int type)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
@@ -159,6 +172,8 @@ static void set_steamon_handle(struct device *dev, int type)
 		raw->ops.s_stream = ut_raw_trigger_rawi_r2;
 	else if (type == STREAM_FROM_RAWI_R6)
 		raw->ops.s_stream = ut_raw_trigger_rawi_r6;
+	else if (type == STREAM_FROM_RAWI_R5)
+		raw->ops.s_stream = ut_raw_trigger_rawi_r5;
 	else
 		dev_info(raw->dev, "type %d not supported yet\n", type);
 }

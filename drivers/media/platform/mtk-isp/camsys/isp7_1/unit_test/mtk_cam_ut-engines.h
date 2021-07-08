@@ -84,6 +84,7 @@ struct ut_raw_debug_csr {
 enum RAW_STREAMON_TYPE {
 	STREAM_FROM_TG,
 	STREAM_FROM_RAWI_R2,
+	STREAM_FROM_RAWI_R5,
 	STREAM_FROM_RAWI_R6,
 };
 

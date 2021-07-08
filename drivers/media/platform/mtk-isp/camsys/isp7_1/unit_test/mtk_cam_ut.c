@@ -154,8 +154,16 @@ static int apply_req_on_composed_m2m_once(struct mtk_cam_ut *ut)
 	raw_params.streamon_type = STREAM_FROM_TG;
 
 	if (!ut->with_testmdl) {
-		if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)
-			raw_params.streamon_type = STREAM_FROM_RAWI_R6;
+		if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER) {
+			if (ut->main_rawi == MTKCAM_IPI_RAW_RAWI_6)
+				raw_params.streamon_type = STREAM_FROM_RAWI_R6;
+			else if (ut->main_rawi == MTKCAM_IPI_RAW_RAWI_5)
+				raw_params.streamon_type = STREAM_FROM_RAWI_R5;
+			else {
+				dev_info(ut->dev, "can't find correct main rawi\n");
+				return 0;
+			}
+		}
 		else
 			raw_params.streamon_type = STREAM_FROM_RAWI_R2;
 	}
@@ -415,7 +423,8 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-		dev_info(dev, "testmdl.mode=%d\n", testmdl.mode);
+		dev_info(dev, "testmdl.mode=%d testmdl.hwScenario=%d\n",
+			testmdl.mode, testmdl.hwScenario);
 		if (testmdl.mode == (u8)-1)
 			dev_info(dev, "without testmdl\n");
 		else
@@ -576,6 +585,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		unsigned long flags;
 		struct mtkcam_ipi_frame_info *frame_info = &event.frame_data;
 		struct mtkcam_ipi_frame_param *frame_data;
+		int i = 0;
 
 		struct cam_ioctl_enque *pEnque;
 
@@ -599,6 +609,19 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		list_add_tail(&buf_entry->list_entry, &ut->enque_list.list);
 		ut->enque_list.cnt++;
 
+		if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER) {
+			for (i = 0 ; i < CAM_MAX_IMAGE_INPUT; i++) {
+				if (enque.frame_param.img_ins[i].uid.id == MTKCAM_IPI_RAW_RAWI_6) {
+					ut->main_rawi = MTKCAM_IPI_RAW_RAWI_6;
+					break;
+				}
+
+				if (enque.frame_param.img_ins[i].uid.id == MTKCAM_IPI_RAW_RAWI_5) {
+					ut->main_rawi = MTKCAM_IPI_RAW_RAWI_5;
+					break;
+				}
+			}
+		}
 		/* ipi msg */
 		dev_info(dev, "[ENQUE] msg_mem->va 0x%x size %d cur_msgbuf_offset 0x%x cur_workbuf_offset 0x%x frame_no %d\n",
 				ut->msg_mem->va, ut->msg_mem->size,

@@ -17,6 +17,7 @@ struct cam_ioctl_set_testmdl {
 	__u8 pattern;
 	__u8 pixmode_lg2;
 	__u8 mode;
+	__u8 hwScenario;
 };
 
 #define ISP_UT_IOCTL_SET_TESTMDL \

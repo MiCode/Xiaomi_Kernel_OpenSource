@@ -134,6 +134,7 @@ struct mtk_cam_ut {
 	int is_dcif_camsv;
 	int subsample;
 	int hardware_scenario;
+	int main_rawi;
 
 	struct mtk_cam_ut_event_handler hdl;
 
