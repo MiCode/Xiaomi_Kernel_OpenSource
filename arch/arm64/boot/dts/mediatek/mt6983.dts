@@ -4120,10 +4120,11 @@
 		reg = <0 0x11240000 0 0x1000>,
 		      <0 0x11e70000 0 0x1000>;
 		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH 0>;
-//		clocks = <&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
-//			 <&infracfg_ao_clk CLK_IFRAO_MSDC1>,
-//			 <&infracfg_ao_clk CLK_IFRAO_MSDC1_SRC>;
-//		clock-names = "source", "hclk", "source_cg";
+		clocks = <&topckgen_clk CLK_TOPCKGEN_MSDC30_1_SEL>,
+			 <&pericfg_ao_clk CLK_PERICFG_AO_PERI_MSDC1_H_CG>,
+			 <&pericfg_ao_clk CLK_PERICFG_AO_PERI_MSDC1_S_CG>;
+		clock-names = "source", "hclk", "source_cg";
+		status = "disabled";
 	};
 
 	msdc1_ins: msdc1_ins {
