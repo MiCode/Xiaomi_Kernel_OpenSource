@@ -1108,10 +1108,8 @@ uclamp_tg_restrict(struct task_struct *p, enum uclamp_id clamp_id)
 		return uc_req;
 
 	uc_max = task_group(p)->uclamp[clamp_id];
-	if (uc_max.value != uclamp_none(clamp_id) &&
-			(uc_req.value > uc_max.value || !uc_req.user_defined)) {
+	if (uc_req.value > uc_max.value || !uc_req.user_defined)
 		return uc_max;
-	}
 #endif
 
 	return uc_req;
