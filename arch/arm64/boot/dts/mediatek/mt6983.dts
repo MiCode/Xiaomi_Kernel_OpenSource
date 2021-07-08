@@ -3746,13 +3746,13 @@
 			  <0 0x13fa0c00 0 0x400>,   /* 1  MFGSC_PLL */
 			  <0 0x13fbf000 0 0x1000>,  /* 2  MFG_TOP_CONFIG (G3D_CONFIG) */
 			  <0 0x13f90000 0 0x10000>, /* 3  GPU_EB_RPC */
-			  <0 0x10006000 0 0x1000>,  /* 4  SLEEP */
-			  <0 0x1020e000 0 0x1000>,  /* 5  INFRACFG */
-			  <0 0x1021e000 0 0x1000>,  /* 6  BPI_BSI_SLV0 */
-			  <0 0x10022000 0 0x1000>,  /* 7  DEVAPC_AO_INFRA_PERI_DEBUG1 */
-			  <0 0x10023000 0 0x1000>,  /* 8  DEVAPC_AO_INFRA_PERI_DEBUG2 */
-			  <0 0x10024000 0 0x1000>,  /* 9  DEVAPC_AO_INFRA_PERI_DEBUG3 */
-			  <0 0x10025000 0 0x1000>,  /* 10 DEVAPC_AO_INFRA_PERI_DEBUG4 */
+			  <0 0x1c001000 0 0x1000>,  /* 4  SLEEP */
+			  <0 0x1021c000 0 0x1000>,  /* 5  NTH_EMICFG_REG */
+			  <0 0x1021e000 0 0x1000>,  /* 6  STH_EMICFG_REG */
+			  <0 0x10001000 0 0x1000>,  /* 7  INFRACFG_AO */
+			  <0 0x10023000 0 0x1000>,  /* 8  INFRA_AO_DEBUG_CTRL */
+			  <0 0x1002b000 0 0x1000>,  /* 9  INFRA_AO1_DEBUG_CTRL */
+			  <0 0x10042000 0 0x1000>,  /* 10 NTH_EMI_AO_DEBUG_CTRL */
 			  <0 0x11ee05d4 0 0x20>,    /* 11 AVS_EFUSE */
 			  <0 0x13fb9c00 0 0x100>,   /* 12 MFG_CPE_CONTROL */
 			  <0 0x13fb6000 0 0x1000>,  /* 13 MFG_CPE_SENSOR */
@@ -3773,10 +3773,28 @@
 			"clk_sc_main_parent",
 			"clk_sc_sub_parent",
 			"subsys_mfg_cg";
-		// _vcore-supply = <&mt6363_vbuck2>;
-		// _vstack-supply = <&mt6373_vbuck2>;
-		// _vsram-supply = <&mt6363_vbuck4>;
+		_vcore-supply = <&mt6363_vbuck2>;
+		_vstack-supply = <&mt6373_vbuck2>;
+		_vsram-supply = <&mt6363_vbuck4>;
 		gpufreq_wrapper-supply = <&gpufreq_wrapper>;
+		gpufreq_mfg1-supply = <&gpufreq_mfg1>;
+		gpufreq_mfg2-supply = <&gpufreq_mfg2>;
+		gpufreq_mfg3-supply = <&gpufreq_mfg3>;
+		gpufreq_mfg4-supply = <&gpufreq_mfg4>;
+		gpufreq_mfg5-supply = <&gpufreq_mfg5>;
+		gpufreq_mfg6-supply = <&gpufreq_mfg6>;
+		gpufreq_mfg7-supply = <&gpufreq_mfg7>;
+		gpufreq_mfg8-supply = <&gpufreq_mfg8>;
+		gpufreq_mfg9-supply = <&gpufreq_mfg9>;
+		gpufreq_mfg10-supply = <&gpufreq_mfg10>;
+		gpufreq_mfg11-supply = <&gpufreq_mfg11>;
+		gpufreq_mfg12-supply = <&gpufreq_mfg12>;
+		gpufreq_mfg13-supply = <&gpufreq_mfg13>;
+		gpufreq_mfg14-supply = <&gpufreq_mfg14>;
+		gpufreq_mfg15-supply = <&gpufreq_mfg15>;
+		gpufreq_mfg16-supply = <&gpufreq_mfg16>;
+		gpufreq_mfg17-supply = <&gpufreq_mfg17>;
+		gpufreq_mfg18-supply = <&gpufreq_mfg18>;
 	};
 
 	gpufreq_wrapper: gpufreq_wrapper {
@@ -6646,6 +6664,10 @@
 };
 
 &mt6373_vtp {
+	regulator-always-on;
+};
+
+&mt6373_vbuck2 {
 	regulator-always-on;
 };
 
