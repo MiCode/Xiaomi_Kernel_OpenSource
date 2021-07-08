@@ -53,7 +53,7 @@ static void queue_msg(struct mml_pq_chan *chan,
 	mutex_unlock(&chan->msg_lock);
 
 	pr_notice("wake up channel message queue\n");
-	wake_up(&chan->msg_wq);
+	wake_up_interruptible(&chan->msg_wq);
 }
 
 static s32 dequeue_msg(struct mml_pq_chan *chan,
@@ -353,7 +353,8 @@ static struct mml_pq_sub_task *wait_next_sub_task(struct mml_pq_chan *chan)
 	pr_notice("%s called\n", __func__);
 	for (;;) {
 		pr_notice("start wait event!\n");
-		wait_event(chan->msg_wq, (atomic_read(&chan->msg_cnt) > 0));
+		wait_event_interruptible(chan->msg_wq,
+			(atomic_read(&chan->msg_cnt) > 0));
 		pr_notice("finish wait event!\n");
 		ret = dequeue_msg(chan, &sub_task);
 
