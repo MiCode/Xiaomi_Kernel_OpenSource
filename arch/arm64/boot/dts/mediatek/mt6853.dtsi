@@ -1173,6 +1173,12 @@
 			reg = <0 0x10002000 0 0x1000>;
 		};
 
+		pericfg: pericfg@10003000 {
+			compatible = "mediatek,mt8192-pericfg", "syscon";
+			reg = <0 0x10003000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
 		eint: apirq@1000b000 {
 			compatible = "mediatek,mtk-eint";
 			reg = <0 0x1000b000 0 0x1000>;
@@ -1560,6 +1566,7 @@
 				"infra-ccif1-md",
 				"infra-ccif4-md",
 				"infra-ccif5-md";
+			ccif-pericfg = <&pericfg>;
 		};
 
 		mddriver:mddriver {

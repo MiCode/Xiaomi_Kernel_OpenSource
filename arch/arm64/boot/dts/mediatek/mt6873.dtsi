@@ -1651,6 +1651,7 @@
 				"infra-ccif1-md",
 				"infra-ccif4-md",
 				"infra-ccif5-md";
+			ccif-pericfg = <&pericfg>;
 		};
 
 		mddriver:mddriver {
