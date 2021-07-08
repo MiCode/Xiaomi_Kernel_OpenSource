@@ -9,7 +9,7 @@
 
 #include <audio_task.h>
 
-
+#include <adsp_helper.h>
 
 /*
  * =============================================================================
@@ -60,10 +60,20 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 	case TASK_SCENE_VOIP:
 	case TASK_SCENE_CAPTURE_UL1:
 	case TASK_SCENE_AUD_DAEMON_B:
-	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3_B:
 	case TASK_SCENE_KTV:
 	case TASK_SCENE_CAPTURE_RAW:
-		dsp_id = AUDIO_OPENDSP_USE_HIFI3_B;
+		if (get_adsp_core_total() > 1)
+			dsp_id = AUDIO_OPENDSP_USE_HIFI3_B;
+		else
+			dsp_id = AUDIO_OPENDSP_USE_HIFI3_A;
+		break;
+	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3_B:
+		if (get_adsp_core_total() > 1)
+			dsp_id = AUDIO_OPENDSP_USE_HIFI3_B;
+		else {
+			pr_notice("task %d not support!!", task);
+			dsp_id = AUDIO_OPENDSP_ID_INVALID;
+		}
 		break;
 	default:
 		pr_notice("task %d not support!!", task);

@@ -102,9 +102,11 @@ void adsp_mt_clear(void)
 	writel(0xC0001002, ADSP_HIFI3_IO_CONFIG);
 	writel(0xdf, ADSP_CLK_CTRL_BASE);
 	writel(0x0, ADSP_A_IRQ_EN);
-	writel(0x0, ADSP_B_IRQ_EN);
 	writel(0x0, ADSP_A_WDT_REG);
-	writel(0x0, ADSP_B_WDT_REG);
+	if (get_adsp_core_total() > 1) {
+		writel(0x0, ADSP_B_IRQ_EN);
+		writel(0x0, ADSP_B_WDT_REG);
+	}
 	adsp_mt_clr_dma();
 }
 
@@ -214,7 +216,12 @@ u32 switch_adsp_uart_ctrl_cg(bool en, u32 mask)
 
 void adsp_mt_clr_sw_reset(void)
 {
-	CLR_BITS(ADSP_CFGREG_SW_RSTN, ADSP_A_SW_RSTN | ADSP_B_SW_RSTN);
+	u32 clear_bits = 0;
+
+	clear_bits |= ADSP_A_SW_RSTN;
+	if (get_adsp_core_total() > 1)
+		clear_bits |= ADSP_B_SW_RSTN;
+	CLR_BITS(ADSP_CFGREG_SW_RSTN, clear_bits);
 }
 
 void adsp_mt_set_dram_remap(u32 addr, u32 size)

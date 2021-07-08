@@ -418,17 +418,18 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	uart_cfg = switch_adsp_uart_ctrl_cg(true, uart_mask);
 
 	pdata = get_adsp_core_by_id(ADSP_A_ID);
-
-	n += copy_from_buffer(buf + n, len - n,
-				adspsys->cfg, adspsys->cfg_size, 0, -1);
-	n += copy_from_buffer(buf + n, len - n,
-				pdata->dtcm, pdata->dtcm_size, 0, -1);
+	if (pdata) {
+		n += copy_from_buffer(buf + n, len - n,
+					adspsys->cfg, adspsys->cfg_size, 0, -1);
+		n += copy_from_buffer(buf + n, len - n,
+					pdata->dtcm, pdata->dtcm_size, 0, -1);
+	}
 
 	pdata = get_adsp_core_by_id(ADSP_B_ID);
-
-	n += copy_from_buffer(buf + n, len - n,
-				pdata->dtcm, pdata->dtcm_size, 0, -1);
-
+	if (pdata) {
+		n += copy_from_buffer(buf + n, len - n,
+					pdata->dtcm, pdata->dtcm_size, 0, -1);
+	}
 	switch_adsp_clk_ctrl_cg(false, (~clk_cfg) & clk_mask);
 	switch_adsp_uart_ctrl_cg(false, (~uart_cfg) & uart_mask);
 

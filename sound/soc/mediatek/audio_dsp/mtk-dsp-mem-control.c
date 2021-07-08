@@ -1041,7 +1041,7 @@ static int adsp_core_mem_init(struct mtk_base_dsp *dsp)
 
 	memset(&dsp->core_share_mem, 0, sizeof(struct mtk_ap_adsp_mem));
 
-	for (core_id = 0; core_id < ADSP_CORE_TOTAL; ++core_id) {
+	for (core_id = 0; core_id < get_adsp_core_total(); ++core_id) {
 		ret = adsp_core_mem_initall(dsp, core_id);
 		if (ret)
 			pr_info("%s fail, core id: %d\n", __func__, core_id);

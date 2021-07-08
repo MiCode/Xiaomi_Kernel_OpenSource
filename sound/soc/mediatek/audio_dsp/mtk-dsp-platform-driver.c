@@ -1621,7 +1621,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 		pr_info("%s dsp[%p]\n", __func__, dsp);
 		goto IRQ_ERROR;
 	}
-	if (core_id >= ADSP_CORE_TOTAL) {
+	if (core_id >= get_adsp_core_total()) {
 		pr_info("%s core_id[%d]\n", __func__, core_id);
 		goto IRQ_ERROR;
 	}
@@ -1749,7 +1749,7 @@ static int mtk_dsp_probe(struct snd_soc_component *component)
 			return ret;
 	}
 
-	for (id = 0; id < ADSP_CORE_TOTAL; id++) {
+	for (id = 0; id < get_adsp_core_total(); id++) {
 		if (adsp_irq_registration(id, ADSP_IRQ_AUDIO_ID, audio_irq_handler, dsp) < 0)
 			pr_info("%s, ADSP_IRQ_AUDIO not supported\n");
 	}
