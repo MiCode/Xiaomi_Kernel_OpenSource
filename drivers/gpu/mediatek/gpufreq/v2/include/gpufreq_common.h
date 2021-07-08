@@ -56,28 +56,45 @@
 /**************************************************
  * Enumeration
  **************************************************/
-enum gpufreq_vgpu_step {
-	GPUFREQ_VGPU_STEP_1 = 0x1,
-	GPUFREQ_VGPU_STEP_2 = 0x2,
-	GPUFREQ_VGPU_STEP_3 = 0x3,
-	GPUFREQ_VGPU_STEP_4 = 0x4,
-	GPUFREQ_VGPU_STEP_5 = 0x5,
-	GPUFREQ_VGPU_STEP_6 = 0x6,
-	GPUFREQ_VGPU_STEP_7 = 0x7,
-	GPUFREQ_VGPU_STEP_8 = 0x8,
-	GPUFREQ_VGPU_STEP_9 = 0x9,
-	GPUFREQ_VGPU_STEP_A = 0xA,
-	GPUFREQ_VGPU_STEP_B = 0xB,
-	GPUFREQ_VGPU_STEP_C = 0xC,
-	GPUFREQ_VGPU_STEP_D = 0xD,
-	GPUFREQ_VGPU_STEP_E = 0xE,
-	GPUFREQ_VGPU_STEP_F = 0xF,
+enum gpufreq_power_step {
+	GPUFREQ_POWER_STEP_01 = 0x1,
+	GPUFREQ_POWER_STEP_02 = 0x2,
+	GPUFREQ_POWER_STEP_03 = 0x3,
+	GPUFREQ_POWER_STEP_04 = 0x4,
+	GPUFREQ_POWER_STEP_05 = 0x5,
+	GPUFREQ_POWER_STEP_06 = 0x6,
+	GPUFREQ_POWER_STEP_07 = 0x7,
+	GPUFREQ_POWER_STEP_08 = 0x8,
+	GPUFREQ_POWER_STEP_09 = 0x9,
+	GPUFREQ_POWER_STEP_0A = 0xA,
+	GPUFREQ_POWER_STEP_0B = 0xB,
+	GPUFREQ_POWER_STEP_0C = 0xC,
+	GPUFREQ_POWER_STEP_0D = 0xD,
+	GPUFREQ_POWER_STEP_0E = 0xE,
+	GPUFREQ_POWER_STEP_0F = 0xF,
+	GPUFREQ_POWER_STEP_10 = 0x10,
+	GPUFREQ_POWER_STEP_11 = 0x11,
+	GPUFREQ_POWER_STEP_12 = 0x12,
+	GPUFREQ_POWER_STEP_13 = 0x13,
+	GPUFREQ_POWER_STEP_14 = 0x14,
+	GPUFREQ_POWER_STEP_15 = 0x15,
+	GPUFREQ_POWER_STEP_16 = 0x16,
+	GPUFREQ_POWER_STEP_17 = 0x17,
+	GPUFREQ_POWER_STEP_18 = 0x18,
+	GPUFREQ_POWER_STEP_19 = 0x19,
+	GPUFREQ_POWER_STEP_1A = 0x1A,
+	GPUFREQ_POWER_STEP_1B = 0x1B,
+	GPUFREQ_POWER_STEP_1C = 0x1C,
+	GPUFREQ_POWER_STEP_1D = 0x1D,
+	GPUFREQ_POWER_STEP_1E = 0x1E,
+	GPUFREQ_POWER_STEP_1F = 0x1F,
 };
 
 enum gpufreq_exception {
-	GPUFREQ_FREQ_EXCEPTION,
-	GPUFREQ_DFD_PROBE_TRIGGERED,
-	GPUFREQ_OPP_PTPOD_SLOPE,
+	GPUFREQ_GPU_EXCEPTION,
+	GPUFREQ_PMIC_EXCEPTION,
+	GPUFREQ_CCF_EXCEPTION,
+	GPUFREQ_FHCTL_EXCEPTION,
 };
 
 /**************************************************
@@ -95,25 +112,25 @@ static struct gpufreq_exception_info g_pending_aee;
 static bool g_have_pending_aee;
 
 static const char * const g_exception_string[] = {
-	"GPUFREQ_FREQ_EXCEPTION",
-	"GPUFREQ_DFD_PROBE_TRIGGERED",
-	"GPUFREQ_OPP_PTPOD_SLOPE",
+	"GPUFREQ_GPU_EXCEPTION",
+	"GPUFREQ_PMIC_EXCEPTION",
+	"GPUFREQ_CCF_EXCEPTION",
+	"GPUFREQ_FHCTL_EXCEPTION",
 };
 
 /**************************************************
  * Function
  **************************************************/
-static inline void __gpufreq_footprint_vgpu(enum gpufreq_vgpu_step step)
+static inline void __gpufreq_footprint_power_step(enum gpufreq_power_step step)
 {
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_rr_rec_gpu_dvfs_vgpu(step |
-		(aee_rr_curr_gpu_dvfs_vgpu() & 0xF0));
+	aee_rr_rec_gpu_dvfs_vgpu(step);
 #else
 	GPUFREQ_UNREFERENCED(step);
 #endif
 }
 
-static inline void __gpufreq_footprint_vgpu_reset(void)
+static inline void __gpufreq_footprint_power_step_reset(void)
 {
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_vgpu(0);

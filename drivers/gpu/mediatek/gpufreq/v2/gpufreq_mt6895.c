@@ -767,7 +767,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	__gpufreq_footprint_power_count(g_gpu.power_count);
 
 	if (power == POWER_ON) {
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_1);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_01);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_ON);
@@ -776,11 +776,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_2);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_02);
 
 		/* control AOC after MFG_0 on */
 		__gpufreq_aoc_control(power);
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_3);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_03);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_ON);
@@ -789,11 +789,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_4);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_04);
 
 		/* control ACP after MFG_1 on */
 		__gpufreq_acp_control();
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_5);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_05);
 
 		/* control CG */
 		ret = __gpufreq_cg_control(POWER_ON);
@@ -802,16 +802,16 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_6);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_06);
 
 		/* control HWDCM */
 		__gpufreq_hw_dcm_control();
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_7);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_07);
 
 		if (g_gpu.power_count == 1)
 			g_dvfs_state &= ~DVFS_POWEROFF;
 	} else {
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_8);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_08);
 
 		if (g_gpu.power_count == 0)
 			g_dvfs_state |= DVFS_POWEROFF;
@@ -823,7 +823,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_9);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_09);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -832,11 +832,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_A);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0A);
 
 		/* control AOC before MFG_0 off */
 		__gpufreq_aoc_control(power);
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_B);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0B);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -845,7 +845,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_C);
+		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
 	}
 
 	/* return power count if successfully control power */
@@ -3272,7 +3272,7 @@ static int __init __gpufreq_init(void)
 		goto done;
 	}
 
-	__gpufreq_footprint_vgpu_reset();
+	__gpufreq_footprint_power_step_reset();
 	__gpufreq_footprint_oppidx_reset();
 	__gpufreq_footprint_power_count_reset();
 
