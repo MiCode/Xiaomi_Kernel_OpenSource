@@ -374,6 +374,31 @@
 			<&cpu4>, <&cpu5>, <&cpu6>, <&cpu7>*/;
 	};
 
+	firmware: firmware {
+		scmi: scmi {
+			compatible = "arm,scmi";
+			mboxes = <&tinysys_mbox 0>, <&tinysys_mbox 1>;
+			shmem = <&scmi_tx_shmem>, <&scmi_rx_shmem>;
+			mbox-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_tinysys: protocol@80 {
+				reg = <0x80>;
+				scmi_qos = <1>;
+				scmi_pmic = <2>;
+				scmi_met = <3>;
+				scmi_gpupm = <6>;
+				scmi_plt = <7>;
+				scmi_smi = <8>;
+				scmi_cm = <9>;
+				scmi_slbc = <10>;
+				scmi_ssc = <11>;
+				scmi_apmcupm = <12>;
+			};
+		};
+	};
+
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -411,6 +436,15 @@
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
 
+		reserve-memory-sspm_share {
+			compatible = "mediatek,reserve-memory-sspm_share";
+			no-map;
+			status = "okay";
+			size = <0 0x510000>; /* 5M + 64K */
+			alignment = <0 0x10000>;
+			alloc-ranges = <0 0x40000000 0 0x60000000>;
+		};
+
 		reserve-memory-gpueb_share {
 			compatible = "mediatek,reserve-memory-gpueb_share";
 			no-map;
@@ -418,6 +452,7 @@
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
+
 	};
 
 	gic: interrupt-controller {
@@ -4933,6 +4968,7 @@
 		reg = <0 0x17860000 0 0x10000>;
 	};
 
+
 	gps: gps@18C00000 {
 		compatible = "mediatek,mt6983-gps";
 		reg = <0 0x18000000 0 0x100000>,
@@ -4950,6 +4986,58 @@
 				<GIC_SPI 565 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 566 IRQ_TYPE_LEVEL_HIGH 0>;
 		memory-region = <&gps_mem>;
+	};
+
+	sspm: sspm@1C340000 {
+		compatible = "mediatek,sspm";
+		reg = <0 0x1C300000 0 0x28000>,
+			<0 0x1C340000 0 0x10000>,
+			<0 0x1C380000 0 0x80>;
+
+		reg-names = "sspm_base",
+				"cfgreg",
+				"mbox_share";
+
+		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
+
+		interrupt-names = "ipc";
+	};
+
+	ssram1@1C350000 {
+		compatible = "mmio-sram_1";
+		reg = <0x0 0x1C350000 0x0 0x80>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0x0 0x1C350000 0x80>;
+
+		scmi_tx_shmem: tiny_mbox@0 {
+			compatible = "arm,scmi-tx-shmem";
+			reg = <0x0 0x80>;
+		};
+	};
+
+	ssram2@1C360000 {
+		compatible = "mmio-sram_2";
+		reg = <0x0 0x1C360000 0x0 0x80>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0x0 0x1C360000 0x80>;
+
+		scmi_rx_shmem: tiny_mbox@1 {
+			compatible = "arm,scmi-rx-shmem";
+			reg = <0x0 0x80>;
+		};
+	};
+
+	tinysys_mbox: tinysys_mbox@1C351000 {
+		compatible = "mediatek,tinysys_mbox";
+		reg = <0 0x1C351000 0 0x1000>,
+			  <0 0x1C361000 0 0x1000>;
+		interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH 0>;
+		#mbox-cells = <1>;
 	};
 
 	scp: scp@1c700000 {
