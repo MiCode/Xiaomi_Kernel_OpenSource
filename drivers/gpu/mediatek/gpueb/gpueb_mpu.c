@@ -40,7 +40,7 @@ int gpueb_mpu_init(struct platform_device *pdev)
 	struct mpu_ipi_send_data mpu_send_data;
 
 	/* register IPI channel */
-	channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_MPU");
+	channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_GPUMPU");
 	if (channel_id == -1) {
 		gpueb_pr_info("get channel ID fail!");
 		return -1;
