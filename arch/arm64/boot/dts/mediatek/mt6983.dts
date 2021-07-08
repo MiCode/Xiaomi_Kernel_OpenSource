@@ -2902,6 +2902,39 @@
 //		clock-names = "source", "hclk", "source_cg";
 	};
 
+	ufshci: ufshci@112b0000 {
+		compatible = "mediatek,mt8183-ufshci";
+		reg = <0 0x112b0000 0 0x2300>;
+		interrupts = <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH 0>;
+#if 0
+		clocks = <&infracfg_ao_clk CLK_IFRAO_UFS>,
+			   <&infracfg_ao_clk CLK_IFRAO_UFS_TICK>,
+			   <&infracfg_ao_clk CLK_IFRAO_UFS_AXI>,
+			   <&infracfg_ao_clk CLK_IFRAO_UFS_MP_SAP_BCLK>,
+			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_TICK>,
+			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_MBIST>,
+			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
+			   <&infracfg_ao_clk CLK_IFRAO_AES>;
+		clock-names = "ufs", "ufs_tick", "ufs_axi", "ufs_mp",
+			"unipro_tick", "unipro_mbist", "unipro_sys",
+			"crypt_infra";
+
+		freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>, <0 0>,
+				<0 0>, <0 0>, <0 0>;
+
+		vcc-supply = <&mt6359p_vemc_reg>;
+
+		resets = <&infracfg_rst 2>, <&infracfg_rst 3>,
+			 <&infracfg_rst 4>;
+		reset-names = "hci_rst", "unipro_rst", "crypto_rst";
+#endif
+
+		bootmode = <&chosen>;
+
+		mediatek,ufs-disable-ah8;
+		mediatek,ufs-qos;
+	};
+
 	reserved@14025000 {
 		compatible = "mediatek,reserved";
 		reg = <0 0x14025000 0 0x1000>;
