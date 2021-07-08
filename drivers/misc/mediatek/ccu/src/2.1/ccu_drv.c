@@ -863,6 +863,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 			LOG_ERR("CCU_IOCTL_GET_I2C_DMA_BUF_ADDR copy_from_user fail: %d\n",
 				ret);
 			ret = -EFAULT;
+			break;
 		}
 
 		ret = ccu_get_i2c_dma_buf_addr(g_ccu_device, &ioarg);
