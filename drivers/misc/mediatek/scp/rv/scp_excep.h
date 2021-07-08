@@ -61,6 +61,7 @@ extern struct scp_status_reg *c0_m;
 extern struct scp_status_reg *c0_t1_m;
 extern struct scp_status_reg *c1_m;
 extern struct scp_status_reg *c1_t1_m;
+extern uint32_t scp_reg_base_phy;
 
 typedef enum MDUMP {
 	MDUMP_DUMMY,

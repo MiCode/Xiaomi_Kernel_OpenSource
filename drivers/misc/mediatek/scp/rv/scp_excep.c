@@ -38,6 +38,8 @@ struct scp_dump_st {
 	uint32_t prefix[MDUMP_TOTAL];
 };
 
+uint32_t scp_reg_base_phy;
+
 struct reg_save_st {
 	uint32_t addr;
 	uint32_t size;
@@ -45,19 +47,19 @@ struct reg_save_st {
 
 struct reg_save_st reg_save_list[] = {
 	/* size must 16 byte alignment */
-	{0x10721000, 0x120},
-	{0x10724000, 0x170},
-	{0x10730000, 0x180},
-	{0x10732000, 0x260},
-	{0x10733000, 0x120},
-	{0x10740000, 0x180},
-	{0x10742000, 0x260},
-	{0x10743000, 0x120},
-	{0x10750000, 0x330},
-	{0x10751000, 0x10},
-	{0x10751400, 0x70},
-	{0x10752000, 0x340},
-	{0x107A5000, 0x110},
+	{0x00021000, 0x120},
+	{0x00024000, 0x170},
+	{0x00030000, 0x180},
+	{0x00032000, 0x260},
+	{0x00033000, 0x120},
+	{0x00040000, 0x180},
+	{0x00042000, 0x260},
+	{0x00043000, 0x120},
+	{0x00050000, 0x330},
+	{0x00051000, 0x10},
+	{0x00051400, 0x70},
+	{0x00052000, 0x340},
+	{0x000A5000, 0x110},
 	{0x10001B14, 0x10},
 };
 
@@ -205,6 +207,10 @@ void scp_do_regdump(uint32_t *out, uint32_t *out_end)
 	void *from;
 	uint32_t *buf = out;
 	int size_limit = sizeof(reg_save_list) / sizeof(struct reg_save_st);
+
+	/* last addr is infra */
+	for (i = 0; i < size_limit - 1; i++)
+		reg_save_list[i].addr += scp_reg_base_phy;
 
 	for (i = 0; i < size_limit; i++) {
 		if (((void *)buf + reg_save_list[i].size
