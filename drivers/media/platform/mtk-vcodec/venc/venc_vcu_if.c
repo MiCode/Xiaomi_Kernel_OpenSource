@@ -509,6 +509,8 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 		for (i = 0; i < frm_buf->num_planes; i++) {
 			out.input_addr[i] =
 				frm_buf->fb_addr[i].dma_addr;
+			vsi->venc.fb_dma[i] =
+				frm_buf->fb_addr[i].dma_addr;
 			out.input_size[i] =
 				frm_buf->fb_addr[i].size;
 			out.data_offset[i] =
@@ -535,6 +537,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 
 	if (bs_buf) {
 		out.bs_addr = bs_buf->dma_addr;
+		vsi->venc.bs_dma = bs_buf->dma_addr;
 		out.bs_size = bs_buf->size;
 		mtk_vcodec_debug(vcu, " output (dma:%lx fd:%x)",
 			(unsigned long)bs_buf->dmabuf,
