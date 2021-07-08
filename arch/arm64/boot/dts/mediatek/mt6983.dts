@@ -5781,6 +5781,17 @@
 		};
 	};
 
+	typec_mux_switch: typec_mux_switch {
+		compatible = "mediatek,typec_mux_switch";
+		status = "okay";
+	};
+
+	usb_dp_selector: usb_dp_selector@10005600 {
+		compatible = "mediatek,usb_dp_selector";
+		mediatek,usb_dp_reg = <0x10005600>;
+		status = "okay";
+	};
+
 	apu_top_3: apu_top_3 {
 		compatible = "mt6983,apu_top_3";
 /*
