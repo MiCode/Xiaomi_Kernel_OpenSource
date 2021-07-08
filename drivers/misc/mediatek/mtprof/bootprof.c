@@ -66,7 +66,7 @@ static DEFINE_SPINLOCK(bootprof_lock);
 
 static bool enabled;
 static int bf_lk_t, bf_pl_t, bf_logo_t;
-static int bf_bl2ext_t, bf_gz_t, bf_tfa_t;
+static int bf_bl2ext_t, bf_gz_t, bf_tfa_t, bf_sec_os_t;
 static u64 timestamp_on, timestamp_off;
 static bool boot_finish;
 
@@ -169,13 +169,18 @@ static void bootprof_bootloader(void)
 	if (node) {
 		of_property_read_s32(node, "pl_t", &bf_pl_t);
 		of_property_read_s32(node, "lk_t", &bf_lk_t);
+
+		if (of_property_read_s32(node, "logo_t", &bf_logo_t))
+			of_property_read_s32(node, "lk_logo_t", &bf_logo_t);
 		of_property_read_s32(node, "logo_t", &bf_logo_t);
 		of_property_read_s32(node, "bl2_ext_t", &bf_bl2ext_t);
 		of_property_read_s32(node, "tfa_t", &bf_tfa_t);
+		of_property_read_s32(node, "sec_os_t", &bf_sec_os_t);
 		of_property_read_s32(node, "gz_t", &bf_gz_t);
 
-		pr_info("BOOTPROF: pl=%d, bl2ext=%d ,lk=%d, logo=%d, tfa=%d, gz=%d\n",
-			bf_pl_t, bf_bl2ext_t, bf_lk_t, bf_logo_t, bf_tfa_t, bf_gz_t);
+		pr_info("BOOTPROF: pl=%d, bl2ext=%d ,lk=%d, logo=%d, tfa=%d, sec_os=%d, gz=%d\n",
+			bf_pl_t, bf_bl2ext_t, bf_lk_t, bf_logo_t, bf_tfa_t,
+			bf_sec_os_t,  bf_gz_t);
 	}
 }
 
@@ -507,6 +512,8 @@ static int mt_bootprof_show(struct seq_file *m, void *v)
 	}
 	if (bf_tfa_t > 0)
 		seq_printf(m, "%10d        : %s\n", bf_tfa_t, "tfa");
+	if (bf_sec_os_t > 0)
+		seq_printf(m, "%10d        : %s\n", bf_sec_os_t, "sec_os");
 	if (bf_gz_t > 0)
 		seq_printf(m, "%10d        : %s\n", bf_gz_t, "gz");
 
