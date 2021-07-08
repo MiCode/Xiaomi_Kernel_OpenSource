@@ -5208,7 +5208,7 @@
 	gce: gce@1e980000 {
 		compatible = "mediatek,mt6983-gce";
 		reg = <0 0x1e980000 0 0x4000>;
-		interrupts = <GIC_SPI 465 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH 0>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
@@ -5227,7 +5227,7 @@
 	gce_m: gce@1e990000 {
 		compatible = "mediatek,mt6983-gce";
 		reg = <0 0x1e990000 0 0x4000>;
-		interrupts = <GIC_SPI 464 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH 0>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
