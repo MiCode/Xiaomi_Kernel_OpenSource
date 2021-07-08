@@ -18,7 +18,10 @@
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
+#include <linux/proc_fs.h>
 #include <linux/regmap.h>
+#include <linux/seq_file.h>
+#include <linux/uaccess.h>
 
 /* u2 phy banks */
 #define SSUSB_SIFSLV_MISC		0x000
@@ -55,8 +58,12 @@
 #define P2A1_RG_INTR_CAL_VAL(x)	((0x1f & (x)) << 19)
 #define P2A1_RG_VRT_SEL			GENMASK(14, 12)
 #define P2A1_RG_VRT_SEL_VAL(x)	((0x7 & (x)) << 12)
+#define P2A1_RG_VRT_SEL_MASK	(0x7)
+#define P2A1_RG_VRT_SEL_OFST	(12)
 #define P2A1_RG_TERM_SEL		GENMASK(10, 8)
 #define P2A1_RG_TERM_SEL_VAL(x)	((0x7 & (x)) << 8)
+#define P2A1_RG_TERM_SEL_MASK	(0x7)
+#define P2A1_RG_TERM_SEL_OFST	(8)
 
 #define XSP_USBPHYACR2		((SSUSB_SIFSLV_U2PHY_COM) + 0x08)
 
@@ -73,6 +80,11 @@
 #define P2A6_RG_U2_PHY_REV1		BIT(25)
 #define P2A6_RG_BC11_SW_EN	BIT(23)
 #define P2A6_RG_OTG_VBUSCMP_EN	BIT(20)
+#define P2A6_RG_U2_DISCTH		GENMASK(7, 4)
+#define P2A6_RG_U2_DISCTH_VAL(x)	((0xf & (x)) << 4)
+#define P2A6_RG_U2_DISCTH_MASK	(0xf)
+#define P2A6_RG_U2_DISCTH_OFET	(4)
+
 
 #define XSP_USBPHYACR4		((SSUSB_SIFSLV_U2PHY_COM) + 0x020)
 #define P2A4_RG_USB20_GPIO_CTL		BIT(9)
@@ -131,6 +143,14 @@
 #define PHY_MODE_BC11_SW_SET 1
 #define PHY_MODE_BC11_SW_CLR 2
 
+#define MTK_USB_STR "mtk_usb"
+#define U2_PHY_STR "u2_phy"
+
+#define TERM_SEL_STR "term_sel"
+#define VRT_SEL_STR "vrt_sel"
+#define PHY_REV6_STR "phy_rev6"
+#define DISCTH_STR "discth"
+
 #define XSP_MODE_UART_STR "usb2uart_mode=1"
 #define XSP_MODE_JTAG_STR "usb2jtag_mode=1"
 
@@ -159,6 +179,9 @@ struct xsphy_instance {
 	int eye_src;
 	int eye_vrt;
 	int eye_term;
+	int discth;
+	int rev6;
+	struct proc_dir_entry *phy_root;
 };
 
 struct mtk_xsphy {
@@ -168,7 +191,339 @@ struct mtk_xsphy {
 	int nphys;
 	int src_ref_clk; /* MHZ, reference clock for slew rate calibrate */
 	int src_coef;    /* coefficient for slew rate calibrate */
+	struct proc_dir_entry *root;
 };
+
+static struct proc_dir_entry *usb_root;
+
+static void cover_val_to_str(u32 val, u8 width, char *str)
+{
+	int i, temp;
+
+	temp = val;
+	str[width] = '\0';
+	for (i = (width - 1); i >= 0; i--) {
+		if (val % 2)
+			str[i] = '1';
+		else
+			str[i] = '0';
+		val /= 2;
+	}
+}
+
+static int proc_term_sel_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(pbase + XSP_USBPHYACR1);
+	tmp >>= P2A1_RG_TERM_SEL_OFST;
+	tmp &= P2A1_RG_TERM_SEL_MASK;
+
+	cover_val_to_str(tmp, 3, str);
+
+	seq_printf(s, "\n%s = %s\n", TERM_SEL_STR, str);
+	return 0;
+}
+
+static int proc_term_sel_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_term_sel_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_term_sel_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(pbase + XSP_USBPHYACR1);
+	tmp &= ~P2A1_RG_TERM_SEL;
+	tmp |= P2A1_RG_TERM_SEL_VAL(val);
+	writel(tmp, pbase + XSP_USBPHYACR1);
+
+	return count;
+}
+
+static const struct proc_ops proc_term_sel_fops = {
+	.proc_open = proc_term_sel_open,
+	.proc_write = proc_term_sel_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int proc_vrt_sel_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(pbase + XSP_USBPHYACR1);
+	tmp >>= P2A1_RG_VRT_SEL_OFST;
+	tmp &= P2A1_RG_VRT_SEL_MASK;
+
+	cover_val_to_str(tmp, 3, str);
+
+	seq_printf(s, "\n%s = %s\n", VRT_SEL_STR, str);
+	return 0;
+}
+
+static int proc_vrt_sel_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_vrt_sel_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_vrt_sel_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(pbase + XSP_USBPHYACR1);
+	tmp &= ~P2A1_RG_VRT_SEL;
+	tmp |= P2A1_RG_VRT_SEL_VAL(val);
+	writel(tmp, pbase + XSP_USBPHYACR1);
+
+	return count;
+}
+
+static const struct  proc_ops proc_vrt_sel_fops = {
+	.proc_open = proc_vrt_sel_open,
+	.proc_write = proc_vrt_sel_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int proc_phy_rev6_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp >>= P2A6_RG_U2_PHY_REV6_OFET;
+	tmp &= P2A6_RG_U2_PHY_REV6_MASK;
+
+	cover_val_to_str(tmp, 2, str);
+
+	seq_printf(s, "\n%s = %s\n", PHY_REV6_STR, str);
+	return 0;
+}
+
+static int proc_phy_rev6_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_phy_rev6_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_phy_rev6_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp &= ~P2A6_RG_U2_PHY_REV6;
+	tmp |= P2A6_RG_U2_PHY_REV6_VAL(val);
+	writel(tmp, pbase + XSP_USBPHYACR6);
+
+	return count;
+}
+
+static const struct proc_ops proc_phy_rev6_fops = {
+	.proc_open = proc_phy_rev6_open,
+	.proc_write = proc_phy_rev6_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int proc_discth_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp >>= P2A6_RG_U2_DISCTH_OFET;
+	tmp &= P2A6_RG_U2_DISCTH_MASK;
+
+	cover_val_to_str(tmp, 4, str);
+
+	seq_printf(s, "\n%s = %s\n", DISCTH_STR, str);
+	return 0;
+}
+
+static int proc_discth_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_discth_show, PDE_DATA(inode));
+}
+
+static ssize_t proc_discth_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 tmp, val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp &= ~P2A6_RG_U2_DISCTH;
+	tmp |= P2A6_RG_U2_DISCTH_VAL(val);
+	writel(tmp, pbase + XSP_USBPHYACR6);
+
+	return count;
+}
+
+static const struct proc_ops proc_discth_fops = {
+	.proc_open = proc_discth_open,
+	.proc_write = proc_discth_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int u2_phy_procfs_init(struct mtk_xsphy *xsphy,
+			struct xsphy_instance *inst)
+{
+	struct device *dev = &inst->phy->dev;
+	struct proc_dir_entry *root = xsphy->root;
+	struct proc_dir_entry *phy_root;
+	struct proc_dir_entry *file;
+	int ret;
+
+	if (!root) {
+		dev_info(dev, "proc root not exist\n");
+		ret = -ENOMEM;
+		goto err0;
+	}
+
+	phy_root = proc_mkdir(U2_PHY_STR, root);
+	if (!root) {
+		dev_info(dev, "failed to creat dir proc %s\n", U2_PHY_STR);
+		ret = -ENOMEM;
+		goto err0;
+	}
+
+	file = proc_create_data(TERM_SEL_STR, 0644,
+			phy_root, &proc_term_sel_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", TERM_SEL_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(VRT_SEL_STR, 0644,
+			phy_root, &proc_vrt_sel_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", VRT_SEL_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(PHY_REV6_STR, 0644,
+			phy_root, &proc_phy_rev6_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", PHY_REV6_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(DISCTH_STR, 0644,
+			phy_root, &proc_discth_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", DISCTH_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	inst->phy_root = phy_root;
+	return 0;
+err1:
+	proc_remove(phy_root);
+
+err0:
+	return ret;
+}
+
+static int u2_phy_procfs_exit(struct xsphy_instance *inst)
+{
+	proc_remove(inst->phy_root);
+	return 0;
+}
+
+static int mtk_xsphy_procfs_init(struct mtk_xsphy *xsphy)
+{
+	struct device_node *np = xsphy->dev->of_node;
+	struct proc_dir_entry *root = NULL;
+
+	if (!usb_root) {
+		usb_root = proc_mkdir(MTK_USB_STR, NULL);
+		if (!usb_root) {
+			dev_info(xsphy->dev, "failed to create usb_root\n");
+			return -ENOMEM;
+		}
+	}
+
+	root = proc_mkdir(np->name, usb_root);
+	if (!root) {
+		dev_info(xsphy->dev, "failed to create xphy root\n");
+		return -ENOMEM;
+	}
+
+	xsphy->root = root;
+	return 0;
+}
+
+static int mtk_xsphy_procfs_exit(struct mtk_xsphy *xsphy)
+{
+	proc_remove(xsphy->root);
+	return 0;
+}
 
 static void u2_phy_slew_rate_calibrate(struct mtk_xsphy *xsphy,
 					struct xsphy_instance *inst)
@@ -428,9 +783,14 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 					 &inst->eye_vrt);
 		device_property_read_u32(dev, "mediatek,eye-term",
 					 &inst->eye_term);
-		dev_dbg(dev, "intr:%d, src:%d, vrt:%d, term:%d\n",
+		device_property_read_u32(dev, "mediatek,discth",
+				 &inst->discth);
+		device_property_read_u32(dev, "mediatek,rev6",
+				 &inst->rev6);
+		dev_info(dev, "intr:%d, src:%d, vrt:%d, term:%d\n",
 			inst->efuse_intr, inst->eye_src,
 			inst->eye_vrt, inst->eye_term);
+		dev_info(dev, "discth:%d, rev6:%d\n", inst->discth, inst->rev6);
 		break;
 	case PHY_TYPE_USB3:
 		device_property_read_u32(dev, "mediatek,efuse-intr",
@@ -482,6 +842,20 @@ static void u2_phy_props_set(struct mtk_xsphy *xsphy,
 		tmp |= P2A1_RG_TERM_SEL_VAL(inst->eye_term);
 		writel(tmp, pbase + XSP_USBPHYACR1);
 	}
+
+	if (inst->discth) {
+		tmp = readl(pbase + XSP_USBPHYACR6);
+		tmp &= ~P2A6_RG_U2_DISCTH;
+		tmp |= P2A6_RG_U2_DISCTH_VAL(inst->discth);
+		writel(tmp, pbase + XSP_USBPHYACR6);
+	}
+
+	if (inst->rev6) {
+		tmp = readl(pbase + XSP_USBPHYACR6);
+		tmp &= ~P2A6_RG_U2_PHY_REV6;
+		tmp |= P2A6_RG_U2_PHY_REV6_VAL(inst->rev6);
+		writel(tmp, pbase + XSP_USBPHYACR6);
+	}
 }
 
 static void u3_phy_props_set(struct mtk_xsphy *xsphy,
@@ -528,6 +902,7 @@ static int mtk_phy_init(struct phy *phy)
 	case PHY_TYPE_USB2:
 		u2_phy_instance_init(xsphy, inst);
 		u2_phy_props_set(xsphy, inst);
+		u2_phy_procfs_init(xsphy, inst);
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_props_set(xsphy, inst);
@@ -568,6 +943,9 @@ static int mtk_phy_power_off(struct phy *phy)
 static int mtk_phy_exit(struct phy *phy)
 {
 	struct xsphy_instance *inst = phy_get_drvdata(phy);
+
+	if (inst->type == PHY_TYPE_USB2)
+		u2_phy_procfs_exit(inst);
 
 	clk_disable_unprepare(inst->ref_clk);
 	return 0;
@@ -894,8 +1272,9 @@ static int mtk_xsphy_probe(struct platform_device *pdev)
 			retval = PTR_ERR(inst->ref_clk);
 			goto put_child;
 		}
-
 	}
+
+	mtk_xsphy_procfs_init(xsphy);
 
 	provider = devm_of_phy_provider_register(dev, mtk_phy_xlate);
 	return PTR_ERR_OR_ZERO(provider);
@@ -905,8 +1284,17 @@ put_child:
 	return retval;
 }
 
+static int mtk_xsphy_remove(struct platform_device *pdev)
+{
+	struct mtk_xsphy *xsphy = dev_get_drvdata(&pdev->dev);
+
+	mtk_xsphy_procfs_exit(xsphy);
+	return 0;
+}
+
 static struct platform_driver mtk_xsphy_driver = {
 	.probe		= mtk_xsphy_probe,
+	.remove		= mtk_xsphy_remove,
 	.driver		= {
 		.name	= "mtk-xsphy",
 		.of_match_table = mtk_xsphy_id_table,
