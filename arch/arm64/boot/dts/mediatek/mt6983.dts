@@ -5848,6 +5848,9 @@
 	apusys_power_dummy: apusys_power_dummy {
 		compatible = "mt6893,apusys_power_dummy";
 	};
+
+	smart_pa: smart_pa {
+	};
 };
 
 &i2c6 {
