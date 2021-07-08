@@ -72,6 +72,7 @@ bool g_fence_log;
 bool g_irq_log;
 bool g_detail_log;
 bool g_trace_log;
+bool g_mml_debug;
 unsigned int mipi_volt;
 unsigned int disp_met_en;
 unsigned int lfr_dbg;
@@ -2173,6 +2174,12 @@ static void process_dbg_opt(const char *opt)
 		} else {
 			DDPINFO("esd_ctx is null!\n");
 		}
+	} else if (strncmp(opt, "mml_debug:", 10) == 0) {
+		if (strncmp(opt + 10, "1", 1) == 0)
+			g_mml_debug = true;
+		else if (strncmp(opt + 10, "0", 1) == 0)
+			g_mml_debug = false;
+		DDPMSG("g_mml_debug:%d", g_mml_debug);
 	}
 }
 

@@ -27,6 +27,8 @@
 #include "../mml/mtk-mml-driver.h"
 #include <linux/of_platform.h>
 
+extern bool g_mml_debug;
+
 static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 						unsigned long size)
 {
@@ -650,6 +652,120 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 	return 0;
 }
 
+//To-Do: need to be remove
+void print_mml_frame_buffer(struct mml_frame_buffer frame_buf)
+{
+	unsigned int i = 0;
+
+	DDPMSG("====  frame buffer s ====\n");
+	DDPMSG("src buf\n");
+	DDPMSG("[0]:fd:%d, size:%d, [1]:fd:%d, size:%d, [2]:fd:%d, size:%d,",
+			frame_buf.src.fd[0], frame_buf.src.size[0],
+			frame_buf.src.fd[1], frame_buf.src.size[1],
+			frame_buf.src.fd[2], frame_buf.src.size[2]);
+	DDPMSG("cnt:%d, fence:%d, flush:%d, invalid:%d\n",
+			frame_buf.src.cnt, frame_buf.src.fence,
+			frame_buf.src.flush, frame_buf.src.invalid);
+	DDPMSG("dest:(cnt:%d)\n", frame_buf.dest_cnt);
+	for (; i < MML_MAX_OUTPUTS; ++i) {
+		DDPMSG("dest buf[%d]\n", i);
+		DDPMSG("[0]:fd:%d, size:%d, [1]:fd:%d, size:%d, [2]:fd:%d, size:%d,",
+			frame_buf.dest[i].fd[0], frame_buf.dest[i].size[0],
+			frame_buf.dest[i].fd[1], frame_buf.dest[i].size[1],
+			frame_buf.dest[i].fd[2], frame_buf.dest[i].size[2]);
+
+		DDPMSG("cnt:%d, fence:%d, flush:%d, invalid:%d\n",
+			frame_buf.dest[i].cnt, frame_buf.dest[i].fence,
+			frame_buf.dest[i].flush, frame_buf.dest[i].invalid);
+	}
+	DDPMSG("==== frame buffer e ====\n");
+}
+
+//To-Do: need to be remove
+void print_mml_frame_info(struct mml_frame_info info)
+{
+	unsigned int i = 0;
+
+	DDPMSG("====  frame_info s ====\n");
+	DDPMSG("src cfg:\n");
+	DDPMSG("w:%d, h:%d, y_s:%d, uv_s:%d, vert_s:%d, f:%d, pro:%d,",
+		info.src.width, info.src.height,
+		info.src.y_stride, info.src.uv_stride,
+		info.src.vert_stride, info.src.format, info.src.profile);
+	DDPMSG("plane_offset[0]:%d, plane_offset[1]:%d, plane_offset[2]:%d, p_c:%d, sec:%d\n",
+		info.src.plane_offset[0], info.src.plane_offset[1], info.src.plane_offset[2],
+		info.src.plane_cnt, info.src.secure);
+	DDPMSG("dest_cnt:%d\n", info.dest_cnt);
+	for (; i < MML_MAX_OUTPUTS; ++i) {
+		DDPMSG("dest cfg[%d]:\n", i);
+		DDPMSG("w:%d, h:%d, y_s:%d, uv_s:%d, vert_s:%d, f:%d, pro:%d,",
+			info.dest[i].data.width, info.dest[i].data.height,
+			info.dest[i].data.y_stride, info.dest[i].data.uv_stride,
+			info.dest[i].data.vert_stride, info.dest[i].data.format,
+			info.dest[i].data.profile);
+		DDPMSG("plane_offset[0]:%d, plane_offset[1]:%d, plane_offset[2]:%d,",
+			info.dest[i].data.plane_offset[0],
+			info.dest[i].data.plane_offset[1],
+			info.dest[i].data.plane_offset[2]);
+		DDPMSG("p_c:%d, sec:%d\n",
+			info.dest[i].data.plane_cnt, info.dest[i].data.secure);
+		DDPMSG("x_sub_px:%d, y_sub_px:%d, w_sub_px:%d, h_sub_px:%d\n",
+			info.dest[i].crop.x_sub_px, info.dest[i].crop.y_sub_px,
+			info.dest[i].crop.w_sub_px, info.dest[i].crop.h_sub_px);
+		DDPMSG("l:%d, t:%d, w:%d, h:%d\n",
+			info.dest[i].compose.left, info.dest[i].compose.top,
+			info.dest[i].compose.width, info.dest[i].compose.height);
+		DDPMSG("[MMLPQParamParser] en_sharp[%d], en_ur[%d], en_dc[%d],",
+			info.dest[i].pq_config.en_sharp, info.dest[i].pq_config.en_ur,
+			info.dest[i].pq_config.en_dc);
+		DDPMSG("en_color[%d], en_hdr[%d], en_ccorr[%d], en_dre[%d]",
+			info.dest[i].pq_config.en_color, info.dest[i].pq_config.en_hdr,
+			info.dest[i].pq_config.en_ccorr, info.dest[i].pq_config.en_dre);
+		DDPMSG("rotate:%d, flip:%d, pq_config.en:%d\n",
+			info.dest[i].rotate, info.dest[i].flip, info.dest[i].pq_config);
+	}
+	DDPMSG("mode:%d, layer_id:%d\n", info.mode, info.layer_id);
+	DDPMSG("====  frame_info e ====\n");
+}
+
+//To-Do: need to be remove
+void print_mml_submit(struct mml_submit *args)
+{
+	int i = 0;
+
+	if (!args)
+		return;
+
+	DDPMSG("====  %s s ====\n", __func__);
+	if (args->job)
+		DDPMSG("jobid:%d, fence:%d\n", args->job->jobid, args->job->fence);
+
+	print_mml_frame_info(args->info);
+	print_mml_frame_buffer(args->buffer);
+
+	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
+		if (args->pq_param[i]) {
+			DDPMSG("pq_param[%d]\n", i);
+			DDPMSG("e:%d, t:%d, pq_s:%d, l_id:%d, d_id:%d, s_ga:%d, d_ga:%d,",
+				args->pq_param[i]->enable, args->pq_param[i]->time_stamp,
+				args->pq_param[i]->scenario, args->pq_param[i]->layer_id,
+				args->pq_param[i]->disp_id, args->pq_param[i]->src_gamut,
+				args->pq_param[i]->dst_gamut);
+			DDPMSG("src_hdr_video_mode:%d, video_id:%d, time_stamp:%d,",
+				args->pq_param[i]->src_hdr_video_mode,
+				args->pq_param[i]->video_param.video_id,
+				args->pq_param[i]->video_param.time_stamp);
+			DDPMSG("ishdr2sdr:%d, param_table:%d, pq_user_info:%d\n",
+				args->pq_param[i]->video_param.ishdr2sdr,
+				args->pq_param[i]->video_param.param_table,
+				args->pq_param[i]->user_info);
+		}
+	}
+	DDPMSG("sec:%lld, usec:%lld, update:%d\n",
+		args->end.sec, args->end.nsec, args->update);
+	DDPMSG("====  %s e ====\n", __func__);
+}
+
 int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 			 struct drm_file *file_priv)
 {
@@ -707,6 +823,9 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	if (mml_ctx <= 0) {
 		DDPMSG("mml_drm_get_context fail. mml_ctx:%p\n", mml_ctx);
 	}
+
+	if (g_mml_debug)
+		print_mml_submit(submit_kernel);
 
 	if (mml_ctx > 0) {
 		ret = mml_drm_submit(mml_ctx, submit_kernel);
