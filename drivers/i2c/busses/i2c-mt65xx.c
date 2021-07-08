@@ -241,6 +241,7 @@ struct mtk_i2c_compatible {
 	unsigned char apdma_sync: 1;
 	unsigned char max_dma_support;
 	unsigned char slave_addr_ver;
+	unsigned char fifo_size;
 };
 
 struct mtk_i2c_ac_timing {
@@ -451,6 +452,7 @@ static const struct mtk_i2c_compatible mt6873_compat = {
 	.dma_ver = 1,
 	.apdma_sync = 1,
 	.max_dma_support = 36,
+	.fifo_size = 8,
 };
 
 static const struct mtk_i2c_compatible mt6879_compat = {
@@ -466,6 +468,7 @@ static const struct mtk_i2c_compatible mt6879_compat = {
 	.apdma_sync = 1,
 	.max_dma_support = 36,
 	.slave_addr_ver = 1,
+	.fifo_size = 16,
 };
 
 static const struct mtk_i2c_compatible mt6983_compat = {
@@ -481,6 +484,7 @@ static const struct mtk_i2c_compatible mt6983_compat = {
 	.apdma_sync = 1,
 	.max_dma_support = 36,
 	.slave_addr_ver = 1,
+	.fifo_size = 16,
 };
 
 static const struct of_device_id mtk_i2c_of_match[] = {
@@ -497,6 +501,17 @@ static const struct of_device_id mtk_i2c_of_match[] = {
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_i2c_of_match);
+
+static u8 mtk_i2c_readb(struct mtk_i2c *i2c, enum I2C_REGS_OFFSET reg)
+{
+	return readb(i2c->base + i2c->dev_comp->regs[reg]);
+}
+
+static void mtk_i2c_writeb(struct mtk_i2c *i2c, u8 val,
+			   enum I2C_REGS_OFFSET reg)
+{
+	writeb(val, i2c->base + i2c->dev_comp->regs[reg]);
+}
 
 static u16 mtk_i2c_readw(struct mtk_i2c *i2c, enum I2C_REGS_OFFSET reg)
 {
@@ -979,11 +994,14 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	u16 control_reg;
 	u16 restart_flag = 0;
 	u16 dma_sync = 0;
+	u16 data_size = 0;
 	u32 reg_4g_mode;
+	u8 *ptr = NULL;
 	u8 *dma_rd_buf = NULL;
 	u8 *dma_wr_buf = NULL;
 	dma_addr_t rpaddr = 0;
 	dma_addr_t wpaddr = 0;
+	bool isDMA = false;
 	int ret;
 
 	i2c->irq_stat = 0;
@@ -992,18 +1010,27 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		restart_flag = I2C_RS_TRANSFER;
 
 	reinit_completion(&i2c->msg_complete);
+	if ((msgs->len > i2c->dev_comp->fifo_size) || ((i2c->op == I2C_MASTER_WRRD) &&
+		((msgs + 1)->len > i2c->dev_comp->fifo_size))) {
+		isDMA = true;
+	} else {
+		isDMA = false;
+	}
 
 	control_reg = mtk_i2c_readw(i2c, OFFSET_CONTROL) &
-			~(I2C_CONTROL_DIR_CHANGE | I2C_CONTROL_RS);
+			~(I2C_CONTROL_DIR_CHANGE | I2C_CONTROL_RS | I2C_CONTROL_DMA_EN |
+			I2C_CONTROL_DMAACK_EN | I2C_CONTROL_ASYNC_MODE);
 	if ((i2c->speed_hz > I2C_MAX_FAST_MODE_PLUS_FREQ) || (left_num >= 1))
 		control_reg |= I2C_CONTROL_RS;
 
 	if (i2c->op == I2C_MASTER_WRRD)
 		control_reg |= I2C_CONTROL_DIR_CHANGE | I2C_CONTROL_RS;
 
-	control_reg |= I2C_CONTROL_DMA_EN;
-	if (i2c->dev_comp->dma_sync)
-		control_reg |= I2C_CONTROL_DMAACK_EN | I2C_CONTROL_ASYNC_MODE;
+	if (isDMA == true) {
+		control_reg |= I2C_CONTROL_DMA_EN;
+		if (i2c->dev_comp->dma_sync)
+			control_reg |= I2C_CONTROL_DMAACK_EN | I2C_CONTROL_ASYNC_MODE;
+	}
 
 	mtk_i2c_writew(i2c, control_reg, OFFSET_CONTROL);
 
@@ -1056,147 +1083,156 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 			dma_sync |= I2C_DMA_DIR_CHANGE;
 	}
 
-	/* Prepare buffer data to start transfer */
-	if (i2c->op == I2C_MASTER_RD) {
-		writel(I2C_DMA_INT_FLAG_NONE, i2c->pdmabase + OFFSET_INT_FLAG);
+	if (isDMA == true) {
+		/* Prepare buffer data to start transfer */
+		if (i2c->op == I2C_MASTER_RD) {
+			writel(I2C_DMA_INT_FLAG_NONE, i2c->pdmabase + OFFSET_INT_FLAG);
 
-		if (i2c->dev_comp->dma_ver == DMA_HW_VERSION1)
-			writel(I2C_DMA_CON_RX | I2C_DMA_SKIP_CONFIG |
-				I2C_DMA_ASYNC_MODE,
-					i2c->pdmabase + OFFSET_CON);
-		else
-			writel(I2C_DMA_CON_RX, i2c->pdmabase + OFFSET_CON);
-
-		dma_rd_buf = i2c_get_dma_safe_msg_buf(msgs, 1);
-		if (!dma_rd_buf)
-			return -ENOMEM;
-
-		rpaddr = dma_map_single(i2c->dev, dma_rd_buf,
-					msgs->len, DMA_FROM_DEVICE);
-		if (dma_mapping_error(i2c->dev, rpaddr)) {
-			i2c_put_dma_safe_msg_buf(dma_rd_buf, msgs, false);
-
-			return -ENOMEM;
-		}
-
-		if (i2c->dev_comp->max_dma_support > 32) {
-			reg_4g_mode = upper_32_bits(rpaddr);
-			writel(reg_4g_mode, i2c->pdmabase + OFFSET_RX_4G_MODE);
-		}
-
-		writel((u32)rpaddr, i2c->pdmabase + OFFSET_RX_MEM_ADDR);
-		writel(msgs->len, i2c->pdmabase + OFFSET_RX_LEN);
-	} else if (i2c->op == I2C_MASTER_WR) {
-		writel(I2C_DMA_INT_FLAG_NONE, i2c->pdmabase + OFFSET_INT_FLAG);
-		if (i2c->dev_comp->dma_ver == DMA_HW_VERSION1)
-			writel(I2C_DMA_CON_TX | I2C_DMA_SKIP_CONFIG |
+			if (i2c->dev_comp->dma_ver == DMA_HW_VERSION1)
+				writel(I2C_DMA_CON_RX | I2C_DMA_SKIP_CONFIG |
 					I2C_DMA_ASYNC_MODE,
 						i2c->pdmabase + OFFSET_CON);
-		else
-			writel(I2C_DMA_CON_TX, i2c->pdmabase + OFFSET_CON);
+			else
+				writel(I2C_DMA_CON_RX, i2c->pdmabase + OFFSET_CON);
 
-		dma_wr_buf = i2c_get_dma_safe_msg_buf(msgs, 1);
-		if (!dma_wr_buf)
-			return -ENOMEM;
+			dma_rd_buf = i2c_get_dma_safe_msg_buf(msgs, 1);
+			if (!dma_rd_buf)
+				return -ENOMEM;
 
-		wpaddr = dma_map_single(i2c->dev, dma_wr_buf,
-					msgs->len, DMA_TO_DEVICE);
-		if (dma_mapping_error(i2c->dev, wpaddr)) {
-			i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, false);
+			rpaddr = dma_map_single(i2c->dev, dma_rd_buf,
+						msgs->len, DMA_FROM_DEVICE);
+			if (dma_mapping_error(i2c->dev, rpaddr)) {
+				i2c_put_dma_safe_msg_buf(dma_rd_buf, msgs, false);
 
-			return -ENOMEM;
-		}
+				return -ENOMEM;
+			}
 
-		if (i2c->dev_comp->max_dma_support > 32) {
-			reg_4g_mode = upper_32_bits(wpaddr);
-			writel(reg_4g_mode, i2c->pdmabase + OFFSET_TX_4G_MODE);
-		}
+			if (i2c->dev_comp->max_dma_support > 32) {
+				reg_4g_mode = upper_32_bits(rpaddr);
+				writel(reg_4g_mode, i2c->pdmabase + OFFSET_RX_4G_MODE);
+			}
 
-		writel((u32)wpaddr, i2c->pdmabase + OFFSET_TX_MEM_ADDR);
-		writel(msgs->len, i2c->pdmabase + OFFSET_TX_LEN);
-	} else if (i2c->op == I2C_MASTER_CONTINUOUS_WR) {
-		writel(I2C_DMA_INT_FLAG_NONE, i2c->pdmabase + OFFSET_INT_FLAG);
-		if (i2c->dev_comp->dma_ver == DMA_HW_VERSION1)
-			writel(I2C_DMA_CON_TX | I2C_DMA_SKIP_CONFIG |
-				I2C_DMA_ASYNC_MODE,
+			writel((u32)rpaddr, i2c->pdmabase + OFFSET_RX_MEM_ADDR);
+			writel(msgs->len, i2c->pdmabase + OFFSET_RX_LEN);
+		} else if (i2c->op == I2C_MASTER_WR) {
+			writel(I2C_DMA_INT_FLAG_NONE, i2c->pdmabase + OFFSET_INT_FLAG);
+			if (i2c->dev_comp->dma_ver == DMA_HW_VERSION1)
+				writel(I2C_DMA_CON_TX | I2C_DMA_SKIP_CONFIG |
+						I2C_DMA_ASYNC_MODE,
+							i2c->pdmabase + OFFSET_CON);
+			else
+				writel(I2C_DMA_CON_TX, i2c->pdmabase + OFFSET_CON);
+
+			dma_wr_buf = i2c_get_dma_safe_msg_buf(msgs, 1);
+			if (!dma_wr_buf)
+				return -ENOMEM;
+
+			wpaddr = dma_map_single(i2c->dev, dma_wr_buf,
+						msgs->len, DMA_TO_DEVICE);
+			if (dma_mapping_error(i2c->dev, wpaddr)) {
+				i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, false);
+
+				return -ENOMEM;
+			}
+
+			if (i2c->dev_comp->max_dma_support > 32) {
+				reg_4g_mode = upper_32_bits(wpaddr);
+				writel(reg_4g_mode, i2c->pdmabase + OFFSET_TX_4G_MODE);
+			}
+
+			writel((u32)wpaddr, i2c->pdmabase + OFFSET_TX_MEM_ADDR);
+			writel(msgs->len, i2c->pdmabase + OFFSET_TX_LEN);
+		} else if (i2c->op == I2C_MASTER_CONTINUOUS_WR) {
+			writel(I2C_DMA_INT_FLAG_NONE, i2c->pdmabase + OFFSET_INT_FLAG);
+			if (i2c->dev_comp->dma_ver == DMA_HW_VERSION1)
+				writel(I2C_DMA_CON_TX | I2C_DMA_SKIP_CONFIG |
+					I2C_DMA_ASYNC_MODE,
+						i2c->pdmabase + OFFSET_CON);
+			else
+				writel(I2C_DMA_CON_TX, i2c->pdmabase + OFFSET_CON);
+
+			wpaddr = dma_map_single(i2c->dev, msgs->buf,
+						msgs->len, DMA_TO_DEVICE);
+			if (dma_mapping_error(i2c->dev, wpaddr)) {
+				kfree(msgs->buf);
+				return -ENOMEM;
+			}
+
+			if (i2c->dev_comp->max_dma_support > 32) {
+				reg_4g_mode = upper_32_bits(wpaddr);
+				writel(reg_4g_mode, i2c->pdmabase + OFFSET_TX_4G_MODE);
+			}
+
+			writel((u32)wpaddr, i2c->pdmabase + OFFSET_TX_MEM_ADDR);
+			writel(msgs->len, i2c->pdmabase + OFFSET_TX_LEN);
+		} else if (i2c->op == I2C_MASTER_WRRD) {
+			writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_INT_FLAG);
+
+			if (i2c->dev_comp->dma_ver == DMA_HW_VERSION1)
+				writel(0x0000 | I2C_DMA_SKIP_CONFIG |
+					I2C_DMA_ASYNC_MODE | I2C_DMA_DIR_CHANGE,
 					i2c->pdmabase + OFFSET_CON);
-		else
-			writel(I2C_DMA_CON_TX, i2c->pdmabase + OFFSET_CON);
+			else
+				writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_CON);
 
-		wpaddr = dma_map_single(i2c->dev, msgs->buf,
-					msgs->len, DMA_TO_DEVICE);
-		if (dma_mapping_error(i2c->dev, wpaddr)) {
-			kfree(msgs->buf);
-			return -ENOMEM;
+			dma_wr_buf = i2c_get_dma_safe_msg_buf(msgs, 1);
+			if (!dma_wr_buf)
+				return -ENOMEM;
+
+			wpaddr = dma_map_single(i2c->dev, dma_wr_buf,
+						msgs->len, DMA_TO_DEVICE);
+			if (dma_mapping_error(i2c->dev, wpaddr)) {
+				i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, false);
+
+				return -ENOMEM;
+			}
+
+			dma_rd_buf = i2c_get_dma_safe_msg_buf((msgs + 1), 1);
+			if (!dma_rd_buf) {
+				dma_unmap_single(i2c->dev, wpaddr,
+						msgs->len, DMA_TO_DEVICE);
+
+				i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, false);
+
+				return -ENOMEM;
+			}
+
+			rpaddr = dma_map_single(i2c->dev, dma_rd_buf,
+						(msgs + 1)->len,
+						DMA_FROM_DEVICE);
+			if (dma_mapping_error(i2c->dev, rpaddr)) {
+				dma_unmap_single(i2c->dev, wpaddr,
+						msgs->len, DMA_TO_DEVICE);
+
+				i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, false);
+				i2c_put_dma_safe_msg_buf(dma_rd_buf, (msgs + 1), false);
+
+				return -ENOMEM;
+			}
+
+			if (i2c->dev_comp->max_dma_support > 32) {
+				reg_4g_mode = upper_32_bits(wpaddr);
+				writel(reg_4g_mode, i2c->pdmabase + OFFSET_TX_4G_MODE);
+
+				reg_4g_mode = upper_32_bits(rpaddr);
+				writel(reg_4g_mode, i2c->pdmabase + OFFSET_RX_4G_MODE);
+			}
+
+			writel((u32)wpaddr, i2c->pdmabase + OFFSET_TX_MEM_ADDR);
+			writel((u32)rpaddr, i2c->pdmabase + OFFSET_RX_MEM_ADDR);
+			writel(msgs->len, i2c->pdmabase + OFFSET_TX_LEN);
+			writel((msgs + 1)->len, i2c->pdmabase + OFFSET_RX_LEN);
 		}
 
-		if (i2c->dev_comp->max_dma_support > 32) {
-			reg_4g_mode = upper_32_bits(wpaddr);
-			writel(reg_4g_mode, i2c->pdmabase + OFFSET_TX_4G_MODE);
+		writel(I2C_DMA_START_EN, i2c->pdmabase + OFFSET_EN);
+	} else if (i2c->op != I2C_MASTER_RD) {
+		data_size = msgs->len;
+		ptr = msgs->buf;
+		while (data_size--) {
+			mtk_i2c_writeb(i2c, *ptr, OFFSET_DATA_PORT);
+			ptr++;
 		}
-
-		writel((u32)wpaddr, i2c->pdmabase + OFFSET_TX_MEM_ADDR);
-		writel(msgs->len, i2c->pdmabase + OFFSET_TX_LEN);
-	} else if (i2c->op == I2C_MASTER_WRRD) {
-		writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_INT_FLAG);
-
-		if (i2c->dev_comp->dma_ver == DMA_HW_VERSION1)
-			writel(0x0000 | I2C_DMA_SKIP_CONFIG |
-				I2C_DMA_ASYNC_MODE | I2C_DMA_DIR_CHANGE,
-				i2c->pdmabase + OFFSET_CON);
-		else
-			writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_CON);
-
-		dma_wr_buf = i2c_get_dma_safe_msg_buf(msgs, 1);
-		if (!dma_wr_buf)
-			return -ENOMEM;
-
-		wpaddr = dma_map_single(i2c->dev, dma_wr_buf,
-					msgs->len, DMA_TO_DEVICE);
-		if (dma_mapping_error(i2c->dev, wpaddr)) {
-			i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, false);
-
-			return -ENOMEM;
-		}
-
-		dma_rd_buf = i2c_get_dma_safe_msg_buf((msgs + 1), 1);
-		if (!dma_rd_buf) {
-			dma_unmap_single(i2c->dev, wpaddr,
-					 msgs->len, DMA_TO_DEVICE);
-
-			i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, false);
-
-			return -ENOMEM;
-		}
-
-		rpaddr = dma_map_single(i2c->dev, dma_rd_buf,
-					(msgs + 1)->len,
-					DMA_FROM_DEVICE);
-		if (dma_mapping_error(i2c->dev, rpaddr)) {
-			dma_unmap_single(i2c->dev, wpaddr,
-					 msgs->len, DMA_TO_DEVICE);
-
-			i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, false);
-			i2c_put_dma_safe_msg_buf(dma_rd_buf, (msgs + 1), false);
-
-			return -ENOMEM;
-		}
-
-		if (i2c->dev_comp->max_dma_support > 32) {
-			reg_4g_mode = upper_32_bits(wpaddr);
-			writel(reg_4g_mode, i2c->pdmabase + OFFSET_TX_4G_MODE);
-
-			reg_4g_mode = upper_32_bits(rpaddr);
-			writel(reg_4g_mode, i2c->pdmabase + OFFSET_RX_4G_MODE);
-		}
-
-		writel((u32)wpaddr, i2c->pdmabase + OFFSET_TX_MEM_ADDR);
-		writel((u32)rpaddr, i2c->pdmabase + OFFSET_RX_MEM_ADDR);
-		writel(msgs->len, i2c->pdmabase + OFFSET_TX_LEN);
-		writel((msgs + 1)->len, i2c->pdmabase + OFFSET_RX_LEN);
 	}
-
-	writel(I2C_DMA_START_EN, i2c->pdmabase + OFFSET_EN);
 
 	if (!i2c->auto_restart) {
 		start_reg = I2C_TRANSAC_START;
@@ -1214,29 +1250,31 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	mtk_i2c_writew(i2c, ~(restart_flag | I2C_HS_NACKERR | I2C_ACKERR |
 			    I2C_ARB_LOST | I2C_TRANSAC_COMP), OFFSET_INTR_MASK);
 
-	if (i2c->op == I2C_MASTER_WR) {
-		dma_unmap_single(i2c->dev, wpaddr,
-				 msgs->len, DMA_TO_DEVICE);
+	if (isDMA == true) {
+		if (i2c->op == I2C_MASTER_WR) {
+			dma_unmap_single(i2c->dev, wpaddr,
+					 msgs->len, DMA_TO_DEVICE);
 
-		i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, true);
-	} else if (i2c->op == I2C_MASTER_RD) {
-		dma_unmap_single(i2c->dev, rpaddr,
-				 msgs->len, DMA_FROM_DEVICE);
+			i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, true);
+		} else if (i2c->op == I2C_MASTER_RD) {
+			dma_unmap_single(i2c->dev, rpaddr,
+					 msgs->len, DMA_FROM_DEVICE);
 
-		i2c_put_dma_safe_msg_buf(dma_rd_buf, msgs, true);
-	} else if (i2c->op == I2C_MASTER_CONTINUOUS_WR) {
-		dma_unmap_single(i2c->dev, wpaddr,
-				 msgs->len, DMA_TO_DEVICE);
+			i2c_put_dma_safe_msg_buf(dma_rd_buf, msgs, true);
+		} else if (i2c->op == I2C_MASTER_CONTINUOUS_WR) {
+			dma_unmap_single(i2c->dev, wpaddr,
+					 msgs->len, DMA_TO_DEVICE);
 
-		kfree(msgs->buf);
-	} else if (i2c->op == I2C_MASTER_WRRD) {
-		dma_unmap_single(i2c->dev, wpaddr, msgs->len,
-				 DMA_TO_DEVICE);
-		dma_unmap_single(i2c->dev, rpaddr, (msgs + 1)->len,
-				 DMA_FROM_DEVICE);
+			kfree(msgs->buf);
+		} else if (i2c->op == I2C_MASTER_WRRD) {
+			dma_unmap_single(i2c->dev, wpaddr, msgs->len,
+					 DMA_TO_DEVICE);
+			dma_unmap_single(i2c->dev, rpaddr, (msgs + 1)->len,
+					 DMA_FROM_DEVICE);
 
-		i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, true);
-		i2c_put_dma_safe_msg_buf(dma_rd_buf, (msgs + 1), true);
+			i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, true);
+			i2c_put_dma_safe_msg_buf(dma_rd_buf, (msgs + 1), true);
+		}
 	}
 
 	if (ret == 0) {
@@ -1251,7 +1289,19 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		mtk_i2c_init_hw(i2c);
 		return -ENXIO;
 	}
-
+	if ((i2c->op != I2C_MASTER_WR) && (isDMA == false)) {
+		if (i2c->op == I2C_MASTER_WRRD) {
+			data_size = (msgs + 1)->len;
+			ptr = (msgs + 1)->buf;
+		} else {
+			data_size = msgs->len;
+			ptr = msgs->buf;
+		}
+		while (data_size--) {
+			*ptr = mtk_i2c_readb(i2c, OFFSET_DATA_PORT);
+			ptr++;
+		}
+	}
 	return 0;
 }
 
