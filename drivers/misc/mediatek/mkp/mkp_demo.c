@@ -99,8 +99,10 @@ static void probe_android_vh_set_memory_ro(void *ignore, unsigned long addr,
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
 			mkp_set_mapping_ro);
 	} else if (region == MKP_DEMO_BPF_CASE) {
+#ifndef CONFIG_DEBUG_VIRTUAL
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_KERNEL_PAGES,
 			mkp_set_mapping_ro);
+#endif
 	}
 #endif
 }
@@ -118,8 +120,10 @@ static void probe_android_vh_set_memory_x(void *ignore, unsigned long addr,
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
 			mkp_set_mapping_x);
 	} else if (region == MKP_DEMO_BPF_CASE) {
+#ifndef CONFIG_DEBUG_VIRTUAL
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_KERNEL_PAGES,
 			mkp_set_mapping_x);
+#endif
 	}
 #endif
 }
@@ -136,8 +140,10 @@ static void probe_android_vh_set_memory_rw(void *ignore, unsigned long addr,
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
 			mkp_set_mapping_rw);
 	} else if (region == MKP_DEMO_BPF_CASE) {
+#ifndef CONFIG_DEBUG_VIRTUAL
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_KERNEL_PAGES,
 			mkp_set_mapping_rw);
+#endif
 	}
 #endif
 }
@@ -159,9 +165,13 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 			mkp_set_mapping_nx);
 		policy = MKP_POLICY_DRV;
 	} else if (region == MKP_DEMO_BPF_CASE) {
+#ifndef CONFIG_DEBUG_VIRTUAL
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_KERNEL_PAGES,
 			mkp_set_mapping_nx);
 		policy = MKP_POLICY_KERNEL_PAGES;
+#else
+		return;
+#endif
 	}
 	for (i = 0; i < nr_pages; i++) {
 		pfn = vmalloc_to_pfn((void *)(addr+i*PAGE_SIZE));
