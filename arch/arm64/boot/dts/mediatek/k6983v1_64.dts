@@ -26,10 +26,6 @@
 		"td4330_fhdp_dsi_vdo_auo_rt5081_drv";
 };
 
-&timer {
-	clock-frequency = <150000000>;
-};
-
 &odm {
 	vibrator0:vibrator@0 {
 		compatible = "mediatek,vibrator";

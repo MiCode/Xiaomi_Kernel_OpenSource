@@ -12,6 +12,7 @@
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/memory/mt6983-larb-port.h>
 #include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/soc/mediatek,boot-mode.h>
 
 / {
 	model = "MT6983";
@@ -1310,11 +1311,6 @@
 	aes_top0@10016000 {
 		compatible = "mediatek,aes_top0";
 		reg = <0 0x10016000 0 0x1000>;
-	};
-
-	sys_timer@10017000 {
-		compatible = "mediatek,sys_timer";
-		reg = <0 0x10017000 0 0x1000>;
 	};
 
 	timer: timer {
@@ -5021,6 +5017,35 @@
 				<GIC_SPI 565 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 566 IRQ_TYPE_LEVEL_HIGH 0>;
 		memory-region = <&gps_mem>;
+	};
+
+	watchdog: watchdog@1c007000 {
+		compatible = "mediatek,mt6983-wdt",
+			      "mediatek,mt6589-wdt",
+			      "syscon", "simple-mfd";
+		mediatek,rg_dfd_timeout = <0xea60>;
+		reg = <0 0x1c007000 0 0x100>;
+		reboot-mode {
+			compatible = "syscon-reboot-mode";
+			offset = <0x24>;
+			mask = <0xf>;
+			mode-charger = <BOOT_CHARGER>;
+			mode-recovery = <BOOT_RECOVERY>;
+			mode-bootloader = <BOOT_BOOTLOADER>;
+			mode-dm-verity-dev-corrupt = <BOOT_DM_VERITY>;
+			mode-kpoc = <BOOT_KPOC>;
+			mode-ddr-reserve = <BOOT_DDR_RSVD>;
+			mode-meta = <BOOT_META>;
+			mode-rpmbpk = <BOOT_RPMBPK>;
+		};
+	};
+
+	systimer: systimer@1c011000 {
+		compatible = "mediatek,mt6983-timer",
+			      "mediatek,mt6765-timer";
+		reg = <0 0x1c011000 0 0x1000>;
+		interrupts = <GIC_SPI 312 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&clk13m>;
 	};
 
 	sspm: sspm@1C340000 {
