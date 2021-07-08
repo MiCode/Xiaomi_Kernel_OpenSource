@@ -43,6 +43,69 @@ unsigned int g_dpmaif_ver;
 struct ccci_dpmaif_platform_ops g_plt_ops;
 
 
+
+int ccci_dpmaif_init_clk(struct device *dev,
+		struct dpmaif_clk_node *clk)
+{
+	if ((!dev) || (!clk)) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: dev(%p) or clk(%p) is NULL.\n",
+			__func__, dev, clk);
+		return -1;
+	}
+
+	while (clk->clk_name) {
+		clk->clk_ref = devm_clk_get(dev, clk->clk_name);
+		if (IS_ERR(clk->clk_ref)) {
+			CCCI_ERROR_LOG(0, TAG,
+				 "[%s] error: dpmaif get %s failed.\n",
+				 __func__, clk->clk_name);
+
+			clk->clk_ref = NULL;
+			return -1;
+		}
+
+		clk += 1;
+	}
+
+	return 0;
+}
+
+void ccci_dpmaif_set_clk(unsigned int on,
+		struct dpmaif_clk_node *clk)
+{
+	int ret;
+
+	if (!clk) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: clk is NULL.\n", __func__);
+		return;
+	}
+
+	while (clk->clk_name) {
+		if (!clk->clk_ref) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: clock: %s is NULL.\n",
+				__func__, clk->clk_name);
+
+			clk += 1;
+			continue;
+		}
+
+		if (on) {
+			ret = clk_prepare_enable(clk->clk_ref);
+			if (ret)
+				CCCI_ERROR_LOG(-1, TAG,
+					"[%s] error: prepare %s fail. %d\n",
+					__func__, clk->clk_name, ret);
+
+		} else
+			clk_disable_unprepare(clk->clk_ref);
+
+		clk += 1;
+	}
+}
+
 static int ccci_hif_dpmaif_probe(struct platform_device *pdev)
 {
 	if (of_property_read_u32(pdev->dev.of_node,

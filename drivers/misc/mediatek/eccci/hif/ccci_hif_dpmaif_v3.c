@@ -76,6 +76,15 @@ struct hif_dpmaif_ctrl *dpmaif_ctrl_v3;
 
 static void __iomem *infra_ao_mem;
 
+
+static struct dpmaif_clk_node g_clk_tbs[] = {
+	{ NULL, "infra-dpmaif-clk"},
+	{ NULL, "infra-dpmaif-blk-clk"},
+	{ NULL, "infra-dpmaif-rg-mmw-clk"},
+	{ NULL, NULL},
+};
+
+
 #ifdef CCCI_KMODULE_ENABLE
 /*
  * for debug log:
@@ -2871,29 +2880,6 @@ static int dpmaif_late_init(unsigned char hif_id)
  *
  * ========================================================
  */
-static void ccci_hif_dpmaif_set_clk(unsigned int on)
-{
-	int ret = 0;
-
-	if (!dpmaif_ctrl->clk_ref0)
-		return;
-	else if (on) {
-		ret = clk_prepare_enable(dpmaif_ctrl->clk_ref0);
-		if (ret)
-			CCCI_ERROR_LOG(-1, TAG, "%s_0: on=%d,ret=%d\n",
-				__func__, on, ret);
-		if (dpmaif_ctrl->clk_ref1) {
-			ret = clk_prepare_enable(dpmaif_ctrl->clk_ref1);
-			if (ret)
-				CCCI_ERROR_LOG(-1, TAG, "%s_1: on=%d,ret=%d\n",
-					__func__, on, ret);
-		}
-	} else {
-		clk_disable_unprepare(dpmaif_ctrl->clk_ref0);
-		if (dpmaif_ctrl->clk_ref1)
-			clk_disable_unprepare(dpmaif_ctrl->clk_ref1);
-	}
-}
 
 static int dpmaif_start(unsigned char hif_id)
 {
@@ -2913,7 +2899,7 @@ static int dpmaif_start(unsigned char hif_id)
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:start\n");
 #endif
 	/* cg set */
-	ccci_hif_dpmaif_set_clk(1);
+	ccci_dpmaif_set_clk(1, g_clk_tbs);
 
 	reg_value = ccci_read32(infra_ao_mem, 0);
 	reg_value |= INFRA_PROT_DPMAIF_BIT;
@@ -3254,7 +3240,7 @@ static int dpmaif_stop(unsigned char hif_id)
 
 	/* 3. todo: reset IP */
 	/* CG set */
-	ccci_hif_dpmaif_set_clk(0);
+	ccci_dpmaif_set_clk(0, g_clk_tbs);
 	g_plt_ops.hw_reset();
 
 #ifdef DPMAIF_DEBUG_LOG
@@ -3476,23 +3462,10 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 	dpmaif_ctrl->plat_val.infra_ao_base =
 		syscon_regmap_lookup_by_phandle(node_md,
 		"ccci-infracfg");
-	hif_ctrl->clk_ref0 = devm_clk_get(dev, "infra-dpmaif-clk");
-	if (IS_ERR(hif_ctrl->clk_ref0)) {
-		CCCI_ERROR_LOG(md_id, TAG,
-			 "dpmaif get infra-dpmaif-clk failed\n");
-		hif_ctrl->clk_ref0 = NULL;
-		ret = -5;
-		goto DPMAIF_INIT_FAIL;
-	}
 
-	hif_ctrl->clk_ref1 = devm_clk_get(dev, "infra-dpmaif-blk-clk");
-	if (IS_ERR(hif_ctrl->clk_ref1)) {
-		CCCI_ERROR_LOG(md_id, TAG,
-			 "dpmaif get infra-dpmaif-blk-clk failed\n");
-		hif_ctrl->clk_ref1 = NULL;
-		ret = -6;
+	ret = ccci_dpmaif_init_clk(dev, g_clk_tbs);
+	if (ret < 0)
 		goto DPMAIF_INIT_FAIL;
-	}
 
 	if (!dpmaif_ctrl->plat_val.infra_ao_base) {
 		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");

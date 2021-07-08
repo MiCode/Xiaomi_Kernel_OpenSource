@@ -390,8 +390,6 @@ struct hif_dpmaif_ctrl {
 	struct timer_list traffic_monitor;
 	char traffic_started;
 #endif
-	struct clk *clk_ref0;
-	struct clk *clk_ref1;
 	struct platform_device *plat_dev; /* maybe: no need. */
 	struct ccci_hif_dpmaif_val plat_val;
 

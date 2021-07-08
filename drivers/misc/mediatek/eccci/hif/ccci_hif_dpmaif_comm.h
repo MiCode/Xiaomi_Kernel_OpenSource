@@ -17,6 +17,11 @@
 #define DPMAIF_CAP_LRO		(1 << 0)
 
 
+struct dpmaif_clk_node {
+	struct clk    *clk_ref;
+	unsigned char *clk_name;
+};
+
 struct ccci_dpmaif_platform_ops {
 	void (*hw_reset)(void);
 
@@ -26,7 +31,10 @@ struct ccci_dpmaif_platform_ops {
 extern unsigned int g_dpmaif_ver;
 extern struct ccci_dpmaif_platform_ops g_plt_ops;
 
-
+int ccci_dpmaif_init_clk(struct device *dev,
+		struct dpmaif_clk_node *clk);
+void ccci_dpmaif_set_clk(unsigned int on,
+		struct dpmaif_clk_node *clk);
 
 extern int ccci_dpmaif_hif_init_v2(struct platform_device *pdev);
 extern int ccci_dpmaif_hif_init_v3(struct platform_device *pdev);
