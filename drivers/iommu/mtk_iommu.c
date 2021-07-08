@@ -147,6 +147,9 @@
 #define IOMMU_NO_IRQ			BIT(17)
 #define GET_DOM_ID_LEGACY		BIT(18)
 
+#define POWER_ON_STA		1
+#define POWER_OFF_STA		0
+
 #define MTK_IOMMU_HAS_FLAG(pdata, _x) \
 		((((pdata)->flags) & (_x)) == (_x))
 
@@ -162,6 +165,10 @@ struct mtk_iommu_domain {
 };
 
 static const struct iommu_ops mtk_iommu_ops;
+
+static bool pd_sta[MM_IOMMU_NUM];
+static spinlock_t tlb_locks[MM_IOMMU_NUM];
+static struct notifier_block mtk_pd_notifiers[MM_IOMMU_NUM];
 
 static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 
@@ -423,15 +430,21 @@ static void mtk_iommu_isr_record(struct mtk_iommu_data *data)
 static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 {
 	for_each_m4u(data) {
-		if (pm_runtime_get_if_in_use(data->dev) <= 0 && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN))
-			continue;
+		if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
+			if ((data->plat_data->iommu_type == MM_IOMMU &&
+				pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
+				(data->plat_data->iommu_type != MM_IOMMU &&
+				pm_runtime_get_if_in_use(data->dev) <= 0))
+				continue;
+		}
 
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
 		writel_relaxed(F_ALL_INVLD, data->base + REG_MMU_INVALIDATE);
 		wmb(); /* Make sure the tlb flush all done */
 
-		if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN))
+		if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
+			data->plat_data->iommu_type != MM_IOMMU)
 			pm_runtime_put(data->dev);
 	}
 }
@@ -446,15 +459,17 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 	u32 tmp;
 
 	for_each_m4u(data) {
+		spin_lock_irqsave(&data->tlb_lock, flags);
 		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
-			// workaround
-			if (pm_runtime_get_sync(data->dev) < 0) {
-				pm_runtime_put(data->dev);
+			if ((data->plat_data->iommu_type == MM_IOMMU &&
+				pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
+				(data->plat_data->iommu_type != MM_IOMMU &&
+				pm_runtime_get_if_in_use(data->dev) <= 0)) {
+				spin_unlock_irqrestore(&data->tlb_lock, flags);
 				continue;
 			}
 		}
 
-		spin_lock_irqsave(&data->tlb_lock, flags);
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
 
@@ -483,8 +498,8 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		/* Clear the CPE status */
 		writel_relaxed(0, data->base + REG_MMU_CPE_DONE);
 		spin_unlock_irqrestore(&data->tlb_lock, flags);
-
-		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN))
+		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
+			data->plat_data->iommu_type != MM_IOMMU)
 			pm_runtime_put(data->dev);
 	}
 }
@@ -1197,6 +1212,23 @@ static const struct component_master_ops mtk_iommu_com_ops = {
 	.unbind		= mtk_iommu_unbind,
 };
 
+static int mtk_iommu_pd_callback(struct notifier_block *nb,
+			unsigned long flags, void *data)
+{
+	unsigned long lock_flags;
+
+	spin_lock_irqsave(&tlb_locks[nb->priority], lock_flags);
+
+	if (flags == GENPD_NOTIFY_ON)
+		pd_sta[nb->priority] = POWER_ON_STA;
+	else if (flags == GENPD_NOTIFY_PRE_OFF)
+		pd_sta[nb->priority] = POWER_OFF_STA;
+
+	spin_unlock_irqrestore(&tlb_locks[nb->priority], lock_flags);
+
+	return NOTIFY_OK;
+}
+
 static int mtk_iommu_probe(struct platform_device *pdev)
 {
 	struct mtk_iommu_data   *data;
@@ -1212,6 +1244,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	int                     i, larb_nr, ret;
 	u32			val;
 	char                    *p;
+	bool disp_power_on = 0;
 
 	pr_info("%s start dev:%s\n", __func__, dev_name(dev));
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
@@ -1388,6 +1421,8 @@ out:
 		if (ret)/* The id is consecutive if there is no this property */
 			id = i;
 
+		disp_power_on |= of_property_read_bool(larbnode, "init-power-on");
+
 		plarbdev = of_find_device_by_node(larbnode);
 		if (!plarbdev) {
 			of_node_put(larbnode);
@@ -1453,10 +1488,28 @@ skip_smi:
 			goto out_bus_set_null;
 	}
 
+	/* register the notifier for power domain just for mm_iommu */
+	if (data->plat_data->iommu_type == MM_IOMMU) {
+		int r, iommu_id = data->plat_data->iommu_id;
+
+		mtk_pd_notifiers[iommu_id].notifier_call = mtk_iommu_pd_callback;
+		mtk_pd_notifiers[iommu_id].priority = iommu_id;
+
+		/* defaut power on,if larbs has the node "init-power-on" */
+		if (disp_power_on)
+			pd_sta[iommu_id] = POWER_ON_STA;
+
+		r = dev_pm_genpd_add_notifier(dev, &mtk_pd_notifiers[iommu_id]);
+		tlb_locks[iommu_id] = data->tlb_lock;
+		pr_info("%s add_notifier dev:%s, disp_power_on:%d, iommu:%d\n",
+			__func__, dev_name(dev), disp_power_on, iommu_id);
+		if (r)
+			pr_info("%s notifier err, dev:%s\n", __func__, dev_name(dev));
+	}
+
 	mtk_iommu_isr_pause_timer_init(data);
 
 	pr_info("%s done dev:%s\n", __func__, dev_name(dev));
-
 	return ret;
 
 out_bus_set_null:
