@@ -2313,7 +2313,7 @@
 	tboard_thermistor1: thermal-ntc1 {
 		compatible = "mediatek,mt6983-board-ntc";
 		#thermal-sensor-cells = <0>;
-		reg = <0 0x1c8050d4 0 0x4>; /* TIA DATA T0 */
+		reg = <0 0x1c015ed4 0 0x4>; /* TIA DATA T0 */
 		temperature-lookup-table = <
 			(-40000) 4397119
 			(-39000) 4092874
@@ -2486,7 +2486,7 @@
 	tboard_thermistor2: thermal-ntc2 {
 		compatible = "mediatek,mt6983-board-ntc";
 		#thermal-sensor-cells = <0>;
-		reg = <0 0x1c8050d8 0 0x4>; /* TIA DATA T1 */
+		reg = <0 0x1c015ed8 0 0x4>; /* TIA DATA T1 */
 		temperature-lookup-table = <
 			(-40000) 4397119
 			(-39000) 4092874
@@ -2659,7 +2659,7 @@
 	tboard_thermistor3: thermal-ntc3 {
 		compatible = "mediatek,mt6983-board-ntc";
 		#thermal-sensor-cells = <0>;
-		reg = <0 0x1c8050dc 0 0x4>; /* TIA DATA T2 */
+		reg = <0 0x1c015edc 0 0x4>; /* TIA DATA T2 */
 		temperature-lookup-table = <
 			(-40000) 4397119
 			(-39000) 4092874
@@ -2832,7 +2832,7 @@
 	tboard_thermistor4: thermal-ntc4 {
 		compatible = "mediatek,mt6983-board-ntc";
 		#thermal-sensor-cells = <0>;
-		reg = <0 0x1c8050e0 0 0x4>; /* TIA DATA T3 */
+		reg = <0 0x1c015ee0 0 0x4>; /* TIA DATA T3 */
 		temperature-lookup-table = <
 			(-40000) 4397119
 			(-39000) 4092874
