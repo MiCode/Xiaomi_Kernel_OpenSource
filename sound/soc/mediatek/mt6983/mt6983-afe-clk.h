@@ -25,7 +25,7 @@
 #define CLK_CFG_8 0x0090
 #define CLK_CFG_9 0x00a0
 #define CLK_CFG_13 0x00e0
-#define CLK_CFG_11 0x00f0
+#define CLK_CFG_14 0x00f0
 #define CLK_CFG_15 0x0100
 #define CLK_CFG_16 0x0110
 

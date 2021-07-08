@@ -191,7 +191,7 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-			mtk_dsp_irq_set_enable(afe, irq_data);
+			mtk_dsp_irq_set_enable(afe, irq_data, id);
 #else
 			regmap_update_bits(afe->regmap,
 					   irq_data->irq_en_reg,
@@ -236,7 +236,7 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		/* disable interrupt */
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		if (runtime->stop_threshold != ~(0U))
-			mtk_dsp_irq_set_disable(afe, irq_data);
+			mtk_dsp_irq_set_disable(afe, irq_data, id);
 #else
 		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
@@ -3184,9 +3184,6 @@ skip_regmap:
 static int mt6983_afe_runtime_resume(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
-	struct mt6983_afe_private *afe_priv = afe->platform_priv;
-#endif
 	int ret;
 
 	dev_info(afe->dev, "%s()\n", __func__);
@@ -3400,18 +3397,18 @@ static ssize_t mt6983_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(afe_priv->topckgen, CLK_CFG_9, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_9 = 0x%x\n", value);
-	regmap_read(afe_priv->topckgen, CLK_CFG_11, &value);
-	n += scnprintf(buffer + n, size - n,
-		       "CLK_CFG_11 = 0x%x\n", value);
-	regmap_read(afe_priv->topckgen, CLK_CFG_12, &value);
-	n += scnprintf(buffer + n, size - n,
-		       "CLK_CFG_12 = 0x%x\n", value);
 	regmap_read(afe_priv->topckgen, CLK_CFG_13, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_13 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_14, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_CFG_14 = 0x%x\n", value);
 	regmap_read(afe_priv->topckgen, CLK_CFG_15, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_15 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_16, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_CFG_16 = 0x%x\n", value);
 	regmap_read(afe_priv->topckgen, CLK_AUDDIV_0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_AUDDIV_0 = 0x%x\n", value);
