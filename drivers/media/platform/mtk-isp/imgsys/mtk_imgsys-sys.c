@@ -383,8 +383,8 @@ static void mtk_imgsys_iova_map_tbl_unmap_sd(struct mtk_imgsys_request *req)
 			//free dmabuf
 			spin_lock(&dev_buf->iova_map_table.lock);
 			list_del(&dmabufiovainfo->list_entry);
-			vfree(dmabufiovainfo);
 			spin_unlock(&dev_buf->iova_map_table.lock);
+			vfree(dmabufiovainfo);
 		}
 	}
 }
