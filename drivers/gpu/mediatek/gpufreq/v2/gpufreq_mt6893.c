@@ -442,11 +442,7 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 	opp_info.regulator_vsram = __gpufreq_get_real_vsram();
 	mutex_unlock(&gpufreq_lock_gpu);
 
-	ret = __gpufreq_power_control(POWER_OFF);
-	if (unlikely(ret < 0)) {
-		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_OFF, ret);
-		goto done;
-	}
+	__gpufreq_power_control(POWER_OFF);
 
 done:
 	return opp_info;
@@ -825,24 +821,17 @@ int __gpufreq_fix_target_oppidx_gpu(int oppidx)
 
 		ret = __gpufreq_generic_commit_gpu(oppidx, DVFS_DEBUG_KEEP);
 		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to commit GPU OPP index: %d (%d)",
-				oppidx, ret);
+			GPUFREQ_LOGE("fail to commit GPU OPP index: %d (%d)", oppidx, ret);
 			mutex_lock(&gpufreq_lock_gpu);
 			g_dvfs_state &= ~DVFS_DEBUG_KEEP;
 			mutex_unlock(&gpufreq_lock_gpu);
 		}
 	} else {
 		GPUFREQ_LOGE("invalid fixed OPP index: %d", oppidx);
-
 		ret = GPUFREQ_EINVAL;
 	}
 
-	/* we don't care the result of power off */
-	ret = __gpufreq_power_control(POWER_OFF);
-	if (unlikely(ret < 0)) {
-		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_OFF, ret);
-		goto done;
-	}
+	__gpufreq_power_control(POWER_OFF);
 
 done:
 	return ret;
@@ -887,11 +876,7 @@ int __gpufreq_fix_custom_freq_volt_gpu(
 		}
 	}
 
-	ret = __gpufreq_power_control(POWER_OFF);
-	if (unlikely(ret < 0)) {
-		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_OFF, ret);
-		goto done;
-	}
+	__gpufreq_power_control(POWER_OFF);
 
 done:
 	return ret;
@@ -2221,30 +2206,74 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 #if GPUFREQ_CHECK_MTCMOS_PWR_STATUS
 		/* check MTCMOS power status */
 		if (g_sleep) {
-			val = readl(g_sleep + 0x16C) & 0x1FC;
-			if (unlikely(val != 0x1FC)) {
-				__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
-					"incorrect mtcmos power on status: 0x%08x", val);
-				ret = GPUFREQ_EINVAL;
-				goto done;
+			if (g_shader_present == GPU_SHADER_PRESENT_9) {
+				val = readl(g_sleep + 0x16C) & 0x1FC;
+				if (unlikely(val != 0x1FC)) {
+					__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+						"incorrect mtcmos power on status: 0x%08x", val);
+					ret = GPUFREQ_EINVAL;
+					goto done;
+				}
 			}
 		}
 #endif /* GPUFREQ_CHECK_MTCMOS_PWR_STATUS */
 
 		g_gpu.mtcmos_count++;
 	} else {
-		if (g_shader_present & MFG6_SHADER_STACK6)
-			pm_runtime_put_sync(&g_mtcmos->mfg6_pdev->dev);
-		if (g_shader_present & MFG5_SHADER_STACK5)
-			pm_runtime_put_sync(&g_mtcmos->mfg5_pdev->dev);
-		if (g_shader_present & MFG4_SHADER_STACK2)
-			pm_runtime_put_sync(&g_mtcmos->mfg4_pdev->dev);
-		if (g_shader_present & MFG3_SHADER_STACK1)
-			pm_runtime_put_sync(&g_mtcmos->mfg3_pdev->dev);
-		if (g_shader_present & MFG2_SHADER_STACK0)
-			pm_runtime_put_sync(&g_mtcmos->mfg2_pdev->dev);
-		pm_runtime_put_sync(&g_mtcmos->mfg1_pdev->dev);
-		pm_runtime_put_sync(&g_mtcmos->mfg0_pdev->dev);
+		if (g_shader_present & MFG6_SHADER_STACK6) {
+			ret = pm_runtime_put_sync(&g_mtcmos->mfg6_pdev->dev);
+			if (unlikely(ret < 0)) {
+				__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+					"fail to disable mtcmos_mfg6 (%d)", ret);
+				goto done;
+			}
+		}
+		if (g_shader_present & MFG5_SHADER_STACK5) {
+			ret = pm_runtime_put_sync(&g_mtcmos->mfg5_pdev->dev);
+			if (unlikely(ret < 0)) {
+				__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+					"fail to disable mtcmos_mfg5 (%d)", ret);
+				goto done;
+			}
+		}
+		if (g_shader_present & MFG4_SHADER_STACK2) {
+			ret = pm_runtime_put_sync(&g_mtcmos->mfg4_pdev->dev);
+			if (unlikely(ret < 0)) {
+				__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+					"fail to disable mtcmos_mfg4 (%d)", ret);
+				goto done;
+			}
+		}
+		if (g_shader_present & MFG3_SHADER_STACK1) {
+			ret = pm_runtime_put_sync(&g_mtcmos->mfg3_pdev->dev);
+			if (unlikely(ret < 0)) {
+				__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+					"fail to disable mtcmos_mfg3 (%d)", ret);
+				goto done;
+			}
+		}
+		if (g_shader_present & MFG2_SHADER_STACK0) {
+			ret = pm_runtime_put_sync(&g_mtcmos->mfg2_pdev->dev);
+			if (unlikely(ret < 0)) {
+				__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+					"fail to disable mtcmos_mfg2 (%d)", ret);
+				goto done;
+			}
+		}
+
+		ret = pm_runtime_put_sync(&g_mtcmos->mfg1_pdev->dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+				"fail to enable mtcmos_mfg1 (%d)", ret);
+			goto done;
+		}
+
+		ret = pm_runtime_put_sync(&g_mtcmos->mfg0_pdev->dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
+				"fail to enable mtcmos_mfg0 (%d)", ret);
+			goto done;
+		}
 
 		g_gpu.mtcmos_count--;
 
@@ -2252,12 +2281,9 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 		/* check MTCMOS power status */
 		if (g_sleep && !g_gpu.mtcmos_count) {
 			val = readl(g_sleep + 0x16C) & 0x1FC;
-			if (unlikely(val != 0x0)) {
-				__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
-					"incorrect mtcmos power off status: 0x%08x", val);
-				ret = GPUFREQ_EINVAL;
-				goto done;
-			}
+			if (unlikely(val != 0x0))
+				/* only print error if pwr is incorrect when mtcmos off */
+				GPUFREQ_LOGE("incorrect mtcmos power off status: 0x%08x", val);
 		}
 #endif /* GPUFREQ_CHECK_MTCMOS_PWR_STATUS */
 	}
