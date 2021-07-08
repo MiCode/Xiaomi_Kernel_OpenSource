@@ -1334,10 +1334,10 @@
 				local_no_suspend;
 				local_vconn_supply;
 
-				// attemp_discover_cable_dfp;
-				attemp_enter_dp_mode;
-				attemp_discover_cable;
-				attemp_discover_id;
+				// attempt_discover_cable_dfp;
+				attempt_enter_dp_mode;
+				attempt_discover_cable;
+				attempt_discover_id;
 
 				/* 0: disable, 1: prefer_snk, 2: prefer_src */
 				pr_check = <0>;
