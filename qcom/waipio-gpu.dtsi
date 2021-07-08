@@ -3,7 +3,7 @@
 
 &soc {
 	msm_gpu: qcom,kgsl-3d0@3d00000 {
-		compatible = "qcom,adreno-gpu-c500", "qcom,kgsl-3d0";
+		compatible = "qcom,adreno-gpu-c500", "qcom,adreno-gpu-gen7-0-0", "qcom,kgsl-3d0";
 		status = "ok";
 		reg = <0x3d00000 0x40000>, <0x3d61000 0x800>,
 			<0x03d50000 0x10000>, <0x3d8b000 0x2000>,
@@ -246,7 +246,7 @@
 	};
 
 	gmu: qcom,gmu@3d69000 {
-		compatible = "qcom,genc-gmu";
+		compatible = "qcom,genc-gmu", "qcom,gen7-gmu";
 
 		reg = <0x3d68000 0x37000>,
 		      <0xb290000 0x10000>,
