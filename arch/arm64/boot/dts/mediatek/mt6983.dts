@@ -821,6 +821,11 @@
 		#clock-cells = <1>;
 	};
 
+	vlpcfg_bus_clk: syscon@1c00c000 {
+		compatible = "mediatek,mt6983-vlpcfg_bus", "syscon";
+		reg = <0 0x1c00c000 0 0x1000>;
+	};
+
 	adsp_clk: syscon@1e000000 {
 		compatible = "mediate,mt6983-adsp", "syscon";
 		reg = <0 0x1e000000 0 0x1000>;
