@@ -8,6 +8,8 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/mt6363/core.h>
 #include <linux/mfd/mt6363/registers.h>
+#include <linux/mfd/mt6373/core.h>
+#include <linux/mfd/mt6373/registers.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
@@ -78,6 +80,21 @@ static const struct mfd_cell mt6363_devs[] = {
 	},
 };
 
+static const struct mfd_cell mt6373_devs[] = {
+	{
+		.name = "second-pmic",
+		.of_compatible = "mediatek,spmi-pmic-debug",
+	},
+	{ .name = "mt6373-regulator", },
+	{
+		.name = "mt6373-auxadc",
+		.of_compatible = "mediatek,mt6373-auxadc",
+	}, {
+		.name = "mt6373-efuse",
+		.of_compatible = "mediatek,mt6373-efuse",
+	}
+};
+
 static struct irq_top_t mt6363_ints[] = {
 	MT6363_TOP_GEN(BUCK),
 	MT6363_TOP_GEN(LDO),
@@ -85,6 +102,12 @@ static struct irq_top_t mt6363_ints[] = {
 	MT6363_TOP_GEN(MISC),
 	MT6363_TOP_GEN(HK),
 	MT6363_TOP_GEN(BM),
+};
+
+static struct irq_top_t mt6373_ints[] = {
+	MT6373_TOP_GEN(BUCK),
+	MT6373_TOP_GEN(LDO),
+	MT6373_TOP_GEN(MISC),
 };
 
 static const struct mtk_spmi_pmic_data common_data = {
@@ -98,6 +121,15 @@ static const struct mtk_spmi_pmic_data mt6363_data = {
 	.num_pmic_irqs = MT6363_IRQ_NR,
 	.top_int_status_reg = MT6363_TOP_INT_STATUS1,
 	.pmic_ints = mt6363_ints,
+};
+
+static const struct mtk_spmi_pmic_data mt6373_data = {
+	.cells = mt6373_devs,
+	.cell_size = ARRAY_SIZE(mt6373_devs),
+	.num_top = ARRAY_SIZE(mt6373_ints),
+	.num_pmic_irqs = MT6373_IRQ_NR,
+	.top_int_status_reg = MT6373_TOP_INT_STATUS1,
+	.pmic_ints = mt6373_ints,
 };
 
 static void mtk_spmi_pmic_irq_enable(struct irq_data *data)
@@ -193,8 +225,8 @@ static void mtk_spmi_pmic_irq_sp_handler(struct pmic_core *core,
 			hwirq = pmic_int->hwirq_base + MTK_SPMI_PMIC_REG_WIDTH * i + j;
 
 			virq = irq_find_mapping(core->irq_domain, hwirq);
-			dev_info(core->dev, "Reg[0x%x]=0x%x,hwirq=%d\n",
-				 sta_reg, irq_status, hwirq);
+			dev_info(core->dev, "[%x]Reg[0x%x]=0x%x,hwirq=%d\n",
+				 core->chip_id, sta_reg, irq_status, hwirq);
 			if (virq)
 				handle_nested_irq(virq);
 
@@ -378,6 +410,7 @@ static const struct of_device_id mtk_spmi_pmic_of_match[] = {
 	{ .compatible = "mediatek,mt6315", .data = &common_data, },
 	{ .compatible = "mediatek,mt6319", .data = &common_data, },
 	{ .compatible = "mediatek,mt6363", .data = &mt6363_data, },
+	{ .compatible = "mediatek,mt6373", .data = &mt6373_data, },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, mtk_spmi_pmic_of_match);
