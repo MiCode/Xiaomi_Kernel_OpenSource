@@ -5,6 +5,7 @@
 
 #include <linux/vmalloc.h>      /* needed by vmalloc */
 #include <linux/io.h>
+#include <linux/interrupt.h>
 #include "adsp_core.h"
 #include "adsp_platform.h"
 #include "adsp_mbox.h"
@@ -224,8 +225,11 @@ int adsp_mbox_probe(struct platform_device *pdev)
 
 	for (idx = 0; idx < ADSP_IPI_CH_CNT; idx++) {
 		ret = mtk_mbox_probe(pdev, mbdev, idx);
-
 		if (ret)
+			break;
+
+		ret = enable_irq_wake(mbdev->info_table[idx].irq_num);
+		if (ret < 0)
 			break;
 	}
 
