@@ -804,7 +804,7 @@ static void vcu_gce_clear_inst_id(void *ctx)
 	}
 	mutex_unlock(&vcu_ptr->vcu_share);
 
-	pr_info("%s ctx %p not found!\n", __func__, ctx);
+	vcu_dbg_log("%s ctx %p not found!\n", __func__, ctx);
 }
 
 static void *vcu_check_gce_pa_base(struct mtk_vcu_queue *vcu_queue, u64 addr, u64 length)

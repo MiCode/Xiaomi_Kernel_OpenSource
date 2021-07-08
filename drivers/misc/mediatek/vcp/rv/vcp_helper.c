@@ -143,9 +143,9 @@ struct vcp_ipi_irq {
 };
 
 struct vcp_ipi_irq vcp_ipi_irqs[] = {
-	/* VCP IPC0 */
+	/* VCP WDT */
 	{ "mediatek,vcp", 0, 0},
-	/* VCP IPC1 */
+	/* VCP reserved */
 	{ "mediatek,vcp", 1, 0},
 	/* MBOX_0 */
 	{ "mediatek,vcp", 2, 0},
@@ -1914,7 +1914,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "vcp-support",
 		 &vcp_support);
 	if (vcp_support == 0) {
-		pr_info("Bypass the VCP driver probe\n");
+		pr_info("Bypass VCP driver probe\n");
 		return 0;
 	} else {
 		// VCP iommu devices
@@ -2020,39 +2020,38 @@ static int vcp_device_probe(struct platform_device *pdev)
 						, &vcpreg.twohart);
 	pr_notice("[VCP] vcpreg.twohart = %d\n", vcpreg.twohart);
 
-
-	vcpreg.irq0 = platform_get_irq_byname(pdev, "ipc0");
+	vcpreg.irq0 = platform_get_irq_byname(pdev, "wdt");
 	if (vcpreg.irq0 < 0)
-		pr_notice("[VCP] get ipc0 irq failed\n");
+		pr_notice("[VCP] wdt irq not exist\n");
 	else {
-		pr_debug("ipc0 %d\n", vcpreg.irq0);
+		pr_debug("wdt %d\n", vcpreg.irq0);
 		ret = request_irq(vcpreg.irq0, vcp_A_irq_handler,
-			IRQF_TRIGGER_NONE, "VCP IPC0", NULL);
+			IRQF_TRIGGER_NONE, "VCP wdt", NULL);
 		if (ret < 0)
-			pr_notice("[VCP]ipc0 require fail %d %d\n",
+			pr_notice("[VCP] wdt require fail %d %d\n",
 				vcpreg.irq0, ret);
 		else {
 			ret = enable_irq_wake(vcpreg.irq0);
 			if (ret < 0)
-				pr_notice("[VCP] ipc0 wake fail:%d,%d\n",
+				pr_notice("[VCP] wdt wake fail:%d,%d\n",
 					vcpreg.irq0, ret);
 		}
 	}
 
-	vcpreg.irq1 = platform_get_irq_byname(pdev, "ipc1");
+	vcpreg.irq1 = platform_get_irq_byname(pdev, "reserved");
 	if (vcpreg.irq1 < 0)
-		pr_notice("[VCP] get ipc1 irq failed\n");
+		pr_notice("[VCP] reserved irq not exist\n");
 	else {
-		pr_debug("ipc1 %d\n", vcpreg.irq1);
+		pr_debug("reserved %d\n", vcpreg.irq1);
 		ret = request_irq(vcpreg.irq1, vcp_A_irq_handler,
-			IRQF_TRIGGER_NONE, "VCP IPC1", NULL);
+			IRQF_TRIGGER_NONE, "VCP reserved", NULL);
 		if (ret < 0)
-			pr_notice("[VCP]ipc1 require irq fail %d %d\n",
+			pr_notice("[VCP] reserved require irq fail %d %d\n",
 				vcpreg.irq1, ret);
 		else {
 			ret = enable_irq_wake(vcpreg.irq1);
 			if (ret < 0)
-				pr_notice("[VCP] irq wake fail:%d,%d\n",
+				pr_notice("[VCP] reserved wake fail:%d,%d\n",
 					vcpreg.irq1, ret);
 		}
 	}

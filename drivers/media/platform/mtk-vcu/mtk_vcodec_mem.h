@@ -31,7 +31,7 @@
 #define dmac_flush_range __dma_flush_range
 #endif
 
-#define CODEC_MAX_BUFFER 512U
+#define CODEC_MAX_BUFFER 768U
 #define CODEC_ALLOCATE_MAX_BUFFER_SIZE 0x8000000UL /*128MB*/
 #define CODEC_MSK(addr) ((addr >> PAGE_SHIFT) & 0xFFFF)
 
