@@ -23,7 +23,7 @@ static struct mtk_devapc_context {
 
 	/* HW reg mapped addr */
 	void __iomem *devapc_pd_base[SLAVE_TYPE_NUM_MAX];
-	void __iomem *devapc_infra_ao_base;
+	void __iomem *devapc_ao_base[SLAVE_TYPE_NUM_MAX];
 	void __iomem *infracfg_base;
 	void __iomem *sramrom_base;
 
@@ -964,21 +964,33 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
  */
 static void devapc_ut(uint32_t cmd)
 {
-	void __iomem *devapc_ao_base;
+	void __iomem *dapc_ao_base;
 	void __iomem *sramrom_base = mtk_devapc_ctx->sramrom_base;
+	uint32_t irq_type;
+
+	if (!cmd) {
+		pr_info(PFX "%s, cmd(0x%x) not supported\n", __func__, cmd);
+		return;
+	}
 
 	pr_info(PFX "%s, cmd:0x%x\n", __func__, cmd);
 
-	devapc_ao_base = mtk_devapc_ctx->devapc_infra_ao_base;
+	irq_type = cmd - 1;
+	dapc_ao_base = mtk_devapc_ctx->devapc_ao_base[irq_type];
 
-	if (cmd == DEVAPC_UT_DAPC_VIO) {
-		if (unlikely(devapc_ao_base == NULL)) {
+	pr_info(PFX "%s, irq_type:0x%x\n", __func__, irq_type);
+
+	if (cmd == DEVAPC_UT_DAPC_INFRA_VIO ||
+		cmd == DEVAPC_UT_DAPC_VLP_VIO ||
+		cmd == DEVAPC_UT_DAPC_ADSP_VIO ||
+		cmd == DEVAPC_UT_DAPC_MMINFRA_VIO) {
+		if (unlikely(dapc_ao_base == NULL)) {
 			pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
 			return;
 		}
 
-		pr_info(PFX "%s, devapc_ao_infra_base:0x%x\n", __func__,
-				readl(devapc_ao_base));
+		pr_info(PFX "%s, devapc_ao_base:0x%x\n", __func__,
+				readl(dapc_ao_base));
 
 		pr_info(PFX "test done, it should generate violation!\n");
 
@@ -1313,6 +1325,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	struct device_node *node = pdev->dev.of_node;
 	uint32_t slave_type_num;
 	uint32_t irq_type_num = IRQ_TYPE_NUM_DEFAULT;
+	uint32_t dt_index;
 	int slave_type;
 	int irq_type;
 	int ret;
@@ -1339,14 +1352,21 @@ int mtk_devapc_probe(struct platform_device *pdev,
 			return -EINVAL;
 		}
 	}
+	dt_index = slave_type_num;
 
-	mtk_devapc_ctx->devapc_infra_ao_base = of_iomap(node, slave_type_num);
-	if (unlikely(mtk_devapc_ctx->devapc_infra_ao_base == NULL)) {
-		pr_err(PFX "parse devapc_infra_ao_base failed\n");
-		return -EINVAL;
+	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
+		mtk_devapc_ctx->devapc_ao_base[irq_type] = of_iomap(node,
+				dt_index + irq_type);
+		if (unlikely(mtk_devapc_ctx->devapc_ao_base[irq_type]
+					== NULL)) {
+			pr_err(PFX "parse devapc_ao_base:0x%x failed\n",
+					irq_type);
+			return -EINVAL;
+		}
 	}
+	dt_index += irq_type_num;
 
-	mtk_devapc_ctx->infracfg_base = of_iomap(node, slave_type_num + 1);
+	mtk_devapc_ctx->infracfg_base = of_iomap(node, dt_index);
 	if (unlikely(mtk_devapc_ctx->infracfg_base == NULL)) {
 		pr_err(PFX "parse infracfg_base failed\n");
 		return -EINVAL;
@@ -1369,6 +1389,12 @@ int mtk_devapc_probe(struct platform_device *pdev,
 				mtk_devapc_ctx->devapc_pd_base[slave_type]);
 
 	for (irq_type = 0; irq_type < irq_type_num; irq_type++)
+		pr_debug(PFX "%s:0x%x %s:%pa\n",
+				"irq_type", irq_type,
+				"devapc_ao_base",
+				mtk_devapc_ctx->devapc_ao_base[irq_type]);
+
+	for (irq_type = 0; irq_type < irq_type_num; irq_type++)
 		pr_debug(PFX " IRQ[%d]:%d\n", irq_type,
 			mtk_devapc_ctx->devapc_irq[irq_type]);
 
@@ -1383,14 +1409,14 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
 
 #ifdef CONFIG_DEVAPC_SWP_SUPPORT
-	devapc_swp_ctx->devapc_swp_base = of_iomap(node, slave_type_num + 2);
+	devapc_swp_ctx->devapc_swp_base = of_iomap(node, dt_index + 1);
 	ret = driver_create_file(pdev->dev.driver,
 			&driver_attr_set_swp_addr);
 	if (ret)
 		pr_info(PFX "create SWP sysfs file failed, ret:%d\n", ret);
 #endif
 
-	mtk_devapc_ctx->sramrom_base = of_iomap(node, slave_type_num + 3);
+	mtk_devapc_ctx->sramrom_base = of_iomap(node, dt_index + 2);
 	if (unlikely(mtk_devapc_ctx->sramrom_base == NULL))
 		pr_info(PFX "parse sramrom_base failed\n");
 
