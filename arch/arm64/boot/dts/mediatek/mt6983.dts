@@ -3183,7 +3183,7 @@
 			compatible = "mediatek,mt6779-uart-dma";
 			reg =   <0 0x11301000 0 0x80>,
 				<0 0x11301080 0 0x80>,
-				<0 0x1130100 0 0x80>,
+				<0 0x11301100 0 0x80>,
 				<0 0x11301180 0 0x80>;
 			interrupts =    <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH 0>,
 					<GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH 0>,
