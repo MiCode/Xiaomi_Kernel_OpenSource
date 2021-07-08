@@ -333,8 +333,6 @@ static void setup_nv12(struct mml_submit *task, struct mml_test_case *cur)
 		the_case.cfg_src_format,
 		the_case.cfg_src_w, the_case.cfg_src_h);
 
-	task->info.src.plane_offset[1] = task->buffer.src.size[0];
-
 	task->buffer.src.fd[1] = cur->fd_in;
 	task->buffer.src.size[1] = mml_color_get_min_uv_size(
 		the_case.cfg_src_format,
@@ -354,8 +352,6 @@ static void setup_nv12(struct mml_submit *task, struct mml_test_case *cur)
 	task->buffer.dest[0].size[0] = mml_color_get_min_y_size(
 		the_case.cfg_dest_format,
 		the_case.cfg_dest_w, the_case.cfg_dest_h);
-
-	task->info.dest[0].data.plane_offset[1] = task->buffer.dest[0].size[0];
 
 	task->buffer.dest[0].fd[1] = cur->fd_out;
 	task->buffer.dest[0].size[1] = mml_color_get_min_uv_size(
@@ -417,8 +413,6 @@ static void setup_block_to_nv12(struct mml_submit *task,
 		the_case.cfg_src_format,
 		the_case.cfg_src_w, the_case.cfg_src_h);
 
-	task->info.src.plane_offset[1] = task->buffer.src.size[0];
-
 	task->buffer.src.fd[1] = cur->fd_in;
 	task->buffer.src.size[1] = mml_color_get_min_uv_size(
 		the_case.cfg_src_format,
@@ -432,8 +426,6 @@ static void setup_block_to_nv12(struct mml_submit *task,
 	task->buffer.dest[0].size[0] = mml_color_get_min_y_size(
 		the_case.cfg_dest_format,
 		the_case.cfg_dest_w, the_case.cfg_dest_h);
-
-	task->info.dest[0].data.plane_offset[1] = task->buffer.dest[0].size[0];
 
 	task->buffer.dest[0].fd[1] = cur->fd_out;
 	task->buffer.dest[0].size[1] = mml_color_get_min_uv_size(
@@ -543,9 +535,6 @@ static void setup_2out(struct mml_submit *task, struct mml_test_case *cur)
 	/* config dest[0] uv plane nv12 */
 	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
 		the_case.cfg_dest_format, the_case.cfg_dest_w);
-	task->info.dest[0].data.plane_offset[1] = mml_color_get_min_y_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
 
 	/* config dest[1] */
 	task->info.dest_cnt = 2;
@@ -598,9 +587,6 @@ static void setup_2out_crop(struct mml_submit *task, struct mml_test_case *cur)
 	/* config dest[0] uv plane nv12 */
 	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
 		the_case.cfg_dest_format, the_case.cfg_dest_w);
-	task->info.dest[0].data.plane_offset[1] = mml_color_get_min_y_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
 
 	/* config dest[1] */
 	task->info.dest_cnt = 2;
@@ -668,9 +654,6 @@ static void setup_2out_crop_compose(struct mml_submit *task,
 	/* config dest[0] uv plane nv12 */
 	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
 		the_case.cfg_dest_format, the_case.cfg_dest_w);
-	task->info.dest[0].data.plane_offset[1] = mml_color_get_min_y_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
 
 	/* config dest[1] */
 	task->info.dest_cnt = 2;
@@ -766,8 +749,6 @@ static void setup_yv12_yuyv(struct mml_submit *task, struct mml_test_case *cur)
 	task->buffer.src.size[0] = mml_color_get_min_y_size(
 		the_case.cfg_src_format,
 		the_case.cfg_src_w, the_case.cfg_src_h);
-
-	task->info.src.plane_offset[1] = task->buffer.src.size[0];
 
 	task->buffer.src.fd[1] = cur->fd_in;
 	task->buffer.src.size[1] = mml_color_get_min_uv_size(

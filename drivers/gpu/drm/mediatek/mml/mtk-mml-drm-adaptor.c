@@ -486,6 +486,22 @@ static void dump_pq_en(u32 idx, struct mml_pq_param *pq_param,
 			mml_pq_disable ? "FORCE DISABLE" : "");
 }
 
+static void frame_calc_plane_offset(struct mml_frame_data *data,
+	struct mml_buffer *buf)
+{
+	u32 i;
+
+	data->plane_offset[0] = 0;
+	for (i = 1; i < MML_FMT_PLANE(data->format); i++) {
+		if (buf->fd[i] != buf->fd[i-1]) {
+			/* different buffer for different plane, set to begin */
+			data->plane_offset[i] = 0;
+			continue;
+		}
+		data->plane_offset[i] = data->plane_offset[i-1] + buf->size[i-1];
+	}
+}
+
 s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 {
 	struct mml_frame_config *cfg;
@@ -508,6 +524,12 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 			}
 		}
 	}
+
+	/* always fixup plane offset */
+	frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
+	for (i = 0; i < submit->info.dest_cnt; i++)
+		frame_calc_plane_offset(&submit->info.dest[i].data,
+			&submit->buffer.dest[i]);
 
 	mutex_lock(&ctx->config_mutex);
 
