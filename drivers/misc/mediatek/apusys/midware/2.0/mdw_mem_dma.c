@@ -244,8 +244,12 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
 	mdbuf->a.vaddr = dma_alloc_coherent(dev, mdbuf->dma_size,
 		&mdbuf->dma_addr, GFP_KERNEL);
 
-	if (!mdbuf->a.vaddr)
+	if (!mdbuf->a.vaddr) {
+		mdw_drv_err("Alloc Fail\n");
+		ret = -ENOMEM;
 		goto free_mdw_dbuf;
+	}
+
 
 	/* export as dma-buf */
 	exp_info.ops = &mdw_dmabuf_ops;
@@ -254,8 +258,11 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
 	exp_info.priv = mdbuf;
 
 	mdbuf->dbuf = dma_buf_export(&exp_info);
-	if (IS_ERR(mdbuf->dbuf))
+	if (IS_ERR(mdbuf->dbuf)) {
+		mdw_drv_err("dma_buf_export Fail\n");
+		ret = -ENOMEM;
 		goto free_dma_buf;
+	}
 
 	mdbuf->dbuf->priv = mdbuf;
 	mdbuf->mmem = mem;

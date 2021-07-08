@@ -64,6 +64,21 @@ static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 	return m;
 }
 
+static int mdw_mem_destroy(struct mdw_mem *m)
+{
+	int ret = 0;
+
+	if (!m) {
+		mdw_drv_err("Destroy Null pointer\n");
+		return -ENODATA;
+	}
+
+	vfree(m);
+
+	return ret;
+}
+
+
 static void mdw_mem_map_release(struct kref *ref)
 {
 	struct mdw_mem *m =
@@ -112,14 +127,17 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	m->flags = flags;
 	m->type = type;
 	ret = mdw_mem_dma_alloc(m, need_handle);
-	if (ret)
+	if (ret) {
+		mdw_drv_err("mdw_mem_dma_alloc Fail (%d)\n", ret);
 		goto free_mem;
+	}
+
 
 	mdw_mem_show(m);
 	goto out;
 
 free_mem:
-	mdw_mem_delete(m);
+	mdw_mem_destroy(m);
 	m = NULL;
 out:
 	return m;
@@ -187,7 +205,7 @@ static struct mdw_mem *mdw_mem_import(struct mdw_fpriv *mpriv,
 	goto out;
 
 free_mem:
-	mdw_mem_delete(m);
+	mdw_mem_destroy(m);
 	m = NULL;
 out:
 	return m;
@@ -224,8 +242,11 @@ static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,
 	m = mdw_mem_alloc(mpriv, in->alloc.size,
 		in->alloc.align, in->alloc.flags, MDW_MEM_TYPE_ALLOC);
 	memset(args, 0, sizeof(*args));
-	if (!m)
+	if (!m) {
+		mdw_drv_err("mdw_mem_alloc fail\n");
 		return -ENOMEM;
+	}
+
 
 	mutex_lock(&mpriv->mtx);
 	list_add_tail(&m->u_item, &mpriv->mems);
