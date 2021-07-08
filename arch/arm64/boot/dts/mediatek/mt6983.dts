@@ -1499,6 +1499,12 @@
 		compatible = "mediatek,radio_md_cfg";
 	};
 
+	md1_sim1_hot_plug_eint:md1_sim1_hot_plug_eint {
+	};
+
+	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint {
+	};
+
 	bus_dbg@10208000 {
 		compatible = "mediatek,bus_dbg";
 		reg = <0 0x10208000 0 0x1000>;
