@@ -1173,6 +1173,14 @@
 			reg = <0 0x10002000 0 0x1000>;
 		};
 
+		eint: apirq@1000b000 {
+			compatible = "mediatek,mtk-eint";
+			reg = <0 0x1000b000 0 0x1000>;
+			reg-name = "eint";
+			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,total-pin-number = <128>;
+		};
+
 		pio: pinctrl@10005000 {
 			compatible = "mediatek,mt6853-pinctrl", "syscon";
 			reg = <0 0x10005000 0 0x1000>,
@@ -1194,6 +1202,7 @@
 			interrupt-controller;
 			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH 0>;
 			#interrupt-cells = <2>;
+			mediatek,eint = <&eint>;
 		};
 
 		scpsys: power-controller@10006000 {
