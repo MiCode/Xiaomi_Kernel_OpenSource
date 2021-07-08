@@ -60,6 +60,7 @@ config ANDROID_DEFAULT_SETTING
 	select HARDENED_USERCOPY
 	select HID_GENERIC
 	select HID_NINTENDO
+	select HID_PLAYSTATION
 	select HID_SONY
 	select HIGH_RES_TIMERS
 	select IKCONFIG
@@ -194,6 +195,7 @@ config ANDROID_DEFAULT_SETTING
 	select NF_SOCKET_IPV6
 	select NO_HZ
 	select PACKET
+	select PLAYSTATION_FF
 	select PM_WAKELOCKS
 	select POSIX_TIMERS
 	select PPP
