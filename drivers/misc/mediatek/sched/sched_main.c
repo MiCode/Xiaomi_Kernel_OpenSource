@@ -273,6 +273,7 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 
 	temp_util = util;
 	util = util + (util >> 2);
+	util = min(util, cap);
 
 	for (i = 0; i < pd_count; i++) {
 		info = &pd_capacity_tbl[i];
