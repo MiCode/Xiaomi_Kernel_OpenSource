@@ -12,10 +12,13 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 
 /* u2 phy banks */
 #define SSUSB_SIFSLV_MISC		0x000
@@ -54,6 +57,8 @@
 #define P2A1_RG_VRT_SEL_VAL(x)	((0x7 & (x)) << 12)
 #define P2A1_RG_TERM_SEL		GENMASK(10, 8)
 #define P2A1_RG_TERM_SEL_VAL(x)	((0x7 & (x)) << 8)
+
+#define XSP_USBPHYACR2		((SSUSB_SIFSLV_U2PHY_COM) + 0x08)
 
 #define XSP_USBPHYACR5		((SSUSB_SIFSLV_U2PHY_COM) + 0x014)
 #define P2A5_RG_HSTX_SRCAL_EN	BIT(15)
@@ -125,6 +130,20 @@
 
 #define PHY_MODE_BC11_SW_SET 1
 #define PHY_MODE_BC11_SW_CLR 2
+
+#define XSP_MODE_UART_STR "usb2uart_mode=1"
+#define XSP_MODE_JTAG_STR "usb2jtag_mode=1"
+
+enum mtk_xsphy_mode {
+	XSP_MODE_USB = 0,
+	XSP_MODE_UART,
+	XSP_MODE_JTAG,
+};
+
+enum mtk_xsphy_jtag_version {
+	XSP_JTAG_V1 = 1,
+	XSP_JTAG_V2,
+};
 
 struct xsphy_instance {
 	struct phy *phy;
@@ -565,6 +584,150 @@ static int mtk_phy_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 	return 0;
 }
 
+static int mtk_phy_get_mode(struct mtk_xsphy *xsphy)
+{
+	struct device_node *of_chosen;
+	char *bootargs;
+	int mode = XSP_MODE_USB;
+
+	of_chosen = of_find_node_by_path("/chosen");
+	if (!of_chosen)
+		goto done;
+
+	bootargs = (char *)of_get_property(of_chosen,
+			"bootargs", NULL);
+	if (!bootargs)
+		goto done;
+
+	if (strstr(bootargs, XSP_MODE_UART_STR))
+		mode = XSP_MODE_UART;
+	else if (strstr(bootargs, XSP_MODE_JTAG_STR))
+		mode = XSP_MODE_JTAG;
+
+done:
+	return mode;
+}
+
+static int mtk_phy_uart_init(struct phy *phy)
+{
+	struct xsphy_instance *inst = phy_get_drvdata(phy);
+	struct mtk_xsphy *xsphy = dev_get_drvdata(phy->dev.parent);
+	int ret;
+
+	if  (inst->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(xsphy->dev, "%s\n", __func__);
+
+	ret = clk_prepare_enable(inst->ref_clk);
+	if (ret) {
+		dev_info(xsphy->dev, "failed to enable ref_clk\n");
+		return ret;
+	}
+	udelay(250);
+
+	return 0;
+}
+
+static int mtk_phy_uart_exit(struct phy *phy)
+{
+	struct xsphy_instance *inst = phy_get_drvdata(phy);
+	struct mtk_xsphy *xsphy = dev_get_drvdata(phy->dev.parent);
+
+	if  (inst->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(xsphy->dev, "%s\n", __func__);
+
+	clk_disable_unprepare(inst->ref_clk);
+	return 0;
+}
+
+static int mtk_phy_jtag_init(struct phy *phy)
+{
+	struct xsphy_instance *inst = phy_get_drvdata(phy);
+	struct mtk_xsphy *xsphy = dev_get_drvdata(phy->dev.parent);
+	void __iomem *pbase = inst->port_base;
+	struct device *dev = &phy->dev;
+	struct device_node *np = dev->of_node;
+	struct of_phandle_args args;
+	struct regmap *reg_base;
+	u32 jtag_vers;
+	u32 tmp;
+	int ret;
+
+	if  (inst->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(xsphy->dev, "%s\n", __func__);
+
+	ret = of_parse_phandle_with_fixed_args(np, "usb2jtag", 1, 0, &args);
+	if (ret)
+		return ret;
+
+	jtag_vers = args.args[0];
+	reg_base = syscon_node_to_regmap(args.np);
+	of_node_put(args.np);
+
+	dev_info(xsphy->dev, "base - reg:0x%x, version:%d\n",
+			reg_base, jtag_vers);
+
+	ret = clk_prepare_enable(inst->ref_clk);
+	if (ret) {
+		dev_info(xsphy->dev, "failed to enable ref_clk\n");
+		return ret;
+	}
+
+	tmp = readl(pbase + XSP_USBPHYACR4);
+	tmp |= 0xf300;
+	writel(tmp, pbase + XSP_USBPHYACR4);
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp &= 0xff7ffff;
+	writel(tmp, pbase + XSP_USBPHYACR6);
+
+	tmp = readl(pbase + XSP_USBPHYACR0);
+	tmp |= 0x1;
+	writel(tmp, pbase + XSP_USBPHYACR0);
+
+	tmp = readl(pbase + XSP_USBPHYACR2);
+	tmp &= 0xfffdffff;
+	writel(tmp, pbase + XSP_USBPHYACR2);
+
+	udelay(100);
+
+	switch (jtag_vers) {
+	case XSP_JTAG_V1:
+		regmap_read(reg_base, 0xf00, &tmp);
+		tmp |= 0x4030;
+		regmap_write(reg_base, 0xf00, tmp);
+		break;
+	case XSP_JTAG_V2:
+		regmap_read(reg_base, 0x100, &tmp);
+		tmp |= 0x2;
+		regmap_write(reg_base, 0x100, tmp);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int mtk_phy_jtag_exit(struct phy *phy)
+{
+	struct xsphy_instance *inst = phy_get_drvdata(phy);
+	struct mtk_xsphy *xsphy = dev_get_drvdata(phy->dev.parent);
+
+	if  (inst->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(xsphy->dev, "%s\n", __func__);
+
+	clk_disable_unprepare(inst->ref_clk);
+	return 0;
+}
+
 static struct phy *mtk_phy_xlate(struct device *dev,
 				 struct of_phandle_args *args)
 {
@@ -600,6 +763,18 @@ static struct phy *mtk_phy_xlate(struct device *dev,
 
 	return inst->phy;
 }
+
+static const struct phy_ops mtk_xsphy_uart_ops = {
+	.init		= mtk_phy_uart_init,
+	.exit		= mtk_phy_uart_exit,
+	.owner		= THIS_MODULE,
+};
+
+static const struct phy_ops mtk_xsphy_jtag_ops = {
+	.init		= mtk_phy_jtag_init,
+	.exit		= mtk_phy_jtag_exit,
+	.owner		= THIS_MODULE,
+};
 
 static const struct phy_ops mtk_xsphy_ops = {
 	.init		= mtk_phy_init,
@@ -662,6 +837,7 @@ static int mtk_xsphy_probe(struct platform_device *pdev)
 	for_each_child_of_node(np, child_np) {
 		struct xsphy_instance *inst;
 		struct phy *phy;
+		int mode;
 
 		inst = devm_kzalloc(dev, sizeof(*inst), GFP_KERNEL);
 		if (!inst) {
@@ -671,7 +847,22 @@ static int mtk_xsphy_probe(struct platform_device *pdev)
 
 		xsphy->phys[port] = inst;
 
-		phy = devm_phy_create(dev, child_np, &mtk_xsphy_ops);
+		/* change ops to usb uart or jtage mode */
+		mode = mtk_phy_get_mode(xsphy);
+		switch (mode) {
+		case XSP_MODE_UART:
+			phy = devm_phy_create(dev, child_np,
+				&mtk_xsphy_uart_ops);
+			break;
+		case XSP_MODE_JTAG:
+			phy = devm_phy_create(dev, child_np,
+				&mtk_xsphy_jtag_ops);
+			break;
+		default:
+			phy = devm_phy_create(dev, child_np,
+				&mtk_xsphy_ops);
+		}
+
 		if (IS_ERR(phy)) {
 			dev_err(dev, "failed to create phy\n");
 			retval = PTR_ERR(phy);
@@ -703,6 +894,7 @@ static int mtk_xsphy_probe(struct platform_device *pdev)
 			retval = PTR_ERR(inst->ref_clk);
 			goto put_child;
 		}
+
 	}
 
 	provider = devm_of_phy_provider_register(dev, mtk_phy_xlate);
