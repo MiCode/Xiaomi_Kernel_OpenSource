@@ -703,7 +703,7 @@ static struct fh_pll_data mt6983_top_data[] = {
 	DATA_6983_CONVERT("mpll"),
 	DATA_6983_CONVERT("mmpll"),
 	DATA_6983_CONVERT("mainpll"),
-	DATA_6983_CONVERT("msdcpll "),
+	DATA_6983_CONVERT("msdcpll"),
 	DATA_6983_CONVERT("adsppll"),
 	DATA_6983_CONVERT("imgpll"),
 	DATA_6983_CONVERT("tvdpll"),
@@ -860,7 +860,7 @@ static struct fh_pll_domain mt6983_gpu2 = {
 };
 ///////////////////////////////////gpu3
 static struct fh_pll_data mt6983_gpu3_data[] = {
-	DATA_6983_CONVERT("mfgscpll "),
+	DATA_6983_CONVERT("mfgscpll"),
 	{}
 };
 static struct fh_pll_offset mt6983_gpu3_offset[SIZE_6983_GPU3] = {
