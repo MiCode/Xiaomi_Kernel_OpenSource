@@ -981,7 +981,7 @@ static int imgsensor_probe(struct i2c_client *client)
 	int ret;
 
 #ifdef SENSOR_FPGA_EP
-	pr_info("v4l2_subdev_adaptor_drv_imgsensor_probe\n");
+	pr_info("%s start\n", __func__);
 #endif
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -1081,6 +1081,10 @@ static int imgsensor_probe(struct i2c_client *client)
 
 	notify_fsync_mgr(ctx);
 
+#ifdef SENSOR_FPGA_EP
+	pr_info("%s end\n", __func__);
+#endif
+
 	return 0;
 
 free_entity:
@@ -1148,16 +1152,25 @@ static struct i2c_driver imgsensor_i2c_driver = {
 
 static int __init adaptor_drv_init(void)
 {
+#ifdef SENSOR_FPGA_EP
+	pr_info("%s start\n", __func__);
+#endif
 	i2c_add_driver(&imgsensor_i2c_driver);
+#ifdef SENSOR_FPGA_EP
+	pr_info("%s end\n", __func__);
+#endif
 	return 0;
 }
 
 static void __exit adaptor_drv_exit(void)
 {
 #ifdef SENSOR_FPGA_EP
-	pr_info("v4l2_subdev_adaptor_drv_init\n");
+	pr_info("%s start\n", __func__);
 #endif
 	i2c_del_driver(&imgsensor_i2c_driver);
+#ifdef SENSOR_FPGA_EP
+	pr_info("%s end\n", __func__);
+#endif
 }
 
 late_initcall(adaptor_drv_init);

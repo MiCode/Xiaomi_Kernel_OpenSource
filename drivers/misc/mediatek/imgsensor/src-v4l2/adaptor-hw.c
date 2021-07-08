@@ -44,12 +44,12 @@ static struct clk *get_clk_by_freq(struct adaptor_ctx *ctx, int freq)
 		return ctx->clk[CLK_12M];
 	case 13:
 		return ctx->clk[CLK_13M];
+	case 19:
+		return ctx->clk[CLK_19_2M];
 	case 24:
 		return ctx->clk[CLK_24M];
 	case 26:
 		return ctx->clk[CLK_26M];
-	case 48:
-		return ctx->clk[CLK_48M];
 	case 52:
 		return ctx->clk[CLK_52M];
 	}

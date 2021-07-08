@@ -16,9 +16,9 @@ enum {
 	CLK_6M = 0,
 	CLK_12M,
 	CLK_13M,
+	CLK_19_2M,
 	CLK_24M,
 	CLK_26M,
-	CLK_48M,
 	CLK_52M,
 	CLK_MCLK,
 	CLK_MAXCNT,
@@ -28,9 +28,9 @@ enum {
 	"6", \
 	"12", \
 	"13", \
+	"19.2", \
 	"24", \
 	"26", \
-	"48", \
 	"52", \
 	"mclk", \
 
@@ -54,6 +54,8 @@ enum {
 	STATE_DOVDD_ON,
 	STATE_AFVDD_OFF,
 	STATE_AFVDD_ON,
+	STATE_AVDD1_OFF,
+	STATE_AVDD1_ON,
 	STATE_MAXCNT,
 };
 
@@ -77,12 +79,15 @@ enum {
 	"dovdd_on", \
 	"afvdd_off", \
 	"afvdd_on", \
+	"avdd1_off", \
+	"avdd1_on", \
 
 enum {
 	REGULATOR_AVDD = 0,
 	REGULATOR_DVDD,
 	REGULATOR_DOVDD,
 	REGULATOR_AFVDD,
+	REGULATOR_AVDD1,
 	REGULATOR_MAXCNT,
 };
 
@@ -91,6 +96,7 @@ enum {
 	"dvdd", \
 	"dovdd", \
 	"afvdd", \
+	"avdd1", \
 
 /* Format code util */
 
