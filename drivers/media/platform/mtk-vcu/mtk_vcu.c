@@ -93,10 +93,10 @@
 #define MAP_SHMEM_COMMIT_RANGE  VCU_SHMEM_SIZE
 #define MAP_SHMEM_COMMIT_END    (MAP_SHMEM_COMMIT_BASE + MAP_SHMEM_COMMIT_RANGE)
 
-#define MAP_SHMEM_MM_BASE       0x200000000UL
-#define MAP_SHMEM_MM_CACHEABLE_BASE     0x400000000UL
-#define MAP_SHMEM_PA_BASE       0x800000000UL
-#define MAP_SHMEM_MM_RANGE      0x1FFFFFFFFUL
+#define MAP_SHMEM_MM_BASE       0x2000000000UL
+#define MAP_SHMEM_MM_CACHEABLE_BASE     0x4000000000UL
+#define MAP_SHMEM_PA_BASE       0x8000000000UL
+#define MAP_SHMEM_MM_RANGE      0x1FFFFFFFFFUL
 #define MAP_SHMEM_MM_END        (MAP_SHMEM_MM_BASE + MAP_SHMEM_MM_RANGE)
 #define MAP_SHMEM_MM_CACHEABLE_END (MAP_SHMEM_MM_CACHEABLE_BASE \
 + MAP_SHMEM_MM_RANGE)
@@ -1858,8 +1858,7 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 		else
 			pa_start -= MAP_SHMEM_MM_BASE;
 
-		mem_buff_data.iova = (vcu_ptr->iommu_padding) ?
-		(pa_start | 0x100000000UL) : pa_start;
+		mem_buff_data.iova = pa_start;
 		mem_buff_data.len = length;
 		src_vb = NULL;
 		dst_vb = NULL;
@@ -1880,8 +1879,6 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 		while (length > 0) {
 			vma->vm_pgoff = iommu_iova_to_phys(vcu_dev->io_domain,
-				(vcu_ptr->iommu_padding) ?
-				((pa_start + pos) | 0x100000000UL) :
 				(pa_start + pos));
 			if (vma->vm_pgoff == 0) {
 				dev_info(vcu_dev->dev, "[VCU] iommu_iova_to_phys fail vcu_ptr->iommu_padding = %d pa_start = 0x%lx\n",
@@ -2027,8 +2024,6 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		if (cmd == VCU_MVA_FREE) {
-			if (vcu_ptr->iommu_padding)
-				mem_buff_data.iova |= 0x100000000UL;
 			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
 		} else {
 			ret = mtk_vcu_free_page(vcu_queue, &mem_buff_data);
@@ -2073,8 +2068,6 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			       __func__, __LINE__);
 			return -EINVAL;
 		}
-		if (vcu_ptr->iommu_padding)
-			mem_buff_data.iova |= 0x100000000UL;
 		ret = vcu_buffer_cache_sync(dev, vcu_queue,
 			(dma_addr_t)mem_buff_data.iova,
 			(size_t)mem_buff_data.len,
