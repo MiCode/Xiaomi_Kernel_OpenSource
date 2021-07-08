@@ -2723,6 +2723,9 @@ static void m2mops_vdec_job_abort(void *priv)
 {
 	struct mtk_vcodec_ctx *ctx = priv;
 
+	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM)
+		vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, NULL);
+
 	mtk_v4l2_debug(4, "[%d]", ctx->id);
 	ctx->state = MTK_STATE_ABORT;
 }
