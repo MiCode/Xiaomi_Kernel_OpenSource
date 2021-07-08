@@ -9,18 +9,20 @@
 // Common implementation
 #define PLT_INIT           0x504C5401
 #define PLT_LOG_ENABLE     0x504C5402
+#define IPI_TIMEOUT_MS     3000U
 
 struct plat_ipi_send_data {
-    unsigned int cmd;
-    union {
-        struct {
-            unsigned int phys;
-            unsigned int size;
-        } ctrl;
-        struct {
-            unsigned int enable;
-        } logger;
-    } u;
+	unsigned int cmd;
+	unsigned int reserved[1];
+	union {
+		struct {
+			u64 tab_phys;
+		} init;
+		struct {
+			unsigned int enable;
+			unsigned int reserved[1];
+		} logger;
+	} u;
 };
 
 extern struct mtk_mbox_device   gpueb_mboxdev;
@@ -34,6 +36,6 @@ extern const char *gpueb_mbox_pin_recv_name[20];
 int gpueb_ipi_init(struct platform_device *pdev);
 int gpueb_get_send_PIN_ID_by_name(char *send_PIN_name);
 int gpueb_get_recv_PIN_ID_by_name(char *recv_PIN_name);
-
+void *get_gpueb_ipidev(void);
 
 #endif /* __GPUEB_IPI_H__ */
