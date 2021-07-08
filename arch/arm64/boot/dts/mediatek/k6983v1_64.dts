@@ -39,22 +39,6 @@
 	};
 };
 
-&ssusb {
-	phys = <&u3fpgaport0 PHY_TYPE_USB3>;
-	plat_type = <1>; /* FPGA */
-	fpga_phy = <3>; /* A60931 */
-	dr_mode = "peripheral";
-	status = "okay";
-};
-
-&u3fpgaphy {
-	status = "okay";
-};
-
-&u3phy {
-	status = "disabled";
-};
-
 /* GPS GPIO standardization start */
 &pio {
 	gps_pins_default: gps_default {
