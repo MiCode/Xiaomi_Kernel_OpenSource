@@ -176,6 +176,7 @@ extern const struct clk_ops clk_alpha_pll_fixed_lucid_evo_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_lucid_evo_ops;
 extern const struct clk_ops clk_alpha_pll_lucid_evo_ops;
 extern const struct clk_ops clk_alpha_pll_rivian_evo_ops;
+extern const struct clk_ops clk_alpha_pll_postdiv_rivian_evo_ops;
 
 extern const struct clk_ops clk_regera_pll_ops;
 extern const struct clk_ops clk_agera_pll_ops;
