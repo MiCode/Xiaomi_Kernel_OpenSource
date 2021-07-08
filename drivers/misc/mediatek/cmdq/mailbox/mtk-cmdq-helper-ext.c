@@ -2355,8 +2355,8 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 			"Reg Index GPR R", cmdq_inst->s_op);
 	else
 		len = snprintf(text, txt_sz,
-			"%#06x %#010x [Move ] mask %#018llx",
-			offset, *((u32 *)cmdq_inst), ~val);
+			"%#06x %#018llx [Move ] mask %#010llx",
+			offset, *((u64 *)cmdq_inst), ~val);
 	if (len >= txt_sz)
 		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
@@ -2561,11 +2561,13 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 		} else {
 			size = CMDQ_CMD_BUFFER_SIZE;
 		}
-		cmdq_util_user_msg(client->chan, "buffer %u va:0x%p pa:%pa",
+		cmdq_util_user_msg(client ? client->chan : NULL,
+			"buffer %u va:0x%p pa:%pa",
 			cnt, buf->va_base, &buf->pa_base);
 		if (buf->va_base) {
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-				buf->pa_base, curr_pa, NULL, client->chan);
+				buf->pa_base, curr_pa, NULL,
+				client ? client->chan : NULL);
 		}
 		cnt++;
 	}
