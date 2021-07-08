@@ -21,7 +21,7 @@
  * IOCFG_LM_BASE: 0x11E10000
  * IOCFG_LB_BASE: 0x11E20000
  * IOCFG_RTT_BASE: 0x11EA0000
- * IOCFG_TR_BASE: 0x11EB0000
+ * IOCFG_TR_BASE: 0x11F10000
  * IOCFG_TL_BASE: 0x11F20000
  * IOCFG_LT_BASE: 0x11F30000
  * _i_based could be used to indicate what base the pin should be mapped into.
