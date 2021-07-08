@@ -33,7 +33,7 @@ struct clk_bulk_data imgsys_isp7_me_clks[] = {
 	{ .id = "ME_CG_LARB12" },
 };
 
-static struct me_device *me_dev;
+//static struct me_device *me_dev;
 
 #ifdef TF_DUMP
 int ME_TranslationFault_callback(int port, unsigned long mva, void *data)
@@ -56,6 +56,7 @@ int ME_TranslationFault_callback(int port, unsigned long mva, void *data)
 
 void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
+#ifdef TF_DUMP
 	int ret;
 
 	pr_info("%s: +\n", __func__);
@@ -66,7 +67,6 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		pr_info("failed to enable clock:%d\n", ret);
 		return;
 	}
-#ifdef TF_DUMP
 	mtk_iommu_register_fault_callback(M4U_PORT_L12_IMG_ME_RDMA,
 	(mtk_iommu_fault_callback_t)ME_TranslationFault_callback,
 	NULL);
@@ -80,12 +80,14 @@ EXPORT_SYMBOL(imgsys_me_set_initial_value);
 
 void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
+#ifdef TF_DUMP
 	pr_info("%s: +\n", __func__);
 
 	pm_runtime_put_sync(me_dev->dev);
 	clk_bulk_disable_unprepare(me_dev->me_clk.clk_num, me_dev->me_clk.clks);
 
 	pr_info("%s: -\n", __func__);
+#endif
 }
 EXPORT_SYMBOL(imgsys_me_uninit);
 
