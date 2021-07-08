@@ -44,7 +44,7 @@ int adaptor_i2c_rd_u8(struct i2c_client *i2c_client,
 
 	ret = i2c_transfer(i2c_client->adapter, msg, 2);
 	if (ret < 0) {
-		dev_err(&i2c_client->dev, "i2c transfer failed (%d)\n", ret);
+		dev_info(&i2c_client->dev, "i2c transfer failed (%d)\n", ret);
 		return ret;
 	}
 
@@ -87,12 +87,15 @@ int adaptor_i2c_rd_u16(struct i2c_client *i2c_client,
 int adaptor_i2c_rd_p8(struct i2c_client *i2c_client,
 		u16 addr, u16 reg, u8 *p_vals, u32 n_vals)
 {
-	int ret;
+	int ret, cnt, total, recv, reg_b;
 	u8 buf[2];
 	struct i2c_msg msg[2];
+	u8 *pbuf;
 
-	buf[0] = reg >> 8;
-	buf[1] = reg & 0xff;
+	recv = 0;
+	total = n_vals;
+	pbuf = p_vals;
+	reg_b = reg;
 
 	msg[0].addr = addr;
 	msg[0].flags = i2c_client->flags;
@@ -101,12 +104,30 @@ int adaptor_i2c_rd_p8(struct i2c_client *i2c_client,
 
 	msg[1].addr = addr;
 	msg[1].flags = i2c_client->flags | I2C_M_RD;
-	msg[1].buf = p_vals;
-	msg[1].len = n_vals;
 
-	ret = i2c_transfer(i2c_client->adapter, msg, 2);
-	if (ret < 0)
-		dev_err(&i2c_client->dev, "i2c transfer failed (%d)\n", ret);
+	while (recv < total) {
+
+		cnt = total - recv;
+		if (cnt > MAX_VAL_NUM_U8)
+			cnt = MAX_VAL_NUM_U8;
+
+		buf[0] = reg_b >> 8;
+		buf[1] = reg_b & 0xff;
+
+		msg[1].buf = pbuf;
+		msg[1].len = cnt;
+
+		ret = i2c_transfer(i2c_client->adapter, msg, 2);
+		if (ret < 0) {
+			dev_info(&i2c_client->dev,
+				"i2c transfer failed (%d)\n", ret);
+			return -EIO;
+		}
+
+		pbuf += cnt;
+		recv += cnt;
+		reg_b += cnt;
+	}
 
 	return ret;
 }

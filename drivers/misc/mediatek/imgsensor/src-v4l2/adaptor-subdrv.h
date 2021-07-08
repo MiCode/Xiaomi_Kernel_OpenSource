@@ -6,11 +6,11 @@
 
 #include <media/v4l2-subdev.h>
 
-#include "kd_imgsensor_define.h"
+//#include "kd_imgsensor_define_v4l2.h"
+#include "imgsensor-user.h"
 
-#ifdef V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA
+/* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define IMGSENSOR_VC_ROUTING
-#endif
 
 enum {
 	HW_ID_AVDD = 0,
@@ -75,12 +75,14 @@ struct subdrv_ctx {
 	u32 frame_length; /* current framelength */
 	u32 line_length; /* current linelength */
 	u32 min_frame_length;
+	u8 margin; /* current (mode's) margin */
+	u8 frame_time_delay_frame; /* EX: sony => 3 ; non-sony => 2 */
 	u16 dummy_pixel; /* current dummypixel */
 	u16 dummy_line; /* current dummline */
 	u16 current_fps; /* current max fps */
 	u8 autoflicker_en; /* record autoflicker enable or disable */
 	u8 test_pattern; /* record test pattern mode or not */
-	enum MSDK_SCENARIO_ID_ENUM current_scenario_id;
+	enum SENSOR_SCENARIO_ID_ENUM current_scenario_id;
 	u8 ihdr_mode; /* ihdr enable or disable */
 	u8 pdaf_mode; /* ihdr enable or disable */
 	u8 hdr_mode; /* HDR mode : 0: disable HDR, 1:IHDR, 2:HDR, 9:ZHDR */
@@ -111,8 +113,9 @@ struct subdrv_ops {
 	int (*close)(struct subdrv_ctx *ctx);
 	int (*get_frame_desc)(struct subdrv_ctx *ctx,
 			int scenario_id,
-			struct v4l2_mbus_frame_desc *fd);
+			struct mtk_mbus_frame_desc *fd);
 	int (*get_temp)(struct subdrv_ctx *ctx, int *temp);
+	int (*vsync_notify)(struct subdrv_ctx *ctx, unsigned int sof_cnt);
 };
 
 struct subdrv_entry {

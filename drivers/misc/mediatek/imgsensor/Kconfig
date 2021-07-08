@@ -4,7 +4,7 @@ config MTK_IMGSENSOR
 	  This is a driver for the MediaTek
 	  image sensors.
 	  To compile this driver as a module, choose M here: the
-	  module will be called imgsensor.
+	  module will be called imgsensor_isp6s.
 
 config CUSTOM_KERNEL_IMGSENSOR
 	string "Custom image sensor driver"
@@ -49,7 +49,6 @@ config MTK_IMGSENSOR_PLATFORM
 
 config MTK_V4L2_IMGSENSOR
 	tristate "MediaTek v4l2 image sensor support"
-	depends on CUSTOM_KERNEL_IMGSENSOR != ""
 	select VIDEO_V4L2_SUBDEV_API
 	select MEDIA_CONTROLLER
 	select V4L2_FWNODE

@@ -214,10 +214,11 @@ static int get_vcinfo_by_pad_fmt(struct seninf_ctx *ctx)
 }
 
 #ifdef SENINF_VC_ROUTING
+
 int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 {
 	int ret, i, grp, grp_metadata, raw_cnt;
-	struct v4l2_mbus_frame_desc fd;
+	struct mtk_mbus_frame_desc fd;
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
 	struct seninf_vc *vc;
 	int desc;
@@ -226,9 +227,10 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	if (!ctx->sensor_sd)
 		return -EINVAL;
 
-	ret = v4l2_subdev_call(ctx->sensor_sd, pad, get_frame_desc,
-			       ctx->sensor_pad_idx, &fd);
-	if (ret || fd.type != V4L2_MBUS_FRAME_DESC_TYPE_CSI2)
+	// ret = v4l2_subdev_call(ctx->sensor_sd, pad, get_frame_desc,  john
+				// ctx->sensor_pad_idx, &fd);
+	ret = 0; // only for migration test, Baron
+	if (ret || fd.type != MTK_MBUS_FRAME_DESC_TYPE_CSI2)
 		return get_vcinfo_by_pad_fmt(ctx);
 
 	vcinfo->cnt = 0;
@@ -243,19 +245,19 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		desc = fd.entry[i].bus.csi2.user_data_desc;
 
 		switch (desc) {
-		case V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_Y_HIST:
+		case VC_3HDR_Y:
 			vc->feature = VC_3HDR_Y;
 			vc->out_pad = PAD_SRC_HDR0;
 			break;
-		case V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_AE_HIST:
+		case VC_3HDR_AE:
 			vc->feature = VC_3HDR_AE;
 			vc->out_pad = PAD_SRC_HDR1;
 			break;
-		case V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_FLICKER:
+		case VC_3HDR_FLICKER:
 			vc->feature = VC_3HDR_FLICKER;
 			vc->out_pad = PAD_SRC_HDR2;
 			break;
-		case V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_PDAF_PIXEL:
+		case VC_PDAF_STATS:
 			vc->feature = VC_PDAF_STATS;
 			vc->out_pad = PAD_SRC_PDAF0;
 			break;
@@ -269,13 +271,13 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 				}
 
 				switch (desc) {
-				case V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE:
+				case VC_STAGGER_NE:
 					vc->out_pad = PAD_SRC_RAW0;
 					break;
-				case V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_ME:
+				case VC_STAGGER_ME:
 					vc->out_pad = PAD_SRC_RAW1;
 					break;
-				case V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_SE:
+				case VC_STAGGER_SE:
 					vc->out_pad = PAD_SRC_RAW2;
 					break;
 				default:

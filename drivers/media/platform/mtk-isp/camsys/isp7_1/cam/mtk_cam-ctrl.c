@@ -2127,7 +2127,6 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 	frame_done_work->pipe_id = pipe_id;
 	frame_done_work->ctx = ctx;
 	queue_work(ctx->frame_done_wq, &frame_done_work->work);
-
 	if (mtk_cam_is_time_shared(ctx)) {
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 		raw_dev->time_shared_busy = false;
@@ -2147,7 +2146,6 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 		}
 		mtk_camsys_ts_raw_try_set(raw_dev, ctx, ctx->dequeued_frame_seq_no + 1);
 	}
-
 }
 
 
@@ -2402,7 +2400,6 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 		/* raw's subsample sensor setting */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET))
 			mtk_cam_set_sub_sample_sensor(raw_dev, ctx);
-
 		/* raw's SW done */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
 			if (ctx->pipe->res_config.raw_feature & MTK_CAM_FEATURE_STAGGER_M2M_MASK) {

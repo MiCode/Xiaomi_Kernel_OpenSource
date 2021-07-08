@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
+
 #ifndef _KD_IMGSENSOR_CA_TA_CMD_H_
 #define _KD_IMGSENSOR_CA_TA_CMD_H_
 

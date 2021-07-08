@@ -11,7 +11,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/pinctrl/consumer.h>
 
-#include "kd_imgsensor_define.h"
+#include "kd_imgsensor_define_v4l2.h"
 #include "adaptor.h"
 #include "adaptor-hw.h"
 
@@ -101,10 +101,10 @@ static int unset_mclk(struct adaptor_ctx *ctx, void *data, int val)
 
 static int set_reg(struct adaptor_ctx *ctx, void *data, int val)
 {
-	int ret, idx;
+	unsigned long long ret, idx;
 	struct regulator *reg;
 
-	idx = (int)data;
+	idx = (unsigned long long)data;
 	reg = ctx->regulator[idx];
 
 	ret = regulator_set_voltage(reg, val, val);
@@ -125,10 +125,10 @@ static int set_reg(struct adaptor_ctx *ctx, void *data, int val)
 
 static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 {
-	int ret, idx;
+	unsigned long long ret, idx;
 	struct regulator *reg;
 
-	idx = (int)data;
+	idx = (unsigned long long)data;
 	reg = ctx->regulator[idx];
 
 	ret = regulator_disable(reg);
@@ -143,9 +143,9 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 
 static int set_state(struct adaptor_ctx *ctx, void *data, int val)
 {
-	int ret, idx, x;
+	unsigned long long ret, idx, x;
 
-	idx = (int)data;
+	idx = (unsigned long long)data;
 	x = idx + val;
 
 	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[x]);

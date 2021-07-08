@@ -4,12 +4,15 @@
 MKFILE_PATH := $(lastword $(MAKEFILE_LIST))
 IMGSENSOR_DRIVER_PATH := $(patsubst %/,%,$(dir $(realpath $(MKFILE_PATH))))
 MTK_DRIVER_PATH := $(srctree)/drivers/misc/mediatek
-
+MTK_CAMSYS_DRIVER_PATH := $(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_1/cam
 IMGSENSOR_PROJECT := $(subst ",,$(CONFIG_MTK_IMGSENSOR_PROJECT))
+
+FRAME_SYNC := frame-sync
 
 subdir-ccflags-y += \
 	-I$(MTK_DRIVER_PATH)/imgsensor/inc \
 	-I$(IMGSENSOR_DRIVER_PATH)/ \
+	-I$(MTK_CAMSYS_DRIVER_PATH)/ \
 
 imgsensor-objs := \
 	adaptor-hw.o \
@@ -33,6 +36,13 @@ endif
 endef
 
 $(foreach drv,$(subst $\",,$(CONFIG_CUSTOM_KERNEL_IMGSENSOR)),$(eval $(call FILTER_DRV,$(drv))))
+
+ifneq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(FRAME_SYNC)/frame_sync_drv.mk),)
+$(info framesync_drv: $(FRAME_SYNC))
+include $(IMGSENSOR_DRIVER_PATH)/$(FRAME_SYNC)/frame_sync_drv.mk
+else
+$(info framesync_drv: NOT FOUND)
+endif
 
 define add_subdrv
 $(eval subdrv-rpath = $1)
@@ -58,7 +68,9 @@ empty :=
 space := $(empty) $(empty)
 
 IMGSENSOR_SUBDRVS := $(subst $(space),$(comma),$(foreach e,$(total_subdrvs),E($(e))))
+ifneq ($(IMGSENSOR_SUBDRVS),)
 subdir-ccflags-y += -D'IMGSENSOR_SUBDRVS=$(IMGSENSOR_SUBDRVS)'
+endif
 
 $(info imgsensor-objs : $(imgsensor-objs))
 $(info subdir-ccflags-y : $(subdir-ccflags-y))

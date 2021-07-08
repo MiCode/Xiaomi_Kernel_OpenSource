@@ -99,7 +99,6 @@ void mtk_cam_dev_job_done(struct mtk_cam_ctx *ctx,
 			vb->timestamp = req_stream_data->timestamp_mono;
 		else
 			vb->timestamp = req_stream_data->timestamp;
-
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
 	spin_unlock(&req_stream_data_pipe->bufs_lock);
@@ -815,7 +814,6 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 			cfg_fmt->fmt.pix_mp.pixelformat);
 		return -EINVAL;
 	}
-
 	out_fmt->fmt.s.w = cfg_fmt->fmt.pix_mp.width;
 	out_fmt->fmt.s.h = cfg_fmt->fmt.pix_mp.height;
 

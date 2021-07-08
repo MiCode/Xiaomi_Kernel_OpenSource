@@ -73,6 +73,9 @@ struct imgsensor_info_struct {
 	struct imgsensor_mode_struct normal_video;
 	struct imgsensor_mode_struct hs_video;
 	struct imgsensor_mode_struct slim_video;
+	struct imgsensor_mode_struct custom1;
+	struct imgsensor_mode_struct custom2;
+	struct imgsensor_mode_struct custom3;
 
 	kal_uint8  ae_shut_delay_frame;	/* shutter delay frame for AE cycle */
 	kal_uint8  ae_sensor_gain_delay_frame;
@@ -86,24 +89,30 @@ struct imgsensor_info_struct {
 	kal_uint8  pre_delay_frame; /* enter preview delay frame num */
 	kal_uint8  video_delay_frame; /* enter video delay frame num */
 	kal_uint8  hs_video_delay_frame;
-	kal_uint8  slim_video_delay_frame;
-
+	kal_uint8 slim_video_delay_frame; /* enter slim video delay frame num */
+	kal_uint8 custom1_delay_frame; /* enter custom1 delay frame num */
+	kal_uint8 custom2_delay_frame; /* enter custom2 delay frame num */
+	kal_uint8 custom3_delay_frame; /* enter custom3 delay frame num */
+	kal_uint8  frame_time_delay_frame;
 	kal_uint8  margin; /* sensor framelength & shutter margin */
-	kal_uint32 min_shutter;	 /* min shutter */
+	kal_uint32 min_shutter; /* min shutter */
 	kal_uint32 min_gain;
 	kal_uint32 max_gain;
 	kal_uint32 min_gain_iso;
 	kal_uint32 gain_step;
 	kal_uint32 gain_type;
 	kal_uint32 max_frame_length;
-
 	kal_uint8  isp_driving_current;	/* mclk driving current */
 	kal_uint8  sensor_interface_type;/* sensor_interface_type */
 	kal_uint8  mipi_sensor_type;
 	/*0, high speed signal auto detect; 1, use settle delay,unit is ns,
 	 * default is auto detect, don't modify this para
 	 */
-	kal_uint8  mipi_settle_delay_mode;
+	kal_uint8 mipi_settle_delay_mode;
+	/* 0, high speed signal auto detect;
+	 * 1, use settle delay,unit is ns,
+	 * default is auto detect, don't modify this para
+	 */
 	kal_uint8  sensor_output_dataformat;
 	kal_uint8  mclk; /* mclk value, suggest 24 or 26 for 24Mhz or 26Mhz */
 	kal_uint32  i2c_speed; /* i2c speed */

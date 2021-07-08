@@ -6,4 +6,12 @@
 
 int adaptor_init_ctrls(struct adaptor_ctx *ctx);
 
+void restore_ae_ctrl(struct adaptor_ctx *ctx);
+
+/* callback function for frame-sync set framelength using */
+/*     return: 0 => No-Error ; non-0 => Error */
+int cb_fsync_mgr_set_framelength(void *p_ctx,
+				unsigned int cmd_id,
+				unsigned int framelength);
+
 #endif

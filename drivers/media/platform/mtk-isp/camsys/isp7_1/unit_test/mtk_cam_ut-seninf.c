@@ -180,6 +180,10 @@ static int mtk_ut_seninf_probe(struct platform_device *pdev)
 	struct mtk_ut_seninf_device *seninf;
 	int ret;
 
+
+#ifdef FPGA_EP
+	pr_info("v4l2_subdev_mtk_ut_seninf_probe\n");
+#endif
 	dev_info(dev, "%s\n", __func__);
 
 	seninf = devm_kzalloc(dev, sizeof(*seninf), GFP_KERNEL);

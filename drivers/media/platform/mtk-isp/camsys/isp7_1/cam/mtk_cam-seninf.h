@@ -10,9 +10,8 @@
 
 #include "mtk_cam-seninf-def.h"
 
-#ifdef V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA
+/* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define SENINF_VC_ROUTING
-#endif
 
 #define CSI_EFUSE_SET
 

@@ -11,7 +11,7 @@
 #include <linux/of_graph.h>
 #include <linux/thermal.h>
 
-#include "kd_imgsensor_define.h"
+#include "kd_imgsensor_define_v4l2.h"
 
 #include "adaptor.h"
 #include "adaptor-hw.h"
@@ -25,15 +25,19 @@
 #define E(__x__) (__x__##_entry)
 #define EXTERN_IMGSENSOR_SUBDRVS extern struct subdrv_entry \
 	IMGSENSOR_SUBDRVS
+#ifdef IMGSENSOR_SUBDRVS
 EXTERN_IMGSENSOR_SUBDRVS;
+#endif
 
 #undef E
 #define E(__x__) (&__x__##_entry)
 static struct subdrv_entry *imgsensor_subdrvs[] = {
+#ifdef IMGSENSOR_SUBDRVS
 	IMGSENSOR_SUBDRVS
+#endif
 };
 
-static get_outfmt_code(struct adaptor_ctx *ctx)
+static int get_outfmt_code(struct adaptor_ctx *ctx)
 {
 	int outfmt = ctx->sensor_info.SensorOutputDataFormat;
 
@@ -70,6 +74,25 @@ static get_outfmt_code(struct adaptor_ctx *ctx)
 	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R:
 		pr_warn("unsupported 4cell output_format %d\n", outfmt);
 		return MEDIA_BUS_FMT_SRGGB10_1X10;
+
+	case SENSOR_OUTPUT_FORMAT_RAW8_MONO:
+	case SENSOR_OUTPUT_FORMAT_RAW8_B:
+		return MEDIA_BUS_FMT_SBGGR8_1X8;
+	case SENSOR_OUTPUT_FORMAT_RAW8_Gb:
+		return MEDIA_BUS_FMT_SGBRG8_1X8;
+	case SENSOR_OUTPUT_FORMAT_RAW8_Gr:
+		return MEDIA_BUS_FMT_SGRBG8_1X8;
+	case SENSOR_OUTPUT_FORMAT_RAW8_R:
+		return MEDIA_BUS_FMT_SRGGB8_1X8;
+
+	case SENSOR_OUTPUT_FORMAT_RAW12_B:
+		return MEDIA_BUS_FMT_SBGGR12_1X12;
+	case SENSOR_OUTPUT_FORMAT_RAW12_Gb:
+		return MEDIA_BUS_FMT_SGBRG12_1X12;
+	case SENSOR_OUTPUT_FORMAT_RAW12_Gr:
+		return MEDIA_BUS_FMT_SGRBG12_1X12;
+	case SENSOR_OUTPUT_FORMAT_RAW12_R:
+		return MEDIA_BUS_FMT_SRGGB12_1X12;
 	}
 
 	pr_warn("unknown output format %d\n", outfmt);
@@ -146,90 +169,17 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 static int init_sensor_mode(struct adaptor_ctx *ctx)
 {
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT res;
+	int i = 0;
 
 	memset(&res, 0, sizeof(res));
 	subdrv_call(ctx, get_resolution, &res);
-
-	// preview
-	if (res.SensorPreviewWidth && res.SensorPreviewHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CAMERA_PREVIEW,
-			res.SensorPreviewWidth,
-			res.SensorPreviewHeight);
+	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
+		if (res.SensorWidth[i] > 0 && res.SensorHeight[i] > 0)
+			add_sensor_mode(ctx,
+			i,
+			res.SensorWidth[i],
+			res.SensorHeight[i]);
 	}
-
-	// capture
-	if (res.SensorFullWidth && res.SensorFullHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG,
-			res.SensorFullWidth,
-			res.SensorFullHeight);
-	}
-
-	// video
-	if (res.SensorVideoWidth && res.SensorVideoHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_VIDEO_PREVIEW,
-			res.SensorVideoWidth,
-			res.SensorVideoHeight);
-	}
-
-	// high-speed video
-	if (res.SensorHighSpeedVideoWidth && res.SensorHighSpeedVideoHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO,
-			res.SensorHighSpeedVideoWidth,
-			res.SensorHighSpeedVideoHeight);
-	}
-
-	// slim video
-	if (res.SensorSlimVideoWidth && res.SensorSlimVideoHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_SLIM_VIDEO,
-			res.SensorSlimVideoWidth,
-			res.SensorSlimVideoHeight);
-	}
-
-	// custom1
-	if (res.SensorCustom1Width && res.SensorCustom1Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM1,
-			res.SensorCustom1Width,
-			res.SensorCustom1Height);
-	}
-
-	// custom2
-	if (res.SensorCustom2Width && res.SensorCustom2Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM2,
-			res.SensorCustom2Width,
-			res.SensorCustom2Height);
-	}
-
-	// custom3
-	if (res.SensorCustom3Width && res.SensorCustom3Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM3,
-			res.SensorCustom3Width,
-			res.SensorCustom3Height);
-	}
-
-	// custom4
-	if (res.SensorCustom4Width && res.SensorCustom4Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM4,
-			res.SensorCustom4Width,
-			res.SensorCustom4Height);
-	}
-
-	// custom5
-	if (res.SensorCustom5Width && res.SensorCustom5Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM5,
-			res.SensorCustom5Width,
-			res.SensorCustom5Height);
-	}
-
 	return 0;
 }
 
@@ -246,6 +196,7 @@ static void control_sensor(struct adaptor_ctx *ctx)
 		ctx->is_sensor_scenario_inited = 1;
 	}
 
+	restore_ae_ctrl(ctx);
 }
 
 static int set_sensor_mode(struct adaptor_ctx *ctx,
@@ -280,7 +231,6 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		min = def = mode->fll - mode->height;
 		max = ctx->subctx.max_frame_length - mode->height;
 		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
-		__v4l2_ctrl_s_ctrl(ctx->vblank, def);
 
 		/* max fps */
 		max = def = mode->max_framerate;
@@ -301,6 +251,7 @@ static int init_sensor_info(struct adaptor_ctx *ctx)
 {
 	init_sensor_mode(ctx);
 	set_sensor_mode(ctx, &ctx->mode[0], 0);
+	ctx->try_format_mode = &ctx->mode[0];
 	ctx->fmt_code = get_outfmt_code(ctx);
 	return 0;
 }
@@ -560,12 +511,57 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		framefmt = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
 		*framefmt = fmt->format;
-	} // else // FIXME: should not set sensor mode while TRY FMT
+
+		ctx->try_format_mode = mode;
+	} else {
 		set_sensor_mode(ctx, mode, 1);
+	}
 
 	mutex_unlock(&ctx->mutex);
 
 	return 0;
+}
+
+/* notify frame-sync streaming ON/OFF and set sensor info to frame-sync */
+static void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx,
+				unsigned int flag)
+{
+	unsigned int ret = 0;
+	struct fs_streaming_st streaming_sensor_info = {0};
+
+	streaming_sensor_info.sensor_id = ctx->subdrv->id;
+	streaming_sensor_info.sensor_idx = ctx->idx;
+
+	/* fsync_map_id is cam_mux no */
+	streaming_sensor_info.tg = ctx->fsync_map_id->val + 1;
+	streaming_sensor_info.fl_active_delay =
+				ctx->subctx.frame_time_delay_frame;
+
+
+	/* using ctx->subctx.frame_length instead of ctx->cur_mode->fll */
+	/*     for any settings before streaming on */
+	streaming_sensor_info.def_fl_lc = ctx->subctx.frame_length;
+	streaming_sensor_info.max_fl_lc = ctx->subctx.max_frame_length;
+
+
+	/* using ctx->subctx.shutter instead of ctx->subctx.exposure_def */
+	/*     for any settings before streaming on */
+	streaming_sensor_info.def_shutter_lc = ctx->subctx.shutter;
+
+
+	/* callback data */
+	streaming_sensor_info.func_ptr = cb_fsync_mgr_set_framelength;
+	streaming_sensor_info.p_ctx = ctx;
+
+
+	/* call frame-sync streaming ON/OFF */
+	if (ctx->fsync_mgr != NULL) {
+		ret = ctx->fsync_mgr->fs_streaming(flag, &streaming_sensor_info);
+
+		if (ret != 0)
+			dev_info(ctx->dev, "frame-sync streaming ERROR!\n");
+	} else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
@@ -595,20 +591,20 @@ static int imgsensor_runtime_suspend(struct device *dev)
 static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&ctx->mutex);
 	if (on)
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 		ret = pm_runtime_get_sync(ctx->dev);
 #else
-	adaptor_hw_power_on(ctx);
+	ret = adaptor_hw_power_on(ctx);
 #endif
 	else
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 		ret = pm_runtime_put(ctx->dev);
 #else
-	adaptor_hw_power_off(ctx);
+	ret = adaptor_hw_power_off(ctx);
 #endif
 	mutex_unlock(&ctx->mutex);
 
@@ -641,6 +637,9 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 		SENSOR_FEATURE_SET_STREAMING_RESUME,
 		(u8 *)data, &len);
 
+	/* notify frame-sync streaming ON */
+	notify_fsync_mgr_streaming(ctx, 1);
+
 	return 0;
 }
 
@@ -654,6 +653,9 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 		SENSOR_FEATURE_SET_STREAMING_SUSPEND,
 		(u8 *)data, &len);
 
+	/* notify frame-sync streaming OFF */
+	notify_fsync_mgr_streaming(ctx, 0);
+
 	return 0;
 }
 
@@ -664,7 +666,12 @@ static int imgsensor_get_frame_interval(struct v4l2_subdev *sd,
 
 	mutex_lock(&ctx->mutex);
 	fi->interval.numerator = 10;
-	fi->interval.denominator = ctx->cur_mode->max_framerate;
+
+	if (fi->reserved[0] == V4L2_SUBDEV_FORMAT_TRY)
+		fi->interval.denominator = ctx->try_format_mode->max_framerate;
+	else
+		fi->interval.denominator = ctx->cur_mode->max_framerate;
+
 	mutex_unlock(&ctx->mutex);
 
 	return 0;
@@ -717,7 +724,8 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 	ctx->is_streaming = enable;
 	mutex_unlock(&ctx->mutex);
 
-	dev_info(ctx->dev, "%s: en %d\n", __func__, enable);
+	dev_info(ctx->dev, "%s: en %d, cammux usage %d\n",
+		__func__, enable, ctx->fsync_map_id->val);
 
 	return 0;
 
@@ -731,84 +739,88 @@ err_unlock:
 	return ret;
 }
 
-static int imgsensor_g_mbus_config(struct v4l2_subdev *sd,
-		struct v4l2_mbus_config *cfg)
+static int imgsensor_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad,
+		struct v4l2_mbus_config *config)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
-	cfg->type = ctx->sensor_info.MIPIsensorType == MIPI_CPHY ?
+	config->type = ctx->sensor_info.MIPIsensorType == MIPI_CPHY ?
 		V4L2_MBUS_CSI2_CPHY : V4L2_MBUS_CSI2_DPHY;
 
 	switch (ctx->sensor_info.SensorMIPILaneNumber) {
 	case SENSOR_MIPI_1_LANE:
-		cfg->flags = V4L2_MBUS_CSI2_1_LANE;
+		config->flags = V4L2_MBUS_CSI2_1_LANE;
 		break;
 	case SENSOR_MIPI_2_LANE:
-		cfg->flags = V4L2_MBUS_CSI2_2_LANE;
+		config->flags = V4L2_MBUS_CSI2_2_LANE;
 		break;
 	case SENSOR_MIPI_3_LANE:
-		cfg->flags = V4L2_MBUS_CSI2_3_LANE;
+		config->flags = V4L2_MBUS_CSI2_3_LANE;
 		break;
 	case SENSOR_MIPI_4_LANE:
-		cfg->flags = V4L2_MBUS_CSI2_4_LANE;
+		config->flags = V4L2_MBUS_CSI2_4_LANE;
 		break;
 	}
 
 	return 0;
 }
 
-#ifdef IMGSENSOR_VC_ROUTING
-static int imgsensor_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
-		struct v4l2_mbus_frame_desc *fd)
-{
-	int ret;
-	struct adaptor_ctx *ctx = to_ctx(sd);
+//def IMGSENSOR_VC_ROUTING
+// static int imgsensor_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+		// struct mtk_mbus_frame_desc *fd)
+// {
+	// int ret;
+	// struct adaptor_ctx *ctx = to_ctx(sd);
+	// u64 desc_visited = 0x0;
+	// int write_to = 0, i = -1, j = 0;
 
-	ret = subdrv_call(ctx, get_frame_desc,
-			ctx->cur_mode->id,
-			fd);
+	// while (i < SENSOR_SCENARIO_ID_MAX) {
+		// struct mtk_mbus_frame_desc fd_tmp;
+		// u32 scenario_id = (-1 == i) ? ctx->cur_mode->id : ctx->seamless_scenarios[i];
 
-	if (ret) {
-		dev_warn(ctx->dev, "get_frame_desc ret %d (scenario_id %d)\n",
-			ret, ctx->cur_mode->id);
-	}
+		// if (scenario_id == SENSOR_SCENARIO_ID_NONE)
+			// break;
 
-	return ret;
-}
+		// ret = subdrv_call(ctx, get_frame_desc, scenario_id, &fd_tmp);
 
-#define IS_3HDR(udesc) (udesc == V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_Y_HIST \
-		|| udesc == V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_AE_HIST \
-		|| udesc == V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_FLICKER)
+		// if (!ret) {
+			// for (j = 0;
+				// write_to < V4L2_FRAME_DESC_ENTRY_MAX && j < fd_tmp.num_entries;
+				// ++j) {
+				// if (desc_visited &
+					// (0x1 << fd_tmp.entry[j].bus.csi2.user_data_desc))
+					// continue;
 
-static int imgsensor_set_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
-		struct v4l2_mbus_frame_desc *fd)
-{
-	int i, b3HDR = 0;
-	struct adaptor_ctx *ctx = to_ctx(sd);
-	struct v4l2_mbus_frame_desc_entry_csi2 *desc;
-	union feature_para para;
-	u32 len;
+				// dev_info(ctx->dev, "[%s] scenario %u desc %d\n", __func__,
+						// scenario_id,
+						// fd_tmp.entry[j].bus.csi2.user_data_desc);
+				// memcpy(&fd->entry[write_to++], &fd_tmp.entry[j],
+					//    sizeof(struct mtk_mbus_frame_desc_entry));
 
-	for (i = 0; i < fd->num_entries; i++) {
-		desc = &fd->entry[i].bus.csi2;
-		if (!desc->enable)
-			continue;
-		if (V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA(desc->data_type)) {
-			if (IS_3HDR(desc->user_data_desc))
-				b3HDR = 1;
-		}
-	}
+				// desc_visited |= (0x1 << fd_tmp.entry[j].bus.csi2.user_data_desc);
+			// }
+		// }
 
-	if (b3HDR) {
-		para.u32[0] = 1;
-		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_HDR,
-			para.u8, &len);
-	}
+		// ++i;
+	// }
 
-	return 0;
-}
-#endif
+	// fd->num_entries = write_to;
+	// fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+
+	// return ret;
+// }
+
+// #define IS_3HDR(udesc) (udesc == VC_3HDR_Y \
+		// || udesc == VC_3HDR_AE \
+		// || udesc == VC_3HDR_FLICKER)
+
+// static int imgsensor_set_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+		// struct mtk_mbus_frame_desc *fd)
+// {
+	// return 0;
+
+// }
+
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 static int __maybe_unused imgsensor_suspend(struct device *dev)
@@ -864,7 +876,6 @@ static const struct v4l2_subdev_video_ops imgsensor_video_ops = {
 	.g_frame_interval = imgsensor_get_frame_interval,
 	.s_frame_interval = imgsensor_set_frame_interval,
 	.s_stream = imgsensor_set_stream,
-	.g_mbus_config = imgsensor_g_mbus_config,
 };
 
 static const struct v4l2_subdev_pad_ops imgsensor_pad_ops = {
@@ -874,9 +885,10 @@ static const struct v4l2_subdev_pad_ops imgsensor_pad_ops = {
 	.enum_frame_size = imgsensor_enum_frame_size,
 	.enum_frame_interval = imgsensor_enum_frame_interval,
 	.get_selection = imgsensor_get_selection,
+	.get_mbus_config = imgsensor_g_mbus_config,
 #ifdef IMGSENSOR_VC_ROUTING
-	.get_frame_desc = imgsensor_get_frame_desc,
-	.set_frame_desc = imgsensor_set_frame_desc,
+	//.get_frame_desc = imgsensor_get_frame_desc,
+	//.set_frame_desc = imgsensor_set_frame_desc,
 #endif
 };
 
@@ -948,6 +960,13 @@ static int notify_fsync_mgr(struct adaptor_ctx *ctx)
 	dev_info(dev, "sensor_idx %d seninf_port %s seninf_idx %d\n",
 		ctx->idx, seninf_port, seninf_idx);
 
+	/* frame-sync init */
+	ret = FrameSyncInit(&ctx->fsync_mgr);
+	if (ret != 0) {
+		dev_info(ctx->dev, "frame-sync init failed !\n");
+		ctx->fsync_mgr = NULL;
+	}
+
 	/* notify frame-sync mgr of sensor-idx and seninf-idx */
 	//TODO
 
@@ -961,6 +980,9 @@ static int imgsensor_probe(struct i2c_client *client)
 	struct adaptor_ctx *ctx;
 	int ret;
 
+#ifdef SENSOR_FPGA_EP
+	pr_info("v4l2_subdev_adaptor_drv_imgsensor_probe\n");
+#endif
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -1132,6 +1154,9 @@ static int __init adaptor_drv_init(void)
 
 static void __exit adaptor_drv_exit(void)
 {
+#ifdef SENSOR_FPGA_EP
+	pr_info("v4l2_subdev_adaptor_drv_init\n");
+#endif
 	i2c_del_driver(&imgsensor_i2c_driver);
 }
 

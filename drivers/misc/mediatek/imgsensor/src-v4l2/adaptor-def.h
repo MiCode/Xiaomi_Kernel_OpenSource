@@ -10,6 +10,8 @@
 #define IMGSENSOR_DEBUG
 #define OF_SENSOR_NAME_PREFIX "sensor"
 
+#define SENSOR_FPGA_EP
+
 enum {
 	CLK_6M = 0,
 	CLK_12M,

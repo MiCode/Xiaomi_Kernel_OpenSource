@@ -21,7 +21,7 @@
 
 
 #include "kd_imgsensor.h"
-#include "kd_imgsensor_define.h"
+#include "kd_imgsensor_define_v4l2.h"
 #include "kd_imgsensor_errcode.h"
 #include "imx398_eeprom.h"
 

@@ -255,6 +255,9 @@ static int seninf_core_probe(struct platform_device *pdev)
 	struct seninf_core *core;
 	struct device *dev = &pdev->dev;
 
+#ifdef SENINF_FPGA_EP
+	pr_info("v4l2_subdev_seninf_core_probe\n");
+#endif
 	core = devm_kzalloc(&pdev->dev, sizeof(*core), GFP_KERNEL);
 	if (!core)
 		return -ENOMEM;
@@ -809,7 +812,7 @@ static int get_mbus_config(struct seninf_ctx *ctx, struct v4l2_subdev *sd)
 	struct v4l2_mbus_config cfg;
 	int ret;
 
-	ret = v4l2_subdev_call(sd, video, g_mbus_config, &cfg);
+	ret = v4l2_subdev_call(sd, pad, get_mbus_config, ctx->sensor_pad_idx, &cfg);
 	if (ret) {
 		dev_info(ctx->dev, "no g_mbus_config in %s\n",
 			 sd->entity.name);
@@ -1324,6 +1327,9 @@ static int seninf_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct seninf_core *core;
 
+#ifdef SENINF_FPGA_EP
+	pr_info("v4l2_subdev_seninf_probe\n");
+#endif
 	if (!dev->parent)
 		return -EPROBE_DEFER;
 
