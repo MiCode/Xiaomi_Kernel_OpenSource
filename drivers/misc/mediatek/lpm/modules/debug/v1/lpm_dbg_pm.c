@@ -27,8 +27,7 @@ static int lpm_dbg_suspend_noirq(struct device *dev)
 {
 	int ret = 0;
 
-	if (pm_suspend_default_s2idle())
-		ret = spm_common_dbg_dump();
+	ret = spm_common_dbg_dump();
 
 	if (kernel_suspend_only == 1) {
 		pr_info("[LPM] kernel suspend only ....\n");

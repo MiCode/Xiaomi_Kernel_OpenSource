@@ -90,7 +90,7 @@ void generic_dump_pmic(const char *pmic_name, int pmic_num,
 			p += snprintf(p, sizeof(buf) - (p - buf),
 				"%s - %s-%d - 0x%08x - 0x%08x\n",
 				user->name, pmic_name, pmic_num,
-					user->array[i], val0);
+					user->array[i], 0);
 			if (dump_cnt && ((dump_cnt % PER_LINE_TO_PRINT) == 0)) {
 				pr_info("%s", buf);
 				p = buf;

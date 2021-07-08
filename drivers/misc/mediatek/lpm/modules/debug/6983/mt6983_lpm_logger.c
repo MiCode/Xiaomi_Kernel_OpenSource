@@ -31,16 +31,21 @@
 
 #define aee_sram_printk pr_info
 
-/*FIXME idle condition update*/
 static char *mt6983_spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
 	[PLAT_SPM_COND_MTCMOS_0]	= "MTCMOS_0",
+	[PLAT_SPM_COND_MTCMOS_1]	= "MTCMOS_1",
 	[PLAT_SPM_COND_CG_INFRA_0]	= "INFRA_0",
 	[PLAT_SPM_COND_CG_INFRA_1]	= "INFRA_1",
 	[PLAT_SPM_COND_CG_INFRA_2]	= "INFRA_2",
 	[PLAT_SPM_COND_CG_INFRA_3]	= "INFRA_3",
+	[PLAT_SPM_COND_CG_INFRA_3]      = "INFRA_4",
+	[PLAT_SPM_COND_CG_PERI_0]       = "PERI_0",
+	[PLAT_SPM_COND_CG_PERI_1]       = "PERI_1",
+	[PLAT_SPM_COND_CG_PERI_2]       = "PERI_2",
 	[PLAT_SPM_COND_CG_MMSYS_0]	= "MMSYS_0",
 	[PLAT_SPM_COND_CG_MMSYS_1]	= "MMSYS_1",
 	[PLAT_SPM_COND_CG_MMSYS_2]	= "MMSYS_2",
+	[PLAT_SPM_COND_CG_MDPSYS_0]     = "MDPSYS_0",
 };
 
 /*FIXME*/

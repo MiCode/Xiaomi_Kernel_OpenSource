@@ -2488,9 +2488,3 @@
 
 #define SPM_PROJECT_CODE	0xb16
 #define SPM_REGWR_CFG_KEY	(SPM_PROJECT_CODE << 16)
-
-/**************************************
- * Macro and Inline
- **************************************/
-#define spm_read(addr)			__raw_readl((void __force __iomem *)(addr))
-#define spm_write(addr, val)		mt_reg_sync_writel(val, addr)

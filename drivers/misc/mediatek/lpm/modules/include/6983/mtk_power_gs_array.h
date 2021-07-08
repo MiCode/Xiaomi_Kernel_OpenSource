@@ -11,6 +11,16 @@ extern void mt_power_gs_sp_dump(void);
 extern unsigned int golden_read_reg(unsigned int addr);
 
 /* PMIC 6373 */
+extern const unsigned int *AP_PMIC_REG_6363_gs_deepidle___lp_mp3_32kless;
+extern unsigned int AP_PMIC_REG_6363_gs_deepidle___lp_mp3_32kless_len;
+
+extern const unsigned int *AP_PMIC_REG_6363_gs_sodi3p0_32kless;
+extern unsigned int AP_PMIC_REG_6363_gs_sodi3p0_32kless_len;
+
+extern const unsigned int *AP_PMIC_REG_6363_gs_suspend_32kless;
+extern unsigned int AP_PMIC_REG_6363_gs_suspend_32kless_len;
+
+/* PMIC 6373 */
 extern const unsigned int *AP_PMIC_REG_6373_gs_deepidle___lp_mp3_32kless;
 extern unsigned int AP_PMIC_REG_6373_gs_deepidle___lp_mp3_32kless_len;
 

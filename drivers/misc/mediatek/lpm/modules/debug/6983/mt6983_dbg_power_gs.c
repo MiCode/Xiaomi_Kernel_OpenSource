@@ -20,7 +20,7 @@ int mt6983_pwr_gs_set(unsigned int type, const struct lpm_data *val)
 		ret = lpm_pwr_gs_compare(LPM_GS_CMP_PMIC, type);
 	if (ret)
 		return ret;
-#ifdef MTK_LPM_GS_PLAT_CLK_DUMP_SUPPORT
+
 	if (val->d.v_u32 & GS_DCM)
 		ret = lpm_pwr_gs_compare_by_type(
 			LPM_GS_CMP_CLK, type, GS_DCM);
@@ -29,7 +29,7 @@ int mt6983_pwr_gs_set(unsigned int type, const struct lpm_data *val)
 	if (val->d.v_u32 & GS_CG)
 		ret = lpm_pwr_gs_compare_by_type(
 			LPM_GS_CMP_CLK, type, GS_CG);
-#endif
+
 	return ret;
 }
 struct lpm_callee mt6983_pwr_gs_callee = {
@@ -38,7 +38,7 @@ struct lpm_callee mt6983_pwr_gs_callee = {
 		.set = mt6983_pwr_gs_set,
 	},
 };
-#ifdef MTK_LPM_GS_PLAT_CLK_DUMP_SUPPORT
+
 struct lpm_gs_clk mt6983_clk_cg = {
 	.type = GS_CG,
 	.name = "CG",
@@ -94,9 +94,14 @@ struct lpm_gs_clk_info mt6983_clk_infos = {
 	.attach = mt6983_power_gs_clk_user_attach,
 	.dcm = mt6983_clks,
 };
-#endif
+
 /* PMIC */
 /* FIXME */
+struct lpm_gs_pmic mt6983_pmic6363 = {
+	.type = GS_PMIC,
+	.regulator = "mediatek,mt6363-regulator",
+	.pwr_domain = "6363",
+};
 struct lpm_gs_pmic mt6983_pmic6373 = {
 	.type = GS_PMIC,
 	.regulator = "mediatek,mt6373-regulator",
@@ -105,6 +110,7 @@ struct lpm_gs_pmic mt6983_pmic6373 = {
 
 
 struct lpm_gs_pmic *mt6983_pmic[] = {
+	&mt6983_pmic6363,
 	&mt6983_pmic6373,
 	NULL,
 };
@@ -115,7 +121,23 @@ int mt6983_power_gs_pmic_user_attach(struct lpm_gs_pmic *p)
 	/* Set compare golden setting for scenario */
 	pr_info("p regulaor %s\n", p->regulator);
 	/*FIXME mediatek,mt6373-regulator*/
-	if (!strcmp(p->regulator, "mediatek,mt6373-regulator")) {
+	if (!strcmp(p->regulator, "mediatek,mt6363-regulator")) {
+		p->user[LPM_PWR_GS_TYPE_SUSPEND].name = "suspend";
+		p->user[LPM_PWR_GS_TYPE_SUSPEND].array =
+			AP_PMIC_REG_6363_gs_suspend_32kless;
+		p->user[LPM_PWR_GS_TYPE_SUSPEND].array_sz =
+			AP_PMIC_REG_6363_gs_suspend_32kless_len;
+		p->user[LPM_PWR_GS_TYPE_VCORELP_26M].name = "sodi3";
+		p->user[LPM_PWR_GS_TYPE_VCORELP_26M].array =
+			AP_PMIC_REG_6363_gs_sodi3p0_32kless;
+		p->user[LPM_PWR_GS_TYPE_VCORELP_26M].array_sz =
+			AP_PMIC_REG_6363_gs_sodi3p0_32kless_len;
+		p->user[LPM_PWR_GS_TYPE_VCORELP].name = "dpidle";
+		p->user[LPM_PWR_GS_TYPE_VCORELP].array =
+			AP_PMIC_REG_6363_gs_deepidle___lp_mp3_32kless;
+		p->user[LPM_PWR_GS_TYPE_VCORELP].array_sz =
+			AP_PMIC_REG_6363_gs_deepidle___lp_mp3_32kless_len;
+	} else if (!strcmp(p->regulator, "mediatek,mt6373-regulator")) {
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].name = "suspend";
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].array =
 			AP_PMIC_REG_6373_gs_suspend_32kless;
