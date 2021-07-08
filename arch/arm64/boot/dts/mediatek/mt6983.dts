@@ -3902,6 +3902,61 @@
 #endif
 	};
 
+	dvs: dvs@15300000 {
+			compatible = "mediatek,dvs";
+			reg = <0 0x15300000 0 0x1000>;
+#if 0
+			interrupts = <GIC_SPI 789 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larb = <&larb12>;
+			iommus = <&iommu1 M4U_PORT_L12_IMG_DVS_RDMA>,
+			 <&iommu1 M4U_PORT_L12_IMG_DVS_WDMA>,
+			 <&iommu1 M4U_PORT_L12_IMG_DVP_RDMA>,
+			 <&iommu1 M4U_PORT_L12_IMG_DVP_WDMA>;
+			power-domains = <&spm MT8195_POWER_DOMAIN_IPE>;
+			mediatek,gce = <&gce_mbox>;
+			mboxes = <&gce_mbox 9 1000 CMDQ_THR_PRIO_1>;
+			dvs_done_async_shot	= <155>;
+			clocks =
+			<&imgsys CLK_IMG_IPE>,
+			<&ipesys CLK_IPE_DPE>,
+			<&ipesys CLK_IPE_SMI_LARB12>,
+			<&ipesys CLK_IPE_TOP>;
+			clock-names =
+					"IMG_IPE",
+					"IPE_DPE",
+					"IPE_SMI_LARB12",
+					"IPE_TOP";
+#endif
+		};
+
+	dvp: dvp@15300800 {
+			compatible = "mediatek,dvp";
+			reg = <0 0x15300800 0 0x1000>;
+#if 0
+			interrupts = <GIC_SPI 790 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larb = <&larb12>;
+			iommus =  <&iommu1 M4U_PORT_L12_IMG_DVS_RDMA>,
+			<&iommu1 M4U_PORT_L12_IMG_DVS_WDMA>,
+			<&iommu1 M4U_PORT_L12_IMG_DVP_RDMA>,
+			<&iommu1 M4U_PORT_L12_IMG_DVP_WDMA>;
+			power-domains = <&spm MT8195_POWER_DOMAIN_IPE>;
+			mediatek,gce = <&gce_mbox>;
+			mboxes = <&gce_mbox 9 1000 CMDQ_THR_PRIO_1>;
+			dvp_done_async_shot = <156>;
+			clocks =
+			<&imgsys CLK_IMG_IPE>,
+			<&ipesys CLK_IPE_DPE>,
+			<&ipesys CLK_IPE_SMI_LARB12>,
+			<&ipesys CLK_IPE_TOP>;
+			clock-names =
+					"IMG_IPE",
+					"IPE_DPE",
+					"IPE_SMI_LARB12",
+					"IPE_TOP";
+#endif
+		};
+
+
 	vdec_gcon@16000000 {
 		compatible = "mediatek,vdec_gcon";
 		reg = <0 0x16000000 0 0x10000>;
