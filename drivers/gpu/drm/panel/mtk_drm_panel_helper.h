@@ -40,6 +40,21 @@ do { \
 
 #define LCM_KZALLOC(buf, size, flag) DO_LCM_KZALLOC(buf, size, flag, 0)
 
+#define DO_LCM_KFREE(buf, size, debug) \
+do { \
+	if (debug == 1) \
+		pr_notice("%s, %d, size:%lu\n", \
+			__func__, __LINE__, MTK_LCM_DATA_ALIGNMENT(size, 4)); \
+	if (mtk_lcm_total_size >= MTK_LCM_DATA_ALIGNMENT(size, 4)) \
+		mtk_lcm_total_size -= MTK_LCM_DATA_ALIGNMENT(size, 4); \
+	else \
+		mtk_lcm_total_size = 0; \
+	kfree(buf); \
+	buf = NULL; \
+} while (0)
+
+#define LCM_KFREE(buf, size) DO_LCM_KFREE(buf, size, 0)
+
 struct mtk_lcm_params_dbi {
 	unsigned int dbi_private_data;
 };
@@ -49,16 +64,16 @@ struct mtk_lcm_params_dpi {
 };
 
 struct mtk_lcm_mode_dsi {
-    /* key word */
+/* key word */
 	unsigned int id;
 	unsigned int width;
 	unsigned int height;
 	unsigned int fps;
 	struct list_head list;
-    /* params */
+/* params */
 	struct drm_display_mode mode;
 	struct mtk_panel_params ext_param;
-    /* ops */
+/* ops */
 	unsigned int fps_switch_bfoff_size;
 	unsigned int fps_switch_afon_size;
 	struct mtk_lcm_ops_data *fps_switch_bfoff;
@@ -226,8 +241,10 @@ struct mtk_lcm_ops_dsi {
 	unsigned int hbm_set_cmdq_switch_off;
 	struct mtk_lcm_ops_data *hbm_set_cmdq;
 
+#if MTK_LCM_DEBUG_DUMP
 	unsigned int gpio_test_size;
 	struct mtk_lcm_ops_data *gpio_test;
+#endif
 };
 
 struct mtk_lcm_ops {
@@ -257,9 +274,12 @@ struct mtk_panel_cust {
 	void (*dump_params)(void);
 	void (*dump_ops)(struct mtk_lcm_ops_data *op,
 		const char *owner, unsigned int id);
+	void (*free_ops)(unsigned int func);
+	void (*free_params)(unsigned int func);
 };
 
 struct mtk_panel_resource {
+	unsigned int version;
 	struct mtk_lcm_params params;
 	struct mtk_lcm_ops ops;
 	struct mtk_panel_cust cust;
@@ -357,7 +377,9 @@ void dump_lcm_params_dpi(struct mtk_lcm_params_dpi *params,
 void dump_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops,
 		struct mtk_lcm_params_dpi *params,
 		struct mtk_panel_cust *cust);
-
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
+void dump_lcm_round_corner_params(LCM_ROUND_CORNER *params);
+#endif
 void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
 		struct mtk_panel_cust *cust);
 
@@ -380,4 +402,11 @@ int mtk_panel_dsi_dcs_read_buffer(struct mipi_dsi_device *dsi,
 		const void *data_in, size_t len_in,
 		void *data_out, size_t len_out);
 
+
+/* function: free lcm operation data
+ * input: operation cmd list, and size
+ */
+void free_lcm_ops_table(struct mtk_lcm_ops_data *table,
+		unsigned int table_size);
+void free_lcm_resource(char func, struct mtk_panel_resource *data);
 #endif

@@ -49,8 +49,7 @@ EXPORT_SYMBOL(free_lcm_params_dpi);
 
 void free_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops)
 {
-	kfree(ops);
-	ops = NULL;
+	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dpi));
 }
 EXPORT_SYMBOL(free_lcm_ops_dpi);
 

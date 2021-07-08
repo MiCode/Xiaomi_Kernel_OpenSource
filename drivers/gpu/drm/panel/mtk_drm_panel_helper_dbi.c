@@ -49,8 +49,7 @@ EXPORT_SYMBOL(free_lcm_params_dbi);
 
 void free_lcm_ops_dbi(struct mtk_lcm_ops_dbi *ops)
 {
-	kfree(ops);
-	ops = NULL;
+	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dbi));
 }
 EXPORT_SYMBOL(free_lcm_ops_dbi);
 

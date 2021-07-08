@@ -419,18 +419,22 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 	if (ret != 0) {
 		DDPPR_ERR("%s,%d: failed to do ata check\n",
 			__func__, __LINE__);
-		return ret;
+		goto end;
 	}
 
 	for (i = 0; i < ops->ata_id_value_length; i++) {
-		DDPPR_ERR("ATA data%d is expected:0x%x, we got:0x%x\n",
-			i, ops->ata_id_value_data[i], data[i]);
-		if (data[i] != ops->ata_id_value_data[i])
-			return -1;
+		if (data[i] != ops->ata_id_value_data[i]) {
+			DDPPR_ERR("ATA data%d is expected:0x%x, we got:0x%x\n",
+				i, ops->ata_id_value_data[i], data[i]);
+			ret = -1;
+			goto end;
+		}
 	}
 
-	DDPMSG("%s-\n", __func__);
-	return 0;
+end:
+	LCM_KFREE(data, ops->ata_id_value_length);
+	DDPMSG("%s-, %d\n", __func__, ret);
+	return ret;
 }
 
 static int mtk_panel_set_backlight_cmdq(void *dsi, dcs_write_gce cb,
@@ -474,7 +478,7 @@ static int mtk_panel_set_backlight_grp_cmdq(void *dsi, dcs_grp_write_gce cb,
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
 	struct mtk_lcm_ops_data *op = NULL;
 	struct mtk_panel_para_table *panel_para = NULL;
-	int id = -1, i = 0, j = 0;
+	int id = -1, i = 0, j = 0, ret = 0;
 	size_t size = 0;
 
 	DDPMSG("%s+\n", __func__);
@@ -495,7 +499,8 @@ static int mtk_panel_set_backlight_grp_cmdq(void *dsi, dcs_grp_write_gce cb,
 		    id >= size) {
 			DDPPR_ERR("%s:invalid backlight level id:%u of table:%u\n",
 				__func__, id, size);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto end;
 		}
 		panel_para->count = size;
 
@@ -513,8 +518,10 @@ static int mtk_panel_set_backlight_grp_cmdq(void *dsi, dcs_grp_write_gce cb,
 		cb(dsi, handle, panel_para, panel_para->count);
 	}
 
-	DDPMSG("%s-\n", __func__);
-	return 0;
+end:
+	LCM_KFREE(panel_para, 64);
+	DDPMSG("%s-, %d\n", __func__, ret);
+	return ret;
 }
 
 static int mtk_panel_get_virtual_heigh(void)
@@ -1045,12 +1052,16 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 			__func__, ret);
 
 		if (IS_ERR_OR_NULL(ctx_dsi->panel_resource) == 0) {
-			kfree(ctx_dsi->panel_resource);
+			free_lcm_resource(MTK_LCM_FUNC_DSI, ctx_dsi->panel_resource);
 			ctx_dsi->panel_resource = NULL;
+			DDPMSG("%s,%d, failed free panel resource, total_size:%lluByte\n",
+				__func__, __LINE__, mtk_lcm_total_size);
 		}
 
 		return ret;
 	}
+	DDPMSG("%s,%d, load panel resource, total_size:%lluByte\n",
+		__func__, __LINE__, mtk_lcm_total_size);
 	of_node_put(lcm_np);
 
 	dsi_params = &ctx_dsi->panel_resource->params.dsi_params;
@@ -1106,12 +1117,11 @@ static int mtk_drm_lcm_remove(struct mipi_dsi_device *dsi)
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx_dsi->panel);
 
-	if (ctx_dsi && ctx_dsi->panel_resource) {
-		free_lcm_params_dsi(&ctx_dsi->panel_resource->params.dsi_params);
-		if (ctx_dsi->panel_resource->ops.dsi_ops)
-			free_lcm_ops_dsi(ctx_dsi->panel_resource->ops.dsi_ops);
-		kfree(ctx_dsi->panel_resource);
+	if (ctx_dsi && ctx_dsi->panel_resource != NULL) {
+		free_lcm_resource(MTK_LCM_FUNC_DSI, ctx_dsi->panel_resource);
 		ctx_dsi->panel_resource = NULL;
+		DDPMSG("%s,%d, free panel resource, total_size:%lluByte\n",
+			__func__, __LINE__, mtk_lcm_total_size);
 	}
 
 	devm_kfree(ctx_dsi->dev, ctx_dsi);

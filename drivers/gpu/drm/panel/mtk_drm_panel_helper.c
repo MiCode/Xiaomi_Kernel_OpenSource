@@ -98,8 +98,7 @@ int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
 		DDPMSG("%s: %s is not existed or overflow, %d\n",
 			__func__, prop, len);
 
-	kfree(data);
-	data = NULL;
+	LCM_KFREE(data, sizeof(u32) * max_len);
 	return len;
 }
 
@@ -664,8 +663,10 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 		return -EINVAL;
 	}
 
-	DDPMSG("%s ++, total_size:%lluByte\n",
-		__func__, mtk_lcm_total_size);
+	mtk_lcm_dts_read_u32(lcm_np, "lcm-version", &data->version);
+	DDPMSG("%s ++, version:%u, total_size:%lluByte\n",
+		__func__, data->version, mtk_lcm_total_size);
+
 	/* Load LCM parameters from DT */
 	for_each_available_child_of_node(lcm_np, np) {
 		if (of_device_is_compatible(np, "mediatek,lcm-params")) {
@@ -1412,6 +1413,52 @@ void dump_lcm_params_basic(struct mtk_lcm_params *params)
 	DDPDUMP("================================================\n");
 }
 
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
+/* dump dsi fps params */
+void dump_lcm_round_corner_params(LCM_ROUND_CORNER *params)
+{
+	unsigned int i = 0;
+
+	LCM_MSG("=========== LCM DUMP: round corner params ==============\n");
+	LCM_MSG("enable=%u, width=%u-%u, height=%u-%u\n",
+		params->round_corner_en,
+		params->w, params->w_bot,
+		params->h, params->h_bot);
+	LCM_MSG("notch=%u, full_content=%u, top_size=%u, bottom_size=%u\n",
+		params->is_notch, params->full_content,
+		params->tp_size, params->bt_size);
+
+	LCM_MSG("left_top ==>\n");
+	for (i = 0; i < params->tp_size; i++) {
+		LCM_MSG("%u ", (u8)params->lt_addr[i]);
+		if (i % 21 == 0)
+			LCM_MSG("\n", (u8)params->lt_addr[i]);
+	}
+
+	LCM_MSG("right_top ==>\n");
+	for (i = 0; i < params->tp_size; i++) {
+		LCM_MSG("%u ", (u8)params->rt_addr[i]);
+		if (i % 21 == 0)
+			LCM_MSG("\n", (u8)params->rt_addr[i]);
+	}
+
+	LCM_MSG("left_bottom ==>\n");
+	for (i = 0; i < params->bt_size; i++) {
+		LCM_MSG("%u ", (u8)params->lb_addr[i]);
+		if (i % 21 == 0)
+			LCM_MSG("\n", (u8)params->lb_addr[i]);
+	}
+
+	LCM_MSG("right_bottom ==>\n");
+	for (i = 0; i < params->bt_size; i++) {
+		LCM_MSG("%u ", (u8)params->rb_addr[i]);
+		if (i % 21 == 0)
+			LCM_MSG("\n", (u8)params->rb_addr[i]);
+	}
+	LCM_MSG("=================================================\n");
+}
+#endif
+
 void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
 		struct mtk_panel_cust *cust)
 {
@@ -1437,4 +1484,161 @@ void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
 		DDPDUMP("%s, invalid func:%d\n", __func__, func);
 		break;
 	}
+}
+
+static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
+{
+	if (lcm_op == NULL)
+		return;
+
+	switch (lcm_op->type) {
+	case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
+		if (lcm_op->param.buffer_data != NULL &&
+			lcm_op->size > 0)
+			LCM_KFREE(lcm_op->param.buffer_data,
+				lcm_op->size + 1);
+		break;
+	case MTK_LCM_CMD_TYPE_WRITE_CMD:
+		if (lcm_op->param.cmd_data.data != NULL &&
+			lcm_op->size > 0)
+			LCM_KFREE(lcm_op->param.cmd_data.data,
+				lcm_op->size);
+		break;
+	case MTK_LCM_CMD_TYPE_READ_BUFFER:
+	case MTK_LCM_CMD_TYPE_READ_CMD:
+		if (lcm_op->param.cmd_data.data != NULL &&
+		    lcm_op->param.cmd_data.data_len > 0)
+			LCM_KFREE(lcm_op->param.cmd_data.data,
+				lcm_op->param.cmd_data.data_len + 1);
+		break;
+	case MTK_LCM_CB_TYPE_RUNTIME:
+		if (lcm_op->param.cb_id_data.buffer_data != NULL &&
+			lcm_op->size > 0)
+			LCM_KFREE(lcm_op->param.cb_id_data.buffer_data,
+				lcm_op->size + 1);
+		break;
+	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
+		if (lcm_op->param.cb_id_data.buffer_data != NULL &&
+			lcm_op->size > 0)
+			LCM_KFREE(lcm_op->param.cb_id_data.buffer_data,
+				lcm_op->size);
+		break;
+	default:
+		break;
+	}
+}
+
+void free_lcm_ops_table(struct mtk_lcm_ops_data *table,
+		unsigned int table_size)
+{
+	struct mtk_lcm_ops_data *op = NULL;
+	unsigned int i = 0;
+
+	if (table == NULL || table_size == 0)
+		return;
+
+	for (i = 0; i < table_size; i++) {
+		op = &table[i];
+		if (op == NULL)
+			break;
+		free_lcm_ops_data(op);
+	}
+}
+
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
+static void free_lcm_params_round_corner(LCM_ROUND_CORNER *corner)
+{
+	if (corner == NULL)
+		return;
+
+	if (corner->tp_size > 0) {
+		if (corner->lt_addr != NULL)
+			LCM_KFREE(corner->lt_addr, corner->tp_size + 1);
+		if (corner->lt_addr_l != NULL)
+			LCM_KFREE(corner->lt_addr_l, corner->tp_size + 1);
+		if (corner->lt_addr_r != NULL)
+			LCM_KFREE(corner->lt_addr_r, corner->tp_size + 1);
+		if (corner->rt_addr != NULL)
+			LCM_KFREE(corner->rt_addr, corner->tp_size + 1);
+	}
+	if (corner->bt_size > 0) {
+		if (corner->lb_addr != NULL)
+			LCM_KFREE(corner->lb_addr, corner->bt_size + 1);
+		if (corner->rb_addr != NULL)
+			LCM_KFREE(corner->rb_addr, corner->bt_size + 1);
+	}
+}
+#endif
+
+static void free_lcm_params_basic(struct mtk_lcm_params *params)
+{
+	if (params == NULL)
+		return;
+
+	if (params->name != NULL)
+		LCM_KFREE(params->name, MTK_LCM_NAME_LENGTH);
+}
+
+static void free_lcm_params(char func, struct mtk_lcm_params *params)
+{
+	if (params == NULL)
+		return;
+
+	switch (func) {
+	case MTK_LCM_FUNC_DBI:
+		free_lcm_params_dbi(&params->dbi_params);
+		break;
+	case MTK_LCM_FUNC_DPI:
+		free_lcm_params_dpi(&params->dpi_params);
+		break;
+	case MTK_LCM_FUNC_DSI:
+		free_lcm_params_dsi(&params->dsi_params);
+		break;
+	default:
+		break;
+	}
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
+	free_lcm_params_round_corner(&params->round_corner_params);
+#endif
+	free_lcm_params_basic(params);
+}
+
+static void free_lcm_ops(char func, struct mtk_lcm_ops *ops)
+{
+	if (ops == NULL)
+		return;
+
+	switch (func) {
+	case MTK_LCM_FUNC_DBI:
+		free_lcm_ops_dbi(ops->dbi_ops);
+		ops->dbi_ops = NULL;
+		break;
+	case MTK_LCM_FUNC_DPI:
+		free_lcm_ops_dpi(ops->dpi_ops);
+		ops->dpi_ops = NULL;
+		break;
+	case MTK_LCM_FUNC_DSI:
+		free_lcm_ops_dsi(ops->dsi_ops);
+		ops->dsi_ops = NULL;
+		break;
+	default:
+		break;
+	}
+}
+
+void free_lcm_resource(char func, struct mtk_panel_resource *data)
+{
+	if (data == NULL)
+		return;
+
+	free_lcm_ops(func, &data->ops);
+	free_lcm_params(func, &data->params);
+
+	if (atomic_read(&data->cust.cust_enabled) == 1) {
+		if (data->cust.free_ops != NULL)
+			data->cust.free_ops(func);
+		if (data->cust.free_params != NULL)
+			data->cust.free_params(func);
+	}
+	LCM_KFREE(data, sizeof(struct mtk_panel_resource));
 }

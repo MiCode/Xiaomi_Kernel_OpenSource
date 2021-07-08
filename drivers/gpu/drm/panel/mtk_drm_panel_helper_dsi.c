@@ -1081,6 +1081,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		}
 	}
 
+#if MTK_LCM_DEBUG_DUMP
 	mtk_lcm_dts_read_u32(np, "gpio_test_size",
 				&ops->gpio_test_size);
 	if (ops->gpio_test_size > 0) {
@@ -1097,6 +1098,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
 	}
+#endif
 
 	return 0;
 }
@@ -1472,9 +1474,11 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 		}
 	}
 
+#if MTK_LCM_DEBUG_DUMP
 	dump_lcm_ops_func(ops->gpio_test,
 			ops->gpio_test_size,
 			cust, "gpio_test");
+#endif
 
 	DDPDUMP("=============================================\n");
 }
@@ -1493,20 +1497,24 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params)
 	list_for_each_entry(mode_node, &params->mode_list, list) {
 		if (mode_node->fps_switch_bfoff_size > 0 &&
 		    mode_node->fps_switch_bfoff != NULL) {
-			kfree(mode_node->fps_switch_bfoff);
-			mode_node->fps_switch_bfoff = NULL;
+			LCM_KFREE(mode_node->fps_switch_bfoff,
+					sizeof(struct mtk_lcm_ops_data) *
+					mode_node->fps_switch_bfoff_size);
 			mode_node->fps_switch_bfoff_size = 0;
 		}
 		if (mode_node->fps_switch_afon_size > 0 &&
 		    mode_node->fps_switch_afon != NULL) {
-			kfree(mode_node->fps_switch_afon);
-			mode_node->fps_switch_afon = NULL;
+			LCM_KFREE(mode_node->fps_switch_afon,
+					sizeof(struct mtk_lcm_ops_data) *
+					mode_node->fps_switch_afon_size);
 			mode_node->fps_switch_afon_size = 0;
 		}
 		list_del(&mode_node->list);
-		kfree(mode_node);
+		LCM_KFREE(mode_node, sizeof(struct mtk_lcm_mode_dsi));
 	}
 	params->default_mode = NULL;
+	memset(params, 0, sizeof(struct mtk_lcm_params_dsi));
+
 	DDPMSG("%s: LCM free dsi params:0x%lx\n",
 		__func__, (unsigned long)params);
 }
@@ -1524,114 +1532,160 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
 		__func__, (unsigned long)ops);
 
 	if (ops->prepare_size > 0 && ops->prepare != NULL) {
-		kfree(ops->prepare);
-		ops->prepare = NULL;
+		free_lcm_ops_table(ops->prepare,
+			ops->prepare_size);
+		LCM_KFREE(ops->prepare,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->prepare_size);
 		ops->prepare_size = 0;
 	}
 
 	if (ops->unprepare_size > 0 && ops->unprepare != NULL) {
-		kfree(ops->unprepare);
-		ops->unprepare = NULL;
+		free_lcm_ops_table(ops->unprepare,
+			ops->unprepare_size);
+		LCM_KFREE(ops->unprepare,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->unprepare_size);
 		ops->unprepare_size = 0;
 	}
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	if (ops->compare_id_value_length > 0 &&
 	    ops->compare_id_value_data != NULL) {
-		kfree(ops->compare_id_value_data);
-		ops->compare_id_value_data = NULL;
+		LCM_KFREE(ops->compare_id_value_data,
+				ops->compare_id_value_length);
 		ops->compare_id_value_length = 0;
 	}
 
 	if (ops->compare_id_size > 0 &&
 	    ops->compare_id != NULL) {
-		kfree(ops->compare_id);
-		ops->compare_id = NULL;
+		free_lcm_ops_table(ops->compare_id,
+			ops->compare_id_size);
+		LCM_KFREE(ops->compare_id,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->compare_id_size);
 		ops->compare_id_size = 0;
 	}
 #endif
 
 	if (ops->set_backlight_cmdq_size > 0 &&
 	    ops->set_backlight_cmdq != NULL) {
-		kfree(ops->set_backlight_cmdq);
-		ops->set_backlight_cmdq = NULL;
+		free_lcm_ops_table(ops->set_backlight_cmdq,
+			ops->set_backlight_cmdq_size);
+		LCM_KFREE(ops->set_backlight_cmdq,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->set_backlight_cmdq_size);
 		ops->set_backlight_cmdq_size = 0;
 	}
 	if (ops->set_backlight_grp_cmdq_size > 0 &&
 	    ops->set_backlight_grp_cmdq != NULL) {
-		kfree(ops->set_backlight_grp_cmdq);
-		ops->set_backlight_grp_cmdq = NULL;
+		free_lcm_ops_table(ops->set_backlight_grp_cmdq,
+			ops->set_backlight_grp_cmdq_size);
+		LCM_KFREE(ops->set_backlight_grp_cmdq,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->set_backlight_grp_cmdq_size);
 		ops->set_backlight_grp_cmdq_size = 0;
 	}
 	if (ops->ata_id_value_length > 0 &&
 	    ops->ata_id_value_data != NULL) {
-		kfree(ops->ata_id_value_data);
-		ops->ata_id_value_data = NULL;
+		LCM_KFREE(ops->ata_id_value_data,
+				ops->ata_id_value_length);
 		ops->ata_id_value_length = 0;
 	}
 	if (ops->ata_check_size > 0 &&
 	    ops->ata_check != NULL) {
-		kfree(ops->ata_check);
-		ops->ata_check = NULL;
+		free_lcm_ops_table(ops->ata_check,
+			ops->ata_check_size);
+		LCM_KFREE(ops->ata_check,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->ata_check_size);
 		ops->ata_check_size = 0;
 	}
 	if (ops->set_aod_light_high_size > 0 &&
 	    ops->set_aod_light_high != NULL) {
-		kfree(ops->set_aod_light_high);
-		ops->set_aod_light_high = NULL;
+		free_lcm_ops_table(ops->set_aod_light_high,
+			ops->set_aod_light_high_size);
+		LCM_KFREE(ops->set_aod_light_high,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->set_aod_light_high_size);
 		ops->set_aod_light_high_size = 0;
 	}
 	if (ops->set_aod_light_low_size > 0 &&
 	    ops->set_aod_light_low != NULL) {
-		kfree(ops->set_aod_light_low);
-		ops->set_aod_light_low = NULL;
+		free_lcm_ops_table(ops->set_aod_light_low,
+			ops->set_aod_light_low_size);
+		LCM_KFREE(ops->set_aod_light_low,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->set_aod_light_low_size);
 		ops->set_aod_light_low_size = 0;
 	}
 	if (ops->doze_enable_size > 0 &&
 	    ops->doze_enable != NULL) {
-		kfree(ops->doze_enable);
-		ops->doze_enable = NULL;
+		free_lcm_ops_table(ops->doze_enable,
+			ops->doze_enable_size);
+		LCM_KFREE(ops->doze_enable,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_enable_size);
 		ops->doze_enable_size = 0;
 	}
 	if (ops->doze_disable_size > 0 &&
 	    ops->doze_disable != NULL) {
-		kfree(ops->doze_disable);
-		ops->doze_disable = NULL;
+		free_lcm_ops_table(ops->doze_disable,
+			ops->doze_disable_size);
+		LCM_KFREE(ops->doze_disable,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_disable_size);
 		ops->doze_disable_size = 0;
 	}
 	if (ops->doze_enable_start_size > 0 &&
 	    ops->doze_enable_start != NULL) {
-		kfree(ops->doze_enable_start);
-		ops->doze_enable_start = NULL;
+		free_lcm_ops_table(ops->doze_enable_start,
+			ops->doze_enable_start_size);
+		LCM_KFREE(ops->doze_enable_start,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_enable_start_size);
 		ops->doze_enable_start_size = 0;
 	}
 	if (ops->doze_area_size > 0 &&
 	    ops->doze_area != NULL) {
-		kfree(ops->doze_area);
-		ops->doze_area = NULL;
+		free_lcm_ops_table(ops->doze_area,
+			ops->doze_area_size);
+		LCM_KFREE(ops->doze_area,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_area_size);
 		ops->doze_area_size = 0;
 	}
 	if (ops->doze_post_disp_on_size > 0 &&
 	    ops->doze_post_disp_on != NULL) {
-		kfree(ops->doze_post_disp_on);
-		ops->doze_post_disp_on = NULL;
+		free_lcm_ops_table(ops->doze_post_disp_on,
+			ops->doze_post_disp_on_size);
+		LCM_KFREE(ops->doze_post_disp_on,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->doze_post_disp_on_size);
 		ops->doze_post_disp_on_size = 0;
 	}
 	if (ops->hbm_set_cmdq_size > 0 &&
 	    ops->hbm_set_cmdq != NULL) {
-		kfree(ops->hbm_set_cmdq);
-		ops->hbm_set_cmdq = NULL;
+		free_lcm_ops_table(ops->hbm_set_cmdq,
+			ops->hbm_set_cmdq_size);
+		LCM_KFREE(ops->hbm_set_cmdq,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->hbm_set_cmdq_size);
 		ops->hbm_set_cmdq_size = 0;
 	}
+#if MTK_LCM_DEBUG_DUMP
 	if (ops->gpio_test_size > 0 &&
 	    ops->gpio_test != NULL) {
-		kfree(ops->gpio_test);
-		ops->gpio_test = NULL;
+		free_lcm_ops_table(ops->gpio_test,
+			ops->gpio_test_size);
+		LCM_KFREE(ops->gpio_test,
+				sizeof(struct mtk_lcm_ops_data) *
+				ops->gpio_test_size);
 		ops->gpio_test_size = 0;
 	}
+#endif
 
-	kfree(ops);
-	ops = NULL;
+	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dsi));
 }
 EXPORT_SYMBOL(free_lcm_ops_dsi);
 
