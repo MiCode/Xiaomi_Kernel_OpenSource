@@ -41,8 +41,8 @@ enum mtk_iova_space {
 static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define m4u_aee_print(string, args...) do {\
-		char m4u_name[100];\
-		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
+		char m4u_name[150];\
+		snprintf(m4u_name, 150, "[M4U]"string, ##args); \
 	aee_kernel_warning_api(__FILE__, __LINE__, \
 		DB_OPT_MMPROFILE_BUFFER | DB_OPT_DUMP_DISPLAY, \
 		m4u_name, "[M4U] error"string, ##args); \
@@ -51,8 +51,8 @@ static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 
 #else
 #define m4u_aee_print(string, args...) do {\
-		char m4u_name[100];\
-		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
+		char m4u_name[150];\
+		snprintf(m4u_name, 150, "[M4U]"string, ##args); \
 	pr_err("[M4U] error:"string, ##args);  \
 	} while (0)
 #endif
@@ -2471,7 +2471,7 @@ void mtk_iova_map_dump(u64 iova)
 		for (i = 0; i < MTK_IOVA_SPACE_NUM; i++) {
 			list_for_each_entry_safe(plist, n, &map_list.head[i],
 					 list_node)
-				pr_info("%-4u 0x%-12llx 0x%-8zx %llu.%llus\n",
+				pr_info("%-4u 0x%-12llx 0x%-8zx %llu.%06ds\n",
 					i, plist->iova,
 					plist->size,
 					plist->time_high,
@@ -2485,7 +2485,7 @@ void mtk_iova_map_dump(u64 iova)
 				 list_node)
 		if (iova <= (plist->iova + SZ_4M) &&
 		    iova >= (plist->iova - SZ_4M))
-			pr_info("%-4u 0x%-12llx 0x%-8zx %llu.%llus\n",
+			pr_info("%-4u 0x%-12llx 0x%-8zx %llu.%06ds\n",
 				id, plist->iova,
 				plist->size,
 				plist->time_high,
@@ -2503,7 +2503,8 @@ static void mtk_iommu_trace_dump(struct seq_file *seq_file)
 		return;
 
 	iommu_dump(seq_file, "iommu trace dump:\n");
-	iommu_dump(seq_file, "Time  | Action |iova_start | size  | id |iova_end\n");
+	iommu_dump(seq_file, "%-8s %-4s %-14s %-12s %-14s %-18s\n",
+			"action", "id", "iova_start", "size", "iova_end", "time");
 	for (i = 0; i < IOMMU_MAX_EVENT_COUNT; i++) {
 		unsigned long end_iova = 0;
 
@@ -2518,14 +2519,14 @@ static void mtk_iommu_trace_dump(struct seq_file *seq_file)
 			end_iova = iommu_globals.record[i].data1 +
 				iommu_globals.record[i].data2 - 1;
 
-		iommu_dump(seq_file, "%d.%06d |%10s |0x%-9lx |%9lu |0x%-8lx |0x%-9lx\n",
-			   iommu_globals.record[i].time_high,
-			   iommu_globals.record[i].time_low,
-			   event_mgr[event_id].name,
-			   iommu_globals.record[i].data1,
-			   iommu_globals.record[i].data2,
-			   iommu_globals.record[i].data3,
-			   end_iova);
+		iommu_dump(seq_file, "%-8s %-4u 0x%-12lx 0x%-10zx 0x%-12lx %llu.%06d\n",
+				event_mgr[event_id].name,
+				iommu_globals.record[i].data3,
+				iommu_globals.record[i].data1,
+				iommu_globals.record[i].data2,
+				end_iova,
+				iommu_globals.record[i].time_high,
+				iommu_globals.record[i].time_low);
 	}
 }
 
