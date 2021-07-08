@@ -215,40 +215,33 @@ static s32 *read_spm_pwr_status_array(void)
 	return clkchk_ops->get_spm_pwr_status_array();
 }
 
-static int clk_hw_pwr_is_on(struct clk_hw *c_hw, u32 *spm_pwr_status,
-		struct provider_clk *pvdck)
+int pwr_hw_is_on(enum PWR_STA_TYPE type, u32 mask)
 {
-	if (pvdck->sta_type == PWR_STA) {
-		if ((spm_pwr_status[PWR_STA] & pvdck->pwr_mask) != pvdck->pwr_mask &&
-				(spm_pwr_status[PWR_STA2] & pvdck->pwr_mask) != pvdck->pwr_mask)
+	u32 *pval = read_spm_pwr_status_array();
+
+	if (type == PWR_STA) {
+		if ((pval[PWR_STA] & mask) != mask &&
+				(pval[PWR_STA2] & mask) != mask)
 			return 0;
-		else if ((spm_pwr_status[PWR_STA] & pvdck->pwr_mask) == pvdck->pwr_mask &&
-				(spm_pwr_status[PWR_STA2] & pvdck->pwr_mask) == pvdck->pwr_mask)
+		else if ((pval[PWR_STA] & mask) == mask &&
+				(pval[PWR_STA2] & mask) == mask)
 			return 1;
 		else
 			return -1;
-	} else if (pvdck->sta_type == OTHER_STA) {
-		if ((spm_pwr_status[OTHER_STA] & pvdck->pwr_mask) != pvdck->pwr_mask)
-			return 0;
-		else
+	}  else {
+		if ((pval[type] & mask) == mask)
 			return 1;
+		else if ((pval[type] & mask) != 0)
+			return -1;
+
+		else
+			return 0;
 	}
-
-	return -1;
 }
-
-static int pvdck_pwr_is_on(struct provider_clk *pvdck, u32 *spm_pwr_status)
-{
-	struct clk *c = pvdck->ck;
-	struct clk_hw *c_hw = __clk_get_hw(c);
-
-	return clk_hw_pwr_is_on(c_hw, spm_pwr_status, pvdck);
-}
+EXPORT_SYMBOL(pwr_hw_is_on);
 
 int clkchk_pvdck_is_on(struct provider_clk *pvdck)
 {
-	u32 *pval;
-
 	if (!pvdck)
 		return -1;
 
@@ -264,9 +257,7 @@ int clkchk_pvdck_is_on(struct provider_clk *pvdck)
 			return 1;
 		}
 
-		pval = read_spm_pwr_status_array();
-
-		return pvdck_pwr_is_on(pvdck, pval);
+		return pwr_hw_is_on(pvdck->sta_type, pvdck->pwr_mask);
 	}
 
 	return clkchk_ops->is_pwr_on(pvdck);
@@ -364,7 +355,7 @@ static void dump_enabled_clks(struct provider_clk *pvdck)
 
 static bool __check_pll_off(const char * const *name)
 {
-	int invalid = 0;
+	int valid = 0;
 
 	for (; *name != NULL; name++) {
 		struct provider_clk *pvdck = __clk_chk_lookup_pvdck(*name);
@@ -374,10 +365,10 @@ static bool __check_pll_off(const char * const *name)
 
 		pr_notice("suspend warning[0m: %s is on\n", *name);
 
-		invalid++;
+		valid++;
 	}
 
-	if (invalid)
+	if (valid)
 		return true;
 
 	return false;
@@ -400,7 +391,7 @@ static bool check_pll_off(void)
 
 	name = clkchk_ops->get_notice_pll_names();
 
-	ret += __check_pll_off(name);
+	__check_pll_off(name);
 
 	if (ret)
 		return true;
@@ -413,10 +404,7 @@ static bool is_pll_chk_bug_on(void)
 	if (clkchk_ops == NULL || clkchk_ops->is_pll_chk_bug_on == NULL)
 		return false;
 
-#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
 	return clkchk_ops->is_pll_chk_bug_on();
-#endif
-	return false;
 }
 
 /*

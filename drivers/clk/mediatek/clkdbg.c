@@ -1081,6 +1081,7 @@ struct genpd_dev_state {
 	atomic_t usage_count;
 	unsigned int disable_depth;
 	enum rpm_status runtime_status;
+	int runtime_error;
 };
 
 struct genpd_state {
@@ -1117,6 +1118,7 @@ static void save_all_genpd_state(struct genpd_state *genpd_states,
 			devst->usage_count = d->power.usage_count;
 			devst->disable_depth = d->power.disable_depth;
 			devst->runtime_status = d->power.runtime_status;
+			devst->runtime_error = d->power.runtime_error;
 
 			devst++;
 			pdst->num_dev_state++;
@@ -1212,12 +1214,14 @@ static void dump_genpd_state(struct genpd_state *pdst, struct seq_file *s)
 			struct device *dev = devst->dev;
 			struct platform_device *pdev = to_platform_device(dev);
 
-			seq_printf(s, "\t%c (%-19s %3d, %d, %10s)\n",
+			seq_printf(s, "\t%c (%-19s %3d, %10s)\n",
 				devst->active ? '+' : '-',
 				pdev->name,
 				atomic_read(&dev->power.usage_count),
-				devst->disable_depth,
-				prm_status_name[devst->runtime_status]);
+				devst->disable_depth ? "unsupport" :
+				devst->runtime_error ? "error" :
+				(devst->runtime_status < ARRAY_SIZE(prm_status_name)) ?
+				prm_status_name[devst->runtime_status] : "UFO");
 		}
 	}
 }

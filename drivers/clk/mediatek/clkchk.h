@@ -27,6 +27,8 @@ struct seq_file;
 enum PWR_STA_TYPE {
 	PWR_STA,
 	PWR_STA2,
+	PWR_CON_STA,
+	XPWR_STA,
 	OTHER_STA,
 	STA_NUM,
 };
@@ -42,6 +44,12 @@ struct provider_clk {
 
 struct pvd_msk {
 	const char *pvdname;
+	enum PWR_STA_TYPE sta_type;
+	u32 pwr_mask;
+};
+
+struct pd_sta {
+	int pd_id;
 	enum PWR_STA_TYPE sta_type;
 	u32 pwr_mask;
 };

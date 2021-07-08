@@ -11,48 +11,12 @@
 #include "mtk-pd-chk.h"
 #include "clkchk-mt6893.h"
 
-#define BUG_ON_CHK_ENABLE	0
+#define BUG_ON_CHK_ENABLE	1
 #define MAX_CLK_NUM		100
 
 /*
  * The clk names in Mediatek CCF.
  */
-/* audiosys */
-struct pd_check_swcg audiosys_swcgs[] = {
-	SWCG("aud_afe"),
-	SWCG("aud_22m"),
-	SWCG("aud_24m"),
-	SWCG("aud_apll2_tuner"),
-	SWCG("aud_apll_tuner"),
-	SWCG("aud_tdm_ck"),
-	SWCG("aud_adc"),
-	SWCG("aud_dac"),
-	SWCG("aud_dac_predis"),
-	SWCG("aud_tml"),
-	SWCG("aud_nle"),
-	SWCG("aud_i2s1_bclk"),
-	SWCG("aud_i2s2_bclk"),
-	SWCG("aud_i2s3_bclk"),
-	SWCG("aud_i2s4_bclk"),
-	SWCG("aud_connsys_i2s_asrc"),
-	SWCG("aud_general1_asrc"),
-	SWCG("aud_general2_asrc"),
-	SWCG("aud_dac_hires"),
-	SWCG("aud_adc_hires"),
-	SWCG("aud_adc_hires_tml"),
-	SWCG("aud_adda6_adc"),
-	SWCG("aud_adda6_adc_hires"),
-	SWCG("aud_3rd_dac"),
-	SWCG("aud_3rd_dac_predis"),
-	SWCG("aud_3rd_dac_tml"),
-	SWCG("aud_3rd_dac_hires"),
-	SWCG("aud_i2s5_bclk"),
-	SWCG("aud_i2s6_bclk"),
-	SWCG("aud_i2s7_bclk"),
-	SWCG("aud_i2s8_bclk"),
-	SWCG("aud_i2s9_bclk"),
-	SWCG(NULL),
-};
 /* camsys_main */
 struct pd_check_swcg camsys_main_swcgs[] = {
 	//SWCG("cam_m_larb13"),
@@ -303,7 +267,7 @@ struct subsys_cgs_check {
 };
 
 struct subsys_cgs_check mtk_subsys_check[] = {
-	{MT6893_POWER_DOMAIN_AUDIO, audiosys_swcgs, audsys},
+	//{MT6893_POWER_DOMAIN_AUDIO, audiosys_swcgs, audsys},
 	{MT6893_POWER_DOMAIN_CAM, camsys_main_swcgs, cam_m},
 	{MT6893_POWER_DOMAIN_CAM_RAWA, camsys_rawa_swcgs, cam_ra},
 	{MT6893_POWER_DOMAIN_CAM_RAWB, camsys_rawb_swcgs, cam_rb},
@@ -424,6 +388,102 @@ static void log_dump(unsigned int id, unsigned int pwr_sta)
 	}
 }
 
+static struct pd_sta pd_pwr_msk[] = {
+	{MT6893_POWER_DOMAIN_MFG0, PWR_STA, 0x00000004},
+	{MT6893_POWER_DOMAIN_MFG1, PWR_STA, 0x00000008},
+	{MT6893_POWER_DOMAIN_MFG2, PWR_STA, 0x00000010},
+	{MT6893_POWER_DOMAIN_MFG3, PWR_STA, 0x00000020},
+	{MT6893_POWER_DOMAIN_MFG4, PWR_STA, 0x00000040},
+	{MT6893_POWER_DOMAIN_MFG5, PWR_STA, 0x00000080},
+	{MT6893_POWER_DOMAIN_MFG6, PWR_STA, 0x00000100},
+	{MT6893_POWER_DOMAIN_ISP, PWR_STA, 0x00001000},
+	{MT6893_POWER_DOMAIN_ISP2, PWR_STA, 0x00002000},
+	{MT6893_POWER_DOMAIN_IPE, PWR_STA, 0x00004000},
+	{MT6893_POWER_DOMAIN_VDEC, PWR_STA, 0x00008000},
+	{MT6893_POWER_DOMAIN_VDEC2, PWR_STA, 0x00010000},
+	{MT6893_POWER_DOMAIN_VENC, PWR_STA, 0x00020000},
+	{MT6893_POWER_DOMAIN_VENC_CORE1, PWR_STA, 0x00040000},
+	{MT6893_POWER_DOMAIN_MDP, PWR_STA, 0x00080000},
+	{MT6893_POWER_DOMAIN_DISP, PWR_STA, 0x00100000},
+	{MT6893_POWER_DOMAIN_AUDIO, PWR_STA, 0x00200000},
+	{MT6893_POWER_DOMAIN_ADSP_DORMANT, PWR_STA, 0x00400000},
+	{MT6893_POWER_DOMAIN_CAM, PWR_STA, 0x00800000},
+	{MT6893_POWER_DOMAIN_CAM_RAWA, PWR_STA, 0x01000000},
+	{MT6893_POWER_DOMAIN_CAM_RAWB, PWR_STA, 0x02000000},
+	{MT6893_POWER_DOMAIN_CAM_RAWC, PWR_STA, 0x04000000},
+	{MT6893_POWER_DOMAIN_DP_TX, PWR_STA, 0x08000000},
+	{MT6893_POWER_DOMAIN_MD, PWR_STA, 0x00000001},
+	{MT6893_POWER_DOMAIN_CONN, PWR_STA, 0x00000002},
+	{MT6893_POWER_DOMAIN_APU, OTHER_STA, 0x00000020},
+};
+
+static struct pd_sta *get_pd_pwr_msk(int pd_id)
+{
+	int i;
+
+	if (pd_id == PD_NULL || pd_id > ARRAY_SIZE(pd_pwr_msk))
+		return NULL;
+
+	for (i = 0; i < ARRAY_SIZE(pd_pwr_msk); i++) {
+		if (pd_id == pd_pwr_msk[i].pd_id)
+			return &pd_pwr_msk[pd_id];
+	}
+
+	return NULL;
+}
+
+static int off_mtcmos_id[] = {
+	MT6893_POWER_DOMAIN_MFG0,
+	MT6893_POWER_DOMAIN_MFG1,
+	MT6893_POWER_DOMAIN_MFG2,
+	MT6893_POWER_DOMAIN_MFG3,
+	MT6893_POWER_DOMAIN_MFG4,
+	MT6893_POWER_DOMAIN_MFG5,
+	MT6893_POWER_DOMAIN_MFG6,
+	MT6893_POWER_DOMAIN_ISP,
+	MT6893_POWER_DOMAIN_ISP2,
+	MT6893_POWER_DOMAIN_IPE,
+	MT6893_POWER_DOMAIN_VDEC,
+	MT6893_POWER_DOMAIN_VDEC2,
+	MT6893_POWER_DOMAIN_VENC,
+	MT6893_POWER_DOMAIN_VENC_CORE1,
+	MT6893_POWER_DOMAIN_MDP,
+	MT6893_POWER_DOMAIN_DISP,
+	MT6893_POWER_DOMAIN_AUDIO,
+	MT6893_POWER_DOMAIN_CAM,
+	MT6893_POWER_DOMAIN_CAM_RAWA,
+	MT6893_POWER_DOMAIN_CAM_RAWB,
+	MT6893_POWER_DOMAIN_CAM_RAWC,
+	MT6893_POWER_DOMAIN_DP_TX,
+	MT6893_POWER_DOMAIN_APU,
+	PD_NULL,
+};
+
+static int notice_mtcmos_id[] = {
+	MT6893_POWER_DOMAIN_ADSP_DORMANT,
+	MT6893_POWER_DOMAIN_MD,
+	MT6893_POWER_DOMAIN_CONN,
+	PD_NULL,
+};
+
+static int *get_off_mtcmos_id(void)
+{
+	return off_mtcmos_id;
+}
+
+static int *get_notice_mtcmos_id(void)
+{
+	return notice_mtcmos_id;
+}
+
+static bool is_mtcmos_chk_bug_on(void)
+{
+#if BUG_ON_CHK_ENABLE
+	return true;
+#endif
+	return false;
+}
+
 /*
  * init functions
  */
@@ -434,20 +494,25 @@ static struct pdchk_ops pdchk_mt6893_ops = {
 	.is_in_pd_list = is_in_pd_list,
 	.debug_dump = debug_dump,
 	.log_dump = log_dump,
+	.get_pd_pwr_msk = get_pd_pwr_msk,
+	.get_off_mtcmos_id = get_off_mtcmos_id,
+	.get_notice_mtcmos_id = get_notice_mtcmos_id,
+	.is_mtcmos_chk_bug_on = is_mtcmos_chk_bug_on,
 };
 
-static int pd_chk_probe(struct platform_device *pdev)
+static int pd_chk_mt6893_probe(struct platform_device *pdev)
 {
-	pd_check_common_init(&pdchk_mt6893_ops);
+	pdchk_common_init(&pdchk_mt6893_ops);
 
 	return 0;
 }
 
-static struct platform_driver pd_chk_drv = {
-	.probe = pd_chk_probe,
+static struct platform_driver pd_chk_mt6893_drv = {
+	.probe = pd_chk_mt6893_probe,
 	.driver = {
-		.name = "pd-chk",
+		.name = "pd-chk-mt6893",
 		.owner = THIS_MODULE,
+		.pm = &pdchk_dev_pm_ops,
 	},
 };
 
@@ -459,18 +524,18 @@ static int __init pd_chk_init(void)
 {
 	static struct platform_device *pd_chk_dev;
 
-	pd_chk_dev = platform_device_register_simple("pd-chk", -1, NULL, 0);
+	pd_chk_dev = platform_device_register_simple("pd-chk-mt6893", -1, NULL, 0);
 	if (IS_ERR(pd_chk_dev))
 		pr_warn("unable to register pd-chk device");
 
-	return platform_driver_register(&pd_chk_drv);
+	return platform_driver_register(&pd_chk_mt6893_drv);
 }
 
 static void __exit pd_chk_exit(void)
 {
-	platform_driver_unregister(&pd_chk_drv);
+	platform_driver_unregister(&pd_chk_mt6893_drv);
 }
 
-late_initcall_sync(pd_chk_init);
+subsys_initcall(pd_chk_init);
 module_exit(pd_chk_exit);
 MODULE_LICENSE("GPL");
