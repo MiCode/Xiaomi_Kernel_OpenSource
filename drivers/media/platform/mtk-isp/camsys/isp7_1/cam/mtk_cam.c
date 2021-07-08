@@ -16,10 +16,15 @@
 
 #include <linux/types.h>
 #include <linux/videodev2.h>
+#include <linux/media.h>
 #include <media/videobuf2-v4l2.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mc.h>
 #include <media/v4l2-subdev.h>
+#include <media/media-entity.h>
+
+#include <trace/hooks/v4l2core.h>
+#include <trace/hooks/v4l2mc.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-ctrl.h"
@@ -37,6 +42,13 @@
 /* FIXME for CIO pad id */
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
 #define MTK_CAM_CIO_PAD_SINK		MTK_RAW_SINK
+
+/* Zero out the end of the struct pointed to by p.  Everything after, but
+ * not including, the specified field is cleared.
+ */
+#define CLEAR_AFTER_FIELD(p, field) \
+	memset((u8 *)(p) + offsetof(typeof(*(p)), field) + sizeof((p)->field), \
+	0, sizeof(*(p)) - offsetof(typeof(*(p)), field) -sizeof((p)->field))
 
 static const struct of_device_id mtk_cam_of_ids[] = {
 	{.compatible = "mediatek,mt8195-camisp",},
@@ -3511,10 +3523,220 @@ static struct platform_driver mtk_cam_driver = {
 	}
 };
 
+static void media_device_setup_link_hook(void *data,
+			struct media_link *link, struct media_link_desc *linkd, int *ret)
+{
+	int ret_value;
+
+	link->android_vendor_data1 = linkd->reserved[0];
+	ret_value = __media_entity_setup_link(link, linkd->flags);
+	link->android_vendor_data1 = 0;
+	*ret = (ret_value < 0) ? ret_value : 1;
+}
+
+static void clear_reserved_fmt_fields_hook(void *data,
+			struct v4l2_format *p, int *ret)
+{
+	CLEAR_AFTER_FIELD(p, fmt.pix_mp.reserved[3]);
+	*ret = 1;
+}
+
+static void fill_ext_fmtdesc_hook(void *data, struct v4l2_fmtdesc *p, const char **descr)
+{
+	switch (p->pixelformat) {
+	case V4L2_PIX_FMT_YUYV10:
+		*descr = "YUYV 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_YVYU10:
+		*descr = "YVYU 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_UYVY10:
+		*descr = "UYVY 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_VYUY10:
+		*descr = "VYUY 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV12_10:
+		*descr = "Y/CbCr 4:2:0 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV21_10:
+		*descr = "Y/CrCb 4:2:0 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV16_10:
+		*descr = "Y/CbCr 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_NV61_10:
+		*descr = "Y/CrCb 4:2:2 10 bits";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR10:
+		*descr = "10-bit Bayer BGGR MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG10:
+		*descr = "10-bit Bayer GBRG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG10:
+		*descr = "10-bit Bayer GRBG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB10:
+		*descr = "10-bit Bayer RGGB MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR12:
+		*descr = "12-bit Bayer BGGR MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG12:
+		*descr = "12-bit Bayer GBRG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG12:
+		*descr = "12-bit Bayer GRBG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB12:
+		*descr = "12-bit Bayer RGGB MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR14:
+		*descr = "14-bit Bayer BGGR MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG14:
+		*descr = "14-bit Bayer GBRG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG14:
+		*descr = "14-bit Bayer GRBG MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB14:
+		*descr = "14-bit Bayer RGGB MTISP Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR8F:
+		*descr = "8-bit Enhanced BGGR Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG8F:
+		*descr = "8-bit Enhanced GBRG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG8F:
+		*descr = "8-bit Enhanced GRBG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB8F:
+		*descr = "8-bit Enhanced RGGB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR10F:
+		*descr = "10-bit Enhanced BGGR Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG10F:
+		*descr = "10-bit Enhanced GBRG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG10F:
+		*descr = "10-bit Enhanced GRBG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB10F:
+		*descr = "10-bit Enhanced RGGB Packed";
+	break;
+	case V4L2_PIX_FMT_MTISP_SBGGR12F:
+		*descr = "12-bit Enhanced BGGR Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG12F:
+		*descr = "12-bit Enhanced GBRG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG12F:
+		*descr = "12-bit Enhanced GRBG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB12F:
+		*descr = "12-bit Enhanced RGGB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR14F:
+		*descr = "14-bit Enhanced BGGR Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGBRG14F:
+		*descr = "14-bit Enhanced GBRG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SGRBG14F:
+		*descr = "14-bit Enhanced GRBG Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_SRGGB14F:
+		*descr = "14-bit Enhanced RGGB Packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV12_10P:
+		*descr = "Y/CbCr 4:2:0 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV21_10P:
+		*descr = "Y/CrCb 4:2:0 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV16_10P:
+		*descr = "Y/CbCr 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_NV61_10P:
+		*descr = "Y/CrCb 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_YUYV10P:
+		*descr = "YUYV 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_YVYU10P:
+		*descr = "YVYU 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_UYVY10P:
+		*descr = "UYVY 4:2:2 10 bits packed";
+		break;
+	case V4L2_PIX_FMT_MTISP_VYUY10P:
+		*descr = "VYUY 4:2:2 10 bits packed";
+		break;
+	case V4L2_META_FMT_MTISP_3A:
+		*descr = "AE/AWB Histogram";
+		break;
+	case V4L2_META_FMT_MTISP_AF:
+		*descr = "AF Histogram";
+		break;
+	case V4L2_META_FMT_MTISP_LCS:
+		*descr = "Local Contrast Enhancement Stat";
+		break;
+	case V4L2_META_FMT_MTISP_LMV:
+		*descr = "Local Motion Vector Histogram";
+		break;
+	case V4L2_META_FMT_MTISP_PARAMS:
+		*descr = "MTK ISP Tuning Metadata";
+		break;
+	default:
+		break;
+	}
+}
+
+static void clear_mask_adjust_hook(void *data, unsigned int ctrl, int *n)
+{
+	if (ctrl == VIDIOC_S_SELECTION)
+		*n = offsetof(struct v4l2_selection, reserved[0]);
+}
+
+static void mtk_cam_trace_init(void)
+{
+	int ret = 0;
+
+	ret = register_trace_android_vh_media_device_setup_link(
+			media_device_setup_link_hook, NULL);
+	if (ret)
+		pr_info("register android_vh_media_device_setup_link failed!\n");
+	ret = register_trace_android_vh_clear_reserved_fmt_fields(
+			clear_reserved_fmt_fields_hook, NULL);
+	if (ret)
+		pr_info("register android_vh_clear_reserved_fmt_fields failed!\n");
+	ret = register_trace_android_vh_fill_ext_fmtdesc(
+			fill_ext_fmtdesc_hook, NULL);
+	if (ret)
+		pr_info("register android_vh_v4l_fill_fmtdesc failed!\n");
+	ret = register_trace_android_vh_clear_mask_adjust(
+			clear_mask_adjust_hook, NULL);
+	if (ret)
+		pr_info("register android_vh_clear_mask_adjust failed!\n");
+}
+
+static void mtk_cam_trace_exit(void)
+{
+	unregister_trace_android_vh_media_device_setup_link(media_device_setup_link_hook, NULL);
+	unregister_trace_android_vh_clear_reserved_fmt_fields(clear_reserved_fmt_fields_hook, NULL);
+	unregister_trace_android_vh_fill_ext_fmtdesc(fill_ext_fmtdesc_hook, NULL);
+	unregister_trace_android_vh_clear_mask_adjust(clear_mask_adjust_hook, NULL);
+}
+
 static int __init mtk_cam_init(void)
 {
 	int ret;
 
+	mtk_cam_trace_init();
 	ret = platform_driver_register(&mtk_cam_driver);
 	return ret;
 }
@@ -3522,6 +3744,7 @@ static int __init mtk_cam_init(void)
 static void __exit mtk_cam_exit(void)
 {
 	platform_driver_unregister(&mtk_cam_driver);
+	mtk_cam_trace_exit();
 }
 
 module_init(mtk_cam_init);
