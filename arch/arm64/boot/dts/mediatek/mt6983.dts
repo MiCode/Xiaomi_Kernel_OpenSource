@@ -6904,6 +6904,7 @@
 			interrupt-names = "fg_cur_h", "fg_cur_l";
 			oc-thd-h = <6800>;
 			oc-thd-l = <8000>;
+			status = "disabled";
 		};
 	};
 };
