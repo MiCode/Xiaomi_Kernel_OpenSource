@@ -171,6 +171,14 @@ config MTK_COMBO_CHIP_CONSYS_6893
 	  is
 	  MT6893(BT/WIFI/GPS/FM combo chip)
 
+config MTK_COMBO_CHIP_CONSYS_6983
+	bool "MTK MT6983 combo chip support"
+	help
+	  this config is used to decided SOC consys version
+	  in current platform
+	  is
+	  MT6893(BT/WIFI/GPS/FM combo chip)
+
 #
 # Target Platform Selection
 #
