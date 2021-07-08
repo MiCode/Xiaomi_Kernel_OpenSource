@@ -167,6 +167,11 @@ int rawbulk_push_upstream_buffer(int transfer_id, const void *buffer,
 int rawbulk_transfer_statistics(int transfer_id, char *buf);
 int rawbulk_transfer_state(int transfer_id);
 
+/* ko build */
+extern struct usb_function *rawbulk_alloc(struct usb_function_instance *fi,
+							int transfer_id);
+extern struct usb_function_instance *alloc_inst_rawbulk(int transfer_id);
+
 /* debug mechanism */
 extern unsigned int c2k_usb_dbg_level;	/* refer to rawbulk_transfer.c */
 static inline int c2k_dbg_level(unsigned int level)
