@@ -223,40 +223,6 @@ DEFINE_SIMPLE_ATTRIBUTE(mmc_clock_fops, mmc_clock_opt_get, mmc_clock_opt_set,
 	"%llu\n");
 
 #if defined(CONFIG_SDC_QTI)
-static int mmc_scale_get(void *data, u64 *val)
-{
-	struct mmc_host *host = data;
-
-	*val = host->clk_scaling.curr_freq;
-
-	return 0;
-}
-
-static int mmc_scale_set(void *data, u64 val)
-{
-	int err = 0;
-	struct mmc_host *host = data;
-
-	mmc_claim_host(host);
-
-	/* change frequency from sysfs manually */
-	err = mmc_clk_update_freq(host, val, host->clk_scaling.state);
-	if (err == -EAGAIN)
-		err = 0;
-	else if (err)
-		pr_err("%s: clock scale to %llu failed with error %d\n",
-			mmc_hostname(host), val, err);
-	else
-		pr_debug("%s: clock change to %llu finished successfully (%s)\n",
-			mmc_hostname(host), val, current->comm);
-
-	mmc_release_host(host);
-
-	return err;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(mmc_scale_fops, mmc_scale_get, mmc_scale_set,
-	"%llu\n");
 
 static int mmc_max_clock_get(void *data, u64 *val)
 {
@@ -314,8 +280,6 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 #if defined(CONFIG_SDC_QTI)
 	debugfs_create_file("max_clock", 0600, root, host,
 		&mmc_max_clock_fops);
-	debugfs_create_file("scale", 0600, root, host,
-		&mmc_scale_fops);
 	debugfs_create_bool("skip_clk_scale_freq_update",
 		0600, root,
 		&host->clk_scaling.skip_clk_scale_freq_update);
