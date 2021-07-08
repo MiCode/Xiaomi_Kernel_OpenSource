@@ -863,10 +863,6 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 
 	/* Synchronize with the tlb_lock */
 	ret = dom->iop->map(dom->iop, iova, paddr, size, prot, gfp);
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-	if (!ret)
-		mtk_iova_map(iova, size);
-#endif
 	return ret;
 }
 
@@ -883,10 +879,6 @@ static size_t mtk_iommu_unmap(struct iommu_domain *domain,
 	if (gather->end < end)
 		gather->end = end;
 	ret = dom->iop->unmap(dom->iop, iova, size, gather);
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-	if (ret)
-		mtk_iova_unmap(iova, size);
-#endif
 	return ret;
 }
 
@@ -903,6 +895,10 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	size_t length = gather->end - gather->start + 1;
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	mtk_iova_unmap(gather->start, length);
+#endif
+
 	mtk_iommu_tlb_flush_range_sync(gather->start, length, gather->pgsize,
 				       dom->data);
 }
@@ -911,6 +907,10 @@ static void mtk_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
 			       size_t size)
 {
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	mtk_iova_map(iova, size);
+#endif
 
 	mtk_iommu_tlb_flush_range_sync(iova, size, size, dom->data);
 }
