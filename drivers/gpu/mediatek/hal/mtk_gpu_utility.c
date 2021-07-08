@@ -583,10 +583,24 @@ bool mtk_ltr_gpu_pmu_start(unsigned int interval_ns)
 }
 EXPORT_SYMBOL(mtk_ltr_gpu_pmu_start);
 
+void (*mtk_swpm_gpu_pm_start_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_swpm_gpu_pm_start_fp);
+
+bool mtk_swpm_gpu_pm_start(void)
+{
+	if (mtk_swpm_gpu_pm_start_fp != NULL) {
+		mtk_swpm_gpu_pm_start_fp();
+		return true;
+	}
+	return false;
+
+}
+EXPORT_SYMBOL(mtk_swpm_gpu_pm_start);
+
 void (*mtk_ltr_gpu_pmu_stop_fp)(void) = NULL;
 EXPORT_SYMBOL(mtk_ltr_gpu_pmu_stop_fp);
 
-bool mtk_ltr_gpu_pmu_stop(int *pi32MarginValue)
+bool mtk_ltr_gpu_pmu_stop(void)
 {
 	if (mtk_ltr_gpu_pmu_stop_fp != NULL) {
 		mtk_ltr_gpu_pmu_stop_fp();
@@ -596,6 +610,7 @@ bool mtk_ltr_gpu_pmu_stop(int *pi32MarginValue)
 
 }
 EXPORT_SYMBOL(mtk_ltr_gpu_pmu_stop);
+
 
 /* ------------------------------------------------------------------------ */
 
