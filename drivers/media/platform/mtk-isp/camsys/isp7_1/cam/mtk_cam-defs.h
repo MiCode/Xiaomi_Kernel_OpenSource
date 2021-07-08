@@ -57,6 +57,12 @@ static inline int is_raw_subdev(unsigned char subdev_id)
 		subdev_id == MTKCAM_SUBDEV_RAW_2);
 }
 
+static inline int is_camsv_subdev(unsigned char subdev_id)
+{
+	return (subdev_id >= MTKCAM_SUBDEV_CAMSV_START &&
+		subdev_id < MTKCAM_SUBDEV_CAMSV_END);
+}
+
 enum mtkcam_pipe_dev {
 	MTKCAM_PIPE_RAW_A	= 0,
 	MTKCAM_PIPE_RAW_B,

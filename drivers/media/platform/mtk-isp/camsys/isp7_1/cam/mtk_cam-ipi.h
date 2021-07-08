@@ -203,6 +203,7 @@ struct mtkcam_ipi_session_param {
 struct mtkcam_ipi_hw_mapping {
 	__u8 pipe_id; /* ref. to mtkcam_pipe_subdev */
 	__u16 dev_mask; /* ref. to mtkcam_pipe_dev */
+	__u8 exp_order;
 } __attribute__ ((__packed__));
 
 /*  Control flags of CAM_CMD_CONFIG */
