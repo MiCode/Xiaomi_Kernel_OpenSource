@@ -633,7 +633,7 @@ android_unbind_enabled_functions(struct android_dev *dev,
 	}
 }
 
-static int android_enable_function(struct android_dev *dev, char *name)
+static int android_enable_function(struct android_dev *dev, const char *name)
 {
 	struct android_usb_function **functions = dev->functions;
 	struct android_usb_function *f;
