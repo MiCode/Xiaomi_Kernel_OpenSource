@@ -678,6 +678,21 @@ static struct match mt6885_match = {
 		.offset_dvfs = 0xc,					\
 		.offset_mon = 0x10,					\
 	}
+//TINYSYS no slope1, map to slope0 for compatibility
+#define REG_6983_TINYSYS_CONVERT(_fhctl, _con_pcw) {	\
+		.offset_fhctl = _fhctl,				\
+		.offset_con_pcw = _con_pcw,			\
+		.offset_hp_en = 0x0,				\
+		.offset_clk_con = 0x8,				\
+		.offset_rst_con = 0xc,				\
+		.offset_slope0 = 0x10,				\
+		.offset_slope1 = 0x10,				\
+		.offset_cfg = 0x0,					\
+		.offset_updnlmt = 0x4,				\
+		.offset_dds = 0x8,					\
+		.offset_dvfs = 0xc,					\
+		.offset_mon = 0x10,					\
+	}
 static struct fh_pll_data mt6983_top_data[] = {
 	DATA_6983_CONVERT("emptypll1"),
 	DATA_6983_CONVERT("emptypll2"),
@@ -725,7 +740,7 @@ static struct fh_pll_data mt6983_apu0_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_apu0_offset[SIZE_6983_APU0] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_apu0_regs[SIZE_6983_APU0];
@@ -743,7 +758,7 @@ static struct fh_pll_data mt6983_apu1_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_apu1_offset[SIZE_6983_APU1] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_apu1_regs[SIZE_6983_APU1];
@@ -761,7 +776,7 @@ static struct fh_pll_data mt6983_apu2_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_apu2_offset[SIZE_6983_APU2] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_apu2_regs[SIZE_6983_APU2];
@@ -778,7 +793,7 @@ static struct fh_pll_data mt6983_apu3_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_apu3_offset[SIZE_6983_APU3] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_apu3_regs[SIZE_6983_APU3];
@@ -796,7 +811,7 @@ static struct fh_pll_data mt6983_gpu0_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_gpu0_offset[SIZE_6983_GPU0] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_gpu0_regs[SIZE_6983_GPU0];
@@ -814,7 +829,7 @@ static struct fh_pll_data mt6983_gpu1_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_gpu1_offset[SIZE_6983_GPU1] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_gpu1_regs[SIZE_6983_GPU1];
@@ -832,7 +847,7 @@ static struct fh_pll_data mt6983_gpu2_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_gpu2_offset[SIZE_6983_GPU2] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_gpu2_regs[SIZE_6983_GPU2];
@@ -849,7 +864,7 @@ static struct fh_pll_data mt6983_gpu3_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_gpu3_offset[SIZE_6983_GPU3] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_gpu3_regs[SIZE_6983_GPU3];
@@ -866,7 +881,7 @@ static struct fh_pll_data mt6983_mcu0_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_mcu0_offset[SIZE_6983_MCU0] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_mcu0_regs[SIZE_6983_MCU0];
@@ -884,7 +899,7 @@ static struct fh_pll_data mt6983_mcu1_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_mcu1_offset[SIZE_6983_MCU1] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_mcu1_regs[SIZE_6983_MCU1];
@@ -902,7 +917,7 @@ static struct fh_pll_data mt6983_mcu2_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_mcu2_offset[SIZE_6983_MCU2] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_mcu2_regs[SIZE_6983_MCU2];
@@ -919,7 +934,7 @@ static struct fh_pll_data mt6983_mcu3_data[] = {
 	{}
 };
 static struct fh_pll_offset mt6983_mcu3_offset[SIZE_6983_MCU3] = {
-	REG_6983_CONVERT(0x14, 0xC),
+	REG_6983_TINYSYS_CONVERT(0x14, 0xC),
 	{}
 };
 static struct fh_pll_regs mt6983_mcu3_regs[SIZE_6983_MCU3];
