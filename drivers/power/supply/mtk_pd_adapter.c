@@ -26,6 +26,7 @@
 #include <linux/poll.h>
 #include <linux/power_supply.h>
 #include <linux/pm_wakeup.h>
+#include <linux/phy/phy.h>
 #include <linux/time.h>
 #include <linux/mutex.h>
 #include <linux/kthread.h>
@@ -42,6 +43,9 @@
 /* PD */
 #include <tcpm.h>
 #include "adapter_class.h"
+
+#define PHY_MODE_DPDMPULLDOWN_SET 3
+#define PHY_MODE_DPDMPULLDOWN_CLR 4
 
 
 struct mtk_pd_adapter_info {
@@ -94,6 +98,30 @@ static inline int check_typec_attached_snk(struct tcpc_device *tcpc)
 		return -EINVAL;
 	return 0;
 }
+
+static int usb_dpdm_pulldown(struct adapter_device *adapter,
+						bool dpdm_pulldown)
+{
+		struct phy *phy;
+		int mode = 0;
+		int ret;
+
+		mode = dpdm_pulldown ? PHY_MODE_DPDMPULLDOWN_SET : PHY_MODE_DPDMPULLDOWN_CLR;
+		phy = phy_get(adapter->dev.parent, "usb2-phy");
+		if (IS_ERR_OR_NULL(phy)) {
+			dev_info(&adapter->dev, "phy_get fail\n");
+			return -EINVAL;
+		}
+
+		ret = phy_set_mode_ext(phy, PHY_MODE_USB_DEVICE, mode);
+		if (ret)
+			dev_info(&adapter->dev, "phy_set_mode_ext fail\n");
+
+		phy_put(&adapter->dev, phy);
+
+		return 0;
+}
+
 
 static int pd_tcp_notifier_call(struct notifier_block *pnb,
 				unsigned long event, void *data)
@@ -183,6 +211,11 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 	case TCP_NOTIFY_WD_STATUS:
 		ret = srcu_notifier_call_chain(&adapter->evt_nh,
 			MTK_TYPEC_WD_STATUS, &noti->wd_status.water_detected);
+
+		if (noti->wd_status.water_detected)
+			usb_dpdm_pulldown(adapter, false);
+		else
+			usb_dpdm_pulldown(adapter, true);
 		break;
 	}
 	return ret;
@@ -654,7 +687,6 @@ static int mtk_pd_adapter_probe(struct platform_device *pdev)
 			GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
-
 	adapter_parse_dt(info, &pdev->dev);
 
 	info->adapter_dev = adapter_device_register(info->adapter_dev_name,
