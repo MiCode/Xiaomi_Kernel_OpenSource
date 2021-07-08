@@ -3557,8 +3557,8 @@
 			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		msf_b@15810000 {
-			compatible = "mediatek,msf_b";
+		msf@15810000 {
+			compatible = "mediatek,msf";
 			reg = <0 0x15810000 0 0x1000>;
 			interrupts = <GIC_SPI 500 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&gce 18 0 CMDQ_THR_PRIO_1>;
@@ -3576,11 +3576,11 @@
 				<&imgsys2_clk CLK_IMGSYS2_GALS>,
 				<&imgsys1_clk CLK_IMGSYS1_GALS>;
 			clock-names =
-				"MFB_CG_IMG2_LARB11",
-				"MFB_CG_IMG2_MSS",
-				"MFB_CG_IMG2_MFB",
-				"MFB_CG_IMG2_GALS",
-				"MFB_CG_IMG1_GALS";
+				"MFB_CG_IMG_0",
+				"MFB_CG_IMG_1",
+				"MFB_CG_IMG_2",
+				"MFB_CG_IMG_3",
+				"MFB_CG_IMG_4";
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus =
 				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA0>,
@@ -3591,6 +3591,34 @@
 				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA5>,
 				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0>,
 				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_MFB_RDMA0)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_MFB_RDMA1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_MFB_RDMA2)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_MFB_RDMA3)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_MFB_RDMA4)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_MFB_RDMA5)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_MFB_WDMA0)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L11_IMG_MFB_WDMA1)
+					&mmqos SLAVE_COMMON(0)>;
+			interconnect-names =
+				"mfb_qos_rdma0",
+				"mfb_qos_rdma1",
+				"mfb_qos_rdma2",
+				"mfb_qos_rdma3",
+				"mfb_qos_rdma4",
+				"mfb_qos_rdma5",
+				"mfb_qos_wdma0",
+				"mfb_qos_wdma1";
+			operating-points-v2 = <&opp_table_img2>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		wpe_a@15811000 {
@@ -3610,8 +3638,8 @@
 				<&iommu0 M4U_PORT_L11_IMG_WPE_WDMA>;
 		};
 
-		mss_b@15812000 {
-			compatible = "mediatek,mss_b";
+		mss@15812000 {
+			compatible = "mediatek,mss";
 			reg = <0 0x15812000 0 0x1000>;
 			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&gce 17 0 CMDQ_THR_PRIO_1>;
@@ -3621,8 +3649,8 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_MSS>;
 		};
 
-		imgsys_mfb_b@15820000 {
-			compatible = "mediatek,imgsys_mfb_b";
+		imgsys_mfb@15820000 {
+			compatible = "mediatek,imgsys_mfb";
 			reg = <0 0x15820000 0 0x1000>;
 		};
 
