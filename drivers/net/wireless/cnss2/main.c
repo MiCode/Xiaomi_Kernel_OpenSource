@@ -3343,9 +3343,35 @@ static struct platform_driver cnss_platform_driver = {
 	},
 };
 
+/**
+ * cnss_is_valid_dt_node_found - Check if valid device tree node present
+ *
+ * Valid device tree node means a node with "compatible" property from the
+ * device match table and "status" property is not disabled.
+ *
+ * Return: true if valid device tree node found, false if not found
+ */
+static bool cnss_is_valid_dt_node_found(void)
+{
+	struct device_node *dn = NULL;
+
+	for_each_matching_node(dn, cnss_of_match_table) {
+		if (of_device_is_available(dn))
+			break;
+	}
+
+	if (dn)
+		return true;
+
+	return false;
+}
+
 static int __init cnss_initialize(void)
 {
 	int ret = 0;
+
+	if (!cnss_is_valid_dt_node_found())
+		return -ENODEV;
 
 	cnss_debug_init();
 	ret = platform_driver_register(&cnss_platform_driver);
