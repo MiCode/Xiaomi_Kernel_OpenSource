@@ -1011,7 +1011,7 @@ static long _sc_test_cp_chm2shm(struct file *filep, unsigned long arg)
 	/* copy param from user */
 	ret = copy_from_user(&cparam, (void *)arg, sizeof(cparam));
 
-	if (ret < 0) {
+	if (ret) {
 		KREE_ERR("%s: copy_from_user failed(%d)\n", __func__, ret);
 		return ret;
 	}
@@ -1051,7 +1051,7 @@ static long _sc_test_upt_chmdata(struct file *filep, unsigned long arg)
 	/* copy param from user */
 	ret = copy_from_user(&cparam, (void *)arg, sizeof(cparam));
 
-	if (ret < 0) {
+	if (ret) {
 		KREE_ERR("%s: copy_from_user failed(%d)\n", __func__, ret);
 		return ret;
 	}
@@ -1265,7 +1265,7 @@ TZ_RESULT gz_manual_adjust_trusty_wq_attr(char __user *user_req)
 	struct trusty_task_attr manual_task_attr;
 
 	err = copy_from_user(&str, user_req, sizeof(str));
-	if (err < 0) {
+	if (err) {
 		KREE_ERR("[%s]copy_from_user fail(0x%x)\n", __func__,
 			err);
 		return err;
@@ -1318,7 +1318,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 		KREE_DEBUG("[%s]cmd=MTEE_CMD_SHM_REG(0x%x)\n", __func__, cmd);
 		/* copy param from user */
 		err = copy_from_user(&shm_data, user_req, sizeof(shm_data));
-		if (err < 0) {
+		if (err) {
 			KREE_ERR("[%s]copy_from_user fail(0x%x)\n", __func__,
 				err);
 			return err;
@@ -1342,7 +1342,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 		/* copy result back to user */
 		shm_data.session = ret;
 		err = copy_to_user(user_req, &shm_data, sizeof(shm_data));
-		if (err < 0) {
+		if (err) {
 			KREE_ERR("[%s]copy_to_user fail(0x%x)\n", __func__,
 				err);
 			return err;
@@ -1394,7 +1394,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 		KREE_DEBUG("[%s]cmd=MTEE_CMD_SC_CHMEM_HANDLE(0x%x)\n", __func__,
 			cmd);
 		err = copy_from_user(&cparam, user_req, sizeof(cparam));
-		if (err < 0) {
+		if (err) {
 			KREE_ERR("[%s]copy_from_user fail(0x%x)\n", __func__,
 				err);
 			return err;
@@ -1408,7 +1408,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 			return ret;
 		}
 		err = copy_to_user(user_req, &cparam, sizeof(cparam));
-		if (err < 0) {
+		if (err) {
 			KREE_ERR("[%s]copy_to_user fail(0x%x)\n", __func__,
 				err);
 			return err;
