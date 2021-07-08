@@ -82,6 +82,7 @@ int lpm_pwr_gs_compare_by_type(int comparer, int user,
 	spin_unlock(&lpm_gs_locker);
 	return ret;
 }
+EXPORT_SYMBOL(lpm_pwr_gs_compare_by_type);
 
 int lpm_pwr_gs_compare_init(int comparer, void *info)
 {
