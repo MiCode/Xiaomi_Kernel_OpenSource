@@ -32,9 +32,7 @@
 #include "sspm_helper.h"
 #include "sspm_sysfs.h"
 #include "sspm_reservedmem.h"
-#if SSPM_TIMESYNC_SUPPORT
 #include "sspm_timesync.h"
-#endif
 
 struct sspm_regs sspmreg;
 struct platform_device *sspm_pdev;
@@ -100,12 +98,10 @@ static int __init sspm_module_init(void)
 	pr_info("SSPM platform service is ready\n");
 #endif
 
-#if SSPM_TIMESYNC_SUPPORT
 	if (sspm_timesync_init()) {
 		pr_err("[SSPM] Timesync Init Failed\n");
 		goto error;
 	}
-#endif
 
 	sspm_lock_emi_mpu();
 
@@ -175,17 +171,15 @@ static int __init sspm_device_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_PM)
 static int sspm_suspend(struct device *dev)
 {
-#if SSPM_TIMESYNC_SUPPORT
 	sspm_timesync_suspend();
-#endif
+
 	return 0;
 }
 
 static int sspm_resume(struct device *dev)
 {
-#if SSPM_TIMESYNC_SUPPORT
 	sspm_timesync_resume();
-#endif
+
 	return 0;
 }
 
