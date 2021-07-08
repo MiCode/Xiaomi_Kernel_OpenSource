@@ -75,21 +75,7 @@ struct task_struct *find_task_by_vpid(pid_t vnr)
 
 long long fpsgo_task_sched_runtime(struct task_struct *p)
 {
-	/*
-	 * 64-bit doesn't need locks to atomically read a 64-bit value.
-	 * So we have a optimization chance when the task's delta_exec is 0.
-	 * Reading ->on_cpu is racy, but this is ok.
-	 *
-	 * If we race with it leaving CPU, we'll take a lock. So we're correct.
-	 * If we race with it entering CPU, unaccounted time is 0. This is
-	 * indistinguishable from the read occurring a few cycles earlier.
-	 * If we see ->on_cpu without ->on_rq, the task is leaving, and has
-	 * been accounted, so we're correct here as well.
-	 */
-	if (!p->on_cpu || !task_on_rq_queued(p))
-		return p->se.sum_exec_runtime;
-	
-	return 0;
+	return p->se.sum_exec_runtime;
 }
 
 void *fpsgo_alloc_atomic(int i32Size)
