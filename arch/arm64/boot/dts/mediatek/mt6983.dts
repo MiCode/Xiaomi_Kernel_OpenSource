@@ -3277,6 +3277,7 @@
 
 	hcp: hcp@0 {
 		compatible = "mediatek,hcp";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L11_IMG2_WPE_CQ0>;
 	};
 
