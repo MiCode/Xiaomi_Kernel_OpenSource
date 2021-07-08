@@ -31,6 +31,7 @@
 #define I2C_HS_NACKERR			(1 << 2)
 #define I2C_ACKERR			(1 << 1)
 #define I2C_TRANSAC_COMP		(1 << 0)
+#define I2C_RESUME_ARBIT		(1 << 1)
 #define I2C_TRANSAC_START		(1 << 0)
 #define I2C_RS_MUL_CNFG			(1 << 15)
 #define I2C_RS_MUL_TRIG			(1 << 14)
@@ -45,6 +46,7 @@
 #define I2C_HANDSHAKE_RST		0x0020
 #define I2C_FIFO_ADDR_CLR		0x0001
 #define I2C_HFIFO_ADDR_CLR		0x0002
+#define I2C_FIFO_ADDR_CLR_MCH		0x0004
 #define I2C_DELAY_LEN			0x0002
 #define I2C_TIME_CLR_VALUE		0x0000
 #define I2C_TIME_DEFAULT_VALUE		0x0003
@@ -275,6 +277,8 @@ struct mtk_i2c {
 	u16 irq_stat;			/* interrupt status */
 	unsigned int clk_src_div;
 	unsigned int speed_hz;		/* The speed in transfer */
+	unsigned int ch_offset_i2c;
+	unsigned int ch_offset_dma;
 	enum mtk_trans_op op;
 	u16 timing_reg;
 	u16 high_speed_reg;
@@ -504,21 +508,27 @@ MODULE_DEVICE_TABLE(of, mtk_i2c_of_match);
 
 static u8 mtk_i2c_readb(struct mtk_i2c *i2c, enum I2C_REGS_OFFSET reg)
 {
-	return readb(i2c->base + i2c->dev_comp->regs[reg]);
+	return readb(i2c->base + i2c->ch_offset_i2c + i2c->dev_comp->regs[reg]);
 }
 
 static void mtk_i2c_writeb(struct mtk_i2c *i2c, u8 val,
 			   enum I2C_REGS_OFFSET reg)
 {
-	writeb(val, i2c->base + i2c->dev_comp->regs[reg]);
+	writeb(val, i2c->base + i2c->ch_offset_i2c + i2c->dev_comp->regs[reg]);
 }
 
 static u16 mtk_i2c_readw(struct mtk_i2c *i2c, enum I2C_REGS_OFFSET reg)
 {
-	return readw(i2c->base + i2c->dev_comp->regs[reg]);
+	return readw(i2c->base + i2c->ch_offset_i2c + i2c->dev_comp->regs[reg]);
 }
 
 static void mtk_i2c_writew(struct mtk_i2c *i2c, u16 val,
+			   enum I2C_REGS_OFFSET reg)
+{
+	writew(val, i2c->base + i2c->ch_offset_i2c + i2c->dev_comp->regs[reg]);
+}
+
+static void mtk_i2c_writew_shadow(struct mtk_i2c *i2c, u16 val,
 			   enum I2C_REGS_OFFSET reg)
 {
 	writew(val, i2c->base + i2c->dev_comp->regs[reg]);
@@ -1044,6 +1054,8 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	mtk_i2c_writew(i2c, restart_flag | I2C_HS_NACKERR | I2C_ACKERR |
 			    I2C_ARB_LOST | I2C_TRANSAC_COMP, OFFSET_INTR_STAT);
 
+	if (i2c->ch_offset_i2c)
+		mtk_i2c_writew(i2c, I2C_FIFO_ADDR_CLR_MCH, OFFSET_FIFO_ADDR_CLR);
 	if ((i2c->speed_hz > I2C_MAX_FAST_MODE_PLUS_FREQ) &&
 		(mtk_i2c_readw(i2c, OFFSET_DMA_FSM_DEBUG) & I2C_I3C_EN)) {
 		mtk_i2c_writew(i2c, I2C_HFIFO_ADDR_CLR | I2C_FIFO_ADDR_CLR,
@@ -1278,15 +1290,31 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	}
 
 	if (ret == 0) {
+		u16 start_reg = mtk_i2c_readw(i2c, OFFSET_START);
 		dev_dbg(i2c->dev, "addr: %x, transfer timeout\n", msgs->addr);
 		mtk_i2c_dump_reg(i2c);
+		if (i2c->ch_offset_i2c) {
+			mtk_i2c_writew(i2c, I2C_FIFO_ADDR_CLR_MCH | I2C_FIFO_ADDR_CLR,
+						OFFSET_FIFO_ADDR_CLR);
+		} else {
+			mtk_i2c_writew(i2c, I2C_FIFO_ADDR_CLR, OFFSET_FIFO_ADDR_CLR);
+		}
 		mtk_i2c_init_hw(i2c);
+		if ((i2c->ch_offset_i2c) && (start_reg & I2C_RESUME_ARBIT)) {
+			mtk_i2c_writew_shadow(i2c, I2C_RESUME_ARBIT, OFFSET_START);
+			dev_dbg(i2c->dev, "bus channel transferred\n");
+		}
+
 		return -ETIMEDOUT;
 	}
 
 	if (i2c->irq_stat & (I2C_HS_NACKERR | I2C_ACKERR)) {
 		dev_dbg(i2c->dev, "addr: %x, transfer ACK error\n", msgs->addr);
 		mtk_i2c_init_hw(i2c);
+		if (i2c->ch_offset_i2c) {
+			mtk_i2c_writew_shadow(i2c, I2C_RESUME_ARBIT, OFFSET_START);
+			dev_dbg(i2c->dev, "bus channel transferred\n");
+		}
 		return -ENXIO;
 	}
 	if ((i2c->op != I2C_MASTER_WR) && (isDMA == false)) {
@@ -1471,7 +1499,10 @@ static int mtk_i2c_parse_dt(struct device_node *np, struct mtk_i2c *i2c)
 
 	if (i2c->clk_src_div == 0)
 		return -EINVAL;
-
+	of_property_read_u32(np, "ch_offset_i2c", &i2c->ch_offset_i2c);
+	of_property_read_u32(np, "ch_offset_dma", &i2c->ch_offset_dma);
+	dev_dbg(i2c->dev, "ch_offset_i2c=0x%x, ch_offset_dma=0x%x\n",
+			i2c->ch_offset_i2c, i2c->ch_offset_dma);
 	i2c->have_pmic = of_property_read_bool(np, "mediatek,have-pmic");
 	i2c->use_push_pull =
 		of_property_read_bool(np, "mediatek,use-push-pull");
@@ -1523,6 +1554,9 @@ static int mtk_i2c_probe(struct platform_device *pdev)
 
 	if (i2c->have_pmic && !i2c->dev_comp->pmic_i2c)
 		return -EINVAL;
+
+	if (i2c->ch_offset_dma)
+		i2c->pdmabase += i2c->ch_offset_dma;
 
 	i2c->clk_main = devm_clk_get(&pdev->dev, "main");
 	if (IS_ERR(i2c->clk_main)) {
