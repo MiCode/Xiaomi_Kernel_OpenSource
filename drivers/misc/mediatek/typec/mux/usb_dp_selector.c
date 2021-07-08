@@ -68,8 +68,11 @@ static int usb_dp_selector_switch_set(struct typec_switch *sw,
 static int usb_dp_selector_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	struct usb_dp_selector *uds;
 	struct typec_switch_desc sw_desc;
+	u32 usb_dp_reg;
+	int ret;
 
 	uds = devm_kzalloc(&pdev->dev, sizeof(*uds), GFP_KERNEL);
 	if (!uds)
@@ -77,9 +80,17 @@ static int usb_dp_selector_probe(struct platform_device *pdev)
 
 	uds->dev = dev;
 
-	uds->selector_reg_address = devm_platform_ioremap_resource_byname(pdev, "usb_dp_reg");
-	if (IS_ERR(uds->selector_reg_address))
-		return PTR_ERR(uds->selector_reg_address);
+	ret = of_property_read_u32(np, "mediatek,usb_dp_reg", &usb_dp_reg);
+	if (ret) {
+		dev_info(dev, "Failed to parse usb_dp reg value\n");
+		return ret;
+	}
+	uds->selector_reg_address = ioremap(usb_dp_reg, 0x1);
+
+	if (!uds->selector_reg_address) {
+		dev_info(dev, "could not ioremap usb_dp reg\n");
+		return -ENOMEM;
+	}
 
 	/* Setting Switch callback */
 	sw_desc.drvdata = uds;

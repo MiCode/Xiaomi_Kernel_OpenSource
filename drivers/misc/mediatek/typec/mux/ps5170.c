@@ -42,6 +42,8 @@ struct ps5170 {
 #define ps5170_ORIENTATION_NORMAL_USBDP         0xe0
 #define ps5170_ORIENTATION_FLIP_USBDP           0xf0
 
+extern void mtk_dp_SWInterruptSet(int bstatus) __attribute__((weak));
+
 static int ps5170_init(struct ps5170 *ps)
 {
 	/* Configure PS5170 redriver */
@@ -223,18 +225,40 @@ static int ps5170_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
 			ps5170_set_conf(ps, 4, data->ama_dp_state.polarity);
 			break;
 		default:
-			/* dev_info(ps->dev, "%s Pin Assignment not support\n", __func__,); */
+			dev_info(ps->dev, "Pin Assignment not support\n");
 			break;
 		}
 	} else if (state->mode == TCP_NOTIFY_AMA_DP_HPD_STATE) {
-		/* uint8_t irq = data->ama_dp_hpd_state.irq; */
-		/* uint8_t state = data->ama_dp_hpd_state.state; */
-		/* Call HPD Event Not Ready */
+		uint8_t irq = data->ama_dp_hpd_state.irq;
+		uint8_t state = data->ama_dp_hpd_state.state;
+
+		dev_info(ps->dev, "TCP_NOTIFY_AMA_DP_HPD_STATE irq:%x state:%x\n",
+			irq, state);
+		/* Call DP API */
+		if (mtk_dp_SWInterruptSet) {
+			if (state) {
+				if (irq)
+					mtk_dp_SWInterruptSet(0x8);
+				else
+					mtk_dp_SWInterruptSet(0x4);
+			} else {
+				mtk_dp_SWInterruptSet(0x2);
+			}
+		} else {
+			dev_info(ps->dev, "DP API is not ready!\n");
+		}
 	} else if (state->mode == TCP_NOTIFY_TYPEC_STATE) {
 		if ((data->typec_state.old_state == TYPEC_ATTACHED_SRC ||
 			data->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
 			data->typec_state.new_state == TYPEC_UNATTACHED) {
-			/* Call DP Event API Not Ready */
+			/* Call DP Event API */
+			dev_info(ps->dev, "Plug Out\n");
+
+			if (mtk_dp_SWInterruptSet)
+				mtk_dp_SWInterruptSet(0x2);
+			else
+				dev_info(ps->dev, "DP API is not ready!\n");
+
 			ps5170_set_conf(ps, 0, 0);
 		}
 	}
