@@ -438,8 +438,12 @@ static void pbm_timer_add(int enable)
 		mod_delayed_work(system_freezable_power_efficient_wq,
 			&poll_queue,
 			msecs_to_jiffies(TIMER_INTERVAL_MS));
-	else
+	else {
 		cancel_delayed_work(&poll_queue);
+		//unlimit CG
+		mtk_cpu_dlpt_unlimit_by_pbm();
+		mtk_gpufreq_set_power_limit_by_pbm(0);
+	}
 
 }
 
@@ -455,11 +459,6 @@ void pbm_check_and_run_polling(int uisoc, int pbm_stop)
 	} else if ((uisoc > BAT_PERCENT_LIMIT || pbm_stop == 1)
 		&& (g_start_polling == 1)) {
 		g_start_polling = 0;
-		pbm_timer_add(g_start_polling);
-
-		//unlimit CG
-		mtk_cpu_dlpt_unlimit_by_pbm();
-		mtk_gpufreq_set_power_limit_by_pbm(0);
 
 		pr_info("[DLPT] pbm release polling, soc=%d polling=%d stop=%d\n",
 			uisoc, g_start_polling, pbm_ctrl.pbm_stop);
