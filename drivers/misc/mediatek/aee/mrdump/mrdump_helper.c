@@ -416,37 +416,6 @@ unsigned long aee_get_kti_addresses(void)
 	return (unsigned long)mrdump_kti;
 }
 
-raw_spinlock_t *p_logbuf_lock;
-struct semaphore *p_console_sem;
-void aee_zap_locks(void)
-{
-	if (!p_logbuf_lock) {
-		p_logbuf_lock =
-			(void *)(aee_addr_find("logbuf_lock"));
-
-		if (!p_logbuf_lock) {
-			aee_sram_printk("%s failed to get logbuf lock\n",
-					__func__);
-			return;
-		}
-	}
-	if (!p_console_sem) {
-		p_console_sem =
-			(void *)(aee_addr_find("console_sem"));
-
-		if (!p_console_sem) {
-			aee_sram_printk("%s failed to get console_sem\n",
-					__func__);
-			return;
-		}
-	}
-	debug_locks_off();
-	/* If a crash is occurring, make sure we can't deadlock */
-	raw_spin_lock_init(p_logbuf_lock);
-	/* And make sure that we print immediately */
-	sema_init(p_console_sem, 1);
-}
-
 static raw_spinlock_t *p_die_lock;
 void aee_reinit_die_lock(void)
 {
@@ -648,35 +617,6 @@ unsigned long aee_get_kti_addresses(void)
 {
 	return (unsigned long)kallsyms_token_index;
 }
-
-raw_spinlock_t *p_logbuf_lock;
-struct semaphore *p_console_sem;
-void aee_zap_locks(void)
-{
-	if (!p_logbuf_lock) {
-		p_logbuf_lock = (void *)kallsyms_lookup_name("logbuf_lock");
-		if (!p_logbuf_lock) {
-			aee_sram_printk("%s failed to get logbuf lock\n",
-					__func__);
-			return;
-		}
-	}
-	if (!p_console_sem) {
-		p_console_sem = (void *)kallsyms_lookup_name("console_sem");
-		if (!p_console_sem) {
-			aee_sram_printk("%s failed to get console_sem\n",
-					__func__);
-			return;
-		}
-	}
-
-	debug_locks_off();
-	/* If a crash is occurring, make sure we can't deadlock */
-	raw_spin_lock_init(p_logbuf_lock);
-	/* And make sure that we print immediately */
-	sema_init(p_console_sem, 1);
-}
-
 
 static raw_spinlock_t *p_die_lock;
 void aee_reinit_die_lock(void)

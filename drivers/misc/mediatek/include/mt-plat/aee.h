@@ -229,6 +229,7 @@ struct unwind_info_rms {
 	aed_common_exception_api(assert_type, log, log_size, phy,	\
 			phy_size, detail, DB_OPT_DEFAULT)
 
+#if IS_ENABLED(CONFIG_MTK_AEE_AED)
 void aee_kernel_exception_api_func(const char *file, const int line,
 		const int db_opt, const char *module, const char *msg, ...);
 void aee_kernel_warning_api_func(const char *file, const int line,
@@ -244,12 +245,72 @@ void aed_scp_exception_api(const int *log, int log_size, const int *phy,
 			int phy_size, const char *detail, const int db_opt);
 void aed_combo_exception_api(const int *log, int log_size, const int *phy,
 			int phy_size, const char *detail, const int db_opt);
-void aed_common_exception_api(const char *assert_type, const int *log, int
-			log_size, const int *phy, int phy_size, const char
-			*detail, const int db_opt);
+void aed_common_exception_api(const char *assert_type, const int *log,
+			int log_size, const int *phy, int phy_size,
+			const char *detail, const int db_opt);
 
 int aed_get_status(void);
 int aee_is_printk_too_much(const char *module);
 void aee_sram_printk(const char *fmt, ...);
 int aee_is_enable(void);
+#else
+static inline void aee_kernel_exception_api_func(const char *file,
+		const int line, const int db_opt, const char *module,
+		const char *msg, ...)
+{
+}
+
+static inline void aee_kernel_warning_api_func(const char *file,
+		const int line, const int db_opt, const char *module,
+		const char *msg, ...)
+{
+}
+
+static inline void aee_kernel_reminding_api(const char *file,
+		const int line, const int db_opt, const char *module,
+		const char *msg, ...)
+{
+}
+
+static inline void aed_md_exception_api(const int *log, int log_size,
+	const int *phy, int phy_size, const char *detail, const int db_opt)
+{
+}
+
+static inline void aed_md32_exception_api(const int *log, int log_size,
+		const int *phy, int phy_size, const char *detail,
+		const int db_opt)
+{
+}
+
+static inline void aed_combo_exception_api(const int *log, int log_size,
+		const int *phy, int phy_size, const char *detail,
+		const int db_opt)
+{
+}
+
+static inline void aed_common_exception_api(const char *assert_type,
+		const int *log, int log_size, const int *phy, int phy_size,
+		const char *detail, const int db_opt)
+{
+}
+
+static inline int aed_get_status(void)
+{
+	return 0;
+}
+
+static inline int aee_is_printk_too_much(const char *module)
+{
+	return 0;
+}
+static inline void aee_sram_printk(const char *fmt, ...)
+{
+}
+
+static inline int aee_is_enable(void)
+{
+	return 0;
+}
+#endif
 #endif/* __AEE_H__ */
