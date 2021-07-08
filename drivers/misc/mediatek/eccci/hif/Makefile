@@ -30,7 +30,7 @@ ccci_hif_all-y := ccci_hif.o \
 		ccci_cldma_plat.o \
 		ccci_hif_cldma.o \
 		ccci_hif_dpmaif.o dpmaif_drv.o net_speed_monitor.o \
-		ccci_hif_dpmaif_comm.o ccci_hif_dpmaif_v3.o dpmaif_drv_v3.o
+		ccci_hif_dpmaif_comm.o ccci_hif_dpmaif_v3.o dpmaif_drv_v3.o dpmaif_bat.o dpmaif_bat_v3.o
 
 ccci_hif_all-y += ccci_ringbuf.o ccci_hif_ccif.o
 

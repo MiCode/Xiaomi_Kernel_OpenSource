@@ -201,14 +201,10 @@ struct dpmaif_bat_request {
 	unsigned int    bat_size_cnt;
 	unsigned short    bat_wr_idx;
 	unsigned short    bat_rd_idx;
-	unsigned short    bat_rel_rd_idx;
 	void *bat_skb_ptr;/* collect skb linked to bat */
 	unsigned int     skb_pkt_cnt;
 	unsigned int pkt_buf_sz;
 
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-	unsigned char bid_btable[DPMAIF_DL_BAT_ENTRY_SIZE];
-#endif
 	/* for debug */
 	int check_bid_fail_cnt;
 };
@@ -247,10 +243,7 @@ struct dpmaif_rx_queue {
 	unsigned long	  pit_dummy_idx;
 	unsigned char     pit_reload_en;
 #endif
-	struct dpmaif_bat_request bat_req;
-#ifdef HW_FRG_FEATURE_ENABLE
-	struct dpmaif_bat_request bat_frag;
-#endif
+
 	struct tasklet_struct dpmaif_rxq0_task;
 	wait_queue_head_t rx_wq;
 	struct task_struct *rx_thread;
@@ -403,6 +396,13 @@ struct hif_dpmaif_ctrl {
 	struct ccci_hif_dpmaif_val plat_val;
 
 	atomic_t suspend_flag;
+	struct dpmaif_bat_request *bat_req;
+	struct dpmaif_bat_request *bat_frag;
+	wait_queue_head_t   bat_alloc_wq;
+	struct task_struct *bat_alloc_thread;
+	atomic_t bat_need_alloc;
+	atomic_t bat_paused_alloc;
+	int bat_alloc_running;
 };
 
 #ifndef CCCI_KMODULE_ENABLE

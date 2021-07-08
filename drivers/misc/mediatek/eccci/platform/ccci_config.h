@@ -13,7 +13,6 @@
 #define CCCI_DRIVER_VER     0x20110118
 
 #define MT6297
-#define _97_REORDER_BAT_PAGE_TABLE_
 
 /* flag to tell WDT is triggered by EPON or not, in MD SS debug region */
 #define CCCI_EE_OFFSET_EPON_MD1 (0x2844)

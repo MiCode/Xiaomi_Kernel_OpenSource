@@ -56,6 +56,7 @@
 
 #include "ccci_hif_dpmaif_comm.h"
 #include "modem_secure_base.h"
+#include "dpmaif_bat.h"
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
@@ -254,42 +255,42 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 		/* BAT mem dump */
 		CCCI_MEM_LOG(md_id, TAG,
 			"dpmaif:bat request base: 0x%p(%d*%d)\n",
-			rxq->bat_req.bat_base,
+			dpmaif_ctrl->bat_req->bat_base,
 			(int)sizeof(struct dpmaif_bat_t),
-			rxq->bat_req.bat_size_cnt);
+			dpmaif_ctrl->bat_req->bat_size_cnt);
 		CCCI_MEM_LOG(md_id, TAG,
-			"Current rxq%d bat pos: w/r/rel=%x, %x, %x\n", i,
-			rxq->bat_req.bat_wr_idx, rxq->bat_req.bat_rd_idx,
-		       rxq->bat_req.bat_rel_rd_idx);
+			"Current rxq%d bat pos: w/r/rel=%x, %x\n", i,
+			dpmaif_ctrl->bat_req->bat_wr_idx,
+			dpmaif_ctrl->bat_req->bat_rd_idx);
 #ifdef DPMAIF_DEBUG_LOG
 		/* BAT SKB mem dump */
 		CCCI_MEM_LOG(md_id, TAG, "dpmaif:bat skb base: 0x%p(%d*%d)\n",
-			rxq->bat_req.bat_skb_ptr,
+			dpmaif_ctrl->bat_req->bat_skb_ptr,
 			(int)sizeof(struct dpmaif_bat_skb_t),
-			rxq->bat_req.bat_size_cnt);
+			dpmaif_ctrl->bat_req->bat_size_cnt);
 		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-			rxq->bat_req.bat_skb_ptr,
-			(rxq->bat_req.skb_pkt_cnt *
+			dpmaif_ctrl->bat_req->bat_skb_ptr,
+			(dpmaif_ctrl->bat_req->skb_pkt_cnt *
 			sizeof(struct dpmaif_bat_skb_t)));
 #ifdef HW_FRG_FEATURE_ENABLE
 		/* BAT frg mem dump */
 		CCCI_MEM_LOG(md_id, TAG,
 			"dpmaif:bat_frag base: 0x%p(%d*%d)\n",
-			rxq->bat_frag.bat_base,
+			dpmaif_ctrl->bat_frag->bat_base,
 			(int)sizeof(struct dpmaif_bat_t),
-			rxq->bat_frag.bat_size_cnt);
+			dpmaif_ctrl->bat_frag->bat_size_cnt);
 		CCCI_MEM_LOG(md_id, TAG,
-			"Current rxq%d bat_frag pos: w/r/rel=%x, %x, %x\n", i,
-			rxq->bat_frag.bat_wr_idx, rxq->bat_frag.bat_rd_idx,
-		       rxq->bat_frag.bat_rel_rd_idx);
+			"Current rxq%d bat_frag pos: w/r/rel=%x, %x\n", i,
+			dpmaif_ctrl->bat_frag->bat_wr_idx,
+			dpmaif_ctrl->bat_frag->bat_rd_idx);
 		/* BAT fragment mem dump */
 		CCCI_MEM_LOG(md_id, TAG, "dpmaif:bat_frag base: 0x%p(%d*%d)\n",
-			rxq->bat_frag.bat_skb_ptr,
+			dpmaif_ctrl->bat_frag->bat_skb_ptr,
 			(int)sizeof(struct dpmaif_bat_page_t),
-			rxq->bat_frag.bat_size_cnt);
+			dpmaif_ctrl->bat_frag->bat_size_cnt);
 		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-			rxq->bat_frag.bat_skb_ptr,
-			(rxq->bat_frag.skb_pkt_cnt *
+				dpmaif_ctrl->bat_frag->bat_skb_ptr,
+			(dpmaif_ctrl->bat_frag->skb_pkt_cnt *
 			sizeof(struct dpmaif_bat_page_t)));
 #endif
 #endif
@@ -710,101 +711,14 @@ static inline void dpmaif_rx_msg_pit(struct dpmaif_rx_queue *rxq,
 }
 
 #ifdef HW_FRG_FEATURE_ENABLE
-static int dpmaif_alloc_rx_frag(struct dpmaif_bat_request *bat_req,
-		unsigned char q_num, unsigned int buf_cnt, int blocking)
-{
-	struct dpmaif_bat_t *cur_bat = NULL;
-	struct dpmaif_bat_page_t *cur_page = NULL;
-	void *data = NULL;
-	struct page *page = NULL;
-	unsigned long long data_base_addr;
-	unsigned long offset;
-	int size = L1_CACHE_ALIGN(bat_req->pkt_buf_sz);
-	unsigned short cur_bat_idx;
-	int ret = 0, i = 0;
-	unsigned int buf_space;
-
-#ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(-1, TAG, "%s 1: 0x%x, 0x%x\n", __func__,
-		buf_cnt, bat_req->bat_size_cnt);
-#endif
-	if (buf_cnt == 0 || buf_cnt > bat_req->bat_size_cnt) {
-		CCCI_ERROR_LOG(-1, TAG, "frag alloc_cnt is invalid !\n");
-		return 0;
-	}
-
-	/*check bat buffer space*/
-	buf_space = ringbuf_writeable(bat_req->bat_size_cnt,
-		bat_req->bat_rel_rd_idx, bat_req->bat_wr_idx);
-	if (buf_cnt > buf_space) {
-		CCCI_ERROR_LOG(-1, TAG, "alloc rx frag not enough(%d>%d)\n",
-			buf_cnt, buf_space);
-		return FLOW_CHECK_ERR;
-	}
-
-	cur_bat_idx = bat_req->bat_wr_idx;
-
-	for (i = 0; i < buf_cnt; i++) {
-
-		/* Alloc a new receive buffer */
-		data = netdev_alloc_frag(size);/* napi_alloc_frag(size) */
-		if (!data) {
-			ret = LOW_MEMORY_BAT; /*-ENOMEM;*/
-			break;
-		}
-		page = virt_to_head_page(data);
-		offset = data - page_address(page);
-
-
-		/* Get physical address of the RB */
-		data_base_addr = dma_map_page(
-			ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-			page, offset, bat_req->pkt_buf_sz, DMA_FROM_DEVICE);
-		if (dma_mapping_error(ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-			data_base_addr)) {
-			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-				"error dma mapping\n");
-			put_page(virt_to_head_page(data));
-			ret = DMA_MAPPING_ERR;
-			break;
-		}
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-		bat_req->bid_btable[cur_bat_idx] = 1;
-#endif
-
-		/* record frag info. */
-		cur_bat = ((struct dpmaif_bat_t *)bat_req->bat_base +
-			cur_bat_idx);
-		cur_bat->buffer_addr_ext = data_base_addr >> 32;
-		cur_bat->p_buffer_addr =
-			(unsigned int)(data_base_addr & 0xFFFFFFFF);
-		cur_page = ((struct dpmaif_bat_page_t *)bat_req->bat_skb_ptr +
-					cur_bat_idx);
-		cur_page->page = page;
-		cur_page->data_phy_addr = data_base_addr;
-		cur_page->offset = offset;
-		cur_page->data_len = bat_req->pkt_buf_sz;
-
-		cur_bat_idx = ringbuf_get_next_idx(bat_req->bat_size_cnt,
-				cur_bat_idx, 1);
-	}
-	bat_req->bat_wr_idx = cur_bat_idx;
-
-#if !defined(_E1_SB_SW_WORKAROUND_) && !defined(BAT_CNT_BURST_UPDATE)
-	ret_hw = drv_dpmaif_dl_add_frg_bat_cnt(q_num, i);
-#endif
-
-	return ret;
-}
-
 static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 	unsigned int skb_idx, struct dpmaifq_normal_pit *pkt_inf_t)
 {
 	struct dpmaif_bat_skb_t *cur_skb_info = ((struct dpmaif_bat_skb_t *)
-		rxq->bat_req.bat_skb_ptr + skb_idx);
+		dpmaif_ctrl->bat_req->bat_skb_ptr + skb_idx);
 	struct sk_buff *base_skb = cur_skb_info->skb;
 	struct dpmaif_bat_page_t *cur_page_info = ((struct dpmaif_bat_page_t *)
-		rxq->bat_frag.bat_skb_ptr + pkt_inf_t->buffer_id);
+		dpmaif_ctrl->bat_frag->bat_skb_ptr + pkt_inf_t->buffer_id);
 	struct page *page = cur_page_info->page;
 #ifndef REFINE_BAT_OFFSET_REMOVE
 	unsigned long long data_phy_addr, data_base_addr;
@@ -843,304 +757,14 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 
 	return ret;
 }
-
-static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
-	unsigned int skb_idx, int blocking,
-	struct dpmaifq_normal_pit *pkt_inf_t)
-{
-	struct dpmaif_bat_request *bat_req = &rxq->bat_frag;
-	int ret = 0;
-	unsigned short bat_rel_rd_bak;
-
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-
-	unsigned short bat_rel_rd_cur;
-	unsigned long loop = 0;
-	unsigned long bid_cnt = 0;
-	unsigned long pkt_cnt = 0;
-	int frg_idx;
-
-	frg_idx = pkt_inf_t->buffer_id;
-	/*1.check btable alloc before or double release*/
-	/*error handler*/
-	if (bat_req->bid_btable[frg_idx] == 0) {
-		dpmaif_dump_rxq_remain(dpmaif_ctrl, DPMAIF_RXQ_NUM, 1);
-		ret = DATA_CHECK_FAIL;
-		return ret;
-	}
-
-	/*3.Check how much BAT can be re-alloc*/
-	bat_rel_rd_cur = bat_req->bat_rel_rd_idx;
-
-	/* 2. set frag data to skb_shinfo->frag_list */
-	ret = dpmaif_set_rx_frag_to_skb(rxq, skb_idx, pkt_inf_t);
-	if (ret < 0)
-		return ret;
-
-	/*2.Clear BAT btable for skb_idx*/
-	bat_req->bid_btable[frg_idx] = 0;
-	while (1) {
-		if (bat_req->bid_btable[bat_rel_rd_cur] == 0)
-			bid_cnt++;
-		else
-			break;
-
-		/*error handler*/
-		if (bid_cnt > bat_req->bat_size_cnt) {
-			dpmaif_dump_rxq_remain(dpmaif_ctrl, DPMAIF_RXQ_NUM, 1);
-			ret = DATA_CHECK_FAIL;
-			return ret;
-		}
-
-		bat_rel_rd_cur = ringbuf_get_next_idx(bat_req->bat_size_cnt,
-			bat_rel_rd_cur, 1);
-	}
-
-	if (bid_cnt == 0)
-		return bid_cnt;
-
-	/*re-alloc SKB to DPMAIF*/
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_frg_bat_ridx(rxq->index);
-	for (loop = 0; loop < bid_cnt; loop++) {
-		bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
-		bat_req->bat_rel_rd_idx =
-			ringbuf_get_next_idx(bat_req->bat_size_cnt,
-				bat_req->bat_rel_rd_idx, 1);
-		ret = dpmaif_alloc_rx_frag(bat_req, rxq->index, 1, blocking);
-		if (ret < 0) {
-#ifdef DPMAIF_DEBUG_LOG
-			CCCI_HISTORY_TAG_LOG(-1, TAG, "rx alloc fail:%d", ret);
 #endif
-			bat_req->bat_rel_rd_idx = bat_rel_rd_bak;
-			break;
-		}
-		pkt_cnt++;
-
-	}
-	return pkt_cnt;
-#else /*_97_REORDER_BAT_PAGE_TABLE_*/
-	/* 1. check if last rx buffer can be re-alloc,
-	 * on the hif layer.
-	 */
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_frg_bat_ridx(rxq->index);
-	bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
-	bat_req->bat_rel_rd_idx = ringbuf_get_next_idx(bat_req->bat_size_cnt,
-		pkt_inf_t->buffer_id, 1);
-	ret = dpmaif_alloc_rx_frag(bat_req, rxq->index, 1, blocking);
-	if (ret < 0) {
-#ifdef DPMAIF_DEBUG_LOG
-		CCCI_HISTORY_TAG_LOG(-1, TAG, "rx alloc fail: %d", ret);
-#endif
-		bat_req->bat_rel_rd_idx = bat_rel_rd_bak;
-		return ret;
-	}
-	/* 2. set frag data to skb_shinfo->frag_list */
-	ret = dpmaif_set_rx_frag_to_skb(rxq, skb_idx, pkt_inf_t);
-	return ret;
-#endif
-}
-#endif
-
-static int BAT_cur_bid_check(struct dpmaif_bat_request *bat_req,
-	unsigned int cur_pit, unsigned int skb_idx)
-{
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-	unsigned short bat_rel_rd_cur;
-	/* unsigned long loop = 0; */
-	unsigned long bid_cnt = 0;
-#endif
-	struct sk_buff *skb =
-		((struct dpmaif_bat_skb_t *)bat_req->bat_skb_ptr +
-			skb_idx)->skb;
-	int ret = 0;
-
-	if (unlikely(!skb ||
-		(skb_idx >= DPMAIF_DL_BAT_ENTRY_SIZE))) {
-		/*dump*/
-		if (bat_req->check_bid_fail_cnt < 0xFFF)
-			bat_req->check_bid_fail_cnt++;
-
-		if (bat_req->check_bid_fail_cnt > 3)
-			return DATA_CHECK_FAIL;
-		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
-			"pkt(%d/%d): bid check fail, (w/r/rel=%x, %x, %x)\n",
-			cur_pit, skb_idx, bat_req->bat_wr_idx,
-			bat_req->bat_rd_idx, bat_req->bat_rel_rd_idx);
-#ifdef DPMAIF_DEBUG_LOG
-		CCCI_HISTORY_TAG_LOG(dpmaif_ctrl->md_id, TAG,
-			"pkt(%d/%d): bid check fail, (w/r/rel=%x, %x, %x)\n",
-			cur_pit, skb_idx, bat_req->bat_wr_idx,
-			bat_req->bat_rd_idx, bat_req->bat_rel_rd_idx);
-#endif
-		dpmaif_dump_rxq_remain(dpmaif_ctrl,
-			DPMAIF_RXQ_NUM, 1);
-		/* force modem assert: ERROR_STOP */
-		/* CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
-		 * "Force MD assert called by %s(%d/%d)\n",
-		 * __func__, cur_pit, cur_bid);
-		 * ret = ccci_md_force_assert(dpmaif_ctrl->md_id,
-		 * MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED,
-		 * NULL, 0);
-		 */
-		ret = DATA_CHECK_FAIL;
-		return ret;
-	}
-
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-
-	/*1.check btable alloc before or double release*/
-	/*error handler*/
-	if (bat_req->bid_btable[skb_idx] == 0) {
-		dpmaif_dump_rxq_remain(dpmaif_ctrl, DPMAIF_RXQ_NUM, 1);
-		ret = DATA_CHECK_FAIL;
-		return ret;
-	}
-	/*2.Clear BAT btable for skb_idx*/
-	/* bat_req->bid_btable[skb_idx] = 0; */
-	/*3.Check how much BAT can be re-alloc*/
-	bat_rel_rd_cur = bat_req->bat_rel_rd_idx;
-
-	while (1) {
-		if (bat_req->bid_btable[bat_rel_rd_cur] == 0)
-			bid_cnt++;
-		else
-			break;
-
-	/*error handler*/
-	if (bid_cnt > bat_req->bat_size_cnt) {
-		dpmaif_dump_rxq_remain(dpmaif_ctrl, DPMAIF_RXQ_NUM, 1);
-		ret = DATA_CHECK_FAIL;
-		return ret;
-	}
-
-	bat_rel_rd_cur = ringbuf_get_next_idx(bat_req->bat_size_cnt,
-		bat_rel_rd_cur, 1);
-	}
-
-	ret = bid_cnt;
-#else /*_97_REORDER_BAT_PAGE_TABLE_*/
-	if (bat_req->bat_rel_rd_idx != skb_idx) {
-		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
-			"pkt(%d/%d): bid index check fail, (w/r/rel=%x, %x, %x)\n",
-			cur_pit, skb_idx, bat_req->bat_wr_idx,
-			bat_req->bat_rd_idx, bat_req->bat_rel_rd_idx);
-#ifdef DPMAIF_DEBUG_LOG
-		CCCI_HISTORY_TAG_LOG(dpmaif_ctrl->md_id, TAG,
-			"pkt(%d/%d): bid index check fail, (w/r/rel=%x, %x, %x)\n",
-			cur_pit, skb_idx, bat_req->bat_wr_idx,
-			bat_req->bat_rd_idx, bat_req->bat_rel_rd_idx);
-#endif
-	}
-#endif /*! _97_REORDER_BAT_PAGE_TABLE_*/
-	return ret;
-}
-
-static int dpmaif_alloc_rx_buf(struct dpmaif_bat_request *bat_req,
-		unsigned char q_num, unsigned int buf_cnt, int blocking)
-{
-	struct sk_buff *new_skb = NULL;
-	struct dpmaif_bat_t *cur_bat = NULL;
-	struct dpmaif_bat_skb_t *cur_skb = NULL;
-	int ret = 0;
-	unsigned int i;
-	unsigned int buf_space;
-	unsigned short cur_bat_idx;
-	unsigned long long data_base_addr;
-	unsigned int count = 0;
-
-#ifdef DPMAIF_DEBUG_LOG_1
-	CCCI_HISTORY_LOG(-1, TAG, "%s 1: 0x%x, 0x%x\n", __func__,
-		buf_cnt, bat_req->bat_size_cnt);
-#endif
-	if (buf_cnt == 0 || buf_cnt > bat_req->bat_size_cnt) {
-		CCCI_ERROR_LOG(-1, TAG, "alloc_cnt is invalid !\n");
-		return 0;
-	}
-
-	/*check bat buffer space*/
-	buf_space = ringbuf_writeable(bat_req->bat_size_cnt,
-		bat_req->bat_rel_rd_idx, bat_req->bat_wr_idx);
-#ifdef DPMAIF_DEBUG_LOG_1
-	CCCI_HISTORY_LOG(-1, TAG, "%s 2: 0x%x, 0x%x\n", __func__,
-		bat_req->bat_size_cnt, buf_space);
-#endif
-	if (buf_cnt > buf_space) {
-		CCCI_ERROR_LOG(-1, TAG, "alloc bat buf not enough(%d>%d)\n",
-			buf_cnt, buf_space);
-		return FLOW_CHECK_ERR;
-	}
-
-	cur_bat_idx = bat_req->bat_wr_idx;
-	/*Set buffer to be used*/
-	for (i = 0 ; i < buf_cnt ; i++) {
-fast_retry:
-		new_skb = __dev_alloc_skb(bat_req->pkt_buf_sz,
-			(blocking ? GFP_KERNEL : GFP_ATOMIC));
-		if (unlikely(!new_skb && !blocking && count++ < 20))
-			goto fast_retry;
-		else if (unlikely(!new_skb)) {
-			CCCI_ERROR_LOG(-1, TAG,
-				"alloc skb(%d) fail on q%d!(%d/%d)\n",
-				bat_req->pkt_buf_sz, q_num, cur_bat_idx,
-				blocking);
-			ret = LOW_MEMORY_SKB;
-			break;
-		}
-		cur_bat = ((struct dpmaif_bat_t *)bat_req->bat_base +
-			cur_bat_idx);
-
-		data_base_addr =
-			dma_map_single(
-				ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-				new_skb->data, skb_data_size(new_skb),
-				DMA_FROM_DEVICE);
-		if (dma_mapping_error(ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-			data_base_addr)) {
-			ccci_free_skb(new_skb);
-			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-				"error dma mapping\n");
-			ret = DMA_MAPPING_ERR;
-			ccci_free_skb(new_skb);
-			break;
-		}
-
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-		bat_req->bid_btable[cur_bat_idx] = 1;
-#endif
-
-		cur_bat->buffer_addr_ext = data_base_addr >> 32;
-		cur_bat->p_buffer_addr =
-			(unsigned int)(data_base_addr & 0xFFFFFFFF);
-		cur_skb = ((struct dpmaif_bat_skb_t *)bat_req->bat_skb_ptr +
-					cur_bat_idx);
-		cur_skb->skb = new_skb;
-		cur_skb->data_phy_addr = data_base_addr;
-		cur_skb->data_len = skb_data_size(new_skb);
-		cur_bat_idx = ringbuf_get_next_idx(bat_req->bat_size_cnt,
-				cur_bat_idx, 1);
-	}
-	wmb(); /* memory flush before pointer update. */
-	bat_req->bat_wr_idx = cur_bat_idx;
-#ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(-1, TAG, "%s idx: 0x%x -> 0x%x, 0x%x, 0x%x, 0x%x\n",
-		__func__, bat_req->pkt_buf_sz, new_skb->len,
-		new_skb->truesize, cur_bat_idx, sizeof(struct skb_shared_info));
-#endif
-#if !defined(_E1_SB_SW_WORKAROUND_) && !defined(BAT_CNT_BURST_UPDATE)
-	/* update to HW: alloc a/bat_entry_num new skb, and HW can use */
-	ret_hw = drv_dpmaif_dl_add_bat_cnt(q_num, bat_cnt);
-	return ret_hw < 0 ? ret_hw : ret;
-#else
-	return ret;
-#endif
-}
 
 static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	struct dpmaifq_normal_pit *pkt_inf_t)
 {
 	struct sk_buff *new_skb = NULL;
 	struct dpmaif_bat_skb_t *cur_skb_info = ((struct dpmaif_bat_skb_t *)
-		rxq->bat_req.bat_skb_ptr + pkt_inf_t->buffer_id);
+		dpmaif_ctrl->bat_req->bat_skb_ptr + pkt_inf_t->buffer_id);
 	#ifndef REFINE_BAT_OFFSET_REMOVE
 	unsigned long long data_phy_addr, data_base_addr;
 	int data_offset = 0;
@@ -1225,88 +849,6 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	return 0;
 }
 
-static int dpmaif_get_rx_pkt(struct dpmaif_rx_queue *rxq,
-	unsigned int skb_idx, int blocking,
-	struct dpmaifq_normal_pit *pkt_inf_t)
-{
-	struct dpmaif_bat_request *bat_req = &rxq->bat_req;
-	int bid_cnt, ret = 0;
-	unsigned short bat_rel_rd_bak;
-
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-	unsigned long pkt_cnt = 0;
-	unsigned long loop = 0;
-
-	ret = dpmaif_rx_set_data_to_skb(rxq, pkt_inf_t);
-	if (ret < 0)
-		return ret;
-
-	/* check bid */
-	bid_cnt = BAT_cur_bid_check(bat_req, rxq->pit_rd_idx, skb_idx);
-	if (bid_cnt <= 0) {
-		ret = bid_cnt;
-		return ret;
-	}
-
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_bat_ridx(rxq->index);
-
-	for (loop = 0; loop < bid_cnt; loop++) {
-		/* check if last rx buff can be re-alloc, on the hif layer. */
-		bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
-		bat_req->bat_rel_rd_idx =
-			ringbuf_get_next_idx(bat_req->bat_size_cnt,
-		bat_req->bat_rel_rd_idx, 1);
-		/*
-		 * bid_cnt = ringbuf_writeable(bat_req->bat_size_cnt,
-		 * bat_req->bat_rel_rd_idx, bat_req->bat_wr_idx);
-		 */
-		ret = dpmaif_alloc_rx_buf(&rxq->bat_req, rxq->index, 1,
-						blocking);
-		if (ret < 0) {
-#ifdef DPMAIF_DEBUG_LOG
-			CCCI_HISTORY_TAG_LOG(-1, TAG,
-				"rx alloc fail: %d", ret);
-#endif
-			bat_req->bat_rel_rd_idx = bat_rel_rd_bak;
-			break;
-		}
-		pkt_cnt++;
-	}
-
-	return pkt_cnt;
-#else /*_97_REORDER_BAT_PAGE_TABLE_*/
-	/* check bid */
-	bid_cnt = BAT_cur_bid_check(bat_req, rxq->pit_rd_idx, skb_idx);
-	if (bid_cnt < 0) {
-		ret = bid_cnt;
-		return ret;
-	}
-	/* 1. check if last rx buffer can be re-alloc, on the hif layer. */
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_bat_ridx(rxq->index);
-	bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
-	bat_req->bat_rel_rd_idx = ringbuf_get_next_idx(bat_req->bat_size_cnt,
-		skb_idx, 1);
-	/*
-	 * bid_cnt = ringbuf_writeable(bat_req->bat_size_cnt,
-	 * bat_req->bat_rel_rd_idx, bat_req->bat_wr_idx);
-	 */
-	ret = dpmaif_alloc_rx_buf(&rxq->bat_req, rxq->index, 1, blocking);
-	if (ret < 0) {
-#ifdef DPMAIF_DEBUG_LOG
-		CCCI_HISTORY_TAG_LOG(-1, TAG,
-			"rx alloc fail: %d", ret);
-#endif
-		bat_req->bat_rel_rd_idx = bat_rel_rd_bak;
-		return ret;
-	}
-	/* 2. set data to skb->data. */
-	ret = dpmaif_rx_set_data_to_skb(rxq, pkt_inf_t);
-
-	return (ret < 0 ? ret : bid_cnt);
-#endif
-
-}
-
 static int ccci_skb_to_list(struct ccci_skb_queue *queue, struct sk_buff *newsk)
 {
 	unsigned long flags;
@@ -1330,7 +872,7 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	unsigned int skb_idx)
 {
 	struct dpmaif_bat_skb_t *cur_skb = ((struct dpmaif_bat_skb_t *)
-		rxq->bat_req.bat_skb_ptr + skb_idx);
+			dpmaif_ctrl->bat_req->bat_skb_ptr + skb_idx);
 	struct sk_buff *new_skb = cur_skb->skb;
 	int ret = 0;
 
@@ -1368,14 +910,11 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 		return ret;
 END:
 	cur_skb->skb = NULL;
-	rxq->bat_req.bid_btable[skb_idx] = 0;
 	return ret;
 }
 
 struct dpmaif_rx_hw_notify {
 	unsigned short pit_cnt;
-	unsigned short bat_cnt;
-	unsigned short frag_cnt;
 };
 
 static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
@@ -1384,37 +923,8 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 	int ret = 0;
 
 	if (notify_cnt->pit_cnt) {
-#if defined(BAT_CNT_BURST_UPDATE) && defined(HW_FRG_FEATURE_ENABLE)
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-		if (notify_cnt->frag_cnt != 0)
-#endif
-		{
-			ret = drv_dpmaif_dl_add_frg_bat_cnt(rxq->index,
-				notify_cnt->frag_cnt);
-			if (ret < 0) {
-				CCCI_MEM_LOG_TAG(0, TAG,
-					"dpmaif: update frag bat fail(128)\n");
-				return ret;
-			}
-			notify_cnt->frag_cnt = 0;
-		}
-#endif
+		ccci_dpmaif_bat_wakeup_thread();
 
-#ifdef BAT_CNT_BURST_UPDATE
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-		if (notify_cnt->bat_cnt != 0)
-#endif
-		{
-			ret = drv_dpmaif_dl_add_bat_cnt(rxq->index,
-				notify_cnt->bat_cnt);
-			if (ret < 0) {
-				CCCI_MEM_LOG_TAG(0, TAG,
-					"dpmaif: update bat fail(128)\n");
-				return ret;
-			}
-			notify_cnt->bat_cnt = 0;
-		}
-#endif
 		ret = dpmaifq_rel_rx_pit_entry(rxq, notify_cnt->pit_cnt);
 		if (ret < 0) {
 			CCCI_MEM_LOG_TAG(0, TAG,
@@ -1424,53 +934,6 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 		notify_cnt->pit_cnt = 0;
 	}
 
-	if (notify_cnt->bat_cnt) {
-#if !defined(_E1_SB_SW_WORKAROUND_) && !defined(BAT_CNT_BURST_UPDATE)
-		ret = drv_dpmaif_dl_add_bat_cnt(rxq->index,
-			notify_cnt->bat_cnt);
-		if (ret < 0) {
-			CCCI_MEM_LOG_TAG(0, TAG,
-				"dpmaif: update bat fail(128)\n");
-			return ret;
-		}
-		notify_cnt->bat_cnt = 0;
-#endif
-	}
-#ifdef HW_FRG_FEATURE_ENABLE
-	if (notify_cnt->frag_cnt) {
-#if !defined(_E1_SB_SW_WORKAROUND_) && !defined(BAT_CNT_BURST_UPDATE)
-		ret = drv_dpmaif_dl_add_frg_bat_cnt(rxq->index,
-			notify_cnt->frag_cnt);
-		if (ret < 0) {
-			CCCI_MEM_LOG_TAG(0, TAG,
-				"dpmaif: update frag bat fail(128)\n");
-			return ret;
-		}
-		notify_cnt->frag_cnt = 0;
-#endif
-	}
-#endif
-
-#ifdef _HW_REORDER_SW_WORKAROUND_
-	if (rxq->pit_reload_en) {
-		ret = drv_dpmaif_dl_add_apit_num(rxq->pit_dummy_cnt);
-
-		if (ret < 0) {
-			CCCI_MEM_LOG_TAG(0, TAG,
-				"dpmaif: update dummy pit fail(128)\n");
-			return ret;
-		}
-		/*reset dummy cnt and update dummy idx*/
-		if (ret != 0) {
-			rxq->pit_dummy_idx += rxq->pit_dummy_cnt;
-			if (rxq->pit_dummy_idx >= DPMAIF_DUMMY_PIT_MAX_NUM)
-				rxq->pit_dummy_idx -= DPMAIF_DUMMY_PIT_MAX_NUM;
-			rxq->pit_dummy_cnt = 0;
-			ret = 0;
-			rxq->pit_reload_en = 0;
-		}
-	}
-#endif
 	return ret;
 }
 
@@ -1484,50 +947,6 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
  *	((struct dpmaif_bat_skb_t *)bat_table->bat_skb_ptr + bat_idx)
  */
 #define NOTIFY_RX_PUSH(rxq)  wake_up_all(&rxq->rx_wq)
-
-static int dpmaif_check_rel_cnt(struct dpmaif_rx_queue *rxq)
-{
-	int bid_cnt = 0, i, pkt_cnt = 0, ret = 0;
-	unsigned short bat_rel_rd_cur, bat_rel_rd_bak;
-	struct dpmaif_bat_request *bat_req = &rxq->bat_req;
-
-	bat_rel_rd_cur = bat_req->bat_rel_rd_idx;
-	while (1) {
-		if (bat_req->bid_btable[bat_rel_rd_cur] == 0)
-			bid_cnt++;
-		else
-			break;
-		if (bid_cnt > bat_req->bat_size_cnt) {
-			dpmaif_dump_rxq_remain(dpmaif_ctrl, DPMAIF_RXQ_NUM, 1);
-			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-					"bid cnt is invalid\n");
-			return DATA_CHECK_FAIL;
-		}
-
-		bat_rel_rd_cur = ringbuf_get_next_idx(bat_req->bat_size_cnt,
-					bat_rel_rd_cur, 1);
-	}
-	bat_req->bat_rd_idx = drv_dpmaif_dl_get_bat_ridx(rxq->index);
-
-	for (i = 0; i < bid_cnt; i++) {
-		bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
-		bat_req->bat_rel_rd_idx =
-			ringbuf_get_next_idx(bat_req->bat_size_cnt,
-		bat_req->bat_rel_rd_idx, 1);
-		/*
-		 * bid_cnt = ringbuf_writeable(bat_req->bat_size_cnt,
-		 * bat_req->bat_rel_rd_idx, bat_req->bat_wr_idx);
-		 */
-		ret = dpmaif_alloc_rx_buf(&rxq->bat_req, rxq->index,
-						1, 0);
-		if (ret < 0) {
-			bat_req->bat_rel_rd_idx = bat_rel_rd_bak;
-			break;
-		}
-		pkt_cnt++;
-	}
-	return pkt_cnt;
-}
 
 static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		int blocking, unsigned long time_limit)
@@ -1637,34 +1056,19 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 					/* skb->data: add to skb ptr */
 					/* && record ptr. */
 					rxq->skb_idx = pkt_inf_t->buffer_id;
-					ret = dpmaif_get_rx_pkt(rxq,
-						(unsigned int)rxq->skb_idx,
-						blocking, pkt_inf_t);
+					ret = dpmaif_rx_set_data_to_skb(rxq,
+						pkt_inf_t);
 					if (ret < 0)
 						break;
-
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-					/*ret return BAT cnt*/
-					notify_hw.bat_cnt += ret;
-#else
-					notify_hw.bat_cnt++;
-#endif
 
 #ifdef HW_FRG_FEATURE_ENABLE
 			} else {
 				/* skb->frag_list: add to frag_list */
-				ret = dpmaif_get_rx_frag(rxq,
-					(unsigned int)rxq->skb_idx,
-				blocking, pkt_inf_t);
+				ret = dpmaif_set_rx_frag_to_skb(rxq,
+						(unsigned int)rxq->skb_idx,
+						pkt_inf_t);
 				if (ret < 0)
 					break;
-
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-				/*ret return BAT cnt*/
-				notify_hw.frag_cnt += ret;
-#else
-				notify_hw.frag_cnt++;
-#endif
 			}
 #endif
 			if (pkt_inf_t->c_bit == 0) {
@@ -1678,10 +1082,6 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 					NOTIFY_RX_PUSH(rxq);
 					recv_skb_cnt = 0;
 				}
-					ret = dpmaif_check_rel_cnt(rxq);
-					if (ret < 0)
-						break;
-					notify_hw.bat_cnt += ret;
 				}
 			}
 #ifdef _HW_REORDER_SW_WORKAROUND_
@@ -1709,8 +1109,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 	if (recv_skb_cnt)
 		NOTIFY_RX_PUSH(rxq);
 	/* update to HW */
-	if (ret_hw == 0 && (notify_hw.pit_cnt ||
-		notify_hw.bat_cnt || notify_hw.frag_cnt))
+	if (ret_hw == 0 && notify_hw.pit_cnt)
 		ret_hw = dpmaifq_rx_notify_hw(rxq, &notify_hw);
 	if (ret_hw < 0 && ret == 0)
 		ret = ret_hw;
@@ -1719,13 +1118,13 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 	CCCI_HISTORY_LOG(-1, TAG, "%s: pit:0x%x, 0x%x, 0x%x\n",
 		__func__, rxq->pit_wr_idx, rxq->pit_rd_idx,
 			rxq->pit_rel_rd_idx);
-	CCCI_HISTORY_LOG(-1, TAG, "%s:bat: 0x%x, 0x%x, 0x%x\n",
-		__func__, rxq->bat_req.bat_wr_idx, rxq->bat_req.bat_rd_idx,
-		rxq->bat_req.bat_rel_rd_idx);
+	CCCI_HISTORY_LOG(-1, TAG, "%s:bat: 0x%x, 0x%x\n",
+		__func__, dpmaif_ctrl->bat_req->bat_wr_idx,
+		dpmaif_ctrl->bat_req->bat_rd_idx);
 #ifdef HW_FRG_FEATURE_ENABLE
-	CCCI_HISTORY_LOG(-1, TAG, "%s:bat_frag: 0x%x, 0x%x, 0x%x\n",
-		__func__, rxq->bat_frag.bat_wr_idx,
-		rxq->bat_frag.bat_rd_idx, rxq->bat_frag.bat_rel_rd_idx);
+	CCCI_HISTORY_LOG(-1, TAG, "%s:bat_frag: 0x%x, 0x%x\n",
+		__func__, dpmaif_ctrl->bat_frag->bat_wr_idx,
+		dpmaif_ctrl->bat_frag->bat_rd_idx);
 #endif
 #endif
 	return ret < 0?ret:rx_cnt;
@@ -2782,52 +2181,6 @@ void mtk_ccci_affinity_rta_v2(u32 irq_cpus, u32 push_cpus, int cpu_nr)
 
 #endif
 
-/* =======================================================
- *
- * Descriptions: State part start(1/3): init(RX) -- 1.1.2 rx sw init
- *
- * ========================================================
- */
-
-static int dpmaif_bat_init(struct dpmaif_bat_request *bat_req,
-		unsigned char q_num, int buf_type)
-{
-	int sw_buf_size = buf_type ? sizeof(struct dpmaif_bat_page_t) :
-		sizeof(struct dpmaif_bat_skb_t);
-
-	bat_req->bat_size_cnt = DPMAIF_DL_BAT_ENTRY_SIZE;
-	bat_req->skb_pkt_cnt = bat_req->bat_size_cnt;
-	bat_req->pkt_buf_sz = buf_type  ? DPMAIF_BUF_FRAG_SIZE :
-		DPMAIF_BUF_PKT_SIZE;
-	/* alloc buffer for HW && AP SW */
-#if (DPMAIF_DL_BAT_SIZE > PAGE_SIZE)
-	 bat_req->bat_base = dma_alloc_coherent(
-		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-		(bat_req->bat_size_cnt * sizeof(struct dpmaif_bat_t)),
-		&bat_req->bat_phy_addr, GFP_KERNEL);
-#ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(-1, TAG, "bat dma_alloc_coherent\n");
-#endif
-#else
-	bat_req->bat_base = dma_pool_alloc(dpmaif_ctrl->rx_bat_dmapool,
-		GFP_KERNEL, &bat_req->bat_phy_addr);
-#ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(-1, TAG, "bat dma_pool_alloc\n");
-#endif
-#endif
-	/* alloc buffer for AP SW to record skb information */
-
-	bat_req->bat_skb_ptr = kzalloc((bat_req->skb_pkt_cnt *
-		sw_buf_size), GFP_KERNEL);
-	if (!bat_req->bat_base || !bat_req->bat_skb_ptr) {
-		CCCI_ERROR_LOG(-1, TAG, "bat request fail\n");
-		return LOW_MEMORY_BAT;
-	}
-	memset(bat_req->bat_base, 0,
-		(bat_req->bat_size_cnt * sizeof(struct dpmaif_bat_t)));
-	return 0;
-}
-
 static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 {
 	int ret = 0;
@@ -2868,16 +2221,6 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 	memset(rxq->pit_base, 0, DPMAIF_DL_PIT_SIZE);
 	/* dpmaif_pit_init(rxq->pit_base, rxq->pit_size_cnt); */
 
-	/* BAT table */
-	ret = dpmaif_bat_init(&rxq->bat_req, rxq->index, 0);
-	if (ret)
-		return ret;
-#ifdef HW_FRG_FEATURE_ENABLE
-	/* BAT frag table */
-	ret = dpmaif_bat_init(&rxq->bat_frag, rxq->index, 1);
-	if (ret)
-		return ret;
-#endif
 #ifdef DPMAIF_DEBUG_LOG
 	dpmaif_dump_rxq_remain(dpmaif_ctrl, rxq->index, 0);
 #endif
@@ -2899,9 +2242,7 @@ static void dpmaif_rx_hw_init(struct dpmaif_rx_queue *rxq)
 		/* 1. BAT buffer parameters setting */
 		drv_dpmaif_dl_set_remain_minsz(rxq->index,
 			DPMAIF_HW_BAT_REMAIN);
-		drv_dpmaif_dl_set_bat_bufsz(rxq->index, DPMAIF_HW_BAT_PKTBUF);
-		drv_dpmaif_dl_set_bat_rsv_len(rxq->index,
-			DPMAIF_HW_BAT_RSVLEN);
+
 		drv_dpmaif_dl_set_bid_maxcnt(rxq->index, DPMAIF_HW_PKT_BIDCNT);
 		pkt_alignment = DPMAIF_HW_PKT_ALIGN;
 		if (pkt_alignment == 64) {
@@ -2917,8 +2258,6 @@ static void dpmaif_rx_hw_init(struct dpmaif_rx_queue *rxq)
 		/* 2. bat && pit threadhold, addr, len, enable */
 		drv_dpmaif_dl_set_pit_chknum(rxq->index,
 			DPMAIF_HW_CHK_PIT_NUM);
-		drv_dpmaif_dl_set_bat_chk_thres(rxq->index,
-			DPMAIF_HW_CHK_BAT_NUM);
 
 		#ifdef MT6297
 		drv_dpmaif_dl_set_chk_rbnum(rxq->index,
@@ -2937,43 +2276,16 @@ static void dpmaif_rx_hw_init(struct dpmaif_rx_queue *rxq)
 		 *	p_dl_hw->chk_frg_num);
 		 */
 
-		drv_dpmaif_dl_set_bat_base_addr(rxq->index,
-				rxq->bat_req.bat_phy_addr);
 		drv_dpmaif_dl_set_pit_base_addr(rxq->index,
 					rxq->pit_phy_addr);
 
-		drv_dpmaif_dl_set_bat_size(rxq->index,
-			rxq->bat_req.bat_size_cnt);
 		drv_dpmaif_dl_set_pit_size(rxq->index, rxq->pit_size_cnt);
 
 		/*Enable PIT*/
 		drv_dpmaif_dl_pit_en(rxq->index, true);
 
-		/*
-		 * Disable BAT in init and Enable BAT,
-		 * when buffer submit to HW first time
-		 */
-		drv_dpmaif_dl_bat_en(rxq->index, false);
-
-		/* 3. notify HW init/setting done*/
-		drv_dpmaif_dl_bat_init_done(rxq->index, false);
 		drv_dpmaif_dl_pit_init_done(rxq->index);
-#ifdef HW_FRG_FEATURE_ENABLE
-		/* 4. init frg buffer feature*/
-		drv_dpmaif_dl_set_ao_frg_bat_feature(rxq->index, true);
-		drv_dpmaif_dl_set_ao_frg_bat_bufsz(rxq->index,
-			DPMAIF_HW_FRG_PKTBUF);
-		drv_dpmaif_dl_set_ao_frag_check_thres(rxq->index,
-			DPMAIF_HW_CHK_FRG_NUM);
 
-		drv_dpmaif_dl_set_bat_base_addr(rxq->index,
-			rxq->bat_frag.bat_phy_addr);
-		drv_dpmaif_dl_set_bat_size(rxq->index,
-			rxq->bat_frag.bat_size_cnt);
-
-		drv_dpmaif_dl_bat_en(rxq->index, false);
-		drv_dpmaif_dl_bat_init_done(rxq->index, true);
-#endif
 #ifdef HW_CHECK_SUM_ENABLE
 		drv_dpmaif_dl_set_ao_chksum_en(rxq->index, true);
 #endif
@@ -3009,7 +2321,7 @@ static int dpmaif_rxq_init(struct dpmaif_rx_queue *queue)
 
 	/* rx push */
 	init_waitqueue_head(&queue->rx_wq);
-	ccci_skb_queue_init(&queue->skb_list, queue->bat_req.pkt_buf_sz,
+	ccci_skb_queue_init(&queue->skb_list, DPMAIF_BUF_PKT_SIZE,
 				SKB_RX_LIST_MAX_LEN, 0);
 
 	queue->rx_thread = kthread_run(dpmaif_net_rx_push_thread,
@@ -3184,15 +2496,6 @@ int dpmaif_late_init(unsigned char hif_id)
 	CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG, "pit dma pool\n");
 #endif
 #endif
-
-#if !(DPMAIF_DL_BAT_SIZE > PAGE_SIZE)
-	dpmaif_ctrl->rx_bat_dmapool = dma_pool_create("dpmaif_bat_req_DMA",
-		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-		(DPMAIF_DL_BAT_ENTRY_SIZE*sizeof(struct dpmaif_bat_t)), 64, 0);
-#ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG, "bat dma pool\n");
-#endif
-#endif
 	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
 		rx_q = &dpmaif_ctrl->rxq[i];
 		rx_q->index = i;
@@ -3201,7 +2504,9 @@ int dpmaif_late_init(unsigned char hif_id)
 			return ret;
 		rx_q->skb_idx = -1;
 	}
-
+	ret = ccci_dpmaif_bat_sw_init();
+	if (ret)
+		return ret;
 	/* tx tx */
 #if !(DPMAIF_UL_DRB_SIZE > PAGE_SIZE)
 	dpmaif_ctrl->tx_drb_dmapool = dma_pool_create("dpmaif_drb_req_DMA",
@@ -3315,77 +2620,14 @@ int dpmaif_start(unsigned char hif_id)
 		rxq->que_started = true;
 		rxq->index = i;
 		dpmaif_rx_hw_init(rxq);
-		/*re-use tst buffer and submit bat*/
-		ret = dpmaif_alloc_rx_buf(&rxq->bat_req, i,
-				rxq->bat_req.bat_size_cnt - 1, 1);
-		if (ret) {
-			CCCI_HISTORY_LOG(-1, TAG, "dpmaif_alloc_rx_buf fail\n");
-			return LOW_MEMORY;
-		}
-#ifdef HW_FRG_FEATURE_ENABLE
-		ret = dpmaif_alloc_rx_frag(&rxq->bat_frag, i,
-				rxq->bat_frag.bat_size_cnt - 1, 1);
-		if (ret) {
-			CCCI_HISTORY_LOG(-1, TAG,
-				"dpmaif_alloc_rx_frag fail\n");
-			return LOW_MEMORY;
-		}
-#endif
-#ifdef _E1_SB_SW_WORKAROUND_
-		/*first init: update to HW and enable BAT*/
-		/*others: update to HW in full interrupt*/
-		drv_dpmaif_dl_add_bat_cnt(rxq->index,
-			rxq->bat_req.bat_size_cnt - 1);
-#ifdef HW_FRG_FEATURE_ENABLE
-		drv_dpmaif_dl_add_frg_bat_cnt(i,
-			(rxq->bat_frag.bat_size_cnt - 1));
-#endif
-		drv_dpmaif_dl_all_queue_en(true);
-#else
-#ifdef BAT_CNT_BURST_UPDATE
-#ifdef HW_FRG_FEATURE_ENABLE
-		ret = drv_dpmaif_dl_add_frg_bat_cnt(i,
-			(rxq->bat_frag.bat_size_cnt - 1));
-		if (ret < 0) {
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"add frag failed after dl enable\n");
-#endif
-			return ret;
-		}
-#endif
-		ret = drv_dpmaif_dl_add_bat_cnt(i,
-				(rxq->bat_req.bat_size_cnt - 1));
-		if (ret < 0) {
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"dpmaif start failed to add bat\n");
-#endif
-			return ret;
-		}
-#endif
-#ifdef HW_FRG_FEATURE_ENABLE
-		ret = drv_dpmaif_dl_all_frg_queue_en(true);
-		if (ret < 0) {
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"dpmaif start failed to enable frg queue\n");
-#endif
-			return ret;
-		}
-#endif
-		ret = drv_dpmaif_dl_all_queue_en(true);
-		if (ret < 0) {
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"dpmaif start failed to enable all dl queue\n");
-#endif
-			return ret;
-		}
-#endif
-		rxq->budget = rxq->bat_req.bat_size_cnt - 1;
-		rxq->bat_req.check_bid_fail_cnt = 0;
+
+		rxq->budget = DPMAIF_DL_BAT_ENTRY_SIZE - 1;
 	}
+
+	ccci_dpmaif_bat_hw_init();
+	ret = ccci_dpmaif_bat_start();
+	if (ret)
+		return ret;
 
 	/* tx tx */
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
@@ -3560,15 +2802,9 @@ static int dpmaif_stop_txq(struct dpmaif_tx_queue *txq)
 
 static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 {
-	struct sk_buff *skb = NULL;
-	struct dpmaif_bat_skb_t *cur_skb = NULL;
-#ifdef HW_FRG_FEATURE_ENABLE
-	struct page *page = NULL;
-	struct dpmaif_bat_page_t *cur_page = NULL;
-#endif
 	int j, cnt;
 
-	if (rxq->pit_base == NULL || rxq->bat_req.bat_base == NULL)
+	if (rxq->pit_base == NULL)
 		return -1;
 
 	/* flush work */
@@ -3595,52 +2831,13 @@ static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 		}
 	} while (cnt != 0);
 
-	for (j = 0; j < rxq->bat_req.bat_size_cnt; j++) {
-		cur_skb = ((struct dpmaif_bat_skb_t *)rxq->bat_req.bat_skb_ptr
-			+ j);
-		skb = cur_skb->skb;
-		if (skb) {
-			/* rx unmapping */
-			dma_unmap_single(
-				ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-				cur_skb->data_phy_addr, cur_skb->data_len,
-				DMA_FROM_DEVICE);
-			ccci_free_skb(skb);
-			cur_skb->skb = NULL;
-		}
-	}
-#ifdef HW_FRG_FEATURE_ENABLE
-	for (j = 0; j < rxq->bat_frag.bat_size_cnt; j++) {
-		cur_page = ((struct dpmaif_bat_page_t *)
-			rxq->bat_frag.bat_skb_ptr + j);
-		page = cur_page->page;
-		if (page) {
-			/* rx unmapping */
-			dma_unmap_page(
-				ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-				cur_page->data_phy_addr, cur_page->data_len,
-				DMA_FROM_DEVICE);
-			put_page(page);
-			cur_page->page = NULL;
-
-		}
-	}
-#endif
 	memset(rxq->pit_base, 0,
 		(rxq->pit_size_cnt * sizeof(struct dpmaifq_normal_pit)));
-	memset(rxq->bat_req.bat_base, 0,
-		(rxq->bat_req.bat_size_cnt * sizeof(struct dpmaif_bat_t)));
+
 	rxq->pit_rd_idx = 0;
 	rxq->pit_wr_idx = 0;
 	rxq->pit_rel_rd_idx = 0;
-	rxq->bat_req.bat_rd_idx = 0;
-	rxq->bat_req.bat_rel_rd_idx = 0;
-	rxq->bat_req.bat_wr_idx = 0;
-#ifdef HW_FRG_FEATURE_ENABLE
-	rxq->bat_frag.bat_rd_idx = 0;
-	rxq->bat_frag.bat_rel_rd_idx = 0;
-	rxq->bat_frag.bat_wr_idx = 0;
-#endif
+
 	return 0;
 }
 
@@ -3654,6 +2851,10 @@ int dpmaif_stop_rx_sw(unsigned char hif_id)
 		rxq = &dpmaif_ctrl->rxq[i];
 		dpmaif_stop_rxq(rxq);
 	}
+
+	/* rx bat buf clear */
+	ccci_dpmaif_bat_stop();
+
 	return 0;
 }
 
@@ -3726,7 +2927,6 @@ int dpmaif_stop(unsigned char hif_id)
 	/* 2. stop sw */
 	/* tx tx clear */
 	dpmaif_stop_tx_sw(hif_id);
-
 	/* rx rx clear */
 	dpmaif_stop_rx_sw(hif_id);
 	/* stop debug mechnism */
