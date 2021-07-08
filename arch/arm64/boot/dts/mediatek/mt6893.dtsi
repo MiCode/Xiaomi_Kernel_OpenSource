@@ -7753,7 +7753,7 @@
 				<0>, /*MTK_DRM_OPT_SF_PF*/
 				<1>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 				<1>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
-				<1>, /*MTK_DRM_OPT_MSYNC2_0*/
+				<0>, /*MTK_DRM_OPT_MSYNC2_0*/
 				<1>; /*MTK_DRM_OPT_MML_PRIMARY*/
 		};
 
