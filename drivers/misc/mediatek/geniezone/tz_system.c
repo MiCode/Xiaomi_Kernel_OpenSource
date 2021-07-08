@@ -123,8 +123,8 @@ static uint32_t _kree_session_handle_idx;
 
 #define TIPC_PORT_START_ID		(1000)
 #define TIPC_PORT_END_ID		(0xFFFFFFFF)
-#define MAX_SRV_NAME_LEN		(256)
-#define MAX_SRV_SIZE			(4)
+#define MAX_SRV_NAME_LEN		(64)
+#define MAX_SRV_NAME_CNT		(4)
 
 /* After sending a command to GZ, GZ binds the HA on specific CPU and the HA can
  * only execute on that CPU. So that, it needs to ensure only one command can
@@ -134,16 +134,11 @@ struct tipc_k_port {
 	struct mutex lock;
 	struct kref refcount;
 	int id;
-	int srv_cnt;
-	char srv_name[MAX_SRV_SIZE][MAX_SRV_NAME_LEN];
+	size_t srv_name_cnt;
+	char srv_name[MAX_SRV_NAME_CNT][MAX_SRV_NAME_LEN];
 };
 
 DEFINE_IDR(port_idr);
-
-static inline struct tipc_k_port *lookup_port_by_id(int id)
-{
-	return idr_find(&port_idr, id);
-}
 
 static void _free_port(struct kref *kref)
 {
@@ -151,13 +146,35 @@ static void _free_port(struct kref *kref)
 
 	port = container_of(kref, struct tipc_k_port, refcount);
 
-	KREE_DEBUG("%s: Release tipc_k_port srv %s, id %d\n",
-		   __func__, port->srv_name[0], port->id);
-
 	mutex_lock(&port_mutex);
-	idr_remove(&port_idr, port->id);
-	kfree(port);
+	if (kref_read(kref) < 1) {
+		KREE_DEBUG("%s: Release tipc_k_port srv %s, id %d\n",
+			__func__, port->srv_name[0], port->id);
+		idr_remove(&port_idr, port->id);
+		kfree(port);
+	}
 	mutex_unlock(&port_mutex);
+}
+
+static inline void port_lock(struct tipc_k_port *port)
+{
+	if (port) {
+		kref_get(&port->refcount);
+		mutex_lock(&port->lock);
+	}
+}
+
+static inline void port_unlock(struct tipc_k_port *port)
+{
+	if (port) {
+		mutex_unlock(&port->lock);
+		kref_put(&port->refcount, _free_port);
+	}
+}
+
+static inline struct tipc_k_port *lookup_port_by_id(int id)
+{
+	return idr_find(&port_idr, id);
 }
 
 static struct tipc_k_port *lookup_port_by_name(const char *srv_name)
@@ -165,60 +182,61 @@ static struct tipc_k_port *lookup_port_by_name(const char *srv_name)
 	struct tipc_k_port *port, *ret = NULL;
 	int id = 0, i;
 
-	mutex_lock(&port_mutex);
 	idr_for_each_entry(&port_idr, port, id) {
-		for (i = 0; i < port->srv_cnt; i++) {
-			if (strncmp(port->srv_name[i], srv_name,
-				    MAX_SRV_NAME_LEN) == 0) {
-				ret = port;
-				break;
-			}
+		for (i = 0; i < port->srv_name_cnt; i++) {
+			if (strncmp(port->srv_name[i], srv_name, MAX_SRV_NAME_LEN) == 0)
+				return port;
 		}
-		if (ret)
-			break;
 	}
-	mutex_unlock(&port_mutex);
 
 	return ret;
 }
 
 static TZ_RESULT port_append_srv(struct tipc_k_port *port, const char *srv_name)
 {
-	if (port->srv_cnt + 1 > MAX_SRV_SIZE) {
+	if (port->srv_name_cnt + 1 > MAX_SRV_NAME_CNT) {
 		KREE_ERR("%s: Failed to append srv_name %s for port %s\n",
 			 __func__, srv_name, port->srv_name[0]);
 		return TZ_RESULT_ERROR_EXCESS_DATA;
 	}
 
-	strncpy(port->srv_name[port->srv_cnt], srv_name, MAX_SRV_NAME_LEN);
-	port->srv_cnt += 1;
+	strncpy(port->srv_name[port->srv_name_cnt], srv_name, MAX_SRV_NAME_LEN - 1);
+	port->srv_name[port->srv_name_cnt][MAX_SRV_NAME_LEN - 1] = '\0';
+	port->srv_name_cnt += 1;
 
 	return TZ_RESULT_SUCCESS;
 }
 
-static struct tipc_k_port *create_port(const char *srv_name)
+static struct tipc_k_port *create_port_locked(const char *srv_name)
 {
 	struct tipc_k_port *port;
-	int ret;
 
 	port = lookup_port_by_name(srv_name);
-	if (port)
+	if (port) {
+		kref_get(&port->refcount);
 		return port;
+	}
 
 	port = kzalloc(sizeof(*port), GFP_KERNEL);
 	if (!port) {
-		ret = -ENOMEM;
-		return ERR_PTR(ret);
+		return ERR_PTR(-ENOMEM);
 	}
 
-	mutex_lock(&port_mutex);
 	mutex_init(&port->lock);
 	kref_init(&port->refcount);
 	port->id = idr_alloc(&port_idr, port, TIPC_PORT_START_ID,
 			     TIPC_PORT_END_ID, GFP_KERNEL);
 	port_append_srv(port, srv_name);
-	mutex_unlock(&port_mutex);
+	return port;
+}
 
+static struct tipc_k_port *create_port(const char *srv_name)
+{
+	struct tipc_k_port *port;
+
+	mutex_lock(&port_mutex);
+	port = create_port_locked(srv_name);
+	mutex_unlock(&port_mutex);
 	return port;
 }
 
@@ -299,7 +317,7 @@ static int _tipc_k_connect_retry(struct tipc_k_handle *h, const char *port_name)
 		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
 	}
 
-	mutex_lock(&port->lock);
+	port_lock(port);
 	do {
 		if (unlikely(IS_RESTARTSYS_ERROR(rc))) {
 			struct tipc_dn_chan *dn = h->dn;
@@ -308,7 +326,7 @@ static int _tipc_k_connect_retry(struct tipc_k_handle *h, const char *port_name)
 				KREE_DEBUG(
 					"%s: channel is connected already!\n",
 					__func__);
-				mutex_unlock(&port->lock);
+				port_unlock(port);
 				return 0;
 			}
 			KREE_DEBUG("%s: disconnect and retry!\n", __func__);
@@ -317,12 +335,11 @@ static int _tipc_k_connect_retry(struct tipc_k_handle *h, const char *port_name)
 		rc = tipc_k_connect(h, port_name);
 		retry++;
 	} while (_tipc_retry_check_and_wait(rc, retry, 2));
-	mutex_unlock(&port->lock);
+	port_unlock(port);
 
-	if (rc == 0) {
-		kref_get(&port->refcount);
+	if (rc == 0)
 		h->dn->port_id = port->id;
-	} else
+	else
 		kref_put(&port->refcount, _free_port);
 
 	return rc;
@@ -452,7 +469,6 @@ static TZ_RESULT KREE_OpenSysFd(uint32_t tee_id)
 
 static TZ_RESULT KREE_OpenFd(const char *port, int32_t *Fd)
 {
-
 	struct tipc_k_handle h;
 	TZ_RESULT ret = TZ_RESULT_SUCCESS;
 	int32_t tmp;
@@ -509,9 +525,9 @@ static TZ_RESULT KREE_CloseFd(int32_t Fd)
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
 	}
 
-	mutex_lock(&port->lock);
+	port_lock(port);
 	rc = tipc_k_disconnect(h);
-	mutex_unlock(&port->lock);
+	port_unlock(port);
 	if (rc) {
 		KREE_ERR("%s: tipc_k_disconnect failed\n", __func__);
 		ret = TZ_RESULT_ERROR_COMMUNICATION;
@@ -1397,13 +1413,13 @@ TZ_RESULT KREE_TeeServiceCallPlus(KREE_SESSION_HANDLE handle, uint32_t command,
 		mutex_lock(&servicecall_lock);
 
 	KREE_SESSION_LOCK(Fd);
-	mutex_lock(&port->lock);
+	port_lock(port);
 	kree_perf_boost(1);
 
 	iret = _GzServiceCall_body(Fd, command, &cparam, param);
 
 	kree_perf_boost(0);
-	mutex_unlock(&port->lock);
+	port_unlock(port);
 	KREE_SESSION_UNLOCK(Fd);
 
 	if (cpumask == -1)
@@ -1455,7 +1471,7 @@ EXPORT_SYMBOL(KREE_GetSystemCntFrq);
 
 static int tz_system_probe(struct platform_device *pdev)
 {
-	struct tipc_k_port *port;
+	struct tipc_k_port *port = NULL;
 	int ret = 0;
 
 	KREE_DEBUG("%s\n", __func__);
@@ -1476,10 +1492,12 @@ static int tz_system_probe(struct platform_device *pdev)
 
 	/* create gz sys port */
 	port = create_port(GZ_SYS_SERVICE_NAME_TRUSTY);
-	port_append_srv(port, GZ_MEM_SERVICE_NAME_TRUSTY);
+	if (!PTR_ERR_OR_ZERO(port))
+		port_append_srv(port, GZ_MEM_SERVICE_NAME_TRUSTY);
 
 	port = create_port(GZ_SYS_SERVICE_NAME_NEBULA);
-	port_append_srv(port, GZ_MEM_SERVICE_NAME_NEBULA);
+	if (!PTR_ERR_OR_ZERO(port))
+		port_append_srv(port, GZ_MEM_SERVICE_NAME_NEBULA);
 
 	return ret;
 }
@@ -1491,7 +1509,7 @@ static int tz_system_remove(struct platform_device *pdev)
 	KREE_DEBUG("%s\n", __func__);
 
 	idr_for_each_entry(&port_idr, port, id) {
-		kref_put(&port->refcount, _free_port);
+		_free_port(&port->refcount);
 	}
 
 	return 0;
