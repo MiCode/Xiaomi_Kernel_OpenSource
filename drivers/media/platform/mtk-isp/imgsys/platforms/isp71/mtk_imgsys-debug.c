@@ -14,12 +14,14 @@
 #include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-debug.h"
 
-#define DL_CHECK_ENG_NUM 7
+#define DL_CHECK_ENG_NUM 9
 struct imgsys_dbg_engine_t dbg_engine_name_list[DL_CHECK_ENG_NUM] = {
 	{IMGSYS_ENG_WPE_EIS, "WPE_EIS"},
 	{IMGSYS_ENG_WPE_TNR, "WPE_TNR"},
+	{IMGSYS_ENG_WPE_LITE, "WPE_LITE"},
 	{IMGSYS_ENG_TRAW, "TRAW"},
 	{IMGSYS_ENG_LTR, "LTRAW"},
+	{IMGSYS_ENG_XTR, "XTRAW"},
 	{IMGSYS_ENG_DIP, "DIP"},
 	{IMGSYS_ENG_PQDIP_A, "PQDIPA"},
 	{IMGSYS_ENG_PQDIP_B, "PQDIPB"},
@@ -39,9 +41,11 @@ void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
 
 	imgsys_dl_debug_dump(imgsys_dev, hw_comb);
 
-	if ((hw_comb & IMGSYS_ENG_WPE_EIS) || (hw_comb & IMGSYS_ENG_WPE_TNR))
+	if ((hw_comb & IMGSYS_ENG_WPE_EIS) || (hw_comb & IMGSYS_ENG_WPE_TNR)
+		 || (hw_comb & IMGSYS_ENG_WPE_LITE))
 		module_on[IMGSYS_MOD_WPE] = true;
-	if ((hw_comb & IMGSYS_ENG_TRAW) || (hw_comb & IMGSYS_ENG_LTR))
+	if ((hw_comb & IMGSYS_ENG_TRAW) || (hw_comb & IMGSYS_ENG_LTR)
+		 || (hw_comb & IMGSYS_ENG_XTR))
 		module_on[IMGSYS_MOD_TRAW] = true;
 	if ((hw_comb & IMGSYS_ENG_DIP))
 		module_on[IMGSYS_MOD_DIP] = true;
@@ -323,6 +327,15 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_XTR):
+		dl_path = IMGSYS_DL_WPEE_TRAW;
+		snprintf(logBuf_inport, log_length, "%s",
+			"WPE_EIS");
+		snprintf(logBuf_outport, log_length, "%s",
+			"XTRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
 	case (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_TRAW):
 		dl_path = IMGSYS_DL_WPET_TRAW;
 		snprintf(logBuf_inport, log_length, "%s",
@@ -341,6 +354,43 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
+	case (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_XTR):
+		dl_path = IMGSYS_DL_WPET_TRAW;
+		snprintf(logBuf_inport, log_length, "%s",
+			"WPE_TNR");
+		snprintf(logBuf_outport, log_length, "%s",
+			"XTRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW):
+		dl_path = IMGSYS_DL_WPET_TRAW;
+		snprintf(logBuf_inport, log_length, "%s",
+			"WPE_LITE");
+		snprintf(logBuf_outport, log_length, "%s",
+			"TRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR):
+		dl_path = IMGSYS_DL_WPET_TRAW;
+		snprintf(logBuf_inport, log_length, "%s",
+			"WPE_LITE");
+		snprintf(logBuf_outport, log_length, "%s",
+			"LTRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_XTR):
+		dl_path = IMGSYS_DL_WPET_TRAW;
+		snprintf(logBuf_inport, log_length, "%s",
+			"WPE_LITE");
+		snprintf(logBuf_outport, log_length, "%s",
+			"XTRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_DIP):
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A):
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_B):
@@ -440,6 +490,33 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	    dl_path = IMGSYS_DL_WPET_DIP;
 		snprintf(logBuf_inport, log_length, "%s",
 			"WPE_TNR");
+		snprintf(logBuf_outport, log_length, "%s",
+			"DIP");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP):
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
+		dl_path = IMGSYS_DL_WPEL_TRAW;
+		snprintf(logBuf_inport, log_length, "%s",
+			"WPE_LITE");
+		snprintf(logBuf_outport, log_length, "%s",
+			"TRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, log_length);
+	    logBuf_inport[strlen(logBuf_inport)] = '\0';
+	    memset((char *)logBuf_outport, 0x0, log_length);
+	    logBuf_outport[strlen(logBuf_outport)] = '\0';
+	    dl_path = IMGSYS_DL_TRAW_DIP;
+		snprintf(logBuf_inport, log_length, "%s",
+			"TRAW");
 		snprintf(logBuf_outport, log_length, "%s",
 			"DIP");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
