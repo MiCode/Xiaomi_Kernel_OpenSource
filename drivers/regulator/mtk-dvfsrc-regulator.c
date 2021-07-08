@@ -255,6 +255,7 @@ static const unsigned int mt6879_voltages[] = {
 	600000,
 	650000,
 	725000,
+	750000,
 };
 
 static struct dvfsrc_regulator mt6879_regulators[] = {
