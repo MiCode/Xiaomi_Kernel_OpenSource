@@ -407,11 +407,11 @@ static s32 wrot_init(struct mml_comp *comp, struct mml_task *task,
 
 	/* Reset engine */
 	cmdq_pkt_wfe(pkt, wrot->event_poll);
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SOFT_RST, 0x1, 0x00000001);
-	cmdq_pkt_poll(pkt, NULL, 1, base_pa + VIDO_SOFT_RST_STAT, 0x00000001,
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SOFT_RST, 1, U32_MAX);
+	cmdq_pkt_poll(pkt, NULL, 1, base_pa + VIDO_SOFT_RST_STAT, U32_MAX,
 		      wrot->gpr_poll);
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SOFT_RST, 0, 0x00000001);
-	cmdq_pkt_poll(pkt, NULL, 0, base_pa + VIDO_SOFT_RST_STAT, 0x00000001,
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SOFT_RST, 0, U32_MAX);
+	cmdq_pkt_poll(pkt, NULL, 0, base_pa + VIDO_SOFT_RST_STAT, U32_MAX,
 		      wrot->gpr_poll);
 	cmdq_pkt_set_event(pkt, wrot->event_poll);
 	return 0;
@@ -1461,7 +1461,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		value[3], value[4], value[5]);
 	mml_err("VIDO_TAR_SIZE %#010x VIDO_FRAME_SIZE %#010x VIDO_OFST_ADDR %#010x",
 		value[6], value[7], value[8]);
-	mml_err("VIDO_STRIDE %#010x VIDO_RSV_1 %#010x VIDO_IN_SIZE %#010x",
+	mml_err("VIDO_STRIDE %#010x VIDO_EOL %#010x VIDO_IN_SIZE %#010x",
 		value[9], value[10], value[11]);
 	mml_err("VIDO_ROT_EN %#010x VIDO_PVRIC %#010x VIDO_PENDING_ZERO %#010x",
 		value[12], value[13], value[14]);
@@ -1470,10 +1470,10 @@ static void wrot_debug_dump(struct mml_comp *comp)
 
 	for (i = 0; i < ARRAY_SIZE(debug) / 3; i++)
 		mml_err("ROT_DBUGG_%x %#010x ROT_DBUGG_%x %#010x ROT_DBUGG_%x %#010x",
-			i * 3, debug[i*3],
-			i * 3 + 1, debug[i*3+1],
-			i * 3 + 2, debug[i*3+2]);
-	mml_err("ROT_DBUGG_21 %#010x", debug[33]);
+			i * 3 + 1, debug[i*3],
+			i * 3 + 2, debug[i*3+1],
+			i * 3 + 3, debug[i*3+2]);
+	mml_err("ROT_DBUGG_22 %#010x", debug[33]);
 }
 
 static const struct mml_comp_debug_ops wrot_debug_ops = {
