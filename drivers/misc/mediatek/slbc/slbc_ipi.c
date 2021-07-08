@@ -310,7 +310,7 @@ int slbc_ipi_init(void)
 
 	_tinfo = get_scmi_tinysys_info();
 
-	if (!_tinfo) {
+	if (!(_tinfo && _tinfo->sdev)) {
 		pr_info("call get_scmi_tinysys_info() fail\n");
 		return -EPROBE_DEFER;
 	}
