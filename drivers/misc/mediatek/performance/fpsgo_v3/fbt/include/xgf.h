@@ -179,14 +179,12 @@ extern int (*xgf_est_runtime_fp)(pid_t r_pid,
 		unsigned long long *runtime,
 		unsigned long long ts);
 
-extern int (*xgf_stat_xchg_fp)(int enable);
-
 void xgf_lockprove(const char *tag);
 void xgf_trace(const char *fmt, ...);
 void xgf_reset_renders(void);
 int xgf_est_runtime(pid_t r_pid, struct xgf_render *render,
 			unsigned long long *runtime, unsigned long long ts);
-int xgf_stat_xchg(int enable);
+
 void *xgf_alloc(int size);
 void xgf_free(void *block);
 void *xgf_atomic_val_assign(int select);
@@ -200,7 +198,6 @@ int xgf_num_possible_cpus(void);
 int xgf_get_task_wake_cpu(struct task_struct *t);
 int xgf_get_task_pid(struct task_struct *t);
 long xgf_get_task_state(struct task_struct *t);
-unsigned long xgf_lookup_name(const char *name);
 void notify_xgf_ko_ready(void);
 unsigned long long xgf_get_time(void);
 int xgf_dep_frames_mod(struct xgf_render *render, int pos);
@@ -219,6 +216,40 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 void fpsgo_create_render_dep(void);
 int has_xgf_dep(pid_t tid);
+
+enum XGF_EVENT {
+	SCHED_SWITCH,
+	SCHED_WAKEUP,
+	IPI_RAISE,
+	IPI_ENTRY,
+	IPI_EXIT,
+	IRQ_ENTRY,
+	IRQ_EXIT,
+	SOFTIRQ_ENTRY,
+	SOFTIRQ_EXIT
+};
+
+struct xgf_trace_event {
+	unsigned long long ts;
+	int event;
+	int cpu;
+	union {
+		int prev_pid;
+		int pid;
+		int target_cpu;
+		int irqnr;
+		int none;
+	};
+	union {
+		int note;
+	};
+};
+
+extern struct xgf_trace_event xgf_event_data[];
+
+extern int xgf_getMAXXGFEVENTS(void);
+extern void *xgf_event_index;
+extern void *xgf_ko_enabled;
 
 int __init init_xgf(void);
 #endif
