@@ -42,6 +42,13 @@ static struct regulator *vcore_reg_id;
 static struct regulator *vsram_reg_id;
 /* apu_top preclk */
 static struct clk *clk_top_dsp_sel;		/* CONN */
+static struct clk *clk_top_dsp1_sel;
+static struct clk *clk_top_dsp2_sel;
+static struct clk *clk_top_dsp3_sel;
+static struct clk *clk_top_dsp4_sel;
+static struct clk *clk_top_dsp5_sel;
+static struct clk *clk_top_dsp6_sel;
+static struct clk *clk_top_dsp7_sel;
 static struct clk *clk_top_ipu_if_sel;		/* VCORE */
 
 static int init_plat_pwr_res(struct platform_device *pdev)
@@ -59,8 +66,8 @@ static int init_plat_pwr_res(struct platform_device *pdev)
 	// enable vapu buck
 	regulator_enable(vapu_reg_id);
 
-	// set vapu to 0.6v
-	regulator_set_voltage(vapu_reg_id, 600000, 600000);
+	// set vapu to default voltage
+	regulator_set_voltage(vapu_reg_id, VAPU_DEF_VOLT, VAPU_DEF_VOLT);
 
 	// vcore
 	vcore_reg_id = regulator_get(&pdev->dev, "vcore");
@@ -76,8 +83,15 @@ static int init_plat_pwr_res(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	//pre clk
+	// devm_clk_get , not real prepare_clk
 	PREPARE_CLK(clk_top_dsp_sel);
+	PREPARE_CLK(clk_top_dsp1_sel);
+	PREPARE_CLK(clk_top_dsp2_sel);
+	PREPARE_CLK(clk_top_dsp3_sel);
+	PREPARE_CLK(clk_top_dsp4_sel);
+	PREPARE_CLK(clk_top_dsp5_sel);
+	PREPARE_CLK(clk_top_dsp6_sel);
+	PREPARE_CLK(clk_top_dsp7_sel);
 	PREPARE_CLK(clk_top_ipu_if_sel);
 	if (ret_clk < 0)
 		return ret_clk;
@@ -88,11 +102,20 @@ static int init_plat_pwr_res(struct platform_device *pdev)
 static void destroy_plat_pwr_res(void)
 {
 	UNPREPARE_CLK(clk_top_dsp_sel);
+	UNPREPARE_CLK(clk_top_dsp1_sel);
+	UNPREPARE_CLK(clk_top_dsp2_sel);
+	UNPREPARE_CLK(clk_top_dsp3_sel);
+	UNPREPARE_CLK(clk_top_dsp4_sel);
+	UNPREPARE_CLK(clk_top_dsp5_sel);
+	UNPREPARE_CLK(clk_top_dsp6_sel);
+	UNPREPARE_CLK(clk_top_dsp7_sel);
 	UNPREPARE_CLK(clk_top_ipu_if_sel);
 
 	regulator_put(vapu_reg_id);
+	regulator_put(vcore_reg_id);
 	regulator_put(vsram_reg_id);
 	vapu_reg_id = NULL;
+	vcore_reg_id = NULL;
 	vsram_reg_id = NULL;
 }
 
@@ -102,6 +125,7 @@ static void plt_pwr_res_ctl(int enable)
 	int ret_clk = 0;
 
 	if (enable) {
+#if ENABLE_SW_BUCK_CTL
 		ret = regulator_enable(vapu_reg_id);
 		if (ret < 0)
 			return ret;
@@ -110,16 +134,45 @@ static void plt_pwr_res_ctl(int enable)
 			apu_readl(apupw.regs[sys_spm] + APUSYS_BUCK_ISOLATION)
 			& ~(0x00000021),
 			apupw.regs[sys_spm] + APUSYS_BUCK_ISOLATION);
+#else
+		pr_info("%s skip enable regulator since HW auto\n", __func__);
+#endif
 
+#if ENABLE_SOC_CLK_MUX
+		// clk_prepare_enable
 		ENABLE_CLK(clk_top_ipu_if_sel);
 		ENABLE_CLK(clk_top_dsp_sel);
+		ENABLE_CLK(clk_top_dsp1_sel);
+		ENABLE_CLK(clk_top_dsp2_sel);
+		ENABLE_CLK(clk_top_dsp3_sel);
+		ENABLE_CLK(clk_top_dsp4_sel);
+		ENABLE_CLK(clk_top_dsp5_sel);
+		ENABLE_CLK(clk_top_dsp6_sel);
+		ENABLE_CLK(clk_top_dsp7_sel);
 		if (ret_clk < 0)
 			return ret_clk;
+#else
+		pr_info("%s skip enable soc PLL since HW auto\n", __func__);
+#endif
 
 	} else {
+
+#if ENABLE_SOC_CLK_MUX
+		// clk_disable_unprepare
+		DISABLE_CLK(clk_top_dsp7_sel);
+		DISABLE_CLK(clk_top_dsp6_sel);
+		DISABLE_CLK(clk_top_dsp5_sel);
+		DISABLE_CLK(clk_top_dsp4_sel);
+		DISABLE_CLK(clk_top_dsp3_sel);
+		DISABLE_CLK(clk_top_dsp2_sel);
+		DISABLE_CLK(clk_top_dsp1_sel);
 		DISABLE_CLK(clk_top_dsp_sel);
 		DISABLE_CLK(clk_top_ipu_if_sel);
+#else
+		pr_info("%s skip disable soc PLL since HW auto\n", __func__);
+#endif
 
+#if ENABLE_SW_BUCK_CTL
 		apu_writel(
 			apu_readl(apupw.regs[sys_spm] + APUSYS_BUCK_ISOLATION)
 			| 0x00000021,
@@ -128,6 +181,9 @@ static void plt_pwr_res_ctl(int enable)
 		ret = regulator_disable(vapu_reg_id);
 		if (ret < 0)
 			return ret;
+#else
+		pr_info("%s skip disable regulator since HW auto\n", __func__);
+#endif
 	}
 }
 
@@ -165,9 +221,10 @@ static void get_pll_pcw(uint32_t clk_rate, uint32_t *r1, uint32_t *r2)
  */
 static void __apu_pll_init(void)
 {
+	// need to 1-1 in order mapping to these two array
 	uint32_t pll_base_arr[] = {MNOC_PLL_BASE, UP_PLL_BASE,
 					MDLA_PLL_BASE, MVPU_PLL_BASE};
-	int32_t pll_freq_out[] = {776, 970, 970, 1080}; // MHz
+	int32_t pll_freq_out[] = {1480, 1850, 1850, 2040}; // MHz, then div 2
 	uint32_t pcw_val, posdiv_val;
 	int pll_arr_size = sizeof(pll_base_arr) / sizeof(uint32_t);
 	int pll_idx;
@@ -455,7 +512,7 @@ static int __apu_are_init(struct device *dev)
 {
 	u32 tmp = 0;
 	int ret, val = 0;
-	int are_id;
+	int are_id, idx = 0;
 	uint32_t are_entry2_cfg_h[] = {0x000F0000, 0x000F0000, 0x000F0000};
 	uint32_t are_entry2_cfg_l[] = {0x001F0705, 0x001F0707, 0x001F0707};
 
@@ -474,7 +531,7 @@ static int __apu_are_init(struct device *dev)
 
 	pr_info("ARE init %s %d ++\n", __func__, __LINE__);
 
-	for (are_id = apu_are0 ; are_id <= apu_are2 ; are_id++) {
+	for (are_id = apu_are0, idx = 0; are_id <= apu_are2; are_id++, idx++) {
 
 		pr_info("%s are_id:%d\n", __func__, are_id);
 
@@ -491,9 +548,9 @@ static int __apu_are_init(struct device *dev)
 						+ APU_ARE_ETRY1_SRAM_L);
 
 		/* ARE entry 2 initial */
-		apu_writel(are_entry2_cfg_h[are_id], apupw.regs[are_id]
+		apu_writel(are_entry2_cfg_h[idx], apupw.regs[are_id]
 						+ APU_ARE_ETRY2_SRAM_H);
-		apu_writel(are_entry2_cfg_l[are_id], apupw.regs[are_id]
+		apu_writel(are_entry2_cfg_l[idx], apupw.regs[are_id]
 						+ APU_ARE_ETRY2_SRAM_L);
 
 		/* dummy read ARE entry2 H/L sram */
@@ -848,8 +905,8 @@ static void __apu_buck_off(void)
 	udelay(10);
 
 	// b. Manually turn off Buck (by configuring register in PMIC)
-	// set vapu to 0.6v
-	regulator_set_voltage(vapu_reg_id, 600000, 600000);
+	// set vapu to default voltage
+	regulator_set_voltage(vapu_reg_id, VAPU_DEF_VOLT, VAPU_DEF_VOLT);
 
 	// disable vapu buck
 	regulator_disable(vapu_reg_id);

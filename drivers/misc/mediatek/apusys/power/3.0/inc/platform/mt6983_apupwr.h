@@ -9,12 +9,16 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 
+#define CFG_FPGA		(1)
+#define APU_POWER_BRING_UP	(1)
+#define ENABLE_SW_BUCK_CTL	(0)	// backup solution, default HW auto ctl
+#define ENABLE_SOC_CLK_MUX	(1)	// using soc clk for bringup usage
+#define DEBUG_DUMP_REG		(0)	// dump overall apu registers for debug
+
+#define VAPU_DEF_VOLT		(750000)	// 0.75v
 #define USER_MIN_OPP_VAL        (7)
 #define MTK_POLL_DELAY_US	(10)
 #define MTK_POLL_TIMEOUT	USEC_PER_SEC
-#define DEBUG_DUMP_REG		(0)
-#define APU_POWER_BRING_UP	(1)
-#define CFG_FPGA		(1)
 
 enum t_acx_id {
 	ACX0 = 0,
