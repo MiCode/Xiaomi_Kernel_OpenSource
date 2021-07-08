@@ -576,8 +576,8 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 	/* HW Output Buffer Size */
 	fd->rs_pym_out_size[0] = fd->base_para->max_pyramid_width *
 				 fd->base_para->max_pyramid_height;
-	fd->rs_pym_out_size[1] = fd->rs_pym_out_size[0] / 2;
-	fd->rs_pym_out_size[2] = fd->rs_pym_out_size[0] / 4;
+	fd->rs_pym_out_size[1] = fd->rs_pym_out_size[0] / 4;
+	fd->rs_pym_out_size[2] = fd->rs_pym_out_size[0] / 16;
 
 	/* FDMODE Dram Buffer Size */
 	for (i = 0; i < fd_loop_num; i++) {
