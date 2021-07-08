@@ -33,6 +33,7 @@
 #include <linux/uaccess.h>
 #include <linux/bits.h>
 #include <linux/build_bug.h>
+#include <clk-fmeter.h>
 
 #if IS_ENABLED(CONFIG_MFD_MT6397)
 #include <linux/mfd/mt6397/core.h>
@@ -69,6 +70,9 @@
 #define SCP_CLK_CTRL_PHANDLE_NAME	"scp_clk_ctrl"
 #define FM_CLK_PHANDLE_NAME		"fmeter_clksys"
 #define ULPOSC_CLK_PHANDLE_NAME		"ulposc_clksys"
+
+#define FM_CNT2FREQ(cnt)	(cnt * 26 / CALI_DIV_VAL)
+#define FM_FREQ2CNT(freq)	(freq * CALI_DIV_VAL / 26)
 
 unsigned int scp_ipi_ackdata0, scp_ipi_ackdata1;
 struct ipi_tx_data_t {
@@ -1251,9 +1255,22 @@ static inline bool __init is_ulposc_cali_pass(unsigned int cur,
 	/* calibrated failed here */
 	pr_notice("[%s]: cur: %dMHz, target: %dMHz calibrate failed\n",
 		__func__,
-		(cur * 26) / CALI_DIV_VAL,
-		(target * 26) / CALI_DIV_VAL);
+		FM_CNT2FREQ(cur),
+		FM_CNT2FREQ(target));
 	return 0;
+}
+
+static unsigned int __init _get_ulposc_clk_by_fmeter_wrapper(void)
+{
+	unsigned int result;
+
+	result = mt_get_fmeter_freq(dvfs.ccf_fmeter_id, dvfs.ccf_fmeter_type);
+	if (result == 0) {
+		pr_notice("[%s]: mt_get_fmeter_freq() return %d, pls check CCF configs\n",
+			__func__, result);
+		WARN_ON(1);
+	}
+	return FM_FREQ2CNT(result) / 1000;
 }
 
 static unsigned int __init get_ulposc_clk_by_fmeter_vlp(void)
@@ -1262,6 +1279,9 @@ static unsigned int __init get_ulposc_clk_by_fmeter_vlp(void)
 	unsigned int vlp_fqmtr_con0_bk, vlp_fqmtr_con1_bk;
 	unsigned int wait_for_measure = 0;
 	int is_fmeter_timeout = 0;
+
+	if (dvfs.ccf_fmeter_support)
+		return _get_ulposc_clk_by_fmeter_wrapper();
 
 	/* 0. backup regsiters */
 	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
@@ -1345,6 +1365,9 @@ static unsigned int __init get_ulposc_clk_by_fmeter(void)
 	unsigned int misc_org, dbg_org, cali0_org, cali1_org;
 	unsigned int wait_for_measure = 0;
 	int is_fmeter_timeout = 0;
+
+	if (dvfs.ccf_fmeter_support)
+		return _get_ulposc_clk_by_fmeter_wrapper();
 
 	/* backup regsiters */
 	scp_reg_read(dvfs.ulposc_hw.fmeter_regmap,
@@ -1452,7 +1475,7 @@ static void __init set_ulposc_cali_value(unsigned int cali_val)
 }
 
 /*
-*		Since available frequencies are expanded when SCP using VLP_CKSYS,
+*	Since available frequencies are expanded when SCP using VLP_CKSYS,
 *	we use 2 phases calibration to widen the searching range.
 *		1. dvfs.ulposc_hw.ulposc_regs->_cali_ext
 *		2. dvfs.ulposc_hw.ulposc_regs->_cali
@@ -1463,10 +1486,10 @@ static int __init ulposc_cali_process_vlp(unsigned int cali_idx,
 	unsigned int target_val = 0, current_val = 0;
 	unsigned int min = CAL_MIN_VAL, max = CAL_MAX_VAL, mid;
 	unsigned int diff_by_min = 0, diff_by_max = 0xffff;
-	target_val = dvfs.ulposc_hw.cali_freq[cali_idx] * CALI_DIV_VAL / 26;
+	target_val = FM_FREQ2CNT(dvfs.ulposc_hw.cali_freq[cali_idx]);
 
 	/* phase1 */
-	set_ulposc_cali_value(dvfs.ulposc_hw.ulposc_regs->_cali.init_config); // fixed in phase1
+	set_ulposc_cali_value(dvfs.ulposc_hw.ulposc_regs->_cali.init_config); /* fixed in phase1 */
 	min = CAL_MIN_VAL_EXT, max = CAL_MAX_VAL_EXT;
 	do {
 		mid = (min + max) / 2;
@@ -1541,8 +1564,8 @@ static int __init ulposc_cali_process_vlp(unsigned int cali_idx,
 
 	pr_notice("[%s]: target: %uMhz, calibrated = %uMHz\n",
 		__func__,
-		(target_val * 26) / CALI_DIV_VAL,
-		(current_val * 26) / CALI_DIV_VAL);
+		FM_CNT2FREQ(target_val),
+		FM_CNT2FREQ(current_val));
 
 	return 0;
 }
@@ -1554,7 +1577,7 @@ static int __init ulposc_cali_process(unsigned int cali_idx,
 	unsigned int min = CAL_MIN_VAL, max = CAL_MAX_VAL, mid;
 	unsigned int diff_by_min = 0, diff_by_max = 0xffff;
 
-	target_val = dvfs.ulposc_hw.cali_freq[cali_idx] * CALI_DIV_VAL / 26;
+	target_val = FM_FREQ2CNT(dvfs.ulposc_hw.cali_freq[cali_idx]);
 
 	do {
 		mid = (min + max) / 2;
@@ -1596,8 +1619,8 @@ static int __init ulposc_cali_process(unsigned int cali_idx,
 
 	pr_notice("[%s]: target: %uMhz, calibrated = %uMHz\n",
 		__func__,
-		(target_val * 26) / CALI_DIV_VAL,
-		(current_val * 26) / CALI_DIV_VAL);
+		FM_CNT2FREQ(target_val),
+		FM_CNT2FREQ(current_val));
 
 	return 0;
 }
@@ -1872,20 +1895,22 @@ static int __init mt_scp_dts_get_cali_hw_regs(struct device_node *node,
 	}
 
 	/* find clk dbg register hw version */
-	ret = of_property_read_string(node, "clk-dbg-ver", &str);
-	if (ret) {
-		pr_notice("[%s]: find clk-dbg-ver failed with err: %d\n",
-			__func__, ret);
-		return ret;
-	}
+	if (!dvfs.ccf_fmeter_support) {
+		ret = of_property_read_string(node, "clk-dbg-ver", &str);
+		if (ret) {
+			pr_notice("[%s]: find clk-dbg-ver failed with err: %d\n",
+				__func__, ret);
+			return ret;
+		}
 
-	for (i = 0; i < MAX_CLK_DBG_VERSION; i++)
-		if (!strcmp(clk_dbg_ver[i], str))
-			cali_hw->clkdbg_regs = &clk_dbg_reg[i];
-	if (!cali_hw->clkdbg_regs) {
-		pr_notice("[%s]: no clkfbg regs found\n",
-			__func__);
-		return -ESCP_DVFS_NO_CALI_HW_FOUND;
+		for (i = 0; i < MAX_CLK_DBG_VERSION; i++)
+			if (!strcmp(clk_dbg_ver[i], str))
+				cali_hw->clkdbg_regs = &clk_dbg_reg[i];
+		if (!cali_hw->clkdbg_regs) {
+			pr_notice("[%s]: no clkfbg regs found\n",
+				__func__);
+			return -ESCP_DVFS_NO_CALI_HW_FOUND;
+		}
 	}
 
 	return ret;
@@ -1920,13 +1945,16 @@ static int __init mt_scp_dts_init_cali_regmap(struct device_node *node,
 		struct ulposc_cali_hw *cali_hw)
 {
 	/* init regmap for calibration process */
-	cali_hw->fmeter_regmap = syscon_regmap_lookup_by_phandle(node,
-							FM_CLK_PHANDLE_NAME);
-	if (IS_ERR(cali_hw->fmeter_regmap)) {
-		pr_notice("fmeter regmap init failed: %d\n",
-			PTR_ERR(cali_hw->fmeter_regmap));
-		return PTR_ERR(cali_hw->fmeter_regmap);
+	if (!dvfs.ccf_fmeter_support) {
+		cali_hw->fmeter_regmap = syscon_regmap_lookup_by_phandle(node,
+								FM_CLK_PHANDLE_NAME);
+		if (IS_ERR(cali_hw->fmeter_regmap)) {
+			pr_notice("fmeter regmap init failed: %d\n",
+				PTR_ERR(cali_hw->fmeter_regmap));
+			return PTR_ERR(cali_hw->fmeter_regmap);
+		}
 	}
+
 	cali_hw->ulposc_regmap = syscon_regmap_lookup_by_phandle(node,
 							ULPOSC_CLK_PHANDLE_NAME);
 	if (IS_ERR(cali_hw->ulposc_regmap)) {
@@ -2258,6 +2286,36 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		ret = mt_scp_dts_init_pmic_data();
 		if (ret)
 			goto DTS_FAILED;
+	}
+
+	/*
+	 * 1. If "ccf-fmeter-support" was set, it means common clock framework has provided API
+	 * to use fmeter. And we should use mt_get_fmeter_freq(id, type) defined in clk-fmeter.h,
+	 * instead of using get_ulposc_clk_by_fmeter*().
+	 *
+	 * 2. Only wehn mt_get_fmeter_freq havn't been provide, get_ulposc_clk_by_fmeter*() can
+	 * be used temporarily.
+	 */
+	dvfs.ccf_fmeter_support = of_property_read_bool(node, "ccf-fmeter-support");
+	if (!dvfs.ccf_fmeter_support) {
+		pr_notice("[%s]: fmeter api havn't been provided, use legacy one\n", __func__);
+	} else {
+		/* enum FMETER_TYPE */
+		if (dvfs.vlpck_support)
+			dvfs.ccf_fmeter_type = VLPCK;
+		else
+			dvfs.ccf_fmeter_type = ABIST;
+
+		/* enum FMETER_ID */
+		ret = mt_get_fmeter_id(FID_ULPOSC2);
+		dvfs.ccf_fmeter_id = ret;
+		pr_notice("[%s]: init ccf fmeter api, id: %d, type: %d\n",
+			__func__, dvfs.ccf_fmeter_id, dvfs.ccf_fmeter_type);
+		if (ret < 0) {
+			pr_notice("[%s]: failed to init ccf fmeter api, id: %d, type: %d\n",
+				__func__, dvfs.ccf_fmeter_id, dvfs.ccf_fmeter_type);
+			goto DTS_FAILED;
+		}
 	}
 
 	/* init dvfs data */

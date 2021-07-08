@@ -171,7 +171,7 @@ struct clk_cali_regs {
 	struct reg_info _abist_clk;
 
 	struct reg_info _clk26cali_0;
-	struct reg_info _fmeter_rst; // using carefully, if set to 0, fmeter will reset
+	struct reg_info _fmeter_rst; /* using carefully, if set to 0, fmeter will reset */
 	struct reg_info _fmeter_en;
 	struct reg_info _trigger_cal;
 
@@ -229,8 +229,11 @@ struct scp_dvfs_hw {
 	struct scp_pmic_regs *pmic_regs;
 	struct ulposc_cali_hw ulposc_hw;
 	struct scp_clk_hw *clk_hw;
-	bool vlpck_support;
-	bool vlp_support;
+	bool ccf_fmeter_support; /* Has CCF provided fmeter api to use? */
+	int ccf_fmeter_id;
+	int ccf_fmeter_type;
+	bool vlpck_support; /* Using 2-phase calibration flow */
+	bool vlp_support; /* Moving regulator & PMIC setting into SCP side */
 	bool pmic_sshub_en;
 	bool sleep_init_done;
 	bool pre_mux_en;
