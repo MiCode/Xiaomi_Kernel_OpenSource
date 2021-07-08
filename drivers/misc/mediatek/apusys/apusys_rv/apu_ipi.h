@@ -17,6 +17,8 @@ enum {
 	APU_IPI_CTRL_RPMSG,
 	APU_IPI_MIDDLEWARE,
 	APU_IPI_REVISER_RPMSG,
+	APU_IPI_PWR_TX,	// cmd direction from ap to up
+	APU_IPI_PWR_RX, // cmd direction from up to ap
 	APU_IPI_MDLA,
 	APU_IPI_MAX,
 };

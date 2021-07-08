@@ -312,6 +312,50 @@ static void aputop_dump_all_reg(void)
 }
 #endif
 
+void apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump)
+{
+	uint32_t status1 = 0x0;
+	uint32_t status2 = 0x0;
+	uint32_t status3 = 0x0;
+
+	if (id == ACX0) {
+		status1 = apu_readl(apupw.regs[apu_acx0_rpc_lite]
+				+ APU_RPC_INTF_PWR_RDY);
+		status2 = apu_readl(apupw.regs[apu_acx0]
+				+ APU_ACX_CONN_CG_CON);
+		pr_info(
+		"%s ACX0 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
+				__func__, status1, status2);
+
+	} else if (id == ACX1) {
+		status1 = apu_readl(apupw.regs[apu_acx1_rpc_lite]
+				+ APU_RPC_INTF_PWR_RDY);
+		status2 = apu_readl(apupw.regs[apu_acx1]
+					+ APU_ACX_CONN_CG_CON);
+		pr_info(
+		"%s ACX1 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
+				__func__, status1, status2);
+
+	} else {
+		status1 = apu_readl(apupw.regs[apu_rpc]
+				+ APU_RPC_INTF_PWR_RDY);
+		status2 = apu_readl(apupw.regs[apu_vcore]
+				+ APUSYS_VCORE_CG_CON);
+		status3 = apu_readl(apupw.regs[apu_rcx]
+				+ APU_RCX_CG_CON);
+		pr_info(
+		"%s RCX APU_RPC_INTF_PWR_RDY:0x%08x APU_VCORE_CG_CON:0x%08x APU_RCX_CG_CON:0x%08x\n",
+				__func__, status1, status2, status3);
+	}
+
+	if (!IS_ERR_OR_NULL(dump)) {
+		dump->rpc_reg_status = status1;
+		dump->conn_reg_status = status2;
+		if (id == RCX)
+			dump->vcore_reg_status = status3;
+	}
+}
+
 /*
  * low 32-bit data for PMIC control
  *	APU_PCU_PMIC_TAR_BUF1 (or APU_PCU_BUCK_ON_DAT0_L)
@@ -473,32 +517,6 @@ static int __apu_are_init(struct device *dev)
 	pr_info("ARE init %s %d --\n", __func__, __LINE__);
 
 	return 0;
-}
-
-static void __apu_dump_rpc_status(enum t_acx_id id)
-{
-	if (id == ACX0) {
-		pr_info(
-		"%s ACX0 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
-		__func__,
-		apu_readl(apupw.regs[apu_acx0_rpc_lite] + APU_RPC_INTF_PWR_RDY),
-		apu_readl(apupw.regs[apu_acx0] + APU_ACX_CONN_CG_CON));
-
-	} else if (id == ACX1) {
-		pr_info(
-		"%s ACX1 APU_RPC_INTF_PWR_RDY:0x%08x APU_ACX_CONN_CG_CON:0x%08x\n",
-		__func__,
-		apu_readl(apupw.regs[apu_acx1_rpc_lite] + APU_RPC_INTF_PWR_RDY),
-		apu_readl(apupw.regs[apu_acx1] + APU_ACX_CONN_CG_CON));
-
-	} else {
-		pr_info(
-		"%s RCX APU_RPC_INTF_PWR_RDY:0x%08x APU_VCORE_CG_CON:0x%08x APU_RCX_CG_CON:0x%08x\n",
-		__func__,
-		apu_readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
-		apu_readl(apupw.regs[apu_vcore] + APUSYS_VCORE_CG_CON),
-		apu_readl(apupw.regs[apu_rcx] + APU_RCX_CG_CON));
-	}
 }
 
 static int __apu_sleep_rpc_rcx(struct device *dev)
@@ -1014,11 +1032,11 @@ static void aputop_dump_pwr_res(void)
 			__func__, vapu, vcore, vsram);
 #endif
 
-	__apu_dump_rpc_status(RCX);
+	apu_dump_rpc_status(RCX, NULL);
 
 #if APU_POWER_BRING_UP
-	__apu_dump_rpc_status(ACX0);
-	__apu_dump_rpc_status(ACX1);
+	apu_dump_rpc_status(ACX0, NULL);
+	apu_dump_rpc_status(ACX1, NULL);
 #endif
 }
 
@@ -1034,20 +1052,11 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 	case APUTOP_FUNC_PWR_ON:
 		pm_runtime_get_sync(&pdev->dev);
 		break;
-	case APUTOP_FUNC_PWR_CFG:
-		aputop_pwr_cfg(aputop);
-		break;
-	case APUTOP_FUNC_PWR_UT:
-		aputop_pwr_ut(aputop);
-		break;
 	case APUTOP_FUNC_OPP_LIMIT_HAL:
 		aputop_opp_limit(aputop, OPP_LIMIT_HAL);
 		break;
 	case APUTOP_FUNC_OPP_LIMIT_DBG:
 		aputop_opp_limit(aputop, OPP_LIMIT_DEBUG);
-		break;
-	case APUTOP_FUNC_CURR_STATUS:
-		aputop_curr_status(aputop);
 		break;
 	case APUTOP_FUNC_DUMP_REG:
 		aputop_dump_pwr_res();
@@ -1074,6 +1083,7 @@ const struct apupwr_plat_data mt6983_plat_data = {
 	.plat_aputop_dbg_open = mt6983_apu_top_dbg_open,
 	.plat_aputop_dbg_write = mt6983_apu_top_dbg_write,
 #endif
+	.plat_rpmsg_callback = mt6983_apu_top_rpmsg_cb,
 	.bypass_pwr_on = 0,
 	.bypass_pwr_off = 0,
 };

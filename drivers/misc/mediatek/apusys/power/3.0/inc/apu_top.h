@@ -18,14 +18,13 @@
 
 #include "apu_top_entry.h"
 
+extern const struct apupwr_plat_data *pwr_data;
+
 enum aputop_func_id {
 	APUTOP_FUNC_PWR_OFF = 0,
 	APUTOP_FUNC_PWR_ON,
-	APUTOP_FUNC_PWR_CFG,
-	APUTOP_FUNC_PWR_UT,
 	APUTOP_FUNC_OPP_LIMIT_HAL,
 	APUTOP_FUNC_OPP_LIMIT_DBG,
-	APUTOP_FUNC_CURR_STATUS,
 	APUTOP_FUNC_DUMP_REG,
 	APUTOP_FUNC_MAX_ID,
 };
@@ -54,6 +53,8 @@ struct apupwr_plat_data {
 			const char __user *buffer,
 			size_t count, loff_t *f_pos);
 #endif
+	int (*plat_rpmsg_callback)(int cmd, void *data, int len,
+			void *priv, u32 src);
 	int bypass_pwr_on;
 	int bypass_pwr_off;
 };

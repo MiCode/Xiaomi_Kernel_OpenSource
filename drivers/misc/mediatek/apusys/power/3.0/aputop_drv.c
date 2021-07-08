@@ -16,10 +16,12 @@
 #include <linux/uaccess.h>
 
 #include "apu_top.h"
+#include "aputop_rpmsg.h"
 #include <apu_top_entry.h>
 
+const struct apupwr_plat_data *pwr_data;
+
 struct platform_device *this_pdev;
-static const struct apupwr_plat_data *pwr_data;
 static struct apupwr_dbg aputop_dbg;
 static int aputop_func_sel;
 static DEFINE_MUTEX(aputop_func_mtx);
@@ -59,20 +61,6 @@ static void apu_pwr_wake_exit(void)
 	wakeup_source_unregister(ws);
 #endif
 }
-
-// FIXME: fix me in mt6983
-void __register_aputop_post_power_off_cb(
-		void (*post_power_off_cb)(void))
-{
-}
-EXPORT_SYMBOL(__register_aputop_post_power_off_cb);
-
-// FIXME: fix me in mt6983
-void __register_aputop_post_power_off_sync_cb(
-		void (*post_power_off_sync_cb)(void))
-{
-}
-EXPORT_SYMBOL(__register_aputop_post_power_off_sync_cb);
 
 static int device_linker(struct platform_device *pdev)
 {
@@ -343,10 +331,28 @@ void aputop_dbg_exit(void)
 
 int apu_top_3_init(void)
 {
-	return platform_driver_register(&apu_top_drv);
+	int ret = 0;
+
+	pr_info("%s register platform driver...\n", __func__);
+	ret = platform_driver_register(&apu_top_drv);
+	if (ret) {
+		pr_info("failed to register aputop platform driver\n");
+		return -1;
+	}
+
+	pr_info("%s register rpmsg driver...\n", __func__);
+	ret = aputop_register_rpmsg();
+	if (ret) {
+		pr_info("failed to register aputop rpmsg driver\n");
+		platform_driver_unregister(&apu_top_drv);
+		return -1;
+	}
+
+	return ret;
 }
 
 void apu_top_3_exit(void)
 {
+	aputop_unregister_rpmsg();
 	platform_driver_unregister(&apu_top_drv);
 }

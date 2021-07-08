@@ -16,6 +16,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/platform/
 SRC += 3.0/aputop_drv.o
+SRC += 3.0/aputop_rpmsg.o
 ifneq ($(wildcard $(srctree)/$(src)/mt6893_aputop.c),)
 SRC += 3.0/platform/mt6893_aputop.o
 endif

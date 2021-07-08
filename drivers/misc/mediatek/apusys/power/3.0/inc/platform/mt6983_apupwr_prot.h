@@ -14,6 +14,14 @@
 #define DEV_OPP_SYNC_REG        SPARE0_MBOX_DUMMY_2_ADDR
 #define HW_RES_SYNC_REG         SPARE0_MBOX_DUMMY_3_ADDR
 
+enum {
+	APUPWR_DBG_DEV_CTL = 0,
+	APUPWR_DBG_DEV_SET_OPP,
+	APUPWR_DBG_DVFS_DEBUG,
+	APUPWR_DBG_DUMP_OPP_TBL,
+	APUPWR_DBG_CURR_STATUS,
+};
+
 enum apu_opp_limit_type {
 	OPP_LIMIT_THERMAL = 0,	// limit by power API
 	OPP_LIMIT_HAL,		// limit by i/o ctl
@@ -44,11 +52,37 @@ struct hw_resource_status {
 		reserved:4;
 };
 
+/*
+ * due to this struct will be used to do data exchange through rpmsg
+ * so the struct size can't over than 256 bytes
+ * 4 bytes * 14 struct members = 56 bytes
+ */
+struct apu_pwr_curr_info {
+	int buck_volt[BUCK_NUM];
+	int buck_opp[BUCK_NUM];
+	int pll_freq[PLL_NUM];
+	int pll_opp[PLL_NUM];
+};
+
+/*
+ * for satisfy size limitation of rpmsg data exchange is 256 bytes
+ * we only put necessary information for opp table here
+ * opp entries : 4 bytes * 5 struct members * 10 opp entries = 200 bytes
+ * tbl_size : 4 bytes
+ * total : 200 + 4 = 204 bytes
+ */
+struct tiny_dvfs_opp_entry {
+	int vapu;       // = volt_bin - volt_age + volt_avs
+	int pll_freq[PLL_NUM];
+};
+
+struct tiny_dvfs_opp_tbl {
+	int tbl_size;   // entry number
+	struct tiny_dvfs_opp_entry opp[USER_MIN_OPP_VAL + 1];   // entry data
+};
+
 void aputop_opp_limit(struct aputop_func_param *aputop,
 		enum apu_opp_limit_type type);
-void aputop_curr_status(struct aputop_func_param *aputop);
-void aputop_pwr_cfg(struct aputop_func_param *aputop);
-void aputop_pwr_ut(struct aputop_func_param *aputop);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 int mt6983_apu_top_dbg_open(struct inode *inode, struct file *file);
@@ -58,5 +92,6 @@ ssize_t mt6983_apu_top_dbg_write(
 #endif
 
 int aputop_opp_limiter_init(void __iomem *reg_base);
+int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src);
 
 #endif

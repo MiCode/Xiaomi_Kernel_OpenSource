@@ -9,6 +9,7 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 
+#define USER_MIN_OPP_VAL        (7)
 #define MTK_POLL_DELAY_US	(10)
 #define MTK_POLL_TIMEOUT	USEC_PER_SEC
 #define DEBUG_DUMP_REG		(0)
@@ -27,6 +28,21 @@ enum t_dev_id {
 	DLA0,
 	DLA1,
 	DEVICE_NUM,
+};
+
+enum apu_clksrc_id {
+	PLL_CONN = 0, // MNOC
+	PLL_UP,
+	PLL_VPU,
+	PLL_DLA,
+	PLL_NUM,
+};
+
+enum apu_buck_id {
+	BUCK_VAPU = 0,
+	BUCK_VSRAM,
+	BUCK_VCORE,
+	BUCK_NUM,
 };
 
 enum apupw_reg {
@@ -54,6 +70,14 @@ struct apu_power {
 	void __iomem *regs[APUPW_MAX_REGS];
 	unsigned int phy_addr[APUPW_MAX_REGS];
 };
+
+struct rpc_status_dump {
+	uint32_t rpc_reg_status;
+	uint32_t conn_reg_status;
+	uint32_t vcore_reg_status;	// rpc_lite bypss this
+};
+
+void apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 
 /* RPC offset define */
 #define APU_RPC_TOP_CON           0x0000
