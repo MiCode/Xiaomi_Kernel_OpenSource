@@ -11,6 +11,7 @@
 #include <linux/slab.h>
 #include "adsp_platform.h"
 #include "adsp_platform_driver.h"
+#include "adsp_feature_define.h"
 #include "adsp_core.h"
 #include "adsp_logger.h"
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -165,7 +166,8 @@ static void adsp_logger_init_handler(int id, void *data, unsigned int len)
  * init adsp logger dram ctrl structure
  * @return:     0: success, otherwise: fail
  */
-struct log_ctrl_s *adsp_logger_init(int mem_id)
+struct log_ctrl_s *adsp_logger_init(int mem_id,
+				    void (*work_cb)(struct work_struct *ws))
 {
 	struct log_ctrl_s *ctrl = NULL;
 	struct log_info_s *log_info;
@@ -213,6 +215,7 @@ struct log_ctrl_s *adsp_logger_init(int mem_id)
 	/* register logger ini IPI */
 	adsp_ipi_registration(ADSP_IPI_LOGGER_INIT, adsp_logger_init_handler,
 			      "logger_init");
+	INIT_DELAYED_WORK(&ctrl->work, work_cb);
 
 	/* init ap use struct */
 	mutex_init(&ctrl->lock);

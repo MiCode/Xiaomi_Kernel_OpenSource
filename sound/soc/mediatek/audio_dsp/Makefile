@@ -12,12 +12,10 @@
 #
 
 # MTK Platform Support
-DSP_VERSION := hifi3_v2
 
 # adsp include path
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(DSP_VERSION)
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/common
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 
 # platform include path

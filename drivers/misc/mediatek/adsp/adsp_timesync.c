@@ -63,8 +63,8 @@ static void adsp_timesync_update(u32 fz)
 					infos, sizeof(*infos));
 	}
 
-	pr_info("%s done(%d) adsp base: ts=%llu, tick=0x%llx, freeze=%u\n",
-		__func__, ret > 0, ts, tick, fz);
+	pr_debug("%s done(%d) adsp base: ts=%llu, tick=0x%llx, freeze=%u\n",
+		 __func__, ret > 0, ts, tick, fz);
 }
 
 static enum hrtimer_restart adsp_timesync_refresh(struct hrtimer *hrt)

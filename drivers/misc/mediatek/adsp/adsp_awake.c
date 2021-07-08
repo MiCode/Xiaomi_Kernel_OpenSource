@@ -7,23 +7,19 @@
 #include <linux/mutex.h>
 #include <linux/ktime.h>
 #include "adsp_core.h"
+#include "adsp_feature_define.h"
+#include "adsp_reserved_mem.h"
 #include "adsp_platform.h"
 #include "adsp_platform_driver.h"
-#include "adsp_reg.h"
 
-#ifdef ADSP_BASE
-#undef ADSP_BASE
-#endif
-#define ADSP_BASE                   (pdata->cfg)
-
+#define AP_AWAKE_LOCK_BIT           (0)
+#define AP_AWAKE_UNLOCK_BIT         (1)
 #define AP_AWAKE_LOCK_MASK          (0x1 << AP_AWAKE_LOCK_BIT)
 #define AP_AWAKE_UNLOCK_MASK        (0x1 << AP_AWAKE_UNLOCK_BIT)
 
 struct adsp_sysevent_ctrl {
 	struct adsp_priv *pdata;
 	struct mutex lock;
-	void __iomem *swint;
-	u32 mask;
 };
 
 static struct adsp_sysevent_ctrl sysevent_ctrls[ADSP_CORE_TOTAL];
@@ -39,7 +35,7 @@ static int adsp_send_sys_event(struct adsp_sysevent_ctrl *ctrl,
 		return ADSP_IPI_BUSY;
 	}
 
-	if (readl(ctrl->swint) & ctrl->mask) {
+	if (adsp_mt_check_swirq(ctrl->pdata->id)) {
 		mutex_unlock(&ctrl->lock);
 		return ADSP_IPI_BUSY;
 	}
@@ -47,11 +43,11 @@ static int adsp_send_sys_event(struct adsp_sysevent_ctrl *ctrl,
 	adsp_copy_to_sharedmem(ctrl->pdata, ADSP_SHAREDMEM_WAKELOCK,
 				&event, sizeof(event));
 
-	writel(ctrl->mask, ctrl->swint);
+	adsp_mt_set_swirq(ctrl->pdata->id);
 
 	if (wait) {
 		start_time = ktime_get();
-		while (readl(ctrl->swint) & ctrl->mask) {
+		while (adsp_mt_check_swirq(ctrl->pdata->id)) {
 			time_ipc_us = ktime_us_delta(ktime_get(), start_time);
 			if (time_ipc_us > 1000) /* 1 ms */
 				break;
@@ -62,7 +58,7 @@ static int adsp_send_sys_event(struct adsp_sysevent_ctrl *ctrl,
 	return ADSP_IPI_DONE;
 }
 
-int adsp_awake_init(struct adsp_priv *pdata, u32 mask)
+int adsp_awake_init(struct adsp_priv *pdata)
 {
 	struct adsp_sysevent_ctrl *ctrl;
 
@@ -71,8 +67,6 @@ int adsp_awake_init(struct adsp_priv *pdata, u32 mask)
 
 	ctrl = &sysevent_ctrls[pdata->id];
 	ctrl->pdata = pdata;
-	ctrl->swint = ADSP_SW_INT_SET;
-	ctrl->mask = mask;
 	mutex_init(&ctrl->lock);
 
 	return 0;
@@ -87,16 +81,15 @@ int adsp_awake_init(struct adsp_priv *pdata, u32 mask)
 int adsp_awake_lock(u32 cid)
 {
 	int ret = -1;
-	uint32_t val = 0;
 
-	if (cid >= ADSP_CORE_TOTAL)
+	if (cid >= get_adsp_core_total())
 		return -EINVAL;
 
 	if (!is_adsp_ready(cid) || !adsp_feature_is_active(cid))
 		return -ENODEV;
 
-	val = AP_AWAKE_LOCK_MASK;
-	ret = adsp_send_sys_event(&sysevent_ctrls[cid], val, true);
+	ret = adsp_send_sys_event(&sysevent_ctrls[cid],
+				  AP_AWAKE_LOCK_MASK, true);
 
 	if (ret)
 		pr_info("%s, lock fail", __func__);
@@ -113,16 +106,15 @@ int adsp_awake_lock(u32 cid)
 int adsp_awake_unlock(u32 cid)
 {
 	int ret = -1;
-	uint32_t val = 0;
 
-	if (cid >= ADSP_CORE_TOTAL)
+	if (cid >= get_adsp_core_total())
 		return -EINVAL;
 
 	if (!is_adsp_ready(cid) || !adsp_feature_is_active(cid))
 		return -ENODEV;
 
-	val = AP_AWAKE_UNLOCK_MASK;
-	ret = adsp_send_sys_event(&sysevent_ctrls[cid], val, true);
+	ret = adsp_send_sys_event(&sysevent_ctrls[cid],
+				  AP_AWAKE_UNLOCK_MASK, true);
 
 	if (ret)
 		pr_info("%s, unlock fail", __func__);

@@ -1,7 +1,27 @@
 config MTK_AUDIODSP_SUPPORT
-	tristate "Specifiy If Platform Support Audio dsp"
+	tristate "MTK Audio DSP Support"
 	help
 	  AUDIO_DSP is a MediaTek in-house DSP which can do
 	  different audio process.
 	  Set Y to enable this feature.
 	  If unsure, Set N to stay with legancy feature.
+
+config MTK_ADSP_V1
+	tristate "MTK Audio DSP Generation 1"
+	depends on MTK_AUDIODSP_SUPPORT
+	help
+	  This kernel config can be used to enable Audio DSP
+	  Generation 1 driver for specific plaforms.
+	  it need to enable MTK_AUDIODSP_SUPPORT for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.
+
+config MTK_ADSP_V2
+	tristate "MTK ADSP DSP Generation 2"
+	depends on MTK_AUDIODSP_SUPPORT
+	help
+	  This kernel config can be used to enable Audio DSP
+	  Generation 2 driver for specific plaforms.
+	  it need to enable MTK_AUDIODSP_SUPPORT for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.

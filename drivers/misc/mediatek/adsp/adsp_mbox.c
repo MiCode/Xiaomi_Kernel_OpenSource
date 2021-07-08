@@ -114,7 +114,7 @@ void adsp_mbox_dump(void)
 int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 		unsigned int wait)
 {
-	int result;
+	int result = MBOX_DONE;
 	struct mtk_mbox_device *mbdev = &adsp_mboxdev;
 	ktime_t start_time;
 	s64 time_ipc_us;
@@ -127,9 +127,9 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 	}
 
 	if (mtk_mbox_check_send_irq(mbdev, pin_send->mbox,
-				pin_send->pin_index)) {
-		mutex_unlock(&pin_send->mutex_send);
-		return MBOX_PIN_BUSY;
+				    pin_send->pin_index)) {
+		result = MBOX_PIN_BUSY;
+		goto EXIT;
 	}
 
 	result = mtk_mbox_write_hd(mbdev, pin_send->mbox,
@@ -138,7 +138,7 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 	if (result != MBOX_DONE) {
 		pr_err("%s() error mbox%d write, result %d\n",
 		       __func__, pin_send->mbox, result);
-		return result;
+		goto EXIT;
 	}
 
 	dsb(SY);
@@ -155,7 +155,7 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 	if (result != MBOX_DONE) {
 		pr_err("%s() error mbox%d trigger, result %d\n",
 		       __func__, pin_send->mbox, result);
-		return result;
+		goto EXIT;
 	}
 
 	if (wait) {
@@ -169,9 +169,9 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 			}
 		}
 	}
+EXIT:
 	mutex_unlock(&pin_send->mutex_send);
-
-	return MBOX_DONE;
+	return result;
 }
 
 static int adsp_mbox_pin_cb(unsigned int id, void *prdata, void *buf,
@@ -180,7 +180,7 @@ static int adsp_mbox_pin_cb(unsigned int id, void *prdata, void *buf,
 	u32 core_id = *(u32 *)prdata;
 	int ret = -1;
 
-	if (core_id >= ADSP_CORE_TOTAL) {
+	if (core_id >= get_adsp_core_total()) {
 		pr_notice("%s() invalid core_id %u\n", __func__, core_id);
 		return ADSP_IPI_ERROR;
 	}
@@ -218,7 +218,7 @@ static int adsp_mbox_pin_cb(unsigned int id, void *prdata, void *buf,
 
 int adsp_mbox_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret, size;
 	int idx = 0;
 	struct mtk_mbox_device *mbdev = &adsp_mboxdev;
 
@@ -232,8 +232,15 @@ int adsp_mbox_probe(struct platform_device *pdev)
 	for (idx = 0; idx < mbdev->send_count; idx++)
 		mutex_init(&mbdev->pin_send_table[idx].mutex_send);
 
+	for (idx = 0; idx < mbdev->recv_count; idx++) {
+		size = mbdev->pin_recv_table[idx].msg_size * MBOX_SLOT_SIZE;
+		mbdev->pin_recv_table[idx].pin_buf = vmalloc(size);
+		if (!mbdev->pin_recv_table[idx].pin_buf)
+			return -ENOMEM;
+	}
 	return ret;
 }
+EXPORT_SYMBOL(adsp_mbox_probe);
 
 struct mtk_mbox_pin_send *get_adsp_mbox_pin_send(int index)
 {
@@ -260,6 +267,7 @@ struct mtk_mbox_pin_send *get_adsp_mbox_pin_send(int index)
 	pr_info("the channel %d is not send pin", index);
 	return ERR_PTR(-ENODEV);
 }
+EXPORT_SYMBOL(get_adsp_mbox_pin_send);
 
 struct mtk_mbox_pin_recv *get_adsp_mbox_pin_recv(int index)
 {
@@ -286,6 +294,7 @@ struct mtk_mbox_pin_recv *get_adsp_mbox_pin_recv(int index)
 	pr_info("the channel %d is not recv pin", index);
 	return ERR_PTR(-ENODEV);
 }
+EXPORT_SYMBOL(get_adsp_mbox_pin_recv);
 
 enum adsp_ipi_status adsp_ipi_registration(
 	enum adsp_ipi_id id,

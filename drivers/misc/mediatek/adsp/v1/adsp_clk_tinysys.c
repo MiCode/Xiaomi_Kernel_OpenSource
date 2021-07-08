@@ -3,17 +3,29 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include "adsp_clk.h"
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
+#include "adsp_clk_tinysys.h"
 
-static uint32_t adsp_clock_count;
-static struct device *pm_dev;
+enum adsp_clk {
+	CLK_ADSP_CK_CG,
+	CLK_TOP_ADSP_SEL,
+	CLK_TOP_CLK26M,
+	CLK_TOP_ADSPPLL,
+	ADSP_CLK_NUM
+};
+
+enum scp_clk {
+	CLK_TOP_SCP_SEL,
+	SCP_CLK_NUM
+};
 
 struct adsp_clock_attr {
 	const char *name;
 	struct clk *clock;
 };
+
+static struct device *pm_dev;
 
 static struct adsp_clock_attr adsp_clks[ADSP_CLK_NUM] = {
 	[CLK_ADSP_CK_CG] = {"clk_adsp_ck_cg", NULL},
@@ -26,7 +38,7 @@ static struct adsp_clock_attr scp_clks[SCP_CLK_NUM] = {
 	[CLK_TOP_SCP_SEL] = {"clk_top_scp_sel", NULL},
 };
 
-int adsp_set_top_mux(enum adsp_clk clk)
+static int adsp_set_top_mux(enum adsp_clk clk)
 {
 	int ret = 0;
 
@@ -43,20 +55,62 @@ int adsp_set_top_mux(enum adsp_clk clk)
 	return ret;
 }
 
-void adsp_set_clock_freq(enum adsp_clk clk)
+void adsp_mt_select_clock_mode(enum adsp_clk_mode mode)
 {
-	switch (clk) {
-	case CLK_TOP_CLK26M:
-	case CLK_TOP_ADSPPLL:
-		adsp_set_top_mux(clk);
+	switch (mode) {
+	case CLK_LOW_POWER:
+		adsp_set_top_mux(CLK_TOP_CLK26M);
+		break;
+	case CLK_HIGH_PERFORM:
+	case CLK_DEFAULT_INIT:
+		adsp_set_top_mux(CLK_TOP_ADSPPLL);
 		break;
 	default:
 		break;
 	}
 }
 
+int adsp_mt_enable_clock(void)
+{
+	int ret = 0;
+
+	pr_debug("%s()\n", __func__);
+
+	pm_runtime_get_sync(pm_dev);
+
+#ifdef SCP_CLK_CONTROL
+	/* enable scp clock before access adsp clock cg */
+	ret = clk_prepare_enable(scp_clks[CLK_TOP_SCP_SEL].clock);
+	if (IS_ERR(&ret)) {
+		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
+			__func__, scp_clks[CLK_TOP_SCP_SEL].name, ret);
+		return -EINVAL;
+	}
+#endif
+	ret = clk_prepare_enable(adsp_clks[CLK_ADSP_CK_CG].clock);
+	if (IS_ERR(&ret)) {
+		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
+			__func__, adsp_clks[CLK_ADSP_CK_CG].name, ret);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+void adsp_mt_disable_clock(void)
+{
+	pr_debug("%s()\n", __func__);
+
+	clk_disable_unprepare(adsp_clks[CLK_ADSP_CK_CG].clock);
+#ifdef SCP_CLK_CONTROL
+	clk_disable_unprepare(scp_clks[CLK_TOP_SCP_SEL].clock);
+#endif
+	pm_runtime_put_sync(pm_dev);
+}
+
 /* clock init */
-int adsp_clk_device_probe(struct platform_device *pdev)
+int adsp_clk_probe(struct platform_device *pdev,
+			  struct adsp_clk_operations *ops)
 {
 	int ret = 0;
 	size_t i;
@@ -82,52 +136,16 @@ int adsp_clk_device_probe(struct platform_device *pdev)
 
 	pm_dev = &pdev->dev;
 
+	ops->enable = adsp_mt_enable_clock;
+	ops->disable = adsp_mt_disable_clock;
+	ops->select = adsp_mt_select_clock_mode;
+
 	return ret;
 }
 
 /* clock deinit */
-void adsp_clk_device_remove(void *dev)
+void adsp_clk_remove(void *dev)
 {
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 }
 
-int adsp_enable_clock(void)
-{
-	int ret = 0;
-
-	pr_debug("%s()\n", __func__);
-
-	pm_runtime_get_sync(pm_dev);
-
-#ifdef SCP_CLK_CONTROL
-	/* enable scp clock before access adsp clock cg */
-	ret = clk_prepare_enable(scp_clks[CLK_TOP_SCP_SEL].clock);
-	if (IS_ERR(&ret)) {
-		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
-			__func__, scp_clks[CLK_TOP_SCP_SEL].name, ret);
-		return -EINVAL;
-	}
-#endif
-	ret = clk_prepare_enable(adsp_clks[CLK_ADSP_CK_CG].clock);
-	if (IS_ERR(&ret)) {
-		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
-			__func__, adsp_clks[CLK_ADSP_CK_CG].name, ret);
-		return -EINVAL;
-
-	}
-	adsp_clock_count++;
-
-	return 0;
-}
-
-void adsp_disable_clock(void)
-{
-	pr_debug("%s()\n", __func__);
-
-	adsp_clock_count--;
-	clk_disable_unprepare(adsp_clks[CLK_ADSP_CK_CG].clock);
-#ifdef SCP_CLK_CONTROL
-	clk_disable_unprepare(scp_clks[CLK_TOP_SCP_SEL].clock);
-#endif
-	pm_runtime_put_sync(pm_dev);
-}

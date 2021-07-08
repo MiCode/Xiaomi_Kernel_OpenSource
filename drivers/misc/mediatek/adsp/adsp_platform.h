@@ -6,18 +6,7 @@
 #ifndef __ADSP_PLATFORM_H__
 #define __ADSP_PLATFORM_H__
 
-enum adsp_irq_id {
-	ADSP_IRQ_IPC_ID = 0,
-	ADSP_IRQ_WDT_ID,
-	ADSP_IRQ_AUDIO_ID,
-	ADSP_IRQ_NUM,
-};
-
-enum adsp_core_id {
-	ADSP_A_ID = 0,
-	ADSP_B_ID = 1,
-	ADSP_CORE_TOTAL,
-};
+struct adspsys_priv;
 
 enum adsp_sharedmem_id {
 	ADSP_SHAREDMEM_BOOTUP_MARK = 0,
@@ -37,11 +26,6 @@ enum adsp_sharedmem_id {
 	ADSP_SHAREDMEM_NUM,
 };
 
-/* semaphore */
-#define SEMA_TIMEOUT        5000
-#define SEMA_WAY_BITS       3
-#define SEMA_CTRL_BIT       2
-
 /* platform method */
 void adsp_mt_sw_reset(u32 cid);
 void adsp_mt_run(u32 cid);
@@ -52,13 +36,17 @@ void adsp_mt_clr_sysirq(u32 cid);
 void adsp_mt_clr_auidoirq(u32 cid);
 void adsp_mt_clr_spm(u32 cid);
 void adsp_mt_disable_wdt(u32 cid);
+void adsp_mt_set_swirq(u32 cid);
+u32 adsp_mt_check_swirq(u32 cid);
+void adsp_mt_toggle_semaphore(u32 bit);
+u32 adsp_mt_get_semaphore(u32 bit);
 
 bool check_hifi_status(u32 mask);
 bool is_adsp_axibus_idle(void);
 u32 switch_adsp_clk_ctrl_cg(bool en, u32 mask);
 u32 switch_adsp_uart_ctrl_cg(bool en, u32 mask);
-void set_adsp_dram_remapping(u32 addr, u32 size);
-void adsp_platform_init(void);
+void adsp_mt_set_dram_remap(u32 addr, u32 size);
+void adsp_hardware_init(struct adspsys_priv *adspsys);
 
 extern rwlock_t access_rwlock;
 #endif

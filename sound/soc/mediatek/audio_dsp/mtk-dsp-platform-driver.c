@@ -1753,9 +1753,9 @@ static int mtk_dsp_probe(struct snd_soc_component *component)
 		if (adsp_irq_registration(id, ADSP_IRQ_AUDIO_ID, audio_irq_handler, dsp) < 0)
 			pr_info("%s, ADSP_IRQ_AUDIO not supported\n");
 	}
-
+#ifdef CFG_RECOVERY_SUPPORT
 	adsp_register_notify(&adsp_audio_notifier);
-
+#endif
 	return ret;
 }
 

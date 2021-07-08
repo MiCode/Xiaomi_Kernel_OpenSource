@@ -31,7 +31,6 @@
 #include <dvfs.h>
 #endif
 
-#include <adsp_ipi.h>
 #include <audio_ipi_dma.h>
 
 #define AUDIO_BUF_ALIGNEMNT (8)

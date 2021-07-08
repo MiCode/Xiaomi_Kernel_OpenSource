@@ -86,7 +86,7 @@ static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
 	uart_cfg = switch_adsp_uart_ctrl_cg(true, uart_mask);
 
 	n += copy_from_buffer(buf + n, size - n,
-				pdata->cfg, pdata->cfg_size, 0, -1);
+				adspsys->cfg, adspsys->cfg_size, 0, -1);
 	n += copy_from_buffer(buf + n, size - n,
 				pdata->itcm, pdata->itcm_size, 0, -1);
 	n += copy_from_buffer(buf + n, size - n,
@@ -122,7 +122,7 @@ static int dump_buffer(struct adsp_exception_control *ctrl, int coredump_id)
 			return -EBUSY;
 	}
 
-	total = pdata->cfg_size
+	total = adspsys->cfg_size
 		+ pdata->itcm_size
 		+ pdata->dtcm_size
 		+ pdata->sysram_size
@@ -226,7 +226,7 @@ void adsp_aed_worker(struct work_struct *ws)
 	__pm_stay_awake(ctrl->wakeup_lock);
 #endif
 	/* stop adsp, set reset state */
-	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = get_adsp_core_by_id(cid);
 		set_adsp_state(pdata, ADSP_RESET);
 		complete_all(&pdata->done);
@@ -238,11 +238,11 @@ void adsp_aed_worker(struct work_struct *ws)
 
 	adsp_register_feature(SYSTEM_FEATURE_ID);
 	adsp_extern_notify_chain(ADSP_EVENT_STOP);
+
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	/* exception dump */
 	adsp_exception_dump(ctrl);
 #endif
-
 	/* reset adsp */
 	adsp_enable_clock();
 	for (retry = 0; retry < ADSP_RESET_RETRY_MAXTIME; retry++) {
@@ -341,12 +341,12 @@ void get_adsp_misc_buffer(unsigned long *vaddr, unsigned long *size)
 	unsigned int part_len = ADSP_MISC_BUF_SIZE / ADSP_CORE_TOTAL;
 
 	memset(buf, 0, ADSP_KE_DUMP_LEN);
-	if (!is_adsp_load()) {
-		pr_info("adsp not load, skip dump");
+	if (!adspsys) {
+		pr_info("adsp image not load, skip dump");
 		goto ERROR;
 	}
 
-	for (id = 0; id < ADSP_CORE_TOTAL; id++) {
+	for (id = 0; id < get_adsp_core_total(); id++) {
 		w_pos = 0;
 		pdata = get_adsp_core_by_id(id);
 		if (!pdata || !pdata->log_ctrl ||
@@ -403,8 +403,8 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	u32 len = ADSP_KE_DUMP_LEN;
 
 	memset(buf, 0, len);
-	if (!is_adsp_load()) {
-		pr_info("adsp not load, skip dump");
+	if (!adspsys) {
+		pr_info("adsp image not load, skip dump");
 		goto EXIT;
 	}
 
@@ -420,7 +420,7 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	pdata = get_adsp_core_by_id(ADSP_A_ID);
 
 	n += copy_from_buffer(buf + n, len - n,
-				pdata->cfg, pdata->cfg_size, 0, -1);
+				adspsys->cfg, adspsys->cfg_size, 0, -1);
 	n += copy_from_buffer(buf + n, len - n,
 				pdata->dtcm, pdata->dtcm_size, 0, -1);
 

@@ -27,8 +27,6 @@
 #define ADSP_MBOX_SEND_SLOT_OFFSET  0
 #define ADSP_MBOX_RECV_SLOT_OFFSET  0
 
-#define SHARE_BUF_SIZE          (ADSP_MBOX_SLOT_COUNT * MBOX_SLOT_SIZE)
-
 void adsp_mbox_dump(void);
 int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 		   unsigned int wait);

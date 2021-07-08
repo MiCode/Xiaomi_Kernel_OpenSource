@@ -25,9 +25,7 @@
 #include <audio_ipi_platform.h>
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-#include <adsp_ipi.h>
 #include <adsp_helper.h>
-#include <adsp_platform.h>
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)

@@ -19,7 +19,6 @@
 #include <adsp_helper.h>
 #include "audio_messenger_ipi.h"
 #include "audio_task.h"
-#include "adsp_ipi.h"
 #include "audio_speech_msg_id.h"
 #endif
 

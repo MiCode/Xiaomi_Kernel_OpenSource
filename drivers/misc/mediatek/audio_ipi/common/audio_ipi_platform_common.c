@@ -16,7 +16,6 @@
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include <adsp_helper.h>
-#include <adsp_reserved_mem.h>
 #endif
 
 #include <audio_task.h>

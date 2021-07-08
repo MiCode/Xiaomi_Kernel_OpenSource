@@ -7,6 +7,9 @@
 #define __ADSP_CORE_H__
 
 #include "adsp_helper.h"
+#include "adsp_clk.h"
+#include "adsp_reserved_mem.h"
+#include "adsp_feature_define.h"
 
 enum ADSP_CORE_STATE {
 	ADSP_RESET       = 0,
@@ -17,6 +20,7 @@ enum ADSP_CORE_STATE {
 };
 
 struct adsp_priv;
+struct adspsys_priv;
 
 /* core api */
 #define get_adsp_core_by_ptr(ptr)  _get_adsp_core(ptr, 0)
@@ -28,17 +32,24 @@ void set_adsp_state(struct adsp_priv *pdata, int state);
 int get_adsp_state(struct adsp_priv *pdata);
 bool is_adsp_system_running(void);
 
-int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src,
-			int count);
-int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
-			int count);
 void switch_adsp_power(bool on);
-
 int adsp_reset(void);
+
+u32 sum_adsp_sys_dram_total(void);
+void register_adspsys(struct adspsys_priv *mt_adspsys);
+void register_adsp_core(struct adsp_priv *pdata);
+
+enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
+				       unsigned int len, unsigned int wait_ms,
+				       unsigned int core_id);
+
+int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src, int count);
+int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst, int count);
+
 void adsp_extern_notify_chain(enum ADSP_NOTIFY_EVENT event);
 
 /* wakelock */
-int adsp_awake_init(struct adsp_priv *pdata, u32 mask);
+int adsp_awake_init(struct adsp_priv *pdata);
 int adsp_awake_lock(u32 cid);
 int adsp_awake_unlock(u32 cid);
 #endif

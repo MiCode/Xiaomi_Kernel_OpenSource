@@ -10,6 +10,8 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 #include "adsp_platform.h"
+#include "adsp_clk.h"
+#include "adsp_helper.h"
 
 struct adsp_priv;
 struct log_ctrl_s;
@@ -18,16 +20,23 @@ struct sharedmem_info {
 	unsigned int size;
 };
 
-struct adsp_operations {
+struct adsp_core_operations {
 	int (*initialize)(struct adsp_priv *pdata);
 	int (*after_bootup)(struct adsp_priv *pdata);
 };
 
-struct adsp_description {
+struct adsp_core_description {
 	u32 id;
 	const char *name;
 	const struct sharedmem_info sharedmems[ADSP_SHAREDMEM_NUM];
-	const struct adsp_operations ops;
+	const struct adsp_core_operations ops;
+};
+
+struct adspsys_description {
+	const char *platform_name;
+	const int semaphore_ways;
+	const int semaphore_ctrl;
+	const int semaphore_retry;
 };
 
 struct irq_t {
@@ -45,12 +54,9 @@ struct adsp_priv {
 	unsigned int feature_set;
 
 	/* address & size */
-	void __iomem *cfg;
 	void __iomem *itcm;
 	void __iomem *dtcm;
 	void __iomem *sysram;
-	void __iomem *secure;
-	size_t cfg_size;
 	size_t itcm_size;
 	size_t dtcm_size;
 	size_t sysram_size;
@@ -74,11 +80,30 @@ struct adsp_priv {
 	struct completion done;
 
 	/* method */
-	const struct adsp_operations *ops;
+	const struct adsp_core_operations *ops;
 
 	/* snapshot for recovery restore */
 	void *itcm_snapshot;
 	void *dtcm_snapshot;
+};
+
+struct adspsys_priv {
+	u32 num_cores;
+
+	/* address & size */
+	void __iomem *cfg;
+	void __iomem *cfg_secure;
+	size_t cfg_size;
+	size_t cfg_secure_size;
+
+	struct device *dev;
+	struct miscdevice mdev;
+	struct wait_queue_head waitq;
+	struct workqueue_struct *workq;
+
+	struct adsp_clk_operations clk_ops;
+
+	const struct adspsys_description *desc;
 };
 
 struct adsp_c2c_share_dram_info_t {
@@ -86,14 +111,13 @@ struct adsp_c2c_share_dram_info_t {
 	u32 share_dram_size;
 };
 
-int create_adsp_drivers(void);
-bool is_adsp_load(void);
-
-extern struct attribute_group adsp_default_attr_group;
+extern const struct file_operations adspsys_file_ops;
 extern struct attribute_group adsp_excep_attr_group;
 extern const struct file_operations adsp_debug_ops;
-extern const struct file_operations adsp_common_file_ops;
 extern const struct file_operations adsp_core_file_ops;
+extern struct attribute_group adsp_default_attr_group;
+
 extern struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
+extern struct adspsys_priv *adspsys;
 
 #endif

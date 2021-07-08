@@ -8,51 +8,50 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
+#include <linux/suspend.h>
 #include "adsp_clk.h"
+#include "adsp_timesync.h"
+#include "adsp_semaphore.h"
 #include "adsp_platform.h"
 #include "adsp_platform_driver.h"
-#include "adsp_core.h"
+#include "adsp_excep.h"
 #include "adsp_mbox.h"
-#include "adsp_reg.h"
+#include "adsp_core.h"
 
+#ifdef SMI_SUPPORT
+#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
+#include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
+#include <mtk-base-afe.h>
+#endif
 
-int (*ipi_queue_send_msg_handler)(
-	uint32_t core_id, /* enum adsp_core_id */
-	uint32_t ipi_id,  /* enum adsp_ipi_id */
-	void *buf,
-	uint32_t len,
-	uint32_t wait_ms);
-
-/* protect access tcm if set reset flag */
-rwlock_t access_rwlock;
-
-/* notifier */
-static BLOCKING_NOTIFIER_HEAD(adsp_notifier_list);
-
-void hook_ipi_queue_send_msg_handler(
-	int (*send_msg_handler)(
+static int (*ipi_queue_send_msg_handler)(
 		uint32_t core_id, /* enum adsp_core_id */
 		uint32_t ipi_id,  /* enum adsp_ipi_id */
 		void *buf,
 		uint32_t len,
-		uint32_t wait_ms))
-{
-	ipi_queue_send_msg_handler = send_msg_handler;
-}
-EXPORT_SYMBOL(hook_ipi_queue_send_msg_handler);
+		uint32_t wait_ms);
 
-void unhook_ipi_queue_send_msg_handler(void)
-{
-	ipi_queue_send_msg_handler = NULL;
-}
-EXPORT_SYMBOL(unhook_ipi_queue_send_msg_handler);
+/* protect access tcm if set reset flag */
+rwlock_t access_rwlock;
 
+struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
+struct adspsys_priv *adspsys;
+
+const struct attribute_group *adspsys_attr_groups[] = {
+	&adsp_excep_attr_group,
+	NULL,
+};
+
+/* notifier */
+static BLOCKING_NOTIFIER_HEAD(adsp_notifier_list);
+
+/* ------------------------------------------------ */
 struct adsp_priv *_get_adsp_core(void *ptr, int id)
 {
 	if (ptr)
 		return container_of(ptr, struct adsp_priv, mdev);
 
-	if (id < ADSP_CORE_TOTAL && id >= 0)
+	if (id < get_adsp_core_total() && id >= 0)
 		return adsp_cores[id];
 
 	return NULL;
@@ -62,15 +61,17 @@ void set_adsp_state(struct adsp_priv *pdata, int state)
 {
 	pdata->state = state;
 }
+EXPORT_SYMBOL(set_adsp_state);
 
 int get_adsp_state(struct adsp_priv *pdata)
 {
 	return pdata->state;
 }
+EXPORT_SYMBOL(get_adsp_state);
 
 int is_adsp_ready(u32 cid)
 {
-	if (unlikely(cid >= ADSP_CORE_TOTAL))
+	if (unlikely(cid >= get_adsp_core_total()))
 		return -EINVAL;
 
 	if (unlikely(!adsp_cores[cid]))
@@ -80,17 +81,31 @@ int is_adsp_ready(u32 cid)
 }
 EXPORT_SYMBOL(is_adsp_ready);
 
-uint32_t get_adsp_core_total(void)
+u32 get_adsp_core_total(void)
 {
-	return ADSP_CORE_TOTAL;
+	return adspsys ? adspsys->num_cores : 0;
 }
 EXPORT_SYMBOL(get_adsp_core_total);
+
+u32 sum_adsp_sys_dram_total(void)
+{
+	u32 sum = 0, cid = 0;
+
+	for (cid = 0; cid < get_adsp_core_total(); cid++) {
+		if (!adsp_cores[cid])
+			continue;
+
+		sum += adsp_cores[cid]->sysram_size;
+	}
+
+	return sum;
+}
 
 bool is_adsp_system_running(void)
 {
 	unsigned int id;
 
-	for (id = 0; id < ADSP_CORE_TOTAL; id++) {
+	for (id = 0; id < get_adsp_core_total(); id++) {
 		if (is_adsp_ready(id) > 0)
 			return true;
 	}
@@ -120,6 +135,7 @@ int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src,
 
 	return count;
 }
+EXPORT_SYMBOL(adsp_copy_to_sharedmem);
 
 int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 			     int count)
@@ -144,6 +160,25 @@ int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 
 	return count;
 }
+EXPORT_SYMBOL(adsp_copy_from_sharedmem);
+
+void hook_ipi_queue_send_msg_handler(
+	int (*send_msg_handler)(
+		uint32_t core_id, /* enum adsp_core_id */
+		uint32_t ipi_id,  /* enum adsp_ipi_id */
+		void *buf,
+		uint32_t len,
+		uint32_t wait_ms))
+{
+	ipi_queue_send_msg_handler = send_msg_handler;
+}
+EXPORT_SYMBOL(hook_ipi_queue_send_msg_handler);
+
+void unhook_ipi_queue_send_msg_handler(void)
+{
+	ipi_queue_send_msg_handler = NULL;
+}
+EXPORT_SYMBOL(unhook_ipi_queue_send_msg_handler);
 
 enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait_ms,
@@ -154,15 +189,12 @@ enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
 	/* send msg to queue */
 	if (ipi_queue_send_msg_handler)
 		ret = ipi_queue_send_msg_handler(core_id, id, buf, len, wait_ms);
-
-	/* send to mbox directly if handler or queue not inited */
-	if (ret != 0) {
-		pr_notice("%s, ipi queue not ready. id=%d", __func__, id);
+	else
 		ret = adsp_send_message(id, buf, len, wait_ms, core_id);
-	}
 
 	return (ret == 0) ? ADSP_IPI_DONE : ADSP_IPI_ERROR;
 }
+EXPORT_SYMBOL(adsp_push_message);
 
 enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait,
@@ -171,17 +203,13 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 	struct adsp_priv *pdata = NULL;
 	struct mtk_ipi_msg msg;
 
-	if (core_id >= ADSP_CORE_TOTAL)
+	if (core_id >= get_adsp_core_total() || !buf)
 		return ADSP_IPI_ERROR;
+
 	pdata = get_adsp_core_by_id(core_id);
 
 	if (get_adsp_state(pdata) != ADSP_RUNNING) {
 		pr_notice("%s, adsp not enabled, id=%d", __func__, id);
-		return ADSP_IPI_ERROR;
-	}
-
-	if (len > (SHARE_BUF_SIZE - 16) || buf == NULL) {
-		pr_info("%s(), %s buffer error", __func__, "adsp");
 		return ADSP_IPI_ERROR;
 	}
 
@@ -254,18 +282,141 @@ void adsp_extern_notify_chain(enum ADSP_NOTIFY_EVENT event)
 #endif
 }
 
+/* user-space event notify */
+static int adsp_user_event_notify(struct notifier_block *nb,
+				  unsigned long event, void *ptr)
+{
+	struct device *dev = adspsys->mdev.this_device;
+	int ret = 0;
+
+	if (!dev)
+		return NOTIFY_DONE;
+
+	switch (event) {
+	case ADSP_EVENT_STOP:
+		ret = kobject_uevent(&dev->kobj, KOBJ_OFFLINE);
+		break;
+	case ADSP_EVENT_READY:
+		ret = kobject_uevent(&dev->kobj, KOBJ_ONLINE);
+		break;
+	default:
+		pr_info("%s, ignore event %lu", __func__, event);
+		break;
+	}
+
+	if (ret)
+		pr_info("%s, uevnet(%lu) fail, ret %d", __func__, event, ret);
+
+	return NOTIFY_OK;
+}
+
+struct notifier_block adsp_uevent_notifier = {
+	.notifier_call = adsp_user_event_notify,
+	.priority = AUDIO_HAL_FEATURE_PRI,
+};
+
+#if IS_ENABLED(CONFIG_PM)
+static int adsp_pm_event(struct notifier_block *notifier
+			, unsigned long pm_event, void *unused)
+{
+#ifdef SMI_SUPPORT
+	struct arm_smccc_res res;
+#endif
+	switch (pm_event) {
+	case PM_POST_HIBERNATION:
+		pr_notice("[ADSP] %s: reboot\n", __func__);
+		adsp_reset();
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+#ifdef SMI_SUPPORT
+		if (adsp_feature_is_active(ADSP_A_ID))
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+				  MTK_AUDIO_SMC_OP_ADSP_REQUEST,
+				  0, 0, 0, 0, 0, 0, &res);
+#endif
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+#ifdef SMI_SUPPORT
+		if (adsp_feature_is_active(ADSP_A_ID))
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+				  MTK_AUDIO_SMC_OP_ADSP_RELEASE,
+				  0, 0, 0, 0, 0, 0, &res);
+#endif
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block adsp_pm_notifier_block = {
+	.notifier_call = adsp_pm_event,
+	.priority = 0,
+};
+#endif
+
+int adsp_ap_suspend(struct device *dev)
+{
+	int cid = 0, ret = 0;
+	struct adsp_priv *pdata = NULL;
+
+	for (cid = get_adsp_core_total() - 1; cid >= 0; cid--) {
+		pdata = adsp_cores[cid];
+
+		if (pdata->state == ADSP_RUNNING) {
+			ret = flush_suspend_work(pdata->id);
+
+			pr_info("%s, flush_suspend_work ret %d, cid %d",
+				__func__, ret, cid);
+		}
+	}
+
+	if (is_adsp_system_running()) {
+		adsp_timesync_suspend(APTIME_FREEZE);
+		pr_info("%s, time sync freeze", __func__);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(adsp_ap_suspend);
+
+int adsp_ap_resume(struct device *dev)
+{
+	if (is_adsp_system_running()) {
+		adsp_timesync_resume();
+		pr_info("%s, time sync unfreeze", __func__);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(adsp_ap_resume);
+
+void adsp_select_clock_mode(enum adsp_clk_mode mode)
+{
+	if (adspsys)
+		adspsys->clk_ops.select(mode);
+}
+
+int adsp_enable_clock(void)
+{
+	return adspsys ? adspsys->clk_ops.enable() : 0;
+}
+
+void adsp_disable_clock(void)
+{
+	if (adspsys)
+		adspsys->clk_ops.disable();
+}
+
 void switch_adsp_power(bool on)
 {
 	if (on) {
 		adsp_enable_clock();
-		adsp_set_clock_freq(CLK_DEFAULT_INIT_CK);
+		adsp_select_clock_mode(CLK_DEFAULT_INIT);
 	} else {
-		adsp_set_clock_freq(CLK_DEFAULT_26M_CK);
+		adsp_select_clock_mode(CLK_LOW_POWER);
 		adsp_disable_clock();
 	}
 }
 
-void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
+static void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
 {
 	if (!pdata->itcm || !pdata->itcm_snapshot || !pdata->itcm_size ||
 	    !pdata->dtcm || !pdata->dtcm_snapshot || !pdata->dtcm_size)
@@ -275,7 +426,7 @@ void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
 	memcpy_toio(pdata->dtcm, pdata->dtcm_snapshot, pdata->dtcm_size);
 }
 
-void adsp_sram_provide_snapshot(struct adsp_priv *pdata)
+static void adsp_sram_provide_snapshot(struct adsp_priv *pdata)
 {
 	if (!pdata->itcm || !pdata->dtcm)
 		return;
@@ -308,19 +459,18 @@ int adsp_reset(void)
 	adsp_mt_clear();
 
 	/* choose default clk mux */
-	adsp_set_clock_freq(CLK_TOP_CLK26M);
-	adsp_set_clock_freq(CLK_DEFAULT_INIT_CK);
+	adsp_select_clock_mode(CLK_LOW_POWER);
+	adsp_select_clock_mode(CLK_DEFAULT_INIT);
 
 	/* restore tcm to initial state */
-	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
 		adsp_sram_restore_snapshot(pdata);
 	}
 
 	/* restart adsp */
-	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
-
 		adsp_mt_sw_reset(cid);
 		reinit_completion(&pdata->done);
 
@@ -334,7 +484,7 @@ int adsp_reset(void)
 		}
 	}
 
-	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
 
 		if (pdata->ops->after_bootup)
@@ -371,16 +521,68 @@ static void adsp_suspend_ipi_handler(int id, void *data, unsigned int len)
 	complete(&pdata->done);
 }
 
-static int adsp_system_bootup(void)
+static int adsp_system_init(void)
+{
+	int ret = 0;
+
+	rwlock_init(&access_rwlock);
+	adsp_hardware_init(adspsys);
+
+	/* ipi of ready/suspend ack */
+	adsp_ipi_registration(ADSP_IPI_ADSP_A_READY,
+			      adsp_ready_ipi_handler,
+			      "adsp_ready");
+	adsp_ipi_registration(ADSP_IPI_DVFS_SUSPEND,
+			      adsp_suspend_ipi_handler,
+			      "adsp_suspend_ack");
+
+	/* time sync with adsp */
+	adsp_timesync_init();
+
+	/* hw semaphore */
+	adsp_semaphore_init(adspsys->desc->semaphore_ways,
+			    adspsys->desc->semaphore_ctrl,
+			    adspsys->desc->semaphore_retry);
+
+	/* exception init */
+	adspsys->workq = alloc_workqueue("adsp_wq", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
+	init_waitqueue_head(&adspsys->waitq);
+	init_adsp_exception_control(adspsys->dev, adspsys->workq, &adspsys->waitq);
+
+#if IS_ENABLED(CONFIG_PM)
+	ret = register_pm_notifier(&adsp_pm_notifier_block);
+	if (ret)
+		pr_warn("[ADSP] failed to register PM notifier %d\n", ret);
+#endif
+	/* register misc device */
+	adspsys->mdev.minor = MISC_DYNAMIC_MINOR;
+	adspsys->mdev.name = "adsp";
+	adspsys->mdev.fops = &adspsys_file_ops;
+	adspsys->mdev.groups = adspsys_attr_groups;
+
+	ret = misc_register(&adspsys->mdev);
+	if (unlikely(ret != 0))
+		pr_warn("%s(), misc_register fail, %d\n", __func__, ret);
+
+	/* kernel event to userspace */
+	adsp_register_notify(&adsp_uevent_notifier);
+
+	return ret;
+}
+
+int adsp_system_bootup(void)
 {
 	int ret = 0, cid = 0;
 	struct adsp_priv *pdata;
 
-	switch_adsp_power(true);
+	ret = adsp_system_init();
+	if (ret)
+		goto ERROR;
 
+	switch_adsp_power(true);
 	adsp_mt_clear();
 
-	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
 		if (unlikely(!pdata)) {
 			ret = -EFAULT;
@@ -409,7 +611,7 @@ static int adsp_system_bootup(void)
 
 	adsp_register_feature(SYSTEM_FEATURE_ID); /* regi for trigger suspend */
 
-	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
 
 		if (pdata->ops->after_bootup)
@@ -418,45 +620,27 @@ static int adsp_system_bootup(void)
 
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
 	pr_info("%s done\n", __func__);
-	return ret;
+	return 0;
 
 ERROR:
 	pr_info("%s fail ret(%d)\n", __func__, ret);
 	return ret;
 }
+EXPORT_SYMBOL(adsp_system_bootup);
 
-static int __init adsp_init(void)
+void register_adspsys(struct adspsys_priv *mt_adspsys)
 {
-	int ret = 0;
-
-	ret = create_adsp_drivers();
-	if (ret)
-		goto DONE;
-
-	rwlock_init(&access_rwlock);
-	adsp_platform_init();
-
-	//register_syscore_ops(&adsp_syscore_ops);
-	adsp_ipi_registration(ADSP_IPI_ADSP_A_READY,
-			      adsp_ready_ipi_handler,
-			      "adsp_ready");
-	adsp_ipi_registration(ADSP_IPI_DVFS_SUSPEND,
-			      adsp_suspend_ipi_handler,
-			      "adsp_suspend_ack");
-
-	ret = adsp_system_bootup();
-DONE:
-	pr_info("%s(), done, ret = %d\n", __func__, ret);
-	return 0;
+	adspsys = mt_adspsys;
+	pr_info("%s(), %p done\n", __func__, mt_adspsys);
 }
+EXPORT_SYMBOL(register_adspsys);
 
-static void __exit adsp_exit(void)
+void register_adsp_core(struct adsp_priv *pdata)
 {
-	pr_info("%s\n", __func__);
+	adsp_cores[pdata->id] = pdata;
+	pr_info("%s(), id %d, %p done\n", __func__, pdata->id, pdata);
 }
-
-module_init(adsp_init);
-module_exit(adsp_exit);
+EXPORT_SYMBOL(register_adsp_core);
 
 MODULE_AUTHOR("Chien-Wei Hsu <Chien-Wei.Hsu@mediatek.com>");
 MODULE_DESCRIPTION("MTK AUDIO DSP Device Driver");

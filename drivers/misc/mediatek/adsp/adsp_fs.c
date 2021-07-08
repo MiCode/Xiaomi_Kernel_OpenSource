@@ -10,6 +10,7 @@
 #include <linux/uaccess.h>
 #include <linux/soc/mediatek/mtk-mbox.h>
 #include "adsp_reserved_mem.h"
+#include "adsp_feature_define.h"
 #include "adsp_platform_driver.h"
 #include "adsp_logger.h"
 #include "adsp_excep.h"
@@ -26,7 +27,7 @@ static inline ssize_t dev_dump_show(struct device *dev,
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "name:%s id = %d\n",
 			pdata->name, pdata->id);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "cfg = %p, size = %zu\n",
-			pdata->cfg, pdata->cfg_size);
+			adspsys->cfg, adspsys->cfg_size);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "itcm = %p, size = %zu\n",
 			pdata->itcm, pdata->itcm_size);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "dtcm = %p, size = %zu\n",
@@ -385,7 +386,7 @@ static long adsp_driver_compat_ioctl(
 	return file->f_op->unlocked_ioctl(file, cmd, arg);
 }
 
-const struct file_operations adsp_common_file_ops = {
+const struct file_operations adspsys_file_ops = {
 	.owner = THIS_MODULE,
 	.open = adsp_driver_open,
 	.unlocked_ioctl = adsp_driver_ioctl,

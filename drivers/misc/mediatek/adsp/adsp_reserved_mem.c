@@ -12,9 +12,9 @@
 #include <soc/mediatek/emi.h>
 #endif
 #include "adsp_reserved_mem.h"
-#include "adsp_feature_define.h"
 #include "adsp_platform.h"
 #include "adsp_core.h"
+
 
 #define ADSP_MEM_RESERVED_KEY "mediatek,reserve-memory-adsp_share"
 #define ADSP_RESERVE_MEMORY_BLOCK(xname) \
@@ -115,28 +115,8 @@ void adsp_set_emimpu_shared_region(void)
 #endif
 }
 
-int adsp_mem_device_probe(struct platform_device *pdev)
+static int adsp_init_reserve_memory(struct adsp_reserve_mblock *mem)
 {
-	int ret = 0;
-	int i;
-	uint32_t size;
-	struct device *dev = &pdev->dev;
-
-	for (i = 0; i < ADSP_NUMS_MEM_ID; i++) {
-		ret = of_property_read_u32(dev->of_node,
-		      adsp_reserve_mblocks[i].name, &size);
-		if (!ret)
-			adsp_reserve_mblocks[i].size = (size_t)size;
-	}
-	return 0;
-}
-
-void adsp_init_reserve_memory(void)
-{
-	enum adsp_reserve_mem_id_t id;
-	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
-	size_t acc_size = 0;
-
 	struct device_node *node;
 	struct reserved_mem *rmem;
 
@@ -144,13 +124,13 @@ void adsp_init_reserve_memory(void)
 	node = of_find_compatible_node(NULL, NULL, ADSP_MEM_RESERVED_KEY);
 	if (!node) {
 		pr_info("%s(), no node for reserved memory\n", __func__);
-		return;
+		return -ENOMEM;
 	}
 
 	rmem = of_reserved_mem_lookup(node);
 	if (!rmem) {
 		pr_info("%s(), cannot lookup reserved memory\n", __func__);
-		return;
+		return -ENOMEM;
 	}
 
 	mem->phys_addr = rmem->base;
@@ -158,14 +138,38 @@ void adsp_init_reserve_memory(void)
 	if (!mem->phys_addr || !mem->size) {
 		pr_info("%s() reserve memory illegal addr:%llx, size:%zx\n",
 			__func__, mem->phys_addr, mem->size);
-		return;
+		return -ENOMEM;
 	}
-
 
 	mem->virt_addr = ioremap_wc(mem->phys_addr, mem->size);
 	if (!mem->virt_addr) {
 		pr_info("%s() ioremap fail\n", __func__);
-		return;
+		return -ENOMEM;
+	}
+
+	/* set mpu of shared memory to emi */
+	adsp_set_emimpu_shared_region();
+	return 0;
+}
+
+int adsp_mem_device_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	enum adsp_reserve_mem_id_t id;
+	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
+	size_t acc_size = 0;
+	u32 size;
+
+	ret = adsp_init_reserve_memory(mem);
+	if (ret)
+		return ret;
+
+	for (id = 0; id < ADSP_NUMS_MEM_ID; id++) {
+		of_property_read_u32(pdev->dev.of_node,
+		      adsp_reserve_mblocks[id].name,
+		      &size);
+		if (!ret)
+			adsp_reserve_mblocks[id].size = (size_t)size;
 	}
 
 	/* assign to each memory block */
@@ -180,11 +184,16 @@ void adsp_init_reserve_memory(void)
 			adsp_reserve_mblocks[id].size);
 #endif
 	}
-	WARN_ON(acc_size > mem->size);
 
-	/* set mpu of shared memory to emi */
-	adsp_set_emimpu_shared_region();
+	if (acc_size > mem->size) {
+		pr_info("%s(), not enough of memory use(0x%zx) > total(0x%zx)\n",
+			__func__, acc_size, mem->size);
+		return -ENOMEM;
+	}
+
+	return 0;
 }
+EXPORT_SYMBOL(adsp_mem_device_probe);
 
 ssize_t adsp_reserve_memory_dump(char *buffer, int size)
 {

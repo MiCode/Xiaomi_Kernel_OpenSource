@@ -146,21 +146,4 @@
 #define ADSP_UART_CLK_SEL           (1 << 1)
 #define ADSP_UART_BCLK_CG           (1 << 0)
 
-/* FIXME: correct address */
-#define ADSP_A_SLEEP_DEBUG_REG      (adsp_common.clkctrl + 0x0028)
-/* FIXME: correct address */
-#define ADSP_CLK_HIGH_CORE_CG       (adsp_common.clkctrl + 0x005C)
-
-/* INFRA_IRQ (always on register) */
-#define AP_AWAKE_LOCK_BIT           (0)
-#define AP_AWAKE_UNLOCK_BIT         (1)
-#define CONNSYS_AWAKE_LOCK          (2)
-#define CONNSYS_AWAKE_UNLOCK        (3)
-#define AP_AWAKE_DUMP_BIT           (4)
-#define AP_AWAKE_UPDATE_BIT         (5)
-#define AP_AWAKE_STATE_BIT          (6)
-#define ADSPPLL_UNLOCK_BIT          (8)
-
-#define ADSP_ADSP2SPM_VOL_LV         (ADSP_BASE + 0x0094)
-
 #endif

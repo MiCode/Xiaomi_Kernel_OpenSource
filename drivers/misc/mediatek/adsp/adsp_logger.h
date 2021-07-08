@@ -31,7 +31,8 @@ struct buffer_info_s {
 	unsigned char resv2[124]; /* dummy bytes for 128-byte align */
 };
 
-struct log_ctrl_s *adsp_logger_init(int mem_id);
+struct log_ctrl_s *adsp_logger_init(int mem_id,
+				    void (*work_cb)(struct work_struct *ws));
 unsigned int adsp_log_poll(struct log_ctrl_s *ctrl);
 ssize_t adsp_log_read(struct log_ctrl_s *ctrl, char __user *userbuf,
 		      size_t len);
