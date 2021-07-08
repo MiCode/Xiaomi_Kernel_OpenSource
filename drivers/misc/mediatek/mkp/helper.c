@@ -27,6 +27,13 @@ int is_module_or_bpf_addr(/*unsigned long x */const void *x)
 	if (addr >= BPF_JIT_REGION_START && addr < BPF_JIT_REGION_END)
 		return MKP_DEMO_BPF_CASE;
 #endif
+	/*
+	 * If enable kaslr, module alloc addr might be located in
+	 * [vmalloc_start, vmalloc_end]
+	 */
+	if (is_vmalloc_addr(x))
+		return MKP_DEMO_MODULE_CASE;
+
 	/* If it is not in the bpf or module region
 	 * return 0
 	 */

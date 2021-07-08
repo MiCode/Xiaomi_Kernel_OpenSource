@@ -115,7 +115,6 @@ static void probe_android_vh_set_memory_x(void *ignore, unsigned long addr,
 	int region;
 
 	region = is_module_or_bpf_addr((void *)addr);
-
 	if (region == MKP_DEMO_MODULE_CASE) {
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
 			mkp_set_mapping_x);
@@ -135,6 +134,11 @@ static void probe_android_vh_set_memory_rw(void *ignore, unsigned long addr,
 	int ret;
 	int region;
 
+	if (((unsigned long)THIS_MODULE->init_layout.base) == addr) {
+		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_MKP,
+			mkp_set_mapping_rw);
+		return;
+	}
 	region = is_module_or_bpf_addr((void *)addr);
 	if (region == MKP_DEMO_MODULE_CASE) {
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
@@ -159,6 +163,12 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 	phys_addr_t phys_addr;
 	uint32_t policy;
 
+	if (((unsigned long)THIS_MODULE->init_layout.base) == addr) {
+		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_MKP,
+			mkp_set_mapping_nx);
+		policy = MKP_POLICY_MKP;
+		goto destroy_handle;
+	}
 	region = is_module_or_bpf_addr((void *)addr);
 	if (region == MKP_DEMO_MODULE_CASE) {
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
@@ -173,6 +183,8 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 		return;
 #endif
 	}
+
+destroy_handle:
 	for (i = 0; i < nr_pages; i++) {
 		pfn = vmalloc_to_pfn((void *)(addr+i*PAGE_SIZE));
 		phys_addr = pfn << PAGE_SHIFT;
@@ -242,19 +254,28 @@ static int protect_kernel(void)
 static void probe_android_vh_set_module_permit_before_init(void *ignore,
 	const struct module *mod)
 {
-	if (mod == THIS_MODULE)
+	if (mod == THIS_MODULE && policy_ctrl[MKP_POLICY_MKP] != 0) {
+		module_enable_ro(mod, false, MKP_POLICY_MKP);
+		module_enable_nx(mod, MKP_POLICY_MKP);
+		module_enable_x(mod, MKP_POLICY_MKP);
 		return;
-	module_enable_ro(mod, false, MKP_POLICY_DRV);
-	module_enable_nx(mod, MKP_POLICY_DRV);
-	module_enable_x(mod, MKP_POLICY_DRV);
+	}
+	if (mod != THIS_MODULE && policy_ctrl[MKP_POLICY_DRV] != 0) {
+		module_enable_ro(mod, false, MKP_POLICY_DRV);
+		module_enable_nx(mod, MKP_POLICY_DRV);
+		module_enable_x(mod, MKP_POLICY_DRV);
+	}
 }
 
 static void probe_android_vh_set_module_permit_after_init(void *ignore,
 	const struct module *mod)
 {
-	if (mod == THIS_MODULE)
+	if (mod == THIS_MODULE && policy_ctrl[MKP_POLICY_MKP] != 0) {
+		module_enable_ro(mod, true, MKP_POLICY_MKP);
 		return;
-	module_enable_ro(mod, true, MKP_POLICY_DRV);
+	}
+	if (mod != THIS_MODULE && policy_ctrl[MKP_POLICY_DRV] != 0)
+		module_enable_ro(mod, true, MKP_POLICY_DRV);
 }
 
 static void probe_android_vh_selinux_is_initialized(void *ignore,
@@ -459,7 +480,9 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 
 static int protect_mkp_self(void)
 {
-	module_enable_ro(THIS_MODULE, true, MKP_POLICY_MKP);
+	module_enable_ro(THIS_MODULE, false, MKP_POLICY_MKP);
+	module_enable_nx(THIS_MODULE, MKP_POLICY_MKP);
+	module_enable_x(THIS_MODULE, MKP_POLICY_MKP);
 	return 0;
 }
 
@@ -486,6 +509,8 @@ int __init mkp_demo_init(void)
 
 	/* Set policy control*/
 	mkp_set_policy();
+	if (policy_ctrl[MKP_POLICY_MKP] != 0)
+		ret = protect_mkp_self();
 
 	if (policy_ctrl[MKP_POLICY_SELINUX_AVC] != 0) {
 		// Create selinux avc sharebuf
@@ -566,7 +591,8 @@ int __init mkp_demo_init(void)
 	}
 
 	if (policy_ctrl[MKP_POLICY_DRV] != 0 ||
-		policy_ctrl[MKP_POLICY_KERNEL_PAGES] != 0) {
+		policy_ctrl[MKP_POLICY_KERNEL_PAGES] != 0 ||
+		policy_ctrl[MKP_POLICY_MKP] != 0) {
 		// register x, ro, rw, nx
 		ret = register_trace_android_vh_set_memory_x(
 				probe_android_vh_set_memory_x, NULL);
@@ -596,7 +622,8 @@ int __init mkp_demo_init(void)
 		}
 	}
 
-	if (policy_ctrl[MKP_POLICY_DRV] != 0) {
+	if (policy_ctrl[MKP_POLICY_DRV] != 0 ||
+		policy_ctrl[MKP_POLICY_MKP] != 0) {
 		/* register before/after_init */
 		ret = register_trace_android_vh_set_module_permit_before_init(
 				probe_android_vh_set_module_permit_before_init, NULL);
@@ -623,10 +650,6 @@ int __init mkp_demo_init(void)
 		}
 	}
 
-failed:
-	if (ret)
-		pr_info("register hooks failed, ret %d line %d\n", ret, ret_erri_line);
-
 	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] != 0 ||
 		policy_ctrl[MKP_POLICY_KERNEL_RODATA] != 0) {
 #if !defined(CONFIG_KASAN_GENERIC) && !defined(CONFIG_KASAN_SW_TAGS)
@@ -645,7 +668,10 @@ failed:
 	mod_timer(&mkp_trace_event_timer, jiffies
 		+ MKP_TRACE_EVENT_TIME * HZ);
 #endif
-	ret = protect_mkp_self();
+
+failed:
+	if (ret)
+		pr_info("register hooks failed, ret %d line %d\n", ret, ret_erri_line);
 	pr_info("%s: Done\n", __func__);
 
 	return 0;

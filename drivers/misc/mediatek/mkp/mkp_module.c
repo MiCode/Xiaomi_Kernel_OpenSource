@@ -60,7 +60,6 @@ void module_enable_x(const struct module *mod, uint32_t policy)
 void module_enable_ro(const struct module *mod, bool after_init, uint32_t policy)
 {
 	frob_text(&mod->core_layout, mkp_set_mapping_ro, policy);
-
 	frob_rodata(&mod->core_layout, mkp_set_mapping_ro, policy);
 	frob_text(&mod->init_layout, mkp_set_mapping_ro, policy);
 	frob_rodata(&mod->init_layout, mkp_set_mapping_ro, policy);
