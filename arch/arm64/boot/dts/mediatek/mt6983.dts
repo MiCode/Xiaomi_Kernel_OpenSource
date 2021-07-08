@@ -4595,7 +4595,8 @@
 		clock-names = "clk_top_dsp_sel",
 			"clk_top_ipu_if_sel";
 */
-		reg = <0 0x1c001000 0 0x1000>,		// sys_spm
+		reg = <0 0x1c000000 0 0x1000>,		// sys_vlp
+			<0 0x1c001000 0 0x1000>,	// sys_spm
 			<0 0x19020000 0 0x1000>,	// apu_rcx
 			<0 0x190e0000 0 0x1000>,	// apu_vcore
 			<0 0x190e1000 0 0x1000>,	// apu_md32_mbox 0
@@ -4612,6 +4613,7 @@
 			<0 0x19200000 0 0x40000>,	// apu_acx1
 			<0 0x19240000 0 0x1000>;	// apu_acx1_rpc_lite
 		reg-names =
+			"sys_vlp",
 			"sys_spm",
 			"apu_rcx",
 			"apu_vcore",
