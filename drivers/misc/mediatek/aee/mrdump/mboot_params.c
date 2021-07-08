@@ -59,6 +59,8 @@ struct last_reboot_reason {
 	uint32_t fiq_step;
 	/* 0xaeedeadX: X=1 (HWT), X=2 (KE), X=3 (nested panic) */
 	uint32_t exp_type;
+	uint32_t kick;
+	uint32_t check;
 	uint64_t kaslr_offset;
 	uint64_t oops_in_progress_addr;
 
@@ -770,6 +772,22 @@ unsigned int aee_rr_curr_exp_type(void)
 
 	return MBOOT_PARAMS_EXP_TYPE_DEC(exp_type);
 }
+
+void aee_rr_rec_kick(uint32_t kick_bit)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(kick, kick_bit);
+}
+EXPORT_SYMBOL(aee_rr_rec_kick);
+
+void aee_rr_rec_check(uint32_t check_bit)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(check, check_bit);
+}
+EXPORT_SYMBOL(aee_rr_rec_check);
 
 void aee_rr_rec_kaslr_offset(uint64_t offset)
 {
@@ -2268,6 +2286,14 @@ void aee_rr_show_exp_type(struct seq_file *m)
 		   MBOOT_PARAMS_EXP_TYPE_DEC(exp_type));
 }
 
+void aee_rr_show_kick_check(struct seq_file *m)
+{
+	uint32_t kick_bit = LAST_RRR_VAL(kick);
+	uint32_t check_bit = LAST_RRR_VAL(check);
+
+	seq_printf(m, "kick=0x%x,check=0x%x\n", kick_bit, check_bit);
+}
+
 void aee_rr_show_kaslr_offset(struct seq_file *m)
 {
 	uint64_t kaslr_offset = LAST_RRR_VAL(kaslr_offset);
@@ -3194,6 +3220,7 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_wdt_status,
 	aee_rr_show_fiq_step,
 	aee_rr_show_exp_type,
+	aee_rr_show_kick_check,
 	aee_rr_show_kaslr_offset,
 	aee_rr_show_oops_in_progress_addr,
 	aee_rr_show_last_pc,

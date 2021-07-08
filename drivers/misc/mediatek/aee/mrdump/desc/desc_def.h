@@ -11,6 +11,8 @@
 	 */
 	DF(fiq_step, " fiq step: %u "),
 	DF(exp_type, " exception type: %u\n"),
+	DF(kick, "kick=0x%x,"),
+	DF(check, "check=0x%x\n"),
 	DF(kaslr_offset, "Kernel Offset: 0x%llx\n"),
 	DF(oops_in_progress_addr, "&oops_in_progress: 0x%llx\n"),
 	/* ensure info related to HWT always be bottom and keep their order*/

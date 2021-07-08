@@ -34,6 +34,8 @@ extern int aee_rr_reboot_reason_show(struct seq_file *m, void *v);
 extern int aee_rr_last_fiq_step(void);
 extern void aee_rr_rec_exp_type(unsigned int type);
 extern unsigned int aee_rr_curr_exp_type(void);
+extern void aee_rr_rec_kick(uint32_t kick_bit);
+extern void aee_rr_rec_check(uint32_t check_bit);
 extern void aee_rr_rec_scp(void);
 extern void aee_rr_rec_kaslr_offset(u64 value64);
 extern void aee_rr_rec_cpu_dvfs_vproc_big(u8 val);
@@ -229,6 +231,14 @@ static inline void aee_rr_rec_exp_type(unsigned int type)
 static inline unsigned int aee_rr_curr_exp_type(void)
 {
 	return 0;
+}
+
+static inline void aee_rr_rec_kick(uint32_t kick_bit)
+{
+}
+
+static inline void aee_rr_rec_check(uint32_t check_bit)
+{
 }
 
 static inline void aee_rr_rec_scp(void)
