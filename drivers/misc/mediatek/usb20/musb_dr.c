@@ -359,10 +359,12 @@ static ssize_t cmode_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t count)
 {
-	struct mt_usb_glue *glue = dev_get_drvdata(dev);
-	struct otg_switch_mtk *otg_sx = &glue->otg_sx;
+	struct musb *mtk_musb = dev_get_drvdata(dev);
+	struct otg_switch_mtk *otg_sx = mtk_musb->otg_sx;
 	enum usb_role role = otg_sx->latest_role;
 	int mode;
+
+	/* note: can't use container_of() here to get glue and otg_sx */
 
 	if (kstrtoint(buf, 10, &mode))
 		return -EINVAL;
@@ -404,8 +406,8 @@ static ssize_t cmode_show(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
-	struct mt_usb_glue *glue = dev_get_drvdata(dev);
-	struct otg_switch_mtk *otg_sx = &glue->otg_sx;
+	struct musb *mtk_musb = dev_get_drvdata(dev);
+	struct otg_switch_mtk *otg_sx = mtk_musb->otg_sx;
 
 	return sprintf(buf, "%d\n", otg_sx->op_mode);
 }
@@ -425,6 +427,9 @@ int mt_usb_otg_switch_init(struct mt_usb_glue *glue)
 	struct otg_switch_mtk *otg_sx = &glue->otg_sx;
 	struct musb *mtk_musb = glue->mtk_musb;
 	int ret = 0;
+
+	/* we need to keep otg_sx here for cmode operations */
+	mtk_musb->otg_sx = otg_sx;
 
 	INIT_WORK(&otg_sx->id_work, mt_usb_id_work);
 	INIT_WORK(&otg_sx->vbus_work, mt_usb_vbus_work);

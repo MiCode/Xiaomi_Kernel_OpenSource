@@ -487,6 +487,10 @@ struct musb {
 	struct power_supply *usb_psy;
 	struct notifier_block psy_nb;
 
+#if defined(CONFIG_USB_ROLE_SWITCH)
+	struct otg_switch_mtk *otg_sx;
+#endif
+
 	/* host suspend */
 	bool host_suspend;
 	bool usb_connected;
