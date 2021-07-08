@@ -334,6 +334,7 @@ static const unsigned short mt6360_slave_addr[MT6360_SLAVE_MAX] = {
 static int mt6360_pmu_probe(struct i2c_client *client)
 {
 	struct mt6360_pmu_data *mpd;
+	struct regmap_config *regmap_config = &mt6360_pmu_regmap_config;
 	unsigned int reg_data;
 	int i, ret;
 
@@ -342,9 +343,11 @@ static int mt6360_pmu_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	mpd->dev = &client->dev;
+	mutex_init(&mpd->io_lock);
 	i2c_set_clientdata(client, mpd);
 
-	mpd->regmap = devm_regmap_init_i2c(client, &mt6360_pmu_regmap_config);
+	regmap_config->lock_arg = &mpd->io_lock;
+	mpd->regmap = devm_regmap_init_i2c(client, regmap_config);
 	if (IS_ERR(mpd->regmap)) {
 		dev_err(&client->dev, "Failed to register regmap\n");
 		return PTR_ERR(mpd->regmap);
