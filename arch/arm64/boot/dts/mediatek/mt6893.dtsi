@@ -986,6 +986,20 @@
 		nvmem-cell-names = "efuse_segment_cell";
 	};
 
+	dfd_mcu: dfd_mcu@0c600000 {
+		compatible = "mediatek,dfd";
+		mediatek,enabled = <1>;
+		mediatek,chain_length = <0x4c08>;
+		mediatek,rg_dfd_timeout = <0xa0>;
+		mediatek,check_dfd_support = <1>;
+	};
+
+	dfd_cache: dfd_cache {
+		compatible = "mediatek,dfd_cache";
+		mediatek,enabled = <0>;
+		mediatek,rg_dfd_timeout = <0x5dc0>;
+	};
+
 	soc {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1375,20 +1389,6 @@
 				mode-meta = <BOOT_META>;
 				mode-rpmbpk = <BOOT_RPMBPK>;
 			};
-		};
-
-		dfd_mcu: dfd_mcu@0c600000 {
-			compatible = "mediatek,dfd";
-			enabled = <1>;
-			chain_length = <0x4c08>;
-			rg_dfd_timeout = <0xa0>;
-			check_dfd_support = <1>;
-		};
-
-		dfd_cache: dfd_cache {
-			compatible = "mediatek,dfd_cache";
-			enabled = <0>;
-			rg_dfd_timeout = <0x5dc0>;
 		};
 
 		masp@1000a000 {
