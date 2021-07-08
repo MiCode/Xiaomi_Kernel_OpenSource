@@ -362,9 +362,11 @@ static ssize_t cmode_store(struct device *dev,
 	struct musb *mtk_musb = dev_get_drvdata(dev);
 	struct otg_switch_mtk *otg_sx = mtk_musb->otg_sx;
 	enum usb_role role = otg_sx->latest_role;
-	int mode;
 
-	/* note: can't use container_of() here to get glue and otg_sx */
+	/* note: can't use container_of() by mtk_musb glue, use otg_sx here */
+	struct mt_usb_glue *glue =
+		container_of(otg_sx, struct mt_usb_glue, otg_sx);
+	int mode;
 
 	if (kstrtoint(buf, 10, &mode))
 		return -EINVAL;
@@ -392,7 +394,7 @@ static ssize_t cmode_store(struct device *dev,
 		/* switch operation mode to normal temporarily */
 		otg_sx->op_mode = MUSB_DR_OPERATION_NORMAL;
 		/* switch usb role */
-		mt_usb_role_sx_set(dev, otg_sx->latest_role);
+		mt_usb_role_sx_set(glue->dev, otg_sx->latest_role);
 		/* update operation mode */
 		otg_sx->op_mode = mode;
 		/* restore role */
