@@ -6229,6 +6229,30 @@
 		compatible = "mt6893,apusys_power_dummy";
 	};
 
+	seninf_top: seninf_top@1a010000 {
+		compatible = "mediatek,seninf-core";
+		reg = <0 0x1a010000 0 0x10000>,
+			<0 0x11f20000 0 0xc000>;
+		reg-names = "base", "ana-rx";
+		interrupts = <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH 0>;
+#if 0
+		power-domains = <&spm MT8195_POWER_DOMAIN_CSI_RX_TOP>,//need check, Baron
+		<&spm MT8195_POWER_DOMAIN_CAM>;//need check, Baron
+		clocks = <&camsys CLK_CAM_SENINF>,//need check, Baron
+			 <&topckgen_clk CLK_TOPCKGEN_SENINF_SEL>,
+			 <&topckgen_clk CLK_TOPCKGEN_SENINF1_SEL>,
+			 <&topckgen_clk CLK_TOPCKGEN_SENINF2_SEL>,
+			 <&topckgen_clk CLK_TOPCKGEN_SENINF3_SEL>,
+			 <&topckgen_clk CLK_TOP_CAMTM_SEL>;//need check, Baron
+		clock-names = "clk_cam_seninf",
+			 "clk_top_seninf",
+			 "clk_top_seninf1",
+			 "clk_top_seninf2",
+			 "clk_top_seninf3",
+			 "clk_top_camtm";
+#endif
+	};
+
 	met {
 		met_emi: met_emi {
 			compatible = "mediatek,met_emi";
