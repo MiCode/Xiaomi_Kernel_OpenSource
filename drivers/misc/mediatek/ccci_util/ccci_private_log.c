@@ -274,6 +274,7 @@ static const struct proc_ops ccci_log_fops = {
 #define CCCI_HISTORY_BUF		(4096 * 128)
 #define CCCI_REG_DUMP_BUF		(4096 * 64 * 2)
 #define CCCI_DUMP_MD_INIT_BUF		(1024 * 16)
+#define CCCI_KE_DUMP_BUF		(1024 * 32)
 
 #define MD3_CCCI_INIT_SETTING_BUF	(4096 * 2)
 #define MD3_CCCI_BOOT_UP_BUF		(4096 * 16)
@@ -354,7 +355,7 @@ static struct buffer_node node_array[2][CCCI_DUMP_MAX+1] = {
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_MEM_DUMP},
 		{&history_ctlb[0], CCCI_HISTORY_BUF,
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_HISTORY},
-		{&ke_dump_ctlb[0], 32*1024,
+		{&ke_dump_ctlb[0], CCCI_KE_DUMP_BUF,
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REGISTER},
 		{&md_init_buf[0], CCCI_DUMP_MD_INIT_BUF,
                 CCCI_DUMP_ATTR_RING, CCCI_DUMP_MD_INIT},
@@ -908,6 +909,12 @@ static void ccci_dump_buffer_init(void)
 			node_ptr++;
 		}
 	}
+	mrdump_mini_add_extra_file((unsigned long)reg_dump_ctlb[0].buffer,
+		__pa_nodebug(reg_dump_ctlb[0].buffer),
+		CCCI_REG_DUMP_BUF, "EXTRA_MD");
+	mrdump_mini_add_extra_file((unsigned long)ke_dump_ctlb[0].buffer,
+		__pa_nodebug(ke_dump_ctlb[0].buffer),
+		CCCI_KE_DUMP_BUF, "EXTRA_CCCI");
 }
 
 /* functions will be called by external */
@@ -1225,29 +1232,3 @@ void ccci_log_init(void)
 	ccci_dump_buffer_init();
 	ccci_event_buffer_init();
 }
-
-void get_ccci_aee_buffer(unsigned long *vaddr, unsigned long *size)
-{
-	unsigned long data_size = ke_dump_ctlb[0].data_size;
-
-	if (data_size > ke_dump_ctlb[0].buf_size)
-		data_size = ke_dump_ctlb[0].buf_size;
-
-	*vaddr = (unsigned long)ke_dump_ctlb[0].buffer;
-	*size = data_size;
-
-}
-EXPORT_SYMBOL(get_ccci_aee_buffer);
-
-void get_md_aee_buffer(unsigned long *vaddr, unsigned long *size)
-{
-	unsigned long data_size = reg_dump_ctlb[0].data_size;
-
-	if (data_size > reg_dump_ctlb[0].buf_size)
-		data_size = reg_dump_ctlb[0].buf_size;
-
-	*vaddr = (unsigned long)reg_dump_ctlb[0].buffer;
-	*size = data_size;
-
-}
-EXPORT_SYMBOL(get_md_aee_buffer);
