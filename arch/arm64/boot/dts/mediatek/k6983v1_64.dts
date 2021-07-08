@@ -45,6 +45,33 @@
 	};
 };
 
+&connfem {
+	epa_elna {
+		parts = <&nofem &nofem>;
+	};
+
+	epa_elna_mtk {
+		parts = <&nofem &nofem>,
+			<&wlan7207h &wlan7205c_laa>;
+
+		gpio-hwid = <&pio 203 0x00>;
+
+		wifi {
+			flags-1 {
+				/* open-loop; */
+				laa;
+			};
+		};
+
+		bt {
+			flags-1 {
+				/* choose one of: bypass / epa_elna / elna / epa */
+				bypass;
+			};
+		};
+	};
+};
+
 /* GPS GPIO standardization start */
 &pio {
 	gps_pins_default: gps_default {

@@ -18,6 +18,7 @@
 #include <dt-bindings/mfd/mt6375.h>
 #include <dt-bindings/power/mt6375-gauge.h>
 #include <dt-bindings/phy/phy.h>
+#include <dt-bindings/pinctrl/mt6983-pinfunc.h>
 
 / {
 	model = "MT6983";
@@ -5517,6 +5518,10 @@
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
 
+	connfem: connfem@18000000 {
+		compatible = "mediatek,mt6983-connfem";
+	};
+
 	btif@1100c000 {
 		compatible = "mediatek,btif";
 		reg = <0 0x1100c000 0 0x100>, /*btif base*/
@@ -6745,6 +6750,7 @@
 #include "mediatek/rt6160.dtsi"
 #include "mediatek/mt6363.dtsi"
 #include "mediatek/mt6373.dtsi"
+#include "mediatek/cust_mt6983_connfem.dtsi"
 
 &mt6363_vbuck1 {
 	regulator-always-on;
