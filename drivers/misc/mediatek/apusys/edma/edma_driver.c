@@ -244,6 +244,8 @@ static int edma_setup_resource(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct device_node *sub_node;
 	struct platform_device *sub_pdev;
+	struct edma_plat_drv *drv;
+
 	int i, ret;
 
 	ret = of_property_read_u32(dev->of_node, "sub_nr",
@@ -288,6 +290,13 @@ static int edma_setup_resource(struct platform_device *pdev,
 		edma_sub->adev.private = edma_sub;
 		edma_sub->adev.send_cmd = edma_send_cmd;
 		edma_sub->adev.idx = i;
+
+		drv = (struct edma_plat_drv *)edma_sub->plat_drv;
+		if (drv != NULL) {
+			edma_sub->adev.meta_data[0] = drv->version;
+			dev_notice(dev, "drv->version = %d\n",
+						drv->version);
+		}
 		ret = apusys_register_device(&edma_sub->adev);
 		if (ret) {
 			dev_notice(dev,

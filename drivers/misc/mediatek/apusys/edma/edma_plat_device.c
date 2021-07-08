@@ -15,6 +15,7 @@ static struct edma_plat_drv edma_v20_drv = {
 	.edma_isr         = edma_isr_handler,
 	.cmd_timeout_ms     = 3000,
 	.delay_power_off_ms   = 2000,
+	.version           = 20,
 };
 
 
@@ -24,6 +25,7 @@ static struct edma_plat_drv edma_v30_drv = {
 	.edma_isr         = edmaV30_isr_handler,
 	.cmd_timeout_ms     = 3000,
 	.delay_power_off_ms   = 2000,
+	.version           = 35,
 };
 
 

@@ -15,6 +15,7 @@ struct edma_plat_drv {
 	irqreturn_t (*edma_isr)(int irq, void *edma_sub_info);
 	unsigned int cmd_timeout_ms;
 	unsigned int delay_power_off_ms;
+	unsigned char version;
 };
 
 void print_error_status(struct edma_sub *edma_sub,
