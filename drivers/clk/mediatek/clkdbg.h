@@ -4,6 +4,8 @@
  * Author: Owen Chen <owen.chen@mediatek.com>
  */
 
+#include <linux/platform_device.h>
+
 struct seq_file;
 
 #define CMDFN(_cmd, _fn) {	\
@@ -28,6 +30,7 @@ struct clkdbg_ops {
 
 void set_clkdbg_ops(const struct clkdbg_ops *ops);
 void clkdbg_set_cfg(void);
+int clk_dbg_driver_register(struct platform_driver *drv, const char *name);
 
 extern const struct regname *get_all_regnames(void);
 extern struct provider_clk *get_all_provider_clks(void);

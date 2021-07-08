@@ -9,6 +9,8 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/seq_file.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
 
 #include <dt-bindings/power/mt6853-power.h>
 
@@ -457,7 +459,37 @@ static struct clkdbg_ops clkdbg_mt6853_ops = {
 	.get_all_clk_names = get_all_clk_names,
 };
 
-void clkdbg_set_cfg(void)
+static int clk_dbg_mt6853_probe(struct platform_device *pdev)
 {
+	pr_notice("%s start\n", __func__);
 	set_clkdbg_ops(&clkdbg_mt6853_ops);
+
+	return 0;
 }
+
+static struct platform_driver clk_dbg_mt6853_drv = {
+	.probe = clk_dbg_mt6853_probe,
+	.driver = {
+		.name = "clk-dbg-mt6853",
+		.owner = THIS_MODULE,
+	},
+};
+
+/*
+ * init functions
+ */
+
+static int __init clkdbg_mt6853_init(void)
+{
+	return clk_dbg_driver_register(&clk_dbg_mt6853_drv, "clk-dbg-mt6853");
+}
+
+static void __exit clkdbg_mt6853_exit(void)
+{
+	platform_driver_unregister(&clk_dbg_mt6853_drv);
+}
+
+subsys_initcall(clkdbg_mt6853_init);
+module_exit(clkdbg_mt6853_exit);
+MODULE_LICENSE("GPL");
+

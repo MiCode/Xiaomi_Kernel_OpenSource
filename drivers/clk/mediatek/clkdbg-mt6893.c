@@ -8,6 +8,8 @@
 #include <linux/io.h>
 #include <linux/seq_file.h>
 #include <linux/delay.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
 
 #include <clk-mux.h>
 #include "clkdbg.h"
@@ -588,8 +590,37 @@ static struct clkdbg_ops clkdbg_mt6893_ops = {
 	.get_all_clk_names = get_mt6893_all_clk_names,
 };
 
-void clkdbg_set_cfg(void)
+static int clk_dbg_mt6893_probe(struct platform_device *pdev)
 {
+	pr_notice("%s start\n", __func__);
 	set_clkdbg_ops(&clkdbg_mt6893_ops);
+
+	return 0;
 }
-EXPORT_SYMBOL(clkdbg_set_cfg);
+
+static struct platform_driver clk_dbg_mt6893_drv = {
+	.probe = clk_dbg_mt6893_probe,
+	.driver = {
+		.name = "clk-dbg-mt6893",
+		.owner = THIS_MODULE,
+	},
+};
+
+/*
+ * init functions
+ */
+
+static int __init clkdbg_mt6893_init(void)
+{
+	return clk_dbg_driver_register(&clk_dbg_mt6893_drv, "clk-dbg-mt6893");
+}
+
+static void __exit clkdbg_mt6893_exit(void)
+{
+	platform_driver_unregister(&clk_dbg_mt6893_drv);
+}
+
+subsys_initcall(clkdbg_mt6893_init);
+module_exit(clkdbg_mt6893_exit);
+MODULE_LICENSE("GPL");
+

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-common.o
-clk-common-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-mtk.o clk-pll.o clk-gate.o clk-apmixed.o clk-cpumux.o reset.o clk-mux.o clkchk.o clk-fmeter.o
+clk-common-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-mtk.o clk-pll.o clk-gate.o clk-apmixed.o clk-cpumux.o reset.o clk-mux.o clkchk.o clk-fmeter.o mtk-pd-chk.o clkdbg.o
 obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-disable-unused.o
 
 obj-$(CONFIG_COMMON_CLK_MT6765) += clk-mt6765.o
@@ -198,13 +198,13 @@ clk-chk-mt6893-$(CONFIG_COMMON_CLK_MT6893) += clkchk-mt6893.o
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-fmeter-mt6893.o
 clk-fmeter-mt6893-$(CONFIG_COMMON_CLK_MT6893) += clk-fmeter-mt6893.o
 obj-$(CONFIG_COMMON_CLK_MT6893) += pd-chk-mt6893.o
-pd-chk-mt6893-$(CONFIG_COMMON_CLK_MT6893) += mtk-pd-chk.o mtk-pd-chk-mt6893.o
+pd-chk-mt6893-$(CONFIG_COMMON_CLK_MT6893) += mtk-pd-chk-mt6893.o
 endif
 ifeq ($(CONFIG_DEBUG_FS), y)
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-dbg-mt6853.o
-clk-dbg-mt6853-$(CONFIG_COMMON_CLK_MT6853) += clkdbg.o clkdbg-mt6853.o
+clk-dbg-mt6853-$(CONFIG_COMMON_CLK_MT6853) += clkdbg-mt6853.o
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-dbg-mt6893.o
-clk-dbg-mt6893-$(CONFIG_COMMON_CLK_MT6893) += clkdbg.o clkdbg-mt6893.o
+clk-dbg-mt6893-$(CONFIG_COMMON_CLK_MT6893) += clkdbg-mt6893.o
 endif
 endif

@@ -45,6 +45,7 @@ void set_clkdbg_ops(const struct clkdbg_ops *ops)
 {
 	clkdbg_ops = ops;
 }
+EXPORT_SYMBOL(set_clkdbg_ops);
 
 static const struct fmeter_clk *get_all_fmeter_clks(void)
 {
@@ -1649,6 +1650,77 @@ static int clkdbg_unreg_pdrv(struct seq_file *s, void *v)
 	return 0;
 }
 
+bool clkdbg_get_power_domain_status(struct device *dev)
+{
+	struct generic_pm_domain **pds = get_all_genpd();
+	unsigned int active_cnt = 0;
+
+	for (; pds != NULL && *pds != NULL; pds++) {
+		struct pm_domain_data *pdd;
+		struct generic_pm_domain *pd = *pds;
+		bool dev_match = false;
+
+		if (IS_ERR_OR_NULL(pd))
+			continue;
+
+		pr_notice("clkdbg: %s\n", pd->name);
+
+		list_for_each_entry(pdd, &pd->dev_list, list_node) {
+			struct platform_device *pdev = to_platform_device(dev);
+			struct device *d = pdd->dev;
+			struct platform_device *p = to_platform_device(d);
+
+			pr_notice("clkdbg: compare %s and %s\n", p->name, pdev->name);
+			if (strcmp(p->name, pdev->name) == 0)
+				dev_match = 1;
+		}
+
+		list_for_each_entry(pdd, &pd->dev_list, list_node) {
+			struct device *d = pdd->dev;
+
+			if (dev_match)
+				active_cnt += pm_runtime_active(d);
+		}
+	}
+
+	if (active_cnt > 0)
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(clkdbg_get_power_domain_status);
+
+static int clkdbg_dump_power_domain_status(struct seq_file *s, void *v)
+{
+	char cmd[sizeof(last_cmd)];
+	char *c = cmd;
+	char *ign;
+	char *dev_name;
+	struct platform_device *pdev;
+
+	strncpy(cmd, last_cmd, sizeof(cmd));
+	cmd[sizeof(cmd) - 1UL] = '\0';
+
+	ign = strsep(&c, " ");
+	dev_name = strsep(&c, " ");
+
+	if (dev_name == NULL)
+		return 0;
+
+	seq_printf(s, "get power domain status(%s): ", dev_name);
+
+	pdev = pdev_from_name(dev_name);
+	if (pdev != NULL) {
+		bool r = clkdbg_get_power_domain_status(&pdev->dev);
+
+		seq_printf(s, "%d\n", r);
+	} else {
+		seq_puts(s, "NULL\n");
+	}
+
+	return 0;
+}
+
 #endif /* CLKDBG_PM_DOMAIN */
 
 void reg_pdrv(const char *pdname)
@@ -1963,6 +2035,7 @@ static const struct cmd_fn common_cmds[] = {
 	CMDFN("clr_flag", clkdbg_clr_flag),
 #if CLKDBG_PM_DOMAIN
 	CMDFN("dump_genpd", clkdbg_dump_genpd),
+	CMDFN("dump_genpd_sta", clkdbg_dump_power_domain_status),
 	CMDFN("pm_runtime_enable", clkdbg_pm_runtime_enable),
 	CMDFN("pm_runtime_disable", clkdbg_pm_runtime_disable),
 	CMDFN("pm_runtime_get_sync", clkdbg_pm_runtime_get_sync),
@@ -2051,14 +2124,6 @@ static ssize_t clkdbg_write(
 	return (ssize_t)len;
 }
 
-static int clk_dbg_probe(struct platform_device *pdev)
-{
-	pr_notice("%s start\n", __func__);
-	clkdbg_set_cfg();
-
-	return 0;
-}
-
 static struct notifier_block clkdbg_pm_notifier = {
 	.notifier_call = clkdbg_pm_event_handler,
 };
@@ -2071,7 +2136,7 @@ static int clk_dbg_dev_pm_suspend(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops clk_bg_dev_pm_ops = {
+static const struct dev_pm_ops clk_dbg_dev_pm_ops = {
 	.suspend_noirq = clk_dbg_dev_pm_suspend,
 	.resume_noirq = NULL,
 };
@@ -2084,28 +2149,15 @@ static const struct proc_ops clkdbg_fops = {
 	.proc_release	= single_release,
 };
 
-static struct platform_driver clk_dbg_drv = {
-	.probe = clk_dbg_probe,
-	.driver = {
-		.name = "clk-dbg",
-		.owner = THIS_MODULE,
-		.pm = &clk_bg_dev_pm_ops,
-	},
-};
-
-/*
- * init functions
- */
-
-static int __init clkdbg_init(void)
+int clk_dbg_driver_register(struct platform_driver *drv, const char *name)
 {
 	static struct platform_device *clk_dbg_dev;
 	struct proc_dir_entry *entry;
 	int r;
 
-	clk_dbg_dev = platform_device_register_simple("clk-dbg", -1, NULL, 0);
+	clk_dbg_dev = platform_device_register_simple(name, -1, NULL, 0);
 	if (IS_ERR(clk_dbg_dev))
-		pr_warn("unable to register clk-dbg device");
+		pr_warn("unable to register %s device", name);
 
 	r = register_pm_notifier(&clkdbg_pm_notifier);
 	if (r != 0) {
@@ -2119,15 +2171,12 @@ static int __init clkdbg_init(void)
 
 	set_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_3);
 
-	return platform_driver_register(&clk_dbg_drv);
-}
+	drv->driver.pm = &clk_dbg_dev_pm_ops;
 
-static void __exit clkdbg_exit(void)
-{
-	platform_driver_unregister(&clk_dbg_drv);
+	return platform_driver_register(drv);
 }
+EXPORT_SYMBOL(clk_dbg_driver_register);
 
-subsys_initcall(clkdbg_init);
-module_exit(clkdbg_exit);
 MODULE_LICENSE("GPL");
-
+MODULE_DESCRIPTION("MediaTek CLK DBG");
+MODULE_AUTHOR("MediaTek Inc.");
