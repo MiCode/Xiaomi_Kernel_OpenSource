@@ -642,15 +642,12 @@ struct mtk_coulomb_service {
 	struct mutex hw_coulomb_lock;
 	unsigned long reset_coulomb;
 	spinlock_t slock;
-	spinlock_t slock_int;
 	struct wakeup_source *wlock;
 	wait_queue_head_t wait_que;
 	bool coulomb_thread_timeout;
 	int fgclog_level;
 	int pre_coulomb;
 	bool init;
-	bool b_int_h;
-	bool b_int_l;
 };
 
 struct battery_temperature_table {
