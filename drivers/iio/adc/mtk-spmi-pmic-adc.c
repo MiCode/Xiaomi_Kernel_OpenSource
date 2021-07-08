@@ -9,6 +9,7 @@
 #include <linux/iio/iio.h>
 #include <linux/kernel.h>
 #include <linux/mfd/mt6363/registers.h>
+#include <linux/mfd/mt6373/registers.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -165,12 +166,28 @@ static const struct auxadc_regs mt6363_auxadc_regs_tbl[] = {
 	TIA_ADC_REG(7, MT6363),
 };
 
+static const struct auxadc_regs mt6373_auxadc_regs_tbl[] = {
+	AUXADC_REG(CHIP_TEMP, MT6373, AUXADC_RQST0, BIT(4), AUXADC_ADC4_L),
+	AUXADC_REG(VCORE_TEMP, MT6373, AUXADC_RQST3, BIT(0), AUXADC_ADC38_L),
+	AUXADC_REG(VPROC_TEMP, MT6373, AUXADC_RQST3, BIT(1), AUXADC_ADC39_L),
+	AUXADC_REG(VGPU_TEMP, MT6373, AUXADC_RQST3, BIT(2), AUXADC_ADC40_L),
+	TIA_ADC_REG(1, MT6373),
+	TIA_ADC_REG(2, MT6373),
+	TIA_ADC_REG(3, MT6373),
+	TIA_ADC_REG(4, MT6373),
+	TIA_ADC_REG(5, MT6373),
+};
+
 struct auxadc_info {
 	const struct auxadc_regs *regs_tbl;
 };
 
 static const struct auxadc_info mt6363_info = {
 	.regs_tbl = mt6363_auxadc_regs_tbl,
+};
+
+static const struct auxadc_info mt6373_info = {
+	.regs_tbl = mt6373_auxadc_regs_tbl,
 };
 
 #define regmap_bulk_read_poll_timeout(map, addr, val, val_count, cond, sleep_us, timeout_us) \
@@ -685,6 +702,7 @@ static int pmic_adc_probe(struct platform_device *pdev)
 
 static const struct of_device_id pmic_adc_of_match[] = {
 	{ .compatible = "mediatek,mt6363-auxadc", .data = &mt6363_info, },
+	{ .compatible = "mediatek,mt6373-auxadc", .data = &mt6373_info, },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, pmic_adc_of_match);
