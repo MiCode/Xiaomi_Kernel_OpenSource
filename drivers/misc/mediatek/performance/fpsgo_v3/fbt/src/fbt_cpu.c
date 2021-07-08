@@ -2057,7 +2057,8 @@ static void fbt_check_cm_limit(struct render_info *thread_info,
 		return;
 
 	if (last_blc > cm_big_cap &&
-		runtime > thread_info->boost_info.target_time + cm_tdiff)
+		runtime > (long long)thread_info->boost_info.target_time +
+		(long long)cm_tdiff)
 		fbt_notify_CM_limit(1);
 	else
 		fbt_notify_CM_limit(0);
