@@ -30,6 +30,7 @@ int mtk_smi_larb_get(struct device *larbdev);
 void mtk_smi_larb_put(struct device *larbdev);
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val);
 void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val);
+s32 mtk_smi_dbg_hang_detect(const char *user);
 
 #else
 
@@ -44,6 +45,10 @@ static inline void
 mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val) { }
 static inline void
 mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val) { }
+static inline s32 mtk_smi_dbg_hang_detect(const char *user)
+{
+	return 0;
+}
 #endif
 
 #endif

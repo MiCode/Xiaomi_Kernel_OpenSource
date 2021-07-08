@@ -74,7 +74,7 @@
 #define INT_SMI_LARB_DBG_CON		(0x500 + (SMI_LARB_DBG_CON))
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
 
-#define SMI_LARB_REGS_NR		(162)
+#define SMI_LARB_REGS_NR		(194)
 static u32	smi_larb_regs[SMI_LARB_REGS_NR] = {
 	SMI_LARB_STAT, SMI_LARB_IRQ_EN, SMI_LARB_IRQ_STATUS, SMI_LARB_SLP_CON,
 	SMI_LARB_CON, SMI_LARB_CON_SET, SMI_LARB_CON_CLR, SMI_LARB_VC_PRI_MODE,
@@ -131,6 +131,22 @@ static u32	smi_larb_regs[SMI_LARB_REGS_NR] = {
 	SMI_LARB_OSTD_MON_PORT(26), SMI_LARB_OSTD_MON_PORT(27),
 	SMI_LARB_OSTD_MON_PORT(28), SMI_LARB_OSTD_MON_PORT(29),
 	SMI_LARB_OSTD_MON_PORT(30), SMI_LARB_OSTD_MON_PORT(31),
+	SMI_LARB_NON_SEC_CON(0), SMI_LARB_NON_SEC_CON(1),
+	SMI_LARB_NON_SEC_CON(2), SMI_LARB_NON_SEC_CON(3),
+	SMI_LARB_NON_SEC_CON(4), SMI_LARB_NON_SEC_CON(5),
+	SMI_LARB_NON_SEC_CON(6), SMI_LARB_NON_SEC_CON(7),
+	SMI_LARB_NON_SEC_CON(8), SMI_LARB_NON_SEC_CON(9),
+	SMI_LARB_NON_SEC_CON(10), SMI_LARB_NON_SEC_CON(11),
+	SMI_LARB_NON_SEC_CON(12), SMI_LARB_NON_SEC_CON(13),
+	SMI_LARB_NON_SEC_CON(14), SMI_LARB_NON_SEC_CON(15),
+	SMI_LARB_NON_SEC_CON(16), SMI_LARB_NON_SEC_CON(17),
+	SMI_LARB_NON_SEC_CON(18), SMI_LARB_NON_SEC_CON(19),
+	SMI_LARB_NON_SEC_CON(20), SMI_LARB_NON_SEC_CON(21),
+	SMI_LARB_NON_SEC_CON(22), SMI_LARB_NON_SEC_CON(23),
+	SMI_LARB_NON_SEC_CON(24), SMI_LARB_NON_SEC_CON(25),
+	SMI_LARB_NON_SEC_CON(26), SMI_LARB_NON_SEC_CON(27),
+	SMI_LARB_NON_SEC_CON(28), SMI_LARB_NON_SEC_CON(29),
+	SMI_LARB_NON_SEC_CON(30), SMI_LARB_NON_SEC_CON(31),
 	INT_SMI_LARB_CMD_THRT_CON, INT_SMI_LARB_DBG_CON,
 	INT_SMI_LARB_OSTD_MON_PORT(0), INT_SMI_LARB_OSTD_MON_PORT(1),
 	INT_SMI_LARB_OSTD_MON_PORT(2), INT_SMI_LARB_OSTD_MON_PORT(3),
@@ -736,12 +752,12 @@ int smi_ut_dump_get(char *buf, const struct kernel_param *kp)
 	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
 		if (!smi->larb[i].dev)
 			continue;
-		pm_runtime_get_sync(smi->larb[i].dev);
+		mtk_smi_larb_get(smi->larb[i].dev);
 	}
 	for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
 		if (!smi->comm[i].dev)
 			continue;
-		pm_runtime_get_sync(smi->comm[i].dev);
+		mtk_smi_larb_get(smi->comm[i].dev);
 	}
 
 	mtk_smi_dbg_hang_detect("SMI UT");
@@ -749,12 +765,12 @@ int smi_ut_dump_get(char *buf, const struct kernel_param *kp)
 	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
 		if (!smi->larb[i].dev)
 			continue;
-		pm_runtime_put_sync(smi->larb[i].dev);
+		mtk_smi_larb_put(smi->larb[i].dev);
 	}
 	for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
 		if (!smi->comm[i].dev)
 			continue;
-		pm_runtime_put_sync(smi->comm[i].dev);
+		mtk_smi_larb_put(smi->comm[i].dev);
 	}
 
 	return 0;
