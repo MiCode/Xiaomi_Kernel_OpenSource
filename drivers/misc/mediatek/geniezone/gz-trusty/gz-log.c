@@ -45,6 +45,8 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/debugfs.h>
 
+#include <mt-plat/mrdump.h>
+
 #if ENABLE_GZ_TRACE_DUMP
 #if IS_BUILTIN(CONFIG_MTK_GZ_LOG)
 	#include "gz_trace_builtin.h"
@@ -203,26 +205,20 @@ dynamic_alloc:
 			__func__, glctx.virt, glctx.size);
 	}
 
+	// register GZ_LOG DB log
+	mrdump_mini_add_extra_file((unsigned long)glctx.virt,
+				   (unsigned long)glctx.paddr,
+				   (unsigned long)glctx.size, "GZ_LOG");
+
 	return 0;
 }
 
+/* get_gz_log_buffer is deprecated after GKI */
 /* get_gz_log_buffer was called in arch_initcall */
 void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 		       unsigned long *size, unsigned long *start)
 {
-	gz_log_page_init();
-
-	if (!glctx.virt) {
-		*addr = *paddr = *size = *start = 0;
-		pr_info("[%s] ERR gz_log init failed\n", __func__);
-		return;
-	}
-	*addr = (unsigned long)glctx.virt;
-	*paddr = (unsigned long)glctx.paddr;
-	pr_info("[%s] virtual address:0x%lx, paddr:0x%lx\n",
-		__func__, (unsigned long)*addr, *paddr);
-	*size = glctx.size;
-	*start = 0;
+	*addr = *paddr = *size = *start = 0;
 }
 EXPORT_SYMBOL(get_gz_log_buffer);
 

@@ -20,6 +20,7 @@ struct log_rb {
 
 #define TRUSTY_LOG_API_VERSION		(1)
 
+/* get_gz_log_buffer is deprecated after GKI */
 void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 		       unsigned long *size, unsigned long *start);
 #endif
