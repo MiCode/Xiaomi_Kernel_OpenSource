@@ -9,8 +9,8 @@
 #include "mtk_cam-seninf-seninf1.h"
 #include "mtk_cam-seninf-seninf1-csi2.h"
 #include "mtk_cam-seninf-tg1.h"
-#include "mtk_cam-seninf-cammux.h"
-
+#include "mtk_cam-seninf-cammux-gcsr.h"
+#include "mtk_cam-seninf-cammux-pcsr.h"
 #include "mtk_cam-seninf-mipi-rx-ana-cdphy-csi0a.h"
 #include "mtk_cam-seninf-csi0-cphy.h"
 #include "mtk_cam-seninf-csi0-dphy.h"

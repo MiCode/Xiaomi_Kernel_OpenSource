@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-// Copyright (c) 2020 MediaTek Inc.
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ */
 
-#ifndef __MTK_CAM_SENINF_SENINF1_H__
-#define __MTK_CAM_SENINF_SENINF1_H__
+#ifndef __SENINF1_H__
+#define __SENINF1_H__
 
 #define SENINF_CTRL 0x0000
 #define SENINF_EN_SHIFT 0

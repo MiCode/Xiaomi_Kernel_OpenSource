@@ -141,7 +141,9 @@ struct seninf_ctx {
 	void __iomem *reg_ana_cphy_top[CSI_PORT_MAX_NUM];
 	void __iomem *reg_if_top;
 	void __iomem *reg_if_ctrl[SENINF_NUM];
-	void __iomem *reg_if_cam_mux;
+		//void __iomem *reg_if_cam_mux;
+	void __iomem *reg_if_cam_mux_gcsr;
+	void __iomem *reg_if_cam_mux_pcsr[SENINF_CAM_MUX_NUM];
 	void __iomem *reg_if_tg[SENINF_NUM];
 	void __iomem *reg_if_csi2[SENINF_NUM];
 	void __iomem *reg_if_mux[SENINF_MUX_NUM];
