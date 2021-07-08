@@ -88,6 +88,8 @@
 #define I2C_CONTROL_ASYNC_MODE          (0x1 << 9)
 #define I2C_CONTROL_WRAPPER             (0x1 << 0)
 
+#define I2C_OFFSET_SCP			0x200
+
 #define I2C_DRV_NAME		"i2c-mt65xx"
 
 /* mt6873 use DMA_HW_VERSION1 */
@@ -277,6 +279,7 @@ struct mtk_i2c {
 	u16 irq_stat;			/* interrupt status */
 	unsigned int clk_src_div;
 	unsigned int speed_hz;		/* The speed in transfer */
+	unsigned int clk_src_in_hz;
 	unsigned int ch_offset_i2c;
 	unsigned int ch_offset_dma;
 	enum mtk_trans_op op;
@@ -1022,6 +1025,11 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	reinit_completion(&i2c->msg_complete);
 	if ((msgs->len > i2c->dev_comp->fifo_size) || ((i2c->op == I2C_MASTER_WRRD) &&
 		((msgs + 1)->len > i2c->dev_comp->fifo_size))) {
+		if (i2c->ch_offset_i2c == I2C_OFFSET_SCP) {
+			dev_dbg(i2c->dev, "Not_support_dma! msgs->len:%d,fifo_size:%d\n",
+					msgs->len, i2c->dev_comp->fifo_size);
+			return -EPERM;
+		}
 		isDMA = true;
 	} else {
 		isDMA = false;
@@ -1499,10 +1507,11 @@ static int mtk_i2c_parse_dt(struct device_node *np, struct mtk_i2c *i2c)
 
 	if (i2c->clk_src_div == 0)
 		return -EINVAL;
+	of_property_read_u32(np, "clk_src_in_hz", &i2c->clk_src_in_hz);
 	of_property_read_u32(np, "ch_offset_i2c", &i2c->ch_offset_i2c);
 	of_property_read_u32(np, "ch_offset_dma", &i2c->ch_offset_dma);
-	dev_dbg(i2c->dev, "ch_offset_i2c=0x%x, ch_offset_dma=0x%x\n",
-			i2c->ch_offset_i2c, i2c->ch_offset_dma);
+	dev_dbg(i2c->dev, "clk_src=%d,ch_offset_i2c=0x%x, ch_offset_dma=0x%x\n",
+			i2c->clk_src_in_hz, i2c->ch_offset_i2c, i2c->ch_offset_dma);
 	i2c->have_pmic = of_property_read_bool(np, "mediatek,have-pmic");
 	i2c->use_push_pull =
 		of_property_read_bool(np, "mediatek,use-push-pull");
@@ -1586,7 +1595,14 @@ static int mtk_i2c_probe(struct platform_device *pdev)
 
 	strlcpy(i2c->adap.name, I2C_DRV_NAME, sizeof(i2c->adap.name));
 
-	ret = mtk_i2c_set_speed(i2c, clk_get_rate(clk));
+	if (i2c->ch_offset_i2c == I2C_OFFSET_SCP) {
+		if (i2c->clk_src_in_hz)
+			ret = mtk_i2c_set_speed(i2c, i2c->clk_src_in_hz);
+		else
+			ret = -EINVAL;
+	} else {
+		ret = mtk_i2c_set_speed(i2c, clk_get_rate(clk));
+	}
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to set the speed.\n");
 		return -EINVAL;
