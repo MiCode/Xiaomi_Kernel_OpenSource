@@ -543,7 +543,7 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		else if (ccmni->ack_prio_en)
 			is_ack = is_ack_skb(ccmni->md_id, skb);
 	}
-
+	sk_pacing_shift_update(skb->sk, 8);
 	ret = ctlb->ccci_ops->send_pkt(ccmni->md_id, ccmni->index, skb, is_ack);
 	if (ret == CCMNI_ERR_MD_NO_READY || ret == CCMNI_ERR_TX_INVAL) {
 		dev_kfree_skb(skb);
