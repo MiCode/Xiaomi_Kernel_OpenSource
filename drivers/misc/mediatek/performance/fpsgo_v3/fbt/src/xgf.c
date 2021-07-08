@@ -76,8 +76,7 @@ int (*xgf_est_runtime_fp)(
 	);
 EXPORT_SYMBOL(xgf_est_runtime_fp);
 
-int (*xgf_stat_xchg_fp)(int enable);
-EXPORT_SYMBOL(xgf_stat_xchg_fp);
+static int (*xgf_stat_xchg_fp)(int enable);
 
 static inline void xgf_lock(const char *tag)
 {
@@ -95,23 +94,19 @@ void xgf_lockprove(const char *tag)
 }
 EXPORT_SYMBOL(xgf_lockprove);
 
-void xgf_for_each_kernel_tracepoint(void *fct, void *priv)
-{
-	for_each_kernel_tracepoint(fct, priv);
-}
-EXPORT_SYMBOL(xgf_for_each_kernel_tracepoint);
-
-int xgf_tracepoint_probe_register(struct tracepoint *tp, void *probe, void *data)
+static int xgf_tracepoint_probe_register(struct tracepoint *tp,
+					void *probe,
+					void *data)
 {
 	return tracepoint_probe_register(tp, probe, data);
 }
-EXPORT_SYMBOL(xgf_tracepoint_probe_register);
 
-int xgf_tracepoint_probe_unregister(struct tracepoint *tp, void *probe, void *data)
+static int xgf_tracepoint_probe_unregister(struct tracepoint *tp,
+					void *probe,
+					void *data)
 {
 	return tracepoint_probe_unregister(tp, probe, data);
 }
-EXPORT_SYMBOL(xgf_tracepoint_probe_unregister);
 
 void xgf_trace(const char *fmt, ...)
 {
@@ -217,12 +212,6 @@ long xgf_get_task_state(struct task_struct *t)
 	return t->state;
 }
 EXPORT_SYMBOL(xgf_get_task_state);
-
-unsigned long xgf_lookup_name(const char *name)
-{
-	return 0;
-}
-EXPORT_SYMBOL(xgf_lookup_name);
 
 static inline int xgf_ko_is_ready(void)
 {
@@ -2316,10 +2305,499 @@ static ssize_t deplist_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
+#define MAX_XGF_EVENTS 32768
+
+struct xgf_trace_event xgf_event_data[MAX_XGF_EVENTS];
+EXPORT_SYMBOL(xgf_event_data);
+
+static int xgf_nr_cpus __read_mostly;
+
+void *xgf_event_index;
+EXPORT_SYMBOL(xgf_event_index);
+void *xgf_ko_enabled;
+EXPORT_SYMBOL(xgf_ko_enabled);
+
+int xgf_getMAXXGFEVENTS(void)
+{
+	return MAX_XGF_EVENTS;
+}
+EXPORT_SYMBOL(xgf_getMAXXGFEVENTS);
+
+static void xgf_buffer_update(int cpu, int event, int data, int note,
+				unsigned long long ts)
+{
+	int index;
+	struct xgf_trace_event *xte;
+
+	if (!xgf_atomic_read(xgf_ko_enabled))
+		return;
+
+Reget:
+	index = xgf_atomic_inc_return(xgf_event_index);
+
+	/* protection for if xgf_nr_cpus in error condition */
+	if (unlikely(index < 0)) {
+		xgf_atomic_set(xgf_event_index, 0);
+		return;
+	}
+
+	/* prevent the thread that supposed to set */
+	/* xgf_event_index to zero is preempted and then cases HWT */
+	if (unlikely(index > (MAX_XGF_EVENTS + (xgf_nr_cpus << 1)))) {
+		xgf_atomic_set(xgf_event_index, 0);
+		return;
+	}
+
+	if (unlikely(index == MAX_XGF_EVENTS))
+		xgf_atomic_set(xgf_event_index, 0);
+	else if (unlikely(index > MAX_XGF_EVENTS))
+		goto Reget;
+
+	index -= 1;
+
+	xte = &xgf_event_data[index];
+	xte->ts = ts;
+	xte->cpu = cpu;
+	xte->event = event;
+	xte->note = note;
+	switch (event) {
+	case SCHED_SWITCH:
+		xte->prev_pid = data;
+		break;
+
+	case SCHED_WAKEUP:
+		xte->pid = data;
+		break;
+
+	case IPI_RAISE:
+		xte->target_cpu = data;
+		break;
+
+	case IRQ_ENTRY:
+	case IRQ_EXIT:
+	case SOFTIRQ_ENTRY:
+	case SOFTIRQ_EXIT:
+		xte->irqnr = data;
+		break;
+
+	default: // IPI_ENTRY, IPI_EXIT
+		xte->none = 0;
+		break;
+	}
+}
+
+static void xgf_irq_handler_entry_tracer(void *ignore,
+					int irqnr,
+					struct irqaction *irq_action)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+
+	xgf_buffer_update(c_wake_cpu, IRQ_ENTRY, irqnr, c_pid, ts);
+}
+
+static void xgf_irq_handler_exit_tracer(void *ignore,
+					int irqnr,
+					struct irqaction *irq_action,
+					int ret)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+
+	xgf_buffer_update(c_wake_cpu, IRQ_EXIT, irqnr, c_pid, ts);
+}
+
+static void xgf_softirq_entry_tracer(void *ignore, unsigned int vec_nr)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+
+	xgf_buffer_update(c_wake_cpu, SOFTIRQ_ENTRY, vec_nr, c_pid, ts);
+}
+
+static void xgf_softirq_exit_tracer(void *ignore, unsigned int vec_nr)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+
+	xgf_buffer_update(c_wake_cpu, SOFTIRQ_EXIT, vec_nr, c_pid, ts);
+}
+
+static void xgf_ipi_raise_tracer(void *ignore, const struct cpumask *mask,
+				const char *reason)
+{
+	unsigned int i;
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+
+	if (xgf_nr_cpus == 1)
+		xgf_buffer_update(c_wake_cpu, IPI_RAISE, 0, c_pid, ts);
+	else {
+		for (i = -1; i = xgf_cpumask_next(i, mask), i < xgf_nr_cpus;)
+			xgf_buffer_update(c_wake_cpu, IPI_RAISE, i, c_pid, ts);
+	}
+}
+
+static void xgf_ipi_entry_tracer(void *ignore, const char *reason)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+
+	xgf_buffer_update(c_wake_cpu, IPI_ENTRY, 0, c_pid, ts);
+}
+
+static void xgf_ipi_exit_tracer(void *ignore, const char *reason)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+
+	xgf_buffer_update(c_wake_cpu, IPI_EXIT, 0, c_pid, ts);
+}
+
+static void xgf_sched_wakeup_tracer(void *ignore, struct task_struct *p)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+	int p_pid = xgf_get_task_pid(p);
+
+	xgf_buffer_update(c_wake_cpu, SCHED_WAKEUP, p_pid, c_pid, ts);
+}
+
+static void xgf_sched_wakeup_new_tracer(void *ignore, struct task_struct *p)
+{
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int c_pid = xgf_get_task_pid(current);
+	int p_pid = xgf_get_task_pid(p);
+
+	xgf_buffer_update(c_wake_cpu, SCHED_WAKEUP, p_pid, c_pid, ts);
+}
+
+static inline long xgf_trace_sched_switch_state(bool preempt,
+				struct task_struct *p)
+{
+	long state = xgf_get_task_state(p);
+
+	if (preempt)
+		state = TASK_RUNNING | TASK_STATE_MAX;
+
+	return state;
+}
+
+static void xgf_sched_switch_tracer(void *ignore,
+				bool preempt,
+				struct task_struct *prev,
+				struct task_struct *next)
+{
+	long prev_state;
+	long temp_state;
+	int skip = 0;
+	unsigned long long ts = xgf_get_time();
+	int c_wake_cpu = xgf_get_task_wake_cpu(current);
+	int prev_pid = xgf_get_task_pid(prev);
+
+	prev_state = xgf_trace_sched_switch_state(preempt, prev);
+	temp_state = prev_state & (TASK_STATE_MAX-1);
+
+	if (!temp_state)
+		skip = 1;
+
+	xgf_buffer_update(c_wake_cpu, SCHED_SWITCH, prev_pid, skip, ts);
+}
+
+struct tracepoints_table {
+	const char *name;
+	void *func;
+	struct tracepoint *tp;
+	bool registered;
+};
+
+static struct tracepoints_table xgf_tracepoints[] = {
+	{.name = "irq_handler_entry", .func = xgf_irq_handler_entry_tracer},
+	{.name = "irq_handler_exit", .func = xgf_irq_handler_exit_tracer},
+	{.name = "softirq_entry", .func = xgf_softirq_entry_tracer},
+	{.name = "softirq_exit", .func = xgf_softirq_exit_tracer},
+	{.name = "ipi_raise", .func = xgf_ipi_raise_tracer},
+	{.name = "ipi_entry", .func = xgf_ipi_entry_tracer},
+	{.name = "ipi_exit", .func = xgf_ipi_exit_tracer},
+	{.name = "sched_wakeup", .func = xgf_sched_wakeup_tracer},
+	{.name = "sched_wakeup_new", .func = xgf_sched_wakeup_new_tracer},
+	{.name = "sched_switch", .func = xgf_sched_switch_tracer},
+};
+
+#define FOR_EACH_INTEREST_MAX \
+	(sizeof(xgf_tracepoints) / sizeof(struct tracepoints_table))
+
+#define FOR_EACH_INTEREST(i) \
+	for (i = 0; i < FOR_EACH_INTEREST_MAX; i++)
+
+static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (strcmp(xgf_tracepoints[i].name, tp->name) == 0)
+			xgf_tracepoints[i].tp = tp;
+	}
+}
+
+static void xgf_cleanup(void)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (xgf_tracepoints[i].registered) {
+			xgf_tracepoint_probe_unregister(xgf_tracepoints[i].tp,
+						xgf_tracepoints[i].func, NULL);
+			xgf_tracepoints[i].registered = false;
+		}
+	}
+}
+
+static void __nocfi xgf_tracing_register(void)
+{
+	int ret;
+
+	xgf_nr_cpus = xgf_num_possible_cpus();
+	xgf_atomic_set(xgf_event_index, 0);
+
+	/* xgf_irq_handler_entry_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[0].tp,
+						xgf_tracepoints[0].func,  NULL);
+
+	if (ret) {
+		pr_info("irq_handler_entry: Couldn't activate tracepoint probe to irq_handler_entry\n");
+		goto fail_reg_irq_handler_entry;
+	}
+	xgf_tracepoints[0].registered = true;
+
+	/* xgf_irq_handler_exit_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[1].tp,
+						xgf_tracepoints[1].func,  NULL);
+
+	if (ret) {
+		pr_info("irq_handler_exit: Couldn't activate tracepoint probe to irq_handler_exit\n");
+		goto fail_reg_irq_handler_exit;
+	}
+	xgf_tracepoints[1].registered = true;
+
+	/* xgf_softirq_entry_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[2].tp,
+						xgf_tracepoints[2].func,  NULL);
+
+	if (ret) {
+		pr_info("softirq_entry: Couldn't activate tracepoint probe to softirq_entry\n");
+		goto fail_reg_softirq_entry;
+	}
+	xgf_tracepoints[2].registered = true;
+
+	/* xgf_softirq_exit_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[3].tp,
+						xgf_tracepoints[3].func,  NULL);
+
+	if (ret) {
+		pr_info("softirq_exit: Couldn't activate tracepoint probe to softirq_exit\n");
+		goto fail_reg_softirq_exit;
+	}
+	xgf_tracepoints[3].registered = true;
+
+	/* xgf_ipi_raise_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[4].tp,
+						xgf_tracepoints[4].func,  NULL);
+
+	if (ret) {
+		pr_info("ipi_raise: Couldn't activate tracepoint probe to ipi_raise\n");
+		goto fail_reg_ipi_raise;
+	}
+	xgf_tracepoints[4].registered = true;
+
+	/* xgf_ipi_entry_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[5].tp,
+						xgf_tracepoints[5].func,  NULL);
+
+	if (ret) {
+		pr_info("ipi_entry: Couldn't activate tracepoint probe to ipi_entry\n");
+		goto fail_reg_ipi_entry;
+	}
+	xgf_tracepoints[5].registered = true;
+
+	/* xgf_ipi_exit_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[6].tp,
+						xgf_tracepoints[6].func,  NULL);
+
+	if (ret) {
+		pr_info("ipi_exit: Couldn't activate tracepoint probe to ipi_exit\n");
+		goto fail_reg_ipi_exit;
+	}
+	xgf_tracepoints[6].registered = true;
+
+	/* xgf_sched_wakeup_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[7].tp,
+						xgf_tracepoints[7].func,  NULL);
+
+	if (ret) {
+		pr_info("wakeup trace: Couldn't activate tracepoint probe to kernel_sched_wakeup\n");
+		goto fail_reg_sched_wakeup;
+	}
+	xgf_tracepoints[7].registered = true;
+
+	/* xgf_sched_wakeup_new_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[8].tp,
+						xgf_tracepoints[8].func,  NULL);
+
+	if (ret) {
+		pr_info("wakeup trace: Couldn't activate tracepoint probe to kernel_sched_wakeup_new\n");
+		goto fail_reg_sched_wakeup_new;
+	}
+	xgf_tracepoints[8].registered = true;
+
+	/* xgf_sched_switch_tracer */
+	ret = xgf_tracepoint_probe_register(xgf_tracepoints[9].tp,
+						xgf_tracepoints[9].func,  NULL);
+
+	if (ret) {
+		pr_info("sched trace: Couldn't activate tracepoint probe to kernel_sched_switch\n");
+		goto fail_reg_sched_switch;
+	}
+	xgf_tracepoints[9].registered = true;
+
+	xgf_atomic_set(xgf_event_index, 0);
+	return; /* successful registered all */
+
+fail_reg_sched_switch:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[9].tp,
+					xgf_tracepoints[9].func,  NULL);
+	xgf_tracepoints[9].registered = false;
+fail_reg_sched_wakeup_new:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[8].tp,
+					xgf_tracepoints[8].func,  NULL);
+	xgf_tracepoints[8].registered = false;
+fail_reg_sched_wakeup:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[7].tp,
+					xgf_tracepoints[7].func,  NULL);
+	xgf_tracepoints[7].registered = false;
+fail_reg_ipi_exit:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[6].tp,
+					xgf_tracepoints[6].func,  NULL);
+	xgf_tracepoints[6].registered = false;
+fail_reg_ipi_entry:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[5].tp,
+					xgf_tracepoints[5].func,  NULL);
+	xgf_tracepoints[5].registered = false;
+fail_reg_ipi_raise:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[4].tp,
+					xgf_tracepoints[4].func,  NULL);
+	xgf_tracepoints[4].registered = false;
+fail_reg_softirq_exit:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[3].tp,
+					xgf_tracepoints[3].func,  NULL);
+	xgf_tracepoints[3].registered = false;
+fail_reg_softirq_entry:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[2].tp,
+					xgf_tracepoints[2].func,  NULL);
+	xgf_tracepoints[2].registered = false;
+fail_reg_irq_handler_exit:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[1].tp,
+					xgf_tracepoints[1].func,  NULL);
+	xgf_tracepoints[1].registered = false;
+fail_reg_irq_handler_entry:
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[0].tp,
+					xgf_tracepoints[0].func,  NULL);
+	xgf_tracepoints[0].registered = false;
+
+	xgf_atomic_set(xgf_ko_enabled, 0);
+	xgf_atomic_set(xgf_event_index, 0);
+}
+
+static void __nocfi xgf_tracing_unregister(void)
+{
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[0].tp,
+					xgf_tracepoints[0].func,  NULL);
+	xgf_tracepoints[0].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[1].tp,
+					xgf_tracepoints[1].func,  NULL);
+	xgf_tracepoints[1].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[2].tp,
+					xgf_tracepoints[2].func,  NULL);
+	xgf_tracepoints[2].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[3].tp,
+					xgf_tracepoints[3].func,  NULL);
+	xgf_tracepoints[3].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[4].tp,
+					xgf_tracepoints[4].func,  NULL);
+	xgf_tracepoints[4].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[5].tp,
+					xgf_tracepoints[5].func,  NULL);
+	xgf_tracepoints[5].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[6].tp,
+					xgf_tracepoints[6].func,  NULL);
+	xgf_tracepoints[6].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[7].tp,
+					xgf_tracepoints[7].func,  NULL);
+	xgf_tracepoints[7].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[8].tp,
+					xgf_tracepoints[8].func,  NULL);
+	xgf_tracepoints[8].registered = false;
+	xgf_tracepoint_probe_unregister(xgf_tracepoints[9].tp,
+					xgf_tracepoints[9].func,  NULL);
+	xgf_tracepoints[9].registered = false;
+	xgf_atomic_set(xgf_event_index, 0);
+}
+
+int xgf_stat_xchg(int xgf_enable)
+{
+	int ret = -1;
+
+	if (xgf_enable) {
+		xgf_tracing_register();
+		ret = 1;
+		xgf_atomic_set(xgf_ko_enabled, 1);
+	} else {
+		xgf_tracing_unregister();
+		ret = 0;
+		xgf_atomic_set(xgf_ko_enabled, 0);
+	}
+
+	return ret;
+}
+
+int __init init_xgf_ko(void)
+{
+	int i;
+
+	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
+
+	FOR_EACH_INTEREST(i) {
+		if (xgf_tracepoints[i].tp == NULL) {
+			pr_debug("XGF KO Error, %s not found\n",
+					xgf_tracepoints[i].name);
+			xgf_cleanup();
+			return -1;
+		}
+	}
+
+	xgf_event_index = xgf_atomic_val_assign(0);
+	xgf_ko_enabled = xgf_atomic_val_assign(1);
+
+	xgf_stat_xchg_fp = xgf_stat_xchg;
+
+	return 0;
+}
+
 static KOBJ_ATTR_RO(deplist);
 
 int __init init_xgf(void)
 {
+	init_xgf_ko();
+
 	if (!fpsgo_sysfs_create_dir(NULL, "xgf", &xgf_kobj)) {
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_deplist);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_spid_list);
