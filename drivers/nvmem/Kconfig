@@ -128,6 +128,16 @@ config MT635X_EFUSE
 	  This driver can also be built as a module. If so, the module
 	  will be called nvmem-mt635x-efuse.
 
+config MT6338_EFUSE
+	tristate "Mediatek MT6338 PMIC EFUSE Support"
+	depends on MFD_MT6338 || COMPILE_TEST
+	help
+	  This is a simple driver to dump specified values of Mediatek
+	  MT6338 PMIC from EFUSE.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called nvmem-mt6338-efuse.
+
 config QCOM_QFPROM
 	tristate "QCOM QFPROM Support"
 	depends on ARCH_QCOM || COMPILE_TEST
