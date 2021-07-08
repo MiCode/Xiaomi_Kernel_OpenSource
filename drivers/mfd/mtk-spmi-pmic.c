@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2019 MediaTek Inc.
- * Author: Argus Lin <argus.lin@mediatek.com>
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/interrupt.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/mt6363/core.h>
 #include <linux/mfd/mt6363/registers.h>
+#include <linux/mfd/mt6368/core.h>
+#include <linux/mfd/mt6368/registers.h>
 #include <linux/mfd/mt6373/core.h>
 #include <linux/mfd/mt6373/registers.h>
 #include <linux/module.h>
@@ -83,6 +84,21 @@ static const struct mfd_cell mt6363_devs[] = {
 	},
 };
 
+static const struct mfd_cell mt6368_devs[] = {
+	{
+		.name = "second-pmic",
+		.of_compatible = "mediatek,spmi-pmic-debug",
+	},
+	{ .name = "mt6368-regulator", },
+	{
+		.name = "mt6368-auxadc",
+		.of_compatible = "mediatek,mt6368-auxadc",
+	}, {
+		.name = "mt6368-efuse",
+		.of_compatible = "mediatek,mt6368-efuse",
+	}
+};
+
 static const struct mfd_cell mt6373_devs[] = {
 	{
 		.name = "second-pmic",
@@ -110,6 +126,13 @@ static struct irq_top_t mt6363_ints[] = {
 	MT6363_TOP_GEN(BM),
 };
 
+static struct irq_top_t mt6368_ints[] = {
+	MT6368_TOP_GEN(BUCK),
+	MT6368_TOP_GEN(LDO),
+	MT6368_TOP_GEN(MISC),
+	MT6368_TOP_GEN(AUD),
+};
+
 static struct irq_top_t mt6373_ints[] = {
 	MT6373_TOP_GEN(BUCK),
 	MT6373_TOP_GEN(LDO),
@@ -127,6 +150,15 @@ static const struct mtk_spmi_pmic_data mt6363_data = {
 	.num_pmic_irqs = MT6363_IRQ_NR,
 	.top_int_status_reg = MT6363_TOP_INT_STATUS1,
 	.pmic_ints = mt6363_ints,
+};
+
+static const struct mtk_spmi_pmic_data mt6368_data = {
+	.cells = mt6368_devs,
+	.cell_size = ARRAY_SIZE(mt6368_devs),
+	.num_top = ARRAY_SIZE(mt6368_ints),
+	.num_pmic_irqs = MT6368_IRQ_NR,
+	.top_int_status_reg = MT6368_TOP_INT_STATUS1,
+	.pmic_ints = mt6368_ints,
 };
 
 static const struct mtk_spmi_pmic_data mt6373_data = {
@@ -416,6 +448,7 @@ static const struct of_device_id mtk_spmi_pmic_of_match[] = {
 	{ .compatible = "mediatek,mt6315", .data = &common_data, },
 	{ .compatible = "mediatek,mt6319", .data = &common_data, },
 	{ .compatible = "mediatek,mt6363", .data = &mt6363_data, },
+	{ .compatible = "mediatek,mt6368", .data = &mt6368_data, },
 	{ .compatible = "mediatek,mt6373", .data = &mt6373_data, },
 	{ }
 };
