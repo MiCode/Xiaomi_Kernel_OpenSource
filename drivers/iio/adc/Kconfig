@@ -705,6 +705,16 @@ config MCP3911
 	  This driver can also be built as a module. If so, the module will be
 	  called mcp3911.
 
+config MEDIATEK_MT6338_AUXADC
+	tristate "MediaTek MT6338 PMIC AUXADC Support"
+	depends on MFD_MT6338
+	help
+	  Say yes here to enable support for MediaTek MT6338 PMIC AUXADC.
+	  The driver supports multiple channels read.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called mt6338-auxadc.
+
 config MEDIATEK_MT635X_AUXADC
 	tristate "MediaTek MT635X PMIC AUXADC Support"
 	depends on MFD_MT6397

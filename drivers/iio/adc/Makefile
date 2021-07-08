@@ -65,6 +65,7 @@ obj-$(CONFIG_MAX9611) += max9611.o
 obj-$(CONFIG_MCP320X) += mcp320x.o
 obj-$(CONFIG_MCP3422) += mcp3422.o
 obj-$(CONFIG_MCP3911) += mcp3911.o
+obj-$(CONFIG_MEDIATEK_MT6338_AUXADC) += mt6338-auxadc.o
 obj-$(CONFIG_MEDIATEK_MT635X_AUXADC) += mt635x-auxadc.o
 obj-$(CONFIG_MEDIATEK_MT6360_AUXADC) += mt6360-adc.o
 obj-$(CONFIG_MEDIATEK_MT6362_ADC) += mt6362-adc.o
