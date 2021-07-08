@@ -31,6 +31,7 @@
 #include "gpueb_ipi.h"
 #include "gpueb_logger.h"
 #include "gpueb_reserved_mem.h"
+#include "gpueb_plat_service.h"
 
 static unsigned int gpueb_logger_inited;
 static struct buffer_info_s *gpueb_buf_info;

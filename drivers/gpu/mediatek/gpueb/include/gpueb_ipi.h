@@ -9,21 +9,8 @@
 // Common implementation
 #define PLT_INIT           0x504C5401
 #define PLT_LOG_ENABLE     0x504C5402
+#define PLT_INIT_MPU       0x504C5403
 #define IPI_TIMEOUT_MS     3000U
-
-struct plat_ipi_send_data {
-	unsigned int cmd;
-	unsigned int reserved[1];
-	union {
-		struct {
-			u64 tab_phys;
-		} init;
-		struct {
-			unsigned int enable;
-			unsigned int reserved[1];
-		} logger;
-	} u;
-};
 
 extern struct mtk_mbox_device   gpueb_mboxdev;
 extern struct mtk_ipi_device    gpueb_ipidev;

@@ -32,6 +32,7 @@ phys_addr_t gpueb_mem_size;
 unsigned int gpueb_mem_num = 0;
 
 struct gpueb_reserve_mblock *gpueb_reserve_mblock_ary;
+const char *gpueb_reserve_mblock_ary_name[20];
 
 int gpueb_reserve_mem_of_init(struct reserved_mem *rmem)
 {
@@ -52,6 +53,7 @@ phys_addr_t gpueb_get_reserve_mem_phys(unsigned int id)
 	} else
 		return gpueb_reserve_mblock_ary[id].start_phys;
 }
+EXPORT_SYMBOL_GPL(gpueb_get_reserve_mem_phys);
 
 phys_addr_t gpueb_get_reserve_mem_virt(unsigned int id)
 {
@@ -61,6 +63,7 @@ phys_addr_t gpueb_get_reserve_mem_virt(unsigned int id)
 	} else
 		return gpueb_reserve_mblock_ary[id].start_virt;
 }
+EXPORT_SYMBOL_GPL(gpueb_get_reserve_mem_virt);
 
 phys_addr_t gpueb_get_reserve_mem_size(unsigned int id)
 {
@@ -70,6 +73,61 @@ phys_addr_t gpueb_get_reserve_mem_size(unsigned int id)
 	} else
 		return gpueb_reserve_mblock_ary[id].size;
 }
+EXPORT_SYMBOL_GPL(gpueb_get_reserve_mem_size);
+
+phys_addr_t gpueb_get_reserve_mem_phys_by_name(char *mem_id_name)
+{
+	int id = -1;
+	int i;
+
+	for (i = 0; i < gpueb_mem_num; i++) {
+		if (!strcmp(gpueb_reserve_mblock_ary_name[i], mem_id_name))
+			id = i;
+	}
+
+	if (id < 0 || id >= gpueb_mem_num) {
+		gpueb_pr_debug("@%s: no reserve memory for %d (%s)", __func__, id, mem_id_name);
+		return 0;
+	} else
+		return gpueb_reserve_mblock_ary[id].start_phys;
+}
+EXPORT_SYMBOL_GPL(gpueb_get_reserve_mem_phys_by_name);
+
+phys_addr_t gpueb_get_reserve_mem_virt_by_name(char *mem_id_name)
+{
+	int id = -1;
+	int i;
+
+	for (i = 0; i < gpueb_mem_num; i++) {
+		if (!strcmp(gpueb_reserve_mblock_ary_name[i], mem_id_name))
+			id = i;
+	}
+
+	if (id < 0 || id >= gpueb_mem_num) {
+		gpueb_pr_debug("@%s: no reserve memory for %d (%s)", __func__, id, mem_id_name);
+		return 0;
+	} else
+		return gpueb_reserve_mblock_ary[id].start_virt;
+}
+EXPORT_SYMBOL_GPL(gpueb_get_reserve_mem_virt_by_name);
+
+phys_addr_t gpueb_get_reserve_mem_size_by_name(char *mem_id_name)
+{
+	int id = -1;
+	int i;
+
+	for (i = 0; i < gpueb_mem_num; i++) {
+		if (!strcmp(gpueb_reserve_mblock_ary_name[i], mem_id_name))
+			id = i;
+	}
+
+	if (id < 0 || id >= gpueb_mem_num) {
+		gpueb_pr_debug("@%s: no reserve memory for %d (%s)", __func__, id, mem_id_name);
+		return 0;
+	} else
+		return gpueb_reserve_mblock_ary[id].size;
+}
+EXPORT_SYMBOL_GPL(gpueb_get_reserve_mem_size_by_name);
 
 int gpueb_reserved_mem_init(struct platform_device *pdev)
 {
@@ -125,12 +183,27 @@ int gpueb_reserved_mem_init(struct platform_device *pdev)
 	// Set reserved memory table
 	gpueb_mem_num = of_property_count_u32_elems(
 			pdev->dev.of_node,
-			"gpueb_mem_tbl")
+			"gpueb_mem_table")
 			/ MEMORY_TBL_ELEM_NUM;
 	if (gpueb_mem_num <= 0) {
-		gpueb_pr_debug("@%s: gpueb_mem_tbl not found\n",
+		gpueb_pr_debug("@%s: gpueb_mem_table not found\n",
 			__func__);
-	gpueb_mem_num = 0;
+		gpueb_mem_num = 0;
+	}
+
+	// Get reserved mblock name
+	ret = of_property_read_string_array(pdev->dev.of_node,
+			"gpueb_mem_name_table",
+			gpueb_reserve_mblock_ary_name,
+			gpueb_mem_num);
+	if (ret < 0) {
+		gpueb_pr_debug("@%s: gpueb_mem_name_table not found\n", __func__);
+		return -1;
+	}
+
+	for (i = 0; i < gpueb_mem_num; i++) {
+		gpueb_pr_debug("gpueb_reserve_mblock_ary_name[%d] = %s\n",
+				i, gpueb_reserve_mblock_ary_name[i]);
 	}
 
 	gpueb_reserve_mblock_ary = vzalloc(sizeof(struct gpueb_reserve_mblock) * gpueb_mem_num);
@@ -138,7 +211,7 @@ int gpueb_reserved_mem_init(struct platform_device *pdev)
 	for (i = 0; i < gpueb_mem_num; i++) {
 		// Get reserved block's ID
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"gpueb_mem_tbl",
+				"gpueb_mem_table",
 				i * MEMORY_TBL_ELEM_NUM,
 				&m_idx);
 		if (ret) {
@@ -149,7 +222,7 @@ int gpueb_reserved_mem_init(struct platform_device *pdev)
 
 		// Get reserved block's size
 		ret = of_property_read_u32_index(pdev->dev.of_node,
-				"gpueb_mem_tbl",
+				"gpueb_mem_table",
 				(i * MEMORY_TBL_ELEM_NUM) + 1,
 				&m_size);
 		if (ret) {

@@ -25,6 +25,7 @@
 #include "gpueb_ipi.h"
 #include "gpueb_helper.h"
 #include "gpueb_reserved_mem.h"
+#include "gpueb_plat_service.h"
 
 // MTK common IPI/MBOX
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
@@ -56,8 +57,13 @@ int gpueb_plat_service_init(struct platform_device *pdev)
 		return ret;
 	}
 
-	plat_send_data.cmd = PLT_INIT;
-	plat_send_data.u.init.tab_phys = (u64)gpueb_get_reserve_mem_phys(1);
+	plat_send_data.cmd = PLT_INIT_MPU;
+	plat_send_data.u.mpu.phys_base = (u64)gpueb_get_reserve_mem_phys_by_name("MEM_ID_MPU");
+	gpueb_pr_debug("%s: cmd=0x%x, phys_base=0x%x, sizeof(struct plat_ipi_send_data)=%d\n",
+			__func__,
+			plat_send_data.cmd,
+			plat_send_data.u.mpu.phys_base,
+			sizeof(struct plat_ipi_send_data));
 
 	// CH_PLATFORM message size is 16 bytes, 4 slots
 	ret = mtk_ipi_send_compl(

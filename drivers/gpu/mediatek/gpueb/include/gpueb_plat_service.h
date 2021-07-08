@@ -6,6 +6,22 @@
 #ifndef __GPUEB_PLAT_SERVICE_H__
 #define __GPUEB_PLAT_SERVICE_H__
 
+struct plat_ipi_send_data {
+	unsigned int cmd;
+	union {
+		struct {
+			unsigned int phys;
+			unsigned int size;
+		} ctrl;
+		struct {
+			unsigned int enable;
+		} logger;
+		struct {
+			u64 phys_base;
+		} mpu;
+	} u;
+};
+
 int gpueb_plat_service_init(struct platform_device *pdev);
 
 #endif /* __GPUEB_PLAT_SERVICE_H__ */
