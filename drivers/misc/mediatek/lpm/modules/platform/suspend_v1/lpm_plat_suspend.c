@@ -207,20 +207,7 @@ int lpm_suspend_s2idle_prompt(int cpu,
 
 	cpumask_set_cpu(cpu, &s2idle_cpumask);
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-		/* TODO
-		 * Need to fix the rcu_idle workaround later.
-		 * There are many rcu behaviors in syscore callback.
-		 * In s2idle framework, the rcu enter idle before cpu
-		 * enter idle state. So we need to use rcu_idle_exit to
-		 * wake up RCU, or using RCU_NONIDLE() with syscore.
-		 * rcu_idle_exit was called by the caller, lpm_cpuidle_prepare()
-		 * But anyway in s2idle, when lastest cpu
-		 * enter idle state means there won't care r/w sync problem
-		 * and RCU_NONIDLE() maybe the right solution.
-		 */
-		syscore_suspend();
-#endif
+
 		pr_info("[name:spm&][%s:%d] - suspend enter\n",
 			__func__, __LINE__);
 
@@ -255,20 +242,8 @@ void lpm_suspend_s2idle_reflect(int cpu,
 	log_md_sleep_info();
 #endif
 
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-		/* TODO
-		 * Need to fix the rcu_idle/timekeeping later.
-		 * There are many rcu behaviors in syscore callback.
-		 * In s2idle framework, the rcu enter idle before cpu
-		 * enter idle state. So we need to use rcu_idle_exit to
-		 * wake up RCU, or using RCU_NONIDLE() with syscore.
-		 * rcu_idle_exit was called by the caller, lpm_cpuidle_prepare()
-		 * But anyway in s2idle, when lastest cpu
-		 * enter idle state means there won't care r/w sync problem
-		 * and RCU_NONIDLE() maybe the right solution.
-		 */
-		syscore_resume();
-#endif
+	pm_system_wakeup();
+
 	}
 	cpumask_clear_cpu(cpu, &s2idle_cpumask);
 }
