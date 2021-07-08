@@ -557,16 +557,6 @@
 		reg = <0x0 0xe9b00000 0x0 0x500000>;
 	};
 
-	trusted_apps_mem: trusted_apps_region@ea000000 {
-		no-map;
-		reg = <0x0 0xea000000 0x0 0x3900000>;
-	};
-
-	trusted_apps_ext_mem: trusted_apps_ext_region@ed900000 {
-		no-map;
-		reg = <0x0 0xed900000 0x0 0x3b00000>;
-	};
-
 	non_secure_display_memory: non_secure_display_region {
 		compatible = "shared-dma-pool";
 		reusable;
