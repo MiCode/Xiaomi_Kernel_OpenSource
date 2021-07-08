@@ -14,8 +14,8 @@
 #include "ready.h"
 
 static DEFINE_SPINLOCK(sensor_ready_lock);
-static bool platform_ready;
-static bool scp_ready;
+static bool scp_platform_ready;
+static bool scp_sensor_ready;
 static bool sensor_ready;
 static BLOCKING_NOTIFIER_HEAD(sensor_ready_notifier_head);
 static struct workqueue_struct *sensor_ready_workqueue;
@@ -44,14 +44,14 @@ void sensor_ready_notifier_chain_unregister(struct notifier_block *nb)
 	blocking_notifier_chain_unregister(&sensor_ready_notifier_head, nb);
 }
 
-static void scp_ready_notify_handler(struct sensor_comm_notify *n,
+static void scp_sensor_ready_notify_handler(struct sensor_comm_notify *n,
 		void *private_data)
 {
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(&sensor_ready_lock, flags);
-	scp_ready = true;
-	if (platform_ready && scp_ready) {
+	scp_sensor_ready = true;
+	if (scp_platform_ready && scp_sensor_ready) {
 		sensor_ready = true;
 		cancel_delayed_work(&sensor_rescure_work);
 		queue_work(sensor_ready_workqueue, &sensor_ready_work);
@@ -59,7 +59,7 @@ static void scp_ready_notify_handler(struct sensor_comm_notify *n,
 	spin_unlock_irqrestore(&sensor_ready_lock, flags);
 }
 
-static int platform_ready_notifier_call(struct notifier_block *this,
+static int scp_platform_ready_notifier_call(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
 	unsigned long flags = 0;
@@ -69,8 +69,8 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 	if (event == SCP_EVENT_STOP) {
 		cancel_delayed_work(&sensor_rescure_work);
 		spin_lock_irqsave(&sensor_ready_lock, flags);
-		platform_ready = false;
-		scp_ready = false;
+		scp_platform_ready = false;
+		scp_sensor_ready = false;
 		sensor_ready = false;
 		queue_work(sensor_ready_workqueue, &sensor_ready_work);
 		spin_unlock_irqrestore(&sensor_ready_lock, flags);
@@ -85,8 +85,8 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 		queue_delayed_work(sensor_ready_workqueue,
 			&sensor_rescure_work, msecs_to_jiffies(5000));
 		spin_lock_irqsave(&sensor_ready_lock, flags);
-		platform_ready = true;
-		if (platform_ready && scp_ready) {
+		scp_platform_ready = true;
+		if (scp_platform_ready && scp_sensor_ready) {
 			sensor_ready = true;
 			queue_work(sensor_ready_workqueue,
 				&sensor_ready_work);
@@ -97,8 +97,8 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block platform_ready_notifier = {
-	.notifier_call = platform_ready_notifier_call,
+static struct notifier_block scp_platform_ready_notifier = {
+	.notifier_call = scp_platform_ready_notifier_call,
 };
 
 static void sensor_ready_work_fn(struct work_struct *work)
@@ -107,7 +107,7 @@ static void sensor_ready_work_fn(struct work_struct *work)
 	bool status = false;
 
 	/*
-	 * must copy sensor_ready to status to avoid sensor_ready
+	 * NOTE: must copy sensor_ready to status to avoid sensor_ready
 	 * modified during notifier calling, keep notify the same status.
 	 */
 	spin_lock_irqsave(&sensor_ready_lock, flags);
@@ -122,7 +122,7 @@ static void sensor_rescure_work_fn(struct work_struct *work)
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(&sensor_ready_lock, flags);
-	if (platform_ready && !scp_ready) {
+	if (scp_platform_ready && !scp_sensor_ready) {
 		pr_alert("rescure sensor by scp reset due to no ready ack\n");
 		scp_wdt_reset(0);
 	}
@@ -139,16 +139,20 @@ int host_ready_init(void)
 		pr_err("alloc workqueue fail\n");
 		return -ENOMEM;
 	}
+	/*
+	 * NOTE: sensor comm notify must before scp register notify
+	 * to avoid lost sensor ready notify.
+	 */
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_READY_CMD,
-		scp_ready_notify_handler, NULL);
-	scp_A_register_notify(&platform_ready_notifier);
+		scp_sensor_ready_notify_handler, NULL);
+	scp_A_register_notify(&scp_platform_ready_notifier);
 	return 0;
 }
 
 void host_ready_exit(void)
 {
+	scp_A_unregister_notify(&scp_platform_ready_notifier);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_READY_CMD);
-	scp_A_unregister_notify(&platform_ready_notifier);
 	flush_workqueue(sensor_ready_workqueue);
 	destroy_workqueue(sensor_ready_workqueue);
 }

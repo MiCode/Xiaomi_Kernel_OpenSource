@@ -863,18 +863,10 @@ static int __init transceiver_init(void)
 		goto out_device;
 	}
 
-	ret = host_ready_init();
-	if (ret < 0) {
-		pr_err("host ready init fail %d\n", ret);
-		goto out_sensor_comm;
-	}
-
-	sensor_ready_notifier_chain_register(&transceiver_ready_notifier);
-
 	ret = sensor_list_init();
 	if (ret < 0) {
 		pr_err("sensor list init fail %d\n", ret);
-		goto out_ready;
+		goto out_sensor_comm;
 	}
 
 	ret = debug_init();
@@ -896,7 +888,7 @@ static int __init transceiver_init(void)
 	ret = timesync_init();
 	if (ret < 0) {
 		pr_err("timesync init fail %d\n", ret);
-		goto out_put_filter;
+		goto out_timesync_filter;
 	}
 
 	ret = register_pm_notifier(&transceiver_pm_notifier);
@@ -913,6 +905,10 @@ static int __init transceiver_init(void)
 	}
 	sched_setscheduler(dev->task, SCHED_FIFO, &param);
 
+	/*
+	 * NOTE: handler resgiter must before host ready to avoid lost
+	 * share mem config etc.
+	 */
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_DATA_CMD,
 		transceiver_notify_func, dev);
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_FULL_CMD,
@@ -926,21 +922,38 @@ static int __init transceiver_init(void)
 	share_mem_config_handler_register(SENS_COMM_NOTIFY_SUPER_DATA_CMD,
 		transceiver_shm_super_cfg, dev);
 
+	/*
+	 * NOTE: sensor ready must before host ready to avoid lost ready notify
+	 * host ready init must at the end of function.
+	 */
+	sensor_ready_notifier_chain_register(&transceiver_ready_notifier);
+	ret = host_ready_init();
+	if (ret < 0) {
+		pr_err("host ready init fail %d\n", ret);
+		goto out_ready;
+	}
+
 	return 0;
 
+out_ready:
+	host_ready_exit();
+	sensor_ready_notifier_chain_unregister(&transceiver_ready_notifier);
+	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_SUPER_DATA_CMD);
+	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_DATA_CMD);
+	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_SUPER_FULL_CMD);
+	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_SUPER_DATA_CMD);
+	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_FULL_CMD);
+	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_DATA_CMD);
 out_pm_notify:
 	unregister_pm_notifier(&transceiver_pm_notifier);
 out_timesync:
 	timesync_exit();
-out_put_filter:
+out_timesync_filter:
 	timesync_filter_exit(&dev->filter);
 out_debug:
 	debug_exit();
 out_sensor_list:
 	sensor_list_exit();
-out_ready:
-	sensor_ready_notifier_chain_unregister(&transceiver_ready_notifier);
-	host_ready_exit();
 out_sensor_comm:
 	sensor_comm_exit();
 out_device:
