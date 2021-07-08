@@ -1372,8 +1372,8 @@
 		/* bit0~3: CLDMA|CCIF|DPMAIF */
 		mediatek,mdhif_type = <6>;
 		mediatek,md_id = <0>;
-		mediatek,ap_plat_info = <6893>;
-		mediatek,md_generation = <6297>;
+		mediatek,ap_plat_info = <6983>;
+		mediatek,md_generation = <6298>;
 		mediatek,offset_apon_md1 = <0x2844>;
 		mediatek,cldma_capability = <6>;
 		/* bit0~1: srcclkena|srclken_o1_on */
@@ -1383,7 +1383,7 @@
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
 		/* GIC ID:MDWDT 317; CCIF0 305; CCIF0 306 */
-		interrupts = <GIC_SPI 285 IRQ_TYPE_EDGE_RISING 0>,
+		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH 0>,
 			     <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH 0>,
 			     <GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MD1>;
@@ -1397,12 +1397,6 @@
 		/* io-channels = <&auxadc 2>; */
 		io-channel-names = "md-channel",
 			"md-battery";
-	};
-
-	md_ccci_rtc:md_ccci_rtc {
-		compatible = "mediatek,md_ccci_rtc";
-		/* nvmem-cells = <&ext_32k>; */
-		nvmem-cell-names = "external-32k";
 	};
 
 	ccci_scp:ccci_scp {
