@@ -1436,7 +1436,7 @@ static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 	struct v4l2_subdev *subdev;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
-	int request_fd = link->request_fd;
+	int request_fd = link->android_vendor_data1;
 	struct media_request *req;
 	struct mtk_cam_request *cam_req;
 	struct mtk_cam_request_stream_data *stream_data;
@@ -3702,6 +3702,36 @@ static void clear_mask_adjust_hook(void *data, unsigned int ctrl, int *n)
 		*n = offsetof(struct v4l2_selection, reserved[0]);
 }
 
+static void v4l2subdev_set_fmt_hook(void *data,
+	struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *pad,
+	struct v4l2_subdev_format *format, int *ret)
+{
+	int retval = 0;
+
+	retval = v4l2_subdev_call(sd, pad, set_fmt, pad, format);
+	*ret = (retval < 0) ? retval : 1;
+}
+
+static void v4l2subdev_set_selection_hook(void *data,
+	struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *pad,
+	struct v4l2_subdev_selection *sel, int *ret)
+{
+	int retval = 0;
+
+	retval = v4l2_subdev_call(sd, pad, set_selection, pad, sel);
+	*ret = (retval < 0) ? retval : 1;
+}
+
+static void v4l2subdev_set_frame_interval_hook(void *data,
+	struct v4l2_subdev *sd, struct v4l2_subdev_frame_interval *fi,
+	int *ret)
+{
+	int retval = 0;
+
+	retval = v4l2_subdev_call(sd, video, s_frame_interval, fi);
+	*ret = (retval < 0) ? retval : 1;
+}
+
 static void mtk_cam_trace_init(void)
 {
 	int ret = 0;
@@ -3722,6 +3752,18 @@ static void mtk_cam_trace_init(void)
 			clear_mask_adjust_hook, NULL);
 	if (ret)
 		pr_info("register android_vh_clear_mask_adjust failed!\n");
+	ret = register_trace_android_vh_v4l2subdev_set_fmt(
+			v4l2subdev_set_fmt_hook, NULL);
+	if (ret)
+		pr_info("register android_vh_v4l2subdev_set_fmt failed!\n");
+	ret = register_trace_android_vh_v4l2subdev_set_selection(
+			v4l2subdev_set_selection_hook, NULL);
+	if (ret)
+		pr_info("register android_vh_v4l2subdev_set_selection failed!\n");
+	ret = register_trace_android_vh_v4l2subdev_set_frame_interval(
+			v4l2subdev_set_frame_interval_hook, NULL);
+	if (ret)
+		pr_info("register android_vh_v4l2subdev_set_frame_interval failed!\n");
 }
 
 static void mtk_cam_trace_exit(void)
@@ -3730,6 +3772,12 @@ static void mtk_cam_trace_exit(void)
 	unregister_trace_android_vh_clear_reserved_fmt_fields(clear_reserved_fmt_fields_hook, NULL);
 	unregister_trace_android_vh_fill_ext_fmtdesc(fill_ext_fmtdesc_hook, NULL);
 	unregister_trace_android_vh_clear_mask_adjust(clear_mask_adjust_hook, NULL);
+	unregister_trace_android_vh_v4l2subdev_set_fmt(
+		v4l2subdev_set_fmt_hook, NULL);
+	unregister_trace_android_vh_v4l2subdev_set_selection(
+		v4l2subdev_set_selection_hook, NULL);
+	unregister_trace_android_vh_v4l2subdev_set_frame_interval(
+		v4l2subdev_set_frame_interval_hook, NULL);
 }
 
 static int __init mtk_cam_init(void)
