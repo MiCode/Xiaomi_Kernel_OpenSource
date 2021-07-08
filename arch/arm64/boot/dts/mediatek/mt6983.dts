@@ -3120,7 +3120,7 @@
 					<GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH 0>,
 					<GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH 0>,
 					<GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&clk26m>;
+			clocks = <&pericfg_ao_clk CLK_PERICFG_AO_PERI_APDMA_CG>;
 			clock-names = "apdma";
 			dma-requests = <4>;
 	};
@@ -3129,7 +3129,7 @@
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11001000 0 0x1000>;
 		interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&infracfg_ao_clk CLK_PERICFG_AO_PERI_UART0_CG>;
+		clocks = <&clk26m>, <&pericfg_ao_clk CLK_PERICFG_AO_PERI_UART0_CG>;
 		clock-names = "baud", "bus";
 		dmas = <&apdma 0 &apdma 1>;
 		dma-names = "tx", "rx";
@@ -3139,10 +3139,9 @@
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11002000 0 0x1000>;
 		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk26m>, <&infracfg_ao_clk CLK_PERICFG_AO_PERI_UART1_CG>;
+		clocks = <&clk26m>, <&pericfg_ao_clk CLK_PERICFG_AO_PERI_UART1_CG>;
 		clock-names = "baud", "bus";
-		dmas = <&apdma 2
-				&apdma 3>;
+		dmas = <&apdma 2 &apdma 3>;
 		dma-names = "tx", "rx";
 	};
 
