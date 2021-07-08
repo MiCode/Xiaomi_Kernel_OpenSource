@@ -21,6 +21,7 @@
 #include <linux/sched/types.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/rt.h>
+#include <uapi/linux/sched/types.h>
 
 #include "inc/pd_dbg_info.h"
 #include "inc/tcpci.h"
