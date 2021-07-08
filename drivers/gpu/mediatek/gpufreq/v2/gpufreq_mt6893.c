@@ -2949,6 +2949,8 @@ done:
 
 static int __gpufreq_mfg0_probe(struct platform_device *pdev)
 {
+	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
+
 	if (!pdev->dev.pm_domain) {
 		GPUFREQ_LOGE("fail to get mfg0 pm_domain");
 		return -EPROBE_DEFER;
@@ -2958,11 +2960,15 @@ static int __gpufreq_mfg0_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	dev_pm_syscore_device(&pdev->dev, true);
 
+	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
+
 	return GPUFREQ_SUCCESS;
 }
 
 static int __gpufreq_mfg1_probe(struct platform_device *pdev)
 {
+	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
+
 	if (!pdev->dev.pm_domain) {
 		GPUFREQ_LOGE("fail to get mfg1 pm_domain");
 		return -EPROBE_DEFER;
@@ -2972,11 +2978,15 @@ static int __gpufreq_mfg1_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	dev_pm_syscore_device(&pdev->dev, true);
 
+	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
+
 	return GPUFREQ_SUCCESS;
 }
 
 static int __gpufreq_mfg2_probe(struct platform_device *pdev)
 {
+	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
+
 	if (!pdev->dev.pm_domain) {
 		GPUFREQ_LOGE("fail to get mfg2 pm_domain");
 		return -EPROBE_DEFER;
@@ -2986,11 +2996,15 @@ static int __gpufreq_mfg2_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	dev_pm_syscore_device(&pdev->dev, true);
 
+	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
+
 	return GPUFREQ_SUCCESS;
 }
 
 static int __gpufreq_mfg3_probe(struct platform_device *pdev)
 {
+	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
+
 	if (!pdev->dev.pm_domain) {
 		GPUFREQ_LOGE("fail to get mfg3 pm_domain");
 		return -EPROBE_DEFER;
@@ -3000,11 +3014,15 @@ static int __gpufreq_mfg3_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	dev_pm_syscore_device(&pdev->dev, true);
 
+	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
+
 	return GPUFREQ_SUCCESS;
 }
 
 static int __gpufreq_mfg4_probe(struct platform_device *pdev)
 {
+	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
+
 	if (!pdev->dev.pm_domain) {
 		GPUFREQ_LOGE("fail to get mfg4 pm_domain");
 		return -EPROBE_DEFER;
@@ -3014,11 +3032,15 @@ static int __gpufreq_mfg4_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	dev_pm_syscore_device(&pdev->dev, true);
 
+	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
+
 	return GPUFREQ_SUCCESS;
 }
 
 static int __gpufreq_mfg5_probe(struct platform_device *pdev)
 {
+	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
+
 	if (!pdev->dev.pm_domain) {
 		GPUFREQ_LOGE("fail to get mfg5 pm_domain");
 		return -EPROBE_DEFER;
@@ -3028,11 +3050,15 @@ static int __gpufreq_mfg5_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	dev_pm_syscore_device(&pdev->dev, true);
 
+	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
+
 	return GPUFREQ_SUCCESS;
 }
 
 static int __gpufreq_mfg6_probe(struct platform_device *pdev)
 {
+	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
+
 	if (!pdev->dev.pm_domain) {
 		GPUFREQ_LOGE("fail to get mfg6 pm_domain");
 		return -EPROBE_DEFER;
@@ -3041,6 +3067,8 @@ static int __gpufreq_mfg6_probe(struct platform_device *pdev)
 	g_mtcmos->mfg6_pdev = pdev;
 	pm_runtime_enable(&pdev->dev);
 	dev_pm_syscore_device(&pdev->dev, true);
+
+	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
 
 	return GPUFREQ_SUCCESS;
 }
@@ -3057,9 +3085,15 @@ static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev)
 	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
 
+	/* skip register gpufreq mtcmos driver if bringup or in EB mode */
+	if (__gpufreq_bringup() || g_gpueb_support) {
+		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or in EB mode");
+		goto done;
+	}
+
+	/* alloc struct only at first mtcmos probe */
 	if (!g_mtcmos) {
-		g_mtcmos = kzalloc(sizeof(struct gpufreq_mtcmos_info),
-			GFP_KERNEL);
+		g_mtcmos = kzalloc(sizeof(struct gpufreq_mtcmos_info), GFP_KERNEL);
 		if (!g_mtcmos) {
 			GPUFREQ_LOGE("fail to alloc gpufreq_mtcmos_info (ENOMEM)");
 			ret = GPUFREQ_ENOMEM;
@@ -3123,23 +3157,17 @@ static int __init __gpufreq_init(void)
 		goto done;
 	}
 
-	/* skip register gpufreq mtcmos driver if bringup or in EB mode */
-	if (__gpufreq_bringup() || g_gpueb_support)
-		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or in EB mode");
 	/* register gpufreq mtcmos driver */
-	else {
-		ret = platform_driver_register(&g_gpufreq_mtcmos_pdrv);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to register gpufreq mtcmos driver\n");
-			goto done;
-		}
+	ret = platform_driver_register(&g_gpufreq_mtcmos_pdrv);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to register gpufreq mtcmos driver (%d)", ret);
+		goto done;
 	}
 
 	/* register gpufreq platform driver */
 	ret = platform_driver_register(&g_gpufreq_pdrv);
 	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to register gpufreq platform driver (%d)",
-			ret);
+		GPUFREQ_LOGE("fail to register gpufreq platform driver (%d)", ret);
 		goto done;
 	}
 
