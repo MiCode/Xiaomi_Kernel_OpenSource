@@ -1720,7 +1720,7 @@
 		md1_sim1_hot_plug_eint: MD1_SIM1_HOT_PLUG_EINT {
                         compatible = "mediatek,MD1_SIM1_HOT_PLUG_EINT-eint";
                         interrupts = <0 4>;
-                        debounce = <0 100000>;
+			debounce = <0 10000>;
                         dedicated = <0 0>;
                         src_pin = <0 1>;
                         sockettype = <0 0>;
@@ -1730,7 +1730,7 @@
 		md1_sim2_hot_plug_eint: MD1_SIM2_HOT_PLUG_EINT {
                         compatible = "mediatek,MD1_SIM2_HOT_PLUG_EINT-eint";
                         interrupts = <1 4>;
-                        debounce = <1 100000>;
+			debounce = <1 10000>;
                         dedicated = <1 0>;
                         src_pin = <1 2>;
                         sockettype = <1 0>;
