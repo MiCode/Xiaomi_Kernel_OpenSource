@@ -23,6 +23,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.module_id = IMGSYS_MOD_TRAW,
 		.init = imgsys_traw_set_initial_value,
 		.dump = imgsys_traw_debug_dump,
+		.uninit = imgsys_traw_uninit,
 	},
 	[IMGSYS_MOD_DIP] = {
 		.module_id = IMGSYS_MOD_DIP,

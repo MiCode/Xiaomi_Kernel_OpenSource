@@ -24,14 +24,18 @@
  ********************************************************************/
 #define TRAW_A_BASE_ADDR	0x15020000
 #define TRAW_B_BASE_ADDR	0x15040000
+#define TRAW_C_BASE_ADDR	0x15640000
 
 #define TRAW_DMA_NAME_MAX_SIZE	20
 
-#define TRAW_DMA_DBG_SEL	(0x1070)
-#define TRAW_DMA_DBG_PORT	(0x1074)
-#define TRAW_CTL_DBG_SEL	(0x0190)
-#define TRAW_CTL_DBG_PORT	(0x0194)
-#define TRAW_DIPCQ_CQ_EN	(0x0200)
+#define TRAW_DMA_DBG_SEL	 (0x4070)
+#define TRAW_DMA_DBG_PORT	 (0x3074)
+#define TRAW_CTL_DBG_SEL	 (0x0190)
+#define TRAW_CTL_DBG_PORT	 (0x0194)
+#define TRAW_DIPCQ_CQ_EN	 (0x0200)
+#define WPE_MACRO_SW_RST	 (0x000C)
+#define WPE_MACRO_WPE_RST	 (0x0004)
+#define WPE_MACRO_LARB11_RST	 (0x0001)
 
 
 #define TRAW_IMGI_STATE_CHECKSUM		(0x00100)
@@ -73,5 +77,6 @@ struct TRAWDmaDebugInfo {
 void imgsys_traw_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine);
+void imgsys_traw_uninit(struct mtk_imgsys_dev *imgsys_dev);
 
 #endif /* _MTK_IMGSYS_TRAW_H_ */
