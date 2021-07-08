@@ -331,6 +331,7 @@ static irqreturn_t auxadc_irq_thread(int irq, void *data)
 {
 	struct mt6375_priv *priv = data;
 	static const u8 no_status[NUM_IRQ_REG];
+	static const u8 mask[NUM_IRQ_REG] = { 0x3F, 0x02 };
 	u8 status_buf[NUM_IRQ_REG], status;
 	bool handled = false;
 	int i, j, ret;
@@ -349,8 +350,7 @@ static irqreturn_t auxadc_irq_thread(int irq, void *data)
 	/* mask all irqs */
 	for (i = 0; i < NUM_IRQ_REG; i++) {
 		ret = regmap_write(priv->regmap,
-				   HK_TOP_INT_MASK_CON0_SET + i * 3,
-				   priv->unmask_buf[i]);
+				   HK_TOP_INT_MASK_CON0_SET + i * 3, mask[i]);
 		if (ret)
 			dev_err(priv->dev, "Failed to mask irq[%d]\n", i);
 	}
@@ -372,8 +372,7 @@ static irqreturn_t auxadc_irq_thread(int irq, void *data)
 	/* after process, unmask all irqs */
 	for (i = 0; i < NUM_IRQ_REG; i++) {
 		ret = regmap_write(priv->regmap,
-				   HK_TOP_INT_MASK_CON0_CLR + i * 3,
-				   priv->unmask_buf[i]);
+				   HK_TOP_INT_MASK_CON0_CLR + i * 3, mask[i]);
 		if (ret)
 			dev_err(priv->dev, "Failed to unmask irq[%d]\n", i);
 	}
