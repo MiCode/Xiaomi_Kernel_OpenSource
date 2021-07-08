@@ -2527,20 +2527,21 @@ void report_custom_iommu_fault(
 			fault_iova, fault_id);
 		return;
 	}
-	goto aee_dump;
 
-	port = MTK_M4U_ID(port_list[idx].larb_id,
-			  port_list[idx].port_id);
-	pr_info("error, tf report port:0x%x(%u--%u), idx:%d\n",
-		port, port_list[idx].larb_id,
-		port_list[idx].port_id, idx);
+	/* Only MM_IOMMU support fault callback */
+	if (type == MM_IOMMU) {
+		port = MTK_M4U_ID(port_list[idx].larb_id,
+				  port_list[idx].port_id);
+		pr_info("error, tf report port:0x%x(%u--%u), idx:%d\n",
+			port, port_list[idx].larb_id,
+			port_list[idx].port_id, idx);
 
-	if (port_list[idx].enable_tf &&
-		m4u_data->m4u_cb[idx].fault_fn)
-		m4u_data->m4u_cb[idx].fault_fn(port,
-		fault_iova, m4u_data->m4u_cb[idx].fault_data);
+		if (port_list[idx].enable_tf &&
+			m4u_data->m4u_cb[idx].fault_fn)
+			m4u_data->m4u_cb[idx].fault_fn(port,
+			fault_iova, m4u_data->m4u_cb[idx].fault_data);
+	}
 
-aee_dump:
 	m4u_aee_print(mmu_translation_log_format,
 		port_list[idx].name,
 		port_list[idx].name, fault_iova,
