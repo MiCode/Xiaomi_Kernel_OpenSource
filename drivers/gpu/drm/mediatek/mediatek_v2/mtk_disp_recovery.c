@@ -206,6 +206,13 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 						 DDP_FIRST_PATH, 1);
 
+		if (mtk_crtc->msync2.msync_on) {
+			u32 vfp_early_stop = 1;
+
+			mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_VFP_EARLYSTOP,
+							&vfp_early_stop);
+		}
+
 		CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 2);
 
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_STOP_VDO_MODE,
@@ -463,6 +470,7 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	struct mtk_drm_private *private = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+	struct mtk_panel_ext *panel_ext;
 	int ret = 0;
 	int i = 0;
 	int recovery_flg = 0;
@@ -474,9 +482,16 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 
 		return -EINVAL;
 	}
+	panel_ext = mtk_crtc->panel_ext;
+	if (!(panel_ext && panel_ext->params)) {
+		DDPMSG("can't find panel_ext handle\n");
+		return -EINVAL;
+	}
 
 	while (1) {
 		msleep(ESD_CHECK_PERIOD);
+		if (_lcm_need_esd_check(panel_ext) == 0)
+			continue;
 		ret = wait_event_interruptible(
 			esd_ctx->check_task_wq,
 			atomic_read(&esd_ctx->check_wakeup) &&

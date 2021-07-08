@@ -2144,6 +2144,34 @@ static void process_dbg_opt(const char *opt)
 		params->lcm_color_mode = (fake_hdr_en) ?
 			MTK_DRM_COLOR_MODE_DISPLAY_P3 : MTK_DRM_COLOR_MODE_NATIVE;
 		DDPINFO("set panel color_mode to %d\n", params->lcm_color_mode);
+	} else if (strncmp(opt, "esd_check", 9) == 0) {
+		unsigned int esd_check_en = 0;
+		struct drm_crtc *crtc;
+		struct mtk_panel_params *params = NULL;
+		int ret;
+
+		ret = sscanf(opt, "esd_check:%u\n", &esd_check_en);
+		if (ret != 1) {
+			pr_info("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+
+		params = mtk_drm_get_lcm_ext_params(crtc);
+		if (!params) {
+			pr_info("[Fake HDR] find lcm ext fail\n");
+			return;
+		}
+
+		params->esd_check_enable = esd_check_en;
+		DDPINFO("set panel esd_check_enable to %d\n", esd_check_en);
 	}
 }
 

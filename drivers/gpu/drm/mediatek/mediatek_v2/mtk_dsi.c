@@ -5680,13 +5680,6 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		DDPDBG("[Msync] set VFP_EARLYSTOP to %u\n", vfp_early_stop);
 
 
-#if 0
-		value = REG_FLD_VAL(FLD_VFP_EARLY_STOP, vfp_early_stop)
-				| REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 1)
-				| REG_FLD_VAL(FLD_VFP_EARLY_STOP_SKIP_VSA_EN, 1)
-				| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, 54);
-#endif
-#if 1
 		if (vfp_early_stop == 1) {
 			/*change vfp_early_stop*/
 			value = REG_FLD_VAL(FLD_VFP_EARLY_STOP, 1)
@@ -5697,32 +5690,11 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, dsi->vm.vfront_porch);
 
 		}
-#endif
-#if 0
-		/*for test*/
-		value = REG_FLD_VAL(FLD_VFP_EARLY_STOP, 1)
-		| REG_FLD_VAL(FLD_VFP_EARLY_STOP_EN, 1)
-		| REG_FLD_VAL(FLD_VFP_EARLY_STOP_SKIP_VSA_EN, 1)
-		| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, 54);
-#endif
-		DDPINFO("[Msync] VFP_EARLYSTOP = 0x%x, handle = 0x%x\n", value, handle);
+		DDPDBG("[Msync] VFP_EARLYSTOP = 0x%x, handle = 0x%x\n", value, handle);
 
-		/*for test*/
-		//value = 0x36FFFF;
-		//DDPINFO("[Msync] value change to 0x36FFFF\n");
 		if (handle)
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DSI_VFP_EARLY_STOP, value, ~0);
-#if 0
-		/*1->0*/
-		value =REG_FLD_VAL(VFP_EARLY_STOP_EN, 1)
-			| REG_FLD_VAL(VFP_EARLY_STOP_SKIP_VSA_EN, 1)
-			| REG_FLD_VAL(VFP_EARLY_STOP_FLD_REG_MIN_NL, 54);
-
-		if (handle)
-			cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-				comp->regs_pa+DSI_VFP_EARLY_STOP, value, ~0);
-#endif
 	}
 		break;
 	case DSI_RESTORE_VFP_FOR_MSYNC:
