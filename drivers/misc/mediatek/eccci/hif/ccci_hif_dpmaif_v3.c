@@ -1920,14 +1920,6 @@ static int dpmaif_tx_done_kernel_thread(void *arg)
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
 	int ret;
 	unsigned int L2TISAR0;
-	struct cpumask tmask;
-
-	cpumask_clear(&tmask);
-	cpumask_set_cpu(0, &tmask);
-	cpumask_set_cpu(2, &tmask);
-	cpumask_set_cpu(3, &tmask);
-
-	set_cpus_allowed_ptr(txq->tx_done_thread, &tmask);
 
 	while (1) {
 		ret = wait_event_interruptible(txq->tx_done_wait,
@@ -2934,6 +2926,7 @@ static int dpmaif_start(unsigned char hif_id)
 	struct dpmaif_rx_queue *rxq = NULL;
 	struct dpmaif_tx_queue *txq = NULL;
 	int i, ret = 0;
+	struct cpumask tmask;
 
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWRON)
 		return 0;
@@ -2992,6 +2985,12 @@ static int dpmaif_start(unsigned char hif_id)
 				(long)txq->tx_done_thread);
 			return -1;
 		}
+
+		cpumask_clear(&tmask);
+		cpumask_set_cpu(0, &tmask);
+		cpumask_set_cpu(2, &tmask);
+		cpumask_set_cpu(3, &tmask);
+		set_cpus_allowed_ptr(txq->tx_done_thread, &tmask);
 	}
 
 	drv3_dpmaif_hw_init_done();
