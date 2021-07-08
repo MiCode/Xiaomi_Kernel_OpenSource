@@ -17,6 +17,12 @@ int conn_pwr_get_drv_level(enum conn_pwr_drv_type type, enum conn_pwr_low_batter
 }
 EXPORT_SYMBOL(conn_pwr_get_drv_level);
 
+int conn_pwr_get_thermal(struct conn_pwr_event_max_temp *temp)
+{
+	return 0;
+}
+EXPORT_SYMBOL(conn_pwr_get_thermal);
+
 int conn_pwr_arbitrate(struct conn_pwr_update_info *info)
 {
 	return 0;

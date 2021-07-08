@@ -38,6 +38,8 @@ enum conn_pwr_plat_type {
 
 enum conn_pwr_msg_type {
 	CONN_PWR_MSG_TEMP_TOO_HIGH = 0,
+	CONN_PWR_MSG_TEMP_RECOVERY = 1,
+	CONN_PWR_MSG_GET_TEMP = 2,
 	CONN_PWR_MSG_MAX
 };
 
@@ -56,7 +58,7 @@ enum conn_pwr_arb_reason {
 	CONN_PWR_ARB_LOW_BATTERY = 1,
 	CONN_PWR_ARB_THERMAL = 2,
 	CONN_PWR_ARB_CUSTOMER = 3,
-	CONN_PWR_ARB_TEMP_TOO_HIGH = 4,
+	CONN_PWR_ARB_TEMP_CHECK = 4,
 	CONN_PWR_ARB_MAX
 };
 
@@ -94,6 +96,9 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 int conn_pwr_get_drv_level(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level *level);
 
 /* called by conn_pwr_adapter */
+int conn_pwr_get_thermal(struct conn_pwr_event_max_temp *temp);
+
+/* called by conn_pwr_adapter */
 int conn_pwr_arbitrate(struct conn_pwr_update_info *info);
 
 /* called by subsys driver */
@@ -101,7 +106,7 @@ int conn_pwr_register_event_cb(enum conn_pwr_drv_type type,
 				CONN_PWR_EVENT_CB cb);
 
 /* called by subsys driver */
-int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, int *data);
+int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, void *data);
 
 /* called by adapter */
 int conn_pwr_core_init(void);

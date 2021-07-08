@@ -72,7 +72,7 @@ const struct file_operations gConnPwrDevFops = {
 #endif
 };
 
-int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, int *data)
+int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, void *data)
 {
 	struct conn_pwr_update_info info;
 
@@ -82,15 +82,33 @@ int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, in
 	}
 
 	if (msg == CONN_PWR_MSG_TEMP_TOO_HIGH) {
-		info.reason = CONN_PWR_ARB_TEMP_TOO_HIGH;
+		if (data != NULL) {
+			g_connsys_temp = *((int *)data);
+			pr_info("%s drv:%d, msg: %d, temp: %d\n", __func__, drv, msg,
+				*((int *)data));
+		}
+		info.reason = CONN_PWR_ARB_TEMP_CHECK;
 		info.drv = drv;
 		conn_pwr_arbitrate(&info);
+	} else if (msg == CONN_PWR_MSG_TEMP_RECOVERY) {
+		if (data != NULL) {
+			g_connsys_temp = *((int *)data);
+			pr_info("%s drv:%d, msg: %d, temp: %d\n", __func__, drv, msg,
+				*((int *)data));
+		}
+		info.reason = CONN_PWR_ARB_TEMP_CHECK;
+		info.drv = drv;
+		conn_pwr_arbitrate(&info);
+	} else if (msg == CONN_PWR_MSG_GET_TEMP && data != NULL) {
+		struct conn_pwr_event_max_temp *d = (struct conn_pwr_event_max_temp *)data;
+
+		conn_pwr_get_thermal(d);
+		pr_info("%s drv:%d, msg: %d, max: %d, recovery: %d\n", __func__, drv, msg,
+			d->max_temp, d->recovery_temp);
 	}
 
 	if (data == NULL)
 		pr_info("%s drv:%d, msg: %d\n", __func__, drv, msg);
-	else
-		pr_info("%s drv:%d, msg: %d, data: %d\n", __func__, drv, msg, *data);
 	return 0;
 }
 EXPORT_SYMBOL(conn_pwr_send_msg);
