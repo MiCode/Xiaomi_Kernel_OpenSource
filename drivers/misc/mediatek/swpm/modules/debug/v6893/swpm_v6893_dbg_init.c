@@ -150,8 +150,7 @@ static ssize_t pmu_ms_mode_write(char *FromUser, size_t sz, void *priv)
 	if (!FromUser)
 		return -EINVAL;
 
-	if (sscanf(FromUser, "%d", &enable) == 1) {
-		/* TODO: TBD for swpm_gpu_debug */
+	if ((!kstrtouint(FromUser, 1, &enable)) == 1) {
 		pmu_ms_mode = enable;
 
 		/* TODO: remove this path after qos commander ready */
@@ -165,6 +164,42 @@ static ssize_t pmu_ms_mode_write(char *FromUser, size_t sz, void *priv)
 static const struct mtk_swpm_sysfs_op pmu_ms_mode_fops = {
 	.fs_read = pmu_ms_mode_read,
 	.fs_write = pmu_ms_mode_write,
+};
+
+static unsigned int swpm_pmsr_en = 1;
+static ssize_t swpm_pmsr_en_read(char *ToUser, size_t sz, void *priv)
+{
+	char *p = ToUser;
+
+	if (!ToUser)
+		return -EINVAL;
+
+	swpm_dbg_log("swpm_pmsr only support disable cmd\n");
+	swpm_dbg_log("%d\n", swpm_pmsr_en);
+
+	return p - ToUser;
+}
+
+static ssize_t swpm_pmsr_en_write(char *FromUser, size_t sz, void *priv)
+{
+	unsigned int enable = 0;
+
+	if (!FromUser)
+		return -EINVAL;
+
+	if ((!kstrtouint(FromUser, 1, &enable)) == 1) {
+		if (!enable) {
+			swpm_pmsr_en = enable;
+			swpm_set_update_cnt(0, 9696 << SWPM_CODE_USER_BIT);
+		}
+	}
+
+	return sz;
+}
+
+static const struct mtk_swpm_sysfs_op swpm_pmsr_en_fops = {
+	.fs_read = swpm_pmsr_en_read,
+	.fs_write = swpm_pmsr_en_write,
 };
 
 static ssize_t swpm_sp_test_read(char *ToUser, size_t sz, void *priv)
@@ -330,6 +365,8 @@ static void swpm_v6893_dbg_fs_init(void)
 			, 0444, &dram_bw_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("pmu_ms_mode"
 			, 0444, &pmu_ms_mode_fops, NULL, NULL);
+	mtk_swpm_sysfs_entry_func_node_add("swpm_pmsr_en"
+			, 0444, &swpm_pmsr_en_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("swpm_sp_ddr_idx"
 			, 0444, &swpm_sp_ddr_idx_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("swpm_sp_test"
