@@ -17,10 +17,11 @@ ccflags-y += \
         -I$(BASE_TOP)/include/ \
         -I$(FBT_TOP)/include/ \
         -I$(FSTB_TOP)/ \
-        -I$(COM_TOP)/include/ \
-				-I$(srctree)/kernel/ \
-				-I$(srctree)/drivers/misc/mediatek/sched/ \
-				-I$(UTCH_TOP)/ \
+	-I$(COM_TOP)/include/ \
+	-I$(srctree)/kernel/ \
+	-I$(srctree)/drivers/misc/mediatek/sched/ \
+	-I$(UTCH_TOP)/ \
+	-I$(FPSGO_TOP)/ \
 
 subdir-ccflags-y += \
         -I$(srctree)/include/ \
@@ -30,9 +31,9 @@ subdir-ccflags-y += \
         -I$(FBT_TOP)/include/ \
         -I$(FSTB_TOP)/ \
         -I$(COM_TOP)/include/ \
-				-I$(srctree)/kernel/ \
-				-I$(srctree)/drivers/misc/mediatek/sched/ \
-				-I$(UTCH_TOP)/ \
+	-I$(srctree)/kernel/ \
+	-I$(srctree)/drivers/misc/mediatek/sched/ \
+	-I$(UTCH_TOP)/ \
 
 
 #fpsgo_main
