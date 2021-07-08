@@ -1382,23 +1382,25 @@ static int lvts_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int lvts_suspend(struct platform_device *pdev, pm_message_t state)
+static int lvts_suspend_noirq(struct device *dev)
 {
 	struct lvts_data *lvts_data;
 
-	lvts_data = (struct lvts_data *) platform_get_drvdata(pdev);
+	lvts_data = (struct lvts_data *) dev_get_drvdata(dev);
+	dev_info(dev, "[Thermal/LVTS]%s\n", __func__);
 
 	lvts_close(lvts_data);
 
 	return 0;
 }
 
-static int lvts_resume(struct platform_device *pdev)
+static int lvts_resume_noirq(struct device *dev)
 {
 	int ret;
 	struct lvts_data *lvts_data;
 
-	lvts_data = (struct lvts_data *) platform_get_drvdata(pdev);
+	lvts_data = (struct lvts_data *) dev_get_drvdata(dev);
+	dev_info(dev, "[Thermal/LVTS]%s\n", __func__);
 
 	ret = lvts_init(lvts_data);
 	if (ret)
@@ -2287,6 +2289,11 @@ static struct lvts_data mt6893_lvts_data = {
  * Support chips
  *==================================================
  */
+static const struct dev_pm_ops lvts_pm_ops = {
+	.suspend_noirq = lvts_suspend_noirq,
+	.resume_noirq = lvts_resume_noirq,
+};
+
 static const struct of_device_id lvts_of_match[] = {
 	{
 		.compatible = "mediatek,mt6873-lvts",
@@ -2308,11 +2315,10 @@ MODULE_DEVICE_TABLE(of, lvts_of_match);
 static struct platform_driver soc_temp_lvts = {
 	.probe = lvts_probe,
 	.remove = lvts_remove,
-	.suspend = lvts_suspend,
-	.resume = lvts_resume,
 	.driver = {
 		.name = "mtk-soc-temp-lvts",
 		.of_match_table = lvts_of_match,
+		.pm = &lvts_pm_ops,
 	},
 };
 
