@@ -328,15 +328,15 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0000>;
-			enable-method = "psci";
+			/* enable-method = "psci"; */
 			clock-frequency = <2000000000>;
 		};
-
+/*
 		cpu1: cpu@001 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0100>;
-			/* enable-method = "psci"; */
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
 
@@ -344,7 +344,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0200>;
-			/* enable-method = "psci"; */
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
 
@@ -352,7 +352,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0300>;
-			/* enable-method = "psci"; */
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
 
@@ -360,7 +360,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
 			reg = <0x0400>;
-			/* enable-method = "psci"; */
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
 
@@ -368,7 +368,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
 			reg = <0x0500>;
-			/* enable-method = "psci"; */
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
 
@@ -376,7 +376,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
 			reg = <0x0600>;
-			/* enable-method = "psci"; */
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
 
@@ -384,16 +384,16 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
 			reg = <0x0700>;
-			/* enable-method = "psci"; */
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
-
+*/
 		cpu-map {
 			cluster0 {
 				core0 {
 					cpu = <&cpu0>;
 				};
-				core1 {
+/*				core1 {
 					cpu = <&cpu1>;
 				};
 				core2 {
@@ -426,6 +426,7 @@
 				};
 				doe_dvfs_cl2: doe {
 				};
+*/
 			};
 		};
 	};
