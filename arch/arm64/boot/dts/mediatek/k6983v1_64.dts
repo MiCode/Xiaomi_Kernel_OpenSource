@@ -155,7 +155,6 @@
 	mediatek,speaker-codec {
 		sound-dai = <&spk1>, <&spk2>;
 	};
-	mediatek,spk-i2s = <3 9>;
 };
 
 /* AUDIO GPIO standardization start */
