@@ -5,6 +5,12 @@
 
 #include "helper.h"
 
+#ifdef DEBUG_MKP
+#define debug_mkp_dump(fmt, args...)  pr_info("MKP: "fmt, ##args)
+#else
+#define debug_mkp_dump(fmt, args...)
+#endif
+
 int is_module_or_bpf_addr(/*unsigned long x */const void *x)
 {
 #if (defined(CONFIG_MODULES) && defined(MODULES_VADDR)) || defined(BPF_JIT_REGION_START)
@@ -73,8 +79,9 @@ int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy
 				handle = mkp_create_handle(policy, (unsigned long)phys_addr,
 					count*PAGE_SIZE);
 				if (handle == 0) {
-					pr_info("%s:%d: Create handle fail\n", __func__, __LINE__);
-					pr_info("pa: %pa, count: %lu\n", &phys_addr, count);
+					debug_mkp_dump("%s:%d: Create handle fail\n",
+						__func__, __LINE__);
+					debug_mkp_dump("pa: %pa, count: %lu\n", &phys_addr, count);
 					kfree(data);
 					start_pfn = 0; count = 1;
 					continue;

@@ -13,6 +13,7 @@
 demo_mkp = true
 ifdef demo_mkp
 ccflags-y += -DDEMO_MKP
+#ccflags-y += -DDEBUG_MKP
 endif
 
 ccflags-y += -I$(src)              # needed for trace events

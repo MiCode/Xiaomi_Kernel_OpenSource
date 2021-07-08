@@ -6,6 +6,12 @@
 
 #include "mkp_rbtree.h"
 
+#ifdef DEBUG_MKP
+#define debug_mkp_dump(fmt, args...)  pr_info("MKP: "fmt, ##args)
+#else
+#define debug_mkp_dump(fmt, args...)
+#endif
+
 static struct mkp_rb_node fail_node = {
 	.addr = 0,
 	.size = 0,
@@ -20,7 +26,7 @@ void traverse_rbtree(struct rb_root *root)
 	for (node = rb_first(root); node; node=rb_next(node)) {
 		struct mkp_rb_node *data = rb_entry(node, struct mkp_rb_node, rb_node);
 
-		pr_info("%s: addr: 0x%pa, size: %pa\n", __func__, &data->addr, &data->size);
+		debug_mkp_dump("%s: addr: 0x%pa, size: %pa\n", __func__, &data->addr, &data->size);
 	}
 	return;
 }
@@ -34,7 +40,7 @@ struct mkp_rb_node *mkp_rbtree_search(struct rb_root *root, phys_addr_t addr)
 		struct mkp_rb_node *cur = container_of(n, struct mkp_rb_node, rb_node);
 
 		if (addr > cur->addr && addr < cur->addr+cur->size) {
-//			pr_info("%s: fail node\n", __func__);
+			debug_mkp_dump("%s: fail node\n", __func__);
 			return &fail_node;
 		}
 		if (addr < cur->addr)
