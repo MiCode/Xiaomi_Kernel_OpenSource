@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -17,16 +17,17 @@ unsigned int ged_get_power_by_idx(int oppidx);
 int ged_get_oppidx_by_freq(unsigned int freq);
 int ged_get_oppidx_by_power(unsigned int power);
 unsigned int ged_get_leakage_power(unsigned int volt);
-unsigned int ged_get_dynamic_power(
-    unsigned int freq ,unsigned int volt);
+unsigned int ged_get_dynamic_power(unsigned int freq, unsigned int volt);
 
 int ged_get_cur_limit_idx_ceil(void);
 int ged_get_cur_limit_idx_floor(void);
 unsigned int ged_get_cur_limiter_ceil(void);
 unsigned int ged_get_cur_limiter_floor(void);
-int ged_set_limit_ceil(int limiter , int ceil);
+int ged_set_limit_ceil(int limiter, int ceil);
 int ged_set_limit_floor(int limiter, int floor);
 
 int ged_gpufreq_commit(int oppidx);
+
+unsigned int ged_gpufreq_bringup(void);
 
 #endif /* __GED_GPUFREQ_V1_H__ */

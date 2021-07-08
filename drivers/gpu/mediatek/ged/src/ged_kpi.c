@@ -1806,6 +1806,7 @@ GED_ERROR ged_kpi_system_init(void)
 #else
 	ghLogBuf_KPI = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
+	is_GED_KPI_enabled = ged_gpufreq_bringup() ? 0 : 1;
 
 	g_psMEOW = (struct GED_KPI_MEOW_DVFS_FREQ_PRED *)
 		ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
