@@ -709,7 +709,6 @@ static int dsp_push_msg(
 		if (dump_queue_flag == false) {
 			dump_queue_flag = true;
 			dsp_dump_msg_in_queue(msg_queue);
-			AUD_ASSERT(0);
 		}
 		return -EOVERFLOW;
 	}

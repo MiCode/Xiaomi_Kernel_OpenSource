@@ -365,7 +365,6 @@ int send_message(
 			memset(&msg_queue->ipi_msg_ack,
 			       0,
 			       sizeof(struct ipi_msg_t));
-			AUD_ASSERT(0);
 		}
 		retval = process_message_in_queue(
 				 msg_queue, p_ipi_msg, idx_msg);
@@ -469,7 +468,6 @@ int send_message_ack(
 	if (msg_queue->ipi_msg_ack.magic != 0) {
 		DUMP_IPI_MSG("previous ack not clean", &msg_queue->ipi_msg_ack);
 		DUMP_IPI_MSG("new ack", p_ipi_msg_ack);
-		AUD_ASSERT(0);
 	}
 
 	memcpy(&msg_queue->ipi_msg_ack,
@@ -614,7 +612,6 @@ static int process_message_in_queue(
 		if (retval == -ETIMEDOUT) {
 			DUMP_IPI_MSG("timeout!! msg", p_ipi_msg);
 			DUMP_IPI_MSG("timeout!! ack", p_ack);
-			AUD_ASSERT(0);
 			break;
 		}
 
@@ -626,7 +623,6 @@ static int process_message_in_queue(
 			memset(p_ack, 0, sizeof(struct ipi_msg_t));
 			retval = -1;
 			spin_unlock_irqrestore(&msg_queue->ack_lock, flags);
-			AUD_ASSERT(0);
 			break;
 		}
 
