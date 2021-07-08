@@ -74,6 +74,7 @@
 #define PA6_RG_U2_PHY_REV6_VAL(x)	((0x3 & (x)) << 30)
 #define PA6_RG_U2_PHY_REV6_MASK	(0x3)
 #define PA6_RG_U2_PHY_REV6_OFET	(30)
+#define PA6_RG_U2_PHY_REV1		BIT(25)
 #define PA6_RG_U2_BC11_SW_EN		BIT(23)
 #define PA6_RG_U2_OTG_VBUSCMP_EN	BIT(20)
 #define PA6_RG_U2_DISCTH		GENMASK(7, 4)
@@ -312,6 +313,8 @@
 
 #define PHY_MODE_BC11_SW_SET 1
 #define PHY_MODE_BC11_SW_CLR 2
+#define PHY_MODE_DPDMPULLDOWN_SET 3
+#define PHY_MODE_DPDMPULLDOWN_CLR 4
 
 #define TERM_SEL_STR "term_sel"
 #define VRT_SEL_STR "vrt_sel"
@@ -1315,6 +1318,10 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	tmp &= ~P2C_RG_SESSEND;
 	writel(tmp, com + U3P_U2PHYDTM1);
 
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_PHY_REV1;
+	writel(tmp, com + U3P_USBPHYACR6);
+
 	if (tphy->pdata->avoid_rx_sen_degradation && index) {
 		tmp = readl(com + U3D_U2PHYDCR0);
 		tmp |= P2C_RG_SIF_U2PLL_FORCE_ON;
@@ -1349,6 +1356,10 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 	tmp &= ~(P2C_RG_VBUSVALID | P2C_RG_AVALID);
 	tmp |= P2C_RG_SESSEND;
 	writel(tmp, com + U3P_U2PHYDTM1);
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp |=  PA6_RG_U2_PHY_REV1;
+	writel(tmp, com + U3P_USBPHYACR6);
 
 	if (tphy->pdata->avoid_rx_sen_degradation && index) {
 		tmp = readl(com + U3P_U2PHYDTM0);
@@ -1421,6 +1432,16 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
 			tmp &= ~PA6_RG_U2_BC11_SW_EN;
 			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
+			break;
+		case PHY_MODE_DPDMPULLDOWN_SET:
+			tmp = readl(u2_banks->com + U3P_U2PHYDTM0);
+			tmp |= P2C_RG_DPPULLDOWN | P2C_RG_DMPULLDOWN;
+			writel(tmp, u2_banks->com + U3P_U2PHYDTM0);
+			break;
+		case PHY_MODE_DPDMPULLDOWN_CLR:
+			tmp = readl(u2_banks->com + U3P_U2PHYDTM0);
+			tmp &= ~(P2C_RG_DPPULLDOWN | P2C_RG_DMPULLDOWN);
+			writel(tmp, u2_banks->com + U3P_U2PHYDTM0);
 			break;
 		default:
 			return;
