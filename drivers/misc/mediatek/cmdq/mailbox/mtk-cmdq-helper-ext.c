@@ -1451,7 +1451,7 @@ void cmdq_pkt_perf_begin(struct cmdq_pkt *pkt)
 			return;
 
 	pa = cmdq_pkt_get_pa_by_offset(pkt, 0) + CMDQ_DBG_PERFBEGIN;
-	cmdq_pkt_write_indriect(pkt, NULL, pa, CMDQ_TPR_ID, ~0);
+	cmdq_pkt_write_indriect(pkt, NULL, pa + gce_mminfra, CMDQ_TPR_ID, ~0);
 
 	buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
 	*(u32 *)(buf->va_base + CMDQ_DBG_PERFBEGIN) = 0xdeaddead;
@@ -1468,7 +1468,7 @@ void cmdq_pkt_perf_end(struct cmdq_pkt *pkt)
 			return;
 
 	pa = cmdq_pkt_get_pa_by_offset(pkt, 0) + CMDQ_DBG_PERFEND;
-	cmdq_pkt_write_indriect(pkt, NULL, pa, CMDQ_TPR_ID, ~0);
+	cmdq_pkt_write_indriect(pkt, NULL, pa + gce_mminfra, CMDQ_TPR_ID, ~0);
 
 	buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
 	*(u32 *)(buf->va_base + CMDQ_DBG_PERFEND) = 0xdeaddead;
