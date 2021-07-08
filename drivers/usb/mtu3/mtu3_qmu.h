@@ -23,6 +23,7 @@ void mtu3_qmu_resume(struct mtu3_ep *mep);
 void mtu3_qmu_flush(struct mtu3_ep *mep);
 
 void mtu3_insert_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq);
+void mtu3_clean_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq);
 int mtu3_prepare_transfer(struct mtu3_ep *mep);
 
 int mtu3_gpd_ring_alloc(struct mtu3_ep *mep);

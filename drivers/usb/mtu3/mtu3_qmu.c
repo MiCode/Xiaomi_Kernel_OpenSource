@@ -323,6 +323,17 @@ void mtu3_insert_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq)
 		mtu3_prepare_rx_gpd(mep, mreq);
 }
 
+void mtu3_clean_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq)
+{
+	struct qmu_gpd *gpd = mreq->gpd;
+
+	if (!gpd)
+		return;
+
+	/* set all fields to zero */
+	memset(gpd, 0, sizeof(*gpd));
+}
+
 int mtu3_qmu_start(struct mtu3_ep *mep)
 {
 	struct mtu3 *mtu = mep->mtu;

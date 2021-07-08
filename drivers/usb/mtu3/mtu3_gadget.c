@@ -364,6 +364,7 @@ static int mtu3_gadget_dequeue(struct usb_ep *ep, struct usb_request *req)
 	}
 
 	mtu3_qmu_flush(mep);  /* REVISIT: set BPS ?? */
+	mtu3_clean_gpd(mep, mreq);
 	mtu3_req_complete(mep, req, -ECONNRESET);
 	mtu3_qmu_start(mep);
 
