@@ -146,26 +146,26 @@ static struct secure_heap_region mtk_sec_heap_region[REGION_HEAPS_NUM] = {
 		.heap_type = REGION_BASE,
 	},
 	[PROT_2D_FR_REGION] = {
-		.heap_name = {"mtk_2d_fr-uncached",
-			      "mtk_2d_fr-uncached-aligned"},
+		.heap_name = {"mtk_2d_fr_region-uncached",
+			      "mtk_2d_fr_region-uncached-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_2D_FR,
 		.heap_type = REGION_BASE,
 	},
 	[WFD_REGION] = {
-		.heap_name = {"mtk_wfd-uncached",
-			      "mtk_wfd-uncached-aligned"},
+		.heap_name = {"mtk_wfd_region-uncached",
+			      "mtk_wfd_region-uncached-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_WFD,
 		.heap_type = REGION_BASE,
 	},
 	[SAPU_DATA_SHM_REGION] = {
-		.heap_name = {"mtk_sapu_data_shm-uncached",
-			      "mtk_sapu_data_shm-uncached-aligned"},
+		.heap_name = {"mtk_sapu_data_shm_region-uncached",
+			      "mtk_sapu_data_shm_region-uncached-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_SAPU_DATA_SHM,
 		.heap_type = REGION_BASE,
 	},
 	[SAPU_ENGINE_SHM_REGION] = {
-		.heap_name = {"mtk_sapu_engine_shm-uncached",
-			      "mtk_sapu_engine_shm-uncached-aligned"},
+		.heap_name = {"mtk_sapu_engine_shm_region-uncached",
+			      "mtk_sapu_engine_shm_region-uncached-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_SAPU_ENGINE_SHM,
 		.heap_type = REGION_BASE,
 	},
@@ -176,12 +176,7 @@ static int is_mtk_secure_dmabuf(const struct dma_buf *dmabuf);
 
 static bool region_heap_is_aligned(struct dma_heap *heap)
 {
-	if (!strcmp(dma_heap_get_name(heap), "mtk_svp_region-uncached-aligned") ||
-	    !strcmp(dma_heap_get_name(heap), "mtk_prot_region-uncached-aligned") ||
-	    !strcmp(dma_heap_get_name(heap), "mtk_2d_fr-uncached-aligned") ||
-	    !strcmp(dma_heap_get_name(heap), "mtk_wfd-uncached-aligned") ||
-	    !strcmp(dma_heap_get_name(heap), "mtk_sapu_data_shm-uncached-aligned") ||
-	    !strcmp(dma_heap_get_name(heap), "mtk_sapu_engine_shm-uncached-aligned"))
+	if (strstr(dma_heap_get_name(heap), "aligned"))
 		return true;
 
 	return false;
