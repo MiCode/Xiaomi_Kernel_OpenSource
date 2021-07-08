@@ -107,5 +107,7 @@ void drv3_dpmaif_common_hw_init(void);
 void drv3_dpmaif_sram_init(void);
 void drv3_dpmaif_hw_init_done(void);
 
+void drv3_dpmaif_set_axi_out_gated(void);
+void drv3_dpmaif_clr_axi_out_gated(void);
 
 #endif

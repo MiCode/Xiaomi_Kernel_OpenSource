@@ -76,8 +76,6 @@
 struct hif_dpmaif_ctrl *dpmaif_ctrl_v3;
 #define dpmaif_ctrl dpmaif_ctrl_v3
 
-static void __iomem *infra_ao_mem;
-
 
 static struct dpmaif_clk_node g_clk_tbs[] = {
 	{ NULL, "infra-dpmaif-clk"},
@@ -2936,7 +2934,6 @@ static int dpmaif_start(unsigned char hif_id)
 	struct dpmaif_rx_queue *rxq = NULL;
 	struct dpmaif_tx_queue *txq = NULL;
 	int i, ret = 0;
-	unsigned int reg_value;
 
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWRON)
 		return 0;
@@ -2951,10 +2948,7 @@ static int dpmaif_start(unsigned char hif_id)
 	/* cg set */
 	ccci_dpmaif_set_clk(1, g_clk_tbs);
 
-	reg_value = ccci_read32(infra_ao_mem, 0);
-	reg_value |= INFRA_PROT_DPMAIF_BIT;
-	ccci_write32(infra_ao_mem, 0, reg_value);
-	CCCI_REPEAT_LOG(-1, TAG, "%s:clr prot:0x%x\n", __func__, reg_value);
+	drv3_dpmaif_clr_axi_out_gated();
 
 	drv3_dpmaif_common_hw_init();
 
@@ -3247,11 +3241,7 @@ static void dpmaif_hw_reset(void)
 	unsigned char md_id = 0;
 	unsigned int reg_value;
 
-	/* pre- DPMAIF HW reset: bus-protect */
-	reg_value = ccci_read32(infra_ao_mem, 0);
-	reg_value &= ~INFRA_PROT_DPMAIF_BIT;
-	ccci_write32(infra_ao_mem, 0, reg_value);
-	CCCI_REPEAT_LOG(md_id, TAG, "%s:set prot:0x%x\n", __func__, reg_value);
+	drv3_dpmaif_set_axi_out_gated();
 
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
@@ -3339,66 +3329,11 @@ static int dpmaif_start_queue(unsigned char hif_id, unsigned char qno,
  */
 static int dpmaif_resume(unsigned char hif_id)
 {
-	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
-	struct dpmaif_tx_queue *queue = NULL;
-	int i, ret = 0;
-	unsigned int rel_cnt = 0;
-
 	/*IP don't power down before*/
 	if (drv3_dpmaif_check_power_down() == false) {
 		CCCI_DEBUG_LOG(0, TAG, "sys_resume no need restore\n");
-	} else {
-		/*IP power down before and need to restore*/
-		CCCI_NORMAL_LOG(0, TAG,
-			"sys_resume need to restore(0x%x, 0x%x, 0x%x)\n",
-			drv3_dpmaif_ul_get_rwidx(0),
-			drv3_dpmaif_ul_get_rwidx(1),
-			drv3_dpmaif_ul_get_rwidx(3));
-		/*flush and release UL descriptor*/
-		for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
-			queue = &hif_ctrl->txq[i];
-			if (queue->drb_rd_idx != queue->drb_wr_idx) {
-				CCCI_NOTICE_LOG(0, TAG,
-					"resume(%d): pkt force release: rd(0x%x), wr(0x%x), 0x%x, 0x%x, 0x%x\n",
-					i, queue->drb_rd_idx,
-					queue->drb_wr_idx,
-					drv3_dpmaif_ul_get_rwidx(0),
-					drv3_dpmaif_ul_get_rwidx(1),
-					drv3_dpmaif_ul_get_rwidx(3));
-				/*queue->drb_rd_idx = queue->drb_wr_idx;*/
-			}
-			if (queue->drb_wr_idx != queue->drb_rel_rd_idx)
-				rel_cnt = ringbuf_releasable(
-					queue->drb_size_cnt,
-					queue->drb_rel_rd_idx,
-					queue->drb_wr_idx);
-			else
-				rel_cnt = 0;
-			dpmaif_relase_tx_buffer(i, rel_cnt);
-			queue->drb_rd_idx = 0;
-			queue->drb_wr_idx = 0;
-			queue->drb_rel_rd_idx = 0;
-			atomic_set(&queue->tx_resume_tx, 1);
-		}
-		/* there are some inter for init para. check. */
-		/* maybe need changed to drv3_dpmaif_intr_hw_init();*/
-		ret = drv3_dpmaif_dl_restore(
-			dpmaif_ctrl->rxq[0].reg_int_mask_bak);
-		if (ret < 0) {
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"dpmaif resume failed\n");
-#endif
-			return ret;
-		}
-		drv3_dpmaif_init_ul_intr();
-		/*flush and release UL descriptor*/
-		for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
-			queue = &hif_ctrl->txq[i];
-			dpmaif_tx_hw_init(queue);
-			atomic_set(&queue->tx_resume_done, 1);
-		}
 	}
+
 	return 0;
 }
 
@@ -3601,6 +3536,8 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 		hif_ctrl->dpmaif_pd_ul_base + 0xC00;
 	hif_ctrl->dpmaif_ao_ul_sram_base =
 		hif_ctrl->dpmaif_pd_ul_base + 0xD00;
+	hif_ctrl->dpmaif_ao_msic_sram_base =
+		hif_ctrl->dpmaif_pd_ul_base + 0xE00;
 
 	hif_ctrl->dpmaif_pd_md_misc_base = of_iomap(node, 2);
 	if (hif_ctrl->dpmaif_pd_md_misc_base == 0) {
@@ -3637,12 +3574,6 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 		"mediatek,infracfg_ao_mem");
 	if (!node) {
 		CCCI_ERROR_LOG(md_id, TAG, "mediatek,infracfg_ao_mem fail!\n");
-		ret = -1;
-		goto DPMAIF_INIT_FAIL;
-	}
-	infra_ao_mem = of_iomap(node, 0);
-	if (!infra_ao_mem) {
-		CCCI_ERROR_LOG(md_id, TAG, "infra_ao_mem error!\n");
 		ret = -1;
 		goto DPMAIF_INIT_FAIL;
 	}

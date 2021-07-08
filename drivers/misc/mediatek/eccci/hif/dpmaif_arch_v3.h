@@ -100,6 +100,12 @@ do { \
 #define DPMA_READ_AO_UL_SRAM(a) \
 	dpmaif_read32(dpmaif_ctrl->dpmaif_ao_ul_sram_base, (a))  //xuxin-add, has use
 
+#define DPMA_WRITE_AO_MISC_SRAM(a, v) \
+	dpmaif_write32(dpmaif_ctrl->dpmaif_ao_msic_sram_base, (a), v)  //xuxin-add, has use
+
+#define DPMA_READ_AO_MISC_SRAM(a) \
+	dpmaif_read32(dpmaif_ctrl->dpmaif_ao_msic_sram_base, (a))  //xuxin-add, has use
+
 #define DPMA_WRITE_AO_UL(a, v) \
 	dpmaif_write32(dpmaif_ctrl->dpmaif_ao_ul_base, (a), v)
 

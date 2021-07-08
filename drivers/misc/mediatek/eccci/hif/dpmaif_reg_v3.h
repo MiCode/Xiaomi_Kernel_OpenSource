@@ -13,16 +13,20 @@
 #if 0
 void __iomem *dpmaif_ao_ul_base;        0x10014000
 void __iomem *dpmaif_ao_dl_base;        0x10014400
+void __iomem *dpmaif_ao_md_dl_base;     0x10014800
+
+void __iomem *dpmaif_pd_md_misc_base;   0x1022C000
+
 void __iomem *dpmaif_pd_ul_base;        0x1022D000
 void __iomem *dpmaif_pd_dl_base;        0x1022D100
-void __iomem *dpmaif_pd_misc_base;      0x1022D400
-void __iomem *dpmaif_pd_md_misc_base;   0x1022C000
-void __iomem *dpmaif_pd_sram_base;      0x1022E000
 void __iomem *dpmaif_pd_rdma_base;      0x1022D200
 void __iomem *dpmaif_pd_wdma_base;      0x1022D300
-void __iomem *dpmaif_ao_md_dl_base;     0x10014800
+void __iomem *dpmaif_pd_misc_base;      0x1022D400
 void __iomem *dpmaif_ao_dl_sram_base;   0x1022DC00
 void __iomem *dpmaif_ao_ul_sram_base;   0x1022DD00
+void __iomem *dpmaif_ao_msic_sram_base; 0x1022DE00
+
+void __iomem *dpmaif_pd_sram_base;      0x1022E000
 #endif
 
 /* INFRA */
@@ -374,6 +378,28 @@ void __iomem *dpmaif_ao_ul_sram_base;   0x1022DD00
 
 /***********************************************************************
  *
+ *  PD_SRAM_MISC
+ *
+ ***********************************************************************/
+#define NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAP0_2 \
+	(BASE_NADDR_NRL2_DPMAIF_PD_SRAM_MISC + 0x0C)
+#define NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAP3_5 \
+	(BASE_NADDR_NRL2_DPMAIF_PD_SRAM_MISC + 0x10)
+#define NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAP6_7_BANK1_MAP0 \
+	(BASE_NADDR_NRL2_DPMAIF_PD_SRAM_MISC + 0x14)
+#define NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAP1_3 \
+	(BASE_NADDR_NRL2_DPMAIF_PD_SRAM_MISC + 0x18)
+#define NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAP4_6 \
+	(BASE_NADDR_NRL2_DPMAIF_PD_SRAM_MISC + 0x1C)
+#define NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAP7_BANK4_MAP0_1 \
+	(BASE_NADDR_NRL2_DPMAIF_PD_SRAM_MISC + 0x20)
+#define NRL2_DPMAIF_MISC_AO_REMAP_BANK4_MAP2_4 \
+	(BASE_NADDR_NRL2_DPMAIF_PD_SRAM_MISC + 0x24)
+#define NRL2_DPMAIF_MISC_AO_REMAP_BANK4_MAP5_7 \
+	(BASE_NADDR_NRL2_DPMAIF_PD_SRAM_MISC + 0x28)
+
+/***********************************************************************
+ *
  *  dpmaif_hpc
  *
  ***********************************************************************/
@@ -577,6 +603,8 @@ void __iomem *dpmaif_ao_ul_sram_base;   0x1022DD00
 
 /*DPMAIF PD MD MISC CONFIG */
 #define DPMAIF_MISC_AO_CFG0               (BASE_NADDR_NRL2_DPMAIF_DL_AO_CFG + 0x00)
+#define DPMAIF_MISC_AO_MSIC_CFG           (BASE_NADDR_NRL2_DPMAIF_DL_AO_CFG + 0x64)
+
 #define DPMAIF_AXI_MAS_SECURE             NRL2_DPMAIF_AXI_MAS_SECURE
 #define DPMAIF_AP_MISC_APB_DBG_SRAM       NRL2_DPMAIF_AP_MISC_APB_DBG_SRAM
 

@@ -803,6 +803,86 @@ void drv3_dpmaif_hw_init_done(void)
 	DPMA_WRITE_AO_DL_NOSRAM(NRL2_DPMAIF_AO_DL_INIT_SET, DPMAIF_DL_INIT_DONE_MASK);
 }
 
+void drv3_dpmaif_md_hw_bus_remap(void)
+{
+	unsigned int value;
+	phys_addr_t md_base_at_ap;
+	unsigned long long tmp_val;
+
+	get_md_resv_mem_info(MD_SYS1, &md_base_at_ap, NULL, NULL, NULL);
+	tmp_val = (unsigned long long)md_base_at_ap;
+
+	/*Remap and Remap enable for address*/
+	/*1~9, 11~19, 21~29 bit is map address*/
+	/*0, 10, 20 bit is enable/disable map address bit*/
+
+	/*Bank0 0-2*/
+	value = ((tmp_val >> 24) & (0x3FE << 0)) +
+		(((tmp_val + 0x2000000) >> 14) & (0x3FE << 10)) +
+		(((tmp_val + (0x2000000*2)) >> 4) & (0x3FE << 20));
+	value |= ((1 << 20) | (1 << 10) | (1 << 0));
+	DPMA_WRITE_AO_MISC_SRAM(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAP0_2, value);
+
+	/*Bank0 3-5*/
+	tmp_val += 0x2000000 * 3;
+	value = ((tmp_val >> 24) & (0x3FE << 0)) +
+		(((tmp_val + 0x2000000) >> 14) & (0x3FE << 10)) +
+		(((tmp_val + (0x2000000*2)) >> 4) & (0x3FE << 20));
+	value |= ((1 << 20) | (1 << 10) | (1 << 0));
+	DPMA_WRITE_AO_MISC_SRAM(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAP3_5, value);
+
+	/*Bank0 6-7 + Bank1 0*/
+	tmp_val += 0x2000000 * 3;
+	value = ((tmp_val >> 24) & (0x3FE << 0)) +
+		(((tmp_val + 0x2000000) >> 14) & (0x3FE << 10)) +
+		(((tmp_val + (0x2000000*2)) >> 4) & (0x3FE << 20));
+	value |= ((1 << 20) | (1 << 10) | (1 << 0));
+	DPMA_WRITE_AO_MISC_SRAM(
+		NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAP6_7_BANK1_MAP0, value);
+
+	/*Bank1 1-3*/
+	tmp_val += 0x2000000 * 3;
+	value = ((tmp_val >> 24) & (0x3FE << 0)) +
+		(((tmp_val + 0x2000000) >> 14) & (0x3FE << 10)) +
+		(((tmp_val + (0x2000000*2)) >> 4) & (0x3FE << 20));
+	value |= ((1 << 20) | (1 << 10) | (1 << 0));
+
+	DPMA_WRITE_AO_MISC_SRAM(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAP1_3, value);
+
+	/*Bank1 4-6*/
+	tmp_val += 0x2000000 * 3;
+	value = ((tmp_val >> 24) & (0x3FE << 0)) +
+		(((tmp_val + 0x2000000) >> 14) & (0x3FE << 10)) +
+		(((tmp_val + (0x2000000*2)) >> 4) & (0x3FE << 20));
+	value |= ((1 << 20) | (1 << 10) | (1 << 0));
+	DPMA_WRITE_AO_MISC_SRAM(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAP4_6, value);
+
+	/*Bank1 7 + Bank4 0-1*/
+	tmp_val += 0x2000000 * 3;
+	value = ((tmp_val >> 24) & (0x3FE << 0)) +
+		(((tmp_val + 0x2000000) >> 14) & (0x3FE << 10)) +
+		(((tmp_val + (0x2000000*2)) >> 4) & (0x3FE << 20));
+	value |= ((0 << 20) | (0 << 10) | (1 << 0));
+	DPMA_WRITE_AO_MISC_SRAM(
+		NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAP7_BANK4_MAP0_1, value);
+
+	/*Bank4 2-4*/
+	tmp_val += 0x2000000 * 3;
+	value = ((tmp_val >> 24) & (0x3FE << 0)) +
+		(((tmp_val + 0x2000000) >> 14) & (0x3FE << 10)) +
+		(((tmp_val + (0x2000000*2)) >> 4) & (0x3FE << 20));
+	value |= ((0 << 20) | (0 << 10) | (0 << 0));
+	DPMA_WRITE_AO_MISC_SRAM(NRL2_DPMAIF_MISC_AO_REMAP_BANK4_MAP2_4, value);
+
+	/*Bank4 5-7*/
+	tmp_val += 0x2000000 * 3;
+	value = ((tmp_val >> 24) & (0x3FE << 0)) +
+		(((tmp_val + 0x2000000) >> 14) & (0x3FE << 10)) +
+		(((tmp_val + (0x2000000*2)) >> 4) & (0x3FE << 20));
+	value |= ((0 << 20) | (0 << 10) | (0 << 0));
+	DPMA_WRITE_AO_MISC_SRAM(NRL2_DPMAIF_MISC_AO_REMAP_BANK4_MAP5_7, value);
+}
+
 void drv3_dpmaif_common_hw_init(void)
 {
 	drv3_dpmaif_sram_init();
@@ -810,11 +890,33 @@ void drv3_dpmaif_common_hw_init(void)
 	/*Set HW CG dis*/
 	DPMA_WRITE_PD_MISC(NRL2_DPMAIF_AP_MISC_CG_EN, 0x7F);
 
+	drv3_dpmaif_md_hw_bus_remap();
+
 	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L1TIMR0,
 				((1<<9)|(1<<10)|(1<<15)|(1<<16)));
 
     /*Set Power on/off flag*/
 	DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW, 0xff);
+}
+
+void drv3_dpmaif_set_axi_out_gated(void)
+{
+	unsigned int value;
+
+	value = DPMA_READ_AO_MD_DL(DPMAIF_MISC_AO_MSIC_CFG);
+	value |= (1<<1);
+
+	DPMA_WRITE_AO_MD_DL(DPMAIF_MISC_AO_MSIC_CFG, value);
+}
+
+void drv3_dpmaif_clr_axi_out_gated(void)
+{
+	unsigned int value;
+
+	value = DPMA_READ_AO_MD_DL(DPMAIF_MISC_AO_MSIC_CFG);
+	value &= ~(1<<1);
+
+	DPMA_WRITE_AO_MD_DL(DPMAIF_MISC_AO_MSIC_CFG, value);
 }
 
 /* =======================================================

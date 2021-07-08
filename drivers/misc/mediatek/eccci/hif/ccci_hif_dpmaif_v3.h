@@ -360,6 +360,7 @@ struct hif_dpmaif_ctrl {
 
 	void __iomem *dpmaif_ao_dl_sram_base;
 	void __iomem *dpmaif_ao_ul_sram_base;
+	void __iomem *dpmaif_ao_msic_sram_base;
 
 	unsigned int dpmaif_irq_id;
 	unsigned long dpmaif_irq_flags;
