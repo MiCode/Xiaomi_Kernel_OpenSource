@@ -45,7 +45,7 @@
 #include "private/ssheap_priv.h"
 #include "public/trusted_mem_api.h"
 
-#define HYP_PMM_MASTER_SIDE_PROTECT (0)
+#define HYP_PMM_MASTER_SIDE_PROTECT (1)
 
 static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
 {
