@@ -14,7 +14,7 @@ void __init set_policy(int *policy_ctrl)
 
 	/* default enable all policy */
 	/* MKP default policies (0 ~ 15) */
-	policy_ctrl[MKP_POLICY_MKP] = 0;			/* Policy ID for MKP itself */
+	policy_ctrl[MKP_POLICY_MKP] = 1;			/* Policy ID for MKP itself */
 	policy_ctrl[MKP_POLICY_DRV] = 0;			/* Policy ID for kernel drivers */
 	policy_ctrl[MKP_POLICY_SELINUX_STATE] = 1;	/* Policy ID for selinux_state */
 	policy_ctrl[MKP_POLICY_SELINUX_AVC] = 1;	/* Policy ID for selinux avc */
