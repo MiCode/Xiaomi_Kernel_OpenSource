@@ -85,6 +85,8 @@ struct efuse_chip_data {
 	unsigned int reg_num;
 	unsigned int ctrl_reg_width;
 	const struct efuse_reg *reg;
+	unsigned int key_reg_num;
+	unsigned int key_reg_val;
 };
 
 struct mt635x_efuse {
@@ -124,9 +126,15 @@ static int mt635x_efuse_read(void *context, unsigned int offset,
 	unsigned int buf = 0;
 	unsigned int offset_end = offset + bytes;
 	unsigned short *val = _val;
+	unsigned short key_val = 0;
 	int ret;
 
 	mutex_lock(&efuse->lock);
+	/* Unlock TMA Key */
+	if (data->key_reg_num) {
+		key_val = data->key_reg_val;
+		regmap_bulk_write(efuse->regmap, data->key_reg_num, &key_val, 2);
+	}
 	/* Enable the efuse ctrl engine clock */
 	ret = regmap_write(efuse->regmap,
 			   reg->ck_pdn_hwen + data->ctrl_reg_width * CLR_OFFSET,
@@ -196,6 +204,10 @@ disable_efuse:
 	if (reg->otp_osc_ck_en)
 		regmap_write(efuse->regmap, reg->otp_osc_ck_en, 0);
 unlock_efuse:
+	if (data->key_reg_num) {
+		key_val = 0;
+		regmap_bulk_write(efuse->regmap, data->key_reg_num, &key_val, 2);
+	}
 	mutex_unlock(&efuse->lock);
 
 	return ret;
@@ -271,6 +283,14 @@ static const struct efuse_chip_data mt6363_efuse_data = {
 	.reg = &reg_v2,
 };
 
+static const struct efuse_chip_data mt6368_efuse_data = {
+	.reg_num = 128,
+	.ctrl_reg_width = 0x1,
+	.reg = &reg_v2,
+	.key_reg_num = 0x39e,
+	.key_reg_val = 0x9C97,
+};
+
 static const struct of_device_id mt635x_efuse_of_match[] = {
 	{
 		.compatible = "mediatek,mt6359p-efuse",
@@ -278,6 +298,9 @@ static const struct of_device_id mt635x_efuse_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6363-efuse",
 		.data = &mt6363_efuse_data
+	}, {
+		.compatible = "mediatek,mt6368-efuse",
+		.data = &mt6368_efuse_data
 	}, {
 		.compatible = "mediatek,mt6373-efuse",
 		.data = &mt6363_efuse_data
