@@ -51,6 +51,9 @@ int sched_pause_cpu(int cpu)
 		pr_info("[Core Pause]Pause fail: cpu=%d, pause_mask=0x%lx, active_mask=0x%lx, err=%d\n",
 			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0], err);
 	} else {
+#if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
+		set_cpu_active_bitmask(cpumask_bits(cpu_active_mask)[0]);
+#endif
 		pr_info("[Core Pause]Pause success: cpu=%d, pause_mask=0x%lx, active_mask=0x%lx\n",
 			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0]);
 	}
@@ -84,6 +87,9 @@ int sched_resume_cpu(int cpu)
 		pr_info("[Core Pause]Resume fail: cpu=%d, resume_mask=0x%lx, active_mask=0x%lx, err=%d\n",
 				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0], err);
 	} else {
+#if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
+		set_cpu_active_bitmask(cpumask_bits(cpu_active_mask)[0]);
+#endif
 		pr_info("[Core Pause]Resume success: cpu=%d, resume_mask=0x%lx, active_mask=0x%lx\n",
 				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0]);
 	}
