@@ -16,7 +16,8 @@ unsigned long sec_low(unsigned long long nsec);
 void mt_irq_monitor_test_init(struct proc_dir_entry *dir);
 
 // irq count tracer
-void irq_count_tracer_init(void);
+int irq_count_tracer_init(void);
+void irq_count_tracer_exit(void);
 const char *irq_to_name(int irq);
 void show_irq_count_info(unsigned int output);
 void irq_count_tracer_set(bool val);

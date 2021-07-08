@@ -157,9 +157,6 @@ struct trace_stat {
 	bool tracing;
 	unsigned long long start_timestamp;
 	unsigned long long end_timestamp;
-	/* start trace */
-	int nr_entries;
-	unsigned long trace_entries[MAX_STACK_TRACE_DEPTH];
 };
 
 struct preemptirq_stat {
@@ -176,8 +173,8 @@ struct preemptirq_stat {
 	unsigned long trace_entries[MAX_STACK_TRACE_DEPTH];
 };
 
-static DEFINE_PER_CPU(struct preemptirq_stat, irq_pi_stat);
-static DEFINE_PER_CPU(struct preemptirq_stat, preempt_pi_stat);
+static struct preemptirq_stat __percpu *irq_pi_stat;
+static struct preemptirq_stat __percpu *preempt_pi_stat;
 
 static void irq_mon_save_stack_trace(struct preemptirq_stat *pi_stat)
 {
@@ -239,9 +236,9 @@ static void check_preemptirq_stat(struct preemptirq_stat *pi_stat, int irq)
 		dump_stack();
 }
 
-static DEFINE_PER_CPU(struct trace_stat, irq_trace_stat);
-static DEFINE_PER_CPU(struct trace_stat, softirq_trace_stat);
-static DEFINE_PER_CPU(struct trace_stat, ipi_trace_stat);
+static struct trace_stat __percpu *irq_trace_stat;
+static struct trace_stat __percpu *softirq_trace_stat;
+static struct trace_stat __percpu *ipi_trace_stat;
 
 #define MAX_IRQ_NUM 1024
 static int irq_aee_state[MAX_IRQ_NUM];
@@ -265,9 +262,9 @@ static void __show_irq_handle_info(unsigned int out)
 
 	for_each_possible_cpu(cpu) {
 		irq_mon_msg(out, "CPU: %d", cpu);
-		show_irq_handle(out, "irq handler", per_cpu_ptr(&irq_trace_stat, cpu));
-		show_irq_handle(out, "softirq", per_cpu_ptr(&softirq_trace_stat, cpu));
-		show_irq_handle(out, "IPI", per_cpu_ptr(&ipi_trace_stat, cpu));
+		show_irq_handle(out, "irq handler", per_cpu_ptr(irq_trace_stat, cpu));
+		show_irq_handle(out, "softirq", per_cpu_ptr(softirq_trace_stat, cpu));
+		show_irq_handle(out, "IPI", per_cpu_ptr(ipi_trace_stat, cpu));
 		irq_mon_msg(out, "");
 	}
 }
@@ -295,25 +292,25 @@ static void probe_irq_handler_entry(void *ignore,
 
 	if (!tracer->tracing)
 		return;
-	if (__this_cpu_cmpxchg(irq_trace_stat.tracing, 0, 1))
+	if (__this_cpu_cmpxchg(irq_trace_stat->tracing, 0, 1))
 		return;
 
 	ts = sched_clock();
-	this_cpu_write(irq_trace_stat.start_timestamp, ts);
-	this_cpu_write(irq_trace_stat.end_timestamp, 0);
+	this_cpu_write(irq_trace_stat->start_timestamp, ts);
+	this_cpu_write(irq_trace_stat->end_timestamp, 0);
 }
 
 static void probe_irq_handler_exit(void *ignore,
 		int irq, struct irqaction *action, int ret)
 {
-	struct trace_stat *trace_stat = raw_cpu_ptr(&irq_trace_stat);
+	struct trace_stat *trace_stat = raw_cpu_ptr(irq_trace_stat);
 	struct irq_mon_tracer *tracer = &irq_handler_tracer;
 	unsigned long long ts, duration;
 	unsigned int out;
 
 	if (!tracer->tracing)
 		return;
-	if (!__this_cpu_read(irq_trace_stat.tracing))
+	if (!__this_cpu_read(irq_trace_stat->tracing))
 		return;
 
 	ts = sched_clock();
@@ -342,7 +339,7 @@ static void probe_irq_handler_exit(void *ignore,
 		}
 	}
 
-	this_cpu_write(irq_trace_stat.tracing, 0);
+	this_cpu_write(irq_trace_stat->tracing, 0);
 }
 
 static void probe_softirq_entry(void *ignore, unsigned int vec_nr)
@@ -352,24 +349,24 @@ static void probe_softirq_entry(void *ignore, unsigned int vec_nr)
 
 	if (!tracer->tracing)
 		return;
-	if (__this_cpu_cmpxchg(softirq_trace_stat.tracing, 0, 1))
+	if (__this_cpu_cmpxchg(softirq_trace_stat->tracing, 0, 1))
 		return;
 
 	ts = sched_clock();
-	this_cpu_write(softirq_trace_stat.start_timestamp, ts);
-	this_cpu_write(softirq_trace_stat.end_timestamp, 0);
+	this_cpu_write(softirq_trace_stat->start_timestamp, ts);
+	this_cpu_write(softirq_trace_stat->end_timestamp, 0);
 }
 
 static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
 {
-	struct trace_stat *trace_stat = raw_cpu_ptr(&softirq_trace_stat);
+	struct trace_stat *trace_stat = raw_cpu_ptr(softirq_trace_stat);
 	struct irq_mon_tracer *tracer = &softirq_tracer;
 	unsigned long long ts, duration;
 	unsigned int out;
 
 	if (!tracer->tracing)
 		return;
-	if (!__this_cpu_read(softirq_trace_stat.tracing))
+	if (!__this_cpu_read(softirq_trace_stat->tracing))
 		return;
 
 	ts = sched_clock();
@@ -385,7 +382,7 @@ static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
 				trace_stat->end_timestamp);
 	}
 
-	this_cpu_write(softirq_trace_stat.tracing, 0);
+	this_cpu_write(softirq_trace_stat->tracing, 0);
 }
 
 static void probe_ipi_entry(void *ignore, const char *reason)
@@ -395,25 +392,25 @@ static void probe_ipi_entry(void *ignore, const char *reason)
 
 	if (!tracer->tracing)
 		return;
-	if (__this_cpu_cmpxchg(ipi_trace_stat.tracing, 0, 1))
+	if (__this_cpu_cmpxchg(ipi_trace_stat->tracing, 0, 1))
 		return;
 
 	ts = sched_clock();
-	this_cpu_write(ipi_trace_stat.start_timestamp, ts);
-	this_cpu_write(ipi_trace_stat.end_timestamp, 0);
+	this_cpu_write(ipi_trace_stat->start_timestamp, ts);
+	this_cpu_write(ipi_trace_stat->end_timestamp, 0);
 }
 
 
 static void probe_ipi_exit(void *ignore, const char *reason)
 {
-	struct trace_stat *trace_stat = raw_cpu_ptr(&ipi_trace_stat);
+	struct trace_stat *trace_stat = raw_cpu_ptr(ipi_trace_stat);
 	struct irq_mon_tracer *tracer = &ipi_tracer;
 	unsigned long long ts, duration;
 	unsigned int out;
 
 	if (!tracer->tracing)
 		return;
-	if (!__this_cpu_read(ipi_trace_stat.tracing))
+	if (!__this_cpu_read(ipi_trace_stat->tracing))
 		return;
 
 	ts = sched_clock();
@@ -429,25 +426,25 @@ static void probe_ipi_exit(void *ignore, const char *reason)
 			trace_stat->end_timestamp);
 	}
 
-	this_cpu_write(ipi_trace_stat.tracing, 0);
+	this_cpu_write(ipi_trace_stat->tracing, 0);
 }
 
 static void probe_irq_disable(void *ignore,
 		unsigned long ip, unsigned long parent_ip)
 {
-	struct preemptirq_stat *pi_stat = raw_cpu_ptr(&irq_pi_stat);
+	struct preemptirq_stat *pi_stat = raw_cpu_ptr(irq_pi_stat);
 	struct irq_mon_tracer *tracer = &irq_off_tracer;
 	unsigned long long ts;
 
 	if (!tracer->tracing)
 		return;
-	if (__this_cpu_cmpxchg(irq_pi_stat.tracing, 0, 1))
+	if (__this_cpu_cmpxchg(irq_pi_stat->tracing, 0, 1))
 		return;
 
 	ts = sched_clock();
-	this_cpu_write(irq_pi_stat.disable_timestamp, ts);
-	this_cpu_write(irq_pi_stat.disable_ip, ip);
-	this_cpu_write(irq_pi_stat.disable_parent_ip, parent_ip);
+	this_cpu_write(irq_pi_stat->disable_timestamp, ts);
+	this_cpu_write(irq_pi_stat->disable_ip, ip);
+	this_cpu_write(irq_pi_stat->disable_parent_ip, parent_ip);
 
 	/* high overhead */
 	irq_mon_save_stack_trace(pi_stat);
@@ -456,46 +453,46 @@ static void probe_irq_disable(void *ignore,
 static void probe_irq_enable(void *ignore,
 		unsigned long ip, unsigned long parent_ip)
 {
-	struct preemptirq_stat *pi_stat = raw_cpu_ptr(&irq_pi_stat);
+	struct preemptirq_stat *pi_stat = raw_cpu_ptr(irq_pi_stat);
 	struct irq_mon_tracer *tracer = &irq_off_tracer;
 	unsigned long long ts;
 
-	if (!__this_cpu_read(irq_pi_stat.tracing))
+	if (!__this_cpu_read(irq_pi_stat->tracing))
 		return;
 
-	if (!__this_cpu_cmpxchg(irq_pi_stat.enable_locked, 0, 1))
+	if (!__this_cpu_cmpxchg(irq_pi_stat->enable_locked, 0, 1))
 		return;
 
 	if (!tracer->tracing) {
 		return;
 	}
 	ts = sched_clock();
-	this_cpu_write(irq_pi_stat.enable_timestamp, ts);
-	this_cpu_write(irq_pi_stat.enable_ip, ip);
-	this_cpu_write(irq_pi_stat.enable_parent_ip, parent_ip);
+	this_cpu_write(irq_pi_stat->enable_timestamp, ts);
+	this_cpu_write(irq_pi_stat->enable_ip, ip);
+	this_cpu_write(irq_pi_stat->enable_parent_ip, parent_ip);
 
 	check_preemptirq_stat(pi_stat, 1);
 
-	this_cpu_write(irq_pi_stat.enable_locked, 0);
-	this_cpu_write(irq_pi_stat.tracing, 0);
+	this_cpu_write(irq_pi_stat->enable_locked, 0);
+	this_cpu_write(irq_pi_stat->tracing, 0);
 }
 
 static void probe_preempt_disable(void *ignore
 		, unsigned long ip, unsigned long parent_ip)
 {
-	struct preemptirq_stat *pi_stat = raw_cpu_ptr(&preempt_pi_stat);
+	struct preemptirq_stat *pi_stat = raw_cpu_ptr(preempt_pi_stat);
 	struct irq_mon_tracer *tracer = &preempt_off_tracer;
 	unsigned long long ts;
 
 	if (!tracer->tracing)
 		return;
-	if (__this_cpu_cmpxchg(preempt_pi_stat.tracing, 0, 1))
+	if (__this_cpu_cmpxchg(preempt_pi_stat->tracing, 0, 1))
 		return;
 
 	ts = sched_clock();
-	this_cpu_write(preempt_pi_stat.disable_timestamp, ts);
-	this_cpu_write(preempt_pi_stat.disable_ip, ip);
-	this_cpu_write(preempt_pi_stat.disable_parent_ip, parent_ip);
+	this_cpu_write(preempt_pi_stat->disable_timestamp, ts);
+	this_cpu_write(preempt_pi_stat->disable_ip, ip);
+	this_cpu_write(preempt_pi_stat->disable_parent_ip, parent_ip);
 
 	/* high overhead */
 	irq_mon_save_stack_trace(pi_stat);
@@ -504,27 +501,27 @@ static void probe_preempt_disable(void *ignore
 static void probe_preempt_enable(void *ignore,
 		unsigned long ip, unsigned long parent_ip)
 {
-	struct preemptirq_stat *pi_stat = raw_cpu_ptr(&preempt_pi_stat);
+	struct preemptirq_stat *pi_stat = raw_cpu_ptr(preempt_pi_stat);
 	struct irq_mon_tracer *tracer = &preempt_off_tracer;
 	unsigned long long ts;
 
 	if (!tracer->tracing)
 		return;
-	if (!__this_cpu_read(preempt_pi_stat.tracing))
+	if (!__this_cpu_read(preempt_pi_stat->tracing))
 		return;
 
-	if (!__this_cpu_cmpxchg(preempt_pi_stat.enable_locked, 0, 1))
+	if (!__this_cpu_cmpxchg(preempt_pi_stat->enable_locked, 0, 1))
 		return;
 
 	ts = sched_clock();
-	this_cpu_write(preempt_pi_stat.enable_timestamp, ts);
-	this_cpu_write(preempt_pi_stat.enable_ip, ip);
-	this_cpu_write(preempt_pi_stat.enable_parent_ip, parent_ip);
+	this_cpu_write(preempt_pi_stat->enable_timestamp, ts);
+	this_cpu_write(preempt_pi_stat->enable_ip, ip);
+	this_cpu_write(preempt_pi_stat->enable_parent_ip, parent_ip);
 
 	check_preemptirq_stat(pi_stat, 0);
 
-	this_cpu_write(preempt_pi_stat.enable_locked, 0);
-	this_cpu_write(preempt_pi_stat.tracing, 0);
+	this_cpu_write(preempt_pi_stat->enable_locked, 0);
+	this_cpu_write(preempt_pi_stat->tracing, 0);
 }
 
 /* tracepoints */
@@ -708,15 +705,15 @@ static int irq_mon_tracer_unprobe(struct irq_mon_tracer *tracer)
 	/* clear trace_stat or preemptirq_stat. no data race here
 	 * because all probes are unregistered */
 	if (tracer == &irq_handler_tracer)
-		t_stat = &irq_trace_stat;
+		t_stat = irq_trace_stat;
 	else if (tracer == &softirq_tracer)
-		t_stat = &softirq_trace_stat;
+		t_stat = softirq_trace_stat;
 	else if (tracer == &ipi_tracer)
-		t_stat = &ipi_trace_stat;
+		t_stat = ipi_trace_stat;
 	else if (tracer == &irq_off_tracer)
-		p_stat = &irq_pi_stat;
+		p_stat = irq_pi_stat;
 	else if (tracer == &preempt_off_tracer)
-		p_stat = &preempt_pi_stat;
+		p_stat = preempt_pi_stat;
 
 	if (t_stat) {
 		for_each_possible_cpu(cpu) {
@@ -921,10 +918,42 @@ static void irq_mon_proc_init(void)
 
 static int __init irq_monitor_init(void)
 {
+	int ret = 0;
+
+	irq_pi_stat = alloc_percpu(struct preemptirq_stat);
+	if (!irq_pi_stat) {
+		pr_info("Failed to alloc irq_pi_stat\n");
+		return -ENOMEM;
+	}
+	preempt_pi_stat = alloc_percpu(struct preemptirq_stat);
+	if (!preempt_pi_stat) {
+		pr_info("Failed to alloc preempt_pi_stat\n");
+		return -ENOMEM;
+	}
+	irq_trace_stat = alloc_percpu(struct trace_stat);
+	if (!irq_trace_stat) {
+		pr_info("Failed to alloc irq_trace_stat\n");
+		return -ENOMEM;
+	}
+	softirq_trace_stat = alloc_percpu(struct trace_stat);
+	if (!softirq_trace_stat) {
+		pr_info("Failed to alloc softirq_trace_stat\n");
+		return -ENOMEM;
+	}
+	ipi_trace_stat = alloc_percpu(struct trace_stat);
+	if (!ipi_trace_stat) {
+		pr_info("Failed to alloc ipi_trace_stat\n");
+		return -ENOMEM;
+	}
+
 	// tracepoint init
 	pr_info("irq monitor init start!!\n");
-	irq_mon_tracepoint_init();
-	irq_count_tracer_init();
+	ret = irq_mon_tracepoint_init();
+	if (ret)
+		return ret;
+	ret = irq_count_tracer_init();
+	if (ret)
+		return ret;
 	irq_mon_proc_init();
 #if IS_ENABLED(CONFIG_MTK_AEE_HANGDET)
 	kwdt_regist_irq_info(mt_aee_dump_irq_info);
@@ -946,6 +975,7 @@ static int irq_mon_tracepoint_exit(void)
 		}
 	}
 	tracepoint_synchronize_unregister();
+
 	return 0;
 }
 
@@ -955,7 +985,14 @@ static void __exit irq_monitor_exit(void)
 	kwdt_regist_irq_info(NULL);
 #endif
 	remove_proc_subtree("mtmon", NULL);
+	irq_count_tracer_exit();
 	irq_mon_tracepoint_exit();
+
+	free_percpu(irq_pi_stat);
+	free_percpu(preempt_pi_stat);
+	free_percpu(irq_trace_stat);
+	free_percpu(softirq_trace_stat);
+	free_percpu(ipi_trace_stat);
 }
 
 MODULE_DESCRIPTION("MEDIATEK IRQ MONITOR");

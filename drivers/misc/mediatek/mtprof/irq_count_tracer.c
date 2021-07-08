@@ -106,7 +106,7 @@ struct irq_count_stat {
 	unsigned int count[MAX_IRQ_NUM];
 };
 
-DEFINE_PER_CPU(struct irq_count_stat, irq_count_data);
+static struct irq_count_stat __percpu *irq_count_data;
 
 struct irq_count_all {
 	spinlock_t lock; /* protect this struct */
@@ -131,7 +131,7 @@ static void __show_irq_count_info(unsigned int output)
 		struct irq_count_stat *irq_cnt;
 		int irq;
 
-		irq_cnt = per_cpu_ptr(&irq_count_data, cpu);
+		irq_cnt = per_cpu_ptr(irq_count_data, cpu);
 
 		irq_mon_msg(output, "CPU: %d", cpu);
 		irq_mon_msg(output, "from %lld.%06lu to %lld.%06lu, %lld ms",
@@ -165,7 +165,7 @@ DEFINE_PER_CPU(struct hrtimer, irq_count_tracer_hrtimer);
 
 static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 {
-	struct irq_count_stat *irq_cnt = this_cpu_ptr(&irq_count_data);
+	struct irq_count_stat *irq_cnt = this_cpu_ptr(irq_count_data);
 	int cpu = smp_processor_id();
 	int irq, irq_num, i, skip;
 	unsigned int count;
@@ -317,7 +317,7 @@ static int irq_count_tracer_start_fn(void *ignore)
 {
 	int cpu = smp_processor_id();
 
-	per_cpu_ptr(&irq_count_data, cpu)->enabled = 1;
+	per_cpu_ptr(irq_count_data, cpu)->enabled = 1;
 	barrier();
 	irq_count_tracer_start(cpu);
 	return 0;
@@ -330,7 +330,7 @@ static void irq_count_tracer_work(struct work_struct *work)
 	do {
 		done = 1;
 		for_each_possible_cpu(cpu) {
-			if (per_cpu_ptr(&irq_count_data, cpu)->enabled)
+			if (per_cpu_ptr(irq_count_data, cpu)->enabled)
 				continue;
 
 			if (cpu_online(cpu))
@@ -344,9 +344,15 @@ static void irq_count_tracer_work(struct work_struct *work)
 }
 
 static DECLARE_WORK(tracer_work, irq_count_tracer_work);
-void irq_count_tracer_init(void)
+int irq_count_tracer_init(void)
 {
 	int i;
+
+	irq_count_data = alloc_percpu(struct irq_count_stat);
+	if (!irq_count_data) {
+		pr_info("Failed to alloc irq_count_data\n");
+		return -ENOMEM;
+	}
 
 	for (i = 0; i < REC_NUM; i++)
 		spin_lock_init(&irq_cpus[i].lock);
@@ -355,6 +361,12 @@ void irq_count_tracer_init(void)
 	irq_count_tracer = 1;
 	schedule_work(&tracer_work);
 #endif
+	return 0;
+}
+
+void irq_count_tracer_exit(void)
+{
+	free_percpu(irq_count_data);
 }
 
 /* Must holding lock*/
@@ -377,7 +389,7 @@ void irq_count_tracer_set(bool val)
 			struct hrtimer *hrtimer =
 				per_cpu_ptr(&irq_count_tracer_hrtimer, cpu);
 
-			per_cpu_ptr(&irq_count_data, cpu)->enabled = 0;
+			per_cpu_ptr(irq_count_data, cpu)->enabled = 0;
 			hrtimer_cancel(hrtimer);
 		}
 	}
