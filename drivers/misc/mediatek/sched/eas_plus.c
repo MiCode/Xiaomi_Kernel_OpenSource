@@ -10,6 +10,9 @@
 
 MODULE_LICENSE("GPL");
 
+#define IB_ASYM_MISFIT		(0x02)
+#define IB_SAME_CLUSTER		(0x01)
+
 static struct perf_domain *find_pd(struct perf_domain *pd, int cpu)
 {
 	while (pd) {
@@ -22,6 +25,24 @@ static struct perf_domain *find_pd(struct perf_domain *pd, int cpu)
 	return NULL;
 }
 
+static inline bool check_faster_idle_balance(struct sched_group *busiest, struct rq *dst_rq)
+{
+
+	int src_cpu = group_first_cpu(busiest);
+	int dst_cpu = cpu_of(dst_rq);
+	int cpu;
+
+	if (capacity_orig_of(dst_cpu) <= capacity_orig_of(src_cpu))
+		return false;
+
+	for_each_cpu(cpu, sched_group_span(busiest)) {
+		if (cpu_rq(cpu)->misfit_task_load)
+			return true;
+	}
+
+	return false;
+}
+
 void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 		struct rq *dst_rq, int *out_balance)
 {
@@ -30,6 +51,7 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 	if (busiest) {
 			struct perf_domain *pd = NULL;
 			int dst_cpu = dst_rq->cpu;
+			int fbg_reason = 0;
 
 			pd = rcu_dereference(dst_rq->rd->pd);
 			pd = find_pd(pd, dst_cpu);
@@ -38,10 +60,21 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 
 			src_cpu = group_first_cpu(busiest);
 
-			if (cpumask_test_cpu(src_cpu, perf_domain_span(pd)))
+			/*
+			 *  1.same cluster
+			 *  2.not same cluster but dst_cpu has a higher capacity and
+			 *    busiest group has misfit task. The purpose of this condition
+			 *    is trying to let misfit task goto hiehger cpu.
+			 */
+			if (cpumask_test_cpu(src_cpu, perf_domain_span(pd))) {
 				*out_balance = 0;
+				fbg_reason |= IB_SAME_CLUSTER;
+			} else if (check_faster_idle_balance(busiest, dst_rq)) {
+				*out_balance = 0;
+				fbg_reason |= IB_ASYM_MISFIT;
+			}
 
-			trace_sched_find_busiest_group(src_cpu, dst_cpu, *out_balance);
+			trace_sched_find_busiest_group(src_cpu, dst_cpu, *out_balance, fbg_reason);
 	}
 }
 
