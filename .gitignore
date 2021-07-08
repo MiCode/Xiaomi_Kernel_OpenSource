@@ -157,7 +157,3 @@ x509.genkey
 
 # Documentation toolchain
 sphinx_*/
-
-# kernel/build configuration files
-build.config.msm.*
-
