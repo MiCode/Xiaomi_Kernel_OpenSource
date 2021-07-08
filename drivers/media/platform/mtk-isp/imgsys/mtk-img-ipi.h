@@ -49,9 +49,11 @@ struct module_init_info {
 	uint64_t	c_wbuf;
 	uint64_t	c_wbuf_dma;
 	uint32_t	c_wbuf_sz;
+	uint32_t	c_wbuf_fd;
 	uint64_t	t_wbuf;
 	uint64_t	t_wbuf_dma;
 	uint32_t	t_wbuf_sz;
+	uint32_t	t_wbuf_fd;
 } __attribute__ ((__packed__));
 
 struct img_init_info {

@@ -9,6 +9,12 @@
 #include <linux/fdtable.h>
 #include <linux/platform_device.h>
 
+#include <uapi/linux/dma-heap.h>
+#include <linux/dma-heap.h>
+#include <linux/dma-direction.h>
+#include <linux/scatterlist.h>
+#include <linux/dma-buf.h>
+
 //#include "scp_ipi.h"
 
 /**
@@ -232,6 +238,8 @@ struct mtk_hcp_reserve_mblock {
 	struct dma_buf *d_buf;
 	int fd;
 	struct ion_handle *pIonHandle;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
 };
 
 int hcp_allocate_buffer(struct platform_device *pdev,

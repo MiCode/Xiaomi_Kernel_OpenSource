@@ -53,6 +53,14 @@
 #include "m4u_port.h"
 #endif
 
+#include <linux/dma-heap.h>
+#include <uapi/linux/dma-heap.h>
+#include <linux/dma-heap.h>
+#include <linux/dma-direction.h>
+#include <linux/scatterlist.h>
+#include <linux/dma-buf.h>
+
+
 /**
  * HCP (Hetero Control Processor ) is a tiny processor controlling
  * the methodology of register programming. If the module support
@@ -624,7 +632,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = DIP_MEM_FOR_HW_ID,
@@ -637,7 +647,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = DIP_MEM_FOR_SW_ID,
@@ -650,7 +662,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = MDP_MEM_ID,
@@ -663,7 +677,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = FD_MEM_ID,
@@ -676,7 +692,10 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+
 	},
 	#else
 	{
@@ -691,7 +710,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	#endif
 	{
@@ -705,7 +726,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = WPE_MEM_T_ID,
@@ -718,7 +741,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = TRAW_MEM_C_ID,
@@ -731,7 +756,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = TRAW_MEM_T_ID,
@@ -744,7 +771,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = DIP_MEM_C_ID,
@@ -757,7 +786,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = DIP_MEM_T_ID,
@@ -770,7 +801,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = PQDIP_MEM_C_ID,
@@ -783,7 +816,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = PQDIP_MEM_T_ID,
@@ -796,7 +831,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 	{
 		.num = ADL_MEM_C_ID,
@@ -835,7 +872,9 @@ phys_addr_t mtk_hcp_mem_size;
 		.mem_priv = NULL,
 		.d_buf = NULL,
 		.fd = -1,
-		.pIonHandle = NULL
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
 	},
 };
 
@@ -1504,12 +1543,15 @@ static void _imgsys_ion_free_handle(struct ion_client *client,
 int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
 {
 	enum mtk_hcp_reserve_mem_id_t id;
-	void *va, *da;
+	struct sg_table *sgt;
+	struct dma_buf_attachment *attach;
 #ifdef USE_ION
 	int fd;
 	struct ion_handle *pIonHandle = NULL;
 #endif
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	struct dma_heap *pdma_heap;
+	void *buf_ptr;
 
 	/* allocate reserved memory */
 	for (id = 0; id < NUMS_MEM_ID; id++) {
@@ -1546,32 +1588,54 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
 #endif
 				break;
 			default:
-				mtk_hcp_reserve_mblock[id].mem_priv =
-					hcp_dev->mem_ops->alloc(hcp_dev->dev, 0,
-					mtk_hcp_reserve_mblock[id].size, 0, 0);
-				pr_debug("%s: [HCP][%d] after mem_ops->alloc vb2_dc_buf refcount(%d)\n",
-					__func__, id,
-					hcp_dev->mem_ops->num_users(
-					mtk_hcp_reserve_mblock[id].mem_priv));
-				va = hcp_dev->mem_ops->vaddr(mtk_hcp_reserve_mblock[id].mem_priv);
-				pr_debug("%s: [HCP][%d] after mem_ops->alloc vaddr refcount(%d)\n",
-					__func__, id,
-					hcp_dev->mem_ops->num_users(
-					mtk_hcp_reserve_mblock[id].mem_priv));
-				da = hcp_dev->mem_ops->cookie(mtk_hcp_reserve_mblock[id].mem_priv);
-				pr_debug("%s: [HCP][%d] after mem_ops->cookie vaddr refcount(%d)\n",
-					__func__, id,
-					hcp_dev->mem_ops->num_users(
-					mtk_hcp_reserve_mblock[id].mem_priv));
-				mtk_hcp_reserve_mblock[id].start_dma = *(dma_addr_t *)da;
-				mtk_hcp_reserve_mblock[id].start_virt = va;
-				mtk_hcp_reserve_mblock[id].start_phys = *(dma_addr_t *)da;
-				#ifdef NEED_WK_FD /*currently no used*/
-				mtk_hcp_reserve_mblock[id].d_buf = hcp_dev->mem_ops->get_dmabuf(
-					mtk_hcp_reserve_mblock[id].mem_priv, O_RDWR);
-				mtk_hcp_reserve_mblock[id].fd = dma_buf_fd(
-					mtk_hcp_reserve_mblock[id].d_buf, O_CLOEXEC);
-				#endif
+
+				/* all supported heap name you can find with cmd */
+				/* (ls /dev/dma_heap/) in shell */
+				pdma_heap = dma_heap_find("mtk_mm-uncached");
+				if (!pdma_heap) {
+					pr_info("pdma_heap find fail\n");
+					return -1;
+				}
+				mtk_hcp_reserve_mblock[id].d_buf = dma_heap_buffer_alloc(
+					pdma_heap,
+					mtk_hcp_reserve_mblock[id].size, O_RDWR | O_CLOEXEC,
+					DMA_HEAP_VALID_HEAP_FLAGS);
+				if (IS_ERR(mtk_hcp_reserve_mblock[id].d_buf)) {
+					pr_info("dma_heap_buffer_alloc fail :%lld\n",
+					PTR_ERR(mtk_hcp_reserve_mblock[id].d_buf));
+					return -1;
+				}
+
+				mtk_hcp_reserve_mblock[id].attach = dma_buf_attach(
+				mtk_hcp_reserve_mblock[id].d_buf, hcp_dev->dev);
+				attach = mtk_hcp_reserve_mblock[id].attach;
+				if (IS_ERR(attach)) {
+					pr_info("dma_buf_attach fail :%lld\n",
+					PTR_ERR(attach));
+					return -1;
+				}
+
+				mtk_hcp_reserve_mblock[id].sgt = dma_buf_map_attachment(attach,
+				DMA_TO_DEVICE);
+				sgt = mtk_hcp_reserve_mblock[id].sgt;
+				if (IS_ERR(sgt)) {
+					dma_buf_detach(mtk_hcp_reserve_mblock[id].d_buf, attach);
+					pr_info("dma_buf_map_attachment fail sgt:%lld\n",
+					PTR_ERR(sgt));
+					return -1;
+				}
+				mtk_hcp_reserve_mblock[id].start_phys = sg_dma_address(sgt->sgl);
+				mtk_hcp_reserve_mblock[id].start_dma =
+				mtk_hcp_reserve_mblock[id].start_phys;
+				buf_ptr = dma_buf_vmap(mtk_hcp_reserve_mblock[id].d_buf);
+				if (!buf_ptr) {
+					pr_info("sg_dma_address fail\n");
+					return -1;
+				}
+				mtk_hcp_reserve_mblock[id].start_virt = buf_ptr;
+				mtk_hcp_reserve_mblock[id].fd =
+				dma_buf_fd(mtk_hcp_reserve_mblock[id].d_buf,
+				O_RDWR | O_CLOEXEC);
 				break;
 			}
 		} else {
@@ -1584,13 +1648,14 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
 			mtk_hcp_reserve_mblock[id].start_dma = 0;
 		}
 		pr_info(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
+			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
 			__func__, id, mtk_hcp_get_reserve_mem_phys(id),
 			mtk_hcp_get_reserve_mem_virt(id),
 			mtk_hcp_get_reserve_mem_dma(id),
 			mtk_hcp_get_reserve_mem_size(id),
 			mtk_hcp_reserve_mblock[id].is_dma_buf,
-			mtk_hcp_get_reserve_mem_fd(id));
+			mtk_hcp_get_reserve_mem_fd(id),
+			mtk_hcp_reserve_mblock[id].d_buf);
 	}
 
 	return 0;
@@ -1600,7 +1665,7 @@ EXPORT_SYMBOL(mtk_hcp_allocate_working_buffer);
 int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 {
 	enum mtk_hcp_reserve_mem_id_t id;
-	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	/* struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev); */
 	#ifdef NEED_FORCE_MMAP_PAIR
 	int i = 0;
 	#endif
@@ -1630,59 +1695,23 @@ int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 				mtk_hcp_reserve_mblock[id].d_buf = NULL;
 				mtk_hcp_reserve_mblock[id].fd = -1;
 				mtk_hcp_reserve_mblock[id].pIonHandle = NULL;
+				mtk_hcp_reserve_mblock[id].attach = NULL;
+				mtk_hcp_reserve_mblock[id].sgt = NULL;
 #endif
 				break;
 			default:
-				#ifdef NEED_WK_FD /*currently no used*/
-				dma_buf_put(mtk_hcp_reserve_mblock[id].d_buf);
-				pr_info("%s: [HCP][%d] after dma_buf_put vb2_dc_buf refcount(%d)\n",
-					__func__, id,
-					hcp_dev->mem_ops->num_users(
-					mtk_hcp_reserve_mblock[id].mem_priv));
-				#endif
-				/* pair with mem_ops->mmap
-				 * could call vma->vm_ops->close(vma); instead
-				 */
-				/*
-				 * we need to do the following steps to support our specific flow as
-				 * below
-				 *
-				 * Flow:
-				 * 1) do buffer alloc/release when imgsys streamon & streamoff
-				 * 2) stream on/off might be repeatly called during image
-				 *    post-processing without close hcp device and re-open hcp
-				 *    device
-				 * - The Flow would cause memory leakage due to refcount
-				 *   increased by mmap would be handled when hcp device
-				 *   (file descriptor) is close (calling vma->close)
-				 *   . allocate: hcp_dev->mem_ops->alloc: refcount + 1
-				 *   . mmap: hcp_dev->mem_ops->mmap: refcount + 1
-				 *           (calling vma->open)
-				 *   . release: hcp_dev->mem_ops->put: refcount - 1
-				 *
-				 * Solution:
-				 * 1) do as usual under allocate & mmap stage
-				 *   . allocate: hcp_dev->mem_ops->alloc: refcount + 1
-				 *   . mmap: hcp_dev->mem_ops->mmap: refcount + 1
-				 *           (calling vma->open)
-				 * 2) do one more put ops in release stage
-				 *   . release: hcp_dev->mem_ops->put: refcount - 1
-				 *   . release: hcp_dev->mem_ops->put: refcount - 1
-				 * 3) empty the hcp_vb2_common_vm_close (vma->close) function
-				 *    to avoid exception due to function is called at mmap_exit
-				 *    (hcp device close stage)
-				 *
-				 */
-				#ifdef NEED_FORCE_MMAP_PAIR
-				for (i = 0 ; i < mtk_hcp_reserve_mblock[id].mmap_cnt ; i++) {
-					pr_info("%s: [mem-%d] call put for mmap_time(%d/%d)\n",
-						__func__, id, i,
-						mtk_hcp_reserve_mblock[id].mmap_cnt);
-					hcp_dev->mem_ops->put(mtk_hcp_reserve_mblock[id].mem_priv);
-				}
-				#endif
-				/* pair with mem_ops->alloc */
-				hcp_dev->mem_ops->put(mtk_hcp_reserve_mblock[id].mem_priv);
+				/* free va */
+				dma_buf_vunmap(mtk_hcp_reserve_mblock[id].d_buf,
+				mtk_hcp_reserve_mblock[id].start_virt);
+				/* free iova */
+				dma_buf_unmap_attachment(mtk_hcp_reserve_mblock[id].attach,
+				mtk_hcp_reserve_mblock[id].sgt, DMA_TO_DEVICE);
+				dma_buf_detach(mtk_hcp_reserve_mblock[id].d_buf,
+				mtk_hcp_reserve_mblock[id].attach);
+				// close fd in user space driver, you can't close fd in kernel site
+				dma_heap_buffer_free(mtk_hcp_reserve_mblock[id].d_buf);//recommended
+				//dma_buf_put(my_dma_buf);
+				//also can use this api, but not recommended
 				mtk_hcp_reserve_mblock[id].mem_priv = NULL;
 				mtk_hcp_reserve_mblock[id].mmap_cnt = 0;
 				mtk_hcp_reserve_mblock[id].start_dma = 0x0;
@@ -1691,6 +1720,8 @@ int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 				mtk_hcp_reserve_mblock[id].d_buf = NULL;
 				mtk_hcp_reserve_mblock[id].fd = -1;
 				mtk_hcp_reserve_mblock[id].pIonHandle = NULL;
+				mtk_hcp_reserve_mblock[id].attach = NULL;
+				mtk_hcp_reserve_mblock[id].sgt = NULL;
 				break;
 			}
 		} else {
