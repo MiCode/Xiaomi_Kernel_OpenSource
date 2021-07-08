@@ -6,9 +6,11 @@
 #include <linux/device.h>
 #include <linux/iio/consumer.h>
 #include <linux/kthread.h>
+#include <linux/linear_range.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/mfd/mt6359p/registers.h>
+#include <linux/mfd/mt6363/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -35,6 +37,7 @@ struct reg_t {
 struct dlpt_regs_t {
 	struct reg_t rgs_chrdet;
 	struct reg_t uvlo_reg;
+	const struct linear_range uvlo_range;
 };
 
 struct dlpt_regs_t mt6359p_dlpt_regs = {
@@ -47,6 +50,31 @@ struct dlpt_regs_t mt6359p_dlpt_regs = {
 		MT6359P_RG_UVLO_VTHL_ADDR,
 		MT6359P_RG_UVLO_VTHL_MASK << MT6359P_RG_UVLO_VTHL_SHIFT,
 		MT6359P_RG_UVLO_VTHL_SHIFT
+	},
+	.uvlo_range = {
+		.min = 2500,
+		.min_sel = 0,
+		.max_sel = 8,
+		.step = 50,
+	},
+};
+
+struct dlpt_regs_t mt6363_dlpt_regs = {
+	.rgs_chrdet = {
+		MT6363_CHRDET_DEB_ADDR,
+		MT6363_CHRDET_DEB_MASK << MT6363_CHRDET_DEB_SHIFT,
+		MT6363_CHRDET_DEB_SHIFT
+	},
+	.uvlo_reg = {
+		MT6363_RG_VSYS_UVLO_VTHL_ADDR,
+		MT6363_RG_VSYS_UVLO_VTHL_MASK << MT6363_RG_VSYS_UVLO_VTHL_SHIFT,
+		MT6363_RG_VSYS_UVLO_VTHL_SHIFT
+	},
+	.uvlo_range = {
+		.min = 2000,
+		.min_sel = 0,
+		.max_sel = 9,
+		.step = 100,
 	},
 };
 
@@ -416,49 +444,37 @@ static void dlpt_notify_init(void)
 #endif
 }
 
+static int linear_range_get_selector(const struct linear_range *r,
+				     unsigned int val, unsigned int *selector)
+{
+	if ((r->min + (r->max_sel - r->min_sel) * r->step) < val)
+		return -EINVAL;
+
+	if (r->min > val) {
+		*selector = r->min_sel;
+		return 0;
+	}
+	if (r->step == 0)
+		*selector = r->max_sel;
+	else
+		*selector = DIV_ROUND_UP(val - r->min, r->step) + r->min_sel;
+
+	return 0;
+}
+
 static void pmic_uvlo_init(int uvlo_level)
 {
-	int val;
+	int ret, val = 0;
 
-	/*re-init UVLO volt */
-	switch (uvlo_level) {
-	case 2500:
-		val = 0;
-		break;
-	case 2550:
-		val = 1;
-		break;
-	case 2600:
-		val = 2;
-		break;
-	case 2650:
-		val = 3;
-		break;
-	case 2700:
-		val = 4;
-		break;
-	case 2750:
-		val = 5;
-		break;
-	case 2800:
-		val = 6;
-		break;
-	case 2850:
-		val = 7;
-		break;
-	case 2900:
-		val = 8;
-		break;
-	default:
-		val = 0;
+	ret = linear_range_get_selector(&dlpt.regs->uvlo_range, uvlo_level, &val);
+	if (!ret) {
+		regmap_update_bits(dlpt.regmap, dlpt.regs->uvlo_reg.addr,
+				   dlpt.regs->uvlo_reg.mask,
+				   val << dlpt.regs->uvlo_reg.shift);
+		pr_info("[dlpt] UVLO_VOLT_LEVEL = %d, RG_UVLO_VTHL = 0x%x\n",
+			uvlo_level, val);
+	} else
 		pr_notice("[dlpt] Invalid uvlo_level (%d)\n", uvlo_level);
-		break;
-	}
-	regmap_update_bits(dlpt.regmap, dlpt.regs->uvlo_reg.addr,
-			   dlpt.regs->uvlo_reg.mask,
-			   val << dlpt.regs->uvlo_reg.shift);
-	pr_info("[dlpt] UVLO_VOLT_LEVEL = %d, RG_UVLO_VTHL = 0x%x\n"
-		, uvlo_level, val);
 }
 
 static void dlpt_parse_dt(struct platform_device *pdev)
@@ -496,13 +512,17 @@ static void dlpt_parse_dt(struct platform_device *pdev)
 
 static int dlpt_probe(struct platform_device *pdev)
 {
-	struct mt6397_chip *chip = dev_get_drvdata(pdev->dev.parent);
+	struct mt6397_chip *chip;
 	int ret;
 
-	dlpt.regmap = chip->regmap;
+	dlpt.regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!dlpt.regmap) {
-		dev_notice(&pdev->dev, "%s: invalid regmap.\n", __func__);
-		return -EINVAL;
+		chip = dev_get_drvdata(pdev->dev.parent);
+		if (!chip || !chip->regmap) {
+			dev_notice(&pdev->dev, "%s: invalid regmap.\n", __func__);
+			return -ENODEV;
+		}
+		dlpt.regmap = chip->regmap;
 	}
 	dlpt.regs = of_device_get_match_data(&pdev->dev);
 	dlpt_parse_dt(pdev);
@@ -529,6 +549,9 @@ static const struct of_device_id dynamic_loading_throttling_of_match[] = {
 	{
 		.compatible = "mediatek,mt6359p-dynamic_loading_throttling",
 		.data = &mt6359p_dlpt_regs,
+	}, {
+		.compatible = "mediatek,mt6363-dynamic_loading_throttling",
+		.data = &mt6363_dlpt_regs,
 	}, {
 		/* sentinel */
 	}
