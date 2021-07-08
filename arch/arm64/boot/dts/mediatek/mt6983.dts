@@ -3793,7 +3793,8 @@
 			  <0 0x11ee05d4 0 0x20>,    /* 11 AVS_EFUSE */
 			  <0 0x13fb9c00 0 0x100>,   /* 12 MFG_CPE_CONTROL */
 			  <0 0x13fb6000 0 0x1000>,  /* 13 MFG_CPE_SENSOR */
-			  <0 0x11ee0000 0 0x1000>;  /* 14 CPE_0P65V_RT_BLOW */
+			  <0 0x11ee0000 0 0x1000>,  /* 14 CPE_0P65V_RT_BLOW */
+			  <0 0x10000000 0 0x1000>;  /* 15 TOPCKGEN */
 		clocks =
 			<&topckgen_clk CLK_TOPCKGEN_MFG_SEL_0>,     /* mfg_sel_0 */
 			<&topckgen_clk CLK_TOPCKGEN_MFGPLL_CK>,     /* mfgpll_ck */
