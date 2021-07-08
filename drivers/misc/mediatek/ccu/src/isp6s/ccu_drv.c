@@ -1225,6 +1225,8 @@ err_map:
 
 err_attach:
 		dma_buf_put(ccu_iova[iova_buf_count].dma_buf);
+		memset(&(ccu_iova[iova_buf_count]), 0,
+			sizeof(struct ccu_iova_t));
 		return -EFAULT;
 	}
 
@@ -1319,6 +1321,7 @@ static int ccu_release(struct inode *inode, struct file *flip)
 							DMA_BIDIRECTIONAL);
 			dma_buf_detach(ccu_iova[i].dma_buf, ccu_iova[i].attach);
 			dma_buf_put(ccu_iova[i].dma_buf);
+			memset(&(ccu_iova[i]), 0, sizeof(struct ccu_iova_t));
 		}
 	}
 
