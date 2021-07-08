@@ -172,7 +172,7 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			    void *ptr_func, void *tile_data)
 {
 	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	struct rsz_tile_data *rsz_data = &((struct mml_tile_data*)tile_data)->rsz_data;
+	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_data *src = &cfg->info.src;
@@ -190,20 +190,20 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		if (rsz_frm->out_idx < result->rsz_param_cnt) {
 			mml_log("read rsz param index: %d", rsz_frm->out_idx);
 			init_param = &(result->rsz_param[rsz_frm->out_idx]);
-			rsz_data->coef_step_x = init_param->coeff_step_x;
-			rsz_data->coef_step_y = init_param->coeff_step_y;
-			rsz_data->precision_x = init_param->precision_x;
-			rsz_data->precision_y = init_param->precision_y;
-			rsz_data->crop.r.left = init_param->crop_offset_x;
-			rsz_data->crop.x_sub_px = init_param->crop_subpix_x;
-			rsz_data->crop.r.top = init_param->crop_offset_y;
-			rsz_data->crop.y_sub_px = init_param->crop_subpix_y;
-			rsz_data->hor_scale = init_param->hor_dir_scale;
-			rsz_data->hor_algo = init_param->hor_algorithm;
-			rsz_data->vir_scale = init_param->ver_dir_scale;
-			rsz_data->ver_algo = init_param->ver_algorithm;
-			rsz_data->ver_first = init_param->vertical_first;
-			rsz_data->ver_cubic_trunc = init_param->ver_cubic_trunc;
+			data->rsz_data.coef_step_x = init_param->coeff_step_x;
+			data->rsz_data.coef_step_y = init_param->coeff_step_y;
+			data->rsz_data.precision_x = init_param->precision_x;
+			data->rsz_data.precision_y = init_param->precision_y;
+			data->rsz_data.crop.r.left = init_param->crop_offset_x;
+			data->rsz_data.crop.x_sub_px = init_param->crop_subpix_x;
+			data->rsz_data.crop.r.top = init_param->crop_offset_y;
+			data->rsz_data.crop.y_sub_px = init_param->crop_subpix_y;
+			data->rsz_data.hor_scale = init_param->hor_dir_scale;
+			data->rsz_data.hor_algo = init_param->hor_algorithm;
+			data->rsz_data.vir_scale = init_param->ver_dir_scale;
+			data->rsz_data.ver_algo = init_param->ver_algorithm;
+			data->rsz_data.ver_first = init_param->vertical_first;
+			data->rsz_data.ver_cubic_trunc = init_param->ver_cubic_trunc;
 			mml_log("read rsz param index: %d done", rsz_frm->out_idx);
 		} else {
 			mml_err("read rsz param index: %d out of count",
@@ -214,8 +214,8 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			ret, RSZ_WAIT_TIMEOUT_MS);
 	}
 
-	rsz_data->max_width = rsz->data->tile_width;
-	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(rsz_data);
+	data->rsz_data.max_width = rsz->data->tile_width;
+	func->func_data = (struct TILE_FUNC_DATA_STRUCT *)(&data->rsz_data);
 
 
 	if (rsz_relay_mode)
@@ -563,7 +563,7 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mml_comp_rsz *dbg_probed_components[2];
+static struct mml_comp_rsz *dbg_probed_components[4];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)

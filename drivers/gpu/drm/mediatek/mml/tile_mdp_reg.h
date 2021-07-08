@@ -91,7 +91,7 @@ struct wrot_tile_data {
 	u32 max_width;
 };
 
-struct mml_tile_data {
+union mml_tile_data {
 	struct rdma_tile_data rdma_data;
 	struct hdr_tile_data hdr_data;
 	struct aal_tile_data aal_data;

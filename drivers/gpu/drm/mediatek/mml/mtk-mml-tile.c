@@ -130,7 +130,7 @@ void prepare_tile(struct mml_task *task,
 		  const struct mml_topology_path *path,
 		  u8 pipe_idx,
 		  struct TILE_PARAM_STRUCT *p_tile_param,
-		  struct mml_tile_data *tile_data)
+		  union mml_tile_data *tile_datas)
 {
 	struct mml_pipe_cache *cache = &task->config->cache[pipe_idx];
 	u8 eng_cnt = path->tile_engine_cnt;
@@ -147,7 +147,7 @@ void prepare_tile(struct mml_task *task,
 
 		call_tile_op(comp, prepare, task,
 			&cache->cfg[path->tile_engines[i]],
-			(void*)ptr_func, (void*)tile_data);
+			(void *)ptr_func, (void *)&tile_datas[i]);
 	}
 }
 
@@ -171,13 +171,12 @@ s32 calc_tile(struct mml_task *task, u8 pipe_idx)
 	bool stop = false;
 	char *tile_info_file = NULL;
 	enum MML_TILE_STATE tile_state = TILE_CALC;
-	struct mml_tile_data *tile_data;
+	union mml_tile_data *tile_datas;
+	u8 eng_cnt = paths[pipe_idx]->tile_engine_cnt;
 
 	mml_msg("%s task %p pipe %hhu", __func__, task, pipe_idx);
 
-	tile_data = kzalloc(sizeof(struct mml_tile_data), GFP_KERNEL);
-
-	memset(tile_data, 0, sizeof(struct mml_tile_data));
+	tile_datas = kcalloc(eng_cnt, sizeof(union mml_tile_data), GFP_KERNEL);
 
 	mml_msg("%s task %p pipe %hhu", __func__, task, pipe_idx);
 
@@ -190,10 +189,6 @@ s32 calc_tile(struct mml_task *task, u8 pipe_idx)
 	tile_reg_map = kzalloc(sizeof(TILE_REG_MAP_STRUCT), GFP_KERNEL);
 	tile_func = kzalloc(sizeof(FUNC_DESCRIPTION_STRUCT), GFP_KERNEL);
 
-	memset(tile_param, 0, sizeof(TILE_PARAM_STRUCT));
-	memset(tile_reg_map, 0, sizeof(TILE_REG_MAP_STRUCT));
-	memset(tile_func, 0, sizeof(FUNC_DESCRIPTION_STRUCT));
-
 	tile_param->ptr_tile_reg_map = tile_reg_map;
 	tile_param->ptr_tile_func_param = tile_func;
 	tile_reg_map->LAST_IRQ = 1;
@@ -203,7 +198,7 @@ s32 calc_tile(struct mml_task *task, u8 pipe_idx)
 		tile_param->ptr_tile_func_param, paths[pipe_idx]);
 
 	/* comp prepare initTileCalc to get each engine's in/out size */
-	prepare_tile(task, paths[pipe_idx], pipe_idx, tile_param, tile_data);
+	prepare_tile(task, paths[pipe_idx], pipe_idx, tile_param, tile_datas);
 
 	result = tile_init_config(tile_param->ptr_tile_reg_map,
 		tile_param->ptr_tile_func_param);
@@ -245,7 +240,7 @@ s32 calc_tile(struct mml_task *task, u8 pipe_idx)
 	/* put tile_output to task */
 	task->config->tile_output[pipe_idx] = output;
 
-	kfree(tile_data);
+	kfree(tile_datas);
 	kfree(tile_param);
 	kfree(tile_reg_map);
 	kfree(tile_func);

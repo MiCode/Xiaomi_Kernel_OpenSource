@@ -257,7 +257,7 @@ static s32 tdshp_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			      void *ptr_func, void *tile_data)
 {
 	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	struct mml_tile_data *data = (struct mml_tile_data*)tile_data;
+	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_dest *dest = &cfg->info.dest[tdshp_frm->out_idx];
@@ -462,7 +462,7 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static struct mml_comp_tdshp *dbg_probed_components[2];
+static struct mml_comp_tdshp *dbg_probed_components[4];
 static int dbg_probed_count;
 
 static int probe(struct platform_device *pdev)

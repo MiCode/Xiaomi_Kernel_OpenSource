@@ -79,8 +79,8 @@ extern int mml_trace;
 #endif
 
 #define MML_PIPE_CNT		2
-#define MML_MAX_PATH_NODES	12
-#define MML_MAX_PATH_CACHES	6
+#define MML_MAX_PATH_NODES	16
+#define MML_MAX_PATH_CACHES	8
 
 struct mml_topology_cache;
 struct mml_frame_config;

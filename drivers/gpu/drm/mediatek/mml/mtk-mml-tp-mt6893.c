@@ -39,6 +39,8 @@ enum topology_scenario {
 	PATH_MML_PQ_P1,
 	PATH_MML_PQ2_P0,
 	PATH_MML_PQ2_P1,
+	PATH_MML_2OUT_P0,
+	PATH_MML_2OUT_P1,
 	PATH_MML_MAX
 };
 
@@ -121,6 +123,42 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_TCC1, MML_WROT1,},
 		{MML_WROT1,},
 	},
+	[PATH_MML_2OUT_P0] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA0, MML_FG0,},
+		{MML_FG0, MML_PQ0_SOUT,},
+		{MML_PQ0_SOUT, MML_HDR0,},
+		{MML_HDR0, MML_AAL0,},
+		{MML_AAL0, MML_RSZ0, MML_RSZ2},
+		{MML_RSZ0, MML_TDSHP0,},
+		{MML_RSZ2, MML_TDSHP2,},
+		{MML_TDSHP0, MML_COLOR0,},
+		{MML_TDSHP2, MML_TCC2,},
+		{MML_COLOR0, MML_TCC0,},
+		{MML_TCC0, MML_WROT0,},
+		{MML_TCC2, MML_WROT2,},
+		{MML_WROT0,},
+		{MML_WROT2,},
+	},
+	[PATH_MML_2OUT_P1] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA1, MML_FG1,},
+		{MML_FG1, MML_PQ1_SOUT,},
+		{MML_PQ1_SOUT, MML_HDR1,},
+		{MML_HDR1, MML_AAL1,},
+		{MML_AAL1, MML_RSZ1, MML_RSZ3},
+		{MML_RSZ1, MML_TDSHP1,},
+		{MML_RSZ3, MML_TDSHP3,},
+		{MML_TDSHP1, MML_COLOR1,},
+		{MML_TDSHP3, MML_TCC3,},
+		{MML_COLOR1, MML_TCC1,},
+		{MML_TCC1, MML_WROT1,},
+		{MML_TCC3, MML_WROT3,},
+		{MML_WROT1,},
+		{MML_WROT3,},
+	},
 };
 
 enum cmdq_clt_usage {
@@ -136,6 +174,8 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_PQ_P1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ2_P0] = MML_CLT_PIPE0,
 	[PATH_MML_PQ2_P1] = MML_CLT_PIPE1,
+	[PATH_MML_2OUT_P0] = MML_CLT_PIPE0,
+	[PATH_MML_2OUT_P1] = MML_CLT_PIPE1,
 };
 
 static void tp_dump_path(struct mml_topology_path *path)
@@ -345,6 +385,9 @@ static void tp_select_path(struct mml_topology_cache *cache,
 			scene[0] = PATH_MML_PQ_P0;
 			scene[1] = PATH_MML_PQ_P1;
 		}
+	} else if (cfg->info.dest_cnt == 2) {
+		scene[0] = PATH_MML_2OUT_P0;
+		scene[1] = PATH_MML_2OUT_P1;
 	}
 
 	path[0] = &cache->path[scene[0]];

@@ -361,7 +361,7 @@ static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			     void *ptr_func, void *tile_data)
 {
 	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	struct mml_tile_data *data = (struct mml_tile_data*)tile_data;
+	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
