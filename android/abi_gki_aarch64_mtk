@@ -617,8 +617,6 @@
   failure_tracking
   fd_install
   fget
-  filp_close
-  filp_open
   find_get_pid
   find_last_bit
   find_next_bit
@@ -2038,6 +2036,7 @@
 
 # preserved by --additions-only
   alloc_netdev_mqs
+  all_vm_events
   __arch_clear_user
   __bitmap_equal
   __bitmap_or
@@ -2075,6 +2074,8 @@
   cfg80211_unlink_bss
   cfg80211_vendor_cmd_reply
   clear_page
+  cpu_pm_register_notifier
+  cpu_pm_unregister_notifier
   debugfs_create_u8
   devfreq_add_device
   devfreq_cooling_unregister
@@ -2109,11 +2110,14 @@
   ieee80211_freq_khz_to_channel
   ieee80211_get_channel_khz
   iomem_resource
+  irq_work_run
+  jiffies_64_to_clock_t
   __kfifo_init
   kfree_skb
   kobject_del
   kstrtobool_from_user
   ktime_get_raw
+  memdup_user
   __mmdrop
   module_put
   netif_tx_stop_all_queues
@@ -2123,9 +2127,11 @@
   nla_put_nohdr
   n_tty_ioctl_helper
   of_devfreq_cooling_register_power
+  of_root
   param_array_ops
   param_ops_byte
   param_ops_string
+  perf_num_counters
   rb_prev
   rb_replace_node
   register_inetaddr_notifier
@@ -2158,16 +2164,20 @@
   sdio_writel
   sdio_writesb
   shmem_file_setup
+  si_meminfo
   skb_dequeue
   skb_pull_rcsum
   skb_queue_head
   skb_queue_purge
   skb_realloc_headroom
+  smp_call_function_single
+  sprint_symbol_no_offset
   strpbrk
   strspn
   syscore_resume
   syscore_suspend
   system_long_wq
+  thermal_zone_device_update
   __traceiter_gpu_mem_total
   trace_output_call
   __tracepoint_gpu_mem_total
@@ -2181,8 +2191,10 @@
   unregister_inetaddr_notifier
   unregister_netdevice_notifier
   unregister_netdevice_queue
+  unregister_syscore_ops
   v4l2_m2m_buf_remove_by_buf
   vmf_insert_pfn_prot
+  wait_for_completion_killable_timeout
   wiphy_apply_custom_regulatory
   wiphy_free
   wiphy_new_nm
