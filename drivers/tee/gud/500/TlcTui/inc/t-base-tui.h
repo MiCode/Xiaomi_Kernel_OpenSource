@@ -22,7 +22,7 @@
 #define TRUSTEDUI_MODE_VIDEO_SECURED  0x02
 #define TRUSTEDUI_MODE_INPUT_SECURED  0x04
 
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 
 int trustedui_blank_inc(void);
 int trustedui_blank_dec(void);
