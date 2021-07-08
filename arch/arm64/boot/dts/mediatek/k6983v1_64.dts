@@ -133,6 +133,31 @@
 };
 /* GPS GPIO standardization end */
 
+&i2c6 {
+	spk1: speaker_amp@5c {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5c>;
+		status = "okay";
+		sound-name-prefix = "Left";
+	};
+
+	spk2: speaker_amp@5d {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5d>;
+		status = "okay";
+		sound-name-prefix = "Right";
+	};
+};
+
+&sound {
+	mediatek,speaker-codec {
+		sound-dai = <&spk1>, <&spk2>;
+	};
+	mediatek,spk-i2s = <3 9>;
+};
+
 /* AUDIO GPIO standardization start */
 &afe {
 	pinctrl-names = "aud_clk_mosi_off",
