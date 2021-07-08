@@ -6534,7 +6534,7 @@
 		reg = <0x34>;
 		status = "okay";
 		interrupt-parent = <&pio>;
-		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <66 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		wakeup-source;
