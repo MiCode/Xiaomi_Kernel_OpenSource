@@ -7529,6 +7529,7 @@
 				     "mediatek,mt6893-smi-common",
 					 "mediatek,smi-common";
 			reg = <0 0x1f002000 0 0x1000>;
+			mediatek,smi = <&smi_common>;
 			mediatek,common-id = <7>;
 			mediatek,cmdq = <&gce_m>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MDP>;
