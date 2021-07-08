@@ -747,6 +747,9 @@ static int rollback_to_GPU(struct drm_mtk_layering_info *info, int disp,
 	for (i = info->gles_head[disp]; i <= info->gles_tail[disp]; i++) {
 		l_info = &info->input_config[disp][i];
 		l_info->ext_sel_layer = -1;
+		if (mtk_has_layer_cap(l_info, MTK_DISP_RSZ_LAYER)) {
+			l_info->layer_caps &= ~MTK_DISP_RSZ_LAYER;
+		}
 	}
 
 	if (info->gles_tail[disp] + 1 < info->layer_num[disp]) {
@@ -1768,10 +1771,32 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 
 	return 0;
 }
+static inline int get_scale_cnt(struct drm_mtk_layering_info *disp_info)
+{
+	int disp_idx, scale_cnt = 0;
 
-static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
-			   struct mtk_drm_lyeblob_ids *lyeblob_ids,
-			   struct drm_device *drm_dev)
+	for (disp_idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++) {
+		struct drm_mtk_layer_config *c;
+		int i = 0;
+
+		if (disp_info->layer_num[disp_idx] <= 0)
+			continue;
+
+		/* check exist clear layer */
+		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
+			c = &disp_info->input_config[disp_idx][i];
+			if (mtk_has_layer_cap(c, MTK_DISP_RSZ_LAYER)) {
+				scale_cnt++;
+				break;
+			}
+		}
+	}
+
+	return scale_cnt;
+}
+
+static int dispatch_gles_range(struct drm_mtk_layering_info *disp_info,
+			struct drm_device *drm_dev)
 {
 	int disp_idx;
 	bool no_disp = true;
@@ -1816,6 +1841,28 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 
 	clear_layer(disp_info);
 
+	return 0;
+}
+
+static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
+			   struct mtk_drm_lyeblob_ids *lyeblob_ids,
+			   struct drm_device *drm_dev)
+{
+
+	bool no_disp = true;
+	int disp_idx;
+
+	for (disp_idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++)
+		if (disp_info->layer_num[disp_idx] > 0) {
+			no_disp = false;
+			break;
+		}
+
+	if (no_disp) {
+		DDPINFO("There is no disp need dispatch\n");
+		return 0;
+	}
+
 	/* Dispatch OVL id */
 	for (disp_idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++) {
 		int ovl_cnt;
@@ -1827,6 +1874,7 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 		if (disp_info->layer_num[disp_idx] <= 0)
 			continue;
 
+		/* check exist clear layer */
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 			c = &disp_info->input_config[disp_idx][i];
 			if (mtk_has_layer_cap(c, MTK_DISP_CLIENT_CLEAR_LAYER)) {
@@ -2717,6 +2765,12 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	}
 
 	lyeblob_ids = kzalloc(sizeof(struct mtk_drm_lyeblob_ids), GFP_KERNEL);
+
+	dispatch_gles_range(&layering_info, dev);
+
+	/* adjust scenario after dispatch gles range */
+	scale_num = get_scale_cnt(&layering_info);
+	l_rule_ops->scenario_decision(scn_decision_flag, scale_num);
 
 	ret = dispatch_ovl_id(&layering_info, lyeblob_ids, dev);
 
