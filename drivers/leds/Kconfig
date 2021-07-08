@@ -962,9 +962,19 @@ config LEDS_ACER_A500
 	  This option enables support for the Power Button LED of
 	  Acer Iconia Tab A500.
 
+config LEDS_MTK
+	tristate "Mediatek COMMON LED support"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for Mediatek common LEDs
+	  say 'y' to enable this
+
+	  To compile this driver as a module, choose 'M' here: the module
+	  will be called leds-mtk.
+
 config LEDS_MTK_PWM
 	tristate "Mediatek pwm LED support"
-	depends on LEDS_CLASS
+	depends on LEDS_CLASS && LEDS_MTK
 	depends on PWM_MTK_DISP
 	help
 	  This option enables support for Mediatek pwm LEDs.
@@ -975,7 +985,7 @@ config LEDS_MTK_PWM
 
 config LEDS_MTK_DISP
 	tristate "Mediatek DISP LED support"
-	depends on LEDS_CLASS
+	depends on LEDS_CLASS && LEDS_MTK
 	help
 	  This option enables support for Mediatek OLED Display LEDs 
 	  say 'y' to enable this

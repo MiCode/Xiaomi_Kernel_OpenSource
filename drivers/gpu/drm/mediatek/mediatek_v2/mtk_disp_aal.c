@@ -17,19 +17,15 @@
 //For 120Hz rotation issue
 #include <linux/time.h>
 
-#ifdef CONFIG_LEDS_MTK_DISP
+#ifdef CONFIG_LEDS_MTK
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
-#include <mtk_leds_drv.h>
-#include <leds-mtk-disp.h>
-#elif defined CONFIG_LEDS_MTK_PWM
-#define CONFIG_LEDS_BRIGHTNESS_CHANGED
-#include <mtk_leds_drv.h>
-#include <leds-mtk-pwm.h>
+#include <linux/leds-mtk.h>
 #else
-#define mt_leds_brightness_set(x, y) do { } while (0)
+#define mtk_leds_brightness_set(x, y) do { } while (0)
+#endif
 #define MT65XX_LED_MODE_NONE (0)
 #define MT65XX_LED_MODE_CUST_LCM (4)
-#endif
+
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -454,7 +450,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 
 	service_flags = 0;
 	if (bl_1024 == 0) {
-		mt_leds_brightness_set("lcd-backlight", 0);
+		mtk_leds_brightness_set("lcd-backlight", 0);
 		/* set backlight = 0 may be not from AAL, */
 		/* we have to let AALService can turn on backlight */
 		/* on phone resumption */
@@ -463,7 +459,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 		atomic_read(&g_aal_force_relay) == 1) {
 		/* AAL Service is not running */
 
-		mt_leds_brightness_set("lcd-backlight", bl_1024);
+		mtk_leds_brightness_set("lcd-backlight", bl_1024);
 	}
 
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
@@ -486,30 +482,20 @@ int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long
 	led_conf = (struct led_conf_info *)v;
 
 	switch (event) {
-	case 1:
+	case LED_BRIGHTNESS_CHANGED:
 		trans_level = (
-			(((1 << led_conf->trans_bits) - 1)
+			led_conf->max_hw_brightness
 			* led_conf->cdev.brightness
-			+ ((led_conf->cdev.max_brightness) / 2))
-			/ (led_conf->cdev.max_brightness));
+			+ (led_conf->cdev.max_brightness / 2))
+			/ led_conf->cdev.max_brightness;
 
 		disp_aal_notify_backlight_changed(trans_level);
 		AALAPI_LOG("brightness changed: %d(%d)\n",
 			trans_level, led_conf->cdev.brightness);
 		break;
-	case 2:
+	case LED_STATUS_SHUTDOWN:
 		disp_aal_notify_backlight_changed(0);
 		break;
-	case 3:
-		trans_level = (
-			(((1 << led_conf->trans_bits) - 1)
-			* led_conf->max_level
-			+ ((led_conf->cdev.max_brightness) / 2))
-			/ (led_conf->cdev.max_brightness));
-		AALAPI_LOG("set Maxbrightness %d(%d)\n",
-			trans_level, led_conf->max_level);
-		break;
-
 	default:
 		break;
 	}
@@ -1510,7 +1496,7 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 		backlight_value = 0;
 
 	AALAPI_LOG("%d", backlight_value);
-	mt_leds_brightness_set("lcd-backlight", backlight_value);
+	mtk_leds_brightness_set("lcd-backlight", backlight_value);
 	AALFLOW_LOG("delay refresh: %d", g_aal_param.refreshLatency);
 	if (g_aal_param.refreshLatency == 33)
 		delay_refresh = true;
