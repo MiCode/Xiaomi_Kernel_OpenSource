@@ -292,19 +292,7 @@ static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 #endif
 static int mtk_aie_hw_enable(struct mtk_aie_dev *fd)
 {
-	//struct mtk_aie_ctx *ctx = fd->ctx;
-	//struct user_init user_init;
-	struct aie_init_info init_info;
-
-	/* initial value */
-	//mtk_aie_fill_init_param(fd, &user_init, &ctx->hdl);
-	init_info.max_img_width = 960; //tina log: user_init.max_img_width
-	init_info.max_img_height = 960; //tina log: user_init.max_img_height
-	init_info.is_secure = 0;
-	init_info.pyramid_height = 504;//tina log: user_init.pyramid_height;
-	init_info.pyramid_width = 640;//tina log: user_init.pyramid_width;
-
-	return aie_init(fd, init_info);
+	return aie_init(fd);
 }
 
 static void mtk_aie_hw_job_finish(struct mtk_aie_dev *fd,
@@ -719,12 +707,30 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 
 	if (buf->length) {
 		if (!fd->map_count) {
+			int ret = 0;
+
 			fd->dmabuf = dma_buf_get(buf->m.planes[buf->length-1].m.fd);
 			dma_buf_begin_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 			fd->kva = (u64)dma_buf_kmap(fd->dmabuf, 0);
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
 			fd->base_para->rpn_anchor_thrd = (signed short)
-						 (g_user_param.feature_threshold & 0x0000FFFF);
+						(g_user_param.feature_threshold & 0x0000FFFF);
+			fd->base_para->max_img_height = (signed short)
+						(g_user_param.max_img_height & 0x0000FFFF);
+			fd->base_para->max_img_width = (signed short)
+						(g_user_param.max_img_width & 0x0000FFFF);
+			fd->base_para->pyramid_width = (signed short)
+						(g_user_param.pyramid_width & 0x0000FFFF);
+			fd->base_para->pyramid_height = (signed short)
+						(g_user_param.pyramid_height & 0x0000FFFF);
+			fd->base_para->max_pyramid_width = (signed short)
+						(g_user_param.pyramid_width & 0x0000FFFF);
+			fd->base_para->max_pyramid_height = (signed short)
+						(g_user_param.pyramid_height & 0x0000FFFF);
+
+			ret = aie_alloc_aie_buf(fd);
+			if (ret)
+				return ret;
 			fd->map_count++;
 		} else {
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));

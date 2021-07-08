@@ -2590,39 +2590,16 @@ void aie_reset(struct mtk_aie_dev *fd)
 	writel(0x0, fd->fd_base + AIE_START_REG);
 }
 
-int aie_init(struct mtk_aie_dev *fd, struct aie_init_info init_info)
+int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 {
 	int ret = -ENOMEM;
 	int err_tag = 0;
 
-	fd->fd_state = STATE_NA;
-
-	fd->base_para = kmalloc(sizeof(struct aie_para), GFP_KERNEL);
-	if (fd->base_para == NULL)
-		return ret;
-
-	fd->attr_para = kmalloc(sizeof(struct aie_attr_para), GFP_KERNEL);
-	if (fd->attr_para == NULL)
-		goto attr_para_fail;
-#ifdef FLD
-	fd->fld_para = kmalloc(sizeof(struct aie_fld_para), GFP_KERNEL);
-	if (fd->fld_para == NULL)
-		goto fld_para_fail;
-#endif
-	fd->dma_para = kmalloc(sizeof(struct aie_fd_dma_para), GFP_KERNEL);
-	if (fd->dma_para == NULL)
-		goto dma_para_fail;
-
-	fd->base_para->pyramid_width = init_info.pyramid_width;
-	fd->base_para->pyramid_height = init_info.pyramid_height;
-	fd->base_para->max_pyramid_width = init_info.pyramid_width;
-	fd->base_para->max_pyramid_height = init_info.pyramid_height;
-
 	memset(&fd->st_info, 0, sizeof(fd->st_info));
 	aie_init_table(fd, fd->base_para->max_pyramid_width,
 		       fd->base_para->max_pyramid_height);
-	aie_get_data_size(fd, init_info.max_img_width,
-			  init_info.max_img_height);
+	aie_get_data_size(fd, fd->base_para->max_img_width,
+				      fd->base_para->max_img_height);
 	ret = aie_alloc_dram_buf(fd);
 	if (ret)
 		goto dram_fail;
@@ -2650,11 +2627,6 @@ int aie_init(struct mtk_aie_dev *fd, struct aie_init_info init_info)
 	if (ret)
 		goto load_fw_fail;
 
-	fd->attr_para->r_idx = 0;
-	fd->attr_para->w_idx = 0;
-
-	fd->fd_state = STATE_INIT;
-
 	return ret;
 
 load_fw_fail:
@@ -2677,6 +2649,39 @@ dram_fail:
 	kfree(fd->dma_para);
 	err_tag++;
 
+	dev_info(fd->dev, "Failed to alloc aie buf: %d\n", err_tag);
+	return ret;
+}
+
+int aie_init(struct mtk_aie_dev *fd)
+{
+	int err_tag = 0;
+
+	fd->fd_state = STATE_NA;
+
+	fd->base_para = kmalloc(sizeof(struct aie_para), GFP_KERNEL);
+	if (fd->base_para == NULL)
+		return -ENOMEM;
+
+	fd->attr_para = kmalloc(sizeof(struct aie_attr_para), GFP_KERNEL);
+	if (fd->attr_para == NULL)
+		goto attr_para_fail;
+#ifdef FLD
+	fd->fld_para = kmalloc(sizeof(struct aie_fld_para), GFP_KERNEL);
+	if (fd->fld_para == NULL)
+		goto fld_para_fail;
+#endif
+	fd->dma_para = kmalloc(sizeof(struct aie_fd_dma_para), GFP_KERNEL);
+	if (fd->dma_para == NULL)
+		goto dma_para_fail;
+
+	fd->attr_para->r_idx = 0;
+	fd->attr_para->w_idx = 0;
+
+	fd->fd_state = STATE_INIT;
+
+	return 0;
+
 dma_para_fail:
 	kfree(fd->attr_para);
 	err_tag++;
@@ -2691,7 +2696,7 @@ attr_para_fail:
 
 	dev_info(fd->dev, "Failed to init aie: %d\n", err_tag);
 
-	return ret;
+	return -ENOMEM;
 }
 
 void aie_uninit(struct mtk_aie_dev *fd)

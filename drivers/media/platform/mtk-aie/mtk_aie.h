@@ -799,6 +799,10 @@ struct mtk_aie_user_para {
 	signed int feature_threshold;
 	unsigned int is_secure;
 	unsigned int sec_mem_type;
+	unsigned int max_img_width;
+	unsigned int max_img_height;
+	unsigned int pyramid_width;
+	unsigned int pyramid_height;
 	struct user_param user_param;
 } __packed;
 
@@ -936,7 +940,8 @@ struct mtk_aie_ctx {
 /**************************************************************************/
 
 void aie_reset(struct mtk_aie_dev *fd);
-int aie_init(struct mtk_aie_dev *fd, struct aie_init_info init_info);
+int aie_alloc_aie_buf(struct mtk_aie_dev *fd);
+int aie_init(struct mtk_aie_dev *fd);
 void aie_uninit(struct mtk_aie_dev *fd);
 int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
