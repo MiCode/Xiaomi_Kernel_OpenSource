@@ -5939,6 +5939,54 @@
 		compatible = "mt6893,apusys_power_dummy";
 	};
 
+	apusys_rv: apusys_rv {
+		compatible = "mediatek,apusys_rv";
+		status = "disabled";
+
+		reg = <0 0x190e1000 0 0x1000>,
+		      <0 0x19001000 0 0x1000>,
+		      <0 0x19002000 0 0x10>,
+		      <0 0x1903c000 0 0x8000>,
+		      <0 0x19050000 0 0x10000>,
+		      <0 0x190f2000 0 0x1000>,
+		      <0 0x1d000000 0 0x20000>,
+		      <0 0x0d298000 0 0x10000>;
+
+		reg-names = "apu_mbox",
+			    "md32_sysctrl",
+			    "apu_wdt",
+			    "apu_sctrl_reviser",
+			    "md32_cache_dump",
+			    "apu_ao_ctl",
+			    "md32_tcm",
+			    "md32_debug_apb";
+
+		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
+
+		interrupts = <GIC_SPI 571 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 624 IRQ_TYPE_LEVEL_HIGH 0>;
+
+		interrupt-names = "apu_wdt",
+				"mbox0_irq";
+
+		apu_ctrl {
+			compatible = "mediatek,apu-ctrl-rpmsg";
+			mtk,rpmsg-name = "apu-ctrl-rpmsg";
+		};
+	};
+
+	apusys_sw_logger {
+		compatible = "mediatek,apusys_sw_logger";
+		status = "disabled";
+
+		reg = <0 0x190e1000 0 0x1000>;
+		reg-names = "apu_mbox";
+
+		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
+	};
+
 	smart_pa: smart_pa {
 	};
 
