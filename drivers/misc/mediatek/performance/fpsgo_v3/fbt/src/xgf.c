@@ -2305,9 +2305,7 @@ static ssize_t deplist_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-#define MAX_XGF_EVENTS 32768
-
-struct xgf_trace_event xgf_event_data[MAX_XGF_EVENTS];
+struct xgf_trace_event *xgf_event_data;
 EXPORT_SYMBOL(xgf_event_data);
 
 static int xgf_nr_cpus __read_mostly;
@@ -2316,12 +2314,10 @@ void *xgf_event_index;
 EXPORT_SYMBOL(xgf_event_index);
 void *xgf_ko_enabled;
 EXPORT_SYMBOL(xgf_ko_enabled);
+int xgf_max_events;
+EXPORT_SYMBOL(xgf_max_events);
 
-int xgf_getMAXXGFEVENTS(void)
-{
-	return MAX_XGF_EVENTS;
-}
-EXPORT_SYMBOL(xgf_getMAXXGFEVENTS);
+#define MAX_XGF_EVENTS (xgf_max_events)
 
 static void xgf_buffer_update(int cpu, int event, int data, int note,
 				unsigned long long ts)
