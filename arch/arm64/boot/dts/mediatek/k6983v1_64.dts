@@ -35,6 +35,16 @@
 	};
 };
 
+&mtk_leds {
+	compatible = "mediatek,i2c-leds";
+
+	backlight {
+		led_mode = <6>;
+		gate_enable = <1>;
+		pwm_config = <0 1 0 0 0>;
+	};
+};
+
 /* GPS GPIO standardization start */
 &pio {
 	gps_pins_default: gps_default {
