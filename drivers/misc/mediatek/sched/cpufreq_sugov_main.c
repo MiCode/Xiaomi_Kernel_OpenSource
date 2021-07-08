@@ -13,7 +13,7 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include "../../../../kernel/sched/sched.h"
+#include <sched/sched.h>
 #include "cpufreq.h"
 
 #include <linux/tick.h>
@@ -22,7 +22,7 @@
 #include <trace/hooks/sched.h>
 #include <linux/sched/cpufreq.h>
 #include <linux/kthread.h>
-#include "../../../../drivers/thermal/mediatek/thermal_interface.h"
+#include <thermal_interface.h>
 
 #define CREATE_TRACE_POINTS
 #include "sched_trace.h"

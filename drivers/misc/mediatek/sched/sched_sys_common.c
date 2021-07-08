@@ -19,7 +19,7 @@
 #include <linux/cpu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include "../../../../kernel/sched/sched.h"
+#include <sched/sched.h>
 #include "sched_sys_common.h"
 
 #define CREATE_TRACE_POINTS

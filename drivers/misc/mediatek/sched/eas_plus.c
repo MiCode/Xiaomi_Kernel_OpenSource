@@ -6,7 +6,7 @@
 #include "eas_plus.h"
 #include <sched_trace.h>
 #include <linux/sort.h>
-#include "../../../../drivers/thermal/mediatek/thermal_interface.h"
+#include <thermal_interface.h>
 
 MODULE_LICENSE("GPL");
 

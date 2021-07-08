@@ -4,7 +4,7 @@
  */
 #include <linux/module.h>
 #include <trace/hooks/sched.h>
-#include "../../../../kernel/sched/sched.h"
+#include <sched/sched.h>
 
 MODULE_LICENSE("GPL");
 

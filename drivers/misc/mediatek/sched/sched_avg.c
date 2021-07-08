@@ -12,7 +12,7 @@
 #include <linux/sched/clock.h>
 #include <trace/hooks/sched.h>
 
-#include <sched.h>
+#include <sched/sched.h>
 #include <sched_avg.h>
 
 #define TAG "sched_avg"

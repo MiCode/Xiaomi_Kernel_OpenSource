@@ -6,7 +6,7 @@ scheduler-$(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)+= rotate.o
 obj-$(CONFIG_MTK_CPUFREQ_SUGOV_EXT) += cpufreq_sugov_ext.o
 cpufreq_sugov_ext-y += cpufreq_sugov_main.o
 
-ccflags-y += -I$(srctree)/kernel/sched/
+subdir-ccflags-y += -I$(srctree)/kernel/
 subdir-ccflags-y += -I$(srctree)/drivers/thermal/mediatek
 
 obj-$(CONFIG_MTK_CORE_CTL) += mtk_core_ctl.o

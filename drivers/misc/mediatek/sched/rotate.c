@@ -16,7 +16,7 @@
 #include <linux/energy_model.h>
 #include <trace/hooks/topology.h>
 #include <trace/hooks/sched.h>
-#include "../../../../kernel/sched/sched.h"
+#include <sched/sched.h>
 #include "sched_sys_common.h"
 #include <sched_trace.h>
 

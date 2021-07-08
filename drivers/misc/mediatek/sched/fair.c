@@ -7,7 +7,7 @@
 #include <linux/sched.h>
 #include <trace/hooks/sched.h>
 #include "eas_plus.h"
-#include "../../../../kernel/sched/pelt.h"
+#include <sched/pelt.h>
 #include "sched_trace.h"
 
 MODULE_LICENSE("GPL");
