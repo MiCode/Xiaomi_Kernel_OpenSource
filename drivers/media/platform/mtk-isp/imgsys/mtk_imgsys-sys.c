@@ -364,8 +364,10 @@ static void mtk_imgsys_iova_map_tbl_unmap_sd(struct mtk_imgsys_request *req)
 	struct mtk_imgsys_dev *imgsys_dev = req->imgsys_pipe->imgsys_dev;
 	struct mtk_imgsys_dev_buffer *dev_buf;
 	struct mtk_imgsys_dma_buf_iova_get_info *dmabufiovainfo, *temp;
+	int b;
 
-	dev_buf = req->buf_map[MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT];
+	b = is_singledev_mode(req);
+	dev_buf = req->buf_map[b];
 	if (dev_buf) {
 		list_for_each_entry_safe(dmabufiovainfo, temp,
 			&dev_buf->iova_map_table.list, list_entry) {
@@ -1269,13 +1271,16 @@ static void imgsys_set_smvr(struct mtk_imgsys_request *req,
 {
 	struct mtk_imgsys_dev_buffer *devbuf;
 	bool smvr = false;
+	int b;
 
 	if (!req || !ipi)
 		return;
 
-	devbuf = req->buf_map[MTK_IMGSYS_VIDEO_NODE_CTRLMETA_OUT];
-	if (!devbuf)
-		devbuf = req->buf_map[MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT];
+	b = is_singledev_mode(req);
+	if (!b)
+		devbuf = req->buf_map[MTK_IMGSYS_VIDEO_NODE_CTRLMETA_OUT];
+	else
+		devbuf = req->buf_map[b];
 
 	switch (devbuf->dev_fmt->format) {
 	case V4L2_META_FMT_MTISP_DESC_NORM:
@@ -1297,8 +1302,10 @@ static void imgsys_sd_share_buffer(struct mtk_imgsys_request *req,
 					struct img_ipi_param *ipi_param)
 {
 	struct mtk_imgsys_dev_buffer *buf_in;
+	int b;
 
-	buf_in = req->buf_map[MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT];
+	b = is_singledev_mode(req);
+	buf_in = req->buf_map[b];
 	ipi_param->frm_param.fd = buf_in->vbb.vb2_buf.planes[0].m.fd;
 	ipi_param->frm_param.offset = buf_in->dataofst;
 }

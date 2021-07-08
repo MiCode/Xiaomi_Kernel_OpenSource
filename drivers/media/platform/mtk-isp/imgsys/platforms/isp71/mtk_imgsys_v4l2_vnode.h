@@ -160,6 +160,24 @@ queues_setting[MTK_IMGSYS_VIDEO_NODE_ID_TOTAL_NUM] = {
 		.vb2_ops = &mtk_imgsys_vb2_video_ops,
 		.description = "Single Device Node",
 	},
+	[MTK_IMGSYS_VIDEO_NODE_ID_SIGDEV_NORM_OUT] = {
+		.id = MTK_IMGSYS_VIDEO_NODE_ID_SIGDEV_NORM_OUT,
+		.name = "SIGDEVN",
+		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE | V4L2_CAP_STREAMING,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.smem_alloc = 0,
+		.flags = MEDIA_LNK_FL_DYNAMIC,
+		.fmts = sd_fmts,
+		.num_fmts = ARRAY_SIZE(sd_fmts),
+		.default_fmt_idx = 1,
+		.default_width = MTK_DIP_OUTPUT_MAX_WIDTH,
+		.default_height = MTK_DIP_OUTPUT_MAX_HEIGHT,
+		.dma_port = 0,
+		.frmsizeenum = &dip_in_frmsizeenum,
+		.ops = &mtk_imgsys_v4l2_video_out_ioctl_ops,
+		.vb2_ops = &mtk_imgsys_vb2_video_ops,
+		.description = "Single Device Norm",
+	},
 };
 #ifdef MULTI_PIPE_SUPPORT
 static struct mtk_imgsys_video_device_desc

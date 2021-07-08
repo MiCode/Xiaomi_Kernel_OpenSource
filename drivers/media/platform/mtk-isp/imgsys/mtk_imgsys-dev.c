@@ -236,9 +236,8 @@ void mtk_imgsys_pipe_job_finish(struct mtk_imgsys_request *req,
 	}
 #endif
 
-	if (is_singledev_mode(req))
-		i = MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT;
-	else
+	i = is_singledev_mode(req);
+	if (!i)
 		i = MTK_IMGSYS_VIDEO_NODE_CTRLMETA_OUT;
 
 	in_buf = req->buf_map[i];
@@ -485,9 +484,16 @@ bool is_desc_mode(struct mtk_imgsys_request *req)
 		== V4L2_META_FMT_MTISP_DESC) ? 1 : 0;
 }
 
-bool is_singledev_mode(struct mtk_imgsys_request *req)
+int is_singledev_mode(struct mtk_imgsys_request *req)
 {
-	return (req->buf_map[MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT] != NULL);
+	int ret = 0;
+
+	if (req->buf_map[MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT])
+		ret = MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT;
+	else if (req->buf_map[MTK_IMGSYS_VIDEO_NODE_SIGDEV_NORM_OUT])
+		ret = MTK_IMGSYS_VIDEO_NODE_SIGDEV_NORM_OUT;
+
+	return ret;
 }
 
 bool is_desc_fmt(const struct mtk_imgsys_dev_format *dev_fmt)
@@ -1144,8 +1150,10 @@ void mtk_imgsys_sd_desc_map_iova(struct mtk_imgsys_request *req)
 	struct singlenode_desc_norm *desc_sd_norm = NULL;
 	void *src;
 	struct header_desc *dst;
+	int b;
 
-	buf_sd = req->buf_map[MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT];
+	b = is_singledev_mode(req);
+	buf_sd = req->buf_map[b];
 	if (!buf_sd)
 		return;
 
@@ -1502,7 +1510,8 @@ void mtk_imgsys_singledevice_ipi_params_config(struct mtk_imgsys_request *req)
 	dev_dbg(dev, "%s:%s: pipe-job id(%d)\n", __func__,
 		pipe->desc->name, req->id);
 
-	buf_in = req->buf_map[MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT];
+	i = is_singledev_mode(req);
+	buf_in = req->buf_map[i];
 	if (!buf_in)
 		return;
 
