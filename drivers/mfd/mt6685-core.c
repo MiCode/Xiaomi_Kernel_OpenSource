@@ -9,10 +9,8 @@
 #include <linux/mfd/core.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
-#include <linux/pmif.h>
 #include <linux/regmap.h>
 #include <linux/spmi.h>
-#include <linux/mfd/mt6685/registers.h>
 
 #define MT6685_DCXO_BASE 0x780
 #define MT6685_DCXO_SIZE 0x75
