@@ -68,11 +68,11 @@ static s32 tcc_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		func->full_size_x_in = dest->data.height;
 		func->full_size_y_in = dest->data.width;
 		func->full_size_x_out = dest->data.height;
-		func->full_size_y_out = dest->data.height;
+		func->full_size_y_out = dest->data.width;
 	} else {
-		func->full_size_x_in = dest->data.height;
+		func->full_size_x_in = dest->data.width;
 		func->full_size_y_in = dest->data.height;
-		func->full_size_x_out = dest->data.height;
+		func->full_size_x_out = dest->data.width;
 		func->full_size_y_out = dest->data.height;
 	}
 
