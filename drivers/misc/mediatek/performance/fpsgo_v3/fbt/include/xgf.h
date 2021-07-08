@@ -245,11 +245,10 @@ struct xgf_trace_event {
 	};
 };
 
-extern struct xgf_trace_event xgf_event_data[];
-
-extern int xgf_getMAXXGFEVENTS(void);
+extern struct xgf_trace_event *xgf_event_data;
 extern void *xgf_event_index;
 extern void *xgf_ko_enabled;
+extern int xgf_max_events;
 
 int __init init_xgf(void);
 #endif
