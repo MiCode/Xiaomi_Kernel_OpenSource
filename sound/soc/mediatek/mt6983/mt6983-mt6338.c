@@ -179,8 +179,8 @@ static int mt6983_mt6338_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	mt6338_mtkaif_calibration_enable(codec_component);
 
 	/* set clock protocol 2 */
-	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0x38);
-	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0x39);
+	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0xb8);
+	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0xb9);
 
 	/* set test type to synchronizer pulse */
 	regmap_update_bits(afe_priv->topckgen,
@@ -281,7 +281,7 @@ static int mt6983_mt6338_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		0 : afe_priv->mtkaif_chosen_phase[2]);
 
 	/* disable rx fifo */
-	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0x38);
+	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0xb8);
 
 	mt6338_mtkaif_calibration_disable(codec_component);
 

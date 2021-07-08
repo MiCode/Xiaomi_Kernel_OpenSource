@@ -2875,9 +2875,18 @@ static int mt_hp_event(struct snd_soc_dapm_widget *w,
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 	int device = DEVICE_HP;
+	unsigned int value;
 
 	dev_info(priv->dev, "%s(), event 0x%x, dev_counter[DEV_HP] %d, mux %u\n",
 		 __func__, event, priv->dev_counter[device], mux);
+
+	/* 0:normal path */
+	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
+		0x3 << 0x6, 0x0 << 0x6);
+
+	regmap_read(priv->regmap, MT6338_AFE_TOP_DEBUG0, &value);
+	dev_info(priv->dev, "%s(), regmap_write MT6338_AFE_TOP_DEBUG0 = 0x%x\n",
+			 __func__, value);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -2929,9 +2938,17 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int value;
 
 	dev_info(priv->dev, "%s(), event 0x%x, mux %u\n",
 		 __func__, event, dapm_kcontrol_get_value(w->kcontrols[0]));
+
+	/* 3:hwgain1/2 swap */
+	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
+		0x3 << 0x6, 0x3 << 0x6);
+	regmap_read(priv->regmap, MT6338_AFE_TOP_DEBUG0, &value);
+	dev_info(priv->dev, "%s(), regmap_write MT6338_AFE_TOP_DEBUG0 = 0x%x\n",
+			 __func__, value);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3060,8 +3077,16 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
+	unsigned int value;
 
 	dev_info(priv->dev, "%s(), event 0x%x, mux %u\n", __func__, event, mux);
+
+	/* 3:hwgain1/2 swap */
+	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
+		0x3 << 0x6, 0x3 << 0x6);
+	regmap_read(priv->regmap, MT6338_AFE_TOP_DEBUG0, &value);
+	dev_info(priv->dev, "%s(), regmap_write MT6338_AFE_TOP_DEBUG0 = 0x%x\n",
+			 __func__, value);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3868,12 +3893,12 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static void vow_periodic_on_off_set(struct mt6359_priv *priv)
+static void vow_periodic_on_off_set(struct mt6338_priv *priv)
 {
 	/* Todo: vow related */
 }
 
-static void vow_periodic_on_off_reset(struct mt6359_priv *priv)
+static void vow_periodic_on_off_reset(struct mt6338_priv *priv)
 {
 	/* Todo: vow related */
 }
@@ -3882,7 +3907,24 @@ static int mt_vow_periodic_cfg_event(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
 {
-	/* Todo: vow related */
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	dev_info(priv->dev, "%s(), event 0x%x\n", __func__, event);
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/* Periodic On/Off */
+		if (priv->reg_afe_vow_periodic == 0)
+			vow_periodic_on_off_reset(priv);
+		else
+			vow_periodic_on_off_set(priv);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		vow_periodic_on_off_reset(priv);
+		break;
+	default:
+		break;
+	}
 	return 0;
 }
 
@@ -5694,7 +5736,7 @@ static const struct snd_soc_dapm_widget mt6338_dapm_widgets[] = {
 			      0, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("VOW_LDO", SUPPLY_SEQ_VOW_LDO,
 			      SND_SOC_NOPM,
-			      RG_CLKSQ_EN_VOW_SFT, 0, NULL, 0),
+			      0, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("VOW_DIG_CFG", SUPPLY_SEQ_VOW_DIG_CFG,
 			      MT6338_AUD_TOP_CKPDN_CON0,
 			      0, 1,
@@ -8148,6 +8190,9 @@ static int mt6338_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
+	/* 3:hwgain1/2 swap */
+	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
+		0x3 << 0x6, 0x3 << 0x6);
 	/* receiver downlink */
 	mt6338_set_playback_gpio(priv);
 	regmap_update_bits(priv->regmap, MT6338_LDO_VAUD18_CON0,
@@ -8599,6 +8644,29 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 	mt6338_set_dcxo(priv, false);
 	/* this will trigger widget "DC trim" power down event */
 	enable_trim_buf(priv, true);
+
+	/* Function bypass */
+	/* bypass GASRC3/4 */
+	regmap_update_bits(priv->regmap, MT6338_ETDM_0_3_COWORK_CON0_1,
+		0x1 << 0x4, 0x1 << 0x4);
+	/* bypass GASRC1/1 */
+	regmap_update_bits(priv->regmap, MT6338_ETDM_0_3_COWORK_CON0_1,
+		0x1 << 0x5, 0x1 << 0x5);
+	/* choose mtkaifv4 */
+	regmap_update_bits(priv->regmap, MT6338_ETDM_0_3_COWORK_CON0_1,
+		0x1 << 0x6, 0x1 << 0x6);
+
+	/* bypass HWgain1/2, 0:normal path */
+	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
+		0x3 << 0x2, 0x3 << 0x2);
+	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
+		0x3 << 0x6, 0x0 << 0x6);
+	/*  bypass stf, 0:normal path */
+	regmap_update_bits(priv->regmap, MT6338_AFE_STF_CON1,
+		0x3 << 0x2, 0x3 << 0x2);
+	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
+		0x3, 0x0);
+
 	return 0;
 }
 

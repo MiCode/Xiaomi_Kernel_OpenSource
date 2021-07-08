@@ -490,7 +490,7 @@ static int mtk_adda_pad_top_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		regmap_write(afe->regmap, AFE_AUD_PAD_TOP, 0x38);
+		regmap_write(afe->regmap, AFE_AUD_PAD_TOP, 0xb8);
 		break;
 	default:
 		break;
