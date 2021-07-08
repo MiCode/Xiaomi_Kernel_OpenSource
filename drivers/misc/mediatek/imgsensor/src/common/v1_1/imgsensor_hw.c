@@ -18,6 +18,9 @@ char * const imgsensor_hw_pin_names[] = {
 	"pdn",
 	"rst",
 	"vcama",
+// #if IS_ENABLED(CONFIG_REGULATOR_RT5133)
+	// "vcama1",
+// #endif
 	"vcamd",
 	"vcamio",
 	"mipi_switch_en",
