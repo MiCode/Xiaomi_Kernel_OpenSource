@@ -32,6 +32,15 @@ config TYPEC_MUX_PS5169
 	  Say Y or M if your system has a PS5169 USB Type-C Linear Redriver.
 	  Works with Type-C Port Controller Manager.
 
+config TYPEC_MUX_PS5170
+	tristate "Parade PS5170 USB Type-C Linear Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a PS5170 USB Type-C Linear Redriver.
+	  Support USB/DP signal switch.
+	  Works with Type-C Port Controller Manager.
+	  If unsure, say N.
+
 config MTK_USB_TYPEC_DP_MUX
     tristate "Mediatek USB TYPE-C USB DP Mux"
     depends on MTK_USB_TYPEC_MUX
