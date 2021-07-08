@@ -286,11 +286,13 @@ static int mt_printk_ctrl_show(struct seq_file *m, void *v)
 static void mt_printk_logbuf(void *data, struct printk_ringbuffer *rb,
 	struct printk_record *r)
 {
-	if (r->info->caller_id  & 0x80000000)
-		return;
-	/* max pid 0x8000 -> 32768 */
-	r->info->caller_id |= (raw_smp_processor_id() * 100000);
-
+	if (r->info->caller_id  & 0x80000000) {
+		r->info->caller_id = ((r->info->caller_id & 0xFF) * 100000)
+			| task_pid_nr(current) | 0x80000000;
+	} else {
+		/* max pid 0x8000 -> 32768 */
+		r->info->caller_id |= (raw_smp_processor_id() * 100000);
+	}
 }
 
 static ssize_t mt_printk_ctrl_write(struct file *filp,
