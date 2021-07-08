@@ -17,16 +17,19 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/3.0/inc/platform/
 SRC += 3.0/aputop_drv.o
 SRC += 3.0/aputop_rpmsg.o
-ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/power/3.0/platform/mt6893_aputop.c),)
-subdir-ccflags-y += -DMT6893_PLAT_DATA
-SRC += 3.0/platform/mt6893_aputop.o
-endif
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/power/3.0/platform/mt6983_aputop.c),)
 subdir-ccflags-y += -DMT6983_PLAT_DATA
 SRC += 3.0/platform/mt6983_aputop.o
 endif
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/power/3.0/platform/mt6983_pwr_func.c),)
 SRC += 3.0/platform/mt6983_pwr_func.o
+endif
+ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/power/3.0/platform/mt6879_aputop.c),)
+subdir-ccflags-y += -DMT6879_PLAT_DATA
+SRC += 3.0/platform/mt6879_aputop.o
+endif
+ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/apusys/power/3.0/platform/mt6879_pwr_func.c),)
+SRC += 3.0/platform/mt6879_pwr_func.o
 endif
 
 SRC += apu_top_entry.o

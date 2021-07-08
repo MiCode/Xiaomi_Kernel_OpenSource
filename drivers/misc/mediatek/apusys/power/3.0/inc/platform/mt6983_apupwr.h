@@ -83,7 +83,7 @@ struct rpc_status_dump {
 	uint32_t vcore_reg_status;	// rpc_lite bypss this
 };
 
-void apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
+void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 
 /* RPC offset define */
 #define APU_RPC_TOP_CON           0x0000

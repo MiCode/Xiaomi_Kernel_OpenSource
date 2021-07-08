@@ -31,7 +31,6 @@ static const char *reg_name[APUPW_MAX_REGS] = {
 };
 
 static struct apu_power apupw;
-static uint32_t ref_count;
 
 static void aputop_dump_pwr_res(void);
 
@@ -277,21 +276,21 @@ static void __apu_acc_init(void)
 	// Step6. Initial ACC setting (@ACC)
 
 	/* mnoc clk setting */
-	pr_info("mnoc clk setting %s %d \n", __func__, __LINE__);
+	pr_info("mnoc clk setting %s %d\n", __func__, __LINE__);
 	// CGEN_SOC
 	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR0);
 	// HW_CTRL_EN, SEL_APU_DIV2
 	apu_writel(0x00008400, apupw.regs[apu_acc] + APU_ACC_CONFG_SET0);
 
 	/* iommu clk setting */
-	pr_info("iommu clk setting %s %d \n", __func__, __LINE__);
+	pr_info("iommu clk setting %s %d\n", __func__, __LINE__);
 	// CGEN_SOC
 	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR1);
 	// HW_CTRL_EN, SEL_APU_DIV2
 	apu_writel(0x00008400, apupw.regs[apu_acc] + APU_ACC_CONFG_SET1);
 
 	/* mvpu clk setting */
-	pr_info("mvpu clk setting %s %d \n", __func__, __LINE__);
+	pr_info("mvpu clk setting %s %d\n", __func__, __LINE__);
 	// CGEN_SOC
 	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR2);
 	// HW_CTRL_EN, SEL_APU_DIV2
@@ -300,7 +299,7 @@ static void __apu_acc_init(void)
 	apu_writel(0x00000100, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET2);
 
 	/* mdla clk setting */
-	pr_info("mdla clk setting %s %d \n", __func__, __LINE__);
+	pr_info("mdla clk setting %s %d\n", __func__, __LINE__);
 	// CGEN_SOC
 	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR3);
 	// HW_CTRL_EN, SEL_APU_DIV2
@@ -309,7 +308,7 @@ static void __apu_acc_init(void)
 	apu_writel(0x00000100, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET3);
 
 	/* clk invert setting */
-	pr_info("clk invert setting %s %d \n", __func__, __LINE__);
+	pr_info("clk invert setting %s %d\n", __func__, __LINE__);
 	// MVPU1_CLK_INV_EN MVPU3_CLK_INV_EN MVPU5_CLK_INV_EN
 	// MDLA1_CLK_INV_EN MDLA3_CLK_INV_EN
 	// MDLA5_CLK_INV_EN MDLA7_CLK_INV_EN
@@ -369,7 +368,7 @@ static void aputop_dump_all_reg(void)
 }
 #endif
 
-void apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump)
+void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump)
 {
 	uint32_t status1 = 0x0;
 	uint32_t status2 = 0x0;
@@ -501,7 +500,7 @@ static void __apu_rpc_init(void)
 
 	// Step9. RPCtop initial
 	// RPC
-	apu_setl(0x0800501E, apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+	apu_setl(0x1800501E, apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
 	// BUCK_PROT_SEL
 	apu_setl((0x1 << 20), apupw.regs[apu_rpc] + APU_RPC_TOP_SEL_1);
 
@@ -576,6 +575,8 @@ static int __apu_are_init(struct device *dev)
 	return 0;
 }
 
+#ifdef APMCU_REQ_RPC_SLEEP
+// backup solution : send request for RPC sleep from APMCU
 static int __apu_sleep_rpc_rcx(struct device *dev)
 {
 	uint32_t regValue;
@@ -629,6 +630,7 @@ static int __apu_sleep_rpc_rcx(struct device *dev)
 
 	return 0;
 }
+#endif
 
 static int __apu_wake_rpc_rcx(struct device *dev)
 {
@@ -650,7 +652,7 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 			readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
 
 	/* clear vcore/rcx cgs */
-	pr_info("clear vcore/rcx cgs %s %d \n", __func__, __LINE__);
+	pr_info("clear vcore/rcx cgs %s %d\n", __func__, __LINE__);
 	apu_writel(0xFFFFFFFF, apupw.regs[apu_vcore] + APUSYS_VCORE_CG_CLR);
 	apu_writel(0xFFFFFFFF, apupw.regs[apu_rcx] + APU_RCX_CG_CLR);
 
@@ -793,15 +795,10 @@ static int mt6983_apu_top_on(struct device *dev)
 {
 	pr_info("%s +\n", __func__);
 
-	// FIXME: remove this ref_cnt, ref_cnt of rpm can replace of this!
-	if (ref_count++ > 0)
-		return 0;
-
 #if !CFG_FPGA
 	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(1);
 #endif
-
 	__apu_wake_rpc_rcx(dev);
 
 	pr_info("%s -\n", __func__);
@@ -813,13 +810,6 @@ static int mt6983_apu_top_off(struct device *dev)
 	int ret = 0, val = 0;
 
 	pr_info("%s +\n", __func__);
-
-	// FIXME: remove this ref_cnt, ref_cnt of rpm can replace of this!
-	if (--ref_count > 0)
-		return 0;
-
-	// FIXME: remove this power off flow since it should be triggered by uP
-	__apu_sleep_rpc_rcx(dev);
 
 	// blocking until sleep success or timeout
 	ret = readl_relaxed_poll_timeout_atomic(
@@ -860,8 +850,8 @@ static void __apu_aoc_init(void)
 #endif
 
 	// Step3. Roll back to APU Buck on stage
-	// 	The following setting need to in order
-	// 	and wait 1uS before setup next control signal
+	//	The following setting need to in order
+	//	and wait 1uS before setup next control signal
 	// APU_BUCK_ELS_EN
 	apu_writel(0x00000800, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
@@ -886,8 +876,8 @@ static void __apu_buck_off(void)
 {
 	// Step11. Roll back to Buck off stage
 	// a. Setup Buck control signal
-	// 	 The following setting need to in order,
-	//  	 and wait 1uS before setup next control signal
+	//	The following setting need to in order,
+	//	and wait 1uS before setup next control signal
 	// APU_BUCK_PROT_REQ
 	apu_writel(0x00004000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
 	udelay(10);
@@ -925,7 +915,7 @@ static int init_plat_chip_data(struct platform_device *pdev)
 	plat_cfg.aging_flag = (aging_attr & 0xf);
 	plat_cfg.hw_id = 0x0;
 
-	return chip_data_remote_sync(&plat_cfg);
+	return mt6983_chip_data_remote_sync(&plat_cfg);
 }
 
 static int init_hw_setting(struct device *dev)
@@ -980,9 +970,10 @@ static int init_reg_base(struct platform_device *pdev)
 			pr_info("%s: get resource \"%s\" fail\n",
 					__func__, reg_name[idx]);
 			return -ENODEV;
-		} else
-			pr_info("%s: get resource \"%s\" pass\n",
-					__func__, reg_name[idx]);
+		}
+
+		pr_info("%s: get resource \"%s\" pass\n",
+				__func__, reg_name[idx]);
 
 		apupw.regs[idx] = ioremap(res->start,
 				res->end - res->start + 1);
@@ -991,10 +982,11 @@ static int init_reg_base(struct platform_device *pdev)
 			pr_info("%s: %s remap base fail\n",
 					__func__, reg_name[idx]);
 			return -ENOMEM;
-		} else
-			pr_info("%s: %s remap base 0x%x to 0x%x\n",
-					__func__, reg_name[idx],
-					res->start, apupw.regs[idx]);
+		}
+
+		pr_info("%s: %s remap base 0x%x to 0x%x\n",
+				__func__, reg_name[idx],
+				res->start, apupw.regs[idx]);
 
 		apupw.phy_addr[idx] = res->start;
 	}
@@ -1014,7 +1006,7 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 	init_plat_pwr_res(pdev);
 #endif
 	init_hw_setting(&pdev->dev);
-	init_remote_data_sync(apupw.regs[apu_md32_mbox]);
+	mt6983_init_remote_data_sync(apupw.regs[apu_md32_mbox]);
 	init_plat_chip_data(pdev);
 
 #if APU_POWER_BRING_UP
@@ -1024,29 +1016,40 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 #endif
 	switch (fpga_type) {
 	default:
-	case 0:
+	case 0: // do not power on
 		pr_info("%s bypass pre-power-ON\n", __func__);
 		break;
-	case 1:
+	case 1: // power on : RCX_TOP/ACX0_TOP/ACX1_TOP/ACX0_MVPU0/ACX1_MVPU0
 		mt6983_apu_top_on(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, VPU0, 1);
 		break;
-	case 2:
+	case 2: // power on : RCX_TOP/ACX0_TOP/ACX1_TOP/ACX0_MVPU0/ACX1_MDLA0
 		mt6983_apu_top_on(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
 		break;
-	case 3:
+	case 3: // power on : RCX_TOP/ACX0_TOP/ACX1_TOP/ACX0_MDLA0/ACX1_MDLA0
 		mt6983_apu_top_on(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, DLA0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
+		break;
+	case 9: // power on : RCX_TOP/ACX0_TOP/ACX1_TOP/All_MVPU/ALL_MDLA
+		mt6983_apu_top_on(&pdev->dev);
+		__apu_wake_rpc_acx(&pdev->dev, ACX0);
+		__apu_wake_rpc_acx(&pdev->dev, ACX1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, DLA0, 1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, DLA1, 1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, VPU0, 1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
+		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA1, 1);
 		break;
 	}
 #endif // APU_POWER_BRING_UP
@@ -1089,7 +1092,7 @@ static void aputop_dump_pwr_res(void)
 	if (vsram_reg_id)
 		vsram = regulator_get_voltage(vsram_reg_id);
 
-	pr_info("%s dsp_freq:%d ipuif_freq:%d \n",
+	pr_info("%s dsp_freq:%d ipuif_freq:%d\n",
 			__func__,
 			clk_get_rate(clk_top_dsp_sel),
 			clk_get_rate(clk_top_ipu_if_sel));
@@ -1098,11 +1101,11 @@ static void aputop_dump_pwr_res(void)
 			__func__, vapu, vcore, vsram);
 #endif
 
-	apu_dump_rpc_status(RCX, NULL);
+	mt6983_apu_dump_rpc_status(RCX, NULL);
 
 #if APU_POWER_BRING_UP
-	apu_dump_rpc_status(ACX0, NULL);
-	apu_dump_rpc_status(ACX1, NULL);
+	mt6983_apu_dump_rpc_status(ACX0, NULL);
+	mt6983_apu_dump_rpc_status(ACX1, NULL);
 #endif
 }
 
@@ -1119,10 +1122,10 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 		pm_runtime_get_sync(&pdev->dev);
 		break;
 	case APUTOP_FUNC_OPP_LIMIT_HAL:
-		aputop_opp_limit(aputop, OPP_LIMIT_HAL);
+		mt6983_aputop_opp_limit(aputop, OPP_LIMIT_HAL);
 		break;
 	case APUTOP_FUNC_OPP_LIMIT_DBG:
-		aputop_opp_limit(aputop, OPP_LIMIT_DEBUG);
+		mt6983_aputop_opp_limit(aputop, OPP_LIMIT_DEBUG);
 		break;
 	case APUTOP_FUNC_DUMP_REG:
 		aputop_dump_pwr_res();
@@ -1130,7 +1133,7 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 		aputop_dump_all_reg();
 #endif
 		break;
-	default :
+	default:
 		pr_info("%s invalid func_id : %d\n", __func__, aputop->func_id);
 		return -EINVAL;
 	}

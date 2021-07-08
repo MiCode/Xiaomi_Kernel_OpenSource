@@ -68,7 +68,7 @@ struct apupwr_dbg {
 
 extern int fpga_type;
 extern const struct apupwr_plat_data mt6983_plat_data;
-extern const struct apupwr_plat_data mt6893_plat_data;
+extern const struct apupwr_plat_data mt6879_plat_data;
 
 static inline void apu_writel(const unsigned int val,
 		void __force __iomem *regs)

@@ -78,7 +78,7 @@ static void limit_opp_to_all_devices(int opp)
 			_opp_limiter(opp, opp, opp, opp, OPP_LIMIT_DEBUG);
 }
 
-void aputop_opp_limit(struct aputop_func_param *aputop,
+void mt6983_aputop_opp_limit(struct aputop_func_param *aputop,
 		enum apu_opp_limit_type type)
 {
 	int vpu_max, vpu_min, dla_max, dla_min;
@@ -271,7 +271,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	}
 
 	for (i = 0 ; i < CLUSTER_NUM ; i++) {
-		apu_dump_rpc_status(i, &cluster_dump[i]);
+		mt6983_apu_dump_rpc_status(i, &cluster_dump[i]);
 		seq_printf(s, "%*s : rpc_status 0x%08x , conn_cg 0x%08x\n",
 				cluster_name[i],
 				cluster_dump[i].rpc_reg_status,
@@ -279,7 +279,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	}
 
 	// for RCX
-	apu_dump_rpc_status(RCX, &cluster_dump[CLUSTER_NUM]);
+	mt6983_apu_dump_rpc_status(RCX, &cluster_dump[CLUSTER_NUM]);
 	seq_printf(s,
 		"%*s : rpc_status 0x%08x , conn_cg 0x%08x vcore_cg 0x%08x\n",
 			cluster_name[CLUSTER_NUM],
@@ -409,7 +409,7 @@ int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 	return ret;
 }
 
-int chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
+int mt6983_chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
 {
 	uint32_t reg_data = 0x0;
 
@@ -421,7 +421,7 @@ int chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
 	return 0;
 }
 
-int init_remote_data_sync(void __iomem *reg_base)
+int mt6983_init_remote_data_sync(void __iomem *reg_base)
 {
 	int i;
 	uint32_t reg_offset = 0x0;

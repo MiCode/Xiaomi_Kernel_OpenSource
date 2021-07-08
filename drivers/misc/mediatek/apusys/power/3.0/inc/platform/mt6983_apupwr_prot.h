@@ -87,7 +87,7 @@ struct tiny_dvfs_opp_tbl {
 	struct tiny_dvfs_opp_entry opp[USER_MIN_OPP_VAL + 1];   // entry data
 };
 
-void aputop_opp_limit(struct aputop_func_param *aputop,
+void mt6983_aputop_opp_limit(struct aputop_func_param *aputop,
 		enum apu_opp_limit_type type);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
@@ -97,8 +97,8 @@ ssize_t mt6983_apu_top_dbg_write(
 		size_t count, loff_t *f_pos);
 #endif
 
-int init_remote_data_sync(void __iomem *reg_base);
-int chip_data_remote_sync(struct plat_cfg_data *plat_cfg);
+int mt6983_init_remote_data_sync(void __iomem *reg_base);
+int mt6983_chip_data_remote_sync(struct plat_cfg_data *plat_cfg);
 int mt6983_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src);
 
 #endif
