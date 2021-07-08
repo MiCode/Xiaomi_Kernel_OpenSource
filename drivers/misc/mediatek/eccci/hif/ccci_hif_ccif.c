@@ -1884,32 +1884,52 @@ static int ccif_late_init(unsigned char hif_id)
 	return 0;
 }
 
-static void ccif_set_clk_cg(unsigned char hif_id, unsigned int on)
+static void ccif_set_clk_on(unsigned char hif_id)
 {
 	struct md_ccif_ctrl *ccif_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
-	int idx = 0;
-	int ret = 0;
+	int idx, ret = 0;
 
-	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s: on=%d\n", __func__, on);
-
-	/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
-
-	if (!on)
-		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
-		0x22C, 0x0);
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s start\n", __func__);
 
 	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
 		if (ccif_clk_table[idx].clk_ref == NULL)
 			continue;
-		if (on) {
-			ret = clk_prepare_enable(ccif_clk_table[idx].clk_ref);
-			if (ret)
-				CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
-					"%s: on=%d,ret=%d\n",
-					__func__, on, ret);
-			devapc_check_flag = 1;
-		} else {
+		ret = clk_prepare_enable(ccif_clk_table[idx].clk_ref);
+		if (ret)
+			CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
+				"%s,ret=%d\n",
+				__func__, ret);
+		devapc_check_flag = 1;
+	}
+
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s end\n", __func__);
+}
+
+/*
+ * for ccif4,5 power off action different:
+ * gen97: 0x1000330C [31:0] write 0x0
+ * gen98: 0x10001BF0 [15:0] write 0xF7FF
+ */
+static void ccif_set_clk_off(unsigned char hif_id)
+{
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	int ret, idx, reg_val;
+
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s start\n", __func__);
+
+	if (ccif_ctrl->plat_val.md_gen <= 6297) {
+		/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
+		if (ccif_ctrl->pericfg_base) {
+			CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:pericfg_base:0x%p\n",
+				__func__, ccif_ctrl->pericfg_base);
+			regmap_write(ccif_ctrl->pericfg_base, 0x30c, 0x0);
+		}
+
+		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
+			if (ccif_clk_table[idx].clk_ref == NULL)
+				continue;
 			if (strcmp(ccif_clk_table[idx].clk_name,
 				"infra-ccif4-md") == 0
 				&& ccif_ctrl->md_ccif4_base) {
@@ -1926,7 +1946,7 @@ static void ccif_set_clk_cg(unsigned char hif_id, unsigned int on)
 				&& ccif_ctrl->md_ccif5_base) {
 				udelay(1000);
 				CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
-					"ccif4 %s: after 1ms, set 0x%llx + 0x14 = 0xFF\n",
+					"ccif5 %s: after 1ms, set 0x%llx + 0x14 = 0xFF\n",
 					__func__,
 					(u64)ccif_ctrl->md_ccif5_base);
 				ccci_write32(ccif_ctrl->md_ccif5_base, 0x14,
@@ -1935,23 +1955,27 @@ static void ccif_set_clk_cg(unsigned char hif_id, unsigned int on)
 			devapc_check_flag = 0;
 			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
 		}
-	}
-	/* Set MD_PCCIF4_PWR_ON */
-	if (on) {
-		if (!ccif_ctrl->plat_val.infra_ao_base) {
+	} else if (ccif_ctrl->plat_val.md_gen >= 6298) {
+		ret = regmap_read(ccif_ctrl->plat_val.infra_ao_base,
+			0xBF0, &reg_val);
+		if (ret) {
 			CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
-				"%s:infra_ao_base is null!\n", __func__);
+				"%s: read 0x1000_1BF0 fail\n", __func__);
 			return;
 		}
-		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
-			"%s:ccif4 set 0x%llx + 0x22C = 0x1\n",
-			__func__,
-			(u64)ccif_ctrl->plat_val.infra_ao_base);
-
+		reg_val &= ~(0xFFFF);
+		reg_val |= 0xF7FF;
 		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
-			0x22C, 0x1);
+			0xBF0, reg_val);
+		devapc_check_flag = 0;
+		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
+			if (ccif_clk_table[idx].clk_ref == NULL)
+				continue;
+			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
+		}
 	}
-	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:done!\n", __func__);
+
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s end\n", __func__);
 }
 
 static int ccif_start(unsigned char hif_id)
@@ -1966,7 +1990,7 @@ static int ccif_start(unsigned char hif_id)
 	if (hif_id != CCIF_HIF_ID)
 		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s but %d\n",
 			__func__, hif_id);
-	ccif_set_clk_cg(hif_id, 1);
+	ccif_set_clk_on(hif_id);
 	md_ccif_sram_reset(CCIF_HIF_ID);
 	md_ccif_switch_ringbuf(CCIF_HIF_ID, RB_EXP);
 	md_ccif_reset_queue(CCIF_HIF_ID, 1);
@@ -1997,7 +2021,7 @@ static int ccif_stop(unsigned char hif_id)
 	ccci_reset_ccif_hw(ccif_ctrl->md_id, AP_MD1_CCIF,
 		ccif_ctrl->ccif_ap_base, ccif_ctrl->ccif_md_base, ccif_ctrl);
 	/*disable ccif clk*/
-	ccif_set_clk_cg(hif_id, 0);
+	ccif_set_clk_off(hif_id);
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s\n", __func__);
 	return 0;
 }
@@ -2114,8 +2138,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->md_ccif4_base = of_iomap(node, 0);
 		if (!md_ctrl->md_ccif4_base) {
 			CCCI_ERROR_LOG(-1, TAG,
-				"ccif4_base fail: 0x%p!\n",
-				md_ctrl->md_ccif4_base);
+				"ccif4_base fail\n");
 			return -6;
 		}
 	}
@@ -2125,18 +2148,21 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->md_ccif5_base = of_iomap(node, 0);
 		if (!md_ctrl->md_ccif5_base) {
 			CCCI_ERROR_LOG(-1, TAG,
-				"ccif5_base fail: 0x%p!\n",
-				md_ctrl->md_ccif5_base);
+				"ccif5_base fail: 0x%p!\n");
 			return -7;
 		}
 	}
-
-	if (md_ctrl->ccif_ap_base == 0 ||
-		md_ctrl->ccif_md_base == 0) {
+	/* Get pericfg base(0x10003000) for ccif4,5 */
+	md_ctrl->pericfg_base = syscon_regmap_lookup_by_phandle(dev->of_node,
+		"ccif-pericfg");
+	if (!md_ctrl->pericfg_base)
 		CCCI_ERROR_LOG(-1, TAG,
-			"ap_ccif_base:0x%p, ccif_md_base:0x%p\n",
-			md_ctrl->ccif_ap_base,
-			md_ctrl->ccif_md_base);
+			"%s: get ccif-pericfg failed\n");
+
+	if (!md_ctrl->ccif_ap_base ||
+		!md_ctrl->ccif_md_base) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"ap_ccif_base=NULL or ccif_md_base NULL\n");
 		return -2;
 	}
 	if (md_ctrl->ap_ccif_irq0_id == 0 ||

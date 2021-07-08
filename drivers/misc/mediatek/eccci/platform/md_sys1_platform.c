@@ -55,8 +55,9 @@ struct ccci_md_regulator {
 };
 static struct ccci_md_regulator md_reg_table[] = {
 	{ NULL, "md_vmodem", 825000, 825000},
-	{ NULL, "md_vsram", 825000, 825000},
 	{ NULL, "md_vnr", 825000, 825000},
+	{ NULL, "md_vmdfe", 0, 0},
+	{ NULL, "md_vsram", 825000, 825000},
 	{ NULL, "md_vdigrf", 700000, 700000},
 };
 
@@ -265,7 +266,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			__func__);
 	} else
 		CCCI_NORMAL_LOG(dev_cfg->index, TAG,
-			"%s:srclkena_setting=%d\n",
+			"%s:srclkena_setting=0x%x\n",
 			__func__, md_cd_plat_val_ptr.srclkena_setting);
 
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
@@ -277,7 +278,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		md_cd_plat_val_ptr.srclken_o1_bit = -1;
 	} else
 		CCCI_NORMAL_LOG(dev_cfg->index, TAG,
-			"%s:srclken_o1_bit=%d\n",
+			"%s:srclken_o1_bit=0x%x\n",
 			__func__, md_cd_plat_val_ptr.srclken_o1_bit);
 
 	if (hw_info->ap_ccif_base == 0 ||
@@ -512,7 +513,8 @@ static void md_cd_check_emi_state(struct ccci_modem *md, int polling)
 
 static void md1_pmic_setting_init(struct platform_device *plat_dev)
 {
-	int idx, ret;
+	int idx, ret = 0;
+	int value[2] = { 0, 0 };
 
 	if (plat_dev->dev.of_node == NULL) {
 		CCCI_ERROR_LOG(0, TAG, "modem OF node NULL\n");
@@ -524,24 +526,33 @@ static void md1_pmic_setting_init(struct platform_device *plat_dev)
 		md_reg_table[idx].reg_ref =
 			devm_regulator_get_optional(&plat_dev->dev,
 			md_reg_table[idx].reg_name);
+		/* get regulator fail and set reg_vol=0 */
 		if (IS_ERR(md_reg_table[idx].reg_ref)) {
 			ret = PTR_ERR(md_reg_table[idx].reg_ref);
 			if ((ret != -ENODEV) && plat_dev->dev.of_node) {
 				CCCI_ERROR_LOG(-1, TAG,
-					"get regulator(%s) fail: ret = %d\n",
-					md_reg_table[idx].reg_name, ret);
-				//return -1;
+					"%s:get regulator(%s) fail, ret = %d\n",
+					__func__, md_reg_table[idx].reg_name, ret);
+				md_reg_table[idx].reg_vol0 = 0;
+				md_reg_table[idx].reg_vol0 = 0;
+			}
+		} else {
+			/* get regulator success and get value from dts */
+			ret = of_property_read_u32_array(plat_dev->dev.of_node,
+				md_reg_table[idx].reg_name, value, ARRAY_SIZE(value));
+			if (!ret) {
+				/* get value success, and update table voltage value */
+				md_reg_table[idx].reg_vol0 = value[0];
+				md_reg_table[idx].reg_vol1 = value[1];
 			} else
-				CCCI_ERROR_LOG(-1, TAG,
-					"get regulator(%s) fail 1: ret = %d\n",
+				CCCI_ERROR_LOG(-1, TAG, "update vol:%s fail ret=%d\n",
 					md_reg_table[idx].reg_name, ret);
 
-			md_reg_table[idx].reg_ref = NULL;
-			//return -1;
-		} else
 			CCCI_BOOTUP_LOG(-1, TAG,
-				"get regulator(%s) successfully\n",
-				md_reg_table[idx].reg_name);
+				"get regulator(%s=%d %d) successfully\n",
+				md_reg_table[idx].reg_name,
+				md_reg_table[idx].reg_vol0, md_reg_table[idx].reg_vol1);
+		}
 	}
 }
 
@@ -553,7 +564,21 @@ static void md1_pmic_setting_on(void)
 	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
 
 	for (idx = 0; idx < ARRAY_SIZE(md_reg_table); idx++) {
-		if (md_reg_table[idx].reg_ref) {
+		if (IS_ERR(md_reg_table[idx].reg_ref)) {
+			ret = PTR_ERR(md_reg_table[idx].reg_ref);
+			if (ret != -ENODEV) {
+				CCCI_ERROR_LOG(-1, TAG,
+					"%s:get regulator(%s) fail, ret = %d\n",
+					__func__, md_reg_table[idx].reg_name, ret);
+				CCCI_BOOTUP_LOG(-1, TAG, "bypass pmic_%s set\n",
+						md_reg_table[idx].reg_name);
+				continue;
+			}
+		} else {
+			/* VMODEM+NR+FE->2ms->VSRAM_MD */
+			if (strcmp(md_reg_table[idx].reg_name,
+				"md_vsram") == 0)
+				udelay(2000);
 			ret = regulator_set_voltage(md_reg_table[idx].reg_ref,
 				md_reg_table[idx].reg_vol0,
 				md_reg_table[idx].reg_vol1);
@@ -561,7 +586,12 @@ static void md1_pmic_setting_on(void)
 				CCCI_ERROR_LOG(-1, TAG, "pmic_%s set fail\n",
 					md_reg_table[idx].reg_name);
 				continue;
-			}
+			} else
+				CCCI_BOOTUP_LOG(-1, TAG,
+					"[POWER ON]pmic set_voltage %s=%d uV\n",
+					md_reg_table[idx].reg_name,
+					md_reg_table[idx].reg_vol0);
+
 			ret = regulator_sync_voltage(
 				md_reg_table[idx].reg_ref);
 			if (ret)
@@ -569,13 +599,11 @@ static void md1_pmic_setting_on(void)
 					md_reg_table[idx].reg_name);
 			else
 				CCCI_BOOTUP_LOG(-1, TAG,
-					"[POWER ON]pmic set%s=%d uV\n",
+					"[POWER ON]pmic get_voltage %s=%d uV\n",
 					md_reg_table[idx].reg_name,
 					regulator_get_voltage(
 					md_reg_table[idx].reg_ref));
-		} else
-			CCCI_BOOTUP_LOG(-1, TAG, "bypass pmic_%s set\n",
-					md_reg_table[idx].reg_name);
+		}
 	}
 	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON]%s end\n", __func__);
 	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON]%s end\n", __func__);
@@ -933,45 +961,102 @@ static int md_cd_topclkgen_off(struct ccci_modem *md)
 	return 0;
 }
 
+/*
+ * revert sequencer setting to AOC1.0 for gen98:
+ * 1.disable sequencer
+ * 2.wait sequencer done
+ * 3.revert mux of sequencer to AOC1.0
+ */
+static int md1_revert_sequencer_setting(struct ccci_modem *md)
+{
+	void __iomem *reg;
+	int count = 0;
+
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER OFF] revert sequencer setting to AOC1.0 start\n");
+
+	reg = ioremap_wc(0x1002B000, 0x1000);
+	if (reg == NULL) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"[POWER OFF] ioremap 0x100 bytes from 0x1002B000 fail\n");
+		return -1;
+	}
+
+	/* disable sequencer */
+	ccci_write32(reg, 0x0, 0x0);
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER OFF] disable sequencer done\n");
+	udelay(1000);
+
+	/* retry 10 * 0.1ms = 1ms*/
+	while (1) {
+		/* wait sequencer done */
+		if (ccci_read32(reg, 0x310) == 0x1010001)
+			break;
+		count++;
+		udelay(100);
+		if (count == 10) {
+			CCCI_ERROR_LOG(md->index, TAG,
+				"[POWER OFF] wait sequencer fail\n");
+			return -2;
+		}
+	}
+
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER OFF] wait sequencer done\n");
+
+	/* revert mux of sequencer to AOC1.0 */
+	ccci_write32(reg, 0x208, 0x90000);
+
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER OFF] revert sequencer setting to AOC1.0 end\n");
+
+	iounmap(reg);
+
+	return 0;
+}
+
 static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
-	int ret = 0;
+	int ret = -1;
 	unsigned int reg_value;
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 	/* notify NFC */
 	inform_nfc_vsim_change(md->index, 0, 0);
 #endif
-	/* Get infra cfg ao base */
 
-	/* power off MD_INFRA and MODEM_TOP */
-	switch (md->index) {
-	case MD_SYS1:
-		/* 1. power off MD MTCMOS */
-		CCCI_BOOTUP_LOG(md->index, TAG,
-			"[POWER OFF] MD MTCMOS OFF start\n");
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"[POWER OFF] MD MTCMOS OFF start\n");
+	if (md->index != MD_SYS1) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[POWER OFF] MD idx error(%d)\n", md->index);
+		return -1;
+	}
+
+	/* 1. power off MD MTCMOS */
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"[POWER OFF] MD MTCMOS OFF start\n");
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER OFF] MD MTCMOS OFF start\n");
 #ifdef USING_PM_RUNTIME
-		ret = pm_runtime_put_sync(&md->plat_dev->dev);
+	ret = pm_runtime_put_sync(&md->plat_dev->dev);
 #else
-		clk_disable_unprepare(clk_table[0].clk_ref);
-		CCCI_BOOTUP_LOG(md->index, TAG, "CCF:disable md1 clk\n");
+	clk_disable_unprepare(clk_table[0].clk_ref);
+	CCCI_BOOTUP_LOG(md->index, TAG, "CCF:disable md1 clk\n");
 #endif
-		/* 2. disable srcclkena */
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
 
-		CCCI_BOOTUP_LOG(md->index, TAG,
-			"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
-
+	/* 1. power off srclkena for gen97 */
+	if (md_cd_plat_val_ptr.md_gen == 6297) {
 		ret = regmap_read(md->hw_info->plat_val->infra_ao_base,
 			INFRA_AO_MD_SRCCLKENA, &reg_value);
 		if (ret) {
 			CCCI_ERROR_LOG(md->index, TAG,
 				"%s:read INFRA_AO_MD_SRCCLKENA fail,ret=%d",
 				__func__, ret);
-			break;
+			return ret;
 		}
 		reg_value &= ~(0xFF);
 		regmap_write(md->hw_info->plat_val->infra_ao_base,
@@ -982,23 +1067,31 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 			CCCI_ERROR_LOG(md->index, TAG,
 				"%s:read INFRA_AO_MD_SRCCLKENA fail,ret=%d",
 				__func__, ret);
-			break;
+			return ret;
 		}
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"%s: set md1_srcclkena=0x%x\n", __func__, reg_value);
-		flight_mode_set_by_atf(md, true);
-
-		/* modem topclkgen off setting */
-		md_cd_topclkgen_off(md);
-
-		/* 5. DLPT */
-#if IS_ENABLED(CONFIG_MTK_PBM)
-		kicker_pbm_by_md(KR_MD1, false);
-		CCCI_BOOTUP_LOG(md->index, TAG,
-			"Call end kicker_pbm_by_md(0,false)\n");
-#endif
-		break;
 	}
+
+	flight_mode_set_by_atf(md, true);
+
+	/* modem topclkgen off setting */
+	md_cd_topclkgen_off(md);
+
+	if (md_cd_plat_val_ptr.md_gen >= 6298) {
+		/* revert sequencer setting to AOC1.0 for gen98 */
+		ret = md1_revert_sequencer_setting(md);
+		if (ret)
+			return ret;
+	}
+
+	/* 5. DLPT */
+#if IS_ENABLED(CONFIG_MTK_PBM)
+	kicker_pbm_by_md(KR_MD1, false);
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"Call end kicker_pbm_by_md(0,false)\n");
+#endif
+
 	return ret;
 }
 
