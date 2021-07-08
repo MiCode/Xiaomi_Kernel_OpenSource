@@ -347,6 +347,8 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 		cm_mgr_set_bw_path(NULL);
 	}
 
+	cm_mgr_set_bw_path(bw_path);
+
 	if (ret > 0) {
 		cm_mgr_perfs = devm_kzalloc(&pdev->dev,
 				ret * sizeof(u32),
