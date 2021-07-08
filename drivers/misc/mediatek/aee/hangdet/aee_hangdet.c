@@ -55,7 +55,6 @@ static struct notifier_block wdt_pm_nb;
 static unsigned long g_nxtKickTime;
 static int g_hang_detected;
 static void __iomem *toprgu_base;
-static void __iomem *apxgpt_base;
 static unsigned int cpus_kick_bit;
 
 static unsigned int get_check_bit(void)
@@ -173,7 +172,7 @@ EXPORT_SYMBOL_GPL(kwdt_regist_irq_info);
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[])
 {
-	unsigned int dump_timeout = 0, tmp = 0;
+	unsigned int dump_timeout = 0;
 
 	local_bit = kick_bit;
 	if ((local_bit & (1 << cpu)) == 0) {
@@ -198,13 +197,11 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	}
 
 	kick_bit = local_bit;
-	if (apxgpt_base) {
-		/* "DB" signature */
-		tmp = 0x4442 << 16;
-		tmp |= (local_bit & 0xFF) << 8;
-		tmp |= get_check_bit() & 0xFF;
-		__raw_writel(tmp, apxgpt_base + 0x7c);
-	}
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	aee_rr_rec_kick(('D' << 24) | local_bit);
+	aee_rr_rec_check(('B' << 24) | get_check_bit());
+#endif
 
 	spin_unlock(&lock);
 
@@ -413,16 +410,10 @@ static const struct of_device_id toprgu_of_match[] = {
 	{},
 };
 
-static const struct of_device_id apxgpt_of_match[] = {
-	{ .compatible = "mediatek,apxgpt", },
-	{},
-};
-
 static int __init hangdet_init(void)
 {
 	int res = 0;
 	struct device_node *np_toprgu;
-	struct device_node *np_apxgpt;
 
 	for_each_matching_node(np_toprgu, toprgu_of_match) {
 		pr_info("%s: compatible node found: %s\n",
@@ -448,20 +439,6 @@ static int __init hangdet_init(void)
 
 	wdt_pm_nb.notifier_call = wdt_pm_notify;
 	register_pm_notifier(&wdt_pm_nb);
-
-	/*
-	 * In order to dump kick and check bit mask in ATF, the two value
-	 * is kept in apxgpt registers
-	 */
-	for_each_matching_node(np_apxgpt, apxgpt_of_match) {
-		pr_info("%s: compatible node found: %s\n",
-			 __func__, np_apxgpt->name);
-		break;
-	}
-
-	apxgpt_base = of_iomap(np_apxgpt, 0);
-	if (!apxgpt_base)
-		pr_debug("apxgpt iomap failed\n");
 
 	return 0;
 }
