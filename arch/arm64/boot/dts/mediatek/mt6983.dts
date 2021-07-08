@@ -818,6 +818,10 @@
 		#clock-cells = <1>;
 	};
 
+	touch: touch {
+		compatible = "mediatek,touch";
+	};
+
 	cam_main_r1a_clk: syscon@1a000000 {
 		compatible = "mediate,mt6983-cam_main_r1a", "syscon";
 		reg = <0 0x1a000000 0 0x1000>;
