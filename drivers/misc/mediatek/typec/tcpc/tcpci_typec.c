@@ -2823,7 +2823,7 @@ int tcpc_typec_handle_wd(struct tcpc_device *tcpc_dev, bool wd)
 		goto out;
 	}
 
-#ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
+#if IS_ENABLED(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 	if (tcpc_dev->boot_mode == 8 || tcpc_dev->boot_mode == 9) {
 		TYPEC_INFO("KPOC does not enter water protection\r\n");
 		goto out;

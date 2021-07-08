@@ -212,19 +212,19 @@ static uint8_t dpm_reaction_return_vconn_source(struct pd_port *pd_port)
  * DPM EnterMode reaction
  */
 
-#ifdef CONFIG_USB_PD_ATTEMP_DISCOVER_ID
+#if CONFIG_USB_PD_ATTEMPT_DISCOVER_ID
 static uint8_t dpm_reaction_discover_id(struct pd_port *pd_port)
 {
 	return TCP_DPM_EVT_DISCOVER_ID;
 }
-#endif	/* CONFIG_USB_PD_ATTEMP_DISCOVER_ID */
+#endif	/* CONFIG_USB_PD_ATTEMPT_DISCOVER_ID */
 
-#ifdef CONFIG_USB_PD_ATTEMP_DISCOVER_SVID
+#if CONFIG_USB_PD_ATTEMPT_DISCOVER_SVID
 static uint8_t dpm_reaction_discover_svid(struct pd_port *pd_port)
 {
 	return TCP_DPM_EVT_DISCOVER_SVIDS;
 }
-#endif	/* CONFIG_USB_PD_ATTEMP_DISCOVER_SVID */
+#endif	/* CONFIG_USB_PD_ATTEMPT_DISCOVER_SVID */
 
 #ifdef CONFIG_USB_PD_MODE_OPERATION
 static uint8_t dpm_reaction_mode_operation(struct pd_port *pd_port)
@@ -596,17 +596,17 @@ static const struct dpm_ready_reaction dpm_reactions[] = {
 		dpm_reaction_return_vconn_source),
 #endif	/* CONFIG_USB_PD_DISCOVER_CABLE_RETURN_VCONN */
 
-#ifdef CONFIG_USB_PD_ATTEMP_DISCOVER_ID
+#if CONFIG_USB_PD_ATTEMPT_DISCOVER_ID
 	DECL_DPM_REACTION_DFP_PD30_LIMITED_RETRIES(
 		DPM_REACTION_DISCOVER_ID,
 		dpm_reaction_discover_id),
-#endif	/* CONFIG_USB_PD_ATTEMP_DISCOVER_ID */
+#endif	/* CONFIG_USB_PD_ATTEMPT_DISCOVER_ID */
 
-#ifdef CONFIG_USB_PD_ATTEMP_DISCOVER_SVID
+#if CONFIG_USB_PD_ATTEMPT_DISCOVER_SVID
 	DECL_DPM_REACTION_DFP_PD30_LIMITED_RETRIES(
 		DPM_REACTION_DISCOVER_SVID,
 		dpm_reaction_discover_svid),
-#endif	/* CONFIG_USB_PD_ATTEMP_DISCOVER_SVID */
+#endif	/* CONFIG_USB_PD_ATTEMPT_DISCOVER_SVID */
 
 #ifdef CONFIG_USB_PD_MODE_OPERATION
 	DECL_DPM_REACTION_ALWAYS(

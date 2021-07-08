@@ -459,10 +459,10 @@ static const struct {
 	{"local_no_suspend", DPM_CAP_LOCAL_NO_SUSPEND},
 	{"local_vconn_supply", DPM_CAP_LOCAL_VCONN_SUPPLY},
 
-	{"attemp_discover_cable_dfp", DPM_CAP_ATTEMP_DISCOVER_CABLE_DFP},
-	{"attemp_enter_dp_mode", DPM_CAP_ATTEMP_ENTER_DP_MODE},
-	{"attemp_discover_cable", DPM_CAP_ATTEMP_DISCOVER_CABLE},
-	{"attemp_discover_id", DPM_CAP_ATTEMP_DISCOVER_ID},
+	{"attempt_discover_cable_dfp", DPM_CAP_ATTEMPT_DISCOVER_CABLE_DFP},
+	{"attempt_enter_dp_mode", DPM_CAP_ATTEMPT_ENTER_DP_MODE},
+	{"attempt_discover_cable", DPM_CAP_ATTEMPT_DISCOVER_CABLE},
+	{"attempt_discover_id", DPM_CAP_ATTEMPT_DISCOVER_ID},
 
 	{"pr_reject_as_source", DPM_CAP_PR_SWAP_REJECT_AS_SRC},
 	{"pr_reject_as_sink", DPM_CAP_PR_SWAP_REJECT_AS_SNK},

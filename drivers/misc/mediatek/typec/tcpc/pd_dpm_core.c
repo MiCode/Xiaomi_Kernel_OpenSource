@@ -2112,19 +2112,19 @@ int pd_dpm_notify_pe_startup(struct pd_port *pd_port)
 			reactions |= DPM_REACTION_ATTEMPT_GET_FLAG;
 	}
 
-	if (pd_port->dpm_caps & DPM_CAP_ATTEMP_DISCOVER_CABLE)
+	if (pd_port->dpm_caps & DPM_CAP_ATTEMPT_DISCOVER_CABLE)
 		reactions |= DPM_REACTION_CAP_DISCOVER_CABLE;
 
-	if (pd_port->dpm_caps & DPM_CAP_ATTEMP_DISCOVER_CABLE_DFP)
+	if (pd_port->dpm_caps & DPM_CAP_ATTEMPT_DISCOVER_CABLE_DFP)
 		reactions |= DPM_REACTION_DISCOVER_CABLE_FLOW;
 
-#ifdef CONFIG_USB_PD_ATTEMP_ENTER_MODE
+#if CONFIG_USB_PD_ATTEMPT_ENTER_MODE
 	reactions |= DPM_REACTION_DISCOVER_ID |
 		DPM_REACTION_DISCOVER_SVID;
 #else
-	if (pd_port->dpm_caps & DPM_CAP_ATTEMP_DISCOVER_ID)
+	if (pd_port->dpm_caps & DPM_CAP_ATTEMPT_DISCOVER_ID)
 		reactions |= DPM_REACTION_DISCOVER_ID;
-#endif	/* CONFIG_USB_PD_ATTEMP_ENTER_MODE */
+#endif	/* CONFIG_USB_PD_ATTEMPT_ENTER_MODE */
 
 #if CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
@@ -2157,11 +2157,11 @@ int pd_dpm_notify_pe_hardreset(struct pd_port *pd_port)
 
 	pe_data->dpm_svdm_retry_cnt++;
 
-#ifdef CONFIG_USB_PD_ATTEMP_ENTER_MODE
+#if CONFIG_USB_PD_ATTEMPT_ENTER_MODE
 		dpm_reaction_set(pd_port,
 			DPM_REACTION_DISCOVER_ID |
 			DPM_REACTION_DISCOVER_SVID);
-#endif	/* CONFIG_USB_PD_ATTEMP_ENTER_MODE */
+#endif	/* CONFIG_USB_PD_ATTEMPT_ENTER_MODE */
 
 	svdm_notify_pe_startup(pd_port);
 	return 0;

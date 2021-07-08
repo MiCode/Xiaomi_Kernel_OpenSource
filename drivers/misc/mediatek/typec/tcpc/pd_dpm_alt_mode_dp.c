@@ -97,7 +97,7 @@ bool dp_dfp_u_notify_pe_startup(
 	if (!(pd_port->id_vdos[0] & PD_IDH_MODAL_SUPPORT))
 		return true;
 
-	if (pd_port->dpm_caps & DPM_CAP_ATTEMP_ENTER_DP_MODE)
+	if (pd_port->dpm_caps & DPM_CAP_ATTEMPT_ENTER_DP_MODE)
 		dp_dfp_u_set_state(pd_port, DP_DFP_U_DISCOVER_ID);
 
 	return true;

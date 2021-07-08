@@ -274,7 +274,7 @@ bool dc_dfp_notify_pe_startup(
 	if (!(pd_port->id_vdos[0] & PD_IDH_MODAL_SUPPORT))
 		return false;
 
-	if (pd_port->dpm_caps & DPM_CAP_ATTEMP_ENTER_DC_MODE)
+	if (pd_port->dpm_caps & DPM_CAP_ATTEMPT_ENTER_DC_MODE)
 		dc_dfp_set_state(pd_port, DC_DFP_DISCOVER_ID);
 
 #ifdef RTDC_TA_EMULATE
@@ -576,7 +576,7 @@ bool dc_parse_svid_data(struct pd_port *pd_port,
 {
 	svid_data->local_mode.mode_cnt = 1;
 	svid_data->local_mode.mode_vdo[0] = 0x00;
-	pd_port->dpm_caps |= DPM_CAP_ATTEMP_ENTER_DC_MODE;
+	pd_port->dpm_caps |= DPM_CAP_ATTEMPT_ENTER_DC_MODE;
 	return true;
 }
 #endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
