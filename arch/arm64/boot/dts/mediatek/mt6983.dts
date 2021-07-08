@@ -2239,17 +2239,17 @@
 		reg = <0 0x0d100000 0 0x100000>;
 	};
 
-	apdma: dma-controller@10217a80 {
+	apdma: dma-controller@11301000 {
 			compatible = "mediatek,mt6779-uart-dma";
-			reg =   <0 0x10217a80 0 0x80>,
-				<0 0x10217b00 0 0x80>,
-				<0 0x10217b80 0 0x80>,
-				<0 0x10217c00 0 0x80>;
+			reg =   <0 0x11301000 0 0x80>,
+				<0 0x11301080 0 0x80>,
+				<0 0x1130100 0 0x80>,
+				<0 0x11301180 0 0x80>;
 			interrupts =    <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH 0>,
 					<GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH 0>,
 					<GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH 0>,
 					<GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&clk10m>;
+			clocks = <&clk26m>;
 			clock-names = "apdma";
 			dma-requests = <4>;
 	};
@@ -2258,16 +2258,21 @@
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11001000 0 0x1000>;
 		interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk10m>;
-		clock-names = "baud";
+		clocks = <&clk26m>, <&infracfg_ao_clk CLK_PERICFG_AO_PERI_UART0_CG>;
+		clock-names = "baud", "bus";
+		dmas = <&apdma 0 &apdma 1>;
+		dma-names = "tx", "rx";
 	};
 
 	uart1: serial@11002000 {
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11002000 0 0x1000>;
 		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&clk10m>;
-		clock-names = "baud";
+		clocks = <&clk26m>, <&infracfg_ao_clk CLK_PERICFG_AO_PERI_UART1_CG>;
+		clock-names = "baud", "bus";
+		dmas = <&apdma 2
+				&apdma 3>;
+		dma-names = "tx", "rx";
 	};
 
 	peri_io_cfg_rm@11c20000 {
