@@ -135,8 +135,6 @@ static void probe_android_vh_set_memory_rw(void *ignore, unsigned long addr,
 	int region;
 
 	if (((unsigned long)THIS_MODULE->init_layout.base) == addr) {
-		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_MKP,
-			mkp_set_mapping_rw);
 		return;
 	}
 	region = is_module_or_bpf_addr((void *)addr);
@@ -164,10 +162,7 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 	uint32_t policy;
 
 	if (((unsigned long)THIS_MODULE->init_layout.base) == addr) {
-		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_MKP,
-			mkp_set_mapping_nx);
-		policy = MKP_POLICY_MKP;
-		goto destroy_handle;
+		return;
 	}
 	region = is_module_or_bpf_addr((void *)addr);
 	if (region == MKP_DEMO_MODULE_CASE) {
@@ -184,7 +179,6 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 #endif
 	}
 
-destroy_handle:
 	for (i = 0; i < nr_pages; i++) {
 		pfn = vmalloc_to_pfn((void *)(addr+i*PAGE_SIZE));
 		phys_addr = pfn << PAGE_SHIFT;

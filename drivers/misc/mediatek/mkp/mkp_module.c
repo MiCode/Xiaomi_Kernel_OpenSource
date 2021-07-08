@@ -55,14 +55,17 @@ static void frob_writable_data(const struct module_layout *layout,
 void module_enable_x(const struct module *mod, uint32_t policy)
 {
 	frob_text(&mod->core_layout, mkp_set_mapping_x, policy);
-	frob_text(&mod->init_layout, mkp_set_mapping_x, policy);
+	if (policy == MKP_POLICY_DRV)
+		frob_text(&mod->init_layout, mkp_set_mapping_x, policy);
 }
 void module_enable_ro(const struct module *mod, bool after_init, uint32_t policy)
 {
 	frob_text(&mod->core_layout, mkp_set_mapping_ro, policy);
 	frob_rodata(&mod->core_layout, mkp_set_mapping_ro, policy);
-	frob_text(&mod->init_layout, mkp_set_mapping_ro, policy);
-	frob_rodata(&mod->init_layout, mkp_set_mapping_ro, policy);
+	if (policy == MKP_POLICY_DRV) {
+		frob_text(&mod->init_layout, mkp_set_mapping_ro, policy);
+		frob_rodata(&mod->init_layout, mkp_set_mapping_ro, policy);
+	}
 
 	if (after_init)
 		frob_ro_after_init(&mod->core_layout, mkp_set_mapping_ro, policy);
@@ -72,6 +75,8 @@ void module_enable_nx(const struct module *mod, uint32_t policy)
 	frob_rodata(&mod->core_layout, mkp_set_mapping_nx, policy);
 	frob_ro_after_init(&mod->core_layout, mkp_set_mapping_nx, policy);
 	frob_writable_data(&mod->core_layout, mkp_set_mapping_nx, policy);
-	frob_rodata(&mod->init_layout, mkp_set_mapping_nx, policy);
-	frob_writable_data(&mod->init_layout, mkp_set_mapping_nx, policy);
+	if (policy == MKP_POLICY_DRV) {
+		frob_rodata(&mod->init_layout, mkp_set_mapping_nx, policy);
+		frob_writable_data(&mod->init_layout, mkp_set_mapping_nx, policy);
+	}
 }
