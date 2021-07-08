@@ -8,15 +8,26 @@
 #include <linux/completion.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
 #include <linux/types.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/videobuf2-v4l2.h>
 
-#define Y2R_CONFIG_SIZE 28
+#include "mtk-interconnect.h"
+
+#define V4L2_META_FMT_MTFD_RESULT  v4l2_fourcc('M', 'T', 'f', 'd')
+
+#define MTK_AIE_OPP_SET			1
+#define MTK_AIE_CLK_LEVEL_CNT		4
+
+#define FD_VERSION 1946050
+#define ATTR_VERSION 1929401
+
+#define Y2R_CONFIG_SIZE 32
 #define RS_CONFIG_SIZE 28
-#define FD_CONFIG_SIZE 48
-#define RD_RLT_SIZE 12
+#define FD_CONFIG_SIZE 54
 
 #define Y2R_SRC_DST_FORMAT 0
 #define Y2R_IN_W_H 1
@@ -43,6 +54,9 @@
 #define Y2R_SRZ_VERT_STEP 23
 #define Y2R_PADDING_EN_UP_DOWN 26
 #define Y2R_PADDING_RIGHT_LEFT 27
+#define Y2R_CO2_FMT_MODE_EN 28 /* AIE3.0 new */
+#define Y2R_CO2_CROP_X 29      /* AIE3.0 new */
+#define Y2R_CO2_CROP_Y 30      /* AIE3.0 new */
 
 #define RS_IN_0 22
 #define RS_IN_1 23
@@ -68,7 +82,7 @@
 #define RS_OUT_X_Y_SIZE2 20
 #define RS_OUT_STRIDE2 21
 
-#define FD_INPUT_ROTATE 1
+#define FD_INPUT_ROTATE 1 /* AIE3.0 new */
 #define FD_CONV_WIDTH_MOD6 2
 #define FD_CONV_IMG_W_H 4
 
@@ -110,28 +124,34 @@
 
 #define FD_RPN_SET 37
 #define FD_IMAGE_COORD 38
+#define FD_IMAGE_COORD_XY_OFST 39   /* AIE3.0 new */
+#define FD_BIAS_ACCU 47		    /* AIE3.0 new */
+#define FD_SRZ_FDRZ_RS 48	   /* AIE3.0 new */
+#define FD_SRZ_HORI_STEP 49	 /* AIE3.0 new */
+#define FD_SRZ_VERT_STEP 50	 /* AIE3.0 new */
+#define FD_SRZ_HORI_SUB_INT_OFST 51 /* AIE3.0 new */
+#define FD_SRZ_VERT_SUB_INT_OFST 52 /* AIE3.0 new */
 
 #define FDRZ_BIT ((0x0 << 16) | (0x0 << 12) | (0x0 << 8) | 0x0)
 #define SRZ_BIT ((0x1 << 16) | (0x1 << 12) | (0x1 << 8) | 0x1)
 
-/* dram size */
-#define fd_rs_confi_size 224
-#define fd_fd_confi_size 18432
-#define fd_yuv2rgb_confi_size 112
-#define fd_fd_pose_confi_size 576
+/* config size */
+#define fd_rs_confi_size 224 /* AIE3.0: 112*2=224 */
+#define fd_fd_confi_size 20736 /* AIE3.0: 54*4=216, 216*96=20736*/
+#define fd_yuv2rgb_confi_size 128 /* AIE3.0:128 */
 
-#define attr_rs_confi_size 0
-#define attr_fd_confi_size 4992
-#define attr_yuv2rgb_confi_size 112
+#define attr_fd_confi_size 5616     /* AIE3.0:216*26=5616 */
+#define attr_yuv2rgb_confi_size 128 /* AIE3.0:128 */
 
-#define result_size 49152 /* 384 * 1024 / 8 */
-#define fd_loop_num 96
-#define rpn0_loop_num 95
-#define rpn1_loop_num 63
-#define rpn2_loop_num 31
+#define result_size 49152 /* 384 * 1024 / 8 */ /* AIE2.0 and AIE3.0 */
 
-#define pym0_start_loop 64
-#define pym1_start_loop 32
+#define fd_loop_num 87
+#define rpn0_loop_num 86
+#define rpn1_loop_num 57
+#define rpn2_loop_num 28
+
+#define pym0_start_loop 58
+#define pym1_start_loop 29
 #define pym2_start_loop 0
 
 #define attr_loop_num 26
@@ -149,9 +169,9 @@
 #define COLOR_NUM 3
 
 #define ATTR_MODE_PYRAMID_WIDTH 128
-#define ATTR_OUT_SIZE  32
+#define ATTR_OUT_SIZE 32
 
-/* AIE 2.0 register offset */
+/* AIE 3.0 register offset */
 #define AIE_START_REG 0x000
 #define AIE_ENABLE_REG 0x004
 #define AIE_LOOP_REG 0x008
@@ -169,8 +189,10 @@
 #define MTK_FD_OUTPUT_MAX_WIDTH 4096U
 #define MTK_FD_OUTPUT_MAX_HEIGHT 4096U
 
-#define MTK_FD_HW_TIMEOUT 1000
+#define MTK_FD_HW_TIMEOUT 33 /* 33 msec */
 #define MAX_FACE_NUM 1024
+#define RLT_NUM 48
+#define GENDER_OUT 32
 
 #define RACE_RST_X_NUM 4
 #define RACE_RST_Y_NUM 64
@@ -199,6 +221,11 @@ struct aie_static_info {
 	unsigned int input_xsize_plus_1[fd_loop_num];
 };
 
+enum aie_state {
+	STATE_NA = 0,
+	STATE_INIT = 1
+};
+
 enum aie_mode { FDMODE = 0, ATTRIBUTEMODE = 1, POSEMODE = 2 };
 
 enum aie_format {
@@ -209,7 +236,9 @@ enum aie_format {
 	FMT_YVYU = 4,
 	FMT_UYVY = 5,
 	FMT_VYUY = 6,
-	FMT_MONO = 7
+	FMT_MONO = 7,
+	FMT_YUV420_2P = 8,
+	FMT_YUV420_1P = 9
 };
 
 enum aie_input_degree {
@@ -229,88 +258,23 @@ struct aie_init_info {
 	u32 sec_mem_type;
 };
 
-struct pyramid_result {
-	u16 anchor_x0[MAX_FACE_NUM];
-	u16 anchor_x1[MAX_FACE_NUM];
-	u16 anchor_y0[MAX_FACE_NUM];
-	u16 anchor_y1[MAX_FACE_NUM];
-	u16 landmark_x0[MAX_FACE_NUM];
-	u16 landmark_x1[MAX_FACE_NUM];
-	u16 landmark_x2[MAX_FACE_NUM];
-	u16 landmark_x3[MAX_FACE_NUM];
-	u16 landmark_x4[MAX_FACE_NUM];
-	u16 landmark_x5[MAX_FACE_NUM];
-	u16 landmark_x6[MAX_FACE_NUM];
-	u16 landmark_y0[MAX_FACE_NUM];
-	u16 landmark_y1[MAX_FACE_NUM];
-	u16 landmark_y2[MAX_FACE_NUM];
-	u16 landmark_y3[MAX_FACE_NUM];
-	u16 landmark_y4[MAX_FACE_NUM];
-	u16 landmark_y5[MAX_FACE_NUM];
-	u16 landmark_y6[MAX_FACE_NUM];
-	s16 anchor_score[MAX_FACE_NUM];
-	s16 landmark_score0[MAX_FACE_NUM];
-	s16 landmark_score1[MAX_FACE_NUM];
-	s16 landmark_score2[MAX_FACE_NUM];
-	s16 landmark_score3[MAX_FACE_NUM];
-	s16 landmark_score4[MAX_FACE_NUM];
-	s16 landmark_score5[MAX_FACE_NUM];
-	s16 landmark_score6[MAX_FACE_NUM];
-
-	s16 rip_landmark_score0[MAX_FACE_NUM];
-	s16 rip_landmark_score1[MAX_FACE_NUM];
-	s16 rip_landmark_score2[MAX_FACE_NUM];
-	s16 rip_landmark_score3[MAX_FACE_NUM];
-	s16 rip_landmark_score4[MAX_FACE_NUM];
-	s16 rip_landmark_score5[MAX_FACE_NUM];
-	s16 rip_landmark_score6[MAX_FACE_NUM];
-
-	s16 rop_landmark_score0[MAX_FACE_NUM];
-	s16 rop_landmark_score1[MAX_FACE_NUM];
-	s16 rop_landmark_score2[MAX_FACE_NUM];
-	u16 face_result_index[MAX_FACE_NUM];
-	u16 anchor_index[MAX_FACE_NUM];
-	u32 fd_partial_result;
-};
-
 /* align v4l2 user space interface */
 struct fd_result {
-	struct pyramid_result pyramid_result[PYM_NUM];
+	u16 fd_pyramid0_num;
+	u16 fd_pyramid1_num;
+	u16 fd_pyramid2_num;
 	u16 fd_total_num;
-};
-
-struct race_result {
-	s16 result[RACE_RST_X_NUM][RACE_RST_Y_NUM];
-};
-
-struct gender_result {
-	s16 result[GENDER_RST_X_NUM][GENDER_RST_Y_NUM];
-};
-
-struct merged_race_result {
-	s16 result[MRACE_RST_NUM];
-};
-
-struct merged_gender_result {
-	s16 result[MGENDER_RST_NUM];
-};
-
-struct merged_age_result {
-	s16 result[MAGE_RST_NUM];
-};
-
-struct merged_is_indian_result {
-	s16 result[MINDIAN_RST_NUM];
+	u8 rpn31_rlt[MAX_FACE_NUM][RLT_NUM];
+	u8 rpn63_rlt[MAX_FACE_NUM][RLT_NUM];
+	u8 rpn95_rlt[MAX_FACE_NUM][RLT_NUM];
 };
 
 /* align v4l2 user space interface */
 struct attr_result {
-	struct gender_result gender_rst;
-	struct race_result race_rst;
-	struct merged_age_result m_age_rst;
-	struct merged_gender_result m_gender_rst;
-	struct merged_is_indian_result m_is_indian_rst;
-	struct merged_race_result m_race_rst;
+	u8 rpn17_rlt[GENDER_OUT];
+	u8 rpn20_rlt[GENDER_OUT];
+	u8 rpn22_rlt[GENDER_OUT];
+	u8 rpn25_rlt[GENDER_OUT];
 };
 
 struct aie_roi {
@@ -334,11 +298,15 @@ struct aie_enq_info {
 	u16 src_img_width;
 	u16 src_img_height;
 	u16 src_img_stride;
+	u32 pyramid_base_width;
+	u32 pyramid_base_height;
+	u32 number_of_pyramid;
 	u32 rotate_degree;
 	u32 en_roi;
 	struct aie_roi src_roi;
 	u32 en_padding;
 	struct aie_padding src_padding;
+	u32 freq_level;
 	u32 src_img_addr;
 	u32 src_img_addr_uv;
 	u32 fd_version;
@@ -371,6 +339,9 @@ struct aie_para {
 	s16 rpn_anchor_thrd;
 	u16 pyramid_width;
 	u16 pyramid_height;
+	u16 max_pyramid_width;
+	u16 max_pyramid_height;
+	u16 number_of_pyramid;
 	u32 src_img_addr;
 	u32 src_img_addr_uv;
 
@@ -452,13 +423,15 @@ struct user_init {
 	unsigned int pyramid_height;
 	unsigned int feature_thread;
 } __packed;
-
 struct user_param {
 	unsigned int fd_mode;
 	unsigned int src_img_fmt;
 	unsigned int src_img_width;
 	unsigned int src_img_height;
 	unsigned int src_img_stride;
+	unsigned int pyramid_base_width;
+	unsigned int pyramid_base_height;
+	unsigned int number_of_pyramid;
 	unsigned int rotate_degree;
 	int en_roi;
 	unsigned int src_roi_x1;
@@ -470,6 +443,14 @@ struct user_param {
 	unsigned int src_padding_right;
 	unsigned int src_padding_down;
 	unsigned int src_padding_up;
+	unsigned int freq_level;
+} __packed;
+
+struct mtk_aie_user_para {
+	signed int feature_threshold;
+	unsigned int is_secure;
+	unsigned int sec_mem_type;
+	struct user_param user_param;
 } __packed;
 
 struct fd_enq_param {
@@ -478,6 +459,33 @@ struct fd_enq_param {
 	struct user_param user_param;
 } __packed;
 
+struct mtk_aie_dvfs {
+	struct device *dev;
+	struct regulator *reg;
+	unsigned int clklv_num[MTK_AIE_OPP_SET];
+	unsigned int clklv[MTK_AIE_OPP_SET][MTK_AIE_CLK_LEVEL_CNT];
+	unsigned int voltlv[MTK_AIE_OPP_SET][MTK_AIE_CLK_LEVEL_CNT];
+	unsigned int clklv_idx[MTK_AIE_OPP_SET];
+	unsigned int clklv_target[MTK_AIE_OPP_SET];
+	unsigned int cur_volt;
+};
+
+struct mtk_aie_qos_path {
+	struct icc_path *path;	/* cmdq event enum value */
+	char dts_name[256];
+	unsigned long long bw;
+};
+
+struct mtk_aie_qos {
+	struct device *dev;
+	struct mtk_aie_qos_path *qos_path;
+};
+
+struct mtk_aie_req_work {
+	struct work_struct work;
+	struct mtk_aie_dev *fd_dev;
+};
+
 struct mtk_aie_dev {
 	struct device *dev;
 	struct mtk_aie_ctx *ctx;
@@ -485,7 +493,10 @@ struct mtk_aie_dev {
 	struct v4l2_m2m_dev *m2m_dev;
 	struct media_device mdev;
 	struct video_device vfd;
-	struct clk *fd_clk;
+	struct clk *img_ipe;
+	struct clk *ipe_fdvt;
+	struct clk *ipe_smi_larb12;
+	struct clk *ipe_top;
 	struct device *larb;
 
 	/* Lock for V4L2 operations */
@@ -509,6 +520,8 @@ struct mtk_aie_dev {
 	struct imem_buf_info rs_output_hw;
 	struct imem_buf_info fd_dma_hw;
 	struct imem_buf_info fd_dma_result_hw;
+	struct imem_buf_info fd_kernel_hw;
+	struct imem_buf_info fd_attr_dma_hw;
 
 	/* DRAM Buffer Size */
 	unsigned int fd_rs_cfg_size;
@@ -522,14 +535,32 @@ struct mtk_aie_dev {
 	unsigned int rs_pym_out_size[PYM_NUM];
 	unsigned int fd_dma_max_size;
 	unsigned int fd_dma_rst_max_size;
+	unsigned int fd_fd_kernel_size;
+	unsigned int fd_attr_kernel_size;
+	unsigned int fd_attr_dma_max_size;
+	unsigned int fd_attr_dma_rst_max_size;
 
 	unsigned int pose_height;
+
+	/*DMA Buffer*/
+	struct dma_buf *dmabuf;
+	unsigned long long kva;
+	int map_count;
 
 	struct aie_para *base_para;
 	struct aie_attr_para *attr_para;
 	struct aie_fd_dma_para *dma_para;
 
 	struct aie_static_info st_info;
+	unsigned int fd_state;
+	struct mtk_aie_dvfs dvfs_info;
+	struct mtk_aie_qos qos_info;
+
+	wait_queue_head_t flushing_waitq;
+	atomic_t num_composing;
+
+	struct workqueue_struct *frame_done_wq;
+	struct mtk_aie_req_work req_work;
 };
 
 struct mtk_aie_ctx {
