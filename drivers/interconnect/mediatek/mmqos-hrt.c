@@ -96,6 +96,8 @@ s32 mtk_mmqos_hrt_scen(enum hrt_scen scen, bool is_start)
 		pr_notice("%s: mmqos_hrt not ready\n");
 		return -ENOENT;
 	}
+
+	pr_notice("%s: scen=%d, is_start=%d\n", __func__, scen, is_start);
 	switch (scen) {
 		case CAM_SCEN_CHANGE:
 			notify_bw_throttle(scen, is_start);
@@ -111,9 +113,30 @@ s32 mtk_mmqos_hrt_scen(enum hrt_scen scen, bool is_start)
 			ret = -EINVAL;
 			break;
 	}
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_hrt_scen);
+
+static ssize_t mtk_mmqos_scen_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	s32 ret;
+	u32 scen, is_on;
+
+	ret = sscanf(buf, "%u %u", &scen, &is_on);
+	if (ret != 2) {
+		dev_notice(dev, "%s: invalid input=%s ret=%d\n", __func__, buf, ret);
+		return ret;
+	}
+	ret = mtk_mmqos_hrt_scen(scen, is_on == 1);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static DEVICE_ATTR_WO(mtk_mmqos_scen);
 
 
 static void set_camera_max_bw(u32 bw)
@@ -190,6 +213,7 @@ EXPORT_SYMBOL_GPL(mtk_mmqos_init_hrt);
 
 static struct attribute *mmqos_hrt_sysfs_attrs[] = {
 	&dev_attr_camera_max_bw.attr,
+	&dev_attr_mtk_mmqos_scen.attr,
 	NULL
 };
 
