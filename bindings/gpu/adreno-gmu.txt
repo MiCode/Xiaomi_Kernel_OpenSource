@@ -5,8 +5,6 @@ Required properties:
 	- "qcom,gpu-gmu"
 	- "qcom,gpu-gmu-hwsched"
 	- "qcom,gpu-rgmu"
-	- "qcom,genc-gmu"
-	- "qcom,genc-gmu-hwsched"
 	- "qcom,gen7-gmu"
 	- "qcom,gen7-gmu-hwsched"
 - reg:		Specifies the GMU register base address and size.
