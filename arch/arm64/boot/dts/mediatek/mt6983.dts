@@ -826,6 +826,37 @@
 		reg = <0 0x1c00c000 0 0x1000>;
 	};
 
+	spmi: spmi@1c015000 {
+		compatible = "mediatek,mt6983-spmi";
+		reg = <0 0x1c015000 0 0x0008ff>,
+		      <0 0x1c801000 0 0x000500>,
+		      <0 0x1c801000 0 0x000100>;
+		reg-names = "pmif", "pmifmpu", "spmimst";
+		interrupts-extended = <&gic GIC_SPI 446 IRQ_TYPE_LEVEL_HIGH>,
+				      <&pio 124 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pmif_irq","rcs_irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		irq_event_en = <0x0 0x0 0x0 0x00006000 0x0>;
+
+		clocks = <&topckgen_clk CLK_TOPCKGEN_PWRAP_ULPOSC_SEL>,
+			 <&topckgen_clk CLK_TOPCKGEN_SPMI_M_MST_SEL>,
+			 <&topckgen_clk CLK_TOPCKGEN_SPMI_P_MST_SEL>,
+			 <&vlp_cksys_clk CLK_VLP_CKSYS_PWRAP_ULPOSC_SEL>,
+			 <&vlp_cksys_clk CLK_VLP_CKSYS_SPMI_M_MST_SEL>,
+			 <&vlp_cksys_clk CLK_VLP_CKSYS_SPMI_P_MST_SEL>;
+		clock-names = "pmif_clk_mux",
+			      "spmimst_m_clk_mux",
+			      "spmimst_p_clk_mux",
+			      "vlp_pmif_clk_mux",
+			      "vlp_spmimst_m_clk_mux",
+			      "vlp_spmimst_p_clk_mux";
+		swinf_ch_start = <3>;
+		ap_swinf_no = <2>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+	};
+
 	adsp_clk: syscon@1e000000 {
 		compatible = "mediate,mt6983-adsp", "syscon";
 		reg = <0 0x1e000000 0 0x1000>;
@@ -4928,3 +4959,61 @@
 #include "mediatek/cust_mt6983_msdc.dtsi"
 #include "mediatek/rt5133.dtsi"
 #include "mediatek/rt6160.dtsi"
+#include "mediatek/mt6363.dtsi"
+#include "mediatek/mt6373.dtsi"
+
+&mt6363_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck4 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck5 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck6 {
+	regulator-always-on;
+};
+
+&mt6363_vsram_digrf {
+	regulator-always-on;
+};
+
+&mt6363_vsram_modem {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpub {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpum {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpul {
+	regulator-always-on;
+};
+
+&mt6363_vemc {
+	regulator-always-on;
+};
+
+&mt6363_vm18 {
+	regulator-always-on;
+};
+
+&mt6363_vufs12 {
+	regulator-always-on;
+};
+
+&mt6373_vtp {
+	regulator-always-on;
+};
