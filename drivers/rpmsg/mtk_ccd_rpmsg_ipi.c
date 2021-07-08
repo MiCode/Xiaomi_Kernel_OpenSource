@@ -6,6 +6,7 @@
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/mtk_ccd_controls.h>
 #include <linux/platform_data/mtk_ccd.h>

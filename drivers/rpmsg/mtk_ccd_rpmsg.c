@@ -11,6 +11,7 @@
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 #include <linux/platform_data/mtk_ccd_controls.h>
 #include <linux/platform_data/mtk_ccd.h>
+#include <linux/slab.h>
 
 #include "rpmsg_internal.h"
 #include "mtk_ccd_rpmsg_internal.h"
