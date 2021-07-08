@@ -24,6 +24,7 @@ struct mtk_drm_esd_ctx {
 	u32 chk_active;
 	u32 chk_mode;
 	u32 chk_sta;
+	u32 chk_en;
 };
 
 void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable);

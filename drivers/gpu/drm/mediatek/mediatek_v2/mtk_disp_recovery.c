@@ -470,7 +470,6 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	struct mtk_drm_private *private = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
-	struct mtk_panel_ext *panel_ext;
 	int ret = 0;
 	int i = 0;
 	int recovery_flg = 0;
@@ -482,15 +481,10 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 
 		return -EINVAL;
 	}
-	panel_ext = mtk_crtc->panel_ext;
-	if (!(panel_ext && panel_ext->params)) {
-		DDPMSG("can't find panel_ext handle\n");
-		return -EINVAL;
-	}
 
 	while (1) {
 		msleep(ESD_CHECK_PERIOD);
-		if (_lcm_need_esd_check(panel_ext) == 0)
+		if (esd_ctx->chk_en == 0)
 			continue;
 		ret = wait_event_interruptible(
 			esd_ctx->check_task_wq,
@@ -616,6 +610,7 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	}
 	mtk_crtc->esd_ctx = esd_ctx;
 
+	esd_ctx->chk_en = 1;
 	esd_ctx->disp_esd_chk_task = kthread_create(
 		mtk_drm_esd_check_worker_kthread, crtc, "disp_echk");
 

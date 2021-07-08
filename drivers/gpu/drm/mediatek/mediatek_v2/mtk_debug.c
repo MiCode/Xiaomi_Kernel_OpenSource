@@ -2147,7 +2147,8 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "esd_check", 9) == 0) {
 		unsigned int esd_check_en = 0;
 		struct drm_crtc *crtc;
-		struct mtk_panel_params *params = NULL;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct mtk_drm_esd_ctx *esd_ctx;
 		int ret;
 
 		ret = sscanf(opt, "esd_check:%u\n", &esd_check_en);
@@ -2164,14 +2165,14 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		params = mtk_drm_get_lcm_ext_params(crtc);
-		if (!params) {
-			pr_info("[Fake HDR] find lcm ext fail\n");
-			return;
+		mtk_crtc = to_mtk_crtc(crtc);
+		esd_ctx = mtk_crtc->esd_ctx;
+		if (esd_ctx != NULL) {
+			esd_ctx->chk_en = esd_check_en;
+			DDPINFO("set esd_check_en to %d\n", esd_check_en);
+		} else {
+			DDPINFO("esd_ctx is null!\n");
 		}
-
-		params->esd_check_enable = esd_check_en;
-		DDPINFO("set panel esd_check_enable to %d\n", esd_check_en);
 	}
 }
 
