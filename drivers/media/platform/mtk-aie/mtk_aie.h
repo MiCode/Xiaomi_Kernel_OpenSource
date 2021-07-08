@@ -21,6 +21,7 @@
 
 #define MTK_AIE_OPP_SET			1
 #define MTK_AIE_CLK_LEVEL_CNT		4
+#define FLD_MAX_INPUT			15
 
 #define FD_VERSION 1946050
 #define ATTR_VERSION 1929401
@@ -184,12 +185,302 @@
 #define AIE_RESULT_1_REG 0x090
 #define AIE_DMA_CTL_REG 0x094
 
+/* AIE 3.0 FLD register offset */
+#define FLD_EN                       0x400
+#define FLD_BASE_ADDR_FACE_0         0x404
+#define FLD_BASE_ADDR_FACE_1         0x408
+#define FLD_BASE_ADDR_FACE_2         0x40C
+#define FLD_BASE_ADDR_FACE_3         0x410
+#define FLD_BASE_ADDR_FACE_4         0x414
+#define FLD_BASE_ADDR_FACE_5         0x418
+#define FLD_BASE_ADDR_FACE_6         0x41C
+#define FLD_BASE_ADDR_FACE_7         0x420
+#define FLD_BASE_ADDR_FACE_8         0x424
+#define FLD_BASE_ADDR_FACE_9         0x428
+#define FLD_BASE_ADDR_FACE_10        0x42C
+#define FLD_BASE_ADDR_FACE_11        0x430
+#define FLD_BASE_ADDR_FACE_12        0x434
+#define FLD_BASE_ADDR_FACE_13        0x438
+#define FLD_BASE_ADDR_FACE_14        0x43C
+
+#define FLD_INFO_0_FACE_0            0x440
+#define FLD_INFO_1_FACE_0            0x444
+#define FLD_INFO_2_FACE_0            0x448
+#define FLD_INFO_0_FACE_1            0x44C
+#define FLD_INFO_1_FACE_1            0x450
+#define FLD_INFO_2_FACE_1            0x454
+#define FLD_INFO_0_FACE_2            0x458
+#define FLD_INFO_1_FACE_2            0x45C
+#define FLD_INFO_2_FACE_2            0x460
+#define FLD_INFO_0_FACE_3            0x464
+#define FLD_INFO_1_FACE_3            0x468
+#define FLD_INFO_2_FACE_3            0x46C
+#define FLD_INFO_0_FACE_4            0x470
+#define FLD_INFO_1_FACE_4            0x474
+#define FLD_INFO_2_FACE_4            0x478
+#define FLD_INFO_0_FACE_5            0x47C
+#define FLD_INFO_1_FACE_5            0x480
+#define FLD_INFO_2_FACE_5            0x484
+#define FLD_INFO_0_FACE_6            0x488
+#define FLD_INFO_1_FACE_6            0x48C
+#define FLD_INFO_2_FACE_6            0x490
+#define FLD_INFO_0_FACE_7            0x494
+#define FLD_INFO_1_FACE_7            0x498
+
+#define FLD_INFO_2_FACE_7            0x4A0
+#define FLD_INFO_0_FACE_8            0x4A4
+#define FLD_INFO_1_FACE_8            0x4A8
+#define FLD_INFO_2_FACE_8            0x4AC
+#define FLD_INFO_0_FACE_9            0x4B0
+#define FLD_INFO_1_FACE_9            0x4B4
+#define FLD_INFO_2_FACE_9            0x4B8
+#define FLD_INFO_0_FACE_10           0x4BC
+#define FLD_INFO_1_FACE_10           0x4C0
+#define FLD_INFO_2_FACE_10           0x4C4
+#define FLD_INFO_0_FACE_11           0x4C8
+#define FLD_INFO_1_FACE_11           0x4CC
+#define FLD_INFO_2_FACE_11           0x4D0
+#define FLD_INFO_0_FACE_12           0x4D4
+#define FLD_INFO_1_FACE_12           0x4D8
+#define FLD_INFO_2_FACE_12           0x4DC
+#define FLD_INFO_0_FACE_13           0x4E0
+#define FLD_INFO_1_FACE_13           0x4E4
+#define FLD_INFO_2_FACE_13           0x4E8
+#define FLD_INFO_0_FACE_14           0x4EC
+#define FLD_INFO_1_FACE_14           0x4F0
+#define FLD_INFO_2_FACE_14           0x4F4
+
+#define FLD_MODEL_PARA0              0x4F8
+#define FLD_MODEL_PARA1              0x4FC
+#define FLD_MODEL_PARA2              0x500
+#define FLD_MODEL_PARA3              0x504
+#define FLD_MODEL_PARA4              0x508
+#define FLD_MODEL_PARA5              0x50C
+#define FLD_MODEL_PARA6              0x510
+#define FLD_MODEL_PARA7              0x514
+#define FLD_MODEL_PARA8              0x518
+#define FLD_MODEL_PARA9              0x51C
+#define FLD_MODEL_PARA10             0x520
+#define FLD_MODEL_PARA11             0x524
+#define FLD_MODEL_PARA12             0x528
+#define FLD_MODEL_PARA13             0x52C
+#define FLD_MODEL_PARA14             0x530
+#define FLD_MODEL_PARA15             0x534
+#define FLD_MODEL_PARA16             0x538
+#define FLD_DEBUG_INFO0              0x53C
+#define FLD_DEBUG_INFO1              0x540
+
+#define FLD_BUSY                     0x544
+#define FLD_DONE                     0x548
+#define FLD_SRC_WD_HT                0x54C
+
+#define FLD_PL_IN_BASE_ADDR_0_0      0x550
+#define FLD_PL_IN_BASE_ADDR_0_1      0x554
+#define FLD_PL_IN_BASE_ADDR_0_2      0x558
+#define FLD_PL_IN_BASE_ADDR_0_3      0x55C
+#define FLD_PL_IN_BASE_ADDR_0_4      0x560
+#define FLD_PL_IN_BASE_ADDR_0_5      0x564
+#define FLD_PL_IN_BASE_ADDR_0_6      0x568
+#define FLD_PL_IN_BASE_ADDR_0_7      0x56C
+#define FLD_PL_IN_BASE_ADDR_0_8      0x570
+#define FLD_PL_IN_BASE_ADDR_0_9      0x574
+#define FLD_PL_IN_BASE_ADDR_0_10     0x578
+#define FLD_PL_IN_BASE_ADDR_0_11     0x57C
+#define FLD_PL_IN_BASE_ADDR_0_12     0x580
+#define FLD_PL_IN_BASE_ADDR_0_13     0x584
+#define FLD_PL_IN_BASE_ADDR_0_14     0x588
+#define FLD_PL_IN_BASE_ADDR_0_15     0x58C
+#define FLD_PL_IN_BASE_ADDR_0_16     0x590
+#define FLD_PL_IN_BASE_ADDR_0_17     0x594
+#define FLD_PL_IN_BASE_ADDR_0_18     0x598
+#define FLD_PL_IN_BASE_ADDR_0_19     0x59C
+#define FLD_PL_IN_BASE_ADDR_0_20     0x5A0
+#define FLD_PL_IN_BASE_ADDR_0_21     0x5A4
+#define FLD_PL_IN_BASE_ADDR_0_22     0x5A8
+#define FLD_PL_IN_BASE_ADDR_0_23     0x5AC
+#define FLD_PL_IN_BASE_ADDR_0_24     0x5B0
+#define FLD_PL_IN_BASE_ADDR_0_25     0x5B4
+#define FLD_PL_IN_BASE_ADDR_0_26     0x5B8
+#define FLD_PL_IN_BASE_ADDR_0_27     0x5BC
+#define FLD_PL_IN_BASE_ADDR_0_28     0x5C0
+#define FLD_PL_IN_BASE_ADDR_0_29     0x5C4
+
+#define FLD_PL_IN_BASE_ADDR_1_0      0x5C8
+#define FLD_PL_IN_BASE_ADDR_1_1      0x5CC
+#define FLD_PL_IN_BASE_ADDR_1_2      0x5D0
+#define FLD_PL_IN_BASE_ADDR_1_3      0x5D4
+#define FLD_PL_IN_BASE_ADDR_1_4      0x5D8
+#define FLD_PL_IN_BASE_ADDR_1_5      0x5DC
+#define FLD_PL_IN_BASE_ADDR_1_6      0x5E0
+#define FLD_PL_IN_BASE_ADDR_1_7      0x5E4
+#define FLD_PL_IN_BASE_ADDR_1_8      0x5E8
+#define FLD_PL_IN_BASE_ADDR_1_9      0x5EC
+#define FLD_PL_IN_BASE_ADDR_1_10     0x5F0
+#define FLD_PL_IN_BASE_ADDR_1_11     0x5F4
+#define FLD_PL_IN_BASE_ADDR_1_12     0x5F8
+#define FLD_PL_IN_BASE_ADDR_1_13     0x5FC
+#define FLD_PL_IN_BASE_ADDR_1_14     0x600
+#define FLD_PL_IN_BASE_ADDR_1_15     0x604
+#define FLD_PL_IN_BASE_ADDR_1_16     0x608
+#define FLD_PL_IN_BASE_ADDR_1_17     0x60C
+#define FLD_PL_IN_BASE_ADDR_1_18     0x610
+#define FLD_PL_IN_BASE_ADDR_1_19     0x614
+#define FLD_PL_IN_BASE_ADDR_1_20     0x618
+#define FLD_PL_IN_BASE_ADDR_1_21     0x61C
+#define FLD_PL_IN_BASE_ADDR_1_22     0x620
+#define FLD_PL_IN_BASE_ADDR_1_23     0x624
+#define FLD_PL_IN_BASE_ADDR_1_24     0x628
+#define FLD_PL_IN_BASE_ADDR_1_25     0x62C
+#define FLD_PL_IN_BASE_ADDR_1_26     0x630
+#define FLD_PL_IN_BASE_ADDR_1_27     0x634
+#define FLD_PL_IN_BASE_ADDR_1_28     0x638
+#define FLD_PL_IN_BASE_ADDR_1_29     0x63C
+
+#define FLD_PL_IN_BASE_ADDR_2_0      0x640
+#define FLD_PL_IN_BASE_ADDR_2_1      0x644
+#define FLD_PL_IN_BASE_ADDR_2_2      0x648
+#define FLD_PL_IN_BASE_ADDR_2_3      0x64C
+#define FLD_PL_IN_BASE_ADDR_2_4      0x650
+#define FLD_PL_IN_BASE_ADDR_2_5      0x654
+#define FLD_PL_IN_BASE_ADDR_2_6      0x658
+#define FLD_PL_IN_BASE_ADDR_2_7      0x65C
+#define FLD_PL_IN_BASE_ADDR_2_8      0x660
+#define FLD_PL_IN_BASE_ADDR_2_9      0x664
+#define FLD_PL_IN_BASE_ADDR_2_10     0x668
+#define FLD_PL_IN_BASE_ADDR_2_11     0x66C
+#define FLD_PL_IN_BASE_ADDR_2_12     0x670
+#define FLD_PL_IN_BASE_ADDR_2_13     0x674
+#define FLD_PL_IN_BASE_ADDR_2_14     0x678
+#define FLD_PL_IN_BASE_ADDR_2_15     0x67C
+#define FLD_PL_IN_BASE_ADDR_2_16     0x680
+#define FLD_PL_IN_BASE_ADDR_2_17     0x684
+#define FLD_PL_IN_BASE_ADDR_2_18     0x688
+#define FLD_PL_IN_BASE_ADDR_2_19     0x68C
+#define FLD_PL_IN_BASE_ADDR_2_20     0x690
+#define FLD_PL_IN_BASE_ADDR_2_21     0x694
+#define FLD_PL_IN_BASE_ADDR_2_22     0x698
+#define FLD_PL_IN_BASE_ADDR_2_23     0x69C
+#define FLD_PL_IN_BASE_ADDR_2_24     0x6A0
+#define FLD_PL_IN_BASE_ADDR_2_25     0x6A4
+#define FLD_PL_IN_BASE_ADDR_2_26     0x6A8
+#define FLD_PL_IN_BASE_ADDR_2_27     0x6AC
+#define FLD_PL_IN_BASE_ADDR_2_28     0x6B0
+#define FLD_PL_IN_BASE_ADDR_2_29     0x6B4
+
+#define FLD_PL_IN_BASE_ADDR_3_0      0x6B8
+#define FLD_PL_IN_BASE_ADDR_3_1      0x6BC
+#define FLD_PL_IN_BASE_ADDR_3_2      0x6C0
+#define FLD_PL_IN_BASE_ADDR_3_3      0x6C4
+#define FLD_PL_IN_BASE_ADDR_3_4      0x6C8
+#define FLD_PL_IN_BASE_ADDR_3_5      0x6CC
+#define FLD_PL_IN_BASE_ADDR_3_6      0x6D0
+#define FLD_PL_IN_BASE_ADDR_3_7      0x6D4
+#define FLD_PL_IN_BASE_ADDR_3_8      0x6D8
+#define FLD_PL_IN_BASE_ADDR_3_9      0x6DC
+#define FLD_PL_IN_BASE_ADDR_3_10     0x6E0
+#define FLD_PL_IN_BASE_ADDR_3_11     0x6E4
+#define FLD_PL_IN_BASE_ADDR_3_12     0x6E8
+#define FLD_PL_IN_BASE_ADDR_3_13     0x6EC
+#define FLD_PL_IN_BASE_ADDR_3_14     0x6F0
+#define FLD_PL_IN_BASE_ADDR_3_15     0x6F4
+#define FLD_PL_IN_BASE_ADDR_3_16     0x6F8
+#define FLD_PL_IN_BASE_ADDR_3_17     0x6FC
+#define FLD_PL_IN_BASE_ADDR_3_18     0x700
+#define FLD_PL_IN_BASE_ADDR_3_19     0x704
+#define FLD_PL_IN_BASE_ADDR_3_20     0x708
+#define FLD_PL_IN_BASE_ADDR_3_21     0x70C
+#define FLD_PL_IN_BASE_ADDR_3_22     0x710
+#define FLD_PL_IN_BASE_ADDR_3_23     0x714
+#define FLD_PL_IN_BASE_ADDR_3_24     0x718
+#define FLD_PL_IN_BASE_ADDR_3_25     0x71C
+#define FLD_PL_IN_BASE_ADDR_3_26     0x720
+#define FLD_PL_IN_BASE_ADDR_3_27     0x724
+#define FLD_PL_IN_BASE_ADDR_3_28     0x728
+#define FLD_PL_IN_BASE_ADDR_3_29     0x72C
+
+#define FLD_PL_IN_SIZE_0             0x730
+#define FLD_PL_IN_STRIDE_0           0x734
+#define FLD_PL_IN_SIZE_1             0x738
+#define FLD_PL_IN_STRIDE_1           0x73C
+#define FLD_PL_IN_SIZE_2_0           0x740
+#define FLD_PL_IN_STRIDE_2_0         0x744
+#define FLD_PL_IN_SIZE_2_1           0x748
+#define FLD_PL_IN_STRIDE_2_1         0x74C
+#define FLD_PL_IN_SIZE_2_2           0x750
+#define FLD_PL_IN_STRIDE_2_2         0x754
+#define FLD_PL_IN_SIZE_3             0x758
+#define FLD_PL_IN_STRIDE_3           0x75C
+
+#define FLD_SH_IN_BASE_ADDR_0        0x760
+#define FLD_SH_IN_BASE_ADDR_1        0x764
+#define FLD_SH_IN_BASE_ADDR_2        0x768
+#define FLD_SH_IN_BASE_ADDR_3        0x76C
+#define FLD_SH_IN_BASE_ADDR_4        0x770
+#define FLD_SH_IN_BASE_ADDR_5        0x774
+#define FLD_SH_IN_BASE_ADDR_6        0x778
+#define FLD_SH_IN_BASE_ADDR_7        0x77C
+#define FLD_SH_IN_BASE_ADDR_8        0x780
+#define FLD_SH_IN_BASE_ADDR_9        0x784
+#define FLD_SH_IN_BASE_ADDR_10       0x788
+#define FLD_SH_IN_BASE_ADDR_11       0x78C
+#define FLD_SH_IN_BASE_ADDR_12       0x790
+#define FLD_SH_IN_BASE_ADDR_13       0x794
+#define FLD_SH_IN_BASE_ADDR_14       0x798
+#define FLD_SH_IN_BASE_ADDR_15       0x79C
+#define FLD_SH_IN_BASE_ADDR_16       0x7A0
+#define FLD_SH_IN_BASE_ADDR_17       0x7A4
+#define FLD_SH_IN_BASE_ADDR_18       0x7A8
+#define FLD_SH_IN_BASE_ADDR_19       0x7AC
+#define FLD_SH_IN_BASE_ADDR_20       0x7B0
+#define FLD_SH_IN_BASE_ADDR_21       0x7B4
+#define FLD_SH_IN_BASE_ADDR_22       0x7B8
+#define FLD_SH_IN_BASE_ADDR_23       0x7BC
+#define FLD_SH_IN_BASE_ADDR_24       0x7C0
+#define FLD_SH_IN_BASE_ADDR_25       0x7C4
+#define FLD_SH_IN_BASE_ADDR_26       0x7C8
+#define FLD_SH_IN_BASE_ADDR_27       0x7CC
+#define FLD_SH_IN_BASE_ADDR_28       0x7D0
+#define FLD_SH_IN_BASE_ADDR_29       0x7D4
+
+#define FLD_SH_IN_SIZE_0             0x7D8
+#define FLD_SH_IN_STRIDE_0           0x7DC
+#define FLD_TR_OUT_BASE_ADDR_0       0x7E0
+#define FLD_TR_OUT_SIZE_0            0x7E4
+#define FLD_TR_OUT_STRIDE_0          0x7E8
+#define FLD_PP_OUT_BASE_ADDR_0       0x7EC
+#define FLD_PP_OUT_SIZE_0            0x7F0
+#define FLD_PP_OUT_STRIDE_0          0x7F4
+#define FLD_SPARE                    0x7F8
+
+#define FLD_BS_IN_BASE_ADDR_00       0x85C
+#define FLD_BS_IN_BASE_ADDR_01       0x860
+#define FLD_BS_IN_BASE_ADDR_02       0x864
+#define FLD_BS_IN_BASE_ADDR_03       0x868
+#define FLD_BS_IN_BASE_ADDR_04       0x86C
+#define FLD_BS_IN_BASE_ADDR_05       0x870
+#define FLD_BS_IN_BASE_ADDR_06       0x874
+#define FLD_BS_IN_BASE_ADDR_07       0x878
+#define FLD_BS_IN_BASE_ADDR_08       0x87C
+#define FLD_BS_IN_BASE_ADDR_09       0x880
+#define FLD_BS_IN_BASE_ADDR_10       0x884
+#define FLD_BS_IN_BASE_ADDR_11       0x888
+#define FLD_BS_IN_BASE_ADDR_12       0x88C
+#define FLD_BS_IN_BASE_ADDR_13       0x890
+#define FLD_BS_IN_BASE_ADDR_14       0x894
+#define FLD_BS_BIAS                  0x8E4
+#define FLD_CV_FM_RANGE_0            0x8E8
+#define FLD_CV_FM_RANGE_1            0x8EC
+#define FLD_CV_PM_RANGE_0            0x8F0
+#define FLD_CV_PM_RANGE_1            0x8F4
+#define FLD_BS_RANGE_0               0x8F8
+#define FLD_BS_RANGE_1               0x8FC
+
 #define MTK_FD_OUTPUT_MIN_WIDTH 0U
 #define MTK_FD_OUTPUT_MIN_HEIGHT 0U
 #define MTK_FD_OUTPUT_MAX_WIDTH 4096U
 #define MTK_FD_OUTPUT_MAX_HEIGHT 4096U
 
-#define MTK_FD_HW_TIMEOUT 33 /* 33 msec */
+#define MTK_FD_HW_TIMEOUT 1000 /* 1000 msec */
 #define MAX_FACE_NUM 1024
 #define RLT_NUM 48
 #define GENDER_OUT 32
@@ -227,6 +518,9 @@ enum aie_state {
 };
 
 enum aie_mode { FDMODE = 0, ATTRIBUTEMODE = 1, POSEMODE = 2 };
+enum FLDROP { NORMAL = 0, RIGHT = 1, LEFT = 2 };
+enum FLDRIP { FLD_0 = 0, FLD_M30 = 1, FLD_P30 = 2, FLD_M60 = 3, FLD_P60 = 4, FLD_M90 = 5,
+	      FLD_P90 = 6};
 
 enum aie_format {
 	FMT_NA = 0,
@@ -291,7 +585,26 @@ struct aie_padding {
 	u32 up;
 };
 
-/* align v4l2 user space interface */
+struct FLD_LANDMARK {
+	u16 x;
+	u16 y;
+};
+
+struct FLD_RESULT {
+	struct FLD_LANDMARK fld_landmark[FLD_MAX_INPUT];
+	s16 fld_out_rip;
+	s16 fld_out_rop;
+	u16 confidence;
+	s16 blinkscore;
+};
+
+struct FLD_CROP_RIP_ROP {
+	struct aie_roi fld_in_crop;
+	enum FLDRIP fld_in_rip;
+	enum FLDROP fld_in_rop;
+};
+
+/* align v4l2 user space interface: FdDrv_output_struct */
 struct aie_enq_info {
 	u32 sel_mode;
 	u32 src_img_fmt;
@@ -314,6 +627,10 @@ struct aie_enq_info {
 	u32 pose_version;
 	struct fd_result fd_out;
 	struct attr_result attr_out;
+	u16 fld_face_num;
+	struct FLD_CROP_RIP_ROP fld_input[FLD_MAX_INPUT];
+	u64 fld_raw_out; //fld output buf
+	struct FLD_RESULT fld_output[FLD_MAX_INPUT]; //fld output parsing data
 };
 
 struct aie_reg_cfg {
@@ -366,6 +683,19 @@ struct aie_para {
 	dma_addr_t rs_pym_rst_pa[PYM_NUM][COLOR_NUM];
 };
 
+
+struct aie_fld_para {
+	u32 sel_mode;
+	u16 img_width;
+	u16 img_height;
+	u32 face_num;
+	u32 src_img_addr;
+	struct FLD_CROP_RIP_ROP fld_input[FLD_MAX_INPUT];
+
+	void *fld_output_va;
+	dma_addr_t fld_output_pa;
+};
+
 struct aie_attr_para {
 	u32 w_idx;
 	u32 r_idx;
@@ -392,6 +722,23 @@ struct aie_fd_dma_para {
 	void *race_out_hw_va[MAX_ENQUE_FRAME_NUM];
 
 	void *fd_pose_out_hw_va[POSE_LOOP_NUM][output_WDMA_WRA_num];
+
+	/* HW FLD Buffer Pointer for arrange*/
+	void *fld_cv_va[FLD_MAX_INPUT];
+	void *fld_leafnode_va[FLD_MAX_INPUT];
+	void *fld_fp_va[FLD_MAX_INPUT];
+	void *fld_tree02_va[FLD_MAX_INPUT];
+	void *fld_tree13_va[FLD_MAX_INPUT];
+	void *fld_blink_weight_va;
+	void *fld_output_va;
+
+	dma_addr_t fld_blink_weight_pa;
+	dma_addr_t fld_cv_pa[FLD_MAX_INPUT];
+	dma_addr_t fld_leafnode_pa[FLD_MAX_INPUT];
+	dma_addr_t fld_fp_pa[FLD_MAX_INPUT];
+	dma_addr_t fld_tree02_pa[FLD_MAX_INPUT];
+	dma_addr_t fld_tree13_pa[FLD_MAX_INPUT];
+	dma_addr_t fld_output_pa;
 
 	dma_addr_t fd_out_hw_pa[fd_loop_num][output_WDMA_WRA_num];
 	dma_addr_t fd_kernel_pa[fd_loop_num][kernel_RDMA_RA_num];
@@ -444,6 +791,8 @@ struct user_param {
 	unsigned int src_padding_down;
 	unsigned int src_padding_up;
 	unsigned int freq_level;
+	unsigned short fld_face_num;
+	struct FLD_CROP_RIP_ROP fld_input[15];
 } __packed;
 
 struct mtk_aie_user_para {
@@ -523,6 +872,15 @@ struct mtk_aie_dev {
 	struct imem_buf_info fd_kernel_hw;
 	struct imem_buf_info fd_attr_dma_hw;
 
+	/* HW FLD Buffer Pointer for allocate memory*/
+	struct imem_buf_info fld_cv_hw;
+	struct imem_buf_info fld_fp_hw;
+	struct imem_buf_info fld_leafnode_hw;
+	struct imem_buf_info fld_tree_02_hw;
+	struct imem_buf_info fld_tree_13_hw;
+	struct imem_buf_info fld_blink_weight_hw;
+	struct imem_buf_info fld_output_hw;
+
 	/* DRAM Buffer Size */
 	unsigned int fd_rs_cfg_size;
 	unsigned int fd_fd_cfg_size;
@@ -550,6 +908,7 @@ struct mtk_aie_dev {
 	struct aie_para *base_para;
 	struct aie_attr_para *attr_para;
 	struct aie_fd_dma_para *dma_para;
+	struct aie_fld_para *fld_para;
 
 	struct aie_static_info st_info;
 	unsigned int fd_state;
@@ -585,5 +944,6 @@ void aie_execute_pose(struct mtk_aie_dev *fd);
 void aie_irqhandle(struct mtk_aie_dev *fd);
 void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
+void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 
 #endif /*__MTK_AIE_H__*/

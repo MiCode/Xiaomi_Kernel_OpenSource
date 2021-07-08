@@ -302,7 +302,7 @@ static int mtk_aie_hw_enable(struct mtk_aie_dev *fd)
 	init_info.max_img_height = 960; //tina log: user_init.max_img_height
 	init_info.is_secure = 0;
 	init_info.pyramid_height = 504;//tina log: user_init.pyramid_height;
-	init_info.pyramid_width = 504;//tina log: user_init.pyramid_width;
+	init_info.pyramid_width = 640;//tina log: user_init.pyramid_width;
 
 	return aie_init(fd, init_info);
 }
@@ -527,6 +527,9 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 		 readl(fd->fd_base + AIE_RESULT_1_REG),
 		 readl(fd->fd_base + AIE_DMA_CTL_REG));
 
+	dev_info(fd->dev, "%s interrupt status: %x", __func__,
+		 readl(fd->fd_base + AIE_INT_EN_REG));
+
 	if (fd->aie_cfg->sel_mode == 1)
 		dev_info(fd->dev, "[ATTRMODE] w_idx = %d, r_idx = %d\n",
 			 fd->attr_para->w_idx, fd->attr_para->r_idx);
@@ -725,6 +728,22 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 			fd->map_count++;
 		} else {
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
+#ifdef FLD
+			dev_info(fd->dev, "%s face_num: %x", __func__,
+					g_user_param.user_param.fld_face_num);
+			dev_info(fd->dev, "%s face_num: %x", __func__,
+					g_user_param.user_param.fld_input[0].fld_in_crop.x1);
+			dev_info(fd->dev, "%s face_num: %x", __func__,
+					g_user_param.user_param.fld_input[0].fld_in_crop.y1);
+			dev_info(fd->dev, "%s face_num: %x", __func__,
+					g_user_param.user_param.fld_input[0].fld_in_crop.x2);
+			dev_info(fd->dev, "%s face_num: %x", __func__,
+					g_user_param.user_param.fld_input[0].fld_in_crop.y2);
+			dev_info(fd->dev, "%s face_num: %x", __func__,
+					g_user_param.user_param.fld_input[0].fld_in_rip);
+			dev_info(fd->dev, "%s face_num: %x", __func__,
+					g_user_param.user_param.fld_input[0].fld_in_rop);
+#endif
 		}
 	}
 
@@ -1021,8 +1040,12 @@ static void mtk_aie_device_run(void *priv)
 	fd->aie_cfg->src_padding.down = g_user_param.user_param.src_padding_down;
 	fd->aie_cfg->src_padding.up = g_user_param.user_param.src_padding_up;
 	fd->aie_cfg->freq_level = g_user_param.user_param.freq_level;
-
-	if (fd->aie_cfg->src_img_fmt == FMT_YUV420_1P) {
+#ifdef FLD
+	fd->aie_cfg->fld_face_num = g_user_param.user_param.fld_face_num;
+	memcpy(fd->aie_cfg->fld_input, g_user_param.user_param.fld_input,
+		 sizeof(struct FLD_CROP_RIP_ROP)*g_user_param.user_param.fld_face_num);
+#endif
+	if (!(fd->aie_cfg->sel_mode == 2) & (fd->aie_cfg->src_img_fmt == FMT_YUV420_1P)) {
 		fd_param.src_img[1].dma_addr = fd_param.src_img[0].dma_addr +
 			g_user_param.user_param.src_img_stride *
 			g_user_param.user_param.src_img_height;
@@ -1031,7 +1054,7 @@ static void mtk_aie_device_run(void *priv)
 	fd->aie_cfg->src_img_addr = fd_param.src_img[0].dma_addr;
 	fd->aie_cfg->src_img_addr_uv = fd_param.src_img[1].dma_addr;
 
-	ret = aie_prepare(fd, fd->aie_cfg);
+	ret = aie_prepare(fd, fd->aie_cfg);//fld just setting debug param
 
 	/* mmdvfs */
 	mtk_aie_mmdvfs_set(fd, 1, fd->aie_cfg->freq_level);
@@ -1207,8 +1230,10 @@ static void mtk_aie_frame_done_worker(struct work_struct *work)
 
 	if (fd->aie_cfg->sel_mode == 0)
 		aie_get_fd_result(fd, fd->aie_cfg);
-	else
+	else if (fd->aie_cfg->sel_mode == 1)
 		aie_get_attr_result(fd, fd->aie_cfg);
+	else if (fd->aie_cfg->sel_mode == 2)
+		aie_get_fld_result(fd, fd->aie_cfg);
 
 	mtk_aie_hw_done(fd, VB2_BUF_STATE_DONE);
 }

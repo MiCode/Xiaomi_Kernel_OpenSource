@@ -304,6 +304,83 @@ static const unsigned int attr_wdma_size[attr_loop_num][output_WDMA_WRA_num] = {
 	{1024, 0, 0, 0},
 	{0, 0, 0, 0} };
 
+#define fld_blink_weight_size 6416
+#define fld_cv_size 1472
+#define fld_fp_size 5344
+#define fld_leafnode_size 307200
+#define fld_tree_size 8000
+#define fld_result_size 112
+#define fld_forest 14
+#define fld_point 500
+#define fld_cur_landmark 11
+
+
+
+
+static const unsigned int fld_face_info_0[FLD_MAX_INPUT] = {
+	FLD_INFO_0_FACE_0, FLD_INFO_0_FACE_1, FLD_INFO_0_FACE_2,
+	FLD_INFO_0_FACE_3, FLD_INFO_0_FACE_4, FLD_INFO_0_FACE_5,
+	FLD_INFO_0_FACE_6, FLD_INFO_0_FACE_7, FLD_INFO_0_FACE_8,
+	FLD_INFO_0_FACE_9, FLD_INFO_0_FACE_10, FLD_INFO_0_FACE_11,
+	FLD_INFO_0_FACE_12, FLD_INFO_0_FACE_13, FLD_INFO_0_FACE_14
+};
+
+static const unsigned int fld_face_info_1[FLD_MAX_INPUT] = {
+	FLD_INFO_1_FACE_0, FLD_INFO_1_FACE_1, FLD_INFO_1_FACE_2,
+	FLD_INFO_1_FACE_3, FLD_INFO_1_FACE_4, FLD_INFO_1_FACE_5,
+	FLD_INFO_1_FACE_6, FLD_INFO_1_FACE_7, FLD_INFO_1_FACE_8,
+	FLD_INFO_1_FACE_9, FLD_INFO_1_FACE_10, FLD_INFO_1_FACE_11,
+	FLD_INFO_1_FACE_12, FLD_INFO_1_FACE_13, FLD_INFO_1_FACE_14
+};
+
+static const unsigned int fld_face_info_2[FLD_MAX_INPUT] = {
+	FLD_INFO_2_FACE_0, FLD_INFO_2_FACE_1, FLD_INFO_2_FACE_2,
+	FLD_INFO_2_FACE_3, FLD_INFO_2_FACE_4, FLD_INFO_2_FACE_5,
+	FLD_INFO_2_FACE_6, FLD_INFO_2_FACE_7, FLD_INFO_2_FACE_8,
+	FLD_INFO_2_FACE_9, FLD_INFO_2_FACE_10, FLD_INFO_2_FACE_11,
+	FLD_INFO_2_FACE_12, FLD_INFO_2_FACE_13, FLD_INFO_2_FACE_14
+};
+
+static const unsigned int fld_pl_in_addr_0[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_0_0, FLD_PL_IN_BASE_ADDR_0_1, FLD_PL_IN_BASE_ADDR_0_2,
+	FLD_PL_IN_BASE_ADDR_0_3, FLD_PL_IN_BASE_ADDR_0_4, FLD_PL_IN_BASE_ADDR_0_5,
+	FLD_PL_IN_BASE_ADDR_0_6, FLD_PL_IN_BASE_ADDR_0_7, FLD_PL_IN_BASE_ADDR_0_8,
+	FLD_PL_IN_BASE_ADDR_0_9, FLD_PL_IN_BASE_ADDR_0_10, FLD_PL_IN_BASE_ADDR_0_11,
+	FLD_PL_IN_BASE_ADDR_0_12, FLD_PL_IN_BASE_ADDR_0_13, FLD_PL_IN_BASE_ADDR_0_14
+};
+
+static const unsigned int fld_pl_in_addr_1[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_1_0, FLD_PL_IN_BASE_ADDR_1_1, FLD_PL_IN_BASE_ADDR_1_2,
+	FLD_PL_IN_BASE_ADDR_1_3, FLD_PL_IN_BASE_ADDR_1_4, FLD_PL_IN_BASE_ADDR_1_5,
+	FLD_PL_IN_BASE_ADDR_1_6, FLD_PL_IN_BASE_ADDR_1_7, FLD_PL_IN_BASE_ADDR_1_8,
+	FLD_PL_IN_BASE_ADDR_1_9, FLD_PL_IN_BASE_ADDR_1_10, FLD_PL_IN_BASE_ADDR_1_11,
+	FLD_PL_IN_BASE_ADDR_1_12, FLD_PL_IN_BASE_ADDR_1_13, FLD_PL_IN_BASE_ADDR_1_14
+};
+
+static const unsigned int fld_pl_in_addr_2[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_2_0, FLD_PL_IN_BASE_ADDR_2_1, FLD_PL_IN_BASE_ADDR_2_2,
+	FLD_PL_IN_BASE_ADDR_2_3, FLD_PL_IN_BASE_ADDR_2_4, FLD_PL_IN_BASE_ADDR_2_5,
+	FLD_PL_IN_BASE_ADDR_2_6, FLD_PL_IN_BASE_ADDR_2_7, FLD_PL_IN_BASE_ADDR_2_8,
+	FLD_PL_IN_BASE_ADDR_2_9, FLD_PL_IN_BASE_ADDR_2_10, FLD_PL_IN_BASE_ADDR_2_11,
+	FLD_PL_IN_BASE_ADDR_2_12, FLD_PL_IN_BASE_ADDR_2_13, FLD_PL_IN_BASE_ADDR_2_14
+};
+
+static const unsigned int fld_pl_in_addr_3[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_3_0, FLD_PL_IN_BASE_ADDR_3_1, FLD_PL_IN_BASE_ADDR_3_2,
+	FLD_PL_IN_BASE_ADDR_3_3, FLD_PL_IN_BASE_ADDR_3_4, FLD_PL_IN_BASE_ADDR_3_5,
+	FLD_PL_IN_BASE_ADDR_3_6, FLD_PL_IN_BASE_ADDR_3_7, FLD_PL_IN_BASE_ADDR_3_8,
+	FLD_PL_IN_BASE_ADDR_3_9, FLD_PL_IN_BASE_ADDR_3_10, FLD_PL_IN_BASE_ADDR_3_11,
+	FLD_PL_IN_BASE_ADDR_3_12, FLD_PL_IN_BASE_ADDR_3_13, FLD_PL_IN_BASE_ADDR_3_14
+};
+
+static const unsigned int fld_sh_in_addr[FLD_MAX_INPUT] = {
+	FLD_SH_IN_BASE_ADDR_0, FLD_SH_IN_BASE_ADDR_1, FLD_SH_IN_BASE_ADDR_2,
+	FLD_SH_IN_BASE_ADDR_3, FLD_SH_IN_BASE_ADDR_4, FLD_SH_IN_BASE_ADDR_5,
+	FLD_SH_IN_BASE_ADDR_6, FLD_SH_IN_BASE_ADDR_7, FLD_SH_IN_BASE_ADDR_8,
+	FLD_SH_IN_BASE_ADDR_9, FLD_SH_IN_BASE_ADDR_10, FLD_SH_IN_BASE_ADDR_11,
+	FLD_SH_IN_BASE_ADDR_12, FLD_SH_IN_BASE_ADDR_13, FLD_SH_IN_BASE_ADDR_14
+};
+
 static int aie_imem_alloc(struct mtk_aie_dev *fd, u32 size,
 			  struct imem_buf_info *bufinfo)
 {
@@ -730,13 +807,17 @@ static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 	return ret;
 }
 
-static void aie_alloc_normal(struct mtk_aie_dev *fd, int start, int end)
+static void aie_alloc_normal(struct mtk_aie_dev *fd, unsigned int start,
+			     unsigned int end)
 {
-	int i, j;
-	int pi, pj;
+	unsigned int i, j;
+	unsigned int pi, pj;
 	struct aie_static_info *pstv;
 
 	pstv = &fd->st_info;
+	if (start == 0 || end <= start)
+		return;
+
 	pi = start - 1;
 	pj = 0;
 	for (i = start; i < end + 1; i++) {
@@ -790,7 +871,69 @@ free_kernel:
 
 	return ret;
 }
+#ifdef FLD
+static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
+{
+	int ret;
+	u32 alloc_size;
 
+	alloc_size = fld_blink_weight_size;
+	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_blink_weight_hw);
+	if (ret)
+		return ret;
+
+	alloc_size = fld_fp_size * FLD_MAX_INPUT;
+	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_fp_hw);
+	if (ret)
+		goto free_fld_fp_hw;
+
+	alloc_size = fld_cv_size*15 * FLD_MAX_INPUT;
+	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_cv_hw);
+	if (ret)
+		goto free_fld_cv_hw;
+
+	alloc_size = fld_leafnode_size * FLD_MAX_INPUT;
+	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_leafnode_hw);
+	if (ret)
+		goto free_fld_leafnode_hw;
+
+	alloc_size = fld_tree_size * FLD_MAX_INPUT;
+	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_02_hw);
+	if (ret)
+		goto free_fld_tree_02_hw;
+
+	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_tree_13_hw);
+	if (ret)
+		goto free_fld_tree_13_hw;
+
+	alloc_size = fld_result_size;
+	ret = aie_imem_alloc(fd, alloc_size, &fd->fld_output_hw);
+	if (ret)
+		goto free_fld_output_hw;
+
+	return 0;
+
+free_fld_output_hw:
+		aie_imem_free(fd, &fd->fld_output_hw);
+
+free_fld_tree_13_hw:
+	aie_imem_free(fd, &fd->fld_tree_13_hw);
+
+free_fld_tree_02_hw:
+	aie_imem_free(fd, &fd->fld_tree_02_hw);
+
+free_fld_leafnode_hw:
+	aie_imem_free(fd, &fd->fld_leafnode_hw);
+
+free_fld_cv_hw:
+	aie_imem_free(fd, &fd->fld_cv_hw);
+
+free_fld_fp_hw:
+	aie_imem_free(fd, &fd->fld_fp_hw);
+
+	return ret;
+}
+#endif
 static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 {
 	void *currentVA = NULL;
@@ -1124,7 +1267,55 @@ static void aie_arrange_result_dma_buf(struct mtk_aie_dev *fd)
 	memset(fd->fd_dma_result_hw.va, 0, fd->fd_dma_result_hw.size);
 
 }
+#ifdef FLD
+static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
+{
+	int input_index = 0;
 
+	fd->dma_para->fld_blink_weight_va = fd->fld_blink_weight_hw.va;
+	fd->dma_para->fld_blink_weight_pa = fd->fld_blink_weight_hw.pa;
+
+	fd->dma_para->fld_output_va = fd->fld_output_hw.va;
+	fd->dma_para->fld_output_pa = fd->fld_output_hw.pa;
+	fd->fld_para->fld_output_va = fd->dma_para->fld_output_va;
+	fd->fld_para->fld_output_pa = fd->dma_para->fld_output_pa;
+
+	fd->dma_para->fld_cv_va[0] = fd->fld_cv_hw.va;
+	fd->dma_para->fld_cv_pa[0] = fd->fld_cv_hw.pa;
+	fd->dma_para->fld_fp_va[0] = fd->fld_fp_hw.va;
+	fd->dma_para->fld_fp_pa[0] = fd->fld_fp_hw.pa;
+	fd->dma_para->fld_leafnode_va[0] = fd->fld_leafnode_hw.va;
+	fd->dma_para->fld_leafnode_pa[0] = fd->fld_leafnode_hw.pa;
+	fd->dma_para->fld_tree02_va[0] = fd->fld_tree_02_hw.va;
+	fd->dma_para->fld_tree02_pa[0] = fd->fld_tree_02_hw.pa;
+	fd->dma_para->fld_tree13_va[0] = fd->fld_tree_13_hw.va;
+	fd->dma_para->fld_tree13_pa[0] = fd->fld_tree_13_hw.pa;
+
+
+	for (input_index = 0; input_index < FLD_MAX_INPUT - 1; input_index++) {
+		fd->dma_para->fld_cv_va[input_index + 1] = fd->dma_para->fld_cv_va[input_index] +
+							     fld_cv_size;
+		fd->dma_para->fld_cv_pa[input_index + 1] = fd->dma_para->fld_cv_pa[input_index] +
+							     fld_cv_size;
+		fd->dma_para->fld_fp_va[input_index + 1] = fd->dma_para->fld_fp_va[input_index] +
+							     fld_fp_size;
+		fd->dma_para->fld_fp_pa[input_index + 1] = fd->dma_para->fld_fp_pa[input_index] +
+							     fld_fp_size;
+		fd->dma_para->fld_leafnode_va[input_index + 1] =
+					fd->dma_para->fld_leafnode_va[input_index] + fld_fp_size;
+		fd->dma_para->fld_leafnode_pa[input_index + 1] =
+					fd->dma_para->fld_leafnode_pa[input_index] + fld_fp_size;
+		fd->dma_para->fld_tree02_va[input_index + 1] =
+					fd->dma_para->fld_tree02_va[input_index] + fld_fp_size;
+		fd->dma_para->fld_tree02_pa[input_index + 1] =
+					fd->dma_para->fld_tree02_pa[input_index] + fld_fp_size;
+		fd->dma_para->fld_tree13_va[input_index + 1] =
+					fd->dma_para->fld_tree13_va[input_index] + fld_fp_size;
+		fd->dma_para->fld_tree13_pa[input_index + 1] =
+					fd->dma_para->fld_tree13_pa[input_index] + fld_fp_size;
+	}
+}
+#endif
 static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 {
 	struct aie_static_info *pstv;
@@ -1312,7 +1503,18 @@ static void aie_free_fddma_buf(struct mtk_aie_dev *fd)
 	aie_imem_free(fd, &fd->fd_attr_dma_hw);
 	aie_imem_free(fd, &fd->fd_dma_result_hw);
 }
+#ifdef FLD
+static void aie_free_fld_buf(struct mtk_aie_dev *fd)
+{
+	aie_imem_free(fd, &fd->fld_blink_weight_hw);
+	aie_imem_free(fd, &fd->fld_cv_hw);
+	aie_imem_free(fd, &fd->fld_fp_hw);
+	aie_imem_free(fd, &fd->fld_leafnode_hw);
+	aie_imem_free(fd, &fd->fld_tree_02_hw);
+	aie_imem_free(fd, &fd->fld_tree_13_hw);
 
+}
+#endif
 static int aie_copy_fw(struct mtk_aie_dev *fd, const char *name, void *buf,
 		       unsigned int size)
 {
@@ -1347,31 +1549,46 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 
 	sel_folder = mp_folder;
 
-	sprintf(name, "%s/config/aie_fd_fd_config.bin", sel_folder);
+	ret = sprintf(name, "%s/config/aie_fd_fd_config.bin", sel_folder);
+	if (ret < 0)
+		return ret;
+
 	ret = aie_copy_fw(fd, name, fd->base_para->fd_fd_cfg_va,
 			  fd->fd_fd_cfg_size);
 	if (ret)
 		return ret;
 
-	sprintf(name, "%s/config/aie_fd_rs_config.bin", sel_folder);
+	ret = sprintf(name, "%s/config/aie_fd_rs_config.bin", sel_folder);
+	if (ret < 0)
+		return ret;
+
 	ret = aie_copy_fw(fd, name, fd->base_para->fd_rs_cfg_va,
 			  fd->fd_rs_cfg_size);
 	if (ret)
 		return ret;
 
-	sprintf(name, "%s/config/aie_fd_yuv2rgb_config.bin", sel_folder);
+	ret = sprintf(name, "%s/config/aie_fd_yuv2rgb_config.bin", sel_folder);
+	if (ret < 0)
+		return ret;
+
 	ret = aie_copy_fw(fd, name, fd->base_para->fd_yuv2rgb_cfg_va,
 			  fd->fd_yuv2rgb_cfg_size);
 	if (ret)
 		return ret;
 
-	sprintf(name, "%s/config/aie_attr_fd_config.bin", sel_folder);
+	ret = sprintf(name, "%s/config/aie_attr_fd_config.bin", sel_folder);
+	if (ret < 0)
+		return ret;
+
 	ret = aie_copy_fw(fd, name, fd->base_para->attr_fd_cfg_va[0],
 			  fd->attr_fd_cfg_size);
 	if (ret)
 		return ret;
 
-	sprintf(name, "%s/config/aie_attr_yuv2rgb_config.bin", sel_folder);
+	ret = sprintf(name, "%s/config/aie_attr_yuv2rgb_config.bin", sel_folder);
+	if (ret < 0)
+		return ret;
+
 	ret = aie_copy_fw(fd, name, fd->base_para->attr_yuv2rgb_cfg_va[0],
 			  fd->attr_yuv2rgb_cfg_size);
 	if (ret)
@@ -1388,9 +1605,12 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 	for (i = 0; i < fd_loop_num; i++) {
 		for (j = 0; j < kernel_RDMA_RA_num; j++) {
 			if (fd_ker_rdma_size[i][j]) {
-				sprintf(name,
+				ret = sprintf(name,
 					"%s/kernel/aie_fd_kernel_bias_loop%02d_%d.bin",
 					sel_folder, i, j);
+				if (ret < 0)
+					return ret;
+
 				ret = aie_copy_fw(
 					fd, name,
 					fd->dma_para->fd_kernel_va[i][j],
@@ -1403,9 +1623,12 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 
 	for (i = 0; i < attr_loop_num; i++) {
 		for (j = 0; j < kernel_RDMA_RA_num; j++) {
-			sprintf(name,
+			ret = sprintf(name,
 				"%s/kernel/aie_attr_kernel_bias_loop%02d_%d.bin",
 				sel_folder, i, j);
+			if (ret < 0)
+				return ret;
+
 			ret = aie_copy_fw(fd, name,
 					  fd->dma_para->attr_kernel_va[i][j],
 					  attr_ker_rdma_size[i][j]);
@@ -1413,7 +1636,61 @@ static int aie_load_fw(struct mtk_aie_dev *fd)
 				return ret;
 		}
 	}
+#ifdef FLD
+	ret = sprintf(name, "%s/fldmodel/aie_fld_blink_weight_forest14.bin", sel_folder);
+	if (ret < 0)
+		return ret;
 
+	ret = aie_copy_fw(fd, name, fd->dma_para->fld_blink_weight_va,
+			fld_blink_weight_size);
+
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		/*cv forest*/
+		ret = sprintf(name, "%s/fldmodel/aie_fld_cv_forest%02d_iom3.bin", sel_folder, i);
+		if (ret < 0)
+			return ret;
+
+		ret = aie_copy_fw(fd, name, fd->dma_para->fld_cv_va[i], fld_cv_size);
+		if (ret)
+			return ret;
+
+		/*leafnode forest*/
+		ret = sprintf(name, "%s/fldmodel/aie_fld_leafnode_forest%02d.bin", sel_folder, i);
+		if (ret < 0)
+			return ret;
+
+		ret = aie_copy_fw(fd, name, fd->dma_para->fld_leafnode_va[i], fld_leafnode_size);
+		if (ret)
+			return ret;
+
+		/*fp forest*/
+		ret = sprintf(name, "%s/fldmodel/aie_fld_fp_forest%02d_om45.bin", sel_folder, i);
+		if (ret < 0)
+			return ret;
+
+		ret = aie_copy_fw(fd, name, fd->dma_para->fld_fp_va[i], fld_fp_size);
+		if (ret)
+			return ret;
+
+		/*tree forest13*/
+		ret = sprintf(name, "%s/fldmodel/aie_fld_tree_forest%02d_km13.bin", sel_folder, i);
+		if (ret < 0)
+			return ret;
+
+		ret = aie_copy_fw(fd, name, fd->dma_para->fld_tree13_va[i], fld_tree_size);
+		if (ret)
+			return ret;
+
+		/*tree forest02*/
+		ret = sprintf(name, "%s/fldmodel/aie_fld_tree_forest%02d_km02.bin", sel_folder, i);
+		if (ret < 0)
+			return ret;
+
+		ret = aie_copy_fw(fd, name, fd->dma_para->fld_tree02_va[i], fld_tree_size);
+		if (ret)
+			return ret;
+	}
+#endif
 	return ret;
 }
 
@@ -1491,6 +1768,14 @@ static int aie_update_cfg(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			aie_cfg->src_img_fmt;
 		fd->attr_para->rotate_degree[fd->attr_para->w_idx] =
 			aie_cfg->rotate_degree;
+	} else if (aie_cfg->sel_mode == 2) {
+		fd->fld_para->sel_mode = aie_cfg->sel_mode;
+		fd->fld_para->img_height = aie_cfg->src_img_height;
+		fd->fld_para->img_width = aie_cfg->src_img_width;
+		fd->fld_para->face_num = aie_cfg->fld_face_num;
+		fd->fld_para->src_img_addr = aie_cfg->src_img_addr;
+		memcpy(fd->fld_para->fld_input, fd->aie_cfg->fld_input,
+				sizeof(struct FLD_CROP_RIP_ROP) * aie_cfg->fld_face_num);
 	}
 
 	return 0;
@@ -1570,6 +1855,8 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	    aie_cfg->src_img_fmt == FMT_YUV_2P ||
 	    aie_cfg->src_img_fmt == FMT_YVU_2P)
 		srcbuf_UV = img_addr_UV;
+	else
+		srcbuf_UV = 0;
 
 	if (mode == 0) {
 		src_crop_w = fd->base_para->crop_width;
@@ -1590,6 +1877,9 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	if (pym0_out_w != 0) {
 		xmag_0 = 512 * src_crop_w / pym0_out_w;
 		ymag_0 = xmag_0;
+	} else {
+		xmag_0 = 0;
+		ymag_0 = 0;
 	}
 
 	yuv2rgb_cfg[Y2R_SRC_DST_FORMAT] =
@@ -2296,13 +2586,6 @@ static int aie_config_dram(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 void aie_reset(struct mtk_aie_dev *fd)
 {
-	writel(readl(fd->fd_base + AIE_START_REG) | 0x20000,
-	       fd->fd_base + AIE_START_REG);
-
-	while ((readl(fd->fd_base + AIE_START_REG) & 0x20000) != 0x0) {
-		udelay(10);
-		dev_info(fd->dev, "AIE resetting...\n");
-	}
 	writel(0x30000, fd->fd_base + AIE_START_REG);
 	writel(0x0, fd->fd_base + AIE_START_REG);
 }
@@ -2321,7 +2604,11 @@ int aie_init(struct mtk_aie_dev *fd, struct aie_init_info init_info)
 	fd->attr_para = kmalloc(sizeof(struct aie_attr_para), GFP_KERNEL);
 	if (fd->attr_para == NULL)
 		goto attr_para_fail;
-
+#ifdef FLD
+	fd->fld_para = kmalloc(sizeof(struct aie_fld_para), GFP_KERNEL);
+	if (fd->fld_para == NULL)
+		goto fld_para_fail;
+#endif
 	fd->dma_para = kmalloc(sizeof(struct aie_fd_dma_para), GFP_KERNEL);
 	if (fd->dma_para == NULL)
 		goto dma_para_fail;
@@ -2347,12 +2634,18 @@ int aie_init(struct mtk_aie_dev *fd, struct aie_init_info init_info)
 	ret = aie_alloc_fddma_buf(fd);
 	if (ret)
 		goto fddma_fail;
-
+#ifdef FLD
+	ret = aie_alloc_fld_buf(fd);
+	if (ret)
+		goto fld_fail;
+#endif
 	aie_arrange_fddma_buf(fd);
 	aie_arrange_kernel_buf(fd);
 	aie_arrange_attrdma_buf(fd);
 	aie_arrange_result_dma_buf(fd);
-
+#ifdef FLD
+	aie_arrange_fld_buf(fd);
+#endif
 	ret = aie_load_fw(fd);
 	if (ret)
 		goto load_fw_fail;
@@ -2367,7 +2660,11 @@ int aie_init(struct mtk_aie_dev *fd, struct aie_init_info init_info)
 load_fw_fail:
 	aie_free_fddma_buf(fd);
 	err_tag++;
-
+#ifdef FLD
+fld_fail:
+	aie_free_fld_buf(fd);
+	err_tag++;
+#endif
 fddma_fail:
 	aie_free_output_buf(fd);
 	err_tag++;
@@ -2383,7 +2680,11 @@ dram_fail:
 dma_para_fail:
 	kfree(fd->attr_para);
 	err_tag++;
-
+#ifdef FLD
+fld_para_fail:
+	kfree(fd->fld_para);
+	err_tag++;
+#endif
 attr_para_fail:
 	kfree(fd->base_para);
 	err_tag++;
@@ -2400,10 +2701,15 @@ void aie_uninit(struct mtk_aie_dev *fd)
 	aie_free_dram_buf(fd);
 	aie_free_output_buf(fd);
 	aie_free_fddma_buf(fd);
-
+#ifdef FLD
+	aie_free_fld_buf(fd);
+#endif
 	kfree(fd->base_para);
 	kfree(fd->attr_para);
 	kfree(fd->dma_para);
+#ifdef FLD
+	kfree(fd->fld_para);
+#endif
 }
 
 int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
@@ -2516,7 +2822,6 @@ void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	unsigned int loop_num = 0;
 	unsigned int loop_reg_val = 0;
-	aie_reset(fd);
 
 	if (aie_cfg->sel_mode == 0) {
 		writel(0x00000111, fd->fd_base + AIE_ENABLE_REG);
@@ -2543,6 +2848,75 @@ void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 		writel(fd->reg_cfg.yuv2rgb_adr,
 		       fd->fd_base + AIE_YUV2RGB_CON_BASE_ADR_REG);
 		writel(0x1, fd->fd_base + AIE_START_REG);
+	} else if (aie_cfg->sel_mode == 2) {
+		int i = 0;
+
+		writel(0x00011111, fd->fd_base + AIE_DMA_CTL_REG);
+		writel(0x01111111, fd->fd_base + FLD_EN);
+		for (i = 0; i < aie_cfg->fld_face_num; i++) {
+			writel(aie_cfg->src_img_addr, fd->fd_base + FLD_BASE_ADDR_FACE_0 + i * 0x4);
+			writel(aie_cfg->fld_input[i].fld_in_crop.x1 << 16 |
+			   aie_cfg->fld_input[i].fld_in_crop.y1, fd->fd_base + fld_face_info_0[i]);
+			writel(aie_cfg->fld_input[i].fld_in_crop.x2 << 16 |
+			   aie_cfg->fld_input[i].fld_in_crop.y2, fd->fd_base + fld_face_info_1[i]);
+			writel(aie_cfg->fld_input[i].fld_in_rop << 4 |
+			   aie_cfg->fld_input[i].fld_in_rip, fd->fd_base + fld_face_info_2[i]);
+		}
+
+
+		writel(fld_forest << 28 | aie_cfg->fld_face_num << 16 | fld_point,
+								fd->fd_base + FLD_MODEL_PARA1);
+		writel(13 << 0xd | 0x19, fd->fd_base + FLD_MODEL_PARA14);
+
+		/*fld kernel model pa setting*/
+		for (i = 0; i < FLD_MAX_INPUT; i++) {
+			writel(fd->dma_para->fld_tree02_pa[i], fd->fd_base + fld_pl_in_addr_0[i]);
+			writel(fd->dma_para->fld_tree13_pa[i], fd->fd_base + fld_pl_in_addr_1[i]);
+			writel(fd->dma_para->fld_cv_pa[i], fd->fd_base + fld_pl_in_addr_2[i]);
+			writel(fd->dma_para->fld_fp_pa[i], fd->fd_base + fld_pl_in_addr_3[i]);
+			writel(fd->dma_para->fld_leafnode_pa[i], fd->fd_base + fld_sh_in_addr[i]);
+		}
+		writel(fd->dma_para->fld_blink_weight_pa, fd->fd_base + FLD_BS_IN_BASE_ADDR_14);
+
+		writel(aie_cfg->src_img_width << 16 |
+			   aie_cfg->src_img_height, fd->fd_base + FLD_SRC_WD_HT);
+
+		/*input settings*/
+		writel(0x007c003f, fd->fd_base + FLD_PL_IN_SIZE_0);
+		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_0);
+		writel(0x007c003f, fd->fd_base + FLD_PL_IN_SIZE_1);
+		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_1);
+		writel(0x0016003f, fd->fd_base + FLD_PL_IN_SIZE_2_0);
+		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_2_0);
+		writel(0x0013003f, fd->fd_base + FLD_PL_IN_SIZE_2_1);
+		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_2_1);
+		writel(0x0013003f, fd->fd_base + FLD_PL_IN_SIZE_2_2);
+		writel(0x0040000f, fd->fd_base + FLD_PL_IN_STRIDE_2_2);
+		writel(0x00a6001f, fd->fd_base + FLD_PL_IN_SIZE_3);
+		writel(0x0020000f, fd->fd_base + FLD_PL_IN_STRIDE_3);
+
+		/*output setting*/
+		writel((2400 * aie_cfg->fld_face_num - 1) << 16 | 127,
+						fd->fd_base + FLD_SH_IN_SIZE_0);
+		writel(0x0010000f, fd->fd_base + FLD_SH_IN_STRIDE_0);
+		writel(fd->dma_para->fld_output_pa, fd->fd_base + FLD_TR_OUT_BASE_ADDR_0);
+		writel(aie_cfg->fld_face_num << 16 | 0x6f, fd->fd_base + FLD_TR_OUT_SIZE_0);
+		writel(0x0070000f, fd->fd_base + FLD_TR_OUT_STRIDE_0);
+		writel(fd->dma_para->fld_output_pa, fd->fd_base + FLD_PP_OUT_BASE_ADDR_0);
+		writel(aie_cfg->fld_face_num << 16 | 0x6f, fd->fd_base + FLD_PP_OUT_SIZE_0);
+		writel(0x0070000f, fd->fd_base + FLD_PP_OUT_STRIDE_0);
+
+		/*cv score*/
+		writel(0x00000001, fd->fd_base + FLD_BS_BIAS);
+		writel(0x0000b835, fd->fd_base + FLD_CV_FM_RANGE_0); //8E8
+		writel(0xffff5cba, fd->fd_base + FLD_CV_FM_RANGE_1); //8EC
+		writel(0x00005ed5, fd->fd_base + FLD_CV_PM_RANGE_0); //8F0
+		writel(0xffff310d, fd->fd_base + FLD_CV_PM_RANGE_1); //8F4
+		writel(0x0000031e, fd->fd_base + FLD_BS_RANGE_0); //8F8
+		writel(0xfffffcae, fd->fd_base + FLD_BS_RANGE_1); //8FC
+
+		/*fld mode + trigger start*/
+		writel(0x11, fd->fd_base + AIE_START_REG);
 	}
 }
 
@@ -2649,4 +3023,58 @@ void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	       sizeof(aie_cfg->attr_out.rpn25_rlt));
 
 	fd->attr_para->r_idx = (fd->attr_para->r_idx + 1) % MAX_ENQUE_FRAME_NUM;
+}
+
+
+void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
+{
+	int i = 0, j = 0;
+	unsigned int fld_out_unit = 0;
+	unsigned short *out_parsing = NULL;
+
+	aie_cfg->sel_mode = fd->fld_para->sel_mode;
+	aie_cfg->src_img_width = fd->fld_para->img_width;
+	aie_cfg->src_img_height = fd->fld_para->img_height;
+	aie_cfg->fd_version = FD_VERSION;
+	aie_cfg->attr_version = ATTR_VERSION;
+	aie_cfg->src_img_addr = fd->fld_para->src_img_addr;
+	aie_cfg->fld_face_num = fd->fld_para->face_num;
+
+	aie_cfg->fld_raw_out = (unsigned long long)fd->dma_para->fld_output_va;
+
+	memcpy((char *)aie_cfg->fld_input, (char *)fd->fld_para->fld_input,
+		sizeof(struct FLD_CROP_RIP_ROP) * aie_cfg->fld_face_num);
+
+	if (fld_cur_landmark % 2)
+		fld_out_unit = (((fld_cur_landmark + 1) / 2) + 1) * 8;
+	else
+		fld_out_unit = ((fld_cur_landmark / 2) + 1) * 8;
+
+	for (j = 0; j < aie_cfg->fld_face_num; j++) {
+		out_parsing = (unsigned short *)fd->dma_para->fld_output_va + j * fld_out_unit;
+		for (i = 0; i < fld_cur_landmark; i++) {
+			aie_cfg->fld_output[j].fld_landmark[i].x = *out_parsing;
+			aie_cfg->fld_output[j].fld_landmark[i].y = *(out_parsing + 1);
+			dev_info(fd->dev, "[TINA LOG]%x %x %x %x\n", j, i,
+				 aie_cfg->fld_output[j].fld_landmark[i].x,
+				 aie_cfg->fld_output[j].fld_landmark[i].y);
+			if (i % 2)
+				out_parsing = out_parsing + 6;
+			else
+				out_parsing = out_parsing + 2;
+		}
+		out_parsing = (unsigned short *)fd->dma_para->fld_output_va;
+		if (fld_cur_landmark % 2)
+			out_parsing = out_parsing + ((fld_cur_landmark + 1) / 2) * 8;
+		else
+			out_parsing = out_parsing + (fld_cur_landmark / 2) * 8;
+
+		aie_cfg->fld_output[j].fld_out_rop = *out_parsing;
+		aie_cfg->fld_output[j].fld_out_rip = *(out_parsing + 1);
+		aie_cfg->fld_output[j].confidence = *(out_parsing + 2);
+		aie_cfg->fld_output[j].blinkscore = *(out_parsing + 3);
+		dev_info(fd->dev, "[TINA LOG]%x %x %x %x\n", aie_cfg->fld_output[j].fld_out_rop,
+			 aie_cfg->fld_output[j].fld_out_rip, aie_cfg->fld_output[j].confidence,
+			 aie_cfg->fld_output[j].blinkscore);
+	}
 }
