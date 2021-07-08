@@ -89,8 +89,11 @@ struct GED_KPI_HEAD {
 	int isSF;
 	int isFRR_enabled;
 	int isARR_enabled;
+
 	int target_fps;
 	int target_fps_margin;
+	int eara_fps_margin;
+
 	int t_cpu_target;
 	int t_gpu_target;
 	int t_cpu_fpsgo;
@@ -698,6 +701,7 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 	struct GED_KPI_HEAD *psHead,
 	int target_fps,
 	int target_fps_margin,
+	int eara_fps_margin,
 	int cpu_time,
 	GED_KPI_FRC_MODE_TYPE mode,
 	int client)
@@ -721,11 +725,22 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 
 		psHead->target_fps = target_fps;
 		psHead->target_fps_margin = target_fps_margin;
+		psHead->eara_fps_margin = eara_fps_margin;
 		psHead->t_cpu_fpsgo = cpu_time;
 		psHead->t_cpu_target = GED_KPI_SEC_DIVIDER/target_fps;
 		psHead->t_gpu_target = psHead->t_cpu_target;
 		psHead->frc_client = client;
 		ret = GED_TRUE;
+
+#ifdef GED_KPI_DEBUG
+		GED_LOGE("[GED_KPI] FPSGO info PID:%d ,tfps:%d, fps_margin:%d",
+		"eara_margin:%d, cpu_time:%d\n",
+			psHead->pid,
+			psHead->target_fps,
+			psHead->target_fps_margin,
+			psHead->eara_fps_margin,
+			psHead->t_cpu_fpsgo);
+#endif /* GED_KPI_DEBUG */
 	}
 	return ret;
 }
@@ -823,6 +838,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 	unsigned long long phead_last1;
 	int target_FPS;
 	unsigned long ulIRQFlags;
+	int eara_fps_margin;
 
 #ifdef GED_KPI_DEBUG
 	GED_LOGD("[GED_KPI] ts type = %d, pid = %d, wnd = %llu, frame = %lu\n",
@@ -886,7 +902,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				ged_kpi_update_TargetTimeAndTargetFps(
 					psHead,
 					GED_KPI_MAX_FPS,
-					GED_KPI_DEFAULT_FPS_MARGIN, 0,
+					GED_KPI_DEFAULT_FPS_MARGIN, 0, 0,
 					GED_KPI_FRC_DEFAULT_MODE, -1);
 				INIT_LIST_HEAD(&psHead->sList);
 				spin_lock_irqsave(&gs_hashtableLock,
@@ -1405,6 +1421,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 		target_FPS = psTimeStamp->i32FrameID;
 		ulID = psTimeStamp->ullWnd;
+		eara_fps_margin = psTimeStamp->i32QedBuffer_length;
 
 		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
 			, (unsigned long)ulID);
@@ -1413,6 +1430,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				target_FPS&0x000000ff,
 				(target_FPS&0x00000700) >> 8,
 				(target_FPS&0xfffff100) >> 11,
+				eara_fps_margin,
 				GED_KPI_FRC_DEFAULT_MODE, -1);
 		}
 #ifdef GED_KPI_DEBUG
@@ -1894,12 +1912,12 @@ bool ged_kpi_set_cpu_remained_time(long long t_cpu_remained,
 // EXPORT_SYMBOL(ged_kpi_set_target_FPS);
 /* ------------------------------------------------------------------- */
 void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
-		int target_FPS_margin, int cpu_time)
+		int target_FPS_margin, int eara_fps_margin, int cpu_time)
 {
 #ifdef MTK_GED_KPI
 		ged_kpi_push_timestamp(GED_SET_TARGET_FPS, 0, -1, ulID,
 			(target_FPS | (target_FPS_margin << 8)
-			| ((cpu_time/1000) << 11)), -1, -1, NULL);
+			| ((cpu_time/1000) << 11)), eara_fps_margin, -1, NULL);
 #endif /* MTK_GED_KPI */
 }
 EXPORT_SYMBOL(ged_kpi_set_target_FPS_margin);

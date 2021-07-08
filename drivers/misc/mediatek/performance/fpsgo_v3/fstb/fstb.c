@@ -886,8 +886,8 @@ out:
 		eara_fps /= 1000;
 		eara_fps = clamp(eara_fps, min_fps_limit, max_fps_limit);
 	}
-	ged_kpi_set_target_FPS_margin(iter->bufid,
-		eara_fps, iter->target_fps_margin_gpu, iter->cpu_time);
+	ged_kpi_set_target_FPS_margin(iter->bufid, eara_fps, iter->target_fps_margin_gpu,
+		iter->target_fps_diff, iter->cpu_time);
 
 	fpsgo_systrace_c_fstb_man(pid, iter->bufid, (int)cpu_time_ns, "t_cpu");
 	fpsgo_systrace_c_fstb(pid, iter->bufid, (int)max_current_cap,
