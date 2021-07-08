@@ -75,7 +75,7 @@
 	};
 
 	/* ATF logger */
-	atf_logger {
+	atf_logger: atf_logger {
 		compatible = "mediatek,atf_logger";
 	};
 
@@ -8800,10 +8800,6 @@
 			input-schmitt-enable;
 			bias-disable;
 		};
-	};
-	/* ATF logger */
-	atf_logger {
-		compatible = "mediatek,atf_logger";
 	};
 };
 
