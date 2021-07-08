@@ -4688,6 +4688,14 @@
 	};
 };
 
+&i2c6 {
+	ps5170: ps5170@28 {
+		compatible = "parade,ps5170";
+		reg = <0x28>;
+		status = "okay";
+	};
+};
+
 #include "mediatek/cust_mt6983_msdc.dtsi"
 #include "mediatek/rt5133.dtsi"
 #include "mediatek/rt6160.dtsi"
