@@ -986,6 +986,9 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	struct mtk_smi *common;
 	struct resource *res;
 	struct task_struct *kthr;
+	struct device_node *smi_node;
+	struct platform_device *smi_pdev;
+	struct device_link *link;
 	int ret;
 
 	common = devm_kzalloc(dev, sizeof(*common), GFP_KERNEL);
@@ -1037,6 +1040,28 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 		if (IS_ERR(common->base))
 			return PTR_ERR(common->base);
 	}
+
+	smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", 0);
+	if (smi_node) {
+		smi_pdev = of_find_device_by_node(smi_node);
+		of_node_put(smi_node);
+		if (smi_pdev) {
+			if (!platform_get_drvdata(smi_pdev))
+				return -EPROBE_DEFER;
+			link = device_link_add(dev, &smi_pdev->dev,
+					       DL_FLAG_PM_RUNTIME |
+					       DL_FLAG_STATELESS);
+			if (!link) {
+				dev_notice(dev,
+					"Unable to link sram smi-common dev\n");
+				return -ENODEV;
+			}
+		} else {
+			dev_notice(dev, "Failed to get sram smi_common device\n");
+			return -EINVAL;
+		}
+	}
+
 	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, common);
 
