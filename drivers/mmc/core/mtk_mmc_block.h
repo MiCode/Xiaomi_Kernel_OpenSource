@@ -6,6 +6,7 @@
 #ifndef _MT_MMC_BLOCK_H
 #define _MT_MMC_BLOCK_H
 
+#include <linux/bits.h>
 #include <linux/types.h>
 #include <linux/sched.h>
 #include <linux/mmc/core.h>
