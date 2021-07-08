@@ -4113,6 +4113,12 @@ void fg_bat_temp_int_sw_check(struct mtk_battery *gm)
 
 void fg_int_event(struct mtk_battery *gm, enum gauge_event evt)
 {
+	if (gm->is_probe_done == false) {
+		bm_err("[%s]battery is not rdy:%d\n",
+			__func__, gm->is_probe_done);
+		return;
+	}
+
 	if (evt != EVT_INT_NAFG_CHECK)
 		fg_bat_temp_int_sw_check(gm);
 

@@ -3287,7 +3287,6 @@ int battery_init(struct platform_device *pdev)
 	kthread_run(battery_update_routine, gm, "battery_thread");
 	fg_drv_thread_hrtimer_init(gm);
 	battery_sysfs_create_group(gm->bs_data.psy);
-	gm->is_probe_done = true;
 
 	/* for gauge hal hw ocv */
 	gm->bs_data.bat_batt_temp = force_get_tbat(gm, true);
@@ -3295,6 +3294,7 @@ int battery_init(struct platform_device *pdev)
 
 	ret = mtk_battery_daemon_init(pdev);
 	b_recovery_mode = is_recovery_mode();
+	gm->is_probe_done = true;
 
 	if (ret == 0 && b_recovery_mode == 0)
 		bm_err("[%s]: daemon mode DONE\n", __func__);
