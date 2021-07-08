@@ -1492,7 +1492,7 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
 			case IMG_MEM_FOR_HW_ID:
 				/*allocated at probe via dts*/
 				break;
-			case IMG_MEM_G_ID:
+			/* case IMG_MEM_G_ID: */
 #ifdef USE_ION
 				if (hcp_dev->pIonClient != NULL) {
 					pIonHandle = _imgsys_ion_alloc(hcp_dev->pIonClient,
@@ -1586,7 +1586,7 @@ int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 			case IMG_MEM_FOR_HW_ID:
 				/*allocated at probe via dts*/
 				break;
-			case IMG_MEM_G_ID:
+			/* case IMG_MEM_G_ID: */
 #ifdef USE_ION
 				if ((hcp_dev->pIonClient != NULL) &&
 					(mtk_hcp_reserve_mblock[id].pIonHandle != NULL)) {

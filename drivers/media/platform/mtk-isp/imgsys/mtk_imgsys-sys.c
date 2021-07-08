@@ -1609,7 +1609,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		info.module_info[3].t_wbuf_sz =
 				mtk_hcp_get_reserve_mem_size(PQDIP_MEM_T_ID);
 		/*common*/
-		info.g_wbuf_fd = mtk_hcp_get_reserve_mem_fd(IMG_MEM_G_ID);
+		/* info.g_wbuf_fd = mtk_hcp_get_reserve_mem_fd(IMG_MEM_G_ID); */
 		info.g_wbuf = mtk_hcp_get_reserve_mem_phys(IMG_MEM_G_ID);
 		/*info.g_wbuf_sw = mtk_hcp_get_reserve_mem_virt(IMG_MEM_G_ID);*/
 		info.g_wbuf_sz = mtk_hcp_get_reserve_mem_size(IMG_MEM_G_ID);
