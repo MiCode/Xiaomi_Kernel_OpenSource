@@ -6,6 +6,7 @@
 #include <linux/mempool.h>
 #include <linux/mm.h>
 #include <linux/err.h>
+#include <linux/of.h>
 #include <net/cnss_prealloc.h>
 
 MODULE_LICENSE("GPL v2");
@@ -251,8 +252,35 @@ EXPORT_SYMBOL(wcnss_prealloc_check_memory_leak);
 int wcnss_pre_alloc_reset(void) { return -EOPNOTSUPP; }
 EXPORT_SYMBOL(wcnss_pre_alloc_reset);
 
+/**
+ * cnss_prealloc_is_valid_dt_node_found - Check if valid device tree node
+ *                                        present
+ *
+ * Valid device tree node means a node with "qcom,wlan" property present
+ * and "status" property not disabled.
+ *
+ * Return: true if valid device tree node found, false if not found
+ */
+static bool cnss_prealloc_is_valid_dt_node_found(void)
+{
+	struct device_node *dn = NULL;
+
+	for_each_node_with_property(dn, "qcom,wlan") {
+		if (of_device_is_available(dn))
+			break;
+	}
+
+	if (dn)
+		return true;
+
+	return false;
+}
+
 static int __init cnss_prealloc_init(void)
 {
+	if (!cnss_prealloc_is_valid_dt_node_found())
+		return -ENODEV;
+
 	return cnss_pool_init();
 }
 

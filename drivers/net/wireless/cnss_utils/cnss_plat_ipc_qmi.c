@@ -11,6 +11,7 @@
 #include <linux/cnss_plat_ipc_qmi.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#include <linux/of.h>
 #include "cnss_plat_ipc_service_v01.h"
 
 #define CNSS_MAX_FILE_SIZE (32 * 1024 * 1024)
@@ -701,10 +702,37 @@ free_svc_hdl:
 	kfree(svc->svc_hdl);
 }
 
+/**
+ * cnss_plat_ipc_is_valid_dt_node_found - Check if valid device tree node
+ *                                        present
+ *
+ * Valid device tree node means a node with "qcom,wlan" property present
+ * and "status" property not disabled.
+ *
+ * Return: true if valid device tree node found, false if not found
+ */
+static bool cnss_plat_ipc_is_valid_dt_node_found(void)
+{
+	struct device_node *dn = NULL;
+
+	for_each_node_with_property(dn, "qcom,wlan") {
+		if (of_device_is_available(dn))
+			break;
+	}
+
+	if (dn)
+		return true;
+
+	return false;
+}
+
 static DECLARE_WORK(cnss_plat_ipc_init_work, cnss_plat_ipc_init_fn);
 
 static int __init cnss_plat_ipc_qmi_svc_init(void)
 {
+	if (!cnss_plat_ipc_is_valid_dt_node_found())
+		return -ENODEV;
+
 	/* Schedule a work to do real init to avoid blocking here */
 	schedule_work(&cnss_plat_ipc_init_work);
 	return 0;
