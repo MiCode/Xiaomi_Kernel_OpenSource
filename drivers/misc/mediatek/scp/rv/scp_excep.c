@@ -28,7 +28,7 @@
 #endif
 
 #define POLLING_RETRY 100
-#define SCP_SECURE_DUMP_MEASURE 0
+#define SCP_SECURE_DUMP_MEASURE 1
 
 struct scp_dump_st {
 	uint8_t *detail_buff;
@@ -468,13 +468,24 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 			int i;
 
 			for (i = 0; i < 32; i++) {
-				pr_notice("[SCP] C0:%02d:0x%08x::0x%08x\n",
-							i, *(out + i * 2), *(out + i * 2 + 1));
+				pr_notice("[SCP] C0:H0:%02d:0x%08x::0x%08x\n",
+					i, *(out + i * 2), *(out + i * 2 + 1));
 			}
+
+
 			for (i = 0; i < 32; i++) {
-				pr_notice("[SCP] C1:%02d:0x%08x::0x%08x\n",
-							i, *(out + 64 + i * 2),
-							*(out + 64 + i * 2 + 1));
+				pr_notice("[SCP] C0:H1:%02d:0x%08x::0x%08x\n",
+					i, *(out + 64 + i * 2), *(out + 64 + i * 2 + 1));
+			}
+			if (scpreg.core_nums > 1) {
+				for (i = 0; i < 32; i++) {
+					pr_notice("[SCP] C1:H0:%02d:0x%08x::0x%08x\n",
+						i, *(out + 128 + i * 2), *(out + 128 + i * 2 + 1));
+				}
+				for (i = 0; i < 32; i++) {
+					pr_notice("[SCP] C1:H1:%02d:0x%08x::0x%08x\n",
+						i, *(out + 192 + i * 2), *(out + 192 + i * 2 + 1));
+				}
 			}
 		} else {
 			/* RV33 */
