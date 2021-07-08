@@ -23,9 +23,6 @@
 #endif
 #include "viatel_rawbulk.h"
 /* #include "modem_sdio.h" */
-#if IS_ENABLED(CONFIG_MTK_USB_BOOST)
-#include "usb_boost.h"
-#endif
 
 #define DATA_IN_ASCII	0
 #define DATA_IN_TAIL	1
@@ -417,10 +414,6 @@ static void upstream_complete(struct usb_ep *ep, struct usb_request *req)
 
 	C2K_DBG("%s\n", __func__);
 
-#if IS_ENABLED(CONFIG_MTK_USB_BOOST)
-	usb_boost();
-#endif
-
 	t->state = UPSTREAM_STAT_FREE;
 
 	if (req->status < 0) {
@@ -760,10 +753,6 @@ static void downstream_complete(struct usb_ep *ep, struct usb_request *req)
 	struct rawbulk_transfer *transfer = t->transfer;
 
 	C2K_DBG("%s\n", __func__);
-
-#if IS_ENABLED(CONFIG_MTK_USB_BOOST)
-	usb_boost();
-#endif
 
 	t->state = DOWNSTREAM_STAT_FREE;
 

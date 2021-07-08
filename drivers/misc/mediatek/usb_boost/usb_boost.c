@@ -15,9 +15,10 @@
 #include <linux/workqueue.h>
 #include <linux/kdev_t.h>
 #include <linux/timekeeping.h>
-#include <trace/hooks/usb.h>
 
 #include "usb_boost.h"
+#include "xhci-trace.h"
+
 #define USB_BOOST_CLASS_NAME "usb_boost"
 enum{
 	ATTR_ENABLE,
@@ -567,17 +568,24 @@ static int create_sys_fs(void)
 
 }
 
-static void vh_usb_profile (void *ignore, const char *function)
+void xhci_urb_enqueue_dbg(void *unused, struct urb *urb)
 {
-	if (!strcmp(function, "mtp") || !strcmp(function, "mass_storage")) {
-		USB_BOOST_DBG("function name(%s)\n", function);
-		usb_boost();
+	switch (usb_endpoint_type(&urb->ep->desc)) {
+	case USB_ENDPOINT_XFER_BULK:
+		if (urb->transfer_buffer_length >= 8192)
+			usb_boost();
 	}
+}
+
+static int xhci_trace_init(void)
+{
+	WARN_ON(register_trace_xhci_urb_giveback(xhci_urb_enqueue_dbg, NULL));
+	return 0;
 }
 
 int usb_boost_init(void)
 {
-	int id, ret;
+	int id;
 
 	for (id = 0; id < _TYPE_MAXID; id++) {
 		int count;
@@ -597,15 +605,11 @@ int usb_boost_init(void)
 	__the_boost_ops.boost = __usb_boost;
 	enabled = 1;
 
-	ret = register_trace_android_vh_usb_profile(
-		vh_usb_profile, NULL);
-	if (ret)
-		USB_BOOST_NOTICE("register trace function failed\n");
-		
-
 	create_sys_fs();
 	default_setting();
 	inited = 1;
+
+	xhci_trace_init();
 
 	return 0;
 }
