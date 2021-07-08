@@ -14,7 +14,7 @@
 # Makefile for the Kinibi trusted UI driver
 #
 
-GUD_ROOT_FOLDER := drivers/gud/
+GUD_ROOT_FOLDER := drivers/tee/gud/500
 
 # add our modules to kernel.
 obj-$(CONFIG_TRUSTONIC_TRUSTED_UI) += t-base-tui.o
