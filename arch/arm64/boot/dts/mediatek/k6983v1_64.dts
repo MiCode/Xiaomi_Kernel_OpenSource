@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+//#include <dt-bindings/pinctrl/mt6983-pinfunc.h>
+#include <dt-bindings/clock/mt6893-clk.h>
+#include <dt-bindings/phy/phy.h>
+
+&chosen {
+	bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
+	loglevel=8 androidboot.selinux=permissive \
+	androidboot.hardware=mt6983 \
+	earlycon=mtk8250,mmio32,0x11002000 \
+	initcall_debug=1";
+	atag,videolfb-fb_base_l = <0x7e605000>;
+	atag,videolfb-fb_base_h = <0x0>;
+	atag,videolfb-islcmfound = <1>;
+	atag,videolfb-islcm_inited = <0>;
+	atag,videolfb-fps= <6000>;
+	atag,videolfb-vramSize= <0x1be0000>;
+	atag,videolfb-lcmname=
+		"td4330_fhdp_dsi_vdo_auo_rt5081_drv";
+};
+
+&timer {
+	clock-frequency = <150000000>;
+};
+
+&odm {
+	vibrator0:vibrator@0 {
+		compatible = "mediatek,vibrator";
+		vib_timer = <25>;
+		vib_limit = <9>;
+		vib_vol= <9>;
+	};
+};
+
+&ssusb {
+	phys = <&u3fpgaport0 PHY_TYPE_USB3>;
+	plat_type = <1>; /* FPGA */
+	fpga_phy = <3>; /* A60931 */
+	dr_mode = "peripheral";
+	status = "okay";
+};
+
+&u3fpgaphy {
+	status = "okay";
+};
+
+&u3phy {
+	status = "disabled";
+};
+
