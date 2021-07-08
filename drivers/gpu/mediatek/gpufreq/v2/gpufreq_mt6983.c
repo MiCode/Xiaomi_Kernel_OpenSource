@@ -118,7 +118,6 @@ static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_lvt_rt, u32 *a_t0_ulv
 static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt_rt,
 	u32 a_t0_ulvtll_rt, u32 a_shift_error, u32 efuse_error, u32 a_tn_lvt_cnt,
 	u32 a_tn_ulvt_cnt, u32 a_tn_ulvtll_cnt, unsigned int is_efuse_read_success);
-static struct gpufreq_asensor_info __gpufreq_get_asensor_info(void);
 /* power control function */
 static int __gpufreq_cg_control(enum gpufreq_power_state power);
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
@@ -360,6 +359,7 @@ static DEFINE_MUTEX(gpufreq_lock);
 static struct gpufreq_platform_fp platform_fp = {
 	.bringup = __gpufreq_bringup,
 	.power_ctrl_enable = __gpufreq_power_ctrl_enable,
+	.get_power_state = __gpufreq_get_power_state,
 	.get_dvfs_state = __gpufreq_get_dvfs_state,
 	.get_shader_present = __gpufreq_get_shader_present,
 	.get_cur_fgpu = __gpufreq_get_cur_fgpu,
@@ -447,6 +447,15 @@ unsigned int __gpufreq_bringup(void)
 unsigned int __gpufreq_power_ctrl_enable(void)
 {
 	return GPUFREQ_POWER_CTRL_ENABLE;
+}
+
+/* API: get power state (on/off) */
+unsigned int __gpufreq_get_power_state(void)
+{
+	if (g_stack.power_count > 0)
+		return POWER_ON;
+	else
+		return POWER_OFF;
 }
 
 /* API: get DVFS state (free/disable/keep) */
@@ -754,7 +763,7 @@ done:
 }
 
 /* API: get asensor info for Proc show */
-static struct gpufreq_asensor_info __gpufreq_get_asensor_info(void)
+struct gpufreq_asensor_info __gpufreq_get_asensor_info(void)
 {
 	struct gpufreq_asensor_info asensor_info = {};
 
@@ -842,115 +851,103 @@ unsigned int __gpufreq_get_pstack_by_idx(int oppidx)
 /* API: get working OPP index of GPU via Freq */
 int __gpufreq_get_idx_by_fgpu(unsigned int freq)
 {
-	int idx = 0;
+	int oppidx = -1;
+	int i = 0;
 
 	/* find the smallest index that satisfy given freq */
-	for (idx = g_gpu.min_oppidx; idx >= 0; idx--) {
-		if (g_gpu.working_table[idx].freq >= freq)
+	for (i = g_gpu.min_oppidx; i >= g_gpu.max_oppidx; i--) {
+		if (g_gpu.working_table[i].freq >= freq)
 			break;
 	}
+	/* use max_oppidx if not found */
+	oppidx = (i > g_gpu.max_oppidx) ? i : g_gpu.max_oppidx;
 
-	/* found */
-	if (idx >= 0)
-		return idx;
-	/* not found */
-	else
-		return 0;
+	return oppidx;
 }
 
 /* API: get working OPP index of STACK via Freq */
 int __gpufreq_get_idx_by_fstack(unsigned int freq)
 {
-	int idx = 0;
+	int oppidx = -1;
+	int i = 0;
 
 	/* find the smallest index that satisfy given freq */
-	for (idx = g_stack.min_oppidx; idx >= 0; idx--) {
-		if (g_stack.working_table[idx].freq >= freq)
+	for (i = g_stack.min_oppidx; i >= g_stack.max_oppidx; i--) {
+		if (g_stack.working_table[i].freq >= freq)
 			break;
 	}
+	/* use max_oppidx if not found */
+	oppidx = (i > g_stack.max_oppidx) ? i : g_stack.max_oppidx;
 
-	/* found */
-	if (idx >= 0)
-		return idx;
-	/* not found */
-	else
-		return 0;
+	return oppidx;
 }
 
 /* API: get working OPP index of GPU via Volt */
 int __gpufreq_get_idx_by_vgpu(unsigned int volt)
 {
-	int idx = 0;
+	int oppidx = -1;
+	int i = 0;
 
 	/* find the smallest index that satisfy given volt */
-	for (idx = g_gpu.min_oppidx; idx >= 0; idx--) {
-		if (g_gpu.working_table[idx].volt >= volt)
+	for (i = g_gpu.min_oppidx; i >= g_gpu.max_oppidx; i--) {
+		if (g_gpu.working_table[i].volt >= volt)
 			break;
 	}
+	/* use max_oppidx if not found */
+	oppidx = (i > g_gpu.max_oppidx) ? i : g_gpu.max_oppidx;
 
-	/* found */
-	if (idx >= 0)
-		return idx;
-	/* not found */
-	else
-		return 0;
+	return oppidx;
 }
 
 /* API: get working OPP index of STACK via Volt */
 int __gpufreq_get_idx_by_vstack(unsigned int volt)
 {
-	int idx = 0;
+	int oppidx = -1;
+	int i = 0;
 
 	/* find the smallest index that satisfy given volt */
-	for (idx = g_stack.min_oppidx; idx >= 0; idx--) {
-		if (g_stack.working_table[idx].volt >= volt)
+	for (i = g_stack.min_oppidx; i >= g_stack.max_oppidx; i--) {
+		if (g_stack.working_table[i].volt >= volt)
 			break;
 	}
+	/* use max_oppidx if not found */
+	oppidx = (i > g_stack.max_oppidx) ? i : g_stack.max_oppidx;
 
-	/* found */
-	if (idx >= 0)
-		return idx;
-	/* not found */
-	else
-		return 0;
+	return oppidx;
 }
 
 /* API: get working OPP index of GPU via Power */
 int __gpufreq_get_idx_by_pgpu(unsigned int power)
 {
-	int idx = 0;
+	int oppidx = -1;
+	int i = 0;
 
 	/* find the smallest index that satisfy given power */
-	for (idx = g_gpu.min_oppidx; idx >= 0; idx--) {
-		if (g_gpu.working_table[idx].power >= power)
+	for (i = g_gpu.min_oppidx; i >= g_gpu.max_oppidx; i--) {
+		if (g_gpu.working_table[i].power >= power)
 			break;
 	}
+	/* use max_oppidx if not found */
+	oppidx = (i > g_gpu.max_oppidx) ? i : g_gpu.max_oppidx;
 
-	/* found */
-	if (idx >= 0)
-		return idx;
-	/* not found */
-	else
-		return 0;
+	return oppidx;
 }
 
 /* API: get working OPP index of STACK via Power */
 int __gpufreq_get_idx_by_pstack(unsigned int power)
 {
-	int idx = 0;
+	int oppidx = -1;
+	int i = 0;
 
 	/* find the smallest index that satisfy given power */
-	for (idx = g_stack.min_oppidx; idx >= 0; idx--) {
-		if (g_stack.working_table[idx].power >= power)
+	for (i = g_stack.min_oppidx; i >= g_stack.max_oppidx; i--) {
+		if (g_stack.working_table[i].power >= power)
 			break;
 	}
+	/* use max_oppidx if not found */
+	oppidx = (i > g_stack.max_oppidx) ? i : g_stack.max_oppidx;
 
-	/* found */
-	if (idx >= 0)
-		return idx;
-	/* not found */
-	else
-		return 0;
+	return oppidx;
 }
 
 /* API: get Volt of SRAM via volt of GPU */
@@ -2493,10 +2490,6 @@ done:
 static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 {
 	struct device_node *of_gpufreq = pdev->dev.of_node;
-
-	/* only dump when bringup */
-	if (!__gpufreq_bringup())
-		return;
 
 	if (!of_gpufreq) {
 		GPUFREQ_LOGE("fail to find gpufreq of_node (ENOENT)");
@@ -4063,7 +4056,7 @@ static void __gpufreq_init_shader_present(void)
 {
 	unsigned int segment_id = 0;
 
-	segment_id = g_gpu.segment_id;
+	segment_id = g_stack.segment_id;
 
 	switch (segment_id) {
 	case MT6981_SEGMENT:
@@ -4538,10 +4531,10 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
-	/* probe only init register base in EB mode */
+	/* probe only init register base and hook function pointer in EB mode */
 	if (g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq platform driver probe when in EB mode");
-		goto done;
+		GPUFREQ_LOGI("gpufreq platform probe only init reg base and hook fp in EB mode");
+		goto register_fp;
 	}
 
 	/* init pmic regulator */
@@ -4578,20 +4571,43 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* default enable GPM 1.0, before power control */
 	g_gpm_enable = true;
 
-	/* power on and never off if disable power control */
-	if (!__gpufreq_power_ctrl_enable()) {
-		GPUFREQ_LOGI("power control always on");
-		ret = __gpufreq_power_control(POWER_ON);
-		if (unlikely(ret < 0)) {
-			GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
-			goto done;
-		}
+	/* power on to init first OPP index */
+	ret = __gpufreq_power_control(POWER_ON);
+	if (unlikely(ret < 0)) {
+		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
+		goto done;
 	}
 
 	/* init first OPP index by current freq and volt */
 	ret = __gpufreq_init_opp_idx();
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init OPP index (%d)", ret);
+		goto done;
+	}
+
+	/* power off after init first OPP index */
+	if (__gpufreq_power_ctrl_enable())
+		__gpufreq_power_control(POWER_OFF);
+	else
+		/* never power off if power control is disabled */
+		GPUFREQ_LOGI("power control always on");
+
+	/* init AEE debug */
+	__gpufreq_footprint_vgpu_reset();
+	__gpufreq_footprint_oppidx_reset();
+	__gpufreq_footprint_power_count_reset();
+
+register_fp:
+	/*
+	 * GPUFREQ PLATFORM INIT DONE
+	 * register platform function pointer to wrapper in both AP and EB mode
+	 */
+	gpufreq_register_gpufreq_fp(&platform_fp);
+
+	/* init gpu ppm */
+	ret = gpuppm_init(g_gpueb_support);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
 		goto done;
 	}
 
@@ -4868,12 +4884,6 @@ static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev)
 	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
 
-	/* keep probe successful but do nothing */
-	if (__gpufreq_bringup() || g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or in EB mode");
-		goto done;
-	}
-
 	if (!g_mtcmos) {
 		g_mtcmos = kzalloc(sizeof(struct gpufreq_mtcmos_info), GFP_KERNEL);
 		if (!g_mtcmos) {
@@ -4902,12 +4912,6 @@ static int __gpufreq_mtcmos_pdrv_remove(struct platform_device *pdev)
 {
 	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
-
-	/* skip remove because do nothing in probe */
-	if (__gpufreq_bringup() || g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq mtcmos remove when bringup or in EB mode");
-		goto done;
-	}
 
 	mfg_fp = of_device_get_match_data(&pdev->dev);
 	if (!mfg_fp) {
@@ -4945,11 +4949,16 @@ static int __init __gpufreq_init(void)
 		goto done;
 	}
 
+	/* skip register gpufreq mtcmos driver if bringup or in EB mode */
+	if (__gpufreq_bringup() || g_gpueb_support)
+		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or in EB mode");
 	/* register gpufreq mtcmos driver */
-	ret = platform_driver_register(&g_gpufreq_mtcmos_pdrv);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to register gpufreq mtcmos driver\n");
-		goto done;
+	else {
+		ret = platform_driver_register(&g_gpufreq_mtcmos_pdrv);
+		if (unlikely(ret)) {
+			GPUFREQ_LOGE("fail to register gpufreq mtcmos driver\n");
+			goto done;
+		}
 	}
 
 	/* register gpufreq platform driver */
@@ -4959,26 +4968,6 @@ static int __init __gpufreq_init(void)
 			ret);
 		goto done;
 	}
-
-	if (__gpufreq_bringup()) {
-		GPUFREQ_LOGI("skip the rest of gpufreq platform init when bringup");
-		goto done;
-	}
-
-	/* register gpufreq platform function to wrapper in both AP and EB mode */
-	gpufreq_register_gpufreq_fp(&platform_fp);
-	gpufreq_debug_register_gpufreq_fp(&platform_fp);
-
-	/* init gpu ppm */
-	ret = gpuppm_init(g_gpueb_support);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
-		goto done;
-	}
-
-	__gpufreq_footprint_vgpu_reset();
-	__gpufreq_footprint_oppidx_reset();
-	__gpufreq_footprint_power_count_reset();
 
 	GPUFREQ_LOGI("gpufreq platform driver init done");
 

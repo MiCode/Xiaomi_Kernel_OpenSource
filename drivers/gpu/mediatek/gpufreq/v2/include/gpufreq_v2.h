@@ -143,6 +143,7 @@ struct gpufreq_platform_fp {
 	/* Common */
 	unsigned int (*bringup)(void);
 	unsigned int (*power_ctrl_enable)(void);
+	unsigned int (*get_power_state)(void);
 	unsigned int (*get_dvfs_state)(void);
 	unsigned int (*get_shader_present)(void);
 	int (*power_control)(enum gpufreq_power_state power);
@@ -252,9 +253,10 @@ extern int (*mtk_get_gpu_cur_oppidx_fp)(enum gpufreq_target target);
 /**************************************************
  * External Function
  **************************************************/
+/* Common */
 unsigned int gpufreq_bringup(void);
 unsigned int gpufreq_power_ctrl_enable(void);
-unsigned int gpufreq_custom_init_enable(void);
+unsigned int gpufreq_get_power_state(void);
 unsigned int gpufreq_get_dvfs_state(void);
 unsigned int gpufreq_get_shader_present(void);
 void gpufreq_set_timestamp(void);
@@ -291,5 +293,21 @@ int gpufreq_power_control(enum gpufreq_power_state power);
 int gpufreq_commit(enum gpufreq_target target, int oppidx);
 void gpufreq_register_gpufreq_fp(struct gpufreq_platform_fp *platform_fp);
 void gpufreq_register_gpuppm_fp(struct gpuppm_platform_fp *platform_fp);
+
+/* Debug */
+struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target target);
+struct gpufreq_debug_limit_info gpufreq_get_debug_limit_info(enum gpufreq_target target);
+const struct gpufreq_opp_info *gpufreq_get_working_table(enum gpufreq_target target);
+const struct gpufreq_opp_info *gpufreq_get_signed_table(enum gpufreq_target target);
+const struct gpuppm_limit_info *gpufreq_get_limit_table(enum gpufreq_target target);
+int gpufreq_switch_limit(enum gpufreq_target target,
+	enum gpuppm_limiter limiter, int c_enable, int f_enable);
+int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx);
+int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
+	unsigned int freq, unsigned int volt);
+void gpufreq_set_stress_test(unsigned int mode);
+int gpufreq_set_aging_mode(unsigned int mode);
+void gpufreq_set_gpm_mode(unsigned int mode);
+struct gpufreq_asensor_info gpufreq_get_asensor_info(void);
 
 #endif /* __GPUFREQ_V2_H__ */

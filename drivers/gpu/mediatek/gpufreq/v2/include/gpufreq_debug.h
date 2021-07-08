@@ -124,10 +124,6 @@ struct gpufreq_asensor_info {
 /**************************************************
  * Function
  **************************************************/
-void gpufreq_debug_register_gpufreq_fp(
-	struct gpufreq_platform_fp *platform_fp);
-void gpufreq_debug_register_gpuppm_fp(
-	struct gpuppm_platform_fp *platform_fp);
-int gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support);
+void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support);
 
 #endif /* __GPUFREQ_DEBUG_H__ */

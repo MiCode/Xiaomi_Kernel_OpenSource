@@ -13,6 +13,7 @@
 ccflags-y += -I$(srctree)/include/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/ged/include/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/include/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/

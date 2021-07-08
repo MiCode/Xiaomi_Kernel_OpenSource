@@ -1903,10 +1903,6 @@ done:
  */
 static void __gpufreq_dump_bringup_status(void)
 {
-	/* only dump when bringup */
-	if (!__gpufreq_bringup())
-		return;
-
 	/* 0x1000C000 */
 	g_apmixed_base = __gpufreq_of_ioremap("mediatek,mt6893-apmixedsys", 0);
 	if (!g_apmixed_base) {
@@ -2865,11 +2861,10 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 
 	GPUFREQ_LOGI("start to probe gpufreq platform driver");
 
-	__gpufreq_dump_bringup_status();
-
 	/* keep probe successful but do nothing when bringup */
 	if (__gpufreq_bringup()) {
 		GPUFREQ_LOGI("skip gpufreq platform driver probe when bringup");
+		__gpufreq_dump_bringup_status();
 		goto done;
 	}
 
@@ -2880,10 +2875,10 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
-	/* probe only init register base in EB mode */
+	/* probe only init register base and hook function pointer in EB mode */
 	if (g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq platform driver probe when in EB mode");
-		goto done;
+		GPUFREQ_LOGI("gpufreq platform probe only init reg base and hook fp in EB mode");
+		goto register_fp;
 	}
 
 	/* init pmic regulator */
@@ -2917,13 +2912,11 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* init shader present */
 	__gpufreq_init_shader_present();
 
-	if (!__gpufreq_power_ctrl_enable()) {
-		GPUFREQ_LOGI("power control always on");
-		ret = __gpufreq_power_control(POWER_ON);
-		if (unlikely(ret < 0)) {
-			GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
-			goto done;
-		}
+	/* power on to init first OPP index */
+	ret = __gpufreq_power_control(POWER_ON);
+	if (unlikely(ret < 0)) {
+		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
+		goto done;
 	}
 
 	if (g_aging_enable)
@@ -2931,6 +2924,32 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 
 	/* init opp index by bootup freq */
 	__gpufreq_init_opp_idx();
+
+	/* power off after init first OPP index */
+	if (__gpufreq_power_ctrl_enable())
+		__gpufreq_power_control(POWER_OFF);
+	else
+		/* never power off if power control is disabled */
+		GPUFREQ_LOGI("power control always on");
+
+	/* init AEE debug */
+	__gpufreq_footprint_vgpu_reset();
+	__gpufreq_footprint_oppidx_reset();
+	__gpufreq_footprint_power_count_reset();
+
+register_fp:
+	/*
+	 * GPUFREQ PLATFORM INIT DONE
+	 * register platform function pointer to wrapper in both AP and EB mode
+	 */
+	gpufreq_register_gpufreq_fp(&platform_fp);
+
+	/* init gpu ppm */
+	ret = gpuppm_init(g_gpueb_support);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
+		goto done;
+	}
 
 	GPUFREQ_LOGI("gpufreq platform driver probe done");
 
@@ -3048,12 +3067,6 @@ static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev)
 	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
 
-	/* keep probe successful but do nothing */
-	if (__gpufreq_bringup() || g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or in EB mode");
-		goto done;
-	}
-
 	if (!g_mtcmos) {
 		g_mtcmos = kzalloc(sizeof(struct gpufreq_mtcmos_info),
 			GFP_KERNEL);
@@ -3083,12 +3096,6 @@ static int __gpufreq_mtcmos_pdrv_remove(struct platform_device *pdev)
 {
 	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
-
-	/* skip remove because do nothing in probe */
-	if (__gpufreq_bringup() || g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq mtcmos remove when bringup or in EB mode");
-		goto done;
-	}
 
 	mfg_fp = of_device_get_match_data(&pdev->dev);
 	if (!mfg_fp) {
@@ -3126,11 +3133,16 @@ static int __init __gpufreq_init(void)
 		goto done;
 	}
 
+	/* skip register gpufreq mtcmos driver if bringup or in EB mode */
+	if (__gpufreq_bringup() || g_gpueb_support)
+		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or in EB mode");
 	/* register gpufreq mtcmos driver */
-	ret = platform_driver_register(&g_gpufreq_mtcmos_pdrv);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to register gpufreq mtcmos driver\n");
-		goto done;
+	else {
+		ret = platform_driver_register(&g_gpufreq_mtcmos_pdrv);
+		if (unlikely(ret)) {
+			GPUFREQ_LOGE("fail to register gpufreq mtcmos driver\n");
+			goto done;
+		}
 	}
 
 	/* register gpufreq platform driver */
@@ -3140,26 +3152,6 @@ static int __init __gpufreq_init(void)
 			ret);
 		goto done;
 	}
-
-	if (__gpufreq_bringup()) {
-		GPUFREQ_LOGI("skip the rest of gpufreq platform init when bringup");
-		goto done;
-	}
-
-	/* register gpufreq platform function to wrapper in both AP and EB mode */
-	gpufreq_register_gpufreq_fp(&platform_fp);
-	gpufreq_debug_register_gpufreq_fp(&platform_fp);
-
-	/* init gpu ppm */
-	ret = gpuppm_init(g_gpueb_support);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
-		goto done;
-	}
-
-	__gpufreq_footprint_vgpu_reset();
-	__gpufreq_footprint_oppidx_reset();
-	__gpufreq_footprint_power_count_reset();
 
 	GPUFREQ_LOGI("gpufreq platform driver init done");
 

@@ -3264,7 +3264,6 @@ static int __init __gpufreq_init(void)
 
 	/* register gpufreq platform function to wrapper */
 	gpufreq_register_gpufreq_fp(&platform_fp);
-	gpufreq_debug_register_gpufreq_fp(&platform_fp);
 
 	/* init gpu ppm */
 	ret = gpuppm_init(g_gpueb_support);

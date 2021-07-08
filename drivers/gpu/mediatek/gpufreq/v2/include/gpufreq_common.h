@@ -216,6 +216,7 @@ static inline void __gpufreq_check_pending_exception(void)
 /* Common */
 unsigned int __gpufreq_bringup(void);
 unsigned int __gpufreq_power_ctrl_enable(void);
+unsigned int __gpufreq_get_power_state(void);
 unsigned int __gpufreq_get_dvfs_state(void);
 unsigned int __gpufreq_get_shader_present(void);
 int __gpufreq_power_control(enum gpufreq_power_state power);
@@ -228,6 +229,7 @@ int __gpufreq_get_low_batt_idx(int low_batt_level);
 void __gpufreq_set_stress_test(unsigned int mode);
 int __gpufreq_set_aging_mode(unsigned int mode);
 void __gpufreq_set_gpm_mode(unsigned int mode);
+struct gpufreq_asensor_info __gpufreq_get_asensor_info(void);
 /* GPU */
 unsigned int __gpufreq_get_cur_fgpu(void);
 unsigned int __gpufreq_get_max_fgpu(void);
