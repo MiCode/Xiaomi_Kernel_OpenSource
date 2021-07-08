@@ -9,6 +9,7 @@
 #include <linux/iio/iio.h>
 #include <linux/kernel.h>
 #include <linux/mfd/mt6363/registers.h>
+#include <linux/mfd/mt6368/registers.h>
 #include <linux/mfd/mt6373/registers.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -94,6 +95,8 @@ static struct auxadc_channels auxadc_chans[] = {
 	AUXADC_CHANNEL(VCORE_TEMP, 12),
 	AUXADC_CHANNEL(VPROC_TEMP, 12),
 	AUXADC_CHANNEL(VGPU_TEMP, 12),
+	AUXADC_CHANNEL(ACCDET, 12),
+	AUXADC_CHANNEL(HPOFS_CAL, 15),
 	AUXADC_CHANNEL(VTREF, 12),
 	AUXADC_CHANNEL(IMP, 15),
 	[AUXADC_IMIX_R] = {
@@ -166,6 +169,17 @@ static const struct auxadc_regs mt6363_auxadc_regs_tbl[] = {
 	TIA_ADC_REG(7, MT6363),
 };
 
+static const struct auxadc_regs mt6368_auxadc_regs_tbl[] = {
+	AUXADC_REG(CHIP_TEMP, MT6368, AUXADC_RQST0, BIT(4), AUXADC_ADC4_L),
+	AUXADC_REG(VCORE_TEMP, MT6368, AUXADC_RQST3, BIT(0), AUXADC_ADC38_L),
+	AUXADC_REG(VPROC_TEMP, MT6368, AUXADC_RQST3, BIT(1), AUXADC_ADC39_L),
+	AUXADC_REG(VGPU_TEMP, MT6368, AUXADC_RQST3, BIT(2), AUXADC_ADC40_L),
+	AUXADC_REG(ACCDET, MT6368, AUXADC_RQST0, BIT(5), AUXADC_ADC5_L),
+	AUXADC_REG(HPOFS_CAL, MT6368, AUXADC_RQST1, BIT(1), AUXADC_ADC9_L),
+	TIA_ADC_REG(1, MT6368),
+	TIA_ADC_REG(2, MT6368),
+};
+
 static const struct auxadc_regs mt6373_auxadc_regs_tbl[] = {
 	AUXADC_REG(CHIP_TEMP, MT6373, AUXADC_RQST0, BIT(4), AUXADC_ADC4_L),
 	AUXADC_REG(VCORE_TEMP, MT6373, AUXADC_RQST3, BIT(0), AUXADC_ADC38_L),
@@ -184,6 +198,10 @@ struct auxadc_info {
 
 static const struct auxadc_info mt6363_info = {
 	.regs_tbl = mt6363_auxadc_regs_tbl,
+};
+
+static const struct auxadc_info mt6368_info = {
+	.regs_tbl = mt6368_auxadc_regs_tbl,
 };
 
 static const struct auxadc_info mt6373_info = {
@@ -702,6 +720,7 @@ static int pmic_adc_probe(struct platform_device *pdev)
 
 static const struct of_device_id pmic_adc_of_match[] = {
 	{ .compatible = "mediatek,mt6363-auxadc", .data = &mt6363_info, },
+	{ .compatible = "mediatek,mt6368-auxadc", .data = &mt6368_info, },
 	{ .compatible = "mediatek,mt6373-auxadc", .data = &mt6373_info, },
 	{ }
 };
