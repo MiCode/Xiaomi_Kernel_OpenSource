@@ -698,7 +698,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			desc_id = node->desc.id - MTK_RAW_RAWI_2_IN;
 			frame_param->img_ins[desc_id].buf[0].iova = buf->daddr;
 			frame_param->raw_param.hardware_scenario =
-				MTKCAM_IPI_HW_PATH_ON_THE_FLY_M2M_REINJECT;
+				MTKCAM_IPI_HW_PATH_ON_THE_FLY_M2M;
 		}
 		break;
 	case MTKCAM_IPI_RAW_IMGO:

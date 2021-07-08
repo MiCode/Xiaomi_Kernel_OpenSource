@@ -180,6 +180,7 @@ enum mtkcam_ipi_raw_path_control {
 	MTKCAM_IPI_IMGO_FULLY_PROCESSED = MTKCAM_IPI_IMGO_AFTER_LTM,
 };
 
+/* For LBIT_MODE G2 */
 enum mtkcam_ipi_sw_feature_control {
 	/* Normal */
 	MTKCAM_IPI_SW_FEATURE_NORMAL		= 0,
@@ -191,12 +192,13 @@ enum mtkcam_ipi_sw_feature_control {
 
 enum mtkcam_ipi_hw_path_control {
 	MTKCAM_IPI_HW_PATH_ON_THE_FLY				= 0,  /* TG direct link */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_M2M			= 1,  /* Mstream */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_M2M_REINJECT		= 2,  /* On device tuning */
-	MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER		= 3,  /* on the fly stagger */
-	MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER			= 4,  /* offline stagger */
-	MTKCAM_IPI_HW_PATH_OFFLINE_DCIF_STAGGER			= 5,  /* direct couple stagger */
-	MTKCAM_IPI_HW_PATH_OFFLINE_M2M				= 6,  /* SW trigger rawi */
+	MTKCAM_IPI_HW_PATH_ON_THE_FLY_M2M			= 1,  /* On device tuning */
+	MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE		= 2,  /* Mstreams */
+	MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE		= 3,  /* Mstreams */
+	MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER		= 4,  /* on the fly stagger */
+	MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER			= 5,  /* offline stagger */
+	MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER		= 6,  /* SRT direct couple */
+	MTKCAM_IPI_HW_PATH_OFFLINE_M2M				= 7,  /* SW trigger rawi */
 };
 
 enum mtkcam_ipi_meta_valid_num_control {
