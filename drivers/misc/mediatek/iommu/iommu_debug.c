@@ -82,6 +82,7 @@ struct mtk_iommu_port {
 };
 
 struct mtk_iommu_cb {
+	int port;
 	mtk_iommu_fault_callback_t fault_fn;
 	void *fault_data;
 };
@@ -2515,7 +2516,7 @@ void report_custom_iommu_fault(
 	u32 fault_id, enum mtk_iommu_type type,
 	int id)
 {
-	int idx, port;
+	int idx;
 	u32 port_nr = m4u_data->plat_data->port_nr[type];
 	const struct mtk_iommu_port *port_list;
 
@@ -2530,15 +2531,13 @@ void report_custom_iommu_fault(
 
 	/* Only MM_IOMMU support fault callback */
 	if (type == MM_IOMMU) {
-		port = MTK_M4U_ID(port_list[idx].larb_id,
-				  port_list[idx].port_id);
-		pr_info("error, tf report port:0x%x(%u--%u), idx:%d\n",
-			port, port_list[idx].larb_id,
+		pr_info("error, tf report larb-port:(%u--%u), idx:%d\n",
+			port_list[idx].larb_id,
 			port_list[idx].port_id, idx);
 
 		if (port_list[idx].enable_tf &&
 			m4u_data->m4u_cb[idx].fault_fn)
-			m4u_data->m4u_cb[idx].fault_fn(port,
+			m4u_data->m4u_cb[idx].fault_fn(m4u_data->m4u_cb[idx].port,
 			fault_iova, m4u_data->m4u_cb[idx].fault_data);
 	}
 
@@ -2566,6 +2565,7 @@ int mtk_iommu_register_fault_callback(int port,
 		idx);
 	if (is_vpu)
 		idx += m4u_data->plat_data->port_nr[type];
+	m4u_data->m4u_cb[idx].port = port;
 	m4u_data->m4u_cb[idx].fault_fn = fn;
 	m4u_data->m4u_cb[idx].fault_data = cb_data;
 
@@ -2584,6 +2584,7 @@ int mtk_iommu_unregister_fault_callback(int port, bool is_vpu)
 	}
 	if (is_vpu)
 		idx += m4u_data->plat_data->port_nr[type];
+	m4u_data->m4u_cb[idx].port = -1;
 	m4u_data->m4u_cb[idx].fault_fn = NULL;
 	m4u_data->m4u_cb[idx].fault_data = NULL;
 
