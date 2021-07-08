@@ -3392,7 +3392,7 @@
 
 			/* id, mbox, recv_size, recv_opt */
 			recv_table =
-				<0 0 1 0>,
+				<0 0 4 0>,
 				<1 0 22 0>,
 				<2 0 1 0>,
 				<3 0 1 0>,
@@ -3422,8 +3422,11 @@
 			interrupts = <GIC_SPI 548 IRQ_TYPE_LEVEL_HIGH 0>;
 			interrupt-names = "mbox0";
 
-			gpueb_mem_tbl = <0 0x180000>, /* logger 1.5MB */
-							<1 0x400000>; /* MPU table 4MB */
+			gpueb_mem_table = <0 0x180000>, /* 1.5MB */
+					<1 0x400000>; /* 4MB */
+
+			gpueb_mem_name_table = "MEM_ID_LOG", /* logger */
+					"MEM_ID_MPU"; /* MPU table */
 		};
 
 		gpufreq: gpufreq {
