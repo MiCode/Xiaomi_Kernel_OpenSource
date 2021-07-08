@@ -446,11 +446,12 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 	u32 tmp;
 
 	for_each_m4u(data) {
-		if (has_pm) {
+		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
 			// workaround
-			if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
-				pm_runtime_get_sync(data->dev) < 0)
+			if (pm_runtime_get_sync(data->dev) < 0) {
+				pm_runtime_put(data->dev);
 				continue;
+			}
 		}
 
 		spin_lock_irqsave(&data->tlb_lock, flags);
