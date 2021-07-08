@@ -17,7 +17,7 @@
 #include <linux/export.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
 #include <trace/hooks/iommu.h>
-#if 0 //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif
 #include "mtk_iommu.h"
@@ -39,7 +39,7 @@ enum mtk_iova_space {
 };
 
 static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
-#if 0 //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define m4u_aee_print(string, args...) do {\
 		char m4u_name[100];\
 		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
