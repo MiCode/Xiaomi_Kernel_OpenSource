@@ -1556,7 +1556,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		info.hw_buf_fd = buf->buf_fd;
 #endif
 		info.hw_buf = mtk_hcp_get_reserve_mem_phys(DIP_MEM_FOR_HW_ID);
-		/*WPE:0, TRAW:1, DIP:2, PQDIP:3*/
+		/*WPE:0, TRAW:1, DIP:2, PQDIP:3, ADL:4 */
 		info.module_info[0].c_wbuf =
 				mtk_hcp_get_reserve_mem_phys(WPE_MEM_C_ID);
 		info.module_info[0].c_wbuf_dma =
@@ -1569,7 +1569,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 				mtk_hcp_get_reserve_mem_dma(WPE_MEM_T_ID);
 		info.module_info[0].t_wbuf_sz =
 				mtk_hcp_get_reserve_mem_size(WPE_MEM_T_ID);
-		//
+
+		// TRAW
 		info.module_info[1].c_wbuf =
 				mtk_hcp_get_reserve_mem_phys(TRAW_MEM_C_ID);
 		info.module_info[1].c_wbuf_dma =
@@ -1582,7 +1583,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 				mtk_hcp_get_reserve_mem_dma(TRAW_MEM_T_ID);
 		info.module_info[1].t_wbuf_sz =
 				mtk_hcp_get_reserve_mem_size(TRAW_MEM_T_ID);
-		//
+
+		// DIP
 		info.module_info[2].c_wbuf =
 				mtk_hcp_get_reserve_mem_phys(DIP_MEM_C_ID);
 		info.module_info[2].c_wbuf_dma =
@@ -1595,7 +1597,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 				mtk_hcp_get_reserve_mem_dma(DIP_MEM_T_ID);
 		info.module_info[2].t_wbuf_sz =
 				mtk_hcp_get_reserve_mem_size(DIP_MEM_T_ID);
-		//
+
+		// PQDIP
 		info.module_info[3].c_wbuf =
 				mtk_hcp_get_reserve_mem_phys(PQDIP_MEM_C_ID);
 		info.module_info[3].c_wbuf_dma =
@@ -1608,6 +1611,21 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 				mtk_hcp_get_reserve_mem_dma(PQDIP_MEM_T_ID);
 		info.module_info[3].t_wbuf_sz =
 				mtk_hcp_get_reserve_mem_size(PQDIP_MEM_T_ID);
+
+		// ADL
+		info.module_info[4].c_wbuf =
+				mtk_hcp_get_reserve_mem_phys(ADL_MEM_C_ID);
+		info.module_info[4].c_wbuf_dma =
+				mtk_hcp_get_reserve_mem_dma(ADL_MEM_C_ID);
+		info.module_info[4].c_wbuf_sz =
+				mtk_hcp_get_reserve_mem_size(ADL_MEM_C_ID);
+		info.module_info[4].t_wbuf =
+				mtk_hcp_get_reserve_mem_phys(ADL_MEM_T_ID);
+		info.module_info[4].t_wbuf_dma =
+				mtk_hcp_get_reserve_mem_dma(ADL_MEM_T_ID);
+		info.module_info[4].t_wbuf_sz =
+				mtk_hcp_get_reserve_mem_size(ADL_MEM_T_ID);
+
 		/*common*/
 		/* info.g_wbuf_fd = mtk_hcp_get_reserve_mem_fd(IMG_MEM_G_ID); */
 		info.g_wbuf = mtk_hcp_get_reserve_mem_phys(IMG_MEM_G_ID);

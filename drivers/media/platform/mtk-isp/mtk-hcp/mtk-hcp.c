@@ -799,6 +799,32 @@ phys_addr_t mtk_hcp_mem_size;
 		.pIonHandle = NULL
 	},
 	{
+		.num = ADL_MEM_C_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x100000,   /*1MB*/
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL
+	},
+	{
+		.num = ADL_MEM_T_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x100000,   /*1MB*/
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL
+	},
+	{
 		.num = IMG_MEM_G_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,

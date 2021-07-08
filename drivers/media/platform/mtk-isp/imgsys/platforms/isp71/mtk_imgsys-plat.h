@@ -45,6 +45,10 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 	{
 		.id = "WPE_CG_WPE_WPE",
 	},
+  // TBD: ADL clock
+	//{
+	//	.id = "IMGSYS_CG_IMG_ADL",
+	//},
 };
 
 #define MTK_IMGSYS_CLK_NUM	ARRAY_SIZE(imgsys_isp7_clks)

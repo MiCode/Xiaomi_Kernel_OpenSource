@@ -16,6 +16,7 @@
 #include "modules/mtk_imgsys-pqdip.h"
 #include "modules/mtk_imgsys-wpe.h"
 #include "modules/mtk_imgsys-me.h"
+#include "modules/mtk_imgsys-adl.h"
 
 const struct module_ops imgsys_isp7_modules[] = {
 	[IMGSYS_MOD_TRAW] = {
@@ -44,6 +45,12 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.init = imgsys_wpe_set_initial_value,
 		.dump = imgsys_wpe_debug_dump,
 		.uninit = imgsys_wpe_uninit,
+	},
+	[IMGSYS_MOD_ADL] = {
+		.module_id = IMGSYS_MOD_ADL,
+		.init = imgsys_adl_init,
+		.dump = imgsys_adl_debug_dump,
+		.uninit = imgsys_adl_uninit,
 	},
 };
 #define MTK_IMGSYS_MODULE_NUM	ARRAY_SIZE(imgsys_isp7_modules)

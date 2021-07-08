@@ -25,8 +25,8 @@ platforms/isp71/modules/mtk_imgsys-dip.o \
 platforms/isp71/modules/mtk_imgsys-traw.o \
 platforms/isp71/modules/mtk_imgsys-pqdip.o \
 platforms/isp71/modules/mtk_imgsys-wpe.o \
-platforms/isp71/modules/mtk_imgsys-me.o
-
+platforms/isp71/modules/mtk_imgsys-me.o \
+platforms/isp71/modules/mtk_imgsys-adl.o
 
 mtk_imgsys_v4l2-objs :=\
 mtk_imgsys_util.o \

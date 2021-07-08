@@ -199,6 +199,8 @@ enum mtk_hcp_reserve_mem_id_t {
 	DIP_MEM_T_ID,	/*module tdr buffer*/
 	PQDIP_MEM_C_ID,	/*module cq buffer*/
 	PQDIP_MEM_T_ID,	/*module tdr buffer*/
+	ADL_MEM_C_ID,	/*module cq buffer*/
+	ADL_MEM_T_ID,	/*module tdr buffer*/
 	IMG_MEM_G_ID,	/*gce cmd buffer*/
 	NUMS_MEM_ID,
 };
