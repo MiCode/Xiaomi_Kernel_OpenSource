@@ -56,7 +56,7 @@
 static unsigned int __gpufreq_custom_init_enable(void);
 static unsigned int __gpufreq_dvfs_enable(void);
 static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
-static void __gpufreq_dump_bringup_status(void);
+static void __gpufreq_dump_bringup_status(struct platform_device *pdev);
 static void __gpufreq_measure_power(enum gpufreq_target target);
 static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx);
 static void __gpufreq_set_regulator_mode(enum gpufreq_target target, unsigned int mode);
@@ -328,7 +328,7 @@ static struct platform_driver g_gpufreq_mtcmos_pdrv = {
 };
 
 static void __iomem *g_mfg_pll_base;
-static void __iomem *g_mfg_scpll_base;
+static void __iomem *g_mfgsc_pll_base;
 static void __iomem *g_mfg_rpc_base;
 static void __iomem *g_mfg_top_base;
 static void __iomem *g_sleep;
@@ -2490,30 +2490,37 @@ done:
 /*
  * API: dump power/clk status when bring-up
  */
-static void __gpufreq_dump_bringup_status(void)
+static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 {
+	struct device_node *of_gpufreq = pdev->dev.of_node;
+
 	/* only dump when bringup */
 	if (!__gpufreq_bringup())
 		return;
 
+	if (!of_gpufreq) {
+		GPUFREQ_LOGE("fail to find gpufreq of_node (ENOENT)");
+		goto done;
+	}
+
 	/* 0x13FA0000 */
-	g_mfg_pll_base = __gpufreq_of_ioremap("mediatek,mfg_pll", 0);
+	g_mfg_pll_base = of_iomap(of_gpufreq, 0);
 	if (!g_mfg_pll_base) {
 		GPUFREQ_LOGE("fail to ioremap mfg_pll (ENOENT)");
 		goto done;
 	}
 
 	/* 0x13FA0C00 */
-	g_mfg_scpll_base = __gpufreq_of_ioremap("mediatek,mfg_scpll", 0);
-	if (!g_mfg_scpll_base) {
-		GPUFREQ_LOGE("fail to ioremap mfg_pll (ENOENT)");
+	g_mfgsc_pll_base = of_iomap(of_gpufreq, 1);
+	if (!g_mfgsc_pll_base) {
+		GPUFREQ_LOGE("fail to ioremap mfgsc_pll (ENOENT)");
 		goto done;
 	}
 
 	/* 0x10006000 */
-	g_sleep = __gpufreq_of_ioremap("mediatek,sleep", 0);
+	g_sleep = of_iomap(of_gpufreq, 4);
 	if (!g_sleep) {
-		GPUFREQ_LOGE("fail to ioremap SLEEP (ENOENT)");
+		GPUFREQ_LOGE("fail to ioremap sleep (ENOENT)");
 		goto done;
 	}
 
@@ -2528,6 +2535,8 @@ static void __gpufreq_dump_bringup_status(void)
 		readl(g_sleep + PWR_STATUS_2ND_OFS) & MFG_0_18_PWR_MASK);
 	GPUFREQ_LOGI("[MFGPLL] FMETER: %d CON1: %d",
 		__gpufreq_get_fmeter_fgpu(), __gpufreq_get_real_fgpu());
+	GPUFREQ_LOGI("[MFGSCPLL] FMETER: %d CON1: %d",
+		__gpufreq_get_fmeter_fstack(), __gpufreq_get_real_fstack());
 
 done:
 	return;
@@ -4372,60 +4381,63 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 
 	/* return error should be handled */
 	/* 0x13FA0000 */
-	g_mfg_pll_base = __gpufreq_of_ioremap("mediatek,mfg_pll", 0);
+	g_mfg_pll_base = of_iomap(of_gpufreq, 0);
 	if (!g_mfg_pll_base) {
-		GPUFREQ_LOGE("fail to ioremap mfg_pll (ENOENT)");
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap mfg_pll (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
 	/* 0x13FA0C00 */
-	g_mfg_scpll_base = __gpufreq_of_ioremap("mediatek,mfg_scpll", 0);
-	if (!g_mfg_scpll_base) {
-		GPUFREQ_LOGE("fail to ioremap mfg_pll (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	/* 0x13F90000 */
-	g_mfg_rpc_base = __gpufreq_of_ioremap("mediatek,mfg_rpc", 0);
-	if (!g_mfg_rpc_base) {
-		GPUFREQ_LOGE("fail to ioremap mfg_rpc (ENOENT)");
+	g_mfgsc_pll_base = of_iomap(of_gpufreq, 1);
+	if (!g_mfgsc_pll_base) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap mfgsc_pll (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
 	/* 0x13FBF000 */
-	g_mfg_top_base = __gpufreq_of_ioremap("mediatek,g3d_config", 0);
+	g_mfg_top_base = of_iomap(of_gpufreq, 2);
 	if (!g_mfg_top_base) {
-		GPUFREQ_LOGE("fail to ioremap g3d_config (ENOENT)");
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap mfg_top_config (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	/* 0x13F90000 */
+	g_mfg_rpc_base = of_iomap(of_gpufreq, 3);
+	if (!g_mfg_rpc_base) {
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap mfg_rpc (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
 	/* 0x10006000 */
-	g_sleep = __gpufreq_of_ioremap("mediatek,sleep", 0);
+	g_sleep = of_iomap(of_gpufreq, 4);
 	if (!g_sleep) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap sleep (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
-	g_infracfg_base = of_iomap(of_gpufreq, 0);
+	/* 0x1020E000 */
+	g_infracfg_base = of_iomap(of_gpufreq, 5);
 	if (!g_infracfg_base) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap infracfg (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
-	g_infra_bpi_bsi_slv0 = of_iomap(of_gpufreq, 1);
+	/* 0x1021E000 */
+	g_infra_bpi_bsi_slv0 = of_iomap(of_gpufreq, 6);
 	if (!g_infra_bpi_bsi_slv0) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap bpi_bsi_slv0 (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
-	g_infra_peri_debug1 = of_iomap(of_gpufreq, 2);
+	/* 0x10022000 */
+	g_infra_peri_debug1 = of_iomap(of_gpufreq, 7);
 	if (!g_infra_peri_debug1) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug1 (ENOENT)");
@@ -4433,7 +4445,8 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	g_infra_peri_debug2 = of_iomap(of_gpufreq, 3);
+	/* 0x10023000 */
+	g_infra_peri_debug2 = of_iomap(of_gpufreq, 8);
 	if (!g_infra_peri_debug2) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug2 (ENOENT)");
@@ -4441,7 +4454,8 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	g_infra_peri_debug3 = of_iomap(of_gpufreq, 4);
+	/* 0x10024000 */
+	g_infra_peri_debug3 = of_iomap(of_gpufreq, 9);
 	if (!g_infra_peri_debug3) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug3 (ENOENT)");
@@ -4449,7 +4463,8 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	g_infra_peri_debug4 = of_iomap(of_gpufreq, 5);
+	/* 0x10025000 */
+	g_infra_peri_debug4 = of_iomap(of_gpufreq, 10);
 	if (!g_infra_peri_debug4) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug4 (ENOENT)");
@@ -4458,58 +4473,43 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 
 #if GPUFREQ_AVS_ENABLE
-	/*
-	 * todo:
-     * 1. Add reg of 0x11EE_05D4 for ioremap - g_avs_efuse_base
-	 * 2. Correct the idx of __gpufreq_of_ioremap
-	 */
-	g_avs_efuse_base = of_iomap(of_gpufreq, 6);
+	/* 0x11EE05D4 */
+	g_avs_efuse_base = of_iomap(of_gpufreq, 11);
 	if (!g_avs_efuse_base) {
-		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
-			"fail to ioremap avs_efuse (ENOENT)");
+		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION, "fail to ioremap avs_efuse (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-#endif
+#endif /* GPUFREQ_AVS_ENABLE */
 
 #if GPUFREQ_ASENSOR_ENABLE
-	/*
-	 * todo:
-	 * 1. Add reg = <0 0x13FB9C00 0 0x100> for ioremap
-	 * 2. Correct the idx of __gpufreq_of_ioremap
-	 */
-	g_mfg_cpe_control_base = of_iomap(of_gpufreq, 7);
+	/* 0x13FB9C00 */
+	g_mfg_cpe_control_base = of_iomap(of_gpufreq, 12);
 	if (!g_mfg_cpe_control_base) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
 			"fail to ioremap mfg_cpe_control (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-	/*
-	 * todo:
-	 * 1. Add reg = <0 0x13FB6000 0 0x1000> for ioremap
-	 * 2. Correct the idx of __gpufreq_of_ioremap
-	 */
-	g_mfg_cpe_sensor_base = of_iomap(of_gpufreq, 8);
+
+	/* 0x13FB6000 */
+	g_mfg_cpe_sensor_base = of_iomap(of_gpufreq, 13);
 	if (!g_mfg_cpe_sensor_base) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
-			"fail to ioremap cpe_sensor (ENOENT)");
+			"fail to ioremap mfg_cpe_sensor (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-	/*
-	 * todo:
-	 * 1. Add reg = <0 0x11EE0000 0 0x1000> for ioremap
-	 * 2. Correct the idx of __gpufreq_of_ioremap
-	 */
-	g_cpe_0p65v_rt_blow_base = of_iomap(of_gpufreq, 9);
+
+	/* 0x11EE0000 */
+	g_cpe_0p65v_rt_blow_base = of_iomap(of_gpufreq, 14);
 	if (!g_cpe_0p65v_rt_blow_base) {
 		__gpufreq_abort(GPUFREQ_FREQ_EXCEPTION,
 			"fail to ioremap cpe_0p65v_rt_blow (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-#endif
+#endif /* GPUFREQ_ASENSOR_ENABLE */
 
 done:
 	GPUFREQ_TRACE_END();
@@ -4527,7 +4527,7 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* keep probe successful but do nothing when bringup */
 	if (__gpufreq_bringup()) {
 		GPUFREQ_LOGI("skip gpufreq platform driver probe when bringup");
-		__gpufreq_dump_bringup_status();
+		__gpufreq_dump_bringup_status(pdev);
 		goto done;
 	}
 

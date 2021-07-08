@@ -52,7 +52,7 @@
 #define MFGPLL_FIN                      (26)            /* MHz */
 #define MFGPLL_FH_PLL                   FH_PLL6
 #define MFGPLL_GPU_CON1                 (g_mfg_pll_base + 0x00C)
-#define MFGPLL_STACK_CON1               (g_mfg_scpll_base + 0x00C)
+#define MFGPLL_STACK_CON1               (g_mfgsc_pll_base + 0x00C)
 #define PWR_STATUS_OFS                  (0xF3C)
 #define PWR_STATUS_2ND_OFS              (0xF40)
 #define MFG_0_1_PWR_MASK                (0x6)           /* 0000 0000 0000 0000 0110 */
