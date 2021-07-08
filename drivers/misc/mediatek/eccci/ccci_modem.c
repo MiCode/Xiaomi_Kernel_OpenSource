@@ -32,16 +32,7 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
-
-#ifdef mtk09077
-#include <memory-amms.h>
-#endif
 #include "mt-plat/mtk_ccci_common.h"
-
-#if defined(ENABLE_32K_CLK_LESS)
-//#include <mt-plat/mtk_rtc.h>
-#include "ccci_rtc.h"
-#endif
 
 #define TAG "md"
 
@@ -728,10 +719,6 @@ void ccci_md_config(struct ccci_modem *md)
 
 	unsigned int md_resv_mem_size = 0,
 		md_resv_smem_size = 0, md1_md3_smem_size = 0;
-#ifdef mtk09077
-	int amms_pos_size = 0;
-	phys_addr_t bank4_phy_addr;
-#endif
 
 	/* setup config */
 	md->per_md_data.config.load_type = get_md_img_type(md->index);
@@ -774,24 +761,7 @@ void ccci_md_config(struct ccci_modem *md)
 			= md1_md3_smem_phy;
 	md->mem_layout.md_bank4_noncacheable_total.size
 			= md_resv_smem_size + md1_md3_smem_size;
-#ifdef mtk09077
-	/* re-alloc smem for amms */
-	amms_pos_size = get_smem_amms_pos_size(MD_SYS1);
-	if (amms_pos_size > 0) {
-		bank4_phy_addr = amms_cma_allocate(md_resv_smem_size);
-		CCCI_BOOTUP_LOG(-1, TAG,
-			"AMMS get phy non-cache mem addr 0x%llx with size:0x%x\r\n",
-			(unsigned long long)bank4_phy_addr,
-			md_resv_smem_size);
-		if (bank4_phy_addr != md_resv_smem_addr) {
-			CCCI_ERROR_LOG(-1, TAG,
-				"AMMS ret memory[0x%llx] miss sync with LK alloc[0x%llx]",
-				(unsigned long long)bank4_phy_addr,
-				(unsigned long long)md_resv_smem_addr);
-			return;
-		}
-	}
-#endif
+
 	md->mem_layout.md_bank4_noncacheable_total.base_ap_view_vir =
 		ccci_map_phy_addr(
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
@@ -1553,22 +1523,11 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[MULTI_MD_MPU].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
 
-#ifdef ENABLE_32K_CLK_LESS
-	if (mtk_crystal_exist_status()) {
-		CCCI_DEBUG_LOG(md->index, TAG,
-			"MISC_32K_LESS no support, mtk_crystal_exist_status 1\n");
-		md_feature->feature_set[MISC_INFO_RTC_32K_LESS].support_mask
-			= CCCI_FEATURE_NOT_SUPPORT;
-	} else {
-		CCCI_DEBUG_LOG(md->index, TAG, "MISC_32K_LESS support\n");
-		md_feature->feature_set[MISC_INFO_RTC_32K_LESS].support_mask
-			= CCCI_FEATURE_MUST_SUPPORT;
-	}
-#else
-	CCCI_DEBUG_LOG(md->index, TAG, "ENABLE_32K_CLK_LESS disabled\n");
+	/* default always support MISC_INFO_RTC_32K_LESS */
+	CCCI_DEBUG_LOG(md->index, TAG, "MISC_32K_LESS support\n");
 	md_feature->feature_set[MISC_INFO_RTC_32K_LESS].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-#endif
+		= CCCI_FEATURE_MUST_SUPPORT;
+
 	md_feature->feature_set[MISC_INFO_RANDOM_SEED_NUM].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
 	md_feature->feature_set[MISC_INFO_GPS_COCLOCK].support_mask
