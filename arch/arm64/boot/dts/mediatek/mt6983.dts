@@ -1844,6 +1844,38 @@
 		reg = <0 0x10225000 0 0x1000>;
 	};
 
+	pwm@11008000 {
+		compatible = "mediatek,pwm";
+		reg = <0 0x11008000 0 0x1000>;
+		interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK1_CG>,
+			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK2_CG>,
+			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK3_CG>,
+			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK4_CG>,
+			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_HCLK_CG>,
+			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_BCLK_CG>;
+
+		clock-names = "PWM1-main",
+			"PWM2-main",
+			"PWM3-main",
+			"PWM4-main",
+			"PWM-HCLK-main",
+			"PWM-main";
+
+		/* 1. pwm infraclk control reg offset */
+		mediatek,pwm-infraclk-ctl-reg = <0x410>;
+		/* 2. pwm bclk sw ctrl offset */
+		mediatek,pwm-bclk-sw-ctrl-offset = <12>;
+
+		infracfg = <&infracfg_ao_clk>;
+	};
+
+	irtx_pwm:irtx_pwm {
+		compatible = "mediatek,irtx-pwm";
+		pwm_ch = <3>;
+		pwm_data_invert = <0>;
+	};
+
 	mtk_iommu_debug {
 			compatible = "mediatek,mt6983-iommu-debug";
 	};
