@@ -42,22 +42,27 @@ static const struct proc_ops __fops = {					  \
 }									  \
 
 enum DMABUF_HEAP {
-	TEST_REQ_SVP_REGION,
-	TEST_REQ_PROT_REGION0,
-	TEST_REQ_PROT_REGION1,
-	TEST_REQ_PROT_REGION2,
-	TEST_REQ_WFD,
-	TEST_REQ_HAPP,
-	TEST_REQ_HAPP_EXTRA,
-	TEST_REQ_SDSP,
-	TEST_REQ_SDSP_SHARED,
-	TEST_REQ_2D_FR,
-	TEST_REQ_TUI,
-	TEST_REQ_SVP_PAGE,
-	TEST_REQ_PROT_PAGE,
-	TEST_REQ_SAPU_DATA_SHM,
-	TEST_REQ_SAPU_ENGINE_SHM,
-	TEST_MTK_NORMAL,
+	TEST_REQ_SVP_REGION, /* 0 normal region */
+	TEST_REQ_SVP_REGION_ALIGN, /* 1 special region */
+	TEST_REQ_SVP_REGION_PA, /* 2 PA */
+	TEST_REQ_PROT_REGION, /* 3 normal region */
+	TEST_REQ_PROT_REGION_ALIGN, /* 4 special region */
+	TEST_REQ_PROT_REGION_PA, /* 5 PA */
+	TEST_REQ_SVP_PAGE0, /* 6 normal region */
+	TEST_REQ_SVP_PAGE1, /* 7 special region */
+	TEST_REQ_SVP_PAGE2, /* 8 PA */
+	TEST_REQ_PROT_PAGE0, /* 9 normal region */
+	TEST_REQ_PROT_PAGE1, /* a special region */
+	TEST_REQ_PROT_PAGE2, /* b PA */
+	TEST_PROT_2D_FR_REGION, /* c */
+	TEST_PROT_2D_FR_REGION_ALIGN, /* d */
+	TEST_SAPU_DATA_SHM_REGION, /* e */
+	TEST_SAPU_DATA_SHM_REGION_ALIGN, /* 10 */
+	TEST_SAPU_ENGINE_SHM_REGION, /* 11 */
+	TEST_SAPU_ENGINE_SHM_REGION_ALIGN, /* 12 */
+	TEST_WFD_REGION, /* 13 */
+	TEST_WFD_REGION_ALIGN, /* 14 */
+	TEST_MTK_NORMAL, /*15 */
 	TEST_MTK_HEAP_NUM
 };
 
@@ -71,61 +76,81 @@ static struct heap_name heap_obj[] = {
 		.id = TEST_REQ_SVP_REGION,
 		.name = "svp_region_heap",
 	},
-	[TEST_REQ_PROT_REGION0] = {
-		.id = TEST_REQ_PROT_REGION0,
-		.name = "prot_region_heap0",
+	[TEST_REQ_SVP_REGION_ALIGN] = {
+		.id = TEST_REQ_SVP_REGION_ALIGN,
+		.name = "svp_region_heap-aligned",
 	},
-	[TEST_REQ_PROT_REGION1] = {
-		.id = TEST_REQ_PROT_REGION1,
-		.name = "prot_region_heap1",
+	[TEST_REQ_SVP_REGION_PA] = {
+		.id = TEST_REQ_SVP_REGION_PA,
+		.name = "svp_region_heap-PA",
 	},
-	[TEST_REQ_PROT_REGION2] = {
-		.id = TEST_REQ_PROT_REGION2,
-		.name = "prot_region_heap2",
+	[TEST_REQ_PROT_REGION] = {
+		.id = TEST_REQ_PROT_REGION,
+		.name = "prot_region_heap",
 	},
-	[TEST_REQ_WFD] = {
-		.id = TEST_REQ_WFD,
-		.name = "wfd_heap",
+	[TEST_REQ_PROT_REGION_ALIGN] = {
+		.id = TEST_REQ_PROT_REGION_ALIGN,
+		.name = "prot_region_heap-align",
 	},
-	[TEST_REQ_HAPP] = {
-		.id = TEST_REQ_HAPP,
-		.name = "happ_heap",
+	[TEST_REQ_PROT_REGION_PA] = {
+		.id = TEST_REQ_PROT_REGION_PA,
+		.name = "prot_region_heap-PA",
 	},
-	[TEST_REQ_HAPP_EXTRA] = {
-		.id = TEST_REQ_HAPP_EXTRA,
-		.name = "happ_extra_heap",
+	[TEST_REQ_SVP_PAGE0] = {
+		.id = TEST_REQ_SVP_PAGE0,
+		.name = "svp_page_heap0",
 	},
-	[TEST_REQ_SDSP] = {
-		.id = TEST_REQ_SDSP,
-		.name = "sdsp_heap",
+	[TEST_REQ_SVP_PAGE1] = {
+		.id = TEST_REQ_SVP_PAGE1,
+		.name = "svp_page_heap1",
 	},
-	[TEST_REQ_SDSP_SHARED] = {
-		.id = TEST_REQ_SDSP_SHARED,
-		.name = "sdsp_shared_heap",
+	[TEST_REQ_SVP_PAGE2] = {
+		.id = TEST_REQ_SVP_PAGE2,
+		.name = "svp_page_heap2",
 	},
-	[TEST_REQ_2D_FR] = {
-		.id = TEST_REQ_2D_FR,
-		.name = "2D_FR_heap",
+	[TEST_REQ_PROT_PAGE0] = {
+		.id = TEST_REQ_PROT_PAGE0,
+		.name = "prot_page_heap0",
 	},
-	[TEST_REQ_TUI] = {
-		.id = TEST_REQ_TUI,
-		.name = "TUI_heap",
+	[TEST_REQ_PROT_PAGE1] = {
+		.id = TEST_REQ_PROT_PAGE1,
+		.name = "prot_page_heap1",
 	},
-	[TEST_REQ_SVP_PAGE] = {
-		.id = TEST_REQ_SVP_PAGE,
-		.name = "svp_page_heap",
+	[TEST_REQ_PROT_PAGE2] = {
+		.id = TEST_REQ_PROT_PAGE2,
+		.name = "prot_page_heap2",
 	},
-	[TEST_REQ_PROT_PAGE] = {
-		.id = TEST_REQ_PROT_PAGE,
-		.name = "prot_page_heap",
+	[TEST_PROT_2D_FR_REGION] = {
+		.id = TEST_PROT_2D_FR_REGION,
+		.name = "prot_2d_fr_region",
 	},
-	[TEST_REQ_SAPU_DATA_SHM] = {
-		.id = TEST_REQ_SAPU_DATA_SHM,
-		.name = "sapu_data_shm_heap",
+	[TEST_PROT_2D_FR_REGION_ALIGN] = {
+		.id = TEST_PROT_2D_FR_REGION_ALIGN,
+		.name = "prot_2d_fr_region-aligned",
 	},
-	[TEST_REQ_SAPU_ENGINE_SHM] = {
-		.id = TEST_REQ_SAPU_ENGINE_SHM,
-		.name = "sapu_engine_shm_heap",
+	[TEST_SAPU_DATA_SHM_REGION] = {
+		.id = TEST_SAPU_DATA_SHM_REGION,
+		.name = "sapu_data_shm_region",
+	},
+	[TEST_SAPU_DATA_SHM_REGION_ALIGN] = {
+		.id = TEST_SAPU_DATA_SHM_REGION_ALIGN,
+		.name = "sapu_data_shm_region-aligned",
+	},
+	[TEST_SAPU_ENGINE_SHM_REGION] = {
+		.id = TEST_SAPU_ENGINE_SHM_REGION,
+		.name = "sapu_engine_shm_region",
+	},
+	[TEST_SAPU_ENGINE_SHM_REGION_ALIGN] = {
+		.id = TEST_SAPU_ENGINE_SHM_REGION_ALIGN,
+		.name = "sapu_engine_shm_region-aligned",
+	},
+	[TEST_WFD_REGION] = {
+		.id = TEST_WFD_REGION,
+		.name = "wfd_region",
+	},
+	[TEST_WFD_REGION_ALIGN] = {
+		.id = TEST_WFD_REGION_ALIGN,
+		.name = "wfd_region-aligned",
 	},
 	[TEST_MTK_NORMAL] = {
 		.id = TEST_MTK_NORMAL,
@@ -165,8 +190,8 @@ static struct iommu_test_debug_data *debug_data;
 static struct dmabuf_data dmabuf_data_obj[TEST_MTK_HEAP_NUM];
 
 static int dmabuf_id, attach_id;
-static size_t test_size = (6 * 1024 * 1024);
-static enum DMABUF_HEAP test_heap = TEST_REQ_PROT_REGION0;//MTK_NORMAL;
+static size_t test_size = 0x1800; //6K
+static enum DMABUF_HEAP test_heap = TEST_REQ_PROT_REGION;
 
 static struct dmabuf_map *dmabuf_map_alloc(int id)
 {
@@ -369,27 +394,123 @@ static void dmabuf_heap_alloc_test(size_t size, enum DMABUF_HEAP heap, int buf_i
 			return;
 		}
 		break;
-	case TEST_REQ_PROT_REGION0:
-		data_obj = &dmabuf_data_obj[TEST_REQ_PROT_REGION0];
+	case TEST_REQ_SVP_REGION:
+	case TEST_REQ_SVP_REGION_PA:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_svp_region-uncached");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_svp_region-uncached failed!!\n", __func__);
+			return;
+		}
+		break;
+	case TEST_REQ_SVP_REGION_ALIGN:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_svp_region-uncached-aligned");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_svp_region-uncached-aligned failed!!\n", __func__);
+			return;
+		}
+		break;
+	case TEST_REQ_PROT_REGION:
+	case TEST_REQ_PROT_REGION_PA:
+		data_obj = &dmabuf_data_obj[heap];
 		data_obj->heap = dma_heap_find("mtk_prot_region-uncached");
 		if (!data_obj->heap) {
 			pr_info("%s, find mtk_prot_region-uncached failed!!\n", __func__);
 			return;
 		}
 		break;
-	case TEST_REQ_PROT_REGION1:
-		data_obj = &dmabuf_data_obj[TEST_REQ_PROT_REGION1];
-		data_obj->heap = dma_heap_find("mtk_prot_region-uncached");
+	case TEST_REQ_PROT_REGION_ALIGN:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_prot_region-uncached-aligned");
 		if (!data_obj->heap) {
-			pr_info("%s, find mtk_prot_region-uncached failed!!\n", __func__);
+			pr_info("%s, find mtk_prot_region-uncached-aligned failed!!\n", __func__);
 			return;
 		}
 		break;
-	case TEST_REQ_PROT_REGION2:
-		data_obj = &dmabuf_data_obj[TEST_REQ_PROT_REGION2];
-		data_obj->heap = dma_heap_find("mtk_prot_region-uncached");
+	case TEST_REQ_SVP_PAGE0:
+	case TEST_REQ_SVP_PAGE1:
+	case TEST_REQ_SVP_PAGE2:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_svp_page-uncached");
 		if (!data_obj->heap) {
-			pr_info("%s, find mtk_prot_region-uncached failed!!\n", __func__);
+			pr_info("%s, find mtk_svp_page-uncached failed!!\n", __func__);
+			return;
+		}
+		break;
+	case TEST_REQ_PROT_PAGE0:
+	case TEST_REQ_PROT_PAGE1:
+	case TEST_REQ_PROT_PAGE2:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_prot_page-uncached");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_svp_page-uncached failed!!\n", __func__);
+			return;
+		}
+		break;
+	case TEST_PROT_2D_FR_REGION:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_2d_fr_region-uncached");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_2d_fr_region-uncached failed!!\n", __func__);
+			return;
+		}
+		break;
+	case TEST_PROT_2D_FR_REGION_ALIGN:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_2d_fr_region-uncached-aligned");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_2d_fr_region-uncached-aligned failed!!\n", __func__);
+			return;
+		}
+		break;
+	case TEST_SAPU_DATA_SHM_REGION:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_sapu_data_shm_region-uncached");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_sapu_data_shm_region-uncached failed!!\n", __func__);
+			return;
+		}
+		break;
+	case TEST_SAPU_DATA_SHM_REGION_ALIGN:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_sapu_data_shm_region-uncached-aligned");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_sapu_data_shm_region-uncached-aligned failed!!\n",
+				__func__);
+			return;
+		};
+	case TEST_SAPU_ENGINE_SHM_REGION:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_sapu_engine_shm_region-uncached");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_sapu_engine_shm_region-uncached failed!!\n",
+				__func__);
+			return;
+		}
+		break;
+	case TEST_SAPU_ENGINE_SHM_REGION_ALIGN:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_sapu_engine_shm_region-uncached-aligned");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_sapu_engine_shm_region-uncached-aligned failed!!\n",
+				__func__);
+			return;
+		}
+		break;
+	case TEST_WFD_REGION:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_wfd_region-uncached");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_wfd_region-uncached failed!!\n", __func__);
+			return;
+		}
+		break;
+	case TEST_WFD_REGION_ALIGN:
+		data_obj = &dmabuf_data_obj[heap];
+		data_obj->heap = dma_heap_find("mtk_wfd_region-uncached-aligned");
+		if (!data_obj->heap) {
+			pr_info("%s, find mtk_wfd_region-uncached-aligned failed!!\n", __func__);
 			return;
 		}
 		break;
@@ -448,7 +569,9 @@ static void dmabuf_map_iova(enum DMABUF_HEAP heap, int buf_id, int attach_id)
 	struct device *dev = dmabuf_data_obj[heap].dev;
 	struct dma_buf_attachment *attach;
 	struct sg_table *table;
-
+#ifdef SECURE_HANDLE_TEST
+	u32 sec_handle;
+#endif
 	pr_info("%s start, heap:%s(%d), dev:%s\n", __func__,
 		heap_obj[heap].name, heap, dev_name(dev));
 
@@ -459,7 +582,15 @@ static void dmabuf_map_iova(enum DMABUF_HEAP heap, int buf_id, int attach_id)
 			__func__, dma_heap_get_name(dmabuf_data_obj[heap].heap));
 		return;
 	}
-
+#ifdef SECURE_HANDLE_TEST
+	/* get secure handle */
+	sec_handle = dmabuf_to_secure_handle(info_obj->dmabuf);
+	if (!sec_handle)
+		pr_info("%s get secure handle failed, heap:%s\n", __func__, heap_obj[heap].name);
+	else
+		pr_info("%s get secure handle(%u) success, heap:%s\n", __func__,
+			sec_handle, heap_obj[heap].name);
+#endif
 	ret = check_attach_id(info_obj, attach_id);
 	if (ret) {
 		pr_info("%s failed, attach_id can not be used:%d\n", __func__, attach_id);
@@ -618,9 +749,9 @@ static struct cmd_name test_cmd_name[] = {
  * step-2. map dmabuf_id = 0 to iova by attach_id=0 and use prot_region_heap0
  * step-3. use prot_region_heap1(non-normal region) to alloc one buffer by dmabuf_id = 0
  * step-4. use prot_region_heap1 to map dmabuf_id = 0 to iova by attach_id=0
- * ---> check: non-normal region mapping must be run dma_map_sgtable
+ * ---> check: special region mapping must be run dma_map_sgtable
  * step-5. use prot_region_heap1 to free dmabuf_id = 0
- * ---> check: non-normal region unmap must be run dma_unmap_sgtable
+ * ---> check: special region unmap must be run dma_unmap_sgtable
  *
  *
  * UT-4: non-normal iova region 1MB align check   --> pass
@@ -628,7 +759,7 @@ static struct cmd_name test_cmd_name[] = {
  * step-2. use prot_region_heap0(normal region) to alloc one buffer by dmabuf_id = 0
  * step-3. use prot_region_heap0 to map dmabuf_id = 0 to iova by attach_id = 0
  * ---> check: size be aligned to 0x4000 and map success
- * step-4. use prot_region_heap1(non-normal region) to alloc one buffer by dmabuf_id = 0
+ * step-4. use prot_region_heap1(special region) to alloc one buffer by dmabuf_id = 0
  * step-5. use prot_region_heap1 to map dmabuf_id = 0 to iova by attach_id = 0
  * ---> check: map fail because of not 1MB align
  *
@@ -639,6 +770,26 @@ static struct cmd_name test_cmd_name[] = {
  * ---> check: run non-iommu mapping pass
  * step-3. unmap dmabuf_id by attach_id=0
  * ---> check: run non-iommu unmap pass
+ *
+ *
+ * UT-6: 1MB alignment test   --> pass
+ * step-1. use prot_region_heap0(normal region) alloc 6KB by dmabuf_id = 0,1
+ * ---> check: 6K align to 8k, PA may be 1MB align
+ * step-2. use prot_region_heap0 map dmabuf_id = 0,1 by attach_id=0,1
+ * ----> check: heap_region is mapped, and can return buffer iova
+ * step-3. use prot_region_heap1(special region) alloc 6KB by dmabuf_id = 0, 1
+ * ----> check: 6K align to 1MB, and check PA is 1MB alignemnt
+ * step-4. use prot_region_heap1 map dmabuf_id = 0, 1 by attach_id= 0, 1
+ * ----> check: special region mapping must be run dma_map_sgtable and success
+ * step-5. use prot_region_heap0(normal region) alloc 6KB by dmabuf_id = 2 again
+ * ---> check: 6K align to 8k
+ * step-6. use prot_region_heap0 map dmabuf_id = 2 by attach_id= 2
+ * ----> check: can return buffer iova, and PA is after step3
+ * step-7. use prot_region_heap0 free/unmap  dmabuf_id/attach_id = 0,1,2
+ * ----> check: heap_region shouldn't be unmapped
+ * step-8. use prot_region_heap1 free/unmap  dmabuf_id/attach_id = 0
+ * ----> check: heap_region should be unmapped
+ * step-9. repeat step-1 ~ 8
  */
 
 static int iommu_test_debug_set(void *data, u64 input)
@@ -722,7 +873,7 @@ static int iommu_test_debug_init(struct iommu_test_debug_data *data)
 {
 	struct proc_dir_entry *debug_file;
 
-	data->debug_root = proc_mkdir("iommu", NULL);
+	data->debug_root = proc_mkdir("iommu_test", NULL);
 
 	if (IS_ERR_OR_NULL(data->debug_root))
 		pr_info("failed to create debug dir.\n");
@@ -736,7 +887,8 @@ static int iommu_test_debug_init(struct iommu_test_debug_data *data)
 	return 0;
 }
 
-static int dmabuf_mm_heap_test_probe(struct platform_device *pdev)
+/* normal heap test */
+static int dmaheap_normal_test_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
@@ -745,51 +897,120 @@ static int dmabuf_mm_heap_test_probe(struct platform_device *pdev)
 	dmabuf_data_obj[TEST_MTK_NORMAL].dev = dev;
 	mutex_init(&dmabuf_data_obj[TEST_MTK_NORMAL].buf_lock);
 	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_MTK_NORMAL].buf_head);
+
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
 	return 0;
 }
 
-static int dmabuf_prot_region_test_probe0(struct platform_device *pdev)
+/* page heap test */
+static int dmaheap_page_test_probe0(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
 	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
 
-	dmabuf_data_obj[TEST_REQ_PROT_REGION0].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION0].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION0].buf_head);
+	dmabuf_data_obj[TEST_REQ_SVP_PAGE0].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE0].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE0].buf_head);
+
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
 	return 0;
 }
 
-static int dmabuf_prot_region_test_probe1(struct platform_device *pdev)
+static int dmaheap_page_test_probe1(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
 	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
 
-	dmabuf_data_obj[TEST_REQ_PROT_REGION1].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION1].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION1].buf_head);
+	dmabuf_data_obj[TEST_REQ_SVP_PAGE1].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE1].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE1].buf_head);
+
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
 	return 0;
 }
 
-static int dmabuf_prot_region_test_probe2(struct platform_device *pdev)
+static int dmaheap_page_test_probe2(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
 	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
 
-	dmabuf_data_obj[TEST_REQ_PROT_REGION2].dev = dev;
-	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION2].buf_lock);
-	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION2].buf_head);
+	dmabuf_data_obj[TEST_REQ_SVP_PAGE2].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_PAGE2].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_PAGE2].buf_head);
+
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+
+	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
+	return 0;
+}
+
+static int dmaheap_region_test_probe0(struct platform_device *pdev)
+{
+	int i;
+	struct device *dev = &pdev->dev;
+
+	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
+
+	dmabuf_data_obj[TEST_REQ_SVP_REGION].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_REGION].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_REGION].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_PROT_REGION].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION].buf_head);
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+
+	for (i = TEST_PROT_2D_FR_REGION; i <= TEST_WFD_REGION_ALIGN; i++) {
+		dmabuf_data_obj[i].dev = dev;
+		mutex_init(&dmabuf_data_obj[i].buf_lock);
+		INIT_LIST_HEAD(&dmabuf_data_obj[i].buf_head);
+	}
+
+	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
+	return 0;
+}
+
+static int dmaheap_region_test_probe1(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+
+	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
+
+	dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_REGION_ALIGN].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_ALIGN].buf_head);
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+
+	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
+	return 0;
+}
+
+static int dmaheap_region_test_probe2(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+
+	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
+
+	dmabuf_data_obj[TEST_REQ_SVP_REGION_PA].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_SVP_REGION_PA].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_SVP_REGION_PA].buf_head);
+
+	dmabuf_data_obj[TEST_REQ_PROT_REGION_PA].dev = dev;
+	mutex_init(&dmabuf_data_obj[TEST_REQ_PROT_REGION_PA].buf_lock);
+	INIT_LIST_HEAD(&dmabuf_data_obj[TEST_REQ_PROT_REGION_PA].buf_head);
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 
 	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
@@ -886,58 +1107,104 @@ static const struct of_device_id iommu_test_dom_match_table[] = {
 	{},
 };
 
+/* normal heap test */
+static const struct of_device_id dmabuf_normal_match_table[] = {
+	{.compatible = "mediatek,common-dmaheap-normal"},
+	{},
+};
+
+/* region heap test */
 static const struct of_device_id dmabuf_prot_region0_match_table[] = {
-	{.compatible = "mediatek,common-dmabuf-prot-region0"},
+	{.compatible = "mediatek,common-dmaheap-region0"},
 	{},
 };
 
 static const struct of_device_id dmabuf_prot_region1_match_table[] = {
-	{.compatible = "mediatek,common-dmabuf-prot-region1"},
+	{.compatible = "mediatek,common-dmaheap-region1"},
 	{},
 };
 
 static const struct of_device_id dmabuf_prot_region2_match_table[] = {
-	{.compatible = "mediatek,common-dmabuf-prot-region2"},
+	{.compatible = "mediatek,common-dmaheap-region2"},
 	{},
 };
 
-static const struct of_device_id dmabuf_normal_match_table[] = {
-	{.compatible = "mediatek,common-dmabuf-normal"},
+/* page heap test */
+static const struct of_device_id dmaheap_page_match_table0[] = {
+	{.compatible = "mediatek,common-dmaheap-page0"},
 	{},
 };
 
-static struct platform_driver iommu_test_dmabuf_normal = {
-	.probe = dmabuf_mm_heap_test_probe,
+static const struct of_device_id dmaheap_page_match_table1[] = {
+	{.compatible = "mediatek,common-dmaheap-page1"},
+	{},
+};
+
+static const struct of_device_id dmaheap_page_match_table2[] = {
+	{.compatible = "mediatek,common-dmaheap-page2"},
+	{},
+};
+
+/* normal heap test */
+static struct platform_driver iommu_test_dmaheap_normal = {
+	.probe = dmaheap_normal_test_probe,
 	.driver = {
-		.name = "iommu-test-dmabuf-normal",
+		.name = "iommu-test-dmaheap-normal",
 		.of_match_table = dmabuf_normal_match_table,
 	},
 };
 
-static struct platform_driver iommu_test_dmabuf_prot_region0 = {
-	.probe = dmabuf_prot_region_test_probe0,
+/* region heap test */
+static struct platform_driver iommu_test_dmaheap_region0 = {
+	.probe = dmaheap_region_test_probe0,
 	.driver = {
-		.name = "iommu-test-dmabuf-prot-region0",
+		.name = "iommu-test-dmaheap-region0",
 		.of_match_table = dmabuf_prot_region0_match_table,
 	},
 };
 
-static struct platform_driver iommu_test_dmabuf_prot_region1 = {
-	.probe = dmabuf_prot_region_test_probe1,
+static struct platform_driver iommu_test_dmaheap_region1 = {
+	.probe = dmaheap_region_test_probe1,
 	.driver = {
-		.name = "iommu-test-dmabuf-prot-region1",
+		.name = "iommu-test-dmaheap-region1",
 		.of_match_table = dmabuf_prot_region1_match_table,
 	},
 };
 
-static struct platform_driver iommu_test_dmabuf_prot_region2 = {
-	.probe = dmabuf_prot_region_test_probe2,
+static struct platform_driver iommu_test_dmaheap_region2 = {
+	.probe = dmaheap_region_test_probe2,
 	.driver = {
-		.name = "iommu-test-dmabuf-prot-region2",
+		.name = "iommu-test-dmaheap-region2",
 		.of_match_table = dmabuf_prot_region2_match_table,
 	},
 };
 
+/* page heap test */
+static struct platform_driver iommu_test_dmaheap_page0 = {
+	.probe = dmaheap_page_test_probe0,
+	.driver = {
+		.name = "iommu-test-dmaheap-page0",
+		.of_match_table = dmaheap_page_match_table0,
+	},
+};
+
+static struct platform_driver iommu_test_dmaheap_page1 = {
+	.probe = dmaheap_page_test_probe1,
+	.driver = {
+		.name = "iommu-test-dmaheap-page1",
+		.of_match_table = dmaheap_page_match_table1,
+	},
+};
+
+static struct platform_driver iommu_test_dmaheap_page2 = {
+	.probe = dmaheap_page_test_probe2,
+	.driver = {
+		.name = "iommu-test-dmaheap-page2",
+		.of_match_table = dmaheap_page_match_table2,
+	},
+};
+
+/* iova region test */
 static struct platform_driver iommu_test_driver_dom0 = {
 	.probe = iommu_test_dom_probe,
 	.driver = {
@@ -1019,10 +1286,13 @@ static struct platform_driver iommu_test_driver_dom9 = {
 };
 
 static struct platform_driver *const iommu_test_drivers[] = {
-	&iommu_test_dmabuf_normal,
-	&iommu_test_dmabuf_prot_region0,
-	&iommu_test_dmabuf_prot_region1,
-	&iommu_test_dmabuf_prot_region2,
+	&iommu_test_dmaheap_normal,
+	&iommu_test_dmaheap_region0,
+	&iommu_test_dmaheap_region1,
+	&iommu_test_dmaheap_region2,
+	&iommu_test_dmaheap_page0,
+	&iommu_test_dmaheap_page1,
+	&iommu_test_dmaheap_page2,
 	&iommu_test_driver_dom0,
 	&iommu_test_driver_dom1,
 	&iommu_test_driver_dom2,
