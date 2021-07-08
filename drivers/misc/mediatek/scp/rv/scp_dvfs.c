@@ -470,7 +470,6 @@ void scp_init_vcore_request(void)
  */
 int scp_request_freq(void)
 {
-	int value = 0;
 	int timeout = 250;
 	int ret = 0;
 	unsigned long spin_flags;
@@ -509,7 +508,7 @@ int scp_request_freq(void)
 		do {
 			ret = mtk_ipi_send(&scp_ipidev,
 				IPI_OUT_DVFS_SET_FREQ_0,
-				IPI_SEND_WAIT, &value,
+				IPI_SEND_WAIT, &scp_expected_freq,
 				PIN_OUT_SIZE_DVFS_SET_FREQ_0, 0);
 			if (ret != IPI_ACTION_DONE)
 				pr_notice("SCP send IPI fail - %d\n", ret);
@@ -932,15 +931,16 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 static int mt_scp_dvfs_ctrl_proc_show(struct seq_file *m, void *v)
 {
 	unsigned long spin_flags;
+	unsigned int scp_expected_freq_reg;
 	int i;
 
 	spin_lock_irqsave(&scp_awake_spinlock, spin_flags);
 	scp_current_freq = readl(CURRENT_FREQ_REG);
-	scp_expected_freq = readl(EXPECTED_FREQ_REG);
+	scp_expected_freq_reg = readl(EXPECTED_FREQ_REG);
 	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
 	seq_printf(m, "SCP DVFS: %s\n", (scp_dvfs_flag == 1)?"ON":"OFF");
-	seq_printf(m, "SCP frequency: cur=%dMHz, expect=%dMHz\n",
-				scp_current_freq, scp_expected_freq);
+	seq_printf(m, "SCP frequency: cur=%dMHz, expect=%dMHz, kernel=%dMHz\n",
+				scp_current_freq, scp_expected_freq_reg, scp_expected_freq);
 
 	for (i = 0; i < NUM_FEATURE_ID; i++)
 		seq_printf(m, "feature=%d, freq=%d, enable=%d\n",
