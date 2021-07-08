@@ -151,4 +151,7 @@
 
 /* USB */
 #define PSY_IIO_MOISTURE_DETECTION_EN		0x7b
+
+/* BMS */
+#define PSY_IIO_CLEAR_SOH			0x7c
 #endif /* __QTI_POWER_SUPPLY_IIO_H__ */
