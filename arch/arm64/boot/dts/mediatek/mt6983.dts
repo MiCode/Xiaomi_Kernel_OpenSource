@@ -3581,10 +3581,10 @@
 
 	gpufreq: gpufreq {
 		compatible = "mediatek,gpufreq";
-		reg = <0 0x13fa0000 0 0x1000>,  /* 0  MFG_PLL */
-			  <0 0x13fac000 0 0x1000>,  /* 1  MFGSC_PLL */
+		reg = <0 0x13fa0000 0 0x400>,   /* 0  MFG_PLL */
+			  <0 0x13fa0c00 0 0x400>,   /* 1  MFGSC_PLL */
 			  <0 0x13fbf000 0 0x1000>,  /* 2  MFG_TOP_CONFIG (G3D_CONFIG) */
-			  <0 0x13f90000 0 0x1000>,  /* 3  GPU_EB_RPC */
+			  <0 0x13f90000 0 0x10000>, /* 3  GPU_EB_RPC */
 			  <0 0x10006000 0 0x1000>,  /* 4  SLEEP */
 			  <0 0x1020e000 0 0x1000>,  /* 5  INFRACFG */
 			  <0 0x1021e000 0 0x1000>,  /* 6  BPI_BSI_SLV0 */
@@ -3593,7 +3593,7 @@
 			  <0 0x10024000 0 0x1000>,  /* 9  DEVAPC_AO_INFRA_PERI_DEBUG3 */
 			  <0 0x10025000 0 0x1000>,  /* 10 DEVAPC_AO_INFRA_PERI_DEBUG4 */
 			  <0 0x11ee05d4 0 0x20>,    /* 11 AVS_EFUSE */
-			  <0 0x13fb9c00 0 0x1000>,  /* 12 MFG_CPE_CONTROL */
+			  <0 0x13fb9c00 0 0x100>,   /* 12 MFG_CPE_CONTROL */
 			  <0 0x13fb6000 0 0x1000>,  /* 13 MFG_CPE_SENSOR */
 			  <0 0x11ee0000 0 0x1000>;  /* 14 CPE_0P65V_RT_BLOW */
 		clocks =
