@@ -920,6 +920,17 @@ config MFD_MAX8998
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
 
+config MFD_MT6338
+	tristate "MediaTek MT6338 PMIC Support"
+	select MFD_CORE
+	select REGMAP_I2C
+	depends on I2C
+	help
+	  Say yes here to add support for MediaTek MT6338 PMIC.
+	  This driver provides common support for accessing the MT6338 register.
+	  Note, that this will only be useful paired with descriptions
+	  of the independent functions as children nodes in the device tree.
+
 config MFD_MT6360
 	tristate "Mediatek MT6360 SubPMIC"
 	select MFD_CORE
