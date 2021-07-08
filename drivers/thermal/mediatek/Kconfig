@@ -31,6 +31,17 @@ config MTK_SOC_THERMAL_LVTS
           configures LVTS thermal controllers to collect temperatures
           via ASIF interface.
 
+config MTK_BOARD_THERMAL
+	tristate "On-board NTC thermistor driver for Mediatek SoCs"
+	help
+	  Enable this option if you want to get PCB temperature
+	  via on-board NTC for Mediatek platforms.
+	  This driver reads the voltage value from TIA hardware
+	  which is responsible for reading all PMIC AUXADC channels
+	  sequentially. The address of TIA register for each channel
+	  and temperature convert table should be specified in
+	  device tree.
+
 config MTK_PMIC_THERMAL
 	tristate "PMIC thermal sensor driver for Mediatek SoCs"
 	depends on MT635X_EFUSE
