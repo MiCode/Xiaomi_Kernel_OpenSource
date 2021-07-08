@@ -23,6 +23,8 @@
 #include "richtek_spm_cls.h"
 #endif
 
+#include <mtk-sp-spk-amp.h>
+
 #define GENERIC_DEBUGFS	1
 
 #define RT5512_REV_A	(2)
@@ -451,6 +453,8 @@ static int rt5512_codec_classd_event(struct snd_soc_dapm_widget *w,
 		/* Headroom 1.1V */
 		ret |= snd_soc_component_update_bits(component, 0x41, 0x00ff,
 						     0x002f);
+		ret |= snd_soc_component_update_bits(component, 0x98, 0x0010,
+						     0x0010);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* un-mute */
@@ -654,12 +658,13 @@ static int rt5512_codec_get_istcbypass(struct snd_kcontrol *kcontrol,
 		dev_err(component->dev, "%s power on fail\n", __func__);
 		return ret;
 	}
-	ret = snd_soc_component_test_bits(component, RT5512_REG_PATH_BYPASS,
-					  0x0004, 0x0004);
-	if (ret) /* 4A */
-		ucontrol->value.integer.value[0] = 0;
-	else
+
+	ret = snd_soc_component_read(component, RT5512_REG_PATH_BYPASS);
+
+	if (ret > 0 && ret&0x0004)
 		ucontrol->value.integer.value[0] = 1;
+	else
+		ucontrol->value.integer.value[0] = 0;
 
 	ret = rt5512_chip_power_on(chip, 0);
 	if (ret < 0) {
@@ -960,9 +965,9 @@ static int rt5512_component_probe(struct snd_soc_component *component)
 
 static void rt5512_component_remove(struct snd_soc_component *component)
 {
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	struct rt5512_chip *chip = snd_soc_component_get_drvdata(component);
 
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	richtek_spm_classdev_unregister(&chip->spm);
 #endif
 	snd_soc_component_exit_regmap(component);
@@ -1282,8 +1287,10 @@ int rt5512_i2c_probe(struct i2c_client *client,
 	dev_set_name(chip->dev, "RT5512_MT_%d", chip->dev_cnt);
 	ret = rt5512_component_register(chip);
 	dev_info(chip->dev, "%s end, ret = %d\n", __func__, ret);
-	if (ret == 0)
+	if (ret == 0) {
 		dev_cnt++;
+		mtk_spk_set_type(MTK_SPK_MEDIATEK_RT5512);
+	}
 	return ret;
 probe_fail:
 	_rt5512_chip_power_on(chip, 0);
@@ -1306,25 +1313,30 @@ int rt5512_i2c_remove(struct i2c_client *client)
 }
 EXPORT_SYMBOL(rt5512_i2c_remove);
 
-static int __init rt5512_driver_init(void)
-{
-	pr_info("%s\n", __func__);
-	return 0;
-}
-module_init(rt5512_driver_init);
+static const struct of_device_id __maybe_unused rt5512_of_id[] = {
+	{ .compatible = "richtek,rt5512",},
+	{},
+};
+MODULE_DEVICE_TABLE(of, rt5512_of_id);
 
-static void __exit rt5512_driver_exit(void)
-{
-	pr_info("%s\n", __func__);
-}
-module_exit(rt5512_driver_exit);
+static const struct i2c_device_id rt5512_i2c_id[] = {
+	{"rt5512", 0 },
+	{},
+};
+MODULE_DEVICE_TABLE(i2c, rt5512_i2c_id);
+
+static struct i2c_driver rt5512_i2c_driver = {
+	.driver = {
+		.name = "rt5512",
+		.of_match_table = of_match_ptr(rt5512_of_id),
+	},
+	.probe = rt5512_i2c_probe,
+	.remove = rt5512_i2c_remove,
+	.id_table = rt5512_i2c_id,
+};
+module_i2c_driver(rt5512_i2c_driver);
 
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5512 SPKAMP Driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("2.0.1_M");
-/*
- * 2.0.1
- * 1. fix is_tc_bypass_get
- * 2. modify debugfs name
- */

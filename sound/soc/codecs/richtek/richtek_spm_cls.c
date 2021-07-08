@@ -13,8 +13,10 @@
 #include <linux/delay.h>
 
 #include <linux/i2c.h>
-#include <sound/soc.h>
+#include <linux/sysfs.h>
 #include <mtk-dsp-common.h>
+#include <linux/kobject.h>
+#include <base.h>
 #include "richtek_spm_cls.h"
 
 enum {
@@ -578,8 +580,9 @@ static int __init richtek_spm_init(void)
 		return PTR_ERR(richtek_spm_class);
 	richtek_spm_class->pm = &richtek_spm_class_pm_ops;
 	for (i = 0; richtek_spm_class_attrs[i].attr.name; i++) {
-		ret = class_create_file(richtek_spm_class,
-					richtek_spm_class_attrs + i);
+		ret = sysfs_create_file_ns(&richtek_spm_class->p->subsys.kobj,
+					   &richtek_spm_class_attrs[i].attr,
+					   NULL);
 		if (ret < 0)
 			goto out_cls_attr;
 	}
@@ -587,8 +590,8 @@ static int __init richtek_spm_init(void)
 	return 0;
 out_cls_attr:
 	while (--i >= 0) {
-		class_remove_file(richtek_spm_class,
-				  richtek_spm_class_attrs + i);
+		sysfs_remove_file_ns(&richtek_spm_class->p->subsys.kobj,
+				     &richtek_spm_class_attrs[i].attr, NULL);
 	}
 	class_destroy(richtek_spm_class);
 	return ret;
@@ -600,8 +603,8 @@ static void __exit richtek_spm_exit(void)
 	int i = 0;
 
 	for (i = 0; richtek_spm_class_attrs[i].attr.name; i++) {
-		class_remove_file(richtek_spm_class,
-				  richtek_spm_class_attrs + i);
+		sysfs_remove_file_ns(&richtek_spm_class->p->subsys.kobj,
+				     &richtek_spm_class_attrs[i].attr, NULL);
 	}
 	class_destroy(richtek_spm_class);
 }

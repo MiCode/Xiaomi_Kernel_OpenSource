@@ -66,6 +66,7 @@ enum mtk_spk_i2s_type {
 };
 
 int mtk_spk_get_type(void);
+extern void mtk_spk_set_type(int spk_type);
 int mtk_spk_get_i2s_out_type(void);
 int mtk_spk_get_i2s_in_type(void);
 int mtk_ext_spk_get_status(void);
