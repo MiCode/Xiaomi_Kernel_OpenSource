@@ -60,7 +60,7 @@ struct mtkcam_ipi_fract {
  * @size: buffer size.
  */
 struct mtkcam_ipi_sw_buffer {
-	__u32 iova;
+	__u64 iova;
 	union {
 		__u32 ccd_fd;
 		__u32 scp_addr;
@@ -75,7 +75,7 @@ struct mtkcam_ipi_sw_buffer {
  * @size: buffer size.
  */
 struct mtkcam_ipi_hw_buffer {
-	__u32 iova;
+	__u64 iova;
 	__u32 size;
 } __attribute__ ((__packed__));
 

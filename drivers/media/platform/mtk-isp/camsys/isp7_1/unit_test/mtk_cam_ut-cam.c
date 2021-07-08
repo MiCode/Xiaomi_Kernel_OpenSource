@@ -167,21 +167,35 @@ static int ut_raw_apply_cq(struct device *dev,
 			    dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 			    unsigned int sub_cq_size, unsigned int sub_cq_offset)
 {
+#define CQ_VADDR_MASK 0xffffffff
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
 	void __iomem *base = raw->base;
+	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
+	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
-	dev_info(dev, "[%s] cq baseaddr = 0x%x, cq size = 0x%x, cq offset = 0x%x, sub_cq size = 0x%x, sub_cq_offset = 0x%x\n",
+	dev_info(dev, "[%s] cq baseaddr = 0x%llx, cq size = 0x%x, cq offset = 0x%x, sub_cq size = 0x%x, , sub_cq_offset = 0x%x\n",
 		__func__, cq_addr, cq_size, cq_offset, sub_cq_size, sub_cq_offset);
-		writel_relaxed(cq_addr + cq_offset, base + REG_CQ_THR0_BASEADDR);
-		writel_relaxed(cq_size, base + REG_CQ_THR0_DESC_SIZE);
+	dev_info(dev, "cq_addr_lsb: 0x%x cq_addr_msb: 0x%x\n", cq_addr_lsb, cq_addr_msb);
 
-	writel_relaxed(cq_addr + sub_cq_offset,
-		base + REG_CQ_SUB_THR0_BASEADDR_2);
+
+	writel_relaxed(cq_addr, base + REG_CQ_THR0_BASEADDR);
+	writel_relaxed(cq_addr_msb, base + REG_CQ_THR0_BASEADDR_MSB);
+	writel_relaxed(cq_size, base + REG_CQ_THR0_DESC_SIZE);
+
+	cq_addr_lsb = (cq_addr + sub_cq_offset) & CQ_VADDR_MASK;
+	cq_addr_msb = ((cq_addr + sub_cq_offset) >> 32);
+	dev_info(dev, "sub cq_addr_lsb: 0x%x cq_addr_msb: 0x%x\n", cq_addr_lsb, cq_addr_msb);
+
+	writel_relaxed(cq_addr_lsb,
+		       base + REG_CQ_SUB_THR0_BASEADDR_2);
+	writel_relaxed(cq_addr_msb,
+		       base + REG_CQ_SUB_THR0_BASEADDR_MSB_2);
 	writel_relaxed(sub_cq_size,
-		base + REG_CQ_SUB_THR0_DESC_SIZE_2);
+		       base + REG_CQ_SUB_THR0_DESC_SIZE_2);
 
 	writel(CTL_CQ_THR0_START, base + REG_CTL_START);
 	/* make sure reset take effect */
+
 	wmb();
 
 	return 0;
@@ -470,7 +484,9 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int irq, ret;
+#ifndef FPGA_EP
 	int i;
+#endif
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &raw->id);
@@ -523,6 +539,7 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
+#ifndef FPGA_EP
 	raw->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
 	dev_info(dev, "clk_num:%d\n", raw->num_clks);
@@ -541,6 +558,19 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
+#else
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "main_base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	raw->raw_top_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(raw->raw_top_base)) {
+		dev_info(dev, "failed to map register base\n");
+		return PTR_ERR(raw->raw_top_base);
+	}
+#endif
 
 	return 0;
 }
@@ -694,7 +724,7 @@ static const struct dev_pm_ops mtk_ut_raw_pm_ops = {
 };
 
 static const struct of_device_id mtk_ut_raw_of_ids[] = {
-	{.compatible = "mediatek,mt8195-cam-raw",},
+	{.compatible = "mediatek,mt6983-cam-raw",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_ut_raw_of_ids);
@@ -821,7 +851,9 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int irq, ret;
+#ifndef FPGA_EP
 	int i;
+#endif
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &drvdata->id);
@@ -858,6 +890,7 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
+#ifndef FPGA_EP
 	drvdata->num_clks = of_count_phandle_with_args(pdev->dev.of_node,
 						       "clocks",
 						       "#clock-cells");
@@ -878,6 +911,19 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
+#else
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "main_base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	drvdata->yuv_top_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(drvdata->yuv_top_base)) {
+		dev_info(dev, "failed to map register base\n");
+		return PTR_ERR(drvdata->yuv_top_base);
+	}
+#endif
 
 	return 0;
 }
@@ -904,7 +950,9 @@ static int mtk_ut_yuv_probe(struct platform_device *pdev)
 
 	ut_yuv_set_ops(dev);
 
+#ifndef FPGA_EP
 	pm_runtime_enable(dev);
+#endif
 
 	ret = component_add(dev, &mtk_ut_yuv_component_ops);
 	if (ret)
@@ -922,7 +970,9 @@ static int mtk_ut_yuv_remove(struct platform_device *pdev)
 
 	dev_info(dev, "%s\n", __func__);
 
+#ifndef FPGA_EP
 	pm_runtime_disable(dev);
+#endif
 	component_del(dev, &mtk_ut_yuv_component_ops);
 
 	for (i = 0; i < drvdata->num_clks; i++)
@@ -1001,7 +1051,7 @@ static const struct dev_pm_ops mtk_ut_yuv_pm_ops = {
 };
 
 static const struct of_device_id mtk_ut_yuv_of_ids[] = {
-	{.compatible = "mediatek,mt8195-cam-yuv",},
+	{.compatible = "mediatek,mt6983-cam-yuv",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_ut_yuv_of_ids);
@@ -1082,7 +1132,7 @@ static int mtk_ut_larb_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mtk_ut_larb_of_ids[] = {
-	{.compatible = "mediatek,mt8195-camisp-larb",},
+	{.compatible = "mediatek,mt6983-camisp-larb",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_ut_larb_of_ids);

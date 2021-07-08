@@ -674,10 +674,15 @@ static int cam_open(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut =	container_of(inode->i_cdev,
 					     struct mtk_cam_ut, cdev);
+#ifdef FPGA_EP
+	struct mtk_ut_raw_device *raw_drvdata;
+	struct mtk_ut_yuv_device *yuv_drvdata;
+#endif
 	int i;
 
 	dev_info(ut->dev, "%s\n", __func__);
 	get_device(ut->dev);
+#ifndef FPGA_EP
 	pm_runtime_get_sync(ut->dev);
 
 	for (i = 0; i < ut->num_raw; i++) {
@@ -692,6 +697,19 @@ static int cam_open(struct inode *inode, struct file *filp)
 
 	/* Note: seninf's dts have no power-domains now, so do it after raw's */
 	pm_runtime_get_sync(ut->seninf);
+#else
+	for (i = 0; i < ut->num_raw; i++) {
+		raw_drvdata = dev_get_drvdata(ut->raw[i]);
+		writel_relaxed(0xffffffff, raw_drvdata->raw_top_base + 0x8);
+	}
+
+	for (i = 0; i < ut->num_yuv; i++) {
+		yuv_drvdata = dev_get_drvdata(ut->yuv[i]);
+		writel_relaxed(0xffffffff, yuv_drvdata->yuv_top_base + 0x8);
+	}
+	/* make sure reset take effect */
+	wmb();
+#endif
 
 	filp->private_data = ut;
 
@@ -703,12 +721,16 @@ static int cam_open(struct inode *inode, struct file *filp)
 static int cam_release(struct inode *inode, struct file *filp)
 {
 	struct mtk_cam_ut *ut = filp->private_data;
+#ifdef FPGA_EP
+	struct mtk_ut_raw_device *raw_drvdata;
+	struct mtk_ut_yuv_device *yuv_drvdata;
+#endif
 	int i;
 
 	dev_info(ut->dev, "%s\n", __func__);
 
 	cam_composer_uninit(ut);
-
+#ifndef FPGA_EP
 	pm_runtime_put(ut->seninf);
 
 	for (i = 0; i < ut->num_camsv; i++)
@@ -718,6 +740,17 @@ static int cam_release(struct inode *inode, struct file *filp)
 		pm_runtime_put(ut->raw[i]);
 
 	pm_runtime_put(ut->dev);
+#else
+	for (i = 0; i < ut->num_raw; i++) {
+		raw_drvdata = dev_get_drvdata(ut->raw[i]);
+		writel_relaxed(0xffffffff, raw_drvdata->raw_top_base + 0x4);
+	}
+
+	for (i = 0; i < ut->num_yuv; i++) {
+		yuv_drvdata = dev_get_drvdata(ut->yuv[i]);
+		writel_relaxed(0xffffffff, yuv_drvdata->yuv_top_base + 0x4);
+	}
+#endif
 	put_device(ut->dev);
 
 	return 0;
@@ -1025,6 +1058,10 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_cam_ut *ut;
+#ifdef FPGA_EP
+	struct resource *res;
+	void __iomem *base;
+#endif
 	int ret;
 
 	ut = devm_kzalloc(dev, sizeof(*ut), GFP_KERNEL);
@@ -1060,13 +1097,37 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 
 	ut->listener.on_notify = ut_event_on_notify;
 
+
+#ifdef FPGA_EP
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base)) {
+		dev_info(dev, "failed to map register base\n");
+		return PTR_ERR(base);
+	}
+	dev_info(dev, "ut base 0x%p\n", base);
+	writel_relaxed(0xffffffff, base + 0x8);
+	dev_info(dev, "cam-main cg 0x%x\n",
+			 readl_relaxed(base));
+
+	/* make sure reset take effect */
+	wmb();
+#endif
+
 	ret = register_sub_drivers(dev);
 	if (ret) {
 		dev_info(dev, "fail to register_sub_drivers\n");
 		return ret;
 	}
 
+#ifndef FPGA_EP
 	pm_runtime_enable(dev);
+#endif
 
 	dev_info(dev, "%s: success\n", __func__);
 	return 0;
@@ -1133,7 +1194,7 @@ static const struct dev_pm_ops mtk_cam_pm_ops = {
 };
 
 static const struct of_device_id cam_ut_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt8195-camisp", },
+	{ .compatible = "mediatek,mt6983-camisp", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, cam_ut_driver_dt_match);

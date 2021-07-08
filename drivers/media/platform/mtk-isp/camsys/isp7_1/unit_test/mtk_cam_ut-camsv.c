@@ -798,7 +798,9 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int irq, ret;
+#ifndef FPGA_EP
 	int i;
+#endif
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-id",
 				   &camsv->id);
@@ -849,6 +851,7 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
+#ifndef FPGA_EP
 	camsv->num_clks = of_count_phandle_with_args(
 		pdev->dev.of_node, "clocks", "#clock-cells");
 	dev_info(dev, "clk_num:%d\n", camsv->num_clks);
@@ -867,6 +870,7 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
+#endif
 
 	return 0;
 }
@@ -893,7 +897,9 @@ static int mtk_ut_camsv_probe(struct platform_device *pdev)
 	init_event_source(&camsv->event_src);
 	ut_camsv_set_ops(dev);
 
+#ifndef FPGA_EP
 	pm_runtime_enable(dev);
+#endif
 
 	ret = component_add(dev, &mtk_ut_camsv_component_ops);
 	if (ret)
@@ -916,7 +922,9 @@ static int mtk_ut_camsv_remove(struct platform_device *pdev)
 			clk_put(camsv->clks[i]);
 	}
 
+#ifndef FPGA_EP
 	pm_runtime_disable(dev);
+#endif
 
 	component_del(dev, &mtk_ut_camsv_component_ops);
 	return 0;
@@ -965,7 +973,7 @@ static const struct dev_pm_ops mtk_ut_camsv_pm_ops = {
 };
 
 static const struct of_device_id mtk_ut_camsv_of_ids[] = {
-	{.compatible = "mediatek,mt8195-camsv",},
+	{.compatible = "mediatek,mt6983-camsv",},
 	{}
 };
 

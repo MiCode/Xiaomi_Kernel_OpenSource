@@ -13,6 +13,8 @@
 #include <cam/mtk_cam-ipi.h>
 #include "mtk_cam_ut-event.h"
 
+#define FPGA_EP
+
 #define IPI_FRAME_BUF_SIZE		0x8000
 #define IPI_FRAME_BUF_NUM		3
 #define IPI_FRAME_BUF_TOTAL_SIZE	(IPI_FRAME_BUF_SIZE * IPI_FRAME_BUF_NUM)
