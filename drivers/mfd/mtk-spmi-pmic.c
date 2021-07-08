@@ -66,6 +66,9 @@ static const struct mfd_cell mt6363_devs[] = {
 		.name = "mt6363-auxadc",
 		.of_compatible = "mediatek,mt6363-auxadc",
 	}, {
+		.name = "mtk-dynamic-loading-throttling",
+		.of_compatible = "mediatek,mt6363-dynamic_loading_throttling",
+	}, {
 		.name = "mt6363-efuse",
 		.of_compatible = "mediatek,mt6363-efuse",
 	},
