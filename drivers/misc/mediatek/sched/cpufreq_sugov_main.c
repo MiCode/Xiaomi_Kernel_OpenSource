@@ -251,10 +251,18 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
  * required to meet deadlines.
  */
 static unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
-				 unsigned long max, struct task_struct *p)
+				 unsigned long max, enum schedutil_type type,
+				 struct task_struct *p)
 {
 	unsigned long dl_util, util, irq;
 	struct rq *rq = cpu_rq(cpu);
+
+
+
+	if (!uclamp_is_used() &&
+	    type == FREQUENCY_UTIL && rt_rq_is_runnable(&rq->rt)) {
+		return max;
+	}
 
 	/*
 	 * Early check to see if IRQ/steal time saturates the CPU, can be
@@ -278,7 +286,9 @@ static unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 	 * frequency will be gracefully reduced with the utilization decay.
 	 */
 	util = util_cfs + cpu_util_rt(rq);
-	util = uclamp_rq_util_with(rq, util, p);
+
+	if (type == FREQUENCY_UTIL)
+		util = uclamp_rq_util_with(rq, util, p);
 
 	dl_util = cpu_util_dl(rq);
 
@@ -293,6 +303,13 @@ static unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 	 */
 	if (util + dl_util >= max)
 		return max;
+
+	/*
+	 * OTOH, for energy computation we need the estimated running time, so
+	 * include util_dl and ignore dl_bw.
+	 */
+	if (type == ENERGY_UTIL)
+		util += dl_util;
 
 	/*
 	 * There is still idle time; further improve the number by using the
@@ -316,7 +333,8 @@ static unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 	 * bw_dl as requested freq. However, cpufreq is not yet ready for such
 	 * an interface. So, we only do the latter for now.
 	 */
-	util += cpu_bw_dl(rq);
+	if (type == FREQUENCY_UTIL)
+		util += cpu_bw_dl(rq);
 
 	return min(max, util);
 }
@@ -330,7 +348,7 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
-	return mtk_cpu_util(sg_cpu->cpu, util, max, NULL);
+	return mtk_cpu_util(sg_cpu->cpu, util, max,FREQUENCY_UTIL, NULL);
 }
 
 /**
