@@ -186,7 +186,7 @@ static ssize_t tcpc_show_property(struct device *dev,
 				"6: get_src_cap", "7: get_sink_cap",
 				"8: discover_id", "9: discover_cable");
 		if (ret < 0)
-			break;
+			dev_dbg(dev, "%s: ret=%d\n", __func__, ret);
 		break;
 	case TCPC_DESC_INFO:
 		i += snprintf(buf + i,
