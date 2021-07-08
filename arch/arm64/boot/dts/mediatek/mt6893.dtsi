@@ -1368,6 +1368,20 @@
 			};
 		};
 
+		dfd_mcu: dfd_mcu@0c600000 {
+			compatible = "mediatek,dfd";
+			enabled = <1>;
+			chain_length = <0x4c08>;
+			rg_dfd_timeout = <0xa0>;
+			check_dfd_support = <1>;
+		};
+
+		dfd_cache: dfd_cache {
+			compatible = "mediatek,dfd_cache";
+			enabled = <0>;
+			rg_dfd_timeout = <0x5dc0>;
+		};
+
 		masp@1000a000 {
 			compatible = "mediatek,masp";
 			reg = <0 0x1000a000 0 0x1000>;
