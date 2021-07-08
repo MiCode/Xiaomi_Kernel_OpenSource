@@ -387,6 +387,14 @@
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
 
+		gps_mem: gps-reserve-memory {
+			compatible = "mediatek,gps-reserve-memory";
+			no-map;
+			size = <0 0x100000>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+
 		reserve-memory-vcp_share {
 			compatible = "mediatek,reserve-memory-vcp_share";
 			no-map;
@@ -3989,6 +3997,25 @@
 	mbist@17860000 {
 		compatible = "mediatek,mbist";
 		reg = <0 0x17860000 0 0x10000>;
+	};
+
+	gps: gps@18C00000 {
+		compatible = "mediatek,mt6983-gps";
+		reg = <0 0x18000000 0 0x100000>,
+				<0 0x18C00000 0 0x100000>,
+				<0 0x1C000000 0 0x4>,
+				<0 0x1C015E00 0 0x4>,
+				<0 0x1C015E30 0 0x4>;
+		reg-names = "conn_infra_base", "conn_gps_base",
+				"status_dummy_cr", "tia2_gps_on", "tia2_gps_rc_sel";
+		interrupts = <GIC_SPI 560 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 561 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 562 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 563 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 564 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 565 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 566 IRQ_TYPE_LEVEL_HIGH 0>;
+		memory-region = <&gps_mem>;
 	};
 
 	scp: scp@1c700000 {
