@@ -850,7 +850,8 @@ static int mm_dump_buf_info_cb(const struct dma_buf *dmabuf,
 #endif
 
 static void mm_dmaheap_show(struct dma_heap *heap,
-			    void* seq_file) {
+			    void *seq_file,
+			    int flag) {
 	struct seq_file *s = seq_file;
 	struct mtk_heap_dump_t dump_param;
 	//struct mtk_heap_priv_info *heap_priv = NULL;
@@ -872,10 +873,14 @@ static void mm_dmaheap_show(struct dma_heap *heap,
 	kfree(dump_fmt);
 	get_each_dmabuf(mm_dump_buf_info_cb, &dump_param);
 #endif
+	if (flag & HEAP_DUMP_SKIP_ATTACH)
+		goto attach_done;
+
 	__HEAP_ATTACH_DUMP_STAT(s, heap);
 	get_each_dmabuf(dma_heap_default_attach_dump_cb, &dump_param);
 	__HEAP_ATTACH_DUMP_END(s, heap);
 
+attach_done:
 	__HEAP_DUMP_END(s, heap);
 
 }

@@ -78,6 +78,7 @@ struct heap_status_s debug_heap_list[] = {
 struct dump_fd_data {
 	struct task_struct *p;
 	struct seq_file *s;
+	struct dma_heap *heap;
 };
 
 static struct dma_buf *file_to_dmabuf(struct file *file)
@@ -97,9 +98,14 @@ static int has_dmabuf_fd(const void *data, struct file *file,
 	const struct dump_fd_data *d = data;
 	struct seq_file *s = d->s;
 	struct task_struct *p = d->p;
+	struct dma_heap *heap = d->heap;
 
 	dmabuf = file_to_dmabuf(file);
 	if (IS_ERR(dmabuf))
+		return 0;
+
+	/* heap is valid but buffer is not from this heap */
+	if (heap && !is_dmabuf_from_heap(dmabuf, heap))
 		return 0;
 
 	dmabuf_dump(s, "pid:%d(%s) -------->\n",
@@ -109,12 +115,12 @@ static int has_dmabuf_fd(const void *data, struct file *file,
 #ifdef CONFIG_DMABUF_SYSFS_STATS
 		    "\t%-8s"
 #endif
-		    "\t%-8s\t%-8s\t%-8s exp_name\n",
+		    "\t%-8s\t%-8s\t%-8s\t%-8s\n",
 		    "fd", "size", "inode",
 #ifdef CONFIG_DMABUF_SYSFS_STATS
 		    "mmap",
 #endif
-		    "flags", "mode", "count");
+		    "flag", "mode", "count", "exp_name");
 
 	return fd;
 }
@@ -127,16 +133,21 @@ static int _do_dump_dmabuf_fd(const void *data, struct file *file,
 	const struct dump_fd_data *d = data;
 	struct seq_file *s = d->s;
 	struct task_struct *p = d->p;
+	struct dma_heap *heap = d->heap;
 
 	dmabuf = file_to_dmabuf(file);
-	if (IS_ERR(dmabuf))
+	if (IS_ERR_OR_NULL(dmabuf))
+		return 0;
+
+	/* heap is valid but buffer is not from this heap */
+	if (heap && !is_dmabuf_from_heap(dmabuf, heap))
 		return 0;
 
 	dmabuf_dump(s, "\tpid:%-8d\t%-8d\t%-8zu\t%-8d"
 #ifdef CONFIG_DMABUF_SYSFS_STATS
 		   "\t%-8d"
 #endif
-		   "\t%-8x\t%-8x\t%-8ld\t%-s\n",
+		   "\t%-8x\t%-8x\t%-8ld\t%-8s\n",
 		    p->pid, fd, dmabuf->size,
 		    file_inode(dmabuf->file)->i_ino,
 #ifdef CONFIG_DMABUF_SYSFS_STATS
@@ -150,15 +161,21 @@ static int _do_dump_dmabuf_fd(const void *data, struct file *file,
 	return 0;
 }
 
-static void dump_dmabuf_fds(struct seq_file *s)
+static void dump_dmabuf_fds(struct seq_file *s, struct dma_heap *heap)
 {
 	struct task_struct *p;
 	struct dump_fd_data data;
 	int res;
 
-	dmabuf_dump(s, "\nShow all dmabuf fds\n");
+	if (heap)
+		dmabuf_dump(s, "\nShow all dmabuf fds of heap:%s\n",
+			    dma_heap_get_name(heap));
+	else
+		dmabuf_dump(s, "\nShow all dmabuf fds\n");
+
 	read_lock(&tasklist_lock);
 	data.s = s;
+	data.heap = heap;
 	for_each_process(p) {
 		task_lock(p);
 		data.p = p;
@@ -252,7 +269,8 @@ int dma_heap_default_buf_info_cb(const struct dma_buf *dmabuf,
 }
 
 static void dma_heap_default_show(struct dma_heap *heap,
-				  void *seq_file)
+				  void *seq_file,
+				  int flag)
 {
 	struct seq_file *s = seq_file;
 	struct mtk_heap_dump_t dump_param;
@@ -275,17 +293,27 @@ static void dma_heap_default_show(struct dma_heap *heap,
 	get_each_dmabuf(dma_heap_default_buf_info_cb, &dump_param);
 #endif
 
+	if (flag & HEAP_DUMP_SKIP_ATTACH)
+		goto attach_done;
+
 	__HEAP_ATTACH_DUMP_STAT(s, heap);
 	get_each_dmabuf(dma_heap_default_attach_dump_cb, &dump_param);
 	__HEAP_ATTACH_DUMP_END(s, heap);
+attach_done:
+
+	if (flag & HEAP_DUMP_SKIP_FD)
+		goto fd_dump_done;
+	dump_dmabuf_fds(s, heap);
+fd_dump_done:
 
 	__HEAP_DUMP_END(s, heap);
 
 }
 
-static void mtk_dmabuf_dump_heap(struct dma_heap *heap, struct seq_file *s)
+static void mtk_dmabuf_dump_heap(struct dma_heap *heap,
+				 struct seq_file *s,
+				 int flag)
 {
-	struct mtk_heap_priv_info *heap_priv = NULL;
 	int i = 0;
 	long heap_sz = 0;
 	long total_sz = 0;
@@ -295,31 +323,25 @@ static void mtk_dmabuf_dump_heap(struct dma_heap *heap, struct seq_file *s)
 		for (; i < _DEBUG_HEAP_CNT_; i++) {
 			heap = dma_heap_find(debug_heap_list[i].heap_name);
 			if (heap) {
-				mtk_dmabuf_dump_heap(heap, s);
+				mtk_dmabuf_dump_heap(heap, s, flag | HEAP_DUMP_SKIP_FD);
 				dma_heap_put(heap);
 				heap_sz = get_dma_heap_buffer_total(heap);
 				total_sz += heap_sz;
 			}
 		}
 		/* dump all fds */
-		dump_dmabuf_fds(s);
-		dmabuf_dump(s, "dmabuf total:%d\n", (total_sz*4)/PAGE_SIZE);
+		dump_dmabuf_fds(s, NULL);
+		dmabuf_dump(s, "dmabuf total:%d KB\n", (total_sz*4)/PAGE_SIZE);
 		return;
 	}
 
-	heap_priv = mtk_heap_priv_get(heap);
-	if (!heap_priv || !heap_priv->show) {
-		dma_heap_default_show(heap, s);
-		return;
-	}
-
-	heap_priv->show(heap, s);
+	dma_heap_default_show(heap, s, flag);
 }
 
 /* dump all heaps */
-static inline void mtk_dmabuf_dump_all(struct seq_file *s)
+static inline void mtk_dmabuf_dump_all(struct seq_file *s, int flag)
 {
-	return mtk_dmabuf_dump_heap(NULL, s);
+	return mtk_dmabuf_dump_heap(NULL, s, flag);
 }
 
 #if IS_ENABLED(CONFIG_PROC_FS)
@@ -327,20 +349,21 @@ static ssize_t dma_heap_all_proc_write(struct file *file, const char *buf,
 				       size_t count, loff_t *data)
 {
 
-	return 0;
+	return count;
 }
 
-#define CMDLINE_LEN   (30)
 static ssize_t dma_heap_proc_write(struct file *file, const char *buf,
 				   size_t count, loff_t *data)
 {
+#define CMDLINE_LEN   (30)
+
 	struct dma_heap *heap = PDE_DATA(file->f_inode);
 	char cmdline[CMDLINE_LEN];
 	enum DMA_HEAP_T_CMD cmd = DMABUF_T_END;
 	int ret = 0;
 
 	if (count >= CMDLINE_LEN)
-		return -EINVAL;
+		return count;
 
 	if (copy_from_user(cmdline, buf, count))
 		return -EINVAL;
@@ -354,7 +377,7 @@ static ssize_t dma_heap_proc_write(struct file *file, const char *buf,
 
 	if (!strncmp(cmdline, "test:", strlen("test:"))) {
 		/* dma_heap_test(cmdline); */
-		return ret;
+		//return count;
 	}
 
 	ret = sscanf(cmdline, "test:%d", &cmd);
@@ -362,7 +385,6 @@ static ssize_t dma_heap_proc_write(struct file *file, const char *buf,
 		pr_info("cmd error:%s\n", cmdline);
 		return -EINVAL;
 	}
-
 
 	if ((unsigned int)cmd >= DMABUF_T_END) {
 		pr_info("cmd id error:%s, %d\n", cmdline, cmd);
@@ -373,7 +395,7 @@ static ssize_t dma_heap_proc_write(struct file *file, const char *buf,
 		__func__, DMA_HEAP_T_CMD_STR[cmd]);
 
 	pr_info("================buffer check before=================\n");
-	mtk_dmabuf_dump_heap(heap, NULL);
+	mtk_dmabuf_dump_heap(heap, NULL, 0);
 
 	switch (cmd) {
 	case DMABUF_T_OOM_TEST:
@@ -381,6 +403,7 @@ static ssize_t dma_heap_proc_write(struct file *file, const char *buf,
 		int i = 0;
 		int fd = -1;
 
+		pr_info("%s #%d\n", __func__, __LINE__);
 		for (;;) {
 			fd = dma_heap_bufferfd_alloc(heap,
 					SZ_16M,
@@ -388,7 +411,7 @@ static ssize_t dma_heap_proc_write(struct file *file, const char *buf,
 					DMA_HEAP_VALID_HEAP_FLAGS);
 			if (fd > 0) {
 				i++;
-				if (1 % 100 == 0)
+				if (1 % 10 == 0)
 					pr_info("%s alloc pass, cnt:%d\n", __func__, i);
 			} else {
 				pr_info("%s alloc failed\n", __func__);
@@ -402,15 +425,15 @@ static ssize_t dma_heap_proc_write(struct file *file, const char *buf,
 		break;
 	}
 	pr_info("================buffer check after==================\n");
-	mtk_dmabuf_dump_heap(heap, NULL);
+	mtk_dmabuf_dump_heap(heap, NULL, 0);
 
 	if (cmd < DMABUF_T_END)
 		pr_info("%s: test case: end======\n",
 			__func__, DMA_HEAP_T_CMD_STR[cmd]);
 
+#undef CMDLINE_LEN
 	return count;
 }
-#undef CMDLINE_LEN
 
 
 static int dma_heap_proc_show(struct seq_file *s, void *v)
@@ -421,7 +444,7 @@ static int dma_heap_proc_show(struct seq_file *s, void *v)
 		return -EINVAL;
 
 	heap = (struct dma_heap *)s->private;
-	mtk_dmabuf_dump_heap(heap, s);
+	dma_heap_default_show(heap, s, 0);
 	return 0;
 }
 
@@ -430,7 +453,7 @@ static int all_heaps_proc_show(struct seq_file *s, void *v)
 	if (!s)
 		return -EINVAL;
 
-	mtk_dmabuf_dump_all(s);
+	mtk_dmabuf_dump_all(s, 0);
 	return 0;
 }
 
@@ -542,7 +565,8 @@ static int dma_heap_oom_notify(struct notifier_block *nb,
 			       unsigned long nb_val, void *nb_freed)
 {
 	/* TODO: reinit debug file, make sure can dump all heaps */
-	mtk_dmabuf_dump_all(NULL);
+	pr_info("%s in\n", __func__);
+	mtk_dmabuf_dump_all(NULL, HEAP_DUMP_SKIP_ATTACH);
 	return 0;
 }
 
