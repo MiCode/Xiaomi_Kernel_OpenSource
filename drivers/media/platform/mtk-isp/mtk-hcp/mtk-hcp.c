@@ -1728,6 +1728,8 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, hcp_dev);
 	dev_set_drvdata(&pdev->dev, hcp_dev);
 
+	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34)))
+		dev_info(&pdev->dev, "%s:No DMA available\n", __func__);
 
 	hcp_dev->is_open = false;
 	for (i = 0; i < MODULE_MAX_ID; i++) {
