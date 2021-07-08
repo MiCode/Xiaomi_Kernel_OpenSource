@@ -320,8 +320,10 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_panel_ext *ext = find_panel_ext(panel);
-	struct mtk_lcm_params_dsi *dsi_params =
+	struct mtk_lcm_params_dsi *params =
 			&ctx_dsi->panel_resource->params.dsi_params;
+	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	bool found = false;
 
 	DDPMSG("%s+\n", __func__);
 	if (ctx_dsi == NULL ||
@@ -329,13 +331,19 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		return -EINVAL;
 
 
-	if (id >= MTK_DSI_FPS_MODE_COUNT) {
-		DDPPR_ERR("%s: invalid mode id:%u\n", __func__, id);
-		return -EINVAL;
+	list_for_each_entry(mode_node, &params->mode_list, list) {
+		if (mode_node->id == id) {
+			found = true;
+			break;
+		}
 	}
 
-	ext->params = &dsi_params->ext_param[id];
-	dsi_current_fps = drm_mode_vrefresh(&dsi_params->mode[id]);
+	if (found == false) {
+		DDPPR_ERR("%s: invalid id:%u\n", __func__, id);
+		return -EINVAL;
+	}
+	ext->params = &mode_node->ext_param;
+	dsi_current_fps = drm_mode_vrefresh(&mode_node->mode);
 	DDPMSG("%s-\n", __func__);
 	return 0;
 }
@@ -343,6 +351,11 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 static int mtk_panel_ext_param_get(
 		struct mtk_panel_params *ext_param, unsigned int id)
 {
+	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	struct mtk_lcm_params_dsi *params =
+			&ctx_dsi->panel_resource->params.dsi_params;
+	bool found = false;
+
 	if (ctx_dsi == NULL ||
 	    ext_param == NULL ||
 	    ctx_dsi->panel_resource == NULL) {
@@ -350,12 +363,19 @@ static int mtk_panel_ext_param_get(
 		return -EINVAL;
 	}
 
-	if (id >= MTK_DSI_FPS_MODE_COUNT) {
-		DDPPR_ERR("%s: invalid mode id:%u\n", __func__, id);
+	list_for_each_entry(mode_node, &params->mode_list, list) {
+		if (mode_node->id == id) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found == false) {
+		DDPPR_ERR("%s: invalid dst id:%u\n", __func__, id);
 		return -EINVAL;
 	}
 
-	ext_param = &ctx_dsi->panel_resource->params.dsi_params.ext_param[id];
+	ext_param = &mode_node->ext_param;
 	return 0;
 }
 
@@ -525,37 +545,36 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 	struct mtk_lcm_params *params = &ctx_dsi->panel_resource->params;
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
-	unsigned int id = MTK_DSI_FPS_MODE_COUNT;
-	unsigned int size = 0, i = 0;
+	unsigned int size = 0;
 	char owner[MAX_PANEL_OPERATION_NAME] = {0};
+	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	bool found = false;
 	int ret = 0;
 
 	DDPMSG("%s+, cur:%u, dst:%u\n", __func__, cur_mode, dst_mode);
 	if (params == NULL || ops == NULL)
 		return -EINVAL;
 
-	for (i = 0; i < MTK_DSI_FPS_MODE_COUNT; i++) {
-		if (params->dsi_params.mode_list[i] == 0)
-			break;
-		if (params->dsi_params.mode_list[i] == dst_mode) {
-			id = i;
+	list_for_each_entry(mode_node, &params->dsi_params.mode_list, list) {
+		if (mode_node->fps == dst_mode) {
+			found = true;
 			break;
 		}
 	}
 
-	if (id == MTK_DSI_FPS_MODE_COUNT) {
+	if (found == false) {
 		DDPPR_ERR("%s: invalid dst mode:%u\n", __func__, dst_mode);
 		return -EINVAL;
 	}
 
 	switch (stage) {
 	case BEFORE_DSI_POWERDOWN:
-		table = ops->fps_switch_bfoff[id];
-		size = ops->fps_switch_bfoff_size[id];
+		table = mode_node->fps_switch_bfoff;
+		size = mode_node->fps_switch_bfoff_size;
 		break;
 	case AFTER_DSI_POWERON:
-		table = ops->fps_switch_afon[id];
-		size = ops->fps_switch_afon_size[id];
+		table = mode_node->fps_switch_afon;
+		size = mode_node->fps_switch_afon_size;
 		break;
 	default:
 		DDPPR_ERR("%s: invalid stage:%d\n", __func__, stage);
@@ -899,19 +918,16 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 	struct drm_display_mode *mode = NULL, *mode_src = NULL;
 	struct mtk_lcm_params *params = &ctx_dsi->panel_resource->params;
 	struct mtk_lcm_params_dsi *dsi_params = &params->dsi_params;
-	int i = 0, count = 0;
+	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	int count = 0;
 
 	if (IS_ERR_OR_NULL(connector)) {
 		DDPMSG("%s, invalid connect\n", __func__);
 		return 0;
 	}
 
-	DDPMSG("%s+\n", __func__);
-	for (i = 0; i < MTK_DSI_FPS_MODE_COUNT; i++) {
-		if (dsi_params->mode_list[i] == 0)
-			break;
-
-		mode_src = &dsi_params->mode[i];
+	list_for_each_entry(mode_node, &dsi_params->mode_list, list) {
+		mode_src = &mode_node->mode;
 		mtk_drm_update_disp_mode_params(mode_src);
 
 		mode = drm_mode_duplicate(connector->dev, mode_src);
@@ -1069,7 +1085,7 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 	mtk_panel_tch_handle_reg(&ctx_dsi->panel);
 
 	ret = mtk_panel_ext_create(dev,
-			&dsi_params->ext_param[dsi_params->default_mode],
+			&dsi_params->default_mode->ext_param,
 			&mtk_drm_panel_ext_funcs, &ctx_dsi->panel);
 	if (ret < 0) {
 		DDPMSG("%s, %d, creat ext failed, %d\n",

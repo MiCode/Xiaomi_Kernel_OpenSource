@@ -6,6 +6,7 @@
 #ifndef _MTK_DRM_PANEL_HELPER_H_
 #define _MTK_DRM_PANEL_HELPER_H_
 
+#include <linux/list.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_print.h>
 #include <drm/drm_mipi_dsi.h>
@@ -20,6 +21,7 @@
 extern unsigned long long mtk_lcm_total_size;
 
 #define MTK_LCM_NAME_LENGTH (128)
+#define MTK_LCM_MODE_UNIT (4)
 #define MTK_LCM_DEBUG_DUMP (0)
 
 #define MTK_LCM_DATA_ALIGNMENT(data, unit) (((data) + (unit) - 1) & ~((unit) - 1))
@@ -46,6 +48,24 @@ struct mtk_lcm_params_dpi {
 	unsigned int dpi_private_data;
 };
 
+struct mtk_lcm_mode_dsi {
+    /* key word */
+	unsigned int id;
+	unsigned int width;
+	unsigned int height;
+	unsigned int fps;
+	struct list_head list;
+    /* params */
+	struct drm_display_mode mode;
+	struct mtk_panel_params ext_param;
+    /* ops */
+	unsigned int fps_switch_bfoff_size;
+	unsigned int fps_switch_afon_size;
+	struct mtk_lcm_ops_data *fps_switch_bfoff;
+	struct mtk_lcm_ops_data *fps_switch_afon;
+
+};
+
 struct mtk_lcm_params_dsi {
 	unsigned int density;
 	unsigned int fake_resolution[2];
@@ -56,10 +76,9 @@ struct mtk_lcm_params_dsi {
 	unsigned long long mode_flags_doze_off;
 	unsigned int format;
 	unsigned int lanes;
-	unsigned int default_mode;
-	unsigned int mode_list[MTK_DSI_FPS_MODE_COUNT];
-	struct drm_display_mode mode[MTK_DSI_FPS_MODE_COUNT];
-	struct mtk_panel_params ext_param[MTK_DSI_FPS_MODE_COUNT];
+	struct mtk_lcm_mode_dsi *default_mode;
+	unsigned int mode_count;
+	struct list_head mode_list;
 	struct device lcm_gpio_dev;
 	unsigned int lcm_pinctrl_count;
 	const char **lcm_pinctrl_name;
@@ -207,12 +226,6 @@ struct mtk_lcm_ops_dsi {
 	unsigned int hbm_set_cmdq_switch_off;
 	struct mtk_lcm_ops_data *hbm_set_cmdq;
 
-	/* high frame rate feature support*/
-	unsigned int fps_switch_bfoff_size[MTK_DSI_FPS_MODE_COUNT];
-	unsigned int fps_switch_afon_size[MTK_DSI_FPS_MODE_COUNT];
-	struct mtk_lcm_ops_data *fps_switch_bfoff[MTK_DSI_FPS_MODE_COUNT];
-	struct mtk_lcm_ops_data *fps_switch_afon[MTK_DSI_FPS_MODE_COUNT];
-
 	unsigned int gpio_test_size;
 	struct mtk_lcm_ops_data *gpio_test;
 };
@@ -327,7 +340,7 @@ void dump_lcm_ops_func(struct mtk_lcm_ops_data *table,
 		unsigned int size,
 		struct mtk_panel_cust *cust,
 		const char *owner);
-void dump_lcm_dsi_fps_settings(struct mtk_lcm_params_dsi *params, int id);
+void dump_lcm_dsi_fps_settings(struct mtk_lcm_mode_dsi *mode);
 void dump_lcm_params_basic(struct mtk_lcm_params *params);
 void dump_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 		struct mtk_panel_cust *cust);
