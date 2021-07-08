@@ -16,9 +16,6 @@
 #include <linux/spinlock.h>
 #include <linux/module.h>
 
-/* This file is only compiled when the code is built-in */
-#ifndef MODULE
-
 #include <t-base-tui.h>
 
 static int trustedui_mode = TRUSTEDUI_MODE_OFF;
@@ -123,5 +120,3 @@ int trustedui_clear_mask(int mask)
 	return mode;
 }
 EXPORT_SYMBOL(trustedui_clear_mask);
-
-#endif
