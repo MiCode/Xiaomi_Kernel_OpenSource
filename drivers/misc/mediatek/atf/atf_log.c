@@ -28,10 +28,11 @@
 #include <linux/irq.h>
 #include <linux/syscore_ops.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
-#ifdef CONFIG_OF_RESERVED_MEM
+#if CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
 #define ATF_LOG_RESERVED_MEMORY_KEY "mediatek,atf-log-reserved"
 #endif
+#include "tfa_debug.h"
 
 /* #define ATF_LOGGER_DEBUG */
 #define ATF_LOG_CTRL_BUF_SIZE 512
@@ -43,7 +44,7 @@ static struct mutex atf_raw_buf_mutex;
 static u32 atf_raw_read_offset;
 static wait_queue_head_t    atf_log_wq;
 
-#ifdef CONFIG_OF
+#if CONFIG_OF
 static const struct of_device_id atf_logger_of_ids[] = {
 	{ .compatible = "mediatek,atf_logger", },
 	{},
@@ -77,7 +78,7 @@ static unsigned char *atf_log_vir_addr;
 static unsigned int atf_log_len;
 
 
-#if defined(CONFIG_OF)
+#if CONFIG_OF
 static int dt_parse_atf_logger_buf(void)
 {
 	struct device_node *atf_logger_rmem_np;
@@ -487,7 +488,7 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 	struct proc_dir_entry *atf_log_proc_file = NULL;
 	struct proc_dir_entry *atf_raw_buf_proc_file = NULL;
 
-	pr_notice("atf_log: inited");
+	pr_notice("%s\n", __func__);
 	err = dt_parse_atf_logger_buf();
 	if (unlikely(err)) {
 		pr_info("No atf_log_buffer\n");
@@ -550,14 +551,9 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static void __exit atf_log_exit(void)
-{
-	misc_deregister(&atf_log_dev);
-	pr_notice("atf_log: exited");
-}
-
 static int atf_logger_remove(struct platform_device *dev)
 {
+	misc_deregister(&atf_log_dev);
 	return 0;
 }
 
@@ -569,9 +565,9 @@ static struct platform_driver atf_logger_driver_probe = {
 	.probe = atf_logger_probe,
 	.remove = atf_logger_remove,
 	.driver = {
-		.name = "atf_logger",
+		.name = "atf_log",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
+#if CONFIG_OF
 		.of_match_table = atf_logger_of_ids,
 #endif
 		.pm = &atf_pm_ops,
@@ -582,13 +578,23 @@ static int __init atf_log_init(void)
 {
 	int ret = 0;
 
+	pr_notice("%s\n", __func__);
 	mutex_init(&atf_mutex); /* called only ONCE */
 	mutex_init(&atf_raw_buf_mutex);
 
+	pr_notice("atf_logger driver register\n");
 	ret = platform_driver_register(&atf_logger_driver_probe);
 	if (ret)
 		pr_info("atf logger init FAIL, ret 0x%x\n", ret);
+	tfa_debug_drv_register();
 	return ret;
+}
+
+static void __exit atf_log_exit(void)
+{
+	tfa_debug_drv_unregister();
+	platform_driver_unregister(&atf_logger_driver_probe);
+	pr_notice("atf_log: exited");
 }
 
 module_init(atf_log_init);
