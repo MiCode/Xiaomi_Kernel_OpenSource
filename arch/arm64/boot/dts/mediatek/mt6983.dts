@@ -3926,6 +3926,9 @@
 //		clock-names = "source", "hclk", "source_cg";
 	};
 
+	msdc1_ins: msdc1_ins {
+	};
+
 	ufshci: ufshci@112b0000 {
 		compatible = "mediatek,mt8183-ufshci";
 		reg = <0 0x112b0000 0 0x2300>;
