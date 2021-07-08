@@ -28,7 +28,7 @@
 DECLARE_DELAYED_WORK(pw_info_work, apupw_dbg_power_info);
 static char buffer[__LOG_BUF_LEN];
 static struct apu_dbg apupw_dbg = {
-	.log_lvl = VERBOSE_LVL,
+	.log_lvl = NO_LVL,
 };
 
 static inline void _apupw_separte(struct seq_file *s, char *separate)
