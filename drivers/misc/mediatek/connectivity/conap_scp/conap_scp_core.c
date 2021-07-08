@@ -166,11 +166,14 @@ static int opfunc_scp_state_change(struct msg_op_data *op)
 		}
 	}
 
+	g_core_ctx.state = cur_state;
+
+	/* make sure intf is init done */
+	msleep(100);
 	for (i = 0; i < CONAP_SCP_DRV_NUM; i++) {
 		if (g_drv_user[i].enable && g_drv_user[i].drv_cb.conap_scp_state_notify_cb)
 			(*g_drv_user[i].drv_cb.conap_scp_state_notify_cb)(cur_state);
 	}
-	g_core_ctx.state = cur_state;
 
 	return 0;
 }

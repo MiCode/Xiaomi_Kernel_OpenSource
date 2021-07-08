@@ -68,6 +68,7 @@ TEST_INFO g_test_info;
 char g_buf[MAX_BUF_LEN];
 static unsigned char g_is_scp_ready = 0;
 static bool g_is_test_started = false;
+static bool g_is_data_trans;
 
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
@@ -205,11 +206,14 @@ static int opfunc_send_msg(struct msg_op_data *op)
 		g_is_test_started = true;
 		ret = conap_scp_send_message(ctx->drv_type, cmd,
 								(unsigned char*)&g_test_info, sizeof(TEST_INFO));
-		pr_info("cmd is AOLTEST_CMD_START_TEST and call scp, ret=%d", __func__, ret);
+		pr_info("[%s] cmd is AOLTEST_CMD_START_TEST and call scp, ret=%d", __func__, ret);
 	} else {
-		if (cmd == AOLTEST_CMD_STOP_TEST) {
+		if (cmd == AOLTEST_CMD_STOP_TEST)
 			g_is_test_started = false;
-		}
+		else if (cmd == AOLTEST_CMD_START_DATA_TRANS)
+			g_is_data_trans = true;
+		else if (cmd == AOLTEST_CMD_STOP_DATA_TRANS)
+			g_is_data_trans = false;
 
 		ret = conap_scp_send_message(ctx->drv_type, cmd, NULL, 0);
 	}
@@ -322,7 +326,14 @@ void aoltest_core_state_change(int state)
 
 		if (g_is_test_started) {
 			// Re-send start test with test info
-			ret = msg_thread_send_1(&ctx->msg_ctx, AOLTEST_OPID_SEND_MSG, AOLTEST_CMD_START_TEST);
+			ret = msg_thread_send_1(&ctx->msg_ctx,
+						AOLTEST_OPID_SEND_MSG, AOLTEST_CMD_START_TEST);
+			if (g_is_data_trans) {
+				ret = msg_thread_send_1(&ctx->msg_ctx,
+					AOLTEST_OPID_SEND_MSG, AOLTEST_CMD_START_DATA_TRANS);
+				if (ret)
+					pr_notice("[%s] send msg fail ret=[%d]", __func__, ret);
+			}
 		}
 	} else {
 		g_is_scp_ready = 0;
