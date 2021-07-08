@@ -37,7 +37,7 @@
 				compatible = "mediatek,lcm-params-lk-round-corner";
 				lcm-params-lk-rc_round_corner_en = <0>;
 				lcm-params-lk-rc_is_notch;
-				lcm-params-lk-rc_full_content;
+				lcm-params-lk-rc_full_content = <0>;
 				lcm-params-lk-rc_width;
 				lcm-params-lk-rc_height;
 				lcm-params-lk-rc_width_bot;
@@ -46,12 +46,7 @@
 				lcm-params-lk-rc_top_size_left;
 				lcm-params-lk-rc_top_size_right;
 				lcm-params-lk-rc_bottom_size;
-				lcm-params-lk-rc_left_top_addr;
-				lcm-params-lk-rc_left_top_addr_left;
-				lcm-params-lk-rc_left_top_addr_right;
-				lcm-params-lk-rc_right_top_addr;
-				lcm-params-lk-rc_left_bottom_addr;
-				lcm-params-lk-rc_right_bottom_addr;
+				lcm-params-lk-rc_pattern_name;
 			};
 
 			lcm-params-dbi {
@@ -122,15 +117,13 @@
 					lcm-params-dsi-min_luminance;
 					lcm-params-dsi-average_luminance;
 					lcm-params-dsi-max_luminance;
-					lcm-params-dsi-round_corner_en;
+					lcm-params-dsi-round_corner_en = <0>;
 					lcm-params-dsi-corner_pattern_height;
 					lcm-params-dsi-corner_pattern_height_bot;
 					lcm-params-dsi-corner_pattern_tp_size;
 					lcm-params-dsi-corner_pattern_tp_size_left;
 					lcm-params-dsi-corner_pattern_tp_size_right;
-					lcm-params-dsi-corner_pattern_lt_addr;
-					lcm-params-dsi-corner_pattern_lt_addr_left;
-					lcm-params-dsi-corner_pattern_lt_addr_right;
+					lcm-params-dsi-corner_pattern_name;
 					lcm-params-dsi-physical_width_um;
 					lcm-params-dsi-physical_height_um;
 					lcm-params-dsi-output_mode = <MTK_LCM_PANEL_SINGLE_PORT>;
@@ -290,8 +283,22 @@
 						lcm-params-dsi-phy_timcon_clk_post;
 
 						/* lk support */
+						lcm-params-dsi-phy_timcon_lk_hs_trail;
+						lcm-params-dsi-phy_timcon_lk_hs_zero;
+						lcm-params-dsi-phy_timcon_lk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_lpx;
 						lcm-params-dsi-phy_timcon_lk_ta_sack;
+						lcm-params-dsi-phy_timcon_lk_ta_get;
+						lcm-params-dsi-phy_timcon_lk_ta_sure;
+						lcm-params-dsi-phy_timcon_lk_ta_go;
+						lcm-params-dsi-phy_timcon_lk_clk_trail;
+						lcm-params-dsi-phy_timcon_lk_clk_zero;
 						lcm-params-dsi-phy_timcon_lk_lpx_wait;
+						lcm-params-dsi-phy_timcon_lk_cont_det;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_post;
+						lcm-params-dsi-phy_timcon_lk_da_hs_exit;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_exit;
 					};
 
 					lcm-params-dsi-dyn-params-1080-2300-60 {
@@ -673,16 +680,16 @@
 				set_aod_light_low_size = <0>;
 				set_aod_light_low;
 
-				ata_check_size = <1>;
 				ata_id_value_length = <3>;
 				ata_id_value_data = <0x0 0x0 0x0>;
+				ata_check_size = <1>;
 				ata_check_table =
 					<MTK_LCM_CMD_TYPE_READ_CMD 3 0 3 0x4>,
 					<MTK_LCM_TYPE_END>;
 
-				compare_id_size = <9>;
 				compare_id_value_length = <3>;
 				compare_id_value_data = <0x40 0x40 0x40>;
+				compare_id_size = <9>;
 				compare_id_table = <MTK_LCM_UTIL_TYPE_RESET 1 1>,
 					<MTK_LCM_UTIL_TYPE_RESET 1 0>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 1>,

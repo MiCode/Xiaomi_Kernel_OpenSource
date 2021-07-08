@@ -98,6 +98,8 @@
 #define MTK_LCM_CMD_TYPE_WRITE_CMD (0x12) /* mipi dcs write cmd to panel*/
 #define MTK_LCM_CMD_TYPE_READ_BUFFER (0x13) /* mipi dcs read data from panel*/
 #define MTK_LCM_CMD_TYPE_READ_CMD (0x14) /* mipi dcs read cmd from panel*/
+#define MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION (0x15) /* mipi dcs write data by condition*/
+#define MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT (0x16) /* mipi dcs write runtime input data*/
 #define MTK_LCM_CMD_TYPE_END (0x1f)
 
 #define MTK_LCM_CB_TYPE_START (0x20)
@@ -144,4 +146,11 @@
 #define MTK_LCM_PHASE_LK (1U << 1)
 #define MTK_LCM_PHASE_LK_DISPLAY_ON_DELAY (1U << 2)
 
+/* used for runtime input settings */
+#define MTK_LCM_INPUT_TYPE_READBACK (0x1)
+#define MTK_LCM_INPUT_TYPE_CURRENT_FPS (0x2)
+#define MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT (0x3)
+
+#define MTK_LCM_RC_NT36672C_FHDP_TIANMA (1)
+#define MTK_LCM_ROUND_CORNER_COUNT (MTK_LCM_RC_NT36672C_FHDP_TIANMA + 1)
 #endif
