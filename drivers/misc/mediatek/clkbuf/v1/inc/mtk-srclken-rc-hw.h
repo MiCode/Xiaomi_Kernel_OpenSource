@@ -28,7 +28,7 @@ struct srclken_rc_hw {
 int srclken_rc_init(void);
 void srclken_rc_exit(void);
 int srclken_rc_post_init(void);
-int srclken_rc_get_hw(struct srclken_rc_hw *hw, struct platform_device *pdev);
+int srclken_rc_hw_init(struct platform_device *pdev);
 int srclken_rc_get_subsys_req_mode(u8 idx, u32 *val);
 int srclken_rc_get_subsys_sw_req(u8 idx, u32 *val);
 int srclken_rc_get_cfg_val(const char *name, u32 *val);

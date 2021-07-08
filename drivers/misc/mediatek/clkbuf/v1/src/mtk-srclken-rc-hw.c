@@ -98,11 +98,12 @@ static int srclken_rc_dts_subsys_init(struct platform_device *pdev,
 	int i;
 
 	ret = of_property_count_strings(node, SRCLKEN_RC_SUBSYS_PROP_NAME);
-	if (ret <= 0 || ret != rc_hw.subsys_num) {
+	if (ret <= 0) {
 		pr_notice("get subsys count failed, ret: %d, hw count: %d\n",
 			ret, rc_hw.subsys_num);
 		return -EINVAL;
 	}
+	rc_hw.subsys_num = ret;
 
 	rc_hw.subsys = devm_kmalloc(&pdev->dev,
 			sizeof(struct srclken_rc_subsys) * rc_hw.subsys_num,
@@ -148,14 +149,14 @@ static int mtk_srclken_rc_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	if (srclken_rc_get_hw(&rc_hw, pdev)) {
-		pr_notice("get srclken_rc hw failed\n");
-		goto RC_INIT_FAILED;
-	}
-
 	ret = srclken_rc_dts_init(pdev);
 	if (ret) {
 		pr_notice("dts init failed with err: %d\n", ret);
+		goto RC_INIT_FAILED;
+	}
+
+	if (srclken_rc_hw_init(pdev)) {
+		pr_notice("srclken_rc hw init failed\n");
 		goto RC_INIT_FAILED;
 	}
 

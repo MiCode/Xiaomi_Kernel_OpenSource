@@ -11,13 +11,12 @@
 #include "mtk-srclken-rc-hw.h"
 #include "mtk-srclken-rc-hw-v1.h"
 
-#define SUBSYS_NUM		13
-#define TRACE_NUM		8
 
-#define RC_CFG_CHILD_NODE_COMPACT		"mediatek,srclken-rc-cfg"
-#define RC_STA_CHILD_NODE_COMPACT		"mediatek,srclken-rc-sta"
-#define RC_CFG_PHANDLE_NAME			"rc_cfg"
-#define RC_STA_PHANDLE_NAME			"rc_sta"
+#define TRACE_NUM		8
+#define TRACE_P_NUM		4
+#define RC_BC_SUPPORT		"mediatek,srclken-rc-broadcast"
+
+static bool srclken_rc_bc_support;
 
 static const char *rc_cfg_name[RC_CFG_MAX] = {
 	[RC_CFG_REG] = "srclken_rc_cfg",
@@ -27,6 +26,13 @@ static const char *rc_cfg_name[RC_CFG_MAX] = {
 	[CENTRAL_CFG4] = "central_cfg4",
 	[RC_PMRC_ADDR] = "rc_pmrc_addr",
 	[SUBSYS_INF] = "subsys_inf",
+	[CENTRAL_CFG5] = "central_cfg5",
+	[CENTRAL_CFG6] = "central_cfg6",
+	[MT_CMD_M_CFG0] = "multi_cmd_m_cfg0",
+	[MT_CMD_M_CFG1] = "multi_cmd_m_cfg1",
+	[MT_CMD_P_CFG0] = "multi_cmd_p_cfg0",
+	[MT_CMD_P_CFG1] = "multi_cmd_p_cfg1",
+	[MT_CMD_CFG0] = "multi_cmd_cfg0",
 };
 
 static const char *rc_sta_name[RC_STA_MAX] = {
@@ -34,6 +40,7 @@ static const char *rc_sta_name[RC_STA_MAX] = {
 	[SPI_STA] = "spi_sta",
 	[FSM_STA] = "fsm_sta",
 	[POPI_STA] = "popi_sta",
+	[SPMI_P_STA] = "spmi_p_sta",
 };
 
 struct srclken_rc_cfg rc_cfg = {
@@ -45,6 +52,13 @@ struct srclken_rc_cfg rc_cfg = {
 	SET_REG(rc_pmrc_en_addr, PMIC_RCEN_ADDR_REG, 0xFFFFFFFF, 0)
 	SET_REG(subsys_inf_cfg, SUBSYS_INF_CFG, 0xFFFFFFFF, 0)
 	SET_REG(m00_cfg, M00_SRCLKEN_CFG, 0xFFFFFFFF, 0)
+	SET_REG(central_cfg5, REG_CENTRAL_CFG5, 0xFFFFFFFF, 0)
+	SET_REG(central_cfg6, REG_CENTRAL_CFG6, 0xFFFFFFFF, 0)
+	SET_REG(mt_m_cfg0, RCEN_MT_M_CFG_0, 0xFFFFFFFF, 0)
+	SET_REG(mt_m_cfg1, RCEN_MT_M_CFG_1, 0xFFFFFFFF, 0)
+	SET_REG(mt_p_cfg0, RCEN_MT_P_CFG_0, 0xFFFFFFFF, 0)
+	SET_REG(mt_p_cfg1, RCEN_MT_P_CFG_1, 0xFFFFFFFF, 0)
+	SET_REG(mt_cfg0, RCEN_MT_CFG_0, 0xFFFFFFFF, 0)
 };
 
 struct srclken_rc_sta rc_sta = {
@@ -58,16 +72,25 @@ struct srclken_rc_sta rc_sta = {
 	SET_REG(trace_msb, TRACE_0_MSB, 0xFFFFFFFF, 0)
 	SET_REG(timer_lsb, TIMER_0_LSB, 0xFFFFFFFF, 0)
 	SET_REG(timer_msb, TIMER_0_MSB, 0xFFFFFFFF, 0)
+	SET_REG(spmi_p_sta, SPMI_P_STA_0, 0xFFFFFFFF, 0)
+	SET_REG(trace_p_msb, TRACE_P_0_LSB, 0xFFFFFFFF, 0)
+	SET_REG(trace_p_lsb, TRACE_P_0_MSB, 0xFFFFFFFF, 0)
+	SET_REG(timer_p_msb, TIMER_P_0_LSB, 0xFFFFFFFF, 0)
+	SET_REG(timer_p_lsb, TIMER_P_0_MSB, 0xFFFFFFFF, 0)
 };
 
 int srclken_rc_get_cfg_count(void)
 {
+	if (!srclken_rc_bc_support)
+		return RC_CFG_NON_BC_MAX;
+
 	return RC_CFG_MAX;
 }
 
 const char *srclken_rc_get_cfg_name(u32 idx)
 {
-	if (idx >= RC_CFG_MAX)
+	if ((!srclken_rc_bc_support && idx >= RC_CFG_NON_BC_MAX)
+			|| (srclken_rc_bc_support && idx >= RC_CFG_MAX))
 		return NULL;
 
 	return rc_cfg_name[idx];
@@ -90,6 +113,23 @@ int srclken_rc_get_cfg_val(const char *name, u32 *val)
 	else if (!strcmp(rc_cfg_name[SUBSYS_INF], name))
 		return clk_buf_read(&rc_cfg.hw, &rc_cfg._subsys_inf_cfg, val);
 
+	if (!srclken_rc_bc_support)
+		return -EPERM;
+	else if (!strcmp(rc_cfg_name[CENTRAL_CFG5], name))
+		return clk_buf_read(&rc_cfg.hw, &rc_cfg._central_cfg5, val);
+	else if (!strcmp(rc_cfg_name[CENTRAL_CFG6], name))
+		return clk_buf_read(&rc_cfg.hw, &rc_cfg._central_cfg6, val);
+	else if (!strcmp(rc_cfg_name[MT_CMD_M_CFG0], name))
+		return clk_buf_read(&rc_cfg.hw, &rc_cfg._mt_m_cfg0, val);
+	else if (!strcmp(rc_cfg_name[MT_CMD_M_CFG1], name))
+		return clk_buf_read(&rc_cfg.hw, &rc_cfg._mt_m_cfg1, val);
+	else if (!strcmp(rc_cfg_name[MT_CMD_P_CFG0], name))
+		return clk_buf_read(&rc_cfg.hw, &rc_cfg._mt_p_cfg0, val);
+	else if (!strcmp(rc_cfg_name[MT_CMD_P_CFG1], name))
+		return clk_buf_read(&rc_cfg.hw, &rc_cfg._mt_p_cfg1, val);
+	else if (!strcmp(rc_cfg_name[MT_CMD_CFG0], name))
+		return clk_buf_read(&rc_cfg.hw, &rc_cfg._mt_cfg0, val);
+
 	return -EPERM;
 }
 
@@ -102,6 +142,8 @@ int srclken_rc_dump_time(u8 idx, char *buf, u32 buf_size)
 {
 	u32 time_msb = 0;
 	u32 time_lsb = 0;
+	u32 time_p_msb = 0;
+	u32 time_p_lsb = 0;
 	int len = 0;
 
 	if (idx >= TRACE_NUM)
@@ -112,7 +154,7 @@ int srclken_rc_dump_time(u8 idx, char *buf, u32 buf_size)
 		return len;
 
 	if (clk_buf_read_with_ofs(&rc_sta.hw, &rc_sta._timer_lsb,
-			&time_lsb, idx * 4))
+			&time_lsb, idx * 8))
 		return len;
 
 	len += snprintf(buf + len, buf_size - len,
@@ -121,6 +163,25 @@ int srclken_rc_dump_time(u8 idx, char *buf, u32 buf_size)
 	len += snprintf(buf + len, buf_size - len,
 		"TIME%u MSB: 0x%x\n", idx, time_msb);
 
+	if (!srclken_rc_bc_support || idx >= TRACE_P_NUM)
+		return len;
+
+	if (clk_buf_read_with_ofs(&rc_sta.hw, &rc_sta._timer_p_msb,
+			&time_p_msb, idx * 8))
+		return len;
+
+	if (clk_buf_read_with_ofs(&rc_sta.hw, &rc_sta._timer_p_lsb,
+			&time_p_lsb, idx * 8))
+		return len;
+
+	len -= 1;
+
+	len += snprintf(buf + len, buf_size - len,
+		"TIME_P_%u LSB: 0x%x ", idx, time_p_lsb);
+
+	len += snprintf(buf + len, buf_size - len,
+		"TIME_P_%u_MSB: 0x%x\n", idx, time_p_msb);
+
 	return len;
 }
 
@@ -128,6 +189,8 @@ int srclken_rc_dump_trace(u8 idx, char *buf, u32 buf_size)
 {
 	u32 trace_msb = 0;
 	u32 trace_lsb = 0;
+	u32 trace_p_msb = 0;
+	u32 trace_p_lsb = 0;
 	u32 mofs = idx * 8;
 	u32 lofs = idx * 8;
 	int len = 0;
@@ -135,8 +198,10 @@ int srclken_rc_dump_trace(u8 idx, char *buf, u32 buf_size)
 	if (idx >= TRACE_NUM)
 		return len;
 
-	mofs = (idx > 1) ? (mofs + 8) : (idx > 0) ? (mofs + 4) : mofs;
-	lofs = (idx > 2) ? (lofs + 8) : (idx > 0) ? (lofs + 4) : lofs;
+	if (!srclken_rc_bc_support) {
+		mofs = (idx > 1) ? (mofs + 8) : (idx > 0) ? (mofs + 4) : mofs;
+		lofs = (idx > 2) ? (lofs + 8) : (idx > 0) ? (lofs + 4) : lofs;
+	}
 
 	if (clk_buf_read_with_ofs(&rc_sta.hw, &rc_sta._trace_msb,
 			&trace_msb, mofs))
@@ -151,6 +216,25 @@ int srclken_rc_dump_trace(u8 idx, char *buf, u32 buf_size)
 
 	len += snprintf(buf + len, buf_size - len,
 		"TRACE%u MSB: 0x%x\n", idx, trace_msb);
+
+	if (!srclken_rc_bc_support || idx >= TRACE_P_NUM)
+		return len;
+
+	if (clk_buf_read_with_ofs(&rc_sta.hw, &rc_sta._trace_p_msb,
+			&trace_p_msb, mofs))
+		return len;
+
+	if (clk_buf_read_with_ofs(&rc_sta.hw, &rc_sta._trace_p_lsb,
+			&trace_p_lsb, lofs))
+		return len;
+
+	len -= 1;
+
+	len += snprintf(buf + len, buf_size - len,
+		"TRACE_P_%u LSB: 0x%x ", idx, trace_p_msb);
+
+	len += snprintf(buf + len, buf_size - len,
+		"TRACE_P_%u MSB: 0x%x\n", idx, trace_p_lsb);
 
 	return len;
 }
@@ -217,6 +301,37 @@ static int srclken_rc_dump_spi_sta(char *buf)
 		EXTRACT_REG_VAL(spi_sta,
 			SPI_CMD_DATA_MASK,
 			SPI_CMD_DATA_SHIFT));
+
+	return len;
+}
+
+static int srclken_rc_dump_spmi_p_sta(char *buf)
+{
+	u32 spmi_p_sta = 0;
+	int len = 0;
+
+	if (!srclken_rc_bc_support)
+		return len;
+
+	if (clk_buf_read(&rc_sta.hw, &rc_sta._spmi_p_sta, &spmi_p_sta))
+		return len;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "[SPMI] -\n");
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+		"\t(req/ack/addr/data) - (%d/%d/%x/%x)\n",
+		EXTRACT_REG_VAL(spmi_p_sta,
+			SPMI_P_CMD_REQ_MASK,
+			SPMI_P_CMD_REQ_SHIFT),
+		EXTRACT_REG_VAL(spmi_p_sta,
+			SPMI_P_CMD_ACK_MASK,
+			SPMI_P_CMD_ACK_SHIFT),
+		EXTRACT_REG_VAL(spmi_p_sta,
+			SPMI_P_CMD_ADDR_MASK,
+			SPMI_P_CMD_ADDR_SHIFT),
+		EXTRACT_REG_VAL(spmi_p_sta,
+			SPMI_P_CMD_DATA_MASK,
+			SPMI_P_CMD_DATA_SHIFT));
 
 	return len;
 }
@@ -329,6 +444,12 @@ int srclken_rc_dump_sta(const char *name, char *buf)
 	else if (!strcmp(rc_sta_name[POPI_STA], name))
 		return srclken_rc_dump_popi_sta(buf);
 
+	if (!srclken_rc_bc_support)
+		goto RC_DUMP_STA_OUT;
+	else if (!strcmp(rc_sta_name[SPMI_P_STA], name))
+		return srclken_rc_dump_spmi_p_sta(buf);
+
+RC_DUMP_STA_OUT:
 	len += snprintf(buf + len, PAGE_SIZE - len,
 		"unknown sta reg name: %s\n", name);
 
@@ -339,7 +460,7 @@ int srclken_rc_get_subsys_req_mode(u8 idx, u32 *mode)
 {
 	int ret = 0;
 
-	if (idx >= SUBSYS_NUM) {
+	if (idx >= srclken_rc_get_subsys_count()) {
 		pr_notice("invalid subsys idx: %u\n", idx);
 		return -EINVAL;
 	}
@@ -359,7 +480,7 @@ int srclken_rc_get_subsys_sw_req(u8 idx, u32 *req)
 {
 	int ret = 0;
 
-	if (idx >= SUBSYS_NUM) {
+	if (idx >= srclken_rc_get_subsys_count()) {
 		pr_notice("invalid subsys idx: %u\n", idx);
 		return -EINVAL;
 	}
@@ -382,7 +503,7 @@ int srclken_rc_dump_subsys_sta(u8 idx, char *buf)
 	u32 cmd_ok;
 	int len = 0;
 
-	if (idx > SUBSYS_NUM)
+	if (idx >= srclken_rc_get_subsys_count())
 		return len;
 
 	offset = (idx > 0) ? (idx + 1) : idx;
@@ -555,6 +676,7 @@ static int rc_xo_ctl_show(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
 		pr_notice("Null output buffer\n");
 		return -EPERM;
 	}
+	/* TODO: check again */
 	len = strlen(buf);
 
 	len += snprintf(buf + len, PAGE_SIZE - len, "[%s] -\n", subsys->name);
@@ -574,6 +696,46 @@ void __srclken_rc_xo_buf_callback_init(struct xo_buf_ctl_t *xo_buf_ctl)
 	xo_buf_ctl->clk_buf_hw_ctrl = rc_xo_ctl_hw;
 	xo_buf_ctl->clk_buf_init_ctrl = rc_xo_ctl_init;
 	xo_buf_ctl->clk_buf_show_ctrl = rc_xo_ctl_show;
+}
+
+static int srclken_rc_broadcast_hw_shift(void)
+{
+	if (!srclken_rc_bc_support) {
+		rc_cfg._central_cfg5.ofs = 0;
+		rc_cfg._central_cfg5.mask = 0;
+		rc_cfg._central_cfg6.ofs = 0;
+		rc_cfg._central_cfg6.mask = 0;
+		rc_cfg._mt_m_cfg0.ofs = 0;
+		rc_cfg._mt_m_cfg0.mask = 0;
+		rc_cfg._mt_m_cfg1.ofs = 0;
+		rc_cfg._mt_m_cfg1.mask = 0;
+		rc_cfg._mt_p_cfg0.ofs = 0;
+		rc_cfg._mt_p_cfg0.mask = 0;
+		rc_cfg._mt_p_cfg1.ofs = 0;
+		rc_cfg._mt_p_cfg1.mask = 0;
+		rc_cfg._mt_cfg0.ofs = 0;
+		rc_cfg._mt_cfg0.mask = 0;
+		rc_sta._spmi_p_sta.ofs = 0;
+		rc_sta._spmi_p_sta.mask = 0;
+		rc_sta._timer_p_msb.ofs = 0;
+		rc_sta._timer_p_msb.mask = 0;
+		rc_sta._timer_p_lsb.ofs = 0;
+		rc_sta._timer_p_lsb.mask = 0;
+		rc_sta._trace_p_msb.ofs = 0;
+		rc_sta._trace_p_msb.mask = 0;
+		rc_sta._trace_p_lsb.ofs = 0;
+		rc_sta._trace_p_lsb.mask = 0;
+
+		return 0;
+	}
+
+	rc_cfg._central_cfg4.ofs = BC_REG_CENTRAL_CFG4;
+	rc_sta._trace_lsb.ofs = BC_TRACE_0_LSB;
+	rc_sta._trace_msb.ofs = BC_TRACE_0_MSB;
+	rc_sta._timer_lsb.ofs = BC_TIMER_0_LSB;
+	rc_sta._timer_lsb.ofs = BC_TIMER_0_MSB;
+
+	return 0;
 }
 
 static int srclken_rc_dts_base_init(struct platform_device *pdev)
@@ -607,9 +769,17 @@ RC_BASE_INIT_FAILED:
 	return -EGET_BASE_FAILED;
 }
 
-int srclken_rc_get_hw(struct srclken_rc_hw *hw, struct platform_device *pdev)
+int srclken_rc_hw_init(struct platform_device *pdev)
 {
-	hw->subsys_num = SUBSYS_NUM;
+	struct device_node *node = pdev->dev.of_node;
+	int ret = 0;
 
-	return srclken_rc_dts_base_init(pdev);
+	ret = srclken_rc_dts_base_init(pdev);
+	if (ret)
+		return ret;
+
+	srclken_rc_bc_support = of_property_read_bool(node, RC_BC_SUPPORT);
+	ret = srclken_rc_broadcast_hw_shift();
+
+	return ret;
 }

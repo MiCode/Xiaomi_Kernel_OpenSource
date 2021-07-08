@@ -41,9 +41,23 @@ struct xo_buf_t {
 	u32 xo_en_auxout_sel;
 };
 
+struct dcxo_op {
+	int (*dcxo_dump_reg_log)(char *buf);
+	int (*dcxo_dump_misc_log)(char *buf);
+	int (*dcxo_misc_store)(const char *obj, const char *arg);
+	int (*dcxo_pmic_store)(const u8 xo_id, const char *cmd);
+};
+
+struct pmic_pmrc_en {
+	struct base_hw hw;
+	struct reg_t _pmrc_en;
+};
+
 struct dcxo_hw {
 	struct base_hw hw;
 	u8 xo_num;
+	u8 xo_mode_num;
+	u8 pmrc_en_num;
 	u32 bblpm_auxout_sel;
 	bool bblpm_support;
 	bool hwbblpm_support;
@@ -51,34 +65,19 @@ struct dcxo_hw {
 	bool de_sense_support;
 	bool drv_curr_support;
 	bool voter_support;
+	bool pmrc_en_support;
 	bool do_init_in_k;
+	bool spmi_rw;
 	struct mutex lock;
 	struct xo_buf_t *xo_bufs;
 	struct reg_t _static_aux_sel;
 	struct reg_t _bblpm_auxout;
 	struct reg_t _swbblpm_en;
 	struct reg_t _hwbblpm_sel;
-#if IS_ENABLED(CONFIG_MT6359P_CLKBUF)
-	struct reg_t _vrfck_en;
-	struct reg_t _vrfck_op_en14;
-	struct reg_t _vbbck_en;
-	struct reg_t _vbbck_op_en14;
-	struct reg_t _vrfck_hv_en;
-	struct reg_t _vrfck_ana_sel;
-	struct reg_t _vrfck_ndis_en;
-	struct reg_t _vrfck_1_ndis_en;
-#endif /* IS_ENABLED(CONFIG_MT6359_CLKBUF) */
-#if defined(CONN_FROM_SRCLKEN_I3)
 	struct reg_t _srclken_i3;
-#endif /* defined(CONN_FROM_SRCLKEN_I3) */
-#if defined(LEGACY_DCXO_REG)
-	struct reg_t _dcxo_cw00;
-	struct reg_t _dcxo_cw08;
-	struct reg_t _dcxo_cw09;
-	struct reg_t _dcxo_cw12;
-	struct reg_t _dcxo_cw13;
-	struct reg_t _dcxo_cw19;
-#endif /* defined(LEGACY_DCXO_REG) */
+	struct reg_t _dcxo_pmrc_en;
+	struct pmic_pmrc_en *pmrc_en;
+	struct dcxo_op ops;
 };
 
 int clkbuf_dcxo_init(struct platform_device *pdev);
@@ -96,8 +95,6 @@ int clkbuf_dcxo_get_xo_num(void);
 const char *clkbuf_dcxo_get_xo_name(u8 idx);
 int clkbuf_dcxo_get_xo_id_by_name(const char *xo_name);
 int clkbuf_dcxo_pmic_store(const char *cmd, const char *arg1, const char *arg2);
-int __clkbuf_dcxo_pmic_misc_store(const char *arg1, const char *arg2);
-int __clkbuf_dcxo_pmic_store(const u8 xo_id, const char *arg2);
 int clkbuf_dcxo_debug_store(const char *cmd, const u8 xo_idx);
 int clkbuf_dcxo_set_hwbblpm(bool onoff);
 int clkbuf_dcxo_get_hwbblpm_sel(u32 *en);
@@ -108,9 +105,8 @@ int clkbuf_dcxo_get_xo_mode(u8 xo_idx, u32 *mode);
 int clkbuf_dcxo_dump_rc_voter_log(char *buf);
 int clkbuf_dcxo_dump_reg_log(char *buf);
 int clkbuf_dcxo_dump_misc_log(char *buf);
-int __clkbuf_dcxo_dump_misc_log(char *buf);
 int clkbuf_dcxo_dump_dws(char *buf);
+int clkbuf_dcxo_dump_pmrc_en(char *buf);
 bool clkbuf_dcxo_is_bblpm_support(void);
-int clkbuf_dcxo_hw_init(struct dcxo_hw **dcxo_hw);
 
 #endif /* CLKBUF_DCXO_H */

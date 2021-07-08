@@ -28,8 +28,6 @@ DEFINE_MUTEX(clk_buf_lock);
 static struct clkbuf_misc clkbuf_ctl;
 
 #if defined(SRCLKEN_RC_SUPPORT)
-#define RC_INIT_TIMEOUT				(10000)
-
 static char rc_dump_subsys_sta_name[21];
 static char rc_dump_sta_reg_name[21];
 static u8 rc_trace_dump_num = 2;
@@ -160,37 +158,35 @@ static ssize_t __clk_buf_dump_pmif_log(char *buf)
 
 	ret = clkbuf_pmif_get_inf_data(PMIF_CONN_INF,
 			&clr_addr, &set_addr, &clr_cmd, &set_cmd);
-	if (ret)
-		return len;
-
-	len += snprintf(buf + len, PAGE_SIZE - len,
-		"DCXO_CONN_ADDR0/WDATA0/ADDR1/WDATA1=0x%x 0x%x 0x%x 0x%x\n",
-		clr_addr, clr_cmd, set_addr, set_cmd);
+	if (!ret) {
+		len += snprintf(buf + len, PAGE_SIZE - len,
+			"DCXO_CONN_ADDR0/WDATA0/ADDR1/WDATA1=0x%x 0x%x 0x%x 0x%x\n",
+			clr_addr, clr_cmd, set_addr, set_cmd);
+	}
 
 	ret = clkbuf_pmif_get_inf_data(PMIF_NFC_INF,
 			&clr_addr, &set_addr, &clr_cmd, &set_cmd);
-	if (ret)
-		return len;
-
-	len += snprintf(buf + len, PAGE_SIZE - len,
-		"DCXO_NFC_ADDR0/WDATA0/ADDR1/WDATA1=0x%x 0x%x 0x%x 0x%x\n",
-		clr_addr, clr_cmd, set_addr, set_cmd);
+	if (!ret) {
+		len += snprintf(buf + len, PAGE_SIZE - len,
+			"DCXO_NFC_ADDR0/WDATA0/ADDR1/WDATA1=0x%x 0x%x 0x%x 0x%x\n",
+			clr_addr, clr_cmd, set_addr, set_cmd);
+	}
 
 	ret = clkbuf_pmif_get_inf_en(PMIF_CONN_INF, &inf_en);
-	if (ret)
-		return len;
-	len += snprintf(buf + len, PAGE_SIZE - len,
-		"CONN_INF_EN: 0x%x, ", inf_en);
+	if (!ret) {
+		len += snprintf(buf + len, PAGE_SIZE - len,
+			"CONN_INF_EN: 0x%x, ", inf_en);
+	}
 
 	ret = clkbuf_pmif_get_inf_en(PMIF_NFC_INF, &inf_en);
-	if (ret)
-		return len;
-	len += snprintf(buf + len, PAGE_SIZE - len,
-		"NFC_INF_EN: 0x%x, ", inf_en);
+	if (!ret) {
+		len += snprintf(buf + len, PAGE_SIZE - len,
+			"NFC_INF_EN: 0x%x, ", inf_en);
+	}
 
 	ret = clkbuf_pmif_get_inf_en(PMIF_RC_INF, &inf_en);
 	if (ret) {
-		len -= 2;
+		len = (len > 2) ? len : (len - 2);
 		len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 		return len;
 	}
@@ -249,6 +245,9 @@ static ssize_t __clk_buf_show_status_info(char *buf)
 
 	if (clkbuf_ctl.dws_debug)
 		len += clkbuf_dcxo_dump_dws(buf + len);
+
+	if (clkbuf_ctl.pmrc_en_debug)
+		len += clkbuf_dcxo_dump_pmrc_en(buf + len);
 
 	len += __clk_buf_dump_pmif_log(buf + len);
 
@@ -493,7 +492,6 @@ int srclken_dump_last_sta_log(void)
 	vfree(buf);
 
 	return 0;
-	return 0;
 }
 EXPORT_SYMBOL(srclken_dump_last_sta_log);
 #endif /* defined(SRCLKEN_RC_SUPPORT) */
@@ -507,10 +505,8 @@ static int __clk_buf_pmic_ctrl_all(const char *arg1)
 	int i;
 
 	if (kstrtouint(arg1, 16, &val))
-	//if (sscanf(arg1, "%x", &val) != 1)
 		return -EPERM;
 
-	//en = kzalloc(sizeof(u32) * clkbuf_dcxo_get_xo_num(), GFP_KERNEL);
 	en = kcalloc(clkbuf_dcxo_get_xo_num(), sizeof(u32), GFP_KERNEL);
 	if (!en)
 		return -ENOMEM;
@@ -682,7 +678,7 @@ static ssize_t clk_buf_debug_store(struct kobject *kobj,
 		return -ENODEV;
 	}
 
-	if (sscanf(buf, "%10s %x", cmd, &val) != 2)
+	if (sscanf(buf, "%20s %x", cmd, &val) != 2)
 		return -EPERM;
 
 	if (!strcmp(cmd, "DEBUG")) {
@@ -696,6 +692,9 @@ static ssize_t clk_buf_debug_store(struct kobject *kobj,
 		goto DEBUG_STORE_DONE;
 	} else if (!strcmp(cmd, "REG_DEBUG")) {
 		clkbuf_ctl.reg_debug = (val ? true : false);
+		goto DEBUG_STORE_DONE;
+	} else if (!strcmp(cmd, "PMRC_EN_DEBUG")) {
+		clkbuf_ctl.pmrc_en_debug = (val ? true : false);
 		goto DEBUG_STORE_DONE;
 	}
 
@@ -728,8 +727,13 @@ static ssize_t clk_buf_debug_show(struct kobject *kobj,
 	len += snprintf(buf + len, PAGE_SIZE - len, "clkbuf_reg_debug: %d\n",
 			clkbuf_ctl.reg_debug);
 
+	len += snprintf(buf + len,
+			PAGE_SIZE - len,
+			"clkbuf_pmrc_en_debug: %d\n",
+			clkbuf_ctl.pmrc_en_debug);
+
 	len += snprintf(buf + len, PAGE_SIZE - len,
-			"available control: DEBUG, MISC_DEBUG, DWS_DEBUG\n");
+			"available control: DEBUG, MISC_DEBUG, DWS_DEBUG, PMRC_EN_DEBUG\n");
 
 	return len;
 }

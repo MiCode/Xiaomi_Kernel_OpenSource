@@ -16,6 +16,7 @@ struct clkbuf_misc {
 	bool reg_debug;
 	bool misc_debug;
 	bool dws_debug;
+	bool pmrc_en_debug;
 };
 
 extern int clk_buf_ctrl(const char *xo_name, bool onoff);

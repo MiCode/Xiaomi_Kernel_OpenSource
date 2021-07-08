@@ -45,15 +45,6 @@ config MTK_CLKBUF_V1
 	  interfaces which control connsys, nfc interface for 26M
 	  output.
 
-config MT6359P_CLKBUF
-	bool "Mediatek MT6359 Plus Clock Buffer Support"
-	depends on MTK_CLKBUF
-	help
-	  Select yes for Mediatek MT6359 plus Clock Buffer support.
-	  MT6359P support SPI command to control DCXO module, mainly
-	  output 26MHz for normal use case and 32kHz for low power
-	  use case.
-
 config MTK_SRCLKEN_RC_V1
 	bool "Mediatek SRCLKEN RC Support"
 	depends on MTK_CLKBUF

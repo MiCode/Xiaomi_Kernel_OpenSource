@@ -30,12 +30,9 @@ endif
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk_clkbuf_ctl.o
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-pmif.o
 
-clkbuf-$(CONFIG_MT6359P_CLKBUF) += v1/src/mtk-clkbuf-dcxo.o
-clkbuf-$(CONFIG_MT6359P_CLKBUF) += v1/src/mtk-clkbuf-dcxo-6359p.o
-ccflags-$(CONFIG_MT6359P_CLKBUF) += -D PMIC_CLKBUF_SUPPORT
-ccflags-$(CONFIG_MT6359P_CLKBUF) += -D LEGACY_DCXO_REG
-ccflags-$(CONFIG_MT6359P_CLKBUF) += -D DCXO_HWBBLPM_SUPPORT
-ccflags-$(CONFIG_MT6359P_CLKBUF) += -D CONN_FROM_SRCLKEN_I3
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo.o
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6359p.o
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6685.o
 
 clkbuf-$(CONFIG_MTK_SRCLKEN_RC_V1) += v1/src/mtk-srclken-rc-hw.o
 clkbuf-$(CONFIG_MTK_SRCLKEN_RC_V1) += v1/src/mtk-srclken-rc-hw-v1.o

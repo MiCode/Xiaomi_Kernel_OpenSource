@@ -20,6 +20,10 @@
 #define MAX_PMIF_NUM			2
 
 const u32 pmif_chip_to_hw_ver[CLKBUF_CHIP_ID_MAX][MAX_PMIF_NUM] = {
+	[MT6983] = {
+		CLKBUF_PMIF_VERSION_2,
+		CLKBUF_PMIF_VERSION_2,
+	},
 	[MT6893] = {
 		CLKBUF_PMIF_VERSION_1,
 		CLKBUF_PMIF_VERSION_1,
@@ -45,6 +49,21 @@ static struct pmif_hw pmif_hws[CLKBUF_PMIF_VER_MAX] = {
 		SET_REG_BY_VERSION(nfc_set_cmd, NFC_SET_CMD, 1)
 		SET_REG_BY_VERSION(mode_ctrl, MODE_CTRL, 1)
 		SET_REG_BY_VERSION(slp_ctrl, SLP_PROTECT, 1)
+	},
+	[CLKBUF_PMIF_VERSION_2] = {
+		SET_REG_BY_VERSION(conn_inf_en, CONN_INF_EN, 2)
+		SET_REG_BY_VERSION(nfc_inf_en, NFC_INF_EN, 2)
+		SET_REG_BY_VERSION(rc_inf_en, RC_INF_EN, 2)
+		SET_REG_BY_VERSION(conn_clr_addr, CONN_CLR_CMD_DEST, 2)
+		SET_REG_BY_VERSION(conn_set_addr, CONN_SET_CMD_DEST, 2)
+		SET_REG_BY_VERSION(conn_clr_cmd, CONN_CLR_CMD, 2)
+		SET_REG_BY_VERSION(conn_set_cmd, CONN_SET_CMD, 2)
+		SET_REG_BY_VERSION(nfc_clr_addr, NFC_CLR_CMD_DEST, 2)
+		SET_REG_BY_VERSION(nfc_set_addr, NFC_SET_CMD_DEST, 2)
+		SET_REG_BY_VERSION(nfc_clr_cmd, NFC_CLR_CMD, 2)
+		SET_REG_BY_VERSION(nfc_set_cmd, NFC_SET_CMD, 2)
+		SET_REG_BY_VERSION(mode_ctrl, MODE_CTRL, 2)
+		SET_REG_BY_VERSION(slp_ctrl, SLP_PROTECT, 2)
 	},
 };
 
