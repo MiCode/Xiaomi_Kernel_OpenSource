@@ -38,6 +38,13 @@ config TYPEC_MUX_PS5170
 	help
 	  Say Y or M if your system has a PS5170 USB Type-C Linear Redriver.
 	  Support USB/DP signal switch.
+
+config TYPEC_MUX_DP_SELECTOR
+	tristate "USB DP SIGNAL SELECTOR"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a integrate USB/DP selector.
+	  Support USB/DP channel switch.
 	  Works with Type-C Port Controller Manager.
 	  If unsure, say N.
 
