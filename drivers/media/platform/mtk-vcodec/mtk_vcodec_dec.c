@@ -2208,6 +2208,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		buf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 		last_frame_type = buf->lastframe;
 
+		if (need_seq_header)
+			vb2_v4l2->flags |= V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED;
+
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		if (!src_buf) {
 			mtk_v4l2_err("[%d]Error!!src_buf is NULL!");
