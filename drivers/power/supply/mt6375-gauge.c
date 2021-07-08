@@ -287,6 +287,7 @@ static irqreturn_t gauge_irq_thread(int irq, void *data)
 	struct mt6375_priv *priv = data;
 	u8 status_buf[NUM_IRQ_REG], status;
 	static const u8 no_status[NUM_IRQ_REG];
+	static const u8 mask[NUM_IRQ_REG] = { 0x9F, 0x1B, 0x0D };
 	bool handled = false;
 	int i, j, ret;
 
@@ -305,7 +306,7 @@ static irqreturn_t gauge_irq_thread(int irq, void *data)
 	for (i = 0; i < NUM_IRQ_REG; i++) {
 		ret = regmap_write(priv->regmap,
 				   RG_BM_TOP_INT_MASK_CON0_SET + i * 3,
-				   priv->unmask_buf[i]);
+				   mask[i]);
 		if (ret)
 			dev_err(priv->dev, "Failed to mask irq[%d]\n", i);
 	}
@@ -328,7 +329,7 @@ static irqreturn_t gauge_irq_thread(int irq, void *data)
 	for (i = 0; i < NUM_IRQ_REG; i++) {
 		ret = regmap_write(priv->regmap,
 				   RG_BM_TOP_INT_MASK_CON0_CLR + i * 3,
-				   priv->unmask_buf[i]);
+				   mask[i]);
 		if (ret)
 			dev_err(priv->dev, "Failed to unmask irq[%d]\n", i);
 	}
@@ -1136,6 +1137,12 @@ static void fgauge_set_nafg_intr_internal(struct mtk_gauge *gauge, int _prd, int
 
 	gauge->zcv_reg = mv_to_reg_value(_zcv_mv);
 	gauge->thr_reg = mv_to_reg_value(_thr_mv);
+
+	if (gauge->thr_reg >= 32768) {
+		bm_err("[%s]nag_c_dltv_thr mv=%d ,thr_reg=%d,limit thr_reg to 32767\n",
+			__func__, _thr_mv, gauge->thr_reg);
+		gauge->thr_reg = 32767;
+	}
 
 	regval = gauge->zcv_reg & AUXADC_NAG_ZCV_MASK;
 	regmap_raw_write(gauge->regmap, RG_AUXADC_NAG_1, &regval, sizeof(regval));
