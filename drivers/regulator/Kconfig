@@ -780,6 +780,18 @@ config REGULATOR_MT6363
 	  The driver can also be build as a module.
 	  If so, the module will be called mt6363_regulator
 
+config REGULATOR_MT6368
+	tristate "MT6368 SPMI Regulator driver"
+	depends on MFD_MTK_SPMI_PMIC
+	help
+	  Say y here to select this option to enable the power regulator of
+	  MediaTek MT6368 PMIC.
+	  This driver supports the control of different power rails of device
+	  through regulator interface.
+
+	  The driver can also be build as a module.
+	  If so, the module will be called mt6368_regulator
+
 config REGULATOR_MT6373
 	tristate "MT6373 SPMI Regulator driver"
 	depends on MFD_MTK_SPMI_PMIC
