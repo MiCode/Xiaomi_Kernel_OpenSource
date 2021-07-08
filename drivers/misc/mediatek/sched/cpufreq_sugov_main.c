@@ -348,6 +348,9 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
+	if (idle_cpu(sg_cpu->cpu))
+		return 0;
+
 	return mtk_cpu_util(sg_cpu->cpu, util, max,FREQUENCY_UTIL, NULL);
 }
 
