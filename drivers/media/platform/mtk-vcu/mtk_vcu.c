@@ -2128,8 +2128,8 @@ static int compat_get_vpud_allocation_data(
 	compat_u64 u;
 	unsigned int err = 0;
 
-	err = get_user(l, &data32->iova);
-	err |= put_user(l, &data->iova);
+	err = get_user(u, &data32->iova);
+	err |= put_user(u, &data->iova);
 	err |= get_user(l, &data32->len);
 	err |= put_user(l, &data->len);
 	err |= get_user(u, &data32->pa);
@@ -2148,8 +2148,8 @@ static int compat_put_vpud_allocation_data(
 	compat_u64 u;
 	unsigned int err = 0;
 
-	err = get_user(l, &data->iova);
-	err |= put_user(l, &data32->iova);
+	err = get_user(u, &data->iova);
+	err |= put_user(u, &data32->iova);
 	err |= get_user(l, &data->len);
 	err |= put_user(l, &data32->len);
 	err |= get_user(u, &data->pa);
