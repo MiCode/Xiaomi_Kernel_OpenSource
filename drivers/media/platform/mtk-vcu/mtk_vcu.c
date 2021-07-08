@@ -1781,8 +1781,9 @@ static void mtk_vcu_buf_vm_close(struct vm_area_struct *vma)
 		(struct mtk_vcu_queue *)file->private_data;
 
 	mtk_vcu_buffer_ref_dec(vcu_queue, mem_priv);
-	vcu_dbg_log("[VCU] %s vma->start 0x%lx, end 0x%lx, pgoff 0x%lx\n",
-		 __func__, vma->vm_start, vma->vm_end, vma->vm_pgoff);
+	vcu_dbg_log("[VCU] %s vma->start 0x%lx, end 0x%lx, pgoff 0x%lx mem_priv %lx\\n",
+		 __func__, vma->vm_start, vma->vm_end,
+		 vma->vm_pgoff, (unsigned long)mem_priv);
 }
 
 const struct vm_operations_struct mtk_vcu_buf_vm_ops = {
@@ -1862,16 +1863,13 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 		mem_buff_data.len = length;
 		src_vb = NULL;
 		dst_vb = NULL;
-		if (strcmp(current->comm, "vdec_srv") == 0) {
-			src_vb = vcu_dev->curr_src_vb[VCU_VDEC];
-			dst_vb = vcu_dev->curr_dst_vb[VCU_VDEC];
-		} else if (strcmp(current->comm, "venc_srv") == 0) {
-			src_vb = vcu_dev->curr_src_vb[VCU_VENC];
-			dst_vb = vcu_dev->curr_dst_vb[VCU_VENC];
-		}
+
 		ret = mtk_vcu_set_buffer(vcu_queue, &mem_buff_data,
 			src_vb, dst_vb);
 		if (!IS_ERR_OR_NULL(ret)) {
+			vcu_dbg_log("[VCU] mtk_vcu_buf_vm_mmap mem_priv %lx iova %llx\n",
+				 (unsigned long)ret, pa_start);
+
 			vma->vm_ops = &mtk_vcu_buf_vm_ops;
 			vma->vm_private_data = ret;
 			vma->vm_file = file;
