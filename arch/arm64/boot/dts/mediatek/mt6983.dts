@@ -3181,6 +3181,7 @@
 
 	imgsys_fw@15000000 {
 		compatible = "mediatek,imgsys";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		reg = <0 0x15000000 0 0x4000>,	/* 0 IMGSYS_TOP */
 		      <0 0x15020000 0 0x10000>,	/* 1 IMGSYS_TRAW */
 		      <0 0x15040000 0 0x10000>,	/* 2 IMGSYS_LTRAW */
