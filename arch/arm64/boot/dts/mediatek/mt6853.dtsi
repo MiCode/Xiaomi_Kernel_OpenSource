@@ -4765,14 +4765,28 @@
 			#clock-cells = <1>;
 		};
 
-		hcp: hcp@0 {
-			compatible = "mediatek,hcp";
+		aie@1b001000 {
+			compatible = "mediatek,mt6853-aie", "mediatek,aie-hw2.0";
+			reg = <0 0x1b001000 0 0x1000>;
+			interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6853_POWER_DOMAIN_IPE>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			clocks = <&ipesys_clk CLK_IPE_FD>,
+				 <&ipesys_clk CLK_IPE_LARB20>;
+			clock-names = "aie",
+				 "FDVT_CLK_IPE_LARB20";
+			mboxes = <&gce 14 0 CMDQ_THR_PRIO_1>;
+			iommus = <&iommu0 M4U_PORT_L20_IPE_FDVT_RDA>,
+				 <&iommu0 M4U_PORT_L20_IPE_FDVT_RDB>,
+				 <&iommu0 M4U_PORT_L20_IPE_FDVT_WRA>,
+				 <&iommu0 M4U_PORT_L20_IPE_FDVT_WRB>;
+			fdvt_frame_done = <CMDQ_EVENT_FDVT_DONE>;
+			mediatek,larb = <&larb20>;
 		};
 
 		rsc@1b003000 {
 			compatible = "mediatek,rsc";
 			mediatek,larb = <&larb20>;
-			mediatek,hcp = <&hcp>;
 			power-domains = <&scpsys MT6853_POWER_DOMAIN_IPE>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus = <&iommu0 M4U_PORT_L20_IPE_RSC_RDMA0>,
