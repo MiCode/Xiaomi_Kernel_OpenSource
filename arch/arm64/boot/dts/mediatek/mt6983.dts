@@ -996,32 +996,21 @@
 		reg = <0 0x1000ce00 0 0x200>, //AP FHCTL base
 			  <0 0x1000c000 0 0xe00>, //APMIX base
 
-			  <0 0x190F3100 0 0x030>, //APU0 EN
-			  <0 0x190F3000 0 0x100>, //APU APMIX
-			  <0 0x190F3500 0 0x030>,
-			  <0 0x190F3400 0 0x100>,
-			  <0 0x190F3900 0 0x030>,
-			  <0 0x190F3800 0 0x100>,
-			  <0 0x190F3C00 0 0x030>,
-			  <0 0x190F3D00 0 0x100>,
-
 			  <0 0x13fa0100 0 0x030>, //GPU0 EN
 			  <0 0x13fa0000 0 0x100>, //GPU APMIX
-			  <0 0x13fa0500 0 0x030>,
-			  <0 0x13fa0400 0 0x100>,
 			  <0 0x13fa0900 0 0x030>,
 			  <0 0x13fa0800 0 0x100>,
-			  <0 0x13fa0C00 0 0x030>,
-			  <0 0x13fa0D00 0 0x100>,
+			  <0 0x13fa0d00 0 0x030>,
+			  <0 0x13fa0c00 0 0x100>,
 
-			  <0 0x0C030100 0 0x030>,//mcupm EN
-			  <0 0x0C030000 0 0x100>,//mcupm APMIX
-			  <0 0x0C030500 0 0x030>,
-			  <0 0x0C030400 0 0x100>,
-			  <0 0x0C030900 0 0x030>,
-			  <0 0x0C030800 0 0x100>,
-			  <0 0x0C030C00 0 0x030>,
-			  <0 0x0C030D00 0 0x100>;
+			  <0 0x0c030100 0 0x030>,//mcupm EN
+			  <0 0x0c030000 0 0x100>,//mcupm APMIX
+			  <0 0x0c030500 0 0x030>,
+			  <0 0x0c030400 0 0x100>,
+			  <0 0x0c030900 0 0x030>,
+			  <0 0x0c030800 0 0x100>,
+			  <0 0x0c030d00 0 0x030>,
+			  <0 0x0c030c00 0 0x100>;
 
 
 		map0 {
@@ -1029,71 +1018,35 @@
 			method = "fhctl-ap";
 			emipll {
 				fh-id = <5>;
-				pll-id = <999>;
+				pll-id = <CLK_APMIXEDSYS_EMIPLL>;
 			};
 			mpll {
 				fh-id = <6>;
-				pll-id = <999>;
+				pll-id = <CLK_APMIXEDSYS_MPLL>;
 			};
 			mmpll {
 				fh-id = <7>;
-				pll-id = <999>;
+				pll-id = <CLK_APMIXEDSYS_MMPLL>;
 			};
 			mainpll {
 				fh-id = <8>;
-				pll-id = <999>;
+				pll-id = <CLK_APMIXEDSYS_MAINPLL>;
 			};
 			msdcpll {
 				fh-id = <9>;
-				pll-id = <999>;
+				pll-id = <CLK_APMIXEDSYS_MSDCPLL>;
 			};
 			adsppll {
 				fh-id = <10>;
-				pll-id = <999>;
+				pll-id = <CLK_APMIXEDSYS_ADSPPLL>;
 			};
 			imgpll {
 				fh-id = <11>;
-				pll-id = <999>;
+				pll-id = <CLK_APMIXEDSYS_IMGPLL>;
 			};
 			tvdpll {
 				fh-id = <12>;
-				pll-id = <999>;
-			};
-		};
-
-		map1 {
-			domain = "apu0";
-			method = "fhctl-ap";
-			apu_pll {
-				fh-id = <0>;
-				pll-id = <999>;
-			};
-		};
-
-		map2 {
-			domain = "apu1";
-			method = "fhctl-ap";
-			npu_pll {
-				fh-id = <0>;
-				pll-id = <999>;
-			};
-		};
-
-		map3 {
-			domain = "apu2";
-			method = "fhctl-ap";
-			apu_pll1 {
-				fh-id = <0>;
-				pll-id = <999>;
-			};
-		};
-
-		map4 {
-			domain = "apu3";
-			method = "fhctl-ap";
-			apu_pll2 {
-				fh-id = <0>;
-				pll-id = <999>;
+				pll-id = <CLK_APMIXEDSYS_TVDPLL>;
 			};
 		};
 
@@ -1102,16 +1055,7 @@
 			method = "fhctl-ap";
 			mfgpll {
 				fh-id = <0>;
-				pll-id = <999>;
-			};
-		};
-
-		map6 {
-			domain = "gpu1";
-			method = "fhctl-ap";
-			mfgpll1 {
-				fh-id = <0>;
-				pll-id = <999>;
+				pll-id = <CLK_MFG_MFGPLL>;
 			};
 		};
 
@@ -1120,7 +1064,7 @@
 			method = "fhctl-ap";
 			mfgebpll {
 				fh-id = <0>;
-				pll-id = <999>;
+				pll-id = <CLK_MFG_GPUEBPLL>;
 			};
 		};
 
@@ -1129,7 +1073,7 @@
 			method = "fhctl-ap";
 			mfgscpll {
 				fh-id = <0>;
-				pll-id = <999>;
+				pll-id = <CLK_MFG_MFGSCPLL>;
 			};
 		};
 
@@ -1139,6 +1083,7 @@
 			ccipll {
 				fh-id = <0>;
 				pll-id = <999>;
+				perms = <0x18>;
 			};
 		};
 
@@ -1148,6 +1093,7 @@
 			armpll_ll {
 				fh-id = <0>;
 				pll-id = <999>;
+				perms = <0x18>;
 			};
 		};
 
@@ -1157,6 +1103,7 @@
 			armpll_bl {
 				fh-id = <0>;
 				pll-id = <999>;
+				perms = <0x18>;
 			};
 		};
 
@@ -1166,6 +1113,7 @@
 			armpll_b {
 				fh-id = <0>;
 				pll-id = <999>;
+				perms = <0x18>;
 			};
 		};
 
