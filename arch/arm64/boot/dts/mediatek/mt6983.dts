@@ -641,6 +641,12 @@
 		#clock-cells = <1>;
 	};
 
+	dispsys1_config_clk: syscon@14400000 {
+		compatible = "mediate,mt6983-dispsys1_config", "syscon";
+		reg = <0 0x14400000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	imgsys_main_clk: syscon@15000000 {
 		compatible = "mediate,mt6983-imgsys_main", "syscon";
 		reg = <0 0x15000000 0 0x1000>;
