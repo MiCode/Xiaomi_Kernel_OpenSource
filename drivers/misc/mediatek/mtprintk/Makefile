@@ -12,4 +12,5 @@
 #
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+subdir-ccflags-y += -I$(srctree)/kernel/
 obj-$(CONFIG_MTK_PRINTK) += mtk_printk_ctrl.o

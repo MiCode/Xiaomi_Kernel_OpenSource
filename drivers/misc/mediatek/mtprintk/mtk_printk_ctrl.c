@@ -18,6 +18,8 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
+#include <trace/hooks/logbuf.h>
+#include <printk/printk_ringbuffer.h>
 
 #include "aee.h"
 
@@ -277,6 +279,20 @@ static int mt_printk_ctrl_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+/*
+ * register_trace_android_vh_printk_logbuf function, don't call printk/pr_xx to
+ * printk log, or will into infinite loop
+ */
+static void mt_printk_logbuf(void *data, struct printk_ringbuffer *rb,
+	struct printk_record *r)
+{
+	if (r->info->caller_id  & 0x80000000)
+		return;
+	/* max pid 0x8000 -> 32768 */
+	r->info->caller_id |= (raw_smp_processor_id() * 100000);
+
+}
+
 static ssize_t mt_printk_ctrl_write(struct file *filp,
 	const char *ubuf, size_t cnt, loff_t *data)
 {
@@ -356,6 +372,8 @@ static int __init mt_printk_ctrl_init(void)
 	if (!entry)
 		return -ENOMEM;
 
+	register_trace_android_vh_logbuf(mt_printk_logbuf, NULL);
+
 #ifdef CONFIG_LOG_TOO_MUCH_WARNING
 	logmuch_entry = proc_create("log_much", 0444, NULL, &log_much_ops);
 	if (!logmuch_entry) {
@@ -376,6 +394,8 @@ static void __exit mt_printk_ctrl_exit(void)
 {
 	if (entry)
 		proc_remove(entry);
+
+	unregister_trace_android_vh_logbuf(mt_printk_logbuf, NULL);
 
 #ifdef CONFIG_LOG_TOO_MUCH_WARNING
 	if (logmuch_entry)
