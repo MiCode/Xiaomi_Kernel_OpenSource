@@ -58,6 +58,7 @@
 #include "modem_secure_base.h"
 #include "dpmaif_bat.h"
 #include "net_speed.h"
+#include "net_pool.h"
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
@@ -344,6 +345,18 @@ static void dpmaif_dump_txq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 	}
 }
 
+static void dpmaif_dump_dl_queue_drop_cnt(void)
+{
+	int i, cnt;
+
+	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+		cnt = ccci_get_dl_queue_dp_cnt(i);
+		if (cnt)
+			CCCI_NORMAL_LOG(0, TAG,
+				"rxq%d drop skb count: %u", i, cnt);
+	}
+}
+
 /*actrually, length is dump flag's private argument*/
 static int dpmaif_dump_status(unsigned char hif_id,
 		enum MODEM_DUMP_FLAG flag, void *buff, int length)
@@ -369,6 +382,8 @@ static int dpmaif_dump_status(unsigned char hif_id,
 	}
 	if (flag & DUMP_FLAG_TOGGLE_NET_SPD)
 		return mtk_ccci_net_spd_cfg(1);
+
+	dpmaif_dump_dl_queue_drop_cnt();
 
 	return 0;
 }
@@ -607,19 +622,19 @@ static int dpmaif_net_rx_push_thread(void *arg)
 	int ret;
 
 	while (1) {
-		if (skb_queue_empty(&queue->skb_list.skb_list)) {
+		if (ccci_dl_queue_len(queue->index) == 0) {
 			dpmaif_queue_broadcast_state(hif_ctrl, RX_FLUSH,
 				IN, queue->index);
 			count = 0;
 			ret = wait_event_interruptible(queue->rx_wq,
-				(!skb_queue_empty(&queue->skb_list.skb_list) ||
+				(ccci_dl_queue_len(queue->index) ||
 				kthread_should_stop()));
 			if (ret == -ERESTARTSYS)
 				continue;	/* FIXME */
 		}
 		if (kthread_should_stop())
 			break;
-		skb = ccci_skb_dequeue(&queue->skb_list);
+		skb = (struct sk_buff *)ccci_dl_dequeue(queue->index);
 		if (!skb)
 			continue;
 #ifdef MT6297
@@ -858,25 +873,6 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	return 0;
 }
 
-static int ccci_skb_to_list(struct ccci_skb_queue *queue, struct sk_buff *newsk)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&queue->skb_list.lock, flags);
-	if (queue->skb_list.qlen < queue->max_len) {
-		queue->enq_count++;
-		__skb_queue_tail(&queue->skb_list, newsk);
-		if (queue->skb_list.qlen > queue->max_history)
-			queue->max_history = queue->skb_list.qlen;
-
-	} else {
-		spin_unlock_irqrestore(&queue->skb_list.lock, flags);
-		return -1;
-	}
-	spin_unlock_irqrestore(&queue->skb_list.lock, flags);
-	return 0;
-}
-
 static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	unsigned int skb_idx)
 {
@@ -913,10 +909,7 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	ccci_md_add_log_history(&dpmaif_ctrl->traffic_info, IN,
 		(int)rxq->index, &ccci_h, 0);
 
-	/* Add data to rx thread SKB list */
-	ret = ccci_skb_to_list(&rxq->skb_list, new_skb);
-	if (ret < 0)
-		return ret;
+	ccci_dl_enqueue(rxq->index, new_skb);
 END:
 	cur_skb->skb = NULL;
 	return ret;
@@ -1025,7 +1018,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 			dpmaif_debug_add_data(&rxq->dbg_data, pkt_inf_t,
 				sizeof(struct dpmaifq_normal_pit)) < 0) {
 			dpmaif_debug_push_data(&rxq->dbg_data,
-				&rxq->skb_list, rxq->cur_chn_idx);
+				rxq->index, rxq->cur_chn_idx);
 			dpmaif_debug_add_data(&rxq->dbg_data, pkt_inf_t,
 				sizeof(struct dpmaifq_normal_pit));
 		}
@@ -2345,11 +2338,9 @@ static int dpmaif_rxq_init(struct dpmaif_rx_queue *queue)
 				queue, "dpmaif_rx_push");
 	spin_lock_init(&queue->rx_lock);
 
-	if (dpmaif_ctrl->enable_pit_debug >= 0) {
-		dpmaif_debug_set_fun(ccci_skb_to_list);
+	if (dpmaif_ctrl->enable_pit_debug >= 0)
 		dpmaif_debug_init_data(&queue->dbg_data, DEBUG_TYPE_RX_DONE,
 			DEBUG_VERION_v2, queue->index);
-	}
 
 	return 0;
 }
@@ -3085,22 +3076,10 @@ static int dpmaif_debug(unsigned char hif_id,
 
 static int dpmaif_pre_stop(unsigned char hif_id)
 {
-	int i;
-	struct dpmaif_rx_queue *rxq;
-
 	if (hif_id != DPMAIF_HIF_ID)
 		return -1;
 
 	dpmaif_stop_hw();
-
-	if (dpmaif_ctrl->enable_pit_debug >= 0) {
-		for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
-			rxq = &dpmaif_ctrl->rxq[i];
-			dpmaif_debug_push_data(&rxq->dbg_data,
-				&rxq->skb_list, rxq->cur_chn_idx);
-			NOTIFY_RX_PUSH(rxq);
-		}
-	}
 
 	return 0;
 }
@@ -3292,6 +3271,10 @@ int ccci_dpmaif_hif_init(struct device *dev)
 #endif
 	mtk_ccci_net_speed_init();
 	dpmaif_init_cap(dev);
+
+	ret = ccci_dl_pool_init(DPMAIF_RXQ_NUM);
+	if (ret)
+		goto DPMAIF_INIT_FAIL;
 
 	dev->dma_mask = &dpmaif_dmamask;
 	dev->coherent_dma_mask = dpmaif_dmamask;

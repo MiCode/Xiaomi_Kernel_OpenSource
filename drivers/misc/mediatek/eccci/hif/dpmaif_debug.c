@@ -4,20 +4,11 @@
  */
 
 #include "dpmaif_debug.h"
-
+#include "net_pool.h"
 
 #define TAG "dbg"
 
-static int (*g_skb_to_list)(struct ccci_skb_queue *rxq, struct sk_buff *skb);
 
-
-
-
-void dpmaif_debug_set_fun(int (*skb_to_list)
-		(struct ccci_skb_queue *rxq, struct sk_buff *skb))
-{
-	g_skb_to_list = skb_to_list;
-}
 
 void dpmaif_debug_init_data(struct dpmaif_debug_data_t *dbg_data,
 		u8 type, u8 verion, u8 qidx)
@@ -41,22 +32,13 @@ void dpmaif_debug_init_data(struct dpmaif_debug_data_t *dbg_data,
 
 inline int dpmaif_debug_push_data(
 		struct dpmaif_debug_data_t *dbg_data,
-		struct ccci_skb_queue *skb_list,
-		unsigned int chn_idx)
+		u32 qno, unsigned int chn_idx)
 {
 	struct lhif_header *lhif_h;
 	struct sk_buff *skb;
-	int ret;
 
 	if (dbg_data->idx == 0)
 		return 0;
-
-	if (!g_skb_to_list) {
-		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: g_skb_to_list is NULL.\n",
-			__func__);
-		return -1;
-	}
 
 	skb = __dev_alloc_skb(DEBUG_HEADER_LEN + MAX_DEBUG_BUFFER_LEN,
 					GFP_ATOMIC);
@@ -77,14 +59,7 @@ inline int dpmaif_debug_push_data(
 					sizeof(struct lhif_header)));
 	lhif_h->netif = chn_idx;
 
-	if (!g_skb_to_list)
-		return -1;
-
-	ret = g_skb_to_list(skb_list, skb);
-	if (ret < 0) {
-		ccci_free_skb(skb);
-		return -2;
-	}
+	ccci_dl_enqueue(qno, skb);
 
 	dbg_data->idx = 0;
 	return 0;

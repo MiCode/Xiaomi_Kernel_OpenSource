@@ -43,8 +43,6 @@ struct dpmaif_debug_header {
 
 
 
-//struct dpmaif_rx_queue;
-
 struct dpmaif_debug_data_t {
 	unsigned char data[DEBUG_HEADER_LEN + MAX_DEBUG_BUFFER_LEN];
 	struct iphdr *iph;
@@ -52,8 +50,6 @@ struct dpmaif_debug_data_t {
 	unsigned int  idx;
 };
 
-void dpmaif_debug_set_fun(int (*skb_to_list)
-		(struct ccci_skb_queue *rxq, struct sk_buff *skb));
 
 void dpmaif_debug_init_data(struct dpmaif_debug_data_t *dbg_data,
 		u8 type, u8 verion, u8 qidx);
@@ -63,7 +59,6 @@ inline int dpmaif_debug_add_data(struct dpmaif_debug_data_t *dbg_data,
 
 inline int dpmaif_debug_push_data(
 		struct dpmaif_debug_data_t *dbg_data,
-		struct ccci_skb_queue *skb_list,
-		unsigned int chn_idx);
+		u32 qno, unsigned int chn_idx);
 
 #endif /* __MODEM_DPMA_DEBUG_H__ */
