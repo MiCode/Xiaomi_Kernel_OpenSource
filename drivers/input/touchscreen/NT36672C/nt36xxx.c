@@ -1708,6 +1708,8 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 			videolfb_tag->lcmname) == 0)
 			strncpy(novatek_firmware, firmware_name_tm, sizeof(firmware_name_tm));
 		else if (strcmp("nt36672e_fhdp_dsi_vdo_120hz_tianma_hfp_lcm_drv",
+			videolfb_tag->lcmname) == 0 ||
+			strcmp("nt36672e_fhdp_dphy_vdo_tianma_120hz_hfp",
 			videolfb_tag->lcmname) == 0)
 			strncpy(novatek_firmware, firmware_name_144hz, sizeof(firmware_name_144hz));
 		else
