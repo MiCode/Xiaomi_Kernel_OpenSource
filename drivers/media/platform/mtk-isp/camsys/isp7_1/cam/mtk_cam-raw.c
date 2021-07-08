@@ -2259,6 +2259,13 @@ static const struct v4l2_format stream_out_fmts[] = {
 		.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SBGGR10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR12,
 		},
 	},
@@ -2302,6 +2309,13 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGBRG10P,
 		},
 	},
 	{
@@ -2357,6 +2371,13 @@ static const struct v4l2_format stream_out_fmts[] = {
 		.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGRBG10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG12,
 		},
 	},
@@ -2402,6 +2423,14 @@ static const struct v4l2_format stream_out_fmts[] = {
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB10,
 		},
 	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SRGGB10P,
+		},
+	},
+
 	{
 		.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
