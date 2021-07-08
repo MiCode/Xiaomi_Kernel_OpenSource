@@ -5851,11 +5851,9 @@
 
 	apu_top_3: apu_top_3 {
 		compatible = "mt6983,apu_top_3";
-/*
 		vapu-supply = <&mt6373_vbuck6>;
 		vsram_core-supply = <&mt6363_vbuck4>;
 		vcore-supply = <&mt6363_vbuck2>;
-*/
 		clocks = <&topckgen_clk CLK_TOPCKGEN_DSP_SEL>,	// CONN
 			<&topckgen_clk CLK_TOPCKGEN_DSP1_SEL>,
 			<&topckgen_clk CLK_TOPCKGEN_DSP2_SEL>,
@@ -5910,7 +5908,7 @@
 			"apu_acx0_rpc_lite",
 			"apu_acx1",
 			"apu_acx1_rpc_lite";
-//		consumer = <&iommu2 &iommu3>;
+		consumer = <&apu_iommu0 &apu_iommu1>;
 	};
 
 	apusys_power_dummy: apusys_power_dummy {
