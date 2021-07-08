@@ -131,53 +131,71 @@ err:
 	return 0;
 }
 
-int reviser_mem_free(struct device *dev, struct reviser_mem *mem)
+int reviser_mem_free(struct device *dev, struct reviser_mem *mem, bool fix)
 {
 	int ret = 0;
 
-	kvfree((void *) mem->kva);
+	if (fix) {
+		kvfree((void *) mem->kva);
 
-	if (!__reviser_free_iova(dev, mem->size, mem->iova)) {
-		sg_free_table(&mem->sgt);
-		ret = 0;
-		LOG_INFO("mem free (0x%x/%d/0x%llx)\n",
-				mem->iova, mem->size, mem->kva);
+		if (!__reviser_free_iova(dev, mem->size, mem->iova)) {
+			sg_free_table(&mem->sgt);
+			ret = 0;
+			LOG_INFO("mem free (0x%x/%d/0x%llx)\n",
+					mem->iova, mem->size, mem->kva);
+		} else {
+			ret = -1;
+			LOG_INFO("mem free fail(0x%x/%d/0x%llx)\n",
+					mem->iova, mem->size, mem->kva);
+		}
 	} else {
-		ret = -1;
-		LOG_INFO("mem free fail(0x%x/%d/0x%llx)\n",
-				mem->iova, mem->size, mem->kva);
+		dma_free_coherent(dev, mem->size,
+				(void *)mem->kva, mem->iova);
 	}
+
 
 	return 0;
 }
 
-int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
+int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem, bool fix)
 {
 	int ret = 0;
 	void *kva;
 	dma_addr_t iova;
 	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
 
-	kva = kvmalloc(mem->size, GFP_KERNEL);
+	if (fix) {
+		kva = kvmalloc(mem->size, GFP_KERNEL);
 
-	if (!kva) {
-		LOG_ERR("kvmalloc: failed\n");
-		ret = -ENOMEM;
-		goto error;
-	}
-	memset((void *)kva, 0, mem->size);
+		if (!kva) {
+			LOG_ERR("kvmalloc: failed\n");
+			ret = -ENOMEM;
+			goto out;
+		}
+		memset((void *)kva, 0, mem->size);
 
-	if (__reviser_get_sgt(kva, mem->size, &mem->sgt)) {
-		LOG_ERR("get sgt: failed\n");
-		ret = -ENOMEM;
-		goto error;
-	}
+		if (__reviser_get_sgt(kva, mem->size, &mem->sgt)) {
+			LOG_ERR("get sgt: failed\n");
+			ret = -ENOMEM;
+			kvfree(kva);
+			goto out;
+		}
 
-	iova = __reviser_get_iova(dev, mem->sgt.sgl, mem->sgt.nents,
-			mem->size, rdv->plat.dram[0]);
-	if ((!iova) || ((uint32_t)iova != rdv->plat.dram[0])) {
-		LOG_ERR("iova wrong (0x%llx)\n", iova);
-		goto error;
+		iova = __reviser_get_iova(dev, mem->sgt.sgl, mem->sgt.nents,
+				mem->size, rdv->plat.dram[0]);
+		if ((!iova) || ((uint32_t)iova != rdv->plat.dram[0])) {
+			LOG_ERR("iova wrong (0x%llx)\n", iova);
+			kvfree(kva);
+			goto out;
+		}
+
+	} else {
+		kva = dma_alloc_coherent(dev, mem->size,
+					&iova, GFP_KERNEL);
+		if (!kva) {
+			LOG_ERR("dma_alloc_coherent fail (0x%llx)\n", mem->size);
+			goto out;
+		}
 	}
 
 #ifndef MODULE
@@ -195,13 +213,12 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 			mem->iova, mem->size, mem->kva);
 
 	goto out;
-
-error:
-	kvfree(kva);
 out:
 	return ret;
 
 }
+
+
 
 int reviser_mem_invalidate(struct device *dev, struct reviser_mem *mem)
 {
@@ -232,15 +249,20 @@ int reviser_dram_remap_init(void *drvinfo)
 				+ rdv->plat.device[REVISER_DEVICE_SECURE_MD32];
 
 	// dram_ctx = preemption_ctx + ip_ctx
-	rdv->plat.dram_max = ctx_max * 2;
+
+	// fix_dram will be used on AP version
+	if (rdv->plat.fix_dram)
+		rdv->plat.dram_max = ctx_max * 2;
+	else
+		rdv->plat.dram_max = 15;
+
 	g_mem_sys.size = rdv->plat.vlm_size * rdv->plat.dram_max;
-	if (reviser_mem_alloc(rdv->dev, &g_mem_sys)) {
+	if (reviser_mem_alloc(rdv->dev, &g_mem_sys, rdv->plat.fix_dram)) {
 		LOG_ERR("alloc fail\n");
 		return -ENOMEM;
 	}
 
 	//_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
-
 	rdv->rsc.dram.base = (void *) g_mem_sys.kva;
 	for (i = 0; i < rdv->plat.dram_max; i++)
 		rdv->plat.dram[i] = g_mem_sys.iova + rdv->plat.vlm_size * i;
@@ -259,7 +281,7 @@ int reviser_dram_remap_destroy(void *drvinfo)
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	reviser_mem_free(rdv->dev, &g_mem_sys);
+	reviser_mem_free(rdv->dev, &g_mem_sys, rdv->plat.fix_dram);
 	rdv->rsc.dram.base = NULL;
 	return 0;
 }

@@ -14,8 +14,8 @@ void reviser_print_dram(void *drvinfo, void *s_file);
 void reviser_print_tcm(void *drvinfo, void *s_file);
 int reviser_dram_remap_init(void *drvinfo);
 int reviser_dram_remap_destroy(void *drvinfo);
-int reviser_mem_free(struct device *dev, struct reviser_mem *mem);
-int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem);
+int reviser_mem_free(struct device *dev, struct reviser_mem *mem, bool fix);
+int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem, bool fix);
 int reviser_mem_invalidate(struct device *dev, struct reviser_mem *mem);
 
 

@@ -75,6 +75,7 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 	struct list_head *tmp = NULL, *pos = NULL;
 	struct reviser_msg *rmesg;
 	int retry = 0;
+	bool find = false;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
@@ -127,11 +128,14 @@ wait:
 				rmesg->sn, rmesg->cmd, rmesg->option, rmesg->ack);
 
 		memcpy(reply, rmesg, sizeof(struct reviser_msg));
-		vfree(item);
+		find = true;
 		break;
 	}
 
 	spin_unlock_irqrestore(&g_rvr_msg->lock.lock_rx, flags);
+
+	if (find)
+		vfree(item);
 
 	ret = 0;
 out:

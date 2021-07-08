@@ -244,7 +244,7 @@ static int reviser_map_dts(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct reviser_dev_info *rdv = platform_get_drvdata(pdev);
-
+	uint32_t dram_offset = 0;
 	DEBUG_TAG;
 
 	if (!rdv) {
@@ -301,6 +301,16 @@ static int reviser_map_dts(struct platform_device *pdev)
 	}
 	LOG_DBG_RVR_FLW("boundary: %08xh\n", rdv->plat.boundary);
 
+	if (of_property_read_u32(pdev->dev.of_node,
+			"default-dram", &dram_offset)) {
+		LOG_ERR("Invalid dram_offset %d\n", ret);
+		goto free_int;
+	}
+	LOG_DBG_RVR_FLW("dram_offset: %08xh\n", dram_offset);
+	if (dram_offset > 0)
+		rdv->plat.fix_dram = dram_offset;
+	else
+		rdv->plat.fix_dram = 0;
 
 	return ret;
 
@@ -427,30 +437,9 @@ static int reviser_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct reviser_dev_info *rdv;
 
-	struct device_node *power_node;
-	struct platform_device *power_pdev;
-
 	DEBUG_TAG;
 
 	g_rdv = NULL;
-
-	/* make sure apusys_power driver initiallized before
-	 * calling apu_power_callback_device_register
-	 */
-	power_node = of_find_compatible_node(
-			NULL, NULL, "mediatek,apusys_power");
-	if (!power_node) {
-		LOG_ERR("DT,mediatek,apusys_power not found\n");
-		return -EINVAL;
-	}
-
-	power_pdev = of_find_device_by_node(power_node);
-
-	if (!power_pdev || !power_pdev->dev.driver) {
-		LOG_WARN("Waiting for %s\n",
-				power_node->full_name);
-		return -EPROBE_DEFER;
-	}
 
 	rdv = devm_kzalloc(dev, sizeof(*rdv), GFP_KERNEL);
 	if (!rdv)
@@ -584,7 +573,7 @@ static int reviser_rpmsg_probe(struct rpmsg_device *rpdev)
 	struct reviser_dev_info *rdv;
 	int ret = 0;
 
-	LOG_INFO("%s: name=%s, src=%d\n", rpdev->id.name, rpdev->src);
+	LOG_INFO("name=%s, src=%d\n", rpdev->id.name, rpdev->src);
 
 	if (!g_rdv) {
 		LOG_ERR("No Reviser Driver Init\n");
@@ -647,10 +636,6 @@ int reviser_init(struct apusys_core_info *info)
 
 	DEBUG_TAG;
 
-	if (!apusys_power_check()) {
-		LOG_ERR("reviser is disabled by apusys\n");
-		return -ENODEV;
-	}
 	g_apusys = info;
 
 	reviser_driver.driver.of_match_table = reviser_get_of_device_id();

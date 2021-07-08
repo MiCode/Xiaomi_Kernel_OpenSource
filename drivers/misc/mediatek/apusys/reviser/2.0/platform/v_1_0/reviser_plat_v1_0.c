@@ -16,25 +16,25 @@
 int reviser_v1_0_init(struct platform_device *pdev)
 {
 	struct reviser_dev_info *rdv = platform_get_drvdata(pdev);
-	struct reviser_hw_ops *cb;
+	struct reviser_hw_ops *hw_cb;
 
-	cb = (struct reviser_hw_ops *) reviser_mgt_get_cb();
+	hw_cb = (struct reviser_hw_ops *) reviser_hw_mgt_get_cb();
 
-	cb->dmp_boundary = reviser_print_boundary;
-	cb->dmp_ctx = reviser_print_context_ID;
-	cb->dmp_rmp = reviser_print_remap_table;
-	cb->dmp_default = reviser_print_default_iova;
-	cb->dmp_exception = reviser_print_exception;
+	hw_cb->dmp_boundary = reviser_print_boundary;
+	hw_cb->dmp_ctx = reviser_print_context_ID;
+	hw_cb->dmp_rmp = reviser_print_remap_table;
+	hw_cb->dmp_default = reviser_print_default_iova;
+	hw_cb->dmp_exception = reviser_print_exception;
 
 
 
-	cb->set_boundary = reviser_boundary_init;
-	cb->set_default = reviser_set_default_iova;
-	cb->set_ctx = reviser_set_context_ID;
-	cb->set_rmp = reviser_set_remap_table;
+	hw_cb->set_boundary = reviser_boundary_init;
+	hw_cb->set_default = reviser_set_default_iova;
+	hw_cb->set_ctx = reviser_set_context_ID;
+	hw_cb->set_rmp = reviser_set_remap_table;
 
-	cb->isr_cb = reviser_isr;
-	cb->set_int = reviser_enable_interrupt;
+	hw_cb->isr_cb = reviser_isr;
+	hw_cb->set_int = reviser_enable_interrupt;
 
 	//Set TCM Info
 	rdv->plat.pool_type[0] = 2;

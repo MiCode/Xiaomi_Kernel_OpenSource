@@ -57,7 +57,7 @@ static struct reviser_plat rv_drv = {
 	.init					= reviser_vrv_init,
 	.uninit					= reviser_vrv_uninit,
 
-	.bank_size				= 0x40000,
+	.bank_size				= 0x20000,
 	.mdla_max				= 2,
 	.vpu_max				= 3,
 	.edma_max				= 2,

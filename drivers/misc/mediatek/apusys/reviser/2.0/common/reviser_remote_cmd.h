@@ -28,4 +28,5 @@ int reviser_remote_get_dbg_loglevel(void *drvinfo, uint32_t *level);
 int reviser_remote_set_op(void *drvinfo, uint32_t *argv, uint32_t argc);
 
 int reviser_remote_handshake(void *drvinfo, void *remote);
+int reviser_remote_set_hw_default_iova(void *drvinfo, uint32_t ctx, uint64_t iova);
 #endif

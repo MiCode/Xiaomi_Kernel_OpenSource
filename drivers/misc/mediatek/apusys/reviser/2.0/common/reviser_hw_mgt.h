@@ -8,7 +8,7 @@
 #define __APUSYS_REVISER_HW_MGT_H__
 #include <linux/types.h>
 
-void *reviser_mgt_get_cb(void);
+void *reviser_hw_mgt_get_cb(void);
 
 void reviser_mgt_dmp_boundary(void *drvinfo, void *s_file);
 void reviser_mgt_dmp_ctx(void *drvinfo, void *s_file);

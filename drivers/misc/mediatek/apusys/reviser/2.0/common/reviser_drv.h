@@ -55,6 +55,7 @@ struct reviser_platform {
 	uint64_t dram[32];
 	uint32_t hw_ver;
 	uint32_t sw_ver;
+	uint32_t fix_dram;
 
 	uint32_t rmp_max;
 	uint32_t ctx_max;

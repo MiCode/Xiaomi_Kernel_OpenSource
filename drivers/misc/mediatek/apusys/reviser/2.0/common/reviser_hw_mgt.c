@@ -17,7 +17,7 @@ struct reviser_hw_mgr {
 
 static struct reviser_hw_mgr g_rvr_hw_mgr;
 
-void *reviser_mgt_get_cb(void)
+void *reviser_hw_mgt_get_cb(void)
 {
 	return (void *) &g_rvr_hw_mgr.hops;
 }

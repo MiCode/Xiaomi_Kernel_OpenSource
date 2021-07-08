@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/string.h>
+#include <linux/delay.h>
 
 #include "reviser_drv.h"
 #include "reviser_cmn.h"
@@ -45,6 +46,7 @@ static struct dentry *reviser_dbg_mem_vlm;
 static struct dentry *reviser_dbg_mem_dram;
 static struct dentry *reviser_dbg_remote_log;
 static struct dentry *reviser_dbg_remote_op;
+static struct dentry *reviser_dbg_debug_op;
 
 static struct dentry *reviser_dbg_err;
 static struct dentry *reviser_dbg_err_info;
@@ -52,8 +54,8 @@ static struct dentry *reviser_dbg_err_reg;
 static struct dentry *reviser_dbg_err_debug;
 
 
-u32 g_rvr_klog;
-//static uint32_t g_rvr_remote_op = 0;
+uint32_t g_rvr_klog;
+static uint32_t g_rvr_debug_op;
 static uint32_t g_rvr_remote_klog;
 static uint32_t g_reviser_vlm_ctx;
 static uint32_t g_reviser_mem_tcm_bank;
@@ -447,10 +449,6 @@ static void reviser_print_error(void *drvinfo, void *s_file)
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	/* Workaround for power all on mode*/
-	//reviser_power_on(rdv);
-
-
 	spin_lock_irqsave(&rdv->lock.lock_dump, flags);
 	count = rdv->dump.err_count;
 	spin_unlock_irqrestore(&rdv->lock.lock_dump, flags);
@@ -541,6 +539,62 @@ static const struct file_operations reviser_dbg_fops_err_reg = {
 	.release = single_release,
 	//.write = seq_write,
 };
+//----------------------------------------------
+// Debug OP
+static int reviser_dbg_read_debug_op(void *data, u64 *val)
+{
+	int ret = 0;
+
+	*val = g_rvr_debug_op;
+
+	return ret;
+}
+
+static int reviser_dbg_write_debug_op(void *data, u64 val)
+{
+	struct reviser_dev_info *rdv = data;
+	int ret = 0;
+	uint32_t i;
+
+	g_rvr_debug_op = val;
+
+	switch (g_rvr_debug_op) {
+	case 0:
+		LOG_INFO("Set POwer On\n");
+		reviser_power_on(rdv);
+		break;
+	case 1:
+		LOG_INFO("Set POwer value to 1\n");
+		rdv->power.power = true;
+		break;
+	case 2:
+		LOG_INFO("Remote Handshake\n");
+		ret = reviser_remote_handshake(rdv, NULL);
+		if (ret)
+			LOG_ERR("Remote Handshake fail %d\n", ret);
+		break;
+	case 3:
+		for (i = 0; i < rdv->plat.dram_max; i++) {
+			ret = reviser_remote_set_hw_default_iova(rdv, i, rdv->plat.dram[i]);
+			if (ret) {
+				LOG_ERR("reviser_remote_set_hw_default_iova fail %d\n", ret);
+				break;
+			}
+			udelay(1000);
+		}
+
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+DEFINE_SIMPLE_ATTRIBUTE(reviser_dbg_fops_debug_op,
+		reviser_dbg_read_debug_op, reviser_dbg_write_debug_op, "%llx\n");
+
+//----------------------------------------------
 //----------------------------------------------
 // log_level
 static int reviser_dbg_read_remotelog(void *data, u64 *val)
@@ -635,6 +689,7 @@ int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 	g_reviser_mem_tcm_bank = 0;
 	g_reviser_mem_dram_bank = 0;
 	g_reviser_mem_dram_ctx = 0;
+	g_rvr_debug_op = 0;
 
 	reviser_dbg_root = debugfs_create_dir(REVISER_DBG_DIR, apu_dbg_root);
 	reviser_dbg_table = debugfs_create_dir(REVISER_DBG_SUBDIR_TABLE,
@@ -765,6 +820,15 @@ int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 	DEBUG_TAG;
 
 
+	/* create remote log level */
+	reviser_dbg_debug_op = debugfs_create_file("debug_op", 0644,
+			reviser_dbg_root, rdv,
+			&reviser_dbg_fops_debug_op);
+	ret = IS_ERR_OR_NULL(reviser_dbg_debug_op);
+	if (ret) {
+		LOG_ERR("failed to create debug node(debug_op).\n");
+		goto out;
+	}
 	/* create remote log level */
 	reviser_dbg_remote_log = debugfs_create_file("remote_klog", 0644,
 			reviser_dbg_root, rdv,

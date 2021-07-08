@@ -536,3 +536,46 @@ int reviser_remote_handshake(void *drvinfo, void *remote)
 out:
 	return ret;
 }
+
+int reviser_remote_set_hw_default_iova(void *drvinfo, uint32_t ctx, uint64_t iova)
+{
+	struct reviser_dev_info *rdv = NULL;
+	struct reviser_msg req, reply;
+	int ret = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!reviser_is_remote()) {
+		LOG_ERR("Remote Not Init\n");
+		return -EINVAL;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	memset(&req, 0, sizeof(struct reviser_msg));
+	memset(&reply, 0, sizeof(struct reviser_msg));
+
+	req.cmd = REVISER_CMD_HW_DEFAULT_IOVA;
+	req.option = REVISER_OPTION_SET;
+
+	req.data[0] = ctx;
+	memcpy(req.data + 1, &iova, sizeof(iova));
+
+	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
+	if (ret) {
+		LOG_ERR("Send Msg Fail %d\n", ret);
+		goto out;
+	}
+	ret = reviser_remote_check_reply((void *) &reply);
+	if (ret) {
+		LOG_ERR("Check Msg Fail %d\n", ret);
+		goto out;
+	}
+out:
+	return 0;
+}

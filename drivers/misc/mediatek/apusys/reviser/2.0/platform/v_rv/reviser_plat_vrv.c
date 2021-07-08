@@ -16,15 +16,15 @@
 int reviser_vrv_init(struct platform_device *pdev)
 {
 	struct reviser_dev_info *rdv = platform_get_drvdata(pdev);
-	struct reviser_hw_ops *cb;
+	struct reviser_hw_ops *hw_cb;
 
-	cb = (struct reviser_hw_ops *) reviser_mgt_get_cb();
+	hw_cb = (struct reviser_hw_ops *) reviser_hw_mgt_get_cb();
 
-	cb->dmp_boundary = reviser_print_rvr_boundary;
-	cb->dmp_ctx = reviser_print_rvr_context_ID;
-	cb->dmp_rmp = reviser_print_rvr_remap_table;
-	cb->dmp_default = reviser_print_rvr_default_iova;
-	cb->dmp_exception = reviser_print_rvr_exception;
+	hw_cb->dmp_boundary = reviser_print_rvr_boundary;
+	hw_cb->dmp_ctx = reviser_print_rvr_context_ID;
+	hw_cb->dmp_rmp = reviser_print_rvr_remap_table;
+	hw_cb->dmp_default = reviser_print_rvr_default_iova;
+	hw_cb->dmp_exception = reviser_print_rvr_exception;
 
 
 	//Set TCM Info
