@@ -104,27 +104,22 @@ static int mdla_rpmsg_recv_cb(struct rpmsg_device *rpdev, void *data,
 {
 	struct mdla_ipi_data *d = (struct mdla_ipi_data *)data;
 
-	mutex_lock(&mdla_ipi_mtx);
-
-	ipi_cmd_compl_reply.type0  = d->type0;
-	ipi_cmd_compl_reply.type1  = d->type1;
-	ipi_cmd_compl_reply.dir    = d->dir;
-	ipi_cmd_compl_reply.data   = d->data;
+	if (d->type0 == MDLA_IPI_MICROP_MSG) {
+		mdla_ipi_up_msg(d->type1, d->data);
+	} else {
+		ipi_cmd_compl_reply.type0  = d->type0;
+		ipi_cmd_compl_reply.type1  = d->type1;
+		ipi_cmd_compl_reply.dir    = d->dir;
+		ipi_cmd_compl_reply.data   = d->data;
+		complete(&mdla_rpm_dev.ack);
+	}
 
 	mdla_verbose("rpmsg cb : %d %d, %d, %llu(0x%llx)\n",
-				ipi_cmd_compl_reply.type0,
-				ipi_cmd_compl_reply.type1,
-				ipi_cmd_compl_reply.dir,
-				ipi_cmd_compl_reply.data,
-				ipi_cmd_compl_reply.data);
-
-	if (ipi_cmd_compl_reply.type0 != MDLA_IPI_MICROP_MSG)
-		mdla_ipi_up_msg(ipi_cmd_compl_reply.type1, ipi_cmd_compl_reply.data);
-	else
-		complete(&mdla_rpm_dev.ack);
-
-	mutex_unlock(&mdla_ipi_mtx);
-
+				d->type0,
+				d->type1,
+				d->dir,
+				d->data,
+				d->data);
 	return 0;
 }
 

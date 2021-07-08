@@ -118,13 +118,14 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 static u32 cfg0;
 static u32 cfg1;
 
-struct mdla_rv_dbg_mem {
+struct mdla_rv_mem {
 	void *buf;
 	dma_addr_t da;
 	size_t size;
 };
 
-static struct mdla_rv_dbg_mem dbg_mem;
+static struct mdla_rv_mem dbg_mem;
+static struct mdla_rv_mem backup_mem;
 
 static char *mdla_plat_get_ipi_str(int idx)
 {
@@ -204,6 +205,38 @@ static int mdla_plat_dbgfs_usage(struct seq_file *s, void *data)
 	return 0;
 }
 
+static int mdla_rv_alloc_backup_mem(void)
+{
+	struct device *dev;
+	unsigned int size = 4096;
+
+	if (mdla_plat_devices && mdla_plat_devices[0].dev)
+		dev = mdla_plat_devices[0].dev;
+	else
+		return -ENXIO;
+
+	backup_mem.buf = dma_alloc_coherent(dev, size, &backup_mem.da, GFP_KERNEL);
+	if (backup_mem.buf == NULL || backup_mem.da == 0) {
+		dev_info(dev, "%s() dma_alloc_coherent backup data fail\n\n", __func__);
+		return -1;
+	}
+
+	backup_mem.size = size;
+	memset(backup_mem.buf, 0, size);
+
+	return 0;
+}
+static void mdla_rv_free_backup_mem(void)
+{
+	if (backup_mem.buf && backup_mem.da && backup_mem.size) {
+		dma_free_coherent(mdla_plat_devices[0].dev,
+				backup_mem.size, backup_mem.buf, backup_mem.da);
+		backup_mem.buf  = NULL;
+		backup_mem.size = 0;
+		backup_mem.da   = 0;
+	}
+}
+
 static int mdla_rv_alloc_dbg_mem(u32 size)
 {
 	struct device *dev;
@@ -241,7 +274,6 @@ static void mdla_rv_free_dbg_mem(void)
 		dbg_mem.buf  = NULL;
 		dbg_mem.size = 0;
 		dbg_mem.da   = 0;
-		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA, 0);
 	}
 }
 
@@ -349,6 +381,11 @@ void mdla_plat_up_init(void)
 		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BOOT, (u64)cfg0);
 		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_MAIN, (u64)cfg1);
 	}
+
+	if (backup_mem.da) {
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BACKUP_DATA, (u64)backup_mem.da);
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BACKUP_DATA_SZ, (u64)backup_mem.size);
+	}
 }
 
 /* platform public functions */
@@ -384,6 +421,8 @@ int mdla_rv_init(struct platform_device *pdev)
 
 	mdla_dbg_plat_cb()->dbgfs_plat_init = mdla_plat_dbgfs_init;
 
+	mdla_rv_alloc_backup_mem();
+
 	return 0;
 }
 
@@ -391,8 +430,9 @@ void mdla_rv_deinit(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
-	mdla_ipi_deinit();
+	mdla_rv_free_backup_mem();
 	mdla_rv_free_dbg_mem();
+	mdla_ipi_deinit();
 
 	if (mdla_plat_pwr_drv_ready()
 			&& mdla_pwr_device_unregister(pdev))
