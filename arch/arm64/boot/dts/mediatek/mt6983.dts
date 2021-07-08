@@ -15,6 +15,7 @@
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/iio/adc/mediatek,mt6375_auxadc.h>
 #include <dt-bindings/iio/adc/mediatek,mt6375_adc.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/mfd/mt6375.h>
 #include <dt-bindings/power/mt6375-gauge.h>
 #include <dt-bindings/phy/phy.h>
@@ -6449,7 +6450,7 @@
 	sound: sound {
 		compatible = "mediatek,mt6983-mt6338-sound";
 		/* mediatek,snd_audio_dsp = <&snd_audio_dsp>; */
-		/* mediatek,headset-codec = <&accdet>; */
+		mediatek,headset-codec = <&mt6338_accdet>;
 		mediatek,platform = <&afe>;
 	};
 
@@ -7003,6 +7004,45 @@
 			compatible = "mediatek,mt6338-efuse";
 			#address-cells = <1>;
 			#size-cells = <1>;
+		};
+		mt6338_auxadc: mt6338-auxadc {
+			compatible = "mediatek,mt6338-auxadc";
+			#io-channel-cells = <1>;
+
+			chip_temp {
+				channel = <AUXADC_CHIP_TEMP>;
+			};
+			accdet {
+				channel = <AUXADC_ACCDET>;
+			};
+			hpofs_cal {
+				channel = <AUXADC_HPOFS_CAL>;
+				avg-num = <256>;
+			};
+		};
+		mt6338_accdet: mt6338_accdet {
+			compatible = "mediatek,mt6338-accdet";
+			accdet-name = "mt6338-accdet";
+			accdet-mic-vol = <8>;
+			accdet-plugout-debounce = <1>;
+			accdet-mic-mode = <2>;
+			eint_use_ext_res = <0>;
+			headset-mode-setting = <0x500 0x500 1 0x1f0
+						0x800 0x800 0x20 0x44
+						0x4 0x1
+						0x5 0x3 0x3 0x5 0xe>;
+			headset-use-ap-eint = <0>;
+			headset-eint-num = <0>;
+			headset-eint-trig-mode = <1>;
+			headset-key-mode = <0>;
+			headset-three-key-threshold = <0 80 220 400>;
+			headset-three-key-threshold-CDD = <0 121 192 600>;
+			headset-four-key-threshold = <0 58 121 192 400>;
+			io-channels = <&mt6338_auxadc AUXADC_ACCDET>;
+			io-channel-names = "pmic_accdet";
+			nvmem = <&mt6338_efuse>;
+			nvmem-names = "mt63xx-accdet-efuse";
+			status = "okay";
 		};
 	};
 };
