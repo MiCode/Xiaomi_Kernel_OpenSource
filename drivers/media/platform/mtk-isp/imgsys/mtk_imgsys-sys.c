@@ -1696,12 +1696,6 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 #else
 	struct img_init_info info;
 
-	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_DEINIT_ID,
-			(void *)&info, sizeof(info),
-			0, 1);
-#ifdef USE_KERNEL_ION_BUFFER
-	hcp_close_ion_buffer_fd(imgsys_dev->scp_pdev, IMG_MEM_FOR_HW_ID);
-#endif
 	/* RELEASE IMGSYS WORKING BUFFER FIRST */
 	ret = mtk_hcp_release_working_buffer(imgsys_dev->scp_pdev);
 	if (ret) {
@@ -1709,6 +1703,14 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 			"%s: mtk_hcp_release_working_buffer failed(%d)\n",
 			__func__, ret);
 	}
+
+	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_DEINIT_ID,
+			(void *)&info, sizeof(info),
+			0, 1);
+#ifdef USE_KERNEL_ION_BUFFER
+	hcp_close_ion_buffer_fd(imgsys_dev->scp_pdev, IMG_MEM_FOR_HW_ID);
+#endif
+
 
 	mtk_hcp_unregister(imgsys_dev->scp_pdev, HCP_DIP_INIT_ID);
 	mtk_hcp_unregister(imgsys_dev->scp_pdev, HCP_DIP_FRAME_ID);
