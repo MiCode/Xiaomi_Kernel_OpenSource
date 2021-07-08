@@ -5535,7 +5535,7 @@
 
 
 			mediatek,larbs =
-				<&larb9 &larb11 &larb19 &larb20>;
+				<&larb9 &larb11>;
 		};
 
 		camisp_legacy: camisp_legacy@1a000000 {
