@@ -44,7 +44,8 @@ struct irq_count_period_setting {
 	{"ufshcd", 10000}, /* 100000 irqs per sec*/
 	{"arch_timer", 50000}, /* 20000 irqs per sec*/
 	{"musb-hdrc", 16666}, /* 60000 irqs per sec*/
-	{"11201000.usb0", 16666} /* 60000 irqs per sec*/
+	{"11201000.usb0", 16666}, /* 60000 irqs per sec*/
+	{"wlan0", 12500}, /* 80000 irqs per sec*/
 };
 
 const char *irq_to_name(int irq)
