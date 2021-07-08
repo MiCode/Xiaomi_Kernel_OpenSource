@@ -2299,7 +2299,8 @@
 		adsp_common: adsp_common@10800000 {
 			compatible = "mediatek,adsp_common";
 			status = "okay";
-			reg = <0 0x1080b000 0 0x50>, /* CFG SECURE */
+			reg = <0 0x10800000 0 0x6000>, /* CFG */
+				<0 0x1080b000 0 0x50>, /* CFG SECURE */
 				<0 0x10806000 0 0x100>, /* MBOX0 base */
 				<0 0x10806100 0 0x4>, /* MBOX0 set */
 				<0 0x1080610c 0 0x4>, /* MBOX0 clr */
@@ -2324,31 +2325,16 @@
 				<0 0x10809104 0 0x4>, /* MBOX3 send */
 				<0 0x10809108 0 0x4>, /* MBOX3 recv */
 				<0 0x1080b05c 0 0x4>; /* MBOX3 init */
-			reg-names = "cfg_secure",
-				"mbox0_base",
-				"mbox0_set",
-				"mbox0_clr",
-				"mbox0_send",
-				"mbox0_recv",
-				"mbox0_init",
-				"mbox1_base",
-				"mbox1_set",
-				"mbox1_clr",
-				"mbox1_send",
-				"mbox1_recv",
-				"mbox1_init",
-				"mbox2_base",
-				"mbox2_set",
-				"mbox2_clr",
-				"mbox2_send",
-				"mbox2_recv",
-				"mbox2_init",
-				"mbox3_base",
-				"mbox3_set",
-				"mbox3_clr",
-				"mbox3_send",
-				"mbox3_recv",
-				"mbox3_init";
+			reg-names = "cfg", "cfg_secure",
+				"mbox0_base", "mbox0_set", "mbox0_clr",
+				"mbox0_send", "mbox0_recv", "mbox0_init",
+				"mbox1_base", "mbox1_set", "mbox1_clr",
+				"mbox1_send", "mbox1_recv", "mbox1_init",
+				"mbox2_base", "mbox2_set", "mbox2_clr",
+				"mbox2_send", "mbox2_recv", "mbox2_init",
+				"mbox3_base", "mbox3_set", "mbox3_clr",
+				"mbox3_send", "mbox3_recv", "mbox3_init";
+
 			interrupts = <GIC_SPI 450 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX0 */
 				<GIC_SPI 451 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX1 */
 				<GIC_SPI 452 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX2 */
@@ -2358,6 +2344,7 @@
 				"mbox2",
 				"mbox3";
 			#mbox-cells = <1>;
+
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_ADSP_DORMANT>;
 			clocks = <&scp_par_top_clk CLK_SCP_ADSP_RG_AUDIODSP>,
 				<&topckgen_clk CLK_TOP_ADSP_SEL>,
@@ -2369,6 +2356,7 @@
 				"clk_top_clk26m",
 				"clk_top_adsppll",
 				"clk_top_scp_sel";
+
 			core_num = <2>;    /* core number */
 			adsp-rsv-ipidma-a = <0x100000>;
 			adsp-rsv-ipidma-b = <0x100000>;
@@ -2385,8 +2373,7 @@
 		adsp_core0: adsp_core0@10820000 {
 			compatible = "mediatek,adsp_core_0";
 			status = "okay";
-			reg = <0 0x10800000 0 0x6000>, /* CFG */
-				<0 0x10840000 0 0x9000>, /* ITCM */
+			reg = <0 0x10840000 0 0x9000>, /* ITCM */
 				<0 0x10820000 0 0x8000>; /* DTCM */
 			system = <0 0x56000000 0 0x700000>;
 			interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH 0>,
@@ -2400,8 +2387,7 @@
 		adsp_core1: adsp_core1@10850000 {
 			compatible = "mediatek,adsp_core_1";
 			status = "okay";
-			reg = <0 0x10800000 0 0x6000>, /* CFG */
-				<0 0x10870000 0 0x9000>, /* ITCM */
+			reg = <0 0x10870000 0 0x9000>, /* ITCM */
 				<0 0x10850000 0 0x8000>; /* DTCM */
 			system = <0 0x56700000 0 0x700000>;
 			interrupts = <GIC_SPI 445 IRQ_TYPE_LEVEL_HIGH 0>,
