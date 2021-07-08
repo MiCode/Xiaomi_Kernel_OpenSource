@@ -4043,6 +4043,34 @@ void mtk_crtc_init_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 	plane_state->comp_state.ext_lye_id = 0;
 }
 
+void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
+		struct mtk_ddp_comp *comp, unsigned int idx,
+		struct mtk_plane_state *plane_state, struct cmdq_pkt *cmdq_handle)
+{
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	struct mtk_plane_state plane_state_l;
+	struct mtk_plane_state plane_state_r;
+	struct mtk_ddp_comp *p_comp;
+
+	mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
+		&plane_state_l, &plane_state_r,
+		crtc->state->adjusted_mode.hdisplay);
+
+	if (plane_state->comp_state.comp_id == 0)
+		plane_state_r.comp_state.comp_id = 0;
+
+	p_comp = priv->ddp_comp[dual_pipe_comp_mapping(comp->id)];
+	mtk_ddp_comp_layer_config(p_comp, idx,
+				&plane_state_r, cmdq_handle);
+	DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
+		__func__, p_comp->id,
+		plane_state_r.comp_state.comp_id);
+
+	p_comp = comp;
+	mtk_ddp_comp_layer_config(p_comp, idx, &plane_state_l,
+				  cmdq_handle);
+}
 /* restore ovl layer config and set dal layer if any */
 void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 {
@@ -4079,28 +4107,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 			continue;
 
 		if (mtk_crtc->is_dual_pipe) {
-			struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-			struct mtk_plane_state plane_state_l;
-			struct mtk_plane_state plane_state_r;
-			struct mtk_ddp_comp *p_comp;
-
-			mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
-				&plane_state_l, &plane_state_r,
-				crtc->state->adjusted_mode.hdisplay);
-
-			if (plane_state->comp_state.comp_id == 0)
-				plane_state_r.comp_state.comp_id = 0;
-
-			p_comp = priv->ddp_comp[dual_pipe_comp_mapping(comp->id)];
-			mtk_ddp_comp_layer_config(p_comp, i,
-						&plane_state_r, cmdq_handle);
-			DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
-				__func__, p_comp->id,
-				plane_state_r.comp_state.comp_id);
-
-			p_comp = comp;
-			mtk_ddp_comp_layer_config(p_comp, i, &plane_state_l,
-						  cmdq_handle);
+			mtk_crtc_dual_layer_config(mtk_crtc, comp, i, plane_state, cmdq_handle);
 		} else {
 			mtk_ddp_comp_layer_config(comp, i, plane_state, cmdq_handle);
 		}
@@ -5882,6 +5889,7 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, 0, 0);
 	struct mtk_plane_comp_state *comp_state;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 #ifdef CONFIG_MTK_DISPLAY_CMDQ
 	unsigned int v = crtc->state->adjusted_mode.vdisplay;
 	unsigned int h = crtc->state->adjusted_mode.hdisplay;
@@ -5895,10 +5903,16 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 		plane->index, comp->id, plane_state->comp_state.comp_id);
 
 	if (plane_state->pending.enable) {
-		comp = mtk_crtc_get_plane_comp(crtc, plane_state);
+		if (mtk_crtc->is_dual_pipe) {
+			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
+			mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,
+					plane_state, cmdq_handle);
+		} else {
+			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
 
-		mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
-					  cmdq_handle);
+			mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
+						  cmdq_handle);
+		}
 #ifdef CONFIG_MTK_DISPLAY_CMDQ
 		mtk_wb_atomic_commit(mtk_crtc, v, h, state->cmdq_handle);
 #else
@@ -5908,6 +5922,13 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 		comp_state = &(plane_state->comp_state);
 
 		if (comp_state->comp_id) {
+			if (mtk_crtc->is_dual_pipe) {
+				comp = priv->ddp_comp[dual_pipe_comp_mapping(comp_state->comp_id)];
+				/* disable right pipe's layer */
+				mtk_ddp_comp_layer_off(comp, comp_state->lye_id,
+						comp_state->ext_lye_id, cmdq_handle);
+				DDPINFO("disable layer dual comp_id:%d\n", comp->id);
+			}
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
 			mtk_ddp_comp_layer_off(comp, comp_state->lye_id,
 					comp_state->ext_lye_id, cmdq_handle);
@@ -5918,9 +5939,19 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 			/* for the case do not contain crtc info, we assume this plane assign to
 			 * first component of display path
 			 */
-			if (!state->crtc) {
-				comp = mtk_crtc_get_comp(crtc, 0, 0);
-				mtk_ddp_comp_layer_off(comp, plane->index, 0, cmdq_handle);
+			if (!state->crtc && comp) {
+				if (mtk_crtc->is_dual_pipe) {
+					struct mtk_ddp_comp *comp_r;
+					unsigned int comp_r_id;
+
+					comp_r_id = dual_pipe_comp_mapping(comp->id);
+					comp_r = priv->ddp_comp[comp_r_id];
+					mtk_ddp_comp_layer_off(comp_r, plane->index,
+							0, cmdq_handle);
+					mtk_ddp_comp_layer_off(comp, plane->index, 0, cmdq_handle);
+				} else {
+					mtk_ddp_comp_layer_off(comp, plane->index, 0, cmdq_handle);
+				}
 			}
 		}
 	}
@@ -5969,27 +6000,9 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 
 	if (plane_state->pending.enable && !need_skip) {
 		if (mtk_crtc->is_dual_pipe) {
-			struct mtk_plane_state plane_state_l;
-			struct mtk_plane_state plane_state_r;
-
-			if (plane_state->comp_state.comp_id == 0)
-				plane_state->comp_state.comp_id = comp->id;
-
-			mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
-				&plane_state_l, &plane_state_r,
-				crtc->state->adjusted_mode.hdisplay);
-
-			comp = priv->ddp_comp[plane_state_r.comp_state.comp_id];
-			mtk_ddp_comp_layer_config(comp, plane_index,
-						&plane_state_r, cmdq_handle);
-			DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
-				__func__, comp->id,
-				plane_state_r.comp_state.comp_id);
-
-			comp = mtk_crtc_get_plane_comp(crtc, &plane_state_l);
-
-			mtk_ddp_comp_layer_config(comp, plane_index, &plane_state_l,
-						  cmdq_handle);
+			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
+			mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,
+					plane_state, cmdq_handle);
 		} else {
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
 

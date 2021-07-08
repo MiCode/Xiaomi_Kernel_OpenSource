@@ -297,27 +297,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL);
 
 	if (mtk_crtc->is_dual_pipe) {
-		struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-		struct mtk_plane_state plane_state_l;
-		struct mtk_plane_state plane_state_r;
-		struct mtk_ddp_comp *comp;
-
-		if (plane_state->comp_state.comp_id == 0)
-			plane_state->comp_state.comp_id = ovl_comp->id;
-
-		mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
-			&plane_state_l, &plane_state_r,
-			crtc->state->adjusted_mode.hdisplay);
-
-		comp = priv->ddp_comp[plane_state_r.comp_state.comp_id];
-		mtk_ddp_comp_layer_config(comp, layer_id,
-					&plane_state_r, cmdq_handle);
-		DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
-			__func__, comp->id,
-			plane_state_r.comp_state.comp_id);
-
-		mtk_ddp_comp_layer_config(ovl_comp, layer_id, &plane_state_l,
-					  cmdq_handle);
+		mtk_crtc_dual_layer_config(mtk_crtc, ovl_comp, layer_id, plane_state, cmdq_handle);
 	} else {
 		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 	}
@@ -357,27 +337,7 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	}
 
 	if (mtk_crtc->is_dual_pipe) {
-		struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-		struct mtk_plane_state plane_state_l;
-		struct mtk_plane_state plane_state_r;
-		struct mtk_ddp_comp *comp;
-
-		if (plane_state->comp_state.comp_id == 0)
-			plane_state->comp_state.comp_id = ovl_comp->id;
-
-		mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
-			&plane_state_l, &plane_state_r,
-			crtc->state->adjusted_mode.hdisplay);
-
-		comp = priv->ddp_comp[plane_state_r.comp_state.comp_id];
-		mtk_ddp_comp_layer_config(comp, layer_id,
-					&plane_state_r, cmdq_handle);
-		DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
-			__func__, comp->id,
-			plane_state_r.comp_state.comp_id);
-
-		mtk_ddp_comp_layer_config(ovl_comp, layer_id, &plane_state_l,
-					  cmdq_handle);
+		mtk_crtc_dual_layer_config(mtk_crtc, ovl_comp, layer_id, plane_state, cmdq_handle);
 	} else {
 		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 	}
