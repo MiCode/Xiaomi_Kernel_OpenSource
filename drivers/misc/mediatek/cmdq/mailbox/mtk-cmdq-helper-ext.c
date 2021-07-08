@@ -1095,7 +1095,7 @@ EXPORT_SYMBOL(cmdq_pkt_logic_command);
 
 s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset)
 {
-	s64 off = CMDQ_REG_SHIFT_ADDR((s64)offset);
+	s64 off = offset >> gce_shift_bit;
 
 	return cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(off),
 		CMDQ_GET_ARG_B(off), 0, 0, 0, 0, 0, CMDQ_CODE_JUMP);
