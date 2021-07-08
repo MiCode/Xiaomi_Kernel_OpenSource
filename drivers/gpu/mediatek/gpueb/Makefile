@@ -22,4 +22,5 @@ gpueb-y += \
     gpueb_ipi.o \
     gpueb_logger.o \
     gpueb_plat_service.o \
-    gpueb_reserved_mem.o
+    gpueb_reserved_mem.o \
+    gpueb_mpu.o

@@ -16,9 +16,6 @@ struct plat_ipi_send_data {
 		struct {
 			unsigned int enable;
 		} logger;
-		struct {
-			u64 phys_base;
-		} mpu;
 	} u;
 };
 

@@ -9,7 +9,6 @@
 // Common implementation
 #define PLT_INIT           0x504C5401
 #define PLT_LOG_ENABLE     0x504C5402
-#define PLT_INIT_MPU       0x504C5403
 #define IPI_TIMEOUT_MS     3000U
 
 extern struct mtk_mbox_device   gpueb_mboxdev;
