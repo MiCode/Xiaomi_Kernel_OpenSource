@@ -8314,6 +8314,9 @@
 
 		fm: fm@18000000 {
 			compatible = "mediatek,fm";
+			family-id = <0x6885>;
+			host-id = <0x6893>;
+			conn-id = <0x2001>;
 			interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 

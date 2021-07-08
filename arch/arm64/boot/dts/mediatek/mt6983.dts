@@ -5555,6 +5555,14 @@
 		compatible = "mediatek,mt6983-connfem";
 	};
 
+	fm: fm@18000000 {
+		compatible = "mediatek,fm";
+		family-id = <0x6983>;
+		host-id = <0x6983>;
+		conn-id = <0x0205>;
+		interrupts = <GIC_SPI 791 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
 	btif@1100c000 {
 		compatible = "mediatek,btif";
 		reg = <0 0x1100c000 0 0x100>, /*btif base*/
