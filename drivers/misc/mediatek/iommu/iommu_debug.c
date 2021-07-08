@@ -2336,6 +2336,53 @@ static const struct mtk_iommu_port peri_port_mt6879[] = {
 	PERI_IOMMU_PORT_INIT("PERI_UNKNOWN", 0, 0, 0, 0xf)
 };
 
+/**********iommu trace**********/
+#define IOMMU_MAX_EVENT_COUNT 1024
+
+#define iommu_dump(file, fmt, args...) \
+	do {\
+		if (file)\
+			seq_printf(file, fmt, ##args);\
+		else\
+			pr_info(fmt, ##args);\
+	} while (0)
+
+enum IOMMU_PROFILE_TYPE {
+	IOMMU_ALLOC = 0,
+	IOMMU_FREE,
+	IOMMU_MAP,
+	IOMMU_UNMAP,
+	IOMMU_EVENT_MAX,
+};
+
+struct iommu_event_mgr_t {
+	char name[11];
+	unsigned int dump_trace;
+	unsigned int dump_log;
+};
+
+static struct iommu_event_mgr_t event_mgr[IOMMU_EVENT_MAX];
+
+struct iommu_event_t {
+	unsigned int event_id;
+	unsigned int time_low;
+	unsigned int time_high;
+	unsigned long data1;
+	unsigned long data2;
+	unsigned long data3;
+};
+
+struct iommu_global_t {
+	unsigned int enable;
+	unsigned int dump_enable;
+	unsigned int start;
+	unsigned int write_pointer;
+	spinlock_t	lock;
+	struct iommu_event_t *record;
+};
+
+static struct iommu_global_t iommu_globals;
+
 struct iova_map_info {
 	u64			iova;
 	u64			time_high;
@@ -2451,6 +2498,60 @@ void mtk_iova_map_dump(u64 iova)
 }
 EXPORT_SYMBOL_GPL(mtk_iova_map_dump);
 
+static void mtk_iommu_trace_dump(struct seq_file *seq_file)
+{
+	int event_id;
+	int i = 0;
+
+	if (iommu_globals.dump_enable == 0)
+		return;
+
+	iommu_dump(seq_file, "iommu trace dump:\n");
+	iommu_dump(seq_file, "Time  | Action |iova_start | size  | id |iova_end\n");
+	for (i = 0; i < IOMMU_MAX_EVENT_COUNT; i++) {
+		unsigned long end_iova = 0;
+
+		if ((iommu_globals.record[i].time_low == 0) &&
+		    (iommu_globals.record[i].time_high == 0))
+			break;
+		event_id = iommu_globals.record[i].event_id;
+		if (event_id < 0 || event_id >= IOMMU_EVENT_MAX)
+			continue;
+
+		if (event_id <= IOMMU_UNMAP)
+			end_iova = iommu_globals.record[i].data1 +
+				iommu_globals.record[i].data2 - 1;
+
+		iommu_dump(seq_file, "%d.%06d |%10s |0x%-9lx |%9lu |0x%-8lx |0x%-9lx\n",
+			   iommu_globals.record[i].time_high,
+			   iommu_globals.record[i].time_low,
+			   event_mgr[event_id].name,
+			   iommu_globals.record[i].data1,
+			   iommu_globals.record[i].data2,
+			   iommu_globals.record[i].data3,
+			   end_iova);
+	}
+}
+
+void mtk_iommu_log_dump(void *seq_file)
+{
+	struct seq_file *s = NULL;
+
+	if (!seq_file)
+		return;
+
+	s = (struct seq_file *)seq_file;
+
+	mtk_iommu_trace_dump(s);
+}
+EXPORT_SYMBOL_GPL(mtk_iommu_log_dump);
+
+void mtk_iommu_debug_reset(void)
+{
+	iommu_globals.enable = 1;
+}
+EXPORT_SYMBOL_GPL(mtk_iommu_debug_reset);
+
 static struct mtk_m4u_data *m4u_data;
 static int mtk_iommu_get_tf_port_idx(int tf_id, enum mtk_iommu_type type, int id)
 {
@@ -2528,6 +2629,8 @@ void report_custom_iommu_fault(
 			fault_iova, fault_id);
 		return;
 	}
+
+	iommu_globals.enable = 0;
 
 	/* Only MM_IOMMU support fault callback */
 	if (type == MM_IOMMU) {
@@ -2648,11 +2751,121 @@ static int m4u_debug_get(void *data, u64 *val)
 
 DEFINE_PROC_ATTRIBUTE(m4u_debug_fops, m4u_debug_get, m4u_debug_set, "%llu\n");
 
+#if IS_ENABLED(CONFIG_PROC_FS)
+static int mtk_iommu_dump_show(struct seq_file *s, void *unused)
+{
+	pr_notice("%s\n", __func__);
+	mtk_iommu_trace_dump(s);
+	return 0;
+}
+
+static int mtk_iommu_dump_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mtk_iommu_dump_show, PDE_DATA(inode));
+}
+
+static const struct proc_ops iommu_dump_proc_fops = {
+	.proc_open = mtk_iommu_dump_proc_open,
+	.proc_read = seq_read,		// system
+	.proc_lseek = seq_lseek,	// system
+	.proc_release = single_release,	// system
+};
+#endif
+
+static void mtk_iommu_trace_init(struct mtk_m4u_data *data)
+{
+	int total_size = IOMMU_MAX_EVENT_COUNT * sizeof(struct iommu_event_t);
+
+	strncpy(event_mgr[IOMMU_ALLOC].name, "alloc", 10);
+	strncpy(event_mgr[IOMMU_FREE].name, "free", 10);
+	strncpy(event_mgr[IOMMU_MAP].name, "map", 10);
+	strncpy(event_mgr[IOMMU_UNMAP].name, "unmap", 10);
+	event_mgr[IOMMU_ALLOC].dump_trace = 1;
+	event_mgr[IOMMU_FREE].dump_trace = 1;
+
+	iommu_globals.record = vmalloc(total_size);
+	if (!iommu_globals.record) {
+		iommu_globals.enable = 0;
+		return;
+	}
+
+	memset(iommu_globals.record, 0, total_size);
+	iommu_globals.enable = 1;
+	iommu_globals.dump_enable = 1;
+	iommu_globals.write_pointer = 0;
+
+	spin_lock_init(&iommu_globals.lock);
+}
+
+static void mtk_iommu_system_time(unsigned int *low, unsigned int *high)
+{
+	unsigned long long temp;
+
+	temp = sched_clock();
+	do_div(temp, 1000);
+	*low = do_div(temp, 1000000);
+	*high = (unsigned int)temp;
+}
+
+static void mtk_iommu_trace_rec_write(int event,
+			       unsigned long data1,
+			       unsigned long data2,
+			       unsigned long data3)
+{
+	unsigned int index;
+	struct iommu_event_t *p_event = NULL;
+	unsigned long flags;
+
+	if (iommu_globals.enable == 0)
+		return;
+	if ((event >= IOMMU_EVENT_MAX) ||
+	    (event < 0))
+		return;
+
+	if (event_mgr[event].dump_log)
+		pr_info("[MTK_IOMMU] _trace %10s |0x%-8lx |%9lu |0x%-8lx\n",
+			event_mgr[event].name,
+			data1, data2, data3);
+
+	if (event_mgr[event].dump_trace == 0)
+		return;
+
+	index = (atomic_inc_return((atomic_t *)
+			&(iommu_globals.write_pointer)) - 1)
+	    % IOMMU_MAX_EVENT_COUNT;
+
+	spin_lock_irqsave(&iommu_globals.lock, flags);
+
+	p_event = (struct iommu_event_t *)
+		&(iommu_globals.record[index]);
+	mtk_iommu_system_time(&(p_event->time_low), &(p_event->time_high));
+	p_event->event_id = event;
+	p_event->data1 = data1;
+	p_event->data2 = data2;
+	p_event->data3 = data3;
+
+	spin_unlock_irqrestore(&iommu_globals.lock, flags);
+}
+
+static void mtk_iommu_trace_alloc(struct device *dev, dma_addr_t iova, size_t size)
+{
+	u32 id = (iova >> 32);
+
+	mtk_iommu_trace_rec_write(IOMMU_ALLOC, (unsigned long) iova, size, id);
+}
+
+static void mtk_iommu_trace_free(dma_addr_t iova, size_t size)
+{
+	u32 id = (iova >> 32);
+
+	mtk_iommu_trace_rec_write(IOMMU_FREE, (unsigned long) iova, size, id);
+}
+
 static int m4u_debug_init(struct mtk_m4u_data *data)
 {
 	struct proc_dir_entry *debug_file;
 
-	data->debug_root = proc_mkdir("m4u", NULL);
+	data->debug_root = proc_mkdir("iommu_debug", NULL);
 
 	if (IS_ERR_OR_NULL(data->debug_root))
 		pr_err("failed to create debug dir.\n");
@@ -2662,6 +2875,15 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 
 	if (IS_ERR_OR_NULL(debug_file))
 		pr_err("failed to create debug files 2.\n");
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	debug_file = proc_create_data("iommu_dump",
+		S_IFREG | 0644, data->debug_root, &iommu_dump_proc_fops, NULL);
+	if (IS_ERR_OR_NULL(debug_file))
+		pr_info("failed to proc_create iommu_dump.\n");
+#endif
+
+	mtk_iommu_trace_init(data);
 
 	return 0;
 }
@@ -2740,11 +2962,15 @@ static void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
 /* all code inside alloc_iova_hook can't be scheduled! */
 static void alloc_iova_hook(void *data, struct device *dev, dma_addr_t iova, size_t size) {
 	/* page size shift */
+	mtk_iommu_trace_alloc(dev, iova << 12, size);
+
 	return mtk_iova_dbg_alloc(dev, iova << 12, size);
 }
 
 /* all code inside free_iova_hook can't be scheduled! */
 static void free_iova_hook(void *data, dma_addr_t iova, size_t size) {
+	mtk_iommu_trace_free(iova, size);
+
 	return mtk_iova_dbg_free(iova, size);
 }
 

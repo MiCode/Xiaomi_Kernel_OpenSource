@@ -377,6 +377,10 @@ static inline void mtk_iommu_isr_setup(unsigned long enable)
 static void mtk_iommu_isr_restart(struct timer_list *t)
 {
 	mtk_iommu_isr_setup(1);
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	mtk_iommu_debug_reset();
+#endif
 }
 
 static int mtk_iommu_isr_pause_timer_init(struct mtk_iommu_data *data)

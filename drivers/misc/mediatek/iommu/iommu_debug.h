@@ -46,4 +46,7 @@ int mtk_iommu_unregister_fault_callback(int port, bool is_vpu);
 void mtk_iova_map(u64 iova, size_t size);
 void mtk_iova_unmap(u64 iova, size_t size);
 void mtk_iova_map_dump(u64 iova);
+
+void mtk_iommu_debug_reset(void);
+void mtk_iommu_log_dump(void *seq_file);
 #endif
