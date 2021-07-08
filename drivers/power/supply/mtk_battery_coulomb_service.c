@@ -274,13 +274,16 @@ void gauge_coulomb_stop(struct gauge_consumer *coulomb)
 	struct mtk_battery *gm;
 
 	gm = get_mtk_battery();
+
+	if (gm == NULL)
+		return;
+
 	cs = &gm->cs;
 
-	if (cs->init == false) {
+	if (cs == NULL)
 		return;
-	}
 
-	bm_debug("%s name:%s %ld %ld %d\n",
+	bm_debug("%s name: %s %ld %ld %d\n",
 	__func__,
 	coulomb->name, coulomb->start, coulomb->end,
 	coulomb->variable);
