@@ -18,6 +18,9 @@
 #include "ccci_bm.h"
 #include "port_sysmsg.h"
 #include "ccci_swtp.h"
+#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
+#include "ccci_fsm_internal.h"
+#endif
 #define MAX_QUEUE_LENGTH 16
 
 struct md_rf_notify_struct {
