@@ -10,7 +10,7 @@
 #include <linux/notifier.h>
 
 #define MTK_SSC_DTS_COMPATIBLE "mediatek,ssc"
-#define MTK_SSC_SAFE_VLOGIC_STRING "safe-vlogic-level"
+#define MTK_SSC_SAFE_VLOGIC_STRING "safe-vlogic-uV"
 
 enum ssc_notifier {
 	SSC_ENABLE_VLOGIC_BOUND = 1,
@@ -20,6 +20,7 @@ enum ssc_notifier {
 enum ssc_reqeust_id {
 	SSC_GPU = 0,
 	SSC_APU,
+	SSC_SW,
 	SSC_REQUEST_NUM,
 };
 

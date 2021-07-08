@@ -5,21 +5,25 @@
 
 #include <linux/device.h>
 #include <linux/kernel.h>
+#include <linux/kobject.h>
 #include <linux/module.h>
+#include <linux/kobject.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <linux/atomic.h>
 #include <linux/scmi_protocol.h>
+#include <linux/platform_device.h>
 #include <tinysys-scmi.h>
 #include <ssc_module.h>
 #include <mt-plat/aee.h>
 #include <mt-plat/ssc.h>
-
-/* FIXME */
-#define SSC_SCMI_FEATURE_ID 0x10
+#include <gpufreq_v2.h>
+#include <linux/regulator/consumer.h>
 
 #define MTK_SSC_DTS_COMPATIBLE "mediatek,ssc"
+#define MTK_GPU_DTS_COMPATIBLE "mediatek,gpueb"
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define ssc_aee_print(string, args...) do {\
@@ -37,19 +41,73 @@
 	pr_info("[SSC] error:"string, ##args)
 #endif
 static BLOCKING_NOTIFIER_HEAD(vlogic_bound_chain);
+static int ssc_scmi_feature_id;
+static struct regulator *ssc_vcore_voter;
+static unsigned int gpueb_enable;
+struct kobject *ssc_kobj;
+EXPORT_SYMBOL_GPL(ssc_kobj);
+#define SSC_VCORE_REGULATOR "dvfsrc-vcore"
 
-static int xxx_vlogic_bound_event(struct notifier_block *notifier, unsigned long event,
+static int set_vcore_vlogic_bound(en)
+{
+	int ret;
+
+	if (!ssc_vcore_voter) {
+		pr_info("[SSC] invalid vcore regulator\n");
+		return -1;
+	}
+
+	if (en)
+		ret = regulator_set_voltage(ssc_vcore_voter, 600000, INT_MAX);
+	else
+		ret = regulator_set_voltage(ssc_vcore_voter, 575000, INT_MAX);
+
+	if (ret) {
+		pr_info("[SSC] vcore vlogic bound %s fail\n", en ? "enable" : "disable");
+		return -1;
+	}
+
+	return 0;
+}
+
+
+static int set_gpu_vlogic_bound(int en)
+{
+
+	int ret;
+
+	/* floor value for GPU = mV * 100 */
+	if (en)
+		ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_SRAMRC,
+					GPUPPM_KEEP_IDX, 60000);
+	else
+		ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_SRAMRC,
+					GPUPPM_KEEP_IDX, GPUPPM_RESET_IDX);
+
+	if (ret) {
+		pr_info("[SSC] gpu vlogic bound %s fail\n", en ? "enable" : "disable");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int ssc_vlogic_bound_event(struct notifier_block *notifier, unsigned long event,
 				void *data)
 {
 
 	unsigned int request_id = *((unsigned int*)data);
 
-	pr_info("[SSC] request ID = 0x%x\n", request_id);
+	pr_info("[SSC] request ID = 0x%x, event = 0x%lx\n", request_id, event);
 
 	switch(event) {
 		case SSC_ENABLE_VLOGIC_BOUND:
+			set_gpu_vlogic_bound(1);
+			set_vcore_vlogic_bound(1);
 			return NOTIFY_DONE;
 		case SSC_DISABLE_VLOGIC_BOUND:
+			set_vcore_vlogic_bound(0);
+			set_gpu_vlogic_bound(0);
 			return NOTIFY_DONE;
 		default:
 			return NOTIFY_BAD;
@@ -57,7 +115,7 @@ static int xxx_vlogic_bound_event(struct notifier_block *notifier, unsigned long
 	return NOTIFY_OK;
 }
 static struct notifier_block ssc_vlogic_notifier_func = {
-	.notifier_call = xxx_vlogic_bound_event,
+	.notifier_call = ssc_vlogic_bound_event,
 	.priority = 0,
 };
 
@@ -129,44 +187,123 @@ int ssc_disable_vlogic_bound(int request_id)
 }
 EXPORT_SYMBOL_GPL(ssc_disable_vlogic_bound);
 
-static unsigned int safe_vlogic_level = 0xFFFFFFFF;
-unsigned int ssc_get_safe_vlogic_level(void)
+static unsigned int safe_vlogic_uV = 0xFFFFFFFF;
+unsigned int ssc_get_safe_vlogic_uV(void)
 {
-	return safe_vlogic_level;
+	return safe_vlogic_uV;
 }
 
-static char* ssc_timeout_name[] = {
-	"ISP_TIMEOUT",
-	"VCORE_TIMEOUT",
-	"APU_TIMEOUT",
-	"GPU_TIMEOUT",
+#define SSC_TIMEOUT_NUM 6
+static const char * const ssc_timeout_name[] = {
+	"SSC",
+	"GPU",
+	"ISP",
+	"CORE",
+	"APU",
+	"SRAM",
 };
-
-static char*  ssc_get_timeout_id_name(unsigned int ssc_timeout_id)
-{
-	return ssc_timeout_name[ssc_timeout_id-1];
-}
-
 
 static void ssc_notification_handler(u32 feature_id, scmi_tinysys_report *report)
 {
-	char* timeout_name;
+#define LOG_BUF_SIZE 30
+	char log_buf[LOG_BUF_SIZE] = { 0 };
+	int log_size = 0;
+	int i, timeout;
+
 	pr_info("[SSC] %s\n", __func__);
 
-	timeout_name = ssc_get_timeout_id_name(report->p1);
+	if (report->p1 == SSC_STATUS_ERR) {
+		timeout = report->p2;
 
-	ssc_aee_print("[SSC] timeout!\n CRDISPATCH_KEY: SSC_%s VIOLATION\n", timeout_name);
+		for (i = 0 ; i < SSC_TIMEOUT_NUM ; i++) {
+			if (timeout & 0x1) {
+				log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_SIZE - log_size, "%s/",
+				ssc_timeout_name[i]);
+			}
+			timeout = timeout >> 1;
+		}
+		ssc_aee_print("[SSC] timeout_sta = 0x%x, timeout_sta_raw = 0x%x\n"
+			      "CRDISPATCH_KEY:  SSC VIOLATION: %s\n",
+				report->p2, report->p3, log_buf);
+
+	}
+
 	return;
 }
 
+static ssize_t vlogic_bound_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char mode[10];
+
+	if (sscanf(buf, "%9s", mode) != 1)
+		return -EPERM;
+
+	if (strcmp(mode, "enable") == 0)
+		ssc_enable_vlogic_bound(SSC_SW);
+	else if (strcmp(mode, "disable") == 0)
+		ssc_disable_vlogic_bound(SSC_SW);
+
+	return count;
+}
+static ssize_t vlogic_bound_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len = snprintf(buf, PAGE_SIZE, "[SSC] bound cnt = %d\n",
+			atomic_read(&vlogic_bound_counter));
+
+	return len;
+
+}
+DEFINE_ATTR_RW(vlogic_bound);
 static DEFINE_SPINLOCK(ssc_locker);
+
+static const struct of_device_id ssc_of_ids[] = {
+	{.compatible = "mediatek,ssc",},
+	{}
+};
+static int __init mt_ssc_pdrv_probe(struct platform_device *pdev)
+{
+
+	ssc_vcore_voter = regulator_get(&pdev->dev, SSC_VCORE_REGULATOR);
+	if (IS_ERR(ssc_vcore_voter)) {
+		pr_info("[SSC] get ssc vcore regulator fail\n");
+		ssc_vcore_voter = NULL;
+		return -1;
+	}
+	return 0;
+}
+static int mt_ssc_pdrv_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+static struct platform_driver mt_ssc_pdrv = {
+	.probe = mt_ssc_pdrv_probe,
+	.remove = mt_ssc_pdrv_remove,
+	.driver = {
+		.name = "ssc_dvfs",
+		.owner = THIS_MODULE,
+		.of_match_table = ssc_of_ids,
+	},
+
+};
+
 static int __init ssc_init(void)
 {
 	struct device_node *ssc_node;
 	int ret;
+	struct scmi_tinysys_status rvalue;
+	struct scmi_tinysys_info_st *tinfo;
 	unsigned long flags;
 
 	pr_info("[SSC] %s\n", __func__);
+
+	ret = platform_driver_register(&mt_ssc_pdrv);
+	if (ret)
+		pr_info("[SSC] fail to register SSC platform driver\n");
 
 	spin_lock_irqsave(&ssc_locker, flags);
 
@@ -175,24 +312,69 @@ static int __init ssc_init(void)
 	if (ssc_node) {
 		ret = of_property_read_u32(ssc_node,
 				MTK_SSC_SAFE_VLOGIC_STRING,
-				&safe_vlogic_level);
+				&safe_vlogic_uV);
 
+		pr_info("[SSC] safe_vlogic_uV = %d uV", safe_vlogic_uV);
 		/* This property is not defined*/
 		if (ret)
-			safe_vlogic_level = 0xFFFFFFFF;
+			safe_vlogic_uV = 0xFFFFFFFF;
 
 		of_node_put(ssc_node);
 	}
+
+	/* set gpu vlogic bound 0.6V if gpueb not ready */
+	ssc_node = of_find_compatible_node(NULL, NULL, MTK_GPU_DTS_COMPATIBLE);
+
+	if (ssc_node) {
+		ret = of_property_read_u32(ssc_node,
+			"gpueb-support",
+			&gpueb_enable);
+
+		pr_info("[SSC] gpueb enable = 0x%x\n", gpueb_enable);
+
+		if (gpueb_enable == 0)
+			gpufreq_set_limit(TARGET_DEFAULT, LIMIT_SRAMRC, GPUPPM_KEEP_IDX, 60000);
+
+		of_node_put(ssc_node);
+	}
+
 	spin_unlock_irqrestore(&ssc_locker, flags);
 
-	scmi_tinysys_register_event_notifier(SSC_SCMI_FEATURE_ID,
+	/* scmi interface initialization */
+
+	tinfo = get_scmi_tinysys_info();
+	if (!tinfo) {
+		pr_info("[SSC] get SCMI info fail\n");
+		goto SKIP_SCMI;
+	}
+	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_ssc", &ssc_scmi_feature_id);
+
+	pr_info("[SSC] ssc scmi id = %d\n", ssc_scmi_feature_id);
+
+	scmi_tinysys_register_event_notifier(ssc_scmi_feature_id,
 			(f_handler_t)ssc_notification_handler);
 
-	scmi_tinysys_event_notify(SSC_SCMI_FEATURE_ID, 1);
+	ret = scmi_tinysys_event_notify(ssc_scmi_feature_id, 1);
+	if (ret < 0)
+		pr_info("[SSC] SCMI notify register fail\n");
+
+	ret = scmi_tinysys_common_get(tinfo->ph, ssc_scmi_feature_id, 0, &rvalue);
+
+	if (ret)
+		ssc_aee_print("[SSC] SCMI common get fail!\n");
+	else
+		pr_info("[SSC] notify done! (r1:%d r2:%d r3:%d)\n",
+				rvalue.r1, rvalue.r2, rvalue.r3);
+SKIP_SCMI:
 
 	ssc_vlogic_bound_register_notifier(&ssc_vlogic_notifier_func);
-
 	atomic_set(&vlogic_bound_counter, 0);
+	/* create sysfs entry for voltage bound */
+	ssc_kobj = kobject_create_and_add("ssc", kernel_kobj);
+
+	if (ssc_kobj)
+		ret = sysfs_create_file(ssc_kobj, __ATTR_OF(vlogic_bound));
+
 	return 0;
 }
 static void __exit ssc_deinit(void)
