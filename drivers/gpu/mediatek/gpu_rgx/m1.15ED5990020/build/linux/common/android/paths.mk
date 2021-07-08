@@ -52,7 +52,11 @@ NDK_ROOT ?= $(ANDROID_SDK_ROOT)/ndk-bundle
 ANDROID_ROOT ?= $(ANDROID_SDK_ROOT)/vndk
 endif
 
+ifeq ($(MTK_MINI_PORTING),1)
+OUT_DIR ?= out
+else
 OUT_DIR ?= $(ANDROID_ROOT)/out
+endif
 
 LLVM_LIB_VERSION = 90
 
@@ -74,9 +78,17 @@ HOST_ARCH ?= x86_64
 HOST_PREBUILT_ARCH ?= x86
 
 ifeq ($(TARGET_BUILD_TYPE),debug)
+ifeq ($(MTK_MINI_PORTING),1)
+TARGET_ROOT := $(ANDROID_ROOT)/$(OUT_DIR)/debug/target
+else
 TARGET_ROOT := $(OUT_DIR)/debug/target
+endif
+else
+ifeq ($(MTK_MINI_PORTING),1)
+TARGET_ROOT := $(ANDROID_ROOT)/$(OUT_DIR)/target
 else
 TARGET_ROOT := $(OUT_DIR)/target
+endif
 endif
 
 ifeq ($(NDK_ROOT),)

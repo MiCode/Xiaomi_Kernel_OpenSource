@@ -118,7 +118,7 @@ MODULE_SYSTEM_LIBRARY_DIR_FLAGS := \
  -L$(TARGET_ROOT)/product/$(TARGET_DEVICE)/$(_apex-vndk)/lib \
  -Xlinker -rpath-link=$(TARGET_ROOT)/product/$(TARGET_DEVICE)/$(_apex-vndk)/lib
 
-ifeq ifeq ($(MTK_MINI_PORTING),1)
+ifeq ($(MTK_MINI_PORTING),1)
 MODULE_SYSTEM_LIBRARY_DIR_FLAGS += \
  -L$(TARGET_ROOT)/product/$(TARGET_DEVICE)/system/system_ext/apex/$(_apex-vndk)/lib \
  -Xlinker -rpath-link=$(TARGET_ROOT)/product/$(TARGET_DEVICE)/system/system_ext/apex/$(_apex-vndk)/lib
