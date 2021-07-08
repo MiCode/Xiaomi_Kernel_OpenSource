@@ -4675,14 +4675,29 @@
 	apu_top_3: apu_top_3 {
 		compatible = "mt6983,apu_top_3";
 /*
-		vapu-supply = <&mt6359p_vproc1_reg>;
-		vcore-supply = <&mt6359p_vgpu11_reg>;
-		vsram-supply = <&mt6359p_vsram_md_reg>;
-		clocks = <&topckgen_clk CLK_TOP_DSP_SEL>, // CONN
-			<&topckgen_clk CLK_TOP_IPU_IF_SEL>; // VCORE
-		clock-names = "clk_top_dsp_sel",
-			"clk_top_ipu_if_sel";
+		vapu-supply = <&mt6373_vbuck6>;
+		vsram_core-supply = <&mt6363_vbuck4>;
+		vcore-supply = <&mt6363_vbuck2>;
 */
+		clocks = <&topckgen_clk CLK_TOPCKGEN_DSP_SEL>,	// CONN
+			<&topckgen_clk CLK_TOPCKGEN_DSP1_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP2_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP3_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP4_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP5_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP6_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP7_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_IPU_IF_SEL>;// VCORE
+		clock-names = "clk_top_dsp_sel",
+				"clk_top_dsp1_sel",
+				"clk_top_dsp2_sel",
+				"clk_top_dsp3_sel",
+				"clk_top_dsp4_sel",
+				"clk_top_dsp5_sel",
+				"clk_top_dsp6_sel",
+				"clk_top_dsp7_sel",
+				"clk_top_ipu_if_sel";
+
 		reg = <0 0x1c000000 0 0x1000>,		// sys_vlp
 			<0 0x1c001000 0 0x1000>,	// sys_spm
 			<0 0x19020000 0 0x1000>,	// apu_rcx
