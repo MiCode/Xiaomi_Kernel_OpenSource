@@ -14,6 +14,7 @@ s32 mdp_ioctl_async_wait(unsigned long param);
 s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param);
 s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param);
 s32 mdp_ioctl_read_readback_slots(unsigned long param);
+void mdp_ioctl_free_job_by_node(void *node);
 void mdp_ioctl_free_readback_slots_by_node(void *fp);
 int mdp_limit_dev_create(struct platform_device *device);
 void mdpsyscon_init(void);

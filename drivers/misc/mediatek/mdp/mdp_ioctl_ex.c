@@ -53,6 +53,7 @@ struct mdp_job_mapping {
 	int fds[MAX_HANDLE_NUM];
 	unsigned long mvas[MAX_HANDLE_NUM];
 	u32 handle_count;
+	void *node;
 };
 static DEFINE_MUTEX(mdp_job_mapping_list_mutex);
 
@@ -781,6 +782,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	user_job.job_id = job_mapping_idx;
 	job_mapping_idx++;
 	mapping_job->job = handle;
+	mapping_job->node = pf->private_data;
 	list_add_tail(&mapping_job->list_entry, &job_mapping_list);
 	mutex_unlock(&mdp_job_mapping_list_mutex);
 
@@ -1068,6 +1070,30 @@ s32 mdp_ioctl_read_readback_slots(unsigned long param)
 	return mdp_process_read_request(&read_req);
 }
 EXPORT_SYMBOL(mdp_ioctl_read_readback_slots);
+
+void mdp_ioctl_free_job_by_node(void *node)
+{
+	uint32_t i;
+	struct mdp_job_mapping *mapping_job = NULL, *tmp = NULL;
+
+	/* verify job handle */
+	mutex_lock(&mdp_job_mapping_list_mutex);
+	list_for_each_entry_safe(mapping_job, tmp, &job_mapping_list,
+		list_entry) {
+		if (mapping_job->node != node)
+			continue;
+
+		CMDQ_LOG("[warn] %s job task handle %p\n",
+			__func__, mapping_job->job);
+
+		list_del(&mapping_job->list_entry);
+		for (i = 0; i < mapping_job->handle_count; i++)
+			mdp_ion_free_dma_buf(mapping_job->dma_bufs[i],
+				mapping_job->attaches[i], mapping_job->sgts[i]);
+		kfree(mapping_job);
+	}
+	mutex_unlock(&mdp_job_mapping_list_mutex);
+}
 
 void mdp_ioctl_free_readback_slots_by_node(void *fp)
 {
