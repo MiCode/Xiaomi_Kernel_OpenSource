@@ -25,6 +25,33 @@
 
 static struct mdla_dev *mdla_plat_devices;
 
+#define DEFINE_IPI_DBGFS_ATTRIBUTE(name, TYPE_0, TYPE_1, fmt)		\
+static int name ## _set(void *data, u64 val)				\
+{									\
+	mdla_ipi_send(TYPE_0, TYPE_1, val);				\
+	*(u64 *)data = val;						\
+	return 0;							\
+}									\
+static int name ## _get(void *data, u64 *val)				\
+{									\
+	mdla_ipi_recv(TYPE_0, TYPE_1, val);				\
+	*(u64 *)data = *val;						\
+	return 0;							\
+}									\
+static int name ## _open(struct inode *i, struct file *f)		\
+{									\
+	__simple_attr_check_format(fmt, 0ull);				\
+	return simple_attr_open(i, f, name ## _get, name ## _set, fmt);	\
+}									\
+static const struct file_operations name ## _fops = {			\
+	.owner	 = THIS_MODULE,						\
+	.open	 = name ## _open,					\
+	.release = simple_attr_release,					\
+	.read	 = debugfs_attr_read,					\
+	.write	 = debugfs_attr_write,					\
+	.llseek  = no_llseek,						\
+}
+
 DEFINE_IPI_DBGFS_ATTRIBUTE(ulog,           MDLA_IPI_ULOG,           0, "0x%llx\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(timeout,        MDLA_IPI_TIMEOUT,        0, "%llu ms\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(pwrtime,        MDLA_IPI_PWR_TIME,       0, "%llu ms\n");
@@ -87,6 +114,9 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 	{MDLA_IPI_INFO,           0, 0x8, 0660,           "info",           &info_fops, 0},
 	{NF_MDLA_IPI_TYPE_0,      0,   0,    0,             NULL,                 NULL, 0}
 };
+
+static u32 cfg0;
+static u32 cfg1;
 
 struct mdla_rv_dbg_mem {
 	void *buf;
@@ -311,6 +341,16 @@ static void mdla_plat_dbgfs_init(struct device *dev, struct dentry *parent)
 				&mdla_rv_dbg_mem_fops);
 }
 
+void mdla_plat_up_init(void)
+{
+	if (cfg0 && cfg1) {
+		mdla_verbose("%s(): send ipi for fw addr(0x%08x, 0x%08x)\n", __func__,
+				cfg0, cfg1);
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_BOOT, (u64)cfg0);
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_MAIN, (u64)cfg1);
+	}
+}
+
 /* platform public functions */
 int mdla_rv_init(struct platform_device *pdev)
 {
@@ -333,10 +373,7 @@ int mdla_rv_init(struct platform_device *pdev)
 		mdla_plat_devices[i].dev = &pdev->dev;
 	}
 
-	if (mdla_plat_pwr_drv_ready()) {
-		if (mdla_pwr_device_register(pdev, NULL, NULL))
-			return -1;
-	}
+	mdla_plat_load_data(&pdev->dev, &cfg0, &cfg1);
 
 	if (mdla_ipi_init() != 0) {
 		dev_info(&pdev->dev, "register apu_ctrl channel : Fail\n");
@@ -360,5 +397,7 @@ void mdla_rv_deinit(struct platform_device *pdev)
 	if (mdla_plat_pwr_drv_ready()
 			&& mdla_pwr_device_unregister(pdev))
 		dev_info(&pdev->dev, "unregister mdla power fail\n");
+
+	mdla_plat_unload_data(&pdev->dev);
 }
 

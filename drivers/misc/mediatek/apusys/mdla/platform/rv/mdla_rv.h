@@ -41,4 +41,7 @@ enum V3_DBG_LOG_MASK {
 	NR_V3_DBG_LOG_MASK
 };
 
+int mdla_plat_load_data(struct device *dev, unsigned int *cfg0, unsigned int *cfg1);
+void mdla_plat_unload_data(struct device *dev);
+
 #endif /* __MDLA_RV_H__ */

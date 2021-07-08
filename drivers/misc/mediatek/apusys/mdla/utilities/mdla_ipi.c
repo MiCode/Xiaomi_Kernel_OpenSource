@@ -3,22 +3,17 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 #include <linux/types.h>
-
-#ifdef RV_COMP
-
+#include <linux/kernel.h>
+#include <linux/miscdevice.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/completion.h>
 #include <linux/mutex.h>
-#include <linux/mutex.h>
+#include <linux/rpmsg.h>
 
 #include <utilities/mdla_debug.h>
-
-#include <apu_ipi_id.h>
-#include <apu_ctrl_rpmsg.h>
-#include <apu_mbox.h>
-
-enum MDLA_IPI_DIR_TYPE {
-	MDLA_IPI_READ,
-	MDLA_IPI_WRITE,
-};
+#include <utilities/mdla_ipi.h>
+#include <platform/mdla_plat_api.h>
 
 /*
  * type0: Distinguish pwr_time, timeout, klog, or CX
@@ -33,13 +28,23 @@ struct mdla_ipi_data {
 	u16 dir;
 	u64 data;
 };
-
 static struct mdla_ipi_data ipi_cmd_compl_reply;
 static struct mutex mdla_ipi_mtx;
+
+struct mdla_rpmsg_device {
+	struct rpmsg_endpoint *ept;
+	struct rpmsg_device *rpdev;
+	struct completion ack;
+};
+
+static struct mdla_rpmsg_device mdla_rpm_dev;
 
 int mdla_ipi_send(int type_0, int type_1, u64 val)
 {
 	struct mdla_ipi_data ipi_cmd_send;
+
+	if (!mdla_rpm_dev.ept)
+		return 0;
 
 	ipi_cmd_send.type0  = type_0;
 	ipi_cmd_send.type1  = type_1;
@@ -53,8 +58,9 @@ int mdla_ipi_send(int type_0, int type_1, u64 val)
 				ipi_cmd_send.data, ipi_cmd_send.data);
 
 	mutex_lock(&mdla_ipi_mtx);
-	apu_ctrl_send_msg(MDLA_SEND_CMD_COMPL_ID, &ipi_cmd_send,
-				sizeof(ipi_cmd_send), 1000);
+
+	rpmsg_send(mdla_rpm_dev.ept, &ipi_cmd_send, sizeof(ipi_cmd_send));
+
 	mutex_unlock(&mdla_ipi_mtx);
 
 	return 0;
@@ -70,57 +76,110 @@ int mdla_ipi_recv(int type_0, int type_1, u64 *val)
 	ipi_cmd_send.data   = 0;
 
 	mutex_lock(&mdla_ipi_mtx);
-	apu_ctrl_send_msg(MDLA_SEND_CMD_COMPL_ID, &ipi_cmd_send,
-				sizeof(ipi_cmd_send), 1000);
+
+	rpmsg_send(mdla_rpm_dev.ept, &ipi_cmd_send, sizeof(ipi_cmd_send));
+
+	if (wait_for_completion_interruptible_timeout(
+			&mdla_rpm_dev.ack,
+			msecs_to_jiffies(10)) == 0) {
+		mutex_unlock(&mdla_ipi_mtx);
+		mdla_err("%s: timeout\n", __func__);
+		return -1;
+	}
+
 	*val  = (u64)ipi_cmd_compl_reply.data;
+
 	mutex_unlock(&mdla_ipi_mtx);
 
-	mdla_verbose("recv : %d %d, %d, %llu(0x%llx)\n",
+	return 0;
+}
+
+static void mdla_ipi_up_msg(u32 type, u64 val)
+{
+}
+
+
+static int mdla_rpmsg_recv_cb(struct rpmsg_device *rpdev, void *data,
+		int len, void *priv, u32 src)
+{
+	struct mdla_ipi_data *d = (struct mdla_ipi_data *)data;
+
+	mutex_lock(&mdla_ipi_mtx);
+
+	ipi_cmd_compl_reply.type0  = d->type0;
+	ipi_cmd_compl_reply.type1  = d->type1;
+	ipi_cmd_compl_reply.dir    = d->dir;
+	ipi_cmd_compl_reply.data   = d->data;
+
+	mdla_verbose("rpmsg cb : %d %d, %d, %llu(0x%llx)\n",
 				ipi_cmd_compl_reply.type0,
 				ipi_cmd_compl_reply.type1,
 				ipi_cmd_compl_reply.dir,
-				ipi_cmd_compl_reply.data, ipi_cmd_compl_reply.data);
+				ipi_cmd_compl_reply.data,
+				ipi_cmd_compl_reply.data);
+
+	if (ipi_cmd_compl_reply.type0 != MDLA_IPI_MICROP_MSG)
+		mdla_ipi_up_msg(ipi_cmd_compl_reply.type1, ipi_cmd_compl_reply.data);
+	else
+		complete(&mdla_rpm_dev.ack);
+
+	mutex_unlock(&mdla_ipi_mtx);
 
 	return 0;
 }
 
+static int mdla_rpmsg_probe(struct rpmsg_device *rpdev)
+{
+	struct device *dev = &rpdev->dev;
+
+	dev_info(dev, "%s: name=%s, src=%d\n",
+			rpdev->id.name, rpdev->src);
+
+	mdla_rpm_dev.ept = rpdev->ept;
+	mdla_rpm_dev.rpdev = rpdev;
+
+	mdla_plat_up_init();
+
+	return 0;
+}
+
+static void mdla_rpmsg_remove(struct rpmsg_device *rpdev)
+{
+}
+
+static const struct of_device_id mdla_rpmsg_of_match[] = {
+	{ .compatible = "mediatek, mdla-rpmsg"},
+	{},
+};
+
+static struct rpmsg_driver mdla_rpmsg_drv = {
+	.drv = {
+		.name = "mdla-rpmsg",
+		.owner = THIS_MODULE,
+		.of_match_table = mdla_rpmsg_of_match,
+	},
+	.probe = mdla_rpmsg_probe,
+	.callback = mdla_rpmsg_recv_cb,
+	.remove = mdla_rpmsg_remove,
+};
+
 int mdla_ipi_init(void)
 {
+	int ret;
+
+	init_completion(&mdla_rpm_dev.ack);
 	mutex_init(&mdla_ipi_mtx);
 
-	if (apu_ctrl_register_channel(MDLA_SEND_CMD_COMPL_ID, NULL, NULL,
-				&ipi_cmd_compl_reply,
-				sizeof(ipi_cmd_compl_reply)))
-		return -1;
+	ret = register_rpmsg_driver(&mdla_rpmsg_drv);
+	if (ret)
+		mdla_err("failed to register mdla rpmsg\n");
 
 	return 0;
 }
 
 void mdla_ipi_deinit(void)
 {
-	apu_ctrl_unregister_channel(MDLA_SEND_CMD_COMPL_ID);
+	unregister_rpmsg_driver(&mdla_rpmsg_drv);
 	mutex_destroy(&mdla_ipi_mtx);
 }
-#else
-
-u64 mdla_ipi_send(int type_0, int type_1, u64 val)
-{
-	return 0;
-}
-
-u64 mdla_ipi_recv(int type_0, int type_1, u64 *val)
-{
-	return 0;
-}
-
-int mdla_ipi_init(void)
-{
-	return 0;
-}
-
-void mdla_ipi_deinit(void)
-{
-}
-
-#endif /* RV_COMP */
 
