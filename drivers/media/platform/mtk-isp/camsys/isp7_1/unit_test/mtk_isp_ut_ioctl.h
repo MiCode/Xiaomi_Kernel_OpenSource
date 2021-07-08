@@ -56,5 +56,17 @@ struct cam_ioctl_enque {
 #define ISP_UT_IOCTL_DEQUE \
 	_IOW(ISP_UT_IOCTL_TYPE, 5, unsigned int)
 
+struct cam_ioctl_dmabuf_param {
+	uint32_t size;
+	uint32_t ccd_fd;
+	uint64_t iova;
+	void     *kva;
+};
+
+#define ISP_UT_IOCTL_ALLOC_DMABUF \
+	_IOW(ISP_UT_IOCTL_TYPE, 6, struct cam_ioctl_dmabuf_param)
+
+#define ISP_UT_IOCTL_FREE_DMABUF \
+	_IOW(ISP_UT_IOCTL_TYPE, 7, struct cam_ioctl_dmabuf_param)
 
 #endif

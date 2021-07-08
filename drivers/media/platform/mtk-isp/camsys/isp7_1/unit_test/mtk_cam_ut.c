@@ -664,6 +664,64 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		return 0;
 	}
+	case ISP_UT_IOCTL_ALLOC_DMABUF: {
+		struct cam_ioctl_dmabuf_param workbuf;
+		struct mem_obj smem;
+		void *mem_priv;
+		struct mtk_ccd *ccd;
+
+		if (copy_from_user(&workbuf, (void *)arg,
+				   sizeof(workbuf)) != 0) {
+			dev_dbg(dev, "[ALLOC_DMABUF] Fail to get sw buffer\n");
+			return -EFAULT;
+		}
+
+		ccd = (struct mtk_ccd *)ut->rproc_handle->priv;
+		workbuf.size = round_up(workbuf.size, PAGE_SIZE);
+		smem.len = workbuf.size;
+		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
+		workbuf.ccd_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+		workbuf.iova = smem.iova;
+		workbuf.kva = smem.va;
+
+		if (copy_to_user((void *)arg, &workbuf,
+				   sizeof(workbuf)) != 0) {
+			dev_dbg(dev, "[ALLOC_DMABUF] Fail to put sw buffer\n");
+			return -EFAULT;
+		}
+
+		dev_info(dev, "[ALLOC_DMABUF] ccd_fd=%d, kva=0x%x, iova=0x%x, size=%d\n",
+				workbuf.ccd_fd, workbuf.kva, workbuf.iova, workbuf.size);
+		return 0;
+	}
+	case ISP_UT_IOCTL_FREE_DMABUF: {
+		struct cam_ioctl_dmabuf_param workbuf;
+		struct mtk_ccd *ccd = (struct mtk_ccd *)ut->rproc_handle->priv;
+		struct mem_obj smem;
+		int fd;
+
+		if (copy_from_user(&workbuf, (void *)arg,
+				   sizeof(workbuf)) != 0) {
+			dev_dbg(dev, "[FREE_DMABUF] Fail to get sw buffer\n");
+			return -EFAULT;
+		}
+
+		dev_info(dev, "[ALLOC_DMABUF] kva=0x%x, iova=0x%x, size=%d, ccd_fd=%d\n",
+				workbuf.kva, workbuf.iova, workbuf.size, workbuf.ccd_fd);
+
+		smem.va = workbuf.kva;
+		smem.iova = workbuf.iova;
+		smem.len = workbuf.size;
+		fd = workbuf.ccd_fd;
+		mtk_ccd_put_buffer_fd(ccd, &smem, fd);
+		mtk_ccd_put_buffer(ccd, &smem);
+
+		dev_dbg(dev,
+				"%s:sw buffers release, mem(%p), sz(%d)\n",
+				__func__, smem.iova, smem.len);
+
+		return 0;
+	}
 	default:
 		dev_info(dev, "DO NOT support this ioctl (%d)\n", cmd);
 		return -ENOIOCTLCMD;
@@ -677,6 +735,9 @@ static int cam_open(struct inode *inode, struct file *filp)
 #ifdef FPGA_EP
 	struct mtk_ut_raw_device *raw_drvdata;
 	struct mtk_ut_yuv_device *yuv_drvdata;
+#ifdef USE_PA
+	int idx;
+#endif
 #endif
 	int i;
 
@@ -709,6 +770,30 @@ static int cam_open(struct inode *inode, struct file *filp)
 	}
 	/* make sure reset take effect */
 	wmb();
+
+#ifdef USE_PA
+	//force SMI to disable MMU
+	for (idx = 0; idx < 32; idx++) {
+		// SMI_LARB13_BASE in CAMSYS_MAIN
+		writel_relaxed(0xa0000, ut->base + 0x1380 + (idx<<2));
+		// SMI_LARB14_BASE in CAMSYS_MAIN
+		writel_relaxed(0xa0000, ut->base + 0x2380 + (idx<<2));
+		// SMI_LARB16_BASE in CAMSYS_RAWA
+		writel_relaxed(0xa0000, ut->base + 0x8380 + (idx<<2));
+		// SMI_LARB17_BASE in CAMSYS_YUVA
+		writel_relaxed(0xa0000, ut->base + 0x9380 + (idx<<2));
+		// SMI_LARB16_BASE in CAMSYS_RAWB
+		writel_relaxed(0xa0000, ut->base + 0xa380 + (idx<<2));
+		// SMI_LARB17_BASE in CAMSYS_YUVB
+		writel_relaxed(0xa0000, ut->base + 0xb380 + (idx<<2));
+		// SMI_LARB16_BASE in CAMSYS_RAWC
+		writel_relaxed(0xa0000, ut->base + 0xc380 + (idx<<2));
+		// SMI_LARB17_BASE in CAMSYS_YUVC
+		writel_relaxed(0xa0000, ut->base + 0xd380 + (idx<<2));
+	}
+	/* make sure reset take effect */
+	wmb();
+#endif
 #endif
 
 	filp->private_data = ut;
@@ -1110,6 +1195,8 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 		dev_info(dev, "failed to map register base\n");
 		return PTR_ERR(base);
 	}
+	ut->base = base;
+
 	dev_info(dev, "ut base 0x%p\n", base);
 	writel_relaxed(0xffffffff, base + 0x8);
 	dev_info(dev, "cam-main cg 0x%x\n",

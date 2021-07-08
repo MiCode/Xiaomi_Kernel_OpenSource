@@ -34,23 +34,24 @@ static int ut_seninf_set_testmdl(struct device *dev,
 {
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	void __iomem *base = seninf->base + seninf_idx * SENINF_OFFSET;
-	const u16 dummy_pxl = 0x30, dum_vsync = 0x30;
+	const u16 dummy_pxl = 0x80, h_margin = 0x80;
 	const u8 clk_div_cnt = (8 >> pixmode_lg2) - 1;
-	const u16 h_margin = get_test_hmargin(width + dummy_pxl,
-					      height + dum_vsync,
+	const u16 dum_vsync = get_test_hmargin(width + dummy_pxl,
+					      height + h_margin,
 					      clk_div_cnt, 416, 30);
 	unsigned int cam_mux_ctrl;
-	void __iomem *cam_mux_ctrl_addr;
+	void __iomem *cam_mux_ctrl_addr = ISP_SENINF_CAM_MUX_CTRL_0(seninf->base);
 
-	dev_info(dev, "%s width %d x height %d h_margin %d pixmode_lg2 %d clk_div_cnt %d\n",
-		 __func__, width, height, h_margin,
+	dev_info(dev, "%s width %d x height %d dum_vsync %d pixmode_lg2 %d clk_div_cnt %d\n",
+		 __func__, width, height, dum_vsync,
 		 pixmode_lg2, clk_div_cnt);
-	dev_info(dev, "%s seninf_idx %d tg_idx %d", seninf_idx, tg_idx);
+	dev_info(dev, "%s seninf_idx %d tg_idx %d\n", __func__, seninf_idx, tg_idx);
 
 	/* test mdl */
 	writel_relaxed((height + h_margin) << 16 | width,
 		       ISP_SENINF_TM_SIZE(base));
-	writel_relaxed(clk_div_cnt, ISP_SENINF_TM_CLK(base));
+	/*writel_relaxed(clk_div_cnt, ISP_SENINF_TM_CLK(base));*/
+	writel_relaxed(0xF, ISP_SENINF_TM_CLK(base));
 	writel_relaxed(dum_vsync << 16 | dummy_pxl, ISP_SENINF_TM_DUM(base));
 	writel_relaxed(pattern << 4 | 0x1, ISP_SENINF_TM_CTL(base));
 	writel_relaxed(0x1f << 16 | pixmode_lg2 << 8 | 0x1,
@@ -81,14 +82,14 @@ static int ut_seninf_set_testmdl(struct device *dev,
 		break;
 	default:
 		dev_info(dev, "unknown tg_idx:%d", tg_idx);
-		cam_mux_ctrl_addr =
-			ISP_SENINF_CAM_MUX_CTRL_0(seninf->base);
 		break;
 	}
 	cam_mux_ctrl = readl_relaxed(cam_mux_ctrl_addr);
 	cam_mux_ctrl &= ~(0xFF << ((tg_idx % 4) * 8));
 	cam_mux_ctrl |= seninf_idx << ((tg_idx % 4) * 8);
-	writel_relaxed(cam_mux_ctrl, cam_mux_ctrl_addr);
+
+	writel_relaxed(0x80, ISP_SENINF_CAM_MUX_CTRL_0(seninf->base));
+
 	return 0;
 }
 

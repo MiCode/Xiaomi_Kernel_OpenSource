@@ -115,6 +115,7 @@ struct mtk_cam_ut {
 
 	struct mtk_cam_ut_mem_obj *mem;
 	struct mtk_cam_ut_mem_obj *msg_mem;
+	void __iomem *base;
 
 	phandle rproc_phandle;
 	struct rproc *rproc_handle;
