@@ -28,6 +28,7 @@ static int conn_pwr_ut_get_plat_level(int par1, int par2, int par3);
 static int conn_pwr_ut_set_customer_level(int par1, int par2, int par3);
 static int conn_pwr_ut_set_battery_level(int par1, int par2, int par3);
 static int conn_pwr_ut_set_max_temp(int par1, int par2, int par3);
+static int conn_pwr_ut_update_thermal_status(int par1, int par2, int par3);
 static int conn_pwr_ut_event_cb_bt(enum conn_pwr_event_type event, void *data);
 static int conn_pwr_ut_event_cb_fm(enum conn_pwr_event_type event, void *data);
 static int conn_pwr_ut_event_cb_gps(enum conn_pwr_event_type event, void *data);
@@ -46,6 +47,7 @@ static const CONN_PWR_TEST_FUNC conn_pwr_test_func[] = {
 	[0x7] = conn_pwr_ut_set_customer_level,
 	[0x8] = conn_pwr_ut_set_max_temp,
 	[0x9] = conn_pwr_ut_set_battery_level,
+	[0xA] = conn_pwr_ut_update_thermal_status,
 };
 
 static const CONN_PWR_EVENT_CB ut_cb_tbl[] = {
@@ -263,4 +265,14 @@ static int conn_pwr_ut_set_max_temp(int par1, int par2, int par3)
 	pr_info("%s max = %d, recovery = %d\n", par2, par3);
 	return 0;
 }
+
+static int conn_pwr_ut_update_thermal_status(int par1, int par2, int par3)
+{
+	void *value;
+
+	value = &par3;
+	conn_pwr_send_msg(CONN_PWR_DRV_WIFI, par2, value);
+	return 0;
+}
+
 #endif

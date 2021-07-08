@@ -26,7 +26,11 @@
 #endif
 #define CONN_PWR_INVALID_TEMP (-888)
 #define CONN_PWR_MAX_TEMP_HIGH  110
+#if IS_ENABLED(CONFIG_CONN_PWR_DEBUG)
+#define CONN_PWR_MAX_TEMP_LOW    0
+#else
 #define CONN_PWR_MAX_TEMP_LOW    60
+#endif
 
 /* device node related macro */
 #define CONN_PWR_DEV_NUM 1
