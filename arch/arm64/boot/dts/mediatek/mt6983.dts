@@ -1628,6 +1628,11 @@
 			compatible = "mediatek,mt6983-iommu-debug";
 	};
 
+	mtk_sec_dmaheap {
+			compatible = "mediatek,dmaheap-region-base";
+			iommus = <&disp_iommu M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
 	mtk_iommu_test0 {
 			compatible = "mediatek,iommu-test-dom0";
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
