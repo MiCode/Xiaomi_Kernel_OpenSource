@@ -321,8 +321,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Poll to make sure that the CX is off */
-	if (!genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	return ret;
 }
@@ -382,8 +381,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Poll to make sure that the CX is off */
-	if (!genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	return ret;
 }
@@ -467,8 +465,7 @@ static int genc_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 	/* Poll to make sure that the CX is off */
-	if (!genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	genc_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	return ret;
 
