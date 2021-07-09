@@ -63,6 +63,20 @@ header-test- += xen/evtchn.h
 header-test- += xen/gntdev.h
 header-test- += xen/privcmd.h
 
+header-test- += camera/media/cam_jpeg.h
+header-test- += camera/media/cam_icp.h
+header-test- += camera/media/cam_isp.h
+header-test- += camera/media/cam_cpas.h
+header-test- += camera/media/cam_sensor.h
+header-test- += camera/media/cam_fd.h
+header-test- += camera/media/cam_tfe.h
+header-test- += camera/media/cam_custom.h
+header-test- += camera/media/cam_ope.h
+header-test- += camera/media/cam_sync.h
+header-test- += camera/media/cam_req_mgr.h
+header-test- += camera/media/cam_lrme.h
+header-test- += camera/media/cam_defs.h
+
 header-test- += ais/media/ais_isp.h
 header-test- += ais/media/cam_lrme.h
 header-test- += ais/media/cam_cpas.h

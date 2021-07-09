@@ -8,6 +8,7 @@
 #include <linux/cdev.h>
 #include <linux/wait.h>
 #include <linux/uaccess.h>
+#include <linux/uio.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
@@ -95,8 +96,11 @@ static void mhi_uci_generic_client_cb(struct mhi_dev_client_cb_data *cb_data);
 static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data);
 static void mhi_uci_at_ctrl_tre_cb(struct mhi_dev_client_cb_reason *reason);
 
-/* UCI channel attributes table */
-static const struct chan_attr uci_chan_attr_table[] = {
+/* MHI channel attributes table
+ * Skip node creation for IPCR channels but still allow uevent broadcast to
+ * QRTR client by setting the broadcast flag
+ */
+static const struct chan_attr mhi_chan_attr_table[] = {
 	{
 		MHI_CLIENT_LOOPBACK_OUT,
 		TRB_MAX_DATA_SIZE,
@@ -266,7 +270,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		NULL,
 		NULL,
 		false,
-		false,
+		true,
 		true
 	},
 	{
@@ -424,6 +428,8 @@ static ssize_t mhi_uci_ctrl_client_read(struct file *file, char __user *buf,
 		size_t count, loff_t *offp);
 static ssize_t mhi_uci_client_write(struct file *file,
 		const char __user *buf, size_t count, loff_t *offp);
+static ssize_t mhi_uci_client_write_iter(struct kiocb *iocb,
+					 struct iov_iter *buf);
 static int mhi_uci_client_open(struct inode *mhi_inode, struct file*);
 static int mhi_uci_ctrl_open(struct inode *mhi_inode, struct file*);
 static int mhi_uci_client_release(struct inode *mhi_inode,
@@ -1221,8 +1227,8 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 	mhi_parse_state(buf, &nbytes, info);
 	add_uevent_var(env, "MHI_STATE=%s", buf);
 
-	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i++) {
-		chan_attrib = &uci_chan_attr_table[i];
+	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i++) {
+		chan_attrib = &mhi_chan_attr_table[i];
 		if (chan_attrib->state_bcast) {
 			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
 					chan_attrib->chan_id);
@@ -1480,14 +1486,73 @@ error_memcpy:
 
 }
 
+static ssize_t mhi_uci_client_write_iter(struct kiocb *iocb,
+					 struct iov_iter *buf)
+{
+	struct uci_client *uci_handle = NULL;
+	void *data_loc;
+	unsigned long memcpy_result;
+	int rc;
+	struct file *file = iocb->ki_filp;
+	ssize_t count = iov_iter_count(buf);
+
+	if (!file || !buf || !count || !file->private_data) {
+		uci_log(UCI_DBG_DBG, "Invalid access to write-iter\n");
+		return -EINVAL;
+	}
+
+	uci_handle = file->private_data;
+	if (!uci_handle->send || !uci_handle->out_handle) {
+		uci_log(UCI_DBG_DBG, "Invalid handle or send\n");
+		return -EINVAL;
+	}
+	if (atomic_read(&uci_ctxt.mhi_disabled)) {
+		uci_log(UCI_DBG_ERROR,
+			"Client %d attempted to write while MHI is disabled\n",
+			uci_handle->out_chan);
+		return -EIO;
+	}
+
+	if (!mhi_uci_are_channels_connected(uci_handle)) {
+		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
+			__func__);
+		return -ENODEV;
+	}
+
+	if (count > TRB_MAX_DATA_SIZE) {
+		uci_log(UCI_DBG_ERROR,
+			"Too big write size: %lu, max supported size is %d\n",
+			count, TRB_MAX_DATA_SIZE);
+		return -EFBIG;
+	}
+
+	data_loc = kmalloc(count, GFP_KERNEL);
+	if (!data_loc)
+		return -ENOMEM;
+
+	memcpy_result = copy_from_iter_full(data_loc, count, buf);
+	if (!memcpy_result) {
+		rc = -EFAULT;
+		goto error_memcpy;
+	}
+
+	rc = mhi_uci_send_packet(uci_handle, data_loc, count);
+	if (rc == count)
+		return rc;
+
+error_memcpy:
+	kfree(data_loc);
+	return rc;
+}
+
 void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
 		enum mhi_ctrl_info ch_state)
 {
 	unsigned int i;
 	const struct chan_attr *chan_attrib;
 
-	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i++) {
-		chan_attrib = &uci_chan_attr_table[i];
+	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i++) {
+		chan_attrib = &mhi_chan_attr_table[i];
 		if (chan_attrib->state_bcast) {
 			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
 					chan_attrib->chan_id);
@@ -1877,6 +1942,7 @@ static const struct file_operations mhi_uci_ctrl_client_fops = {
 static const struct file_operations mhi_uci_client_fops = {
 	.read = mhi_uci_client_read,
 	.write = mhi_uci_client_write,
+	.write_iter = mhi_uci_client_write_iter,
 	.open = mhi_uci_client_open,
 	.release = mhi_uci_client_release,
 	.poll = mhi_uci_client_poll,
@@ -2038,8 +2104,8 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
 	struct uci_client *client;
 	const struct chan_attr *chan_attrib;
 
-	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i += 2) {
-		chan_attrib = &uci_chan_attr_table[i];
+	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i += 2) {
+		chan_attrib = &mhi_chan_attr_table[i];
 		index = CHAN_TO_CLIENT(chan_attrib->chan_id);
 		client = &uci_ctxt->client_handles[index];
 		client->out_chan_attr = chan_attrib;
