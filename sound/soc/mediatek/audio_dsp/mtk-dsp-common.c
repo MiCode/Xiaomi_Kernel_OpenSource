@@ -15,9 +15,9 @@
 #include <audio_task.h>
 #include <mtk-base-afe.h>
 
-#include <mtk-dsp-mem-control.h>
-#include <mtk-base-dsp.h>
-#include <mtk-dsp-common.h>
+#include "mtk-dsp-mem-control.h"
+#include "mtk-base-dsp.h"
+#include "mtk-dsp-common.h"
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include <adsp_helper.h>
