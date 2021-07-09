@@ -79,3 +79,11 @@ config QCOM_KGSL_SORT_POOL
 	  When enabled, the pool page list is sorted based on physical
 	  addresses. This can be turned on for targets where better DDR
 	  efficiency is attained on accesses for adjacent memory.
+
+config QCOM_KGSL_QDSS_STM
+	bool "Enable support for QDSS STM for Adreno GPU"
+	depends on QCOM_KGSL && CORESIGHT
+	help
+	  When enabled, the Adreno GPU QDSS STM support is enabled. GPU QDSS STM
+	  memory will be mapped to GPU and QDSS clock needed to access this memory
+	  is voted. Debug kernels should say 'Y' here.
