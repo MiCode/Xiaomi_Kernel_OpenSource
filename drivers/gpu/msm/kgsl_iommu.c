@@ -2317,8 +2317,8 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 				&md->memdesc);
 	}
 
-	/* QDSS is supported only when CORESIGHT is enabled */
-	if (IS_ENABLED(CONFIG_CORESIGHT))
+	/* QDSS is supported only when QCOM_KGSL_QDSS_STM is enabled */
+	if (IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM))
 		device->qdss_desc = kgsl_allocate_global_fixed(device,
 					"qcom,gpu-qdss-stm", "gpu-qdss");
 
