@@ -3,6 +3,7 @@ LPM_BUILD_FOLDER=$(srctree)/drivers/misc/mediatek/lpm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(LPM_BUILD_FOLDER)/inc/
 
+subdir-ccflags-y += -I$(LPM_BUILD_FOLDER)/
 subdir-ccflags-y += -I$(LPM_BUILD_FOLDER)/inc/
 subdir-ccflags-y += -I$(LPM_BUILD_FOLDER)/lpm_trace_event/
 subdir-ccflags-y += -I$(LPM_BUILD_FOLDER)/mtk_lpm_fs/
