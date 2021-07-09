@@ -172,7 +172,7 @@ struct dcc_drvdata {
 	uint32_t		*nr_config;
 	uint32_t		nr_link_list;
 	uint8_t			curr_list;
-	uint8_t			cti_trig;
+	uint8_t			*cti_trig;
 	uint8_t			loopoff;
 };
 
@@ -724,7 +724,7 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 			dcc_writel(drvdata, BIT(8) | ((drvdata->data_sink[list] << 4) |
 				   (drvdata->func_type[list])), DCC_LL_CFG(list));
 		else
-			dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig << 8) |
+			dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig[list] << 8) |
 				   (drvdata->data_sink[list] << 4) |
 				   (drvdata->func_type[list])), DCC_LL_CFG(list));
 	}
@@ -1483,7 +1483,7 @@ static ssize_t cti_trig_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	return scnprintf(buf, PAGE_SIZE, "%d\n", drvdata->cti_trig);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", drvdata->cti_trig[drvdata->curr_list]);
 }
 
 static ssize_t cti_trig_store(struct device *dev,
@@ -1516,9 +1516,11 @@ static ssize_t cti_trig_store(struct device *dev,
 	}
 
 	if (val)
-		drvdata->cti_trig = 1;
+		drvdata->cti_trig[drvdata->curr_list] = 1;
 	else
-		drvdata->cti_trig = 0;
+		drvdata->cti_trig[drvdata->curr_list] = 0;
+
+	ret = size;
 out:
 	mutex_unlock(&drvdata->mutex);
 	return ret;
@@ -1864,6 +1866,10 @@ static int dcc_probe(struct platform_device *pdev)
 	drvdata->nr_config = devm_kzalloc(dev, drvdata->nr_link_list *
 			sizeof(uint32_t), GFP_KERNEL);
 	if (!drvdata->nr_config)
+		return -ENOMEM;
+	drvdata->cti_trig = devm_kzalloc(dev, drvdata->nr_link_list *
+			sizeof(uint8_t), GFP_KERNEL);
+	if (!drvdata->cti_trig)
 		return -ENOMEM;
 	drvdata->cfg_head = devm_kzalloc(dev, drvdata->nr_link_list *
 			sizeof(struct list_head), GFP_KERNEL);
