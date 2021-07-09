@@ -2666,22 +2666,22 @@
 		};
 
 		l2victim400 {
-			qcom,dump-size = <0x1100>;
+			qcom,dump-size = <0x2100>;
 			qcom,dump-id = <0x1e4>;
 		};
 
 		l2victim500 {
-			qcom,dump-size = <0x1100>;
+			qcom,dump-size = <0x2100>;
 			qcom,dump-id = <0x1e5>;
 		};
 
 		l2victim600 {
-			qcom,dump-size = <0x1100>;
+			qcom,dump-size = <0x2100>;
 			qcom,dump-id = <0x1e6>;
 		};
 
 		l2victim700 {
-			qcom,dump-size = <0x1100>;
+			qcom,dump-size = <0x2100>;
 			qcom,dump-id = <0x1e7>;
 		};
 
