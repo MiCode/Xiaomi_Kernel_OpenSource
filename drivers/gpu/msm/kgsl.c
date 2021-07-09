@@ -4486,6 +4486,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	/* Set up the GPU events for the device */
 	kgsl_device_events_probe(device);
 
+	/* Initialize common sysfs entries */
+	kgsl_pwrctrl_init_sysfs(device);
+
 	return 0;
 
 error_pwrctrl_close:

@@ -663,6 +663,14 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
+	adreno_get_bus_counters(adreno_dev);
+
+	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
+						 ADRENO_COOP_RESET);
+
+	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
+	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+
 	/*
 	 * There is a possible deadlock scenario during kgsl firmware reading
 	 * (request_firmware) and devfreq update calls. During first boot, kgsl
@@ -675,20 +683,7 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 	 * the mutex held by other thread. Enable devfreq updates now as we are
 	 * done reading all firmware files.
 	 */
-	ret = kgsl_pwrscale_enable_devfreq(device, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
-	if (ret) {
-		genc_disable_gpu_irq(adreno_dev);
-		genc_hwsched_gmu_power_off(adreno_dev);
-		return ret;
-	}
-
-	adreno_get_bus_counters(adreno_dev);
-
-	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
-						 ADRENO_COOP_RESET);
-
-	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
-	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+	device->pwrscale.devfreq_enabled = true;
 
 	device->pwrctrl.last_stat_updated = ktime_get();
 	device->state = KGSL_STATE_ACTIVE;
