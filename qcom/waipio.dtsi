@@ -363,12 +363,7 @@
 
 	xbl_ramdump_mem: xbl_ramdump_region@80640000 {
 		no-map;
-		reg = <0x0 0x80640000 0x0 0x180000>;
-	};
-
-	xbl_sc_mem: xbl_sc_region@807c0000 {
-		no-map;
-		reg = <0x0 0x807c0000 0x0 0x40000>;
+		reg = <0x0 0x80640000 0x0 0x1c0000>;
 	};
 
 	aop_image_mem: aop_image_region@80800000 {
@@ -484,6 +479,11 @@
 	cvp_mem: cvp_region@9ee00000 {
 		no-map;
 		reg = <0x0 0x9ee00000 0x0 0x700000>;
+	};
+
+	xbl_sc_mem: xbl_sc_region@a6e00000 {
+		no-map;
+		reg = <0x0 0xa6e00000 0x0 0x40000>;
 	};
 
 	global_sync_mem: global_sync_region@a6f00000 {
