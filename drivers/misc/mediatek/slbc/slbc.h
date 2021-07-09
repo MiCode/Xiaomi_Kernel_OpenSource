@@ -6,7 +6,7 @@
 #ifndef _SLBC_H_
 #define _SLBC_H_
 
-#include <slbc_ops.h>
+#include "slbc_ops.h"
 
 #define SLBC_DEBUG
 

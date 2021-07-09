@@ -17,14 +17,14 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 
-#include <slbc.h>
+#include "slbc.h"
 /* #define CREATE_TRACE_POINTS */
 /* #include <slbc_events.h> */
 #define trace_slbc_api(f, id)
 #define trace_slbc_data(f, data)
 
 #if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
-#include <mmsram.h>
+#include "mmsram.h"
 
 static struct mmsram_data mmsram;
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
