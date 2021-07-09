@@ -17,3 +17,4 @@ qnoc-qos.ko
 qnoc-kalama.ko
 icc-debug.ko
 gdsc-regulator.ko
+gcc-kalama.ko
