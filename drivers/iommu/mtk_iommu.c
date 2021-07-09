@@ -33,7 +33,7 @@
 #include <soc/mediatek/smi.h>
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-#include <../misc/mediatek/iommu/iommu_debug.h>
+#include "../misc/mediatek/iommu/iommu_debug.h"
 #endif
 
 #include "mtk_iommu.h"
