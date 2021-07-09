@@ -89,6 +89,7 @@ struct llcc_edac_reg_data {
  * @offsets: Pointer to the bank offsets array
  * @ecc_irq: interrupt for llcc cache error detection and reporting
  * @llcc_ver: hardware version (20 for V2.0)
+ * @desc: Array pointer of llcc_slice_desc
  */
 struct llcc_drv_data {
 	struct regmap *regmap;
@@ -103,6 +104,7 @@ struct llcc_drv_data {
 	int ecc_irq;
 	int llcc_ver;
 	bool cap_based_alloc_and_pwr_collapse;
+	struct llcc_slice_desc *desc;
 };
 
 #if IS_ENABLED(CONFIG_QCOM_LLCC)
