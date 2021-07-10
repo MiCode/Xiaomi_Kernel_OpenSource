@@ -491,14 +491,14 @@ struct dwc3_msm {
 	bool			use_pdc_interrupts;
 	enum dwc3_id_state	id_state;
 	unsigned long		use_pwr_event_for_wakeup;
+#define PWR_EVENT_SS_WAKEUP		BIT(0)
+#define PWR_EVENT_HS_WAKEUP		BIT(1)
+
 	unsigned long		lpm_flags;
 #define MDWC3_SS_PHY_SUSPEND		BIT(0)
 #define MDWC3_ASYNC_IRQ_WAKE_CAPABILITY	BIT(1)
 #define MDWC3_POWER_COLLAPSE		BIT(2)
 #define MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP BIT(3)
-
-#define PWR_EVENT_SS_WAKEUP		BIT(0)
-#define PWR_EVENT_HS_WAKEUP		BIT(1)
 
 	struct extcon_nb	*extcon;
 	int			ext_idx;
@@ -3156,13 +3156,15 @@ static void dwc3_msm_set_pwr_events(struct dwc3_msm *mdwc, bool on)
 		 */
 		if (mdwc->use_pwr_event_for_wakeup & PWR_EVENT_HS_WAKEUP)
 			irq_mask |= PWR_EVNT_LPM_OUT_L2_MASK;
-		if (mdwc->use_pwr_event_for_wakeup & PWR_EVENT_SS_WAKEUP)
+		if ((mdwc->use_pwr_event_for_wakeup & PWR_EVENT_SS_WAKEUP)
+					&& !(mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND))
 			irq_mask |= (PWR_EVNT_POWERDOWN_OUT_P3_MASK |
 						PWR_EVNT_LPM_OUT_RX_ELECIDLE_IRQ_MASK);
 	} else {
 		if (mdwc->use_pwr_event_for_wakeup & PWR_EVENT_HS_WAKEUP)
 			irq_mask &= ~PWR_EVNT_LPM_OUT_L2_MASK;
-		if (mdwc->use_pwr_event_for_wakeup & PWR_EVENT_SS_WAKEUP)
+		if ((mdwc->use_pwr_event_for_wakeup & PWR_EVENT_SS_WAKEUP)
+					&& !(mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND))
 			irq_mask &= ~(PWR_EVNT_POWERDOWN_OUT_P3_MASK |
 						PWR_EVNT_LPM_OUT_RX_ELECIDLE_IRQ_MASK);
 	}
@@ -3330,16 +3332,14 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 
 	/*
 	 * When operating in HS host mode, check if pwr event IRQ is
-	 * required for wakep.
+	 * required for wakeup.
 	 */
-	if (mdwc->in_host_mode && no_active_ss &&
-			(mdwc->use_pwr_event_for_wakeup & PWR_EVENT_HS_WAKEUP))
+	if (mdwc->in_host_mode && (mdwc->use_pwr_event_for_wakeup
+						& PWR_EVENT_HS_WAKEUP))
 		mdwc->lpm_flags |= MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP;
 
-	if (mdwc->lpm_flags & MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP) {
+	if (mdwc->lpm_flags & MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP)
 		dwc3_msm_set_pwr_events(mdwc, true);
-		enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
-	}
 
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
@@ -3407,6 +3407,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 		}
 		mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 	}
+
+	if (mdwc->lpm_flags & MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP)
+		enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 	dbg_event(0xFF, "Ctl Sus", atomic_read(&dwc->in_lpm));
