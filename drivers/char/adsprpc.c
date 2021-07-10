@@ -3091,6 +3091,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 
 		/* busy poll on memory for actual job done */
 		case EARLY_RESPONSE:
+			trace_fastrpc_msg("early_response: poll_begin");
 			err = poll_for_remote_response(ctx, FASTRPC_POLL_TIME);
 
 			/* Mark job done if poll on memory successful */
@@ -3100,6 +3101,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 				*ptr_isworkdone = true;
 				goto bail;
 			}
+			trace_fastrpc_msg("early_response: poll_timeout");
 			ADSPRPC_INFO("poll timeout for handle 0x%x, sc 0x%x\n",
 				ctx->handle, ctx->sc);
 			if (async) {
@@ -3140,12 +3142,14 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 			}
 			break;
 		case POLL_MODE:
+			trace_fastrpc_msg("poll_mode: begin");
 			err = poll_for_remote_response(ctx, ctx->fl->poll_timeout);
 
 			/* If polling timed out, move to normal response state */
-			if (err)
+			if (err) {
+				trace_fastrpc_msg("poll_mode: timeout");
 				ctx->rsp_flags = NORMAL_RESPONSE;
-			else {
+			} else {
 				*ptr_interrupted = 0;
 				*ptr_isworkdone = true;
 			}
