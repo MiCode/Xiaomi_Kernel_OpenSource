@@ -40,8 +40,8 @@ static int apss_cc_debug_mux_pre_divs[] = {
 
 static struct clk_debug_mux apss_cc_debug_mux = {
 	.priv = &debug_mux_priv,
-	.debug_offset = 0x1C,
-	.post_div_offset = 0x1C,
+	.debug_offset = 0x0,
+	.post_div_offset = 0x0,
 	.cbcr_offset = U32_MAX,
 	.src_sel_mask = 0x3FF00,
 	.src_sel_shift = 8,

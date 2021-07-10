@@ -471,6 +471,8 @@ gen_headers_out_arm64 = [
     "linux/qemu_fw_cfg.h",
     "linux/qg-profile.h",
     "linux/qg.h",
+    "linux/qbg-profile.h",
+    "linux/qbg.h",
     "linux/qnx4_fs.h",
     "linux/qnxtypes.h",
     "linux/qrng.h",
@@ -1013,7 +1015,10 @@ genrule {
 
 genrule {
     name: "qti_generate_kernel_headers_arm64",
-    tools: ["headers_install.sh"],
+    tools: [
+        "headers_install.sh",
+        "unifdef",
+    ],
     tool_files: [
         "kernel_headers.py",
     ],
@@ -1035,6 +1040,7 @@ genrule {
         "--new_gen_headers_bp $(location :qti_generate_gen_headers_arm64) " +
         "--version_makefile $(location Makefile) " +
         "--headers_install $(location headers_install.sh) " +
+        "--unifdef $(location unifdef) " +
         "--include_uapi $(locations include/uapi/**/*.h)",
     out: ["linux/version.h"] + gen_headers_out_arm64,
 }

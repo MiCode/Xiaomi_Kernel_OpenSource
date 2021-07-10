@@ -514,17 +514,6 @@ static struct clk_pll gpll6 = {
 	},
 };
 
-static struct clk_regmap gpll6_out_main = {
-	.enable_reg = 0x45000,
-	.enable_mask = BIT(7),
-	.hw.init = &(struct clk_init_data){
-		.name = "gpll6_out_main",
-		.parent_names = (const char *[]){ "gpll6" },
-		.num_parents = 1,
-		.ops = &clk_pll_vote_ops,
-	},
-};
-
 static struct clk_regmap gpll6_out_aux = {
 	.enable_reg = 0x45000,
 	.enable_mask = BIT(7),
@@ -533,6 +522,17 @@ static struct clk_regmap gpll6_out_aux = {
 		.parent_names = (const char *[]){ "gpll6" },
 		.num_parents = 1,
 		.ops = &clk_pll_vote_ops,
+	},
+};
+
+static struct clk_fixed_factor gpll6_out_main = {
+	.mult = 1,
+	.div = 1,
+	.hw.init = &(struct clk_init_data){
+		.name = "gpll6_out_main",
+		.parent_names = (const char *[]){ "gpll6_out_aux" },
+		.num_parents = 1,
+		.ops = &clk_fixed_factor_ops,
 	},
 };
 
@@ -1271,18 +1271,18 @@ static struct clk_rcg2 sdcc2_apps_clk_src = {
 };
 
 static const struct freq_tbl ftbl_usb_hs_system_clk_src[] = {
-	F(57140000, P_GPLL0_OUT_MAIN, 14, 0, 0),
+	F(57142857, P_GPLL0_OUT_MAIN, 14, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 8, 0, 0),
 	F(133333333, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	F(177780000, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
+	F(177777778, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
 	{ }
 };
 
 static const struct freq_tbl ftbl_usb_hs_system_clk_src_qm215[] = {
 	F( 80000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
 	F( 100000000, P_GPLL0_OUT_MAIN, 8, 0, 0),
-	F( 133330000, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	F( 177780000, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
+	F( 133333333, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F( 177777778, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
 	{ }
 };
 
@@ -3940,6 +3940,7 @@ static struct clk_dummy wcnss_m_clk = {
 
 struct clk_hw *gcc_sdm429w_hws[] = {
 	[GPLL0_OUT_AUX] = &gpll0_out_aux.hw,
+	[GPLL6_OUT_MAIN] = &gpll6_out_main.hw,
 };
 
 static struct clk_regmap *gcc_sdm429w_clocks[] = {
@@ -4020,7 +4021,6 @@ static struct clk_regmap *gcc_sdm429w_clocks[] = {
 	[GPLL0_SLEEP_CLK_SRC] = &gpll0_sleep_clk_src.clkr,
 	[GPLL3_OUT_MAIN] = &gpll3_out_main.clkr,
 	[GPLL4_OUT_MAIN] = &gpll4_out_main.clkr,
-	[GPLL6_OUT_MAIN] = &gpll6_out_main,
 	[GPLL6] = &gpll6.clkr,
 	[GPLL6_OUT_AUX] = &gpll6_out_aux,
 	[JPEG0_CLK_SRC] = &jpeg0_clk_src.clkr,
@@ -4266,8 +4266,8 @@ static void fixup_for_qm215(struct platform_device *pdev,
 	sdcc1_apps_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 400000000;
 
 	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 800000000;
-	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 133333000;
-	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 177780000;
+	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 133333333;
+	usb_hs_system_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 177777778;
 	usb_hs_system_clk_src.freq_tbl = ftbl_usb_hs_system_clk_src_qm215;
 
 	/*

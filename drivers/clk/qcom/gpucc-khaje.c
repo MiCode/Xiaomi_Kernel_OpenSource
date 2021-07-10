@@ -88,7 +88,7 @@ static const struct alpha_pll_config gpu_cc_pll0_config = {
 	.config_ctl_val = 0x08200800,
 	.config_ctl_hi_val = 0x05022001,
 	.config_ctl_hi1_val = 0x00000010,
-	.user_ctl_val = 0x00000101,
+	.user_ctl_val = 0x01000101,
 };
 
 static struct clk_alpha_pll gpu_cc_pll0 = {
@@ -202,7 +202,9 @@ static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
 	F(600000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(785000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(820000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
+	F(980000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1025000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
+	F(1100000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1114800000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	{ }
 };

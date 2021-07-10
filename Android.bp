@@ -9,9 +9,9 @@ cc_binary_host {
 genrule {
     name: "gen-headers_install.sh",
     srcs: ["scripts/headers_install.sh"],
-    tools: ["unifdef"],
     out: ["headers_install.sh"],
-    cmd: "sed 's+scripts/unifdef+$(location unifdef)+g' $(in) > $(out)",
+    // (Ie3b8c36b7d60bd950c28bac566e04f43de78cf98,b/178500203)
+    cmd: "sed 's+scripts/unifdef+$$LOC_UNIFDEF+g' $(in) > $(out)",
 }
 
 cc_prebuilt_binary {
