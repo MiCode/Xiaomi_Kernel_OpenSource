@@ -4070,6 +4070,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	struct dwc3_msm *mdwc = enb->mdwc;
 	char *eud_str;
 	const char *edev_name;
+	bool is_cdp;
 
 	if (!edev || !mdwc)
 		return NOTIFY_DONE;
@@ -4095,11 +4096,20 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	}
 
 	/*
+	 * In case of ADSP based charger detection driving a pulse on
+	 * DP to ensure proper CDP detection will be taken care by
+	 * ADSP.
+	 */
+	is_cdp = ((mdwc->apsd_source == IIO) &&
+		(get_chg_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP)) ||
+		((mdwc->apsd_source == PSY) &&
+		(get_chg_type(mdwc) == POWER_SUPPLY_USB_TYPE_CDP));
+
+	/*
 	 * Drive a pulse on DP to ensure proper CDP detection
 	 * and only when the vbus connect event is a valid one.
 	 */
-	if (get_chg_type(mdwc) == POWER_SUPPLY_USB_TYPE_CDP &&
-			mdwc->vbus_active && !mdwc->check_eud_state) {
+	if (is_cdp && mdwc->vbus_active && !mdwc->check_eud_state) {
 		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
 		mdwc->hs_phy->charger_detect(mdwc->hs_phy);
 	}
