@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020 - 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UFSHCD_CRYPTO_QTI_H
@@ -27,5 +27,7 @@ void cqhci_crypto_qti_set_vops(struct cqhci_host *host)
 #endif /* CONFIG_MMC_CQHCI_CRYPTO_QTI) */
 
 int cqhci_crypto_qti_resume(struct cqhci_host *host);
+
+int cqhci_crypto_qti_recovery_finish(struct cqhci_host *host);
 
 #endif /* _UFSHCD_ICE_QTI_H */
