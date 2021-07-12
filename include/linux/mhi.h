@@ -374,6 +374,7 @@ struct mhi_controller_config {
  * @unmap_single: CB function to destroy TRE buffer
  * @read_reg: Read a MHI register via the physical link (required)
  * @write_reg: Write a MHI register via the physical link (required)
+ * @reset: Controller specific reset function (optional)
  * @buffer_len: Bounce buffer length
  * @index: Index of the MHI controller instance
  * @img_pre_alloc: allocate rddm and fbc image buffers one time
@@ -467,6 +468,7 @@ struct mhi_controller {
 			u32 *out);
 	void (*write_reg)(struct mhi_controller *mhi_cntrl, void __iomem *addr,
 			  u32 val);
+	void (*reset)(struct mhi_controller *mhi_cntrl);
 
 	size_t buffer_len;
 	int index;
@@ -716,6 +718,13 @@ enum mhi_ee_type mhi_get_exec_env(struct mhi_controller *mhi_cntrl);
  * @mhi_cntrl: MHI controller
  */
 enum mhi_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_soc_reset - Trigger a device reset. This can be used as a last resort
+ *		   to reset and recover a device.
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_soc_reset(struct mhi_controller *mhi_cntrl);
 
 /**
  * mhi_device_get - Disable device low power mode
