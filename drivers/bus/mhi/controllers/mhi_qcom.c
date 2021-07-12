@@ -432,7 +432,7 @@ void mhi_deinit_pci_dev(struct pci_dev *pci_dev,
 	mhi_cntrl->irq = NULL;
 	iounmap(mhi_cntrl->regs);
 	mhi_cntrl->regs = NULL;
-	mhi_cntrl->regs_len = 0;
+	mhi_cntrl->reg_len = 0;
 	mhi_cntrl->nr_irqs = 0;
 	pci_clear_master(pci_dev);
 	pci_release_region(pci_dev, dev_info->bar_num);
@@ -471,8 +471,8 @@ static int mhi_init_pci_dev(struct pci_dev *pci_dev,
 	pci_set_master(pci_dev);
 
 	base = pci_resource_start(pci_dev, dev_info->bar_num);
-	mhi_cntrl->regs_len = pci_resource_len(pci_dev, dev_info->bar_num);
-	mhi_cntrl->regs = ioremap(base, mhi_cntrl->regs_len);
+	mhi_cntrl->reg_len = pci_resource_len(pci_dev, dev_info->bar_num);
+	mhi_cntrl->regs = ioremap(base, mhi_cntrl->reg_len);
 	if (!mhi_cntrl->regs) {
 		MHI_CNTRL_ERR("Error ioremap region\n");
 		goto error_ioremap;

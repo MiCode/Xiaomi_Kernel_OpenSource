@@ -1107,7 +1107,7 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 		MHI_ERR("Error getting BHI offset\n");
 		goto error_reg_offset;
 	}
-	if (bhi_off >= mhi_cntrl->regs_len) {
+	if (bhi_off >= mhi_cntrl->reg_len) {
 		MHI_ERR("BHI offset is out of range\n");
 		ret = -EINVAL;
 		goto error_reg_offset;
@@ -1121,7 +1121,7 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 			MHI_ERR("Error getting BHIE offset\n");
 			goto error_reg_offset;
 		}
-		if (bhie_off >= mhi_cntrl->regs_len) {
+		if (bhie_off >= mhi_cntrl->reg_len) {
 			MHI_ERR("BHIe offset is out of range\n");
 			ret = -EINVAL;
 			goto error_reg_offset;
