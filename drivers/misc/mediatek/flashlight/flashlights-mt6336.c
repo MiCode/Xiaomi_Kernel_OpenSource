@@ -18,7 +18,6 @@
 #include <linux/list.h>
 #include <linux/delay.h>
 
-#include "mt6336/mt6336.h"
 #include "flashlight-core.h"
 #include "flashlight-dt.h"
 
