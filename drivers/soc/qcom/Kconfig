@@ -507,6 +507,16 @@ config QCOM_SOC_SLEEP_STATS
 	  various SoC level low power modes statistics and export to debugfs
 	  interface.
 
+config QCOM_ADSP_SLEEPMON
+	tristate "ADSP sleep monitor"
+	depends on QCOM_SMEM
+	help
+	   This driver tracks ADSP sleep statistics while interfacing with
+	   different userspace clients making use of ADSP. Based on the
+	   activity notifications from these userspace clients, the driver
+	   detects and logs sleep violations from ADSP subsystem. The driver
+	   uses master stats from ADSP subsystem stored in SMEM.
+
 config QCOM_WCNSS_CTRL
 	tristate "Qualcomm WCNSS control driver"
 	depends on ARCH_QCOM || COMPILE_TEST
