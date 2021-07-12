@@ -10,6 +10,7 @@
 #include <linux/platform_data/mtk_ccd.h>
 #include <linux/remoteproc/mtk_ccd_mem.h>
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
+#include <linux/compat.h>
 
 
 #include "remoteproc_internal.h"

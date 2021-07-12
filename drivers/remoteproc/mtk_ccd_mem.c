@@ -177,8 +177,8 @@ int mtk_ccd_get_dmabuf_fd(struct mtk_ccd *ccd,
 
 	mtk_ccd_get_serivce(ccd, &task, &f);
 	if (!task || !f ||
-	    probe_kernel_address(&task->sighand, sighand) ||
-	    probe_kernel_address(&task->sighand->siglock, siglock))
+	    get_kernel_nofault(sighand, &task->sighand) ||
+	    get_kernel_nofault(siglock, &task->sighand->siglock))
 		return -EMFILE;
 
 	dev_dbg(ccd->dev, "Master pid:%d, tgid:%d; current pid:%d, tgid:%d",
