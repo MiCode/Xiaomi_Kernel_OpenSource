@@ -12,7 +12,6 @@ msm_kgsl-y = \
 	kgsl_gmu_core.o \
 	kgsl_ioctl.o \
 	kgsl_mmu.o \
-	kgsl_pool.o \
 	kgsl_pwrctrl.o \
 	kgsl_pwrscale.o \
 	kgsl_regmap.o \
@@ -27,6 +26,10 @@ msm_kgsl-$(CONFIG_COMPAT) += kgsl_compat.o
 msm_kgsl-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
 msm_kgsl-$(CONFIG_ARM_SMMU) += kgsl_iommu.o
 msm_kgsl-$(CONFIG_SYNC_FILE) += kgsl_sync.o
+
+ifndef CONFIG_QCOM_KGSL_USE_SHMEM
+	msm_kgsl-y += kgsl_pool.o
+endif
 
 msm_kgsl-y += \
 	adreno.o \

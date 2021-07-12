@@ -1,27 +1,46 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2017,2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017,2019,2021 The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_POOL_H
 #define __KGSL_POOL_H
 
-void kgsl_pool_free_sgt(struct sg_table *sgt);
+#ifdef CONFIG_QCOM_KGSL_USE_SHMEM
+static inline void kgsl_probe_page_pools(void) { }
+static inline void kgsl_exit_page_pools(void) { }
+static inline int kgsl_get_page_size(size_t size, unsigned int align)
+{
+	return PAGE_SIZE;
+}
+#else
+/**
+ * kgsl_pool_free_page - Frees the page and adds it back to pool/system memory
+ * @page: Pointer to page struct that needs to be freed
+ */
+void kgsl_pool_free_page(struct page *page);
 
 /**
- * kgsl_pool_alloc_pages - Allocate an array of pages from the pool
- * @size: Size of the allocation
- * @pages: Pointer to an array of pages
- * @dev: A &struct device pointer
+ * kgsl_get_page_size - Get supported pagesize
+ * @size: Size of the page
+ * @align: Desired alignment of the size
  *
- * Allocate a list of pages and store it in the pointer pointed to by @pages.
- * @dev specifies a &struct device that is used to call dma_sync_sg_for_device
- * to synchronize the caches. If @dev isn't specified, no cache maintenance
- * will be performed.
- *
- * Return: The number of entries in the array pointed to by @page or negative
- * on error.
+ * Return largest available page size from pools that can be used to meet
+ * given size and alignment requirements
  */
-int kgsl_pool_alloc_pages(u64 size, struct page ***pages, struct device *dev);
+int kgsl_get_page_size(size_t size, unsigned int align);
+
+/**
+ * kgsl_pool_alloc_page - Allocate a page of requested size
+ * @page_size: Size of the page to be allocated
+ * @pages: pointer to hold list of pages, should be big enough to hold
+ * requested page
+ * @len: Length of array pages
+ *
+ * Return total page count on success and negative value on failure
+ */
+int kgsl_pool_alloc_page(int *page_size, struct page **pages,
+			unsigned int pages_len, unsigned int *align,
+			struct device *dev);
 
 /**
  * kgsl_pool_free_pages - Free pages in an pages array
@@ -43,5 +62,7 @@ void kgsl_probe_page_pools(void);
  * kgsl_exit_page_pools - Free outstanding pooled memory
  */
 void kgsl_exit_page_pools(void);
+
+#endif
 #endif /* __KGSL_POOL_H */
 

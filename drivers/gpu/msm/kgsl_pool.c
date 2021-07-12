@@ -13,15 +13,6 @@
 #include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
 
-/*
- * The user can set this from debugfs to force failed memory allocations to
- * fail without trying OOM first.  This is a debug setting useful for
- * stress applications that want to test failure cases without pushing the
- * system into unrecoverable OOM panics
- */
-
-static bool mem_noretry_flag;
-
 #ifdef CONFIG_QCOM_KGSL_SORT_POOL
 
 struct kgsl_pool_page_entry {
@@ -165,8 +156,6 @@ static struct kgsl_page_pool kgsl_pools[6];
 static int kgsl_num_pools;
 static int kgsl_pool_max_pages;
 
-static void kgsl_pool_free_page(struct page *page);
-
 /* Return the index of the pool for the specified order */
 static int kgsl_get_pool_index(int order)
 {
@@ -187,38 +176,6 @@ _kgsl_get_pool_from_order(int order)
 	int index = kgsl_get_pool_index(order);
 
 	return index >= 0 ? &kgsl_pools[index] : NULL;
-}
-
-static void kgsl_pool_sync_for_device(struct device *dev, struct page *page,
-		size_t size)
-{
-	struct scatterlist sg;
-
-	/* The caller may choose not to specify a device on purpose */
-	if (!dev)
-		return;
-
-	sg_init_table(&sg, 1);
-	sg_set_page(&sg, page, size, 0);
-	sg_dma_address(&sg) = page_to_phys(page);
-
-	dma_sync_sg_for_device(dev, &sg, 1, DMA_BIDIRECTIONAL);
-}
-
-/* Map the page into kernel and zero it out */
-static void
-_kgsl_pool_zero_page(struct page *p, unsigned int pool_order,
-		struct device *dev)
-{
-	int i;
-
-	for (i = 0; i < (1 << pool_order); i++) {
-		struct page *page = nth_page(p, i);
-
-		clear_highpage(page);
-	}
-
-	kgsl_pool_sync_for_device(dev, p, PAGE_SIZE << pool_order);
 }
 
 /* Add a page to specified pool */
@@ -382,43 +339,6 @@ kgsl_pool_reduce(int target_pages, bool exit)
 	return pcount;
 }
 
-/**
- * kgsl_pool_free_sgt() - Free scatter-gather list
- * @sgt: pointer of the sg list
- *
- * Free the sg list by collapsing any physical adjacent pages.
- * Pages are added back to the pool, if pool has sufficient space
- * otherwise they are given back to system.
- */
-
-void kgsl_pool_free_sgt(struct sg_table *sgt)
-{
-	int i;
-	struct scatterlist *sg;
-
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		/*
-		 * sg_alloc_table_from_pages() will collapse any physically
-		 * adjacent pages into a single scatterlist entry. We cannot
-		 * just call __free_pages() on the entire set since we cannot
-		 * ensure that the size is a whole order. Instead, free each
-		 * page or compound page group individually.
-		 */
-		struct page *p = sg_page(sg), *next;
-		unsigned int count;
-		unsigned int j = 0;
-
-		while (j < (sg->length/PAGE_SIZE)) {
-			count = 1 << compound_order(p);
-			next = nth_page(p, count);
-			kgsl_pool_free_page(p);
-
-			p = next;
-			j += count;
-		}
-	}
-}
-
 void kgsl_pool_free_pages(struct page **pages, unsigned int pcount)
 {
 	int i;
@@ -448,22 +368,6 @@ static int kgsl_pool_get_retry_order(unsigned int order)
 	return 0;
 }
 
-static gfp_t kgsl_gfp_mask(int page_order)
-{
-	gfp_t gfp_mask = __GFP_HIGHMEM;
-
-	if (page_order > 0) {
-		gfp_mask |= __GFP_COMP | __GFP_NORETRY | __GFP_NOWARN;
-		gfp_mask &= ~__GFP_RECLAIM;
-	} else
-		gfp_mask |= GFP_KERNEL;
-
-	if (mem_noretry_flag)
-		gfp_mask |= __GFP_NORETRY | __GFP_NOWARN;
-
-	return gfp_mask;
-}
-
 /*
  * Return true if the pool of specified page size is supported
  * or no pools are supported otherwise return false.
@@ -478,7 +382,7 @@ static bool kgsl_pool_available(unsigned int page_size)
 	return (kgsl_get_pool_index(order) >= 0);
 }
 
-static int kgsl_get_page_size(size_t size, unsigned int align)
+int kgsl_get_page_size(size_t size, unsigned int align)
 {
 	size_t pool;
 
@@ -490,16 +394,7 @@ static int kgsl_get_page_size(size_t size, unsigned int align)
 	return PAGE_SIZE;
 }
 
-/*
- * kgsl_pool_alloc_page() - Allocate a page of requested size
- * @page_size: Size of the page to be allocated
- * @pages: pointer to hold list of pages, should be big enough to hold
- * requested page
- * @len: Length of array pages.
- *
- * Return total page count on success and negative value on failure
- */
-static int kgsl_pool_alloc_page(int *page_size, struct page **pages,
+int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			unsigned int pages_len, unsigned int *align,
 			struct device *dev)
 {
@@ -573,7 +468,7 @@ static int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 	}
 
 done:
-	_kgsl_pool_zero_page(page, order, dev);
+	kgsl_zero_page(page, order, dev);
 
 	for (j = 0; j < (*page_size >> PAGE_SHIFT); j++) {
 		p = nth_page(page, j);
@@ -589,59 +484,7 @@ eagain:
 	return -EAGAIN;
 }
 
-int kgsl_pool_alloc_pages(u64 size, struct page ***pages, struct device *dev)
-{
-	int count = 0;
-	int npages = size >> PAGE_SHIFT;
-	struct page **local = kvcalloc(npages, sizeof(*local), GFP_KERNEL);
-	u32 page_size, align;
-	u64 len = size;
-
-	if (!local)
-		return -ENOMEM;
-
-	/* Start with 1MB alignment to get the biggest page we can */
-	align = ilog2(SZ_1M);
-
-	page_size = kgsl_get_page_size(len, align);
-
-	while (len) {
-		int ret = kgsl_pool_alloc_page(&page_size, &local[count],
-			npages, &align, dev);
-
-		if (ret == -EAGAIN)
-			continue;
-		else if (ret <= 0) {
-			int i;
-
-			for (i = 0; i < count; ) {
-				int n = 1 << compound_order(local[i]);
-
-				kgsl_pool_free_page(local[i]);
-				i += n;
-			}
-			kvfree(local);
-
-			if (!mem_noretry_flag)
-				pr_err_ratelimited("kgsl: out of memory: only allocated %lldKb of %lldKb requested\n",
-					(size - len) >> 10, size >> 10);
-
-			return -ENOMEM;
-		}
-
-		count += ret;
-		npages -= ret;
-		len -= page_size;
-
-		page_size = kgsl_get_page_size(len, align);
-	}
-
-	*pages = local;
-
-	return count;
-}
-
-static void kgsl_pool_free_page(struct page *page)
+void kgsl_pool_free_page(struct page *page)
 {
 	struct kgsl_page_pool *pool;
 	int page_order;
@@ -772,9 +615,6 @@ void kgsl_probe_page_pools(void)
 
 	/* Initialize shrinker */
 	register_shrinker(&kgsl_pool_shrinker);
-
-	debugfs_create_bool("strict_memory", 0644, kgsl_driver.debugfs_debug_dir,
-		&mem_noretry_flag);
 }
 
 void kgsl_exit_page_pools(void)

@@ -145,8 +145,6 @@ struct kgsl_driver {
 	unsigned int full_cache_threshold;
 	struct workqueue_struct *workqueue;
 	struct workqueue_struct *mem_workqueue;
-	/** @debugfs_debug_dir - Pointer to the debugfs/debug directory */
-	struct dentry *debugfs_debug_dir;
 };
 
 extern struct kgsl_driver kgsl_driver;
@@ -224,6 +222,8 @@ struct kgsl_memdesc {
 	 * multiple entities trying to map the same SVM region at once
 	 */
 	spinlock_t lock;
+	/** @shmem_filp: Pointer to the shmem file backing this memdesc */
+	struct file *shmem_filp;
 	/** @ranges: rbtree base for the interval list of vbo ranges */
 	struct rb_root_cached ranges;
 	/** @ranges_lock: Mutex to protect the range database */
