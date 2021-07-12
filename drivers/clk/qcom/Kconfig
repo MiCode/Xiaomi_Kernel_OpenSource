@@ -613,4 +613,13 @@ config SM_VIDEOCC_KALAMA
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config SM_CAMCC_KALAMA
+	tristate "Kalama Camera Clock Controller"
+	depends on SM_GCC_KALAMA
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  Kalama devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 endif
