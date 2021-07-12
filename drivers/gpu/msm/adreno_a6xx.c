@@ -1209,10 +1209,9 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	u32 a, b, c;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
-	if (!adreno_dev->lm_enabled)
+	if (!(adreno_dev->lm_enabled || adreno_dev->bcl_enabled))
 		return 0;
 
-	/* The counters are selected in a6xx_gmu_enable_lm() */
 	a = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
 		&busy->throttle_cycles[0]);
 
@@ -1222,6 +1221,14 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	c = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
 		&busy->throttle_cycles[2]);
 
+	/*
+	 * Currently there are no a6xx targets with both LM and BCL enabled.
+	 * So if BCL is enabled, we can log bcl counters and return.
+	 */
+	if (adreno_dev->bcl_enabled) {
+		trace_kgsl_bcl_clock_throttling(a, b, c);
+		return 0;
+	}
 
 	/*
 	 * The adjustment is the number of cycles lost to throttling, which

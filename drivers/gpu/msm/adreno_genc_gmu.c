@@ -827,6 +827,20 @@ void genc_gmu_register_config(struct adreno_device *adreno_dev)
 
 	/* Configure power control and bring the GMU out of reset */
 	genc_gmu_power_config(adreno_dev);
+
+	/*
+	 * Enable BCL throttling -
+	 * XOCLK1: countable: 0x13 (25% throttle)
+	 * XOCLK2: countable: 0x17 (58% throttle)
+	 * XOCLK3: countable: 0x19 (75% throttle)
+	 * POWER_CONTROL_SELECT_0 controls counters 0 - 3, each selector
+	 * is 8 bits wide.
+	 */
+	if (adreno_dev->bcl_enabled)
+		gmu_core_regrmw(device, GENC_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+			0xffffff00, FIELD_PREP(GENMASK(31, 24), 0x19) |
+			FIELD_PREP(GENMASK(23, 16), 0x17) |
+			FIELD_PREP(GENMASK(15, 8), 0x13));
 }
 
 struct kgsl_memdesc *genc_reserve_gmu_kernel_block(struct genc_gmu_device *gmu,

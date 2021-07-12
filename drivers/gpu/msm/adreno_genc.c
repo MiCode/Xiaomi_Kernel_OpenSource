@@ -428,7 +428,8 @@ int genc_start(struct adreno_device *adreno_dev)
 
 	/* Enable GMU power counter 0 to count GPU busy */
 	kgsl_regwrite(device, GENC_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
-	kgsl_regwrite(device, GENC_GMU_CX_GMU_POWER_COUNTER_SELECT_0, 0x20);
+	kgsl_regrmw(device, GENC_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+			0xFF, 0x20);
 	kgsl_regwrite(device, GENC_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
 
 	genc_protect_init(adreno_dev);
@@ -1205,6 +1206,21 @@ static void genc_power_stats(struct adreno_device *adreno_dev,
 
 	if (device->pwrctrl.bus_control)
 		genc_read_bus_stats(device, stats, busy);
+
+	if (adreno_dev->bcl_enabled) {
+		u32 a, b, c;
+
+		a = counter_delta(device, GENC_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
+			&busy->throttle_cycles[0]);
+
+		b = counter_delta(device, GENC_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_L,
+			&busy->throttle_cycles[1]);
+
+		c = counter_delta(device, GENC_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
+			&busy->throttle_cycles[2]);
+
+		trace_kgsl_bcl_clock_throttling(a, b, c);
+	}
 }
 
 static int genc_setproperty(struct kgsl_device_private *dev_priv,
