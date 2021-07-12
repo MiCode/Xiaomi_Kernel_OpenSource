@@ -2461,16 +2461,16 @@ static void a6xx_power_stats(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
-	u64 gpu_busy;
-	s64 adj;
+	s64 gpu_busy;
 
 	/* Set the GPU busy counter for frequency scaling */
 	gpu_busy = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
 		&busy->gpu_busy);
 
-	adj = a6xx_read_throttling_counters(adreno_dev);
-	if (adj < 0 || -adj > gpu_busy)
-		gpu_busy += adj;
+	gpu_busy += a6xx_read_throttling_counters(adreno_dev);
+	/* If adjustment cycles are more than busy cycles make gpu_busy zero */
+	if (gpu_busy < 0)
+		gpu_busy = 0;
 
 	stats->busy_time = gpu_busy * 10;
 	do_div(stats->busy_time, 192);
