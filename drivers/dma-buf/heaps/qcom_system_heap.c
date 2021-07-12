@@ -244,7 +244,7 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 		if (!page)
 			continue;
 
-		if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAP_PAGE_POOL_REFILL) &&
+		if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL) &&
 		    pools[i]->order &&
 		    dynamic_pool_count_below_lowmark(pools[i]))
 			wake_up_process(pools[i]->refill_worker);
@@ -433,7 +433,7 @@ void qcom_system_heap_create(const char *name, const char *system_alias, bool un
 		goto free_heap;
 	}
 
-	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAP_PAGE_POOL_REFILL)) {
+	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL)) {
 		refill_worker = kthread_run(system_heap_refill_worker, sys_heap->pool_list,
 					    "%s-pool-refill-thread", name);
 		if (IS_ERR(refill_worker)) {
@@ -484,7 +484,7 @@ void qcom_system_heap_create(const char *name, const char *system_alias, bool un
 	return;
 
 stop_worker:
-	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAP_PAGE_POOL_REFILL))
+	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL))
 		kthread_stop(refill_worker);
 
 free_pools:
