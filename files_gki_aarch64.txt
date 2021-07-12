@@ -3933,6 +3933,7 @@ include/trace/hooks/mmc_core.h
 include/trace/hooks/mm.h
 include/trace/hooks/module.h
 include/trace/hooks/mpam.h
+include/trace/hooks/net.h
 include/trace/hooks/pm_domain.h
 include/trace/hooks/power.h
 include/trace/hooks/preemptirq.h
@@ -3943,8 +3944,10 @@ include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
 include/trace/hooks/scmi.h
 include/trace/hooks/selinux.h
+include/trace/hooks/shmem_fs.h
 include/trace/hooks/signal.h
 include/trace/hooks/softlockup.h
+include/trace/hooks/syscall_check.h
 include/trace/hooks/sys.h
 include/trace/hooks/sysrqcrash.h
 include/trace/hooks/thermal.h
