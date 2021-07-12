@@ -775,6 +775,22 @@ int qcom_scm_get_sec_dump_state(u32 *dump_state)
 }
 EXPORT_SYMBOL(qcom_scm_get_sec_dump_state);
 
+int qcom_scm_assign_dump_table_region(bool is_assign, phys_addr_t addr, size_t size)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_UTIL,
+		.cmd = QCOM_SCM_UTIL_DUMP_TABLE_ASSIGN,
+		.arginfo = QCOM_SCM_ARGS(3),
+		.owner = ARM_SMCCC_OWNER_SIP,
+		.args[0] = is_assign,
+		.args[1] = addr,
+		.args[2] = size,
+	};
+
+	return qcom_scm_call(__scm->dev, &desc, NULL);
+}
+EXPORT_SYMBOL(qcom_scm_assign_dump_table_region);
+
 int qcom_scm_tz_blsp_modify_owner(int food, u64 subsystem, int *out)
 {
 	int ret;

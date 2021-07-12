@@ -104,6 +104,7 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 
 #define QCOM_SCM_SVC_UTIL			0x03
 #define QCOM_SCM_UTIL_GET_SEC_DUMP_STATE	0x10
+#define QCOM_SCM_UTIL_DUMP_TABLE_ASSIGN		0x13
 
 #define QCOM_SCM_SVC_TZ				0x04
 #define QOCM_SCM_TZ_BLSP_MODIFY_OWNER		0x03
