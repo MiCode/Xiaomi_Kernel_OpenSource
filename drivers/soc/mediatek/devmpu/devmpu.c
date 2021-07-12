@@ -14,7 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/arm-smccc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
-#include <devmpu.h>
+#include "devmpu.h"
 
 #define LOG_TAG "[DEVMPU]"
 
