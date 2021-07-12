@@ -232,7 +232,7 @@ struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id)
 }
 
 //#include <mtk_iommu_ext.h>
-#include <mtk_drm_drv.h>
+#include "mtk_drm_drv.h"
 
 #define DISP_PAGE_MASK 0xfffL
 
