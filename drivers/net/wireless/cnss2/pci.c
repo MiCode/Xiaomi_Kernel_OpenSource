@@ -1506,6 +1506,8 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 	u32 sbl_log_def_start, sbl_log_def_end;
 	u32 pbl_stage, sbl_log_start, sbl_log_size;
 	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
+	u32 pbl_bootstrap_status_reg = PBL_BOOTSTRAP_STATUS;
+	u32 pbl_log_sram_start_reg = DEBUG_PBL_LOG_SRAM_START;
 	int i;
 
 	switch (pci_priv->device_id) {
@@ -1525,6 +1527,13 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 			sbl_log_def_end = QCA6490_V1_SBL_DATA_END;
 		}
 		break;
+	case WCN7850_DEVICE_ID:
+		pbl_bootstrap_status_reg = WCN7850_PBL_BOOTSTRAP_STATUS;
+		pbl_log_sram_start_reg = WCN7850_DEBUG_PBL_LOG_SRAM_START;
+		pbl_log_max_size = WCN7850_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
+		sbl_log_max_size = WCN7850_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
+		sbl_log_def_start = WCN7850_SBL_DATA_START;
+		sbl_log_def_end = WCN7850_SBL_DATA_END;
 	default:
 		return;
 	}
@@ -1536,7 +1545,7 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 	cnss_pci_reg_read(pci_priv, PCIE_BHI_ERRDBG2_REG, &sbl_log_start);
 	cnss_pci_reg_read(pci_priv, PCIE_BHI_ERRDBG3_REG, &sbl_log_size);
 	cnss_pci_reg_read(pci_priv, PBL_WLAN_BOOT_CFG, &pbl_wlan_boot_cfg);
-	cnss_pci_reg_read(pci_priv, PBL_BOOTSTRAP_STATUS,
+	cnss_pci_reg_read(pci_priv, pbl_bootstrap_status_reg,
 			  &pbl_bootstrap_status);
 	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x\n",
 		    pbl_stage, sbl_log_start, sbl_log_size);
@@ -1545,7 +1554,7 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 
 	cnss_pr_dbg("Dumping PBL log data\n");
 	for (i = 0; i < pbl_log_max_size; i += sizeof(val)) {
-		mem_addr = DEBUG_PBL_LOG_SRAM_START + i;
+		mem_addr = pbl_log_sram_start_reg + i;
 		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
 			break;
 		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
@@ -5628,19 +5637,19 @@ static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
 free_irq:
 	free_irq(pci_priv->wake_irq, pci_priv);
 free_gpio:
-	gpio_free(pci_priv->wake_irq);
+	gpio_free(pci_priv->wake_gpio);
 out:
 	return ret;
 }
 
 static void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv)
 {
-	if (pci_priv->wake_irq < 0)
+	if (pci_priv->wake_gpio < 0)
 		return;
 
 	disable_irq_wake(pci_priv->wake_irq);
 	free_irq(pci_priv->wake_irq, pci_priv);
-	gpio_free(pci_priv->wake_irq);
+	gpio_free(pci_priv->wake_gpio;
 }
 #else
 static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
