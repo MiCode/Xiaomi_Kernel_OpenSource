@@ -59,6 +59,36 @@ config PHY_QCOM_QUSB2
 	  PHY which is usually paired with either the ChipIdea or Synopsys DWC3
 	  USB IPs on MSM SOCs.
 
+config PHY_QCOM_UFS
+	tristate "Qualcomm Technologies, Inc. UFS PHY driver"
+	depends on OF && ARCH_QCOM
+	select GENERIC_PHY
+	help
+	  Enables support for UFS PHY on Qualcomm Technologies, Inc.
+	  chipsets.
+	  This driver together with the UFS PHY controller specific
+	  driver enables the UFS PHY support for Qualcomm Technologies, Inc.
+	  chips.
+
+if PHY_QCOM_UFS
+
+config PHY_QCOM_UFS_V4
+	tristate
+	default PHY_QCOM_UFS
+	help
+	  Support for 7nm UFS QMP phy present on QCOM chipsets.
+
+config PHY_QCOM_UFS_QRBTC_SDM845
+	tristate "Qualcomm Technologies, Inc. UFS Presil Phy Driver"
+	depends on PHY_QCOM_UFS && REGULATOR_STUB
+	help
+          Enable this to support UFS PHY on pre-silicon platforms.
+	  The support is restricted to HS-G1 only on both Tx and Rx.
+	  No low power mode support is present.
+	  Doesn't restrict number of lanes.
+
+endif
+
 config PHY_QCOM_USB_HS
 	tristate "Qualcomm USB HS PHY module"
 	depends on USB_ULPI_BUS
