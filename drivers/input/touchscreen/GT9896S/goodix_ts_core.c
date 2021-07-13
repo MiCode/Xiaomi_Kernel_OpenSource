@@ -776,7 +776,7 @@ static DEVICE_ATTR(irq_info, S_IRUGO | S_IWUSR | S_IWGRP,
 		   gt9896s_ts_irq_info_show, gt9896s_ts_irq_info_store);
 static DEVICE_ATTR(reg_rw, S_IRUGO | S_IWUSR | S_IWGRP,
 		   gt9896s_ts_reg_rw_show, gt9896s_ts_reg_rw_store);
-
+#ifdef GT_SYSFS_ATTR
 static struct attribute *sysfs_attrs[] = {
 	&dev_attr_extmod_info.attr,
 	&dev_attr_driver_info.attr,
@@ -869,6 +869,7 @@ static int gt9896s_ts_sysfs_init(struct gt9896s_ts_core *core_data)
 {
 	int ret;
 
+	ts_info("GT_SYSFS_ATTR start");
 	ret = sysfs_create_bin_file(&core_data->pdev->dev.kobj,
 				    &gt9896s_config_bin_attr);
 	if (ret) {
@@ -893,7 +894,7 @@ static void gt9896s_ts_sysfs_exit(struct gt9896s_ts_core *core_data)
 			      &gt9896s_config_bin_attr);
 	sysfs_remove_group(&core_data->pdev->dev.kobj, &sysfs_group);
 }
-
+#endif
 /* event notifier */
 static BLOCKING_NOTIFIER_HEAD(ts_notifier_list);
 /**
@@ -2050,9 +2051,10 @@ int gt9896s_ts_stage2_init(struct gt9896s_ts_core *core_data)
 	core_data->early_suspend.suspend = gt9896s_ts_earlysuspend;
 	register_early_suspend(&core_data->early_suspend);
 #endif
+#ifdef GT_SYSFS_ATTR
 	/*create sysfs files*/
 	gt9896s_ts_sysfs_init(core_data);
-
+#endif
 	/* esd protector */
 	gt9896s_ts_esd_init(core_data);
 	return 0;
@@ -2178,7 +2180,9 @@ static int gt9896s_ts_remove(struct platform_device *pdev)
 	gt9896s_remove_all_ext_modules();
 	gt9896s_ts_power_off(core_data);
 	gt9896s_debugfs_exit();
+#ifdef GT_SYSFS_ATTR
 	gt9896s_ts_sysfs_exit(core_data);
+#endif
 	// can't free the memory for tools or gesture module
 	//kfree(core_data);
 	return 0;
