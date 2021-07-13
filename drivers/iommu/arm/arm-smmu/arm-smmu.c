@@ -1194,7 +1194,7 @@ static unsigned long arm_smmu_domain_get_qcom_quirks(
 	if (is_iommu_pt_coherent(smmu_domain))
 		return 0;
 	if (test_bit(DOMAIN_ATTR_USE_UPSTREAM_HINT, smmu_domain->attributes))
-		return IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
+		return IO_PGTABLE_QUIRK_ARM_OUTER_WBWA;
 	if (test_bit(DOMAIN_ATTR_USE_LLC_NWA, smmu_domain->attributes))
 		return IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
 
