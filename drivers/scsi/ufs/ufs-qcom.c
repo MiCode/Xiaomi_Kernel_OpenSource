@@ -98,6 +98,7 @@ static inline void cancel_timer_unvote_cpufreq(struct ufs_hba *hba)
 	struct qos_cpu_group *qcg = host->ufs_qos->qcg + 1;
 	int err;
 
+	cancel_work_sync(&host->fwork);
 	hrtimer_cancel(&host->load_hrt);
 	if (!host->cur_freq_vote)
 		return;
@@ -1156,15 +1157,14 @@ static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
 	return ret;
 }
 
-static enum hrtimer_restart ufs_qcom_decide_load(struct hrtimer *timer)
+static void ufs_qcom_cpufreq_work(struct work_struct *work)
 {
-	struct ufs_qcom_host *host = container_of(timer, struct ufs_qcom_host,
-					load_hrt);
+	struct ufs_qcom_host *host = container_of(work, struct ufs_qcom_host,
+						 fwork);
 	struct qos_cpu_group *qcg = host->ufs_qos->qcg + 1;
 	unsigned long cur_thres = atomic_read(&host->num_reqs_threshold);
 	unsigned int freq_val = -1;
 	int err = -1;
-
 
 	atomic_set(&host->num_reqs_threshold, 0);
 
@@ -1184,10 +1184,21 @@ static enum hrtimer_restart ufs_qcom_decide_load(struct hrtimer *timer)
 		host->cur_freq_vote = true;
 	else if (freq_val == qcg->min_freq)
 		host->cur_freq_vote = false;
-
 out:
-	hrtimer_forward_now(timer, ms_to_ktime(host->load_delay_ms));
-	return HRTIMER_RESTART;
+	if (!hrtimer_active(&host->load_hrt))
+		hrtimer_start(&host->load_hrt,
+			ms_to_ktime(host->load_delay_ms),
+			HRTIMER_MODE_REL);
+}
+
+static enum hrtimer_restart ufs_qcom_decide_load(struct hrtimer *timer)
+{
+	struct ufs_qcom_host *host = container_of(timer, struct ufs_qcom_host,
+					load_hrt);
+
+	queue_work(host->ufs_qos->workq, &host->fwork);
+
+	return HRTIMER_NORESTART;
 }
 
 static int add_group_qos(struct qos_cpu_group *qcg, enum constraint type)
@@ -2616,6 +2627,7 @@ static int ufs_qcom_setup_qos(struct ufs_hba *hba)
 		cpufreq_cpu_put(policy);
 	}
 
+	INIT_WORK(&host->fwork, ufs_qcom_cpufreq_work);
 	err = ufs_qcom_init_cpu_minfreq_req(host, 0, host->req);
 	if (err)
 		dev_err(dev, "Failed to register for freq_qos: %d\n", err);
@@ -3234,12 +3246,12 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 			return err;
 		if (scale_up) {
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
-			hrtimer_start(&host->load_hrt,
+			if (!hrtimer_active(&host->load_hrt))
+				hrtimer_start(&host->load_hrt,
 					ms_to_ktime(host->load_delay_ms),
 					HRTIMER_MODE_REL);
 		} else {
 			err = ufs_qcom_clk_scale_down_pre_change(hba);
-			dev_err(hba->dev, "%s cancel timer\n", __func__);
 			cancel_timer_unvote_cpufreq(hba);
 		}
 		if (err)
