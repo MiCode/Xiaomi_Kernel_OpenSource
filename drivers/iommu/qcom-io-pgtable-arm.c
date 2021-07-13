@@ -606,10 +606,6 @@ static int arm_lpae_map_pages(struct io_pgtable_ops *ops, unsigned long iova,
 	long iaext = (s64)iova >> cfg->ias;
 	unsigned long flags;
 
-	/* If no access, then nothing to do */
-	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
-		return 0;
-
 	if (WARN_ON(!pgsize || (pgsize & cfg->pgsize_bitmap) != pgsize || !pgcount))
 		return -EINVAL;
 
@@ -617,6 +613,10 @@ static int arm_lpae_map_pages(struct io_pgtable_ops *ops, unsigned long iova,
 		iaext = ~iaext;
 	if (WARN_ON(iaext || paddr >> cfg->oas))
 		return -ERANGE;
+
+	/* If no access, then nothing to do */
+	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
+		return 0;
 
 	prot = arm_lpae_prot_to_pte(data, iommu_prot);
 
@@ -698,6 +698,13 @@ static int arm_lpae_map_by_pgsize(struct io_pgtable_ops *ops,
 	if (WARN_ON(iaext || (paddr + size - 1) >> cfg->oas))
 		return -ERANGE;
 
+	/* If no access, then nothing to do */
+	if (!(prot & (IOMMU_READ | IOMMU_WRITE))) {
+		/* Increment 'mapped' so that the IOVA can be incremented accordingly. */
+		*mapped += size;
+		return 0;
+	}
+
 	while (size) {
 		pgsize = arm_lpae_pgsize(cfg->pgsize_bitmap, iova | paddr, size);
 
@@ -737,10 +744,6 @@ static int __maybe_unused arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned l
 	unsigned long flags;
 
 	*mapped = 0;
-
-	/* If no access, then nothing to do  */
-	if (!(prot & (IOMMU_READ | IOMMU_WRITE)))
-		return 0;
 
 	spin_lock_irqsave(&data->lock, flags);
 	while (i <= nents) {
