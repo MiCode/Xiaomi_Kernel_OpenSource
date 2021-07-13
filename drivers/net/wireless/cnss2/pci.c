@@ -42,7 +42,8 @@
 #define QCA6390_PATH_PREFIX		"qca6390/"
 #define QCA6490_PATH_PREFIX		"qca6490/"
 #define WCN7850_PATH_PREFIX		"wcn7850/"
-#define DEFAULT_M3_FILE_NAME		"m3.bin"
+#define DEFAULT_PHY_M3_FILE_NAME	"m3.bin"
+#define DEFAULT_PHY_UCODE_FILE_NAME	"phy_ucode.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 #define FW_V2_FILE_NAME			"amss20.bin"
 #define DEVICE_MAJOR_VERSION_MASK	0xF
@@ -4087,12 +4088,30 @@ int cnss_pci_load_m3(struct cnss_pci_data *pci_priv)
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	struct cnss_fw_mem *m3_mem = &plat_priv->m3_mem;
 	char filename[MAX_FIRMWARE_NAME_LEN];
+	char *phy_filename = DEFAULT_PHY_UCODE_FILE_NAME;
 	const struct firmware *fw_entry;
 	int ret = 0;
 
+	/* Use forward compatibility here since for any recent device
+	 * it should use DEFAULT_PHY_UCODE_FILE_NAME.
+	 */
+	switch (pci_priv->device_id) {
+	case QCA6174_DEVICE_ID:
+		cnss_pr_err("Invalid device ID (0x%x) to load phy image\n",
+			    pci_priv->device_id);
+		return -EINVAL;
+	case QCA6290_DEVICE_ID:
+	case QCA6390_DEVICE_ID:
+	case QCA6490_DEVICE_ID:
+		phy_filename = DEFAULT_PHY_M3_FILE_NAME;
+		break;
+	default:
+		break;
+	}
+
 	if (!m3_mem->va && !m3_mem->size) {
 		cnss_pci_add_fw_prefix_name(pci_priv, filename,
-					    DEFAULT_M3_FILE_NAME);
+					    phy_filename);
 
 		ret = firmware_request_nowarn(&fw_entry, filename,
 					      &pci_priv->pci_dev->dev);
