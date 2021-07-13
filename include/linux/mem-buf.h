@@ -106,6 +106,8 @@ struct mem_buf_alloc_relinquish {
 
 /* Public definitions */
 
+/* Used to obtain the underlying vmperm struct of a DMA-BUF */
+struct mem_buf_vmperm *to_mem_buf_vmperm(struct dma_buf *dmabuf);
 
 /* Returns true if the local VM has exclusive access and is the owner */
 bool mem_buf_dma_buf_exclusive_owner(struct dma_buf *dmabuf);
