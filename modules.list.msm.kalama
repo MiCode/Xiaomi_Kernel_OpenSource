@@ -16,3 +16,4 @@ icc-rpmh.ko
 qnoc-qos.ko
 qnoc-kalama.ko
 icc-debug.ko
+gdsc-regulator.ko
