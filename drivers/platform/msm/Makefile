@@ -13,5 +13,4 @@ obj-$(CONFIG_SPS) += sps/
 obj-$(CONFIG_MSM_11AD) += msm_11ad/
 obj-$(CONFIG_EP_PCIE) += ep_pcie/
 obj-$(CONFIG_MSM_MHI_DEV) += mhi_dev/
-obj-$(CONFIG_IPA_ETH) += ethernet/
 obj-$(CONFIG_VETH_IPA) += veth_ipa/
