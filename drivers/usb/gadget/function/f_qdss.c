@@ -938,6 +938,8 @@ close:
 
 	if (qdss->endless_req) {
 		spin_unlock_irqrestore(&channel_lock, flags);
+		/* Flush connect work before proceeding with de-queue */
+		flush_work(&qdss->connect_w);
 		usb_ep_dequeue(qdss->port.data, qdss->endless_req);
 		spin_lock_irqsave(&channel_lock, flags);
 	}
