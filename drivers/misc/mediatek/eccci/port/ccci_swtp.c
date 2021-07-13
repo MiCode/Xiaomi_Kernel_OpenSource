@@ -200,10 +200,6 @@ static void swtp_init_delayed_work(struct work_struct *work)
 	CCCI_NORMAL_LOG(-1, SYS, "%s start\n", __func__);
 	CCCI_BOOTUP_LOG(-1, SYS, "%s start\n", __func__);
 
-	if (!swtp) {
-		ret = -1;
-		goto SWTP_INIT_END;
-	}
 	md_id = swtp->md_id;
 
 	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
