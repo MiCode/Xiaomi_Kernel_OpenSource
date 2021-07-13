@@ -309,6 +309,12 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 			CCMSG_ID_SYSMSGSVC_LOWPWR_APSTS_NOTIFY,
 			*((int *)buf), 1);
 		break;
+	case MD_CAMERA_FRE_HOPPING:
+		tmp_data = 0;
+		memcpy((void *)&tmp_data, buf, len);
+		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+			id, tmp_data, 0);
+		break;
 	default:
 		ret = -CCCI_ERR_FUNC_ID_ERROR;
 		break;

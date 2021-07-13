@@ -10,19 +10,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
-#ifndef __PORT_CFG_H__
-#define __PORT_CFG_H__
+
+#ifndef __PORT_MISC_H__
+#define __PORT_MISC_H__
+
+#include "ccci_core.h"
 #include "port_t.h"
 
-/* external: port ops  mapping */
-extern struct port_ops char_port_ops;
-extern struct port_ops net_port_ops;
-extern struct port_ops rpc_port_ops;
-extern struct port_ops sys_port_ops;
-extern struct port_ops poller_port_ops;
-extern struct port_ops ctl_port_ops;
-extern struct port_ops ipc_port_ops;
-extern struct port_ops smem_port_ops;
-extern struct port_ops ccci_udc_port_ops;
-extern struct port_ops ccci_misc_port_ops;
-#endif /* __PORT_CFG_H__ */
+#endif	/* __PORT_MISC_H__ */

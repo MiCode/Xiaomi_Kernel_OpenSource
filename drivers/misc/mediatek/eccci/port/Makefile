@@ -30,6 +30,7 @@ ccci_port-y += port_cfg.o
 ccci_port-y += port_char.o
 ccci_port-y += port_ctlmsg.o
 ccci_port-y += port_udc.o
+ccci_port-y += port_misc.o
 ccci_port-y += port_ipc.o
 ccci_port-y += port_net.o
 ccci_port-y += port_poller.o
