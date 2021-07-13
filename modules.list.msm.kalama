@@ -1,3 +1,4 @@
+arm_smmu.ko
 clk-dummy.ko
 clk-qcom.ko
 cmd-db.ko
@@ -8,6 +9,7 @@ gdsc-regulator.ko
 icc-bcm-voter.ko
 icc-debug.ko
 icc-rpmh.ko
+iommu-logger.ko
 phy-qcom-ufs-qmp-v4-kalama.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 phy-qcom-ufs.ko
@@ -15,6 +17,8 @@ pinctrl-kalama.ko
 pinctrl-msm.ko
 qcom-scm.ko
 qcom_hwspinlock.ko
+qcom_iommu_debug.ko
+qcom_iommu_util.ko
 qcom_rpmh.ko
 qnoc-kalama.ko
 qnoc-qos.ko
