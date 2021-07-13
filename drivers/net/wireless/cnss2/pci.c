@@ -5439,10 +5439,10 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->fallback_fw_image = plat_priv->fw_fallback_name;
 
 	mhi_ctrl->regs = pci_priv->bar;
-	mhi_ctrl->regs_len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
+	mhi_ctrl->reg_len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
 	cnss_pr_dbg("BAR starts at %pa, length is %x\n",
 		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM),
-		    mhi_ctrl->regs_len);
+		    mhi_ctrl->reg_len);
 
 	ret = cnss_pci_get_mhi_msi(pci_priv);
 	if (ret) {
