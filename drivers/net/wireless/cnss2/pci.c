@@ -991,10 +991,15 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
 int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
-			    u32 *val)
+			    u32 *val, bool raw_access)
 {
 	int ret = 0;
 	bool do_force_wake_put = true;
+
+	if (raw_access) {
+		ret = cnss_pci_reg_read(pci_priv, offset, val);
+		goto out;
+	}
 
 	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
 	if (ret)
@@ -1026,10 +1031,15 @@ out:
 }
 
 int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
-			     u32 val)
+			     u32 val, bool raw_access)
 {
 	int ret = 0;
 	bool do_force_wake_put = true;
+
+	if (raw_access) {
+		ret = cnss_pci_reg_write(pci_priv, offset, val);
+		goto out;
+	}
 
 	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
 	if (ret)
