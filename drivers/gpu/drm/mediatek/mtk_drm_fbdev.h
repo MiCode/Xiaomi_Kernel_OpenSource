@@ -39,7 +39,7 @@ void mtk_fbdev_fini(struct drm_device *dev)
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			unsigned int *fps);
 bool mtk_drm_lcm_is_connect(void);
-int free_fb_buf(void);
+int try_free_fb_buf(struct drm_device *dev);
 #define MTKFB_FACTORY_AUTO_TEST _IOR('O', 25, unsigned long)
 int pan_display_test(int frame_num, int bpp);
 

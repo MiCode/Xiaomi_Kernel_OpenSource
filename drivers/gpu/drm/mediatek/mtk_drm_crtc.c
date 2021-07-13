@@ -1965,7 +1965,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				/*free fb buf in second query valid*/
 				DDPMSG("%s, %d release frame buffer\n", __func__, __LINE__);
 				mtk_drm_fb_gem_release(dev);
-				free_fb_buf();
+				try_free_fb_buf(dev);
 				already_free = true;
 			}
 #endif
