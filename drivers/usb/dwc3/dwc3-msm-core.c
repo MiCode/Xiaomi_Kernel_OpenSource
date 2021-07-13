@@ -5272,7 +5272,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			dwc3_en_sleep_mode(mdwc);
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
-		flush_work(&dwc->drd_work);
+		if (dwc->dr_mode == USB_DR_MODE_OTG)
+			flush_work(&dwc->drd_work);
 		mdwc->in_host_mode = true;
 		pm_runtime_use_autosuspend(&dwc->xhci->dev);
 		pm_runtime_set_autosuspend_delay(&dwc->xhci->dev, 1000);
@@ -5320,7 +5321,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			atomic_read(&mdwc->dev->power.usage_count));
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_DEVICE);
-		flush_work(&dwc->drd_work);
+		if (dwc->dr_mode == USB_DR_MODE_OTG)
+			flush_work(&dwc->drd_work);
 
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		if (mdwc->ss_phy->flags & PHY_HOST_MODE) {
@@ -5392,7 +5394,8 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		 * reset during mode switching.  DWC3 MSM needs to avoid setting
 		 * up the GSI related resources until that is completed.
 		 */
-		flush_work(&dwc->drd_work);
+		if (dwc->dr_mode == USB_DR_MODE_OTG)
+			flush_work(&dwc->drd_work);
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP, 0);
 
 		dwc3_override_vbus_status(mdwc, true);
