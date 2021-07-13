@@ -35,6 +35,7 @@ struct ccu_device_s {
 	unsigned long dmem_base;
 	unsigned long n3d_a_base;
 	unsigned int irq_num;
+	struct mutex dev_mutex;
 	struct mutex user_mutex;
 	struct mutex ion_client_mutex;
 	/* list of vlist_type(ccu_user_t) */
