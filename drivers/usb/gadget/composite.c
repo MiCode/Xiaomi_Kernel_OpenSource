@@ -1726,11 +1726,12 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				count_configs(cdev, USB_DT_DEVICE);
 			cdev->desc.bMaxPacketSize0 =
 				cdev->gadget->ep0->maxpacket;
+				cdev->desc.bcdUSB = cpu_to_le16(0x0200);
 			if (gadget_is_superspeed(gadget)) {
 				if (gadget->speed >= USB_SPEED_SUPER) {
 					cdev->desc.bcdUSB = cpu_to_le16(0x0320);
 					cdev->desc.bMaxPacketSize0 = 9;
-				} else {
+				} else if (gadget->lpm_capable) {
 					cdev->desc.bcdUSB = cpu_to_le16(0x0210);
 				}
 			} else {
