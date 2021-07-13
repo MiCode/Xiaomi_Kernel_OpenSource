@@ -17,6 +17,7 @@ gdsc-regulator.ko
 gh_ctrl.ko
 gh_dbl.ko
 gh_msgq.ko
+gh_arm_drv.ko
 gh_rm_drv.ko
 gh_virt_wdt.ko
 hwkm.ko
