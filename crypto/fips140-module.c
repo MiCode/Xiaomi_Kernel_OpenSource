@@ -52,7 +52,7 @@ const u32 *__initcall_start = &__initcall_start_marker;
 const u8 *__text_start = &__fips140_text_start;
 const u8 *__rodata_start = &__fips140_rodata_start;
 
-static const char fips140_algorithms[][22] __initconst = {
+static const char * const fips140_algorithms[] __initconst = {
 	"aes",
 
 	"gcm(aes)",
@@ -73,28 +73,7 @@ static const char fips140_algorithms[][22] __initconst = {
 	"sha384",
 	"sha512",
 
-	"drbg_nopr_ctr_aes256",
-	"drbg_nopr_ctr_aes192",
-	"drbg_nopr_ctr_aes128",
-	"drbg_nopr_hmac_sha512",
-	"drbg_nopr_hmac_sha384",
-	"drbg_nopr_hmac_sha256",
-	"drbg_nopr_hmac_sha1",
-	"drbg_nopr_sha512",
-	"drbg_nopr_sha384",
-	"drbg_nopr_sha256",
-	"drbg_nopr_sha1",
-	"drbg_pr_ctr_aes256",
-	"drbg_pr_ctr_aes192",
-	"drbg_pr_ctr_aes128",
-	"drbg_pr_hmac_sha512",
-	"drbg_pr_hmac_sha384",
-	"drbg_pr_hmac_sha256",
-	"drbg_pr_hmac_sha1",
-	"drbg_pr_sha512",
-	"drbg_pr_sha384",
-	"drbg_pr_sha256",
-	"drbg_pr_sha1",
+	"stdrng",
 };
 
 static bool __init is_fips140_algo(struct crypto_alg *alg)
@@ -115,6 +94,38 @@ static bool __init is_fips140_algo(struct crypto_alg *alg)
 }
 
 static LIST_HEAD(unchecked_fips140_algos);
+
+/*
+ * Release a list of algorithms which have been removed from crypto_alg_list.
+ *
+ * Note that even though the list is a private list, we have to hold
+ * crypto_alg_sem while iterating through it because crypto_unregister_alg() may
+ * run concurrently (as we haven't taken a reference to the algorithms on the
+ * list), and crypto_unregister_alg() will remove the algorithm from whichever
+ * list it happens to be on, while holding crypto_alg_sem.  That's okay, since
+ * in that case crypto_unregister_alg() will handle the crypto_alg_put().
+ */
+static void fips140_remove_final(struct list_head *list)
+{
+	struct crypto_alg *alg;
+	struct crypto_alg *n;
+
+	/*
+	 * We need to take crypto_alg_sem to safely traverse the list (see
+	 * comment above), but we have to drop it when doing each
+	 * crypto_alg_put() as that may take crypto_alg_sem again.
+	 */
+	down_write(&crypto_alg_sem);
+	list_for_each_entry_safe(alg, n, list, cra_list) {
+		list_del_init(&alg->cra_list);
+		up_write(&crypto_alg_sem);
+
+		crypto_alg_put(alg);
+
+		down_write(&crypto_alg_sem);
+	}
+	up_write(&crypto_alg_sem);
+}
 
 static void __init unregister_existing_fips140_algos(void)
 {
@@ -152,25 +163,17 @@ static void __init unregister_existing_fips140_algos(void)
 				 * transformations. We will swap these out
 				 * later with integrity checked versions.
 				 */
+				pr_info("found already-live algorithm '%s' ('%s')\n",
+					alg->cra_name, alg->cra_driver_name);
 				list_move(&alg->cra_list,
 					  &unchecked_fips140_algos);
 			}
 		}
 	}
-
-	/*
-	 * We haven't taken a reference to the algorithms on the remove_list,
-	 * so technically, we may be competing with a concurrent invocation of
-	 * crypto_unregister_alg() here. Fortunately, crypto_unregister_alg()
-	 * just gives up with a warning if the algo that is being unregistered
-	 * has already disappeared, so this happens to be safe. That does mean
-	 * we need to hold on to the lock, to ensure that the algo is either on
-	 * the list or it is not, and not in some limbo state.
-	 */
-	crypto_remove_final(&remove_list);
-	crypto_remove_final(&spawns);
-
 	up_write(&crypto_alg_sem);
+
+	fips140_remove_final(&remove_list);
+	fips140_remove_final(&spawns);
 }
 
 static void __init unapply_text_relocations(void *section, int section_size,
@@ -537,8 +540,17 @@ fips140_init(void)
 	     initcall < &__initcall_end_marker;
 	     initcall++) {
 		int (*init)(void) = offset_to_ptr(initcall);
+		int err = init();
 
-		init();
+		/*
+		 * ENODEV is expected from initcalls that only register
+		 * algorithms that depend on non-present CPU features.  Besides
+		 * that, errors aren't expected here.
+		 */
+		if (err && err != -ENODEV) {
+			pr_err("initcall %ps() failed: %d\n", init, err);
+			goto panic;
+		}
 	}
 
 	if (!update_live_fips140_algos())
