@@ -414,6 +414,7 @@ struct ufs_qcom_host {
 #define NUM_REQS_LOW_THRESH 32
 	atomic_t num_reqs_threshold;
 	bool cur_freq_vote;
+	struct work_struct fwork;
 };
 
 static inline u32
