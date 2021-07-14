@@ -1757,6 +1757,7 @@ void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
 {
 	unsigned int i = 0;
 	unsigned int log_ba = 0;
+	enum ISP_IRQ_TYPE_ENUM irq_type = ISP_IRQ_TYPE_AMOUNT;
 
 	if (g_is_dumping[module])
 		return;
@@ -1764,22 +1765,26 @@ void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
 	switch (module) {
 	case ISP_CAM_A_INNER_IDX:
 		log_ba = CAM_A_BASE_HW;
+		irq_type = ISP_IRQ_TYPE_INT_CAM_A_ST;
 		break;
 	case ISP_CAM_B_INNER_IDX:
 		log_ba = CAM_B_BASE_HW;
+		irq_type = ISP_IRQ_TYPE_INT_CAM_B_ST;
 		break;
 	case ISP_CAM_C_INNER_IDX:
 		log_ba = CAM_C_BASE_HW;
+		irq_type = ISP_IRQ_TYPE_INT_CAM_C_ST;
 		break;
 	default:
 		break;
 	}
 
 	g_is_dumping[module] = MTRUE;
-	LOG_INF("----%s(module:%d)----\n", __func__, module);
+	IRQ_LOG_KEEPER(irq_type,  m_CurrentPPB, _LOG_INF,
+		"----%s(module:%d)----\n", __func__, module);
 
 	for (i = 0 ; i < ISP_REG_RANGE; i += 0x0020) {
-		LOG_INF(STR_REG,
+		IRQ_LOG_KEEPER(irq_type, m_CurrentPPB, _LOG_INF, STR_REG,
 			log_ba + i,
 			ISP_RD32(isp_devs[module].regs + i),
 			ISP_RD32(isp_devs[module].regs + i + 0x0004),
@@ -1797,9 +1802,25 @@ int STT_FBC_Reset(unsigned int reg_module)
 {
 	unsigned int DmaEnStatus[_cam_max_];
 	union FBC_CTRL_2 fbc_ctrl2[_cam_max_ + 1];
+	enum ISP_IRQ_TYPE_ENUM irq_type = ISP_IRQ_TYPE_AMOUNT;
+
+	switch (reg_module) {
+	case ISP_CAM_A_IDX:
+		irq_type = ISP_IRQ_TYPE_INT_CAM_A_ST;
+		break;
+	case ISP_CAM_B_IDX:
+		irq_type = ISP_IRQ_TYPE_INT_CAM_B_ST;
+		break;
+	case ISP_CAM_C_IDX:
+		irq_type = ISP_IRQ_TYPE_INT_CAM_C_ST;
+		break;
+	default:
+		break;
+	}
 
 	ISP_GetDmaPortsStatus(reg_module, &DmaEnStatus[0]);
-	LOG_INF("STT recover start  reg_module:%d\n", reg_module);
+	IRQ_LOG_KEEPER(irq_type,  m_CurrentPPB, _LOG_INF,
+		"STT recover start reg_module:%d\n", reg_module);
 	if (DmaEnStatus[_aao_]) {
 		fbc_ctrl2[_aao_].Raw = ISP_RD32(CAM_REG_FBC_AAO_CTL2(reg_module));
 		ISP_WR32(CAM_REG_FBC_AAO_CTL1(reg_module),
@@ -1862,7 +1883,8 @@ int STT_FBC_Reset(unsigned int reg_module)
 			(ISP_RD32(CAM_REG_FBC_LTMSO_CTL1(reg_module)) & (~(0x100))));
 		ISP_WR32(CAM_REG_FBC_LTMSO_CTL2(reg_module), fbc_ctrl2[_ltmso_].Raw);
 	}
-	LOG_INF("STT recover done  reg_module:%d\n", reg_module);
+	IRQ_LOG_KEEPER(irq_type,  m_CurrentPPB, _LOG_INF,
+		"STT recover done reg_module:%d\n", reg_module);
 	return 0;
 }
 
