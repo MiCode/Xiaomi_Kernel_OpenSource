@@ -1635,23 +1635,22 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		info.module_info[3].t_wbuf_fd =
 				mtk_hcp_get_reserve_mem_fd(PQDIP_MEM_T_ID);
 
-		info.module_info[4].c_wbuf =
-				mtk_hcp_get_reserve_mem_phys(ADL_MEM_C_ID);
-		info.module_info[4].c_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(ADL_MEM_C_ID);
-		info.module_info[4].c_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(ADL_MEM_C_ID);
-		info.module_info[4].c_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(ADL_MEM_C_ID);
-		info.module_info[4].t_wbuf =
-				mtk_hcp_get_reserve_mem_phys(ADL_MEM_T_ID);
-		info.module_info[4].t_wbuf_dma =
-				mtk_hcp_get_reserve_mem_dma(ADL_MEM_T_ID);
-		info.module_info[4].t_wbuf_sz =
-				mtk_hcp_get_reserve_mem_size(ADL_MEM_T_ID);
-		info.module_info[4].t_wbuf_fd =
-				mtk_hcp_get_reserve_mem_fd(PQDIP_MEM_T_ID);
-
+		//info.module_info[4].c_wbuf =
+		//		mtk_hcp_get_reserve_mem_phys(ADL_MEM_C_ID);
+		//info.module_info[4].c_wbuf_dma =
+		//		mtk_hcp_get_reserve_mem_dma(ADL_MEM_C_ID);
+		//info.module_info[4].c_wbuf_sz =
+		//		mtk_hcp_get_reserve_mem_size(ADL_MEM_C_ID);
+		//info.module_info[4].c_wbuf_fd =
+		//		mtk_hcp_get_reserve_mem_fd(ADL_MEM_C_ID);
+		//info.module_info[4].t_wbuf =
+		//		mtk_hcp_get_reserve_mem_phys(ADL_MEM_T_ID);
+		//info.module_info[4].t_wbuf_dma =
+		//		mtk_hcp_get_reserve_mem_dma(ADL_MEM_T_ID);
+		//info.module_info[4].t_wbuf_sz =
+		//		mtk_hcp_get_reserve_mem_size(ADL_MEM_T_ID);
+		//info.module_info[4].t_wbuf_fd =
+		//		mtk_hcp_get_reserve_mem_fd(ADL_MEM_T_ID);
 
 		/*common*/
 		/* info.g_wbuf_fd = mtk_hcp_get_reserve_mem_fd(IMG_MEM_G_ID); */
