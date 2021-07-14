@@ -7376,7 +7376,7 @@
 	};
 
 	apusys_rv: apusys_rv {
-		compatible = "mediatek,apusys_rv";
+		compatible = "mediatek,mt6983-apusys_rv";
 		status = "disabled";
 
 		reg = <0 0x190e1000 0 0x1000>,
@@ -7405,6 +7405,12 @@
 
 		interrupt-names = "apu_wdt",
 				"mbox0_irq";
+
+		up_code_buf_sz = <0x100000>;
+		up_coredump_buf_sz = <0x200000>;
+		mdla_coredump_buf_sz = <0x20000>;
+		mvpu_coredump_buf_sz = <0x20000>;
+		mvpu_sec_coredump_buf_sz = <0x20000>;
 
 		apu_ctrl {
 			compatible = "mediatek,apu-ctrl-rpmsg";
