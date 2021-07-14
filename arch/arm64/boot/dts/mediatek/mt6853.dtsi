@@ -3364,7 +3364,7 @@
 		};
 
 		iommu0: iommu@14016000 {
-			compatible = "mediatek,mt6873-m4u";
+			compatible = "mediatek,mt6853-m4u";
 			reg = <0 0x14016000 0 0x1000>;
 			interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,larbs = <&larb0 &larb1 &larb2
