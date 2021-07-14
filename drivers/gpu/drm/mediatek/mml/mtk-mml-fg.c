@@ -112,8 +112,7 @@ static s32 fg_init(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + FG_TRIGGER, 1 << 2, 0x00000007);
-	cmdq_pkt_write(pkt, NULL, base_pa + FG_TRIGGER, 0, 0x00000007);
+	cmdq_pkt_write(pkt, NULL, base_pa + FG_TRIGGER, 0, U32_MAX);
 	return 0;
 }
 
@@ -124,8 +123,8 @@ static s32 fg_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 
 	/* relay mode */
-	cmdq_pkt_write(pkt, NULL, base_pa + FG_CTRL_0, 1, 0x00000001);
-	cmdq_pkt_write(pkt, NULL, base_pa + FG_CK_EN, 0x7, 0x00000007);
+	cmdq_pkt_write(pkt, NULL, base_pa + FG_CTRL_0, 1, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + FG_CK_EN, 0x7, U32_MAX);
 
 	return 0;
 }
