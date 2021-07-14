@@ -46,6 +46,31 @@
 		scp_i2c1 = &scp_i2c1;
 	};
 
+	dcm: dcm@10001000 {
+		compatible = "mediatek,mt6983-dcm";
+		reg = <0 0x10001000 0 0x1000>,
+			<0 0x10022000 0 0x1000>,
+			<0 0x11035000 0 0x1000>,
+			<0 0x1c017000 0 0x1000>,
+			<0 0xc000000 0 0x1000>,
+			<0 0xc040000 0 0x1000>,
+			<0 0xc070000 0 0x1000>,
+			<0 0xc1c0000 0 0x1000>,
+			<0 0xc1d0000 0 0x1000>,
+			<0 0xc1e0000 0 0x1000>,
+			<0 0xc1f0000 0 0x1000>;
+		reg-names = "infracfg_ao",
+			"infra_ao_bcrm",
+			"peri_ao_bcrm",
+			"vlp_ao_bcrm",
+			"mcusys_top",
+			"mcusys_cpc",
+			"mp_cpu4_top",
+			"mp_cpu5_top",
+			"mp_cpu6_top",
+			"mp_cpu7_top";
+	};
+
 	i2c0: i2c@11e00000 {
 		compatible = "mediatek,mt6983-i2c";
 		reg = <0 0x11e00000 0 0x1000>,
