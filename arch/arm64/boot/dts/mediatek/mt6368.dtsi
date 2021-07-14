@@ -62,6 +62,14 @@
 			compatible = "mediatek,mt6368-consys";
 		};
 
+		mt6368codec: mt6368codec {
+			compatible = "mediatek,mt6368-sound";
+			io-channels = <&mt6368_adc AUXADC_HPOFS_CAL>;
+			io-channel-names = "pmic_hpofs_cal";
+			nvmem = <&mt6368_efuse>;
+			nvmem-names = "pmic-hp-efuse";
+		};
+
 		regulators {
 			mt6368_vbuck1: VBUCK1 {
 				regulator-compatible = "VBUCK1";
