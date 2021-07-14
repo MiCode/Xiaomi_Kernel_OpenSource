@@ -632,6 +632,10 @@
 		reg = <0 0x0010F000 0 0x400>;
 	};
 
+	pbm: pbm {
+		compatible = "mediatek,pbm";
+	};
+
 	mdpm: mdpm {
 		compatible = "mediatek,mt6893-mdpm";
 	};
