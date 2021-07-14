@@ -59,10 +59,7 @@
 #define ISP_SENINF_TM_CLK(regs)				(regs + 0x0F10)
 #define ISP_SENINF_TM_DUM(regs)				(regs + 0x0F18)
 
-#define ISP_SENINF_CAM_MUX_CTRL_0(regs)         (regs + 0x0400)
-#define ISP_SENINF_CAM_MUX_CTRL_1(regs)         (regs + 0x0404)
-#define ISP_SENINF_CAM_MUX_CTRL_2(regs)         (regs + 0x0408)
-#define ISP_SENINF_CAM_MUX_CTRL_3(regs)         (regs + 0x040C)
+#define ISP_SENINF_CAM_MUX_PCSR_0(regs)			(regs + 0x0400)
 
 #define CAMSYS_MAIN_REG_HALT1_EN(regs)			(regs + 0x0350)
 #define CAMSYS_MAIN_REG_HALT2_EN(regs)			(regs + 0x0354)

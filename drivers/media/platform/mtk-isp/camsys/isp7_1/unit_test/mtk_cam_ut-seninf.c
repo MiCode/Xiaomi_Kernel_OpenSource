@@ -34,13 +34,13 @@ static int ut_seninf_set_testmdl(struct device *dev,
 {
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	void __iomem *base = seninf->base + seninf_idx * SENINF_OFFSET;
-	const u16 dummy_pxl = 0x80, h_margin = 0x80;
+	const u16 dummy_pxl = 0x80, h_margin = 0x1000;
 	const u8 clk_div_cnt = (8 >> pixmode_lg2) - 1;
 	const u16 dum_vsync = get_test_hmargin(width + dummy_pxl,
 					      height + h_margin,
 					      clk_div_cnt, 416, 30);
 	unsigned int cam_mux_ctrl;
-	void __iomem *cam_mux_ctrl_addr = ISP_SENINF_CAM_MUX_CTRL_0(seninf->base);
+	void __iomem *cam_mux_ctrl_addr;
 
 	dev_info(dev, "%s width %d x height %d dum_vsync %d pixmode_lg2 %d clk_div_cnt %d\n",
 		 __func__, width, height, dum_vsync,
@@ -58,37 +58,35 @@ static int ut_seninf_set_testmdl(struct device *dev,
 		       ISP_SENINF_MUX_CTRL_1(base));
 	writel_relaxed(0x1, ISP_SENINF_MUX_CTRL_0(base));
 	writel_relaxed(0x1, ISP_SENINF_TSETMDL_CTRL(base));
-	/* make sure all the seninf setting take effect */
-	wmb();
 	writel_relaxed(0x1, ISP_SENINF_CTRL(base));
 
 	/* cam mux ctrl */
-	switch (tg_idx / 4) {
-	case 0:
-		cam_mux_ctrl_addr =
-			ISP_SENINF_CAM_MUX_CTRL_0(seninf->base);
-		break;
-	case 1:
-		cam_mux_ctrl_addr =
-			ISP_SENINF_CAM_MUX_CTRL_1(seninf->base);
-		break;
-	case 2:
-		cam_mux_ctrl_addr =
-			ISP_SENINF_CAM_MUX_CTRL_2(seninf->base);
-		break;
-	case 3:
-		cam_mux_ctrl_addr =
-			ISP_SENINF_CAM_MUX_CTRL_3(seninf->base);
-		break;
-	default:
-		dev_info(dev, "unknown tg_idx:%d", tg_idx);
-		break;
-	}
+	cam_mux_ctrl_addr = ISP_SENINF_CAM_MUX_PCSR_0(seninf->base) + tg_idx * 0x20;
 	cam_mux_ctrl = readl_relaxed(cam_mux_ctrl_addr);
-	cam_mux_ctrl &= ~(0xFF << ((tg_idx % 4) * 8));
-	cam_mux_ctrl |= seninf_idx << ((tg_idx % 4) * 8);
+	cam_mux_ctrl &= 0xFFFFFCE0;
+	cam_mux_ctrl |= seninf_idx;
+	cam_mux_ctrl |= pixmode_lg2 << 8;
+	writel_relaxed(cam_mux_ctrl, cam_mux_ctrl_addr);
+	/* make sure all the seninf setting take effect */
+	wmb();
 
-	writel_relaxed(0x80, ISP_SENINF_CAM_MUX_CTRL_0(seninf->base));
+	return 0;
+}
+
+static int ut_seninf_reset(struct device *dev)
+{
+	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
+	void __iomem *cam_mux_ctrl_addr;
+	int i;
+
+	dev_info(dev, "%s\n", __func__);
+
+	for (i = 0; i < camsys_tg_max; i++) {
+		cam_mux_ctrl_addr = ISP_SENINF_CAM_MUX_PCSR_0(seninf->base) + i * 0x20;
+		writel_relaxed(0, cam_mux_ctrl_addr);
+	}
+	/* make sure all the seninf setting take effect */
+	wmb();
 
 	return 0;
 }
@@ -98,6 +96,7 @@ static void ut_seninf_set_ops(struct device *dev)
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 
 	seninf->ops.set_size = ut_seninf_set_testmdl;
+	seninf->ops.reset = ut_seninf_reset;
 }
 
 static int mtk_ut_seninf_component_bind(struct device *dev,

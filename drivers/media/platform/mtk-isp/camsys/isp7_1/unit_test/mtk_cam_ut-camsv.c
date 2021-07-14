@@ -73,6 +73,7 @@ enum camsv_int_en {
 	SV_INT_EN_UFEO_DONE_INT_EN         = (1L<<21),
 	SV_INT_EN_TG_INT3_EN               = (1L<<22),
 	SV_INT_EN_TG_INT4_EN               = (1L<<23),
+	SV_INT_EN_SW_ENQUE_ERR             = (1L<<24),
 	SV_INT_EN_INT_WCLR_EN              = (1L<<31),
 };
 
@@ -241,11 +242,15 @@ int ut_mtk_cam_sv_tg_config(
 			CAMSV_TG_SEN_MODE, STAGGER_EN, 0);
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_PATH_CFG,
 			CAMSV_TG_PATH_CFG, SUB_SOF_SRC_SEL, 0);
+		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_PATH_CFG,
+			CAMSV_TG_PATH_CFG, DB_LOAD_DIS, 1);
 	} else if (sv_dev->id == 1) {
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_SEN_MODE,
 			CAMSV_TG_SEN_MODE, STAGGER_EN, 1);
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_PATH_CFG,
 			CAMSV_TG_PATH_CFG, SUB_SOF_SRC_SEL, 0);
+		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_PATH_CFG,
+			CAMSV_TG_PATH_CFG, DB_LOAD_DIS, 1);
 	}
 
 	/* timestamp */
@@ -494,24 +499,18 @@ int ut_mtk_cam_sv_dmao_config(
 	}
 
 	/* imgo con */
-	switch (sv_dev->id) {
-	case 0:
-	case 1:
-	case 2:
-	case 3:
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON0, 0x80000300);
+	if (sv_dev->id >= 0 && sv_dev->id < 10) {
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON0, 0x10000300);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON1, 0x00C00060);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON2, 0x01800120);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON3, 0x020001A0);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON4, 0x012000C0);
-		break;
-	default:
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON0, 0x80000100);
+	} else {
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON0, 0x10000100);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON1, 0x00400020);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON2, 0x00800060);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON3, 0x00AA0082);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON4, 0x00600040);
-		break;
 	}
 
 EXIT:
@@ -548,22 +547,13 @@ int ut_mtk_cam_sv_top_enable(struct device *dev)
 	int ret = 0;
 	struct mtk_ut_camsv_device *sv_dev = dev_get_drvdata(dev);
 
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
-		CAMSV_CLK_EN, TG_DP_CK_EN, 1);
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
-		CAMSV_CLK_EN, PAK_DP_CK_EN, 1);
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
-		CAMSV_CLK_EN, IMGO_DP_CK_EN, 1);
-
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_MODULE_EN,
-		CAMSV_MODULE_EN, DB_EN, 0);
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_MODULE_EN,
-		CAMSV_MODULE_EN, DB_EN, 1);
-
 	if (CAMSV_READ_BITS(sv_dev->base + REG_CAMSV_TG_SEN_MODE,
-		CAMSV_TG_SEN_MODE, CMOS_EN))
+		CAMSV_TG_SEN_MODE, CMOS_EN)) {
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_VF_CON,
 			CAMSV_TG_VF_CON, VFDATA_EN, 1);
+		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_PATH_CFG,
+			CAMSV_TG_PATH_CFG, DB_LOAD_DIS, 0);
+	}
 
 	return ret;
 }
@@ -670,6 +660,27 @@ int ut_mtk_cam_sv_fbc_disable(
 	return ret;
 }
 
+int ut_mtk_cam_sv_toggle_db(
+	struct device *dev)
+{
+	int ret = 0;
+	struct mtk_ut_camsv_device *sv_dev = dev_get_drvdata(dev);
+
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
+		CAMSV_CLK_EN, TG_DP_CK_EN, 1);
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
+		CAMSV_CLK_EN, PAK_DP_CK_EN, 1);
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
+		CAMSV_CLK_EN, IMGO_DP_CK_EN, 1);
+
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_MODULE_EN,
+		CAMSV_MODULE_EN, DB_EN, 0);
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_MODULE_EN,
+		CAMSV_MODULE_EN, DB_EN, 1);
+
+	return ret;
+}
+
 static int ut_camsv_initialize(struct device *dev, void *ext_params)
 {
 	return 0;
@@ -710,7 +721,8 @@ static int ut_camsv_dev_config(struct device *dev,
 		ut_mtk_cam_sv_fbc_config(dev, cfg_in_param) ||
 		ut_mtk_cam_sv_tg_enable(dev, cfg_in_param) ||
 		ut_mtk_cam_sv_dmao_enable(dev, cfg_in_param) ||
-		ut_mtk_cam_sv_fbc_enable(dev, cfg_in_param);
+		ut_mtk_cam_sv_fbc_enable(dev, cfg_in_param) ||
+		ut_mtk_cam_sv_toggle_db(dev);
 
 	return ret;
 }

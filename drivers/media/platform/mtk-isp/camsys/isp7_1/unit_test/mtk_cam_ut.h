@@ -36,12 +36,24 @@ enum seninf_enum {
 enum tg_enum {
 	raw_tg_0 = 0,
 	raw_tg_1,
-	camsv_tg_0,
+	raw_tg_2,
+	camsv_tg_0 = 3,
 	camsv_tg_1,
 	camsv_tg_2,
 	camsv_tg_3,
 	camsv_tg_4,
-	camsv_tg_5
+	camsv_tg_5,
+	camsv_tg_6,
+	camsv_tg_7,
+	camsv_tg_8,
+	camsv_tg_9,
+	camsv_tg_10,
+	camsv_tg_11,
+	camsv_tg_12 = 19,
+	camsv_tg_13,
+	camsv_tg_14,
+	camsv_tg_15,
+	camsys_tg_max
 };
 
 // align TestMdlMode in testPlan.h

@@ -200,7 +200,7 @@ extern struct platform_driver mtk_ut_raw_driver;
 extern struct platform_driver mtk_ut_yuv_driver;
 extern struct platform_driver mtk_ut_camsv_driver;
 extern struct platform_driver mtk_ut_seninf_driver;
-#define WITH_LARB_DRIVER 0
+#define WITH_LARB_DRIVER 1
 extern struct platform_driver mtk_ut_larb_driver;
 
 #endif /* __MTK_CAM_UT_ENGINES_H */

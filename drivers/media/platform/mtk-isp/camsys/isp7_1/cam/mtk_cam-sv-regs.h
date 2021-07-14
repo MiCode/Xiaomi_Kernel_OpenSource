@@ -8,17 +8,15 @@
 
 /*  */
 #define REG_CAMSV_TOP_FBC_CNT_SET				0x0014
+
 union CAMSV_TOP_FBC_CNT_SET {
 	struct {
 		unsigned int  RCNT_INC1					:	1;
 		unsigned int  RCNT_INC2					:	1;
-		unsigned int  RCNT_INC3					:	1;
-		unsigned int  RCNT_INC4					:	1;
-		unsigned int  rsv_4						:	28;
+		unsigned int  rsv_2						:	30;
 	} Bits;
 	unsigned int Raw;
 };
-
 /* Module EN */
 #define REG_CAMSV_MODULE_EN						0x0040
 union CAMSV_MODULE_EN {
@@ -30,16 +28,20 @@ union CAMSV_MODULE_EN {
 		unsigned int  IMGO_EN					:	1;
 		unsigned int  rsv_5						:	1;
 		unsigned int  UFE_EN					:	1;
-		unsigned int  rsv_7						:	9;
+		unsigned int  QBN_EN					:	1;
+		unsigned int  rsv_8						:	8;
 		unsigned int  DOWN_SAMPLE_PERIOD		:	8;
 		unsigned int  DOWN_SAMPLE_EN			:	1;
-		unsigned int  rsv_25					:	3;
+		unsigned int  DB_LOAD_HOLD				:	1;
+		unsigned int  DB_LOAD_FORCE				:	1;
+		unsigned int  rsv_27					:	1;
 		unsigned int  DB_LOAD_SRC				:	2;
 		unsigned int  DB_EN						:	1;
 		unsigned int  DB_LOCK					:	1;
 	} Bits;
 	unsigned int Raw;
 };
+
 
 /* FMT SEL */
 #define REG_CAMSV_FMT_SEL						0x0044
@@ -84,7 +86,8 @@ union CAMSV_INT_EN {
 		unsigned int  UFEO_DONE_INT_EN			:	1;
 		unsigned int  TG_INT3_EN				:	1;
 		unsigned int  TG_INT4_EN				:	1;
-		unsigned int  rsv_24					:	7;
+		unsigned int  SW_ENQUE_ERR_EN			:	1;
+		unsigned int  rsv_25					:	6;
 		unsigned int  INT_WCLR_EN				:	1;
 	} Bits;
 	unsigned int Raw;
@@ -113,6 +116,7 @@ union CAMSV_INT_EN {
 #define CAMSV_INT_UFEO_DONE_ST					BIT(21)
 #define CAMSV_INT_TG_ST3						BIT(22)
 #define CAMSV_INT_TG_ST4						BIT(23)
+#define CAMSV_INT_SW_ENQUE_ERR					BIT(24)
 union CAMSV_INT_STATUS {
 	struct {
 		unsigned int  VS_ST						:	1;
@@ -139,7 +143,8 @@ union CAMSV_INT_STATUS {
 		unsigned int  SV_UFEO_DONE_ST			:	1;
 		unsigned int  TG_ST3					:	1;
 		unsigned int  TG_ST4					:	1;
-		unsigned int  rsv_20					:	8;
+		unsigned int  SW_ENQUE_ERR				:	1;
+		unsigned int  rsv_20					:	7;
 	} Bits;
 	unsigned int Raw;
 };
@@ -169,7 +174,7 @@ union CAMSV_IMGO_FBC {
 union CAMSV_CLK_EN {
 	struct {
 		unsigned int  TG_DP_CK_EN				:	1;
-		unsigned int  rsv_1						:	1;
+		unsigned int  QBN_DP_CK_EN				:	1;
 		unsigned int  PAK_DP_CK_EN				:	1;
 		unsigned int  rsv_3						:	1;
 		unsigned int  UFEO_DP_CK_EN				:	1;
@@ -219,10 +224,21 @@ union CAMSV_PAK {
 	unsigned int Raw;
 };
 
+/* QBIN */
+#define REG_CAMSV_QBN_SET						0x009C
+union CAMSV_CAMSV_QBN_SET {
+	struct {
+		unsigned int  CSR_QBN_CAM_PIX_BUS		:	2;
+		unsigned int  rsv_1						:	30;
+	} Bits;
+	unsigned int Raw;
+};
+
 /* TG SEN Mode */
 #define REG_CAMSV_TG_SEN_MODE					0x0100
 #define CAMSV_TG_SEN_MODE_CMOS_EN				BIT(0)
 #define CAMSV_TG_SEN_MODE_CMOS_RDY_SEL			BIT(14)
+
 union CAMSV_TG_SEN_MODE {
 	struct {
 		unsigned int  CMOS_EN					:	1;
@@ -249,10 +265,12 @@ union CAMSV_TG_SEN_MODE {
 		unsigned int  SOT_DLY_EN				:	1;
 		unsigned int  VS_IGNORE_STALL_EN		:	1;
 		unsigned int  LINE_OK_CHECK				:	1;
-		unsigned int  rsv_28					:	4;
+		unsigned int  SOF_SUB_CNT_EXCEPTION_DIS :	1;
+		unsigned int  rsv_29					:	3;
 	} Bits;
 	unsigned int Raw;
 };
+
 
 /* TG VF CON */
 #define REG_CAMSV_TG_VF_CON						0x0104
@@ -295,7 +313,7 @@ union CAMSV_TG_PATH_CFG {
 		unsigned int  DB_LOAD_DIS				:	1;
 		unsigned int  DB_LOAD_SRC				:	1;
 		unsigned int  DB_LOAD_VSPOL				:	1;
-		unsigned int  rsv_11					:	1;
+		unsigned int  DB_LOAD_HOLD				:	1;
 		unsigned int  YUV_U2S_DIS				:	1;
 		unsigned int  YUV_BIN_EN				:	1;
 		unsigned int  TG_ERR_SEL				:	1;
@@ -330,6 +348,8 @@ union CAMSV_TG_INTER_ST {
 	} Bits;
 	unsigned int Raw;
 };
+
+//TG_DCIF_CTL?
 
 /* TG SUB PERIOD */
 #define REG_CAMSV_TG_SUB_PERIOD					0x0164
@@ -384,6 +404,18 @@ union CAMSV_FBC_IMGO_CTL1 {
 /* FBC IMGO CTL1 */
 #define REG_CAMSV_FBC_IMGO_CTL2					0x0244
 
+/* QBIN */
+#define REG_CAMSV_QBN							0x0400
+union CAMSV_QBN_CTL {
+	struct {
+		unsigned int  CAMSVQBN_ACC				:	2;
+		unsigned int  rsv_2						:	2;
+		unsigned int  CAMSVQBN_ACC_MODE			:	2;
+		unsigned int  rsv_6						:	26;
+	} Bits;
+	unsigned int Raw;
+};
+
 /* Special FUN EN */
 #define REG_CAMSV_SPECIAL_FUN_EN				0x0600
 union CAMSV_SPECIAL_FUN_EN {
@@ -437,28 +469,41 @@ union CAMSV_IMGO_YSIZE {
 union CAMSV_IMGO_STRIDE {
 	struct {
 		unsigned int  STRIDE					:	16;
+		unsigned int  rsv_16					:	16;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSV_IMGO_BASIC					0x071C
+union CAMSV_IMGO_BASIC {
+	struct {
 		unsigned int  BUS_SIZE					:	4;
+		unsigned int  rsv_4						:	4;
 		unsigned int  FORMAT					:	6;
-		unsigned int  FORMAT_EN					:	1;
+		unsigned int  rsv_14					:	9;
+		unsigned int  EVEN_ODD_EN				:	1;
+		unsigned int  rsv_24					:	4;
 		unsigned int  BUS_SIZE_EN				:	1;
-		unsigned int  rsv_28					:	4;
+		unsigned int  FORMAT_EN					:	1;
+		unsigned int  rsv_30					:	1;
+		unsigned int  EVEN_ODD_EN_EN			:	1;
 	} Bits;
 	unsigned int Raw;
 };
 
 /* IMGO CON0 */
-#define REG_CAMSV_IMGO_CON0						0x071C
+#define REG_CAMSV_IMGO_CON0						0x0720
 union CAMSV_IMGO_CON0 {
 	struct {
 		unsigned int  FIFO_SIZE					:	12;
-		unsigned int  rsv_12					:	16;
-		unsigned int  MAX_BURST_LEN				:	4;
+		unsigned int  rsv_12					:	12;
+		unsigned int  MAX_BURST_LEN				:	8;
 	} Bits;
 	unsigned int Raw;
 };
 
 /* IMGO CON1 */
-#define REG_CAMSV_IMGO_CON1						0x0720
+#define REG_CAMSV_IMGO_CON1						0x0724
 union CAMSV_IMGO_CON1 {
 	struct {
 		unsigned int  FIFO_PRE_PRI_THRL			:	12;
@@ -471,7 +516,7 @@ union CAMSV_IMGO_CON1 {
 };
 
 /* IMGO CON2 */
-#define REG_CAMSV_IMGO_CON2						0x0724
+#define REG_CAMSV_IMGO_CON2						0x0728
 union CAMSV_IMGO_CON2 {
 	struct {
 		unsigned int  FIFO_PRI_THRL				:	12;
@@ -484,7 +529,7 @@ union CAMSV_IMGO_CON2 {
 };
 
 /* IMGO CON3 */
-#define REG_CAMSV_IMGO_CON3						0x0728
+#define REG_CAMSV_IMGO_CON3						0x072C
 union CAMSV_IMGO_CON3 {
 	struct {
 		unsigned int  FIFO_URGENT_THRL			:	12;
@@ -497,7 +542,7 @@ union CAMSV_IMGO_CON3 {
 };
 
 /* IMGO CON4 */
-#define REG_CAMSV_IMGO_CON4						0x072C
+#define REG_CAMSV_IMGO_CON4						0x0730
 union CAMSV_IMGO_CON4 {
 	struct {
 		unsigned int  FIFO_DVFS_THRL			:	12;
@@ -510,17 +555,18 @@ union CAMSV_IMGO_CON4 {
 };
 
 /* IMGO ERR STAT */
-#define REG_CAMSV_IMGO_ERR_STAT					0x0730
+#define REG_CAMSV_IMGO_ERR_STAT					0x0734
 
 /* DMA SPECIAL EN */
-#define REG_CAMSV_DMA_SPECIAL_EN				0x0734
+#define REG_CAMSV_DMA_SPECIAL_EN				0x0738
 union CAMSV_DMA_SPECIAL_EN {
 	struct {
 		unsigned int  UFO_EN					:	1;
 		unsigned int  rsv_1						:	2;
 		unsigned int  UFO_XSIZE_QUEUE_FULL		:	1;
 		unsigned int  FH_EN						:	1;
-		unsigned int  rsv_5						:	3;
+		unsigned int  rsv_5						:	2;
+		unsigned int  N_UFE_XSIZE_QUEUE_FULL	:	1; //error flag
 		unsigned int  IPU_RING_EN				:	1;
 		unsigned int  RING_EN					:	1;
 		unsigned int  rsv_10					:	2;
@@ -533,7 +579,7 @@ union CAMSV_DMA_SPECIAL_EN {
 };
 
 /* IMGO CROP */
-#define REG_CAMSV_IMGO_CROP						0x0748
+#define REG_CAMSV_IMGO_CROP						0x074C
 union CAMSV_IMGO_CROP {
 	struct {
 		unsigned int  XOFFSET					:	16;
@@ -543,7 +589,7 @@ union CAMSV_IMGO_CROP {
 };
 
 /* IMGO FH SPARE 3 */
-#define REG_CAMSV_FRAME_SEQ_NO					0x0758
+#define REG_CAMSV_FRAME_SEQ_NO					0x075C
 
 /* IRQ Error Mask */
 #define INT_ST_MASK_CAMSV_ERR (\
