@@ -1,5 +1,6 @@
 ARCH=arm64
 CROSS_COMPILE=aarch64-linux-gnu-
+CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
 LLVM=1
 LLVM_IAS=1
 # DEFCONFIG=defconfig
