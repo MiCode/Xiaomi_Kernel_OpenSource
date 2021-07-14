@@ -861,8 +861,13 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 
 	if (!data->m4u_dom) { /* Initialize the M4U HW */
 		ret = pm_runtime_resume_and_get(m4udev);
-		if (ret < 0)
+		if (ret < 0) {
+			dev_err(data->dev,
+				"%s, PM fail:%d, dom:%d, iommu_dev:(%d,%d), user_dev:%s\n",
+				__func__, ret, domid, data->plat_data->iommu_type,
+				data->plat_data->iommu_id, dev_name(dev));
 			return ret;
+		}
 		/*
 		 * Because m4u_dom is used by mtk_iommu_isr, we must set it before
 		 * enable all banks irq to avoid m4u_dom is NULL.
@@ -871,8 +876,7 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		data->m4u_dom = dom;
 		ret = mtk_iommu_hw_init(data);
 		if (ret) {
-			dev_err(data->dev, "HW init fail %d in attach\n",
-				ret);
+			dev_err(data->dev, "HW init fail %d in attach\n", ret);
 			pm_runtime_put(m4udev);
 			return ret;
 		}
