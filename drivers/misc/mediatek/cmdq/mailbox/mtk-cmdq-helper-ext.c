@@ -320,12 +320,14 @@ static void cmdq_mbox_pool_free(struct cmdq_client *cl, void *va, dma_addr_t pa)
 	cmdq_mbox_pool_free_impl(priv->buf_pool, va, pa, &priv->buf_cnt);
 }
 
-void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out)
+static void *cmdq_mbox_buf_alloc_dev(struct device *dev, dma_addr_t *pa_out)
 {
-	void *va;
+	void *va = NULL;
 	dma_addr_t pa = 0;
 
-	va = dma_alloc_coherent(dev, CMDQ_BUF_ALLOC_SIZE, &pa, GFP_KERNEL);
+	if (dev)
+		va = dma_alloc_coherent(dev, CMDQ_BUF_ALLOC_SIZE, &pa, GFP_KERNEL);
+
 	if (!va) {
 		cmdq_err("alloc dma buffer fail dev:0x%p", dev);
 		dump_stack();
@@ -335,11 +337,48 @@ void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out)
 	*pa_out = pa;
 	return va;
 }
+
+void *cmdq_mbox_buf_alloc(struct cmdq_client *cl, dma_addr_t *pa_out)
+{
+	void *va;
+	dma_addr_t pa = 0;
+	struct device *mbox_dev;
+
+	if (!cl) {
+		cmdq_err("cl is NULL");
+		dump_stack();
+		return NULL;
+	}
+	mbox_dev = cl->chan->mbox->dev;
+
+	va = cmdq_mbox_buf_alloc_dev(mbox_dev, &pa);
+	if (!va) {
+		cmdq_err("alloc dma buffer fail dev:0x%p", mbox_dev);
+		return NULL;
+	}
+
+	*pa_out = pa + gce_mminfra;
+	return va;
+}
 EXPORT_SYMBOL(cmdq_mbox_buf_alloc);
 
-void cmdq_mbox_buf_free(struct device *dev, void *va, dma_addr_t pa)
+static void cmdq_mbox_buf_free_dev(struct device *dev, void *va, dma_addr_t pa)
 {
 	dma_free_coherent(dev, CMDQ_BUF_ALLOC_SIZE, va, pa);
+}
+
+void cmdq_mbox_buf_free(struct cmdq_client *cl, void *va, dma_addr_t pa)
+{
+	struct device *mbox_dev;
+
+	if (!cl) {
+		cmdq_err("cl is NULL");
+		dump_stack();
+		return;
+	}
+	mbox_dev = cl->chan->mbox->dev;
+
+	cmdq_mbox_buf_free_dev(mbox_dev, va, pa - gce_mminfra);
 }
 EXPORT_SYMBOL(cmdq_mbox_buf_free);
 
@@ -416,7 +455,7 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 	if (buf->va_base)
 		buf->use_pool = true;
 	else	/* allocate directly */
-		buf->va_base = cmdq_mbox_buf_alloc(pkt->dev,
+		buf->va_base = cmdq_mbox_buf_alloc_dev(pkt->dev,
 			&buf->pa_base);
 
 	if (!buf->va_base) {
@@ -455,7 +494,7 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 					buf->pa_base);
 			}
 		} else
-			cmdq_mbox_buf_free(pkt->dev, buf->va_base,
+			cmdq_mbox_buf_free_dev(pkt->dev, buf->va_base,
 				buf->pa_base);
 		kfree(buf);
 	}

@@ -514,7 +514,7 @@ static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
 	dma_addr_t	dma_pa;
 	u32		val;
 
-	dma_va = cmdq_mbox_buf_alloc(clt->client.dev, &dma_pa);
+	dma_va = cmdq_mbox_buf_alloc(clt, &dma_pa);
 	if (!dma_va || !dma_pa) {
 		cmdq_err("cmdq_mbox_buf_alloc failed");
 		return;
@@ -577,7 +577,7 @@ static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
 			dma_va[ofst / 4 + 1], pttn[2]);
 
 	clk_disable_unprepare(test->gce.clk);
-	cmdq_mbox_buf_free(clt->client.dev, dma_va, dma_pa);
+	cmdq_mbox_buf_free(clt, dma_va, dma_pa);
 	cmdq_msg("%s done", __func__);
 }
 
@@ -761,7 +761,7 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 	u8 swap_reg = CMDQ_THR_SPR_IDX1;
 	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
 
-	va = cmdq_mbox_buf_alloc(clt->client.dev, &pa);
+	va = cmdq_mbox_buf_alloc(clt, &pa);
 	if (!va) {
 		cmdq_err("cmdq_mbox_buf_alloc failed");
 		return;
@@ -784,7 +784,7 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 		cmdq_pkt_destroy(pkt);
 	}
 
-	cmdq_mbox_buf_free(test->clt->client.dev, va, pa);
+	cmdq_mbox_buf_free(test->clt, va, pa);
 	cmdq_msg("%s end", __func__);
 }
 

@@ -252,8 +252,9 @@ void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit);
 void cmdq_mbox_pool_create(struct cmdq_client *cl);
 void cmdq_mbox_pool_clear(struct cmdq_client *cl);
 
-void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out);
-void cmdq_mbox_buf_free(struct device *dev, void *va, dma_addr_t pa);
+void *cmdq_mbox_buf_alloc(struct cmdq_client *cl, dma_addr_t *pa_out);
+
+void cmdq_mbox_buf_free(struct cmdq_client *cl, void *va, dma_addr_t pa);
 
 s32 cmdq_dev_get_event(struct device *dev, const char *name);
 
