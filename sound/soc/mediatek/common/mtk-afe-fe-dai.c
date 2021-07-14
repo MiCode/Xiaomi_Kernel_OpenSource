@@ -153,13 +153,6 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	unsigned int rate = params_rate(params);
 	snd_pcm_format_t format = params_format(params);
 
-	/* The data type of stop_threshold in userspace is unsigned int.
-	 * However its data type in kernel space is unsigned long.
-	 * It needs to convert to LONG_MAX in kernel space
-	 */
-	if (substream->runtime->stop_threshold == ~(0U))
-		substream->runtime->stop_threshold = LONG_MAX;
-
 	// mmap don't alloc buffer
 	if (memif->use_mmap_share_mem != 0) {
 		unsigned long phy_addr;
@@ -443,6 +436,14 @@ int mtk_afe_fe_prepare(struct snd_pcm_substream *substream,
 			mtk_memif_set_pbuf_size(afe, id, pbuf_size);
 		}
 	}
+
+	/* The data type of stop_threshold in userspace is unsigned int.
+	 * However its data type in kernel space is unsigned long.
+	 * It needs to convert to ULONG_MAX in kernel space
+	 */
+	if (substream->runtime->stop_threshold == ~(0U))
+		substream->runtime->stop_threshold = ULONG_MAX;
+
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_PREPARE,
 			   substream, NULL, dai, afe);
