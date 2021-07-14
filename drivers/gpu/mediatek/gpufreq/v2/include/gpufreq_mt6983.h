@@ -169,9 +169,9 @@
 #define GPUFREQ_CONSTRAINT_COEF         (11)
 #define GPUFREQ_BASE_COEF               (10)
 /* DVFS Timing issue */
-#define DVFS_TIMING_PARK_VOLT           (65000)
+#define DVFS_TIMING_PARK_FREQ           (586000)
 /* DELSEL ULV SRAM access */
-#define DELSEL_ULV_PARK_VOLT            (55000)
+#define DELSEL_ULV_PARK_FREQ            (316000)
 
 /**************************************************
  * Enumeration

@@ -114,8 +114,8 @@ static void __gpufreq_get_hw_constraint_fgpu(
 	unsigned int fstack, int *oppidx_gpu, unsigned int *fgpu);
 static void __gpufreq_get_hw_constraint_fstack(
 	unsigned int fgpu, int *oppidx_stack, unsigned int *fstack);
-static unsigned int __gpufreq_get_hw_constraint_vstack(
-	unsigned int volt_old, unsigned int volt_new);
+static unsigned int __gpufreq_hw_constraint_parking(unsigned int volt_old, unsigned int volt_new);
+static void __gpufreq_update_hw_constraint_volt(void);
 static enum gpufreq_postdiv __gpufreq_get_real_posdiv_gpu(void);
 static enum gpufreq_postdiv __gpufreq_get_real_posdiv_stack(void);
 static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq);
@@ -359,6 +359,8 @@ static unsigned int g_aging_enable;
 static unsigned int g_aging_load;
 static unsigned int g_gpm_enable;
 static unsigned int g_gpueb_support;
+static unsigned int g_dvfs_timing_park_volt;
+static unsigned int g_desel_ulv_park_volt;
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock);
 
@@ -1764,6 +1766,9 @@ int __gpufreq_set_aging_mode(unsigned int mode)
 		__gpufreq_apply_aging(TARGET_STACK, mode);
 		g_aging_enable = mode;
 
+		/* update HW constraint parking volt */
+		__gpufreq_update_hw_constraint_volt();
+
 		return GPUFREQ_SUCCESS;
 	} else {
 		return GPUFREQ_EINVAL;
@@ -2471,7 +2476,7 @@ static int __gpufreq_volt_scale_stack(
 	if (volt_new > volt_old) {
 		while (volt_new != volt_old) {
 			/* find parking volt and control registers because of HW constraint */
-			volt_park = __gpufreq_get_hw_constraint_vstack(volt_old, volt_new);
+			volt_park = __gpufreq_hw_constraint_parking(volt_old, volt_new);
 			t_settle_volt =  __gpufreq_settle_time_vstack(true, (volt_park - volt_old));
 
 			ret = regulator_set_voltage(g_pmic->reg_vstack,
@@ -2489,7 +2494,7 @@ static int __gpufreq_volt_scale_stack(
 	} else if (volt_new < volt_old) {
 		while (volt_new != volt_old) {
 			/* find parking volt and control registers because of HW constraint */
-			volt_park = __gpufreq_get_hw_constraint_vstack(volt_old, volt_new);
+			volt_park = __gpufreq_hw_constraint_parking(volt_old, volt_new);
 			t_settle_volt = __gpufreq_settle_time_vstack(false, (volt_old - volt_park));
 
 			ret = regulator_set_voltage(g_pmic->reg_vstack,
@@ -2789,12 +2794,14 @@ static void __gpufreq_dvfs_timing_control(unsigned int direction)
 		val = readl(g_mfg_top_base + 0x500);
 		val &= ~(1UL << 31);
 		writel(val, g_mfg_top_base + 0x500);
+		GPUFREQ_LOGD("MFG_DUMMY_REG 0x13FBF500 [31] eco_2_data_path = 1'b0");
 	/* volt scale down */
 	} else {
 		/* MFG_DUMMY_REG 0x13FBF500 [31] eco_2_data_path = 1'b1 */
 		val = readl(g_mfg_top_base + 0x500);
 		val |= (1UL << 31);
 		writel(val, g_mfg_top_base + 0x500);
+		GPUFREQ_LOGD("MFG_DUMMY_REG 0x13FBF500 [31] eco_2_data_path = 1'b1");
 	}
 }
 
@@ -2815,12 +2822,14 @@ static void __gpufreq_delsel_control(unsigned int direction)
 		val = readl(g_mfg_top_base + 0x80);
 		val &= ~(1UL << 0);
 		writel(val, g_mfg_top_base + 0x80);
+		GPUFREQ_LOGD("MFG_SRAM_FUL_SEL_ULV 0x13FBF080 [0] FUL_SEL_ULV = 1'b0");
 	/* volt scale down */
 	} else {
 		/* MFG_SRAM_FUL_SEL_ULV 0x13FBF080 [0] FUL_SEL_ULV = 1'b1 */
 		val = readl(g_mfg_top_base + 0x80);
 		val |= (1UL << 0);
 		writel(val, g_mfg_top_base + 0x80);
+		GPUFREQ_LOGD("MFG_SRAM_FUL_SEL_ULV 0x13FBF080 [0] FUL_SEL_ULV = 1'b1");
 	}
 }
 
@@ -2847,13 +2856,13 @@ static void __gpufreq_get_hw_constraint_fgpu(unsigned int fstack,
 
 	if (unlikely(i < 0))
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
-			"fail to find HW constraint Fgpu (Fstack x1.1: %d)",
-			(int)(fstack * GPUFREQ_CONSTRAINT_COEF / GPUFREQ_BASE_COEF));
+			"fail to find HW constraint Fgpu: %d (Fstack: %d x1.1)",
+			(int)(fstack * GPUFREQ_CONSTRAINT_COEF / GPUFREQ_BASE_COEF), fstack);
 
 	*oppidx_gpu = i;
 	*fgpu = working_table[i].freq;
 
-	GPUFREQ_LOGD("target HW constraint Fgpu: %d (Fstack: %d)", *fgpu, fstack);
+	GPUFREQ_LOGD("target HW constraint Fgpu: %d (Fstack: %d x1.1)", *fgpu, fstack);
 }
 
 /* API: find Fstack that satify Fgpu >= Fstack*1.1 by given Fgpu */
@@ -2874,56 +2883,79 @@ static void __gpufreq_get_hw_constraint_fstack(unsigned int fgpu,
 
 	if (unlikely(i > min_oppidx))
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
-			"fail to find HW constraint Fstack (Fgpu /1.1: %d)",
-			(int)(fgpu * GPUFREQ_BASE_COEF / GPUFREQ_CONSTRAINT_COEF));
+			"fail to find HW constraint Fstack: %d (Fgpu: %d /1.1)",
+			(int)(fgpu * GPUFREQ_BASE_COEF / GPUFREQ_CONSTRAINT_COEF), fgpu);
 
 	*oppidx_stack = i;
 	*fstack = working_table[i].freq;
 
-	GPUFREQ_LOGD("target HW constraint Fstack: %d (Fgpu: %d)", *fstack, fgpu);
+	GPUFREQ_LOGD("target HW constraint Fstack: %d (Fgpu: %d /1.1)", *fstack, fgpu);
 }
 
 /* API: find parking volt and control registers because of platform HW constraint */
-static unsigned int __gpufreq_get_hw_constraint_vstack(unsigned int volt_old, unsigned int volt_new)
+static unsigned int __gpufreq_hw_constraint_parking(unsigned int volt_old, unsigned int volt_new)
 {
 	unsigned int volt_park = 0;
 
 	/* volt scaling up */
 	if (volt_new > volt_old) {
 		/* additionally control register when cross special volt */
-		if (volt_old == DVFS_TIMING_PARK_VOLT)
+		if (volt_old == g_dvfs_timing_park_volt)
 			__gpufreq_dvfs_timing_control(true);
-		else if (volt_old == DELSEL_ULV_PARK_VOLT)
+		else if (volt_old == g_desel_ulv_park_volt)
 			__gpufreq_delsel_control(true);
 
 		/* check smaller parking volt first while scaling up */
-		if (volt_new > DELSEL_ULV_PARK_VOLT && volt_old < DELSEL_ULV_PARK_VOLT)
-			volt_park = DELSEL_ULV_PARK_VOLT;
-		else if (volt_new > DVFS_TIMING_PARK_VOLT && volt_old < DVFS_TIMING_PARK_VOLT)
-			volt_park = DVFS_TIMING_PARK_VOLT;
+		if (volt_new > g_desel_ulv_park_volt && volt_old < g_desel_ulv_park_volt)
+			volt_park = g_desel_ulv_park_volt;
+		else if (volt_new > g_dvfs_timing_park_volt && volt_old < g_dvfs_timing_park_volt)
+			volt_park = g_dvfs_timing_park_volt;
 		else
 			volt_park = volt_new;
 	/* volt scaling down */
 	} else if (volt_new < volt_old) {
 		/* additionally control register when cross special volt */
-		if (volt_old == DVFS_TIMING_PARK_VOLT)
+		if (volt_old == g_dvfs_timing_park_volt)
 			__gpufreq_dvfs_timing_control(false);
-		else if (volt_old == DELSEL_ULV_PARK_VOLT)
+		else if (volt_old == g_desel_ulv_park_volt)
 			__gpufreq_delsel_control(false);
 
 		/* check larger parking volt first while scaling down */
-		if (volt_new < DVFS_TIMING_PARK_VOLT && volt_old > DVFS_TIMING_PARK_VOLT)
-			volt_park = DVFS_TIMING_PARK_VOLT;
-		else if (volt_new < DELSEL_ULV_PARK_VOLT && volt_old > DELSEL_ULV_PARK_VOLT)
-			volt_park = DELSEL_ULV_PARK_VOLT;
+		if (volt_new < g_dvfs_timing_park_volt && volt_old > g_dvfs_timing_park_volt)
+			volt_park = g_dvfs_timing_park_volt;
+		else if (volt_new < g_desel_ulv_park_volt && volt_old > g_desel_ulv_park_volt)
+			volt_park = g_desel_ulv_park_volt;
 		else
 			volt_park = volt_new;
 	} else {
 		volt_park = volt_new;
 	}
 
+	GPUFREQ_LOGD("volt_old: %d, volt_new: %d, volt_park: %d",
+		volt_old, volt_new, volt_park);
+
 	return volt_park;
 }
+
+/* API: convert predefined Freq contraint to Volt */
+static void __gpufreq_update_hw_constraint_volt(void)
+{
+	int dvfs_timing_oppidx = 0, desel_ulv_oppidx = 0;
+
+	mutex_lock(&gpufreq_lock);
+
+	dvfs_timing_oppidx = __gpufreq_get_idx_by_fstack(DVFS_TIMING_PARK_FREQ);
+	desel_ulv_oppidx = __gpufreq_get_idx_by_fstack(DELSEL_ULV_PARK_FREQ);
+
+	g_dvfs_timing_park_volt = g_stack.working_table[dvfs_timing_oppidx].volt;
+	g_desel_ulv_park_volt = g_stack.working_table[desel_ulv_oppidx].volt;
+
+	GPUFREQ_LOGI("DVFS_TIMING OPP[%d].volt: %d, DESEL_ULV OPP[%d].volt: %d",
+		dvfs_timing_oppidx, g_dvfs_timing_park_volt,
+		desel_ulv_oppidx, g_desel_ulv_park_volt);
+
+	mutex_unlock(&gpufreq_lock);
+};
 
 static void __gpufreq_hw_dcm_control(void)
 {
@@ -4332,6 +4364,9 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 
 	/* set power info to working table */
 	__gpufreq_measure_power(TARGET_STACK);
+
+	/* update HW constraint parking volt */
+	__gpufreq_update_hw_constraint_volt();
 
 done:
 	return ret;
