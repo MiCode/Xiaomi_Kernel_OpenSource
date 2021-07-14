@@ -9,6 +9,7 @@
 /**************************************************
  * Definition
  **************************************************/
+#define GPUFREQ_GPUEB_ENABLE            (0)
 #define GPUFREQ_TRACE_ENABLE            (0)
 #define GPUFREQ_TRACE_TAG "[GPU/TRACE]"
 

@@ -2278,6 +2278,7 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 {
 	int ret = GPUFREQ_SUCCESS;
 
+#if GPUFREQ_GPUEB_ENABLE
 	if (data.cmd_id < 0 || data.cmd_id >= CMD_NUM) {
 		GPUFREQ_LOGE("invalid gpufreq IPI command: %d (EINVAL)", data.cmd_id);
 		ret = GPUFREQ_EINVAL;
@@ -2300,6 +2301,8 @@ static int gpufreq_ipi_to_gpueb(struct gpufreq_ipi_data data)
 	GPUFREQ_LOGD("receive IPI command: %s", gpufreq_ipi_cmd_name[g_recv_msg.cmd_id]);
 
 done:
+#endif /* GPUFREQ_GPUEB_ENABLE */
+
 	return ret;
 }
 
@@ -2414,6 +2417,7 @@ static int gpufreq_gpueb_init(void)
 	phys_addr_t shared_mem_size = 0;
 	int ret = GPUFREQ_SUCCESS;
 
+#if GPUFREQ_GPUEB_ENABLE
 	/* init ipi channel */
 	g_ipi_channel = gpueb_get_send_PIN_ID_by_name("IPI_ID_GPUFREQ");
 	if (unlikely(g_ipi_channel < 0)) {
@@ -2456,6 +2460,8 @@ static int gpufreq_gpueb_init(void)
 		g_ipi_channel, shared_mem_phy, g_gpueb_shared_mem, shared_mem_size);
 
 done:
+#endif /* GPUFREQ_GPUEB_ENABLE */
+
 	return ret;
 }
 
@@ -2479,6 +2485,7 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
+#if GPUFREQ_GPUEB_ENABLE
 	of_gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
 	if (!of_gpueb) {
 		GPUFREQ_LOGE("fail to find gpueb of_node (ENOENT)");
@@ -2500,6 +2507,9 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 			goto done;
 		}
 	}
+#else
+	g_gpueb_support = false;
+#endif /* GPUFREQ_GPUEB_ENABLE */
 
 	GPUFREQ_LOGI("gpufreq wrapper driver probe done, dual_buck: %s, gpueb: %s",
 		g_dual_buck ? "true" : "false",
