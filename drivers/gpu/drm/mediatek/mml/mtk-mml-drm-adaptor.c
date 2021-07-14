@@ -493,7 +493,7 @@ static void frame_calc_plane_offset(struct mml_frame_data *data,
 
 	data->plane_offset[0] = 0;
 	for (i = 1; i < MML_FMT_PLANE(data->format); i++) {
-		if (buf->fd[i] != buf->fd[i-1]) {
+		if (buf->fd[i] != buf->fd[i-1] && buf->fd[i] >= 0) {
 			/* different buffer for different plane, set to begin */
 			data->plane_offset[i] = 0;
 			continue;
