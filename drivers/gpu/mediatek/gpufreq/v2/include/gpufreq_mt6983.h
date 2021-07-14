@@ -66,12 +66,12 @@
 /**************************************************
  * Shader Present Setting
  **************************************************/
-#define MFG3_SHADER_STACK0              (T0C0 | T0C1)   /* MFG3, MFG9, MFG12 */
-#define MFG4_SHADER_STACK1              (T1C0)          /* MFG4, MFG10 */
-#define MFG5_SHADER_STACK2              (T2C0)          /* MFG5, MFG11 */
-#define MFG6_SHADER_STACK4              (T4C0 | T4C1)   /* MFG6, MFG13, MFG16 */
-#define MFG7_SHADER_STACK5              (T5C0 | T5C1)   /* MFG7, MFG14, MFG17 */
-#define MFG8_SHADER_STACK6              (T6C0 | T6C1)   /* MFG8, MFG15, MFG18 */
+#define MFG3_SHADER_STACK0              (T0C0 | T0C1)   /* MFG9, MFG12 */
+#define MFG4_SHADER_STACK1              (T1C0)          /* MFG10 */
+#define MFG5_SHADER_STACK2              (T2C0)          /* MFG11 */
+#define MFG6_SHADER_STACK4              (T4C0 | T4C1)   /* MFG13, MFG16 */
+#define MFG7_SHADER_STACK5              (T5C0 | T5C1)   /* MFG14, MFG17 */
+#define MFG8_SHADER_STACK6              (T6C0 | T6C1)   /* MFG15, MFG18 */
 
 #define GPU_SHADER_PRESENT_10 \
 	(MFG3_SHADER_STACK0 | MFG4_SHADER_STACK1 | MFG5_SHADER_STACK2 | \

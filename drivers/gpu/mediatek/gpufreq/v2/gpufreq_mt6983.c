@@ -3039,14 +3039,44 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 				"fail to enable mfg2_dev (%d)", ret);
 			goto done;
 		}
+		ret = pm_runtime_get_sync(g_mtcmos->mfg3_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable mfg3_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_get_sync(g_mtcmos->mfg4_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable mfg4_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_get_sync(g_mtcmos->mfg5_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable mfg5_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_get_sync(g_mtcmos->mfg6_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable mfg6_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_get_sync(g_mtcmos->mfg7_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable mfg7_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_get_sync(g_mtcmos->mfg8_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable mfg8_dev (%d)", ret);
+			goto done;
+		}
 
 		if (g_shader_present & MFG3_SHADER_STACK0) {
-			ret = pm_runtime_get_sync(g_mtcmos->mfg3_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mfg3_dev (%d)", ret);
-				goto done;
-			}
 			ret = pm_runtime_get_sync(g_mtcmos->mfg9_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3061,12 +3091,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 			}
 		}
 		if (g_shader_present & MFG4_SHADER_STACK1) {
-			ret = pm_runtime_get_sync(g_mtcmos->mfg4_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mfg4_dev (%d)", ret);
-				goto done;
-			}
 			ret = pm_runtime_get_sync(g_mtcmos->mfg10_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3075,12 +3099,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 			}
 		}
 		if (g_shader_present & MFG5_SHADER_STACK2) {
-			ret = pm_runtime_get_sync(g_mtcmos->mfg5_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mfg5_dev (%d)", ret);
-				goto done;
-			}
 			ret = pm_runtime_get_sync(g_mtcmos->mfg11_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3089,12 +3107,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 			}
 		}
 		if (g_shader_present & MFG6_SHADER_STACK4) {
-			ret = pm_runtime_get_sync(g_mtcmos->mfg6_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mfg6_dev (%d)", ret);
-				goto done;
-			}
 			ret = pm_runtime_get_sync(g_mtcmos->mfg13_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3109,12 +3121,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 			}
 		}
 		if (g_shader_present & MFG7_SHADER_STACK5) {
-			ret = pm_runtime_get_sync(g_mtcmos->mfg7_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mfg7_dev (%d)", ret);
-				goto done;
-			}
 			ret = pm_runtime_get_sync(g_mtcmos->mfg14_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3129,12 +3135,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 			}
 		}
 		if (g_shader_present & MFG8_SHADER_STACK6) {
-			ret = pm_runtime_get_sync(g_mtcmos->mfg8_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mfg8_dev (%d)", ret);
-				goto done;
-			}
 			ret = pm_runtime_get_sync(g_mtcmos->mfg15_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3182,12 +3182,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 					"fail to disable mfg15_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(g_mtcmos->mfg8_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mfg8_dev (%d)", ret);
-				goto done;
-			}
 		}
 		if (g_shader_present & MFG7_SHADER_STACK5) {
 			ret = pm_runtime_put_sync(g_mtcmos->mfg17_dev);
@@ -3200,12 +3194,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
 					"fail to disable mfg14_dev (%d)", ret);
-				goto done;
-			}
-			ret = pm_runtime_put_sync(g_mtcmos->mfg7_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mfg7_dev (%d)", ret);
 				goto done;
 			}
 		}
@@ -3222,12 +3210,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 					"fail to disable mfg13_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(g_mtcmos->mfg6_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mfg6_dev (%d)", ret);
-				goto done;
-			}
 		}
 		if (g_shader_present & MFG5_SHADER_STACK2) {
 			ret = pm_runtime_put_sync(g_mtcmos->mfg11_dev);
@@ -3236,24 +3218,12 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 					"fail to disable mfg11_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(g_mtcmos->mfg5_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mfg5_dev (%d)", ret);
-				goto done;
-			}
 		}
 		if (g_shader_present & MFG4_SHADER_STACK1) {
 			ret = pm_runtime_put_sync(g_mtcmos->mfg10_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
 					"fail to disable mfg10_dev (%d)", ret);
-				goto done;
-			}
-			ret = pm_runtime_put_sync(g_mtcmos->mfg4_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mfg4_dev (%d)", ret);
 				goto done;
 			}
 		}
@@ -3270,12 +3240,43 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 					"fail to disable mfg9_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(g_mtcmos->mfg3_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mfg3_dev (%d)", ret);
-				goto done;
-			}
+		}
+
+		ret = pm_runtime_put_sync(g_mtcmos->mfg8_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to disable mfg8_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_put_sync(g_mtcmos->mfg7_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to disable mfg7_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_put_sync(g_mtcmos->mfg6_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to disable mfg6_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_put_sync(g_mtcmos->mfg5_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to disable mfg5_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_put_sync(g_mtcmos->mfg4_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to disable mfg4_dev (%d)", ret);
+			goto done;
+		}
+		ret = pm_runtime_put_sync(g_mtcmos->mfg3_dev);
+		if (unlikely(ret < 0)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to disable mfg3_dev (%d)", ret);
+			goto done;
 		}
 		ret = pm_runtime_put_sync(g_mtcmos->mfg2_dev);
 		if (unlikely(ret < 0)) {
