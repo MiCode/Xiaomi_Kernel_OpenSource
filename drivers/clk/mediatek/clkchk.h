@@ -90,6 +90,4 @@ bool clkchk_pvdck_is_prepared(struct provider_clk *pvdck);
 bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck);
 bool is_valid_reg(void __iomem *addr);
 void set_clkchk_ops(const struct clkchk_ops *ops);
-
-extern bool pdchk_get_bug_on_stat(void);
 extern const struct dev_pm_ops clk_chk_dev_pm_ops;
