@@ -3472,12 +3472,20 @@
 
 		gpufreq: gpufreq {
 			compatible = "mediatek,gpufreq";
-			reg = <0 0x1020e000 0 0x1000>,  /* INFRACFG_BASE */
-			      <0 0x1021e000 0 0x1000>,  /* BPI_BSI_SLV0_BASE */
-			      <0 0x10023000 0 0x1000>,  /* DEVAPC_AO_INFRA_PERI_DEBUG1_BASE */
-			      <0 0x10025000 0 0x1000>,  /* DEVAPC_AO_INFRA_PERI_DEBUG2_BASE */
-			      <0 0x1002b000 0 0x1000>,  /* DEVAPC_AO_INFRA_PERI_DEBUG3_BASE */
-			      <0 0x1002e000 0 0x1000>;  /* DEVAPC_AO_INFRA_PERI_DEBUG4_BASE */
+			reg =
+				<0 0x1020e000 0 0x1000>,  /* INFRACFG */
+				<0 0x1021e000 0 0x1000>,  /* BPI_BSI_SLV0 */
+				<0 0x10023000 0 0x1000>,  /* DEVAPC_AO_INFRA_PERI_DEBUG1 */
+				<0 0x10025000 0 0x1000>,  /* DEVAPC_AO_INFRA_PERI_DEBUG2 */
+				<0 0x1002b000 0 0x1000>,  /* DEVAPC_AO_INFRA_PERI_DEBUG3 */
+				<0 0x1002e000 0 0x1000>;  /* DEVAPC_AO_INFRA_PERI_DEBUG4 */
+			reg-names =
+				"infracfg",
+				"bpi_bsi_slv0",
+				"devapc_ao_infra_peri_debug1",
+				"devapc_ao_infra_peri_debug2",
+				"devapc_ao_infra_peri_debug3",
+				"devapc_ao_infra_peri_debug4";
 			clocks =
 				<&topckgen_clk CLK_TOP_MFG_SEL>,
 				<&topckgen_clk CLK_TOP_MFGPLL>, /* mfgpll_ck(1150MHz) */
