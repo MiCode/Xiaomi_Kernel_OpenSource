@@ -13,6 +13,7 @@
 
 #include <linux/seq_file.h>
 #include <linux/sched/clock.h>
+#include "mtk_heap.h"
 
 #define DUMP_INFO_LEN_MAX    (400)
 #define SKIP_DMBUF_BUFFER_DUMP
@@ -36,17 +37,6 @@ struct mtk_heap_priv_info {
 	char *(*get_buf_dump_fmt)(const struct dma_heap *heap);
 	void (*show)(struct dma_heap *heap, void *seq_file, int flag);
 };
-
-/* Make sure same with system heap */
-struct dma_heap_attachment {
-	struct device *dev;
-	struct sg_table *table;
-	struct list_head list;
-	bool mapped;
-
-	bool uncached;
-};
-
 
 /* copy from struct system_heap_buffer */
 struct sys_heap_buf_debug_use {
@@ -123,43 +113,38 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 	struct dma_heap *dump_heap = dump_param->heap;
 	struct sys_heap_buf_debug_use *buf = dmabuf->priv;
 	struct dma_buf_attachment *attach_obj;
-	struct dma_heap_attachment *a;
-	/* dmabuf check */
-	if (!buf || !buf->heap || buf->heap != dump_heap)
+	int ret;
+	dma_addr_t iova = 0x0;
+	/*
+	 * if heap is NULL, dump all buffer
+	 * if heap is not NULL, dump matched buffer
+	 */
+	if (dump_heap && (!buf || buf->heap != dump_heap))
 		return 0;
 
-	dmabuf_dump(s, "\tinode:%-8d\tsize:0x%-8d"
-#ifdef CONFIG_DMABUF_SYSFS_STATS
-		    "\tmmap:%d"
-#endif
-		    "\tflag:0x%x\tmode:0x%x\tcount:%ld\texp:%s\n",
+	ret = dma_resv_lock_interruptible(dmabuf->resv, NULL);
+	if (ret)
+		return 0;
+
+	dmabuf_dump(s, "\tinode:%-8d\tsize:0x%-8lx\tcount:%ld\tcache_sg:%d\texp:%s\tname:%s\n",
 		    file_inode(dmabuf->file)->i_ino,
 		    dmabuf->size,
-#ifdef CONFIG_DMABUF_SYSFS_STATS
-		    dmabuf->mmap_count,
-#endif
-		    dmabuf->file->f_flags,
-		    dmabuf->file->f_mode,
 		    file_count(dmabuf->file),
-		    dmabuf->exp_name);
-	/*
-	 * iova here use sgt in dma_buf_attachment,
-	 * need set "cache_sgt_mapping = 1" for dmabuf_ops
-	 */
-	dma_resv_lock(dmabuf->resv, NULL);
+		    dmabuf->ops->cache_sgt_mapping,
+		    dmabuf->exp_name?:"NULL",
+		    dmabuf->name?:"NULL");
+
 	list_for_each_entry(attach_obj, &dmabuf->attachments, node) {
-		a = attach_obj->priv;
-		if (unlikely(!a)) {
-			dmabuf_dump(s, "\t%s\n", dev_name(attach_obj->dev));
-			continue;
-		}
-		dmabuf_dump(s, "\t%-16s\t0x%-16lx\t0x%-8p\t%-4lu\t%-4d"
+		if (attach_obj->sgt)
+			iova = sg_dma_address(attach_obj->sgt->sgl);
+
+		dmabuf_dump(s, "\tdev:%-16s, iova:0x%-16lx, sgt:0x%-8p, attr:%-4lu, dir:%-4d"
 #ifdef CONFIG_DMABUF_SYSFS_STATS
-			    "%-4d"
+			    "map_iova_cnt:%-4d"
 #endif
 			    "\n",
 			    dev_name(attach_obj->dev),
-			    sg_dma_address(a->table->sgl),
+			    iova,
 			    attach_obj->sgt,
 			    attach_obj->dma_map_attrs,
 			    attach_obj->dir
@@ -168,8 +153,8 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 #endif
 			    );
 	}
-	dma_resv_unlock(dmabuf->resv);
 	dmabuf_dump(s, "\n");
+	dma_resv_unlock(dmabuf->resv);
 
 	return 0;
 
@@ -226,43 +211,30 @@ static long get_dma_heap_buffer_total(struct dma_heap *heap)
  */
 #define __HEAP_TOTAL_BUFFER_SZ_DUMP(s, heap)          \
 dmabuf_dump(s, "[%s] buffer total size: %ld KB\n",    \
-	    dma_heap_get_name(heap),                  \
+	    heap ? dma_heap_get_name(heap) : "all",    \
 	    get_dma_heap_buffer_total(heap)*4/PAGE_SIZE)
 
 #define __HEAP_BUF_DUMP_START(s, heap)                    \
 dmabuf_dump(s, "[%s] buffer dump start @%llu ms\n",       \
-	    dma_heap_get_name(heap), get_current_time_ms())
+	    heap ? dma_heap_get_name(heap) : "all",       \
+	    get_current_time_ms())
 
-#if defined(CONFIG_DMABUF_SYSFS_STATS)
-#define __HEAP_ATTACH_DUMP_STAT(s, heap)                                   \
-do {                                                                       \
-	dmabuf_dump(s, "[%s] attach list dump Start @%llu ms\n",           \
-		    dma_heap_get_name(heap), get_current_time_ms());       \
-	dmabuf_dump(s, "\t%-16s\t%-16s\t%-8s\t%-4s\t%-4s\t%s\n",          \
-		    "Dev", "iova", "sgt", "attr", "dir", "map_iova_cnt"); \
-} while (0)
+#define __HEAP_ATTACH_DUMP_STAT(s, heap)                                  \
+	dmabuf_dump(s, "[%s] attach list dump Start @%llu ms\n",          \
+		    heap ? dma_heap_get_name(heap) : "all",               \
+		    get_current_time_ms())
 
-#else
-
-#define __HEAP_ATTACH_DUMP_STAT(s, heap)                             \
-do {                                                                 \
-	dmabuf_dump(s, "[%s] attach list dump Start @%llu ms\n",     \
-		    dma_heap_get_name(heap), get_current_time_ms()); \
-	dmabuf_dump(s, "\t%-16s\t%-16s\t%-8s\t%-4s\t%-4s\n",        \
-		    "Dev", "iova", "sgt", "attr", "dir");           \
-} while (0)
-#endif
-
-#define __HEAP_ATTACH_DUMP_END(s, heap)                              \
-	dmabuf_dump(s, "[%s] attachment list dump End @%llu ms\n",   \
-		    dma_heap_get_name(heap), get_current_time_ms())
+#define __HEAP_ATTACH_DUMP_END(s, heap)                             \
+	dmabuf_dump(s, "[%s] attachment list dump End @%llu ms\n",  \
+		    heap ? dma_heap_get_name(heap) : "all",         \
+		    get_current_time_ms())
 
 //#define __HEAP_ATTACH_DUMP(s, heap, dump_param)
 
 #define __HEAP_PAGE_POOL_DUMP(s, heap)                                       \
 {                                                                            \
 	struct dma_heap_export_info *exp_info = (typeof(exp_info))heap;      \
-	if (exp_info->ops->get_pool_size) {                                  \
+	if (exp_info && exp_info->ops && exp_info->ops->get_pool_size) {     \
 		dmabuf_dump(s, "[%s] page_pool size: %ld KB\n",              \
 			    dma_heap_get_name(heap),                         \
 			    exp_info->ops->get_pool_size(heap)*4/PAGE_SIZE); \

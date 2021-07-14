@@ -28,6 +28,7 @@
 #include <public/trusted_mem_api.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
 #include "mtk_heap_debug.h"
+#include "mtk_heap.h"
 #include "mtk_iommu.h"
 
 enum sec_heap_region_type {
@@ -383,6 +384,9 @@ static void tmem_region_free(struct dma_buf *dmabuf)
 
 	pr_info("%s done: [%s], size:0x%lx, total_size:0x%lx\n", __func__,
 		dmabuf->exp_name, buffer->len, atomic64_read(&sec_heap->total_size));
+
+	/* allocated when alloc buffer, need free */
+	kfree(dmabuf->exp_name);
 }
 
 static void tmem_page_free(struct dma_buf *dmabuf)
@@ -419,6 +423,9 @@ static void tmem_page_free(struct dma_buf *dmabuf)
 
 	pr_info("%s done: [%s], size:0x%lx, total_size:0x%lx\n", __func__,
 		dmabuf->exp_name, buffer->len, atomic64_read(&sec_heap->total_size));
+
+	/* allocated when alloc buffer, need free */
+	kfree(dmabuf->exp_name);
 }
 
 static int mtk_sec_heap_attach(struct dma_buf *dmabuf,
@@ -1018,9 +1025,13 @@ free_tmem:
 	return ret;
 }
 
-static void init_buffer_info(struct dma_heap *heap, struct mtk_sec_heap_buffer *buffer)
+static void init_buffer_info(struct dma_heap *heap,
+			     struct mtk_sec_heap_buffer *buffer,
+			     struct dma_buf *dmabuf)
 {
 	struct task_struct *task = current->group_leader;
+	char *alloc_str;
+	int str_len = 0;
 
 	/* all secure memory set as uncached buffer */
 	buffer->uncached = true;
@@ -1032,6 +1043,24 @@ static void init_buffer_info(struct dma_heap *heap, struct mtk_sec_heap_buffer *
 	get_task_comm(buffer->tid_name, current);
 	buffer->pid = task_pid_nr(task);
 	buffer->tid = task_pid_nr(current);
+
+	alloc_str = kzalloc(MTK_HEAP_EXP_NAME_LEN, GFP_KERNEL);
+	if (!alloc_str)
+		return;
+
+	str_len = scnprintf(alloc_str,
+			    MTK_HEAP_EXP_NAME_LEN,
+			    "%s: alloc pid-%d[%s] tid-%d[%s]",
+			    dma_heap_get_name(heap),
+			    buffer->pid, buffer->pid_name,
+			    buffer->tid, buffer->tid_name);
+	if (str_len >= MTK_HEAP_EXP_NAME_LEN)
+		pr_debug("debug info too long:alloc pid-%d[%s] tid-%d[%s]\n",
+			 buffer->pid, buffer->pid_name,
+			 buffer->tid, buffer->tid_name);
+
+	dmabuf->exp_name = alloc_str;
+
 }
 
 static struct dma_buf *alloc_dmabuf(struct dma_heap *heap, struct mtk_sec_heap_buffer *buffer,
@@ -1087,7 +1116,7 @@ static struct dma_buf *tmem_page_allocate(struct dma_heap *heap,
 		goto free_tmem;
 	}
 
-	init_buffer_info(heap, buffer);
+	init_buffer_info(heap, buffer, dmabuf);
 
 	pr_info("%s done: [%s], req_size:0x%lx, align_sz:0x%lx\n",
 		__func__, dma_heap_get_name(heap), len, buffer->len);
@@ -1140,7 +1169,7 @@ static struct dma_buf *tmem_region_allocate(struct dma_heap *heap,
 		pr_err("%s alloc_dmabuf fail\n", __func__);
 		goto free_tmem;
 	}
-	init_buffer_info(heap, buffer);
+	init_buffer_info(heap, buffer, dmabuf);
 
 	pr_info("%s done: [%s], req_size:0x%lx, align_sz:0x%lx\n",
 		__func__, dma_heap_get_name(heap), len, buffer->len);

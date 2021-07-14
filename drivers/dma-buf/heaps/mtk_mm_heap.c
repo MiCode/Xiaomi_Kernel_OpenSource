@@ -30,6 +30,7 @@
 #include <linux/iommu.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
 #include "mtk_heap_debug.h"
+#include "mtk_heap.h"
 
 static struct dma_heap *mtk_mm_heap;
 static struct dma_heap *mtk_mm_uncached_heap;
@@ -519,6 +520,9 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 	}
 	kfree(buf_info);
 
+	/* allocated when alloc buffer, need free */
+	kfree(dmabuf->exp_name);
+
 	/* free buffer memory */
 	deferred_free(&buffer->deferred_free, mtk_mm_heap_buf_free, npages);
 }
@@ -575,10 +579,13 @@ static struct dma_buf *mtk_mm_heap_do_allocate(struct dma_heap *heap,
 	int i, ret = -ENOMEM;
 	struct mm_heap_priv *info;
 	struct task_struct *task = current->group_leader;
+	char *alloc_str;
+	int str_len = 0;
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!buffer || !info)
+	alloc_str = kzalloc(MTK_HEAP_EXP_NAME_LEN, GFP_KERNEL);
+	if (!buffer || !info || !alloc_str)
 		return ERR_PTR(-ENOMEM);
 
 	INIT_LIST_HEAD(&buffer->attachments);
@@ -618,8 +625,26 @@ static struct dma_buf *mtk_mm_heap_do_allocate(struct dma_heap *heap,
 		list_del(&page->lru);
 	}
 
+	buffer->priv = info;
+	mutex_init(&info->map_lock);
+	/* add alloc pid & tid info */
+	get_task_comm(info->pid_name, task);
+	get_task_comm(info->tid_name, current);
+	info->pid = task_pid_nr(task);
+	info->tid = task_pid_nr(current);
+
+	str_len = scnprintf(alloc_str,
+			    MTK_HEAP_EXP_NAME_LEN,
+			    "%s: alloc pid-%d[%s] tid-%d[%s]",
+			    dma_heap_get_name(heap),
+			    info->pid, info->pid_name,
+			    info->tid, info->tid_name);
+	if (str_len >= MTK_HEAP_EXP_NAME_LEN)
+		pr_debug("debug info too long:alloc pid-%d[%s] tid-%d[%s]\n",
+			 info->pid, info->pid_name, info->tid, info->tid_name);
+
 	/* create the dmabuf */
-	exp_info.exp_name = dma_heap_get_name(heap);
+	exp_info.exp_name = alloc_str;
 	exp_info.ops = &mtk_mm_heap_buf_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
@@ -641,14 +666,6 @@ static struct dma_buf *mtk_mm_heap_do_allocate(struct dma_heap *heap,
 		dma_unmap_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
 	}
 
-	buffer->priv = info;
-	mutex_init(&info->map_lock);
-	/* add alloc pid & tid info */
-	get_task_comm(info->pid_name, task);
-	get_task_comm(info->tid_name, current);
-	info->pid = task_pid_nr(task);
-	info->tid = task_pid_nr(current);
-
 	return dmabuf;
 
 free_pages:
@@ -662,6 +679,7 @@ free_buffer:
 	list_for_each_entry_safe(page, tmp_page, &pages, lru)
 		__free_pages(page, compound_order(page));
 	kfree(buffer);
+	kfree(alloc_str);
 
 	return ERR_PTR(ret);
 }
