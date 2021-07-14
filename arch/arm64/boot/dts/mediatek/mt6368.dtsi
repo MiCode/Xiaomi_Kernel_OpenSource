@@ -58,6 +58,10 @@
 			#size-cells = <1>;
 		};
 
+		mt6368_consys: mt6368-consys {
+			compatible = "mediatek,mt6368-consys";
+		};
+
 		regulators {
 			mt6368_vbuck1: VBUCK1 {
 				regulator-compatible = "VBUCK1";
