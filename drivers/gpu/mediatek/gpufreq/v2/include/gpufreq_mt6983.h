@@ -190,7 +190,8 @@ enum gpufreq_clk_src {
  * Structure
  **************************************************/
 struct gpufreq_pmic_info {
-	struct regulator *reg_vgpu;
+	struct regulator *reg_vcore;
+	struct regulator *reg_dvfsrc;
 	struct regulator *reg_vstack;
 	struct regulator *reg_vsram;
 };

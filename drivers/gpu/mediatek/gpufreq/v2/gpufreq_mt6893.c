@@ -15,6 +15,7 @@
  */
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/ioport.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
@@ -2759,32 +2760,32 @@ done:
 /* API: init reg base address and flavor config of the platform */
 static int __gpufreq_init_platform_info(struct platform_device *pdev)
 {
-	struct device_node *of_gpufreq = pdev->dev.of_node;
+	struct device *gpufreq_dev = &pdev->dev;
 	struct device_node *of_gpueb;
+	struct resource *res;
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("pdev=0x%x", pdev);
 
-	if (!of_gpufreq) {
+	if (!gpufreq_dev) {
 		ret = GPUFREQ_ENOENT;
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to find gpufreq of_node (ENOENT)");
+		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to find gpufreq device (ENOENT)");
 		goto done;
 	}
 
 	of_gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
 	if (!of_gpueb) {
-		GPUFREQ_LOGE("fail to find gpueb node");
+		GPUFREQ_LOGE("fail to find gpueb of_node");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
 	/* ignore return error and use default value if property doesn't exist */
-	of_property_read_u32(of_gpufreq, "apply-mcl50-opp", &g_apply_mcl50_opp);
-	of_property_read_u32(of_gpufreq, "apply-6879-opp", &g_apply_6879_opp);
-	of_property_read_u32(of_gpufreq, "enable-aging", &g_aging_enable);
+	of_property_read_u32(gpufreq_dev->of_node, "apply-mcl50-opp", &g_apply_mcl50_opp);
+	of_property_read_u32(gpufreq_dev->of_node, "apply-6879-opp", &g_apply_6879_opp);
+	of_property_read_u32(gpufreq_dev->of_node, "enable-aging", &g_aging_enable);
 	of_property_read_u32(of_gpueb, "gpueb-support", &g_gpueb_support);
 
-	/* return error should be handled */
 	/* 0x1000C000 */
 	g_apmixed_base = __gpufreq_of_ioremap("mediatek,mt6893-apmixedsys", 0);
 	if (!g_apmixed_base) {
@@ -2807,21 +2808,24 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	g_infracfg_base = of_iomap(of_gpufreq, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "infracfg");
+	g_infracfg_base = devm_ioremap_resource(gpufreq_dev, res);
 	if (!g_infracfg_base) {
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap infracfg (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
-	g_infra_bpi_bsi_slv0 = of_iomap(of_gpufreq, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "bpi_bsi_slv0");
+	g_infra_bpi_bsi_slv0 = devm_ioremap_resource(gpufreq_dev, res);
 	if (!g_infra_bpi_bsi_slv0) {
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap bpi_bsi_slv0 (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
-	g_infra_peri_debug1 = of_iomap(of_gpufreq, 2);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "devapc_ao_infra_peri_debug1");
+	g_infra_peri_debug1 = devm_ioremap_resource(gpufreq_dev, res);
 	if (!g_infra_peri_debug1) {
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug1 (ENOENT)");
@@ -2829,7 +2833,8 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	g_infra_peri_debug2 = of_iomap(of_gpufreq, 3);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "devapc_ao_infra_peri_debug2");
+	g_infra_peri_debug2 = devm_ioremap_resource(gpufreq_dev, res);
 	if (!g_infra_peri_debug2) {
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug2 (ENOENT)");
@@ -2837,7 +2842,8 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	g_infra_peri_debug3 = of_iomap(of_gpufreq, 4);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "devapc_ao_infra_peri_debug3");
+	g_infra_peri_debug3 = devm_ioremap_resource(gpufreq_dev, res);
 	if (!g_infra_peri_debug3) {
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug3 (ENOENT)");
@@ -2845,13 +2851,8 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	ret = gpudfd_init(pdev);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to init DFD (%d)", ret);
-		goto done;
-	}
-
-	g_infra_peri_debug4 = of_iomap(of_gpufreq, 5);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "devapc_ao_infra_peri_debug4");
+	g_infra_peri_debug4 = devm_ioremap_resource(gpufreq_dev, res);
 	if (!g_infra_peri_debug4) {
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
 			"fail to ioremap devapc_ao_infra_peri_debug4 (ENOENT)");
@@ -2966,6 +2967,13 @@ register_fp:
 	ret = gpuppm_init(g_gpueb_support);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
+		goto done;
+	}
+
+	/* init gpu dfd */
+	ret = gpudfd_init(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init gpudfd (%d)", ret);
 		goto done;
 	}
 

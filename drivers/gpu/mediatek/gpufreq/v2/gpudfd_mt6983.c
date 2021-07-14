@@ -96,13 +96,15 @@ void __gpudfd_config_dfd(unsigned int enable)
 
 unsigned int gpudfd_init(struct platform_device *pdev)
 {
-	struct device_node *of_gpufreq = pdev->dev.of_node;
+	struct device *gpufreq_dev = &pdev->dev;
+	struct resource *res;
 	int ret = GPUFREQ_SUCCESS;
 
 	/* 0x13FBF000 */
-	g_mfg_top_base = of_iomap(of_gpufreq, 2);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_top_config");
+	g_mfg_top_base = devm_ioremap_resource(gpufreq_dev, res);
 	if (!g_mfg_top_base) {
-		GPUFREQ_LOGE("fail to ioremap g3d_config (ENOENT)");
+		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
