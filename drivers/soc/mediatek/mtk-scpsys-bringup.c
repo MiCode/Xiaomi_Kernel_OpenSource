@@ -11,6 +11,7 @@
 
 static const struct of_device_id scpsys_bring_up_id_table[] = {
 	{ .compatible = "mediatek,scpsys-bringup",},
+	{ .compatible = "mediatek,scpsys-bring-up",},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, scpsys_bring_up_id_table);
