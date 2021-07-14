@@ -1309,7 +1309,6 @@ s32 cmdq_op_poll(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_poll);
 
 static s32 cmdq_get_event_op_id(enum cmdq_event event)
 {
@@ -1339,7 +1338,6 @@ s32 cmdq_op_wait(struct cmdqRecStruct *handle, enum cmdq_event event)
 
 	return cmdq_pkt_wfe(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_wait);
 
 s32 cmdq_op_wait_no_clear(struct cmdqRecStruct *handle,
 	enum cmdq_event event)
@@ -1362,7 +1360,6 @@ s32 cmdq_op_clear_event(struct cmdqRecStruct *handle,
 
 	return cmdq_pkt_clear_event(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_clear_event);
 
 s32 cmdq_op_set_event(struct cmdqRecStruct *handle, enum cmdq_event event)
 {
@@ -1373,7 +1370,6 @@ s32 cmdq_op_set_event(struct cmdqRecStruct *handle, enum cmdq_event event)
 
 	return cmdq_pkt_set_event(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_set_event);
 
 s32 cmdq_op_replace_overwrite_cpr(struct cmdqRecStruct *handle, u32 index,
 	s32 new_arg_a, s32 new_arg_b, s32 new_arg_c)
@@ -1788,19 +1784,16 @@ s32 cmdq_alloc_write_addr(u32 count, dma_addr_t *paStart, u32 clt, void *fp)
 {
 	return cmdqCoreAllocWriteAddress(count, paStart, clt, fp);
 }
-EXPORT_SYMBOL(cmdq_alloc_write_addr);
 
 s32 cmdq_free_write_addr(dma_addr_t paStart, u32 clt)
 {
 	return cmdqCoreFreeWriteAddress(paStart, clt);
 }
-EXPORT_SYMBOL(cmdq_free_write_addr);
 
 s32 cmdq_free_write_addr_by_node(u32 clt, void *fp)
 {
 	return cmdqCoreFreeWriteAddressByNode(fp, clt);
 }
-EXPORT_SYMBOL(cmdq_free_write_addr_by_node);
 
 /* Allocate 32-bit register backup slot */
 s32 cmdq_alloc_mem(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
@@ -1912,7 +1905,6 @@ s32 cmdq_op_read_reg_to_mem(struct cmdqRecStruct *handle,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_read_reg_to_mem);
 
 s32 cmdq_op_read_mem_to_reg(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr)
@@ -2358,7 +2350,6 @@ s32 cmdq_task_destroy(struct cmdqRecStruct *handle)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_destroy);
 
 s32 cmdq_op_set_nop(struct cmdqRecStruct *handle, u32 index)
 {
@@ -3425,7 +3416,6 @@ s32 cmdqRecWaitNoClear(struct cmdqRecStruct *handle,
 {
 	return cmdq_op_wait_no_clear(handle, event);
 }
-EXPORT_SYMBOL(cmdq_op_wait_no_clear);
 
 s32 cmdqRecClearEventToken(struct cmdqRecStruct *handle,
 	enum cmdq_event event)

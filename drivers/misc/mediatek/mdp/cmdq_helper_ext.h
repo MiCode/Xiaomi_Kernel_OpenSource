@@ -51,6 +51,11 @@ enum TASK_STATE_ENUM {
 #define CMDQ_MAX_DBG_STR_LEN		(1024)
 #define CMDQ_MAX_USER_PROP_SIZE		(1024)
 
+extern struct cmdq_client *cmdq_clients[CMDQ_MAX_THREAD_COUNT];
+extern struct ContextStruct cmdq_ctx; /* cmdq driver context */
+extern struct CmdqCBkStruct *cmdq_group_cb;
+extern struct CmdqDebugCBkStruct cmdq_debug_cb;
+
 #define CMDQ_LOG(string, args...) \
 do {			\
 	pr_notice("[MDP]"string, ##args); \
@@ -975,4 +980,5 @@ void cmdq_helper_ext_deinit(void);
 struct cmdqSecSharedMemoryStruct *cmdq_core_get_secure_shared_memory(void);
 void cmdq_core_attach_error_handle(const struct cmdqRecStruct *handle,
 	s32 thread);
+
 #endif

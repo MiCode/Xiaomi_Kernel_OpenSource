@@ -3002,7 +3002,6 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
 	pFunc->getRDMAIndex = mdp_get_rdma_idx;
 }
-EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 
 MODULE_LICENSE("GPL");
 

@@ -11,6 +11,8 @@
 #include "cmdq_helper_ext.h"
 #include <linux/types.h>
 
+extern struct cmdqMDPFuncStruct mdp_funcs;
+
 #ifdef CONFIG_MTK_SMI_EXT
 
 /* get request */

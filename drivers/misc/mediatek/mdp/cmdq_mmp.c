@@ -11,7 +11,6 @@ struct MDP_MMP_events_t *mdp_mmp_get_event(void)
 {
 	return &mdp_mmp_events;
 }
-EXPORT_SYMBOL(mdp_mmp_get_event);
 
 void mdp_mmp_init(void)
 {
@@ -58,4 +57,3 @@ void mdp_mmp_init(void)
 	mmprofile_start(1);
 #endif
 }
-EXPORT_SYMBOL(mdp_mmp_init);

@@ -808,7 +808,6 @@ done:
 
 	return status;
 }
-EXPORT_SYMBOL(mdp_ioctl_async_exec);
 
 void mdp_check_pending_task(struct mdp_job_mapping *mapping_job)
 {
@@ -925,7 +924,6 @@ done:
 
 	return status;
 }
-EXPORT_SYMBOL(mdp_ioctl_async_wait);
 
 s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 {
@@ -999,7 +997,6 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(mdp_ioctl_alloc_readback_slots);
 
 s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param)
 {
@@ -1058,7 +1055,6 @@ s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param)
 
 	return cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
 }
-EXPORT_SYMBOL(mdp_ioctl_free_readback_slots);
 
 s32 mdp_ioctl_read_readback_slots(unsigned long param)
 {
@@ -1072,7 +1068,6 @@ s32 mdp_ioctl_read_readback_slots(unsigned long param)
 
 	return mdp_process_read_request(&read_req);
 }
-EXPORT_SYMBOL(mdp_ioctl_read_readback_slots);
 
 void mdp_ioctl_free_job_by_node(void *node)
 {
@@ -1127,7 +1122,6 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 	}
 	mutex_unlock(&rb_slot_list_mutex);
 }
-EXPORT_SYMBOL(mdp_ioctl_free_readback_slots_by_node);
 
 int mdp_limit_dev_create(struct platform_device *device)
 {

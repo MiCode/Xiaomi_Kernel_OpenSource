@@ -250,7 +250,6 @@ void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
 
 	CMDQ_LOG("read back dump end\n");
 }
-EXPORT_SYMBOL(cmdq_driver_dump_readback);
 
 static void cmdq_driver_process_read_address_request(
 	struct cmdqReadAddressStruct *req_user)
@@ -685,7 +684,6 @@ s32 cmdq_driver_ioctl_query_usage(struct file *pf, unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_driver_ioctl_query_usage);
 
 s32 cmdq_driver_ioctl_async_job_exec(struct file *pf,
 	unsigned long param)
@@ -984,7 +982,6 @@ s32 cmdq_driver_ioctl_query_cap_bits(unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_driver_ioctl_query_cap_bits);
 
 s32 cmdq_driver_ioctl_query_dts(unsigned long param)
 {
@@ -999,7 +996,6 @@ s32 cmdq_driver_ioctl_query_dts(unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_driver_ioctl_query_dts);
 
 s32 cmdq_driver_ioctl_notify_engine(unsigned long param)
 {
@@ -1013,7 +1009,6 @@ s32 cmdq_driver_ioctl_notify_engine(unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_driver_ioctl_notify_engine);
 
 static long cmdq_ioctl(struct file *pf, unsigned int code,
 	unsigned long param)
@@ -1166,7 +1161,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 	int status;
 	struct device *object;
 
-	CMDQ_LOG("MDP driver probe begin\n");
+	CMDQ_LOG("[MDP] MDP driver probe begin\n");
 
 	/* Function link */
 	cmdq_virtual_function_setting();

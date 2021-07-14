@@ -106,7 +106,6 @@ struct mdp_task {
 };
 static struct mdp_task mdp_tasks[MDP_MAX_TASK_NUM];
 static int mdp_tasks_idx;
-static struct cmdqMDPFuncStruct mdp_funcs;
 static long cmdq_mmsys_base;
 
 #define MDP_THREAD_COUNT ( \
@@ -164,7 +163,6 @@ struct EngineStruct *cmdq_mdp_get_engines(void)
 {
 	return mdp_ctx.engine;
 }
-EXPORT_SYMBOL(cmdq_mdp_get_engines);
 
 static void cmdq_mdp_reset_engine_struct(void)
 {
@@ -242,7 +240,6 @@ void cmdq_mdp_fix_command_scenario_for_user_space(
 		command->scenario = CMDQ_SCENARIO_USER_SPACE;
 	}
 }
-EXPORT_SYMBOL(cmdq_mdp_fix_command_scenario_for_user_space);
 
 bool cmdq_mdp_is_request_from_user_space(
 	const enum CMDQ_SCENARIO_ENUM scenario)
@@ -272,7 +269,6 @@ s32 cmdq_mdp_query_usage(s32 *counters)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_mdp_query_usage);
 
 s32 cmdq_mdp_get_smi_usage(void)
 {
@@ -357,7 +353,6 @@ void cmdq_mdp_reset_resource(void)
 		mutex_unlock(&mdp_resource_mutex);
 	}
 }
-EXPORT_SYMBOL(cmdq_mdp_reset_resource);
 
 /* Use CMDQ as Resource Manager */
 void cmdq_mdp_unlock_resource(struct work_struct *workItem)
@@ -441,7 +436,6 @@ void cmdq_mdp_enable_res(u64 engine_flag, bool enable)
 
 	mutex_unlock(&mdp_clock_mutex);
 }
-EXPORT_SYMBOL(cmdq_mdp_enable_res);
 
 static void cmdq_mdp_lock_res_impl(struct ResourceUnitStruct *res,
 	u64 engine_flag, bool from_notify)
@@ -502,7 +496,6 @@ void cmdq_mdp_lock_resource(u64 engine_flag, bool from_notify)
 			cmdq_mdp_lock_res_impl(res, engine_flag, from_notify);
 	}
 }
-EXPORT_SYMBOL(cmdq_mdp_lock_resource);
 
 bool cmdq_mdp_acquire_resource(enum cmdq_event res_event,
 	u64 *engine_flag_out)
@@ -530,7 +523,6 @@ bool cmdq_mdp_acquire_resource(enum cmdq_event res_event,
 	}
 	return result;
 }
-EXPORT_SYMBOL(cmdq_mdp_acquire_resource);
 
 void cmdq_mdp_release_resource(enum cmdq_event res_event,
 	u64 *engine_flag_out)
@@ -552,7 +544,6 @@ void cmdq_mdp_release_resource(enum cmdq_event res_event,
 		break;
 	}
 }
-EXPORT_SYMBOL(cmdq_mdp_release_resource);
 
 void cmdq_mdp_set_resource_callback(enum cmdq_event res_event,
 	CmdqResourceAvailableCB res_available,
@@ -685,7 +676,6 @@ void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 
 	mutex_unlock(&mdp_thread_mutex);
 }
-EXPORT_SYMBOL(cmdq_mdp_unlock_thread);
 
 static void cmdq_mdp_handle_prepare(struct cmdqRecStruct *handle)
 {
@@ -1204,7 +1194,6 @@ s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_mdp_handle_create);
 
 s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 			struct cmdqRecStruct *handle)
@@ -1296,7 +1285,6 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	return 0;
 #endif
 }
-EXPORT_SYMBOL(cmdq_mdp_handle_sec_setup);
 
 s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
 	u32 sec_handle, u32 index, u32 instr_index)
@@ -1322,13 +1310,11 @@ s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
 #endif
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_mdp_update_sec_addr_index);
 
 u32 cmdq_mdp_handle_get_instr_count(struct cmdqRecStruct *handle)
 {
 	return handle->pkt->cmd_buf_size / CMDQ_INST_SIZE;
 }
-EXPORT_SYMBOL(cmdq_mdp_handle_get_instr_count);
 
 s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 {
@@ -1361,7 +1347,6 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	CMDQ_TRACE_FORCE_END();
 	return status;
 }
-EXPORT_SYMBOL(cmdq_mdp_handle_flush);
 
 void cmdq_mdp_op_readback(struct cmdqRecStruct *handle, u16 engine,
 	dma_addr_t addr, u32 param)
@@ -1481,7 +1466,6 @@ flush_err_end:
 
 	return err;
 }
-EXPORT_SYMBOL(cmdq_mdp_flush_async);
 
 s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 {
@@ -1540,7 +1524,6 @@ struct cmdqRecStruct *cmdq_mdp_get_valid_handle(unsigned long job)
 
 	return handle;
 }
-EXPORT_SYMBOL(cmdq_mdp_get_valid_handle);
 
 s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 	struct cmdqRegValueStruct *results)
@@ -1620,7 +1603,6 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_mdp_wait);
 
 s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 {
@@ -1641,7 +1623,6 @@ s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_mdp_flush);
 
 static void cmdq_mdp_pool_create(void)
 {
@@ -1690,7 +1671,6 @@ void cmdq_mdp_resume(void)
 	 */
 	cmdq_mdp_add_consume_item();
 }
-EXPORT_SYMBOL(cmdq_mdp_resume);
 
 void cmdq_mdp_release_task_by_file_node(void *file_node)
 {
@@ -1731,7 +1711,6 @@ void cmdq_mdp_release_task_by_file_node(void *file_node)
 
 	mutex_unlock(&mdp_task_mutex);
 }
-EXPORT_SYMBOL(cmdq_mdp_release_task_by_file_node);
 
 void cmdq_mdp_dump_thread_usage(void)
 {
@@ -1777,7 +1756,6 @@ void cmdq_mdp_dump_resource(u32 event)
 	}
 	mutex_unlock(&mdp_resource_mutex);
 }
-EXPORT_SYMBOL(cmdq_mdp_dump_resource);
 
 static s32 cmdq_mdp_dump_common(u64 engineFlag, int level)
 {
@@ -1945,6 +1923,8 @@ void cmdq_mdp_init(struct platform_device *pdev)
 
 	CMDQ_LOG("%s\n", __func__);
 
+	CMDQ_LOG("[MDP] %s ++\n", __func__);
+
 	/* Register MDP callback */
 	cmdqCoreRegisterCB(mdp_func->getGroupMdp(), cmdq_mdp_clock_enable,
 		cmdq_mdp_dump_common, mdp_func->mdpResetEng,
@@ -1995,8 +1975,10 @@ void cmdq_mdp_init(struct platform_device *pdev)
 	CMDQ_LOG("dre hist sram start:%u\n", dre30_hist_sram_start);
 
 	cmdq_mdp_pool_create();
+
+	CMDQ_LOG("[MDP] %s --\n", __func__);
+
 }
-EXPORT_SYMBOL(cmdq_mdp_init);
 
 void cmdq_mdp_deinit(void)
 {
@@ -2260,13 +2242,11 @@ void cmdq_mdp_map_mmsys_VA(void)
 {
 	cmdq_mmsys_base = cmdq_dev_alloc_reference_VA_by_name("mmsys_config");
 }
-EXPORT_SYMBOL(cmdq_mdp_map_mmsys_VA);
 
 void cmdq_mdp_unmap_mmsys_VA(void)
 {
 	cmdq_dev_free_module_base_VA(cmdq_mmsys_base);
 }
-EXPORT_SYMBOL(cmdq_mdp_unmap_mmsys_VA);
 
 static void mdp_request_voltage(unsigned long frequency, bool is_mdp)
 {
@@ -3303,13 +3283,11 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->getRDMAIndex = mdp_get_rdma_idx_virtual;
 
 }
-EXPORT_SYMBOL(cmdq_mdp_virtual_function_setting);
 
 struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void)
 {
 	return &mdp_funcs;
 }
-EXPORT_SYMBOL(cmdq_mdp_get_func);
 
 void cmdq_mdp_enable(u64 engineFlag, u32 engine)
 {
@@ -4072,7 +4050,6 @@ const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 {
 	return cmdq_mdp_get_func()->parseErrModByEngFlag(handle);
 }
-EXPORT_SYMBOL(cmdq_mdp_parse_handle_error_module_by_hwflag);
 
 u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 {
@@ -4102,7 +4079,6 @@ u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 	}
 	return mdp_base[base] + offset;
 }
-EXPORT_SYMBOL(cmdq_mdp_get_hw_reg);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 u32 cmdq_mdp_get_hw_port(u32 base)
@@ -4119,13 +4095,11 @@ s32 cmdq_mdp_get_rdma_idx(u32 base)
 {
 	return cmdq_mdp_get_func()->getRDMAIndex(base);
 }
-EXPORT_SYMBOL(cmdq_mdp_get_rdma_idx);
 
 #ifdef MDP_COMMON_ENG_SUPPORT
 void cmdq_mdp_platform_function_setting(void)
 {
 }
-EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 #endif
 
 struct device *mdp_larb_dev_get(void)
