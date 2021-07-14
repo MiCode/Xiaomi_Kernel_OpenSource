@@ -1,4 +1,4 @@
-config VIDEO_MTK_AIE
+config MTK_CAMERA_FD_ISP7
 	tristate "Mediatek AI engine function"
 	select V4L2_MEM2MEM_DEV
 	depends on VIDEOBUF2_DMA_CONTIG
