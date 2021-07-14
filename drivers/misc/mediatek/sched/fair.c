@@ -680,10 +680,12 @@ static inline is_latency_sensitive(struct task_struct *p)
 {
 	bool latency_sensitive = false;
 
+	rcu_read_lock();
 	if (!uclamp_min_ls)
 		latency_sensitive = uclamp_latency_sensitive(p);
 	else
 		latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
+	rcu_read_unlock();
 
 	return latency_sensitive;
 }
