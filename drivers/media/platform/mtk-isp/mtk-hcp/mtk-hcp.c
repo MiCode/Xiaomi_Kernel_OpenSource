@@ -780,7 +780,7 @@ phys_addr_t mtk_hcp_mem_size;
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x400000,   /*4MB*/
+		.size = 0x1700000,   /*23MB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -795,7 +795,7 @@ phys_addr_t mtk_hcp_mem_size;
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x1700000,   /*23MB*/
+		.size = 0x1D00000,   /*29MB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
