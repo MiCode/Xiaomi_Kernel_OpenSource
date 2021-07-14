@@ -44,6 +44,7 @@
 static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
 
 static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
+static bool no_defer;
 
 enum {
 	TSTBUS_UAWM,
@@ -92,24 +93,27 @@ static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba);
 static void ufs_qcom_parse_g4_workaround_flag(struct ufs_qcom_host *host);
 static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val);
 
-static inline void cancel_timer_unvote_cpufreq(struct ufs_hba *hba)
+static inline void cancel_dwork_unvote_cpufreq(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct qos_cpu_group *qcg = host->ufs_qos->qcg + 1;
 	int err;
 
-	cancel_work_sync(&host->fwork);
-	hrtimer_cancel(&host->load_hrt);
+	if (host->cpufreq_dis)
+		return;
+
+	cancel_delayed_work_sync(&host->fwork);
 	if (!host->cur_freq_vote)
 		return;
 	atomic_set(&host->num_reqs_threshold, 0);
 
-	err = ufs_qcom_mod_min_cpufreq(0, qcg->min_freq);
+	err = ufs_qcom_mod_min_cpufreq(host->config_cpu,
+				       host->min_cpu_scale_freq);
 	if (err < 0)
 		dev_err(hba->dev, "fail set cpufreq-fmin_def %d:\n",
 				err);
 	else
 		host->cur_freq_vote = false;
+	dev_dbg(hba->dev, "%s,err=%d\n", __func__, err);
 }
 
 static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
@@ -1134,8 +1138,7 @@ static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val)
 }
 
 static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
-					unsigned int cpu,
-					struct freq_qos_request *qos_req)
+					unsigned int cpu)
 {
 	int ret;
 	struct cpufreq_policy *policy;
@@ -1143,7 +1146,8 @@ static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
 
 	policy = cpufreq_cpu_get(cpu);
 	if (!policy) {
-		dev_err(host->hba->dev, "Failed to get cpufreq policy\n");
+		dev_err(host->hba->dev, "Failed to get cpu(%u)freq policy\n",
+			cpu);
 		return -EINVAL;
 	}
 
@@ -1157,11 +1161,11 @@ static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
 	return ret;
 }
 
-static void ufs_qcom_cpufreq_work(struct work_struct *work)
+static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 {
-	struct ufs_qcom_host *host = container_of(work, struct ufs_qcom_host,
-						 fwork);
-	struct qos_cpu_group *qcg = host->ufs_qos->qcg + 1;
+	struct ufs_qcom_host *host = container_of(to_delayed_work(work),
+							struct ufs_qcom_host,
+							fwork);
 	unsigned long cur_thres = atomic_read(&host->num_reqs_threshold);
 	unsigned int freq_val = -1;
 	int err = -1;
@@ -1169,36 +1173,26 @@ static void ufs_qcom_cpufreq_work(struct work_struct *work)
 	atomic_set(&host->num_reqs_threshold, 0);
 
 	if (cur_thres > NUM_REQS_HIGH_THRESH && !host->cur_freq_vote)
-		freq_val = qcg->max_freq;
+		freq_val = host->max_cpu_scale_freq;
 	else if (cur_thres < NUM_REQS_LOW_THRESH && host->cur_freq_vote)
-		freq_val = qcg->min_freq;
+		freq_val = host->min_cpu_scale_freq;
 
 	if (freq_val == -1)
 		goto out;
 
-	err = ufs_qcom_mod_min_cpufreq(0, freq_val);
+	err = ufs_qcom_mod_min_cpufreq(host->config_cpu, freq_val);
 	if (err < 0)
 		dev_err(host->hba->dev, "fail set cpufreq-fmin to %d: %u\n",
 				err, freq_val);
-	else if (freq_val == qcg->max_freq)
+	else if (freq_val == host->max_cpu_scale_freq)
 		host->cur_freq_vote = true;
-	else if (freq_val == qcg->min_freq)
+	else if (freq_val == host->min_cpu_scale_freq)
 		host->cur_freq_vote = false;
+	dev_dbg(host->hba->dev, "cur_freq_vote=%d,freq_val=%u,cth=%u\n",
+		host->cur_freq_vote, freq_val, cur_thres);
 out:
-	if (!hrtimer_active(&host->load_hrt))
-		hrtimer_start(&host->load_hrt,
-			ms_to_ktime(host->load_delay_ms),
-			HRTIMER_MODE_REL);
-}
-
-static enum hrtimer_restart ufs_qcom_decide_load(struct hrtimer *timer)
-{
-	struct ufs_qcom_host *host = container_of(timer, struct ufs_qcom_host,
-					load_hrt);
-
-	queue_work(host->ufs_qos->workq, &host->fwork);
-
-	return HRTIMER_NORESTART;
+	queue_delayed_work(host->ufs_qos->workq, &host->fwork,
+			   msecs_to_jiffies(UFS_QCOM_LOAD_MON_DLY_MS));
 }
 
 static int add_group_qos(struct qos_cpu_group *qcg, enum constraint type)
@@ -1277,7 +1271,7 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	ufs_qcom_ice_disable(host);
 
-	cancel_timer_unvote_cpufreq(hba);
+	cancel_dwork_unvote_cpufreq(hba);
 	return err;
 }
 
@@ -2095,7 +2089,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		break;
 	}
 	if (!(!!atomic_read(&host->clks_on)))
-		cancel_timer_unvote_cpufreq(hba);
+		cancel_dwork_unvote_cpufreq(hba);
 
 	return err;
 }
@@ -2557,7 +2551,8 @@ static void ufs_qcom_qos(struct ufs_hba *hba, int tag, bool is_scsi_cmd)
 	if (!qcg)
 		return;
 
-	if (qcg->perf_core && !!atomic_read(&host->scale_up))
+	if (qcg->perf_core && !host->cpufreq_dis &&
+					!!atomic_read(&host->scale_up))
 		atomic_inc(&host->num_reqs_threshold);
 
 	if (qcg->voted) {
@@ -2616,22 +2611,34 @@ static int ufs_qcom_setup_qos(struct ufs_hba *hba)
 		}
 		INIT_WORK(&qcg->vwork, ufs_qcom_vote_work);
 
+		if (host->cpufreq_dis || qcg->perf_core)
+			continue;
+		/* Bump up the cpufreq of the non-perf group */
 		cpu = cpumask_first((const struct cpumask *)&qcg->mask);
 		policy = cpufreq_cpu_get(cpu);
 		if (!policy) {
-			dev_err(host->hba->dev, "Failed to get cpufreq policy\n");
-			return -EINVAL;
+			dev_err(dev, "Failed cpufreq policy,cpu=%d,mask=0x%08x\n",
+				__func__, cpu, qcg->mask);
+			host->cpufreq_dis = true;
+			host->config_cpu = -1;
+			continue;
 		}
-		qcg->min_freq = policy->cpuinfo.min_freq;
-		qcg->max_freq = policy->cpuinfo.max_freq;
+		host->config_cpu = cpu;
+		host->min_cpu_scale_freq = policy->cpuinfo.min_freq;
+		host->max_cpu_scale_freq = policy->cpuinfo.max_freq;
 		cpufreq_cpu_put(policy);
 	}
 
-	INIT_WORK(&host->fwork, ufs_qcom_cpufreq_work);
-	err = ufs_qcom_init_cpu_minfreq_req(host, 0, host->req);
-	if (err)
-		dev_err(dev, "Failed to register for freq_qos: %d\n", err);
-
+	if (!host->cpufreq_dis) {
+		err = ufs_qcom_init_cpu_minfreq_req(host, host->config_cpu);
+		if (err) {
+			dev_err(dev, "Failed to register for freq_qos: %d\n",
+				err);
+			host->cpufreq_dis = true;
+		} else {
+			INIT_DELAYED_WORK(&host->fwork, ufs_qcom_cpufreq_dwork);
+		}
+	}
 	qr->workq = create_singlethread_workqueue("qc_ufs_qos_swq");
 	if (qr->workq)
 		return 0;
@@ -2654,6 +2661,7 @@ static void ufs_qcom_qos_init(struct ufs_hba *hba)
 	int i, err, mask = 0;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
+	host->cpufreq_dis = true;
 	qr = kzalloc(sizeof(*qr), GFP_KERNEL);
 	if (!qr)
 		return;
@@ -2682,10 +2690,12 @@ static void ufs_qcom_qos_init(struct ufs_hba *hba)
 			goto out_err;
 		}
 
-		if (of_property_read_bool(group_node, "perf"))
+		if (of_property_read_bool(group_node, "perf")) {
 			qcg->perf_core = true;
-		else
+			host->cpufreq_dis = false;
+		} else {
 			qcg->perf_core = false;
+		}
 
 		err = of_property_count_u32_elems(group_node, "vote");
 		if (err <= 0) {
@@ -3046,9 +3056,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	ufs_qcom_qos_init(hba);
 
-	hrtimer_init(&host->load_hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	host->load_hrt.function = ufs_qcom_decide_load;
-	host->load_delay_ms = UFS_QCOM_LOAD_MON_DLY_MS;
 	goto out;
 
 out_disable_vccq_parent:
@@ -3246,13 +3253,16 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 			return err;
 		if (scale_up) {
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
-			if (!hrtimer_active(&host->load_hrt))
-				hrtimer_start(&host->load_hrt,
-					ms_to_ktime(host->load_delay_ms),
-					HRTIMER_MODE_REL);
+			if (!host->cpufreq_dis) {
+				atomic_set(&host->num_reqs_threshold, 0);
+				queue_delayed_work(host->ufs_qos->workq,
+						  &host->fwork,
+					msecs_to_jiffies(
+						UFS_QCOM_LOAD_MON_DLY_MS));
+			}
 		} else {
 			err = ufs_qcom_clk_scale_down_pre_change(hba);
-			cancel_timer_unvote_cpufreq(hba);
+			cancel_dwork_unvote_cpufreq(hba);
 		}
 		if (err)
 			ufshcd_uic_hibern8_exit(hba);
@@ -3881,7 +3891,25 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	int err;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	struct cpufreq_policy *policy;
 
+	/**
+	 * CPUFreq driver is needed for performance reasons.
+	 * Assumption - cpufreq gets probed the second time.
+	 * If cpufreq is not probed by the time the driver requests for cpu
+	 * policy later on, cpufreq would be disabled and performance would be
+	 * impacted adversly.
+	 */
+	policy = cpufreq_cpu_get(0);
+	if (!policy && !no_defer) {
+		no_defer = true;
+		dev_warn(dev, "cpufreq not probed yet, defer once\n");
+		return -EPROBE_DEFER;
+	} else if (policy) {
+		cpufreq_cpu_put(policy);
+	} else {
+		dev_warn(dev, "cpufreq enable may fail\n");
+	}
 	/*
 	 * On qcom platforms, bootdevice is the primary storage
 	 * device. This device can either be eMMC or UFS.
