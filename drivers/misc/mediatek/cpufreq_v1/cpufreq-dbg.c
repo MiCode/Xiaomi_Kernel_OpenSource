@@ -271,6 +271,10 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 	min = (unsigned int)(mHz / 1000);
 
 	policy = cpufreq_cpu_get(cpu);
+	if (policy == NULL) {
+		pr_info("[DVFS] Can not get the policy of cpu%d\n", cpu);
+		return count;
+	}
 	down_write(&policy->rwsem);
 	policy->cpuinfo.max_freq = max;
 	policy->cpuinfo.min_freq = min;
