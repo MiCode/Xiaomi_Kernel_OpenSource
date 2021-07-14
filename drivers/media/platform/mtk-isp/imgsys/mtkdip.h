@@ -38,6 +38,12 @@ struct fd_tbl {
 #define MTKDIP_IOC_ADD_IOVA _IOW('V', BASE_VIDIOC_PRIVATE + 10, struct fd_tbl)
 #define MTKDIP_IOC_DEL_IOVA _IOW('V', BASE_VIDIOC_PRIVATE + 11, struct fd_tbl)
 
+struct sensor_info {
+	uint16_t full_wd;
+	uint16_t full_ht;
+};
+#define MTKDIP_IOC_S_SENSOR_INFO \
+			_IOW('V', BASE_VIDIOC_PRIVATE + 12, struct sensor_info)
 
 #define STANDARD_MODE_MAX_FRAMES (1)
 #define BATCH_MODE_MAX_FRAMES (32)
