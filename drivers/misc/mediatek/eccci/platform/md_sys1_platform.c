@@ -464,6 +464,8 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 			"In interrupt, skip dump MD debug register.\n");
 		return;
 	}
+	if (md_cd_plat_val_ptr.md_gen == 6298)
+		return;
 	md_cd_lock_modem_clock_src(1);
 	if (md->hw_info->plat_ptr->md_dump_reg)
 		md->hw_info->plat_ptr->md_dump_reg(md->index);
