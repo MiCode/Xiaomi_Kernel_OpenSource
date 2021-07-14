@@ -58,21 +58,6 @@ static struct rb_root hwui_info_tree;
 
 static DEFINE_MUTEX(fpsgo_render_lock);
 
-/*
- * Must be called under rcu_read_lock().
- */
-struct task_struct *find_task_by_pid_ns(pid_t nr, struct pid_namespace *ns)
-{
-	RCU_LOCKDEP_WARN(!rcu_read_lock_held(),
-			 "needs rcu_read_lock() protection");
-	return pid_task(find_pid_ns(nr, ns), PIDTYPE_PID);
-}
-
-struct task_struct *find_task_by_vpid(pid_t vnr)
-{
-	return find_task_by_pid_ns(vnr, task_active_pid_ns(current));
-}
-
 long long fpsgo_task_sched_runtime(struct task_struct *p)
 {
 	return p->se.sum_exec_runtime;

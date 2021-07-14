@@ -12,6 +12,7 @@
 #define API_READY 0
 
 static struct cpumask mask[FPSGO_PREFER_TOTAL];
+static int mask_int[FPSGO_PREFER_TOTAL];
 static int mask_done;
 
 void fbt_notify_CM_limit(int reach_limit)
@@ -111,7 +112,7 @@ out:
 	fpsgo_systrace_c_fbt_gm(pid, 0, attr.sched_util_max, "max_cap");
 }
 
-static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
+static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask, int *cpu_mask_int)
 {
 	if (prefer_type == FPSGO_PREFER_LITTLE) {
 		cpumask_setall(cpu_mask);
@@ -119,14 +120,19 @@ static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
 		cpumask_clear_cpu(5, cpu_mask);
 		cpumask_clear_cpu(6, cpu_mask);
 		cpumask_clear_cpu(7, cpu_mask);
-	} else if (prefer_type == FPSGO_PREFER_NONE)
+		*cpu_mask_int = 15;
+	} else if (prefer_type == FPSGO_PREFER_NONE) {
 		cpumask_setall(cpu_mask);
+		*cpu_mask_int = 255;
+	}
 	else if (prefer_type == FPSGO_PREFER_BIG) {
 		cpumask_clear(cpu_mask);
 		cpumask_set_cpu(7, cpu_mask);
+		*cpu_mask_int = 128;
 	} else if (prefer_type == FPSGO_PREFER_L_M) {
 		cpumask_setall(cpu_mask);
 		cpumask_clear_cpu(7, cpu_mask);
+		*cpu_mask_int = 127;
 	} else
 		return -1;
 
@@ -137,21 +143,26 @@ static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
 
 void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 {
-	long ret;
+	long ret = 0;
 
 	if (!mask_done) {
 		generate_cpu_mask(FPSGO_PREFER_LITTLE,
-					&mask[FPSGO_PREFER_LITTLE]);
-		generate_cpu_mask(FPSGO_PREFER_NONE, &mask[FPSGO_PREFER_NONE]);
-		generate_cpu_mask(FPSGO_PREFER_BIG, &mask[FPSGO_PREFER_BIG]);
-		generate_cpu_mask(FPSGO_PREFER_L_M, &mask[FPSGO_PREFER_L_M]);
+			&mask[FPSGO_PREFER_LITTLE], &mask_int[FPSGO_PREFER_LITTLE]);
+		generate_cpu_mask(FPSGO_PREFER_NONE,
+			&mask[FPSGO_PREFER_NONE], &mask_int[FPSGO_PREFER_NONE]);
+		generate_cpu_mask(FPSGO_PREFER_BIG,
+			&mask[FPSGO_PREFER_BIG], &mask_int[FPSGO_PREFER_BIG]);
+		generate_cpu_mask(FPSGO_PREFER_L_M,
+			&mask[FPSGO_PREFER_L_M], &mask_int[FPSGO_PREFER_L_M]);
 	}
 
+	fpsgo_systrace_c_fbt(pid, 0, *cpumask_bits(&mask[prefer_type]), "fpsgo_mask");
 #if API_READY
 	ret = sched_setaffinity(pid, &mask[prefer_type]);
 #else
-	ret = -100;
+	fpsgo_sentcmd(FPSGO_SET_AFFINITY, pid, mask_int[prefer_type]);
 #endif
+
 	if (ret != 0) {
 		fpsgo_systrace_c_fbt(pid, 0, ret, "setaffinity fail");
 		fpsgo_systrace_c_fbt(pid, 0, 0, "setaffinity fail");
