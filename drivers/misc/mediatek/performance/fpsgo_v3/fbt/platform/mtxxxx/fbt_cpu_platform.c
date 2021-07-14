@@ -156,7 +156,6 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 			&mask[FPSGO_PREFER_L_M], &mask_int[FPSGO_PREFER_L_M]);
 	}
 
-	fpsgo_systrace_c_fbt(pid, 0, *cpumask_bits(&mask[prefer_type]), "fpsgo_mask");
 #if API_READY
 	ret = sched_setaffinity(pid, &mask[prefer_type]);
 #else
