@@ -4512,6 +4512,8 @@ int save_modules(char *mbuf, int mbufsize)
 		text_addr = (unsigned long)mod->core_layout.base;
 		init_addr = (unsigned long)mod->init_layout.base;
 		search_nm = 2;
+		if (!mod->sect_attrs)
+			continue;
 		for (i = 0; i < mod->sect_attrs->nsections; i++) {
 			if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name, ".text")) {
 				text_addr = mod->sect_attrs->attrs[i].address;
