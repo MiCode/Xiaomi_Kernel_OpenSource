@@ -466,7 +466,7 @@ int mtk_icc_set_bw(struct icc_path *path, u32 avg_bw, u32 peak_bw)
 	size_t i;
 	int ret;
 
-	if (!path || !path->num_nodes)
+	if (IS_ERR_OR_NULL(path) || !path->num_nodes)
 		return 0;
 
 	mutex_lock(&icc_lock);
