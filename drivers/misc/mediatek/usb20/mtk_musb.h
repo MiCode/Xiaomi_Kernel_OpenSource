@@ -6,6 +6,7 @@
 #ifndef __MUSB_MTK_MUSB_H__
 #define __MUSB_MTK_MUSB_H__
 
+#ifdef CONFIG_MTK_MUSB_PHY
 #ifdef CONFIG_OF
 extern struct musb *mtk_musb;
 
@@ -32,6 +33,7 @@ extern struct musb *mtk_musb;
 	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) & (~(mask)))
 
 #endif /* End of CONFIG_OF define */
+#endif /* End of CONFIG_MTK_MUSB_PHY */
 
 struct musb;
 

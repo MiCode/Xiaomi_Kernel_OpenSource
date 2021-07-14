@@ -2400,6 +2400,7 @@ static int musb_init_controller
 	musb->nIrq = nIrq;
 
 	glue->mtk_musb = mtk_musb;
+	mtk_musb->glue = glue;
 
 	/* The musb_platform_init() call:
 	 *   - adjusts musb->mregs

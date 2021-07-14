@@ -490,6 +490,7 @@ struct musb {
 #if defined(CONFIG_USB_ROLE_SWITCH)
 	struct otg_switch_mtk *otg_sx;
 #endif
+	struct mt_usb_glue *glue;
 
 	/* host suspend */
 	bool host_suspend;

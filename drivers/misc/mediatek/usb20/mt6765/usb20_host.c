@@ -89,6 +89,7 @@ module_param(vbus_on, bool, 0644);
 static int vbus_control;
 module_param(vbus_control, int, 0644);
 
+#ifdef CONFIG_MTK_MUSB_PHY
 void set_usb_phy_mode(int mode)
 {
 	switch (mode) {
@@ -115,6 +116,7 @@ void set_usb_phy_mode(int mode)
 	}
 	DBG(0, "force PHY to mode %d, 0x6c=%x\n", mode, USBPHY_READ32(0x6c));
 }
+#endif
 
 static void _set_vbus(int is_on)
 {
@@ -371,6 +373,7 @@ static void do_host_work(struct work_struct *data)
 	int usb_clk_state = NO_CHANGE;
 	struct mt_usb_work *work =
 		container_of(data, struct mt_usb_work, dwork.work);
+	struct mt_usb_glue *glue = mtk_musb->glue;
 
 	/*
 	 * kernel_init_done should be set in
@@ -449,7 +452,7 @@ static void do_host_work(struct work_struct *data)
 		musb_writeb(mtk_musb->mregs,
 				MUSB_DEVCTL, (devctl&(~MUSB_DEVCTL_SESSION)));
 
-		set_usb_phy_mode(PHY_MODE_INVALID);
+		phy_set_mode(glue->phy, PHY_MODE_INVALID);
 
 		/* wait */
 		mdelay(5);
@@ -458,7 +461,7 @@ static void do_host_work(struct work_struct *data)
 		musb_writeb(mtk_musb->mregs,
 				MUSB_DEVCTL, (devctl | MUSB_DEVCTL_SESSION));
 
-		set_usb_phy_mode(PHY_MODE_USB_HOST);
+		phy_set_mode(glue->phy, PHY_MODE_USB_HOST);
 
 		musb_start(mtk_musb);
 
@@ -487,7 +490,7 @@ static void do_host_work(struct work_struct *data)
 			__pm_relax(mtk_musb->usb_lock);
 
 		/* for no VBUS sensing IP */
-		set_usb_phy_mode(PHY_MODE_INVALID);
+		phy_set_mode(glue->phy, PHY_MODE_INVALID);
 
 		musb_stop(mtk_musb);
 

@@ -296,10 +296,10 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 		if (id_event) {
 			dev_info(dev, "%s: if id_event true\n", __func__);
 
-			phy_set_mode(glue->phy, PHY_MODE_USB_HOST);
 			phy_power_on(glue->phy);
-
 			musb_platform_set_mode(musb, MUSB_HOST);
+
+			/* PHY mode will be set in host_connect work */
 			mt_usb_set_mailbox(otg_sx, MUSB_ID_GROUND);
 		} else {
 			/*
@@ -311,6 +311,7 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 			else
 				first_init = false;
 
+			/* PHY mode will be set in host_disconnect work */
 			mt_usb_set_mailbox(otg_sx, MUSB_ID_FLOAT);
 			phy_power_off(glue->phy);
 
