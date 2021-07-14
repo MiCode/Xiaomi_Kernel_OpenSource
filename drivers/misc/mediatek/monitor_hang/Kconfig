@@ -22,3 +22,11 @@ config MTK_HANG_DETECT_LOG
 	  MTK, when detect device hang, it will print debug log. The kernel
 	  debug log is larger, We can't enable the feature general. But when
 	  MTK_HANG_DETECT_DB is disable, we should enable this feature.
+
+config MTK_HANG_PROC
+	bool "enable hang proc interface"
+	help
+	  MTK_HANG_PROC is the kernel config of hang feature designed by
+	  MTK, after enable this config, you can get kernel backtrace and
+	  native backtrace by proc interface.if value is 2, will dump all
+	  thread info; if value > 10, will dump backtrace of pid equals value.

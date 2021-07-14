@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/pid.h>
 #include <linux/poll.h>
+#include <linux/proc_fs.h>
 #include <linux/ptrace.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
@@ -23,6 +24,7 @@
 #include <linux/sched/signal.h>
 #include <linux/sched/task.h>
 #include <linux/semaphore.h>
+#include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
@@ -72,7 +74,9 @@ static bool reboot_flag;
 static struct name_list *white_list;
 static struct hang_callback_list *callback_list;
 
-
+#ifdef CONFIG_MTK_HANG_PROC
+static struct proc_dir_entry *pe;
+#endif
 
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
@@ -81,6 +85,7 @@ DEFINE_RAW_SPINLOCK(callback_list_lock);
 
 static void show_status(int flag);
 static void monitor_hang_kick(int lParam);
+static void show_bt_by_pid(int task_pid);
 
 static void reset_hang_info(void)
 {
@@ -197,6 +202,70 @@ int register_hang_callback(void (*function_addr)(void))
 	return 0;
 }
 EXPORT_SYMBOL_GPL(register_hang_callback);
+
+#ifdef CONFIG_MTK_HANG_PROC
+#define SEQ_printf(m, x...) \
+do {                \
+	if (m)          \
+		seq_printf(m, x);   \
+	else            \
+		pr_debug(x);        \
+} while (0)
+
+static int monitor_hang_show(struct seq_file *m, void *v)
+{
+	SEQ_printf(m, "show hang_detect_raw");
+	SEQ_printf(m, "%s", Hang_Info);
+	return 0;
+}
+
+static int monitor_hang_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, monitor_hang_show, inode->i_private);
+}
+
+
+static ssize_t monitor_hang_proc_write(struct file *filp, const char *ubuf,
+		size_t cnt, loff_t *data)
+{
+	char buf[64];
+	long val;
+	int ret;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt] = 0;
+
+	ret = kstrtoul(buf, 10, (unsigned long *)&val);
+
+	if (ret < 0)
+		return ret;
+
+	if (val == 2) {
+		reset_hang_info();
+		show_status(0);
+	} else if (val == 3) {
+		reset_hang_info();
+		show_status(1);
+	} else if (val > 10) {
+		show_bt_by_pid((int)val);
+	}
+
+	return cnt;
+}
+
+static const struct proc_ops monitor_hang_fops = {
+	.proc_open = monitor_hang_proc_open,
+	.proc_write = monitor_hang_proc_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+#endif
 
 /******************************************************************************
  * hang detect File operations
@@ -1318,6 +1387,13 @@ static int __init monitor_hang_init(void)
 		return err;
 	}
 	hang_detect_init();
+
+#ifdef CONFIG_MTK_HANG_PROC
+	pe = proc_create("monitor_hang", 0664, NULL, &monitor_hang_fops);
+	if (!pe)
+		return -ENOMEM;
+#endif
+
 	return err;
 }
 
