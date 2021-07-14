@@ -31,7 +31,6 @@ static int lpm_dbg_suspend_noirq(struct device *dev)
 
 	if (kernel_suspend_only == 1) {
 		pr_info("[LPM] kernel suspend only ....\n");
-		mdelay(3*1000);
 		pm_system_wakeup();
 	}
 
