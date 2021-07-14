@@ -517,7 +517,7 @@ static int clk_chk_dev_pm_suspend(struct device *dev)
 		for (; pvdck->ck != NULL; pvdck++)
 			dump_enabled_clks(pvdck);
 
-		if (is_pll_chk_bug_on())
+		if (is_pll_chk_bug_on() || pdchk_get_bug_on_stat())
 			BUG_ON(1);
 
 		WARN_ON(1);

@@ -27,6 +27,7 @@ static struct notifier_block mtk_pd_notifier[MAX_PD_NUM];
 static bool pd_sta[MAX_PD_NUM];
 
 static const struct pdchk_ops *pdchk_ops;
+static bool bug_on_stat;
 
 static bool is_in_pd_list(unsigned int id)
 {
@@ -59,6 +60,136 @@ static struct pd_check_swcg *get_subsys_cg(unsigned int id)
 
 	return pdchk_ops->get_subsys_cg(id);
 }
+
+/*
+ * pm_domain status check
+ */
+
+static int pdchk_pd_is_on(int pd_id)
+{
+	struct pd_sta *ps;
+
+	if (pdchk_ops == NULL || pdchk_ops->get_pd_pwr_msk == NULL)
+		return false;
+
+	ps = pdchk_ops->get_pd_pwr_msk(pd_id);
+
+	return pwr_hw_is_on(ps->sta_type, ps->pwr_mask);
+}
+
+static const char * const prm_status_name[] = {
+	"active",
+	"resuming",
+	"suspended",
+	"suspending",
+};
+
+static void pdchk_dump_enabled_power_domain(struct generic_pm_domain *pd)
+{
+	struct pm_domain_data *pdd;
+
+	if (IS_ERR_OR_NULL(pd))
+		return;
+
+	list_for_each_entry(pdd, &pd->dev_list, list_node) {
+		struct device *d = pdd->dev;
+		struct platform_device *p = to_platform_device(d);
+
+		pr_notice("\t%c (%-19s %3d :  %10s)\n",
+				pm_runtime_active(d) ? '+' : '-',
+				p->name,
+				atomic_read(&d->power.usage_count),
+				//d->power.disable_depth ? "unsupport" :
+				d->power.runtime_error ? "error" :
+				d->power.runtime_status < ARRAY_SIZE(prm_status_name) ?
+				prm_status_name[d->power.runtime_status] : "UFO");
+	}
+}
+
+static bool __check_mtcmos_off(int *pd_id, bool dump_en)
+{
+	int valid = 0;
+
+	for (; *pd_id != PD_NULL; pd_id++) {
+		if (!pdchk_pd_is_on(*pd_id))
+			continue;
+
+		pr_notice("suspend warning[0m: %s is on\n", pds[*pd_id]->name);
+
+		if (dump_en) {
+			/* dump devicelist belongs to current power domain */
+			pdchk_dump_enabled_power_domain(pds[*pd_id]);
+			valid++;
+		}
+	}
+
+	if (valid)
+		return true;
+
+	return false;
+}
+
+static bool check_mtcmos_off(void)
+{
+	int *pd_id;
+	int ret = 0;
+
+	if (pdchk_ops == NULL || pdchk_ops->get_off_mtcmos_id == NULL)
+		goto OUT;
+
+	pd_id = pdchk_ops->get_off_mtcmos_id();
+
+	ret = __check_mtcmos_off(pd_id, true);
+
+	if (pdchk_ops == NULL || pdchk_ops->get_notice_mtcmos_id == NULL)
+		goto OUT;
+
+	pd_id = pdchk_ops->get_notice_mtcmos_id();
+
+	__check_mtcmos_off(pd_id, false);
+
+	if (ret)
+		return true;
+OUT:
+	return false;
+}
+
+static bool is_mtcmos_chk_bug_on(void)
+{
+	if (pdchk_ops == NULL || pdchk_ops->is_mtcmos_chk_bug_on == NULL)
+		return false;
+
+	return pdchk_ops->is_mtcmos_chk_bug_on();
+}
+
+static void pdchk_set_bug_on_stat(bool stat)
+{
+	bug_on_stat = stat;
+}
+
+bool pdchk_get_bug_on_stat(void)
+{
+	return bug_on_stat;
+}
+EXPORT_SYMBOL(pdchk_get_bug_on_stat);
+
+static int pdchk_dev_pm_suspend(struct device *dev)
+{
+	if (check_mtcmos_off()) {
+		if (is_mtcmos_chk_bug_on())
+			pdchk_set_bug_on_stat(true);
+
+		WARN_ON(1);
+	}
+
+	return 0;
+}
+
+const struct dev_pm_ops pdchk_dev_pm_ops = {
+	.suspend_noirq = pdchk_dev_pm_suspend,
+	.resume_noirq = NULL,
+};
+EXPORT_SYMBOL(pdchk_dev_pm_ops);
 
 #if ENABLE_PD_CHK_CG
 static void dump_subsys_reg(unsigned int id)
@@ -133,15 +264,21 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 #endif
 		break;
 	case GENPD_NOTIFY_ON:
-		if (pd_sta[nb->priority] == POWER_OFF_STA)
+		if (pd_sta[nb->priority] == POWER_OFF_STA) {
+			/* dump devicelist belongs to current power domain */
+			pdchk_dump_enabled_power_domain(pds[nb->priority]);
 			pd_debug_dump(nb->priority, PD_PWR_ON);
+		}
 		if (pd_sta[nb->priority] == POWER_ON_STA)
 			pd_log_dump(nb->priority, PD_PWR_ON);
 
 		break;
 	case GENPD_NOTIFY_OFF:
-		if (pd_sta[nb->priority] == POWER_ON_STA)
+		if (pd_sta[nb->priority] == POWER_ON_STA) {
+			/* dump devicelist belongs to current power domain */
+			pdchk_dump_enabled_power_domain(pds[nb->priority]);
 			pd_debug_dump(nb->priority, PD_PWR_OFF);
+		}
 		if (pd_sta[nb->priority] == POWER_OFF_STA)
 			pd_log_dump(nb->priority, PD_PWR_OFF);
 
@@ -248,123 +385,4 @@ void pdchk_common_init(const struct pdchk_ops *ops)
 	set_genpd_notify();
 }
 EXPORT_SYMBOL(pdchk_common_init);
-
-/*
- * pm_domain status check
- */
-
-static int pdchk_pd_is_on(int pd_id)
-{
-	struct pd_sta *ps;
-
-	if (pdchk_ops == NULL || pdchk_ops->get_pd_pwr_msk == NULL)
-		return false;
-
-	ps = pdchk_ops->get_pd_pwr_msk(pd_id);
-
-	return pwr_hw_is_on(ps->sta_type, ps->pwr_mask);
-}
-
-static const char * const prm_status_name[] = {
-	"active",
-	"resuming",
-	"suspended",
-	"suspending",
-};
-
-static void pdchk_dump_enabled_power_domain(struct generic_pm_domain *pd)
-{
-	struct pm_domain_data *pdd;
-
-	if (IS_ERR_OR_NULL(pd))
-		return;
-
-	list_for_each_entry(pdd, &pd->dev_list, list_node) {
-		struct device *d = pdd->dev;
-		struct platform_device *p = to_platform_device(d);
-
-		pr_notice("\t%c (%-19s %3d :  %10s)\n",
-				pm_runtime_active(d) ? '+' : '-',
-				p->name,
-				atomic_read(&d->power.usage_count),
-				d->power.disable_depth ? "unsupport" :
-				d->power.runtime_error ? "error" :
-				d->power.runtime_status < ARRAY_SIZE(prm_status_name) ?
-				prm_status_name[d->power.runtime_status] : "UFO");
-	}
-}
-
-static bool __check_mtcmos_off(int *pd_id, bool dump_en)
-{
-	int valid = 0;
-
-	for (; *pd_id != PD_NULL; pd_id++) {
-		if (!pdchk_pd_is_on(*pd_id))
-			continue;
-
-		pr_notice("suspend warning[0m: %s is on\n", pds[*pd_id]->name);
-
-		if (dump_en) {
-			/* dump devicelist belongs to current power domain */
-			pdchk_dump_enabled_power_domain(pds[*pd_id]);
-			valid++;
-		}
-	}
-
-	if (valid)
-		return true;
-
-	return false;
-}
-
-static bool check_mtcmos_off(void)
-{
-	int *pd_id;
-	int ret = 0;
-
-	if (pdchk_ops == NULL || pdchk_ops->get_off_mtcmos_id == NULL)
-		goto OUT;
-
-	pd_id = pdchk_ops->get_off_mtcmos_id();
-
-	ret = __check_mtcmos_off(pd_id, true);
-
-	if (pdchk_ops == NULL || pdchk_ops->get_notice_mtcmos_id == NULL)
-		goto OUT;
-
-	pd_id = pdchk_ops->get_notice_mtcmos_id();
-
-	__check_mtcmos_off(pd_id, false);
-
-	if (ret)
-		return true;
-OUT:
-	return false;
-}
-
-static bool is_mtcmos_chk_bug_on(void)
-{
-	if (pdchk_ops == NULL || pdchk_ops->is_mtcmos_chk_bug_on == NULL)
-		return false;
-
-	return pdchk_ops->is_mtcmos_chk_bug_on();
-}
-
-static int pdchk_dev_pm_suspend(struct device *dev)
-{
-	if (check_mtcmos_off()) {
-		if (is_mtcmos_chk_bug_on())
-			BUG_ON(1);
-
-		WARN_ON(1);
-	}
-
-	return 0;
-}
-
-const struct dev_pm_ops pdchk_dev_pm_ops = {
-	.suspend = pdchk_dev_pm_suspend,
-	.resume = NULL,
-};
-EXPORT_SYMBOL(pdchk_dev_pm_ops);
 
