@@ -88,9 +88,12 @@ enum  {
 #define FPSGO_DEQUEUE                _IOW('g', 3,  struct _FPSGO_PACKAGE)
 #define FPSGO_VSYNC                  _IOW('g', 5,  struct _FPSGO_PACKAGE)
 #define FPSGO_TOUCH                  _IOW('g', 10, struct _FPSGO_PACKAGE)
+#define FPSGO_SWAP_BUFFER            _IOW('g', 14, struct _FPSGO_PACKAGE)
 #define FPSGO_QUEUE_CONNECT          _IOW('g', 15, struct _FPSGO_PACKAGE)
 #define FPSGO_BQID                   _IOW('g', 16, struct _FPSGO_PACKAGE)
 #define FPSGO_GET_FPS                _IOW('g', 17, struct _FPSGO_PACKAGE)
+#define FPSGO_GET_CMD                _IOW('g', 18, struct _FPSGO_PACKAGE)
+#define FPSGO_GBE_GET_CMD            _IOW('g', 19, struct _FPSGO_PACKAGE)
 
 #define EARA_NN_BEGIN               _IOW('g', 1, struct _EARA_NN_PACKAGE)
 #define EARA_NN_END                 _IOW('g', 2, struct _EARA_NN_PACKAGE)

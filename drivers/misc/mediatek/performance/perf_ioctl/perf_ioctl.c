@@ -328,6 +328,8 @@ static long device_ioctl(struct file *filp,
 	case FPSGO_TOUCH:
 		usrtch_ioctl(cmd, msgKM->frame_time);
 		break;
+	case FPSGO_SWAP_BUFFER:
+		break;
 	case FPSGO_VSYNC:
 		if (fpsgo_notify_vsync_fp)
 			fpsgo_notify_vsync_fp();
@@ -340,10 +342,14 @@ static long device_ioctl(struct file *filp,
 		perfctl_copy_to_user(msgUM, msgKM,
 				sizeof(struct _FPSGO_PACKAGE));
 		break;
+	case FPSGO_GET_CMD:
+		ret = -1;
+		break;
+	case FPSGO_GBE_GET_CMD:
+		ret = -1;
+		break;
 
 #else
-	case FPSGO_TOUCH:
-		/* FALLTHROUGH */
 	case FPSGO_QUEUE:
 		/* FALLTHROUGH */
 	case FPSGO_DEQUEUE:
@@ -353,8 +359,18 @@ static long device_ioctl(struct file *filp,
 	case FPSGO_VSYNC:
 		/* FALLTHROUGH */
 	case FPSGO_BQID:
+		/* FALLTHROUGH */
+	case FPSGO_TOUCH:
+		/* FALLTHROUGH */
+	case FPSGO_SWAP_BUFFER:
 		break;
 	case FPSGO_GET_FPS:
+		ret = -1;
+		break;
+	case FPSGO_GET_CMD:
+		ret = -1;
+		break;
+	case FPSGO_GBE_GET_CMD:
 		ret = -1;
 		break;
 #endif
