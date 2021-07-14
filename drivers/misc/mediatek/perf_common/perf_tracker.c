@@ -50,8 +50,9 @@ static unsigned int is_gpu_pmu_worked;
 static unsigned int gpu_pmu_period = 8000000; //8ms
 #endif
 
-#define OFFS_CUR_FREQ_S	0x98
-unsigned int cpudvfs_get_cur_dvfs_freq_idx(int cluster_id)
+#define OFFS_DVFS_CUR_OPP_S	0x98
+#define OFFS_EB_CUR_OPP_S	0x544
+static unsigned int cpudvfs_get_cur_freq(int cluster_id, bool is_mcupm)
 {
 	u32 idx = 0;
 	struct ppm_data *p = &cluster_ppm_info[cluster_id];
@@ -59,7 +60,14 @@ unsigned int cpudvfs_get_cur_dvfs_freq_idx(int cluster_id)
 	if (IS_ERR_OR_NULL((void *)csram_base))
 		return 0;
 
-	idx = __raw_readl(csram_base + (OFFS_CUR_FREQ_S + (cluster_id * 0x120)));
+	if (is_mcupm)
+		idx = __raw_readl(csram_base +
+				(OFFS_EB_CUR_OPP_S +
+				 (cluster_id * 0x4)));
+	else
+		idx = __raw_readl(csram_base +
+				(OFFS_DVFS_CUR_OPP_S +
+				 (cluster_id * 0x120)));
 
 	if (p->init && idx < p->opp_nr)
 		return p->dvfs_tbl[idx].frequency;
@@ -102,6 +110,7 @@ void perf_tracker(u64 wallclock,
 	int i;
 	int stall[max_cpus] = {0};
 	unsigned int sched_freq[3] = {0};
+	unsigned int cpu_mcupm_freq[3] = {0};
 	int cid;
 
 	if (!perf_tracker_on)
@@ -152,14 +161,16 @@ void perf_tracker(u64 wallclock,
 #endif
 
 	/*sched: cpu freq */
-	for (cid = 0; cid < cluster_nr; cid++)
-		sched_freq[cid] = cpudvfs_get_cur_dvfs_freq_idx(cid);
+	for (cid = 0; cid < cluster_nr; cid++) {
+		sched_freq[cid] = cpudvfs_get_cur_freq(cid, false);
+		cpu_mcupm_freq[cid] = cpudvfs_get_cur_freq(cid, true);
+	}
 
 	/* trace for short msg */
 	trace_perf_index_s(
 			sched_freq[0], sched_freq[1], sched_freq[2],
 			dram_rate, bw_c, bw_g, bw_mm, bw_total,
-			vcore_uv);
+			vcore_uv, cpu_mcupm_freq[0], cpu_mcupm_freq[1], cpu_mcupm_freq[2]);
 
 	if (!hit_long_check)
 		return;
