@@ -121,7 +121,8 @@ static enum gpufreq_postdiv __gpufreq_get_real_posdiv_stack(void);
 static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq);
 static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq);
 /* aging sensor function */
-static void __gpufreq_asensor_read_register(u32 *lvt, u32 *ulvt, u32 *ulvtll);
+static void __gpufreq_asensor_read_register(u32 *a_tn_lvt_cnt,
+	u32 *a_tn_ulvt_cnt, u32 *a_tn_ulvtll_cnt);
 static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_lvt_rt, u32 *a_t0_ulvt_rt,
 	u32 *a_t0_ulvtll_rt, u32 *a_shift_error, u32 *efuse_error);
 static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt_rt,
@@ -785,12 +786,15 @@ struct gpufreq_asensor_info __gpufreq_get_asensor_info(void)
 	asensor_info.efuse_val2 = g_asensor_info.efuse_val2;
 	asensor_info.efuse_val3_addr = g_asensor_info.efuse_val3_addr;
 	asensor_info.efuse_val3 = g_asensor_info.efuse_val3;
+	asensor_info.efuse_val4_addr = g_asensor_info.efuse_val4_addr;
+	asensor_info.efuse_val4 = g_asensor_info.efuse_val4;
 	asensor_info.a_t0_lvt_rt = g_asensor_info.a_t0_lvt_rt;
 	asensor_info.a_t0_ulvt_rt = g_asensor_info.a_t0_ulvt_rt;
 	asensor_info.a_t0_ulvtll_rt = g_asensor_info.a_t0_ulvtll_rt;
 	asensor_info.a_tn_lvt_cnt = g_asensor_info.a_tn_lvt_cnt;
 	asensor_info.a_tn_ulvt_cnt = g_asensor_info.a_tn_ulvt_cnt;
 	asensor_info.a_tn_ulvtll_cnt = g_asensor_info.a_tn_ulvtll_cnt;
+	asensor_info.lvts5_0_y_temperature = g_asensor_info.lvts5_0_y_temperature;
 	asensor_info.tj1 = g_asensor_info.tj1;
 	asensor_info.tj2 = g_asensor_info.tj2;
 	asensor_info.adiff1 = g_asensor_info.adiff1;
@@ -1181,46 +1185,6 @@ done_unlock:
 	return ret;
 }
 
-#if defined(GPUFREQ_TODO_SRAMRC_POWER_CONTROL)
-/* API: contorl SRAMRC when power on/off */
-int __gpufreq_sramrc_control(enum gpufreq_power_state power)
-{
-	int ret = GPUFREQ_SUCCESS;
-	int safe_oppidx = 0;
-	unsigned int safe_vstack = 0;
-
-	GPUFREQ_TRACE_START("power=%d", power);
-
-	/* power on */
-	if (power == POWER_ON) {
-
-		/* get Vsafe and update limit table when power on */
-		safe_vstack = sramrc_get_gpu_bound_level(*need_ack);
-		safe_oppidx = __gpufreq_get_idx_by_vstack(safe_vstack);
-		gpuppm_set_limit_stack(LIMIT_SRAMRC, GPUPPM_DEFAULT_IDX, safe_oppidx);
-
-		/* set Vsafe */
-		ret = gpufreq_commit(TARGET_DEFAULT, safe_oppidx);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to commit STACK OPP index: %d (%d)",
-				safe_oppidx, ret);
-		}
-
-		/* notify SRAMRC that GPU online */
-		sramrc_mask_passive_gpu();
-	/* power off */
-	} else {
-		/* notify SRAMRC that GPU offline */
-		sramrc_unmask_passive_gpu();
-	}
-
-done:
-	GPUFREQ_TRACE_END();
-
-	return ret;
-}
-#endif
-
 /*
  * API: commit DVFS to GPU by given OPP index
  * this is the main entrance of generic DVFS
@@ -1280,8 +1244,6 @@ int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 
 	GPUFREQ_LOGD("begin to commit GPU OPP index: (%d->%d), STACK OPP index: (%d->%d)",
 		cur_oppidx_gpu, target_oppidx_gpu, cur_oppidx_stack, target_oppidx_stack);
-
-	/* todo: GED log buffer (gpufreq_pr_logbuf) */
 
 	/* GPU volt scaling up: GPU -> STACK */
 	if (target_vgpu > cur_vgpu) {
@@ -1411,8 +1373,6 @@ int __gpufreq_generic_commit_stack(int target_oppidx, enum gpufreq_dvfs_state ke
 
 	GPUFREQ_LOGD("begin to commit STACK OPP index: (%d->%d), GPU OPP index: (%d->%d)",
 		cur_oppidx_stack, target_oppidx_stack, cur_oppidx_gpu, target_oppidx_gpu);
-
-	/* todo: GED log buffer (gpufreq_pr_logbuf) */
 
 	/* STACK volt scaling up: GPU -> STACK */
 	if (target_vstack > cur_vstack) {
@@ -1561,10 +1521,10 @@ int __gpufreq_fix_custom_freq_volt_stack(unsigned int freq, unsigned int volt)
 
 		__gpufreq_set_dvfs_state(false, DVFS_DEBUG_KEEP);
 	} else if (freq > max_freq || freq < min_freq) {
-		GPUFREQ_LOGE("invalid fixed Freq: %d\n", freq);
+		GPUFREQ_LOGE("invalid fixed Freq: %d", freq);
 		ret = GPUFREQ_EINVAL;
 	} else if (volt > max_volt || volt < min_volt) {
-		GPUFREQ_LOGE("invalid fixed Volt: %d\n", volt);
+		GPUFREQ_LOGE("invalid fixed Volt: %d", volt);
 		ret = GPUFREQ_EINVAL;
 	} else {
 		__gpufreq_set_dvfs_state(true, DVFS_DEBUG_KEEP);
@@ -1990,8 +1950,7 @@ static int __gpufreq_custom_commit_stack(unsigned int target_freq,
 	target_vgpu = working_gpu[target_oppidx_gpu].volt;
 	target_vsram_gpu = working_gpu[target_oppidx_gpu].vsram;
 
-	GPUFREQ_LOGD("begin to commit STACK Freq: (%d->%d), Volt: (%d->%d), " \
-		"GPU Freq: (%d->%d), Volt: (%d->%d)",
+	GPUFREQ_LOGD("begin to commit STACK F(%d->%d), V(%d->%d), GPU F(%d->%d), V(%d->%d)",
 		cur_fstack, target_fstack, cur_vstack, target_vstack,
 		cur_fgpu, target_fgpu, cur_vgpu, target_vgpu);
 
@@ -2313,8 +2272,6 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 	GPUFREQ_LOGD("Fgpu: %d, pcw: 0x%x, pll: 0x%08x, parking: %d",
 		g_gpu.cur_freq, pcw, pll, parking);
 
-	/* todo: GED log buffer (gpufreq_pr_logbuf) */
-
 done:
 	GPUFREQ_TRACE_END();
 
@@ -2394,8 +2351,6 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 	GPUFREQ_LOGD("Fstack: %d, PCW: 0x%x, PLL: 0x%08x, parking: %d",
 		g_stack.cur_freq, pcw, pll, parking);
 
-	/* todo: GED log buffer (gpufreq_pr_logbuf) */
-
 done:
 	GPUFREQ_TRACE_END();
 
@@ -2445,8 +2400,6 @@ static int __gpufreq_volt_scale_gpu(
 	g_gpu.cur_volt = __gpufreq_get_real_vgpu();
 	g_gpu.cur_vsram = vsram_new;
 
-	/* todo: GED log buffer (gpufreq_pr_logbuf) */
-
 	GPUFREQ_LOGD("Vgpu: %d, Vsram: %d", g_gpu.cur_volt, g_gpu.cur_vsram);
 
 done:
@@ -2463,7 +2416,7 @@ static int __gpufreq_volt_scale_stack(
 	unsigned int vsram_old, unsigned int vsram_new)
 {
 	unsigned int t_settle_volt = 0;
-	unsigned volt_park = 0;
+	unsigned int volt_park = 0;
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("volt_old=%d, volt_new=%d, vsram_old=%d, vsram_new=%d",
@@ -2519,8 +2472,6 @@ static int __gpufreq_volt_scale_stack(
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
 			"inconsistent scaled Vstack, cur_volt: %d, target_volt: %d",
 			g_stack.cur_volt, volt_new);
-
-	/* todo: GED log buffer (gpufreq_pr_logbuf) */
 
 	GPUFREQ_LOGD("Vstack: %d, Vsram: %d, udelay: %d",
 		g_stack.cur_volt, g_stack.cur_vsram, t_settle_volt);
@@ -3028,31 +2979,29 @@ static void __gpufreq_aoc_control(enum gpufreq_power_state power)
 {
 	u32 val = 0;
 
-#if defined(GPUFREQ_TODO_AOC_DTS)
 	/* power on: AOCISO -> AOCLHENB */
 	if (power == POWER_ON) {
-		/* AOCISO_Vgpustack 0x1C001F30 [9] = 1'b0 */
-		val = readl(0x1C001 + 0xF30);
+		/* SOC_BUCK_ISO_CON 0x1C001F30 [9] AOC_VGPU_SRAM_ISO_DIN = 1'b0 */
+		val = readl(g_sleep + 0xF30);
 		val &= ~(1UL << 9);
-		writel(val, 0x1C001 + 0xF30);
+		writel(val, g_sleep + 0xF30);
 
-		/* AOCLHENB_Vgpustack 0x1C001F30 [10] = 1'b0 */
-		val = readl(0x1C001 + 0xF30);
+		/* SOC_BUCK_ISO_CON 0x1C001F30 [10] AOC_VGPU_SRAM_LATCH_ENB = 1'b0 */
+		val = readl(g_sleep + 0xF30);
 		val &= ~(1UL << 10);
-		writel(val, 0x1C001 + 0xF30);
+		writel(val, g_sleep + 0xF30);
 	/* power off: AOCLHENB -> AOCISO */
 	} else {
-		/* AOCLHENB_Vgpustack 0x1C001F30 [10] = 1'b1 */
-		val = readl(0x1C001 + 0xF30);
+		/* SOC_BUCK_ISO_CON 0x1C001F30 [10] AOC_VGPU_SRAM_LATCH_ENB = 1'b1 */
+		val = readl(g_sleep + 0xF30);
 		val |= (1UL << 10);
-		writel(val, 0x1C001 + 0xF30);
+		writel(val, g_sleep + 0xF30);
 
-		/* AOCISO_Vgpustack 0x1C001F30 [9] = 1'b1 */
-		val = readl(0x1C001 + 0xF30);
+		/* SOC_BUCK_ISO_CON 0x1C001F30 [9] AOC_VGPU_SRAM_ISO_DIN = 1'b1 */
+		val = readl(g_sleep + 0xF30);
 		val |= (1UL << 9);
-		writel(val, 0x1C001 + 0xF30);
+		writel(val, g_sleep + 0xF30);
 	}
-#endif
 }
 
 /* PDCv2: GPU FW Control GPU shader cores itself */
@@ -3902,40 +3851,47 @@ static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_lvt_rt, u32 *a_t0_ulv
 	u32 *a_t0_ulvtll_rt, u32 *a_shift_error, u32 *efuse_error)
 {
 #if GPUFREQ_ASENSOR_ENABLE
-	u32 efuse_val1 = 0, efuse_val2 = 0, efuse_val3 = 0;
+	u32 efuse_val1 = 0, efuse_val2 = 0, efuse_val3 = 0, efuse_val4 = 0;
 
-	/*
-	 * A_T0_ULVTLL_RT  : 0x11EE0AA8 [9:0]
-	 * A_T0_LVT_RT     : 0x11EE0AA8 [19:10]
-	 * A_T0_ULVT_RT    : 0x11EE0AA8 [29:20]
-	 * A_shift_error   : 0x11EE0AA8 [31]
-	 * efuse_error     : 0x11EE0B6C [31]
-	 */
+	/* efuse_val1 address: 0x11EE0AA8 */
 	efuse_val1 = readl(g_cpe_0p65v_rt_blow_base + 0xAA8);
+	/* efuse_val1 address: 0x11EE0AAC */
 	efuse_val2 = readl(g_cpe_0p65v_rt_blow_base + 0xAAC);
+	/* efuse_val1 address: 0x11EE0B6C */
 	efuse_val3 = readl(g_cpe_0p65v_rt_blow_base + 0xB6C);
-	if (efuse_val1 == 0 || efuse_val3 == 0)
+	/* efuse_val1 address: 0x11EE05D8 */
+	efuse_val4 = readl(g_cpe_0p65v_rt_blow_base + 0x5D8);
+	if (efuse_val1 == 0)
 		return false;
 
-	*a_t0_ulvtll_rt = (efuse_val1  & 0x000003FF) + 1500;
-	*a_t0_lvt_rt    = ((efuse_val1 & 0x000FFC00) >> 10) + 1200;
-	*a_t0_ulvt_rt   = ((efuse_val1 & 0x3FF00000) >> 20) + 1800;
-	*a_shift_error  = efuse_val1 >> 31;
-	*efuse_error    = efuse_val3 >> 31;
+	GPUFREQ_LOGD("efuse_val1=0x%08x, efuse_val2=0x%08x, efuse_val3=0x%08x, efuse_val4=0x%08x",
+		efuse_val1, efuse_val2, efuse_val3, efuse_val4);
+
+	/* A_T0_ULVTLL_RT: 0x11EE0AA8 [9:0],   shift value: 0x708 */
+	*a_t0_ulvtll_rt = (efuse_val1  & 0x000003FF) + 0x708;
+	/* A_T0_LVT_RT   : 0x11EE0AA8 [19:10], shift value: 0x578 */
+	*a_t0_lvt_rt    = ((efuse_val1 & 0x000FFC00) >> 10) + 0x578;
+	/* A_T0_ULVT_RT  : 0x11EE0AA8 [29:20], shift value: 0x898 */
+	*a_t0_ulvt_rt   = ((efuse_val1 & 0x3FF00000) >> 20) + 0x898;
+	/* A_shift_error : 0x11EE0AA8 [31] */
+	*a_shift_error  = ((efuse_val1 & 0x80000000) >> 31);
+	/* efuse_error   : A_shift_error | Reg(0x11EE0AA8) == 0 */
+	*efuse_error    = *a_shift_error;
 
 	g_asensor_info.efuse_val1 = efuse_val1;
 	g_asensor_info.efuse_val2 = efuse_val2;
 	g_asensor_info.efuse_val3 = efuse_val3;
+	g_asensor_info.efuse_val3 = efuse_val4;
 	g_asensor_info.efuse_val1_addr = 0x11EE0AA8;
 	g_asensor_info.efuse_val2_addr = 0x11EE0AAC;
 	g_asensor_info.efuse_val3_addr = 0x11EE0B6C;
+	g_asensor_info.efuse_val4_addr = 0x11EE05D8;
 	g_asensor_info.a_t0_lvt_rt = *a_t0_lvt_rt;
 	g_asensor_info.a_t0_ulvt_rt = *a_t0_ulvt_rt;
+	g_asensor_info.lvts5_0_y_temperature = ((efuse_val4 & 0xFF000000) >> 24);
 
-	GPUFREQ_LOGD("efuse_val1=0x%08x, efuse_val2=0x%08x, efuse_val3=0x%08x, \
-		*a_t0_lvt_rt=%08x, *a_t0_ulvt_rt=%08x, *a_t0_ulvtll_rt=%08x, *a_shift_error=%08x, \
-		*efuse_error=%08x", efuse_val1, efuse_val2, efuse_val3, *a_t0_lvt_rt,
-		*a_t0_ulvt_rt, *a_t0_ulvtll_rt, *a_shift_error, *efuse_error);
+	GPUFREQ_LOGD("a_t0_lvt_rt=%08x, a_t0_ulvt_rt=%08x, a_t0_ulvtll_rt=%08x, a_shift_error=%08x",
+		*a_t0_lvt_rt, *a_t0_ulvt_rt, *a_t0_ulvtll_rt, *a_shift_error);
 
 	return true;
 #else
@@ -3948,7 +3904,8 @@ static unsigned int __gpufreq_asensor_read_efuse(u32 *a_t0_lvt_rt, u32 *a_t0_ulv
 #endif /* GPUFREQ_ASENSOR_ENABLE */
 }
 
-static void __gpufreq_asensor_read_register(u32 *a_tn_lvt_cnt, u32 *a_tn_ulvt_cnt, u32 *a_tn_ulvtll_cnt)
+static void __gpufreq_asensor_read_register(u32 *a_tn_lvt_cnt,
+	u32 *a_tn_ulvt_cnt, u32 *a_tn_ulvtll_cnt)
 {
 #if GPUFREQ_ASENSOR_ENABLE
 	u32 aging_data0 = 0, aging_data1 =0;
@@ -3983,6 +3940,8 @@ static void __gpufreq_asensor_read_register(u32 *a_tn_lvt_cnt, u32 *a_tn_ulvt_cn
 	aging_data0 = readl(g_mfg_cpe_sensor_base + 0x8);
 	aging_data1 = readl(g_mfg_cpe_sensor_base + 0xC);
 
+	GPUFREQ_LOGD("aging_data0=0x%08x, aging_data1=0x%08x", aging_data0, aging_data1);
+
 	*a_tn_ulvtll_cnt = (aging_data0 & 0xFFFF);
 	*a_tn_lvt_cnt    = (aging_data0 & 0xFFFF0000) >> 16;
 	*a_tn_ulvt_cnt   = (aging_data1 & 0xFFFF);
@@ -3991,9 +3950,8 @@ static void __gpufreq_asensor_read_register(u32 *a_tn_lvt_cnt, u32 *a_tn_ulvt_cn
 	g_asensor_info.a_tn_ulvt_cnt = *a_tn_ulvt_cnt;
 	g_asensor_info.a_tn_ulvtll_cnt = *a_tn_ulvtll_cnt;
 
-	GPUFREQ_LOGD("aging_data0 = 0x%08x, aging_data1 = 0x%08x, *a_tn_lvt_cnt=0x%08x, \
-		*a_tn_ulvt_cnt=0x%08x, *a_tn_ulvtll_cnt=0x%08x", aging_data0, aging_data1,
-		*a_tn_lvt_cnt, *a_tn_ulvt_cnt);
+	GPUFREQ_LOGD("a_tn_lvt_cnt=0x%08x, a_tn_ulvt_cnt=0x%08x, a_tn_ulvtll_cnt=0x%08x",
+		*a_tn_lvt_cnt, *a_tn_ulvt_cnt, *a_tn_ulvtll_cnt);
 #else
 	GPUFREQ_UNREFERENCED(a_tn_lvt_cnt);
 	GPUFREQ_UNREFERENCED(a_tn_ulvt_cnt);
@@ -4002,10 +3960,10 @@ static void __gpufreq_asensor_read_register(u32 *a_tn_lvt_cnt, u32 *a_tn_ulvt_cn
 }
 
 static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt_rt,
-	u32 a_t0_ulvtll_rt, u32 a_shift_error, u32 efuse_error, u32 a_tn_lvt_cnt, u32 a_tn_ulvt_cnt,
-	u32 a_tn_ulvtll_cnt, unsigned int is_efuse_read_success)
+	u32 a_t0_ulvtll_rt, u32 a_shift_error, u32 efuse_error, u32 a_tn_lvt_cnt,
+	u32 a_tn_ulvt_cnt, u32 a_tn_ulvtll_cnt, unsigned int is_efuse_read_success)
 {
-	unsigned int aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE_IDX;
+	unsigned int aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE;
 
 #if GPUFREQ_ASENSOR_ENABLE
 	int tj = 0, tj1 = 0, tj2 = 0;
@@ -4044,12 +4002,13 @@ static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt
 	g_asensor_info.adiff3 = adiff3;
 	g_asensor_info.leakage_power = leakage_power;
 
-	GPUFREQ_LOGD("tj1=%d, tj2=%d, tj=%d, adiff1=%d, adiff2=%d, adiff3=%d, adiff=%d, \
-		leakage_power=%d, is_efuse_read_success=%d", tj1, tj2, tj, adiff1, adiff2,
+	GPUFREQ_LOGD("tj1=%d, tj2=%d, tj=%d, adiff1=%d, adiff2=%d, adiff3=%d",
+		tj1, tj2, tj, adiff1, adiff2, adiff3);
+	GPUFREQ_LOGD("adiff=%d, leakage_power=%d, is_efuse_read_success=%d",
 		adiff, leakage_power, is_efuse_read_success);
 
 	if (g_aging_load)
-		aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE_IDX;
+		aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE;
 	else if (!is_efuse_read_success)
 		aging_table_idx = 3;
 	else if (MIN(tj1, tj2) < 25)
@@ -4072,7 +4031,7 @@ static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt
 	else if (adiff >= GPUFREQ_AGING_GAP_3)
 		aging_table_idx = 3;
 	else {
-		GPUFREQ_LOGW("non of the condition is true for aging_table_idx\n");
+		GPUFREQ_LOGW("non of the condition is true for aging_table_idx");
 		aging_table_idx = 3;
 	}
 #else
@@ -4088,7 +4047,7 @@ static unsigned int __gpufreq_get_aging_table_idx(u32 a_t0_lvt_rt, u32 a_t0_ulvt
 #endif /* GPUFREQ_ASENSOR_ENABLE */
 
 	/* check the MostAgrresive setting */
-	aging_table_idx = MAX(aging_table_idx, GPUFREQ_AGING_MOST_AGRRESIVE_IDX);
+	aging_table_idx = MAX(aging_table_idx, GPUFREQ_AGING_MOST_AGRRESIVE);
 
 	return aging_table_idx;
 }
@@ -4101,7 +4060,7 @@ static void __gpufreq_aging_adjustment(void)
 	u32 a_t0_lvt_rt = 0, a_t0_ulvt_rt = 0, a_t0_ulvtll_rt = 0;
 	u32 a_shift_error = 0, efuse_error = 0;
 	unsigned int is_efuse_read_success = false;
-	unsigned int aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE_IDX;
+	unsigned int aging_table_idx = GPUFREQ_AGING_MOST_AGRRESIVE;
 	struct gpufreq_adj_info *aging_adj = NULL;
 
 	if (__gpufreq_dvfs_enable()) {
@@ -4109,8 +4068,9 @@ static void __gpufreq_aging_adjustment(void)
 		__gpufreq_pause_dvfs(GPUFREQ_AGING_KEEP_FREQ, GPUFREQ_AGING_KEEP_VOLT);
 
 		/* get aging efuse data */
-		is_efuse_read_success = __gpufreq_asensor_read_efuse(&a_t0_lvt_rt, &a_t0_ulvt_rt,
-								&a_t0_ulvtll_rt, &a_shift_error, &efuse_error);
+		is_efuse_read_success = __gpufreq_asensor_read_efuse(
+			&a_t0_lvt_rt, &a_t0_ulvt_rt, &a_t0_ulvtll_rt,
+			&a_shift_error, &efuse_error);
 
 		/* get aging sensor data */
 		__gpufreq_asensor_read_register(&a_tn_lvt_cnt, &a_tn_ulvt_cnt, &a_tn_ulvtll_cnt);
@@ -4119,13 +4079,12 @@ static void __gpufreq_aging_adjustment(void)
 		__gpufreq_resume_dvfs();
 
 		/* compute aging_table_idx with aging efuse data and aging sensor data */
-		aging_table_idx = __gpufreq_get_aging_table_idx(a_t0_lvt_rt, a_t0_ulvt_rt, a_t0_ulvtll_rt,
-							a_shift_error, efuse_error, a_tn_lvt_cnt, a_tn_ulvt_cnt, a_tn_ulvtll_cnt,
-							is_efuse_read_success);
+		aging_table_idx = __gpufreq_get_aging_table_idx(
+			a_t0_lvt_rt, a_t0_ulvt_rt, a_t0_ulvtll_rt, a_shift_error, efuse_error,
+			a_tn_lvt_cnt, a_tn_ulvt_cnt, a_tn_ulvtll_cnt, is_efuse_read_success);
 	}
 
-
-	g_asensor_info.aging_table_idx_most_agrresive = GPUFREQ_AGING_MOST_AGRRESIVE_IDX;
+	g_asensor_info.aging_table_idx_most_agrresive = GPUFREQ_AGING_MOST_AGRRESIVE;
 	g_asensor_info.aging_table_idx_choosed = aging_table_idx;
 
 	adj_num = g_stack.signed_opp_num;
@@ -4151,8 +4110,9 @@ static void __gpufreq_aging_adjustment(void)
 static void __gpufreq_avs_adjustment(void)
 {
 #if GPUFREQ_AVS_ENABLE
-	u32 val = 0, temp_volt = 0, temp_freq = 0;
-	int i = 0;
+	u32 val = 0;
+	unsigned int temp_volt = 0, temp_freq = 0;
+	int i = 0, oppidx = 0;
 	int adj_num = AVS_ADJ_NUM;
 
 	/*
@@ -4170,27 +4130,39 @@ static void __gpufreq_avs_adjustment(void)
 	 */
 
 	for (i = 0; i < adj_num; i++) {
+		oppidx = g_avs_adj[i].oppidx;
 		val = readl(g_avs_efuse_base + (i * 0x4));
 
-		/* Check Freq in efuse */
+		/* compute Freq from efuse */
 		temp_freq |= (val & 0x00100000) >> 10; // Get freq[10]  from efuse[20]
 		temp_freq |= (val & 0x00000C00) >> 2;  // Get freq[9:8] from efuse[11:10]
 		temp_freq |= (val & 0x00000003) << 6;  // Get freq[7:6] from efuse[1:0]
 		temp_freq |= (val & 0x000000C0) >> 2;  // Get freq[5:4] from efuse[7:6]
 		temp_freq |= (val & 0x000C0000) >> 16; // Get freq[3:2] from efuse[19:18]
 		temp_freq |= (val & 0x00003000) >> 12; // Get freq[1:0] from efuse[13:12]
+		/* Freq is stored in efuse with MHz unit */
+		temp_freq *= 1000;
+		/* verify with signoff Freq */
+		if (temp_freq != g_stack.signed_table[oppidx].freq) {
+			__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
+				"OPP[%02d*]: AVS efuse[%d].freq(%d) != signed-off.freq(%d)",
+				oppidx, i, temp_freq, g_stack.signed_table[oppidx].freq);
+			return;
+		}
 
-		if ((temp_freq * 1000) != g_gpu.signed_table[g_avs_adj[i].oppidx].freq)
-			GPUFREQ_LOGW("OPP[%02d]: AVS efuse[%d].freq(%d) != signed-off.freq(%d)",
-				g_avs_adj[i].oppidx, i, temp_freq,
-				g_gpu.signed_table[g_avs_adj[i].oppidx].freq);
-
-		/* Compute volt result of AVS */
+		/* compute Volt from efuse */
 		temp_volt |= (val & 0x0003C000) >> 14; // Get volt[3:0] from efuse[17:14]
 		temp_volt |= (val & 0x00000030);       // Get volt[5:4] from efuse[5:4]
 		temp_volt |= (val & 0x0000000C) << 4;  // Get volt[7:6] from efuse[3:2]
-		/* Volt is stored in efuse with 6.25mv unit */
-		g_avs_adj[i].volt = temp_volt * 625;
+		/* Volt is stored in efuse with 6.25mV unit */
+		temp_volt *= 625;
+		/* clamp to signoff Volt */
+		if (temp_volt > g_stack.signed_table[oppidx].volt) {
+			GPUFREQ_LOGW("OPP[%02d*]: AVS efuse[%d].volt(%d) > signed-off.volt(%d)",
+				oppidx, i, temp_volt, g_stack.signed_table[oppidx].volt);
+			g_avs_adj[i].volt = g_stack.signed_table[oppidx].volt;
+		} else
+			g_avs_adj[i].volt = temp_volt;
 	}
 
 	/* apply AVS to signed table */

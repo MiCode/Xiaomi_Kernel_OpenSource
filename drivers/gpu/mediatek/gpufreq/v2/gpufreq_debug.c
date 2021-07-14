@@ -619,17 +619,19 @@ static int asensor_info_proc_show(struct seq_file *m, void *v)
 	mutex_lock(&gpufreq_debug_lock);
 
 	seq_printf(m,
-		"Aging: %s\n\n"
+		"[GPUFREQ-DEBUG] Aging: %s\n"
 		"choosed_aging_table_id = %d, most_agrresive_aging_table_id = %d\n"
 		"efuse_val1(0x%08x) = 0x%08x\n"
 		"efuse_val2(0x%08x) = 0x%08x\n"
 		"efuse_val3(0x%08x) = 0x%08x\n"
+		"efuse_val4(0x%08x) = 0x%08x\n"
 		"a_t0_lvt_rt = %d, "
 		"a_t0_ulvt_rt = %d, "
 		"a_t0_ulvtll_rt = %d\n"
 		"a_tn_lvt_cnt = %d, "
 		"a_tn_ulvt_cnt = %d, "
 		"a_tn_ulvtll_cnt = %d\n"
+		"lvts5_0_y_temperature = %d\n"
 		"tj1 = %d, tj2 = %d\n"
 		"adiff1 = %d, adiff2 = %d, adiff3 = %d, leakage_power = %d\n",
 		(g_aging_enable) ? "Enable" : "Disable",
@@ -641,12 +643,15 @@ static int asensor_info_proc_show(struct seq_file *m, void *v)
 		asensor_info.efuse_val2,
 		asensor_info.efuse_val3_addr,
 		asensor_info.efuse_val3,
+		asensor_info.efuse_val4_addr,
+		asensor_info.efuse_val4,
 		asensor_info.a_t0_lvt_rt,
 		asensor_info.a_t0_ulvt_rt,
 		asensor_info.a_t0_ulvtll_rt,
 		asensor_info.a_tn_lvt_cnt,
 		asensor_info.a_tn_ulvt_cnt,
 		asensor_info.a_tn_ulvtll_cnt,
+		asensor_info.lvts5_0_y_temperature,
 		asensor_info.tj1,
 		asensor_info.tj2,
 		asensor_info.adiff1,
