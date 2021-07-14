@@ -54,6 +54,8 @@
 
 		mt6368_efuse: mt6368-efuse {
 			compatible = "mediatek,mt6368-efuse";
+			#address-cells = <1>;
+			#size-cells = <1>;
 		};
 
 		regulators {
@@ -120,6 +122,7 @@
 				regulator-max-microvolt = <3500000>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
 			};
 			mt6368_vaux18: VAUX18 {
 				regulator-compatible = "VAUX18";
