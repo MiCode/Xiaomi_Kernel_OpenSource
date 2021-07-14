@@ -615,9 +615,9 @@
 		reserve-memory-gpueb_share {
 			compatible = "mediatek,reserve-memory-gpueb_share";
 			no-map;
-			size = <0 0x00700000>; /*7 MB share mem size */
+			size = <0 0x00300000>; /* 3MB share mem size */
 			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0x50000000 0 0x40000000>;
+			alloc-ranges = <0 0x40000000 0 0x40000000>;
 		};
 
 		wifi_mem: wifi-reserve-memory {
@@ -4000,12 +4000,10 @@
 
 		gpueb_mem_table =
 			<0 0x180000>, /* 1.5MB */
-			<1 0x400000>, /* 4MB */
-			<2 0x1000>;   /* 4KB */
+			<1 0x1000>;   /* 4KB */
 
 		gpueb_mem_name_table =
 			"MEM_ID_LOG",     /* logger */
-			"MEM_ID_MPU",     /* MPU table */
 			"MEM_ID_GPUFREQ"; /* GPUFREQ */
 	};
 
