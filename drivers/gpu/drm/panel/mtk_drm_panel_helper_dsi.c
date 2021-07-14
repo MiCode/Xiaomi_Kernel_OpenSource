@@ -435,6 +435,12 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-lfr_minimum_fps",
 			&ext_param->lfr_minimum_fps);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-msync2_enable",
+			&ext_param->msync2_enable);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-max_vfp_for_msync",
+			&ext_param->max_vfp_for_msync);
 
 	/* esd check */
 	mtk_lcm_dts_read_u32(np,
