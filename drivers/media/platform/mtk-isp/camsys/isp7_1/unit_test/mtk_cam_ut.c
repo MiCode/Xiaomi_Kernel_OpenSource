@@ -716,44 +716,11 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) {
 			pParam = &config.config_param;
 			for (i = 0; i < ut->is_dcif_camsv; i++) {
-				if (pParam->n_maps < ARRAY_SIZE(pParam->maps)) {
-					pParam->maps[pParam->n_maps].pipe_id =
-						(i + MTKCAM_SUBDEV_CAMSV_START);
-					pParam->maps[pParam->n_maps].dev_mask =
-						(1 << (i + MTKCAM_SUBDEV_CAMSV_START));
-					pParam->maps[pParam->n_maps].exp_order = i;
-					dev_info(dev, "hw mapping: pipe_id:%d dev_mask:%d exp_order:%d",
-						pParam->maps[pParam->n_maps].pipe_id,
-						pParam->maps[pParam->n_maps].dev_mask,
-						pParam->maps[pParam->n_maps].exp_order);
-					pParam->n_maps++;
-				} else {
-					dev_info(dev, "hw mapping is over size (%d_%d)\n",
-						pParam->n_maps,
-						ARRAY_SIZE(pParam->maps));
-				}
 				CALL_CAMSV_OPS(ut->camsv[i], dev_config, &pParam->input);
 			}
 		} else if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) {
 			pParam = &config.config_param;
 			for (i = 0; i < ut->is_dcif_camsv; i++) {
-				if (pParam->n_maps < ARRAY_SIZE(pParam->maps)) {
-					pParam->maps[pParam->n_maps].pipe_id =
-						(i + MTKCAM_SUBDEV_CAMSV_START);
-					pParam->maps[pParam->n_maps].dev_mask =
-						(1 << (i + MTKCAM_SUBDEV_CAMSV_START));
-					pParam->maps[pParam->n_maps].exp_order =
-						((i + 1) == ut->is_dcif_camsv) ? (2) : i;
-					dev_info(dev, "hw mapping: pipe_id:%d dev_mask:%d exp_order:%d",
-						pParam->maps[pParam->n_maps].pipe_id,
-						pParam->maps[pParam->n_maps].dev_mask,
-						pParam->maps[pParam->n_maps].exp_order);
-					pParam->n_maps++;
-				} else {
-					dev_info(dev, "hw mapping is over size (%d_%d)\n",
-						pParam->n_maps,
-						ARRAY_SIZE(pParam->maps));
-				}
 				CALL_CAMSV_OPS(ut->camsv[i], dev_config, &pParam->input);
 			}
 		}
