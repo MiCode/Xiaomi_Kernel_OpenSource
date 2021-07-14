@@ -89,6 +89,9 @@ struct subdrv_ctx {
 	struct IMGSENSOR_AE_FRM_MODE ae_frm_mode;
 	u8 current_ae_effective_frame;
 	u8 i2c_write_id;
+
+	u8 extend_frame_length_en;
+	u8 fast_mode_on;
 };
 
 struct subdrv_ops {
