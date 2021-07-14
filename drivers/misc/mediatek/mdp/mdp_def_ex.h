@@ -23,6 +23,8 @@ enum CMDQ_META_OP {
 	CMDQ_MOP_WRITE_FROM_REG,
 	CMDQ_MOP_WRITE_SEC,
 	CMDQ_MOP_READBACK,
+	CMDQ_MOP_WRITE_RDMA,
+	CMDQ_MOP_WRITE_FD_RDMA,
 	CMDQ_MOP_NOP,
 };
 
@@ -42,6 +44,11 @@ struct op_meta {
 		uint16_t offset;
 		/* event id */
 		uint16_t event;
+		/* for rdma cpr */
+		struct {
+			uint8_t pipe_idx;
+			uint8_t cpr_idx;
+		};
 	};
 	union {
 		/* value to write */
