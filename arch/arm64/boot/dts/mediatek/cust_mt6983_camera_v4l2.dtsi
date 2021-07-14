@@ -272,7 +272,56 @@
 };
 /* CAMERA GPIO end */
 
+&mtk_composite_v4l2_2 {
+	port@0 {
+		main_af_endpoint: endpoint {
+			remote-endpoint = <&main_af>;
+		};
+	};
+	port@1 {
+		main_af_cam1_endpoint: endpoint {
+			remote-endpoint = <&main_af_cam1>;
+		};
+	};
+	port@2 {
+		main_af_cam2_endpoint: endpoint {
+			remote-endpoint = <&main_af_cam2>;
+		};
+	};
+	port@3 {
+		main_af_cam3_endpoint: endpoint {
+			remote-endpoint = <&main_af_cam3>;
+		};
+	};
+	port@4 {
+		main_af_cam4_endpoint: endpoint {
+			remote-endpoint = <&main_af_cam4>;
+		};
+	};
+	port@5 {
+		main_af_cam5_endpoint: endpoint {
+			remote-endpoint = <&main_af_cam5>;
+		};
+	};
+	port@6 {
+		main_af_cam6_endpoint: endpoint {
+			remote-endpoint = <&main_af_cam6>;
+		};
+	};
+};
+
 &i2c2 {
+	camera_af_main_two@0e {
+		compatible = "mediatek,gt9772b";
+		reg = <0x0e>;
+		vin-supply = <&rt5133_gpio1>;
+		port {
+			main_af_cam3: endpoint {
+				remote-endpoint = <&main_af_cam3_endpoint>;
+			};
+		};
+	};
+
 	sensor1: sensor1@10 {
 		compatible = "mediatek,imgsensor";
 		reg = <0x10>;
@@ -414,6 +463,50 @@
 };
 
 &i2c8 {
+	camera_af_main@72 {
+		compatible = "mediatek,lc898229";
+		reg = <0x72>;
+		vin-supply = <&rt5133_ldo3>;
+		port {
+			main_af: endpoint {
+				remote-endpoint = <&main_af_endpoint>;
+			};
+		};
+	};
+
+	camera_af_main@0c {
+		compatible = "mediatek,gt9764";
+		reg = <0x0c>;
+		vin-supply = <&rt5133_ldo3>;
+		port {
+			main_af_cam1: endpoint {
+				remote-endpoint = <&main_af_cam1_endpoint>;
+			};
+		};
+	};
+
+	camera_af_main@0f {
+		compatible = "mediatek,dw9800w";
+		reg = <0x0f>;
+		vin-supply = <&rt5133_ldo3>;
+		port {
+			main_af_cam4: endpoint {
+				remote-endpoint = <&main_af_cam4_endpoint>;
+			};
+		};
+	};
+
+	camera_af_main@0a {
+		compatible = "mediatek,ak7377a";
+		reg = <0x0a>;
+		vin-supply = <&rt5133_ldo3>;
+		port {
+			main_af_cam5: endpoint {
+				remote-endpoint = <&main_af_cam5_endpoint>;
+			};
+		};
+	};
+
 	sensor3: sensor3@1a {
 		compatible = "mediatek,imgsensor";
 		reg = <0x1a>;
@@ -454,6 +547,30 @@
 		port {
 			sensor3_out: endpoint {
 				remote-endpoint = <&seninf_csi_port_3_in>;
+			};
+		};
+	};
+};
+
+&i2c9 {
+	camera_af_main_two@0d {
+		compatible = "mediatek,gt9772a";
+		reg = <0x0d>;
+		vin-supply = <&rt5133_ldo2>;
+		port {
+			main_af_cam2: endpoint {
+				remote-endpoint = <&main_af_cam2_endpoint>;
+			};
+		};
+	};
+
+	camera_af_main_two@0b {
+		compatible = "mediatek,ak7377b";
+		reg = <0x0b>;
+		vin-supply = <&rt5133_ldo2>;
+		port {
+			main_af_cam6: endpoint {
+				remote-endpoint = <&main_af_cam6_endpoint>;
 			};
 		};
 	};
