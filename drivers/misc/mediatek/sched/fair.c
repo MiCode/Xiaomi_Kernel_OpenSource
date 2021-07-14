@@ -589,7 +589,7 @@ done:
 /* must hold runqueue lock for queue se is currently on */
 static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 {
-	struct task_struct *p;
+	struct task_struct *p, *best_task = NULL, *backup = NULL;
 	int dst_capacity;
 	unsigned int task_util;
 	bool latency_sensitive = false;
@@ -615,24 +615,21 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 			latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
 
 		if (latency_sensitive &&
-			task_util <= dst_capacity &&
-			src_rq->nr_running > 1) {
-
-			/* detach_task */
-			deactivate_task(src_rq, p, DEQUEUE_NOCLOCK);
-			set_task_cpu(p, dst_cpu);
-			/*
-			 * Right now, this is only the second place where
-			 * lb_gained[env->idle] is updated (other is detach_tasks)
-			 * so we can safely collect stats here rather than
-			 * inside detach_tasks().
-			 */
-			rcu_read_unlock();
-			return p;
+			task_util <= dst_capacity) {
+			best_task = p;
+			break;
+		} else if (latency_sensitive && !backup) {
+			backup = p;
 		}
 	}
+	p = best_task ? best_task : backup;
+	if (p) {
+		/* detach_task */
+		deactivate_task(src_rq, p, DEQUEUE_NOCLOCK);
+		set_task_cpu(p, dst_cpu);
+	}
 	rcu_read_unlock();
-	return NULL;
+	return p;
 }
 
 #if IS_ENABLED(CONFIG_FAIR_GROUP_SCHED)
@@ -802,24 +799,24 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 			continue;
 
 		src_rq = cpu_rq(cpu);
+		rq_lock_irqsave(src_rq, &src_rf);
+		update_rq_clock(src_rq);
 		if (src_rq->misfit_task_load > misfit_load &&
 			capacity_orig_of(this_cpu) > capacity_orig_of(cpu)) {
-			rq_lock_irqsave(src_rq, &src_rf);
 			p = current_cfs_running_task(src_rq);
 			if (p && is_latency_sensitive(p) &&
 				cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
 				misfit_task_rq = src_rq;
 				misfit_load = src_rq->misfit_task_load;
 			}
-			rq_unlock_irqrestore(src_rq, &src_rf);
 			p = NULL;
 		}
 
-		if (src_rq->nr_running <= 1)
+		if (src_rq->nr_running <= 1) {
+			rq_unlock_irqrestore(src_rq, &src_rf);
 			continue;
+		}
 
-		rq_lock_irqsave(src_rq, &src_rf);
-		update_rq_clock(src_rq);
 		p = detach_a_hint_task(src_rq, this_cpu);
 
 		rq_unlock_irqrestore(src_rq, &src_rf);
