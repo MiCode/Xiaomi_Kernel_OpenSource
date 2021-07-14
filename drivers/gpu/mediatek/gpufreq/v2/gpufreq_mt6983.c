@@ -47,6 +47,11 @@
 #if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 #include <mtk_freqhopping_drv.h>
 #endif
+/* todo: fmeter not ready */
+// #if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
+// #include <clk-fmeter.h>
+// #include <clk-mt6983-fmeter.h>
+// #endif
 
 /**
  * ===============================================
@@ -96,6 +101,10 @@ static void __gpufreq_dvfs_timing_control(unsigned int direction);
 /* get function */
 static unsigned int __gpufreq_get_fmeter_fgpu(void);
 static unsigned int __gpufreq_get_fmeter_fstack(void);
+static unsigned int __gpufreq_get_fmeter_main_fgpu(void);
+static unsigned int __gpufreq_get_fmeter_main_fstack(void);
+static unsigned int __gpufreq_get_fmeter_sub_fgpu(void);
+static unsigned int __gpufreq_get_fmeter_sub_fstack(void);
 static unsigned int __gpufreq_get_real_fgpu(void);
 static unsigned int __gpufreq_get_real_fstack(void);
 static unsigned int __gpufreq_get_real_vgpu(void);
@@ -336,6 +345,8 @@ static void __iomem *g_avs_efuse_base;
 static void __iomem *g_mfg_cpe_control_base;
 static void __iomem *g_mfg_cpe_sensor_base;
 static void __iomem *g_cpe_0p65v_rt_blow_base;
+static void __iomem *g_topckgen_base;
+static void __iomem *g_mali_base;
 static struct gpufreq_pmic_info *g_pmic;
 static struct gpufreq_clk_info *g_clk;
 static struct gpufreq_mtcmos_info *g_mtcmos;
@@ -2521,6 +2532,8 @@ done:
 static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 {
 	struct device_node *of_gpufreq = pdev->dev.of_node;
+	u32 mfg_sel_0 = 0, mfg_ref_sel = 0;
+	u32 mfg_sel_1 = 0, mfgsc_ref_sel = 0;
 
 	if (!of_gpufreq) {
 		GPUFREQ_LOGE("fail to find gpufreq of_node (ENOENT)");
@@ -2541,6 +2554,13 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 		goto done;
 	}
 
+	/* 0x13FBF000 */
+	g_mfg_top_base = of_iomap(of_gpufreq, 2);
+	if (!g_mfg_top_base) {
+		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG");
+		goto done;
+	}
+
 	/* 0x1C001000 */
 	g_sleep = of_iomap(of_gpufreq, 4);
 	if (!g_sleep) {
@@ -2548,19 +2568,49 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 		goto done;
 	}
 
+	/* 0x10000000 */
+	g_topckgen_base = of_iomap(of_gpufreq, 15);
+	if (!g_topckgen_base) {
+		GPUFREQ_LOGE("fail to ioremap TOPCKGEN");
+		goto done;
+	}
+
+	/* 0x13000000 */
+	g_mali_base = __gpufreq_of_ioremap("mediatek,mali", 0);
+	if (!g_mali_base) {
+		GPUFREQ_LOGE("fail to ioremap MALI");
+		goto done;
+	}
+
+	/* CLK_CFG_30 0x100001F0 [16] MFG_SEL_0 */
+	mfg_sel_0 = readl(g_topckgen_base + 0x1F0) & MFG_SEL_0_MASK;
+	/* CLK_CFG_30 0x100001F0 [17] MFG_SEL_1 */
+	mfg_sel_1 = readl(g_topckgen_base + 0x1F0) & MFG_SEL_1_MASK;
+	/* CLK_CFG_4 0x10000050 [25:24] MFG_REF_SEL */
+	mfg_ref_sel = readl(g_topckgen_base + 0x50) & MFG_REF_SEL_MASK;
+	/* CLK_CFG_5 0x10000060 [1:0] MFGSC_REF_SEL */
+	mfgsc_ref_sel = readl(g_topckgen_base + 0x60) & MFGSC_REF_SEL_MASK;
 	/*
 	 * [SPM] pwr_status    : 0x10006F3C
 	 * [SPM] pwr_status_2nd: 0x10006F40
 	 * Power ON: 1111 1111 1111 1111 1110 (0xFFFFE)
 	 * [19:1]: MFG0-18
 	 */
+	GPUFREQ_LOGI("[GPU]     MALI_ID:    0x%08x, MFG_TOP_CONFIG: 0x%08x",
+		readl(g_mali_base), readl(g_mfg_top_base));
 	GPUFREQ_LOGI("[MFG0-18] PWR_STATUS: 0x%08x, PWR_STATUS_2ND: 0x%08x",
 		readl(g_sleep + PWR_STATUS_OFS) & MFG_0_18_PWR_MASK,
 		readl(g_sleep + PWR_STATUS_2ND_OFS) & MFG_0_18_PWR_MASK);
-	GPUFREQ_LOGI("[MFGPLL] FMETER: %d CON1: %d",
-		__gpufreq_get_fmeter_fgpu(), __gpufreq_get_real_fgpu());
-	GPUFREQ_LOGI("[MFGSCPLL] FMETER: %d CON1: %d",
-		__gpufreq_get_fmeter_fstack(), __gpufreq_get_real_fstack());
+	GPUFREQ_LOGI("[TOP]   CON1: %d, MFG_SEL_0: 0x%08x, MFG_REF_SEL:   0x%08x",
+		__gpufreq_get_real_fgpu(), mfg_sel_0, mfg_ref_sel);
+	GPUFREQ_LOGI("[STACK] CON1: %d, MFG_SEL_1: 0x%08x, MFGSC_REF_SEL: 0x%08x",
+		__gpufreq_get_real_fstack(), mfg_sel_1, mfgsc_ref_sel);
+	// GPUFREQ_LOGI("[TOP] FMETER: %d, CON1: %d, (FMETER_MAIN: %d, FMETER_SUB: %d)",
+	// __gpufreq_get_fmeter_fgpu(), __gpufreq_get_real_fgpu(),
+	// __gpufreq_get_fmeter_main_fgpu(), __gpufreq_get_fmeter_sub_fgpu());
+	// GPUFREQ_LOGI("[STACK] FMETER: %d, CON1: %d, (FMETER_MAIN: %d, FMETER_SUB: %d)",
+	// __gpufreq_get_fmeter_fstack(), __gpufreq_get_real_fstack(),
+	// __gpufreq_get_fmeter_main_fstack(), __gpufreq_get_fmeter_sub_fstack());
 
 done:
 	return;
@@ -2568,16 +2618,76 @@ done:
 
 static unsigned int __gpufreq_get_fmeter_fgpu(void)
 {
-	/* todo: fmeter not ready */
-	// return mt_get_abist_freq(FM_MGPLL_CK);
-	return 0;
+	u32 mux_src = 0;
+
+	/* CLK_CFG_30 0x100001F0 [16] MFG_SEL_0 */
+	mux_src = readl(g_topckgen_base + 0x1F0) & MFG_SEL_0_MASK;
+
+	if (mux_src == MFG_SEL_0_MASK)
+		return __gpufreq_get_fmeter_main_fgpu();
+	else if (mux_src == 0x0)
+		return __gpufreq_get_fmeter_sub_fgpu();
+	else
+		return 0;
 }
 
 static unsigned int __gpufreq_get_fmeter_fstack(void)
 {
+	u32 mux_src = 0;
+
+	/* CLK_CFG_30 0x100001F0 [17] MFG_SEL_1 */
+	mux_src = readl(g_topckgen_base + 0x1F0) & MFG_SEL_1_MASK;
+
+	if (mux_src == MFG_SEL_1_MASK)
+		return __gpufreq_get_fmeter_main_fstack();
+	else if (mux_src == 0x0)
+		return __gpufreq_get_fmeter_sub_fstack();
+	else
+		return 0;
+}
+
+static unsigned int __gpufreq_get_fmeter_main_fgpu(void)
+{
+#if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
 	/* todo: fmeter not ready */
-	// return mt_get_abist_freq(FM_MGPLL_CK);
+	// return mt_get_abist_freq(FM_MFGPLL1);
 	return 0;
+#else
+	return 0;
+#endif /* CONFIG_COMMON_CLK_MT6983 */
+}
+
+static unsigned int __gpufreq_get_fmeter_main_fstack(void)
+{
+#if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
+	/* todo: fmeter not ready */
+	// return mt_get_abist_freq(FM_MFGPLL4);
+	return 0;
+#else
+	return 0;
+#endif /* CONFIG_COMMON_CLK_MT6983 */
+}
+
+static unsigned int __gpufreq_get_fmeter_sub_fgpu(void)
+{
+#if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
+	/* todo: fmeter not ready */
+	// return mt_get_abist_freq(FM_MFG_REF_CK);
+	return 0;
+#else
+	return 0;
+#endif /* CONFIG_COMMON_CLK_MT6983 */
+}
+
+static unsigned int __gpufreq_get_fmeter_sub_fstack(void)
+{
+#if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
+	/* todo: fmeter not ready */
+	// return mt_get_abist_freq(FM_MFGSC_REF_CK);
+	return 0;
+#else
+	return 0;
+#endif /* CONFIG_COMMON_CLK_MT6983 */
 }
 
 /*
@@ -4523,6 +4633,14 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 #endif /* GPUFREQ_ASENSOR_ENABLE */
+
+	/* 0x10000000 */
+	g_topckgen_base = of_iomap(of_gpufreq, 15);
+	if (!g_topckgen_base) {
+		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap TOPCKGEN");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
 
 	ret = gpudfd_init(pdev);
 	if (unlikely(ret)) {

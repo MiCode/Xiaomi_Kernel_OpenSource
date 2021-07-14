@@ -17,7 +17,7 @@
  *  0 -> all on when mtk probe init (Freq/Vgpu/Vsram_gpu)
  *       disable DDK power on/off callback
  */
-#define GPUFREQ_POWER_CTRL_ENABLE       (1)
+#define GPUFREQ_POWER_CTRL_ENABLE       (0)
 /*
  * (DVFS_ENABLE, CUST_INIT)
  * (1, 1) -> DVFS enable and init to CUST_INIT_OPPIDX
@@ -25,7 +25,7 @@
  * (0, 1) -> DVFS disable but init to CUST_INIT_OPPIDX (do DVFS only onces)
  * (0, 0) -> DVFS disable
  */
-#define GPUFREQ_DVFS_ENABLE             (1)
+#define GPUFREQ_DVFS_ENABLE             (0)
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* feature control */
@@ -53,6 +53,10 @@
 #define MFGPLL_FH_PLL                   FH_PLL6
 #define MFGPLL_GPU_CON1                 (g_mfg_pll_base + 0x00C)
 #define MFGPLL_STACK_CON1               (g_mfgsc_pll_base + 0x00C)
+#define MFG_SEL_0_MASK                  (0x10000)       /* [16] */
+#define MFG_SEL_1_MASK                  (0x20000)       /* [17] */
+#define MFG_REF_SEL_MASK                (0x3000000)     /* [25:24] */
+#define MFGSC_REF_SEL_MASK              (0x3)           /* [1:0] */
 #define PWR_STATUS_OFS                  (0xF3C)
 #define PWR_STATUS_2ND_OFS              (0xF40)
 #define MFG_0_1_PWR_MASK                (0x6)           /* 0000 0000 0000 0000 0110 */
@@ -130,9 +134,9 @@
 /**************************************************
  * Power Throttling Setting
  **************************************************/
-#define GPUFREQ_BATT_OC_ENABLE          (1)
+#define GPUFREQ_BATT_OC_ENABLE          (0)
 #define GPUFREQ_BATT_PERCENT_ENABLE     (0)
-#define GPUFREQ_LOW_BATT_ENABLE         (1)
+#define GPUFREQ_LOW_BATT_ENABLE         (0)
 
 #define GPUFREQ_BATT_OC_IDX             (34)
 #define GPUFREQ_BATT_PERCENT_IDX        (34)

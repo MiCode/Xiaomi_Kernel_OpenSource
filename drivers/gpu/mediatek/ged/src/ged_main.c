@@ -471,7 +471,7 @@ static int ged_init(void)
 {
 	GED_ERROR err = GED_ERROR_FAIL;
 
-	GED_LOGI("@%s: start to initialize ged driver\n", __func__);
+	GED_LOGI("@%s: start to init ged driver\n", __func__);
 	if (proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_proc_fops)
 		== NULL) {
 		err = GED_ERROR_FAIL;
@@ -577,6 +577,8 @@ static int ged_init(void)
 		__func__);
 		goto ERROR;
 	}
+
+	GED_LOGI("@%s: ged driver init done\n", __func__);
 
 	return 0;
 
