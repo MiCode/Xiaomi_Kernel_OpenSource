@@ -46,15 +46,27 @@
 };
 
 &connfem {
+ /* Enable epa_elna node to support Wifi & BT ePA/eLNA FEM on customer load */
+#if 0
 	epa_elna {
-		parts = <&nofem &nofem>;
+
+		parts = <&wlan7207h &wlan7205c>;
+
+		bt {
+			flags-0 {
+				/* choose one of: bypass / epa_elna / elna / epa */
+				epa_elna;
+			};
+		};
 	};
+#endif
+
 
 	epa_elna_mtk {
 		parts = <&nofem &nofem>,
 			<&wlan7207h &wlan7205c_laa>;
 
-		gpio-hwid = <&pio 203 0x00>;
+		hwid = <&pio 203 0x00>;
 
 		wifi {
 			flags-1 {
@@ -66,7 +78,7 @@
 		bt {
 			flags-1 {
 				/* choose one of: bypass / epa_elna / elna / epa */
-				bypass;
+				epa_elna;
 			};
 		};
 	};
