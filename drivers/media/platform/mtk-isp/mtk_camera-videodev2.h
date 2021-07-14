@@ -3,53 +3,16 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef __LINUX_MTK_MEDIA_H__
-#define __LINUX_MTK_MEDIA_H__
+#ifndef _MTK_CAMERA_VIDEODEV2_H
+#define _MTK_CAMERA_VIDEODEV2_H
 
 #include <linux/videodev2.h>
-/**
- * Workaround before we check the suitable interfaces
- * in community.
- */
 
+/**
+ * E V E N T
+ */
 #define V4L2_EVENT_REQUEST_DRAINED (V4L2_EVENT_PRIVATE_START + 1)
 #define V4L2_EVENT_REQUEST_DUMPED  (V4L2_EVENT_PRIVATE_START + 2)
-
-#define V4L2_CID_USER_MTK_CAM_BASE		(V4L2_CID_USER_BASE + 0x10d0)
-#define V4L2_CID_USER_MTK_SENSOR_BASE		(V4L2_CID_USER_MTK_CAM_BASE + 0x200)
-#define V4L2_CID_USER_MTK_SENINF_BASE		(V4L2_CID_USER_MTK_CAM_BASE + 0x300)
-
-#define V4L2_CID_MTK_CAM_USED_ENGINE_LIMIT \
-	(V4L2_CID_USER_MTK_CAM_BASE + 1)
-#define V4L2_CID_MTK_CAM_BIN_LIMIT \
-	(V4L2_CID_USER_MTK_CAM_BASE + 2)
-#define V4L2_CID_MTK_CAM_FRZ_LIMIT \
-	(V4L2_CID_USER_MTK_CAM_BASE + 3)
-#define V4L2_CID_MTK_CAM_RESOURCE_PLAN_POLICY \
-	(V4L2_CID_USER_MTK_CAM_BASE + 4)
-#define V4L2_CID_MTK_CAM_USED_ENGINE \
-	(V4L2_CID_USER_MTK_CAM_BASE + 5)
-#define V4L2_CID_MTK_CAM_BIN \
-	(V4L2_CID_USER_MTK_CAM_BASE + 6)
-#define V4L2_CID_MTK_CAM_FRZ \
-	(V4L2_CID_USER_MTK_CAM_BASE + 7)
-#define V4L2_CID_MTK_CAM_USED_ENGINE_TRY \
-	(V4L2_CID_USER_MTK_CAM_BASE + 8)
-#define V4L2_CID_MTK_CAM_BIN_TRY \
-	(V4L2_CID_USER_MTK_CAM_BASE + 9)
-#define V4L2_CID_MTK_CAM_FRZ_TRY \
-	(V4L2_CID_USER_MTK_CAM_BASE + 10)
-#define V4L2_CID_MTK_CAM_PIXEL_RATE \
-	(V4L2_CID_USER_MTK_CAM_BASE + 11)
-#define V4L2_CID_MTK_CAM_FEATURE \
-	(V4L2_CID_USER_MTK_CAM_BASE + 12)
-#define V4L2_CID_MTK_CAM_SYNC_ID \
-	(V4L2_CID_USER_MTK_CAM_BASE + 13)
-#define V4L2_CID_MTK_CAM_RAW_PATH_SELECT \
-	(V4L2_CID_USER_MTK_CAM_BASE + 14)
-
-/* Allowed value of V4L2_CID_MTK_CAM_RAW_PATH_SELECT */
-#define V4L2_MTK_CAM_RAW_PATH_SELECT_LSC	1
 
 #define V4L2_PIX_FMT_MTISP_SBGGR10  v4l2_fourcc('M', 'B', 'B', 'A')
 #define V4L2_PIX_FMT_MTISP_SGBRG10  v4l2_fourcc('M', 'B', 'G', 'A')
@@ -100,7 +63,6 @@
 #define V4L2_PIX_FMT_NV21_12 v4l2_fourcc('2', '1', 'C', 'U')
 #define V4L2_PIX_FMT_NV16_12 v4l2_fourcc('1', '6', 'C', 'U')
 #define V4L2_PIX_FMT_NV61_12 v4l2_fourcc('6', '1', 'C', 'U')
-
 #define V4L2_PIX_FMT_MTISP_YUYV10P v4l2_fourcc('Y', 'U', 'A', 'P')
 #define V4L2_PIX_FMT_MTISP_YVYU10P v4l2_fourcc('Y', 'V', 'A', 'P')
 #define V4L2_PIX_FMT_MTISP_UYVY10P v4l2_fourcc('U', 'Y', 'A', 'P')
@@ -117,4 +79,14 @@
 #define V4L2_PIX_FMT_MTISP_NV21_12P v4l2_fourcc('2', '1', 'C', 'P')
 #define V4L2_PIX_FMT_MTISP_NV16_12P v4l2_fourcc('1', '6', 'C', 'P')
 #define V4L2_PIX_FMT_MTISP_NV61_12P v4l2_fourcc('6', '1', 'C', 'P')
-#endif
+#define V4L2_PIX_FMT_MTISP_NV12_UFBC v4l2_fourcc('1', '2', '8', 'F')
+#define V4L2_PIX_FMT_MTISP_NV21_UFBC v4l2_fourcc('2', '1', '8', 'F')
+#define V4L2_PIX_FMT_MTISP_NV12_10_UFBC v4l2_fourcc('1', '2', 'A', 'F')
+#define V4L2_PIX_FMT_MTISP_NV21_10_UFBC v4l2_fourcc('2', '1', 'A', 'F')
+#define V4L2_PIX_FMT_MTISP_NV12_12_UFBC v4l2_fourcc('1', '2', 'C', 'F')
+#define V4L2_PIX_FMT_MTISP_NV21_12_UFBC v4l2_fourcc('2', '1', 'C', 'F')
+#define V4L2_PIX_FMT_MTISP_BAYER8_UFBC v4l2_fourcc('M', 'B', '8', 'U')
+#define V4L2_PIX_FMT_MTISP_BAYER10_UFBC v4l2_fourcc('M', 'B', 'A', 'U')
+#define V4L2_PIX_FMT_MTISP_BAYER12_UFBC v4l2_fourcc('M', 'B', 'C', 'U')
+#define V4L2_PIX_FMT_MTISP_BAYER14_UFBC v4l2_fourcc('M', 'B', 'E', 'U')
+#endif /* _MTK_CAMERA_VIDEODEV2_H */

@@ -17,10 +17,10 @@
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-sv-regs.h"
-#include "mtk_cam-v4l2.h"
+#include "mtk_camera-v4l2-controls.h"
+#include "mtk_camera-videodev2.h"
 #include "imgsys/mtk_imgsys-cmdq-ext.h"
 
-#include "imgsensor-v4l2-controls.h"
 #include "frame_sync_camsys.h"
 
 #define SENSOR_SET_DEADLINE_MS  18

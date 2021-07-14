@@ -9,7 +9,8 @@
 #include "mtk_cam.h"
 #include "mtk_cam-video.h"
 #include "mtk_cam-meta.h"
-#include "mtk_cam-v4l2.h"
+#include "mtk_camera-v4l2-controls.h"
+#include "mtk_camera-videodev2.h"
 
 /*
  * Note

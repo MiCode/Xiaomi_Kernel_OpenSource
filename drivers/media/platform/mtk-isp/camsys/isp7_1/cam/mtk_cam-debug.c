@@ -10,7 +10,8 @@
 #include "mtk_cam-raw.h"
 #include "mtk_cam-meta.h"
 #include "mtk_cam-debug.h"
-#include "mtk_cam-v4l2.h"
+#include "mtk_camera-v4l2-controls.h"
+#include "mtk_camera-videodev2.h"
 /* #include <mt-plat/aee.h> */
 
 #define CAMSYS_DUMP_SATATE_INIT		0

@@ -34,10 +34,8 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-smem.h"
-#include "mtk_cam-v4l2.h"
-
-#include "imgsensor-v4l2-controls.h"
-
+#include "mtk_camera-v4l2-controls.h"
+#include "mtk_camera-videodev2.h"
 
 /* FIXME for CIO pad id */
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0

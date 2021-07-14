@@ -7,7 +7,8 @@
 #include <linux/videodev2.h>
 
 #include "kd_imgsensor_define_v4l2.h"
-#include "imgsensor-v4l2-controls.h"
+#include "mtk_camera-v4l2-controls.h"
+#include "mtk_camera-videodev2.h"
 
 struct mtk_awb_gain {
 	__u32 abs_gain_gr;

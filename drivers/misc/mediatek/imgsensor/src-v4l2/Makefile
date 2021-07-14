@@ -4,6 +4,7 @@
 MKFILE_PATH := $(lastword $(MAKEFILE_LIST))
 IMGSENSOR_DRIVER_PATH := $(patsubst %/,%,$(dir $(realpath $(MKFILE_PATH))))
 MTK_DRIVER_PATH := $(srctree)/drivers/misc/mediatek
+MTK_ISP_DRIVER_PATH := $(srctree)/drivers/media/platform/mtk-isp
 MTK_CAMSYS_DRIVER_PATH := $(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_1/cam
 IMGSENSOR_PROJECT := $(subst ",,$(CONFIG_MTK_IMGSENSOR_PROJECT))
 
@@ -12,6 +13,7 @@ FRAME_SYNC := frame-sync
 subdir-ccflags-y += \
 	-I$(MTK_DRIVER_PATH)/imgsensor/inc \
 	-I$(IMGSENSOR_DRIVER_PATH)/ \
+	-I$(MTK_ISP_DRIVER_PATH)/ \
 	-I$(MTK_CAMSYS_DRIVER_PATH)/ \
 
 imgsensor-objs := \
