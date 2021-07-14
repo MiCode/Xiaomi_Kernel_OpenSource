@@ -379,7 +379,8 @@ static long mdp_sync_ioctl_create_fence(struct sync_timeline *obj,
 	struct mdp_sync_create_fence_data data;
 
 	if (atomic_read(&fd_counter) > fd_max)
-		return -EFAULT;
+		pr_notice("[CMDQ][MDP] user create too much fence %d\n",
+				fd_counter);
 
 	fd = get_unused_fd_flags(O_CLOEXEC);
 
