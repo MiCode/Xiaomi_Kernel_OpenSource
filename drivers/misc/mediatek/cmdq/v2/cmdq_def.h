@@ -359,6 +359,9 @@ struct cmdqSecAddrMetadataStruct {
 	uint32_t offset;	/* [IN]_b, buffser offset to secure handle */
 	uint32_t size;		/* buffer size */
 	uint32_t port;		/* hw port id (i.e. M4U port id) */
+	uint32_t sec_id;
+	uint32_t useSecIdinMeta;
+	int32_t ionFd;
 };
 
 /* tablet use */
@@ -386,6 +389,7 @@ struct cmdqSecDataStruct {
 	/* task index in thread's tasklist. -1 for not in tasklist. */
 	int32_t waitCookie;
 	bool resetExecCnt;	/* reset HW thread in SWd */
+	uint64_t extension;
 
 #ifdef CONFIG_MTK_CMDQ_TAB
 	/* tablet use */
