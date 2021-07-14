@@ -532,8 +532,10 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			dev_info(cam->dev, "[%s] port idx/name:%2d/%16s BW(kB/s):%lu\n",
 				__func__, i, raw_mmqos->port[i % raw_qos_port_num],
 				BW_B2KB_WITH_RATIO(dvfs_info->qos_bw_avg[i]));
+#ifndef FPGA_EP
 			mtk_icc_set_bw(dvfs_info->qos_req[i],
 				kBps_to_icc(BW_B2KB_WITH_RATIO(dvfs_info->qos_bw_avg[i])), 0);
+#endif
 		}
 	}
 	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
@@ -541,8 +543,10 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			dev_info(cam->dev, "[%s] port idx:%2d BW(kB/s):%lu\n",
 				__func__, i,
 				BW_B2KB_WITH_RATIO(dvfs_info->sv_qos_bw_avg[i]));
+#ifndef FPGA_EP
 			mtk_icc_set_bw(dvfs_info->sv_qos_req[i],
 				kBps_to_icc(BW_B2KB_WITH_RATIO(dvfs_info->sv_qos_bw_avg[i])), 0);
+#endif
 		}
 	}
 }
@@ -576,12 +580,16 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 		for (port_id = 0; port_id < raw_qos_port_num; port_id++) {
 			if (port_id < yuvo_r1) {
 				raw_dev = dev_get_drvdata(engineraw_dev);
+#ifndef FPGA_EP
 				dvfs_info->qos_req[i] =
 					of_mtk_icc_get(raw_dev->dev, raw_mmqos->port[port_id]);
+#endif
 			} else {
 				yuv_dev = dev_get_drvdata(engineyuv_dev);
+#ifndef FPGA_EP
 				dvfs_info->qos_req[i] =
 					of_mtk_icc_get(yuv_dev->dev, raw_mmqos->port[port_id]);
+#endif
 			}
 			i++;
 		}
@@ -594,8 +602,10 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 		enginesv_dev = cam->sv.devs[engine_id];
 		for (port_id = 0; port_id < sv_qos_port_num; port_id++) {
 			sv_dev = dev_get_drvdata(enginesv_dev);
+#ifndef FPGA_EP
 			dvfs_info->sv_qos_req[i] =
 				of_mtk_icc_get(sv_dev->dev, sv_mmqos->port[port_id]);
+#endif
 			i++;
 		}
 		dev_info(sv_dev->dev, "[%s] sv_engine_id=%d, port_num=%d\n",
@@ -610,12 +620,17 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_device *cam)
 
 	for (i = 0; i < MTK_CAM_RAW_PORT_NUM; i++) {
 		dvfs_info->qos_bw_avg[i] = 0;
+#ifndef FPGA_EP
 		mtk_icc_set_bw(dvfs_info->qos_req[i], 0, 0);
+#endif
 	}
 	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
 		dvfs_info->sv_qos_bw_avg[i] = 0;
+#ifndef FPGA_EP
 		mtk_icc_set_bw(dvfs_info->sv_qos_req[i], 0, 0);
+#endif
 	}
+
 	dev_info(cam->dev, "[%s]\n", __func__);
 }
 

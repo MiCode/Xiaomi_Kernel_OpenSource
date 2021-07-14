@@ -13,7 +13,7 @@
 /* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define SENINF_VC_ROUTING
 
-#define CSI_EFUSE_SET
+//#define CSI_EFUSE_SET
 
 struct seninf_ctx;
 

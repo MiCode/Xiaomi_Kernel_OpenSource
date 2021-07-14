@@ -49,7 +49,7 @@
 	0, sizeof(*(p)) - offsetof(typeof(*(p)), field) -sizeof((p)->field))
 
 static const struct of_device_id mtk_cam_of_ids[] = {
-	{.compatible = "mediatek,mt8195-camisp",},
+	{.compatible = "mediatek,camisp",},
 	{}
 };
 
@@ -1784,7 +1784,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	}
 
 	if (req_work->ctx->used_raw_num == 0) {
-		dev_dbg(cam->dev, "raw is un-used, skip frame work");
+		pr_info("%s raw is un-used, skip frame work", __func__);
 		return;
 	}
 
@@ -1857,7 +1857,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 
 	if (ctx->rpmsg_dev) {
 		rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
-		dev_dbg(cam->dev, "rpmsg_send id: %d, ctx:%d, req:%d\n",
+		dev_info(cam->dev, "rpmsg_send id: %d, ctx:%d, req:%d\n",
 			event.cmd_id, session->session_id,
 			req_stream_data->frame_seq_no);
 	} else {
@@ -2796,10 +2796,12 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	if (need_dump_mem)
 		cam->debug_fs->ops->reinit(cam->debug_fs, ctx->stream_id);
 	/* update dvfs/qos */
+#ifndef FPGA_EP
 	if (ctx->used_raw_num) {
 		mtk_cam_dvfs_update_clk(ctx->cam);
 		mtk_cam_qos_bw_calc(ctx);
 	}
+#endif
 	ret = mtk_camsys_ctrl_start(ctx);
 	if (ret) {
 		ctx->streaming = false;
@@ -2920,10 +2922,12 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		}
 	}
 	/* reset dvfs/qos */
+#ifndef FPGA_EP
 	if (ctx->used_raw_num) {
 		mtk_cam_dvfs_update_clk(ctx->cam);
 		mtk_cam_qos_bw_reset(ctx->cam);
 	}
+#endif
 	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++) {
 		ret = v4l2_subdev_call(ctx->pipe_subdevs[i], video,
 				       s_stream, 0);
@@ -3106,8 +3110,9 @@ static int mtk_cam_master_bind(struct device *dev)
 		dev_dbg(dev, "Failed to register subdev nodes\n");
 		goto fail_unreg_camsv_entities;
 	}
+#ifndef FPGA_EP
 	mtk_cam_dvfs_init(cam_dev);
-
+#endif
 	dev_info(dev, "%s success\n", __func__);
 	return 0;
 
@@ -3416,7 +3421,9 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		dev_dbg(dev, "failed to map register base\n");
 		return PTR_ERR(cam_dev->base);
 	}
-
+#ifdef FPGA_EP
+	writel_relaxed(0xffffffff, cam_dev->base + 0x8);
+#endif
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);
 

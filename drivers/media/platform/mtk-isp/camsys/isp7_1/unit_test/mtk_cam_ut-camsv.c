@@ -973,7 +973,7 @@ static const struct dev_pm_ops mtk_ut_camsv_pm_ops = {
 };
 
 static const struct of_device_id mtk_ut_camsv_of_ids[] = {
-	{.compatible = "mediatek,mt6983-camsv",},
+	{.compatible = "mediatek,camsv",},
 	{}
 };
 

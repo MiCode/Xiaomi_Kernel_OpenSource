@@ -39,7 +39,7 @@
 #define MTK_CAMSV_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
 
 static const struct of_device_id mtk_camsv_of_ids[] = {
-	{.compatible = "mediatek,mt8195-camsv",},
+	{.compatible = "mediatek,camsv",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_camsv_of_ids);
@@ -1825,7 +1825,9 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	const struct sv_resource *sv_res;
 	struct resource *res, *res_inner;
+#ifndef FPGA_EP
 	unsigned int i;
+#endif
 	int irq, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-id",
@@ -1887,6 +1889,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
 	sv->num_clks = 0;
+#ifndef FPGA_EP
 	while (sv_res->clock[sv->num_clks] && sv->num_clks < MAX_NUM_CAMSV_CLOCKS)
 		sv->num_clks++;
 	if (!sv->num_clks) {
@@ -1907,7 +1910,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "failed to get camsv clock:%d\n", ret);
 		return ret;
 	}
-
+#endif
 	return 0;
 }
 

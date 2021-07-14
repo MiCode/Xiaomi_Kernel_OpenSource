@@ -24,18 +24,17 @@
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
-#include "mtk_cam-v4l2.h"
 #include "mtk_cam-video.h"
 #include "mtk_cam-meta.h"
 #include "mtk_cam-seninf-if.h"
+#include "mtk_camera-v4l2-controls.h"
+#include "mtk_camera-videodev2.h"
 
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_debug.h"
 
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
-
-extern struct clk *__clk_lookup(const char *name);
 
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
@@ -453,20 +452,28 @@ void apply_cq(struct mtk_raw_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial, unsigned int sub_cq_size, unsigned int sub_cq_offset)
 {
-#define DUMMY_CQ_SUB_DESC_DIZE 16
+#define CQ_VADDR_MASK 0xffffffff
+	u32 cq_addr_lsb = (cq_addr + cq_offset) & CQ_VADDR_MASK;
+	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
-	dev_dbg(dev->dev,
-		"apply raw%d cq - addr:0x%08x ,size:%d/%d,offset:%d, REG_CQ_THR0_CTL:0x%8x\n",
+	dev_info(dev->dev,
+		"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d, REG_CQ_THR0_CTL:0x%8x\n",
 		dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset,
 		readl_relaxed(dev->base + REG_CQ_THR0_CTL));
-	writel_relaxed(cq_addr + cq_offset, dev->base + REG_CQ_THR0_BASEADDR);
 
+	writel_relaxed(cq_addr_lsb, dev->base + REG_CQ_THR0_BASEADDR);
+	writel_relaxed(cq_addr_msb, dev->base + REG_CQ_THR0_BASEADDR_MSB);
 	writel_relaxed(cq_size, dev->base + REG_CQ_THR0_DESC_SIZE);
 
-	writel_relaxed(cq_addr + sub_cq_offset,
-		   dev->base + REG_CQ_SUB_THR0_BASEADDR_2);
+	cq_addr_lsb = (cq_addr + sub_cq_offset) & CQ_VADDR_MASK;
+	cq_addr_msb = ((cq_addr + sub_cq_offset) >> 32);
+
+	writel_relaxed(cq_addr_lsb,
+		       dev->base + REG_CQ_SUB_THR0_BASEADDR_2);
+	writel_relaxed(cq_addr_msb,
+		       dev->base + REG_CQ_SUB_THR0_BASEADDR_MSB_2);
 	writel_relaxed(sub_cq_size,
-			   dev->base + REG_CQ_SUB_THR0_DESC_SIZE_2);
+		       dev->base + REG_CQ_SUB_THR0_DESC_SIZE_2);
 
 	wmb(); /* TBC */
 	if (initial) {
@@ -483,10 +490,9 @@ void apply_cq(struct mtk_raw_device *dev,
 		wmb(); /* TBC */
 #endif
 	}
-	dev_dbg(dev->dev,
+	dev_info(dev->dev,
 		"apply raw%d scq - addr/size = [main] 0x%x/%d [sub] 0x%x/%d\n",
 		dev->id, cq_addr, cq_size, cq_addr + sub_cq_offset, sub_cq_size);
-
 }
 
 void reset(struct mtk_raw_device *dev)
@@ -700,42 +706,6 @@ void write_readcount(struct mtk_raw_device *dev)
 	wmb(); /* assure order */
 
 	dev_info(dev->dev, "[Write Rcnt] val:0x%x, 0x%x\n", val, val2);
-}
-
-void set_cam_clk(int freq)
-{
-	struct clk *clk;
-	struct clk *parent;
-
-	switch (freq) {
-	case 273:
-		parent = __clk_lookup("mainpll_d4_d2");
-		break;
-	case 312:
-		parent = __clk_lookup("univpll_d4_d2");
-		break;
-	case 416:
-		parent = __clk_lookup("univpll_d6");
-		break;
-	case 499:
-		parent = __clk_lookup("univpll_d5");
-		break;
-	case 546:
-		parent = __clk_lookup("mainpll_d4");
-		break;
-	case 624:
-		parent = __clk_lookup("univpll_d4");
-		break;
-	case 688:
-		parent = __clk_lookup("mmpll_d4");
-		break;
-	default:
-		parent = __clk_lookup("mainpll_d4_d2");
-		break;
-	}
-
-	clk = __clk_lookup("cam_sel");
-	clk_set_parent(clk, parent);
 }
 
 int get_fps_ratio(struct mtk_raw_device *dev)
@@ -1168,7 +1138,11 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 		*out_h = in_h;
 	}
 
+#ifndef FPGA_EP
 	return res_found;
+#else
+	return true;
+#endif
 }
 
 static bool mtk_raw_resource_calc_set(struct mtk_raw_pipeline *pipe,
@@ -1296,7 +1270,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	spin_unlock_irqrestore(&raw_dev->spinlock_irq, flags);
 
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
-	dev_dbg(dev,
+	dev_info(dev,
 		"INT:0x%x(err:0x%x) 2~7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x (in:%d)\n",
 		irq_status, err_status,
 		dma_done_status, dmai_done_status, drop_status,
@@ -1528,7 +1502,9 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+#ifndef FPGA_EP
 	unsigned int i;
+#endif
 	int irq, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
@@ -1581,6 +1557,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
+#ifndef FPGA_EP
 	raw->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
 	dev_info(dev, "clk_num:%d\n", raw->num_clks);
@@ -1603,6 +1580,19 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		}
 	}
 
+#else
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "main_base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	raw->top_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(raw->top_base)) {
+		dev_info(dev, "failed to map register base\n");
+		return PTR_ERR(raw->top_base);
+	}
+#endif
 	return 0;
 }
 
@@ -1975,14 +1965,10 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 	if (v4l2_subdev_format_request_fd(fmt) <= 0)
 		return -EINVAL;
 
-	req = media_request_get_by_fd(&cam->media_dev, v4l2_subdev_format_request_fd(fmt));
+	req = media_request_get_by_fd(&cam->media_dev,
+				v4l2_subdev_format_request_fd(fmt));
 	if (req) {
 		cam_req = to_mtk_cam_req(req);
-		dev_info(cam->dev, "sd:%s pad:%d pending success, req fd(%d)\n",
-			sd->name, fmt->pad, fmt->request_fd);
-	} else {
-		dev_info(cam->dev, "sd:%s pad:%d pending failed, req fd(%d) invalid\n",
-			sd->name, fmt->pad, fmt->request_fd);
 		dev_info(cam->dev, "sd:%s pad:%d pending success, req fd(%d)\n",
 			sd->name, fmt->pad, v4l2_subdev_format_request_fd(fmt));
 	} else {
@@ -3717,23 +3703,31 @@ static int mtk_raw_pm_resume(struct device *dev)
 static int mtk_raw_runtime_suspend(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
+#ifndef FPGA_EP
 	int i;
+#endif
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
+#ifndef FPGA_EP
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
-
+#else
+	writel_relaxed(0xffffffff, drvdata->top_base + 0x4);
+#endif
 	return 0;
 }
 
 static int mtk_raw_runtime_resume(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
+#ifndef FPGA_EP
 	int i, ret;
+#endif
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 
+#ifndef FPGA_EP
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -3746,7 +3740,9 @@ static int mtk_raw_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
-
+#else
+	writel_relaxed(0xffffffff, drvdata->top_base + 0x8);
+#endif
 	reset(drvdata);
 	return 0;
 }
@@ -3758,7 +3754,7 @@ static const struct dev_pm_ops mtk_raw_pm_ops = {
 };
 
 static const struct of_device_id mtk_raw_of_ids[] = {
-	{.compatible = "mediatek,mt8195-cam-raw",},
+	{.compatible = "mediatek,cam-raw",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_raw_of_ids);
@@ -3832,7 +3828,9 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+#ifndef FPGA_EP
 	unsigned int i;
+#endif
 	int irq, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
@@ -3869,6 +3867,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
 
+#ifndef FPGA_EP
 	drvdata->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
 	dev_info(dev, "clk_num:%d\n", drvdata->num_clks);
@@ -3891,7 +3890,19 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
+#else
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "main_base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
 
+	drvdata->top_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(drvdata->top_base)) {
+		dev_info(dev, "failed to map register base\n");
+		return PTR_ERR(drvdata->top_base);
+	}
+#endif
 	return 0;
 }
 
@@ -3973,12 +3984,18 @@ static int mtk_yuv_pm_resume(struct device *dev)
 static int mtk_yuv_runtime_suspend(struct device *dev)
 {
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
+#ifndef FPGA_EP
 	int i;
+#endif
 
-	dev_dbg(dev, "%s:disable clock\n", __func__);
+	dev_info(dev, "%s:disable clock\n", __func__);
 
+#ifndef FPGA_EP
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
+#else
+	writel_relaxed(0xffffffff, drvdata->top_base + 0x4);
+#endif
 
 	return 0;
 }
@@ -3986,10 +4003,13 @@ static int mtk_yuv_runtime_suspend(struct device *dev)
 static int mtk_yuv_runtime_resume(struct device *dev)
 {
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
+#ifndef FPGA_EP
 	int i, ret;
+#endif
 
-	dev_dbg(dev, "%s:enable clock\n", __func__);
+	dev_info(dev, "%s:enable clock\n", __func__);
 
+#ifndef FPGA_EP
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -4002,6 +4022,9 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
+#else
+	writel_relaxed(0xffffffff, drvdata->top_base + 0x8);
+#endif
 
 	return 0;
 }
@@ -4014,7 +4037,7 @@ static const struct dev_pm_ops mtk_yuv_pm_ops = {
 };
 
 static const struct of_device_id mtk_yuv_of_ids[] = {
-	{.compatible = "mediatek,mt8195-cam-yuv",},
+	{.compatible = "mediatek,cam-yuv",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_yuv_of_ids);

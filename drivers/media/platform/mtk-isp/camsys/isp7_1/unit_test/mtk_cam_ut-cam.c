@@ -739,7 +739,7 @@ static const struct dev_pm_ops mtk_ut_raw_pm_ops = {
 };
 
 static const struct of_device_id mtk_ut_raw_of_ids[] = {
-	{.compatible = "mediatek,mt6983-cam-raw",},
+	{.compatible = "mediatek,cam-raw",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_ut_raw_of_ids);
@@ -1066,7 +1066,7 @@ static const struct dev_pm_ops mtk_ut_yuv_pm_ops = {
 };
 
 static const struct of_device_id mtk_ut_yuv_of_ids[] = {
-	{.compatible = "mediatek,mt6983-cam-yuv",},
+	{.compatible = "mediatek,cam-yuv",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_ut_yuv_of_ids);
@@ -1147,7 +1147,7 @@ static int mtk_ut_larb_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mtk_ut_larb_of_ids[] = {
-	{.compatible = "mediatek,mt6983-camisp-larb",},
+	{.compatible = "mediatek,camisp-larb",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_ut_larb_of_ids);

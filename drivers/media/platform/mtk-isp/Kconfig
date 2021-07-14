@@ -27,8 +27,9 @@ config VIDEO_MTK_ISP_COMMON
 
 config VIDEO_MTK_ISP_CAMSYS
 	tristate "Mediatek camsys processing function"
-	select V4L2_FWNODE
-
+	select RPMSG_MTK
+	select RPMSG_MTK_CCD
+	select MTK_CCD_REMOTEPROC
 	help
 	    Camsys driver controls 3A (autofocus, exposure,
 	    and white balance) with tuning feature and output

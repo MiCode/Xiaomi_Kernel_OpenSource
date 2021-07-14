@@ -33,7 +33,6 @@
 #include "mtk_cam-seninf-route.h"
 #include "imgsensor-user.h"
 
-
 #define V4L2_CID_MTK_SENINF_BASE	(V4L2_CID_USER_BASE | 0xf000)
 #define V4L2_CID_MTK_TEST_STREAMON	(V4L2_CID_MTK_SENINF_BASE + 1)
 
@@ -63,6 +62,7 @@ static ssize_t status_show(struct device *dev,
 
 static DEVICE_ATTR_RO(status);
 
+#ifndef FPGA_EP
 static int seninf_dfs_init(struct seninf_dfs *dfs, struct device *dev)
 {
 	int ret, i;
@@ -109,6 +109,7 @@ static int seninf_dfs_init(struct seninf_dfs *dfs, struct device *dev)
 
 	return 0;
 }
+#endif
 
 static int seninf_dfs_exit(struct seninf_dfs *dfs)
 {
@@ -325,11 +326,13 @@ static int seninf_core_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+#ifndef FPGA_EP
 	ret = seninf_dfs_init(&core->dfs, dev);
 	if (ret) {
 		dev_info(dev, "%s: failed to init dfs\n", __func__);
 		//return ret;
 	}
+#endif
 
 	ret = device_create_file(dev, &dev_attr_status);
 	if (ret)
@@ -889,7 +892,7 @@ int update_isp_clk(struct seninf_ctx *ctx)
 static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	int ret;
-	struct workqueue_struct *wq_to_stop;
+	struct workqueue_struct *wq_to_stop = NULL;
 	unsigned long flags = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 

@@ -32,6 +32,7 @@
 /* for stagger, time-sharing camsv working buffer, 3exps * (1backup + 2streams)*/
 #define CAM_IMG_BUF_NUM (3*3)
 
+#define FPGA_EP
 #define CCD_READY 1
 
 struct platform_device;

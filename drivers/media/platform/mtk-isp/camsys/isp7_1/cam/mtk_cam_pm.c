@@ -108,7 +108,7 @@ static int mtk_cam_larb_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mtk_cam_larb_match[] = {
-	{.compatible = "mediatek,mt8195-camisp-larb",},
+	{.compatible = "mediatek,camisp-larb",},
 	{},
 };
 

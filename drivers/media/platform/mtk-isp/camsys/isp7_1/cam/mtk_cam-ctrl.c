@@ -36,6 +36,8 @@ enum MTK_CAMSYS_STATE_RESULT {
 	STATE_RESULT_PASS_CQ_HW_DELAY,
 };
 
+#define v4l2_set_frame_interval_which(x, y) (x.reserved[0] = y)
+
 static void state_transition(struct mtk_camsys_ctrl_state *state_entry,
 			     enum MTK_CAMSYS_STATE_IDX from,
 			     enum MTK_CAMSYS_STATE_IDX to)
@@ -206,7 +208,9 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 
 		dev_info(cam->dev, "%s:%s:fs_sync_frame(1): sync %d ctxs: 0x%x\n",
 			__func__, req->req.debug_str, ctx_cnt, req->ctx_used);
+#ifndef FPGA_EP
 		fs_sync_frame(1);
+#endif
 
 		mutex_unlock(&req->fs_op_lock);
 		return true;
@@ -248,8 +252,9 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 		dev_info(cam->dev,
 			 "%s:%s:fs_sync_frame(0): sync %d ctxs: 0x%x\n",
 			 __func__, req->req.debug_str, ctx_cnt, req->ctx_used);
+#ifndef FPGA_EP
 		fs_sync_frame(0);
-
+#endif
 		mutex_unlock(&req->fs_op_lock);
 		return true;
 	}
@@ -1750,7 +1755,8 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 		req = mtk_cam_dev_get_req(ctx->cam, ctx, 1);
 		req_stream_data = &req->stream_data[ctx->stream_id];
 		sensor_ctrl->initial_cq_done = 1;
-		if (req_stream_data->state.estate >= E_STATE_SENSOR) {
+		if (req_stream_data->state.estate >= E_STATE_SENSOR ||
+			!ctx->sensor) {
 			unsigned int hw_scen =
 				(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
 
@@ -1944,9 +1950,9 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 					state_entry->estate,
 					req_stream_data->timestamp,
 					state_req->sync_id);
-					if (state_req->sync_id != -1)
-						imgsys_cmdq_setevent(state_req->sync_id);
-					}
+					//if (state_req->sync_id != -1)
+					//	imgsys_cmdq_setevent(state_req->sync_id);
+				}
 			}
 		}
 		spin_unlock_irqrestore(&camsys_sensor_ctrl->camsys_state_lock, flags);
@@ -2132,7 +2138,7 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 		raw_dev->time_shared_busy = false;
 		/*try set other ctx in one request first*/
 		if (req->pipe_used != (1 << ctx->stream_id)) {
-			struct mtk_cam_ctx *ctx_2;
+			struct mtk_cam_ctx *ctx_2 = NULL;
 			int pipe_used_remain = req->pipe_used & (~(1 << ctx->stream_id));
 
 			for (i = 0;  i < ctx->cam->max_stream_num; i++)
@@ -2140,9 +2146,13 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 					ctx_2 = &ctx->cam->ctxs[i];
 					break;
 				}
-			dev_dbg(raw_dev->dev, "%s: time sharing ctx-%d deq_no(%d)\n",
-			 __func__, ctx_2->stream_id, ctx_2->dequeued_frame_seq_no+1);
-			mtk_camsys_ts_raw_try_set(raw_dev, ctx_2, ctx_2->dequeued_frame_seq_no + 1);
+
+			if (!ctx_2) {
+				dev_dbg(raw_dev->dev, "%s: time sharing ctx-%d deq_no(%d)\n",
+				 __func__, ctx_2->stream_id, ctx_2->dequeued_frame_seq_no+1);
+				mtk_camsys_ts_raw_try_set(raw_dev, ctx_2,
+								ctx_2->dequeued_frame_seq_no + 1);
+			}
 		}
 		mtk_camsys_ts_raw_try_set(raw_dev, ctx, ctx->dequeued_frame_seq_no + 1);
 	}
@@ -2603,7 +2613,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 
 	if (ctx->used_raw_num) {
 		fi.pad = 1;
-		fi.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+		v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE);
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
 		fps_factor = fi.interval.denominator / fi.interval.numerator / 30;
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);

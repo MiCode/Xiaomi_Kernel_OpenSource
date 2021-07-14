@@ -17,8 +17,8 @@ mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
 		    mtk_cam-sv.o \
 		    mtk_cam-raw_debug.o
 
-ifeq ($(CONFIG_DEBUG_FS), y)
-mtk-cam-isp-objs += mtk_cam-procdbg.o
-endif
+#ifeq ($(CONFIG_DEBUG_FS), y)
+#mtk-cam-isp-objs += mtk_cam-procdbg.o
+#endif
 
-obj-y += mtk-cam-isp.o
+obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-isp.o

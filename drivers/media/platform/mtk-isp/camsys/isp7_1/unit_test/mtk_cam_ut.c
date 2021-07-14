@@ -1304,7 +1304,7 @@ static const struct dev_pm_ops mtk_cam_pm_ops = {
 };
 
 static const struct of_device_id cam_ut_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6983-camisp", },
+	{ .compatible = "mediatek,camisp", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, cam_ut_driver_dt_match);
