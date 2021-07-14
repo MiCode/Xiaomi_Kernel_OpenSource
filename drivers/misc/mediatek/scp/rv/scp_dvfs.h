@@ -84,6 +84,14 @@ enum scp_state_enum {
 	IN_ACTIVE = 1 << 4,
 };
 
+enum scp_sleep_config {
+	R_CPU_OFF = 1 << 1, /* cpu-off config: 1:enable, 0: disable */
+};
+
+enum scp_power_status {
+	POW_ON = 1 << 1, /* 1: cpu-on, 0: cpu-off */
+};
+
 enum scp_ipi_cmd {
 	SCP_SLEEP_OFF,
 	SCP_SLEEP_ON,

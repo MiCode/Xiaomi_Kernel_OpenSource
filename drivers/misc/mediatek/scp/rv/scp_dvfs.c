@@ -665,7 +665,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 
 void mt_scp_dvfs_state_dump(void)
 {
-	unsigned int scp_state;
+	unsigned int scp_state, slp_pwr_ctrl, power_status;
 
 	scp_state = readl(SCP_A_SLEEP_DEBUG_REG);
 	pr_info("scp status: %s\n",
@@ -678,6 +678,14 @@ void mt_scp_dvfs_state_dump(void)
 			"enter active"
 		: ((scp_state & IN_ACTIVE) == IN_ACTIVE) ?
 			"active mode" : "none of state");
+
+	if (dvfs.vlp_support) {
+		slp_pwr_ctrl = readl(SCP_SLP_PWR_CTRL);
+		power_status = readl(SCP_POWER_STATUS);
+		pr_info("cpu-off config: %s, power status: %s\n",
+			((slp_pwr_ctrl & R_CPU_OFF) == R_CPU_OFF) ? "enable" : "disable",
+			((power_status & POW_ON) == POW_ON) ? "on" : "off");
+	}
 }
 
 #ifdef CONFIG_PROC_FS
@@ -690,7 +698,7 @@ void mt_scp_dvfs_state_dump(void)
  *****************************/
 static int mt_scp_dvfs_state_proc_show(struct seq_file *m, void *v)
 {
-	unsigned int scp_state;
+	unsigned int scp_state, slp_pwr_ctrl, power_status;
 
 	scp_state = readl(SCP_A_SLEEP_DEBUG_REG);
 	seq_printf(m, "scp status: %s\n",
@@ -705,6 +713,14 @@ static int mt_scp_dvfs_state_proc_show(struct seq_file *m, void *v)
 			"active mode" : "none of state");
 	seq_printf(m, "current debug scp core: %d\n",
 		dvfs.cur_dbg_core);
+
+	if (dvfs.vlp_support) {
+		slp_pwr_ctrl = readl(SCP_SLP_PWR_CTRL);
+		power_status = readl(SCP_POWER_STATUS);
+		seq_printf(m, "cpu-off config: %s, power status: %s\n",
+			((slp_pwr_ctrl & R_CPU_OFF) == R_CPU_OFF) ? "enable" : "disable",
+			((power_status & POW_ON) == POW_ON) ? "on" : "off");
+	}
 	return 0;
 }
 

@@ -163,6 +163,8 @@
 #define SCP_CPU0_SRAM_PD		(scpreg.clkctrl + 0x0080)
 #define SCP_CPU1_SRAM_PD		(scpreg.clkctrl + 0x0084)
 #define SCP_CLK_CTRL_TCM_TAIL_SRAM_PD	(scpreg.clkctrl + 0x0094)
+#define SCP_POWER_STATUS				(scpreg.clkctrl + 0x0124)
+#define SCP_SLP_PWR_CTRL				(scpreg.clkctrl + 0x0128)
 
 #define CLK_SW_SEL					(scpreg.clkctrl + 0x0)
 #define CLK_SW_SEL_O_BIT			8
