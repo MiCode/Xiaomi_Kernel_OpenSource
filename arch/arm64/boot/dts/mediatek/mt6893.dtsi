@@ -72,6 +72,10 @@
 		rsz1 = &disp_rsz1;
 		maal0 = &mdp_aal4;
 		maal1 = &mdp_aal5;
+		mtksmmu0 = &iommu0;
+		mtksmmu1 = &iommu1;
+		mtksmmu2 = &iommu2;
+		mtksmmu3 = &iommu3;
 	};
 
 	/* ATF logger */
