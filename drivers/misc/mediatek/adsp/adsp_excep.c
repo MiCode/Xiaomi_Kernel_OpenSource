@@ -47,7 +47,7 @@ static u32 copy_from_buffer(void *dest, size_t destsize, const void *src,
 
 	return request;
 }
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 static inline u32 dump_adsp_shared_memory(void *buf, size_t size, int id)
 {
 	void *mem_addr = adsp_get_reserve_mem_virt(id);
@@ -149,7 +149,7 @@ static int dump_buffer(struct adsp_exception_control *ctrl, int coredump_id)
 		 __func__, total, buf, n);
 	return n;
 }
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+
 static void adsp_exception_dump(struct adsp_exception_control *ctrl)
 {
 	char detail[ADSP_AED_STR_LEN];
