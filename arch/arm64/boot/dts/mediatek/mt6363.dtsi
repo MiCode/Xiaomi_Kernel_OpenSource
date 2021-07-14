@@ -20,8 +20,7 @@
 		};
 
 		pmic_adc: mt6363-auxadc {
-			compatible = "mediatek,pmic-auxadc",
-				     "mediatek,mt6363-auxadc";
+			compatible = "mediatek,mt6363-auxadc";
 			#io-channel-cells = <1>;
 
 			batadc {
@@ -57,10 +56,6 @@
 			imp {
 				channel = <AUXADC_IMP>;
 				resistance-ratio = <4 1>;
-			};
-			imix_r {
-				channel = <AUXADC_IMIX_R>;
-				val = <90>;
 			};
 			vin1_100k {
 				channel = <AUXADC_VIN1>;
@@ -414,6 +409,7 @@
 				regulator-allowed-modes = <0 2>;
 			};
 			mt6363_isink_load: ISINK_LOAD {
+				regulator-compatible = "isink_load";
 				regulator-name = "mt6363_isink_load";
 			};
 		};
