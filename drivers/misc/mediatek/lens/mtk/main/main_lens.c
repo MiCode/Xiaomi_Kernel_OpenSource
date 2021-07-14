@@ -371,6 +371,10 @@ static long AF_ControlParam(unsigned long a_u4Param)
 		monotonicTime = archcounter_timesync_to_monotonic(hwTickCnt);
 		/* do_div(monotonicTime, 1000); */ /* ns to us */
 		CtrlCmd.i8Param[1] = monotonicTime;
+
+		if (copy_to_user(pCtrlCmd, &CtrlCmd,
+			sizeof(struct stAF_CtrlCmd)))
+			LOG_INF("copy to user failed\n");
 #endif
 		}
 		i4RetValue = 1;
@@ -378,12 +382,6 @@ static long AF_ControlParam(unsigned long a_u4Param)
 	default:
 		i4RetValue = -1;
 		break;
-	}
-
-	if (i4RetValue > 0) {
-		if (copy_to_user(pCtrlCmd, &CtrlCmd,
-			sizeof(struct stAF_CtrlCmd)))
-			LOG_INF("copy to user failed\n");
 	}
 
 	return i4RetValue;
