@@ -1283,6 +1283,13 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		return PTR_ERR(fd->fd_base);
 	}
 
+
+	dev_info(fd->dev, "%s Setting MSB\n ", __func__);
+	writel(0x00000003, fd->fd_base + FDVT_YUV2RGB_CON_BASE_ADR_MSB);
+	writel(0x00000003, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
+	writel(0x00000003, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
+
+/*
 	ret = mtk_aie_dev_larb_init(fd);
 	if (ret) {
 		dev_info(dev, "Failed to init larb : %d\n", ret);

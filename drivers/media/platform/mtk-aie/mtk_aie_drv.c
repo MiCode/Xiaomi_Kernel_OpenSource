@@ -2060,6 +2060,10 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 	yuv2rgb_cfg[Y2R_IN_0] = srcbuf;
 	yuv2rgb_cfg[Y2R_IN_1] = srcbuf_UV;
 
+	yuv2rgb_cfg[POS_Y2RCON_IN_BA_MSB] = (u32)0x00000303;
+	yuv2rgb_cfg[POS_Y2RCON_OUT_BA_MSB] = (u32)0x00030303;
+
+
 	yuv2rgb_cfg[Y2R_OUT_0] = (u32)fd->base_para->rs_pym_rst_pa[0][0];
 	yuv2rgb_cfg[Y2R_OUT_1] = (u32)fd->base_para->rs_pym_rst_pa[0][1];
 	yuv2rgb_cfg[Y2R_OUT_2] = (u32)fd->base_para->rs_pym_rst_pa[0][2];
@@ -2119,6 +2123,8 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 	for (i = 0; i < 2; i++) {
 		rs_tbl[i] = rs_cfg + RS_CONFIG_SIZE * i;
+		rs_tbl[i][POS_RSCON_IN_BA_MSB] = (u32)0x00030303;
+		rs_tbl[i][POS_RSCON_OUT_BA_MSB] = (u32)0x00030303;
 
 		rs_tbl[i][RS_IN_0] = (u32)fd->base_para->rs_pym_rst_pa[i][0];
 		rs_tbl[i][RS_IN_1] = (u32)fd->base_para->rs_pym_rst_pa[i][1];
@@ -2228,6 +2234,10 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		fd_cur_cfg[FD_INPUT_ROTATE] =
 			(fd_cur_cfg[FD_INPUT_ROTATE] & 0xFFFF0FFF) |
 			((aie_cfg->rotate_degree << 12) & 0x3000);
+		fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)0x03030303;
+		fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)0x03030303;
+		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)0x00000303;
+
 
 		if (i == 0)
 			input_height = pyramid2_out_h;
@@ -2441,6 +2451,11 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 		fd_cur_cfg[FD_INPUT_ROTATE] =
 			(fd_cur_cfg[FD_INPUT_ROTATE] & 0xFFFF0FFF) |
 			((aie_cfg->rotate_degree << 12) & 0x3000);
+
+		fd_cur_cfg[POS_FDCON_IN_BA_MSB] = (u32)0x03030303;
+		fd_cur_cfg[POS_FDCON_OUT_BA_MSB] = (u32)0x03030303;
+		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)0x00000303;
+
 		if (i == 0)
 			fd_input_ht = pyramid0_out_h;
 		else {
