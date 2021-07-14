@@ -4071,13 +4071,13 @@
 			<&scpsys MT6983_POWER_DOMAIN_MFG9>,
 			<&scpsys MT6983_POWER_DOMAIN_MFG10>,
 			<&scpsys MT6983_POWER_DOMAIN_MFG11>,
-			<&scpsys MT6983_POWER_DOMAIN_MFG12>,
-			<&scpsys MT6983_POWER_DOMAIN_MFG13>,
-			<&scpsys MT6983_POWER_DOMAIN_MFG14>,
-			<&scpsys MT6983_POWER_DOMAIN_MFG15>,
-			<&scpsys MT6983_POWER_DOMAIN_MFG16>,
-			<&scpsys MT6983_POWER_DOMAIN_MFG17>,
-			<&scpsys MT6983_POWER_DOMAIN_MFG18>;
+			<&scpsys MT6983_POWER_DOMAIN_MFG12>;
+			// <&scpsys MT6983_POWER_DOMAIN_MFG13>,
+			// <&scpsys MT6983_POWER_DOMAIN_MFG14>,
+			// <&scpsys MT6983_POWER_DOMAIN_MFG15>,
+			// <&scpsys MT6983_POWER_DOMAIN_MFG16>,
+			// <&scpsys MT6983_POWER_DOMAIN_MFG17>,
+			// <&scpsys MT6983_POWER_DOMAIN_MFG18>;
 		power-domain-names =
 			"pd_mfg1",
 			"pd_mfg2",
@@ -4090,13 +4090,13 @@
 			"pd_mfg9",
 			"pd_mfg10",
 			"pd_mfg11",
-			"pd_mfg12",
-			"pd_mfg13",
-			"pd_mfg14",
-			"pd_mfg15",
-			"pd_mfg16",
-			"pd_mfg17",
-			"pd_mfg18";
+			"pd_mfg12";
+			// "pd_mfg13",
+			// "pd_mfg14",
+			// "pd_mfg15",
+			// "pd_mfg16",
+			// "pd_mfg17",
+			// "pd_mfg18";
 		_vcore-supply = <&mt6363_vbuck2>;
 		// _dvfsrc-supply = <&dvfsrc_vcore>;
 		_vstack-supply = <&mt6373_vbuck2>;
