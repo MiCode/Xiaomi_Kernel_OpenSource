@@ -2953,9 +2953,9 @@ static void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
 /* all code inside alloc_iova_hook can't be scheduled! */
 static void alloc_iova_hook(void *data, struct device *dev, dma_addr_t iova, size_t size) {
 	/* page size shift */
-	mtk_iommu_trace_alloc(dev, iova << 12, size);
+	mtk_iommu_trace_alloc(dev, iova, size);
 
-	return mtk_iova_dbg_alloc(dev, iova << 12, size);
+	return mtk_iova_dbg_alloc(dev, iova, size);
 }
 
 /* all code inside free_iova_hook can't be scheduled! */

@@ -263,6 +263,7 @@
   crypto_alloc_aead
   crypto_alloc_base
   crypto_alloc_shash
+  crypto_alloc_sync_skcipher
   crypto_comp_compress
   crypto_comp_decompress
   crypto_destroy_tfm
@@ -271,6 +272,8 @@
   crypto_shash_digest
   crypto_shash_finup
   crypto_shash_setkey
+  crypto_skcipher_encrypt
+  crypto_skcipher_setkey
   crypto_unregister_alg
   crypto_unregister_scomp
   csum_ipv6_magic
@@ -549,6 +552,7 @@
   __drm_atomic_helper_crtc_destroy_state
   __drm_atomic_helper_crtc_duplicate_state
   __drm_atomic_helper_crtc_reset
+  drm_atomic_helper_disable_all
   drm_atomic_helper_disable_plane
   drm_atomic_helper_duplicate_state
   drm_atomic_helper_fake_vblank
@@ -571,6 +575,7 @@
   drm_atomic_private_obj_init
   drm_atomic_set_crtc_for_plane
   drm_atomic_set_fb_for_plane
+  drm_atomic_set_mode_for_crtc
   drm_atomic_state_alloc
   drm_atomic_state_clear
   __drm_atomic_state_free
@@ -638,6 +643,7 @@
   drmm_mode_config_init
   drm_mode_config_reset
   drm_mode_convert_to_umode
+  drm_mode_copy
   drm_mode_duplicate
   drm_mode_equal
   drm_mode_equal_no_clocks
@@ -690,6 +696,7 @@
   drm_rotation_simplify
   drm_self_refresh_helper_alter_state
   drm_send_event
+  drm_send_event_locked
   drm_universal_plane_init
   drm_vblank_init
   drm_writeback_connector_init
@@ -722,6 +729,7 @@
   extcon_set_property
   extcon_set_property_capability
   extcon_set_state_sync
+  extcon_unregister_notifier
   failure_tracking
   fasync_helper
   __fdget
@@ -1383,6 +1391,7 @@
   printk_deferred
   proc_create
   proc_create_data
+  proc_create_single_data
   proc_dointvec
   proc_dostring
   proc_douintvec_minmax
@@ -1609,6 +1618,7 @@
   skb_clone
   skb_copy
   skb_dequeue
+  skb_dequeue_tail
   skb_pull
   skb_push
   skb_put
@@ -1723,6 +1733,7 @@
   sscanf
   __stack_chk_fail
   __stack_chk_guard
+  static_key_disable
   static_key_slow_dec
   static_key_slow_inc
   stop_machine
@@ -1763,6 +1774,8 @@
   synchronize_net
   synchronize_rcu
   syscon_regmap_lookup_by_phandle
+  sysctl_sched_features
+  sysctl_sched_latency
   sysfs_add_file_to_group
   sysfs_create_file_ns
   sysfs_create_files
@@ -1829,6 +1842,8 @@
   trace_event_reg
   trace_handle_return
   __traceiter_android_rvh_cgroup_force_kthread_migration
+  __traceiter_android_rvh_check_preempt_wakeup
+  __traceiter_android_rvh_cpu_cgroup_online
   __traceiter_android_rvh_cpu_overutilized
   __traceiter_android_rvh_dequeue_task
   __traceiter_android_rvh_find_energy_efficient_cpu
@@ -1850,7 +1865,9 @@
   __traceiter_android_vh_cpu_idle_exit
   __traceiter_android_vh_enable_thermal_genl_check
   __traceiter_android_vh_ep_create_wakeup_source
+  __traceiter_android_vh_finish_update_load_avg_se
   __traceiter_android_vh_ipi_stop
+  __traceiter_android_vh_meminfo_proc_show
   __traceiter_android_vh_of_i2c_get_board_info
   __traceiter_android_vh_pagecache_get_page
   __traceiter_android_vh_rmqueue
@@ -1860,6 +1877,7 @@
   __traceiter_android_vh_typec_tcpci_override_toggling
   __traceiter_android_vh_typec_tcpm_adj_current_limit
   __traceiter_android_vh_typec_tcpm_get_timer
+  __traceiter_android_vh_typec_tcpm_log
   __traceiter_android_vh_ufs_check_int_errors
   __traceiter_android_vh_ufs_compl_command
   __traceiter_android_vh_ufs_fill_prdt
@@ -1875,6 +1893,8 @@
   __traceiter_dwc3_readl
   __traceiter_dwc3_writel
   __traceiter_gpu_mem_total
+  __traceiter_mm_vmscan_direct_reclaim_begin
+  __traceiter_mm_vmscan_direct_reclaim_end
   __traceiter_pelt_cfs_tp
   __traceiter_pelt_dl_tp
   __traceiter_pelt_irq_tp
@@ -1891,6 +1911,8 @@
   __traceiter_suspend_resume
   trace_output_call
   __tracepoint_android_rvh_cgroup_force_kthread_migration
+  __tracepoint_android_rvh_check_preempt_wakeup
+  __tracepoint_android_rvh_cpu_cgroup_online
   __tracepoint_android_rvh_cpu_overutilized
   __tracepoint_android_rvh_dequeue_task
   __tracepoint_android_rvh_find_energy_efficient_cpu
@@ -1912,7 +1934,9 @@
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_enable_thermal_genl_check
   __tracepoint_android_vh_ep_create_wakeup_source
+  __tracepoint_android_vh_finish_update_load_avg_se
   __tracepoint_android_vh_ipi_stop
+  __tracepoint_android_vh_meminfo_proc_show
   __tracepoint_android_vh_of_i2c_get_board_info
   __tracepoint_android_vh_pagecache_get_page
   __tracepoint_android_vh_rmqueue
@@ -1922,6 +1946,7 @@
   __tracepoint_android_vh_typec_tcpci_override_toggling
   __tracepoint_android_vh_typec_tcpm_adj_current_limit
   __tracepoint_android_vh_typec_tcpm_get_timer
+  __tracepoint_android_vh_typec_tcpm_log
   __tracepoint_android_vh_ufs_check_int_errors
   __tracepoint_android_vh_ufs_compl_command
   __tracepoint_android_vh_ufs_fill_prdt
@@ -1937,6 +1962,8 @@
   __tracepoint_dwc3_readl
   __tracepoint_dwc3_writel
   __tracepoint_gpu_mem_total
+  __tracepoint_mm_vmscan_direct_reclaim_begin
+  __tracepoint_mm_vmscan_direct_reclaim_end
   __tracepoint_pelt_cfs_tp
   __tracepoint_pelt_dl_tp
   __tracepoint_pelt_irq_tp
@@ -1956,6 +1983,7 @@
   trace_print_array_seq
   trace_print_bitmask_seq
   trace_print_flags_seq
+  trace_print_hex_seq
   trace_print_symbols_seq
   trace_raw_output_prep
   trace_seq_printf
@@ -2137,6 +2165,7 @@
   vm_map_pages
   vm_map_ram
   vm_unmap_ram
+  vprintk
   vring_del_virtqueue
   vring_interrupt
   vring_new_virtqueue

@@ -28,6 +28,9 @@
 #include "ufs-mediatek.h"
 #include "ufs-mediatek-dbg.h"
 
+#define CREATE_TRACE_POINTS
+#include "ufs-mediatek-trace.h"
+
 #define ufs_mtk_smc(cmd, val, res) \
 	arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
 		      cmd, val, 0, 0, 0, 0, 0, &(res))
@@ -69,6 +72,13 @@ static bool ufs_mtk_is_va09_supported(struct ufs_hba *hba)
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	return !!(host->caps & UFS_MTK_CAP_VA09_PWR_CTRL);
+}
+
+static bool ufs_mtk_is_broken_vcc(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	return !!(host->caps & UFS_MTK_CAP_BROKEN_VCC);
 }
 
 static void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
@@ -535,6 +545,9 @@ static void ufs_mtk_init_host_caps(struct ufs_hba *hba)
 	if (of_property_read_bool(np, "mediatek,ufs-qos"))
 		host->qos_enabled = host->qos_allowed = true;
 
+	if (of_property_read_bool(np, "mediatek,ufs-broken-vcc"))
+		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
+
 	dev_info(hba->dev, "caps: 0x%x", host->caps);
 
 	boot_node = of_parse_phandle(np, "bootmode", 0);
@@ -723,9 +736,21 @@ static void ufs_mtk_get_controller_version(struct ufs_hba *hba)
 
 	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_LOCALVERINFO), &ver);
 	if (!ret) {
-		if (ver >= UFS_UNIPRO_VER_1_8)
+		if (ver >= UFS_UNIPRO_VER_1_8) {
 			host->hw_ver.major = 3;
+			/*
+			 * Fix HCI version for some platforms with
+			 * incorrect version
+			 */
+			if (hba->ufs_version < ufshci_version(3, 0))
+				hba->ufs_version = ufshci_version(3, 0);
+		}
 	}
+}
+
+static u32 ufs_mtk_get_ufs_hci_version(struct ufs_hba *hba)
+{
+	return hba->ufs_version;
 }
 
 /**
@@ -993,6 +1018,9 @@ static int ufs_mtk_device_reset(struct ufs_hba *hba)
 {
 	struct arm_smccc_res res;
 
+	/* disable hba before device reset */
+	ufshcd_hba_stop(hba);
+
 	ufs_mtk_device_reset_ctrl(0, res);
 
 	/*
@@ -1165,6 +1193,25 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 {
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
+
+	if (ufs_mtk_is_broken_vcc(hba) && hba->vreg_info.vcc &&
+	    (hba->dev_quirks & UFS_DEVICE_QUIRK_DELAY_AFTER_LPM)) {
+		hba->vreg_info.vcc->always_on = true;
+		/*
+		 * VCC will be kept always-on thus we don't
+		 * need any delay during regulator operations
+		 */
+		hba->dev_quirks &= ~(UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM |
+			UFS_DEVICE_QUIRK_DELAY_AFTER_LPM);
+	}
+}
+
+static void ufs_mtk_event_notify(struct ufs_hba *hba,
+				 enum ufs_event_type evt, void *data)
+{
+	unsigned int val = *(u32 *)data;
+
+	trace_ufs_mtk_event(evt, val);
 }
 
 static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
@@ -1194,6 +1241,7 @@ static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
 static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.name                = "mediatek.ufshci",
 	.init                = ufs_mtk_init,
+	.get_ufs_hci_version = ufs_mtk_get_ufs_hci_version,
 	.setup_clocks        = ufs_mtk_setup_clocks,
 	.hce_enable_notify   = ufs_mtk_hce_enable_notify,
 	.link_startup_notify = ufs_mtk_link_startup_notify,
@@ -1205,6 +1253,7 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.resume              = ufs_mtk_resume,
 	.dbg_register_dump   = ufs_mtk_dbg_register_dump,
 	.device_reset        = ufs_mtk_device_reset,
+	.event_notify        = ufs_mtk_event_notify,
 };
 
 /**
@@ -1252,6 +1301,7 @@ out:
 	if (err)
 		dev_info(dev, "probe failed %d\n", err);
 
+	of_node_put(reset_node);
 	return err;
 }
 
