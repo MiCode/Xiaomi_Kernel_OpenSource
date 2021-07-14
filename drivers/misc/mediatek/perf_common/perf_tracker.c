@@ -16,6 +16,7 @@
 
 #if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 #include <mtk_qos_sram.h>
+#include <mtk_qos_share.h>
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
@@ -86,6 +87,8 @@ static inline u32 cpu_stall_ratio(int cpu)
 
 #define K(x) ((x) << (PAGE_SHIFT - 10))
 #define max_cpus 8
+#define bw_hist_nums 8
+#define bw_record_nums 32
 
 void perf_tracker(u64 wallclock,
 		  bool hit_long_check)
@@ -93,7 +96,8 @@ void perf_tracker(u64 wallclock,
 	long mm_available = 0, mm_free = 0;
 	int dram_rate = 0;
 	struct mtk_btag_mictx_iostat_struct *iostat_ptr = &iostat;
-	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0;
+	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0, bw_idx = 0xFFFF;
+	u32 bw_record = 0, bw_data[bw_record_nums] = {0};
 	int vcore_uv = 0;
 	int i;
 	int stall[max_cpus] = {0};
@@ -122,7 +126,31 @@ void perf_tracker(u64 wallclock,
 	bw_g  = qos_sram_read(QOS_DEBUG_2);
 	bw_mm = qos_sram_read(QOS_DEBUG_3);
 	bw_total = qos_sram_read(QOS_DEBUG_0);
+
+	/* emi history */
+	bw_idx = qos_rec_get_hist_idx();
+	if (bw_idx != 0xFFFF) {
+		for (bw_record = 0; bw_record < bw_record_nums; bw_record += 8) {
+			/* occupied bw history */
+			bw_data[bw_record]   = qos_rec_get_hist_bw(bw_idx, 0);
+			bw_data[bw_record+1] = qos_rec_get_hist_bw(bw_idx, 1);
+			bw_data[bw_record+2] = qos_rec_get_hist_bw(bw_idx, 2);
+			bw_data[bw_record+3] = qos_rec_get_hist_bw(bw_idx, 3);
+			/* data bw history */
+			bw_data[bw_record+4] = qos_rec_get_hist_data_bw(bw_idx, 0);
+			bw_data[bw_record+5] = qos_rec_get_hist_data_bw(bw_idx, 1);
+			bw_data[bw_record+6] = qos_rec_get_hist_data_bw(bw_idx, 2);
+			bw_data[bw_record+7] = qos_rec_get_hist_data_bw(bw_idx, 3);
+
+			bw_idx -= 1;
+			if (bw_idx < 0)
+				bw_idx = bw_idx + bw_hist_nums;
+		}
+		/* trace for short bin */
+		trace_perf_index_sbin(bw_data, bw_record);
+	}
 #endif
+
 	/*sched: cpu freq */
 	for (cid = 0; cid < cluster_nr; cid++)
 		sched_freq[cid] = cpudvfs_get_cur_dvfs_freq_idx(cid);
