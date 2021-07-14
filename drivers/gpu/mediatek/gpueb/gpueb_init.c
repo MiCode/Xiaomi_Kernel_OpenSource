@@ -34,6 +34,7 @@
 #include "gpueb_logger.h"
 #include "gpueb_reserved_mem.h"
 #include "gpueb_mpu.h"
+#include "gpueb_hwvoter_dbg.h"
 
 /*
  * ===============================================
@@ -145,6 +146,8 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 		gpueb_pr_info("@%s: create files fail\n", __func__);
 		goto err;
 	}
+
+	gpueb_hw_voter_dbg_init();
 
 	g_pdev = pdev;
 	g_probe_done = true;
