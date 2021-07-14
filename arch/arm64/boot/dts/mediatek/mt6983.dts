@@ -7609,6 +7609,7 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
 				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
 			};
 			mt6319_7_vbuck3: 7_vbuck3 {
 				regulator-compatible = "vbuck3";
@@ -7953,6 +7954,10 @@
 };
 
 &mt6363_vufs12 {
+	regulator-always-on;
+};
+
+&mt6363_vrf12 {
 	regulator-always-on;
 };
 
