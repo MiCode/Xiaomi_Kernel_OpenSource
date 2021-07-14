@@ -2862,7 +2862,7 @@ static int mtk_hp_impedance_disable(struct mt6338_priv *priv)
 	zcd_enable(priv, false, DEVICE_HP);
 #if IS_ENABLED(CONFIG_SND_SOC_mt6338_ACCDET)
 	/* from accdet request */
-	accdet_modify_vref_volt();
+	mt6338_accdet_modify_vref_volt();
 #endif
 	return 0;
 }
@@ -7723,7 +7723,7 @@ static int dc_trim_thread(void *arg)
 	get_hp_trim_offset(priv, false);
 
 #if IS_ENABLED(CONFIG_SND_SOC_mt6338_ACCDET)
-	accdet_late_init(0);
+	mt6338_accdet_late_init(0);
 #endif
 	do_exit(0);
 

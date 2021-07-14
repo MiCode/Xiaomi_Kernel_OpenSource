@@ -22134,15 +22134,18 @@
 #define RG_ACCDET_MODE_ANA11_MODE1	(0x000F)
 #define RG_ACCDET_MODE_ANA11_MODE2	(0x008F)
 #define RG_ACCDET_MODE_ANA11_MODE6	(0x008F)
+
 /* ------Register_AUXADC_REG  Bit Define------ */
 /* AUXADC_ADC5:  Auxadc CH5 read data */
 #define AUXADC_DATA_RDY_CH5		(1<<15)
 #define AUXADC_DATA_PROCEED_CH5	(0<<15)
 #define AUXADC_DATA_MASK		(0x0FFF)
+
 /* AUXADC_RQST0_SET:  Auxadc CH5 request, relevant 0x07EC */
 #define AUXADC_RQST_CH5_SET		(1<<5)
 /* AUXADC_RQST0_CLR:  Auxadc CH5 request, relevant 0x07EC */
 #define AUXADC_RQST_CH5_CLR		(1<<5)
+
 /* -----Register_EFUSE_REG  Bit Define-------- */
 #define ACCDET_CALI_MASK0		(0xFF)
 #define ACCDET_CALI_MASK1		(0xFF<<8)

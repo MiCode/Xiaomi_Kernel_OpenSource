@@ -1766,6 +1766,15 @@ config SND_SOC_MT6338
 	  three DAC for downlink path(handset,
 	  headset, lineout).
 
+config SND_SOC_MT6338_ACCDET
+	tristate "MediaTek MT6338 ACCDET driver"
+	depends on MFD_MT6338
+	help
+	  ACCDET means Accessory Detection technology,
+	  MediaTek develop it for ASoC codec soc-jack
+	  detection mechanism. Select N if you don't
+	  have jack on board.
+
 config SND_SOC_MT6351
 	tristate "MediaTek MT6351 Codec"
 
@@ -1811,9 +1820,10 @@ config SND_SOC_MT6359P_ACCDET
 	tristate "MediaTek MT6359 ACCDET driver"
 	default m
 	help
-	  ACCDET means Accessory Detection technology, MediaTek develop it
-	  for ASoC codec soc-jack detection mechanism.
-	  Select N if you don't have jack on board.
+	  ACCDET means Accessory Detection technology,
+	  MediaTek develop it for ASoC codec soc-jack
+	  detection mechanism. Select N if you don't
+	  have jack on board.
 
 config SND_SOC_NAU8540
        tristate "Nuvoton Technology Corporation NAU85L40 CODEC"
