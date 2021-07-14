@@ -567,7 +567,12 @@ static void mtk_spi_setup_packet(struct spi_master *master)
 	packet_loop = mdata->xfer_len / packet_size;
 
 	reg_val = readl(mdata->base + SPI_CFG1_REG);
-	reg_val &= ~(SPI_CFG1_PACKET_LENGTH_MASK | SPI_CFG1_PACKET_LOOP_MASK);
+
+	if (mdata->dev_comp->ipm_design)
+		reg_val &= ~(SPI_CFG1_IPM_PACKET_LENGTH_MASK | SPI_CFG1_PACKET_LOOP_MASK);
+	else
+		reg_val &= ~(SPI_CFG1_PACKET_LENGTH_MASK | SPI_CFG1_PACKET_LOOP_MASK);
+
 	reg_val |= (packet_size - 1) << SPI_CFG1_PACKET_LENGTH_OFFSET;
 	reg_val |= (packet_loop - 1) << SPI_CFG1_PACKET_LOOP_OFFSET;
 	writel(reg_val, mdata->base + SPI_CFG1_REG);
@@ -586,14 +591,17 @@ static void mtk_spi_enable_transfer(struct spi_master *master)
 	writel(cmd, mdata->base + SPI_CMD_REG);
 }
 
-static int mtk_spi_get_mult_delta(u32 xfer_len)
+static int mtk_spi_get_mult_delta(struct mtk_spi *mdata, u32 xfer_len)
 {
-	u32 mult_delta;
+	u32 mult_delta = 0;
 
-	if (xfer_len > MTK_SPI_PACKET_SIZE)
-		mult_delta = xfer_len % MTK_SPI_PACKET_SIZE;
-	else
-		mult_delta = 0;
+	if (mdata->dev_comp->ipm_design) {
+		if (xfer_len > MTK_SPI_IPM_PACKET_SIZE)
+			mult_delta = xfer_len % MTK_SPI_IPM_PACKET_SIZE;
+	} else {
+		if (xfer_len > MTK_SPI_PACKET_SIZE)
+			mult_delta = xfer_len % MTK_SPI_PACKET_SIZE;
+	}
 
 	return mult_delta;
 }
@@ -605,22 +613,22 @@ static void mtk_spi_update_mdata_len(struct spi_master *master)
 
 	if (mdata->tx_sgl_len && mdata->rx_sgl_len) {
 		if (mdata->tx_sgl_len > mdata->rx_sgl_len) {
-			mult_delta = mtk_spi_get_mult_delta(mdata->rx_sgl_len);
+			mult_delta = mtk_spi_get_mult_delta(mdata, mdata->rx_sgl_len);
 			mdata->xfer_len = mdata->rx_sgl_len - mult_delta;
 			mdata->rx_sgl_len = mult_delta;
 			mdata->tx_sgl_len -= mdata->xfer_len;
 		} else {
-			mult_delta = mtk_spi_get_mult_delta(mdata->tx_sgl_len);
+			mult_delta = mtk_spi_get_mult_delta(mdata, mdata->tx_sgl_len);
 			mdata->xfer_len = mdata->tx_sgl_len - mult_delta;
 			mdata->tx_sgl_len = mult_delta;
 			mdata->rx_sgl_len -= mdata->xfer_len;
 		}
 	} else if (mdata->tx_sgl_len) {
-		mult_delta = mtk_spi_get_mult_delta(mdata->tx_sgl_len);
+		mult_delta = mtk_spi_get_mult_delta(mdata, mdata->tx_sgl_len);
 		mdata->xfer_len = mdata->tx_sgl_len - mult_delta;
 		mdata->tx_sgl_len = mult_delta;
 	} else if (mdata->rx_sgl_len) {
-		mult_delta = mtk_spi_get_mult_delta(mdata->rx_sgl_len);
+		mult_delta = mtk_spi_get_mult_delta(mdata, mdata->rx_sgl_len);
 		mdata->xfer_len = mdata->rx_sgl_len - mult_delta;
 		mdata->rx_sgl_len = mult_delta;
 	}
@@ -903,8 +911,7 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	if (mdata->dev_comp->enhance_timing)
 		master->mode_bits |= SPI_CS_HIGH;
 
-	if (mdata->dev_comp->must_tx)
-		master->flags = SPI_MASTER_MUST_TX;
+	master->flags = SPI_MASTER_MUST_TX | SPI_MASTER_MUST_RX;
 	if (mdata->dev_comp->ipm_design)
 		master->mode_bits |= SPI_LOOP;
 	if (mdata->dev_comp->support_quad) {
