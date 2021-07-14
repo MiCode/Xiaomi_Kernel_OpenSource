@@ -3715,7 +3715,7 @@ static void fill_ext_fmtdesc_hook(void *data, struct v4l2_fmtdesc *p, const char
 static void clear_mask_adjust_hook(void *data, unsigned int ctrl, int *n)
 {
 	if (ctrl == VIDIOC_S_SELECTION)
-		*n = offsetof(struct v4l2_selection, reserved[0]);
+		*n = offsetof(struct v4l2_selection, reserved[1]);
 }
 
 static void v4l2subdev_set_fmt_hook(void *data,
