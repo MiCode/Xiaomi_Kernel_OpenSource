@@ -63,6 +63,8 @@
 static bool nowayout = WATCHDOG_NOWAYOUT;
 static unsigned int timeout;
 
+static int mtk_wdt_set_timeout(struct watchdog_device *wdt_dev,
+			       unsigned int timeout);
 static int mtk_wdt_start(struct watchdog_device *wdt_dev);
 static int mtk_wdt_stop(struct watchdog_device *wdt_dev);
 
@@ -195,10 +197,10 @@ static void mtk_wdt_init(struct device_node *np,
 	if (np)
 		mtk_wdt_parse_dt(np, wdt_dev);
 
-	if (readl(wdt_base + WDT_MODE) & WDT_MODE_EN)
-		mtk_wdt_start(wdt_dev);
-	else
-		mtk_wdt_stop(wdt_dev);
+	if (readl(wdt_base + WDT_MODE) & WDT_MODE_EN) {
+		set_bit(WDOG_HW_RUNNING, &wdt_dev->status);
+		mtk_wdt_set_timeout(wdt_dev, wdt_dev->timeout);
+	}
 }
 
 static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
@@ -321,7 +323,7 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 	mtk_wdt->wdt_dev.info = &mtk_wdt_info;
 	mtk_wdt->wdt_dev.ops = &mtk_wdt_ops;
 	mtk_wdt->wdt_dev.timeout = WDT_MAX_TIMEOUT;
-	mtk_wdt->wdt_dev.max_timeout = WDT_MAX_TIMEOUT;
+	mtk_wdt->wdt_dev.max_hw_heartbeat_ms = WDT_MAX_TIMEOUT * 1000;
 	mtk_wdt->wdt_dev.min_timeout = WDT_MIN_TIMEOUT;
 	mtk_wdt->wdt_dev.parent = dev;
 
