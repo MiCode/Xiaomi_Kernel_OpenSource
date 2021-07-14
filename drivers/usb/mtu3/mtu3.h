@@ -309,6 +309,8 @@ struct ssusb_mtk {
 	/* fpga */
 	enum mtu3_plat_type plat_type;
 	enum mtu3_fpga_phy fpga_phy;
+	/* xhci */
+	struct platform_driver *xhci_pdrv;
 };
 
 /**

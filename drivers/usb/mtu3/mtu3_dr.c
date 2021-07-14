@@ -155,6 +155,24 @@ static void switch_port_to_device(struct ssusb_mtk *ssusb)
 	ssusb_check_clocks(ssusb, check_clk);
 }
 
+static void ssusb_host_register(struct ssusb_mtk *ssusb, bool on)
+{
+	int ret;
+
+	dev_info(ssusb->dev, "%s %d\n", __func__, on);
+
+	if (!ssusb->xhci_pdrv)
+		return;
+
+	if (on) {
+		ret = platform_driver_register(ssusb->xhci_pdrv);
+		if (ret)
+			dev_info(ssusb->dev, "register host driver fail\n");
+	} else {
+		platform_driver_unregister(ssusb->xhci_pdrv);
+	}
+}
+
 int ssusb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 {
 	struct ssusb_mtk *ssusb =
@@ -201,9 +219,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		switch_port_to_on(ssusb, true);
 		if (ssusb->clk_mgr) {
 			ssusb_host_enable(ssusb);
-			/* register host driver */
-			of_platform_populate(ssusb->dev->of_node,
-				NULL, NULL, ssusb->dev);
+			ssusb_host_register(ssusb, true);
 		}
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 		switch_port_to_host(ssusb);
@@ -213,8 +229,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		break;
 	case MTU3_ID_FLOAT:
 		if (ssusb->clk_mgr) {
-			/* unregister host driver */
-			of_platform_depopulate(ssusb->dev);
+			ssusb_host_register(ssusb, false);
 			ssusb_host_disable(ssusb, true);
 		}
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_NONE);

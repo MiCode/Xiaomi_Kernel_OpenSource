@@ -248,6 +248,8 @@ static void ssusb_host_cleanup(struct ssusb_mtk *ssusb)
 int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 {
 	struct device *parent_dev = ssusb->dev;
+	struct device_node *child;
+	struct platform_device *pdev;
 	int ret;
 
 	ssusb_host_setup(ssusb);
@@ -260,6 +262,12 @@ int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 	}
 
 	dev_info(parent_dev, "xHCI platform device register success...\n");
+
+	child = of_get_next_child(parent_dn, NULL);
+	if (child) {
+		pdev = of_find_device_by_node(child);
+		ssusb->xhci_pdrv = to_platform_driver(pdev->dev.driver);
+	}
 
 	return 0;
 }
