@@ -6562,10 +6562,8 @@
 		phy-cells = <1>;
 		phys = <&u2port0 PHY_TYPE_USB2>,
 			 <&u3port0 PHY_TYPE_USB3>;
-		clocks = <&infracfg_ao_clk CLK_PERICFG_AO_PERI_SSUSB_SYS_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_SSUSB_REF_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_SSUSB_XHCI_CG>;
-		clock-names = "sys_ck", "ref_ck", "host_ck";
+		clocks = <&clk26m>;
+		clock-names = "sys_ck";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -6586,8 +6584,7 @@
 			reg = <0 0x11200000 0 0x1000>;
 			reg-names = "mac";
 			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&infracfg_ao_clk
-				CLK_PERICFG_AO_PERI_SSUSB_XHCI_CG>;
+			clocks = <&clk26m>;
 			clock-names = "sys_ck";
 			status = "okay";
 		};
@@ -6602,10 +6599,8 @@
 		interrupts = <GIC_SPI 732 IRQ_TYPE_LEVEL_HIGH 0>;
 		phy-cells = <1>;
 		phys = <&u2port1 PHY_TYPE_USB2>;
-		clocks = <&infracfg_ao_clk CLK_PERICFG_AO_PERI_SSUSB1_SYS_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_SSUSB1_REF_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_SSUSB1_XHCI_CG>;
-		clock-names = "sys_ck", "ref_ck", "host_ck";
+		clocks = <&clk26m>;
+		clock-names = "sys_ck";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -6622,8 +6617,7 @@
 			reg = <0 0x11210000 0 0x1000>;
 			reg-names = "mac";
 			interrupts = <GIC_SPI 731 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&infracfg_ao_clk
-				CLK_PERICFG_AO_PERI_SSUSB1_XHCI_CG>;
+			clocks = <&clk26m>;
 			clock-names = "sys_ck";
 			status = "okay";
 		};
