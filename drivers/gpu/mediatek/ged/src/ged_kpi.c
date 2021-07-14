@@ -1461,7 +1461,7 @@ static GED_ERROR ged_kpi_push_timestamp(
 	int isSF,
 	void *fence_addr)
 {
-	static int event_QedBuffer_cnt, event_3d_fence_cnt, event_hw_vsync;
+	static atomic_t event_QedBuffer_cnt, event_3d_fence_cnt, event_hw_vsync;
 	unsigned long ui32IRQFlags;
 
 	if (g_psWorkQueue && is_GED_KPI_enabled) {
@@ -1506,30 +1506,26 @@ static GED_ERROR ged_kpi_push_timestamp(
 		case GED_TIMESTAMP_TYPE_D:
 			break;
 		case GED_TIMESTAMP_TYPE_1:
-			event_QedBuffer_cnt++;
 			ged_log_trace_counter("GED_KPI_QedBuffer_CNT",
-				event_QedBuffer_cnt);
-			event_3d_fence_cnt++;
+				atomic_inc_return(&event_QedBuffer_cnt));
 			ged_log_trace_counter("GED_KPI_3D_fence_CNT",
-				event_3d_fence_cnt);
+				atomic_inc_return(&event_3d_fence_cnt));
 			break;
 		case GED_TIMESTAMP_TYPE_2:
-			event_3d_fence_cnt--;
 			ged_log_trace_counter("GED_KPI_3D_fence_CNT",
-				event_3d_fence_cnt);
+				atomic_dec_return(&event_3d_fence_cnt));
 			break;
 		case GED_TIMESTAMP_TYPE_P:
 			break;
 		case GED_TIMESTAMP_TYPE_S:
-			event_QedBuffer_cnt--;
 			ged_log_trace_counter("GED_KPI_QedBuffer_CNT",
-				event_QedBuffer_cnt);
+				atomic_dec_return(&event_QedBuffer_cnt));
 			break;
 		case GED_TIMESTAMP_TYPE_H:
 			ged_log_trace_counter("GED_KPI_HW_Vsync",
-				event_hw_vsync);
-			event_hw_vsync++;
-			event_hw_vsync %= 2;
+				atomic_read(&event_hw_vsync));
+			atomic_set(&event_hw_vsync,
+				(atomic_inc_return(&event_hw_vsync)%2));
 			break;
 		case GED_SET_TARGET_FPS:
 			break;
