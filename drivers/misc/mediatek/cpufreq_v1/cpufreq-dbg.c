@@ -19,6 +19,7 @@
 #include <linux/kobject.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/cpufreq.h>
@@ -37,6 +38,7 @@
 #define CLK_DIV_PROP_NAME "clk-div"
 #define APMIXED_BASE_PROP_NAME "apmixedsys"
 #define MCUCFG_BASE_PROP_NAME "clk-div-base"
+#define MCUCFG_VERSION "mcucfg-ver"
 #define CSRAM_DVFS_LOG_RANGE "cslog-range"
 
 #define get_volt(offs, repo) ((repo[offs] >> 12) & 0x1FFFF)
@@ -71,7 +73,10 @@ unsigned int cluster_off[MAX_CLUSTER_NRS+1];//domain + cci
 
 static struct regulator *vprocs[MAX_CLUSTER_NRS];
 
-static unsigned int pll_to_clk(unsigned int pll_f, unsigned int ckdiv1)
+static enum mcucfg_ver g_mcucfg_ver = MCUCFG_V0;
+static unsigned int (*pll_to_clk_wrapper)(unsigned int, unsigned int);
+
+static unsigned int pll_to_clk_v0(unsigned int pll_f, unsigned int ckdiv1)
 {
 	unsigned int freq = pll_f;
 
@@ -125,6 +130,24 @@ static unsigned int pll_to_clk(unsigned int pll_f, unsigned int ckdiv1)
 	return freq;
 }
 
+static unsigned int pll_to_clk_v1(unsigned int pll_f, unsigned int ckdiv1)
+{
+	unsigned int freq = pll_f;
+
+	switch (ckdiv1) {
+	case 1:
+		freq = freq / 2;
+		break;
+	case 3:
+		freq = freq / 4;
+		break;
+	default:
+		break;
+	}
+
+	return freq;
+}
+
 static unsigned int _cpu_freq_calc(unsigned int con1, unsigned int ckdiv1)
 {
 	unsigned int freq;
@@ -152,7 +175,7 @@ static unsigned int _cpu_freq_calc(unsigned int con1, unsigned int ckdiv1)
 		break;
 	};
 
-	return pll_to_clk(freq, ckdiv1);
+	return pll_to_clk_wrapper(freq, ckdiv1);
 }
 
 unsigned int get_cur_phy_freq(int cluster)
@@ -163,7 +186,24 @@ unsigned int get_cur_phy_freq(int cluster)
 
 	con1 = readl(apmixed_base+pll_addr[cluster].reg_addr[0]);
 	ckdiv1 = readl(mcucfg_base+pll_addr[cluster].reg_addr[1]);
-	ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
+
+	switch (g_mcucfg_ver) {
+	case MCUCFG_V0:
+		ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
+		pll_to_clk_wrapper = &pll_to_clk_v0;
+		break;
+	case MCUCFG_V1:
+		ckdiv1 = _GET_BITS_VAL_(6:4, ckdiv1);
+		pll_to_clk_wrapper = &pll_to_clk_v1;
+		break;
+	default:
+		pr_notice("[cpuhvfs] invalid mcucfg version: %d\n",
+			g_mcucfg_ver);
+		ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
+		pll_to_clk_wrapper = &pll_to_clk_v0;
+		break;
+	}
+
 	cur_khz = _cpu_freq_calc(con1, ckdiv1);
 
 	return cur_khz;
@@ -397,6 +437,7 @@ static int create_cpufreq_debug_fs(void)
 static int mtk_cpuhvfs_init(void)
 {
 	int ret = 0, i;
+	unsigned int mcucfg_ver_tmp;
 	struct device_node *hvfs_node;
 	struct device_node *apmixed_node;
 	struct device_node *mcucfg_node;
@@ -410,7 +451,7 @@ static int mtk_cpuhvfs_init(void)
 		return -ENODEV;
 	}
 
-	pdev = of_device_alloc(hvfs_node, NULL, NULL);
+	pdev = of_find_device_by_node(hvfs_node);
 	usram_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	usram_base = ioremap(usram_res->start, resource_size(usram_res));
 	usram_repo_num = (resource_size(usram_res) / sizeof(u32));
@@ -460,6 +501,12 @@ static int mtk_cpuhvfs_init(void)
 		of_property_read_u32_index(hvfs_node,
 			CLK_DIV_PROP_NAME, i, &pll_addr[i].reg_addr[1]);
 	}
+
+	/* MCUCFG clkdiv format version */
+	ret = of_property_read_u32(hvfs_node, MCUCFG_VERSION, &mcucfg_ver_tmp);
+	if (ret >= 0 && ret < MAX_MCUCFG_VERSION)
+		g_mcucfg_ver = (enum mcucfg_ver)mcucfg_ver_tmp;
+	pr_notice("[cpuhvfs] mcucfg version: %d", g_mcucfg_ver);
 
 	//Offsets used to fetch OPP table
 	ret = of_property_count_u32_elems(hvfs_node, TBL_OFF_PROP_NAME);
