@@ -69,6 +69,10 @@ static const struct qos_ipi_cmd mt6893_qos_ipi_pin[] = {
 			.id = 15,
 			.valid = true,
 		},
+	[QOS_IPI_QOS_SHARE_INIT] = {
+			.id = 16,
+			.valid = true,
+		},
 };
 
 

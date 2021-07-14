@@ -99,6 +99,10 @@ struct qos_ipi_data {
 			unsigned int addr_hi;
 			unsigned int size;
 		} gpu_info;
+		struct {
+			unsigned int dram_addr;
+			unsigned int dram_size;
+		} qos_share_init;
 	} u;
 };
 

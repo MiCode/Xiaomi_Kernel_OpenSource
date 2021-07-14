@@ -17,6 +17,7 @@
 #include "mtk_qos_sram.h"
 #include "mtk_qos_bound.h"
 #include "mtk_qos_sysfs.h"
+#include "mtk_qos_share.h"
 #include "mtk_qos_common.h"
 
 struct mtk_qos *m_qos;
@@ -122,6 +123,7 @@ int mtk_qos_probe(struct platform_device *pdev,
 		qos_bound_init();
 
 	qos_ipi_recv_init(qos);
+	qos_init_rec_share();
 	platform_set_drvdata(pdev, qos);
 
 
