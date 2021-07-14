@@ -362,6 +362,7 @@ static int mtk_spmi_pmic_irq_init(struct pmic_core *core)
 			regmap_write(core->regmap, en_reg, 0);
 		}
 	}
+	regmap_write(core->regmap, RCS_INT_DONE, 1);
 
 	core->irq_domain = irq_domain_add_linear(core->dev->of_node,
 						 chip_data->num_pmic_irqs,
