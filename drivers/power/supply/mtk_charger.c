@@ -770,6 +770,18 @@ static ssize_t ADC_Charger_Voltage_show(struct device *dev,
 
 static DEVICE_ATTR_RO(ADC_Charger_Voltage);
 
+static ssize_t Charger_Config_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	int chg_cfg = pinfo->config;
+
+	chr_err("%s: %d\n", __func__, chg_cfg);
+	return sprintf(buf, "%d\n", chg_cfg);
+}
+
+static DEVICE_ATTR_RO(Charger_Config);
+
 static ssize_t input_current_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -1700,6 +1712,11 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_ADC_Charger_Voltage);
 	if (ret)
 		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_Charger_Config);
+	if (ret)
+		goto _out;
+
 	ret = device_create_file(&(pdev->dev), &dev_attr_input_current);
 	if (ret)
 		goto _out;
