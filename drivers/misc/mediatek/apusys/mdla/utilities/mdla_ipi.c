@@ -96,8 +96,9 @@ int mdla_ipi_recv(int type_0, int type_1, u64 *val)
 
 static void mdla_ipi_up_msg(u32 type, u64 val)
 {
+	if (type == MDLA_IPI_MICROP_MSG)
+		mdla_aee_warn("MDLA", "MDLA timeout");
 }
-
 
 static int mdla_rpmsg_recv_cb(struct rpmsg_device *rpdev, void *data,
 		int len, void *priv, u32 src)

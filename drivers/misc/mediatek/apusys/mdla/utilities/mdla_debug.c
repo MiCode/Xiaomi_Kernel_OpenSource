@@ -264,9 +264,6 @@ struct proc_dir_entry *mdla_dbg_get_procfs_dir(void)
 
 static void mdla_procfs_init(void)
 {
-	if (mdla_plat_micro_p_support())
-		return;
-
 	mdla_procfs_dir = proc_mkdir("mdla", NULL);
 
 	if (IS_ERR_OR_NULL(mdla_procfs_dir)) {

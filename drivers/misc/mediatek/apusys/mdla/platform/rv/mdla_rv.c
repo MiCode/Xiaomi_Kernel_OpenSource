@@ -108,7 +108,7 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 	{MDLA_IPI_PMU_COUNT,     13, 0x4, 0660,            "c13",            &C13_fops, 0},
 	{MDLA_IPI_PMU_COUNT,     14, 0x4, 0660,            "c14",            &C14_fops, 0},
 	{MDLA_IPI_PMU_COUNT,     15, 0x4, 0660,            "c15",            &C15_fops, 0},
-	{MDLA_IPI_PREEMPT_CNT,    0, 0x4, 0660,  "preempt_times",  &preempt_times_fops, 0},
+	{MDLA_IPI_PREEMPT_CNT,    0, 0xC, 0660,  "preempt_times",  &preempt_times_fops, 0},
 	{MDLA_IPI_FORCE_PWR_ON,   0, 0x8, 0660,   "force_pwr_on",   &force_pwr_on_fops, 0},
 	{MDLA_IPI_DUMP_CMDBUF_EN, 0, 0x8, 0660, "dump_cmdbuf_en", &dump_cmdbuf_en_fops, 0},
 	{MDLA_IPI_INFO,           0, 0x8, 0660,           "info",           &info_fops, 0},
@@ -205,39 +205,7 @@ static int mdla_plat_dbgfs_usage(struct seq_file *s, void *data)
 	return 0;
 }
 
-static int mdla_rv_alloc_backup_mem(void)
-{
-	struct device *dev;
-	unsigned int size = 4096;
-
-	if (mdla_plat_devices && mdla_plat_devices[0].dev)
-		dev = mdla_plat_devices[0].dev;
-	else
-		return -ENXIO;
-
-	backup_mem.buf = dma_alloc_coherent(dev, size, &backup_mem.da, GFP_KERNEL);
-	if (backup_mem.buf == NULL || backup_mem.da == 0) {
-		dev_info(dev, "%s() dma_alloc_coherent backup data fail\n\n", __func__);
-		return -1;
-	}
-
-	backup_mem.size = size;
-	memset(backup_mem.buf, 0, size);
-
-	return 0;
-}
-static void mdla_rv_free_backup_mem(void)
-{
-	if (backup_mem.buf && backup_mem.da && backup_mem.size) {
-		dma_free_coherent(mdla_plat_devices[0].dev,
-				backup_mem.size, backup_mem.buf, backup_mem.da);
-		backup_mem.buf  = NULL;
-		backup_mem.size = 0;
-		backup_mem.da   = 0;
-	}
-}
-
-static int mdla_rv_alloc_dbg_mem(u32 size)
+static int mdla_plat_alloc_mem(struct mdla_rv_mem *m, unsigned int size)
 {
 	struct device *dev;
 
@@ -246,34 +214,32 @@ static int mdla_rv_alloc_dbg_mem(u32 size)
 	else
 		return -ENXIO;
 
-	if (size > 0x200000 || size < 0x10) {
-		dev_info(dev, "%s() dma_alloc_coherent invalid size(%u)\n\n", __func__, size);
-		return -EINVAL;
-	}
-
-	dbg_mem.buf = dma_alloc_coherent(dev, size, &dbg_mem.da, GFP_KERNEL);
-	if (dbg_mem.buf == NULL || dbg_mem.da == 0) {
-		dev_info(dev, "%s() dma_alloc_coherent bootcode fail\n\n", __func__);
+	m->buf = dma_alloc_coherent(dev, size, &m->da, GFP_KERNEL);
+	if (m->buf == NULL || m->da == 0) {
+		dev_info(dev, "%s() dma_alloc_coherent fail\n", __func__);
 		return -1;
 	}
 
-	dbg_mem.size = size;
-	memset(dbg_mem.buf, 0, size);
-
-	mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA, (u64)dbg_mem.da);
-	mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA_SZ, (u64)dbg_mem.size);
+	m->size = size;
+	memset(m->buf, 0, size);
 
 	return 0;
 }
 
-static void mdla_rv_free_dbg_mem(void)
+static void mdla_plat_free_mem(struct mdla_rv_mem *m)
 {
-	if (dbg_mem.buf && dbg_mem.da && dbg_mem.size) {
-		dma_free_coherent(mdla_plat_devices[0].dev,
-				dbg_mem.size, dbg_mem.buf, dbg_mem.da);
-		dbg_mem.buf  = NULL;
-		dbg_mem.size = 0;
-		dbg_mem.da   = 0;
+	struct device *dev;
+
+	if (mdla_plat_devices && mdla_plat_devices[0].dev)
+		dev = mdla_plat_devices[0].dev;
+	else
+		return;
+
+	if (m->buf && m->da && m->size) {
+		dma_free_coherent(dev, m->size, m->buf, m->da);
+		m->buf  = NULL;
+		m->size = 0;
+		m->da   = 0;
 	}
 }
 
@@ -299,7 +265,6 @@ static int mdla_rv_dbg_mem_show(struct seq_file *s, void *data)
 
 	return 0;
 }
-
 
 static int mdla_rv_dbg_mem_open(struct inode *inode, struct file *file)
 {
@@ -329,12 +294,15 @@ static ssize_t mdla_rv_dbg_mem_write(struct file *flip,
 		goto out;
 	}
 
-	mdla_rv_free_dbg_mem();
+	mdla_plat_free_mem(&dbg_mem);
 
-	if (size == 0)
+	if (size > 0x200000 || size < 0x10)
 		goto out;
 
-	mdla_rv_alloc_dbg_mem(size);
+	if (mdla_plat_alloc_mem(&dbg_mem, size) == 0) {
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA, (u64)dbg_mem.da);
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA_SZ, (u64)dbg_mem.size);
+	}
 
 out:
 	kfree(buf);
@@ -371,6 +339,12 @@ static void mdla_plat_dbgfs_init(struct device *dev, struct dentry *parent)
 
 	debugfs_create_file(DBGFS_MEM_NAME, 0644, parent, NULL,
 				&mdla_rv_dbg_mem_fops);
+}
+
+static void mdla_plat_memory_show(struct seq_file *s)
+{
+	seq_puts(s, "------- dump debug info  -------\n");
+	mdla_rv_dbg_mem_show(s, NULL);
 }
 
 void mdla_plat_up_init(void)
@@ -420,8 +394,9 @@ int mdla_rv_init(struct platform_device *pdev)
 	}
 
 	mdla_dbg_plat_cb()->dbgfs_plat_init = mdla_plat_dbgfs_init;
+	mdla_dbg_plat_cb()->memory_show     = mdla_plat_memory_show;
 
-	mdla_rv_alloc_backup_mem();
+	mdla_plat_alloc_mem(&backup_mem, 1024);
 
 	return 0;
 }
@@ -430,8 +405,8 @@ void mdla_rv_deinit(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
-	mdla_rv_free_backup_mem();
-	mdla_rv_free_dbg_mem();
+	mdla_plat_free_mem(&backup_mem);
+	mdla_plat_free_mem(&dbg_mem);
 	mdla_ipi_deinit();
 
 	if (mdla_plat_pwr_drv_ready()
