@@ -325,7 +325,7 @@
 
 	spi6: spi6@11016000 {
 		compatible = "mediatek,mt6983-spi";
-		mediatek,pad-select = <0>;
+		mediatek,pad-select = <1>;
 		reg = <0 0x11016000 0 0x100>;
 		interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D2>,
