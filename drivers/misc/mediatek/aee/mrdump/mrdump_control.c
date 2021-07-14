@@ -10,12 +10,18 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <asm/memory.h>
+#include <asm/pgtable-hwdef.h>
 #include <asm/sections.h>
 
 #include <mt-plat/mrdump.h>
 #include "mrdump_private.h"
 
 struct mrdump_control_block *mrdump_cblock;
+
+static inline u64 read_tcr_el1_t1sz(void)
+{
+	return (read_sysreg(tcr_el1) & TCR_T1SZ_MASK) >> TCR_T1SZ_OFFSET;
+}
 
 #if IS_ENABLED(CONFIG_KALLSYMS)
 #if !IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE)
@@ -147,6 +153,7 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 	machdesc_p = &mrdump_cblock->machdesc;
 	machdesc_p->nr_cpus = nr_cpu_ids;
 	machdesc_p->page_offset = (uint64_t)PAGE_OFFSET;
+	machdesc_p->tcr_el1_t1sz = (uint64_t)read_tcr_el1_t1sz();
 #if defined(KIMAGE_VADDR)
 	machdesc_p->kimage_vaddr = KIMAGE_VADDR;
 #endif

@@ -108,7 +108,7 @@ struct mrdump_machdesc {
 	uint32_t nr_cpus;
 
 	uint64_t page_offset;
-	uint64_t high_memory; /* deprecated */
+	uint64_t tcr_el1_t1sz;
 
 	uint64_t kimage_vaddr;
 	uint64_t dram_start; /* deprecated */
