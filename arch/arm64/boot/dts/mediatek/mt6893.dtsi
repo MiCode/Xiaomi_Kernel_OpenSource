@@ -778,6 +778,12 @@
 			alignment = <0 0x100000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
+
+		ktf_clkmgr_reserved: ktf_clkmgr_mem_region@50000000 {
+			reg = <0 0x50000000 0 0x1000>;
+			alignment = <0 0x1000>;
+			no-map;
+		};
 	};
 
 	cache_parity {
@@ -1325,16 +1331,6 @@
 				"cam-2", "cam_rawa-0", "cam_rawb-0",
 				"cam_rawc-0";
 			infracfg = <&infracfg_ao_clk>;
-		};
-
-		ktf-clkmgr-test {
-                        compatible = "mediatek,ktf-clkmgr-test";
-                        clocks = <&apmixedsys_clk CLK_APMIXED_APLL2>,
- 				 <&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
-				 <&topckgen_clk CLK_TOP_TCK_26M_MX9>,
-				 <&infracfg_ao_clk CLK_IFRAO_AES>;
-			clock-names = "pll", "mux", "mux_parent", "gate";
-			power-domains = <&scpsys MT6893_POWER_DOMAIN_CONN>;
 		};
 
 		scp_infra: scp_infra@10001000 {
@@ -8397,6 +8393,31 @@
 				<&spmi 0>;
 			srclken_rc = <&srclken_rc>;
 		};
+
+		clkmgr: syscon@50000000 {
+			compatible = "mediatek,ktf-clkmgr-clk", "syscon";
+			reg = <0 0x50000000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		ktf-clkmgr-test {
+			compatible = "mediatek,ktf-clkmgr-test_6893";
+			clocks = <&clkmgr 0>,
+				 <&clkmgr 1>,
+				 <&clkmgr 2>,
+				 <&clkmgr 3>,
+				 <&clkmgr 4>,
+				 <&clkmgr 5>,
+				 <&clkmgr 6>,
+				 <&clkmgr 7>,
+				 <&clkmgr 15>;
+			clock-names = "pll_d2", "pll_d4", "mux0", "mux1",
+				      "gate_sc", "gate_sc_inv", "gate_nsc",
+				      "gate_nsc_inv", "pll";
+
+			power-domains = <&scpsys MT6893_POWER_DOMAIN_CONN>;
+		};
+
 	};
 
 	mtkfb: mtkfb@0 {
