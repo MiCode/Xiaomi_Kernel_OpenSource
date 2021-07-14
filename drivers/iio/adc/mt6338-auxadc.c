@@ -25,9 +25,6 @@
 #define VOLT_FULL			1800
 #define IMP_STOP_DELAY_US		150
 
-#define AUXADC_CHAN_MIN			AUXADC_CHIP_TEMP
-#define AUXADC_CHAN_MAX			AUXADC_HPOFS_CAL
-
 struct mt6338_auxadc_device {
 	struct regmap *regmap;
 	struct device *dev;
@@ -152,19 +149,6 @@ static const struct auxadc_info mt6338_info = {
 	.rst_setting = mt6338_rst_setting,
 	.num_rst_setting = ARRAY_SIZE(mt6338_rst_setting),
 };
-
-static void auxadc_reset(struct mt6338_auxadc_device *adc_dev)
-{
-	int i;
-
-	for (i = 0; i < adc_dev->info->num_rst_setting; i++) {
-		regmap_update_bits(adc_dev->regmap,
-				   adc_dev->info->rst_setting[i][0],
-				   adc_dev->info->rst_setting[i][1],
-				   adc_dev->info->rst_setting[i][2]);
-	}
-	dev_info(adc_dev->dev, "reset AUXADC done\n");
-}
 
 #define mt6338_regmap_bulk_read_poll_timeout(map, addr, val, cond, sleep_us, timeout_us) \
 ({ \
