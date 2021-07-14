@@ -27,5 +27,4 @@ ccflags-y += $(call cc-option,-Wno-date-time,)
 
 snd-soc-rt5512-objs += rt5512.o
 
-obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += richtek_spm_cls.o
-obj-$(CONFIG_SND_SOC_RT5512) += snd-soc-rt5512.o
+obj-$(CONFIG_SND_SOC_RT5512) += snd-soc-rt5512.o richtek_spm_cls.o

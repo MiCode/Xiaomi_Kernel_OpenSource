@@ -14,7 +14,9 @@
 
 #include <linux/i2c.h>
 #include <linux/sysfs.h>
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include <mtk-dsp-common.h>
+#endif
 #include <linux/kobject.h>
 #include <base.h>
 #include "richtek_spm_cls.h"
@@ -98,9 +100,11 @@ static int rt_spm_trigger_calibration(struct device *dev, void *data)
 {
 	struct richtek_spm_classdev *rdc = dev_get_drvdata(dev);
 	struct richtek_ipi_cmd ric;
-	int ret = 0;
+	int ret = -EINVAL;
 	u32 tmp = *(u32 *)data;
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	uint32_t data_size = 0;
+#endif
 	int polling_cnt = 6;
 
 	ric.type = RTK_IPI_TYPE_CALIBRATION;
@@ -208,6 +212,7 @@ static int rt_spm_trigger_calibration(struct device *dev, void *data)
 #endif
 	if (ret < 0) {
 		dev_err(dev, "%s ret = %d\n", __func__, ret);
+		dev_dbg(dev, "%s ric.id = %d\n", __func__, ric.id);
 		rdc->calib_running = 0;
 		cali_status = 0;
 		return -EINVAL;
@@ -511,8 +516,10 @@ static int rt_spm_classdev_ampon(struct richtek_spm_classdev *rdc)
 
 static int rt_spm_classdev_ampoff(struct richtek_spm_classdev *rdc)
 {
-	int ret;
+	int ret = -EINVAL;
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	uint32_t data_size = 0;
+#endif
 	struct richtek_ipi_cmd ric;
 
 	if (!rdc)
