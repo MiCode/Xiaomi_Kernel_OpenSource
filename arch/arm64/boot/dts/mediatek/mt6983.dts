@@ -1328,24 +1328,24 @@
 		method = "smc";
 	};
 
-	sleep@10006000 {
+	sleep@1c001000 {
 		compatible = "mediatek,sleep";
-		reg = <0 0x10006000 0 0x1000>;
+		reg = <0 0x1c001000 0 0x1000>;
 	};
 
-	sleep1@10006000 {
+	sleep1@1c001000 {
 		compatible = "mediatek,sleep1";
-		reg = <0 0x10006000 0 0xa00>;
+		reg = <0 0x1c001000 0 0xa00>;
 	};
 
-	sleep2@10006a00 {
+	sleep2@1c001a00 {
 		compatible = "mediatek,sleep2";
-		reg = <0 0x10006a00 0 0x400>;
+		reg = <0 0x1c001a00 0 0x400>;
 	};
 
-	sleep3@10006e00 {
+	sleep3@1c001e00 {
 		compatible = "mediatek,sleep3";
-		reg = <0 0x10006e00 0 0x200>;
+		reg = <0 0x1c001e00 0 0x200>;
 	};
 
 	toprgu@10007000 {
@@ -7637,7 +7637,7 @@
 		#size-cells = <2>;
 		ranges;
 		lpm-kernel-suspend = <1>;
-		suspend-method = "disable";
+		suspend-method = "system";
 
 		logger-enable-states = "mcusysoff", "system_mem",
 					"system_pll", "system_bus";
