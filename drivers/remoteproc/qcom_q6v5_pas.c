@@ -118,7 +118,7 @@ static void adsp_minidump(struct rproc *rproc)
 	if (rproc->dump_conf == RPROC_COREDUMP_DISABLED)
 		return;
 
-	qcom_minidump(rproc, adsp->minidump_id);
+	qcom_minidump(rproc, adsp->minidump_id, NULL);
 }
 
 static int adsp_toggle_load_state(struct qmp *qmp, const char *name, bool enable)
