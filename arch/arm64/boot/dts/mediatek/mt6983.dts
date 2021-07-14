@@ -4043,28 +4043,48 @@
 			"clk_sc_main_parent",
 			"clk_sc_sub_parent",
 			"subsys_mfg_cg";
+		power-domains =
+			<&scpsys MT6983_POWER_DOMAIN_MFG1>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG2>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG3>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG4>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG5>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG6>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG7>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG8>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG9>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG10>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG11>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG12>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG13>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG14>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG15>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG16>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG17>,
+			<&scpsys MT6983_POWER_DOMAIN_MFG18>;
+		power-domain-names =
+			"pd_mfg1",
+			"pd_mfg2",
+			"pd_mfg3",
+			"pd_mfg4",
+			"pd_mfg5",
+			"pd_mfg6",
+			"pd_mfg7",
+			"pd_mfg8",
+			"pd_mfg9",
+			"pd_mfg10",
+			"pd_mfg11",
+			"pd_mfg12",
+			"pd_mfg13",
+			"pd_mfg14",
+			"pd_mfg15",
+			"pd_mfg16",
+			"pd_mfg17",
+			"pd_mfg18";
 		_vcore-supply = <&mt6363_vbuck2>;
 		_vstack-supply = <&mt6373_vbuck2>;
 		_vsram-supply = <&mt6363_vbuck4>;
 		gpufreq_wrapper-supply = <&gpufreq_wrapper>;
-		gpufreq_mfg1-supply = <&gpufreq_mfg1>;
-		gpufreq_mfg2-supply = <&gpufreq_mfg2>;
-		gpufreq_mfg3-supply = <&gpufreq_mfg3>;
-		gpufreq_mfg4-supply = <&gpufreq_mfg4>;
-		gpufreq_mfg5-supply = <&gpufreq_mfg5>;
-		gpufreq_mfg6-supply = <&gpufreq_mfg6>;
-		gpufreq_mfg7-supply = <&gpufreq_mfg7>;
-		gpufreq_mfg8-supply = <&gpufreq_mfg8>;
-		gpufreq_mfg9-supply = <&gpufreq_mfg9>;
-		gpufreq_mfg10-supply = <&gpufreq_mfg10>;
-		gpufreq_mfg11-supply = <&gpufreq_mfg11>;
-		gpufreq_mfg12-supply = <&gpufreq_mfg12>;
-		gpufreq_mfg13-supply = <&gpufreq_mfg13>;
-		gpufreq_mfg14-supply = <&gpufreq_mfg14>;
-		gpufreq_mfg15-supply = <&gpufreq_mfg15>;
-		gpufreq_mfg16-supply = <&gpufreq_mfg16>;
-		gpufreq_mfg17-supply = <&gpufreq_mfg17>;
-		gpufreq_mfg18-supply = <&gpufreq_mfg18>;
 	};
 
 	gpufreq_wrapper: gpufreq_wrapper {
@@ -4076,79 +4096,6 @@
 	ged: ged {
 		compatible = "mediatek,ged";
 		gpufreq-supply = <&gpufreq>;
-	};
-
-	gpufreq_mfg1: gpufreq_mfg1 {
-		compatible = "mediatek,mt6983-mfg1";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG1>;
-	};
-	gpufreq_mfg2: gpufreq_mfg2 {
-		compatible = "mediatek,mt6983-mfg2";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG2>;
-	};
-	gpufreq_mfg3: gpufreq_mfg3 {
-		compatible = "mediatek,mt6983-mfg3";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG3>;
-	};
-	gpufreq_mfg4: gpufreq_mfg4 {
-		compatible = "mediatek,mt6983-mfg4";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG4>;
-	};
-	gpufreq_mfg5: gpufreq_mfg5 {
-		compatible = "mediatek,mt6983-mfg5";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG5>;
-	};
-	gpufreq_mfg6: gpufreq_mfg6 {
-		compatible = "mediatek,mt6983-mfg6";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG6>;
-	};
-	gpufreq_mfg7: gpufreq_mfg7 {
-		compatible = "mediatek,mt6983-mfg7";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG7>;
-	};
-	gpufreq_mfg8: gpufreq_mfg8 {
-		compatible = "mediatek,mt6983-mfg8";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG8>;
-	};
-	gpufreq_mfg9: gpufreq_mfg9 {
-		compatible = "mediatek,mt6983-mfg9";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG9>;
-	};
-	gpufreq_mfg10: gpufreq_mfg10 {
-		compatible = "mediatek,mt6983-mfg10";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG10>;
-	};
-	gpufreq_mfg11: gpufreq_mfg11 {
-		compatible = "mediatek,mt6983-mfg11";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG11>;
-	};
-	gpufreq_mfg12: gpufreq_mfg12 {
-		compatible = "mediatek,mt6983-mfg12";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG12>;
-	};
-	gpufreq_mfg13: gpufreq_mfg13 {
-		compatible = "mediatek,mt6983-mfg13";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG13>;
-	};
-	gpufreq_mfg14: gpufreq_mfg14 {
-		compatible = "mediatek,mt6983-mfg14";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG14>;
-	};
-	gpufreq_mfg15: gpufreq_mfg15 {
-		compatible = "mediatek,mt6983-mfg15";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG15>;
-	};
-	gpufreq_mfg16: gpufreq_mfg16 {
-		compatible = "mediatek,mt6983-mfg16";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG16>;
-	};
-	gpufreq_mfg17: gpufreq_mfg17 {
-		compatible = "mediatek,mt6983-mfg17";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG17>;
-	};
-	gpufreq_mfg18: gpufreq_mfg18 {
-		compatible = "mediatek,mt6983-mfg18";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG18>;
 	};
 
 	mmsys_config@14000000 {
