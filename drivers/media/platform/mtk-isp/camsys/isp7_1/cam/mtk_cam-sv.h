@@ -205,8 +205,7 @@ int mtk_cam_sv_tg_config(
 	struct mtk_camsv_device *dev, struct mtkcam_ipi_input_param *cfg_in_param);
 int mtk_cam_sv_top_config(
 	struct mtk_camsv_device *dev, struct mtkcam_ipi_input_param *cfg_in_param);
-int mtk_cam_sv_dmao_config(
-	struct mtk_camsv_device *top_dev, struct mtk_camsv_device *sub_dev,
+int mtk_cam_sv_dmao_config(struct mtk_camsv_device *dev,
 	struct mtkcam_ipi_input_param *cfg_in_param, int hw_scen, int raw_imgo_stride);
 int mtk_cam_sv_fbc_config(
 	struct mtk_camsv_device *dev, struct mtkcam_ipi_input_param *cfg_in_param);
@@ -224,9 +223,9 @@ int mtk_cam_sv_tg_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_top_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_dmao_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc_disable(struct mtk_camsv_device *dev);
-int mtk_cam_sv_enquehwbuf(
-	struct mtk_camsv_device *top_dev, struct mtk_camsv_device *sub_dev,
+int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 	dma_addr_t ba, unsigned int seq_no);
+int mtk_cam_sv_write_rcnt(struct mtk_camsv_device *dev);
 bool mtk_cam_sv_finish_buf(struct mtk_cam_ctx *ctx,
 			   struct mtk_cam_request *req);
 int mtk_cam_find_sv_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);

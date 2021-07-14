@@ -274,13 +274,14 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		mtk_cam_ctx_stream_off(ctx);
 
 	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_ERROR);
+	/* NOTE: take multi-pipelines case into consideration */
+	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	ctx->streaming_node_cnt--;
 	if (ctx->streaming_node_cnt) {
 		mutex_unlock(&cam->op_lock);
 		return;
 	}
 
-	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	mtk_cam_dev_req_cleanup(cam);
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
 	mutex_unlock(&cam->op_lock);

@@ -410,28 +410,27 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 	if (mtk_cam_req_frame_sync_end(req))
 		dev_dbg(cam->dev, "%s:ctx(%d): sensor ctrl with frame sync - stop\n",
 			__func__, ctx->stream_id);
-	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-	if (req_stream_data->frame_seq_no == 1 &&
-		raw_dev->vf_en == 0 && ctx->sensor_ctrl.initial_cq_done == 1) {
-		spin_lock(&ctx->streaming_lock);
-		if (ctx->streaming) {
+	spin_lock(&ctx->streaming_lock);
+	if (ctx->streaming && ctx->used_raw_num) {
+		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+		if (req_stream_data->frame_seq_no == 1 &&
+			raw_dev->vf_en == 0 && ctx->sensor_ctrl.initial_cq_done == 1) {
+			unsigned int hw_scen =
+				(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
 			stream_on(raw_dev, 1);
 			for (i = 0; i < ctx->used_sv_num; i++)
 				mtk_cam_sv_dev_stream_on(ctx, i, 1, 1);
-			if (mtk_cam_is_stagger(ctx)) {
-				unsigned int hw_scen =
-					(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
-				for (i = MTKCAM_SUBDEV_CAMSV_END - 1;
-					i >= MTKCAM_SUBDEV_CAMSV_START; i--) {
-					if (ctx->pipe->enabled_raw & (1 << i))
-						mtk_cam_sv_dev_stream_on(
-							ctx, i - MTKCAM_SUBDEV_CAMSV_START,
-							1, hw_scen);
-				}
+			for (i = MTKCAM_SUBDEV_CAMSV_END - 1;
+				i >= MTKCAM_SUBDEV_CAMSV_START; i--) {
+				if (mtk_cam_is_stagger(ctx) &&
+				(ctx->pipe->enabled_raw & (1 << i)))
+					mtk_cam_sv_dev_stream_on(
+						ctx, i - MTKCAM_SUBDEV_CAMSV_START,
+						1, hw_scen);
 			}
 		}
-		spin_unlock(&ctx->streaming_lock);
 	}
+	spin_unlock(&ctx->streaming_lock);
 	req_stream_data->state.time_sensorset = ktime_get_boottime_ns() / 1000;
 	dev_info(cam->dev, "%s:%s:ctx(%d)req(%d):sensor done at SOF+%dms\n",
 		__func__, req->req.debug_str, ctx->stream_id,
@@ -1329,7 +1328,6 @@ static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_ctrl_state *current_state;
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	struct mtk_camsv_device *camsv_dev;
-	struct mtk_camsv_device *camsv_top_dev;
 	struct device *dev_sv;
 	int sv_i;
 
@@ -1359,9 +1357,7 @@ static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 			if (ctx->pipe->enabled_raw & (1 << sv_i)) {
 				dev_sv = cam->sv.devs[sv_i - MTKCAM_SUBDEV_CAMSV_START];
 				camsv_dev = dev_get_drvdata(dev_sv);
-				camsv_top_dev =
-					dev_get_drvdata(ctx->cam->sv.devs[camsv_dev->id / 2 * 2]);
-				mtk_cam_sv_enquehwbuf(camsv_top_dev, camsv_dev,
+				mtk_cam_sv_enquehwbuf(camsv_dev,
 				req_stream_data->frame_params.img_ins[0].buf[0].iova,
 				req_stream_data->frame_seq_no);
 			}
@@ -2054,10 +2050,12 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 			 __func__, ctx->stream_id, pipe_id, frame_seq_no);
 	if (mtk_cam_dequeue_req_frame(ctx, frame_seq_no, pipe_id)) {
 		mtk_cam_dev_req_try_queue(ctx->cam);
-		mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
-		mtk_camsys_raw_change_pipeline(raw_dev, ctx,
-							&ctx->sensor_ctrl,
-							frame_seq_no);
+		if (is_raw_subdev(pipe_id)) {
+			mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
+			mtk_camsys_raw_change_pipeline(raw_dev, ctx,
+									&ctx->sensor_ctrl,
+									frame_seq_no);
+		}
 	}
 }
 
@@ -2118,11 +2116,12 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 			(ctx->pipe->res_config.raw_feature == 0)) {
 			dev_info(ctx->cam->dev,
 					"1st SWD passed for initial request setting\n");
-			camsys_sensor_ctrl->initial_drop_frame_cnt--;
+			if (ctx->stream_id == pipe_id)
+				camsys_sensor_ctrl->initial_drop_frame_cnt--;
 			return;
 		}
 	}
-	req_stream_data = &req->stream_data[ctx->stream_id];
+	req_stream_data = &req->stream_data[pipe_id];
 	if (req_stream_data->frame_done_queue_work) {
 		dev_info(ctx->cam->dev,
 			"already queue done work %d\n", req_stream_data->frame_seq_no);
@@ -2641,10 +2640,13 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	camsys_sensor_ctrl->isp_request_seq_no = 0;
 	camsys_sensor_ctrl->initial_cq_done = 0;
 	camsys_sensor_ctrl->sof_time = 0;
-	if (ctx->pipe->res_config.raw_feature == 0)
-		camsys_sensor_ctrl->initial_drop_frame_cnt = INITIAL_DROP_FRAME_CNT;
-	else
-		camsys_sensor_ctrl->initial_drop_frame_cnt = 0;
+	if (ctx->used_raw_num) {
+		if (ctx->pipe->res_config.raw_feature == 0)
+			camsys_sensor_ctrl->initial_drop_frame_cnt = INITIAL_DROP_FRAME_CNT;
+		else
+			camsys_sensor_ctrl->initial_drop_frame_cnt = 0;
+	}
+
 	camsys_sensor_ctrl->timer_req_event =
 		timer_reqdrained_chk(fps_factor, sub_ratio);
 	camsys_sensor_ctrl->timer_req_sensor =

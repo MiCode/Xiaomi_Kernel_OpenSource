@@ -985,8 +985,7 @@ EXIT:
 }
 
 int mtk_cam_sv_dmao_config(
-	struct mtk_camsv_device *top_dev,
-	struct mtk_camsv_device *sub_dev,
+	struct mtk_camsv_device *dev,
 	struct mtkcam_ipi_input_param *cfg_in_param,
 	int hw_scen, int raw_imgo_stride)
 {
@@ -994,96 +993,71 @@ int mtk_cam_sv_dmao_config(
 	unsigned int stride;
 
 	/* imgo dma setting */
-	CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_XSIZE,
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_XSIZE,
 		mtk_cam_sv_xsize_cal(cfg_in_param) - 1);
-	CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_YSIZE,
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_YSIZE,
 		cfg_in_param->in_crop.s.h - 1);
-	CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_STRIDE,
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_STRIDE,
 		mtk_cam_sv_xsize_cal(cfg_in_param));
 
 	/* check raw's imgo stride */
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		if (raw_imgo_stride > mtk_cam_sv_xsize_cal(cfg_in_param)) {
-			dev_info(sub_dev->dev, "Special feature:0x%x, raw/sv stride = %d(THIS)/%d\n",
+			dev_info(dev->dev, "Special feature:0x%x, raw/sv stride = %d(THIS)/%d\n",
 				hw_scen, raw_imgo_stride, mtk_cam_sv_xsize_cal(cfg_in_param));
-			CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_STRIDE,
+			CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_STRIDE,
 				raw_imgo_stride);
 		}
 	}
 
-	dev_info(sub_dev->dev, "xsize:%d\n",
-		CAMSV_READ_REG(sub_dev->base + REG_CAMSV_IMGO_XSIZE));
-	dev_info(sub_dev->dev, "ysize:%d\n",
-		CAMSV_READ_REG(sub_dev->base + REG_CAMSV_IMGO_YSIZE));
-	dev_info(sub_dev->dev, "stride:%d\n",
-		CAMSV_READ_REG(sub_dev->base + REG_CAMSV_IMGO_STRIDE));
+	dev_info(dev->dev, "xsize:%d\n",
+		CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_XSIZE));
+	dev_info(dev->dev, "ysize:%d\n",
+		CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_YSIZE));
+	dev_info(dev->dev, "stride:%d\n",
+		CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_STRIDE));
 
 	/* imgo crop */
-	CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CROP, 0);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CROP, 0);
 
 	/* imgo stride */
-	stride = CAMSV_READ_REG(sub_dev->base + REG_CAMSV_IMGO_STRIDE);
+	stride = CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_STRIDE);
 	switch (cfg_in_param->pixel_mode) {
 	case 0:
 		stride = stride | (1<<27) | (1<<16);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_STRIDE, stride);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_STRIDE, stride);
 		break;
 	case 1:
 		stride = stride | (1<<27) | (3<<16);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_STRIDE, stride);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_STRIDE, stride);
 		break;
 	case 2:
 		stride = stride | (1<<27) | (7<<16);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_STRIDE, stride);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_STRIDE, stride);
 		break;
 	case 3:
 		stride = stride | (1<<27) | (15<<16);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_STRIDE, stride);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_STRIDE, stride);
 		break;
 	default:
-		dev_dbg(sub_dev->dev, "unknown pixel mode(%d)", cfg_in_param->pixel_mode);
+		dev_dbg(dev->dev, "unknown pixel mode(%d)", cfg_in_param->pixel_mode);
 		ret = -1;
 		goto EXIT;
 	}
 
 	/* imgo con */
-	switch (top_dev->id) {
-	case 0:
-	case 1:
-	case 2:
-	case 3:
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON0, 0x80000300);
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON1, 0x00C00060);
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON2, 0x01800120);
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON3, 0x020001A0);
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON4, 0x012000C0);
-		break;
-	default:
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON0, 0x80000100);
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON1, 0x00400020);
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON2, 0x00800060);
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON3, 0x00AA0082);
-		CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_IMGO_CON4, 0x00600040);
-		break;
-	}
-	switch (sub_dev->id) {
-	case 0:
-	case 1:
-	case 2:
-	case 3:
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON0, 0x80000300);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON1, 0x00C00060);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON2, 0x01800120);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON3, 0x020001A0);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON4, 0x012000C0);
-		break;
-	default:
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON0, 0x80000100);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON1, 0x00400020);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON2, 0x00800060);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON3, 0x00AA0082);
-		CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_CON4, 0x00600040);
-		break;
+	if (dev->id >= 0 && dev->id < 10) {
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON0, 0x10000300);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON1, 0x00C00060);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON2, 0x01800120);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON3, 0x020001A0);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON4, 0x012000C0);
+	} else {
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON0, 0x10000100);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON1, 0x00400020);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON2, 0x00800060);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON3, 0x00AA0082);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON4, 0x00600040);
 	}
 
 EXIT:
@@ -1252,8 +1226,7 @@ int mtk_cam_sv_fbc_disable(struct mtk_camsv_device *dev)
 }
 
 int mtk_cam_sv_enquehwbuf(
-	struct mtk_camsv_device *top_dev,
-	struct mtk_camsv_device *sub_dev,
+	struct mtk_camsv_device *dev,
 	dma_addr_t ba,
 	unsigned int seq_no)
 {
@@ -1262,13 +1235,23 @@ int mtk_cam_sv_enquehwbuf(
 
 	reg.Raw = 0;
 
-	CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_FRAME_SEQ_NO, seq_no);
-	CAMSV_WRITE_REG(sub_dev->base + REG_CAMSV_IMGO_BASE_ADDR, ba);
-	if (sub_dev->id % 2)
-		reg.Bits.RCNT_INC3 = 1;
-	else
-		reg.Bits.RCNT_INC1 = 1;
-	CAMSV_WRITE_REG(top_dev->base + REG_CAMSV_TOP_FBC_CNT_SET, reg.Raw);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_FRAME_SEQ_NO, seq_no);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_BASE_ADDR, ba);
+	reg.Bits.RCNT_INC1 = 1;
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_TOP_FBC_CNT_SET, reg.Raw);
+
+	return ret;
+}
+
+int mtk_cam_sv_write_rcnt(struct mtk_camsv_device *dev)
+{
+	int ret = 0;
+	union CAMSV_TOP_FBC_CNT_SET reg;
+
+	reg.Raw = 0;
+
+	reg.Bits.RCNT_INC1 = 1;
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_TOP_FBC_CNT_SET, reg.Raw);
 
 	return ret;
 }
@@ -1293,7 +1276,6 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
 	dma_addr_t base_addr;
 	struct mtk_camsv_working_buf_entry *buf_entry;
 	struct device *dev_sv;
-	struct mtk_camsv_device *camsv_top_dev;
 	struct mtk_camsv_device *camsv_dev;
 
 	spin_lock(&ctx->sv_using_buffer_list.lock);
@@ -1320,8 +1302,7 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
 		return 0;
 	}
 	camsv_dev = dev_get_drvdata(dev_sv);
-	camsv_top_dev = dev_get_drvdata(ctx->cam->sv.devs[camsv_dev->id / 2 * 2]);
-	mtk_cam_sv_enquehwbuf(camsv_top_dev, camsv_dev, base_addr, seq_no);
+	mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
 	return 1;
 }
 
@@ -1337,7 +1318,6 @@ int mtk_cam_sv_dev_config(
 	struct v4l2_mbus_framefmt *mf;
 	struct device *dev_sv;
 	struct mtk_camsv_device *camsv_dev;
-	struct mtk_camsv_device *camsv_top_dev;
 	struct v4l2_format *img_fmt;
 	unsigned int i;
 	int ret, pad_idx, pixel_mode = 0;
@@ -1387,7 +1367,6 @@ int mtk_cam_sv_dev_config(
 		camsv_dev->pipeline->hw_scen = hw_scen;
 		camsv_dev->pipeline->master_pipe_id = ctx->pipe->id;
 		camsv_dev->pipeline->is_first_expo = is_first_expo;
-		camsv_top_dev = dev_get_drvdata(cam->sv.devs[camsv_dev->id / 2 * 2]);
 	} else {
 		dev_sv = mtk_cam_find_sv_dev(cam, ctx->used_sv_dev[idx]);
 		if (dev_sv == NULL) {
@@ -1403,12 +1382,11 @@ int mtk_cam_sv_dev_config(
 		camsv_dev->pipeline->hw_scen = hw_scen;
 		camsv_dev->pipeline->master_pipe_id = 0;
 		camsv_dev->pipeline->is_first_expo = 0;
-		camsv_top_dev = dev_get_drvdata(cam->sv.devs[camsv_dev->id / 2 * 2]);
 	}
 
 	mtk_cam_sv_tg_config(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_top_config(camsv_dev, &cfg_in_param);
-	mtk_cam_sv_dmao_config(camsv_top_dev, camsv_dev, &cfg_in_param,
+	mtk_cam_sv_dmao_config(camsv_dev, &cfg_in_param,
 				hw_scen, img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline);
 	mtk_cam_sv_fbc_config(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_tg_enable(camsv_dev, &cfg_in_param);
@@ -1604,20 +1582,14 @@ int mtk_camsv_setup_dependencies(struct mtk_camsv *sv, struct mtk_larb *larb)
 		}
 
 		switch (i) {
-		case 3: /* special case: 13 + 14 */
-			supplier = find_larb(larb, 14);
-			link = device_link_add(consumer, supplier,
-					       DL_FLAG_AUTOREMOVE_CONSUMER |
-					       DL_FLAG_PM_RUNTIME);
-			if (!link) {
-				dev_info(dev, "Unable to create link between %s and %s\n",
-					dev_name(consumer), dev_name(supplier));
-				return -ENODEV;
-			}
-			break;
 		case 0:
-		case 2:
+		case 1:
 		case 4:
+		case 5:
+		case 8:
+		case 9:
+		case 12:
+		case 13:
 			supplier = find_larb(larb, 13);
 			break;
 		default:
@@ -1771,9 +1743,12 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		camsv_dev->sof_count++;
 	}
 	/* inform interrupt information to camsys controller */
-	ret = mtk_camsys_isr_event(camsv_dev->cam, &irq_info);
-	if (ret)
-		goto ctx_not_found;
+	if ((irq_status & CAMSV_INT_TG_SOF_INT_ST) ||
+		(irq_status & CAMSV_INT_SW_PASS1_DON_ST)) {
+		ret = mtk_camsys_isr_event(camsv_dev->cam, &irq_info);
+		if (ret)
+			goto ctx_not_found;
+	}
 	/* Check ISP error status */
 	if (err_status) {
 		dev_dbg(dev, "int_err:0x%x 0x%x\n", irq_status, err_status);
@@ -1824,7 +1799,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	const struct sv_resource *sv_res;
-	struct resource *res, *res_inner;
+	struct resource *res;
 #ifndef FPGA_EP
 	unsigned int i;
 #endif
@@ -1845,10 +1820,11 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	}
 
 	sv_res = sv_resources + sv->id;
+
 	/* base outer register */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
 	if (!res) {
-		dev_dbg(dev, "failed to get mem\n");
+		dev_info(dev, "failed to get mem\n");
 		return -ENODEV;
 	}
 
@@ -1860,19 +1836,18 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	dev_dbg(dev, "camsv, map_addr=0x%pK\n", sv->base);
 
 	/* base inner register */
-	res_inner = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res_inner) {
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_base");
+	if (!res) {
 		dev_dbg(dev, "failed to get mem\n");
 		return -ENODEV;
 	}
 
-	sv->base_inner = devm_ioremap_resource(dev, res_inner);
+	sv->base_inner = devm_ioremap_resource(dev, res);
 	if (IS_ERR(sv->base_inner)) {
 		dev_dbg(dev, "failed to map register inner base\n");
 		return PTR_ERR(sv->base_inner);
 	}
 	dev_dbg(dev, "camsv, map_addr(inner)=0x%pK\n", sv->base_inner);
-
 
 	irq = platform_get_irq(pdev, 0);
 	if (!irq) {
