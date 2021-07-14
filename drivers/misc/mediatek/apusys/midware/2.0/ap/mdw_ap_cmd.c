@@ -11,13 +11,12 @@
 #include "apusys_device.h"
 #include "mdw_cmn.h"
 #include "mdw_ap.h"
+#include "mdw_trace.h"
 
 #define MDW_CMD_EMPTY_NUM 0xff
 
 static void mdw_ap_cmd_print(struct mdw_ap_cmd *ac)
 {
-	unsigned int i = 0;
-
 	mdw_cmd_debug("-------------------------\n");
 	mdw_cmd_debug("ac(0x%llx)\n", ac->c->kid);
 	mdw_cmd_debug(" uid = 0x%llx\n", ac->c->uid);
@@ -25,11 +24,11 @@ static void mdw_ap_cmd_print(struct mdw_ap_cmd *ac)
 	mdw_cmd_debug(" hardlimit = %u\n", ac->c->hardlimit);
 	mdw_cmd_debug(" softlimit = %u\n", ac->c->softlimit);
 	mdw_cmd_debug(" power_save = %u\n", ac->c->power_save);
+	mdw_cmd_debug(" power_plcy = %u\n", ac->c->power_plcy);
+	mdw_cmd_debug(" power_dtime = %u\n", ac->c->power_dtime);
+	mdw_cmd_debug(" app_type = %u\n", ac->c->app_type);
 	mdw_cmd_debug(" sc_bitmask = 0x%llx\n", ac->sc_bitmask);
 	mdw_cmd_debug(" adj matrix:\n");
-	for (i = 0; i < ac->c->num_subcmds * ac->c->num_subcmds; i++)
-		mdw_cmd_debug("   [%u]=%u", i, ac->adj_matrix[i]);
-
 	mdw_cmd_debug("-------------------------\n");
 }
 
@@ -43,12 +42,14 @@ static void mdw_ap_sc_print(struct mdw_ap_sc *sc)
 	mdw_cmd_debug(" vlm_ctx_id = %u\n", sc->hdr->info->vlm_ctx_id);
 	mdw_cmd_debug(" vlm_force = %u\n", sc->hdr->info->vlm_force);
 	mdw_cmd_debug(" boost = %u\n", sc->hdr->info->boost);
+	mdw_cmd_debug(" turbo_boost = %u\n", sc->hdr->info->turbo_boost);
+	mdw_cmd_debug(" min_boost = %u\n", sc->hdr->info->min_boost);
+	mdw_cmd_debug(" max_boost = %u\n", sc->hdr->info->max_boost);
+	mdw_cmd_debug(" hse_en = %u\n", sc->hdr->info->hse_en);
 	mdw_cmd_debug(" pack_id = %u\n", sc->hdr->info->pack_id);
 	mdw_cmd_debug(" num_cmdbufs = %u\n", sc->hdr->info->num_cmdbufs);
 	mdw_cmd_debug(" driver_time = %u\n", sc->hdr->info->driver_time);
 	mdw_cmd_debug(" ip time = %u\n", sc->hdr->info->ip_time);
-	mdw_cmd_debug(" ip start ts = %u\n", sc->hdr->info->ip_start_ts);
-	mdw_cmd_debug(" ip end ts = %u\n", sc->hdr->info->ip_end_ts);
 	mdw_cmd_debug(" runtime = %u\n", sc->runtime);
 	mdw_cmd_debug(" deadline = %u\n", sc->deadline);
 	mdw_cmd_debug(" period = %u\n", sc->period);
@@ -68,6 +69,23 @@ static int mdw_ap_sc_ready(struct mdw_ap_sc *sc)
 	}
 
 	return 0;
+}
+
+static void mdw_ap_sc_set_einfo(struct mdw_ap_sc *sc)
+{
+	struct mdw_subcmd_exec_info *einfo = sc->einfo;
+
+	einfo->driver_time = sc->driver_time;
+	einfo->ip_time = sc->ip_time;
+	einfo->bw = sc->bw;
+	einfo->boost = sc->boost;
+	einfo->tcm_usage = sc->tcm_real_size;
+
+	mdw_cmd_debug("sc(0x%llx-%u) (%u/%u/%u/%u/%u)\n",
+		sc->parent->c->kid, sc->idx,
+		einfo->driver_time, einfo->ip_time,
+		einfo->bw,  einfo->boost,
+		einfo->tcm_usage);
 }
 
 static struct mdw_ap_sc *mdw_ap_cmd_get_avilable_sc(struct mdw_ap_cmd *ac)
@@ -91,7 +109,11 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 {
 	struct mdw_ap_cmd *ac = NULL;
 	struct mdw_ap_sc *sc = NULL;
+	struct mdw_subcmd_exec_info *einfo = NULL;
 	unsigned int i = 0;
+
+	mdw_trace_begin("ap cmd create|c(0x%llx) num_subcmds(%u)",
+		c->kid, c->num_subcmds);
 
 	/* alloc ap cmd */
 	ac = vzalloc(sizeof(*ac));
@@ -103,7 +125,13 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 	INIT_LIST_HEAD(&ac->sc_list);
 	INIT_LIST_HEAD(&ac->di_list);
 	ac->c = c;
+	einfo = c->exec_infos->vaddr;
+	if (!einfo) {
+		mdw_drv_err("invalid exec info ptr\n");
+		goto free_ac;
+	}
 
+	/* setup ctx repo */
 	memset(ac->ctx_repo, MDW_CMD_EMPTY_NUM, sizeof(ac->ctx_repo));
 
 	/* alloc adjacency matrix */
@@ -132,6 +160,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 		sc->parent = ac;
 		sc->idx = i;
 		sc->hdr = &c->ksubcmds[i];
+		sc->einfo = &einfo[i];
 		sc->boost = sc->hdr->info->boost;
 		sc->type = sc->hdr->info->type;
 		if (sc->hdr->info->vlm_ctx_id)
@@ -139,8 +168,6 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 		if (sc->hdr->info->pack_id)
 			ac->pack_cnt[sc->hdr->info->pack_id]++;
 
-		/* TODO */
-		//sc->runtime = sc->hdr->info->ip_time;
 		if (mdw_rsc_get_dev_num(sc->type + APUSYS_DEVICE_RT) &&
 			c->softlimit) {
 			sc->type += APUSYS_DEVICE_RT;
@@ -152,8 +179,8 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 		mdw_queue_task_start(sc);
 		list_add_tail(&sc->c_item, &ac->sc_list);
 	}
-	mdw_drv_debug("cmd(%p.%d/0x%llx) create done\n",
-		c->mpriv, c->id, ac->c->kid);
+	mdw_drv_debug("cmd(%p/0x%llx) create done\n",
+		c->mpriv, ac->c->kid);
 
 	goto out;
 
@@ -163,6 +190,8 @@ free_ac:
 	vfree(ac);
 	ac = NULL;
 out:
+	mdw_trace_end("ap cmd create|c(0x%llx) num_subcmds(%u)",
+		c->kid, c->num_subcmds);
 	return ac;
 }
 
@@ -170,8 +199,8 @@ static void mdw_ap_cmd_delete(struct mdw_ap_cmd *ac)
 {
 	struct mdw_cmd *c = ac->c;
 
-	mdw_drv_debug("cmd(%p.%d/0x%llx) delete\n",
-		c->mpriv, c->id, c->kid);
+	mdw_drv_debug("cmd(%p/0x%llx) delete\n",
+		c->mpriv, c->kid);
 
 	mutex_lock(&c->mtx);
 	/* free ap subcmds */
@@ -195,7 +224,6 @@ int mdw_ap_cmd_exec(struct mdw_cmd *c)
 		ret = -ENOMEM;
 		goto out;
 	}
-	//c->priv = ac;
 
 	mdw_flw_debug("cmd(0x%llx) execute...\n", ac->c->kid);
 
@@ -229,6 +257,7 @@ static void mdw_ap_cmd_done(struct kref *ref)
 	} else {
 		mdw_flw_debug("cmd(0x%llx) complete\n", ac->c->kid);
 		mdw_ap_cmd_delete(ac);
+		apusys_mem_flush_kva(c->exec_infos->vaddr, c->exec_infos->size);
 		c->complete(c, ret);
 	}
 }
@@ -255,6 +284,7 @@ static int mdw_ap_cmd_end_sc(struct mdw_ap_sc *in, struct mdw_ap_sc **out)
 			ac->c->kid, in->idx);
 		/* OR sc return value */
 		ac->ret |= in->ret;
+		mdw_ap_sc_set_einfo(in);
 		mdw_queue_task_end(in);
 	}
 
@@ -367,8 +397,9 @@ static void mdw_ap_cmd_clear_hnd(void *h)
 
 static bool mdw_ap_cmd_is_deadline(struct mdw_ap_sc *sc)
 {
-	if (sc->parent->c->softlimit)
+	if (sc->period)
 		return true;
+
 	return false;
 }
 

@@ -310,7 +310,7 @@ static void mdw_rsc_dump_tab(struct seq_file *s, struct mdw_rsc_tab *tab)
 				" core num ",
 				tab->dev_num,
 				" cmd id",
-				sc == NULL ? 0 : sc->parent->c->id);
+				sc == NULL ? 0 : sc->parent->c->kid);
 			mdw_con_info(s, "|%-14s(%7u) |%-18s= 0x%-39d|\n",
 				" available",
 				tab->avl_num,
@@ -335,7 +335,7 @@ static void mdw_rsc_dump_tab(struct seq_file *s, struct mdw_rsc_tab *tab)
 			mdw_con_info(s, "|%-24s|%-18s= 0x%-39x|\n",
 				"",
 				" cmd id",
-				sc == NULL ? 0 : sc->parent->c->id);
+				sc == NULL ? 0 : sc->parent->c->kid);
 			mdw_con_info(s, "|%-24s|%-18s= 0x%-39d|\n",
 				"",
 				" subcmd idx",

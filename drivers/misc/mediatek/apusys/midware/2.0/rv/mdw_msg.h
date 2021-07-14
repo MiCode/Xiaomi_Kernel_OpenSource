@@ -19,6 +19,7 @@ enum {
 enum {
 	MDW_IPI_HANDSHAKE_BASIC_INFO,
 	MDW_IPI_HANDSHAKE_DEV_NUM,
+	MDW_IPI_HANDSHAKE_TASK_NUM,
 };
 
 enum {
@@ -54,6 +55,11 @@ struct mdw_ipi_handshake {
 			uint32_t num;
 			uint8_t meta[MDW_DEV_META_SIZE];
 		} dev;
+		struct {
+			uint32_t type;
+			uint32_t norm_task_num;
+			uint32_t deadline_task_num;
+		} task;
 	};
 };
 

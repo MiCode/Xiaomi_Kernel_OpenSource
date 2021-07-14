@@ -32,6 +32,7 @@ struct mdw_ap_cmd {
 struct mdw_ap_sc {
 	struct mdw_ap_cmd *parent;
 	struct mdw_subcmd_kinfo *hdr;
+	struct mdw_subcmd_exec_info *einfo;
 	struct list_head c_item;
 	uint32_t idx;
 	uint32_t vlm_ctx;

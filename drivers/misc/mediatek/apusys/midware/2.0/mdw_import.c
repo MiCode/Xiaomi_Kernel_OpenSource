@@ -6,6 +6,7 @@
 #include "mdw_cmn.h"
 #include "mdw_ap.h"
 #include "mdw_import.h"
+#include "mdw_trace.h"
 #include "reviser_export.h"
 #include "mnoc_api.h"
 #include "apusys_power.h"
@@ -17,18 +18,39 @@ bool mdw_pwr_check(void)
 
 int mdw_rvs_set_ctx(int type, int idx, uint8_t ctx)
 {
-	return reviser_set_context(type, idx, ctx);
+	int ret = 0;
+
+	mdw_trace_begin("%s|type(%d) idx(%d) ctx(%u)",
+		__func__, type, idx, ctx);
+	ret = reviser_set_context(type, idx, ctx);
+	mdw_trace_end("%s|type(%d) idx(%d) ctx(%u)",
+		__func__, type, idx, ctx);
+
+	return ret;
 }
 
 int mdw_rvs_free_vlm(uint32_t ctx)
 {
-	return reviser_free_vlm(ctx);
+	int ret = 0;
+
+	mdw_trace_begin("%s|ctx(%u)", __func__, ctx);
+	ret =  reviser_free_vlm(ctx);
+	mdw_trace_end("%s|ctx(%u)", __func__, ctx);
+
+	return ret;
 }
 
 int mdw_rvs_get_vlm(uint32_t req_size, bool force,
 		uint32_t *id, uint32_t *tcm_size)
 {
-	return reviser_get_vlm(req_size, force, (unsigned long *)id, tcm_size);
+	int ret = 0;
+
+	mdw_trace_begin("%s|size(%u)", __func__, req_size);
+	ret = reviser_get_vlm(req_size, force, (unsigned long *)id, tcm_size);
+	mdw_trace_end("%s|ctx = %u, size(%u/%u)",
+		__func__, req_size, *tcm_size);
+
+	return ret;
 }
 
 int mdw_rvs_get_vlm_property(uint64_t *start, uint32_t *size)

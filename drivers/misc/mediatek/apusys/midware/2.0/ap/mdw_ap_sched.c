@@ -32,30 +32,9 @@ struct mdw_sched_mgr {
 
 static struct mdw_sched_mgr ms_mgr;
 
-#define MDW_EXEC_PRINT " pid(%d/%d) cmd(%p.%d/0x%llx-#%u/%u)"\
+#define MDW_EXEC_PRINT " pid(%d/%d) cmd(%p/0x%llx/0x%llx-#%u/%u)"\
 	" dev(%d/%s-#%d) pack(%u) sched(%u/%u/%u/%u/%u/%u)"\
 	" mem(%u/%u/0x%x/0x%x) boost(%u) bw(0x%x) time(%u/%u)"
-
-static void mdw_sched_met_start(struct mdw_ap_sc *sc, struct mdw_dev_info *d)
-{
-#ifdef APUSYS_MDW_TAG_SUPPORT
-	mdw_trace_begin("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx",
-		d->type,
-		d->idx,
-		sc->parent->kid);
-#endif
-}
-
-static void mdw_sched_met_end(struct mdw_ap_sc *sc, struct mdw_dev_info *d,
-	int ret)
-{
-#ifdef APUSYS_MDW_TAG_SUPPORT
-	mdw_trace_end("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx, ret:%d",
-		d->type,
-		d->idx,
-		sc->parent->kid, ret);
-#endif
-}
 
 static void mdw_sched_trace(struct mdw_ap_sc *sc,
 	struct mdw_dev_info *d, struct apusys_cmd_handle *h, int ret, int done)
@@ -97,11 +76,9 @@ static void mdw_sched_trace(struct mdw_ap_sc *sc,
 	/* prefix */
 	memset(state, 0, sizeof(state));
 	if (!done) {
-		mdw_sched_met_start(sc, d);
 		if (snprintf(state, sizeof(state)-1, "start :") < 0)
 			return;
 	} else {
-		mdw_sched_met_end(sc, d, ret);
 		if (ret) {
 			if (snprintf(state, sizeof(state)-1, "fail :") < 0)
 				return;
@@ -118,7 +95,7 @@ static void mdw_sched_trace(struct mdw_ap_sc *sc,
 			sc->parent->pid,
 			sc->parent->tgid,
 			sc->parent->c->mpriv,
-			sc->parent->c->id,
+			sc->parent->c->uid,
 			sc->parent->c->kid,
 			sc->idx,
 			sc->parent->c->num_subcmds,
@@ -147,7 +124,7 @@ static void mdw_sched_trace(struct mdw_ap_sc *sc,
 			sc->parent->pid,
 			sc->parent->tgid,
 			sc->parent->c->mpriv,
-			sc->parent->c->id,
+			sc->parent->c->uid,
 			sc->parent->c->kid,
 			sc->idx,
 			sc->parent->c->num_subcmds,
@@ -219,9 +196,7 @@ static int mdw_sched_sc_done(void)
 
 	mdw_flw_debug("\n");
 
-#ifdef APUSYS_MDW_TAG_SUPPORT
 	mdw_trace_begin("check done list|%s", __func__);
-#endif
 
 	/* get done sc from done sc list */
 	mutex_lock(&ms_mgr.mtx);
@@ -262,9 +237,7 @@ static int mdw_sched_sc_done(void)
 	};
 
 out:
-#ifdef APUSYS_MDW_TAG_SUPPORT
 	mdw_trace_end("check done list|%s", __func__);
-#endif
 	return ret;
 }
 
@@ -294,6 +267,8 @@ int mdw_sched_dev_routine(void *arg)
 		if (ret)
 			goto next;
 
+		mdw_trace_begin("dev(%s-%d) routine", d->name, d->idx);
+
 		sc = (struct mdw_ap_sc *)d->sc;
 		if (!sc) {
 			mdw_drv_warn("no sc to exec\n");
@@ -317,11 +292,7 @@ int mdw_sched_dev_routine(void *arg)
 			mdw_sched_enque_done_sc(sc);
 			goto next;
 		}
-#ifdef APUSYS_MDW_TAG_SUPPORT
-		mdw_trace_begin("dev(%s-%d) exec|sc(0x%llx-%d) boost(%u/%u)",
-			d->name, d->idx, sc->parent->kid, sc->idx,
-			h.boost, sc->boost);
-#endif
+
 		/*
 		 * Execute reviser to switch VLM:
 		 * Skip set context on preemptive command,
@@ -340,11 +311,19 @@ int mdw_sched_dev_routine(void *arg)
 
 		/* execute */
 		mdw_sched_trace(sc, d, &h, ret, 0);
+
+		mdw_trace_begin("dev(%s-%d) exec|sc(0x%llx-%d) boost(%u/%u)",
+			d->name, d->idx, sc->parent->c->kid,
+			sc->idx, h.boost, sc->boost);
 		ktime_get_ts64(&sc->ts_start);
 		ret = d->dev->send_cmd(APUSYS_CMD_EXECUTE, &h, d->dev);
 		ktime_get_ts64(&sc->ts_end);
 		sc->driver_time = mdw_cmn_get_time_diff(&sc->ts_start,
 			&sc->ts_end);
+		mdw_trace_end("dev(%s-%d) exec|sc(0x%llx-%d) time(%u/%u)",
+			d->name, d->idx, sc->parent->c->kid,
+			sc->idx, sc->driver_time, sc->ip_time);
+
 		mdw_sched_trace(sc, d, &h, ret, 1);
 
 		/* count qos end */
@@ -356,19 +335,19 @@ int mdw_sched_dev_routine(void *arg)
 
 		mdw_ap_parser.clear_hnd(&h);
 
+		mdw_trace_begin("dev(%s-%d) put dev", d->name, d->idx);
 		/* put device */
 		if (mdw_rsc_put_dev(d))
 			mdw_drv_err("put dev(%d-#%d) fail\n",
 				d->type, d->dev->idx);
-
+		mdw_trace_end("dev(%s-%d) put dev", d->name, d->idx);
+		mdw_trace_begin("dev(%s-%d) done sc", d->name, d->idx);
 		mdw_sched_enque_done_sc(sc);
+		mdw_trace_end("dev(%s-%d) done sc", d->name, d->idx);
 
-#ifdef APUSYS_MDW_TAG_SUPPORT
-		mdw_trace_end("dev(%s-%d) exec|boost(%d)",
-			d->name, d->idx, h->boost);
-#endif
 next:
 		mdw_flw_debug("done\n");
+		mdw_trace_end("dev(%s-%d) routine", d->name, d->idx);
 		continue;
 	}
 

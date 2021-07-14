@@ -29,8 +29,8 @@ static int mdw_dev_open(struct inode *inode, struct file *filp)
 	mpriv->mdev = mdw_dev;
 	filp->private_data = mpriv;
 	mutex_init(&mpriv->mtx);
-	idr_init(&mpriv->cmds_idr);
 	INIT_LIST_HEAD(&mpriv->mems);
+	INIT_LIST_HEAD(&mpriv->cmds);
 
 	if (!atomic_read(&g_inited)) {
 		mdw_dev->dev_funcs->sw_init(mdw_dev);

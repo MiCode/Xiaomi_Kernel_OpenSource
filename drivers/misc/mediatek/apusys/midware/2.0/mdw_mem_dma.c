@@ -9,10 +9,10 @@
 #include <linux/slab.h>
 #include <linux/of_device.h>
 
-
 #include "mdw_mem_rsc.h"
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
+#include "mdw_trace.h"
 
 struct mdw_mem_dma_attachment {
 	struct sg_table sgt;
@@ -240,9 +240,15 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
 		goto free_mdw_dbuf;
 	}
 
+	mdw_trace_begin("%s|size(%u) align(%u)",
+		__func__, mem->size, mem->align);
+
 	/* TODO, handle cache */
 	mdbuf->a.vaddr = dma_alloc_coherent(dev, mdbuf->dma_size,
 		&mdbuf->dma_addr, GFP_KERNEL);
+
+	mdw_trace_end("%s|size(%u/%u) align(%u)",
+		__func__, mem->size, mdbuf->dma_size, mem->align);
 
 	if (!mdbuf->a.vaddr) {
 		mdw_drv_err("Alloc Fail\n");

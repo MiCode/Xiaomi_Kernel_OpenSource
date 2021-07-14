@@ -125,8 +125,6 @@ union mdw_mem_args {
 	_IOWR(APUSYS_MAGICNO, 33, union mdw_mem_args)
 
 enum mdw_cmd_ioctl_op {
-	MDW_CMD_IOCTL_BUILD,
-	MDW_CMD_IOCTL_RELEASE,
 	MDW_CMD_IOCTL_RUN,
 };
 
@@ -139,25 +137,14 @@ enum {
 	MDW_CB_OUT,
 };
 
-struct mdw_subcmd_info {
-	uint32_t type;
-	uint32_t suggest_time;
-	uint32_t vlm_usage;
-	uint32_t vlm_ctx_id;
-	uint32_t vlm_force;
-	uint32_t boost;
-	uint32_t pack_id;
-
-	/* cmdbufs */
-	uint32_t num_cmdbufs;
-	uint64_t cmdbufs;
-
-	/* out */
+struct mdw_subcmd_exec_info {
 	uint32_t driver_time;
 	uint32_t ip_time;
 	uint32_t ip_start_ts;
 	uint32_t ip_end_ts;
 	uint32_t bw;
+	uint32_t boost;
+	uint32_t tcm_usage;
 };
 
 struct mdw_subcmd_cmdbuf {
@@ -165,6 +152,27 @@ struct mdw_subcmd_cmdbuf {
 	uint32_t size;
 	uint32_t align;
 	uint32_t direction;
+};
+
+struct mdw_subcmd_info {
+	uint32_t type;
+	uint32_t suggest_time;
+	uint32_t vlm_usage;
+	uint32_t vlm_ctx_id;
+	uint32_t vlm_force;
+	uint32_t boost;
+	uint32_t turbo_boost;
+	uint32_t min_boost;
+	uint32_t max_boost;
+	uint32_t hse_en;
+	uint32_t pack_id;
+	uint32_t driver_time;
+	uint32_t ip_time;
+	uint32_t bw;
+
+	/* cmdbufs */
+	uint32_t num_cmdbufs;
+	uint64_t cmdbufs;
 };
 
 struct mdw_cmd_in {
@@ -177,23 +185,15 @@ struct mdw_cmd_in {
 			uint32_t hardlimit;
 			uint32_t softlimit;
 			uint32_t power_save;
+			uint32_t power_plcy;
+			uint32_t power_dtime;
+			uint32_t app_type;
 			uint32_t flags;
 			uint32_t num_subcmds;
 			uint64_t subcmd_infos;
 			uint64_t adj_matrix;
-		} build;
-
-		struct {
-			uint64_t id;
-		} release;
-
-		struct {
-			uint64_t id;
-			uint32_t priority;
-			uint32_t hardlimit;
-			uint32_t softlimit;
-			uint32_t power_save;
 			uint64_t fence;
+			uint64_t exec_infos;
 		} exec;
 	};
 };
@@ -202,10 +202,6 @@ struct mdw_cmd_out {
 	union {
 		struct {
 			uint64_t id;
-		} build;
-
-		struct {
-			/* fence fd */
 			uint64_t fence;
 		} exec;
 	};

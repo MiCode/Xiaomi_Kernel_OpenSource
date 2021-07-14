@@ -41,12 +41,20 @@ struct mdw_rv_cmd {
 };
 
 struct mdw_rv_cmd_v2 {
-	/* cmdinfo */
-	uint64_t cmd_uid;
+	/* ids */
+	uint64_t session_id;
+	uint64_t cmd_id;
+	/* exec infos */
+	uint64_t exec_infos;
+	uint32_t exec_size;
+	/* params */
 	uint32_t priority;
 	uint32_t hardlimit;
 	uint32_t softlimit;
 	uint32_t power_save;
+	uint32_t power_plcy;
+	uint32_t power_dtime;
+	uint32_t app_type;
 	uint32_t num_subcmds;
 	uint32_t subcmds_offset;
 	uint32_t num_cmdbufs;
@@ -55,20 +63,24 @@ struct mdw_rv_cmd_v2 {
 } __attribute__((__packed__));
 
 struct mdw_rv_subcmd_v2 {
-	/* in */
+	/* params */
 	uint32_t type;
 	uint32_t suggest_time;
 	uint32_t vlm_usage;
 	uint32_t vlm_ctx_id;
 	uint32_t vlm_force;
 	uint32_t boost;
+	uint32_t turbo_boost;
+	uint32_t min_boost;
+	uint32_t max_boost;
+	uint32_t hse_en;
+	uint32_t driver_time;
+	uint32_t ip_time;
+	uint32_t bw;
 	uint32_t pack_id;
+	/* cmdbufs info */
 	uint32_t cmdbuf_start_idx;
 	uint32_t num_cmdbufs;
-
-	/* out */
-	uint32_t ip_time;
-	uint32_t driver_time;
 } __attribute__((__packed__));
 
 struct mdw_rv_cmdbuf_v2 {

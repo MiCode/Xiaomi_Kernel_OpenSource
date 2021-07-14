@@ -12,6 +12,7 @@
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
 #include "mdw_mem_rsc.h"
+#include "mdw_trace.h"
 
 #define mdw_mem_show(m) \
 	mdw_mem_debug("mem(%p/%d/0x%llx/0x%x/0x%llx/%u/0x%llx/%d" \
@@ -29,9 +30,10 @@ static void mdw_mem_delete(struct mdw_mem *m)
 {
 	struct mdw_fpriv *mpriv = m->mpriv;
 
-	mdw_mem_show(m);
 	if (m->is_released == true)
 		goto out;
+
+	mdw_mem_show(m);
 
 	switch (m->type) {
 	case MDW_MEM_TYPE_ALLOC:
@@ -115,12 +117,15 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	bool need_handle = true;
 	int ret = 0;
 
+	mdw_trace_begin("%s|size(%u) align(%u)",
+		__func__, size, align);
+
 	if (type == MDW_MEM_TYPE_INTERNAL)
 		need_handle = false;
 
 	m = mdw_mem_create(mpriv);
 	if (!m)
-		return NULL;
+		goto out;
 
 	m->size = size;
 	m->align = align;
@@ -140,13 +145,25 @@ free_mem:
 	mdw_mem_destroy(m);
 	m = NULL;
 out:
+	mdw_trace_end("%s|size(%u) align(%u)",
+		__func__, size, align);
 	return m;
 }
 
 int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
+	int ret = 0;
+
+	mdw_trace_begin("%s|size(%u) align(%u)",
+		__func__, m->size, m->align);
+
 	mdw_mem_show(m);
-	return mdw_mem_dma_free(m);
+	ret = mdw_mem_dma_free(m);
+
+	mdw_trace_end("%s|size(%u) align(%u)",
+		__func__, m->size, m->align);
+
+	return ret;
 }
 
 int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
@@ -247,7 +264,6 @@ static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,
 		return -ENOMEM;
 	}
 
-
 	mutex_lock(&mpriv->mtx);
 	list_add_tail(&m->u_item, &mpriv->mems);
 	mutex_unlock(&mpriv->mtx);
@@ -276,7 +292,6 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 			ret = 0;
 		goto out;
 	}
-	mdw_mem_debug("\n");
 
 	/* already exist */
 	if (kref_read(&m->map_ref)) {
@@ -287,10 +302,8 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 		if (ret)
 			mdw_drv_err("map fail\n");
 	}
-	mdw_mem_debug("\n");
 
 	mdw_mem_show(m);
-	mdw_mem_debug("\n");
 
 out:
 	if (m)

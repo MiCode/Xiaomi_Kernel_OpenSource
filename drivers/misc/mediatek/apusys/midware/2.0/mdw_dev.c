@@ -44,15 +44,15 @@ void mdw_dev_deinit(struct mdw_device *mdev)
 int mdw_dev_lock(void)
 {
 	if (!mdw_dev)
-		return mdw_dev->dev_funcs->lock();
+		return -ENODEV;
 
-	return -ENODEV;
+	return mdw_dev->dev_funcs->lock();
 }
 
 int mdw_dev_unlock(void)
 {
 	if (!mdw_dev)
-		return mdw_dev->dev_funcs->unlock();
+		return -ENODEV;
 
-	return -ENODEV;
+	return mdw_dev->dev_funcs->unlock();
 }

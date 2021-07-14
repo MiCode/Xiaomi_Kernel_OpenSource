@@ -46,6 +46,11 @@ int mdw_dbg_init(struct apusys_core_info *info)
 	debugfs_create_u32("klog", 0644,
 		mdw_dbg_root, &g_mdw_klog);
 
+	/* create log level */
+	cfg_apusys_trace = 0;
+	debugfs_create_u8("trace_en", 0644,
+		mdw_dbg_root, &cfg_apusys_trace);
+
 	mdw_dbg_device = debugfs_create_dir("device", mdw_dbg_root);
 
 	return 0;
@@ -53,5 +58,6 @@ int mdw_dbg_init(struct apusys_core_info *info)
 
 void mdw_dbg_deinit(void)
 {
+	/* remove by core */
 	//debugfs_remove_recursive(mdw_dbg_root);
 }

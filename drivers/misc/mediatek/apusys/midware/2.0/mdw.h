@@ -23,8 +23,6 @@
 #include "apusys_device.h"
 #include "mdw_import.h"
 
-//#define MDW_UP_POC_SUPPORT
-
 #define MDW_NAME "apusys"
 #define MDW_DEV_MAX (APUSYS_DEVICE_MAX)
 #define MDW_CMD_MAX (32)
@@ -121,36 +119,29 @@ struct mdw_fpriv {
 	struct mdw_device *mdev;
 
 	struct list_head mems;
-	struct idr cmds_idr;
+	struct list_head cmds;
 	struct mutex mtx;
 };
 
 struct mdw_subcmd_kinfo {
 	struct mdw_subcmd_info *info; //c->subcmds
 	struct mdw_subcmd_cmdbuf *cmdbufs; //from usr
-	struct mdw_mem **ori_mems; //pointer to original buf
+	struct mdw_mem **ori_cbs; //pointer to original cmdbuf
+	struct mdw_subcmd_exec_info *exec_infos;
 	uint64_t *kvaddrs; //pointer to duplicated buf
 	uint64_t *daddrs; //pointer to duplicated buf
 	void *priv; //mdw_ap_sc
 };
 
-enum mdw_cmd_state {
-	MDW_CMD_STATE_IDLE, //ready to exec
-	MDW_CMD_STATE_WAIT, //wait for other fence
-	MDW_CMD_STATE_RUN, //executing
-	MDW_CMD_STATE_DONE, //done
-};
-
 struct mdw_fence {
 	struct dma_fence base_fence;
 	struct mdw_device *mdev;
-	void *priv;
+	spinlock_t lock;
 };
 
 struct mdw_cmd {
 	pid_t pid;
 	pid_t tgid;
-	int id;
 	uint64_t kid;
 	uint64_t uid;
 	uint64_t usr_id;
@@ -158,18 +149,20 @@ struct mdw_cmd {
 	uint32_t hardlimit;
 	uint32_t softlimit;
 	uint32_t power_save;
+	uint32_t power_plcy;
+	uint32_t power_dtime;
+	uint32_t app_type;
 	uint32_t num_subcmds;
 	struct mdw_subcmd_info *subcmds; //from usr
 	struct mdw_subcmd_kinfo *ksubcmds;
 	uint32_t num_cmdbufs;
 	uint32_t size_cmdbufs;
 	struct mdw_mem *cmdbufs;
+	struct mdw_mem *exec_infos;
 	uint8_t *adj_matrix;
 
-	int state;
 	struct mutex mtx;
-	struct kref ref;
-	spinlock_t fence_lock;
+	struct list_head u_item;
 
 	struct mdw_fpriv *mpriv;
 	int (*complete)(struct mdw_cmd *c, int ret);
