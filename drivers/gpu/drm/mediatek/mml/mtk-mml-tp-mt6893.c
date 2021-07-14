@@ -15,6 +15,7 @@
 #define TOPOLOGY_PLATFORM	"mt6893"
 #define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
+#define MML_IR_MIN_FRAME	(2560 * 1440)
 #define MML_IR_MAX_FRAME	(3840 * 2176)
 #define MML_IR_MAX_WIDTH	3200
 
@@ -451,8 +452,10 @@ static bool tp_need_dual(struct mml_frame_config *cfg)
 {
 	const struct mml_frame_data *src = &cfg->info.src;
 	u32 min_crop_w, i;
+	u32 min_pixel = cfg->info.mode == MML_MODE_RACING ?
+		MML_IR_MIN_FRAME : MML_DUAL_FRAME;
 
-	if (src->width * src->height < MML_DUAL_FRAME)
+	if (src->width * src->height < min_pixel)
 		return false;
 
 	min_crop_w = cfg->info.dest[0].crop.r.width;
@@ -536,7 +539,7 @@ enum mml_mode mml_topology_query_mode(struct mml_frame_info *info)
 			goto decouple;
 	}
 
-	if (info->dest[0].compose.width * info->dest[0].compose.height <= MML_IR_MAX_FRAME)
+	if (info->dest[0].compose.width * info->dest[0].compose.height > MML_IR_MAX_FRAME)
 		goto decouple;
 
 	return MML_MODE_RACING;
