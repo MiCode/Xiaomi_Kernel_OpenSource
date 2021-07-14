@@ -105,7 +105,7 @@ phys_addr_t scp_mem_base_phys;
 phys_addr_t scp_mem_base_virt;
 phys_addr_t scp_mem_size;
 struct scp_regs scpreg;
-bool scp_hwccf_support = false;
+bool scp_hwvoter_support = true;
 
 unsigned char *scp_send_buff[SCP_CORE_TOTAL];
 unsigned char *scp_recv_buff[SCP_CORE_TOTAL];
@@ -1944,7 +1944,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	int ret = 0, i = 0;
 	struct resource *res;
 	const char *core_status = NULL;
-	const char *scp_hwccf = NULL;
+	const char *scp_hwvoter = NULL;
 	const char *secure_dump = NULL;
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
@@ -2038,17 +2038,19 @@ static int scp_device_probe(struct platform_device *pdev)
 		scp_enable[SCP_A_ID] = 1;
 	}
 
-	of_property_read_string(pdev->dev.of_node, "scp_hwccf", &scp_hwccf);
-	if (scp_hwccf){
-		if (strcmp(scp_hwccf, "enable") != 0) {
-			pr_notice("[SCP] scp_hwccf not enable\n");
-			scp_hwccf_support = false;
+	of_property_read_string(pdev->dev.of_node, "scp_hwvoter", &scp_hwvoter);
+	if (scp_hwvoter) {
+		if (strcmp(scp_hwvoter, "enable") != 0) {
+			pr_notice("[SCP] scp_hwvoter not enable\n");
+			scp_hwvoter_support = false;
 		} else {
-			pr_notice("[SCP] scp_hwccf enable\n");
-			scp_hwccf_support = true;
+			pr_notice("[SCP] scp_hwvoter enable\n");
+			scp_hwvoter_support = true;
 		}
-	} else
-		pr_debug("[SCP] scp_hwccf not support\n");
+	} else {
+		scp_hwvoter_support = false;
+		pr_notice("[SCP] scp_hwvoter not support: %d\n", scp_hwvoter_support);
+	}
 
 	of_property_read_u32(pdev->dev.of_node, "core_nums"
 						, &scpreg.core_nums);

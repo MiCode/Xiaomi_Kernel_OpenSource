@@ -13,6 +13,7 @@
 #define PIN_OUT_SIZE_AUDIO_VOW_1         9
 #define PIN_IN_SIZE_AUDIO_VOW_ACK_1      2
 #define PIN_IN_SIZE_AUDIO_VOW_1         26
+#define PIN_IN_SIZE_AUDIO_ACCDET_1       1
 #define PIN_OUT_SIZE_APCCCI_0		 2
 #define PIN_OUT_SIZE_DVFS_SET_FREQ_0	 1
 #define PIN_OUT_C_SIZE_SLEEP_0           2
@@ -42,7 +43,7 @@
 #define PIN_OUT_SIZE_SENSOR_NOTIFY       7
 #define PIN_IN_SIZE_SENSOR_NOTIFY        7
 #define PIN_OUT_SIZE_SCP_CONNSYS         3
-#define PIN_OUT_SIZE_SCP_HWCCF_DEBUG     2
+#define PIN_OUT_SIZE_SCP_HWVOTER_DEBUG     4
 
 /* scp Core ID definition */
 enum scp_core_id {
@@ -87,7 +88,8 @@ enum {
 	IPI_IN_SENSOR_NOTIFY      = 32,
 	IPI_OUT_SCP_CONNSYS       = 33,
 	IPI_IN_SCP_CONNSYS        = 34,
-	IPI_OUT_SCP_HWCCF_DEBUG   = 35,
+	IPI_OUT_SCP_HWVOTER_DEBUG   = 35,
+	IPI_IN_AUDIO_ACCDET_1     = 36,
 	SCP_IPI_COUNT
 };
 
