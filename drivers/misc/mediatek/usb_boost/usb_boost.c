@@ -568,18 +568,18 @@ static int create_sys_fs(void)
 
 }
 
-void xhci_urb_enqueue_dbg(void *unused, struct urb *urb)
+void xhci_urb_giveback_dbg(void *unused, struct urb *urb)
 {
 	switch (usb_endpoint_type(&urb->ep->desc)) {
 	case USB_ENDPOINT_XFER_BULK:
-		if (urb->transfer_buffer_length >= 8192)
+		if (urb->actual_length >= 8192)
 			usb_boost();
 	}
 }
 
 static int xhci_trace_init(void)
 {
-	WARN_ON(register_trace_xhci_urb_giveback(xhci_urb_enqueue_dbg, NULL));
+	WARN_ON(register_trace_xhci_urb_giveback(xhci_urb_giveback_dbg, NULL));
 	return 0;
 }
 
