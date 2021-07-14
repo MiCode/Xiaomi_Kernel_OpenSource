@@ -263,10 +263,12 @@ int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 
 	dev_info(parent_dev, "xHCI platform device register success...\n");
 
-	child = of_get_next_child(parent_dn, NULL);
-	if (child) {
-		pdev = of_find_device_by_node(child);
-		ssusb->xhci_pdrv = to_platform_driver(pdev->dev.driver);
+	for_each_child_of_node(parent_dn, child) {
+		if (of_device_is_compatible(child, "mediatek,mtk-xhci")) {
+			pdev = of_find_device_by_node(child);
+			ssusb->xhci_pdrv = to_platform_driver(pdev->dev.driver);
+			break;
+		}
 	}
 
 	return 0;
