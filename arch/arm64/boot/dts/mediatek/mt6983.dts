@@ -1205,8 +1205,8 @@
 			<0 0x11fe0000 0 0x1000>,
 			<0 0x1c01e000 0 0x1000>;
 		reg-name = "eint-w", "eint-e", "eint-s", "eint-n", "eint-c";
-		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH 0>;
-		mediatek,total-pin-number = <244>;
+		interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH 0>;
+		mediatek,total-pin-number = <245>;
 		mediatek,instance-num = <5>;
 		mediatek,pins = <0 3 0 1>,<1 3 1 1>,<2 3 2 1>,<3 3 3 1>,<4 3 4 1>,
 			<5 3 5 1>,<6 3 6 1>,<7 3 7 1>,<8 3 8 1>,<9 3 9 1>,
