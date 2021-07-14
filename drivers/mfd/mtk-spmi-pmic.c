@@ -102,6 +102,9 @@ static const struct mfd_cell mt6368_devs[] = {
 	}, {
 		.name = "mt6368-consys",
 		.of_compatible = "mediatek,mt6368-consys",
+	}, {
+		.name = "mt6368-sound",
+		.of_compatible = "mediatek,mt6368-sound",
 	},
 };
 
