@@ -34,6 +34,7 @@ struct mml_dev {
 	struct mml_drm_ctx *drm_ctx;
 	struct mutex drm_ctx_mutex;
 	struct mml_topology_cache *topology;
+	struct mutex clock_mutex;
 };
 
 extern struct platform_driver mtk_mml_rdma_driver;
@@ -257,6 +258,7 @@ static s32 __comp_init(struct platform_device *pdev, struct mml_comp *comp,
 		dev_info(dev, "no %s property in node %s\n",
 			 clkpropname, node->full_name);
 	}
+
 	return ret;
 }
 
@@ -346,6 +348,15 @@ s32 mml_comp_pw_enable(struct mml_comp *comp)
 {
 	int ret;
 
+	comp->pw_cnt++;
+	if (comp->pw_cnt > 1)
+		return 0;
+	if (comp->pw_cnt <= 0) {
+		mml_err("%s comp %u %s cnt %d",
+			__func__, comp->id, comp->name, comp->pw_cnt);
+		return -EINVAL;
+	}
+
 	if (!comp->larb_dev) {
 		mml_err("%s no larb for comp %u", __func__, comp->id);
 		return 0;
@@ -360,6 +371,15 @@ s32 mml_comp_pw_enable(struct mml_comp *comp)
 
 s32 mml_comp_pw_disable(struct mml_comp *comp)
 {
+	comp->pw_cnt--;
+	if (comp->pw_cnt > 0)
+		return 0;
+	if (comp->pw_cnt < 0) {
+		mml_err("%s comp %u %s cnt %d",
+			__func__, comp->id, comp->name, comp->pw_cnt);
+		return -EINVAL;
+	}
+
 	if (!comp->larb_dev) {
 		mml_err("%s no larb for comp %u", __func__, comp->id);
 		return 0;
@@ -372,7 +392,16 @@ s32 mml_comp_pw_disable(struct mml_comp *comp)
 
 s32 mml_comp_clk_enable(struct mml_comp *comp)
 {
-	u8 i;
+	u32 i;
+
+	comp->clk_cnt++;
+	if (comp->clk_cnt > 1)
+		return 0;
+	if (comp->clk_cnt <= 0) {
+		mml_err("%s comp %u %s cnt %d",
+			__func__, comp->id, comp->name, comp->clk_cnt);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
 		if (IS_ERR(comp->clks[i]))
@@ -385,7 +414,16 @@ s32 mml_comp_clk_enable(struct mml_comp *comp)
 
 s32 mml_comp_clk_disable(struct mml_comp *comp)
 {
-	u8 i;
+	u32 i;
+
+	comp->clk_cnt--;
+	if (comp->clk_cnt > 0)
+		return 0;
+	if (comp->clk_cnt < 0) {
+		mml_err("%s comp %u %s cnt %d",
+			__func__, comp->id, comp->name, comp->clk_cnt);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
 		if (IS_ERR(comp->clks[i]))
@@ -400,6 +438,16 @@ static const struct mml_comp_hw_ops mml_hw_ops = {
 	.clk_enable = &mml_comp_clk_enable,
 	.clk_disable = &mml_comp_clk_disable,
 };
+
+void mml_clock_lock(struct mml_dev *mml)
+{
+	mutex_lock(&mml->clock_mutex);
+}
+
+void mml_clock_unlock(struct mml_dev *mml)
+{
+	mutex_unlock(&mml->clock_mutex);
+}
 
 s32 mml_register_comp(struct device *master, struct mml_comp *comp)
 {
@@ -465,6 +513,8 @@ static int mml_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mml->pdev = pdev;
+	mutex_init(&mml->drm_ctx_mutex);
+	mutex_init(&mml->clock_mutex);
 	ret = comp_master_init(dev, mml);
 	if (ret) {
 		dev_err(dev, "failed to initialize mml component master\n");

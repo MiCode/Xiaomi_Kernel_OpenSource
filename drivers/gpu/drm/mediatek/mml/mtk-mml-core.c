@@ -297,6 +297,8 @@ static s32 core_enable(struct mml_task *task, u8 pipe)
 
 	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
 
+	mml_clock_lock(task->config->mml);
+
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
 		call_hw_op(comp, pw_enable);
@@ -314,6 +316,8 @@ static s32 core_enable(struct mml_task *task, u8 pipe)
 		call_hw_op(comp, clk_enable);
 	}
 
+	mml_clock_unlock(task->config->mml);
+
 	return 0;
 }
 
@@ -322,6 +326,8 @@ static s32 core_disable(struct mml_task *task, u8 pipe)
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_comp *comp;
 	u8 i;
+
+	mml_clock_lock(task->config->mml);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		if (i == path->mmlsys_idx || i == path->mutex_idx)
@@ -339,6 +345,8 @@ static s32 core_disable(struct mml_task *task, u8 pipe)
 		comp = task_comp(task, pipe, i);
 		call_hw_op(comp, pw_disable);
 	}
+
+	mml_clock_unlock(task->config->mml);
 
 	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
 

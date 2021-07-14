@@ -351,6 +351,8 @@ struct mml_comp {
 	phys_addr_t base_pa;
 	struct clk *clks[2];
 	struct device *larb_dev;
+	s32 pw_cnt;
+	s32 clk_cnt;
 	const struct mml_comp_tile_ops *tile_ops;
 	const struct mml_comp_config_ops *config_ops;
 	const struct mml_comp_hw_ops *hw_ops;

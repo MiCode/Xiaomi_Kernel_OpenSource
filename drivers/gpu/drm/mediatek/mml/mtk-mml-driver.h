@@ -41,6 +41,20 @@ s32 mml_comp_pw_disable(struct mml_comp *comp);
 s32 mml_comp_clk_enable(struct mml_comp *comp);
 s32 mml_comp_clk_disable(struct mml_comp *comp);
 
+/*
+ * mml_clock_lock - Lock clock mutex before clock counting or call clock api
+ *
+ * @mml: The mml driver instance
+ */
+void mml_clock_lock(struct mml_dev *mml);
+
+/*
+ * mml_clock_unlock - Unlock clock mutex before clock counting or call clock api
+ *
+ * @mml: The mml driver instance
+ */
+void mml_clock_unlock(struct mml_dev *mml);
+
 s32 mml_subcomp_init(struct platform_device *comp_pdev,
 	int subcomponent, struct mml_comp *comp);
 s32 mml_register_comp(struct device *master, struct mml_comp *comp);
