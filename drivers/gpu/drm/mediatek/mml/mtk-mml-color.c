@@ -244,7 +244,7 @@ static s32 color_init(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 
 	/* relay mode */
-	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 3, 0x00ff013f);
+	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 3, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM1_EN, 0, 0x00000001);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM2_EN, 0, 0x00000001);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CFG_MAIN, 1 << 7, 0x0000000f);
@@ -272,10 +272,8 @@ static s32 color_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 width = tile->in.xe - tile->in.xs + 1;
 	u32 height = tile->in.ye - tile->in.ys + 1;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_INTERNAL_IP_WIDTH,
-		width, 0x00003fff);
-	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_INTERNAL_IP_HEIGHT,
-		height, 0x00003fff);
+	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_INTERNAL_IP_WIDTH, width, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_INTERNAL_IP_HEIGHT, height, U32_MAX);
 
 	return 0;
 }

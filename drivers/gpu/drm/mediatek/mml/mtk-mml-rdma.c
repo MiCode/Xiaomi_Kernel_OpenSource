@@ -164,6 +164,7 @@ struct rdma_frame_data {
 	u8 hw_fmt;
 	u8 swap;
 	u8 blk;
+	u8 lb_2b_mode;
 	u8 field;
 	u8 blk_10bit;
 	u8 blk_tile;
@@ -297,23 +298,6 @@ static u32 rdma_get_label_count(struct mml_comp *comp, struct mml_task *task)
 	return RDMA_LABEL_TOTAL;
 }
 
-static s32 rdma_init(struct mml_comp *comp, struct mml_task *task,
-		     struct mml_comp_config *ccfg)
-{
-	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
-	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	const phys_addr_t base_pa = comp->base_pa;
-
-	/* Reset engine */
-	cmdq_pkt_wfe(pkt, rdma->event_poll);
-	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_RESET, 0x00000001, 0x00000001);
-	cmdq_pkt_poll(pkt, NULL, 0x00000100, base_pa + RDMA_MON_STA_1,
-		      0x00000100, rdma->gpr_poll);
-	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_RESET, 0x00000000, 0x00000001);
-	cmdq_pkt_set_event(pkt, rdma->event_poll);
-	return 0;
-}
-
 static void rdma_color_fmt(struct mml_frame_config *cfg,
 			   struct rdma_frame_data *rdma_frm)
 {
@@ -327,6 +311,7 @@ static void rdma_color_fmt(struct mml_frame_config *cfg,
 	rdma_frm->hw_fmt = MML_FMT_HW_FORMAT(fmt);
 	rdma_frm->swap = MML_FMT_SWAP(fmt);
 	rdma_frm->blk = MML_FMT_BLOCK(fmt);
+	rdma_frm->lb_2b_mode = rdma_frm->blk ? 0 : 1;
 	rdma_frm->field = MML_FMT_INTERLACED(fmt);
 	rdma_frm->blk_10bit = MML_FMT_10BIT_PACKED(fmt);
 	rdma_frm->blk_tile = MML_FMT_10BIT_TILE(fmt);
@@ -751,10 +736,10 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	    MML_FMT_10BIT(cfg->info.dest[0].data.format))
 		output_10bit = 1;
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_CON,
-		       (rdma_frm->blk << 12) +
+		       (rdma_frm->lb_2b_mode << 12) +
 		       (output_10bit << 5) +
 		       (simple_mode << 4),
-		       0x00001130);
+		       U32_MAX);
 
 	/* Write frame base address */
 	if (rdma_frm->enable_ufo) {
@@ -1035,7 +1020,6 @@ static const struct mml_comp_config_ops rdma_cfg_ops = {
 	.prepare = rdma_config_read,
 	.buf_map = rdma_buf_map,
 	.get_label_count = rdma_get_label_count,
-	.init = rdma_init,
 	.frame = rdma_config_frame,
 	.tile = rdma_config_tile,
 	.wait = rdma_wait,

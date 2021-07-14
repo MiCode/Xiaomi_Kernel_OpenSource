@@ -317,8 +317,7 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x1, 0x00000001);
 	cmdq_pkt_write(pkt, NULL, base_pa + HFG_CTRL, 0, 0x00000101);
 
-	if (MML_FMT_10BIT(src->format) ||
-	    MML_FMT_10BIT(dest->data.format))
+	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format))
 		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0, 0x00000004);
 	else
 		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL,

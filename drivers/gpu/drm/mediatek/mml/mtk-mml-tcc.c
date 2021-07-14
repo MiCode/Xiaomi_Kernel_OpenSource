@@ -18,6 +18,12 @@
 #include "tile_mdp_reg.h"
 
 #define TCC_CTRL	0x000
+#define TCC_DEBUG	0x520
+#define TCC_INTEN	0x524
+#define TCC_INTST	0x528
+#define TCC_ST		0x52C
+#define TCC_CROP_X	0x530
+#define TCC_CROP_Y	0x534
 
 struct tcc_data {
 };
@@ -134,13 +140,22 @@ static const struct mml_comp_config_ops tcc_cfg_ops = {
 static void tcc_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	u32 value[1];
+	u32 value[7];
 
 	mml_err("tcc component %u dump:", comp->id);
 
 	value[0] = readl(base + TCC_CTRL);
+	value[1] = readl(base + TCC_DEBUG);
+	value[2] = readl(base + TCC_INTEN);
+	value[3] = readl(base + TCC_INTST);
+	value[4] = readl(base + TCC_ST);
+	value[5] = readl(base + TCC_CROP_X);
+	value[6] = readl(base + TCC_CROP_Y);
 
-	mml_err("TCC_CTRL %#010x", value[0]);
+	mml_err("TCC_CTRL %#010x TCC_DEBUG %#010x TCC_INTEN %#010x TCC_INTST %#010x",
+			value[0], value[1], value[2], value[3]);
+	mml_err("TCC_ST %#010x TCC_CROP_X %#010x TCC_CROP_Y %#010x",
+			value[4], value[5], value[6]);
 }
 
 static const struct mml_comp_debug_ops tcc_debug_ops = {

@@ -48,7 +48,7 @@
 #define VIDO_DITHER			0x054
 #define VIDO_OFST_ADDR_V		0x068
 #define VIDO_STRIDE_V			0x06c
-#define VIDO_RSV_1			0x070
+#define VIDO_EOL_SEL			0x070
 #define VIDO_DMA_PREULTRA		0x074
 #define VIDO_IN_SIZE			0x078
 #define VIDO_ROT_EN			0x07c
@@ -396,25 +396,6 @@ static const struct mml_comp_tile_ops wrot_tile_ops = {
 static u32 wrot_get_label_count(struct mml_comp *comp, struct mml_task *task)
 {
 	return WROT_LABEL_TOTAL;
-}
-
-static s32 wrot_init(struct mml_comp *comp, struct mml_task *task,
-		     struct mml_comp_config *ccfg)
-{
-	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
-	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	const phys_addr_t base_pa = comp->base_pa;
-
-	/* Reset engine */
-	cmdq_pkt_wfe(pkt, wrot->event_poll);
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SOFT_RST, 1, U32_MAX);
-	cmdq_pkt_poll(pkt, NULL, 1, base_pa + VIDO_SOFT_RST_STAT, U32_MAX,
-		      wrot->gpr_poll);
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SOFT_RST, 0, U32_MAX);
-	cmdq_pkt_poll(pkt, NULL, 0, base_pa + VIDO_SOFT_RST_STAT, U32_MAX,
-		      wrot->gpr_poll);
-	cmdq_pkt_set_event(pkt, wrot->event_poll);
-	return 0;
 }
 
 static void wrot_color_fmt(struct mml_frame_config *cfg,
@@ -812,8 +793,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		pending_zero = 1;
 	}
 
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SCAN_10BIT, scan_10bit,
-		       0x0000000f);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SCAN_10BIT, scan_10bit, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_PENDING_ZERO,
 		       pending_zero << 26, 0x04000000);
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_CTRL_2, bit_num,
@@ -824,7 +804,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		if (MML_FMT_10BIT(dest_fmt))
 			pvric = pvric | BIT(1);
 	}
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_PVRIC, pvric, 0x3);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_PVRIC, pvric, U32_MAX);
 
 	/* set ESL */
 	if (plane == 3 || plane == 2 || hw_fmt == 7) {
@@ -860,19 +840,16 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	/* Write matrix control */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_MAT_CTRL,
 		       (wrot_frm->mat_sel << 4) +
-		       (wrot_frm->mat_en << 0), 0x000000f3);
+		       (wrot_frm->mat_en << 0), U32_MAX);
 
 	/* Set the fixed ALPHA as 0xff */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_DITHER, 0xff000000,
-		       0xff000000);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_DITHER, 0xff000000, U32_MAX);
 
 	/* Set VIDO_EOL_SEL */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_RSV_1, 0x80000000,
-		       0x80000000);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_EOL_SEL, 0x80000000, 0x80000000);
 
 	/* Set VIDO_FIFO_TEST */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FIFO_TEST, wrot->data->fifo,
-		       U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FIFO_TEST, wrot->data->fifo, U32_MAX);
 
 	/* Filter Enable */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_MAIN_BUF_SIZE,
@@ -1406,7 +1383,6 @@ static const struct mml_comp_config_ops wrot_cfg_ops = {
 	.buf_map = wrot_buf_map,
 	.buf_prepare = wrot_buf_prepare,
 	.get_label_count = wrot_get_label_count,
-	.init = wrot_init,
 	.frame = wrot_config_frame,
 	.tile = wrot_config_tile,
 	.wait = wrot_wait,
@@ -1439,7 +1415,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	value[7] = readl(base + VIDO_FRAME_SIZE);
 	value[8] = readl(base + VIDO_OFST_ADDR);
 	value[9] = readl(base + VIDO_STRIDE);
-	value[10] = readl(base + VIDO_RSV_1);
+	value[10] = readl(base + VIDO_EOL_SEL);
 	value[11] = readl(base + VIDO_IN_SIZE);
 	value[12] = readl(base + VIDO_ROT_EN);
 	value[13] = readl(base + VIDO_PVRIC);
@@ -1461,7 +1437,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		value[3], value[4], value[5]);
 	mml_err("VIDO_TAR_SIZE %#010x VIDO_FRAME_SIZE %#010x VIDO_OFST_ADDR %#010x",
 		value[6], value[7], value[8]);
-	mml_err("VIDO_STRIDE %#010x VIDO_EOL %#010x VIDO_IN_SIZE %#010x",
+	mml_err("VIDO_STRIDE %#010x VIDO_EOL_SEL %#010x VIDO_IN_SIZE %#010x",
 		value[9], value[10], value[11]);
 	mml_err("VIDO_ROT_EN %#010x VIDO_PVRIC %#010x VIDO_PENDING_ZERO %#010x",
 		value[12], value[13], value[14]);
