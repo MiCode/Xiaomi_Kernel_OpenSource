@@ -99,7 +99,7 @@
 					lcm-params-dsi-vertical_frontporch = <10>;
 					lcm-params-dsi-vertical_active_line = <2280>;
 					lcm-params-dsi-horizontal_sync_active = <20>;
-					lcm-params-dsi-horizontal_backporch = <20>;
+					lcm-params-dsi-horizontal_backporch = <40>;
 					lcm-params-dsi-horizontal_frontporch = <40>;
 					lcm-params-dsi-horizontal_active_pixel = <1080>;
 					lcm-params-dsi-pixel_clock = <163406>;
@@ -583,9 +583,9 @@
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x55 0x00>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x35 0x00>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 5>,
-						<0x2A, 0x00, 0x00, 0x04, 0x37>,
+						<0x2A 0x00 0x00 0x04 0x37>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 5>,
-						<0x2B, 0x00, 0x00, 0x08, 0xE7>,
+						<0x2B 0x00 0x00 0x08 0xE7>,
 					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x11>,
 					<MTK_LCM_PHASE_TYPE_START 2>,
 						<MTK_LCM_PHASE_KERNEL MTK_LCM_PHASE_LK>,
