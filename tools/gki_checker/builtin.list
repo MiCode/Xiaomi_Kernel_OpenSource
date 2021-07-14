@@ -338,7 +338,6 @@ drivers/bluetooth/hci_serdev.o
 drivers/bus/qcom-ebi2.o
 drivers/char/hw_random/core.o
 drivers/char/hw_random/hisi-rng.o
-drivers/char/hw_random/mtk-rng.o
 drivers/char/mem.o
 drivers/char/misc.o
 drivers/char/random.o
@@ -683,7 +682,6 @@ drivers/irqchip/irq-gic-v3-mbi.o
 drivers/irqchip/irq-gic-v3.o
 drivers/irqchip/irq-gic-v4.o
 drivers/irqchip/irq-mbigen.o
-drivers/irqchip/irq-mst-intc.o
 drivers/irqchip/irq-partition-percpu.o
 drivers/irqchip/irq-sun4i.o
 drivers/irqchip/irq-sunxi-nmi.o
