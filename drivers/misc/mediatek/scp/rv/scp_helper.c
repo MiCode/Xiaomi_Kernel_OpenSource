@@ -52,6 +52,8 @@
 #include <linux/soc/mediatek/mtk-mbox.h>
 #include "scp_ipi.h"
 
+#include "scp_hwvoter_dbg.h"
+
 /* scp semaphore timeout count definition */
 #define SEMAPHORE_TIMEOUT 5000
 #define SEMAPHORE_3WAY_TIMEOUT 5000
@@ -2046,6 +2048,7 @@ static int scp_device_probe(struct platform_device *pdev)
 		} else {
 			pr_notice("[SCP] scp_hwvoter enable\n");
 			scp_hwvoter_support = true;
+			scp_hw_voter_dbg_init();
 		}
 	} else {
 		scp_hwvoter_support = false;
