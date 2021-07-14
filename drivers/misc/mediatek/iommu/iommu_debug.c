@@ -2405,6 +2405,9 @@ void mtk_iova_map(u64 iova, size_t size)
 	unsigned long flags;
 	struct iova_map_info *iova_buf;
 
+	if (id >= MTK_IOVA_SPACE_NUM)
+		return;
+
 	if (!atomic_cmpxchg(&map_list.init_flag, 0, 1)) {
 		pr_info("iommu map list init\n");
 		spin_lock_init(&map_list.lock);
@@ -2437,6 +2440,9 @@ void mtk_iova_unmap(u64 iova, size_t size)
 	struct iova_map_info *plist;
 	struct iova_map_info *tmp_plist;
 
+	if (id >= MTK_IOVA_SPACE_NUM)
+		return;
+
 	spin_lock_irqsave(&map_list.lock, flags);
 	start_t = sched_clock();
 	list_for_each_entry_safe(plist, tmp_plist,
@@ -2463,6 +2469,9 @@ void mtk_iova_map_dump(u64 iova)
 	unsigned long flags;
 	struct iova_map_info *plist = NULL;
 	struct iova_map_info *n = NULL;
+
+	if (id >= MTK_IOVA_SPACE_NUM)
+		return;
 
 	spin_lock_irqsave(&map_list.lock, flags);
 	pr_info("%-4s %-14s %-10s %-18s\n", "id", "start_iova", "size", "time");
