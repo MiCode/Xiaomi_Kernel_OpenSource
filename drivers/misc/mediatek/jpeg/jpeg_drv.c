@@ -152,7 +152,7 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 	if (ptr != NULL)
 		memset(ptr, 0, data[20]);
 	jpg_dmabuf_vunmap(bufInfo[id].o_dbuf, ptr);
-    *index_buf_fd = jpg_dmabuf_fd(bufInfo[id].o_dbuf);
+	*index_buf_fd = jpg_dmabuf_fd(bufInfo[id].o_dbuf);
 
 	ret = jpg_dmabuf_get_iova(bufInfo[id].i_dbuf, &ibuf_iova, gJpegqDev.pDev[node_id], &bufInfo[id].i_attach, &bufInfo[id].i_sgt);
 	JPEG_LOG(1, "ibuf_iova 0x%llx lsb:0x%x msb:0x%lx", ibuf_iova,
@@ -420,7 +420,6 @@ static void jpeg_drv_hybrid_dec_unlock(int hwid)
 	jpg_dmabuf_free_iova(bufInfo[hwid].i_dbuf, bufInfo[hwid].i_attach, bufInfo[hwid].i_sgt);
 	jpg_dmabuf_free_iova(bufInfo[hwid].o_dbuf, bufInfo[hwid].o_attach, bufInfo[hwid].o_sgt);
 	jpg_dmabuf_put(bufInfo[hwid].i_dbuf);
-	jpg_dmabuf_put(bufInfo[hwid].o_dbuf);
 	mutex_unlock(&jpeg_hybrid_dec_lock);
 }
 
