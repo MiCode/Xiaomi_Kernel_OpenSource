@@ -255,8 +255,9 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX, best_delta_active = ULONG_MAX;
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int max_spare_cap_cpu_ls = prev_cpu, best_idle_cpu = -1;
-	long sys_max_spare_cap = LONG_MIN;
+	long sys_max_spare_cap = LONG_MIN, idle_max_spare_cap = LONG_MIN;
 	int sys_max_spare_cap_cpu = -1;
+	int idle_max_spare_cap_cpu = -1;
 	unsigned long target_cap = 0;
 	unsigned long cpu_cap, util, base_energy = 0;
 	bool latency_sensitive = false;
@@ -314,7 +315,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 		cnt = sort_thermal_headroom(perf_domain_span(pd), cpu_order);
 
 		for(i = 0; i < cnt; i++) {
-			cpu = cpu_order[i];	
+			cpu = cpu_order[i];
 #else
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_online_mask) {
 #endif
@@ -330,6 +331,18 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			if (spare_cap > sys_max_spare_cap) {
 				sys_max_spare_cap = spare_cap;
 				sys_max_spare_cap_cpu = cpu;
+			}
+
+			/*
+			 * if there is no best idle cpu, then select max spare cap
+			 * and idle cpu for latency_sensitive task to avoid runnable.
+			 * Because this is just a backup option, we do not take care
+			 * of exit latency.
+			 */
+			if (latency_sensitive && idle_cpu(cpu) &&
+					spare_cap > idle_max_spare_cap) {
+				idle_max_spare_cap = spare_cap;
+				idle_max_spare_cap_cpu = cpu;
 			}
 
 			/*
@@ -426,7 +439,12 @@ unlock:
 	rcu_read_unlock();
 
 	if (latency_sensitive){
-		*new_cpu = best_idle_cpu >= 0 ? best_idle_cpu : sys_max_spare_cap_cpu;
+		if (best_idle_cpu >= 0)
+			*new_cpu = best_idle_cpu;
+		else if (idle_max_spare_cap_cpu >= 0)
+			*new_cpu = idle_max_spare_cap_cpu;
+		else
+			*new_cpu = sys_max_spare_cap_cpu;
 		select_reason = LB_LATENCY_SENSITIVE;
 		goto done;
 	}
