@@ -163,8 +163,7 @@ int adsp_core0_resume(void)
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
 		switch_adsp_power(true);
 		adsp_mt_sw_reset(pdata->id);
-		adsp_mt_set_dram_remap(pdata->sysram_phys,
-				       sum_adsp_sys_dram_total());
+		adsp_set_dram_remap(pdata);
 
 		reinit_completion(&pdata->done);
 		adsp_mt_run(pdata->id);
@@ -355,8 +354,7 @@ int adsp_core0_init(struct adsp_priv *pdata)
 	pdata->log_ctrl = adsp_logger_init(ADSP_A_LOGGER_MEM_ID, adsp_logger_init0_cb);
 
 	/* dram_remap */
-	adsp_mt_set_dram_remap(pdata->sysram_phys,
-			       sum_adsp_sys_dram_total());
+	adsp_set_dram_remap(pdata);
 
 	if (get_adsp_core_total() > 1)
 		adsp_update_c2c_memory_info(pdata); /* only 2 core needed */

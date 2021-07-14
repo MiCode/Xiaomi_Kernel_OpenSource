@@ -36,9 +36,6 @@
 	(ADSP_A_2HOST_IRQ_BIT | ADSP_B_2HOST_IRQ_BIT \
 	| ADSP_A_AFE2HOST_IRQ_BIT | ADSP_B_AFE2HOST_IRQ_BIT)
 
-/*********************************************************************/
-#define ADSP_A_DVFSRC_STATE         (ADSP_BASE + 0x003C) //mt6789:no use
-#define ADSP_A_DVFSRC_REQ           (ADSP_BASE + 0x0040) //mt6789:no use
 #define ADSP_A_DDREN_REQ            (ADSP_BASE + 0x0044)
 #define ADSP_B_DDREN_REQ            (ADSP_BASE + 0x0048)
 #define ADSP_SPM_ACK                (ADSP_BASE + 0x004C)
@@ -51,8 +48,6 @@
 #define ADSP_SPM_SRC_BITS           (ADSP_DDR_EN | ADSP_SRCLKENA \
 	| ADSP_APSRC_EN | ADSP_VREF18_REQ \
 	| ADSP_INFRA_REQ)
-//#define ADSP_A_DDR_REQ_SEL          (0x3 << 4)             // hw auto ddren
-//#define ADSP_A_DDR_ENABLE           (1 << 0)
 #define ADSP_A_SPM_SRC_BITS         (0xF << 0)
 #define ADSP_A_IRQ_EN               (ADSP_BASE + 0x0050)
 #define ADSP_B_IRQ_EN               (ADSP_BASE + 0x0058)
@@ -129,7 +124,6 @@
 #define ADSP_AXI_BUS_IS_IDLE        (1 << 2)
 
 /* adsp secure */
-#define ADSP_SYSRAM_DSP_VIEW        0x56000000 //align adsp lsp: in adsp view
 #define R_SYS_REMAP_ENABLE          (ADSP_SECURE_BASE + 0x0020)
 #define R_SYS_REMAP0                (ADSP_SECURE_BASE + 0x0024)
 #define R_SYS_REMAP0_ADDR           (ADSP_SECURE_BASE + 0x0028)
@@ -145,5 +139,11 @@
 #define ADSP_UART_RST_N             (1 << 3)
 #define ADSP_UART_CLK_SEL           (1 << 1)
 #define ADSP_UART_BCLK_CG           (1 << 0)
+
+/* bus: only exist in v2 */
+#define AUDIO_BUS_DSP2EMI_REMAP0    (ADSP_BUS_BASE + 0x00)
+#define AUDIO_BUS_DSP2EMI_REMAP1    (ADSP_BUS_BASE + 0x04)
+#define AUDIO_BUS_DMA2EMI_REMAP0    (ADSP_BUS_BASE + 0x08)
+#define AUDIO_BUS_DMA2EMI_REMAP1    (ADSP_BUS_BASE + 0x0C)
 
 #endif

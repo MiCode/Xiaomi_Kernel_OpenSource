@@ -33,6 +33,7 @@ int get_adsp_state(struct adsp_priv *pdata);
 bool is_adsp_system_running(void);
 
 void switch_adsp_power(bool on);
+void adsp_set_dram_remap(struct adsp_priv *pdata);
 int adsp_reset(void);
 
 u32 sum_adsp_sys_dram_total(void);

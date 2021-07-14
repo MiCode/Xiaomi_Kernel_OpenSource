@@ -15,16 +15,13 @@
 #include "adsp_clk_audio.h"
 #include "adsp_driver_v2.h"
 
-/* semaphore */
-#define SEMA_TIMEOUT        5000
-#define SEMA_WAY_BITS       3
-#define SEMA_CTRL_BIT       2
-
 const struct adspsys_description mt6983_adspsys_desc = {
 	.platform_name = "mt6983",
+	.version = 2,
 	.semaphore_ways = 3,
 	.semaphore_ctrl = 2,
 	.semaphore_retry = 5000,
+	.sysram_dsp_view = 0x50000000,
 };
 
 const struct adsp_core_description mt6983_adsp_c0_desc = {
@@ -112,6 +109,10 @@ static int adspsys_drv_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	adspsys->cfg_secure = devm_ioremap_resource(dev, res);
 	adspsys->cfg_secure_size = resource_size(res);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	adspsys->bus = devm_ioremap_resource(dev, res);
+	adspsys->bus_size = resource_size(res);
 
 	of_property_read_u32(dev->of_node, "core_num", &adspsys->num_cores);
 

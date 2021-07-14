@@ -22,9 +22,11 @@
 
 const struct adspsys_description mt6893_adspsys_desc = {
 	.platform_name = "mt6893",
+	.version = 1,
 	.semaphore_ways = 3,
 	.semaphore_ctrl = 2,
 	.semaphore_retry = 5000,
+	.sysram_dsp_view = 0x56000000,
 };
 
 const struct adsp_core_description mt6893_adsp_c0_desc = {

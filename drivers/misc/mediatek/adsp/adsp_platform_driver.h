@@ -34,9 +34,11 @@ struct adsp_core_description {
 
 struct adspsys_description {
 	const char *platform_name;
+	const u32 version;
 	const int semaphore_ways;
 	const int semaphore_ctrl;
 	const int semaphore_retry;
+	const u32 sysram_dsp_view;
 };
 
 struct irq_t {
@@ -93,8 +95,10 @@ struct adspsys_priv {
 	/* address & size */
 	void __iomem *cfg;
 	void __iomem *cfg_secure;
+	void __iomem *bus;
 	size_t cfg_size;
 	size_t cfg_secure_size;
+	size_t bus_size;
 
 	struct device *dev;
 	struct miscdevice mdev;

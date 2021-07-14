@@ -416,6 +416,11 @@ void switch_adsp_power(bool on)
 	}
 }
 
+void adsp_set_dram_remap(struct adsp_priv *pdata)
+{
+	adsp_mt_set_dram_remap(pdata->sysram_phys, sum_adsp_sys_dram_total());
+}
+
 static void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
 {
 	if (!pdata->itcm || !pdata->itcm_snapshot || !pdata->itcm_size ||
@@ -524,6 +529,9 @@ static void adsp_suspend_ipi_handler(int id, void *data, unsigned int len)
 static int adsp_system_init(void)
 {
 	int ret = 0;
+
+	if (!adspsys)
+		return -EFAULT;
 
 	rwlock_init(&access_rwlock);
 	adsp_hardware_init(adspsys);

@@ -18,12 +18,14 @@
 #endif
 #define ADSP_BASE                  mt_base
 #define ADSP_SECURE_BASE           mt_secure
+#define ADSP_BUS_BASE              mt_bus
 
 #define SET_BITS(addr, mask) writel(readl(addr) | (mask), addr)
 #define CLR_BITS(addr, mask) writel(readl(addr) & ~(mask), addr)
 
 static void __iomem *mt_base;
 static void __iomem *mt_secure;
+static void __iomem *mt_bus;
 
 static void adsp_mt_clr_dma(void)
 {
@@ -224,12 +226,24 @@ void adsp_mt_clr_sw_reset(void)
 	CLR_BITS(ADSP_CFGREG_SW_RSTN, clear_bits);
 }
 
-void adsp_mt_set_dram_remap(u32 addr, u32 size)
+void adsp_mt_set_dram_remap(u32 phys_addr, u32 size)
 {
-	writel(0xF, R_SYS_REMAP_ENABLE);
-	writel(((ADSP_SYSRAM_DSP_VIEW + size) & 0xFFFF0000)
-		| (ADSP_SYSRAM_DSP_VIEW >> 16), R_SYS_REMAP0);
-	writel(addr >> 16, R_SYS_REMAP0_ADDR);
+	u32 version = adspsys->desc->version;
+	u32 dsp_addr = adspsys->desc->sysram_dsp_view;
+
+	if (version == 1) {
+		writel(0xF, R_SYS_REMAP_ENABLE);
+		writel(((dsp_addr + size) & 0xFFFF0000)
+			| (dsp_addr >> 16), R_SYS_REMAP0);
+		writel(phys_addr >> 16, R_SYS_REMAP0_ADDR);
+	} else if (version == 2) {
+		u32 offset = (phys_addr - dsp_addr) >> 12;
+
+		writel(offset, AUDIO_BUS_DSP2EMI_REMAP0);
+		writel(offset, AUDIO_BUS_DSP2EMI_REMAP1);
+		writel(offset, AUDIO_BUS_DMA2EMI_REMAP0);
+		writel(offset, AUDIO_BUS_DMA2EMI_REMAP1);
+	}
 }
 
 void adsp_mt_toggle_semaphore(u32 bit)
@@ -249,5 +263,6 @@ void adsp_hardware_init(struct adspsys_priv *adspsys)
 
 	mt_base = adspsys->cfg;
 	mt_secure = adspsys->cfg_secure;
+	mt_bus = adspsys->bus;
 }
 

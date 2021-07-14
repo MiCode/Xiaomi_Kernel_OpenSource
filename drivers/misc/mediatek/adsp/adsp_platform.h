@@ -45,7 +45,7 @@ bool check_hifi_status(u32 mask);
 bool is_adsp_axibus_idle(void);
 u32 switch_adsp_clk_ctrl_cg(bool en, u32 mask);
 u32 switch_adsp_uart_ctrl_cg(bool en, u32 mask);
-void adsp_mt_set_dram_remap(u32 addr, u32 size);
+void adsp_mt_set_dram_remap(u32 phys_addr, u32 size);
 void adsp_hardware_init(struct adspsys_priv *adspsys);
 
 extern rwlock_t access_rwlock;
