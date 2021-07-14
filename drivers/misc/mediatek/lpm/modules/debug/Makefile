@@ -14,8 +14,8 @@ endif
 endif
 
 ifeq ($(CONFIG_MTK_LPM_MT6879),m)
-ifneq ($(wildcard $(srctree)/$(src)/6879),)
-obj-$(CONFIG_MTK_LPM_MT6879) += 6879/
+ifneq ($(wildcard $(srctree)/$(src)/mt6879),)
+obj-$(CONFIG_MTK_LPM_MT6879) += mt6879/
 endif
 endif
 
@@ -26,8 +26,8 @@ endif
 endif
 
 ifeq ($(CONFIG_MTK_LPM_MT6983),m)
-ifneq ($(wildcard $(srctree)/$(src)/6983),)
-obj-$(CONFIG_MTK_LPM_MT6983) += 6983/
+ifneq ($(wildcard $(srctree)/$(src)/mt6983),)
+obj-$(CONFIG_MTK_LPM_MT6983) += mt6983/
 endif
 endif
 

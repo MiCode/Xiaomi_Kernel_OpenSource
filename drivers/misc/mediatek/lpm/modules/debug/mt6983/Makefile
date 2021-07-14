@@ -9,9 +9,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/common/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/$(MTK_LPM_DBG_VERSION)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/$(MTK_LPM_CPC_VERSION)/
-ccflags-y += -I$(LPM_MODULES_FOLDER)/debug/6983/
+ccflags-y += -I$(LPM_MODULES_FOLDER)/debug/mt6983/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
-ccflags-y += -I$(LPM_MODULES_FOLDER)/include/6983/
+ccflags-y += -I$(LPM_MODULES_FOLDER)/include/mt6983/
 
 BUILD_LPM_DBG_MODUDLE_NAME=mtk-lpm-dbg-mt6983
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += ${BUILD_LPM_DBG_MODUDLE_NAME}.o
