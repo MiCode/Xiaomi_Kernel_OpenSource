@@ -158,6 +158,8 @@
 
 #define PHY_MODE_BC11_SW_SET 1
 #define PHY_MODE_BC11_SW_CLR 2
+#define PHY_MODE_DPDMPULLDOWN_SET 3
+#define PHY_MODE_DPDMPULLDOWN_CLR 4
 
 #define MTK_USB_STR "mtk_usb"
 #define U2_PHY_STR "u2_phy"
@@ -809,12 +811,21 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 			tmp = readl(inst->port_base + XSP_USBPHYACR6);
 			tmp |= P2A6_RG_BC11_SW_EN;
 			writel(tmp, inst->port_base + XSP_USBPHYACR6);
-
 			break;
 		case PHY_MODE_BC11_SW_CLR:
 			tmp = readl(inst->port_base + XSP_USBPHYACR6);
 			tmp &= ~P2A6_RG_BC11_SW_EN;
 			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+			break;
+		case PHY_MODE_DPDMPULLDOWN_SET:
+			tmp = readl(inst->port_base + XSP_U2PHYDTM0);
+			tmp |= P2D_RG_DPPULLDOWN | P2D_RG_DMPULLDOWN;
+			writel(tmp, inst->port_base + XSP_U2PHYDTM0);
+			break;
+		case PHY_MODE_DPDMPULLDOWN_CLR:
+			tmp = readl(inst->port_base + XSP_U2PHYDTM0);
+			tmp &= ~(P2D_RG_DPPULLDOWN | P2D_RG_DMPULLDOWN);
+			writel(tmp, inst->port_base + XSP_U2PHYDTM0);
 			break;
 		default:
 			return;
