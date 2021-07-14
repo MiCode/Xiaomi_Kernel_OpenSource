@@ -332,7 +332,12 @@ int mt_leds_classdev_register(struct device *parent,
 	if (ret < 0 || ret >= 4096)
 		pr_info("print log init error!");
 
-	mtk_set_brightness(&led_dat->conf.cdev, led_dat->conf.cdev.brightness);
+	led_dat->last_brightness = led_dat->conf.cdev.brightness;
+
+	mtk_set_hw_brightness(led_dat,
+		brightness_maptolevel(&led_dat->conf, led_dat->last_brightness));
+
+	pr_info("%s devm_led_classdev_register end! ", led_dat->conf.cdev.name);
 
 	return ret;
 }
