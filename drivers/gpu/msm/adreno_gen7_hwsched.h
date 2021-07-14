@@ -74,4 +74,11 @@ int gen7_hwsched_active_count_get(struct adreno_device *adreno_dev);
  * timer if active count is zero.
  */
 void gen7_hwsched_active_count_put(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_hwsched_add_to_minidump - Register hwsched_device with va minidump
+ * @adreno_dev: Pointer to the adreno device
+ */
+int gen7_hwsched_add_to_minidump(struct adreno_device *adreno_dev);
+
 #endif

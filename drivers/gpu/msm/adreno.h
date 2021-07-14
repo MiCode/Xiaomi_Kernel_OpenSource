@@ -808,6 +808,7 @@ struct adreno_gpudev {
 			struct kgsl_power_stats *stats);
 	int (*setproperty)(struct kgsl_device_private *priv, u32 type,
 		void __user *value, u32 sizebytes);
+	int (*add_to_va_minidump)(struct adreno_device *adreno_dev);
 };
 
 /**

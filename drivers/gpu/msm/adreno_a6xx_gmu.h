@@ -416,4 +416,10 @@ void a6xx_gmu_handle_watchdog(struct adreno_device *adreno_dev);
  */
 void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev, bool force);
 
+/**
+ * a6xx_gmu_add_to_minidump - Register a6xx_device with va minidump
+ * @adreno_dev: Pointer to the adreno device
+ */
+int a6xx_gmu_add_to_minidump(struct adreno_device *adreno_dev);
+
 #endif
