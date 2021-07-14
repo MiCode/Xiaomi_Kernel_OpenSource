@@ -442,24 +442,29 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ut->is_dcif_camsv = 2;
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_0, camsv_tg_0);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_0, camsv_tg_0);
 				mdelay(1);
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_1, camsv_tg_1);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_1, camsv_tg_1);
 				mdelay(1);
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_2, raw_tg_0);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_2, raw_tg_0);
 			} else if (testmdl.mode == stagger_2exp) {
 				ut->is_dcif_camsv = 1;
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_0, camsv_tg_0);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_0, camsv_tg_0);
 				mdelay(1);
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_1, raw_tg_0);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_1, raw_tg_0);
 			}
 		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) {
 			// temporarily support camsv_a1 + camsv_a2 + raw_a case
@@ -467,22 +472,26 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ut->is_dcif_camsv = 2;
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_0, camsv_tg_0);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_0, camsv_tg_0);
 				mdelay(1);
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_1, camsv_tg_1);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_1, camsv_tg_1);
 			} else if (testmdl.mode == normal) {
 				ut->is_dcif_camsv = 1;
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_0, camsv_tg_0);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_0, camsv_tg_0);
 			}
 		} else {
 			if (ut->with_testmdl == 1) {
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern, seninf_0, raw_tg_0);
+					   testmdl.pixmode_lg2, testmdl.pattern,
+					   seninf_0, raw_tg_0);
 			}
 		}
 
