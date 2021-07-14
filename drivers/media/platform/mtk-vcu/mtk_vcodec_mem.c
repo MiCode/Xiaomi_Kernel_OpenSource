@@ -63,7 +63,7 @@ void mtk_vcu_mem_release(struct mtk_vcu_queue *vcu_queue)
 	list_for_each_safe(p, q, &vcu_queue->pa_pages.list) {
 		tmp = list_entry(p, struct vcu_pa_pages, list);
 		cmdq_mbox_buf_free(
-			vcu_queue->cmdq_dev,
+			NULL,
 			(void *)(unsigned long)tmp->kva,
 			(dma_addr_t)tmp->pa);
 		pr_info("Free cmdq pa %llx ref_cnt = %d\n", tmp->pa,
@@ -213,7 +213,7 @@ void *mtk_vcu_get_page(struct mtk_vcu_queue *vcu_queue,
 	struct vcu_pa_pages *tmp;
 
 	mem_priv =
-		cmdq_mbox_buf_alloc(vcu_queue->cmdq_dev, &temp_pa);
+		cmdq_mbox_buf_alloc(NULL, &temp_pa);
 	tmp = kmalloc(sizeof(struct vcu_pa_pages), GFP_KERNEL);
 	if (!tmp)
 		return ERR_PTR(-ENOMEM);
@@ -300,7 +300,7 @@ int mtk_vcu_free_page(struct mtk_vcu_queue *vcu_queue,
 			atomic_read(&tmp->ref_cnt) == 1) {
 			ret = 0;
 			cmdq_mbox_buf_free(
-				vcu_queue->cmdq_dev,
+				NULL,
 				(void *)(unsigned long)
 				tmp->kva,
 				(dma_addr_t)mem_buff_data->pa);
