@@ -1083,6 +1083,8 @@
   i2c_register_driver
   i2c_smbus_read_byte
   i2c_smbus_write_byte
+  i2c_smbus_read_byte_data
+  i2c_smbus_write_byte_data
   __i2c_smbus_xfer
   i2c_smbus_xfer
   __i2c_transfer
