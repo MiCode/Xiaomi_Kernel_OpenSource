@@ -1709,7 +1709,7 @@ int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 				dma_buf_detach(mtk_hcp_reserve_mblock[id].d_buf,
 				mtk_hcp_reserve_mblock[id].attach);
 				// close fd in user space driver, you can't close fd in kernel site
-				dma_heap_buffer_free(mtk_hcp_reserve_mblock[id].d_buf);//recommended
+				// dma_heap_buffer_free(mtk_hcp_reserve_mblock[id].d_buf);
 				//dma_buf_put(my_dma_buf);
 				//also can use this api, but not recommended
 				mtk_hcp_reserve_mblock[id].mem_priv = NULL;
