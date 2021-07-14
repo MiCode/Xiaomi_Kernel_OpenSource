@@ -6,6 +6,33 @@
 #ifndef __MUSB_MTK_MUSB_H__
 #define __MUSB_MTK_MUSB_H__
 
+#ifdef CONFIG_OF
+extern struct musb *mtk_musb;
+
+#define USBPHY_READ8(offset) \
+	readb((void __iomem *)\
+		(((unsigned long)\
+		mtk_musb->xceiv->io_priv)+0x800+offset))
+#define USBPHY_WRITE8(offset, value)  writeb(value, (void __iomem *)\
+		(((unsigned long)mtk_musb->xceiv->io_priv)+0x800+offset))
+#define USBPHY_SET8(offset, mask) \
+	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) | (mask))
+#define USBPHY_CLR8(offset, mask) \
+	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) & (~(mask)))
+
+#define USBPHY_READ32(offset) \
+	readl((void __iomem *)(((unsigned long)\
+		mtk_musb->xceiv->io_priv)+0x800+offset))
+#define USBPHY_WRITE32(offset, value) \
+	writel(value, (void __iomem *)\
+		(((unsigned long)mtk_musb->xceiv->io_priv)+0x800+offset))
+#define USBPHY_SET32(offset, mask) \
+	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) | (mask))
+#define USBPHY_CLR32(offset, mask) \
+	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) & (~(mask)))
+
+#endif /* End of CONFIG_OF define */
+
 struct musb;
 
 enum usb_state_enum {

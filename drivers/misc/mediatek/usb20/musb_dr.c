@@ -259,11 +259,6 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 
 	dev_info(dev, "role_sx_set role %d\n", role);
 
-	if (role == 0 && otg_sx->latest_role == 1) {
-		dev_info(dev, "plug out, latest role is host, skip\n");
-		return 0;
-	}
-
 	otg_sx->latest_role = role;
 
 	if (otg_sx->op_mode != MUSB_DR_OPERATION_NORMAL) {
