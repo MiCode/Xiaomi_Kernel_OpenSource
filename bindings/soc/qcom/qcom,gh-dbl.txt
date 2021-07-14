@@ -1,0 +1,15 @@
+QCT Gunyah Hypervisor Doorbell Test Driver
+
+The Gunyah Hypervisor Test Driver is used to validate gunyah hypervisor
+functionality. It includes test node for gunyah doorbell for vms.
+
+Required properties:
+- compatible:	"qcom,gh-dbl"
+- qcom,label:   The ID of doorbell which is define in gh_dbl.h
+
+Example:
+
+		qcom,test-dbl {
+			compatible = "qcom,gh-dbl";
+			qcom,label = <0x4>;
+		};
