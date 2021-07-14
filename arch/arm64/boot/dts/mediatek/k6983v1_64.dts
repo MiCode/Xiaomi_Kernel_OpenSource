@@ -11,9 +11,11 @@
 #include <dt-bindings/phy/phy.h>
 
 &chosen {
-	bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
+	bootargs_ext = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
 	loglevel=8 androidboot.selinux=permissive \
 	androidboot.hardware=mt6983 \
+	firmware_class.path=/vendor/firmware \
+	allow_mismatched_32bit_el0 \
 	earlycon=mtk8250,mmio32,0x11002000 \
 	initcall_debug=1";
 	atag,videolfb-fb_base_l = <0x7e605000>;
