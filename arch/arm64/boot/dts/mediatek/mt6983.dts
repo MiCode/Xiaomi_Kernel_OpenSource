@@ -4702,7 +4702,7 @@
 		      <0 0x15200000 0 0x10000>,	/* 7 IMGSYS_WPE_EIS */
 		      <0 0x15500000 0 0x10000>,	/* 8 IMGSYS_WPE_TNR */
 		      <0 0x15600000 0 0x10000>,	/* 9 IMGSYS_WPE_LITE */
-		      <0 0x15520000 0 0x00100>,	/* 10 IMGSYS_WPE_DIP1 */
+		      <0 0x15220000 0 0x00100>,	/* 10 IMGSYS_WPE_DIP1 */
 		      <0 0x15320000 0 0x10000>;	/* 11 IMGSYS_ME */
 		mediatek,hcp = <&hcp>;
 		/* mediatek,larb = <&larb9 &larb10 &larb11>; */
