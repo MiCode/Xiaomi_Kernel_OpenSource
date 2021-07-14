@@ -153,6 +153,12 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	unsigned int rate = params_rate(params);
 	snd_pcm_format_t format = params_format(params);
 
+	/* The data type of stop_threshold in userspace is unsigned int.
+	 * However its data type in kernel space is unsigned long.
+	 * It needs to convert to LONG_MAX in kernel space
+	 */
+	if (substream->runtime->stop_threshold == ~(0U))
+		substream->runtime->stop_threshold = LONG_MAX;
 
 	// mmap don't alloc buffer
 	if (memif->use_mmap_share_mem != 0) {

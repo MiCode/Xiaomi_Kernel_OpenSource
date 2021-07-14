@@ -1218,6 +1218,13 @@ static int mtk_dsp_pcm_hw_params(struct snd_soc_component *component,
 
 	pr_info("%s(), task_id: %d\n", __func__, id);
 
+	/* The data type of stop_threshold in userspace is unsigned int.
+	 * However its data type in kernel space is unsigned long.
+	 * It needs to convert to LONG_MAX in kernel space
+	 */
+	if (substream->runtime->stop_threshold == ~(0U))
+		substream->runtime->stop_threshold = LONG_MAX;
+
 	reset_audiobuffer_hw(&dsp->dsp_mem[id].adsp_buf);
 	reset_audiobuffer_hw(&dsp->dsp_mem[id].audio_afepcm_buf);
 	reset_audiobuffer_hw(&dsp->dsp_mem[id].adsp_work_buf);
