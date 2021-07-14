@@ -7756,12 +7756,15 @@
 			};
 		};
 		mt6375_auxadc: auxadc {
-			compatible = "mediatek,mt6375-auxadc";
+			compatible = "mediatek,mt6375-auxadc", "mediatek,pmic-auxadc";
 			interrupts = <MT6375_GM30_EVT>;
 			interrupt-controller;
 			#interrupt-cells = <1>;
 			#io-channel-cells = <1>;
-			isnk_load-supply = <&mt6363_isink_load>;
+			isink_load-supply = <&mt6363_isink_load>;
+			imix_r {
+				val = <90>;
+			};
 		};
 		mtk_gauge: mtk_gauge {
 			compatible = "mediatek,mt6375-gauge";
