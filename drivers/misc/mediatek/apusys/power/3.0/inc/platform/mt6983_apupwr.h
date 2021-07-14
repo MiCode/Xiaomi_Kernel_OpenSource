@@ -216,6 +216,6 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 #define APU_PCU_BUCK_OFF_DAT0_L		0x00A0
 #define APU_PCU_BUCK_OFF_DAT0_H		0x00A4
 #define APU_PCU_BUCK_ON_SLE0		0x00C0
-#define VAPU_BUCK_ON_SETTLE_TIME	(0x300) // FIXME: check HEX or DEC
+#define VAPU_BUCK_ON_SETTLE_TIME	0x12C
 
 #endif // __mt6983_APUPWR_H__

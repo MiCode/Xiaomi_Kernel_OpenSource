@@ -1009,11 +1009,14 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 	mt6983_init_remote_data_sync(apupw.regs[apu_md32_mbox]);
 	init_plat_chip_data(pdev);
 
-#if APU_POWER_BRING_UP
-
+// power bring up shall use soc PLL
+#if !APU_POWER_BRING_UP
 #if !CFG_FPGA
 	__apu_on_mdla_mvpu_clk();
 #endif
+#endif
+
+#if APU_POWER_BRING_UP
 	switch (fpga_type) {
 	default:
 	case 0: // do not power on
