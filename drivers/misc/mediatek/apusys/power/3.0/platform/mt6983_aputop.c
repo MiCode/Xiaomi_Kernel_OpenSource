@@ -921,6 +921,10 @@ static int init_plat_chip_data(struct platform_device *pdev)
 static int init_hw_setting(struct device *dev)
 {
 	__apu_aoc_init();
+	__apu_pcu_init();
+	__apu_rpc_init();
+	__apu_rpclite_init();
+	__apu_are_init(dev);
 #if !CFG_FPGA
 // power bring up shall use soc PLL
 #if !APU_POWER_BRING_UP
@@ -928,23 +932,9 @@ static int init_hw_setting(struct device *dev)
 	__apu_acc_init();
 #endif
 #endif
-	__apu_pcu_init();
-	__apu_rpc_init();
-	__apu_rpclite_init();
-	__apu_are_init(dev);
-#if 0
-	//*APU_ACC_CLK_EN_CLR = (0x1<<1);
-	apu_writel((0x1<<1), apupw.regs[apu_acc] + 0xe4);
-
-	//*EXT_BUCK_ISO &= ~(0x1<<0);
-	value = apu_readl(apupw.regs[sys_spm] + 0x3ec);
-	apu_writel(value & ~(0x1<<0), apupw.regs[sys_spm] + 0x3ec);
-#endif
-
 #if !CFG_FPGA
 	__apu_buck_off();
 #endif
-
 	// Step12. After APUsys is finished, update the following register to 1,
 	//	   ARE will use this information to ensure the SRAM in ARE is
 	//	   trusted or not
