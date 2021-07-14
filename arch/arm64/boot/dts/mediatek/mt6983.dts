@@ -1142,13 +1142,12 @@
 		      <0 0x1c801000 0 0x000500>,
 		      <0 0x1c801000 0 0x000100>;
 		reg-names = "pmif", "pmifmpu", "spmimst";
-		interrupts-extended = <&gic GIC_SPI 446 IRQ_TYPE_LEVEL_HIGH>,
-				      <&pio 124 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "pmif_irq","rcs_irq";
+		interrupt-parent = <&pio>;
+		interrupts = <243 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "rcs_irq";
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		irq_event_en = <0x0 0x0 0x0 0x00006000 0x0>;
-
+		irq_event_en = <0xe 0x0 0x0 0x0 0x0>;
 		clocks = <&topckgen_clk CLK_TOPCKGEN_PWRAP_ULPOSC_SEL>,
 			 <&topckgen_clk CLK_TOPCKGEN_SPMI_M_MST_SEL>,
 			 <&topckgen_clk CLK_TOPCKGEN_SPMI_P_MST_SEL>,
@@ -1161,7 +1160,7 @@
 			      "vlp_pmif_clk_mux",
 			      "vlp_spmimst_m_clk_mux",
 			      "vlp_spmimst_p_clk_mux";
-		swinf_ch_start = <3>;
+		swinf_ch_start = <8>;
 		ap_swinf_no = <2>;
 		#address-cells = <2>;
 		#size-cells = <0>;
