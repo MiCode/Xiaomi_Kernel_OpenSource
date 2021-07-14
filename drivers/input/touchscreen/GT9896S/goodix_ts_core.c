@@ -1988,19 +1988,21 @@ static int gt9896s_generic_noti_callback(struct notifier_block *self,
 	return 0;
 }
 
-static int gt9896s_start_fwupdate_module(struct gt9896s_ts_core *core_data)
-{
-	struct task_struct *init_thrd;
-	/* create and run update thread */
-	init_thrd = kthread_run(gt9896s_fwu_module_init,
-				core_data, "gt9896s_fwu_module init thread");
-	if (IS_ERR_OR_NULL(init_thrd)) {
-		ts_err("Failed to create update thread:%ld",
-		       PTR_ERR(init_thrd));
-		return -EFAULT;
-	}
-	return 0;
-}
+/*
+ *static int gt9896s_start_fwupdate_module(struct gt9896s_ts_core *core_data)
+ *{
+ *	struct task_struct *init_thrd;
+ *
+ *	init_thrd = kthread_run(gt9896s_fwu_module_init,
+ *				core_data, "gt9896s_fwu_module init thread");
+ *	if (IS_ERR_OR_NULL(init_thrd)) {
+ *		ts_err("Failed to create update thread:%ld",
+ *		       PTR_ERR(init_thrd));
+ *		return -EFAULT;
+ *	}
+ *	return 0;
+ *}
+ */
 
 int gt9896s_ts_stage2_init(struct gt9896s_ts_core *core_data)
 {
@@ -2052,10 +2054,11 @@ int gt9896s_ts_stage2_init(struct gt9896s_ts_core *core_data)
 	/* esd protector */
 	gt9896s_ts_esd_init(core_data);
 
-	r = gt9896s_start_fwupdate_module(core_data);
-	if (r)
-		ts_err("gt9896s start fwupdate module failed! ret = %d!\n", r);
-
+	/*
+	 * r = gt9896s_start_fwupdate_module(core_data);
+	 * if (r)
+	 *	ts_err("gt9896s start fwupdate module failed! ret = %d!\n", r);
+	 */
 	return 0;
 exit:
 	if (ts_dev->board_data.pen_enable) {
