@@ -4733,7 +4733,7 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* keep probe successful but do nothing when bringup */
 	if (__gpufreq_bringup()) {
 		GPUFREQ_LOGI("skip gpufreq platform driver probe when bringup");
-		__gpufreq_dump_bringup_status(pdev);
+//		__gpufreq_dump_bringup_status(pdev);
 		goto done;
 	}
 
