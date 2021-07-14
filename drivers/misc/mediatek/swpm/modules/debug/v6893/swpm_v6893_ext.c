@@ -73,10 +73,11 @@ static void swpm_sp_internal_update(void)
 	struct mem_ip_bc *ddr_ip_bc_ptr;
 	unsigned int word_L, word_H;
 
-	if (share_idx_ctrl_ext->clear_flag)
-		return;
-
 	if (share_idx_ref_ext && share_idx_ctrl_ext) {
+
+		if (share_idx_ctrl_ext->clear_flag)
+			return;
+
 		for (i = 0; i < NR_CORE_VOLT; i++) {
 			core_vol_duration[i].duration +=
 				CORE_SRAM.acc_time[i] / 1000;
