@@ -245,7 +245,9 @@ void gpueb_plat_ipi_timeout_cb(int ipi_id)
 {
 	gpueb_pr_debug("Error: possible error IPI %d\n", ipi_id);
 
+#if IPI_SUPPORT
 	ipi_monitor_dump(&gpueb_ipidev);
+#endif
 	//mtk_emidbg_dump();
 	//BUG_ON(1);
 
@@ -254,7 +256,9 @@ void gpueb_plat_ipi_timeout_cb(int ipi_id)
 
 int gpueb_ipi_init(struct platform_device *pdev)
 {
+#if IPI_SUPPORT
 	int i = 0;
+#endif
 	int ret;
 
 	ret = gpueb_ipi_table_init(pdev);
@@ -263,6 +267,7 @@ int gpueb_ipi_init(struct platform_device *pdev)
 
 	// Create mbox dev
 	gpueb_pr_debug("mbox probe start\n");
+#if IPI_SUPPORT
 	for (i = 0; i < gpueb_mboxdev.count; i++) {
 		gpueb_mbox_info[i].mbdev = &gpueb_mboxdev;
 		ret = mtk_mbox_probe(pdev, gpueb_mbox_info[i].mbdev, i);
@@ -301,6 +306,7 @@ int gpueb_ipi_init(struct platform_device *pdev)
 		gpueb_pr_debug("ipi devcie register fail!");
 		return ret;
 	}
+#endif
 	gpueb_pr_debug("mbox probe done\n");
 
 	return 0;

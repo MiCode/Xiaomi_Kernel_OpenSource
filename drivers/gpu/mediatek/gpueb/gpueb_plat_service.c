@@ -33,6 +33,7 @@ int plat_service_ack_data;
 
 int gpueb_plat_service_init(struct platform_device *pdev)
 {
+#if IPI_SUPPORT
 	int ret = 0;
 	int channel_id = 0;
 
@@ -53,6 +54,6 @@ int gpueb_plat_service_init(struct platform_device *pdev)
 		gpueb_pr_debug("ipi register fail!");
 		return ret;
 	}
-
+#endif
 	return 0;
 }

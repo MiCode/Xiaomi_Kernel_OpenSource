@@ -10,6 +10,7 @@
 #define PLT_INIT           0x504C5401
 #define PLT_LOG_ENABLE     0x504C5402
 #define IPI_TIMEOUT_MS     3000U
+#define IPI_SUPPORT        0
 
 extern struct mtk_mbox_device   gpueb_mboxdev;
 extern struct mtk_ipi_device    gpueb_ipidev;

@@ -33,7 +33,9 @@ struct hw_voter_ipi_test_t {
 	unsigned short val;
 };
 
+#if IPI_SUPPORT
 static unsigned char ipi_ackdata[16];
+#endif
 
 #if IS_ENABLED(CONFIG_PROC_FS)
 /**********************************
@@ -52,7 +54,9 @@ static ssize_t gpueb_hw_voter_dbg_proc_write(
 {
 	char desc[64], type[32];
 	int len = 0;
+#if IPI_SUPPORT
 	int ret = 0;
+#endif
 	int n;
 	unsigned int op, clk_id, val;
 	struct hw_voter_ipi_test_t ipi_data;
@@ -90,6 +94,7 @@ static ssize_t gpueb_hw_voter_dbg_proc_write(
 	}
 
 	channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_CCF");
+#if IPI_SUPPORT
 	ret = mtk_ipi_send_compl(
 			&gpueb_ipidev,
 			channel_id,
@@ -100,6 +105,7 @@ static ssize_t gpueb_hw_voter_dbg_proc_write(
 	if (ret != IPI_ACTION_DONE)
 		pr_info("[%s]: SCP send IPI failed - %d\n",
 			__func__, ret);
+#endif
 
 	return count;
 }
@@ -198,7 +204,8 @@ int gpueb_hw_voter_create_procfs(void)
 int gpueb_hw_voter_dbg_init(void)
 {
 #if IS_ENABLED(CONFIG_PROC_FS)
-	int ret;
+	int ret = 0;
+#if IPI_SUPPORT
 	int channel_id = 0;
 
 	channel_id = gpueb_get_send_PIN_ID_by_name("IPI_ID_CCF");
@@ -212,6 +219,7 @@ int gpueb_hw_voter_dbg_init(void)
 				ret);
 		WARN_ON(1);
 	}
+#endif
 
 	if (gpueb_hw_voter_create_procfs()) {
 		pr_notice("gpueb_hw_voter_create_procfs fail, %d\n",
