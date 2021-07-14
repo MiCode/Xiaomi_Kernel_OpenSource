@@ -123,17 +123,70 @@
 #define P2D_RG_AVALID		BIT(2)
 #define P2D_RG_IDDIG		BIT(1)
 
+#define SSPXTP_DIG_GLB_04		((SSPXTP_SIFSLV_DIG_GLB) + 0x04)
+#define RG_XTP_PHYD_PRB_DIS_LO		GENMASK(31, 24)
+#define RG_XTP_PHYD_PRB_DIS_LO_VAL(x)		((0xff & (x)) << 24)
+#define RG_XTP_PHYD_PRB_DIS_HI		GENMASK(23, 16)
+#define RG_XTP_PHYD_PRB_DIS_HI_VAL(x)		((0xff & (x)) << 16)
+#define RG_XTP0_PIPE_RESET_B			BIT(3)
+#define RG_XTP0_FRC_PIPE_RESET_B		BIT(2)
+#define RG_XTP0_PIPE_DISABLE			BIT(1)
+#define RG_XTP0_FRC_PIPE_DISABLE		BIT(0)
+
 #define SSPXTP_DIG_GLB_28		((SSPXTP_SIFSLV_DIG_GLB) + 0x028)
-#define RG_SSXTP_DAIF_GLB_TXPLL_IR		GENMASK(17, 13)
-#define RG_SSXTP_DAIF_GLB_TXPLL_IR_VAL(x)	((0x1f & (x)) << 5)
+#define RG_XTP_DAIF_GLB_TXPLL_IR		GENMASK(17, 13)
+#define RG_XTP_DAIF_GLB_TXPLL_IR_VAL(x)	((0x1f & (x)) << 5)
 
 #define SSPXTP_DIG_GLB_38		((SSPXTP_SIFSLV_DIG_GLB) + 0x038)
-#define RG_SSXTP_DAIF_GLB_SPLL_IR		GENMASK(17, 13)
-#define RG_SSXTP_DAIF_GLB_SPLL_IR_VAL(x)	((0x1f & (x)) << 5)
+#define RG_XTP_DAIF_GLB_SPLL_IR		GENMASK(17, 13)
+#define RG_XTP_DAIF_GLB_SPLL_IR_VAL(x)	((0x1f & (x)) << 5)
 
 #define SSPXTP_PHYA_GLB_00		((SSPXTP_SIFSLV_PHYA_GLB) + 0x00)
 #define RG_XTP_GLB_BIAS_INTR_CTRL		GENMASK(21, 16)
 #define RG_XTP_GLB_BIAS_INTR_CTRL_VAL(x)	((0x3f & (x)) << 16)
+
+#define SSPXTP_DAIG_LN_TOP_04	((SSPXTP_SIFSLV_DIG_LN_TOP) + 0x04)
+#define RG_XTP0_PIPE_SEL_TX_ELECIDLE		BIT(30)
+#define RG_XTP0_PIPE_SEL_RATE			BIT(24)
+#define RG_XTP0_PIPE_SEL_POWERDOWN		GENMASK(23, 22)
+#define RG_XTP0_PIPE_SEL_POWERDOWN_VAL(x)	((0x3 & (x)) << 22)
+#define RG_XTP0_PIPE_SEL_TX_DEEM		GENMASK(19, 2)
+#define RG_XTP0_PIPE_SEL_TX_DEEM_VAL(x)	((0x3fff & (x)) << 2)
+#define RG_XTP0_PIPE_SEL			BIT(0)
+
+#define SSPXTP_DAIG_LN_TOP_24	((SSPXTP_SIFSLV_DIG_LN_TOP) + 0x024)
+#define RG_XTP0_T2RLB_TSEQCNT			GENMASK(26, 15)
+#define RG_XTP0_T2RLB_TSEQCNT_VAL(x)		((0xfff & (x)) << 15)
+#define RG_XTP0_T2RLB_PATTYPE			GENMASK(6, 3)
+#define RG_XTP0_T2RLB_PATTYPE_VAL(x)		((0xf & (x)) << 3)
+
+#define SSPXTP_DAIG_LN_TOP_A0	((SSPXTP_SIFSLV_DIG_LN_TOP) + 0x0a0)
+#define RG_XTP0_T2RLB_ERR_CNT			GENMASK(19, 4)
+#define RG_XTP0_T2RLB_ERR			BIT(3)
+#define RG_XTP0_T2RLB_PASSTH			BIT(2)
+#define RG_XTP0_T2RLB_PASS			BIT(1)
+#define RG_XTP0_T2RLB_LOCK			BIT(0)
+
+#define SSPXTP_DAIG_LN_TX0_2C	((SSPXTP_SIFSLV_DIG_LN_TX0) + 0x02c)
+#define RG_XTP0_CP_EN				BIT(4)
+#define RG_XTP0_CP_TYPE			GENMASK(3, 0)
+#define RG_XTP0_CP_TYPE_VAL(x)		((0xf & (x)) << 0)
+
+#define SSPXTP_DAIG_LN_RX0_40	((SSPXTP_SIFSLV_DIG_LN_RX0) + 0x040)
+#define RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN	BIT(0)
+
+#define SSPXTP_DAIG_LN_RX0_60	((SSPXTP_SIFSLV_DIG_LN_RX0) + 0x060)
+#define RG_XTP0_RX_PRBS_LOCK_THR		GENMASK(15, 12)
+#define RG_XTP0_RX_PRBS_LOCK_THR_VAL(x)	((0xf & (x)) << 12)
+#define RG_XTP0_RX_PATCHK_EN			BIT(8)
+
+#define SSPXTP_DAIG_LN_DAIF_20	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x020)
+#define RG_XTP0_DAIF_LN_G1_RX_SGDT_HF		GENMASK(23, 22)
+#define RG_XTP0_DAIF_LN_G1_RX_SGDT_HF_VAL(x)	(0x3 & (x))
+
+#define SSPXTP_DAIG_LN_DAIF_2C	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x02C)
+#define RG_XTP0_DAIF_LN_G2_RX_SGDT_HF		GENMASK(23, 22)
+#define RG_XTP0_DAIF_LN_G2_RX_SGDT_HF_VAL(x)	(0x3 & (x))
 
 #define SSPXTP_PHYA_LN_04	((SSPXTP_SIFSLV_PHYA_LN) + 0x04)
 #define RG_XTP_LN0_TX_IMPSEL		GENMASK(4, 0)
@@ -142,14 +195,6 @@
 #define SSPXTP_PHYA_LN_14	((SSPXTP_SIFSLV_PHYA_LN) + 0x014)
 #define RG_XTP_LN0_RX_IMPSEL		GENMASK(4, 0)
 #define RG_XTP_LN0_RX_IMPSEL_VAL(x)	(0x1f & (x))
-
-#define SSPXTP_DAIG_LN_DAIF_20	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x020)
-#define RG_SSXTP0_DAIF_LN_G1_RX_SGDT_HF		GENMASK(23, 22)
-#define RG_SSXTP0_DAIF_LN_G1_RX_SGDT_HF_VAL(x)	(0x3 & (x))
-
-#define SSPXTP_DAIG_LN_DAIF_2C	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x02C)
-#define RG_SSXTP0_DAIF_LN_G2_RX_SGDT_HF		GENMASK(23, 22)
-#define RG_SSXTP0_DAIF_LN_G2_RX_SGDT_HF_VAL(x)	(0x3 & (x))
 
 #define XSP_REF_CLK		26	/* MHZ */
 #define XSP_SLEW_RATE_COEF	17
@@ -163,11 +208,13 @@
 
 #define MTK_USB_STR "mtk_usb"
 #define U2_PHY_STR "u2_phy"
+#define U3_PHY_STR "u3_phy"
 
 #define TERM_SEL_STR "term_sel"
 #define VRT_SEL_STR "vrt_sel"
 #define PHY_REV6_STR "phy_rev6"
 #define DISCTH_STR "discth"
+#define LOOPBACK_STR "loopback_test"
 
 #define XSP_MODE_UART_STR "usb2uart_mode=1"
 #define XSP_MODE_JTAG_STR "usb2jtag_mode=1"
@@ -213,6 +260,180 @@ struct mtk_xsphy {
 };
 
 static struct proc_dir_entry *usb_root;
+
+static int proc_loopback_test_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	struct device *dev = &inst->phy->dev;
+	struct mtk_xsphy *xsphy = dev_get_drvdata(dev->parent);
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+	bool pass = false;
+
+	/* RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN = 0x1 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_RX0_40);
+	tmp |= RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_RX0_40);
+
+	/* RG_XTP0_PIPE_SEL_TX_DEEM= 0x082800 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_TOP_04);
+	tmp &= ~RG_XTP0_PIPE_SEL_TX_DEEM;
+	tmp |= RG_XTP0_PIPE_SEL_TX_DEEM_VAL(0x082800);
+	writel(tmp, pbase + SSPXTP_DAIG_LN_TOP_04);
+
+	/* RG_XTP0_PIPE_SEL_RATE = 0x0 */
+	/* RG_XTP0_PIPE_SEL = 0x1 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_TOP_04);
+	tmp &= ~RG_XTP0_PIPE_SEL_RATE;
+	tmp |= RG_XTP0_PIPE_SEL;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_TOP_04);
+
+	/* RG_XTP_PHYD_PRB_DIS_LO = 0xff */
+	/* RG_XTP_PHYD_PRB_DIS_HI = 0xff */
+	tmp = readl(xsphy->glb_base + SSPXTP_DIG_GLB_04);
+	tmp &= ~(RG_XTP_PHYD_PRB_DIS_LO | RG_XTP_PHYD_PRB_DIS_HI);
+	tmp |= RG_XTP_PHYD_PRB_DIS_LO_VAL(0xff) |
+		RG_XTP_PHYD_PRB_DIS_HI_VAL(0xff);
+	writel(tmp, xsphy->glb_base + SSPXTP_DIG_GLB_04);
+
+	/* RG_XTP0_FRC_PIPE_DISABLE = 0x1 */
+	/* RG_XTP0_PIPE_DISABLE = 0x1 */
+	/* RG_XTP0_FRC_PIPE_RESET_B = 0x1 */
+	/* RG_XTP0_PIPE_RESET_B = 0x0 */
+	tmp = readl(xsphy->glb_base + SSPXTP_DIG_GLB_04);
+	tmp &= ~RG_XTP0_PIPE_RESET_B;
+	tmp |= RG_XTP0_FRC_PIPE_DISABLE | RG_XTP0_PIPE_DISABLE |
+		RG_XTP0_FRC_PIPE_RESET_B;
+	writel(tmp, xsphy->glb_base + SSPXTP_DIG_GLB_04);
+
+	udelay(100);
+
+	/* RG_XTP0_PIPE_DISABLE = 0x0 */
+	/* RG_XTP0_PIPE_RESET_B = 0x1 */
+	tmp = readl(xsphy->glb_base + SSPXTP_DIG_GLB_04);
+	tmp &= ~RG_XTP0_PIPE_DISABLE;
+	tmp |= RG_XTP0_PIPE_RESET_B;
+	writel(tmp, xsphy->glb_base + SSPXTP_DIG_GLB_04);
+
+	mdelay(1);
+
+	/* RG_XTP0_T2RLB_PATTYPE = 0x00 */
+	/* RG_XTP0_T2RLB_TSEQCNT = 0xff */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_TOP_24);
+	tmp &= ~(RG_XTP0_T2RLB_PATTYPE | RG_XTP0_T2RLB_TSEQCNT);
+	tmp |= RG_XTP0_T2RLB_TSEQCNT_VAL(0xff);
+	writel(tmp, pbase + SSPXTP_DAIG_LN_TOP_24);
+
+	/* RG_XTP0_PIPE_SEL_POWERDOWN = 0x0 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_TOP_04);
+	tmp &= ~RG_XTP0_PIPE_SEL_POWERDOWN;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_TOP_04);
+
+	udelay(800);
+
+	/* RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN = 0x0 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_RX0_40);
+	tmp &= ~RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_RX0_40);
+
+	/* RG_XTP0_CP_TYPE = 0x02 */
+	/* RG_XTP0_CP_EN = 0x1 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_TX0_2C);
+	tmp &= ~RG_XTP0_CP_TYPE;
+	tmp |= RG_XTP0_CP_TYPE_VAL(0x2) | RG_XTP0_CP_EN;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_TX0_2C);
+
+	/* RG_XTP0_PIPE_SEL_TX_ELECIDLE = 0x0 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_TOP_04);
+	tmp &= ~RG_XTP0_PIPE_SEL_TX_ELECIDLE;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_TOP_04);
+
+	/* RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN = 0x0 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_RX0_40);
+	tmp &= ~RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_RX0_40);
+
+	/* RG_XTP0_RX_PRBS_LOCK_THR = 0xf */
+	/* RG_XTP0_RX_PATCHK_EN = 0x1 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_RX0_60);
+	tmp &= ~(RG_XTP0_RX_PRBS_LOCK_THR);
+	tmp |= RG_XTP0_RX_PRBS_LOCK_THR_VAL(0xf) | RG_XTP0_RX_PATCHK_EN;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_RX0_60);
+
+	mdelay(10);
+
+	tmp = readl(pbase + SSPXTP_DAIG_LN_TOP_A0);
+
+	if ((tmp & RG_XTP0_T2RLB_LOCK) &&
+		(tmp & RG_XTP0_T2RLB_PASS) &&
+		(tmp & RG_XTP0_T2RLB_PASSTH) &&
+		!(tmp & RG_XTP0_T2RLB_ERR) &&
+		!(tmp & RG_XTP0_T2RLB_ERR_CNT))
+		pass = true;
+
+	dev_info(dev, "%s, err_cnt=0x%x\n, pass=%d", __func__,
+		(tmp & RG_XTP0_T2RLB_ERR_CNT), pass);
+
+	seq_printf(s, "%d\n", pass);
+	return 0;
+}
+
+static int proc_loopback_test_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_loopback_test_show, PDE_DATA(inode));
+}
+
+static const struct  proc_ops proc_loopback_test_fops = {
+	.proc_open = proc_loopback_test_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int u3_phy_procfs_init(struct mtk_xsphy *xsphy,
+			struct xsphy_instance *inst)
+{
+	struct device *dev = &inst->phy->dev;
+	struct proc_dir_entry *root = xsphy->root;
+	struct proc_dir_entry *phy_root;
+	struct proc_dir_entry *file;
+	int ret;
+
+	if (!root) {
+		dev_info(dev, "proc root not exist\n");
+		ret = -ENOMEM;
+		goto err0;
+	}
+
+	phy_root = proc_mkdir(U3_PHY_STR, root);
+	if (!root) {
+		dev_info(dev, "failed to creat dir proc %s\n", U3_PHY_STR);
+		ret = -ENOMEM;
+		goto err0;
+	}
+
+	file = proc_create_data(LOOPBACK_STR, 0444,
+			phy_root, &proc_loopback_test_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", LOOPBACK_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	inst->phy_root = phy_root;
+	return 0;
+err1:
+	proc_remove(phy_root);
+
+err0:
+	return ret;
+}
+
+static int u3_phy_procfs_exit(struct xsphy_instance *inst)
+{
+	proc_remove(inst->phy_root);
+	return 0;
+}
 
 static void cover_val_to_str(u32 val, u8 width, char *str)
 {
@@ -551,25 +772,25 @@ static void u3_phy_instance_power_on(struct mtk_xsphy *xsphy,
 
 	/* DA_XTP_GLB_TXPLL_IR[4:0], 5'b00100 */
 	tmp = readl(xsphy->glb_base + SSPXTP_DIG_GLB_28);
-	tmp &= ~RG_SSXTP_DAIF_GLB_TXPLL_IR;
-	tmp |= RG_SSXTP_DAIF_GLB_TXPLL_IR_VAL(0x4);
+	tmp &= ~RG_XTP_DAIF_GLB_TXPLL_IR;
+	tmp |= RG_XTP_DAIF_GLB_TXPLL_IR_VAL(0x4);
 	writel(tmp, xsphy->glb_base + SSPXTP_DIG_GLB_28);
 
 	/* DA_XTP_GLB_SPLL_IR[4:0], 5'b00100 */
 	tmp = readl(xsphy->glb_base + SSPXTP_DIG_GLB_38);
-	tmp &= ~RG_SSXTP_DAIF_GLB_SPLL_IR;
-	tmp |= RG_SSXTP_DAIF_GLB_SPLL_IR_VAL(0x4);
+	tmp &= ~RG_XTP_DAIF_GLB_SPLL_IR;
+	tmp |= RG_XTP_DAIF_GLB_SPLL_IR_VAL(0x4);
 	writel(tmp, xsphy->glb_base + SSPXTP_DIG_GLB_38);
 
 	/* DA_XTP_LN0_RX_SGDT_HF[1:0], 2'b10 */
 	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_20);
-	tmp &= ~RG_SSXTP0_DAIF_LN_G1_RX_SGDT_HF;
-	tmp |= RG_SSXTP0_DAIF_LN_G1_RX_SGDT_HF_VAL(0x2);
+	tmp &= ~RG_XTP0_DAIF_LN_G1_RX_SGDT_HF;
+	tmp |= RG_XTP0_DAIF_LN_G1_RX_SGDT_HF_VAL(0x2);
 	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_20);
 
 	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_2C);
-	tmp &= ~RG_SSXTP0_DAIF_LN_G2_RX_SGDT_HF;
-	tmp |= RG_SSXTP0_DAIF_LN_G2_RX_SGDT_HF_VAL(0x2);
+	tmp &= ~RG_XTP0_DAIF_LN_G2_RX_SGDT_HF;
+	tmp |= RG_XTP0_DAIF_LN_G2_RX_SGDT_HF_VAL(0x2);
 	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_2C);
 
 	dev_info(xsphy->dev, "%s(%d)\n", __func__, inst->index);
@@ -971,6 +1192,7 @@ static int mtk_phy_init(struct phy *phy)
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_props_set(xsphy, inst);
+		u3_phy_procfs_init(xsphy, inst);
 		break;
 	default:
 		dev_err(xsphy->dev, "incompatible phy type\n");
@@ -1014,6 +1236,8 @@ static int mtk_phy_exit(struct phy *phy)
 
 	if (inst->type == PHY_TYPE_USB2)
 		u2_phy_procfs_exit(inst);
+	else if (inst->type == PHY_TYPE_USB3)
+		u3_phy_procfs_exit(inst);
 
 	clk_disable_unprepare(inst->ref_clk);
 	return 0;
