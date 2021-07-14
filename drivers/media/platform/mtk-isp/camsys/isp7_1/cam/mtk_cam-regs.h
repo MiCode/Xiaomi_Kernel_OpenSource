@@ -63,39 +63,39 @@
 							DMA_ERR_ST)
 
 /* camsys */
-#define REG_CAMSYS_CG_SET				0x0004 //
-#define REG_CAMSYS_CG_CLR				0x0008 //
+#define REG_CAMSYS_CG_SET				0x0004
+#define REG_CAMSYS_CG_CLR				0x0008
 
-#define REG_HALT1_EN					0x0350 //
-#define REG_HALT2_EN					0x0354 //
-#define REG_HALT3_EN					0x0358 //
-#define REG_HALT4_EN					0x035c //
-#define REG_HALT5_EN					0x0360 //
-#define REG_HALT6_EN					0x0364 //
-#define REG_ULTRA_HALT1_EN				0x0368 //
-#define REG_ULTRA_HALT2_EN				0x036c //
-#define REG_ULTRA_HALT3_EN				0x03b0 //
-#define REG_ULTRA_HALT4_EN				0x03b4 //
-#define REG_ULTRA_HALT5_EN				0x03b8 //
-#define REG_ULTRA_HALT6_EN				0x03bc //
-#define REG_PREULTRA_HALT1_EN			0x03c4 //
-#define REG_PREULTRA_HALT2_EN			0x03c8 //
-#define REG_PREULTRA_HALT3_EN			0x03cc //
-#define REG_PREULTRA_HALT4_EN			0x03d0 //
-#define REG_PREULTRA_HALT5_EN			0x03d4 //
-#define REG_PREULTRA_HALT6_EN			0x03d8 //
+#define REG_HALT1_EN					0x0350
+#define REG_HALT2_EN					0x0354
+#define REG_HALT3_EN					0x0358
+#define REG_HALT4_EN					0x035c
+#define REG_HALT5_EN					0x0360
+#define REG_HALT6_EN					0x0364
+#define REG_ULTRA_HALT1_EN				0x03c0
+#define REG_ULTRA_HALT2_EN				0x03c4
+#define REG_ULTRA_HALT3_EN				0x03c8
+#define REG_ULTRA_HALT4_EN				0x03cc
+#define REG_ULTRA_HALT5_EN				0x03d0
+#define REG_ULTRA_HALT6_EN				0x03d4
+#define REG_PREULTRA_HALT1_EN			0x03f0
+#define REG_PREULTRA_HALT2_EN			0x03f4
+#define REG_PREULTRA_HALT3_EN			0x03f8
+#define REG_PREULTRA_HALT4_EN			0x03fc
+#define REG_PREULTRA_HALT5_EN			0x0400
+#define REG_PREULTRA_HALT6_EN			0x0404
 
 /* Status check */
-#define REG_CTL_EN						0x0000 //
-#define REG_CTL_EN2						0x0004 //
+#define REG_CTL_EN						0x0000
+#define REG_CTL_EN2						0x0004
 
 
 /* DMA Enable Register, DMA_EN */
-#define REG_CTL_MOD5_EN					0x0010 //
+#define REG_CTL_MOD5_EN					0x0010
 /* RAW input trigger*/
 #define REG_CTL_RAWI_TRIG				0x00C0
 
-#define REG_CTL_MISC					0x0060 //
+#define REG_CTL_MISC					0x0060
 #define CTL_DB_EN						BIT(4) //
 
 #define REG_CTL_SW_CTL					0x00C4
@@ -112,20 +112,20 @@
 #define REG_CTL_RAW_INT7_EN				0x0160
 #define REG_CTL_RAW_INT7_STAT			0x0164
 
-#define REG_CTL_RAW_MOD_DCM_DIS			0x0300 //
-#define REG_CTL_RAW_MOD2_DCM_DIS		0x0304 //
-#define REG_CTL_RAW_MOD3_DCM_DIS		0x0308 //
-#define REG_CTL_RAW_MOD5_DCM_DIS		0x0310 //
-#define REG_CTL_RAW_MOD6_DCM_DIS		0x0314 //
+#define REG_CTL_RAW_MOD_DCM_DIS			0x0300
+#define REG_CTL_RAW_MOD2_DCM_DIS		0x0304
+#define REG_CTL_RAW_MOD3_DCM_DIS		0x0308
+#define REG_CTL_RAW_MOD5_DCM_DIS		0x0310
+#define REG_CTL_RAW_MOD6_DCM_DIS		0x0314
 
-#define REG_CTL_DBG_SET					0x00F0 //
-#define REG_CTL_DBG_PORT				0x00F4 //
-#define REG_DMA_DBG_SEL					0x4070 //
-#define REG_DMA_DBG_PORT				0x4074 //
+#define REG_CTL_DBG_SET					0x00F0
+#define REG_CTL_DBG_PORT				0x00F4
+#define REG_DMA_DBG_SEL					0x4070
+#define REG_DMA_DBG_PORT				0x4074
 
-#define REG_CTL_RAW_MOD_REQ_STAT		0x0340 //
-#define REG_CTL_RAW_MOD2_REQ_STAT		0x0344 //
-#define REG_CTL_RAW_MOD3_REQ_STAT		0x0348 //
+#define REG_CTL_RAW_MOD_REQ_STAT		0x0340
+#define REG_CTL_RAW_MOD2_REQ_STAT		0x0344
+#define REG_CTL_RAW_MOD3_REQ_STAT		0x0348
 #define REG_CTL_RAW_MOD4_REQ_STAT		0x034c /* CAMCTL2 */
 #define REG_CTL_RAW_MOD5_REQ_STAT		0x0350
 #define REG_CTL_RAW_MOD6_REQ_STAT		0x0354
@@ -213,12 +213,12 @@
 #define CTL_CQ_THR0_START					BIT(0)
 
 
-#define DMA_OFFSET_CON0        0x01c //
-#define DMA_OFFSET_CON1        0x020 //
-#define DMA_OFFSET_CON2        0x024 //
-#define DMA_OFFSET_CON3        0x028 //
-#define DMA_OFFSET_CON4        0x02c //
-#define DMA_OFFSET_ERR_STAT    0x030 //
+#define DMA_OFFSET_CON0        0x020
+#define DMA_OFFSET_CON1        0x024
+#define DMA_OFFSET_CON2        0x028
+#define DMA_OFFSET_CON3        0x02c
+#define DMA_OFFSET_CON4        0x030
+#define DMA_OFFSET_ERR_STAT    0x034
 
 #define FBC_R1A_BASE               0x2c00
 #define FBC_R2A_BASE               0x3780

@@ -1776,6 +1776,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
 	struct mtk_cam_working_buf_entry *buf_entry;
+	unsigned long flags;
 
 	if (!req_work->req || !req_work->ctx) {
 		pr_info("%s req_work->req(%p) req_work->ctx(%p)\n", __func__,
@@ -1793,15 +1794,15 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	req_stream_data = &req->stream_data[ctx->stream_id];
 
 	/* check if the ctx is streaming */
-	spin_lock(&ctx->streaming_lock);
+	spin_lock_irqsave(&ctx->streaming_lock, flags);
 	if (!ctx->streaming) {
 		dev_info(cam->dev,
 			 "%s: skip frame work, for stream off ctx:%d, req:%d\n",
 			 __func__, ctx->stream_id, req_stream_data->frame_seq_no);
-		spin_unlock(&ctx->streaming_lock);
+		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 		return;
 	}
-	spin_unlock(&ctx->streaming_lock);
+	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
 	memset(&event, 0, sizeof(event));
 	event.cmd_id = CAM_CMD_FRAME;

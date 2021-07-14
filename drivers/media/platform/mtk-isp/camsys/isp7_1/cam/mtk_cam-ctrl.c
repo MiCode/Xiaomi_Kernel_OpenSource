@@ -2021,21 +2021,22 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 {
 	struct mtk_raw_device *raw_dev = NULL;
 	bool need_dequeue;
+	unsigned long flags;
 
 	/**
 	 * If ctx is already off, just return; mtk_cam_dev_req_cleanup()
 	 * triggered by mtk_cam_vb2_stop_streaming() puts the all media
 	 * requests back.
 	 */
-	spin_lock(&ctx->streaming_lock);
+	spin_lock_irqsave(&ctx->streaming_lock, flags);
 	if (!ctx->streaming) {
 		dev_dbg(ctx->cam->dev,
 			 "%s: skip frame done for stream off ctx:%d\n",
 			 __func__, ctx->stream_id);
-		spin_unlock(&ctx->streaming_lock);
+		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 		return;
 	}
-	spin_unlock(&ctx->streaming_lock);
+	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
 	if (mtk_camsv_is_sv_pipe(pipe_id)) {
 		need_dequeue = true;
