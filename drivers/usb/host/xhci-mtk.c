@@ -80,7 +80,7 @@
 #define PMSC_PORT_TEST_CTRL_OFFSET  28
 
 #define PROC_MTK_USB "mtk_usb"
-#define PROC_TEST_MODE PROC_MTK_USB "/testmode"
+#define PROC_TEST_MODE "testmode"
 
 enum ssusb_uwk_vers {
 	SSUSB_UWK_V1 = 1,
@@ -224,15 +224,33 @@ static const struct  proc_ops testmode_fops = {
 
 static void xhci_mtk_procfs_init(struct xhci_hcd_mtk *mtk)
 {
+	struct proc_dir_entry *root = NULL;
+	struct device_node *np = mtk->dev->of_node;
+	char name[32];
+
+	snprintf(name, sizeof(name), PROC_MTK_USB "/%s", np->name);
+	root = proc_mkdir(name, NULL);
+	if (!root) {
+		dev_info(mtk->dev, "%s, failed to create root\n", __func__);
+		return;
+	}
+
 	mtk->testmode_file = proc_create_data(PROC_TEST_MODE, 0644,
-		NULL, &testmode_fops, mtk);
-	if (!mtk->testmode_file)
-		pr_info("%s: fail to create testmode node\n", __func__);
+		root, &testmode_fops, mtk);
+	if (!mtk->testmode_file) {
+		dev_info(mtk->dev, "%s: fail to create testmode node\n",
+			__func__);
+		proc_remove(root);
+		return;
+	}
+
+	mtk->root = root;
 }
 
 static void xhci_mtk_procfs_exit(struct xhci_hcd_mtk *mtk)
 {
 	proc_remove(mtk->testmode_file);
+	proc_remove(mtk->root);
 }
 
 static int xhci_mtk_host_enable(struct xhci_hcd_mtk *mtk)
