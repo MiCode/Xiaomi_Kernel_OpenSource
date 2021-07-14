@@ -570,12 +570,12 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 
 	if (!list_empty(&pkt->buf)) {
 		buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
-		record->start = buf->pa_base;
+		record->start = CMDQ_BUF_ADDR(buf);
 
 		buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 		offset = CMDQ_CMD_BUFFER_SIZE - (pkt->buf_size -
 			pkt->cmd_buf_size);
-		record->end = buf->pa_base + offset;
+		record->end = CMDQ_BUF_ADDR(buf) + offset;
 		record->last_inst = *(u64 *)(buf->va_base + offset -
 			CMDQ_INST_SIZE);
 

@@ -360,7 +360,7 @@ dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread)
 	if (atomic_read(&cmdq->usage) <= 0)
 		return 0;
 
-	return CMDQ_REG_REVERT_ADDR(readl(thread->base + CMDQ_THR_CURR_ADDR));
+	return CMDQ_REG_REVERT_ADDR((dma_addr_t)readl(thread->base + CMDQ_THR_CURR_ADDR));
 }
 
 dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread)
@@ -534,12 +534,12 @@ static void *cmdq_task_current_va(unsigned long pa, struct cmdq_pkt *pkt)
 
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (list_is_last(&buf->list_entry, &pkt->buf))
-			end = buf->pa_base + CMDQ_CMD_BUFFER_SIZE -
+			end = CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE -
 				pkt->avail_buf_size;
 		else
-			end = buf->pa_base + CMDQ_CMD_BUFFER_SIZE;
-		if (pa >= buf->pa_base && pa < end)
-			return buf->va_base + (pa - buf->pa_base);
+			end = CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE;
+		if (pa >= CMDQ_BUF_ADDR(buf) && pa < end)
+			return buf->va_base + (pa - CMDQ_BUF_ADDR(buf));
 	}
 
 	return NULL;
@@ -613,7 +613,7 @@ static dma_addr_t cmdq_task_get_end_pa(struct cmdq_pkt *pkt)
 
 	/* let previous task jump to this task */
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
-	return buf->pa_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
+	return CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 }
 
 static void *cmdq_task_get_end_va(struct cmdq_pkt *pkt)
@@ -682,7 +682,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		cmdq_err("no command to execute");
 		return;
 	}
-	dma_handle = buf->pa_base;
+	dma_handle = CMDQ_BUF_ADDR(buf);
 
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
 	if (!task) {
@@ -707,8 +707,8 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		WARN_ON(cmdq_clk_enable(cmdq) < 0);
 		WARN_ON(cmdq_thread_reset(cmdq, thread) < 0);
 
-		cmdq_log("task %pa size:%zu thread->base=0x%p thread:%u",
-			&task->pa_base, pkt->cmd_buf_size, thread->base,
+		cmdq_log("task pa:%pa iova:%pa size:%zu thread->base=0x%p thread:%u",
+			&buf->pa_base, &buf->iova_base, pkt->cmd_buf_size, thread->base,
 			thread->idx);
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
@@ -812,11 +812,11 @@ static void cmdq_buf_dump_schedule(struct cmdq_task *task, bool timeout,
 	u64 *inst = NULL;
 
 	list_for_each_entry(buf, &task->pkt->buf, list_entry) {
-		if (!(pa_curr >= buf->pa_base &&
-			pa_curr < buf->pa_base + CMDQ_CMD_BUFFER_SIZE)) {
+		if (!(pa_curr >= CMDQ_BUF_ADDR(buf) &&
+			pa_curr < CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE)) {
 			continue;
 		}
-		inst = (u64 *)(buf->va_base + (pa_curr - buf->pa_base));
+		inst = (u64 *)(buf->va_base + (pa_curr - CMDQ_BUF_ADDR(buf)));
 		break;
 	}
 
@@ -1295,7 +1295,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 
 		buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
 		va_base = buf->va_base;
-		pa_base = buf->pa_base;
+		pa_base = CMDQ_BUF_ADDR(buf);
 
 		buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 		end_va = (u64 *)(buf->va_base + CMDQ_CMD_BUFFER_SIZE -
@@ -1325,9 +1325,9 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 			buf = list_first_entry(&cl_pkt->buf, typeof(*buf),
 				list_entry);
 			cmdq_util_user_msg(chan,
-				"expect pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
+				"expect pkt:0x%p size:%zu va:0x%p pa:%pa iova:%pa priority:%u",
 				cl_pkt, cl_pkt->cmd_buf_size, buf->va_base,
-				&buf->pa_base, cl_pkt->priority);
+				&buf->pa_base, &buf->iova_base, cl_pkt->priority);
 
 			curr_va = NULL;
 			curr_pa = 0;
@@ -1866,8 +1866,8 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq_config_prefetch(dev->of_node, cmdq);
 	cmdq_config_default_token(dev, cmdq);
-	cmdq_config_init_buf(dev, cmdq);
 	cmdq_config_dma_mask(dev);
+	cmdq_config_init_buf(dev, cmdq);
 
 	cmdq->clock = devm_clk_get(dev, "gce");
 	if (IS_ERR(cmdq->clock)) {

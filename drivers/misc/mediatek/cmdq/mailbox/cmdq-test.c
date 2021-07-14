@@ -189,7 +189,7 @@ static void cmdq_test_mbox_gpr_sleep(struct cmdq_test *test, const bool sleep)
 		cmdq_pkt_wfe(pkt, test->token_gpr_set4);
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
-	out_pa = buf->pa_base + 3096;
+	out_pa = CMDQ_BUF_ADDR(buf) + 3096;
 	out_va = (u32 *)(buf->va_base + 3096);
 	*out_va = 0;
 	*(out_va + 1) = 0;
@@ -297,7 +297,7 @@ u32 *cmdq_test_mbox_polling_timeout_unit(struct cmdq_pkt *pkt,
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 	// last 1k as output buffer
-	out_pa = buf->pa_base + 3096;
+	out_pa = CMDQ_BUF_ADDR(buf) + 3096;
 	out_va = (u32 *)(buf->va_base + 3096);
 	*out_va = 0;
 	*(out_va + 1) = 0;

@@ -44,6 +44,9 @@ void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util);
 #define CMDQ_WFE_WAIT_VALUE		0x1
 #define CMDQ_EVENT_MAX			0x3FF
 
+#define CMDQ_BUF_ADDR(buf) \
+	((dma_addr_t)(buf->iova_base ? buf->iova_base : buf->pa_base))
+
 /*
  * CMDQ_CODE_MASK:
  *   set write mask
@@ -108,6 +111,7 @@ struct cmdq_task_cb {
 struct cmdq_pkt_buffer {
 	struct list_head	list_entry;
 	void			*va_base;
+	dma_addr_t		iova_base;
 	dma_addr_t		pa_base;
 	bool			use_pool;
 	bool			map;
