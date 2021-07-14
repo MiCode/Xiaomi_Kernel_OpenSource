@@ -4495,23 +4495,24 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 
 	if (!dp_connected) {
 		dbg_event(0xFF, "DP not connected", 0);
-		mdwc->ss_phy->flags &= ~PHY_DP_MODE;
+		mdwc->ss_phy->flags &= ~(PHY_DP_MODE|PHY_USB_DP_CONCURRENT_MODE);
+		dwc3_msm_set_max_speed(mdwc, USB_SPEED_UNKNOWN);
+		mdwc->ss_release_called = false;
 		return 0;
 	}
 
 	dbg_event(0xFF, "Set DP mode", lanes);
 
-	while (!pm_runtime_active(&mdwc->dwc3->dev))
-		msleep(20);
-
 	if (lanes == 2) {
+		pm_runtime_get_sync(&mdwc->dwc3->dev);
+		mdwc->ss_phy->flags |= PHY_USB_DP_CONCURRENT_MODE;
+		pm_runtime_put_sync(&mdwc->dwc3->dev);
 		return 0;
 	}
 
 	/* flush any pending work */
 	flush_work(&mdwc->resume_work);
 	drain_workqueue(mdwc->sm_usb_wq);
-
 	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
 	mdwc->ss_release_called = true;

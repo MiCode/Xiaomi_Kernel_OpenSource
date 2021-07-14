@@ -20,6 +20,7 @@
 #define EUD_SPOOF_CONNECT		BIT(7)
 #define PHY_SUS_OVERRIDE		BIT(8)
 #define PHY_DP_MODE			BIT(9)
+#define PHY_USB_DP_CONCURRENT_MODE	BIT(10)
 
 /*
  * The following are bit fields describing the USB BAM options.
