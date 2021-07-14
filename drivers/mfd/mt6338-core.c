@@ -36,6 +36,8 @@ static struct regmap_config mt6338_regmap_config = {
 };
 
 static const struct mfd_cell mt6338_devs[] = {
+	MT6338_MFD_CELL(mt6338-accdet),
+	MT6338_MFD_CELL(mt6338-auxadc),
 	MT6338_MFD_CELL(mt6338_snd),
 	MT6338_MFD_CELL(mt6338-efuse),
 	/* debug dev */
