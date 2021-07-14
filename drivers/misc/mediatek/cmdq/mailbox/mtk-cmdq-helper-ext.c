@@ -498,24 +498,26 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 
 	list_for_each_entry_safe(buf, tmp, &pkt->buf, list_entry) {
 		list_del(&buf->list_entry);
+		if (!CMDQ_BUF_ADDR(buf))
+			cmdq_err("pkt:0x%p pa:%pa iova:%pa",
+			pkt, &buf->pa_base, &buf->iova_base);
 		if (buf->use_pool) {
 			if (pkt->cur_pool.pool)
 				cmdq_mbox_pool_free_impl(pkt->cur_pool.pool,
 					buf->va_base,
-					cl->use_iommu ? buf->iova_base : buf->pa_base,
+					CMDQ_BUF_ADDR(buf),
 					pkt->cur_pool.cnt);
 			else {
-				cmdq_err("free pool:%s dev:%#lx pa:%pa iova:%pa cl:%#lx use_iommu:%s",
+				cmdq_err("free pool:%s dev:%#lx pa:%pa iova:%pa cl:%#lx",
 					buf->use_pool ? "true" : "false",
 					(unsigned long)pkt->dev,
-					&buf->pa_base, &buf->iova_base,
-					cl, cl->use_iommu ? "true" : "false");
+					&buf->pa_base, &buf->iova_base, cl);
 				cmdq_mbox_pool_free(cl, buf->va_base,
-					cl->use_iommu ? buf->iova_base : buf->pa_base);
+					CMDQ_BUF_ADDR(buf));
 			}
 		} else
 			cmdq_mbox_buf_free_dev(pkt->dev, buf->va_base,
-				cl->use_iommu ? buf->iova_base : buf->pa_base);
+				CMDQ_BUF_ADDR(buf));
 		kfree(buf);
 	}
 }
