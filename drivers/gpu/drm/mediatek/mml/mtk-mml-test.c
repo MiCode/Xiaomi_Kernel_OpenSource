@@ -4,6 +4,7 @@
  */
 
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/dma-fence.h>
 #include <linux/fs.h>
 #include <linux/module.h>
@@ -53,6 +54,17 @@ int mml_case;
 EXPORT_SYMBOL(mml_case);
 module_param(mml_case, int, 0644);
 
+/* how many submit for each ut */
+int mml_test_round = 1;
+EXPORT_SYMBOL(mml_test_round);
+module_param(mml_test_round, int, 0644);
+
+/* interval for each test run, in ms */
+int mml_test_interval = 16;
+EXPORT_SYMBOL(mml_test_interval);
+module_param(mml_test_interval, int, 0644);
+
+
 int mml_test_w = 1920;
 EXPORT_SYMBOL(mml_test_w);
 module_param(mml_test_w, int, 0644);
@@ -99,6 +111,10 @@ static void case_general_submit(struct mml_test *test,
 	const u32 dest_fmt = the_case.cfg_dest_format;
 	const u32 src_w = the_case.cfg_src_w;
 	const u32 src_h = the_case.cfg_src_h;
+	u32 run_cnt = mml_test_round <= 0 ? 1 : (u32)mml_test_round;
+	const u32 max_running = 10;
+	int *fences;
+	u32 i;
 	s32 ret;
 
 	mml_log("[test]%s begin case %d", __func__, mml_case);
@@ -165,12 +181,29 @@ static void case_general_submit(struct mml_test *test,
 		return;
 	}
 
-	ret = mml_drm_submit(mml_ctx, &task);
-	if (ret)
-		mml_err("%s submit failed: %d", __func__, ret);
-	else
-		check_fence(task.job->fence, __func__);
+	fences = kcalloc(run_cnt, sizeof(*fences), GFP_KERNEL);
+	for (i = 0; i < run_cnt; i++) {
+		ret = mml_drm_submit(mml_ctx, &task);
+		if (ret) {
+			mml_err("%s submit failed: %d round: %u",
+				__func__, ret, i);
+			fences[i] = -1;
+		} else {
+			fences[i] = task.job->fence;
+		}
+		msleep_interruptible(mml_test_interval);
+		if (i > max_running && fences[i-max_running] >= 0) {
+			check_fence(fences[i-max_running], __func__);
+			fences[i-max_running] = -1;
+		}
+	}
 
+	for (i = 0; i < run_cnt; i++) {
+		if (fences[i] >= 0)
+			check_fence(fences[i], __func__);
+	}
+
+	kfree(fences);
 	mml_log("%s end", __func__);
 }
 
