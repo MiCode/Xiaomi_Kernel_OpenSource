@@ -45,6 +45,11 @@ void register_bp_thl_notify(
 	battery_percent_callback bp_cb,
 	BATTERY_PERCENT_PRIO prio_val)
 {
+	if (!bp_thl_data) {
+		pr_info("[%s] bp_thl not init\n", __func__);
+		return;
+	}
+
 	if (prio_val >= BPCB_MAX_NUM || prio_val < 0) {
 		pr_info("[%s] prio_val=%d, out of boundary\n", __func__, prio_val);
 		return;

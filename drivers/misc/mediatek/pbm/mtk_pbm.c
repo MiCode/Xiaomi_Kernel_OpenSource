@@ -15,6 +15,8 @@
 #include <trace/events/power.h>
 #include <linux/tracepoint.h>
 #include <linux/kallsyms.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include "mtk_dynamic_loading_throttling.h"
 #include "mtk_pbm.h"
@@ -888,12 +890,20 @@ static int mt_pbm_create_procfs(void)
 	return 0;
 }
 
-static int __init pbm_module_init(void)
+static int pbm_probe(struct platform_device *pdev)
 {
 	struct cpufreq_policy *policy;
 	struct cpu_pbm_policy *pbm_policy;
+	struct device_node *np;
 	unsigned int i;
 	int cpu, ret;
+
+	np = of_find_compatible_node(NULL, NULL, "mediatek,pbm");
+
+	if (!np) {
+		dev_notice(&pdev->dev, "get pbm node fail\n");
+		return -ENODATA;
+	}
 
 	mt_pbm_create_procfs();
 
@@ -968,7 +978,7 @@ static int __init pbm_module_init(void)
 	return ret;
 }
 
-static void __exit pbm_module_exit(void)
+static int pbm_remove(struct platform_device *pdev)
 {
 	struct cpu_pbm_policy *pbm_policy, *pbm_policy_t;
 
@@ -982,10 +992,25 @@ static void __exit pbm_module_exit(void)
 		list_del(&pbm_policy->cpu_pbm_list);
 		kfree(pbm_policy);
 	}
+
+	return 0;
 }
 
-module_init(pbm_module_init);
-module_exit(pbm_module_exit);
+static const struct of_device_id pbm_of_match[] = {
+	{ .compatible = "mediatek,pbm", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, pbm_of_match);
+
+static struct platform_driver pbm_driver = {
+	.probe = pbm_probe,
+	.remove = pbm_remove,
+	.driver = {
+		.name = "mtk-power_budget_management",
+		.of_match_table = pbm_of_match,
+	},
+};
+module_platform_driver(pbm_driver);
 
 MODULE_AUTHOR("Samuel Hsieh");
 MODULE_DESCRIPTION("MTK power budget management");

@@ -897,6 +897,10 @@ static int *scen_priority;
 
 void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
 {
+	if (!mdpm_tx_pwr || !mdpm_scen || !scen_priority) {
+		pr_notice("MD power table is empty\n");
+		return;
+	}
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	if (share_mem == NULL) {
 		pr_info_ratelimited("can't get dbm share memory\n");
@@ -924,6 +928,11 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 	u32 share_reg;
 	enum md_scenario scenario;
 	int scenario_power, tx_power;
+
+	if (!mdpm_tx_pwr || !mdpm_scen || !scen_priority) {
+		pr_notice("[md1_power] MD power table is empty\n");
+		return 0;
+	}
 
 	if (power_type >= POWER_TYPE_NUM ||
 		power_type < 0) {
