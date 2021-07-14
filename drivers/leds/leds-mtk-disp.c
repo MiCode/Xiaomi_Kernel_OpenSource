@@ -122,10 +122,17 @@ static int __maybe_unused led_i2c_set(struct mt_led_data *mdev,
 #endif
 
 }
+static int __maybe_unused led_set_virtual(struct mt_led_data *mdev,
+		       int brightness)
+{
+	pr_debug("set brightness %d return, no need", brightness);
+	return 0;
+}
 
 static const struct of_device_id of_disp_leds_match[] = {
 	{ .compatible = "mediatek,disp-leds", .data = (int *)led_disp_set},
 	{ .compatible = "mediatek,i2c-leds", .data = (int *)led_i2c_set},
+	{ .compatible = "mediatek,mtk-leds", .data = (int *)led_set_virtual},
 	{},
 };
 MODULE_DEVICE_TABLE(of, of_disp_leds_match);
