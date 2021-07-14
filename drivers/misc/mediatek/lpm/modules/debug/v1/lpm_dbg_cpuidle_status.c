@@ -521,12 +521,6 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 		if (mtk_cpuidle_need_dump(nb_data->index))
 			mtk_cpuidle_dump_info();
 
-	} else if (action & LPM_NB_AFTER_PROMPT) {
-
-		/* prevent race conditions by mtk_lp_mod_locker */
-		if (mtk_cpuidle_ctrl.prof_en)
-			mtk_cpuidle_set_last_off_ts(nb_data->index);
-
 	} else if (action & LPM_NB_RESUME) {
 		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
 		mtk_idle->info.idle_index = -1;
