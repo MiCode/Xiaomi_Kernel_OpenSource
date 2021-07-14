@@ -632,62 +632,6 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 	return p;
 }
 
-#if IS_ENABLED(CONFIG_FAIR_GROUP_SCHED)
-static inline struct cfs_rq *group_cfs_rq(struct sched_entity *grp)
-{
-	return grp->my_q;
-}
-
-#else
-
-static inline struct cfs_rq *group_cfs_rq(struct sched_entity *grp)
-{
-	return NULL;
-}
-
-#endif
-static inline struct task_struct *current_cfs_running_task(struct rq *rq)
-{
-	struct sched_entity *se = NULL;
-	struct cfs_rq *cfs_rq;
-
-	se = rq->cfs.curr;
-	if (!se)
-		return NULL;
-
-	if (likely(entity_is_task(se)))
-		return task_of(se);
-
-	cfs_rq = group_cfs_rq(se);
-	while (cfs_rq) {
-		se = cfs_rq->curr;
-		if (!entity_is_task(se))
-			cfs_rq = group_cfs_rq(se);
-		else
-			cfs_rq = NULL;
-	}
-
-	if (se)
-		return task_of(se);
-
-	return NULL;
-}
-
-static inline is_latency_sensitive(struct task_struct *p)
-{
-	bool latency_sensitive = false;
-
-	rcu_read_lock();
-	if (!uclamp_min_ls)
-		latency_sensitive = uclamp_latency_sensitive(p);
-	else
-		latency_sensitive = p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0;
-	rcu_read_unlock();
-
-	return latency_sensitive;
-}
-
-
 static int active_load_balance_cpu_stop(void *data)
 {
 
@@ -803,8 +747,8 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 		update_rq_clock(src_rq);
 		if (src_rq->misfit_task_load > misfit_load &&
 			capacity_orig_of(this_cpu) > capacity_orig_of(cpu)) {
-			p = current_cfs_running_task(src_rq);
-			if (p && is_latency_sensitive(p) &&
+			p = src_rq->curr;
+			if (p && p->policy == SCHED_NORMAL &&
 				cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
 				misfit_task_rq = src_rq;
 				misfit_load = src_rq->misfit_task_load;
