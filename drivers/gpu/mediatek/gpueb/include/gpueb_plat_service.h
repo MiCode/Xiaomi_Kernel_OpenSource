@@ -6,6 +6,10 @@
 #ifndef __GPUEB_PLAT_SERVICE_H__
 #define __GPUEB_PLAT_SERVICE_H__
 
+#define PLT_INIT           0x504C5401
+#define PLT_LOG_ENABLE     0x504C5402
+#define PLAT_IPI_TEST      0
+
 struct plat_ipi_send_data {
 	unsigned int cmd;
 	union {

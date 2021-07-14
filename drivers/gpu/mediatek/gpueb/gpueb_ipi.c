@@ -130,6 +130,7 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 		gpueb_mbox_info[i].slot = g_mbox_size;
 		gpueb_mbox_info[i].enable = 1;
 		gpueb_mbox_info[i].is64d = 0;
+		gpueb_mbox_info[i].opt = MBOX_OPT_SMEM;
 	}
 
 	// Alloc and init send PIN table
@@ -147,6 +148,8 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 			gpueb_pr_debug("Cannot get ipi id (%d):%d\n", i, __LINE__);
 			return false;
 		}
+		gpueb_mbox_pin_send[i].pin_index = gpueb_mbox_pin_send[i].chan_id;
+
 		ret = of_property_read_u32_index(pdev->dev.of_node,
 				"send_table",
 				i * send_item_num + 1,
@@ -182,6 +185,8 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 			gpueb_pr_debug("Cannot get ipi id (%d):%d\n", i, __LINE__);
 			return false;
 		}
+		gpueb_mbox_pin_recv[i].pin_index = gpueb_mbox_pin_recv[i].chan_id;
+
 		ret = of_property_read_u32_index(pdev->dev.of_node,
 				"recv_table",
 				i * recv_item_num + 1,
@@ -288,6 +293,20 @@ int gpueb_ipi_init(struct platform_device *pdev)
 	gpueb_ipidev.id = IPI_DEV_GPUEB;
 	gpueb_ipidev.mbdev = &gpueb_mboxdev;
 	gpueb_ipidev.timeout_handler = gpueb_plat_ipi_timeout_cb;
+
+	/* initialize mbox (share memory) */
+	for (i = 1; i < gpueb_mboxdev.count; i++) {
+		ret = mtk_smem_init(pdev, gpueb_mbox_info[i].mbdev, i,
+			gpueb_mbox_info[i].mbdev->info_table[i].base,
+			gpueb_mbox_info[i].mbdev->info_table[i].set_irq_reg,
+			gpueb_mbox_info[i].mbdev->info_table[i].clr_irq_reg,
+			gpueb_mbox_info[i].mbdev->info_table[i].send_status_reg,
+			gpueb_mbox_info[i].mbdev->info_table[i].recv_status_reg);
+		if (ret) {
+			gpueb_pr_debug("mbox%d smem init fali, ret = %d\n", i, ret);
+			return ret;
+		}
+	}
 
 	/*
 	 * IPI device register

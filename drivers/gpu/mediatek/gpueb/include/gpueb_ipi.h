@@ -7,8 +7,6 @@
 #define __GPUEB_IPI_H__
 
 // Common implementation
-#define PLT_INIT           0x504C5401
-#define PLT_LOG_ENABLE     0x504C5402
 #define IPI_TIMEOUT_MS     3000U
 #define IPI_SUPPORT        0
 
