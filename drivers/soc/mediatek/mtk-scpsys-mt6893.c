@@ -33,6 +33,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"mfg"},
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6893_POWER_DOMAIN_MFG1] = {
 		.name = "mfg1",
@@ -52,6 +53,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0xBB8, 0xBBC, 0xBB4, 0xBC4,
 				MT6893_TOP_AXI_PROT_EN_SUB_INFRA_VDNR_MFG1),
 		},
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6893_POWER_DOMAIN_MFG2] = {
 		.name = "mfg2",
@@ -59,6 +61,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.ctl_offs = 0x310,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6893_POWER_DOMAIN_MFG3] = {
 		.name = "mfg3",
@@ -66,6 +69,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.ctl_offs = 0x314,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6893_POWER_DOMAIN_MFG4] = {
 		.name = "mfg4",
@@ -73,6 +77,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.ctl_offs = 0x318,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6893_POWER_DOMAIN_MFG5] = {
 		.name = "mfg5",
@@ -80,6 +85,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.ctl_offs = 0x31C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6893_POWER_DOMAIN_MFG6] = {
 		.name = "mfg6",
@@ -87,6 +93,7 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 		.ctl_offs = 0x320,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6893_POWER_DOMAIN_ISP] = {
 		.name = "isp",
