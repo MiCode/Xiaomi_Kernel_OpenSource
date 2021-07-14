@@ -7416,6 +7416,52 @@
 		iommus = <&apu_iommu0 M4U_PORT_L34_APU_CODE>;
 	};
 
+	camera_fsync_ccu {
+		compatible = "mediatek,camera_fsync_ccu";
+		mediatek,ccu_rproc = <&ccu_rproc>;
+	};
+
+	ccu_rproc: ccu_rproc@1b080000 {
+		compatible = "mediatek,ccu_rproc";
+		reg = <0 0x1b080000 0 0x9000>;
+		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks =        <&topckgen_clk CLK_TOPCKGEN_CCUSYS_SEL>,
+				<&topckgen_clk CLK_TOPCKGEN_CCU_AHB_SEL>,
+				<&ccu_main_clk CLK_CCU_MAIN_LARB19_CGPDN>,
+				<&ccu_main_clk CLK_CCU_MAIN_AHB_CGPDN>,
+				<&ccu_main_clk CLK_CCU_MAIN_CCUSYS_CCU0_CGPDN>;
+		clock-names =   "CLK_TOP_CCUSYS_SEL",
+				"CLK_TOP_CCU_AHB_SEL",
+				"CLK_CCU_LARB",
+				"CLK_CCU_AHB",
+				"CLK_CCUSYS_CCU0";
+		mediatek,ccu_rproc1 = <&ccu_rproc1>;
+		iommus = <&mdp_iommu M4U_PORT_L19_CAM_CCUO>,
+			 <&mdp_iommu M4U_PORT_L19_CAM_CCUI>;
+#if 0
+		interconnects =
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CAM_CCUO)
+			&mmqos SLAVE_COMMON(1)>,
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_L19_CAM_CCUI)
+			&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"larb_ccuo",
+			"larb_ccui";
+#endif
+		secured = "no";
+		ccu_sramSize = <0x00020000>;
+		ccu_sramOffset = <0x00020000>;
+		ccu_dramSize = <0x00400000>;
+		ccu_dramAddr = <0x80000000>;
+		ccu_emiRegion = <20>;
+	};
+
+	ccu_rproc1: ccu_rproc1 {
+		compatible = "mediatek,ccu_rproc1";
+		iommus = <&mdp_iommu M4U_PORT_L19_CAM_CCUO2>,
+			<&mdp_iommu M4U_PORT_L19_CAM_CCUI2>;
+	};
+
 	smart_pa: smart_pa {
 	};
 
