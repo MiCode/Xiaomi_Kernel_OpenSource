@@ -631,7 +631,7 @@ int __gpufreq_generic_commit_gpu(
 
 	/* check dvfs state */
 	if (g_dvfs_state & ~key) {
-		GPUFREQ_LOGI("unavailable dvfs state (0x%x)", g_dvfs_state);
+		GPUFREQ_LOGD("unavailable dvfs state (0x%x)", g_dvfs_state);
 		ret = GPUFREQ_SUCCESS;
 		goto done_unlock;
 	}
