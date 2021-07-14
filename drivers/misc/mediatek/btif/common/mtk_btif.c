@@ -234,6 +234,8 @@ struct platform_driver mtk_btif_dev_drv = {
 	}
 };
 
+static int btif_probed;
+
 #define BTIF_STATE_RELEASE(x) _btif_state_release(x)
 
 /*-----------End of Platform bus related structures----------------*/
@@ -251,6 +253,8 @@ static int mtk_btif_probe(struct platform_device *pdev)
 #if !defined(CONFIG_MTK_CLKMGR)
 	hal_btif_clk_get_and_prepare(pdev);
 #endif
+
+	btif_probed = 1;
 
 	return 0;
 }
@@ -3242,6 +3246,10 @@ static int BTIF_init(void)
 	if (i_ret)
 		BTIF_ERR_FUNC("BTIF pdriver_create_file failed, ret(%d)\n",
 				i_ret);
+
+	/* we keep waiting because KE happens if probe function is not called. */
+	while (btif_probed == 0)
+		msleep(500);
 
 /*SW init*/
 	for (index = 0; index < BTIF_PORT_NR; index++) {
