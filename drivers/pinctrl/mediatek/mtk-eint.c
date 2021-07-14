@@ -762,7 +762,7 @@ int dump_eint_pin_status(unsigned int eint_num, char *buf, unsigned int buf_size
 	unsigned int len = 0, enabled, stat, raw_stat, soft, mask, sens, pol,
 		     deb_en, deb_val;
 
-	if (eint_num < 0 || eint_num > global_eintc->total_pin_number)
+	if (eint_num < 0 || eint_num >= global_eintc->total_pin_number)
 		return -ENODEV;
 
 	enabled = global_eintc->pins[eint_num].enabled;
@@ -849,7 +849,7 @@ static ssize_t eint_pin_status_store(struct device_driver *driver,
 
 	ret = kstrtouint(buf, 10, &eint_num);
 
-	if (ret || eint_num > global_eintc->total_pin_number) {
+	if (ret || eint_num >= global_eintc->total_pin_number) {
 		dev_err(global_eintc->dev,
 			"%s invalid input: %s.\n", __func__, buf);
 		goto err_out;
@@ -881,7 +881,7 @@ static const struct of_device_id eint_compatible_ids[] = {
 
 int mtk_eint_do_init(struct mtk_eint *eint)
 {
-	int i;
+	int i, matrix_number = 0;
 	struct device_node *node;
 	unsigned int ret, size, offset;
 	unsigned int id, inst, idx, support_deb;
@@ -911,7 +911,9 @@ int mtk_eint_do_init(struct mtk_eint *eint)
 		       "%s cannot read total-pin-number from device node.\n",
 		       __func__);
 		return -EINVAL;
-	}
+	} else
+		dev_info(eint->dev,
+			 "%s eint total %u pins.\n", __func__, eint->total_pin_number);
 
 	ret = of_property_read_u32(node, "mediatek,instance-num",
 				   &eint->instance_number);
@@ -942,7 +944,16 @@ int mtk_eint_do_init(struct mtk_eint *eint)
 			return -ENOMEM;
 	}
 
-	for (i = 0; i < eint->total_pin_number; i++) {
+	matrix_number = of_property_count_u32_elems(node, "mediatek,pins") / 4;
+	if (matrix_number < 0) {
+		matrix_number = eint->total_pin_number;
+		dev_info(eint->dev, "%s eint in legacy mode, assign the matrix number to %u.\n",
+			 __func__, matrix_number);
+	} else
+		dev_info(eint->dev, "%s eint in new mode, assign the matrix number to %u.\n",
+			 __func__, matrix_number);
+
+	for (i = 0; i < matrix_number; i++) {
 		offset = i * 4;
 
 		ret = of_property_read_u32_index(node, "mediatek,pins",
