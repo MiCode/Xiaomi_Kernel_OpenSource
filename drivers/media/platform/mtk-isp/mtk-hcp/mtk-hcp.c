@@ -1636,6 +1636,7 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
 				mtk_hcp_reserve_mblock[id].fd =
 				dma_buf_fd(mtk_hcp_reserve_mblock[id].d_buf,
 				O_RDWR | O_CLOEXEC);
+				dma_buf_get(mtk_hcp_reserve_mblock[id].fd);
 				break;
 			}
 		} else {
@@ -1708,6 +1709,7 @@ int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 				mtk_hcp_reserve_mblock[id].sgt, DMA_TO_DEVICE);
 				dma_buf_detach(mtk_hcp_reserve_mblock[id].d_buf,
 				mtk_hcp_reserve_mblock[id].attach);
+				dma_buf_put(mtk_hcp_reserve_mblock[id].d_buf);
 				// close fd in user space driver, you can't close fd in kernel site
 				// dma_heap_buffer_free(mtk_hcp_reserve_mblock[id].d_buf);
 				//dma_buf_put(my_dma_buf);
