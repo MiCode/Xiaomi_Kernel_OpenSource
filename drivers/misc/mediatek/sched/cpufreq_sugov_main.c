@@ -215,27 +215,18 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	struct cpufreq_policy *policy = sg_policy->policy;
 	unsigned int freq = policy->cpuinfo.max_freq;
 	unsigned long next_freq = 0;
-	unsigned int idx_min, idx_max;
-	unsigned int min_freq, max_freq;
 
-	mtk_map_util_freq(NULL, util, freq, max, &next_freq);
+	mtk_map_util_freq((void *)sg_policy, util, freq, max, &next_freq);
 	if (next_freq) {
-		sg_policy->cached_raw_freq = next_freq;
-		idx_min = cpufreq_frequency_table_target(policy, policy->min, CPUFREQ_RELATION_L);
-		idx_max = cpufreq_frequency_table_target(policy, policy->max, CPUFREQ_RELATION_H);
-		min_freq = policy->freq_table[idx_min].frequency;
-		max_freq = policy->freq_table[idx_max].frequency;
-		freq = clamp_val(next_freq, min_freq, max_freq);
+		freq = next_freq;
 	} else {
 		freq = map_util_freq(util, freq, max);
+		if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update)
+			return sg_policy->next_freq;
 		sg_policy->cached_raw_freq = freq;
 		freq = cpufreq_driver_resolve_freq(policy, freq);
 	}
 
-	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update)
-		return sg_policy->next_freq;
-
-	sg_policy->need_freq_update = false;
 	return freq;
 }
 
