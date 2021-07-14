@@ -34,7 +34,6 @@
 #include "gpueb_logger.h"
 #include "gpueb_reserved_mem.h"
 #include "gpueb_plat_service.h"
-#include "gpueb_mpu.h"
 #include "gpueb_hwvoter_dbg.h"
 
 /*
@@ -133,10 +132,6 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 	ret = gpueb_plat_service_init(pdev);
 	if (ret != 0)
 		gpueb_pr_info("@%s: plat service init fail\n", __func__);
-
-	ret = gpueb_mpu_init(pdev);
-	if (ret != 0)
-		gpueb_pr_info("@%s: mpu init fail\n", __func__);
 
 	gpueb_logger_workqueue = create_singlethread_workqueue("GPUEB_LOG_WQ");
 	if (gpueb_logger_init(pdev,

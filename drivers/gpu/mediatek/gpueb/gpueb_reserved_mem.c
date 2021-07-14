@@ -157,21 +157,21 @@ int gpueb_reserved_mem_init(struct platform_device *pdev)
 			(unsigned int)gpueb_mem_base_phys,
 			(unsigned int)gpueb_mem_size);
 
-	if ((gpueb_mem_base_phys >= (0x90000000ULL)) ||
-		(gpueb_mem_base_phys < (0x50000000ULL))) {
+	if ((gpueb_mem_base_phys >= (0x80000000ULL)) ||
+		(gpueb_mem_base_phys < (0x40000000ULL))) {
 		/*
 		 * The gpueb remapped region is fixed, only
-		 * 0x4000_0000ULL ~ 0x8FFF_FFFFULL is accessible.
+		 * 0x4000_0000ULL ~ 0x7FFF_FFFFULL is accessible.
 		 *
 		 * ========= .dtsi =========
-		 * size = <0 0x00700000>;
+		 * size = <0 0x00300000>;
 		 * alignment = <0 0x1000000>;
-		 * alloc-ranges = <0 0x50000000 0 0x40000000>;
+		 * alloc-ranges = <0 0x40000000 0 0x40000000>;
 		 * ========= .dtsi =========
 		 *
 		 * means:
-		 * allocate size = 0x00700000
-		 * allocate range = 0x50000000 ~ 0x50000000+0x40000000
+		 * allocate size = 0x00300000
+		 * allocate range = 0x40000000 ~ 0x40000000+0x40000000
 		 * start address need align 0x1000000
 		 */
 		gpueb_pr_debug("@%s: Error: Wrong Address (0x%llx)\n",
