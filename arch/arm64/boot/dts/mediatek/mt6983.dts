@@ -7710,7 +7710,7 @@
 				regulator-max-microamp = <2400000>;
 			};
 		};
-		tcpc {
+		mt6375_typec: tcpc {
 			compatible = "mediatek,mt6375-tcpc";
 			interrupts = <MT6375_PD_EVT>;
 			interrupt-names = "pd_evt";
