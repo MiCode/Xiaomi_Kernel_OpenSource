@@ -1466,6 +1466,21 @@ static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
 	.is_support_34bits = false,
 };
 
+static const struct mtk_disp_rdma_data mt6983_rdma_driver_data = {
+	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.pre_ultra_low_us = 245,
+	.pre_ultra_high_us = 255,
+	.ultra_low_us = 230,
+	.ultra_high_us = 245,
+	.urgent_low_us = 113,
+	.urgent_high_us = 117,
+	.sodi_config = mt6983_mtk_sodi_config,
+	.shadow_update_reg = 0x00b8,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.has_greq_urg_num = true,
+};
+
 static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
 	.fifo_size = SZ_1K * 3 + SZ_32K,
 	.pre_ultra_low_us = 250,
@@ -1523,6 +1538,8 @@ static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	 .data = &mt8173_rdma_driver_data},
 	{.compatible = "mediatek,mt6885-disp-rdma",
 	 .data = &mt6885_rdma_driver_data},
+	{.compatible = "mediatek,mt6983-disp-rdma",
+	 .data = &mt6983_rdma_driver_data},
 	{.compatible = "mediatek,mt6873-disp-rdma",
 	 .data = &mt6873_rdma_driver_data},
 	{.compatible = "mediatek,mt6853-disp-rdma",

@@ -42,6 +42,8 @@ struct lcm {
 	bool prepared;
 	bool enabled;
 
+	unsigned int gate_ic;
+
 	int error;
 };
 
@@ -463,6 +465,7 @@ static int lcm_unprepare(struct drm_panel *panel)
 
 	ctx->error = 0;
 	ctx->prepared = false;
+
 #if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
 	lcm_panel_bias_disable();
 #else
@@ -476,28 +479,29 @@ static int lcm_unprepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->reset_gpio, 0);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
+	if (ctx->gate_ic == 0) {
+		ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
+			"bias", 1, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_neg)) {
+			dev_err(ctx->dev, "%s: cannot get bias_neg %ld\n",
+				__func__, PTR_ERR(ctx->bias_neg));
+			return PTR_ERR(ctx->bias_neg);
+		}
+		gpiod_set_value(ctx->bias_neg, 0);
+		devm_gpiod_put(ctx->dev, ctx->bias_neg);
 
-	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
-		"bias", 1, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_neg)) {
-		dev_err(ctx->dev, "%s: cannot get bias_neg %ld\n",
-			__func__, PTR_ERR(ctx->bias_neg));
-		return PTR_ERR(ctx->bias_neg);
+		udelay(1000);
+
+		ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
+			"bias", 0, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_pos)) {
+			dev_err(ctx->dev, "%s: cannot get bias_pos %ld\n",
+				__func__, PTR_ERR(ctx->bias_pos));
+			return PTR_ERR(ctx->bias_pos);
+		}
+		gpiod_set_value(ctx->bias_pos, 0);
+		devm_gpiod_put(ctx->dev, ctx->bias_pos);
 	}
-	gpiod_set_value(ctx->bias_neg, 0);
-	devm_gpiod_put(ctx->dev, ctx->bias_neg);
-
-	udelay(1000);
-
-	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
-		"bias", 0, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_pos)) {
-		dev_err(ctx->dev, "%s: cannot get bias_pos %ld\n",
-			__func__, PTR_ERR(ctx->bias_pos));
-		return PTR_ERR(ctx->bias_pos);
-	}
-	gpiod_set_value(ctx->bias_pos, 0);
-	devm_gpiod_put(ctx->dev, ctx->bias_pos);
 #endif
 
 	return 0;
@@ -515,27 +519,30 @@ static int lcm_prepare(struct drm_panel *panel)
 #if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
 	lcm_panel_bias_enable();
 #else
-	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
-		"bias", 0, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_pos)) {
-		dev_err(ctx->dev, "%s: cannot get bias_pos %ld\n",
-			__func__, PTR_ERR(ctx->bias_pos));
-		return PTR_ERR(ctx->bias_pos);
-	}
-	gpiod_set_value(ctx->bias_pos, 1);
-	devm_gpiod_put(ctx->dev, ctx->bias_pos);
+	if (ctx->gate_ic == 0) {
 
-	udelay(2000);
+		ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
+			"bias", 0, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_pos)) {
+			dev_err(ctx->dev, "%s: cannot get bias_pos %ld\n",
+				__func__, PTR_ERR(ctx->bias_pos));
+			return PTR_ERR(ctx->bias_pos);
+		}
+		gpiod_set_value(ctx->bias_pos, 1);
+		devm_gpiod_put(ctx->dev, ctx->bias_pos);
 
-	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
-		"bias", 1, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_neg)) {
-		dev_err(ctx->dev, "%s: cannot get bias_neg %ld\n",
-			__func__, PTR_ERR(ctx->bias_neg));
-		return PTR_ERR(ctx->bias_neg);
+		udelay(2000);
+
+		ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
+			"bias", 1, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_neg)) {
+			dev_err(ctx->dev, "%s: cannot get bias_neg %ld\n",
+				__func__, PTR_ERR(ctx->bias_neg));
+			return PTR_ERR(ctx->bias_neg);
+		}
+		gpiod_set_value(ctx->bias_neg, 1);
+		devm_gpiod_put(ctx->dev, ctx->bias_neg);
 	}
-	gpiod_set_value(ctx->bias_neg, 1);
-	devm_gpiod_put(ctx->dev, ctx->bias_neg);
 #endif
 
 	lcm_panel_init(ctx);
@@ -719,6 +726,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	struct device *dev = &dsi->dev;
 	struct lcm *ctx;
 	struct device_node *backlight;
+	unsigned int value;
 	int ret;
 
 	ctx = devm_kzalloc(dev, sizeof(struct lcm), GFP_KERNEL);
@@ -732,6 +740,12 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->mode_flags = MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET
 			 | MIPI_DSI_CLOCK_NON_CONTINUOUS;
+
+	ret = of_property_read_u32(dev->of_node, "gate-ic", &value);
+	if (ret < 0)
+		value = 0;
+	else
+		ctx->gate_ic = value;
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
 	if (backlight) {
@@ -750,21 +764,23 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
 
-	ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_pos)) {
-		dev_err(dev, "%s: cannot get bias-pos 0 %ld\n",
-			__func__, PTR_ERR(ctx->bias_pos));
-		return PTR_ERR(ctx->bias_pos);
-	}
-	devm_gpiod_put(dev, ctx->bias_pos);
+	if (ctx->gate_ic == 0) {
+		ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_pos)) {
+			dev_err(dev, "%s: cannot get bias-pos 0 %ld\n",
+				__func__, PTR_ERR(ctx->bias_pos));
+			return PTR_ERR(ctx->bias_pos);
+		}
+		devm_gpiod_put(dev, ctx->bias_pos);
 
-	ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->bias_neg)) {
-		dev_err(dev, "%s: cannot get bias-neg 1 %ld\n",
-			__func__, PTR_ERR(ctx->bias_neg));
-		return PTR_ERR(ctx->bias_neg);
+		ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
+		if (IS_ERR(ctx->bias_neg)) {
+			dev_err(dev, "%s: cannot get bias-neg 1 %ld\n",
+				__func__, PTR_ERR(ctx->bias_neg));
+			return PTR_ERR(ctx->bias_neg);
+		}
+		devm_gpiod_put(dev, ctx->bias_neg);
 	}
-	devm_gpiod_put(dev, ctx->bias_neg);
 
 	ctx->prepared = true;
 	ctx->enabled = true;

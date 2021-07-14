@@ -213,11 +213,13 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	int crtc_id = drm_crtc_index(crtc);
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 
+#ifndef MTK_DRM_BRINGUP_STAGE
 	if (!priv->power_state) {
 		DDPDUMP("DRM dev is not in power on state, skip %s\n",
 			__func__);
 		return;
 	}
+#endif
 	if (crtc_id < 0) {
 		DDPPR_ERR("%s: Invalid crtc_id:%d\n", __func__, crtc_id);
 		return;
@@ -235,6 +237,12 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		break;
 	case MMSYS_MT6885:
 		mmsys_config_dump_reg_mt6885(mtk_crtc->config_regs);
+		mutex_dump_reg_mt6885(mtk_crtc->mutex[0]);
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+			mtk_dump_reg(comp);
+		break;
+	case MMSYS_MT6983:
+		mmsys_config_dump_reg_mt6983(mtk_crtc->config_regs);
 		mutex_dump_reg_mt6885(mtk_crtc->mutex[0]);
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 			mtk_dump_reg(comp);
@@ -318,7 +326,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	const struct mtk_addon_scenario_data *addon_data;
 	struct mtk_ddp_comp *comp;
 	int crtc_id = drm_crtc_index(crtc);
-#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifndef MTK_DRM_BRINGUP_STAGE
 	if (!priv->power_state) {
 		DDPDUMP("DRM dev is not in power on state, skip %s\n",
 			__func__);
@@ -1110,21 +1118,25 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 	if (mtk_crtc_is_dual_pipe(&(mtk_crtc->base))) {
 		mtk_crtc->is_dual_pipe = true;
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
+#ifdef MTK_DISP_MMDVFS_SUPPORT
 		if (drm_crtc_index(&mtk_crtc->base) == 1) {
 			mtk_drm_set_mmclk(&mtk_crtc->base, 2, __func__);
 			//DDPFUNC("current freq: %d\n",
 			//pm_qos_request(PM_QOS_DISP_FREQ));
 		}
 #endif
+#endif
 	} else {
 		mtk_crtc->is_dual_pipe = false;
 
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
+#ifdef MTK_DISP_MMDVFS_SUPPORT
 		if (drm_crtc_index(&mtk_crtc->base) == 1)
 			mtk_drm_set_mmclk(&mtk_crtc->base, 0, __func__);
 		//DDPFUNC("crtc%d single pipe current freq: %d\n",
 		//	drm_crtc_index(&mtk_crtc->base),
 		//	pm_qos_request(PM_QOS_DISP_FREQ));
+#endif
 #endif
 		return;
 	}
@@ -1439,9 +1451,11 @@ void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc)
 			}
 		}
 	}
+#ifdef MTK_DISP_MMDVFS_SUPPORT
 	/*restore default mm freq, PM_QOS_MM_FREQ_DEFAULT_VALUE*/
 	if (drm_crtc_index(&mtk_crtc->base) == 1)
 		mtk_drm_set_mmclk(&mtk_crtc->base, 0, __func__);
+#endif
 
 }
 #ifdef MTK_DRM_ADVANCE
@@ -3566,22 +3580,26 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			     mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-#ifndef CONFIG_FPGA_EARLY_PORTING
-		cmdq_pkt_clear_event(cmdq_handle,
-				     mtk_crtc->gce_obj.event[EVENT_TE]);
+#ifndef MTK_DRM_BRINGUP_STAGE
+		if (priv->data->mmsys_id != MMSYS_MT6983) { //mt6983_workaround
+			cmdq_pkt_clear_event(cmdq_handle,
+					     mtk_crtc->gce_obj.event[EVENT_TE]);
 
-		if (mtk_drm_lcm_is_connect())
-			cmdq_pkt_wfe(cmdq_handle,
-					 mtk_crtc->gce_obj.event[EVENT_TE]);
+			if (mtk_drm_lcm_is_connect())
+				cmdq_pkt_wfe(cmdq_handle,
+						 mtk_crtc->gce_obj.event[EVENT_TE]);
+		}
 #endif
 		cmdq_pkt_clear_event(
 			cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-#ifndef CONFIG_FPGA_EARLY_PORTING
-		cmdq_pkt_wait_no_clear(cmdq_handle,
-				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_wait_no_clear(cmdq_handle,
-				       mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+#ifndef MTK_DRM_BRINGUP_STAGE
+		if (priv->data->mmsys_id != MMSYS_MT6983) { //mt6983_workaround
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+					     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+					       mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+		}
 #endif
 
 		/*Trigger*/
@@ -3590,8 +3608,14 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
 				      MTK_TRIG_FLAG_TRIGGER);
 
-		cmdq_pkt_wfe(cmdq_handle,
-			     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+		if (priv->data->mmsys_id == MMSYS_MT6983) { //mt6983_workaround
+			/*workaround for cmdq wait frame done timeout*/
+			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
+							  MTK_TRIG_FLAG_EOF);
+		} else {
+			cmdq_pkt_wfe(cmdq_handle,
+					mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+		}
 
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_LAYER_REC)) {
@@ -3834,6 +3858,9 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 		case MMSYS_MT6885:
 			mtk_ddp_remove_dsc_prim_MT6885(mtk_crtc, handle);
 			break;
+		case MMSYS_MT6983:
+			mtk_ddp_remove_dsc_prim_MT6983(mtk_crtc, handle);
+			break;
 		case MMSYS_MT6873:
 			mtk_ddp_remove_dsc_prim_MT6873(mtk_crtc, handle);
 			break;
@@ -3919,6 +3946,9 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 		switch (priv->data->mmsys_id) {
 		case MMSYS_MT6885:
 			mtk_ddp_insert_dsc_prim_MT6885(mtk_crtc, handle);
+			break;
+		case MMSYS_MT6983:
+			mtk_ddp_insert_dsc_prim_MT6983(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6873:
 			mtk_ddp_insert_dsc_prim_MT6873(mtk_crtc, handle);
@@ -4609,7 +4639,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
-#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifndef MTK_DRM_BRINGUP_STAGE
 	/* 1. power on mtcmos */
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
 
@@ -5025,7 +5055,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
-#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifndef MTK_DRM_BRINGUP_STAGE
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 #endif
 	mtk_drm_crtc_init_para(crtc);
@@ -5052,7 +5082,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 
 	/* 3. Regsister configuration */
 	mtk_crtc_first_enable_ddp_config(mtk_crtc);
-#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifndef MTK_DRM_BRINGUP_STAGE
 	/* 4. power on mtcmos */
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
 
@@ -5075,7 +5105,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 
 	/* 8. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
-
+#ifndef MTK_DRM_BRINGUP_STAGE
 	/* 9. power off mtcmos*/
 	/* Because of align lk hw power status,
 	 * we power on mtcmos at the beginning of the display initialization.
@@ -5083,6 +5113,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	 * Here we only decrease ref count, the power will hold on.
 	 */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
+#endif
 }
 
 void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
