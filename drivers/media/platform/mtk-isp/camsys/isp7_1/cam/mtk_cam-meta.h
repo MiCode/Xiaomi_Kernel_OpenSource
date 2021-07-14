@@ -100,7 +100,7 @@ struct mtk_cam_uapi_ae_param {
  */
 
 /* Maximum blocks that Mediatek AWB supports */
-#define MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM 10
+#define MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM (10)
 
 /*
  *  struct mtk_cam_uapi_awb_param - parameters for AWB configurtion
@@ -318,7 +318,7 @@ struct mtk_cam_uapi_meta_hw_buf {
 	__u32 size;
 };
 
-#define MTK_CAM_UAPI_MAX_CORE_NUM 2
+#define MTK_CAM_UAPI_MAX_CORE_NUM (2)
 
 /**
  * struct mtk_cam_uapi_pipeline_config - pipeline configuration
@@ -336,20 +336,20 @@ struct mtk_cam_uapi_pipeline_config {
  */
 
 /* TODO: Need to check the size of MTK_CAM_AE_HIST_MAX_BIN*/
-#define MTK_CAM_UAPI_AE_STATS_HIST_MAX_BIN 1024
+#define MTK_CAM_UAPI_AE_STATS_HIST_MAX_BIN (1024)
 
 /**
  *  A E  A N D   A W B
  */
 
-#define MTK_CAM_UAPI_AAO_BLK_SIZE 32
-#define MTK_CAM_UAPI_AAO_MAX_BLK_X 128
-#define MTK_CAM_UAPI_AAO_MAX_BLK_Y 128
+#define MTK_CAM_UAPI_AAO_BLK_SIZE (32)
+#define MTK_CAM_UAPI_AAO_MAX_BLK_X (128)
+#define MTK_CAM_UAPI_AAO_MAX_BLK_Y (128)
 #define MTK_CAM_UAPI_AAO_MAX_BUF_SIZE (MTK_CAM_UAPI_AAO_BLK_SIZE \
 					* MTK_CAM_UAPI_AAO_MAX_BLK_X \
 					* MTK_CAM_UAPI_AAO_MAX_BLK_Y)
 
-#define MTK_CAM_UAPI_AHO_BLK_SIZE 3
+#define MTK_CAM_UAPI_AHO_BLK_SIZE (3)
 #define MTK_CAM_UAPI_AAHO_HIST_SIZE  (6 * 1024 * MTK_CAM_UAPI_AHO_BLK_SIZE \
 					+ 14 * 256 * MTK_CAM_UAPI_AHO_BLK_SIZE)
 #define MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE  (MTK_CAM_UAPI_MAX_CORE_NUM * \
@@ -379,7 +379,7 @@ struct mtk_cam_uapi_ae_awb_stats {
  *  A U T O  F O C U S
  */
 
-#define MTK_CAM_UAPI_AFO_BLK_SIZ    32
+#define MTK_CAM_UAPI_AFO_BLK_SIZ    (32)
 #define MTK_CAM_UAPI_AFO_MAX_BLK_NUM (128 * 128)
 #define MTK_CAM_UAPI_AFO_MAX_BUF_SIZE   (MTK_CAM_UAPI_AFO_BLK_SIZ \
 						* MTK_CAM_UAPI_AFO_MAX_BLK_NUM)
@@ -404,13 +404,13 @@ struct mtk_cam_uapi_af_stats {
  */
 
 /* FLK's hardware output block size: 64 bits */
-#define MTK_CAM_UAPI_FLK_BLK_SIZE 8
+#define MTK_CAM_UAPI_FLK_BLK_SIZE (8)
 
 /* Maximum block size (each line) of Mediatek flicker statistic */
-#define MTK_CAM_UAPI_FLK_MAX_STAT_BLK_NUM 6
+#define MTK_CAM_UAPI_FLK_MAX_STAT_BLK_NUM (6)
 
 /* Maximum height (in pixel) that driver can support */
-#define MTK_CAM_UAPI_FLK_MAX_FRAME_HEIGHT 6000
+#define MTK_CAM_UAPI_FLK_MAX_FRAME_HEIGHT (6000)
 #define MTK_CAM_UAPI_FLK_MAX_BUF_SIZE                              \
 	(MTK_CAM_UAPI_FLK_BLK_SIZE * MTK_CAM_UAPI_FLK_MAX_STAT_BLK_NUM * \
 	MTK_CAM_UAPI_FLK_MAX_FRAME_HEIGHT)
@@ -675,10 +675,10 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 	struct mtk_cam_uapi_pd_stats pd_stats;
 };
 
-#define MTK_CAM_META_VERSION_MAJOR 2
-#define MTK_CAM_META_VERSION_MINOR 15
-#define MTK_CAM_META_PLATFORM_NAME "isp70"
-#define MTK_CAM_META_CHIP_NAME "mt8195"
+#define MTK_CAM_META_VERSION_MAJOR 1
+#define MTK_CAM_META_VERSION_MINOR 0
+#define MTK_CAM_META_PLATFORM_NAME "isp71"
+#define MTK_CAM_META_CHIP_NAME "mt6983"
 
 
 #endif /* __MTK_CAM_META_H__ */
