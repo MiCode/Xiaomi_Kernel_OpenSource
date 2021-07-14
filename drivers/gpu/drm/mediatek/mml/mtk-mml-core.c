@@ -472,7 +472,6 @@ static void core_taskdump_cb(struct mml_task *task, u32 pipe)
 
 	if (cnt < 3) {
 		mml_err("dump smi");
-		mtk_smi_dbg_hang_detect("MML");
 	}
 
 	mml_err("error dump %d end", cnt);
