@@ -31,8 +31,8 @@
 #define N_WDMA_OFFSET	0x52000
 #define N_WDMA_RANGE	0x0DEC
 
-#define DIPCTL_DBG_SEL 0x170
-#define DIPCTL_DBG_OUT 0x174
+#define DIPCTL_DBG_SEL 0x1A8
+#define DIPCTL_DBG_OUT 0x1AC
 #define NR3D_DBG_SEL 0x200C
 
 void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
