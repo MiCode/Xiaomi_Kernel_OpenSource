@@ -178,6 +178,46 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_2OUT_P1] = MML_CLT_PIPE1,
 };
 
+/* reset bit to each engine,
+ * reverse of MMSYS_SW0_RST_B_REG and MMSYS_SW1_RST_B_REG
+ */
+static u8 engine_reset_bit[MML_ENGINE_TOTAL] = {
+	[MML_RDMA0] = 0,
+	[MML_FG0] = 1,
+	[MML_HDR0] = 2,
+	[MML_AAL0] = 3,
+	[MML_RSZ0] = 4,
+	[MML_TDSHP0] = 5,
+	[MML_TCC0] = 6,
+	[MML_WROT0] = 7,
+	[MML_RDMA2] = 8,
+	[MML_AAL2] = 9,
+	[MML_RSZ2] = 10,
+	[MML_COLOR0] = 11,
+	[MML_TDSHP2] = 12,
+	[MML_TCC2] = 13,
+	[MML_WROT2] = 14,
+	[MML_RDMA1] = 16,
+	[MML_FG1] = 17,
+	[MML_HDR1] = 18,
+	[MML_AAL1] = 19,
+	[MML_RSZ1] = 20,
+	[MML_TDSHP1] = 21,
+	[MML_TCC1] = 22,
+	[MML_WROT1] = 23,
+	[MML_RDMA3] = 24,
+	[MML_AAL3] = 25,
+	[MML_RSZ3] = 26,
+	[MML_COLOR1] = 27,
+	[MML_TDSHP3] = 28,
+	[MML_TCC3] = 29,
+	[MML_WROT3] = 30,
+	[MML_CAMIN] = 37,
+	[MML_CAMIN2] = 38,
+	[MML_CAMIN3] = 39,
+	[MML_CAMIN4] = 41,
+};
+
 static void tp_dump_path(struct mml_topology_path *path)
 {
 	u8 i;
@@ -228,6 +268,10 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 		path->nodes[i].comp = mml_dev_get_comp_by_id(mml, eng);
 		if (!path->nodes[i].comp)
 			mml_err("[topology]no comp idx:%hhu engine:%hhu", i, eng);
+
+
+		/* assign reset bits for this path */
+		path->reset_bits |= 1LL << engine_reset_bit[eng];
 
 		if (eng == MML_MMLSYS) {
 			path->mmlsys = path->nodes[i].comp;
@@ -289,6 +333,13 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 		}
 	}
 	path->node_cnt = i;
+
+	/* 0: reset
+	 * 1: not reset
+	 * so we need to reverse the bits
+	 */
+	path->reset_bits = ~path->reset_bits;
+	mml_msg("[topology]reset bits %#llx", path->reset_bits);
 
 	/* collect tile engines */
 	tile_idx = 0;

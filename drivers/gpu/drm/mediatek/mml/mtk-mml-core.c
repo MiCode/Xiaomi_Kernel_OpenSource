@@ -443,8 +443,9 @@ static void wait_dma_fence(const char *name, struct dma_fence *fence)
 			name, fence, ret);
 }
 
-#define call_dbg_op(_comp, op) \
-	((_comp->debug_ops && _comp->debug_ops->op) ? _comp->debug_ops->op(_comp) : 0)
+#define call_dbg_op(_comp, op, ...) \
+	((_comp->debug_ops && _comp->debug_ops->op) ? \
+		_comp->debug_ops->op(_comp, ##__VA_ARGS__) : 0)
 
 static void core_taskdump_cb(struct mml_task *task, u32 pipe)
 {
@@ -467,6 +468,10 @@ static void core_taskdump_cb(struct mml_task *task, u32 pipe)
 	}
 
 	mml_err("error dump %d end", cnt);
+
+	call_dbg_op(path->mmlsys, reset, task, pipe);
+
+	mml_err("error %d engine reset end", cnt);
 }
 
 static void core_taskdump_pipe0_cb(struct cmdq_cb_data data)

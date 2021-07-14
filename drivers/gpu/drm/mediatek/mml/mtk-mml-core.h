@@ -145,6 +145,14 @@ struct mml_topology_path {
 
 	/* cmdq client to compose command */
 	struct cmdq_client *clt;
+
+	union {
+		u64 reset_bits;
+		struct {
+			u32 reset0;
+			u32 reset1;
+		};
+	};
 };
 
 struct mml_topology_ops {
@@ -333,6 +341,7 @@ struct mml_comp_hw_ops {
 
 struct mml_comp_debug_ops {
 	void (*dump)(struct mml_comp *comp);
+	void (*reset)(struct mml_comp *comp, struct mml_task *task, u32 pipe);
 };
 
 struct mml_comp {

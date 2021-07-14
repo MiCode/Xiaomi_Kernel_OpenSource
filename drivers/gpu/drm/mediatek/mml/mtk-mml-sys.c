@@ -12,6 +12,9 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 
+#define SYS_SW0_RST_B_REG	0x700
+#define SYS_SW1_RST_B_REG	0x704
+
 #define MML_MAX_SYS_COMPONENTS	10
 #define MML_MAX_SYS_MUX_PINS	88
 #define MML_MAX_SYS_DL_INS	4
@@ -199,8 +202,24 @@ static void sys_debug_dump(struct mml_comp *comp)
 	}
 }
 
+static void sys_reset(struct mml_comp *comp, struct mml_task *task, u32 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+
+	mml_err("[sys]reset bits %#llx for pipe %u", path->reset_bits, pipe);
+	if (path->reset0 != U32_MAX) {
+		writel(path->reset0, comp->base + SYS_SW0_RST_B_REG);
+		writel(U32_MAX, comp->base + SYS_SW0_RST_B_REG);
+	}
+	if (path->reset1 != U32_MAX) {
+		writel(path->reset1, comp->base + SYS_SW1_RST_B_REG);
+		writel(U32_MAX, comp->base + SYS_SW1_RST_B_REG);
+	}
+}
+
 static const struct mml_comp_debug_ops sys_debug_ops = {
 	.dump = &sys_debug_dump,
+	.reset = &sys_reset,
 };
 
 static int sys_comp_init(struct device *dev, struct mml_comp_sys *sys,
