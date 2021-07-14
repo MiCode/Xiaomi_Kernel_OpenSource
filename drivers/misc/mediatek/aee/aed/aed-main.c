@@ -11,7 +11,6 @@
 #include <linux/fs.h>
 #include <linux/hardirq.h>
 #include <linux/highmem.h>
-#include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/kallsyms.h>
@@ -2309,51 +2308,6 @@ static struct miscdevice aed_ke_dev = {
 	.fops = &aed_ke_fops,
 };
 
-/* UTC time sync */
-static struct hrtimer aed_hrtimer;
-
-static u64 period_ms = 20 * 1000; /* 20 sec */
-
-static enum hrtimer_restart aed_timer_fn(struct hrtimer *hrtimer)
-{
-	struct rtc_time tm;
-	struct timespec64 tv = { 0 };
-	/* android time */
-	struct rtc_time tm_android;
-	struct timespec64 tv_android = { 0 };
-
-	ktime_get_real_ts64(&tv);
-	tv_android = tv;
-	rtc_time64_to_tm(tv.tv_sec, &tm);
-	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
-	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
-	pr_info("[thread:%d] %d-%02d-%02d %02d:%02d:%02d.%u UTC;"
-		"android time %d-%02d-%02d %02d:%02d:%02d.%03d\n",
-		current->pid, tm.tm_year + 1900, tm.tm_mon + 1,
-		tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
-		(unsigned int)(tv.tv_nsec / 1000), tm_android.tm_year + 1900,
-		tm_android.tm_mon + 1, tm_android.tm_mday, tm_android.tm_hour,
-		tm_android.tm_min, tm_android.tm_sec,
-		(unsigned int)(tv_android.tv_nsec / 1000));
-	hrtimer_forward_now(&aed_hrtimer, ms_to_ktime(period_ms));
-
-	return HRTIMER_RESTART;
-}
-
-static void aed_hrtimer_init(void)
-{
-	hrtimer_init(&aed_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	aed_hrtimer.function = aed_timer_fn;
-	hrtimer_start(&aed_hrtimer, ms_to_ktime(period_ms),
-		      HRTIMER_MODE_REL_PINNED);
-}
-
-static void aed_hrtimer_exit(void)
-{
-	hrtimer_cancel(&aed_hrtimer);
-}
-/* UTC time sync end */
-
 static int __init aed_init(void)
 {
 	int err;
@@ -2393,7 +2347,6 @@ static int __init aed_init(void)
 		pr_info("aee: failed to register aed1(ke) device!\n");
 		return err;
 	}
-	aed_hrtimer_init();
 	pr_notice("aee kernel api ready");
 
 	mtk_slog_init();
@@ -2413,7 +2366,6 @@ static void __exit aed_exit(void)
 	ke_destroy_log();
 
 	aed_proc_done();
-	aed_hrtimer_exit();
 
 	mtk_slog_exit();
 }

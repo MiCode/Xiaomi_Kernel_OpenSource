@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/rtc.h>
 #include <linux/sched/clock.h>
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
@@ -169,6 +170,29 @@ void kwdt_regist_irq_info(void (*fn)(void))
 }
 EXPORT_SYMBOL_GPL(kwdt_regist_irq_info);
 
+static void kwdt_time_sync(void)
+{
+	struct rtc_time tm;
+	struct timespec64 tv = { 0 };
+	/* android time */
+	struct rtc_time tm_android;
+	struct timespec64 tv_android = { 0 };
+
+	ktime_get_real_ts64(&tv);
+	tv_android = tv;
+	rtc_time64_to_tm(tv.tv_sec, &tm);
+	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
+	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
+	pr_info("[thread:%d] %d-%02d-%02d %02d:%02d:%02d.%u UTC;"
+		"android time %d-%02d-%02d %02d:%02d:%02d.%03d\n",
+		current->pid, tm.tm_year + 1900, tm.tm_mon + 1,
+		tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+		(unsigned int)(tv.tv_nsec / 1000), tm_android.tm_year + 1900,
+		tm_android.tm_mon + 1, tm_android.tm_mday, tm_android.tm_hour,
+		tm_android.tm_min, tm_android.tm_sec,
+		(unsigned int)(tv_android.tv_nsec / 1000));
+}
+
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[])
 {
@@ -194,6 +218,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	if (local_bit == get_check_bit()) {
 		msg_buf[5] = 'k';
 		local_bit = 0;
+		kwdt_time_sync();
 	}
 
 	kick_bit = local_bit;
