@@ -1050,6 +1050,9 @@ static struct platform_device *pdev_from_name(const char *name)
 			struct device *dev = pdd->dev;
 			struct platform_device *pdev = to_platform_device(dev);
 
+			if (!name || !pdev->name)
+				continue;
+
 			if (strcmp(name, pdev->name) == 0)
 				return pdev;
 		}
@@ -1674,7 +1677,9 @@ bool clkdbg_get_power_domain_status(struct device *dev)
 			struct device *d = pdd->dev;
 			struct platform_device *p = to_platform_device(d);
 
-			pr_notice("clkdbg: compare %s and %s\n", p->name, pdev->name);
+			if (!p->name || !pdev->name)
+				continue;
+
 			if (strcmp(p->name, pdev->name) == 0)
 				dev_match = 1;
 		}

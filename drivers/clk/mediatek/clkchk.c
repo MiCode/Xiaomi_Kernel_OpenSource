@@ -23,6 +23,7 @@
 #include <linux/module.h>
 
 #include "clkchk.h"
+#include "mt-plat/aee.h"
 
 #define MAX_CLK_NUM			1024
 #define PLL_LEN				20
@@ -517,8 +518,14 @@ static int clk_chk_dev_pm_suspend(struct device *dev)
 		for (; pvdck->ck != NULL; pvdck++)
 			dump_enabled_clks(pvdck);
 
-		if (is_pll_chk_bug_on())
+		if (is_pll_chk_bug_on() || pdchk_get_bug_on_stat())
+#if IS_ENABLED(CONFIG_PM_DEBUG)
 			BUG_ON(1);
+#elif IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+			aee_kernel_warning_api(__FILE__, __LINE__,
+				DB_OPT_DEFAULT, "clk-chk",
+				"fail to disable clk/pd in suspend\n");
+#endif
 
 		WARN_ON(1);
 	}
