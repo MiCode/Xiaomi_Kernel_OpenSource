@@ -206,31 +206,26 @@ struct gpufreq_clk_info {
 };
 
 struct gpufreq_mtcmos_info {
-	struct platform_device *mfg1_pdev;  /* MPU, CM7 */
+	struct device *mfg1_dev;  /* MPU, CM7 */
 #if !GPUFREQ_PDCv2_ENABLE
-	struct platform_device *mfg2_pdev;  /* L2 Cache */
-	struct platform_device *mfg3_pdev;  /* ST0      */
-	struct platform_device *mfg4_pdev;  /* ST1      */
-	struct platform_device *mfg5_pdev;  /* ST2      */
-	struct platform_device *mfg6_pdev;  /* ST4      */
-	struct platform_device *mfg7_pdev;  /* ST5      */
-	struct platform_device *mfg8_pdev;  /* ST6      */
-	struct platform_device *mfg9_pdev;  /* ST0T0    */
-	struct platform_device *mfg10_pdev; /* ST1T0    */
-	struct platform_device *mfg11_pdev; /* ST2T0    */
-	struct platform_device *mfg12_pdev; /* ST0T1    */
-	struct platform_device *mfg13_pdev; /* ST4T0    */
-	struct platform_device *mfg14_pdev; /* ST5T0    */
-	struct platform_device *mfg15_pdev; /* ST6T0    */
-	struct platform_device *mfg16_pdev; /* ST4T1    */
-	struct platform_device *mfg17_pdev; /* ST5T1    */
-	struct platform_device *mfg18_pdev; /* ST6T1    */
+	struct device *mfg2_dev;  /* L2 Cache */
+	struct device *mfg3_dev;  /* ST0      */
+	struct device *mfg4_dev;  /* ST1      */
+	struct device *mfg5_dev;  /* ST2      */
+	struct device *mfg6_dev;  /* ST4      */
+	struct device *mfg7_dev;  /* ST5      */
+	struct device *mfg8_dev;  /* ST6      */
+	struct device *mfg9_dev;  /* ST0T0    */
+	struct device *mfg10_dev; /* ST1T0    */
+	struct device *mfg11_dev; /* ST2T0    */
+	struct device *mfg12_dev; /* ST0T1    */
+	struct device *mfg13_dev; /* ST4T0    */
+	struct device *mfg14_dev; /* ST5T0    */
+	struct device *mfg15_dev; /* ST6T0    */
+	struct device *mfg16_dev; /* ST4T1    */
+	struct device *mfg17_dev; /* ST5T1    */
+	struct device *mfg18_dev; /* ST6T1    */
 #endif /* GPUFREQ_PDCv2_ENABLE */
-};
-
-struct gpufreq_mfg_fp {
-	int (*probe)(struct platform_device *pdev);
-	int (*remove)(struct platform_device *pdev);
 };
 
 struct gpufreq_adj_info {

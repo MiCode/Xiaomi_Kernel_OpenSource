@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/printk.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 
 #include <gpufreq_v2.h>
 #include <gpufreq_debug.h>
@@ -145,31 +146,11 @@ static void __gpufreq_aging_adjustment(void);
 static int __gpufreq_init_opp_idx(void);
 static int __gpufreq_init_opp_table(struct platform_device *pdev);
 static int __gpufreq_init_segment_id(struct platform_device *pdev);
+static int __gpufreq_init_mtcmos(struct platform_device *pdev);
 static int __gpufreq_init_clk(struct platform_device *pdev);
 static int __gpufreq_init_pmic(struct platform_device *pdev);
 static int __gpufreq_init_platform_info(struct platform_device *pdev);
 static int __gpufreq_pdrv_probe(struct platform_device *pdev);
-static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev);
-static int __gpufreq_mtcmos_pdrv_remove(struct platform_device *pdev);
-static int __gpufreq_mfg1_probe(struct platform_device *pdev);
-static int __gpufreq_mfg2_probe(struct platform_device *pdev);
-static int __gpufreq_mfg3_probe(struct platform_device *pdev);
-static int __gpufreq_mfg4_probe(struct platform_device *pdev);
-static int __gpufreq_mfg5_probe(struct platform_device *pdev);
-static int __gpufreq_mfg6_probe(struct platform_device *pdev);
-static int __gpufreq_mfg7_probe(struct platform_device *pdev);
-static int __gpufreq_mfg8_probe(struct platform_device *pdev);
-static int __gpufreq_mfg9_probe(struct platform_device *pdev);
-static int __gpufreq_mfg10_probe(struct platform_device *pdev);
-static int __gpufreq_mfg11_probe(struct platform_device *pdev);
-static int __gpufreq_mfg12_probe(struct platform_device *pdev);
-static int __gpufreq_mfg13_probe(struct platform_device *pdev);
-static int __gpufreq_mfg14_probe(struct platform_device *pdev);
-static int __gpufreq_mfg15_probe(struct platform_device *pdev);
-static int __gpufreq_mfg16_probe(struct platform_device *pdev);
-static int __gpufreq_mfg17_probe(struct platform_device *pdev);
-static int __gpufreq_mfg18_probe(struct platform_device *pdev);
-static int __gpufreq_mfg_remove(struct platform_device *pdev);
 
 /**
  * ===============================================
@@ -187,147 +168,6 @@ static struct platform_driver g_gpufreq_pdrv = {
 		.name = "gpufreq",
 		.owner = THIS_MODULE,
 		.of_match_table = g_gpufreq_of_match,
-	},
-};
-
-static const struct gpufreq_mfg_fp mfg1_fp = {
-	.probe = __gpufreq_mfg1_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg2_fp = {
-	.probe = __gpufreq_mfg2_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg3_fp = {
-	.probe = __gpufreq_mfg3_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg4_fp = {
-	.probe = __gpufreq_mfg4_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg5_fp = {
-	.probe = __gpufreq_mfg5_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg6_fp = {
-	.probe = __gpufreq_mfg6_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg7_fp = {
-	.probe = __gpufreq_mfg7_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg8_fp = {
-	.probe = __gpufreq_mfg8_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg9_fp = {
-	.probe = __gpufreq_mfg9_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg10_fp = {
-	.probe = __gpufreq_mfg10_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg11_fp = {
-	.probe = __gpufreq_mfg11_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg12_fp = {
-	.probe = __gpufreq_mfg12_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg13_fp = {
-	.probe = __gpufreq_mfg13_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg14_fp = {
-	.probe = __gpufreq_mfg14_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg15_fp = {
-	.probe = __gpufreq_mfg15_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg16_fp = {
-	.probe = __gpufreq_mfg16_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg17_fp = {
-	.probe = __gpufreq_mfg17_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-static const struct gpufreq_mfg_fp mfg18_fp = {
-	.probe = __gpufreq_mfg18_probe,
-	.remove = __gpufreq_mfg_remove,
-};
-
-static const struct of_device_id g_gpufreq_mtcmos_of_match[] = {
-	{
-		.compatible = "mediatek,mt6983-mfg1",
-		.data = &mfg1_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg2",
-		.data = &mfg2_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg3",
-		.data = &mfg3_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg4",
-		.data = &mfg4_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg5",
-		.data = &mfg5_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg6",
-		.data = &mfg6_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg7",
-		.data = &mfg7_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg8",
-		.data = &mfg8_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg9",
-		.data = &mfg9_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg10",
-		.data = &mfg10_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg11",
-		.data = &mfg11_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg12",
-		.data = &mfg12_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg13",
-		.data = &mfg13_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg14",
-		.data = &mfg14_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg15",
-		.data = &mfg15_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg16",
-		.data = &mfg16_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg17",
-		.data = &mfg17_fp,
-	}, {
-		.compatible = "mediatek,mt6983-mfg18",
-		.data = &mfg18_fp,
-	}, {
-		/* sentinel */
-	}
-};
-static struct platform_driver g_gpufreq_mtcmos_pdrv = {
-	.probe = __gpufreq_mtcmos_pdrv_probe,
-	.remove = __gpufreq_mtcmos_pdrv_remove,
-	.driver = {
-		.name = "gpufreq-mtcmos",
-		.of_match_table = g_gpufreq_mtcmos_of_match,
 	},
 };
 
@@ -3167,10 +3007,10 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 
 	if (power == POWER_ON) {
 		/* MFG1 on by CCF */
-		ret = pm_runtime_get_sync(&g_mtcmos->mfg1_pdev->dev);
+		ret = pm_runtime_get_sync(g_mtcmos->mfg1_dev);
 		if (unlikely(ret < 0)) {
 			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-				"fail to enable mtcmos_mfg1 (%d)", ret);
+				"fail to enable mfg1_dev (%d)", ret);
 			goto done;
 		}
 		g_gpu.mtcmos_count++;
@@ -3193,118 +3033,118 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 		__gpufreq_pdc_control();
 #else
 		/* manually control MFG2-18 if PDC is disabled */
-		ret = pm_runtime_get_sync(&g_mtcmos->mfg2_pdev->dev);
+		ret = pm_runtime_get_sync(g_mtcmos->mfg2_dev);
 		if (unlikely(ret < 0)) {
 			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-				"fail to enable mtcmos_mfg2 (%d)", ret);
+				"fail to enable mfg2_dev (%d)", ret);
 			goto done;
 		}
 
 		if (g_shader_present & MFG3_SHADER_STACK0) {
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg3_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg3_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg3 (%d)", ret);
+					"fail to enable mfg3_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg9_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg9_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg9 (%d)", ret);
+					"fail to enable mfg9_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg12_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg12_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg12 (%d)", ret);
+					"fail to enable mfg12_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG4_SHADER_STACK1) {
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg4_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg4_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg4 (%d)", ret);
+					"fail to enable mfg4_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg10_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg10_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg10 (%d)", ret);
+					"fail to enable mfg10_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG5_SHADER_STACK2) {
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg5_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg5_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg5 (%d)", ret);
+					"fail to enable mfg5_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg11_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg11_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg11 (%d)", ret);
+					"fail to enable mfg11_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG6_SHADER_STACK4) {
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg6_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg6_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg6 (%d)", ret);
+					"fail to enable mfg6_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg13_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg13_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg13 (%d)", ret);
+					"fail to enable mfg13_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg16_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg16_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg16 (%d)", ret);
+					"fail to enable mfg16_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG7_SHADER_STACK5) {
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg7_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg7_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg7 (%d)", ret);
+					"fail to enable mfg7_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg14_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg14_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg14 (%d)", ret);
+					"fail to enable mfg14_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg17_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg17_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg17 (%d)", ret);
+					"fail to enable mfg17_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG8_SHADER_STACK6) {
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg8_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg8_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg8 (%d)", ret);
+					"fail to enable mfg8_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg15_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg15_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg15 (%d)", ret);
+					"fail to enable mfg15_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_get_sync(&g_mtcmos->mfg18_pdev->dev);
+			ret = pm_runtime_get_sync(g_mtcmos->mfg18_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to enable mtcmos_mfg18 (%d)", ret);
+					"fail to enable mfg18_dev (%d)", ret);
 				goto done;
 			}
 		}
@@ -3330,126 +3170,126 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 #else
 		/* manually control MFG2-18 if PDC is disabled */
 		if (g_shader_present & MFG8_SHADER_STACK6) {
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg18_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg18_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg18 (%d)", ret);
+					"fail to disable mfg18_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg15_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg15_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg15 (%d)", ret);
+					"fail to disable mfg15_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg8_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg8_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg8 (%d)", ret);
+					"fail to disable mfg8_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG7_SHADER_STACK5) {
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg17_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg17_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg17 (%d)", ret);
+					"fail to disable mfg17_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg14_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg14_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg14 (%d)", ret);
+					"fail to disable mfg14_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg7_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg7_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg7 (%d)", ret);
+					"fail to disable mfg7_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG6_SHADER_STACK4) {
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg16_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg16_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg16 (%d)", ret);
+					"fail to disable mfg16_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg13_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg13_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg13 (%d)", ret);
+					"fail to disable mfg13_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg6_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg6_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg6 (%d)", ret);
+					"fail to disable mfg6_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG5_SHADER_STACK2) {
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg11_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg11_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg11 (%d)", ret);
+					"fail to disable mfg11_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg5_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg5_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg5 (%d)", ret);
+					"fail to disable mfg5_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG4_SHADER_STACK1) {
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg10_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg10_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg10 (%d)", ret);
+					"fail to disable mfg10_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg4_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg4_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg4 (%d)", ret);
+					"fail to disable mfg4_dev (%d)", ret);
 				goto done;
 			}
 		}
 		if (g_shader_present & MFG3_SHADER_STACK0) {
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg12_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg12_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg12 (%d)", ret);
+					"fail to disable mfg12_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg9_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg9_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg9 (%d)", ret);
+					"fail to disable mfg9_dev (%d)", ret);
 				goto done;
 			}
-			ret = pm_runtime_put_sync(&g_mtcmos->mfg3_pdev->dev);
+			ret = pm_runtime_put_sync(g_mtcmos->mfg3_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mtcmos_mfg3 (%d)", ret);
+					"fail to disable mfg3_dev (%d)", ret);
 				goto done;
 			}
 		}
-		ret = pm_runtime_put_sync(&g_mtcmos->mfg2_pdev->dev);
+		ret = pm_runtime_put_sync(g_mtcmos->mfg2_dev);
 		if (unlikely(ret < 0)) {
 			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-				"fail to disable mtcmos_mfg2 (%d)", ret);
+				"fail to disable mfg2_dev (%d)", ret);
 			goto done;
 		}
 #endif /* GPUFREQ_PDCv2_ENABLE */
 
 		/* MFG1 off by CCF */
-		ret = pm_runtime_put_sync(&g_mtcmos->mfg1_pdev->dev);
+		ret = pm_runtime_put_sync(g_mtcmos->mfg1_dev);
 		if (unlikely(ret < 0)) {
 			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-				"fail to disable mtcmos_mfg1 (%d)", ret);
+				"fail to disable mfg1_dev (%d)", ret);
 			goto done;
 		}
 		g_gpu.mtcmos_count--;
@@ -4379,6 +4219,190 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 	return ret;
 }
 
+static int __gpufreq_init_mtcmos(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	int ret = GPUFREQ_SUCCESS;
+
+	GPUFREQ_TRACE_START("pdev=0x%x", pdev);
+
+	g_mtcmos = kzalloc(sizeof(struct gpufreq_mtcmos_info), GFP_KERNEL);
+	if (!g_mtcmos) {
+		GPUFREQ_LOGE("fail to alloc gpufreq_mtcmos_info (ENOMEM)");
+		ret = GPUFREQ_ENOMEM;
+		goto done;
+	}
+
+	g_mtcmos->mfg1_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg1");
+	if (IS_ERR(g_mtcmos->mfg1_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg1_dev (%ld)", PTR_ERR(g_mtcmos->mfg1_dev));
+		ret = PTR_ERR(g_mtcmos->mfg1_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg1_dev, true);
+
+#if !GPUFREQ_PDCv2_ENABLE
+	g_mtcmos->mfg2_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg2");
+	if (IS_ERR(g_mtcmos->mfg2_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg2_dev (%ld)", PTR_ERR(g_mtcmos->mfg2_dev));
+		ret = PTR_ERR(g_mtcmos->mfg2_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg2_dev, true);
+
+	g_mtcmos->mfg3_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg3");
+	if (IS_ERR(g_mtcmos->mfg3_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg3_dev (%ld)", PTR_ERR(g_mtcmos->mfg3_dev));
+		ret = PTR_ERR(g_mtcmos->mfg3_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg3_dev, true);
+
+	g_mtcmos->mfg4_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg4");
+	if (IS_ERR(g_mtcmos->mfg4_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg4_dev (%ld)", PTR_ERR(g_mtcmos->mfg4_dev));
+		ret = PTR_ERR(g_mtcmos->mfg4_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg4_dev, true);
+
+	g_mtcmos->mfg5_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg5");
+	if (IS_ERR(g_mtcmos->mfg5_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg5_dev (%ld)", PTR_ERR(g_mtcmos->mfg5_dev));
+		ret = PTR_ERR(g_mtcmos->mfg5_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg5_dev, true);
+
+	g_mtcmos->mfg6_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg6");
+	if (IS_ERR(g_mtcmos->mfg6_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg6_dev (%ld)", PTR_ERR(g_mtcmos->mfg6_dev));
+		ret = PTR_ERR(g_mtcmos->mfg6_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg6_dev, true);
+
+	g_mtcmos->mfg7_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg7");
+	if (IS_ERR(g_mtcmos->mfg7_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg7_dev (%ld)", PTR_ERR(g_mtcmos->mfg7_dev));
+		ret = PTR_ERR(g_mtcmos->mfg7_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg7_dev, true);
+
+	g_mtcmos->mfg8_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg8");
+	if (IS_ERR(g_mtcmos->mfg8_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg8_dev (%ld)", PTR_ERR(g_mtcmos->mfg8_dev));
+		ret = PTR_ERR(g_mtcmos->mfg8_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg8_dev, true);
+
+	g_mtcmos->mfg9_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg9");
+	if (IS_ERR(g_mtcmos->mfg9_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg9_dev (%ld)", PTR_ERR(g_mtcmos->mfg9_dev));
+		ret = PTR_ERR(g_mtcmos->mfg9_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg9_dev, true);
+
+	g_mtcmos->mfg10_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg10");
+	if (IS_ERR(g_mtcmos->mfg10_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg10_dev (%ld)", PTR_ERR(g_mtcmos->mfg10_dev));
+		ret = PTR_ERR(g_mtcmos->mfg10_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg10_dev, true);
+
+	g_mtcmos->mfg11_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg11");
+	if (IS_ERR(g_mtcmos->mfg11_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg11_dev (%ld)", PTR_ERR(g_mtcmos->mfg11_dev));
+		ret = PTR_ERR(g_mtcmos->mfg11_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg11_dev, true);
+
+	g_mtcmos->mfg12_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg12");
+	if (IS_ERR(g_mtcmos->mfg12_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg12_dev (%ld)", PTR_ERR(g_mtcmos->mfg12_dev));
+		ret = PTR_ERR(g_mtcmos->mfg12_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg12_dev, true);
+
+	g_mtcmos->mfg13_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg13");
+	if (IS_ERR(g_mtcmos->mfg13_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg13_dev (%ld)", PTR_ERR(g_mtcmos->mfg13_dev));
+		ret = PTR_ERR(g_mtcmos->mfg13_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg13_dev, true);
+
+	g_mtcmos->mfg14_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg14");
+	if (IS_ERR(g_mtcmos->mfg14_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg14_dev (%ld)", PTR_ERR(g_mtcmos->mfg14_dev));
+		ret = PTR_ERR(g_mtcmos->mfg14_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg14_dev, true);
+
+	g_mtcmos->mfg15_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg15");
+	if (IS_ERR(g_mtcmos->mfg15_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg15_dev (%ld)", PTR_ERR(g_mtcmos->mfg15_dev));
+		ret = PTR_ERR(g_mtcmos->mfg15_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg15_dev, true);
+
+	g_mtcmos->mfg16_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg16");
+	if (IS_ERR(g_mtcmos->mfg16_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg16_dev (%ld)", PTR_ERR(g_mtcmos->mfg16_dev));
+		ret = PTR_ERR(g_mtcmos->mfg16_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg16_dev, true);
+
+	g_mtcmos->mfg17_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg17");
+	if (IS_ERR(g_mtcmos->mfg17_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg17_dev (%ld)", PTR_ERR(g_mtcmos->mfg17_dev));
+		ret = PTR_ERR(g_mtcmos->mfg17_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg17_dev, true);
+
+	g_mtcmos->mfg18_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg18");
+	if (IS_ERR(g_mtcmos->mfg18_dev)) {
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+			"fail to get mfg18_dev (%ld)", PTR_ERR(g_mtcmos->mfg18_dev));
+		ret = PTR_ERR(g_mtcmos->mfg18_dev);
+		goto done;
+	}
+	dev_pm_syscore_device(g_mtcmos->mfg18_dev, true);
+#endif /* GPUFREQ_PDCv2_ENABLE */
+
+done:
+	GPUFREQ_TRACE_END();
+
+	return ret;
+}
+
 static int __gpufreq_init_clk(struct platform_device *pdev)
 {
 	int ret = GPUFREQ_SUCCESS;
@@ -4503,6 +4527,7 @@ done:
 static int __gpufreq_init_platform_info(struct platform_device *pdev)
 {
 	struct device_node *of_gpufreq = pdev->dev.of_node;
+	struct device_node *of_gpueb;
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("pdev=0x%x", pdev);
@@ -4513,8 +4538,16 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
+	of_gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
+	if (!of_gpueb) {
+		GPUFREQ_LOGE("fail to find gpueb node");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
 	/* ignore return error and use default value if property doesn't exist */
 	of_property_read_u32(of_gpufreq, "aging-load", &g_aging_load);
+	of_property_read_u32(of_gpueb, "gpueb-support", &g_gpueb_support);
 
 	/* return error should be handled */
 	/* 0x13FA0000 */
@@ -4702,6 +4735,13 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
+	/* init mtcmos power domain */
+	ret = __gpufreq_init_mtcmos(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init mtcmos (%d)", ret);
+		goto done;
+	}
+
 	/* init segment id */
 	ret = __gpufreq_init_segment_id(pdev);
 	if (unlikely(ret)) {
@@ -4768,506 +4808,12 @@ done:
 	return ret;
 }
 
-
-static int __gpufreq_mfg1_probe(struct platform_device *pdev)
-{
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg1 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg1_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg2_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg2 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg2_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg3_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg3 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg3_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg4_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg4 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg4_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg5_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg5 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg5_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg6_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg6 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg6_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg7_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg7 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg7_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg8_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg8 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg8_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg9_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg9 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg9_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg10_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg10 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg10_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg11_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg11 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg11_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg12_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg12 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg12_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg13_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg13 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg13_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg14_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg14 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg14_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg15_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg15 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg15_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg16_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg16 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg16_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg17_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg17 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg17_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg18_probe(struct platform_device *pdev)
-{
-#if GPUFREQ_PDCv2_ENABLE
-	GPUFREQ_LOGI("skip gpufreq mfg power domain probe");
-	GPUFREQ_UNREFERENCED(pdev);
-#else
-	GPUFREQ_LOGI("start to probe gpufreq mfg power domain");
-
-	if (!pdev->dev.pm_domain) {
-		GPUFREQ_LOGE("fail to get mfg18 pm_domain");
-		return -EPROBE_DEFER;
-	}
-
-	g_mtcmos->mfg18_pdev = pdev;
-	pm_runtime_enable(&pdev->dev);
-	dev_pm_syscore_device(&pdev->dev, true);
-
-	GPUFREQ_LOGI("gpufreq mfg power domain probe done");
-#endif /* GPUFREQ_PDCv2_ENABLE */
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mfg_remove(struct platform_device *pdev)
-{
-	pm_runtime_disable(&pdev->dev);
-
-	return GPUFREQ_SUCCESS;
-}
-
-static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev)
-{
-	const struct gpufreq_mfg_fp *mfg_fp;
-	int ret = GPUFREQ_SUCCESS;
-
-	/* skip register gpufreq mtcmos driver if bringup or in EB mode */
-	if (__gpufreq_bringup() || g_gpueb_support) {
-		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup or in EB mode");
-		goto done;
-	}
-
-	/* alloc struct only at first mtcmos probe */
-	if (!g_mtcmos) {
-		g_mtcmos = kzalloc(sizeof(struct gpufreq_mtcmos_info), GFP_KERNEL);
-		if (!g_mtcmos) {
-			GPUFREQ_LOGE("fail to alloc gpufreq_mtcmos_info (ENOMEM)");
-			ret = GPUFREQ_ENOMEM;
-			goto done;
-		}
-	}
-
-	mfg_fp = of_device_get_match_data(&pdev->dev);
-	if (!mfg_fp) {
-		GPUFREQ_LOGE("fail to get mtcmos match data");
-		ret = GPUFREQ_EINVAL;
-		goto done;
-	}
-
-	ret = mfg_fp->probe(pdev);
-	if (unlikely(ret))
-		GPUFREQ_LOGE("fail to probe mtcmos device");
-
-done:
-	return ret;
-}
-
-static int __gpufreq_mtcmos_pdrv_remove(struct platform_device *pdev)
-{
-	const struct gpufreq_mfg_fp *mfg_fp;
-	int ret = GPUFREQ_SUCCESS;
-
-	mfg_fp = of_device_get_match_data(&pdev->dev);
-	if (!mfg_fp) {
-		GPUFREQ_LOGE("fail to get mtcmos match data");
-		ret = GPUFREQ_EINVAL;
-		goto done;
-	}
-
-	ret = mfg_fp->remove(pdev);
-	if (unlikely(ret))
-		GPUFREQ_LOGE("fail to remove mtcmos device");
-
-done:
-	return ret;
-}
-
 /* API: register gpufreq platform driver */
 static int __init __gpufreq_init(void)
 {
-	struct device_node *gpueb;
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_LOGI("start to init gpufreq platform driver");
-
-	gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
-	if (!gpueb) {
-		GPUFREQ_LOGE("fail to find gpueb node");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	ret = of_property_read_u32(gpueb, "gpueb-support", &g_gpueb_support);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to read gpueb-support (%d)", ret);
-		goto done;
-	}
-
-	/* register gpufreq mtcmos driver */
-	ret = platform_driver_register(&g_gpufreq_mtcmos_pdrv);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to register gpufreq mtcmos driver (%d)", ret);
-		goto done;
-	}
 
 	/* register gpufreq platform driver */
 	ret = platform_driver_register(&g_gpufreq_pdrv);
@@ -5285,6 +4831,26 @@ done:
 /* API: unregister gpufreq driver */
 static void __exit __gpufreq_exit(void)
 {
+#if !GPUFREQ_PDCv2_ENABLE
+	dev_pm_domain_detach(g_mtcmos->mfg18_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg17_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg16_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg15_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg14_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg13_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg12_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg11_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg10_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg9_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg8_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg7_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg6_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg5_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg4_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg3_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg2_dev, true);
+#endif /* GPUFREQ_PDCv2_ENABLE */
+	dev_pm_domain_detach(g_mtcmos->mfg1_dev, true);
 	kfree(g_gpu.working_table);
 	kfree(g_stack.working_table);
 	kfree(g_clk);
@@ -5292,13 +4858,11 @@ static void __exit __gpufreq_exit(void)
 	kfree(g_mtcmos);
 
 	platform_driver_unregister(&g_gpufreq_pdrv);
-	platform_driver_unregister(&g_gpufreq_mtcmos_pdrv);
 }
 
 module_init(__gpufreq_init);
 module_exit(__gpufreq_exit);
 
 MODULE_DEVICE_TABLE(of, g_gpufreq_of_match);
-MODULE_DEVICE_TABLE(of, g_gpufreq_mtcmos_of_match);
 MODULE_DESCRIPTION("MediaTek GPU-DVFS platform driver");
 MODULE_LICENSE("GPL");

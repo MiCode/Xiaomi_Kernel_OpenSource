@@ -172,18 +172,13 @@ struct gpufreq_clk_info {
 };
 
 struct gpufreq_mtcmos_info {
-	struct platform_device *mfg0_pdev;
-	struct platform_device *mfg1_pdev;
-	struct platform_device *mfg2_pdev;
-	struct platform_device *mfg3_pdev;
-	struct platform_device *mfg4_pdev;
-	struct platform_device *mfg5_pdev;
-	struct platform_device *mfg6_pdev;
-};
-
-struct gpufreq_mfg_fp {
-	int (*probe)(struct platform_device *pdev);
-	int (*remove)(struct platform_device *pdev);
+	struct device *mfg0_dev;
+	struct device *mfg1_dev;
+	struct device *mfg2_dev;
+	struct device *mfg3_dev;
+	struct device *mfg4_dev;
+	struct device *mfg5_dev;
+	struct device *mfg6_dev;
 };
 
 struct gpufreq_adj_info {
