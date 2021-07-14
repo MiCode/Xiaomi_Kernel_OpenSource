@@ -3238,32 +3238,36 @@ static int dpmaif_stop_tx_sw(unsigned char hif_id)
 static void dpmaif_hw_reset(void)
 {
 	unsigned char md_id = 0;
-	unsigned int reg_value;
 
 	drv3_dpmaif_set_axi_out_gated();
 
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: AO Domain */
-	reg_value = DPMAIF_AO_RST_MASK;/* so only this bit effective */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-			INFRA_RST0_REG_AO, reg_value);
+			INFRA_RST0_REG_AO, DPMAIF_AO_RST_MASK);
 
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
-	/* reset dpmaif clr */
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-			INFRA_RST1_REG_AO, reg_value);
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
+
+	udelay(500);
 
 	/* reset dpmaif hw: PD Domain */
-	reg_value = DPMAIF_PD_RST_MASK;
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-			INFRA_RST0_REG_PD, reg_value);
+			INFRA_RST0_REG_PD, DPMAIF_PD_RST_MASK);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+
+	udelay(500);
 
 	/* reset dpmaif clr */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
-			INFRA_RST1_REG_PD, reg_value);
+			INFRA_RST1_REG_AO, DPMAIF_AO_RST_MASK);
+	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
+
+	udelay(500);
+
+	/* reset dpmaif clr */
+	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+			INFRA_RST1_REG_PD, DPMAIF_PD_RST_MASK);
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
 
 }
