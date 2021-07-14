@@ -139,7 +139,8 @@ void set_logtoomuch_disable(void)
 void set_detect_count(int val)
 {
 	pr_info("set log_much detect value %d.\n", val);
-	detect_count = val;
+	if (val > 0)
+		detect_count = val;
 }
 EXPORT_SYMBOL_GPL(set_detect_count);
 
@@ -291,7 +292,7 @@ static void mt_printk_logbuf(void *data, struct printk_ringbuffer *rb,
 			| task_pid_nr(current) | 0x80000000;
 	} else {
 		/* max pid 0x8000 -> 32768 */
-		r->info->caller_id |= (raw_smp_processor_id() * 100000);
+		r->info->caller_id = r->info->caller_id + (raw_smp_processor_id() * 100000);
 	}
 }
 
