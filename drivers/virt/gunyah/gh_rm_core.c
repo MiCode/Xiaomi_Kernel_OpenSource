@@ -18,7 +18,6 @@
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include <linux/gunyah/gh_dbl.h>
 #include <linux/gunyah/gh_msgq.h>
@@ -30,18 +29,10 @@
 
 #define GH_RM_MAX_NUM_FRAGMENTS	62
 
-#define GIC_V3_SPI_MAX		1019
-
 #define GH_RM_NO_IRQ_ALLOC	-1
 
 #define GH_RM_MAX_MSG_SIZE_BYTES \
 	(GH_MSGQ_MAX_MSG_SIZE_BYTES - sizeof(struct gh_rm_rpc_hdr))
-
-#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
-	#define IRQ_OFFSET 32
-#else
-	#define IRQ_OFFSET 0
-#endif
 
 struct gh_rm_connection {
 	u32 msg_id;
@@ -76,7 +67,6 @@ static DEFINE_MUTEX(gh_virtio_mmio_fn_lock);
 static DEFINE_IDR(gh_rm_call_idr);
 static DEFINE_MUTEX(gh_rm_send_lock);
 
-static DEFINE_IDR(gh_rm_free_virq_idr);
 static struct device_node *gh_rm_intc;
 static struct irq_domain *gh_rm_irq_domain;
 static u32 gh_rm_base_virq;
@@ -670,20 +660,7 @@ out:
  */
 int gh_rm_virq_to_irq(u32 virq, u32 type)
 {
-	struct irq_fwspec fwspec = {};
-
-	if (virq < IRQ_OFFSET || virq >= GIC_V3_SPI_MAX) {
-		pr_warn("%s: expecting an SPI from RM, but got GIC IRQ %d\n",
-			__func__, virq);
-	}
-
-	fwspec.fwnode = of_node_to_fwnode(gh_rm_intc);
-	fwspec.param_count = 3;
-	fwspec.param[0] = GIC_SPI;
-	fwspec.param[1] = virq - IRQ_OFFSET;
-	fwspec.param[2] = type;
-
-	return irq_create_fwspec_mapping(&fwspec);
+	return gh_get_irq(virq, type, of_node_to_fwnode(gh_rm_intc));
 }
 EXPORT_SYMBOL(gh_rm_virq_to_irq);
 
@@ -722,38 +699,21 @@ static int gh_rm_get_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry)
 
 	/* Allocate and bind a new IRQ if RM-VM hasn't already done already */
 	if (virq == GH_RM_NO_IRQ_ALLOC) {
-		/* Get the next free vIRQ.
-		 * Subtract IRQ_OFFSET from the base virq to get the base SPI.
-		 *
-		 * Assoiate the address of the idr variable itself as a lookup
-		 * ptr. This will help us to free the virq later.
-		 */
-		ret = virq = idr_alloc(&gh_rm_free_virq_idr,
-					&gh_rm_free_virq_idr,
-					gh_rm_base_virq - IRQ_OFFSET,
-					GIC_V3_SPI_MAX, GFP_KERNEL);
+		ret = virq = gh_get_virq(gh_rm_base_virq, virq);
 		if (ret < 0)
 			return ret;
 
-		/* Add IRQ_OFFSET offset to make interrupt as hwirq */
-		virq += IRQ_OFFSET;
-
 		/* Bind the vIRQ */
 		ret = gh_rm_vm_irq_accept(res_entry->virq_handle, virq);
-		if (ret < 0)
-			goto err;
-	} else if ((virq - IRQ_OFFSET) < 0) {
-		/* Sanity check to make sure hypervisor is passing the correct
-		 * interrupt numbers.
-		 */
-		return -EINVAL;
+		if (ret < 0) {
+			pr_err("%s: IRQ accept failed: %d\n",
+				__func__, ret);
+			gh_put_virq(virq);
+			return ret;
+		}
 	}
 
 	return gh_rm_virq_to_irq(virq, IRQ_TYPE_EDGE_RISING);
-
-err:
-	idr_remove(&gh_rm_free_virq_idr, virq - IRQ_OFFSET);
-	return ret;
 }
 
 /**
@@ -933,30 +893,10 @@ EXPORT_SYMBOL(gh_rm_populate_hyp_res);
 static void
 gh_rm_put_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry, int irq)
 {
-	struct irq_data *irq_data;
-	void *idr_ptr;
-	int virq;
-
-	if (irq <= 0)
-		return;
-
-	irq_data = irq_get_irq_data(irq);
-	if (!irq_data)
-		return;
-
-	irq_dispose_mapping(irq);
-
-	virq = irq_data->hwirq - IRQ_OFFSET;
-
-	/* If the idr_find() returns a valid ptr, it means that the
-	 * virq was allocated by the kernel itself and not by hyp.
-	 * Release the IRQ and free the allocation if that's true.
-	 */
-	idr_ptr = idr_find(&gh_rm_free_virq_idr, virq);
-	if (idr_ptr) {
+	if (!gh_put_irq(irq))
 		gh_rm_vm_irq_release(res_entry->virq_handle);
-		idr_remove(&gh_rm_free_virq_idr, virq);
-	}
+
+	return;
 }
 
 /**

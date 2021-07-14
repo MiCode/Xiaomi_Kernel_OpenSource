@@ -9,6 +9,7 @@
 
 #include <linux/types.h>
 #include <linux/notifier.h>
+#include <linux/fwnode.h>
 
 #include "gh_common.h"
 
@@ -183,6 +184,32 @@ struct gh_rm_notif_vm_irq_accepted_payload {
 	gh_virq_handle_t virq_handle;
 } __packed;
 
+/* Arch specific APIs */
+#if IS_ENABLED(CONFIG_GH_ARM64_DRV)
+/* IRQ APIs */
+int gh_get_irq(u32 virq, u32 type, struct fwnode_handle *handle);
+int gh_put_irq(int irq);
+int gh_get_virq(int base_virq, int virq);
+int gh_put_virq(int irq);
+#else
+static inline int gh_get_irq(u32 virq, u32 type,
+					struct fwnode_handle *handle)
+{
+	return -EINVAL;
+}
+static inline int gh_put_irq(int irq)
+{
+	return -EINVAL;
+}
+static inline int gh_get_virq(int base_virq, int virq)
+{
+	return -EINVAL;
+}
+static inline int gh_put_virq(int irq)
+{
+	return -EINVAL;
+}
+#endif
 /* VM Services */
 #define GH_RM_NOTIF_VM_CONSOLE_CHARS	0X56100080
 
