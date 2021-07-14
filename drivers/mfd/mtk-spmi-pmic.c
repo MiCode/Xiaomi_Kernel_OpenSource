@@ -61,6 +61,12 @@ static const struct resource mt6363_keys_resources[] = {
 	DEFINE_RES_IRQ(MT6363_IRQ_HOMEKEY_R),
 };
 
+static const struct resource mt6368_accdet_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_ACCDET, "ACCDET_IRQ"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_ACCDET_EINT0, "ACCDET_EINT0"),
+	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_ACCDET_EINT1, "ACCDET_EINT1"),
+};
+
 static const struct mfd_cell mt6363_devs[] = {
 	{
 		.name = "mt6363-auxadc",
@@ -91,9 +97,14 @@ static const struct mfd_cell mt6368_devs[] = {
 	{
 		.name = "second-pmic",
 		.of_compatible = "mediatek,spmi-pmic-debug",
-	},
-	{ .name = "mt6368-regulator", },
-	{
+	}, {
+		.name = "mt6368-accdet",
+		.of_compatible = "mediatek,mt6368-accdet",
+		.num_resources = ARRAY_SIZE(mt6368_accdet_resources),
+		.resources = mt6368_accdet_resources,
+	}, {
+		.name = "mt6368-regulator",
+	}, {
 		.name = "mt6368-auxadc",
 		.of_compatible = "mediatek,mt6368-auxadc",
 	}, {
