@@ -2456,30 +2456,53 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	case FG_DAEMON_CMD_GET_PTIM_VBAT:
 	{
 		unsigned int ptim_bat_vol = 0;
-		signed int ptim_R_curr = 0;
-		struct power_supply *psy;
-		union power_supply_propval val;
+		signed int ptim_R_curr = 0, ptim_before = 0;
+		struct power_supply *psy_gauge;
+		struct power_supply *psy_bat;
+		union power_supply_propval val, ptim_val;
 
-		psy = gm->gauge->psy;
+
+		psy_gauge = gm->gauge->psy;
+		psy_bat = gm->bs_data.psy;
+
+		if (psy_gauge == NULL) {
+			bm_err("[%s]psy is not rdy\n", __func__);
+			psy_gauge = gm->bs_data.psy;
+		}
+
 		if (gm->init_flag == 1) {
+			power_supply_get_property(psy_gauge,
+				POWER_SUPPLY_PROP_CURRENT_NOW, &ptim_val);
+			ptim_before = ptim_val.intval;
+
 			ptim_bat_vol = gauge_get_int_property(
 				GAUGE_PROP_PTIM_BATTERY_VOLTAGE) * 10;
-			power_supply_get_property(psy,
+			power_supply_get_property(psy_bat,
 				POWER_SUPPLY_PROP_CURRENT_NOW, &val);
-			bm_debug("[K]PTIM V %d I %d\n",
-				ptim_bat_vol, ptim_R_curr);
+			power_supply_get_property(psy_gauge,
+				POWER_SUPPLY_PROP_CURRENT_NOW, &ptim_val);
+
+			ptim_R_curr = ptim_val.intval;
+
+			bm_err("[K]PTIM inscur:%d PTIM V:%d I:[bef:%d af:%d]\n",
+				val.intval, ptim_bat_vol, ptim_before,
+				ptim_R_curr);
 		} else {
 			ptim_bat_vol = gm->ptim_lk_v;
 			ptim_R_curr = gm->ptim_lk_i;
 			if (ptim_bat_vol == 0) {
 				ptim_bat_vol = gauge_get_int_property(
 					GAUGE_PROP_PTIM_BATTERY_VOLTAGE) * 10;
-				power_supply_get_property(psy,
+				power_supply_get_property(psy_bat,
 					POWER_SUPPLY_PROP_CURRENT_NOW, &val);
+				power_supply_get_property(psy_gauge,
+					POWER_SUPPLY_PROP_CURRENT_NOW,
+					&ptim_val);
+				ptim_R_curr = ptim_val.intval;
 			}
-			bm_debug("[K]PTIM_LK V %d:%d I %d:%d\n",
+			bm_err("[K]PTIM_LK V %d:%d I %d:%d, inscur:%d\n",
 				gm->ptim_lk_v, ptim_bat_vol,
-				gm->ptim_lk_i, ptim_R_curr);
+				gm->ptim_lk_i, ptim_R_curr, val.intval);
 		}
 		ptim_vbat = ptim_bat_vol;
 		ptim_i = ptim_R_curr;

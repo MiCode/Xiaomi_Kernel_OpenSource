@@ -653,10 +653,10 @@ static void fgauge_set_zcv_intr_internal(
 
 #if defined(__LP64__) || defined(_LP64)
 	fg_zcv_car_th_reg = ((fg_zcv_car_th_reg * 1000) /
-			gauge_dev->hw_status.car_tune_value);
+			gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
 	fg_zcv_car_th_reg = div_s64((fg_zcv_car_th_reg * 1000),
-			gauge_dev->hw_status.car_tune_value);
+			gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
 
 	fg_zcv_car_thr_h_reg = (fg_zcv_car_th_reg & 0xffff0000) >> 16;
@@ -1018,9 +1018,9 @@ int bat_cycle_intr_threshold_set(struct mtk_gauge *gauge,
 
 	car = car * 1000;
 #if defined(__LP64__) || defined(_LP64)
-	do_div(car, gauge->hw_status.car_tune_value);
+	do_div(car, gauge->gm->fg_cust_data.car_tune_value);
 #else
-	car = div_s64(car, gauge->hw_status.car_tune_value);
+	car = div_s64(car, gauge->gm->fg_cust_data.car_tune_value);
 #endif
 
 	carReg = car;
@@ -1116,7 +1116,7 @@ static int instant_current(struct mtk_gauge *gauge)
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	pre_gauge_update(gauge);
 
 	regmap_read(gauge->regmap, PMIC_FG_CURRENT_OUT_ADDR, &reg_value);
@@ -1194,7 +1194,7 @@ void read_fg_hw_info_current_2(struct mtk_gauge *gauge_dev)
 		dvalue = dvalue - (dvalue * 2);
 
 	gauge_dev->fg_hw_info.current_2 =
-		((dvalue * gauge_dev->hw_status.car_tune_value) / 1000);
+		((dvalue * gauge_dev->gm->fg_cust_data.car_tune_value) / 1000);
 
 }
 
@@ -1212,7 +1212,7 @@ static int average_current_get(struct mtk_gauge *gauge_dev,
 	int r_fg_value, car_tune_value;
 
 	r_fg_value = gauge_dev->hw_status.r_fg_value;
-	car_tune_value = gauge_dev->hw_status.car_tune_value;
+	car_tune_value = gauge_dev->gm->fg_cust_data.car_tune_value;
 
 	pre_gauge_update(gauge_dev);
 
@@ -1362,11 +1362,11 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 
 #if defined(__LP64__) || defined(_LP64)
 	do_div(fg_iavg_reg_ht, UNIT_FG_IAVG);
-	do_div(fg_iavg_reg_ht, gauge_dev->hw_status.car_tune_value);
+	do_div(fg_iavg_reg_ht, gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
 	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, UNIT_FG_IAVG);
 	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht,
-				gauge_dev->hw_status.car_tune_value);
+				gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
 
 
@@ -1386,11 +1386,11 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 
 #if defined(__LP64__) || defined(_LP64)
 	do_div(fg_iavg_reg_lt, UNIT_FG_IAVG);
-	do_div(fg_iavg_reg_lt, gauge_dev->hw_status.car_tune_value);
+	do_div(fg_iavg_reg_lt, gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
 	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt, UNIT_FG_IAVG);
 	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt,
-				gauge_dev->hw_status.car_tune_value);
+				gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
 
 	fg_iavg_lth_28_16 = (fg_iavg_reg_lt & 0x1fff0000) >> 16;
@@ -1520,7 +1520,7 @@ void read_fg_hw_info_ncar(struct mtk_gauge *gauge_dev)
 			gauge_dev->hw_status.r_fg_value;
 
 	gauge_dev->fg_hw_info.ncar =
-		((dvalue_NCAR * gauge_dev->hw_status.car_tune_value)
+		((dvalue_NCAR * gauge_dev->gm->fg_cust_data.car_tune_value)
 		/ 1000);
 
 }
@@ -1538,7 +1538,7 @@ static int coulomb_get(struct mtk_gauge *gauge,
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	pre_gauge_update(gauge);
 
 	regmap_read(gauge->regmap, PMIC_FG_CAR_15_00_ADDR, &temp_car_15_0);
@@ -1884,7 +1884,7 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	regmap_read(gauge->regmap, PMIC_FG_R_CURR_ADDR, &reg_value);
 	reg_value =
 		(reg_value & (PMIC_FG_R_CURR_MASK << PMIC_FG_R_CURR_SHIFT))
@@ -1900,7 +1900,7 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 
 	/* ptim current >0 means discharge, different to bat_current */
 	dvalue = dvalue * -1;
-	bm_debug("[%s]ptim current:%d\n", __func__, dvalue);
+	bm_err("[%s]ptim current:%d\n", __func__, dvalue);
 
 	return dvalue;
 }
@@ -2777,7 +2777,7 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	bm_debug("%s car=%d\n", __func__, val);
 	if (car == 0) {
 		disable_gauge_irq(gauge, COULOMB_H_IRQ);
@@ -2886,7 +2886,7 @@ static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	bm_debug("%s car=%d\n", __func__, val);
 	if (car == 0) {
 		disable_gauge_irq(gauge, COULOMB_L_IRQ);
