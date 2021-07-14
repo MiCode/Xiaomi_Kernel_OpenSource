@@ -359,6 +359,7 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
+	panel_dconfig = <0>;
 	panel@0 {
 		compatible = "mediatek,mtk-drm-panel-drv-dsi";
 		reg = <0>;
