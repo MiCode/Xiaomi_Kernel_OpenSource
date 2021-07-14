@@ -3959,7 +3959,7 @@
 		/* id, mbox, send_size */
 		send_table =
 			<0 0 4>,
-			<1 0 22>,
+			<1 0 26>,
 			<2 0 3>,
 			<3 0 3>,
 			<4 0 9>,
@@ -3979,7 +3979,7 @@
 		/* id, mbox, recv_size, recv_opt */
 		recv_table =
 			<0 0 4 0>,
-			<1 0 22 0>,
+			<1 0 26 0>,
 			<2 0 1 0>,
 			<3 0 1 0>,
 			<4 0 1 0>,
@@ -4046,6 +4046,7 @@
 			"mfg_top_config",
 			"mfg_rpc",
 			"sleep",
+			"topckgen",
 			"nth_emicfg_reg",
 			"sth_emicfg_reg",
 			"infracfg_ao",
@@ -4055,8 +4056,7 @@
 			"avs_efuse",
 			"mfg_cpe_control",
 			"mfg_cpe_sensor",
-			"cpe_0p65v_rt_blow",
-			"topckgen";
+			"cpe_0p65v_rt_blow";
 		clocks =
 			<&topckgen_clk CLK_TOPCKGEN_MFG_SEL_0>,     /* mfg_sel_0 */
 			<&topckgen_clk CLK_TOPCKGEN_MFGPLL_CK>,     /* mfgpll_ck */
