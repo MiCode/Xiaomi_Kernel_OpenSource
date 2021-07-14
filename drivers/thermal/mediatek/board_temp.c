@@ -55,6 +55,7 @@ struct pmic_auxadc_data {
 	unsigned int num_of_pullup_r_type;
 	int (*pullup_r_calibration)(struct device *dev,
 				struct pmic_auxadc_data *adc_data);
+	unsigned int (*adc2volt)(unsigned int adc_raw);
 	struct tia_data *tia_param;
 };
 
@@ -86,6 +87,10 @@ unsigned int tia2_rc_sel_to_value(unsigned int sel)
 	return resistance;
 }
 
+unsigned int mt6685_adc2volt(unsigned int adc_raw)
+{
+	return ((adc_raw * 1840) >> 15);
+}
 
 static struct tia_data tia2_data = {
 	.valid_bit = 15,
@@ -94,12 +99,11 @@ static struct tia_data tia2_data = {
 	.rc_sel_to_value = tia2_rc_sel_to_value,
 };
 
-
-
-static const struct pmic_auxadc_data mt6685_pmic_auxadc_data = {
+static struct pmic_auxadc_data mt6685_pmic_auxadc_data = {
 	.default_pullup_v = 1800,
 	.num_of_pullup_r_type = 3,
 	.pullup_r_calibration = NULL,
+	.adc2volt = mt6685_adc2volt,
 	.tia_param = &tia2_data,
 };
 
@@ -179,7 +183,12 @@ static int board_ntc_get_temp(void *data, int *temp)
 		return -EAGAIN;
 	}
 
-	v_in = adc_data_to_v_in(get_adc_data(val, tia_param->valid_bit - 1));
+	if (!ntc_info->adc_data->adc2volt) {
+		dev_err(ntc_info->dev, "adc2volt should exist\n");
+		return -ENODEV;
+	}
+
+	v_in = ntc_info->adc_data->adc2volt(get_adc_data(val, tia_param->valid_bit - 1));
 	r_ntc = calculate_r_ntc(v_in, adc_data->pullup_r[r_type],
 				adc_data->pullup_v[r_type]);
 
