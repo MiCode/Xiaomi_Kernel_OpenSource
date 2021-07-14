@@ -105,7 +105,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	struct ion_heap *heap = buffer->heap;
 	struct ion_dma_buf_attachment *a;
 	struct sg_table *table;
-	unsigned long attrs = attachment->dma_map_attrs;
+	unsigned long attrs = 0;
 
 	if (heap->buf_ops.map_dma_buf)
 		return heap->buf_ops.map_dma_buf(attachment, direction);
@@ -132,7 +132,7 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
 	struct ion_heap *heap = buffer->heap;
 	struct ion_dma_buf_attachment *a = attachment->priv;
-	unsigned long attrs = attachment->dma_map_attrs;
+	unsigned long attrs = 0;
 
 	if (heap->buf_ops.unmap_dma_buf)
 		return heap->buf_ops.unmap_dma_buf(attachment, table,
