@@ -289,6 +289,13 @@ struct mtk_sensor_value {
 	__u32 value;
 };
 
+struct mtk_sensor_static_param {
+	__u32 scenario_id;
+	__u32 fps;
+	__u32 vblank;
+	__u32 hblank;
+	__u32 pixelrate;
+};
 struct mtk_mbus_frame_desc_entry_csi2 {
 	u8 channel;
 	u8 data_type;
@@ -420,6 +427,12 @@ struct mtk_mbus_frame_desc {
 
 #define VIDIOC_MTK_G_CUSTOM_READOUT_BY_SCENARIO \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 33, struct mtk_sensor_value)
+
+#define VIDIOC_MTK_G_STAGGER_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 34, struct mtk_stagger_target_scenario)
+
+#define VIDIOC_MTK_G_MAX_EXPOSURE \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 35, struct mtk_stagger_max_exp_time)
 
 /* SET */
 

@@ -307,7 +307,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.data_type = 0x2b,
 			.hsize = 0x780,
 			.vsize = 0x434,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_SE,
+			.user_data_desc = VC_STAGGER_SE,
 		},
 	},
 };

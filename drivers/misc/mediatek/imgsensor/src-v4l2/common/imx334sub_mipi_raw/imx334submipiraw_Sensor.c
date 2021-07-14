@@ -218,38 +218,38 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 };
 
 #ifdef IMGSENSOR_VC_ROUTING
-static struct v4l2_mbus_frame_desc_entry frame_desc_prev[] = {
+static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
 			.hsize = 0xF00,
 			.vsize = 0x870,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE,
+			.user_data_desc = VC_STAGGER_NE,
 		},
 	}
 };
 
-static struct v4l2_mbus_frame_desc_entry frame_desc_cap[] = {
+static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
 			.hsize = 0xF00,
 			.vsize = 0x870,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE,
+			.user_data_desc = VC_STAGGER_NE,
 		},
 	},
 };
 
-static struct v4l2_mbus_frame_desc_entry frame_desc_vid[] = {
+static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
 			.hsize = 0xF00,
 			.vsize = 0x870,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE,
+			.user_data_desc = VC_STAGGER_NE,
 		},
 	},
 };
@@ -262,7 +262,7 @@ static struct v4l2_mbus_frame_desc_entry frame_desc_cus1[] = {
 			.data_type = 0x2b,
 			.hsize = 0xF00,
 			.vsize = 0x870,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE,
+			.user_data_desc = VC_STAGGER_NE,
 		},
 	},
 	{
@@ -271,19 +271,19 @@ static struct v4l2_mbus_frame_desc_entry frame_desc_cus1[] = {
 			.data_type = 0x2b,
 			.hsize = 0xF00,
 			.vsize = 0x870,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_SE,
+			.user_data_desc = VC_STAGGER_SE,
 		},
 	},
 };
 
-static struct v4l2_mbus_frame_desc_entry frame_desc_cus2[] = {
+static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
 			.hsize = 0x780,
 			.vsize = 0x434,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE,
+			.user_data_desc = VC_STAGGER_NE,
 		},
 	},
 	{
@@ -292,7 +292,7 @@ static struct v4l2_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.data_type = 0x2b,
 			.hsize = 0x780,
 			.vsize = 0x434,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_ME,
+			.user_data_desc = VC_STAGGER_ME,
 		},
 	},
 	{
@@ -301,37 +301,37 @@ static struct v4l2_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.data_type = 0x2b,
 			.hsize = 0x780,
 			.vsize = 0x434,
-			.user_data_desc = V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_SE,
+			.user_data_desc = VC_STAGGER_SE,
 		},
 	},
 };
 
 static int get_frame_desc(struct subdrv_ctx *ctx,
-		int scenario_id, struct v4l2_mbus_frame_desc *fd)
+		int scenario_id, struct mtk_mbus_frame_desc *fd)
 {
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-		fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
 		fd->num_entries = ARRAY_SIZE(frame_desc_prev);
 		memcpy(fd->entry, frame_desc_prev, sizeof(frame_desc_prev));
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-		fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
 		fd->num_entries = ARRAY_SIZE(frame_desc_cap);
 		memcpy(fd->entry, frame_desc_cap, sizeof(frame_desc_cap));
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-		fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
 		fd->num_entries = ARRAY_SIZE(frame_desc_vid);
 		memcpy(fd->entry, frame_desc_vid, sizeof(frame_desc_vid));
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM1:
-		fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
 		fd->num_entries = ARRAY_SIZE(frame_desc_cus1);
 		memcpy(fd->entry, frame_desc_cus1, sizeof(frame_desc_cus1));
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
-		fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
 		fd->num_entries = ARRAY_SIZE(frame_desc_cus2);
 		memcpy(fd->entry, frame_desc_cus2, sizeof(frame_desc_cus2));
 		break;

@@ -7,18 +7,18 @@
 #include "adaptor-common-ctrl.h"
 
 #define USER_DESC_TO_IMGSENSOR_ENUM(DESC) \
-				(DESC - V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE + \
+				(DESC - VC_STAGGER_NE + \
 				IMGSENSOR_STAGGER_EXPOSURE_LE)
 #define IS_HDR_STAGGER(DESC) \
-				((DESC >= V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_LE) && \
-				 (DESC <= V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_HDR_SE))
+				((DESC >= VC_STAGGER_NE) && \
+				 (DESC <= VC_STAGGER_SE))
 
 int g_stagger_info(struct adaptor_ctx *ctx,
 						  int scenario,
 						  struct mtk_stagger_info *info)
 {
 	int ret = 0;
-	struct v4l2_mbus_frame_desc fd;
+	struct mtk_mbus_frame_desc fd;
 	int hdr_cnt = 0;
 	unsigned int i = 0;
 
@@ -29,7 +29,7 @@ int g_stagger_info(struct adaptor_ctx *ctx,
 
 	if (!ret) {
 		for (i = 0; i < fd.num_entries; ++i) {
-			enum v4l2_mbus_csi2_user_defined_data_desc udd =
+			u16 udd =
 				fd.entry[i].bus.csi2.user_data_desc;
 
 			if (IS_HDR_STAGGER(udd)) {
