@@ -31,6 +31,14 @@ config MTK_CCD_REMOTEPROC
 	  communicate with Camera Control Daemon base on rpmsg framework. It
 	  provide channels, endpoints creation and send operations.
 
+config MTK_CCU_RPROC
+	tristate "MediaTek CCU driver"
+	help
+	  Say y here to support Camera Control Unit's remote processors via
+	  the remote processor framework. Support MTK Camera module using
+	  CCU hardware to do hard-real time task. Offers speed up of 3A,
+	  including faster control flow and stabler frame rate
+
 config IMX_REMOTEPROC
 	tristate "IMX6/7 remoteproc support"
 	depends on ARCH_MXC
