@@ -8,8 +8,10 @@
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
 #include <linux/workqueue.h>
+#include <linux/slab.h>
+
+#include <uapi/linux/mtk_ccd_controls.h>
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
-#include <linux/platform_data/mtk_ccd_controls.h>
 #include <linux/platform_data/mtk_ccd.h>
 
 #include "rpmsg_internal.h"
@@ -28,7 +30,6 @@ void __ept_release(struct kref *kref)
 		 mept);
 	kfree(to_mtk_rpmsg_endpoint(ept));
 }
-EXPORT_SYMBOL_GPL(__ept_release);
 
 void mtk_rpmsg_ipi_handler(void *data, unsigned int len, void *priv)
 {
@@ -38,7 +39,7 @@ void mtk_rpmsg_ipi_handler(void *data, unsigned int len, void *priv)
 
 	ret = (*ept->cb)(ept->rpdev, data, len, ept->priv, ept->addr);
 	if (ret)
-		dev_warn(&ept->rpdev->dev, "rpmsg handler return error = %d",
+		dev_info(&ept->rpdev->dev, "rpmsg handler return error = %d",
 			 ret);
 }
 
@@ -163,7 +164,7 @@ static int mtk_rpmsg_trysend(struct rpmsg_endpoint *ept, void *data, int len)
 	struct mtk_ccd_rpmsg_endpoint *mept = to_mtk_rpmsg_endpoint(ept);
 
 	/*
-	 * TODO: This currently is same as mtk_rpmsg_send, and wait until CCD
+	 * TODO: This currently is same as mtk_rpmsg_send, and wait until SCP
 	 * received the last command.
 	 */
 	return mtk_subdev->ops->ccd_send(mtk_subdev, mept, data, len, 0);
@@ -212,13 +213,21 @@ mtk_rpmsg_destroy_rpmsgdev(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 	int ret;
 	struct rpmsg_device *rpdev;
 	struct device *dev = rpmsg_find_device(&mtk_subdev->pdev->dev, info);
+	if (dev) {
+		ret = rpmsg_unregister_device(&mtk_subdev->pdev->dev, info);
+		if (ret)
+			dev_info(dev, "%s:rpmsg_unregister_device failed, info->src(%x)\n",
+				 __func__, info->src);
+		rpdev = to_rpmsg_device(dev);
+		rpmsg_destroy_ept(rpdev->ept);
+	} else {
+		dev_info(dev, "%s:rpmsg_find_device failed, info->src(%x)\n",
+			 __func__, info->src);
+		ret = -EINVAL;
+	}
 
-	rpdev = to_rpmsg_device(dev);
-	ret = rpmsg_unregister_device(&mtk_subdev->pdev->dev, info);
-	rpmsg_destroy_ept(rpdev->ept);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(mtk_rpmsg_destroy_rpmsgdev);
 
 int
 mtk_destroy_client_msgdevice(struct rproc_subdev *subdev,
@@ -245,7 +254,7 @@ mtk_destroy_client_msgdevice(struct rproc_subdev *subdev,
 			 CCD_LISTEN_OBJECT_PREPARING));
 
 		if (ret != 0) {
-			dev_err(&mtk_subdev->pdev->dev,
+			dev_dbg(&mtk_subdev->pdev->dev,
 				"ccd listen wait error: %d\n", ret);
 			return -EINVAL;
 		}
@@ -284,22 +293,24 @@ mtk_rpmsg_create_rpmsgdev(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 		return NULL;
 
 	rpdev = &mdev->rpdev;
-	dev_info(&pdev->dev, "%s %p\n", __func__, rpdev);
 
 	if (info->src == RPMSG_ADDR_ANY) {
 		id_min = MTK_CCD_MSGDEV_ADDR + 1;
 		id_max = 0;
 	} else {
 		id_min = info->src;
-		id_max = info->src + 1;
+		id_max = info->src + 5;
 	}
+
+	dev_info(&pdev->dev, "%s %p, info->src(%x), id_min(%d), id_max(%d)\n",
+		 __func__, rpdev, info->src, id_min, id_max);
 
 	mutex_lock(&mtk_subdev->endpoints_lock);
 	/* bind the endpoint to an rpmsg address (and allocate one if needed) */
 	ret = idr_alloc(&mtk_subdev->endpoints,
 			mdev, id_min, id_max, GFP_KERNEL);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "idr_alloc failed: %d\n", ret);
+		dev_info(&pdev->dev, "idr_alloc failed: %d\n", ret);
 		goto free_ept;
 	}
 	mutex_unlock(&mtk_subdev->endpoints_lock);
@@ -370,7 +381,7 @@ mtk_create_client_msgdevice(struct rproc_subdev *subdev,
 			 CCD_LISTEN_OBJECT_PREPARING));
 
 		if (ret != 0) {
-			dev_err(&mtk_subdev->pdev->dev,
+			dev_info(&mtk_subdev->pdev->dev,
 				"ccd listen wait error: %d\n", ret);
 			/* TBD: free mdev */
 			return NULL;
@@ -494,7 +505,7 @@ static int ccd_msgdev_cb(struct rpmsg_device *rpdev, void *data,
 		/* farewell, ept, we don't need you anymore */
 		kref_put(&ept->refcount, __ept_release);
 	} else {
-		dev_warn(&mtk_subdev->pdev->dev,
+		dev_info(&mtk_subdev->pdev->dev,
 			 "msg received with no recipient\n");
 	}
 	return ret;
@@ -514,6 +525,10 @@ static int ccd_msgdev_probe(struct rpmsg_device *rpmsg_device)
 
 static void ccd_msgdev_remove(struct rpmsg_device *rpmsg_device)
 {
+	/*
+	 * struct rpmsg_driver *rpdrv =
+	 *	to_rpmsg_driver(rpmsg_device->dev.driver);
+	 */
 	pr_debug("ccd bus rpmsg_dev_remove: %p\n", rpmsg_device);
 }
 

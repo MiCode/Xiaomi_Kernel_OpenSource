@@ -9,7 +9,6 @@
 
 #define MAX_NUMBER_OF_BUFFER (128)
 struct vb2_mem_ops;
-struct ccd_mem_obj;
 
 /**
  * struct mtk_ccd_mem - memory buffer allocated in kernel

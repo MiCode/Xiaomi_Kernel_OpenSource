@@ -2,15 +2,15 @@
 //
 // Copyright (c) 2018 MediaTek Inc.
 
+#include <linux/compat.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/remoteproc.h>
-#include <linux/platform_data/mtk_ccd_controls.h>
 #include <linux/platform_data/mtk_ccd.h>
 #include <linux/remoteproc/mtk_ccd_mem.h>
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
-
+#include <uapi/linux/mtk_ccd_controls.h>
 
 #include "remoteproc_internal.h"
 
@@ -19,7 +19,7 @@
 
 char ccd_firmware[100] = {0};
 
-DECLARE_BUILTIN_FIRMWARE("remoteproc_ccd", ccd_firmware);
+DECLARE_BUILTIN_FIRMWARE("remoteproc_scp", ccd_firmware);
 
 struct platform_device *ccd_get_pdev(struct platform_device *pdev)
 {
@@ -27,15 +27,15 @@ struct platform_device *ccd_get_pdev(struct platform_device *pdev)
 	struct device_node *ccd_node;
 	struct platform_device *ccd_pdev;
 
-	ccd_node = of_parse_phandle(dev->of_node, "mediatek,ccd", 0);
+	ccd_node = of_parse_phandle(dev->of_node, "mediatek,scp", 0);
 	if (!ccd_node) {
-		dev_err(dev, "can't get ccd node\n");
+		dev_dbg(dev, "can't get ccd node\n");
 		return NULL;
 	}
 
 	ccd_pdev = of_find_device_by_node(ccd_node);
 	if (WARN_ON(!ccd_pdev)) {
-		dev_err(dev, "ccd pdev failed\n");
+		dev_dbg(dev, "ccd pdev failed\n");
 		of_node_put(ccd_node);
 		return NULL;
 	}
@@ -51,7 +51,7 @@ void ccd_wdt_handler(struct mtk_ccd *ccd)
 
 void ccd_init_ipi_handler(void *data, unsigned int len, void *priv)
 {
-	pr_debug("%s default impl\n", __func__);
+	//struct mtk_ccd *ccd = (struct mtk_ccd *)priv;
 }
 
 int ccd_ipi_init(struct mtk_ccd *ccd)
@@ -103,7 +103,6 @@ static const struct rproc_ops ccd_ops = {
 	.start		= ccd_start,
 	.stop		= ccd_stop,
 	.load		= ccd_load,
-	.da_to_va	= ccd_da_to_va,
 };
 
 void *ccd_mapping_dm_addr(struct platform_device *pdev, u32 mem_addr)
@@ -201,7 +200,7 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 	struct mtk_ccd *ccd = (struct mtk_ccd *)filp->private_data;
 	unsigned char *user_addr = (unsigned char *)arg;
 	struct ccd_master_listen_item listen_obj;
-	struct ccd_worker_item read_obj, write_obj;
+	struct ccd_worker_item work_obj;
 	struct ccd_master_status_item master_obj;
 
 	switch (cmd) {
@@ -230,20 +229,20 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 				   sizeof(struct ccd_master_listen_item));
 		break;
 	case IOCTL_CCD_WORKER_READ:
-		ret = copy_from_user(&read_obj, user_addr,
+		ret = copy_from_user(&work_obj, user_addr,
 				     sizeof(struct ccd_worker_item));
-		ccd_worker_read(ccd, &read_obj);
+		ccd_worker_read(ccd, &work_obj);
 
-		ret = copy_to_user(user_addr, &read_obj,
+		ret = copy_to_user(user_addr, &work_obj,
 				   sizeof(struct ccd_worker_item));
 		break;
 	case IOCTL_CCD_WORKER_WRITE:
-		ret = copy_from_user(&write_obj, user_addr,
+		ret = copy_from_user(&work_obj, user_addr,
 				     sizeof(struct ccd_worker_item));
-		ccd_worker_write(ccd, &write_obj);
+		ccd_worker_write(ccd, &work_obj);
 		break;
 	default:
-		dev_err(ccd->dev, "Unknown ioctl\n");
+		dev_dbg(ccd->dev, "Unknown ioctl\n");
 		break;
 	}
 
@@ -268,49 +267,12 @@ static long ccd_ioctl_compat(struct file *filp,
 }
 #endif
 
-static int ccd_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	struct mtk_ccd *ccd = (struct mtk_ccd *)filp->private_data;
-	unsigned long pa_start = vma->vm_pgoff << PAGE_SHIFT;
-	long length = 0;
-	u32 i;
-
-	dev_info(ccd->dev, "start:0x%llx end:0x%llx offset:0x%llx",
-		vma->vm_start, vma->vm_end, vma->vm_pgoff);
-
-	length = vma->vm_end - vma->vm_start;
-
-	for (i = 0; i < CCD_MAP_HW_REG_NUM; i++) {
-		if (pa_start == ccd->map_base[i].base &&
-		    length <= ccd->map_base[i].len) {
-			vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-			dev_info(ccd->dev, "reg base: %x mapped\n", pa_start);
-			goto valid_map;
-		}
-	}
-
-	/* It should be pa here */
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-
-valid_map:
-	dev_info(ccd->dev,
-		"remap start: 0x%llx pgoff:0x%llx prot:0x%llx len:0x%llx",
-		 vma->vm_start, vma->vm_pgoff, vma->vm_page_prot, length);
-
-	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff, length,
-			    vma->vm_page_prot) != 0) {
-		return -EAGAIN;
-	}
-	return 0;
-}
-
 static const struct file_operations ccd_fops = {
 	.owner = THIS_MODULE,
 	.open = ccd_open,
 	.release = ccd_release,
 	.read = ccd_debug_read,
 	.write = ccd_debug_write,
-	.mmap = ccd_mmap,
 	.unlocked_ioctl = ccd_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = ccd_ioctl_compat,
@@ -324,7 +286,7 @@ static int ccd_regcdev(struct mtk_ccd *ccd)
 
 	ret = alloc_chrdev_region(&ccd->ccd_devno, 0, 1, CCD_DEV_NAME);
 	if (ret < 0) {
-		pr_err("alloc_chrdev_region failed, %d\n", ret);
+		pr_debug("alloc_chrdev_region failed, %d\n", ret);
 		return ret;
 	}
 
@@ -334,7 +296,7 @@ static int ccd_regcdev(struct mtk_ccd *ccd)
 	/* Add to system */
 	ret = cdev_add(&ccd->ccd_cdev, ccd->ccd_devno, 1);
 	if (ret < 0) {
-		pr_err("Attatch file operation failed, %d\n", ret);
+		pr_debug("Attach file operation failed, %d\n", ret);
 		goto err_cdev_add;
 	}
 
@@ -342,7 +304,7 @@ static int ccd_regcdev(struct mtk_ccd *ccd)
 	ccd->ccd_class = class_create(THIS_MODULE, "mtk_ccd");
 	if (IS_ERR(ccd->ccd_class)) {
 		ret = PTR_ERR(ccd->ccd_class);
-		pr_err("Unable to create class, err = %d\n", ret);
+		pr_debug("Unable to create class, err = %d\n", ret);
 		goto err_class_create;
 	}
 
@@ -351,7 +313,7 @@ static int ccd_regcdev(struct mtk_ccd *ccd)
 			    CCD_DEV_NAME);
 	if (IS_ERR(dev)) {
 		ret = PTR_ERR(dev);
-		pr_err("Failed to create device: /dev/%s, err = %d\n",
+		pr_debug("Failed to create device: /dev/%s, err = %d\n",
 		       CCD_DEV_NAME,
 		       ret);
 		goto err_device_create;
@@ -404,7 +366,7 @@ static int ccd_probe(struct platform_device *pdev)
 	struct mtk_ccd *ccd;
 	struct resource *res;
 	struct rproc *rproc;
-	char *fw_name = "remoteproc_ccd";
+	char *fw_name = "remoteproc_scp";
 	int ret;
 	u32 i;
 
@@ -414,7 +376,7 @@ static int ccd_probe(struct platform_device *pdev)
 			    fw_name,
 			    sizeof(*ccd));
 	if (!rproc) {
-		dev_err(dev, "unable to allocate remoteproc\n");
+		dev_dbg(dev, "unable to allocate remoteproc\n");
 		return -ENOMEM;
 	}
 
@@ -454,7 +416,7 @@ static int ccd_probe(struct platform_device *pdev)
 			       ccd_init_ipi_handler,
 			       ccd);
 	if (ret) {
-		dev_err(dev, "Failed to register IPI_SCP_INIT\n");
+		dev_dbg(dev, "Failed to register IPI_SCP_INIT\n");
 		goto free_rproc;
 	}
 

@@ -22,12 +22,22 @@ struct ccd_master_listen_item;
 struct ccd_worker_item;
 enum ccd_ipi_id;
 struct mtk_ccd_memory;
-struct ccd_mem_obj;
+
+/**
+ * struct mem_obj - memory buffer allocated in kernel
+ *
+ * @iova:	iova of buffer
+ * @len:	buffer length
+ * @va: kernel virtual address
+ */
+struct mem_obj {
+	dma_addr_t iova;
+	unsigned int len;
+	void *va;
+};
 
 enum ccd_map_hw_reg_id {
-	CCD_CAM1, /* 0x1A01_0000 */
-	CCD_CAM2, /* 0x1A02_0000 */
-	CCD_CAM3, /* 0x1A03_0000 */
+	CCD_CAM1, /* 0x16030000 */
 	CCD_MAP_HW_REG_NUM
 };
 
@@ -38,6 +48,11 @@ struct map_hw_reg {
 
 struct ccd_master_status {
 	unsigned int state;
+};
+
+struct rp_scp_ipi_desc {
+	ccd_ipi_handler_t handler;
+	void *priv;
 };
 
 struct mtk_ccd {
@@ -59,7 +74,7 @@ struct mtk_ccd {
 };
 
 /**
- * scp_ipi_register - register an ipi function
+ * ccd_ipi_register - register an ipi function
  *
  * @pdev:	CCD platform device
  * @id:		IPI ID
@@ -76,7 +91,7 @@ int ccd_ipi_register(struct platform_device *pdev,
 		     void *priv);
 
 /**
- * scp_ipi_unregister - unregister an ipi function
+ * ccd_ipi_unregister - unregister an ipi function
  *
  * @pdev:	CCD platform device
  * @id:		IPI ID
@@ -106,7 +121,7 @@ int rpmsg_ccd_ipi_send(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 		       void *buf, unsigned int len, unsigned int wait);
 
 void ccd_master_listen(struct mtk_ccd *ccd,
-		       struct ccd_master_listen_item *listen_obj);
+			      struct ccd_master_listen_item *listen_obj);
 
 void ccd_master_destroy(struct mtk_ccd *ccd,
 			struct ccd_master_status_item *master_obj);
@@ -145,20 +160,17 @@ struct platform_device *ccd_get_pdev(struct platform_device *pdev);
 void *ccd_mapping_dm_addr(struct platform_device *pdev,
 			  u32 mem_addr);
 
-void mtk_ccd_get_serivce(struct mtk_ccd *ccd,
+void mtk_ccd_get_service(struct mtk_ccd *ccd,
 			 struct task_struct **task,
 			 struct files_struct **f);
 
 void *mtk_ccd_get_buffer(struct mtk_ccd *ccd,
-			 struct ccd_mem_obj  *mem_buff_data);
-int mtk_ccd_free_buffer(struct mtk_ccd *ccd,
-			struct ccd_mem_obj  *mem_buff_data);
+			 struct mem_obj *mem_buff_data);
+int mtk_ccd_put_buffer(struct mtk_ccd *ccd,
+			struct mem_obj *mem_buff_data);
 
-struct dma_buf *
-mtk_ccd_get_dmabuf(struct mtk_ccd *ccd, void *mem_priv);
-int mtk_ccd_get_dmabuf_fd(struct mtk_ccd *ccd,
-			  struct dma_buf *dmabuf,
-			  int ori_fd);
-void mtk_ccd_put_fd(struct mtk_ccd *ccd, struct dma_buf *dmabuf,
-		    int target_fd);
+int mtk_ccd_get_buffer_fd(struct mtk_ccd *ccd, void *mem_priv, int ori_fd);
+int mtk_ccd_put_buffer_fd(struct mtk_ccd *ccd,
+			struct mem_obj *mem_buff_data,
+unsigned int target_fd);
 #endif /* _MTK_CCD_H */
