@@ -985,7 +985,7 @@ static int instant_current(struct mtk_gauge *gauge)
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 
 	pre_gauge_update(gauge);
 
@@ -1212,10 +1212,10 @@ static void fgauge_set_zcv_intr_internal(struct mtk_gauge *gauge_dev, int fg_zcv
 
 #if defined(__LP64__) || defined(_LP64)
 	fg_zcv_car_th_reg = ((fg_zcv_car_th_reg * 1000) /
-			gauge_dev->hw_status.car_tune_value);
+			gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
 	fg_zcv_car_th_reg = div_s64((fg_zcv_car_th_reg * 1000),
-			gauge_dev->hw_status.car_tune_value);
+			gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
 
 	regmap_update_bits(gauge_dev->regmap, RG_FGADC_ZCV_CON0, FG_ZCV_DET_IV_MASK,
@@ -1277,7 +1277,8 @@ static void read_fg_hw_info_current_2(struct mtk_gauge *gauge_dev)
 	if (sign_bit == 1)
 		dvalue = dvalue - (dvalue * 2);
 
-	gauge_dev->fg_hw_info.current_2 = (dvalue * gauge_dev->hw_status.car_tune_value) / 1000;
+	gauge_dev->fg_hw_info.current_2 =
+		(dvalue * gauge_dev->gm->fg_cust_data.car_tune_value) / 1000;
 }
 
 static void read_fg_hw_info_ncar(struct mtk_gauge *gauge_dev)
@@ -1335,7 +1336,8 @@ static void read_fg_hw_info_ncar(struct mtk_gauge *gauge_dev)
 	if (gauge_dev->hw_status.r_fg_value != priv->default_r_fg)
 		dvalue_NCAR = (dvalue_NCAR * priv->default_r_fg) / gauge_dev->hw_status.r_fg_value;
 
-	gauge_dev->fg_hw_info.ncar = ((dvalue_NCAR * gauge_dev->hw_status.car_tune_value) / 1000);
+	gauge_dev->fg_hw_info.ncar =
+		((dvalue_NCAR * gauge_dev->gm->fg_cust_data.car_tune_value) / 1000);
 
 }
 
@@ -1418,7 +1420,7 @@ static int coulomb_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	pre_gauge_update(gauge);
 
 	regmap_raw_read(gauge->regmap, RG_FGADC_CAR_CON0, &temp_car, sizeof(temp_car));
@@ -1506,7 +1508,7 @@ static int average_current_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sys
 	int r_fg_value, car_tune_value;
 
 	r_fg_value = gauge_dev->hw_status.r_fg_value;
-	car_tune_value = gauge_dev->hw_status.car_tune_value;
+	car_tune_value = gauge_dev->gm->fg_cust_data.car_tune_value;
 
 	pre_gauge_update(gauge_dev);
 
@@ -1753,10 +1755,10 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 
 #if defined(__LP64__) || defined(_LP64)
 	do_div(fg_iavg_reg_ht, UNIT_FG_IAVG);
-	do_div(fg_iavg_reg_ht, gauge_dev->hw_status.car_tune_value);
+	do_div(fg_iavg_reg_ht, gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
 	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, UNIT_FG_IAVG);
-	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, gauge_dev->hw_status.car_tune_value);
+	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
 
 
@@ -1776,11 +1778,11 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 
 #if defined(__LP64__) || defined(_LP64)
 	do_div(fg_iavg_reg_lt, UNIT_FG_IAVG);
-	do_div(fg_iavg_reg_lt, gauge_dev->hw_status.car_tune_value);
+	do_div(fg_iavg_reg_lt, gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
 	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt, UNIT_FG_IAVG);
 	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt,
-				gauge_dev->hw_status.car_tune_value);
+				gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
 
 	fg_iavg_lth_28_16 = (fg_iavg_reg_lt & 0x1fff0000) >> 16;
@@ -1905,9 +1907,9 @@ static int bat_cycle_intr_threshold_set(struct mtk_gauge *gauge,
 
 	car = car * 1000;
 #if defined(__LP64__) || defined(_LP64)
-	do_div(car, gauge->hw_status.car_tune_value);
+	do_div(car, gauge->gm->fg_cust_data.car_tune_value);
 #else
-	car = div_s64(car, gauge->hw_status.car_tune_value);
+	car = div_s64(car, gauge->gm->fg_cust_data.car_tune_value);
 #endif
 
 	carReg = car;
@@ -2759,7 +2761,7 @@ static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	bm_debug("%s car=%d\n", __func__, val);
 	if (car == 0) {
 		disable_gauge_irq(gauge, COULOMB_L_IRQ);
@@ -2853,7 +2855,7 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	bm_debug("%s car=%d\n", __func__, val);
 	if (car == 0) {
 		disable_gauge_irq(gauge, COULOMB_H_IRQ);
@@ -3385,7 +3387,7 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 	int car_tune_value;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
-	car_tune_value = gauge->hw_status.car_tune_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	regmap_raw_read(gauge->regmap, RG_FGADC_R_CON0, &reg_value, sizeof(reg_value));
 
 	dvalue = reg_to_current(gauge, reg_value);
