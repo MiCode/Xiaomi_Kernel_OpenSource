@@ -36,6 +36,8 @@ static const struct regmap_config spmi_regmap_config = {
 	.val_bits	= 8,
 	.max_register	= 0x2000,
 	.fast_io	= true,
+	.use_single_read = true,
+	.use_single_write = true
 };
 
 static int mt6685_spmi_probe(struct spmi_device *sdev)
