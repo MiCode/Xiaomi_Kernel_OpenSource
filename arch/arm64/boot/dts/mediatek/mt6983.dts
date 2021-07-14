@@ -4137,14 +4137,14 @@
 		compatible = "mediatek,mt6983-disp";
 		reg = <0 0x14000000 0 0x1000>;
 		//iommus = <&iommu0 M4U_PORT_L0_DISP_OVL0_2L_0>;
-		//mediatek,larb = <&smi_larb0>;
-		//fake-engine = <&smi_larb0 M4U_PORT_L0_DISP_FAKE0>,
-				//<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
-		//#clock-cells = <1>;
+		mediatek,larb = <&smi_larb0>;
+		fake-engine = <&smi_larb0 M4U_PORT_L0_DISP_FAKE0>,
+				<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
+		#clock-cells = <1>;
 		//power-domains = <&scpsys MT6983_POWER_DOMAIN_DISP>;
-		//clocks = <&mmsys_config_clk CLK_MM_CK_26_MHZ>,
-				  //<&mmsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>;
-		//clock-num = <2>;
+		clocks = //<&dispsys_config_clk CLK_MM_CK_26_MHZ>,
+				  <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>;
+		clock-num = <1>;
 		//operating-points-v2 = <&opp_table_disp>;
 		//dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		//interconnects = <&mmqos SLAVE_LARB(23) &mmqos SLAVE_COMMON(0)>;
@@ -4311,7 +4311,7 @@
 					"mediatek,mt6983-disp-mutex";
 		reg = <0 0x14001000 0 0x1000>;
 		interrupts = <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH 0>;
-		//clocks = <&mmsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>;
+		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_MUTEX>;
 	};
 
 	disp_ovl0: disp_ovl@14002000 {
@@ -4319,9 +4319,9 @@
 				"mediatek,mt6983-disp-ovl";
 		reg = <0 0x14002000 0 0x1000>;
 		interrupts = <GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH 0>;
-		//clocks = <&mmsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
-		//mediatek,larb = <&smi_larb0>;
-		//mediatek,smi-id = <0>;
+		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
+		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		//iommus = <&iommu0 M4U_PORT_L0_DISP_OVL0_0_DISP>,
 			 //<&iommu0 M4U_PORT_L0_DISP_OVL0_HDR>;
 		//interconnects =
@@ -4341,9 +4341,9 @@
 					"mediatek,mt6983-disp-ovl";
 		reg = <0 0x14004000 0 0x1000>;
 		interrupts = <GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH 0>;
-		//clocks = <&mmsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL1_2L>;
-		//mediatek,larb = <&smi_larb0>;
-		//mediatek,smi-id = <0>;
+		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL1_2L>;
+		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		//iommus = <&iommu0 M4U_PORT_L0_DISP_OVL0_2L_0>,
 			 //<&iommu0 M4U_PORT_L0_DISP_OVL0_2L_HDR>;
 		//interconnects =
@@ -4373,9 +4373,9 @@
 					"mediatek,mt6983-disp-rdma";
 		reg = <0 0x14006000 0 0x1000>;
 		interrupts = <GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH 0>;
-		//clocks = <&mmsys_config_clk CLK_DISPSYS_CONFIG_DISP_RDMA0>;
-		//mediatek,larb = <&smi_larb0>;
-		//mediatek,smi-id = <0>;
+		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_RDMA0>;
+		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		//iommus = <&iommu0 M4U_PORT_L0_DISP_RDMA0>;
 		//interconnects =
 			//<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
@@ -4639,9 +4639,9 @@
 					"mediatek,mt6983-dsi";
 		reg = <0 0x14017000 0 0x1000>;
 		interrupts = <GIC_SPI 355 IRQ_TYPE_LEVEL_HIGH 0>;
-		//clocks = <&mmsys_config_clk CLK_DISPSYS_CONFIG_DISP_DSI0>,
-		//<&mmsys_config_clk CLK_MM_DSI0_INTF_CLK>,
-		//<&mipi_tx_config0>;
+		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DSI0>,
+		<&dispsys_config_clk CLK_DISPSYS_CONFIG_DSI_CLK>,
+		<&mipi_tx_config0>;
 		clock-names = "engine", "digital", "hs";
 		phys = <&mipi_tx_config0>;
 		phy-names = "dphy";
