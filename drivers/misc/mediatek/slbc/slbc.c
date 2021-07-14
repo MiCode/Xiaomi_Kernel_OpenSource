@@ -63,6 +63,7 @@ static int slbc_ref;
 static int debug_level;
 static int uid_ref[UID_MAX];
 static struct slbc_data test_d;
+static int slbc_mic_num;
 static struct slbc_data slbc_pd[UID_MAX];
 
 static LIST_HEAD(slbc_ops_list);
@@ -1197,6 +1198,18 @@ int slbc_secure_off(struct slbc_data *d)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(slbc_secure_off);
+
+void slbc_update_mm_bw(unsigned int bw)
+{
+	/* slbc_sram_write(SLBC_MM_EST_BW, bw); */
+}
+EXPORT_SYMBOL_GPL(slbc_update_mm_bw);
+
+void slbc_update_mic_num(unsigned int num)
+{
+	slbc_mic_num = num;
+}
+EXPORT_SYMBOL_GPL(slbc_update_mic_num);
 
 static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 {

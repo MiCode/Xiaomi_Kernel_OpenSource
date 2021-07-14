@@ -116,6 +116,8 @@ extern int slbc_power_on(struct slbc_data *d);
 extern int slbc_power_off(struct slbc_data *d);
 extern int slbc_secure_on(struct slbc_data *d);
 extern int slbc_secure_off(struct slbc_data *d);
+extern void slbc_update_mm_bw(unsigned int bw);
+extern void slbc_update_mic_num(unsigned int num);
 #else
 __attribute__ ((weak))
 int register_slbc_ops(struct slbc_ops *ops)
@@ -157,6 +159,14 @@ int slbc_secure_off(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
+__attribute__ ((weak))
+void slbc_update_mm_bw(unsigned int bw)
+{
+}
+__attribute__ ((weak))
+void slbc_update_mic_num(unsigned int num)
+{
+}
 #endif /* CONFIG_MTK_SLBC */
 
 #endif /* _SLBC_OPS_H_ */
