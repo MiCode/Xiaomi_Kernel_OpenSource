@@ -1260,6 +1260,7 @@ static int qcom_glink_native_rx(struct qcom_glink *glink, int iterations)
 
 	if (should_wake) {
 		pr_info("%s: wakeup %s\n", __func__, glink->irqname);
+		should_wake = false;
 		pm_system_wakeup();
 	}
 	/* To wakeup any blocking writers */
