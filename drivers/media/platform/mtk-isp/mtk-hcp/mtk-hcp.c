@@ -765,7 +765,7 @@ phys_addr_t mtk_hcp_mem_size;
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xA00000,   /*10MB*/
+		.size = 0x1400000,   /*20MB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
