@@ -7200,7 +7200,7 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 		}
 	}
 	cmdq_buf->va_base = cmdq_mbox_buf_alloc(
-		mtk_crtc->gce_obj.client[CLIENT_CFG]->chan->mbox->dev,
+		mtk_crtc->gce_obj.client[CLIENT_CFG],
 		&(cmdq_buf->pa_base));
 
 	if (!cmdq_buf->va_base) {
