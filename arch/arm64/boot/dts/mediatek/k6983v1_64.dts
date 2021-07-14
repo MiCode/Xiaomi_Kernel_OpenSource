@@ -152,6 +152,7 @@
 };
 
 &sound {
+	mediatek,spk-i2s = <3 9>;
 	mediatek,speaker-codec {
 		sound-dai = <&spk1>, <&spk2>;
 	};
