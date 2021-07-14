@@ -20,6 +20,10 @@ struct mtk_extcon_info {
 	struct notifier_block tcpc_nb;
 #endif
 	bool bypss_typec_sink;
+	/* id gpio */
+	struct gpio_desc *id_gpiod;
+	unsigned int id_irq;
+	struct delayed_work wq_detcable;
 };
 
 struct usb_role_info {
