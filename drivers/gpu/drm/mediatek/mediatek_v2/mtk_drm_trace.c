@@ -16,44 +16,49 @@
 //#include "mmpath.h"
 #endif
 
-unsigned long mtk_drm_get_tracing_mark(void)
-{
-	static unsigned long addr;
+#define MTK_DRM_TRACE_MSG_LEN	1024
 
-#ifdef IF_ZERO
-	if (unlikely(addr == 0))
-		addr = kallsyms_lookup_name("tracing_mark_write");
+static noinline int tracing_mark_write(const char *buf)
+{
+#ifdef CONFIG_TRACING
+	trace_puts(buf);
 #endif
 
-	return addr;
+	return 0;
 }
 
-static void drm_print_trace(const char *tag, int value)
+void mtk_drm_print_trace(char *fmt, ...)
 {
-	preempt_disable();
-	//event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-	//	DRM_TRACE_ID, tag, value);
-	preempt_enable();
+	char buf[MTK_DRM_TRACE_MSG_LEN];
+	va_list args;
+	int len;
+
+	va_start(args, fmt);
+	len = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	if (len >= MTK_DRM_TRACE_MSG_LEN) {
+		pr_info("%s, string size %u exceed limit\n", __func__, len);
+		return;
+	}
+
+	tracing_mark_write(buf);
 }
 
 void drm_trace_tag_start(const char *tag)
 {
-	drm_print_trace(tag, 1);
+	mtk_drm_print_trace("C|%d|%s|%d\n", DRM_TRACE_ID, tag, 1);
 }
 
 void drm_trace_tag_end(const char *tag)
 {
-	drm_print_trace(tag, 0);
+	mtk_drm_print_trace("C|%d|%s|%d\n", DRM_TRACE_ID, tag, 0);
 }
 
 void drm_trace_tag_mark(const char *tag)
 {
-	preempt_disable();
-	// event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-	//	DRM_TRACE_ID, tag, 1);
-	//event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-	//	DRM_TRACE_ID, tag, 0);
-	preempt_enable();
+	mtk_drm_print_trace("C|%d|%s|%d\n", DRM_TRACE_ID, tag, 1);
+	mtk_drm_print_trace("C|%d|%s|%d\n", DRM_TRACE_ID, tag, 0);
 }
 
 void mtk_drm_refresh_tag_start(struct mtk_ddp_comp *ddp_comp)
@@ -94,11 +99,8 @@ void mtk_drm_refresh_tag_start(struct mtk_ddp_comp *ddp_comp)
 			/* Handle sprintf() error */
 			pr_debug("sprintf error\n");
 		}
-		preempt_disable();
-		//  event_trace_printk(mtk_drm_get_tracing_mark(),
-		//		"C|%d|%s|%d\n", DRM_TRACE_FPS_ID,
-		//		tag_name, 1);
-		preempt_enable();
+		mtk_drm_print_trace("C|%d|%s|%d\n", DRM_TRACE_FPS_ID,
+					tag_name, 1);
 	}
 }
 
@@ -123,10 +125,7 @@ void mtk_drm_refresh_tag_end(struct mtk_ddp_comp *ddp_comp)
 		/* Handle sprintf() error */
 		pr_debug("sprintf error\n");
 	}
-	preempt_disable();
-	// event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-	//			DRM_TRACE_FPS_ID, tag_name, 0);
-	preempt_enable();
+	mtk_drm_print_trace("C|%d|%s|%d\n", DRM_TRACE_FPS_ID, tag_name, 0);
 }
 
 #ifdef DRM_MMPATH
