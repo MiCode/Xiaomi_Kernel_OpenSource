@@ -5653,6 +5653,18 @@
 #endif
 	};
 
+	aie: aie@15310000 {
+		compatible = "mediatek,mt8195-aie", "mediatek,aie-hw3.0";
+		reg = <0 0x15310000 0 0x1000>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>;
+		fdvt_frame_done = <CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE>;
+		iommus = <&mdp_iommu M4U_PORT_L12_IPE_FDVT_RDA0>,
+			 <&mdp_iommu M4U_PORT_L12_IPE_FDVT_RDB0>,
+			 <&mdp_iommu M4U_PORT_L12_IPE_FDVT_WRA0>,
+			 <&mdp_iommu M4U_PORT_L12_IPE_FDVT_WR0B>;
+	};
+
 	dvs: dvs@15300000 {
 			compatible = "mediatek,dvs";
 			reg = <0 0x15300000 0 0x1000>;
