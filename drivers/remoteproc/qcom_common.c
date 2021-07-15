@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/soc/qcom/mdt_loader.h>
 #include <linux/soc/qcom/smem.h>
+#include <trace/hooks/remoteproc.h>
 
 #include "remoteproc_internal.h"
 #include "qcom_common.h"
@@ -548,6 +549,24 @@ void qcom_remove_ssr_subdev(struct rproc *rproc, struct qcom_rproc_ssr *ssr)
 	ssr->info = NULL;
 }
 EXPORT_SYMBOL_GPL(qcom_remove_ssr_subdev);
+
+static void qcom_check_ssr_status(void *data, struct rproc *rproc)
+{
+	if (rproc->state != RPROC_RUNNING)
+		panic("Panicking, remoteproc %s failed to recover!\n", rproc->name);
+}
+
+static int __init qcom_common_init(void)
+{
+	return register_trace_android_vh_rproc_recovery(qcom_check_ssr_status, NULL);
+}
+module_init(qcom_common_init);
+
+static void __exit qcom_common_exit(void)
+{
+	unregister_trace_android_vh_rproc_recovery(qcom_check_ssr_status, NULL);
+}
+module_exit(qcom_common_exit);
 
 MODULE_DESCRIPTION("Qualcomm Remoteproc helper driver");
 MODULE_LICENSE("GPL v2");
