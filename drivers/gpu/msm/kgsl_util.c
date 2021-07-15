@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/soc/qcom/mdt_loader.h>
 #include <linux/string.h>
+#include <soc/qcom/minidump.h>
 
 #include "kgsl_util.h"
 
@@ -207,4 +208,40 @@ void kgsl_hwunlock(struct cpu_gpu_lock *lock)
 	/* Make sure all writes are done before releasing the lock */
 	wmb();
 	lock->cpu_req = 0;
+}
+
+void kgsl_add_to_minidump(char *name, u64 virt_addr, u64 phy_addr, size_t size)
+{
+	struct md_region md_entry = {0};
+	int ret;
+
+	if (!msm_minidump_enabled())
+		return;
+
+	scnprintf(md_entry.name, sizeof(md_entry.name), name);
+	md_entry.virt_addr = virt_addr;
+	md_entry.phys_addr = phy_addr;
+	md_entry.size = size;
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0 && ret != -EEXIST)
+		pr_err("kgsl: Failed to register %s with minidump:%d\n", name, ret);
+
+}
+
+void kgsl_remove_from_minidump(char *name, u64 virt_addr, u64 phy_addr, size_t size)
+{
+	struct md_region md_entry = {0};
+	int ret;
+
+	if (!msm_minidump_enabled())
+		return;
+
+	scnprintf(md_entry.name, sizeof(md_entry.name), name);
+	md_entry.virt_addr = virt_addr;
+	md_entry.phys_addr = phy_addr;
+	md_entry.size = size;
+	ret = msm_minidump_remove_region(&md_entry);
+	if (ret < 0 && ret != -ENOENT)
+		pr_err("kgsl: Failed to remove %s from minidump\n", name);
+
 }

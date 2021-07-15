@@ -8,7 +8,9 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 
+#include "kgsl_device.h"
 #include "kgsl_eventlog.h"
+#include "kgsl_util.h"
 
 #define EVENTLOG_SIZE SZ_8K
 #define MAGIC 0xabbaabba
@@ -90,10 +92,16 @@ void kgsl_eventlog_init(void)
 	eventlog_wptr = 0;
 
 	spin_lock_init(&lock);
+
+	kgsl_add_to_minidump("KGSL_EVENTLOG", (u64) kgsl_eventlog,
+				__pa(kgsl_eventlog), EVENTLOG_SIZE);
 }
 
 void kgsl_eventlog_exit(void)
 {
+	kgsl_remove_from_minidump("KGSL_EVENTLOG", (u64) kgsl_eventlog,
+				__pa(kgsl_eventlog), EVENTLOG_SIZE);
+
 	kfree(kgsl_eventlog);
 	kgsl_eventlog = NULL;
 	eventlog_wptr = 0;

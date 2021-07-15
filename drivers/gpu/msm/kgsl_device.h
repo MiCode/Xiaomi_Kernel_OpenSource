@@ -238,7 +238,6 @@ struct kgsl_device {
 		void *ptr;
 		dma_addr_t dma_handle;
 		u32 size;
-		bool in_minidump;
 	} snapshot_memory;
 
 	struct kgsl_snapshot *snapshot;
