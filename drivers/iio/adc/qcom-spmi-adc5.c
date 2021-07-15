@@ -166,9 +166,12 @@ static const struct vadc_prescale_ratio adc5_prescale_ratios[] = {
 	{.num = 10, .den = 81},
 	{.num =  1, .den = 10},
 	{.num =  1, .den = 16},
+	{.num = 40, .den = 41},		/* PM7_SMB_TEMP */
 	/* Prescale ratios for current channels below */
 	{.num = 32, .den = 100},	/* IIN_FB, IIN_SMB */
 	{.num = 16, .den = 100},	/* ICHG_SMB */
+	{.num = 1280, .den = 4100},	/* IIN_SMB_new */
+	{.num = 640, .den = 4100},	/* ICHG_SMB_new */
 	{.num = 1000, .den = 305185},	/* ICHG_FB */
 	{.num = 1000, .den = 610370},	/* ICHG_FB_2X */
 };
@@ -686,17 +689,17 @@ static const struct adc5_channels adc7_chans_pmic[ADC5_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_DEFAULT)
 	[ADC7_USB_IN_V_16]	= ADC5_CHAN_VOLT("usb_in_v_div_16", 8,
 					SCALE_HW_CALIB_DEFAULT)
-	[ADC7_AMUX_THM3]	= ADC5_CHAN_TEMP("smb_temp", 0,
+	[ADC7_AMUX_THM3]	= ADC5_CHAN_TEMP("smb_temp", 9,
 					SCALE_HW_CALIB_PM7_SMB_TEMP)
 	[ADC7_CHG_TEMP]		= ADC5_CHAN_TEMP("chg_temp", 0,
 					SCALE_HW_CALIB_PM7_CHG_TEMP)
-	[ADC7_IIN_FB]		= ADC5_CHAN_CUR("iin_fb", 9,
+	[ADC7_IIN_FB]		= ADC5_CHAN_CUR("iin_fb", 10,
 					SCALE_HW_CALIB_CUR)
-	[ADC7_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 9,
+	[ADC7_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 12,
 					SCALE_HW_CALIB_CUR)
-	[ADC7_ICHG_SMB]		= ADC5_CHAN_CUR("ichg_smb", 10,
+	[ADC7_ICHG_SMB]		= ADC5_CHAN_CUR("ichg_smb", 13,
 					SCALE_HW_CALIB_CUR)
-	[ADC7_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 11,
+	[ADC7_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 14,
 					SCALE_HW_CALIB_CUR_RAW)
 	[ADC7_DIE_TEMP]		= ADC5_CHAN_TEMP("die_temp", 0,
 					SCALE_HW_CALIB_PMIC_THERM_PM7)
