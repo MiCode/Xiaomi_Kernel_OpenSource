@@ -120,13 +120,13 @@ gh_vm_loader_wait_for_os_status(struct gh_sec_vm_struct *sec_vm_struct,
 	return 0;
 }
 
-static int gh_vm_loader_get_wait_for_stop_reason(u32 stop_reason, u8 stop_flags)
+static int gh_vm_loader_get_wait_for_stop_reason(u32 stop_reason)
 {
 	switch (stop_reason) {
 	case GH_VM_STOP_SHUTDOWN:
-		if (stop_flags)
-			return GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED;
 		return GH_RM_VM_EXIT_TYPE_SYSTEM_OFF;
+	case GH_VM_STOP_FORCE_STOP:
+		return GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED;
 	case GH_VM_STOP_RESTART:
 		return GH_RM_VM_EXIT_TYPE_SYSTEM_RESET;
 	case GH_VM_STOP_CRASH:
@@ -217,14 +217,15 @@ gh_vm_loader_handle_fatal_err(struct gh_sec_vm_struct *sec_vm_struct,
 	struct gh_sec_vm_dev *vm_dev = sec_vm_struct->vm_dev;
 	struct device *dev = vm_dev->dev;
 
-	dev_info(dev, "VM: %d Crashed! restart_level set: %u\n",
-		sec_vm_struct->vmid, sec_vm_struct->restart_level);
+	if (vm_exited->exit_type != GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED) {
+		dev_info(dev, "VM: %d Crashed! restart_level set: %u\n",
+			sec_vm_struct->vmid, sec_vm_struct->restart_level);
 
-	if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_SYSTEM)
-		panic("Resetting the SoC");
-	else if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_RELATIVE)
-		dev_info(dev, "Recovering the VM\n");
-
+		if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_SYSTEM)
+			panic("Resetting the SoC");
+		else if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_RELATIVE)
+			dev_info(dev, "Recovering the VM\n");
+	}
 	/* Send a early notification to the clients before
 	 * the VM's resources are cleaned
 	 */
@@ -486,7 +487,7 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 	if (stop_reason >= GH_VM_STOP_MAX)
 		return -EINVAL;
 
-	wait_status = gh_vm_loader_get_wait_for_stop_reason(stop_reason, stop_flags);
+	wait_status = gh_vm_loader_get_wait_for_stop_reason(stop_reason);
 	if (wait_status < 0)
 		return -EINVAL;
 
@@ -504,7 +505,11 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 		return -ENODEV;
 	}
 
-	gh_vm_loader_notify_clients(vm_struct,
+	if (wait_status == GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED)
+		stop_flags = GH_RM_VM_STOP_FLAG_FORCE_STOP;
+
+	else
+		gh_vm_loader_notify_clients(vm_struct,
 					GH_VM_LOADER_SEC_BEFORE_SHUTDOWN);
 
 	ret = gh_rm_vm_stop(sec_vm_struct->vmid, stop_reason, stop_flags);
@@ -516,6 +521,12 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 	mutex_unlock(&sec_vm_struct->vm_lock);
 
 	ret = gh_vm_loader_wait_for_vm_exited(sec_vm_struct, wait_status);
+	if (ret && wait_status != GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED) {
+		dev_err(dev, "VM stop timed out, so trying to force stop\n");
+		ret = gh_vm_loader_sec_stop(vm_struct,
+					GH_VM_STOP_FORCE_STOP, 0);
+	}
+
 	if (ret)
 		goto err_notify_fail;
 
@@ -524,7 +535,8 @@ static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
 err_unlock:
 	mutex_unlock(&sec_vm_struct->vm_lock);
 err_notify_fail:
-	gh_vm_loader_notify_clients(vm_struct,
+	if (wait_status != GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED)
+		gh_vm_loader_notify_clients(vm_struct,
 					GH_VM_LOADER_SEC_SHUTDOWN_FAIL);
 	return ret;
 }
@@ -591,9 +603,6 @@ static long gh_vm_loader_sec_ioctl(struct file *file,
 		return gh_vm_loader_sec_start(vm_struct);
 	case GH_VM_SEC_STOP:
 		return gh_vm_loader_sec_stop(vm_struct, arg, 0);
-	case GH_VM_SEC_FORCE_STOP:
-		return gh_vm_loader_sec_stop(vm_struct, GH_VM_STOP_SHUTDOWN,
-						GH_RM_VM_STOP_FLAG_FORCE_STOP);
 	case GH_VM_SEC_WAIT_FOR_EXIT:
 		return gh_vm_loader_wait_for_exit(vm_struct,
 						(void __user *)arg);

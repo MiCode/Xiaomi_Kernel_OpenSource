@@ -244,6 +244,18 @@ err_destroy_vm:
 	return err;
 }
 
+static long gh_vm_loader_api_version(void __user *arg)
+{
+	struct gh_vm_api_version vm_api_version;
+
+	vm_api_version.major = GH_VM_API_MAJOR_VERSION;
+	vm_api_version.minor = GH_VM_API_MINOR_VERSION;
+	if (copy_to_user(arg, &vm_api_version, sizeof(vm_api_version)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static long gh_vm_loader_dev_ioctl(struct file *filp,
 					unsigned int cmd, unsigned long arg)
 {
@@ -251,7 +263,7 @@ static long gh_vm_loader_dev_ioctl(struct file *filp,
 
 	switch (cmd) {
 	case GH_VM_GET_API_VERSION:
-		return GH_VM_API_VERSION;
+		return gh_vm_loader_api_version((void __user *)arg);
 	case GH_VM_CREATE:
 		return gh_vm_loader_dev_create_vm(arg);
 	default:
@@ -269,7 +281,7 @@ static const struct file_operations gh_vm_loader_dev_fops = {
 };
 
 static struct miscdevice gh_vm_loader_dev = {
-	.name = "gh_vm",
+	.name = "gunyah",
 	.minor = MISC_DYNAMIC_MINOR,
 	.fops = &gh_vm_loader_dev_fops,
 };
