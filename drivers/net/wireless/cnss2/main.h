@@ -515,6 +515,7 @@ struct cnss_plat_data {
 	struct mbox_client mbox_client_data;
 	struct mbox_chan *mbox_chan;
 	const char *vreg_ol_cpr, *vreg_ipa;
+	bool adsp_pc_enabled;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
