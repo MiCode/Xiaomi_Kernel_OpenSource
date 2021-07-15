@@ -23,6 +23,8 @@ struct qcom_q6v5 {
 	int handover_irq;
 	int stop_irq;
 
+	struct work_struct crash_handler;
+
 	bool handover_issued;
 
 	struct completion start_done;
