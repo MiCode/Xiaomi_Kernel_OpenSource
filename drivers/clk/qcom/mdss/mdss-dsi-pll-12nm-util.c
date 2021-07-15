@@ -951,6 +951,13 @@ int pll_vco_prepare_12nm(struct clk_hw *hw)
 		return -EINVAL;
 	}
 
+	/* Skip vco recalculation for continuous splash use case */
+	if (pll->handoff_resources) {
+		pr_debug("%s: Skip recalculation during cont splash\n",
+						__func__);
+		return rc;
+	}
+
 	pdb = (struct dsi_pll_db *)pll->priv;
 	if (!pdb) {
 		pr_err("No prov found\n");
