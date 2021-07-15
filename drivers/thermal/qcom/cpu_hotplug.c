@@ -16,9 +16,11 @@ struct cpu_hot_cdev {
 	struct list_head node;
 	int cpu_id;
 	bool cpu_hot_state;
+	bool cpu_cur_state;
 	struct thermal_cooling_device *cdev;
 	struct device_node *np;
 	struct work_struct reg_work;
+	struct work_struct exec_work;
 };
 static enum cpuhp_state cpu_hp_online;
 static DEFINE_MUTEX(cpu_hot_lock);
@@ -65,8 +67,6 @@ static int cpu_hot_set_cur_state(struct thermal_cooling_device *cdev,
 				 unsigned long state)
 {
 	struct cpu_hot_cdev *cpu_hot_cdev = cdev->devdata;
-	int ret = 0;
-	int cpu = 0;
 
 	if (cpu_hot_cdev->cpu_id == -1)
 		return -ENODEV;
@@ -81,24 +81,11 @@ static int cpu_hot_set_cur_state(struct thermal_cooling_device *cdev,
 		return 0;
 
 	mutex_lock(&cpu_hot_lock);
-	cpu = cpu_hot_cdev->cpu_id;
 	cpu_hot_cdev->cpu_hot_state = state;
 	mutex_unlock(&cpu_hot_lock);
-	if (state == CPU_HOTPLUG_LEVEL) {
-		ret = remove_cpu(cpu);
-		if (ret < 0)
-			pr_err("CPU:%d offline error:%d\n", cpu, ret);
-	} else {
-		ret = add_cpu(cpu);
-		if (ret)
-			pr_err("CPU:%d online error:%d\n", cpu, ret);
-	}
-	if (ret == 1) {
-		/* Device is already online or offline. This is not an error */
-		ret = 0;
-	}
+	queue_work(system_highpri_wq, &cpu_hot_cdev->exec_work);
 
-	return ret;
+	return 0;
 }
 
 /**
@@ -148,6 +135,39 @@ static struct thermal_cooling_device_ops cpu_hot_cooling_ops = {
 	.set_cur_state = cpu_hot_set_cur_state,
 };
 
+static void cpu_hot_execute_cdev(struct work_struct *work)
+{
+	struct cpu_hot_cdev *cpu_hot_cdev =
+			container_of(work, struct cpu_hot_cdev, exec_work);
+	int ret = 0, cpu = 0;
+
+	mutex_lock(&cpu_hot_lock);
+	cpu = cpu_hot_cdev->cpu_id;
+	if (cpu_hot_cdev->cpu_hot_state == CPU_HOTPLUG_LEVEL) {
+		if (!cpu_hot_cdev->cpu_cur_state)
+			goto unlock_exit;
+		mutex_unlock(&cpu_hot_lock);
+		ret = remove_cpu(cpu);
+		mutex_lock(&cpu_hot_lock);
+		if (ret < 0)
+			pr_err("CPU:%d offline error:%d\n", cpu, ret);
+		else
+			cpu_hot_cdev->cpu_cur_state = false;
+	} else {
+		if (cpu_hot_cdev->cpu_cur_state)
+			goto unlock_exit;
+		mutex_unlock(&cpu_hot_lock);
+		ret = add_cpu(cpu);
+		mutex_lock(&cpu_hot_lock);
+		if (ret)
+			pr_err("CPU:%d online error:%d\n", cpu, ret);
+		else
+			cpu_hot_cdev->cpu_cur_state = true;
+	}
+unlock_exit:
+	mutex_unlock(&cpu_hot_lock);
+}
+
 static void cpu_hot_register_cdev(struct work_struct *work)
 {
 	struct cpu_hot_cdev *cpu_hot_cdev =
@@ -191,6 +211,7 @@ static int cpu_hot_probe(struct platform_device *pdev)
 		}
 		cpu_hot_cdev->cpu_id = -1;
 		cpu_hot_cdev->cpu_hot_state = false;
+		cpu_hot_cdev->cpu_cur_state = true;
 		cpu_hot_cdev->cdev = NULL;
 		cpu_hot_cdev->np = subsys_np;
 
@@ -208,6 +229,8 @@ static int cpu_hot_probe(struct platform_device *pdev)
 		}
 		INIT_WORK(&cpu_hot_cdev->reg_work,
 				cpu_hot_register_cdev);
+		INIT_WORK(&cpu_hot_cdev->exec_work,
+				cpu_hot_execute_cdev);
 		list_add(&cpu_hot_cdev->node, &cpu_hot_cdev_list);
 	}
 
