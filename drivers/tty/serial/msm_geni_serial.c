@@ -2450,6 +2450,8 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			disable_irq(msm_port->wakeup_irq);
 			msm_port->wakeup_enabled = false;
 		}
+		/* Reset UART error to default during port_close() */
+		msm_port->uart_error = UART_ERROR_DEFAULT;
 	}
 	PRINT_LOG(5, LOG_LEVEL, msm_port->ipc_log_misc, __func__,
 				STR, "End");
