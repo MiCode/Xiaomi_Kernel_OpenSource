@@ -530,9 +530,12 @@ static const struct vadc_prescale_ratio adc5_prescale_ratios[] = {
 	{.num = 10, .den = 81},
 	{.num =  1, .den = 10},
 	{.num =  1, .den = 16},
+	{.num = 40, .den = 41},		/* PM7_SMB_TEMP */
 	/* Prescale ratios for current channels below */
 	{.num = 32, .den = 100},	/* IIN_FB, IIN_SMB */
 	{.num = 16, .den = 100},	/* ICHG_SMB */
+	{.num = 1280, .den = 4100},	/* IIN_SMB_new */
+	{.num = 640, .den = 4100},	/* ICHG_SMB_new */
 	{.num = 1000, .den = 305185},	/* ICHG_FB */
 	{.num = 1000, .den = 610370}	/* ICHG_FB_2X */
 };
