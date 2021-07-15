@@ -5,7 +5,6 @@
 #include <linux/kernel.h>
 #include <linux/qrtr.h>
 #include <linux/soc/qcom/qmi.h>
-#include <linux/ipc_logging.h>
 #include <linux/limits.h>
 #include <linux/slab.h>
 #include <linux/cnss_plat_ipc_qmi.h>

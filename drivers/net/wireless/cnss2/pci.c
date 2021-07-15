@@ -2,7 +2,6 @@
 /* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/cma.h>
-#include <linux/firmware.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/module.h>

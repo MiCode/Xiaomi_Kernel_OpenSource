@@ -249,7 +249,10 @@ static inline
 void cnss_unregister_ims_service(struct cnss_plat_data *plat_priv) {}
 
 static inline
-int cnss_wlfw_send_pcie_gen_speed_sync(struct cnss_plat_data *plat_priv) {}
+int cnss_wlfw_send_pcie_gen_speed_sync(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
 void cnss_ignore_qmi_failure(bool ignore) {};
 static inline int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
 {
@@ -286,6 +289,9 @@ int wlfw_qdss_trace_start(struct cnss_plat_data *plat_priv)
 }
 
 int wlfw_qdss_trace_stop(struct cnss_plat_data *plat_priv, unsigned long long option)
+{
+	return 0;
+}
 
 static inline
 int cnss_wlfw_cal_report_req_send_sync(struct cnss_plat_data *plat_priv,
