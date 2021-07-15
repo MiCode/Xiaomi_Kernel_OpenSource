@@ -6884,6 +6884,7 @@ int msm_pci_probe(struct pci_dev *pci_dev,
 static struct pci_device_id msm_pci_device_id[] = {
 	{PCI_DEVICE(0x17cb, 0x0108)},
 	{PCI_DEVICE(0x17cb, 0x010b)},
+	{PCI_DEVICE(0x1b21, 0x2806)},
 	{0},
 };
 
