@@ -178,7 +178,11 @@ void qcom_minidump(struct rproc *rproc, unsigned int minidump_id, rproc_dumpfn_t
 		dev_err(&rproc->dev, "Failed with error: %d while adding minidump entries\n", ret);
 		goto clean_minidump;
 	}
-	rproc_coredump_using_sections(rproc);
+
+	if (rproc->elf_class == ELFCLASS64)
+		rproc_coredump_using_sections(rproc);
+	else
+		rproc_coredump(rproc);
 clean_minidump:
 	qcom_minidump_cleanup(rproc);
 }
