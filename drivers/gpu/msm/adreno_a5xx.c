@@ -2418,7 +2418,7 @@ static void a5xx_power_stats(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	s64 freq = kgsl_pwrctrl_active_freq(&device->pwrctrl) / 1000000;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
-	u32 gpu_busy = 0;
+	s64 gpu_busy = 0;
 	u32 lo, hi;
 	s64 adj;
 
@@ -2447,8 +2447,10 @@ static void a5xx_power_stats(struct adreno_device *adreno_dev,
 	busy->gpu_busy = lo;
 
 	adj = a5xx_read_throttling_counters(adreno_dev);
-	if (adj < 0 || -adj > gpu_busy)
+	if (-adj <= gpu_busy)
 		gpu_busy += adj;
+	else
+		gpu_busy = 0;
 
 	stats->busy_time = gpu_busy / freq;
 
