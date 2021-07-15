@@ -27,7 +27,6 @@
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_HIGH_L1 + 1, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_HIGH_L1 + 1, 1, vdd_corner);
 
-
 enum {
 	P_BI_TCXO,
 	P_GPLL0_OUT_MAIN,
@@ -51,8 +50,8 @@ static const char * const gpu_cc_parent_names_0[] = {
 	"bi_tcxo",
 	"gpu_cc_pll0_out_main",
 	"gpu_cc_pll1",
-	"gpll0_out_main",
-	"gpll0_out_main_div",
+	"gcc_gpu_gpll0_clk_src",
+	"gcc_gpu_gpll0_div_clk_src",
 };
 
 static const struct parent_map gpu_cc_parent_map_1[] = {
@@ -70,7 +69,7 @@ static const char * const gpu_cc_parent_names_1[] = {
 	"gpu_cc_pll0",
 	"gpu_cc_pll1",
 	"gpu_cc_pll1",
-	"gpll0_out_main",
+	"gcc_gpu_gpll0_clk_src",
 };
 
 static struct pll_vco lucid_vco[] = {
@@ -158,7 +157,7 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 			.name = "gpu_cc_pll1",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
-			.ops = &clk_alpha_pll_ops,
+			.ops = &clk_alpha_pll_lucid_ops,
 			.vdd_class = &vdd_mx,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {

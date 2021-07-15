@@ -3100,7 +3100,7 @@ static struct clk_branch gcc_ufs_phy_axi_clk = {
 
 static struct clk_branch gcc_ufs_phy_ice_core_clk = {
 	.halt_reg = 0x45044,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.hwcg_reg = 0x45044,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -3153,7 +3153,7 @@ static struct clk_branch gcc_ufs_phy_rx_symbol_0_clk = {
 
 static struct clk_branch gcc_ufs_phy_rx_symbol_1_clk = {
 	.halt_reg = 0x4509c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x4509c,
 		.enable_mask = BIT(0),
