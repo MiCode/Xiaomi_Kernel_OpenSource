@@ -144,20 +144,8 @@ char *md_dma_buf_procs_addr;
 
 /* Modules information */
 #ifdef CONFIG_MODULES
-#define NUM_MD_MODULES	200
 #define MD_MODULE_PAGES	  8
-
-static struct list_head md_mod_list_head;
-
-struct md_module_data {
-	struct list_head entry;
-	char name[MODULE_NAME_LEN];
-	void *base;
-	unsigned int size;
-};
-
 static struct seq_buf *md_mod_info_seq_buf;
-static int mod_curr_count;
 static DEFINE_SPINLOCK(md_modules_lock);
 #endif	/* CONFIG_MODULES */
 #endif
@@ -1051,23 +1039,6 @@ static void md_ipi_stop(void *unused, struct pt_regs *regs)
 }
 #endif
 
-#ifdef CONFIG_MODULES
-static void md_dump_module_data(void)
-{
-	struct md_module_data *md_mod_data_p;
-
-	if (!md_mod_info_seq_buf)
-		return;
-	seq_buf_printf(md_mod_info_seq_buf, "=== MODULE INFO ===\n");
-	list_for_each_entry(md_mod_data_p, &md_mod_list_head, entry) {
-		seq_buf_printf(md_mod_info_seq_buf,
-			       "name: %s, base: %#lx size: %#x\n",
-			       md_mod_data_p->name, md_mod_data_p->base,
-			       md_mod_data_p->size);
-	}
-}
-#endif
-
 static int md_panic_handler(struct notifier_block *this,
 			    unsigned long event, void *ptr)
 {
@@ -1083,9 +1054,6 @@ static int md_panic_handler(struct notifier_block *this,
 dump_rq:
 #endif
 	md_dump_runqueues();
-#ifdef CONFIG_MODULES
-	md_dump_module_data();
-#endif
 	if (md_meminfo_seq_buf)
 		md_dump_meminfo(md_meminfo_seq_buf);
 
@@ -1205,45 +1173,33 @@ static void md_register_panic_data(void)
 	md_register_memory_dump(md_dma_buf_procs_size, "DMABUF_PROCS");
 	md_debugfs_dmabufprocs(minidump_dir);
 }
+#endif
 
-#ifdef CONFIG_MODULES
+static int print_module(const char *name, void *mod_addr, void *data)
+{
+	if (!md_mod_info_seq_buf) {
+		pr_err("md_mod_info_seq_buf is NULL\n");
+		return -EINVAL;
+	}
+
+	seq_buf_printf(md_mod_info_seq_buf, "name: %s, base: %#lx\n", name, mod_addr);
+	return 0;
+}
+
 static int md_module_notify(struct notifier_block *self,
 			    unsigned long val, void *data)
 {
 	struct module *mod = data;
-	struct md_module_data *md_mod_data_p;
-	struct md_module_data *md_mod_data_p_next;
 
 	spin_lock(&md_modules_lock);
-	switch (val) {
-	case MODULE_STATE_COMING:
-		if (mod_curr_count >= NUM_MD_MODULES) {
-			spin_unlock(&md_modules_lock);
-			return 0;
-		}
-
-		md_mod_data_p = kzalloc(sizeof(*md_mod_data_p), GFP_ATOMIC);
-		if (!md_mod_data_p) {
-			spin_unlock(&md_modules_lock);
-			return 0;
-		}
-		strlcpy(md_mod_data_p->name, mod->name,
-			    sizeof(md_mod_data_p->name));
-		md_mod_data_p->base = mod->core_layout.base;
-		md_mod_data_p->size = mod->core_layout.size;
-		list_add(&md_mod_data_p->entry, &md_mod_list_head);
-		mod_curr_count++;
+	switch (mod->state) {
+	case MODULE_STATE_LIVE:
+		print_module(mod->name, mod->core_layout.base, data);
 		break;
 	case MODULE_STATE_GOING:
-		list_for_each_entry_safe(md_mod_data_p, md_mod_data_p_next,
-					 &md_mod_list_head, entry) {
-			if (!strcmp(md_mod_data_p->name, mod->name)) {
-				list_del(&md_mod_data_p->entry);
-				kfree(md_mod_data_p);
-				mod_curr_count--;
-				break;
-			}
-		}
+		print_module(mod->name, mod->core_layout.base, data);
+		break;
+	default:
 		break;
 	}
 	spin_unlock(&md_modules_lock);
@@ -1258,19 +1214,22 @@ static void md_register_module_data(void)
 {
 	int ret;
 
+	ret = md_register_panic_entries(MD_MODULE_PAGES, "KMODULES",
+					&md_mod_info_seq_buf);
+	if (ret) {
+		pr_err("Failed to register minidump module buffer\n");
+		return;
+	}
+
+	seq_buf_printf(md_mod_info_seq_buf, "=== MODULE INFO ===\n");
 	ret = register_module_notifier(&md_module_nb);
 	if (ret) {
 		pr_err("Failed to register minidump module notifier\n");
 		return;
 	}
 
-	ret = md_register_panic_entries(MD_MODULE_PAGES, "KMODULES",
-					&md_mod_info_seq_buf);
-	if (ret)
-		unregister_module_notifier(&md_module_nb);
+	android_debug_for_each_module(print_module, NULL);
 }
-#endif	/* CONFIG_MODULES */
-#endif	/* CONFIG_QCOM_MINIDUMP_PANIC_DUMP */
 
 #ifdef CONFIG_QCOM_MINIDUMP_PSTORE
 static void register_pstore_info(void)
@@ -1341,11 +1300,8 @@ int msm_minidump_log_init(void)
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
 	md_register_trace_buf();
 #endif
-#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
-#ifdef CONFIG_MODULES
-	INIT_LIST_HEAD(&md_mod_list_head);
 	md_register_module_data();
-#endif
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
 	md_register_panic_data();
 	atomic_notifier_chain_register(&panic_notifier_list, &md_panic_blk);
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
