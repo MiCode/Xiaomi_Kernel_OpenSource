@@ -23,6 +23,8 @@ Required properties:
                  bindings/pinctrl/pinctrl-bindings.txt
   - qcom,wlan-rc-num: List of PCIe root complex numbers which WLAN device may
                       attach to
+  - qcom,wlan: Signature string for WLAN devices which all CNSS family drivers
+               are able to search for
 
 Optional properties:
   - qcom,notify-modem-status: Boolean property to decide whether modem
@@ -102,7 +104,7 @@ Optional properties:
                    power amp config
  - qcom,xo-clk-gpio: Added for QCA6490 XO CLK selection leakage prevention.
 
-Example:
+Examples:
 
     qcom,cnss@0d400000 {
         compatible = "qcom,cnss";
@@ -115,8 +117,43 @@ Example:
         wlan-soc-swreg-supply = <&pma8084_l27>;
         pinctrl-names = "default";
         pinctrl-0 = <&cnss_default>;
+        qcom,wlan;
         qcom,wlan-rc-num = <0>;
         qcom,wlan-smmu-iova-address = <0 0x10000000>;
         qcom,mhi = <&mhi_wlan>;
         qcom,cap-tsf-gpio = <&tlmm 126 1>;
     };
+
+    wlan: qcom,cnss-qca6490@b0000000 {
+        compatible = "qcom,cnss-qca6490";
+        reg = <0xb0000000 0x10000>;
+        reg-names = "smmu_iova_ipa";
+        wlan-en-gpio = <&tlmm 80 0>;
+        qcom,bt-en-gpio = <&tlmm 81 0>;
+        pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+        pinctrl-0 = <&cnss_wlan_en_active>;
+        pinctrl-1 = <&cnss_wlan_en_sleep>;
+        qcom,wlan;
+        qcom,wlan-rc-num = <0>;
+        qcom,wlan-ramdump-dynamic = <0x420000>;
+        qcom,wlan-cbc-enabled;
+        use-pm-domain;
+        cnss-enable-self-recovery;
+        qcom,same-dt-multi-dev;
+        mboxes = <&qmp_aop 0>;
+        qcom,vreg_ipa="s3e";
+        qcom,xo-clk-gpio = <&tlmm 204 0>;
+
+        vdd-wlan-aon-supply = <&S2E>;
+        qcom,vdd-wlan-aon-config = <1012000 1012000 0 0 1>;
+        vdd-wlan-dig-supply = <&S11B>;
+        qcom,vdd-wlan-dig-config = <966000 966000 0 0 1>;
+        vdd-wlan-io-supply = <&S10B>;
+        qcom,vdd-wlan-io-config = <1800000 1800000 0 0 1>;
+        vdd-wlan-rfa1-supply = <&S1C>;
+        qcom,vdd-wlan-rfa1-config = <1900000 2100000 0 0 1>;
+        vdd-wlan-rfa2-supply = <&S12B>;
+        qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
+        wlan-ant-switch-supply = <&L7E>;
+        qcom,wlan-ant-switch-config = <2800000 2800000 0 0 1>;
+};
