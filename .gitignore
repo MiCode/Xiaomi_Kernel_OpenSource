@@ -19,6 +19,8 @@
 *.so.dbg
 *.mod.c
 *.i
+!drivers/input/touchscreen/mediatek/ft8006s_spi/include/firmware/fw_helitai_v0e.i
+!drivers/input/touchscreen/mediatek/ft8006s_spi/include/firmware/fw_sample.i
 *.lst
 *.symtypes
 *.order
