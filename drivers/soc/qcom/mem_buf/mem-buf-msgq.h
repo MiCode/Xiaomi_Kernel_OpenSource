@@ -51,23 +51,14 @@ struct mem_buf_msg_hdr {
  * NOTE: Certain memory types require additional information for the remote VM
  * to interpret. That information should be concatenated with this structure
  * prior to sending the allocation request to the remote VM. For example,
- * with memory type ION, the allocation request message will consist of this
- * structure, as well as the mem_buf_ion_alloc_data structure.
+ * with memory type DMAHEAP, the allocation request message will consist of this
+ * structure, as well as the name of the heap that will source the allocation.
  */
 struct mem_buf_alloc_req {
 	struct mem_buf_msg_hdr hdr;
 	u64 size;
 	u32 src_mem_type;
 	struct gh_acl_desc acl_desc;
-} __packed;
-
-/**
- * struct mem_buf_ion_alloc_data: Represents the data needed to perform
- * an ION allocation on a remote VM.
- * @heap_id: The ID of the heap to allocate from
- */
-struct mem_buf_ion_alloc_data {
-	u32 heap_id;
 } __packed;
 
 /**

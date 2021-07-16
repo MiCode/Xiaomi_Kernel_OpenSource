@@ -7,12 +7,10 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/idr.h>
-#include <linux/ion.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/mem-buf.h>
 #include <linux/module.h>
-#include <linux/msm_ion.h>
 #include <linux/of.h>
 
 #include "mem-buf-gh.h"
