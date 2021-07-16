@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2018, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -8,6 +8,7 @@
 #include <linux/err.h>
 #include <linux/bug.h>
 #include <linux/export.h>
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/rational.h>
@@ -59,6 +60,24 @@ enum freq_policy {
 	FLOOR,
 	CEIL,
 };
+
+static struct freq_tbl cxo_f = {
+	.freq = 19200000,
+	.src = 0,
+	.pre_div = 1,
+	.m = 0,
+	.n = 0,
+};
+
+static void update_src_map(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	int i, num_parents = clk_hw_get_num_parents(hw);
+
+	for (i = 0; i < num_parents; i++)
+		if (!rcg->parent_map[i].cfg)
+			cxo_f.src = rcg->parent_map[i].src;
+}
 
 static int clk_rcg2_is_enabled(struct clk_hw *hw)
 {
@@ -137,6 +156,76 @@ static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
 	return update_config(rcg);
 }
 
+static int clk_rcg2_set_force_enable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	int ret = 0, count = 500;
+
+	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CMD_REG,
+					CMD_ROOT_EN, CMD_ROOT_EN);
+	if (ret)
+		return ret;
+
+	for (; count > 0; count--) {
+		if (clk_rcg2_is_enabled(hw))
+			return ret;
+		/* Delay for 1usec and retry polling the status bit */
+		udelay(1);
+	}
+
+	WARN(1, "%s: rcg didn't turn on.", clk_hw_get_name(hw));
+	return ret;
+}
+
+static int clk_rcg2_clear_force_enable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	return regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CMD_REG,
+					CMD_ROOT_EN, 0);
+}
+
+static int prepare_enable_rcg_srcs(struct clk *curr, struct clk *new)
+{
+	int rc = 0;
+
+	rc = clk_prepare(curr);
+	if (rc)
+		return rc;
+
+	rc = clk_prepare(new);
+	if (rc)
+		goto err_new_src_prepare;
+
+	rc = clk_enable(curr);
+	if (rc)
+		goto err_curr_src_enable;
+
+	rc = clk_enable(new);
+	if (rc)
+		goto err_new_src_enable;
+
+	return rc;
+
+err_new_src_enable:
+	clk_disable(curr);
+err_curr_src_enable:
+	clk_unprepare(new);
+err_new_src_prepare:
+	clk_unprepare(curr);
+
+	return rc;
+}
+
+static void disable_unprepare_rcg_srcs(struct clk *curr, struct clk *new)
+{
+	clk_disable(new);
+	clk_disable(curr);
+
+	clk_unprepare(new);
+	clk_unprepare(curr);
+}
+
 /*
  * Calculate m/n:d rate
  *
@@ -166,9 +255,20 @@ static unsigned long
 clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	u32 cfg, hid_div, m = 0, n = 0, mode = 0, mask;
+	const struct freq_tbl *f_curr;
+	u32 cfg, src, hid_div, m = 0, n = 0, mode = 0, mask;
 
 	regmap_read(rcg->clkr.regmap, RCG_CFG_OFFSET(rcg), &cfg);
+	src = cfg;
+	src &= CFG_SRC_SEL_MASK;
+	src >>= CFG_SRC_SEL_SHIFT;
+
+	if (rcg->enable_safe_config && (!clk_hw_is_prepared(hw)
+				|| !clk_hw_is_enabled(hw)) && !src) {
+		if (!rcg->current_freq)
+			rcg->current_freq = cxo_f.freq;
+		return rcg->current_freq;
+	}
 
 	if (rcg->mnd_width) {
 		mask = BIT(rcg->mnd_width) - 1;
@@ -182,9 +282,17 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 		mode >>= CFG_MODE_SHIFT;
 	}
 
-	mask = BIT(rcg->hid_width) - 1;
-	hid_div = cfg >> CFG_SRC_DIV_SHIFT;
-	hid_div &= mask;
+	if (rcg->enable_safe_config && !src) {
+		f_curr = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
+		if (!f_curr)
+			return -EINVAL;
+
+		hid_div = f_curr->pre_div;
+	} else {
+		mask = BIT(rcg->hid_width) - 1;
+		hid_div = cfg >> CFG_SRC_DIV_SHIFT;
+		hid_div &= mask;
+	}
 
 	return calc_rate(parent_rate, m, n, mode, hid_div);
 }
@@ -194,9 +302,10 @@ static int _freq_tbl_determine_rate(struct clk_hw *hw, const struct freq_tbl *f,
 				    enum freq_policy policy)
 {
 	unsigned long clk_flags, rate = req->rate;
+	struct clk_rate_request parent_req = { };
 	struct clk_hw *p;
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	int index;
+	int index, ret = 0;
 
 	switch (policy) {
 	case FLOOR:
@@ -242,6 +351,21 @@ static int _freq_tbl_determine_rate(struct clk_hw *hw, const struct freq_tbl *f,
 	req->best_parent_hw = p;
 	req->best_parent_rate = rate;
 	req->rate = f->freq;
+
+	if (f->src_freq != FIXED_FREQ_SRC) {
+		rate = parent_req.rate = f->src_freq;
+		parent_req.best_parent_hw = p;
+		ret = __clk_determine_rate(p, &parent_req);
+		if (ret)
+			return ret;
+
+		ret = clk_set_rate(p->clk, parent_req.rate);
+		if (ret) {
+			pr_err("Failed set rate(%lu) on parent for non-fixed source\n",
+							parent_req.rate);
+			return ret;
+		}
+	}
 
 	return 0;
 }
@@ -314,7 +438,9 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate,
 			       enum freq_policy policy)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	const struct freq_tbl *f;
+	const struct freq_tbl *f, *f_curr;
+	int ret, curr_src_index, new_src_index;
+	struct clk_hw *curr_src = NULL, *new_src = NULL;
 
 	switch (policy) {
 	case FLOOR:
@@ -330,7 +456,63 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (!f)
 		return -EINVAL;
 
-	return clk_rcg2_configure(rcg, f);
+	/*
+	 * Set the correct source value for CXO as per
+	 * as per defined parent map.
+	 */
+	update_src_map(hw);
+
+	/*
+	 * Return if the RCG is currently disabled. This configuration update
+	 * will happen as part of the RCG enable sequence.
+	 */
+	if (rcg->enable_safe_config && !clk_hw_is_prepared(hw)) {
+		rcg->current_freq = rate;
+		return 0;
+	}
+
+	if (rcg->flags & FORCE_ENABLE_RCG) {
+		rcg->current_freq = DIV_ROUND_CLOSEST_ULL(
+					clk_get_rate(hw->clk), 1000) * 1000;
+		if (rcg->current_freq == cxo_f.freq)
+			curr_src_index = 0;
+		else {
+			f_curr = qcom_find_freq(rcg->freq_tbl,
+							rcg->current_freq);
+			if (!f_curr)
+				return -EINVAL;
+
+			curr_src_index = qcom_find_src_index(hw,
+						rcg->parent_map, f_curr->src);
+		}
+
+		new_src_index = qcom_find_src_index(hw, rcg->parent_map,
+							f->src);
+
+		curr_src = clk_hw_get_parent_by_index(hw, curr_src_index);
+		if (!curr_src)
+			return -EINVAL;
+		new_src = clk_hw_get_parent_by_index(hw, new_src_index);
+		if (!new_src)
+			return -EINVAL;
+
+		/* The RCG could currently be disabled. Enable its parents. */
+		ret = prepare_enable_rcg_srcs(curr_src->clk, new_src->clk);
+		clk_rcg2_set_force_enable(hw);
+	}
+
+	ret = clk_rcg2_configure(rcg, f);
+	if (ret)
+		return ret;
+
+	if (rcg->flags & FORCE_ENABLE_RCG) {
+		clk_rcg2_clear_force_enable(hw);
+		disable_unprepare_rcg_srcs(curr_src->clk, new_src->clk);
+	}
+
+	/* Update current frequency with the requested frequency. */
+	rcg->current_freq = rate;
+	return ret;
 }
 
 static int clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -357,8 +539,97 @@ static int clk_rcg2_set_floor_rate_and_parent(struct clk_hw *hw,
 	return __clk_rcg2_set_rate(hw, rate, FLOOR);
 }
 
+static int clk_rcg2_enable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	unsigned long rate;
+	const struct freq_tbl *f;
+
+	/*
+	 * Set the correct source value for CXO as per
+	 * as per defined parent map.
+	 */
+	update_src_map(hw);
+
+	if (rcg->flags & FORCE_ENABLE_RCG) {
+		clk_rcg2_set_force_enable(hw);
+		return 0;
+	}
+
+	if (!rcg->enable_safe_config)
+		return 0;
+
+	/*
+	 * Switch from CXO to the stashed mux selection. Force enable and
+	 * disable the RCG while configuring it to safeguard against any update
+	 * signal coming from the downstream clock. The current parent has
+	 * already been prepared and enabled at this point, and the CXO source
+	 * is always on while APPS is online. Therefore, the RCG can safely be
+	 * switched.
+	 */
+	rate = rcg->current_freq;
+	f = qcom_find_freq(rcg->freq_tbl, rate);
+	if (!f)
+		return -EINVAL;
+
+	/*
+	 * If CXO is not listed as a supported frequency in the frequency
+	 * table, the above API would return the lowest supported frequency
+	 * instead. This will lead to incorrect configuration of the RCG.
+	 * Check if the RCG rate is CXO and configure it accordingly.
+	 */
+	if (rate == cxo_f.freq)
+		f = &cxo_f;
+
+	clk_rcg2_set_force_enable(hw);
+	clk_rcg2_configure(rcg, f);
+	clk_rcg2_clear_force_enable(hw);
+
+	return 0;
+}
+
+static void clk_rcg2_disable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	/*
+	 * Set the correct source value for CXO as per
+	 * as per defined parent map.
+	 */
+	update_src_map(hw);
+
+	if (rcg->flags & FORCE_ENABLE_RCG) {
+		clk_rcg2_clear_force_enable(hw);
+		return;
+	}
+
+	if (!rcg->enable_safe_config)
+		return;
+	/*
+	 * Park the RCG at a safe configuration - sourced off the CXO. This is
+	 * needed for 2 reasons: In the case of RCGs sourcing PSCBCs, due to a
+	 * default HW behavior, the RCG will turn on when its corresponding
+	 * GDSC is enabled. We might also have cases when the RCG might be left
+	 * enabled without the overlying SW knowing about it. This results from
+	 * hard to track cases of downstream clocks being left enabled. In both
+	 * these cases, scaling the RCG will fail since it's enabled but with
+	 * its sources cut off.
+	 *
+	 * Save mux select and switch to CXO. Force enable and disable the RCG
+	 * while configuring it to safeguard against any update signal coming
+	 * from the downstream clock. The current parent is still prepared and
+	 * enabled at this point, and the CXO source is always on while APPS is
+	 * online. Therefore, the RCG can safely be switched.
+	 */
+	clk_rcg2_set_force_enable(hw);
+	clk_rcg2_configure(rcg, &cxo_f);
+	clk_rcg2_clear_force_enable(hw);
+}
+
 const struct clk_ops clk_rcg2_ops = {
 	.is_enabled = clk_rcg2_is_enabled,
+	.enable = clk_rcg2_enable,
+	.disable = clk_rcg2_disable,
 	.get_parent = clk_rcg2_get_parent,
 	.set_parent = clk_rcg2_set_parent,
 	.recalc_rate = clk_rcg2_recalc_rate,
@@ -828,37 +1099,6 @@ const struct clk_ops clk_gfx3d_ops = {
 	.determine_rate = clk_gfx3d_determine_rate,
 };
 EXPORT_SYMBOL_GPL(clk_gfx3d_ops);
-
-static int clk_rcg2_set_force_enable(struct clk_hw *hw)
-{
-	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	const char *name = clk_hw_get_name(hw);
-	int ret, count;
-
-	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CMD_REG,
-				 CMD_ROOT_EN, CMD_ROOT_EN);
-	if (ret)
-		return ret;
-
-	/* wait for RCG to turn ON */
-	for (count = 500; count > 0; count--) {
-		if (clk_rcg2_is_enabled(hw))
-			return 0;
-
-		udelay(1);
-	}
-
-	pr_err("%s: RCG did not turn on\n", name);
-	return -ETIMEDOUT;
-}
-
-static int clk_rcg2_clear_force_enable(struct clk_hw *hw)
-{
-	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-
-	return regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CMD_REG,
-					CMD_ROOT_EN, 0);
-}
 
 static int
 clk_rcg2_shared_force_enable_clear(struct clk_hw *hw, const struct freq_tbl *f)
