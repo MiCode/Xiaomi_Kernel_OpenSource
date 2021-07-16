@@ -23,6 +23,7 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/qcom-iommu-util.h>
+#include <linux/pm_runtime.h>
 
 #include "../../qcom-io-pgtable.h"
 
@@ -725,6 +726,34 @@ void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
 struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 			struct device *dev);
+
+static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
+{
+	if (pm_runtime_enabled(smmu->dev))
+		return pm_runtime_get_sync(smmu->dev);
+
+	return 0;
+}
+
+static inline void arm_smmu_rpm_put(struct arm_smmu_device *smmu)
+{
+	if (pm_runtime_enabled(smmu->dev)) {
+		pm_runtime_mark_last_busy(smmu->dev);
+		pm_runtime_put_autosuspend(smmu->dev);
+	}
+}
+
+static inline struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
+{
+	return container_of(dom, struct arm_smmu_domain, domain);
+}
+
+void print_fault_regs(struct arm_smmu_domain *smmu_domain,
+		struct arm_smmu_device *smmu, int idx);
+void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
+	struct arm_smmu_device *smmu, int idx);
+int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
+	struct arm_smmu_device *smmu, int idx);
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10

@@ -146,27 +146,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
 static void arm_smmu_free_pgtable(void *cookie, void *virt, int order);
 
-static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
-{
-	if (pm_runtime_enabled(smmu->dev))
-		return pm_runtime_get_sync(smmu->dev);
-
-	return 0;
-}
-
-static inline void arm_smmu_rpm_put(struct arm_smmu_device *smmu)
-{
-	if (pm_runtime_enabled(smmu->dev)) {
-		pm_runtime_mark_last_busy(smmu->dev);
-		pm_runtime_put_autosuspend(smmu->dev);
-	}
-}
-
-static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
-{
-	return container_of(dom, struct arm_smmu_domain, domain);
-}
-
 static void parse_driver_options(struct arm_smmu_device *smmu)
 {
 	int i = 0;
@@ -677,7 +656,7 @@ static const struct iommu_flush_ops arm_smmu_s2_tlb_ops_v1 = {
 	.tlb_add_page	= arm_smmu_tlb_add_page_s2_v1,
 };
 
-static void print_fault_regs(struct arm_smmu_domain *smmu_domain,
+void print_fault_regs(struct arm_smmu_domain *smmu_domain,
 		struct arm_smmu_device *smmu, int idx)
 {
 	u32 fsr, fsynr0, fsynr1, cbfrsynra;
@@ -763,7 +742,7 @@ static void print_fault_regs(struct arm_smmu_domain *smmu_domain,
  * Thus, arm_smmu_iova_to_phys() returning nonzero is not necessarily
  * indicative of an issue.
  */
-static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
+void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu, int idx)
 {
 	u32 fsynr, cbfrsynra;
@@ -831,7 +810,7 @@ static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
 		phys_stimu ? &phys_stimu : &phys_stimu_post_tlbiall);
 }
 
-static int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
+int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu, int idx)
 {
 	u32 fsr, fsynr;
@@ -896,76 +875,27 @@ static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
 
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
-	u32 fsr;
-	int ret;
+	u32 fsr, fsynr, cbfrsynra;
+	unsigned long iova;
 	struct iommu_domain *domain = dev;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	int idx = smmu_domain->cfg.cbndx;
-	static DEFINE_RATELIMIT_STATE(_rs,
-				      DEFAULT_RATELIMIT_INTERVAL,
-				      DEFAULT_RATELIMIT_BURST);
-
-	ret = arm_smmu_rpm_get(smmu);
-	if (ret < 0)
-		return IRQ_NONE;
 
 	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
-		ret = IRQ_NONE;
-		goto out_power_off;
-	}
+	if (!(fsr & ARM_SMMU_FSR_FAULT))
+		return IRQ_NONE;
 
-	if ((smmu->options & ARM_SMMU_OPT_FATAL_ASF) &&
-			(fsr & ARM_SMMU_FSR_ASF)) {
-		dev_err(smmu->dev,
-			"Took an address size fault.  Refusing to recover.\n");
-		BUG();
-	}
+	fsynr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
+	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
+	cbfrsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(idx));
 
-	/*
-	 * If the fault helper returns -ENOSYS, then no client fault helper was
-	 * registered. In that case, print the default report.
-	 *
-	 * If the client returns -EBUSY, do not clear FSR and do not RESUME
-	 * if stalled. This is required to keep the IOMMU client stalled on
-	 * the outstanding fault. This gives the client a chance to take any
-	 * debug action and then terminate the stalled transaction.
-	 * So, the sequence in case of stall on fault should be:
-	 * 1) Do not clear FSR or write to RESUME here
-	 * 2) Client takes any debug action
-	 * 3) Client terminates the stalled transaction and resumes the IOMMU
-	 * 4) Client clears FSR. The FSR should only be cleared after 3) and
-	 *    not before so that the fault remains outstanding. This ensures
-	 *    SCTLR.HUPCF has the desired effect if subsequent transactions also
-	 *    need to be terminated.
-	 */
-	ret = report_iommu_fault_helper(smmu_domain, smmu, idx);
-	if (ret == -ENOSYS) {
-		if (__ratelimit(&_rs)) {
-			print_fault_regs(smmu_domain, smmu, idx);
-			arm_smmu_verify_fault(smmu_domain, smmu, idx);
-		}
-		BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
-	}
-	if (ret != -EBUSY) {
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+	dev_err_ratelimited(smmu->dev,
+	"Unhandled context fault: fsr=0x%x, iova=0x%08lx, fsynr=0x%x, cbfrsynra=0x%x, cb=%d\n",
+			    fsr, iova, fsynr, cbfrsynra, idx);
 
-		/*
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation
-		 */
-		wmb();
-
-		if (fsr & ARM_SMMU_FSR_SS)
-			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
-				  ARM_SMMU_RESUME_TERMINATE);
-	}
-
-	ret = IRQ_HANDLED;
-out_power_off:
-	arm_smmu_rpm_put(smmu);
-	return ret;
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t arm_smmu_global_fault(int irq, void *dev)

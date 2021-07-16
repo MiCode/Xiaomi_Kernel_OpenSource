@@ -897,6 +897,80 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 				txn->flags);
 }
 
+static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
+{
+	u32 fsr;
+	int ret;
+	struct iommu_domain *domain = dev;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int idx = smmu_domain->cfg.cbndx;
+	static DEFINE_RATELIMIT_STATE(_rs,
+				      DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return IRQ_NONE;
+
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
+		ret = IRQ_NONE;
+		goto out_power_off;
+	}
+
+	if ((smmu->options & ARM_SMMU_OPT_FATAL_ASF) &&
+			(fsr & ARM_SMMU_FSR_ASF)) {
+		dev_err(smmu->dev,
+			"Took an address size fault.  Refusing to recover.\n");
+		BUG();
+	}
+
+	/*
+	 * If the fault helper returns -ENOSYS, then no client fault helper was
+	 * registered. In that case, print the default report.
+	 *
+	 * If the client returns -EBUSY, do not clear FSR and do not RESUME
+	 * if stalled. This is required to keep the IOMMU client stalled on
+	 * the outstanding fault. This gives the client a chance to take any
+	 * debug action and then terminate the stalled transaction.
+	 * So, the sequence in case of stall on fault should be:
+	 * 1) Do not clear FSR or write to RESUME here
+	 * 2) Client takes any debug action
+	 * 3) Client terminates the stalled transaction and resumes the IOMMU
+	 * 4) Client clears FSR. The FSR should only be cleared after 3) and
+	 *    not before so that the fault remains outstanding. This ensures
+	 *    SCTLR.HUPCF has the desired effect if subsequent transactions also
+	 *    need to be terminated.
+	 */
+	ret = report_iommu_fault_helper(smmu_domain, smmu, idx);
+	if (ret == -ENOSYS) {
+		if (__ratelimit(&_rs)) {
+			print_fault_regs(smmu_domain, smmu, idx);
+			arm_smmu_verify_fault(smmu_domain, smmu, idx);
+		}
+		BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
+	}
+	if (ret != -EBUSY) {
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+
+		/*
+		 * Barrier required to ensure that the FSR is cleared
+		 * before resuming SMMU operation
+		 */
+		wmb();
+
+		if (fsr & ARM_SMMU_FSR_SS)
+			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+				  ARM_SMMU_RESUME_TERMINATE);
+	}
+
+	ret = IRQ_HANDLED;
+out_power_off:
+	arm_smmu_rpm_put(smmu);
+	return ret;
+}
+
 static void qsmmuv500_release_group_iommudata(void *data)
 {
 	kfree(data);
@@ -1104,6 +1178,7 @@ static const struct arm_smmu_impl qsmmuv500_impl = {
 	.device_remove = qsmmuv500_device_remove,
 	.device_group = qsmmuv500_device_group,
 	.def_domain_type = qsmmuv500_def_domain_type,
+	.context_fault = qsmmuv500_context_fault,
 };
 
 static const struct arm_smmu_impl qsmmuv500_adreno_impl = {
@@ -1116,6 +1191,7 @@ static const struct arm_smmu_impl qsmmuv500_adreno_impl = {
 	.device_remove = qsmmuv500_device_remove,
 	.device_group = qsmmuv500_device_group,
 	.def_domain_type = qsmmuv500_def_domain_type,
+	.context_fault = qsmmuv500_context_fault,
 };
 
 /* We only have access to arm-architected registers */
@@ -1124,6 +1200,7 @@ static const struct arm_smmu_impl qsmmuv500_virt_impl = {
 	.init_context_bank = qsmmuv500_init_cb,
 	.device_group = qsmmuv500_device_group,
 	.def_domain_type = qsmmuv500_def_domain_type,
+	.context_fault = qsmmuv500_context_fault,
 };
 
 struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
