@@ -29,6 +29,10 @@
 #define SPSS_WDOG_ERR	0x44554d50
 #define SPSS_TIMEOUT	5000
 
+/* err_status definitions                       */
+#define PBL_LOG_VALUE                 (0xef000000)
+#define PBL_LOG_MASK                  (0xff000000)
+
 #define to_glink_subdev(d) container_of(d, struct qcom_rproc_glink, subdev)
 
 struct spss_data {
@@ -238,12 +242,20 @@ static void unmask_scsr_irqs(struct qcom_spss *spss)
 		     ~BIT(spss->bits_arr[PBL_DONE]), spss->irq_mask);
 }
 
-static bool check_status(struct qcom_spss *spss)
+
+static bool check_status(struct qcom_spss *spss, int *ret_error)
 {
-	uint32_t status_val, err_value;
+	uint32_t status_val, err_value, rmb_err;
 
 	err_value =  __raw_readl(spss->err_status_spare);
 	status_val = __raw_readl(spss->irq_status);
+	rmb_err = __raw_readl(spss->err_status);
+
+	if ((rmb_err & PBL_LOG_MASK) == PBL_LOG_VALUE) {
+		dev_err(spss->dev, "PBL error detected\n");
+		*ret_error = rmb_err;
+		return true;
+	}
 
 	if ((status_val & BIT(spss->bits_arr[ERR_READY])) && err_value == SPSS_WDOG_ERR) {
 		dev_err(spss->dev, "wdog bite is pending\n");
@@ -285,20 +297,23 @@ static int spss_attach(struct rproc *rproc)
 	struct qcom_spss *spss = (struct qcom_spss *)rproc->priv;
 	int ret = 0;
 
-	/* If rproc already crashed stop it and retry boot*/
-	if (check_status(spss)) {
+	/* If rproc already crashed stop it and propagate error */
+	if (check_status(spss, &ret)) {
+		dev_err(spss->dev, "Failed to attach SPSS remote proc and shutdown\n");
 		spss_stop(rproc);
-		return -EAGAIN;
+		return ret;
 	}
 	/* If booted successfully then wait for init_done*/
 
 	unmask_scsr_irqs(spss);
 
 	ret = wait_for_completion_timeout(&spss->start_done, msecs_to_jiffies(SPSS_TIMEOUT));
-	if (rproc->recovery_disabled && !ret)
+	if (rproc->recovery_disabled && !ret) {
+		dev_err(spss->dev, "%d ms timeout poked\n", SPSS_TIMEOUT);
 		panic("Panicking, %s attach timed out\n", rproc->name);
-	else if (!ret)
-		dev_err(spss->dev, "start timed out\n");
+	} else if (!ret) {
+		dev_err(spss->dev, "recovery disabled (after timeout)\n");
+	}
 
 	ret = ret ? 0 : -ETIMEDOUT;
 

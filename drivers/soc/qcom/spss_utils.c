@@ -1274,6 +1274,6 @@ static void __exit spss_exit(void)
 }
 module_exit(spss_exit)
 
-MODULE_SOFTDEP("post: qcom_spss");
+MODULE_SOFTDEP("pre: qcom_spss");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Utilities");

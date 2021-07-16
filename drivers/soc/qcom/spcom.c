@@ -282,6 +282,7 @@ struct spcom_device {
 	atomic_t            rx_active_count;
 
 	int32_t nvm_ion_fd;
+	uint32_t     rmb_error;    /* PBL error value storet here */
 	struct mutex ioctl_lock;
 	atomic_t subsys_req;
 	struct rproc *spss_rproc;
@@ -693,29 +694,34 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 		return -EINVAL;
 	}
 
-	spcom_pr_dbg("restart - PIL FW loading initiated: preloaded=%d\n",
-		cmd->arg);
-
 	spcom_dev->spss_rproc = rproc_get_by_phandle(be32_to_cpup(spcom_dev->rproc_prop->value));
 	if (!spcom_dev->spss_rproc) {
 		pr_err("rproc device not found\n");
-		return -EFAULT;
+		return -ENODEV;  /* no spss peripheral exist */
 	}
 
 	ret = rproc_boot(spcom_dev->spss_rproc);
-	if (ret) {
-		spcom_pr_err("restart - spss crashed during device bootup\n");
-		if (atomic_cmpxchg(&spcom_dev->subsys_req, 1, 0)) {
-			ret = rproc_boot(spcom_dev->spss_rproc);
-			if (ret) {
-				spcom_pr_err("spss - restart - Failed start\n");
-				return -ENODEV;
-			}
-			spcom_pr_info("restart - spss started.\n");
-		}
+	if (ret == -ETIMEDOUT) {
+		/* userspace shoul handle retry if needed */
+		spcom_pr_err("FW loading process timeout\n");
+	} else if (ret) {
+		/*
+		 *  SPU shutdown. Return value comes from SPU PBL message.
+		 *  The error is not recoverable and userspace should handle it
+		 *  by request the value and analyse rmb_error value
+		 */
+		mutex_lock(&spcom_dev->ioctl_lock);
+		spcom_dev->rmb_error = (uint32_t)ret;
+		mutex_unlock(&spcom_dev->ioctl_lock);
+
+		spcom_pr_err("spss crashed during device bootup rmb_error[0x%x]\n",
+			     spcom_dev->rmb_error);
+		ret = -ENODEV;
+	} else {
+		spcom_pr_info("FW loading process is complete\n");
 	}
-	spcom_pr_dbg("restart - PIL FW loading process is complete\n");
-	return 0;
+
+	return ret;
 }
 
 /**
@@ -2515,6 +2521,7 @@ static int spcom_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&spcom_dev->rx_list_head);
 	spin_lock_init(&spcom_dev->rx_lock);
 	spcom_dev->nvm_ion_fd = -1;
+	spcom_dev->rmb_error = 0;
 	mutex_init(&spcom_dev->ioctl_lock);
 
 	ret = spcom_register_chardev();
@@ -2631,5 +2638,6 @@ static struct platform_driver spcom_driver = {
 };
 
 module_platform_driver(spcom_driver);
+MODULE_SOFTDEP("pre: spss_utils");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Communication");
