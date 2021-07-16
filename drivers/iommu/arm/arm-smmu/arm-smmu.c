@@ -742,35 +742,30 @@ void print_fault_regs(struct arm_smmu_domain *smmu_domain,
  * Thus, arm_smmu_iova_to_phys() returning nonzero is not necessarily
  * indicative of an issue.
  */
-void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
-	struct arm_smmu_device *smmu, int idx)
+void arm_smmu_verify_fault(struct arm_smmu_fault *fault)
 {
-	u32 fsynr, cbfrsynra;
-	unsigned long iova;
+	struct arm_smmu_domain *smmu_domain = fault->smmu_domain;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_domain *domain = &smmu_domain->domain;
 	phys_addr_t phys_soft;
 	phys_addr_t phys_stimu, phys_hard_priv, phys_stimu_post_tlbiall;
 	unsigned long flags = 0;
 	struct qcom_iommu_atos_txn txn = {0};
 
-	fsynr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
-	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
-	cbfrsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(idx));
-
-	phys_soft = arm_smmu_iova_to_phys(domain, iova);
+	phys_soft = arm_smmu_iova_to_phys(domain, fault->far);
 	dev_err(smmu->dev, "soft iova-to-phys=%pa\n", &phys_soft);
 
 	/* Get the transaction type */
-	if (fsynr & ARM_SMMU_FSYNR0_WNR)
+	if (fault->fsynr0 & ARM_SMMU_FSYNR0_WNR)
 		flags |= IOMMU_TRANS_WRITE;
-	if (fsynr & ARM_SMMU_FSYNR0_PNU)
+	if (fault->fsynr0 & ARM_SMMU_FSYNR0_PNU)
 		flags |= IOMMU_TRANS_PRIV;
-	if (fsynr & ARM_SMMU_FSYNR0_IND)
+	if (fault->fsynr0 & ARM_SMMU_FSYNR0_IND)
 		flags |= IOMMU_TRANS_INST;
 
-	txn.addr = iova;
+	txn.addr = fault->far;
 	txn.flags = flags;
-	txn.id = cbfrsynra & CBFRSYNRA_SID_MASK;
+	txn.id = fault->sid;
 
 	/* Now replicate the faulty transaction */
 	phys_stimu = arm_smmu_iova_to_phys_hard(domain, &txn);
@@ -836,6 +831,22 @@ int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 	return report_iommu_fault(&smmu_domain->domain,
 				 smmu->dev, iova, flags);
 }
+
+void arm_smmu_save_fault_context(struct arm_smmu_domain *smmu_domain,
+					struct arm_smmu_fault *fault)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int idx = smmu_domain->cfg.cbndx;
+	u32 cbfrsynra;
+
+	fault->smmu_domain = smmu_domain;
+	fault->fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+	fault->far = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
+	fault->fsynr0 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
+	cbfrsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(idx));
+	fault->sid = cbfrsynra & CBFRSYNRA_SID_MASK;
+}
+
 
 static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
 			struct qcom_iommu_fault_ids *f_ids)

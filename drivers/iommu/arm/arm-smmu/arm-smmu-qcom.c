@@ -899,7 +899,6 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 
 static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
 {
-	u32 fsr;
 	int ret;
 	struct iommu_domain *domain = dev;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -908,19 +907,20 @@ static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
 				      DEFAULT_RATELIMIT_BURST);
+	struct arm_smmu_fault fault;
 
 	ret = arm_smmu_rpm_get(smmu);
 	if (ret < 0)
 		return IRQ_NONE;
 
-	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
+	arm_smmu_save_fault_context(smmu_domain, &fault);
+	if (!(fault.fsr & ARM_SMMU_FSR_FAULT)) {
 		ret = IRQ_NONE;
 		goto out_power_off;
 	}
 
 	if ((smmu->options & ARM_SMMU_OPT_FATAL_ASF) &&
-			(fsr & ARM_SMMU_FSR_ASF)) {
+			(fault.fsr & ARM_SMMU_FSR_ASF)) {
 		dev_err(smmu->dev,
 			"Took an address size fault.  Refusing to recover.\n");
 		BUG();
@@ -947,12 +947,12 @@ static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
 	if (ret == -ENOSYS) {
 		if (__ratelimit(&_rs)) {
 			print_fault_regs(smmu_domain, smmu, idx);
-			arm_smmu_verify_fault(smmu_domain, smmu, idx);
+			arm_smmu_verify_fault(&fault);
 		}
 		BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
 	}
 	if (ret != -EBUSY) {
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fault.fsr);
 
 		/*
 		 * Barrier required to ensure that the FSR is cleared
@@ -960,7 +960,7 @@ static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
 		 */
 		wmb();
 
-		if (fsr & ARM_SMMU_FSR_SS)
+		if (fault.fsr & ARM_SMMU_FSR_SS)
 			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
 				  ARM_SMMU_RESUME_TERMINATE);
 	}

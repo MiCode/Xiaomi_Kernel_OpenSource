@@ -426,6 +426,14 @@ struct arm_smmu_device {
 	unsigned long			sync_timed_out;
 };
 
+struct arm_smmu_fault {
+	struct arm_smmu_domain *smmu_domain;
+	u32 fsr;
+	u64 far;
+	u32 fsynr0;
+	u32 sid;
+};
+
 struct qsmmuv500_tbu_device {
 	struct list_head		list;
 	struct device			*dev;
@@ -750,10 +758,11 @@ static inline struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 
 void print_fault_regs(struct arm_smmu_domain *smmu_domain,
 		struct arm_smmu_device *smmu, int idx);
-void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
-	struct arm_smmu_device *smmu, int idx);
+void arm_smmu_verify_fault(struct arm_smmu_fault *fault);
 int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu, int idx);
+void arm_smmu_save_fault_context(struct arm_smmu_domain *smmu_domain,
+					struct arm_smmu_fault *fault);
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10
