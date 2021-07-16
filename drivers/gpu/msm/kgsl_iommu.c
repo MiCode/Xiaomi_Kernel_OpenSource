@@ -1217,7 +1217,7 @@ static struct kgsl_pagetable *kgsl_iommu_default_pagetable(struct kgsl_mmu *mmu)
 
 	if (test_bit(KGSL_MMU_64BIT, &mmu->features)) {
 		iommu_pt->base.compat_va_start = KGSL_IOMMU_SVM_BASE32;
-		iommu_pt->base.compat_va_end = KGSL_IOMMU_SECURE_BASE(mmu);
+		iommu_pt->base.compat_va_end = KGSL_IOMMU_GLOBAL_MEM_BASE(mmu);
 		iommu_pt->base.va_start = KGSL_IOMMU_VA_BASE64;
 		iommu_pt->base.va_end = KGSL_IOMMU_VA_END64;
 
@@ -1307,13 +1307,13 @@ static struct kgsl_pagetable *kgsl_iopgtbl_pagetable(struct kgsl_mmu *mmu, u32 n
 	pt->base.pt_ops = &iopgtbl_pt_ops;
 
 	pt->base.compat_va_start = KGSL_IOMMU_SVM_BASE32;
-	pt->base.compat_va_end = KGSL_IOMMU_SECURE_BASE(mmu);
+	pt->base.compat_va_end = KGSL_IOMMU_GLOBAL_MEM_BASE(mmu);
 	pt->base.va_start = KGSL_IOMMU_VA_BASE64;
 	pt->base.va_end = KGSL_IOMMU_VA_END64;
 
 	if ((BITS_PER_LONG == 32) || is_compat_task()) {
 		pt->base.svm_start = KGSL_IOMMU_SVM_BASE32;
-		pt->base.svm_end = KGSL_IOMMU_SECURE_BASE(mmu);
+		pt->base.svm_end = KGSL_IOMMU_GLOBAL_MEM_BASE(mmu);
 	} else {
 		pt->base.svm_start = KGSL_IOMMU_SVM_BASE64;
 		pt->base.svm_end = KGSL_IOMMU_SVM_END64;
