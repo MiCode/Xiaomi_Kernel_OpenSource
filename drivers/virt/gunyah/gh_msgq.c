@@ -560,6 +560,80 @@ err:
 }
 EXPORT_SYMBOL(gh_msgq_populate_cap_info);
 
+/**
+ * gh_msgq_reset_cap_info: Reset the msgq cap info
+ * @label: The label associated to the message queue that the client wants
+ *         to communicate
+ * @direction: The direction of msgq
+ * @irq: The irq associated with the msgq
+ *
+ * The function resets all the msgq related info.
+ */
+int gh_msgq_reset_cap_info(enum gh_msgq_label label, int direction, int *irq)
+{
+	struct gh_msgq_cap_table *cap_table_entry = NULL, *tmp_entry;
+	int ret;
+
+	if (label < 0) {
+		pr_err("%s: Invalid label passed\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!irq)
+		return -EINVAL;
+
+	spin_lock(&gh_msgq_cap_list_lock);
+	list_for_each_entry(tmp_entry, &gh_msgq_cap_list, entry) {
+		if (label == tmp_entry->label) {
+			cap_table_entry = tmp_entry;
+			break;
+		}
+	}
+	spin_unlock(&gh_msgq_cap_list_lock);
+
+	if (cap_table_entry == NULL)
+		return -EINVAL;
+
+	if (direction == GH_MSGQ_DIRECTION_TX) {
+		if (!cap_table_entry->tx_irq) {
+			pr_err("%s: Tx IRQ not setup\n", __func__);
+			ret = -ENXIO;
+			goto err_unlock;
+		}
+
+		*irq = cap_table_entry->tx_irq;
+		spin_lock(&cap_table_entry->cap_entry_lock);
+		cap_table_entry->tx_cap_id = GH_CAPID_INVAL;
+		cap_table_entry->tx_irq = 0;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
+	} else if (direction == GH_MSGQ_DIRECTION_RX) {
+		if (!cap_table_entry->rx_irq) {
+			pr_err("%s: Rx IRQ not setup\n", __func__);
+			ret = -ENXIO;
+			goto err_unlock;
+		}
+
+		*irq = cap_table_entry->rx_irq;
+		spin_lock(&cap_table_entry->cap_entry_lock);
+		cap_table_entry->rx_cap_id = GH_CAPID_INVAL;
+		cap_table_entry->rx_irq = 0;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
+	} else {
+		pr_err("%s: Invalid direction passed\n", __func__);
+		ret = -EINVAL;
+		goto err_unlock;
+	}
+
+	if (*irq)
+		free_irq(*irq, cap_table_entry);
+
+	return 0;
+
+err_unlock:
+	return ret;
+}
+EXPORT_SYMBOL(gh_msgq_reset_cap_info);
+
 static int gh_msgq_probe_direction(struct platform_device *pdev, int label,
 				   int direction, int idx)
 {

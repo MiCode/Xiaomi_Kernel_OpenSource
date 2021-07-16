@@ -9,6 +9,7 @@
 
 #include <linux/types.h>
 #include <linux/notifier.h>
+#include <linux/fwnode.h>
 
 #include "gh_common.h"
 
@@ -46,6 +47,8 @@
 #define GH_RM_MEM_NOTIFY_OWNER_RELEASED		BIT(1)
 #define GH_RM_MEM_NOTIFY_OWNER		GH_RM_MEM_NOTIFY_OWNER_RELEASED
 #define GH_RM_MEM_NOTIFY_OWNER_ACCEPTED		BIT(2)
+
+#define MAX_EXIT_REASON_SIZE			4
 
 struct gh_rm_mem_shared_acl_entry;
 struct gh_rm_mem_shared_sgl_entry;
@@ -139,6 +142,8 @@ struct gh_notify_vmid_desc {
 } __packed;
 
 /* VM APIs */
+#define GH_RM_NOTIF_VM_EXITED		0x56100001
+#define GH_RM_NOTIF_VM_SHUTDOWN		0x56100002
 #define GH_RM_NOTIF_VM_STATUS		0x56100008
 #define GH_RM_NOTIF_VM_IRQ_LENT		0x56100011
 #define GH_RM_NOTIF_VM_IRQ_RELEASED	0x56100012
@@ -149,16 +154,60 @@ struct gh_notify_vmid_desc {
 #define GH_RM_VM_STATUS_READY		2
 #define GH_RM_VM_STATUS_RUNNING		3
 #define GH_RM_VM_STATUS_PAUSED		4
-#define GH_RM_VM_STATUS_SHUTDOWN	5
-#define GH_RM_VM_STATUS_SHUTOFF		6
-#define GH_RM_VM_STATUS_CRASHED		7
+/* 5, 6 and 7 are deprecated */
 #define GH_RM_VM_STATUS_INIT_FAILED	8
+#define GH_RM_VM_STATUS_EXITED		9
+#define GH_RM_VM_STATUS_RESETTING	10
+#define GH_RM_VM_STATUS_RESET		11
 
 #define GH_RM_OS_STATUS_NONE		0
 #define GH_RM_OS_STATUS_EARLY_BOOT	1
 #define GH_RM_OS_STATUS_BOOT		2
 #define GH_RM_OS_STATUS_INIT		3
 #define GH_RM_OS_STATUS_RUN		4
+
+#define GH_RM_VM_STOP_FLAG_FORCE_STOP				0x01
+
+#define GH_RM_VM_EXIT_TYPE_VM_EXIT				0
+#define GH_RM_VM_EXIT_TYPE_SYSTEM_OFF		1
+#define GH_RM_VM_EXIT_TYPE_SYSTEM_RESET		2
+#define GH_RM_VM_EXIT_TYPE_SYSTEM_RESET2	3
+#define GH_RM_VM_EXIT_TYPE_WDT_BITE				4
+#define GH_RM_VM_EXIT_TYPE_HYP_ERROR			5
+#define GH_RM_VM_EXIT_TYPE_ASYNC_EXT_ABORT		6
+#define GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED		7
+
+/* GH_RM_VM_EXIT_TYPE_VM_EXIT */
+struct gh_vm_exit_reason_vm_exit {
+	u16 exit_flags;
+	/* GH_VM_EXIT_EXIT_FLAG_* are bit representations */
+#define GH_VM_EXIT_EXIT_FLAG_TYPE	0x1
+#define GH_VM_EXIT_POWEROFF	0 /* Value at bit:0 */
+#define GH_VM_EXIT_RESTART	1 /* Value at bit:0 */
+#define GH_VM_EXIT_EXIT_FLAG_SYSTEM	0x2
+#define GH_VM_EXIT_EXIT_FLAG_WARM	0x4
+#define GH_VM_EXIT_EXIT_FLAG_DUMP	0x8
+
+	u8 exit_code;
+	/* Exit codes */
+#define GH_VM_EXIT_CODE_NORMAL	0
+#define GH_VM_EXIT_SOFTWARE_ERR	1
+#define GH_VM_EXIT_BUS_ERR		2
+#define GH_VM_EXIT_DEVICE_ERR	3
+
+	u8 reserved;
+} __packed;
+
+struct gh_rm_notif_vm_exited_payload {
+	gh_vmid_t vmid;
+	u16 exit_type;
+	u32 exit_reason_size;
+	u32 exit_reason[0];
+} __packed;
+
+struct gh_rm_notif_vm_shutdown_payload {
+	u32 stop_reason;
+} __packed;
 
 struct gh_rm_notif_vm_status_payload {
 	gh_vmid_t vmid;
@@ -183,6 +232,39 @@ struct gh_rm_notif_vm_irq_accepted_payload {
 	gh_virq_handle_t virq_handle;
 } __packed;
 
+/* Arch specific APIs */
+#if IS_ENABLED(CONFIG_GH_ARM64_DRV)
+/* IRQ APIs */
+int gh_get_irq(u32 virq, u32 type, struct fwnode_handle *handle);
+int gh_put_irq(int irq);
+int gh_get_virq(int base_virq, int virq);
+int gh_put_virq(int irq);
+int gh_arch_validate_vm_exited_notif(size_t buff_size, size_t hdr_size,
+	struct gh_rm_notif_vm_exited_payload *payload);
+#else
+static inline int gh_get_irq(u32 virq, u32 type,
+					struct fwnode_handle *handle)
+{
+	return -EINVAL;
+}
+static inline int gh_put_irq(int irq)
+{
+	return -EINVAL;
+}
+static inline int gh_get_virq(int base_virq, int virq)
+{
+	return -EINVAL;
+}
+static inline int gh_put_virq(int irq)
+{
+	return -EINVAL;
+}
+static inline int gh_arch_validate_vm_exited_notif(size_t buff_size,
+	size_t hdr_size, struct gh_rm_notif_vm_exited_payload *payload)
+{
+	return -EINVAL;
+}
+#endif
 /* VM Services */
 #define GH_RM_NOTIF_VM_CONSOLE_CHARS	0X56100080
 
@@ -226,16 +308,31 @@ int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_cb_t fnptr);
 
 /* Client APIs for VM management */
 int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid);
+int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid);
 int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid);
 int gh_rm_get_vm_name(gh_vmid_t vmid, enum gh_vm_names *vm_name);
 int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vminfo);
 int gh_rm_vm_start(int vmid);
 int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid);
+int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags);
+int gh_rm_vm_reset(gh_vmid_t vmid);
 
 /* Client APIs for VM query */
 int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name);
+int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name);
 
 /* Client APIs for VM Services */
+struct gh_vm_status {
+	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
+} __packed;
+
+struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid);
+int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status);
+int gh_rm_vm_set_vm_status(u8 vm_status);
+int gh_rm_vm_set_os_status(u8 os_status);
+int gh_rm_vm_set_app_status(u16 app_status);
 int gh_rm_console_open(gh_vmid_t vmid);
 int gh_rm_console_close(gh_vmid_t vmid);
 int gh_rm_console_write(gh_vmid_t vmid, const char *buf, size_t size);
@@ -336,6 +433,11 @@ static inline int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 	return -EINVAL;
 }
 
+static inline int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid)
+{
+	return -EINVAL;
+}
+
 static inline int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid)
 {
 	return -EINVAL;
@@ -361,6 +463,16 @@ static inline int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
 	return -EINVAL;
 }
 
+static inline int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_reset(gh_vmid_t vmid)
+{
+	return -EINVAL;
+}
+
 /* Client APIs for VM query */
 static inline int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 {
@@ -368,6 +480,31 @@ static inline int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 }
 
 /* Client APIs for VM Services */
+static inline struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_set_vm_status(u8 vm_status)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_set_os_status(u8 os_status)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_set_app_status(u16 app_status)
+{
+	return -EINVAL;
+}
+
 static inline int gh_rm_console_open(gh_vmid_t vmid)
 {
 	return -EINVAL;

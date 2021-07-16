@@ -18,7 +18,6 @@
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include <linux/gunyah/gh_dbl.h>
 #include <linux/gunyah/gh_msgq.h>
@@ -29,8 +28,6 @@
 #include "gh_rm_drv_private.h"
 
 #define GH_RM_MAX_NUM_FRAGMENTS	62
-
-#define GIC_V3_SPI_MAX		1019
 
 #define GH_RM_NO_IRQ_ALLOC	-1
 
@@ -70,7 +67,6 @@ static DEFINE_MUTEX(gh_virtio_mmio_fn_lock);
 static DEFINE_IDR(gh_rm_call_idr);
 static DEFINE_MUTEX(gh_rm_send_lock);
 
-static DEFINE_IDA(gh_rm_free_virq_ida);
 static struct device_node *gh_rm_intc;
 static struct irq_domain *gh_rm_irq_domain;
 static u32 gh_rm_base_virq;
@@ -142,6 +138,49 @@ int gh_rm_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL(gh_rm_unregister_notifier);
 
+static int
+gh_rm_validate_vm_exited_notif(struct gh_rm_rpc_hdr *hdr,
+				void *payload, size_t recv_buff_size)
+{
+	struct gh_rm_notif_vm_exited_payload *vm_exited_payload;
+	size_t min_buff_sz = sizeof(*hdr) + sizeof(*vm_exited_payload);
+
+	if (recv_buff_size < min_buff_sz)
+		return -EINVAL;
+
+	vm_exited_payload = payload;
+
+	switch (vm_exited_payload->exit_type) {
+	case GH_RM_VM_EXIT_TYPE_VM_EXIT:
+		if ((vm_exited_payload->exit_reason_size !=
+					MAX_EXIT_REASON_SIZE) ||
+					(recv_buff_size != min_buff_sz +
+			sizeof(struct gh_vm_exit_reason_vm_exit))) {
+			pr_err("%s: Invalid size for type VM_EXIT: %u\n",
+				__func__, recv_buff_size - sizeof(*hdr));
+			return -EINVAL;
+		}
+		break;
+	case GH_RM_VM_EXIT_TYPE_WDT_BITE:
+		break;
+	case GH_RM_VM_EXIT_TYPE_HYP_ERROR:
+		break;
+	case GH_RM_VM_EXIT_TYPE_ASYNC_EXT_ABORT:
+		break;
+	case GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED:
+		break;
+	default:
+		if (gh_arch_validate_vm_exited_notif(recv_buff_size,
+			sizeof(*hdr), vm_exited_payload)) {
+			pr_err("%s: Unknown exit type: %u\n", __func__,
+				vm_exited_payload->exit_type);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static struct gh_rm_connection *
 gh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
 {
@@ -193,6 +232,19 @@ static void gh_rm_validate_notif(struct work_struct *work)
 		if (recv_buff_size != sizeof(*hdr) +
 			sizeof(struct gh_rm_notif_vm_status_payload)) {
 			pr_err("%s: Invalid size for VM_STATUS notif: %u\n",
+				__func__, recv_buff_size - sizeof(*hdr));
+			goto err;
+		}
+		break;
+	case GH_RM_NOTIF_VM_EXITED:
+		if (gh_rm_validate_vm_exited_notif(hdr,
+						payload, recv_buff_size))
+			goto err;
+		break;
+	case GH_RM_NOTIF_VM_SHUTDOWN:
+		if (recv_buff_size != sizeof(*hdr) +
+			sizeof(struct gh_rm_notif_vm_shutdown_payload)) {
+			pr_err("%s: Invalid size for VM_SHUTDOWN notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			goto err;
 		}
@@ -664,20 +716,7 @@ out:
  */
 int gh_rm_virq_to_irq(u32 virq, u32 type)
 {
-	struct irq_fwspec fwspec = {};
-
-	if (virq < 32 || virq >= GIC_V3_SPI_MAX) {
-		pr_warn("%s: expecting an SPI from RM, but got GIC IRQ %d\n",
-			__func__, virq);
-	}
-
-	fwspec.fwnode = of_node_to_fwnode(gh_rm_intc);
-	fwspec.param_count = 3;
-	fwspec.param[0] = GIC_SPI;
-	fwspec.param[1] = virq - 32;
-	fwspec.param[2] = type;
-
-	return irq_create_fwspec_mapping(&fwspec);
+	return gh_get_irq(virq, type, of_node_to_fwnode(gh_rm_intc));
 }
 EXPORT_SYMBOL(gh_rm_virq_to_irq);
 
@@ -716,34 +755,21 @@ static int gh_rm_get_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry)
 
 	/* Allocate and bind a new IRQ if RM-VM hasn't already done already */
 	if (virq == GH_RM_NO_IRQ_ALLOC) {
-		/* Get the next free vIRQ.
-		 * Subtract 32 from the base virq to get the base SPI.
-		 */
-		ret = virq = ida_alloc_range(&gh_rm_free_virq_ida,
-					gh_rm_base_virq - 32,
-					GIC_V3_SPI_MAX, GFP_KERNEL);
+		ret = virq = gh_get_virq(gh_rm_base_virq, virq);
 		if (ret < 0)
 			return ret;
 
-		/* Add 32 offset to make interrupt as hwirq */
-		virq += 32;
-
 		/* Bind the vIRQ */
 		ret = gh_rm_vm_irq_accept(res_entry->virq_handle, virq);
-		if (ret < 0)
-			goto err;
-	} else if ((virq - 32) < 0) {
-		/* Sanity check to make sure hypervisor is passing the correct
-		 * interrupt numbers.
-		 */
-		return -EINVAL;
+		if (ret < 0) {
+			pr_err("%s: IRQ accept failed: %d\n",
+				__func__, ret);
+			gh_put_virq(virq);
+			return ret;
+		}
 	}
 
 	return gh_rm_virq_to_irq(virq, IRQ_TYPE_EDGE_RISING);
-
-err:
-	ida_free(&gh_rm_free_virq_ida, virq - 32);
-	return ret;
 }
 
 /**
@@ -920,6 +946,81 @@ out:
 }
 EXPORT_SYMBOL(gh_rm_populate_hyp_res);
 
+static void
+gh_rm_put_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry, int irq)
+{
+	if (!gh_put_irq(irq))
+		gh_rm_vm_irq_release(res_entry->virq_handle);
+
+	return;
+}
+
+/**
+ * gh_rm_unpopulate_hyp_res: Unpopulate the resources that we got from
+ *				gh_rm_populate_hyp_res().
+ * @vmid: The vmid of resources to be queried.
+ * @vm_name: The name of the VM
+ *
+ * Returns 0 on success and a negative error code upon failure.
+ */
+int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
+{
+	struct gh_vm_get_hyp_res_resp_entry *res_entries = NULL;
+	gh_label_t label;
+	u32 n_res, i;
+	int ret = 0, irq;
+
+	res_entries = gh_rm_vm_get_hyp_res(vmid, &n_res);
+	if (IS_ERR_OR_NULL(res_entries))
+		return PTR_ERR(res_entries);
+
+	for (i = 0; i < n_res; i++) {
+
+		label = res_entries[i].resource_label;
+
+		switch (res_entries[i].res_type) {
+		case GH_RM_RES_TYPE_MQ_TX:
+			ret = gh_msgq_reset_cap_info(label,
+						GH_MSGQ_DIRECTION_TX, &irq);
+			break;
+		case GH_RM_RES_TYPE_MQ_RX:
+			ret = gh_msgq_reset_cap_info(label,
+						GH_MSGQ_DIRECTION_RX, &irq);
+			break;
+		case GH_RM_RES_TYPE_DB_TX:
+			ret = gh_dbl_reset_cap_info(label,
+						GH_RM_RES_TYPE_DB_TX, &irq);
+			break;
+		case GH_RM_RES_TYPE_DB_RX:
+			ret = gh_dbl_reset_cap_info(label,
+						GH_RM_RES_TYPE_DB_RX, &irq);
+			break;
+		case GH_RM_RES_TYPE_VCPU:
+			/* TODO: Call the unpopulate callback */
+			break;
+		case GH_RM_RES_TYPE_VIRTIO_MMIO:
+			/* TODO: Call the unpopulate callback */
+			break;
+		case GH_RM_RES_TYPE_VPMGRP:
+			break;
+		default:
+			pr_err("%s: Unknown resource type: %u\n",
+				__func__, res_entries[i].res_type);
+			ret = -EINVAL;
+		}
+
+		if (ret < 0)
+			goto out;
+
+		gh_rm_put_irq(&res_entries[i], irq);
+	}
+
+out:
+	kfree(res_entries);
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_unpopulate_hyp_res);
+
 /**
  * gh_rm_set_virtio_mmio_cb: Set callback that handles virtio MMIO resource
  * @fnptr: Pointer to callback function
@@ -1008,6 +1109,8 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 	struct device_node *node;
 	struct gh_vm_property temp_property = {0};
 	int vmid, owner_vmid, ret;
+
+	gh_init_vm_prop_table();
 
 	node = of_find_compatible_node(hyp_root, NULL, "qcom,gunyah-vm-id-1.0");
 	if (IS_ERR_OR_NULL(node)) {

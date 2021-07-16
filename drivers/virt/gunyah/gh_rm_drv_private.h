@@ -70,7 +70,10 @@ struct gh_vm_property {
 
 /* Message IDs: VM Management */
 #define GH_RM_RPC_MSG_ID_CALL_VM_ALLOCATE		0x56000001
+#define GH_RM_RPC_MSG_ID_CALL_VM_DEALLOCATE		0x56000002
 #define GH_RM_RPC_MSG_ID_CALL_VM_START			0x56000004
+#define GH_RM_RPC_MSG_ID_CALL_VM_STOP			0x56000005
+#define GH_RM_RPC_MSG_ID_CALL_VM_RESET			0x56000006
 
 /* Message IDs: VM Query */
 #define GH_RM_RPC_MSG_ID_CALL_VM_GET_ID			0x56000010
@@ -110,6 +113,12 @@ struct gh_vm_allocate_resp_payload {
 	u32 vmid;
 } __packed;
 
+/* Call: VM_DEALLOCATE */
+struct gh_vm_deallocate_req_payload {
+	gh_vmid_t vmid;
+	u16 reserved;
+} __packed;
+
 /* Call: VM_START */
 struct gh_vm_start_req_payload {
 	gh_vmid_t vmid;
@@ -118,6 +127,39 @@ struct gh_vm_start_req_payload {
 
 struct gh_vm_start_resp_payload {
 	u32 response;
+} __packed;
+
+/* Call: VM_STOP */
+struct gh_vm_stop_req_payload {
+	gh_vmid_t vmid;
+	u8 flags;
+	u8 reserved;
+	u32 stop_reason;
+} __packed;
+
+/* Call: VM_RESET */
+struct gh_vm_reset_req_payload {
+	gh_vmid_t vmid;
+	u16 reserved;
+} __packed;
+
+/* Call: VM_SET_STATUS */
+struct gh_vm_set_status_req_payload {
+	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
+} __packed;
+
+/* Call: VM_GET_STATE */
+struct gh_vm_get_state_req_payload {
+	gh_vmid_t vmid;
+	u16 reserved;
+} __packed;
+
+struct gh_vm_get_state_resp_payload {
+	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
 } __packed;
 
 /* Call: CONSOLE_OPEN, CONSOLE_CLOSE, CONSOLE_FLUSH */
@@ -318,6 +360,7 @@ struct gh_mem_notify_req_payload {
 /* End Message ID headers */
 
 /* Common function declerations */
+void gh_init_vm_prop_table(void);
 int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 			struct gh_vm_property *vm_prop);
 void *gh_rm_call(gh_rm_msgid_t message_id,

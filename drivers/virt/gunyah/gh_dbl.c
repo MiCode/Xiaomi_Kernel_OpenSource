@@ -603,6 +603,62 @@ err:
 }
 EXPORT_SYMBOL(gh_dbl_populate_cap_info);
 
+/**
+ * This API is called by RM driver to free up doorbell objects
+ */
+int gh_dbl_reset_cap_info(enum gh_dbl_label label, int direction, int *irq)
+{
+	struct gh_dbl_cap_table *cap_table_entry;
+	int ret = 0;
+
+	if (!gh_dbl_initialized)
+		return -EAGAIN;
+
+	if (label < 0 || label >= GH_DBL_LABEL_MAX) {
+		pr_err("%s: Invalid label passed\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!irq)
+		return -EINVAL;
+
+	cap_table_entry = &gh_dbl_cap_table[label];
+
+	spin_lock(&cap_table_entry->cap_entry_lock);
+
+	switch (direction) {
+	case GH_DBL_DIRECTION_TX:
+		*irq = 0;
+		cap_table_entry->tx_cap_id = GH_CAPID_INVAL;
+		break;
+	case GH_DBL_DIRECTION_RX:
+		if (!cap_table_entry->rx_irq) {
+			pr_err("%s: Rx IRQ not setup\n", __func__);
+			ret = -ENXIO;
+			goto err_unlock;
+		}
+
+		*irq = cap_table_entry->rx_irq;
+
+		cap_table_entry->rx_irq = 0;
+		cap_table_entry->rx_cap_id = GH_CAPID_INVAL;
+		break;
+	default:
+		pr_err("%s: Invalid direction(%d) for doorbell\n",
+			__func__, direction);
+		ret = -EINVAL;
+	}
+
+err_unlock:
+	spin_unlock(&cap_table_entry->cap_entry_lock);
+
+	if (*irq && !ret)
+		free_irq(*irq, cap_table_entry);
+
+	return ret;
+}
+EXPORT_SYMBOL(gh_dbl_reset_cap_info);
+
 static void gh_dbl_cleanup(int begin_idx)
 {
 	struct gh_dbl_cap_table *cap_table_entry;

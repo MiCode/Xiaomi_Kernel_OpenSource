@@ -39,6 +39,7 @@ int gh_dbl_read_and_clean(void *dbl_client_desc, gh_dbl_flags_t *clear_flags,
 int gh_dbl_reset(void *dbl_client_desc, const unsigned long flags);
 int gh_dbl_populate_cap_info(enum gh_dbl_label label, u64 cap_id,
 						int direction, int rx_irq);
+int gh_dbl_reset_cap_info(enum gh_dbl_label label, int direction, int *irq);
 #else
 static inline void *gh_dbl_tx_register(enum gh_dbl_label label)
 {
@@ -90,6 +91,12 @@ static inline int gh_dbl_reset(void *dbl_client_desc, const unsigned long flags)
 
 static inline int gh_dbl_populate_cap_info(enum gh_dbl_label label, u64 cap_id,
 						int direction, int rx_irq)
+{
+	return -EINVAL;
+}
+
+static inline
+int gh_dbl_reset_cap_info(enum gh_dbl_label label, int direction, int *irq)
 {
 	return -EINVAL;
 }

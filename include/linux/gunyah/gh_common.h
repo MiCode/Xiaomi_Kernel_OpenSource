@@ -27,6 +27,7 @@ struct gh_vminfo {
 
 /* Common Gunyah macros */
 #define GH_CAPID_INVAL	U64_MAX
+#define GH_VMID_INVAL	U16_MAX
 
 enum gh_vm_names {
 	/*
