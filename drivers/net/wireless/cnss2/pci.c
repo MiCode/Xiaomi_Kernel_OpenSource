@@ -3156,8 +3156,10 @@ static bool cnss_pci_is_drv_supported(struct cnss_pci_data *pci_priv)
 		    drv_supported ? "supported" : "not supported");
 	pci_priv->drv_supported = drv_supported;
 
-	if (drv_supported)
+	if (drv_supported) {
 		plat_priv->cap.cap_flag |= CNSS_HAS_DRV_SUPPORT;
+		cnss_set_feature_list(plat_priv, CNSS_DRV_SUPPORT_V01);
+	}
 
 	return drv_supported;
 }
