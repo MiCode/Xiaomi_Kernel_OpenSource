@@ -193,6 +193,7 @@ static const struct mhi_event_config cnss_mhi_events[] = {
 		.client_managed = false,
 		.offload_channel = false,
 	},
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 	{
 		.num_elements = 32,
 		.irq_moderation_ms = 0,
@@ -204,6 +205,7 @@ static const struct mhi_event_config cnss_mhi_events[] = {
 		.client_managed = false,
 		.offload_channel = false,
 	},
+#endif
 };
 
 static const struct mhi_controller_config cnss_mhi_config = {
@@ -764,6 +766,101 @@ static int cnss_pci_set_link_down(struct cnss_pci_data *pci_priv)
 }
 #endif /* CONFIG_PCI_MSM */
 
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
+static void cnss_mhi_debug_reg_dump(struct cnss_pci_data *pci_priv)
+{
+	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+}
+
+static void cnss_mhi_dump_sfr(struct cnss_pci_data *pci_priv)
+{
+	mhi_dump_sfr(pci_priv->mhi_ctrl);
+}
+
+static bool cnss_mhi_scan_rddm_cookie(struct cnss_pci_data *pci_priv,
+				      u32 cookie)
+{
+	return mhi_scan_rddm_cookie(pci_priv->mhi_ctrl, cookie);
+}
+
+static int cnss_mhi_pm_fast_suspend(struct cnss_pci_data *pci_priv,
+				    bool notify_clients)
+{
+	return mhi_pm_fast_suspend(pci_priv->mhi_ctrl, notify_clients);
+}
+
+static int cnss_mhi_pm_fast_resume(struct cnss_pci_data *pci_priv,
+				   bool notify_clients)
+{
+	return mhi_pm_fast_resume(pci_priv->mhi_ctrl, notify_clients);
+}
+
+static void cnss_mhi_set_m2_timeout_ms(struct cnss_pci_data *pci_priv,
+				       u32 timeout)
+{
+	return mhi_set_m2_timeout_ms(pci_priv->mhi_ctrl, timeout);
+}
+
+static int cnss_mhi_device_get_sync_atomic(struct cnss_pci_data *pci_priv,
+					   int timeout_us, bool in_panic)
+{
+	return mhi_device_get_sync_atomic(pci_priv->mhi_ctrl->mhi_dev,
+					  timeout_us, in_panic);
+}
+
+static void
+cnss_mhi_controller_set_bw_scale_cb(struct cnss_pci_data *pci_priv,
+				    int (*cb)(struct mhi_controller *mhi_ctrl,
+					      struct mhi_link_info *link_info))
+{
+	mhi_controller_set_bw_scale_cb(pci_priv->mhi_ctrl, cb);
+}
+#else
+static void cnss_mhi_debug_reg_dump(struct cnss_pci_data *pci_priv)
+{
+}
+
+static void cnss_mhi_dump_sfr(struct cnss_pci_data *pci_priv)
+{
+}
+
+static bool cnss_mhi_scan_rddm_cookie(struct cnss_pci_data *pci_priv,
+				      u32 cookie)
+{
+	return false;
+}
+
+static int cnss_mhi_pm_fast_suspend(struct cnss_pci_data *pci_priv,
+				    bool notify_clients)
+{
+	return -EOPNOTSUPP;
+}
+
+static int cnss_mhi_pm_fast_resume(struct cnss_pci_data *pci_priv,
+				   bool notify_clients)
+{
+	return -EOPNOTSUPP;
+}
+
+static void cnss_mhi_set_m2_timeout_ms(struct cnss_pci_data *pci_priv,
+				       u32 timeout)
+{
+}
+
+static int cnss_mhi_device_get_sync_atomic(struct cnss_pci_data *pci_priv,
+					   int timeout_us, bool in_panic)
+{
+	return -EOPNOTSUPP;
+}
+
+static void
+cnss_mhi_controller_set_bw_scale_cb(struct cnss_pci_data *pci_priv,
+				    int (*cb)(struct mhi_controller *mhi_ctrl,
+					      struct mhi_link_info *link_info))
+{
+}
+#endif /* CONFIG_MHI_BUS_MISC */
+
 int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 {
 	u16 device_id;
@@ -1314,7 +1411,7 @@ int cnss_pci_recover_link_down(struct cnss_pci_data *pci_priv)
 	mod_timer(&pci_priv->dev_rddm_timer,
 		  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 
 	return 0;
 }
@@ -1583,7 +1680,7 @@ static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
 
 	cnss_fatal_err("MHI power up returns timeout\n");
 
-	if (mhi_scan_rddm_cookie(pci_priv->mhi_ctrl, DEVICE_RDDM_COOKIE)) {
+	if (cnss_mhi_scan_rddm_cookie(pci_priv, DEVICE_RDDM_COOKIE)) {
 		/* Wait for RDDM if RDDM cookie is set. If RDDM times out,
 		 * PBL/SBL error region may have been erased so no need to
 		 * dump them either.
@@ -1595,7 +1692,7 @@ static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
 		}
 	} else {
 		cnss_pr_dbg("RDDM cookie is not set\n");
-		mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+		cnss_mhi_debug_reg_dump(pci_priv);
 		/* Dump PBL/SBL error log if RDDM cookie is not set */
 		cnss_pci_dump_bl_sram_mem(pci_priv);
 		return -ETIMEDOUT;
@@ -1751,11 +1848,13 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_POWER_ON:
 		ret = mhi_sync_power_up(pci_priv->mhi_ctrl);
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 		/* Only set img_pre_alloc when power up succeeds */
 		if (!ret && !pci_priv->mhi_ctrl->img_pre_alloc) {
 			cnss_pr_dbg("Notify MHI to use already allocated images\n");
 			pci_priv->mhi_ctrl->img_pre_alloc = true;
 		}
+#endif
 		break;
 	case CNSS_MHI_POWER_OFF:
 		mhi_power_down(pci_priv->mhi_ctrl, true);
@@ -1768,7 +1867,7 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 	case CNSS_MHI_SUSPEND:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
 		if (pci_priv->drv_connected_last)
-			ret = mhi_pm_fast_suspend(pci_priv->mhi_ctrl, true);
+			ret = cnss_mhi_pm_fast_suspend(pci_priv, true);
 		else
 			ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
@@ -1777,7 +1876,7 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
 		if (pci_priv->drv_connected_last) {
 			cnss_pci_prevent_l1(&pci_priv->pci_dev->dev);
-			ret = mhi_pm_fast_resume(pci_priv->mhi_ctrl, true);
+			ret = cnss_mhi_pm_fast_resume(pci_priv, true);
 			cnss_pci_allow_l1(&pci_priv->pci_dev->dev);
 		} else {
 			ret = mhi_pm_resume(pci_priv->mhi_ctrl);
@@ -1874,7 +1973,7 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	if (MHI_TIMEOUT_OVERWRITE_MS)
 		pci_priv->mhi_ctrl->timeout_ms = MHI_TIMEOUT_OVERWRITE_MS;
-	mhi_set_m2_timeout_ms(pci_priv->mhi_ctrl, MHI_M2_TIMEOUT_MS);
+	cnss_mhi_set_m2_timeout_ms(pci_priv, MHI_M2_TIMEOUT_MS);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
@@ -3799,8 +3898,8 @@ int cnss_pci_force_wake_request_sync(struct device *dev, int timeout_us)
 
 	if (timeout_us) {
 		/* Busy wait for timeout_us */
-		return mhi_device_get_sync_atomic(mhi_ctrl->mhi_dev,
-						  timeout_us, false);
+		return cnss_mhi_device_get_sync_atomic(pci_priv,
+						       timeout_us, false);
 	} else {
 		/* Sleep wait for mhi_ctrl->timeout_ms */
 		return mhi_device_get_sync(mhi_ctrl->mhi_dev);
@@ -4779,7 +4878,7 @@ static void cnss_pci_dump_debug_reg(struct cnss_pci_data *pci_priv)
 
 	cnss_pr_dbg("Start to dump debug registers\n");
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_COMMON);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_09);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_10);
@@ -4986,7 +5085,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 			return;
 	}
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
 	cnss_pci_dump_qdss_reg(pci_priv);
@@ -5034,7 +5133,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	dump_data->nentries += rddm_image->entries;
 
-	mhi_dump_sfr(pci_priv->mhi_ctrl);
+	cnss_mhi_dump_sfr(pci_priv);
 
 	cnss_pr_dbg("Collect remote heap dump segment\n");
 
@@ -5224,7 +5323,7 @@ static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 	}
 
 	cnss_pr_dbg("FW name is %s, FW fallback name is %s\n",
-		    mhi_ctrl->fw_image, mhi_ctrl->fallback_fw_image);
+		    plat_priv->firmware_name, plat_priv->fw_fallback_name);
 
 	return 0;
 }
@@ -5242,8 +5341,10 @@ static char *cnss_mhi_notify_status_to_str(enum mhi_callback status)
 		return "FATAL_ERROR";
 	case MHI_CB_EE_MISSION_MODE:
 		return "MISSION_MODE";
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 	case MHI_CB_FALLBACK_IMG:
 		return "FW_FALLBACK";
+#endif
 	default:
 		return "UNKNOWN";
 	}
@@ -5262,7 +5363,7 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 	if (mhi_get_exec_env(pci_priv->mhi_ctrl) == MHI_EE_PBL)
 		cnss_pr_err("Unable to collect ramdumps due to abrupt reset\n");
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
 }
@@ -5284,12 +5385,12 @@ static void cnss_boot_debug_timeout_hdlr(struct timer_list *t)
 	if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state))
 		return;
 
-	if (mhi_scan_rddm_cookie(pci_priv->mhi_ctrl, DEVICE_RDDM_COOKIE))
+	if (cnss_mhi_scan_rddm_cookie(pci_priv, DEVICE_RDDM_COOKIE))
 		return;
 
 	cnss_pr_dbg("Dump MHI/PBL/SBL debug data every %ds during MHI power on\n",
 		    BOOT_DEBUG_TIMEOUT_MS / 1000);
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_mhi_debug_reg_dump(pci_priv);
 	cnss_pci_dump_bl_sram_mem(pci_priv);
 
 	mod_timer(&pci_priv->boot_debug_timer,
@@ -5341,10 +5442,12 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl,
 		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 		cnss_reason = CNSS_REASON_RDDM;
 		break;
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 	case MHI_CB_FALLBACK_IMG:
 		plat_priv->use_fw_path_with_prefix = false;
 		cnss_pci_update_fw_name(pci_priv);
 		return;
+#endif
 	default:
 		cnss_pr_err("Unsupported MHI status cb reason: %d\n", reason);
 		return;
@@ -5462,7 +5565,9 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->cntrl_dev = &pci_dev->dev;
 
 	mhi_ctrl->fw_image = plat_priv->firmware_name;
+#if IS_ENABLED(CONFIG_MHI_BUS_MISC)
 	mhi_ctrl->fallback_fw_image = plat_priv->fw_fallback_name;
+#endif
 
 	mhi_ctrl->regs = pci_priv->bar;
 	mhi_ctrl->reg_len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
@@ -5505,7 +5610,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	}
 
 	/* BW scale CB needs to be set after registering MHI per requirement */
-	mhi_controller_set_bw_scale_cb(mhi_ctrl, cnss_mhi_bw_scale);
+	cnss_mhi_controller_set_bw_scale_cb(pci_priv, cnss_mhi_bw_scale);
 
 	ret = cnss_pci_update_fw_name(pci_priv);
 	if (ret)
