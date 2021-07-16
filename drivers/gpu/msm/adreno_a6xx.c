@@ -958,7 +958,7 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 				"CP initialization failed to idle\n");
 
 			kgsl_sharedmem_writel(device->scratch,
-				SCRATCH_RPTR_OFFSET(rb->id), 0);
+				SCRATCH_RB_OFFSET(rb->id, rptr), 0);
 			rb->wptr = 0;
 			rb->_wptr = 0;
 		}
@@ -1052,7 +1052,7 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		memset(rb->buffer_desc->hostptr, 0xaa, KGSL_RB_SIZE);
 		kgsl_sharedmem_writel(device->scratch,
-			SCRATCH_RPTR_OFFSET(rb->id), 0);
+			SCRATCH_RB_OFFSET(rb->id, rptr), 0);
 
 		rb->wptr = 0;
 		rb->_wptr = 0;
@@ -1063,7 +1063,7 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 
 	/* Set up the current ringbuffer */
 	rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	addr = SCRATCH_RPTR_GPU_ADDR(device, rb->id);
+	addr = SCRATCH_RB_GPU_ADDR(device, rb->id, rptr);
 
 	kgsl_regwrite(device, A6XX_CP_RB_RPTR_ADDR_LO, lower_32_bits(addr));
 	kgsl_regwrite(device, A6XX_CP_RB_RPTR_ADDR_HI, upper_32_bits(addr));

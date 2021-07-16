@@ -166,7 +166,7 @@ unsigned int adreno_get_rptr(struct adreno_ringbuffer *rb)
 		kgsl_regread(device, A3XX_CP_RB_RPTR, &rptr);
 	else
 		kgsl_sharedmem_readl(device->scratch, &rptr,
-				SCRATCH_RPTR_OFFSET(rb->id));
+				SCRATCH_RB_OFFSET(rb->id, rptr));
 
 	return rptr;
 }
