@@ -388,7 +388,7 @@ static int update_buffer_info(struct ion_mm_buf_info *buf_info,
 	buf_info->mapped[dom_id] = true;
 	buf_info->dev_class[dom_id].dev = attachment->dev;
 	buf_info->dev_class[dom_id].direction = direction;
-	buf_info->dev_class[dom_id].map_attrs = attachment->dma_map_attrs;
+	buf_info->dev_class[dom_id].map_attrs = 0;
 
 	return ret;
 }
@@ -402,7 +402,7 @@ sg_table *mtk_ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
 	struct ion_dma_buf_attachment *a;
 	struct sg_table *table;
-	unsigned long attrs = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
+	unsigned long attrs = DMA_ATTR_SKIP_CPU_SYNC;
 	int ret, dom_id = MTK_M4U_DOM_NR_MAX;
 
 	a = attachment->priv;
@@ -454,7 +454,7 @@ static void mtk_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
 	struct ion_dma_buf_attachment *a = attachment->priv;
-	unsigned long attrs = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
+	unsigned long attrs = DMA_ATTR_SKIP_CPU_SYNC;
 
 	if (!fwspec) {
 		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
