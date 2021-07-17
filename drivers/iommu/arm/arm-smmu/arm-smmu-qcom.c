@@ -369,7 +369,7 @@ static const struct arm_smmu_impl qcom_smmu_impl = {
 #define DEBUG_AXUSER_CDMID		GENMASK_ULL(43, 36)
 #define DEBUG_AXUSER_CDMID_VAL          255
 
-#define TBU_DBG_TIMEOUT_US		100
+#define TBU_DBG_TIMEOUT_US		10000
 
 #define TNX_TCR_CNTL			0x130
 #define TNX_TCR_CNTL_TBU_OT_CAPTURE_EN	BIT(18)
@@ -605,14 +605,13 @@ static bool smr_is_subset(struct arm_smmu_smr *smr2, struct arm_smmu_smr *smr)
 	    !((smr->id ^ smr2->id) & ~smr->mask);
 }
 
-static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
-				struct arm_smmu_domain *smmu_domain)
+static int qsmmuv500_tbu_request_halt(struct qsmmuv500_tbu_device *tbu,
+					struct arm_smmu_domain *smmu_domain)
 {
-	unsigned long flags;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	int idx = smmu_domain->cfg.cbndx;
-	u32 halt, fsr, status;
 	void __iomem *tbu_base;
+	u32 halt;
+	int ret = 0;
+	unsigned long flags;
 
 	if (of_property_read_bool(tbu->dev->of_node,
 						"qcom,opt-out-tbu-halting")) {
@@ -621,41 +620,40 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 	}
 
 	spin_lock_irqsave(&tbu->halt_lock, flags);
-	if (tbu->halt_count) {
-		tbu->halt_count++;
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
-		return 0;
+	if (tbu->halt_state != TBU_ACTIVE) {
+		if (smmu_domain == tbu->fault.smmu_domain) {
+			ret = 0;
+			goto out_unlock;
+		} else {
+			ret = -EBUSY;
+			goto out_unlock;
+		}
 	}
 
+	/*
+	 * Our request to halt the bus will not complete until transactions
+	 * in front of us have finished (such as stall-on-fault).
+	 */
 	tbu_base = tbu->base;
 	halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
 	halt |= DEBUG_SID_HALT_REQ;
 	writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
 
-	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-	if ((fsr & ARM_SMMU_FSR_FAULT) && (fsr & ARM_SMMU_FSR_SS)) {
-		u32 sctlr_orig, sctlr;
-		/*
-		 * We are in a fault; Our request to halt the bus will not
-		 * complete until transactions in front of us (such as the fault
-		 * itself) have completed. Disable iommu faults and terminate
-		 * any existing transactions.
-		 */
-		sctlr_orig = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
-		sctlr = sctlr_orig & ~(ARM_SMMU_SCTLR_CFCFG | ARM_SMMU_SCTLR_CFIE);
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr);
+	tbu->halt_state = TBU_HALTING;
+	ret = 0;
+out_unlock:
+	spin_unlock_irqrestore(&tbu->halt_lock, flags);
+	return ret;
+}
 
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
-		/*
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation
-		 */
-		wmb();
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
-				  ARM_SMMU_RESUME_TERMINATE);
+/* Caller has tbu powered on */
+static int qsmmuv500_tbu_wait_for_halt(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *tbu_base;
+	u32 halt, status;
+	int ret = 0;
 
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
-	}
+	tbu_base = tbu->base;
 
 	if (readl_poll_timeout_atomic(tbu_base + DEBUG_SR_HALT_ACK_REG, status,
 					(status & DEBUG_SR_HALT_ACK_VAL),
@@ -666,13 +664,13 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 		halt &= ~DEBUG_SID_HALT_REQ;
 		writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
 
-		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		tbu->halt_state = TBU_ACTIVE;
 		return -ETIMEDOUT;
 	}
 
-	tbu->halt_count = 1;
-	spin_unlock_irqrestore(&tbu->halt_lock, flags);
-	return 0;
+	tbu->halt_count++;
+	tbu->halt_state = TBU_HALTED;
+	return ret;
 }
 
 static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
@@ -698,6 +696,7 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 	val &= ~DEBUG_SID_HALT_REQ;
 	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
 
+	tbu->halt_state = TBU_ACTIVE;
 	tbu->halt_count = 0;
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
 }
@@ -724,15 +723,10 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 		unsigned long trans_flags)
 {
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	struct qsmmuv500_tbu_device *tbu;
 	int ret;
 	phys_addr_t phys = 0;
-	u64 val, fsr;
-	unsigned long spinlock_flags;
-	int idx = cfg->cbndx;
-	u32 sctlr_orig, sctlr;
+	u64 val;
 	int needs_redo = 0;
 	ktime_t timeout;
 
@@ -751,41 +745,17 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	if (ret)
 		return 0;
 
-	ret = qsmmuv500_tbu_halt(tbu, smmu_domain);
+	ret = qsmmuv500_tbu_request_halt(tbu, smmu_domain);
 	if (ret)
 		goto out_power_off;
 
-	/*
-	 * ECATS can trigger the fault interrupt, so disable it temporarily
-	 * and check for an interrupt manually.
-	 */
-	sctlr_orig = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
-	sctlr = sctlr_orig & ~(ARM_SMMU_SCTLR_CFCFG | ARM_SMMU_SCTLR_CFIE);
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr);
-
-	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-	if (fsr & ARM_SMMU_FSR_FAULT) {
-		/* Clear pending interrupts */
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
-		/*
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation.
-		 */
-		wmb();
-
-		/*
-		 * TBU halt takes care of resuming any stalled transcation.
-		 * Kept it here for completeness sake.
-		 */
-		if (fsr & ARM_SMMU_FSR_SS)
-			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
-					  ARM_SMMU_RESUME_TERMINATE);
-	}
-
-	/* Only one concurrent atos operation */
-	spin_lock_irqsave(&data->atos_lock, spinlock_flags);
+	ret = qsmmuv500_tbu_wait_for_halt(tbu);
+	if (ret)
+		goto out_power_off;
 
 redo:
+	/* We can't have interrupts disabled here because we need to handle iommu faults */
+
 	/* Set address and stream-id */
 	val = readq_relaxed(tbu->base + DEBUG_SID_HALT_REG);
 	val &= ~DEBUG_SID_HALT_SID;
@@ -822,9 +792,6 @@ redo:
 		val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
 		if (!(val & DEBUG_SR_ECATS_RUNNING_VAL))
 			break;
-		val = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-		if (val & ARM_SMMU_FSR_FAULT)
-			break;
 		if (ktime_compare(ktime_get(), timeout) > 0) {
 			dev_err_ratelimited(tbu->dev, "ECATS translation timed out!\n");
 			ret = -ETIMEDOUT;
@@ -833,25 +800,11 @@ redo:
 	}
 
 	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
-	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 	if (val & DEBUG_PAR_FAULT_VAL) {
-		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx, SID=0x%x\n",
-			fsr, sid);
+		dev_err(tbu->dev, "ECATS generated a fault! SID=0x%x\n", sid);
 
 		dev_err(tbu->dev, "ECATS translation failed! PAR = %llx\n",
 			val);
-		/* Clear pending interrupts */
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
-		/*
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation.
-		 */
-		wmb();
-
-		if (fsr & ARM_SMMU_FSR_SS)
-			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
-					  ARM_SMMU_RESUME_TERMINATE);
-
 		ret = -EINVAL;
 	}
 
@@ -873,8 +826,6 @@ redo:
 	if (!phys && needs_redo++ < 2)
 		goto redo;
 
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
-	spin_unlock_irqrestore(&data->atos_lock, spinlock_flags);
 	qsmmuv500_tbu_resume(tbu);
 
 out_power_off:
@@ -897,6 +848,65 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 				txn->flags);
 }
 
+static bool qsmmuv500_is_tbu_halting(struct arm_smmu_fault *fault)
+{
+	struct qsmmuv500_tbu_device *tbu;
+	int state;
+
+	tbu = qsmmuv500_find_tbu(fault->smmu_domain->smmu, fault->sid);
+	if (!tbu)
+		return false;
+
+	/* Racy check */
+	state = READ_ONCE(tbu->halt_state);
+	if (state != TBU_ACTIVE)
+		return true;
+	return false;
+}
+
+static void __qsmmuv500_context_fault(struct arm_smmu_fault *fault)
+{
+	static DEFINE_RATELIMIT_STATE(_rs,
+				      DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+	struct arm_smmu_domain *smmu_domain = fault->smmu_domain;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int idx = smmu_domain->cfg.cbndx;
+	struct qsmmuv500_tbu_device *tbu;
+	int ret;
+
+	if (!__ratelimit(&_rs))
+		goto skip_ecats;
+
+	/*
+	 * TBU will be null for qcom,virt-smmu. Ensure fault registers
+	 * are printed.
+	 */
+	print_fault_regs(smmu_domain, smmu, idx);
+
+	tbu = qsmmuv500_find_tbu(smmu_domain->smmu, fault->sid);
+	if (!tbu)
+		goto skip_ecats;
+
+	ret = arm_smmu_power_on(tbu->pwr);
+	if (ret)
+		goto skip_ecats;
+
+	ret = qsmmuv500_tbu_request_halt(tbu, fault->smmu_domain);
+	if (ret < 0)
+		goto out_power_off;
+
+	/* Hold extra reference for qsmmuv500_context_fault_work*/
+	arm_smmu_power_on(tbu->pwr);
+	tbu->fault = *fault;
+	schedule_work(&tbu->fault_work);
+out_power_off:
+	arm_smmu_power_off(tbu->smmu, tbu->pwr);
+	return;
+skip_ecats:
+	BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
+}
+
 static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
 {
 	int ret;
@@ -904,9 +914,6 @@ static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	int idx = smmu_domain->cfg.cbndx;
-	static DEFINE_RATELIMIT_STATE(_rs,
-				      DEFAULT_RATELIMIT_INTERVAL,
-				      DEFAULT_RATELIMIT_BURST);
 	struct arm_smmu_fault fault;
 
 	ret = arm_smmu_rpm_get(smmu);
@@ -924,6 +931,15 @@ static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
 		dev_err(smmu->dev,
 			"Took an address size fault.  Refusing to recover.\n");
 		BUG();
+	}
+
+	/*
+	 * We may get additional faults from ECATS itself, or from client
+	 * transactions which were queued prior to our HALT request.
+	 */
+	if (qsmmuv500_is_tbu_halting(&fault)) {
+		dev_err(smmu->dev, "got ecats fault\n");
+		goto out_terminate;
 	}
 
 	/*
@@ -945,30 +961,48 @@ static irqreturn_t qsmmuv500_context_fault(int irq, void *dev)
 	 */
 	ret = report_iommu_fault_helper(smmu_domain, smmu, idx);
 	if (ret == -ENOSYS) {
-		if (__ratelimit(&_rs)) {
-			print_fault_regs(smmu_domain, smmu, idx);
-			arm_smmu_verify_fault(&fault);
-		}
-		BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
-	}
-	if (ret != -EBUSY) {
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fault.fsr);
-
-		/*
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation
-		 */
-		wmb();
-
-		if (fault.fsr & ARM_SMMU_FSR_SS)
-			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
-				  ARM_SMMU_RESUME_TERMINATE);
+		__qsmmuv500_context_fault(&fault);
+	} else if (ret == -EBUSY) {
+		ret = IRQ_HANDLED;
+		goto out_power_off;
 	}
 
+out_terminate:
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fault.fsr);
+
+	/*
+	 * Barrier required to ensure that the FSR is cleared
+	 * before resuming SMMU operation
+	 */
+	wmb();
+
+	if (fault.fsr & ARM_SMMU_FSR_SS)
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+			  ARM_SMMU_RESUME_TERMINATE);
 	ret = IRQ_HANDLED;
 out_power_off:
 	arm_smmu_rpm_put(smmu);
 	return ret;
+}
+
+void qsmmuv500_context_fault_work(struct work_struct *work)
+{
+	struct qsmmuv500_tbu_device *tbu = container_of(work,
+			struct qsmmuv500_tbu_device, fault_work);
+	struct arm_smmu_domain *smmu_domain = tbu->fault.smmu_domain;
+	int ret;
+
+	ret = qsmmuv500_tbu_wait_for_halt(tbu);
+	if (ret)
+		goto out;
+
+	arm_smmu_verify_fault(&tbu->fault);
+	BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
+
+	memset(&tbu->fault, 0, sizeof(tbu->fault));
+	qsmmuv500_tbu_resume(tbu);
+out:
+	arm_smmu_power_off(tbu->smmu, tbu->pwr);
 }
 
 static void qsmmuv500_release_group_iommudata(void *data)

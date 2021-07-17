@@ -445,9 +445,20 @@ struct qsmmuv500_tbu_device {
 	u32				sid_start;
 	u32				num_sids;
 
-	/* Protects halt count */
+	/*
+	 * Halt lock protects the transition from TBU_ACTIVE to TBU_HALTING.
+	 * halt_count, fault, and halt_state may the be accessed by the
+	 * thread who won without lock. All other threads will be returned
+	 * EBUSY by qsmmuv500_tbu_request_halt.
+	 */
 	spinlock_t			halt_lock;
 	u32				halt_count;
+	struct arm_smmu_fault		fault;
+	#define TBU_ACTIVE	0
+	#define TBU_HALTING	1
+	#define TBU_HALTED	2
+	int				halt_state;
+	struct work_struct		fault_work;
 
 	bool				has_micro_idle;
 };
@@ -763,6 +774,7 @@ int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu, int idx);
 void arm_smmu_save_fault_context(struct arm_smmu_domain *smmu_domain,
 					struct arm_smmu_fault *fault);
+void qsmmuv500_context_fault_work(struct work_struct *work);
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10

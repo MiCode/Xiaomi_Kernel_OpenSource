@@ -4025,6 +4025,9 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 		tbu->pwr->suspend = arm_smmu_micro_idle_allow;
 	}
 
+	INIT_WORK(&tbu->fault_work, qsmmuv500_context_fault_work);
+	tbu->halt_state = TBU_ACTIVE;
+
 	dev_set_drvdata(dev, tbu);
 	return 0;
 }
