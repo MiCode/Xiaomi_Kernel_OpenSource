@@ -251,7 +251,7 @@ int mem_buf_dma_buf_attach(struct dma_buf *dmabuf, struct dma_buf_attachment *at
 }
 EXPORT_SYMBOL(mem_buf_dma_buf_attach);
 
-static struct mem_buf_vmperm *to_mem_buf_vmperm(struct dma_buf *dmabuf)
+struct mem_buf_vmperm *to_mem_buf_vmperm(struct dma_buf *dmabuf)
 {
 	struct mem_buf_dma_buf_ops *ops;
 
@@ -261,6 +261,7 @@ static struct mem_buf_vmperm *to_mem_buf_vmperm(struct dma_buf *dmabuf)
 	ops = container_of(dmabuf->ops, struct mem_buf_dma_buf_ops, dma_ops);
 	return ops->lookup(dmabuf);
 }
+EXPORT_SYMBOL(to_mem_buf_vmperm);
 
 int mem_buf_dma_buf_set_destructor(struct dma_buf *buf,
 				   mem_buf_dma_buf_destructor dtor,

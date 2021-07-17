@@ -218,5 +218,18 @@ struct mem_buf_share_ioctl_arg {
 #define MEM_BUF_IOC_SHARE		_IOWR(MEM_BUF_IOC_MAGIC, 6,\
 					      struct mem_buf_share_ioctl_arg)
 
+/**
+ * struct mem_buf_exclusive_owner_ioctl_arg: A request to see if a DMA-BUF
+ * is owned by and belongs exclusively to this VM.
+ * @dma_buf_fd: The fd of the dma-buf the user wants to obtain information on
+ * @is_exclusive_owner:
+ */
+struct mem_buf_exclusive_owner_ioctl_arg {
+	__u32 dma_buf_fd;
+	__u32 is_exclusive_owner;
+};
+
+#define MEM_BUF_IOC_EXCLUSIVE_OWNER	_IOWR(MEM_BUF_IOC_MAGIC, 2,\
+					      struct mem_buf_exclusive_owner_ioctl_arg)
 
 #endif /* _UAPI_LINUX_MEM_BUF_H */
