@@ -155,8 +155,8 @@ static void check_debug_tracking(struct qcom_scm_mem_map_info *mem_regions,
 		unsigned long start_pfn;
 		unsigned long nr_pages;
 
-		start_pfn = PHYS_PFN(le32_to_cpu(p->mem_addr));
-		nr_pages = le32_to_cpu(p->mem_size) >> PAGE_SHIFT;
+		start_pfn = PHYS_PFN(le64_to_cpu(p->mem_addr));
+		nr_pages = le64_to_cpu(p->mem_size) >> PAGE_SHIFT;
 
 		for (pfn = start_pfn; pfn < start_pfn + nr_pages; pfn++) {
 			track = xa_load(&xa_pfns, pfn);
@@ -193,8 +193,8 @@ static void update_debug_tracking(struct qcom_scm_mem_map_info *mem_regions,
 		unsigned long start_pfn;
 		unsigned long nr_pages;
 
-		start_pfn = PHYS_PFN(le32_to_cpu(p->mem_addr));
-		nr_pages = le32_to_cpu(p->mem_size) >> PAGE_SHIFT;
+		start_pfn = PHYS_PFN(le64_to_cpu(p->mem_addr));
+		nr_pages = le64_to_cpu(p->mem_size) >> PAGE_SHIFT;
 
 		for (pfn = start_pfn; pfn < start_pfn + nr_pages; pfn++) {
 			if (reclaim) {
