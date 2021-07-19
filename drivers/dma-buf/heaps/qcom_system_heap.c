@@ -29,10 +29,6 @@
  * Git-commit: 6f080eb67dce63c6efa57ef564ca4cd762ccebb0
  * Git-commit: 6fb9593b928c4cb485bef4e88c59c6b9fdf11352
  *
- * Deferred free functionality taken from drivers/dma-buf/heaps/system-heap.c
- * from commit f10ff61bd1ef ("Merge "dt-bindings: ipcc: Add WPSS client to
- * IPCC header"")
- *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2019, 2020 Linaro Ltd.
  *
@@ -179,44 +175,30 @@ static int system_heap_zero_buffer(struct qcom_sg_buffer *buffer)
 	return ret;
 }
 
-static void system_heap_buf_free(struct deferred_freelist_item *item,
-				 enum df_reason reason)
+static void system_heap_free(struct qcom_sg_buffer *buffer)
 {
 	struct qcom_system_heap *sys_heap;
-	struct qcom_sg_buffer *buffer;
 	struct sg_table *table;
 	struct scatterlist *sg;
 	int i, j;
 
-	buffer = container_of(item, struct qcom_sg_buffer, deferred_free);
 	sys_heap = dma_heap_get_drvdata(buffer->heap);
-	/* Zero the buffer pages before adding back to the pool */
-	if (reason == DF_NORMAL)
-		if (system_heap_zero_buffer(buffer))
-			reason = DF_UNDER_PRESSURE; // On failure, just free
-
 	table = &buffer->sg_table;
+
+	/* Zero the buffer pages before adding back to the pool */
+	system_heap_zero_buffer(buffer);
+
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
 
-		if (reason == DF_UNDER_PRESSURE) {
-			__free_pages(page, compound_order(page));
-		} else {
-			for (j = 0; j < NUM_ORDERS; j++) {
-				if (compound_order(page) == orders[j])
-					break;
-			}
-			dynamic_page_pool_free(sys_heap->pool_list[j], page);
+		for (j = 0; j < NUM_ORDERS; j++) {
+			if (compound_order(page) == orders[j])
+				break;
 		}
+		dynamic_page_pool_free(sys_heap->pool_list[j], page);
 	}
 	sg_free_table(table);
 	kfree(buffer);
-}
-
-static void system_heap_free(struct qcom_sg_buffer *buffer)
-{
-	deferred_free(&buffer->deferred_free, system_heap_buf_free,
-		      PAGE_ALIGN(buffer->len) / PAGE_SIZE);
 }
 
 struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **pools,
