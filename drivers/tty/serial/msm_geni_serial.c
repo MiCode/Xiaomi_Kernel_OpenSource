@@ -25,6 +25,7 @@
 #include <linux/ioctl.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/dma-mapping.h>
+#include <linux/workqueue.h>
 
 /* UART specific GENI registers */
 #define SE_UART_LOOPBACK_CFG		(0x22C)
@@ -237,8 +238,11 @@ struct msm_geni_serial_port {
 	spinlock_t rx_lock;
 	bool bypass_flow_control;
 	enum uart_error_code uart_error;
+	struct work_struct work;
+	struct workqueue_struct *qwork;
 };
 
+static void msm_geni_serial_worker(struct work_struct *work);
 static const struct uart_ops msm_geni_serial_pops;
 static struct uart_driver msm_geni_console_driver;
 static struct uart_driver msm_geni_serial_hs_driver;
@@ -578,6 +582,21 @@ static int vote_clock_off(struct uart_port *uport)
 	return 0;
 };
 
+
+static void msm_geni_serial_worker(struct work_struct *work)
+{
+	struct msm_geni_serial_port *port;
+
+	port = container_of(work, struct msm_geni_serial_port, work);
+
+	geni_se_dump_dbg_regs(&port->serial_rsc,
+		    port->uport.membase, port->ipc_log_misc);
+	port->ipc_log_rx = port->ipc_log_single;
+	port->ipc_log_tx = port->ipc_log_single;
+	port->ipc_log_misc = port->ipc_log_single;
+	port->ipc_log_pwr = port->ipc_log_single;
+}
+
 static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 						unsigned long arg)
 {
@@ -604,6 +623,8 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 		IPC_LOG_MSG(port->ipc_log_misc,
 			"%s:TIOCFAULT - uart_error_set:%d new_uart_error:%d\n",
 			__func__, uart_error, port->uart_error);
+		if (port->qwork)
+			queue_work(port->qwork, &port->work);
 		ret = uart_error;
 		break;
 	}
@@ -2308,6 +2329,7 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			msm_port->ioctl_count = 0;
 		}
 
+		flush_workqueue(msm_port->qwork);
 		ret = pm_runtime_put_sync_suspend(uport->dev);
 		if (ret) {
 			IPC_LOG_MSG(msm_port->ipc_log_pwr,
@@ -3525,9 +3547,19 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	if (ret)
 		goto exit_wakeup_unregister;
 
+	if (!dev_port->is_console) {
+		dev_port->qwork = create_singlethread_workqueue(
+						"geni_serial_dump_wq");
+		if (!dev_port->qwork) {
+			dev_err(&pdev->dev, "cannot create workqueue\n");
+			goto exit_wakeup_unregister;
+		}
+		INIT_WORK(&dev_port->work, msm_geni_serial_worker);
+	}
+
 	ret = uart_add_one_port(drv, uport);
 	if (ret)
-		goto exit_wakeup_unregister;
+		goto exit_workqueue_destroy;
 
 	if (!uart_console(uport))
 		spin_lock_init(&dev_port->rx_lock);
@@ -3537,6 +3569,9 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	return 0;
 
+exit_workqueue_destroy:
+	if (dev_port->qwork)
+		destroy_workqueue(dev_port->qwork);
 exit_wakeup_unregister:
 	if (!is_console)
 		wakeup_source_unregister(dev_port->geni_wake);
@@ -3551,8 +3586,11 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 	struct uart_driver *drv =
 			(struct uart_driver *)port->uport.private_data;
 
-	if (!uart_console(&port->uport))
+	if (!uart_console(&port->uport)) {
 		wakeup_source_unregister(port->geni_wake);
+		flush_workqueue(port->qwork);
+		destroy_workqueue(port->qwork);
+	}
 	uart_remove_one_port(drv, &port->uport);
 	if (port->rx_dma) {
 		geni_se_iommu_free_buf(port->wrapper_dev, &port->rx_dma,
