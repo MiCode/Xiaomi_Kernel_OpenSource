@@ -111,6 +111,8 @@ unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS] = {
 			[0 ... MAX_MARGIN_LEVELS-1] = 1078}; /* ~5% margin */
 unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS] = {
 			[0 ... MAX_MARGIN_LEVELS-1] = 1205}; /* ~15% margin */
+
+unsigned int sysctl_walt_cpu_high_irqload = 95;
 static unsigned int walt_cpu_high_irqload;
 
 unsigned int sysctl_sched_walt_rotate_big_tasks;
@@ -3666,6 +3668,26 @@ int walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
 	return ret;
 }
 
+int walt_high_irqload_handler(struct ctl_table *table, int write,
+				void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	int ret;
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
+	if (ret || !write) {
+		mutex_unlock(&mutex);
+		return ret;
+	}
+
+	walt_cpu_high_irqload = div64_u64((u64)sched_ravg_window *
+				sysctl_walt_cpu_high_irqload, (u64) 100);
+	mutex_unlock(&mutex);
+	return ret;
+}
+
 static void walt_init_window_dep(void)
 {
 	walt_cpu_util_freq_divisor =
@@ -3678,7 +3700,8 @@ static void walt_init_window_dep(void)
 	sched_init_task_load_windows_scaled =
 		scale_demand(sched_init_task_load_windows);
 
-	walt_cpu_high_irqload = div64_u64((u64)sched_ravg_window * 95, (u64) 100);
+	walt_cpu_high_irqload = mult_frac((u64)sched_ravg_window,
+				 sysctl_walt_cpu_high_irqload, (u64) 100);
 }
 
 static void walt_init_once(void)
