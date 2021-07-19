@@ -102,6 +102,7 @@ struct memlat_mon {
 	struct cpufreq_memfreq_map	*freq_map;
 	u32				ipm_ceil;
 	u32				stall_floor;
+	u32				freq_scale_pct;
 	u32				wb_pct_thres;
 	u32				wb_filter_ipm;
 	u32				min_freq;
@@ -291,6 +292,8 @@ show_attr(ipm_ceil);
 store_attr(ipm_ceil, 1U, 50000U);
 show_attr(stall_floor);
 store_attr(stall_floor, 0U, 100U);
+show_attr(freq_scale_pct);
+store_attr(freq_scale_pct, 0U, 1000U);
 show_attr(wb_pct_thres);
 store_attr(wb_pct_thres, 0U, 100U);
 show_attr(wb_filter_ipm);
@@ -304,6 +307,7 @@ MEMLAT_ATTR_RO(freq_map);
 MEMLAT_ATTR_RO(cur_freq);
 MEMLAT_ATTR_RW(ipm_ceil);
 MEMLAT_ATTR_RW(stall_floor);
+MEMLAT_ATTR_RW(freq_scale_pct);
 MEMLAT_ATTR_RW(wb_pct_thres);
 MEMLAT_ATTR_RW(wb_filter_ipm);
 
@@ -319,6 +323,7 @@ static struct attribute *memlat_mon_attr[] = {
 	&cur_freq.attr,
 	&ipm_ceil.attr,
 	&stall_floor.attr,
+	&freq_scale_pct.attr,
 	&wb_pct_thres.attr,
 	&wb_filter_ipm.attr,
 	NULL,
@@ -497,11 +502,21 @@ static void calculate_sampling_stats(void)
 	local_irq_restore(flags);
 }
 
+static void set_higher_freq(int *max_cpu, int cpu, u32 *max_cpufreq,
+			    u32 cpufreq)
+{
+	if (cpufreq > *max_cpufreq) {
+		*max_cpu = cpu;
+		*max_cpufreq = cpufreq;
+	}
+}
+
 static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 {
 	struct cpu_stats *stats;
 	int cpu, max_cpu = 0;
 	u32 max_memfreq, max_cpufreq = 0;
+	u32 max_cpufreq_scaled = 0, ipm_diff;
 	u32 hw = mon->memlat_grp->hw_type;
 
 	if (hw >= NUM_DCVS_HW_TYPES)
@@ -509,14 +524,18 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 
 	for_each_cpu(cpu, &mon->cpus) {
 		stats = per_cpu(sampling_stats, cpu);
-
-		if ((mon->is_compute || (stats->ipm[hw] <= mon->ipm_ceil &&
-				stats->stall_pct > mon->stall_floor) ||
-				(stats->wb_pct[hw] >= mon->wb_pct_thres &&
-				stats->ipm[hw] <= mon->wb_filter_ipm)) &&
-				(stats->freq_mhz > max_cpufreq)) {
-			max_cpu = cpu;
-			max_cpufreq = stats->freq_mhz;
+		if (mon->is_compute || (stats->wb_pct[hw] >= mon->wb_pct_thres
+		    && stats->ipm[hw] <= mon->wb_filter_ipm))
+			set_higher_freq(&max_cpu, cpu, &max_cpufreq,
+					stats->freq_mhz);
+		else if (stats->ipm[hw] <= mon->ipm_ceil) {
+			ipm_diff = mon->ipm_ceil - stats->ipm[hw];
+			max_cpufreq_scaled = stats->freq_mhz;
+			if (stats->freq_mhz)
+				max_cpufreq_scaled += (stats->freq_mhz * ipm_diff *
+					mon->freq_scale_pct) / (mon->ipm_ceil * 100);
+			set_higher_freq(&max_cpu, cpu, &max_cpufreq,
+					max_cpufreq_scaled);
 		}
 	}
 
@@ -1168,6 +1187,7 @@ static int memlat_mon_probe(struct platform_device *pdev)
 
 	mon->ipm_ceil = 400;
 	mon->stall_floor = 0;
+	mon->freq_scale_pct = 0;
 	mon->wb_pct_thres = 100;
 	mon->wb_filter_ipm = 25000;
 
