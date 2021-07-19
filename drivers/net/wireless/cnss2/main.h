@@ -516,7 +516,6 @@ struct cnss_plat_data {
 	struct mbox_chan *mbox_chan;
 	const char *vreg_ol_cpr, *vreg_ipa;
 	bool adsp_pc_enabled;
-	u64 feature_list;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
@@ -586,8 +585,4 @@ int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv);
 int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 				 const struct firmware **fw_entry,
 				 const char *filename);
-int cnss_set_feature_list(struct cnss_plat_data *plat_priv,
-			  enum cnss_feature_v01 feature);
-int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
-			  u64 *feature_list);
 #endif /* _CNSS_MAIN_H */

@@ -166,7 +166,6 @@ enum wlfw_mem_type_enum_v01 {
 	QMI_WLFW_MEM_HANG_DATA_V01 = 7,
 	QMI_WLFW_MLO_GLOBAL_MEM_V01 = 8,
 	QMI_WLFW_PAGEABLE_MEM_V01 = 9,
-	QMI_WLFW_AFC_MEM_V01 = 10,
 	WLFW_MEM_TYPE_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
@@ -243,14 +242,6 @@ enum wlfw_m3_segment_type_v01 {
 	QMI_M3_SEGMENT_PHYAPDMEM_V01 = 5,
 	QMI_M3_SEGMENT_MAX_V01 = 6,
 	WLFW_M3_SEGMENT_TYPE_MAX_VAL_V01 = INT_MAX,
-};
-
-enum cnss_feature_v01 {
-	CNSS_FEATURE_MIN_VAL_V01 = INT_MIN,
-	BOOTSTRAP_CLOCK_SELECT_V01 = 0,
-	CNSS_DRV_SUPPORT_V01 = 1,
-	CNSS_MAX_FEATURE_V01 = 64,
-	CNSS_FEATURE_MAX_VAL_V01 = INT_MAX,
 };
 
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
@@ -800,13 +791,9 @@ struct wlfw_host_cap_req_msg_v01 {
 	u16 num_wlan_clients;
 	u8 num_wlan_vaps_valid;
 	u8 num_wlan_vaps;
-	u8 feature_list_valid;
-	u64 feature_list;
-	u8 wake_msi_addr_valid;
-	u32 wake_msi_addr;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 389
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 371
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
