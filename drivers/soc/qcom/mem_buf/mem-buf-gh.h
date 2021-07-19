@@ -21,7 +21,7 @@
 #include "mem-buf-dev.h"
 
 int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries, const void __user *acl_entries,
-				   int **dst_vmids, int **dst_perms, bool lookup_fd);
+				   int **dst_vmids, int **dst_perms);
 
 #if IS_ENABLED(CONFIG_QCOM_MEM_BUF_GH)
 #include <linux/gunyah/gh_rm_drv.h>

@@ -1046,7 +1046,7 @@ static int mem_buf_prep_alloc_data(struct mem_buf_allocation_data *alloc_data,
 
 	ret = mem_buf_acl_to_vmid_perms_list(nr_acl_entries,
 				(const void __user *)allocation_args->acl_list,
-				&alloc_data->vmids, &alloc_data->perms, true);
+				&alloc_data->vmids, &alloc_data->perms);
 	if (ret)
 		goto err_acl;
 
@@ -1142,7 +1142,7 @@ int mem_buf_retrieve_user(struct mem_buf_retrieve_ioctl_arg *uarg)
 		return -EINVAL;
 
 	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
-			(void *)uarg->acl_list, &vmids, &perms, true);
+			(void *)uarg->acl_list, &vmids, &perms);
 	if (ret)
 		return ret;
 

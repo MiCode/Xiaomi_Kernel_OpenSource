@@ -29,16 +29,6 @@ union mem_buf_ioctl_arg {
 	struct mem_buf_exclusive_owner_ioctl_arg get_ownership;
 };
 
-static bool is_valid_mem_buf_vmid(u32 mem_buf_vmid)
-{
-	if ((mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM) ||
-	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM))
-		return true;
-
-	pr_err_ratelimited("%s: Invalid mem-buf VMID detected\n", __func__);
-	return false;
-}
-
 static bool is_valid_mem_buf_perms(u32 mem_buf_perms)
 {
 	if (mem_buf_perms & ~MEM_BUF_PERM_VALID_FLAGS) {
@@ -47,28 +37,6 @@ static bool is_valid_mem_buf_perms(u32 mem_buf_perms)
 		return false;
 	}
 	return true;
-}
-
-static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
-{
-	int ret;
-	gh_vmid_t vmid;
-	enum gh_vm_names vm_name;
-
-	if (!is_valid_mem_buf_vmid(mem_buf_vmid))
-		return -EINVAL;
-
-	if (mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM)
-		vm_name = GH_PRIMARY_VM;
-	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM)
-		vm_name = GH_TRUSTED_VM;
-	else
-		return -EINVAL;
-
-	ret = gh_rm_get_vmid(vm_name, &vmid);
-	if (!ret)
-		return vmid;
-	return ret;
 }
 
 static int mem_buf_perms_to_perms(u32 mem_buf_perms)
@@ -89,7 +57,7 @@ static int mem_buf_perms_to_perms(u32 mem_buf_perms)
 }
 
 int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries, const void __user *acl_entries,
-				   int **dst_vmids, int **dst_perms, bool lookup_fd)
+				   int **dst_vmids, int **dst_perms)
 {
 	int ret, i, *vmids, *perms;
 	struct acl_entry entry;
@@ -114,10 +82,7 @@ int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries, const void __use
 		if (ret < 0)
 			goto out;
 
-		if (lookup_fd)
-			vmids[i] = mem_buf_fd_to_vmid(entry.vmid);
-		else
-			vmids[i] = mem_buf_vmid_to_vmid(entry.vmid);
+		vmids[i] = mem_buf_fd_to_vmid(entry.vmid);
 		perms[i] = mem_buf_perms_to_perms(entry.perms);
 		if (vmids[i] < 0 || perms[i] < 0) {
 			ret = -EINVAL;
@@ -152,7 +117,7 @@ static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
 		return PTR_ERR(dmabuf);
 
 	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
-			(void *)uarg->acl_list, &vmids, &perms, true);
+			(void *)uarg->acl_list, &vmids, &perms);
 	if (ret)
 		goto err_acl;
 
