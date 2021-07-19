@@ -79,6 +79,7 @@ struct mhi_pci_dev_info {
 	bool skip_forced_suspend;
 	bool sfr_support;
 	bool timesync;
+	bool drv_support;
 };
 
 struct mhi_qcom_priv {
