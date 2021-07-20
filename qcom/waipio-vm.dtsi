@@ -197,6 +197,18 @@
 					allocate-base;
 				};
 			};
+
+			gpiomem0 {
+				vdevice-type = "iomem";
+				patch = "/soc/tlmm-vm-mem-access";
+				push-compatible = "qcom,tlmm-vm-mem-access";
+				peer-default;
+				memory {
+					qcom,label = <0x8>;
+					qcom,mem-info-tag = <0x2>;
+					allocate-base;
+				};
+			};
 		};
 	};
 
@@ -253,6 +265,11 @@
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
+	};
+
+	tlmm-vm-mem-access {
+		compatible = "qcom,tlmm-vm-mem-access";
+		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388>;
 	};
 
 	vgic: interrupt-controller@17100000 {

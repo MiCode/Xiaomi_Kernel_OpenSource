@@ -141,7 +141,6 @@
 		focaltech,touch-type = "primary";
 
 		vdd-supply = <&L3C>;
-		vcc_i2c-supply = <&L8C>;
 
 		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
 		pinctrl-0 = <&ts_active>;

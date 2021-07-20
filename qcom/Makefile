@@ -90,7 +90,9 @@ dtbo-$(CONFIG_ARCH_WAIPIO) += waipio-rumi-overlay.dtbo \
 	waipio-lemur-mtp-pm8008-overlay.dtbo \
 	waipio-lemur-mtp-pm8010-overlay.dtbo \
 	waipio-lemur-cdp-pm8008-overlay.dtbo \
-	waipio-lemur-cdp-pm8010-overlay.dtbo
+	waipio-lemur-cdp-pm8010-overlay.dtbo \
+	waipio-kiwi-mtp-pm8008-overlay.dtbo \
+	waipio-kiwi-mtp-pm8010-overlay.dtbo
 
 waipio-rumi-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
 waipio-mtp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
@@ -107,6 +109,8 @@ waipio-lemur-mtp-pm8008-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
 waipio-lemur-mtp-pm8010-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
 waipio-lemur-cdp-pm8008-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
 waipio-lemur-cdp-pm8010-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
+waipio-kiwi-mtp-pm8008-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
+waipio-kiwi-mtp-pm8010-overlay.dtbo-base := waipio.dtb waipio-v2.dtb
 else
 dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
 	waipio-mtp-pm8008.dtb \

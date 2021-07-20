@@ -1,0 +1,26 @@
+QTI charger ulog glink binding
+
+This binding describes the Qualcomm Technologies, Inc. charger ulog glink
+device. QTI charger ulog glink device helps to get ulogs from charging and
+gauging stack by communicating with charger firmware running on the remote
+subsystem (e.g. DSP) over PMIC Glink.
+
+Refer to Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.txt for
+information on "qcom,pmic_glink_log" device which is used in the example below.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,charger-ulog-glink"
+
+= EXAMPLE
+
+&soc {
+	qcom,pmic_glink_log {
+		...
+		qcom,battery_debug {
+			compatible = "qcom,charger-ulog-glink";
+		};
+		...
+	};
+};

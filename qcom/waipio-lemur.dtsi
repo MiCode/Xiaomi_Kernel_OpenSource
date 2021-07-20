@@ -1,3 +1,6 @@
+#include <dt-bindings/interconnect/qcom,waipio.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
 &mdm0 {
 	compatible = "qcom,ext-lemur";
 	qcom,mdm-link-info = "0308_01.01.00";
@@ -7,14 +10,32 @@
 	status = "disabled";
 };
 
-&mhi0 {
-	esoc-names = "mdm";
-	esoc-0 = <&mdm0>;
-};
-
 &pcie1 {
 	qcom,target-link-width = <1>; /* force X1 lane width */
 	qcom,no-l0s-supported;
+	qcom,target-link-speed = <4>; /* Set max link speed to Gen4 */
+	qcom,vreg-0p9-voltage-level = <912000 912000 193000>;
+	qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+					RPMH_REGULATOR_LEVEL_NOM 0>;
+	qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+					RPMH_REGULATOR_LEVEL_NOM 0>;
+	qcom,bw-scale = /* Gen1 */
+			<RPMH_REGULATOR_LEVEL_LOW_SVS
+			RPMH_REGULATOR_LEVEL_LOW_SVS
+			19200000
+			/* Gen2 */
+			RPMH_REGULATOR_LEVEL_LOW_SVS
+			RPMH_REGULATOR_LEVEL_LOW_SVS
+			19200000
+			/* Gen3 */
+			RPMH_REGULATOR_LEVEL_LOW_SVS
+			RPMH_REGULATOR_LEVEL_LOW_SVS
+			100000000
+			/* Gen4 */
+			RPMH_REGULATOR_LEVEL_NOM
+			RPMH_REGULATOR_LEVEL_NOM
+			100000000>;
+
 	qcom,pcie-phy-ver = <105>;
 	qcom,phy-sequence = <0x1240 0x03 0x0
 			0x101c 0x31 0x0
@@ -175,6 +196,10 @@
 		compatible = "qcom,ipa-mpm";
 		qcom,iova-mapping = <0x10000000 0x0FFFFFFF>;
 	};
+
+	qcom,qbt_handler {
+		status = "disabled";
+	};
 };
 
 &ipa_hw {
@@ -186,4 +211,42 @@
 	qcom,non-tn-collection-on-crash;
 	qcom,ram-collection-on-crash;
 	qcom,secure-debug-check-action = <0>;
+};
+
+&tlmm {
+	qcom,gpios-reserved = <28 29 30 31>;
+};
+
+&pcie1_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	mhi0: qcom,mhi@0 {
+		reg = <0 0 0 0 0 >;
+
+		esoc-names = "mdm";
+		esoc-0 = <&mdm0>;
+
+		interconnects = <&pcie_noc MASTER_PCIE_1 &mc_virt SLAVE_EBI1>;
+		interconnect-names = "pcie_to_ddr";
+
+		qcom,mhi-bus-bw-cfg =
+		<0 0>, /* no vote */
+		<250000 0>, /* avg bw / AB: 2 GBps, peak bw / IB: no vote */
+		<500000 0>, /* avg bw / AB: 4 GBps, peak bw / IB: no vote */
+		<1000000 0>, /* avg bw / AB: 8 GBps, peak bw / IB: no vote */
+		<2000000 0>; /* avg bw / AB: 16 GBps, peak bw / IB: no vote */
+
+		qcom,iommu-group = <&mhi0_iommu_group>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		mhi0_iommu_group: mhi0_iommu_group {
+			qcom,iommu-msi-size = <0x1000>;
+			qcom,iommu-dma-addr-pool = <0x20000000 0x0fffffff>;
+			qcom,iommu-dma = "fastmap";
+			qcom,iommu-pagetable = "coherent";
+		};
+	};
 };

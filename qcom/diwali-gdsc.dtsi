@@ -78,7 +78,7 @@
 
 	/* GCC GDSCs */
 	gcc_pcie_0_gdsc: qcom,gdsc@17b004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17b004 0x4>;
 		regulator-name = "gcc_pcie_0_gdsc";
 		qcom,retain-regs;
@@ -89,89 +89,85 @@
 	};
 
 	gcc_ufs_phy_gdsc: qcom,gdsc@187004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x187004 0x4>;
 		regulator-name = "gcc_ufs_phy_gdsc";
 		qcom,retain-regs;
+		proxy-supply = <&gcc_ufs_phy_gdsc>;
+		qcom,proxy-consumer-enable;
 		status = "disabled";
 	};
 
 	gcc_usb30_prim_gdsc: qcom,gdsc@149004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x149004 0x4>;
 		regulator-name = "gcc_usb30_prim_gdsc";
 		qcom,retain-regs;
+		proxy-supply = <&gcc_usb30_prim_gdsc>;
+		qcom,proxy-consumer-enable;
 		status = "disabled";
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@18d050 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d050 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
-		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc: qcom,gdsc@18d058 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d058 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc";
-		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf2_gdsc: qcom,gdsc@18d078 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d078 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf2_gdsc";
-		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf3_gdsc: qcom,gdsc@18d07c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d07c 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf3_gdsc";
-		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc: qcom,gdsc@18d054 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d054 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc";
-		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc: qcom,gdsc@18d06c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d06c 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc";
-		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
 	hlos1_vote_turing_mmu_tbu0_gdsc: qcom,gdsc@18d05c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d05c 0x4>;
 		regulator-name = "hlos1_vote_turing_mmu_tbu0_gdsc";
-		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
 	hlos1_vote_turing_mmu_tbu1_gdsc: qcom,gdsc@18d060 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d060 0x4>;
 		regulator-name = "hlos1_vote_turing_mmu_tbu1_gdsc";
-		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
