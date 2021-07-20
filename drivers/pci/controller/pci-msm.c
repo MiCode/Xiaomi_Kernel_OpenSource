@@ -3310,7 +3310,7 @@ static int msm_pcie_get_vreg(struct msm_pcie_dev_t *pcie_dev)
 	for (i = 0; i < MSM_PCIE_MAX_VREG; i++) {
 		struct msm_pcie_vreg_info_t *vreg_info = &pcie_dev->vreg[i];
 
-		vreg_info->hdl = devm_regulator_get(&pdev->dev,
+		vreg_info->hdl = devm_regulator_get_optional(&pdev->dev,
 						vreg_info->name);
 
 		if (PTR_ERR(vreg_info->hdl) == -EPROBE_DEFER) {
