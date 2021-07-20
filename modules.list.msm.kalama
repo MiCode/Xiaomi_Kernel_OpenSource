@@ -10,12 +10,16 @@ icc-bcm-voter.ko
 icc-debug.ko
 icc-rpmh.ko
 iommu-logger.ko
+mem_buf.ko
+mem_buf_dev.ko
+msm_dma_iommu_mapping.ko
 phy-qcom-ufs-qmp-v4-kalama.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 phy-qcom-ufs.ko
 pinctrl-kalama.ko
 pinctrl-msm.ko
 qcom-scm.ko
+qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_debug.ko
 qcom_iommu_util.ko
