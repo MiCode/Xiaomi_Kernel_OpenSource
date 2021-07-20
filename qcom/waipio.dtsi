@@ -2387,7 +2387,6 @@
 		qos0 {
 			mask = <0xf0>;
 			vote = <44>;
-			perf;
 		};
 
 		qos1 {
