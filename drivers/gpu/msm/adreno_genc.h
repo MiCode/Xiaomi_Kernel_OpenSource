@@ -11,9 +11,6 @@
 #include "genc_reg.h"
 #include "adreno_genc_gmu.h"
 
-/* Snapshot section size of each CP preemption record for GENC */
-#define GENC_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES (64 * 1024)
-
 extern const struct adreno_power_ops genc_gmu_power_ops;
 extern const struct adreno_power_ops genc_hwsched_power_ops;
 extern const struct adreno_perfcounters adreno_genc_perfcounters;
