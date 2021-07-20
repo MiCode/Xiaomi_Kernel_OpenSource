@@ -777,6 +777,7 @@ struct msm_pcie_dev_t {
 
 	bool drv_supported;
 
+	bool aer_dump;
 	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
 };
 
@@ -4351,9 +4352,18 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 	rc_dev_ctrlstts = readl_relaxed(dev->dm_core +
 				PCIE20_CAP_DEVCTRLSTATUS);
 
-	if (uncorr_val)
+	if (uncorr_val) {
 		PCIE_DBG(dev, "RC's PCIE20_AER_UNCORR_ERR_STATUS_REG:0x%x\n",
 				uncorr_val);
+		if (!dev->aer_dump && !dev->suspending &&
+			dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			/* Print the dumps only once */
+			dev->aer_dump = true;
+			pcie_parf_dump(dev);
+			pcie_dm_core_dump(dev);
+			pcie_phy_dump(dev);
+		}
+	}
 	if (corr_val && (dev->rc_corr_counter < corr_counter_limit))
 		PCIE_DBG(dev, "RC's PCIE20_AER_CORR_ERR_STATUS_REG:0x%x\n",
 				corr_val);
