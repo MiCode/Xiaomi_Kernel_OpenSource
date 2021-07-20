@@ -1427,8 +1427,8 @@ static int _get_clocks(struct kgsl_device *device)
 		for (i = 0; i < KGSL_MAX_CLKS; i++) {
 			if (pwr->grp_clks[i] || strcmp(clocks[i], name))
 				continue;
-			/* apb_pclk should only be enabled if QCOM_KGSL_QDSS_STM is enabled */
-			if (!strcmp(name, "apb_pclk") && !IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM))
+			/* apb_pclk should only be enabled if CORESIGHT is enabled */
+			if (!strcmp(name, "apb_pclk") && !IS_ENABLED(CONFIG_CORESIGHT))
 				continue;
 
 			pwr->grp_clks[i] = devm_clk_get(dev, name);
