@@ -201,12 +201,12 @@ static u8 clk_debug_mux_get_parent(struct clk_hw *hw)
 	const char *parent;
 
 	if (!hw_clk)
-		return 0;
+		return 0xFF;
 
 	for (i = 0; i < num_parents; i++) {
 		clk_parent = clk_hw_get_parent_by_index(hw, i);
 		if (!clk_parent)
-			return 0;
+			return 0xFF;
 		parent = clk_hw_get_name(clk_parent);
 		if (!strcmp(parent, clk_hw_get_name(hw_clk))) {
 			pr_debug("%s: clock parent - %s, index %d\n", __func__,
@@ -215,7 +215,7 @@ static u8 clk_debug_mux_get_parent(struct clk_hw *hw)
 		}
 	}
 
-	return 0;
+	return 0xFF;
 }
 
 static int clk_debug_mux_set_mux_sel(struct clk_debug_mux *mux, u32 val)
