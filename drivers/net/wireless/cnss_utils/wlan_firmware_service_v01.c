@@ -3403,17 +3403,17 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.tlv_type       = 0x27,
 		.offset         = offsetof(struct
 					   wlfw_host_cap_req_msg_v01,
-					   num_wlan_clients_valid),
+					   feature_list_valid),
 	},
 	{
-		.data_type      = QMI_UNSIGNED_2_BYTE,
+		.data_type      = QMI_UNSIGNED_8_BYTE,
 		.elem_len       = 1,
-		.elem_size      = sizeof(u16),
+		.elem_size      = sizeof(u64),
 		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x27,
 		.offset         = offsetof(struct
 					   wlfw_host_cap_req_msg_v01,
-					   num_wlan_clients),
+					   feature_list),
 	},
 	{
 		.data_type      = QMI_OPT_FLAG,
@@ -3423,6 +3423,26 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.tlv_type       = 0x28,
 		.offset         = offsetof(struct
 					   wlfw_host_cap_req_msg_v01,
+					   num_wlan_clients_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_2_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u16),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x28,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   num_wlan_clients),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x29,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
 					   num_wlan_vaps_valid),
 	},
 	{
@@ -3430,10 +3450,30 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.elem_len       = 1,
 		.elem_size      = sizeof(u8),
 		.array_type       = NO_ARRAY,
-		.tlv_type       = 0x28,
+		.tlv_type       = 0x29,
 		.offset         = offsetof(struct
 					   wlfw_host_cap_req_msg_v01,
 					   num_wlan_vaps),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x2A,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   wake_msi_addr_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x2A,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   wake_msi_addr),
 	},
 	{
 		.data_type      = QMI_EOTI,

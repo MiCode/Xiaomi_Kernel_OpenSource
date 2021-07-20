@@ -214,6 +214,7 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	int ret = 0;
 	u64 iova_start = 0, iova_size = 0,
 	    iova_ipa_start = 0, iova_ipa_size = 0;
+	u64 feature_list = 0;
 
 	cnss_pr_dbg("Sending host capability message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -266,6 +267,13 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 
 	cnss_wlfw_host_cap_parse_mlo(plat_priv, req);
 
+	ret = cnss_get_feature_list(plat_priv, &feature_list);
+	if (!ret) {
+		req->feature_list_valid = 1;
+		req->feature_list = feature_list;
+		cnss_pr_dbg("Sending feature list 0x%llx\n",
+			    req->feature_list);
+	}
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
 	if (ret < 0) {
