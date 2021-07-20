@@ -7,6 +7,7 @@
 #include <linux/oom.h>
 #include <trace/hooks/mm.h>
 #include <trace/hooks/signal.h>
+#include <trace/hooks/vmscan.h>
 #include <linux/printk.h>
 
 static unsigned long panic_on_oom_timeout;
@@ -72,6 +73,11 @@ out:
 	*val = ret;
 }
 
+static void balance_reclaim(void *unused, bool *balance_anon_file_reclaim)
+{
+	*balance_anon_file_reclaim = true;
+}
+
 static int __init init_mem_hooks(void)
 {
 	int ret;
@@ -107,6 +113,14 @@ static int __init init_mem_hooks(void)
 		return ret;
 	}
 
+	if (IS_ENABLED(CONFIG_QCOM_BALANCE_ANON_FILE_RECLAIM)) {
+		ret = register_trace_android_rvh_set_balance_anon_file_reclaim(balance_reclaim,
+							NULL);
+		if (ret) {
+			pr_err("Failed to register balance_anon_file_reclaim hooks\n");
+			return ret;
+		}
+	}
 	return 0;
 }
 
