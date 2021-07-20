@@ -94,8 +94,13 @@ int tmecom_process_request(const void *reqbuf, size_t reqsize, void *respbuf,
 	long time_left = 0;
 	int ret = 0;
 
-	if (!tdev)
+	/*
+	 * Check to handle if probe is not successful or not completed yet
+	 */
+	if (!tdev) {
+		pr_err("%s: tmecom dev is NULL\n", __func__);
 		return -ENODEV;
+	}
 
 	if (!reqbuf || !reqsize || (reqsize > MBOX_MAX_MSG_LEN)) {
 		dev_err(tdev->dev, "invalid reqbuf or reqsize\n");

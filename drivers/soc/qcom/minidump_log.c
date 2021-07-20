@@ -139,9 +139,13 @@ char *md_slabowner_dump_addr;
 size_t md_dma_buf_info_size = SZ_256K;
 char *md_dma_buf_info_addr;
 
+size_t md_dma_buf_procs_size = SZ_256K;
+char *md_dma_buf_procs_addr;
+
 /* Modules information */
 #ifdef CONFIG_MODULES
 #define NUM_MD_MODULES	200
+#define MD_MODULE_PAGES	  8
 
 static struct list_head md_mod_list_head;
 
@@ -1057,7 +1061,7 @@ static void md_dump_module_data(void)
 	seq_buf_printf(md_mod_info_seq_buf, "=== MODULE INFO ===\n");
 	list_for_each_entry(md_mod_data_p, &md_mod_list_head, entry) {
 		seq_buf_printf(md_mod_info_seq_buf,
-			       "name: %s, base: %p size: %#x\n",
+			       "name: %s, base: %#lx size: %#x\n",
 			       md_mod_data_p->name, md_mod_data_p->base,
 			       md_mod_data_p->size);
 	}
@@ -1101,6 +1105,8 @@ dump_rq:
 #endif
 	if (md_dma_buf_info_addr)
 		md_dma_buf_info(md_dma_buf_info_addr, md_dma_buf_info_size);
+	if (md_dma_buf_procs_addr)
+		md_dma_buf_procs(md_dma_buf_procs_addr, md_dma_buf_procs_size);
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
 }
@@ -1196,6 +1202,8 @@ static void md_register_panic_data(void)
 #endif
 	md_register_memory_dump(md_dma_buf_info_size, "DMABUF_INFO");
 	md_debugfs_dmabufinfo(minidump_dir);
+	md_register_memory_dump(md_dma_buf_procs_size, "DMABUF_PROCS");
+	md_debugfs_dmabufprocs(minidump_dir);
 }
 
 #ifdef CONFIG_MODULES
@@ -1256,7 +1264,7 @@ static void md_register_module_data(void)
 		return;
 	}
 
-	ret = md_register_panic_entries(1, "KMODULES",
+	ret = md_register_panic_entries(MD_MODULE_PAGES, "KMODULES",
 					&md_mod_info_seq_buf);
 	if (ret)
 		unregister_module_notifier(&md_module_nb);

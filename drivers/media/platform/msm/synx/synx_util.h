@@ -9,6 +9,8 @@
 #include "synx_private.h"
 
 extern struct synx_device *synx_dev;
+extern spinlock_t camera_tbl_lock;
+extern spinlock_t global_tbl_lock;
 
 extern void synx_fence_callback(struct dma_fence *fence,
 	struct dma_fence_cb *cb);

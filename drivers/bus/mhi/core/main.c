@@ -4,6 +4,7 @@
  *
  */
 
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
@@ -35,6 +36,28 @@ int __must_check mhi_read_reg_field(struct mhi_controller *mhi_cntrl,
 	*out = (tmp & mask) >> shift;
 
 	return 0;
+}
+
+int __must_check mhi_poll_reg_field(struct mhi_controller *mhi_cntrl,
+				    void __iomem *base, u32 offset,
+				    u32 mask, u32 shift, u32 val, u32 delayus)
+{
+	int ret;
+	u32 out, retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
+
+	while (retry--) {
+		ret = mhi_read_reg_field(mhi_cntrl, base, offset, mask, shift,
+					 &out);
+		if (ret)
+			return ret;
+
+		if (out == val)
+			return 0;
+
+		fsleep(delayus);
+	}
+
+	return -ETIMEDOUT;
 }
 
 void mhi_write_reg(struct mhi_controller *mhi_cntrl, void __iomem *base,
@@ -150,7 +173,7 @@ int mhi_map_single_no_bb(struct mhi_controller *mhi_cntrl,
 int mhi_map_single_use_bb(struct mhi_controller *mhi_cntrl,
 			  struct mhi_buf_info *buf_info)
 {
-	void *buf = mhi_alloc_coherent(mhi_cntrl, buf_info->len,
+	void *buf = dma_alloc_coherent(mhi_cntrl->cntrl_dev, buf_info->len,
 				       &buf_info->p_addr, GFP_ATOMIC);
 
 	if (!buf)
@@ -177,7 +200,7 @@ void mhi_unmap_single_use_bb(struct mhi_controller *mhi_cntrl,
 	if (buf_info->dir == DMA_FROM_DEVICE)
 		memcpy(buf_info->v_addr, buf_info->bb_addr, buf_info->len);
 
-	mhi_free_coherent(mhi_cntrl, buf_info->len, buf_info->bb_addr,
+	dma_free_coherent(mhi_cntrl->cntrl_dev, buf_info->len, buf_info->bb_addr,
 			  buf_info->p_addr);
 }
 
@@ -421,8 +444,7 @@ irqreturn_t mhi_irq_handler(int irq_number, void *priv)
 	void *dev_rp;
 
 	if (!is_valid_ring_ptr(ev_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event ring rp points outside of the event ring\n");
+		MHI_ERR("Event ring rp points outside of the event ring\n");
 		return IRQ_HANDLED;
 	}
 
@@ -598,8 +620,7 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 		u16 xfer_len;
 
 		if (!is_valid_ring_ptr(tre_ring, ptr)) {
-			dev_err(&mhi_cntrl->mhi_dev->dev,
-				"Event element points outside of the tre ring\n");
+			MHI_ERR("Event element points outside of the tre ring\n");
 			break;
 		}
 		/* Get the TRB this event points to */
@@ -764,8 +785,7 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 	u32 chan;
 
 	if (!is_valid_ring_ptr(mhi_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event element points outside of the cmd ring\n");
+		MHI_ERR("Event element points outside of the cmd ring\n");
 		return;
 	}
 
@@ -819,8 +839,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 		return -EIO;
 
 	if (!is_valid_ring_ptr(ev_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event ring rp points outside of the event ring\n");
+		MHI_ERR("Event ring rp points outside of the event ring\n");
 		return -EIO;
 	}
 
@@ -949,8 +968,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 
 		ptr = er_ctxt->rp;
 		if (!is_valid_ring_ptr(ev_ring, ptr)) {
-			dev_err(&mhi_cntrl->mhi_dev->dev,
-				"Event ring rp points outside of the event ring\n");
+			MHI_ERR("Event ring rp points outside of the event ring\n");
 			return -EIO;
 		}
 
@@ -984,8 +1002,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 		return -EIO;
 
 	if (!is_valid_ring_ptr(ev_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event ring rp points outside of the event ring\n");
+		MHI_ERR("Event ring rp points outside of the event ring\n");
 		return -EIO;
 	}
 
@@ -1024,8 +1041,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 
 		ptr = er_ctxt->rp;
 		if (!is_valid_ring_ptr(ev_ring, ptr)) {
-			dev_err(&mhi_cntrl->mhi_dev->dev,
-				"Event ring rp points outside of the event ring\n");
+			MHI_ERR("Event ring rp points outside of the event ring\n");
 			return -EIO;
 		}
 
@@ -1042,13 +1058,14 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 
 void mhi_ev_task(unsigned long data)
 {
+	unsigned long flags;
 	struct mhi_event *mhi_event = (struct mhi_event *)data;
 	struct mhi_controller *mhi_cntrl = mhi_event->mhi_cntrl;
 
 	/* process all pending events */
-	spin_lock_bh(&mhi_event->lock);
+	spin_lock_irqsave(&mhi_event->lock, flags);
 	mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
-	spin_unlock_bh(&mhi_event->lock);
+	spin_unlock_irqrestore(&mhi_event->lock, flags);
 }
 
 void mhi_ctrl_ev_task(unsigned long data)
@@ -1640,8 +1657,7 @@ static void mhi_mark_stale_events(struct mhi_controller *mhi_cntrl,
 
 	ptr = er_ctxt->rp;
 	if (!is_valid_ring_ptr(ev_ring, ptr)) {
-		dev_err(&mhi_cntrl->mhi_dev->dev,
-			"Event ring rp points outside of the event ring\n");
+		MHI_ERR("Event ring rp points outside of the event ring\n");
 		dev_rp = ev_ring->rp;
 	} else {
 		dev_rp = mhi_to_virtual(ev_ring, ptr);

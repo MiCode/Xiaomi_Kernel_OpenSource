@@ -36,6 +36,7 @@ msm_dma_iommu_mapping.ko
 msm-geni-se.ko
 msm_geni_serial.ko
 msm_rtb.ko
+ns.ko
 nvmem_qcom-spmi-sdam.ko
 phy-generic.ko
 phy-qcom-ufs.ko
@@ -65,6 +66,7 @@ qcom-spmi-pmic.ko
 qcom_wdt_core.ko
 qnoc-qos.ko
 qnoc-waipio.ko
+qrtr.ko
 qti-fixed-regulator.ko
 qti-regmap-debugfs.ko
 reboot-mode.ko

@@ -196,7 +196,7 @@ struct notifier_block;
 
 typedef int (*gh_virtio_mmio_cb_t)(gh_vmid_t peer, const char *vm_name,
 	gh_label_t label, gh_capid_t cap_id, int linux_irq, u64 base, u64 size);
-typedef int (*gh_vcpu_affinity_cb_t)(gh_label_t label, gh_capid_t cap_id);
+typedef int (*gh_vcpu_affinity_cb_t)(gh_vmid_t vmid, gh_label_t label, gh_capid_t cap_id);
 
 #if IS_ENABLED(CONFIG_GH_RM_DRV)
 /* RM client registration APIs */

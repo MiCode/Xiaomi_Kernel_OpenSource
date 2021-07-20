@@ -811,12 +811,14 @@ static int spss_parse_dt(struct device_node *node)
 
 	/**
 	 * Set firmware_type based on fuses:
-	 *	SPSS_CONFIG_MODE 11:        dev
+	 *	SPSS_CONFIG_MODE 11:        prod, changed from DEV to PROD due to
+		PTE configuration error in Waipio 2.1 CONFIG_MODE 11 will be used
+		for production signed MCP as workaround.
 	 *	SPSS_CONFIG_MODE 01 or 10:  test
 	 *	SPSS_CONFIG_MODE 00:        prod
 	 */
 	if ((val1 & spss_fuse1_mask) && (val2 & spss_fuse2_mask))
-		firmware_type = SPSS_FW_TYPE_DEV;
+		firmware_type = SPSS_FW_TYPE_PROD;
 	else if ((val1 & spss_fuse1_mask) || (val2 & spss_fuse2_mask))
 		firmware_type = SPSS_FW_TYPE_TEST;
 	else

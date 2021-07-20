@@ -1418,7 +1418,8 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 	/* do a clean-up if we reach here post SSR */
 	memset(sfr_info->str, 0, sfr_info->len);
 
-	sfr_info->buf_addr = mhi_alloc_coherent(mhi_cntrl, sfr_info->len,
+	sfr_info->buf_addr = dma_alloc_coherent(mhi_cntrl->cntrl_dev,
+						sfr_info->len,
 						&sfr_info->dma_addr,
 						GFP_KERNEL);
 	if (!sfr_info->buf_addr) {
@@ -1447,8 +1448,8 @@ void mhi_misc_disable(struct mhi_controller *mhi_cntrl)
 	struct mhi_sfr_info *sfr_info = mhi_priv->sfr_info;
 
 	if (sfr_info && sfr_info->buf_addr) {
-		mhi_free_coherent(mhi_cntrl, sfr_info->len, sfr_info->buf_addr,
-				  sfr_info->dma_addr);
+		dma_free_coherent(mhi_cntrl->cntrl_dev, sfr_info->len,
+				  sfr_info->buf_addr, sfr_info->dma_addr);
 		sfr_info->buf_addr = NULL;
 	}
 }

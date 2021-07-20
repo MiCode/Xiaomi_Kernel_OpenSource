@@ -119,6 +119,9 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 		KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
 		drawobj->timestamp);
 
+	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME)
+		atomic64_inc(&drawobj->context->proc_priv->frame_count);
+
 	/* Retire pending GPU events for the object */
 	kgsl_process_event_group(device, &context->events);
 
@@ -999,6 +1002,9 @@ static void retire_cmdobj(struct adreno_hwsched *hwsched,
 	struct kgsl_drawobj_profiling_buffer *profile_buffer;
 
 	if (cmdobj != NULL) {
+		if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME)
+			atomic64_inc(&drawobj->context->proc_priv->frame_count);
+
 		entry = cmdobj->profiling_buf_entry;
 		if (entry) {
 			profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,

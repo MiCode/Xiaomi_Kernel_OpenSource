@@ -504,6 +504,10 @@ static int qcom_va_md_driver_probe(struct platform_device *pdev)
 	struct page **pages, *page;
 	dma_addr_t dma_handle;
 
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret)
+		return ret;
+
 	ret = qcom_va_md_reserve_mem(&pdev->dev);
 	if (ret) {
 		dev_err(&pdev->dev, "CMA for VA based minidump is not present\n");

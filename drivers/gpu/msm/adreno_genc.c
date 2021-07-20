@@ -35,11 +35,6 @@ static const u32 genc_pwrup_reglist[] = {
 	GENC_SP_NC_MODE_CNTL,
 	GENC_GRAS_NC_MODE_CNTL,
 	GENC_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
-	GENC_TPL1_BICUBIC_WEIGHTS_TABLE_0,
-	GENC_TPL1_BICUBIC_WEIGHTS_TABLE_1,
-	GENC_TPL1_BICUBIC_WEIGHTS_TABLE_2,
-	GENC_TPL1_BICUBIC_WEIGHTS_TABLE_3,
-	GENC_TPL1_BICUBIC_WEIGHTS_TABLE_4,
 	GENC_UCHE_GBIF_GX_CONFIG,
 	GENC_RBBM_GBIF_CLIENT_QOS_CNTL,
 };
@@ -425,13 +420,6 @@ int genc_start(struct adreno_device *adreno_dev)
 			FIELD_PREP(GENMASK(27, 0),
 				genc_core->hang_detect_cycles));
 	kgsl_regwrite(device, GENC_UCHE_CLIENT_PF, BIT(0));
-
-	/* Set weights for bicubic filtering */
-	kgsl_regwrite(device, GENC_TPL1_BICUBIC_WEIGHTS_TABLE_0, 0x0);
-	kgsl_regwrite(device, GENC_TPL1_BICUBIC_WEIGHTS_TABLE_1, 0x3fe05ff4);
-	kgsl_regwrite(device, GENC_TPL1_BICUBIC_WEIGHTS_TABLE_2, 0x3fa0ebee);
-	kgsl_regwrite(device, GENC_TPL1_BICUBIC_WEIGHTS_TABLE_3, 0x3f5193ed);
-	kgsl_regwrite(device, GENC_TPL1_BICUBIC_WEIGHTS_TABLE_4, 0x3f0243f0);
 
 	/* Enable the GMEM save/restore feature for preemption */
 	if (adreno_is_preemption_enabled(adreno_dev))

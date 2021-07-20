@@ -116,8 +116,8 @@
 /* maximum clients that can register over a single channel */
 #define SPCOM_MAX_CHANNEL_CLIENTS 2
 
-/* maximum ION buffers should be >= SPCOM_MAX_CHANNELS  */
-#define SPCOM_MAX_ION_BUF_PER_CH (SPCOM_MAX_CHANNELS + 4)
+/* maximum shared DMA_buf buffers should be >= SPCOM_MAX_CHANNELS  */
+#define SPCOM_MAX_DMA_BUF_PER_CH (SPCOM_MAX_CHANNELS + 4)
 
 /* maximum ION buffer per send request/response command */
 #define SPCOM_MAX_ION_BUF_PER_CMD SPCOM_MAX_ION_BUF
@@ -177,6 +177,16 @@ struct spcom_server {
 };
 
 /**
+ * struct dma_buf_info - DMA BUF support information
+ */
+struct dma_buf_info {
+	int fd;
+	struct dma_buf *handle;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sg;
+};
+
+/**
  * struct spcom_channel - channel context
  */
 struct spcom_channel {
@@ -229,8 +239,7 @@ struct spcom_channel {
 	uint32_t rx_buf_txn_id;
 
 	/* shared buffer lock/unlock support */
-	int dmabuf_fd_table[SPCOM_MAX_ION_BUF_PER_CH];
-	struct dma_buf *dmabuf_handle_table[SPCOM_MAX_ION_BUF_PER_CH];
+	struct dma_buf_info dmabuf_array[SPCOM_MAX_DMA_BUF_PER_CH];
 };
 
 /**
@@ -276,6 +285,7 @@ struct spcom_device {
 	struct mutex ioctl_lock;
 	atomic_t subsys_req;
 	struct rproc *spss_rproc;
+	struct property *rproc_prop;
 };
 
 /* Device Driver State */
@@ -686,6 +696,12 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 	spcom_pr_dbg("restart - PIL FW loading initiated: preloaded=%d\n",
 		cmd->arg);
 
+	spcom_dev->spss_rproc = rproc_get_by_phandle(be32_to_cpup(spcom_dev->rproc_prop->value));
+	if (!spcom_dev->spss_rproc) {
+		pr_err("rproc device not found\n");
+		return -EFAULT;
+	}
+
 	ret = rproc_boot(spcom_dev->spss_rproc);
 	if (ret) {
 		spcom_pr_err("restart - spss crashed during device bootup\n");
@@ -821,7 +837,7 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
  *
  * Return: 0 on successful operation, negative value otherwise.
  */
-static int modify_ion_addr(void *buf,
+static int modify_ion_addr(struct spcom_channel *ch, void *buf,
 			    uint32_t buf_size,
 			    struct spcom_ion_info ion_info)
 {
@@ -832,6 +848,7 @@ static int modify_ion_addr(void *buf,
 	int fd, ret = 0;
 	uint32_t buf_offset;
 	char *ptr = (char *)buf;
+	int i = 0;
 
 	fd = ion_info.fd;
 	buf_offset = ion_info.buf_offset;
@@ -884,6 +901,13 @@ static int modify_ion_addr(void *buf,
 		goto mem_map_sg_failed;
 	}
 
+	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_array) ; i++) {
+		if (ch->dmabuf_array[i].handle == dma_buf) {
+			ch->dmabuf_array[i].attach = attach;
+			ch->dmabuf_array[i].sg = sg;
+			break;
+		}
+	}
 	/* Set the physical address at the buffer offset */
 	spcom_pr_dbg("ion phys addr = [0x%lx]\n", (long) phy_addr);
 	memcpy(ptr, &phy_addr, sizeof(phy_addr));
@@ -989,7 +1013,7 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 
 	for (i = 0 ; i < ARRAY_SIZE(ion_info) ; i++) {
 		if (ion_info[i].fd >= 0) {
-			ret = modify_ion_addr(hdr->buf, buf_size, ion_info[i]);
+			ret = modify_ion_addr(ch, hdr->buf, buf_size, ion_info[i]);
 			if (ret < 0) {
 				mutex_unlock(&ch->lock);
 				memset(tx_buf, 0, tx_buf_size);
@@ -1063,8 +1087,8 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	mutex_lock(&ch->lock);
 
 	/* Check if this shared buffer is already locked */
-	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
-		if (ch->dmabuf_handle_table[i] == dma_buf) {
+	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_array) ; i++) {
+		if (ch->dmabuf_array[i].handle == dma_buf) {
 			spcom_pr_dbg("fd [%d] shared buf is already locked\n",
 				     fd);
 			/* decrement back the ref count */
@@ -1075,14 +1099,14 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	}
 
 	/* Store the dma_buf handle */
-	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
-		if (ch->dmabuf_handle_table[i] == NULL) {
-			ch->dmabuf_handle_table[i] = dma_buf;
-			ch->dmabuf_fd_table[i] = fd;
+	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_array) ; i++) {
+		if (ch->dmabuf_array[i].handle == NULL) {
+			ch->dmabuf_array[i].handle = dma_buf;
+			ch->dmabuf_array[i].fd = fd;
 			spcom_pr_dbg("ch [%s] locked ion buf #%d fd [%d] dma_buf=0x%pK\n",
 				ch->name, i,
-				ch->dmabuf_fd_table[i],
-				ch->dmabuf_handle_table[i]);
+				ch->dmabuf_array[i].fd,
+				ch->dmabuf_array[i].handle);
 			mutex_unlock(&ch->lock);
 			return 0;
 		}
@@ -1094,6 +1118,30 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	spcom_pr_err("no free entry to store ion handle of fd [%d]\n", fd);
 
 	return -EFAULT;
+}
+
+/**
+ * spcom_dmabuf_unlock() - unattach and free dmabuf
+ *
+ * unattach the dmabuf to the spcom driver.
+ * decrememt dmabuf ref count.
+ */
+static void spcom_dmabuf_unlock(struct dma_buf_info *info)
+{
+	if (info == NULL)
+		return;
+	if (info->handle == NULL)
+		return;
+	spcom_pr_dbg("unlock dmbuf fd [%d]\n", info->fd);
+	if (!info->attach) {
+		dma_buf_unmap_attachment(info->attach, info->sg, DMA_BIDIRECTIONAL);
+		dma_buf_detach(info->handle, info->attach);
+		info->attach = NULL;
+		info->sg = NULL;
+	}
+	dma_buf_put(info->handle);
+	info->handle = NULL;
+	info->fd = -1;
 }
 
 /**
@@ -1137,28 +1185,15 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 		spcom_pr_dbg("unlocked ALL ion buf ch [%s]\n", ch->name);
 		found = true;
 		/* unlock all buf */
-		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_handle_table); i++) {
-			if (ch->dmabuf_handle_table[i] != NULL) {
-				spcom_pr_dbg("unlocked ion buf #%d fd [%d]\n",
-					i, ch->dmabuf_fd_table[i]);
-				dma_buf_put(ch->dmabuf_handle_table[i]);
-				ch->dmabuf_handle_table[i] = NULL;
-				ch->dmabuf_fd_table[i] = -1;
-			}
-		}
+		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_array); i++)
+			spcom_dmabuf_unlock(&ch->dmabuf_array[i]);
 	} else {
 		/* unlock specific buf */
-		for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
-			if (!ch->dmabuf_handle_table[i])
+		for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_array) ; i++) {
+			if (!ch->dmabuf_array[i].handle)
 				continue;
-			if (ch->dmabuf_handle_table[i] == dma_buf) {
-				spcom_pr_dbg("ch [%s] unlocked ion buf #%d fd [%d] dma_buf=0x%pK\n",
-					ch->name, i,
-					ch->dmabuf_fd_table[i],
-					ch->dmabuf_handle_table[i]);
-				dma_buf_put(ch->dmabuf_handle_table[i]);
-				ch->dmabuf_handle_table[i] = NULL;
-				ch->dmabuf_fd_table[i] = -1;
+			if (ch->dmabuf_array[i].handle == dma_buf) {
+				spcom_dmabuf_unlock(&ch->dmabuf_array[i]);
 				found = true;
 				break;
 			}
@@ -2349,15 +2384,8 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 	mutex_lock(&ch->lock);
 	/* unlock all ion buffers of sp_kernel channel*/
 	if (strcmp(ch->name, "sp_kernel") == 0) {
-		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_handle_table); i++) {
-			if (ch->dmabuf_handle_table[i] != NULL) {
-				spcom_pr_dbg("unlocked ion buf #%d fd [%d]\n",
-					i, ch->dmabuf_fd_table[i]);
-				dma_buf_put(ch->dmabuf_handle_table[i]);
-				ch->dmabuf_handle_table[i] = NULL;
-				ch->dmabuf_fd_table[i] = -1;
-			}
-		}
+		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_array); i++)
+			spcom_dmabuf_unlock(&ch->dmabuf_array[i]);
 	}
 
 	ch->rpdev = NULL;
@@ -2450,7 +2478,6 @@ static int spcom_probe(struct platform_device *pdev)
 	struct spcom_device *dev = NULL;
 	struct device_node *np;
 	struct property *prop;
-	struct rproc *spss_rproc;
 
 	if (!pdev) {
 		pr_err("invalid pdev\n");
@@ -2463,17 +2490,10 @@ static int spcom_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-
 	prop = of_find_property(np, "qcom,rproc-handle", NULL);
 	if (!prop) {
 		spcom_pr_err("can't find qcom,rproc-hable property");
 		return -EINVAL;
-	}
-
-	spss_rproc = rproc_get_by_phandle(be32_to_cpup(prop->value));
-	if (!spss_rproc) {
-		pr_err("can't find remote proc phandle %d\n", be32_to_cpup(prop->value));
-		return -EPROBE_DEFER;
 	}
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -2482,7 +2502,7 @@ static int spcom_probe(struct platform_device *pdev)
 
 	spcom_dev = dev;
 	spcom_dev->pdev = pdev;
-	spcom_dev->spss_rproc = spss_rproc;
+	spcom_dev->rproc_prop = prop;
 
 	atomic_set(&spcom_dev->rx_active_count, 0);
 	/* start counting exposed channel char devices from 1 */
@@ -2521,7 +2541,8 @@ static int spcom_probe(struct platform_device *pdev)
 	if (!spcom_ipc_log_context)
 		pr_err("Unable to create IPC log context\n");
 
-	spcom_pr_dbg("Driver Initialization ok\n");
+	spcom_pr_info("Driver Initialization completed ok\n");
+
 	return 0;
 
 fail_reg_chardev:

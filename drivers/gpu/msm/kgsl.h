@@ -10,7 +10,7 @@
 #include <linux/interrupt.h>
 #include <linux/kthread.h>
 #include <linux/mm.h>
-#include <linux/msm_kgsl.h>
+#include <uapi/linux/msm_kgsl.h>
 #include <linux/uaccess.h>
 
 #include "kgsl_gmu_core.h"
@@ -469,6 +469,8 @@ void kgsl_mem_entry_destroy(struct kref *kref);
 void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
 			int *egl_surface_count, int *egl_image_count);
 
+unsigned long kgsl_get_dmabuf_inode_number(struct kgsl_mem_entry *entry);
+
 struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr);
 
@@ -598,10 +600,5 @@ static inline bool kgsl_addr_range_overlap(uint64_t gpuaddr1,
 		return false;
 	return !(((gpuaddr1 + size1) <= gpuaddr2) ||
 		(gpuaddr1 >= (gpuaddr2 + size2)));
-}
-
-static inline bool kgsl_is_compat_task(void)
-{
-	return (BITS_PER_LONG == 32) || is_compat_task();
 }
 #endif /* __KGSL_H */

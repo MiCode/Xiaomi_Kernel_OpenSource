@@ -436,7 +436,7 @@ struct icnss_priv {
 	bool is_ssr;
 	bool smmu_s1_enable;
 	struct kobject *icnss_kobject;
-	void *subsys;
+	struct rproc *rproc;
 	atomic_t is_shutdown;
 	u32 qdss_mem_seg_len;
 	struct icnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];

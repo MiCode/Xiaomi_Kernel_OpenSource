@@ -516,6 +516,7 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 			dev_dbg(priv->dev, "[%u] %s: no violation:  %d\n",
 				hw_id, __func__, temp);
 		}
+		s->cached_temp = INT_MIN;
 	}
 
 	return IRQ_HANDLED;
@@ -544,7 +545,6 @@ static int tsens_set_trips(void *_sensor, int low, int high)
 
 	tsens_read_irq_state(priv, hw_id, s, &d);
 
-	s->cached_temp = INT_MIN;
 	/* Write the new thresholds and clear the status */
 	regmap_field_write(priv->rf[LOW_THRESH_0 + hw_id], low_val);
 	regmap_field_write(priv->rf[UP_THRESH_0 + hw_id], high_val);

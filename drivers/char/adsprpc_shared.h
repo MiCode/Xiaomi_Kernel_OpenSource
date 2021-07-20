@@ -372,6 +372,13 @@ enum fastrpc_map_flags {
 	 * cache maintenance for the buffer.
 	 */
 	FASTRPC_MAP_FD_DELAYED,
+
+	/**
+	 * This flag is used to skip CPU mapping,
+	 * otherwise behaves similar to FASTRPC_MAP_FD_DELAYED flag.
+	 */
+	FASTRPC_MAP_FD_NOMAP = 16,
+
 	FASTRPC_MAP_MAX,
 };
 
@@ -477,7 +484,11 @@ struct fastrpc_ioctl_control {
 
 #define FASTRPC_MAX_DSP_ATTRIBUTES	(256)
 #define FASTRPC_MAX_ATTRIBUTES	(258)
-#define ASYNC_FASTRPC_CAP (9)
+
+enum fastrpc_dsp_capability {
+	ASYNC_FASTRPC_CAP = 9,
+	DMA_HANDLE_REVERSE_RPC_CAP = 129,
+};
 
 struct fastrpc_ioctl_capability {
 	uint32_t domain;

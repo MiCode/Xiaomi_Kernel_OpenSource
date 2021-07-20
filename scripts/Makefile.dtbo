@@ -15,7 +15,7 @@ cmd_dtbo_verify = $(foreach m,\
 	$(addprefix $(obj)/,$($(@F)-base)),\
 		$(if $(m),\
 			$(DTC_OVERLAY_TEST) $(m) $@ \
-			$(dot-target).$(patsubst $(obj)/%.dtb,%,$(m)).tmp;))\
+			$(dot-target).$(patsubst $(obj)/%.dtb,%,$(m)).tmp > /dev/null;))\
 			true
 else
 cmd_dtbo_verify = true

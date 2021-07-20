@@ -396,6 +396,10 @@ struct tzdbg {
 	uint32_t tz_version;
 	bool is_encrypted_log_enabled;
 	bool is_enlarged_buf;
+	bool is_full_encrypted_tz_logs_supported;
+	bool is_full_encrypted_tz_logs_enabled;
+	int tz_diag_minor_version;
+	int tz_diag_major_version;
 };
 
 struct tzbsp_encr_log_t {
@@ -945,8 +949,12 @@ static int _disp_encrpted_log_stats(struct encrypted_log_info *enc_log_info,
 	struct tzbsp_encr_log_t *encr_log_head;
 	uint32_t size = 0;
 
+	if ((!tzdbg.is_full_encrypted_tz_logs_supported) &&
+		(tzdbg.is_full_encrypted_tz_logs_enabled))
+		pr_info("TZ not supporting full encrypted log functionality\n");
 	ret = qcom_scm_request_encrypted_log(enc_log_info->paddr,
-		enc_log_info->size, log_id);
+		enc_log_info->size, log_id, tzdbg.is_full_encrypted_tz_logs_supported,
+		tzdbg.is_full_encrypted_tz_logs_enabled);
 	if (ret)
 		return 0;
 	encr_log_head = (struct tzbsp_encr_log_t *)(enc_log_info->vaddr);
@@ -1449,18 +1457,23 @@ static int tzdbg_get_tz_version(void)
 		return ret;
 	}
 	pr_warn("tz diag version is %x\n", version);
-	if (
-	(((version >> TZBSP_FVER_MAJOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK)
-			== TZBSP_DIAG_MAJOR_VERSION_V9) &&
-	((((version >> TZBSP_FVER_MINOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK)
-			== TZBSP_DIAG_MINOR_VERSION_V2) ||
-	(((version >> TZBSP_FVER_MINOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK)
-			== TZBSP_DIAG_MINOR_VERSION_V21) ||
-	(((version >> TZBSP_FVER_MINOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK)
-			== TZBSP_DIAG_MINOR_VERSION_V22)))
-		tzdbg.is_enlarged_buf = true;
-	else
+	tzdbg.tz_diag_major_version =
+		((version >> TZBSP_FVER_MAJOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK);
+	tzdbg.tz_diag_minor_version =
+		((version >> TZBSP_FVER_MINOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK);
+	if (tzdbg.tz_diag_major_version == TZBSP_DIAG_MAJOR_VERSION_V9) {
+		switch (tzdbg.tz_diag_minor_version) {
+		case TZBSP_DIAG_MINOR_VERSION_V2:
+		case TZBSP_DIAG_MINOR_VERSION_V21:
+		case TZBSP_DIAG_MINOR_VERSION_V22:
+			tzdbg.is_enlarged_buf = true;
+			break;
+		default:
+			tzdbg.is_enlarged_buf = false;
+		}
+	} else {
 		tzdbg.is_enlarged_buf = false;
+	}
 	return ret;
 }
 
@@ -1565,6 +1578,14 @@ static int tz_log_probe(struct platform_device *pdev)
 		if (ptr == NULL)
 			return -ENOMEM;
 		tzdbg.diag_buf = (struct tzdbg_t *)ptr;
+	} else {
+		if ((tzdbg.tz_diag_major_version == TZBSP_DIAG_MAJOR_VERSION_V9) &&
+			(tzdbg.tz_diag_minor_version >= TZBSP_DIAG_MINOR_VERSION_V22))
+			tzdbg.is_full_encrypted_tz_logs_supported = true;
+		if (pdev->dev.of_node) {
+			tzdbg.is_full_encrypted_tz_logs_enabled = of_property_read_bool(
+				(&pdev->dev)->of_node, "qcom,full-encrypted-tz-logs-enabled");
+		}
 	}
 
 	/* register unencrypted qsee log buffer */

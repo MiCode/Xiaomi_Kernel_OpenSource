@@ -3059,13 +3059,6 @@ static int create_default_coloc_group(void)
 	return 0;
 }
 
-static int sync_cgroup_colocation(struct task_struct *p, bool insert)
-{
-	unsigned int grp_id = insert ? DEFAULT_CGROUP_COLOC_ID : 0;
-
-	return __sched_set_group_id(p, grp_id);
-}
-
 static void walt_update_tg_pointer(struct cgroup_subsys_state *css)
 {
 	if (!strcmp(css->cgroup->kn->name, "top-app"))
@@ -3089,9 +3082,10 @@ static void android_rvh_cpu_cgroup_attach(void *unused,
 {
 	struct task_struct *task;
 	struct cgroup_subsys_state *css;
-	bool colocate;
 	struct task_group *tg;
 	struct walt_task_group *wtg;
+	unsigned int grp_id;
+	int ret;
 
 	if (unlikely(walt_disabled))
 		return;
@@ -3102,10 +3096,12 @@ static void android_rvh_cpu_cgroup_attach(void *unused,
 
 	tg = container_of(css, struct task_group, css);
 	wtg = (struct walt_task_group *) tg->android_vendor_data1;
-	colocate = wtg->colocate;
 
-	cgroup_taskset_for_each(task, css, tset)
-		sync_cgroup_colocation(task, colocate);
+	cgroup_taskset_for_each(task, css, tset) {
+		grp_id = wtg->colocate ? DEFAULT_CGROUP_COLOC_ID : 0;
+		ret = __sched_set_group_id(task, grp_id);
+		trace_sched_cgroup_attach(task, grp_id, ret);
+	}
 }
 
 static bool is_cluster_hosting_top_app(struct walt_sched_cluster *cluster)
@@ -4119,14 +4115,14 @@ static void android_rvh_build_perf_domains(void *unused, bool *eas_check)
 	*eas_check = true;
 }
 
-static void android_vh_force_compatible_pre(void *unused, void *unused2)
+static void android_rvh_force_compatible_pre(void *unused, void *unused2)
 {
 	if (unlikely(walt_disabled))
 		return;
 	cpu_maps_update_begin();
 }
 
-static void android_vh_force_compatible_post(void *unused, void *unused2)
+static void android_rvh_force_compatible_post(void *unused, void *unused2)
 {
 	if (unlikely(walt_disabled))
 		return;
@@ -4162,8 +4158,8 @@ static void register_walt_hooks(void)
 	register_trace_android_rvh_sched_exec(android_rvh_sched_exec, NULL);
 	register_trace_android_rvh_build_perf_domains(android_rvh_build_perf_domains, NULL);
 	register_trace_cpu_frequency_limits(walt_cpu_frequency_limits, NULL);
-	register_trace_android_vh_force_compatible_pre(android_vh_force_compatible_pre, NULL);
-	register_trace_android_vh_force_compatible_post(android_vh_force_compatible_post, NULL);
+	register_trace_android_rvh_force_compatible_pre(android_rvh_force_compatible_pre, NULL);
+	register_trace_android_rvh_force_compatible_post(android_rvh_force_compatible_post, NULL);
 }
 
 atomic64_t walt_irq_work_lastq_ws;

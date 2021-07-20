@@ -766,9 +766,9 @@ static int mem_dump_alloc(struct platform_device *pdev)
 	u32 size, id;
 	int ret, no_of_nodes;
 	dma_addr_t dma_handle;
-	phys_addr_t phys_addr;
+	phys_addr_t phys_addr, mini_phys_addr;
 	struct sg_table mem_dump_sgt;
-	void *dump_vaddr;
+	void *dump_vaddr, *mini_dump_vaddr;
 	uint32_t ns_vmids[] = {VMID_HLOS};
 	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
 	u64 shm_bridge_handle;
@@ -824,6 +824,8 @@ static int mem_dump_alloc(struct platform_device *pdev)
 		return ret;
 	}
 
+	mini_dump_vaddr = dump_vaddr;
+	mini_phys_addr = phys_addr;
 	dump_vaddr += (sizeof(struct msm_dump_table) * 2);
 	phys_addr += (sizeof(struct msm_dump_table) * 2);
 	for_each_available_child_of_node(node, child_node) {
@@ -851,15 +853,6 @@ static int mem_dump_alloc(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Data dump setup failed, id = %d\n",
 				id);
 
-		md_entry.phys_addr = dump_data->addr;
-		md_entry.virt_addr = (uintptr_t)dump_vaddr + MSM_DUMP_DATA_SIZE;
-		md_entry.size = size;
-		md_entry.id = id;
-		strlcpy(md_entry.name, child_node->name, sizeof(md_entry.name));
-		if (msm_minidump_add_region(&md_entry) < 0)
-			dev_err(&pdev->dev, "Mini dump entry failed id = %d\n",
-				id);
-
 		if (id == CPUSS_REGDUMP)
 			cpuss_regdump_init(pdev,
 				(dump_vaddr + MSM_DUMP_DATA_SIZE), size);
@@ -867,6 +860,13 @@ static int mem_dump_alloc(struct platform_device *pdev)
 		dump_vaddr += (size + MSM_DUMP_DATA_SIZE);
 		phys_addr += (size  + MSM_DUMP_DATA_SIZE);
 	}
+
+	md_entry.phys_addr = mini_phys_addr;
+	md_entry.virt_addr = (u64)mini_dump_vaddr;
+	md_entry.size = total_size;
+	strlcpy(md_entry.name, "MEMDUMP", sizeof(md_entry.name));
+	if (msm_minidump_add_region(&md_entry) < 0)
+		dev_err(&pdev->dev, "Mini dump entry failed id = %d\n", id);
 
 	return ret;
 }

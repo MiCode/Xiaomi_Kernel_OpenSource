@@ -131,23 +131,19 @@ static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
 	struct kgsl_process_private *priv;
 
 	/*
-	 * kgsl_process_init_sysfs takes a refcount to the process_private,
-	 * which is put when the kobj is released. This implies that priv will
-	 * not be freed until this function completes, and no further locking
-	 * is needed.
+	 * sysfs_remove_file waits for reads to complete before the node is
+	 * deleted and process private is freed only once kobj is released.
+	 * This implies that priv will not be freed until this function
+	 * completes, and no further locking is needed.
 	 */
 	priv = container_of(kobj, struct kgsl_process_private, kobj);
 
 	return pattr->show(priv, pattr->memtype, buf);
 }
 
+/* Dummy release function - we have nothing to do here */
 static void mem_entry_release(struct kobject *kobj)
 {
-	struct kgsl_process_private *priv;
-
-	priv = container_of(kobj, struct kgsl_process_private, kobj);
-	/* Put the refcount we got in kgsl_process_init_sysfs */
-	kgsl_process_private_put(priv);
 }
 
 static const struct sysfs_ops mem_entry_sysfs_ops = {
@@ -201,9 +197,6 @@ static struct kobj_type ktype_mem_entry = {
 void kgsl_process_init_sysfs(struct kgsl_device *device,
 		struct kgsl_process_private *private)
 {
-	/* Keep private valid until the sysfs enries are removed. */
-	kgsl_process_private_get(private);
-
 	if (kobject_init_and_add(&private->kobj, &ktype_mem_entry,
 		kgsl_driver.prockobj, "%d", pid_nr(private->pid))) {
 		dev_err(device->dev, "Unable to add sysfs for process %d\n",
@@ -494,17 +487,6 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 	return 0;
 }
 
-/*
- * Set by default in kgsl_memdesc_init() for the usermem functions that don't
- * define their own operations
- */
-
-static void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc);
-
-static struct kgsl_memdesc_ops kgsl_default_ops = {
-	.put_gpuaddr = kgsl_unmap_and_put_gpuaddr,
-};
-
 void kgsl_memdesc_init(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, uint64_t flags)
 {
@@ -551,8 +533,6 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 	align = max_t(unsigned int,
 		kgsl_memdesc_get_align(memdesc), ilog2(PAGE_SIZE));
 	kgsl_memdesc_set_align(memdesc, align);
-
-	memdesc->ops = &kgsl_default_ops;
 
 	spin_lock_init(&memdesc->lock);
 }
@@ -904,7 +884,7 @@ static void kgsl_free_system_pages(struct kgsl_memdesc *memdesc)
 	memdesc->pages = NULL;
 }
 
-static void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc)
+void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc)
 {
 	if (!memdesc->size || !memdesc->gpuaddr)
 		return;

@@ -677,6 +677,7 @@ drivers/clocksource/timer-of.h
 drivers/clocksource/timer-probe.c
 drivers/clocksource/timer-sp804.c
 drivers/clocksource/timer-sp.h
+drivers/clocksource/timer-sprd.c
 drivers/clocksource/timer-sun4i.c
 drivers/cpufreq/cpufreq.c
 drivers/cpufreq/cpufreq_conservative.c
@@ -1293,6 +1294,7 @@ drivers/opp/debugfs.c
 drivers/opp/of.c
 drivers/opp/opp.h
 drivers/pci/access.c
+drivers/pci/ats.c
 drivers/pci/bus.c
 drivers/pci/controller/dwc/pcie-al.c
 drivers/pci/controller/dwc/pcie-designware.c
@@ -1313,6 +1315,7 @@ drivers/pci/endpoint/pci-epc-core.c
 drivers/pci/endpoint/pci-epc-mem.c
 drivers/pci/endpoint/pci-epf-core.c
 drivers/pci/host-bridge.c
+drivers/pci/iov.c
 drivers/pci/irq.c
 drivers/pci/mmap.c
 drivers/pci/msi.c
@@ -3034,6 +3037,7 @@ include/linux/parser.h
 include/linux/part_stat.h
 include/linux/path.h
 include/linux/pci-acpi.h
+include/linux/pci-ats.h
 include/linux/pci-dma-compat.h
 include/linux/pci-ecam.h
 include/linux/pci-ep-cfs.h
@@ -5652,6 +5656,7 @@ net/wireless/core.c
 net/wireless/core.h
 net/wireless/debugfs.h
 net/wireless/ethtool.c
+net/wireless/extra-certs.c
 net/wireless/ibss.c
 net/wireless/mesh.c
 net/wireless/mlme.c

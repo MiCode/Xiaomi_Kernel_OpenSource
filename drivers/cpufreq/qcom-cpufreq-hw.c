@@ -101,6 +101,7 @@ static const u16 cpufreq_qcom_epss_std_offsets[REG_ARRAY_SIZE] = {
 
 static struct cpufreq_qcom *qcom_freq_domain_map[NR_CPUS];
 static struct cpufreq_counter qcom_cpufreq_counter[NR_CPUS];
+static struct thermal_cooling_device *cdev[NR_CPUS];
 
 static unsigned int qcom_cpufreq_hw_get(unsigned int cpu);
 
@@ -360,7 +361,6 @@ static struct freq_attr *qcom_cpufreq_hw_attr[] = {
 
 static void qcom_cpufreq_ready(struct cpufreq_policy *policy)
 {
-	static struct thermal_cooling_device *cdev[NR_CPUS];
 	struct device_node *np;
 	unsigned int cpu = policy->cpu;
 
@@ -387,6 +387,20 @@ static void qcom_cpufreq_ready(struct cpufreq_policy *policy)
 	of_node_put(np);
 }
 
+static int qcom_cpufreq_exit(struct cpufreq_policy *policy)
+{
+	unsigned int cpu = policy->cpu;
+
+	if (!cdev[cpu])
+		return 0;
+
+	cpufreq_cooling_unregister(cdev[cpu]);
+
+	cdev[cpu] = NULL;
+
+	return 0;
+}
+
 static struct cpufreq_driver cpufreq_qcom_hw_driver = {
 	.flags		= CPUFREQ_STICKY | CPUFREQ_NEED_INITIAL_FREQ_CHECK |
 			  CPUFREQ_HAVE_GOVERNOR_PER_POLICY,
@@ -399,6 +413,7 @@ static struct cpufreq_driver cpufreq_qcom_hw_driver = {
 	.attr		= qcom_cpufreq_hw_attr,
 	.boost_enabled	= true,
 	.ready		= qcom_cpufreq_ready,
+	.exit		= qcom_cpufreq_exit,
 };
 
 static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,

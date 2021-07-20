@@ -880,7 +880,7 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 				if (!gh_vcpu_affinity_fn)
 					break;
 
-				ret = (*gh_vcpu_affinity_fn)(label, cap_id);
+				ret = (*gh_vcpu_affinity_fn)(vmid, label, cap_id);
 				break;
 			case GH_RM_RES_TYPE_DB_TX:
 				ret = gh_dbl_populate_cap_info(label, cap_id,

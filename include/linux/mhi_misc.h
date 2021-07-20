@@ -291,6 +291,7 @@ void mhi_controller_set_privdata(struct mhi_controller *mhi_cntrl, void *priv)
  */
 void *mhi_controller_get_privdata(struct mhi_controller *mhi_cntrl)
 {
+	return ERR_PTR(-EINVAL);
 }
 
 /**

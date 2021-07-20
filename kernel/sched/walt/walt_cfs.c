@@ -448,7 +448,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 	if (unlikely(cpumask_empty(candidates))) {
 		if (most_spare_cap_cpu != -1)
 			cpumask_set_cpu(most_spare_cap_cpu, candidates);
-		else if (!cpu_active(prev_cpu))
+		else if (!cpu_active(prev_cpu) && active_candidate != -1)
 			cpumask_set_cpu(active_candidate, candidates);
 	}
 
@@ -686,7 +686,7 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	u64 start_t = 0;
 	int delta = 0;
 	int task_boost = per_task_boost(p);
-	bool uclamp_boost = uclamp_boosted(p);
+	bool uclamp_boost = walt_uclamp_boosted(p);
 	int start_cpu, order_index, end_index;
 	int max_cap_cpu = -1;
 	bool energy_eval_needed = true;

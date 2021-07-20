@@ -245,6 +245,7 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 			continue;
 
 		if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAP_PAGE_POOL_REFILL) &&
+		    pools[i]->order &&
 		    dynamic_pool_count_below_lowmark(pools[i]))
 			wake_up_process(pools[i]->refill_worker);
 

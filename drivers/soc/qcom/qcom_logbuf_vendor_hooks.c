@@ -32,6 +32,7 @@ static size_t print_time(u64 ts, char *buf, size_t buf_sz)
 }
 
 #ifdef CONFIG_PRINTK_CALLER
+#define PREFIX_MAX              48
 static size_t print_caller(u32 id, char *buf, size_t buf_sz)
 {
 	char caller[12];
@@ -41,6 +42,7 @@ static size_t print_caller(u32 id, char *buf, size_t buf_sz)
 	return scnprintf(buf, buf_sz, "[%6s]", caller);
 }
 #else
+#define PREFIX_MAX            32
 #define print_caller(id, buf) 0
 #endif
 
@@ -56,12 +58,6 @@ static size_t info_print_prefix(const struct printk_info *info, char *buf,
 	return len;
 }
 
-#ifdef CONFIG_PRINTK_CALLER
-#define PREFIX_MAX              48
-#else
-#define PREFIX_MAX              32
-#endif
-
 static size_t record_print_text(struct printk_info *pinfo, char *text,
 					size_t buf_size)
 {
@@ -73,14 +69,7 @@ static size_t record_print_text(struct printk_info *pinfo, char *text,
 	size_t len = 0;
 	char *next;
 
-	/*
-	 * If the message was truncated because the buffer was not large
-	 * enough, treat the available text as if it were the full text.
-	 */
-	if (text_len > buf_size)
-		text_len = buf_size;
-
-	prefix_len = info_print_prefix(pinfo, prefix, buf_size);
+	prefix_len = info_print_prefix(pinfo, prefix, PREFIX_MAX);
 
 	/*
 	 * @text_len: bytes of unprocessed text
@@ -163,6 +152,49 @@ static size_t record_print_text(struct printk_info *pinfo, char *text,
 	return len;
 }
 
+static void register_log_minidump(struct printk_ringbuffer *prb)
+{
+	struct prb_desc_ring descring = prb->desc_ring;
+	struct prb_data_ring textdata_ring = prb->text_data_ring;
+	struct prb_desc *descaddr = descring.descs;
+	struct printk_info *p_infos = descring.infos;
+	struct md_region md_entry;
+	int ret;
+
+	strlcpy(md_entry.name, "LOG_PRB", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)prb;
+	md_entry.phys_addr = virt_to_phys(prb);
+	md_entry.size = sizeof(*prb);
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add log_prb entry in minidump table\n");
+
+	strlcpy(md_entry.name, "LOG_TEXT", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)textdata_ring.data;
+	md_entry.phys_addr = virt_to_phys(textdata_ring.data);
+	md_entry.size = _DATA_SIZE(textdata_ring.size_bits);
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add log_text entry in minidump table\n");
+
+	strlcpy(md_entry.name, "LOG_DESC", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)descaddr;
+	md_entry.phys_addr = virt_to_phys(descaddr);
+	md_entry.size = sizeof(struct prb_desc) * _DESCS_COUNT(descring.count_bits);
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add log_desc entry in minidump table\n");
+
+	strlcpy(md_entry.name, "LOG_INFO", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)p_infos;
+	md_entry.phys_addr = virt_to_phys(p_infos);
+	md_entry.size = sizeof(struct printk_info) * _DESCS_COUNT(descring.count_bits);
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add log_info entry in minidump table\n");
+}
+
+
 static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 					struct printk_record *r)
 {
@@ -177,6 +209,7 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 	static unsigned int off;
 	enum desc_state state;
 	size_t rem_buf_sz;
+	int ret;
 
 	tailid = descring.tail_id;
 	headid = descring.head_id;
@@ -193,12 +226,17 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			return;
 
 		memcpy(&boot_log_buf[off], &r->text_buf[0], r->info->text_len);
-		off += record_print_text(r->info, &boot_log_buf[off],
+		ret = record_print_text(r->info, &boot_log_buf[off],
 			rem_buf_sz);
+		if (!ret)
+			off += r->info->text_len;
+
+		off += ret;
 		return;
 	}
 
 	copy_early_boot_log = false;
+	register_log_minidump(prb);
 	did = atomic_long_read(&tailid);
 	while (true) {
 		ind = did % _DESCS_COUNT(descring.count_bits);
@@ -235,10 +273,12 @@ static void copy_boot_log(void *unused, struct printk_ringbuffer *prb,
 			memcpy(&boot_log_buf[off],
 				&textdata_ring.data[text_start],
 				textlen);
-			off += record_print_text(&p_infos[ind],
-						&boot_log_buf[off], rem_buf_sz);
-			if (off > boot_log_buf_size)
-				break;
+			ret = record_print_text(&p_infos[ind],
+					&boot_log_buf[off], rem_buf_sz);
+			if (!ret)
+				off += r->info->text_len;
+
+			off += ret;
 		}
 
 		if (did == atomic_long_read(&headid))

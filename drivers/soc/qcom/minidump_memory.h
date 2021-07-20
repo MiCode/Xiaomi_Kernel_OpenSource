@@ -15,6 +15,8 @@ extern char *md_slabowner_dump_addr;
 #endif
 extern size_t md_dma_buf_info_size;
 extern char *md_dma_buf_info_addr;
+extern size_t md_dma_buf_procs_size;
+extern char *md_dma_buf_procs_addr;
 
 void md_dump_meminfo(struct seq_buf *m);
 #ifdef CONFIG_SLUB_DEBUG
@@ -44,3 +46,5 @@ static inline void md_debugfs_slabowner(struct dentry *minidump_dir) {}
 #endif
 void md_dma_buf_info(char *m, size_t dump_size);
 void md_debugfs_dmabufinfo(struct dentry *minidump_dir);
+void md_dma_buf_procs(char *m, size_t dump_size);
+void md_debugfs_dmabufprocs(struct dentry *minidump_dir);

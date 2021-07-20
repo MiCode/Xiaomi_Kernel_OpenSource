@@ -133,7 +133,7 @@ static inline int md_entry_num(const struct md_region *entry)
 		if (!strcmp(mdr->name, entry->name))
 			return i;
 	}
-	return -EINVAL;
+	return -ENOENT;
 }
 
 /* Update Mini dump table in SMEM */
@@ -227,9 +227,9 @@ int msm_minidump_update_region(int regno, const struct md_region *entry)
 		goto err_unlock;
 	}
 
-	if (md_entry_num(entry) < 0) {
+	ret = md_entry_num(entry);
+	if (ret < 0) {
 		pr_err("Region:[%s] does not exist to update.\n", entry->name);
-		ret = -ENOMEM;
 		goto err_unlock;
 	}
 
@@ -266,9 +266,9 @@ int msm_minidump_add_region(const struct md_region *entry)
 
 	spin_lock_irqsave(&mdt_lock, flags);
 	if (md_entry_num(entry) >= 0) {
-		pr_err("Entry name already exist.\n");
 		spin_unlock_irqrestore(&mdt_lock, flags);
-		return -EINVAL;
+		pr_info("Entry name already exist.\n");
+		return -EEXIST;
 	}
 
 	entries = minidump_table.num_regions;
@@ -397,12 +397,19 @@ int msm_minidump_remove_region(const struct md_region *entry)
 
 	spin_lock_irqsave(&mdt_lock, flags);
 	write_lock(&mdt_remove_lock);
-	entryno = md_entry_num(entry);
-	rgno = md_region_num(entry->name, &seq);
-	if (entryno < 0 || rgno < 0) {
+	ret = md_entry_num(entry);
+	if (ret < 0) {
 		write_unlock(&mdt_remove_lock);
 		spin_unlock_irqrestore(&mdt_lock, flags);
-		pr_err("Not able to find the entry %s (%d,%d) in table\n",
+		pr_info("Not able to find the entry %s in table\n", entry->name);
+		return ret;
+	}
+	entryno = ret;
+	rgno = md_region_num(entry->name, &seq);
+	if (rgno < 0) {
+		write_unlock(&mdt_remove_lock);
+		spin_unlock_irqrestore(&mdt_lock, flags);
+		pr_err("Not able to find the region %s (%d,%d) in table\n",
 			entry->name, entryno, rgno);
 		return -EINVAL;
 	}
@@ -425,23 +432,20 @@ int msm_minidump_remove_region(const struct md_region *entry)
 	memset(&minidump_table.md_regions[rcount - 1], 0,
 					sizeof(struct md_ss_region));
 
-
 	ret = msm_minidump_clear_headers(entry);
 	if (ret)
 		goto out;
 
 	minidump_table.md_ss_toc->ss_region_count--;
 	minidump_table.md_ss_toc->md_ss_toc_init = 1;
-
 	minidump_table.num_regions--;
-	write_unlock(&mdt_remove_lock);
-	spin_unlock_irqrestore(&mdt_lock, flags);
-	return 0;
 out:
 	write_unlock(&mdt_remove_lock);
 	spin_unlock_irqrestore(&mdt_lock, flags);
-	pr_err("Minidump is broken..disable Minidump collection\n");
-	return -EINVAL;
+
+	if (ret)
+		pr_err("Minidump is broken..disable Minidump collection\n");
+	return ret;
 }
 EXPORT_SYMBOL(msm_minidump_remove_region);
 

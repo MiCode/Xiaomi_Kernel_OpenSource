@@ -183,6 +183,15 @@ config QCOM_GIC_INTERRUPT_ROUTING
          Say Y here to compile the driver as a part of kernel or M to compile
          as a module.
 
+config GH_TLMM_VM_MEM_ACCESS
+	tristate "Qualcomm Technologies, Inc. TLMM VM mem access driver"
+	depends on GH_RM_DRV
+	help
+         Qualcomm Technologies, Inc. TLMM VM mem access driver for MSM devices.
+         The drivers provides initial gpio memory access to VM.
+         Say Y here to compile the driver as a part of kernel or M to compile
+         as a module.
+
 config QCOM_RIMPS
 	tristate "Qualcomm Technologies, Inc. Rimps driver"
 	depends on MAILBOX
@@ -615,13 +624,22 @@ config QCOM_SECURE_BUFFER
 	  use this memory and no unauthorized access is made to the
 	  buffer.
 
-config QCOM_MEM_HOOKS
-	tristate "Memory trace hook callbacks"
+config HYP_ASSIGN_DEBUG
+	bool "Enable caller tracking for hyp-assign"
+	depends on QCOM_SECURE_BUFFER
 	help
-	  A helper driver for loading various memory-related vendor
-	  hooks, which are used to control the behavior of the core.
-	  If unsure, say 'M' here to ensure that the hooks are compiled
-	  in.
+	  Track all pages which are in the hyp-assigned state. Enable
+	  additional error checking on hyp-assign based on this state.
+	  Detects double-assign and double-unassign scenarios.
+	  If unsure, say 'N' here.
+
+config QCOM_MEM_HOOKS
+       tristate "Memory trace hook callbacks"
+       help
+         A helper driver for loading various memory-related vendor
+         hooks, which are used to control the behavior of the core.
+         If unsure, say 'M' here to ensure that the hooks are compiled
+         in.
 
 config QCOM_GLINK_PKT
 	tristate "Enable device interface for GLINK packet channels"
@@ -734,6 +752,15 @@ config QTI_BATTERY_GLINK_DEBUG
 	  Qualcomm Technologies, Inc. battery glink debug driver helps to
 	  obtain debug information for battery charging and gauging over PMIC
 	  Glink from charger and gauging firmware running on a remote subsystem
+	  (e.g. DSP).
+
+config QTI_CHARGER_ULOG_GLINK
+	tristate "Enable support for QTI charger ulog glink driver"
+	depends on QTI_PMIC_GLINK && DEBUG_FS
+	help
+	  Qualcomm Technologies, Inc. charger ulog glink driver helps to
+	  obtain ulogs from battery charging and gauging stack over PMIC
+	  Glink from the charger firmware running on a remote subsystem
 	  (e.g. DSP).
 
 config QTI_ALTMODE_GLINK

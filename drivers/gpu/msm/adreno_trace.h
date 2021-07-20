@@ -190,7 +190,7 @@ TRACE_EVENT(gmu_event,
 		__entry->data2 = event_info[3];
 	),
 	TP_printk(
-		"event=%08u ticks=%08u data1=%08x data2=%08x",
+		"event=%08u ticks=%08u data1=0x%08x data2=0x%08x",
 		__entry->event, __entry->ticks, __entry->data1, __entry->data2
 	)
 );

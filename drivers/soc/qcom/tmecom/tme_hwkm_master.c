@@ -382,8 +382,6 @@ uint32_t tme_hwkm_master_broadcast_transportkey(
 			&response_len);
 
 	if (ret != 0) {
-		if (ret == -ENODEV)
-			goto err_exit;
 		pr_err("HWKM broadcast TP key request failed\n");
 		goto err_exit;
 	}
