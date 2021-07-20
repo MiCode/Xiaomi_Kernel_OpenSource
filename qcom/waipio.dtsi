@@ -2620,6 +2620,7 @@
 
 	subsystem-sleep-stats {
 		compatible = "qcom,subsystem-sleep-stats";
+		reg = <0xc3f0000 0x400>;
 	};
 
 	qcom,msm-cdsp-loader {
