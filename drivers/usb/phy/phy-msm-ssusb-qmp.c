@@ -392,10 +392,11 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 				phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
 		}
 
-		/* override hardware control for reset of qmp phy */
-		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
-			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
-			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
+			/* override hardware control for reset of qmp phy */
+			writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
+				SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
+				phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
 
 		/* update port select */
 		if (val > 0) {
@@ -405,11 +406,13 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
 		}
 
-		msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
+		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE)) {
+			msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
 
-		/* bring both USB and DP PHYs PCS block out of reset */
-		writel_relaxed(0x00, phy->base +
-			phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+			/* bring both USB and DP PHYs PCS block out of reset */
+			writel_relaxed(0x00, phy->base +
+				phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		}
 		break;
 	case  USB3_OR_DP:
 		if (val > 0) {
@@ -549,6 +552,25 @@ static int msm_ssphy_qmp_dp_combo_reset(struct usb_phy *uphy)
 					phy);
 	int ret = 0;
 
+	if (phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE) {
+		dev_dbg(uphy->dev, "Resetting USB part of QMP phy\n");
+
+		/* Assert USB3 PHY CSR reset */
+		ret = reset_control_assert(phy->phy_reset);
+		if (ret) {
+			dev_err(uphy->dev, "phy_reset assert failed\n");
+			goto exit;
+		}
+
+		/* Deassert USB3 PHY CSR reset */
+		ret = reset_control_deassert(phy->phy_reset);
+		if (ret) {
+			dev_err(uphy->dev, "phy_reset deassert failed\n");
+			goto exit;
+		}
+		return 0;
+	}
+
 	dev_dbg(uphy->dev, "Global reset of QMP DP combo phy\n");
 	/* Assert global PHY reset */
 	ret = reset_control_assert(phy->global_phy_reset);
@@ -686,7 +708,8 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		} else {
 			/* Reset phy mode to USB only if DP not connected */
 			if (phy->phy_type == USB3_AND_DP &&
-				!(uphy->flags & PHY_DP_MODE))
+				!((uphy->flags & PHY_DP_MODE) ||
+				(uphy->flags & PHY_USB_DP_CONCURRENT_MODE)))
 				msm_ssphy_qmp_setmode(phy, USB3_MODE);
 			writel_relaxed(0x00,
 			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
