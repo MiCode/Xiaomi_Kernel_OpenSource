@@ -19,6 +19,7 @@ qcom_rpmh.ko
 qnoc-kalama.ko
 qnoc-qos.ko
 smem.ko
+socinfo.ko
 stub-regulator.ko
 ufs_qcom.ko
 videocc-kalama.ko
