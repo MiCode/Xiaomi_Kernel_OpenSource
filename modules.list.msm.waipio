@@ -15,10 +15,10 @@ dispcc-waipio.ko
 gcc-diwali.ko
 gcc-waipio.ko
 gdsc-regulator.ko
+gh_arm_drv.ko
 gh_ctrl.ko
 gh_dbl.ko
 gh_msgq.ko
-gh_arm_drv.ko
 gh_rm_drv.ko
 gh_virt_wdt.ko
 hwkm.ko
@@ -76,6 +76,7 @@ reboot-mode.ko
 regmap-spmi.ko
 rpmh-regulator.ko
 rtc-pm8xxx.ko
+sched-walt-debug.ko
 sched-walt.ko
 secure_buffer.ko
 smem.ko
@@ -85,4 +86,3 @@ stub-regulator.ko
 tmecom-intf.ko
 ufshcd-crypto-qti.ko
 ufs_qcom.ko
-sched-walt-debug.ko
