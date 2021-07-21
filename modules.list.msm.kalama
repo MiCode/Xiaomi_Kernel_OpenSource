@@ -1,11 +1,11 @@
-pinctrl-msm.ko
-pinctrl-kalama.ko
-clk-qcom.ko
 clk-dummy.ko
+clk-qcom.ko
 debug-regulator.ko
-stub-regulator.ko
-qcom-scm.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qmp-v4-kalama.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
+pinctrl-kalama.ko
+pinctrl-msm.ko
+qcom-scm.ko
+stub-regulator.ko
 ufs_qcom.ko
