@@ -115,7 +115,7 @@
 
 			qcom,bus-freq = <3>;
 			qcom,bus-min = <1>;
-			qcom,bus-max = <5>;
+			qcom,bus-max = <6>;
 
 			qcom,acd-level = <0x882f5ffd>;
 		};
