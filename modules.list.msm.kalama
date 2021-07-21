@@ -9,3 +9,10 @@ phy-qcom-ufs.ko
 phy-qcom-ufs-qmp-v4-kalama.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko
+cmd-db.ko
+qcom_rpmh.ko
+icc-bcm-voter.ko
+icc-rpmh.ko
+qnoc-qos.ko
+qnoc-kalama.ko
+icc-debug.ko
