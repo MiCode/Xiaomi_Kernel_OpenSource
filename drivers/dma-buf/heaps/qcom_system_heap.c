@@ -58,6 +58,7 @@
 #include "qcom_sg_ops.h"
 #include "qcom_system_heap.h"
 
+#if IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL)
 #define DYNAMIC_POOL_FILL_MARK (100 * SZ_1M)
 #define DYNAMIC_POOL_LOW_MARK_PERCENT 40UL
 #define DYNAMIC_POOL_LOW_MARK ((DYNAMIC_POOL_FILL_MARK * DYNAMIC_POOL_LOW_MARK_PERCENT) / 100)
@@ -140,6 +141,84 @@ static void dynamic_page_pool_refill(struct dynamic_page_pool *pool)
 		dynamic_page_pool_add(pool, page);
 	}
 }
+
+static bool dynamic_pool_needs_refill(struct dynamic_page_pool *pool)
+{
+	return pool->order && dynamic_pool_count_below_lowmark(pool);
+}
+
+static int system_heap_refill_worker(void *data)
+{
+	struct dynamic_page_pool **pool_list = data;
+	int i;
+
+	for (;;) {
+		for (i = 0; i < NUM_ORDERS; i++) {
+			if (dynamic_pool_count_below_lowmark(pool_list[i]))
+				dynamic_page_pool_refill(pool_list[i]);
+		}
+
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (unlikely(kthread_should_stop())) {
+			set_current_state(TASK_RUNNING);
+			break;
+		}
+		schedule();
+
+		set_current_state(TASK_RUNNING);
+	}
+
+	return 0;
+}
+
+static int system_heap_create_refill_worker(struct qcom_system_heap *sys_heap, const char *name)
+{
+	struct task_struct *refill_worker;
+	struct sched_attr attr = { .sched_nice = DYNAMIC_POOL_KTHREAD_NICE_VAL };
+	int ret;
+	int i;
+
+	refill_worker = kthread_run(system_heap_refill_worker, sys_heap->pool_list,
+				    "%s-pool-refill-thread", name);
+	if (IS_ERR(refill_worker)) {
+		pr_err("%s: failed to create %s-pool-refill-thread: %ld\n",
+			__func__, name, PTR_ERR(refill_worker));
+		return PTR_ERR(refill_worker);
+	}
+
+	ret = sched_setattr(refill_worker, &attr);
+	if (ret) {
+		pr_warn("%s: failed to set task priority for %s-pool-refill-thread: ret = %d\n",
+			__func__, name, ret);
+		kthread_stop(refill_worker);
+		return ret;
+	}
+
+	for (i = 0; i < NUM_ORDERS; i++)
+		sys_heap->pool_list[i]->refill_worker = refill_worker;
+
+	return ret;
+}
+
+static void system_heap_destroy_refill_worker(struct qcom_system_heap *sys_heap)
+{
+	kthread_stop(sys_heap->pool_list[0]->refill_worker);
+}
+#else
+static bool dynamic_pool_needs_refill(struct dynamic_page_pool *pool)
+{
+	return false;
+}
+
+static int system_heap_create_refill_worker(struct qcom_system_heap *sys_heap, const char *name)
+{
+	return 0;
+}
+
+static void system_heap_destroy_refill_worker(struct qcom_system_heap *sys_heap)
+{
+}
+#endif
 
 static int system_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
 {
@@ -226,9 +305,7 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 		if (!page)
 			continue;
 
-		if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL) &&
-		    pools[i]->order &&
-		    dynamic_pool_count_below_lowmark(pools[i]))
+		if (dynamic_pool_needs_refill(pools[i]))
 			wake_up_process(pools[i]->refill_worker);
 
 		return page;
@@ -342,30 +419,6 @@ free_buffer:
 	return ERR_PTR(ret);
 }
 
-static int system_heap_refill_worker(void *data)
-{
-	struct dynamic_page_pool **pool_list = data;
-	int i;
-
-	for (;;) {
-		for (i = 0; i < NUM_ORDERS; i++) {
-			if (dynamic_pool_count_below_lowmark(pool_list[i]))
-				dynamic_page_pool_refill(pool_list[i]);
-		}
-
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (unlikely(kthread_should_stop())) {
-			set_current_state(TASK_RUNNING);
-			break;
-		}
-		schedule();
-
-		set_current_state(TASK_RUNNING);
-	}
-
-	return 0;
-}
-
 static const struct dma_heap_ops system_heap_ops = {
 	.allocate = system_heap_allocate,
 };
@@ -375,10 +428,7 @@ void qcom_system_heap_create(const char *name, const char *system_alias, bool un
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
 	struct qcom_system_heap *sys_heap;
-	struct task_struct *refill_worker;
-	struct sched_attr attr = { .sched_nice = DYNAMIC_POOL_KTHREAD_NICE_VAL };
 	int ret;
-	int i;
 
 	ret = dynamic_page_pool_init_shrinker();
 	if (ret)
@@ -402,26 +452,9 @@ void qcom_system_heap_create(const char *name, const char *system_alias, bool un
 		goto free_heap;
 	}
 
-	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL)) {
-		refill_worker = kthread_run(system_heap_refill_worker, sys_heap->pool_list,
-					    "%s-pool-refill-thread", name);
-		if (IS_ERR(refill_worker)) {
-			pr_err("%s: failed to create %s-pool-refill-thread: %ld\n",
-				__func__, name, PTR_ERR(refill_worker));
-			ret = PTR_ERR(refill_worker);
-			goto free_pools;
-		}
-
-		ret = sched_setattr(refill_worker, &attr);
-		if (ret) {
-			pr_warn("%s: failed to set task priority for %s-pool-refill-thread: ret = %d\n",
-				__func__, name, ret);
-			goto stop_worker;
-		}
-
-		for (i = 0; i < NUM_ORDERS; i++)
-			sys_heap->pool_list[i]->refill_worker = refill_worker;
-	}
+	ret = system_heap_create_refill_worker(sys_heap, name);
+	if (ret)
+		goto free_pools;
 
 	heap = dma_heap_add(&exp_info);
 	if (IS_ERR(heap)) {
@@ -453,8 +486,7 @@ void qcom_system_heap_create(const char *name, const char *system_alias, bool un
 	return;
 
 stop_worker:
-	if (IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL))
-		kthread_stop(refill_worker);
+	system_heap_destroy_refill_worker(sys_heap);
 
 free_pools:
 	dynamic_page_pool_release_pools(sys_heap->pool_list);
