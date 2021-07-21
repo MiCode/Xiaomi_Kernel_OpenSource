@@ -14,6 +14,7 @@ phy-qcom-ufs.ko
 pinctrl-kalama.ko
 pinctrl-msm.ko
 qcom-scm.ko
+qcom_hwspinlock.ko
 qcom_rpmh.ko
 qnoc-kalama.ko
 qnoc-qos.ko
