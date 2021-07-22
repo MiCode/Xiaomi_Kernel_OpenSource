@@ -305,45 +305,54 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 			sizeof(struct dpmaifq_normal_pit)));
 #endif
 		/* BAT mem dump */
-		CCCI_MEM_LOG(md_id, TAG,
-			"dpmaif:bat request base: 0x%p(%d*%d)\n",
-			dpmaif_ctrl->bat_req->bat_base,
-			(int)sizeof(struct dpmaif_bat_t),
-			dpmaif_ctrl->bat_req->bat_size_cnt);
-		CCCI_MEM_LOG(md_id, TAG,
-			"Current rxq%d bat pos: w/r/rel=%x, %x\n", i,
-			dpmaif_ctrl->bat_req->bat_wr_idx,
-			dpmaif_ctrl->bat_req->bat_rd_idx);
+		if (dpmaif_ctrl->bat_req) {
+			CCCI_MEM_LOG(md_id, TAG,
+				"dpmaif:bat request base: 0x%p(%d*%d)\n",
+				dpmaif_ctrl->bat_req->bat_base,
+				(int)sizeof(struct dpmaif_bat_t),
+				dpmaif_ctrl->bat_req->bat_size_cnt);
+			CCCI_MEM_LOG(md_id, TAG,
+				"Current rxq%d bat pos: w/r/rel=%x, %x\n", i,
+				dpmaif_ctrl->bat_req->bat_wr_idx,
+				dpmaif_ctrl->bat_req->bat_rd_idx);
+		}
 #ifdef DPMAIF_DEBUG_LOG
 		/* BAT SKB mem dump */
-		CCCI_MEM_LOG(md_id, TAG, "dpmaif:bat skb base: 0x%p(%d*%d)\n",
-			dpmaif_ctrl->bat_req->bat_skb_ptr,
-			(int)sizeof(struct dpmaif_bat_skb_t),
-			dpmaif_ctrl->bat_req->bat_size_cnt);
-		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-			dpmaif_ctrl->bat_req->bat_skb_ptr,
-			(dpmaif_ctrl->bat_req->skb_pkt_cnt *
-			sizeof(struct dpmaif_bat_skb_t)));
+		if (dpmaif_ctrl->bat_req) {
+			CCCI_MEM_LOG(md_id, TAG,
+				"dpmaif:bat skb base: 0x%p(%d*%d)\n",
+				dpmaif_ctrl->bat_req->bat_skb_ptr,
+				(int)sizeof(struct dpmaif_bat_skb_t),
+				dpmaif_ctrl->bat_req->bat_size_cnt);
+			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+				dpmaif_ctrl->bat_req->bat_skb_ptr,
+				(dpmaif_ctrl->bat_req->skb_pkt_cnt *
+				sizeof(struct dpmaif_bat_skb_t)));
+		}
 #ifdef HW_FRG_FEATURE_ENABLE
 		/* BAT frg mem dump */
-		CCCI_MEM_LOG(md_id, TAG,
-			"dpmaif:bat_frag base: 0x%p(%d*%d)\n",
-			dpmaif_ctrl->bat_frag->bat_base,
-			(int)sizeof(struct dpmaif_bat_t),
-			dpmaif_ctrl->bat_frag->bat_size_cnt);
-		CCCI_MEM_LOG(md_id, TAG,
-			"Current rxq%d bat_frag pos: w/r/rel=%x, %x\n", i,
-			dpmaif_ctrl->bat_frag->bat_wr_idx,
-			dpmaif_ctrl->bat_frag->bat_rd_idx);
-		/* BAT fragment mem dump */
-		CCCI_MEM_LOG(md_id, TAG, "dpmaif:bat_frag base: 0x%p(%d*%d)\n",
-			dpmaif_ctrl->bat_frag->bat_skb_ptr,
-			(int)sizeof(struct dpmaif_bat_page_t),
-			dpmaif_ctrl->bat_frag->bat_size_cnt);
-		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+		if (dpmaif_ctrl->bat_frag) {
+			CCCI_MEM_LOG(md_id, TAG,
+				"dpmaif:bat_frag base: 0x%p(%d*%d)\n",
+				dpmaif_ctrl->bat_frag->bat_base,
+				(int)sizeof(struct dpmaif_bat_t),
+				dpmaif_ctrl->bat_frag->bat_size_cnt);
+			CCCI_MEM_LOG(md_id, TAG,
+				"Current rxq%d bat_frag pos: w/r/rel=%x, %x\n",
+				i,
+				dpmaif_ctrl->bat_frag->bat_wr_idx,
+				dpmaif_ctrl->bat_frag->bat_rd_idx);
+			/* BAT fragment mem dump */
+			CCCI_MEM_LOG(md_id, TAG,
+				"dpmaif:bat_frag base: 0x%p(%d*%d)\n",
 				dpmaif_ctrl->bat_frag->bat_skb_ptr,
-			(dpmaif_ctrl->bat_frag->skb_pkt_cnt *
-			sizeof(struct dpmaif_bat_page_t)));
+				(int)sizeof(struct dpmaif_bat_page_t),
+				dpmaif_ctrl->bat_frag->bat_size_cnt);
+			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+				dpmaif_ctrl->bat_frag->bat_skb_ptr,
+				(dpmaif_ctrl->bat_frag->skb_pkt_cnt *
+				sizeof(struct dpmaif_bat_page_t)));
+		}
 #endif
 #endif
 	}
@@ -3255,6 +3264,9 @@ int ccci_dpmaif_hif_init(struct device *dev)
 
 	hif_ctrl->md_id = md_id; /* maybe can get from dtsi or phase-out. */
 	hif_ctrl->hif_id = DPMAIF_HIF_ID;
+	hif_ctrl->bat_req = NULL;
+	hif_ctrl->bat_frag = NULL;
+
 	dpmaif_ctrl = hif_ctrl;
 	atomic_set(&dpmaif_ctrl->suspend_flag, -1);
 
