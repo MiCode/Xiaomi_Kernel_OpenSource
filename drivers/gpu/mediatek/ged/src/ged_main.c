@@ -62,6 +62,7 @@ static long ged_ioctl_compat(struct file *pFile,
 	unsigned int ioctlCmd, unsigned long arg);
 #endif
 static int ged_pdrv_probe(struct platform_device *pdev);
+static int ged_pdrv_remove(struct platform_device *pdev);
 static void ged_exit(void);
 static int ged_init(void);
 
@@ -96,7 +97,7 @@ static const struct of_device_id g_ged_of_match[] = {
 };
 static struct platform_driver g_ged_pdrv = {
 	.probe = ged_pdrv_probe,
-	.remove = NULL,
+	.remove = ged_pdrv_remove,
 	.driver = {
 		.name = "ged",
 		.owner = THIS_MODULE,
@@ -408,70 +409,10 @@ unlock_and_return:
  */
 static int ged_pdrv_probe(struct platform_device *pdev)
 {
-	GED_LOGI("@%s: ged driver probe\n", __func__);
+	GED_ERROR err = GED_OK;
 
-	return 0;
-}
+	GED_LOGI("@%s: start to probe ged driver\n", __func__);
 
-/*
- * unregister the gpufreq driver, remove fs node
- */
-static void ged_exit(void)
-{
-#ifndef GED_BUFFER_LOG_DISABLE
-	ged_log_buf_free(gpufreq_ged_log);
-	gpufreq_ged_log = 0;
-
-#ifdef GED_DVFS_DEBUG_BUF
-	ged_log_buf_free(ghLogBuf_DVFS);
-	ghLogBuf_DVFS = 0;
-#endif
-
-	ged_log_buf_free(ghLogBuf_ftrace);
-	ghLogBuf_ftrace = 0;
-	ged_log_buf_free(ghLogBuf_FENCE);
-	ghLogBuf_FENCE = 0;
-	ged_log_buf_free(ghLogBuf_HWC);
-	ghLogBuf_HWC = 0;
-	ged_log_buf_free(ghLogBuf_HWC_ERR);
-	ghLogBuf_HWC_ERR = 0;
-	ged_log_buf_free(ghLogBuf_GPU);
-	ghLogBuf_GPU = 0;
-#endif /* GED_BUFFER_LOG_DISABLE */
-
-	ged_gpu_tuner_exit();
-
-	ged_kpi_system_exit();
-
-	ged_ge_exit();
-
-	ged_dvfs_system_exit();
-
-	ged_notify_sw_vsync_system_exit();
-
-	ged_hal_exit();
-
-	ged_log_system_exit();
-
-#ifdef GED_DEBUG_FS
-	ged_debugFS_exit();
-#endif
-
-	ged_sysfs_exit();
-
-	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
-
-	platform_driver_unregister(&g_ged_pdrv);
-}
-
-/*
- * register the ged driver, create fs node
- */
-static int ged_init(void)
-{
-	GED_ERROR err = GED_ERROR_FAIL;
-
-	GED_LOGI("@%s: start to init ged driver\n", __func__);
 	if (proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_proc_fops)
 		== NULL) {
 		err = GED_ERROR_FAIL;
@@ -570,22 +511,91 @@ static int ged_init(void)
 	gpufreq_ged_log = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
 
+	GED_LOGI("@%s: ged driver probe done\n", __func__);
+
+ERROR:
+	return err;
+}
+
+/*
+ * ged driver remove
+ */
+static int ged_pdrv_remove(struct platform_device *pdev)
+{
+#ifndef GED_BUFFER_LOG_DISABLE
+	ged_log_buf_free(gpufreq_ged_log);
+	gpufreq_ged_log = 0;
+
+#ifdef GED_DVFS_DEBUG_BUF
+	ged_log_buf_free(ghLogBuf_DVFS);
+	ghLogBuf_DVFS = 0;
+#endif
+
+	ged_log_buf_free(ghLogBuf_ftrace);
+	ghLogBuf_ftrace = 0;
+	ged_log_buf_free(ghLogBuf_FENCE);
+	ghLogBuf_FENCE = 0;
+	ged_log_buf_free(ghLogBuf_HWC);
+	ghLogBuf_HWC = 0;
+	ged_log_buf_free(ghLogBuf_HWC_ERR);
+	ghLogBuf_HWC_ERR = 0;
+	ged_log_buf_free(ghLogBuf_GPU);
+	ghLogBuf_GPU = 0;
+#endif /* GED_BUFFER_LOG_DISABLE */
+
+	ged_gpu_tuner_exit();
+
+	ged_kpi_system_exit();
+
+	ged_ge_exit();
+
+	ged_dvfs_system_exit();
+
+	ged_notify_sw_vsync_system_exit();
+
+	ged_hal_exit();
+
+	ged_log_system_exit();
+
+#ifdef GED_DEBUG_FS
+	ged_debugFS_exit();
+#endif
+
+	ged_sysfs_exit();
+
+	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
+
+	return GED_OK;
+}
+
+/*
+ * unregister the gpufreq driver
+ */
+static void ged_exit(void)
+{
+	platform_driver_unregister(&g_ged_pdrv);
+}
+
+/*
+ * register the ged driver
+ */
+static int ged_init(void)
+{
+	GED_ERROR err = GED_OK;
+
+	GED_LOGI("@%s: start to init ged driver\n", __func__);
+
 	/* register platform driver */
 	err = platform_driver_register(&g_ged_pdrv);
 	if (err) {
-		GED_LOGE("@%s: failed to register ged driver\n",
-		__func__);
+		GED_LOGE("@%s: failed to register ged driver\n", __func__);
 		goto ERROR;
 	}
 
 	GED_LOGI("@%s: ged driver init done\n", __func__);
 
-	return 0;
-
 ERROR:
-	ged_exit();
-
-	return -EFAULT;
+	return err;
 }
 
 module_init(ged_init);

@@ -152,6 +152,7 @@ static int __gpufreq_init_clk(struct platform_device *pdev);
 static int __gpufreq_init_pmic(struct platform_device *pdev);
 static int __gpufreq_init_platform_info(struct platform_device *pdev);
 static int __gpufreq_pdrv_probe(struct platform_device *pdev);
+static int __gpufreq_pdrv_remove(struct platform_device *pdev);
 
 /**
  * ===============================================
@@ -164,7 +165,7 @@ static const struct of_device_id g_gpufreq_of_match[] = {
 };
 static struct platform_driver g_gpufreq_pdrv = {
 	.probe = __gpufreq_pdrv_probe,
-	.remove = NULL,
+	.remove = __gpufreq_pdrv_remove,
 	.driver = {
 		.name = "gpufreq",
 		.owner = THIS_MODULE,
@@ -4912,6 +4913,39 @@ done:
 	return ret;
 }
 
+/* API: gpufreq driver remove */
+static int __gpufreq_pdrv_remove(struct platform_device *pdev)
+{
+#if !GPUFREQ_PDCv2_ENABLE
+	dev_pm_domain_detach(g_mtcmos->mfg18_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg17_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg16_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg15_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg14_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg13_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg12_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg11_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg10_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg9_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg8_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg7_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg6_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg5_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg4_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg3_dev, true);
+	dev_pm_domain_detach(g_mtcmos->mfg2_dev, true);
+#endif /* GPUFREQ_PDCv2_ENABLE */
+	dev_pm_domain_detach(g_mtcmos->mfg1_dev, true);
+
+	kfree(g_gpu.working_table);
+	kfree(g_stack.working_table);
+	kfree(g_clk);
+	kfree(g_pmic);
+	kfree(g_mtcmos);
+
+	return GPUFREQ_SUCCESS;
+}
+
 /* API: register gpufreq platform driver */
 static int __init __gpufreq_init(void)
 {
@@ -4935,32 +4969,6 @@ done:
 /* API: unregister gpufreq driver */
 static void __exit __gpufreq_exit(void)
 {
-#if !GPUFREQ_PDCv2_ENABLE
-	dev_pm_domain_detach(g_mtcmos->mfg18_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg17_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg16_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg15_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg14_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg13_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg12_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg11_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg10_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg9_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg8_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg7_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg6_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg5_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg4_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg3_dev, true);
-	dev_pm_domain_detach(g_mtcmos->mfg2_dev, true);
-#endif /* GPUFREQ_PDCv2_ENABLE */
-	dev_pm_domain_detach(g_mtcmos->mfg1_dev, true);
-	kfree(g_gpu.working_table);
-	kfree(g_stack.working_table);
-	kfree(g_clk);
-	kfree(g_pmic);
-	kfree(g_mtcmos);
-
 	platform_driver_unregister(&g_gpufreq_pdrv);
 }
 
