@@ -65,7 +65,7 @@ int ccci_log_write(const char *fmt, ...)
 	preempt_disable();
 	this_cpu = smp_processor_id();
 	preempt_enable();
-	write_len = snprintf(temp_log, CCCI_LOG_MAX_WRITE,
+	write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,
 						"[%5lu.%06lu]%c(%x)[%d:%s]",
 						(unsigned long)ts_nsec,
 						rem_nsec / 1000,
@@ -73,12 +73,6 @@ int ccci_log_write(const char *fmt, ...)
 						this_cpu,
 						current->pid,
 						current->comm);
-	if (write_len < 0) {
-		pr_notice("%s-%d:snprintf fail,write_len = %d\n",
-			__func__, __LINE__, write_len);
-		write_len = 0;
-	} else if (write_len >= CCCI_LOG_MAX_WRITE)
-		write_len = CCCI_LOG_MAX_WRITE - 1;
 
 	va_start(args, fmt);
 	write_len +=
@@ -138,22 +132,16 @@ int ccci_log_write_raw(unsigned int set_flags, const char *fmt, ...)
 		preempt_disable();
 		this_cpu = smp_processor_id();
 		preempt_enable();
-		write_len = snprintf(temp_log, CCCI_LOG_MAX_WRITE,
+		write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,
 					"[%5lu.%06lu]%c(%x)",
 					(unsigned long)ts_nsec,
 					rem_nsec / 1000, state,
 					this_cpu);
-		if (write_len < 0) {
-			pr_notice("%s-%d:snprintf fail,write_len = %d\n",
-				__func__, __LINE__, write_len);
-			write_len = 0;
-		} else if (write_len >= CCCI_LOG_MAX_WRITE)
-			write_len = CCCI_LOG_MAX_WRITE - 1;
 	} else
 		write_len = 0;
 
 	if (set_flags & CCCI_DUMP_CURR_FLAG) {
-		write_len += snprintf(temp_log + write_len,
+		write_len += scnprintf(temp_log + write_len,
 						CCCI_LOG_MAX_WRITE - write_len,
 						"[%d:%s]",
 						current->pid, current->comm);
@@ -488,7 +476,7 @@ int ccci_dump_write(int md_id, int buf_type,
 			savetv.tv_sec -= sys_tz.tz_minuteswest * 60;
 			rtc_time_to_tm(savetv.tv_sec, &now_time);
 
-			write_len = snprintf(temp_log, CCCI_LOG_MAX_WRITE,
+			write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,
 					     "[%04ld-%02d-%02d %02d:%02d:%02d.%03d]",
 					     now_time.tm_year + 1900,
 					     now_time.tm_mon + 1,
@@ -498,7 +486,7 @@ int ccci_dump_write(int md_id, int buf_type,
 					     now_time.tm_sec,
 					     (unsigned int)savetv.tv_usec);
 
-			write_len += snprintf(temp_log + write_len,
+			write_len += scnprintf(temp_log + write_len,
 					      CCCI_LOG_MAX_WRITE - write_len,
 					      "[%5lu.%06lu]",
 					      (unsigned long)ts_nsec,
@@ -508,7 +496,7 @@ int ccci_dump_write(int md_id, int buf_type,
 			this_cpu = smp_processor_id();
 			preempt_enable();
 
-			write_len = snprintf(temp_log, CCCI_LOG_MAX_WRITE,
+			write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,
 					     "[%5lu.%06lu]%c(%x)[%d:%s]",
 					     (unsigned long)ts_nsec,
 					     rem_nsec / 1000, state,
@@ -938,22 +926,22 @@ int get_dump_buf_usage(char buf[], int size)
 	int i;
 
 	for (i = 0; i < 2; i++) {
-		ret += snprintf(&buf[ret], size - ret,
+		ret += scnprintf(&buf[ret], size - ret,
 					"For dump buf [%d]\n", i);
-		ret += snprintf(&buf[ret], size - ret, "  init:%d\n",
+		ret += scnprintf(&buf[ret], size - ret, "  init:%d\n",
 					init_setting_ctlb[i].max_num);
-		ret += snprintf(&buf[ret], size - ret, "  bootup:%d\n",
+		ret += scnprintf(&buf[ret], size - ret, "  bootup:%d\n",
 					boot_up_ctlb[i].max_num);
-		ret += snprintf(&buf[ret], size - ret, "  normal:%d\n",
+		ret += scnprintf(&buf[ret], size - ret, "  normal:%d\n",
 					normal_ctlb[i].max_num);
-		ret += snprintf(&buf[ret], size - ret, "  repeat:%d\n",
+		ret += scnprintf(&buf[ret], size - ret, "  repeat:%d\n",
 					repeat_ctlb[i].max_num);
-		ret += snprintf(&buf[ret], size - ret,
+		ret += scnprintf(&buf[ret], size - ret,
 					"  reg_dump:%d\n",
 					reg_dump_ctlb[i].max_num);
-		ret += snprintf(&buf[ret], size - ret, "  history:%d\n",
+		ret += scnprintf(&buf[ret], size - ret, "  history:%d\n",
 					history_ctlb[i].max_num);
-		ret += snprintf(&buf[ret], size - ret, "  register:%d\n",
+		ret += scnprintf(&buf[ret], size - ret, "  register:%d\n",
 					ke_dump_ctlb[i].max_num);
 	}
 
@@ -1128,7 +1116,7 @@ int ccci_event_log(const char *fmt, ...)
 	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
 	rtc_time_to_tm(tv_android.tv_sec, &tm_android);
 
-	write_len = snprintf(temp_log, CCCI_LOG_MAX_WRITE,
+	write_len = scnprintf(temp_log, CCCI_LOG_MAX_WRITE,
 			"%d%02d%02d-%02d:%02d:%02d.%03d [%5lu.%06lu]%c(%x)[%d:%s]",
 			tm.tm_year + 1900,
 			tm.tm_mon + 1,
@@ -1143,12 +1131,6 @@ int ccci_event_log(const char *fmt, ...)
 			this_cpu,
 			current->pid,
 			current->comm);
-	if (write_len < 0) {
-		pr_notice("%s-%d:snprintf fail,write_len = %d\n",
-			__func__, __LINE__, write_len);
-		write_len = 0;
-	} else if (write_len >= CCCI_LOG_MAX_WRITE)
-		write_len = CCCI_LOG_MAX_WRITE - 1;
 
 	va_start(args, fmt);
 	write_len += vsnprintf(temp_log
