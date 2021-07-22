@@ -1440,6 +1440,16 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	/* set SW_BC11_EN as 0 which is usb control DPDM */
 	u2_phy_instance_set_mode_ext(tphy, instance,
 				PHY_MODE_BC11_SW_CLR);
+
+#ifdef CONFIG_USB_MTK_HDRC
+	/* Used by phone products */
+	/* HQA Setting */
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_DISCTH;
+	tmp |= PA6_RG_U2_DISCTH_VAL(0xf);
+	writel(tmp, com + U3P_USBPHYACR6);
+#endif
+
 	dev_dbg(tphy->dev, "%s(%d)\n", __func__, index);
 }
 
