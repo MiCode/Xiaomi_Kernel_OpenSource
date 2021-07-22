@@ -8,6 +8,7 @@
 
 #include "mtk_qos_bound.h"
 #include "mtk_qos_ipi.h"
+#include "mtk_qos_common.h"
 
 #include <sspm_define.h>
 #include <sspm_reservedmem.h>
@@ -36,6 +37,9 @@ void qos_bound_enable(int enable)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V2)
 	struct qos_ipi_data qos_ipi_d;
 
+	if (!is_mtk_qos_enable())
+		return;
+
 	qos_ipi_d.cmd = QOS_IPI_QOS_BOUND_ENABLE;
 	qos_ipi_d.u.qos_bound_enable.enable = enable;
 	bound = (struct qos_bound *)
@@ -45,7 +49,9 @@ void qos_bound_enable(int enable)
 	struct qos_ipi_data qos_ipi_d;
 	int ack;
 
-	//return;
+	if (!is_mtk_qos_enable())
+		return;
+
 	qos_ipi_d.cmd = QOS_IPI_QOS_BOUND_ENABLE;
 	qos_ipi_d.u.qos_bound_enable.enable = enable;
 	ack = qos_ipi_to_sspm_scmi_command(qos_ipi_d.cmd,
@@ -66,11 +72,17 @@ void qos_bound_stress_enable(int enable)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V2)
 	struct qos_ipi_data qos_ipi_d;
 
+	if (!is_mtk_qos_enable())
+		return;
+
 	qos_ipi_d.cmd = QOS_IPI_QOS_BOUND_STRESS_ENABLE;
 	qos_ipi_d.u.qos_bound_stress_enable.enable = enable;
 	qos_ipi_to_sspm_command(&qos_ipi_d, 2);
 #elif defined(MTK_SCMI)
 	struct qos_ipi_data qos_ipi_d;
+
+	if (!is_mtk_qos_enable())
+		return;
 
 	qos_ipi_d.cmd = QOS_IPI_QOS_BOUND_STRESS_ENABLE;
 	qos_ipi_d.u.qos_bound_stress_enable.enable = enable;

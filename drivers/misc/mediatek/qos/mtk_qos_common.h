@@ -28,5 +28,6 @@ extern int mtk_qos_probe(struct platform_device *pdev,
 extern void qos_ipi_init(struct mtk_qos *qos);
 extern void qos_ipi_recv_init(struct mtk_qos *qos);
 extern int qos_get_ipi_cmd(int idx);
+extern unsigned int is_mtk_qos_enable(void);
 #endif
 
