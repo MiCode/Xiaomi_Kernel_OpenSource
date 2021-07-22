@@ -139,7 +139,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 1 2>;
-				regulator-always-on;
 			};
 			mt6373_vbuck7: VBUCK7 {
 				regulator-compatible = "VBUCK7";
