@@ -23,7 +23,7 @@
 #include <linux/delay.h>
 #include <linux/cpufreq.h>
 
-#define __LKG_PROCFS__ 0
+#define __LKG_PROCFS__ 1
 #define __LKG_DEBUG__ 0
 
 struct leakage_data {
@@ -56,6 +56,8 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 			break;
 	}
 
+	cpufreq_cpu_put(tP);
+
 	a = readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8));
 	b = ((a >> 16) & 0xFFFF);
 	a = a & 0xFFFF;
@@ -66,18 +68,17 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 }
 
 #if __LKG_PROCFS__
-#define PROC_FOPS_RW(name)						\
+#define PROC_FOPS_RW(name)                                              \
 	static int name ## _proc_open(struct inode *inode, struct file *file)\
-{									\
-	return single_open(file, name ## _proc_show, PDE_DATA(inode));	\
-}									\
-static const struct file_operations name ## _proc_fops = {		\
-	.owner          = THIS_MODULE,					\
-	.open           = name ## _proc_open,				\
-	.read           = seq_read,					\
-	.llseek         = seq_lseek,					\
-	.release        = single_release,				\
-	.write          = name ## _proc_write,				\
+	{                                                                       \
+		return single_open(file, name ## _proc_show, PDE_DATA(inode));  \
+	}                                                                       \
+static const struct proc_ops name ## _proc_fops = {             \
+		.proc_open           = name ## _proc_open,                              \
+		.proc_read           = seq_read,                                        \
+		.proc_lseek         = seq_lseek,                                        \
+		.proc_release        = single_release,                          \
+		.proc_write          = name ## _proc_write,                             \
 }
 
 #define PROC_FOPS_RO(name)                                                     \
@@ -85,17 +86,18 @@ static const struct file_operations name ## _proc_fops = {		\
 	{                                                                      \
 		return single_open(file, name##_proc_show, PDE_DATA(inode));   \
 	}                                                                      \
-	static const struct file_operations name##_proc_fops = {               \
-		.owner = THIS_MODULE,                                          \
-		.open = name##_proc_open,                                      \
-		.read = seq_read,                                              \
-		.llseek = seq_lseek,                                           \
-		.release = single_release,                                     \
+	static const struct proc_ops name##_proc_fops = {               \
+		.proc_open = name##_proc_open,                                      \
+		.proc_read = seq_read,                                              \
+		.proc_lseek = seq_lseek,                                           \
+		.proc_release = single_release,                                     \
 	}
 
-#define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
-#define PROC_ENTRY_DATA(name)	\
+#define PROC_ENTRY(name)        {__stringify(name), &name ## _proc_fops}
+#define PROC_ENTRY_DATA(name)   \
 {__stringify(name), &name ## _proc_fops, g_ ## name}
+
+
 #define LAST_LL_CORE	3
 
 int cpu, opp, temp;
@@ -143,7 +145,7 @@ static int create_spower_debug_fs(void)
 
 	struct pentry {
 		const char *name;
-		const struct file_operations *fops;
+		const struct proc_ops *fops;
 		void *data;
 	};
 
@@ -178,11 +180,14 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 		return PTR_ERR(info.base);
 
 	info.clusters = 0;
-	info.policy[0] = cpufreq_cpu_get(0);
+	tP = cpufreq_cpu_get(0);
+	info.policy[0] = tP;
+	cpufreq_cpu_put(tP);
 	for_each_possible_cpu(cpu) {
 		tP = cpufreq_cpu_get(cpu);
 		if (tP != info.policy[info.clusters])
 			info.policy[++info.clusters] = tP;
+		cpufreq_cpu_put(tP);
 	}
 	info.clusters++;
 
