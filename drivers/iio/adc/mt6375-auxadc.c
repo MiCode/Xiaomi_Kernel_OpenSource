@@ -602,6 +602,32 @@ static int auxadc_cali_imix_r(struct mt6375_priv *priv)
 	return 0;
 }
 
+static int mt6375_auxadc_parse_dt(struct mt6375_priv *priv)
+{
+	int ret = 0;
+	struct device_node *np;
+	u32 val = 0;
+
+	np = of_find_compatible_node(NULL, NULL, "mediatek,pmic-auxadc");
+	if (!np)
+		return -ENODEV;
+
+	np = of_get_child_by_name(np, "imix_r");
+	if (!np) {
+		dev_notice(priv->dev, "no imix_r(%d)\n", ret);
+		return -ENODEV;
+	}
+
+	ret = of_property_read_u32(np, "val", &val);
+	if (ret) {
+		dev_notice(priv->dev, "no imix_r(%d)\n", ret);
+		return ret;
+	}
+	dev_info(priv->dev, "%s: imix_r = %d\n", __func__, priv->imix_r);
+	priv->imix_r = val;
+	return ret;
+}
+
 static int mt6375_auxadc_probe(struct platform_device *pdev)
 {
 	struct mt6375_priv *priv;
@@ -619,6 +645,12 @@ static int mt6375_auxadc_probe(struct platform_device *pdev)
 	priv->pre_uisoc = 101;
 	device_init_wakeup(&pdev->dev, true);
 	platform_set_drvdata(pdev, priv);
+
+	ret = mt6375_auxadc_parse_dt(priv);
+	if (ret) {
+		dev_notice(&pdev->dev, "Failed to parse dt\n");
+		return ret;
+	}
 
 	priv->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!priv->regmap) {
