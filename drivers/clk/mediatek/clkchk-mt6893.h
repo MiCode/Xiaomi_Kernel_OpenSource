@@ -47,7 +47,7 @@ enum chk_sys_id {
 extern int get_sw_req_vcore_opp(void);
 #endif
 
-extern void print_subsys_reg(enum chk_sys_id id);
+extern void print_subsys_reg_mt6893(enum chk_sys_id id);
 
 #endif	/* __DRV_CLKCHK_MT6893_H */
 

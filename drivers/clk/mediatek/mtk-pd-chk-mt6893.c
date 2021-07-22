@@ -308,7 +308,7 @@ static void dump_subsys_reg(unsigned int id)
 
 	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++) {
 		if (mtk_subsys_check[i].pd_id == id)
-			print_subsys_reg(mtk_subsys_check[i].chk_id);
+			print_subsys_reg_mt6893(mtk_subsys_check[i].chk_id);
 	}
 }
 
@@ -358,11 +358,11 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 {
 	int i;
 
-	print_subsys_reg(spm);
-	print_subsys_reg(ifrao);
-	print_subsys_reg(infracfg_ao_bus);
-	print_subsys_reg(apmixed);
-	print_subsys_reg(top);
+	print_subsys_reg_mt6893(spm);
+	print_subsys_reg_mt6893(ifrao);
+	print_subsys_reg_mt6893(infracfg_ao_bus);
+	print_subsys_reg_mt6893(apmixed);
+	print_subsys_reg_mt6893(top);
 
 	if (id >= MT6893_POWER_DOMAIN_NR)
 		return;
@@ -370,7 +370,7 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 	if (pwr_sta == PD_PWR_ON) {
 		for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++) {
 			if (mtk_subsys_check[i].pd_id == id)
-				print_subsys_reg(mtk_subsys_check[i].chk_id);
+				print_subsys_reg_mt6893(mtk_subsys_check[i].chk_id);
 		}
 	}
 
@@ -383,8 +383,8 @@ static void log_dump(unsigned int id, unsigned int pwr_sta)
 		return;
 
 	if (id == MT6893_POWER_DOMAIN_MD) {
-		print_subsys_reg(spm);
-		print_subsys_reg(infracfg_ao_bus);
+		print_subsys_reg_mt6893(spm);
+		print_subsys_reg_mt6893(infracfg_ao_bus);
 	}
 }
 

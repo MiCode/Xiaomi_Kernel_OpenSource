@@ -433,7 +433,7 @@ static int get_vcore_opp(void)
 	return opp;
 }
 
-void print_subsys_reg(enum chk_sys_id id)
+void print_subsys_reg_mt6853(enum chk_sys_id id)
 {
 	struct regbase *rb_dump;
 	const struct regname *rns = &rn[0];
@@ -461,15 +461,15 @@ void print_subsys_reg(enum chk_sys_id id)
 			rns->name, PHYSADDR(rns), clk_readl(ADDR(rns)));
 	}
 }
-EXPORT_SYMBOL(print_subsys_reg);
+EXPORT_SYMBOL(print_subsys_reg_mt6853);
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 static void devapc_dump_regs(void)
 {
-	print_subsys_reg(spm);
-	print_subsys_reg(top);
-	print_subsys_reg(infracfg_ao_bus);
-	print_subsys_reg(apmixed);
+	print_subsys_reg_mt6853(spm);
+	print_subsys_reg_mt6853(top);
+	print_subsys_reg_mt6853(infracfg_ao_bus);
+	print_subsys_reg_mt6853(apmixed);
 	pr_notice("devapc dump\n");
 }
 
