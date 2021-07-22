@@ -8,6 +8,7 @@
 
 #include <linux/types.h>
 #include <linux/mmc/core.h>
+#include <linux/mmc/mmc.h>
 #include "mtk_blocktag.h"
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)

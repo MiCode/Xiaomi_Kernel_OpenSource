@@ -107,8 +107,8 @@ static void mmc_mtk_pr_tsk(struct mmc_mtk_bio_context_task *tsk,
 void mmc_mtk_biolog_send_command(unsigned int task_id,
 				 struct mmc_request *mrq)
 {
-	struct mmc_queue_req *mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
-	struct request *req = blk_mq_rq_from_pdu(mqrq);
+	struct mmc_queue_req *mqrq;
+	struct request *req;
 	unsigned long flags;
 	struct mmc_host *mmc = mrq->host;
 	struct mmc_mtk_bio_context *ctx;
@@ -117,6 +117,8 @@ void mmc_mtk_biolog_send_command(unsigned int task_id,
 
 	if (!mrq || !mmc)
 		return;
+
+	req = NULL;
 
 	if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
 		is_sd = true;
@@ -128,6 +130,18 @@ void mmc_mtk_biolog_send_command(unsigned int task_id,
 	tsk = mmc_mtk_bio_curr_task(task_id, &ctx, is_sd);
 	if (!tsk)
 		return;
+
+	if (!is_sd && !mrq->cmd) { /* eMMC CQHCI */
+		mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
+		req = blk_mq_rq_from_pdu(mqrq);
+	/* SD non-cqhci */
+	} else if (mrq->cmd->opcode == MMC_READ_SINGLE_BLOCK ||
+		mrq->cmd->opcode == MMC_READ_MULTIPLE_BLOCK ||
+		mrq->cmd->opcode == MMC_WRITE_BLOCK ||
+		mrq->cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) {
+		mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
+		req = blk_mq_rq_from_pdu(mqrq);
+	}
 
 	if (req)
 		mtk_btag_commit_req(req, is_sd);
