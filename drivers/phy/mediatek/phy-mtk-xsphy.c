@@ -154,6 +154,8 @@
 #define RG_XTP0_PIPE_SEL_TX_DEEM_VAL(x)	((0x3fff & (x)) << 2)
 #define RG_XTP0_PIPE_SEL			BIT(0)
 
+#define SSPXTP_DAIG_LN_TOP_10	((SSPXTP_SIFSLV_DIG_LN_TOP) + 0x010)
+
 #define SSPXTP_DAIG_LN_TOP_24	((SSPXTP_SIFSLV_DIG_LN_TOP) + 0x024)
 #define RG_XTP0_T2RLB_TSEQCNT			GENMASK(26, 15)
 #define RG_XTP0_T2RLB_TSEQCNT_VAL(x)		((0xfff & (x)) << 15)
@@ -280,6 +282,33 @@ static int proc_loopback_test_show(struct seq_file *s, void *unused)
 	u32 tmp;
 	bool pass = false;
 
+	writel(0x00000009, pbase + SSPXTP_DAIG_LN_TOP_10);
+
+	writel(0x001F1F01, pbase + SSPXTP_DAIG_LN_RX0_40);
+
+	writel(0x40822803, pbase + SSPXTP_DAIG_LN_TOP_04);
+
+	writel(0x00003007, xsphy->glb_base + SSPXTP_DIG_GLB_04);
+
+	udelay(100);
+
+	writel(0x0000300D, xsphy->glb_base + SSPXTP_DIG_GLB_04);
+
+	udelay(200);
+
+	writel(0x287F8000, pbase + SSPXTP_DAIG_LN_TOP_24);
+
+	writel(0x40022803, pbase + SSPXTP_DAIG_LN_TOP_04);
+
+	udelay(100);
+
+	writel(0x001F1F00, pbase + SSPXTP_DAIG_LN_RX0_40);
+
+	writel(0x00008009, pbase + SSPXTP_DAIG_LN_TOP_10);
+
+	mdelay(10);
+
+#ifdef SKIP
 	/* RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN = 0x1 */
 	tmp = readl(pbase + SSPXTP_DAIG_LN_RX0_40);
 	tmp |= RG_XTP0_FRC_RX_LFPS_TREG_HIT_EN;
@@ -371,6 +400,7 @@ static int proc_loopback_test_show(struct seq_file *s, void *unused)
 	writel(tmp, pbase + SSPXTP_DAIG_LN_RX0_60);
 
 	mdelay(10);
+#endif
 
 	tmp = readl(pbase + SSPXTP_DAIG_LN_TOP_A0);
 
@@ -381,8 +411,7 @@ static int proc_loopback_test_show(struct seq_file *s, void *unused)
 		!(tmp & RG_XTP0_T2RLB_ERR_CNT))
 		pass = true;
 
-	dev_info(dev, "%s, err_cnt=0x%x\n, pass=%d", __func__,
-		(tmp & RG_XTP0_T2RLB_ERR_CNT), pass);
+	dev_info(dev, "%s, t2rlb=0x%x, pass=%d\n", __func__, tmp, pass);
 
 	seq_printf(s, "%d\n", pass);
 	return 0;
