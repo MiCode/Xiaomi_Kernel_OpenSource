@@ -38,10 +38,10 @@ static struct pm_qos_request slbc_qos_request;
 #endif /* CONFIG_MTK_L3C_PART */
 
 /* #define SLBC_TRACE */
+/* #define ENABLE_SLBC */
 
 static struct mtk_slbc *slbc;
 
-static int slbc_enable;
 static int slbc_sram_enable;
 static int slbc_force;
 static int buffer_ref;
@@ -188,6 +188,7 @@ static int slbc_request_cache(struct slbc_data *d)
 	int ret = 0;
 
 	/* slbc_debug_log("%s: TP_CACHE\n", __func__); */
+
 	ret = _slbc_request_cache_scmi(d);
 
 	return ret;
@@ -198,6 +199,7 @@ static int slbc_request_buffer(struct slbc_data *d)
 	int ret = 0;
 
 	/* slbc_debug_log("%s: TP_BUFFER\n", __func__); */
+
 	slbc_set_sram_data(d);
 	ret = _slbc_request_buffer_scmi(d);
 
@@ -280,7 +282,6 @@ int slbc_request(struct slbc_data *d)
 #else
 		slbc_ref++;
 #endif /* CONFIG_MTK_SLBC_IPI */
-		/* pr_info("#@# %s(%d) slbc_ref %d\n", __func__, __LINE__, slbc_ref); */
 	}
 
 	return ret;
@@ -291,6 +292,7 @@ static int slbc_release_cache(struct slbc_data *d)
 	int ret = 0;
 
 	/* slbc_debug_log("%s: TP_CACHE\n", __func__); */
+
 	ret = _slbc_release_cache_scmi(d);
 
 	return ret;
@@ -379,7 +381,6 @@ int slbc_release(struct slbc_data *d)
 #else
 		slbc_ref--;
 #endif /* CONFIG_MTK_SLBC_IPI */
-		/* pr_info("#@# %s(%d) slbc_ref %d\n", __func__, __LINE__, slbc_ref); */
 	}
 
 	return ret;
@@ -654,8 +655,7 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 		}
 	} else if (!strcmp(cmd, "slbc_scmi_enable")) {
 		pr_info("slbc scmi enable %d\n", val_1);
-		slbc_set_scmi_enable((int)!!val_1);
-		slbc_sspm_enable(slbc_get_scmi_enable());
+		slbc_sspm_enable((int)!!val_1);
 	} else if (!strcmp(cmd, "slbc_uid_used")) {
 		slbc_uid_used = val_1;
 		slbc_sram_write(SLBC_UID_USED, slbc_uid_used);
@@ -783,7 +783,9 @@ static int slbc_probe(struct platform_device *pdev)
 	struct device_node *node;
 	struct device *dev = &pdev->dev;
 	int ret = 0;
+#ifdef ENABLE_SLBC
 	const char *buf;
+#endif /* ENABLE_SLBC */
 	struct cpuidle_driver *drv = cpuidle_get_driver();
 	/* struct resource *res; */
 	uint32_t reg[4] = {0, 0, 0, 0};
@@ -802,6 +804,7 @@ static int slbc_probe(struct platform_device *pdev)
 
 	node = of_find_compatible_node(NULL, NULL,
 			"mediatek,mtk-slbc");
+#ifdef ENABLE_SLBC
 	if (node) {
 		ret = of_property_read_string(node,
 				"status", (const char **)&buf);
@@ -816,6 +819,12 @@ static int slbc_probe(struct platform_device *pdev)
 				slbc_enable);
 	} else
 		pr_info("find slbc node failed\n");
+#else
+	slbc_enable = 0;
+
+	pr_info("#@# %s(%d) slbc_enable %d\n", __func__, __LINE__,
+			slbc_enable);
+#endif /* ENABLE_SLBC */
 
 	ret = of_property_read_u32_array(node, "reg", reg, 4);
 	if (ret < 0) {
@@ -867,6 +876,9 @@ static int slbc_probe(struct platform_device *pdev)
 
 	slbc_register_ipi_ops(&ipi_ops);
 	slbc_register_common_ops(&common_ops);
+
+	if (slbc_enable)
+		slbc_sspm_enable(slbc_enable);
 
 	return 0;
 }

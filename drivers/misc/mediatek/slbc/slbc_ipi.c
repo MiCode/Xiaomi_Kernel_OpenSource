@@ -16,7 +16,7 @@
 #include "slbc_ops.h"
 
 static int slbc_sspm_ready;
-static int slbc_scmi_enable = 1;
+static int slbc_scmi_enable;
 static int scmi_slbc_id;
 static struct scmi_tinysys_info_st *_tinfo;
 static struct slbc_ipi_ops *ipi_ops;
@@ -36,6 +36,9 @@ EXPORT_SYMBOL_GPL(slbc_set_scmi_enable);
 void slbc_sspm_enable(enable)
 {
 	struct slbc_ipi_data slbc_ipi_d;
+
+	pr_info("#@# %s(%d) enable %d\n", __func__, __LINE__, enable);
+	slbc_set_scmi_enable(enable);
 
 	slbc_ipi_d.cmd = IPI_SLBC_ENABLE;
 	slbc_ipi_d.arg = enable;
@@ -291,6 +294,11 @@ unsigned int slbc_scmi_set(void *buffer, int slot)
 	int ret;
 	struct slbc_ipi_data *slbc_ipi_d = buffer;
 
+	if (!slbc_enable) {
+		pr_info("slbc not ready, skip cmd=%d\n", slbc_ipi_d->cmd);
+		goto error;
+	}
+
 	if (slbc_sspm_ready != 1) {
 		pr_info("slbc scmi not ready, skip cmd=%d\n", slbc_ipi_d->cmd);
 		goto error;
@@ -318,6 +326,11 @@ unsigned int slbc_scmi_get(void *buffer, int slot, void *ptr)
 	int ret;
 	struct slbc_ipi_data *slbc_ipi_d = buffer;
 	struct scmi_tinysys_status *rvalue = ptr;
+
+	if (!slbc_enable) {
+		pr_info("slbc not ready, skip cmd=%d\n", slbc_ipi_d->cmd);
+		goto error;
+	}
 
 	if (slbc_sspm_ready != 1) {
 		pr_info("slbc scmi not ready, skip cmd=%d\n", slbc_ipi_d->cmd);
@@ -373,7 +386,7 @@ int slbc_scmi_init(void)
 	}
 
 	slbc_sspm_ready = 1;
-	slbc_sspm_enable(slbc_scmi_enable);
+
 	pr_info("slbc scmi is ready!\n");
 
 	return 0;

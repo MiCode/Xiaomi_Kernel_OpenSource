@@ -127,6 +127,7 @@ struct slbc_ops {
 	void (*deactivate)(struct slbc_data *data);
 };
 
+extern int slbc_enable;
 extern char *slbc_uid_str[UID_MAX];
 
 #if IS_ENABLED(CONFIG_MTK_SLBC)

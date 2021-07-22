@@ -51,7 +51,6 @@ static struct task_struct *slbc_request_task;
 static struct task_struct *slbc_release_task;
 #endif /* SLBC_THREAD */
 
-static int slbc_enable;
 static int buffer_ref;
 static int acp_ref;
 static int slbc_ref;

@@ -19,6 +19,9 @@
 
 #include <slbc.h>
 
+int slbc_enable;
+EXPORT_SYMBOL_GPL(slbc_enable);
+
 struct slbc_common_ops *common_ops;
 
 /* need to modify enum slbc_uid  */
