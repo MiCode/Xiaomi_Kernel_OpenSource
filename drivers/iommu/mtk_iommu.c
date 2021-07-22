@@ -1673,6 +1673,12 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 	struct mtk_iommu_suspend_reg *reg = &data->reg;
 	void __iomem *base = data->base;
 
+	/* skip read register when hw_init is not finish. */
+	if (!data->m4u_dom) {
+		clk_disable_unprepare(data->bclk);
+		return 0;
+	}
+
 	reg->wr_len_ctrl = readl_relaxed(base + REG_MMU_WR_LEN_CTRL);
 	reg->misc_ctrl = readl_relaxed(base + REG_MMU_MISC_CTRL);
 	reg->dcm_dis = readl_relaxed(base + REG_MMU_DCM_DIS);
