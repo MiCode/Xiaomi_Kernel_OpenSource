@@ -22,7 +22,8 @@
 #include <linux/sysfs.h>
 #include <linux/timer.h>
 #include <linux/types.h>
-
+#include <linux/debugfs.h>
+#include <linux/thermal.h>
 
 #include <linux/io.h>
 #include "thermal_interface.h"
@@ -555,6 +556,100 @@ static struct attribute_group thermal_attr_group = {
 	.attrs	= thermal_attrs,
 };
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+static int emul_temp_show(struct seq_file *m, void *unused)
+{
+	seq_printf(m, "%d,%d,%d,%d\n",
+		therm_intf_read_csram_s32(EMUL_TEMP_OFFSET),
+		therm_intf_read_csram_s32(EMUL_TEMP_OFFSET + 4),
+		therm_intf_read_csram_s32(EMUL_TEMP_OFFSET + 8),
+		therm_intf_read_csram_s32(EMUL_TEMP_OFFSET + 12));
+
+	return 0;
+}
+
+static ssize_t emul_temp_write(struct file *flip,
+			const char *ubuf, size_t cnt, loff_t *data)
+{
+	int ret, temp;
+	char *buf;
+	char target[10];
+	void __iomem *addr = tm_data.csram_base + EMUL_TEMP_OFFSET;
+
+	buf = kzalloc(cnt + 1, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	if (copy_from_user(buf, ubuf, cnt)) {
+		ret = -EFAULT;
+		goto err;
+	}
+	buf[cnt] = '\0';
+
+	if (sscanf(buf, "%10s %d", target, &temp) != 2) {
+		dev_info(tm_data.dev, "invalid input for emul temp\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (strncmp(target, "cpu", 3) == 0)
+		writel(temp, addr);
+	else if (strncmp(target, "gpu", 3) == 0)
+		writel(temp, addr + 4);
+	else if (strncmp(target, "apu", 3) == 0)
+		writel(temp, addr + 8);
+	else if (strncmp(target, "vcore", 5) == 0)
+		writel(temp, addr + 12);
+
+	ret = cnt;
+
+err:
+	kfree(buf);
+
+	return ret;
+}
+
+static int emul_temp_open(struct inode *i, struct file *file)
+{
+	return single_open(file, emul_temp_show, i->i_private);
+}
+
+static const struct file_operations emul_temp_fops = {
+	.owner = THIS_MODULE,
+	.open = emul_temp_open,
+	.read = seq_read,
+	.write = emul_temp_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static void therm_intf_debugfs_init(void)
+{
+	void __iomem *addr = tm_data.csram_base + EMUL_TEMP_OFFSET;
+
+	tm_data.debug_dir = debugfs_create_dir("thermal", NULL);
+	if (!tm_data.debug_dir) {
+		dev_info(tm_data.dev, "failed to create thermal debugfs!\n");
+		return;
+	}
+
+	debugfs_create_file("emul_temp", 0640, tm_data.debug_dir, NULL, &emul_temp_fops);
+
+	writel(THERMAL_TEMP_INVALID, addr);
+	writel(THERMAL_TEMP_INVALID, addr + 4);
+	writel(THERMAL_TEMP_INVALID, addr + 8);
+	writel(THERMAL_TEMP_INVALID, addr + 12);
+}
+
+static void therm_intf_debugfs_exit(void)
+{
+	debugfs_remove_recursive(tm_data.debug_dir);
+}
+#else
+static void therm_intf_debugfs_init(void) {}
+static void therm_intf_debugfs_exit(void) {}
+#endif
+
 
 static const struct of_device_id therm_intf_of_match[] = {
 	{ .compatible = "mediatek,therm_intf", },
@@ -613,6 +708,8 @@ static int therm_intf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	therm_intf_debugfs_init();
+
 	writel(100, tm_data.csram_base + AP_NTC_HEADROOM_OFFSET);
 	write_ttj(0, 0, 0);
 	write_power_budget(0, 0, 0);
@@ -626,6 +723,9 @@ static int therm_intf_probe(struct platform_device *pdev)
 
 static int therm_intf_remove(struct platform_device *pdev)
 {
+	therm_intf_debugfs_exit();
+	sysfs_remove_group(kernel_kobj, &thermal_attr_group);
+
 	return 0;
 }
 

@@ -23,6 +23,7 @@
 #define CPU_MAX_TEMP_OFFSET        (0x220)
 #define GPU_TEMP_OFFSET            (0x180)
 #define APU_TEMP_OFFSET            (0x190)
+#define EMUL_TEMP_OFFSET           (0x1B0)
 
 struct headroom_info {
     int temp;
