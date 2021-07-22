@@ -24,8 +24,6 @@
 #define MT_CCF_PLL_DISABLE	0
 
 /* Regular Number Definition */
-#define INV_OFS	-1
-#define INV_BIT	-1
 
 #define AP_PLL_CON3				0x000C
 #define APLL1_TUNER_CON0	0x040
@@ -299,7 +297,7 @@
 #define TOP_MUX_SFLASH_SHIFT			24
 #define TOP_MUX_MCU_ACP_SHIFT			25
 #define TOP_MUX_TL_CK_SHIFT			26
-
+#define TOP_MUX_DUMMY_SHIFT			31
 
 static DEFINE_SPINLOCK(mtk_clk_lock);
 
@@ -2242,18 +2240,18 @@ static struct mtk_mux top_muxes[] = {
 		0 /* lsb */, 2 /* width */, 7 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_TL_CK_SHIFT /* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_MFG_SEL_0 /* dts */,
+	MUX_CLR_SET_UPD(CLK_TOP_MFG_SEL_0 /* dts */,
 		"mfg_sel_0", mfg_0_parents /* parents*/,
 		CLK_CFG_30, CLK_CFG_30_SET, CLK_CFG_30_CLR, /* sta/set/clr */
-		16 /* lsb */, 1 /* width */, INV_BIT /* pdn */,
-		INV_OFS /* upd ofs */,
-		INV_BIT /* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_MFG_SEL_1 /* dts */,
+		16 /* lsb */, 1 /* width */,
+		CLK_CFG_UPDATE_2 /* upd ofs */,
+		TOP_MUX_DUMMY_SHIFT /* upd shift */),
+	MUX_CLR_SET_UPD(CLK_TOP_MFG_SEL_1 /* dts */,
 		"mfg_sel_1", mfg_1_parents /* parents*/,
 		CLK_CFG_30, CLK_CFG_30_SET, CLK_CFG_30_CLR, /* sta/set/clr */
-		17 /* lsb */, 1 /* width */, INV_BIT /* pdn */,
-		INV_OFS /* upd ofs */,
-		INV_BIT /* upd shift */),
+		17 /* lsb */, 1 /* width */,
+		CLK_CFG_UPDATE_2 /* upd ofs */,
+		TOP_MUX_DUMMY_SHIFT /* upd shift */),
 };
 
 static const struct mtk_composite top_composites[] = {
