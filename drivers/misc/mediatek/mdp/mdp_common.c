@@ -1202,9 +1202,9 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	u64 dapc, port;
 	enum cmdq_sec_meta_type meta_type = CMDQ_METAEX_NONE;
 	void *user_addr_meta = CMDQ_U32_PTR(secData->addrMetadatas);
-	void *addr_meta;
+	void *addr_meta = NULL;
 	u32 addr_meta_size;
-	struct cmdq_client *cl;
+	struct cmdq_client *cl = NULL;
 
 	/* set secure data */
 	handle->secStatus = NULL;
@@ -1291,7 +1291,7 @@ s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
 {
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	struct cmdq_sec_data *data = handle->pkt->sec_data;
-	struct iwcCmdqAddrMetadata_t *addr;
+	struct iwcCmdqAddrMetadata_t *addr = NULL;
 
 	if (!data) {
 		CMDQ_ERR("%s invalid index %d, pkt no sec\n", __func__, index);

@@ -117,8 +117,8 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 	u32 *ids = NULL;
 	u32 *addrs = NULL;
 	u32 *values = NULL;
-	void *ids_user;
-	void *values_user;
+	void *ids_user = NULL;
+	void *values_user = NULL;
 	s32 status = -EINVAL;
 	u32 count, i;
 
@@ -208,8 +208,8 @@ static bool mdp_ion_get_dma_buf(struct device *dev, int fd,
 	struct sg_table **sgt_out)
 {
 	struct dma_buf *buf = NULL;
-	struct dma_buf_attachment *attach;
-	struct sg_table *sgt;
+	struct dma_buf_attachment *attach = NULL;
+	struct sg_table *sgt = NULL;
 
 	if (fd <= 0) {
 		CMDQ_ERR("ion error fd %d\n", fd);
@@ -263,9 +263,9 @@ static void mdp_ion_free_dma_buf(struct dma_buf *buf,
 static unsigned long translate_fd(struct op_meta *meta,
 				struct mdp_job_mapping *mapping_job)
 {
-	struct dma_buf *buf;
-	struct dma_buf_attachment *attach;
-	struct sg_table *sgt;
+	struct dma_buf *buf = NULL;
+	struct dma_buf_attachment *attach = NULL;
+	struct sg_table *sgt = NULL;
 	dma_addr_t ion_addr;
 	u32 i;
 
