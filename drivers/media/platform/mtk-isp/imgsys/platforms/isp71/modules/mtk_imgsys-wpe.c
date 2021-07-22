@@ -12,7 +12,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 
-#define WPE_TF_DUMP           (1)
+//#define WPE_TF_DUMP           (1)
 #ifdef WPE_TF_DUMP
 #include <dt-bindings/memory/mt6983-larb-port.h>
 #include "iommu_debug.h"
