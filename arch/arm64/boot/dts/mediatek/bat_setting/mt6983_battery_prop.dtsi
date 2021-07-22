@@ -6,7 +6,6 @@
  */
 
 &mtk_gauge {
-	DISABLE_MTKBATTERY = <(1)>;
 	DIFFERENCE_FULLOCV_ITH = <(200)>;
 	/* Charging termination current */
 	SHUTDOWN_1_TIME = <(5)>;
@@ -18,7 +17,7 @@
 	/* Configures whether using embedded battery or not */
 	PMIC_SHUTDOWN_CURRENT = <(20)>;
 	/* System shutdown current */
-	FG_METER_RESISTANCE = <(100)>;
+	FG_METER_RESISTANCE = <(40)>;
 	/* The resistance of PCB */
 	CAR_TUNE_VALUE = <(100)>;
 	/* Tune value for current measurement */
@@ -58,7 +57,7 @@
 	/* Pseudo1 for hide percentage */
 	Q_MAX_SYS_VOLTAGE_BAT3 = <(3350)>;
 	/* Pseudo1 for hide percentage */
-	COM_FG_METER_RESISTANCE = <(100)>;
+	COM_FG_METER_RESISTANCE = <(40)>;
 	/* compensate The resistance of PCB */
 	COM_R_FG_VALUE = <(0)>;
 	/* compensate R_sense resistance */
