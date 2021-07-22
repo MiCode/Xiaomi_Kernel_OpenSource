@@ -256,9 +256,6 @@ static int seninf_core_probe(struct platform_device *pdev)
 	struct seninf_core *core;
 	struct device *dev = &pdev->dev;
 
-#ifdef SENINF_FPGA_EP
-	pr_info("v4l2_subdev_seninf_core_probe\n");
-#endif
 	core = devm_kzalloc(&pdev->dev, sizeof(*core), GFP_KERNEL);
 	if (!core)
 		return -ENOMEM;
@@ -635,6 +632,7 @@ static int config_hw(struct seninf_ctx *ctx)
 	mtk_cam_seninf_reset(ctx, intf);
 
 	mtk_cam_seninf_set_vc(ctx, intf, vcinfo);
+
 	mtk_cam_seninf_set_csi_mipi(ctx);
 
 	// TODO
@@ -896,7 +894,6 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	unsigned long flags = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 
-
 	if (ctx->streaming == enable)
 		return 0;
 
@@ -909,8 +906,10 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	get_mbus_config(ctx, ctx->sensor_sd);
+
 	get_buffered_pixel_rate(ctx, ctx->sensor_sd,
 				ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
+
 	get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
 
 	if (enable) {
@@ -953,7 +952,9 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			dev_info(ctx->dev, "sensor stream-on ret %d\n", ret);
 			return  ret;
 		}
-
+#ifdef FPGA_EP
+		mtk_cam_seninf_debug(ctx);
+#endif
 	} else {
 		ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, 0);
 		if (ret) {
@@ -1330,9 +1331,6 @@ static int seninf_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct seninf_core *core;
 
-#ifdef SENINF_FPGA_EP
-	pr_info("v4l2_subdev_seninf_probe\n");
-#endif
 	if (!dev->parent)
 		return -EPROBE_DEFER;
 

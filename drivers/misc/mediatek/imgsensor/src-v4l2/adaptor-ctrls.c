@@ -347,7 +347,7 @@ static int _get_frame_desc(struct adaptor_ctx *ctx, unsigned int pad,
 		ret = subdrv_call(ctx, get_frame_desc, scenario_id, &fd_tmp);
 
 		if (!ret) {
-			for (j = 0; write_to < V4L2_FRAME_DESC_ENTRY_MAX && j < fd_tmp.num_entries;
+			for (j = 0; write_to < MTK_FRAME_DESC_ENTRY_MAX && j < fd_tmp.num_entries;
 				++j) {
 				if (desc_visited & (0x1 << fd_tmp.entry[j].bus.csi2.user_data_desc))
 					continue;

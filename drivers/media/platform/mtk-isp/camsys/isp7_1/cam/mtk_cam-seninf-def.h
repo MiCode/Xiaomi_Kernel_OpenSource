@@ -4,7 +4,6 @@
 #ifndef __MTK_CAM_SENINF_DEF_H__
 #define __MTK_CAM_SENINF_DEF_H__
 
-#define SENINF_FPGA_EP
 
 #define SENINF_VC_MAXCNT 8
 #define SENINF_DEF_PIXEL_MODE 2
@@ -13,7 +12,7 @@
 #define SENINF_TIMESTAMP_CLK 1000
 #define HW_BUF_EFFECT 80
 
-#define CSI_CLK_356MHZ
+#define CSI_CLK_273MHZ
 
 /* data lane hs settle, base on 208 MHz csi ck */
 #ifdef CSI_CLK_208MHZ
@@ -21,6 +20,20 @@
 #define SENINF_DPHY_SETTLE_DELAY_DT 0x15
 #define SENINF_SETTLE_DELAY_CK 0x9
 #define SENINF_HS_TRAIL_PARAMETER 0x8
+#endif
+/* data lane hs settle, base on 208 MHz csi ck */
+#ifdef CSI_CLK_273MHZ
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x10
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x11
+#define SENINF_SETTLE_DELAY_CK 0x11
+#define SENINF_HS_TRAIL_PARAMETER 0x34
+#endif
+
+#ifdef CSI_CLK_499MHZ
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x20
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x2f
+#define SENINF_SETTLE_DELAY_CK 0x2f
+#define SENINF_HS_TRAIL_PARAMETER 0x34
 #endif
 
 /* data lane hs settle, base on 312 MHz csi ck */
@@ -166,6 +179,7 @@ enum SENINF_MUX_ENUM {
 	SENINF_MUX21,
 	SENINF_MUX22,
 	SENINF_MUX_NUM,
+
 	SENINF_MUX_ERROR = -1,
 };
 
@@ -194,6 +208,7 @@ enum SENINF_CAM_MUX_ENUM {
 	SENINF_CAM_MUX21,
 	SENINF_CAM_MUX22,
 	SENINF_CAM_MUX_NUM,
+
 	SENINF_CAM_MUX_ERR = 0xff
 };
 
@@ -238,6 +253,8 @@ enum {
 	CLK_TOP_SENINF1,
 	CLK_TOP_SENINF2,
 	CLK_TOP_SENINF3,
+	CLK_TOP_SENINF4,
+	CLK_TOP_SENINF5,
 	CLK_TOP_SENINF_END,
 	CLK_TOP_CAMTM = CLK_TOP_SENINF_END,
 	CLK_MAXCNT,
@@ -249,6 +266,8 @@ enum {
 	"clk_top_seninf1", \
 	"clk_top_seninf2", \
 	"clk_top_seninf3", \
+	"clk_top_seninf4", \
+	"clk_top_seninf5", \
 	"clk_top_camtm", \
 
 #endif
