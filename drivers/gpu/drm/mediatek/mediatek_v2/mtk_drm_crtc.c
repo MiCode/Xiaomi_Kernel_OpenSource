@@ -2009,7 +2009,7 @@ static void mtk_crtc_free_lyeblob_ids(struct drm_crtc *crtc,
 	}
 }
 
-static unsigned int dual_pipe_comp_mapping(unsigned int comp_id)
+unsigned int dual_pipe_comp_mapping(unsigned int comp_id)
 {
 	unsigned int ret = 0;
 
@@ -5448,6 +5448,10 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 	} else {
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 	}
+
+	/* set DAL layer */
+	if (mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0)
+		drm_set_dal(&mtk_crtc->base, cmdq_handle);
 
 	if (mtk_crtc->sec_on) {
 	#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)

@@ -932,7 +932,7 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_ddp_comp *comp, unsigned int idx,
 		struct mtk_plane_state *plane_state, struct cmdq_pkt *cmdq_handle);
-
+unsigned int dual_pipe_comp_mapping(unsigned int comp_id);
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
 unsigned int DISP_GetScreenHeight(void);
