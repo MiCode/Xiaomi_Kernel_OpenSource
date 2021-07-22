@@ -8411,10 +8411,10 @@
 			<0 0x11c80000 0 0x20000>;
 		reg-names = "base", "ana-rx";
 		interrupts = <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH 0>;
-#if 0
+
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>,
 		<&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-
+#if 0
 		operating-points-v2 = <&opp_table_cam>;
 		dvfsrc-vcore-supply = <&vmm_proxy_label>;
 #endif

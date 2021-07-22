@@ -65,102 +65,102 @@
 &pio {
 	camera_pins_cam0_mclk_off: camera_pins_cam0_mclk_off {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO196__FUNC_GPIO196>;
+			pinmux = <PINMUX_GPIO198__FUNC_GPIO198>;
 			drive-strength = <1>;
 		};
 	};
 	camera_pins_cam0_mclk_2ma: camera_pins_cam0_mclk_2ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO196__FUNC_CMMCLK0>;
+			pinmux = <PINMUX_GPIO198__FUNC_CMMCLK2>;
 			drive-strength = <0>;
 		};
 	};
 	camera_pins_cam0_mclk_4ma: camera_pins_cam0_mclk_4ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO196__FUNC_CMMCLK0>;
+			pinmux = <PINMUX_GPIO198__FUNC_CMMCLK2>;
 			drive-strength = <1>;
 		};
 	};
 	camera_pins_cam0_mclk_6ma: camera_pins_cam0_mclk_6ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO196__FUNC_CMMCLK0>;
+			pinmux = <PINMUX_GPIO198__FUNC_CMMCLK2>;
 			drive-strength = <2>;
 		};
 	};
 	camera_pins_cam0_mclk_8ma: camera_pins_cam0_mclk_8ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO196__FUNC_CMMCLK0>;
+			pinmux = <PINMUX_GPIO198__FUNC_CMMCLK2>;
 			drive-strength = <3>;
 		};
 	};
 	camera_pins_cam0_rst_0: cam0@0 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO199__FUNC_GPIO199>;
+			pinmux = <PINMUX_GPIO201__FUNC_GPIO201>;
 			slew-rate = <1>;
 			output-low;
 		};
 	};
 	camera_pins_cam0_rst_1: cam0@1 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO199__FUNC_GPIO199>;
-			slew-rate = <1>;
-			output-high;
-		};
-	};
-	camera_pins_cam0_pdn_0: cam0@2 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO200__FUNC_GPIO200>;
-			slew-rate = <1>;
-			output-low;
-		};
-	};
-	camera_pins_cam0_pdn_1: cam0@3 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO200__FUNC_GPIO200>;
+			pinmux = <PINMUX_GPIO201__FUNC_GPIO201>;
 			slew-rate = <1>;
 			output-high;
 		};
 	};
 	camera_pins_cam1_mclk_off: camera_pins_cam1_mclk_off {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO208__FUNC_GPIO208>;
+			pinmux = <PINMUX_GPIO196__FUNC_GPIO196>;
 			drive-strength = <1>;
 		};
 	};
 	camera_pins_cam1_mclk_2ma: camera_pins_cam1_mclk_2ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO208__FUNC_CMMCLK3>;
+			pinmux = <PINMUX_GPIO196__FUNC_CMMCLK0>;
 			drive-strength = <0>;
 		};
 	};
 	camera_pins_cam1_mclk_4ma: camera_pins_cam1_mclk_4ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO208__FUNC_CMMCLK3>;
+			pinmux = <PINMUX_GPIO196__FUNC_CMMCLK0>;
 			drive-strength = <1>;
 		};
 	};
 	camera_pins_cam1_mclk_6ma: camera_pins_cam1_mclk_6ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO208__FUNC_CMMCLK3>;
+			pinmux = <PINMUX_GPIO196__FUNC_CMMCLK0>;
 			drive-strength = <2>;
 		};
 	};
 	camera_pins_cam1_mclk_8ma: camera_pins_cam1_mclk_8ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO208__FUNC_CMMCLK3>;
+			pinmux = <PINMUX_GPIO196__FUNC_CMMCLK0>;
 			drive-strength = <3>;
 		};
 	};
 	camera_pins_cam1_rst_0: cam1@0 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
+			pinmux = <PINMUX_GPIO199__FUNC_GPIO199>;
 			slew-rate = <1>;
 			output-low;
 		};
 	};
 	camera_pins_cam1_rst_1: cam1@1 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
+			pinmux = <PINMUX_GPIO199__FUNC_GPIO199>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam1_pdn_0: cam1@2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO200__FUNC_GPIO200>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam1_pdn_1: cam1@3 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO200__FUNC_GPIO200>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -223,46 +223,46 @@
 			output-high;
 		};
 	};
-	camera_pins_cam3_mclk_off: camera_pins_cam3_mclk_off {
+	camera_pins_cam4_mclk_off: camera_pins_cam4_mclk_off {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO198__FUNC_GPIO198>;
+			pinmux = <PINMUX_GPIO208__FUNC_GPIO208>;
 			drive-strength = <1>;
 		};
 	};
-	camera_pins_cam3_mclk_2ma: camera_pins_cam3_mclk_2ma {
+	camera_pins_cam4_mclk_2ma: camera_pins_cam4_mclk_2ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO198__FUNC_CMMCLK2>;
+			pinmux = <PINMUX_GPIO208__FUNC_CMMCLK3>;
 			drive-strength = <0>;
 		};
 	};
-	camera_pins_cam3_mclk_4ma: camera_pins_cam3_mclk_4ma {
+	camera_pins_cam4_mclk_4ma: camera_pins_cam4_mclk_4ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO198__FUNC_CMMCLK2>;
+			pinmux = <PINMUX_GPIO208__FUNC_CMMCLK3>;
 			drive-strength = <1>;
 		};
 	};
-	camera_pins_cam3_mclk_6ma: camera_pins_cam3_mclk_6ma {
+	camera_pins_cam4_mclk_6ma: camera_pins_cam4_mclk_6ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO198__FUNC_CMMCLK2>;
+			pinmux = <PINMUX_GPIO208__FUNC_CMMCLK3>;
 			drive-strength = <2>;
 		};
 	};
-	camera_pins_cam3_mclk_8ma: camera_pins_cam3_mclk_8ma {
+	camera_pins_cam4_mclk_8ma: camera_pins_cam4_mclk_8ma {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO198__FUNC_CMMCLK2>;
+			pinmux = <PINMUX_GPIO208__FUNC_CMMCLK3>;
 			drive-strength = <3>;
 		};
 	};
-	camera_pins_cam3_rst_0: cam3@0 {
+	camera_pins_cam4_rst_0: cam4@0 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO201__FUNC_GPIO201>;
+			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
 			slew-rate = <1>;
 			output-low;
 		};
 	};
-	camera_pins_cam3_rst_1: cam3@1 {
+	camera_pins_cam4_rst_1: cam4@1 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO201__FUNC_GPIO201>;
+			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -407,13 +407,13 @@
 				"mclk_8mA",
 				"rst_low",
 				"rst_high";
-		pinctrl-0 = <&camera_pins_cam1_mclk_off>;
-		pinctrl-1 = <&camera_pins_cam1_mclk_2ma>;
-		pinctrl-2 = <&camera_pins_cam1_mclk_4ma>;
-		pinctrl-3 = <&camera_pins_cam1_mclk_6ma>;
-		pinctrl-4 = <&camera_pins_cam1_mclk_8ma>;
-		pinctrl-5 = <&camera_pins_cam1_rst_0>;
-		pinctrl-6 = <&camera_pins_cam1_rst_1>;
+		pinctrl-0 = <&camera_pins_cam4_mclk_off>;
+		pinctrl-1 = <&camera_pins_cam4_mclk_2ma>;
+		pinctrl-2 = <&camera_pins_cam4_mclk_4ma>;
+		pinctrl-3 = <&camera_pins_cam4_mclk_6ma>;
+		pinctrl-4 = <&camera_pins_cam4_mclk_8ma>;
+		pinctrl-5 = <&camera_pins_cam4_rst_0>;
+		pinctrl-6 = <&camera_pins_cam4_rst_1>;
 
 		avdd-supply = <&rt5133_gpio2>;
 		dvdd-supply = <&rt5133_gpio3>;
@@ -427,7 +427,7 @@
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
 			<&clk26m>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
-			<&topckgen_clk CLK_TOPCKGEN_CAMTG3_SEL>;
+			<&topckgen_clk CLK_TOPCKGEN_CAMTG4_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
 
 		status = "okay";
@@ -482,15 +482,15 @@
 				"rst_high",
 				"pdn_low",
 				"pdn_high";
-		pinctrl-0 = <&camera_pins_cam0_mclk_off>;
-		pinctrl-1 = <&camera_pins_cam0_mclk_2ma>;
-		pinctrl-2 = <&camera_pins_cam0_mclk_4ma>;
-		pinctrl-3 = <&camera_pins_cam0_mclk_6ma>;
-		pinctrl-4 = <&camera_pins_cam0_mclk_8ma>;
-		pinctrl-5 = <&camera_pins_cam0_rst_0>;
-		pinctrl-6 = <&camera_pins_cam0_rst_1>;
-		pinctrl-7 = <&camera_pins_cam0_pdn_0>;
-		pinctrl-8 = <&camera_pins_cam0_pdn_1>;
+		pinctrl-0 = <&camera_pins_cam1_mclk_off>;
+		pinctrl-1 = <&camera_pins_cam1_mclk_2ma>;
+		pinctrl-2 = <&camera_pins_cam1_mclk_4ma>;
+		pinctrl-3 = <&camera_pins_cam1_mclk_6ma>;
+		pinctrl-4 = <&camera_pins_cam1_mclk_8ma>;
+		pinctrl-5 = <&camera_pins_cam1_rst_0>;
+		pinctrl-6 = <&camera_pins_cam1_rst_1>;
+		pinctrl-7 = <&camera_pins_cam1_pdn_0>;
+		pinctrl-8 = <&camera_pins_cam1_pdn_1>;
 
 		avdd-supply = <&rt5133_ldo6>;
 		dvdd-supply = <&rt5133_ldo7>;
@@ -632,13 +632,13 @@
 				"mclk_8mA",
 				"rst_low",
 				"rst_high";
-		pinctrl-0 = <&camera_pins_cam3_mclk_off>;
-		pinctrl-1 = <&camera_pins_cam3_mclk_2ma>;
-		pinctrl-2 = <&camera_pins_cam3_mclk_4ma>;
-		pinctrl-3 = <&camera_pins_cam3_mclk_6ma>;
-		pinctrl-4 = <&camera_pins_cam3_mclk_8ma>;
-		pinctrl-5 = <&camera_pins_cam3_rst_0>;
-		pinctrl-6 = <&camera_pins_cam3_rst_1>;
+		pinctrl-0 = <&camera_pins_cam0_mclk_off>;
+		pinctrl-1 = <&camera_pins_cam0_mclk_2ma>;
+		pinctrl-2 = <&camera_pins_cam0_mclk_4ma>;
+		pinctrl-3 = <&camera_pins_cam0_mclk_6ma>;
+		pinctrl-4 = <&camera_pins_cam0_mclk_8ma>;
+		pinctrl-5 = <&camera_pins_cam0_rst_0>;
+		pinctrl-6 = <&camera_pins_cam0_rst_1>;
 
 		avdd-supply = <&rt5133_ldo4>;
 		dvdd-supply = <&rt5133_ldo8>;
@@ -653,7 +653,7 @@
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
 			<&clk26m>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
-			<&topckgen_clk CLK_TOPCKGEN_CAMTG2_SEL>;
+			<&topckgen_clk CLK_TOPCKGEN_CAMTG3_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
 
 		status = "okay";
