@@ -632,7 +632,7 @@
 		reserve-memory-vcp_share {
 			compatible = "mediatek,reserve-memory-vcp_share";
 			no-map;
-			size = <0 0x00080000>; /* 512KB */
+			size = <0 0x00200000>; /* 2MB */
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
@@ -7572,7 +7572,7 @@
 
 	vcp: vcp@1ec00000 {
 		compatible = "mediatek,vcp";
-		vcp-support = <0>;
+		vcp-support = <1>;
 		status = "okay";
 		reg = <0 0x1ea00000 0 0x40000>, /* tcm */
 		      <0 0x1ec24000 0 0x1000>, /* cfg */
@@ -7582,6 +7582,7 @@
 		      <0 0x1ec52000 0 0x1000>, /* bus tracker */
 		      <0 0x1ec60000 0 0x40000>, /* llc */
 		      <0 0x1eca5000 0 0x4>, /* cfg_sec */
+		      <0 0x1e820000 0 0x4>, /* mmu */
 		      <0 0x1ecfb000 0 0x100>, /* mbox0 base */
 		      <0 0x1ecfb100 0 0x4>, /* mbox0 set */
 		      <0 0x1ecfb10c 0 0x4>, /* mbox0 clr */
@@ -7611,6 +7612,7 @@
 			    "vcp_bus_tracker",
 			    "vcp_l1creg",
 			    "vcp_cfgreg_sec",
+			    "vcp_cfgreg_mmu",
 			    "mbox0_base",
 			    "mbox0_set",
 			    "mbox0_clr",
@@ -7686,27 +7688,27 @@
 		<22 4  4 0>;/* IPI_IN_VCP_MPOOL_1 */
 
 		vcp_mem_key = "mediatek,reserve-memory-vcp_share";
-		vcp_mem_tbl = <0 0x40000>, /* VDEC_MEM_ID 256KB */
+		vcp_mem_tbl = <0 0x78000>, /* VDEC_MEM_ID 480KB */
 			      <1 0x8000>, /* VENC_MEM_ID 32KB */
-			      <2 0x180000>; /* LOGGER */
+			      <2 0x180000>; /* LOGGER 1MB 512KB*/
 	};
 
 	vcp_iommu_vdec {
-		vcp-support = <0>;
+		vcp-support = <2>;
 		compatible =  "mediatek,vcp-io-vdec";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_512MB1>;
 	};
 
 	vcp_iommu_venc {
-		vcp-support = <0>;
+		vcp-support = <3>;
 		compatible =  "mediatek,vcp-io-venc";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_512MB2>;
 	};
 
 	vcp_iommu_work {
-		vcp-support = <0>;
+		vcp-support = <4>;
 		compatible = "mediatek,vcp-io-work";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_256MB2>;
