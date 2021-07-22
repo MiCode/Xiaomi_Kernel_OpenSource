@@ -194,12 +194,9 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_qupv3_wrap1_s1_clk",
 	"gcc_qupv3_wrap1_s2_clk",
 	"gcc_qupv3_wrap1_s3_clk",
-	"gcc_qupv3_wrap1_s4_clk",
 	"gcc_qupv3_wrap1_s5_clk",
 	"gcc_qupv3_wrap_0_m_ahb_clk",
 	"gcc_qupv3_wrap_0_s_ahb_clk",
-	"gcc_qupv3_wrap_1_m_ahb_clk",
-	"gcc_qupv3_wrap_1_s_ahb_clk",
 	"gcc_sdcc1_ahb_clk",
 	"gcc_sdcc1_apps_clk",
 	"gcc_sdcc1_ice_core_clk",
@@ -237,6 +234,9 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_gcc_disp_ahb_clk",
 	"measure_only_gcc_disp_xo_clk",
 	"measure_only_gcc_gpu_cfg_ahb_clk",
+	"measure_only_gcc_qupv3_wrap1_s4_clk",
+	"measure_only_gcc_qupv3_wrap_1_m_ahb_clk",
+	"measure_only_gcc_qupv3_wrap_1_s_ahb_clk",
 	"measure_only_gcc_video_ahb_clk",
 	"measure_only_hwkm_ahb_clk",
 	"measure_only_hwkm_km_core_clk",
@@ -321,12 +321,9 @@ static int gcc_debug_mux_sels[] = {
 	0x7A,		/* gcc_qupv3_wrap1_s1_clk */
 	0x7B,		/* gcc_qupv3_wrap1_s2_clk */
 	0x7C,		/* gcc_qupv3_wrap1_s3_clk */
-	0x7D,		/* gcc_qupv3_wrap1_s4_clk */
 	0x7E,		/* gcc_qupv3_wrap1_s5_clk */
 	0x6B,		/* gcc_qupv3_wrap_0_m_ahb_clk */
 	0x6C,		/* gcc_qupv3_wrap_0_s_ahb_clk */
-	0x75,		/* gcc_qupv3_wrap_1_m_ahb_clk */
-	0x76,		/* gcc_qupv3_wrap_1_s_ahb_clk */
 	0x108,		/* gcc_sdcc1_ahb_clk */
 	0x107,		/* gcc_sdcc1_apps_clk */
 	0x109,		/* gcc_sdcc1_ice_core_clk */
@@ -364,6 +361,9 @@ static int gcc_debug_mux_sels[] = {
 	0x39,		/* measure_only_gcc_disp_ahb_clk */
 	0x41,		/* measure_only_gcc_disp_xo_clk */
 	0xF9,		/* measure_only_gcc_gpu_cfg_ahb_clk */
+	0x7D,		/* measure_only_gcc_qupv3_wrap1_s4_clk */
+	0x75,		/* measure_only_gcc_qupv3_wrap_1_m_ahb_clk */
+	0x76,		/* measure_only_gcc_qupv3_wrap_1_s_ahb_clk */
 	0x37,		/* measure_only_gcc_video_ahb_clk */
 	0x166,		/* measure_only_hwkm_ahb_clk */
 	0x167,		/* measure_only_hwkm_km_core_clk */
@@ -544,6 +544,30 @@ static struct clk_dummy measure_only_gcc_gpu_cfg_ahb_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_gcc_qupv3_wrap1_s4_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qupv3_wrap1_s4_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qupv3_wrap_1_m_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qupv3_wrap_1_m_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_qupv3_wrap_1_s_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_qupv3_wrap_1_s_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy measure_only_gcc_video_ahb_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -634,6 +658,9 @@ static struct clk_hw *debugcc_blair_hws[] = {
 	&measure_only_gcc_disp_ahb_clk.hw,
 	&measure_only_gcc_disp_xo_clk.hw,
 	&measure_only_gcc_gpu_cfg_ahb_clk.hw,
+	&measure_only_gcc_qupv3_wrap1_s4_clk.hw,
+	&measure_only_gcc_qupv3_wrap_1_m_ahb_clk.hw,
+	&measure_only_gcc_qupv3_wrap_1_s_ahb_clk.hw,
 	&measure_only_gcc_video_ahb_clk.hw,
 	&measure_only_ipa_2x_clk.hw,
 	&measure_only_mccc_clk.hw,
