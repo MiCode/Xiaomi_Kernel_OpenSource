@@ -50,6 +50,7 @@
 #include "mtk_drm_trace.h"
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
+#include "cmdq-util.h"
 #include "mtk_disp_ccorr.h"
 
 /* *****Panel_Master*********** */
@@ -85,6 +86,8 @@ static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
 
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
+
+#define DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL 0x308
 
 struct drm_crtc *_get_context(void)
 {
@@ -3096,6 +3099,25 @@ static void mtk_crtc_enable_iommu(struct mtk_drm_crtc *mtk_crtc,
 	}
 }
 
+#ifndef MTK_DRM_BRINGUP_STAGE
+static void mtk_crtc_exec_atf_prebuilt_instr(struct mtk_drm_crtc *mtk_crtc,
+			   struct cmdq_pkt *handle)
+{
+	/*note: put the prebuilt instr into cmdq_inst_disp_va[] in cmdq-prebuilt.h*/
+
+	/*set DISP_VA_START event to atf*/
+	cmdq_pkt_set_event(handle,
+		mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_DISP_VA_START]);
+
+	/*wait DISP_VA_END event from atf*/
+	cmdq_pkt_wfe(handle,
+		mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_DISP_VA_END]);
+
+	//SMC Call
+	cmdq_util_enable_disp_va();
+}
+#endif
+
 void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 			   struct cmdq_pkt *handle)
 {
@@ -3105,7 +3127,14 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 
 	if (drm_crtc_index(&mtk_crtc->base) == 0)
 		mtk_crtc_fill_fb_para(mtk_crtc);
-	
+
+#ifndef MTK_DRM_BRINGUP_STAGE
+	if (priv->data->mmsys_id == MMSYS_MT6983) {
+		/*set smi_larb_sec_con reg as 1*/
+		mtk_crtc_exec_atf_prebuilt_instr(mtk_crtc, handle);
+		}
+#endif
+
 	mtk_crtc_enable_iommu(mtk_crtc, handle);
 
 
@@ -3660,29 +3689,25 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 #ifndef MTK_DRM_BRINGUP_STAGE
-		if (priv->data->mmsys_id != MMSYS_MT6983) { //mt6983_workaround
-			if (mtk_drm_helper_get_opt(priv->helper_opt,
-						MTK_DRM_OPT_DUAL_TE)) {
-				cmdq_pkt_wait_te(cmdq_handle, mtk_crtc);
-			} else {
-				cmdq_pkt_clear_event(cmdq_handle,
-						mtk_crtc->gce_obj.event[EVENT_TE]);
-				if (mtk_drm_lcm_is_connect())
-					cmdq_pkt_wfe(cmdq_handle,
-							mtk_crtc->gce_obj.event[EVENT_TE]);
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_DUAL_TE)) {
+			cmdq_pkt_wait_te(cmdq_handle, mtk_crtc);
+		} else {
+			cmdq_pkt_clear_event(cmdq_handle,
+					mtk_crtc->gce_obj.event[EVENT_TE]);
+			if (mtk_drm_lcm_is_connect())
+				cmdq_pkt_wfe(cmdq_handle,
+					mtk_crtc->gce_obj.event[EVENT_TE]);
 			}
-		}
 #endif
 		cmdq_pkt_clear_event(
 			cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 #ifndef MTK_DRM_BRINGUP_STAGE
-		if (priv->data->mmsys_id != MMSYS_MT6983) { //mt6983_workaround
-			cmdq_pkt_wait_no_clear(cmdq_handle,
-					     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-			cmdq_pkt_wait_no_clear(cmdq_handle,
-					       mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
-		}
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 #endif
 
 		/*Trigger*/
@@ -3691,14 +3716,8 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
 				      MTK_TRIG_FLAG_TRIGGER);
 
-		if (priv->data->mmsys_id == MMSYS_MT6983) { //mt6983_workaround
-			/*workaround for cmdq wait frame done timeout*/
-			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
-							  MTK_TRIG_FLAG_EOF);
-		} else {
-			cmdq_pkt_wfe(cmdq_handle,
-					mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-		}
+		cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_LAYER_REC)) {
@@ -4486,6 +4505,12 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	cfg.bpc = mtk_crtc->bpc;
 	cfg.p_golden_setting_context = __get_golden_setting_context(mtk_crtc);
 
+	if (priv->data->mmsys_id == MMSYS_MT6983) {
+		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
+		writel(0x3, mtk_crtc->config_regs +
+				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
+	}
+
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
@@ -5078,6 +5103,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	struct mtk_ddp_config cfg = {0};
 	int i, j;
 	struct mtk_ddp_comp *output_comp;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
@@ -5091,6 +5117,13 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	}
 	cfg.p_golden_setting_context =
 			__get_golden_setting_context(mtk_crtc);
+
+	if (priv->data->mmsys_id == MMSYS_MT6983) {
+		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
+		writel(0x3, mtk_crtc->config_regs +
+				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
+	}
+
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	cmdq_pkt_clear_event(cmdq_handle,
@@ -7220,6 +7253,14 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		break;
 	case EVENT_GPIO_TE1:
 		len = snprintf(buf, buf_len, "disp_gpio_te1");
+		break;
+	case EVENT_SYNC_TOKEN_DISP_VA_START:
+		len = snprintf(buf, buf_len, "disp_token_disp_va_start%d",
+			       drm_crtc_index(&mtk_crtc->base));
+		break;
+	case EVENT_SYNC_TOKEN_DISP_VA_END:
+		len = snprintf(buf, buf_len, "disp_token_disp_va_end%d",
+			       drm_crtc_index(&mtk_crtc->base));
 		break;
 	default:
 		DDPPR_ERR("%s invalid event_id:%d\n", __func__, event_id);

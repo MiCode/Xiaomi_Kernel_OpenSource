@@ -155,7 +155,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 	sgt = mtk_gem_vmap_pa(mtk_gem, fb_base, 0, dev->dev, &fb_pa);
 
 	mtk_gem->sec = false;
-#ifdef IF_ZERO //mt6983_workaround
+#ifndef MTK_DRM_BRINGUP_STAGE
 	mtk_gem->dma_addr = fb_base;
 #else
 	mtk_gem->dma_addr = fb_pa;
