@@ -22,7 +22,7 @@ static int mdw_ap_sw_init(struct mdw_device *mdev)
 			continue;
 
 		/* setup mdev's info */
-		d = vzalloc(sizeof(*d));
+		d = kvzalloc(sizeof(*d), GFP_KERNEL);
 		if (!d)
 			goto free_dinfo;
 		d->num = t->dev_num;
@@ -40,8 +40,10 @@ static int mdw_ap_sw_init(struct mdw_device *mdev)
 
 free_dinfo:
 	for (i = 0; i < MDW_DEV_MAX; i++) {
-		if (mdev->dinfos[i] != NULL)
-			vfree(&mdev->dinfos[i]);
+		if (mdev->dinfos[i] != NULL) {
+			kvfree(&mdev->dinfos[i]);
+			mdev->dinfos[i] = NULL;
+		}
 	}
 	ret = -ENOMEM;
 out:
@@ -54,7 +56,7 @@ static void mdw_ap_sw_deinit(struct mdw_device *mdev)
 
 	for (i = 0; i < MDW_DEV_MAX; i++) {
 		if (mdev->dinfos[i] != NULL) {
-			vfree(&mdev->dinfos[i]);
+			kvfree(&mdev->dinfos[i]);
 			mdev->dinfos[i] = NULL;
 		}
 	}

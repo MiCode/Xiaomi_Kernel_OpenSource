@@ -306,7 +306,7 @@ static void mdw_rsc_dump_tab(struct seq_file *s, struct mdw_rsc_tab *tab)
 				tab->type,
 				" device idx",
 				d->idx);
-			mdw_con_info(s, "|%-14s(%7d) |%-18s= 0x%-39x|\n",
+			mdw_con_info(s, "|%-14s(%7d) |%-18s= 0x%-39llx|\n",
 				" core num ",
 				tab->dev_num,
 				" cmd id",

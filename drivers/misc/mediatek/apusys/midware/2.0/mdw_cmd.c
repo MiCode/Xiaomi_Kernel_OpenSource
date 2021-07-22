@@ -334,42 +334,6 @@ static void mdw_cmd_delete_infos(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	}
 }
 
-static int mdw_cmd_sanity_check(struct mdw_cmd *c)
-{
-	unsigned int i = 0;
-
-	/* cmd info */
-	if (c->priority >= MDW_PRIORITY_MAX) {
-		mdw_drv_err("cmd invalid (0x%llx/%p/0x%llx)(%u)\n",
-			c->uid, c->mpriv, c->kid, c->priority);
-		return -EINVAL;
-	}
-
-	if (c->exec_infos->size != c->num_subcmds *
-		sizeof(struct mdw_subcmd_exec_info)) {
-		mdw_drv_err("execinfo size invalid(%u/%u)\n",
-			c->exec_infos->size,
-			c->num_subcmds * sizeof(struct mdw_subcmd_exec_info));
-		return -EINVAL;
-	}
-
-	/* subcmd info */
-	for (i = 0; i < c->num_subcmds; i++) {
-		if (c->subcmds[i].type >= MDW_DEV_MAX ||
-			c->subcmds[i].vlm_ctx_id >= MDW_SUBCMD_MAX ||
-			c->subcmds[i].boost > MDW_BOOST_MAX ||
-			c->subcmds[i].pack_id >= MDW_SUBCMD_MAX) {
-			mdw_drv_err("subcmd(%u) invalid (%u/%u/%u/%u)\n",
-				i, c->subcmds[i].type,
-				c->subcmds[i].boost,
-				c->subcmds[i].pack_id);
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
-
 //--------------------------------------------
 static const char *mdw_fence_get_driver_name(struct dma_fence *fence)
 {
@@ -498,6 +462,49 @@ void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv)
 	//TODO
 }
 
+static int mdw_cmd_sanity_check(struct mdw_cmd *c)
+{
+	if (c->priority >= MDW_PRIORITY_MAX ||
+		c->num_subcmds > MDW_SUBCMD_MAX) {
+		mdw_drv_err("cmd invalid (0x%llx/%p/0x%llx)(%u/%u)\n",
+			c->uid, c->mpriv, c->kid,
+			c->priority, c->num_subcmds);
+		return -EINVAL;
+	}
+
+	if (c->exec_infos->size != c->num_subcmds *
+		sizeof(struct mdw_subcmd_exec_info)) {
+		mdw_drv_err("cmd invalid (0x%llx/%p/0x%llx) einfo(%u/%u)\n",
+			c->uid, c->mpriv, c->kid,
+			c->exec_infos->size,
+			c->num_subcmds * sizeof(struct mdw_subcmd_exec_info));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mdw_cmd_sc_sanity_check(struct mdw_cmd *c)
+{
+	unsigned int i = 0;
+
+	/* subcmd info */
+	for (i = 0; i < c->num_subcmds; i++) {
+		if (c->subcmds[i].type >= MDW_DEV_MAX ||
+			c->subcmds[i].vlm_ctx_id >= MDW_SUBCMD_MAX ||
+			c->subcmds[i].boost > MDW_BOOST_MAX ||
+			c->subcmds[i].pack_id >= MDW_SUBCMD_MAX) {
+			mdw_drv_err("subcmd(%u) invalid (%u/%u/%u/%u)\n",
+				i, c->subcmds[i].type,
+				c->subcmds[i].boost,
+				c->subcmds[i].pack_id);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	union mdw_cmd_args *args)
 {
@@ -529,52 +536,57 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	c->power_dtime = in->exec.power_dtime;
 	c->app_type = in->exec.app_type;
 	c->num_subcmds = in->exec.num_subcmds;
+	c->exec_infos = mdw_cmd_get_mem(mpriv, in->exec.exec_infos);
+	if (!c->exec_infos) {
+		mdw_drv_err("get exec info fail\n");
+		goto free_cmd;
+	}
+
+	/* check input params */
+	if (mdw_cmd_sanity_check(c)) {
+		mdw_drv_err("cmd sanity check fail\n");
+		goto free_cmd;
+	}
+
+	/* subcmds/ksubcmds */
 	c->subcmds = kvzalloc(c->num_subcmds * sizeof(*c->subcmds), GFP_KERNEL);
 	if (!c->subcmds)
 		goto free_cmd;
+	if (copy_from_user(c->subcmds, (void __user *)in->exec.subcmd_infos,
+		c->num_subcmds * sizeof(*c->subcmds))) {
+		mdw_drv_err("copy subcmds fail\n");
+		goto free_subcmds;
+	}
+	if (mdw_cmd_sc_sanity_check(c)) {
+		mdw_drv_err("sc sanity check fail\n");
+		goto free_subcmds;
+	}
 
-	/* copy adj matrix */
+	c->ksubcmds = kvzalloc(c->num_subcmds * sizeof(*c->ksubcmds),
+		GFP_KERNEL);
+	if (!c->ksubcmds)
+		goto free_subcmds;
+
+
+	/* adj matrix */
 	c->adj_matrix = kvzalloc(c->num_subcmds *
 		c->num_subcmds * sizeof(uint8_t), GFP_KERNEL);
+	if (!c->adj_matrix)
+		goto free_ksubcmds;
 	if (copy_from_user(c->adj_matrix, (void __user *)in->exec.adj_matrix,
 		(c->num_subcmds * c->num_subcmds * sizeof(uint8_t)))) {
 		mdw_drv_err("copy adj matrix fail\n");
-		goto free_subcmds;
+		goto free_adj;
 	}
 	if (g_mdw_klog & MDW_DBG_CMD) {
 		print_hex_dump(KERN_INFO, "[apusys] adj matrix: ",
 			DUMP_PREFIX_OFFSET, 16, 1, c->adj_matrix,
 			c->num_subcmds * c->num_subcmds, 0);
 	}
-
-	/* copy subcmd headers info */
-	if (copy_from_user(c->subcmds, (void __user *)in->exec.subcmd_infos,
-		c->num_subcmds * sizeof(*c->subcmds))) {
-		mdw_drv_err("copy subcmds fail\n");
-		goto free_adj;
-	}
-
-	/* alloc ksubcmds */
-	c->ksubcmds = kvzalloc(c->num_subcmds * sizeof(*c->ksubcmds),
-		GFP_KERNEL);
-	if (!c->ksubcmds)
-		goto free_adj;
-
-	/* get exec info */
-	c->exec_infos = mdw_cmd_get_mem(mpriv, in->exec.exec_infos);
-	if (!c->exec_infos) {
-		mdw_drv_err("get exec info fail\n");
-		goto free_ksubcmds;
-	}
-
+	/* create infos */
 	if (mdw_cmd_create_infos(mpriv, c)) {
 		mdw_drv_err("create cmd info fail\n");
 		goto put_execinfo;
-	}
-
-	if (mdw_cmd_sanity_check(c)) {
-		mdw_drv_err("cmd sanity check fail\n");
-		goto delete_infos;
 	}
 
 	/* init fence */
@@ -597,10 +609,10 @@ delete_infos:
 	mdw_cmd_delete_infos(mpriv, c);
 put_execinfo:
 	mdw_cmd_put_mem(mpriv, c->exec_infos);
-free_ksubcmds:
-	vfree(c->ksubcmds);
 free_adj:
 	vfree(c->adj_matrix);
+free_ksubcmds:
+	vfree(c->ksubcmds);
 free_subcmds:
 	vfree(c->subcmds);
 free_cmd:

@@ -17,16 +17,15 @@ static int mdw_rv_sw_init(struct mdw_device *mdev)
 		return ret;
 
 	rdev = mdw_rv_dev_get();
-	bitmap_from_arr32(mdev->dev_mask,
-		(const uint32_t *)&rdev->dev_bitmask, MDW_DEV_MAX);
+	memcpy(mdev->dev_mask, rdev->dev_mask, sizeof(mdev->dev_mask));
 
 	/* update device info */
 	for (i = 0; i < MDW_DEV_MAX; i++) {
-		if (!(rdev->dev_bitmask & (1ULL << i) || mdev->dinfos[i]))
+		if (!test_bit(i, rdev->dev_mask) || mdev->dinfos[i])
 			continue;
 
 		/* setup mdev's info */
-		d = vzalloc(sizeof(*d));
+		d = kvzalloc(sizeof(*d), GFP_KERNEL);
 		if (!d)
 			goto free_dinfo;
 
@@ -45,8 +44,10 @@ static int mdw_rv_sw_init(struct mdw_device *mdev)
 
 free_dinfo:
 	for (i = 0; i < MDW_DEV_MAX; i++) {
-		if (mdev->dinfos[i] != NULL)
-			vfree(mdev->dinfos[i]);
+		if (mdev->dinfos[i] != NULL) {
+			kvfree(mdev->dinfos[i]);
+			mdev->dinfos[i] = NULL;
+		}
 	}
 	ret = -ENOMEM;
 out:
@@ -55,8 +56,14 @@ out:
 
 static void mdw_rv_sw_deinit(struct mdw_device *mdev)
 {
+	unsigned int i = 0;
 
-
+	for (i = 0; i < MDW_DEV_MAX; i++) {
+		if (mdev->dinfos[i] != NULL) {
+			kvfree(mdev->dinfos[i]);
+			mdev->dinfos[i] = NULL;
+		}
+	}
 }
 
 static int mdw_rv_late_init(struct mdw_device *mdev)

@@ -70,7 +70,7 @@ static int mdw_rv_dev_send_sync(struct mdw_ipi_msg *msg)
 	if (!s_msg)
 		return -ENOMEM;
 
-	memcpy(&s_msg->msg, msg, sizeof(*s_msg));
+	memcpy(&s_msg->msg, msg, sizeof(*msg));
 	init_completion(&s_msg->cmplt);
 	s_msg->complete = mdw_rv_ipi_cmplt_sync;
 
@@ -329,16 +329,13 @@ int mdw_rv_dev_handshake(void)
 		goto out;
 	}
 
-	mrdev.dev_bitmask = msg.h.basic.dev_bmp;
-	/* TODO, rv version */
+	memcpy(mrdev.dev_mask, &msg.h.basic.dev_bmp, sizeof(mrdev.dev_mask));
 	mrdev.rv_version = msg.h.basic.version;
-
-	mdw_drv_debug("rv info(%u/0x%llx/%u)\n",
-		mrdev.rv_version, mrdev.dev_bitmask);
+	mdw_drv_debug("rv info(%u/0x%llx)\n",
+		mrdev.rv_version, msg.h.basic.dev_bmp);
 
 	do {
-		type = find_next_bit((unsigned long *)&mrdev.dev_bitmask,
-			APUSYS_DEVICE_MAX, type);
+		type = find_next_bit(mrdev.dev_mask, APUSYS_DEVICE_MAX, type);
 		if (type >= APUSYS_DEVICE_MAX)
 			break;
 

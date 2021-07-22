@@ -41,7 +41,7 @@ struct mdw_ap_sc {
 	uint32_t ip_time;
 	uint32_t bw;
 	uint32_t multi_total;
-	int type;
+	uint32_t type;
 	uint32_t boost;
 	int ret;
 

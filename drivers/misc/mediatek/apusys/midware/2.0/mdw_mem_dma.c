@@ -495,7 +495,7 @@ uint64_t mdw_mem_dma_query_iova(uint64_t kva)
 {
 	struct mdw_mem_dma *pos = NULL, *tmp = NULL;
 	struct mdw_mem *m = NULL;
-	uint64_t iova;
+	uint64_t iova = 0;
 
 	mutex_lock(&mdmgr.mtx);
 	list_for_each_entry_safe(pos, tmp, &mdmgr.mems, m_item) {

@@ -19,8 +19,8 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 	case MDW_HS_IOCTL_OP_BASIC:
 		memset(args, 0, sizeof(*args));
 		args->out.basic.version = mdev->version;
-		bitmap_to_arr32((uint32_t *)&args->out.basic.dev_bitmask,
-			mdev->dev_mask, MDW_DEV_MAX);
+		memcpy(&args->out.basic.dev_bitmask,
+			mdev->dev_mask, sizeof(args->out.basic.dev_bitmask));
 		args->out.basic.meta_size = MDW_DEV_META_SIZE;
 		args->out.basic.vlm_start = mdev->vlm_start;
 		args->out.basic.vlm_size = mdev->vlm_size;

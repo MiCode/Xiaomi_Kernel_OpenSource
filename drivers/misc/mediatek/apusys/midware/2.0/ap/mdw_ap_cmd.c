@@ -171,7 +171,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 		if (mdw_rsc_get_dev_num(sc->type + APUSYS_DEVICE_RT) &&
 			c->softlimit) {
 			sc->type += APUSYS_DEVICE_RT;
-			sc->period = c->softlimit * 1000;
+			sc->period = (uint64_t)c->softlimit * 1000;
 			sc->deadline = jiffies + usecs_to_jiffies(sc->period);
 		}
 
@@ -226,7 +226,6 @@ int mdw_ap_cmd_exec(struct mdw_cmd *c)
 	}
 
 	mdw_flw_debug("cmd(0x%llx) execute...\n", ac->c->kid);
-
 	mutex_lock(&ac->mtx);
 	while (1) {
 		sc = mdw_ap_cmd_get_avilable_sc(ac);
@@ -236,10 +235,10 @@ int mdw_ap_cmd_exec(struct mdw_cmd *c)
 			break;
 	}
 	mutex_unlock(&ac->mtx);
+	mdw_flw_debug("cmd(0x%llx) parse done\n", ac->c->kid);
 
 out:
 	mutex_unlock(&c->mtx);
-	mdw_flw_debug("cmd(0x%llx) parse done\n", ac->c->kid);
 	return ret;
 }
 

@@ -32,7 +32,7 @@ static struct mdw_ap_sc *mdw_queue_norm_pop(void *q)
 {
 	struct mdw_ap_sc *sc = NULL;
 	struct mdw_queue_norm *nq = (struct mdw_queue_norm *)q;
-	int prio = 0;
+	uint32_t prio = 0;
 
 	mdw_flw_debug("\n");
 	mutex_lock(&nq->mtx);

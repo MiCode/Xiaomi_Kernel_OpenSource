@@ -101,7 +101,7 @@ static int mdw_probe(struct platform_device *pdev)
 	/* register misc device */
 	ret = mdw_drv_misc_init(mdev);
 	if (ret) {
-		pr_info("%s: register misc device fail\n");
+		pr_info("%s: register misc device fail\n", __func__);
 		goto delete_mdw_dev;
 	}
 	dev_set_drvdata(mdev->misc_dev.this_device, mdev);
@@ -196,7 +196,7 @@ static int mdw_rpmsg_probe(struct rpmsg_device *rpdev)
 	/* register misc device */
 	ret = mdw_drv_misc_init(mdev);
 	if (ret) {
-		pr_info("%s: register misc device fail\n");
+		pr_info("%s: register misc device fail\n", __func__);
 		goto delete_mdw_dev;
 	}
 	dev_set_drvdata(mdev->misc_dev.this_device, mdev);

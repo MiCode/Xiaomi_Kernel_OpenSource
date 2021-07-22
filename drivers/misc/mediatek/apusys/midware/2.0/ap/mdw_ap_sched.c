@@ -514,6 +514,11 @@ int mdw_sched_pause(void)
 fail_sched_pause:
 	for (idx -= 1; idx >= 0; idx--) {
 		d = mdw_rsc_get_dinfo(type, idx);
+		if (!d) {
+			mdw_drv_warn("dev(%d-%d) get fail\n",
+				type, idx);
+			continue;
+		}
 		if (d->resume(d)) {
 			mdw_drv_err("dev(%s%d) resume fail(%d)\n",
 				d->name, d->idx, ret);
@@ -523,8 +528,11 @@ fail_sched_pause:
 	for (i = 0; i < type; i++) {
 		for (idx = 0; idx < mdw_rsc_get_dev_num(type); idx++) {
 			d = mdw_rsc_get_dinfo(type, idx);
-			if (!d)
+			if (!d) {
+				mdw_drv_warn("dev(%d-%d) get fail\n",
+					type, idx);
 				continue;
+			}
 			if (d->resume(d)) {
 				mdw_drv_err("dev(%s%d) resume fail(%d)\n",
 					d->name, d->idx, ret);

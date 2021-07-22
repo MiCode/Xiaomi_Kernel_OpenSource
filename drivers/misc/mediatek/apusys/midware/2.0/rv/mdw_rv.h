@@ -26,7 +26,7 @@ struct mdw_rv_dev {
 
 	/* rv information */
 	uint32_t rv_version;
-	uint64_t dev_bitmask;
+	unsigned long dev_mask[BITS_TO_LONGS(MDW_DEV_MAX)];
 	uint8_t dev_num[MDW_DEV_MAX];
 	uint8_t meta_data[MDW_DEV_MAX][MDW_DEV_META_SIZE];
 };
