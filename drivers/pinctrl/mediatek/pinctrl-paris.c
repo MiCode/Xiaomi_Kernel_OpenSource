@@ -633,8 +633,6 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 		pullen = 1;
 		r1 = 1;
 		r0 = 1;
-	} else if (pullen != MTK_DISABLE && pullen != MTK_ENABLE) {
-		pullen = 0;
 	} else if (pullen >= MTK_I2C_PULL_RSEL_000) {
 		/* to do: show detail RSEL setting */
 		pullen = 1;
@@ -1586,6 +1584,8 @@ int mt63xx_pinctrl_probe(struct platform_device *pdev,
 
 	hw->base = devm_kmalloc_array(&pdev->dev, 1, sizeof(*hw->base),
 			GFP_KERNEL | __GFP_ZERO);
+	if (IS_ERR(hw->base))
+		return PTR_ERR(hw->base);
 	hw->base[0] = (struct regmap *)dev_get_regmap(pdev->dev.parent, NULL);
 
 	err = mtk_pctrl_build_state(pdev);

@@ -57,8 +57,6 @@ int gpio_get_tristate_input(unsigned int pin)
 		return  -ENOTSUPP;
 	hw = g_hw;
 
-	desc = (const struct mtk_pin_desc *)&hw->soc->pins[pin - hw->chip.base];
-
 	if (!hw->soc) {
 		pr_notice("invalid gpio chip\n");
 		return -EINVAL;
@@ -80,6 +78,8 @@ int gpio_get_tristate_input(unsigned int pin)
 			pin);
 		return -EINVAL;
 	}
+
+	desc = (const struct mtk_pin_desc *)&hw->soc->pins[pin - hw->chip.base];
 
 	ret = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_MODE, &val);
 	if (ret)
