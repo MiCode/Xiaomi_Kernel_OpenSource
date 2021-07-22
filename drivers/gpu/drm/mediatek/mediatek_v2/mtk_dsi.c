@@ -108,7 +108,10 @@
 
 #define DSI_PSCTRL 0x1c
 #define DSI_PS_WC	REG_FLD_MSB_LSB(14, 0)
-#define DSI_PS_SEL	REG_FLD_MSB_LSB(18, 16)
+#define DSI_PS_SEL	REG_FLD_MSB_LSB(19, 16)
+#define RG_XY_SWAP  REG_FLD_MSB_LSB(21, 21)
+#define CUSTOM_HEADER_EN REG_FLD_MSB_LSB(23, 23)
+#define CUSTOM_HEADER REG_FLD_MSB_LSB(31, 26)
 
 #define DSI_VSA_NL 0x20
 #define DSI_VBP_NL 0x24
@@ -807,6 +810,11 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 		u64 pixel_clock, total_bits;
 		u32 htotal, htotal_bits, bit_per_pixel;
 		u32 overhead_cycles, overhead_bits;
+		struct mtk_panel_spr_params *spr_params = NULL;
+
+		if (dsi->ext && dsi->ext->params) {
+			spr_params = &dsi->ext->params->spr_params;
+		}
 
 		switch (dsi->format) {
 		case MIPI_DSI_FMT_RGB565:
@@ -820,6 +828,26 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 		default:
 			bit_per_pixel = 24;
 			break;
+		}
+
+		if (spr_params->enable == 1 && spr_params->relay == 0
+			&& disp_spr_bypass == 0) {
+			switch (dsi->ext->params->spr_output_mode) {
+			case MTK_PANEL_PACKED_SPR_8_BITS:
+				bit_per_pixel = 16;
+				break;
+			case MTK_PANEL_lOOSELY_SPR_8_BITS:
+				bit_per_pixel = 24;
+				break;
+			case MTK_PANEL_lOOSELY_SPR_10_BITS:
+				bit_per_pixel = 24;
+				break;
+			case MTK_PANEL_PACKED_SPR_12_BITS:
+				bit_per_pixel = 16;
+				break;
+			default:
+				break;
+			}
 		}
 
 		pixel_clock = dsi->vm.pixelclock * 1000;
@@ -1116,6 +1144,8 @@ static int mtk_dsi_get_virtual_width(struct mtk_dsi *dsi,
 	return virtual_width;
 }
 
+extern unsigned int disp_spr_bypass;
+
 static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 {
 	u32 ps_wc, size;
@@ -1124,6 +1154,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 	u32 width, height;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
+	struct mtk_panel_spr_params *spr_params = &ext->params->spr_params;
 
 	if (!dsi->is_slave) {
 		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
@@ -1144,22 +1175,51 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 		width /= 2;
 
 	if (dsc_params->enable == 0) {
-		ps_wc = width * dsi_buf_bpp;
-		SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
-
-		switch (dsi->format) {
-		case MIPI_DSI_FMT_RGB888:
-			SET_VAL_MASK(value, mask, 3, DSI_PS_SEL);
-			break;
-		case MIPI_DSI_FMT_RGB666:
-			SET_VAL_MASK(value, mask, 2, DSI_PS_SEL);
-			break;
-		case MIPI_DSI_FMT_RGB666_PACKED:
-			SET_VAL_MASK(value, mask, 1, DSI_PS_SEL);
-			break;
-		case MIPI_DSI_FMT_RGB565:
-			SET_VAL_MASK(value, mask, 0, DSI_PS_SEL);
-			break;
+		if (spr_params->enable == 1 && spr_params->relay == 0
+			&& disp_spr_bypass == 0) {
+			switch (ext->params->spr_output_mode) {
+			case MTK_PANEL_PACKED_SPR_8_BITS:
+				dsi_buf_bpp = 2;
+				SET_VAL_MASK(value, mask, 8, DSI_PS_SEL);
+				break;
+			case MTK_PANEL_lOOSELY_SPR_8_BITS:
+				dsi_buf_bpp = 3;
+				SET_VAL_MASK(value, mask, 9, DSI_PS_SEL);
+				break;
+			case MTK_PANEL_lOOSELY_SPR_10_BITS:
+				dsi_buf_bpp = 3;
+				SET_VAL_MASK(value, mask, 11, DSI_PS_SEL);
+				break;
+			case MTK_PANEL_PACKED_SPR_12_BITS:
+				dsi_buf_bpp = 2;
+				SET_VAL_MASK(value, mask, 12, DSI_PS_SEL);
+				break;
+			default:
+				SET_VAL_MASK(value, mask, 3, DSI_PS_SEL);
+				break;
+			}
+			ps_wc = width * dsi_buf_bpp;
+			SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
+			SET_VAL_MASK(value, mask, spr_params->rg_xy_swap, RG_XY_SWAP);
+			SET_VAL_MASK(value, mask, spr_params->custom_header_en, CUSTOM_HEADER_EN);
+			SET_VAL_MASK(value, mask, spr_params->custom_header, CUSTOM_HEADER);
+		} else {
+			switch (dsi->format) {
+			case MIPI_DSI_FMT_RGB888:
+				SET_VAL_MASK(value, mask, 3, DSI_PS_SEL);
+				break;
+			case MIPI_DSI_FMT_RGB666:
+				SET_VAL_MASK(value, mask, 2, DSI_PS_SEL);
+				break;
+			case MIPI_DSI_FMT_RGB666_PACKED:
+				SET_VAL_MASK(value, mask, 1, DSI_PS_SEL);
+				break;
+			case MIPI_DSI_FMT_RGB565:
+				SET_VAL_MASK(value, mask, 0, DSI_PS_SEL);
+				break;
+			}
+			ps_wc = width * dsi_buf_bpp;
+			SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
 		}
 		size = (height << 16) + width;
 	} else {
@@ -1223,6 +1283,7 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct videomode *vm = &dsi->vm;
 	struct dynamic_mipi_params *dyn = NULL;
+	struct mtk_panel_spr_params *spr_params = NULL;
 
 	if (ext && ext->params)
 		dyn = &ext->params->dyn;
@@ -1265,6 +1326,26 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 	dsi->ext = find_panel_ext(dsi->panel);
 	if (!dsi->ext)
 		return;
+	spr_params = &ext->params->spr_params;
+	if (spr_params && spr_params->enable == 1 && spr_params->relay == 0
+		&& disp_spr_bypass == 0) {
+		switch (ext->params->spr_output_mode) {
+		case MTK_PANEL_PACKED_SPR_8_BITS:
+			dsi_tmp_buf_bpp = 2;
+			break;
+		case MTK_PANEL_lOOSELY_SPR_8_BITS:
+			dsi_tmp_buf_bpp = 3;
+			break;
+		case MTK_PANEL_lOOSELY_SPR_10_BITS:
+			dsi_tmp_buf_bpp = 3;
+			break;
+		case MTK_PANEL_PACKED_SPR_12_BITS:
+			dsi_tmp_buf_bpp = 2;
+			break;
+		default:
+			break;
+		}
+	}
 
 	if (dsi->ext->params->is_cphy) {
 		if (t_hsa * dsi_tmp_buf_bpp < 10 * dsi->lanes + 26 + 5)
@@ -6278,14 +6359,37 @@ u32 PanelMaster_get_dsi_timing(struct mtk_dsi *dsi, enum MIPI_SETTING_TYPE type)
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct videomode *vm = &dsi->vm;
 	struct dynamic_mipi_params *dyn = NULL;
+	struct mtk_panel_spr_params *spr_params = NULL;
 
-	if (ext && ext->params)
+	if (ext && ext->params) {
 		dyn = &ext->params->dyn;
+		spr_params = &ext->params->spr_params;
+	}
 
 	if (dsi->format == MIPI_DSI_FMT_RGB565)
 		fbconfig_dsiTmpBufBpp = 2;
 	else
 		fbconfig_dsiTmpBufBpp = 3;
+
+	if (spr_params->enable == 1 && spr_params->relay == 0
+		&& disp_spr_bypass == 0) {
+		switch (ext->params->spr_output_mode) {
+		case MTK_PANEL_PACKED_SPR_8_BITS:
+			fbconfig_dsiTmpBufBpp = 2;
+			break;
+		case MTK_PANEL_lOOSELY_SPR_8_BITS:
+			fbconfig_dsiTmpBufBpp = 3;
+			break;
+		case MTK_PANEL_lOOSELY_SPR_10_BITS:
+			fbconfig_dsiTmpBufBpp = 3;
+			break;
+		case MTK_PANEL_PACKED_SPR_12_BITS:
+			fbconfig_dsiTmpBufBpp = 2;
+			break;
+		default:
+			break;
+		}
+	}
 
 	vid_mode = pm_mtk_dsi_get_mode_type(dsi);
 
@@ -6465,15 +6569,37 @@ int PanelMaster_DSI_set_timing(struct mtk_dsi *dsi, struct MIPI_TIMING timing)
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct videomode *vm = &dsi->vm;
 	struct dynamic_mipi_params *dyn = NULL;
+	struct mtk_panel_spr_params *spr_params = NULL;
 
-	if (ext && ext->params)
+	if (ext && ext->params) {
 		dyn = &ext->params->dyn;
+		spr_params = &ext->params->spr_params;
+	}
 
 	if (dsi->format == MIPI_DSI_FMT_RGB565)
 		fbconfig_dsiTmpBufBpp = 2;
 	else
 		fbconfig_dsiTmpBufBpp = 3;
 
+	if (spr_params->enable == 1 && spr_params->relay == 0
+		&& disp_spr_bypass == 0) {
+		switch (ext->params->spr_output_mode) {
+		case MTK_PANEL_PACKED_SPR_8_BITS:
+			fbconfig_dsiTmpBufBpp = 2;
+			break;
+		case MTK_PANEL_lOOSELY_SPR_8_BITS:
+			fbconfig_dsiTmpBufBpp = 3;
+			break;
+		case MTK_PANEL_lOOSELY_SPR_10_BITS:
+			fbconfig_dsiTmpBufBpp = 3;
+			break;
+		case MTK_PANEL_PACKED_SPR_12_BITS:
+			fbconfig_dsiTmpBufBpp = 2;
+			break;
+		default:
+			break;
+		}
+	}
 	vid_mode = pm_mtk_dsi_get_mode_type(dsi);
 
 

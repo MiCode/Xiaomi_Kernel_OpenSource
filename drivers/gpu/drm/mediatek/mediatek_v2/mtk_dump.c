@@ -90,6 +90,12 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_POSTMASK1:
 		mtk_postmask_dump(comp);
 		break;
+	case DDP_COMPONENT_CM0:
+		mtk_cm_dump(comp);
+		break;
+	case DDP_COMPONENT_SPR0:
+		mtk_spr_dump(comp);
+		break;
 	case DDP_COMPONENT_DSC0:
 		mtk_dsc_dump(comp);
 		break;
@@ -141,6 +147,12 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_POSTMASK0:
 	case DDP_COMPONENT_POSTMASK1:
 		mtk_postmask_analysis(comp);
+		break;
+	case DDP_COMPONENT_CM0:
+		mtk_cm_analysis(comp);
+		break;
+	case DDP_COMPONENT_SPR0:
+		mtk_spr_analysis(comp);
 		break;
 	case DDP_COMPONENT_DSC0:
 		mtk_dsc_analysis(comp);

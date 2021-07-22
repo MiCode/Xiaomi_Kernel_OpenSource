@@ -770,6 +770,8 @@ struct mtk_drm_crtc {
 	wait_queue_head_t signal_fence_task_wq;
 
 	struct mtk_msync2 msync2;
+	struct mtk_panel_spr_params *panel_spr_params;
+	struct mtk_panel_cm_params *panel_cm_params;
 };
 
 struct mtk_crtc_state {
@@ -799,6 +801,8 @@ struct mtk_cmdq_cb_data {
 	unsigned int misc;
 	unsigned int msync2_enable;
 };
+
+extern unsigned int disp_spr_bypass;
 
 int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc);
 void mtk_drm_crtc_disable_vblank(struct drm_crtc *crtc);

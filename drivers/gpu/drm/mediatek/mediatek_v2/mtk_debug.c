@@ -77,6 +77,8 @@ unsigned int mipi_volt;
 unsigned int disp_met_en;
 unsigned int lfr_dbg;
 unsigned int lfr_params;
+unsigned int disp_spr_bypass;
+unsigned int disp_cm_bypass;
 
 int gCaptureOVLEn;
 int gCaptureWDMAEn;
@@ -1083,6 +1085,122 @@ done:
 	DDPMSG("%s end -\n", __func__);
 }
 
+void ddic_dsi_send_switch_pgt(unsigned int cmd_num, u8 addr,
+	u8 val1, u8 val2, u8 val3, u8 val4, u8 val5, u8 val6)
+{
+	unsigned int i = 0, j = 0;
+	int ret;
+	struct mtk_ddic_dsi_msg *cmd_msg =
+		vmalloc(sizeof(struct mtk_ddic_dsi_msg));
+	u8 tx[10] = {0};
+
+	DDPMSG("%s start case_num:%d\n", __func__, val3);
+
+	if (!cmd_num)
+		return;
+	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
+
+	switch (cmd_num) {
+	case 1:
+		cmd_msg->type[0] = 0x05;
+		break;
+	case 2:
+		cmd_msg->type[0] = 0x15;
+		break;
+	default:
+		cmd_msg->type[0] = 0x39;
+		break;
+	}
+
+	/* Send 0x35:0x00 */
+	cmd_msg->channel = 0;
+	cmd_msg->flags |= MIPI_DSI_MSG_USE_LPM;
+	cmd_msg->tx_cmd_num = 1;
+	tx[0] = addr;//0xFF;
+	tx[1] = val1;//0x78;
+	tx[2] = val2;//0x35;
+	tx[3] = val3;
+	tx[4] = val4;
+	tx[5] = val5;
+	tx[6] = val6;
+	cmd_msg->tx_buf[0] = tx;
+	cmd_msg->tx_len[0] = cmd_num;
+
+	DDPMSG("send lcm tx_cmd_num:%d\n", (int)cmd_msg->tx_cmd_num);
+	for (i = 0; i < (int)cmd_msg->tx_cmd_num; i++) {
+		DDPMSG("send lcm tx_len[%d]=%d\n",
+			i, (int)cmd_msg->tx_len[i]);
+		for (j = 0; j < (int)cmd_msg->tx_len[i]; j++) {
+			DDPMSG(
+				"send lcm type[%d]=0x%x, tx_buf[%d]--byte:%d,val:0x%x\n",
+				i, cmd_msg->type[i], i, j,
+				*(char *)(cmd_msg->tx_buf[i] + j));
+		}
+	}
+
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+	if (ret != 0) {
+		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
+		goto  done;
+	}
+done:
+	vfree(cmd_msg);
+
+	DDPMSG("%s end -\n", __func__);
+}
+
+void ddic_dsi_read_cm_cmd(u8 cm_addr)
+{
+	unsigned int i = 0, j = 0;
+	unsigned int ret_dlen = 0;
+	int ret;
+	struct mtk_ddic_dsi_msg *cmd_msg =
+		vmalloc(sizeof(struct mtk_ddic_dsi_msg));
+	u8 tx[10] = {0};
+
+	DDPMSG("%s start case_num:%d\n", __func__, cm_addr);
+
+	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
+
+	/* Read 0x0A = 0x1C */
+	cmd_msg->channel = 0;
+	cmd_msg->tx_cmd_num = 1;
+	cmd_msg->type[0] = 0x06;
+	tx[0] = cm_addr;
+	cmd_msg->tx_buf[0] = tx;
+	cmd_msg->tx_len[0] = 1;
+
+	cmd_msg->rx_cmd_num = 1;
+	cmd_msg->rx_buf[0] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
+	memset(cmd_msg->rx_buf[0], 0, 4);
+	cmd_msg->rx_len[0] = 1;
+
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		DDPPR_ERR("%s error\n", __func__);
+		goto  done;
+	}
+
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+		ret_dlen = cmd_msg->rx_len[i];
+		DDPMSG("read lcm addr:0x%x--dlen:%d--cmd_idx:%d\n",
+			*(char *)(cmd_msg->tx_buf[i]), ret_dlen, i);
+		for (j = 0; j < ret_dlen; j++) {
+			DDPMSG("read lcm addr:0x%x--byte:%d,val:0x%x\n",
+				*(char *)(cmd_msg->tx_buf[i]), j,
+				*(char *)(cmd_msg->rx_buf[i] + j));
+		}
+	}
+
+done:
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++)
+		kfree(cmd_msg->rx_buf[i]);
+	vfree(cmd_msg);
+
+	DDPMSG("%s end -\n", __func__);
+}
+
 void ddic_dsi_read_cmd_test(unsigned int case_num)
 {
 	unsigned int j = 0;
@@ -1511,6 +1629,137 @@ bool mtk_drm_set_cwb_user_buf(void *user_buffer, enum CWB_BUFFER_TYPE type)
 	return true;
 }
 
+static void mtk_crtc_set_cm_tune_para(
+	unsigned int en, unsigned int cm_c00, unsigned char cm_c01,
+	unsigned int cm_c02, unsigned int cm_c10, unsigned char cm_c11,
+	unsigned int cm_c12, unsigned int cm_c20, unsigned char cm_c21,
+	unsigned int cm_c22)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_panel_cm_params *cm_tune_params;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (!mtk_crtc->panel_cm_params) {
+		mtk_crtc->panel_cm_params = kzalloc(sizeof(struct mtk_panel_cm_params),
+			GFP_KERNEL);
+		DDPMSG("%s: need allocate memory\n", __func__);
+	}
+	if (!mtk_crtc->panel_cm_params) {
+		DDPPR_ERR("%s: allocate memory fail\n", __func__);
+		return;
+	}
+
+	cm_tune_params = mtk_crtc->panel_cm_params;
+	cm_tune_params->enable = en;
+	cm_tune_params->cm_c00 = cm_c00;
+	cm_tune_params->cm_c01 = cm_c01;
+	cm_tune_params->cm_c02 = cm_c02;
+	cm_tune_params->cm_c10 = cm_c10;
+	cm_tune_params->cm_c11 = cm_c11;
+	cm_tune_params->cm_c12 = cm_c12;
+	cm_tune_params->cm_c20 = cm_c20;
+	cm_tune_params->cm_c21 = cm_c21;
+	cm_tune_params->cm_c22 = cm_c22;
+
+	DDPINFO("%s,cm_matrix:0x%x count:%d\n", __func__, en,
+			cm_c00);
+
+	//DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	//DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+}
+
+bool mtk_crtc_spr_tune_enable(
+	unsigned int en)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_panel_spr_params *spr_params;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return false;
+	}
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (!mtk_crtc->panel_spr_params) {
+		mtk_crtc->panel_spr_params = kzalloc(sizeof(struct mtk_panel_spr_params),
+			GFP_KERNEL);
+		DDPMSG("%s: need allocate memory\n", __func__);
+	}
+	if (!mtk_crtc->panel_spr_params) {
+		DDPPR_ERR("%s: allocate memory fail\n", __func__);
+		return false;
+	}
+
+	spr_params = mtk_crtc->panel_spr_params;
+
+	DDPINFO("%s,spr_tune_en:%d\n", __func__, en);
+
+	//DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	spr_params->enable = en;
+	return true;
+	//DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+}
+
+static void mtk_crtc_set_spr_tune_para(
+	unsigned int color_type, unsigned int count, unsigned char para_list)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_panel_spr_params *spr_params;
+	struct spr_color_params *spr_tune_params;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (!mtk_crtc->panel_spr_params) {
+		mtk_crtc->panel_spr_params = kzalloc(sizeof(struct mtk_panel_spr_params),
+			GFP_KERNEL);
+		DDPMSG("%s: need allocate memory\n", __func__);
+	}
+	if (!mtk_crtc->panel_spr_params) {
+		DDPPR_ERR("%s: allocate memory fail\n", __func__);
+		return;
+	}
+
+	spr_params = mtk_crtc->panel_spr_params;
+	spr_tune_params = &spr_params->spr_color_params[color_type];
+	if (!spr_tune_params) {
+		spr_tune_params = kzalloc(sizeof(struct spr_color_params),
+			GFP_KERNEL);
+		DDPMSG("%s: need allocate memory\n", __func__);
+	}
+	if (!spr_tune_params) {
+		DDPPR_ERR("%s: allocate memory fail\n", __func__);
+		return;
+	}
+
+	spr_tune_params->tune_list[count] = 1;
+	spr_tune_params->para_list[count] = para_list;
+	spr_tune_params->count = 1;
+
+	DDPINFO("%s,spr_set:0x%x count:%d\n", __func__, para_list,
+			count);
+
+	//DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	//DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+}
+
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -1887,6 +2136,99 @@ static void process_dbg_opt(const char *opt)
 		DDPMSG("read_ddic_test:%d\n", case_num);
 
 		ddic_dsi_read_cmd_test(case_num);
+	} else if (strncmp(opt, "ddic_page_switch:", 17) == 0) {
+		u8 addr, val1, val2, val3;
+		u8 val4, val5, val6;
+		unsigned int cmd_num, ret;
+
+		ret = sscanf(opt, "ddic_page_switch:%d,%x,%x,%x,%x,%x,%x,%x\n",
+				&cmd_num, &addr, &val1, &val2, &val3,
+				&val4, &val5, &val6);
+
+		if (ret != (cmd_num + 1)) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		DDPMSG("ddic_spr_switch:%d\n", cmd_num);
+
+		ddic_dsi_send_switch_pgt(cmd_num, addr, val1, val2, val3,
+			val4, val5, val6);
+	} else if (strncmp(opt, "read_cm:", 8) == 0) {
+		u8 addr;
+		unsigned int ret;
+
+		ret = sscanf(opt, "read_cm:%x\n", &addr);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+		DDPMSG("read_cm:%d\n", addr);
+		ddic_dsi_read_cm_cmd(addr);
+	} else if (strncmp(opt, "ap_spr_cm_bypass:", 17) == 0) {
+		unsigned int spr_bypass, cm_bypass, ret;
+
+		ret = sscanf(opt, "ap_spr_cm_bypass:%d,%d\n", &spr_bypass, &cm_bypass);
+		if (ret != 2) {
+			DDPPR_ERR("%d error to set ap_spr_cm_bypass %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		DDPMSG("ap_spr_cm_bypass:%d, %d\n", spr_bypass, cm_bypass);
+
+		disp_spr_bypass = spr_bypass;
+		disp_cm_bypass = cm_bypass;
+	} else if (strncmp(opt, "disp_cm_set:", 12) == 0) {
+		unsigned int en, ret;
+		unsigned int cm_c00, cm_c01, cm_c02;
+		unsigned int cm_c10, cm_c11, cm_c12;
+		unsigned int cm_c20, cm_c21, cm_c22;
+
+		ret = sscanf(opt, "disp_cm_set:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+			&en, &cm_c00, &cm_c01, &cm_c02, &cm_c10, &cm_c11,
+			&cm_c12, &cm_c20, &cm_c21, &cm_c22);
+		if (ret != 10) {
+			DDPPR_ERR("%d error to set disp_cm_set %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		DDPMSG("disp_cm_set:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+			en, cm_c00, cm_c01, cm_c02, cm_c10, cm_c11,
+			cm_c12, cm_c20, cm_c21, cm_c22);
+
+		mtk_crtc_set_cm_tune_para(en, cm_c00, cm_c01, cm_c02, cm_c10, cm_c11,
+			cm_c12, cm_c20, cm_c21, cm_c22);
+	} else if (strncmp(opt, "disp_spr_set:", 13) == 0) {
+		unsigned int type, tune_num, tune_val, ret;
+
+		ret = sscanf(opt, "disp_spr_set:%d,%d,%d\n", &type,
+			&tune_num, &tune_val);
+		if (ret != 3) {
+			DDPPR_ERR("%d error to set disp_spr_set %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		DDPMSG("disp_spr_set:%d, %d, %d\n", type, tune_num, tune_val);
+
+		mtk_crtc_set_spr_tune_para(type, tune_num, tune_val);
+	} else if (strncmp(opt, "disp_spr_tune_en:", 17) == 0) {
+		unsigned int en, ret;
+
+		ret = sscanf(opt, "disp_spr_tune_en:%d\n", &en);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to set disp_spr_tune_en %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		DDPMSG("disp_spr_tune_en:%d\n", en);
+
+		mtk_crtc_spr_tune_enable(en);
 	} else if (strncmp(opt, "mipi_volt:", 10) == 0) {
 		char *p = (char *)opt + 10;
 		int ret;

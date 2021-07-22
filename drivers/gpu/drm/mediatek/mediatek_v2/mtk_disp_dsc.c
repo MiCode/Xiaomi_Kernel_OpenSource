@@ -41,6 +41,11 @@
 	#define DSC_ABN_EOF BIT(3)
 
 #define DISP_REG_DSC_INTACK			0x000C
+
+#define DISP_REG_DSC_SPR			0x0014
+#define CFG_FLD_DSC_SPR_EN	BIT(26)
+#define CFG_FLD_DSC_SPR_FORMAT_SEL	BIT(24)
+
 #define DISP_REG_DSC_PIC_W			0x0018
 	#define CFG_FLD_PIC_WIDTH	REG_FLD_MSB_LSB(15, 0)
 	#define CFG_FLD_PIC_HEIGHT_M1	REG_FLD_MSB_LSB(31, 16)
@@ -62,6 +67,8 @@
 #define DISP_REG_DSC_CFG			0x0034
 
 #define DISP_REG_DSC_PAD			0x0038
+#define DISP_REG_DSC_ENC_WIDTH		0x003C
+
 
 #define DISP_REG_DSC_DBG_CON		0x0060
 	#define DSC_CKSM_CAL_EN BIT(9)
@@ -280,6 +287,7 @@ u8 PPS[128] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
+
 static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 				 struct mtk_ddp_config *cfg,
 				 struct cmdq_pkt *handle)
@@ -288,11 +296,13 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	struct mtk_disp_dsc *dsc = comp_to_dsc(comp);
 	unsigned int dsc_con = 0;
 	unsigned int pic_group_width, slice_width, slice_height;
+	unsigned int enc_slice_width, enc_pic_width;
 	unsigned int pic_height_ext_num, slice_group_width;
 	unsigned int bit_per_pixel, chrunk_size, pad_num;
 	unsigned int init_delay_limit, init_delay_height_min;
 	unsigned int init_delay_height;
 	struct mtk_panel_dsc_params *dsc_params;
+	struct mtk_panel_spr_params *spr_params;
 
 	DDPFUNC();
 	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
@@ -304,6 +314,11 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 #else
 	mtk_dsc_default_setting();
 #endif
+
+
+	dsc_params = &comp->mtk_crtc->panel_ext->params->dsc_params;
+	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
+
 	if (dsc_params->enable == 1) {
 		DDPMSG("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
 			mtk_dump_comp_str(comp), cfg->w, cfg->h,
@@ -318,7 +333,54 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		/* 128=1/3, 196=1/2 */
 		bit_per_pixel = dsc_params->bit_per_pixel;
 		chrunk_size = (slice_width*bit_per_pixel/8/16);
+
+		if (spr_params->enable && spr_params->relay == 0
+			&& disp_spr_bypass == 0) {
+			reg_val = ((spr_params->relay == 0) ?
+				0x1 : 0) << 26;
+			switch (spr_params->spr_format_type) {
+			case MTK_PANEL_RGBG_BGRG_TYPE:
+				reg_val |= 0x00e10d2;
+				enc_slice_width = (slice_width + 1) / 2;
+				break;
+			case MTK_PANEL_BGRG_RGBG_TYPE:
+				reg_val |= 0x00d20e1;
+				enc_slice_width = (slice_width + 1) / 2;
+				break;
+			case MTK_PANEL_RGBRGB_BGRBGR_TYPE:
+				reg_val |= 0x1924186;
+				enc_slice_width = (slice_width * 2 + 2) / 3;
+				break;
+			case MTK_PANEL_BGRBGR_RGBRGB_TYPE:
+				reg_val |= 0x1186924;
+				enc_slice_width = (slice_width * 2 + 2) / 3;
+				break;
+			case MTK_PANEL_RGBRGB_BRGBRG_TYPE:
+				reg_val |= 0x1924492;
+				enc_slice_width = (slice_width * 2 + 2) / 3;
+				break;
+			case MTK_PANEL_BRGBRG_RGBRGB_TYPE:
+				reg_val |= 0x1492924;
+				enc_slice_width = (slice_width * 2 + 2) / 3;
+				break;
+			default:
+				reg_val = 0x0;
+				enc_slice_width = slice_width;
+				break;
+			}
+			mtk_ddp_write_relaxed(comp, reg_val,
+				DISP_REG_DSC_SPR, handle);
+			chrunk_size = (enc_slice_width*bit_per_pixel+7)/8;
+		} else {
+			mtk_ddp_write_relaxed(comp, 0x0,
+				DISP_REG_DSC_SPR, handle);
+			enc_slice_width = slice_width;
+		}
+		enc_pic_width = enc_slice_width * (dsc_params->slice_mode + 1);
 		pad_num = (chrunk_size + 2)/3*3 - chrunk_size;
+		mtk_ddp_write_relaxed(comp,
+			enc_pic_width << 16 | enc_slice_width,
+			DISP_REG_DSC_ENC_WIDTH, handle);
 
 		dsc_con |= DSC_UFOE_SEL;
 		if (comp->mtk_crtc->is_dual_pipe)

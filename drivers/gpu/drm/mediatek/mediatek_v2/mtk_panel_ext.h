@@ -80,11 +80,31 @@ typedef void (*dcs_grp_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				unsigned int para_size);
 typedef int (*panel_tch_rst) (void);
 
-enum MTK_PANEL_OUTPUT_MODE {
+enum MTK_PANEL_OUTPUT_PORT_MODE {
 	MTK_PANEL_SINGLE_PORT = 0x0,
 	MTK_PANEL_DSC_SINGLE_PORT,
 	MTK_PANEL_DUAL_PORT,
 };
+
+enum MTK_PANEL_SPR_OUTPUT_MODE {
+	MTK_PANEL_SPR_OUTPUT_MODE_NOT_DEFINED = 0,
+	MTK_PANEL_PACKED_SPR_8_BITS = 1,
+	MTK_PANEL_lOOSELY_SPR_8_BITS,
+	MTK_PANEL_lOOSELY_SPR_10_BITS,
+	MTK_PANEL_PACKED_SPR_12_BITS,
+};
+
+enum MTK_PANEL_SPR_MODE {
+	MTK_PANEL_SPR_MODE_NOT_DEFINED = 0,
+	MTK_PANEL_RGBG_BGRG_TYPE = 1,
+	MTK_PANEL_BGRG_RGBG_TYPE,
+	MTK_PANEL_RGBRGB_BGRBGR_TYPE,
+	MTK_PANEL_BGRBGR_RGBRGB_TYPE,
+	MTK_PANEL_RGBRGB_BRGBRG_TYPE,
+	MTK_PANEL_BRGBRG_RGBRGB_TYPE,
+	MTK_PANEL_EXT_TYPE,
+};
+
 
 struct esd_check_item {
 	unsigned char cmd;
@@ -125,6 +145,58 @@ enum MTK_LCM_DUMP_FLAG {
 	MTK_DRM_PANEL_DUMP_PARAMS,
 	MTK_DRM_PANEL_DUMP_OPS,
 	MTK_DRM_PANEL_DUMP_ALL
+};
+
+enum SPR_COLOR_PARAMS_TYPE {
+	SPR_WEIGHT_SET = 0,
+	SPR_BORDER_SET,
+	SPR_SPE_SET,
+	SPR_COLOR_PARAMS_TYPE_NUM,
+};
+
+struct spr_color_params {
+	enum SPR_COLOR_PARAMS_TYPE spr_color_params_type;
+	unsigned int count;
+	unsigned char para_list[80];
+	unsigned char tune_list[80];
+};
+
+struct mtk_panel_cm_params {
+	unsigned int enable;
+	unsigned int relay;
+	unsigned int cm_c00;
+	unsigned int cm_c01;
+	unsigned int cm_c02;
+	unsigned int cm_c10;
+	unsigned int cm_c11;
+	unsigned int cm_c12;
+	unsigned int cm_c20;
+	unsigned int cm_c21;
+	unsigned int cm_c22;
+	unsigned int cm_coeff_round_en;
+	unsigned int cm_precision_mask;
+	unsigned int bits_switch;
+	unsigned int cm_gray_en;
+};
+
+struct mtk_panel_spr_params {
+	unsigned int enable;
+	unsigned int relay;
+	unsigned int rgb_swap;
+	unsigned int bypass_dither;
+	unsigned int postalign_en;
+	unsigned int wrap_mode;
+	unsigned int specialcaseen;
+	unsigned int indata_res_sel;
+	unsigned int outdata_res_sel;
+	unsigned int padding_repeat_en;
+	unsigned int postalign_6type_mode_en;
+	unsigned int custom_header_en;
+	unsigned int custom_header;
+	unsigned int spr_format_type;
+	unsigned int rg_xy_swap;
+	struct spr_color_params spr_color_params[SPR_COLOR_PARAMS_TYPE_NUM];
+
 };
 
 struct mtk_panel_dsc_params {
@@ -243,6 +315,7 @@ struct mtk_panel_params {
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
 	unsigned int output_mode;
+	unsigned int spr_output_mode;
 	unsigned int lcm_cmd_if;
 	unsigned int hbm_en_time;
 	unsigned int hbm_dis_time;
@@ -256,6 +329,9 @@ struct mtk_panel_params {
 	/*Msync 2.0*/
 	unsigned int msync2_enable;
 	unsigned int max_vfp_for_msync;
+
+	struct mtk_panel_cm_params cm_params;
+	struct mtk_panel_spr_params spr_params;
 };
 
 struct mtk_panel_ext {
