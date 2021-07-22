@@ -321,7 +321,7 @@ void mtk_vcu_buffer_ref_dec(struct mtk_vcu_queue *vcu_queue,
 	void *mem_priv)
 {
 	struct mtk_vcu_mem *vcu_buffer;
-	unsigned int buffer, num_buffers, last_buffer;
+	unsigned int buffer, num_buffers;
 
 	mutex_lock(&vcu_queue->mmap_lock);
 	num_buffers = vcu_queue->num_buffers;
@@ -332,24 +332,6 @@ void mtk_vcu_buffer_ref_dec(struct mtk_vcu_queue *vcu_queue,
 				atomic_dec(&vcu_buffer->ref_cnt);
 			else
 				pr_info("[VCU][Error] %s fail\n", __func__);
-
-			if (atomic_read(&vcu_buffer->ref_cnt) == 0
-				&& vcu_buffer->dbuf != NULL) {
-				pr_debug("Free IO buff = %d iova = %llx mem_priv = %llx, queue_num = %d\n",
-						 buffer, vcu_buffer->iova,
-						 vcu_buffer->mem_priv,
-						 num_buffers);
-				fput(vcu_buffer->dbuf->file);
-
-				last_buffer = num_buffers - 1U;
-				if (last_buffer != buffer)
-					vcu_queue->bufs[buffer] =
-						vcu_queue->bufs[last_buffer];
-				vcu_queue->bufs[last_buffer].mem_priv = NULL;
-				vcu_queue->bufs[last_buffer].size = 0;
-				vcu_queue->bufs[last_buffer].dbuf = NULL;
-				vcu_queue->num_buffers--;
-			}
 		}
 	}
 	mutex_unlock(&vcu_queue->mmap_lock);
