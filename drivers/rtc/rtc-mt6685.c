@@ -114,7 +114,7 @@ static unsigned int mt6685_cali_reg[CALI_RG_MAX][3] = {
 
 static int rtc_field_read(struct mt6685_rtc *rtc, enum mtk_rtc_spare_enum cmd)
 {
-	unsigned int tmp_val;
+	unsigned int tmp_val = 0;
 	int ret;
 
 	if (cmd >= 0 && cmd < SPARE_RG_MAX) {
@@ -138,9 +138,9 @@ static int rtc_field_read(struct mt6685_rtc *rtc, enum mtk_rtc_spare_enum cmd)
 static int rtc_cali_field_write(struct mt6685_rtc *rtc,
 				enum cali_field_enum cmd, unsigned int val)
 {
-	unsigned int tmp_val;
+	unsigned int tmp_val = 0;
 
-	if (cmd >= 0 && cmd < SPARE_RG_MAX) {
+	if (cmd >= 0 && cmd < CALI_RG_MAX) {
 		pr_info("%s: cmd[%d], set rg[0x%x, 0x%x , %d] = 0x%x\n",
 				__func__, cmd,
 				mt6685_cali_reg[cmd][RTC_REG],
@@ -164,7 +164,7 @@ static int rtc_cali_field_write(struct mt6685_rtc *rtc,
 static int rtc_spare_field_write(struct mt6685_rtc *rtc,
 				enum mtk_rtc_spare_enum cmd, unsigned int val)
 {
-	unsigned int tmp_val;
+	unsigned int tmp_val = 0;
 
 	if (cmd >= 0 && cmd < SPARE_RG_MAX) {
 		pr_info("%s: cmd[%d], set rg[0x%x, 0x%x , %d] = 0x%x\n",
@@ -590,6 +590,11 @@ static irqreturn_t mtk_rtc_irq_handler_thread(int irq, void *data)
 
 	status = mtk_rtc_is_alarm_irq(rtc);
 
+	if (rtc->rtc_dev == NULL) {
+		mutex_unlock(&rtc->lock);
+		return IRQ_NONE;
+	}
+
 	dev_notice(rtc->rtc_dev->dev.parent, "%s:%d\n", __func__, status);
 
 	if (status == RTC_NONE) {
@@ -709,7 +714,7 @@ static void mtk_rtc_set_pwron_time(struct mt6685_rtc *rtc, struct rtc_time *tm)
 	data[RTC_OFFSET_YEAR] =
 		((tm->tm_year << RTC_PWRON_YEA_SHIFT) & RTC_PWRON_YEA_MASK);
 
-	for (i = RTC_OFFSET_SEC; i < RTC_OFFSET_COUNT * 2; i++) {
+	for (i = RTC_OFFSET_SEC; i < RTC_OFFSET_COUNT; i++) {
 		if (i == RTC_OFFSET_DOW)
 			continue;
 		ret =  rtc_update_bits(rtc,
