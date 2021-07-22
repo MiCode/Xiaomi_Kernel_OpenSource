@@ -3544,6 +3544,80 @@ void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc)
 	cmdq_pkt_flush_async(cmdq_handle, NULL, (void *)crtc_id);
 }
 
+#define GCE_JUMP_ZERO_ADDR 0x1000000100000000
+static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
+		struct mtk_drm_crtc *mtk_crtc)
+{
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	const u16 reg_jump = CMDQ_THR_SPR_IDX2;
+	const u16 te1_en = CMDQ_THR_SPR_IDX3;
+	struct cmdq_operand lop;
+	struct cmdq_operand rop;
+	u32 inst_condi_jump, inst_jump_end;
+	u64 *inst, jump_pa;
+	u64 jump_to_zero = GCE_JUMP_ZERO_ADDR;
+
+	cmdq_pkt_read(cmdq_handle, NULL,
+			cmdq_buf->pa_base + DISP_SLOT_TE1_EN, te1_en);
+	lop.reg = true;
+	lop.idx = te1_en;
+	rop.reg = false;
+	rop.value = 0x1;
+
+	inst_condi_jump = cmdq_handle->cmd_buf_size;
+	cmdq_pkt_assign_command(cmdq_handle, reg_jump, 0);
+	/* check whether te1_en is enabled*/
+	cmdq_pkt_cond_jump_abs(cmdq_handle, reg_jump,
+		&lop, &rop, CMDQ_EQUAL);
+
+	/* condition not match, here is nop jump */
+	cmdq_pkt_clear_event(cmdq_handle,
+			     mtk_crtc->gce_obj.event[EVENT_TE]);
+	if (mtk_drm_lcm_is_connect())
+		cmdq_pkt_wfe(cmdq_handle,
+				 mtk_crtc->gce_obj.event[EVENT_TE]);
+
+	inst_jump_end = cmdq_handle->cmd_buf_size;
+	cmdq_pkt_jump_addr(cmdq_handle, 0);
+
+	/* following instructinos is condition TRUE,
+	 * thus conditional jump should jump current offset
+	 */
+	inst = cmdq_pkt_get_va_by_offset(cmdq_handle, inst_condi_jump);
+	/* instruction may hit boundary case,
+	 * check if op code is jump and get next instruction if necessary
+	 */
+	if (inst && ((*inst)>>56 == CMDQ_CODE_JUMP))
+		inst = cmdq_pkt_get_va_by_offset(
+			cmdq_handle, inst_condi_jump + CMDQ_INST_SIZE);
+
+	jump_pa = cmdq_pkt_get_pa_by_offset(cmdq_handle,
+			cmdq_handle->cmd_buf_size);
+	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
+
+	/* condition match, here is nop jump */
+	cmdq_pkt_clear_event(cmdq_handle,
+			     mtk_crtc->gce_obj.event[EVENT_GPIO_TE1]);
+	if (mtk_drm_lcm_is_connect())
+		cmdq_pkt_wfe(cmdq_handle,
+				 mtk_crtc->gce_obj.event[EVENT_GPIO_TE1]);
+
+	/* this is end of whole condition, thus condition
+	 * FALSE part should jump here
+	 */
+	inst = cmdq_pkt_get_va_by_offset(cmdq_handle, inst_jump_end);
+	/* instruction may hit boundary case,
+	 * check if op code is jump and get next instruction if necessary
+	 */
+	if (inst && ((*inst) != jump_to_zero))
+		inst = cmdq_pkt_get_va_by_offset(
+			cmdq_handle, inst_jump_end + CMDQ_INST_SIZE);
+
+	jump_pa = cmdq_pkt_get_pa_by_offset(cmdq_handle,
+			cmdq_handle->cmd_buf_size);
+	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
+}
+
 void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 {
 	int ret = 0;
@@ -3587,12 +3661,16 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 #ifndef MTK_DRM_BRINGUP_STAGE
 		if (priv->data->mmsys_id != MMSYS_MT6983) { //mt6983_workaround
-			cmdq_pkt_clear_event(cmdq_handle,
-					     mtk_crtc->gce_obj.event[EVENT_TE]);
-
-			if (mtk_drm_lcm_is_connect())
-				cmdq_pkt_wfe(cmdq_handle,
-						 mtk_crtc->gce_obj.event[EVENT_TE]);
+			if (mtk_drm_helper_get_opt(priv->helper_opt,
+						MTK_DRM_OPT_DUAL_TE)) {
+				cmdq_pkt_wait_te(cmdq_handle, mtk_crtc);
+			} else {
+				cmdq_pkt_clear_event(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_TE]);
+				if (mtk_drm_lcm_is_connect())
+					cmdq_pkt_wfe(cmdq_handle,
+							mtk_crtc->gce_obj.event[EVENT_TE]);
+			}
 		}
 #endif
 		cmdq_pkt_clear_event(
@@ -7140,6 +7218,9 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		len = snprintf(buf, buf_len, "disp_token_vfp_period%d",
 			       drm_crtc_index(&mtk_crtc->base));
 		break;
+	case EVENT_GPIO_TE1:
+		len = snprintf(buf, buf_len, "disp_gpio_te1");
+		break;
 	default:
 		DDPPR_ERR("%s invalid event_id:%d\n", __func__, event_id);
 		memset(output_comp, 0, sizeof(output_comp));
@@ -7895,6 +7976,11 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	atomic_set(&mtk_crtc->cmdq_done, 0);
 	wake_up_process(mtk_crtc->signal_present_fece_task);
 #endif
+
+	if (output_comp && mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_DUAL_TE))
+		mtk_ddp_comp_io_cmd(output_comp, NULL, DUAL_TE_INIT,
+				&mtk_crtc->base);
 
 	DDPMSG("%s-CRTC%d create successfully\n", __func__,
 		priv->num_pipes - 1);
@@ -9544,3 +9630,40 @@ int mtk_drm_format_plane_cpp(uint32_t format, int plane)
 	return info->cpp[plane];
 }
 
+int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *private = crtc->dev->dev_private;
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	struct dual_te *d_te = &mtk_crtc->d_te;
+	struct cmdq_pkt *handle;
+	dma_addr_t addr;
+
+	if (!mtk_drm_helper_get_opt(private->helper_opt,
+				MTK_DRM_OPT_DUAL_TE) || !d_te->en)
+		return -EINVAL;
+
+	mutex_lock(&private->commit.lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	addr = cmdq_buf->pa_base + DISP_SLOT_TE1_EN;
+	if (te_num == 1) {
+		DDPMSG("switched to te1!\n");
+		atomic_set(&d_te->te_switched, 1);
+		enable_irq(d_te->te1);
+		cmdq_pkt_write(handle,
+			mtk_crtc->gce_obj.base, addr, 1, ~0);
+	} else {
+		DDPMSG("switched to te0!\n");
+		atomic_set(&d_te->te_switched, 0);
+		disable_irq(d_te->te1);
+		cmdq_pkt_write(handle,
+			mtk_crtc->gce_obj.base, addr, 0, ~0);
+	}
+	cmdq_pkt_flush(handle);
+	cmdq_pkt_destroy(handle);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+	mutex_unlock(&private->commit.lock);
+	return 0;
+}

@@ -18,6 +18,7 @@
 #include <linux/component.h>
 #include <linux/irq.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/of_graph.h>
 #include <linux/phy/phy.h>
@@ -1628,13 +1629,12 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	 * Read LCM will clear the bit.
 	 */
 	/* do not clear vm command done */
+	mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	status &= 0xffde;
 	if (status) {
 		writel(~status, dsi->regs + DSI_INTSTA);
 		if (status & BUFFER_UNDERRUN_INT_FLAG) {
 			struct mtk_drm_private *priv = NULL;
-
-			mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
@@ -1679,7 +1679,8 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		if (status & SLEEPIN_ULPS_DONE_INT_FLAG)
 			wakeup_dsi_wq(&dsi->enter_ulps_done);
 
-		if (status & TE_RDY_INT_FLAG) {
+		if ((status & TE_RDY_INT_FLAG) && mtk_crtc &&
+				(atomic_read(&mtk_crtc->d_te.te_switched) != 1)) {
 			struct mtk_drm_private *priv = NULL;
 
 			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
@@ -1687,7 +1688,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 				lcm_fps_ctx_update(ext_te_time, 0, 0);
 			}
-			mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
@@ -1719,8 +1719,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 		if (status & FRAME_DONE_INT_FLAG) {
 			struct mtk_drm_private *priv = NULL;
-
-			mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
@@ -5287,6 +5285,90 @@ static void mtk_dsi_timing_change(struct mtk_dsi *dsi,
 		mtk_dsi_vdo_timing_change(dsi, mtk_crtc, old_state);
 }
 
+static irqreturn_t dsi_te1_irq_handler(int irq, void *data)
+{
+	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
+	struct mtk_ddp_comp *output_comp;
+	struct mtk_dsi *dsi;
+	struct mtk_drm_private *priv = NULL;
+	struct mtk_panel_ext *panel_ext;
+	bool doze_enabled = 0;
+	unsigned int doze_wait = 0;
+	static unsigned int cnt;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp == NULL) {
+		pr_info("%s: null pointer\n", __func__);
+		return IRQ_NONE;
+	}
+	dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+		unsigned long long ext_te_time = sched_clock();
+
+		lcm_fps_ctx_update(ext_te_time, 0, 0);
+	}
+
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
+	if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_HBM))
+		wakeup_dsi_wq(&dsi->te_rdy);
+
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
+			mtk_crtc && mtk_crtc->vblank_en) {
+		panel_ext = dsi->ext;
+		if (dsi->encoder.crtc)
+			doze_enabled = mtk_dsi_doze_state(dsi);
+		if (panel_ext->params->doze_delay && doze_enabled) {
+			doze_wait = panel_ext->params->doze_delay;
+			if (cnt % doze_wait == 0) {
+				mtk_crtc_vblank_irq(&mtk_crtc->base);
+				cnt = 0;
+			}
+			cnt++;
+		} else {
+			mtk_crtc_vblank_irq(&mtk_crtc->base);
+		}
+	}
+	/* ESD check */
+	if (atomic_read(&mtk_crtc->d_te.esd_te1_en) == 1) {
+		atomic_set(&mtk_crtc->esd_ctx->ext_te_event, 1);
+		wake_up_interruptible(&mtk_crtc->esd_ctx->ext_te_wq);
+	}
+	return IRQ_HANDLED;
+}
+
+static void dual_te_init(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct dual_te *d_te = &mtk_crtc->d_te;
+	struct device_node *node;
+	int ret;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_DUAL_TE))
+		return;
+
+	node = of_find_compatible_node(NULL, NULL,
+			"mediatek, DSI1_TE-int");
+	if (unlikely(!node)) {
+		pr_info("can't find DSI1 TE int compatible node\n");
+		return;
+	}
+
+	d_te->te1 = irq_of_parse_and_map(node, 0);
+	ret = request_irq(d_te->te1, dsi_te1_irq_handler,
+			IRQF_TRIGGER_RISING, "DSI1_TE", mtk_crtc);
+	if (ret) {
+		pr_info("request irq failed!\n");
+		return;
+	}
+	disable_irq(d_te->te1);
+	_set_state(crtc, "mode_te_te1");
+	d_te->en = true;
+}
+
 static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd cmd, void *params)
 {
@@ -5898,6 +5980,11 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	}
 		break;
 	/****Msync 2.0 cmds end*****/
+	case DUAL_TE_INIT:
+	{
+		dual_te_init((struct drm_crtc *)params);
+	}
+		break;
 	default:
 		break;
 	}

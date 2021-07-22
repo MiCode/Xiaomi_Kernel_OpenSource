@@ -121,7 +121,9 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_VFP_PERIOD (DISP_SLOT_CUR_BL_IDX + 0x4)
 #define DISP_SLOT_DSI_STATE_DBG7 (DISP_SLOT_VFP_PERIOD + 0x4)
 #define DISP_SLOT_DSI_STATE_DBG7_2 (DISP_SLOT_DSI_STATE_DBG7 + 0x4)
-#define DISP_SLOT_SIZE (DISP_SLOT_DSI_STATE_DBG7_2 + 0x4)
+
+#define DISP_SLOT_TE1_EN (DISP_SLOT_DSI_STATE_DBG7_2 + 0x4)
+#define DISP_SLOT_SIZE (DISP_SLOT_TE1_EN + 0x4)
 
 #if DISP_SLOT_SIZE > CMDQ_BUF_ALLOC_SIZE
 #error "DISP_SLOT_SIZE exceed CMDQ_BUF_ALLOC_SIZE"
@@ -459,6 +461,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_DSI0_SOF,
 	/*Msync 2.0*/
 	EVENT_SYNC_TOKEN_VFP_PERIOD,
+	EVENT_GPIO_TE1,
 	EVENT_TYPE_MAX,
 };
 
@@ -648,6 +651,13 @@ struct mtk_msync2 {
 	atomic_t LFR_final_state;
 };
 
+struct dual_te {
+	bool en;
+	atomic_t te_switched;
+	atomic_t esd_te1_en;
+	int te1;
+};
+
 /**
  * struct mtk_drm_crtc - MediaTek specific crtc structure.
  * @base: crtc object.
@@ -772,6 +782,7 @@ struct mtk_drm_crtc {
 	struct mtk_msync2 msync2;
 	struct mtk_panel_spr_params *panel_spr_params;
 	struct mtk_panel_cm_params *panel_cm_params;
+	struct dual_te d_te;
 };
 
 struct mtk_crtc_state {
@@ -952,4 +963,6 @@ bool mtk_crtc_frame_buffer_existed(void);
 
 /* ********************* Legacy DRM API **************************** */
 int mtk_drm_format_plane_cpp(uint32_t format, int plane);
+
+int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num);
 #endif /* MTK_DRM_CRTC_H */

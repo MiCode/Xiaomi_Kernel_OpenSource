@@ -280,6 +280,7 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	int ret = 1;
 
 	DDPINFO("[ESD]ESD check eint\n");
@@ -289,7 +290,12 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 		return -EINVAL;
 	}
 
-	enable_irq(esd_ctx->eint_irq);
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_DUAL_TE) &&
+			(atomic_read(&mtk_crtc->d_te.te_switched) == 1))
+		atomic_set(&mtk_crtc->d_te.esd_te1_en, 1);
+	else
+		enable_irq(esd_ctx->eint_irq);
 
 	/* check if there is TE in the last 2s, if so ESD check is pass */
 	if (wait_event_interruptible_timeout(
@@ -298,7 +304,12 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 		    HZ / 2) > 0)
 		ret = 0;
 
-	disable_irq(esd_ctx->eint_irq);
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_DUAL_TE) &&
+			(atomic_read(&mtk_crtc->d_te.te_switched) == 1))
+		atomic_set(&mtk_crtc->d_te.esd_te1_en, 0);
+	else
+		disable_irq(esd_ctx->eint_irq);
 	atomic_set(&esd_ctx->ext_te_event, 0);
 
 	return ret;
