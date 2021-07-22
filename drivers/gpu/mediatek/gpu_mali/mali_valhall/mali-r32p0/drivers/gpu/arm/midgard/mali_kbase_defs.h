@@ -927,6 +927,8 @@ struct kbase_process {
  * @dummy_job_wa.jc:        dummy job workaround job
  * @dummy_job_wa.slot:      dummy job workaround slot
  * @dummy_job_wa.flags:     dummy job workaround flags
+ * @dummy_job_wa_loaded:    Flag for indicating that the workaround blob has
+ *                          been loaded. Protected by @fw_load_lock.
  * @arb:                    Pointer to the arbiter device
  * @pcm_dev:                The priority control manager device.
  * @oom_notifier_block:     notifier_block containing kernel-registered out-of-
@@ -1185,6 +1187,7 @@ struct kbase_device {
 		int slot;
 		u64 flags;
 	} dummy_job_wa;
+	bool dummy_job_wa_loaded;
 
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
 		struct kbase_arbiter_device arb;

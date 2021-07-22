@@ -237,8 +237,7 @@ static const struct kbase_device_init dev_init[] = {
 	{ kbase_gpuprops_populate_user_buffer, kbase_gpuprops_free_user_buffer,
 	  "GPU property population failed" },
 #endif
-	{kbase_dummy_job_wa_load, kbase_dummy_job_wa_cleanup,
-			"Dummy job workaround load failed"},
+	{ NULL, kbase_dummy_job_wa_cleanup, NULL },
 	{kbase_device_late_init, kbase_device_late_term,
 			"Late device initialization failed"},
 };
@@ -270,13 +269,15 @@ int kbase_device_init(struct kbase_device *kbdev)
 	kbase_disjoint_init(kbdev);
 
 	for (i = 0; i < ARRAY_SIZE(dev_init); i++) {
-		err = dev_init[i].init(kbdev);
-		if (err) {
-			if (err != -EPROBE_DEFER)
-				dev_err(kbdev->dev, "%s error = %d\n",
-						dev_init[i].err_mes, err);
-			kbase_device_term_partial(kbdev, i);
-			break;
+		if (dev_init[i].init) {
+			err = dev_init[i].init(kbdev);
+			if (err) {
+				if (err != -EPROBE_DEFER)
+					dev_err(kbdev->dev, "%s error = %d\n",
+							dev_init[i].err_mes, err);
+				kbase_device_term_partial(kbdev, i);
+				break;
+			}
 		}
 	}
 
@@ -285,9 +286,14 @@ int kbase_device_init(struct kbase_device *kbdev)
 
 int kbase_device_firmware_init_once(struct kbase_device *kbdev)
 {
-	/* ToDo: GPUCORE-28615
-	 * Call @ref kbase_dummy_job_wa_load when device file is opened
-	 * to comply with Android GKI vendor guideline.
-	 */
-	return 0;
+	int ret = 0;
+
+	mutex_lock(&kbdev->fw_load_lock);
+	if (!kbdev->dummy_job_wa_loaded) {
+		ret = kbase_dummy_job_wa_load(kbdev);
+		if (!ret)
+			kbdev->dummy_job_wa_loaded = true;
+	}
+	mutex_unlock(&kbdev->fw_load_lock);
+	return ret;
 }
