@@ -28,7 +28,7 @@
 #endif
 			port {
 				seninf_csi_port_1_in: endpoint {
-					remote-endpoint = <&sensor3_out>;
+					remote-endpoint = <&sensor4_out>;
 				};
 			};
 		};
@@ -390,7 +390,7 @@
 		};
 	};
 
-	sensor3: sensor3@10 {
+	sensor4: sensor4@10 {
 		compatible = "mediatek,imgsensor";
 		reg = <0x10>;
 
@@ -427,7 +427,7 @@
 		status = "okay";
 
 		port {
-			sensor3_out: endpoint {
+			sensor4_out: endpoint {
 				remote-endpoint = <&seninf_csi_port_1_in>;
 			};
 		};
