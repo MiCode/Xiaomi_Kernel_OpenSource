@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
+#include <linux/device.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
@@ -27,9 +28,10 @@
 #include <media/videobuf2-v4l2.h>
 
 #include <soc/mediatek/smi.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 #include "mtk_aie.h"
-
+#define FLD
 #define AIE_QOS_MAX 4
 #define AIE_QOS_RA_IDX 0
 #define AIE_QOS_RB_IDX 1
@@ -79,21 +81,21 @@ static const struct v4l2_pix_format_mplane mtk_aie_img_fmts[] = {
 		.pixelformat = V4L2_PIX_FMT_NV12, .num_planes = 1,
 	},
 };
-
+#if CHECK_SERVICE_0
 static struct mtk_aie_qos_path aie_qos_path[AIE_QOS_MAX] = {
 	{NULL, "l12_fdvt_rda", 0},
 	{NULL, "l12_fdvt_rdb", 0},
 	{NULL, "l12_fdvt_wra", 0},
 	{NULL, "l12_fdvt_wrb", 0}
 };
-
+#endif
 #define NUM_FORMATS ARRAY_SIZE(mtk_aie_img_fmts)
 
 static inline struct mtk_aie_ctx *fh_to_ctx(struct v4l2_fh *fh)
 {
 	return container_of(fh, struct mtk_aie_ctx, fh);
 }
-
+#if CHECK_SERVICE_0
 static void mtk_aie_mmdvfs_init(struct mtk_aie_dev *fd)
 {
 	struct mtk_aie_dvfs *dvfs_info = &fd->dvfs_info;
@@ -153,7 +155,7 @@ static void mtk_aie_mmdvfs_init(struct mtk_aie_dev *fd)
 	dvfs_info->cur_volt = 0;
 
 }
-
+#endif
 static void mtk_aie_mmdvfs_uninit(struct mtk_aie_dev *fd)
 {
 	struct mtk_aie_dvfs *dvfs_info = &fd->dvfs_info;
@@ -166,7 +168,7 @@ static void mtk_aie_mmdvfs_uninit(struct mtk_aie_dev *fd)
 	ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
 
 }
-
+#if CHECK_SERVICE_0
 static void mtk_aie_mmdvfs_set(struct mtk_aie_dev *fd,
 				bool isSet, unsigned int level)
 {
@@ -187,7 +189,8 @@ static void mtk_aie_mmdvfs_set(struct mtk_aie_dev *fd,
 		dvfs_info->cur_volt = volt;
 	}
 }
-
+#endif
+#if CHECK_SERVICE_0
 static void mtk_aie_mmqos_init(struct mtk_aie_dev *fd)
 {
 	struct mtk_aie_qos *qos_info = &fd->qos_info;
@@ -199,8 +202,11 @@ static void mtk_aie_mmqos_init(struct mtk_aie_dev *fd)
 	qos_info->qos_path = aie_qos_path;
 
 	for (idx = 0; idx < AIE_QOS_MAX; idx++) {
+//for fpga
+#if CHECK_SERVICE_0
 		qos_info->qos_path[idx].path =
 			of_mtk_icc_get(qos_info->dev, qos_info->qos_path[idx].dts_name);
+#endif
 		qos_info->qos_path[idx].bw = 0;
 		dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, name=%s, bw=%d\n",
 			__func__, idx,
@@ -209,7 +215,7 @@ static void mtk_aie_mmqos_init(struct mtk_aie_dev *fd)
 			qos_info->qos_path[idx].bw);
 	}
 }
-
+#endif
 static void mtk_aie_mmqos_uninit(struct mtk_aie_dev *fd)
 {
 	struct mtk_aie_qos *qos_info = &fd->qos_info;
@@ -225,10 +231,11 @@ static void mtk_aie_mmqos_uninit(struct mtk_aie_dev *fd)
 			qos_info->qos_path[idx].path,
 			qos_info->qos_path[idx].bw);
 		qos_info->qos_path[idx].bw = 0;
-		mtk_icc_set_bw(qos_info->qos_path[idx].path, 0, 0);
+		//for fpga
+		//mtk_icc_set_bw(qos_info->qos_path[idx].path, 0, 0);
 	}
 }
-
+#if CHECK_SERVICE_0
 static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 				bool isSet)
 {
@@ -256,8 +263,9 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 				qos_info->qos_path[idx].path,
 				qos_info->qos_path[idx].bw, r_bw);
 			qos_info->qos_path[idx].bw = r_bw;
-			mtk_icc_set_bw(qos_info->qos_path[idx].path,
-				       MBps_to_icc(qos_info->qos_path[idx].bw), 0);
+			//for fpga
+			//mtk_icc_set_bw(qos_info->qos_path[idx].path,
+					//MBps_to_icc(qos_info->qos_path[idx].bw), 0);
 		}
 
 		if (idx == AIE_QOS_WA_IDX &&
@@ -267,11 +275,13 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 				qos_info->qos_path[idx].path,
 				qos_info->qos_path[idx].bw, w_bw);
 			qos_info->qos_path[idx].bw = w_bw;
-			mtk_icc_set_bw(qos_info->qos_path[idx].path,
-				       MBps_to_icc(qos_info->qos_path[idx].bw), 0);
+			//for fpga
+			//mtk_icc_set_bw(qos_info->qos_path[idx].path,
+					//MBps_to_icc(qos_info->qos_path[idx].bw), 0);
 		}
 	}
 }
+#endif
 #if CHECK_SERVICE_0
 static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 				    struct user_init *user_init,
@@ -328,13 +338,19 @@ static void mtk_aie_hw_done(struct mtk_aie_dev *fd,
 
 static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
+	int ret = 0;
+
+	dev_info(fd->dev, "mtk_aie_hw_connect start!: %x %x\n", fd->map_count, fd->fd_stream_count);
 	fd->fd_stream_count++;
-	fd->map_count = 0;
+
 	if (fd->fd_stream_count == 1) {
-		if (mtk_aie_hw_enable(fd))
+		ret = mtk_aie_hw_enable(fd);
+		if (ret)
 			return -EINVAL;
-		mtk_aie_mmdvfs_set(fd, 1, 0);
-		mtk_aie_mmqos_set(fd, 1);
+		//mtk_aie_mmdvfs_set(fd, 1, 0);
+		//mtk_aie_mmqos_set(fd, 1);
+
+		fd->map_count = 0;
 	}
 	return 0;
 }
@@ -343,8 +359,8 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 {
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) {
-		mtk_aie_mmqos_set(fd, 0);
-		mtk_aie_mmdvfs_set(fd, 0, 0);
+		//mtk_aie_mmqos_set(fd, 0);
+		//mtk_aie_mmdvfs_set(fd, 0, 0);
 		aie_uninit(fd);
 	}
 }
@@ -473,11 +489,94 @@ static int mtk_aie_vb2_queue_setup(struct vb2_queue *vq,
 static int mtk_aie_vb2_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct mtk_aie_ctx *ctx = vb2_get_drv_priv(vq);
+	dev_info(ctx->dev, "start streaming!");
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return mtk_aie_hw_connect(ctx->fd_dev);
 
 	return 0;
+}
+void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned int size)
+{
+	unsigned int i;
+	unsigned int comparetimes = size / 4;
+
+	//LOG_INF("Total Byte Size: %d", size);
+	for (i = 0; i < comparetimes; i += 4) {
+		dev_info(fd->dev, "0x%08x, 0x%08x, 0x%08x, 0x%08x", hw[i],
+						hw[i + 1], hw[i + 2], hw[i + 3]);
+	}
+	dev_info(fd->dev, "Dump End");
+}
+
+static signed int fdvt_dump_reg(struct mtk_aie_dev *fd)
+{
+	signed int ret = 0;
+
+	dev_info(fd->dev, "- E.");
+	dev_info(fd->dev, "FDVT Config Info\n");
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
+	    (unsigned int)readl(fd->fd_base + AIE_START_REG));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_ENABLE_REG,
+		(unsigned int)readl(fd->fd_base + AIE_ENABLE_REG));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_LOOP_REG,
+		(unsigned int)readl(fd->fd_base + AIE_LOOP_REG));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_INT_EN_REG,
+		(unsigned int)readl(fd->fd_base + AIE_INT_EN_REG));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_SRC_WD_HT,
+		(unsigned int)readl(fd->fd_base + FDVT_SRC_WD_HT));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DES_WD_HT,
+		(unsigned int)readl(fd->fd_base + FDVT_DES_WD_HT));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_0,
+		(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_1,
+		(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_1));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_YUV2RGB_CON,
+		(unsigned int)readl(fd->fd_base + FDVT_YUV2RGB_CON));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_RS_CON_BASE_ADR_REG,
+		(unsigned int)readl(fd->fd_base + AIE_RS_CON_BASE_ADR_REG));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_FD_CON_BASE_ADR_REG,
+		(unsigned int)readl(fd->fd_base + AIE_FD_CON_BASE_ADR_REG));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_YUV2RGB_CON_BASE_ADR_REG,
+		(unsigned int)readl(fd->fd_base + AIE_YUV2RGB_CON_BASE_ADR_REG));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_0,
+		(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_0));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_1,
+		(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_1));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_2,
+		(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_2));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_3,
+		(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_3));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_0,
+		(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_0));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_1,
+		(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_1));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_2,
+		(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_2));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_3,
+		(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_3));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_0,
+		(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_0));
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_1,
+		(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_1));
+	dev_info(fd->dev, "FLD	done\n");
+	dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_DONE,
+	    (unsigned int)readl(fd->fd_base + FLD_DONE));
+	dev_info(fd->dev,
+		"fdmode_fdvt_fd_config:		0x%x, fdmode_fdvt_yuv2rgb_config_size:	   %d",
+		fd->base_para->fd_yuv2rgb_cfg_va, fd->fd_yuv2rgb_cfg_size);
+	FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_yuv2rgb_cfg_va, fd->fd_yuv2rgb_cfg_size);
+	dev_info(fd->dev,
+		"fdmode_fdvt_rs_config:	  0x%x, fdmode_fdvt_rs_config_size:	 %d",
+		fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
+	FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
+	dev_info(fd->dev,
+		"fdmode_fdvt_fd_pose_config:	0x%x, fdmode_fdvt_fd_pose_config_size:		%d",
+		fd->base_para->fd_fd_cfg_va, fd->fd_fd_cfg_size);
+	FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va, fd->fd_fd_cfg_size);
+
+
+	return ret;
 }
 
 static void mtk_aie_job_timeout_work(struct work_struct *work)
@@ -521,6 +620,7 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 	if (fd->aie_cfg->sel_mode == 1)
 		dev_info(fd->dev, "[ATTRMODE] w_idx = %d, r_idx = %d\n",
 			 fd->attr_para->w_idx, fd->attr_para->r_idx);
+	fdvt_dump_reg(fd);
 
 	aie_irqhandle(fd);
 	aie_reset(fd);
@@ -542,16 +642,18 @@ static void mtk_aie_vb2_stop_streaming(struct vb2_queue *vq)
 	struct v4l2_m2m_ctx *m2m_ctx = ctx->fh.m2m_ctx;
 	struct v4l2_m2m_queue_ctx *queue_ctx;
 
+	dev_info(fd->dev, "STREAM STOP\n");
+
 	mtk_aie_job_wait_finish(fd);
 	queue_ctx = V4L2_TYPE_IS_OUTPUT(vq->type) ? &m2m_ctx->out_q_ctx
 						  : &m2m_ctx->cap_q_ctx;
 	while ((vb = v4l2_m2m_buf_remove(queue_ctx)))
 		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
-
-	dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
-	dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
-	fd->map_count--;
-
+	if (fd->dmabuf->vmap_ptr != NULL) {
+		dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
+		dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
+		fd->map_count--;
+	}
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		mtk_aie_hw_disconnect(fd);
 }
@@ -1046,12 +1148,14 @@ static void mtk_aie_device_run(void *priv)
 	fd->aie_cfg->src_padding.down = g_user_param.user_param.src_padding_down;
 	fd->aie_cfg->src_padding.up = g_user_param.user_param.src_padding_up;
 	fd->aie_cfg->freq_level = g_user_param.user_param.freq_level;
-#ifdef FLD
-	fd->aie_cfg->fld_face_num = g_user_param.user_param.fld_face_num;
-	memcpy(fd->aie_cfg->fld_input, g_user_param.user_param.fld_input,
-		 sizeof(struct FLD_CROP_RIP_ROP)*g_user_param.user_param.fld_face_num);
-#endif
-	if (!(fd->aie_cfg->sel_mode == 2) & (fd->aie_cfg->src_img_fmt == FMT_YUV420_1P)) {
+
+	if (fd->aie_cfg->sel_mode == 3) {
+		fd->aie_cfg->fld_face_num = g_user_param.user_param.fld_face_num;
+		memcpy(fd->aie_cfg->fld_input, g_user_param.user_param.fld_input,
+		sizeof(struct FLD_CROP_RIP_ROP)*g_user_param.user_param.fld_face_num);
+	}
+	if (!(fd->aie_cfg->sel_mode == 3) & (fd->aie_cfg->src_img_fmt == FMT_YUV420_1P)) {
+		/*FLD Just have Y*/
 		fd_param.src_img[1].dma_addr = fd_param.src_img[0].dma_addr +
 			g_user_param.user_param.src_img_stride *
 			g_user_param.user_param.src_img_height;
@@ -1060,10 +1164,20 @@ static void mtk_aie_device_run(void *priv)
 	fd->aie_cfg->src_img_addr = fd_param.src_img[0].dma_addr;
 	fd->aie_cfg->src_img_addr_uv = fd_param.src_img[1].dma_addr;
 
-	ret = aie_prepare(fd, fd->aie_cfg);//fld just setting debug param
+	if (!(fd->aie_cfg->sel_mode == 3)) {
+		ret = aie_prepare(fd, fd->aie_cfg);//fld just setting debug param
+	} else {
+		fd->fld_para->sel_mode = fd->aie_cfg->sel_mode;
+		fd->fld_para->img_height = fd->aie_cfg->src_img_height;
+		fd->fld_para->img_width = fd->aie_cfg->src_img_width;
+		fd->fld_para->face_num = fd->aie_cfg->fld_face_num;
+		fd->fld_para->src_img_addr = fd->aie_cfg->src_img_addr;
+		memcpy(fd->fld_para->fld_input, fd->aie_cfg->fld_input,
+			sizeof(struct FLD_CROP_RIP_ROP) * fd->aie_cfg->fld_face_num);
+	}
 
 	/* mmdvfs */
-	mtk_aie_mmdvfs_set(fd, 1, fd->aie_cfg->freq_level);
+	//mtk_aie_mmdvfs_set(fd, 1, fd->aie_cfg->freq_level);
 
 	/* Complete request controls if any */
 	v4l2_ctrl_request_complete(src_buf->vb2_buf.req_obj.req, &ctx->hdl);
@@ -1129,7 +1243,7 @@ err_free_dev:
 	video_device_release(vfd);
 	return ret;
 }
-
+#if CHECK_SERVICE_0
 static int mtk_aie_dev_larb_init(struct mtk_aie_dev *fd)
 {
 	struct device_node *node;
@@ -1149,7 +1263,7 @@ static int mtk_aie_dev_larb_init(struct mtk_aie_dev *fd)
 
 	return 0;
 }
-
+#endif
 static int mtk_aie_dev_v4l2_init(struct mtk_aie_dev *fd)
 {
 	struct media_device *mdev = &fd->mdev;
@@ -1212,7 +1326,7 @@ static void mtk_aie_dev_v4l2_release(struct mtk_aie_dev *fd)
 	v4l2_m2m_release(fd->m2m_dev);
 	v4l2_device_unregister(&fd->v4l2_dev);
 }
-
+#if CHECK_SERVICE_0
 static irqreturn_t mtk_aie_irq(int irq, void *data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data;
@@ -1223,7 +1337,7 @@ static irqreturn_t mtk_aie_irq(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
-
+#endif
 static void mtk_aie_frame_done_worker(struct work_struct *work)
 {
 	struct mtk_aie_req_work *req_work = (struct mtk_aie_req_work *)work;
@@ -1238,7 +1352,7 @@ static void mtk_aie_frame_done_worker(struct work_struct *work)
 		aie_get_fd_result(fd, fd->aie_cfg);
 	else if (fd->aie_cfg->sel_mode == 1)
 		aie_get_attr_result(fd, fd->aie_cfg);
-	else if (fd->aie_cfg->sel_mode == 2)
+	else if (fd->aie_cfg->sel_mode == 3)
 		aie_get_fld_result(fd, fd->aie_cfg);
 
 	mtk_aie_hw_done(fd, VB2_BUF_STATE_DONE);
@@ -1250,19 +1364,23 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	struct resource *res;
-	int irq;
+	//int irq;
 	int ret;
+	dev_info(dev, "probe start\n");
 
 	fd = devm_kzalloc(&pdev->dev, sizeof(*fd), GFP_KERNEL);
-	if (!fd)
-		return -ENOMEM;
 
+	memset(fd, 0, sizeof(*fd));
+	if (!fd) {
+		dev_info(dev, "devm_kzalloc fail!\n");
+		return -ENOMEM;
+	}
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
 	dev_set_drvdata(dev, fd);
 	fd->dev = dev;
-
+#if CHECK_SERVICE_0
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_info(dev, "Failed to get irq by platform: %d\n", irq);
@@ -1275,7 +1393,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		dev_info(dev, "Failed to request irq\n");
 		return ret;
 	}
-
+#endif
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	fd->fd_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(fd->fd_base)) {
@@ -1289,7 +1407,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	writel(0x00000003, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
 	writel(0x00000003, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
 
-/*
+#if CHECK_SERVICE_0
 	ret = mtk_aie_dev_larb_init(fd);
 	if (ret) {
 		dev_info(dev, "Failed to init larb : %d\n", ret);
@@ -1319,6 +1437,25 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		dev_info(dev, "Failed to get ipe_top clock\n");
 		return PTR_ERR(fd->ipe_top);
 	}
+#endif
+
+	fd->fdvt_clt = cmdq_mbox_create(dev, 0);
+	dev_info(dev, "cmdq fd->fdvt_clt:%x\n", fd->fdvt_clt);
+	if (!fd->fdvt_clt)
+		dev_info(dev, "cmdq mbox create fail\n");
+	else
+		dev_info(dev, "cmdq mbox create done\n");
+#if CHECK_SERVICE_0
+	fd->fdvt_secure_clt = cmdq_mbox_create(dev, 1);
+
+	if (!fd->fdvt_secure_clt)
+		dev_info(dev, "cmdq mbox create fail\n");
+	else
+		dev_info(dev, "cmdq mbox create done\n");
+#endif
+	of_property_read_u32(pdev->dev.of_node, "fdvt_frame_done", &(fd->fdvt_event_id));
+	dev_info(dev, "fdvt event id is %d\n", fd->fdvt_event_id);
+
 
 	mutex_init(&fd->vfd_lock);
 	init_completion(&fd->fd_job_finished);
@@ -1338,15 +1475,15 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	INIT_WORK(&fd->req_work.work, mtk_aie_frame_done_worker);
 	fd->req_work.fd_dev = fd;
 
-	mtk_aie_mmdvfs_init(fd);
-	mtk_aie_mmqos_init(fd);
+	//mtk_aie_mmdvfs_init(fd);
+	//mtk_aie_mmqos_init(fd);
 	pm_runtime_enable(dev);
 	ret = mtk_aie_dev_v4l2_init(fd);
 	if (ret) {
 		dev_info(dev, "Failed to init v4l2 device: %d\n", ret);
 		goto err_destroy_mutex;
 	}
-	dev_info(dev, "AIE : Success to %s\n", __func__);
+	dev_info(dev, "AIE : Success to %s >W<\n", __func__);
 
 	return 0;
 
