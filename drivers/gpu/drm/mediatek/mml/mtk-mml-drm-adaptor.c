@@ -48,6 +48,7 @@ struct mml_drm_ctx {
 	atomic_t job_serial;
 	struct workqueue_struct *wq_destroy;
 	struct sync_timeline *timeline;
+	bool disp_dual;
 };
 
 #if MML_QUERY_ADJUST == 1
@@ -297,10 +298,11 @@ static struct mml_frame_config *frame_config_create(
 	ctx->config_cnt++;
 	cfg->info = *info;
 	mutex_init(&cfg->task_mutex);
-	mutex_init(&cfg->pipe_mutex);
 	INIT_LIST_HEAD(&cfg->tasks);
 	INIT_LIST_HEAD(&cfg->await_tasks);
 	INIT_LIST_HEAD(&cfg->done_tasks);
+	cfg->disp_dual = ctx->disp_dual;
+	mutex_init(&cfg->pipe_mutex);
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
 	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
@@ -728,7 +730,8 @@ const static struct mml_task_ops drm_task_ops = {
 	.dup_task = dup_task,
 };
 
-static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)
+static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
+	struct mml_drm_param *disp)
 {
 	struct mml_drm_ctx *ctx;
 
@@ -743,6 +746,7 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)
 	ctx->mml = mml;
 	ctx->task_ops = &drm_task_ops;
 	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy", 0, 0);
+	ctx->disp_dual = disp->dual;
 
 	ctx->timeline = mtk_sync_timeline_create("mml_timeline");
 	if (!ctx->timeline)
@@ -753,7 +757,8 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml)
 	return ctx;
 }
 
-struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev)
+struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev,
+	struct mml_drm_param *disp)
 {
 	struct mml_dev *mml = platform_get_drvdata(pdev);
 
@@ -762,7 +767,7 @@ struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev)
 		mml_err("[drm]%s not init mml", __func__);
 		return ERR_PTR(-EPERM);
 	}
-	return mml_dev_get_drm_ctx(mml, drm_ctx_create);
+	return mml_dev_get_drm_ctx(mml, disp, drm_ctx_create);
 }
 EXPORT_SYMBOL_GPL(mml_drm_get_context);
 
@@ -792,6 +797,13 @@ void mml_drm_put_context(struct mml_drm_ctx *ctx)
 	mml_dev_put_drm_ctx(ctx->mml, drm_ctx_release);
 }
 EXPORT_SYMBOL_GPL(mml_drm_put_context);
+
+s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
+{
+	mml_msg("[drm]%s pkt %p", __func__, pkt);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mml_drm_racing_config_sync);
 
 int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 {

@@ -14,6 +14,25 @@
 
 struct mml_drm_ctx;
 
+struct mml_drm_param {
+	/* helps calculate inline rotate support */
+	u32 vblank_interval;
+
+	/* set true if display uses dual pipe */
+	bool dual;
+
+	/* set true if display uses vdo mode, false for cmd mode */
+	bool vdo_mode;
+};
+
+/* mml_topology_query_mode - define in mtk-mml-tp-mt68xx.c
+ *
+ * @info:	Frame info which describe frame process by mml.
+ *
+ * return:	mml mode to run this frame
+ */
+enum mml_mode mml_topology_query_mode(struct mml_frame_info *info);
+
 /*
  * mml_drm_query_cap - Query current running mode and possible support mode
  * for specific frame info.
@@ -33,11 +52,13 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
  *		mml_get_plat_device by giving user client driver platoform
  *		device which contains "mediatek,mml" property link to mml node
  *		in dts.
+ * @dual:	set true if display use dual pipe
  *
  * Return:	The drm context pointer to represent mml driver instance.
  *
  */
-struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev);
+struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev,
+	struct mml_drm_param *disp);
 
 /*
  * mml_drm_put_context - Release mml drm context and related cached info
@@ -46,6 +67,17 @@ struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev);
  * @ctx:	The drm context instance.
  */
 void mml_drm_put_context(struct mml_drm_ctx *ctx);
+
+/*
+ * mml_drm_racing_config_sync - append event sync instructions to disp pkt
+ *
+ * @ctx:	The drm context instance.
+ * @pkt:	The pkt to append cmdq instructions, which helps this pkt
+ *		and mml pkt execute at same time.
+ *
+ * return:	0 if success and < 0 error no if fail
+ */
+s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt);
 
 /*
  * mml_drm_submit - submit mml job

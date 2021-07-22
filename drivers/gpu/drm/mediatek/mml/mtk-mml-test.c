@@ -112,6 +112,7 @@ static void case_general_submit(struct mml_test *test,
 	const u32 src_w = the_case.cfg_src_w;
 	const u32 src_h = the_case.cfg_src_h;
 	u32 run_cnt = mml_test_round <= 0 ? 1 : (u32)mml_test_round;
+	struct mml_drm_param disp = {};
 	const u32 max_running = 10;
 	int *fences;
 	u32 i;
@@ -125,7 +126,7 @@ static void case_general_submit(struct mml_test *test,
 		return;
 	}
 
-	mml_ctx = mml_drm_get_context(mml_pdev);
+	mml_ctx = mml_drm_get_context(mml_pdev, &disp);
 	if (!mml_ctx) {
 		mml_err("get mml context failed");
 		return;

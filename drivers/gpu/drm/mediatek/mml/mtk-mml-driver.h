@@ -18,6 +18,7 @@
 struct mml_comp;
 struct mml_dev;
 struct mml_drm_ctx;
+struct mml_drm_param;
 struct mml_topology_cache;
 struct mml_task;
 struct mml_comp_config;
@@ -74,7 +75,9 @@ s32 mml_register_comp(struct device *master, struct mml_comp *comp);
 void mml_unregister_comp(struct device *master, struct mml_comp *comp);
 
 struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
-	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml));
+	struct mml_drm_param *disp,
+	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml,
+	struct mml_drm_param *disp));
 void mml_dev_put_drm_ctx(struct mml_dev *mml,
 	void (*ctx_release)(struct mml_drm_ctx *ctx));
 

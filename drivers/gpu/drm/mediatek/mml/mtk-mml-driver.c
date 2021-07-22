@@ -136,7 +136,9 @@ void mml_qos_update_tput(struct mml_dev *mml)
 
 
 struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
-	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml))
+	struct mml_drm_param *disp,
+	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml,
+	struct mml_drm_param *disp))
 {
 	struct mml_drm_ctx *ctx;
 
@@ -153,7 +155,7 @@ struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
 
 	mutex_lock(&mml->drm_ctx_mutex);
 	if (atomic_inc_return(&mml->drm_cnt) == 1)
-		mml->drm_ctx = ctx_create(mml);
+		mml->drm_ctx = ctx_create(mml, disp);
 	ctx = mml->drm_ctx;
 	mutex_unlock(&mml->drm_ctx_mutex);
 

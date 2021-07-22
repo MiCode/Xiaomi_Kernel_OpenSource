@@ -226,6 +226,7 @@ struct mml_frame_config {
 	u8 done_task_cnt;
 	bool dual;
 	bool alpharot;
+	bool disp_dual;
 	struct mutex pipe_mutex;
 
 	/* platform driver */
