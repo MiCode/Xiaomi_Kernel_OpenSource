@@ -31,7 +31,7 @@ enum LPM_CPUIDLE_STATE_NODE_TYPE {
 
 struct LPM_CPUIDLE_STATE_NODE {
 	const char *name;
-	int type;
+	enum idle_param type;
 	struct mtk_lp_sysfs_handle handle;
 	struct mtk_lp_sysfs_op op;
 };
@@ -187,7 +187,7 @@ static int idle_proc_state_param_setting(char *cmd, size_t *sz, int param)
 }
 
 static void idle_proc_state_uasge_print(char **ToUserBuf, size_t *size,
-						int type)
+						enum idle_param type)
 {
 	char *p = *ToUserBuf;
 	size_t sz = *size;

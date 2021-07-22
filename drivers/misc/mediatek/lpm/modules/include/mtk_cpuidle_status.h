@@ -8,7 +8,7 @@
 
 #define sec_to_ns(v)	((v) * 1000 * 1000 * 1000ULL)
 
-enum {
+enum idle_param {
 	IDLE_PARAM_EN,
 	IDLE_PARAM_LAT,
 	IDLE_PARAM_RES,
