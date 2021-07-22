@@ -1049,50 +1049,6 @@ static int cam_mem_remove(struct platform_device *pDev)
  ******************************************************************************/
 static int cam_mem_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
-	int ret;
-	char moduleName[128];
-
-	unsigned int loopCnt;
-
-	ret = 0;
-
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
-
-	/* update device node count */
-	atomic_dec(&G_u4DevNodeCt);
-
-	/* Check larb counter instead of check CamMemInfo.UserCount
-	 *  for ensuring current larbs are on or off
-	 */
-	spin_lock(&(CamMemInfo.SpinLock_Larb));
-	if (!G_u4EnableLarbCount) {
-		spin_unlock(&(CamMemInfo.SpinLock_Larb));
-
-		if (CamMemInfo.UserCount != 0) {
-			LOG_INF("%s - X. UserCount=%d,Cnt:%d,devct:%d\n",
-				moduleName, CamMemInfo.UserCount,
-				G_u4EnableLarbCount,
-				atomic_read(&G_u4DevNodeCt));
-		}
-
-		return ret;
-	}
-	spin_unlock(&(CamMemInfo.SpinLock_Larb));
-
-	/* last dev node will disable larb "G_u4EnableLarbCount" times */
-	if (!atomic_read(&G_u4DevNodeCt)) {
-		spin_lock(&(CamMemInfo.SpinLock_Larb));
-		loopCnt = G_u4EnableLarbCount;
-		spin_unlock(&(CamMemInfo.SpinLock_Larb));
-
-		LOG_INF("%s - X. last dev node,disable larb %d time\n",
-			moduleName, loopCnt);
-		while (loopCnt > 0) {
-			CamMem_EnableLarb(false);
-			loopCnt--;
-		}
-	}
-
 	return 0;
 }
 
@@ -1101,28 +1057,6 @@ static int cam_mem_suspend(struct platform_device *pDev, pm_message_t Mesg)
  ******************************************************************************/
 static int cam_mem_resume(struct platform_device *pDev)
 {
-	int ret;
-	char moduleName[128];
-
-	ret = 0;
-
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
-
-	/* update device node count */
-	atomic_inc(&G_u4DevNodeCt);
-
-	if (CamMemInfo.UserCount == 0) {
-		LOG_DBG("- X. UserCount=0\n");
-
-		return 0;
-	}
-
-	CamMem_EnableLarb(true);
-
-	LOG_INF("%s_resume,EnableLarbCount:%d,devct:%d\n", moduleName,
-		G_u4EnableLarbCount,
-		atomic_read(&G_u4DevNodeCt));
-
 	return 0;
 }
 
