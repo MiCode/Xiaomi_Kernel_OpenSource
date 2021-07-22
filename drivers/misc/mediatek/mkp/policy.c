@@ -67,9 +67,9 @@ void handle_mkp_err_action(uint32_t policy)
 	if (mkp_policy_action[policy] & ACTION_PANIC) {
 		MKP_ERR("mkp error\n");
 		// For now we use warn for panic.
-		WARN(1, "mkp panic\n");
+		//WARN("1, mkp panic\n");
 	} else if (mkp_policy_action[policy] & ACTION_WARNING)
-		WARN(1, "mkp warning\n");
+		MKP_WARN("mkp warning\n");
 	else
-		MKP_ERR("mkp error\n");
+		MKP_INFO("mkp error\n");
 }
