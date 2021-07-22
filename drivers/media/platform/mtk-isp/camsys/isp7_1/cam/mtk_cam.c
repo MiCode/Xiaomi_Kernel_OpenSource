@@ -3121,9 +3121,13 @@ static int mtk_cam_master_bind(struct device *dev)
 		dev_dbg(dev, "Failed to register subdev nodes\n");
 		goto fail_unreg_camsv_entities;
 	}
-#ifndef FPGA_EP
+#ifdef FPGA_EP
+	cam_dev->camsys_ctrl.dvfs_info.clklv[0] = 546000000;
+	cam_dev->camsys_ctrl.dvfs_info.clklv_target = 546000000;
+	cam_dev->camsys_ctrl.dvfs_info.clklv_num = 1;
+#else
 	mtk_cam_dvfs_init(cam_dev);
-#endif
+ #endif
 	dev_info(dev, "%s success\n", __func__);
 	return 0;
 

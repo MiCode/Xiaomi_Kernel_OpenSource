@@ -1138,11 +1138,7 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 		*out_h = in_h;
 	}
 
-#ifndef FPGA_EP
 	return res_found;
-#else
-	return true;
-#endif
 }
 
 static bool mtk_raw_resource_calc_set(struct mtk_raw_pipeline *pipe,
