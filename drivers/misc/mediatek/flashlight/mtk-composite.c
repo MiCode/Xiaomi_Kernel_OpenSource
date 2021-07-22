@@ -54,6 +54,8 @@ fl_async_bound(struct v4l2_async_notifier *notifier,
 	pr_info("%s\n", __func__);
 	pr_info("%s v4l2:%s\n", __func__,
 		to_of_node(asd[0].match.fwnode)->name);
+	pr_info("%s v4l2 subdev:%s\n", __func__,
+		to_of_node(subdev->fwnode)->name);
 	for (i = 0; i < ARRAY_SIZE(pfdev->asd); i++) {
 		if (pfdev->asd[i]->match.fwnode ==
 			asd[0].match.fwnode) {
@@ -112,7 +114,6 @@ static int fl_async_complete(struct v4l2_async_notifier *notifier)
 	return fl_probe_complete(pfdev);
 }
 
-
 static struct v4l2_async_subdev *
 mtk_get_pdata(struct platform_device *pdev,
 	struct mtk_composite_v4l2_device *pfdev)
@@ -145,10 +146,10 @@ mtk_get_pdata(struct platform_device *pdev,
 
 		pr_info("rem %p, name %s, full_name %s\n",
 				rem, rem->name, rem->full_name);
+		pfdev->dnode[i] = rem;
 		pfdev->asd[i] = v4l2_async_notifier_add_fwnode_subdev(notifier,
-				of_fwnode_handle(rem),
+				of_fwnode_handle(pfdev->dnode[i]),
 				sizeof(struct v4l2_async_subdev));
-		of_node_put(rem);
 	}
 
 	of_node_put(endpoint);
@@ -193,9 +194,6 @@ static int mtk_composite_probe(struct platform_device *dev)
 	v4l2_async_notifier_init(&pfdev->notifier);
 
 	mtk_get_pdata(dev, pfdev);
-	pr_debug("asd %p %p %p\n", pfdev->asd[0], pfdev->asd[1],
-		pfdev->asd[2]);
-
 
 #if defined(CONFIG_MEDIA_CONTROLLER)
 	pfdev->v4l2_dev.mdev = kzalloc(sizeof(struct media_device),

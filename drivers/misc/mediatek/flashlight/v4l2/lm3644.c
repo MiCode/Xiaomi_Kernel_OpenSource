@@ -116,6 +116,7 @@ struct lm3644_flash {
 	enum v4l2_flash_led_mode led_mode;
 	struct v4l2_ctrl_handler ctrls_led[LM3644_LED_MAX];
 	struct v4l2_subdev subdev_led[LM3644_LED_MAX];
+	struct device_node *dnode[LM3644_LED_MAX];
 	struct pinctrl *lm3644_hwen_pinctrl;
 	struct pinctrl_state *lm3644_hwen_high;
 	struct pinctrl_state *lm3644_hwen_low;
@@ -556,7 +557,9 @@ static int lm3644_subdev_init(struct lm3644_flash *flash,
 			continue;
 
 		if (reg == led_no) {
-			flash->subdev_led[led_no].fwnode = of_fwnode_handle(child);
+			flash->dnode[led_no] = child;
+			flash->subdev_led[led_no].fwnode =
+				of_fwnode_handle(flash->dnode[led_no]);
 		}
 	}
 
