@@ -208,8 +208,8 @@ void *wcnss_prealloc_get(size_t size)
 	}
 
 	if (!mem && size >= cnss_pool_alloc_threshold()) {
-		pr_err("cnss_prealloc: alloc failed for size %d, flag %x\n",
-		       size, gfp_mask);
+		pr_debug("cnss_prealloc: not available for size %d, flag %x\n",
+			 size, gfp_mask);
 	}
 
 	return mem;
