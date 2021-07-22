@@ -513,7 +513,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
-		para.u64[0] = ctrl->val / 16;
+		para.u64[0] = ctrl->val;
 		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_GAIN,
 			para.u8, &len);
@@ -1135,10 +1135,10 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	if (ctx->exposure)
 		ctx->exposure->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
-	min = ctx->subctx.ana_gain_min * 16;
-	max = ctx->subctx.ana_gain_max * 16;
-	step = ctx->subctx.ana_gain_step * 16;
-	def = ctx->subctx.ana_gain_def * 16;
+	min = ctx->subctx.ana_gain_min;
+	max = ctx->subctx.ana_gain_max;
+	step = ctx->subctx.ana_gain_step;
+	def = ctx->subctx.ana_gain_def;
 
 	ctx->analogue_gain = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_ANALOGUE_GAIN, min, max, step, def);

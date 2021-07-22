@@ -24,7 +24,7 @@
 /* data lane hs settle, base on 208 MHz csi ck */
 #ifdef CSI_CLK_273MHZ
 #define SENINF_CPHY_SETTLE_DELAY_DT 0x10
-#define SENINF_DPHY_SETTLE_DELAY_DT 0x11
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x10
 #define SENINF_SETTLE_DELAY_CK 0x11
 #define SENINF_HS_TRAIL_PARAMETER 0x34
 #endif

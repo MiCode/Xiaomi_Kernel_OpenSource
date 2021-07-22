@@ -248,7 +248,7 @@ int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
-			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 1);
+			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 0);
 	dev_info(ctx->dev, "%s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
 	__func__,
 	cam_mux,
