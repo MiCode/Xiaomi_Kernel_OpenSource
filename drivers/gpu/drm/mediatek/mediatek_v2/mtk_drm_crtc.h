@@ -964,5 +964,5 @@ bool mtk_crtc_frame_buffer_existed(void);
 /* ********************* Legacy DRM API **************************** */
 int mtk_drm_format_plane_cpp(uint32_t format, int plane);
 
-int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num);
+int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock);
 #endif /* MTK_DRM_CRTC_H */

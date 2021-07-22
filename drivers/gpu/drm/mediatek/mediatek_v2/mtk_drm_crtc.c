@@ -9630,23 +9630,31 @@ int mtk_drm_format_plane_cpp(uint32_t format, int plane)
 	return info->cpp[plane];
 }
 
-int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num)
+int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *private = crtc->dev->dev_private;
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	struct dual_te *d_te = &mtk_crtc->d_te;
 	struct cmdq_pkt *handle;
+	static bool set_outpin;
 	dma_addr_t addr;
 
 	if (!mtk_drm_helper_get_opt(private->helper_opt,
 				MTK_DRM_OPT_DUAL_TE) || !d_te->en)
 		return -EINVAL;
 
-	mutex_lock(&private->commit.lock);
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	if (need_lock) {
+		mutex_lock(&private->commit.lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	}
 	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	if (!set_outpin) {
+		cmdq_set_outpin_event(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG],
+				true);
+		set_outpin = true;
+	}
 	addr = cmdq_buf->pa_base + DISP_SLOT_TE1_EN;
 	if (te_num == 1) {
 		DDPMSG("switched to te1!\n");
@@ -9663,7 +9671,9 @@ int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num)
 	}
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
-	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-	mutex_unlock(&private->commit.lock);
+	if (need_lock) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+	}
 	return 0;
 }
