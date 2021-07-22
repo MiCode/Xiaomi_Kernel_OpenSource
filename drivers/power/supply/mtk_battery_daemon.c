@@ -2476,7 +2476,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 			ptim_before = ptim_val.intval;
 
 			ptim_bat_vol = gauge_get_int_property(
-				GAUGE_PROP_PTIM_BATTERY_VOLTAGE) * 10;
+				GAUGE_PROP_PTIM_BATTERY_VOLTAGE);
 			power_supply_get_property(psy_bat,
 				POWER_SUPPLY_PROP_CURRENT_NOW, &val);
 			power_supply_get_property(psy_gauge,
@@ -2492,7 +2492,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 			ptim_R_curr = gm->ptim_lk_i;
 			if (ptim_bat_vol == 0) {
 				ptim_bat_vol = gauge_get_int_property(
-					GAUGE_PROP_PTIM_BATTERY_VOLTAGE) * 10;
+					GAUGE_PROP_PTIM_BATTERY_VOLTAGE);
 				power_supply_get_property(psy_bat,
 					POWER_SUPPLY_PROP_CURRENT_NOW, &val);
 				power_supply_get_property(psy_gauge,
