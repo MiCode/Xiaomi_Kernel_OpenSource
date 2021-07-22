@@ -44,7 +44,7 @@ typedef int64_t s64;
 #define IMG_IPI_FRAME   3
 #define IMG_IPI_DEBUG   4
 
-#define IMG_MODULE_SET 4
+#define IMG_MODULE_SET 5
 struct module_init_info {
 	uint64_t	c_wbuf;
 	uint64_t	c_wbuf_dma;

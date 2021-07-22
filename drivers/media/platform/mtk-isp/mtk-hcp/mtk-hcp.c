@@ -83,7 +83,7 @@ static void _imgsys_ion_free_handle(struct ion_client *client,
 
 #define HCP_TIMEOUT_MS          4000U
 #define HCP_FW_VER_LEN          16
-#define HCP_SHARE_BUF_SIZE      288
+#define HCP_SHARE_BUF_SIZE      388
 #define MAX_REQUEST_SIZE        10
 
 #define SYNC_SEND               1

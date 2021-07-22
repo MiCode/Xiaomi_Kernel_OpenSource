@@ -14,7 +14,7 @@
 #include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-debug.h"
 
-#define DL_CHECK_ENG_NUM 9
+#define DL_CHECK_ENG_NUM 11
 struct imgsys_dbg_engine_t dbg_engine_name_list[DL_CHECK_ENG_NUM] = {
 	{IMGSYS_ENG_WPE_EIS, "WPE_EIS"},
 	{IMGSYS_ENG_WPE_TNR, "WPE_TNR"},
@@ -25,6 +25,8 @@ struct imgsys_dbg_engine_t dbg_engine_name_list[DL_CHECK_ENG_NUM] = {
 	{IMGSYS_ENG_DIP, "DIP"},
 	{IMGSYS_ENG_PQDIP_A, "PQDIPA"},
 	{IMGSYS_ENG_PQDIP_B, "PQDIPB"},
+	{IMGSYS_ENG_ADL_A, "ADLA"},
+	{IMGSYS_ENG_ADL_B, "ADLB"},
 };
 
 void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
@@ -32,7 +34,7 @@ void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
 	int imgsys_module_num, unsigned int hw_comb)
 {
 	bool module_on[IMGSYS_MOD_MAX] = {
-		false, false, false, false, false};
+		false, false, false, false, false, false};
 	int i = 0;
 
 	dev_info(imgsys_dev->dev,
@@ -53,6 +55,8 @@ void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
 		module_on[IMGSYS_MOD_PQDIP] = true;
 	if ((hw_comb & IMGSYS_ENG_ME))
 		module_on[IMGSYS_MOD_ME] = true;
+	if ((hw_comb & IMGSYS_ENG_ADL_A) || (hw_comb & IMGSYS_ENG_ADL_B))
+		module_on[IMGSYS_MOD_ADL] = true;
 
 	/* in case module driver did not set imgsys_modules in module order */
 	dev_info(imgsys_dev->dev,
@@ -780,6 +784,19 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 			"PQDIPB");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_ADL_A | IMGSYS_ENG_XTR):
+	case (IMGSYS_ENG_ADL_A | IMGSYS_ENG_ADL_B | IMGSYS_ENG_XTR):
+		/**
+		 * dl_path = IMGSYS_DL_ADLA_XTRAW;
+		 * snprintf(logBuf_inport, log_length, "%s", "ADL");
+		 * snprintf(logBuf_outport, log_length, "%s", "XTRAW");
+		 * imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+		 *	logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		 */
+		dev_info(imgsys_dev->dev,
+			"%s: we dont have checksum for ADL DL XTRAW\n",
+			__func__);
 		break;
 	default:
 		break;
