@@ -240,7 +240,12 @@ int mtk_cam_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
 
 int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 {
-	void *pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
+	void *pSeninf_cam_mux_pcsr = NULL;
+
+	if (cam_mux >= SENINF_CAM_MUX_NUM)
+		return 0;
+
+	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
 			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 1);
@@ -880,9 +885,9 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 			    RG_CSI0_CPHY_T1_CDR_SELF_CAL_EN, 0x0);
 
 		SENINF_BITS(base, CDPHY_RX_ANA_6,
-			    RG_CSI0_CPHY_T0_CDR_CK_DELAY, 0xf);//TODO
+			    RG_CSI0_CPHY_T0_CDR_CK_DELAY, 0x4);//TODO
 		SENINF_BITS(base, CDPHY_RX_ANA_7,
-			    RG_CSI0_CPHY_T1_CDR_CK_DELAY, 0xf);//TODO
+			    RG_CSI0_CPHY_T1_CDR_CK_DELAY, 0x4);//TODO
 		SENINF_BITS(base, CDPHY_RX_ANA_6,
 			    RG_CSI0_CPHY_T0_CDR_AB_WIDTH, 0x9);
 		SENINF_BITS(base, CDPHY_RX_ANA_6,
@@ -1038,6 +1043,8 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_HDR_MODE_0,
 			    RG_CSI2_HEADER_LEN,
 			    map_hdr_len[ctx->num_data_lanes]);
+		SENINF_WRITE_REG(pSeninf_csi2,
+			SENINF_CSI2_RESYNC_MERGE_CTRL, 0x20207106);
 	}
 
 	return 0;
@@ -1395,7 +1402,31 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				    RG_CSI0_ASYNC_OPTION, 0xC);
+			    RG_CSI0_ASYNC_OPTION, 0xC);
+
+			SENINF_BITS(baseA, CDPHY_RX_ANA_3,
+				    RG_CSI0_EQ_DES_VREF_SEL, 0x2E);
+
+			SENINF_BITS(baseA, CDPHY_RX_ANA_4,
+					RG_CSI0_CPHY_T0_CDR_RSTB_CODE, 0x0);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_4,
+					RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x4);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_4,
+					RG_CSI0_CPHY_T1_CDR_RSTB_CODE, 0x0);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_4,
+					RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x4);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_3,
+				    RG_CSI0_EQ_DES_VREF_SEL, 0x2E);
+
+			SENINF_BITS(baseB, CDPHY_RX_ANA_4,
+					RG_CSI0_CPHY_T0_CDR_RSTB_CODE, 0x0);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_4,
+					RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x4);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_4,
+					RG_CSI0_CPHY_T1_CDR_RSTB_CODE, 0x0);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_4,
+					RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x4);
+
 		} else {
 			SENINF_BITS(base, CDPHY_RX_ANA_0,
 				    RG_CSI0_CPHY_EN, 1);
@@ -1418,7 +1449,18 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
 			SENINF_BITS(base, CDPHY_RX_ANA_SETTING_1,
-				    RG_CSI0_ASYNC_OPTION, 0xC);
+			    RG_CSI0_ASYNC_OPTION, 0xC);
+
+			SENINF_BITS(base, CDPHY_RX_ANA_3,
+				RG_CSI0_EQ_DES_VREF_SEL, 0x2E);
+			SENINF_BITS(base, CDPHY_RX_ANA_4,
+				RG_CSI0_CPHY_T0_CDR_RSTB_CODE, 0x0);
+			SENINF_BITS(base, CDPHY_RX_ANA_4,
+				RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x4);
+			SENINF_BITS(base, CDPHY_RX_ANA_4,
+				RG_CSI0_CPHY_T1_CDR_RSTB_CODE, 0x0);
+			SENINF_BITS(base, CDPHY_RX_ANA_4,
+				RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x4);
 		}
 	}
 
