@@ -553,14 +553,12 @@ void do_charger_detect(struct mtk_charger_type *info, bool en)
 				POWER_SUPPLY_PROP_TYPE, &prop_type);
 		ret = power_supply_get_property(info->psy,
 				POWER_SUPPLY_PROP_USB_TYPE, &prop_usb_type);
+		pr_notice("type:%d usb_type:%d\n", prop_type.intval, prop_usb_type.intval);
 	} else {
-		prop_type.intval = POWER_SUPPLY_TYPE_UNKNOWN;
-		prop_usb_type.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 		info->type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+		pr_notice("%s type:0 usb_type:0\n", __func__);
 	}
-
-	pr_notice("%s type:%d usb_type:%d\n", __func__, prop_type.intval, prop_usb_type.intval);
 
 	power_supply_changed(info->psy);
 }
