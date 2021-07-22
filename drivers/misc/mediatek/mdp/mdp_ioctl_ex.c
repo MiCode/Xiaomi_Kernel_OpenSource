@@ -30,7 +30,7 @@
 
 #include "mdp_rdma_ex.h"
 
-#define MDP_TASK_PAENDING_TIME_MAX	10000000
+#define MDP_TASK_PAENDING_TIME_MAX	100000000
 
 struct mdpsys_con_context {
 	struct device *dev;
@@ -714,6 +714,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		goto done;
 	}
 
+	desc_private.node_private_data = pf->private_data;
 	status = cmdq_mdp_handle_setup(&user_job, &desc_private, handle);
 	if (status < 0) {
 		CMDQ_ERR("%s setup fail:%d\n", __func__, status);
@@ -1097,6 +1098,7 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 {
 	u32 i, free_slot_group, free_slot;
 	dma_addr_t paStart = 0;
+	u32 count = 0;
 
 	CMDQ_MSG("%s, node:%p\n", __func__, fp);
 
@@ -1114,13 +1116,15 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 		rb_slot[i].count = 0;
 		rb_slot[i].pa_start = 0;
 		rb_slot[i].fp = NULL;
-		CMDQ_MSG("%s free 0x%pa in %d\n", __func__, &paStart, i);
-		CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__,
-			free_slot_group,
+		CMDQ_MSG("%s free %pa in %u alloc slot[%d] %#llx, %#llx\n",
+			__func__, &paStart, i, free_slot_group,
 			alloc_slot[free_slot_group], alloc_slot_group);
 		cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+		count++;
 	}
 	mutex_unlock(&rb_slot_list_mutex);
+
+	CMDQ_LOG("%s free %u slot group by node %p\n", __func__, count, fp);
 }
 
 int mdp_limit_dev_create(struct platform_device *device)
