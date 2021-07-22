@@ -726,11 +726,6 @@ static void msdc_request_done(struct msdc_host *host, struct mmc_request *mrq)
 	mmc_request_done(mmc_from_priv(host), mrq);
 	if (host->dev_comp->recheck_sdio_irq)
 		msdc_recheck_sdio_irq(host);
-
-	if (mrq->cmd->data) {
-		mmc_mtk_biolog_transfer_req_compl(mmc_from_priv(host), 0, 0);
-		mmc_mtk_biolog_check(mmc_from_priv(host), 0);
-	}
 }
 
 /* returns true if command is fully handled; returns false otherwise */
@@ -915,11 +910,6 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		msdc_start_command(host, mrq, mrq->sbc);
 	else
 		msdc_start_command(host, mrq, mrq->cmd);
-
-	if (mrq->cmd->data) {
-		mmc_mtk_biolog_send_command(0, mrq);
-		mmc_mtk_biolog_check(mmc, 1);
-	}
 }
 
 static void msdc_pre_req(struct mmc_host *mmc, struct mmc_request *mrq)
