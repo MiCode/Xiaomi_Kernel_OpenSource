@@ -5946,6 +5946,12 @@
 		interrupt-names = "ipc";
 	};
 
+	/* Trustonic Mobicore SW IRQ number 713 = 32 + 681 */
+	mobicore {
+		compatible = "trustonic,mobicore";
+		interrupts = <GIC_SPI 681 IRQ_TYPE_EDGE_RISING 0>;
+	};
+
 	ssram1@1C350000 {
 		compatible = "mmio-sram_1";
 		reg = <0x0 0x1C350000 0x0 0x80>;
