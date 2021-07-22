@@ -1342,6 +1342,13 @@
 		compatible = "mediatek,mtkfb";
 	};
 
+	slbc: slbc {
+		compatible = "mediatek,mtk-slbc";
+		reg = <0 0x00113C00 0 0x100>;
+		status = "enable";
+		apu = <2048>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
