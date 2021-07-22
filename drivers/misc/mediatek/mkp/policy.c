@@ -6,8 +6,8 @@
 
 #include "policy.h"
 
-int policy_ctrl[MKP_POLICY_NR];
-void __init set_policy(int *policy_ctrl)
+int __ro_after_init policy_ctrl[MKP_POLICY_NR];
+void __init set_policy(void)
 {
 	pr_info("MKP: set policy start...\n");
 	memset(policy_ctrl, 0, MKP_POLICY_NR*sizeof(int));
@@ -30,4 +30,18 @@ void __init set_policy(int *policy_ctrl)
 	policy_ctrl[MKP_POLICY_VENDOR_START] = 1;
 	pr_info("MKP: set policy Done\n");
 	return;
+}
+
+int __init set_ext_policy(uint32_t policy)
+{
+	if ((int)policy < 0 || policy >= MKP_POLICY_NR) {
+		pr_info("Warning: policy:%d is Out-of-bound\n", (int)policy);
+		return -1;
+	} else if (policy <= MKP_POLICY_DEFAULT_MAX) {
+		pr_info("Warning: policy:%u is duplicated\n", policy);
+		return -1;
+	}
+
+	policy_ctrl[policy] = 1;
+	return 0;
 }

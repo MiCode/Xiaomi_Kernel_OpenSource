@@ -43,6 +43,7 @@
 #include "policy.h"
 
 void __init mkp_set_policy(void);
+int __init mkp_set_ext_policy(uint32_t policy);
 int mkp_set_mapping_ro(uint32_t policy, uint32_t handle);
 int mkp_set_mapping_rw(uint32_t policy, uint32_t handle);
 int mkp_set_mapping_nx(uint32_t policy, uint32_t handle);

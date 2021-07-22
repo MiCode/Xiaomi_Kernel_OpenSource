@@ -10,9 +10,14 @@
 void __init mkp_set_policy(void)
 {
 	// set policy control
-	set_policy(policy_ctrl);
+	set_policy();
 }
 
+int __init mkp_set_ext_policy(uint32_t policy)
+{
+	// set extended policy
+	return set_ext_policy(policy);
+}
 int mkp_set_mapping_ro(uint32_t policy, uint32_t handle)
 {
 	int ret = -1;
@@ -90,9 +95,10 @@ int mkp_lookup_mapping_entry(uint32_t policy, uint32_t handle,
 
 int mkp_request_new_policy(unsigned long policy_char)
 {
-	int ret = -1;
+	int ret = 0;
 
 	ret = mkp_req_new_policy_hvc_call(policy_char);
+
 	return ret;
 }
 

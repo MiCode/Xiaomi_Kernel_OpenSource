@@ -105,5 +105,6 @@ enum mkp_policy_char {
 };
 
 extern int policy_ctrl[MKP_POLICY_NR];
-void __init set_policy(int *policy_ctrl);
+void __init set_policy(void);
+int __init set_ext_policy(uint32_t policy);
 #endif
