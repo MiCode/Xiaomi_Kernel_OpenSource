@@ -70,6 +70,13 @@
 			compatible = "mediatek,mt6373-consys";
 		};
 
+		mt6373_pio: mt6373-pinctrl {
+			compatible = "mediatek,mt6373-pinctrl";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&mt6373_pio 0 0 14>;
+		};
+
 		regulators {
 			mt6373_vbuck0: VBUCK0 {
 				regulator-compatible = "VBUCK0";
