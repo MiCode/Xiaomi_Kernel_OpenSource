@@ -20,7 +20,7 @@
 
 static int mtk_dai_stub_compress_new(struct snd_soc_pcm_runtime *rtd, int num)
 {
-#ifdef CONFIG_SND_SOC_COMPRESS
+#if IS_ENABLED(CONFIG_SND_SOC_COMPRESS)
 	snd_soc_new_compress(rtd, num);
 #endif
 	return 0;

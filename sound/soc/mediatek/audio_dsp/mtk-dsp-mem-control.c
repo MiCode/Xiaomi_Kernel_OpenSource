@@ -378,6 +378,7 @@ int mtk_adsp_genpool_allocate_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_adsp_genpool_allocate_sharemem_ring);
 
 int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 					int id)
@@ -406,6 +407,7 @@ int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_adsp_genpool_free_sharemem_ring);
 
 int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
 			  unsigned int size)
@@ -769,6 +771,7 @@ struct gen_pool *mtk_get_adsp_dram_gen_pool(int id)
 	}
 	return dsp_dram_pool[id];
 }
+EXPORT_SYMBOL(mtk_get_adsp_dram_gen_pool);
 
 void dump_mtk_adsp_dram(struct audio_dsp_dram buffer)
 {

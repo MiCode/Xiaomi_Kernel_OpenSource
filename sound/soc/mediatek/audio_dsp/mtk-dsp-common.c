@@ -57,12 +57,14 @@ void *get_dsp_base(void)
 		pr_warn("%s local_base_dsp == NULL", __func__);
 	return local_base_dsp;
 }
+EXPORT_SYMBOL(get_dsp_base);
 
 static void *ipi_recv_private;
 void *get_ipi_recv_private(void)
 {
 	return ipi_recv_private;
 }
+EXPORT_SYMBOL(get_ipi_recv_private);
 
 void set_ipi_recv_private(void *priv)
 {
@@ -117,6 +119,7 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 
 	return send_result;
 }
+EXPORT_SYMBOL(mtk_scp_ipi_send);
 
 /* dsp scene ==> od mapping */
 int get_dspscene_by_dspdaiid(int id)
@@ -160,6 +163,7 @@ int get_dspscene_by_dspdaiid(int id)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(get_dspscene_by_dspdaiid);
 
 int get_dspdaiid_by_dspscene(int dspscene)
 {
@@ -202,6 +206,7 @@ int get_dspdaiid_by_dspscene(int dspscene)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(get_dspdaiid_by_dspscene);
 
 /* todo:: refine for check mechanism.*/
 int get_audio_memery_type(struct snd_pcm_substream *substream)
