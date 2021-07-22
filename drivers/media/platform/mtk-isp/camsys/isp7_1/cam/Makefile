@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+ifeq ($(CONFIG_MTK_CAMSYS_VENDOR_HOOK), y)
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(srctree)/drivers/misc/mediatek/mmdvfs \
 	     -I$(srctree)/drivers/misc/mediatek/smi/ \
@@ -22,3 +23,4 @@ mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
 #endif
 
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-isp.o
+endif

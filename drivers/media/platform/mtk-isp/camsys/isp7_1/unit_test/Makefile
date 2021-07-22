@@ -1,4 +1,4 @@
-
+ifeq ($(CONFIG_MTK_CAMSYS_VENDOR_HOOK), y)
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_1 \
 		 -I$(srctree)/drivers/rpmsg/ \
@@ -10,3 +10,4 @@ cam-ut-objs := mtk_cam_ut-cam.o \
 	       mtk_cam_ut-camsv.o
 
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += cam-ut.o
+endif

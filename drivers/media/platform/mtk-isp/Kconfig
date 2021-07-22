@@ -43,3 +43,8 @@ config VIDEO_MTK_ISP_CAMSYS
 	    Choose y if you want to use Mediatek SoCs to create image
 	    capture application such as video recording and still image
 	    capture.
+
+config MTK_CAMSYS_VENDOR_HOOK
+	bool "Mediatek camsys vendor hook function"
+	help
+	    Camsys driver support vendor hook function
