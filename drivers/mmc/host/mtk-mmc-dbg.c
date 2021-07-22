@@ -143,43 +143,43 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 {
 	char buffer[512];
 	char *buf_ptr = buffer;
+	int n = 0;
 
 	if (host->bulk_clks[0].clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[%s]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[%s]enable:%d freq:%lu,",
 			host->bulk_clks[0].id,
 			__clk_is_enabled(host->bulk_clks[0].clk),
 			clk_get_rate(host->bulk_clks[0].clk));
 	if (host->bulk_clks[1].clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[%s]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[%s]enable:%d freq:%lu,",
 			host->bulk_clks[1].id,
 			__clk_is_enabled(host->bulk_clks[1].clk),
 			clk_get_rate(host->bulk_clks[1].clk));
 	if (host->bulk_clks[2].clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[%s]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[%s]enable:%d freq:%lu,",
 			host->bulk_clks[2].id,
 			__clk_is_enabled(host->bulk_clks[2].clk),
 			clk_get_rate(host->bulk_clks[2].clk));
 	if (host->src_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[src_clk]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[src_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->src_clk), clk_get_rate(host->src_clk));
 	if (host->h_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[h_clk]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[h_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->h_clk), clk_get_rate(host->h_clk));
 	if (host->bus_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[bus_clk]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[bus_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->bus_clk), clk_get_rate(host->bus_clk));
 	if (host->src_clk_cg)
-		buf_ptr += sprintf(buf_ptr,
-			"[src_clk_cg]enable:%d freq:%d\n",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[src_clk_cg]enable:%d freq:%lu\n",
 			__clk_is_enabled(host->src_clk_cg), clk_get_rate(host->src_clk_cg));
 
-	*buf_ptr = '\0';
 	SPREAD_PRINTF(buff, size, m, "%s", buffer);
 }
 
