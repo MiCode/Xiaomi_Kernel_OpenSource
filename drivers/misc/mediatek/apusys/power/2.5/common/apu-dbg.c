@@ -149,7 +149,7 @@ static int _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 
 	/* Change qos max freq to fix freq and input min/mas are Khz already */
 	ret = dev_pm_qos_update_request(&ad->df->user_max_freq_req, max);
-	pr_info("[%s] [%s] max/min %dMhz/%dMhz, ret = %d\n",
+	pr_info("[%s] [%s] max/min %luMhz/%luMhz, ret = %d\n",
 		apu_dev_name(ad->dev), __func__, TOKHZ(max), TOKHZ(min), ret);
 
 	return ret;
