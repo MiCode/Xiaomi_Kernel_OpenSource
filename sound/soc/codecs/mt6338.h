@@ -2862,12 +2862,26 @@
 #define MT6338_AUDENC_PMU_CON79                                   0x2ed7
 #define MT6338_AUDENC_PMU_CON80                                   0x2ed8
 #define MT6338_AUDENC_PMU_CON81                                   0x2ed9
-#define MT6338_AUDENC_ELR_NUM                                     0x2eda
-#define MT6338_AUDENC_ELR_0                                       0x2edb
-#define MT6338_AUDENC_ELR_1                                       0x2edc
-#define MT6338_AUDENC_ELR_2                                       0x2edd
-#define MT6338_AUDENC_ELR_3                                       0x2ede
-#define MT6338_AUDENC_ELR_4                                       0x2edf
+#define MT6338_AUDENC_2_PMU_CON0                                  0x2eda
+#define MT6338_AUDENC_2_PMU_CON1                                  0x2edb
+#define MT6338_AUDENC_2_PMU_CON2                                  0x2edc
+#define MT6338_AUDENC_2_PMU_CON3                                  0x2edd
+#define MT6338_AUDENC_2_PMU_CON4                                  0x2ede
+#define MT6338_AUDENC_2_PMU_CON5                                  0x2edf
+#define MT6338_AUDENC_2_PMU_CON6                                  0x2ee0
+#define MT6338_AUDENC_2_PMU_CON7                                  0x2ee1
+#define MT6338_AUDENC_2_PMU_CON8                                  0x2ee2
+#define MT6338_AUDENC_2_PMU_CON9                                  0x2ee3
+#define MT6338_AUDENC_2_PMU_CON10                                 0x2ee4
+#define MT6338_AUDENC_2_PMU_CON11                                 0x2ee5
+#define MT6338_AUDENC_2_PMU_CON12                                 0x2ee6
+#define MT6338_AUDENC_2_PMU_CON13                                 0x2ee7
+#define MT6338_AUDENC_ELR_NUM                                     0x2ee8
+#define MT6338_AUDENC_ELR_0                                       0x2ee9
+#define MT6338_AUDENC_ELR_1                                       0x2eea
+#define MT6338_AUDENC_ELR_2                                       0x2eeb
+#define MT6338_AUDENC_ELR_3                                       0x2eec
+#define MT6338_AUDENC_ELR_4                                       0x2eed
 #define MT6338_AUDDEC_ANA_ID                                      0x2f00
 #define MT6338_AUDDEC_DIG_ID                                      0x2f01
 #define MT6338_AUDDEC_ANA_REV                                     0x2f02
@@ -17938,6 +17952,101 @@
 #define RG_ABIDEC_RSVD1_VAUDP18_MASK                            0xff
 #define RG_ABIDEC_RSVD1_VAUDP18_MASK_SFT                        (0xff << 0)
 
+/* AUDDEC_2_PMU_CON0 */
+#define RG_AUDDACHPL_TRIM_EN_VAUDP18_SFT                        0
+#define RG_AUDDACHPL_TRIM_EN_VAUDP18_MASK                       0x1
+#define RG_AUDDACHPL_TRIM_EN_VAUDP18_MASK_SFT                   (0x1 << 0)
+#define RG_AUDDACHPL_TRIM_LARGE_VAUDP18_SFT                     1
+#define RG_AUDDACHPL_TRIM_LARGE_VAUDP18_MASK                    0x7f
+#define RG_AUDDACHPL_TRIM_LARGE_VAUDP18_MASK_SFT                (0x7f << 1)
+
+/* AUDDEC_2_PMU_CON1 */
+#define RG_AUDDACHPL_TRIM_SMALL_VAUDP18_SFT                     0
+#define RG_AUDDACHPL_TRIM_SMALL_VAUDP18_MASK                    0xf
+#define RG_AUDDACHPL_TRIM_SMALL_VAUDP18_MASK_SFT                (0xf << 0)
+#define RG_AUDDACHPL_TRIM_TINY_VAUDP18_SFT                      4
+#define RG_AUDDACHPL_TRIM_TINY_VAUDP18_MASK                     0xf
+#define RG_AUDDACHPL_TRIM_TINY_VAUDP18_MASK_SFT                 (0xf << 4)
+
+/* AUDDEC_2_PMU_CON2 */
+#define RG_AUDDACHPR_TRIM_EN_VAUDP18_SFT                        0
+#define RG_AUDDACHPR_TRIM_EN_VAUDP18_MASK                       0x1
+#define RG_AUDDACHPR_TRIM_EN_VAUDP18_MASK_SFT                   (0x1 << 0)
+#define RG_AUDDACHPR_TRIM_LARGE_VAUDP18_SFT                     1
+#define RG_AUDDACHPR_TRIM_LARGE_VAUDP18_MASK                    0x7f
+#define RG_AUDDACHPR_TRIM_LARGE_VAUDP18_MASK_SFT                (0x7f << 1)
+
+/* AUDDEC_2_PMU_CON3 */
+#define RG_AUDDACHPR_TRIM_SMALL_VAUDP18_SFT                     0
+#define RG_AUDDACHPR_TRIM_SMALL_VAUDP18_MASK                    0xf
+#define RG_AUDDACHPR_TRIM_SMALL_VAUDP18_MASK_SFT                (0xf << 0)
+#define RG_AUDDACHPR_TRIM_TINY_VAUDP18_SFT                      4
+#define RG_AUDDACHPR_TRIM_TINY_VAUDP18_MASK                     0xf
+#define RG_AUDDACHPR_TRIM_TINY_VAUDP18_MASK_SFT                 (0xf << 4)
+
+/* AUDDEC_2_PMU_CON4 */
+#define RG_AUDDACHS_TRIM_EN_VAUDP18_SFT                         0
+#define RG_AUDDACHS_TRIM_EN_VAUDP18_MASK                        0x1
+#define RG_AUDDACHS_TRIM_EN_VAUDP18_MASK_SFT                    (0x1 << 0)
+#define RG_AUDDACHS_TRIM_LARGE_VAUDP18_SFT                      1
+#define RG_AUDDACHS_TRIM_LARGE_VAUDP18_MASK                     0x7f
+#define RG_AUDDACHS_TRIM_LARGE_VAUDP18_MASK_SFT                 (0x7f << 1)
+
+/* AUDDEC_2_PMU_CON5 */
+#define RG_AUDDACHS_TRIM_SMALL_VAUDP18_SFT                      0
+#define RG_AUDDACHS_TRIM_SMALL_VAUDP18_MASK                     0xf
+#define RG_AUDDACHS_TRIM_SMALL_VAUDP18_MASK_SFT                 (0xf << 0)
+#define RG_AUDDACHS_TRIM_TINY_VAUDP18_SFT                       4
+#define RG_AUDDACHS_TRIM_TINY_VAUDP18_MASK                      0xf
+#define RG_AUDDACHS_TRIM_TINY_VAUDP18_MASK_SFT                  (0xf << 4)
+
+/* AUDDEC_2_PMU_CON6 */
+#define RG_AUDDACLO_TRIM_EN_VAUDP18_SFT                         0
+#define RG_AUDDACLO_TRIM_EN_VAUDP18_MASK                        0x1
+#define RG_AUDDACLO_TRIM_EN_VAUDP18_MASK_SFT                    (0x1 << 0)
+#define RG_AUDDACLO_TRIM_LARGE_VAUDP18_SFT                      1
+#define RG_AUDDACLO_TRIM_LARGE_VAUDP18_MASK                     0x7f
+#define RG_AUDDACLO_TRIM_LARGE_VAUDP18_MASK_SFT                 (0x7f << 1)
+
+/* AUDDEC_2_PMU_CON7 */
+#define RG_AUDDACLO_TRIM_SMALL_VAUDP18_SFT                      0
+#define RG_AUDDACLO_TRIM_SMALL_VAUDP18_MASK                     0xf
+#define RG_AUDDACLO_TRIM_SMALL_VAUDP18_MASK_SFT                 (0xf << 0)
+#define RG_AUDDACLO_TRIM_TINY_VAUDP18_SFT                       4
+#define RG_AUDDACLO_TRIM_TINY_VAUDP18_MASK                      0xf
+#define RG_AUDDACLO_TRIM_TINY_VAUDP18_MASK_SFT                  (0xf << 4)
+
+/* AUDDEC_2_PMU_CON8 */
+#define RG_AUDDAC_DAC_RSVD0_VAUDP18_SFT                         0
+#define RG_AUDDAC_DAC_RSVD0_VAUDP18_MASK                        0xf
+#define RG_AUDDAC_DAC_RSVD0_VAUDP18_MASK_SFT                    (0xf << 0)
+#define RG_AUDDACHP_HOLD_SW_EN_VAUDP18_SFT                      6
+#define RG_AUDDACHP_HOLD_SW_EN_VAUDP18_MASK                     0x1
+#define RG_AUDDACHP_HOLD_SW_EN_VAUDP18_MASK_SFT                 (0x1 << 6)
+#define RG_AUDDACHP_HOLD_SW_CLK_SEL_VAUDP18_SFT                 7
+#define RG_AUDDACHP_HOLD_SW_CLK_SEL_VAUDP18_MASK                0x1
+#define RG_AUDDACHP_HOLD_SW_CLK_SEL_VAUDP18_MASK_SFT            (0x1 << 7)
+
+/* AUDDEC_2_PMU_CON9 */
+#define RG_ABIDEC_RSVD2_VAUDP18_SFT                             0
+#define RG_ABIDEC_RSVD2_VAUDP18_MASK                            0xff
+#define RG_ABIDEC_RSVD2_VAUDP18_MASK_SFT                        (0xff << 0)
+
+/* AUDDEC_2_PMU_CON10 */
+#define RG_ABIDEC_RSVD3_VAUDP18_SFT                             0
+#define RG_ABIDEC_RSVD3_VAUDP18_MASK                            0xff
+#define RG_ABIDEC_RSVD3_VAUDP18_MASK_SFT                        (0xff << 0)
+
+/* AUDDEC_2_PMU_CON11 */
+#define RG_ABIDEC_RSVD4_VAUDP18_SFT                             0
+#define RG_ABIDEC_RSVD4_VAUDP18_MASK                            0xff
+#define RG_ABIDEC_RSVD4_VAUDP18_MASK_SFT                        (0xff << 0)
+
+/* AUDDEC_2_PMU_CON12 */
+#define RG_ABIDEC_RSVD5_VAUDP18_SFT                             0
+#define RG_ABIDEC_RSVD5_VAUDP18_MASK                            0xff
+#define RG_ABIDEC_RSVD5_VAUDP18_MASK_SFT                        (0xff << 0)
+
 /* AUDZCD_DSN_ID */
 #define AUDZCD_ANA_ID_SFT                                       0
 #define AUDZCD_ANA_ID_MASK                                      0xff
@@ -22252,26 +22361,60 @@ enum {
 };
 enum {
 	MT6338_ADDA_NONE = -1,
-	MT6338_ADDA_8000HZ = 0,
-	MT6338_ADDA_11025HZ = 1,
-	MT6338_ADDA_12000HZ = 2,
-	MT6338_ADDA_16000HZ = 3,
-	MT6338_ADDA_22050HZ = 4,
-	MT6338_ADDA_24000HZ = 5,
-	MT6338_ADDA_32000HZ = 6,
-	MT6338_ADDA_44100HZ = 7,
-	MT6338_ADDA_48000HZ = 8,
-	MT6338_ADDA_96000HZ = 9,
-	MT6338_ADDA_192000HZ = 10,
+	MT6338_ADDA_8000HZ = 0x0,
+	MT6338_ADDA_12000HZ = 0x1,
+	MT6338_ADDA_16000HZ = 0x2,
+	MT6338_ADDA_24000HZ = 0x3,
+	MT6338_ADDA_32000HZ = 0x4,
+	MT6338_ADDA_48000HZ = 0x5,
+	MT6338_ADDA_64000HZ = 0x6,
+	MT6338_ADDA_96000HZ = 0x7,
+	MT6338_ADDA_128000HZ = 0x8,
+	MT6338_ADDA_192000HZ = 0x9,
+	MT6338_ADDA_25600HZ = 0xa,
+	MT6338_ADDA_384000HZ = 0xb,
+	MT6338_ADDA_11000HZ = 0x10,
+	MT6338_ADDA_22000HZ = 0x11,
+	MT6338_ADDA_44000HZ = 0x12,
+	MT6338_ADDA_88000HZ = 0x13,
+	MT6338_ADDA_176000HZ = 0x14,
+	MT6338_ADDA_35200HZ = 0x15,
+};
+
+enum {
+	MT6338_DLSRC_NONE = -1,
+	MT6338_DLSRC_8000HZ = 0x0,
+	MT6338_DLSRC_11025HZ = 0x1,
+	MT6338_DLSRC_12000HZ = 0x2,
+	MT6338_DLSRC_16000HZ = 0x3,
+	MT6338_DLSRC_22050HZ = 0x4,
+	MT6338_DLSRC_24000HZ = 0x5,
+	MT6338_DLSRC_32000HZ = 0x6,
+	MT6338_DLSRC_44100HZ = 0x7,
+	MT6338_DLSRC_48000HZ = 0x8,
+	MT6338_DLSRC_96000HZ = 0x9,
+	MT6338_DLSRC_192000HZ = 0x10,
+	MT6338_DLSRC_384000HZ = 11,
+};
+
+enum {
+	MT6338_VOICE_NONE = -1,
+	MT6338_VOICE_8000HZ = 0x0,
+	MT6338_VOICE_16000HZ = 0x1,
+	MT6338_VOICE_32000HZ = 0x2,
+	MT6338_VOICE_48000HZ = 0x3,
+	MT6338_VOICE_96000HZ = 0x4,
+	MT6338_VOICE_192000HZ = 0x5,
 };
 
 /* Supply widget subseq */
 enum {
 	/* common */
 	SUPPLY_SEQ_CLK_BUF,
+	SUPPLY_SEQ_CKTST,
 	SUPPLY_SEQ_LDO_VAUD18,
 	SUPPLY_SEQ_AUD_GLB,
-	SUPPLY_SEQ_CKTST,
+	SUPPLY_SEQ_AUD_GLB_VOW,
 	SUPPLY_SEQ_PLL_208M,
 	SUPPLY_SEQ_DL_GPIO,
 	SUPPLY_SEQ_UL_GPIO,
@@ -22312,7 +22455,6 @@ enum {
 	SUPPLY_SEQ_AUD_VOW,
 	SUPPLY_SEQ_VOW_CLK,
 	SUPPLY_SEQ_VOW_LDO,
-	SUPPLY_SEQ_AUD_GLB_VOW,
 	SUPPLY_SEQ_VOW_DIG_CFG,
 	SUPPLY_SEQ_VOW_PERIODIC_CFG,
 #endif
@@ -22620,9 +22762,9 @@ struct mt6338_priv {
 #define IBIAS_ZCD_MASK_SFT (IBIAS_MASK << IBIAS_ZCD_SFT)
 
 /* dl pga gain */
-#define DL_GAIN_N_10DB_REG (DL_GAIN_N_10DB << 7 | DL_GAIN_N_10DB)
-#define DL_GAIN_N_22DB_REG (DL_GAIN_N_22DB << 7 | DL_GAIN_N_22DB)
-#define DL_GAIN_N_40DB_REG (DL_GAIN_N_40DB << 7 | DL_GAIN_N_40DB)
+#define DL_GAIN_N_10DB_REG (DL_GAIN_N_10DB)
+#define DL_GAIN_N_22DB_REG (DL_GAIN_N_22DB)
+#define DL_GAIN_N_40DB_REG (DL_GAIN_N_40DB)
 #define DL_GAIN_REG_MASK 0x0f9f
 
 /* mic type */
