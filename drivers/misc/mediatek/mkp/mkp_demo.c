@@ -422,7 +422,6 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 
 	if (node && ts->pid != current_task->pid) {
 		*ts = *current_task;
-#ifdef DEMO_MKP
 		if (g_ro_avc_handle == 0)
 			return;
 		temp_node = (struct mkp_avc_node *)node;
@@ -436,14 +435,13 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 					ro_avc_sharebuf_ptr->tclass != tclass ||
 					ro_avc_sharebuf_ptr->ae_allowed !=
 						temp_node->ae.avd.allowed) {
-					// BUG();
+					MKP_ERR("avc lookup is not matched\n");
+					handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
 				} else {
 					return; // pass
 				}
 			}
 		}
-		// lookup not found: fail
-		// BUG();
 	} else {
 		if (!__ratelimit(&rs))
 			return;
@@ -458,13 +456,13 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 					ro_avc_sharebuf_ptr->tclass != tclass ||
 					ro_avc_sharebuf_ptr->ae_allowed !=
 						temp_node->ae.avd.allowed) {
-					// BUG();
+					MKP_ERR("avc lookup is not matched\n");
+					handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
 				} else {
 					return; // pass
 				}
 			}
 		}
-#endif
 	}
 }
 

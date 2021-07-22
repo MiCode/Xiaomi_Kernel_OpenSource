@@ -61,3 +61,15 @@ int __init set_ext_policy(uint32_t policy)
 	policy_ctrl[policy] = 1;
 	return 0;
 }
+
+void handle_mkp_err_action(uint32_t policy)
+{
+	if (mkp_policy_action[policy] & ACTION_PANIC) {
+		pr_err("mkp error\n");
+		// For now we use warn for panic.
+		WARN(1, "mkp panic\n");
+	} else if (mkp_policy_action[policy] & ACTION_WARNING)
+		WARN(1, "mkp warning\n");
+	else
+		pr_info("mkp error\n");
+}
