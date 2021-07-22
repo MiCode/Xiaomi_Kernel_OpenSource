@@ -54,7 +54,7 @@ static int jpeg_drv_hybrid_dec_suspend(void)
 
 	JPEG_LOG(0, "+");
 	for (i = 0 ; i < HW_CORE_NUMBER; i++) {
-		JPEG_LOG(0, "jpeg dec suspend core %d", i);
+		JPEG_LOG(1, "jpeg dec suspend core %d", i);
 		if (dec_hwlocked[i]) {
 			JPEG_LOG(0, "jpeg dec suspend core %d fail", i);
 		}
@@ -74,7 +74,7 @@ static int jpeg_drv_hybrid_dec_suspend_notifier(
 	case PM_SUSPEND_PREPARE:
 		gJpegqDev.is_suspending = 1;
 		for (i = 0 ; i < HW_CORE_NUMBER; i++) {
-			JPEG_LOG(0, "jpeg dec sn wait core %d", i);
+			JPEG_LOG(1, "jpeg dec sn wait core %d", i);
 			while (dec_hwlocked[i]) {
 				JPEG_LOG(1, "jpeg dec sn core %d locked. wait...", i);
 				usleep_range(10000, 20000);
