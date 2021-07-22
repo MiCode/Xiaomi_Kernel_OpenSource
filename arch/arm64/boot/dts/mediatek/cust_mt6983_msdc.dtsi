@@ -8,6 +8,7 @@
 #include <dt-bindings/gpio/gpio.h>
 
 &mmc1 {
+	host-index = <1>;
 	status = "okay";
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc1_pins_default>;
@@ -27,8 +28,8 @@
 	vmmc-supply = <&mt6373_vmch>;
 	vqmmc-supply = <&mt6373_vmc>;
 	no-sdio;
-	no-sd;
-	non-removable;
+	no-mmc;
+//	non-removable;
 };
 
 
