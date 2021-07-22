@@ -376,13 +376,12 @@ static int __init mrdump_panic_init(void)
 		return -EINVAL;
 	}
 	mrdump_mini_init(&mparams);
+	mrdump_full_init(mparams.lk_version);
 
 #ifdef MODULE
 	mrdump_mini_add_misc_pa((unsigned long)rmem->priv, rmem->base,
 			rmem->size, 0, MRDUMP_MINI_MISC_LOAD);
-	mrdump_ka_init(rmem->priv, mparams.lk_version);
-#else
-	mrdump_full_init(mparams.lk_version);
+	mrdump_ka_init(rmem->priv);
 #endif
 
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);

@@ -90,17 +90,15 @@ unsigned long aee_get_kti_off(void)
 static int retry_nm = 100;
 
 static void *kinfo_vaddr;
-static char mrdump_ver[16];
 
 static void mrdump_ka_work_func(struct work_struct *work);
 static void aee_base_addrs_init(void);
 
 static DECLARE_DELAYED_WORK(ka_work,mrdump_ka_work_func);
 
-int mrdump_ka_init(void *vaddr, const char *version)
+int mrdump_ka_init(void *vaddr)
 {
 	kinfo_vaddr = vaddr;
-	strlcpy(mrdump_ver, version, sizeof(mrdump_ver));
 	schedule_delayed_work(&ka_work, 0);
 	return 0;
 }
@@ -125,7 +123,6 @@ static void mrdump_ka_work_func(struct work_struct *work)
 		init_ko_addr_list_late();
 		mrdump_mini_add_klog();
 		mrdump_mini_add_kallsyms();
-		mrdump_full_init(mrdump_ver);
 	} else {
 		pr_info("%s: retry in 0.1 second", __func__);
 		if (--retry_nm >= 0)
@@ -353,23 +350,6 @@ unsigned long aee_get_edata(void)
 	return 0;
 }
 
-#ifdef CONFIG_SYSFS
-static struct kset **p_module_kset;
-struct kset *aee_get_module_kset(void)
-{
-	if (p_module_kset)
-		return *p_module_kset;
-
-	p_module_kset = (void *)(aee_addr_find("module_kset"));
-
-	if (!p_module_kset) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-	return *p_module_kset;
-}
-#endif
-
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;
 struct list_head *aee_get_modules(void)
@@ -476,11 +456,8 @@ static void aee_base_addrs_init(void)
 	char strbuf[NAME_LEN];
 	unsigned long i;
 	unsigned int off;
-	unsigned int search_num = 6;
+	unsigned int search_num = 5;
 
-#ifndef CONFIG_SYSFS
-	search_num--;
-#endif
 #ifndef CONFIG_MODULES
 	search_num--;
 #endif
@@ -490,13 +467,6 @@ static void aee_base_addrs_init(void)
 			return;
 		off = mrdump_checking_names(off, strbuf, ARRAY_SIZE(strbuf));
 
-#ifdef CONFIG_SYSFS
-		if (!p_module_kset && strcmp(strbuf, "module_kset") == 0) {
-			p_module_kset = (void *)mrdump_idx2addr(i);
-			search_num--;
-			continue;
-		}
-#endif
 #ifdef CONFIG_MODULES
 		if (!p_modules && strcmp(strbuf, "modules") == 0) {
 			p_modules = (void *)mrdump_idx2addr(i);
@@ -563,14 +533,6 @@ unsigned long aee_get_edata(void)
 {
 	return (unsigned long)_edata;
 }
-
-#ifdef CONFIG_SYSFS
-struct kset *aee_get_module_kset(void)
-{
-	return module_kset;
-}
-#endif
-
 
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;
