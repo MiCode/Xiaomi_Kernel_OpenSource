@@ -249,6 +249,7 @@ out:
 	dev_info(dev, "[pmic_debug] o_slope        = 0x%x\n", tz_data->o_slope);
 	dev_info(dev, "[pmic_debug] o_slope_sign        = 0x%x\n", tz_data->o_slope_sign);
 	dev_info(dev, "[pmic_debug] id        = 0x%x\n", tz_data->id);
+	kfree(efuse_buff);
 
 	return 0;
 }
@@ -301,6 +302,7 @@ out:
 	dev_info(dev, "[pmic6363_debug] o_slope        = 0x%x\n", tz_data->o_slope);
 	dev_info(dev, "[pmic6363_debug] o_slope_sign        = 0x%x\n", tz_data->o_slope_sign);
 	dev_info(dev, "[pmic6363_debug] id        = 0x%x\n", tz_data->id);
+	kfree(efuse_buff);
 
 	return 0;
 }
@@ -353,6 +355,7 @@ out:
 	dev_info(dev, "[pmic6368_debug] o_slope        = 0x%x\n", tz_data->o_slope);
 	dev_info(dev, "[pmic6368_debug] o_slope_sign        = 0x%x\n", tz_data->o_slope_sign);
 	dev_info(dev, "[pmic6368_debug] id        = 0x%x\n", tz_data->id);
+	kfree(efuse_buff);
 
 	return 0;
 }
@@ -410,6 +413,7 @@ out:
 	dev_info(dev, "[pmic6373_debug] o_slope        = 0x%x\n", tz_data->o_slope);
 	dev_info(dev, "[pmic6373_debug] o_slope_sign        = 0x%x\n", tz_data->o_slope_sign);
 	dev_info(dev, "[pmic6373_debug] id        = 0x%x\n", tz_data->id);
+	kfree(efuse_buff);
 
 	return 0;
 }
@@ -459,6 +463,7 @@ out:
 	dev_info(dev, "[pmic6338_debug] o_slope        = 0x%x\n", tz_data->o_slope);
 	dev_info(dev, "[pmic6338_debug] o_slope_sign        = 0x%x\n", tz_data->o_slope_sign);
 	dev_info(dev, "[pmic6338_debug] id        = 0x%x\n", tz_data->id);
+	kfree(efuse_buff);
 
 	return 0;
 }
