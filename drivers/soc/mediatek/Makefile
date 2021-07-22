@@ -9,5 +9,6 @@ obj-$(CONFIG_MTK_DEVAPC) += devapc/
 obj-$(CONFIG_MTK_DEVMPU) += devmpu/
 obj-$(CONFIG_MTK_MMDVFS) += mtk-mmdvfs.o
 obj-$(CONFIG_MTK_LPM) += mtk-lpm.o
+obj-$(CONFIG_MTK_SOCINFO) += mtk-socinfo.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include

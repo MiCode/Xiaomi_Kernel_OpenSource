@@ -450,6 +450,7 @@ config MTK_ANDROID_DEFAULT_SETTING
 	select XFRM_ALGO
 	select XFRM_IPCOMP
 	select XFRM_SUB_POLICY
+	select MTK_SOCINFO
 	help
 	  This adds some MTK specific config by default which is
 	  not defined in ANDROID_DEFAULT_SETTING.

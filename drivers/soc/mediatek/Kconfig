@@ -99,4 +99,14 @@ source "drivers/soc/mediatek/devmpu/Kconfig"
 
 endmenu # Security
 
+config MTK_SOCINFO
+	tristate "MediaTek SoCInfo Driver"
+	select SOC_BUS
+	help
+	  Say yes here to support the MediaTek SoCInfo driver, providing
+	  information about the SoC to user space. From Android, Google
+	  export Soc information by unified Android property for APP
+	  vendor, instead of sysfs which maintained by each SoC vendor.
+
 endmenu
+
