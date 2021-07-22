@@ -20,6 +20,7 @@ unsigned long capacity_of(int cpu);
 
 extern unsigned long cpu_util(int cpu);
 extern int mtk_static_power_init(void);
+extern int task_fits_capacity(struct task_struct *p, long capacity);
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
 extern void mtk_find_busiest_group(void *data, struct sched_group *busiest,

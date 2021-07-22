@@ -92,7 +92,7 @@ static inline unsigned long uclamp_task_util(struct task_struct *p)
 }
 #endif
 
-static inline int task_fits_capacity(struct task_struct *p, long capacity)
+int task_fits_capacity(struct task_struct *p, long capacity)
 {
 	return fits_capacity(uclamp_task_util(p), capacity);
 }

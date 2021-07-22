@@ -18,6 +18,7 @@
 #include <trace/hooks/sched.h>
 #include <sched/sched.h>
 #include "sched_sys_common.h"
+#include "eas_plus.h"
 #include "eas_trace.h"
 
 DEFINE_PER_CPU(struct task_rotate_work, task_rotate_works);
@@ -36,54 +37,6 @@ struct task_rotate_work {
 	int src_cpu;
 	int dst_cpu;
 };
-
-static inline unsigned long task_util(struct task_struct *p)
-{
-	return READ_ONCE(p->se.avg.util_avg);
-}
-
-static inline unsigned long task_util_est(struct task_struct *p)
-{
-	struct util_est ue = READ_ONCE(p->se.avg.util_est);
-	unsigned long _task_util_est = 0;
-
-	_task_util_est = (max(ue.ewma, ue.enqueued) | UTIL_AVG_UNCHANGED);
-
-	return max(task_util(p), _task_util_est);
-}
-
-#if IS_ENABLED(CONFIG_UCLAMP_TASK)
-static inline unsigned long uclamp_task_util(struct task_struct *p)
-{
-	return clamp(task_util_est(p),
-		uclamp_eff_value(p, UCLAMP_MIN),
-		uclamp_eff_value(p, UCLAMP_MAX));
-}
-#else
-static inline unsigned long uclamp_task_util(struct task_struct *p)
-{
-	return task_util_est(p);
-}
-#endif
-
-static inline int task_fits_capacity(struct task_struct *p, long capacity)
-{
-	return capacity * 1024 > uclamp_task_util(p) * capacity_margin;
-}
-
-static inline unsigned long cpu_util(int cpu)
-{
-	struct cfs_rq *cfs_rq;
-	unsigned int util;
-
-	cfs_rq = &cpu_rq(cpu)->cfs;
-	util = READ_ONCE(cfs_rq->avg.util_avg);
-
-	if (sched_feat(UTIL_EST))
-		util = max(util, READ_ONCE(cfs_rq->avg.util_est.enqueued));
-
-	return min_t(unsigned long, util, capacity_orig_of(cpu));
-}
 
 int is_reserved(int cpu)
 {
