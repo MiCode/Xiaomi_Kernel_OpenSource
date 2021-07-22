@@ -42,6 +42,7 @@ char *slbc_uid_str[UID_MAX] = {
 	"UID_TEST_BUFFER",
 	"UID_TEST_CACHE",
 	"UID_TEST_ACP",
+	"UID_DISP",
 };
 EXPORT_SYMBOL_GPL(slbc_uid_str);
 

@@ -84,6 +84,7 @@ static struct slbc_config p_config[] = {
 	SLBC_ENTRY(UID_MML, 3, 0, 0, 0, 0x0, 0x030, 0),
 	SLBC_ENTRY(UID_HIFI3, 4, 0, 0, 0, 0x0, 0xe00, 0),
 	SLBC_ENTRY(UID_AINR, 5, 0, 0, 0, 0x0, 0x00f, 0),
+	SLBC_ENTRY(UID_DISP, 6, 0, 0, 0, 0x0, 0x030, 0),
 };
 
 u32 slbc_sram_read(u32 offset)

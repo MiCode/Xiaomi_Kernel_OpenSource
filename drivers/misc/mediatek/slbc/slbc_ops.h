@@ -49,6 +49,7 @@ enum slbc_uid {
 	UID_TEST_BUFFER,
 	UID_TEST_CACHE,
 	UID_TEST_ACP,
+	UID_DISP,
 	UID_MAX,
 };
 
@@ -57,6 +58,9 @@ enum slbc_uid {
 
 #define UID_MM_BITS_2 (BIT(UID_SH_P2) | BIT(UID_SH_APU))
 #define BIT_IN_MM_BITS_2(x) ((x) & UID_MM_BITS_2)
+
+#define UID_MM_BITS_3 (BIT(UID_MML) | BIT(UID_DISP))
+#define BIT_IN_MM_BITS_3(x) ((x) & UID_MM_BITS_3)
 
 enum slbc_type {
 	TP_BUFFER = 0,
