@@ -85,7 +85,7 @@ static int nr_fps_levels = MAX_NR_FPS_LEVELS;
 
 static int fstb_fps_klog_on;
 static int fstb_enable, fstb_active, fstb_active_dbncd, fstb_idle_cnt;
-static int fstb_hrtimer_ctrl_fps_enable;
+static int fstb_hrtimer_ctrl_fps_enable = 1;
 static int fstb_camera_flag;
 static long long last_update_ts;
 
@@ -170,10 +170,7 @@ int fpsgo_ctrl2fstb_switch_fstb(int enable)
 	}
 
 	fstb_enable = enable;
-	fstb_hrtimer_ctrl_fps_enable = enable;
 	fpsgo_systrace_c_fstb(-200, 0, fstb_enable, "fstb_enable");
-	fpsgo_systrace_c_fstb(-200, 0, fstb_hrtimer_ctrl_fps_enable,
-		"fstb_hrtimer_ctrl_fps_enable");
 
 	mtk_fstb_dprintk_always("%s %d\n", __func__, fstb_enable);
 	if (!fstb_enable) {
@@ -1061,13 +1058,14 @@ int fpsgo_comp2fstb_calculate_target_fps(int pid, unsigned long long bufID,
 			break;
 	}
 
-	if ((iter == NULL) || fstb_camera_flag || !fstb_hrtimer_ctrl_fps_enable)
+	if ((iter == NULL) || fstb_camera_flag ||
+		(iter->hwui_flag == 1) || !fstb_hrtimer_ctrl_fps_enable)
 		goto out;
 
 	iter->target_fps_v2 = fpsgo_fstb2xgf_get_target_fps(pid, bufID, &iter->target_fps_margin_v2,
 		cur_queue_end_ts);
 
-	if ((iter->target_fps_v2 <= 0) || (iter->hwui_flag == 1)) {
+	if (iter->target_fps_v2 <= 0) {
 		iter->target_fps_v2 = iter->target_fps;
 		fpsgo_main_trace("change to target_fps_v1 (%d)(%d)", iter->target_fps_v2,
 			iter->hwui_flag);
@@ -1146,13 +1144,10 @@ static void fstb_set_cam_active(int active)
 	if (fstb_is_cam_active == active)
 		return;
 
-	if (active) {
+	if (active)
 		fstb_camera_flag = 1;
-		fstb_hrtimer_ctrl_fps_enable = 0;
-	} else {
+	else
 		fstb_camera_flag = 0;
-		fstb_hrtimer_ctrl_fps_enable = 1;
-	}
 
 	fstb_is_cam_active = active;
 }
@@ -2607,10 +2602,6 @@ static ssize_t fstb_debug_show(struct kobject *kobj,
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"fstb_hrtimer_ctrl_fps_enable %d\n", fstb_hrtimer_ctrl_fps_enable);
-	pos += length;
-
-	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 			"fstb_log %d\n", fstb_fps_klog_on);
 	pos += length;
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -2668,27 +2659,49 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 	}
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\tsbe_state\n");
+	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\t\tsbe_state\t\tHWUI\n");
 	pos += length;
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
-		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
-				iter->pid,
-				iter->bufid,
-				iter->proc_name,
-				iter->queue_fps > max_fps_limit ?
-				max_fps_limit : iter->queue_fps,
-				iter->target_fps,
-				iter->target_fps_margin,
-				iter->target_fps_margin_gpu,
-				iter->target_fps_margin2,
-				iter->sbe_state);
-		pos += length;
-
+		if (iter) {
+			if (fstb_camera_flag || (iter->hwui_flag == 1) ||
+				!fstb_hrtimer_ctrl_fps_enable) {
+				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
+						iter->pid,
+						iter->bufid,
+						iter->proc_name,
+						iter->queue_fps > max_fps_limit ?
+						max_fps_limit : iter->queue_fps,
+						iter->target_fps,
+						iter->target_fps_margin,
+						iter->target_fps_margin_gpu,
+						iter->target_fps_margin2,
+						iter->sbe_state,
+						iter->hwui_flag);
+			} else {
+				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\n",
+						iter->pid,
+						iter->bufid,
+						iter->proc_name,
+						iter->queue_fps > max_fps_limit ?
+						max_fps_limit : iter->queue_fps,
+						iter->target_fps_v2,
+						iter->target_fps_margin_v2,
+						iter->target_fps_margin_v2,
+						iter->sbe_state,
+						iter->hwui_flag);
+			}
+			pos += length;
+		}
 	}
 
 	mutex_unlock(&fstb_lock);
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"fstb_hrtimer_ctrl_fps_enable:%d\n", fstb_hrtimer_ctrl_fps_enable);
+	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 			"fstb_is_cam_active:%d\n", fstb_is_cam_active);

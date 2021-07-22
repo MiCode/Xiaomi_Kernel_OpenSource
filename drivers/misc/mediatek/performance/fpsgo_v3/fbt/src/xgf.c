@@ -2429,28 +2429,34 @@ void xgf_set_logical_render_info(int pid, unsigned long long bufID,
 	unsigned long long l_start_ts,
 	unsigned long long f_start_ts)
 {
-	char l_dep_str[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
-	char r_dep_str[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	char l_dep_str[100] = "";
+	char r_dep_str[100] = "";
 	int i, length, pos = 0;
 
 	for (i = 0; i < l_num; i++) {
 		if (i == 0)
-			length = scnprintf(l_dep_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			length = scnprintf(l_dep_str + pos, 100 - pos,
 				"%d", l_arr[i]);
 		else
-			length = scnprintf(l_dep_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			length = scnprintf(l_dep_str + pos, 100 - pos,
 				",%d", l_arr[i]);
 		pos += length;
+
+		if (pos >= 100)
+			break;
 	}
 	pos = 0;
 	for (i = 0; i < r_num; i++) {
 		if (i == 0)
-			length = scnprintf(r_dep_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			length = scnprintf(r_dep_str + pos, 100 - pos,
 				"%d", r_arr[i]);
 		else
-			length = scnprintf(r_dep_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			length = scnprintf(r_dep_str + pos, 100 - pos,
 				",%d", r_arr[i]);
 		pos += length;
+
+		if (pos >= 100)
+			break;
 	}
 
 	fpsgo_main_trace("[fstb_ko][%d][0x%llx] | l_deplist:[%s]", pid, bufID, l_dep_str);
