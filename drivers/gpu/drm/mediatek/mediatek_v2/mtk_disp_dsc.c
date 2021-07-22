@@ -12,6 +12,7 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 #include "mtk_drm_crtc.h"
+#include "mtk_drm_drv.h"
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_dump.h"
 #include "mtk_drm_mmp.h"
@@ -119,6 +120,11 @@ static irqreturn_t mtk_dsc_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
+	if (mtk_drm_top_clk_isr_get("dsc_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
 	val = readl(dsc->regs + DISP_REG_DSC_INTSTA);
 	if (!val) {
 		ret = IRQ_NONE;
@@ -154,6 +160,8 @@ static irqreturn_t mtk_dsc_irq_handler(int irq, void *dev_id)
 
 	ret = IRQ_HANDLED;
 out:
+	mtk_drm_top_clk_isr_put("dsc_irq");
+
 	return ret;
 }
 
