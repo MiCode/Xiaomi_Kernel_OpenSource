@@ -278,6 +278,28 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 	*scale = SCHED_CAPACITY_SCALE * cap / max_cap;
 }
 
+unsigned int sysctl_sched_capacity_margin_dvfs = 20;
+/*
+ * set sched capacity margin for DVFS, Default = 20
+ */
+int set_sched_capacity_margin_dvfs(unsigned int capacity_margin)
+{
+	if (capacity_margin < 0 || capacity_margin > 95)
+		return -1;
+
+	sysctl_sched_capacity_margin_dvfs = capacity_margin;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(set_sched_capacity_margin_dvfs);
+
+unsigned int get_sched_capacity_margin_dvfs(void)
+{
+
+	return sysctl_sched_capacity_margin_dvfs;
+}
+EXPORT_SYMBOL_GPL(get_sched_capacity_margin_dvfs);
+
 void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 				unsigned long cap, unsigned long *next_freq)
 {
@@ -288,9 +310,12 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 	struct pd_capacity_info *info;
 	struct em_perf_domain *pd;
 	unsigned long temp_util;
+	unsigned long scale;
 
 	temp_util = util;
-	util = util + (util >> 2);
+
+	scale = (SCHED_CAPACITY_SCALE * 100 / (100 - sysctl_sched_capacity_margin_dvfs));
+	util = util * scale / SCHED_CAPACITY_SCALE;
 	util = min(util, cap);
 
 	for (i = 0; i < pd_count; i++) {
