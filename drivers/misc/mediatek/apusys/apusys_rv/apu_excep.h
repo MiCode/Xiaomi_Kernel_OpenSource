@@ -3,8 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef APU_EXCEP_H
-#define APU_EXCEP_H
+#ifndef APU_EXCEP_H_
+#define APU_EXCEP_H_
 
 #define MON_PC (0x838)
 #define MON_LR (0x83c)
@@ -40,7 +40,7 @@
 
 #define apusys_rv_aee_warn(key, format, args...) \
 	do { \
-		dev_info(dev, format, ##args); \
+		pr_info(format, ##args); \
 		aee_kernel_warning("APUSYS_RV", \
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
@@ -49,4 +49,4 @@
 int apu_excep_init(struct platform_device *pdev, struct mtk_apu *apu);
 void apu_excep_remove(struct platform_device *pdev, struct mtk_apu *apu);
 
-#endif /* APU_EXCEP_H */
+#endif /* APU_EXCEP_H_ */

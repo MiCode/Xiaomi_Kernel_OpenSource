@@ -18,12 +18,11 @@
 
 void apu_config_user_ptr_init(const struct mtk_apu *apu)
 {
-	struct device *dev = apu->dev;
 	struct config_v1 *config;
 	struct config_v1_entry_table *entry_table;
 
 	if (!apu || !apu->conf_buf) {
-		dev_info(dev, "%s: error\n", __func__);
+		pr_info("%s: error\n", __func__);
 		return;
 	}
 
@@ -47,7 +46,6 @@ void apu_config_user_ptr_init(const struct mtk_apu *apu)
 
 int apu_config_setup(struct mtk_apu *apu)
 {
-	struct device *dev = apu->dev;
 	unsigned long flags;
 	int ret;
 
@@ -55,11 +53,11 @@ int apu_config_setup(struct mtk_apu *apu)
 					&apu->conf_da, GFP_KERNEL);
 
 	if (apu->conf_buf == NULL || apu->conf_da == 0) {
-		dev_info(dev, "%s: dma_alloc_coherent fail\n", __func__);
+		pr_info("%s: dma_alloc_coherent fail\n", __func__);
 		return -ENOMEM;
 	}
 
-	dev_info(dev, "%s: apu->conf_buf = 0x%llx, apu->conf_da = 0x%llx\n",
+	pr_info("%s: apu->conf_buf = 0x%llx, apu->conf_da = 0x%llx\n",
 		__func__, (uint64_t) apu->conf_buf, (uint64_t) apu->conf_da);
 
 	memset(apu->conf_buf, 0, CONFIG_SIZE);
@@ -76,31 +74,31 @@ int apu_config_setup(struct mtk_apu *apu)
 
 	ret = apu_ipi_config_init(apu);
 	if (ret) {
-		dev_info(dev, "apu ipi config init failed\n");
+		dev_info(apu->dev, "apu ipi config init failed\n");
 		goto out;
 	}
 
-	//@@@ret = reviser_set_init_info(apu);
-	//@@@if (ret) {
-	//@@@	dev_info(apu->dev, "apu reviser config init failed\n");
-	//@@@	goto out;
-	//@@@}
+	ret = reviser_set_init_info(apu);
+	if (ret) {
+		dev_info(apu->dev, "apu reviser config init failed\n");
+		goto out;
+	}
 
-	//@@@ret = vpu_set_init_info(apu);
-	//@@@if (ret) {
-	//@@@	dev_info(apu->dev, "apu vpu config init failed\n");
-	//@@@	goto out;
-	//@@@}
+	///@@@ret = vpu_set_init_info(apu);
+	///@@@if (ret) {
+	///@@@	dev_info(apu->dev, "apu vpu config init failed\n");
+	///@@@	goto out;
+	///@@@}
 
-	//@@@ret = power_set_chip_info(apu);
-	//@@@if (ret) {
-	//@@@	dev_info(apu->dev, "set chip info fail ret:%d\n", ret);
-	//@@@	goto out;
-	//@@@}
+	///@@@ret = power_set_chip_info(apu);
+	///@@@if (ret) {
+	///@@@	dev_info(apu->dev, "set chip info fail ret:%d\n", ret);
+	///@@@	goto out;
+	///@@@}
 
 	ret = sw_logger_config_init(apu);
 	if (ret) {
-		dev_info(dev, "sw logger config init failed\n");
+		dev_info(apu->dev, "sw logger config init failed\n");
 		goto out;
 	}
 

@@ -239,6 +239,7 @@ static uint32_t dbg_read_csr(struct mtk_apu *apu, uint32_t csr_id)
 	return dbg_apb_dr(apu, DBG_DATA_REG_INSTR);
 }
 
+/* todo: move all debug apb/hw reg access related functions to atf */
 static void apu_coredump_work_func(struct work_struct *p_work)
 {
 	unsigned long flags;
@@ -246,13 +247,11 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 	struct apu_coredump_work_struct *apu_coredump_work =
 		container_of(p_work, struct apu_coredump_work_struct, work);
 	struct mtk_apu *apu = apu_coredump_work->apu;
-	struct device *dev = apu->dev;
-	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	struct apu_coredump *coredump =
 		(struct apu_coredump *) apu->coredump_buf;
 	uint32_t pc, lr, sp;
-	uint32_t reg_dump[REG_SIZE/sizeof(uint32_t)];
-	uint32_t tbuf_dump[TBUF_SIZE/sizeof(uint32_t)];
+	uint32_t reg_dump[REG_SIZE/4];
+	uint32_t tbuf_dump[TBUF_SIZE/4];
 	uint32_t tbuf_cur_ptr;
 	uint32_t status, data, timeout;
 	uint32_t val;
@@ -263,142 +262,118 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 	 */
 	if (apu->conf_buf->ramdump_type == 0x1) {
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV EXCEPTION");
-		dev_info(dev, "%s: done\n", __func__);
 		return;
 	}
 
-	if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
-		/* todo: add smc call */
-	} else {
-		pc = ioread32(apu->md32_sysctrl + MON_PC);
-		lr = ioread32(apu->md32_sysctrl + MON_LR);
-		sp = ioread32(apu->md32_sysctrl + MON_SP);
-		reg_dump[0] = REG_SIZE; // reg dump size
-		reg_dump[1] = lr;
-		reg_dump[2] = sp;
-		reg_dump[32] = pc;
-		reg_dump[33] = sp;
+	apu_do_tcmdump(apu);
+	apu_do_ramdump(apu);
 
-		apu_do_tcmdump(apu);
-		apu_do_ramdump(apu);
+	pc = ioread32(apu->md32_sysctrl + MON_PC);
+	lr = ioread32(apu->md32_sysctrl + MON_LR);
+	sp = ioread32(apu->md32_sysctrl + MON_SP);
+	reg_dump[1] = lr;
+	reg_dump[2] = sp;
+	reg_dump[32] = pc;
+	reg_dump[33] = sp;
+	memcpy(coredump->regdump, reg_dump, sizeof(reg_dump));
 
-		tbuf_cur_ptr = (ioread32(apu->md32_sysctrl + MD32_STATUS) >> 16 & 0x7);
-		for (i = 0; i < 8; i++) {
-			spin_lock_irqsave(&apu->reg_lock, flags);
-			iowrite32(tbuf_cur_ptr, apu->md32_sysctrl + TBUF_DBG_SEL);
-			spin_unlock_irqrestore(&apu->reg_lock, flags);
-			if (tbuf_cur_ptr > 0)
-				tbuf_cur_ptr--;
-			else
-				tbuf_cur_ptr = 7;
-			for (j = 0; j < 4; j++) {
-				tbuf_dump[i*4 + j] =
-					ioread32(apu->md32_sysctrl +
-						TBUF_DBG_DAT3 - j*4);
-			}
-		}
-		memcpy(coredump->tbufdump, tbuf_dump, sizeof(tbuf_dump));
-
+	tbuf_cur_ptr = (ioread32(apu->md32_sysctrl + MD32_STATUS) >> 16 & 0x7);
+	for (i = 0; i < 8; i++) {
 		spin_lock_irqsave(&apu->reg_lock, flags);
-
-		/* ungate md32 cg for debug apb connection */
-		WARN_ON(!hw_ops->cg_ungating);
-		hw_ops->cg_ungating(apu);
-
-		/* set DBG_EN */
-		iowrite32(0x1, apu->md32_debug_apb + DBG_EN);
-		/* set DBG MODE */
-		iowrite32(0x0, apu->md32_debug_apb + DBG_MODE);
+		iowrite32(tbuf_cur_ptr, apu->md32_sysctrl + TBUF_DBG_SEL);
 		spin_unlock_irqrestore(&apu->reg_lock, flags);
-		/* ATTACH */
-		dbg_apb_iw(apu, DBG_ATTACH_INSTR);
-		/* REQUEST */
-		dbg_apb_iw(apu, DBG_REQUEST_INSTR);
+		if (tbuf_cur_ptr > 0)
+			tbuf_cur_ptr--;
+		else
+			tbuf_cur_ptr = 7;
+		for (j = 0; j < 4; j++) {
+			tbuf_dump[i*4 + j] =
+				ioread32(apu->md32_sysctrl +
+					TBUF_DBG_DAT3 - j*4);
+		}
+	}
+	memcpy(coredump->tbufdump, tbuf_dump, sizeof(tbuf_dump));
+
+	spin_lock_irqsave(&apu->reg_lock, flags);
+	/* set DBG_EN */
+	iowrite32(0x1, apu->md32_debug_apb + DBG_EN);
+	/* set DBG MODE */
+	iowrite32(0x0, apu->md32_debug_apb + DBG_MODE);
+	spin_unlock_irqrestore(&apu->reg_lock, flags);
+	/* ATTACH */
+	dbg_apb_iw(apu, DBG_ATTACH_INSTR);
+	/* REQUEST */
+	dbg_apb_iw(apu, DBG_REQUEST_INSTR);
+	/* Read DBG STATUS Register */
+	status = dbg_apb_dr(apu, DBG_STATUS_REG_INSTR);
+
+	timeout = 0;
+	/* Check if RV33 go into DEBUG mode */
+	while ((status & 0x1) != 0x1) {
+		udelay(10);
 		/* Read DBG STATUS Register */
 		status = dbg_apb_dr(apu, DBG_STATUS_REG_INSTR);
-
-		dev_info(dev, "%s: status = 0x%x\n", __func__, status);
-
-		timeout = 0;
-		/* Check if RV33 go into DEBUG mode */
-		while ((status & 0x1) != 0x1) {
-			udelay(10);
-			/* Read DBG STATUS Register */
-			status = dbg_apb_dr(apu, DBG_STATUS_REG_INSTR);
-			if (timeout++ > 100000) {
-				dev_info(dev, "%s: timeout\n", __func__);
-				break;
-			}
+		if (timeout++ > 100000) {
+			pr_info("%s: timeout\n", __func__);
+			break;
 		}
-
-		if ((status & 0x1) == 0x1) {
-			reg_dump[0] = REG_SIZE; // reg dump size
-			/* Read GPRs */
-			for (i = 1; i < 32; i++) {
-				val = 0x7DF01073 | ((uint32_t) i << 15);
-				dbg_apb_dw(apu, DBG_INSTR_REG_INSTR, val);
-				dbg_apb_iw(apu, DBG_EXECUTE_INSTR);
-				reg_dump[i] = dbg_apb_dr(apu, DBG_DATA_REG_INSTR);
-			}
-
-			/* Read CSRs */
-			for (i = 34; i < REG_SIZE/sizeof(uint32_t); i++)
-				reg_dump[i] = dbg_read_csr(apu, TaskContext[i]);
-		}
-
-		if ((status & 0x1) == 0x1) { /* Read Cache Data */
-			dbg_apb_dw(apu, DBG_ADDR_REG_INSTR, DRAM_DUMP_OFFSET);
-			ptr = (uint32_t *) coredump->ramdump;
-			/* read one word per loop */
-			for (i = 0; i < DRAM_DUMP_SIZE/sizeof(uint32_t); i++) {
-				dbg_apb_iw(apu, DBG_READ_DM);
-				data = dbg_apb_dr(apu, DBG_DATA_REG_INSTR);
-				ptr[i] = data;
-			}
-		}
-
-		WARN_ON(!hw_ops->cg_gating);
-		WARN_ON(!hw_ops->rv_cachedump);
-		/* freeze md32 by gating cg */
-		hw_ops->cg_gating(apu);
-		hw_ops->rv_cachedump(apu);
-
-		memcpy(coredump->regdump, reg_dump, sizeof(reg_dump));
-
-		dsb(SY); /* may take lots of time */
 	}
 
+	if ((status & 0x1) == 0x1) {
+		reg_dump[0] = REG_SIZE; // reg dump size
+		/* Read GPRs */
+		for (i = 1; i < 32; i++) {
+			val = 0x7DF01073 | ((uint32_t) i << 15);
+			dbg_apb_dw(apu, DBG_INSTR_REG_INSTR, val);
+			dbg_apb_iw(apu, DBG_EXECUTE_INSTR);
+			reg_dump[i] = dbg_apb_dr(apu, DBG_DATA_REG_INSTR);
+		}
+
+		/* Read CSRs */
+		for (i = 34; i < REG_SIZE/4; i++)
+			reg_dump[i] = dbg_read_csr(apu, TaskContext[i]);
+
+		memcpy(coredump->regdump, reg_dump, sizeof(reg_dump));
+	}
+
+	if ((status & 0x1) == 0x1) { /* Read Cache Data */
+		dbg_apb_dw(apu, DBG_ADDR_REG_INSTR, DRAM_DUMP_OFFSET);
+		ptr = (uint32_t *) coredump->ramdump;
+		/* read one word per loop */
+		for (i = 0; i < DRAM_DUMP_SIZE/4; i++) {
+			dbg_apb_iw(apu, DBG_READ_DM);
+			data = dbg_apb_dr(apu, DBG_DATA_REG_INSTR);
+			ptr[i] = data;
+		}
+	}
+
+	dsb(SY); /* may take lot of time */
+
+	/* todo: add aee flow */
 	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV TIMEOUT");
-	dev_info(dev, "%s: done\n", __func__);
 }
 
 static irqreturn_t apu_wdt_isr(int irq, void *private_data)
 {
 	unsigned long flags;
 	struct mtk_apu *apu = (struct mtk_apu *) private_data;
-	struct device *dev = apu->dev;
-	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 
-	if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
-		/* todo: add smc call */
-	} else {
-		spin_lock_irqsave(&apu->reg_lock, flags);
-		/* freeze md32 by turn off cg */
-		WARN_ON(!hw_ops->cg_gating);
-		hw_ops->cg_gating(apu);
-		/* disable apu wdt */
-		iowrite32(ioread32(apu->apu_wdt + 4) &
-			(~(0x1U << 31)), apu->apu_wdt + 4);
-		/* clear wdt interrupt */
-		iowrite32(0x1, apu->apu_wdt);
-		spin_unlock_irqrestore(&apu->reg_lock, flags);
-	}
+	spin_lock_irqsave(&apu->reg_lock, flags);
+	/* freeze md32 by turn off cg */
+	iowrite32(ioread32(apu->md32_sysctrl) &
+		(~(0x1U << 11)), apu->md32_sysctrl);
+	/* disable apu wdt */
+	iowrite32(ioread32(apu->apu_wdt + 4) &
+		(~(0x1U << 31)), apu->apu_wdt + 4);
+	/* clear wdt interrupt */
+	iowrite32(0x1, apu->apu_wdt);
+	spin_unlock_irqrestore(&apu->reg_lock, flags);
 
 	disable_irq_nosync(apu->wdt_irq_number);
-	dev_info(dev, "%s: disable wdt_irq(%d)\n", __func__,
+	pr_info("%s: disable wdt_irq(%d)\n", __func__,
 		apu->wdt_irq_number);
 
-	dev_info(dev, "%s\n", __func__);
+	pr_info("%s\n", __func__);
 
 	schedule_work(&(apu_coredump_work.work));
 
@@ -408,17 +383,16 @@ static irqreturn_t apu_wdt_isr(int irq, void *private_data)
 static int apu_wdt_irq_register(struct platform_device *pdev,
 	struct mtk_apu *apu)
 {
-	struct device *dev = apu->dev;
 	int ret = 0;
 
 	apu->wdt_irq_number = platform_get_irq_byname(pdev, "apu_wdt");
-	dev_info(dev, "%s: wdt_irq_number = %d\n", __func__, apu->wdt_irq_number);
+	pr_info("%s: wdt_irq_number = %d\n", __func__, apu->wdt_irq_number);
 
 	ret = devm_request_irq(&pdev->dev, apu->wdt_irq_number, apu_wdt_isr,
 			irq_get_trigger_type(apu->wdt_irq_number),
 			"apusys_wdt", apu);
 	if (ret < 0)
-		dev_info(dev, "%s: devm_request_irq Failed to request irq %d: %d\n",
+		pr_info("%s: devm_request_irq Failed to request irq %d: %d\n",
 				__func__, apu->wdt_irq_number, ret);
 
 	return ret;
@@ -439,23 +413,18 @@ int apu_excep_init(struct platform_device *pdev, struct mtk_apu *apu)
 
 void apu_excep_remove(struct platform_device *pdev, struct mtk_apu *apu)
 {
-	struct device *dev = apu->dev;
 	unsigned long flags;
 
-	if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
-		/* todo: add smc call */
-	} else {
-		spin_lock_irqsave(&apu->reg_lock, flags);
-		/* disable apu wdt */
-		iowrite32(ioread32(apu->apu_wdt + 4) &
-			(~(0x1U << 31)), apu->apu_wdt + 4);
-		/* clear wdt interrupt */
-		iowrite32(0x1, apu->apu_wdt);
-		spin_unlock_irqrestore(&apu->reg_lock, flags);
-	}
+	spin_lock_irqsave(&apu->reg_lock, flags);
+	/* disable apu wdt */
+	iowrite32(ioread32(apu->apu_wdt + 4) &
+		(~(0x1U << 31)), apu->apu_wdt + 4);
+	/* clear wdt interrupt */
+	iowrite32(0x1, apu->apu_wdt);
+	spin_unlock_irqrestore(&apu->reg_lock, flags);
 
 	disable_irq(apu->wdt_irq_number);
-	dev_info(dev, "%s: disable wdt_irq(%d)\n", __func__,
+	pr_info("%s: disable wdt_irq(%d)\n", __func__,
 		apu->wdt_irq_number);
 
 	cancel_work_sync(&(apu_coredump_work.work));
