@@ -44,7 +44,7 @@ static const struct of_device_id mtk_camsv_of_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, mtk_camsv_of_ids);
 
-#define MAX_NUM_CAMSV_CLOCKS 6
+#define MAX_NUM_CAMSV_CLOCKS 5
 #define LARB13_PORT_SIZE 12
 #define LARB14_PORT_SIZE 6
 
@@ -55,34 +55,34 @@ struct sv_resource {
 
 static const struct sv_resource sv_resources[] = {
 	[CAMSV_0] = {
-		.clock = {"camsys_larb13_cgpdn", "camsys_larb14_cgpdn",
-			"camsys_gcamsva_cgpdn", "camsys_camsv_top_cgpdn",
-			"camsys_camsv_cq_cgpdn", "topckgen_top_muxcamtm"},
+		.clock = {"cam_main_larb13_cg_con", "cam_main_gcamsva_cg_con",
+			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
+			"topckgen_top_camtm_sel"},
 	},
 	[CAMSV_1] = {
-		.clock = {"camsys_larb13_cgpdn", "camsys_larb14_cgpdn",
-			"camsys_gcamsva_cgpdn", "camsys_camsv_top_cgpdn",
-			"camsys_camsv_cq_cgpdn", "topckgen_top_muxcamtm"},
+		.clock = {"cam_main_larb13_cg_con", "cam_main_gcamsva_cg_con",
+			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
+			"topckgen_top_camtm_sel"},
 	},
 	[CAMSV_2] = {
-		.clock = {"camsys_larb13_cgpdn", "camsys_larb14_cgpdn",
-			"camsys_gcamsvb_cgpdn", "camsys_camsv_top_cgpdn",
-			"camsys_camsv_cq_cgpdn", "topckgen_top_muxcamtm"},
+		.clock = {"cam_main_larb14_cg_con", "cam_main_gcamsvb_cg_con",
+			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
+			"topckgen_top_camtm_sel"},
 	},
 	[CAMSV_3] = {
-		.clock = {"camsys_larb13_cgpdn", "camsys_larb14_cgpdn",
-			"camsys_gcamsvb_cgpdn", "camsys_camsv_top_cgpdn",
-			"camsys_camsv_cq_cgpdn", "topckgen_top_muxcamtm"},
+		.clock = {"cam_main_larb14_cg_con", "cam_main_gcamsvb_cg_con",
+			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
+			"topckgen_top_camtm_sel"},
 	},
 	[CAMSV_4] = {
-		.clock = {"camsys_larb13_cgpdn", "camsys_larb14_cgpdn",
-			"camsys_gcamsvc_cgpdn", "camsys_camsv_top_cgpdn",
-			"camsys_camsv_cq_cgpdn", "topckgen_top_muxcamtm"},
+		.clock = {"cam_main_larb13_cg_con", "cam_main_gcamsvc_cg_con",
+			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
+			"topckgen_top_camtm_sel"},
 	},
 	[CAMSV_5] = {
-		.clock = {"camsys_larb13_cgpdn", "camsys_larb14_cgpdn",
-			"camsys_gcamsvc_cgpdn", "camsys_camsv_top_cgpdn",
-			"camsys_camsv_cq_cgpdn", "topckgen_top_muxcamtm"},
+		.clock = {"cam_main_larb13_cg_con", "cam_main_gcamsvc_cg_con",
+			"cam_main_camsv_top_cg_con", "cam_main_camsv_cq_a_cg_con",
+			"topckgen_top_camtm_sel"},
 	},
 };
 
