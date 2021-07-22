@@ -251,7 +251,7 @@ void mtk_register_reset_controller(struct device_node *np,
 void mtk_register_reset_controller_set_clr(struct device_node *np,
 	unsigned int num_regs, int regofs);
 
-extern bool (*mtk_fh_set_rate)(int pll_id, unsigned long dds, int postdiv);
+extern bool (*mtk_fh_set_rate)(const char *name, unsigned long dds, int postdiv);
 
 struct mtk_clk_desc {
 	const struct mtk_gate *clks;

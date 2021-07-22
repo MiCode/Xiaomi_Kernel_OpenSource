@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include "clk-fhctl.h"
 #include "clk-fhctl-util.h"
+#include "clk-mtk.h"
 
 static int (*subsys_init[])(struct pll_dts *array) = {
 	&fhctl_ap_init,
@@ -33,7 +34,7 @@ static struct pll_dts *_array;
 static void set_dts_array(struct pll_dts *array) {_array = array; }
 static struct pll_dts *get_dts_array(void) {return _array; }
 
-bool mtk_fh_set_rate(int pll_id, unsigned long dds, int postdiv)
+static bool _mtk_fh_set_rate(const char *pll_name, unsigned long dds, int postdiv)
 {
 	int i;
 	struct fh_hdlr *hdlr = NULL;
@@ -45,7 +46,7 @@ bool mtk_fh_set_rate(int pll_id, unsigned long dds, int postdiv)
 		return false;
 	}
 	for (i = 0; i < num_pll; i++, array++) {
-		if (pll_id == array->pll_id) {
+		if (!strcmp(pll_name, array->pll_name)) {
 			hdlr = array->hdlr;
 			break;
 		}
@@ -58,7 +59,8 @@ bool mtk_fh_set_rate(int pll_id, unsigned long dds, int postdiv)
 				dds, 9999);
 		return true;
 	}
-	FHDBG("fh_id<%d> hdlr<%x>, perms<%x>",
+	FHDBG("pll_name<%s> fh_id<%d> hdlr<%x> perms<%x>",
+			array->pll_name,
 			array->fh_id,
 			hdlr,
 			array->perms);
@@ -157,6 +159,8 @@ static int fh_plt_drv_probe(struct platform_device *pdev)
 
 	FHDBG("in\n");
 
+	mtk_fh_set_rate = _mtk_fh_set_rate;
+
 	/* convert dt to data */
 	array = parse_dt(pdev);
 
@@ -209,7 +213,10 @@ static const struct of_device_id fh_of_match[] = {
 	{ .compatible = "mediatek,mt6853-fhctl"},
 	{ .compatible = "mediatek,mt6877-fhctl"},
 	{ .compatible = "mediatek,mt6873-fhctl"},
+	{ .compatible = "mediatek,mt6879-fhctl"},
 	{ .compatible = "mediatek,mt6885-fhctl"},
+	{ .compatible = "mediatek,mt6895-fhctl"},
+	{ .compatible = "mediatek,mt6983-fhctl"},
 	{}
 };
 
