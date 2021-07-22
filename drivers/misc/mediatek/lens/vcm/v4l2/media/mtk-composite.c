@@ -174,7 +174,7 @@ static int mtk_composite_probe(struct platform_device *dev)
 	struct mtk_composite_v4l2_device *pfdev;
 	int rc = 0;
 
-	pr_info("flash v4l2 probe\n");
+	pr_info("lens v4l2 probe\n");
 	pfdev = devm_kzalloc(&dev->dev, sizeof(*pfdev), GFP_KERNEL);
 	if (!pfdev) {
 		pr_info("could not allocate memory\n");
