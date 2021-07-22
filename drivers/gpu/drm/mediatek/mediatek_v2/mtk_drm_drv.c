@@ -100,6 +100,9 @@ void *test_va;
 dma_addr_t test_pa;
 #endif
 
+int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
+
 int mtk_atoi(const char *str)
 {
 	int len = strlen(str);
@@ -3399,6 +3402,10 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_CHIST_CONFIG, mtk_drm_ioctl_set_chist_config,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_DITHER_PARAM, mtk_drm_ioctl_set_dither_param,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_BYPASS_DISP_GAMMA, mtk_drm_ioctl_bypass_disp_gamma,
+		DRM_UNLOCKED),
 };
 
 static const struct file_operations mtk_drm_fops = {

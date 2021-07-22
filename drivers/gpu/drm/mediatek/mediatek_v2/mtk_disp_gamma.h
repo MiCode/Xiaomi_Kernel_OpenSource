@@ -15,5 +15,8 @@
 int mtk_drm_ioctl_set_gammalut(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 
+int mtk_drm_ioctl_bypass_disp_gamma(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
+
 #endif
 

@@ -45,6 +45,7 @@ static DEFINE_SPINLOCK(g_gamma_clock_lock);
 
 enum GAMMA_IOCTL_CMD {
 	SET_GAMMALUT = 0,
+	BYPASS_GAMMA,
 };
 
 struct mtk_disp_gamma {
@@ -204,6 +205,17 @@ int mtk_drm_ioctl_set_gammalut(struct drm_device *dev, void *data,
 	return mtk_crtc_user_cmd(crtc, comp, SET_GAMMALUT, data);
 }
 
+int mtk_drm_ioctl_bypass_disp_gamma(struct drm_device *dev, void *data,
+	struct drm_file *file_priv)
+{
+	struct mtk_drm_private *private = dev->dev_private;
+	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_GAMMA0];
+	struct drm_crtc *crtc = private->crtc[0];
+
+	return mtk_crtc_user_cmd(crtc, comp, BYPASS_GAMMA, data);
+}
+
+
 static void mtk_gamma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	DDPINFO("%s\n", __func__);
@@ -273,6 +285,20 @@ static void mtk_gamma_set(struct mtk_ddp_comp *comp,
 	}
 }
 
+void disp_gamma_bypass_gamma(struct mtk_ddp_comp *comp, int bypass,
+	struct cmdq_pkt *handle)
+{
+	g_gamma_relay_value[index_of_gamma(comp->id)] = bypass;
+	pr_notice("%s: bypass: %d", __func__, bypass);
+	if (bypass) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_GAMMA_CFG, 0x1, 0x1);
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_GAMMA_CFG, 0x0, 0x1);
+	}
+}
+
 static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, unsigned int cmd, void *data)
 {
@@ -296,6 +322,21 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 				DDPPR_ERR("%s: comp_gamma1 failed\n", __func__);
 				return -EFAULT;
 			}
+		}
+	}
+	break;
+	case BYPASS_GAMMA:
+	{
+		unsigned int *value = data;
+
+		disp_gamma_bypass_gamma(comp, *value, handle);
+		if (comp->mtk_crtc->is_dual_pipe) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_gamma1 = priv->ddp_comp[DDP_COMPONENT_GAMMA1];
+
+			disp_gamma_bypass_gamma(comp_gamma1, *value, handle);
 		}
 	}
 	break;
