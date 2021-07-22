@@ -46,7 +46,7 @@ struct mtk_cam_dump_param {
 	/* CQ dump */
 	void *cq_cpu_addr;
 	__u32 cq_size;
-	__u32 cq_iova;
+	__u64 cq_iova;
 	__u32 cq_desc_offset;
 	__u32 cq_desc_size;
 	__u32 sub_cq_desc_offset;
@@ -55,22 +55,22 @@ struct mtk_cam_dump_param {
 	/* meta in */
 	void *meta_in_cpu_addr;
 	__u32 meta_in_dump_buf_size;
-	__u32 meta_in_iova;
+	__u64 meta_in_iova;
 
 	/* meta out 0 */
 	void *meta_out_0_cpu_addr;
 	__u32 meta_out_0_dump_buf_size;
-	__u32 meta_out_0_iova;
+	__u64 meta_out_0_iova;
 
 	/* meta out 1 */
 	void *meta_out_1_cpu_addr;
 	__u32 meta_out_1_dump_buf_size;
-	__u32 meta_out_1_iova;
+	__u64 meta_out_1_iova;
 
 	/* meta out 2 */
 	void *meta_out_2_cpu_addr;
 	__u32 meta_out_2_dump_buf_size;
-	__u32 meta_out_2_iova;
+	__u64 meta_out_2_iova;
 
 	/* ipi frame param */
 	struct mtkcam_ipi_frame_param *frame_params;
@@ -109,7 +109,7 @@ struct mtk_cam_dump_header {
 	/* CQ dump */
 	__u32	cq_dump_buf_offset;
 	__u32	cq_size;
-	__u32	cq_iova;
+	__u64	cq_iova;
 	__u32	cq_desc_offset;
 	__u32	cq_desc_size;
 	__u32	sub_cq_desc_offset;
@@ -118,22 +118,22 @@ struct mtk_cam_dump_header {
 	/* meta in */
 	__u32	meta_in_dump_buf_offset;
 	__u32	meta_in_dump_buf_size;
-	__u32	meta_in_iova;
+	__u64	meta_in_iova;
 
 	/* meta out 0 */
 	__u32	meta_out_0_dump_buf_offset;
 	__u32	meta_out_0_dump_buf_size;
-	__u32	meta_out_0_iova;
+	__u64	meta_out_0_iova;
 
 	/* meta out 1 */
 	__u32	meta_out_1_dump_buf_offset;
 	__u32	meta_out_1_dump_buf_size;
-	__u32	meta_out_1_iova;
+	__u64	meta_out_1_iova;
 
 	/* meta out 2 */
 	__u32	meta_out_2_dump_buf_offset;
 	__u32	meta_out_2_dump_buf_size;
-	__u32	meta_out_2_iova;
+	__u64	meta_out_2_iova;
 
 	/* status dump */
 	__u32	status_dump_offset;
