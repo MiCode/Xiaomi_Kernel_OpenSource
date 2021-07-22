@@ -204,7 +204,7 @@ void mtk_mq_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
 EXPORT_SYMBOL_GPL(mtk_mq_btag_pidlog_insert);
 
 static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
-	short pid, __u32 len)
+	short pid, __u32 len, bool is_sd)
 {
 	int type;
 
@@ -216,15 +216,8 @@ static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
 						bio_data_dir(bio));
 			return;
 		} else if (type == BTAG_STORAGE_MMC) {
-#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER_MMC)
-			bool ext_sd;
-			int minor;
-
-			minor = bio->bi_disk ? MINOR(bio_dev(bio)) : 0;
-			ext_sd = minor ? true : false;
 			mtk_btag_pidlog_add_mmc(q, pid, len,
-						bio_data_dir(bio), ext_sd);
-#endif
+						bio_data_dir(bio), is_sd);
 			return;
 		}
 	}
@@ -235,14 +228,14 @@ static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
  * rw: 0=read, 1=write
  */
 void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
-	struct bio_vec *bvec)
+	struct bio_vec *bvec, bool is_sd)
 {
 	struct page_pid_logger *ppl;
 	unsigned long idx;
 
 	idx = mtk_btag_pidlog_index(bvec->bv_page);
 	ppl = mtk_btag_pidlog_entry(idx);
-	mtk_btag_pidlog_add(q, bio, ppl->pid, bvec->bv_len);
+	mtk_btag_pidlog_add(q, bio, ppl->pid, bvec->bv_len, is_sd);
 	ppl->pid = 0;
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_commit_bio);
@@ -1596,7 +1589,8 @@ static void mtk_btag_mictx_init(const char *name,
 				struct mtk_blocktag *btag,
 				struct mtk_btag_vops *vops)
 {
-	if (!vops->boot_device)
+	if (!vops->boot_device[BTAG_STORAGE_UFS] &&
+		!vops->boot_device[BTAG_STORAGE_MMC])
 		return;
 
 	btag_bootdev = btag;
@@ -1718,7 +1712,7 @@ static void btag_trace_block_rq_insert(void *data,
 	}
 }
 
-void mtk_btag_commit_req(struct request *rq)
+void mtk_btag_commit_req(struct request *rq, bool is_sd)
 {
 	struct request_queue *q = rq->q;
 	struct bio *bio = rq->bio;
@@ -1734,7 +1728,7 @@ void mtk_btag_commit_req(struct request *rq)
 	for_each_bio(bio) {
 		bio_for_each_segment(bvec, bio, iter) {
 			if (bvec.bv_page)
-				mtk_btag_pidlog_commit_bio(q, bio, &bvec);
+				mtk_btag_pidlog_commit_bio(q, bio, &bvec, is_sd);
 		}
 	}
 }

@@ -7,6 +7,7 @@
 #define _MTK_BLOCKTAG_H
 
 #include <linux/blk_types.h>
+#include <linux/mmc/core.h>
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
 #include "ufshcd.h"
@@ -27,6 +28,7 @@
 #define BLOCKTAG_PIDLOG_ENTRIES 50
 #define BLOCKTAG_NAME_LEN      16
 #define BLOCKTAG_PRINT_LEN     4096
+#define STORAGE_BOOT_DEV_NUM 2
 
 #define BTAG_RT(btag)     (btag ? &btag->rt : NULL)
 #define BTAG_CTX(btag)    (btag ? btag->ctx.priv : NULL)
@@ -205,7 +207,7 @@ struct mtk_btag_vops {
 			    struct seq_file *seq);
 	void    (*mictx_eval_wqd)(struct mtk_btag_mictx_struct *mctx,
 				  u64 t_cur);
-	bool	boot_device;
+	bool	boot_device[STORAGE_BOOT_DEV_NUM];
 	bool	earaio_enabled;
 };
 
@@ -250,9 +252,9 @@ void mtk_btag_free(struct mtk_blocktag *btag);
 
 struct mtk_btag_trace *mtk_btag_curr_trace(struct mtk_btag_ringtrace *rt);
 struct mtk_btag_trace *mtk_btag_next_trace(struct mtk_btag_ringtrace *rt);
-void mtk_btag_commit_req(struct request *rq);
-int mtk_btag_pidlog_add_mmc(struct request_queue *q, pid_t pid, __u32 len,
-	int rw, bool ext_sd);
+void mtk_btag_commit_req(struct request *rq, bool is_sd);
+int mtk_btag_pidlog_add_mmc(struct request_queue *q, short pid,
+	__u32 len, int rw, bool is_sd);
 int mtk_btag_pidlog_add_ufs(struct request_queue *q, short pid, __u32 len,
 	int rw);
 void mtk_btag_get_aee_buffer(unsigned long *vaddr, unsigned long *size);
@@ -303,6 +305,13 @@ void ufs_mtk_biolog_clk_gating(bool gated);
 
 void rs_index_init(struct mtk_blocktag *btag,
 		   struct proc_dir_entry *parent);
+void mmc_mtk_biolog_send_command(unsigned int task_id,
+				 struct mmc_request *mrq);
+void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
+		unsigned int task_id, unsigned long req_mask);
+void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask);
+int mmc_mtk_biolog_init(struct mmc_host *mmc);
+int mmc_mtk_biolog_exit(void);
 
 #else
 
@@ -326,6 +335,12 @@ void rs_index_init(struct mtk_blocktag *btag,
 #define ufs_mtk_biolog_clk_gating(...)
 
 #define rs_index_init(...)
+
+#define mmc_mtk_biolog_send_command(...)
+#define mmc_mtk_biolog_transfer_req_compl(...)
+#define mmc_mtk_biolog_check(...)
+#define mmc_mtk_biolog_init(...)
+#define mmc_mtk_biolog_exit(...)
 
 #endif
 
