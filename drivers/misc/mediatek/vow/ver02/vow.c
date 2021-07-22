@@ -856,6 +856,10 @@ static bool vow_service_SetCustomModel(unsigned long arg)
 		VOWDRV_DEBUG("vow get cust size fail\n");
 		return false;
 	}
+	if (data_size > VOW_MAX_CUST_MODEL_SIZE || data_size <= 0) {
+		VOWDRV_DEBUG("vow set cust model fail, invalid size %ld\n", data_size);
+		return false;
+	}
 	VOWDRV_DEBUG("vow set cust model, size %d\n", data_size);
 	if (copy_from_user((void *)p_mdl_v,
 			   (const void __user *)p_info->data_addr,

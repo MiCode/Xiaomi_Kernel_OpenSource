@@ -91,6 +91,7 @@
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
 #define VOW_CUSTOM_MODEL_SIZE          0x2800 // 10KB = 0x2800
+#define VOW_MAX_CUST_MODEL_SIZE        (3000)
 
 #define VOW_ENGINE_INFO_LENGTH_BYTE    32
 
