@@ -2329,58 +2329,78 @@ done:
 static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 {
 	struct device *gpufreq_dev = &pdev->dev;
-	struct resource *res;
+	struct resource *res = NULL;
 	u32 mfg_sel_0 = 0, mfg_ref_sel = 0;
 	u32 mfg_sel_1 = 0, mfgsc_ref_sel = 0;
 
-	if (!gpufreq_dev) {
+	if (unlikely(!gpufreq_dev)) {
 		GPUFREQ_LOGE("fail to find gpufreq device (ENOENT)");
 		goto done;
 	}
 
 	/* 0x13FA0000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_pll");
-	g_mfg_pll_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfg_pll_base) {
-		GPUFREQ_LOGE("fail to ioremap MFG_PLL");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_PLL");
+		goto done;
+	}
+	g_mfg_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_pll_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_PLL: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x13FA0C00 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfgsc_pll");
-	g_mfgsc_pll_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfgsc_pll_base) {
-		GPUFREQ_LOGE("fail to ioremap MFGSC_PLL");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFGSC_PLL");
+		goto done;
+	}
+	g_mfgsc_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfgsc_pll_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFGSC_PLL: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x13FBF000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_top_config");
-	g_mfg_top_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfg_top_base) {
-		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_TOP_CONFIG");
+		goto done;
+	}
+	g_mfg_top_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_top_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x1C001000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sleep");
-	g_sleep = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_sleep) {
-		GPUFREQ_LOGE("fail to ioremap SLEEP");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource SLEEP");
+		goto done;
+	}
+	g_sleep = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_sleep)) {
+		GPUFREQ_LOGE("fail to ioremap SLEEP: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x10000000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "topckgen");
-	g_topckgen_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_topckgen_base) {
-		GPUFREQ_LOGE("fail to ioremap TOPCKGEN");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource TOPCKGEN");
+		goto done;
+	}
+	g_topckgen_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_topckgen_base)) {
+		GPUFREQ_LOGE("fail to ioremap TOPCKGEN: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x13000000 */
 	g_mali_base = __gpufreq_of_ioremap("mediatek,mali", 0);
-	if (!g_mali_base) {
+	if (unlikely(!g_mali_base)) {
 		GPUFREQ_LOGE("fail to ioremap MALI");
 		goto done;
 	}
@@ -4546,22 +4566,20 @@ done:
 static int __gpufreq_init_platform_info(struct platform_device *pdev)
 {
 	struct device *gpufreq_dev = &pdev->dev;
-	struct device_node *of_gpueb;
-	struct resource *res;
-	int ret = GPUFREQ_SUCCESS;
+	struct device_node *of_gpueb = NULL;
+	struct resource *res = NULL;
+	int ret = GPUFREQ_ENOENT;
 
 	GPUFREQ_TRACE_START("pdev=0x%x", pdev);
 
-	if (!gpufreq_dev) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to find gpufreq device (ENOENT)");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!gpufreq_dev)) {
+		GPUFREQ_LOGE("fail to find gpufreq device (ENOENT)");
 		goto done;
 	}
 
 	of_gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
-	if (!of_gpueb) {
+	if (unlikely(!of_gpueb)) {
 		GPUFREQ_LOGE("fail to find gpueb of_node");
-		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
@@ -4571,119 +4589,158 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 
 	/* 0x13FA0000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_pll");
-	g_mfg_pll_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfg_pll_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap MFG_PLL");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_PLL");
+		goto done;
+	}
+	g_mfg_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_pll_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_PLL: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x13FA0C00 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfgsc_pll");
-	g_mfgsc_pll_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfgsc_pll_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap MFGSC_PLL");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFGSC_PLL");
+		goto done;
+	}
+	g_mfgsc_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfgsc_pll_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFGSC_PLL: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x13FBF000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_top_config");
-	g_mfg_top_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfg_top_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap MFG_TOP_CONFIG");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_TOP_CONFIG");
+		goto done;
+	}
+	g_mfg_top_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_top_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x13F90000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_rpc");
-	g_mfg_rpc_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfg_rpc_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap MFG_RPC");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_RPC");
+		goto done;
+	}
+	g_mfg_rpc_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_rpc_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_RPC: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x1C001000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sleep");
-	g_sleep = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_sleep) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap SLEEP");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource SLEEP");
+		goto done;
+	}
+	g_sleep = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_sleep)) {
+		GPUFREQ_LOGE("fail to ioremap SLEEP: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x10000000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "topckgen");
-	g_topckgen_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_topckgen_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap TOPCKGEN");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource TOPCKGEN");
+		goto done;
+	}
+	g_topckgen_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_topckgen_base)) {
+		GPUFREQ_LOGE("fail to ioremap TOPCKGEN: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x1021C000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nth_emicfg_reg");
-	g_nth_emicfg_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_nth_emicfg_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap NTH_EMICFG_REG");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource NTH_EMICFG_REG");
+		goto done;
+	}
+	g_nth_emicfg_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_nth_emicfg_base)) {
+		GPUFREQ_LOGE("fail to ioremap NTH_EMICFG_REG: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x1021E000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sth_emicfg_reg");
-	g_sth_emicfg_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_sth_emicfg_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap STH_EMICFG_REG");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource STH_EMICFG_REG");
+		goto done;
+	}
+	g_sth_emicfg_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_sth_emicfg_base)) {
+		GPUFREQ_LOGE("fail to ioremap STH_EMICFG_REG: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x10001000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "infracfg_ao");
-	g_infracfg_ao_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_infracfg_ao_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap INFRACFG_AO");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource INFRACFG_AO");
+		goto done;
+	}
+	g_infracfg_ao_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_infracfg_ao_base)) {
+		GPUFREQ_LOGE("fail to ioremap INFRACFG_AO: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x10023000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "infra_ao_debug_ctrl");
-	g_infra_ao_debug_ctrl = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_infra_ao_debug_ctrl) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap INFRA_AO_DEBUG_CTRL");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource INFRA_AO_DEBUG_CTRL");
+		goto done;
+	}
+	g_infra_ao_debug_ctrl = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_infra_ao_debug_ctrl)) {
+		GPUFREQ_LOGE("fail to ioremap INFRA_AO_DEBUG_CTRL: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x1002B000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "infra_ao1_debug_ctrl");
-	g_infra_ao1_debug_ctrl = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_infra_ao1_debug_ctrl) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap INFRA_AO1_DEBUG_CTRL");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource INFRA_AO1_DEBUG_CTRL");
+		goto done;
+	}
+	g_infra_ao1_debug_ctrl = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_infra_ao1_debug_ctrl)) {
+		GPUFREQ_LOGE("fail to ioremap INFRA_AO1_DEBUG_CTRL: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x10042000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nth_emi_ao_debug_ctrl");
-	g_nth_emi_ao_debug_ctrl = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_nth_emi_ao_debug_ctrl) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap NTH_EMI_AO_DEBUG_CTRL");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource NTH_EMI_AO_DEBUG_CTRL");
+		goto done;
+	}
+	g_nth_emi_ao_debug_ctrl = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_nth_emi_ao_debug_ctrl)) {
+		GPUFREQ_LOGE("fail to ioremap NTH_EMI_AO_DEBUG_CTRL: 0x%x", res->start);
 		goto done;
 	}
 
 #if GPUFREQ_AVS_ENABLE
 	/* 0x11EE05D4 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "avs_efuse");
-	g_avs_efuse_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_avs_efuse_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap AVS_EFUSE");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource AVS_EFUSE");
+		goto done;
+	}
+	g_avs_efuse_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_avs_efuse_base)) {
+		GPUFREQ_LOGE("fail to ioremap AVS_EFUSE: 0x%x", res->start);
 		goto done;
 	}
 #endif /* GPUFREQ_AVS_ENABLE */
@@ -4691,31 +4748,42 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 #if GPUFREQ_ASENSOR_ENABLE
 	/* 0x13FB9C00 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_cpe_control");
-	g_mfg_cpe_control_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfg_cpe_control_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap MFG_CPE_CONTROL");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_CPE_CONTROL");
+		goto done;
+	}
+	g_mfg_cpe_control_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_cpe_control_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_CPE_CONTROL: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x13FB6000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_cpe_sensor");
-	g_mfg_cpe_sensor_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_mfg_cpe_sensor_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap MFG_CPE_SENSOR");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource MFG_CPE_SENSOR");
+		goto done;
+	}
+	g_mfg_cpe_sensor_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_mfg_cpe_sensor_base)) {
+		GPUFREQ_LOGE("fail to ioremap MFG_CPE_SENSOR: 0x%x", res->start);
 		goto done;
 	}
 
 	/* 0x11EE0000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cpe_0p65v_rt_blow");
-	g_cpe_0p65v_rt_blow_base = devm_ioremap_resource(gpufreq_dev, res);
-	if (!g_cpe_0p65v_rt_blow_base) {
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "fail to ioremap CPE_0P65V_RT_BLOW");
-		ret = GPUFREQ_ENOENT;
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource CPE_0P65V_RT_BLOW");
+		goto done;
+	}
+	g_cpe_0p65v_rt_blow_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_cpe_0p65v_rt_blow_base)) {
+		GPUFREQ_LOGE("fail to ioremap CPE_0P65V_RT_BLOW: 0x%x", res->start);
 		goto done;
 	}
 #endif /* GPUFREQ_ASENSOR_ENABLE */
+
+	ret = GPUFREQ_SUCCESS;
 
 done:
 	GPUFREQ_TRACE_END();
@@ -4733,7 +4801,7 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* keep probe successful but do nothing when bringup */
 	if (__gpufreq_bringup()) {
 		GPUFREQ_LOGI("skip gpufreq platform driver probe when bringup");
-//		__gpufreq_dump_bringup_status(pdev);
+		__gpufreq_dump_bringup_status(pdev);
 		goto done;
 	}
 
