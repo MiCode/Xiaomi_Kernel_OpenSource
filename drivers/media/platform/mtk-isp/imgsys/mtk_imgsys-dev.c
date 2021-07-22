@@ -540,7 +540,7 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 
 	if (cache) {
 		pr_debug("%s cache hit\n", __func__);
-		return (u32)iova_info->dma_addr;
+		return iova_info->dma_addr;
 	}
 
 	dev = imgsys_dev->dev;
