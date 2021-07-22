@@ -12,10 +12,7 @@
 #include <linux/slab.h>
 
 #include <leds-mtk.h>
-#if IS_ENABLED(CONFIG_RT4831A_I2C)
-#include "../misc/mediatek/gate_ic/gate_i2c.h"
-#endif
-
+extern int __attribute__ ((weak)) _gate_ic_backlight_set(unsigned int brightness);
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
 
