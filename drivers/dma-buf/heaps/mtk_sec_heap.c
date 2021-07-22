@@ -1297,7 +1297,7 @@ static int sec_dump_buf_info_cb(const struct dma_buf *dmabuf,
 		return 0;
 
 	buf_heap = buf->heap;
-	heap_priv = mtk_heap_priv_get(buf_heap);
+	heap_priv = dma_heap_get_drvdata(buf_heap);
 
 	buf_dump_str = heap_priv->get_buf_dump_str(dmabuf, dump_heap);
 	dmabuf_dump(s, "%s\n", buf_dump_str);

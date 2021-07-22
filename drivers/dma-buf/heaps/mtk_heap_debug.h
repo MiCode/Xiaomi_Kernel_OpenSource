@@ -81,16 +81,6 @@ unsigned long long get_current_time_ms(void)
 	return cur_ts;
 }
 
-static inline
-struct mtk_heap_priv_info *mtk_heap_priv_get(struct dma_heap *heap)
-{
-	struct dma_heap_export_info *exp_info = (typeof(exp_info))heap;
-	if (unlikely(!exp_info))
-		return NULL;
-
-	return (struct mtk_heap_priv_info *)exp_info->priv;
-}
-
 /* common function */
 int is_dmabuf_from_heap(struct dma_buf *dmabuf, struct dma_heap *heap)
 {
