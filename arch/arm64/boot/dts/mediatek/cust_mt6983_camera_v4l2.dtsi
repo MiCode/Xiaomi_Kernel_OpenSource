@@ -110,7 +110,7 @@
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO200__FUNC_GPIO200>;
 			slew-rate = <1>;
-			output-high;
+			output-low;
 		};
 	};
 	camera_pins_cam0_pdn_1: cam0@3 {
@@ -212,7 +212,7 @@
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO199__FUNC_GPIO199>;
 			slew-rate = <1>;
-			output-high;
+			output-low;
 		};
 	};
 	camera_pins_cam2_pdn_1: cam2@3 {
