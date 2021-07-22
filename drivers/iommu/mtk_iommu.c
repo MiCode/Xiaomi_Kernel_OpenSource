@@ -507,15 +507,19 @@ static void mtk_iommu_isr_record(struct mtk_iommu_data *data)
 	}
 }
 
+/* Notice!!: Before use it, must be ensure mtcmos is on */
 static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 {
 	for_each_m4u(data) {
-		if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
+		bool has_pm = !!data->dev->pm_domain;
+
+		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
 			if ((data->plat_data->iommu_type == MM_IOMMU &&
 				pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
 				(data->plat_data->iommu_type != MM_IOMMU &&
-				pm_runtime_get_if_in_use(data->dev) <= 0))
+				pm_runtime_get_if_in_use(data->dev) <= 0)) {
 				continue;
+			}
 		}
 
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
@@ -523,7 +527,7 @@ static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 		writel_relaxed(F_ALL_INVLD, data->base + REG_MMU_INVALIDATE);
 		wmb(); /* Make sure the tlb flush all done */
 
-		if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
+		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
 			data->plat_data->iommu_type != MM_IOMMU)
 			pm_runtime_put(data->dev);
 	}
@@ -533,12 +537,13 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 					   size_t granule,
 					   struct mtk_iommu_data *data)
 {
-	bool has_pm = !!data->dev->pm_domain;
 	unsigned long flags;
 	int ret;
 	u32 tmp;
 
 	for_each_m4u(data) {
+		bool has_pm = !!data->dev->pm_domain;
+
 		spin_lock_irqsave(&data->tlb_lock, flags);
 		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
 			if ((data->plat_data->iommu_type == MM_IOMMU &&
