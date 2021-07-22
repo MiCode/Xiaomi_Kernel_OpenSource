@@ -663,12 +663,6 @@ SND_SOC_DAILINK_DEFS(hostless_src_aaudio,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless SRC AAudio DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD)
-SND_SOC_DAILINK_DEFS(btcvsd,
-	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("18830000.mtk-btcvsd-snd")));
-#endif
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 SND_SOC_DAILINK_DEFS(vow,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1275,14 +1269,6 @@ static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(hostless_src_aaudio),
 	},
-	/* BTCVSD */
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD)
-	{
-		.name = "BTCVSD",
-		.stream_name = "BTCVSD",
-		SND_SOC_DAILINK_REG(btcvsd),
-	},
-#endif
 	/* VoW */
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 	{
