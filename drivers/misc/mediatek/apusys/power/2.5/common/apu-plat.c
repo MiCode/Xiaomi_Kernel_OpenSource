@@ -294,7 +294,7 @@ static int apu_misc_init(struct apu_dev *ad)
 		apu_get_recommend_freq_volt(ad->dev, &freq, &volt, 0);
 		opp = apu_freq2opp(ad, freq);
 		boost = apu_opp2boost(ad, opp);
-		aprobe_info(ad->dev, "[%s] opp/boost/freq/volt %d/%d/%u/%u\n",
+		aprobe_info(ad->dev, "[%s] opp/boost/freq/volt %d/%d/%lu/%lu\n",
 			    __func__, opp, boost, freq, volt);
 
 		if (opp != apu_volt2opp(ad, volt))
