@@ -154,7 +154,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE30,
 		.basic_clk_name = {"isp_vcore_0"},
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_DIS0] = {
 		.name = "disp0",
@@ -232,7 +232,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"audio_0", "audio_1", "audio_2"},
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_ISP_MAIN] = {
 		.name = "isp_main",
@@ -344,7 +344,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xEC4,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_MFG4] = {
 		.name = "mfg4",
