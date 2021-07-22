@@ -29,7 +29,7 @@
 #define TRAW_DMA_NAME_MAX_SIZE	20
 
 #define TRAW_DMA_DBG_SEL	 (0x4070)
-#define TRAW_DMA_DBG_PORT	 (0x3074)
+#define TRAW_DMA_DBG_PORT	 (0x4074)
 #define TRAW_CTL_DBG_SEL	 (0x0190)
 #define TRAW_CTL_DBG_PORT	 (0x0194)
 #define TRAW_DIPCQ_CQ_EN	 (0x0200)
