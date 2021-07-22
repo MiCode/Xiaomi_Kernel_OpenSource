@@ -134,6 +134,9 @@ static const struct mfd_cell mt6373_devs[] = {
 	}, {
 		.name = "mt6373-consys",
 		.of_compatible = "mediatek,mt6373-consys",
+	}, {
+		.name = "mt6373-pinctrl",
+		.of_compatible = "mediatek,mt6373-pinctrl",
 	},
 };
 
