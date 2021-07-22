@@ -176,7 +176,7 @@ static void case_general_submit(struct mml_test *test,
 	if (setup)
 		setup(&task, cur);
 
-	if (mml_drm_query_cap(&task.info) == MML_MODE_NOT_SUPPORT) {
+	if (mml_drm_query_cap(mml_ctx, &task.info) == MML_MODE_NOT_SUPPORT) {
 		mml_err("%s not support", __func__);
 		return;
 	}

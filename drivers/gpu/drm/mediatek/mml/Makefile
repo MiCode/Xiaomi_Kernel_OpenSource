@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
 #
 # Copyright (C) 2021 MediaTek Inc.
 #
@@ -11,49 +12,49 @@
 # GNU General Public License for more details.
 #
 
-MTK_PLATFORM := mt6893
+ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek \
+             -I$(srctree)/drivers/devfreq \
+             -I$(srctree)/drivers/misc/mediatek/mmdvfs \
+             -I$(srctree)/drivers/misc/mediatek/smi \
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat \
+             -I$(srctree)/drivers/iommu \
+             -I$(srctree)/drivers/misc/mediatek/mtk-interconnect
 
-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek 	\
-             -I$(srctree)/drivers/devfreq/		\
-             -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
-             -I$(srctree)/drivers/misc/mediatek/smi/ \
-             -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
-             -I$(srctree)/drivers/misc/mediatek/include/mt-plat	\
-             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include	\
-             -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
-             -I$(srctree)/drivers/iommu/ \
-             -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
-
-obj-$(CONFIG_MTK_MML_MT6893) := mtk-mml-mt6893.o
 obj-$(CONFIG_MTK_MML_LEGACY) := mtk-mml-legacy.o
+obj-$(CONFIG_MTK_MML) := mtk-mml.o
 
-mtk-mml-mt6893-objs := mml_drv.o
-mtk-mml-legacy-objs := mml_drv.o
-# mml_drv_v1.o if ipbased
+mtk-mml-legacy-objs := mtk-mml.o
 
-mml_drv-objs += mtk-mml-driver.o
-mml_drv-objs += mtk-mml-core.o
-mml_drv-objs += mtk-mml-pq-core.o
-mml_drv-objs += mtk-mml-drm-adaptor.o
-mml_drv-objs += mtk-mml-buf.o
-mml_drv-objs += mtk-mml-sys.o
-mml_drv-objs += mtk-mml-mutex.o
-mml_drv-objs += mtk-mml-rsz.o
-mml_drv-objs += mtk-mml-rdma.o
-mml_drv-objs += mtk-mml-wrot.o
-mml_drv-objs += mtk-mml-tp-mt6893.o
-mml_drv-objs += mtk-mml-tile.o
-mml_drv-objs += mtk-mml-hdr.o
-mml_drv-objs += mtk-mml-color.o
-mml_drv-objs += mtk-mml-aal.o
-mml_drv-objs += mtk-mml-tdshp.o
-mml_drv-objs += mtk-mml-tcc.o
-mml_drv-objs += mtk-mml-fg.o
+mtk-mml-objs += mtk-mml-driver.o
+mtk-mml-objs += mtk-mml-core.o
+mtk-mml-objs += mtk-mml-tile.o
+mtk-mml-objs += mtk-mml-pq-core.o
+mtk-mml-objs += mtk-mml-drm-adaptor.o
+mtk-mml-objs += mtk-mml-buf.o
+mtk-mml-objs += mtk-mml-sys.o
+mtk-mml-objs += tile_core.o
+mtk-mml-objs += tile_mdp_func.o
+mtk-mml-objs += DpTileScaler.o
+# device components
+mtk-mml-objs += mtk-mml-aal.o
+mtk-mml-objs += mtk-mml-color.o
+mtk-mml-objs += mtk-mml-fg.o
+mtk-mml-objs += mtk-mml-hdr.o
+mtk-mml-objs += mtk-mml-mutex.o
+mtk-mml-objs += mtk-mml-rdma.o
+mtk-mml-objs += mtk-mml-rsz.o
+mtk-mml-objs += mtk-mml-tcc.o
+mtk-mml-objs += mtk-mml-tdshp.o
+mtk-mml-objs += mtk-mml-wrot.o
 
-mml_drv-objs += tile_core.o
-mml_drv-objs += tile_mdp_func.o
-mml_drv-objs += DpTileScaler.o
+ifneq ($(wildcard $(srctree)/$(src)/mtk-mml-tp-mt6893.c),)
+obj-$(CONFIG_MTK_MML) += mtk-mml-mt6893.o
+mtk-mml-mt6893-objs := mtk-mml-tp-mt6893.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk-mml-tp-mt6983.c),)
+obj-$(CONFIG_MTK_MML) += mtk-mml-mt6983.o
+mtk-mml-mt6983-objs := mtk-mml-tp-mt6983.o
+endif
 
 # for unit test
-mml_drv-objs += mtk-mml-test.o
+mtk-mml-objs += mtk-mml-test.o

@@ -28,19 +28,15 @@
 
 /* set to 0 to disable reuse config */
 int mml_reuse = 1;
-EXPORT_SYMBOL(mml_reuse);
 module_param(mml_reuse, int, 0644);
 
 int mml_max_cache_task = 4;
-EXPORT_SYMBOL(mml_max_cache_task);
 module_param(mml_max_cache_task, int, 0644);
 
 int mml_max_cache_cfg = 2;
-EXPORT_SYMBOL(mml_max_cache_cfg);
 module_param(mml_max_cache_cfg, int, 0644);
 
 int mml_pq_disable = 1;
-EXPORT_SYMBOL(mml_pq_disable);
 module_param(mml_pq_disable, int, 0644);
 
 struct mml_drm_ctx {
@@ -98,9 +94,11 @@ static void mml_adjust_dest(struct mml_frame_data *src,
 }
 #endif
 
-enum mml_mode mml_drm_query_cap(struct mml_frame_info *info)
+enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
+				struct mml_frame_info *info)
 {
 	u8 i;
+	struct mml_topology_cache *tp = mml_topology_get_cache(ctx->mml);
 	const u32 srcw = info->src.width;
 	const u32 srch = info->src.height;
 
@@ -178,7 +176,8 @@ enum mml_mode mml_drm_query_cap(struct mml_frame_info *info)
 		}
 	}
 
-	return mml_topology_query_mode(info);
+	if (tp && tp->op->query_mode)
+		return tp->op->query_mode(info);
 
 not_support:
 	return MML_MODE_NOT_SUPPORT;

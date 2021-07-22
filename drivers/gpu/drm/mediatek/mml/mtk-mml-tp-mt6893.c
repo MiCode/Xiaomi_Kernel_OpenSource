@@ -20,7 +20,6 @@
 #define MML_IR_MAX_WIDTH	3200
 
 int mml_force_rsz;
-EXPORT_SYMBOL(mml_force_rsz);
 module_param(mml_force_rsz, int, 0644);
 
 enum topology_dual {
@@ -30,7 +29,6 @@ enum topology_dual {
 };
 
 int mml_dual;
-EXPORT_SYMBOL(mml_dual);
 module_param(mml_dual, int, 0644);
 
 enum topology_scenario {
@@ -511,27 +509,12 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	return 0;
 }
 
-static const struct mml_topology_ops tp_ops_mt6893 = {
-	.init_cache = tp_init_cache,
-	.select = tp_select
-};
-
-int mml_topology_ip_init(void)
-{
-	return mml_topology_register_ip(TOPOLOGY_PLATFORM, &tp_ops_mt6893);
-}
-
-void mml_topology_ip_exit(void)
-{
-	mml_topology_unregister_ip(TOPOLOGY_PLATFORM);
-}
-
-enum mml_mode mml_topology_query_mode(struct mml_frame_info *info)
+static enum mml_mode tp_query_mode(struct mml_frame_info *info)
 {
 	/* racing only support 1 out */
 	if (info->dest_cnt > 1)
 		goto decouple;
-
+	/* HW limitation */
 	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180) {
 		if (info->dest[0].compose.width > MML_IR_MAX_WIDTH)
 			goto decouple;
@@ -539,13 +522,34 @@ enum mml_mode mml_topology_query_mode(struct mml_frame_info *info)
 		if (info->dest[0].compose.height > MML_IR_MAX_WIDTH)
 			goto decouple;
 	}
-
+	/* HRT BW limitation */
 	if (info->dest[0].compose.width * info->dest[0].compose.height > MML_IR_MAX_FRAME)
 		goto decouple;
 
 	return MML_MODE_RACING;
 
 decouple:
-
 	return MML_MODE_MML_DECOUPLE;
 }
+
+static const struct mml_topology_ops tp_ops_mt6893 = {
+	.query_mode = tp_query_mode,
+	.init_cache = tp_init_cache,
+	.select = tp_select
+};
+
+static __init int mml_topology_ip_init(void)
+{
+	return mml_topology_register_ip(TOPOLOGY_PLATFORM, &tp_ops_mt6893);
+}
+module_init(mml_topology_ip_init);
+
+static __exit void mml_topology_ip_exit(void)
+{
+	mml_topology_unregister_ip(TOPOLOGY_PLATFORM);
+}
+module_exit(mml_topology_ip_exit);
+
+MODULE_AUTHOR("Dennis-YC Hsieh <dennis-yc.hsieh@mediatek.com>");
+MODULE_DESCRIPTION("MediaTek SoC display MML topology");
+MODULE_LICENSE("GPL v2");

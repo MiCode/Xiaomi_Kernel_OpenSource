@@ -4,7 +4,6 @@
  * Author: Ping-Hsun Wu <ping-hsun.wu@mediatek.com>
  */
 
-
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -17,6 +16,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <soc/mediatek/smi.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 #include "mtk-mml-driver.h"
 #include "mtk-mml-core.h"
@@ -37,25 +37,6 @@ struct mml_dev {
 	struct mml_topology_cache *topology;
 	struct mutex clock_mutex;
 };
-
-extern struct platform_driver mtk_mml_rdma_driver;
-extern struct platform_driver mtk_mml_wrot_driver;
-extern struct platform_driver mtk_mml_rsz_driver;
-extern struct platform_driver mml_mutex_driver;
-extern struct platform_driver mml_sys_driver;
-extern struct platform_driver mtk_mml_hdr_driver;
-extern struct platform_driver mtk_mml_color_driver;
-extern struct platform_driver mtk_mml_aal_driver;
-extern struct platform_driver mtk_mml_tdshp_driver;
-extern struct platform_driver mtk_mml_tcc_driver;
-extern struct platform_driver mtk_mml_fg_driver;
-extern struct platform_driver mtk_mml_test_drv;
-
-extern struct cmdq_base *cmdq_register_device(struct device *dev);
-extern struct cmdq_client *cmdq_mbox_create(struct device *dev, int index);
-extern void cmdq_mbox_destroy(struct cmdq_client *client);
-extern int mml_topology_ip_init(void);
-extern void mml_topology_ip_exit(void);
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev)
 {
@@ -198,6 +179,7 @@ struct mml_comp *mml_dev_get_comp_by_id(struct mml_dev *mml, u32 id)
 {
 	return mml->comps[id];
 }
+EXPORT_SYMBOL_GPL(mml_dev_get_comp_by_id);
 
 static int master_bind(struct device *dev)
 {
@@ -344,11 +326,7 @@ s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp)
 		return -EINVAL;
 	}
 	comp->id = comp_id;
-	ret = __comp_init(comp_pdev, comp, comp_clock_names);
-	if (ret)
-		return ret;
-
-	return 0;
+	return __comp_init(comp_pdev, comp, comp_clock_names);
 }
 EXPORT_SYMBOL_GPL(mml_comp_init);
 
@@ -380,8 +358,7 @@ s32 mml_subcomp_init(struct platform_device *comp_pdev,
 		}
 		name_ptr = name;
 	}
-	ret = __comp_init(comp_pdev, comp, name_ptr);
-	return ret;
+	return __comp_init(comp_pdev, comp, name_ptr);
 }
 EXPORT_SYMBOL_GPL(mml_subcomp_init);
 
@@ -592,7 +569,6 @@ void mml_unregister_comp(struct device *master, struct mml_comp *comp)
 	}
 }
 EXPORT_SYMBOL_GPL(mml_unregister_comp);
-
 
 static int comp_bind(struct device *dev, struct device *master, void *data)
 {
@@ -829,9 +805,6 @@ static int __init mml_driver_init(void)
 		return ret;
 	}
 
-	/* make sure topology for platform ready */
-	mml_topology_ip_init();
-
 	mml_pq_core_init();
 	/* register pm notifier */
 
@@ -841,8 +814,6 @@ module_init(mml_driver_init);
 
 static void __exit mml_driver_exit(void)
 {
-	mml_topology_ip_exit();
-
 	platform_driver_unregister(&mml_driver);
 }
 module_exit(mml_driver_exit);

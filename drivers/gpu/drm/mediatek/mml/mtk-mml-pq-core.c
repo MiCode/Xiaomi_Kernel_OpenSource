@@ -19,7 +19,7 @@ struct mml_pq_chan {
 	atomic_t msg_cnt;
 	struct list_head msg_list;
 	struct mutex msg_lock;
-	
+
 	struct list_head job_list;
 	struct mutex job_lock;
 	u64 job_idx;
@@ -213,7 +213,7 @@ int mml_pq_tile_init(struct mml_task *task)
 		return -EINVAL;
 
 	dump_pq_param(&task->pq_param[0]);
-	ret = create_pq_task(task); 
+	ret = create_pq_task(task);
 	if (unlikely(ret))
 		return ret;
 
@@ -222,7 +222,6 @@ int mml_pq_tile_init(struct mml_task *task)
 	pr_notice("%s end\n", __func__);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mml_pq_tile_init);
 
 int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms)
 {
@@ -248,7 +247,6 @@ int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms)
 	else
 		return -EBUSY;
 }
-EXPORT_SYMBOL_GPL(mml_pq_get_tile_init_result);
 
 static void handle_tile_init_result(struct mml_pq_chan *chan,
 				struct mml_pq_tile_init_job *job)
@@ -261,7 +259,7 @@ static void handle_tile_init_result(struct mml_pq_chan *chan,
 	s32 ret;
 
 	pr_notice("%s called, %d\n", __func__, job->result_job_id);
-	ret = find_sub_task(chan, job->result_job_id, &sub_task); 
+	ret = find_sub_task(chan, job->result_job_id, &sub_task);
 	if (unlikely(ret)) {
 		pr_notice("finish tile sub_task failed!: %d\n", ret);
 		return;

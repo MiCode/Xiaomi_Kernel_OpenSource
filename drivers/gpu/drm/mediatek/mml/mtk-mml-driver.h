@@ -98,4 +98,18 @@ struct mml_topology_cache *mml_topology_get_cache(struct mml_dev *mml);
  */
 struct mml_comp *mml_dev_get_comp_by_id(struct mml_dev *mml, u32 id);
 
+extern struct platform_driver mtk_mml_rdma_driver;
+extern struct platform_driver mtk_mml_wrot_driver;
+extern struct platform_driver mtk_mml_rsz_driver;
+extern struct platform_driver mml_mutex_driver;
+extern struct platform_driver mml_sys_driver;
+extern struct platform_driver mtk_mml_aal_driver;
+extern struct platform_driver mtk_mml_color_driver;
+extern struct platform_driver mtk_mml_fg_driver;
+extern struct platform_driver mtk_mml_hdr_driver;
+extern struct platform_driver mtk_mml_tdshp_driver;
+extern struct platform_driver mtk_mml_tcc_driver;
+
+extern struct platform_driver mtk_mml_test_drv;
+
 #endif	/* __MTK_MML_DRIVER_H__ */

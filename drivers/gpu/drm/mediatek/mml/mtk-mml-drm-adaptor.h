@@ -14,23 +14,17 @@
 
 struct mml_drm_ctx;
 
-/* mml_topology_query_mode - define in mtk-mml-tp-mt68xx.c
- *
- * @info:	Frame info which describe frame process by mml.
- *
- * return:	mml mode to run this frame
- */
-enum mml_mode mml_topology_query_mode(struct mml_frame_info *info);
-
 /*
  * mml_drm_query_cap - Query current running mode and possible support mode
  * for specific frame info.
  *
+ * @ctx:	Context of mml drm adaptor. Get by mml_drm_get_context API.
  * @info:	Frame info which describe frame process by mml.
  *
  * Return:	Capability result of target mode by giving info.
  */
-enum mml_mode mml_drm_query_cap(struct mml_frame_info *info);
+enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
+				struct mml_frame_info *info);
 
 /*
  * mml_drm_get_context - Get mml drm context to control mml.

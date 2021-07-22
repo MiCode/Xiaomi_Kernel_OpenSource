@@ -161,6 +161,7 @@ struct mml_topology_path {
 };
 
 struct mml_topology_ops {
+	enum mml_mode (*query_mode)(struct mml_frame_info *info);
 	s32 (*init_cache)(struct mml_dev *mml,
 			  struct mml_topology_cache *cache,
 			  struct cmdq_client **clts,

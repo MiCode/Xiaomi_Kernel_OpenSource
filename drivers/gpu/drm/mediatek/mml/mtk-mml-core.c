@@ -19,7 +19,6 @@ EXPORT_SYMBOL(mtk_mml_msg);
 module_param(mtk_mml_msg, int, 0644);
 
 int mml_pkt_dump;
-EXPORT_SYMBOL(mml_pkt_dump);
 module_param(mml_pkt_dump, int, 0644);
 
 int mml_trace;
@@ -62,6 +61,7 @@ int mml_topology_register_ip(const char *ip, const struct mml_topology_ops *op)
 	mutex_unlock(&tp_mutex);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mml_topology_register_ip);
 
 void mml_topology_unregister_ip(const char *ip)
 {
@@ -77,6 +77,7 @@ void mml_topology_unregister_ip(const char *ip)
 	}
 	mutex_unlock(&tp_mutex);
 }
+EXPORT_SYMBOL_GPL(mml_topology_unregister_ip);
 
 struct mml_topology_cache *mml_topology_create(struct mml_dev *mml,
 					       struct platform_device *pdev,
