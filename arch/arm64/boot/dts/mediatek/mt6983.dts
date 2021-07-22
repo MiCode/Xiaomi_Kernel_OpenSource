@@ -909,7 +909,7 @@
 			#size-cells = <2>;
 			ranges;
 			dr_mode = "otg";
-			maximum-speed = "high-speed";
+			maximum-speed = "super-speed";
 			mediatek,force-vbus;
 			mediatek,clk-mgr;
 			mediatek,usb3-drd;
