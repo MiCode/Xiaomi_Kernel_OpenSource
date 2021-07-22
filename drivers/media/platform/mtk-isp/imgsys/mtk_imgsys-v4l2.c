@@ -2379,6 +2379,8 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 #if MTK_CM4_SUPPORT
 	phandle rproc_phandle;
 #endif
+	struct device_link *link;
+	int larbs_num, i;
 	int ret;
 
 	imgsys_dev = devm_kzalloc(&pdev->dev, sizeof(*imgsys_dev), GFP_KERNEL);
@@ -2444,6 +2446,36 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 #endif
+
+	larbs_num = of_count_phandle_with_args(pdev->dev.of_node,
+						"mediatek,larbs", NULL);
+	dev_info(imgsys_dev->dev, "%d larbs to be added", larbs_num);
+	for (i = 0; i < larbs_num; i++) {
+		struct device_node *larb_node;
+		struct platform_device *larb_pdev;
+
+		larb_node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", i);
+		if (!larb_node) {
+			dev_info(imgsys_dev->dev,
+				"%s: %d larb node not found\n", __func__, i);
+			continue;
+		}
+
+		larb_pdev = of_find_device_by_node(larb_node);
+		if (!larb_pdev) {
+			of_node_put(larb_node);
+			dev_info(imgsys_dev->dev,
+				"%s: %d larb device not found\n", __func__, i);
+			continue;
+		}
+		of_node_put(larb_node);
+
+		link = device_link_add(&pdev->dev, &larb_pdev->dev,
+				DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (!link)
+			dev_info(imgsys_dev->dev, "unable to link SMI LARB idx %d\n", i);
+
+	}
 
 	atomic_set(&imgsys_dev->imgsys_enqueue_cnt, 0);
 	atomic_set(&imgsys_dev->num_composing, 0);
