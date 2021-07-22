@@ -214,6 +214,9 @@ void apupw_dbg_power_info(struct work_struct *work)
 
 	memset(buffer, 0, sizeof(buffer));
 	n_pos = snprintf(buffer, LOG_LEN, "APUPWR v[");
+	if (n_pos <= 0)
+		goto out;
+
 	list_for_each_entry_reverse(dbg_reg, &apupw_dbg.reg_list, node)
 		n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
 				"%u,", TOMV(regulator_get_voltage(dbg_reg->reg)));
@@ -235,6 +238,7 @@ void apupw_dbg_power_info(struct work_struct *work)
 	n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos), "]");
 
 	pr_info("%s", buffer);
+out:
 	if (apupw_dbg.poll_interval)
 		queue_delayed_work(pm_wq, &pw_info_work,
 			msecs_to_jiffies(apupw_dbg.poll_interval));
