@@ -124,6 +124,8 @@ struct usb_request {
 
 	int			status;
 	unsigned		actual;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /*-------------------------------------------------------------------------*/
@@ -154,6 +156,8 @@ struct usb_ep_ops {
 
 	int (*fifo_status) (struct usb_ep *ep);
 	void (*fifo_flush) (struct usb_ep *ep);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -242,6 +246,8 @@ struct usb_ep {
 	u8			address;
 	const struct usb_endpoint_descriptor	*desc;
 	const struct usb_ss_ep_comp_descriptor	*comp_desc;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /*-------------------------------------------------------------------------*/
@@ -327,12 +333,19 @@ struct usb_gadget_ops {
 	void	(*udc_set_speed)(struct usb_gadget *, enum usb_device_speed);
 	void	(*udc_set_ssp_rate)(struct usb_gadget *gadget,
 			enum usb_ssp_rate rate);
+	void	(*udc_async_callbacks)(struct usb_gadget *gadget, bool enable);
 	struct usb_ep *(*match_ep)(struct usb_gadget *,
 			struct usb_endpoint_descriptor *,
 			struct usb_ss_ep_comp_descriptor *);
+	int	(*check_config)(struct usb_gadget *gadget);
 #ifdef CONFIG_USB_FUNC_WAKEUP_SUPPORTED
 	int     (*func_wakeup)(struct usb_gadget *, int interface_id);
 #endif
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /**
@@ -617,6 +630,7 @@ int usb_gadget_connect(struct usb_gadget *gadget);
 int usb_gadget_disconnect(struct usb_gadget *gadget);
 int usb_gadget_deactivate(struct usb_gadget *gadget);
 int usb_gadget_activate(struct usb_gadget *gadget);
+int usb_gadget_check_config(struct usb_gadget *gadget);
 #else
 static inline int usb_gadget_frame_number(struct usb_gadget *gadget)
 { return 0; }
@@ -639,6 +653,8 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
 static inline int usb_gadget_deactivate(struct usb_gadget *gadget)
 { return 0; }
 static inline int usb_gadget_activate(struct usb_gadget *gadget)
+{ return 0; }
+static inline int usb_gadget_check_config(struct usb_gadget *gadget)
 { return 0; }
 #endif /* CONFIG_USB_GADGET */
 

@@ -3905,6 +3905,7 @@ include/trace/events/writeback.h
 include/trace/events/xdp.h
 include/trace/hooks/avc.h
 include/trace/hooks/binder.h
+include/trace/hooks/block.h
 include/trace/hooks/bug.h
 include/trace/hooks/cgroup.h
 include/trace/hooks/cpufreq.h
@@ -3927,6 +3928,7 @@ include/trace/hooks/gpiolib.h
 include/trace/hooks/hung_task.h
 include/trace/hooks/i2c.h
 include/trace/hooks/iommu.h
+include/trace/hooks/ipv6.h
 include/trace/hooks/logbuf.h
 include/trace/hooks/memory.h
 include/trace/hooks/mmc_core.h
@@ -3946,7 +3948,9 @@ include/trace/hooks/scmi.h
 include/trace/hooks/selinux.h
 include/trace/hooks/shmem_fs.h
 include/trace/hooks/signal.h
+include/trace/hooks/snd_compr.h
 include/trace/hooks/softlockup.h
+include/trace/hooks/sound.h
 include/trace/hooks/syscall_check.h
 include/trace/hooks/sys.h
 include/trace/hooks/sysrqcrash.h
@@ -5012,6 +5016,7 @@ mm/list_lru.c
 mm/maccess.c
 mm/madvise.c
 mm/memblock.c
+mm/memcontrol.c
 mm/memfd.c
 mm/memory.c
 mm/memory_hotplug.c
@@ -5029,6 +5034,7 @@ mm/mremap.c
 mm/msync.c
 mm/oom_kill.c
 mm/page_alloc.c
+mm/page_counter.c
 mm/page_ext.c
 mm/page_io.c
 mm/page_isolation.c
@@ -5056,6 +5062,7 @@ mm/slub.c
 mm/sparse.c
 mm/sparse-vmemmap.c
 mm/swap.c
+mm/swap_cgroup.c
 mm/swapfile.c
 mm/swap_slots.c
 mm/swap_state.c
@@ -5065,6 +5072,7 @@ mm/userfaultfd.c
 mm/util.c
 mm/vmacache.c
 mm/vmalloc.c
+mm/vmpressure.c
 mm/vmscan.c
 mm/vmstat.c
 mm/workingset.c
@@ -5167,6 +5175,7 @@ net/core/link_watch.c
 net/core/neighbour.c
 net/core/netevent.c
 net/core/net_namespace.c
+net/core/netprio_cgroup.c
 net/core/net-procfs.c
 net/core/net-sysfs.c
 net/core/net-sysfs.h
