@@ -67,6 +67,11 @@
 		spr0 = &disp_spr0;
 	};
 
+	/* ATF logger */
+	atf_logger: atf_logger {
+		compatible = "mediatek,tfa_debug";
+	};
+
 	dcm: dcm@10001000 {
 		compatible = "mediatek,mt6983-dcm";
 		reg = <0 0x10001000 0 0x1000>,
