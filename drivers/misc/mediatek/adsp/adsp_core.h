@@ -22,6 +22,10 @@ enum ADSP_CORE_STATE {
 struct adsp_priv;
 struct adspsys_priv;
 
+/* temporary definiation for ATF from audio */
+#define MTK_AUDIO_SMC_OP_ADSP_REQUEST  5
+#define MTK_AUDIO_SMC_OP_ADSP_RELEASE  6
+
 /* core api */
 #define get_adsp_core_by_ptr(ptr)  _get_adsp_core(ptr, 0)
 #define get_adsp_core_by_id(id)    _get_adsp_core(NULL, id)

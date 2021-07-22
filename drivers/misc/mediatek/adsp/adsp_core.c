@@ -9,6 +9,8 @@
 #include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/suspend.h>
+#include <linux/arm-smccc.h>    /* for Kernel Native SMC API */
+#include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
 #include "adsp_clk.h"
 #include "adsp_timesync.h"
 #include "adsp_semaphore.h"
@@ -17,12 +19,6 @@
 #include "adsp_excep.h"
 #include "adsp_mbox.h"
 #include "adsp_core.h"
-
-#ifdef SMI_SUPPORT
-#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
-#include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
-#include <mtk-base-afe.h>
-#endif
 
 static int (*ipi_queue_send_msg_handler)(
 		uint32_t core_id, /* enum adsp_core_id */
@@ -316,47 +312,11 @@ struct notifier_block adsp_uevent_notifier = {
 };
 
 #if IS_ENABLED(CONFIG_PM)
-static int adsp_pm_event(struct notifier_block *notifier
-			, unsigned long pm_event, void *unused)
-{
-#ifdef SMI_SUPPORT
-	struct arm_smccc_res res;
-#endif
-	switch (pm_event) {
-	case PM_POST_HIBERNATION:
-		pr_notice("[ADSP] %s: reboot\n", __func__);
-		adsp_reset();
-		return NOTIFY_DONE;
-	case PM_SUSPEND_PREPARE:
-#ifdef SMI_SUPPORT
-		if (adsp_feature_is_active(ADSP_A_ID))
-			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
-				  MTK_AUDIO_SMC_OP_ADSP_REQUEST,
-				  0, 0, 0, 0, 0, 0, &res);
-#endif
-		return NOTIFY_DONE;
-	case PM_POST_SUSPEND:
-#ifdef SMI_SUPPORT
-		if (adsp_feature_is_active(ADSP_A_ID))
-			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
-				  MTK_AUDIO_SMC_OP_ADSP_RELEASE,
-				  0, 0, 0, 0, 0, 0, &res);
-#endif
-		return NOTIFY_DONE;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block adsp_pm_notifier_block = {
-	.notifier_call = adsp_pm_event,
-	.priority = 0,
-};
-#endif
-
-int adsp_ap_suspend(struct device *dev)
+static int adsp_pm_suspend_prepare(void)
 {
 	int cid = 0, ret = 0;
 	struct adsp_priv *pdata = NULL;
+	struct arm_smccc_res res;
 
 	for (cid = get_adsp_core_total() - 1; cid >= 0; cid--) {
 		pdata = adsp_cores[cid];
@@ -372,21 +332,52 @@ int adsp_ap_suspend(struct device *dev)
 	if (is_adsp_system_running()) {
 		adsp_timesync_suspend(APTIME_FREEZE);
 		pr_info("%s, time sync freeze", __func__);
-	}
-	return 0;
-}
-EXPORT_SYMBOL(adsp_ap_suspend);
 
-int adsp_ap_resume(struct device *dev)
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			      MTK_AUDIO_SMC_OP_ADSP_REQUEST,
+			      0, 0, 0, 0, 0, 0, &res);
+	}
+
+	return NOTIFY_DONE;
+}
+
+static int adsp_pm_post_suspend(void)
 {
+	struct arm_smccc_res res;
+
 	if (is_adsp_system_running()) {
 		adsp_timesync_resume();
 		pr_info("%s, time sync unfreeze", __func__);
+
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			      MTK_AUDIO_SMC_OP_ADSP_RELEASE,
+			      0, 0, 0, 0, 0, 0, &res);
 	}
 
-	return 0;
+	return NOTIFY_DONE;
 }
-EXPORT_SYMBOL(adsp_ap_resume);
+
+static int adsp_pm_event(struct notifier_block *notifier,
+			 unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_POST_HIBERNATION:
+		pr_notice("[ADSP] %s: reboot\n", __func__);
+		adsp_reset();
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+		return adsp_pm_suspend_prepare();
+	case PM_POST_SUSPEND:
+		return adsp_pm_post_suspend();
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block adsp_pm_notifier_block = {
+	.notifier_call = adsp_pm_event,
+	.priority = 0,
+};
+#endif
 
 void adsp_select_clock_mode(enum adsp_clk_mode mode)
 {

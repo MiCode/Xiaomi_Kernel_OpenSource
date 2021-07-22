@@ -25,7 +25,4 @@ extern int adsp_after_bootup(struct adsp_priv *pdata);
 extern int adsp_core0_init(struct adsp_priv *pdata);
 extern int adsp_core1_init(struct adsp_priv *pdata);
 
-extern int adsp_ap_suspend(struct device *dev);
-extern int adsp_ap_resume(struct device *dev);
-
 #endif /* ADSP_CLK_MT6983_H */

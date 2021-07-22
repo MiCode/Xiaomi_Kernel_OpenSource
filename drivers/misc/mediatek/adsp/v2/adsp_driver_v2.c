@@ -109,11 +109,6 @@ static const struct of_device_id adsp_core_of_ids[] = {
 	{}
 };
 
-static  const struct dev_pm_ops adsp_ap_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(adsp_ap_suspend,
-				adsp_ap_resume)
-};
-
 static int adspsys_drv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -282,9 +277,6 @@ static struct platform_driver adspsys_driver = {
 		.owner = THIS_MODULE,
 #if IS_ENABLED(CONFIG_OF)
 		.of_match_table = adspsys_of_ids,
-#endif
-#if IS_ENABLED(CONFIG_PM)
-		.pm = &adsp_ap_pm_ops,
 #endif
 	},
 };
