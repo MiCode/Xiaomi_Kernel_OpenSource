@@ -31,6 +31,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/soc/mediatek/infracfg.h>
+#include <linux/arm-smccc.h>
 #include <asm/barrier.h>
 #include <soc/mediatek/smi.h>
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
@@ -156,6 +157,10 @@
 #define MTK_IOMMU_ISR_COUNT_MAX			5
 #define MTK_IOMMU_ISR_DISABLE_TIME		10
 
+/* hyp-pmm fastcalls */
+#define HYP_PMM_SHARE_IOVA			(0XBB00FFA2)
+#define HYP_PMM_UNSHARE_IOVA			(0XBB00FFA3)
+
 struct mtk_iommu_domain {
 	struct io_pgtable_cfg		cfg;
 	struct io_pgtable_ops		*iop;
@@ -205,9 +210,17 @@ static LIST_HEAD(m4ulist);	/* List all the M4U HWs */
 
 #define for_each_m4u(data)	list_for_each_entry(data, &m4ulist, list)
 
+enum iova_type {
+	NORMAL,
+	PROTECTED,
+	SECURE,
+	IOVA_TYPE
+};
+
 struct mtk_iommu_iova_region {
 	dma_addr_t		iova_base;
 	unsigned long long	size;
+	enum iova_type		type;
 };
 
 static const struct mtk_iommu_iova_region single_domain[] = {
@@ -277,15 +290,16 @@ static const struct mtk_iommu_iova_region mt6879_multi_dom[] = {
  * 8,VDO_UP_256MB_1: 0x1_6000_0000~0x1_6FFF_FFFF
  */
 static const struct mtk_iommu_iova_region mt6983_multi_dom[] = {
-	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K)}, /* 0, NORMAL:512MB+128MB+10.25GB */
-	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K)}, /* 1,APU_SECURE:512M */
-	{ .iova_base = SZ_1G, .size = 0xc0000000}, /* 2,APU_CODE:3GB */
-	{ .iova_base = 0x100000000ULL, .size = 0x4000000}, /* 3,CCU0:64MB */
-	{ .iova_base = 0x104000000ULL, .size = 0x4000000}, /* 4,CCU1:64MB */
-	{ .iova_base = 0x110000000ULL, .size = SZ_512M}, /* 5,VDO_UP_512MB_1 */
-	{ .iova_base = 0x130000000ULL, .size = SZ_512M}, /* 6,VDO_UP_512MB_2 */
-	{ .iova_base = 0x150000000ULL, .size = SZ_256M}, /* 7,VDO_UP_256MB_1 */
-	{ .iova_base = 0x160000000ULL, .size = SZ_256M}, /* 8,VDO_UP_256MB_1 */
+	 /* 0, NORMAL:512MB+128MB+10.25GB */
+	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL},
+	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K), .type = PROTECTED}, /* 1,APU_SECURE:512M */
+	{ .iova_base = SZ_1G, .size = 0xc0000000, .type = PROTECTED}, /* 2,APU_CODE:3GB */
+	{ .iova_base = 0x100000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 3,CCU0:64MB */
+	{ .iova_base = 0x104000000ULL, .size = 0x4000000, .type = PROTECTED}, /* 4,CCU1:64MB */
+	{ .iova_base = 0x110000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 5,VDO_UP_512MB_1 */
+	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 6,VDO_UP_512MB_2 */
+	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 7,VDO_UP_256MB_1 */
+	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 8,VDO_UP_256MB_1 */
 };
 
 static const struct mtk_iommu_iova_region mt6983_multi_dom_test[] = {
@@ -299,6 +313,72 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom_test[] = {
 	{ .iova_base = 0x1E0000000ULL, .size = SZ_256M}, /* 7,VDO_UP_256MB_1: 1_E000_0000~0x1_EFFF_FFFF */
 	{ .iova_base = 0x1F0000000ULL, .size = (SZ_128M + 0x7400000)}, /* 8,VDO_UP_256MB_1: 1_F000_0000~0x1_FF3F_FFFF */
 };
+
+static int mtee_share_iova(uint64_t iova_start, uint32_t size)
+{
+	struct arm_smccc_res smc_res;
+
+	arm_smccc_smc(HYP_PMM_SHARE_IOVA, lower_32_bits(iova_start),
+		      upper_32_bits(iova_start), size, 0, 0, 0, 0, &smc_res);
+
+	if (smc_res.a0)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int mtee_unshare_iova(uint64_t iova_start, uint32_t size)
+{
+	struct arm_smccc_res smc_res;
+
+	arm_smccc_smc(HYP_PMM_UNSHARE_IOVA, lower_32_bits(iova_start),
+		      upper_32_bits(iova_start), size, 0, 0, 0, 0, &smc_res);
+
+	if (smc_res.a0)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int iova_is_secure(struct mtk_iommu_data *data, unsigned long iova, size_t size)
+{
+	int i;
+	const struct mtk_iommu_iova_region *region;
+	unsigned long iova_end = iova + size;
+
+	for (i = 0; i < data->plat_data->iova_region_nr; i++) {
+		region = &data->plat_data->iova_region[i];
+		if (iova >= region->iova_base && iova_end < (region->iova_base + region->size) &&
+		    region->type == PROTECTED)
+			return 1;
+	}
+
+	return 0;
+}
+
+static int iova_secure_map(struct mtk_iommu_data *data, unsigned long iova,
+				size_t size, bool mapped)
+{
+	int ret;
+
+	ret = iova_is_secure(data, iova, size);
+	if (!ret)
+		return 0;
+
+	if (mapped)
+		ret = mtee_share_iova(iova, size);
+	else
+		ret = mtee_unshare_iova(iova, size);
+	if (ret) {
+		pr_err("%s err, share_iova failed, iova:0x%lx ~ 0x%lx, mapped:%d\n",
+		       __func__, iova, (iova + size - 1), mapped);
+		return -EINVAL;
+	}
+
+	pr_info("%s done, iova:0x%lx ~ 0x%lx, mapped:%d\n",
+		__func__, iova, (iova + size - 1), mapped);
+	return 0;
+}
 
 /*
  * There may be 1 or 2 M4U HWs, But we always expect they are in the same domain
@@ -944,6 +1024,7 @@ static void mtk_iommu_flush_iotlb_all(struct iommu_domain *domain)
 static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 				 struct iommu_iotlb_gather *gather)
 {
+	int ret;
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	size_t length = gather->end - gather->start + 1;
 
@@ -952,6 +1033,10 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 		mtk_iova_unmap(gather->start, length);
 #endif
 
+	ret = iova_secure_map(dom->data, gather->start, length, false); /* clean bank1 */
+	if (ret)
+		pr_warn("%s failed\n", __func__);
+
 	mtk_iommu_tlb_flush_range_sync(gather->start, length, gather->pgsize,
 				       dom->data);
 }
@@ -959,12 +1044,17 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 static void mtk_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
 			       size_t size)
 {
+	int ret;
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	if (iova > 0 && iova != ULONG_MAX)
 		mtk_iova_map(iova, size);
 #endif
+
+	ret = iova_secure_map(dom->data, iova, size, true);
+	if (ret)
+		pr_warn("%s failed\n", __func__);
 
 	mtk_iommu_tlb_flush_range_sync(iova, size, size, dom->data);
 }
