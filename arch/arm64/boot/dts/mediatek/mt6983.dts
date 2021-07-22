@@ -801,6 +801,135 @@
 			reg = <0 0x1025d000 0 0x1000>;
 		};
 
+		ssusb: usb0@11201000 {
+				compatible = "mediatek,mtu3";
+			reg = <0 0x11201000 0 0x2e00>,
+				<0 0x11203e00 0 0x0100>;
+			reg-names = "mac", "ippc";
+			vusb33-supply = <&mt6373_vusb>;
+			interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH 0>;
+			phy-cells = <1>;
+			phys = <&u2port0 PHY_TYPE_USB2>,
+				 <&u3port0 PHY_TYPE_USB3>;
+			clocks = <&topckgen_clk CLK_TOPCKGEN_USB_TOP_SEL>,
+				<&topckgen_clk CLK_TOPCKGEN_SSUSB_XHCI_SEL>;
+			clock-names = "sys_ck", "host_ck";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			dr_mode = "otg";
+			maximum-speed = "high-speed";
+			mediatek,force-vbus;
+			mediatek,clk-mgr;
+			mediatek,usb3-drd;
+			mediatek,hw-req-ctrl;
+			usb-role-switch;
+			port {
+				mtu3_drd_switch: endpoint@0 {
+					remote-endpoint = <&usb_role>;
+				};
+			};
+
+			usb_host: xhci0@11200000 {
+				compatible = "mediatek,mtk-xhci";
+				reg = <0 0x11200000 0 0x1000>;
+				reg-names = "mac";
+				interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH 0>;
+				clocks = <&clk26m>;
+				clock-names = "sys_ck";
+				status = "okay";
+			};
+		};
+
+		ssusb1: usb1@11211000 {
+			compatible = "mediatek,mtu3";
+			reg = <0 0x11211000 0 0x2e00>,
+				<0 0x11213e00 0 0x0100>;
+			reg-names = "mac", "ippc";
+			vusb33-supply = <&mt6373_vusb>;
+			interrupts = <GIC_SPI 732 IRQ_TYPE_LEVEL_HIGH 0>;
+			phy-cells = <1>;
+			phys = <&u2port1 PHY_TYPE_USB2>;
+			clocks = <&topckgen_clk CLK_TOPCKGEN_USB_TOP_1P_SEL>,
+				<&topckgen_clk CLK_TOPCKGEN_SSUSB_XHCI_1P_SEL>;
+			clock-names = "sys_ck", "host_ck";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			dr_mode = "otg";
+			maximum-speed = "high-speed";
+			mediatek,force-vbus;
+			mediatek,clk-mgr;
+			mediatek,usb3-drd;
+			mediatek,hw-req-ctrl;
+			usb-role-switch;
+			status = "disabled";
+
+			usb_host1: xhci1@11210000 {
+				compatible = "mediatek,mtk-xhci";
+				reg = <0 0x11210000 0 0x1000>;
+				reg-names = "mac";
+				interrupts = <GIC_SPI 731 IRQ_TYPE_LEVEL_HIGH 0>;
+				clocks = <&clk26m>;
+				clock-names = "sys_ck";
+				status = "okay";
+			};
+		};
+
+		u3phy: usb-phy0@11e40000 {
+			compatible = "mediatek,xsphy";
+			reg = <0 0x11e43000 0 0x200>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			u2port0: usb2-phy0@11e40000 {
+				reg = <0 0x11e40000 0 0x400>;
+				clocks = <&clk26m>;
+				clock-names = "ref";
+				#phy-cells = <1>;
+				usb2jtag = <&vlpcfg_bus_clk 2>;
+			};
+
+			u3port0: usb3-phy0@11e43000 {
+				reg = <0 0x11e43400 0 0x500>;
+				clocks = <&clk26m>;
+				clock-names = "ref";
+				#phy-cells = <1>;
+			};
+		};
+
+		u3phy1: usb-phy1@11e30000 {
+			compatible = "mediatek,xsphy";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			status = "disabled";
+
+			u2port1: usb2-phy1@11e30000 {
+				reg = <0 0x11e30000 0 0x400>;
+				clocks = <&clk26m>;
+				clock-names = "ref";
+				#phy-cells = <1>;
+			};
+		};
+
+		u3fpgaphy: usb-phy {
+			compatible = "mediatek,fpga-u3phy";
+			mediatek,ippc = <0x11203e00>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			fpga_i2c_physical_base = <0x11d01000>;
+			status = "disabled";
+
+			u3fpgaport0: usb-phy@0 {
+				chip-id= <0xa60931a>;
+				port = <0>;
+				pclk_phase = <23>;
+				#phy-cells = <1>;
+			};
+		};
+
 		gpio_usage_mapping:gpio {
 			compatible = "mediatek,gpio_usage_mapping";
 		};
@@ -7532,135 +7661,6 @@
 	odm: odm {
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
-	};
-
-	ssusb: usb0@11201000 {
-		compatible = "mediatek,mtu3";
-		reg = <0 0x11201000 0 0x2e00>,
-			<0 0x11203e00 0 0x0100>;
-		reg-names = "mac", "ippc";
-		vusb33-supply = <&mt6373_vusb>;
-		interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH 0>;
-		phy-cells = <1>;
-		phys = <&u2port0 PHY_TYPE_USB2>,
-			 <&u3port0 PHY_TYPE_USB3>;
-		clocks = <&topckgen_clk CLK_TOPCKGEN_USB_TOP_SEL>,
-			<&topckgen_clk CLK_TOPCKGEN_SSUSB_XHCI_SEL>;
-		clock-names = "sys_ck", "host_ck";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-		dr_mode = "otg";
-		maximum-speed = "high-speed";
-		mediatek,force-vbus;
-		mediatek,clk-mgr;
-		mediatek,usb3-drd;
-		mediatek,hw-req-ctrl;
-		usb-role-switch;
-		port {
-			mtu3_drd_switch: endpoint@0 {
-				remote-endpoint = <&usb_role>;
-			};
-		};
-
-		usb_host: xhci0@11200000 {
-			compatible = "mediatek,mtk-xhci";
-			reg = <0 0x11200000 0 0x1000>;
-			reg-names = "mac";
-			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&clk26m>;
-			clock-names = "sys_ck";
-			status = "okay";
-		};
-	};
-
-	ssusb1: usb1@11211000 {
-		compatible = "mediatek,mtu3";
-		reg = <0 0x11211000 0 0x2e00>,
-			<0 0x11213e00 0 0x0100>;
-		reg-names = "mac", "ippc";
-		vusb33-supply = <&mt6373_vusb>;
-		interrupts = <GIC_SPI 732 IRQ_TYPE_LEVEL_HIGH 0>;
-		phy-cells = <1>;
-		phys = <&u2port1 PHY_TYPE_USB2>;
-		clocks = <&topckgen_clk CLK_TOPCKGEN_USB_TOP_1P_SEL>,
-			<&topckgen_clk CLK_TOPCKGEN_SSUSB_XHCI_1P_SEL>;
-		clock-names = "sys_ck", "host_ck";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-		dr_mode = "otg";
-		maximum-speed = "high-speed";
-		mediatek,force-vbus;
-		mediatek,clk-mgr;
-		mediatek,usb3-drd;
-		mediatek,hw-req-ctrl;
-		usb-role-switch;
-		status = "disabled";
-
-		usb_host1: xhci1@11200000 {
-			compatible = "mediatek,mtk-xhci";
-			reg = <0 0x11210000 0 0x1000>;
-			reg-names = "mac";
-			interrupts = <GIC_SPI 731 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&clk26m>;
-			clock-names = "sys_ck";
-			status = "okay";
-		};
-	};
-
-	u3phy: usb-phy0@11e40000 {
-		compatible = "mediatek,xsphy";
-		reg = <0 0x11e43000 0 0x200>;
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		u2port0: usb2-phy0@11e40000 {
-			reg = <0 0x11e40000 0 0x400>;
-			clocks = <&clk26m>;
-			clock-names = "ref";
-			#phy-cells = <1>;
-			usb2jtag = <&vlpcfg_bus_clk 2>;
-		};
-
-		u3port0: usb3-phy0@11e43000 {
-			reg = <0 0x11e43400 0 0x500>;
-			clocks = <&clk26m>;
-			clock-names = "ref";
-			#phy-cells = <1>;
-		};
-	};
-
-	u3phy1: usb-phy1@11e30000 {
-		compatible = "mediatek,xsphy";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-		status = "disabled";
-
-		u2port1: usb2-phy1@11e30000 {
-			reg = <0 0x11e30000 0 0x400>;
-			clocks = <&clk26m>;
-			clock-names = "ref";
-			#phy-cells = <1>;
-		};
-	};
-
-	u3fpgaphy: usb-phy {
-		compatible = "mediatek,fpga-u3phy";
-		mediatek,ippc = <0x11203e00>;
-		#address-cells = <2>;
-		#size-cells = <2>;
-		fpga_i2c_physical_base = <0x11d01000>;
-		status = "disabled";
-
-		u3fpgaport0: usb-phy@0 {
-			chip-id= <0xa60931a>;
-			port = <0>;
-			pclk_phase = <23>;
-			#phy-cells = <1>;
-		};
 	};
 
 	extcon_usb: extcon_usb {
