@@ -3,6 +3,10 @@
 # Makefile for MMC/SD host controller drivers
 #
 
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/blocktag/
+ccflags-y += -I$(srctree)/drivers/scsi/ufs/
+
 obj-$(CONFIG_MMC_ARMMMCI) += armmmci.o
 armmmci-y := mmci.o
 armmmci-$(CONFIG_MMC_QCOM_DML) += mmci_qcom_dml.o

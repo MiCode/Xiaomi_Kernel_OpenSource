@@ -1026,14 +1026,24 @@ static void mmc_dbg_cleanup(void)
 int mmc_dbg_register(struct mmc_host *mmc)
 {
 	int i, ret;
+	bool is_sd;
 
 	if (cmd_hist_enabled)
 		return -EINVAL;
 
-	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO)) {
 		mtk_mmc_host[0] = mmc;
-	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+		is_sd = false;
+	} else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO)) {
 		mtk_mmc_host[1] = mmc;
+		is_sd = true;
+	} else /* SDIO no debug */
+		return -EINVAL;
+
+	/* Blocktag */
+	ret = mmc_mtk_biolog_init(mmc);
+	if (ret)
+		return ret;
 
 	/* avoid init repeatedly */
 	if (cmd_hist_init == true)

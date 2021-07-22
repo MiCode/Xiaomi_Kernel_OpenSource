@@ -9,6 +9,7 @@
 #if IS_ENABLED(CONFIG_MMC_DEBUG)
 #include <linux/mmc/host.h>
 #include <linux/seq_file.h>
+#include "mtk_blocktag.h"
 
 #define MSDC_DEBUG_REGISTER_COUNT		0x63
 

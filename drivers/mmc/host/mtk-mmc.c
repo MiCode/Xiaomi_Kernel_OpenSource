@@ -3,6 +3,7 @@
  * Copyright (c) 2014-2015 MediaTek Inc.
  * Author: Chaotian.Jing <chaotian.jing@mediatek.com>
  */
+#include "mtk_blocktag.h"
 #include "mtk-mmc.h"
 #include "mtk-mmc-dbg.h"
 #include "../core/card.h"
@@ -776,7 +777,7 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 		     cmd->opcode != MMC_SEND_TUNING_BLOCK_HS200))
 			/*
 			 * should not clear fifo/interrupt as the tune data
-			 * may have alreay come when cmd19/cmd21 gets response
+			 * may have already come when cmd19/cmd21 gets response
 			 * CRC error.
 			 */
 			msdc_reset_hw(host);
@@ -2182,6 +2183,7 @@ end:
 static int msdc_prepare_hs400_tuning(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct msdc_host *host = mmc_priv(mmc);
+
 	host->hs400_mode = true;
 #if !IS_ENABLED(CONFIG_MMC_AUTOK)
 	if (host->top_base)
@@ -2639,6 +2641,8 @@ static int msdc_drv_remove(struct platform_device *pdev)
 			host->dma.bd, host->dma.bd_addr);
 
 	mmc_free_host(mmc);
+
+	mmc_mtk_biolog_exit();
 
 	return 0;
 }

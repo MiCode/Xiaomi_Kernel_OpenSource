@@ -19,6 +19,7 @@
 
 #include "cqhci.h"
 #include "cqhci-crypto.h"
+#include "mtk_blocktag.h"
 
 #define DCMD_SLOT 31
 #define NUM_SLOTS 32
@@ -621,6 +622,8 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			       mmc_hostname(mmc), err);
 			return err;
 		}
+		mmc_mtk_biolog_send_command(tag, mrq);
+		mmc_mtk_biolog_check(mmc, 1);
 	} else {
 		cqhci_prep_dcmd_desc(mmc, mrq);
 	}
@@ -796,6 +799,8 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 			data->bytes_xfered = 0;
 		else
 			data->bytes_xfered = data->blksz * data->blocks;
+		mmc_mtk_biolog_transfer_req_compl(mmc, tag, 0);
+		mmc_mtk_biolog_check(mmc, 0);
 	}
 
 	mmc_cqe_request_done(mmc, mrq);
