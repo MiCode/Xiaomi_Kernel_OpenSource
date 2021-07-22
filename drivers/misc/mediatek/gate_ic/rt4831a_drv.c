@@ -66,6 +66,7 @@ static const struct of_device_id _gate_ic_i2c_of_match[] = {
 	{
 		.compatible = "mediatek,gate-ic-i2c",
 	 },
+	{}
 };
 
 static struct i2c_client *_gate_ic_i2c_client;
