@@ -123,6 +123,7 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 
 	ret = of_property_read_string(np, "lcm-params-name",
 			&params->name);
+	DDPMSG("%s, lcm name:%s\n", __func__, params->name);
 
 	mtk_lcm_dts_read_u32(np, "lcm-params-types",
 			&params->type);
@@ -375,18 +376,58 @@ static int parse_lcm_ops_func_cb(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		break;
 	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
 		/* func type size data0 data1 ... */
-		LCM_KZALLOC(lcm_op->param.cb_id_data.buffer_data, lcm_op->size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.buffer_data)) {
+		lcm_op->param.cb_id_data.id_count = 1;
+		lcm_op->param.cb_id_data.data_count = lcm_op->size - 1;
+		LCM_KZALLOC(lcm_op->param.cb_id_data.buffer_data,
+			lcm_op->param.cb_id_data.data_count + 1, GFP_KERNEL);
+		LCM_KZALLOC(lcm_op->param.cb_id_data.id,
+			lcm_op->param.cb_id_data.id_count + 1, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.buffer_data) ||
+		    IS_ERR_OR_NULL(lcm_op->param.cb_id_data.id)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
 		}
 
-		lcm_op->param.cb_id_data.id = dts[MTK_LCM_DATA_OFFSET];
+		lcm_op->param.cb_id_data.id[0] = dts[MTK_LCM_DATA_OFFSET];
+		lcm_op->param.cb_id_data.id[1] = '\0';
 		memcpy(lcm_op->param.cb_id_data.buffer_data,
 			dts + MTK_LCM_DATA_OFFSET + 1,
-			lcm_op->size - 1);
-		*(lcm_op->param.cb_id_data.buffer_data + lcm_op->size - 1) = '\0';
+			lcm_op->param.cb_id_data.data_count);
+		*(lcm_op->param.cb_id_data.buffer_data +
+			lcm_op->param.cb_id_data.data_count) = '\0';
+		break;
+	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
+		/* func type size id_count id0, id1 ... data_count data0 data1 ... */
+		lcm_op->param.cb_id_data.id_count = dts[MTK_LCM_DATA_OFFSET];
+		LCM_KZALLOC(lcm_op->param.cb_id_data.id,
+			lcm_op->param.cb_id_data.id_count + 1, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.id)) {
+			DDPPR_ERR("%s,%d: failed to allocate id\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+		memcpy(lcm_op->param.cb_id_data.id,
+			dts + MTK_LCM_DATA_OFFSET + 1,
+			lcm_op->param.cb_id_data.id_count);
+		*(lcm_op->param.cb_id_data.id +
+				lcm_op->param.cb_id_data.id_count) = '\0';
+
+		lcm_op->param.cb_id_data.data_count = dts[MTK_LCM_DATA_OFFSET +
+			lcm_op->param.cb_id_data.id_count + 1];
+		LCM_KZALLOC(lcm_op->param.cb_id_data.buffer_data,
+			lcm_op->param.cb_id_data.data_count + 1, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.id)) {
+			DDPPR_ERR("%s,%d: failed to allocate data\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+		memcpy(lcm_op->param.cb_id_data.buffer_data,
+			dts + MTK_LCM_DATA_OFFSET +
+			lcm_op->param.cb_id_data.id_count + 2,
+			lcm_op->param.cb_id_data.data_count);
+		*(lcm_op->param.cb_id_data.buffer_data +
+				lcm_op->param.cb_id_data.data_count) = '\0';
 		break;
 	default:
 		DDPPR_ERR("%s/%d: invalid type:%d\n",
@@ -561,7 +602,7 @@ int parse_lcm_ops_func(struct device_node *np,
 		return 0;
 	} else if ((unsigned int)len < sizeof(table_dts_buf)) {
 		table_dts_buf[len] = '\0';
-		DDPMSG("%s: start to parse:%s, table_size:%u, dts_len:%u, phase:0x%x\n",
+		DDPINFO("%s: start to parse:%s, table_size:%u, dts_len:%u, phase:0x%x\n",
 			__func__, func, size, len, phase);
 	} else {
 		table_dts_buf[ARRAY_SIZE(table_dts_buf) - 1] = '\0';
@@ -575,7 +616,7 @@ int parse_lcm_ops_func(struct device_node *np,
 		table[i].type = tmp[0];
 		if (table[i].type == MTK_LCM_TYPE_END) {
 			len = len - 1;
-			DDPMSG("%s: parsing end of %s, len:%d\n", __func__, func, len);
+			DDPINFO("%s: parsing end of %s, len:%d\n", __func__, func, len);
 			break;
 		}
 
@@ -616,7 +657,8 @@ int parse_lcm_ops_func(struct device_node *np,
 			tmp = tmp + tmp_len;
 			len = len - tmp_len;
 		} else {
-			DDPMSG("%s: parsing warning of %s, len:%d\n", __func__, func, len);
+			DDPMSG("%s: parsing warning of %s, len:%d, tmp:%d\n",
+				__func__, func, len, tmp_len);
 			break;
 		}
 	}
@@ -859,6 +901,9 @@ static void mtk_get_type_name(unsigned int type, char *out)
 	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
 		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT");
 		break;
+	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
+		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT_MUL");
+		break;
 	case MTK_LCM_GPIO_TYPE_MODE:
 		snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_MODE");
 		break;
@@ -1080,8 +1125,30 @@ static void dump_lcm_ops_func_cb(struct mtk_lcm_ops_data *lcm_op,
 	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
 		DDPDUMP("[%s-%u]: func:%s, type:%s, dts_size:%u, id:%u\n",
 			owner, id, func_name, type_name,
-			lcm_op->size, lcm_op->param.cb_id_data.id);
+			lcm_op->size, lcm_op->param.cb_id_data.id[0]);
 		for (i = 0; i < roundup(lcm_op->size - 1, 4); i += 4) {
+			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
+				owner, id, i, i + 3,
+				lcm_op->param.cb_id_data.buffer_data[i],
+				lcm_op->param.cb_id_data.buffer_data[i + 1],
+				lcm_op->param.cb_id_data.buffer_data[i + 2],
+				lcm_op->param.cb_id_data.buffer_data[i + 3]);
+		}
+		break;
+	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
+		DDPDUMP("[%s-%u]: func:%s, type:%s, dts_size:%u, id_count:%u, data_count:%u\n",
+			owner, id, func_name, type_name,
+			lcm_op->size, lcm_op->param.cb_id_data.id_count,
+			lcm_op->param.cb_id_data.data_count);
+		for (i = 0; i < roundup(lcm_op->param.cb_id_data.id_count, 4); i += 4) {
+			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
+				owner, id, i, i + 3,
+				lcm_op->param.cb_id_data.id[i],
+				lcm_op->param.cb_id_data.id[i + 1],
+				lcm_op->param.cb_id_data.id[i + 2],
+				lcm_op->param.cb_id_data.id[i + 3]);
+		}
+		for (i = 0; i < roundup(lcm_op->param.cb_id_data.data_count, 4); i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
 				lcm_op->param.cb_id_data.buffer_data[i],
@@ -1799,10 +1866,15 @@ static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
 				lcm_op->size + 1);
 		break;
 	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
+	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
+		if (lcm_op->param.cb_id_data.id != NULL &&
+			lcm_op->param.cb_id_data.id_count > 0)
+			LCM_KFREE(lcm_op->param.cb_id_data.id,
+				lcm_op->param.cb_id_data.id_count + 1);
 		if (lcm_op->param.cb_id_data.buffer_data != NULL &&
-			lcm_op->size > 0)
+			lcm_op->param.cb_id_data.data_count > 0)
 			LCM_KFREE(lcm_op->param.cb_id_data.buffer_data,
-				lcm_op->size);
+				lcm_op->param.cb_id_data.data_count + 1);
 		break;
 	default:
 		break;

@@ -140,7 +140,9 @@ struct mtk_lcm_gpio_data {
  * buffer_data: the ddic command data
  */
 struct mtk_lcm_cb_id_data {
-	u8 id;
+	unsigned int id_count;
+	u8 *id;
+	unsigned int data_count;
 	u8 *buffer_data;
 };
 
@@ -229,15 +231,15 @@ struct mtk_lcm_ops_dsi {
 	struct mtk_lcm_ops_data *disable;
 
 	/* panel backlight update*/
+	unsigned int set_backlight_mode;
 	unsigned int set_backlight_cmdq_size;
 	struct mtk_lcm_ops_data *set_backlight_cmdq;
 	unsigned int set_backlight_grp_cmdq_size;
 	struct mtk_lcm_ops_data *set_backlight_grp_cmdq;
 
-	unsigned int set_aod_light_high_size;
-	struct mtk_lcm_ops_data *set_aod_light_high;
-	unsigned int set_aod_light_low_size;
-	struct mtk_lcm_ops_data *set_aod_light_low;
+	unsigned int set_aod_light_mode;
+	unsigned int set_aod_light_size;
+	struct mtk_lcm_ops_data *set_aod_light;
 
 	/* panel aod check*/
 	unsigned int ata_check_size;
@@ -305,6 +307,8 @@ struct mtk_lcm_ops_input_packet {
  *      used to execute the customized operation cmd
  * dump:
  *      used to dump the customized settings in params (optional)
+ * free:
+ *      used to deallocate the memory buffer of panel parsing result
  */
 struct mtk_panel_cust {
 	atomic_t cust_enabled;

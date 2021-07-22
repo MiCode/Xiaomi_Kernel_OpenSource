@@ -112,7 +112,7 @@ int mtk_panel_register_dsi_customization_callback(
 	struct mtk_panel_cust *target_cust = NULL;
 	struct device *dev = &dsi->dev;
 
-	if (ctx_dsi == NULL) {
+	if (IS_ERR_OR_NULL(ctx_dsi)) {
 		ctx_dsi = devm_kzalloc(dev,
 				sizeof(struct mtk_panel_context),
 				GFP_KERNEL);
@@ -124,7 +124,7 @@ int mtk_panel_register_dsi_customization_callback(
 			__func__);
 	}
 
-	if (ctx_dsi->panel_resource == NULL) {
+	if (IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
 		LCM_KZALLOC(ctx_dsi->panel_resource,
 				sizeof(struct mtk_panel_resource), GFP_KERNEL);
 		if (IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
@@ -164,7 +164,8 @@ static int mtk_drm_panel_unprepare(struct drm_panel *panel)
 		return 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (params == NULL || ops == NULL)
+	if (IS_ERR_OR_NULL(params) ||
+	    IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
 	ret = mtk_panel_execute_operation((void *)dsi,
@@ -197,7 +198,7 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 	struct mtk_lcm_ops_input_packet input;
 	int ret = 0;
 
-	if (ops == NULL)
+	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
 	/*prepare input data*/
@@ -277,7 +278,7 @@ static int mtk_drm_panel_enable(struct drm_panel *panel)
 		return 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL)
+	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
 	ret = mtk_panel_execute_operation((void *)dsi,
@@ -313,7 +314,7 @@ static int mtk_drm_panel_disable(struct drm_panel *panel)
 		return 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL)
+	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
 	if (ctx_dsi->backlight) {
@@ -369,8 +370,8 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		return -EINVAL;
 	}
 
-	if (ctx_dsi == NULL ||
-	    ctx_dsi->panel_resource == NULL)
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource))
 		return -EINVAL;
 
 
@@ -400,9 +401,9 @@ static int mtk_panel_ext_param_get(
 			&ctx_dsi->panel_resource->params.dsi_params;
 	bool found = false;
 
-	if (ctx_dsi == NULL ||
-	    ext_param == NULL ||
-	    ctx_dsi->panel_resource == NULL) {
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+	    IS_ERR_OR_NULL(ext_param) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
 		DDPPR_ERR("%s, invalid ctx, resource\n", __func__);
 		return -EINVAL;
 	}
@@ -452,7 +453,7 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 	int ret = 0, i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL)
+	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
 	/*prepare read back buffer*/
@@ -492,55 +493,146 @@ fail:
 	return ret;
 }
 
+
+static int do_panel_set_backlight(void *dsi, dcs_write_gce cb,
+	void *handle, unsigned int level, struct mtk_lcm_ops_data *table,
+	unsigned int table_size)
+{
+	u8 *data = NULL;
+	unsigned int id = -1, i = 0, j = 0;
+	size_t size = 0, count = 0;
+	unsigned int *mask = NULL;
+
+	for (i = 0; i < table_size; i++) {
+		data = table[i].param.cb_id_data.buffer_data;
+		size = table[i].param.cb_id_data.data_count;
+		count = table[i].param.cb_id_data.id_count;
+		LCM_KZALLOC(mask, count, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(mask)) {
+			DDPPR_ERR("%s:failed to allocate mask buffer, count:%u\n",
+				__func__, count);
+			return -ENOMEM;
+		}
+
+		for (j = 0; j < count; j++) {
+			id = table[i].param.cb_id_data.id[j];
+			if (id >= size) {
+				DDPPR_ERR("%s:invalid backlight level id:%u of table:%u\n",
+					__func__, id, size);
+				LCM_KFREE(mask, count);
+				return -EINVAL;
+			}
+
+			mask[j] = data[id]; //backup backlight mask
+			data[id] &= (level >> (8 * (count - j - 1)));
+		}
+
+		cb(dsi, handle, data, size);
+
+		/* restore backlight mask*/
+		for (j = 0; j < count; j++) {
+			id = table[i].param.cb_id_data.id[j];
+			if (id >= size)
+				continue;
+			data[id] = mask[j];
+		}
+		LCM_KFREE(mask, count);
+	}
+
+	return 0;
+}
+
+static int panel_set_backlight(void *dsi, dcs_write_gce cb,
+	void *handle, unsigned int level, struct mtk_lcm_ops_data *table,
+	unsigned int table_size, unsigned int mode)
+{
+	int ret = 0;
+
+	if (level > 255)
+		level = 255;
+
+	DDPINFO("%s, %d, table_size:%u, mode:%u, level:%u\n",
+		__func__, __LINE__, table_size, mode, level);
+	switch (mode) {
+	case MTK_BACKLIGHT_MODE_256:
+		ret = do_panel_set_backlight(dsi, cb, handle,
+					level, table, table_size);
+		break;
+	case MTK_BACKLIGHT_MODE_4K:
+		ret = do_panel_set_backlight(dsi, cb, handle,
+					level * 4095 / 255, table, table_size);
+		break;
+	default:
+		ret = do_panel_set_backlight(dsi, cb, handle,
+					level, table, table_size);
+		break;
+	}
+
+	DDPINFO("%s, %d, ret:%d\n", __func__, __LINE__, ret);
+	atomic_set(&ctx_dsi->current_backlight, level);
+	return ret;
+}
+
 static int mtk_panel_set_backlight_cmdq(void *dsi, dcs_write_gce cb,
 	void *handle, unsigned int level)
 {
-	struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
-	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
-	u8 *data = NULL;
-	int id = -1, i = 0;
-	size_t size = 0;
+	//struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
+	struct mtk_lcm_ops_dsi *ops = NULL;
+	struct mtk_lcm_ops_data *table = NULL;
+	unsigned int table_size = 0, mode = 0;
+	int ret = 0;
 
-	DDPMSG("%s+\n", __func__);
-	if (ops == NULL ||
-	    ops->set_backlight_cmdq_size == 0 ||
-	    ops->set_backlight_cmdq == NULL)
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource->ops.dsi_ops)) {
+		DDPMSG("%s, invalid ctx or panel resource\n", __func__);
 		return -EINVAL;
-
-	for (i = 0; i < ops->set_backlight_cmdq_size; i++) {
-		data = ops->set_backlight_cmdq[i].param.buffer_data;
-		size = ops->set_backlight_cmdq[i].size;
-		id = ops->set_backlight_cmdq[i].param.cb_id_data.id;
-		if (id >= size) {
-			DDPPR_ERR("%s:invalid backlight level id:%u of table:%u\n",
-				__func__, id, size);
-			return -EINVAL;
-		}
-
-		if (id != 0xff)
-			data[id] = (u8)level;
-
-		cb(dsi, handle, data, size);
-		atomic_set(&ctx_dsi->current_backlight, level);
 	}
 
-	DDPMSG("%s-\n", __func__);
-	return 0;
+	ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	if (IS_ERR_OR_NULL(ops) ||
+	    ops->set_backlight_cmdq_size == 0 ||
+	    IS_ERR_OR_NULL(ops->set_backlight_cmdq)) {
+		DDPMSG("%s, invalid backlight table\n", __func__);
+		return -EINVAL;
+	}
+
+	table = ops->set_backlight_cmdq;
+	table_size = ops->set_backlight_cmdq_size;
+	mode = ops->set_backlight_mode;
+
+	ret = panel_set_backlight(dsi, cb, handle,
+				level, table, table_size, mode);
+	return ret;
 }
 
 static int mtk_panel_set_backlight_grp_cmdq(void *dsi, dcs_grp_write_gce cb,
 	void *handle, unsigned int level)
 {
-	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	//struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
+	struct mtk_lcm_ops_dsi *ops = NULL;
 	struct mtk_lcm_ops_data *op = NULL;
 	struct mtk_panel_para_table *panel_para = NULL;
 	int id = -1, i = 0, j = 0, ret = 0;
 	size_t size = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL ||
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource->ops.dsi_ops)) {
+		DDPMSG("%s, invalid ctx or panel resource\n", __func__);
+		return -EINVAL;
+	}
+
+	ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	if (IS_ERR_OR_NULL(ops) ||
 	    ops->set_backlight_grp_cmdq_size == 0 ||
-	    ops->set_backlight_grp_cmdq == NULL)
+	    IS_ERR_OR_NULL(ops->set_backlight_grp_cmdq)) {
+		DDPMSG("%s, invalid backlight table\n", __func__);
+		return -EINVAL;
+	}
+
+	if (ops->set_backlight_mode != MTK_BACKLIGHT_MODE_256)
 		return -EINVAL;
 
 	LCM_KZALLOC(panel_para, 64, GFP_KERNEL);
@@ -550,7 +642,7 @@ static int mtk_panel_set_backlight_grp_cmdq(void *dsi, dcs_grp_write_gce cb,
 	for (i = 0; i < ops->set_backlight_grp_cmdq_size; i++) {
 		op = &ops->set_backlight_grp_cmdq[i];
 		size = op->size;
-		id = op->param.cb_id_data.id;
+		id = op->param.cb_id_data.id[0];
 		if (size == 0 || size > 64 ||
 		    id >= size) {
 			DDPPR_ERR("%s:invalid backlight level id:%u of table:%u\n",
@@ -583,8 +675,8 @@ end:
 
 static int mtk_panel_get_virtual_heigh(void)
 {
-	if (ctx_dsi == NULL ||
-	    ctx_dsi->panel_resource == NULL)
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource))
 		return 0;
 
 	return ctx_dsi->panel_resource->params.resolution[1];
@@ -592,8 +684,8 @@ static int mtk_panel_get_virtual_heigh(void)
 
 static int mtk_panel_get_virtual_width(void)
 {
-	if (ctx_dsi == NULL ||
-	    ctx_dsi->panel_resource == NULL)
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource))
 		return 0;
 
 	return ctx_dsi->panel_resource->params.resolution[0];
@@ -619,9 +711,12 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 	if (cur_mode == dst_mode)
 		return ret;
 
-	DDPMSG("%s+, cur:%u, dst:%u\n", __func__, cur_mode, dst_mode);
+	DDPMSG("%s+, cur:%u, dst:%u, stage:%d, powerdown:%d\n",
+		__func__, cur_mode, dst_mode, stage, BEFORE_DSI_POWERDOWN);
 	mode = get_mode_by_connector_id(connector, dst_mode);
-	if (params == NULL || ops == NULL || mode == NULL)
+	if (IS_ERR_OR_NULL(params) ||
+	    IS_ERR_OR_NULL(ops) ||
+	    IS_ERR_OR_NULL(mode))
 		return -EINVAL;
 
 	list_for_each_entry(mode_node, &params->dsi_params.mode_list, list) {
@@ -650,7 +745,8 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 		return -EINVAL;
 	}
 
-	snprintf(owner, sizeof(owner), "fps-switch-%u-%u", dst_mode, mode_node->fps);
+	snprintf(owner, sizeof(owner), "fps-switch-%u-%u-%u",
+		mode_node->width, mode_node->height, mode_node->fps);
 	ret = mtk_panel_execute_operation((void *)dsi, table, size,
 				ctx_dsi->panel_resource,
 				NULL, owner);
@@ -660,42 +756,37 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 }
 
 static int mtk_panel_set_aod_light_mode(void *dsi,
-	dcs_write_gce cb, void *handle, unsigned int mode)
+	dcs_write_gce cb, void *handle, unsigned int level)
 {
-	struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
-	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
-	u8 *data = NULL;
-	size_t size = 0;
-	int i = 0;
+	//struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
+	struct mtk_lcm_ops_dsi *ops = NULL;
+	struct mtk_lcm_ops_data *table = NULL;
+	unsigned int table_size = 0, light_mode = 0;
+	int ret = 0;
 
-	if (ops == NULL)
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource->ops.dsi_ops)) {
+		DDPMSG("%s, invalid ctx or panel resource\n", __func__);
 		return -EINVAL;
-
-	DDPMSG("%s++ %u\n", __func__, mode);
-	if (mode == 0) {
-		if (ops->set_aod_light_low_size == 0 ||
-		    ops->set_aod_light_low == NULL)
-			return -EINVAL;
-
-		for (i = 0; i < ops->set_aod_light_low_size; i++) {
-			data = ops->set_aod_light_low[i].param.buffer_data;
-			size = ops->set_aod_light_low[i].size;
-			cb(dsi, handle, data, size);
-		}
-	} else {
-		if (ops->set_aod_light_high_size == 0 ||
-		    ops->set_aod_light_high == NULL)
-			return -EINVAL;
-
-		for (i = 0; i < ops->set_aod_light_high_size; i++) {
-			data = ops->set_aod_light_high[i].param.buffer_data;
-			size = ops->set_aod_light_high[i].size;
-			cb(dsi, handle, data, size);
-		}
 	}
 
-	DDPMSG("%s-- %u\n", __func__, mode);
-	return 0;
+	ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	if (IS_ERR_OR_NULL(ops) ||
+	    ops->set_aod_light_size == 0 ||
+	    IS_ERR_OR_NULL(ops->set_aod_light)) {
+		DDPMSG("%s, invalid aod light mod table\n", __func__);
+		return -EINVAL;
+	}
+
+	light_mode = ops->set_aod_light_mode;
+	table = ops->set_aod_light;
+	table_size = ops->set_aod_light_size;
+
+	ret = panel_set_backlight(dsi, cb, handle,
+				level, table, table_size, light_mode);
+
+	return ret;
 }
 
 static int mtk_panel_doze_enable_start(struct drm_panel *panel,
@@ -708,9 +799,9 @@ static int mtk_panel_doze_enable_start(struct drm_panel *panel,
 	int i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL ||
+	if (IS_ERR_OR_NULL(ops) ||
 	    ops->doze_enable_start_size == 0 ||
-	    ops->doze_enable_start == NULL)
+	    IS_ERR_OR_NULL(ops->doze_enable_start))
 		return -EINVAL;
 
 	for (i = 0; i < ops->doze_enable_start_size; i++) {
@@ -733,9 +824,9 @@ static int mtk_panel_doze_enable(struct drm_panel *panel,
 	int i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL ||
+	if (IS_ERR_OR_NULL(ops) ||
 	    ops->doze_enable_size == 0 ||
-	    ops->doze_enable == NULL)
+	    IS_ERR_OR_NULL(ops->doze_enable))
 		return -EINVAL;
 
 	for (i = 0; i < ops->doze_enable_size; i++) {
@@ -758,9 +849,9 @@ static int mtk_panel_doze_disable(struct drm_panel *panel,
 	int i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL ||
+	if (IS_ERR_OR_NULL(ops) ||
 	    ops->doze_disable_size == 0 ||
-	    ops->doze_disable == NULL)
+	    IS_ERR_OR_NULL(ops->doze_disable))
 		return -EINVAL;
 
 	for (i = 0; i < ops->doze_disable_size; i++) {
@@ -783,9 +874,9 @@ static int mtk_panel_doze_post_disp_on(struct drm_panel *panel,
 	int i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL ||
+	if (IS_ERR_OR_NULL(ops) ||
 	    ops->doze_post_disp_on_size == 0 ||
-	    ops->doze_post_disp_on == NULL)
+	    IS_ERR_OR_NULL(ops->doze_post_disp_on))
 		return -EINVAL;
 
 	for (i = 0; i < ops->doze_post_disp_on_size; i++) {
@@ -808,9 +899,9 @@ static int mtk_panel_doze_area(struct drm_panel *panel,
 	int i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL ||
+	if (IS_ERR_OR_NULL(ops) ||
 	    ops->doze_area_size == 0 ||
-	    ops->doze_area == NULL)
+	    IS_ERR_OR_NULL(ops->doze_area))
 		return -EINVAL;
 
 	for (i = 0; i < ops->doze_area_size; i++) {
@@ -829,7 +920,7 @@ static unsigned long mtk_panel_doze_get_mode_flags(
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_params *params = &ctx_dsi->panel_resource->params;
 
-	if (params == NULL)
+	if (IS_ERR_OR_NULL(params))
 		return 0;
 
 	if (doze_en == 0)
@@ -842,24 +933,32 @@ static int mtk_panel_hbm_set_cmdq(struct drm_panel *panel, void *dsi,
 			      dcs_write_gce cb, void *handle, bool en)
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
-	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	struct mtk_lcm_ops_dsi *ops = NULL;
 	u8 *data = NULL;
 	size_t size = 0;
 	int id = -1, i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (ops == NULL ||
+	if (IS_ERR_OR_NULL(ctx_dsi) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource) ||
+	    IS_ERR_OR_NULL(ctx_dsi->panel_resource->ops.dsi_ops)) {
+		DDPMSG("%s, invalid ctx or panel resource\n", __func__);
+		return -EINVAL;
+	}
+
+	ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	if (IS_ERR_OR_NULL(ops) ||
 	    ops->hbm_set_cmdq_size == 0 ||
-	    ops->hbm_set_cmdq == NULL)
+	    IS_ERR_OR_NULL(ops->hbm_set_cmdq))
 		return -EINVAL;
 
 	if (atomic_read(&ctx_dsi->hbm_en) == en)
 		return 0;
 
 	for (i = 0; i < ops->hbm_set_cmdq_size; i++) {
-		data = ops->hbm_set_cmdq[i].param.buffer_data;
-		size = ops->hbm_set_cmdq[i].size;
-		id = ops->hbm_set_cmdq[i].param.cb_id_data.id;
+		data = ops->hbm_set_cmdq[i].param.cb_id_data.buffer_data;
+		size = ops->hbm_set_cmdq[i].param.cb_id_data.data_count;
+		id = ops->hbm_set_cmdq[i].param.cb_id_data.id[0];
 		if (id >= size) {
 			DDPPR_ERR("%s:invalid hbm en id:%u of table:%u\n",
 				__func__, id, size);
@@ -954,7 +1053,7 @@ static struct drm_display_mode *mtk_panel_get_default_mode(struct drm_panel *pan
 	unsigned int default_fps = 60;
 	bool found = false;
 
-	if (ctx_dsi->panel_resource == NULL)
+	if (IS_ERR_OR_NULL(ctx_dsi->panel_resource))
 		return NULL;
 
 	params = &ctx_dsi->panel_resource->params;
@@ -1042,7 +1141,7 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 		return 0;
 	}
 
-	if (ctx_dsi->panel_resource == NULL) {
+	if (IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
 		DDPMSG("%s, %d invalid panel resource\n", __func__, __LINE__);
 		return 0;
 	}
@@ -1062,7 +1161,7 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 		mtk_drm_update_disp_mode_params(mode_src);
 
 		mode = drm_mode_duplicate(connector->dev, mode_src);
-		if (mode == NULL) {
+		if (IS_ERR_OR_NULL(mode)) {
 			dev_err(connector->dev->dev,
 				"failed to add mode %ux%ux@%u\n",
 				mode_src->hdisplay, mode_src->vdisplay,
@@ -1140,7 +1239,7 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 	int ret = 0;
 
 	DDPMSG("%s++\n", __func__);
-	if (ctx_dsi == NULL) {
+	if (IS_ERR_OR_NULL(ctx_dsi)) {
 		ctx_dsi = devm_kzalloc(dev,
 				sizeof(struct mtk_panel_context),
 				GFP_KERNEL);
@@ -1154,9 +1253,7 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 			__func__);
 	}
 
-	mipi_dsi_set_drvdata(dsi, ctx_dsi);
-
-	if (ctx_dsi->panel_resource == NULL) {
+	if (IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
 		LCM_KZALLOC(ctx_dsi->panel_resource,
 			sizeof(struct mtk_panel_resource), GFP_KERNEL);
 		if (IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
@@ -1195,6 +1292,8 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 	dsi->format = dsi_params->format;
 	dsi->mode_flags = dsi_params->mode_flags;
 
+	mipi_dsi_set_drvdata(dsi, ctx_dsi);
+
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
 	if (backlight) {
 		ctx_dsi->backlight = of_find_backlight_by_node(backlight);
@@ -1218,8 +1317,10 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 	drm_panel_add(&ctx_dsi->panel);
 
 	ret = mipi_dsi_attach(dsi);
-	if (ret < 0)
+	if (ret < 0) {
+		DDPPR_ERR("%s: failed to attach dsi\n", __func__);
 		drm_panel_remove(&ctx_dsi->panel);
+	}
 
 	mtk_panel_tch_handle_reg(&ctx_dsi->panel);
 
@@ -1227,7 +1328,7 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 			&dsi_params->default_mode->ext_param,
 			&mtk_drm_panel_ext_funcs, &ctx_dsi->panel);
 	if (ret < 0) {
-		DDPMSG("%s, %d, creat ext failed, %d\n",
+		DDPPR_ERR("%s, %d, creat ext failed, %d\n",
 			__func__, __LINE__, ret);
 		return ret;
 	}
@@ -1239,7 +1340,7 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 
 static int mtk_drm_lcm_remove(struct mipi_dsi_device *dsi)
 {
-	struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
+	//struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
 
 	DDPMSG("%s+\n", __func__);
 	mipi_dsi_detach(dsi);

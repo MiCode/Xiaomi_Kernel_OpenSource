@@ -509,7 +509,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 		snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-dsc-params");
 		if (of_device_is_compatible(child_np, child)) {
-			DDPMSG("%s, parsing child:%s\n",
+			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
 			parse_lcm_dsi_dsc_mode(child_np,
 					&ext_param->dsc_params);
@@ -518,7 +518,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 		snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-phy-timcon");
 		if (of_device_is_compatible(child_np, child)) {
-			DDPMSG("%s, parsing child:%s\n",
+			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
 			parse_lcm_dsi_phy_timcon(child_np,
 					&ext_param->phy_timcon);
@@ -527,7 +527,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 		snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-dyn");
 		if (of_device_is_compatible(child_np, child)) {
-			DDPMSG("%s, parsing child:%s\n",
+			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
 			parse_lcm_dsi_dyn(child_np,
 					&ext_param->dyn);
@@ -536,7 +536,7 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 		snprintf(child, sizeof(child) - 1,
 			"mediatek,lcm-params-dsi-dyn-fps");
 		if (of_device_is_compatible(child_np, child)) {
-			DDPMSG("%s, parsing child:%s\n",
+			DDPINFO("%s, parsing child:%s\n",
 				__func__, child);
 			parse_lcm_dsi_dyn_fps(child_np,
 					&ext_param->dyn_fps);
@@ -553,7 +553,9 @@ int parse_lcm_params_dsi(struct device_node *np,
 	u32 *mode = NULL;
 	char mode_name[128] = { 0 };
 	struct device_node *mode_np = NULL;
+#if MTK_LCM_DEBUG_DUMP
 	struct platform_device *pdev = NULL;
+#endif
 
 	if (IS_ERR_OR_NULL(params) || IS_ERR_OR_NULL(np))
 		return -EINVAL;
@@ -600,7 +602,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 		for (i = 0; i < len; i++)
 			params->mode_flags_doze_off |= (unsigned long)flag[i];
 	}
-
+#if MTK_LCM_DEBUG_DUMP
 	pdev = of_find_device_by_node(np);
 	if (IS_ERR_OR_NULL(pdev))
 		DDPPR_ERR("%s, %d, failed to get dsi pdev\n",
@@ -623,6 +625,7 @@ int parse_lcm_params_dsi(struct device_node *np,
 				sizeof(struct device));
 	}
 }
+#endif
 
 	len = of_property_count_strings(np, "pinctrl-names");
 	if (len > 0) {
@@ -821,6 +824,9 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	}
 #endif
 
+	mtk_lcm_dts_read_u32(np, "set_backlight_mode",
+				&ops->set_backlight_mode);
+
 	mtk_lcm_dts_read_u32(np, "set_backlight_cmdq_size",
 				&ops->set_backlight_cmdq_size);
 	if (ops->set_backlight_cmdq_size > 0) {
@@ -921,52 +927,29 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		}
 	}
 
-	mtk_lcm_dts_read_u32(np, "set_aod_light_high_size",
-				&ops->set_aod_light_high_size);
-	if (ops->set_aod_light_high_size > 0) {
-		LCM_KZALLOC(ops->set_aod_light_high, sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_high_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->set_aod_light_high)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->set_aod_light_high_size = parse_lcm_ops_func(np,
-					ops->set_aod_light_high,
-					"set_aod_light_high",
-					ops->set_aod_light_high_size,
-					MTK_LCM_FUNC_DSI, cust,
-					MTK_LCM_PHASE_KERNEL);
-		if (ops->set_aod_light_high_size == 0) {
-			LCM_KFREE(ops->set_aod_light_high,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_high_size);
-			DDPMSG("%s, %d failed to parsing operation\n",
-				__func__, __LINE__);
-			ret = -EFAULT;
-		}
-	}
+	mtk_lcm_dts_read_u32(np, "set_aod_light_mode",
+				&ops->set_aod_light_mode);
 
-	mtk_lcm_dts_read_u32(np, "set_aod_light_low_size",
-				&ops->set_aod_light_low_size);
-	if (ops->set_aod_light_low_size > 0) {
-		LCM_KZALLOC(ops->set_aod_light_low, sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_low_size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->set_aod_light_low)) {
+	mtk_lcm_dts_read_u32(np, "set_aod_light_size",
+				&ops->set_aod_light_size);
+	if (ops->set_aod_light_size > 0) {
+		LCM_KZALLOC(ops->set_aod_light, sizeof(struct mtk_lcm_ops_data) *
+				ops->set_aod_light_size, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(ops->set_aod_light)) {
 			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
 		}
-		ops->set_aod_light_low_size = parse_lcm_ops_func(np,
-					ops->set_aod_light_low,
-					"set_aod_light_low",
-					ops->set_aod_light_low_size,
+		ops->set_aod_light_size = parse_lcm_ops_func(np,
+					ops->set_aod_light,
+					"set_aod_light",
+					ops->set_aod_light_size,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
-		if (ops->set_aod_light_low_size == 0) {
-			LCM_KFREE(ops->set_aod_light_low,
+		if (ops->set_aod_light_size == 0) {
+			LCM_KFREE(ops->set_aod_light,
 				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_low_size);
+				ops->set_aod_light_size);
 			DDPMSG("%s, %d failed to parsing operation\n",
 				__func__, __LINE__);
 			ret = -EFAULT;
@@ -1743,23 +1726,14 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops)
 				ops->ata_check_size);
 		ops->ata_check_size = 0;
 	}
-	if (ops->set_aod_light_high_size > 0 &&
-	    ops->set_aod_light_high != NULL) {
-		free_lcm_ops_table(ops->set_aod_light_high,
-			ops->set_aod_light_high_size);
-		LCM_KFREE(ops->set_aod_light_high,
+	if (ops->set_aod_light_size > 0 &&
+	    ops->set_aod_light != NULL) {
+		free_lcm_ops_table(ops->set_aod_light,
+			ops->set_aod_light_size);
+		LCM_KFREE(ops->set_aod_light,
 				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_high_size);
-		ops->set_aod_light_high_size = 0;
-	}
-	if (ops->set_aod_light_low_size > 0 &&
-	    ops->set_aod_light_low != NULL) {
-		free_lcm_ops_table(ops->set_aod_light_low,
-			ops->set_aod_light_low_size);
-		LCM_KFREE(ops->set_aod_light_low,
-				sizeof(struct mtk_lcm_ops_data) *
-				ops->set_aod_light_low_size);
-		ops->set_aod_light_low_size = 0;
+				ops->set_aod_light_size);
+		ops->set_aod_light_size = 0;
 	}
 	if (ops->doze_enable_size > 0 &&
 	    ops->doze_enable != NULL) {
