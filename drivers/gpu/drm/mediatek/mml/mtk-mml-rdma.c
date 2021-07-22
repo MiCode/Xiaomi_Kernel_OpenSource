@@ -1125,8 +1125,8 @@ static void rdma_debug_dump(struct mml_comp *comp)
 	void __iomem *base = comp->base;
 	u32 value[24];
 	u32 mon[29];
-	u32 state, grep;
-	u8 i;
+	u32 state, greq;
+	u32 i;
 
 	mml_err("rdma component %u dump:", comp->id);
 
@@ -1180,9 +1180,9 @@ static void rdma_debug_dump(struct mml_comp *comp)
 
 	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++)
 		mml_err("RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x",
-			i * 3, mon[i*3],
-			i * 3 + 1, mon[i*3+1],
-			i * 3 + 2, mon[i*3+2]);
+			i * 3, mon[i * 3],
+			i * 3 + 1, mon[i * 3 + 1],
+			i * 3 + 2, mon[i * 3 + 2]);
 	mml_err("RDMA_MON_STA_28 %#010x", mon[28]);
 
 	/* parse state */
@@ -1190,11 +1190,11 @@ static void rdma_debug_dump(struct mml_comp *comp)
 		(mon[0] >> 11) & 0x1, (mon[0] >> 10) & 0x1,
 		(mon[0] >> 25) & 0x1);
 	state = (mon[1] >> 8) & 0x7ff;
-	grep = (mon[1] >> 20) & 0x1;
+	greq = (mon[1] >> 20) & 0x1;
 	mml_err("RDMA state: %#x (%s)", state, rdma_state(state));
 	mml_err("RDMA horz_cnt %u vert_cnt %u",
 		mon[26] & 0xfff, (mon[26] >> 16) & 0xfff);
-	mml_err("RDMA grep:%u => suggest to ask SMI help:%u", grep, grep);
+	mml_err("RDMA greq:%u => suggest to ask SMI help:%u", greq, greq);
 }
 
 static const struct mml_comp_debug_ops rdma_debug_ops = {

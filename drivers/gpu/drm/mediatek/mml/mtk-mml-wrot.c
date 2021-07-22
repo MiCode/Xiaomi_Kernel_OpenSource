@@ -1443,12 +1443,25 @@ static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.qos_clear = &mml_comp_qos_clear,
 };
 
+static const char *wrot_state(u32 state)
+{
+	switch (state) {
+	case 0x0:
+		return "sof";
+	case 0x1:
+		return "frame done";
+	default:
+		return "";
+	}
+}
+
 static void wrot_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
 	u32 value[18];
 	u32 debug[34];
-	u32 dbg_id = 0, i;
+	u32 dbg_id = 0, state;
+	u32 i;
 
 	mml_err("wrot component %u dump:", comp->id);
 
@@ -1492,11 +1505,18 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		value[15], value[16], value[17]);
 
 	for (i = 0; i < ARRAY_SIZE(debug) / 3; i++)
-		mml_err("ROT_DBUGG_%x %#010x ROT_DBUGG_%x %#010x ROT_DBUGG_%x %#010x",
-			i * 3 + 1, debug[i*3],
-			i * 3 + 2, debug[i*3+1],
-			i * 3 + 3, debug[i*3+2]);
-	mml_err("ROT_DBUGG_22 %#010x", debug[33]);
+		mml_err("ROT_DEBUG_%x %#010x ROT_DEBUG_%x %#010x ROT_DEBUG_%x %#010x",
+			i * 3 + 1, debug[i * 3],
+			i * 3 + 2, debug[i * 3 + 1],
+			i * 3 + 3, debug[i * 3 + 2]);
+	mml_err("ROT_DEBUG_34 %#010x", debug[33]);
+
+	/* parse state */
+	state = debug[3] & 0x1;
+	mml_err("WROT state: %#x (%s)", state, wrot_state(state));
+	mml_err("WROT crop_busy:%u req:%u valid:%u",
+		(debug[3] >> 1) & 0x1, (debug[3] >> 2) & 0x1,
+		(debug[3] >> 3) & 0x1);
 }
 
 static const struct mml_comp_debug_ops wrot_debug_ops = {
