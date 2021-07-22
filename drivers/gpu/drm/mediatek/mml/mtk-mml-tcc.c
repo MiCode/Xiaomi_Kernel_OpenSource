@@ -15,7 +15,6 @@
 #include "mtk_drm_ddp_comp.h"
 
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
 
 #define TCC_CTRL	0x000
 #define TCC_DEBUG	0x520

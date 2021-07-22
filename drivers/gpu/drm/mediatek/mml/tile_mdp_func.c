@@ -18,43 +18,13 @@
     #define MIN(x, y)   ((x) <= (y))? (x): (y)
 #endif  // MIN
 
-/* prototype init */
-static ISP_TILE_MESSAGE_ENUM tile_rdma_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_hdr_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_aal_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_prz_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_tdshp_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_wrot_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-/* prototype for */
-static ISP_TILE_MESSAGE_ENUM tile_rdma_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_hdr_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_aal_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_prz_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_wrot_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-/* prototype back */
-static ISP_TILE_MESSAGE_ENUM tile_rdma_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_prz_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_wrot_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map);
-
-bool tile_init_mdp_func_property(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
-{
-    bool found_flag = false;
-
-    MDP_TILE_INIT_PROPERTY_LUT(INIT_TILE_FUNC, ptr_func, found_flag, ptr_tile_reg_map, 0, 0, 0,
-        ptr_tile_reg_map->max_input_width, ptr_tile_reg_map->max_input_height);
-    return found_flag;
-}
-
-static ISP_TILE_MESSAGE_ENUM tile_rdma_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_rdma_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     struct rdma_tile_data *data = &ptr_func->func_data->rdma_data;
     if (!data)
     {
         return MDP_MESSAGE_RDMA_NULL_DATA;
     }
-
-    // RDMA support crop capability
-    ptr_func->type |= TILE_TYPE_CROP_EN;
 
     // Specific constraints implied by different formats
 
@@ -128,7 +98,7 @@ static ISP_TILE_MESSAGE_ENUM tile_rdma_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TI
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_hdr_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_hdr_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     struct hdr_tile_data *data = &ptr_func->func_data->hdr_data;
     if (!data)
@@ -152,7 +122,7 @@ static ISP_TILE_MESSAGE_ENUM tile_hdr_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TIL
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_aal_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_aal_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     struct aal_tile_data *data = &ptr_func->func_data->aal_data;
 
@@ -175,7 +145,7 @@ static ISP_TILE_MESSAGE_ENUM tile_aal_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TIL
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_prz_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_prz_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     struct rsz_tile_data *data = &ptr_func->func_data->rsz_data;
 
@@ -185,9 +155,6 @@ static ISP_TILE_MESSAGE_ENUM tile_prz_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TIL
     {
         return MDP_MESSAGE_PRZ_NULL_DATA;
     }
-
-    // SCL support crop capability
-    ptr_func->type |= TILE_TYPE_CROP_EN;
 
     // drs: C42 downsampler output frame width
     data->c42_out_frame_w = (ptr_func->full_size_x_in + 0x01) & ~0x01;
@@ -265,7 +232,7 @@ static ISP_TILE_MESSAGE_ENUM tile_prz_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TIL
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_tdshp_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_tdshp_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     struct tdshp_tile_data *data = &ptr_func->func_data->tdshp_data;
 
@@ -276,7 +243,6 @@ static ISP_TILE_MESSAGE_ENUM tile_tdshp_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, T
         return MDP_MESSAGE_TDSHP_NULL_DATA;
     }
 
-    ptr_func->type |= TILE_TYPE_CROP_EN;
     ptr_func->in_tile_width   = data->max_width;
     ptr_func->out_tile_width  = data->max_width;
     ptr_func->in_tile_height  = 16000;
@@ -289,7 +255,7 @@ static ISP_TILE_MESSAGE_ENUM tile_tdshp_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, T
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_wrot_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_wrot_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     struct wrot_tile_data *data = &ptr_func->func_data->wrot_data;
 
@@ -299,9 +265,6 @@ static ISP_TILE_MESSAGE_ENUM tile_wrot_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TI
     {
         return MDP_MESSAGE_WROT_NULL_DATA;
     }
-
-    // WROT support crop capability
-    ptr_func->type |= TILE_TYPE_CROP_EN;
 
     if (data->rotate == MML_ROT_90 ||
         data->rotate == MML_ROT_270 ||
@@ -355,7 +318,7 @@ static ISP_TILE_MESSAGE_ENUM tile_wrot_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TI
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_rdma_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_rdma_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     struct rdma_tile_data *data = &ptr_func->func_data->rdma_data;
     if (!data)
@@ -415,7 +378,7 @@ static ISP_TILE_MESSAGE_ENUM tile_rdma_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TIL
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_hdr_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_hdr_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     // skip frame mode
     if (ptr_tile_reg_map->first_frame)
@@ -464,7 +427,7 @@ static ISP_TILE_MESSAGE_ENUM tile_hdr_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_aal_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_aal_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     // skip frame mode
     if (ptr_tile_reg_map->first_frame)
@@ -501,7 +464,7 @@ static ISP_TILE_MESSAGE_ENUM tile_aal_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_prz_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_prz_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     s32 C42OutXLeft;
     s32 C42OutXRight;
@@ -736,7 +699,7 @@ static ISP_TILE_MESSAGE_ENUM tile_prz_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_wrot_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_wrot_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     s32 remain;
     struct wrot_tile_data *data = &ptr_func->func_data->wrot_data;
@@ -890,7 +853,7 @@ static ISP_TILE_MESSAGE_ENUM tile_wrot_for(TILE_FUNC_BLOCK_STRUCT *ptr_func, TIL
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_rdma_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_rdma_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     struct rdma_tile_data *data = &ptr_func->func_data->rdma_data;
     if (!data)
@@ -1046,7 +1009,7 @@ static ISP_TILE_MESSAGE_ENUM tile_rdma_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TI
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_prz_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_prz_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     s32 C24InXLeft;
     s32 C24InXRight;
@@ -1278,7 +1241,7 @@ static ISP_TILE_MESSAGE_ENUM tile_prz_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TIL
     return ISP_MESSAGE_TILE_OK;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_wrot_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
+ISP_TILE_MESSAGE_ENUM tile_wrot_back(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT* ptr_tile_reg_map)
 {
     s32 remain;
     s32 alignment = 1;

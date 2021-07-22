@@ -17,7 +17,8 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
+#include "mtk-mml-tile.h"
+#include "tile_mdp_func.h"
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -237,6 +238,12 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		MML_FMT_BLOCK(src->format)? 5: 0;
 	data->rdma_data.alpharot = cfg->alpharot;
 	data->rdma_data.max_width = rdma->data->tile_width;
+
+	/* RDMA support crop capability */
+	func->type = TILE_TYPE_RDMA | TILE_TYPE_CROP_EN;
+	func->init_func_ptr = tile_rdma_init;
+	func->for_func_ptr = tile_rdma_for;
+	func->back_func_ptr = tile_rdma_back;
 	func->func_data = data;
 	func->enable_flag = true;
 

@@ -16,7 +16,8 @@
 #include "mtk_drm_ddp_comp.h"
 
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
+#include "mtk-mml-tile.h"
+#include "tile_mdp_func.h"
 
 #define AAL_EN				0x000
 #define AAL_RESET			0x004
@@ -193,6 +194,8 @@ static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	data->aal_data.max_width = aal->data->tile_width;
 	data->aal_data.min_hist_width = aal->data->min_hist_width;
 	data->aal_data.min_width = aal->data->min_tile_width;
+	func->init_func_ptr = tile_aal_init;
+	func->for_func_ptr = tile_aal_for;
 	func->func_data = data;
 
 	func->enable_flag = dest->pq_config.en_dre;

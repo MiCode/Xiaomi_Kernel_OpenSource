@@ -5,7 +5,6 @@
  */
 #include "tile_driver.h"
 #include "tile_param.h"
-#include "tile_core.h"
 
 /* lut function */
 static ISP_TILE_MESSAGE_ENUM tile_init_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
@@ -83,9 +82,12 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT *ptr_tile_reg_map, FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
 													   bool *ptr_y_end_flag);
 
-const char *tile_print_error_message(ISP_TILE_MESSAGE_ENUM n)
+const char *tile_print_error_message(ISP_TILE_MESSAGE_ENUM err)
 {
-    GET_ERROR_NAME(n);
+	const char *name;
+
+	GET_ERROR_NAME(name, err);
+	return name;
 }
 
 static ISP_TILE_MESSAGE_ENUM tile_init_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
@@ -115,42 +117,36 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 	const struct mml_topology_path *path)
 {
 	ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-	int module_no, used_en_func_no, eng_cnt;
-	int start_count;
+	int module_no, start_count;
 	int i;
 
 	/* reset ptr_tile_func_param */
 	ptr_tile_func_param->for_recursive_count = 0;
 
-	eng_cnt = path->tile_engine_cnt;
-	for (i = 0; i < eng_cnt; i++) {
+	module_no = path->tile_engine_cnt;
+	for (i = 0; i < module_no; i++) {
 		const struct mml_path_node *node = &path->nodes[path->tile_engines[i]];
 		struct tile_func_block *ptr_func = &ptr_tile_func_param->func_list[i];
 
 		memset(ptr_func, 0x0, sizeof(*ptr_func));
+
 		ptr_func->func_num = node->id;
 		sprintf(ptr_func->func_name, "%d", node->id);
-		ptr_func->tot_prev_num = 1;
+		ptr_func->run_mode = TILE_RUN_MODE_MAIN;
+		ptr_func->enable_flag = true;
 
+		ptr_func->tot_prev_num = 1;
 		if (node->prev)
 			ptr_func->last_func_num[0] = node->prev->id;
 		else
 			ptr_func->last_func_num[0] = LAST_MODULE_ID_OF_START;
-	}
-	module_no = eng_cnt;
-	ptr_tile_func_param->used_func_no = eng_cnt;
 
-	/* enable table lut, output disable table lut */
-	for (i = 0; i < eng_cnt; i++) {
-		const struct mml_path_node *node = &path->nodes[path->tile_engines[i]];
-		struct tile_func_enable *ptr_func_en = &ptr_tile_func_param->func_en_list[i];
-
-		ptr_func_en->func_num = node->id;
-		ptr_func_en->enable_flag = true;
-		ptr_func_en->output_disable_flag = false;
+		ptr_func->in_const_x = 1;
+		ptr_func->in_const_y = 1;
+		ptr_func->out_const_x = 1;
+		ptr_func->out_const_y = 1;
 	}
-	used_en_func_no = eng_cnt;
-	ptr_tile_func_param->used_en_func_no = eng_cnt;
+	ptr_tile_func_param->used_func_no = module_no;
 
 	start_count = 0;
 	/* check valid module no */
@@ -159,47 +155,15 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 		tile_driver_printf("Error: %s\r\n", tile_print_error_message(result));
 		return result;
 	}
-	/* init function property */
-	for (i = 0; i < module_no; i++) {
-		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
-		bool found_init_flag = tile_init_mdp_func_property(ptr_func, ptr_tile_reg_map);
-		int func_num = ptr_func->func_num;
-		/* error check */
-		if (false == found_init_flag) {
-			result = ISP_MESSAGE_NOT_FOUND_INIT_TILE_PROPERTY_ERROR;
-			tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-			return result;
-		} else {
-			int j;
-			bool found_en_flag = false;
-			/* check enable for all groups by disable lut */
-			for (j = 0; j < ptr_tile_func_param->used_en_func_no; j++) {
-				TILE_FUNC_ENABLE_STRUCT *ptr_func_en_list = &ptr_tile_func_param->func_en_list[j];
-				if (func_num == ptr_func_en_list->func_num) {
-					ptr_func->output_disable_flag = ptr_func_en_list->output_disable_flag;
-					if (ptr_func_en_list->enable_flag)
-						ptr_func->enable_flag = true;
-					else
-						ptr_func->enable_flag = false;
-					found_en_flag = true;
-					break;
-				}
-			}
-			/* error check */
-			if (false == found_en_flag) {
-				result = ISP_MESSAGE_NOT_FOUND_ENABLE_TILE_FUNC_ERROR;
-				tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-				return result;
-			}
-		}
-	}
 	/* connect modules with error check */
 	for (i = 0; i < module_no; i++) {
 		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
 		int j;
 		int tot_prev_num = ptr_func->tot_prev_num;
+
 		for (j = 0; j < tot_prev_num; j++) {
 			int last_func_num = ptr_func->last_func_num[j];
+
 			if (LAST_MODULE_ID_OF_START == last_func_num) {
 				/* skip start module */
 				ptr_func->prev_blk_num[j] = PREVIOUS_BLK_NO_OF_START;
@@ -218,6 +182,7 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 			} else {
 				int k;
 				bool found_flag = false;
+
 				/* check duplicated last func */
 				for (k = j+1; k < tot_prev_num; k++) {
 					if (last_func_num == ptr_func->last_func_num[k]) {
@@ -231,6 +196,7 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 				for (k = 0; k < module_no; k++) {
 					if (i != k) { /* skip self */
 						TILE_FUNC_BLOCK_STRUCT *ptr_target = &ptr_tile_func_param->func_list[k];
+
 						/* find last */
 						if (last_func_num == ptr_target->func_num) {
 							found_flag = true;

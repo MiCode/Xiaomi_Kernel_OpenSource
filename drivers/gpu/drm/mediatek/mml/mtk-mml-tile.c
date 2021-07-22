@@ -12,7 +12,6 @@
 
 #include "tile_driver.h"
 #include "tile_param.h"
-#include "tile_mdp_reg.h"
 
 static const struct mml_topology_path **get_topology_path(
 	struct mml_task *task)
@@ -106,27 +105,32 @@ static s32 calc_tile_config(struct mml_task *task,
 	(has_tile_op(_comp, op) ? \
 		_comp->tile_ops->op(_comp, ##__VA_ARGS__) : 0)
 
-void prepare_tile(struct mml_task *task,
-		  const struct mml_topology_path *path,
-		  u8 pipe_idx,
-		  struct tile_param *tile_param,
-		  union mml_tile_data *tile_datas)
+static s32 prepare_tile(struct mml_task *task,
+			const struct mml_topology_path *path, u32 pipe_idx,
+			struct tile_param *tile_param,
+			union mml_tile_data *tile_datas)
 {
 	struct mml_pipe_cache *cache = &task->config->cache[pipe_idx];
 	u32 eng_cnt = path->tile_engine_cnt;
 	struct func_description *ptr_tile_func_param =
 		tile_param->ptr_tile_func_param;
-	struct tile_func_block *ptr_func;
 	u32 i;
 
 	for (i = 0; i < eng_cnt; i++) {
 		struct mml_comp *comp = path->nodes[path->tile_engines[i]].comp;
+		struct tile_func_block *ptr_func;
 
 		ptr_func = &ptr_tile_func_param->func_list[i];
+		if (comp->id != ptr_func->func_num) {
+			mml_err("[tile]mismatched tile_func(%d) and comp(%d) at [%d]",
+				ptr_func->func_num, comp->id, i);
+			return -EINVAL;
+		}
 		call_tile_op(comp, prepare, task,
 			&cache->cfg[path->tile_engines[i]],
 			ptr_func, &tile_datas[i]);
 	}
+	return 0;
 }
 
 enum mml_tile_state {

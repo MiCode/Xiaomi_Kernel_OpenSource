@@ -16,7 +16,8 @@
 #include "mtk_drm_ddp_comp.h"
 
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
+#include "mtk-mml-tile.h"
+#include "tile_mdp_func.h"
 
 #define TDSHP_00		0x000
 #define TDSHP_01		0x004
@@ -214,6 +215,7 @@
 
 struct tdshp_data {
 	u32 tile_width;
+	/* u32 min_hfg_width; 9: HFG min + TDSHP crop */
 };
 
 static const struct tdshp_data mt6893_tdshp_data = {
@@ -263,6 +265,9 @@ static s32 tdshp_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
 
 	data->tdshp_data.max_width = tdshp->data->tile_width;
+	/* TDSHP support crop capability, if no HFG. */
+	func->type = TILE_TYPE_CROP_EN;
+	func->init_func_ptr = tile_tdshp_init;
 	func->func_data = data;
 
 	func->enable_flag = dest->pq_config.en_sharp;

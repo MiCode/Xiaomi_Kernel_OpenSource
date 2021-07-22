@@ -15,7 +15,6 @@
 #include "mtk-mml-drm-adaptor.h"
 
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
 
 #define FG_TRIGGER	0x000
 #define FG_STATUS	0x004

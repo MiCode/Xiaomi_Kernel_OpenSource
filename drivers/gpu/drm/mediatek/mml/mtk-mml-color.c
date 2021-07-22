@@ -15,7 +15,6 @@
 #include "mtk_drm_ddp_comp.h"
 
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
 
 #define COLOR_CFG_MAIN			0x400
 #define COLOR_PXL_CNT_MAIN		0x404

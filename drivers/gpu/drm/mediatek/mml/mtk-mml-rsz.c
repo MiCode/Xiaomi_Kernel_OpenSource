@@ -19,7 +19,8 @@
 #include "mtk-mml-pq-core.h"
 
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
+#include "mtk-mml-tile.h"
+#include "tile_mdp_func.h"
 
 #define RSZ_ENABLE			0x000
 #define RSZ_CON_1			0x004
@@ -215,12 +216,14 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	data->rsz_data.max_width = rsz->data->tile_width;
+	/* RSZ support crop capability */
+	func->type = TILE_TYPE_CROP_EN;
+	func->init_func_ptr = tile_prz_init;
+	func->for_func_ptr = tile_prz_for;
+	func->back_func_ptr = tile_prz_back;
 	func->func_data = data;
 
-	if (rsz_relay_mode)
-		func->enable_flag = false;
-	else
-		func->enable_flag = true;
+	func->enable_flag = !rsz_relay_mode;
 
 	in_crop_w = dest->crop.r.width;
 	in_crop_h = dest->crop.r.height;

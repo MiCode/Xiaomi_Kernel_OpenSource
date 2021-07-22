@@ -19,7 +19,8 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
+#include "mtk-mml-tile.h"
+#include "tile_mdp_func.h"
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -381,6 +382,11 @@ static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	func->full_size_y_out = wrot_frm->out_h;
 
 	data->wrot_data.max_width = wrot->data->tile_width;
+	/* WROT support crop capability */
+	func->type = TILE_TYPE_WDMA | TILE_TYPE_CROP_EN;
+	func->init_func_ptr = tile_wrot_init;
+	func->for_func_ptr = tile_wrot_for;
+	func->back_func_ptr = tile_wrot_back;
 	func->func_data = data;
 	func->enable_flag = true;
 

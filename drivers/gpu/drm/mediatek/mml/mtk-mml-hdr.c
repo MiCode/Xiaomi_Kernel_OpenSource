@@ -16,7 +16,8 @@
 #include "mtk_drm_ddp_comp.h"
 
 #include "tile_driver.h"
-#include "tile_mdp_reg.h"
+#include "mtk-mml-tile.h"
+#include "tile_mdp_func.h"
 
 #define HDR_TOP			0x000
 #define HDR_RELAY		0x004
@@ -187,6 +188,8 @@ static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	data->hdr_data.relay_mode = dest->pq_config.en_hdr ? false : true;
 	data->hdr_data.min_width = hdr->data->min_tile_width;
+	func->init_func_ptr = tile_hdr_init;
+	func->for_func_ptr = tile_hdr_for;
 	func->func_data = data;
 
 	func->enable_flag = dest->pq_config.en_hdr;
