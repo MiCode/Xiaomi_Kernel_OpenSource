@@ -77,6 +77,11 @@ static void mml_qos_init(struct mml_dev *mml)
 
 	/* Get regulator instance by name. */
 	tp->reg = devm_regulator_get(dev, "dvfsrc-vcore");
+	if (IS_ERR(tp->reg)) {
+		mml_log("%s not support dvfs %d", __func__, (int)PTR_ERR(tp->reg));
+		tp->reg = NULL;
+		return;
+	}
 
 	num = dev_pm_opp_get_opp_count(dev); /* number of available opp */
 	if (num <= 0) {
@@ -110,6 +115,9 @@ void mml_qos_update_tput(struct mml_dev *mml)
 	struct mml_topology_cache *tp = mml_topology_get_cache(mml);
 	u32 tput = 0, i;
 	int volt, ret;
+
+	if (!tp->reg)
+		return;
 
 	for (i = 0; i < ARRAY_SIZE(tp->path_clts); i++) {
 		/* select max one across clients */
@@ -386,6 +394,10 @@ s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 
 	/* also do mmqos and mmdvfs since dma component do init here */
 	comp->icc_path = of_mtk_icc_get(dev, "mml_dma");
+	if (IS_ERR(comp->icc_path)) {
+		mml_log("%s not support qos", __func__);
+		comp->icc_path = NULL;
+	}
 
 	mml_log("%s dev %p larb dev %u comp %u",
 		__func__, dev, larb_pdev, comp->id);
@@ -508,9 +520,6 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
 	u32 bandwidth, datasize;
-
-	if (!comp->icc_path)
-		return;
 
 	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
 	bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
