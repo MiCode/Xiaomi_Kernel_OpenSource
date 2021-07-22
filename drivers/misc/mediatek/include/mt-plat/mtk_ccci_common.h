@@ -631,12 +631,15 @@ int switch_sim_mode(int id, char *buf,
 	unsigned int len); /* Export by SIM switch */
 unsigned int get_sim_switch_type(void); /* Export by SIM switch */
 
-#ifdef CONFIG_MTK_ECCCI_C2K
+#if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
 /* for c2k usb bypass */
+typedef int (*usb_upstream_buffer_cb_t) (int transfer_id,
+	const void *buffer, unsigned int length);
 int ccci_c2k_rawbulk_intercept(int ch_id, unsigned int interception);
 int ccci_c2k_buffer_push(int ch_id, void *buf, int count);
 int modem_dtr_set(int on, int low_latency);
 int modem_dcd_state(void);
+void ccci_c2k_set_usb_callback(usb_upstream_buffer_cb_t callback);
 #endif
 /* for modem get AP time */
 void notify_time_update(void);

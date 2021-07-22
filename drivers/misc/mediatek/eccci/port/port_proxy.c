@@ -2150,7 +2150,8 @@ void ccci_port_set_traffic_flag(int md_id, unsigned int dump_flag)
 	proxy_set_traffic_flag(proxy_p, dump_flag);
 }
 
-#ifdef CONFIG_MTK_ECCCI_C2K /* only md3 can usb bypass */
+#if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
+/* only md3 can usb bypass */
 int modem_dtr_set(int on, int low_latency)
 {
 	struct c2k_ctrl_port_msg c2k_ctl_msg;
@@ -2174,6 +2175,7 @@ int modem_dtr_set(int on, int low_latency)
 
 	return ret;
 }
+EXPORT_SYMBOL(modem_dtr_set);
 
 int modem_dcd_state(void)
 {
@@ -2206,6 +2208,7 @@ int modem_dcd_state(void)
 	}
 	return dcd_state;
 }
+EXPORT_SYMBOL(modem_dcd_state);
 
 int ccci_c2k_rawbulk_intercept(int ch_id, unsigned int interception)
 {
@@ -2271,7 +2274,7 @@ int ccci_c2k_rawbulk_intercept(int ch_id, unsigned int interception)
 
 	return ret;
 }
-
+EXPORT_SYMBOL(ccci_c2k_rawbulk_intercept);
 
 int ccci_c2k_buffer_push(int ch_id, void *buf, int count)
 {
@@ -2362,6 +2365,7 @@ push_err_out:
 	}
 	return -ENODEV;
 }
+EXPORT_SYMBOL(ccci_c2k_buffer_push);
 
 #endif
 

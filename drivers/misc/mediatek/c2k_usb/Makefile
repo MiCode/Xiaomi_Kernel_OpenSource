@@ -14,11 +14,10 @@
 
 
 
-ccflags-y += -DC2K_USB_UT
+# ccflags-y += -DC2K_USB_UT
 
 ccflags-y += -I$(srctree)/drivers/usb/gadget
-ccflags-y += -I$(srctree)/drivers/usb/gadget/udc/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_boost/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
 obj-$(CONFIG_MTK_ECCCI_C2K_USB) := c2k_usb.o
 c2k_usb-$(CONFIG_MTK_ECCCI_C2K_USB) += f_rawbulk.o rawbulk.o rawbulk_transfer.o

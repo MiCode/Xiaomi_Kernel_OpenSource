@@ -110,8 +110,14 @@ static int port_char_init(struct port_t *port)
 	return ret;
 }
 
-//#if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
-#ifdef CCCI_RELATED_MODULE_NOT_READY
+#if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
+static usb_upstream_buffer_cb_t usb_upstream_cb;
+void ccci_c2k_set_usb_callback(usb_upstream_buffer_cb_t callback)
+{
+	usb_upstream_cb = callback;
+}
+EXPORT_SYMBOL(ccci_c2k_set_usb_callback);
+
 static int c2k_req_push_to_usb(struct port_t *port, struct sk_buff *skb)
 {
 	int md_id = port->md_id;
@@ -139,8 +145,12 @@ static int c2k_req_push_to_usb(struct port_t *port, struct sk_buff *skb)
 
 retry_push:
 	/* push to usb: USB_RAWBULK_READY: requires C2K USB driver */
-	read_count = rawbulk_push_upstream_buffer(c2k_ch_id,
-		skb->data, read_len);
+	if (!usb_upstream_cb) {
+		CCCI_ERROR_LOG(md_id, CHAR,
+				"usb upstream callback is not set\n");
+		return -EINVAL;
+	}
+	read_count = usb_upstream_cb(c2k_ch_id, skb->data, read_len);
   
 	CCCI_DEBUG_LOG(md_id, CHAR,
 		"data push to usb bypass (ch%d)(%d)\n",
@@ -183,8 +193,7 @@ static int port_char_recv_skb(struct port_t *port, struct sk_buff *skb)
 		AP_IPC_LWAPROXY + CCCI_IPC_MINOR_BASE)))
 		return -CCCI_ERR_DROP_PACKET;
 
-//#if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
-#ifdef CCCI_RELATED_MODULE_NOT_READY
+#if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
 	if (port->interception) {
 		c2k_req_push_to_usb(port, skb);
 		return 0;

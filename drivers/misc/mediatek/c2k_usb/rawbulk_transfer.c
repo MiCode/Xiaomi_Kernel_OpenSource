@@ -1319,6 +1319,7 @@ int rawbulk_transfer_init(void)
 
 	C2K_NOTE("%s\n", __func__);
 	drop_check_timeout = jiffies;
+	ccci_c2k_set_usb_callback(rawbulk_push_upstream_buffer);
 
 	rawbulk = kzalloc(sizeof(*rawbulk), GFP_KERNEL);
 	if (!rawbulk)
