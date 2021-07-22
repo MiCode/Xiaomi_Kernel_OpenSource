@@ -378,10 +378,8 @@ static int mt6373_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 	efuse_buff = (unsigned short *)nvmem_cell_read(cell_1, &len);
 	nvmem_cell_put(cell_1);
 
-	if (IS_ERR(efuse_buff)) {
-		pr_info("error: efuse_buff=0x%x\n", efuse_buff);
+	if (IS_ERR(efuse_buff))
 		return PTR_ERR(efuse_buff);
-	}
 
 	if (len != 10)
 		return -EINVAL;
