@@ -101,13 +101,13 @@ static void mml_qos_init(struct mml_dev *mml)
 		/* available freq from table, store in MHz */
 		tp->opp_speeds[i] = (u32)div_u64(freq, 1000000);
 		tp->opp_volts[i] = dev_pm_opp_get_voltage(opp);
+		tp->freq_max = tp->opp_speeds[i];
 		mml_log("mml opp %u: %luMHz\t%d",
 			i, tp->opp_speeds[i], tp->opp_volts[i]);
 		freq++;
 		i++;
 		dev_pm_opp_put(opp);
 	}
-	tp->freq_max = tp->opp_speeds[i-1];
 }
 
 void mml_qos_update_tput(struct mml_dev *mml)
