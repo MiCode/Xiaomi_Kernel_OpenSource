@@ -45,7 +45,7 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 		send_item_num = 3,
 		recv_item_num = 4
 	};
-	u32 i, ret, mbox_id, recv_opt;
+	u32 i, ret, mbox_id, recv_opt, pin_name_size;
 
 	// Get MBOX num
 	of_property_read_u32(pdev->dev.of_node, "mbox_count",
@@ -99,6 +99,14 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 		return false;
 	}
 
+	// Check if #element in gpueb_mbox_pin_send_name is enough or not
+	pin_name_size = ARRAY_SIZE(gpueb_mbox_pin_send_name);
+	if (pin_name_size < gpueb_mboxdev.send_count) {
+		gpueb_pr_debug("gpueb_mbox_pin_send_name size(%d) smaller than send_count:%d\n",
+				pin_name_size, gpueb_mboxdev.send_count);
+		return false;
+	}
+
 	for (i = 0; i < gpueb_mboxdev.send_count; i++) {
 		gpueb_pr_debug("send_name_table[%d] = %s\n",
 				i, gpueb_mbox_pin_send_name[i]);
@@ -111,6 +119,14 @@ static int gpueb_ipi_table_init(struct platform_device *pdev)
 			gpueb_mboxdev.recv_count);
 	if (ret < 0) {
 		gpueb_pr_debug("Could not find recv_name_table in dts\n");
+		return false;
+	}
+
+	// Check if #element in gpueb_mbox_pin_send_name is enough or not
+	pin_name_size = ARRAY_SIZE(gpueb_mbox_pin_recv_name);
+	if (pin_name_size < gpueb_mboxdev.recv_count) {
+		gpueb_pr_debug("gpueb_mbox_pin_recv_name size(%d) smaller than recv_count:%d\n",
+				pin_name_size, gpueb_mboxdev.recv_count);
 		return false;
 	}
 
