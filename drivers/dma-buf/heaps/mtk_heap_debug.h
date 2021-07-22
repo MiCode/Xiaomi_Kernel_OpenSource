@@ -106,6 +106,7 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 	struct dma_buf_attachment *attach_obj;
 	int ret;
 	dma_addr_t iova = 0x0;
+	const char *device_name = NULL;
 
 	/*
 	 * if heap is NULL, dump all buffer
@@ -114,7 +115,7 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 	if (dump_heap && (!buf || buf->heap != dump_heap))
 		return 0;
 
-	ret = dma_resv_lock_interruptible(dmabuf->resv, NULL);
+	ret = dma_resv_lock(dmabuf->resv, NULL);
 	if (ret)
 		return 0;
 
@@ -133,12 +134,14 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 			if (dev_iommu_fwspec_get(attach_obj->dev))
 				iova = sg_dma_address(attach_obj->sgt->sgl);
 
+		device_name = dev_name(attach_obj->dev);
+
 		dmabuf_dump(s, "\tdev:%-16s, iova:0x%-16lx, sgt:0x%-8p, attr:%-4lu, dir:%-4d"
 #ifdef CONFIG_DMABUF_SYSFS_STATS
 			    "map_iova_cnt:%-4d"
 #endif
 			    "\n",
-			    dev_name(attach_obj->dev),
+			    device_name,
 			    iova,
 			    attach_obj->sgt,
 			    attach_obj->dma_map_attrs,
