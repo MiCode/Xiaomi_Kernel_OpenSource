@@ -671,7 +671,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	unsigned int fault_larb, fault_port, sub_comm = 0;
 #endif
 
-	pr_warn("%s start, type:%d, id:%d\n", __func__,
+	pr_err("%s start, type:%d, id:%d\n", __func__,
 		data->plat_data->iommu_type, data->plat_data->iommu_id);
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 	if (mtk_iommu_isr_sec(irq, data) == IRQ_HANDLED)
@@ -692,6 +692,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
 
+	pr_err("%s, reg_raw_data: int_status:0x%x, int_id:0x%x, int_va:0x%x, int_pa:0x%x\n",
+	       __func__, int_state, regval, fault_iova, fault_pa);
+
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOVA_34_EN)) {
 		va34_32 = FIELD_GET(F_MMU_INVAL_VA_34_32_MASK, fault_iova);
 		fault_iova = fault_iova & F_MMU_INVAL_VA_31_12_MASK;
@@ -706,7 +709,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			tf_iova_tmp -= SZ_4K;
 		fault_pgpa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain,
 						    tf_iova_tmp);
-		pr_warn("[iommu_debug] error, index:%d, falut_iova:0x%lx, fault_pa(pg):%pa\n",
+		pr_err("[iommu_debug] error, index:%d, falut_iova:0x%lx, fault_pa(pg):%pa\n",
 			i, tf_iova_tmp, &fault_pgpa);
 		if (!fault_pgpa && i > 0)
 			break;
@@ -714,7 +717,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	if (fault_iova) /* skip dump when fault iova = 0 */
 		mtk_iova_map_dump(fault_iova);
 	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
-	dev_warn(dev, "base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
+	dev_err(dev, "base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
 		 table_base, int_state, fault_iova, fault_pa,
 		 layer, write ? "write" : "read");
 #else
