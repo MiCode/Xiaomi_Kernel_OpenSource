@@ -68,7 +68,7 @@ struct battery_oc_data_t mt6359p_battery_oc_data = {
 
 struct battery_oc_data_t mt6375_battery_oc_data = {
 	.regmap_source = "dev_get_regmap",
-	.gauge_node_name = "mt6375_gauge",
+	.gauge_node_name = "mtk_gauge",
 	.fg_cur_hth = {MT6375_FGADC_CUR_CON2, 0xFFFF, 2},
 	.fg_cur_lth = {MT6375_FGADC_CUR_CON1, 0xFFFF, 2},
 	.cust_rfg = true,
