@@ -104,9 +104,9 @@ struct wrot_data {
 	u32 tile_width;
 };
 
-static const struct wrot_data mt6893_wrot_data = {
+static const struct wrot_data mml_wrot_data = {
 	.fifo = 256,
-	.tile_width = 512
+	.tile_width = 512,
 };
 
 struct mml_comp_wrot {
@@ -114,8 +114,6 @@ struct mml_comp_wrot {
 	const struct wrot_data *data;
 	struct device *dev;	/* for dmabuf to iova */
 
-	u8 gpr_poll;
-	u16 event_poll;
 	u16 event_eof;	/* wrot frame done */
 };
 
@@ -1565,16 +1563,9 @@ static int probe(struct platform_device *pdev)
 			priv->comp.id, ret);
 	}
 
-	if (of_property_read_u8(dev->of_node, "gpr_poll", &priv->gpr_poll))
-		dev_err(dev, "read gpr poll fail\n");
-
-	if (of_property_read_u16(dev->of_node, "event_poll",
-		&priv->event_poll))
-		dev_err(dev, "read event poll fail\n");
-
 	if (of_property_read_u16(dev->of_node, "event_frame_done",
-		&priv->event_eof))
-		dev_err(dev, "read event poll fail\n");
+				 &priv->event_eof))
+		dev_err(dev, "read event frame_done fail\n");
 
 	/* assign ops */
 	priv->comp.tile_ops = &wrot_tile_ops;
@@ -1599,8 +1590,12 @@ static int remove(struct platform_device *pdev)
 
 const struct of_device_id mtk_mml_wrot_driver_dt_match[] = {
 	{
+		.compatible = "mediatek,mt6983-mml_wrot",
+		.data = &mml_wrot_data,
+	},
+	{
 		.compatible = "mediatek,mt6893-mml_wrot",
-		.data = &mt6893_wrot_data
+		.data = &mml_wrot_data
 	},
 	{},
 };

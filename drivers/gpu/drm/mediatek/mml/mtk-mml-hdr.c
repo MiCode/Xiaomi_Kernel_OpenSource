@@ -139,8 +139,8 @@ struct hdr_data {
 	u32 min_tile_width;
 };
 
-static const struct hdr_data mt6893_hdr_data = {
-	.min_tile_width = 16
+static const struct hdr_data hdr10_hdr_data = {
+	.min_tile_width = 16,
 };
 
 struct mml_comp_hdr {
@@ -435,8 +435,12 @@ static int remove(struct platform_device *pdev)
 
 const struct of_device_id mtk_mml_hdr_driver_dt_match[] = {
 	{
+		.compatible = "mediatek,mt6983-mml_hdr",
+		.data = &hdr10_hdr_data,
+	},
+	{
 		.compatible = "mediatek,mt6893-mml_hdr",
-		.data = &mt6893_hdr_data
+		.data = &hdr10_hdr_data,
 	},
 	{},
 };

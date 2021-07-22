@@ -222,6 +222,10 @@ static const struct tdshp_data mt6893_tdshp_data = {
 	.tile_width = 528
 };
 
+static const struct tdshp_data mt6983_tdshp_data = {
+	.tile_width = 1628,
+};
+
 struct mml_comp_tdshp {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
@@ -512,6 +516,10 @@ static int remove(struct platform_device *pdev)
 }
 
 const struct of_device_id mtk_mml_tdshp_driver_dt_match[] = {
+	{
+		.compatible = "mediatek,mt6983-mml_tdshp",
+		.data = &mt6983_tdshp_data,
+	},
 	{
 		.compatible = "mediatek,mt6893-mml_tdshp",
 		.data = &mt6893_tdshp_data

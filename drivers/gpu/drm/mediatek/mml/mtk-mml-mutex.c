@@ -17,6 +17,7 @@
 
 /* MUTEX register offset */
 #define MUTEX_EN(id)		(0x20 + (id) * 0x20)
+#define MUTEX_SHADOW_CTRL(id)	(0x24 + (id) * 0x20)
 #define MUTEX_MOD(id, offset)	((offset) + (id) * 0x20)
 #define MUTEX_SOF(id)		(0x2c + (id) * 0x20)
 
@@ -32,6 +33,12 @@ static const struct mutex_data mt6893_mutex_data = {
 	.mutex_cnt = 16,
 	.mod_offsets = {0x30, 0x34},
 	.mod_cnt = 2,
+};
+
+static const struct mutex_data mt6983_mutex_data = {
+	.mutex_cnt = 16,
+	.mod_offsets = {0x030},
+	.mod_cnt = 1,
 };
 
 struct mutex_module {
@@ -224,6 +231,10 @@ static int remove(struct platform_device *pdev)
 }
 
 const struct of_device_id mml_mutex_driver_dt_match[] = {
+	{
+		.compatible = "mediatek,mt6983-mml_mutex",
+		.data = &mt6983_mutex_data,
+	},
 	{
 		.compatible = "mediatek,mt6893-mml_mutex",
 		.data = &mt6893_mutex_data

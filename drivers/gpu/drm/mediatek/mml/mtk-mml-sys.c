@@ -17,7 +17,7 @@
 
 #define MML_MAX_SYS_COMPONENTS	10
 #define MML_MAX_SYS_MUX_PINS	88
-#define MML_MAX_SYS_DL_INS	4
+#define MML_MAX_SYS_DL_RELAYS	4
 #define MML_MAX_SYS_DBG_REGS	60
 
 enum mml_comp_type {
@@ -53,7 +53,7 @@ struct mml_mux_pin {
 } __attribute__ ((__packed__));
 
 struct mml_dbg_reg {
-	char name[16];
+	const char *name;
 	u32 offset;
 };
 
@@ -67,7 +67,7 @@ struct mml_comp_sys {
 	 * The entry 0 leaves empty for efficiency, do not use. */
 	struct mml_mux_pin mux_pins[MML_MAX_SYS_MUX_PINS + 1];
 	u32 mux_cnt;
-	u16 dl_offsets[MML_MAX_SYS_DL_INS + 1];
+	u16 dl_relays[MML_MAX_SYS_DL_RELAYS + 1];
 	u32 dl_cnt;
 
 	/* Table of component or adjacency data index.
@@ -79,7 +79,7 @@ struct mml_comp_sys {
 	 * Direct-wires are not in this table.
 	 *
 	 * Ex.:
-	 *	dl_offsets[adjacency[DLI0][DLI0]] is offset of comp DLI0.
+	 *	dl_relays[adjacency[DLI0][DLI0]] is RELAY of comp DLI0.
 	 *	mux_pins[adjacency[RDMA0][RSZ0]] is MOUT from RDMA0 to RSZ0.
 	 *	mux_pins[adjacency[RSZ0][RDMA0]] is SELIN from RDMA0 to RSZ0.
 	 *
@@ -174,7 +174,7 @@ static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 
-	u16 offset = sys->dl_offsets[sys->adjacency[comp->id][comp->id]];
+	u16 offset = sys->dl_relays[sys->adjacency[comp->id][comp->id]];
 	u32 dl_w = tile->in.xe - tile->in.xs + 1;
 	u32 dl_h = tile->in.ye - tile->in.ys + 1;
 
@@ -195,7 +195,6 @@ static void sys_debug_dump(struct mml_comp *comp)
 	u32 i;
 
 	mml_err("mml component %u dump:", comp->id);
-
 	for (i = 0; i < sys->dbg_reg_cnt; i++) {
 		value = readl(base + sys->dbg_regs[i].offset);
 		mml_err("%s %#010x", sys->dbg_regs[i].name, value);
@@ -278,7 +277,7 @@ static int sys_comp_init(struct device *dev, struct mml_comp_sys *sys,
 				node->full_name, i);
 				return -EINVAL;
 		}
-		memcpy(sys->dbg_regs[i].name, name, sizeof(sys->dbg_regs[i].name));
+		sys->dbg_regs[i].name = name;
 		i++;
 	}
 
@@ -295,7 +294,7 @@ static int dl_comp_init(struct device *dev, struct mml_comp_sys *sys,
 	u16 offset;
 	int ret;
 
-	if (sys->dl_cnt >= ARRAY_SIZE(sys->dl_offsets) - 1) {
+	if (sys->dl_cnt >= ARRAY_SIZE(sys->dl_relays) - 1) {
 		dev_err(dev, "out of dl-relay size in component %s: %d\n",
 			node->full_name, sys->dl_cnt + 1);
 		return -EINVAL;
@@ -318,7 +317,7 @@ static int dl_comp_init(struct device *dev, struct mml_comp_sys *sys,
 		return ret;
 	}
 
-	sys->dl_offsets[++sys->dl_cnt] = offset;
+	sys->dl_relays[++sys->dl_cnt] = offset;
 	sys->adjacency[comp->id][comp->id] = sys->dl_cnt;
 	comp->config_ops = &dl_config_ops;
 	/* TODO: pmqos_op */
@@ -492,7 +491,19 @@ static const struct mml_data mt6893_mml_data = {
 	},
 };
 
+static const struct mml_data mt6983_mml_data = {
+	.comp_inits = {
+		[MML_CT_SYS] = &sys_comp_init,
+		[MML_CT_DL_IN] = &dl_comp_init,
+		[MML_CT_DL_OUT] = &dl_comp_init,
+	},
+};
+
 const struct of_device_id mtk_mml_of_ids[] = {
+	{
+		.compatible = "mediatek,mt6983-mml",
+		.data = &mt6983_mml_data,
+	},
 	{
 		.compatible = "mediatek,mt6893-mml",
 		.data = &mt6893_mml_data,
@@ -501,6 +512,7 @@ const struct of_device_id mtk_mml_of_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, mtk_mml_of_ids);
 
+/* Used in platform with more than one mml_sys */
 static const struct of_device_id mml_sys_of_ids[] = {
 	{
 		.compatible = "mediatek,mt6893-mml_sys",

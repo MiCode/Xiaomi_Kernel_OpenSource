@@ -149,14 +149,15 @@ static const struct rdma_data mt6893_rdma_data = {
 	.tile_width = 640
 };
 
+static const struct rdma_data mt6983_rdma_data = {
+	.tile_width = 1696,
+};
+
 struct mml_comp_rdma {
 	struct mml_comp comp;
 	const struct rdma_data *data;
 	struct device *dev;	/* for dmabuf to iova */
 
-	u8 gpr_poll;
-	u16 event_poll;
-	u16 event_sof;
 	u16 event_eof;
 };
 
@@ -1260,20 +1261,9 @@ static int probe(struct platform_device *pdev)
 			priv->comp.id, ret);
 	}
 
-	if (of_property_read_u8(dev->of_node, "gpr_poll", &priv->gpr_poll))
-		dev_err(dev, "read gpr poll fail\n");
-
-	if (of_property_read_u16(dev->of_node, "event_poll",
-				 &priv->event_poll))
-		dev_err(dev, "read event poll fail\n");
-
-	if (of_property_read_u16(dev->of_node, "event_frame_start",
-				 &priv->event_sof))
-		dev_err(dev, "read sof event poll fail\n");
-
 	if (of_property_read_u16(dev->of_node, "event_frame_done",
 				 &priv->event_eof))
-		dev_err(dev, "read event poll fail\n");
+		dev_err(dev, "read event frame_done fail\n");
 
 	/* assign ops */
 	priv->comp.tile_ops = &rdma_tile_ops;
@@ -1297,6 +1287,10 @@ static int remove(struct platform_device *pdev)
 }
 
 const struct of_device_id mtk_mml_rdma_driver_dt_match[] = {
+	{
+		.compatible = "mediatek,mt6983-mml_rdma",
+		.data = &mt6983_rdma_data,
+	},
 	{
 		.compatible = "mediatek,mt6893-mml_rdma",
 		.data = &mt6893_rdma_data
