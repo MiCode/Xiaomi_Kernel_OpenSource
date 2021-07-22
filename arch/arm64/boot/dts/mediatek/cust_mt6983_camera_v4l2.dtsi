@@ -7,6 +7,7 @@
 		seninf_csi_port_0: seninf_csi_port_0 {
 			compatible = "mediatek,seninf";
 			csi-port = "0";
+			seninf_dphy_settle_delay_dt = <17>;
 #if 0
 			nvmem-cells = <&csi_efuse0>;
 			nvmem-cell-names = "rg_csi";
