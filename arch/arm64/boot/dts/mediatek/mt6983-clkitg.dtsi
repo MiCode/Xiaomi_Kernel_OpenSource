@@ -164,7 +164,6 @@
 			<&infracfg_ao_clk CLK_IFR_AO_CCIF4_MD>,
 			<&infracfg_ao_clk CLK_IFR_AO_RG_MMW_DPMAIF_F26M_CK>,
 			<&infracfg_ao_clk CLK_IFR_AO_RG_HF_FMEM_SUB_CK>,
-			<&mfg_top_config_clk CLK_MFG_TOP_CONFIG_BG3D_PDN>,
 			<&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_D>,
 			<&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_M>,
 			<&mminfra_config_clk CLK_MMINFRA_CONFIG_SMI>,
@@ -702,60 +701,5 @@
 	bring-up-pd-mfg1 {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG1>;
-	};
-
-	bring-up-pd-mfg2 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG2>;
-	};
-
-	bring-up-pd-mfg3 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG3>;
-	};
-
-	bring-up-pd-mfg4 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG4>;
-	};
-
-	bring-up-pd-mfg5 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG5>;
-	};
-
-	bring-up-pd-mfg6 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG6>;
-	};
-
-	bring-up-pd-mfg7 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG7>;
-	};
-
-	bring-up-pd-mfg8 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG8>;
-	};
-
-	bring-up-pd-mfg9 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG9>;
-	};
-
-	bring-up-pd-mfg10 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG10>;
-	};
-
-	bring-up-pd-mfg11 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG11>;
-	};
-
-	bring-up-pd-mfg12 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_MFG12>;
 	};
 };

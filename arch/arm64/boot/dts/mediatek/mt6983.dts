@@ -8450,10 +8450,6 @@
 	regulator-always-on;
 };
 
-&mt6373_vbuck2 {
-	regulator-always-on;
-};
-
 &mddriver {
 	/* for md pmic voltage setting*/
 	md_vmodem-supply = <&mt6363_vbuck6>;
