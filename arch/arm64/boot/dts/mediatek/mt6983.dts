@@ -645,11 +645,12 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		compatible = "simple-bus";
+		ranges;
 
 		regulator_vibrator {
 			compatible = "regulator-vibrator";
 			label = "vibrator";
-			min-volt = <1200000>;
+			min-volt = <2800000>;
 			max-volt = <3500000>;
 			vib-supply = <&mt6373_vibr>;
 		};
