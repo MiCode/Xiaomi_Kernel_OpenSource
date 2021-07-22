@@ -20,21 +20,22 @@
 // Local header file
 #include "mtk_imgsys-adl.h"
 
-static void __iomem *g_adlARegBase;
-static void __iomem *g_adlBRegBase;
+static void __iomem *g_adl_a_va;
+static void __iomem *g_adl_b_va;
 
 const struct mtk_imgsys_init_array
-			adl_init_info[] = {
-	{ 0x20, 0x80000000 }  // Enable write clear
+	adl_init_info[] = {
+	{ 0x20, 0x80000000 }	// Enable write clear
 };
 
 #define ADL_INIT_VALUE_COUNT  (sizeof(adl_init_info) / \
 	sizeof(struct mtk_imgsys_init_array))
 #define ADL_HARDWARE_COUNT    (2)
 
-static void imgsys_adl_hw_reset(struct mtk_imgsys_dev *imgsys_dev)
+static void reset_adl_hardware(struct mtk_imgsys_dev *imgsys_dev,
+	uint32_t reg_base_pa, void __iomem *reg_base_va)
 {
-	//int32_t count;
+	int32_t count;
 
 	/* IPUDMA part soft reset flow
 	 * 1.	Assert sw_rst_trig=1
@@ -45,199 +46,203 @@ static void imgsys_adl_hw_reset(struct mtk_imgsys_dev *imgsys_dev)
 	 */
 
 	/* Reset ADL_A */
-	//uint32_t value = ioread32((void *)(g_adlARegBase));
-	//value |= ((0x1 << 8) | (0x1 << 9));
-	//iowrite32(value, g_adlARegBase);
+	uint32_t value = ioread32((void *)(reg_base_va));
 
-	//count = 0;
-	//while(count < 1000000) {
-	//	value = ioread32((void *)(g_adlARegBase));
-	//	if ((value & 0x3) == 0x3) {
-	//		break;
-	//	}
-	//	count++;
-	//}
+	value |= ((0x1 << 8) | (0x1 << 9));
+	iowrite32(value, reg_base_va);
 
-	//value = ioread32((void *)(g_adlARegBase));
-	//value &= ~((0x1 << 8) | (0x1 << 9));
-	//iowrite32(value, g_adlARegBase);
+	count = 0;
+	while (count < 1000) {
+		value = ioread32((void *)(reg_base_va));
+		if ((value & 0x3) == 0x3)
+			break;
+		count++;
+	}
 
-	/* Reset ADL_B */
-	//value = ioread32((void *)(g_adlBRegBase));
-	//value |= ((0x1 << 8) | (0x1 << 9));
-	//iowrite32(value, g_adlARegBase);
-
-	//count = 0;
-	//while(count < 1000000) {
-	//	value = ioread32((void *)(g_adlARegBase));
-	//	if ((value & 0x3) == 0x3) {
-	//		break;
-	//	}
-	//	count++;
-	//}
-
-	//value = ioread32((void *)(g_adlARegBase));
-	//value &= ~((0x1 << 8) | (0x1 << 9));
-	//iowrite32(value, g_adlARegBase);
+	value = ioread32((void *)(reg_base_va));
+	value &= ~((0x1 << 8) | (0x1 << 9));
+	iowrite32(value, reg_base_va);
 }
 
-void imgsys_adl_init(struct mtk_imgsys_dev *imgsys_dev)
+static void init_adl_hardware(struct mtk_imgsys_dev *imgsys_dev,
+	uint32_t reg_base_pa, void __iomem *reg_base_va)
 {
-	//void __iomem *adlBase = 0L;
-	//void __iomem *offset = NULL;
-	//unsigned int i = 0, HwIdx = 0;
+	int32_t index;
+	void __iomem *offsetVA;
 
-	//g_adlARegBase = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);  // 0x15005300
-	//g_adlBRegBase = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);  // 0x15007300
+	for (index = 0; index < ADL_INIT_VALUE_COUNT ; index++) {
+		offsetVA = reg_base_va + adl_init_info[index].ofset;
+		writel(adl_init_info[index].val, offsetVA);
+	}
+}
 
-	imgsys_adl_hw_reset(imgsys_dev);
+static void dump_adl_register(struct mtk_imgsys_dev *imgsys_dev,
+	uint32_t reg_base_pa, void __iomem *reg_base_va, uint32_t size)
+{
+	int32_t index;
 
-	//for (HwIdx = 0; HwIdx < ADL_HARDWARE_COUNT; HwIdx++) {
-	//	if (HwIdx == 0) {
-	//		adlBase = g_adlARegBase;
-	//	} else {
-	//		adlBase = g_adlBRegBase;
-	//	}
+	for (index = 0; index <= size; index += 0x10) {
+		dev_info(imgsys_dev->dev,
+			"%s: [0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X", __func__,
+			(uint32_t)(reg_base_pa + index),
+			(uint32_t)ioread32((void *)(reg_base_va + index)),
+			(uint32_t)ioread32((void *)(reg_base_va + index + 0x4)),
+			(uint32_t)ioread32((void *)(reg_base_va + index + 0x8)),
+			(uint32_t)ioread32((void *)(reg_base_va + index + 0xC)));
+	}
+}
 
-	//	if (!adlBase) {
-	//		pr_info("%s: hw(%d)null reg base\n", __func__, HwIdx);
-	//		break;
-	//	}
+void imgsys_adl_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
+{
+	uint32_t reg_base_pa;
+	void __iomem *reg_base_va;
+	int32_t index;
 
-	//	for (i = 0 ; i < ADL_INIT_VALUE_COUNT ; i++) {
-	//		offset = adlBase + adl_init_info[i].ofset;
-	//		writel(adl_init_info[i].val, offset);
-	//	}
-	//}
+	pr_info("%s: +\n", __func__);
 
-	pr_info("%s\n", __func__);
+	// ADL_A: 0x15005300
+	g_adl_a_va = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);
+
+	// ADL_B: 0x15007300
+	g_adl_b_va = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);
+
+	for (index = 0; index < ADL_HARDWARE_COUNT; index++) {
+		if (index == 0) {
+			reg_base_pa = ADL_A_REG_BASE;
+			reg_base_va = g_adl_a_va;
+		} else {
+			reg_base_pa = ADL_B_REG_BASE;
+			reg_base_va = g_adl_b_va;
+		}
+
+		if (reg_base_va) {
+			pr_info("%s: hw(%d) null reg base\n", __func__, index);
+			break;
+		}
+
+	  reset_adl_hardware(imgsys_dev, reg_base_pa, reg_base_va);
+
+	  init_adl_hardware(imgsys_dev, reg_base_pa, reg_base_va);
+	}
+
+	pr_info("%s: -\n", __func__);
 }
 
 static uint32_t dump_debug_data(struct mtk_imgsys_dev *imgsys_dev,
-	uint32_t eng_base, void __iomem *reg_base, uint32_t debug_cmd)
+	void __iomem *sel_reg_va, uint32_t debug_cmd, uint32_t data_reg_pa,
+	void __iomem *data_reg_va)
 {
-	void __iomem *sel_reg  = (void *)(reg_base + ADL_REG_DBG_SEL);
-	void __iomem *data_reg = (void *)(reg_base + ADL_REG_DBG_PORT);
 	uint32_t value;
 
-	iowrite32(debug_cmd, sel_reg);
-	value = (unsigned int)ioread32(data_reg);
-	pr_info("[0x%08X](0x%08X,0x%08X)\n",
-		debug_cmd, eng_base + ADL_REG_DBG_PORT, value);
+	iowrite32(debug_cmd, sel_reg_va);
+	value = (uint32_t)ioread32(data_reg_va);
+	dev_info(imgsys_dev->dev, "%s: [0x%08X](0x%08X,0x%08X)\n", __func__,
+		debug_cmd, data_reg_pa, value);
 
 	return value;
 }
 
 static void dump_dma_debug_data(struct mtk_imgsys_dev *imgsys_dev,
-	uint32_t eng_base, void __iomem *reg_base)
+	uint32_t reg_base_pa, void __iomem *reg_base_va)
 {
+	void __iomem *sel_reg_va  = (void *)(reg_base_va + ADL_REG_DBG_SEL);
+	void __iomem *data_reg_va = (void *)(reg_base_va + ADL_REG_DMA_DBG);
+	uint32_t data_reg_pa = reg_base_pa + ADL_REG_DMA_DBG;
 	uint32_t debug_cmd;
-
-	/* ?? debug out port: IMGADL_ADL_DMA_0_DEBUG */
 
 	/* checksum */
 	debug_cmd = (0x00 << 8) | (0x1 << 0);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* line_pix_cnt_tmp */
 	debug_cmd = (0x00 << 8) | (0x2 << 0);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* line_pix_cnt */
 	debug_cmd = (0x00 << 8) | (0x3 << 0);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* smi debug data */
 	debug_cmd = (0x00 << 8) | (0x5 << 0);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 }
 
 static void dump_cq_debug_data(struct mtk_imgsys_dev *imgsys_dev,
-	uint32_t eng_base, void __iomem *reg_base)
+	uint32_t reg_base_pa, void __iomem *reg_base_va)
 {
-
-	/* ?? debug out port: IMGADL_ADL_CQ_DEBUG */
-
+	void __iomem *sel_reg_va  = (void *)(reg_base_va + ADL_REG_DBG_SEL);
+	void __iomem *data_reg_va = (void *)(reg_base_va + ADL_REG_CQ_DBG);
+	uint32_t data_reg_pa = reg_base_pa + ADL_REG_CQ_DBG;
 	uint32_t debug_cmd;
-	//void __iomem *pCQEn = (void *)(reg_base + TRAW_DIPCQ_CQ_EN);
-
-	/* arx/atx/drx/dtx_state */
-	debug_cmd = (0x02 << 8);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
-	/* Thr(0~3)_state */
-	debug_cmd = (0x02 << 8) | (0x01 << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
-
-	/* Set DIPCQ_CQ_EN[28] to 1 ??*/
-	//iowrite32(0x10000000, pCQEn);
 
 	/* cqd0_checksum0 */
-	debug_cmd = (0x02 << 8);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	debug_cmd = (0x02 << 8) | (0x00 << 4);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqd0_checksum1 */
 	debug_cmd = (0x02 << 8) | (0x01 << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqd0_checksum2 */
 	debug_cmd = (0x02 << 8) | (0x02 << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqd1_checksum0 */
 	debug_cmd = (0x02 << 8) | (0x04 << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqd1_checksum1 */
 	debug_cmd = (0x02 << 8) | (0x05 << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqd1_checksum2 */
 	debug_cmd = (0x02 << 8) | (0x06 << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqa0_checksum0 */
 	debug_cmd = (0x02 << 8) | (0x08 << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqa0_checksum1 */
 	debug_cmd = (0x02 << 8) | (0x09 << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqa0_checksum2 */
 	debug_cmd = (0x02 << 8) | (0x0A << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqa1_checksum0 */
 	debug_cmd = (0x02 << 8) | (0x0C << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqa1_checksum1 */
 	debug_cmd = (0x02 << 8) | (0x0D << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* cqa1_checksum2 */
 	debug_cmd = (0x02 << 8) | (0x0E << 4);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 }
 
 static void dump_cq_rdma_status(struct mtk_imgsys_dev *imgsys_dev,
-		uint32_t eng_base, void __iomem *reg_base)
+		uint32_t reg_base_pa, void __iomem *reg_base_va)
 {
-	/* ?? debug out port: IMGADL_ADL_CQ_DEBUG */
-
+	void __iomem *sel_reg_va  = (void *)(reg_base_va + ADL_REG_DBG_SEL);
+	void __iomem *data_reg_va = (void *)(reg_base_va + ADL_REG_CQ_DMA);
+	uint32_t data_reg_pa = reg_base_pa + ADL_REG_CQ_DMA;
 	uint32_t debug_cmd;
 
 	/* 0x3: cq_rdma_req_st     */
 	debug_cmd = (0x3 << 8);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* 0x4: cq_rdma_rdy_st     */
 	debug_cmd = (0x4 << 8);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 
 	/* 0x5: cq_rdma_valid      */
 	debug_cmd = (0x5 << 8);
-	dump_debug_data(imgsys_dev, eng_base, reg_base, debug_cmd);
+	dump_debug_data(imgsys_dev, sel_reg_va, debug_cmd, data_reg_pa, data_reg_va);
 }
 
 void imgsys_adl_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
@@ -245,42 +250,52 @@ void imgsys_adl_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 {
 	if (engine & IMGSYS_ENG_ADL_A) {
 		/* 0x0: adl_dma_debug_data */
-		dump_dma_debug_data(imgsys_dev, REG_MAP_E_ADL_A, g_adlARegBase);
+		dump_dma_debug_data(imgsys_dev, ADL_A_REG_BASE, g_adl_a_va);
 
 		/* 0x1: cq_dma_debug_data */
-		dump_debug_data(imgsys_dev, REG_MAP_E_ADL_A, g_adlARegBase, (0x1 << 8));
+		// dump_debug_data(imgsys_dev, ADL_A_REG_BASE, g_adl_a_va, (0x1 << 8));
 
 		/* 0x2: cq_debug_data */
-		dump_cq_debug_data(imgsys_dev, REG_MAP_E_ADL_A, g_adlARegBase);
+		dump_cq_debug_data(imgsys_dev, ADL_A_REG_BASE, g_adl_a_va);
 
 		/* 0x3 ~ 0x5 cq rdma status */
-		dump_cq_rdma_status(imgsys_dev, REG_MAP_E_ADL_A, g_adlARegBase);
-	} else if (engine & IMGSYS_ENG_ADL_B) {
+		dump_cq_rdma_status(imgsys_dev, ADL_A_REG_BASE, g_adl_a_va);
+
+		/* dump adl register map */
+		dump_adl_register(imgsys_dev, ADL_A_REG_BASE, g_adl_a_va, 0x1000);
+	}
+
+	if (engine & IMGSYS_ENG_ADL_B) {
 		/* 0x0: adl_dma_debug_data */
-		dump_dma_debug_data(imgsys_dev, REG_MAP_E_ADL_B, g_adlBRegBase);
+		dump_dma_debug_data(imgsys_dev, ADL_B_REG_BASE, g_adl_b_va);
 
 		/* 0x1: cq_dma_debug_data  */
-		dump_debug_data(imgsys_dev, REG_MAP_E_ADL_B, g_adlBRegBase, (0x1 << 8));
+		// dump_debug_data(imgsys_dev, ADL_B_REG_BASE, g_adl_b_va, (0x1 << 8));
 
 		/* 0x2: cq_debug_data */
-		dump_cq_debug_data(imgsys_dev, REG_MAP_E_ADL_B, g_adlBRegBase);
+		dump_cq_debug_data(imgsys_dev, ADL_B_REG_BASE, g_adl_b_va);
 
 		/* 0x3 ~ 0x5 cq rdma status */
-		dump_cq_rdma_status(imgsys_dev, REG_MAP_E_ADL_B, g_adlBRegBase);
+		dump_cq_rdma_status(imgsys_dev, ADL_B_REG_BASE, g_adl_b_va);
+
+		/* dump adl register map */
+		dump_adl_register(imgsys_dev, ADL_B_REG_BASE, g_adl_b_va, 0x1000);
 	}
 }
 
 void imgsys_adl_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
-	//if (g_adlARegBase) {
-	//	iounmap(g_adlARegBase);
-	//	g_adlARegBase = 0L;
-	//}
+	pr_info("%s+\n", __func__);
 
-	//if (g_adlBRegBase) {
-	//	iounmap(g_adlBRegBase);
-	//	g_adlBRegBase = 0L;
-	//}
+	if (g_adl_a_va) {
+		iounmap(g_adl_a_va);
+		g_adl_a_va = 0L;
+	}
 
-	pr_info("%s\n", __func__);
+	if (g_adl_b_va) {
+		iounmap(g_adl_b_va);
+		g_adl_b_va = 0L;
+	}
+
+	pr_info("%s-\n", __func__);
 }
