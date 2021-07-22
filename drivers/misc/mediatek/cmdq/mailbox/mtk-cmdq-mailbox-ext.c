@@ -286,11 +286,6 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 
 	cmdq_trace_ex_begin("%s", __func__);
 
-	if (!atomic_read(&cmdq->usage)) {
-		cmdq_log("%s: hwid:%u pm_runtime_get", __func__, cmdq->hwid);
-		pm_runtime_get_sync(cmdq->mbox.dev);
-	}
-
 	spin_lock_irqsave(&cmdq->lock, flags);
 
 	usage = atomic_inc_return(&cmdq->usage);
@@ -357,11 +352,6 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 	clk_disable(cmdq->clock);
 
 	spin_unlock_irqrestore(&cmdq->lock, flags);
-
-	if (!atomic_read(&cmdq->usage)) {
-		cmdq_log("%s: hwid:%u pm_runtime_put", __func__, cmdq->hwid);
-		pm_runtime_put_sync(cmdq->mbox.dev);
-	}
 
 	cmdq_trace_ex_end();
 }
