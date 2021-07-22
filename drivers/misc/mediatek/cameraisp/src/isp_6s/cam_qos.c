@@ -922,7 +922,7 @@ int ISP_SetPMQOS(
 		return 1;
 #else
 		unsigned int num_available, i = 0;
-		u32 *speeds;
+		u32 *speeds = NULL;
 		struct dev_pm_opp *opp;
 		unsigned long freq;
 		#define STR_SIZE (128)
@@ -949,12 +949,17 @@ int ISP_SetPMQOS(
 					i++;
 					dev_pm_opp_put(opp);
 				}
+			} else
+				LOG_INF("Error: kcalloc speeds(%d) failed\n", num_available);
+		}
+		if (speeds) {
+			for (i = 0; i < num_available; i++) {
+				do_div(speeds[i], 1000000); /* Hz to MHz */
+				pvalue[i] = speeds[i];
 			}
+			kfree(speeds);
 		}
-		for (i = 0; i < num_available; i++) {
-			do_div(speeds[i], 1000000); /* Hz to MHz */
-			pvalue[i] = speeds[i];
-		}
+
 		if (num_available > 0)
 			target_clk = pvalue[num_available - 1];
 
@@ -1090,7 +1095,7 @@ int SV_SetPMQOS(
 		return 1;
 #else
 		unsigned int num_available, i = 0;
-		u32 *speeds;
+		u32 *speeds = NULL;
 		struct dev_pm_opp *opp;
 		unsigned long freq;
 
@@ -1113,11 +1118,15 @@ int SV_SetPMQOS(
 					i++;
 					dev_pm_opp_put(opp);
 				}
-			}
+			} else
+				LOG_INF("Error: kcalloc speeds(%d) failed\n", num_available);
 		}
-		for (i = 0; i < num_available; i++) {
-			do_div(speeds[i], 1000000); /* Hz to MHz */
-			pvalue[i] = speeds[i];
+		if (speeds) {
+			for (i = 0; i < num_available; i++) {
+				do_div(speeds[i], 1000000); /* Hz to MHz */
+				pvalue[i] = speeds[i];
+			}
+			kfree(speeds);
 		}
 		if (num_available > 0)
 			target_clk = pvalue[num_available - 1];
