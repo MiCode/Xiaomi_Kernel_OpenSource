@@ -362,7 +362,10 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0000>;
 			enable-method = "psci";
+			performance-domains = <&performance 0>;
 			clock-frequency = <2000000000>;
+			capacity-dmips-mhz = <485>;
+			#cooling-cells = <2>;
 		};
 
 		cpu1: cpu@001 {
@@ -370,7 +373,10 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0100>;
 			enable-method = "psci";
+			performance-domains = <&performance 0>;
 			clock-frequency = <2000000000>;
+			capacity-dmips-mhz = <485>;
+			#cooling-cells = <2>;
 		};
 
 		cpu2: cpu@002 {
@@ -378,7 +384,10 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0200>;
 			enable-method = "psci";
+			performance-domains = <&performance 0>;
 			clock-frequency = <2000000000>;
+			capacity-dmips-mhz = <485>;
+			#cooling-cells = <2>;
 		};
 
 		cpu3: cpu@003 {
@@ -386,7 +395,10 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0300>;
 			enable-method = "psci";
+			performance-domains = <&performance 0>;
 			clock-frequency = <2000000000>;
+			capacity-dmips-mhz = <485>;
+			#cooling-cells = <2>;
 		};
 
 		cpu4: cpu@100 {
@@ -394,7 +406,10 @@
 			compatible = "arm,cortex-a78";
 			reg = <0x0400>;
 			enable-method = "psci";
+			performance-domains = <&performance 1>;
 			clock-frequency = <2000000000>;
+			capacity-dmips-mhz = <943>;
+			#cooling-cells = <2>;
 		};
 
 		cpu5: cpu@101 {
@@ -402,7 +417,10 @@
 			compatible = "arm,cortex-a78";
 			reg = <0x0500>;
 			enable-method = "psci";
+			performance-domains = <&performance 1>;
 			clock-frequency = <2000000000>;
+			capacity-dmips-mhz = <943>;
+			#cooling-cells = <2>;
 		};
 
 		cpu6: cpu@102 {
@@ -410,7 +428,10 @@
 			compatible = "arm,cortex-a78";
 			reg = <0x0600>;
 			enable-method = "psci";
+			performance-domains = <&performance 1>;
 			clock-frequency = <2000000000>;
+			capacity-dmips-mhz = <943>;
+			#cooling-cells = <2>;
 		};
 
 		cpu7: cpu@200 {
@@ -418,7 +439,10 @@
 			compatible = "arm,cortex-a78";
 			reg = <0x0700>;
 			enable-method = "psci";
+			performance-domains = <&performance 2>;
 			clock-frequency = <2000000000>;
+			capacity-dmips-mhz = <1024>;
+			#cooling-cells = <2>;
 		};
 
 		cpu-map {
@@ -673,6 +697,59 @@
 		#size-cells = <2>;
 		compatible = "simple-bus";
 		ranges;
+
+		performance: performance-controller@0011bc00 {
+			compatible = "mediatek,cpufreq-hw";
+			reg = <0 0x0011bc10 0 0x120>,
+					<0 0x0011bd30 0 0x120>,
+					<0 0x0011be50 0 0x120>;
+			reg-names = "performance-domain0",
+						"performance-domain1",
+						"performance-domain2";
+			#performance-domain-cells = <1>;
+		};
+
+		eas_info: eas_info {
+			compatible = "mediatek,eas-info";
+			csram-base = <0x0011bc00>;
+			/* L, BL, B, CCI */
+			offs-thermal-limit = <0x1208 0x120c 0x1210 0x1214>;
+			offs-cap = <0xFA0>;
+		};
+
+		lkg: lkg@0010f800 {
+			compatible = "mediatek,mtk-lkg";
+			reg = <0 0x0010f800 0 0xc00>;
+		};
+
+		cpu_mcucfg: mcusys_ao_cfg@0c000000 {
+			reg = <0 0x0c000000 0 0x10000>; /* 64KB */
+		};
+
+		cpu_pll: mcusys_pll1u_top@0c030000 {
+			reg = <0 0x0c030000 0 0x1000>; /* 4KB */
+		};
+
+		cpuhvfs: cpuhvfs@0010f800 {
+			compatible = "mediatek,cpufreq-hybrid";
+			reg = <0 0x0010f800 0 0xC00>,
+				<0 0x0011bc00 0 0x1400>;
+			reg-names = "USRAM", "CSRAM";
+			cslog-range = <0x03d0>, <0x0fa0>;
+			tbl-off = <4>, <76>, <148>, <220>;
+
+			/* pll mcucfg */
+			mcucfg-ver = <1>;
+			apmixedsys = <&cpu_pll>;
+			clk-div-base = <&cpu_mcucfg>;
+			pll-con = <0x40c>, <0x80c>, <0xc0c>;
+			clk-div = <0x10c>, <0x118>, <0x124>;
+
+			/* regulator */
+			proc1-supply = <&mt6373_vbuck9>; //L
+			proc2-supply = <&mt6319_7_vbuck1>; //BL
+			proc3-supply = <&mt6319_6_vbuck1>; //B
+		};
 
 		regulator_vibrator {
 			compatible = "regulator-vibrator";
