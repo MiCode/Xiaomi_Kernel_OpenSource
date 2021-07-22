@@ -778,63 +778,63 @@ static int jdi_enable(struct drm_panel *panel)
 }
 #if HFP_SUPPORT
 static const struct drm_display_mode default_mode = {
-	.clock = 316325,
+	.clock = 443290,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
 	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 54,//VFP
-	.vsync_end = 2400 + 54 + 10,//VSA
-	.vtotal = 2400 + 54 + 10 + 10,//VBP
+	.vsync_start = 2400 + 540,//VFP
+	.vsync_end = 2400 + 540 + 10,//VSA
+	.vtotal = 2400 + 540 + 10 + 10,//VBP
 };
 
 static const struct drm_display_mode performance_mode = {
-	.clock = 369170,
+	.clock = 443290,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
 	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 54,//VFP
-	.vsync_end = 2400 + 54 + 10,//VSA
-	.vtotal = 2400 + 54 + 10 + 10,//VBP
+	.vsync_start = 2400 + 540,//VFP
+	.vsync_end = 2400 + 540 + 10,//VSA
+	.vtotal = 2400 + 540 + 10 + 10,//VBP
 };
 #else
 static const struct drm_display_mode default_mode = {
-	.clock = 422163,
+	.clock = 443290,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
 	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 54,//VFP
-	.vsync_end = 2400 + 54 + 10,//VSA
-	.vtotal = 2400 + 54 + 10 + 10,//VBP 4948
+	.vsync_start = 2400 + 540,//VFP
+	.vsync_end = 2400 + 540 + 10,//VSA
+	.vtotal = 2400 + 540 + 10 + 10,//VBP 4948
 };
 
 static const struct drm_display_mode performance_mode = {
-	.clock = 422206,
+	.clock = 443290,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
 	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 54,//VFP
-	.vsync_end = 2400 + 54 + 10,//VSA
-	.vtotal = 2400 + 54 + 10 + 10,//VBP
+	.vsync_start = 2400 + 540,//VFP
+	.vsync_end = 2400 + 540 + 10,//VSA
+	.vtotal = 2400 + 540 + 10 + 10,//VBP
 };
 #endif
 static const struct drm_display_mode performance_mode1 = {
-	.clock = 422163,
+	.clock = 443290,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
 	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 54,//VFP
-	.vsync_end = 2400 + 54 + 10,//VSA
-	.vtotal = 2400 + 54 + 10 + 10,//VBP 2474
+	.vsync_start = 2400 + 540,//VFP
+	.vsync_end = 2400 + 540 + 10,//VSA
+	.vtotal = 2400 + 540 + 10 + 10,//VBP 2474
 };
 
 
@@ -1033,7 +1033,7 @@ static struct mtk_panel_params ext_params_120hz = {
 	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
-		.switch_en = 1,
+		.switch_en = 0,
 		.vact_timing_fps = 120,
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
 		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
