@@ -1037,12 +1037,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 					*(curr_p + 2), *(curr_p + 3));
 		}
 	}
-	if (flag & DUMP_FLAG_IMAGE) {
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD image memory\n");
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			(void *)md->mem_layout.md_bank0.base_ap_view_vir,
-			MD_IMG_DUMP_SIZE);
-	}
+
 	if (flag & DUMP_FLAG_LAYOUT) {
 		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD layout struct\n");
 		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
@@ -1179,8 +1174,6 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 				DUMP_FLAG_SMEM_CCB_DATA, NULL, 0);
 		if (strncmp(buf, "pccif", count - 1) == 0)
 			md->ops->dump_info(md, DUMP_FLAG_PCCIF_REG, NULL, 0);
-		if (strncmp(buf, "image", count - 1) == 0)
-			md->ops->dump_info(md, DUMP_FLAG_IMAGE, NULL, 0);
 		if (strncmp(buf, "layout", count - 1) == 0)
 			md->ops->dump_info(md, DUMP_FLAG_LAYOUT, NULL, 0);
 		if (strncmp(buf, "mdslp", count - 1) == 0)

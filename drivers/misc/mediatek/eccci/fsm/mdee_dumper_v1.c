@@ -38,7 +38,6 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	struct ccci_smem_region *mdss_dbg =
 		ccci_md_get_smem_by_user_id(mdee->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
-	struct ccci_mem_layout *mem_layout = ccci_md_get_mem(mdee->md_id);
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
@@ -77,10 +76,6 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	if (dump_flag & CCCI_AED_DUMP_EX_PKT) {
 		ex_log_addr = (void *)&dumper->ex_info;
 		ex_log_len = sizeof(struct ex_log_t);
-	}
-	if (dump_flag & CCCI_AED_DUMP_MD_IMG_MEM) {
-		md_img_addr = (void *)mem_layout->md_bank0.base_ap_view_vir;
-		md_img_len = MD_IMG_DUMP_SIZE;
 	}
 	if (buff == NULL) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -398,7 +393,6 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 	struct mdee_dumper_v1 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
 	struct debug_info_t *debug_info = &dumper->debug_info;
-	struct ccci_mem_layout *mem_layout = ccci_md_get_mem(mdee->md_id);
 	struct ccci_smem_region *mdss_dbg =
 		ccci_md_get_smem_by_user_id(mdee->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
@@ -614,8 +608,6 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	debug_info->ext_mem = ex_info;
 	debug_info->ext_size = sizeof(struct ex_log_t);
-	debug_info->md_image = (void *)mem_layout->md_bank0.base_ap_view_vir;
-	debug_info->md_size = MD_IMG_DUMP_SIZE;
 }
 static void mdee_dumper_v1_set_ee_pkg(struct ccci_fsm_ee *mdee,
 	char *data, int len)
@@ -650,7 +642,7 @@ static void mdee_dumper_v1_dump_ee_info(struct ccci_fsm_ee *mdee,
 				"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n", 1);
 			/* Handshake 1 fail */
 			ccci_aed_v1(mdee,
-			CCCI_AED_DUMP_CCIF_REG | CCCI_AED_DUMP_MD_IMG_MEM,
+			CCCI_AED_DUMP_CCIF_REG,
 			ex_info, DB_OPT_DEFAULT);
 		} else if (md_state == BOOT_WAITING_FOR_HS2) {
 			snprintf(ex_info, EE_BUF_LEN,

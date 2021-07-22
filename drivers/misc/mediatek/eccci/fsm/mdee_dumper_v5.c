@@ -41,18 +41,12 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	struct ccci_smem_region *mdss_dbg =
 		ccci_md_get_smem_by_user_id(mdee->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
-	struct ccci_mem_layout *mem_layout = ccci_md_get_mem(mdee->md_id);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 #endif
 	int ret = 0;
 
-	if (!mem_layout) {
-		CCCI_ERROR_LOG(md_id, FSM,
-			"%s:ccci_md_get_mem fail\n", __func__);
-		return;
-	}
 	buff = kmalloc(AED_STR_LEN, GFP_ATOMIC);
 	if (buff == NULL) {
 		CCCI_ERROR_LOG(md_id, FSM, "Fail alloc Mem for buff!\n");
@@ -92,10 +86,6 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	if (dump_flag & CCCI_AED_DUMP_EX_PKT) {
 		ex_log_addr = (void *)dumper->ex_pl_info;
 		ex_log_len = MD_HS1_FAIL_DUMP_SIZE;
-	}
-	if (dump_flag & CCCI_AED_DUMP_MD_IMG_MEM) {
-		md_img_addr = (void *)mem_layout->md_bank0.base_ap_view_vir;
-		md_img_len = MD_IMG_DUMP_SIZE;
 	}
 	if (buff == NULL) {
 		fsm_sys_mdee_info_notify(aed_str);
@@ -820,8 +810,7 @@ static void mdee_dumper_v5_dump_ee_info(struct ccci_fsm_ee *mdee,
 			md_HS1_Fail_dump(mdee->md_id, ex_info, EE_BUF_LEN);
 			/* Handshake 1 fail */
 			ccci_aed_v5(mdee,
-			CCCI_AED_DUMP_CCIF_REG | CCCI_AED_DUMP_MD_IMG_MEM
-			| CCCI_AED_DUMP_EX_MEM,
+			CCCI_AED_DUMP_CCIF_REG | CCCI_AED_DUMP_EX_MEM,
 			ex_info, DB_OPT_DEFAULT | DB_OPT_FTRACE);
 		} else if (md_state == BOOT_WAITING_FOR_HS2) {
 			ret = snprintf(ex_info, EE_BUF_LEN,

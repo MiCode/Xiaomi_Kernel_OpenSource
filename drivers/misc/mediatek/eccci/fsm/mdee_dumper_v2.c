@@ -42,7 +42,6 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	struct ccci_smem_region *mdss_dbg =
 		ccci_md_get_smem_by_user_id(mdee->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
-	struct ccci_mem_layout *mem_layout = ccci_md_get_mem(mdee->md_id);
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
@@ -82,10 +81,6 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	if (dump_flag & CCCI_AED_DUMP_EX_PKT) {
 		ex_log_addr = (void *)dumper->ex_pl_info;
 		ex_log_len = MD_HS1_FAIL_DUMP_SIZE;
-	}
-	if (dump_flag & CCCI_AED_DUMP_MD_IMG_MEM) {
-		md_img_addr = (void *)mem_layout->md_bank0.base_ap_view_vir;
-		md_img_len = MD_IMG_DUMP_SIZE;
 	}
 	if (buff == NULL) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -878,7 +873,6 @@ static void mdee_dumper_v2_dump_ee_info(struct ccci_fsm_ee *mdee,
 			/* Handshake 1 fail */
 			ccci_aed_v2(mdee,
 			CCCI_AED_DUMP_CCIF_REG
-			| CCCI_AED_DUMP_MD_IMG_MEM
 			| CCCI_AED_DUMP_EX_MEM,
 			ex_info, DB_OPT_DEFAULT);
 		} else if (md_state == BOOT_WAITING_FOR_HS2) {

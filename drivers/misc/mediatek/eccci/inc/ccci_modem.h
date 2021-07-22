@@ -44,7 +44,6 @@ enum MODEM_DUMP_FLAG {
 	DUMP_FLAG_CLDMA = (1 << 1),
 	DUMP_FLAG_REG = (1 << 2), /* dump modem reg. */
 	DUMP_FLAG_SMEM_EXP = (1 << 3),
-	DUMP_FLAG_IMAGE = (1 << 4),
 	DUMP_FLAG_LAYOUT = (1 << 5),
 	DUMP_FLAG_QUEUE_0 = (1 << 6),
 	DUMP_FLAG_QUEUE_0_1 = (1 << 7),

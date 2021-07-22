@@ -161,10 +161,8 @@ enum ccci_ipi_op_id {
 
 #define GET_OTHER_MD_ID(a) (a == MD_SYS1 ? MD_SYS3 : MD_SYS1)
 
-#define MD_IMG_DUMP_SIZE  (1<<8)
 #define DSP_IMG_DUMP_SIZE (1<<9)
 #define CCCI_AED_DUMP_EX_MEM		(1<<0)
-#define CCCI_AED_DUMP_MD_IMG_MEM	(1<<1)
 #define CCCI_AED_DUMP_CCIF_REG		(1<<2)
 #define CCCI_AED_DUMP_EX_PKT		(1<<3)
 #define MD_EX_MPU_STR_LEN (128)
