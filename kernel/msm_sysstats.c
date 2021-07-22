@@ -416,21 +416,27 @@ static void sysstats_fill_zoneinfo(struct sysstats_mem *stats)
 	pgdat = NODE_DATA(0);
 	node_zones = pgdat->node_zones;
 
+	/* Ensure that dma_nr_xxx are zero before filling. */
+	stats->dma_nr_active_anon = stats->dma_nr_inactive_anon = 0;
+	stats->dma_nr_active_file = stats->dma_nr_inactive_file = 0;
+	stats->dma_nr_free = 0;
+
 	for (zone = node_zones; zone - node_zones < MAX_NR_ZONES; ++zone) {
 		if (!populated_zone(zone))
 			continue;
 
 		zspages += zone_page_state(zone, NR_ZSPAGES);
-		if (!strcmp(zone->name, "DMA")) {
-			stats->dma_nr_free =
+		if (!strcmp(zone->name, "DMA") ||
+				!strcmp(zone->name, "DMA32")) {
+			stats->dma_nr_free +=
 				K(zone_page_state(zone, NR_FREE_PAGES));
-			stats->dma_nr_active_anon =
+			stats->dma_nr_active_anon +=
 				K(zone_page_state(zone, NR_ZONE_ACTIVE_ANON));
-			stats->dma_nr_inactive_anon =
+			stats->dma_nr_inactive_anon +=
 				K(zone_page_state(zone, NR_ZONE_INACTIVE_ANON));
-			stats->dma_nr_active_file =
+			stats->dma_nr_active_file +=
 				K(zone_page_state(zone, NR_ZONE_ACTIVE_FILE));
-			stats->dma_nr_inactive_file =
+			stats->dma_nr_inactive_file +=
 				K(zone_page_state(zone, NR_ZONE_INACTIVE_FILE));
 		} else if (!strcmp(zone->name, "Normal")) {
 			stats->normal_nr_free =
