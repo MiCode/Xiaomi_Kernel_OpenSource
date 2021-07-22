@@ -8,6 +8,8 @@ ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/m
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/platforms/
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/platforms/isp71
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+ccflags-y += -I$(srctree)/drivers/iommu
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
 
 # Utilities to provide frame-based streaming model
 # with v4l2 user interfaces and alloc context managing
