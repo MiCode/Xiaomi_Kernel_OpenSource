@@ -54,14 +54,14 @@ DECLARE_HOOK(android_vh_meminfo_proc_show,
 DECLARE_HOOK(android_vh_exit_mm,
 	TP_PROTO(struct mm_struct *mm),
 	TP_ARGS(mm));
-DECLARE_HOOK(android_vh_get_unmapped_area_from_anti_fragment_pool,
+DECLARE_HOOK(android_vh_get_from_fragment_pool,
 	TP_PROTO(struct mm_struct *mm, struct vm_unmapped_area_info *info,
 		unsigned long *addr),
 	TP_ARGS(mm, info, addr));
 DECLARE_HOOK(android_vh_exclude_reserved_zone,
 	TP_PROTO(struct mm_struct *mm, struct vm_unmapped_area_info *info),
 	TP_ARGS(mm, info));
-DECLARE_HOOK(android_vh_get_unmapped_area_include_reserved_zone,
+DECLARE_HOOK(android_vh_include_reserved_zone,
 	TP_PROTO(struct mm_struct *mm, struct vm_unmapped_area_info *info,
 		unsigned long *addr),
 	TP_ARGS(mm, info, addr));
@@ -95,8 +95,8 @@ DECLARE_HOOK(android_vh_show_stack_hash,
 	TP_PROTO(struct seq_file *m, struct vm_struct *v),
 	TP_ARGS(m, v));
 DECLARE_HOOK(android_vh_save_track_hash,
-	TP_PROTO(unsigned long p),
-	TP_ARGS(p));
+	TP_PROTO(bool alloc, unsigned long p),
+	TP_ARGS(alloc, p));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_MM_H */
