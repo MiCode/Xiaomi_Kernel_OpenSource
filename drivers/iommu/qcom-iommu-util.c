@@ -488,17 +488,4 @@ out_undo:
 }
 module_init(qcom_iommu_util_init);
 
-static void qcom_iommu_util_exit(void)
-{
-	exitcall_t *exit_fn;
-
-	exit_fn = exit_table + ARRAY_SIZE(exit_table) - 2;
-	for (; exit_fn >= exit_table; exit_fn--) {
-		if (!*exit_fn)
-			continue;
-		(**exit_fn)();
-	}
-}
-module_exit(qcom_iommu_util_exit);
-
 MODULE_LICENSE("GPL v2");
