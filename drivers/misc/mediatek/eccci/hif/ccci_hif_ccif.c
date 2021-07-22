@@ -155,7 +155,7 @@ static struct c2k_port c2k_ports[] = {
 /*ccif share memory setting*/
 /*need confirm with md. haow*/
 
-
+/* for md gen95/97 chip */
 static int rx_queue_buffer_size_up_95[QUEUE_NUM] = { 80 * 1024, 80 * 1024,
 	40 * 1024, 80 * 1024, 20 * 1024, 20 * 1024, 64 * 1024, 0 * 1024,
 	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
@@ -176,6 +176,19 @@ static int rx_exp_buffer_size_up_95[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
 static int tx_exp_buffer_size_up_95[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
 	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 8 * 1024, 0 * 1024,
 	0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
+	0 * 1024, 0 * 1024,
+};
+
+/* for md gen98 chip */
+static int rx_queue_buffer_size_up_98[QUEUE_NUM] = { 80 * 1024, 80 * 1024,
+	40 * 1024, 80 * 1024, 20 * 1024, 20 * 1024, 48 * 1024, 0 * 1024,
+	8 * 1024, 16 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
+	0 * 1024, 0 * 1024,
+};
+
+static int tx_queue_buffer_size_up_98[QUEUE_NUM] = { 128 * 1024, 40 * 1024,
+	8 * 1024, 40 * 1024, 20 * 1024, 20 * 1024, 48 * 1024, 0 * 1024,
+	8 * 1024, 16 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
 	0 * 1024, 0 * 1024,
 };
 
@@ -1668,7 +1681,22 @@ int md_ccif_ring_buf_init(unsigned char hif_id)
 	buf = (unsigned char *)ccism->base_ap_view_vir;
 
 	for (i = 0; i < QUEUE_NUM; i++) {
-		if (md_ctrl->plat_val.md_gen >= 6295) {
+		if (md_ctrl->plat_val.md_gen >= 6298) {
+			bufsize = CCCI_RINGBUF_CTL_LEN
+			+ rx_queue_buffer_size_up_98[i]
+			+ tx_queue_buffer_size_up_98[i];
+
+			if (md_ctrl->total_smem_size + bufsize > ccism->size) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"share memory too small,please check configure,smem_size=%d\n",
+					ccism->size);
+				return -1;
+			}
+			ringbuf =
+			    ccci_create_ringbuf(md_ctrl->md_id, buf, bufsize,
+					rx_queue_buffer_size_up_98[i],
+					tx_queue_buffer_size_up_98[i]);
+		} else if (md_ctrl->plat_val.md_gen >= 6295) {
 			bufsize = CCCI_RINGBUF_CTL_LEN
 			+ rx_queue_buffer_size_up_95[i]
 			+ tx_queue_buffer_size_up_95[i];

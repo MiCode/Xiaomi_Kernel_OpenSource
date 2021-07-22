@@ -969,7 +969,7 @@ static int md_cd_topclkgen_off(struct ccci_modem *md)
  * 2.wait sequencer done
  * 3.revert mux of sequencer to AOC1.0
  */
-static int md1_revert_sequencer_setting(struct ccci_modem *md)
+int md1_revert_sequencer_setting(struct ccci_modem *md)
 {
 	void __iomem *reg;
 	int count = 0;
@@ -1079,13 +1079,14 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 
 	/* modem topclkgen off setting */
 	md_cd_topclkgen_off(md);
-
+/*
 	if (md_cd_plat_val_ptr.md_gen >= 6298) {
-		/* revert sequencer setting to AOC1.0 for gen98 */
+		 revert sequencer setting to AOC1.0 for gen98
 		ret = md1_revert_sequencer_setting(md);
 		if (ret)
 			return ret;
 	}
+	*/
 
 	/* 5. DLPT */
 #if IS_ENABLED(CONFIG_MTK_PBM)

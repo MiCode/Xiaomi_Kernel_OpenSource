@@ -47,7 +47,6 @@ static atomic_t md1_md3_smem_clear = ATOMIC_INIT(0);
 #define DBM_S (CCCI_SMEM_SIZE_DBM + CCCI_SMEM_SIZE_DBM_GUARD * 2)
 #define CCB_CACHE_MIN_SIZE    (2 * 1024 * 1024)
 
-#ifdef CCCI_USE_DFD_OFFSET_0
 struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 	{SMEM_USER_RAW_DFD,	        0,	0,		 0, },
 	{SMEM_USER_RAW_UDC_DATA,	0,	0,		 0, },
@@ -73,31 +72,6 @@ struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 	{SMEM_USER_CCISM_MCU_EXP, 0, (120+1)*1024,	SMF_NCLR_FIRST, },
 	{SMEM_USER_MAX, }, /* tail guard */
 };
-#else
-struct ccci_smem_region md1_6297_noncacheable_fat[] = {
-{SMEM_USER_RAW_MDCCCI_DBG,	0,		2*1024,		0, },
-{SMEM_USER_RAW_MDSS_DBG,	2*1024,		14*1024,	0, },
-{SMEM_USER_RAW_RESERVED,	16*1024,	42*1024,	0, },
-{SMEM_USER_RAW_RUNTIME_DATA,	58*1024,	4*1024,		0, },
-{SMEM_USER_RAW_FORCE_ASSERT,	62*1024,	1*1024,		0, },
-{SMEM_USER_LOW_POWER,		63*1024,	512,		0, },
-{SMEM_USER_RAW_DBM,		63*1024 + 512,	512,		0, },
-{SMEM_USER_CCISM_SCP,		64*1024,	32*1024,	0, },
-{SMEM_USER_RAW_CCB_CTRL,	96*1024,	4*1024,
-	SMF_NCLR_FIRST, },
-{SMEM_USER_RAW_NETD,		100*1024,	8*1024,		0, },
-{SMEM_USER_RAW_USB,		108*1024,	4*1024,		0, },
-{SMEM_USER_RAW_AUDIO,		112*1024,	52*1024,
-	SMF_NCLR_FIRST, },
-{SMEM_USER_CCISM_MCU,	164*1024,	(720+1)*1024,	SMF_NCLR_FIRST, },
-{SMEM_USER_CCISM_MCU_EXP, 885*1024,	(120+1)*1024,	SMF_NCLR_FIRST, },
-{SMEM_USER_RAW_UDC_DATA,	0,		0,		0, },
-{SMEM_USER_MD_WIFI_PROXY,	0,		0,		0,},
-{SMEM_USER_RAW_DFD,		0,		0,		0, },
-{SMEM_USER_RAW_AMMS_POS,	0,		0, SMF_NCLR_FIRST, },
-{SMEM_USER_MAX, }, /* tail guard */
-};
-#endif
 
 struct ccci_smem_region md1_6297_cacheable[] = {
 /*
@@ -403,19 +377,10 @@ static void ccci_6297_md_smem_layout_config(struct ccci_modem *md)
 	/* non-cacheable start */
 	get_md_resv_mem_info(md->index, NULL, NULL, &md_resv_smem_addr, NULL);
 
-#ifdef CCCI_USE_DFD_OFFSET_0
-	i = 0;
-#else
-	i = 1;
-#endif
-	for (; i < (sizeof(md1_6297_noncacheable_fat)/
-		sizeof(struct ccci_smem_region)); i++) {
-
+	for (i = 0; i < ARRAY_SIZE(md1_6297_noncacheable_fat); i++) {
 		update_smem_region(&md1_6297_noncacheable_fat[i]);
-#ifdef CCCI_USE_DFD_OFFSET_0
 		if (i == 0)
 			continue;
-#endif
 		if (md1_6297_noncacheable_fat[i].offset == 0)
 			/* update offset */
 			md1_6297_noncacheable_fat[i].offset =
