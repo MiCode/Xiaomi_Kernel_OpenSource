@@ -76,6 +76,7 @@ module_param(dbg_log_en, bool, 0644);
 
 #define MT6375_MSK_OTG_EN	0x04
 #define MT6375_MSK_OTG_CV	0x3F
+#define MT6375_MSK_OTG_CC	0x07
 #define MT6375_MSK_CLK_FREQ	0xC0
 #define MT6375_MSK_COMP_CLAMP	0x03
 #define MT6375_MSK_BUCK_RAMPOFT	0xC0
@@ -606,6 +607,8 @@ static const struct regulator_desc mt6375_chg_otg_rdesc = {
 	.linear_min_sel = 20,
 	.curr_table = mt6375_chg_otg_cc_micro,
 	.n_current_limits = ARRAY_SIZE(mt6375_chg_otg_cc_micro),
+	.csel_reg = MT6375_REG_OTG_C,
+	.csel_mask = MT6375_MSK_OTG_CC,
 	.vsel_reg = MT6375_REG_OTG_V,
 	.vsel_mask = MT6375_MSK_OTG_CV,
 	.enable_reg = MT6375_REG_CHG_TOP1,
@@ -950,9 +953,7 @@ static int mt6375_chg_get_property(struct power_supply *psy,
 		val->strval = MT6375_MANUFACTURER;
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
-		mutex_lock(&ddata->attach_lock);
 		val->intval = ddata->attach;
-		mutex_unlock(&ddata->attach_lock);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = mt6375_chg_field_get(ddata, F_IC_STAT, &_val);
