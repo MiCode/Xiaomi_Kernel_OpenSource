@@ -433,6 +433,29 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_HDMI_AUDIO_CONFIG	0x3C
 #define DRM_MTK_HDMI_GET_CAPABILITY	0x3D
 
+/* C3D */
+#define DRM_MTK_C3D_GET_BIN_NUM     0x40
+#define DRM_MTK_C3D_GET_IRQ         0x41
+#define DRM_MTK_C3D_EVENTCTL        0x42
+#define DRM_MTK_C3D_SET_LUT         0x44
+#define DRM_MTK_SET_BYPASS_C3D      0x45
+/* CHIST */
+#define DRM_MTK_GET_CHIST           0x46
+#define DRM_MTK_GET_CHIST_CAPS      0x47
+#define DRM_MTK_SET_CHIST_CONFIG    0x48
+
+/* DISP TDSHP */
+#define DRM_MTK_SET_DISP_TDSHP_REG 0x50
+#define DRM_MTK_DISP_TDSHP_GET_SIZE 0x51
+
+/* C3D */
+#define DISP_C3D_1DLUT_SIZE 32
+
+struct DISP_C3D_LUT {
+	unsigned int lut1d[DISP_C3D_1DLUT_SIZE];
+	unsigned long long lut3d;
+};
+
 enum MTKFB_DISPIF_TYPE {
 	DISPIF_TYPE_DBI = 0,
 	DISPIF_TYPE_DPI,
@@ -448,7 +471,6 @@ enum MTKFB_DISPIF_TYPE {
 	DISPLAYPORT,
 	SLIMPORT
 };
-
 
 enum MTKFB_DISPIF_MODE {
 	DISPIF_MODE_VIDEO = 0,
@@ -591,6 +613,40 @@ enum mtk_mmsys_id {
 	MMSYS_MAX,
 };
 
+#define MTK_DRM_COLOR_FORMAT_A_BIT (1 << MTK_DRM_COLOR_FORMAT_A)
+#define MTK_DRM_COLOR_FORMAT_R_BIT (1 << MTK_DRM_COLOR_FORMAT_R)
+#define MTK_DRM_COLOR_FORMAT_G_BIT (1 << MTK_DRM_COLOR_FORMAT_G)
+#define MTK_DRM_COLOR_FORMAT_B_BIT (1 << MTK_DRM_COLOR_FORMAT_B)
+#define MTK_DRM_COLOR_FORMAT_Y_BIT (1 << MTK_DRM_COLOR_FORMAT_Y)
+#define MTK_DRM_COLOR_FORMAT_U_BIT (1 << MTK_DRM_COLOR_FORMAT_U)
+#define MTK_DRM_COLOR_FORMAT_V_BIT (1 << MTK_DRM_COLOR_FORMAT_V)
+#define MTK_DRM_COLOR_FORMAT_S_BIT (1 << MTK_DRM_COLOR_FORMAT_S)
+#define MTK_DRM_COLOR_FORMAT_H_BIT (1 << MTK_DRM_COLOR_FORMAT_H)
+#define MTK_DRM_COLOR_FORMAT_M_BIT (1 << MTK_DRM_COLOR_FORMAT_M)
+
+
+#define MTK_DRM_DISP_CHIST_CHANNEL_COUNT 7
+
+enum MTK_DRM_CHIST_COLOR_FORMT {
+	MTK_DRM_COLOR_FORMAT_A,
+	MTK_DRM_COLOR_FORMAT_R,
+	MTK_DRM_COLOR_FORMAT_G,
+	MTK_DRM_COLOR_FORMAT_B,
+	MTK_DRM_COLOR_FORMAT_Y,
+	MTK_DRM_COLOR_FORMAT_U,
+	MTK_DRM_COLOR_FORMAT_V,
+	MTK_DRM_COLOR_FORMAT_S,
+	MTK_DRM_COLOR_FORMAT_H,
+	MTK_DRM_COLOR_FORMAT_M,
+	MTK_DRM_COLOR_FORMAT_MAX
+};
+
+enum MTK_DRM_CHIST_CALLER {
+	MTK_DRM_CHIST_CALLER_PQ,
+	MTK_DRM_CHIST_CALLER_HWC,
+	MTK_DRM_CHIST_CALLER_UNKONW
+
+};
 struct mtk_drm_disp_caps_info {
 	unsigned int hw_ver;
 	unsigned int disp_feature_flag;
@@ -602,6 +658,11 @@ struct mtk_drm_disp_caps_info {
 	unsigned int max_luminance;
 	unsigned int average_luminance;
 	unsigned int min_luminance;
+
+	/* for color histogram */
+	unsigned int color_format;
+	unsigned int max_bin;
+	unsigned int max_channel;
 };
 
 struct drm_mtk_session_info {
@@ -646,6 +707,202 @@ struct DRM_DISP_WRITE_REG {
 	unsigned int reg;
 	unsigned int val;
 	unsigned int mask;
+};
+
+struct DISP_TDSHP_REG {
+	uint32_t tdshp_softcoring_gain;
+	uint32_t tdshp_gain_high;
+	uint32_t tdshp_gain_mid;
+	uint32_t tdshp_ink_sel;
+	uint32_t tdshp_bypass_high;
+	uint32_t tdshp_bypass_mid;
+	uint32_t tdshp_en;
+	uint32_t tdshp_limit_ratio;
+	uint32_t tdshp_gain;
+	uint32_t tdshp_coring_zero;
+	uint32_t tdshp_coring_thr;
+	uint32_t tdshp_coring_value;
+	uint32_t tdshp_bound;
+	uint32_t tdshp_limit;
+	uint32_t tdshp_sat_proc;
+	uint32_t tdshp_ac_lpf_coe;
+	uint32_t tdshp_clip_thr;
+	uint32_t tdshp_clip_ratio;
+	uint32_t tdshp_clip_en;
+	uint32_t tdshp_ylev_p048;
+	uint32_t tdshp_ylev_p032;
+	uint32_t tdshp_ylev_p016;
+	uint32_t tdshp_ylev_p000;
+	uint32_t tdshp_ylev_p112;
+	uint32_t tdshp_ylev_p096;
+	uint32_t tdshp_ylev_p080;
+	uint32_t tdshp_ylev_p064;
+	uint32_t tdshp_ylev_p176;
+	uint32_t tdshp_ylev_p160;
+	uint32_t tdshp_ylev_p144;
+	uint32_t tdshp_ylev_p128;
+	uint32_t tdshp_ylev_p240;
+	uint32_t tdshp_ylev_p224;
+	uint32_t tdshp_ylev_p208;
+	uint32_t tdshp_ylev_p192;
+	uint32_t tdshp_ylev_en;
+	uint32_t tdshp_ylev_alpha;
+	uint32_t tdshp_ylev_256;
+	uint32_t pbc1_radius_r;
+	uint32_t pbc1_theta_r;
+	uint32_t pbc1_rslope_1;
+	uint32_t pbc1_gain;
+	uint32_t pbc1_lpf_en;
+	uint32_t pbc1_en;
+	uint32_t pbc1_lpf_gain;
+	uint32_t pbc1_tslope;
+	uint32_t pbc1_radius_c;
+	uint32_t pbc1_theta_c;
+	uint32_t pbc1_edge_slope;
+	uint32_t pbc1_edge_thr;
+	uint32_t pbc1_edge_en;
+	uint32_t pbc1_conf_gain;
+	uint32_t pbc1_rslope;
+	uint32_t pbc2_radius_r;
+	uint32_t pbc2_theta_r;
+	uint32_t pbc2_rslope_1;
+	uint32_t pbc2_gain;
+	uint32_t pbc2_lpf_en;
+	uint32_t pbc2_en;
+	uint32_t pbc2_lpf_gain;
+	uint32_t pbc2_tslope;
+	uint32_t pbc2_radius_c;
+	uint32_t pbc2_theta_c;
+	uint32_t pbc2_edge_slope;
+	uint32_t pbc2_edge_thr;
+	uint32_t pbc2_edge_en;
+	uint32_t pbc2_conf_gain;
+	uint32_t pbc2_rslope;
+	uint32_t pbc3_radius_r;
+	uint32_t pbc3_theta_r;
+	uint32_t pbc3_rslope_1;
+	uint32_t pbc3_gain;
+	uint32_t pbc3_lpf_en;
+	uint32_t pbc3_en;
+	uint32_t pbc3_lpf_gain;
+	uint32_t pbc3_tslope;
+	uint32_t pbc3_radius_c;
+	uint32_t pbc3_theta_c;
+	uint32_t pbc3_edge_slope;
+	uint32_t pbc3_edge_thr;
+	uint32_t pbc3_edge_en;
+	uint32_t pbc3_conf_gain;
+	uint32_t pbc3_rslope;
+	uint32_t tdshp_mid_softlimit_ratio;
+	uint32_t tdshp_mid_coring_zero;
+	uint32_t tdshp_mid_coring_thr;
+	uint32_t tdshp_mid_softcoring_gain;
+	uint32_t tdshp_mid_coring_value;
+	uint32_t tdshp_mid_bound;
+	uint32_t tdshp_mid_limit;
+	uint32_t tdshp_high_softlimit_ratio;
+	uint32_t tdshp_high_coring_zero;
+	uint32_t tdshp_high_coring_thr;
+	uint32_t tdshp_high_softcoring_gain;
+	uint32_t tdshp_high_coring_value;
+	uint32_t tdshp_high_bound;
+	uint32_t tdshp_high_limit;
+	uint32_t edf_clip_ratio_inc;
+	uint32_t edf_edge_gain;
+	uint32_t edf_detail_gain;
+	uint32_t edf_flat_gain;
+	uint32_t edf_gain_en;
+	uint32_t edf_edge_th;
+	uint32_t edf_detail_fall_th;
+	uint32_t edf_detail_rise_th;
+	uint32_t edf_flat_th;
+	uint32_t edf_edge_slope;
+	uint32_t edf_detail_fall_slope;
+	uint32_t edf_detail_rise_slope;
+	uint32_t edf_flat_slope;
+	uint32_t edf_edge_mono_slope;
+	uint32_t edf_edge_mono_th;
+	uint32_t edf_edge_mag_slope;
+	uint32_t edf_edge_mag_th;
+	uint32_t edf_edge_trend_flat_mag;
+	uint32_t edf_edge_trend_slope;
+	uint32_t edf_edge_trend_th;
+	uint32_t edf_bld_wgt_mag;
+	uint32_t edf_bld_wgt_mono;
+	uint32_t edf_bld_wgt_trend;
+	uint32_t tdshp_cboost_lmt_u;
+	uint32_t tdshp_cboost_lmt_l;
+	uint32_t tdshp_cboost_en;
+	uint32_t tdshp_cboost_gain;
+	uint32_t tdshp_cboost_yconst;
+	uint32_t tdshp_cboost_yoffset_sel;
+	uint32_t tdshp_cboost_yoffset;
+	uint32_t tdshp_post_ylev_p048;
+	uint32_t tdshp_post_ylev_p032;
+	uint32_t tdshp_post_ylev_p016;
+	uint32_t tdshp_post_ylev_p000;
+	uint32_t tdshp_post_ylev_p112;
+	uint32_t tdshp_post_ylev_p096;
+	uint32_t tdshp_post_ylev_p080;
+	uint32_t tdshp_post_ylev_p064;
+	uint32_t tdshp_post_ylev_p176;
+	uint32_t tdshp_post_ylev_p160;
+	uint32_t tdshp_post_ylev_p144;
+	uint32_t tdshp_post_ylev_p128;
+	uint32_t tdshp_post_ylev_p240;
+	uint32_t tdshp_post_ylev_p224;
+	uint32_t tdshp_post_ylev_p208;
+	uint32_t tdshp_post_ylev_p192;
+	uint32_t tdshp_post_ylev_en;
+	uint32_t tdshp_post_ylev_alpha;
+	uint32_t tdshp_post_ylev_256;
+};
+
+struct DISP_TDSHP_DISPLAY_SIZE {
+	int width;
+	int height;
+};
+
+struct drm_mtk_channel_hist {
+	unsigned int channel_id;
+	enum MTK_DRM_CHIST_COLOR_FORMT color_format;
+	unsigned int hist[256];
+	unsigned int bin_count;
+};
+
+struct drm_mtk_chist_info {
+	int present_fence;
+	unsigned int device_id;
+	enum MTK_DRM_CHIST_CALLER caller;
+	unsigned int get_channel_count;
+	struct drm_mtk_channel_hist channel_hist[MTK_DRM_DISP_CHIST_CHANNEL_COUNT];
+};
+
+struct drm_mtk_channel_config {
+	bool enabled;
+	enum MTK_DRM_CHIST_COLOR_FORMT color_format;
+	unsigned int bin_count;
+	unsigned int channel_id;
+	unsigned int blk_width;
+	unsigned int blk_height;
+	unsigned int roi_start_x;
+	unsigned int roi_start_y;
+	unsigned int roi_end_x;
+	unsigned int roi_end_y;
+};
+
+struct drm_mtk_chist_caps {
+	unsigned int device_id;
+	unsigned int support_color;
+	unsigned int drm_mtk_channel_config[MTK_DRM_DISP_CHIST_CHANNEL_COUNT];
+};
+
+struct drm_mtk_chist_config {
+	unsigned int device_id;
+	unsigned int lcm_color_mode;
+	unsigned int config_channel_count;
+	enum MTK_DRM_CHIST_CALLER caller;
+	struct drm_mtk_channel_config chist_config[MTK_DRM_DISP_CHIST_CHANNEL_COUNT];
 };
 
 #define DRM_IOCTL_MTK_GEM_CREATE	DRM_IOWR(DRM_COMMAND_BASE + \
@@ -744,6 +1001,37 @@ struct DRM_DISP_WRITE_REG {
 #define DRM_IOCTL_MTK_SUPPORT_COLOR_TRANSFORM    DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_SUPPORT_COLOR_TRANSFORM, \
 			struct DISP_COLOR_TRANSFORM)
+
+// for Display TDSHP
+#define DRM_IOCTL_MTK_SET_DISP_TDSHP_REG      DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_SET_DISP_TDSHP_REG, struct DISP_TDSHP_REG)
+
+#define DRM_IOCTL_MTK_DISP_TDSHP_GET_SIZE      DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_DISP_TDSHP_GET_SIZE, struct DISP_TDSHP_DISPLAY_SIZE)
+
+#define DRM_IOCTL_MTK_C3D_GET_BIN_NUM       DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_C3D_GET_BIN_NUM, unsigned int)
+
+#define DRM_IOCTL_MTK_C3D_GET_IRQ       DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_C3D_GET_IRQ, unsigned int)
+
+#define DRM_IOCTL_MTK_C3D_EVENTCTL       DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_C3D_EVENTCTL, unsigned int)
+
+#define DRM_IOCTL_MTK_C3D_SET_LUT   DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_C3D_SET_LUT, struct DISP_C3D_LUT)
+
+#define DRM_IOCTL_MTK_SET_BYPASS_C3D   DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_SET_BYPASS_C3D, unsigned int)
+
+#define DRM_IOCTL_MTK_GET_CHIST     DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_GET_CHIST, struct drm_mtk_chist_info)
+
+#define DRM_IOCTL_MTK_GET_CHIST_CAPS     DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_GET_CHIST_CAPS, struct drm_mtk_chist_caps)
+
+#define DRM_IOCTL_MTK_SET_CHIST_CONFIG     DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_SET_CHIST_CONFIG, struct drm_mtk_chist_config)
 
 /* AAL IOCTL */
 #define AAL_HIST_BIN            33	/* [0..32] */
