@@ -5938,7 +5938,26 @@
 					"IPE_TOP";
 #endif
 		};
+	ipesys_me: ipesys_me@15320000 {
+		compatible = "mediatek,ipesys-me";
+		reg = <0 0x15320000 0 0x10000>;	/* 9 IMGSYS_ME */
+		//mediatek,larb = <&larb12>;
+		iommus = <&mdp_iommu M4U_PORT_L12_IPE_ME_RDMA>,
+			 <&mdp_iommu M4U_PORT_L12_IPE_ME_WDMA>;
+#if 0
+		clocks =
+			<&imgsys CLK_IMG_IPE>,
+			<&ipesys CLK_IPE_TOP>,
+			<&ipesys CLK_IPE_ME>,
+			<&ipesys CLK_IPE_SMI_LARB12>;
 
+		clock-names =
+			"ME_CG_IPE",
+			"ME_CG_IPE_TOP",
+			"ME_CG",
+			"ME_CG_LARB12";
+#endif
+	};
 
 	vdec_gcon@16000000 {
 		compatible = "mediatek,vdec_gcon";
