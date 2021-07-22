@@ -113,7 +113,9 @@ static void switch_port_to_on(struct ssusb_mtk *ssusb, bool is_on)
 		ssusb_clks_enable(ssusb);
 		ssusb_phy_power_on(ssusb);
 		ssusb_ip_sw_reset(ssusb);
+		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
 	} else {
+		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 		ssusb_ip_sleep(ssusb);
 		ssusb_phy_power_off(ssusb);
 		ssusb_clks_disable(ssusb);

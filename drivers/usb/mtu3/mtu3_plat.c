@@ -26,17 +26,66 @@ enum {
 	MTU3_SMC_INFRA_NUM,
 };
 
-static void ssusb_smc_request(struct ssusb_mtk *ssusb, int op)
+static void ssusb_smc_request(struct ssusb_mtk *ssusb,
+	enum mtu3_power_state state)
 {
 	struct arm_smccc_res res;
+	int op;
 
-	if (op >= MTU3_SMC_INFRA_NUM)
+	dev_info(ssusb->dev, "%s state = %d\n", __func__, state);
+
+	switch (state) {
+	case MTU3_STATE_POWER_OFF:
+		op = MTU3_SMC_INFRA_RELEASE;
+		break;
+	case MTU3_STATE_POWER_ON:
+		op = MTU3_SMC_INFRA_REQUEST;
+		break;
+	default:
 		return;
-
-	dev_info(ssusb->dev, "%s op = %d\n", __func__, op);
+	}
 
 	arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL,
 		op, 0, 0, 0, 0, 0, 0, &res);
+}
+
+static void ssusb_hw_request(struct ssusb_mtk *ssusb,
+	enum mtu3_power_state state)
+{
+	u32 req;
+	u32 spm_ctrl;
+
+	dev_info(ssusb->dev, "%s state = %d\n", __func__, state);
+
+	switch (state) {
+	case MTU3_STATE_POWER_OFF:
+		req = 0x0;
+		break;
+	case MTU3_STATE_POWER_ON:
+	case MTU3_STATE_RESUME:
+		req = SSUSB_SPM_DDR_EN | SSUSB_SPM_INFRE_REQ |
+				SSUSB_SPM_SRCCLKENA;
+		break;
+	case MTU3_STATE_SUSPEND:
+		req = SSUSB_SPM_INFRE_REQ;
+		break;
+	default:
+		return;
+	}
+
+	spm_ctrl = mtu3_readl(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL);
+	spm_ctrl &= ~SSUSB_SPM_REQ_MSK;
+	spm_ctrl |= req;
+	mtu3_writel(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL, spm_ctrl);
+}
+
+void ssusb_set_power_state(struct ssusb_mtk *ssusb,
+	enum mtu3_power_state state)
+{
+	if (ssusb->hw_req_ctrl)
+		ssusb_hw_request(ssusb, state);
+	else
+		ssusb_smc_request(ssusb, state);
 }
 
 void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on)
@@ -344,6 +393,7 @@ get_phy:
 
 	ssusb->force_vbus = of_property_read_bool(node, "mediatek,force-vbus");
 	ssusb->clk_mgr = of_property_read_bool(node, "mediatek,clk-mgr");
+	ssusb->hw_req_ctrl = of_property_read_bool(node, "mediatek,hw-req-ctrl");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)
@@ -480,6 +530,8 @@ static int mtu3_probe(struct platform_device *pdev)
 		goto comm_exit;
 	}
 
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
+
 	return 0;
 
 host_exit:
@@ -516,6 +568,8 @@ static int mtu3_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
+
 	ssusb_rscs_exit(ssusb);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
@@ -538,11 +592,12 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
+	ssusb_set_power_state(ssusb, MTU3_STATE_SUSPEND);
+
 	ssusb_host_disable(ssusb, true);
 	ssusb_phy_power_off(ssusb);
 	ssusb_clks_disable(ssusb);
 	ssusb_wakeup_set(ssusb, true);
-	ssusb_smc_request(ssusb, MTU3_SMC_INFRA_REQUEST);
 
 	return 0;
 }
@@ -557,7 +612,6 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
-	ssusb_smc_request(ssusb, MTU3_SMC_INFRA_RELEASE);
 	ssusb_wakeup_set(ssusb, false);
 	ret = ssusb_clks_enable(ssusb);
 	if (ret)
@@ -568,6 +622,8 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 		goto phy_err;
 
 	ssusb_host_enable(ssusb);
+
+	ssusb_set_power_state(ssusb, MTU3_STATE_RESUME);
 
 	return 0;
 

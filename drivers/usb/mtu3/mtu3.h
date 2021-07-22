@@ -146,6 +146,13 @@ enum mtu3_dr_operation_mode {
 	MTU3_DR_OPERATION_DEVICE,
 };
 
+enum mtu3_power_state {
+	MTU3_STATE_POWER_OFF = 0,
+	MTU3_STATE_POWER_ON,
+	MTU3_STATE_SUSPEND,
+	MTU3_STATE_RESUME,
+};
+
 enum mtu3_plat_type {
 	PLAT_ASIC = 0,
 	PLAT_FPGA = 1,
@@ -300,6 +307,7 @@ struct ssusb_mtk {
 	int u3p_dis_msk;
 	struct dentry *dbgfs_root;
 	bool force_vbus;
+	bool hw_req_ctrl;
 	/* usb wakeup for host mode */
 	bool uwk_en;
 	struct regmap *uwk;
@@ -465,6 +473,7 @@ void ssusb_phy_power_off(struct ssusb_mtk *ssusb);
 int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
+void ssusb_set_power_state(struct ssusb_mtk *ssusb, enum mtu3_power_state);
 struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags);
 void mtu3_free_request(struct usb_ep *ep, struct usb_request *req);
 void mtu3_req_complete(struct mtu3_ep *mep,
