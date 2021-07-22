@@ -12,6 +12,9 @@
 #include <linux/component.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
+#include <linux/math64.h>
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
 
 #include <soc/mediatek/smi.h>
 
@@ -19,8 +22,6 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-pq-core.h"
 #include "mtk-mml-sys.h"
-
-#define MML_MAX_CMDQ_CLTS	4
 
 struct mml_dev {
 	struct platform_device *pdev;
@@ -79,15 +80,83 @@ struct platform_device *mml_get_plat_device(struct platform_device *pdev)
 }
 EXPORT_SYMBOL_GPL(mml_get_plat_device);
 
+static void mml_qos_init(struct mml_dev *mml)
+{
+	struct device *dev = &mml->pdev->dev;
+	struct mml_topology_cache *tp = mml_topology_get_cache(mml);
+	struct dev_pm_opp *opp;
+	int num;
+	unsigned long freq = 0;
+	u32 i;
+
+	mutex_init(&tp->qos_mutex);
+
+	/* Create opp table from dts */
+	dev_pm_opp_of_add_table(dev);
+
+	/* Get regulator instance by name. */
+	tp->reg = devm_regulator_get(dev, "dvfsrc-vcore");
+
+	num = dev_pm_opp_get_opp_count(dev); /* number of available opp */
+	if (num <= 0) {
+		mml_err("%s no available opp table %d", __func__, num);
+		return;
+	}
+
+	tp->opp_cnt = (u32)num;
+	if (tp->opp_cnt >= ARRAY_SIZE(tp->opp_speeds)) {
+		mml_err("%s opp num more than table size %u %u",
+			__func__, tp->opp_cnt, (u32)ARRAY_SIZE(tp->opp_speeds));
+		tp->opp_cnt = ARRAY_SIZE(tp->opp_speeds);
+	}
+
+	i = 0;
+	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
+		/* available freq from table, store in MHz */
+		tp->opp_speeds[i] = (u32)div_u64(freq, 1000000);
+		tp->opp_volts[i] = dev_pm_opp_get_voltage(opp);
+		mml_log("mml opp %u: %luMHz\t%d",
+			i, tp->opp_speeds[i], tp->opp_volts[i]);
+		freq++;
+		i++;
+		dev_pm_opp_put(opp);
+	}
+	tp->freq_max = tp->opp_speeds[i-1];
+}
+
+void mml_qos_update_tput(struct mml_dev *mml)
+{
+	struct mml_topology_cache *tp = mml_topology_get_cache(mml);
+	u32 tput = 0, i;
+	int volt, ret;
+
+	for (i = 0; i < ARRAY_SIZE(tp->path_clts); i++) {
+		/* select max one across clients */
+		tput = max(tput, tp->path_clts[i].throughput);
+	}
+
+	for (i = 0; i < tp->opp_cnt; i++) {
+		if (tput <= tp->opp_speeds[i])
+			break;
+	}
+	volt = tp->opp_volts[min(i, tp->opp_cnt - 1)];
+	ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
+	if (ret)
+		mml_err("%s fail to set volt %d", volt);
+}
+
+
 struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
 	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml))
 {
 	struct mml_drm_ctx *ctx;
 
 	/* make sure topology ready before client can use mml */
-	if (!mml->topology)
+	if (!mml->topology) {
 		mml->topology = mml_topology_create(mml, mml->pdev,
 			mml->cmdq_clts, mml->cmdq_clt_cnt);
+		mml_qos_init(mml);
+	}
 	if (IS_ERR(mml->topology)) {
 		mml_err("topology create fail %d", PTR_ERR(mml->topology));
 		return (void *)mml->topology;
@@ -338,6 +407,9 @@ s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 
 	comp->larb_dev = &larb_pdev->dev;
 
+	/* also do mmqos and mmdvfs since dma component do init here */
+	comp->icc_path = of_mtk_icc_get(dev, "mml_dma");
+
 	mml_log("%s dev %p larb dev %u comp %u",
 		__func__, dev, larb_pdev, comp->id);
 
@@ -432,6 +504,49 @@ s32 mml_comp_clk_disable(struct mml_comp *comp)
 	}
 
 	return 0;
+}
+
+/* mml_calc_bw - calculate bandwidth by giving pixel and current throughput
+ *
+ * @data:	data size in bytes, size to each dma port
+ * @pixel:	pixel count, one of max pixel count of all dma ports
+ * @throughput:	throughput (frequency) in Mhz, to handling frame in time
+ *
+ * Note: throughput calculate by following formula:
+ *		max_pixel / (end_time - current_time)
+ *	which represents necessary cycle (or frequency in MHz) to process
+ *	pixels in this time slot (before end time from current time).
+ */
+static u32 mml_calc_bw(u64 data, u32 pixel, u64 throughput)
+{
+	/* ocucpied bw efficiency is 1.33 while accessing DRAM */
+	data = (u64)div_u64(data * 4 * throughput, 3);
+	if (!pixel)
+		pixel = 1;
+	return (u32)div_u64(data, pixel);
+}
+
+void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
+	struct mml_comp_config *ccfg, u32 throughput)
+{
+	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
+	u32 bandwidth, datasize;
+
+	if (!comp->icc_path)
+		return;
+
+	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
+	bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
+	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), 0);
+	mml_msg("%s comp %u %s qos bw %u by throughput %u pixel %u",
+		__func__, comp->id, comp->name, bandwidth,
+		throughput, cache->max_pixel);
+}
+
+void mml_comp_qos_clear(struct mml_comp *comp)
+{
+	mtk_icc_set_bw(comp->icc_path, 0, 0);
+	mml_msg("%s comp %u %s qos bw clear", __func__, comp->id, comp->name);
 }
 
 static const struct mml_comp_hw_ops mml_hw_ops = {

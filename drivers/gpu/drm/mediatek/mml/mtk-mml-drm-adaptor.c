@@ -8,6 +8,7 @@
 #include <linux/file.h>
 #include <linux/module.h>
 #include <linux/sync_file.h>
+#include <linux/time64.h>
 
 #include "mediatek_v2/mtk_drm_ddp_comp.h"
 #include "mediatek_v2/mtk_sync.h"
@@ -21,6 +22,7 @@
 
 
 #define MML_QUERY_ADJUST	1
+#define MML_DEFAULT_END_NS	15000000
 
 #define MML_REF_NAME "mml"
 
@@ -502,6 +504,14 @@ static void frame_calc_plane_offset(struct mml_frame_data *data,
 	}
 }
 
+static void frame_check_end_time(struct timespec64 *endtime)
+{
+	if (!endtime->tv_sec && !endtime->tv_nsec) {
+		ktime_get_real_ts64(endtime);
+		timespec64_add_ns(endtime, MML_DEFAULT_END_NS);
+	}
+}
+
 s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 {
 	struct mml_frame_config *cfg;
@@ -588,6 +598,8 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 	task->ctx = ctx;
 	task->end_time.tv_sec = submit->end.sec;
 	task->end_time.tv_nsec = submit->end.nsec;
+	/* give default time if empty */
+	frame_check_end_time(&task->end_time);
 	frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src);
 	task->buf.dest_cnt = submit->buffer.dest_cnt;
 	for (i = 0; i < submit->buffer.dest_cnt; i++)
@@ -675,6 +687,7 @@ s32 dup_task(struct mml_task *task, u32 pipe)
 dup_command:
 	task->pkts[pipe] = cmdq_pkt_create(cfg->path[pipe]->clt);
 	cmdq_pkt_copy(task->pkts[pipe], src->pkts[pipe]);
+	task->pkts[pipe]->user_data = (void *)task;
 
 	task->reuse[pipe].labels = kcalloc(cfg->cache[pipe].label_cnt,
 		sizeof(*task->reuse[pipe].labels), GFP_KERNEL);
@@ -690,6 +703,24 @@ dup_command:
 
 	mutex_unlock(&ctx->config_mutex);
 	return 0;
+}
+
+struct list_head *run_task_get(struct mml_task *task)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+
+	mutex_lock(&ctx->config_mutex);
+
+	return &cfg->tasks;
+}
+
+void run_task_put(struct mml_task *task)
+{
+
+	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+
+	mutex_unlock(&ctx->config_mutex);
 }
 
 const static struct mml_task_ops drm_task_ops = {

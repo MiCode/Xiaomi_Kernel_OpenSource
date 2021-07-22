@@ -153,6 +153,9 @@ struct wrot_frame_data {
 	u32 fifo_max_sz;
 	u32 max_line_cnt;
 
+	u32 pixel_acc;		/* pixel accumulation */
+	u32 datasize;		/* qos data size in bytes */
+
 	/* array of indices to one of entry in cache entry list,
 	 * use in reuse command
 	 */
@@ -1239,9 +1242,10 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
+	u32 plane;
 
 	/* frame data should not change between each tile */
-	const struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	const struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
 	const u32 dest_fmt = dest->data.format;
@@ -1317,6 +1321,20 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	/* Enable engine */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_ROT_EN, 0x01, 0x00000001);
 
+	/* qos accumulate tile pixel */
+	wrot_frm->pixel_acc += wrot_tar_xsize * wrot_tar_ysize;
+
+	/* calculate qos for later use */
+	plane = MML_FMT_PLANE(dest->data.format);
+	wrot_frm->datasize += mml_color_get_min_y_size(dest->data.format,
+		wrot_tar_xsize, wrot_tar_ysize);
+	if (plane > 1)
+		wrot_frm->datasize += mml_color_get_min_uv_size(dest->data.format,
+			wrot_tar_xsize, wrot_tar_ysize);
+	if (plane > 2)
+		wrot_frm->datasize += mml_color_get_min_uv_size(dest->data.format,
+			wrot_tar_xsize, wrot_tar_ysize);
+
 	mml_msg("%s min block width: %u min buf line num: %u\n",
 		__func__, setting.main_blk_width, setting.main_buf_line_num);
 
@@ -1333,6 +1351,22 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
 	/* Disable engine */
 	cmdq_pkt_write(pkt, NULL, comp->base_pa + VIDO_ROT_EN, 0, 0x00000001);
+	return 0;
+}
+
+static s32 wrot_post(struct mml_comp *comp, struct mml_task *task,
+		     struct mml_comp_config *ccfg)
+{
+	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
+	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
+
+	/* accmulate data size and use max pixel */
+	cache->total_datasize += wrot_frm->datasize;
+	cache->max_pixel = max(cache->max_pixel, wrot_frm->pixel_acc);
+
+	mml_msg("%s task %p pipe %hhu data %u pixel %u",
+		__func__, task, ccfg->pipe, wrot_frm->datasize, wrot_frm->pixel_acc);
+
 	return 0;
 }
 
@@ -1390,14 +1424,25 @@ static const struct mml_comp_config_ops wrot_cfg_ops = {
 	.frame = wrot_config_frame,
 	.tile = wrot_config_tile,
 	.wait = wrot_wait,
+	.post = wrot_post,
 	.reframe = wrot_reconfig_frame,
 };
+
+u32 wrot_datasize_get(struct mml_task *task, struct mml_comp_config *ccfg)
+{
+	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
+
+	return wrot_frm->datasize;
+}
 
 static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.pw_enable = &mml_comp_pw_enable,
 	.pw_disable = &mml_comp_pw_disable,
 	.clk_enable = &mml_comp_clk_enable,
 	.clk_disable = &mml_comp_clk_disable,
+	.qos_datasize_get = wrot_datasize_get,
+	.qos_set = &mml_comp_qos_set,
+	.qos_clear = &mml_comp_qos_clear,
 };
 
 static void wrot_debug_dump(struct mml_comp *comp)

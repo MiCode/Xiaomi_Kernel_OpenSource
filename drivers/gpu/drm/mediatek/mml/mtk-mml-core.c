@@ -26,6 +26,9 @@ int mml_trace;
 EXPORT_SYMBOL(mml_trace);
 module_param(mml_trace, int, 0644);
 
+int mml_qos = 1;
+module_param(mml_qos, int, 0644);
+
 struct topology_ip_node {
 	struct list_head entry;
 	const struct mml_topology_ops *op;
@@ -78,11 +81,12 @@ void mml_topology_unregister_ip(const char *ip)
 struct mml_topology_cache *mml_topology_create(struct mml_dev *mml,
 					       struct platform_device *pdev,
 					       struct cmdq_client **clts,
-					       u8 clt_cnt)
+					       u32 clt_cnt)
 {
 	struct mml_topology_cache *tp;
 	struct topology_ip_node *tp_node;
 	const char *tp_plat;
+	u32 i;
 	int err;
 
 	err = of_property_read_string(pdev->dev.of_node, "topology", &tp_plat);
@@ -94,6 +98,11 @@ struct mml_topology_cache *mml_topology_create(struct mml_dev *mml,
 	tp = devm_kzalloc(&pdev->dev, sizeof(*tp), GFP_KERNEL);
 	if (!tp)
 		return ERR_PTR(-ENOMEM);
+
+	for (i = 0; i < ARRAY_SIZE(tp->path_clts); i++) {
+		INIT_LIST_HEAD(&tp->path_clts[i].tasks);
+		mutex_init(&tp->path_clts[i].clt_mutex);
+	}
 
 	mutex_lock(&tp_mutex);
 	list_for_each_entry(tp_node, &tp_ips, entry) {
@@ -141,8 +150,8 @@ static s32 topology_select_path(struct mml_frame_config *cfg)
 	(has_cfg_op(_comp, op) ? \
 		_comp->config_ops->op(_comp, ##__VA_ARGS__) : 0)
 
-#define call_hw_op(_comp, op) \
-	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp) : 0)
+#define call_hw_op(_comp, op, ...) \
+	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp, ##__VA_ARGS__) : 0)
 
 static void core_prepare(struct mml_task *task, u32 pipe)
 {
@@ -191,7 +200,7 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	struct mml_task_reuse *reuse = &task->reuse[pipe];
 
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
-	struct mml_comp_config *cfg = cache->cfg;
+	struct mml_comp_config *ccfg = cache->cfg;
 
 	struct mml_comp *comp;
 	u32 i, tile;
@@ -202,6 +211,7 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		return PTR_ERR(pkt);
 	}
 	task->pkts[pipe] = pkt;
+	pkt->user_data = (void *)task;
 
 	/* get total label count to create label array */
 	cache->label_cnt = 0;
@@ -220,11 +230,11 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	/* call all component init and frame op, include mmlsys and mutex */
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		call_cfg_op(comp, init, task, &cfg[i]);
+		call_cfg_op(comp, init, task, &ccfg[i]);
 	}
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		call_cfg_op(comp, frame, task, &cfg[i]);
+		call_cfg_op(comp, frame, task, &ccfg[i]);
 	}
 
 	if (!task->config->tile_output[pipe]) {
@@ -237,21 +247,21 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		tile++) {
 		for (i = 0; i < path->node_cnt; i++) {
 			comp = task_comp(task, pipe, i);
-			call_cfg_op(comp, tile, task, &cfg[i], tile);
+			call_cfg_op(comp, tile, task, &ccfg[i], tile);
 		}
 
 		path->mutex->config_ops->mutex(path->mutex, task,
-					       &cfg[path->mutex_idx]);
+					       &ccfg[path->mutex_idx]);
 
 		for (i = 0; i < path->node_cnt; i++) {
 			comp = task_comp(task, pipe, i);
-			call_cfg_op(comp, wait, task, &cfg[i]);
+			call_cfg_op(comp, wait, task, &ccfg[i]);
 		}
 	}
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		call_cfg_op(comp, post, task, &cfg[i]);
+		call_cfg_op(comp, post, task, &ccfg[i]);
 	}
 
 	return 0;
@@ -266,18 +276,18 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
-	struct mml_comp_config *cfg = cache->cfg;
+	struct mml_comp_config *ccfg = cache->cfg;
 	struct mml_comp *comp;
 	u32 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		call_cfg_op(comp, reframe, task, &cfg[i]);
+		call_cfg_op(comp, reframe, task, &ccfg[i]);
 	}
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = task_comp(task, pipe, i);
-		call_cfg_op(comp, repost, task, &cfg[i]);
+		call_cfg_op(comp, repost, task, &ccfg[i]);
 	}
 
 	mml_msg("%s task %p pipe %u pkt %p label cnt %u/%u",
@@ -356,18 +366,207 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 	return 0;
 }
 
-static void core_taskdone(struct work_struct *work)
+static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput)
 {
-	struct mml_task *task = container_of(work, struct mml_task, work_wait);
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	struct mml_comp *comp;
+	u32 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_hw_op(comp, qos_set, task, &cache->cfg[i], throughput);
+	}
+}
+
+static void mml_core_qos_clear(struct mml_task *task, u32 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_comp *comp;
+	u32 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = task_comp(task, pipe, i);
+		call_hw_op(comp, qos_clear);
+	}
+}
+
+static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rhs)
+{
+	struct timespec64 delta = timespec64_sub(*lhs, *rhs);
+
+	return div_u64((u64)delta.tv_sec * 1000000000 + delta.tv_nsec, 1000);
+}
+
+static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
+{
+	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
+	struct mml_path_client *path_clt =
+		&tp->path_clts[task->config->path[pipe]->clt_id];
+	struct mml_task *task_tmp;
+	struct timespec64 curr_time;
+	u32 throughput;
+	u32 max_pixel = task->config->cache[pipe].max_pixel;
+
+	ktime_get_real_ts64(&curr_time);
+	mml_msg("task dvfs begin %p pipe %u cur %2u.%03llu end %2u.%03llu",
+		task, pipe,
+		(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
+		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000));
+
+	/* do not append to list and no qos/dvfs for this task */
+	if (!mml_qos)
+		return;
+
+	if (timespec64_compare(&curr_time, &task->end_time) > 0)
+		task->end_time = curr_time;
+
+	if (!list_empty(&path_clt->tasks))
+		task_tmp = list_last_entry(&path_clt->tasks, typeof(*task_tmp), entry_clt);
+	else
+		task_tmp = NULL;
+	if (task_tmp && timespec64_compare(&task_tmp->end_time, &curr_time) >= 0)
+		task->submit_time = task_tmp->end_time;
+	else
+		task->submit_time = curr_time;
+
+	if (timespec64_compare(&task->submit_time, &task->end_time) < 0) {
+		/* calculate remaining time to complete pixels */
+		task->throughput = (u32)div_u64(max_pixel,
+			time_dur_us(&task->end_time, &task->submit_time));
+
+		throughput = task->throughput;
+		list_for_each_entry(task_tmp, &path_clt->tasks, entry_clt) {
+			/* find the max throughput (frequency) between tasks on same client */
+			throughput = max(throughput, task_tmp->throughput);
+		}
+	} else {
+		/* there is no time for this task, use mas throughput */
+		task->throughput = tp->freq_max;
+		/* make sure end time >= submit time to ensure
+		 * next task calculate correct duration
+		 */
+		task->end_time = task->submit_time;
+		/* use max as throughput this round */
+		throughput = task->throughput;
+	}
+
+	/* now append at tail, this order should same as cmdq exec order */
+	list_add_tail(&task->entry_clt, &path_clt->tasks);
+
+	path_clt->throughput = throughput;
+	mml_qos_update_tput(task->config->mml);
+
+	/* note the running task not always current begin task */
+	task_tmp = list_first_entry(&path_clt->tasks, typeof(*task_tmp), entry_clt);
+	mml_core_qos_set(task_tmp, pipe, throughput);
+
+	mml_msg("task dvfs begin %p pipe %u throughput %u (%u) pixel %u",
+		task, pipe, throughput, task->throughput, max_pixel);
+}
+
+static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
+{
+	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
+	struct mml_path_client *path_clt =
+		&tp->path_clts[task->config->path[pipe]->clt_id];
+	struct mml_task *task_cur, *task_tmp;
+	struct timespec64 curr_time;
+	u32 throughput = 0, max_pixel = 0;
+
+	ktime_get_real_ts64(&curr_time);
+	mml_msg("task dvfs end %p pipe %u cur %2u.%03llu end %2u.%03llu",
+		task, pipe,
+		(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
+		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000));
+
+	if (list_empty(&task->entry_clt)) {
+		/* task may already removed from other config (thread),
+		 * so safe to leave directly.
+		 */
+		return;
+	}
+
+	list_for_each_entry_safe(task_cur, task_tmp, &path_clt->tasks, entry_clt) {
+		/* remove task from list include tasks before current
+		 * ending task, since cmdq already finish them, too.
+		 */
+		list_del_init(&task->entry_clt);
+
+		/* clear port qos */
+		mml_core_qos_clear(task, pipe);
+
+		if (task == task_cur) {
+			/* found ending one, stops delete */
+			break;
+		}
+
+		mml_msg("task dvfs end %p pipe %u clear qos (pre-end)", task, pipe);
+	}
+
+	task_cur = list_first_entry_or_null(&path_clt->tasks, typeof(*task_cur),
+		entry_clt);
+	if (task_cur) {
+		if (timespec64_compare(&curr_time, &task_cur->end_time) >= 0) {
+			/* this task must done right now, skip all compare */
+			throughput = tp->freq_max;
+			goto done;
+		}
+
+		/* calculate remaining time to complete pixels */
+		max_pixel = task_cur->config->cache[pipe].max_pixel;
+		task_cur->throughput = (u32)div_u64(max_pixel,
+			time_dur_us(&curr_time, &task->end_time));
+
+		throughput = 0;
+		list_for_each_entry(task_tmp, &path_clt->tasks, entry_clt) {
+			/* find the max throughput (frequency) between tasks on same client */
+			throughput = max(throughput, task_tmp->throughput);
+		}
+	} else {
+		/* no task anymore, clear */
+		throughput = 0;
+	}
+
+done:
+	mml_msg("task dvfs end update new task %p throughput %u pixel %u",
+		task_cur, throughput, max_pixel);
+	path_clt->throughput = throughput;
+	mml_qos_update_tput(task->config->mml);
+
+	if (throughput)
+		mml_core_qos_set(task_cur, pipe, throughput);
+}
+
+static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe)
+{
+	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
+
+	return &tp->path_clts[task->config->path[pipe]->clt_id];
+}
+
+static void core_taskdone(struct mml_task *task, u32 pipe)
+{
+	struct mml_path_client *path_clt;
 	u32 cnt, i;
 
 	mml_trace_begin("%s", __func__);
+
+	/* do task ending for this pipe to make sure hw run on necessary freq
+	 * and must lock path clt to ensure tasks in list not handle by others
+	 *
+	 * and note we always lock pipe 0
+	 */
+	path_clt = core_get_path_clt(task, 0);
+	mutex_lock(&path_clt->clt_mutex);
+	mml_core_dvfs_end(task, pipe);
+	mutex_unlock(&path_clt->clt_mutex);
 
 	cnt = atomic_inc_return(&task->pipe_done);
 
 	mml_msg("%s task %p cnt %d", __func__, task, cnt);
 
-	/* cnt should be 1 or 2, if dual on and count 2 means pipes done */
+	/* cnt can be 1 or 2, if dual on and count 2 means pipes done */
 	if (task->config->dual && cnt == 1)
 		goto done;
 
@@ -392,11 +591,37 @@ done:
 	mml_trace_end();
 }
 
+static void core_taskdone0(struct work_struct *work)
+{
+	struct mml_task *task = container_of(work, struct mml_task, work_wait[0]);
+
+	core_taskdone(task, 0);
+}
+
+static void core_taskdone1(struct work_struct *work)
+{
+	struct mml_task *task = container_of(work, struct mml_task, work_wait[1]);
+
+	core_taskdone(task, 1);
+}
+
 static void core_taskdone_cb(struct cmdq_cb_data data)
 {
-	struct mml_task *task = (struct mml_task *)data.data;
+	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
+	struct mml_task *task = (struct mml_task *)pkt->user_data;
+	u32 pipe;
 
-	queue_work(task->config->wq_wait, &task->work_wait);
+	if (pkt == task->pkts[0])
+		pipe = 0;
+	else if (pkt == task->pkts[1])
+		pipe = 1;
+	else {
+		mml_err("%s task %p pkt %p not match both pipe (%p and %p)",
+			__func__, task, pkt, task->pkts[0], task->pkts[1]);
+		return;
+	}
+
+	queue_work(task->config->wq_wait, &task->work_wait[pipe]);
 }
 
 static s32 core_config(struct mml_task *task, u32 pipe)
@@ -440,6 +665,8 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 	}
 
 	core_enable(task, pipe);
+	mml_core_dvfs_begin(task, pipe);
+
 	return 0;
 }
 
@@ -544,7 +771,7 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	pkt->err_cb.cb = dump_cbs[pipe];
 	pkt->err_cb.data = (void *)task;
 
-	return cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task);
+	return cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task->pkts[pipe]);
 }
 
 static void core_init_pipe(struct mml_task *task, u32 pipe)
@@ -590,6 +817,7 @@ static void core_buffer_map(struct mml_task *task)
 static void core_config_thread(struct work_struct *work)
 {
 	struct mml_task *task;
+	struct mml_path_client *path_clt;
 	s32 err;
 	u32 i;
 
@@ -662,12 +890,18 @@ static void core_config_thread(struct work_struct *work)
 	 */
 	kref_get(&task->ref);
 
+	/* make sure no other config uses same client for current path */
+	path_clt = core_get_path_clt(task, 0);
+	mutex_lock(&path_clt->clt_mutex);
+
 	core_init_pipe(task, 0);
 
 	/* check single pipe or (dual) pipe 1 done then callback */
 	if (!task->config->dual || flush_work(&task->work_config[1]))
 		task->config->task_ops->submit_done(task);
 
+	/* now both pipe submit done unlock client */
+	mutex_unlock(&path_clt->clt_mutex);
 done:
 	mml_trace_end();
 }
@@ -679,9 +913,11 @@ struct mml_task *mml_core_create_task(void)
 	if (IS_ERR(task))
 		return task;
 	INIT_LIST_HEAD(&task->entry);
+	INIT_LIST_HEAD(&task->entry_clt);
 	INIT_WORK(&task->work_config[0], core_config_thread);
 	INIT_WORK(&task->work_config[1], core_init_pipe1);
-	INIT_WORK(&task->work_wait, core_taskdone);
+	INIT_WORK(&task->work_wait[0], core_taskdone0);
+	INIT_WORK(&task->work_wait[1], core_taskdone1);
 	kref_init(&task->ref);
 	return task;
 }

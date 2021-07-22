@@ -385,6 +385,7 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 		}
 
 		/* now dispatch cmdq client (channel) to path */
+		cache->path[i].clt_id = clt_dispatch[i];
 		cache->path[i].clt = clts[clt_dispatch[i]];
 	}
 

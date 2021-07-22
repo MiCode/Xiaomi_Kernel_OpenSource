@@ -178,6 +178,8 @@ struct rdma_frame_data {
 	u32 vdo_blk_shift_w;
 	u32 vdo_blk_height;
 	u32 vdo_blk_shift_h;
+	u32 pixel_acc;		/* pixel accumulation */
+	u32 datasize;		/* qos data size in bytes */
 
 	/* array of indices to one of entry in cache entry list,
 	 * use in reuse command
@@ -808,6 +810,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
 	struct mml_frame_data *src = &cfg->info.src;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	u32 plane;
 
 	const phys_addr_t base_pa = comp->base_pa;
 
@@ -939,6 +942,21 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_OFFSET_1,
 		       (mf_offset_h_1 << 16) + mf_offset_w_1, U32_MAX);
+
+	/* qos accumulate tile pixel */
+	rdma_frm->pixel_acc += mf_src_w * mf_src_h;
+
+	/* calculate qos for later use */
+	plane = MML_FMT_PLANE(cfg->info.src.format);
+	rdma_frm->datasize += mml_color_get_min_y_size(cfg->info.src.format,
+		mf_src_w, mf_src_h);
+	if (plane > 1)
+		rdma_frm->datasize += mml_color_get_min_uv_size(cfg->info.src.format,
+			mf_src_w, mf_src_h);
+	if (plane > 2)
+		rdma_frm->datasize += mml_color_get_min_uv_size(cfg->info.src.format,
+			mf_src_w, mf_src_h);
+
 	return 0;
 }
 
@@ -955,11 +973,34 @@ static s32 rdma_wait(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
+static s32 rdma_post(struct mml_comp *comp, struct mml_task *task,
+		     struct mml_comp_config *ccfg)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
+	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
+
+	/* ufo case */
+	if (MML_FMT_UFO(cfg->info.src.format))
+		rdma_frm->datasize = (u32)div_u64((u64)rdma_frm->datasize * 7, 10);
+
+	/* Data size add to task and pixel,
+	 * it is ok for rdma to directly assign and accumulate in wrot.
+	 */
+	cache->total_datasize = rdma_frm->datasize;
+	cache->max_pixel = rdma_frm->pixel_acc;
+
+	mml_msg("%s task %p pipe %hhu data %u pixel %u",
+		__func__, task, ccfg->pipe, rdma_frm->datasize, rdma_frm->pixel_acc);
+
+	return 0;
+}
+
 static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 			       struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
- 	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
+	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
 	struct mml_file_buf *src_buf = &task->buf.src;
 	struct mml_frame_data *src = &cfg->info.src;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
@@ -1027,14 +1068,25 @@ static const struct mml_comp_config_ops rdma_cfg_ops = {
 	.frame = rdma_config_frame,
 	.tile = rdma_config_tile,
 	.wait = rdma_wait,
+	.post = rdma_post,
 	.reframe = rdma_reconfig_frame,
 };
+
+u32 rdma_datasize_get(struct mml_task *task, struct mml_comp_config *ccfg)
+{
+	struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
+
+	return rdma_frm->datasize;
+}
 
 static const struct mml_comp_hw_ops rdma_hw_ops = {
 	.pw_enable = &mml_comp_pw_enable,
 	.pw_disable = &mml_comp_pw_disable,
 	.clk_enable = &mml_comp_clk_enable,
 	.clk_disable = &mml_comp_clk_disable,
+	.qos_datasize_get = rdma_datasize_get,
+	.qos_set = &mml_comp_qos_set,
+	.qos_clear = &mml_comp_qos_clear,
 };
 
 static const char *rdma_state(u32 state)

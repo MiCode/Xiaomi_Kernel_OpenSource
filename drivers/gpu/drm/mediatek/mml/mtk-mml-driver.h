@@ -19,6 +19,8 @@ struct mml_comp;
 struct mml_dev;
 struct mml_drm_ctx;
 struct mml_topology_cache;
+struct mml_task;
+struct mml_comp_config;
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev);
 
@@ -33,6 +35,13 @@ static inline int of_mml_read_comp_id_index(const struct device_node *np,
 	return of_property_read_u32_index(np, "comp-ids", index, id);
 }
 
+/*
+ * mml_qos_update_tput - scan throughputs in all path client and update the max one
+ *
+ * @mml: The mml driver instance
+ */
+void mml_qos_update_tput(struct mml_dev *mml);
+
 s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp);
 
 s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev);
@@ -40,6 +49,10 @@ s32 mml_comp_pw_enable(struct mml_comp *comp);
 s32 mml_comp_pw_disable(struct mml_comp *comp);
 s32 mml_comp_clk_enable(struct mml_comp *comp);
 s32 mml_comp_clk_disable(struct mml_comp *comp);
+
+void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
+	struct mml_comp_config *ccfg, u32 throughput);
+void mml_comp_qos_clear(struct mml_comp *comp);
 
 /*
  * mml_clock_lock - Lock clock mutex before clock counting or call clock api

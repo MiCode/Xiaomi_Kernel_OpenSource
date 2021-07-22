@@ -23,6 +23,7 @@
 #include <linux/types.h>
 #include <linux/time.h>
 #include <linux/workqueue.h>
+#include <mtk-interconnect.h>
 #include "mtk-mml.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-driver.h"
@@ -81,6 +82,9 @@ extern int mml_trace;
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	16
 #define MML_MAX_PATH_CACHES	8
+#define MML_MAX_CMDQ_CLTS	4
+#define MML_MAX_OPPS		5
+#define MML_MAX_TPUT		800
 
 struct mml_topology_cache;
 struct mml_frame_config;
@@ -144,6 +148,7 @@ struct mml_topology_path {
 	u32 out_engine_ids[MML_MAX_OUTPUTS];
 
 	/* cmdq client to compose command */
+	u8 clt_id;
 	struct cmdq_client *clt;
 
 	union {
@@ -164,10 +169,26 @@ struct mml_topology_ops {
 		      struct mml_frame_config *cfg);
 };
 
+struct mml_path_client {
+	/* running tasks on same cients from all configs */
+	struct list_head tasks;
+	/* lock to this client */
+	struct mutex clt_mutex;
+	/* current throughput */
+	u32 throughput;
+};
+
 struct mml_topology_cache {
 	const struct mml_topology_ops *op;
 	struct mml_topology_path path[MML_MAX_PATH_CACHES];
 	u32 cnt;
+	struct mml_path_client path_clts[MML_MAX_CMDQ_CLTS];
+	struct regulator *reg;
+	u32 opp_cnt;
+	u32 opp_speeds[MML_MAX_OPPS];
+	int opp_volts[MML_MAX_OPPS];
+	u64 freq_max;
+	struct mutex qos_mutex;
 };
 
 struct mml_comp_config {
@@ -186,6 +207,10 @@ struct mml_pipe_cache {
 
 	/* Fillin when core call prepare. Use in prepare and make command */
 	struct mml_comp_config cfg[MML_MAX_PATH_NODES];
+
+	/* qos part */
+	u32 total_datasize;
+	u32 max_pixel;
 };
 
 struct mml_frame_config {
@@ -274,10 +299,14 @@ struct mml_task {
 	struct mml_frame_config *config;
 	struct mml_task_buffer buf;
 	struct mml_pq_param pq_param[MML_MAX_OUTPUTS];
+	struct timespec64 submit_time;
 	struct timespec64 end_time;
 	struct dma_fence *fence;
 	enum mml_task_state state;
 	struct kref ref;
+	struct list_head entry_clt;
+
+	u32 throughput;
 
 	/* mml context */
 	void *ctx;
@@ -290,7 +319,7 @@ struct mml_task {
 
 	/* workqueue */
 	struct work_struct work_config[MML_PIPE_CNT];
-	struct work_struct work_wait;
+	struct work_struct work_wait[MML_PIPE_CNT];
 	atomic_t pipe_done;
 
 	/* mml pq task */
@@ -340,6 +369,11 @@ struct mml_comp_hw_ops {
 	s32 (*pw_disable)(struct mml_comp *comp);
 	s32 (*clk_enable)(struct mml_comp *comp);
 	s32 (*clk_disable)(struct mml_comp *comp);
+	u32 (*qos_datasize_get)(struct mml_task *task,
+				struct mml_comp_config *ccfg);
+	void (*qos_set)(struct mml_comp *comp, struct mml_task *task,
+			struct mml_comp_config *ccfg, u32 throughput);
+	void (*qos_clear)(struct mml_comp *comp);
 };
 
 struct mml_comp_debug_ops {
@@ -356,6 +390,7 @@ struct mml_comp {
 	struct device *larb_dev;
 	s32 pw_cnt;
 	s32 clk_cnt;
+	struct icc_path *icc_path;
 	const struct mml_comp_tile_ops *tile_ops;
 	const struct mml_comp_config_ops *config_ops;
 	const struct mml_comp_hw_ops *hw_ops;
@@ -469,7 +504,7 @@ void mml_topology_unregister_ip(const char *ip);
 struct mml_topology_cache *mml_topology_create(struct mml_dev *mml,
 					       struct platform_device *pdev,
 					       struct cmdq_client **clts,
-					       u8 clts_cnt);
+					       u32 clts_cnt);
 
 /**
  * mml_core_create_task -
@@ -526,7 +561,6 @@ s32 mml_write(struct cmdq_pkt *pkt, struct mml_task_reuse *reuse,
 	dma_addr_t addr, u32 value, u32 mask,
 	struct mml_pipe_cache *cache, u16 *label_idx);
 
-
 /* mml_update - update new value to cache, which entry index from label.
  *
  * @reuse:	label cache for cmdq_reuse from task, which caches label of
@@ -535,7 +569,6 @@ s32 mml_write(struct cmdq_pkt *pkt, struct mml_task_reuse *reuse,
  * @value:	value to be update
  */
 void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value);
-
 
 unsigned long mml_get_tracing_mark(void);
 
