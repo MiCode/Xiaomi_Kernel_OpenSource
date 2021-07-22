@@ -70,7 +70,7 @@ struct subdrv_ctx {
 	u8 mirror; /* mirrorflip information */
 	u8 sensor_mode; /* record IMGSENSOR_MODE enum value */
 	u32 shutter; /* current shutter */
-	u16 gain; /* current gain */
+	u32 gain; /* current gain */
 	u32 pclk; /* current pclk */
 	u32 frame_length; /* current framelength */
 	u32 line_length; /* current linelength */
