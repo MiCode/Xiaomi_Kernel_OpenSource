@@ -145,7 +145,6 @@ int mkp_destroy_handle(uint32_t policy, uint32_t handle)
 	return ret;
 }
 
-#ifdef DEMO_MKP
 uint32_t mkp_create_ro_sharebuf(uint32_t policy, unsigned long size, struct page **pages)
 {
 	uint32_t handle = 0;
@@ -201,7 +200,6 @@ uint32_t mkp_create_wo_sharebuf(uint32_t policy, unsigned long size, struct page
 	*pages = l_pages;
 	return handle;
 }
-#endif
 
 int mkp_configure_sharebuf(uint32_t policy, uint32_t handle, uint32_t type,
 	unsigned long nr_entries, unsigned long size)

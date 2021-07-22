@@ -31,7 +31,6 @@
 #define mkp_debug 0
 DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
 
-#ifdef DEMO_MKP
 static uint32_t g_ro_avc_handle;
 static uint32_t g_ro_cred_handle;
 static struct page *avc_pages;
@@ -43,7 +42,6 @@ static bool initialized;
 static struct selinux_avc *avc;
 static struct selinux_policy __rcu *policy;
 static DEFINE_RATELIMIT_STATE(rs, 1*HZ, 10);
-#endif
 
 #if mkp_debug
 static void mkp_trace_event_func(struct timer_list *unused);
@@ -86,7 +84,6 @@ static void *p__init_begin;
 static void probe_android_vh_set_memory_ro(void *ignore, unsigned long addr,
 		int nr_pages)
 {
-#ifdef DEMO_MKP
 	int ret;
 	int region;
 
@@ -100,13 +97,11 @@ static void probe_android_vh_set_memory_ro(void *ignore, unsigned long addr,
 			mkp_set_mapping_ro);
 #endif
 	}
-#endif
 }
 
 static void probe_android_vh_set_memory_x(void *ignore, unsigned long addr,
 		int nr_pages)
 {
-#ifdef DEMO_MKP
 	int ret;
 	int region;
 
@@ -120,13 +115,11 @@ static void probe_android_vh_set_memory_x(void *ignore, unsigned long addr,
 			mkp_set_mapping_x);
 #endif
 	}
-#endif
 }
 
 static void probe_android_vh_set_memory_rw(void *ignore, unsigned long addr,
 		int nr_pages)
 {
-#ifdef DEMO_MKP
 	int ret;
 	int region;
 
@@ -143,12 +136,10 @@ static void probe_android_vh_set_memory_rw(void *ignore, unsigned long addr,
 			mkp_set_mapping_rw);
 #endif
 	}
-#endif
 }
 static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 		int nr_pages)
 {
-#ifdef DEMO_MKP
 	int ret;
 	int region;
 	int i = 0;
@@ -184,7 +175,6 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 			ret = mkp_rbtree_erase(&mkp_rbtree, phys_addr);
 		}
 	}
-#endif
 }
 
 #if !defined(CONFIG_KASAN_GENERIC) && !defined(CONFIG_KASAN_SW_TAGS)
@@ -272,17 +262,14 @@ static void probe_android_vh_set_module_permit_after_init(void *ignore,
 static void probe_android_vh_selinux_is_initialized(void *ignore,
 	const struct selinux_state *state)
 {
-#ifdef DEMO_MKP
 	initialized = state->initialized;
 	avc = state->avc;
 	policy = state->policy;
-#endif
 }
 
 static void probe_android_vh_commit_creds(void *ignore, const struct task_struct *task,
 	const struct cred *new)
 {
-#ifdef DEMO_MKP
 	int ret = -1;
 	struct cred_sbuf_content c;
 
@@ -298,26 +285,22 @@ static void probe_android_vh_commit_creds(void *ignore, const struct task_struct
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid,
 		c.args[0], c.args[1], c.args[2], c.args[3]);
-#endif
 }
 
 static void probe_android_vh_exit_creds(void *ignore, const struct task_struct *task,
 	const struct cred *cred)
 {
-#ifdef DEMO_MKP
 	int ret = -1;
 
 	if (g_ro_cred_handle == 0)
 		return;
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid, 0, 0, 0, 0);
-#endif
 }
 
 static void probe_android_vh_override_creds(void *ignore, const struct task_struct *task,
 	const struct cred *new)
 {
-#ifdef DEMO_MKP
 	int ret = -1;
 	struct cred_sbuf_content c;
 
@@ -333,13 +316,11 @@ static void probe_android_vh_override_creds(void *ignore, const struct task_stru
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid,
 		c.args[0], c.args[1], c.args[2], c.args[3]);
-#endif
 }
 
 static void probe_android_vh_revert_creds(void *ignore, const struct task_struct *task,
 	const struct cred *old)
 {
-#ifdef DEMO_MKP
 	int ret = -1;
 	struct cred_sbuf_content c;
 
@@ -355,14 +336,12 @@ static void probe_android_vh_revert_creds(void *ignore, const struct task_struct
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid,
 		c.args[0], c.args[1], c.args[2], c.args[3]);
-#endif
 }
 
 
 
 static void probe_android_vh_selinux_avc_insert(void *ignore, const struct avc_node *node)
 {
-#ifdef DEMO_MKP
 	struct mkp_avc_node *temp_node = NULL;
 	int ret = -1;
 
@@ -372,26 +351,22 @@ static void probe_android_vh_selinux_avc_insert(void *ignore, const struct avc_n
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)temp_node, temp_node->ae.ssid,
 		temp_node->ae.tsid, temp_node->ae.tclass, temp_node->ae.avd.allowed);
-#endif
 }
 
 static void probe_android_vh_selinux_avc_node_delete(void *ignore,
 	const struct avc_node *node)
 {
-#ifdef DEMO_MKP
 	int ret = -1;
 
 	if (g_ro_avc_handle == 0)
 		return;
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)node, 0, 0, 0, 0);
-#endif
 }
 
 static void probe_android_vh_selinux_avc_node_replace(void *ignore,
 	const struct avc_node *old, const struct avc_node *new)
 {
-#ifdef DEMO_MKP
 	struct mkp_avc_node *temp_node = NULL;
 	int ret = -1;
 
@@ -403,20 +378,17 @@ static void probe_android_vh_selinux_avc_node_replace(void *ignore,
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)temp_node, temp_node->ae.ssid,
 		temp_node->ae.tsid, temp_node->ae.tclass, temp_node->ae.avd.allowed);
-#endif
 }
 
 static void probe_android_vh_selinux_avc_lookup(void *ignore,
 	const struct avc_node *node, u32 ssid, u32 tsid, u16 tclass)
 {
 	struct task_struct *ts, *current_task;
-
-#ifdef DEMO_MKP
 	void *va;
 	struct avc_sbuf_content *ro_avc_sharebuf_ptr;
 	int i;
 	struct mkp_avc_node *temp_node = NULL;
-#endif
+
 	ts = this_cpu_ptr(&old_task);
 	current_task = get_current();
 
@@ -485,9 +457,7 @@ static struct notifier_block mkp_reboot_notifier = {
 int __init mkp_demo_init(void)
 {
 	int ret = 0, ret_erri_line;
-#ifdef DEMO_MKP
 	unsigned long size = 0x100000;
-#endif
 
 	MKP_DEBUG("%s: start\n", __func__);
 	if (sizeof(phys_addr_t) != sizeof(unsigned long)) {
