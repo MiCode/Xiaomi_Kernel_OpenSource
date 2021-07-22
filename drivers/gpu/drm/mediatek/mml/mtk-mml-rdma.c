@@ -1122,7 +1122,7 @@ static const char *rdma_state(u32 state)
 static void rdma_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	u32 value[23];
+	u32 value[24];
 	u32 mon[29];
 	u32 state, grep;
 	u8 i;
@@ -1130,51 +1130,52 @@ static void rdma_debug_dump(struct mml_comp *comp)
 	mml_err("rdma component %u dump:", comp->id);
 
 	value[0] = readl(base + RDMA_EN);
-	value[1] = readl(base + RDMA_SRC_CON);
-	value[2] = readl(base + RDMA_COMP_CON);
-	value[3] = readl(base + RDMA_MF_BKGD_SIZE_IN_BYTE);
-	value[4] = readl(base + RDMA_MF_BKGD_SIZE_IN_PXL);
-	value[5] = readl(base + RDMA_MF_SRC_SIZE);
-	value[6] = readl(base + RDMA_MF_CLIP_SIZE);
-	value[7] = readl(base + RDMA_MF_OFFSET_1);
-	value[8] = readl(base + RDMA_MF_BKGD_H_SIZE_IN_PXL);
-	value[9] = readl(base + RDMA_SRC_END_0);
-	value[10] = readl(base + RDMA_SRC_END_1);
-	value[11] = readl(base + RDMA_SRC_END_2);
-	value[12] = readl(base + RDMA_SRC_OFFSET_0);
-	value[13] = readl(base + RDMA_SRC_OFFSET_1);
-	value[14] = readl(base + RDMA_SRC_OFFSET_2);
-	value[15] = readl(base + RDMA_SRC_OFFSET_W_0);
-	value[16] = readl(base + RDMA_SRC_OFFSET_W_1);
-	value[17] = readl(base + RDMA_SRC_OFFSET_W_2);
-	value[18] = readl(base + RDMA_SRC_OFFSET_WP);
-	value[19] = readl(base + RDMA_SRC_OFFSET_HP);
-	value[20] = readl(base + RDMA_SRC_BASE_0);
-	value[21] = readl(base + RDMA_SRC_BASE_1);
-	value[22] = readl(base + RDMA_SRC_BASE_2);
+	value[1] = readl(base + RDMA_RESET);
+	value[2] = readl(base + RDMA_SRC_CON);
+	value[3] = readl(base + RDMA_COMP_CON);
+	value[4] = readl(base + RDMA_MF_BKGD_SIZE_IN_BYTE);
+	value[5] = readl(base + RDMA_MF_BKGD_SIZE_IN_PXL);
+	value[6] = readl(base + RDMA_MF_SRC_SIZE);
+	value[7] = readl(base + RDMA_MF_CLIP_SIZE);
+	value[8] = readl(base + RDMA_MF_OFFSET_1);
+	value[9] = readl(base + RDMA_MF_BKGD_H_SIZE_IN_PXL);
+	value[10] = readl(base + RDMA_SRC_END_0);
+	value[11] = readl(base + RDMA_SRC_END_1);
+	value[12] = readl(base + RDMA_SRC_END_2);
+	value[13] = readl(base + RDMA_SRC_OFFSET_0);
+	value[14] = readl(base + RDMA_SRC_OFFSET_1);
+	value[15] = readl(base + RDMA_SRC_OFFSET_2);
+	value[16] = readl(base + RDMA_SRC_OFFSET_W_0);
+	value[17] = readl(base + RDMA_SRC_OFFSET_W_1);
+	value[18] = readl(base + RDMA_SRC_OFFSET_W_2);
+	value[19] = readl(base + RDMA_SRC_OFFSET_WP);
+	value[20] = readl(base + RDMA_SRC_OFFSET_HP);
+	value[21] = readl(base + RDMA_SRC_BASE_0);
+	value[22] = readl(base + RDMA_SRC_BASE_1);
+	value[23] = readl(base + RDMA_SRC_BASE_2);
 
 	/* mon sta from 0 ~ 28 */
 	for (i = 0; i < ARRAY_SIZE(mon); i++)
 		mon[i] = readl(base + RDMA_MON_STA_0 + i * 8);
 
-	mml_err("RDMA_EN %#010x RDMA_SRC_CON %#010x RDMA_COMP_CON %#010x",
-		value[0], value[1], value[2]);
+	mml_err("RDMA_EN %#010x RDMA_RESET %#010x RDMA_SRC_CON %#010x RDMA_COMP_CON %#010x",
+		value[0], value[1], value[2], value[3]);
 	mml_err("RDMA_MF_BKGD_SIZE_IN_BYTE %#010x RDMA_MF_BKGD_SIZE_IN_PXL %#010x",
-		value[3], value[4]);
+		value[4], value[5]);
 	mml_err("RDMA_MF_SRC_SIZE %#010x RDMA_MF_CLIP_SIZE %#010x ",
-		value[5], value[6]);
+		value[6], value[7]);
 	mml_err("RDMA_MF_OFFSET_1 %#010x RDMA_MF_BKGD_H_SIZE_IN_PXL %#010x",
-		value[7], value[8]);
+		value[8], value[9]);
 	mml_err("RDMA_SRC_END_0 %#010x RDMA_SRC_END_1 %#010x RDMA_SRC_END_2 %#010x",
-		value[9], value[10], value[11]);
+		value[10], value[11], value[12]);
 	mml_err("RDMA_SRC_OFFSET_0 %#010x RDMA_SRC_OFFSET_1 %#010x RDMA_SRC_OFFSET_2 %#010x",
-		value[12], value[13], value[14]);
+		value[13], value[14], value[15]);
 	mml_err("RDMA_SRC_OFFSET_W_0 %#010x RDMA_SRC_OFFSET_W_1 %#010x RDMA_SRC_OFFSET_W_2 %#010x",
-		value[15], value[16], value[17]);
+		value[16], value[17], value[18]);
 	mml_err("RDMA_SRC_OFFSET_WP %#010x RDMA_SRC_OFFSET_HP %#010x",
-		value[18], value[19]);
+		value[19], value[20]);
 	mml_err("RDMA_SRC BASE_0 %#010x BASE_1 %#010x BASE_2 %#010x",
-		value[20], value[21], value[22]);
+		value[21], value[22], value[23]);
 
 	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++)
 		mml_err("RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x RDMA_MON_STA_%u %#010x",
