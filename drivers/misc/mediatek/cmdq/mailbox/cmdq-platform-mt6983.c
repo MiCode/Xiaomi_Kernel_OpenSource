@@ -52,8 +52,10 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	case CMDQ_SYNC_TOKEN_STREAM_BLOCK:
 	case CMDQ_SYNC_TOKEN_CABC_EOF:
 		return "DISP";
+	case CMDQ_SYNC_TOKEN_IMGSYS_POOL_1
+		... CMDQ_SYNC_TOKEN_IMGSYS_POOL_66:
 	case CMDQ_SYNC_TOKEN_IMGSYS_WPE_EIS
-		... CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B:
+		... CMDQ_SYNC_TOKEN_IPESYS_ME:
 		return "IMGSYS";
 
 	case CMDQ_EVENT_GPR_TIMER ... CMDQ_EVENT_GPR_TIMER + 32:
