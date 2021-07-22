@@ -4,6 +4,7 @@
  */
 #include <linux/types.h>
 #include <linux/of_device.h>
+#include <linux/dma-mapping.h>
 
 #include <utilities/mdla_debug.h>
 #include <utilities/mdla_util.h>
@@ -104,6 +105,13 @@ int mdla_plat_init(struct platform_device *pdev)
 
 	if (sw_preemption_en && hw_preemption_en)
 		sw_preemption_en = false;
+
+	if (micro_p_en) {
+		of_dma_configure(dev, dev->of_node, true);
+
+		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
+			dev_info(dev, "MDLA: set DMA mask failed\n");
+	}
 
 	mdla_dbg_write_u64(FS_CFG_PMU_PERIOD, drv->pmu_period_us);
 	mdla_dbg_write_u32(FS_KLOG, drv->klog);

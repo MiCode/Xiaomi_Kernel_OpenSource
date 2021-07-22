@@ -116,8 +116,8 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 	{MDLA_IPI_PREEMPT_CNT,    0, 0xC, 0660,  "preempt_times",  &preempt_times_fops, 0},
 	{MDLA_IPI_FORCE_PWR_ON,   0, 0x8, 0660,   "force_pwr_on",   &force_pwr_on_fops, 0},
 	{MDLA_IPI_PROFILE_EN,     0, 0x8, 0660,      "profiling",      &profiling_fops, 0},
-	{MDLA_IPI_DUMP_CMDBUF_EN, 0, 0x8, 0660, "dump_cmdbuf_en", &dump_cmdbuf_en_fops, 0},
-	{MDLA_IPI_INFO,           0, 0x8, 0660,           "info",           &info_fops, 0},
+	{MDLA_IPI_DUMP_CMDBUF_EN, 0, 0xC, 0660, "dump_cmdbuf_en", &dump_cmdbuf_en_fops, 0},
+	{MDLA_IPI_INFO,           0, 0xC, 0660,           "info",           &info_fops, 0},
 	{NF_MDLA_IPI_TYPE_0,      0,   0,    0,             NULL,                 NULL, 0}
 };
 
@@ -146,16 +146,24 @@ static char *mdla_plat_get_ipi_str(int idx)
 
 static void mdla_plat_v2_dbgfs_usage(struct seq_file *s, void *data)
 {
-	seq_puts(s, "\n---- Set uP debug log mask ----\n");
+	seq_puts(s, "\n------------- Set uP debug log mask -------------\n");
 	seq_printf(s, "echo [mask(hex)] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_ULOG));
-	seq_printf(s, "\tMDLA_DBG_DRV         = 0x%x\n", V2_DBG_DRV);
-	seq_printf(s, "\tMDLA_DBG_CMD         = 0x%x\n", V2_DBG_CMD);
-	seq_printf(s, "\tMDLA_DBG_PMU         = 0x%x\n", V2_DBG_PMU);
-	seq_printf(s, "\tMDLA_DBG_PERF        = 0x%x\n", V2_DBG_PERF);
-	seq_printf(s, "\tMDLA_DBG_TIMEOUT     = 0x%x\n", V2_DBG_TIMEOUT);
-	seq_printf(s, "\tMDLA_DBG_DVFS        = 0x%x\n", V2_DBG_DVFS);
-	seq_printf(s, "\tMDLA_DBG_TIMEOUT_ALL = 0x%x\n", V2_DBG_TIMEOUT_ALL);
-	seq_printf(s, "\tMDLA_DBG_ERROR       = 0x%x\n", V2_DBG_ERROR);
+	seq_printf(s, "\tMDLA_DBG_DRV         = 0x%x\n", 1U << V2_DBG_DRV);
+	seq_printf(s, "\tMDLA_DBG_CMD         = 0x%x\n", 1U << V2_DBG_CMD);
+	seq_printf(s, "\tMDLA_DBG_PMU         = 0x%x\n", 1U << V2_DBG_PMU);
+	seq_printf(s, "\tMDLA_DBG_PERF        = 0x%x\n", 1U << V2_DBG_PERF);
+	seq_printf(s, "\tMDLA_DBG_TIMEOUT     = 0x%x\n", 1U << V2_DBG_TIMEOUT);
+	seq_printf(s, "\tMDLA_DBG_PWR         = 0x%x\n", 1U << V2_DBG_PWR);
+	seq_printf(s, "\tMDLA_DBG_IPI         = 0x%x\n", 1U << V2_DBG_IPI);
+
+	seq_puts(s, "\n------------- show information ------------------\n");
+	seq_printf(s, "echo [item] > /d/mdla/%s\n", mdla_plat_get_ipi_str(MDLA_IPI_INFO));
+	seq_printf(s, "\t%d: show register value\n", MDLA_IPI_INFO_REG);
+	seq_printf(s, "\t%d: show the last cmdbuf (if dump_cmdbuf_en != 0)\n",
+				MDLA_IPI_INFO_CMDBUF);
+
+	seq_puts(s, "\n----------- allocate debug memory ---------------\n");
+	seq_printf(s, "echo [size(dec)] > /d/mdla/%s\n", DBGFS_MEM_NAME);
 }
 
 
