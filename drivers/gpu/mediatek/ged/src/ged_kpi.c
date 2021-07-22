@@ -906,6 +906,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					GED_KPI_MAX_FPS,
 					GED_KPI_DEFAULT_FPS_MARGIN, 0, 0,
 					GED_KPI_FRC_DEFAULT_MODE, -1);
+				ged_kpi_set_gift_status(0);
 				INIT_LIST_HEAD(&psHead->sList);
 				spin_lock_irqsave(&gs_hashtableLock,
 					ulIRQFlags);
@@ -1109,8 +1110,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				psKPI->gpu_freq_max =
 					ged_get_freq_by_idx(
 					ged_get_cur_limit_idx_ceil()) / 1000;
-				g_psGIFT->gpu_freq_cur = psKPI->gpu_freq;
-				g_psGIFT->gpu_freq_max = psKPI->gpu_freq_max;
 
 				psHead->pre_TimeStamp2 =
 					psHead->last_TimeStamp2;
@@ -1235,6 +1234,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			= gpu_freq_pre;
 			last_3D_done = cur_3D_done;
 
+			g_psGIFT->gpu_freq_cur = psKPI->gpu_freq * 1000;
+			g_psGIFT->gpu_freq_max = psKPI->gpu_freq_max * 1000;
 			g_psGIFT->gpu_freq_pred = gpu_freq_pre;
 			if (main_head == psHead &&
 				psHead->pid == g_psGIFT->target_pid) {
