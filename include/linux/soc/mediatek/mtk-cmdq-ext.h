@@ -448,6 +448,8 @@ s32 cmdq_pkt_handshake_event(struct cmdq_pkt *pkt, u16 event);
 
 s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt);
 
+s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt);
+
 s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt);
 
 /**

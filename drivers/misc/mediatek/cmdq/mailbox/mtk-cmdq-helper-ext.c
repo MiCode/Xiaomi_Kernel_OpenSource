@@ -696,6 +696,9 @@ static bool cmdq_pkt_is_finalized(struct cmdq_pkt *pkt)
 
 	expect_eoc = cmdq_pkt_get_va_by_offset(pkt,
 		pkt->cmd_buf_size - CMDQ_INST_SIZE * 2);
+	if (((struct cmdq_instruction *)expect_eoc)->op == CMDQ_CODE_JUMP)
+		expect_eoc = cmdq_pkt_get_va_by_offset(pkt,
+			pkt->cmd_buf_size - CMDQ_INST_SIZE * 3);
 	if (expect_eoc && *expect_eoc == CMDQ_EOC_CMD)
 		return true;
 
@@ -1689,6 +1692,14 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_finalize);
+
+s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
+{
+	pkt->cmd_buf_size -= CMDQ_INST_SIZE;
+	pkt->avail_buf_size += CMDQ_INST_SIZE;
+	return cmdq_pkt_jump(pkt, CMDQ_JUMP_PASS);
+}
+EXPORT_SYMBOL(cmdq_pkt_refinalize);
 
 s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 {

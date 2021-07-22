@@ -286,6 +286,9 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 	cmdq_pkt_reuse_buf_va(task->pkts[pipe], task->reuse[pipe].labels,
 		task->reuse[pipe].label_idx);
 
+	/* make sure this pkt not jump to others */
+	cmdq_pkt_refinalize(task->pkts[pipe]);
+
 	return 0;
 }
 
