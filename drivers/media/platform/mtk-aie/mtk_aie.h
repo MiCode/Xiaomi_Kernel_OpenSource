@@ -388,7 +388,6 @@
 #define DMA_DEBUG_SEL_HW                   (FDVT_BASE_HW + 0x3f4)
 #define DMA_BW_SELF_TEST_HW                (FDVT_BASE_HW + 0x3f8)
 
-
 /* AIE 3.0 FLD register offset */
 #define FLD_EN                       0x400
 #define FLD_BASE_ADDR_FACE_0         0x404
@@ -656,6 +655,40 @@
 #define FLD_PP_OUT_STRIDE_0          0x7F4
 #define FLD_SPARE                    0x7F8
 
+#define FLD_BASE_ADDR_FACE_0_7_MSB 0x7FC
+#define FLD_BASE_ADDR_FACE_8_14_MSB 0x800
+
+#define FLD_PL_IN_BASE_ADDR_0_0_7_MSB 0x804
+#define FLD_PL_IN_BASE_ADDR_0_8_15_MSB 0x808
+#define FLD_PL_IN_BASE_ADDR_0_16_23_MSB 0x80C
+#define FLD_PL_IN_BASE_ADDR_0_24_29_MSB 0x810
+
+#define FLD_PL_IN_BASE_ADDR_1_0_7_MSB 0x814
+#define FLD_PL_IN_BASE_ADDR_1_8_15_MSB 0x818
+#define FLD_PL_IN_BASE_ADDR_1_16_23_MSB 0x81C
+#define FLD_PL_IN_BASE_ADDR_1_24_29_MSB 0x820
+
+#define FLD_PL_IN_BASE_ADDR_2_0_7_MSB 0x824
+#define FLD_PL_IN_BASE_ADDR_2_8_15_MSB 0x828
+#define FLD_PL_IN_BASE_ADDR_2_16_23_MSB 0x82C
+#define FLD_PL_IN_BASE_ADDR_2_24_29_MSB 0x830
+
+#define FLD_PL_IN_BASE_ADDR_3_0_7_MSB 0x834
+#define FLD_PL_IN_BASE_ADDR_3_8_15_MSB 0x838
+#define FLD_PL_IN_BASE_ADDR_3_16_23_MSB 0x83C
+#define FLD_PL_IN_BASE_ADDR_3_24_29_MSB 0x840
+
+#define FLD_SH_IN_BASE_ADDR_0_7_MSB 0x844
+#define FLD_SH_IN_BASE_ADDR_8_15_MSB 0x848
+#define FLD_SH_IN_BASE_ADDR_16_23_MSB 0x84C
+#define FLD_SH_IN_BASE_ADDR_24_29_MSB 0x850
+
+#define FLD_BS_IN_BASE_ADDR_0_7_MSB 0x8d4
+#define FLD_BS_IN_BASE_ADDR_8_15_MSB 0x8d8
+
+#define FLD_TR_OUT_BASE_ADDR_0_MSB 0x854
+#define FLD_PP_OUT_BASE_ADDR_0_MSB 0x858
+
 #define FLD_BS_IN_BASE_ADDR_00       0x85C
 #define FLD_BS_IN_BASE_ADDR_01       0x860
 #define FLD_BS_IN_BASE_ADDR_02       0x864
@@ -699,6 +732,71 @@
 #define MINDIAN_RST_NUM 2
 
 #define POSE_LOOP_NUM 3
+#define FLD_MAX_OUT 1680
+
+static const unsigned int fld_face_info_0[FLD_MAX_INPUT] = {
+	FLD_INFO_0_FACE_0, FLD_INFO_0_FACE_1, FLD_INFO_0_FACE_2,
+	FLD_INFO_0_FACE_3, FLD_INFO_0_FACE_4, FLD_INFO_0_FACE_5,
+	FLD_INFO_0_FACE_6, FLD_INFO_0_FACE_7, FLD_INFO_0_FACE_8,
+	FLD_INFO_0_FACE_9, FLD_INFO_0_FACE_10, FLD_INFO_0_FACE_11,
+	FLD_INFO_0_FACE_12, FLD_INFO_0_FACE_13, FLD_INFO_0_FACE_14
+};
+
+static const unsigned int fld_face_info_1[FLD_MAX_INPUT] = {
+	FLD_INFO_1_FACE_0, FLD_INFO_1_FACE_1, FLD_INFO_1_FACE_2,
+	FLD_INFO_1_FACE_3, FLD_INFO_1_FACE_4, FLD_INFO_1_FACE_5,
+	FLD_INFO_1_FACE_6, FLD_INFO_1_FACE_7, FLD_INFO_1_FACE_8,
+	FLD_INFO_1_FACE_9, FLD_INFO_1_FACE_10, FLD_INFO_1_FACE_11,
+	FLD_INFO_1_FACE_12, FLD_INFO_1_FACE_13, FLD_INFO_1_FACE_14
+};
+
+static const unsigned int fld_face_info_2[FLD_MAX_INPUT] = {
+	FLD_INFO_2_FACE_0, FLD_INFO_2_FACE_1, FLD_INFO_2_FACE_2,
+	FLD_INFO_2_FACE_3, FLD_INFO_2_FACE_4, FLD_INFO_2_FACE_5,
+	FLD_INFO_2_FACE_6, FLD_INFO_2_FACE_7, FLD_INFO_2_FACE_8,
+	FLD_INFO_2_FACE_9, FLD_INFO_2_FACE_10, FLD_INFO_2_FACE_11,
+	FLD_INFO_2_FACE_12, FLD_INFO_2_FACE_13, FLD_INFO_2_FACE_14
+};
+
+static const unsigned int fld_pl_in_addr_0[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_0_0, FLD_PL_IN_BASE_ADDR_0_1, FLD_PL_IN_BASE_ADDR_0_2,
+	FLD_PL_IN_BASE_ADDR_0_3, FLD_PL_IN_BASE_ADDR_0_4, FLD_PL_IN_BASE_ADDR_0_5,
+	FLD_PL_IN_BASE_ADDR_0_6, FLD_PL_IN_BASE_ADDR_0_7, FLD_PL_IN_BASE_ADDR_0_8,
+	FLD_PL_IN_BASE_ADDR_0_9, FLD_PL_IN_BASE_ADDR_0_10, FLD_PL_IN_BASE_ADDR_0_11,
+	FLD_PL_IN_BASE_ADDR_0_12, FLD_PL_IN_BASE_ADDR_0_13, FLD_PL_IN_BASE_ADDR_0_14
+};
+
+static const unsigned int fld_pl_in_addr_1[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_1_0, FLD_PL_IN_BASE_ADDR_1_1, FLD_PL_IN_BASE_ADDR_1_2,
+	FLD_PL_IN_BASE_ADDR_1_3, FLD_PL_IN_BASE_ADDR_1_4, FLD_PL_IN_BASE_ADDR_1_5,
+	FLD_PL_IN_BASE_ADDR_1_6, FLD_PL_IN_BASE_ADDR_1_7, FLD_PL_IN_BASE_ADDR_1_8,
+	FLD_PL_IN_BASE_ADDR_1_9, FLD_PL_IN_BASE_ADDR_1_10, FLD_PL_IN_BASE_ADDR_1_11,
+	FLD_PL_IN_BASE_ADDR_1_12, FLD_PL_IN_BASE_ADDR_1_13, FLD_PL_IN_BASE_ADDR_1_14
+};
+
+static const unsigned int fld_pl_in_addr_2[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_2_0, FLD_PL_IN_BASE_ADDR_2_1, FLD_PL_IN_BASE_ADDR_2_2,
+	FLD_PL_IN_BASE_ADDR_2_3, FLD_PL_IN_BASE_ADDR_2_4, FLD_PL_IN_BASE_ADDR_2_5,
+	FLD_PL_IN_BASE_ADDR_2_6, FLD_PL_IN_BASE_ADDR_2_7, FLD_PL_IN_BASE_ADDR_2_8,
+	FLD_PL_IN_BASE_ADDR_2_9, FLD_PL_IN_BASE_ADDR_2_10, FLD_PL_IN_BASE_ADDR_2_11,
+	FLD_PL_IN_BASE_ADDR_2_12, FLD_PL_IN_BASE_ADDR_2_13, FLD_PL_IN_BASE_ADDR_2_14
+};
+
+static const unsigned int fld_pl_in_addr_3[FLD_MAX_INPUT] = {
+	FLD_PL_IN_BASE_ADDR_3_0, FLD_PL_IN_BASE_ADDR_3_1, FLD_PL_IN_BASE_ADDR_3_2,
+	FLD_PL_IN_BASE_ADDR_3_3, FLD_PL_IN_BASE_ADDR_3_4, FLD_PL_IN_BASE_ADDR_3_5,
+	FLD_PL_IN_BASE_ADDR_3_6, FLD_PL_IN_BASE_ADDR_3_7, FLD_PL_IN_BASE_ADDR_3_8,
+	FLD_PL_IN_BASE_ADDR_3_9, FLD_PL_IN_BASE_ADDR_3_10, FLD_PL_IN_BASE_ADDR_3_11,
+	FLD_PL_IN_BASE_ADDR_3_12, FLD_PL_IN_BASE_ADDR_3_13, FLD_PL_IN_BASE_ADDR_3_14
+};
+
+static const unsigned int fld_sh_in_addr[FLD_MAX_INPUT] = {
+	FLD_SH_IN_BASE_ADDR_0, FLD_SH_IN_BASE_ADDR_1, FLD_SH_IN_BASE_ADDR_2,
+	FLD_SH_IN_BASE_ADDR_3, FLD_SH_IN_BASE_ADDR_4, FLD_SH_IN_BASE_ADDR_5,
+	FLD_SH_IN_BASE_ADDR_6, FLD_SH_IN_BASE_ADDR_7, FLD_SH_IN_BASE_ADDR_8,
+	FLD_SH_IN_BASE_ADDR_9, FLD_SH_IN_BASE_ADDR_10, FLD_SH_IN_BASE_ADDR_11,
+	FLD_SH_IN_BASE_ADDR_12, FLD_SH_IN_BASE_ADDR_13, FLD_SH_IN_BASE_ADDR_14
+};
 
 struct aie_static_info {
 	unsigned int fd_wdma_size[fd_loop_num][output_WDMA_WRA_num];
@@ -831,9 +929,9 @@ struct aie_enq_info {
 	u32 pose_version;
 	struct fd_result fd_out;
 	struct attr_result attr_out;
-	u16 fld_face_num;
+	u32 fld_face_num;
 	struct FLD_CROP_RIP_ROP fld_input[FLD_MAX_INPUT];
-	u64 fld_raw_out; //fld output buf
+	unsigned char fld_raw_out[FLD_MAX_OUT]; //fld output buf
 	struct FLD_RESULT fld_output[FLD_MAX_INPUT]; //fld output parsing data
 };
 
@@ -995,7 +1093,7 @@ struct user_param {
 	unsigned int src_padding_down;
 	unsigned int src_padding_up;
 	unsigned int freq_level;
-	unsigned short fld_face_num;
+	unsigned int fld_face_num;
 	struct FLD_CROP_RIP_ROP fld_input[15];
 } __packed;
 
@@ -1045,6 +1143,9 @@ struct mtk_aie_req_work {
 
 struct mtk_aie_dev {
 	struct device *dev;
+	struct cmdq_client *fdvt_clt;
+	struct cmdq_client *fdvt_secure_clt;
+	s32 fdvt_event_id;
 	struct mtk_aie_ctx *ctx;
 	struct v4l2_device v4l2_dev;
 	struct v4l2_m2m_dev *m2m_dev;
@@ -1151,6 +1252,7 @@ int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_execute_pose(struct mtk_aie_dev *fd);
 void aie_irqhandle(struct mtk_aie_dev *fd);
+void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
