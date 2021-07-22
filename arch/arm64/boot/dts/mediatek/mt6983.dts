@@ -1112,6 +1112,24 @@
 		#clock-cells = <1>;
 	};
 
+	pda: pda@1a100000 {
+		compatible = "mediatek,camera-pda";
+		reg = <0 0x1a100000 0 0x1000>,
+		      <0 0x1a103000 0 0x1000>;
+		interrupts = <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks =        <&camsys_mraw_clk CLK_CAMSYS_MRAW_PDA0_CGPDN>,
+				<&camsys_mraw_clk CLK_CAMSYS_MRAW_PDA1_CGPDN>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA0_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA1_CG_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA2_CG_CON>;
+		clock-names =   "PDA_TOP_MUX",
+				"PDA2_TOP_MUX",
+				"PDA0_TOP_MUX_MAIN",
+				"PDA1_TOP_MUX_MAIN",
+				"PDA2_TOP_MUX_MAIN";
+	};
+
 	camsys_mraw_clk: syscon@1a170000 {
 		compatible = "mediatek,mt6983-camsys_mraw", "syscon";
 		reg = <0 0x1a170000 0 0x1000>;
