@@ -5408,7 +5408,6 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A>;
 		pqdip_b_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B>;
-#if 0
 		sw_sync_token_pool_1 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_1>;
 		sw_sync_token_pool_2 =
@@ -5489,6 +5488,59 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_39>;
 		sw_sync_token_pool_40 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_40>;
+		sw_sync_token_pool_41 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_41>;
+		sw_sync_token_pool_42 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_42>;
+		sw_sync_token_pool_43 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_43>;
+		sw_sync_token_pool_44 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_44>;
+		sw_sync_token_pool_45 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_45>;
+		sw_sync_token_pool_46 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_46>;
+		sw_sync_token_pool_47 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_47>;
+		sw_sync_token_pool_48 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_48>;
+		sw_sync_token_pool_49 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_49>;
+		sw_sync_token_pool_50 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_50>;
+		sw_sync_token_pool_51 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_51>;
+		sw_sync_token_pool_52 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_52>;
+		sw_sync_token_pool_53 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_53>;
+		sw_sync_token_pool_54 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_54>;
+		sw_sync_token_pool_55 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_55>;
+		sw_sync_token_pool_56 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_56>;
+		sw_sync_token_pool_57 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_57>;
+		sw_sync_token_pool_58 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_58>;
+		sw_sync_token_pool_59 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_59>;
+		sw_sync_token_pool_60 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_60>;
+		sw_sync_token_pool_61 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_61>;
+		sw_sync_token_pool_62 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_62>;
+		sw_sync_token_pool_63 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_63>;
+		sw_sync_token_pool_64 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_64>;
+		sw_sync_token_pool_65 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_65>;
+		sw_sync_token_pool_66 =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_66>;
+#if 0
 		sw_sync_token_camsys_pool_1 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_1>;
 		sw_sync_token_camsys_pool_2 =
