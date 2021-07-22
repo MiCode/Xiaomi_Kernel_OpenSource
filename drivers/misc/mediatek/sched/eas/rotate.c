@@ -18,7 +18,7 @@
 #include <trace/hooks/sched.h>
 #include <sched/sched.h>
 #include "sched_sys_common.h"
-#include <sched_trace.h>
+#include "eas_trace.h"
 
 DEFINE_PER_CPU(struct task_rotate_work, task_rotate_works);
 bool big_task_rotation_enable = true;
@@ -209,7 +209,7 @@ void task_check_for_rotation(struct rq *src_rq)
 		if (is_reserved(i))
 			continue;
 
-		if (!rq->misfit_task_load || 
+		if (!rq->misfit_task_load ||
 			(rq->curr->policy != SCHED_NORMAL))
 			continue;
 

@@ -10,22 +10,22 @@
  * Copyright (c) 2019 MediaTek Inc.
  *
  */
-
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <sched/sched.h>
 #include "cpufreq.h"
-
+#include "common.h"
 #include <linux/tick.h>
 #include <linux/sched/cpufreq.h>
 #include <trace/events/power.h>
 #include <trace/hooks/sched.h>
+#include <trace/hooks/topology.h>
 #include <linux/sched/cpufreq.h>
 #include <linux/kthread.h>
 #include <thermal_interface.h>
 
 #define CREATE_TRACE_POINTS
-#include "sched_trace.h"
+#include "sugov_trace.h"
 
 #define IOWAIT_BOOST_MIN	(SCHED_CAPACITY_SCALE / 8)
 
@@ -130,11 +130,11 @@ static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
 
 	if (next_freq > sg_policy->next_freq &&
 	    delta_ns < sg_policy->up_rate_delay_ns)
-			return true;
+		return true;
 
 	if (next_freq < sg_policy->next_freq &&
 	    delta_ns < sg_policy->down_rate_delay_ns)
-			return true;
+		return true;
 
 	return false;
 }
@@ -351,7 +351,7 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 	if (idle_cpu(sg_cpu->cpu))
 		return 0;
 
-	return mtk_cpu_util(sg_cpu->cpu, util, max,FREQUENCY_UTIL, NULL);
+	return mtk_cpu_util(sg_cpu->cpu, util, max, FREQUENCY_UTIL, NULL);
 }
 
 /**
@@ -510,7 +510,7 @@ void mtk_set_cpu_min_opp(int cpu, unsigned long min_util)
 
 	gear_id = topology_physical_package_id(cpu);
 
-	if (min_util == 0){
+	if (min_util == 0) {
 		set_cpu_min_opp(gear_id, -1);
 		return;
 	}
@@ -532,7 +532,7 @@ void mtk_set_cpu_min_opp(int cpu, unsigned long min_util)
 	}
 
 	i = min(i, pd->nr_perf_states - 1);
-	min_opp = pd->nr_perf_states - i -1;
+	min_opp = pd->nr_perf_states - i - 1;
 	set_cpu_min_opp(gear_id, min_opp);
 }
 
@@ -568,12 +568,10 @@ void mtk_set_cpu_min_opp_shared(struct sugov_cpu *sg_cpu)
 
 void mtk_set_cpu_min_opp_single(struct sugov_cpu *sg_cpu)
 {
-	return;
 }
 
 void mtk_set_cpu_min_opp_shared(struct sugov_cpu *sg_cpu)
 {
-	return;
 }
 
 #endif
@@ -1107,11 +1105,29 @@ struct cpufreq_governor mtk_gov = {
 
 static int __init cpufreq_mtk_init(void)
 {
+	int ret = 0;
+	struct proc_dir_entry *dir;
+
+	dir = proc_mkdir("mtk_scheduler", NULL);
+	if (!dir)
+		return -ENOMEM;
+
+	ret = init_opp_cap_info(dir);
+	if (ret)
+		return ret;
+#if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
+	ret = register_trace_android_vh_arch_set_freq_scale(
+			mtk_arch_set_freq_scale, NULL);
+	if (ret)
+		pr_info("register android_vh_arch_set_freq_scale failed\n");
+#endif
+
 	return cpufreq_register_governor(&mtk_gov);
 }
 
 static void __exit cpufreq_mtk_exit(void)
 {
+	clear_opp_cap_info();
 	cpufreq_unregister_governor(&mtk_gov);
 }
 

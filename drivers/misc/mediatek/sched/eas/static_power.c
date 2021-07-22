@@ -26,17 +26,18 @@
 #define __LKG_PROCFS__ 0
 #define __LKG_DEBUG__ 0
 
-struct leakage_data{
+struct leakage_data {
 	void __iomem *base;
-	struct cpufreq_policy* policy[8];
+	struct cpufreq_policy *policy[8];
 	int clusters;
 	int init;
 };
 
 struct leakage_data info;
 
-unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature){
-	struct cpufreq_policy* tP = cpufreq_cpu_get(cpu);
+unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature)
+{
+	struct cpufreq_policy *tP = cpufreq_cpu_get(cpu);
 	int i;
 	int power, a, b, c;
 
@@ -50,8 +51,8 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 		return 0;
 	}
 
-	for(i = 0; i < info.clusters; i++){
-		if(tP == info.policy[i])
+	for (i = 0; i < info.clusters; i++) {
+		if (tP == info.policy[i])
 			break;
 	}
 
@@ -105,12 +106,13 @@ static int leakage_trial_proc_show(struct seq_file *m, void *v)
 {
 	int power, a, b, c;
 	u32 *repo = m->private;
+
 	a = repo[144+cpu*72+opp*2];
 	b = ((a >> 16) & 0xFFFF);
 	a = a & 0xFFFF;
 	c = repo[144+cpu*72+opp*2+1];
 	power = (temp*temp*a - b*temp+c)/10;
-	seq_printf(m, "power: %d, a, b, c = (%d %d %d)\n", power,a,b,c);
+	seq_printf(m, "power: %d, a, b, c = (%d %d %d)\n", power, a, b, c);
 
 	return 0;
 }
@@ -125,8 +127,8 @@ static ssize_t leakage_trial_proc_write(struct file *file,
 			return -EINVAL;
 		}
 
-		if (sscanf(buf, "%d %d %d",&cpu, &opp, &temp) != 3) {
-		free_page((unsigned long)buf);
+		if (sscanf(buf, "%d %d %d", &cpu, &opp, &temp) != 3) {
+			free_page((unsigned long)buf);
 		return -EINVAL;
 	}
 	return count;
@@ -166,7 +168,7 @@ static int create_spower_debug_fs(void)
 static int mtk_static_power_probe(struct platform_device *pdev)
 {
 	int cpu;
-	struct cpufreq_policy* tP;
+	struct cpufreq_policy *tP;
 #if __LKG_DEBUG__
 	unsigned int i, power;
 #endif
@@ -179,17 +181,16 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 	info.policy[0] = cpufreq_cpu_get(0);
 	for_each_possible_cpu(cpu) {
 		tP = cpufreq_cpu_get(cpu);
-		if (tP != info.policy[info.clusters]) {
+		if (tP != info.policy[info.clusters])
 			info.policy[++info.clusters] = tP;
-		}
 	}
 	info.clusters++;
 
 	create_spower_debug_fs();
 #if __LKG_DEBUG__
 	for_each_possible_cpu(cpu) {
-		for(i=0; i < 16; i++){
-			power = mtk_get_leakage(cpu ,i , 40);
+		for (i = 0; i < 16; i++) {
+			power = mtk_get_leakage(cpu, i, 40);
 			pr_info("[leakage] power = %d\n", power);
 		}
 	}

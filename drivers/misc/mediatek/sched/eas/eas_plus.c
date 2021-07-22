@@ -3,8 +3,9 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 #include <linux/module.h>
+#include "common.h"
 #include "eas_plus.h"
-#include <sched_trace.h>
+#include "eas_trace.h"
 #include <linux/sort.h>
 #include <thermal_interface.h>
 
@@ -17,9 +18,9 @@ MODULE_LICENSE("GPL");
 static struct perf_domain *find_pd(struct perf_domain *pd, int cpu)
 {
 	while (pd) {
-		if (cpumask_test_cpu(cpu, perf_domain_span(pd))){
+		if (cpumask_test_cpu(cpu, perf_domain_span(pd)))
 			return pd;
-		}
+
 		pd = pd->next;
 	}
 
@@ -63,35 +64,35 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 	int src_cpu = -1;
 
 	if (busiest) {
-			struct perf_domain *pd = NULL;
-			int dst_cpu = dst_rq->cpu;
-			int fbg_reason = 0;
+		struct perf_domain *pd = NULL;
+		int dst_cpu = dst_rq->cpu;
+		int fbg_reason = 0;
 
-			pd = rcu_dereference(dst_rq->rd->pd);
-			pd = find_pd(pd, dst_cpu);
-			if (!pd)
-				return;
+		pd = rcu_dereference(dst_rq->rd->pd);
+		pd = find_pd(pd, dst_cpu);
+		if (!pd)
+			return;
 
-			src_cpu = group_first_cpu(busiest);
+		src_cpu = group_first_cpu(busiest);
 
-			/*
-			 *  1.same cluster
-			 *  2.not same cluster but dst_cpu has a higher capacity and
-			 *    busiest group has misfit task. The purpose of this condition
-			 *    is trying to let misfit task goto hiehger cpu.
-			 */
-			if (cpumask_test_cpu(src_cpu, perf_domain_span(pd))) {
-				*out_balance = 0;
-				fbg_reason |= IB_SAME_CLUSTER;
-			} else if (check_faster_idle_balance(busiest, dst_rq)) {
-				*out_balance = 0;
-				fbg_reason |= IB_ASYM_MISFIT;
-			} else if (check_has_overutilize_cpu(sched_group_span(busiest))) {
-				*out_balance = 0;
-				fbg_reason |= IB_OVERUTILIZATION;
-			}
+		/*
+		 *  1.same cluster
+		 *  2.not same cluster but dst_cpu has a higher capacity and
+		 *    busiest group has misfit task. The purpose of this condition
+		 *    is trying to let misfit task goto hiehger cpu.
+		 */
+		if (cpumask_test_cpu(src_cpu, perf_domain_span(pd))) {
+			*out_balance = 0;
+			fbg_reason |= IB_SAME_CLUSTER;
+		} else if (check_faster_idle_balance(busiest, dst_rq)) {
+			*out_balance = 0;
+			fbg_reason |= IB_ASYM_MISFIT;
+		} else if (check_has_overutilize_cpu(sched_group_span(busiest))) {
+			*out_balance = 0;
+			fbg_reason |= IB_OVERUTILIZATION;
+		}
 
-			trace_sched_find_busiest_group(src_cpu, dst_cpu, *out_balance, fbg_reason);
+		trace_sched_find_busiest_group(src_cpu, dst_cpu, *out_balance, fbg_reason);
 	}
 }
 
@@ -131,7 +132,7 @@ void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
 
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 
-struct thermal_struct{
+struct thermal_struct {
 	int cpu_id;
 	int headroom;
 };
@@ -139,15 +140,15 @@ struct thermal_struct{
 static int cmp(const void *a, const void *b)
 {
 
-	const struct thermal_struct *a1=a;
-	const struct thermal_struct *b1=b;
+	const struct thermal_struct *a1 = a;
+	const struct thermal_struct *b1 = b;
 
 	return b1->headroom - a1->headroom;
 }
 
 int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 {
-	int i, cpu, cnt=0;
+	int i, cpu, cnt = 0;
 	struct thermal_struct thermal_order[NR_CPUS];
 
 	for_each_cpu_and(cpu, cpus, cpu_online_mask) {
@@ -158,9 +159,8 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 
 	sort(thermal_order, cnt, sizeof(struct thermal_struct), cmp, NULL);
 
-	for(i = 0; i < cnt; i++) {
+	for (i = 0; i < cnt; i++)
 		*cpu_order++ = thermal_order[i].cpu_id;
-	}
 
 	return cnt;
 
@@ -222,7 +222,7 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 
 #if IS_ENABLED(CONFIG_MTK_LEAKAGE_AWARE_TEMP)
 	i = min(i, pd->nr_perf_states - 1);
-	opp = pd->nr_perf_states - i -1;
+	opp = pd->nr_perf_states - i - 1;
 
 	for_each_cpu_and(cpu, to_cpumask(pd->cpus), cpu_online_mask) {
 		unsigned int temp;
@@ -281,7 +281,7 @@ void mtk_em_cpu_energy(void *data, struct em_perf_domain *pd,
 	 *                  scale_cpu
 	 */
 
-	dyn_pwr = (ps->cost * sum_util/ scale_cpu);
+	dyn_pwr = (ps->cost * sum_util / scale_cpu);
 	*energy = dyn_pwr + static_pwr;
 
 	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);

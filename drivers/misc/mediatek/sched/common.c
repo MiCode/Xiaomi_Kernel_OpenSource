@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 #include <linux/module.h>
-#include <trace/hooks/sched.h>
 #include <sched/sched.h>
 
 MODULE_LICENSE("GPL");

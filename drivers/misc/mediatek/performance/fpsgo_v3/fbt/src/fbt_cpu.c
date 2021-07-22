@@ -33,7 +33,7 @@
 #include <linux/sched/task.h>
 #include <sched/sched.h>
 #include <linux/cpufreq.h>
-#include "sched_main.h"
+#include "sugov/cpufreq.h"
 
 #include <mt-plat/fpsgo_common.h>
 

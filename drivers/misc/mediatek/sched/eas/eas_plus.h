@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- *  * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _EAS_PLUS_H
 #define _EAS_PLUS_H
 
 #include <sched/sched.h>
-#include "cpufreq.h"
 
 #define MIGR_IDLE_BALANCE 1
 
@@ -22,6 +21,7 @@ unsigned long capacity_of(int cpu);
 #endif
 
 extern unsigned long cpu_util(int cpu);
+extern int mtk_static_power_init(void);
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
 extern void mtk_find_busiest_group(void *data, struct sched_group *busiest,

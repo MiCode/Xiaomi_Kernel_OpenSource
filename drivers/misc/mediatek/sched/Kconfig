@@ -8,7 +8,7 @@ config MTK_SCHEDULER
 
 config MTK_OPP_CAP_INFO
 	bool "Per-opp capacity information"
-	depends on MTK_SCHEDULER
+	depends on MTK_CPUFREQ_SUGOV_EXT
 	help
 	  Choose this option to provide per-opp capacity API.
 	  Scheduler module will get per-opp capacity from sram and

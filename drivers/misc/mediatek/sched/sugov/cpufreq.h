@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- *  * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
-
-#ifndef SCHED_MAIN_H
-#define SCHED_MAIN_H
-
-#include "sched_sys_common.h"
+#ifndef __CPUFREQ_H__
+#define __CPUFREQ_H__
+ #include <linux/proc_fs.h>
 
 #define MAX_PD_COUNT 3
 #define MAX_CAP_ENTRYIES 168
@@ -23,11 +21,16 @@ struct pd_capacity_info {
 	struct cpumask cpus;
 };
 
-extern int mtk_static_power_init(void);
-
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
+int init_opp_cap_info(struct proc_dir_entry *dir);
+void clear_opp_cap_info(void);
+#if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
+void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
+				unsigned long freq, unsigned long max, unsigned long *scale);
+#endif
+
 extern int pd_freq_to_opp(int cpu, unsigned long freq);
 extern unsigned long pd_get_opp_capacity(int cpu, int opp);
 #endif
 
-#endif
+#endif /* __CPUFREQ_H__ */

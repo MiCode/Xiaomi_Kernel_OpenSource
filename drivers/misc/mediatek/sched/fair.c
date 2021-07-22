@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
-
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <trace/hooks/sched.h>
-#include "eas_plus.h"
+#include "eas/eas_plus.h"
 #include <sched/pelt.h>
-#include "sched_trace.h"
 #include <linux/stop_machine.h>
 #include <linux/kthread.h>
+
+#define CREATE_TRACE_POINTS
+#include "sched_trace.h"
 
 MODULE_LICENSE("GPL");
 
