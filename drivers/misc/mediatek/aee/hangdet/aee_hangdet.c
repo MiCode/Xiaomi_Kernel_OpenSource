@@ -145,7 +145,6 @@ void wk_cpu_update_bit_flag(int cpu, int plug_status)
 	if (plug_status == 1) {	/* plug on */
 		spin_lock(&lock);
 		cpus_kick_bit |= (1 << cpu);
-		kick_bit = 0;
 		lasthpg_cpu = cpu;
 		lasthpg_act = plug_status;
 		lasthpg_t = sched_clock();
@@ -154,7 +153,6 @@ void wk_cpu_update_bit_flag(int cpu, int plug_status)
 	if (plug_status == 0) {	/* plug off */
 		spin_lock(&lock);
 		cpus_kick_bit &= (~(1 << cpu));
-		kick_bit = 0;
 		lasthpg_cpu = cpu;
 		lasthpg_act = plug_status;
 		lasthpg_t = sched_clock();
@@ -215,7 +213,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	 lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
 	 curInterval);
 
-	if (local_bit == get_check_bit()) {
+	if ((local_bit & get_check_bit()) == get_check_bit()) {
 		msg_buf[5] = 'k';
 		local_bit = 0;
 		kwdt_time_sync();
