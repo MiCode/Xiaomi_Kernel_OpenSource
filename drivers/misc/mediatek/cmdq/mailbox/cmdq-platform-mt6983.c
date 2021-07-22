@@ -63,7 +63,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	if (gce_pa == GCE_D_PA) // GCE-D
 		switch (event) {
 		case CMDQ_EVENT_MDPSYS1_MDP_RDMA0_SOF
-			... CMDQ_EVENT_MDPSYS0_BUF_UNDERRUN_ENG_EVENT_5:
+			... CMDQ_EVENT_MDPSYS0_BUF_UNDERRUN_ENG_EVENT_3:
 			return "MDP";
 		case CMDQ_EVENT_MMSYS_DISP_OVL0_SOF
 			... CMDQ_EVENT_MMSYS1_STREAM_DONE_ENG_EVENT_15:
