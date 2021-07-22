@@ -878,6 +878,8 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	spin_lock_irqsave(&devapc_lock, flags);
 
+	pr_info(PFX "irq_number: %d\n", irq_number);
+
 	print_vio_mask_sta(false);
 
 	device_info = mtk_devapc_ctx->soc->device_info;
@@ -1395,7 +1397,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 				mtk_devapc_ctx->devapc_ao_base[irq_type]);
 
 	for (irq_type = 0; irq_type < irq_type_num; irq_type++)
-		pr_debug(PFX " IRQ[%d]:%d\n", irq_type,
+		pr_info(PFX " IRQ[%d]:%d\n", irq_type,
 			mtk_devapc_ctx->devapc_irq[irq_type]);
 
 	/* CCF (Common Clock Framework) */
