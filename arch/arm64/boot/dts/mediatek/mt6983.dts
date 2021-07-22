@@ -5959,7 +5959,9 @@
 		      <0 0x15520000 0 0x00100>,	/* 14 IMGSYS_WPE2_DIP1 */
 		      <0 0x15620000 0 0x00100>;	/* 15 IMGSYS_WPE3_DIP1 */
 		mediatek,hcp = <&hcp>;
-		/* mediatek,larb = <&larb9 &larb10 &larb11>; */
+		mediatek,larbs = <&smi_larb9>,
+				 <&smi_larb10>,
+				 <&smi_larb11>;
 		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGBI_T1_A>,
 			 <&disp_iommu M4U_PORT_L9_IMG1_IMGCI_T1_A>,
