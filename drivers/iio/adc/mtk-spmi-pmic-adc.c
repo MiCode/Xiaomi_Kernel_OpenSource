@@ -450,7 +450,7 @@ static int auxadc_get_rac(struct pmic_adc_device *adc_dev)
 {
 	int vbat_1 = 0, vbat_2 = 0;
 	int ibat_1 = 0, ibat_2 = 0;
-	int rac;
+	int rac = 0;
 	int ret, retry_count = 0;
 
 	if (!adc_dev->isink_load)
