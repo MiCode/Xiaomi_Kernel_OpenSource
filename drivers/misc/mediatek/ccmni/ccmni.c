@@ -903,6 +903,17 @@ static int ccmni_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			ctlb->ccmni_inst[i]->ack_prio_en);
 		break;
 
+	case SIOPUSHPENDING:
+		ctlb = ccmni_ctl_blk[ccmni->md_id];
+		CCMNI_INF_MSG(ccmni->md_id, "%s SIOPUSHPENDING called\n", ccmni->dev->name);
+		cancel_delayed_work(&ccmni->pkt_queue_work);
+		flush_delayed_work(&ccmni->pkt_queue_work);
+		if (ctlb->ccci_ops->ccci_handle_port_list(DEV_OPEN, ccmni->dev->name))
+			CCMNI_INF_MSG(ccmni->md_id,
+				"%s is failed to handle port list\n",
+				ccmni->dev->name);
+		break;
+
 	default:
 		CCMNI_DBG_MSG(ccmni->md_id,
 			"%s: unknown ioctl cmd=%x\n", dev->name, cmd);
