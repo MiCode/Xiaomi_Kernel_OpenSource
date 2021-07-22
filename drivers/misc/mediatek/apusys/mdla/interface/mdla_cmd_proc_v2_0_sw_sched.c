@@ -77,7 +77,7 @@ static void mdla_cmd_prepare_v2_0_sw_sched(struct mdla_run_cmd *cd,
 
 	mdla_cmd_debug(
 		"%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x cnt=%u sz=0x%x\n",
-		__func__, (u64)ce->kva, ce->cmdbuf->kva, cd->offset, ce->mva,
+		__func__, (u64)ce->kva, (u64)ce->cmdbuf->kva, cd->offset, ce->mva,
 		ce->count, ce->cmdbuf->size);
 	mdla_verbose("%s: ctx_id=%d apu_hd_core_num=%d prio=%d batch_sz=%d)\n",
 		     __func__, ce->ctx_id, apusys_hd->multicore_total,

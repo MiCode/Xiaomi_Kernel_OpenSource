@@ -45,7 +45,7 @@ static void mdla_cmd_prepare_v1_0(struct mdla_run_cmd *cd,
 
 	mdla_cmd_debug(
 		"%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x cnt=%u sz=0x%x\n",
-		__func__, (u64)ce->kva, ce->cmdbuf->kva, cd->offset, ce->mva,
+		__func__, (u64)ce->kva, (u64)ce->cmdbuf->kva, cd->offset, ce->mva,
 		ce->count, ce->cmdbuf->size);
 }
 
@@ -193,6 +193,7 @@ int mdla_cmd_ut_run_sync_v1_0(void *run_cmd, void *wait_cmd,
 	struct command_entry ce;
 	u32 core_id = mdla_info->mdla_id;
 
+	memset((void *)&ce, 0, sizeof(struct command_entry));
 	ce.queue_t = sched_clock();
 
 	/* The critical region of command enqueue */

@@ -47,7 +47,7 @@ static void mdla_cmd_prepare_v2_0(struct mdla_run_cmd *cd,
 
 	mdla_cmd_debug(
 		"%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x cnt=%u sz=0x%x\n",
-		__func__, (u64)ce->kva, ce->cmdbuf->kva, cd->offset, ce->mva,
+		__func__, (u64)ce->kva, (u64)ce->cmdbuf->kva, cd->offset, ce->mva,
 		ce->count, ce->cmdbuf->size);
 }
 

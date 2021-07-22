@@ -84,7 +84,8 @@ static int mdla_plat_load_img(struct device *dev, unsigned int *initdata, unsign
 
 static int mdla_plat_load_hdr(struct device *dev, unsigned int *cfg0_data, unsigned int *cfg1_data)
 {
-	int i, ret = 0;
+	u32 i;
+	int ret = 0;
 
 	if (mdla_data_alloc_mem(dev) < 0)
 		return -1;
@@ -106,7 +107,7 @@ static int mdla_plat_load_hdr(struct device *dev, unsigned int *cfg0_data, unsig
 
 int mdla_plat_load_data(struct device *dev, unsigned int *cfg0_data, unsigned int *cfg1_data)
 {
-	int ret = -1;
+	int ret;
 	const char *method = NULL;
 
 	ret = of_property_read_string(dev->of_node, "boot-method", &method);

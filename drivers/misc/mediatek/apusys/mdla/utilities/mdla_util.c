@@ -163,11 +163,11 @@ static bool mdla_util_pmu_addr_is_invalid(struct apusys_cmd_handle *apusys_hd)
 			return true;
 		}
 		mdla_pmu_debug("pmu kva: buf0 = %08llx, buf1 = %08llx\n",
-			       apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva,
-			       apusys_hd->cmdbufs[CMD_PMU_BUF_1_IDX].kva);
+			       (u64)apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva,
+			       (u64)apusys_hd->cmdbufs[CMD_PMU_BUF_1_IDX].kva);
 	} else {
 		mdla_pmu_debug("pmu kva: buf0 = %08llx\n",
-			       apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva);
+			       (u64)apusys_hd->cmdbufs[CMD_PMU_BUF_0_IDX].kva);
 	}
 
 	return false;
@@ -332,6 +332,7 @@ void mdla_util_apu_pmu_update(struct mdla_dev *mdla_info,
 		if (unlikely(mdla_dbg_read_u32(FS_KLOG) & MDLA_DBG_PMU)) {
 			struct mdla_pmu_result check;
 
+			memset((void *)&check, 0, sizeof(struct mdla_pmu_result));
 			check.cmd_len = ((struct mdla_pmu_result *)base)->cmd_len;
 
 			memcpy((void *)&(check.cmd_id), desc, sz);
