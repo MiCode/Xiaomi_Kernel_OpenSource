@@ -200,8 +200,6 @@ static int ps5170_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
 	struct tcp_notify *data = state->data;
 	int ret = 0;
 
-	mutex_lock(&ps->lock);
-
 	/* Debug Message
 	 *dev_info(ps->dev, "ps5170_mux_set\n");
 	 *dev_info(ps->dev, "EVENT = %lu", data->event_type);
@@ -238,8 +236,6 @@ static int ps5170_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
 			ps5170_set_conf(ps, 0, 0);
 		}
 	}
-
-	mutex_unlock(&ps->lock);
 
 	return ret;
 }
