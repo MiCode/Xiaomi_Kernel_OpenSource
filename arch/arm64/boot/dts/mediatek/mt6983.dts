@@ -6206,10 +6206,15 @@
 		reg = <0 0x1C721000 0 0x1000>; /* clk*/
 	};
 
+	scp_gpio: scp_gpio@10005000 {
+		compatible = "mediatek,scp_gpio", "syscon";
+		reg = <0 0x10005000 0 0x1000>;
+	};
+
 	scp_dvfs {
 		compatible = "mediatek,scp_dvfs";
 		clocks = <&vlp_cksys_clk CLK_VLP_CKSYS_SCP_SEL>,
-			<&vlp_cksys_clk CLK_TOPCKGEN_TCK_26M_MX9_CK>;
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
 
 		clock-names = "clk_mux",
 			"clk_pll_0";
@@ -6225,11 +6230,13 @@
 		< 750000	750000	0xff		0xfff		350  0	0x3>,
 		< 750000	750000	0xff		0xfff		700  0	0x3>;
 
-		gpio-base = <&pio>;
+		gpio-base = <&scp_gpio>;
 		gpio-vreq-mode = <1>;
 		gpio-vreq = <0x350 0x7 24>;
 
 		do-ulposc-cali;
+		fmeter_clksys = <&vlp_cksys_clk>;
+		ulposc_clksys = <&vlp_cksys_clk>;
 		scp_clk_ctrl = <&scp_clk_ctrl>;
 		scp-clk-hw-ver = "v1";
 		ulposc-cali-ver = "v2";
@@ -6239,7 +6246,7 @@
 			/* con0		con1	con2 */
 			<0x071292c0	0x2400	0xC>;
 		clk-dbg-ver = "v2";
-		ccf-fmeter-support;
+		/* ccf-fmeter-support; */
 	};
 
 	adspsys: adspsys@1e000000 {
