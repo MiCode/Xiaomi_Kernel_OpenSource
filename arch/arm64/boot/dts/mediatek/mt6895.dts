@@ -2379,7 +2379,7 @@
 		reg = <0 0x11201000 0 0x2e00>,
 			<0 0x11203e00 0 0x0100>;
 		reg-names = "mac", "ippc";
-		interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH 0>;
 		phy-cells = <1>;
 		phys = <&u2port0 PHY_TYPE_USB2>,
 			 <&u3port0 PHY_TYPE_USB3>;
