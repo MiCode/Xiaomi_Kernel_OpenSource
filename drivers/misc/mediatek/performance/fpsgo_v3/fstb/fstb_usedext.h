@@ -60,6 +60,7 @@ struct FSTB_FRAME_INFO {
 	int new_info;
 	int target_fps_diff;
 	int target_fps_notifying;
+	int sbe_state; /* -1: no chase, 0: free run, 1: max_fps*/
 
 	long long m_c_time;
 	unsigned int m_c_cap;
