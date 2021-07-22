@@ -39,3 +39,6 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6853.c),)
 obj-${CONFIG_MTK_CM_MGR_MT6853} += mtk_cm_mgr_mt6853.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6983.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6983} += mtk_cm_mgr_mt6983.o
+endif
