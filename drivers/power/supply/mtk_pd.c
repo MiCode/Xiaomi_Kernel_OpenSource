@@ -160,7 +160,8 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 				pd->charging_current_limit1 != -1 ||
 				pd->input_current_limit2 != -1 ||
 				pd->charging_current_limit2 != -1 ||
-				uisoc >= pd->pd_stop_battery_soc)
+				uisoc >= pd->pd_stop_battery_soc ||
+				(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
 				ret_value = ALG_NOT_READY;
 		} else if (ret_value == ALG_TA_NOT_SUPPORT)
 			pd->state = PD_TA_NOT_SUPPORT;
@@ -900,7 +901,8 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 					pd->charging_current_limit1 != -1 ||
 					pd->input_current_limit2 != -1 ||
 					pd->charging_current_limit2 != -1 ||
-					uisoc >= pd->pd_stop_battery_soc)
+					uisoc >= pd->pd_stop_battery_soc ||
+					(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
 					ret_value = ALG_NOT_READY;
 				else {
 					pd->state = PD_RUN;
@@ -1231,6 +1233,15 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 		pd_err("use default dual_polling_ieoc :%d\n", 750000);
 		pd->dual_polling_ieoc = 750000;
 	}
+
+	if (of_property_read_u32(np, "vbat_threshold", &val) >= 0)
+		pd->vbat_threshold = val;
+	else {
+		pr_notice("turn off vbat_threshold checking:%d\n",
+			DISABLE_VBAT_THRESHOLD);
+		pd->vbat_threshold = DISABLE_VBAT_THRESHOLD;
+	}
+
 }
 
 int _pd_get_prop(struct chg_alg_device *alg,
@@ -1273,7 +1284,23 @@ int _pd_set_setting(struct chg_alg_device *alg_dev,
 int _pd_set_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int value)
 {
+	struct mtk_pd *pd;
+
 	pr_notice("%s %d %d\n", __func__, s, value);
+
+	pd = dev_get_drvdata(&alg->dev);
+
+	switch (s) {
+	case ALG_LOG_LEVEL:
+		pd_dbg_level = value;
+		break;
+	case ALG_REF_VBAT:
+		pd->ref_vbat = value;
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 }
 

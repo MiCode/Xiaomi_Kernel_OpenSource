@@ -460,7 +460,8 @@ static int __pe2_check_charger(struct chg_alg_device *alg)
 	if (pe2->is_cable_out_occur)
 		goto out;
 
-	if (uisoc < pe2->ta_start_battery_soc ||
+	if ((uisoc < pe2->ta_start_battery_soc &&
+	    pe2->ref_vbat > pe2->vbat_threshold) ||
 		uisoc >= pe2->ta_stop_battery_soc) {
 		ret_value = ALG_TA_CHECKING;
 		goto out;
@@ -490,7 +491,7 @@ out:
 
 	if (ret_value == 0)
 		ret_value = ALG_TA_NOT_SUPPORT;
-	pe2_dbg("%s:SOC:(%d,%d,%d),state:%d,chr_type:%d,ret:%d,plugout:%d\n",
+	pe2_dbg("%s:SOC:(%d,%d,%d),state:%d,chr_type:%d,ret:%d,plugout:%d ref_vbat:%d\n",
 		__func__,
 		pe2_hal_get_uisoc(alg),
 		pe2->ta_start_battery_soc,
@@ -498,7 +499,8 @@ out:
 		pe2->state,
 		pe2_hal_get_charger_type(alg),
 		ret,
-		pe2->is_cable_out_occur);
+		pe2->is_cable_out_occur,
+		pe2->ref_vbat);
 	return ret_value;
 }
 
@@ -618,7 +620,8 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 		if (pe2_hal_get_charger_type(alg) !=
 			POWER_SUPPLY_TYPE_USB_DCP) {
 			ret_value = ALG_TA_NOT_SUPPORT;
-		} else if (uisoc < pe2->ta_start_battery_soc ||
+		} else if ((uisoc < pe2->ta_start_battery_soc &&
+			    pe2->ref_vbat > pe2->vbat_threshold) ||
 			uisoc >= pe2->ta_stop_battery_soc ||
 			pe2->charging_current_limit1 != -1 ||
 			pe2->charging_current_limit2 != -1) {
@@ -1274,6 +1277,13 @@ static void mtk_pe2_parse_dt(struct mtk_pe20 *pe2,
 		pe2->dual_polling_ieoc = 750000;
 	}
 
+	if (of_property_read_u32(np, "vbat_threshold", &val) >= 0)
+		pe2->vbat_threshold = val;
+	else {
+		pr_notice("turn off vbat_threshold checking:%d\n",
+			DISABLE_VBAT_THRESHOLD);
+		pe2->vbat_threshold = DISABLE_VBAT_THRESHOLD;
+	}
 
 }
 
@@ -1292,7 +1302,23 @@ int _pe2_get_prop(struct chg_alg_device *alg,
 int _pe2_set_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int value)
 {
+	struct mtk_pe20 *pe2;
+
 	pr_notice("%s %d %d\n", __func__, s, value);
+
+	pe2 = dev_get_drvdata(&alg->dev);
+
+	switch (s) {
+	case ALG_LOG_LEVEL:
+		pe2_dbg_level = value;
+		break;
+	case ALG_REF_VBAT:
+		pe2->ref_vbat = value;
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 }
 

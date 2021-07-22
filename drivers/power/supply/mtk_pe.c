@@ -309,7 +309,8 @@ int __pe_check_charger(struct chg_alg_device *alg)
 		goto out;
 	}
 
-	if (uisoc < pe->ta_start_battery_soc ||
+	if ((uisoc < pe->ta_start_battery_soc &&
+	    pe->ref_vbat > pe->vbat_threshold) ||
 		uisoc >= pe->ta_stop_battery_soc) {
 		ret_value = ALG_TA_CHECKING;
 		goto out;
@@ -344,10 +345,10 @@ out:
 	if (ret_value == 0)
 		ret_value = ALG_TA_NOT_SUPPORT;
 
-	pe_dbg("%s: stop, SOC:%d, chr_type:%d, ret:%d:%d\n",
+	pe_dbg("%s: stop, SOC:%d, chr_type:%d, ret:%d:%d ref_vbat:%d\n",
 		__func__, pe_hal_get_uisoc(alg),
 		pe_hal_get_charger_type(alg), ret,
-		ret_value);
+		ret_value, pe->ref_vbat);
 
 	return ret_value;
 }
@@ -447,7 +448,8 @@ static int _pe_is_algo_ready(struct chg_alg_device *alg)
 		if (pe_hal_get_charger_type(alg) !=
 			POWER_SUPPLY_TYPE_USB_DCP) {
 			ret_value = ALG_TA_NOT_SUPPORT;
-		} else if (uisoc < pe->ta_start_battery_soc ||
+		} else if ((uisoc < pe->ta_start_battery_soc &&
+			    pe->ref_vbat > pe->vbat_threshold) ||
 			uisoc >= pe->ta_stop_battery_soc) {
 			ret_value = ALG_NOT_READY;
 		} else {
@@ -575,6 +577,29 @@ int _pe_get_status(struct chg_alg_device *alg,
 		*value = 12000;
 	else
 		pe_dbg("%s does not support prop:%d\n", __func__, s);
+	return 0;
+}
+
+int _pe_set_prop(struct chg_alg_device *alg,
+		enum chg_alg_props s, int value)
+{
+	struct mtk_pe *pe;
+
+	pr_notice("%s %d %d\n", __func__, s, value);
+
+	pe = dev_get_drvdata(&alg->dev);
+
+	switch (s) {
+	case ALG_LOG_LEVEL:
+		pe_dbg_level = value;
+		break;
+	case ALG_REF_VBAT:
+		pe->ref_vbat = value;
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 }
 
@@ -815,6 +840,7 @@ static struct chg_alg_ops pe_alg_ops = {
 	.stop_algo = _pe_stop_algo,
 	.notifier_call = _pe_notifier_call,
 	.get_prop = _pe_get_status,
+	.set_prop = _pe_set_prop,
 	.set_current_limit = _pe_set_setting,
 };
 
@@ -891,6 +917,14 @@ static void mtk_pe_parse_dt(struct mtk_pe *pe,
 		pr_notice("use default pe_charger_current:%d\n",
 			PE_CHARGING_CURRENT);
 		pe->ta_ac_charger_current = PE_CHARGING_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "vbat_threshold", &val) >= 0)
+		pe->vbat_threshold = val;
+	else {
+		pr_notice("turn off vbat_threshold checking:%d\n",
+			DISABLE_VBAT_THRESHOLD);
+		pe->vbat_threshold = DISABLE_VBAT_THRESHOLD;
 	}
 
 }

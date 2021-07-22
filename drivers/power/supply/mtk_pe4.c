@@ -194,23 +194,25 @@ static int _pe4_is_algo_ready(struct chg_alg_device *alg)
 		if (ret == ALG_READY) {
 			uisoc = pe4_hal_get_uisoc(alg);
 			tmp = pe4_hal_get_battery_temperature(alg);
-			pe4_err("c:%d,%d uisoc:%d,%d tmp:%d,%d,%d\n",
+			pe4_err("c:%d,%d uisoc:%d,%d tmp:%d,%d,%d ref_vbat:%d\n",
 				pe4->input_current_limit1,
 				pe4->charging_current_limit1,
 				uisoc,
 				pe4->pe40_stop_battery_soc,
 				tmp,
 				pe4->high_temp_to_enter_pe40,
-				pe4->low_temp_to_enter_pe40);
+				pe4->low_temp_to_enter_pe40,
+				pe4->ref_vbat);
 			if (pe4->input_current_limit1 != -1 ||
 				pe4->charging_current_limit1 != -1 ||
 				pe4->input_current_limit2 != -1 ||
 				pe4->charging_current_limit2 != -1 ||
+				(uisoc == -1 && pe4->ref_vbat > pe4->vbat_threshold) ||
 				uisoc > pe4->pe40_stop_battery_soc ||
-				uisoc == -1 ||
 				tmp > pe4->high_temp_to_enter_pe40 ||
-				tmp < pe4->low_temp_to_enter_pe40)
+				tmp < pe4->low_temp_to_enter_pe40) {
 				ret_value = ALG_NOT_READY;
+			}
 		} else if (ret == ALG_TA_NOT_SUPPORT)
 			pe4->state = PE4_TA_NOT_SUPPORT;
 		break;
@@ -1521,17 +1523,18 @@ static int _pe4_start_algo(struct chg_alg_device *alg)
 					pe4->charging_current_limit1 != -1 ||
 					pe4->input_current_limit2 != -1 ||
 					pe4->charging_current_limit2 != -1 ||
+					(uisoc == -1 && pe4->ref_vbat > pe4->vbat_threshold) ||
 					uisoc > pe4->pe40_stop_battery_soc ||
-					uisoc == -1 ||
 					tmp > pe4->high_temp_to_enter_pe40 ||
 					tmp < pe4->low_temp_to_enter_pe40) {
 					ret_value = ALG_NOT_READY;
-					pe4_info("%d %d %d %d %d\n",
+					pe4_info("%d %d %d %d %d %d\n",
 						pe4->input_current_limit1,
 						pe4->charging_current_limit1,
 						pe4->pe40_stop_battery_soc,
 						pe4->high_temp_to_enter_pe40,
-						pe4->low_temp_to_enter_pe40);
+						pe4->low_temp_to_enter_pe40,
+						pe4->ref_vbat);
 				} else {
 					again = true;
 					pe4->state = PE4_INIT;
@@ -1875,6 +1878,14 @@ static void mtk_pe4_parse_dt(struct mtk_pe40 *pe4,
 		pe4->slave_mivr_diff = PE4_SLAVE_MIVR_DIFF;
 	}
 
+	if (of_property_read_u32(np, "vbat_threshold", &val) >= 0)
+		pe4->vbat_threshold = val;
+	else {
+		pr_notice("turn off vbat_threshold checking:%d\n",
+			DISABLE_VBAT_THRESHOLD);
+		pe4->vbat_threshold = DISABLE_VBAT_THRESHOLD;
+	}
+
 }
 
 int _pe4_get_status(struct chg_alg_device *alg,
@@ -1933,7 +1944,23 @@ int _pe4_set_setting(struct chg_alg_device *alg_dev,
 int _pe4_set_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int value)
 {
+	struct mtk_pe40 *pe40;
+
 	pr_notice("%s %d %d\n", __func__, s, value);
+
+	pe40 = dev_get_drvdata(&alg->dev);
+
+	switch (s) {
+	case ALG_LOG_LEVEL:
+		pe4_dbg_level = value;
+		break;
+	case ALG_REF_VBAT:
+		pe40->ref_vbat = value;
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 }
 

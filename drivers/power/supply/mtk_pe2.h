@@ -31,6 +31,8 @@
 #define PE2_CABLE_IMP_THRESHOLD 699
 #define PE2_VBAT_CABLE_IMP_THRESHOLD 3900000 /* uV */
 
+#define DISABLE_VBAT_THRESHOLD -1
+
 
 #define ECABLEOUT	1	/* cable out */
 #define EHAL		2	/* hal operation error */
@@ -91,6 +93,8 @@ struct mtk_pe20 {
 	int ta_vchr_org;
 	int idx;
 	int vbus;
+	int vbat_threshold; /* For checking Ready */
+	int ref_vbat; /* Vbat with cable in */
 	struct pe20_profile profile[10];
 
 	int vbat_orig; /* Measured VBAT before cable impedance measurement */

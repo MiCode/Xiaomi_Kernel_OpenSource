@@ -3719,10 +3719,18 @@ static int pe50_is_algo_ready(struct chg_alg_device *alg)
 		goto out;
 	}
 	if (soc < desc->start_soc_min || soc > desc->start_soc_max) {
-		PE50_INFO("soc(%d) not in range(%d~%d)\n", soc,
-			  desc->start_soc_min, desc->start_soc_max);
-		ret = ALG_NOT_READY;
-		goto out;
+		if (soc > 0) {
+			PE50_INFO("soc(%d) not in range(%d~%d)\n", soc,
+				  desc->start_soc_min, desc->start_soc_max);
+			ret = ALG_NOT_READY;
+			goto out;
+		}
+		if (soc == -1 && data->ref_vbat > data->vbat_threshold) {
+			PE50_INFO("soc(%d) not in range(%d~%d)\n", soc,
+				  desc->start_soc_min, desc->start_soc_max);
+			ret = ALG_NOT_READY;
+			goto out;
+		}
 	}
 
 	if (!pe50_is_ta_rdy(info)) {
@@ -3861,6 +3869,28 @@ static int pe50_set_current_limit(struct chg_alg_device *alg,
 	return 0;
 }
 
+int pe50_set_prop(struct chg_alg_device *alg,
+		enum chg_alg_props s, int value)
+{
+	struct pe50_algo_info *info = chg_alg_dev_get_drvdata(alg);
+	struct pe50_algo_data *data = info->data;
+
+	pr_notice("%s %d %d\n", __func__, s, value);
+
+	switch (s) {
+	case ALG_LOG_LEVEL:
+		log_level = value;
+		break;
+	case ALG_REF_VBAT:
+		data->ref_vbat = value;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static struct chg_alg_ops pe50_ops = {
 	.init_algo = pe50_init_algo,
 	.is_algo_ready = pe50_is_algo_ready,
@@ -3870,6 +3900,7 @@ static struct chg_alg_ops pe50_ops = {
 	.stop_algo = pe50_stop_algo,
 	.notifier_call = pe50_notifier_call,
 	.set_current_limit = pe50_set_current_limit,
+	.set_prop = pe50_set_prop,
 };
 
 #define PE50_DT_VALPROP_ARR(name, sz) \
@@ -3991,12 +4022,15 @@ static int pe50_parse_dt(struct pe50_algo_info *info)
 {
 	int i, ret;
 	struct pe50_algo_desc *desc;
+	struct pe50_algo_data *data;
 	struct device_node *np = info->dev->of_node;
+	u32 val;
 
 	desc = devm_kzalloc(info->dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
 	info->desc = desc;
+	data = info->data;
 	memcpy(desc, &algo_desc_defval, sizeof(*desc));
 
 	ret = of_property_count_strings(np, "support_ta");
@@ -4027,6 +4061,15 @@ static int pe50_parse_dt(struct pe50_algo_info *info)
 		desc->swchg_aicr = 0;
 		desc->swchg_ichg = 0;
 	}
+
+	if (of_property_read_u32(np, "vbat_threshold", &val) >= 0)
+		data->vbat_threshold = val;
+	else {
+		pr_notice("turn off vbat_threshold checking:%d\n",
+			DISABLE_VBAT_THRESHOLD);
+		data->vbat_threshold = DISABLE_VBAT_THRESHOLD;
+	}
+
 	return 0;
 }
 

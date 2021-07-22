@@ -23,6 +23,7 @@
 /*dual charger */
 #define PE4_SLAVE_MIVR_DIFF 100000
 
+#define DISABLE_VBAT_THRESHOLD -1
 
 #define PE4_ERROR_LEVEL	1
 #define PE4_INFO_LEVEL	2
@@ -114,6 +115,8 @@ struct mtk_pe40 {
 	int vbus;
 	int ibus;
 	int watt;
+	int vbat_threshold; /* For checking Ready */
+	int ref_vbat; /* Vbat with cable in */
 
 	int r_sw;
 	int r_cable;

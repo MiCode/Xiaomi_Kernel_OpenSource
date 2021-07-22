@@ -720,6 +720,22 @@ static int mtk_chgstat_notify(struct mtk_charger *info)
 	return ret;
 }
 
+static void mtk_charger_set_algo_log_level(struct mtk_charger *info, int level)
+{
+	struct chg_alg_device *alg;
+	int i = 0, ret = 0;
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+
+		ret = chg_alg_set_prop(alg, ALG_LOG_LEVEL, level);
+		if (ret < 0)
+			chr_err("%s: set ALG_LOG_LEVEL fail, ret =%d", __func__, ret);
+	}
+}
+
 static ssize_t sw_jeita_show(struct device *dev, struct device_attribute *attr,
 					       char *buf)
 {
@@ -824,9 +840,12 @@ static ssize_t fast_chg_indicator_store(struct device *dev, struct device_attrib
 	else
 		chr_err("%s: format error!\n", __func__);
 
-	if (pinfo->fast_charging_indicator > 0)
+	if (pinfo->fast_charging_indicator > 0) {
 		pinfo->log_level = CHRLOG_DEBUG_LEVEL;
+		mtk_charger_set_algo_log_level(pinfo, pinfo->log_level);
+	}
 
+	_wake_up_charger(pinfo);
 	return size;
 }
 
@@ -2220,7 +2239,7 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 {
 	struct chg_alg_device *alg;
 	struct chg_alg_notify notify;
-	int i;
+	int i, vbat;
 
 	chr_debug("%s\n",
 		__func__);
@@ -2236,11 +2255,14 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 
 	chr_err("mtk_is_charger_on plug in, type:%d\n", chr_type);
 
+	vbat = get_battery_voltage(info);
+
 	notify.evt = EVT_PLUG_IN;
 	notify.value = 0;
 	for (i = 0; i < MAX_ALG_NO; i++) {
 		alg = info->alg[i];
 		chg_alg_notifier_call(alg, &notify);
+		chg_alg_set_prop(alg, ALG_REF_VBAT, vbat);
 	}
 
 	memset(&info->sc.data, 0, sizeof(struct scd_cmd_param_t_1));

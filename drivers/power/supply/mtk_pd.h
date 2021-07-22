@@ -33,6 +33,8 @@
 #define VSYS_WATT 5000000
 #define IBUS_ERR 14
 
+#define DISABLE_VBAT_THRESHOLD -1
+
 #define PD_ERROR_LEVEL	1
 #define PD_INFO_LEVEL	2
 #define PD_DEBUG_LEVEL	3
@@ -92,6 +94,8 @@ struct mtk_pd {
 	struct mutex access_lock;
 	struct mutex data_lock;
 
+	int vbat_threshold; /* For checking Ready */
+	int ref_vbat; /* Vbat with cable in */
 	int cv;
 	int pd_input_current;
 	int pd_charging_current;

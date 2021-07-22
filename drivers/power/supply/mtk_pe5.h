@@ -14,6 +14,8 @@
 #define PE50_ITA_GAP_WINDOW_SIZE	50
 #define PRECISION_ENHANCE	5
 
+#define DISABLE_VBAT_THRESHOLD -1
+
 extern int pe50_get_log_level(void);
 #define PE50_DBG(fmt, ...) \
 	do { \
@@ -165,6 +167,8 @@ struct pe50_algo_data {
 	u32 vbat_cv;
 	u32 vbat_ircmp;
 	int vta_comp;
+	int vbat_threshold; /* For checking Ready */
+	int ref_vbat; /* Vbat with cable in */
 	bool is_vbat_over_cv;
 	ktime_t stime;
 	enum pe50_algo_state state;

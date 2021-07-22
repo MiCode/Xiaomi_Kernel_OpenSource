@@ -111,6 +111,8 @@ struct chg_limit_setting {
 
 enum chg_alg_props {
 	ALG_MAX_VBUS,
+	ALG_LOG_LEVEL,
+	ALG_REF_VBAT,
 };
 
 struct chg_alg_ops {
