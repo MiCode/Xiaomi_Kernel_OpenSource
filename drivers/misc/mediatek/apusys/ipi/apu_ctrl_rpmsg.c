@@ -82,7 +82,7 @@ static struct apu_ctrl_dev *ctldev;
 static bool initialized;
 
 
-#define APU_CTRL_RPMSG_TEST
+#undef APU_CTRL_RPMSG_TEST
 #ifdef APU_CTRL_RPMSG_TEST
 static uint32_t tx_msg[4], rx_msg[4];
 
