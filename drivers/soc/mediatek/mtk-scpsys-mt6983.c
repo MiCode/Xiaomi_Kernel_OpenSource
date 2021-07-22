@@ -21,6 +21,171 @@
 
 #include <dt-bindings/power/mt6983-power.h>
 
+/* Define MTCMOS Bus Protect Mask */
+#define ADSP_INFRA_PROT_STEP1_0_MASK     ((0x1 << 18) | (0x1 << 19) | \
+					(0x1 << 22) | (0x1 << 26) | (0x1 << 27) | (0x1 << 28) | \
+					(0x1 << 29) | (0x1 << 30))
+#define ADSP_INFRA_PROT_STEP1_0_ACK_MASK   ((0x1 << 18) | (0x1 << 19) | \
+					(0x1 << 22) | (0x1 << 26) | (0x1 << 27) | (0x1 << 28) | \
+					(0x1 << 29) | (0x1 << 30))
+#define ADSP_INFRA_PROT_STEP1_1_MASK     ((0x1 << 8))
+#define ADSP_INFRA_PROT_STEP1_1_ACK_MASK   ((0x1 << 8))
+#define ADSP_INFRA_PROT_STEP2_0_MASK     ((0x1 << 20) | (0x1 << 21) | (0x1 << 25) | (0x1 << 31))
+#define ADSP_INFRA_PROT_STEP2_0_ACK_MASK   ((0x1 << 20) | (0x1 << 21) | (0x1 << 25) | (0x1 << 31))
+#define ADSP_INFRA_PROT_STEP2_1_MASK     ((0x1 << 4) | (0x1 << 5))
+#define ADSP_INFRA_PROT_STEP2_1_ACK_MASK   ((0x1 << 4) | (0x1 << 5))
+#define ADSP_TOP_PROT_STEP1_0_MASK       ((0x1 << 14) | (0x1 << 15) | (0x1 << 16) | (0x1 << 17))
+#define ADSP_TOP_PROT_STEP1_0_ACK_MASK   ((0x1 << 14) | (0x1 << 15) | (0x1 << 16) | (0x1 << 17))
+#define ADSP_TOP_PROT_STEP2_0_MASK       ((0x1 << 23) | (0x1 << 24))
+#define ADSP_TOP_PROT_STEP2_0_ACK_MASK   ((0x1 << 23) | (0x1 << 24))
+#define CAM_MAIN_PROT_STEP1_0_MASK       ((0x1 << 16) | (0x1 << 26))
+#define CAM_MAIN_PROT_STEP1_0_ACK_MASK   ((0x1 << 16) | (0x1 << 26))
+#define CAM_MAIN_PROT_STEP1_1_MASK       ((0x1 << 18))
+#define CAM_MAIN_PROT_STEP1_1_ACK_MASK   ((0x1 << 18))
+#define CAM_MAIN_PROT_STEP1_2_MASK       ((0x1 << 10))
+#define CAM_MAIN_PROT_STEP1_2_ACK_MASK   ((0x1 << 10))
+#define CAM_MAIN_PROT_STEP2_0_MASK       ((0x1 << 5) | (0x1 << 7) | (0x1 << 9))
+#define CAM_MAIN_PROT_STEP2_0_ACK_MASK   ((0x1 << 5) | (0x1 << 7) | (0x1 << 9))
+#define CAM_MAIN_PROT_STEP2_1_MASK       ((0x1 << 11))
+#define CAM_MAIN_PROT_STEP2_1_ACK_MASK   ((0x1 << 11))
+#define CAM_VCORE_PROT_STEP1_0_MASK      ((0x1 << 4) | (0x1 << 6) | (0x1 << 8))
+#define CAM_VCORE_PROT_STEP1_0_ACK_MASK   ((0x1 << 4) | (0x1 << 6) | (0x1 << 8))
+#define CAM_VCORE_PROT_STEP1_1_MASK      ((0x1 << 12))
+#define CAM_VCORE_PROT_STEP1_1_ACK_MASK   ((0x1 << 12))
+#define CAM_VCORE_PROT_STEP2_0_MASK      ((0x1 << 17) | (0x1 << 27))
+#define CAM_VCORE_PROT_STEP2_0_ACK_MASK   ((0x1 << 17) | (0x1 << 27))
+#define CAM_VCORE_PROT_STEP2_1_MASK      ((0x1 << 19))
+#define CAM_VCORE_PROT_STEP2_1_ACK_MASK   ((0x1 << 19))
+#define CAM_VCORE_PROT_STEP2_2_MASK      ((0x1 << 13))
+#define CAM_VCORE_PROT_STEP2_2_ACK_MASK   ((0x1 << 13))
+#define CONN_PROT_STEP1_0_MASK           ((0x1 << 1))
+#define CONN_PROT_STEP1_0_ACK_MASK       ((0x1 << 1))
+#define CONN_PROT_STEP1_1_MASK           ((0x1 << 12))
+#define CONN_PROT_STEP1_1_ACK_MASK       ((0x1 << 12))
+#define CONN_PROT_STEP2_0_MASK           ((0x1 << 0))
+#define CONN_PROT_STEP2_0_ACK_MASK       ((0x1 << 0))
+#define CONN_PROT_STEP2_1_MASK           ((0x1 << 8))
+#define CONN_PROT_STEP2_1_ACK_MASK       ((0x1 << 8))
+#define DIS0_PROT_STEP1_0_MASK           ((0x1 << 8) | (0x1 << 30))
+#define DIS0_PROT_STEP1_0_ACK_MASK       ((0x1 << 8) | (0x1 << 30))
+#define DIS0_PROT_STEP1_1_MASK           ((0x1 << 10))
+#define DIS0_PROT_STEP1_1_ACK_MASK       ((0x1 << 10))
+#define DIS0_PROT_STEP2_0_MASK           ((0x1 << 9) | (0x1 << 31))
+#define DIS0_PROT_STEP2_0_ACK_MASK       ((0x1 << 9) | (0x1 << 31))
+#define DIS0_PROT_STEP2_1_MASK           ((0x1 << 11))
+#define DIS0_PROT_STEP2_1_ACK_MASK       ((0x1 << 11))
+#define DIS1_PROT_STEP1_0_MASK           ((0x1 << 0) | (0x1 << 2) | (0x1 << 12))
+#define DIS1_PROT_STEP1_0_ACK_MASK       ((0x1 << 0) | (0x1 << 2) | (0x1 << 12))
+#define DIS1_PROT_STEP2_0_MASK           ((0x1 << 1) | (0x1 << 3) | (0x1 << 13))
+#define DIS1_PROT_STEP2_0_ACK_MASK       ((0x1 << 1) | (0x1 << 3) | (0x1 << 13))
+#define ISP_MAIN_PROT_STEP1_0_MASK       ((0x1 << 0) | (0x1 << 2) | (0x1 << 10))
+#define ISP_MAIN_PROT_STEP1_0_ACK_MASK   ((0x1 << 0) | (0x1 << 2) | (0x1 << 10))
+#define ISP_VCORE_PROT_STEP2_0_MASK      ((0x1 << 1) | (0x1 << 3) | (0x1 << 11))
+#define ISP_VCORE_PROT_STEP2_0_ACK_MASK   ((0x1 << 1) | (0x1 << 3) | (0x1 << 11))
+#define ISP_VCORE_PROT_STEP3_0_MASK      ((0x1 << 14) | (0x1 << 24))
+#define ISP_VCORE_PROT_STEP3_0_ACK_MASK   ((0x1 << 14) | (0x1 << 24))
+#define ISP_VCORE_PROT_STEP3_1_MASK      ((0x1 << 28))
+#define ISP_VCORE_PROT_STEP3_1_ACK_MASK   ((0x1 << 28))
+#define MDP0_PROT_STEP1_0_MASK           ((0x1 << 18))
+#define MDP0_PROT_STEP1_0_ACK_MASK       ((0x1 << 18))
+#define MDP0_PROT_STEP1_1_MASK           ((0x1 << 20))
+#define MDP0_PROT_STEP1_1_ACK_MASK       ((0x1 << 20))
+#define MDP0_PROT_STEP2_0_MASK           ((0x1 << 19))
+#define MDP0_PROT_STEP2_0_ACK_MASK       ((0x1 << 19))
+#define MDP0_PROT_STEP2_1_MASK           ((0x1 << 21))
+#define MDP0_PROT_STEP2_1_ACK_MASK       ((0x1 << 21))
+#define MDP1_PROT_STEP1_0_MASK           ((0x1 << 28))
+#define MDP1_PROT_STEP1_0_ACK_MASK       ((0x1 << 28))
+#define MDP1_PROT_STEP1_1_MASK           ((0x1 << 22))
+#define MDP1_PROT_STEP1_1_ACK_MASK       ((0x1 << 22))
+#define MDP1_PROT_STEP2_0_MASK           ((0x1 << 29))
+#define MDP1_PROT_STEP2_0_ACK_MASK       ((0x1 << 29))
+#define MDP1_PROT_STEP2_1_MASK           ((0x1 << 23))
+#define MDP1_PROT_STEP2_1_ACK_MASK       ((0x1 << 23))
+#define MFG0_PROT_STEP1_0_MASK           ((0x1 << 4))
+#define MFG0_PROT_STEP1_0_ACK_MASK       ((0x1 << 4))
+#define MFG0_PROT_STEP2_0_MASK           ((0x1 << 9))
+#define MFG0_PROT_STEP2_0_ACK_MASK       ((0x1 << 9))
+#define MFG1_PROT_STEP1_0_MASK           ((0x1 << 0))
+#define MFG1_PROT_STEP1_0_ACK_MASK       ((0x1 << 0))
+#define MFG1_PROT_STEP2_0_MASK           ((0x1 << 1))
+#define MFG1_PROT_STEP2_0_ACK_MASK       ((0x1 << 1))
+#define MFG1_PROT_STEP3_0_MASK           ((0x1 << 2))
+#define MFG1_PROT_STEP3_0_ACK_MASK       ((0x1 << 2))
+#define MFG1_PROT_STEP4_0_MASK           ((0x1 << 3))
+#define MFG1_PROT_STEP4_0_ACK_MASK       ((0x1 << 3))
+#define MM_INFRA_PROT_STEP1_0_MASK       ((0x1 << 0) | (0x1 << 2) | (0x1 << 4) | (0x1 << 6))
+#define MM_INFRA_PROT_STEP1_0_ACK_MASK   ((0x1 << 0) | (0x1 << 2) | (0x1 << 4) | (0x1 << 6))
+#define MM_INFRA_PROT_STEP1_1_MASK       ((0x1 << 4) | (0x1 << 6))
+#define MM_INFRA_PROT_STEP1_1_ACK_MASK   ((0x1 << 4) | (0x1 << 6))
+#define MM_INFRA_PROT_STEP1_2_MASK       ((0x1 << 12))
+#define MM_INFRA_PROT_STEP1_2_ACK_MASK   ((0x1 << 12))
+#define MM_INFRA_PROT_STEP1_3_MASK       ((0x1 << 11))
+#define MM_INFRA_PROT_STEP1_3_ACK_MASK   ((0x1 << 11))
+#define MM_INFRA_PROT_STEP2_0_MASK       ((0x1 << 9) | (0x1 << 11) | \
+					(0x1 << 13) | (0x1 << 15) | (0x1 << 17) | (0x1 << 19) | \
+					(0x1 << 21) | (0x1 << 23) | (0x1 << 25) | (0x1 << 27) | \
+					(0x1 << 29) | (0x1 << 31))
+#define MM_INFRA_PROT_STEP2_0_ACK_MASK   ((0x1 << 9) | (0x1 << 11) | \
+					(0x1 << 13) | (0x1 << 15) | (0x1 << 17) | (0x1 << 19) | \
+					(0x1 << 21) | (0x1 << 23) | (0x1 << 25) | (0x1 << 27) | \
+					(0x1 << 29) | (0x1 << 31))
+#define MM_INFRA_PROT_STEP2_1_MASK       ((0x1 << 1) | (0x1 << 3) | \
+					(0x1 << 9) | (0x1 << 11) | (0x1 << 13) | (0x1 << 15) | \
+					(0x1 << 17) | (0x1 << 19) | (0x1 << 21) | (0x1 << 23) | \
+					(0x1 << 25) | (0x1 << 27) | (0x1 << 29) | (0x1 << 31))
+#define MM_INFRA_PROT_STEP2_1_ACK_MASK   ((0x1 << 1) | (0x1 << 3) | \
+					(0x1 << 9) | (0x1 << 11) | (0x1 << 13) | (0x1 << 15) | \
+					(0x1 << 17) | (0x1 << 19) | (0x1 << 21) | (0x1 << 23) | \
+					(0x1 << 25) | (0x1 << 27) | (0x1 << 29) | (0x1 << 31))
+#define MM_INFRA_PROT_STEP2_2_MASK       ((0x1 << 15) | (0x1 << 17))
+#define MM_INFRA_PROT_STEP2_2_ACK_MASK   ((0x1 << 15) | (0x1 << 17))
+#define MM_INFRA_PROT_STEP2_3_MASK       ((0x1 << 14) | (0x1 << 15))
+#define MM_INFRA_PROT_STEP2_3_ACK_MASK   ((0x1 << 14) | (0x1 << 15))
+#define MM_PROC_PROT_STEP1_0_MASK        ((0x1 << 10) | (0x1 << 11))
+#define MM_PROC_PROT_STEP1_0_ACK_MASK    ((0x1 << 10) | (0x1 << 11))
+#define MM_PROC_PROT_STEP2_0_MASK        ((0x1 << 12) | (0x1 << 13))
+#define MM_PROC_PROT_STEP2_0_ACK_MASK    ((0x1 << 12) | (0x1 << 13))
+#define UFS0_PROT_STEP1_0_MASK           ((0x1 << 7))
+#define UFS0_PROT_STEP1_0_ACK_MASK       ((0x1 << 7))
+#define UFS0_PROT_STEP2_0_MASK           ((0x1 << 4))
+#define UFS0_PROT_STEP2_0_ACK_MASK       ((0x1 << 4))
+#define UFS0_PROT_STEP3_0_MASK           ((0x1 << 8))
+#define UFS0_PROT_STEP3_0_ACK_MASK       ((0x1 << 8))
+#define VDE0_PROT_STEP1_0_MASK           ((0x1 << 10))
+#define VDE0_PROT_STEP1_0_ACK_MASK       ((0x1 << 10))
+#define VDE0_PROT_STEP1_1_MASK           ((0x1 << 26) | (0x1 << 30))
+#define VDE0_PROT_STEP1_1_ACK_MASK       ((0x1 << 26) | (0x1 << 30))
+#define VDE0_PROT_STEP2_0_MASK           ((0x1 << 11))
+#define VDE0_PROT_STEP2_0_ACK_MASK       ((0x1 << 11))
+#define VDE0_PROT_STEP2_1_MASK           ((0x1 << 27) | (0x1 << 31))
+#define VDE0_PROT_STEP2_1_ACK_MASK       ((0x1 << 27) | (0x1 << 31))
+#define VDE1_PROT_STEP1_0_MASK           ((0x1 << 20))
+#define VDE1_PROT_STEP1_0_ACK_MASK       ((0x1 << 20))
+#define VDE1_PROT_STEP1_1_MASK           ((0x1 << 24))
+#define VDE1_PROT_STEP1_1_ACK_MASK       ((0x1 << 24))
+#define VDE1_PROT_STEP2_0_MASK           ((0x1 << 21))
+#define VDE1_PROT_STEP2_0_ACK_MASK       ((0x1 << 21))
+#define VDE1_PROT_STEP2_1_MASK           ((0x1 << 25))
+#define VDE1_PROT_STEP2_1_ACK_MASK       ((0x1 << 25))
+#define VEN0_PROT_STEP1_0_MASK           ((0x1 << 12))
+#define VEN0_PROT_STEP1_0_ACK_MASK       ((0x1 << 12))
+#define VEN0_PROT_STEP1_1_MASK           ((0x1 << 14))
+#define VEN0_PROT_STEP1_1_ACK_MASK       ((0x1 << 14))
+#define VEN0_PROT_STEP2_0_MASK           ((0x1 << 13))
+#define VEN0_PROT_STEP2_0_ACK_MASK       ((0x1 << 13))
+#define VEN0_PROT_STEP2_1_MASK           ((0x1 << 15))
+#define VEN0_PROT_STEP2_1_ACK_MASK       ((0x1 << 15))
+#define VEN1_PROT_STEP1_0_MASK           ((0x1 << 22))
+#define VEN1_PROT_STEP1_0_ACK_MASK       ((0x1 << 22))
+#define VEN1_PROT_STEP1_1_MASK           ((0x1 << 16))
+#define VEN1_PROT_STEP1_1_ACK_MASK       ((0x1 << 16))
+#define VEN1_PROT_STEP2_0_MASK           ((0x1 << 23))
+#define VEN1_PROT_STEP2_0_ACK_MASK       ((0x1 << 23))
+#define VEN1_PROT_STEP2_1_MASK           ((0x1 << 17))
+#define VEN1_PROT_STEP2_1_ACK_MASK       ((0x1 << 17))
+
+
 /*
  * MT6983 power domain support
  */
@@ -30,13 +195,9 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.name = "md1",
 		.sta_mask = BIT(0),
 		.ctl_offs = 0xE00,
-		.caps = MTK_SCPD_MD_OPS,
 		.extb_iso_offs = 0xF2C,
 		.extb_iso_bits = 0x3,
-		.bp_table = {
-			BUS_PROT_IGN(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
-				MT6983_TOP_AXI_PROT_EN_1_MD1),
-		},
+		.caps = MTK_SCPD_MD_OPS | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CONN] = {
 		.name = "conn",
@@ -44,13 +205,13 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE04,
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C94, 0x0C98, 0x0C90, 0x0C9C,
-				MT6983_TOP_AXI_PROT_EN_MCU_CONNSYS_0_CONN),
+				CONN_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
-				MT6983_TOP_AXI_PROT_EN_1_CONN),
+				CONN_PROT_STEP1_1_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C94, 0x0C98, 0x0C90, 0x0C9C,
-				MT6983_TOP_AXI_PROT_EN_MCU_CONNSYS_0_CONN_2ND),
+				CONN_PROT_STEP2_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
-				MT6983_TOP_AXI_PROT_EN_0_CONN_2ND),
+				CONN_PROT_STEP2_1_MASK),
 		},
 		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -63,11 +224,11 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.basic_clk_name = {"ufs0_0"},
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
-				MT6983_TOP_AXI_PROT_EN_VLP_UFS0),
+				UFS0_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C84, 0x0C88, 0x0C80, 0x0C8C,
-				MT6983_TOP_AXI_PROT_EN_PERISYS_0_UFS0_2ND),
+				UFS0_PROT_STEP2_0_MASK),
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
-				MT6983_TOP_AXI_PROT_EN_VLP_UFS0_2ND),
+				UFS0_PROT_STEP3_0_MASK),
 		},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_IS_PWR_CON_ON |
 							MTK_SCPD_BYPASS_INIT_ON,
@@ -88,15 +249,24 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"mm_infra_0"},
+		.subsys_clk_prefix = "mminfra",
 		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MM_INFRA_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS1_MM_INFRA),
+				MM_INFRA_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				MM_INFRA_PROT_STEP1_2_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
-				MT6983_TOP_AXI_PROT_EN_INFRASYS1_MM_INFRA),
+				MM_INFRA_PROT_STEP1_3_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MM_INFRA_PROT_STEP2_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS1_MM_INFRA_2ND),
+				MM_INFRA_PROT_STEP2_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				MM_INFRA_PROT_STEP2_2_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
-				MT6983_TOP_AXI_PROT_EN_INFRASYS0_MM_INFRA),
+				MM_INFRA_PROT_STEP2_3_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -108,9 +278,9 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_slp_ack_bits = GENMASK(13, 13),
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
-				MT6983_TOP_AXI_PROT_EN_MD_MFGSYS_0_MFG0_DORMANT),
+				MFG0_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
-				MT6983_TOP_AXI_PROT_EN_0_MFG0_DORMANT_2ND),
+				MFG0_PROT_STEP2_0_MASK),
 		},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_IS_PWR_CON_ON |
 							MTK_SCPD_BYPASS_INIT_ON,
@@ -121,39 +291,48 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE1C,
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
-				MT6983_TOP_AXI_PROT_EN_VLP_ADSP_INFRA),
+				ADSP_INFRA_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
-				MT6983_TOP_AXI_PROT_EN_1_ADSP_INFRA),
+				ADSP_INFRA_PROT_STEP1_1_MASK),
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
-				MT6983_TOP_AXI_PROT_EN_VLP_ADSP_INFRA_2ND),
+				ADSP_INFRA_PROT_STEP2_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
-				MT6983_TOP_AXI_PROT_EN_0_ADSP_INFRA_2ND),
+				ADSP_INFRA_PROT_STEP2_1_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 
 	},
 	[MT6983_POWER_DOMAIN_MM_PROC_DORMANT] = {
 		.name = "mm_proc_dormant",
-		.sta_mask = BIT(30),
+		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE70,
-		.sram_slp_bits = GENMASK(12, 8),
+		.sram_slp_bits = GENMASK(11, 8),
 		.sram_slp_ack_bits = GENMASK(13, 13),
 		.basic_clk_name = {"mm_proc_dormant_0"},
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
-				MT6983_VLP_AXI_PROT_EN_MM_PROC),
+				MM_PROC_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
-				MT6983_VLP_AXI_PROT_EN_MM_PROC_2ND),
+				MM_PROC_PROT_STEP2_0_MASK),
 		},
 		.sram_table = {{0xF08, false}},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_L2TCM_SRAM |
-							MTK_SCPD_BYPASS_INIT_ON,
+							MTK_SCPD_BYPASS_INIT_ON |
+							MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6983_POWER_DOMAIN_ISP_VCORE] = {
 		.name = "isp_vcore",
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE30,
 		.basic_clk_name = {"isp_vcore_0"},
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				ISP_VCORE_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				ISP_VCORE_PROT_STEP3_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				ISP_VCORE_PROT_STEP3_1_MASK),
+		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_DIS0] = {
@@ -163,9 +342,16 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"dis0_0"},
+		.subsys_clk_prefix = "dis0",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS0_DISP),
+				DIS0_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				DIS0_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				DIS0_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				DIS0_PROT_STEP2_1_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 
@@ -175,6 +361,13 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sta_mask = GENMASK(31, 30),
 		.ctl_offs = 0xE68,
 		.basic_clk_name = {"dis1_0"},
+		.subsys_clk_prefix = "dis1",
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				DIS1_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				DIS1_PROT_STEP2_0_MASK),
+		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_VCORE] = {
@@ -184,11 +377,15 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.basic_clk_name = {"cam_vcore_0"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS2_CAM_VCORE),
+				CAM_VCORE_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
-				MT6983_TOP_AXI_PROT_EN_DRAMC0_CAM_VCORE),
+				CAM_VCORE_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				CAM_VCORE_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				CAM_VCORE_PROT_STEP2_1_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
-				MT6983_TOP_AXI_PROT_EN_INFRASYS0_CAM_VCORE),
+				CAM_VCORE_PROT_STEP2_2_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -200,13 +397,13 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
-				MT6983_TOP_AXI_PROT_EN_MD_MFGSYS_0_MFG1),
+				MFG1_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
-				MT6983_TOP_AXI_PROT_EN_MD_MFGSYS_0_MFG1_2ND),
+				MFG1_PROT_STEP2_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
-				MT6983_TOP_AXI_PROT_EN_MD_MFGSYS_0_MFG1_3RD),
+				MFG1_PROT_STEP3_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
-				MT6983_TOP_AXI_PROT_EN_MD_MFGSYS_0_MFG1_4TH),
+				MFG1_PROT_STEP4_0_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -218,9 +415,9 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_slp_ack_bits = GENMASK(13, 13),
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
-				MT6983_TOP_AXI_PROT_EN_VLP_ADSP_TOP_DORMANT),
+				ADSP_TOP_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
-				MT6983_TOP_AXI_PROT_EN_VLP_ADSP_TOP_DORMANT_2ND),
+				ADSP_TOP_PROT_STEP2_0_MASK),
 		},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_IS_PWR_CON_ON |
 							MTK_SCPD_BYPASS_INIT_ON,
@@ -240,9 +437,10 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE24,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "isp",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS_2_ISP_MAIN),
+				ISP_MAIN_PROT_STEP1_0_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -255,9 +453,13 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.basic_clk_name = {"vde0_0"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS0_VDE0),
+				VDE0_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS1_VDE0),
+				VDE0_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				VDE0_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				VDE0_PROT_STEP2_1_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -270,9 +472,13 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.basic_clk_name = {"ven0_0"},
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS0_VEN0),
+				VEN0_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS1_VEN0),
+				VEN0_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				VEN0_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				VEN0_PROT_STEP2_1_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -283,6 +489,17 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"mdp0_0"},
+		.subsys_clk_prefix = "mdp0",
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MDP0_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MDP0_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MDP0_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MDP0_PROT_STEP2_1_MASK),
+		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_VDE1] = {
@@ -292,6 +509,16 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"vde1_0"},
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				VDE1_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				VDE1_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				VDE1_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				VDE1_PROT_STEP2_1_MASK),
+		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_VEN1] = {
@@ -301,6 +528,16 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"ven1_0"},
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				VEN1_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				VEN1_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				VEN1_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				VEN1_PROT_STEP2_1_MASK),
+		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_MDP1] = {
@@ -310,6 +547,17 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"mdp1_0"},
+		.subsys_clk_prefix = "mdp1",
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MDP1_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MDP1_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MDP1_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MDP1_PROT_STEP2_1_MASK),
+		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_MAIN] = {
@@ -318,15 +566,18 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE44,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "cam",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS0_CAM_MAIN),
+				CAM_MAIN_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				CAM_MAIN_PROT_STEP1_1_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
-				MT6983_TOP_AXI_PROT_EN_DRAMC0_CAM_MAIN),
+				CAM_MAIN_PROT_STEP1_2_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
-				MT6983_TOP_AXI_PROT_EN_MMSYS2_CAM_MAIN),
+				CAM_MAIN_PROT_STEP2_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
-				MT6983_TOP_AXI_PROT_EN_DRAMC0_CAM_MAIN_2ND),
+				CAM_MAIN_PROT_STEP2_1_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
