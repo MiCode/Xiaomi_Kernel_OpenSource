@@ -28,34 +28,23 @@
 #include <debug_kinfo.h>
 #include <mrdump.h>
 #include <mt-plat/mboot_params.h>
+#include <mt-plat/mtk_system_reset.h>
 #include "mrdump_mini.h"
 #include "mrdump_private.h"
 
 /* for arm_smccc_smc */
 #include <linux/arm-smccc.h>
-#include <uapi/linux/psci.h>
 
 static struct pt_regs saved_regs;
-
-/* no export symbol to aee_exception_reboot, only used in exception flow */
-/* PSCI v1.1 extended power state encoding for SYSTEM_RESET2 function */
-#define PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT   31
-#define PSCI_1_1_RESET2_TYPE_VENDOR     \
-	(1 << PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT)
-
-#if IS_ENABLED(CONFIG_64BIT)
-#define PSCI_FN_NATIVE(version, name)   PSCI_##version##_FN64_##name
-#else
-#define PSCI_FN_NATIVE(version, name)   PSCI_##version##_FN_##name
-#endif
 
 #define DEBUG_COMPATIBLE "mediatek,aee_debug_kinfo"
 
 static void aee_exception_reboot(void)
 {
 	struct arm_smccc_res res;
-	int opt1 = 1, opt2 = 0;
+	int opt1 = 0, opt2 = 0;
 
+	opt1 = MTK_DOMAIN_AEE;
 	arm_smccc_smc(PSCI_FN_NATIVE(1_1, SYSTEM_RESET2),
 		PSCI_1_1_RESET2_TYPE_VENDOR | opt1,
 		opt2, 0, 0, 0, 0, 0, &res);
