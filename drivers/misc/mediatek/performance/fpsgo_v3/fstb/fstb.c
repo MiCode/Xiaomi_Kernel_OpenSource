@@ -318,6 +318,69 @@ int switch_fps_range(int nr_level, struct fps_level *level)
 		return 1;
 }
 
+int switch_thread_max_fps(int pid, int set_max)
+{
+	struct FSTB_FRAME_INFO *iter;
+	int ret = 0;
+
+	mutex_lock(&fstb_lock);
+	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
+		if (iter->pid != pid)
+			continue;
+
+		switch (iter->sbe_state) {
+		case -1:
+			ret = -1;
+			break;
+		case 0:
+		case 1:
+			iter->sbe_state = set_max;
+			break;
+		default:
+			break;
+		}
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				set_max, "sbe_set_max_fps");
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				iter->sbe_state, "sbe_state");
+	}
+
+	mutex_unlock(&fstb_lock);
+
+	return ret;
+}
+
+int switch_thread_no_ctrl(int pid, int set_no_ctrl)
+{
+	struct FSTB_FRAME_INFO *iter;
+	int ret = 0;
+
+	mutex_lock(&fstb_lock);
+	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
+		if (iter->pid != pid)
+			continue;
+		switch (iter->sbe_state) {
+		case -1:
+		case 0:
+			iter->sbe_state = set_no_ctrl ? -1 : 0;
+			break;
+		case 1:
+			iter->sbe_state = set_no_ctrl ? -1 : 1;
+			break;
+		default:
+			break;
+		}
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				set_no_ctrl, "sbe_set_no_ctrl");
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				iter->sbe_state, "sbe_state");
+	}
+
+	mutex_unlock(&fstb_lock);
+
+	return ret;
+}
+
 static int switch_redner_fps_range(char *proc_name,
 	pid_t pid, int nr_level, struct fps_level *level)
 {
@@ -1038,6 +1101,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		new_frame_info->target_fps_margin2 = 0;
 		new_frame_info->target_fps_margin_dbnc_a = margin_mode_dbnc_a;
 		new_frame_info->target_fps_margin_dbnc_b = margin_mode_dbnc_b;
+		new_frame_info->sbe_state = 0;
 		new_frame_info->queue_fps = max_fps_limit;
 		new_frame_info->bufid = bufID;
 		new_frame_info->queue_time_begin = 0;
@@ -1430,8 +1494,24 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 
 		if (fstb_camera_flag || (iter->hwui_flag == 1) ||
 			!fstb_hrtimer_ctrl_fps_enable) {
-			*target_fps = iter->target_fps;
-			tolerence_fps = iter->target_fps_margin;
+			switch (iter->sbe_state) {
+			case -1:
+				*target_fps = -1;
+				tolerence_fps = 0;
+				break;
+			case 0:
+				*target_fps = iter->target_fps;
+				tolerence_fps = iter->target_fps_margin;
+				break;
+			case 1:
+				*target_fps = max_fps_limit;
+				tolerence_fps = 0;
+				break;
+			default:
+				*target_fps = iter->target_fps;
+				tolerence_fps = iter->target_fps_margin;
+				break;
+			}
 			total_time = (int)FSTB_SEC_DIVIDER;
 			total_time =
 				div64_u64(total_time,
@@ -1480,6 +1560,7 @@ static void fstb_fps_stats(struct work_struct *work)
 	int idle = 1;
 	int fstb_active2xgf;
 	int max_target_fps = -1;
+	int gpu_fps = max_fps_limit, tolerence_fps = 0;
 
 	if (work != &fps_stats_work)
 		kfree(work);
@@ -1518,12 +1599,26 @@ static void fstb_fps_stats(struct work_struct *work)
 				"target_fps_margin_dbnc_b");
 
 			if (fstb_camera_flag || (iter->hwui_flag == 1) ||
-				!fstb_hrtimer_ctrl_fps_enable)
-				ged_kpi_set_target_FPS_margin(iter->bufid,
-				iter->target_fps, iter->target_fps_margin);
-			else
-				ged_kpi_set_target_FPS_margin(iter->bufid,
-					iter->target_fps_v2, iter->target_fps_margin_v2);
+				!fstb_hrtimer_ctrl_fps_enable) {
+				gpu_fps = iter->target_fps;
+				tolerence_fps = iter->target_fps_margin;
+			} else {
+				gpu_fps = iter->target_fps_v2;
+				tolerence_fps = iter->target_fps_margin_v2;
+			}
+			switch (iter->sbe_state) {
+			case -1:
+			case 0:
+				break;
+			case 1:
+				gpu_fps = max_fps_limit;
+				tolerence_fps = 0;
+				break;
+			default:
+				break;
+			}
+			ged_kpi_set_target_FPS_margin(iter->bufid,
+			gpu_fps, tolerence_fps);
 
 			mtk_fstb_dprintk(
 			"%s pid:%d target_fps:%d\n",
@@ -1610,6 +1705,41 @@ static void reset_fps_level(void)
 	set_soft_fps_level(1, level);
 }
 
+static ssize_t set_render_no_ctrl_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return 0;
+}
+
+static ssize_t set_render_no_ctrl_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+	int ret = 0;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) != 0)
+				goto out;
+			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
+			fpsgo_systrace_c_fstb_man(arg > 0 ? arg : -arg,
+				0, arg > 0, "force_no_ctrl");
+			if (arg > 0)
+				ret = switch_thread_no_ctrl(arg, 1);
+			else
+				ret = switch_thread_no_ctrl(-arg, 0);
+		}
+	}
+
+out:
+	return count;
+}
+
+static KOBJ_ATTR_RW(set_render_no_ctrl);
+
 static ssize_t set_render_max_fps_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -1624,21 +1754,18 @@ static ssize_t set_render_max_fps_store(struct kobject *kobj,
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 	int ret = 0;
-	struct fps_level level[1];
-
-	level[0].start = dfps_ceiling;
-	level[0].end = dfps_ceiling;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) != 0)
 				goto out;
 			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
-			fpsgo_systrace_c_fstb(arg > 0 ? arg : -arg, 0, arg > 0, "force_max_fps");
+			fpsgo_systrace_c_fstb_man(arg > 0 ? arg : -arg,
+				0, arg > 0, "force_max_fps");
 			if (arg > 0)
-				ret = switch_thread_fps_range(arg, 1, level);
+				ret = switch_thread_max_fps(arg, 1);
 			else
-				ret = switch_thread_fps_range(-arg, 0, NULL);
+				ret = switch_thread_max_fps(-arg, 0);
 		}
 	}
 
@@ -2106,19 +2233,20 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 	}
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-	"tid\tbufID\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\n");
+	"tid\tbufID\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tsbe_state\n");
 	pos += length;
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\n",
+				"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\n",
 				iter->pid,
 				iter->bufid,
 				iter->proc_name,
 				iter->queue_fps > max_fps_limit ?
 				max_fps_limit : iter->queue_fps,
 				iter->target_fps,
-				iter->target_fps_margin);
+				iter->target_fps_margin,
+				iter->sbe_state);
 		pos += length;
 
 	}
@@ -2205,6 +2333,8 @@ int mtk_fstb_init(void)
 				&kobj_attr_set_render_max_fps);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_fstb_hrtimer_ctrl_fps_enable);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_set_render_no_ctrl);
 	}
 
 	reset_fps_level();
@@ -2256,6 +2386,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_set_render_max_fps);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_fstb_hrtimer_ctrl_fps_enable);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_set_render_no_ctrl);
 
 	fpsgo_sysfs_remove_dir(&fstb_kobj);
 

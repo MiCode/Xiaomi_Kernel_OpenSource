@@ -49,6 +49,7 @@ struct FSTB_FRAME_INFO {
 	int target_fps_margin2;
 	int target_fps_margin_dbnc_a;
 	int target_fps_margin_dbnc_b;
+	int sbe_state; /* -1: no chase, 0: free run, 1: max_fps*/
 	int queue_fps;
 	unsigned long long bufid;
 	int in_list;
