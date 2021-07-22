@@ -6790,8 +6790,9 @@
 		phy-cells = <1>;
 		phys = <&u2port0 PHY_TYPE_USB2>,
 			 <&u3port0 PHY_TYPE_USB3>;
-		clocks = <&clk26m>;
-		clock-names = "sys_ck";
+		clocks = <&topckgen_clk CLK_TOPCKGEN_USB_TOP_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_SSUSB_XHCI_SEL>;
+		clock-names = "sys_ck", "host_ck";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -6800,6 +6801,7 @@
 		mediatek,force-vbus;
 		mediatek,clk-mgr;
 		mediatek,usb3-drd;
+		mediatek,hw-req-ctrl;
 		usb-role-switch;
 		port {
 			mtu3_drd_switch: endpoint@0 {
@@ -6827,8 +6829,9 @@
 		interrupts = <GIC_SPI 732 IRQ_TYPE_LEVEL_HIGH 0>;
 		phy-cells = <1>;
 		phys = <&u2port1 PHY_TYPE_USB2>;
-		clocks = <&clk26m>;
-		clock-names = "sys_ck";
+		clocks = <&topckgen_clk CLK_TOPCKGEN_USB_TOP_1P_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_SSUSB_XHCI_1P_SEL>;
+		clock-names = "sys_ck", "host_ck";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -6837,6 +6840,7 @@
 		mediatek,force-vbus;
 		mediatek,clk-mgr;
 		mediatek,usb3-drd;
+		mediatek,hw-req-ctrl;
 		usb-role-switch;
 		status = "disabled";
 
