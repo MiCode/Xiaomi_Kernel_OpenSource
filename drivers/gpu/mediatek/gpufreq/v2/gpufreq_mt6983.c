@@ -3034,6 +3034,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 	GPUFREQ_TRACE_START("power=%d", power);
 
 	if (power == POWER_ON) {
+#if GPUFREQ_MFG1_CONTROL_ENABLE
 		/* MFG1 on by CCF */
 		ret = pm_runtime_get_sync(g_mtcmos->mfg1_dev);
 		if (unlikely(ret < 0)) {
@@ -3041,6 +3042,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 				"fail to enable mfg1_dev (%d)", ret);
 			goto done;
 		}
+#endif /* GPUFREQ_MFG1_CONTROL_ENABLE */
 		g_gpu.mtcmos_count++;
 		g_stack.mtcmos_count++;
 
@@ -3318,6 +3320,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 		}
 #endif /* GPUFREQ_PDCv2_ENABLE */
 
+#if GPUFREQ_MFG1_CONTROL_ENABLE
 		/* MFG1 off by CCF */
 		ret = pm_runtime_put_sync(g_mtcmos->mfg1_dev);
 		if (unlikely(ret < 0)) {
@@ -3325,6 +3328,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 				"fail to disable mfg1_dev (%d)", ret);
 			goto done;
 		}
+#endif /* GPUFREQ_MFG1_CONTROL_ENABLE */
 		g_gpu.mtcmos_count--;
 		g_stack.mtcmos_count--;
 
@@ -4266,6 +4270,7 @@ static int __gpufreq_init_mtcmos(struct platform_device *pdev)
 		goto done;
 	}
 
+#if GPUFREQ_MFG1_CONTROL_ENABLE
 	g_mtcmos->mfg1_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg1");
 	if (IS_ERR_OR_NULL(g_mtcmos->mfg1_dev)) {
 		ret = g_mtcmos->mfg1_dev ? PTR_ERR(g_mtcmos->mfg1_dev) : GPUFREQ_ENODEV;
@@ -4273,6 +4278,7 @@ static int __gpufreq_init_mtcmos(struct platform_device *pdev)
 		goto done;
 	}
 	dev_pm_syscore_device(g_mtcmos->mfg1_dev, true);
+#endif /* GPUFREQ_MFG1_CONTROL_ENABLE */
 
 #if !GPUFREQ_PDCv2_ENABLE
 	g_mtcmos->mfg2_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg2");

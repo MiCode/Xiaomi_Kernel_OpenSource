@@ -9,7 +9,7 @@
 /**************************************************
  * GPUFREQ Local Config
  **************************************************/
-#define GPUFREQ_BRINGUP                 (1)
+#define GPUFREQ_BRINGUP                 (0)
 #define GPUFREQ_BUCK_ALWAYS_ON          (0)
 #define GPUFREQ_MTCMOS_ALWAYS_ON        (0)
 #define GPUFREQ_CG_ALWAYS_ON            (0)
@@ -17,7 +17,7 @@
  *  0 -> all on when mtk probe init (Freq/Vgpu/Vsram_gpu)
  *       disable DDK power on/off callback
  */
-#define GPUFREQ_POWER_CTRL_ENABLE       (0)
+#define GPUFREQ_POWER_CTRL_ENABLE       (1)
 /*
  * (DVFS_ENABLE, CUST_INIT)
  * (1, 1) -> DVFS enable and init to CUST_INIT_OPPIDX
@@ -33,6 +33,7 @@
 #define GPUFREQ_VCORE_DVFS_ENABLE       (0)
 #define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (0)
 #define GPUFREQ_FORCE_4_CORES           (1)
+#define GPUFREQ_MFG1_CONTROL_ENABLE     (0)
 
 /**************************************************
  * Clock Setting
