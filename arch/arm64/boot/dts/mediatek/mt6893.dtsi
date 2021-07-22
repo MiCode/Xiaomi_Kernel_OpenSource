@@ -7697,7 +7697,8 @@
 				"disp_mutex2_eof",
 				"disp_wdma1_eof2",
 				"disp_dsi0_sof0",
-				"disp_token_vfp_period0";
+				"disp_token_vfp_period0",
+				"disp_gpio_te1";
 
 			gce-events = <&gce CMDQ_EVENT_DISP_STREAM_DONE_0>,
 				<&gce CMDQ_EVENT_DP_INTF_FRAME_DONE_MM>,
@@ -7716,7 +7717,8 @@
 				<&gce CMDQ_EVENT_DP_INTF_FRAME_DONE_MM>,
 				<&gce CMDQ_EVENT_DISP_WDMA1_FRAME_DONE>,
 				<&gce CMDQ_EVENT_DSI0_SOF>,
-				<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>;
+				<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
+				<&gce CMDQ_EVENT_OUT_EVENT_1>;
 
 			helper-name = "MTK_DRM_OPT_STAGE",
 				"MTK_DRM_OPT_USE_CMDQ",
@@ -7761,7 +7763,8 @@
 				"MTK_DRM_OPT_DYN_MIPI_CHANGE",
 				"MTK_DRM_OPT_PRIM_DUAL_PIPE",
 				"MTK_DRM_OPT_MSYNC2_0",
-				"MTK_DRM_OPT_MML_PRIMARY";
+				"MTK_DRM_OPT_MML_PRIMARY",
+				"MTK_DRM_OPT_DUAL_TE";
 
 			helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -7806,7 +7809,8 @@
 				<1>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 				<1>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
 				<0>, /*MTK_DRM_OPT_MSYNC2_0*/
-				<1>; /*MTK_DRM_OPT_MML_PRIMARY*/
+				<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
+				<1>; /*MTK_DRM_OPT_DUAL_TE*/
 		};
 
 		disp_mutex0: disp_mutex@14117000 {
@@ -8013,6 +8017,11 @@
 			clock-names = "engine", "digital", "hs";
 			phys = <&mipi_tx_config0>;
 			phy-names = "dphy";
+		};
+
+		dsi1_te: dsi1_te {
+			compatible = "mediatek, dsi1_te-int";
+			status = "disabled";
 		};
 
 		dsi_te: dsi_te {
