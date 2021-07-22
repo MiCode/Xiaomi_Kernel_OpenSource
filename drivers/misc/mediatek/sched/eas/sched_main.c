@@ -158,6 +158,12 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register android_vh_set_wake_flags failed\n");
 
+#if IS_ENABLED(CONFIG_UCLAMP_TASK_GROUP)
+	ret = register_trace_android_rvh_uclamp_eff_get(
+		mtk_uclamp_eff_get, NULL);
+	if (ret)
+		pr_info("register android_rvh_uclamp_eff_get failed\n");
+#endif
 #if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
 	ret = register_trace_android_rvh_sched_newidle_balance(
 			mtk_sched_newidle_balance, NULL);

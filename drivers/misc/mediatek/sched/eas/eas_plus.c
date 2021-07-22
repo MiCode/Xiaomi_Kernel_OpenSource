@@ -369,4 +369,35 @@ void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode)
 		*wake_flags &= ~WF_SYNC;
 }
 
+#if IS_ENABLED(CONFIG_UCLAMP_TASK_GROUP)
+void mtk_uclamp_eff_get(void *data, struct task_struct *p, enum uclamp_id clamp_id,
+		struct uclamp_se *uc_max, struct uclamp_se *uc_eff, int *ret)
+{
+	struct uclamp_se group_uclamp = task_group(p)->uclamp[clamp_id];
+
+	*uc_eff =  p->uclamp_req[clamp_id];
+
+	if (task_group_is_autogroup(task_group(p)))
+		goto sys_restriction;
+	if (task_group(p) == &root_task_group)
+		goto sys_restriction;
+	switch (clamp_id) {
+	case UCLAMP_MIN:
+		if (uc_eff->value < group_uclamp.value)
+			*uc_eff = group_uclamp;
+		break;
+	case UCLAMP_MAX:
+		if (uc_eff->value > group_uclamp.value)
+			*uc_eff = group_uclamp;
+		break;
+	default:
+		WARN_ON_ONCE(1);
+		break;
+	}
+sys_restriction:
+	if (uc_eff->value > uc_max->value)
+		*uc_eff = *uc_max;
+	*ret = 1;
+}
+#endif
 
