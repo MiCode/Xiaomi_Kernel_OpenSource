@@ -3424,12 +3424,9 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	cam_dev = devm_kzalloc(dev, sizeof(*cam_dev), GFP_KERNEL);
 	if (!cam_dev)
 		return -ENOMEM;
-#ifdef CONFIG_MTK_IOMMU_PGTABLE_EXT
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
-		dev_dbg(dev, "%s: No suitable DMA available\n", __func__);
-#endif
-#endif
+		dev_info(dev, "%s: No suitable DMA available\n", __func__);
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_info(dev, "failed to get mem\n");

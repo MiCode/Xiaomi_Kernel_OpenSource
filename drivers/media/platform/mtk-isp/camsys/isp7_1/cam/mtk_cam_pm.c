@@ -77,12 +77,8 @@ static int mtk_cam_larb_probe(struct platform_device *pdev)
 	larb_dev = devm_kzalloc(dev, sizeof(*dev), GFP_KERNEL);
 	if (!larb_dev)
 		return -ENOMEM;
-#ifdef CONFIG_MTK_IOMMU_PGTABLE_EXT
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
-			dev_dbg(dev, "%s: No suitable DMA available\n", __func__);
-#endif
-#endif
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
+		dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,larb-id",
 				   &larb_dev->larb_id);
