@@ -48,12 +48,17 @@ enum mtk_ddp_comp_type {
 	MTK_DMDP_AAL,
 	MTK_DMDP_RSZ,
 	MTK_DMDP_TDSHP,
+	MTK_DISP_CM,
+	MTK_DISP_SPR,
 	MTK_DISP_DSC,
 	MTK_DP_INTF,
 	MTK_DISP_MERGE,
 	MTK_DISP_DPTX,
 	MTK_DISP_RDMA_OUT_RELAY,
 	MTK_DISP_VIRTUAL,
+	MTK_DISP_CHIST,
+	MTK_DISP_C3D,
+	MTK_DISP_TDSHP,
 	MTK_DDP_COMP_TYPE_MAX,
 };
 
@@ -61,77 +66,89 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_AAL0)                                            \
 	EXPR(DDP_COMPONENT_AAL1)                                            \
 	EXPR(DDP_COMPONENT_BLS)                                             \
+	EXPR(DDP_COMPONENT_CHIST0)                                          \
+	EXPR(DDP_COMPONENT_CHIST1)                                          \
+/*5*/	EXPR(DDP_COMPONENT_CHIST2)                                          \
+	EXPR(DDP_COMPONENT_CHIST3)                                          \
+	EXPR(DDP_COMPONENT_TDSHP0)                                          \
+	EXPR(DDP_COMPONENT_TDSHP1)                                          \
+	EXPR(DDP_COMPONENT_C3D0)                                            \
+/*10*/	EXPR(DDP_COMPONENT_C3D1)                                            \
 	EXPR(DDP_COMPONENT_CCORR0)                                          \
 	EXPR(DDP_COMPONENT_CCORR1)                                          \
-/*5*/	EXPR(DDP_COMPONENT_COLOR0)                                          \
+	EXPR(DDP_COMPONENT_CCORR2)                                          \
+	EXPR(DDP_COMPONENT_CCORR3)                                          \
+/*15*/	EXPR(DDP_COMPONENT_COLOR0)                                          \
 	EXPR(DDP_COMPONENT_COLOR1)                                          \
 	EXPR(DDP_COMPONENT_COLOR2)                                          \
 	EXPR(DDP_COMPONENT_DITHER0)                                         \
 	EXPR(DDP_COMPONENT_DITHER1)                                         \
-/*10*/	EXPR(DDP_COMPONENT_DPI0)                                            \
+/*20*/	EXPR(DDP_COMPONENT_DPI0)                                            \
 	EXPR(DDP_COMPONENT_DPI1)                                            \
 	EXPR(DDP_COMPONENT_DSI0)                                            \
 	EXPR(DDP_COMPONENT_DSI1)                                            \
 	EXPR(DDP_COMPONENT_GAMMA0)                                          \
-/*15*/	EXPR(DDP_COMPONENT_GAMMA1)                                          \
+/*25*/	EXPR(DDP_COMPONENT_GAMMA1)                                          \
 	EXPR(DDP_COMPONENT_OD)                                              \
 	EXPR(DDP_COMPONENT_OD1)                                             \
 	EXPR(DDP_COMPONENT_OVL0)                                            \
 	EXPR(DDP_COMPONENT_OVL1)                                            \
-/*20*/	EXPR(DDP_COMPONENT_OVL2)                                            \
+/*30*/	EXPR(DDP_COMPONENT_OVL2)                                            \
 	EXPR(DDP_COMPONENT_OVL0_2L)                                         \
 	EXPR(DDP_COMPONENT_OVL1_2L)                                         \
 	EXPR(DDP_COMPONENT_OVL2_2L)                                         \
 	EXPR(DDP_COMPONENT_OVL3_2L)                                         \
-/*25*/	EXPR(DDP_COMPONENT_OVL0_2L_VIRTUAL0)                                \
+/*35*/	EXPR(DDP_COMPONENT_OVL0_2L_VIRTUAL0)                                \
 	EXPR(DDP_COMPONENT_OVL1_2L_VIRTUAL0)                                \
 	EXPR(DDP_COMPONENT_OVL0_VIRTUAL0)                                   \
 	EXPR(DDP_COMPONENT_OVL0_VIRTUAL1)                                   \
 	EXPR(DDP_COMPONENT_OVL1_VIRTUAL0)                                   \
-/*30*/	EXPR(DDP_COMPONENT_OVL0_OVL0_2L_VIRTUAL0)                           \
+/*40*/	EXPR(DDP_COMPONENT_OVL0_OVL0_2L_VIRTUAL0)                           \
 	EXPR(DDP_COMPONENT_PWM0)                                            \
 	EXPR(DDP_COMPONENT_PWM1)                                            \
 	EXPR(DDP_COMPONENT_PWM2)                                            \
 	EXPR(DDP_COMPONENT_RDMA0)                                           \
-/*35*/	EXPR(DDP_COMPONENT_RDMA1)                                           \
+/*45*/	EXPR(DDP_COMPONENT_RDMA1)                                           \
 	EXPR(DDP_COMPONENT_RDMA2)                                           \
 	EXPR(DDP_COMPONENT_RDMA3)                                           \
 	EXPR(DDP_COMPONENT_RDMA4)                                           \
 	EXPR(DDP_COMPONENT_RDMA5)                                           \
-/*40*/	EXPR(DDP_COMPONENT_RDMA0_VIRTUAL0)                                  \
+/*50*/	EXPR(DDP_COMPONENT_RDMA0_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_RDMA1_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_RDMA2_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_RSZ0)                                            \
 	EXPR(DDP_COMPONENT_RSZ1)                                            \
-/*45*/	EXPR(DDP_COMPONENT_UFOE)                                            \
+/*55*/	EXPR(DDP_COMPONENT_UFOE)                                            \
 	EXPR(DDP_COMPONENT_WDMA0)                                           \
 	EXPR(DDP_COMPONENT_WDMA1)                                           \
 	EXPR(DDP_COMPONENT_UFBC_WDMA0)                                      \
 	EXPR(DDP_COMPONENT_WDMA_VIRTUAL0)                                   \
-/*50*/	EXPR(DDP_COMPONENT_WDMA_VIRTUAL1)                                   \
+/*60*/	EXPR(DDP_COMPONENT_WDMA_VIRTUAL1)                                   \
 	EXPR(DDP_COMPONENT_POSTMASK0)                                       \
 	EXPR(DDP_COMPONENT_POSTMASK1)                                       \
 	EXPR(DDP_COMPONENT_DMDP_RDMA0)                                      \
 	EXPR(DDP_COMPONENT_DMDP_HDR0)                                       \
-/*55*/	EXPR(DDP_COMPONENT_DMDP_AAL0)                                       \
+/*65*/	EXPR(DDP_COMPONENT_DMDP_AAL0)                                       \
 	EXPR(DDP_COMPONENT_DMDP_RSZ0)                                       \
 	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                     \
 	EXPR(DDP_COMPONENT_DMDP_RDMA1)                                      \
 	EXPR(DDP_COMPONENT_DMDP_HDR1)                                       \
-/*60*/	EXPR(DDP_COMPONENT_DMDP_AAL1)                                       \
+/*70*/	EXPR(DDP_COMPONENT_DMDP_AAL1)                                       \
 	EXPR(DDP_COMPONENT_DMDP_RSZ1)                                       \
 	EXPR(DDP_COMPONENT_DMDP_TDSHP1)                                     \
-	EXPR(DDP_COMPONENT_DSC0)                                            \
-	EXPR(DDP_COMPONENT_MERGE0)                                          \
-/*65*/	EXPR(DDP_COMPONENT_DPTX)                                            \
-	EXPR(DDP_COMPONENT_DP_INTF0)                                        \
-	EXPR(DDP_COMPONENT_RDMA4_VIRTUAL0)                                  \
-	EXPR(DDP_COMPONENT_RDMA5_VIRTUAL0)                                  \
-	EXPR(DDP_COMPONENT_MERGE1)                                          \
-/*70*/	EXPR(DDP_COMPONENT_SPR0_VIRTUAL)                                    \
-	EXPR(DDP_COMPONENT_RDMA0_OUT_RELAY)                                 \
 	EXPR(DDP_COMPONENT_CM0)                                             \
 	EXPR(DDP_COMPONENT_SPR0)                                            \
+/*75*/	EXPR(DDP_COMPONENT_DSC0)                                            \
+	EXPR(DDP_COMPONENT_MERGE0)                                          \
+	EXPR(DDP_COMPONENT_DPTX)                                            \
+	EXPR(DDP_COMPONENT_DP_INTF0)                                        \
+	EXPR(DDP_COMPONENT_RDMA4_VIRTUAL0)                                  \
+/*80*/	EXPR(DDP_COMPONENT_RDMA5_VIRTUAL0)                                  \
+	EXPR(DDP_COMPONENT_MERGE1)                                          \
+	EXPR(DDP_COMPONENT_SPR0_VIRTUAL)                                    \
+	EXPR(DDP_COMPONENT_RDMA0_OUT_RELAY)                                 \
+	EXPR(DDP_COMPONENT_PQ0_VIRTUAL)                                     \
+/*85*/	EXPR(DDP_COMPONENT_MAIN0_VIRTUAL)                                   \
 	EXPR(DDP_COMPONENT_ID_MAX)
 
 #define DECLARE_NUM(ENUM) ENUM,

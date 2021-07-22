@@ -230,13 +230,16 @@ struct tag_videolfb {
 struct disp_iommu_device *disp_get_iommu_dev(void);
 
 extern struct platform_driver mtk_ddp_driver;
+extern struct platform_driver mtk_disp_tdshp_driver;
 extern struct platform_driver mtk_disp_color_driver;
 extern struct platform_driver mtk_disp_ccorr_driver;
+extern struct platform_driver mtk_disp_c3d_driver;
 extern struct platform_driver mtk_disp_gamma_driver;
 extern struct platform_driver mtk_disp_aal_driver;
 extern struct platform_driver mtk_dmdp_aal_driver;
 extern struct platform_driver mtk_disp_postmask_driver;
 extern struct platform_driver mtk_disp_dither_driver;
+extern struct platform_driver mtk_disp_chist_driver;
 extern struct platform_driver mtk_disp_ovl_driver;
 extern struct platform_driver mtk_disp_rdma_driver;
 extern struct platform_driver mtk_disp_wdma_driver;
@@ -247,6 +250,8 @@ extern struct platform_driver mtk_mipi_tx_driver;
 extern struct platform_driver mtk_lvds_driver;
 extern struct platform_driver mtk_lvds_tx_driver;
 extern struct platform_driver mtk_disp_dsc_driver;
+extern struct platform_driver mtk_disp_cm_driver;
+extern struct platform_driver mtk_disp_spr_driver;
 extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 extern struct platform_driver mtk_disp_merge_driver;
 #ifdef CONFIG_MTK_HDMI_SUPPORT

@@ -1,11 +1,14 @@
 subdir-ccflags-y += -Werror
 
 mediatek-drm-y := mtk_drm_drv.o \
+		  mtk_disp_tdshp.o \
 		  mtk_disp_color.o \
 		  mtk_disp_ccorr.o \
+		  mtk_disp_c3d.o   \
 		  mtk_disp_gamma.o \
 		  mtk_disp_aal.o \
 		  mtk_disp_dither.o \
+		  mtk_disp_chist.o \
 		  mtk_disp_ovl.o \
 		  mtk_disp_rdma.o \
 		  mtk_disp_rsz.o \
@@ -37,6 +40,8 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_recovery.o \
 		  mtk_disp_pmqos.o \
 		  mtk_disp_dsc.o \
+		  mtk_disp_cm.o \
+		  mtk_disp_spr.o \
 		  mtk_drm_arr.o \
 		  mtk_disp_merge.o \
 		  mtk_dmdp_aal.o \

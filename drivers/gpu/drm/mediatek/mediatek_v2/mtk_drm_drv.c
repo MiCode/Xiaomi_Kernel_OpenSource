@@ -46,9 +46,13 @@
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_arr.h"
 #include "mtk_disp_ccorr.h"
+#include "mtk_disp_tdshp.h"
 #include "mtk_disp_color.h"
 #include "mtk_disp_gamma.h"
 #include "mtk_disp_aal.h"
+#include "mtk_disp_c3d.h"
+#include "mtk_disp_chist.h"
+
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
 #include "mtk_fbconfig_kdebug.h"
@@ -1253,11 +1257,22 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL0_2L, /*DDP_COMPONENT_OVL1_2L,*/
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
 	DDP_COMPONENT_OVL0_VIRTUAL1, DDP_COMPONENT_RDMA0,
-	DDP_COMPONENT_RDMA0_OUT_RELAY,
 #ifndef DRM_BYPASS_PQ
-	// todo ..
+	DDP_COMPONENT_TDSHP0,    DDP_COMPONENT_COLOR0,
+	DDP_COMPONENT_CCORR0,    DDP_COMPONENT_CCORR1,
+	DDP_COMPONENT_C3D0,      DDP_COMPONENT_DMDP_AAL0,
+	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
+	DDP_COMPONENT_CM0,       DDP_COMPONENT_SPR0,
+	DDP_COMPONENT_PQ0_VIRTUAL, DDP_COMPONENT_MAIN0_VIRTUAL,
+#else
+	DDP_COMPONENT_RDMA0_OUT_RELAY,
 #endif
-	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
+	DDP_COMPONENT_DSI0,      DDP_COMPONENT_PWM0,
+#ifndef DRM_BYPASS_PQ
+	/* the chist connect by customer config*/
+	DDP_COMPONENT_CHIST0,    DDP_COMPONENT_CHIST0,
+#endif
 };
 
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_dual_main[] = {
@@ -1549,6 +1564,7 @@ static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main[] = {
 	DDP_COMPONENT_CCORR1,
 	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
 	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
+	DDP_COMPONENT_CM0, DDP_COMPONENT_SPR0,
 	DDP_COMPONENT_SPR0_VIRTUAL,
 #endif
 	DDP_COMPONENT_DSI0,
@@ -2567,6 +2583,11 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_MML_PRIMARY;
 
+#ifdef MTK_COLOR_HISTOGRAM
+	caps_info->color_format = 0x1FF;
+	caps_info->max_channel = 3;
+	caps_info->max_bin = 128;
+#endif
 	return ret;
 }
 
@@ -3358,6 +3379,26 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 #endif
 	DRM_IOCTL_DEF_DRV(MTK_MML_GEM_SUBMIT, mtk_drm_ioctl_mml_gem_submit,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_SET_DISP_TDSHP_REG, mtk_drm_ioctl_tdshp_set_reg,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_DISP_TDSHP_GET_SIZE, mtk_drm_ioctl_tdshp_get_size,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_C3D_GET_BIN_NUM, mtk_drm_ioctl_c3d_get_bin_num,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_C3D_GET_IRQ, mtk_drm_ioctl_c3d_get_irq,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_C3D_EVENTCTL, mtk_drm_ioctl_c3d_eventctl,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_C3D_SET_LUT, mtk_drm_ioctl_c3d_set_lut,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_BYPASS_C3D, mtk_drm_ioctl_bypass_c3d,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_GET_CHIST, mtk_drm_ioctl_get_chist,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_GET_CHIST_CAPS, mtk_drm_ioctl_get_chist_caps,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_CHIST_CONFIG, mtk_drm_ioctl_set_chist_config,
+			  DRM_UNLOCKED),
 };
 
 static const struct file_operations mtk_drm_fops = {
@@ -3511,12 +3552,20 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt6885-disp-ccorr",
 	 .data = (void *)MTK_DISP_CCORR},
+	{.compatible = "mediatek,mt6983-disp-ccorr",
+	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt6873-disp-ccorr",
 	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt6853-disp-ccorr",
 	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt6833-disp-ccorr",
 	 .data = (void *)MTK_DISP_CCORR},
+	{.compatible = "mediatek,mt6983-disp-chist",
+	 .data = (void *)MTK_DISP_CHIST},
+	{.compatible = "mediatek,mt6983-disp-c3d",
+	 .data = (void *)MTK_DISP_C3D},
+	{.compatible = "mediatek,mt6983-disp-tdshp",
+	 .data = (void *)MTK_DISP_TDSHP},
 	{.compatible = "mediatek,mt2701-disp-color",
 	 .data = (void *)MTK_DISP_COLOR},
 	{.compatible = "mediatek,mt6779-disp-color",
@@ -3524,6 +3573,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	{.compatible = "mediatek,mt6873-disp-color",
 	 .data = (void *)MTK_DISP_COLOR},
 	{.compatible = "mediatek,mt6853-disp-color",
+	 .data = (void *)MTK_DISP_COLOR},
+	{.compatible = "mediatek,mt6983-disp-color",
 	 .data = (void *)MTK_DISP_COLOR},
 	{.compatible = "mediatek,mt6833-disp-color",
 	 .data = (void *)MTK_DISP_COLOR},
@@ -3543,6 +3594,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_AAL},
 	{.compatible = "mediatek,mt6885-disp-aal",
 	 .data = (void *)MTK_DISP_AAL},
+	{.compatible = "mediatek,mt6983-disp-aal",
+	 .data = (void *)MTK_DISP_AAL},
 	{.compatible = "mediatek,mt6779-disp-gamma",
 	 .data = (void *)MTK_DISP_GAMMA},
 	{.compatible = "mediatek,mt8173-disp-gamma",
@@ -3555,9 +3608,13 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_GAMMA},
 	{.compatible = "mediatek,mt6833-disp-gamma",
 	 .data = (void *)MTK_DISP_GAMMA},
+	{.compatible = "mediatek,mt6983-disp-gamma",
+	 .data = (void *)MTK_DISP_GAMMA},
 	{.compatible = "mediatek,mt6779-disp-dither",
 	 .data = (void *)MTK_DISP_DITHER},
 	{.compatible = "mediatek,mt6885-disp-dither",
+	 .data = (void *)MTK_DISP_DITHER},
+	{.compatible = "mediatek,mt6983-disp-dither",
 	 .data = (void *)MTK_DISP_DITHER},
 	{.compatible = "mediatek,mt6873-disp-dither",
 	 .data = (void *)MTK_DISP_DITHER},
@@ -3643,12 +3700,18 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6885-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},
+	{.compatible = "mediatek,mt6983-disp-postmask",
+	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6873-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6853-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6833-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},
+	{.compatible = "mediatek,mt6983-disp-cm",
+	 .data = (void *)MTK_DISP_CM},
+	{.compatible = "mediatek,mt6983-disp-spr",
+	 .data = (void *)MTK_DISP_SPR},
 	{.compatible = "mediatek,mt6885-disp-dsc",
 	 .data = (void *)MTK_DISP_DSC},
 	{.compatible = "mediatek,mt6983-disp-dsc",
@@ -3662,6 +3725,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 {.compatible = "mediatek,mt6885-dp_tx",
 	 .data = (void *)MTK_DISP_DPTX},
 	{.compatible = "mediatek,mt6885-dmdp-aal",
+	 .data = (void *)MTK_DMDP_AAL},
+	{.compatible = "mediatek,mt6983-dmdp-aal",
 	 .data = (void *)MTK_DMDP_AAL},
 	{.compatible = "mediatek,mt6873-dmdp-aal",
 	 .data = (void *)MTK_DMDP_AAL},
@@ -3868,10 +3933,12 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI
 		    || comp_type == MTK_DISP_DSC || comp_type == MTK_DPI
 #ifndef DRM_BYPASS_PQ
-		    || comp_type == MTK_DISP_COLOR ||
+		    || comp_type == MTK_DISP_TDSHP || comp_type == MTK_DISP_CHIST
+		    || comp_type == MTK_DISP_C3D || comp_type == MTK_DISP_COLOR ||
 		    comp_type == MTK_DISP_CCORR ||
 		    comp_type == MTK_DISP_GAMMA || comp_type == MTK_DISP_AAL ||
 		    comp_type == MTK_DISP_DITHER ||
+		    comp_type == MTK_DISP_CM || comp_type == MTK_DISP_SPR ||
 		    comp_type == MTK_DMDP_AAL
 #endif
 #ifdef CONFIG_MTK_HDMI_SUPPORT
@@ -4055,13 +4122,16 @@ static struct platform_driver mtk_drm_platform_driver = {
 static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_drm_platform_driver,
 	&mtk_ddp_driver,
+	&mtk_disp_tdshp_driver,
 	&mtk_disp_color_driver,
 	&mtk_disp_ccorr_driver,
+	&mtk_disp_c3d_driver,
 	&mtk_disp_gamma_driver,
 	&mtk_disp_aal_driver,
 	&mtk_dmdp_aal_driver,
 	&mtk_disp_postmask_driver,
 	&mtk_disp_dither_driver,
+	&mtk_disp_chist_driver,
 	&mtk_disp_ovl_driver,
 	&mtk_disp_rdma_driver,
 	&mtk_disp_wdma_driver,
@@ -4076,6 +4146,8 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_lvds_driver,
 	&mtk_lvds_tx_driver,
 #endif
+	&mtk_disp_cm_driver,
+	&mtk_disp_spr_driver,
 	&mtk_disp_dsc_driver,
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 	&mtk_dp_tx_driver,
