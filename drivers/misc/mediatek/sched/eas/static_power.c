@@ -59,8 +59,8 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 	cpufreq_cpu_put(tP);
 
 	a = readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8));
-	b = ((a >> 16) & 0xFFFF);
-	a = a & 0xFFFF;
+	b = ((a >> 12) & 0xFFFFF);
+	a = a & 0xFFF;
 	c = readl_relaxed((info.base + 0x240 + i * 0x120 + opp * 8 + 4));
 	power = (temperature*temperature*a - b*temperature+c)/10;
 
@@ -110,8 +110,8 @@ static int leakage_trial_proc_show(struct seq_file *m, void *v)
 	u32 *repo = m->private;
 
 	a = repo[144+cpu*72+opp*2];
-	b = ((a >> 16) & 0xFFFF);
-	a = a & 0xFFFF;
+	b = ((a >> 12) & 0xFFFFF);
+	a = a & 0xFFF;
 	c = repo[144+cpu*72+opp*2+1];
 	power = (temp*temp*a - b*temp+c)/10;
 	seq_printf(m, "power: %d, a, b, c = (%d %d %d)\n", power, a, b, c);
