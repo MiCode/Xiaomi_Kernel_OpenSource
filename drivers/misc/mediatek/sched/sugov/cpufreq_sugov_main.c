@@ -588,13 +588,17 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	unsigned int next_f;
 	bool busy;
 
+	raw_spin_lock(&sg_policy->update_lock);
+
 	sugov_iowait_boost(sg_cpu, time, flags);
 	sg_cpu->last_update = time;
 
 	ignore_dl_rate_limit(sg_cpu, sg_policy);
 
-	if (!sugov_should_update_freq(sg_policy, time))
+	if (!sugov_should_update_freq(sg_policy, time)) {
+		raw_spin_unlock(&sg_policy->update_lock);
 		return;
+	}
 
 	/* Critical Task aware thermal throttling, notify thermal */
 	mtk_set_cpu_min_opp_single(sg_cpu);
@@ -634,10 +638,10 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	if (sg_policy->policy->fast_switch_enabled) {
 		sugov_fast_switch(sg_policy, time, next_f);
 	} else {
-		raw_spin_lock(&sg_policy->update_lock);
 		sugov_deferred_update(sg_policy, time, next_f);
-		raw_spin_unlock(&sg_policy->update_lock);
 	}
+
+	raw_spin_unlock(&sg_policy->update_lock);
 }
 
 static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
@@ -985,6 +989,8 @@ static int sugov_init(struct cpufreq_policy *policy)
 				   mtk_gov.name);
 	if (ret)
 		goto fail;
+
+	policy->dvfs_possible_from_any_cpu = 1;
 
 out:
 	mutex_unlock(&global_tunables_lock);
