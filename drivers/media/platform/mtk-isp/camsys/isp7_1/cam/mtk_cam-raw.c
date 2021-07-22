@@ -697,8 +697,9 @@ int get_fps_ratio(struct mtk_raw_device *dev)
 {
 	int fps, fps_ratio;
 
-	fps = dev->pipeline->res_config.interval.denominator /
-			dev->pipeline->res_config.interval.numerator;
+	fps = (dev->pipeline->res_config.interval.numerator > 0) ?
+			(dev->pipeline->res_config.interval.denominator /
+			dev->pipeline->res_config.interval.numerator) : 0;
 	if (fps <= 30)
 		fps_ratio = 1;
 	else if (fps <= 60)
@@ -1724,7 +1725,8 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		for (i = 0; i < ARRAY_SIZE(pipe->vdev_nodes); i++) {
 			if (!pipe->vdev_nodes[i].enabled)
 				continue;
-			pipe->enabled_dmas |= 1 << pipe->vdev_nodes[i].desc.dma_port;
+			pipe->enabled_dmas |=
+				(unsigned int) (1 << pipe->vdev_nodes[i].desc.dma_port);
 		}
 	} else {
 		for (i = 0; i < ARRAY_SIZE(raw->devs); i++) {

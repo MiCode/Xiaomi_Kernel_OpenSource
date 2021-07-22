@@ -2597,7 +2597,8 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 		fi.pad = 1;
 		v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE);
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
-		fps_factor = fi.interval.denominator / fi.interval.numerator / 30;
+		fps_factor = (fi.interval.numerator > 0) ?
+				(fi.interval.denominator / fi.interval.numerator / 30) : 1;
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 		camsys_ctrl->raw_dev[raw_dev->id] = raw_dev;
 		if (ctx->pipe->res_config.raw_num_used != 1) {
