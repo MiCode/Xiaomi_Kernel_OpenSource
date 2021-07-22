@@ -5547,10 +5547,6 @@
 
 			/* Dummy iommus for multi-iommu architecture. */
 			iommus = <&iommu1 M4U_PORT_L16_CAM_IMGO_R1_A_MDP>;
-
-
-			mediatek,larbs =
-				<&larb9 &larb11>;
 		};
 
 		camisp_legacy: camisp_legacy@1a000000 {

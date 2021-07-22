@@ -4492,9 +4492,6 @@
 				/* rsc */
 				<&iommu0 M4U_PORT_L20_IPE_RSC_RDMA0>,
 				<&iommu0 M4U_PORT_L20_IPE_RSC_WDMA>;
-
-			mediatek,larbs =
-				<&larb9 &larb11>;
 		};
 
 		camisp_legacy: camisp_legacy@1a000000 {
