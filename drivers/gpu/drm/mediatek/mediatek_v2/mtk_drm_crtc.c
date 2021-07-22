@@ -3232,7 +3232,12 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		// only VDO mode panel use CMDQ call
 		if (mtk_crtc &&
 			!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-			mtk_release_present_fence(session_id, fence_idx, mtk_crtc->eof_time);
+			if (cb_data->msync2_enable)
+				mtk_release_present_fence(session_id,
+						fence_idx, ktime_get());
+			else
+				mtk_release_present_fence(session_id,
+						fence_idx, mtk_crtc->eof_time);
 		}
 	}
 
