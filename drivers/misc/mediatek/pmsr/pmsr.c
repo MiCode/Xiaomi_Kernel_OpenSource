@@ -47,8 +47,6 @@ static struct pmsr_cfg cfg;
 static unsigned int window_len_pre;
 struct hrtimer pmsr_timer;
 
-#define PMSR_COMPATIBLE_STRING	"mediatek,spmtwam"
-
 static char *ch_name[] = {
 	"ch0",
 	"ch1",
@@ -362,47 +360,8 @@ static enum hrtimer_restart pmsr_timer_handle(struct hrtimer *timer)
 	return HRTIMER_RESTART;
 }
 
-static int pmsr_probe(struct platform_device *pdev)
-{
-	int ret = 0;
-	struct device_node *node;
-	void __iomem *base;
-
-	node = of_find_compatible_node(NULL, NULL, PMSR_COMPATIBLE_STRING);
-	if (!node) {
-		pr_info("failed to get spmtwam_pmsr node\n");
-		return -ENOENT;
-	}
-
-	base = of_iomap(node, 0);
-	if (!base) {
-		pr_info("failed to get spmtwam_pmsr base\n");
-		return -ENOENT;
-	}
-
-	return ret;
-}
-
-static const struct of_device_id pmsr_of_ids[] = {
-	{.compatible = PMSR_COMPATIBLE_STRING,},
-	{}
-};
-
-static struct platform_driver pmsr_drv = {
-	.probe = pmsr_probe,
-	.driver = {
-		.name = "pmsr",
-		.owner = THIS_MODULE,
-		.of_match_table = pmsr_of_ids,
-	},
-};
-
 static int __init pmsr_init(void)
 {
-	int ret = 0;
-
-	ret = platform_driver_register(&pmsr_drv);
-
 	/* create debugfs node */
 	pmsr_procfs_init();
 
@@ -412,7 +371,7 @@ static int __init pmsr_init(void)
 	hrtimer_init(&pmsr_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	pmsr_timer.function = pmsr_timer_handle;
 
-	return ret;
+	return 0;
 }
 
 module_init(pmsr_init);
@@ -422,8 +381,6 @@ static void __exit pmsr_exit(void)
 	/* remove debugfs node */
 	pmsr_procfs_exit();
 	hrtimer_try_to_cancel(&pmsr_timer);
-
-	return platform_driver_unregister(&pmsr_drv);
 }
 
 module_exit(pmsr_exit);
@@ -431,4 +388,3 @@ module_exit(pmsr_exit);
 MODULE_DESCRIPTION("Mediatek MT68XX pmsr driver");
 MODULE_AUTHOR("SHChen <Show-Hong.Chen@mediatek.com>");
 MODULE_LICENSE("GPL");
-
