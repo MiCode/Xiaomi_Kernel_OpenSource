@@ -1178,7 +1178,18 @@
 		<&topckgen_clk CLK_TOPCKGEN_VDEC_SEL>,
 		<&topckgen_clk CLK_TOPCKGEN_VENC_SEL>,
 		<&topckgen_clk CLK_TOPCKGEN_MDP1_SEL>,
-		<&topckgen_clk CLK_TOPCKGEN_IPE_SEL>;
+		<&topckgen_clk CLK_TOPCKGEN_IPE_SEL>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_LARB9>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_LARB>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP0>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP1>,
+		<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON>,
+		<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON>,
+		<&dispsys_config_clk CLK_DISPSYS_CONFIG_SMI_SUB_COMM>,
+		<&dispsys1_config_clk CLK_DISPSYS1_CONFIG_SMI_SUB_COMM>,
+		<&mdpsys_config_clk CLK_MDP_SMI0>,
+		<&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_SMI0>,
+		<&mminfra_config_clk CLK_MMINFRA_CONFIG_SMI>;
 		clock-names = "ufs0_0",
 		"adsp_ao_0",
 		"mm_infra_0",
@@ -1196,7 +1207,12 @@
 		"vde1_0",
 		"ven1_0",
 		"mdp1_0",
-		"isp_ipe_0";
+		"isp_ipe_0",
+		"isp-0", "isp-1", "isp-2", "isp-3",
+		"cam-0", "cam-1",
+		"dis0-0", "dis1-0",
+		"mdp0-0", "mdp1-0",
+		"mminfra-0";
 		infracfg = <&infracfg_ao_clk>;
 		vlpcfg = <&vlpcfg_bus_clk>;
 	};
