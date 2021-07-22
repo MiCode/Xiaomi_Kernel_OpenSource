@@ -3236,7 +3236,7 @@
 		ta_ac_9v_input_current = <3200000>;
 		ta_ac_7v_input_current = <3200000>;
 		pe_charger_current = <3000000>;
-
+		vbat_threshold = <4150>;
 	};
 
 	pe2: pe2 {
@@ -3264,6 +3264,7 @@
 
 		dual_polling_ieoc = <450000>;
 		slave_mivr_diff = <100000>;
+		vbat_threshold = <4150>;
 	};
 
 	pdc: pdc {
@@ -3290,6 +3291,7 @@
 		/* dual charger */
 		dual_polling_ieoc = <450000>;
 		slave_mivr_diff = <100000>;
+		vbat_threshold = <4150>;
 	};
 
 	pe4: pe4 {
@@ -3321,6 +3323,7 @@
 
 		dual_polling_ieoc = <450000>;
 		slave_mivr_diff = <100000>;
+		vbat_threshold = <4150>;
 	};
 
 	pe5: pe5 {
@@ -3373,6 +3376,7 @@
 		ita_cap_min = <1000>;
 		support_ta = "pca_ta_pps", "pd_adapter";
 		allow_not_check_ta_status;
+		vbat_threshold = <4150>;
 	};
 
 	charger: charger {
