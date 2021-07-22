@@ -479,7 +479,6 @@ void trigger_hang_db(void)
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		mrdump_mini_add_hang_raw((unsigned long)Hang_Info,
 			MaxHangInfoSize);
-		mrdump_mini_add_extra_misc();
 		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
 		"	Hang Detect", NULL);
 #else

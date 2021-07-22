@@ -215,6 +215,12 @@ struct mrdump_mini_elf_header {
 	(MRDUMP_MINI_NR_SECTION * MRDUMP_MINI_SECTION_SIZE)
 #define MRDUMP_MINI_BUF_SIZE (MRDUMP_MINI_HEADER_SIZE + MRDUMP_MINI_DATA_SIZE)
 
+enum AEE_EXTRA_FILE_ID {
+	AEE_EXTRA_FILE_UFS,
+	AEE_EXTRA_FILE_BLOCKIO,
+	AEE_EXTRA_FILE_NUM
+};
+
 int mrdump_init(void);
 void mrdump_save_ctrlreg(int cpu);
 void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
@@ -225,11 +231,18 @@ void mrdump_mini_add_extra_misc(void);
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
 	unsigned long size, const char *name);
+extern void mrdump_set_extra_dump(enum AEE_EXTRA_FILE_ID id,
+		void (*fn)(unsigned long *vaddr, unsigned long *size));
 #else
 static inline int mrdump_mini_add_extra_file(unsigned long vaddr,
 	unsigned long paddr, unsigned long size, const char *name)
 {
 	return -1;
+}
+
+static inline void mrdump_set_extra_dump(enum AEE_EXTRA_FILE_ID id,
+		void (*fn)(unsigned long *vaddr, unsigned long *size))
+{
 }
 #endif
 extern void mlog_get_buffer(char **ptr, int *size)__attribute__((weak));

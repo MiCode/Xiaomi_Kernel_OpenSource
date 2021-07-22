@@ -17,6 +17,7 @@
 #include <uapi/linux/sched/types.h>
 
 #include <mt-plat/mboot_params.h>
+#include <mt-plat/mrdump.h>
 #include "mrdump_helper.h"
 
 /*************************************************************************
@@ -232,6 +233,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	if (dump_timeout) {
 		dump_wdk_bind_info();
+		mrdump_mini_add_extra_misc();
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR)
 		if (p_mt_aee_dump_irq_info)
 			p_mt_aee_dump_irq_info();
