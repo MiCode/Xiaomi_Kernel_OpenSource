@@ -102,6 +102,26 @@ int mkp_request_new_policy(unsigned long policy_char)
 	return ret;
 }
 
+int mkp_change_policy_action(uint32_t policy, unsigned long policy_char_action)
+{
+	int ret = 0;
+
+	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
+		return -1;
+	if (policy_char_action & (~ACTION_BITS))
+		return -1;
+
+	mkp_policy_action[policy] &= (~ACTION_BITS);
+	mkp_policy_action[policy] |= policy_char_action;
+
+	ret = mkp_change_policy_action_hvc_call(policy, policy_char_action);
+
+	if (ret == 0)
+		return 0;
+	else
+		return -1;
+}
+
 uint32_t mkp_create_handle(uint32_t policy, unsigned long ipa, unsigned long size)
 {
 	uint32_t handle = 0;

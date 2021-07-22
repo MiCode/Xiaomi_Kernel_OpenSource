@@ -121,6 +121,24 @@ int mkp_req_new_policy_hvc_call(unsigned long policy_char)
 
 	return (int)policy;
 }
+
+int mkp_change_policy_action_hvc_call(uint32_t policy, unsigned long policy_char_action)
+{
+	struct arm_smccc_res res;
+	int mkp_hvc_fast_call_id;
+	int ret = -1;
+
+	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_POLICY_ACTION);
+	mkp_smccc_hvc(mkp_hvc_fast_call_id, policy_char_action, 0, 0, 0, 0, 0, 0, &res);
+	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n",
+		__func__, __LINE__, mkp_hvc_fast_call_id, policy,
+		res.a0, res.a1, res.a2, res.a3);
+	ret = (int)res.a0;
+
+	/* Success: 0, Fail: other */
+	return ret;
+}
+
 uint32_t mkp_create_handle_hvc_call(uint32_t policy,
 	unsigned long ipa, unsigned long size)
 {

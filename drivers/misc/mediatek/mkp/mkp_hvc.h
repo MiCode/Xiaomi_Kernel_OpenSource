@@ -44,6 +44,7 @@
 enum mkp_hvc_func_num {
 	/* Policy ops */
 	HVC_FUNC_NEW_POLICY = 16,
+	HVC_FUNC_POLICY_ACTION = 17,
 
 	/* Handle ops */
 	HVC_FUNC_CREATE_HANDLE = 32,
@@ -76,6 +77,7 @@ int mkp_lookup_mapping_entry_hvc_call(uint32_t policy, uint32_t handle,
 	unsigned long *entry_size, unsigned long *permission);
 
 int mkp_req_new_policy_hvc_call(unsigned long policy_char);
+int mkp_change_policy_action_hvc_call(uint32_t policy, unsigned long policy_char_action);
 uint32_t mkp_create_handle_hvc_call(uint32_t policy,
 	unsigned long ipa, unsigned long size);
 int mkp_destroy_handle_hvc_call(uint32_t policy, uint32_t handle);

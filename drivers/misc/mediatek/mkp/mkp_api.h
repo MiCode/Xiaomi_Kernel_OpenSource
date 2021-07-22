@@ -52,6 +52,7 @@ int mkp_clear_mapping(uint32_t policy, uint32_t handle);
 int mkp_lookup_mapping_entry(uint32_t policy, uint32_t handle,
 	unsigned long *entry_size, unsigned long *permission);
 int mkp_request_new_policy(unsigned long policy_char);
+int mkp_change_policy_action(uint32_t policy, unsigned long policy_char_action);
 #ifdef DEMO_MKP
 uint32_t mkp_create_ro_sharebuf(uint32_t policy, unsigned long size, struct page **pages);
 uint32_t mkp_create_wo_sharebuf(uint32_t policy, unsigned long size, struct page **pages);
@@ -69,5 +70,6 @@ int mkp_update_sharebuf_4_argu(uint32_t policy, uint32_t handle, unsigned long i
 int mkp_update_sharebuf_5_argu(uint32_t policy, uint32_t handle, unsigned long index,
 	unsigned long a1, unsigned long a2, unsigned long a3, unsigned long a4, unsigned long a5);
 int mkp_update_sharebuf(uint32_t policy, uint32_t handle, unsigned long index/*tag*/, unsigned long ipa);
+int mkp_change_policy_action(uint32_t policy, unsigned long policy_char_action);
 
 #endif /* _MKP_API_H */

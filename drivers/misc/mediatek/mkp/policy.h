@@ -100,11 +100,16 @@ enum mkp_policy_char {
 	HANDLE_PERMANENT	= 0x00000100,	/* Registered handle can not be destroyed */
 	SB_ENTRY_DISORDERED	= 0x00010000,	/* When using share buffer, input instance should be manipulated by scanning */
 	SB_ENTRY_ORDERED	= 0x00020000,	/* When using share buffer, input instance should be manipulated by index */
+	ACTION_NOTIFICATION	= 0x00100000,	/* When some threat is detected, just forwarding a notification to users. No warning, no panic*/
+	ACTION_WARNING		= 0x00200000,	/* When some threat is detectd, MKP may need counting,. When its count exceeds some threshold, triggering panic. */
+	ACTION_PANIC		= 0x00400000,	/* When some threat is detected, MKP will trigger panic directly */
+	ACTION_BITS			= 0x00700000,	/* Bits for actions */
 	CHAR_POLICY_INVALID	= 0x40000000,	/* Indicate the policy is not initialized for further use */
 	CHAR_POLICY_AVAILABLE	= 0x80000000,	/* Indicate the policy is available for vendor use */
 };
 
 extern int policy_ctrl[MKP_POLICY_NR];
+extern uint32_t mkp_policy_action[MKP_POLICY_NR];
 void __init set_policy(void);
 int __init set_ext_policy(uint32_t policy);
 #endif
