@@ -24,6 +24,7 @@
 #include <soc/mediatek/smi.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/suspend.h>
 
 #include "camera_mem.h"
 
@@ -1149,6 +1150,103 @@ static struct platform_driver CamMemDriver = {
 	}
 };
 
+#if IS_ENABLED(CONFIG_PM)
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_pm_event_suspend(void)
+{
+	int ret = 0;
+	unsigned int loopCnt;
+
+	/* update device node count */
+	atomic_dec(&G_u4DevNodeCt);
+
+	/* Check larb counter instead of check CamMemInfo.UserCount
+	 *  for ensuring current larbs are on or off
+	 */
+	spin_lock(&(CamMemInfo.SpinLock_Larb));
+	if (!G_u4EnableLarbCount) {
+		spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
+		if (CamMemInfo.UserCount != 0) {
+			LOG_INF("X. UserCount=%d,Cnt:%d,devct:%d\n",
+				CamMemInfo.UserCount,
+				G_u4EnableLarbCount,
+				atomic_read(&G_u4DevNodeCt));
+		}
+
+		return ret;
+	}
+	spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
+	/* last dev node will disable larb "G_u4EnableLarbCount" times */
+	if (!atomic_read(&G_u4DevNodeCt)) {
+		spin_lock(&(CamMemInfo.SpinLock_Larb));
+		loopCnt = G_u4EnableLarbCount;
+		spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
+		LOG_INF("X. last dev node,disable larb %d time\n",
+			loopCnt);
+		while (loopCnt > 0) {
+			CamMem_EnableLarb(false);
+			loopCnt--;
+		}
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static void cam_mem_pm_event_resume(void)
+{
+	/* update device node count */
+	atomic_inc(&G_u4DevNodeCt);
+
+	if (CamMemInfo.UserCount == 0) {
+		LOG_DBG("- X. UserCount=0\n");
+
+		return;
+	}
+
+	CamMem_EnableLarb(true);
+
+	LOG_INF("EnableLarbCount:%d,devct:%d\n",
+		G_u4EnableLarbCount,
+		atomic_read(&G_u4DevNodeCt));
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /* before enter suspend */
+		cam_mem_pm_event_suspend();
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND: /* after resume */
+		cam_mem_pm_event_resume();
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block cam_mem_suspend_pm_notifier_func = {
+	.notifier_call = cam_mem_suspend_pm_event,
+	.priority = 0,
+};
+#endif
+
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -1174,6 +1272,15 @@ static int __init cam_mem_Init(void)
 		mutex_init(&cam_mem_ion_mutex[i]);
 		INIT_LIST_HEAD(&g_ion_buf_list[i].list);
 	}
+
+#if IS_ENABLED(CONFIG_PM)
+	Ret = register_pm_notifier(&cam_mem_suspend_pm_notifier_func);
+	if (Ret) {
+		LOG_NOTICE("Failed to register PM notifier.\n");
+		return Ret;
+	}
+#endif
+
 	LOG_NOTICE("-\n");
 	return Ret;
 }
