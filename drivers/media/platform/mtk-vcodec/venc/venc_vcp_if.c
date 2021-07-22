@@ -29,6 +29,11 @@
 #define IPI_TIMEOUT_MS          5000U
 #endif
 
+struct vcp_enc_mem_list {
+	struct vcodec_mem_obj mem;
+	struct list_head list;
+};
+
 static void handle_enc_init_msg(struct venc_vcu_inst *vcu, void *data)
 {
 	struct venc_vcu_ipi_msg_init *msg = data;
@@ -137,6 +142,8 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 {
 	struct venc_vcu_inst *vcu = (struct venc_vcu_inst *)msg->venc_inst;
 	struct venc_inst *inst = NULL;
+	struct device *dev = NULL;
+	struct vcp_enc_mem_list *tmp = NULL;
 
 	if (msg->mem.type == MEM_TYPE_FOR_SHM) {
 		msg->status = 0;
@@ -147,37 +154,77 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 
 		mtk_v4l2_debug(4, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d size of %d %d\n",
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type, sizeof(msg->mem), sizeof(*msg));
-		// TODO: need add iova
 	} else {
 		if (IS_ERR_OR_NULL(vcu))
 			return;
 
 		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
-		// TODO: need add list record for exception error handling
 		inst = container_of(vcu, struct venc_inst, vcu_inst);
-		msg->status = mtk_vcodec_alloc_mem(&msg->mem, &vcu->ctx->dev->plat_dev->dev, VENC_WORK_ID, vcu->ctx->dev->enc_mem_slot_stat);
+
+		if (msg->mem.type == MEM_TYPE_FOR_SW)
+			dev = vcp_get_io_device(VCP_IOMMU_256MB1);
+		else if (msg->mem.type == MEM_TYPE_FOR_HW)
+			dev = &vcu->ctx->dev->plat_dev->dev;
+
+		// TODO: need handle secure mmeory
+		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev);
 	}
-	if (msg->status)
+	if (msg->status) {
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
 			msg->status, msg->mem.va, msg->mem.pa,
 			msg->mem.iova, msg->mem.len,  msg->mem.type);
-
+	} else if (msg->mem.type != MEM_TYPE_FOR_SHM) {
+		tmp = kmalloc(sizeof(struct vcp_enc_mem_list), GFP_KERNEL);
+		if (tmp) {
+			mutex_lock(vcu->ctx_ipi_lock);
+			tmp->mem = msg->mem;
+			list_add_tail(&tmp->list, &vcu->bufs);
+			mutex_unlock(vcu->ctx_ipi_lock);
+		}
+	}
 }
 
 static void handle_venc_mem_free(struct venc_vcu_ipi_mem_op *msg)
 {
 	struct venc_vcu_inst *vcu = (struct venc_vcu_inst *)msg->venc_inst;
 	struct venc_inst *inst = NULL;
+	struct device *dev = NULL;
+	struct vcp_enc_mem_list *tmp = NULL;
+	struct list_head *p, *q;
+	bool found = 0;
 
 	if (IS_ERR_OR_NULL(vcu))
 		return;
+	mutex_lock(vcu->ctx_ipi_lock);
+	list_for_each_safe(p, q, &vcu->bufs) {
+		tmp = list_entry(p, struct vcp_enc_mem_list, list);
+		if (!memcmp(&tmp->mem, &msg->mem, sizeof(struct vcodec_mem_obj))) {
+			found = 1;
+			list_del(p);
+			kfree(tmp);
+			break;
+		}
+	}
+	mutex_unlock(vcu->ctx_ipi_lock);
+	if (!found) {
+		mtk_vcodec_err(vcu, "not found  %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
+			msg->status, msg->mem.va, msg->mem.pa,
+			msg->mem.iova, msg->mem.len,  msg->mem.type);
+		return;
+	}
 
 	mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
 		msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len,  msg->mem.type);
 
 	inst = container_of(vcu, struct venc_inst, vcu_inst);
-	msg->status = mtk_vcodec_free_mem(&msg->mem, &vcu->ctx->dev->plat_dev->dev, VENC_WORK_ID, vcu->ctx->dev->enc_mem_slot_stat);
+	if (msg->mem.type == MEM_TYPE_FOR_SW)
+		dev = vcp_get_io_device(VCP_IOMMU_256MB1);
+	else if (msg->mem.type == MEM_TYPE_FOR_HW)
+		dev = &vcu->ctx->dev->plat_dev->dev;
+
+	// TODO: need handle secure mmeory
+	msg->status = mtk_vcodec_free_mem(&msg->mem, dev);
 
 	if (msg->status)
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
@@ -407,25 +454,20 @@ static int venc_vcp_ipi_isr(unsigned int id, void *prdata, void *data,
 void venc_vcp_probe(struct mtk_vcodec_dev *dev)
 {
 	int ret;
-	void *vcp_ipi_data;
 
 	mtk_v4l2_debug_enter();
-	vcp_ipi_data = kmalloc(sizeof(struct share_obj), GFP_KERNEL);
-
 	INIT_LIST_HEAD(&dev->mq.head);
 	spin_lock_init(&dev->mq.lock);
 	init_waitqueue_head(&dev->mq.wq);
 	atomic_set(&dev->mq.cnt, 0);
 
-	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VENC_0, venc_vcp_ipi_isr, dev, vcp_ipi_data);
+	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VENC_0,
+		venc_vcp_ipi_isr, dev, &dev->enc_ipi_data);
 	if (ret) {
 		mtk_v4l2_debug(0, " ipi_register, ret %d\n", ret);
 	}
 
 	kthread_run(vcp_enc_ipi_handler, dev, "venc_ipi_recv");
-
-	if (mtk_vcodec_init_reserve_mem_slot(VENC_WORK_ID, &dev->enc_mem_slot_stat))
-		mtk_v4l2_err ("[err] %s init reserve memory slot failed\n", __func__);
 
 	mtk_v4l2_debug_leave();
 }
@@ -769,6 +811,16 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	out.venc_inst = (unsigned long)&inst->vcu_inst;
 	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
 	inst->vsi = (struct venc_vsi *)inst->vcu_inst.vsi;
+
+	inst->vcu_inst.ctx_ipi_lock = kzalloc(sizeof(struct mutex),
+		GFP_KERNEL);
+	if (!inst->vcu_inst.ctx_ipi_lock) {
+		kfree(inst);
+		*handle = (unsigned long)NULL;
+		return -ENOMEM;
+	}
+	mutex_init(inst->vcu_inst.ctx_ipi_lock);
+	INIT_LIST_HEAD(&inst->vcu_inst.bufs);
 
 	mtk_vcodec_debug_leave(inst);
 
@@ -1162,6 +1214,9 @@ static int venc_vcp_deinit(unsigned long handle)
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
 	struct venc_ap_ipi_msg_deinit out;
+	struct vcp_enc_mem_list *tmp = NULL;
+	struct list_head *p, *q;
+	struct device *dev = NULL;
 
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_DEINIT;
@@ -1170,6 +1225,27 @@ static int venc_vcp_deinit(unsigned long handle)
 	mtk_vcodec_debug_enter(inst);
 	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
 	mtk_vcodec_debug_leave(inst);
+
+	mutex_lock(inst->vcu_inst.ctx_ipi_lock);
+	list_for_each_safe(p, q, &inst->vcu_inst.bufs) {
+		tmp = list_entry(p, struct vcp_enc_mem_list, list);
+		if (tmp->mem.type == MEM_TYPE_FOR_SW)
+			dev = vcp_get_io_device(VCP_IOMMU_256MB1);
+		else if (tmp->mem.type == MEM_TYPE_FOR_HW)
+			dev = &inst->vcu_inst.ctx->dev->plat_dev->dev;
+
+		// TODO: need handle secure mmeory
+		mtk_vcodec_free_mem(&tmp->mem, dev);
+		mtk_v4l2_debug(0, "[%d] leak free va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
+			inst->ctx->id, tmp->mem.va, tmp->mem.pa,
+			tmp->mem.iova, tmp->mem.len,  tmp->mem.type);
+
+		list_del(p);
+		kfree(tmp);
+	}
+	mutex_unlock(inst->vcu_inst.ctx_ipi_lock);
+	mutex_destroy(inst->vcu_inst.ctx_ipi_lock);
+	kfree(inst->vcu_inst.ctx_ipi_lock);
 	kfree(inst);
 
 	return ret;

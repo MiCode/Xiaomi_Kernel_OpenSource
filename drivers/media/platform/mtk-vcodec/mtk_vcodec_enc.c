@@ -2894,7 +2894,11 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock            = &ctx->dev->dev_mutex;
 	dst_vq->allow_zero_bytesused = 1;
-	dst_vq->dev             = &ctx->dev->plat_dev->dev;
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	dst_vq->dev		= vcp_get_io_device(VCP_IOMMU_VENC_512MB2);
+#else
+	dst_vq->dev		= &ctx->dev->plat_dev->dev;
+#endif
 
 	return vb2_queue_init(dst_vq);
 }

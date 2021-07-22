@@ -76,6 +76,15 @@ enum VCP_RESET_TYPE {
 	RESET_TYPE_TIMEOUT = 3,
 };
 
+/* vcp iommus */
+enum VCP_IOMMU_DEV {
+	VCP_IOMMU_256MB1 = 0,
+	VCP_IOMMU_VDEC_512MB1 = 1,
+	VCP_IOMMU_VENC_512MB2 = 2,
+	VCP_IOMMU_WORK_256MB2 = 3,
+	VCP_IOMMU_DEV_NUM,
+};
+
 struct vcp_regs {
 	void __iomem *sram;
 	void __iomem *cfg;
@@ -84,6 +93,7 @@ struct vcp_regs {
 	void __iomem *cfg_core0;
 	void __iomem *cfg_core1;
 	void __iomem *cfg_sec;
+	void __iomem *cfg_mmu;
 	void __iomem *bus_tracker;
 	int irq0;
 	int irq1;
@@ -169,6 +179,7 @@ extern void memcpy_to_vcp(void __iomem *trg,
 extern void memcpy_from_vcp(void *trg, const void __iomem *src,
 		int size);
 extern int reset_vcp(int reset);
+extern struct device *vcp_get_io_device(enum VCP_IOMMU_DEV io_num);
 
 extern int vcp_check_resource(void);
 void set_vcp_mpu(void);

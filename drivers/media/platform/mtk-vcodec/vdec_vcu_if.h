@@ -37,7 +37,8 @@ struct vdec_vcu_inst {
 	ipi_handler_t handler;
 	bool abort;
 	int daemon_pid;
-	struct mutex *ctx_ipi_binding;
+	struct mutex *ctx_ipi_lock;
+	struct list_head bufs;
 };
 
 /**

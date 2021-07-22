@@ -212,8 +212,8 @@ void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
-int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
+int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev);
+int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev);
 int mtk_vcodec_init_reserve_mem_slot(enum vcp_reserve_mem_id_t res_mem_id, int **mem_slot_stat);
 int mtk_vcodec_get_reserve_mem_slot(struct vcodec_mem_obj *mem, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);
 int mtk_vcodec_put_reserve_mem_slot(struct vcodec_mem_obj *mem, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat);

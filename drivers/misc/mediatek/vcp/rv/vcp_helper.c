@@ -28,6 +28,7 @@
 #include <linux/of_fdt.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
+#include <linux/dma-mapping.h>
 //#include <mt-plat/sync_write.h>
 //#include <mt-plat/aee.h>
 #include <linux/delay.h>
@@ -126,7 +127,9 @@ static struct vcp_timer vcp_ready_timer[VCP_CORE_TOTAL];
 #endif
 static struct vcp_work_struct vcp_A_notify_work;
 
+#if VCP_BOOT_TIME_OUT_MONITOR
 static unsigned int vcp_timeout_times;
+#endif
 
 static DEFINE_MUTEX(vcp_A_notify_mutex);
 static DEFINE_MUTEX(vcp_feature_mutex);
@@ -159,9 +162,7 @@ struct vcp_ipi_irq vcp_ipi_irqs[] = {
 	{ "mediatek,vcp", 6, 0},
 };
 #define IRQ_NUMBER  (sizeof(vcp_ipi_irqs)/sizeof(struct vcp_ipi_irq))
-
-#define NUM_IO_DOMAINS 4
-struct device *vcp_io_devs[NUM_IO_DOMAINS];
+struct device *vcp_io_devs[VCP_IOMMU_DEV_NUM];
 
 #undef pr_notice
 #define pr_notice pr_info
@@ -596,6 +597,9 @@ int reset_vcp(int reset)
 		 */
 		writel((unsigned int)vcp_mem_base_phys, DRAM_RESV_ADDR_REG);
 		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
+#if VCP_IOMMU_ENABLE
+		writel(readl(VCP_GCE_MMU) | B_MMU_EN, VCP_GCE_MMU);
+#endif
 		writel(1, R_CORE0_SW_RSTN_CLR);  /* release reset */
 		dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
@@ -1047,6 +1051,14 @@ static int create_files(void)
 	return 0;
 }
 
+
+struct device *vcp_get_io_device(enum VCP_IOMMU_DEV io_num)
+{
+	return ((io_num >= VCP_IOMMU_DEV_NUM) ? NULL:vcp_io_devs[io_num]);
+}
+EXPORT_SYMBOL_GPL(vcp_get_io_device);
+
+
 #if VCP_RESERVED_MEM && defined(CONFIG_OF_RESERVED_MEM)
 #define VCP_MEM_RESERVED_KEY "mediatek,reserve-memory-vcp_share"
 int vcp_reserve_mem_of_init(struct reserved_mem *rmem)
@@ -1100,12 +1112,14 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 			/ sizeof(vcp_reserve_mblock[0]));
 	enum vcp_reserve_mem_id_t id;
 	phys_addr_t accumlate_memory_size = 0;
-	struct device_node *rmem_node;
-	struct reserved_mem *rmem;
-	const char *mem_key;
 	unsigned int vcp_mem_num = 0;
 	unsigned int i, m_idx, m_size;
 	int ret;
+#if (!VCP_IOMMU_ENABLE)
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
+	const char *mem_key;
+#endif
 
 	if (num != NUMS_MEM_ID) {
 		pr_notice("[VCP] number of entries of reserved memory %u / %u\n",
@@ -1113,6 +1127,8 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		BUG_ON(1);
 		return -1;
 	}
+
+#if (!VCP_IOMMU_ENABLE)
 	/* Get reserved memory */
 	ret = of_property_read_string(pdev->dev.of_node, "vcp_mem_key",
 			&mem_key);
@@ -1152,6 +1168,14 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		BUG_ON(1);
 		return -1;
 	}
+	vcp_mem_base_virt = (phys_addr_t)(size_t)ioremap_wc(vcp_mem_base_phys,
+		vcp_mem_size);
+	pr_debug("[VCP] rsrv_phy_base = 0x%llx, len:0x%llx\n",
+		(uint64_t)vcp_mem_base_phys, (uint64_t)vcp_mem_size);
+	pr_debug("[VCP] rsrv_vir_base = 0x%llx, len:0x%llx\n",
+		(uint64_t)vcp_mem_base_virt, (uint64_t)vcp_mem_size);
+
+#endif	//(!VCP_IOMMU_ENABLE)
 
 	/* Set reserved memory table */
 	vcp_mem_num = of_property_count_u32_elems(
@@ -1191,29 +1215,41 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		pr_notice("@@@@ reserved: <%d  %d>\n", m_idx, m_size);
 	}
 
-	vcp_mem_base_virt = (phys_addr_t)(size_t)ioremap_wc(vcp_mem_base_phys,
-		vcp_mem_size);
-	pr_debug("[VCP] rsrv_phy_base = 0x%llx, len:0x%llx\n",
-		(uint64_t)vcp_mem_base_phys, (uint64_t)vcp_mem_size);
-	pr_debug("[VCP] rsrv_vir_base = 0x%llx, len:0x%llx\n",
-		(uint64_t)vcp_mem_base_virt, (uint64_t)vcp_mem_size);
+#if VCP_IOMMU_ENABLE
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		dev_info(&pdev->dev, "64-bit DMA enable failed\n");
+		return ret;
+	}
 
+	for (id = 0; id < NUMS_MEM_ID; id++) {
+		vcp_reserve_mblock[id].start_virt =
+			(__u64)dma_alloc_coherent(&pdev->dev, vcp_reserve_mblock[id].size,
+				&vcp_reserve_mblock[id].start_phys,
+				GFP_KERNEL);
+		accumlate_memory_size += vcp_reserve_mblock[id].size;
+		pr_debug("[VCP] [%d] iova:0x%llx, virt:0x%llx, len:0x%llx\n",
+			id, (uint64_t)vcp_reserve_mblock[id].start_phys,
+			(uint64_t)vcp_reserve_mblock[id].start_virt,
+			(uint64_t)vcp_reserve_mblock[id].size);
+	}
+#else
 	for (id = 0; id < NUMS_MEM_ID; id++) {
 		vcp_reserve_mblock[id].start_phys = vcp_mem_base_phys +
 			accumlate_memory_size;
 		vcp_reserve_mblock[id].start_virt = vcp_mem_base_virt +
 			accumlate_memory_size;
 		accumlate_memory_size += vcp_reserve_mblock[id].size;
-#ifdef DEBUG
 		pr_debug("[VCP] [%d] phys:0x%llx, virt:0x%llx, len:0x%llx\n",
 			id, (uint64_t)vcp_reserve_mblock[id].start_phys,
 			(uint64_t)vcp_reserve_mblock[id].start_virt,
 			(uint64_t)vcp_reserve_mblock[id].size);
-#endif  // DEBUG
 	}
 #ifdef VCP_DEBUG_NODE_ENABLE
 	BUG_ON(accumlate_memory_size > vcp_mem_size);
 #endif
+#endif  // VCP_IOMMU_ENABLE
+
 #ifdef DEBUG
 	for (id = 0; id < NUMS_MEM_ID; id++) {
 		uint64_t start_phys = (uint64_t)vcp_get_reserve_mem_phys(id);
@@ -1881,6 +1917,7 @@ static bool vcp_ipi_table_init(struct mtk_mbox_device *vcp_mboxdev, struct platf
 static int vcp_io_device_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	int ret;
 
 	pr_debug("[VCP_IO] %s", __func__);
 
@@ -1890,6 +1927,12 @@ static int vcp_io_device_probe(struct platform_device *pdev)
 		pr_info("Bypass the VCP driver probe\n");
 		return -1;
 	}
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		dev_info(&pdev->dev, "64-bit DMA enable failed\n");
+		return ret;
+	}
+
 	// VCP iommu devices
 	vcp_io_devs[vcp_support-1] = dev;
 
@@ -1988,6 +2031,13 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[VCP] cfg_sec base = 0x%p\n", vcpreg.cfg_sec);
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 8);
+	vcpreg.cfg_mmu = devm_ioremap_resource(dev, res);
+	if (IS_ERR((void const *) vcpreg.cfg_mmu)) {
+		pr_debug("[VCP] vcpreg.cfg_mmu error\n");
+		return -1;
+	}
+	pr_debug("[VCP] cfg_mmu base = 0x%p\n", vcpreg.cfg_mmu);
 
 	of_property_read_u32(pdev->dev.of_node, "vcp_sramSize"
 						, &vcpreg.vcp_tcmsize);

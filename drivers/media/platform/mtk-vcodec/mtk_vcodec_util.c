@@ -349,16 +349,11 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 EXPORT_SYMBOL_GPL(v4l_fill_mtk_fmtdesc);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev)
 {
 	dma_addr_t dma_addr;
 
-	if (mem->type == MEM_TYPE_FOR_SW) {
-		int ret;
-		ret = mtk_vcodec_get_reserve_mem_slot(mem, res_mem_id, mem_slot_stat);
-		if(ret)
-			return ret;
-	} else if (mem->type == MEM_TYPE_FOR_HW) {
+	if (mem->type == MEM_TYPE_FOR_SW || mem->type == MEM_TYPE_FOR_HW) {
 		mem->va = (__u64)dma_alloc_attrs(dev,
 			mem->len, &dma_addr, GFP_KERNEL, 0);
 		if (IS_ERR_OR_NULL((void *)mem->va))
@@ -379,14 +374,9 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vc
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_alloc_mem);
 
-int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev, enum vcp_reserve_mem_id_t res_mem_id, int *mem_slot_stat)
+int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev)
 {
-	if (mem->type == MEM_TYPE_FOR_SW){
-		int ret;
-		ret = mtk_vcodec_put_reserve_mem_slot(mem, res_mem_id, mem_slot_stat);
-		if(ret)
-			return ret;
-	} else if (mem->type == MEM_TYPE_FOR_HW) {
+	if (mem->type == MEM_TYPE_FOR_SW || mem->type == MEM_TYPE_FOR_HW) {
 		if (IS_ERR_OR_NULL((void *)mem->va))
 			return -EFAULT;
 		else

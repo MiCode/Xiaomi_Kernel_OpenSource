@@ -527,6 +527,8 @@ struct mtk_vcodec_dev {
 	int dec_cnt;
 	int enc_cnt;
 
+	struct share_obj dec_ipi_data;
+	struct share_obj enc_ipi_data;
 	int *dec_mem_slot_stat;
 	int *enc_mem_slot_stat;
 	struct codec_job *vdec_jobs[MTK_VDEC_HW_NUM];

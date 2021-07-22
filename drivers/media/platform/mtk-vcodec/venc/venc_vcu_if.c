@@ -303,7 +303,7 @@ int vcu_enc_init(struct venc_vcu_inst *vcu)
 
 	vcu->signaled = 0;
 	vcu->failure = 0;
-	vcu_get_ctx_ipi_binding_lock(vcu->dev, &vcu->ctx_ipi_binding, VCU_VENC);
+	vcu_get_ctx_ipi_binding_lock(vcu->dev, &vcu->ctx_ipi_lock, VCU_VENC);
 
 	status = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler,
 							  NULL, vcu);
@@ -547,10 +547,10 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 		mtk_vcodec_debug(vcu, "bs_buf is null");
 	}
 
-	mutex_lock(vcu->ctx_ipi_binding);
+	mutex_lock(vcu->ctx_ipi_lock);
 	vcu_enc_set_ctx(vcu, frm_buf, bs_buf);
 	ret = vcu_enc_send_msg(vcu, &out, sizeof(out));
-	mutex_unlock(vcu->ctx_ipi_binding);
+	mutex_unlock(vcu->ctx_ipi_lock);
 
 	if (ret) {
 		mtk_vcodec_err(vcu, "AP_IPIMSG_ENC_ENCODE %d fail %d",
@@ -584,10 +584,10 @@ int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 	out.msg_id = AP_IPIMSG_ENC_DEINIT;
 	out.vcu_inst_addr = vcu->inst_addr;
 
-	mutex_lock(vcu->ctx_ipi_binding);
+	mutex_lock(vcu->ctx_ipi_lock);
 	ret = vcu_enc_send_msg(vcu, &out, sizeof(out));
 	vcu_enc_clear_ctx(vcu);
-	mutex_unlock(vcu->ctx_ipi_binding);
+	mutex_unlock(vcu->ctx_ipi_lock);
 	current->flags &= ~PF_NOFREEZE;
 
 	mtk_vcodec_debug_leave(vcu);

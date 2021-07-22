@@ -26,6 +26,11 @@
 #define IPI_TIMEOUT_MS          5000U
 #endif
 
+struct vcp_dec_mem_list {
+	struct vcodec_mem_obj mem;
+	struct list_head list;
+};
+
 static void put_fb_to_free(struct vdec_inst *inst, struct vdec_fb *fb)
 {
 	struct ring_fb_list *list;
@@ -202,6 +207,8 @@ static void handle_vdec_mem_alloc(struct vdec_vcu_ipi_mem_op *msg)
 {
 	struct vdec_vcu_inst *vcu = (struct vdec_vcu_inst *)msg->ap_inst_addr;
 	struct vdec_inst *inst = NULL;
+	struct device *dev = NULL;
+	struct vcp_dec_mem_list *tmp = NULL;
 
 	if (msg->mem.type == MEM_TYPE_FOR_SHM) {
 		msg->status = 0;
@@ -211,43 +218,83 @@ static void handle_vdec_mem_alloc(struct vdec_vcu_ipi_mem_op *msg)
 		msg->mem.iova = 0;
 		mtk_v4l2_debug(4, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d size of %d %d\n",
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type, sizeof(msg->mem), sizeof(*msg));
-		// TODO: need add iova
 	} else {
 		if (IS_ERR_OR_NULL(vcu))
 			return;
 
 		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
 			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len,	msg->mem.type);
-		// TODO: need add list record for exception error handling
 		inst = container_of(vcu, struct vdec_inst, vcu);
-		msg->status = mtk_vcodec_alloc_mem(&msg->mem, &vcu->ctx->dev->plat_dev->dev, VDEC_WORK_ID, vcu->ctx->dev->dec_mem_slot_stat);
+
+		if (msg->mem.type == MEM_TYPE_FOR_SW)
+			dev = vcp_get_io_device(VCP_IOMMU_WORK_256MB2);
+		else if (msg->mem.type == MEM_TYPE_FOR_HW)
+			dev = &vcu->ctx->dev->plat_dev->dev;
+
+		// TODO: need handle secure mmeory
+
+		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev);
 	}
-	if (msg->status)
+	if (msg->status) {
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
 			msg->status, msg->mem.va, msg->mem.pa,
 			msg->mem.iova, msg->mem.len,  msg->mem.type);
-
+	} else if (msg->mem.type != MEM_TYPE_FOR_SHM) {
+		tmp = kmalloc(sizeof(struct vcp_dec_mem_list), GFP_KERNEL);
+		if (tmp) {
+			mutex_lock(vcu->ctx_ipi_lock);
+			tmp->mem = msg->mem;
+			list_add_tail(&tmp->list, &vcu->bufs);
+			mutex_unlock(vcu->ctx_ipi_lock);
+		}
+	}
 }
 
 static void handle_vdec_mem_free(struct vdec_vcu_ipi_mem_op *msg)
 {
 	struct vdec_vcu_inst *vcu = (struct vdec_vcu_inst *)msg->ap_inst_addr;
 	struct vdec_inst *inst = NULL;
+	struct device *dev = NULL;
+	struct vcp_dec_mem_list *tmp = NULL;
+	struct list_head *p, *q;
+	bool found = 0;
 
 	if (IS_ERR_OR_NULL(vcu))
 		return;
+	mutex_lock(vcu->ctx_ipi_lock);
+	list_for_each_safe(p, q, &vcu->bufs) {
+		tmp = list_entry(p, struct vcp_dec_mem_list, list);
+		if (!memcmp(&tmp->mem, &msg->mem, sizeof(struct vcodec_mem_obj))) {
+			found = 1;
+			list_del(p);
+			kfree(tmp);
+			break;
+		}
+	}
+	mutex_unlock(vcu->ctx_ipi_lock);
+	if (!found) {
+		mtk_vcodec_err(vcu, "not found  %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
+			msg->status, msg->mem.va, msg->mem.pa,
+			msg->mem.iova, msg->mem.len,  msg->mem.type);
+		return;
+	}
 
 	mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
 		msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len,  msg->mem.type);
 
 	inst = container_of(vcu, struct vdec_inst, vcu);
-	msg->status = mtk_vcodec_free_mem(&msg->mem, &vcu->ctx->dev->plat_dev->dev, VDEC_WORK_ID, vcu->ctx->dev->dec_mem_slot_stat);
+	if (msg->mem.type == MEM_TYPE_FOR_SW)
+		dev = vcp_get_io_device(VCP_IOMMU_WORK_256MB2);
+	else if (msg->mem.type == MEM_TYPE_FOR_HW)
+		dev = &vcu->ctx->dev->plat_dev->dev;
+
+	// TODO: need handle secure mmeory
+	msg->status = mtk_vcodec_free_mem(&msg->mem, dev);
 
 	if (msg->status)
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
 			msg->status, msg->mem.va, msg->mem.pa,
 			msg->mem.iova, msg->mem.len,  msg->mem.type);
-
 }
 
 int vcp_dec_ipi_handler(void *arg)
@@ -483,25 +530,20 @@ static int vdec_vcp_ipi_isr(unsigned int id, void *prdata, void *data,
 void vdec_vcp_probe(struct mtk_vcodec_dev *dev)
 {
 	int ret;
-	void *vcp_ipi_data;
 
 	mtk_v4l2_debug_enter();
-	vcp_ipi_data = kmalloc(sizeof(struct share_obj), GFP_KERNEL);
-
 	INIT_LIST_HEAD(&dev->mq.head);
 	spin_lock_init(&dev->mq.lock);
 	init_waitqueue_head(&dev->mq.wq);
 	atomic_set(&dev->mq.cnt, 0);
 
-	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VDEC_1, vdec_vcp_ipi_isr, dev, vcp_ipi_data);
+	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VDEC_1,
+		vdec_vcp_ipi_isr, dev, &dev->dec_ipi_data);
 	if (ret) {
 		mtk_v4l2_debug(0, " ipi_register, ret %d\n", ret);
 	}
 
 	kthread_run(vcp_dec_ipi_handler, dev, "vdec_ipi_recv");
-
-	if (mtk_vcodec_init_reserve_mem_slot(VDEC_WORK_ID, &dev->dec_mem_slot_stat))
-		mtk_v4l2_err ("[err] %s init reserve memory slot failed\n", __func__);
 
 	mtk_v4l2_debug_leave();
 }
@@ -596,6 +638,13 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
 	*(ctx->ipi_blocked) = 0;
 
+	inst->vcu.ctx_ipi_lock = kzalloc(sizeof(struct mutex),
+		GFP_KERNEL);
+	if (!inst->vcu.ctx_ipi_lock)
+		goto error_free_inst;
+	mutex_init(inst->vcu.ctx_ipi_lock);
+	INIT_LIST_HEAD(&inst->vcu.bufs);
+
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 
 	*h_vdec = (unsigned long)inst;
@@ -612,6 +661,9 @@ static void vdec_vcp_deinit(unsigned long h_vdec)
 {
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
 	struct vdec_ap_ipi_cmd msg;
+	struct vcp_dec_mem_list *tmp = NULL;
+	struct list_head *p, *q;
+	struct device *dev = NULL;
 	int err = 0;
 
 	mtk_vcodec_debug_enter(inst);
@@ -623,6 +675,26 @@ static void vdec_vcp_deinit(unsigned long h_vdec)
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 	mtk_vcodec_debug(inst, "- ret=%d", err);
 
+	mutex_lock(inst->vcu.ctx_ipi_lock);
+	list_for_each_safe(p, q, &inst->vcu.bufs) {
+		tmp = list_entry(p, struct vcp_dec_mem_list, list);
+		if (tmp->mem.type == MEM_TYPE_FOR_SW)
+			dev = vcp_get_io_device(VCP_IOMMU_WORK_256MB2);
+		else if (tmp->mem.type == MEM_TYPE_FOR_HW)
+			dev = &inst->vcu.ctx->dev->plat_dev->dev;
+
+		// TODO: need handle secure mmeory
+		mtk_vcodec_free_mem(&tmp->mem, dev);
+		mtk_v4l2_debug(0, "[%d] leak free va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
+			inst->ctx->id, tmp->mem.va, tmp->mem.pa,
+			tmp->mem.iova, tmp->mem.len,  tmp->mem.type);
+
+		list_del(p);
+		kfree(tmp);
+	}
+	mutex_unlock(inst->vcu.ctx_ipi_lock);
+	mutex_destroy(inst->vcu.ctx_ipi_lock);
+	kfree(inst->vcu.ctx_ipi_lock);
 	kfree(inst);
 }
 

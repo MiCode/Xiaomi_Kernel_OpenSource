@@ -177,4 +177,7 @@
 #define R_CORE0_CACHE_RAM		(vcpreg.l1cctrl + 0x00000)
 #define R_CORE1_CACHE_RAM		(vcpreg.l1cctrl + 0x20000)
 
+#define VCP_GCE_MMU			(vcpreg.cfg_mmu + 0x0000)
+	#define B_MMU_EN		(0x3 << 14)
+
 #endif
