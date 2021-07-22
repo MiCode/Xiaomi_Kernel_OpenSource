@@ -266,14 +266,6 @@ static void probe_android_vh_set_module_permit_after_init(void *ignore,
 		module_enable_ro(mod, true, MKP_POLICY_DRV);
 }
 
-static void probe_android_vh_selinux_is_initialized(void *ignore,
-	const struct selinux_state *state)
-{
-	initialized = state->initialized;
-	avc = state->avc;
-	policy = state->policy;
-}
-
 static void probe_android_vh_commit_creds(void *ignore, const struct task_struct *task,
 	const struct cred *new)
 {
@@ -396,13 +388,13 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 	int i;
 	struct mkp_avc_node *temp_node = NULL;
 
+	if (!node || g_ro_avc_handle == 0)
+		return;
 	ts = this_cpu_ptr(&old_task);
 	current_task = get_current();
 
-	if (node && ts->pid != current_task->pid) {
+	if (ts->pid != current_task->pid) {
 		*ts = *current_task;
-		if (g_ro_avc_handle == 0)
-			return;
 		temp_node = (struct mkp_avc_node *)node;
 		va = page_address(avc_pages);
 		ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
@@ -443,6 +435,49 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 			}
 		}
 	}
+}
+
+static void probe_android_vh_selinux_is_initialized(void *ignore,
+	const struct selinux_state *state)
+{
+	int ret = 0, ret_erri_line;
+
+	initialized = state->initialized;
+	avc = state->avc;
+	policy = state->policy;
+
+	// register avc vendor hook after selinux is initialized
+	if (policy_ctrl[MKP_POLICY_SELINUX_AVC] != 0 ||
+		g_ro_avc_handle != 0) {
+		// register avc vendor hook
+		ret = register_trace_android_vh_selinux_avc_insert(
+				probe_android_vh_selinux_avc_insert, NULL);
+		if (ret) {
+			ret_erri_line = __LINE__;
+			goto avc_failed;
+		}
+		ret = register_trace_android_vh_selinux_avc_node_delete(
+				probe_android_vh_selinux_avc_node_delete, NULL);
+		if (ret) {
+			ret_erri_line = __LINE__;
+			goto avc_failed;
+		}
+		ret = register_trace_android_vh_selinux_avc_node_replace(
+				probe_android_vh_selinux_avc_node_replace, NULL);
+		if (ret) {
+			ret_erri_line = __LINE__;
+			goto avc_failed;
+		}
+		ret = register_trace_android_vh_selinux_avc_lookup(
+				probe_android_vh_selinux_avc_lookup, NULL);
+		if (ret) {
+			ret_erri_line = __LINE__;
+			goto avc_failed;
+		}
+	}
+avc_failed:
+	if (ret)
+		MKP_ERR("register avc hooks failed, ret %d line %d\n", ret, ret_erri_line);
 }
 
 static int protect_mkp_self(void)
@@ -488,32 +523,6 @@ int __init mkp_demo_init(void)
 		} else {
 			MKP_ERR("Create avc ro sharebuf fail\n");
 		}
-		// register avc vendor hook
-		ret = register_trace_android_vh_selinux_avc_insert(
-				probe_android_vh_selinux_avc_insert, NULL);
-		if (ret) {
-			ret_erri_line = __LINE__;
-			goto failed;
-		}
-		ret = register_trace_android_vh_selinux_avc_node_delete(
-				probe_android_vh_selinux_avc_node_delete, NULL);
-		if (ret) {
-			ret_erri_line = __LINE__;
-			goto failed;
-		}
-		ret = register_trace_android_vh_selinux_avc_node_replace(
-				probe_android_vh_selinux_avc_node_replace, NULL);
-		if (ret) {
-			ret_erri_line = __LINE__;
-			goto failed;
-		}
-		ret = register_trace_android_vh_selinux_avc_lookup(
-				probe_android_vh_selinux_avc_lookup, NULL);
-		if (ret) {
-			ret_erri_line = __LINE__;
-			goto failed;
-		}
-
 	}
 
 	if (policy_ctrl[MKP_POLICY_TASK_CRED] != 0) {
