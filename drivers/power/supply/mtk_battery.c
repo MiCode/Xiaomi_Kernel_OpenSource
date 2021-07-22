@@ -346,6 +346,14 @@ static int battery_psy_get_property(struct power_supply *psy,
 				gm->battery_id].q_max * 1000 / 100;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		/* 1 = META_BOOT, 4 = FACTORY_BOOT 5=ADVMETA_BOOT */
+		/* 6= ATE_factory_boot */
+		if (gm->bootmode == 1 || gm->bootmode == 4
+			|| gm->bootmode == 5 || gm->bootmode == 6) {
+			val->intval = 4000000;
+			break;
+		}
+
 		gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
 			&bs_data->bat_batt_vol);
 		val->intval = bs_data->bat_batt_vol * 1000;
