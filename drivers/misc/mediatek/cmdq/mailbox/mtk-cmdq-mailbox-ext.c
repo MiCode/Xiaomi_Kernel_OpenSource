@@ -22,6 +22,7 @@
 #include <linux/atomic.h>
 #include <linux/sched/clock.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include "cmdq-util.h"
@@ -166,7 +167,9 @@ struct cmdq {
 	void			*init_cmds_base;
 	dma_addr_t		init_cmds;
 	bool			sw_ddr_en;
+	struct notifier_block	prebuilt_notifier;
 	struct cmdq_client	*prebuilt_clt;
+	u64			prebuilt_time[2];
 };
 
 struct gce_plat {
@@ -283,6 +286,11 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 
 	cmdq_trace_ex_begin("%s", __func__);
 
+	if (!atomic_read(&cmdq->usage)) {
+		cmdq_log("%s: hwid:%u pm_runtime_get", __func__, cmdq->hwid);
+		pm_runtime_get_sync(cmdq->mbox.dev);
+	}
+
 	spin_lock_irqsave(&cmdq->lock, flags);
 
 	usage = atomic_inc_return(&cmdq->usage);
@@ -349,6 +357,11 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 	clk_disable(cmdq->clock);
 
 	spin_unlock_irqrestore(&cmdq->lock, flags);
+
+	if (!atomic_read(&cmdq->usage)) {
+		cmdq_log("%s: hwid:%u pm_runtime_put", __func__, cmdq->hwid);
+		pm_runtime_put_sync(cmdq->mbox.dev);
+	}
 
 	cmdq_trace_ex_end();
 }
@@ -1203,8 +1216,9 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	tpr_en = readl(cmdq->base + CMDQ_TPR_TIMEOUT_EN);
 
 	cmdq_util_user_msg(chan,
-		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x",
-		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en);
+		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x prebuilt_time:%#llx:%#llx",
+		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en,
+		cmdq->prebuilt_time[0], cmdq->prebuilt_time[1]);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq_util_controller->dump_dbg_reg(chan);
 #endif
@@ -1614,7 +1628,8 @@ static int cmdq_prebuilt_resume(struct device *dev)
 	WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
 	WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
 
-	cmdq_util_prebuilt_enable(dev, cmdq->hwid);
+	cmdq->prebuilt_time[0] = sched_clock();
+	cmdq_util_prebuilt_enable(cmdq->hwid);
 	return 0;
 }
 
@@ -1622,11 +1637,29 @@ static int cmdq_prebuilt_suspend(struct device *dev)
 {
 	struct cmdq *cmdq = dev_get_drvdata(dev);
 
+	cmdq->prebuilt_time[1] = sched_clock();
+
 	clk_disable_unprepare(cmdq->clock_timer);
 	clk_disable_unprepare(cmdq->clock);
 
 	cmdq_log("%s: hwid:%u", __func__, cmdq->hwid);
 	return 0;
+}
+
+static int cmdq_prebuilt_notifier_callback(struct notifier_block *nb,
+	unsigned long action, void *data)
+{
+	struct cmdq *cmdq = container_of(nb, typeof(*cmdq), prebuilt_notifier);
+
+	cmdq_msg("%s: pa:%pa hwid:%u", __func__, &cmdq->base_pa, cmdq->hwid);
+
+	if (action == GENPD_NOTIFY_ON) {
+		WARN_ON(clk_prepare_enable(cmdq->clock) < 0);
+		WARN_ON(clk_prepare_enable(cmdq->clock_timer) < 0);
+		cmdq_util_prebuilt_enable(cmdq->hwid);
+	}
+
+	return NOTIFY_OK;
 }
 
 static int cmdq_remove(struct platform_device *pdev)
@@ -1941,6 +1974,8 @@ static int cmdq_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq->hwid = cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
+	cmdq->prebuilt_notifier.notifier_call = cmdq_prebuilt_notifier_callback;
+	err = dev_pm_genpd_add_notifier(dev, &cmdq->prebuilt_notifier);
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
 	return 0;
 }
@@ -2079,6 +2114,7 @@ s32 cmdq_mbox_set_hw_id(void *cmdq_mbox)
 	if (!cmdq)
 		return -EINVAL;
 	cmdq->hwid = (u8)cmdq_util_get_hw_id(cmdq->base_pa);
+	cmdq->prebuilt_notifier.priority = cmdq->hwid;
 	cmdq_util_prebuilt_set_client(cmdq->hwid, cmdq->prebuilt_clt);
 	return 0;
 }

@@ -396,36 +396,75 @@ DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feature_fops,
 /* sync with request in atf */
 enum cmdq_smc_request {
 	CMDQ_ENABLE_DEBUG,
-	CMDQ_ENABLE_PREBUILT,
-	CMDQ_ENABLE_PREBUILT_DUMP,
+	CMDQ_ENABLE_DISP_VA,
+	CMDQ_PREBUILT_INIT,
+	CMDQ_PREBUILT_ENABLE,
+	CMDQ_PREBUILT_DUMP,
 };
 
 #ifdef CMDQ_SMC_SUPPORT
 static atomic_t cmdq_dbg_ctrl = ATOMIC_INIT(0);
 #endif
 
-void cmdq_util_prebuilt_enable(struct device *dev, const u16 hwid)
+void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client)
+{
+	if (hwid >= CMDQ_HW_MAX)
+		cmdq_err("invalid hwid:%u", hwid);
+	else
+		util.prebuilt_clt[hwid] = client;
+	cmdq_msg("hwid:%u client:%p", hwid, client);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_set_client);
+
+void cmdq_util_enable_disp_va(void)
 {
 	struct arm_smccc_res res;
 
-	cmdq_log("%s: dev:%p hwid:%u", __func__, dev, hwid);
-	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_PREBUILT, hwid,
+	cmdq_msg("%s", __func__);
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DISP_VA,
+		0, 0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_enable_disp_va);
+
+void cmdq_util_prebuilt_init(const u16 mod)
+{
+	struct arm_smccc_res res;
+
+	cmdq_msg("%s: mod:%u", __func__, mod);
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_INIT, mod,
 		0, 0, 0, 0, 0, &res);
 }
+EXPORT_SYMBOL(cmdq_util_prebuilt_init);
+
+void cmdq_util_prebuilt_enable(const u16 hwid)
+{
+	struct arm_smccc_res res;
+
+	cmdq_log("%s: hwid:%u", __func__, hwid);
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_ENABLE, hwid,
+		0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_enable);
 
 void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event)
 {
-	struct cmdq_pkt *pkt;
 	struct arm_smccc_res res;
 	const u16 mod = (event - CMDQ_TOKEN_PREBUILT_MDP_WAIT) /
 		(CMDQ_TOKEN_PREBUILT_MML_WAIT - CMDQ_TOKEN_PREBUILT_MDP_WAIT);
-	u32 val[CMDQ_CPR_PREBUILT_PIPE_CNT * CMDQ_CPR_PREBUILT_REG_CNT + 1];
+	struct cmdq_pkt *pkt;
 	struct device *dev = util.prebuilt_clt[hwid]->client.dev;
 	dma_addr_t pa = 0;
 	void *va = dma_alloc_coherent(dev, PAGE_SIZE, &pa, GFP_KERNEL);
+	u32 val[CMDQ_CPR_PREBUILT_PIPE_CNT * CMDQ_CPR_PREBUILT_REG_CNT + 1];
 	s32 i, j;
 
-	cmdq_msg("%s: mod:%hu event:%hu pa:%pa", __func__, mod, event, &pa);
+	cmdq_msg("%s: hwid:%hu event:%hu mod:%hu", __func__, hwid, event, mod);
+
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_DUMP, mod, event,
+		0, 0, 0, 0, &res);
+
+	if (mod >= CMDQ_PREBUILT_MOD)
+		return;
 
 	pkt = cmdq_pkt_create(util.prebuilt_clt[hwid]);
 	cmdq_pkt_jump(pkt, CMDQ_JUMP_PASS);
@@ -470,21 +509,8 @@ void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event)
 		__func__, val[40], CMDQ_CPR_PREBUILT(mod, 1, 10),
 		val[30], val[31], val[32], val[33], val[34],
 		val[35], val[36], val[37], val[38], val[39]);
-
-	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_PREBUILT_DUMP,
-		mod, event,
-		0, 0, 0, 0, &res);
 }
-
-void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client)
-{
-	if (hwid >= CMDQ_HW_MAX)
-		cmdq_err("invalid hwid:%u", hwid);
-	else
-		util.prebuilt_clt[hwid] = client;
-	cmdq_msg("hwid:%u client:%p", hwid, client);
-}
-EXPORT_SYMBOL(cmdq_util_prebuilt_set_client);
+EXPORT_SYMBOL(cmdq_util_prebuilt_dump);
 
 void cmdq_util_dump_dbg_reg(void *chan)
 {

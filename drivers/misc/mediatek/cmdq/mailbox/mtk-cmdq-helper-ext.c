@@ -1858,7 +1858,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 			cmdq_log("len:%d over text_gpr size:%d",
 				len, ARRAY_SIZE(text_gpr));
 	} else if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
-		inst->arg_a <= CMDQ_TOKEN_PREBUILT_DISP_LOCK) {
+		inst->arg_a <= CMDQ_TOKEN_DISP_VA_END) {
 		const u16 mod = (inst->arg_a - CMDQ_TOKEN_PREBUILT_MDP_WAIT) /
 			(CMDQ_TOKEN_PREBUILT_MML_WAIT -
 			CMDQ_TOKEN_PREBUILT_MDP_WAIT);
@@ -1929,7 +1929,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		cmdq_print_wait_summary(client->chan, pc, inst);
 
 		if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
-			inst->arg_a <= CMDQ_TOKEN_PREBUILT_DISP_LOCK)
+			inst->arg_a <= CMDQ_TOKEN_DISP_VA_END)
 			cmdq_util_prebuilt_dump(
 				cmdq_util_get_hw_id(gce_pa), inst->arg_a);
 	} else if (inst)
