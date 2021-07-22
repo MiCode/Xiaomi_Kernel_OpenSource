@@ -74,8 +74,8 @@ int sched_resume_cpu(int cpu)
 
 	mutex_lock(&sched_core_pause_mutex);
 	if (cpumask_test_cpu(cpu, cpu_active_mask)) {
-		pr_info("[Core Pause]Already Resume: cpu=%d, resume_mask=0x%lx, active_mask=0x%lx\n",
-				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0]);
+		pr_info("[Core Pause]Already Resume: cpu=%d, active_mask=0x%lx\n",
+				cpu, cpu_active_mask->bits[0]);
 		mutex_unlock(&sched_core_pause_mutex);
 		return err;
 	}
