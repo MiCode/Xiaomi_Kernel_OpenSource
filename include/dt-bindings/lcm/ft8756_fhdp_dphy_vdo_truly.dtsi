@@ -667,6 +667,7 @@
 				lcm_update_size = <0>;
 				lcm_update_table;
 
+				set_backlight_mode = <MTK_BACKLIGHT_MODE_256>;
 				set_backlight_cmdq_size = <1>;
 				set_backlight_cmdq_table =
 					<MTK_LCM_CB_TYPE_RUNTIME_INPUT 3 1 0x51 0xFF>,
@@ -675,10 +676,9 @@
 				set_backlight_grp_cmdq_size = <0>;
 				set_backlight_grp_cmdq_table;
 
-				set_aod_light_high_size = <0>;
-				set_aod_light_high;
-				set_aod_light_low_size = <0>;
-				set_aod_light_low;
+				set_aod_light_mode = <MTK_BACKLIGHT_MODE_256>;
+				set_aod_light_size = <0>;
+				set_aod_light;
 
 				ata_id_value_length = <3>;
 				ata_id_value_data = <0x0 0x0 0x0>;

@@ -16,6 +16,9 @@
 #define MTK_PANEL_COMPARE_ID_LENGTH (10)
 #define MTK_PANEL_ATA_ID_LENGTH (10)
 
+#define MTK_BACKLIGHT_MODE_256 (0)
+#define MTK_BACKLIGHT_MODE_4K (1)
+
 /* LCM PHY TYPE*/
 #define MTK_LCM_MIPI_DPHY (0)
 #define MTK_LCM_MIPI_CPHY (1)
@@ -43,6 +46,14 @@
 #define MTK_LCM_COLOR_MODE_SRGB (7)
 #define MTK_LCM_COLOR_MODE_ADOBE_RGB (8)
 #define MTK_LCM_COLOR_MODE_DISPLAY_P3 (9)
+
+/* redefine "MIPITX_PHY_LANE_SWAP" from enum to macro for dts settings*/
+#define LCM_LANE_0 (0)
+#define LCM_LANE_1 (1)
+#define LCM_LANE_2 (2)
+#define LCM_LANE_3 (3)
+#define LCM_LANE_CK (4)
+#define LCM_LANE_RX (5)
 
 /*redefine DSI mode flags to fix build error*/
 /* video mode */
@@ -104,7 +115,8 @@
 
 #define MTK_LCM_CB_TYPE_START (0x20)
 #define MTK_LCM_CB_TYPE_RUNTIME (0x21) /* runtime executed in callback*/
-#define MTK_LCM_CB_TYPE_RUNTIME_INPUT (0x22) /* runtime executed in callback with user input*/
+#define MTK_LCM_CB_TYPE_RUNTIME_INPUT (0x22) /* runtime executed with single input*/
+#define MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE (0x23) /* runtime executed with multiple input*/
 #define MTK_LCM_CB_TYPE_END (0x2f)
 
 #define MTK_LCM_GPIO_TYPE_START (0x30)
@@ -115,7 +127,7 @@
 #define MTK_LCM_GPIO_TYPE_END (0x3f)
 
 #define MTK_LCM_LK_TYPE_START (0x40)
-#define MTK_LCM_LK_TYPE_WRITE_PARAM (0x41) /* lk write dcs data*/
+#define MTK_LCM_LK_TYPE_WRITE_PARAM (0x41) /* lk write dcs data w/ force update*/
 #define MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT (0x42) /* lk dcs data count*/
 #define MTK_LCM_LK_TYPE_PREPARE_PARAM (0x43) /* lk fixed dcs data value of 32bit*/
 #define MTK_LCM_LK_TYPE_PREPARE_PARAM_FIX_BIT (0x44) /* lk fixed dcs data value of 8bit*/
@@ -127,6 +139,7 @@
 #define MTK_LCM_LK_TYPE_PREPARE_PARAM_Y0_LSB_BIT (0x4a) /* runtime 8bit input of y0 lsb*/
 #define MTK_LCM_LK_TYPE_PREPARE_PARAM_Y1_MSB_BIT (0x4b) /* runtime 8bit input of y1 msb*/
 #define MTK_LCM_LK_TYPE_PREPARE_PARAM_Y1_LSB_BIT (0x4c) /* runtime 8bit input of y1 lsb*/
+#define MTK_LCM_LK_TYPE_WRITE_PARAM_UNFORCE (0x4d) /* lk write dcs data w/o force update*/
 #define MTK_LCM_LK_TYPE_END (0x4f)
 
 /* 128~223: used for customization panel operation
