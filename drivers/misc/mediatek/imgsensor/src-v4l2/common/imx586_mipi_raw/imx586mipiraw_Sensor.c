@@ -110,19 +110,33 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 1028570000,
 		.max_framerate = 600, /* 60fps */
 	},
-
+	#ifdef K49
+	.cap = { /* reg_E Full size @30fps*/
+		.pclk = 1718400000,
+		.linelength = 9440,
+		.framelength = 6067,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 8000,
+		.grabwindow_height = 6000,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 1692340000,
+		.max_framerate = 300,
+	},
+	#else
 	.cap = { /*reg_A 12M@30fps*/
-		.pclk = 752000000,
+		.pclk = 724800000,
 		.linelength = 7872,
-		.framelength = 3184,
+		.framelength = 3068,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 4000,
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 514290000,
+		.mipi_pixel_rate = 478630000,
 		.max_framerate = 300,
 	},
+	#endif
 #endif
 
 	.normal_video = { /*reg_C-2 4000*2600@30fps*/
@@ -257,7 +271,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.ihdr_support = 0,	/* 1, support; 0,not support */
 	.ihdr_le_firstline = 0,	/* 1,le first ; 0, se first */
 	.temperature_support = 1,/* 1, support; 0,not support */
-	.sensor_mode_num = 20,	/* support sensor mode num */
+	.sensor_mode_num = 11,	/* support sensor mode num */
 
 	.cap_delay_frame = 2,	/* enter capture delay frame num */
 	.pre_delay_frame = 2,	/* enter preview delay frame num */
@@ -306,8 +320,13 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[11] = {
 #else
 	{8000, 6000, 0,   0, 8000, 6000, 4000, 3000,
 	0, 0, 4000, 3000,  0,  0, 4000, 3000}, /* Preview */
+	#ifdef K49
+	{8000, 6000, 0000, 0000, 8000, 6000, 8000, 6000,
+	 0000, 0000, 8000, 6000,    0,    0, 8000, 6000}, /* capture */
+	#else
 	{8000, 6000, 0,   0, 8000, 6000, 4000, 3000,
 	0, 0, 4000, 3000,  0,  0, 4000, 3000}, /* capture */
+	#endif
 #endif
 	{8000, 6000, 0, 400, 8000, 5200, 4000, 2600,
 	0, 0, 4000, 2600,  0,  0, 4000, 2600}, /* normal video */
@@ -330,7 +349,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[11] = {
 
 };
  /*VC1 for HDR(DT=0X35), VC2 for PDAF(DT=0X36), unit : 10bit */
-static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[8] = {
+static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[9] = {
 	/* Preview mode setting */
 	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 	 0x00, 0x2b, 0x0FA0, 0x0BB8, 0x00, 0x00, 0x00, 0x00,
@@ -363,6 +382,16 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[8] = {
 	 {0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 	 0x00, 0x2b, 0x1E00, 0x10E0, 0x00, 0x00, 0x00, 0x00,
 	 0x00, 0x34, 0x04B0, 0x0430, 0x00, 0x00, 0x0000, 0x0000},
+	/* Capture mode setting */
+	#ifdef K49
+	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x1F40, 0x1770, 0x00, 0x00, 0x00, 0x00,
+	 0x00, 0x34, 0x026C, 0x0BA0, 0x00, 0x00, 0x0000, 0x0000},
+	#else
+	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x0FA0, 0x0BB8, 0x00, 0x00, 0x00, 0x00,
+	 0x00, 0x34, 0x04D8, 0x05D0, 0x00, 0x00, 0x0000, 0x0000},
+	#endif
 };
 
 
@@ -1362,8 +1391,8 @@ static kal_uint16 imx586_capture_setting[] = {
 	0x0342, 0x1E,
 	0x0343, 0xC0,
 	/*Frame Length Lines Setting*/
-	0x0340, 0x0c,
-	0x0341, 0x70,
+	0x0340, 0x0B,
+	0x0341, 0xFC,
 	/*ROI Setting*/
 	0x0344, 0x00,
 	0x0345, 0x00,
@@ -1403,13 +1432,13 @@ static kal_uint16 imx586_capture_setting[] = {
 	/*Clock Setting*/
 	0x0301, 0x05,
 	0x0303, 0x04,
-	0x0305, 0x03,
-	0x0306, 0x00,
-	0x0307, 0xeb,
+	0x0305, 0x04,
+	0x0306, 0x01,
+	0x0307, 0x2E,
 	0x030B, 0x02,
-	0x030D, 0x03,
-	0x030E, 0x00,
-	0x030F, 0xbb,
+	0x030D, 0x0C,
+	0x030E, 0x02,
+	0x030F, 0xBA,
 	0x0310, 0x01,
 	/*Other Setting*/
 	0x3620, 0x00,
@@ -1428,8 +1457,8 @@ static kal_uint16 imx586_capture_setting[] = {
 	0x3FFE, 0x00,
 	0x3FFF, 0x6C,
 	/*Integration Setting*/
-	0x0202, 0x0c,
-	0x0203, 0x40,
+	0x0202, 0x0B,
+	0x0203, 0xCC,
 	0x0224, 0x01,
 	0x0225, 0xF4,
 	0x3FE0, 0x01,
@@ -2856,8 +2885,119 @@ static void capture_setting(struct subdrv_ctx *ctx, kal_uint16 currefps)
 {
 	pr_debug("%s 30 fps E! currefps:%d\n", __func__, currefps);
 	/*************MIPI output setting************/
+	#ifdef K49
+	/*MIPI output setting*/
+	write_cmos_sensor_8(ctx, 0x0112, 0x0A);
+	write_cmos_sensor_8(ctx, 0x0113, 0x0A);
+	write_cmos_sensor_8(ctx, 0x0114, 0x02);
+	/*Line Length PCK Setting*/
+	write_cmos_sensor_8(ctx, 0x0342, 0x24);
+	write_cmos_sensor_8(ctx, 0x0343, 0xE0);
+	/*Frame Length Lines Setting*/
+	write_cmos_sensor_8(ctx, 0x0340, 0x17);
+	write_cmos_sensor_8(ctx, 0x0341, 0xB3);
+	/*ROI Setting*/
+	write_cmos_sensor_8(ctx, 0x0344, 0x00);
+	write_cmos_sensor_8(ctx, 0x0345, 0x00);
+	write_cmos_sensor_8(ctx, 0x0346, 0x00);
+	write_cmos_sensor_8(ctx, 0x0347, 0x00);
+	write_cmos_sensor_8(ctx, 0x0348, 0x1F);
+	write_cmos_sensor_8(ctx, 0x0349, 0x3F);
+	write_cmos_sensor_8(ctx, 0x034A, 0x17);
+	write_cmos_sensor_8(ctx, 0x034B, 0x6F);
+	/*Mode Setting*/
+	write_cmos_sensor_8(ctx, 0x0220, 0x62);
+	write_cmos_sensor_8(ctx, 0x0222, 0x01);
+	write_cmos_sensor_8(ctx, 0x0900, 0x00);
+	write_cmos_sensor_8(ctx, 0x0901, 0x11);
+	write_cmos_sensor_8(ctx, 0x0902, 0x08);
+	write_cmos_sensor_8(ctx, 0x3140, 0x00);
+	write_cmos_sensor_8(ctx, 0x3246, 0x01);
+	write_cmos_sensor_8(ctx, 0x3247, 0x01);
+	write_cmos_sensor_8(ctx, 0x3F15, 0x00);
+	/*Digital Crop & Scaling*/
+	write_cmos_sensor_8(ctx, 0x0401, 0x00);
+	write_cmos_sensor_8(ctx, 0x0404, 0x00);
+	write_cmos_sensor_8(ctx, 0x0405, 0x10);
+	write_cmos_sensor_8(ctx, 0x0408, 0x00);
+	write_cmos_sensor_8(ctx, 0x0409, 0x00);
+	write_cmos_sensor_8(ctx, 0x040A, 0x00);
+	write_cmos_sensor_8(ctx, 0x040B, 0x00);
+	write_cmos_sensor_8(ctx, 0x040C, 0x1F);
+	write_cmos_sensor_8(ctx, 0x040D, 0x40);
+	write_cmos_sensor_8(ctx, 0x040E, 0x17);
+	write_cmos_sensor_8(ctx, 0x040F, 0x70);
+	/*Output Size Setting*/
+	write_cmos_sensor_8(ctx, 0x034C, 0x1F);
+	write_cmos_sensor_8(ctx, 0x034D, 0x40);
+	write_cmos_sensor_8(ctx, 0x034E, 0x17);
+	write_cmos_sensor_8(ctx, 0x034F, 0x70);
+	/*Clock Setting*/
+	write_cmos_sensor_8(ctx, 0x0301, 0x05);
+	write_cmos_sensor_8(ctx, 0x0303, 0x02);
+	write_cmos_sensor_8(ctx, 0x0305, 0x04);
+	write_cmos_sensor_8(ctx, 0x0306, 0x01);
+	write_cmos_sensor_8(ctx, 0x0307, 0x66);
+	write_cmos_sensor_8(ctx, 0x030B, 0x01);
+	write_cmos_sensor_8(ctx, 0x030D, 0x0C);
+	write_cmos_sensor_8(ctx, 0x030E, 0x04);
+	write_cmos_sensor_8(ctx, 0x030F, 0xD2);
+	write_cmos_sensor_8(ctx, 0x0310, 0x01);
+	/*Other Setting*/
+	write_cmos_sensor_8(ctx, 0x3620, 0x01);
+	write_cmos_sensor_8(ctx, 0x3621, 0x01);
+	write_cmos_sensor_8(ctx, 0x3C11, 0x08);
+	write_cmos_sensor_8(ctx, 0x3C12, 0x08);
+	write_cmos_sensor_8(ctx, 0x3C13, 0x2A);
+	write_cmos_sensor_8(ctx, 0x3F0C, 0x00);
+	write_cmos_sensor_8(ctx, 0x3F14, 0x01);
+	write_cmos_sensor_8(ctx, 0x3F80, 0x02);
+	write_cmos_sensor_8(ctx, 0x3F81, 0x20);
+	write_cmos_sensor_8(ctx, 0x3F8C, 0x01);
+	write_cmos_sensor_8(ctx, 0x3F8D, 0x9A);
+	write_cmos_sensor_8(ctx, 0x3FF8, 0x00);
+	write_cmos_sensor_8(ctx, 0x3FF9, 0x00);
+	write_cmos_sensor_8(ctx, 0x3FFE, 0x02);
+	write_cmos_sensor_8(ctx, 0x3FFF, 0x0E);
+	/*Integration Setting*/
+	write_cmos_sensor_8(ctx, 0x0202, 0x17);
+	write_cmos_sensor_8(ctx, 0x0203, 0x83);
+	write_cmos_sensor_8(ctx, 0x0224, 0x01);
+	write_cmos_sensor_8(ctx, 0x0225, 0xF4);
+	write_cmos_sensor_8(ctx, 0x3FE0, 0x01);
+	write_cmos_sensor_8(ctx, 0x3FE1, 0xF4);
+	/*Gain Setting*/
+	write_cmos_sensor_8(ctx, 0x0204, 0x00);
+	write_cmos_sensor_8(ctx, 0x0205, 0x70);
+	write_cmos_sensor_8(ctx, 0x0216, 0x00);
+	write_cmos_sensor_8(ctx, 0x0217, 0x70);
+	write_cmos_sensor_8(ctx, 0x0218, 0x01);
+	write_cmos_sensor_8(ctx, 0x0219, 0x00);
+	write_cmos_sensor_8(ctx, 0x020E, 0x01);
+	write_cmos_sensor_8(ctx, 0x020F, 0x00);
+	write_cmos_sensor_8(ctx, 0x0210, 0x01);
+	write_cmos_sensor_8(ctx, 0x0211, 0x00);
+	write_cmos_sensor_8(ctx, 0x0212, 0x01);
+	write_cmos_sensor_8(ctx, 0x0213, 0x00);
+	write_cmos_sensor_8(ctx, 0x0214, 0x01);
+	write_cmos_sensor_8(ctx, 0x0215, 0x00);
+	write_cmos_sensor_8(ctx, 0x3FE2, 0x00);
+	write_cmos_sensor_8(ctx, 0x3FE3, 0x70);
+	write_cmos_sensor_8(ctx, 0x3FE4, 0x01);
+	write_cmos_sensor_8(ctx, 0x3FE5, 0x00);
+	/*PDAF TYPE1 Setting*/
+	write_cmos_sensor_8(ctx, 0x3E20, 0x02);
+	write_cmos_sensor_8(ctx, 0x3E37, 0x00);
+	/*PDAF TYPE2 Setting*/
+	write_cmos_sensor_8(ctx, 0x3E20, 0x02);
+	write_cmos_sensor_8(ctx, 0x3E3B, 0x01);
+	write_cmos_sensor_8(ctx, 0x4434, 0x00);
+	write_cmos_sensor_8(ctx, 0x4435, 0xF8);
+	#else
 	imx586_table_write_cmos_sensor(ctx, imx586_capture_setting,
 		sizeof(imx586_capture_setting)/sizeof(kal_uint16));
+	#endif
+
 
 	pr_debug("%s 30 fpsX\n", __func__);
 }
@@ -4885,6 +5025,48 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 	},
 };
 
+	#ifdef K49
+static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1f40,
+			.vsize = 0x1770,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x34,
+			.hsize = 0x026c,
+			.vsize = 0x0ba0,
+			.user_data_desc = VC_PDAF_STATS,
+		},
+	},
+};
+	#else
+static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0fa0,
+			.vsize = 0x0bb8,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x34,
+			.hsize = 0x04d8,
+			.vsize = 0x05d0,
+			.user_data_desc = VC_PDAF_STATS,
+		},
+	},
+};
+	#endif
+
 static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 	{
 		.bus.csi2 = {
@@ -5035,10 +5217,14 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM14:
 	case SENSOR_SCENARIO_ID_CUSTOM15:
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
 		fd->num_entries = ARRAY_SIZE(frame_desc_prev);
 		memcpy(fd->entry, frame_desc_prev, sizeof(frame_desc_prev));
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cap);
+		memcpy(fd->entry, frame_desc_cap, sizeof(frame_desc_cap));
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
