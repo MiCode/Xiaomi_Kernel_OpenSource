@@ -884,6 +884,15 @@
 #define CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A			672
 #define CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B			673
 
+/* PREBUILT sw token */
+#define CMDQ_SYNC_TOKEN_PREBUILT_MDP_LOCK		682
+#define CMDQ_SYNC_TOKEN_PREBUILT_MML_LOCK		685
+#define CMDQ_SYNC_TOKEN_PREBUILT_VFMT_LOCK		688
+#define CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK		691
+
+#define CMDQ_SYNC_TOKEN_DISP_VA_START			692
+#define CMDQ_SYNC_TOKEN_DISP_VA_END			693
+
 /* GPR access tokens (for HW register backup)
  * There are 15 32-bit GPR, 3 GPR form a set
  * (64-bit for address, 32-bit for value)
