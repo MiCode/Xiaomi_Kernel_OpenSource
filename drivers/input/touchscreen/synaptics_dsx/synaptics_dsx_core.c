@@ -3664,6 +3664,76 @@ err_pinctrl_get:
 	return retval;
 }
 
+static int synaptics_rmi4_regulator_configure(struct synaptics_rmi4_data *rmi4_data,
+		bool enable)
+{
+	int retval;
+
+	if (enable) {
+		retval = regulator_set_load(rmi4_data->pwr_reg,
+				20000);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to set active regulator load avdd\n",
+					__func__);
+			return retval;
+		}
+
+		retval = regulator_set_voltage(rmi4_data->pwr_reg,
+			3296000,
+			3304000);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to set active regulator voltage avdd\n",
+					__func__);
+			goto err_avdd_load;
+		}
+
+		retval = regulator_set_load(rmi4_data->bus_reg,
+			62000);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to set active regulator load vdd\n",
+					__func__);
+			goto err_avdd_load;
+		}
+
+		retval = regulator_set_voltage(rmi4_data->bus_reg,
+				1800000,
+				1800000);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to set active regulator voltage vdd\n",
+					__func__);
+			goto err_vdd_load;
+		}
+
+	} else {
+		retval = regulator_set_load(rmi4_data->pwr_reg, 0);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to set inactive regulator load avdd\n",
+					__func__);
+			return retval;
+		}
+
+		retval = regulator_set_load(rmi4_data->bus_reg, 0);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to set inactive regulator load vdd\n",
+					__func__);
+			return retval;
+		}
+
+	}
+	return retval;
+
+err_vdd_load:
+	regulator_set_load(rmi4_data->bus_reg, 0);
+err_avdd_load:
+	regulator_set_load(rmi4_data->pwr_reg, 0);
+	return retval;
+}
 
 static int synaptics_rmi4_get_reg(struct synaptics_rmi4_data *rmi4_data,
 		bool get)
@@ -3734,7 +3804,7 @@ static int synaptics_rmi4_get_reg(struct synaptics_rmi4_data *rmi4_data,
 			1800000);
 	if (retval < 0) {
 		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to set regulator voltage avdd\n",
+				"%s: Failed to set regulator voltage vdd\n",
 				__func__);
 		goto regulator_put;
 	}
@@ -3805,6 +3875,7 @@ disable_bus_reg:
 	}
 
 exit:
+	synaptics_rmi4_regulator_configure(rmi4_data, false);
 	return retval;
 }
 
@@ -4552,6 +4623,7 @@ err_set_input_dev:
 err_ui_hw_init:
 err_set_gpio:
 	synaptics_rmi4_enable_reg(rmi4_data, false);
+	synaptics_rmi4_regulator_configure(rmi4_data, false);
 
 	if (rmi4_data->ts_pinctrl) {
 		if (IS_ERR_OR_NULL(rmi4_data->pinctrl_state_release)) {
@@ -4656,6 +4728,7 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 		}
 
 	synaptics_rmi4_enable_reg(rmi4_data, false);
+	synaptics_rmi4_regulator_configure(rmi4_data, false);
 	synaptics_rmi4_get_reg(rmi4_data, false);
 
 	cancel_work_sync(&rmi4_data->rmi4_probe_work);
@@ -4691,15 +4764,19 @@ static void synaptics_rmi4_dsi_panel_notifier_cb(
 
 	switch (notification->notif_type) {
 	case DRM_PANEL_EVENT_UNBLANK:
-		if (rmi4_data->initialized)
+		if (rmi4_data->initialized) {
+			synaptics_rmi4_regulator_configure(rmi4_data, true);
 			synaptics_rmi4_resume(&rmi4_data->pdev->dev);
-		else
+		} else {
 			complete(&rmi4_data->drm_init_done);
+		}
 		rmi4_data->fb_ready = true;
 		break;
 	case DRM_PANEL_EVENT_BLANK:
-		if (rmi4_data->initialized)
+		if (rmi4_data->initialized) {
 			synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
+			synaptics_rmi4_regulator_configure(rmi4_data, false);
+		}
 		rmi4_data->fb_ready = false;
 		break;
 	case DRM_PANEL_EVENT_BLANK_LP:
