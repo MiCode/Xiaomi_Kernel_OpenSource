@@ -7892,6 +7892,9 @@
 				bits = <6 1>;
 			};
 		};
+		mt6685_consys: mt6685_consys {
+			compatible = "mediatek,mt6685-consys";
+		};
 	};
 };
 
