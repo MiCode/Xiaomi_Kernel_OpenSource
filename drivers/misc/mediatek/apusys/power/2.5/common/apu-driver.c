@@ -354,9 +354,6 @@ int apu_power_init(void)
 	ret = devfreq_add_governor(&agov_passive_pe);
 	if (ret)
 		return ret;
-	ret = platform_driver_register(&apusys_power_driver);
-	if (ret)
-		return ret;
 	ret = platform_driver_register(&apu_rpc_driver);
 	if (ret)
 		return ret;
@@ -377,6 +374,9 @@ int apu_power_init(void)
 		return ret;
 
 	ret = platform_driver_register(&mdla_devfreq_driver);
+	if (ret)
+		return ret;
+	ret = platform_driver_register(&apusys_power_driver);
 	if (ret)
 		return ret;
 	return 0;
