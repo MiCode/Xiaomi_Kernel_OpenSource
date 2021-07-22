@@ -81,6 +81,18 @@ void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev)
 	mutex_destroy(&imgsys_dev->dvfs_qos_lock);
 }
 
+void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
+{
+	dev_info(imgsys_dev->dev, "%s: cmdq stream on (%d)\n", __func__, is_stream_off);
+	is_stream_off = 0;
+}
+
+void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
+{
+	dev_info(imgsys_dev->dev, "%s: cmdq stream off (%d)\n", __func__, is_stream_off);
+	is_stream_off = 1;
+}
+
 static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
 {
 	struct GCERecoder *cmd_buf = NULL;

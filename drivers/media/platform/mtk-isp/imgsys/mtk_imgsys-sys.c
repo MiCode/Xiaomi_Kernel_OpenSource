@@ -1674,6 +1674,9 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		return -EBUSY;
 	}
 
+	/* calling cmdq stream on */
+	imgsys_cmdq_streamon(imgsys_dev);
+
 	return 0;
 }
 
@@ -1694,6 +1697,9 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	scp_ipi_unregister(imgsys_dev->scp_pdev, SCP_IPI_DIP);
 #else
 	struct img_init_info info;
+
+	/* calling cmdq stream off */
+	imgsys_cmdq_streamoff(imgsys_dev);
 
 	/* RELEASE IMGSYS WORKING BUFFER FIRST */
 	ret = mtk_hcp_release_working_buffer(imgsys_dev->scp_pdev);

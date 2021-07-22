@@ -182,6 +182,8 @@ struct frame_bw_t {
 
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev);
 void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev);
 int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				void (*cmdq_cb)(struct cmdq_cb_data data),
