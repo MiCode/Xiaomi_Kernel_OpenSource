@@ -385,6 +385,10 @@ struct DISP_PQ_PARAM {
 };
 #define DISP_PQ_PARAM_T struct DISP_PQ_PARAM
 
+struct DISP_DITHER_PARAM {
+	bool relay;
+	uint32_t mode;
+};
 
 #define DRM_MTK_GEM_CREATE		0x00
 #define DRM_MTK_GEM_MAP_OFFSET		0x01
@@ -443,6 +447,9 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_GET_CHIST           0x46
 #define DRM_MTK_GET_CHIST_CAPS      0x47
 #define DRM_MTK_SET_CHIST_CONFIG    0x48
+
+#define DRM_MTK_SET_DITHER_PARAM 0x43
+#define DRM_MTK_BYPASS_DISP_GAMMA 0x49
 
 /* DISP TDSHP */
 #define DRM_MTK_SET_DISP_TDSHP_REG 0x50
@@ -1032,6 +1039,11 @@ struct drm_mtk_chist_config {
 
 #define DRM_IOCTL_MTK_SET_CHIST_CONFIG     DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_SET_CHIST_CONFIG, struct drm_mtk_chist_config)
+
+#define DRM_IOCTL_MTK_SET_DITHER_PARAM    DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_SET_DITHER_PARAM, struct DISP_DITHER_PARAM)
+#define DRM_IOCTL_MTK_BYPASS_DISP_GAMMA    DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_BYPASS_DISP_GAMMA, unsigned int)
 
 /* AAL IOCTL */
 #define AAL_HIST_BIN            33	/* [0..32] */
