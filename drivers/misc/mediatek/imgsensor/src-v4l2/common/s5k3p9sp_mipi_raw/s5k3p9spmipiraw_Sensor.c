@@ -137,7 +137,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		},
 		.margin = 3,
 		.min_shutter = 3,
-		.min_gain = BASEGAIN * 1, /*1x gain*/
+		.min_gain = BASEGAIN, /*1x gain*/
 		.max_gain = BASEGAIN * 16, /*16x gain*/
 		.min_gain_iso = 100,
 		.gain_step = 32,
@@ -736,7 +736,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->autoflicker_en = KAL_FALSE;
 	ctx->sensor_mode = IMGSENSOR_MODE_INIT;
 	ctx->shutter = 0x3D0;
-	ctx->gain = 0x100;
+	ctx->gain = BASEGAIN * 4;
 	ctx->pclk = imgsensor_info.pre.pclk;
 	ctx->frame_length = imgsensor_info.pre.framelength;
 	ctx->line_length = imgsensor_info.pre.linelength;
@@ -1643,9 +1643,9 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
+	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_max = BASEGAIN * 16,
-	.ana_gain_min = BASEGAIN * 1,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 32,
 	.exposure_def = 0x3D0,
 	.exposure_max = 0xfffc - 3,
