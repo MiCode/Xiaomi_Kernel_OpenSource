@@ -2,7 +2,6 @@
 /* Copyright (c) 2020 MediaTek Inc. */
 
 #include <dt-bindings/clock/mt6983-clk.h>
-#include <dt-bindings/pinctrl/mt6983-pinfunc.h>
 
 &seninf_top {
 		seninf_csi_port_0: seninf_csi_port_0 {
@@ -14,7 +13,7 @@
 #endif
 			port {
 				seninf_csi_port_0_in: endpoint {
-					remote-endpoint = <&sensor0_out>;
+					remote-endpoint = <&sensor1_out>;
 				};
 			};
 		};
@@ -28,7 +27,7 @@
 #endif
 			port {
 				seninf_csi_port_1_in: endpoint {
-					remote-endpoint = <&sensor1_out>;
+					remote-endpoint = <&sensor3_out>;
 				};
 			};
 		};
@@ -55,7 +54,7 @@
 #endif
 			port {
 				seninf_csi_port_3_in: endpoint {
-					remote-endpoint = <&sensor3_out>;
+					remote-endpoint = <&sensor0_out>;
 				};
 			};
 		};
@@ -322,10 +321,10 @@
 		};
 	};
 
-	sensor1: sensor1@10 {
+	sensor3: sensor3@10 {
 		compatible = "mediatek,imgsensor";
 		reg = <0x10>;
-#if 0
+
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
@@ -351,15 +350,15 @@
 			<&topckgen_clk CLK_TOPCKGEN_F_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D16>,
+			<&clk26m>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
 			<&topckgen_clk CLK_TOPCKGEN_CAMTG3_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
-#endif
+
 		status = "okay";
 
 		port {
-			sensor1_out: endpoint {
+			sensor3_out: endpoint {
 				remote-endpoint = <&seninf_csi_port_1_in>;
 			};
 		};
@@ -367,10 +366,10 @@
 };
 
 &i2c4 {
-	sensor0: sensor0@10 {
+	sensor1: sensor1@10 {
 		compatible = "mediatek,imgsensor";
 		reg = <0x10>;
-#if 0
+
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
@@ -400,15 +399,15 @@
 			<&topckgen_clk CLK_TOPCKGEN_F_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D16>,
+			<&clk26m>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
 			<&topckgen_clk CLK_TOPCKGEN_CAMTG_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
-#endif
+
 		status = "okay";
 
 		port {
-			sensor0_out: endpoint {
+			sensor1_out: endpoint {
 				remote-endpoint = <&seninf_csi_port_0_in>;
 			};
 		};
@@ -417,7 +416,7 @@
 	sensor2: sensor2@1a {
 		compatible = "mediatek,imgsensor";
 		reg = <0x1a>;
-#if 0
+
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
@@ -447,11 +446,11 @@
 			<&topckgen_clk CLK_TOPCKGEN_F_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D16>,
+			<&clk26m>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
 			<&topckgen_clk CLK_TOPCKGEN_CAMTG2_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
-#endif
+
 		status = "okay";
 
 		port {
@@ -507,10 +506,10 @@
 		};
 	};
 
-	sensor3: sensor3@1a {
+	sensor0: sensor0@1a {
 		compatible = "mediatek,imgsensor";
 		reg = <0x1a>;
-#if 0
+
 		pinctrl-names = "mclk_off",
 				"mclk_2mA",
 				"mclk_4mA",
@@ -537,15 +536,15 @@
 			<&topckgen_clk CLK_TOPCKGEN_F_F26M_CK_D2>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D10>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_192M_D8>,
-			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D16>,
+			<&clk26m>,
 			<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D8>,
 			<&topckgen_clk CLK_TOPCKGEN_CAMTG2_SEL>;
 		clock-names = "6", "12", "13", "19.2", "24", "26", "52", "mclk";
-#endif
+
 		status = "okay";
 
 		port {
-			sensor3_out: endpoint {
+			sensor0_out: endpoint {
 				remote-endpoint = <&seninf_csi_port_3_in>;
 			};
 		};

@@ -455,3 +455,4 @@
 
 #include <k6983v1_64/cust.dtsi>
 #include "mediatek/cust_mt6983_touch_1080x2400.dtsi"
+#include "mediatek/cust_mt6983_camera_v4l2.dtsi"

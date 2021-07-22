@@ -6955,26 +6955,34 @@
 
 	seninf_top: seninf_top@1a010000 {
 		compatible = "mediatek,seninf-core";
-		reg = <0 0x1a010000 0 0x10000>,
-			<0 0x11f20000 0 0xc000>;
+		reg = <0 0x1a010000 0 0x20000>,
+			<0 0x11c80000 0 0x20000>;
 		reg-names = "base", "ana-rx";
 		interrupts = <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH 0>;
 #if 0
-		power-domains = <&spm MT8195_POWER_DOMAIN_CSI_RX_TOP>,//need check, Baron
-		<&spm MT8195_POWER_DOMAIN_CAM>;//need check, Baron
-		clocks = <&camsys CLK_CAM_SENINF>,//need check, Baron
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>,
+		<&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
+
+		operating-points-v2 = <&opp_table_cam>;
+		dvfsrc-vcore-supply = <&vmm_proxy_label>;
+#endif
+		clocks =
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_SENINF_CG_CON>,
 			 <&topckgen_clk CLK_TOPCKGEN_SENINF_SEL>,
 			 <&topckgen_clk CLK_TOPCKGEN_SENINF1_SEL>,
 			 <&topckgen_clk CLK_TOPCKGEN_SENINF2_SEL>,
 			 <&topckgen_clk CLK_TOPCKGEN_SENINF3_SEL>,
-			 <&topckgen_clk CLK_TOP_CAMTM_SEL>;//need check, Baron
+			 <&topckgen_clk CLK_TOPCKGEN_SENINF4_SEL>,
+			 <&topckgen_clk CLK_TOPCKGEN_SENINF5_SEL>,
+			 <&topckgen_clk CLK_TOPCKGEN_CAMTM_SEL>;
 		clock-names = "clk_cam_seninf",
 			 "clk_top_seninf",
 			 "clk_top_seninf1",
 			 "clk_top_seninf2",
 			 "clk_top_seninf3",
+			 "clk_top_seninf4",
+			 "clk_top_seninf5",
 			 "clk_top_camtm";
-#endif
 	};
 
 	camisp_l13 {
