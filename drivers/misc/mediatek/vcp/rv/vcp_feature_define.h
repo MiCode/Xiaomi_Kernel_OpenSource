@@ -16,7 +16,6 @@
 #else
 #define VCP_LOGGER_ENABLE                (0)
 #endif
-#define VCP_DVFS_INIT_ENABLE             (0)
 #define VCP_VOW_LOW_POWER_MODE           (1)
 #define VCP_DEBUG_NODE_ENABLE            (0)
 #define VCP_IOMMU_ENABLE                 (0)

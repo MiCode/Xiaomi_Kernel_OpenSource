@@ -34,11 +34,9 @@
 #include "vcp_ipi_pin.h"
 #include "vcp_helper.h"
 #include "vcp_excep.h"
-#include "vcp_dvfs.h"
 #include "vcp.h"
 
 struct mutex vcp_awake_mutexs[VCP_CORE_TOTAL];
-
 
 /*
  * acquire vcp lock flag, keep vcp awake

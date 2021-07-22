@@ -187,6 +187,7 @@ extern phys_addr_t vcp_mem_base_phys;
 extern phys_addr_t vcp_mem_base_virt;
 extern phys_addr_t vcp_mem_size;
 extern atomic_t vcp_reset_status;
+extern spinlock_t vcp_awake_spinlock;
 
 extern void mbox_setup_pin_table(int mbox);
 extern void mt_print_vcp_ipi_id(unsigned int irq_no);

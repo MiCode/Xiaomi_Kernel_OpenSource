@@ -36,7 +36,6 @@
 #include "vcp_err_info.h"
 #include "vcp_helper.h"
 #include "vcp_excep.h"
-#include "vcp_dvfs.h"
 #include "vcp_vcpctl.h"
 #include "vcp.h"
 
@@ -393,13 +392,6 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 		atomic_set(&vcp_reset_status, RESET_STATUS_STOP);
 #endif
 		vcp_ready[VCP_A_ID] = 1;
-
-#if VCP_DVFS_INIT_ENABLE
-		sync_ulposc_cali_data_to_vcp();
-		/* release pll clock after vcp ulposc calibration */
-		vcp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
-#endif
-
 		vcp_dvfs_cali_ready = 1;
 		pr_debug("[VCP] notify blocking call\n");
 		blocking_notifier_call_chain(&vcp_A_notifier_list
@@ -411,9 +403,6 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[VCP] clear vcp reset flag and unlock\n");
 
-#if VCP_DVFS_INIT_ENABLE
-	vcp_resource_req(VCP_REQ_RELEASE);
-#endif
 	/* register vcp dvfs*/
 	msleep(2000);
 	__pm_relax(vcp_reset_lock);
@@ -583,10 +572,7 @@ int reset_vcp(int reset)
 	blocking_notifier_call_chain(&vcp_A_notifier_list, VCP_EVENT_STOP,
 		NULL);
 	mutex_unlock(&vcp_A_notify_mutex);
-#if VCP_DVFS_INIT_ENABLE
-	/* request pll clock before turn on vcp */
-	vcp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-#endif
+
 	if (reset & 0x0f) { /* do reset */
 		/* make sure vcp is in idle state */
 		vcp_reset_wait_timeout();
@@ -1312,9 +1298,6 @@ void vcp_register_feature(enum feature_id id)
 		if (feature_table[i].feature == id)
 			feature_table[i].enable = 1;
 	}
-#if VCP_DVFS_INIT_ENABLE
-	vcp_expected_freq = vcp_get_freq();
-#endif
 
 	vcp_current_freq = readl(CURRENT_FREQ_REG);
 	writel(vcp_expected_freq, EXPECTED_FREQ_REG);
@@ -1322,10 +1305,6 @@ void vcp_register_feature(enum feature_id id)
 	/* send request only when vcp is not down */
 	if (vcp_ready[VCP_A_ID]) {
 		if (vcp_current_freq != vcp_expected_freq) {
-			/* set vcp freq. */
-#if VCP_DVFS_INIT_ENABLE
-			ret = vcp_request_freq();
-#endif
 			if (ret == -1) {
 				pr_notice("[VCP]%s request_freq fail\n", __func__);
 				WARN_ON(1);
@@ -1365,20 +1344,13 @@ void vcp_deregister_feature(enum feature_id id)
 		if (feature_table[i].feature == id)
 			feature_table[i].enable = 0;
 	}
-#if VCP_DVFS_INIT_ENABLE
-	vcp_expected_freq = vcp_get_freq();
-#endif
-
 	vcp_current_freq = readl(CURRENT_FREQ_REG);
 	writel(vcp_expected_freq, EXPECTED_FREQ_REG);
 
 	/* send request only when vcp is not down */
 	if (vcp_ready[VCP_A_ID]) {
 		if (vcp_current_freq != vcp_expected_freq) {
-			/* set vcp freq. */
-#if VCP_DVFS_INIT_ENABLE
-			ret = vcp_request_freq();
-#endif
+
 			if (ret == -1) {
 				pr_notice("[VCP] %s: req_freq fail\n", __func__);
 				WARN_ON(1);
@@ -1583,10 +1555,6 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 
 	/* wake lock AP*/
 	__pm_stay_awake(vcp_reset_lock);
-#if VCP_DVFS_INIT_ENABLE
-	/* keep Univpll */
-	vcp_resource_req(VCP_REQ_26M);
-#endif
 
 	/* print_clk and vcp_aed before pll enable to keep ori CLK_SEL */
 	print_clk_registers();
@@ -1601,9 +1569,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 
 	pr_debug("[VCP] %s(): vcp_pll_ctrl_set\n", __func__);
 	/*request pll clock before turn off vcp */
-#if VCP_DVFS_INIT_ENABLE
-	vcp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-#endif
+
 	pr_notice("[VCP] %s(): vcp_reset_type %d\n", __func__, vcp_reset_type);
 	/* vcp reset by CMD, WDT or awake fail */
 	if ((vcp_reset_type == RESET_TYPE_TIMEOUT) ||
@@ -2290,16 +2256,6 @@ static int __init vcp_init(void)
 		return 0;
 	}
 
-#if VCP_DVFS_INIT_ENABLE
-	vcp_dvfs_init();
-	wait_vcp_dvfs_init_done();
-
-	/* pll maybe gate, request pll before access any vcp reg/sram */
-	vcp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-	/* keep Univpll */
-	vcp_resource_req(VCP_REQ_26M);
-#endif /* VCP_DVFS_INIT_ENABLE */
-
 	/* skip initial if dts status = "disable" */
 	if (!vcp_enable[VCP_A_ID]) {
 		pr_notice("[VCP] vcp disabled!!\n");
@@ -2370,24 +2326,11 @@ static int __init vcp_init(void)
 		goto err;
 #endif
 
-#if VCP_DVFS_INIT_ENABLE
-	/* remember to release pll */
-	vcp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
-#endif
-
 	driver_init_done = true;
 	reset_vcp(VCP_ALL_ENABLE);
 
-#if VCP_DVFS_INIT_ENABLE
-	vcp_init_vcore_request();
-#endif /* VCP_DVFS_INIT_ENABLE */
-
 	return ret;
 err:
-#if VCP_DVFS_INIT_ENABLE
-	/* remember to release pll */
-	vcp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
-#endif
 	return -1;
 }
 
@@ -2398,10 +2341,6 @@ static void __exit vcp_exit(void)
 {
 #if VCP_BOOT_TIME_OUT_MONITOR
 	int i = 0;
-#endif
-
-#if VCP_DVFS_INIT_ENABLE
-	vcp_dvfs_exit();
 #endif
 
 #if VCP_LOGGER_ENABLE

@@ -13,8 +13,6 @@
 #include "vcp_ipi_pin.h"
 #include "vcp_helper.h"
 #include "vcp_excep.h"
-#include "vcp_dvfs.h"
-
 
 /*
  * handler for wdt irq for vcp
