@@ -136,6 +136,10 @@ int get_dspscene_by_dspdaiid(int id)
 		return TASK_SCENE_CAPTURE_UL1;
 	case AUDIO_TASK_A2DP_ID:
 		return TASK_SCENE_A2DP;
+	case AUDIO_TASK_BLEDL_ID:
+		return TASK_SCENE_BLEDL;
+	case AUDIO_TASK_BLEUL_ID:
+		return TASK_SCENE_BLEUL;
 	case AUDIO_TASK_DATAPROVIDER_ID:
 		return TASK_SCENE_DATAPROVIDER;
 	case AUDIO_TASK_CALL_FINAL_ID:
@@ -174,6 +178,10 @@ int get_dspdaiid_by_dspscene(int dspscene)
 		return AUDIO_TASK_CAPTURE_UL1_ID;
 	case TASK_SCENE_A2DP:
 		return AUDIO_TASK_A2DP_ID;
+	case TASK_SCENE_BLEDL:
+		return AUDIO_TASK_BLEDL_ID;
+	case TASK_SCENE_BLEUL:
+		return AUDIO_TASK_BLEUL_ID;
 	case TASK_SCENE_DATAPROVIDER:
 		return AUDIO_TASK_DATAPROVIDER_ID;
 	case TASK_SCENE_FAST:
@@ -297,6 +305,12 @@ const char *get_str_by_dsp_dai_id(const int task_id)
 		break;
 	case AUDIO_TASK_A2DP_ID:
 		name = "T_A2DP";
+		break;
+	case AUDIO_TASK_BLEDL_ID:
+		name = "T_BLEDL";
+		break;
+	case AUDIO_TASK_BLEUL_ID:
+		name = "T_BLEUL";
 		break;
 	case AUDIO_TASK_DATAPROVIDER_ID:
 		name = "T_DATAPROVIDER";

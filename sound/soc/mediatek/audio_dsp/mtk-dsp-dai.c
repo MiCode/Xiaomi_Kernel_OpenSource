@@ -107,6 +107,17 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 			},
 	},
 	{
+		.name = "audio_task_bledl_dai",
+		.id = AUDIO_TASK_BLEDL_ID,
+		.playback = {
+				.stream_name = "DSP_Playback_BLEDL",
+				.channels_min = 1,
+				.channels_max = 2,
+				.rates = MTK_I2S_RATES,
+				.formats = MTK_I2S_FORMATS,
+			},
+	},
+	{
 		.name = "audio_task_call_final_dai",
 		.id = AUDIO_TASK_CALL_FINAL_ID,
 		.playback = {

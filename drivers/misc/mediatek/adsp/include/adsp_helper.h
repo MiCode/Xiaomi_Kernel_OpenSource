@@ -59,6 +59,10 @@ enum adsp_feature_id {
 	CAPTURE_RAW_FEATURE_ID		= 20,
 	FM_ADSP_FEATURE_ID		= 21,
 	VOICE_CALL_SUB_FEATURE_ID	= 22,
+	BLEDL_FEATURE_ID                = 23,
+	BLEUL_FEATURE_ID                = 24,
+	BLEDEC_FEATURE_ID               = 25,
+	BLEENC_FEATURE_ID               = 26,
 	ADSP_NUM_FEATURE_ID,
 };
 

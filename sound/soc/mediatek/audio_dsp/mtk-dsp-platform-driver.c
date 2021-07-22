@@ -167,6 +167,24 @@ static int dsp_a2dp_default_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int dsp_bledl_default_set(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	int val = ucontrol->value.integer.value[0];
+
+	set_task_attr(AUDIO_TASK_BLEDL_ID, ADSP_TASK_ATTR_DEFAULT, val);
+	return 0;
+}
+
+static int dsp_bleums_default_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+		get_task_attr(AUDIO_TASK_BLEDL_ID,
+			      ADSP_TASK_ATTR_DEFAULT);
+	return 0;
+}
+
 static int dsp_dataprovider_default_set(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
 {
@@ -418,6 +436,23 @@ static int dsp_a2dp_runtime_get(struct snd_kcontrol *kcontrol,
 {
 	ucontrol->value.integer.value[0] =
 		get_task_attr(AUDIO_TASK_A2DP_ID, ADSP_TASK_ATTR_RUMTIME);
+	return 0;
+}
+
+static int dsp_bleums_runtime_set(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	int val = ucontrol->value.integer.value[0];
+
+	set_task_attr(AUDIO_TASK_BLEDL_ID, ADSP_TASK_ATTR_RUMTIME, val);
+	return 0;
+}
+
+static int dsp_bleums_runtime_get(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+		get_task_attr(AUDIO_TASK_BLEDL_ID, ADSP_TASK_ATTR_RUMTIME);
 	return 0;
 }
 
@@ -686,6 +721,8 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 		       dsp_offload_default_get, dsp_offload_default_set),
 	SOC_SINGLE_EXT("dsp_a2dp_default_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_a2dp_default_get, dsp_a2dp_default_set),
+	SOC_SINGLE_EXT("dsp_bledl_default_en", SND_SOC_NOPM, 0, 0x1, 0,
+		       dsp_bleums_default_get, dsp_bledl_default_set),
 	SOC_SINGLE_EXT("dsp_dataprovider_default_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_dataprovider_default_get,
 		       dsp_dataprovider_default_set),
@@ -716,6 +753,8 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 		       dsp_offload_runtime_get, dsp_offload_runtime_set),
 	SOC_SINGLE_EXT("dsp_a2dp_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_a2dp_runtime_get, dsp_a2dp_runtime_set),
+	SOC_SINGLE_EXT("dsp_bleums_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
+		       dsp_bleums_runtime_get, dsp_bleums_runtime_set),
 	SOC_SINGLE_EXT("dsp_dataprovider_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_dataprovider_runtime_get,
 		       dsp_dataprovider_runtime_set),
