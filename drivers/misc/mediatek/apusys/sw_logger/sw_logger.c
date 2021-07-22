@@ -148,6 +148,7 @@ int sw_logger_config_init(struct mtk_apu *apu)
 {
 	unsigned long flags;
 	struct logger_init_info *st_logger_init_info;
+	int ret;
 
 	if (!apu) {
 		LOGGER_ERR("invalid argument: apu\n");
@@ -161,6 +162,13 @@ int sw_logger_config_init(struct mtk_apu *apu)
 	/* sw logger not enabled */
 	if (!apu_mbox)
 		return 0;
+
+	ret = sw_logger_buf_alloc(sw_logger_dev);
+	if (ret) {
+		LOGGER_ERR("%s: sw_logger_buf_alloc fail\n", __func__);
+		goto remove_sw_log_buf;
+	}
+	LOGGER_INFO("%s: sw_logger_buf = 0x%p\n", __func__, sw_log_buf);
 
 	spin_lock_irqsave(&sw_logger_spinlock, flags);
 	/* fixme: if reset ptrs necessary for each power on? */
@@ -179,6 +187,10 @@ int sw_logger_config_init(struct mtk_apu *apu)
 		__func__, st_logger_init_info->iova);
 
 	return 0;
+
+remove_sw_log_buf:
+	kfree(sw_log_buf);
+	return ret;
 }
 EXPORT_SYMBOL(sw_logger_config_init);
 
@@ -775,19 +787,9 @@ static int sw_logger_probe(struct platform_device *pdev)
 		goto remove_ioremap;
 	}
 
-	ret = sw_logger_buf_alloc(dev);
-	if (ret) {
-		LOGGER_ERR("%s: sw_logger_buf_alloc fail\n", __func__);
-		goto remove_sw_log_buf;
-	}
-
-	pr_info("apu_sw_logger probe done, sw_log_buf= 0x%p\n",
-		sw_log_buf);
+	pr_info("apu_sw_logger probe done\n");
 
 	return 0;
-
-remove_sw_log_buf:
-	kfree(sw_log_buf);
 
 remove_ioremap:
 	if (apu_mbox != NULL)
