@@ -7615,6 +7615,14 @@
 		phy-names = "usb2-phy";
 	};
 
+	flashlight_core: flashlight_core {
+		compatible = "mediatek,flashlight_core";
+	};
+
+	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
+		compatible = "mediatek,mtk_composite_v4l2_1";
+	};
+
 	mtk_composite_v4l2_2: mtk_composite_v4l2_2 {
 		compatible = "mediatek,mtk_composite_v4l2_2";
 	};
