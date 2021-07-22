@@ -90,8 +90,8 @@
 				lcm-params-dsi-mode_list =
 					<0 1080 2280 60>;
 
-				lcm-params-dsi-fps-1080-2280-60 {
-					compatible = "mediatek,lcm-dsi-fps-1080-2280-60";
+				lcm-params-dsi-fps-0-1080-2280-60 {
+					compatible = "mediatek,lcm-dsi-fps-0-1080-2280-60";
 
 					/* drm_display_mode */
 					lcm-params-dsi-vrefresh = <60>;
@@ -151,7 +151,7 @@
 					lcm-params-dsi-lcm_esd_check_table2;
 
 					/* lk support */
-					lcm-params-dsi-lk-params-1080-2280-60 {
+					lcm-params-dsi-lk-params-0-1080-2280-60 {
 						compatible = "mediatek,lcm-dsi-lk-params";
 						lcm-params-dsi-lk_mode =
 							<MTK_LK_SYNC_EVENT_VDO_MODE>;
@@ -224,7 +224,7 @@
 						lcm-params-dsi-lk_phy_sel = <0 0 0 0>;
 					};
 
-					lcm-params-dsi-dsc-params-1080-2280-60 {
+					lcm-params-dsi-dsc-params-0-1080-2280-60 {
 						compatible =
 							"mediatek,lcm-params-dsi-dsc-params";
 						lcm-params-dsi-dsc_enable = <0>;
@@ -263,7 +263,7 @@
 						lcm-params-dsi-dsc_rc_tgt_offset_lo;
 					};
 
-					lcm-params-dsi-phy-timcon-params-1080-2280-60 {
+					lcm-params-dsi-phy-timcon-params-0-1080-2280-60 {
 						compatible =
 							"mediatek,lcm-params-dsi-phy-timcon";
 						lcm-params-dsi-phy_timcon_hs_trail;
@@ -301,7 +301,7 @@
 						lcm-params-dsi-phy_timcon_lk_clk_hs_exit;
 					};
 
-					lcm-params-dsi-dyn-params-1080-2280-60 {
+					lcm-params-dsi-dyn-params-0-1080-2280-60 {
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <0>;
@@ -319,7 +319,7 @@
 						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
 					};
 
-					lcm-params-dsi-dyn-fps-params-1080-2280-60 {
+					lcm-params-dsi-dyn-fps-params-0-1080-2280-60 {
 						compatible =
 							"mediatek,lcm-params-dsi-dyn-fps";
 						lcm-params-dsi-dyn_fps_switch_en = <0>;
@@ -721,15 +721,15 @@
 				lcm-ops-dsi-fps-switch-after-poweron {
 					compatible =
 						"mediatek,lcm-ops-dsi-fps-switch-after-poweron";
-					fps-switch-1080-2280-60_size = <0>;
-					fps-switch-1080-2280-60_table;
+					fps-switch-0-1080-2280-60_size = <0>;
+					fps-switch-0-1080-2280-60_table;
 				};
 
 				lcm-ops-dsi-fps-switch-before-powerdown {
 					compatible =
 						"mediatek,lcm-ops-dsi-fps-switch-before-powerdown";
-					fps-switch-1080-2280-60_size = <0>;
-					fps-switch-1080-2280-60_table;
+					fps-switch-0-1080-2280-60_size = <0>;
+					fps-switch-0-1080-2280-60_table;
 				};
 			};
 		};
