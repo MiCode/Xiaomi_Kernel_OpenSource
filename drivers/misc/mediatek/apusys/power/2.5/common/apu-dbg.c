@@ -569,7 +569,7 @@ static int apupw_dbg_dump_table(struct seq_file *s)
 			volt = dev_pm_opp_get_voltage(opp);
 			dev_pm_opp_put(opp);
 			len += snprintf((info + len), (sizeof(info) - len),
-					"%3dMhz(%3dmv) [%d/%3d]|", TOMHZ(freq), TOMV(volt),
+					"%3luMhz(%3lumv) [%d/%3d]|", TOMHZ(freq), TOMV(volt),
 					apu_freq2opp(ad, freq), apu_freq2boost(ad, freq));
 			freq += 1;
 		} while (1);
