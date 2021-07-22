@@ -6568,13 +6568,13 @@
 	};
 
 
-	gps: gps@18C00000 {
+	gps: gps@18c00000 {
 		compatible = "mediatek,mt6983-gps";
 		reg = <0 0x18000000 0 0x100000>,
-				<0 0x18C00000 0 0x100000>,
-				<0 0x1C000000 0 0x4>,
-				<0 0x1C015E00 0 0x4>,
-				<0 0x1C015E30 0 0x4>;
+				<0 0x18c00000 0 0x100000>,
+				<0 0x1c000000 0 0x4>,
+				<0 0x1c015e28 0 0x4>,
+				<0 0x1c015e30 0 0x4>;
 		reg-names = "conn_infra_base", "conn_gps_base",
 				"status_dummy_cr", "tia2_gps_on", "tia2_gps_rc_sel";
 		interrupts = <GIC_SPI 560 IRQ_TYPE_LEVEL_HIGH 0>,
