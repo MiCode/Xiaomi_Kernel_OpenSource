@@ -37,7 +37,6 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
 				MT6983_TOP_AXI_PROT_EN_1_MD1),
 		},
-		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CONN] = {
 		.name = "conn",
