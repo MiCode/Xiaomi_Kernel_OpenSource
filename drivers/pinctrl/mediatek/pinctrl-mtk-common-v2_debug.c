@@ -173,6 +173,9 @@ static int mtk_hw_set_value_wrap(struct mtk_pinctrl *hw, unsigned int gpio,
 #define mtk_pctrl_set_ies(hw, gpio, val)		\
 	mtk_hw_set_value_wrap(hw, gpio, val, PINCTRL_PIN_REG_IES)
 
+#define mtk_pctrl_set_drv(hw, gpio, val)		\
+	mtk_hw_set_value_wrap(hw, gpio, val, PINCTRL_PIN_REG_DRV)
+
 static ssize_t mt_gpio_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -322,7 +325,10 @@ static ssize_t mt_gpio_store(struct device *dev,
 			goto out;
 		}
 		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
-		hw->soc->drive_set(hw, desc, val);
+		if (hw->soc->drive_set)
+			hw->soc->drive_set(hw, desc, val);
+		else
+			mtk_pctrl_set_drv(hw, gpio, val);
 	} else if ((!strncmp(buf, "r1r0", 4))
 		&& (sscanf(buf+4, "%d %d %d", &gpio, &val, &val2) == 3)) {
 		if (gpio < 0 || gpio > hw->soc->npins) {
@@ -367,7 +373,10 @@ static ssize_t mt_gpio_store(struct device *dev,
 			mtk_pctrl_set_out(hw, gpio, !!vals[2]);
 		/* DRIVING */
 		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
-		hw->soc->drive_set(hw, desc, vals[4]*10 + vals[5]);
+		if (hw->soc->drive_set)
+			hw->soc->drive_set(hw, desc, vals[4]*10 + vals[5]);
+		else
+			mtk_pctrl_set_drv(hw, gpio, vals[4]*10 + vals[5]);
 		/* SMT */
 		mtk_pctrl_set_smt(hw, gpio, vals[6]);
 		/* IES */
