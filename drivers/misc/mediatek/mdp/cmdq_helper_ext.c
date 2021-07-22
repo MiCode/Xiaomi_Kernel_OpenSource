@@ -4265,21 +4265,22 @@ s32 cmdq_pkt_flush_async_ex(struct cmdqRecStruct *handle,
 	CmdqAsyncFlushCB cb, u64 user_data, bool auto_release)
 {
 	s32 err;
+	int32_t thread;
 
 	/* mark self as running to notify client */
 	if (handle->pkt->loop)
 		handle->running_task = (void *)handle;
 
 	CMDQ_SYSTRACE_BEGIN("%s\n", __func__);
+	thread = handle->thread;
 	err = cmdq_pkt_flush_async_ex_impl(handle, cb, user_data);
 	CMDQ_SYSTRACE_END();
 
 	if (err < 0) {
-		if (handle->thread == CMDQ_INVALID_THREAD || err == -EBUSY)
+		if (thread == CMDQ_INVALID_THREAD || err == -EBUSY)
 			return err;
 		/* client may already wait for flush done, trigger as error */
-		handle->state = TASK_STATE_ERROR;
-		wake_up(&cmdq_wait_queue[handle->thread]);
+		wake_up(&cmdq_wait_queue[(u32)thread]);
 		return err;
 	}
 
