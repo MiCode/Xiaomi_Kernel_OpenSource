@@ -222,6 +222,11 @@ static int parsing_ipi_msg_from_user_space(
 		retval = -1;
 		goto parsing_exit;
 	}
+	if (ipi_msg.source_layer != AUDIO_IPI_LAYER_FROM_HAL) {
+		pr_notice("source_layer %d != %d", ipi_msg.source_layer, AUDIO_IPI_LAYER_FROM_HAL);
+		retval = -1;
+		goto parsing_exit;
+	}
 	msg_len = get_message_buf_size(&ipi_msg);
 	retval = check_msg_format(&ipi_msg, msg_len);
 	if (retval != 0)
