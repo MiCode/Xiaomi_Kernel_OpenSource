@@ -623,7 +623,7 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	unsigned long long nanosec_rem = 0;
 	static int last_cmd, last_arg, skip;
 	int l_skip = 0;
-	struct cqhci_host *cq_host = mmc->cqe_private;
+	struct cqhci_host *cq_host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -631,6 +631,7 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	cq_host = mmc->cqe_private;
 	t = cpu_clock(print_cpu_test);
 
 	nanosec_rem = do_div(t, 1000000000)/1000;
