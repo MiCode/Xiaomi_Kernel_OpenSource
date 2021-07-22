@@ -32,7 +32,7 @@
 #endif
 
 //TODO, enable and remove it after SB
-#define MT6338_IPI_IRQ		0
+#define MT6338_IPI_IRQ		1
 
 #if MT6338_IPI_IRQ
 /* SCP -> AP ipi structure */
