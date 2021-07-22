@@ -27,7 +27,7 @@
 
 #include "mtk_imgsys-data.h"
 
-/* #define CLK_READY */
+#define CLK_READY
 
 static int mtk_imgsys_sd_subscribe_event(struct v4l2_subdev *subdev,
 				      struct v4l2_fh *fh,
@@ -2405,9 +2405,8 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 	ret = devm_clk_bulk_get(&pdev->dev, imgsys_dev->num_clks,
 							imgsys_dev->clks);
 	if (ret) {
-		dev_info(&pdev->dev, "Failed to get LARB5 and DIP clks:%d\n",
+		dev_info(&pdev->dev, "Failed to get clks:%d\n",
 			ret);
-		return ret;
 	}
 #endif
 	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34)))
