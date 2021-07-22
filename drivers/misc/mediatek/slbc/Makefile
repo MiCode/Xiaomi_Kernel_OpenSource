@@ -27,6 +27,14 @@ obj-${CONFIG_MTK_SLBC} += mtk_slbc.o
 mtk_slbc-y += slbc.o
 endif
 
+ifneq ($(wildcard $(srctree)/$(src)/slbc_mt6893.c),)
+obj-${CONFIG_MTK_SLBC_MT6893} += slbc_mt6893.o
+endif
+
+ifneq ($(wildcard $(srctree)/$(src)/slbc_mt6983.c),)
+obj-${CONFIG_MTK_SLBC_MT6983} += slbc_mt6983.o
+endif
+
 obj-${CONFIG_MTK_SLBC_IPI} += slbc_ipi.o
 obj-${CONFIG_MTK_SLBC_MMSRAM} += mmsram.o
 

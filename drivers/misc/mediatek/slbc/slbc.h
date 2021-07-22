@@ -58,6 +58,16 @@ struct slbc_config {
 	unsigned int cache_mode;
 };
 
+struct mtk_slbc {
+	struct device *dev;
+	void __iomem *regs;
+	unsigned int regsize;
+	void __iomem *sram_vaddr;
+	struct slbc_config *config;
+	struct wakeup_source *ws;
+	int slbc_qos_latency;
+};
+
 #define SLBC_ENTRY(id, sid, max, fix, p, extra, res, cache)	\
 {								\
 	.uid = id,						\
@@ -70,7 +80,20 @@ struct slbc_config {
 	.cache_mode = cache,					\
 }
 
-extern int slbc_activate(struct slbc_data *data);
-extern int slbc_deactivate(struct slbc_data *data);
+struct slbc_common_ops {
+	int (*slbc_request)(struct slbc_data *d);
+	int (*slbc_release)(struct slbc_data *d);
+	int (*slbc_power_on)(struct slbc_data *d);
+	int (*slbc_power_off)(struct slbc_data *d);
+	int (*slbc_secure_on)(struct slbc_data *d);
+	int (*slbc_secure_off)(struct slbc_data *d);
+	u32 (*slbc_sram_read)(u32 offset);
+	void (*slbc_sram_write)(u32 offset, u32 val);
+	void (*slbc_update_mm_bw)(unsigned int bw);
+	void (*slbc_update_mic_num)(unsigned int num);
+};
+
+extern void slbc_register_common_ops(struct slbc_common_ops *ops);
+extern void slbc_unregister_common_ops(struct slbc_common_ops *ops);
 
 #endif /* _SLBC_H_ */

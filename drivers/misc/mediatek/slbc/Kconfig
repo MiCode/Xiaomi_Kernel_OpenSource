@@ -6,11 +6,27 @@ config MTK_SLBC
 	  and power.
 	  If unsure, say N.
 
+config MTK_SLBC_MT6893
+	tristate "MTK SLBC MT6893"
+	help
+	  This kernel config can be used to enable SLBC at mt6893. When enable
+	  this option, we will use system buffer to improve performance
+	  and power.
+	  If unsure, say N.
+
+config MTK_SLBC_MT6983
+	tristate "MTK SLBC MT6983"
+	help
+	  This kernel config can be used to enable SLBC at mt6983. When enable
+	  this option, we will use system buffer to improve performance
+	  and power.
+	  If unsure, say N.
+
 config MTK_SLBC_IPI
 	tristate "MTK SLBC use IPI"
 	help
 	  This kernel config can be used to enable SLBC IPI. When enable
-	  this option, we will use ipi on system buffer to improve
+	  this option, we will use scmi on system buffer to improve
 	  performance and power.
 	  If unsure, say N.
 

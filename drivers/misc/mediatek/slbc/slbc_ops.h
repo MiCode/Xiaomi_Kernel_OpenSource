@@ -40,6 +40,12 @@ enum slbc_uid {
 	UID_GPU,
 	UID_HIFI3,
 	UID_CPU,
+	UID_AOV,
+	UID_SH_P2,
+	UID_SH_APU,
+	UID_MML,
+	UID_DSC_IDLE,
+	UID_AINR,
 	UID_TEST_BUFFER,
 	UID_TEST_CACHE,
 	UID_TEST_ACP,
@@ -49,10 +55,21 @@ enum slbc_uid {
 #define UID_MM_BITS_1 (BIT(UID_MM_DISP) | BIT(UID_MM_MDP))
 #define BIT_IN_MM_BITS_1(x) ((x) & UID_MM_BITS_1)
 
+#define UID_MM_BITS_2 (BIT(UID_SH_P2) | BIT(UID_SH_APU))
+#define BIT_IN_MM_BITS_2(x) ((x) & UID_MM_BITS_2)
+
 enum slbc_type {
 	TP_BUFFER = 0,
 	TP_CACHE,
 	TP_ACP,
+};
+
+enum slbc_force {
+	FR_DIS = 0,
+	FR_CPU,
+	FR_GPU,
+	FR_APU,
+	FR_MAX,
 };
 
 #define ACP_ONLY_BIT	2
@@ -75,11 +92,12 @@ struct slbc_data {
 	unsigned int type;
 	ssize_t size;
 	unsigned int flag;
+	int ret;
 	/* below used by slbc driver */
 	void __iomem *paddr;
 	void __iomem *vaddr;
 	unsigned int sid;
-	int slot_used;
+	unsigned int slot_used;
 	void *config;
 	int ref;
 	int pwr_ref;
@@ -88,17 +106,15 @@ struct slbc_data {
 
 #define ui_to_slbc_data(d, ui) \
 	do { \
-		(d)->uid = ((ui) >> 28 & 0xf); \
-		(d)->type = ((ui) >> 24 & 0xf); \
-		(d)->size = ((ui) >> 0 & 0xffff); \
-		(d)->flag = ((ui) >> 16 & 0xff); \
+		(d)->uid = ((ui) >> 24 & 0xff); \
+		(d)->type = ((ui) >> 16 & 0xff); \
+		(d)->flag = ((ui) >> 8 & 0xff); \
 	} while (0)
 
 #define slbc_data_to_ui(d) \
-	((((d)->uid) & 0xf) << 28 | \
-	(((d)->type) & 0xf) << 24 | \
-	(((d)->size) & 0xffff) << 0 | \
-	(((d)->flag) & 0xff) << 16)
+	((((d)->uid) & 0xff) << 24 | \
+	(((d)->type) & 0xff) << 16 | \
+	(((d)->flag) & 0xff) << 8)
 
 struct slbc_ops {
 	struct list_head node;
@@ -107,9 +123,9 @@ struct slbc_ops {
 	void (*deactivate)(struct slbc_data *data);
 };
 
+extern char *slbc_uid_str[UID_MAX];
+
 #if IS_ENABLED(CONFIG_MTK_SLBC)
-extern int register_slbc_ops(struct slbc_ops *ops);
-extern int unregister_slbc_ops(struct slbc_ops *ops);
 extern int slbc_request(struct slbc_data *d);
 extern int slbc_release(struct slbc_data *d);
 extern int slbc_power_on(struct slbc_data *d);
@@ -118,55 +134,41 @@ extern int slbc_secure_on(struct slbc_data *d);
 extern int slbc_secure_off(struct slbc_data *d);
 extern void slbc_update_mm_bw(unsigned int bw);
 extern void slbc_update_mic_num(unsigned int num);
+extern void slbc_update_inner(unsigned int inner);
+extern void slbc_update_stall_offset(unsigned int offset);
+extern void slbc_update_stall_thr(unsigned int thr);
+extern void slbc_update_stall_hist(unsigned int hist);
 #else
-__attribute__ ((weak))
-int register_slbc_ops(struct slbc_ops *ops)
+__attribute__ ((weak)) int slbc_request(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int unregister_slbc_ops(struct slbc_ops *ops)
+__attribute__ ((weak)) int slbc_release(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_request(struct slbc_data *d)
+__attribute__ ((weak)) int slbc_power_on(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_release(struct slbc_data *d)
+__attribute__ ((weak)) int slbc_power_off(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_power_on(struct slbc_data *d)
+__attribute__ ((weak)) int slbc_secure_on(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_power_off(struct slbc_data *d)
+__attribute__ ((weak)) int slbc_secure_off(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_secure_on(struct slbc_data *d)
-{
-	return -EDISABLED;
-};
-__attribute__ ((weak))
-int slbc_secure_off(struct slbc_data *d)
-{
-	return -EDISABLED;
-};
-__attribute__ ((weak))
-void slbc_update_mm_bw(unsigned int bw)
-{
-}
-__attribute__ ((weak))
-void slbc_update_mic_num(unsigned int num)
-{
-}
+__attribute__ ((weak)) void slbc_update_mm_bw(unsigned int bw) {}
+__attribute__ ((weak)) void slbc_update_mic_num(unsigned int num) {}
+__attribute__ ((weak)) void slbc_update_inner(unsigned int inner) {}
+__attribute__ ((weak)) void slbc_update_stall_offset(unsigned int offset) {}
+__attribute__ ((weak)) void slbc_update_stall_thr(unsigned int thr) {}
+__attribute__ ((weak)) void slbc_update_stall_hist(unsigned int hist) {}
 #endif /* CONFIG_MTK_SLBC */
 
 #endif /* _SLBC_OPS_H_ */
