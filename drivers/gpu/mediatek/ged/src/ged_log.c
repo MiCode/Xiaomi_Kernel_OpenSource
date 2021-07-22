@@ -527,10 +527,20 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 			psGEDLogBuf->psLine[i].offset = -1;
 	}
 
-	if (pszName)
-		snprintf(psGEDLogBuf->acName,
-			GED_LOG_BUF_NAME_LENGTH, "%s", pszName);
+	if (pszName) {
+		int cx;
 
+		cx = snprintf(psGEDLogBuf->acName,
+			GED_LOG_BUF_NAME_LENGTH, "%s", pszName);
+		if (cx < 0 || cx >= GED_LOG_BUF_NAME_LENGTH) {
+			GED_LOGE("Failed to snprintf (%s)!\n",
+				pszName);
+			ged_free(psGEDLogBuf->pMemory,
+				psGEDLogBuf->i32MemorySize);
+			ged_free(psGEDLogBuf, sizeof(struct GED_LOG_BUF));
+			return (GED_LOG_BUF_HANDLE)0;
+		}
+	}
 
 	// Add into the global list
 	INIT_LIST_HEAD(&psGEDLogBuf->sList);
@@ -1129,11 +1139,13 @@ void ged_log_trace_begin(char *name)
 {
 #ifdef ENABLE_GED_SYSTRACE_UTIL
 	char buf[256];
+	int cx;
 
 	if (ged_log_trace_enable) {
-		snprintf(buf, sizeof(buf),
+		cx = snprintf(buf, sizeof(buf),
 			"B|%d|%s\n", current->tgid, name);
-		tracing_mark_write(buf);
+		if (cx >= 0 && cx < sizeof(buf))
+			tracing_mark_write(buf);
 	}
 #endif
 }
@@ -1142,10 +1154,12 @@ void ged_log_trace_end(void)
 {
 #ifdef ENABLE_GED_SYSTRACE_UTIL
 	char buf[256];
+	int cx;
 
 	if (ged_log_trace_enable) {
-		snprintf(buf, sizeof(buf), "E\n");
-		tracing_mark_write(buf);
+		cx = snprintf(buf, sizeof(buf), "E\n");
+		if (cx >= 0 && cx < sizeof(buf))
+			tracing_mark_write(buf);
 	}
 #endif
 }
@@ -1154,10 +1168,12 @@ void ged_log_trace_counter(char *name, int count)
 {
 #ifdef ENABLE_GED_SYSTRACE_UTIL
 	char buf[256];
+	int cx;
 
 	if (ged_log_trace_enable) {
-		snprintf(buf, sizeof(buf), "C|5566|%s|%d\n", name, count);
-		tracing_mark_write(buf);
+		cx = snprintf(buf, sizeof(buf), "C|5566|%s|%d\n", name, count);
+		if (cx >= 0 && cx < sizeof(buf))
+			tracing_mark_write(buf);
 	}
 #endif
 }
@@ -1166,11 +1182,13 @@ void ged_log_perf_trace_counter(char *name, long long count, int pid,
 	unsigned long frameID, u64 BQID)
 {
 	char buf[256];
+	int cx;
 
 	if (ged_log_perf_trace_enable) {
-		snprintf(buf, sizeof(buf), "C|%d|%s|%lld|%llu|%lu\n",
+		cx = snprintf(buf, sizeof(buf), "C|%d|%s|%lld|%llu|%lu\n",
 		pid, name, count, (unsigned long long)BQID, frameID);
-		tracing_mark_write(buf);
+		if (cx >= 0 && cx < sizeof(buf))
+			tracing_mark_write(buf);
 	}
 }
 EXPORT_SYMBOL(ged_log_perf_trace_counter);
