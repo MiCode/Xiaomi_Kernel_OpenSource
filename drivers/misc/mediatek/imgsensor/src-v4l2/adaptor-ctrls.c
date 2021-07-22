@@ -247,11 +247,6 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 			 ae_ctrl->gain.se_gain,
 			 ae_ctrl->gain.sse_gain,
 			 ae_ctrl->gain.ssse_gain);
-	ae_ctrl->gain.le_gain /= 16;
-	ae_ctrl->gain.me_gain /= 16;
-	ae_ctrl->gain.se_gain /= 16;
-	ae_ctrl->gain.sse_gain /= 16;
-	ae_ctrl->gain.ssse_gain /= 16;
 
 
 	switch (exp_count) {
