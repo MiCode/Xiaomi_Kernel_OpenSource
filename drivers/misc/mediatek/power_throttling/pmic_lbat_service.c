@@ -67,6 +67,7 @@ struct lbat_user {
 	unsigned int lv_deb_times;
 	struct timer_list deb_timer;
 	struct work_struct deb_work;
+	struct list_head thd_list;
 };
 
 struct reg_t {
@@ -236,7 +237,7 @@ static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 {
 	switch (type) {
 	case LBAT_HV:
-		list_add(&thd->list, &lbat_hv_list);
+		list_move(&thd->list, &lbat_hv_list);
 		list_sort(NULL, &lbat_hv_list, hv_list_cmp);
 		thd = list_first_entry(&lbat_hv_list, struct lbat_thd_t, list);
 		if (cur_hv_ptr != thd) {
@@ -246,7 +247,7 @@ static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 		}
 		break;
 	case LBAT_LV:
-		list_add(&thd->list, &lbat_lv_list);
+		list_move(&thd->list, &lbat_lv_list);
 		list_sort(NULL, &lbat_lv_list, lv_list_cmp);
 		thd = list_first_entry(&lbat_lv_list, struct lbat_thd_t, list);
 		if (cur_lv_ptr != thd) {
@@ -261,6 +262,30 @@ static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 /*
  * After execute lbat_user's callback, set next thd node to wait event
  */
+static void lbat_hv_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
+{
+	/* restore user->thd_list */
+	list_move(&thd->list, &user->thd_list);
+	list_sort(NULL, &user->thd_list, lv_list_cmp);
+	/* HV is triggered */
+	if (!list_is_first(&thd->list, &user->thd_list)) /* Not first */
+		modify_lbat_list(LBAT_HV, list_prev_entry(thd, list));
+	if (!list_is_last(&thd->list, &user->thd_list)) /* Not last */
+		modify_lbat_list(LBAT_LV, list_next_entry(thd, list));
+}
+
+static void lbat_lv_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
+{
+	/* restore user->thd_list */
+	list_move(&thd->list, &user->thd_list);
+	list_sort(NULL, &user->thd_list, lv_list_cmp);
+	/* LV is triggered */
+	if (!list_is_first(&thd->list, &user->thd_list)) /* Not first */
+		modify_lbat_list(LBAT_HV, list_prev_entry(thd, list));
+	if (!list_is_last(&thd->list, &user->thd_list)) /* Not last */
+		modify_lbat_list(LBAT_LV, list_next_entry(thd, list));
+}
+
 static void lbat_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
 {
 	if (thd == user->hv_thd) {
@@ -364,11 +389,19 @@ static void lbat_user_init_timer(struct lbat_user *user)
 
 static int lbat_user_update(struct lbat_user *user)
 {
+	struct lbat_thd_t *thd;
 	/*
 	 * add lv_thd to lbat_lv_list
 	 * and assign first entry of lv_list to cur_lv_ptr
 	 */
-	modify_lbat_list(LBAT_LV, user->lv1_thd);
+	if (list_empty(&user->thd_list))
+		thd = user->lv1_thd;
+	else {
+		thd = list_first_entry(&user->thd_list,
+				       struct lbat_thd_t, list);
+		thd = list_next_entry(thd, list);
+	}
+	modify_lbat_list(LBAT_LV, thd);
 	if (user_count == 0)
 		lbat_irq_enable();
 	lbat_user_table[user_count++] = user;
@@ -391,6 +424,54 @@ static struct lbat_thd_t *lbat_thd_init(unsigned int thd_volt,
 	INIT_LIST_HEAD(&thd->list);
 	return thd;
 }
+
+struct lbat_user *lbat_user_register_ext(const char *name, unsigned int *thd_volt_arr,
+					 unsigned int thd_volt_size,
+					 void (*callback)(unsigned int thd_volt))
+{
+	int i, ret;
+	struct lbat_user *user;
+	struct lbat_thd_t *thd;
+
+	if (!regmap)
+		return ERR_PTR(-EPROBE_DEFER);
+	mutex_lock(&lbat_mutex);
+	user = kzalloc(sizeof(*user), GFP_KERNEL);
+	if (user == NULL) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	strncpy(user->name, name, USER_NAME_MAXLEN - 1);
+	if (thd_volt_arr[0] >= 5400 || thd_volt_arr[thd_volt_size - 1] <= 2000) {
+		ret = -EINVAL;
+		goto out;
+	} else if (callback == NULL) {
+		ret = -EINVAL;
+		goto out;
+	}
+	INIT_LIST_HEAD(&user->thd_list);
+	thd = lbat_thd_init(thd_volt_arr[0], user);
+	for (i = 0; i < thd_volt_size; i++) {
+		thd = lbat_thd_init(thd_volt_arr[i], user);
+		list_add_tail(&thd->list, &user->thd_list);
+	}
+	user->callback = callback;
+	lbat_user_init_timer(user);
+	INIT_WORK(&user->deb_work, lbat_deb_handler);
+	pr_info("[%s] name=%s, thd_volt_max=%d, thd_volt_min=%d\n", __func__,
+		user, thd_volt_arr[0], thd_volt_arr[thd_volt_size - 1]);
+	ret = lbat_user_update(user);
+out:
+	if (ret) {
+		pr_notice("[%s] error ret=%d\n", __func__, ret);
+		if (ret == -EINVAL)
+			kfree(user);
+		return ERR_PTR(ret);
+	}
+	mutex_unlock(&lbat_mutex);
+	return user;
+}
+EXPORT_SYMBOL(lbat_user_register_ext);
 
 struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 				     unsigned int lv1_thd_volt,
@@ -419,6 +500,7 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 		ret = -EINVAL;
 		goto out;
 	}
+	INIT_LIST_HEAD(&user->thd_list);
 	user->hv_thd = lbat_thd_init(hv_thd_volt, user);
 	user->lv1_thd = lbat_thd_init(lv1_thd_volt, user);
 	user->lv2_thd = lbat_thd_init(lv2_thd_volt, user);
@@ -429,8 +511,8 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 	user->callback = callback;
 	lbat_user_init_timer(user);
 	INIT_WORK(&user->deb_work, lbat_deb_handler);
-	pr_info("[%s] hv=%d, lv1=%d, lv2=%d\n",
-		__func__, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
+	pr_info("[%s] name=%s, hv=%d, lv1=%d, lv2=%d\n",
+		__func__, name, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
 	ret = lbat_user_update(user);
 out:
 	if (ret) {
@@ -498,7 +580,10 @@ static irqreturn_t bat_h_int_handler(int irq, void *data)
 			jiffies + msecs_to_jiffies(user->hv_deb_prd));
 	} else {
 		user->callback(cur_hv_ptr->thd_volt);
-		lbat_set_next_thd(user, cur_hv_ptr);
+		if (list_empty(&user->thd_list))
+			lbat_set_next_thd(user, cur_hv_ptr);
+		else
+			lbat_hv_set_next_thd(user, cur_hv_ptr);
 	}
 
 	/* Since cur_hv_ptr is removed, assign new thd for cur_hv_ptr */
@@ -537,7 +622,10 @@ static irqreturn_t bat_l_int_handler(int irq, void *data)
 			  jiffies + msecs_to_jiffies(user->lv_deb_prd));
 	} else {
 		user->callback(cur_lv_ptr->thd_volt);
-		lbat_set_next_thd(user, cur_lv_ptr);
+		if (list_empty(&user->thd_list))
+			lbat_set_next_thd(user, cur_lv_ptr);
+		else
+			lbat_lv_set_next_thd(user, cur_lv_ptr);
 	}
 
 	/* Since cur_lv_ptr is removed, assign new thd for cur_lv_ptr */

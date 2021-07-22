@@ -9,6 +9,9 @@
 struct lbat_user;
 
 /* extern function */
+struct lbat_user *lbat_user_register_ext(const char *name, unsigned int *thd_volt_arr,
+					 unsigned int thd_volt_size,
+					 void (*callback)(unsigned int thd_volt));
 struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 				     unsigned int lv1_thd_volt,
 				     unsigned int lv2_thd_volt,
