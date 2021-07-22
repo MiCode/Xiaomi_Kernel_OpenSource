@@ -25,6 +25,7 @@
 #ifndef __GENKSYMS__
 #include <trace/hooks/v4l2core.h>
 #endif
+#include <trace/hooks/v4l2mc.h>
 
 #if defined(CONFIG_VIDEO_V4L2_SUBDEV_API)
 static int subdev_fh_init(struct v4l2_subdev_fh *fh, struct v4l2_subdev *sd)
@@ -521,6 +522,8 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 
 		trace_android_vh_v4l2subdev_set_fmt(sd, subdev_fh->pad,
 					format, &ret);
+		trace_android_rvh_v4l2subdev_set_fmt(sd, subdev_fh->pad,
+					format, &ret);
 		if (ret)
 			return ret;
 
@@ -600,6 +603,7 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 			return -EPERM;
 
 		trace_android_vh_v4l2subdev_set_frame_interval(sd, fi, &ret);
+		trace_android_rvh_v4l2subdev_set_frame_interval(sd, fi, &ret);
 		if (ret)
 			return ret;
 
@@ -631,6 +635,8 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 			return -EPERM;
 
 		trace_android_vh_v4l2subdev_set_selection(sd, subdev_fh->pad,
+					sel, &ret);
+		trace_android_rvh_v4l2subdev_set_selection(sd, subdev_fh->pad,
 					sel, &ret);
 		if (ret)
 			return ret;
