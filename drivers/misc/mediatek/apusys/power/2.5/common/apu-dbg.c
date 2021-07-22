@@ -226,7 +226,7 @@ void apupw_dbg_power_info(struct work_struct *work)
 				"%u,", TOMHZ(clk_get_rate(dbg_clk->clk)));
 
 	n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
-			"]r[%x,%x,", apu_spm_wakeup_value(), apu_rpc_rdy_value());
+			"]r[%lx,%lx,", apu_spm_wakeup_value(), apu_rpc_rdy_value());
 
 	list_for_each_entry_reverse(dbg_cg, &apupw_dbg.cg_list, node)
 		n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
