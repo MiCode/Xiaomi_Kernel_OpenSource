@@ -128,7 +128,7 @@ static void config_mux(struct mml_comp_sys *sys, struct cmdq_pkt *pkt,
 }
 
 static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
-			   struct mml_comp_config *ccfg, u8 idx)
+			   struct mml_comp_config *ccfg, u32 idx)
 {
 	struct mml_comp_sys *sys = comp_to_sys(comp);
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
@@ -162,11 +162,11 @@ static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 }
 
 static const struct mml_comp_config_ops sys_config_ops = {
-	.tile = sys_config_tile
+	.tile = sys_config_tile,
 };
 
 static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,
-			  struct mml_comp_config *ccfg, u8 idx)
+			  struct mml_comp_config *ccfg, u32 idx)
 {
 	struct mml_comp_sys *sys = comp_to_sys(comp);
 	struct mml_frame_config *cfg = task->config;
@@ -184,7 +184,7 @@ static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,
 }
 
 static const struct mml_comp_config_ops dl_config_ops = {
-	.tile = dl_config_tile
+	.tile = dl_config_tile,
 };
 
 static void sys_debug_dump(struct mml_comp *comp)

@@ -1230,7 +1230,7 @@ static void wrot_calc_setting(struct mml_comp_wrot *wrot,
 }
 
 static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
-			    struct mml_comp_config *ccfg, u8 idx)
+			    struct mml_comp_config *ccfg, u32 idx)
 {
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	struct mml_frame_config *cfg = task->config;

@@ -144,15 +144,15 @@ static s32 topology_select_path(struct mml_frame_config *cfg)
 #define call_hw_op(_comp, op) \
 	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp) : 0)
 
-static void core_prepare(struct mml_task *task, u8 pipe)
+static void core_prepare(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
-	u8 i;
+	u32 i;
 
 	mml_trace_ex_begin("%s_%u", __func__, pipe);
 
-	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
+	mml_msg("%s task %p pipe %u", __func__, task, pipe);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		/* collect infos for later easy use */
@@ -171,11 +171,11 @@ static void core_prepare(struct mml_task *task, u8 pipe)
 	mml_trace_ex_end();
 }
 
-static void core_reuse(struct mml_task *task, u8 pipe)
+static void core_reuse(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
-	u8 i;
+	u32 i;
 
 	for (i = 0; i < path->node_cnt; i++) {
 		struct mml_comp *comp = path->nodes[i].comp;
@@ -184,7 +184,7 @@ static void core_reuse(struct mml_task *task, u8 pipe)
 	}
 }
 
-static s32 command_make(struct mml_task *task, u8 pipe)
+static s32 command_make(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct cmdq_pkt *pkt = cmdq_pkt_create(path->clt);
@@ -194,7 +194,7 @@ static s32 command_make(struct mml_task *task, u8 pipe)
 	struct mml_comp_config *cfg = cache->cfg;
 
 	struct mml_comp *comp;
-	u8 i, tile;
+	u32 i, tile;
 	s32 ret;
 
 	if (IS_ERR(pkt)) {
@@ -228,7 +228,7 @@ static s32 command_make(struct mml_task *task, u8 pipe)
 	}
 
 	if (!task->config->tile_output[pipe]) {
-		mml_err("%s no tile for input pipe %hhu", __func__, pipe);
+		mml_err("%s no tile for input pipe %u", __func__, pipe);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -289,13 +289,13 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 	return 0;
 }
 
-static s32 core_enable(struct mml_task *task, u8 pipe)
+static s32 core_enable(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_comp *comp;
-	u8 i;
+	u32 i;
 
-	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
+	mml_msg("%s task %p pipe %u", __func__, task, pipe);
 
 	mml_clock_lock(task->config->mml);
 
@@ -321,11 +321,11 @@ static s32 core_enable(struct mml_task *task, u8 pipe)
 	return 0;
 }
 
-static s32 core_disable(struct mml_task *task, u8 pipe)
+static s32 core_disable(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_comp *comp;
-	u8 i;
+	u32 i;
 
 	mml_clock_lock(task->config->mml);
 
@@ -348,7 +348,7 @@ static s32 core_disable(struct mml_task *task, u8 pipe)
 
 	mml_clock_unlock(task->config->mml);
 
-	mml_msg("%s task %p pipe %hhu", __func__, task, pipe);
+	mml_msg("%s task %p pipe %u", __func__, task, pipe);
 
 	return 0;
 }
@@ -373,7 +373,7 @@ static void core_taskdone(struct work_struct *work)
 			mml_buf_invalid(&task->buf.dest[i]);
 	}
 
-	/* before clean up, make sure buffer fence signaled */
+	/* before clean up, signal buffer fence */
 	if (task->fence) {
 		dma_fence_signal(task->fence);
 		dma_fence_put(task->fence);
@@ -396,14 +396,14 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 	queue_work(task->config->wq_wait, &task->work_wait);
 }
 
-static s32 core_config(struct mml_task *task, u8 pipe)
+static s32 core_config(struct mml_task *task, u32 pipe)
 {
 	if (task->state == MML_TASK_INITIAL) {
 		/* prepare data in each component for later tile use */
 		core_prepare(task, pipe);
 
 		/* call to tile to calculate */
-		mml_trace_ex_begin("%s_tile_%hhu", __func__, pipe);
+		mml_trace_ex_begin("%s_%s_%u", __func__, "tile", pipe);
 		calc_tile(task, pipe);
 		mml_trace_ex_end();
 
@@ -412,15 +412,17 @@ static s32 core_config(struct mml_task *task, u8 pipe)
 			dump_tile_output(task, pipe);
 
 		/* make commands into pkt for later flash */
-		mml_trace_ex_begin("%s_cmd_%hhu", __func__, pipe);
+		mml_trace_ex_begin("%s_%s_%u", __func__, "cmd", pipe);
 		command_make(task, pipe);
 		mml_trace_ex_end();
 	} else {
-		mml_trace_ex_begin("%s_reuse_cmd_%hhu", __func__, pipe);
-
 		if (task->state == MML_TASK_DUPLICATE) {
+			int ret;
+
 			/* task need duplcicate before reuse */
-			int ret = task->config->task_ops->dup_task(task, pipe);
+			mml_trace_ex_begin("%s_%s_%u", __func__, "dup", pipe);
+			ret = task->config->task_ops->dup_task(task, pipe);
+			mml_trace_ex_end();
 			if (ret < 0) {
 				mml_err("dup task fail %d", ret);
 				return ret;
@@ -428,13 +430,13 @@ static s32 core_config(struct mml_task *task, u8 pipe)
 		}
 
 		/* pkt exists, reuse it directly */
+		mml_trace_ex_begin("%s_%s_%u", __func__, "reuse", pipe);
 		core_reuse(task, pipe);
 		command_reuse(task, pipe);
 		mml_trace_ex_end();
 	}
 
 	core_enable(task, pipe);
-
 	return 0;
 }
 
@@ -444,11 +446,9 @@ static void wait_dma_fence(const char *name, struct dma_fence *fence)
 
 	if (!fence)
 		return;
-
 	ret = dma_fence_wait_timeout(fence, true, 3000);
 	if (ret < 0)
-		mml_err("wait %s fence fail %p ret %ld",
-			name, fence, ret);
+		mml_err("wait %s fence fail %p ret %ld", name, fence, ret);
 }
 
 #define call_dbg_op(_comp, op, ...) \
@@ -500,18 +500,17 @@ static const cmdq_async_flush_cb dump_cbs[MML_PIPE_CNT] = {
 	[1] = core_taskdump_pipe1_cb,
 };
 
-static s32 core_flush(struct mml_task *task, u8 pipe)
+static s32 core_flush(struct mml_task *task, u32 pipe)
 {
 	int i;
-	s32 err;
 	struct cmdq_pkt *pkt = task->pkts[pipe];
 
-	mml_msg("%s task %p pipe %hhu pkt %p", __func__, task, pipe, pkt);
+	mml_msg("%s task %p pipe %u pkt %p", __func__, task, pipe, pkt);
 
 	if (mml_pkt_dump)
 		cmdq_pkt_dump_buf(pkt, 0);
 
-	/* before flush, make sure buffer fence signaled */
+	/* before flush, wait buffer fence being signaled */
 	wait_dma_fence("src", task->buf.src.fence);
 	for (i = 0; i < task->buf.dest_cnt; i++)
 		wait_dma_fence("dest", task->buf.dest[i].fence);
@@ -542,9 +541,7 @@ static s32 core_flush(struct mml_task *task, u8 pipe)
 	pkt->err_cb.cb = dump_cbs[pipe];
 	pkt->err_cb.data = (void *)task;
 
-	err = cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task);
-
-	return err;
+	return cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task);
 }
 
 static void core_init_pipe(struct mml_task *task, u32 pipe)
@@ -557,7 +554,6 @@ static void core_init_pipe(struct mml_task *task, u32 pipe)
 	if (err < 0) {
 		/* error handling */
 	}
-
 	err = core_flush(task, pipe);
 	if (err < 0) {
 		/* error handling */
@@ -650,12 +646,11 @@ static void core_config_thread(struct work_struct *work)
 	/* before pipe1 start, make sure iova map from device by pipe0 */
 	core_buffer_map(task);
 
-	/* dualpipe create work_thread[1] */
+	/* create dual work_thread[1] */
 	if (task->config->dual) {
 		if (!task->config->wq_config[1])
 			task->config->wq_config[1] =
 				alloc_ordered_workqueue("mml_work1", 0, 0);
-
 		queue_work(task->config->wq_config[1], &task->work_config[1]);
 	}
 
@@ -666,7 +661,7 @@ static void core_config_thread(struct work_struct *work)
 
 	core_init_pipe(task, 0);
 
-	/* check pipe 1 done and callback */
+	/* check single pipe or (dual) pipe 1 done then callback */
 	if (!task->config->dual || flush_work(&task->work_config[1]))
 		task->config->task_ops->submit_done(task);
 
@@ -694,19 +689,20 @@ void mml_core_destroy_task(struct mml_task *task)
 
 	for (i = 0; i < ARRAY_SIZE(task->reuse); i++)
 		kfree(task->reuse[i].labels);
-
-	for (i = 0; i < ARRAY_SIZE(task->pkts); i++)
+	for (i = 0; i < ARRAY_SIZE(task->pkts); i++) {
 		if (task->pkts[i])
 			cmdq_pkt_destroy(task->pkts[i]);
+	}
 	kfree(task);
 }
 
-#define core_destroy_wq(wq) do {\
-	if (wq) {\
-		destroy_workqueue(wq); \
-		wq = NULL; \
-	} \
-} while (0);
+static void core_destroy_wq(struct workqueue_struct **wq)
+{
+	if (*wq) {
+		destroy_workqueue(*wq);
+		*wq = NULL;
+	}
+}
 
 void mml_core_init_config(struct mml_frame_config *cfg)
 {
@@ -717,7 +713,7 @@ void mml_core_init_config(struct mml_frame_config *cfg)
 
 void mml_core_deinit_config(struct mml_frame_config *cfg)
 {
-	u8 pipe, i;
+	u32 pipe, i;
 
 	/* make command, engine allocated private data */
 	for (pipe = 0; pipe < MML_PIPE_CNT; pipe++) {
@@ -726,8 +722,8 @@ void mml_core_deinit_config(struct mml_frame_config *cfg)
 		destroy_tile_output(cfg->tile_output[pipe]);
 	}
 	for (i = 0; i < ARRAY_SIZE(cfg->wq_config); i++)
-		core_destroy_wq(cfg->wq_config[i]);
-	core_destroy_wq(cfg->wq_wait);
+		core_destroy_wq(&cfg->wq_config[i]);
+	core_destroy_wq(&cfg->wq_wait);
 }
 
 void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task)

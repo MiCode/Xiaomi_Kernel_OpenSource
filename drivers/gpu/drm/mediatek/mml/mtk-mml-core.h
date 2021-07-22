@@ -52,7 +52,7 @@ extern int mml_trace;
 #define mml_trace_begin(fmt, args...) do { \
 	preempt_disable(); \
 	event_trace_printk(mml_get_tracing_mark(), \
-		"B|%d|"fmt"\n", current->tgid, ##args); \
+		"B|%d|" fmt "\n", current->tgid, ##args); \
 	preempt_enable();\
 } while (0)
 
@@ -318,7 +318,7 @@ struct mml_comp_config_ops {
 	s32 (*frame)(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *priv);
 	s32 (*tile)(struct mml_comp *comp, struct mml_task *task,
-		    struct mml_comp_config *priv, u8 idx);
+		    struct mml_comp_config *priv, u32 idx);
 	s32 (*mutex)(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *priv);
 	s32 (*wait)(struct mml_comp *comp, struct mml_task *task,
@@ -416,14 +416,14 @@ struct mml_tile_output {
  *
  * Return:	mml_comp struct pointer to related engine
  */
-static inline struct mml_comp *task_comp(struct mml_task *task, u8 pipe,
-					 u8 node_idx)
+static inline struct mml_comp *task_comp(struct mml_task *task, u32 pipe,
+					 u32 node_idx)
 {
 	return task->config->path[pipe]->nodes[node_idx].comp;
 }
 
 static inline struct mml_tile_engine *config_get_tile(
-	struct mml_frame_config *cfg, struct mml_comp_config *ccfg, u8 idx)
+	struct mml_frame_config *cfg, struct mml_comp_config *ccfg, u32 idx)
 {
 	struct mml_tile_engine *engines =
 		cfg->tile_output[ccfg->pipe]->tiles[idx].tile_engines;
