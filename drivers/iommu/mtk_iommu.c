@@ -566,7 +566,7 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		if (ret) {
 			dev_warn(data->dev,
 				 "Partial TLB flush timed out, falling back to full flush\n");
-			pr_info("[iommu_debug] dump info 0x0:0x%x, 0x24:0x%x, 0x28:0x%x, 0x120:0x%x, 0x124:0x%x, iova:0x%lx\n",
+			pr_warn("[iommu_debug] dump info 0x0:0x%x, 0x24:0x%x, 0x28:0x%x, 0x120:0x%x, 0x124:0x%x, iova:0x%lx\n",
 				readl_relaxed(data->base + REG_MMU_INVLD_START_A),
 				readl_relaxed(data->base + REG_MMU_INVLD_END_A),
 				readl_relaxed(data->base + REG_MMU_PT_BASE_ADDR),
@@ -631,7 +631,7 @@ static irqreturn_t mtk_iommu_isr_sec(int irq, struct mtk_iommu_data *data)
 
 	for (bk = IOMMU_BK1; bk < IOMMU_BK_NUM; bk++) {
 		if (data->bk_irq[bk] == irq) {
-			pr_info("%s, type:%d, id:%d, bank:%u\n",
+			pr_err("%s, type:%d, id:%d, bank:%u\n",
 				__func__, data->plat_data->iommu_type,
 				data->plat_data->iommu_id, bk);
 			return mtk_iommu_dump_sec_bank(data, bk);
@@ -897,7 +897,6 @@ static struct iommu_domain *mtk_iommu_domain_alloc(unsigned type)
 {
 	struct mtk_iommu_domain *dom;
 
-	pr_info("%s start\n", __func__);
 	if (type != IOMMU_DOMAIN_DMA)
 		return NULL;
 
@@ -910,7 +909,6 @@ static struct iommu_domain *mtk_iommu_domain_alloc(unsigned type)
 		return NULL;
 	}
 
-	pr_info("%s done\n", __func__);
 	return &dom->domain;
 }
 
@@ -928,7 +926,6 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 	struct device *m4udev = data->dev;
 	int ret, domid;
 
-	pr_info("%s start, dev:%s\n", __func__, dev_name(dev));
 	domid = mtk_iommu_get_domain_id(dev, data->plat_data);
 	if (domid < 0)
 		return domid;
@@ -971,7 +968,6 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 
 	mtk_iommu_config(data, dev, true, domid);
 
-	pr_info("%s done, dev:%s, domid:%d\n", __func__, dev_name(dev), domid);
 	return 0;
 }
 
@@ -1101,7 +1097,6 @@ static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 	struct iommu_group *group;
 	int domid;
 
-	pr_info("%s start, dev:%s\n", __func__, dev_name(dev));
 	if (!data)
 		return ERR_PTR(-ENODEV);
 
@@ -1117,7 +1112,6 @@ static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 	} else {
 		iommu_group_ref_get(group);
 	}
-	pr_info("%s done, dom:%d, dev:%s\n", __func__, domid, dev_name(dev));
 	return group;
 }
 
@@ -1152,7 +1146,6 @@ static void mtk_iommu_get_resv_regions(struct device *dev,
 	struct iommu_resv_region *region;
 	int prot = IOMMU_WRITE | IOMMU_READ;
 
-	pr_info("%s start, dev:%s\n", __func__, dev_name(dev));
 	if ((int)domid < 0)
 		return;
 	curdom = data->plat_data->iova_region + domid;
@@ -1171,7 +1164,6 @@ static void mtk_iommu_get_resv_regions(struct device *dev,
 
 		list_add_tail(&region->list, head);
 	}
-	pr_info("%s end, dev:%s, dom:%u\n", __func__, dev_name(dev), domid);
 }
 
 static const struct iommu_ops mtk_iommu_ops = {
@@ -1415,7 +1407,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 
 	data->irq = platform_get_irq(pdev, 0);
 	if (data->irq < 0) {
-		pr_info("%s, %s(%d,%d) can not irq!!\n", __func__, dev_name(dev),
+		pr_err("%s, %s(%d,%d) can not irq!!\n", __func__, dev_name(dev),
 			data->plat_data->iommu_type, data->plat_data->iommu_id);
 		return data->irq;
 	}
@@ -2105,11 +2097,9 @@ static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt6983-apu-iommu1", .data = &mt6983_data_apu1},
 	{ .compatible = "mediatek,mt6983-disp-iommu", .data = &mt6983_data_disp},
 	{ .compatible = "mediatek,mt6983-mdp-iommu", .data = &mt6983_data_mdp},
-#ifdef IOMMU_NO_USE
 	{ .compatible = "mediatek,mt6983-peri-iommu-m4", .data = &mt6983_data_peri_m4},
 	{ .compatible = "mediatek,mt6983-peri-iommu-m6", .data = &mt6983_data_peri_m6},
 	{ .compatible = "mediatek,mt6983-peri-iommu-m7", .data = &mt6983_data_peri_m7},
-#endif
 	{ .compatible = "mediatek,mt8167-m4u", .data = &mt8167_data},
 	{ .compatible = "mediatek,mt8173-m4u", .data = &mt8173_data},
 	{ .compatible = "mediatek,mt8183-m4u", .data = &mt8183_data},
