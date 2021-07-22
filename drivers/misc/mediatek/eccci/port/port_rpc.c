@@ -75,23 +75,10 @@ static int get_md_gpio_val(unsigned int num)
 
 static int get_md_adc_val(__attribute__((unused))unsigned int num)
 {
-#ifdef CONFIG_MTK_AUXADC
-	int data[4] = { 0, 0, 0, 0 };
-	int val = 0;
-	int ret = 0;
+	int val = ccci_get_adc_val();
 
-	ret = IMM_GetOneChannelValue(num, data, &val);
-	if (ret == 0)
-		return val;
-	else
-		return ret;
-#endif
-
-#ifdef CONFIG_MEDIATEK_MT6577_AUXADC
-	return ccci_get_adc_val();
-#endif
-	CCCI_ERROR_LOG(0, RPC, "ERR:CONFIG AUXADC and IIO not ready");
-	return -1;
+	CCCI_NORMAL_LOG(0, RPC, "ADC raw val:%d\n", val);
+	return val;
 }
 
 
@@ -103,15 +90,10 @@ static int get_td_eint_info(char *eint_name, unsigned int len)
 static int get_md_adc_info(__attribute__((unused))char *adc_name,
 			   __attribute__((unused))unsigned int len)
 {
-#ifdef CONFIG_MTK_AUXADC
-	return IMM_get_adc_channel_num(adc_name, len);
-#endif
+	int num = ccci_get_adc_num();
 
-#ifdef CONFIG_MEDIATEK_MT6577_AUXADC
-	return ccci_get_adc_num();
-#endif
-	CCCI_ERROR_LOG(0, RPC, "ERR:CONFIG AUXADC and IIO not ready");
-	return -1;
+	CCCI_NORMAL_LOG(0, RPC, "ADC channel num:%d\n", num);
+	return num;
 }
 
 static char *md_gpio_name_convert(char *gpio_name, unsigned int len)
