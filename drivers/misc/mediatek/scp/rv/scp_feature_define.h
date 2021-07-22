@@ -29,6 +29,8 @@
 
 /* scp aed definition*/
 #define SCP_AED_STR_LEN                  (512)
+#define SCP_CHECK_AED_STR_LEN(ret, offset)	\
+	((ret > 0) ? (((ret + offset) < (SCP_AED_STR_LEN - 1)) ? ret : 0) : 0)
 
 /* scp sub feature register API marco*/
 #define SCP_REGISTER_SUB_SENSOR          (1)

@@ -582,39 +582,43 @@ static void scp_prepare_aed_dump(char *aed_str,
 		/* prepare scp aee detail information*/
 		memset(scp_dump.detail_buff, 0, SCP_AED_STR_LEN);
 
-		offset = snprintf(scp_dump.detail_buff + offset,
-		SCP_AED_STR_LEN - offset, "%s\n", aed_str);
-		offset = snprintf(scp_dump.detail_buff + offset,
+		offset += SCP_CHECK_AED_STR_LEN(snprintf(scp_dump.detail_buff + offset,
+		SCP_AED_STR_LEN - offset, "%s\n", aed_str), offset);
+
+
+		offset += SCP_CHECK_AED_STR_LEN(snprintf(scp_dump.detail_buff + offset,
 		SCP_AED_STR_LEN - offset,
 		"core0 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c0_m->pc, c0_m->lr, c0_m->sp);
+		c0_m->pc, c0_m->lr, c0_m->sp), offset);
 
 		if (!scpreg.twohart)
 			goto core1;
 
-		offset = snprintf(scp_dump.detail_buff + offset,
+		offset += SCP_CHECK_AED_STR_LEN(snprintf(scp_dump.detail_buff + offset,
 		SCP_AED_STR_LEN - offset,
 		"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c0_t1_m->pc, c0_t1_m->lr, c0_t1_m->sp);
+		c0_t1_m->pc, c0_t1_m->lr, c0_t1_m->sp), offset);
 core1:
 		if (scpreg.core_nums == 1)
 			goto end;
 
-		offset = snprintf(scp_dump.detail_buff + offset,
+		offset += SCP_CHECK_AED_STR_LEN(snprintf(scp_dump.detail_buff + offset,
 		SCP_AED_STR_LEN - offset,
 		"core1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c1_m->pc, c1_m->lr, c1_m->sp);
+		c1_m->pc, c1_m->lr, c1_m->sp), offset);
 
 		if (!scpreg.twohart)
 			goto end;
 
-		offset = snprintf(scp_dump.detail_buff + offset,
+		offset += SCP_CHECK_AED_STR_LEN(snprintf(scp_dump.detail_buff + offset,
 		SCP_AED_STR_LEN - offset,
 		"hart1 pc=0x%08x, lr=0x%08x, sp=0x%08x\n",
-		c1_t1_m->pc, c1_t1_m->lr, c1_t1_m->sp);
+		c1_t1_m->pc, c1_t1_m->lr, c1_t1_m->sp), offset);
 end:
-		snprintf(scp_dump.detail_buff + offset,
-		SCP_AED_STR_LEN - offset, "last log:\n%s", scp_A_log);
+		if (!SCP_CHECK_AED_STR_LEN(snprintf(scp_dump.detail_buff + offset,
+			SCP_AED_STR_LEN - offset, "last log:\n%s", scp_A_log), offset))
+			pr_notice("[SCP] %s snprintf error, of=%d, sz=%d\n", __func__,
+				offset, SCP_AED_STR_LEN);
 
 		scp_dump.detail_buff[SCP_AED_STR_LEN - 1] = '\0';
 	}
