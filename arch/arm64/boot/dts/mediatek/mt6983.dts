@@ -411,7 +411,7 @@
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
-/*
+
 		cpu7: cpu@200 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a78";
@@ -419,7 +419,7 @@
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
-*/
+
 		cpu-map {
 			cluster0 {
 				core0 {
@@ -451,7 +451,7 @@
 				doe_dvfs_cl1: doe {
 				};
 			};
-/*
+
 			cluster2 {
 				core0 {
 					cpu = <&cpu7>;
@@ -460,7 +460,7 @@
 				};
 
 			};
-*/		};
+		};
 	};
 
 	drm:drm@1000d000 {
