@@ -765,4 +765,13 @@ config SM_GPUCC_DIWALI
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config SM_VIDEOCC_DIWALI
+	tristate "DIWALI Video Clock Controller"
+	select SM_GCC_DIWALI
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  DIWALI devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
 endif
