@@ -42,7 +42,7 @@ int rem;
 static bool initialized;
 static struct selinux_avc *avc;
 static struct selinux_policy __rcu *policy;
-static DEFINE_RATELIMIT_STATE(rs, 10*HZ, 100);
+static DEFINE_RATELIMIT_STATE(rs, 1*HZ, 10);
 #endif
 
 #if mkp_debug
