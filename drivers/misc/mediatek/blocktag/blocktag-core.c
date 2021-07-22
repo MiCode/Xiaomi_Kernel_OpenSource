@@ -1482,7 +1482,7 @@ int mtk_btag_mictx_get_data(
 	struct mtk_blocktag *btag;
 	u64 time_cur, dur, tp_dur;
 	unsigned long flags;
-	int top;
+	u64 top;
 
 	mictx = mtk_btag_mictx_get();
 	if (!mictx || !mictx->enabled || !iostat)
@@ -1548,7 +1548,7 @@ int mtk_btag_mictx_get_data(
 		iostat->q_depth = mictx->q_depth;
 
 	if (mtk_btag_mictx_self_test || mtk_btag_mictx_data_dump) {
-		pr_info("[BLOCK_TAG] get: sz:%llu,%llu, sz-top:%llu,%llu,%u, qd:%u, wl:%u\n",
+		pr_info("[BLOCK_TAG] get: sz:%llu,%llu, sz-top:%llu,%llu,%llu, qd:%hu, wl:%hu\n",
 			mictx->req.r.size, mictx->req.w.size,
 			mictx->req.r.size_top, mictx->req.w.size_top, top,
 			iostat->q_depth, iostat->wl);
