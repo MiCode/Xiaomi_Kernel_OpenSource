@@ -27,10 +27,9 @@ static struct {
 
 static struct mutex buff_lock;
 static unsigned int using_buf;
-static bool event_loop_thread_stop;
-static wait_queue_head_t event_loop_wait_que;
+static wait_queue_head_t print_out_wait_que;
+static atomic_t pending_print_out;
 static atomic_t busy = ATOMIC_INIT(0);
-static atomic_t pending_event = ATOMIC_INIT(0);
 
 void pd_dbg_info_lock(void)
 {
@@ -80,17 +79,17 @@ static inline bool pd_dbg_print_out(void)
 	return true;
 }
 
-static int print_out_thread_fn(void *arg)
+static int print_out_thread_fn(void *data)
 {
 	while (true) {
-		wait_event_interruptible(event_loop_wait_que,
-				atomic_read(&pending_event) |
-				event_loop_thread_stop);
-		if (kthread_should_stop() || event_loop_thread_stop)
+		wait_event(print_out_wait_que,
+			   atomic_read(&pending_print_out) ||
+			   kthread_should_stop());
+		if (kthread_should_stop())
 			break;
 		do {
-			atomic_dec_if_positive(&pending_event);
-		} while (pd_dbg_print_out());
+			atomic_dec_if_positive(&pending_print_out);
+		} while (pd_dbg_print_out() && !kthread_should_stop());
 	}
 
 	return 0;
@@ -122,8 +121,8 @@ int pd_dbg_info(const char *fmt, ...)
 		used += r;
 
 	if (pd_dbg_buffer[index].used == 0) {
-		atomic_inc(&pending_event);
-		wake_up_interruptible(&event_loop_wait_que);
+		atomic_inc(&pending_print_out);
+		wake_up(&print_out_wait_que);
 	}
 
 	pd_dbg_buffer[index].used = used;
@@ -132,25 +131,22 @@ int pd_dbg_info(const char *fmt, ...)
 	return r;
 }
 
-static struct task_struct *print_out_tsk;
+static struct task_struct *print_out_task;
 
 int pd_dbg_info_init(void)
 {
 	pr_info("%s\n", __func__);
 	mutex_init(&buff_lock);
-	print_out_tsk = kthread_create(
-			print_out_thread_fn, NULL, "pd_dbg_info");
-	init_waitqueue_head(&event_loop_wait_que);
-	atomic_set(&pending_event, 0);
-	wake_up_process(print_out_tsk);
+	init_waitqueue_head(&print_out_wait_que);
+	atomic_set(&pending_print_out, 0);
+	print_out_task = kthread_run(print_out_thread_fn, NULL, "pd_dbg_info");
+
 	return 0;
 }
 
 void pd_dbg_info_exit(void)
 {
-	event_loop_thread_stop = true;
-	wake_up_interruptible(&event_loop_wait_que);
-	kthread_stop(print_out_tsk);
+	kthread_stop(print_out_task);
 	mutex_destroy(&buff_lock);
 }
 

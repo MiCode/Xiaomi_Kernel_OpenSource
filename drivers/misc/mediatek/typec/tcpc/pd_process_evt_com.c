@@ -107,16 +107,12 @@ static inline bool pd_process_ctrl_msg_vconn_swap(
 	}
 #endif	/* CONFIG_USB_PD_VCONN_SWAP */
 
-#ifdef CONFIG_USB_PD_REV30
-	if (pd_check_rev30(pd_port)) {
-		PE_TRANSIT_STATE(pd_port,
-			(pd_port->power_role == PD_ROLE_SINK) ?
-			PE_SNK_SEND_NOT_SUPPORTED : PE_SRC_SEND_NOT_SUPPORTED);
-	} else
-#endif	/* CONFIG_USB_PD_REV30 */
+	if (!pd_check_rev30(pd_port)) {
 		PE_TRANSIT_STATE(pd_port, PE_REJECT);
+		return true;
+	}
 
-	return true;
+	return false;
 }
 
 /*
@@ -129,19 +125,19 @@ static inline bool pd_process_data_msg_bist(
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (pd_port->request_v > 5000) {
-		PE_INFO("bist_not_vsafe5v\r\n");
+		PE_INFO("bist_not_vsafe5v\n");
 		return false;
 	}
 
 	switch (BDO_MODE(pd_event->pd_msg->payload[0])) {
 	case BDO_MODE_TEST_DATA:
-		PE_DBG("bist_test\r\n");
+		PE_DBG("bist_test\n");
 		PE_TRANSIT_STATE(pd_port, PE_BIST_TEST_DATA);
 		pd_noitfy_pe_bist_mode(pd_port, PD_BIST_MODE_TEST_DATA);
 		return true;
 
 	case BDO_MODE_CARRIER2:
-		PE_DBG("bist_cm2\r\n");
+		PE_DBG("bist_cm2\n");
 		PE_TRANSIT_STATE(pd_port, PE_BIST_CARRIER_MODE_2);
 		pd_noitfy_pe_bist_mode(pd_port, PD_BIST_MODE_DISABLE);
 		return true;
@@ -156,7 +152,7 @@ static inline bool pd_process_data_msg_bist(
 	case BDO_MODE_CARRIER3:
 	case BDO_MODE_EYE:
 #endif /* NEVER */
-		PE_DBG("Unsupport BIST\r\n");
+		PE_DBG("Unsupport BIST\n");
 		pd_noitfy_pe_bist_mode(pd_port, PD_BIST_MODE_DISABLE);
 		return false;
 	}
@@ -480,7 +476,7 @@ static inline bool pd_process_hw_msg_tx_failed(
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (pd_port->pe_data.renegotiation_count > PD_HARD_RESET_COUNT) {
-		PE_INFO("renegotiation failed\r\n");
+		PE_INFO("renegotiation failed\n");
 		PE_TRANSIT_STATE(pd_port, PE_ERROR_RECOVERY);
 		return true;
 	}
@@ -530,7 +526,7 @@ static inline bool pd_check_rx_pending(struct pd_port *pd_port)
 		return false;
 
 	if (alert & TCPC_REG_ALERT_RX_STATUS) {
-		PE_INFO("rx_pending\r\n");
+		PE_INFO("rx_pending\n");
 #ifndef CONFIG_USB_PD_ONLY_PRINT_SYSTEM_BUSY
 		pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
 #endif
@@ -607,7 +603,7 @@ static inline bool pd_process_timer_msg(
 #ifdef CONFIG_USB_PD_VCONN_STABLE_DELAY
 	case PD_TIMER_VCONN_STABLE:
 		if (pd_port->vconn_role == PD_ROLE_VCONN_DYNAMIC_ON) {
-			pd_port->vconn_role = PD_ROLE_VCONN_ON;
+			pd_set_vconn(pd_port, PD_ROLE_VCONN_ON);
 			dpm_reaction_set_clear(pd_port,
 				DPM_REACTION_CAP_READY_ONCE,
 				DPM_REACTION_VCONN_STABLE_DELAY);

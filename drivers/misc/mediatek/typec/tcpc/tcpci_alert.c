@@ -60,7 +60,7 @@ static inline void tcpci_vbus_level_init_v10(
 		if (tcpc->vbus_level == TCPC_VBUS_INVALID)
 			tcpc->vbus_level = TCPC_VBUS_SAFE0V;
 		else
-			TCPC_INFO("ps_confused: 0x%02x\r\n", power_status);
+			TCPC_INFO("ps_confused: 0x%02x\n", power_status);
 	}
 #endif	/* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
@@ -77,7 +77,7 @@ static inline void __tcpci_vbus_level_refresh(struct tcpc_device *tcpc)
 		if (tcpc->vbus_level == TCPC_VBUS_INVALID)
 			tcpc->vbus_level = TCPC_VBUS_SAFE0V;
 		else
-			TCPC_INFO("ps_confused: %d\r\n", tcpc->vbus_level);
+			TCPC_INFO("ps_confused: %d\n", tcpc->vbus_level);
 	}
 #endif	/* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 }
@@ -120,7 +120,7 @@ static inline int tcpci_alert_power_status_changed_v10(struct tcpc_device *tcpc)
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
 	if (show_msg)
-		TCPC_INFO("ps_change=%d\r\n", tcpc->vbus_level);
+		TCPC_INFO("ps_change=%d\n", tcpc->vbus_level);
 
 	rv = tcpc_typec_handle_ps_change(tcpc, tcpc->vbus_level);
 	if (rv < 0)
@@ -149,7 +149,7 @@ static inline int tcpci_vbus_level_changed(struct tcpc_device *tcpc)
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
 	if (show_msg)
-		TCPC_INFO("ps_change=%d\r\n", tcpc->vbus_level);
+		TCPC_INFO("ps_change=%d\n", tcpc->vbus_level);
 
 	rv = tcpc_typec_handle_ps_change(tcpc, tcpc->vbus_level);
 	if (rv < 0)
@@ -234,7 +234,7 @@ static int tcpci_alert_tx_discard(struct tcpc_device *tcpc)
 	tcpc->pd_transmit_state = PD_TX_STATE_DISCARD;
 	mutex_unlock(&tcpc->access_lock);
 
-	TCPC_INFO("Discard\r\n");
+	TCPC_INFO("Discard\n");
 
 	if (tx_state == PD_TX_STATE_WAIT_CRC_VDM)
 		pd_put_last_vdm_event(tcpc);
@@ -248,7 +248,7 @@ static int tcpci_alert_tx_discard(struct tcpc_device *tcpc)
 			tcpc->pd_discard_pending = true;
 			tcpc_enable_timer(tcpc, PD_TIMER_DISCARD);
 #else
-			TCPC_ERR("RETRY_CRC_DISCARD\r\n");
+			TCPC_ERR("RETRY_CRC_DISCARD\n");
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 		} else {
 			pd_put_hw_event(tcpc, PD_HW_TX_FAILED);
@@ -272,7 +272,7 @@ static int tcpci_alert_recv_msg(struct tcpc_device *tcpc)
 	retval = tcpci_get_message(tcpc,
 		pd_msg->payload, &pd_msg->msg_hdr, &type);
 	if (retval < 0) {
-		TCPC_INFO("recv_msg failed: %d\r\n", retval);
+		TCPC_INFO("recv_msg failed: %d\n", retval);
 		pd_free_msg(tcpc, pd_msg);
 		return retval;
 	}
@@ -287,7 +287,7 @@ static int tcpci_alert_rx_overflow(struct tcpc_device *tcpc)
 	int rv;
 	uint32_t alert_status;
 
-	TCPC_INFO("RX_OVERFLOW\r\n");
+	TCPC_INFO("RX_OVERFLOW\n");
 
 	rv = tcpci_get_alert_status(tcpc, &alert_status);
 	if (rv)
@@ -301,7 +301,7 @@ static int tcpci_alert_rx_overflow(struct tcpc_device *tcpc)
 
 static int tcpci_alert_recv_hard_reset(struct tcpc_device *tcpc)
 {
-	TCPC_INFO("HardResetAlert\r\n");
+	TCPC_INFO("HardResetAlert\n");
 	pd_put_recv_hard_reset_event(tcpc);
 	tcpci_init_alert_mask(tcpc);
 	return 0;
@@ -320,7 +320,7 @@ static int tcpci_alert_fault(struct tcpc_device *tcpc)
 	uint8_t status = 0;
 
 	tcpci_get_fault_status(tcpc, &status);
-	TCPC_INFO("FaultAlert=0x%x\r\n", status);
+	TCPC_INFO("FaultAlert=0x%x\n", status);
 	tcpci_fault_status_clear(tcpc, status);
 	return 0;
 }
@@ -329,7 +329,7 @@ static int tcpci_alert_fault(struct tcpc_device *tcpc)
 static int tcpci_alert_wakeup(struct tcpc_device *tcpc)
 {
 	if (tcpc->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG) {
-		TCPC_INFO("Wakeup\r\n");
+		TCPC_INFO("Wakeup\n");
 
 		if (tcpc->typec_remote_cc[0] == TYPEC_CC_DRP_TOGGLING)
 			tcpc_enable_wakeup_timer(tcpc, true);
@@ -343,7 +343,7 @@ static int tcpci_alert_wakeup(struct tcpc_device *tcpc)
 static int tcpci_alert_ra_detach(struct tcpc_device *tcpc)
 {
 	if (tcpc->tcpc_flags & TCPC_FLAGS_CHECK_RA_DETACHE) {
-		TCPC_DBG("RA_DETACH\r\n");
+		TCPC_DBG("RA_DETACH\n");
 
 		if (tcpc->typec_remote_cc[0] == TYPEC_CC_DRP_TOGGLING)
 			tcpc_typec_enter_lpm_again(tcpc);
@@ -400,7 +400,7 @@ static inline bool tcpci_check_hard_reset_complete(
 	}
 
 	if (alert_status & TCPC_REG_ALERT_TX_DISCARDED) {
-		TCPC_INFO("HResetFailed\r\n");
+		TCPC_INFO("HResetFailed\n");
 		tcpci_transmit(tcpc, TCPC_TX_HARD_RESET, 0, NULL);
 		return false;
 	}
@@ -429,7 +429,7 @@ int tcpci_alert(struct tcpc_device *tcpc)
 
 #ifdef CONFIG_USB_PD_DBG_ALERT_STATUS
 	if (alert_status != 0)
-		TCPC_INFO("Alert:0x%04x, Mask:0x%04x\r\n",
+		TCPC_INFO("Alert:0x%04x, Mask:0x%04x\n",
 			  alert_status, alert_mask);
 #endif /* CONFIG_USB_PD_DBG_ALERT_STATUS */
 
@@ -505,12 +505,12 @@ int tcpci_set_wake_lock(
 
 	if (new_lock != ori_lock) {
 		if (new_lock) {
-			TCPC_DBG("wake_lock=1\r\n");
+			TCPC_DBG("wake_lock=1\n");
 			tcpci_attach_wake_lock(tcpc);
 			if (tcpc->typec_watchdog)
 				tcpci_set_intrst(tcpc, true);
 		} else {
-			TCPC_DBG("wake_lock=0\r\n");
+			TCPC_DBG("wake_lock=0\n");
 			if (tcpc->typec_watchdog)
 				tcpci_set_intrst(tcpc, false);
 			__pm_relax(tcpc->attach_wake_lock);
@@ -536,12 +536,12 @@ static inline int tcpci_set_wake_lock_pd(
 		wake_lock_pd--;
 
 	if (wake_lock_pd == 0)
-		__pm_wakeup_event(tcpc->dettach_temp_wake_lock, 5000);
+		__pm_wakeup_event(tcpc->detach_wake_lock, 5000);
 
 	tcpci_set_wake_lock(tcpc, wake_lock_pd, tcpc->wake_lock_user);
 
 	if (wake_lock_pd == 1)
-		__pm_relax(tcpc->dettach_temp_wake_lock);
+		__pm_relax(tcpc->detach_wake_lock);
 
 	tcpc->wake_lock_pd = wake_lock_pd;
 	mutex_unlock(&tcpc->access_lock);
@@ -550,39 +550,7 @@ static inline int tcpci_set_wake_lock_pd(
 
 static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 {
-	TCPC_INFO("usb_port_attached\r\n");
-
-	switch (tcpc->typec_attach_new) {
-	case TYPEC_ATTACHED_SNK:
-	case TYPEC_ATTACHED_CUSTOM_SRC:
-	case TYPEC_ATTACHED_NORP_SRC:
-		tcpc->dual_role_pr = DUAL_ROLE_PROP_PR_SNK;
-		tcpc->dual_role_dr = DUAL_ROLE_PROP_DR_DEVICE;
-		tcpc->dual_role_mode = DUAL_ROLE_PROP_MODE_UFP;
-		tcpc->dual_role_vconn = DUAL_ROLE_PROP_VCONN_SUPPLY_NO;
-		tcpc->typec_caps.type = TYPEC_PORT_SNK;
-		tcpc->typec_caps.data = TYPEC_PORT_UFP;
-		typec_set_data_role(tcpc->typec_port, TYPEC_DEVICE);
-		typec_set_pwr_role(tcpc->typec_port, TYPEC_SINK);
-		typec_set_vconn_role(tcpc->typec_port, TYPEC_SINK);
-		break;
-	case TYPEC_ATTACHED_SRC:
-		tcpc->dual_role_pr = DUAL_ROLE_PROP_PR_SRC;
-		tcpc->dual_role_dr = DUAL_ROLE_PROP_DR_HOST;
-		tcpc->dual_role_mode = DUAL_ROLE_PROP_MODE_DFP;
-		tcpc->dual_role_vconn = DUAL_ROLE_PROP_VCONN_SUPPLY_YES;
-		tcpc->typec_caps.type = TYPEC_PORT_SRC;
-		tcpc->typec_caps.data = TYPEC_PORT_DFP;
-		typec_set_data_role(tcpc->typec_port, TYPEC_HOST);
-		typec_set_pwr_role(tcpc->typec_port, TYPEC_SOURCE);
-		typec_set_vconn_role(tcpc->typec_port, TYPEC_SOURCE);
-		break;
-	default:
-		break;
-	}
-	/* set typec switch orientation */
-	typec_set_orientation(tcpc->typec_port, tcpc->typec_polarity ?
-			TYPEC_ORIENTATION_NORMAL : TYPEC_ORIENTATION_REVERSE);
+	TCPC_INFO("usb_port_attached\n");
 
 	tcpci_set_wake_lock_pd(tcpc, true);
 
@@ -603,20 +571,7 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 
 static inline int tcpci_report_usb_port_detached(struct tcpc_device *tcpc)
 {
-	TCPC_INFO("usb_port_detached\r\n");
-
-	tcpc->typec_caps.type = TYPEC_PORT_DRP;
-	tcpc->typec_caps.data = TYPEC_PORT_DRD;
-	tcpc->dual_role_pr = DUAL_ROLE_PROP_PR_NONE;
-	tcpc->dual_role_dr = DUAL_ROLE_PROP_DR_NONE;
-	tcpc->dual_role_mode = DUAL_ROLE_PROP_MODE_NONE;
-	tcpc->dual_role_vconn = DUAL_ROLE_PROP_VCONN_SUPPLY_NO;
-	typec_set_data_role(tcpc->typec_port, TYPEC_DEVICE);
-	typec_set_pwr_role(tcpc->typec_port, TYPEC_SINK);
-	typec_set_vconn_role(tcpc->typec_port, TYPEC_SINK);
-	typec_set_pwr_opmode(tcpc->typec_port, TYPEC_PWR_MODE_USB);
-	/* set typec switch orientation */
-	typec_set_orientation(tcpc->typec_port, TYPEC_ORIENTATION_NONE);
+	TCPC_INFO("usb_port_detached\n");
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 	/* MTK Only */
@@ -641,7 +596,7 @@ int tcpci_report_usb_port_changed(struct tcpc_device *tcpc)
 	else if (tcpc->typec_attach_new == TYPEC_UNATTACHED)
 		tcpci_report_usb_port_detached(tcpc);
 	else
-		TCPC_DBG2("TCPC Attach Again\r\n");
+		TCPC_DBG2("TCPC Attach Again\n");
 
 	return 0;
 }
@@ -650,51 +605,24 @@ int tcpci_report_usb_port_changed(struct tcpc_device *tcpc)
  * [BLOCK] TYPEC power control changed
  */
 
-int tcpci_report_power_control_on(struct tcpc_device *tcpc)
+static inline int tcpci_report_power_control_on(struct tcpc_device *tcpc)
 {
 	tcpci_set_wake_lock_pd(tcpc, true);
 
 	mutex_lock(&tcpc->access_lock);
-
-#ifdef CONFIG_TYPEC_CAP_AUTO_DISCHARGE
-
-#ifdef CONFIG_TCPC_AUTO_DISCHARGE_EXT
-	tcpci_enable_ext_discharge(tcpc, false);
-#endif	/* CONFIG_TCPC_AUTO_DISCHARGE_EXT */
-
-#ifdef CONFIG_TCPC_AUTO_DISCHARGE_IC
+	tcpc_disable_timer(tcpc, TYPEC_RT_TIMER_DISCHARGE);
 	tcpci_enable_auto_discharge(tcpc, true);
-#endif	/* CONFIG_TCPC_AUTO_DISCHARGE_IC */
-
-	tcpc_disable_timer(tcpc, TYPEC_RT_TIMER_AUTO_DISCHARGE);
-#endif	/* CONFIG_TYPEC_CAP_AUTO_DISCHARGE */
-
+	tcpci_enable_force_discharge(tcpc, false, 0);
 	mutex_unlock(&tcpc->access_lock);
 
 	return 0;
 }
 
-int tcpci_report_power_control_off(struct tcpc_device *tcpc)
+static inline int tcpci_report_power_control_off(struct tcpc_device *tcpc)
 {
 	mutex_lock(&tcpc->access_lock);
-
-#ifdef CONFIG_USB_POWER_DELIVERY
-#ifdef CONFIG_TYPEC_CAP_FORCE_DISCHARGE
-#ifdef CONFIG_TCPC_FORCE_DISCHARGE_IC
-	__tcpci_enable_force_discharge(tcpc, false, 0);
-#endif	/* CONFIG_TCPC_FORCE_DISCHARGE_IC */
-#endif	/* CONFIG_TYPEC_CAP_FORCE_DISCHARGE */
-#endif	/* CONFIG_USB_POWER_DELIVERY */
-
-#ifdef CONFIG_TYPEC_CAP_AUTO_DISCHARGE
-
-#ifdef CONFIG_TCPC_AUTO_DISCHARGE_EXT
-	tcpci_enable_ext_discharge(tcpc, true);
-#endif	/* CONFIG_TCPC_AUTO_DISCHARGE_EXT */
-
-	tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_AUTO_DISCHARGE);
-#endif	/* CONFIG_TYPEC_CAP_AUTO_DISCHARGE */
-
+	tcpci_enable_force_discharge(tcpc, true, 0);
+	tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_DISCHARGE);
 	mutex_unlock(&tcpc->access_lock);
 
 	tcpci_set_wake_lock_pd(tcpc, false);

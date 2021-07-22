@@ -92,10 +92,10 @@ void pe_error_recovery_once_entry(struct pd_port *pd_port)
 #ifdef CONFIG_USB_PD_RECV_HRESET_COUNTER
 void pe_over_recv_hreset_limit_entry(struct pd_port *pd_port)
 {
-	PE_INFO("OverHResetLimit++\r\n");
+	PE_INFO("OverHResetLimit++\n");
 	pe_idle_reset_data(pd_port);
 	pd_notify_pe_over_recv_hreset(pd_port);
-	PE_INFO("OverHResetLimit--\r\n");
+	PE_INFO("OverHResetLimit--\n");
 }
 #endif	/* CONFIG_USB_PD_RECV_HRESET_COUNTER */
 

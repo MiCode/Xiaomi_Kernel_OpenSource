@@ -8,6 +8,7 @@
 #include "tcpci.h"
 
 struct tcpc_device;
+extern bool tcpc_typec_is_act_as_sink_role(struct tcpc_device *tcpc);
 
 /******************************************************************************
  *  Call following function to trigger TYPEC Connection State Change
@@ -54,5 +55,12 @@ extern int tcpc_typec_handle_wd(struct tcpc_device *tcpc, bool wd);
 extern int tcpc_typec_handle_ctd(struct tcpc_device *tcpc,
 				 enum tcpc_cable_type cable_type);
 #endif /* CONFIG_CABLE_TYPEC_DETECTION */
+
+#define typec_get_cc1()		\
+	tcpc->typec_remote_cc[0]
+#define typec_get_cc2()		\
+	tcpc->typec_remote_cc[1]
+#define typec_get_cc_res()	\
+	(tcpc->typec_polarity ? typec_get_cc2() : typec_get_cc1())
 
 #endif /* #ifndef __LINUX_TCPCI_TYPEC_H */

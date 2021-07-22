@@ -1493,7 +1493,7 @@ int tcpm_set_apdo_charging_policy(struct tcpc_device *tcpc,
 	mutex_lock(&pd_port->pd_lock);
 	if (pd_port->dpm_charging_policy == policy) {
 		mutex_unlock(&pd_port->pd_lock);
-		TCPC_INFO("BUG!!! FIX IT!!!\r\n");
+		TCPC_INFO("BUG!!! FIX IT!!!\n");
 		return tcpm_dpm_pd_request(tcpc, mv, ma, NULL);
 		/* return TCPM_ERROR_REPEAT_POLICY; */
 	}
@@ -1884,7 +1884,7 @@ int tcpm_dpm_bk_event_cb(
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	if (pd_port->tcpm_bk_event_id != event->event_id) {
-		TCPM_DBG("bk_event_cb_dummy: expect:%d real:%d\r\n",
+		TCPM_DBG("bk_event_cb_dummy: expect:%d real:%d\n",
 			pd_port->tcpm_bk_event_id, event->event_id);
 		return 0;
 	}
@@ -1897,7 +1897,7 @@ int tcpm_dpm_bk_event_cb(
 		tcpm_dpm_bk_copy_data(pd_port);
 #endif	/* CONFIG_USB_PD_TCPM_CB_2ND */
 
-	wake_up_interruptible(&pd_port->tcpm_bk_wait_que);
+	wake_up(&pd_port->tcpm_bk_wait_que);
 	return 0;
 }
 
@@ -1906,9 +1906,8 @@ static inline int __tcpm_dpm_wait_bk_event(
 {
 	int ret = TCP_DPM_RET_BK_TIMEOUT;
 
-	wait_event_interruptible_timeout(pd_port->tcpm_bk_wait_que,
-				pd_port->tcpm_bk_done,
-				msecs_to_jiffies(tout_ms));
+	wait_event_timeout(pd_port->tcpm_bk_wait_que, pd_port->tcpm_bk_done,
+			   msecs_to_jiffies(tout_ms));
 
 	if (pd_port->tcpm_bk_done)
 		return pd_port->tcpm_bk_ret;
@@ -1933,7 +1932,7 @@ int tcpm_dpm_wait_bk_event(struct pd_port *pd_port, uint32_t tout_ms)
 
 	if (ret < TCP_DPM_RET_NR && ret >= 0
 		&& ret < ARRAY_SIZE(bk_event_ret_name))
-		TCPM_DBG("bk_event_cb -> %s\r\n", bk_event_ret_name[ret]);
+		TCPM_DBG("bk_event_cb -> %s\n", bk_event_ret_name[ret]);
 #endif /* TCPM_DBG_ENABLE */
 
 	return ret;

@@ -20,7 +20,6 @@ struct pd_msg {
 	uint8_t frame_type;
 	uint16_t msg_hdr;
 	uint32_t payload[7];
-	unsigned long time_stamp;
 };
 
 struct pd_event {

@@ -928,13 +928,13 @@ static inline void print_state(
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 #if PE_DBG_ENABLE
-	PE_DBG("%s -> %s (%c%c%c)\r\n",
+	PE_DBG("%s -> %s (%c%c%c)\n",
 		vdm_evt ? "VDM" : "PD", pe_state_name[state],
 		pd_port->power_role ? 'P' : 'C',
 		pd_port->data_role ? 'D' : 'U',
 		pd_port->vconn_role ? 'Y' : 'N');
 #else
-	PE_STATE_INFO("%s-> %s\r\n",
+	PE_STATE_INFO("%s-> %s\n",
 		vdm_evt ? "VDM" : "PD", pe_state_name[state]);
 #endif	/* PE_DBG_ENABLE */
 }
@@ -1247,7 +1247,7 @@ static inline uint8_t pd_try_get_active_event(
 
 #if DPM_DBG_ENABLE
 	if ((ret != 0) && (ret != DPM_READY_REACTION_BUSY)) {
-		DPM_DBG("from_pe: %d, evt:%d, reaction:0x%x\r\n",
+		DPM_DBG("from_pe: %d, evt:%d, reaction:0x%x\n",
 			from_pe, ret, pd_port->pe_data.dpm_reaction_id);
 	}
 #endif	/* DPM_DBG_ENABLE */
@@ -1281,13 +1281,20 @@ static inline uint8_t pd_try_get_active_event(
 static inline uint8_t pd_try_get_next_event(
 	struct tcpc_device *tcpc, struct pd_event *pd_event)
 {
+	uint8_t ret = 0;
+	struct pd_port *pd_port = &tcpc->pd_port;
+
 	if (pd_get_event(tcpc, pd_event))
 		return PE_NEW_EVT_PD;
 
 	if (pd_try_get_vdm_event(tcpc, pd_event))
 		return PE_NEW_EVT_VDM;
 
-	return pd_try_get_active_event(tcpc, pd_event);
+	mutex_lock(&pd_port->pd_lock);
+	ret = pd_try_get_active_event(tcpc, pd_event);
+	mutex_unlock(&pd_port->pd_lock);
+
+	return ret;
 }
 
 /*
@@ -1309,7 +1316,7 @@ static inline int pd_handle_dpm_immediately(
 	}
 
 	if (dpm_immediately) {
-		PE_DBG("DPM_Immediately\r\n");
+		PE_DBG("DPM_Immediately\n");
 		pd_event->event_type = PD_EVT_DPM_MSG;
 		pd_event->msg = PD_DPM_ACK;
 		return pd_handle_event(pd_port, pd_event);
@@ -1320,23 +1327,25 @@ static inline int pd_handle_dpm_immediately(
 
 int pd_policy_engine_run(struct tcpc_device *tcpc)
 {
+	bool loop = true;
 	uint8_t ret;
 	struct pd_port *pd_port = &tcpc->pd_port;
 	struct pd_event *pd_event = pd_get_curr_pd_event(pd_port);
 
 	ret = pd_try_get_next_event(tcpc, pd_event);
-
-	if (ret == PE_NEW_EVT_NULL)
-		return false;
-
-	pd_port->curr_is_vdm_evt = (ret == PE_NEW_EVT_VDM);
+	if (ret == PE_NEW_EVT_NULL) {
+		loop = false;
+		goto out;
+	}
 
 	mutex_lock(&pd_port->pd_lock);
+
+	pd_port->curr_is_vdm_evt = (ret == PE_NEW_EVT_VDM);
 
 	pd_handle_event(pd_port, pd_event);
 	pd_handle_dpm_immediately(pd_port, pd_event);
 
 	mutex_unlock(&pd_port->pd_lock);
-
-	return 1;
+out:
+	return loop;
 }

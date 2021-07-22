@@ -43,7 +43,7 @@ static const char * const pd_ctrl_msg_name[] = {
 static inline void print_ctrl_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_CTRL_MSG_NR)
-		PE_EVT_INFO("%s\r\n", pd_ctrl_msg_name[msg]);
+		PE_EVT_INFO("%s\n", pd_ctrl_msg_name[msg]);
 }
 
 static const char * const pd_data_msg_name[] = {
@@ -74,7 +74,7 @@ static const char * const pd_data_msg_name[] = {
 static inline void print_data_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_DATA_MSG_NR)
-		PE_EVT_INFO("%s\r\n", pd_data_msg_name[msg]);
+		PE_EVT_INFO("%s\n", pd_data_msg_name[msg]);
 }
 
 #ifdef CONFIG_USB_PD_REV30
@@ -100,7 +100,7 @@ static const char *const pd_ext_msg_name[] = {
 static inline void print_ext_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_EXT_MSG_NR)
-		PE_EVT_INFO("%s\r\n", pd_ext_msg_name[msg]);
+		PE_EVT_INFO("%s\n", pd_ext_msg_name[msg]);
 }
 
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -125,7 +125,7 @@ static const char *const pd_hw_msg_name[] = {
 static inline void print_hw_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_HW_MSG_NR)
-		PE_EVT_INFO("%s\r\n", pd_hw_msg_name[msg]);
+		PE_EVT_INFO("%s\n", pd_hw_msg_name[msg]);
 }
 
 static const char *const pd_pe_msg_name[] = {
@@ -140,7 +140,7 @@ static const char *const pd_pe_msg_name[] = {
 static inline void print_pe_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_PE_MSG_NR)
-		PE_EVT_INFO("%s\r\n", pd_pe_msg_name[msg]);
+		PE_EVT_INFO("%s\n", pd_pe_msg_name[msg]);
 }
 
 static const char * const pd_dpm_msg_name[] = {
@@ -153,7 +153,7 @@ static const char * const pd_dpm_msg_name[] = {
 static inline void print_dpm_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_DPM_MSG_NR)
-		PE_EVT_INFO("dpm_%s\r\n", pd_dpm_msg_name[msg]);
+		PE_EVT_INFO("dpm_%s\n", pd_dpm_msg_name[msg]);
 }
 
 static const char *const tcp_dpm_evt_name[] = {
@@ -222,7 +222,7 @@ static const char *const tcp_dpm_evt_name[] = {
 static inline void print_tcp_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < TCP_DPM_EVT_NR)
-		PE_EVT_INFO("tcp_event(%s), %d\r\n",
+		PE_EVT_INFO("tcp_event(%s), %d\n",
 			tcp_dpm_evt_name[msg], msg);
 }
 #endif
@@ -261,7 +261,7 @@ static inline void print_event(
 		break;
 
 	case PD_EVT_TIMER_MSG:
-		PE_EVT_INFO("timer\r\n");
+		PE_EVT_INFO("timer\n");
 		break;
 
 	case PD_EVT_TCP_MSG:
@@ -341,7 +341,7 @@ bool pd_process_protocol_error(
 		power_change = true;
 		if (pd_event_msg_match(pd_event,
 				PD_EVT_CTRL_MSG, PD_CTRL_PING)) {
-			PE_DBG("Ignore Ping\r\n");
+			PE_DBG("Ignore Ping\n");
 			return false;
 		}
 		break;
@@ -351,7 +351,7 @@ bool pd_process_protocol_error(
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 		if (pd_event_msg_match(pd_event,
 				PD_EVT_CTRL_MSG, PD_CTRL_PING)) {
-			PE_DBG("Ignore Ping\r\n");
+			PE_DBG("Ignore Ping\n");
 			return false;
 		}
 		break;
@@ -367,12 +367,12 @@ bool pd_process_protocol_error(
 
 	if (pd_port->pe_data.pe_state_flags &
 			PE_STATE_FLAG_IGNORE_UNKNOWN_EVENT) {
-		PE_DBG("Ignore Unknown Event\r\n");
+		PE_DBG("Ignore Unknown Event\n");
 		return false;
 	}
 
 	if (pd_check_pe_during_hard_reset(pd_port)) {
-		PE_DBG("Ignore Event during HReset\r\n");
+		PE_DBG("Ignore Event during HReset\n");
 		return false;
 	}
 
@@ -380,7 +380,7 @@ bool pd_process_protocol_error(
 	 * msg_type: PD_EVT_CTRL_MSG (1), PD_EVT_DATA_MSG (2)
 	 */
 
-	PE_INFO("PRL_ERR: %d-%d-%d\r\n", event_type, msg_type, msg_id);
+	PE_INFO("PRL_ERR: %d-%d-%d\n", event_type, msg_type, msg_id);
 
 	if (pd_port->pe_data.during_swap) {
 #ifdef CONFIG_USB_PD_PR_SWAP_ERROR_RECOVERY
@@ -402,7 +402,7 @@ bool pd_process_tx_failed(struct pd_port *pd_port)
 
 	if (pd_check_pe_state_ready(pd_port) ||
 		pd_check_pe_during_hard_reset(pd_port)) {
-		PE_DBG("Ignore tx_failed\r\n");
+		PE_DBG("Ignore tx_failed\n");
 		return false;
 	}
 
@@ -446,7 +446,7 @@ static inline bool pd_process_event_cable(
 #endif	/* CONFIG_USB_PD_RESET_CABLE */
 
 	if (!ret)
-		PE_DBG("Ignore not SOP Ctrl Msg\r\n");
+		PE_DBG("Ignore not SOP Ctrl Msg\n");
 
 	return ret;
 }
@@ -524,19 +524,19 @@ static inline bool pe_is_valid_pd_msg_id(struct pd_port *pd_port,
 		/* SofReset always has a MessageID value of zero */
 		case PD_CTRL_SOFT_RESET:
 			if (msg_id != 0) {
-				PE_INFO("Repeat soft_reset\r\n");
+				PE_INFO("Repeat soft_reset\n");
 				return false;
 			}
 			return true;
 
 		case PD_CTRL_GOOD_CRC:
-			PE_DBG("Discard_CRC\r\n");
+			PE_DBG("Discard_CRC\n");
 			return true;
 
 #ifdef CONFIG_USB_PD_IGNORE_PS_RDY_AFTER_PR_SWAP
 		case PD_CTRL_PS_RDY:
 			if (pd_port->msg_id_pr_swap_last == msg_id) {
-				PE_INFO("Repeat ps_rdy\r\n");
+				PE_INFO("Repeat ps_rdy\n");
 				return false;
 			}
 			break;
@@ -545,7 +545,7 @@ static inline bool pe_is_valid_pd_msg_id(struct pd_port *pd_port,
 	}
 
 	if (pd_port->pe_data.msg_id_rx[sop_type] == msg_id) {
-		PE_INFO("Repeat msg: %c:%d:%d\r\n",
+		PE_INFO("Repeat msg: %c:%d:%d\n",
 			(pd_event->event_type == PD_EVT_CTRL_MSG) ? 'C' : 'D',
 			pd_event->msg, msg_id);
 		return false;
@@ -578,7 +578,7 @@ static inline bool pe_is_valid_pd_msg_role(struct pd_port *pd_port,
 	 */
 
 	if (msg_pr == pd_port->power_role)
-		PE_DBG("Wrong PR:%d\r\n", msg_pr);
+		PE_DBG("Wrong PR:%d\n", msg_pr);
 
 	/*
 	 * Should a Type-C Port receive a Message with the Port Data Role field
@@ -592,7 +592,7 @@ static inline bool pe_is_valid_pd_msg_role(struct pd_port *pd_port,
 #ifdef CONFIG_USB_PD_CHECK_DATA_ROLE
 		ret = false;
 #endif
-		PE_INFO("Wrong DR:%d\r\n", msg_dr);
+		PE_INFO("Wrong DR:%d\n", msg_dr);
 	}
 
 	return ret;
@@ -636,6 +636,12 @@ static inline uint8_t pe_get_startup_state(
 #endif	/* CONFIG_USB_PD_CUSTOM_DBGACC */
 
 	switch (pd_event->msg_sec) {
+	case TYPEC_ATTACHED_DBGACC_SNK:
+#ifdef CONFIG_USB_PD_CUSTOM_DBGACC
+		pd_port->custom_dbgacc = true;
+		startup_state = PE_DBG_READY;
+		break;
+#endif	/* CONFIG_USB_PD_CUSTOM_DBGACC */
 	case TYPEC_ATTACHED_SNK:
 		startup_state = PE_SNK_STARTUP;
 		break;
@@ -644,13 +650,6 @@ static inline uint8_t pe_get_startup_state(
 		act_as_sink = false;
 		startup_state = PE_SRC_STARTUP;
 		break;
-
-#ifdef CONFIG_USB_PD_CUSTOM_DBGACC
-	case TYPEC_ATTACHED_DBGACC_SNK:
-		pd_port->custom_dbgacc = true;
-		startup_state = PE_DBG_READY;
-		break;
-#endif	/* CONFIG_USB_PD_CUSTOM_DBGACC */
 	}
 
 	/* At least > 2 for Ellisys VNDI PR_SWAP */
@@ -719,7 +718,7 @@ static inline uint8_t pe_check_trap_in_idle_state(
 		return TII_PE_RUNNING;
 	}
 
-	PE_DBG("Trap in idle state, Ignore All MSG (%d:%d)\r\n",
+	PE_DBG("Trap in idle state, Ignore All MSG (%d:%d)\n",
 		pd_event->event_type, pd_event->msg);
 	return TII_TRAP_IN_IDLE;
 }

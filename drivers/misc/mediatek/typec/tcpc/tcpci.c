@@ -87,7 +87,7 @@ int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc)
 
 	if (tcpci_get_power_status(tcpc, &power_status) == 0) {
 		if (vbus_level != tcpc->vbus_level) {
-			TCPC_INFO("[Warning] ps_changed %d ->%d\r\n",
+			TCPC_INFO("[Warning] ps_changed %d ->%d\n",
 				vbus_level, tcpc->vbus_level);
 		}
 	}
@@ -238,7 +238,7 @@ int tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 		else
 #endif	/* CONFIG_TYPEC_CHECK_LEGACY_CABLE2 */
 			pull = TYPEC_CC_RP_1_5;
-		TCPC_DBG2("LC->Toggling (%d)\r\n", pull);
+		TCPC_DBG2("LC->Toggling (%d)\n", pull);
 	}
 #endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 
@@ -263,7 +263,7 @@ int tcpci_set_low_rp_duty(struct tcpc_device *tcpc, bool low_rp)
 {
 #ifdef CONFIG_TYPEC_CAP_LOW_RP_DUTY
 	if (low_rp)
-		TCPC_INFO("low_rp_duty\r\n");
+		TCPC_INFO("low_rp_duty\n");
 
 	if (tcpc->ops->set_low_rp_duty)
 		return tcpc->ops->set_low_rp_duty(tcpc, low_rp);
@@ -472,6 +472,7 @@ int tcpci_notify_typec_state(struct tcpc_device *tcpc)
 	tcp_noti.typec_state.old_state = tcpc->typec_attach_old;
 	tcp_noti.typec_state.new_state = tcpc->typec_attach_new;
 	tcp_noti.typec_state.rp_level = tcpc->typec_remote_rp_level;
+	tcp_noti.typec_state.local_rp_level = tcpc->typec_local_rp_level;
 
 	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
 		TCP_NOTIFY_IDX_USB, TCP_NOTIFY_TYPEC_STATE);
@@ -516,7 +517,7 @@ int tcpci_enable_watchdog(struct tcpc_device *tcpc, bool en)
 	if (!(tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN))
 		return 0;
 
-	TCPC_DBG2("enable_WG: %d\r\n", en);
+	TCPC_DBG2("enable_WG: %d\n", en);
 
 	if (tcpc->typec_watchdog == en)
 		return 0;
@@ -572,7 +573,7 @@ int tcpci_source_vbus(
 	tcp_noti.vbus_state.type = type;
 
 	tcpci_enable_watchdog(tcpc, mv != 0);
-	TCPC_DBG("source_vbus: %d mV, %d mA\r\n", mv, ma);
+	TCPC_DBG("source_vbus: %d mV, %d mA\n", mv, ma);
 	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
 		TCP_NOTIFY_IDX_VBUS, TCP_NOTIFY_SOURCE_VBUS);
 	return ret;
@@ -616,7 +617,7 @@ int tcpci_sink_vbus(
 	tcp_noti.vbus_state.mv = mv;
 	tcp_noti.vbus_state.type = type;
 
-	TCPC_DBG("sink_vbus: %d mV, %d mA\r\n", mv, ma);
+	TCPC_DBG("sink_vbus: %d mV, %d mA\n", mv, ma);
 	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
 		TCP_NOTIFY_IDX_VBUS, TCP_NOTIFY_SINK_VBUS);
 	return ret;
@@ -628,7 +629,7 @@ int tcpci_disable_vbus_control(struct tcpc_device *tcpc)
 	struct tcp_notify tcp_noti;
 	int ret;
 
-	TCPC_DBG("disable_vbus\r\n");
+	TCPC_DBG("disable_vbus\n");
 	tcpci_enable_watchdog(tcpc, false);
 
 	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
@@ -670,25 +671,6 @@ int tcpci_notify_attachwait_state(struct tcpc_device *tcpc, bool as_sink)
 
 }
 
-int tcpci_enable_ext_discharge(struct tcpc_device *tcpc, bool en)
-{
-	int ret = 0;
-
-#ifdef CONFIG_TCPC_EXT_DISCHARGE
-	struct tcp_notify tcp_noti;
-
-	if (tcpc->typec_ext_discharge != en) {
-		tcpc->typec_ext_discharge = en;
-		tcp_noti.en_state.en = en;
-		TCPC_DBG("EXT-Discharge: %d\r\n", en);
-		ret = tcpc_check_notify_time(tcpc, &tcp_noti,
-			TCP_NOTIFY_IDX_VBUS, TCP_NOTIFY_EXT_DISCHARGE);
-	}
-#endif	/* CONFIG_TCPC_EXT_DISCHARGE */
-
-	return ret;
-}
-
 int tcpci_enable_auto_discharge(struct tcpc_device *tcpc, bool en)
 {
 	int ret = 0;
@@ -706,7 +688,8 @@ int tcpci_enable_auto_discharge(struct tcpc_device *tcpc, bool en)
 	return ret;
 }
 
-int __tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
+static int __tcpci_enable_force_discharge(
+	struct tcpc_device *tcpc, bool en, int mv)
 {
 	int ret = 0;
 
@@ -723,17 +706,33 @@ int __tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
 	return ret;
 }
 
+static int __tcpci_enable_ext_discharge(struct tcpc_device *tcpc, bool en)
+{
+	int ret = 0;
+
+#ifdef CONFIG_TCPC_EXT_DISCHARGE
+	struct tcp_notify tcp_noti;
+
+	if (tcpc->typec_ext_discharge != en) {
+		tcpc->typec_ext_discharge = en;
+		tcp_noti.en_state.en = en;
+		TCPC_DBG("EXT-Discharge: %d\n", en);
+		ret = tcpc_check_notify_time(tcpc, &tcp_noti,
+			TCP_NOTIFY_IDX_VBUS, TCP_NOTIFY_EXT_DISCHARGE);
+	}
+#endif	/* CONFIG_TCPC_EXT_DISCHARGE */
+
+	return ret;
+}
+
 int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
 {
 	int ret = 0;
 
 #ifdef CONFIG_TYPEC_CAP_FORCE_DISCHARGE
-#ifdef CONFIG_TCPC_FORCE_DISCHARGE_IC
 	ret = __tcpci_enable_force_discharge(tcpc, en, mv);
-#endif	/* CONFIG_TCPC_FORCE_DISCHARGE_IC */
-
 #ifdef CONFIG_TCPC_FORCE_DISCHARGE_EXT
-	ret = tcpci_enable_ext_discharge(tcpc, en);
+	ret = __tcpci_enable_ext_discharge(tcpc, en);
 #endif	/* CONFIG_TCPC_FORCE_DISCHARGE_EXT */
 #endif	/* CONFIG_TYPEC_CAP_FORCE_DISCHARGE */
 
@@ -810,7 +809,7 @@ int tcpci_report_hpd_state(struct tcpc_device *tcpc, uint32_t dp_status)
 
 int tcpci_dp_status_update(struct tcpc_device *tcpc, uint32_t dp_status)
 {
-	DP_INFO("Status0: 0x%x\r\n", dp_status);
+	DP_INFO("Status0: 0x%x\n", dp_status);
 	tcpci_report_hpd_state(tcpc, dp_status);
 	return 0;
 }
@@ -820,7 +819,7 @@ int tcpci_dp_configure(struct tcpc_device *tcpc, uint32_t dp_config)
 	struct tcp_notify tcp_noti;
 	int ret;
 
-	DP_INFO("LocalCFG: 0x%x\r\n", dp_config);
+	DP_INFO("LocalCFG: 0x%x\n", dp_config);
 
 	switch (dp_config & 0x03) {
 	case 0:
@@ -838,7 +837,7 @@ int tcpci_dp_configure(struct tcpc_device *tcpc, uint32_t dp_config)
 	if (tcp_noti.ama_dp_state.pin_assignment == 0)
 		tcp_noti.ama_dp_state.pin_assignment = (dp_config >> 16) & 0xff;
 
-	DP_INFO("pin assignment: 0x%x\r\n",
+	DP_INFO("pin assignment: 0x%x\n",
 		tcp_noti.ama_dp_state.pin_assignment);
 	tcp_noti.ama_dp_state.signal = (dp_config >> 2) & 0x0f;
 	tcp_noti.ama_dp_state.polarity = tcpc->typec_polarity;
@@ -853,7 +852,7 @@ int tcpci_dp_attention(struct tcpc_device *tcpc, uint32_t dp_status)
 	/* DFP_U : Not call this function during internal flow */
 	struct tcp_notify tcp_noti;
 
-	DP_INFO("Attention: 0x%x\r\n", dp_status);
+	DP_INFO("Attention: 0x%x\n", dp_status);
 	tcp_noti.ama_dp_attention.state = (uint8_t) dp_status;
 	tcpc_check_notify_time(tcpc, &tcp_noti,
 		TCP_NOTIFY_IDX_MODE, TCP_NOTIFY_AMA_DP_ATTENTION);
@@ -864,7 +863,7 @@ int tcpci_dp_notify_status_update_done(
 	struct tcpc_device *tcpc, uint32_t dp_status, bool ack)
 {
 	/* DFP_U : Not call this function during internal flow */
-	DP_INFO("Status1: 0x%x, ack=%d\r\n", dp_status, ack);
+	DP_INFO("Status1: 0x%x, ack=%d\n", dp_status, ack);
 	return 0;
 }
 
@@ -873,7 +872,7 @@ int tcpci_dp_notify_config_start(struct tcpc_device *tcpc)
 	/* DFP_U : Put signal & mux into the Safe State */
 	struct tcp_notify tcp_noti;
 
-	DP_INFO("ConfigStart\r\n");
+	DP_INFO("ConfigStart\n");
 	tcp_noti.ama_dp_state.sel_config = SW_USB;
 	tcp_noti.ama_dp_state.active = 0;
 	tcpc_check_notify_time(tcpc, &tcp_noti,
@@ -887,7 +886,7 @@ int tcpci_dp_notify_config_done(struct tcpc_device *tcpc,
 	/* DFP_U : If DP success,
 	 * internal flow will enter this function finally
 	 */
-	DP_INFO("ConfigDone, L:0x%x, R:0x%x, ack=%d\r\n",
+	DP_INFO("ConfigDone, L:0x%x, R:0x%x, ack=%d\n",
 		local_cfg, remote_cfg, ack);
 
 	if (ack)
@@ -924,7 +923,7 @@ int tcpci_dc_notify_en_unlock(struct tcpc_device *tcpc)
 	struct tcp_notify tcp_noti;
 	int ret;
 
-	DC_INFO("DirectCharge en_unlock\r\n");
+	DC_INFO("DirectCharge en_unlock\n");
 	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
 		TCP_NOTIFY_IDX_MODE, TCP_NOTIFY_DC_EN_UNLOCK);
 	return ret;

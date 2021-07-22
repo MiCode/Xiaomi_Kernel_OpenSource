@@ -562,7 +562,7 @@ int pd_core_init(struct tcpc_device *tcpc)
 	pd_port->cap_miss_match = 0; /* For src_cap miss match */
 
 	ret = pd_parse_pdata(pd_port);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	pd_core_power_flags_init(pd_port);
@@ -573,7 +573,7 @@ int pd_core_init(struct tcpc_device *tcpc)
 	INIT_WORK(&pd_port->fg_bat_work, fg_bat_absent_work);
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 
-	PE_INFO("%s\r\n", __func__);
+	PE_INFO("%s\n", __func__);
 	return 0;
 }
 
@@ -631,7 +631,7 @@ uint32_t pd_reset_pdo_power(struct tcpc_device *tcpc,
 
 	case PDO_TYPE_BATTERY:
 		/* TODO: check it later !! */
-		PD_ERR("No Support\r\n");
+		PD_ERR("No Support\n");
 		break;
 
 #ifdef CONFIG_USB_PD_REV30_PPS_SOURCE
@@ -780,7 +780,7 @@ int pd_enable_vbus_valid_detection(struct pd_port *pd_port, bool wait_valid)
 {
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	PE_DBG("WaitVBUS=%d\r\n", wait_valid);
+	PE_DBG("WaitVBUS=%d\n", wait_valid);
 	pd_notify_pe_wait_vbus_once(pd_port,
 		wait_valid ? PD_WAIT_VBUS_VALID_ONCE :
 					PD_WAIT_VBUS_INVALID_ONCE);
@@ -791,7 +791,7 @@ int pd_enable_vbus_safe0v_detection(struct pd_port *pd_port)
 {
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	PE_DBG("WaitVSafe0V\r\n");
+	PE_DBG("WaitVSafe0V\n");
 	pd_notify_pe_wait_vbus_once(pd_port, PD_WAIT_VBUS_SAFE0V_ONCE);
 	return 0;
 }
@@ -800,7 +800,7 @@ int pd_enable_vbus_stable_detection(struct pd_port *pd_port)
 {
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	PE_DBG("WaitVStable\r\n");
+	PE_DBG("WaitVStable\n");
 	pd_notify_pe_wait_vbus_once(pd_port, PD_WAIT_VBUS_STABLE_ONCE);
 	return 0;
 }
@@ -813,41 +813,33 @@ static inline int pd_update_msg_header(struct pd_port *pd_port)
 
 int pd_set_data_role(struct pd_port *pd_port, uint8_t dr)
 {
-	pd_port->data_role = dr;
+	int ret = 0;
 
-	/* dual role usb--> 0:ufp, 1:dfp */
-	pd_port->tcpc->dual_role_mode = pd_port->data_role;
-	/* dual role usb --> 0: Device, 1: Host */
-	pd_port->tcpc->dual_role_dr = !(pd_port->data_role);
-	if (pd_port->tcpc->dual_role_dr == PD_ROLE_UFP)
-		pd_port->tcpc->typec_caps.data = TYPEC_PORT_UFP;
-	else
-		pd_port->tcpc->typec_caps.data = TYPEC_PORT_DFP;
+	if (dr == pd_port->data_role)
+		return ret;
+
+	pd_port->data_role = dr;
+	ret = pd_update_msg_header(pd_port);
+	if (ret < 0)
+		return ret;
 
 	tcpci_notify_role_swap(pd_port->tcpc, TCP_NOTIFY_DR_SWAP, dr);
-	typec_set_data_role(pd_port->tcpc->typec_port,
-			    pd_port->tcpc->dual_role_dr ==
-			    DUAL_ROLE_PROP_DR_HOST ? TYPEC_HOST : TYPEC_DEVICE);
-	return pd_update_msg_header(pd_port);
+	return ret;
 }
 
 int pd_set_power_role(struct pd_port *pd_port, uint8_t pr)
 {
-	int ret;
+	int ret = 0;
+
+	if (pr == pd_port->power_role)
+		return ret;
 
 	pd_port->power_role = pr;
 	ret = pd_update_msg_header(pd_port);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	pd_notify_pe_pr_changed(pd_port);
-	if (pd_port->tcpc->dual_role_pr == DUAL_ROLE_PROP_PR_SRC)
-		pd_port->tcpc->typec_caps.type = TYPEC_PORT_SRC;
-	else
-		pd_port->tcpc->typec_caps.type = TYPEC_PORT_SNK;
-
-	/* 0:sink, 1: source */
-	pd_port->tcpc->dual_role_pr = !(pd_port->power_role);
 
 	tcpci_notify_role_swap(pd_port->tcpc, TCP_NOTIFY_PR_SWAP, pr);
 	return ret;
@@ -884,28 +876,32 @@ int pd_init_message_hdr(struct pd_port *pd_port, bool act_as_sink)
 
 int pd_set_vconn(struct pd_port *pd_port, uint8_t role)
 {
-	bool enable;
+	int ret = 0;
+	bool enable = !!(role & PD_ROLE_VCONN_ON);
 	bool en_role = role != PD_ROLE_VCONN_OFF;
+	bool en_role_old = pd_port->vconn_role != PD_ROLE_VCONN_OFF;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	PE_DBG("%s:%d\r\n", __func__, role);
-
-	tcpc->dual_role_vconn = en_role;
-	pd_port->vconn_role = role;
-	tcpci_notify_role_swap(tcpc, TCP_NOTIFY_VCONN_SWAP, en_role);
-
-	if ((role & PD_ROLE_VCONN_ON))
-		enable = true;
-	else
-		enable = false;
+	PE_DBG("%s:%d\n", __func__, role);
 
 #ifdef CONFIG_USB_PD_VCONN_SAFE5V_ONLY
-	if (pd_port->pe_data.vconn_highv_prot && enable) {
-		PE_DBG("VC_OVER5V\r\n");
-		return 0;
+	if (pd_port->pe_data.vconn_highv_prot) {
+		PE_DBG("VC_OVER5V\n");
+		return -EPERM;
 	}
 #endif	/* CONFIG_USB_PD_VCONN_SAFE5V_ONLY */
 
+	if (role == pd_port->vconn_role)
+		goto out;
+
+	pd_port->vconn_role = role;
+	ret = tcpci_set_vconn(tcpc, enable);
+	if (ret < 0)
+		return ret;
+
+	if (en_role != en_role_old)
+		tcpci_notify_role_swap(tcpc, TCP_NOTIFY_VCONN_SWAP, en_role);
+out:
 #ifdef CONFIG_USB_PD_VCONN_STABLE_DELAY
 	if (role == PD_ROLE_VCONN_DYNAMIC_ON)
 		pd_restart_timer(pd_port, PD_TIMER_VCONN_STABLE);
@@ -914,7 +910,7 @@ int pd_set_vconn(struct pd_port *pd_port, uint8_t role)
 	if (!enable)
 		PE_RESET_MSG_ID(pd_port, TCPC_TX_SOP_PRIME);
 
-	return tcpci_set_vconn(tcpc, enable);
+	return ret;
 }
 
 static inline int pd_reset_modal_operation(struct pd_port *pd_port)
@@ -952,6 +948,7 @@ int pd_reset_local_hw(struct pd_port *pd_port)
 
 #ifdef CONFIG_USB_PD_VCONN_SAFE5V_ONLY
 	pd_port->pe_data.vconn_highv_prot = false;
+	pd_port->pe_data.vconn_highv_prot_role = PD_ROLE_VCONN_OFF;
 #endif	/* CONFIG_USB_PD_VCONN_SAFE5V_ONLY */
 
 #ifdef CONFIG_USB_PD_RESET_CABLE
@@ -972,7 +969,7 @@ int pd_reset_local_hw(struct pd_port *pd_port)
 	pd_set_data_role(pd_port, dr);
 	pd_init_spec_revision(pd_port);
 	pd_dpm_notify_pe_hardreset(pd_port);
-	PE_DBG("reset_local_hw\r\n");
+	PE_DBG("reset_local_hw\n");
 
 	return 0;
 }
@@ -981,7 +978,7 @@ int pd_enable_bist_test_mode(struct pd_port *pd_port, bool en)
 {
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	PE_DBG("bist_test_mode=%d\r\n", en);
+	PE_DBG("bist_test_mode=%d\n", en);
 	return tcpci_set_bist_test_mode(tcpc, en);
 }
 
@@ -1038,7 +1035,7 @@ int pd_send_message(struct pd_port *pd_port, uint8_t sop_type,
 	struct tcpc_device *tcpc = pd_port->tcpc;
 
 	if (tcpc->typec_attach_old == 0) {
-		PE_DBG("[SendMsg] Unattached\r\n");
+		PE_DBG("[SendMsg] Unattached\n");
 		return 0;
 	}
 
@@ -1073,7 +1070,7 @@ int pd_send_message(struct pd_port *pd_port, uint8_t sop_type,
 	pd_notify_pe_transmit_msg(pd_port, type);
 	ret = tcpci_transmit(pd_port->tcpc, sop_type, msg_hdr, data);
 	if (ret < 0)
-		PD_ERR("[SendMsg] Failed, %d\r\n", ret);
+		PD_ERR("[SendMsg] Failed, %d\n", ret);
 
 	return ret;
 }
@@ -1164,7 +1161,7 @@ int pd_send_hard_reset(struct pd_port *pd_port)
 {
 	struct tcpc_device *tcpc = pd_port->tcpc;
 
-	PE_DBG("Send HARD Reset\r\n");
+	PE_DBG("Send HARD Reset\n");
 	__pm_wakeup_event(tcpc->attach_wake_lock, 6000);
 
 	pd_port->pe_data.hard_reset_counter++;
@@ -1181,7 +1178,7 @@ int pd_send_bist_mode2(struct pd_port *pd_port)
 	pd_notify_tcp_event_buf_reset(pd_port, TCP_DPM_RET_DROP_SEND_BIST);
 
 #ifdef CONFIG_USB_PD_TRANSMIT_BIST2
-	TCPC_DBG("BIST_MODE_2\r\n");
+	TCPC_DBG("BIST_MODE_2\n");
 	ret = tcpci_transmit(tcpc, TCPC_TX_BIST_MODE_2, 0, NULL);
 #else
 	ret = tcpci_set_bist_carrier_mode(tcpc, 1 << 2);
@@ -1233,7 +1230,7 @@ int pd_send_svdm_request(struct pd_port *pd_port,
 		return rv;
 
 	if (alert_status & TCPC_REG_ALERT_RX_STATUS) {
-		PE_DBG("RX Busy, stop send VDM\r\n");
+		PE_DBG("RX Busy, stop send VDM\n");
 		return 0;
 	}
 #endif	/* CONFIG_USB_PD_STOP_SEND_VDM_IF_RX_BUSY */
@@ -1242,7 +1239,7 @@ int pd_send_svdm_request(struct pd_port *pd_port,
 			pd_port, sop_type, PD_DATA_VENDOR_DEF, 1+cnt, payload);
 
 	if (ret == 0 && timer_id != 0)
-		pd_enable_vdm_state_timer(pd_port, timer_id);
+		VDM_STATE_RESPONSE_CMD(pd_port, timer_id);
 
 	return ret;
 }
@@ -1276,15 +1273,15 @@ int pd_reply_svdm_request(struct pd_port *pd_port,
 		return rv;
 
 	if (alert_status & TCPC_REG_ALERT_RX_STATUS) {
-		PE_DBG("RX Busy, stop reply VDM\r\n");
+		PE_DBG("RX Busy, stop reply VDM\n");
 		return 0;
 	}
 #endif	/* CONFIG_USB_PD_STOP_REPLY_VDM_IF_RX_BUSY */
 
 	if (reply != CMDT_RSP_ACK)
-		PE_INFO("VDM_NAK_BUSY\r\n");
+		PE_INFO("VDM_NAK_BUSY\n");
 	else
-		PE_INFO("VDM_ACK\r\n");
+		PE_INFO("VDM_ACK\n");
 
 	VDM_STATE_REPLY_SVDM_REQUEST(pd_port);
 
@@ -1350,34 +1347,7 @@ int pd_update_connect_state(struct pd_port *pd_port, uint8_t state)
 		return 0;
 
 	pd_port->pd_connect_state = state;
-	PE_INFO("pd_state=%d\r\n", state);
-
-	if (!pd_port->tcpc->partner) {
-		/* Make sure we don't report stale identity information */
-		memset(&pd_port->tcpc->partner_ident, 0,
-			sizeof(pd_port->tcpc->partner_ident));
-		pd_port->tcpc->partner_desc.identity =
-					      &pd_port->tcpc->partner_ident;
-		pd_port->tcpc->partner_desc.usb_pd =
-						  pd_port->tcpc->pd_capable;
-		pd_port->tcpc->partner =
-			typec_register_partner(pd_port->tcpc->typec_port,
-					      &pd_port->tcpc->partner_desc);
-		if (!pd_port->tcpc->partner)
-			PE_INFO("register partner fail\r\n");
-	}
-
-	typec_set_data_role(tcpc->typec_port,
-			    tcpc->dual_role_dr ==
-			    DUAL_ROLE_PROP_DR_HOST ? TYPEC_HOST : TYPEC_DEVICE);
-	typec_set_pwr_role(tcpc->typec_port,
-			   tcpc->dual_role_pr ==
-			   DUAL_ROLE_PROP_PR_SRC ? TYPEC_SOURCE : TYPEC_SINK);
-	typec_set_vconn_role(tcpc->typec_port,
-			     tcpc->dual_role_pr ==
-			     DUAL_ROLE_PROP_VCONN_SUPPLY_YES ?
-			     TYPEC_SOURCE : TYPEC_SINK);
-
+	PE_INFO("pd_state=%d\n", state);
 	return tcpci_notify_pd_state(tcpc, state);
 }
 
@@ -1398,7 +1368,7 @@ void pd_set_sink_tx(struct pd_port *pd_port, uint8_t cc)
 
 	if (cc == PD30_SINK_TX_OK &&
 		pd_port->pe_data.pd_traffic_control != PD_SINK_TX_OK) {
-		PE_INFO("sink_tx_ok\r\n");
+		PE_INFO("sink_tx_ok\n");
 		tcpci_lock_typec(tcpc);
 		tcpci_set_cc(tcpc, cc);
 		tcpci_unlock_typec(tcpc);
@@ -1406,7 +1376,7 @@ void pd_set_sink_tx(struct pd_port *pd_port, uint8_t cc)
 		pd_disable_timer(pd_port, PD_TIMER_SINK_TX);
 	} else if (cc == PD30_SINK_TX_NG &&
 		pd_port->pe_data.pd_traffic_control == PD_SINK_TX_OK) {
-		PE_INFO("sink_tx_ng\r\n");
+		PE_INFO("sink_tx_ng\n");
 		tcpci_lock_typec(tcpc);
 		tcpci_set_cc(tcpc, cc);
 		tcpci_unlock_typec(tcpc);
@@ -1426,7 +1396,7 @@ void pd_sync_sop_spec_revision(struct pd_port *pd_port)
 		pd_port->pd_revision[0] = MIN(PD_REV30, rev);
 		pd_port->pd_revision[1] = MIN(pd_port->pd_revision[1], rev);
 
-		PE_INFO("pd_rev=%d\r\n", pd_port->pd_revision[0]);
+		PE_INFO("pd_rev=%d\n", pd_port->pd_revision[0]);
 	}
 #endif /* CONFIG_USB_PD_REV30_SYNC_SPEC_REV */
 }
@@ -1440,7 +1410,7 @@ void pd_sync_sop_prime_spec_revision(struct pd_port *pd_port, uint8_t rev)
 	if (!pe_data->cable_rev_discovered) {
 		pe_data->cable_rev_discovered = true;
 		pd_port->pd_revision[1] = MIN(pd_port->pd_revision[1], rev);
-		PE_INFO("cable_rev=%d\r\n", pd_port->pd_revision[1]);
+		PE_INFO("cable_rev=%d\n", pd_port->pd_revision[1]);
 	}
 #endif /* CONFIG_USB_PD_REV30_SYNC_SPEC_REV */
 }
@@ -1453,7 +1423,7 @@ bool pd_is_multi_chunk_msg(struct pd_port *pd_port)
 	if (pd_get_msg_hdr_ext(pd_port)) {
 		size = pd_get_msg_data_size(pd_port);
 		if (size > MAX_EXTENDED_MSG_CHUNK_LEN) {
-			PE_INFO("multi_chunk_msg = TRUE (%d)\r\n", size);
+			PE_INFO("multi_chunk_msg = TRUE (%d)\n", size);
 			return true;
 		}
 	}

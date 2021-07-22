@@ -137,56 +137,7 @@ enum {
 	TCP_NOTIFY_REQUEST_BAT_INFO,
 	TCP_NOTIFY_WD_STATUS,
 	TCP_NOTIFY_CABLE_TYPE,
-	TCP_NOTIFY_PLUG_OUT,
-	TCP_NOTIFY_MISC_END = TCP_NOTIFY_PLUG_OUT,
-};
-
-enum dual_role_supported_modes {
-	DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP = 0,
-	DUAL_ROLE_SUPPORTED_MODES_DFP,
-	DUAL_ROLE_SUPPORTED_MODES_UFP,
-/*The following should be the last element*/
-	DUAL_ROLE_PROP_SUPPORTED_MODES_TOTAL,
-};
-
-enum {
-	DUAL_ROLE_PROP_MODE_UFP = 0,
-	DUAL_ROLE_PROP_MODE_DFP,
-	DUAL_ROLE_PROP_MODE_NONE,
-/*The following should be the last element*/
-	DUAL_ROLE_PROP_MODE_TOTAL,
-};
-
-enum {
-	DUAL_ROLE_PROP_PR_SRC = 0,
-	DUAL_ROLE_PROP_PR_SNK,
-	DUAL_ROLE_PROP_PR_NONE,
-/*The following should be the last element*/
-	DUAL_ROLE_PROP_PR_TOTAL,
-
-};
-
-enum {
-	DUAL_ROLE_PROP_DR_HOST = 0,
-	DUAL_ROLE_PROP_DR_DEVICE,
-	DUAL_ROLE_PROP_DR_NONE,
-/*The following should be the last element*/
-	DUAL_ROLE_PROP_DR_TOTAL,
-};
-
-enum {
-	DUAL_ROLE_PROP_VCONN_SUPPLY_NO = 0,
-	DUAL_ROLE_PROP_VCONN_SUPPLY_YES,
-/*The following should be the last element*/
-	DUAL_ROLE_PROP_VCONN_SUPPLY_TOTAL,
-};
-
-enum dual_role_property {
-	DUAL_ROLE_PROP_SUPPORTED_MODES = 0,
-	DUAL_ROLE_PROP_MODE,
-	DUAL_ROLE_PROP_PR,
-	DUAL_ROLE_PROP_DR,
-	DUAL_ROLE_PROP_VCONN_SUPPLY,
+	TCP_NOTIFY_MISC_END = TCP_NOTIFY_CABLE_TYPE,
 };
 
 struct tcp_ny_pd_state {
@@ -203,6 +154,7 @@ struct tcp_ny_enable_state {
 
 struct tcp_ny_typec_state {
 	uint8_t rp_level;
+	uint8_t local_rp_level;
 	uint8_t polarity;
 	uint8_t old_state;
 	uint8_t new_state;
@@ -444,16 +396,17 @@ enum pd_cable_current_limit {
 #define DPM_FLAGS_PARTNER_DR_DATA		(1<<1)
 #define DPM_FLAGS_PARTNER_EXTPOWER		(1<<2)
 #define DPM_FLAGS_PARTNER_USB_COMM		(1<<3)
-#define DPM_FLAGS_PARTNER_USB_SUSPEND	(1<<4)
+#define DPM_FLAGS_PARTNER_USB_SUSPEND		(1<<4)
 #define DPM_FLAGS_PARTNER_HIGH_CAP		(1<<5)
 
 #define DPM_FLAGS_PARTNER_MISMATCH		(1<<7)
 #define DPM_FLAGS_PARTNER_GIVE_BACK		(1<<8)
-#define DPM_FLAGS_PARTNER_NO_SUSPEND	(1<<9)
+#define DPM_FLAGS_PARTNER_NO_SUSPEND		(1<<9)
 
 #define DPM_FLAGS_RESET_PARTNER_MASK	\
-	(DPM_FLAGS_PARTNER_DR_POWER | DPM_FLAGS_PARTNER_DR_DATA|\
-	DPM_FLAGS_PARTNER_EXTPOWER | DPM_FLAGS_PARTNER_USB_COMM)
+	(DPM_FLAGS_PARTNER_DR_POWER | DPM_FLAGS_PARTNER_DR_DATA |\
+	 DPM_FLAGS_PARTNER_EXTPOWER | DPM_FLAGS_PARTNER_USB_COMM |\
+	 DPM_FLAGS_PARTNER_USB_SUSPEND)
 
 /* DPM_CAPS */
 

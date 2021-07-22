@@ -127,7 +127,7 @@ static inline bool pd_vdm_state_transit_rx(struct pd_port *pd_port,
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (!pd_check_pe_state_ready(pd_port)) {
-		PE_DBG("670 : invalid, current status\r\n");
+		PE_DBG("670 : invalid, current status\n");
 		return false;
 	}
 
@@ -367,10 +367,16 @@ static inline bool pd_ufp_u_auto_send_attention(struct pd_port *pd_port)
 static inline bool pd_process_ctrl_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
+	struct pe_data *pe_data = &pd_port->pe_data;
+
 	/* VDM Only handle CtrlMsg = GoodCRC */
 
 	if (pd_event->msg != PD_CTRL_GOOD_CRC)
 		return false;
+
+	if (pe_data->vdm_state_flags &
+		VDM_STATE_FLAG_ENABLE_VDM_RESPONSE_TIMER)
+		pd_enable_timer(pd_port, pe_data->vdm_state_timer);
 
 	switch (pd_port->pe_state_curr) {
 #ifdef CONFIG_USB_PD_ALT_MODE
@@ -389,13 +395,13 @@ static inline bool pd_process_ctrl_msg(
 
 #ifdef CONFIG_USB_PD_SRC_STARTUP_DISCOVER_ID
 	case PE_SRC_VDM_IDENTITY_REQUEST:
-		pd_port->pe_data.power_cable_present = true;
+		pe_data->power_cable_present = true;
 		return false;
 #endif	/* CONFIG_USB_PD_SRC_STARTUP_DISCOVER_ID */
 
 #ifdef CONFIG_USB_PD_DFP_READY_DISCOVER_ID
 	case PE_DFP_CBL_VDM_IDENTITY_REQUEST:
-		pd_port->pe_data.power_cable_present = true;
+		pe_data->power_cable_present = true;
 		return false;
 #endif	/* CONFIG_USB_PD_DFP_READY_DISCOVER_ID */
 
@@ -409,7 +415,7 @@ static inline bool pd_process_ctrl_msg(
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
 	}
 
-	if (pd_port->pe_data.vdm_state_flags
+	if (pe_data->vdm_state_flags
 		& VDM_STATE_FLAG_BACK_READY_IF_RECV_GOOD_CRC) {
 		pe_transit_ready_state(pd_port);
 		return true;
@@ -467,7 +473,7 @@ static inline bool pd_process_uvdm(
 #endif	/* CONFIG_USB_PD_UVDM */
 
 	/* TODO: Reply Not_Supported Message*/
-	PE_DBG("659 : Invalid UVDM\r\n");
+	PE_DBG("659 : Invalid UVDM\n");
 	return false;
 }
 
@@ -483,11 +489,6 @@ static const char * const pe_vdm_cmd_name[] = {
 	"EnterMode",
 	"ExitMode",
 	"Attention",
-};
-
-static const char *const pe_vdm_dp_cmd_name[] = {
-	"DPStatus",
-	"DPConfig",
 };
 
 #if PE_INFO_ENABLE
@@ -510,6 +511,11 @@ static inline const char *assign_vdm_cmd_name(uint8_t cmd)
 }
 
 #ifdef CONFIG_USB_PD_ALT_MODE
+static const char *const pe_vdm_dp_cmd_name[] = {
+	"DPStatus",
+	"DPConfig",
+};
+
 static inline const char *assign_vdm_dp_cmd_name(uint8_t cmd)
 {
 	if (cmd >= CMD_DP_STATUS) {
@@ -553,7 +559,7 @@ static inline void print_vdm_msg(
 	if (cmd_type >= ARRAY_SIZE(pe_vdm_cmd_type_name))
 		return;
 
-	PE_INFO("%s:%s\r\n", name, pe_vdm_cmd_type_name[cmd_type]);
+	PE_INFO("%s:%s\n", name, pe_vdm_cmd_type_name[cmd_type]);
 #endif /* PE_INFO_ENABLE */
 
 #endif	/* PE_EVT_INFO_VDM_DIS */
@@ -572,7 +578,7 @@ static inline bool pd_process_sop_vdm(
 		return true;
 #endif	/* CONFIG_USB_PD_SVDM */
 
-	PE_DBG("Unknown SVDM\r\n");
+	PE_DBG("Unknown SVDM\n");
 	return false;
 }
 
@@ -606,7 +612,7 @@ static inline bool pd_process_data_msg(
 		pd_port->pe_state_curr = pd_port->pe_pd_state;
 
 #if PE_DBG_RESET_VDM_DIS == 0
-		PE_DBG("reset vdm_state\r\n");
+		PE_DBG("reset vdm_state\n");
 #endif /* if PE_DBG_RESET_VDM_DIS == 0 */
 	}
 
@@ -651,7 +657,7 @@ static inline bool pd_process_hw_msg(
 
 	if (pd_event->msg == PD_HW_TX_DISCARD &&
 		(pe_data->vdm_discard_retry_count < 10)) {
-		PE_INFO("vdm_discard_retry\r\n");
+		PE_INFO("vdm_discard_retry\n");
 		pe_data->vdm_discard_retry_flag = true;
 		pe_data->vdm_discard_retry_count++;
 	}
@@ -664,7 +670,7 @@ static inline bool pd_process_hw_msg(
 	case PD_HW_RETRY_VDM:
 		if (pd_port->pe_data.vdm_state_timer)
 			return pd_make_vdm_state_transit_nak(pd_port);
-		PE_DBG("RetryVDM\r\n");
+		PE_DBG("RetryVDM\n");
 		return pd_process_sop_vdm(pd_port, pd_event);
 	}
 
@@ -887,7 +893,7 @@ static inline bool pd_process_tcp_msg(
 	if (!pd_check_pe_state_ready(pd_port)) {
 		pd_notify_tcp_event_1st_result(
 			pd_port, TCP_DPM_RET_DENIED_NOT_READY);
-		PE_DBG("skip vdm_request, not ready_state (%d)\r\n",
+		PE_DBG("skip vdm_request, not ready_state (%d)\n",
 					pd_port->pe_state_curr);
 		return false;
 	}
@@ -903,7 +909,7 @@ static inline bool pd_process_tcp_msg(
 	if (!pd_check_tcp_msg_valid(pd_port, new_state)) {
 		pd_notify_tcp_event_1st_result(
 			pd_port, TCP_DPM_RET_DENIED_WRONG_DATA_ROLE);
-		PE_DBG("skip vdm_request, WRONG DATA ROLE\r\n");
+		PE_DBG("skip vdm_request, WRONG DATA ROLE\n");
 		return false;
 	}
 

@@ -14,7 +14,6 @@
 #include <linux/notifier.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
-#include <linux/usb/typec.h>
 
 #include "tcpm.h"
 #include "tcpci_timer.h"
@@ -22,9 +21,9 @@
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 #include "pd_core.h"
-#ifdef CONFIG_TYPEC_WAIT_BC12
+#ifdef CONFIG_USB_PD_WAIT_BC12
 #include <linux/power_supply.h>
-#endif /* CONFIG_TYPEC_WAIT_BC12 */
+#endif /* CONFIG_USB_PD_WAIT_BC12 */
 #endif
 
 /* The switch of log message */
@@ -100,11 +99,6 @@ struct tcpc_desc {
 #ifdef CONFIG_TCPC_FORCE_DISCHARGE_EXT
 #define CONFIG_TCPC_EXT_DISCHARGE
 #endif	/* CONFIG_TCPC_FORCE_DISCHARGE_EXT */
-
-#ifdef CONFIG_TCPC_AUTO_DISCHARGE_EXT
-#undef CONFIG_TCPC_EXT_DISCHARGE
-#define CONFIG_TCPC_EXT_DISCHARGE
-#endif	/* CONFIG_TCPC_AUTO_DISCHARGE_EXT */
 
 /*---------------------------------------------------------------------------*/
 
@@ -300,7 +294,7 @@ struct tcpc_device {
 	bool wake_lock_user;
 	uint8_t wake_lock_pd;
 	struct wakeup_source *attach_wake_lock;
-	struct wakeup_source *dettach_temp_wake_lock;
+	struct wakeup_source *detach_wake_lock;
 
 	/* For tcpc timer & event */
 	uint32_t timer_handle_index;
@@ -319,12 +313,10 @@ struct tcpc_device {
 	atomic_t pending_event;
 	uint64_t timer_tick;
 	uint64_t timer_enable_mask;
-	wait_queue_head_t event_loop_wait_que;
-	wait_queue_head_t  timer_wait_que;
+	wait_queue_head_t event_wait_que;
+	wait_queue_head_t timer_wait_que;
 	struct task_struct *event_task;
 	struct task_struct *timer_task;
-	bool timer_thread_stop;
-	bool event_loop_thread_stop;
 
 	struct delayed_work	init_work;
 	struct delayed_work	event_init_work;
@@ -402,19 +394,6 @@ struct tcpc_device {
 
 	uint32_t tcpc_flags;
 
-	struct typec_capability typec_caps;
-	struct typec_port *typec_port;
-	struct device_connection dev_conn;
-	uint8_t dual_role_supported_modes;
-	uint8_t dual_role_mode;
-	uint8_t dual_role_pr;
-	uint8_t dual_role_dr;
-	uint8_t dual_role_vconn;
-	struct usb_pd_identity partner_ident;
-	struct typec_partner_desc partner_desc;
-	struct typec_partner *partner;
-	bool pd_capable;
-
 #ifdef CONFIG_USB_POWER_DELIVERY
 	/* Event */
 	uint8_t pd_event_count;
@@ -480,10 +459,10 @@ struct tcpc_device {
 	uint8_t charging_status;
 	int bat_soc;
 #endif /* CONFIG_USB_PD_REV30 */
-#ifdef CONFIG_TYPEC_WAIT_BC12
-	uint8_t sink_wait_bc12_count;
+#ifdef CONFIG_USB_PD_WAIT_BC12
+	uint8_t pd_wait_bc12_count;
 	struct power_supply *chg_psy;
-#endif /* CONFIG_TYPEC_WAIT_BC12 */
+#endif /* CONFIG_USB_PD_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 	u8 vbus_level:2;
 	bool vbus_safe0v;

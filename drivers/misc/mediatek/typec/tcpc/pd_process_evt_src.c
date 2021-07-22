@@ -87,7 +87,11 @@ static inline bool pd_process_ctrl_msg_get_sink_cap(
 	}
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
-	pd_send_sop_ctrl_msg(pd_port, PD_CTRL_REJECT);
+	if (!pd_check_rev30(pd_port)) {
+		PE_TRANSIT_STATE(pd_port, PE_REJECT);
+		return true;
+	}
+
 	return false;
 }
 
@@ -106,7 +110,7 @@ static inline bool pd_process_ctrl_msg(
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 		if (pd_event->msg >= PD_CTRL_GET_SOURCE_CAP &&
 			pd_event->msg <= PD_CTRL_VCONN_SWAP) {
-			PE_DBG("Port Partner Request First\r\n");
+			PE_DBG("Port Partner Request First\n");
 			pd_port->pe_state_curr = PE_SRC_READY;
 			pd_disable_timer(
 				pd_port, PD_TIMER_SENDER_RESPONSE);
@@ -311,7 +315,7 @@ static inline bool pd_process_hw_msg_tx_failed(
 	if (pd_port->pe_state_curr == PE_SRC_SEND_CAPABILITIES) {
 		if (pe_data->pd_connected) {
 			if (!pe_data->explicit_contract) {
-				PE_DBG("PR_SWAP NoResp\r\n");
+				PE_DBG("PR_SWAP NoResp\n");
 				return false;
 			}
 		} else {
@@ -489,9 +493,9 @@ static inline bool pd_process_timer_msg(
 
 		break;
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
-
+		/* fall through */
 #ifdef CONFIG_USB_PD_REV30
-	case PD_TIMER_CK_NO_SUPPORT:
+	case PD_TIMER_CK_NOT_SUPPORTED:
 		return PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SRC_CHUNK_RECEIVED, PE_SRC_SEND_NOT_SUPPORTED);
 #endif	/* CONFIG_USB_PD_REV30 */
