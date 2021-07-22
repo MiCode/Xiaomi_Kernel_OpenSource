@@ -135,6 +135,8 @@ struct ufs_mtk_host {
 	bool qos_allowed;
 	bool qos_enabled;
 	bool boot_device;
+
+	struct mutex rpmb_lock;
 };
 
 enum {
@@ -148,5 +150,9 @@ struct tag_bootmode {
 	u32 bootmode;
 	u32 boottype;
 };
+
+#if IS_ENABLED(CONFIG_RPMB)
+struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev(void);
+#endif
 
 #endif /* !_UFS_MEDIATEK_H */
