@@ -46,11 +46,13 @@ struct mtk_imgsys_cb_param {
 	struct swfrm_info_t *frm_info;
 	struct mtk_imgsys_cmdq_timestamp cmdqTs;
 	struct mtk_imgsys_dev *imgsys_dev;
-	void (*user_cmdq_cb)(struct cmdq_cb_data data);
+	void (*user_cmdq_cb)(struct cmdq_cb_data data, uint32_t subfidx);
 	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx);
 	s32 err;
 	u32 frm_idx;
 	u32 frm_num;
+	u32 is_earlycb;
+	s32 group_id;
 	bool isBlkLast;
 	bool isFrmLast;
 };
@@ -186,9 +188,10 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev);
 int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
-				void (*cmdq_cb)(struct cmdq_cb_data data),
+				void (*cmdq_cb)(struct cmdq_cb_data data,
+					uint32_t uinfo_idx),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
-				uint32_t fail_uinfo_idx));
+					uint32_t fail_uinfo_idx));
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd);
 
 #if DVFS_QOS_READY

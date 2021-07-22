@@ -116,6 +116,7 @@ enum mtk_imgsys_event {
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_DIP,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B,
+	IMGSYS_CMDQ_SYNC_TOKEN_IPESYS_ME,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_1,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_2,
 	IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_3,
@@ -294,9 +295,9 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_EVENT_IMG_WPE_LITE_CQ_THR_DONE_P2_6, "wpe_lite_cq_thread6_frame_done"},
 	{IMGSYS_CMDQ_EVENT_IMG_WPE_LITE_CQ_THR_DONE_P2_7, "wpe_lite_cq_thread7_frame_done"},
 	{IMGSYS_CMDQ_EVENT_IMG_WPE_LITE_CQ_THR_DONE_P2_8, "wpe_lite_cq_thread8_frame_done"},
-	{IMGSYS_CMDQ_EVENT_IMG_WPE_LITE_CQ_THR_DONE_P2_9, "wpe_lite_cq_thread9_frame_done"},	
+	{IMGSYS_CMDQ_EVENT_IMG_WPE_LITE_CQ_THR_DONE_P2_9, "wpe_lite_cq_thread9_frame_done"},
 	/*ME done*/
-	{IMGSYS_CMDQ_EVENT_IMG_IMGSYS_IPE_ME_DONE, "me_done"},	
+	{IMGSYS_CMDQ_EVENT_IMG_IMGSYS_IPE_ME_DONE, "me_done"},
 	/*ADL done*/
 	{IMGSYS_CMDQ_EVENT_IMG_ADL_TILE_DONE_EVENT, "adl_tile_done"},
 	/* SW event */
@@ -309,6 +310,7 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_DIP, "dip_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A, "pqdip_a_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B, "pqdip_b_sync_token"},
+	{IMGSYS_CMDQ_SYNC_TOKEN_IPESYS_ME, "me_sync_token"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_1, "sw_sync_token_pool_1"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_2, "sw_sync_token_pool_2"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_3, "sw_sync_token_pool_3"},

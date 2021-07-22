@@ -173,10 +173,13 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 
 	if (is_stream_off == 0) {
 		dev_dbg(imgsys_dev->dev,
-			"%s: req fd/no(%d/%d) frame no(%d) cb(%p) isBlkLast(%d) isFrmLast(%d) for frm(%d/%d)\n",
+			"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) isFrmLast(%d) isECB(%d) isGPLast(%d) isGPECB(%d) for frm(%d/%d)\n",
 			__func__, cb_param->frm_info->request_fd,
 			cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
-			cb_param, cb_param->isBlkLast, cb_param->isFrmLast,
+			cb_param, cb_param->frm_info, cb_param->isBlkLast,
+			cb_param->isFrmLast, cb_param->is_earlycb,
+			cb_param->frm_info->user_info[cb_param->frm_idx].is_lastingroup,
+			cb_param->frm_info->user_info[cb_param->frm_idx].is_earlycb,
 			cb_param->frm_idx, cb_param->frm_num);
 
 		hw_comb = cb_param->frm_info->user_info[cb_param->frm_idx].hw_comb;
@@ -186,9 +189,15 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			cb_frm_cnt = cb_param->frm_info->cb_frmcnt;
 		}
 
-		if (cb_param->isBlkLast &&
-			(cb_param->frm_num == cb_frm_cnt) &&
-			cb_param->user_cmdq_cb) {
+		dev_dbg(imgsys_dev->dev,
+			"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) cb_param->frm_num(%d) cb_frm_cnt(%d)\n",
+			__func__, cb_param->frm_info->request_fd,
+			cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
+			cb_param, cb_param->frm_info, cb_param->isBlkLast, cb_param->frm_num,
+			cb_frm_cnt, cb_frm_cnt);
+
+		if (cb_param->isBlkLast && cb_param->user_cmdq_cb &&
+			((cb_param->frm_num == cb_frm_cnt) || cb_param->is_earlycb)) {
 			struct cmdq_cb_data user_cb_data;
 
 			/* PMQOS API */
@@ -198,13 +207,16 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 				__func__, "dvfs_qos", cb_param->frm_info->frame_no,
 				cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 				cb_param->frm_info->frm_owner);
-			mutex_lock(&(imgsys_dev->dvfs_qos_lock));
-			#if DVFS_QOS_READY
-			mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
-			mtk_imgsys_mmdvfs_set(imgsys_dev, cb_param->frm_info, 0);
-			mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
-			#endif
-			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
+			/* Calling PMQOS API if last frame */
+			if (cb_param->frm_num == cb_frm_cnt) {
+				mutex_lock(&(imgsys_dev->dvfs_qos_lock));
+				#if DVFS_QOS_READY
+				mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
+				mtk_imgsys_mmdvfs_set(imgsys_dev, cb_param->frm_info, 0);
+				mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
+				#endif
+				mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
+			}
 			IMGSYS_SYSTRACE_END();
 			tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
 
@@ -216,7 +228,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 				__func__, "user_cb", cb_param->frm_info->frame_no,
 				cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 				cb_param->frm_info->frm_owner);
-			cb_param->user_cmdq_cb(user_cb_data);
+			cb_param->user_cmdq_cb(user_cb_data, cb_param->frm_idx);
 			IMGSYS_SYSTRACE_END();
 			cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
 		}
@@ -313,9 +325,10 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 
 int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
-				void (*cmdq_cb)(struct cmdq_cb_data data),
+				void (*cmdq_cb)(struct cmdq_cb_data data,
+					uint32_t subfidx),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
-				uint32_t fail_subfidx))
+					uint32_t fail_subfidx))
 {
 	struct cmdq_client *clt = NULL;
 	struct cmdq_pkt *pkt = NULL;
@@ -355,21 +368,34 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		cmd = (struct Command *)((unsigned long)(frm_info->user_info[frm_idx].g_swbuf) +
 			(unsigned long)(cmd_buf->cmd_offset));
 		hw_comb = frm_info->user_info[frm_idx].hw_comb;
-		/* Choose cmdq_client base on hw scenario */
-		for (thd_idx = 0; thd_idx < IMGSYS_ENG_MAX; thd_idx++) {
-			if (hw_comb & 0x1) {
-				clt = imgsys_clt[thd_idx];
-				pr_debug(
-				"%s: chosen mbox thread (%d, 0x%x) for frm(%d/%d)\n",
+
+		if (frm_info->group_id == -1) {
+			/* Choose cmdq_client base on hw scenario */
+			for (thd_idx = 0; thd_idx < IMGSYS_ENG_MAX; thd_idx++) {
+				if (hw_comb & 0x1) {
+					clt = imgsys_clt[thd_idx];
+					pr_debug(
+					"%s: chosen mbox thread (%d, 0x%x) for frm(%d/%d)\n",
 					__func__, thd_idx, clt, frm_idx, frm_num);
-				break;
+					break;
+				}
+				hw_comb = hw_comb>>1;
 			}
-			hw_comb = hw_comb>>1;
-		}
-		/*	This segment can be removed since user had set dependency	*/
-		if (frm_info->user_info[frm_idx].hw_comb & IMGSYS_ENG_DIP) {
-			thd_idx = 4;
-			clt = imgsys_clt[thd_idx];
+			/*	This segment can be removed since user had set dependency	*/
+			if (frm_info->user_info[frm_idx].hw_comb & IMGSYS_ENG_DIP) {
+				thd_idx = 4;
+				clt = imgsys_clt[thd_idx];
+			}
+		} else {
+			if (frm_info->group_id < IMGSYS_ENG_MAX) {
+				thd_idx = frm_info->group_id;
+				clt = imgsys_clt[thd_idx];
+			} else {
+				pr_info("%s: [ERROR] group_id(%d) is over max hw num(%d) for frm(%d/%d)!\n",
+					__func__, frm_info->group_id, IMGSYS_ENG_MAX,
+					frm_info->user_info[frm_idx].hw_comb, frm_idx, frm_num);
+				return -1;
+			}
 		}
 
 		/* This is work around for low latency flow.		*/
@@ -454,6 +480,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				cb_param->isFrmLast = 1;
 			else
 				cb_param->isFrmLast = 0;
+			cb_param->is_earlycb = frm_info->user_info[frm_idx].is_earlycb;
+			cb_param->group_id = frm_info->group_id;
 			cb_param->cmdqTs.tsReqStart = tsReqStart;
 			cb_param->cmdqTs.tsDvfsQosStart = tsDvfsQosStart;
 			cb_param->cmdqTs.tsDvfsQosEnd = tsDvfsQosEnd;

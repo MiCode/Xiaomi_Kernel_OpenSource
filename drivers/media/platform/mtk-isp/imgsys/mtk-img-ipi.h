@@ -83,6 +83,8 @@ struct img_swfrm_info {
 	uint32_t hw_comb;
 	int sw_ridx;
 	uint8_t is_time_shared;
+	uint8_t is_earlycb;
+	uint8_t is_lastingroup;
 	uint64_t sw_goft;
 	uint64_t sw_bwoft;
 	int subfrm_idx;

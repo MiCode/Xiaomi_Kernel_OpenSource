@@ -685,6 +685,7 @@ struct swfrm_info_t {
 	uint8_t is_earlycb;
 	int earlycb_sidx;
 	uint8_t is_lastfrm;
+	int8_t group_id;
 	int8_t is_sent;	/*check the frame is sent to gce or not*/
 	void *req;		/*mtk_dip_request*/
 	void *pipe;

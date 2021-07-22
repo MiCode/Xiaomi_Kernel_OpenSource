@@ -704,7 +704,8 @@ release_work:
 }
 
 /* Maybe in IRQ context of cmdq */
-static void imgsys_mdp_cb_func(struct cmdq_cb_data data)
+static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
+					unsigned int subfidx)
 {
 	struct mtk_imgsys_pipe *pipe;
 	struct mtk_imgsys_request *req;
@@ -713,6 +714,8 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data)
 	struct swfrm_info_t *swfrminfo_cb;
 	struct imgsys_event_status ev;
 	struct gce_cb_work *gwork = NULL;
+	bool need_notify_daemon = false;
+	bool lastfrmInMWReq = false;
 
 	if (!data.data) {
 		pr_info("%s: data->data is NULL\n",
@@ -843,7 +846,8 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data)
 		if (swfrminfo_cb->is_lastfrm)
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
 	} else {
-		if (swfrminfo_cb->is_lastfrm || swfrminfo_cb->is_earlycb)
+		if (swfrminfo_cb->is_lastfrm || swfrminfo_cb->is_earlycb ||
+			swfrminfo_cb->user_info[subfidx].is_lastingroup)
 			dev_dbg(imgsys_dev->dev,
 			"%s: req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)lst(%d)e_cb(%d/%d)sidx(%d)tfrm(%d)\n",
 			__func__, swfrminfo_cb->request_fd,
@@ -855,26 +859,63 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data)
 			swfrminfo_cb->earlycb_sidx,
 			swfrminfo_cb->user_info[0].subfrm_idx,
 			swfrminfo_cb->total_frmnum);
+		if (swfrminfo_cb->group_id >= 0) {
+			dev_dbg(imgsys_dev->dev,
+			"%s: req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)group ID/L(%d/%d)e_cb(idx_%d:%d)tfrm(%d) cb/lst(%d/%d)\n",
+			__func__, swfrminfo_cb->request_fd,
+			swfrminfo_cb->request_no,
+			swfrminfo_cb->frame_no,
+			(unsigned long)swfrminfo_cb,
+			swfrminfo_cb->group_id,
+			swfrminfo_cb->user_info[subfidx].is_lastingroup,
+			subfidx,
+			swfrminfo_cb->user_info[subfidx].is_earlycb,
+			swfrminfo_cb->total_frmnum,
+			swfrminfo_cb->is_earlycb,
+			swfrminfo_cb->is_lastfrm);
 
-		/* call early notify if need early callback */
-		if (swfrminfo_cb->is_earlycb) {
-			ev.req_fd = swfrminfo_cb->request_fd;
-			ev.frame_number = swfrminfo_cb->earlycb_sidx;
-			mtk_imgsys_early_notify(req, &ev);
+			if (swfrminfo_cb->user_info[subfidx].is_earlycb) {
+				ev.req_fd = swfrminfo_cb->request_fd;
+				ev.frame_number = swfrminfo_cb->user_info[subfidx].subfrm_idx;
+				mtk_imgsys_early_notify(req, &ev);
+			}
+
+			if (swfrminfo_cb->user_info[subfidx].is_lastingroup) {
+				need_notify_daemon = true;
+				if (swfrminfo_cb->is_lastfrm)
+					lastfrmInMWReq = true;
+			}
+		} else {
+			/* call early notify if need early callback */
+			if (swfrminfo_cb->is_earlycb) {
+				ev.req_fd = swfrminfo_cb->request_fd;
+				ev.frame_number = swfrminfo_cb->earlycb_sidx;
+				mtk_imgsys_early_notify(req, &ev);
+			}
+			if (swfrminfo_cb->is_lastfrm)
+				lastfrmInMWReq = true;
+			need_notify_daemon = true;
 		}
-
+		dev_dbg(imgsys_dev->dev,
+			"%s: req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)lastfrmInMWReq:%d\n",
+			__func__, swfrminfo_cb->request_fd,
+			swfrminfo_cb->request_no,
+			swfrminfo_cb->frame_no,
+			(unsigned long)swfrminfo_cb, lastfrmInMWReq);
 		/* call dip notify when all package done */
-		if (swfrminfo_cb->is_lastfrm)
+		if (lastfrmInMWReq)
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
 
-		gwork = vzalloc(sizeof(struct gce_cb_work));
-		gwork->req = req;
-		//memcpy((void *)(&(gwork->user_info)), (void *)(&(frm_info_cb->user_info)),
-		//	sizeof(struct img_swfrm_info));
-		gwork->req_sbuf_kva = swfrminfo_cb->req_sbuf_kva;
-		gwork->pipe = swfrminfo_cb->pipe;
-		INIT_WORK(&gwork->work, cmdq_cb_done_worker);
-		queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq, &gwork->work);
+		if (need_notify_daemon) {
+			gwork = vzalloc(sizeof(struct gce_cb_work));
+			gwork->req = req;
+			//memcpy((void *)(&(gwork->user_info)), (void *)(&(frm_info_cb->user_info)),
+			//	sizeof(struct img_swfrm_info));
+			gwork->req_sbuf_kva = swfrminfo_cb->req_sbuf_kva;
+			gwork->pipe = swfrminfo_cb->pipe;
+			INIT_WORK(&gwork->work, cmdq_cb_done_worker);
+			queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq, &gwork->work);
+		}
 	}
 
 	IMGSYS_SYSTRACE_END();
