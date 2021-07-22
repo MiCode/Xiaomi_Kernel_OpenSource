@@ -259,7 +259,7 @@ static struct irq_chip mtk_spmi_pmic_irq_chip = {
 static void mtk_spmi_pmic_irq_sp_handler(struct pmic_core *core,
 					 unsigned int top_gp)
 {
-	unsigned int irq_status, sta_reg, status;
+	unsigned int irq_status = 0, sta_reg, status;
 	unsigned int hwirq, virq;
 	int ret, i, j;
 	struct irq_top_t *pmic_int;
