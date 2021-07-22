@@ -5902,8 +5902,12 @@
 		      <0 0x15200000 0 0x10000>,	/* 7 IMGSYS_WPE_EIS */
 		      <0 0x15500000 0 0x10000>,	/* 8 IMGSYS_WPE_TNR */
 		      <0 0x15600000 0 0x10000>,	/* 9 IMGSYS_WPE_LITE */
-		      <0 0x15220000 0 0x00100>,	/* 10 IMGSYS_WPE_DIP1 */
-		      <0 0x15320000 0 0x10000>;	/* 11 IMGSYS_ME */
+		      <0 0x15220000 0 0x00100>,	/* 10 IMGSYS_WPE1_DIP1 */
+		      <0 0x15320000 0 0x10000>,	/* 11 IMGSYS_ME */
+		      <0 0x15005300 0 0x01000>,	/* 12 IMGSYS_ADL_A */
+		      <0 0x15007300 0 0x01000>,	/* 13 IMGSYS_ADL_B */
+		      <0 0x15520000 0 0x00100>,	/* 14 IMGSYS_WPE2_DIP1 */
+		      <0 0x15620000 0 0x00100>;	/* 15 IMGSYS_WPE3_DIP1 */
 		mediatek,hcp = <&hcp>;
 		/* mediatek,larb = <&larb9 &larb10 &larb11>; */
 		iommus = <&disp_iommu M4U_PORT_L9_IMG1_IMGI_T1_A>,
@@ -6351,7 +6355,10 @@
 			 <&imgsys CLK_IMG_WPE1>,
 			 <&imgsys1_dip_top CLK_IMG1_DIP_TOP_DIP_TOP>,
 			 <&imgsys1_dip_nr CLK_IMG1_DIP_NR_DIP_NR>,
-			 <&imgsys1_wpe CLK_IMG1_WPE_WPE>;
+			 <&imgsys1_wpe CLK_IMG1_WPE_WPE>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_LARB>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP0>,
+			 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP1>;
 		clock-names = "IMGSYS_CG_IMG_TRAW0",
 			      "IMGSYS_CG_IMG_TRAW1",
 			      "IMGSYS_CG_IMG_TRAW2",
@@ -6362,7 +6369,10 @@
 			      "IMGSYS_CG_IMG_WPE1",
 			      "DIP_CG_IMG_DIP",
 			      "DIP_NR_DIP_NR",
-			      "WPE_CG_WPE_WPE";
+			      "WPE_CG_WPE_WPE",
+			      "IMGSYS_CG_IMG_ADL_LARB",
+			      "IMGSYS_CG_IMG_ADL_TOP0",
+			      "IMGSYS_CG_IMG_ADL_TOP1";
 		operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects =
