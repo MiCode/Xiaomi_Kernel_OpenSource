@@ -90,5 +90,6 @@ obj-$(CONFIG_INTERCONNECT_MTK_EXTENSION) += mtk-interconnect/
 obj-$(CONFIG_MTK_MMDVFS) += mmdvfs/
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_MTK_USB_BOOST) += usb_boost/
+obj-$(CONFIG_MTK_USB_META) += usb_meta/
 obj-$(CONFIG_MTK_CPUQOS_V3) += cache-auditor/
 obj-$(CONFIG_MTK_GATE_IC) += gate_ic/

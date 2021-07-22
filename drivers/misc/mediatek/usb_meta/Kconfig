@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# For MTK USB3.0 IP
+
+config MTK_USB_META
+	tristate "MediaTek USB META"
+	depends on USB_LIBCOMPOSITE
+	help
+	  Say Y or M here if your system runs on MediaTek SoCs with
+	  'Fast Meta' feature. The feature will generate a virtual comport
+	  and that will make 'meta mode" connected faster.
+
+	  If you don't know what this is, please say N.
+
+	  Choose M here to compile this driver as a module, and it
+	  will be called meta.ko.
