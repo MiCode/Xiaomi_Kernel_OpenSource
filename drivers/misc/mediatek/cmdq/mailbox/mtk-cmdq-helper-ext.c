@@ -438,7 +438,7 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 	struct cmdq_pkt_buffer *buf;
-	bool use_iommu;
+	bool use_iommu = false;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
@@ -446,11 +446,17 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 
 	if (cl)
 		use_iommu = cl->use_iommu;
-	else {
+	else if (pkt->dev && pkt->dev->of_node) {
 		struct device_node *iommu;
 
+		cmdq_log("%s cl is NULL, use pkt->dev", __func__);
 		iommu = of_parse_phandle(pkt->dev->of_node, "iommus", 0);
 		use_iommu = iommu?true:false;
+	} else {
+		cmdq_err("pkt->dev is NULL");
+		kfree(buf);
+		dump_stack();
+		return ERR_PTR(-ENODEV);
 	}
 
 	/* try dma pool if available */
