@@ -135,38 +135,38 @@ static struct secure_heap_page mtk_sec_heap_page[PAGE_HEAPS_NUM] = {
 
 static struct secure_heap_region mtk_sec_heap_region[REGION_HEAPS_NUM] = {
 	[SVP_REGION] = {
-		.heap_name = {"mtk_svp_region-uncached",
-			      "mtk_svp_region-uncached-aligned"},
+		.heap_name = {"mtk_svp_region",
+			      "mtk_svp_region-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_SVP_REGION,
 		.heap_type = REGION_BASE,
 	},
 	[PROT_REGION] = {
-		.heap_name = {"mtk_prot_region-uncached",
-			      "mtk_prot_region-uncached-aligned"},
+		.heap_name = {"mtk_prot_region",
+			      "mtk_prot_region-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_PROT_REGION,
 		.heap_type = REGION_BASE,
 	},
 	[PROT_2D_FR_REGION] = {
-		.heap_name = {"mtk_2d_fr_region-uncached",
-			      "mtk_2d_fr_region-uncached-aligned"},
+		.heap_name = {"mtk_2d_fr_region",
+			      "mtk_2d_fr_region-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_2D_FR,
 		.heap_type = REGION_BASE,
 	},
 	[WFD_REGION] = {
-		.heap_name = {"mtk_wfd_region-uncached",
-			      "mtk_wfd_region-uncached-aligned"},
+		.heap_name = {"mtk_wfd_region",
+			      "mtk_wfd_region-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_WFD,
 		.heap_type = REGION_BASE,
 	},
 	[SAPU_DATA_SHM_REGION] = {
-		.heap_name = {"mtk_sapu_data_shm_region-uncached",
-			      "mtk_sapu_data_shm_region-uncached-aligned"},
+		.heap_name = {"mtk_sapu_data_shm_region",
+			      "mtk_sapu_data_shm_region-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_SAPU_DATA_SHM,
 		.heap_type = REGION_BASE,
 	},
 	[SAPU_ENGINE_SHM_REGION] = {
-		.heap_name = {"mtk_sapu_engine_shm_region-uncached",
-			      "mtk_sapu_engine_shm_region-uncached-aligned"},
+		.heap_name = {"mtk_sapu_engine_shm_region",
+			      "mtk_sapu_engine_shm_region-aligned"},
 		.tmem_type = TRUSTED_MEM_REQ_SAPU_ENGINE_SHM,
 		.heap_type = REGION_BASE,
 	},
@@ -1033,8 +1033,6 @@ static void init_buffer_info(struct dma_heap *heap,
 	char *alloc_str;
 	int str_len = 0;
 
-	/* all secure memory set as uncached buffer */
-	buffer->uncached = true;
 	INIT_LIST_HEAD(&buffer->attachments);
 	mutex_init(&buffer->lock);
 	mutex_init(&buffer->map_lock);
@@ -1105,6 +1103,8 @@ static struct dma_buf *tmem_page_allocate(struct dma_heap *heap,
 	}
 	buffer->len = len;
 	buffer->heap = heap;
+	/* all page base memory set as noncached buffer */
+	buffer->uncached = true;
 	ret = page_base_alloc(sec_heap, buffer, len);
 	if (ret)
 		goto free_buffer;
