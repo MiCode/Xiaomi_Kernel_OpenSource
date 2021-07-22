@@ -39,6 +39,7 @@
 
 #include "ov48bmipiraw_Sensor.h"
 #include "ov48b_Sensor_setting.h"
+#include "ov48b_ana_gain_table.h"
 
 
 #define read_cmos_sensor_8(...) subdrv_i2c_rd_u8(__VA_ARGS__)
@@ -238,8 +239,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 	.margin = 22,					/* sensor framelength & shutter margin */
 	.min_shutter = 4,				/* min shutter */
-	.min_gain = 64, /*1x gain*/
-	.max_gain = 992, /*15.5x gain*/
+	.min_gain = BASEGAIN, /*1x gain*/
+	.max_gain = 15872, /*15.5x * 1024  gain*/
 	.min_gain_iso = 100,
 	.gain_step = 4, /*minimum step = 4 in 1x~2x gain*/
 	.gain_type = 1,/*to be modify,no gain table for sony*/
@@ -1962,6 +1963,16 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 #endif
 	//pr_debug("feature_id = %d\n", feature_id);
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+	if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
+		*(feature_data + 0) =
+			sizeof(ov48b_ana_gain_table);
+	} else {
+		memcpy((void *)(uintptr_t) (*(feature_data + 1)),
+		(void *)ov48b_ana_gain_table,
+		sizeof(ov48b_ana_gain_table));
+	}
+		break;
 	case SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS:
 		pScenarios = (MUINT32 *)((uintptr_t)(*(feature_data+1)));
 		switch (*feature_data) {
@@ -2634,9 +2645,9 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
-	.ana_gain_max = 992,
-	.ana_gain_min = 64,
+	.ana_gain_def = BASEGAIN,
+	.ana_gain_max = 15.5 * BASEGAIN,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 4,
 	.exposure_def = 0x3D0,
 	.exposure_max = 0xffffe9 - 22,

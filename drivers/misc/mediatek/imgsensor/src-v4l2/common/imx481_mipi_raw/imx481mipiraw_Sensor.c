@@ -41,6 +41,7 @@
 #include "kd_imgsensor_errcode.h"
 
 #include "imx481mipiraw_Sensor.h"
+#include "imx481_ana_gain_table.h"
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
@@ -162,8 +163,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.margin = 18,		/* sensor framelength & shutter margin */
 	.min_shutter = 4,	/* min shutter */
-	.min_gain = 64,
-	.max_gain = 1024,
+	.min_gain = BASEGAIN,
+	.max_gain = BASEGAIN*16,
 	.min_gain_iso = 100,
 	.gain_step = 1,
 	.gain_type = 0,
@@ -420,6 +421,27 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 
 } /* set_shutter */
 
+static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
+{
+	if (frame_length > 1)
+		ctx->frame_length = frame_length;
+
+	if (ctx->frame_length > imgsensor_info.max_frame_length)
+		ctx->frame_length = imgsensor_info.max_frame_length;
+	if (ctx->min_frame_length > ctx->frame_length)
+		ctx->frame_length = ctx->min_frame_length;
+
+	/* Extend frame length */
+	write_cmos_sensor(ctx, 0x0104, 0x01);
+	write_cmos_sensor(ctx, 0x0340, ctx->frame_length >> 8);
+	write_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
+	write_cmos_sensor(ctx, 0x0104, 0x00);
+
+	pr_debug("Framelength: set=%d/input=%d/min=%d, auto_extend=%d\n",
+		ctx->frame_length, frame_length, ctx->min_frame_length,
+		read_cmos_sensor(ctx, 0x0350));
+}
+
 /*************************************************************************
  * FUNCTION
  *	set_shutter_frame_length
@@ -507,7 +529,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
 {
 	kal_uint16 reg_gain = 0x0;
 
-	reg_gain = 1024 - (1024 * 64) / gain;
+	reg_gain = 1024 - (1024 * BASEGAIN) / gain;
 	return (kal_uint16) reg_gain;
 }
 
@@ -1908,6 +1930,16 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 	/*pr_debug("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
+			*(feature_data + 0) =
+				sizeof(imx481_ana_gain_table);
+		} else {
+			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
+			(void *)imx481_ana_gain_table,
+			sizeof(imx481_ana_gain_table));
+		}
+		break;
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_gain;
 		*(feature_data + 2) = imgsensor_info.max_gain;
@@ -2165,6 +2197,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		/* margin info by scenario */
 		*(feature_data + 2) = imgsensor_info.margin;
 		break;
+	case SENSOR_FEATURE_SET_FRAMELENGTH:
+		set_frame_length(ctx, (UINT16) (*feature_data));
+		break;
 
 	default:
 		break;
@@ -2175,9 +2210,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 static const struct subdrv_ctx defctx = {
 
-	.ana_gain_def = 0x100,
-	.ana_gain_max = 1024,
-	.ana_gain_min = 64,
+	.ana_gain_def = 0x1000,
+	.ana_gain_max = BASEGAIN * 16,
+	.ana_gain_min = BASEGAIN,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3D0,
 	/* support long exposure at most 128 times) */
