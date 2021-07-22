@@ -111,6 +111,7 @@ int fpsgo_arch_nr_clusters(void)
 
 		num++;
 		cpu = cpumask_last(policy->related_cpus);
+		cpufreq_cpu_put(policy);
 	}
 
 	return num;

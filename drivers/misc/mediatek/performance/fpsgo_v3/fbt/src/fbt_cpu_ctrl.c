@@ -397,6 +397,7 @@ static int fbt_cpu_topo_info(void)
 
 		num++;
 		cpu = cpumask_last(policy->related_cpus);
+		cpufreq_cpu_put(policy);
 	}
 
 	return 0;

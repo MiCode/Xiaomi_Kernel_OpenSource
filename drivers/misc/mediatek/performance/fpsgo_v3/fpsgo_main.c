@@ -642,8 +642,11 @@ static void fpsgo_cpu_frequency_tracer(void *ignore, unsigned int frequency, uns
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
 		return;
-	if (cpu_id != cpumask_first(policy->related_cpus))
+	if (cpu_id != cpumask_first(policy->related_cpus)) {
+		cpufreq_cpu_put(policy);
 		return;
+	}
+	cpufreq_cpu_put(policy);
 
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
@@ -654,10 +657,13 @@ static void fpsgo_cpu_frequency_tracer(void *ignore, unsigned int frequency, uns
 			break;
 		cpu = cpumask_last(policy->related_cpus);
 		cluster++;
+		cpufreq_cpu_put(policy);
 	}
 
-	if (policy)
+	if (policy) {
 		fpsgo_notify_cpufreq(cluster, frequency);
+		cpufreq_cpu_put(policy);
+	}
 }
 
 struct tracepoints_table fpsgo_tracepoints[] = {

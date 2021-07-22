@@ -4188,6 +4188,7 @@ static void fbt_update_pwd_tbl(void)
 
 		cluster++;
 		cpu = cpumask_last(policy->related_cpus);
+		cpufreq_cpu_put(policy);
 	}
 #endif
 

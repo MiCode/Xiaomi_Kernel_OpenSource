@@ -654,6 +654,7 @@ static void update_cpu_info(void)
 		g_core_num[cluster] = cpumask_weight(policy->cpus);
 		cluster++;
 		cpu = cpumask_last(policy->related_cpus);
+		cpufreq_cpu_put(policy);
 	}
 #endif
 }
