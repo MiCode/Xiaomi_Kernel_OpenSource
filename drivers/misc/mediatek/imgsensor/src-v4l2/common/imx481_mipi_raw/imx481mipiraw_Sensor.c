@@ -2208,6 +2208,115 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	return ERROR_NONE;
 } /* feature_control */
 
+#ifdef IMGSENSOR_VC_ROUTING
+static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0918,
+			.vsize = 0x06d2,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1230,
+			.vsize = 0x0da4,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1230,
+			.vsize = 0x0a30,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0780,
+			.vsize = 0x0438,
+		},
+	},
+};
+
+
+static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0780,
+			.vsize = 0x0438,
+		},
+	},
+};
+
+static int get_frame_desc(struct subdrv_ctx *ctx,
+		int scenario_id, struct mtk_mbus_frame_desc *fd)
+{
+	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_CUSTOM1:
+	case SENSOR_SCENARIO_ID_CUSTOM2:
+	case SENSOR_SCENARIO_ID_CUSTOM3:
+	case SENSOR_SCENARIO_ID_CUSTOM4:
+	case SENSOR_SCENARIO_ID_CUSTOM5:
+	case SENSOR_SCENARIO_ID_CUSTOM6:
+	case SENSOR_SCENARIO_ID_CUSTOM7:
+	case SENSOR_SCENARIO_ID_CUSTOM8:
+	case SENSOR_SCENARIO_ID_CUSTOM9:
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+	case SENSOR_SCENARIO_ID_CUSTOM11:
+	case SENSOR_SCENARIO_ID_CUSTOM12:
+	case SENSOR_SCENARIO_ID_CUSTOM13:
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_prev);
+		memcpy(fd->entry, frame_desc_prev, sizeof(frame_desc_prev));
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cap);
+		memcpy(fd->entry, frame_desc_cap, sizeof(frame_desc_cap));
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_vid);
+		memcpy(fd->entry, frame_desc_vid, sizeof(frame_desc_vid));
+		break;
+	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_hs_vid);
+		memcpy(fd->entry, frame_desc_hs_vid, sizeof(frame_desc_hs_vid));
+		break;
+	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_slim_vid);
+		memcpy(fd->entry, frame_desc_slim_vid, sizeof(frame_desc_slim_vid));
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
+#endif
+
 static const struct subdrv_ctx defctx = {
 
 	.ana_gain_def = 0x1000,
@@ -2264,6 +2373,9 @@ static struct subdrv_ops ops = {
 	.control = control,
 	.feature_control = feature_control,
 	.close = close,
+#ifdef IMGSENSOR_VC_ROUTING
+	.get_frame_desc = get_frame_desc,
+#endif
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
