@@ -820,7 +820,7 @@ static ssize_t mt_scp_dvfs_sleep_cnt_proc_write(
 			return -ESCP_DVFS_IPI_FAILED;
 		}
 	} else {
-		pr_notice("[%s]: invalid command: %s\n", cmd);
+		pr_notice("[%s]: invalid command: %s\n", __func__, cmd);
 		return -ESCP_DVFS_DBG_INVALID_CMD;
 	}
 
@@ -885,7 +885,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 	unsigned int ipi_cmd_size = -1;
 	int ret = 0;
 	int n = 0;
-	int slp_cmd = -1;
+	int dbg_core = -1, slp_cmd = -1;
 	struct ipi_tx_data_t ipi_data;
 
 	if (count <= 0)
@@ -931,10 +931,11 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 			return -ESCP_DVFS_IPI_FAILED;
 		}
 	} else if (!strcmp(cmd, "dbg_core")) {
-		if (slp_cmd < SCP_MAX_CORE_NUM)
-			dvfs.cur_dbg_core = slp_cmd;
+		dbg_core = slp_cmd;
+		if (dbg_core < SCP_MAX_CORE_NUM)
+			dvfs.cur_dbg_core = dbg_core;
 	} else {
-		pr_notice("[%s]: invalid command: %s\n", cmd);
+		pr_notice("[%s]: invalid command: %s\n", __func__, cmd);
 		return -ESCP_DVFS_DBG_INVALID_CMD;
 	}
 
@@ -1292,7 +1293,7 @@ static unsigned int __init _get_ulposc_clk_by_fmeter_wrapper(void)
 static unsigned int __init get_ulposc_clk_by_fmeter_vlp(void)
 {
 	unsigned int i = 0, result = 0;
-	unsigned int vlp_fqmtr_con0_bk, vlp_fqmtr_con1_bk;
+	unsigned int vlp_fqmtr_con0_bk = 0, vlp_fqmtr_con1_bk = 0;
 	unsigned int wait_for_measure = 0;
 	int is_fmeter_timeout = 0;
 
@@ -1378,7 +1379,7 @@ static unsigned int __init get_ulposc_clk_by_fmeter_vlp(void)
 static unsigned int __init get_ulposc_clk_by_fmeter(void)
 {
 	unsigned int i = 0, result = 0;
-	unsigned int misc_org, dbg_org, cali0_org, cali1_org;
+	unsigned int misc_org = 0, dbg_org = 0, cali0_org = 0, cali1_org = 0;
 	unsigned int wait_for_measure = 0;
 	int is_fmeter_timeout = 0;
 
@@ -1906,7 +1907,7 @@ static int __init mt_scp_dts_get_cali_hw_regs(struct device_node *node,
 			cali_hw->ulposc_regs = &cali_regs[i];
 
 	if (!cali_hw->ulposc_regs) {
-		pr_notice("[%s]: no ulposc cali reg found\n");
+		pr_notice("[%s]: no ulposc cali reg found\n", __func__);
 		return -ESCP_DVFS_NO_CALI_HW_FOUND;
 	}
 
