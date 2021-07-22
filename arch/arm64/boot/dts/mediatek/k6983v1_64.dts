@@ -25,7 +25,7 @@
 	atag,videolfb-fps= <6000>;
 	atag,videolfb-vramSize= <0x1be0000>;
 	atag,videolfb-lcmname=
-		"td4330_fhdp_dsi_vdo_auo_rt5081_drv";
+		"nt36672e_fhdp_dsi_vdo_60hz_jdi_dphy_drv";
 };
 
 &odm {
@@ -506,13 +506,29 @@
 			pinmux = <PINMUX_GPIO85__FUNC_DSI_TE>;
 		};
 	};
+
+	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO68__FUNC_GPIO68>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_led_en0: lcm_led_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO68__FUNC_GPIO68>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
 };
 
 &mtkfb {
 	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
 		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
 		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
-		"mode_te_te";
+		"mode_te_te", "lcm_led_en1_gpio", "lcm_led_en0_gpio";
 	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
 	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
 	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
@@ -520,6 +536,9 @@
 	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
 	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
 	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_led_en1>;
+	pinctrl-8 = <&mtkfb_pins_lcm_led_en0>;
+
 	status = "okay";
 };
 &dispsys_config {
@@ -537,7 +556,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel1@0 {
-		compatible = "truly,td4330,cmd";
+		compatible = "jdi,nt36672e,vdo,60hz";
 		reg = <0>;
 		pm-enable-gpios = <&pio 68 0>;
 		reset-gpios = <&pio 86 0>;

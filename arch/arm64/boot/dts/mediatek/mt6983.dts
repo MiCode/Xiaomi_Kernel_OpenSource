@@ -7840,6 +7840,14 @@
 		reg = <0x28>;
 		status = "okay";
 	};
+
+	gate_ic: gate_ic@11 {
+		compatible = "mediatek,gate-ic-i2c";
+		gate-power-gpios = <&pio 68 0>;
+		reg = <0x11>;
+		id = <6>;
+		status = "okay";
+	};
 };
 
 &spmi {
