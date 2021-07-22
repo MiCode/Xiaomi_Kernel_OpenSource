@@ -1287,10 +1287,10 @@ static PVRSRV_ERROR CacheOpPMRExec (PMR *psPMR,
 		PVR_LOG_RETURN_IF_ERROR(eError, "uiLPhysicalSize");
 
 		PVR_LOG_RETURN_IF_FALSE(((uiOffset+uiSize) <= uiLPhysicalSize), CACHEOP_DEVMEM_OOR_ERROR_STRING, PVRSRV_ERROR_DEVICEMEM_OUT_OF_RANGE);
-	}
 
-	eError = PMRLockSysPhysAddresses(psPMR);
-	PVR_LOG_RETURN_IF_ERROR(eError, "PMRLockSysPhysAddresses");
+		eError = PMRLockSysPhysAddresses(psPMR);
+		PVR_LOG_RETURN_IF_ERROR(eError, "PMRLockSysPhysAddresses");
+	}
 
 	/* Fast track the request if a CPU VA is provided and CPU ISA supports VA only maintenance */
 	eError = CacheOpValidateUMVA(psPMR, pvAddress, uiOffset, uiSize, uiCacheOp, (void**)&pbCpuVirtAddr);
@@ -1302,8 +1302,11 @@ static PVRSRV_ERROR CacheOpPMRExec (PMR *psPMR,
 		{
 			CacheOpExecRangeBasedVA(PMR_DeviceNode(psPMR), pvAddress, uiSize, uiCacheOp);
 
-			eError = PMRUnlockSysPhysAddresses(psPMR);
-			PVR_LOG_IF_ERROR(eError, "PMRUnlockSysPhysAddresses");
+			if (!bIsRequestValidated)
+			{
+				eError = PMRUnlockSysPhysAddresses(psPMR);
+				PVR_LOG_IF_ERROR(eError, "PMRUnlockSysPhysAddresses");
+			}
 #if defined(CACHEOP_DEBUG)
 			gsCwq.ui32ServerSyncVA += 1;
 #endif
@@ -1600,8 +1603,11 @@ e0:
 		OSFreeMem(pbValid);
 	}
 
-	eError = PMRUnlockSysPhysAddresses(psPMR);
-	PVR_LOG_IF_ERROR(eError, "PMRUnlockSysPhysAddresses");
+	if (! bIsRequestValidated)
+	{
+		eError = PMRUnlockSysPhysAddresses(psPMR);
+		PVR_LOG_IF_ERROR(eError, "PMRUnlockSysPhysAddresses");
+	}
 
 	return eError;
 }
@@ -1946,6 +1952,10 @@ static PVRSRV_ERROR CacheOpBatchExecRangeBased(PVRSRV_DEVICE_NODE *psDevNode,
 		PVR_LOG_GOTO_IF_FALSE(((puiOffset[ui32Idx]+puiSize[ui32Idx]) <= uiLogicalSize), CACHEOP_DEVMEM_OOR_ERROR_STRING, e0);
 		eError = PVRSRV_OK;
 
+		/* For safety, take reference here in user context */
+		eError = PMRLockSysPhysAddresses(ppsPMR[ui32Idx]);
+		PVR_LOG_GOTO_IF_ERROR(eError, "PMRLockSysPhysAddresses", e0);
+
 		OSLockAcquire(gsCwq.hDeferredLock);
 
 		/* Select next item off the queue to defer with */
@@ -1961,6 +1971,8 @@ static PVRSRV_ERROR CacheOpBatchExecRangeBased(PVRSRV_DEVICE_NODE *psDevNode,
 			OSLockRelease(gsCwq.hDeferredLock);
 			bCacheOpConfigKDF = IMG_FALSE;
 			psCacheOpWorkItem = NULL;
+			eError = PMRUnlockSysPhysAddresses(ppsPMR[ui32Idx]);
+			PVR_LOG_GOTO_IF_ERROR(eError, "PMRUnlockSysPhysAddresses", e0);
 			ui32Idx = ui32Idx - 1;
 			continue;
 		}
