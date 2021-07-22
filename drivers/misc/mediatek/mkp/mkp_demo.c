@@ -30,9 +30,6 @@
 
 #define mkp_debug 0
 
-#if mkp_debug
-static uint32_t temp_handle;
-#endif
 #ifdef DEMO_MKP
 static uint32_t g_ro_avc_handle;
 static uint32_t g_ro_cred_handle;
@@ -57,7 +54,6 @@ const char *mkp_trace_print_array(void)
 {
 	static char str[30] = "mkp test trace point\n";
 
-//	mkp_set_mapping_x(1, temp_handle);
 	return str;
 }
 
@@ -72,7 +68,6 @@ static void mkp_trace_event_func(struct timer_list *unused) // do not use sleep
 	pr_info("timer start\n");
 	mod_timer(&mkp_trace_event_timer, jiffies
 		+ MKP_TRACE_EVENT_TIME * HZ);
-	mkp_set_mapping_x(1, temp_handle); // only for test
 
 }
 #endif
@@ -217,9 +212,10 @@ static int protect_kernel(void)
 		if (handle == 0) {
 			pr_info("%s:%d: Create handle fail\n", __func__, __LINE__);
 			pr_info("pa: %pa, nr_pages: %d\n", &phys_addr, nr_pages);
+		} else {
+			ret = mkp_set_mapping_x(policy, handle);
+			ret = mkp_set_mapping_ro(policy, handle);
 		}
-		ret = mkp_set_mapping_x(policy, handle);
-		ret = mkp_set_mapping_ro(policy, handle);
 	}
 
 	if (policy_ctrl[MKP_POLICY_KERNEL_RODATA] != 0) {
@@ -236,8 +232,8 @@ static int protect_kernel(void)
 		if (handle == 0) {
 			pr_info("%s:%d: Create handle fail\n", __func__, __LINE__);
 			pr_info("pa: %pa, nr_pages: %d\n", &phys_addr, nr_pages);
-		}
-		ret = mkp_set_mapping_ro(policy, handle);
+		} else
+			ret = mkp_set_mapping_ro(policy, handle);
 	}
 
 	pr_info("%s done\n", __func__);
@@ -439,15 +435,14 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 					ro_avc_sharebuf_ptr->tclass != tclass ||
 					ro_avc_sharebuf_ptr->ae_allowed !=
 						temp_node->ae.avd.allowed) {
-//					BUG();
+					// BUG();
 				} else {
 					return; // pass
 				}
 			}
 		}
-
 		// lookup not found: fail
-//		BUG();
+		// BUG();
 	} else {
 		if (!__ratelimit(&rs))
 			return;
@@ -462,7 +457,7 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 					ro_avc_sharebuf_ptr->tclass != tclass ||
 					ro_avc_sharebuf_ptr->ae_allowed !=
 						temp_node->ae.avd.allowed) {
-//					BUG();
+					// BUG();
 				} else {
 					return; // pass
 				}
