@@ -24,6 +24,14 @@
 #include <linux/seq_file.h>
 #include "mtk_heap.h"
 
+/*
+ * If you need to use iommu_test.ko, you must be
+ * define "IOMMU_TEST_EN" as below and add dts node.
+ */
+/* #define IOMMU_TEST_EN */
+
+#ifdef IOMMU_TEST_EN
+
 #define DEFINE_PROC_ATTRIBUTE(__fops, __get, __set, __fmt)		  \
 static int __fops ## _open(struct inode *inode, struct file *file)	  \
 {									  \
@@ -1345,6 +1353,16 @@ static void __exit iommu_test_exit(void)
 	for (i = ARRAY_SIZE(iommu_test_drivers) - 1; i >= 0; i--)
 		platform_driver_unregister(iommu_test_drivers[i]);
 }
+#else
+static int __init iommu_test_init(void)
+{
+	return 0;
+}
+
+static void __exit iommu_test_exit(void)
+{
+}
+#endif
 
 module_init(iommu_test_init);
 module_exit(iommu_test_exit);
