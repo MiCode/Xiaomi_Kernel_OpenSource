@@ -219,6 +219,8 @@ int scp_hw_voter_dbg_init(void)
 #if IS_ENABLED(CONFIG_PROC_FS)
 	int ret;
 
+	pr_notice("call %s\n", __func__);
+
 	ret = mtk_ipi_register(
 			&scp_ipidev,
 			IPI_OUT_SCP_HWVOTER_DEBUG,
@@ -235,6 +237,9 @@ int scp_hw_voter_dbg_init(void)
 				ret);
 		WARN_ON(1);
 	}
+#else
+	pr_notice("no %s due to CONFIG_PROC_FS not defined\n",
+			__func__);
 #endif
 
 	return 0;

@@ -2048,7 +2048,6 @@ static int scp_device_probe(struct platform_device *pdev)
 		} else {
 			pr_notice("[SCP] scp_hwvoter enable\n");
 			scp_hwvoter_support = true;
-			scp_hw_voter_dbg_init();
 		}
 	} else {
 		scp_hwvoter_support = false;
@@ -2343,6 +2342,10 @@ static int __init scp_init(void)
 		pr_notice("[SCP] create files failed\n");
 		goto err;
 	}
+
+	/* scp hwvoter debug init */
+	if (scp_hwvoter_support)
+		scp_hw_voter_dbg_init();
 
 #if SCP_LOGGER_ENABLE
 	/* scp logger initialise */
