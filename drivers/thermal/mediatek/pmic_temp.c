@@ -198,6 +198,7 @@ static int pmic_temp_probe(struct platform_device *pdev)
 	ret = pmic_register_thermal_zones(pmic_info);
 	if (ret)
 		return ret;
+
 	return 0;
 }
 
@@ -284,7 +285,7 @@ static int mt6363_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 		| ((efuse_buff[1] & GENMASK(4, 0)) << 8);
 	cali_data[1].o_vts = ((efuse_buff[1] & GENMASK(15, 8)) >> 8)
 		| (((efuse_buff[1] & GENMASK(7, 5)) >> 5) << 8)
-		| (((efuse_buff[2] & GENMASK(14, 13)) >> 5) << 11);
+		| (((efuse_buff[2] & GENMASK(14, 13)) >> 13) << 11);
 	cali_data[2].o_vts = efuse_buff[2] & GENMASK(12, 0);
 	cali_data[3].o_vts = efuse_buff[3] & GENMASK(12, 0);
 
@@ -329,7 +330,7 @@ static int mt6368_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 	if (len != 8)
 		return -EINVAL;
 
-	tz_data->adc_cali_en = (efuse_buff[0] & BIT(6));
+	tz_data->adc_cali_en = (efuse_buff[0] & BIT(14));
 	if (tz_data->adc_cali_en == 0)
 		goto out;
 
@@ -368,8 +369,6 @@ static int mt6373_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 	int i = 0;
 	struct pmic_tz_cali_data *cali_data = tz_data->cali_data;
 
-	pr_info("%s: ++\n", __func__);
-
 	cell_1 = devm_nvmem_cell_get(dev, "mt6373_e_data");
 	if (IS_ERR(cell_1)) {
 		dev_info(dev, "Error: Failed to get nvmem cell %s\n",
@@ -384,22 +383,22 @@ static int mt6373_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 		return PTR_ERR(efuse_buff);
 	}
 
-	if (len != 8)
+	if (len != 10)
 		return -EINVAL;
 
-	tz_data->adc_cali_en = (efuse_buff[0] & BIT(6));
+	tz_data->adc_cali_en = (efuse_buff[0] & BIT(14));
 	if (tz_data->adc_cali_en == 0)
 		goto out;
 
-	cali_data[0].o_vts = ((efuse_buff[0] & GENMASK(15, 8)) >> 8)
-		| ((efuse_buff[1] & GENMASK(4, 0)) << 8);
-	cali_data[1].o_vts = ((efuse_buff[1] & GENMASK(15, 8)) >> 8)
-		| (((efuse_buff[1] & GENMASK(7, 5)) >> 5) << 8)
-		| (((efuse_buff[2] & GENMASK(14, 13)) >> 5) << 11);
-	cali_data[2].o_vts = efuse_buff[2] & GENMASK(12, 0);
-	cali_data[3].o_vts = efuse_buff[3] & GENMASK(12, 0);
-
-	tz_data->degc_cali = (efuse_buff[0] & GENMASK(5, 0));
+	cali_data[0].o_vts = efuse_buff[1] & GENMASK(12, 0);
+	cali_data[1].o_vts = (efuse_buff[2] & GENMASK(7, 0))
+		| (((efuse_buff[1] & GENMASK(15, 13)) >> 13) << 8)
+		| (((efuse_buff[3] & GENMASK(6, 5)) >> 5) << 11);
+	cali_data[2].o_vts = ((efuse_buff[2] & GENMASK(15, 8)) >> 8)
+		| ((efuse_buff[3] & GENMASK(4, 0)) << 8);
+	cali_data[3].o_vts = ((efuse_buff[3] & GENMASK(15, 8)) >> 8)
+		| ((efuse_buff[4] & GENMASK(4, 0)) << 8);
+	tz_data->degc_cali = ((efuse_buff[0] & GENMASK(13, 8)) >> 8);
 
 	if (tz_data->degc_cali < 38 || tz_data->degc_cali > 60)
 		tz_data->degc_cali = 53;
@@ -420,36 +419,27 @@ out:
 
 static int mt6338_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data)
 {
-	size_t len = 0;
-	unsigned short *efuse_buff;
-	struct nvmem_cell *cell_1;
+	unsigned short efuse_buff;
 	int i = 0;
 	struct pmic_tz_cali_data *cali_data = tz_data->cali_data;
+	struct nvmem_device *nvmem_dev;
 
-	cell_1 = devm_nvmem_cell_get(dev, "mt6338_e_data");
-	if (IS_ERR(cell_1)) {
-		dev_info(dev, "Error: Failed to get nvmem cell %s\n",
-			"mt6338_e_data");
-		return PTR_ERR(cell_1);
-	}
-	efuse_buff = (unsigned short *)nvmem_cell_read(cell_1, &len);
-	nvmem_cell_put(cell_1);
-
-	if (IS_ERR(efuse_buff)) {
-		pr_info("error: efuse_buff=0x%x\n", efuse_buff);
-		return PTR_ERR(efuse_buff);
+	nvmem_dev = devm_nvmem_device_get(dev, "mt6338_e_data");
+	if (IS_ERR(nvmem_dev)) {
+		dev_info(dev, "Error: Failed to get nvmem %s\n", "mt6338_e_data");
+		return PTR_ERR(nvmem_dev);
 	}
 
-	if (len != 4)
-		return -EINVAL;
-
-	tz_data->adc_cali_en = (efuse_buff[0] & BIT(6));
+	nvmem_device_read(nvmem_dev, 0x1c, 1, &efuse_buff);
+	tz_data->adc_cali_en = (efuse_buff & BIT(6));
 	if (tz_data->adc_cali_en == 0)
 		goto out;
 
-	cali_data[0].o_vts = efuse_buff[1] & GENMASK(12, 0);
-
-	tz_data->degc_cali = (efuse_buff[0] & GENMASK(5, 0));
+	tz_data->degc_cali = (efuse_buff & GENMASK(5, 0));
+	nvmem_device_read(nvmem_dev, 0x1e, 1, &efuse_buff);
+	cali_data[0].o_vts = efuse_buff;
+	nvmem_device_read(nvmem_dev, 0x1f, 1, &efuse_buff);
+	cali_data[0].o_vts |= ((efuse_buff & GENMASK(5, 0)) << 8);
 
 	if (tz_data->degc_cali < 38 || tz_data->degc_cali > 60)
 		tz_data->degc_cali = 53;
@@ -463,7 +453,6 @@ out:
 	dev_info(dev, "[pmic6338_debug] o_slope        = 0x%x\n", tz_data->o_slope);
 	dev_info(dev, "[pmic6338_debug] o_slope_sign        = 0x%x\n", tz_data->o_slope_sign);
 	dev_info(dev, "[pmic6338_debug] id        = 0x%x\n", tz_data->id);
-	kfree(efuse_buff);
 
 	return 0;
 }
@@ -565,7 +554,7 @@ static struct pmic_tz_cali_data mt6338_cali_data[] = {
 	[0] = {
 		.cali_factor = 1773,
 		.o_vts = 1600,
-		.iio_chan_name = "pmic6338_ts1",
+		.iio_chan_name = "pmic6338_ts",
 	}
 };
 
