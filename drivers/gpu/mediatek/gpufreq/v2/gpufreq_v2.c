@@ -2468,37 +2468,20 @@ done:
 static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 {
 	struct device_node *of_wrapper = pdev->dev.of_node;
-	struct device_node *of_gpueb;
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_LOGI("start to probe gpufreq wrapper driver");
 
-	if (!of_wrapper) {
+	if (unlikely(!of_wrapper)) {
 		GPUFREQ_LOGE("fail to find gpufreq wrapper of_node (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
 
-	ret = of_property_read_u32(of_wrapper, "dual-buck", &g_dual_buck);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to read dual-buck (%d)", ret);
-		goto done;
-	}
+	of_property_read_u32(of_wrapper, "dual-buck", &g_dual_buck);
+	of_property_read_u32(of_wrapper, "gpueb-support", &g_gpueb_support);
 
 #if GPUFREQ_GPUEB_ENABLE
-	of_gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
-	if (!of_gpueb) {
-		GPUFREQ_LOGE("fail to find gpueb of_node (ENOENT)");
-		ret = GPUFREQ_ENOENT;
-		goto done;
-	}
-
-	ret = of_property_read_u32(of_gpueb, "gpueb-support", &g_gpueb_support);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to read gpueb-support (%d)", ret);
-		goto done;
-	}
-
 	/* init gpueb setting if gpueb is enabled */
 	if (g_gpueb_support) {
 		ret = gpufreq_gpueb_init();

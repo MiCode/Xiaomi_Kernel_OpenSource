@@ -4625,7 +4625,7 @@ done:
 static int __gpufreq_init_platform_info(struct platform_device *pdev)
 {
 	struct device *gpufreq_dev = &pdev->dev;
-	struct device_node *of_gpueb = NULL;
+	struct device_node *of_wrapper = NULL;
 	struct resource *res = NULL;
 	int ret = GPUFREQ_ENOENT;
 
@@ -4636,15 +4636,15 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	of_gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
-	if (unlikely(!of_gpueb)) {
-		GPUFREQ_LOGE("fail to find gpueb of_node");
+	of_wrapper = of_find_compatible_node(NULL, NULL, "mediatek,gpufreq_wrapper");
+	if (unlikely(!of_wrapper)) {
+		GPUFREQ_LOGE("fail to find gpufreq_wrapper of_node");
 		goto done;
 	}
 
 	/* ignore return error and use default value if property doesn't exist */
 	of_property_read_u32(gpufreq_dev->of_node, "aging-load", &g_aging_load);
-	of_property_read_u32(of_gpueb, "gpueb-support", &g_gpueb_support);
+	of_property_read_u32(of_wrapper, "gpueb-support", &g_gpueb_support);
 
 	/* 0x13FA0000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_pll");
