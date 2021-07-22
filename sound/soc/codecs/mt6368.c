@@ -3869,7 +3869,7 @@ static struct snd_soc_dai_driver mt6368_dai_driver[] = {
 static int mt6368_get_hpofs_auxadc(struct mt6368_priv *priv)
 {
 	int value = 0;
-#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
 	int ret;
 	struct iio_channel *auxadc = priv->hpofs_cal_auxadc;
 

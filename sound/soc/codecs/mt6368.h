@@ -9,6 +9,7 @@
 
 #define NO_DCXO
 #define SKIP_VOW
+/* #define SKIP_SB */
 
 /*************Register Bit Define*************/
 
