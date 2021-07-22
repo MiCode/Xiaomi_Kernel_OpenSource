@@ -71,7 +71,7 @@ struct mt6360_chip {
 	int irq;
 	int chip_id;
 
-#ifdef CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB
+#if IS_ENABLED(CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB)
 	int pcb_gpio;
 	int pcb_gpio_polarity;
 #endif /* CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB */
@@ -2209,7 +2209,7 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 	}
 #endif /* !CONFIG_MTK_GPIO || CONFIG_MTK_GPIOLIB_STAND */
 
-#ifdef CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB
+#if IS_ENABLED(CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB)
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
 	ret = of_get_named_gpio(np, "mt6360pd,pcb_gpio", 0);
 	if (ret < 0) {
@@ -2309,9 +2309,15 @@ static void check_printk_performance(void)
 static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 {
 	struct tcpc_desc *desc;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev->of_node, *boot_np;
 	u32 val, len;
 	const char *name = "default";
+	const struct {
+		u32 size;
+		u32 tag;
+		u32 boot_mode;
+		u32 boot_type;
+	} *tag;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
@@ -2392,7 +2398,7 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_DISABLE_LEGACY;
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WATCHDOG_EN;
-#ifdef CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB
+#if IS_ENABLED(CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB)
 	if (gpio_get_value(chip->pcb_gpio) == chip->pcb_gpio_polarity)
 		chip->tcpc->tcpc_flags |= TCPC_FLAGS_WATER_DETECTION;
 #else
@@ -2402,6 +2408,23 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WD_POLLING_ONLY;
 #endif
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_CABLE_TYPE_DETECTION;
+
+	/* mediatek boot mode */
+	boot_np = of_parse_phandle(np, "bootmode", 0);
+	if (!boot_np) {
+		dev_notice(dev, "failed to get bootmode phandle\n");
+		return -ENODEV;
+	}
+	tag = of_get_property(boot_np, "atag,boot", NULL);
+	if (!tag) {
+		dev_notice(dev, "failed to get atag,boot\n");
+		return -EINVAL;
+	}
+	dev_info(dev, "sz:0x%x tag:0x%x mode:0x%x type:0x%x\n",
+		 tag->size, tag->tag, tag->boot_mode, tag->boot_type);
+	chip->tcpc->boot_mode = tag->boot_mode;
+	chip->tcpc->boot_type = tag->boot_type;
+
 	return 0;
 }
 
