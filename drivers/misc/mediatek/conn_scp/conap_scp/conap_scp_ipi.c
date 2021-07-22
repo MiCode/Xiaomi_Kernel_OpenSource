@@ -11,7 +11,7 @@
 #include "conap_scp_ipi.h"
 #include "conap_platform_data.h"
 
-//#define MTK_CONAP_IPI_SUPPORT 1
+#define MTK_CONAP_IPI_SUPPORT 1
 
 #ifdef MTK_CONAP_IPI_SUPPORT
 /* SCP */
@@ -40,7 +40,7 @@ struct conap_scp_ipi_cb g_ipi_cb;
 
 #ifdef MTK_CONAP_IPI_SUPPORT
 static char g_ipi_ack_data[128];
-int scp_ctrl_event_handler(struct notifier_block *this,
+static int scp_ctrl_event_handler(struct notifier_block *this,
 	unsigned long event, void *ptr);
 
 static struct notifier_block scp_ctrl_notifier = {
@@ -51,7 +51,7 @@ int scp_ctrl_event_handler(struct notifier_block *this,
 	unsigned long event, void *ptr)
 {
 
-	switch(event) {
+	switch (event) {
 	case SCP_EVENT_STOP:
 		pr_info("[%s] SCP STOP", __func__);
 		if (g_ipi_cb.conap_scp_ipi_ctrl_notify)
@@ -98,7 +98,7 @@ int ipi_recv_cb(unsigned int id, void *prdata, void *data, unsigned int len)
 
 	ktime_get_real_ts64(&t2);
 	if ((t2.tv_nsec - t1.tv_nsec) > 3000000)
-		pr_info("[ipi_recv_cb] ===[%09ld]", (t2.tv_nsec - t1.tv_nsec));
+		pr_info("[%s] ===[%09ld]", __func__, (t2.tv_nsec - t1.tv_nsec));
 	return 0;
 }
 
@@ -132,7 +132,7 @@ int conap_scp_ipi_send_data(enum conap_scp_drv_type drv_type, uint16_t msg_id, u
 							0);
 		if (ipi_result == IPI_ACTION_DONE)
 			break;
-		msleep(1);
+		udelay(1000);
 	}
 	if (ipi_result != 0) {
 		pr_err("[ipi_send_data] send fail [%d]", ipi_result);

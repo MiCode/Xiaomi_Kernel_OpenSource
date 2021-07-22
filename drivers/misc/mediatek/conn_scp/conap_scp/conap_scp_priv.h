@@ -1,4 +1,4 @@
-/*  SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -10,18 +10,18 @@
 #include <linux/types.h>
 #include "conap_scp.h"
 
-typedef enum {
+enum CONAP_SCP_CORE_OPID {
 	CONAP_SCP_OPID_STATE_CHANGE			= 0,
 	CONAP_SCP_OPID_SEND_MSG				= 1,
 	CONAP_SCP_OPID_DRV_READY			= 2,
-	CONAP_SCP_OPID_DRV_READY_ACK		= 3,
+	CONAP_SCP_OPID_DRV_READY_ACK			= 3,
 	CONAP_SCP_OPID_RECV_MSG				= 4,
 	CONAP_SCP_OPID_MAX
-} conap_scp_core_opid;
+};
 
 enum CONAP_SCP_CORE_MSG_ID {
-	CONAP_SCP_CORE_INIT			= 0,
-	CONAP_SCP_CORE_ACK			= 1,
+	CONAP_SCP_CORE_INIT		= 0,
+	CONAP_SCP_CORE_ACK		= 1,
 	CONAP_SCP_CORE_DRV_QRY		= 2,
 	CONAP_SCP_CORE_DRV_QRY_ACK	= 3,
 	CONAP_SCP_CORE_REQ_TX		= 4,
@@ -37,7 +37,7 @@ struct conap_scp_drv_user {
 	uint16_t is_rdy_ret;
 };
 
-int conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr);
+int conap_scp_init(void);
 int conap_scp_deinit(void);
 
 #endif

@@ -1,0 +1,10 @@
+config MTK_CONN_SCP
+	tristate "Support mtk connsys scp bridge"
+	help
+	  It is used to config whether IDC feature
+	  is supported or not.
+	  When IDC feature is required,
+	  this config must be enabled to support
+	  SW IDC message exchange.
+	  Usually if a project support both LTE and Wi-Fi,
+	  IDC feature is necessary to avoid interference between LTE and Wi-Fi.

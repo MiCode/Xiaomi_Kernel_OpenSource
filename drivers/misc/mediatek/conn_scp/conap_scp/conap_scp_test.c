@@ -56,8 +56,9 @@ struct conap_scp_test_ctx {
 	struct task_struct *thread;
 	struct conap_scp_drv_cb scp_test_cb;
 };
-struct conap_scp_test_ctx *g_em_test_ctx = NULL;
-struct conap_scp_test_ctx *g_gps_test_ctx = NULL;
+
+struct conap_scp_test_ctx *g_em_test_ctx;
+struct conap_scp_test_ctx *g_gps_test_ctx;
 
 
 #define ELEM_MAX_LEN_SSID		32
@@ -132,9 +133,9 @@ int test_case_func_3(struct conap_scp_test_ctx *ctx)
 static int conap_scp_test_thread(void *pvData)
 {
 	int ret, loop = 0;
-	struct conap_scp_test_ctx *ctx = (struct conap_scp_test_ctx*)pvData;
+	struct conap_scp_test_ctx *ctx = (struct conap_scp_test_ctx *)pvData;
 
-	BUG_ON(ctx == NULL);
+	WARN_ON(ctx == NULL);
 
 	pr_info("[%s] init drv=[%d]", ctx->thread_name, ctx->drv_type);
 	ret = conap_scp_register_drv(ctx->drv_type, &ctx->scp_test_cb);
@@ -163,10 +164,8 @@ int conap_ut_send_msg(int par1, int par2, int par3)
 
 	/* ======= EM ====== */
 	g_em_test_ctx = kmalloc(sizeof(struct conap_scp_test_ctx), GFP_KERNEL);
-	if (g_em_test_ctx == NULL) {
-		pr_err("[%s] malloc fail", __func__);
+	if (g_em_test_ctx == NULL)
 		return -1;
-	}
 	test_ctx = g_em_test_ctx;
 
 	//for (int i = 0; i < CONAP_SCP_TEST_INST_SZ; i++) {

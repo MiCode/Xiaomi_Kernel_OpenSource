@@ -7,7 +7,7 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <linux/spinlock.h>
 #include <linux/string.h>
 
@@ -16,6 +16,8 @@
 #include "conap_platform_data.h"
 #include "msg_thread.h"
 #include "conap_scp_ipi.h"
+
+#include "connectivity_build_in_adapter.h"
 
 struct conap_scp_drv_user g_drv_user[CONAP_SCP_DRV_NUM];
 struct conap_scp_core_ctx {
@@ -57,6 +59,19 @@ uint8_t *g_cur_msg_recv_buf;
 struct msg_data_2 {
 	uint32_t param0;
 	uint32_t param1;
+};
+
+/* connsys state notifier */
+enum state_chg_drv_type {
+	STATE_CHG_DRV_NONE = 0,
+	STATE_CHG_DRV_CONN = 1,
+	STATE_CHG_DRV_SCP = 2,
+};
+
+static int conn_state_event_handler(struct notifier_block *this,
+			unsigned long event, void *ptr);
+static struct notifier_block g_conn_state_notifier = {
+	.notifier_call = conn_state_event_handler,
 };
 
 
@@ -153,11 +168,29 @@ static int opfunc_is_drv_ready_ack(struct msg_op_data *op)
 
 static int opfunc_scp_state_change(struct msg_op_data *op)
 {
-	unsigned int cur_state = (unsigned int)op->op_data[0];
+	unsigned int drv_type = (unsigned int)op->op_data[0];
+	unsigned int cur_state = (unsigned int)op->op_data[1];
 	int ret, i;
+
+	if (drv_type > STATE_CHG_DRV_SCP)
+		return -1;
+
+
+	pr_info("[%s] type=[%d] state=[%d] conn=[%d] scp ready=[%d]", __func__,
+				drv_type, cur_state, g_core_ctx.enable,
+				conap_scp_ipi_is_scp_ready());
+	if (g_core_ctx.enable == 0) {
+		pr_info("[%s] conn not enable yet", __func__);
+		return 0;
+	}
+	if (conap_scp_ipi_is_scp_ready() == 0) {
+		pr_info("[%s] scp not enable yet", __func__);
+		return 0;
+	}
 
 	/* SCP ready */
 	if (cur_state == 1) {
+		pr_info("[%s] send init cmd", __func__);
 		ret = conap_scp_ipi_send_cmd(DRV_TYPE_CORE, CONAP_SCP_CORE_INIT,
 					connsys_scp_shm_get_addr(), connsys_scp_shm_get_size());
 		if (ret) {
@@ -313,10 +346,52 @@ static void conap_scp_ipi_ctrl_notify(unsigned int state)
 
 	pr_info("[%s] state=[%d]->[%d]", __func__, g_core_ctx.state, state);
 
-	ret = msg_thread_send_1(&g_core_ctx.tx_msg_thread,
-			CONAP_SCP_OPID_STATE_CHANGE, (size_t)state);
+	ret = msg_thread_send_2(&g_core_ctx.tx_msg_thread,
+			CONAP_SCP_OPID_STATE_CHANGE, STATE_CHG_DRV_SCP, (size_t)state);
 	if (ret)
 		pr_warn("[%s] msg_send fail [%d]", __func__, ret);
+}
+
+int conn_state_event_handler(struct notifier_block *this,
+			unsigned long event, void *ptr)
+{
+	struct connsys_state_info *info;
+	int ret;
+
+	info = (struct connsys_state_info *)ptr;
+
+	if (info == NULL)
+		return 0;
+
+	if (event == 0) {
+		g_core_ctx.enable = 0;
+		return 0;
+	}
+
+	pr_info("[%s] ========= event =[%d] [%x][%x]",
+				__func__, event, info->chip_info, info->emi_phy_addr);
+
+	g_core_ctx.chip_info = info->chip_info;
+	g_core_ctx.emi_phy_addr = info->emi_phy_addr;
+
+	ret = connsys_scp_platform_data_init(info->chip_info, info->emi_phy_addr);
+	/* check if platform support */
+	pr_info("[%s] chip_info=[%x] addr[%x] ret=[%d]", __func__,
+						info->chip_info, info->emi_phy_addr, ret);
+
+	if (ret) {
+		pr_info("[%s] conap not support", __func__);
+		return 0;
+	}
+	g_core_ctx.enable = 1;
+
+	ret = msg_thread_send_2(&g_core_ctx.tx_msg_thread,
+			CONAP_SCP_OPID_STATE_CHANGE, STATE_CHG_DRV_CONN, 1);
+	if (ret)
+		pr_warn("[%s] msg_send fail [%d]", __func__, ret);
+
+
+	return 0;
 }
 
 
@@ -341,7 +416,8 @@ int conap_scp_send_message(enum conap_scp_drv_type type,
 	if (_conap_scp_is_scp_ready() != 1)
 		return CONN_NOT_READY;
 
-	ret = msg_thread_send_wait_4(&g_core_ctx.tx_msg_thread, CONAP_SCP_OPID_SEND_MSG, MSG_OP_TIMEOUT,
+	ret = msg_thread_send_wait_4(&g_core_ctx.tx_msg_thread,
+					CONAP_SCP_OPID_SEND_MSG, MSG_OP_TIMEOUT,
 					(size_t)type, msg_id, (size_t)buf, size);
 	if (ret)
 		pr_warn("[%s] msg_send fail [%d]", __func__, ret);
@@ -352,7 +428,7 @@ EXPORT_SYMBOL(conap_scp_send_message);
 
 int conap_scp_is_drv_ready(enum conap_scp_drv_type type)
 {
-	int ret = 0, wait_ret=1;
+	int ret = 0, wait_ret = 1;
 	struct conap_scp_drv_user *user = NULL;
 	int is_ready = 0;
 
@@ -376,8 +452,10 @@ int conap_scp_is_drv_ready(enum conap_scp_drv_type type)
 	wait_ret = wait_for_completion_timeout(&user->is_rdy_comp,
 				msecs_to_jiffies(2000));
 
-	if (wait_ret == 0)
+	if (wait_ret == 0) {
+		pr_warn("[%s] timeout ", __func__);
 		return CONN_TIMEOUT;
+	}
 
 	is_ready = user->is_rdy_ret;
 	pr_info("[%s] is drv ready type=[%d] ret=[%d]", __func__, type, is_ready);
@@ -429,25 +507,12 @@ EXPORT_SYMBOL(conap_scp_unregister_drv);
 /*********************************************************************/
 /* init/deinit */
 /*********************************************************************/
-int conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
+int conap_scp_init(void)
 {
 	int ret, i;
 	struct conap_scp_ipi_cb ipi_cb;
 
 	memset(&g_core_ctx, 0, sizeof(struct conap_scp_core_ctx));
-	g_core_ctx.chip_info = chip_info;
-	g_core_ctx.emi_phy_addr = emi_phy_addr;
-
-	ret = connsys_scp_platform_data_init(chip_info, emi_phy_addr);
-
-	/* check if platform support */
-	pr_info("[%s] chip_info=[%d] addr[%x] ret=[%d]", __func__, chip_info, emi_phy_addr, ret);
-
-	if (ret) {
-		pr_info("[%s] conap not support", __func__);
-		return 0;
-	}
-	g_core_ctx.enable = 1;
 
 	/* init drv_user */
 	for (i = 0; i < CONAP_SCP_DRV_NUM; i++) {
@@ -474,9 +539,11 @@ int conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
 	ipi_cb.conap_scp_ipi_ctrl_notify = conap_scp_ipi_ctrl_notify;
 	ret = conap_scp_ipi_init(&ipi_cb);
 	if (ret) {
-		pr_warn("msg thread init fail [%d]", ret);
+		pr_warn("scp ipi init fail [%d]", ret);
 		return -1;
 	}
+
+	connectivity_register_state_notifier(&g_conn_state_notifier);
 
 	pr_info("[%s] DONE", __func__);
 	return 0;

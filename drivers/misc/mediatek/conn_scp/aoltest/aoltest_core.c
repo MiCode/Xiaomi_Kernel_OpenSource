@@ -3,10 +3,9 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-/*******************************************************************************
-*                    E X T E R N A L   R E F E R E N C E S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                     E X T E R N A L   R E F E R E N C E S                   */
+/*******************************************************************************/
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/io.h>
@@ -21,10 +20,9 @@
 #include "aoltest_netlink.h"
 #include "aoltest_ring_buffer.h"
 
-/*******************************************************************************
-*                             D A T A   T Y P E S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                             D A T A   T Y P E S                             */
+/*******************************************************************************/
 enum aoltest_core_opid {
 	AOLTEST_OPID_DEFAULT = 0,
 	AOLTEST_OPID_SCP_REGISTER = 1,
@@ -54,33 +52,31 @@ struct aoltest_core_ctx {
 	int status;
 };
 
-/*******************************************************************************
-*                             M A C R O S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                             M A C R O S                                     */
+/*******************************************************************************/
 #define BUFF_SIZE       (32 * 1024 * sizeof(char))
 #define MAX_BUF_LEN     (3 * 1024)
 
 struct aoltest_core_ctx g_aoltest_ctx;
 struct aoltest_core_rb g_rb;
 
-TEST_INFO g_test_info;
+struct test_info g_test_info;
 char g_buf[MAX_BUF_LEN];
-static unsigned char g_is_scp_ready = 0;
-static bool g_is_test_started = false;
+static unsigned char g_is_scp_ready;
+static bool g_is_test_started;
 static bool g_is_data_trans;
 
-/*******************************************************************************
-*                  F U N C T I O N   D E C L A R A T I O N S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                  F U N C T I O N   D E C L A R A T I O N S                  */
+/*******************************************************************************/
 static int opfunc_scp_register(struct msg_op_data *op);
 static int opfunc_scp_unregister(struct msg_op_data *op);
 static int opfunc_send_msg(struct msg_op_data *op);
 static int opfunc_recv_msg(struct msg_op_data *op);
 
-void aoltest_core_state_change(int state);
-void aoltest_core_msg_notify(unsigned int msg_id, unsigned int *buf, unsigned int size);
+static void aoltest_core_state_change(int state);
+static void aoltest_core_msg_notify(unsigned int msg_id, unsigned int *buf, unsigned int size);
 
 static const msg_opid_func aoltest_core_opfunc[] = {
 	[AOLTEST_OPID_SCP_REGISTER] = opfunc_scp_register,
@@ -89,10 +85,9 @@ static const msg_opid_func aoltest_core_opfunc[] = {
 	[AOLTEST_OPID_RECV_MSG] = opfunc_recv_msg,
 };
 
-/*******************************************************************************
-*                              F U N C T I O N S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                              F U N C T I O N S                              */
+/*******************************************************************************/
 static void aoltest_push_message(struct aoltest_core_rb *rb, unsigned int type, unsigned int *buf)
 {
 	unsigned long flags;
@@ -104,13 +99,13 @@ static void aoltest_push_message(struct aoltest_core_rb *rb, unsigned int type, 
 
 	if (rb_data) {
 		if (type == AOLTEST_MSG_ID_WIFI) {
-			memcpy(&(rb_data->raw_data.wifi_raw), (struct aoltest_wifi_raw_data*)buf,
+			memcpy(&(rb_data->raw_data.wifi_raw), (struct aoltest_wifi_raw_data *)buf,
 				sizeof(struct aoltest_wifi_raw_data));
 		} else if (type == AOLTEST_MSG_ID_BT) {
-			memcpy(&(rb_data->raw_data.bt_raw), (struct aoltest_bt_raw_data*)buf,
+			memcpy(&(rb_data->raw_data.bt_raw), (struct aoltest_bt_raw_data *)buf,
 				sizeof(struct aoltest_bt_raw_data));
 		} else if (type == AOLTEST_MSG_ID_GPS) {
-			memcpy(&(rb_data->raw_data.gps_raw), (struct aoltest_gps_raw_data*)buf,
+			memcpy(&(rb_data->raw_data.gps_raw), (struct aoltest_gps_raw_data *)buf,
 				sizeof(struct aoltest_gps_raw_data));
 		}
 
@@ -123,7 +118,7 @@ static void aoltest_push_message(struct aoltest_core_rb *rb, unsigned int type, 
 	spin_unlock_irqrestore(&(rb->lock), flags);
 }
 
-static int is_scp_ready()
+static int is_scp_ready(void)
 {
 	int ret = 0;
 	unsigned int retry = 10;
@@ -149,10 +144,9 @@ static int is_scp_ready()
 	return ret;
 }
 
-/******************************************************
-*      O P          F U N C T I O N S
-*******************************************************
-*/
+/*******************************************************************************/
+/*      O P          F U N C T I O N S                                         */
+/*******************************************************************************/
 static int opfunc_scp_register(struct msg_op_data *op)
 {
 	int ret = 0;
@@ -201,12 +195,14 @@ static int opfunc_send_msg(struct msg_op_data *op)
 	pr_info("[%s] cmd=[%d]", __func__, cmd);
 
 	if (cmd == AOLTEST_CMD_START_TEST) {
-		pr_info("[%s] start_test enabled=[%d][%d][%d]", __func__, g_test_info.wifi_enabled, g_test_info.bt_enabled,
+		pr_info("[%s] start_test enabled=[%d][%d][%d]", __func__,
+					g_test_info.wifi_enabled, g_test_info.bt_enabled,
 					g_test_info.gps_enabled);
 		g_is_test_started = true;
 		ret = conap_scp_send_message(ctx->drv_type, cmd,
-								(unsigned char*)&g_test_info, sizeof(TEST_INFO));
-		pr_info("[%s] cmd is AOLTEST_CMD_START_TEST and call scp, ret=%d", __func__, ret);
+						(unsigned char *)&g_test_info, sizeof(g_test_info));
+		pr_info("[%s] cmd is AOLTEST_CMD_START_TEST and call scp, ret=%d",
+					__func__, ret);
 	} else {
 		if (cmd == AOLTEST_CMD_STOP_TEST)
 			g_is_test_started = false;
@@ -227,11 +223,11 @@ static int opfunc_recv_msg(struct msg_op_data *op)
 	int ret = 0;
 	int type = -1;
 	unsigned long flags;
-	struct aoltest_rb_data* rb_data = NULL;
+	struct aoltest_rb_data *rb_data = NULL;
 	int sz = 0;
 	char *ptr = NULL;
-
 	unsigned int msg_id = (unsigned int)op->op_data[0];
+
 	memset(g_buf, '\0', sizeof(g_buf));
 
 	spin_lock_irqsave(&(g_rb.lock), flags);
@@ -244,13 +240,13 @@ static int opfunc_recv_msg(struct msg_op_data *op)
 	pr_info("[%s] msg_id=[%d], type=[%d]\n", __func__, msg_id, type);
 
 	if (type == AOLTEST_MSG_ID_WIFI) {
-		ptr = (char*)&(rb_data->raw_data.wifi_raw);
+		ptr = (char *)&(rb_data->raw_data.wifi_raw);
 		sz = sizeof(struct aoltest_wifi_raw_data);
 	} else if (type == AOLTEST_MSG_ID_BT) {
-		ptr = (char*)&(rb_data->raw_data.bt_raw);
+		ptr = (char *)&(rb_data->raw_data.bt_raw);
 		sz = sizeof(struct aoltest_bt_raw_data);
 	} else if (type == AOLTEST_MSG_ID_GPS) {
-		ptr = (char*)&(rb_data->raw_data.gps_raw);
+		ptr = (char *)&(rb_data->raw_data.gps_raw);
 		sz = sizeof(struct aoltest_gps_raw_data);
 	} else {
 		aoltest_core_rb_push_free(&g_rb, rb_data);
@@ -268,10 +264,9 @@ static int opfunc_recv_msg(struct msg_op_data *op)
 	return ret;
 }
 
-/******************************************************
-*      C H R E T E S T     F U N C T I O N S
-*******************************************************
-*/
+/*******************************************************************************/
+/*      C H R E T E S T     F U N C T I O N S                                  */
+/*******************************************************************************/
 void aoltest_core_msg_notify(unsigned int msg_id, unsigned int *buf, unsigned int size)
 {
 	int ret = 0;
@@ -284,13 +279,12 @@ void aoltest_core_msg_notify(unsigned int msg_id, unsigned int *buf, unsigned in
 		return;
 	}
 
-	if (msg_id == AOLTEST_MSG_ID_WIFI) {
+	if (msg_id == AOLTEST_MSG_ID_WIFI)
 		expect_size = sizeof(struct aoltest_wifi_raw_data);
-	} else if (msg_id == AOLTEST_MSG_ID_BT) {
+	else if (msg_id == AOLTEST_MSG_ID_BT)
 		expect_size = sizeof(struct aoltest_bt_raw_data);
-	} else if (msg_id == AOLTEST_MSG_ID_GPS) {
+	else if (msg_id == AOLTEST_MSG_ID_GPS)
 		expect_size = sizeof(struct aoltest_gps_raw_data);
-	}
 
 	if (expect_size != size) {
 		pr_info("[%s] Buf size is unexpected, msg_id=[%u], expect size=[%u], recv size=[%u]\n",
@@ -302,9 +296,8 @@ void aoltest_core_msg_notify(unsigned int msg_id, unsigned int *buf, unsigned in
 
 	ret = msg_thread_send_1(&ctx->msg_ctx, AOLTEST_OPID_RECV_MSG, msg_id);
 
-	if (ret) {
+	if (ret)
 		pr_info("[%s] Notify recv msg fail, ret=[%d]\n", __func__, ret);
-	}
 }
 
 void aoltest_core_state_change(int state)
@@ -340,10 +333,11 @@ void aoltest_core_state_change(int state)
 	}
 }
 
-static int aoltest_core_handler(int cmd, void* data)
+static int aoltest_core_handler(int cmd, void *data)
 {
 	int ret = 0;
 	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
+
 	pr_info("[%s] Get cmd: %d\n", __func__, cmd);
 
 	if (ctx->status == AOLTEST_INACTIVE) {
@@ -351,15 +345,13 @@ static int aoltest_core_handler(int cmd, void* data)
 		return -1;
 	}
 
-	if (cmd == AOLTEST_CMD_START_TEST) {
-		g_test_info = *((TEST_INFO*)data);
-	}
+	if (cmd == AOLTEST_CMD_START_TEST)
+		g_test_info = *((struct test_info *)data);
 
 	ret = msg_thread_send_1(&ctx->msg_ctx, AOLTEST_OPID_SEND_MSG, cmd);
 
-	if (ret) {
+	if (ret)
 		pr_info("[%s] Send to msg thread fail, ret=[%d]\n", __func__, ret);
-	}
 
 	return ret;
 }
@@ -372,7 +364,8 @@ static int aoltest_core_bind(void)
 	memset(&g_aoltest_ctx, 0, sizeof(struct aoltest_core_ctx));
 
 	// Create EM test thread
-	ret = msg_thread_init(&ctx->msg_ctx, "em_test_thread", aoltest_core_opfunc, AOLTEST_OPID_MAX);
+	ret = msg_thread_init(&ctx->msg_ctx, "em_test_thread",
+					aoltest_core_opfunc, AOLTEST_OPID_MAX);
 
 	if (ret) {
 		pr_info("EM test thread init fail, ret=[%d]\n", ret);
@@ -386,38 +379,15 @@ static int aoltest_core_bind(void)
 
 	ret = msg_thread_send(&ctx->msg_ctx, AOLTEST_OPID_SCP_REGISTER);
 
-	if (ret) {
+	if (ret)
 		pr_info("[%s] Send to msg thread fail, ret=[%d]\n", __func__, ret);
-	}
 
 	return ret;
 }
 
 static int aoltest_core_unbind(void)
 {
-	int ret = 0;
-
-#if 0
-	struct aoltest_core_ctx *ctx = &g_aoltest_ctx;
-	ctx->status = AOLTEST_INACTIVE;
-
-	ret = msg_thread_send_wait(&ctx->msg_ctx, AOLTEST_OPID_SCP_UNREGISTER, 0);
-
-	if (ret) {
-		pr_info("SCP unregister fail\n");
-		return -1;
-	}
-
-	// Delete EM test thread
-	ret = msg_thread_deinit(&ctx->msg_ctx);
-
-	if (ret) {
-		pr_info("EM test thread deinit fail, ret=[%d]\n", ret);
-		return -1;
-	}
-#endif
-
-	return ret;
+	return 0;
 }
 
 int aoltest_core_init(void)

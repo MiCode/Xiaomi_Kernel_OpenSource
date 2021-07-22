@@ -1,4 +1,4 @@
-/*  SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -19,7 +19,7 @@ struct conap_scp_shm_config {
 
 
 int connsys_scp_platform_data_init(unsigned int chip_info, phys_addr_t emi_phy_addr);
-struct conap_scp_shm_config* conap_scp_get_shm_info(void);
+struct conap_scp_shm_config *conap_scp_get_shm_info(void);
 
 /* connsys share buffer */
 uint32_t connsys_scp_shm_get_addr(void);

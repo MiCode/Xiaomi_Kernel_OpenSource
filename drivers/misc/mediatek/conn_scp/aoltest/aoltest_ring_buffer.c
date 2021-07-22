@@ -1,4 +1,4 @@
-/*  SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -67,7 +67,7 @@ do { \
 /*********************************************/
 /* Global */
 /*********************************************/
-struct aoltest_rb_data* aoltest_core_rb_pop_free(struct aoltest_core_rb *rb)
+struct aoltest_rb_data *aoltest_core_rb_pop_free(struct aoltest_core_rb *rb)
 {
 	unsigned long flags;
 	struct aoltest_rb_data *data = NULL;
@@ -80,21 +80,21 @@ struct aoltest_rb_data* aoltest_core_rb_pop_free(struct aoltest_core_rb *rb)
 	return data;
 }
 
-void aoltest_core_rb_push_free(struct aoltest_core_rb *rb, struct aoltest_rb_data* data)
+void aoltest_core_rb_push_free(struct aoltest_core_rb *rb, struct aoltest_rb_data *data)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&rb->freeQ.lock, flags);
-	if (!RB_FULL(&rb->freeQ)) {
+	if (!RB_FULL(&rb->freeQ))
 		RB_PUT(&rb->freeQ, data);
-	} else
+	else
 		pr_info("[%s] freeQ RB full ", __func__);
 
 	pr_info("[%s] r=[%d] w=[%d]", __func__, rb->freeQ.read, rb->freeQ.write);
 	spin_unlock_irqrestore(&rb->freeQ.lock, flags);
 }
 
-void aoltest_core_rb_push_active(struct aoltest_core_rb *rb, struct aoltest_rb_data* data)
+void aoltest_core_rb_push_active(struct aoltest_core_rb *rb, struct aoltest_rb_data *data)
 {
 	unsigned long flags;
 
@@ -108,7 +108,7 @@ void aoltest_core_rb_push_active(struct aoltest_core_rb *rb, struct aoltest_rb_d
 	spin_unlock_irqrestore(&rb->activeQ.lock, flags);
 }
 
-struct aoltest_rb_data* aoltest_core_rb_pop_active(struct aoltest_core_rb *rb)
+struct aoltest_rb_data *aoltest_core_rb_pop_active(struct aoltest_core_rb *rb)
 {
 	unsigned long flags;
 	struct aoltest_rb_data *data = NULL;

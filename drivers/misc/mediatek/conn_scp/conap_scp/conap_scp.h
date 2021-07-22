@@ -1,4 +1,4 @@
-/*  SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -25,14 +25,11 @@ enum conap_scp_status {
 	CONN_CONAP_NOT_SUPPORT = -8
 };
 
-typedef enum conn_status conn_status;
-typedef int conn_user_handle;
-
 struct conap_scp_drv_cb {
 	/* notify message is arrived */
-	void (*conap_scp_msg_notify_cb) (unsigned int msg_id, unsigned int *buf, unsigned int size);
+	void (*conap_scp_msg_notify_cb)(unsigned int msg_id, unsigned int *buf, unsigned int size);
 	/* notify was resetted */
-	void (*conap_scp_state_notify_cb) (int state);
+	void (*conap_scp_state_notify_cb)(int state);
 };
 
 /*
@@ -46,9 +43,9 @@ int conap_scp_unregister_drv(enum conap_scp_drv_type type);
 /*
  * return
  *   >0 : success, seq num,
- *			means msg was sent, but doesn't mean connsys recevied
+ *			means msg was sent, but doesn't mean connsys received
  *	 ack_cb was called when
- *		ret=0, consys was recevied msg
+ *		ret=0, consys was received msg
  *		ret=CONN_TIMEOUT, timeout, connsys no response
  */
 int conap_scp_send_message(enum conap_scp_drv_type type,

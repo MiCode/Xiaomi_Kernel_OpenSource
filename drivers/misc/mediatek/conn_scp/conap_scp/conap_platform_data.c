@@ -22,9 +22,9 @@ struct conap_scp_shm_config g_adp_shm_mt6893 = {
 
 #endif
 
-uint32_t g_plt_chip_info = 0;
-phys_addr_t g_emi_phy_base = 0;
-struct conap_scp_shm_config* g_adp_shm_ptr = NULL;
+uint32_t g_plt_chip_info;
+phys_addr_t g_emi_phy_base;
+struct conap_scp_shm_config *g_adp_shm_ptr;
 
 uint32_t connsys_scp_shm_get_addr(void)
 {
@@ -40,7 +40,7 @@ uint32_t connsys_scp_shm_get_size(void)
 	return g_adp_shm_ptr->conap_scp_shm_size;
 }
 
-struct conap_scp_shm_config* conap_scp_get_shm_info(void)
+struct conap_scp_shm_config *conap_scp_get_shm_info(void)
 {
 	return g_adp_shm_ptr;
 }

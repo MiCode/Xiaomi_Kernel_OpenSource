@@ -1,4 +1,4 @@
-/*  SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -31,8 +31,7 @@ struct aoltest_wifi_raw_data {
 	struct wlan_sensorhub_beacon_frame frames[WIFI_MAX_FRAMES];
 };
 
-struct ll_ext_adv_report_event
-{
+struct ll_ext_adv_report_event {
 	uint8_t addr[BT_MAX_ADDR];
 	uint8_t rssi;
 	uint8_t reserved;
@@ -81,7 +80,7 @@ struct aoltest_core_rb_q {
 	uint32_t read;
 	uint32_t size;
 	spinlock_t lock;
-	struct aoltest_rb_data* queue[CORE_OP_SZ];
+	struct aoltest_rb_data *queue[CORE_OP_SZ];
 };
 
 struct aoltest_core_rb {
@@ -94,10 +93,10 @@ struct aoltest_core_rb {
 int aoltest_core_rb_init(struct aoltest_core_rb *rb);
 int aoltest_core_rb_deinit(struct aoltest_core_rb *rb);
 
-struct aoltest_rb_data* aoltest_core_rb_pop_free(struct aoltest_core_rb *rb);
-struct aoltest_rb_data* aoltest_core_rb_pop_active(struct aoltest_core_rb *rb);
-void aoltest_core_rb_push_free(struct aoltest_core_rb *rb, struct aoltest_rb_data* data);
-void aoltest_core_rb_push_active(struct aoltest_core_rb *rb, struct aoltest_rb_data* data);
+struct aoltest_rb_data *aoltest_core_rb_pop_free(struct aoltest_core_rb *rb);
+struct aoltest_rb_data *aoltest_core_rb_pop_active(struct aoltest_core_rb *rb);
+void aoltest_core_rb_push_free(struct aoltest_core_rb *rb, struct aoltest_rb_data *data);
+void aoltest_core_rb_push_active(struct aoltest_core_rb *rb, struct aoltest_rb_data *data);
 
 int aoltest_core_rb_has_pending_data(struct aoltest_core_rb *rb);
 

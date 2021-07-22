@@ -14,51 +14,6 @@
 #include <asm/current.h>
 #include "msg_thread.h"
 
-/*******************************************************************************
-*                         C O M P I L E R   F L A G S
-********************************************************************************
-*/
-
-/*******************************************************************************
-*                                 M A C R O S
-********************************************************************************
-*/
-
-/*******************************************************************************
-*                    E X T E R N A L   R E F E R E N C E S
-********************************************************************************
-*/
-
-/*******************************************************************************
-*                              C O N S T A N T S
-********************************************************************************
-*/
-
-/*******************************************************************************
-*                             D A T A   T Y P E S
-********************************************************************************
-*/
-
-/*******************************************************************************
-*                  F U N C T I O N   D E C L A R A T I O N S
-********************************************************************************
-*/
-
-/*******************************************************************************
-*                            P U B L I C   D A T A
-********************************************************************************
-*/
-
-/*******************************************************************************
-*                           P R I V A T E   D A T A
-********************************************************************************
-*/
-
-/*******************************************************************************
-*                              F U N C T I O N S
-********************************************************************************
-*/
-
 #define MSG_OP_SIZE(prb) ((prb)->size)
 #define MSG_OP_MASK(prb) (MSG_OP_SIZE(prb) - 1)
 #define MSG_OP_COUNT(prb) ((prb)->write - (prb)->read)
@@ -214,9 +169,8 @@ int msg_evt_put_op_to_active(struct msg_thread_ctx *ctx, struct msg_op *op)
 		/* wake up thread */
 		wake_up_interruptible(&ctx->waitQueue);
 
-		if (signal->timeoutValue == 0) {
+		if (signal->timeoutValue == 0)
 			break;
-		}
 
 		/* check result */
 		wait_ret = wait_for_completion_timeout(&signal->comp,
@@ -407,6 +361,20 @@ int msg_evt_opid_handler(struct msg_thread_ctx *ctx, struct msg_op_data *op)
 	return ret;
 }
 
+unsigned int msg_evt_wait_event_checker(struct msg_thread_ctx *ctx)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	if (ctx) {
+		spin_lock_irqsave(&ctx->active_op_q.lock, flags);
+		ret = !MSG_OP_EMPTY(&ctx->active_op_q);
+		spin_unlock_irqrestore(&ctx->active_op_q.lock, flags);
+		return ret;
+	}
+	return 0;
+}
+
 static int msg_evt_thread(void *pvData)
 {
 	struct msg_thread_ctx *ctx = (struct msg_thread_ctx *)pvData;
@@ -415,17 +383,18 @@ static int msg_evt_thread(void *pvData)
 	int ret;
 
 	if (ctx == NULL) {
-		pr_err("msg_evt_thread (NULL)\n");
+		pr_err("[%s] ctx is NULL", __func__);
 		return -1;
 	}
 
 	for (;;) {
 		op = NULL;
 
-		wait_event_interruptible(ctx->waitQueue, (!MSG_OP_EMPTY(&ctx->active_op_q) || kthread_should_stop()));
+		wait_event_interruptible(ctx->waitQueue,
+			(kthread_should_stop() || msg_evt_wait_event_checker(ctx)));
 
 		if ((p_thread) && !IS_ERR_OR_NULL(p_thread) && kthread_should_stop()) {
-			pr_info("msg_evt_thread thread should stop now...\n");
+			pr_info("[%s] thread should stop now...\n", __func__);
 			/* TODO: clean up active opQ */
 			break;
 		}
@@ -461,12 +430,13 @@ static int msg_evt_thread(void *pvData)
 	return 0;
 }
 
-int msg_thread_init(struct msg_thread_ctx *ctx, const char *name, const msg_opid_func *func, int op_size)
+int msg_thread_init(struct msg_thread_ctx *ctx, const char *name,
+					const msg_opid_func *func, int op_size)
 {
 	int r = 0, i;
 	struct task_struct *p_thread;
 
-	memset((void*)ctx, 0, sizeof(struct msg_thread_ctx));
+	memset((void *)ctx, 0, sizeof(struct msg_thread_ctx));
 	p_thread = ctx->pThread;
 
 	ctx->op_func = func;
@@ -522,9 +492,8 @@ int msg_thread_deinit(struct msg_thread_ctx *ctx)
 		retry++;
 	}
 
-	if (retry == 10) {
+	if (retry == 10)
 		pr_err("[%s] Fail to stop msg thread\n", __func__);
-	}
 
 	memset(ctx, 0, sizeof(struct msg_thread_ctx));
 

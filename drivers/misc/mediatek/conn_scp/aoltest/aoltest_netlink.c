@@ -3,10 +3,9 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-/*******************************************************************************
-*                    E X T E R N A L   R E F E R E N C E S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                    E X T E R N A L   R E F E R E N C E S                    */
+/*******************************************************************************/
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
@@ -17,10 +16,9 @@
 #include <net/genetlink.h>
 #include "aoltest_netlink.h"
 
-/*******************************************************************************
-*                             M A C R O S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                             M A C R O S                                     */
+/*******************************************************************************/
 #define AOLTEST_NETLINK_FAMILY_NAME "AOL_TEST"
 #define AOLTEST_PKT_SIZE NLMSG_DEFAULT_SIZE
 #define MAX_BIND_PROCESS    4
@@ -30,10 +28,10 @@
 #endif
 
 #define AOLTEST_ATTR_MAX       (__AOL_ATTR_MAX - 1)
-/*******************************************************************************
-*                             D A T A   T Y P E S
-********************************************************************************
-*/
+
+/*******************************************************************************/
+/*                             D A T A   T Y P E S                             */
+/*******************************************************************************/
 // Define netlink command id
 enum aoltest_netlink_cmd_id {
 	_AOLTEST_NL_CMD_INVALID,
@@ -87,20 +85,18 @@ struct aoltest_netlink_ctx {
 	struct netlink_event_cb cb;
 };
 
-/*******************************************************************************
-*                  F U N C T I O N   D E C L A R A T I O N S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                  F U N C T I O N   D E C L A R A T I O N S                  */
+/*******************************************************************************/
 static int aoltest_nl_bind(struct sk_buff *skb, struct genl_info *info);
 static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info);
 static int aoltest_nl_stop_test(struct sk_buff *skb, struct genl_info *info);
 static int aoltest_nl_start_data_transmission(struct sk_buff *skb, struct genl_info *info);
 static int aoltest_nl_stop_data_transmission(struct sk_buff *skb, struct genl_info *info);
 
-/*******************************************************************************
-*                  G L O B A L  V A R I A B L E
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                  G L O B A L  V A R I A B L E                               */
+/*******************************************************************************/
 /* Attribute policy */
 static struct nla_policy aoltest_genl_policy[_AOLTEST_ATTR_MAX + 1] = {
 	[AOLTEST_ATTR_PORT] = {.type = NLA_U32},
@@ -181,13 +177,12 @@ struct aoltest_netlink_ctx g_aoltest_netlink_ctx = {
 	.seqnum = 0,
 };
 
-struct aoltest_netlink_ctx* g_ctx = &g_aoltest_netlink_ctx;
-static bool g_already_bind = false;
+struct aoltest_netlink_ctx *g_ctx = &g_aoltest_netlink_ctx;
+static bool g_already_bind;
 
-/*******************************************************************************
-*                              F U N C T I O N S
-********************************************************************************
-*/
+/*******************************************************************************/
+/*                              F U N C T I O N S                              */
+/*******************************************************************************/
 static int aoltest_nl_bind(struct sk_buff *skb, struct genl_info *info)
 {
 	struct nlattr *port_na;
@@ -222,9 +217,8 @@ static int aoltest_nl_bind(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_unlock(&g_ctx->nl_lock);
 
-	if (g_ctx && g_ctx->cb.aoltest_bind) {
+	if (g_ctx && g_ctx->cb.aoltest_bind)
 		g_ctx->cb.aoltest_bind();
-	}
 
 out:
 	return 0;
@@ -238,60 +232,53 @@ static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr *test_attr[_TESTINFO_ATTR_MAX + 1];
 	//int rem;
 	//unsigned int *data = NULL;
-	TEST_INFO params;
+	struct test_info params;
 	//unsigned int param;
 
-	pr_info("[%s] \n", __func__);
+	pr_info("[%s]", __func__);
 	if (mutex_lock_killable(&g_ctx->nl_lock))
 		return -1;
 
 	attr_info = info->attrs[AOLTEST_ATTR_TEST_INFO];
 
 	if (attr_info) {
-		//nla_for_each_nested(nested_attr, attr_info, rem) {
-			ret = nla_parse_nested_deprecated(test_attr, _TESTINFO_ATTR_MAX,
-							attr_info, test_info_policy, NULL);
-			if (ret < 0) {
-				pr_info("[%s] Fail to parse nested attributes, ret=[%d]\n", __func__, ret);
-				mutex_unlock(&g_ctx->nl_lock);
-				return -1;
-			} else {
-				// WiFi
-				if (test_attr[TESTINFO_ATTR_WIFI_ENABLED])
-					params.wifi_enabled = nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_ENABLED]);
-				if (test_attr[TESTINFO_ATTR_WIFI_SCAN_INTVL])
-					params.wifi_scan_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_SCAN_INTVL]);
-				if (test_attr[TESTINFO_ATTR_WIFI_CB_INTVL])
-					params.wifi_cb_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_CB_INTVL]);
-				// BT
-				if (test_attr[TESTINFO_ATTR_BT_ENABLED])
-					params.bt_enabled = nla_get_u32(test_attr[TESTINFO_ATTR_BT_ENABLED]);
-				if (test_attr[TESTINFO_ATTR_BT_SCAN_INTVL])
-					params.bt_scan_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_BT_SCAN_INTVL]);
-				if (test_attr[TESTINFO_ATTR_BT_CB_INTVL])
-					params.bt_cb_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_BT_CB_INTVL]);
-				// GPS
-				if (test_attr[TESTINFO_ATTR_GPS_ENABLED])
-					params.gps_enabled = nla_get_u32(test_attr[TESTINFO_ATTR_GPS_ENABLED]);
-				if (test_attr[TESTINFO_ATTR_GPS_SCAN_INTVL])
-					params.gps_scan_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_GPS_SCAN_INTVL]);
-				if (test_attr[TESTINFO_ATTR_GPS_CB_INTVL])
-					params.gps_cb_intvl = nla_get_u32(test_attr[TESTINFO_ATTR_GPS_CB_INTVL]);
-			}
-		//}
-
-		//param = (unsigned int)nla_get_u32(attr_info);
-		//pr_info("[%s] Start test param:[%d]\n", __func__, param);
-		/*data = nla_data(attr_info);
-		params.wifi_enabled = data[0];
-		params.wifi_scan_intvl = data[1];
-		params.wifi_cb_intvl = data[2];
-		params.bt_enabled = data[3];
-		params.bt_scan_intvl = data[4];
-		params.bt_cb_intvl = data[5];
-		params.gps_enabled = data[6];
-		params.gps_scan_intvl = data[7];
-		params.gps_cb_intvl = data[8];*/
+		ret = nla_parse_nested_deprecated(test_attr, _TESTINFO_ATTR_MAX,
+						attr_info, test_info_policy, NULL);
+		if (ret < 0) {
+			pr_info("[%s] Fail to parse nested attributes, ret=[%d]\n", __func__, ret);
+			mutex_unlock(&g_ctx->nl_lock);
+			return -1;
+		}
+		// WiFi
+		if (test_attr[TESTINFO_ATTR_WIFI_ENABLED])
+			params.wifi_enabled =
+					nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_ENABLED]);
+		if (test_attr[TESTINFO_ATTR_WIFI_SCAN_INTVL])
+			params.wifi_scan_intvl =
+					nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_SCAN_INTVL]);
+		if (test_attr[TESTINFO_ATTR_WIFI_CB_INTVL])
+			params.wifi_cb_intvl =
+					nla_get_u32(test_attr[TESTINFO_ATTR_WIFI_CB_INTVL]);
+		// BT
+		if (test_attr[TESTINFO_ATTR_BT_ENABLED])
+			params.bt_enabled =
+					nla_get_u32(test_attr[TESTINFO_ATTR_BT_ENABLED]);
+		if (test_attr[TESTINFO_ATTR_BT_SCAN_INTVL])
+			params.bt_scan_intvl =
+					nla_get_u32(test_attr[TESTINFO_ATTR_BT_SCAN_INTVL]);
+		if (test_attr[TESTINFO_ATTR_BT_CB_INTVL])
+			params.bt_cb_intvl =
+					nla_get_u32(test_attr[TESTINFO_ATTR_BT_CB_INTVL]);
+		// GPS
+		if (test_attr[TESTINFO_ATTR_GPS_ENABLED])
+			params.gps_enabled =
+					nla_get_u32(test_attr[TESTINFO_ATTR_GPS_ENABLED]);
+		if (test_attr[TESTINFO_ATTR_GPS_SCAN_INTVL])
+			params.gps_scan_intvl =
+					nla_get_u32(test_attr[TESTINFO_ATTR_GPS_SCAN_INTVL]);
+		if (test_attr[TESTINFO_ATTR_GPS_CB_INTVL])
+			params.gps_cb_intvl =
+					nla_get_u32(test_attr[TESTINFO_ATTR_GPS_CB_INTVL]);
 	} else {
 		pr_info("[%s] No test info found\n", __func__);
 		mutex_unlock(&g_ctx->nl_lock);
@@ -307,7 +294,7 @@ static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info)
 
 	if (g_ctx && g_ctx->cb.aoltest_handler) {
 		pr_info("[%s] call aoltest_handler: start test\n", __func__);
-		g_ctx->cb.aoltest_handler(AOLTEST_CMD_START_TEST, (void*)&params);
+		g_ctx->cb.aoltest_handler(AOLTEST_CMD_START_TEST, (void *)&params);
 	}
 
 	return 0;
@@ -315,36 +302,31 @@ static int aoltest_nl_start_test(struct sk_buff *skb, struct genl_info *info)
 
 static int aoltest_nl_stop_test(struct sk_buff *skb, struct genl_info *info)
 {
-	if (g_ctx && g_ctx->cb.aoltest_handler) {
+	if (g_ctx && g_ctx->cb.aoltest_handler)
 		g_ctx->cb.aoltest_handler(AOLTEST_CMD_STOP_TEST, NULL);
-	}
 
 	return 0;
 }
 
 static int aoltest_nl_start_data_transmission(struct sk_buff *skb, struct genl_info *info)
 {
-	if (g_ctx && g_ctx->cb.aoltest_handler) {
+	if (g_ctx && g_ctx->cb.aoltest_handler)
 		g_ctx->cb.aoltest_handler(AOLTEST_CMD_START_DATA_TRANS, NULL);
-	}
-
 	return 0;
 }
 
 static int aoltest_nl_stop_data_transmission(struct sk_buff *skb, struct genl_info *info)
 {
-	if (g_ctx && g_ctx->cb.aoltest_handler) {
+	if (g_ctx && g_ctx->cb.aoltest_handler)
 		g_ctx->cb.aoltest_handler(AOLTEST_CMD_STOP_DATA_TRANS, NULL);
-	}
-
 	return 0;
 }
 
-static int aoltest_netlink_msg_send(char* tag, unsigned int msg_id, char* buf, unsigned int length,
+static int aoltest_netlink_msg_send(char *tag, unsigned int msg_id, char *buf, unsigned int length,
 								pid_t pid, unsigned int seq)
 {
 	struct sk_buff *skb;
-	void* msg_head = NULL;
+	void *msg_head = NULL;
 	int ret = 0;
 
 	// Allocate a generic netlink message buffer
@@ -398,9 +380,8 @@ static int aoltest_netlink_msg_send(char* tag, unsigned int msg_id, char* buf, u
 
 		// Send message
 		ret = genlmsg_unicast(&init_net, skb, pid);
-		if (ret == 0) {
+		if (ret == 0)
 			pr_info("[%s] Send msg succeed\n", __func__);
-		}
 	} else {
 		pr_info("[%s] Allocate message error\n", __func__);
 		ret = -ENOMEM;
@@ -409,7 +390,8 @@ static int aoltest_netlink_msg_send(char* tag, unsigned int msg_id, char* buf, u
 	return ret;
 }
 
-static int aoltest_netlink_send_to_native_internal(char* tag, unsigned int msg_id, char* buf, unsigned int length)
+static int aoltest_netlink_send_to_native_internal(char *tag,
+				unsigned int msg_id, char *buf, unsigned int length)
 {
 	int ret = 0;
 	unsigned int retry;
@@ -418,23 +400,23 @@ static int aoltest_netlink_send_to_native_internal(char* tag, unsigned int msg_i
 
 	if (ret != 0) {
 		pr_info("[%s] genlmsg_unicast fail, ret=[%d], pid=[%d], seq=[%d], tag=[%s]\n",
-			__func__, ret, g_ctx->bind_pid, g_ctx->seqnum, tag);
+				__func__, ret, g_ctx->bind_pid, g_ctx->seqnum, tag);
 
 		if (ret == -EAGAIN) {
 			retry = 0;
 
 			while (retry < 100 && ret == -EAGAIN) {
-				msleep(10);
+				msleep(20);
 				ret = aoltest_netlink_msg_send(tag, msg_id, buf, length,
-											g_ctx->bind_pid, g_ctx->seqnum);
+								g_ctx->bind_pid, g_ctx->seqnum);
 				retry++;
-				pr_info("[%s] genlmsg_unicast retry(%d)...: ret=[%d], pid=[%d], seq=[%d], tag=[%s]\n",
-						__func__, retry, ret, g_ctx->bind_pid, g_ctx->seqnum, tag);
+				pr_info("[%s] genlmsg_unicast retry(%d)...: ret=[%d] pid=[%d] seq=[%d] tag=[%s]\n",
+					__func__, retry, ret, g_ctx->bind_pid, g_ctx->seqnum, tag);
 			}
 
 			if (ret) {
 				pr_info("[%s] genlmsg_unicast fail, ret=[%d] after retry %d times: pid=[%d], seq=[%d], tag=[%s]\n",
-						__func__, ret, retry, g_ctx->bind_pid, g_ctx->seqnum, tag);
+					__func__, ret, retry, g_ctx->bind_pid, g_ctx->seqnum, tag);
 			}
 		}
 	}
@@ -444,7 +426,7 @@ static int aoltest_netlink_send_to_native_internal(char* tag, unsigned int msg_i
 	return ret;
 }
 
-int aoltest_netlink_send_to_native(char* tag, unsigned int msg_id, char* buf, unsigned int length)
+int aoltest_netlink_send_to_native(char *tag, unsigned int msg_id, char *buf, unsigned int length)
 {
 	int ret = 0;
 	int idx = 0;
@@ -462,11 +444,12 @@ int aoltest_netlink_send_to_native(char* tag, unsigned int msg_id, char* buf, un
 	}
 
 	while (remain_len) {
-		send_len = (remain_len > AOLTEST_PKT_SIZE? AOLTEST_PKT_SIZE : remain_len);
+		send_len = (remain_len > AOLTEST_PKT_SIZE ? AOLTEST_PKT_SIZE : remain_len);
 		ret = aoltest_netlink_send_to_native_internal(tag, msg_id, &buf[idx], send_len);
 
 		if (ret) {
-			pr_info("[%s] From %d with len=[%d] fail, ret=[%d]\n", __func__, idx, send_len, ret);
+			pr_info("[%s] From %d with len=[%d] fail, ret=[%d]\n"
+							, __func__, idx, send_len, ret);
 			break;
 		}
 
@@ -477,7 +460,7 @@ int aoltest_netlink_send_to_native(char* tag, unsigned int msg_id, char* buf, un
 	return idx;
 }
 
-int aoltest_netlink_init(struct netlink_event_cb* cb)
+int aoltest_netlink_init(struct netlink_event_cb *cb)
 {
 	int ret = 0;
 
@@ -497,7 +480,7 @@ int aoltest_netlink_init(struct netlink_event_cb* cb)
 	return ret;
 }
 
-void aoltest_netlink_deinit()
+void aoltest_netlink_deinit(void)
 {
 	g_ctx->status = LINK_STATUS_INIT;
 	genl_unregister_family(&g_ctx->gnl_family);
