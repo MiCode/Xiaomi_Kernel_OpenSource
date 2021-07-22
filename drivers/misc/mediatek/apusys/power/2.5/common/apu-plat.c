@@ -344,7 +344,7 @@ struct apu_plat_ops *apu_plat_get_ops(struct apu_dev *ad, const char *name)
 			return &apu_plat_driver[i];
 	}
 
-	aprobe_err(ad->dev, "[%s] not found platform ops \"%s\"\n", __func__);
+	aprobe_err(ad->dev, "[%s] not found platform ops \"%s\"\n", __func__, name);
 
 out:
 	return ERR_PTR(-ENOENT);
