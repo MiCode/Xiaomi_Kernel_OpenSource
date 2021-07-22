@@ -14,6 +14,7 @@
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <dt-bindings/reset/ti-syscon.h>
 #include <dt-bindings/iio/adc/mediatek,mt6375_auxadc.h>
 #include <dt-bindings/iio/adc/mediatek,mt6375_adc.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
@@ -4745,33 +4746,71 @@
 		compatible = "mediatek,mt8183-ufshci";
 		reg = <0 0x112b0000 0 0x2300>;
 		interrupts = <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH 0>;
-#if 0
-		clocks = <&infracfg_ao_clk CLK_IFRAO_UFS>,
-			   <&infracfg_ao_clk CLK_IFRAO_UFS_TICK>,
-			   <&infracfg_ao_clk CLK_IFRAO_UFS_AXI>,
-			   <&infracfg_ao_clk CLK_IFRAO_UFS_MP_SAP_BCLK>,
-			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_TICK>,
-			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_MBIST>,
-			   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
-			   <&infracfg_ao_clk CLK_IFRAO_AES>;
-		clock-names = "ufs", "ufs_tick", "ufs_axi", "ufs_mp",
-			"unipro_tick", "unipro_mbist", "unipro_sys",
-			"crypt_infra";
 
-		freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>, <0 0>,
-				<0 0>, <0 0>, <0 0>;
+		clocks =
+			<&topckgen_clk CLK_TOPCKGEN_UFS_HD_HAXI_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_AES_UFSFDE_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_UFS_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_UFS_MBIST_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_UFS_HF_FMEM_SEL>;
+		clock-names =
+			"ufs_hd_haxi",
+			"ufs_fde",
+			"ufs",
+			"ufs_mbist",
+			"ufs_hf_fmem";
+		freq-table-hz =
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
 
-		vcc-supply = <&mt6359p_vemc_reg>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_UFS0>;
+		vcc-supply = <&mt6373_vbuck4>;
 
-		resets = <&infracfg_rst 2>, <&infracfg_rst 3>,
-			 <&infracfg_rst 4>;
-		reset-names = "hci_rst", "unipro_rst", "crypto_rst";
-#endif
+		resets = <&ufsaocfg_rst 0>, <&ufspdncfg_rst 0>,
+			   <&ufspdncfg_rst 1>;
+		reset-names = "unipro_rst", "crypto_rst", "hci_rst";
 
 		bootmode = <&chosen>;
 
 		mediatek,ufs-disable-ah8;
 		mediatek,ufs-qos;
+	};
+
+	ufs_ao_cfg: ufs_ao_cfg@112b8000 {
+		compatible = "mediatek,ufs_ao_cfg", "syscon", "simple-mfd";
+		reg = <0 0x112b8000 0 0x1000>;
+
+		ufsaocfg_rst: reset-controller {
+			compatible = "ti,syscon-reset";
+			#reset-cells = <1>;
+
+			ti,reset-bits = <
+				/* ufs unipro reset */
+				0x44  1 0x48  1 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0: unipro */
+				>;
+		};
+	};
+
+	ufs_pdn_cfg: ufs_pdn_cfg@112bc000 {
+		compatible = "mediatek,ufs_pdn_cfg", "syscon", "simple-mfd";
+		reg = <0 0x112bc000 0 0x1000>;
+
+		ufspdncfg_rst: reset-controller {
+			compatible = "ti,syscon-reset";
+			#reset-cells = <1>;
+
+			ti,reset-bits = <
+				/* ufs crypto/ufshci reset */
+				0x44  0 0x48  0 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0: ufs-crypto */
+				0x44  1 0x48  1 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 1: ufshci */
+				>;
+		};
 	};
 
 	reserved@14025000 {
