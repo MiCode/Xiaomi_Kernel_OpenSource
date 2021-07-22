@@ -127,8 +127,13 @@ static inline void smi_larbs_get(void)
 	for (i = 0; i < g_larb_num; i++) {
 		if (cam_mem_dev.larbs[i]) {
 			ret = mtk_smi_larb_get(cam_mem_dev.larbs[i]);
-			if (ret)
+			if (ret) {
 				LOG_NOTICE("mtk_smi_larb_get larbs[%d] fail %d\n", i, ret);
+			} else {
+				spin_lock(&(CamMemInfo.SpinLock_Larb));
+				G_u4EnableLarbCount++;
+				spin_unlock(&(CamMemInfo.SpinLock_Larb));
+			}
 		} else
 			LOG_NOTICE("No larbs[%d] device\n", i);
 	}
@@ -145,9 +150,12 @@ static inline void smi_larbs_put(void)
 		return;
 
 	for (i = 0; i < g_larb_num; i++) {
-		if (cam_mem_dev.larbs[g_larb_num - 1 - i])
+		if (cam_mem_dev.larbs[g_larb_num - 1 - i]) {
 			mtk_smi_larb_put(cam_mem_dev.larbs[g_larb_num - 1 - i]);
-		else
+			spin_lock(&(CamMemInfo.SpinLock_Larb));
+			G_u4EnableLarbCount--;
+			spin_unlock(&(CamMemInfo.SpinLock_Larb));
+		} else
 			LOG_NOTICE("cam_mem_dev.larbs[%d] is NULL!\n", g_larb_num - 1 - i);
 	}
 }
@@ -158,9 +166,6 @@ static inline void smi_larbs_put(void)
 static void CamMem_EnableLarb(bool En)
 {
 	if (En) {
-		spin_lock(&(CamMemInfo.SpinLock_Larb));
-		G_u4EnableLarbCount++;
-		spin_unlock(&(CamMemInfo.SpinLock_Larb));
 		smi_larbs_get(); /* !!cannot be used in spinlock!! */
 	} else {
 		spin_lock(&(CamMemInfo.SpinLock_Larb));
@@ -171,9 +176,8 @@ static void CamMem_EnableLarb(bool En)
 
 			return;
 		}
-
-		G_u4EnableLarbCount--;
 		spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
 		/* !!cannot be used in spinlock!! */
 		smi_larbs_put();
 	}
