@@ -76,9 +76,6 @@ uint64_t sdsp_elf_pa[2] = { 0, 0 };
 
 #define MTEE_kernel_UT_RUN 1
 #if MTEE_kernel_UT_RUN		//add tmp
-#include "mtee_ut/gz_shmem_ut.h"
-#include "mtee_ut/gz_chmem_ut.h"
-#include "mtee_ut/gz_rkp_ut.h"
 #include "mtee_ut/gz_sec_storage_ut.h"
 #endif
 
@@ -145,45 +142,9 @@ static ssize_t gz_test_store(struct device *dev,
 		KREE_DEBUG("test general functions\n");
 		th = kthread_run(gz_test, NULL, "GZ KREE test");
 		break;
-	case '3':
-		KREE_DEBUG("test shared memory functions\n");
-		th = kthread_run(gz_test_shm, NULL, "GZ KREE test");
-		break;
 	case '4':
 		KREE_DEBUG("test GenieZone abort\n");
 		th = kthread_run(gz_abort_test, NULL, "GZ KREE test");
-		break;
-	case '5':
-		KREE_DEBUG("test chunk memory\n");
-		th = kthread_run(chunk_memory_ut, NULL, "MCM UT");
-		break;
-	case '6':
-		KREE_DEBUG("test RKP Basic UT by smc\n");
-		th = kthread_run(test_rkp_basic_by_smc, NULL, "RKP_UT");
-		break;
-	case '7':
-		KREE_DEBUG("stress test RKP UT by vreg\n");
-		th = kthread_run(test_rkp_stress_by_smc, NULL, "RKP_ST");
-		break;
-	case '8':
-		KREE_DEBUG("test RKP by malloc buffer/UPT/RD/WR.\n");
-		th = kthread_run(test_rkp_mix_op, NULL, "RKP_MIX_OP");
-		break;
-	case '9':
-		KREE_DEBUG("test RKP: malloc buffer w/ 2 threads\n");
-		th = kthread_run(test_rkp_by_malloc_buf, NULL, "RKP_multi_smc");
-		break;
-	case 'a':
-		KREE_DEBUG("test RKP by GZ driver\n");
-		th = kthread_run(test_rkp_by_gz_driver, NULL, "RKP_gz_drv");
-		break;
-	case 'b':
-		KREE_DEBUG("test RKP Basic UT by vreg\n");
-		th = kthread_run(test_rkp_basic_by_vreg, NULL, "RKP_UT");
-		break;
-	case 'c':
-		KREE_DEBUG("stress test RKP UT by vreg\n");
-		th = kthread_run(test_rkp_stress_by_vreg, NULL, "RKP_STRESS");
 		break;
 	case 'C':
 		KREE_DEBUG("test GZ Secure Storage\n");
