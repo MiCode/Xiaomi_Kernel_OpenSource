@@ -2275,6 +2275,7 @@
 			mediatek,iommu_banks = <&apu_iommu0_bank1 &apu_iommu0_bank2
 						&apu_iommu0_bank3 &apu_iommu0_bank4>;
 			interrupts = <GIC_SPI 579 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6983_POWER_DOMAIN_APU>;
 			#iommu-cells = <1>;
 	};
 
@@ -2312,6 +2313,7 @@
 			mediatek,iommu_banks = <&apu_iommu1_bank1 &apu_iommu1_bank2
 						&apu_iommu1_bank3 &apu_iommu1_bank4>;
 			interrupts = <GIC_SPI 584 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6983_POWER_DOMAIN_APU>;
 			#iommu-cells = <1>;
 	};
 
