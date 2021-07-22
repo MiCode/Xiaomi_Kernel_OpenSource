@@ -2721,64 +2721,6 @@
 	mtk_sec_dmaheap {
 			compatible = "mediatek,dmaheap-region-base";
 			iommus = <&disp_iommu M4U_PORT_L0_DISP_POSTMASK0>;
-		};
-
-	mtk_iommu_test0 {
-			compatible = "mediatek,iommu-test-dom0";
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-			iommus = <&mdp_iommu M4U_PORT_L30_CAM3_TNCSO_R1>;
-	};
-
-	mtk_iommu_test1 {
-			compatible = "mediatek,iommu-test-dom1";
-			iommus = <&disp_iommu M4U_PORT_L34_APU_SECURE>;
-	};
-
-	mtk_iommu_test2 {
-			compatible = "mediatek,iommu-test-dom2";
-			iommus = <&disp_iommu M4U_PORT_L34_APU_CODE>;
-	};
-
-	mtk_iommu_test3 {
-			compatible = "mediatek,iommu-test-dom3";
-			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			iommus = <&mdp_iommu M4U_PORT_L31_CCU0>;
-	};
-
-	mtk_iommu_test4 {
-			compatible = "mediatek,iommu-test-dom4";
-			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			iommus = <&mdp_iommu M4U_PORT_L31_CCU1>;
-	};
-
-	mtk_iommu_test5 {
-			compatible = "mediatek,iommu-test-dom5";
-			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			iommus = <&disp_iommu M4U_PORT_L33_VIDEO_UP_512MB1>;
-	};
-
-	mtk_iommu_test6 {
-			compatible = "mediatek,iommu-test-dom6";
-			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			iommus = <&disp_iommu M4U_PORT_L33_VIDEO_UP_512MB2>;
-	};
-
-	mtk_iommu_test7 {
-			compatible = "mediatek,iommu-test-dom7";
-			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			iommus = <&disp_iommu M4U_PORT_L33_VIDEO_UP_256MB1>;
-	};
-
-	mtk_iommu_test8 {
-			compatible = "mediatek,iommu-test-dom8";
-			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			iommus = <&mdp_iommu M4U_PORT_L33_VIDEO_UP_256MB2>;
-	};
-
-	mtk_iommu_test9 {
-			compatible = "mediatek,iommu-test-dom9";
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-			iommus = <&mdp_iommu M4U_PORT_L32_PERI_MASTER>;
 	};
 
 	disp_iommu_bank1: iommu@1e803000 {
