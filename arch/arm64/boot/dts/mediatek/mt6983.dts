@@ -428,7 +428,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
 			clock-frequency = <2000000000>;
-			capacity-dmips-mhz = <943>;
+			capacity-dmips-mhz = <944>;
 			#cooling-cells = <2>;
 		};
 
@@ -439,7 +439,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
 			clock-frequency = <2000000000>;
-			capacity-dmips-mhz = <943>;
+			capacity-dmips-mhz = <944>;
 			#cooling-cells = <2>;
 		};
 
@@ -450,7 +450,7 @@
 			enable-method = "psci";
 			performance-domains = <&performance 1>;
 			clock-frequency = <2000000000>;
-			capacity-dmips-mhz = <943>;
+			capacity-dmips-mhz = <944>;
 			#cooling-cells = <2>;
 		};
 
