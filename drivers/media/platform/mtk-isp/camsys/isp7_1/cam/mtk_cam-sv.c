@@ -1110,6 +1110,8 @@ int mtk_cam_sv_top_enable(struct mtk_camsv_device *dev)
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_CLK_EN,
 		CAMSV_CLK_EN, TG_DP_CK_EN, 1);
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_CLK_EN,
+		CAMSV_CLK_EN, QBN_DP_CK_EN, 1);
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_CLK_EN,
 		CAMSV_CLK_EN, PAK_DP_CK_EN, 1);
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_CLK_EN,
 		CAMSV_CLK_EN, IMGO_DP_CK_EN, 1);
@@ -1236,7 +1238,8 @@ int mtk_cam_sv_enquehwbuf(
 	reg.Raw = 0;
 
 	CAMSV_WRITE_REG(dev->base + REG_CAMSV_FRAME_SEQ_NO, seq_no);
-	CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_BASE_ADDR, ba);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_BASE_ADDR, ba & 0xFFFFFFFF);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_BASE_ADDR_MSB, (ba >> 32) & 0xF);
 	reg.Bits.RCNT_INC1 = 1;
 	CAMSV_WRITE_REG(dev->base + REG_CAMSV_TOP_FBC_CNT_SET, reg.Raw);
 

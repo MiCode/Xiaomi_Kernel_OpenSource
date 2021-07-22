@@ -3042,10 +3042,10 @@ static int mtk_cam_create_links(struct mtk_cam_device *cam)
 	i = 0;
 	v4l2_device_for_each_subdev(sd, &cam->v4l2_dev) {
 		if (i < cam->num_seninf_drivers &&
-		    sd->entity.function == MEDIA_ENT_F_VID_IF_BRIDGE)
+		    sd->entity.function == MEDIA_ENT_F_VID_IF_BRIDGE) {
 			ret = config_bridge_pad_links(cam, sd);
-
-		i++;
+			i++;
+		}
 	}
 
 	return ret;
