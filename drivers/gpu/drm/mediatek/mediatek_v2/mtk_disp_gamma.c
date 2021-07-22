@@ -87,6 +87,7 @@ static void mtk_gamma_config(struct mtk_ddp_comp *comp,
 static int mtk_gamma_write_lut_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int lock)
 {
+/*
 	struct DISP_GAMMA_LUT_T *gamma_lut;
 	int i;
 	int ret = 0;
@@ -137,6 +138,8 @@ gamma_write_lut_unlock:
 		mutex_unlock(&g_gamma_global_lock);
 
 	return ret;
+*/
+	return 0;
 }
 
 
@@ -433,6 +436,7 @@ static const struct of_device_id mtk_disp_gamma_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6873-disp-gamma",},
 	{ .compatible = "mediatek,mt6853-disp-gamma",},
 	{ .compatible = "mediatek,mt6833-disp-gamma",},
+	{ .compatible = "mediatek,mt6983-disp-gamma",},
 	{},
 };
 

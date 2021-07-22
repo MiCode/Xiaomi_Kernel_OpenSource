@@ -70,6 +70,8 @@ enum PQ_REG_TABLE_IDX {
 	TUNING_DISP_GAMMA,	// 3
 	TUNING_DISP_DITHER,	// 4
 	TUNING_DISP_CCORR1,	// 5
+	TUNING_DISP_TDSHP,	// 6
+	TUNING_DISP_C3D,	// 7
 	TUNING_REG_MAX
 };
 
@@ -1273,17 +1275,16 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		if (color->data->support_color21 == true) {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 25)
-				|(1 << 21)
+				(1 << 21)
 				| (g_Color_Index.LSP_EN << 20)
 				| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
 				| (wide_gamut_en << 8)
-				| (0 << 7), 0x23081FF);
+				| (0 << 7), 0x03081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 25) | (0 << 8) | (0 << 7), 0x20001FF);
+				(0 << 8) | (0 << 7), 0x00001FF);
 		}
 
 		/* color start */
@@ -1310,7 +1311,7 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(1 << 25) | (0x1 << 29), 0x22000000);
+			(0x1 << 29), 0x20000000);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
@@ -1697,17 +1698,16 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		if (color->data->support_color21 == true) {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 25)
-				|(1 << 21)
+				(1 << 21)
 				| (g_Color_Index.LSP_EN << 20)
 				| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
 				| (wide_gamut_en << 8)
-				| (0 << 7), 0x023081FF);
+				| (0 << 7), 0x003081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 25) | (0 << 8) | (0 << 7), 0x20001FF);
+				(0 << 8) | (0 << 7), 0x00001FF);
 		}
 
 		/* color start */
@@ -1734,7 +1734,7 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(1 << 25) | (0x1 << 29), 0x22000000);
+			(0x1 << 29), 0x20000000);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
@@ -2121,6 +2121,15 @@ static void mtk_color_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_COLOR_HEIGHT(color), cfg->h, ~0);
 
+	// set color_8bit_switch register
+	if (cfg->bpc == 8)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_COLOR_CFG_MAIN, (0x1 << 25), (0x1 << 25));
+	else if (cfg->bpc == 10)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_COLOR_CFG_MAIN, (0x0 << 25), (0x1 << 25));
+	else
+		DDPINFO("Disp COLOR's bit is : %u\n", cfg->bpc);
 }
 
 void ddp_color_bypass_color(struct mtk_ddp_comp *comp, int bypass,
@@ -3365,6 +3374,17 @@ static const struct mtk_disp_color_data mt6833_color_driver_data = {
 	.need_bypass_shadow = true,
 };
 
+static const struct mtk_disp_color_data mt6983_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6873,
+	.support_color21 = true,
+	.support_color30 = true,
+	.reg_table = {0x14007000, 0x14009000, 0x1400A000, 0x1400B000,
+			0x14008000, 0x1400D000, 0x1400E000, 0x14010000},
+	.color_window = 0x40185E57,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
 static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-color",
 	 .data = &mt2701_color_driver_data},
@@ -3380,6 +3400,8 @@ static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	 .data = &mt6853_color_driver_data},
 	{.compatible = "mediatek,mt6833-disp-color",
 	 .data = &mt6833_color_driver_data},
+	{.compatible = "mediatek,mt6983-disp-color",
+	 .data = &mt6983_color_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_color_driver_dt_match);

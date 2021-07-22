@@ -53,6 +53,7 @@
 #define CCORR_CLIP(val, min, max) ((val >= max) ? \
 	max : ((val <= min) ? min : val))
 
+static unsigned int g_ccorr_8bit_switch[DISP_CCORR_TOTAL];
 static unsigned int g_ccorr_relay_value[DISP_CCORR_TOTAL];
 #define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : 1)
 
@@ -259,7 +260,8 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		/* use CPU to write */
 		writel(1, comp->regs + DISP_REG_CCORR_EN);
 		cfg_val = 0x2 | g_ccorr_relay_value[id] |
-			     (g_disp_ccorr_without_gamma << 2);
+			     (g_disp_ccorr_without_gamma << 2) |
+				(g_ccorr_8bit_switch[id] << 10);
 		writel(cfg_val, comp->regs + DISP_REG_CCORR_CFG);
 		writel(((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
 			(ccorr->coef[0][1] & CCORR_13BIT_MASK),
@@ -287,7 +289,8 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		/* use CMDQ to write */
 
 		cfg_val = 0x2 | g_ccorr_relay_value[index_of_ccorr(comp->id)] |
-			     (g_disp_ccorr_without_gamma << 2 | (0x1 << 10));
+				(g_disp_ccorr_without_gamma << 2 |
+				(g_ccorr_8bit_switch[id] << 10));
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_CCORR_CFG, cfg_val, ~0);
@@ -934,6 +937,13 @@ static void mtk_ccorr_config(struct mtk_ddp_comp *comp,
 
 	DDPINFO("%s\n", __func__);
 
+	if (cfg->bpc == 8)
+		g_ccorr_8bit_switch[index_of_ccorr(comp->id)] = 1;
+	else if (cfg->bpc == 10)
+		g_ccorr_8bit_switch[index_of_ccorr(comp->id)] = 0;
+	else
+		DDPINFO("Disp CCORR's bit is : %u\n", cfg->bpc);
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_CCORR_SIZE,
 		       (width << 16) | cfg->h, ~0);
@@ -1190,6 +1200,11 @@ static const struct mtk_disp_ccorr_data mt6833_ccorr_driver_data = {
 	.need_bypass_shadow = true,
 };
 
+static const struct mtk_disp_ccorr_data mt6983_ccorr_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = true,
+};
+
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-ccorr",
 	  .data = &mt6779_ccorr_driver_data},
@@ -1201,6 +1216,8 @@ static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	  .data = &mt6853_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6833-disp-ccorr",
 	  .data = &mt6833_ccorr_driver_data},
+	{ .compatible = "mediatek,mt6983-disp-ccorr",
+	  .data = &mt6983_ccorr_driver_data},
 	{},
 };
 
