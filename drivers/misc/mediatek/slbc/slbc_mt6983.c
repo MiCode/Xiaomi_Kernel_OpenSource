@@ -123,8 +123,8 @@ void slbc_sram_init(struct mtk_slbc *slbc)
 {
 	int i;
 
-	pr_info("slbc_sram addr:0x%x len:%d\n",
-			slbc->regs, slbc->regsize);
+	pr_info("slbc_sram addr:0x%lx len:%d\n",
+			(unsigned long)slbc->regs, slbc->regsize);
 
 	/* print_hex_dump(KERN_INFO, "SLBC: ", DUMP_PREFIX_OFFSET, */
 	/* 16, 4, slbc->sram_vaddr, slbc->regsize, 1); */
@@ -135,16 +135,16 @@ void slbc_sram_init(struct mtk_slbc *slbc)
 
 static void slbc_set_sram_data(struct slbc_data *d)
 {
-	pr_info("%s: pa:%x va:%x\n",
-			__func__, (void *)d->paddr, (void *)d->vaddr);
+	pr_info("slbc: pa:%lx va:%lx\n",
+			(unsigned long)d->paddr, (unsigned long)d->vaddr);
 }
 
 static void slbc_clr_sram_data(struct slbc_data *d)
 {
 	d->paddr = 0;
 	d->vaddr = 0;
-	pr_info("%s: pa:%x va:%x\n",
-			__func__, (void *)d->paddr, (void *)d->vaddr);
+	pr_info("slbc: pa:%lx va:%lx\n",
+			(unsigned long)d->paddr, (unsigned long)d->vaddr);
 }
 
 static void slbc_debug_log(const char *fmt, ...)
@@ -259,7 +259,7 @@ static int slbc_request_acp(void *ptr)
 
 int slbc_request(struct slbc_data *d)
 {
-	int ret;
+	int ret = 0;
 
 	if ((d->type) == TP_BUFFER)
 		ret = slbc_request_buffer(d);
@@ -270,8 +270,9 @@ int slbc_request(struct slbc_data *d)
 	if ((d->type) == TP_ACP)
 		ret = slbc_request_acp(d);
 
-	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%x\n",
-			__func__, __LINE__, d->uid, ret, d->ret, d->paddr);
+	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx\n",
+			__func__, __LINE__, d->uid, ret, d->ret,
+			(unsigned long)d->paddr);
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
@@ -357,7 +358,7 @@ static int slbc_release_acp(void *ptr)
 
 int slbc_release(struct slbc_data *d)
 {
-	int ret;
+	int ret = 0;
 
 	if ((d->type) == TP_BUFFER)
 		ret = slbc_release_buffer(d);
@@ -368,8 +369,9 @@ int slbc_release(struct slbc_data *d)
 	if ((d->type) == TP_ACP)
 		ret = slbc_release_acp(d);
 
-	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%x\n",
-			__func__, __LINE__, d->uid, ret, d->ret, d->paddr);
+	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx\n",
+			__func__, __LINE__, d->uid, ret, d->ret,
+			(unsigned long)d->paddr);
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
@@ -394,7 +396,7 @@ int slbc_power_on(struct slbc_data *d)
 		return -EINVAL;
 
 	uid = d->uid;
-	if (uid <= UID_ZERO || uid > UID_MAX)
+	if (uid <= UID_ZERO || uid >= UID_MAX)
 		return -EINVAL;
 
 #ifdef SLBC_TRACE
@@ -417,7 +419,7 @@ int slbc_power_off(struct slbc_data *d)
 		return -EINVAL;
 
 	uid = d->uid;
-	if (uid <= UID_ZERO || uid > UID_MAX)
+	if (uid <= UID_ZERO || uid >= UID_MAX)
 		return -EINVAL;
 
 #ifdef SLBC_TRACE
@@ -440,7 +442,7 @@ int slbc_secure_on(struct slbc_data *d)
 		return -EINVAL;
 
 	uid = d->uid;
-	if (uid <= UID_ZERO || uid > UID_MAX)
+	if (uid <= UID_ZERO || uid >= UID_MAX)
 		return -EINVAL;
 
 #ifdef SLBC_TRACE
@@ -462,7 +464,7 @@ int slbc_secure_off(struct slbc_data *d)
 		return -EINVAL;
 
 	uid = d->uid;
-	if (uid <= UID_ZERO || uid > UID_MAX)
+	if (uid <= UID_ZERO || uid >= UID_MAX)
 		return -EINVAL;
 
 #ifdef SLBC_TRACE
@@ -522,8 +524,8 @@ static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 	seq_printf(m, "uid: %d\n", uid);
 	seq_printf(m, "type: 0x%x\n", d->type);
 	seq_printf(m, "size: %ld\n", d->size);
-	seq_printf(m, "paddr: %x\n", (void *)d->paddr);
-	seq_printf(m, "vaddr: %x\n", (void *)d->vaddr);
+	seq_printf(m, "paddr: %lx\n", (unsigned long)d->paddr);
+	seq_printf(m, "vaddr: %lx\n", (unsigned long)d->vaddr);
 	seq_printf(m, "sid: %d\n", d->sid);
 	seq_printf(m, "slot_used: 0x%x\n", d->slot_used);
 	seq_printf(m, "config: %p\n", d->config);
@@ -608,7 +610,7 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 static ssize_t dbg_slbc_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int ret;
+	int ret = 0;
 	char *buf = (char *) __get_free_page(GFP_USER);
 	char cmd[64];
 	unsigned long val_1;
@@ -652,7 +654,7 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 		}
 	} else if (!strcmp(cmd, "slbc_scmi_enable")) {
 		pr_info("slbc scmi enable %d\n", val_1);
-		slbc_set_scmi_enable(!!val_1);
+		slbc_set_scmi_enable((int)!!val_1);
 		slbc_sspm_enable(slbc_get_scmi_enable());
 	} else if (!strcmp(cmd, "slbc_uid_used")) {
 		slbc_uid_used = val_1;
@@ -703,8 +705,9 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "debug_level")) {
 		debug_level = val_1;
 	} else if (!strcmp(cmd, "sram")) {
-		pr_info("#@# %s(%d) slbc->regs 0x%lx slbc->regsize 0x%lx\n",
-				__func__, __LINE__, slbc->regs, slbc->regsize);
+		pr_info("#@# %s(%d) slbc->regs 0x%lx slbc->regsize 0x%x\n",
+				__func__, __LINE__,
+				(unsigned long)slbc->regs, slbc->regsize);
 
 		print_hex_dump(KERN_INFO, "SLBC: ", DUMP_PREFIX_OFFSET,
 				16, 4, slbc->sram_vaddr, slbc->regsize, 1);
@@ -779,7 +782,7 @@ static int slbc_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
 	struct device *dev = &pdev->dev;
-	int ret;
+	int ret = 0;
 	const char *buf;
 	struct cpuidle_driver *drv = cpuidle_get_driver();
 	/* struct resource *res; */
@@ -814,15 +817,6 @@ static int slbc_probe(struct platform_device *pdev)
 	} else
 		pr_info("find slbc node failed\n");
 
-	/* res = platform_get_resource(pdev, IORESOURCE_MEM, 0); */
-	/* if (res) { */
-	/* slbc->regs = (void *)res->start; */
-	/* slbc->regsize = resource_size(res); */
-	/* slbc_sram_init(slbc->regs, slbc->regsize); */
-	/* pr_info("#@# %s(%d) slbc->regs 0x%lx slbc->regsize 0x%lx\n", */
-	/* __func__, __LINE__, slbc->regs, slbc->regsize); */
-	/* } */
-
 	ret = of_property_read_u32_array(node, "reg", reg, 4);
 	if (ret < 0) {
 		slbc_sram_enable = 0;
@@ -842,8 +836,9 @@ static int slbc_probe(struct platform_device *pdev)
 		} else {
 			slbc_sram_enable = 1;
 
-			pr_info("#@# %s(%d) slbc->regs 0x%lx slbc->regsize 0x%lx\n",
-					__func__, __LINE__, slbc->regs, slbc->regsize);
+			pr_info("#@# %s(%d) slbc->regs 0x%lx slbc->regsize 0x%x\n",
+					__func__, __LINE__,
+					(unsigned long)slbc->regs, slbc->regsize);
 			slbc_sram_init(slbc);
 		}
 	}

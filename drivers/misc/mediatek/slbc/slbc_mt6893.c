@@ -119,8 +119,8 @@ static void slbc_set_sram_data(struct slbc_data *d)
 
 	d->paddr = mmsram.paddr;
 	d->vaddr = mmsram.vaddr;
-	pr_info("%s: pa:%x va:%x\n",
-			__func__, (void *)d->paddr, (void *)d->vaddr);
+	pr_info("slbc: pa:%lx va:%lx\n",
+			(unsigned long)d->paddr, (unsigned long)d->vaddr);
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
 }
 
@@ -128,8 +128,8 @@ static void slbc_clr_sram_data(struct slbc_data *d)
 {
 	d->paddr = 0;
 	d->vaddr = 0;
-	pr_info("%s: pa:%x va:%x\n",
-			__func__, (void *)d->paddr, (void *)d->vaddr);
+	pr_info("slbc: pa:%lx va:%lx\n",
+			(unsigned long)d->paddr, (unsigned long)d->vaddr);
 }
 
 static void slbc_debug_log(const char *fmt, ...)
@@ -231,7 +231,7 @@ int slbc_activate(struct slbc_data *d)
 {
 	struct slbc_ops *ops;
 	unsigned int uid = d->uid;
-	int ret;
+	int ret = 0;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -504,8 +504,8 @@ static void slbc_debug_dump_data(struct slbc_data *d)
 	pr_info("uid: %d\n", uid);
 	pr_info("type: 0x%x\n", d->type);
 	pr_info("size: %ld\n", d->size);
-	pr_info("paddr: %x\n", (void *)d->paddr);
-	pr_info("vaddr: %x\n", (void *)d->vaddr);
+	pr_info("paddr: %lx\n", (unsigned long)d->paddr);
+	pr_info("vaddr: %lx\n", (unsigned long)d->vaddr);
 	pr_info("sid: %d\n", d->sid);
 	pr_info("slot_used: 0x%x\n", d->slot_used);
 	pr_info("config: %p\n", d->config);
@@ -970,7 +970,7 @@ int slbc_power_on(struct slbc_data *d)
 		return -EINVAL;
 
 	uid = d->uid;
-	if (uid <= UID_ZERO || uid > UID_MAX)
+	if (uid <= UID_ZERO || uid >= UID_MAX)
 		return -EINVAL;
 
 #ifdef SLBC_TRACE
@@ -1002,7 +1002,7 @@ int slbc_power_off(struct slbc_data *d)
 		return -EINVAL;
 
 	uid = d->uid;
-	if (uid <= UID_ZERO || uid > UID_MAX)
+	if (uid <= UID_ZERO || uid >= UID_MAX)
 		return -EINVAL;
 
 #ifdef SLBC_TRACE
@@ -1034,7 +1034,7 @@ int slbc_secure_on(struct slbc_data *d)
 		return -EINVAL;
 
 	uid = d->uid;
-	if (uid <= UID_ZERO || uid > UID_MAX)
+	if (uid <= UID_ZERO || uid >= UID_MAX)
 		return -EINVAL;
 
 #ifdef SLBC_TRACE
@@ -1063,7 +1063,7 @@ int slbc_secure_off(struct slbc_data *d)
 		return -EINVAL;
 
 	uid = d->uid;
-	if (uid <= UID_ZERO || uid > UID_MAX)
+	if (uid <= UID_ZERO || uid >= UID_MAX)
 		return -EINVAL;
 
 #ifdef SLBC_TRACE
@@ -1095,8 +1095,8 @@ static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 	seq_printf(m, "uid: %d\n", uid);
 	seq_printf(m, "type: 0x%x\n", d->type);
 	seq_printf(m, "size: %ld\n", d->size);
-	seq_printf(m, "paddr: %x\n", (void *)d->paddr);
-	seq_printf(m, "vaddr: %x\n", (void *)d->vaddr);
+	seq_printf(m, "paddr: %lx\n", (unsigned long)d->paddr);
+	seq_printf(m, "vaddr: %lx\n", (unsigned long)d->vaddr);
 	seq_printf(m, "sid: %d\n", d->sid);
 	seq_printf(m, "slot_used: 0x%x\n", d->slot_used);
 	seq_printf(m, "config: %p\n", d->config);
@@ -1144,7 +1144,7 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 static ssize_t dbg_slbc_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int ret;
+	int ret = 0;
 	char *buf = (char *) __get_free_page(GFP_USER);
 	char cmd[64];
 	unsigned long val_1;
@@ -1267,7 +1267,7 @@ static int slbc_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
 	struct device *dev = &pdev->dev;
-	int ret;
+	int ret = 0;
 	const char *buf;
 	struct cpuidle_driver *drv = cpuidle_get_driver();
 

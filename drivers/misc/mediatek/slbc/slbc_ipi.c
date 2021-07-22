@@ -123,7 +123,7 @@ int _slbc_request_cache_scmi(void *ptr)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 	struct slbc_data *d = (struct slbc_data *)ptr;
-	struct scmi_tinysys_status rvalue;
+	struct scmi_tinysys_status rvalue = {0};
 	int ret = 0;
 
 	slbc_ipi_d.cmd = SLBC_IPI(IPI_SLBC_CACHE_REQUEST_FROM_AP, d->uid);
@@ -153,7 +153,7 @@ int _slbc_release_cache_scmi(void *ptr)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 	struct slbc_data *d = (struct slbc_data *)ptr;
-	struct scmi_tinysys_status rvalue;
+	struct scmi_tinysys_status rvalue = {0};
 	int ret = 0;
 
 	slbc_ipi_d.cmd = SLBC_IPI(IPI_SLBC_CACHE_RELEASE_FROM_AP, d->uid);
@@ -183,7 +183,7 @@ int _slbc_request_buffer_scmi(void *ptr)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 	struct slbc_data *d = (struct slbc_data *)ptr;
-	struct scmi_tinysys_status rvalue;
+	struct scmi_tinysys_status rvalue = {0};
 	int ret = 0;
 
 	slbc_ipi_d.cmd = SLBC_IPI(IPI_SLBC_BUFFER_REQUEST_FROM_AP, d->uid);
@@ -214,7 +214,7 @@ int _slbc_release_buffer_scmi(void *ptr)
 {
 	struct slbc_ipi_data slbc_ipi_d;
 	struct slbc_data *d = (struct slbc_data *)ptr;
-	struct scmi_tinysys_status rvalue;
+	struct scmi_tinysys_status rvalue = {0};
 	int ret = 0;
 
 	slbc_ipi_d.cmd = SLBC_IPI(IPI_SLBC_BUFFER_RELEASE_FROM_AP, d->uid);
