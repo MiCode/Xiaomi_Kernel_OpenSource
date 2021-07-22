@@ -30,7 +30,7 @@
 #include "inc/mt6370_pmu.h"
 #include <tcpm.h>
 
-#define MT6370_PMU_CHARGER_DRV_VERSION	"1.1.29_MTK"
+#define MT6370_PMU_CHARGER_DRV_VERSION	"1.1.30_MTK"
 
 static bool dbg_log_en;
 module_param(dbg_log_en, bool, 0644);
@@ -62,7 +62,7 @@ enum mt6370_pmu_chg_type {
 	MT6370_CHG_TYPE_MAX,
 };
 
-static enum power_supply_usb_type mt6370_charger_usb_types[] = {
+static enum power_supply_usb_type mt6370_pmu_chg_usb_types[] = {
 	POWER_SUPPLY_USB_TYPE_UNKNOWN,
 	POWER_SUPPLY_USB_TYPE_SDP,
 	POWER_SUPPLY_USB_TYPE_DCP,
@@ -1819,6 +1819,7 @@ out:
 	if (ret < 0)
 		dev_notice(chg_data->dev, "%s: fail, en = %d\n", __func__, en);
 	mutex_unlock(&chg_data->ichg_access_lock);
+	power_supply_changed(chg_data->psy);
 	return ret;
 }
 
@@ -1928,6 +1929,10 @@ static int mt6370_enable_power_path(struct charger_device *chg_dev, bool en)
 				__func__, en, chg_data->pp_en);
 	if (en == chg_data->pp_en)
 		goto out;
+
+	ret = (en ? mt6370_pmu_reg_clr_bit : mt6370_pmu_reg_set_bit)
+		(chg_data->chip, MT6370_PMU_REG_CHGCTRL1,
+		 MT6370_MASK_FORCE_SLEEP);
 	/*
 	 * enable power path -> unmask mivr irq
 	 * mask mivr irq -> disable power path
@@ -2677,10 +2682,10 @@ static int mt6370_plug_out(struct charger_device *chg_dev)
 	/* Reset AICR limit */
 	chg_data->aicr_limit = -1;
 
-	/* Disable charger */
-	ret = mt6370_enable_charging(chg_dev, false);
+	/* Enable charger */
+	ret = mt6370_enable_charging(chg_dev, true);
 	if (ret < 0) {
-		dev_err(chg_data->dev, "%s: disable chg failed\n", __func__);
+		dev_notice(chg_data->dev, "%s: en chg failed\n", __func__);
 		return ret;
 	}
 
@@ -3563,7 +3568,7 @@ static irqreturn_t mt6370_pmu_ovpctrl_uvp_d_evt_irq_handler(int irq, void *data)
 	dev_err(chg_data->dev, "%s\n", __func__);
 
 	if (chg_data->chg_desc->bc12_sel != 0)
-		return IRQ_HANDLED;
+		goto out;
 
 	/* Check UVP_D_STAT & OTG mode */
 	ret = mt6370_pmu_reg_test_bit(chg_data->chip,
@@ -4091,92 +4096,87 @@ static const DEVICE_ATTR_WO(shipping_mode);
 /* MT6370 Power Supply Ops */
 /* ======================= */
 
-static int mt6370_charger_get_online(struct mt6370_pmu_charger_data *chg_data,
-				     bool *val)
+static int mt6370_pmu_chg_get_online(struct mt6370_pmu_charger_data *chg_data,
+				     union power_supply_propval *val)
 {
-#ifndef CONFIG_TCPC_CLASS
-	int ret;
-#endif
-	bool pwr_rdy = false;
+	bool online = false;
 
 #ifdef CONFIG_TCPC_CLASS
 	mutex_lock(&chg_data->attach_lock);
-	pwr_rdy = chg_data->typec_attach;
+	online = chg_data->typec_attach;
 	mutex_unlock(&chg_data->attach_lock);
 #else
+	int ret = 0;
+
 	ret = mt6370_pmu_reg_test_bit(chg_data->chip,
 		MT6370_PMU_REG_OVPCTRLSTAT,
-		MT6370_SHIFT_OVPCTRL_UVP_D_STAT, &pwr_rdy);
+		MT6370_SHIFT_OVPCTRL_UVP_D_STAT, &online);
 	if (ret < 0) {
 		dev_notice(chg_data->dev,
 			"%s: read uvp_d_stat fail\n", __func__);
 		return ret;
 	}
-	pwr_rdy = !pwr_rdy;
+	online = !online;
 #endif
-	dev_info(chg_data->dev, "%s: online = %d\n", __func__, pwr_rdy);
-	*val = pwr_rdy;
+	dev_info(chg_data->dev, "%s: online = %d\n", __func__, online);
+	val->intval = online;
+
 	return 0;
 }
 
-static int mt6370_charger_set_online(struct mt6370_pmu_charger_data *chg_data,
+static int mt6370_pmu_chg_set_online(struct mt6370_pmu_charger_data *chg_data,
 				     const union power_supply_propval *val)
 {
 	return mt6370_enable_chg_type_det(chg_data->chg_dev, val->intval);
 }
 
-static int mt6370_charger_get_property(struct power_supply *psy,
+static int mt6370_pmu_chg_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
 {
 	struct mt6370_pmu_charger_data *chg_data =
 						  power_supply_get_drvdata(psy);
 	enum mt6370_charging_status chg_stat = MT6370_CHG_STATUS_READY;
-	bool pwr_rdy = false, chg_en = false;
 	int ret = 0;
+
+	val->intval = 0;
 
 	dev_dbg(chg_data->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		ret = mt6370_charger_get_online(chg_data, &pwr_rdy);
-		val->intval = pwr_rdy;
+		ret = mt6370_pmu_chg_get_online(chg_data, val);
 		break;
 	case POWER_SUPPLY_PROP_AUTHENTIC:
 		val->intval = chg_data->ignore_usb;
-		break;
-	case POWER_SUPPLY_PROP_STATUS:
-		ret = mt6370_charger_get_online(chg_data, &pwr_rdy);
-		ret = mt6370_is_charging_enable(chg_data, &chg_en);
-		ret = mt6370_get_charging_status(chg_data, &chg_stat);
-		if (!pwr_rdy) {
-			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			return ret;
-		}
-		switch (chg_stat) {
-		case MT6370_CHG_STATUS_READY:
-			/* fallthrough */
-		case MT6370_CHG_STATUS_PROGRESS:
-			if (chg_en)
-				val->intval = POWER_SUPPLY_STATUS_CHARGING;
-			else
-				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			break;
-		case MT6370_CHG_STATUS_DONE:
-			val->intval = POWER_SUPPLY_STATUS_FULL;
-			break;
-		case MT6370_CHG_STATUS_FAULT:
-			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-			break;
-		default:
-			ret = -ENODATA;
-			break;
-		}
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = chg_data->psy_desc.type;
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = chg_data->psy_usb_type;
+		break;
+	case POWER_SUPPLY_PROP_STATUS:
+		ret = mt6370_pmu_chg_get_online(chg_data, val);
+		if (!val->intval) {
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+			break;
+		}
+		ret = mt6370_get_charging_status(chg_data, &chg_stat);
+		switch (chg_stat) {
+		case MT6370_CHG_STATUS_READY:
+		case MT6370_CHG_STATUS_FAULT:
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			break;
+		case MT6370_CHG_STATUS_PROGRESS:
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			break;
+		case MT6370_CHG_STATUS_DONE:
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+			break;
+		default:
+			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+			break;
+		}
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		if (chg_data->psy_desc.type == POWER_SUPPLY_TYPE_USB)
@@ -4188,31 +4188,34 @@ static int mt6370_charger_get_property(struct power_supply *psy,
 		break;
 	default:
 		ret = -ENODATA;
+		break;
 	}
+
 	return ret;
 }
 
-static int mt6370_charger_set_property(struct power_supply *psy,
+static int mt6370_pmu_chg_set_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       const union power_supply_propval *val)
 {
 	struct mt6370_pmu_charger_data *chg_data =
 						  power_supply_get_drvdata(psy);
-	int ret;
+	int ret = 0;
 
 	dev_dbg(chg_data->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		ret = mt6370_charger_set_online(chg_data, val);
+		ret = mt6370_pmu_chg_set_online(chg_data, val);
 		break;
 	default:
 		ret = -EINVAL;
+		break;
 	}
 
 	return ret;
 }
 
-static int mt6370_charger_property_is_writeable(struct power_supply *psy,
+static int mt6370_pmu_chg_property_is_writeable(struct power_supply *psy,
 						enum power_supply_property psp)
 {
 	switch (psp) {
@@ -4223,28 +4226,28 @@ static int mt6370_charger_property_is_writeable(struct power_supply *psy,
 	}
 }
 
-static enum power_supply_property mt6370_charger_properties[] = {
+static enum power_supply_property mt6370_pmu_chg_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_AUTHENTIC,
-	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
-static const struct power_supply_desc mt6370_charger_desc = {
+static const struct power_supply_desc mt6370_pmu_chg_desc = {
 	.type			= POWER_SUPPLY_TYPE_USB,
-	.properties		= mt6370_charger_properties,
-	.num_properties		= ARRAY_SIZE(mt6370_charger_properties),
-	.get_property		= mt6370_charger_get_property,
-	.set_property		= mt6370_charger_set_property,
-	.property_is_writeable	= mt6370_charger_property_is_writeable,
-	.usb_types		= mt6370_charger_usb_types,
-	.num_usb_types		= ARRAY_SIZE(mt6370_charger_usb_types),
+	.properties		= mt6370_pmu_chg_properties,
+	.num_properties		= ARRAY_SIZE(mt6370_pmu_chg_properties),
+	.get_property		= mt6370_pmu_chg_get_property,
+	.set_property		= mt6370_pmu_chg_set_property,
+	.property_is_writeable	= mt6370_pmu_chg_property_is_writeable,
+	.usb_types		= mt6370_pmu_chg_usb_types,
+	.num_usb_types		= ARRAY_SIZE(mt6370_pmu_chg_usb_types),
 };
 
-static char *mt6370_charger_supplied_to[] = {
+static char *mt6370_pmu_chg_supplied_to[] = {
 	"battery",
 	"mtk-master-charger"
 };
@@ -4394,8 +4397,8 @@ static int mt6370_get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 			ret = power_supply_get_property(chg_psy,
 					POWER_SUPPLY_PROP_USB_TYPE, &prop3);
 		} else {
-			prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
-			prop3.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+			prop2.intval = (int)POWER_SUPPLY_TYPE_UNKNOWN;
+			prop3.intval = (int)POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		}
 
 		pr_notice("%s type:%d usb_type:%d\n", __func__,
@@ -4482,6 +4485,7 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	struct tcp_notify *noti = data;
 	struct mt6370_pmu_charger_data *chg_data = container_of(nb,
 		struct mt6370_pmu_charger_data, pd_nb);
+	uint8_t old_state = TYPEC_UNATTACHED, new_state = TYPEC_UNATTACHED;
 
 	switch (event) {
 	case TCP_NOTIFY_SINK_VBUS:
@@ -4491,18 +4495,22 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 					    true);
 		break;
 	case TCP_NOTIFY_TYPEC_STATE:
-		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
-		    (noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
-		    noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
+		old_state = noti->typec_state.old_state;
+		new_state = noti->typec_state.new_state;
+		if (old_state == TYPEC_UNATTACHED &&
+		    (new_state == TYPEC_ATTACHED_SNK ||
+		     new_state == TYPEC_ATTACHED_NORP_SRC ||
+		     new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
+		     new_state == TYPEC_ATTACHED_DBGACC_SNK)) {
 			pr_info("%s USB Plug in, pol = %d\n", __func__,
 					noti->typec_state.polarity);
 			handle_typec_attach(chg_data, true, false);
-		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO)
-			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
+		} else if ((old_state == TYPEC_ATTACHED_SNK ||
+			    old_state == TYPEC_ATTACHED_NORP_SRC ||
+			    old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
+			    old_state == TYPEC_ATTACHED_DBGACC_SNK ||
+			    old_state == TYPEC_ATTACHED_AUDIO) &&
+			    new_state == TYPEC_UNATTACHED) {
 			pr_info("%s USB Plug out\n", __func__);
 			if (chg_data->tcpc_kpoc) {
 				pr_info("%s: typec unattached, power off\n",
@@ -4512,12 +4520,12 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 #endif
 			}
 			handle_typec_attach(chg_data, false, false);
-		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
-			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
+		} else if (old_state == TYPEC_ATTACHED_SRC &&
+			   new_state == TYPEC_ATTACHED_SNK) {
 			pr_info("%s Source_to_Sink\n", __func__);
 			handle_typec_attach(chg_data, true, true);
-		}  else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
-			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
+		}  else if (old_state == TYPEC_ATTACHED_SNK &&
+			    new_state == TYPEC_ATTACHED_SRC) {
 			pr_info("%s Sink_to_Source\n", __func__);
 			handle_typec_attach(chg_data, false, true);
 		}
@@ -4642,13 +4650,13 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 
 	/* power supply register */
 	memcpy(&chg_data->psy_desc,
-		&mt6370_charger_desc, sizeof(chg_data->psy_desc));
+		&mt6370_pmu_chg_desc, sizeof(chg_data->psy_desc));
 	chg_data->psy_desc.name = dev_name(&pdev->dev);
 
 	charger_cfg.drv_data = chg_data;
 	charger_cfg.of_node = pdev->dev.of_node;
-	charger_cfg.supplied_to = mt6370_charger_supplied_to;
-	charger_cfg.num_supplicants = ARRAY_SIZE(mt6370_charger_supplied_to);
+	charger_cfg.supplied_to = mt6370_pmu_chg_supplied_to;
+	charger_cfg.num_supplicants = ARRAY_SIZE(mt6370_pmu_chg_supplied_to);
 	chg_data->psy = devm_power_supply_register(&pdev->dev,
 					&chg_data->psy_desc, &charger_cfg);
 	if (IS_ERR(chg_data->psy)) {
@@ -4802,6 +4810,10 @@ MODULE_VERSION(MT6370_PMU_CHARGER_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.1.30_MTK
+ * (1) Fix no charging icon when power role swap to sink on kernel-4.19
+ * (2) Reduce IBUS Iq when pp is off for MT6371 and MT6372
+ *
  * 1.1.29_MTK
  * (1) Masks mivr irq for 500ms after mivr irq gets handled
  *
