@@ -255,7 +255,7 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
-			slub_debug=OFZPU swiotlb=noforce \
+			swiotlb=noforce \
 			earlycon=mtk8250,mmio32,0x11002000 \
 			initcall_debug=1 cma=64M \
 			allow_mismatched_32bit_el0 \
