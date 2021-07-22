@@ -54,7 +54,7 @@ int qos_ipi_to_sspm_scmi_command(unsigned int cmd, unsigned int p1, unsigned int
 {
 
 	int ret = 0, ackdata = 0;
-	struct scmi_tinysys_status rvalue;
+	struct scmi_tinysys_status rvalue = {0};
 
 	mutex_lock(&qos_ipi_mutex);
 	if (cmd < 0) {
