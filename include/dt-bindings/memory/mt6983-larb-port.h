@@ -12,12 +12,12 @@
 #define NORMAL_DOM				(0)
 #define APU_SEC_DOM				(1)
 #define APU_CODE_DOM				(2)
-#define CCU0_DOM				(3)
-#define CCU1_DOM				(4)
-#define VDO_REGION1				(5)
-#define VDO_REGION2				(6)
-#define VDO_REGION3				(7)
-#define VDO_REGION4				(8)
+#define CCU0_DOM				(4)
+#define CCU1_DOM				(5)
+#define VDO_REGION1				(6)
+#define VDO_REGION2				(7)
+#define VDO_REGION3				(8)
+#define VDO_REGION4				(9)
 
 /* larb0 */
 #define M4U_PORT_L0_DISP_POSTMASK0		MTK_M4U_DOM_ID(NORMAL_DOM, 0, 0)
