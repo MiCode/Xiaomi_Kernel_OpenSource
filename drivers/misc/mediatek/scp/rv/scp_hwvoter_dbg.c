@@ -45,15 +45,6 @@
 #include "scp.h"
 #include "scp_hwvoter_dbg.h"
 
-struct hw_voter_ipi_test_t {
-	unsigned short cmd;
-	unsigned char type;
-	unsigned char op;
-	unsigned short clk_id;
-	unsigned short val;
-	unsigned int dummy[2];
-};
-
 static unsigned char ipi_ackdata[16];
 
 #if IS_ENABLED(CONFIG_PROC_FS)
@@ -71,12 +62,11 @@ static ssize_t scp_hw_voter_dbg_proc_write(
 					size_t count,
 					loff_t *data)
 {
-	char desc[64], type[32];
+	char desc[64];
 	int len = 0;
 	int ret = 0;
 	int n;
-	unsigned int op, clk_id, val;
-	struct hw_voter_ipi_test_t ipi_data;
+	struct hwvoter_ipi_test_t ipi_data;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -85,29 +75,18 @@ static ssize_t scp_hw_voter_dbg_proc_write(
 	desc[len] = '\0';
 	pr_notice("%s: %s\n", __func__, desc);
 
-	n = sscanf(desc, "%31s %d %d %d", type, &op, &clk_id, &val);
-	if (n != 3 && n != 4) {
+	n = sscanf(desc, "%d %d %d %d %d",
+			&ipi_data.type,
+			&ipi_data.op,
+			&ipi_data.clk_category,
+			&ipi_data.clk_id,
+			&ipi_data.val);
+	if (n != 4 && n != 5) {
 		pr_notice("invalid cmd length %d\n", n);
 		return count;
 	}
 
 	ipi_data.cmd = HW_VOTER_DBG_CMD_TEST;
-	ipi_data.op = op;
-	ipi_data.clk_id = clk_id;
-	ipi_data.val = val;
-
-	if (!strcmp(type, "pd")) {
-		ipi_data.type = HW_VOTER_TEST_TYPE_PD;
-	} else if (!strcmp(type, "pll")) {
-		ipi_data.type = HW_VOTER_TEST_TYPE_PLL;
-	} else if (!strcmp(type, "mux")) {
-		ipi_data.type = HW_VOTER_TEST_TYPE_MUX;
-	} else if (!strcmp(type, "cg")) {
-		ipi_data.type = HW_VOTER_TEST_TYPE_CG;
-	} else {
-		pr_notice("invalid type %s\n", type);
-		return count;
-	}
 
 	ret = mtk_ipi_send_compl(
 			&scp_ipidev,
@@ -117,7 +96,7 @@ static ssize_t scp_hw_voter_dbg_proc_write(
 			PIN_OUT_SIZE_SCP_HWVOTER_DEBUG,
 			500);
 	if (ret != IPI_ACTION_DONE)
-		pr_info("[%s]: SCP send IPI failed - %d\n",
+		pr_notice("[%s]: SCP send IPI failed - %d\n",
 			__func__, ret);
 
 	return count;

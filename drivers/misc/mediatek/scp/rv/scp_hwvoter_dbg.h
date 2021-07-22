@@ -10,17 +10,13 @@ enum {
 	HW_VOTER_DBG_CMD_TEST,
 };
 
-enum {
-	HW_VOTER_TEST_TYPE_PD,
-	HW_VOTER_TEST_TYPE_PLL,
-	HW_VOTER_TEST_TYPE_MUX,
-	HW_VOTER_TEST_TYPE_CG,
-};
-
-enum {
-	HW_VOTER_TEST_OP_OFF,
-	HW_VOTER_TEST_OP_ON,
-	HW_VOTER_TEST_OP_SET_RATE,
+struct hwvoter_ipi_test_t {
+	unsigned char cmd;
+	unsigned char type;
+	unsigned char op;
+	unsigned char clk_category;
+	unsigned short clk_id;
+	unsigned short val;
 };
 
 extern int scp_hw_voter_dbg_init(void);
