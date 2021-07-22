@@ -108,6 +108,7 @@ source "drivers/misc/mediatek/usb_boost/Kconfig"
 source "drivers/misc/mediatek/irtx/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
+source "drivers/misc/mediatek/gate_ic/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance"
