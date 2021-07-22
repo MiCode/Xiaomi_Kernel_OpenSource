@@ -219,12 +219,12 @@ struct gpufreq_status {
 /**************************************************
  * GPU Platform OPP Table Definition
  **************************************************/
-#define GPUOP(_freq, _volt, _vsram, _postdiv, _vaging, _power) \
+#define GPUOP(_freq, _volt, _vsram, _posdiv, _vaging, _power) \
 	{                                  \
 		.freq = _freq,                 \
 		.volt = _volt,                 \
 		.vsram = _vsram,               \
-		.postdiv = _postdiv,           \
+		.posdiv = _posdiv,             \
 		.vaging = _vaging,             \
 		.power = _power                \
 	}

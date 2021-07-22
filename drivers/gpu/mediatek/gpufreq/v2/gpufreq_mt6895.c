@@ -88,7 +88,7 @@ static int __gpufreq_volt_scale_stack(
 	unsigned int vgpu_old, unsigned int vgpu_new,
 	unsigned int vsram_old, unsigned int vsram_new);
 static int __gpufreq_switch_clksrc(enum gpufreq_target target, enum gpufreq_clk_src clksrc);
-static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_postdiv posdiv_power);
+static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_posdiv posdiv_power);
 static unsigned int __gpufreq_settle_time_vgpu(unsigned int direction, int deltaV);
 /* get function */
 static unsigned int __gpufreq_get_fmeter_fgpu(void);
@@ -102,10 +102,10 @@ static void __gpufreq_get_hw_constraint_fstack(unsigned int fgpu,
 static unsigned int __gpufreq_get_real_vgpu(void);
 static unsigned int __gpufreq_get_real_vstack(void);
 static unsigned int __gpufreq_get_real_vsram(void);
-static enum gpufreq_postdiv __gpufreq_get_real_posdiv_gpu(void);
-static enum gpufreq_postdiv __gpufreq_get_real_posdiv_stack(void);
-static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq);
-static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq);
+static enum gpufreq_posdiv __gpufreq_get_real_posdiv_gpu(void);
+static enum gpufreq_posdiv __gpufreq_get_real_posdiv_stack(void);
+static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq);
+static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq);
 /* power control function */
 static int __gpufreq_cg_control(enum gpufreq_power_state power);
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
@@ -1544,7 +1544,7 @@ done:
  * N_INFO = MFGPLL output Frequency * POSDIV / FIN
  * N_INFO[21:14] = FLOOR(N_INFO, 8)
  */
-static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_postdiv postdiv)
+static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_posdiv posdiv)
 {
 	/*
 	 * MFGPLL VCO range: 1.5GHz - 3.8GHz by divider 1/2/4/8/16,
@@ -1559,7 +1559,7 @@ static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_post
 	unsigned int pcw = 0;
 
 	if ((freq >= POSDIV_8_MIN_FREQ) && (freq <= POSDIV_4_MAX_FREQ)) {
-		pcw = (((freq / TO_MHZ_HEAD * (1 << postdiv)) << DDS_SHIFT)
+		pcw = (((freq / TO_MHZ_HEAD * (1 << posdiv)) << DDS_SHIFT)
 			/ MFGPLL_FIN + ROUNDING_VALUE) / TO_MHZ_TAIL;
 	} else {
 		GPUFREQ_LOGE("out of range Freq: %d (EINVAL)", freq);
@@ -1568,38 +1568,38 @@ static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_post
 	return pcw;
 }
 
-static enum gpufreq_postdiv __gpufreq_get_real_posdiv_gpu(void)
+static enum gpufreq_posdiv __gpufreq_get_real_posdiv_gpu(void)
 {
 	unsigned long mfgpll = 0;
-	enum gpufreq_postdiv postdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv posdiv = POSDIV_POWER_1;
 
 	mfgpll = readl(MFGPLL_GPU_CON1);
 
-	postdiv = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
+	posdiv = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
 
-	return postdiv;
+	return posdiv;
 }
 
-static enum gpufreq_postdiv __gpufreq_get_real_posdiv_stack(void)
+static enum gpufreq_posdiv __gpufreq_get_real_posdiv_stack(void)
 {
 	unsigned long mfgpll = 0;
-	enum gpufreq_postdiv postdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv posdiv = POSDIV_POWER_1;
 
 	mfgpll = readl(MFGPLL_STACK_CON1);
 
-	postdiv = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
+	posdiv = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
 
-	return postdiv;
+	return posdiv;
 }
 
-static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq)
+static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq)
 {
 	struct gpufreq_opp_info *signed_table = g_gpu.signed_table;
 	int i = 0;
 
 	for (i = 0; i < g_gpu.signed_opp_num; i++) {
 		if (signed_table[i].freq <= freq)
-			return signed_table[i].postdiv;
+			return signed_table[i].posdiv;
 	}
 
 	GPUFREQ_LOGE("fail to find post divder of Freq: %d", freq);
@@ -1616,7 +1616,7 @@ static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq)
 		return POSDIV_POWER_16;
 }
 
-static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq)
+static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq)
 {
 	return POSDIV_POWER_1;
 }
@@ -1624,8 +1624,8 @@ static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq)
 /* API: scale Freq of GPU via CON1 Reg or FHCTL */
 static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new)
 {
-	enum gpufreq_postdiv cur_posdiv = POSDIV_POWER_1;
-	enum gpufreq_postdiv target_posdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv cur_posdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv target_posdiv = POSDIV_POWER_1;
 	unsigned int pcw = 0;
 	unsigned int pll = 0;
 	unsigned int parking = false;
@@ -1703,8 +1703,8 @@ done:
 /* API: scale Freq of STACK via CON1 Reg or FHCTL */
 static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_new)
 {
-	enum gpufreq_postdiv cur_posdiv = POSDIV_POWER_1;
-	enum gpufreq_postdiv target_posdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv cur_posdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv target_posdiv = POSDIV_POWER_1;
 	unsigned int pcw = 0;
 	unsigned int pll = 0;
 	unsigned int parking = false;
@@ -2806,7 +2806,7 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 		g_gpu.working_table[i].freq = g_gpu.signed_table[j].freq;
 		g_gpu.working_table[i].volt = g_gpu.signed_table[j].volt;
 		g_gpu.working_table[i].vsram = g_gpu.signed_table[j].vsram;
-		g_gpu.working_table[i].postdiv = g_gpu.signed_table[j].postdiv;
+		g_gpu.working_table[i].posdiv = g_gpu.signed_table[j].posdiv;
 		g_gpu.working_table[i].vaging = g_gpu.signed_table[j].vaging;
 		g_gpu.working_table[i].power = g_gpu.signed_table[j].power;
 

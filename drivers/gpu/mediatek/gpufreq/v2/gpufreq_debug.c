@@ -234,9 +234,9 @@ static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
-			"[%02d] freq: %d, volt: %d, vsram: %d, postdiv: %d, vaging: %d, power: %d\n",
+			"[%02d] freq: %d, volt: %d, vsram: %d, posdiv: %d, vaging: %d, power: %d\n",
 			i, opp_table[i].freq, opp_table[i].volt,
-			opp_table[i].vsram, opp_table[i].postdiv,
+			opp_table[i].vsram, opp_table[i].posdiv,
 			opp_table[i].vaging, opp_table[i].power);
 	}
 
@@ -265,9 +265,9 @@ static int stack_working_opp_table_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
-			"[%02d] freq: %d, volt: %d, vsram: %d, postdiv: %d, vaging: %d, power: %d\n",
+			"[%02d] freq: %d, volt: %d, vsram: %d, posdiv: %d, vaging: %d, power: %d\n",
 			i, opp_table[i].freq, opp_table[i].volt,
-			opp_table[i].vsram, opp_table[i].postdiv,
+			opp_table[i].vsram, opp_table[i].posdiv,
 			opp_table[i].vaging, opp_table[i].power);
 	}
 
@@ -299,9 +299,9 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
-			"[%02d*] freq: %d, volt: %d, vsram: %d, postdiv: %d, vaging: %d, power: %d\n",
+			"[%02d*] freq: %d, volt: %d, vsram: %d, posdiv: %d, vaging: %d, power: %d\n",
 			i, opp_table[i].freq, opp_table[i].volt,
-			opp_table[i].vsram, opp_table[i].postdiv,
+			opp_table[i].vsram, opp_table[i].posdiv,
 			opp_table[i].vaging, opp_table[i].power);
 	}
 
@@ -333,9 +333,9 @@ static int stack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
-			"[%02d*] freq: %d, volt: %d, vsram: %d, postdiv: %d, vaging: %d, power: %d\n",
+			"[%02d*] freq: %d, volt: %d, vsram: %d, posdiv: %d, vaging: %d, power: %d\n",
 			i, opp_table[i].freq, opp_table[i].volt,
-			opp_table[i].vsram, opp_table[i].postdiv,
+			opp_table[i].vsram, opp_table[i].posdiv,
 			opp_table[i].vaging, opp_table[i].power);
 	}
 

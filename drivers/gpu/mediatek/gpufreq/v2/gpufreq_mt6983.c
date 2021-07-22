@@ -46,8 +46,8 @@
 #if IS_ENABLED(CONFIG_MTK_STATIC_POWER)
 #include <leakage_table_v2/mtk_static_power.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
-#include <mtk_freqhopping_drv.h>
+#if IS_ENABLED(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING)
+#include <clk-mtk.h>
 #endif
 /* todo: fmeter not ready */
 // #if IS_ENABLED(CONFIG_COMMON_CLK_MT6983)
@@ -96,7 +96,7 @@ static int __gpufreq_volt_scale_stack(
 	unsigned int vsram_old, unsigned int vsram_new);
 static int __gpufreq_switch_clksrc_gpu(enum gpufreq_clk_src clksrc);
 static int __gpufreq_switch_clksrc_stack(enum gpufreq_clk_src clksrc);
-static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_postdiv posdiv_power);
+static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_posdiv posdiv_power);
 static unsigned int __gpufreq_settle_time_vstack(unsigned int direction, int deltaV);
 static void __gpufreq_delsel_control(unsigned int direction);
 static void __gpufreq_dvfs_timing_control(unsigned int direction);
@@ -118,10 +118,10 @@ static void __gpufreq_get_hw_constraint_fstack(
 	unsigned int fgpu, int *oppidx_stack, unsigned int *fstack);
 static unsigned int __gpufreq_hw_constraint_parking(unsigned int volt_old, unsigned int volt_new);
 static void __gpufreq_update_hw_constraint_volt(void);
-static enum gpufreq_postdiv __gpufreq_get_real_posdiv_gpu(void);
-static enum gpufreq_postdiv __gpufreq_get_real_posdiv_stack(void);
-static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq);
-static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq);
+static enum gpufreq_posdiv __gpufreq_get_real_posdiv_gpu(void);
+static enum gpufreq_posdiv __gpufreq_get_real_posdiv_stack(void);
+static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq);
+static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq);
 /* aging sensor function */
 static void __gpufreq_asensor_read_register(u32 *a_tn_lvt_cnt,
 	u32 *a_tn_ulvt_cnt, u32 *a_tn_ulvtll_cnt);
@@ -1080,7 +1080,7 @@ int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 	cur_fstack = g_stack.cur_freq;
 	cur_vstack = g_stack.cur_volt;
 	cur_vsram_stack = g_stack.cur_vsram;
-	__gpufreq_get_hw_constraint_fstack(cur_fgpu, &target_oppidx_stack, &target_fstack);
+	__gpufreq_get_hw_constraint_fstack(target_fgpu, &target_oppidx_stack, &target_fstack);
 	target_vstack = working_stack[target_oppidx_stack].volt;
 	target_vsram_stack = working_stack[target_oppidx_stack].vsram;
 
@@ -1182,7 +1182,7 @@ int __gpufreq_generic_commit_stack(int target_oppidx, enum gpufreq_dvfs_state ke
 
 	/* check dvfs state */
 	if (g_dvfs_state & ~key) {
-		GPUFREQ_LOGI("unavailable DVFS state (0x%x)", g_dvfs_state);
+		GPUFREQ_LOGD("unavailable DVFS state (0x%x)", g_dvfs_state);
 		ret = GPUFREQ_SUCCESS;
 		goto done_unlock;
 	}
@@ -1209,7 +1209,7 @@ int __gpufreq_generic_commit_stack(int target_oppidx, enum gpufreq_dvfs_state ke
 	cur_fgpu = g_gpu.cur_freq;
 	cur_vgpu = g_gpu.cur_volt;
 	cur_vsram_gpu = g_gpu.cur_vsram;
-	__gpufreq_get_hw_constraint_fgpu(cur_fstack, &target_oppidx_gpu, &target_fgpu);
+	__gpufreq_get_hw_constraint_fgpu(target_fstack, &target_oppidx_gpu, &target_fgpu);
 	target_vgpu = working_gpu[target_oppidx_gpu].volt;
 	target_vsram_gpu = working_gpu[target_oppidx_gpu].vsram;
 
@@ -1521,7 +1521,7 @@ int __gpufreq_get_batt_oc_idx(int batt_oc_level)
 	GPUFREQ_UNREFERENCED(batt_oc_level);
 
 	return GPUPPM_KEEP_IDX;
-#endif /* GPUFREQ_BATT_OC_ENABLE */
+#endif /* GPUFREQ_BATT_OC_ENABLE && CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 }
 
 /* API: get working OPP index of STACK limited by BATTERY_PERCENT via given level */
@@ -1536,7 +1536,7 @@ int __gpufreq_get_batt_percent_idx(int batt_percent_level)
 	GPUFREQ_UNREFERENCED(batt_percent_level);
 
 	return GPUPPM_KEEP_IDX;
-#endif /* GPUFREQ_BATT_PERCENT_ENABLE */
+#endif /* GPUFREQ_BATT_PERCENT_ENABLE && CONFIG_MTK_BATTERY_PERCENT_THROTTLING */
 }
 
 /* API: get working OPP index of STACK limited by LOW_BATTERY via given level */
@@ -1551,7 +1551,7 @@ int __gpufreq_get_low_batt_idx(int low_batt_level)
 	GPUFREQ_UNREFERENCED(low_batt_level);
 
 	return GPUPPM_KEEP_IDX;
-#endif /* GPUFREQ_LOW_BATT_ENABLE */
+#endif /* GPUFREQ_LOW_BATT_ENABLE && CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 }
 
 /* API: enable/disable random OPP index substitution to do stress test */
@@ -1768,7 +1768,7 @@ static int __gpufreq_custom_commit_stack(unsigned int target_freq,
 
 	/* check dvfs state */
 	if (g_dvfs_state & ~key) {
-		GPUFREQ_LOGI("unavailable DVFS state (0x%x)", g_dvfs_state);
+		GPUFREQ_LOGD("unavailable DVFS state (0x%x)", g_dvfs_state);
 		ret = GPUFREQ_SUCCESS;
 		goto done_unlock;
 	}
@@ -1945,7 +1945,7 @@ done:
  * N_INFO = MFGPLL output Frequency * POSDIV / FIN
  * N_INFO[21:14] = FLOOR(N_INFO, 8)
  */
-static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_postdiv postdiv)
+static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_posdiv posdiv)
 {
 	/*
 	 * MFGPLL VCO range: 1.5GHz - 3.8GHz by divider 1/2/4/8/16,
@@ -1960,7 +1960,7 @@ static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_post
 	unsigned int pcw = 0;
 
 	if ((freq >= POSDIV_8_MIN_FREQ) && (freq <= POSDIV_4_MAX_FREQ)) {
-		pcw = (((freq / TO_MHZ_HEAD * (1 << postdiv)) << DDS_SHIFT)
+		pcw = (((freq / TO_MHZ_HEAD * (1 << posdiv)) << DDS_SHIFT)
 			/ MFGPLL_FIN + ROUNDING_VALUE) / TO_MHZ_TAIL;
 	} else {
 		GPUFREQ_LOGE("out of range Freq: %d (EINVAL)", freq);
@@ -1969,41 +1969,41 @@ static unsigned int __gpufreq_calculate_pcw(unsigned int freq, enum gpufreq_post
 	return pcw;
 }
 
-static enum gpufreq_postdiv __gpufreq_get_real_posdiv_gpu(void)
+static enum gpufreq_posdiv __gpufreq_get_real_posdiv_gpu(void)
 {
 	unsigned int mfgpll = 0;
-	enum gpufreq_postdiv postdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv posdiv = POSDIV_POWER_1;
 
-	mfgpll = readl(MFGPLL_GPU_CON1);
+	mfgpll = readl(MFG_PLL_CON1);
 
-	postdiv = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
+	posdiv = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
 
-	return postdiv;
+	return posdiv;
 }
 
-static enum gpufreq_postdiv __gpufreq_get_real_posdiv_stack(void)
+static enum gpufreq_posdiv __gpufreq_get_real_posdiv_stack(void)
 {
 	unsigned int mfgpll = 0;
-	enum gpufreq_postdiv postdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv posdiv = POSDIV_POWER_1;
 
-	mfgpll = readl(MFGPLL_STACK_CON1);
+	mfgpll = readl(MFGSC_PLL_CON1);
 
-	postdiv = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
+	posdiv = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
 
-	return postdiv;
+	return posdiv;
 }
 
-static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq)
+static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq)
 {
 	struct gpufreq_opp_info *signed_table = g_gpu.signed_table;
 	int i = 0;
 
 	for (i = 0; i < g_gpu.signed_opp_num; i++) {
 		if (signed_table[i].freq <= freq)
-			return signed_table[i].postdiv;
+			return signed_table[i].posdiv;
 	}
 
-	GPUFREQ_LOGE("fail to find post divder of Freq: %d", freq);
+	GPUFREQ_LOGE("fail to find post-divider of Freq: %d", freq);
 
 	if (freq > POSDIV_2_MAX_FREQ)
 		return POSDIV_POWER_1;
@@ -2017,17 +2017,17 @@ static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq)
 		return POSDIV_POWER_16;
 }
 
-static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq)
+static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq)
 {
 	struct gpufreq_opp_info *signed_table = g_stack.signed_table;
 	int i = 0;
 
 	for (i = 0; i < g_stack.signed_opp_num; i++) {
 		if (signed_table[i].freq <= freq)
-			return signed_table[i].postdiv;
+			return signed_table[i].posdiv;
 	}
 
-	GPUFREQ_LOGE("fail to find post divder of Freq: %d", freq);
+	GPUFREQ_LOGE("fail to find post-divider of Freq: %d", freq);
 
 	if (freq > POSDIV_2_MAX_FREQ)
 		return POSDIV_POWER_1;
@@ -2044,8 +2044,8 @@ static enum gpufreq_postdiv __gpufreq_get_posdiv_by_fstack(unsigned int freq)
 /* API: scale Freq of GPU via CON1 Reg or FHCTL */
 static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new)
 {
-	enum gpufreq_postdiv cur_posdiv = POSDIV_POWER_1;
-	enum gpufreq_postdiv target_posdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv cur_posdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv target_posdiv = POSDIV_POWER_1;
 	unsigned int pcw = 0;
 	unsigned int pll = 0;
 	unsigned int parking = false;
@@ -2055,55 +2055,84 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 
 	GPUFREQ_LOGD("begin to scale Fgpu: (%d->%d)", freq_old, freq_new);
 
+	/*
+	 * MFG_PLL_CON1[31:31]: MFGPLL_SDM_PCW_CHG
+	 * MFG_PLL_CON1[26:24]: MFGPLL_POSDIV
+	 * MFG_PLL_CON1[21:0] : MFGPLL_SDM_PCW (DDS)
+	 */
 	cur_posdiv = __gpufreq_get_real_posdiv_gpu();
 	target_posdiv = __gpufreq_get_posdiv_by_fgpu(freq_new);
+	/* compute PCW based on target Freq */
 	pcw = __gpufreq_calculate_pcw(freq_new, target_posdiv);
 	if (!pcw) {
 		GPUFREQ_LOGE("invalid pcw: %d", pcw);
 		goto done;
 	}
-	pll = (0x80000000) | (target_posdiv << POSDIV_SHIFT) | pcw;
 
-#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
-	if (target_posdiv != cur_posdiv)
-		parking = true;
-	else
-		parking = false;
-#else
-	/* force parking if FHCTL isn't ready */
-	parking = true;
-#endif /* CONFIG_MTK_FREQ_HOPPING */
+#if (GPUFREQ_FHCTL_ENABLE && IS_ENABLED(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING))
+	/* compute CON1 with POSDIV and apply to CON1 if needed */
+	pll = (readl(MFG_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
 
-	if (parking) {
-		ret = __gpufreq_switch_clksrc_gpu(CLOCK_SUB);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
-			goto done;
-		}
-		/*
-		 * MFGPLL_GPU_CON1[31:31] = MFGPLL_SDM_PCW_CHG
-		 * MFGPLL_GPU_CON1[26:24] = MFGPLL_POSDIV
-		 * MFGPLL_GPU_CON1[21:0]  = MFGPLL_SDM_PCW (pcw)
-		 */
-		writel(pll, MFGPLL_GPU_CON1);
-		/* PLL spec */
-		udelay(20);
-
-		ret = __gpufreq_switch_clksrc_gpu(CLOCK_MAIN);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
-			goto done;
-		}
-	} else {
-#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
-		ret = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
-		if (unlikely(ret)) {
+	/* POSDIV remain the same */
+	if (target_posdiv == cur_posdiv) {
+		/* change PCW by hopping only */
+		ret = mtk_fh_set_rate(MFG_PLL_NAME, pcw, target_posdiv);
+		if (unlikely(!ret)) {
 			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
 				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
+			ret = GPUFREQ_EINVAL;
 			goto done;
 		}
-#endif /* CONFIG_MTK_FREQ_HOPPING */
+	/* freq scale up */
+	} else if (freq_new > freq_old) {
+		/* 1. change PCW by hopping */
+		ret = mtk_fh_set_rate(MFG_PLL_NAME, pcw, target_posdiv);
+		if (unlikely(!ret)) {
+			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
+				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
+			ret = GPUFREQ_EINVAL;
+			goto done;
+		}
+		/* 2. change POSDIV by writing CON1 */
+		writel(pll, MFG_PLL_CON1);
+		/* 3. wait until PLL stable */
+		udelay(20);
+	/* freq scale down */
+	} else {
+		/* 1. change POSDIV by writing CON1 */
+		writel(pll, MFG_PLL_CON1);
+		/* 2. wait until PLL stable */
+		udelay(20);
+		/* 3. change PCW by hopping */
+		ret = mtk_fh_set_rate(MFG_PLL_NAME, pcw, target_posdiv);
+		if (unlikely(!ret)) {
+			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
+				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
+			ret = GPUFREQ_EINVAL;
+			goto done;
+		}
 	}
+#else
+	/* compute CON1 with PCW and POSDIV */
+	pll = (0x80000000) | (target_posdiv << POSDIV_SHIFT) | pcw;
+
+	/* 1. switch to parking clk source */
+	ret = __gpufreq_switch_clksrc_gpu(CLOCK_SUB);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
+		goto done;
+	}
+	/* 2. change PCW and POSDIV by writing CON1 */
+	writel(pll, MFG_PLL_CON1);
+	/* 3. wait until PLL stable */
+	udelay(20);
+	/* 4. switch to main clk source */
+	ret = __gpufreq_switch_clksrc_gpu(CLOCK_MAIN);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
+		goto done;
+	}
+#endif /* GPUFREQ_FHCTL_ENABLE && CONFIG_COMMON_CLK_MTK_FREQ_HOPPING */
 
 	g_gpu.cur_freq = __gpufreq_get_real_fgpu();
 	if (unlikely(g_gpu.cur_freq != freq_new))
@@ -2114,6 +2143,9 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 	GPUFREQ_LOGD("Fgpu: %d, pcw: 0x%x, pll: 0x%08x, parking: %d",
 		g_gpu.cur_freq, pcw, pll, parking);
 
+	/* because return value is different across the APIs */
+	ret = GPUFREQ_SUCCESS;
+
 done:
 	GPUFREQ_TRACE_END();
 
@@ -2123,8 +2155,8 @@ done:
 /* API: scale Freq of STACK via CON1 Reg or FHCTL */
 static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_new)
 {
-	enum gpufreq_postdiv cur_posdiv = POSDIV_POWER_1;
-	enum gpufreq_postdiv target_posdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv cur_posdiv = POSDIV_POWER_1;
+	enum gpufreq_posdiv target_posdiv = POSDIV_POWER_1;
 	unsigned int pcw = 0;
 	unsigned int pll = 0;
 	unsigned int parking = false;
@@ -2134,55 +2166,84 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 
 	GPUFREQ_LOGD("begin to scale Fstack: (%d->%d)", freq_old, freq_new);
 
+	/*
+	 * MFGSC_PLL_CON1[31:31]: MFGPLL_SDM_PCW_CHG
+	 * MFGSC_PLL_CON1[26:24]: MFGPLL_POSDIV
+	 * MFGSC_PLL_CON1[21:0] : MFGPLL_SDM_PCW (DDS)
+	 */
 	cur_posdiv = __gpufreq_get_real_posdiv_stack();
 	target_posdiv = __gpufreq_get_posdiv_by_fstack(freq_new);
+	/* compute PCW based on target Freq */
 	pcw = __gpufreq_calculate_pcw(freq_new, target_posdiv);
 	if (!pcw) {
 		GPUFREQ_LOGE("invalid pcw: %d", pcw);
 		goto done;
 	}
-	pll = (0x80000000) | (target_posdiv << POSDIV_SHIFT) | pcw;
 
-#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
-	if (target_posdiv != cur_posdiv)
-		parking = true;
-	else
-		parking = false;
-#else
-	/* force parking if FHCTL isn't ready */
-	parking = true;
-#endif /* CONFIG_MTK_FREQ_HOPPING */
+#if (GPUFREQ_FHCTL_ENABLE && IS_ENABLED(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING))
+	/* compute CON1 with POSDIV and apply to CON1 if needed */
+	pll = (readl(MFGSC_PLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
 
-	if (parking) {
-		ret = __gpufreq_switch_clksrc_stack(CLOCK_SUB);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
-			goto done;
-		}
-		/*
-		 * MFGPLL_STACK_CON1[31:31] = MFGPLL_SDM_PCW_CHG
-		 * MFGPLL_STACK_CON1[26:24] = MFGPLL_POSDIV
-		 * MFGPLL_STACK_CON1[21:0]  = MFGPLL_SDM_PCW (pcw)
-		 */
-		writel(pll, MFGPLL_STACK_CON1);
-		/* PLL spec */
-		udelay(20);
-
-		ret = __gpufreq_switch_clksrc_stack(CLOCK_MAIN);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
-			goto done;
-		}
-	} else {
-#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
-		ret = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
-		if (unlikely(ret)) {
+	/* POSDIV remain the same */
+	if (target_posdiv == cur_posdiv) {
+		/* change PCW by hopping only */
+		ret = mtk_fh_set_rate(MFGSC_PLL_NAME, pcw, target_posdiv);
+		if (unlikely(!ret)) {
 			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
 				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
+			ret = GPUFREQ_EINVAL;
 			goto done;
 		}
-#endif /* CONFIG_MTK_FREQ_HOPPING */
+	/* freq scale up */
+	} else if (freq_new > freq_old) {
+		/* 1. change PCW by hopping */
+		ret = mtk_fh_set_rate(MFGSC_PLL_NAME, pcw, target_posdiv);
+		if (unlikely(!ret)) {
+			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
+				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
+			ret = GPUFREQ_EINVAL;
+			goto done;
+		}
+		/* 2. change POSDIV by writing CON1 */
+		writel(pll, MFGSC_PLL_CON1);
+		/* 3. wait until PLL stable */
+		udelay(20);
+	/* freq scale down */
+	} else {
+		/* 1. change POSDIV by writing CON1 */
+		writel(pll, MFGSC_PLL_CON1);
+		/* 2. wait until PLL stable */
+		udelay(20);
+		/* 3. change PCW by hopping */
+		ret = mtk_fh_set_rate(MFGSC_PLL_NAME, pcw, target_posdiv);
+		if (unlikely(!ret)) {
+			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
+				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
+			ret = GPUFREQ_EINVAL;
+			goto done;
+		}
 	}
+#else
+	/* compute CON1 with PCW and POSDIV */
+	pll = (0x80000000) | (target_posdiv << POSDIV_SHIFT) | pcw;
+
+	/* 1. switch to parking clk source */
+	ret = __gpufreq_switch_clksrc_stack(CLOCK_SUB);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
+		goto done;
+	}
+	/* 2. change PCW and POSDIV by writing CON1 */
+	writel(pll, MFGSC_PLL_CON1);
+	/* 3. wait until PLL stable */
+	udelay(20);
+	/* 4. switch to main clk source */
+	ret = __gpufreq_switch_clksrc_stack(CLOCK_MAIN);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
+		goto done;
+	}
+#endif /* GPUFREQ_FHCTL_ENABLE && CONFIG_COMMON_CLK_MTK_FREQ_HOPPING */
 
 	g_stack.cur_freq = __gpufreq_get_real_fstack();
 	if (unlikely(g_stack.cur_freq != freq_new))
@@ -2192,6 +2253,9 @@ static int __gpufreq_freq_scale_stack(unsigned int freq_old, unsigned int freq_n
 
 	GPUFREQ_LOGD("Fstack: %d, PCW: 0x%x, PLL: 0x%08x, parking: %d",
 		g_stack.cur_freq, pcw, pll, parking);
+
+	/* because return value is different across the APIs */
+	ret = GPUFREQ_SUCCESS;
 
 done:
 	GPUFREQ_TRACE_END();
@@ -2525,7 +2589,7 @@ static unsigned int __gpufreq_get_real_fgpu(void)
 	unsigned int freq = 0;
 	unsigned int pcw = 0;
 
-	mfgpll = readl(MFGPLL_GPU_CON1);
+	mfgpll = readl(MFG_PLL_CON1);
 
 	pcw = mfgpll & (0x3FFFFF);
 
@@ -2548,7 +2612,7 @@ static unsigned int __gpufreq_get_real_fstack(void)
 	unsigned int freq = 0;
 	unsigned int pcw = 0;
 
-	mfgpll = readl(MFGPLL_STACK_CON1);
+	mfgpll = readl(MFGSC_PLL_CON1);
 
 	pcw = mfgpll & (0x3FFFFF);
 
@@ -4139,7 +4203,7 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 		g_gpu.working_table[i].freq = g_gpu.signed_table[j].freq;
 		g_gpu.working_table[i].volt = g_gpu.signed_table[j].volt;
 		g_gpu.working_table[i].vsram = g_gpu.signed_table[j].vsram;
-		g_gpu.working_table[i].postdiv = g_gpu.signed_table[j].postdiv;
+		g_gpu.working_table[i].posdiv = g_gpu.signed_table[j].posdiv;
 		g_gpu.working_table[i].vaging = g_gpu.signed_table[j].vaging;
 		g_gpu.working_table[i].power = g_gpu.signed_table[j].power;
 
@@ -4192,7 +4256,7 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 		g_stack.working_table[i].freq = g_stack.signed_table[j].freq;
 		g_stack.working_table[i].volt = g_stack.signed_table[j].volt;
 		g_stack.working_table[i].vsram = g_stack.signed_table[j].vsram;
-		g_stack.working_table[i].postdiv = g_stack.signed_table[j].postdiv;
+		g_stack.working_table[i].posdiv = g_stack.signed_table[j].posdiv;
 		g_stack.working_table[i].vaging = g_stack.signed_table[j].vaging;
 		g_stack.working_table[i].power = g_stack.signed_table[j].power;
 

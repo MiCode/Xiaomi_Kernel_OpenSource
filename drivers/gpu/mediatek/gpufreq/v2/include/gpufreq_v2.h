@@ -57,7 +57,7 @@ enum gpufreq_return {
 	GPUFREQ_ENODEV = -ENODEV,  // -19
 };
 
-enum gpufreq_postdiv {
+enum gpufreq_posdiv {
 	POSDIV_POWER_1 = 0,
 	POSDIV_POWER_2 = 1,
 	POSDIV_POWER_4,
@@ -120,7 +120,7 @@ struct gpufreq_opp_info {
 	unsigned int freq;            /* KHz */
 	unsigned int volt;            /* mV x 100 */
 	unsigned int vsram;           /* mV x 100 */
-	enum gpufreq_postdiv postdiv;
+	enum gpufreq_posdiv posdiv;
 	unsigned int vaging;          /* mV x 100 */
 	unsigned int power;           /* mW */
 };

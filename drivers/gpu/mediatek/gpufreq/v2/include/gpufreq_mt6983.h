@@ -10,9 +10,6 @@
  * GPUFREQ Local Config
  **************************************************/
 #define GPUFREQ_BRINGUP                 (0)
-#define GPUFREQ_BUCK_ALWAYS_ON          (0)
-#define GPUFREQ_MTCMOS_ALWAYS_ON        (0)
-#define GPUFREQ_CG_ALWAYS_ON            (0)
 /*
  *  0 -> all on when mtk probe init (Freq/Vgpu/Vsram_gpu)
  *       disable DDK power on/off callback
@@ -28,10 +25,11 @@
 #define GPUFREQ_DVFS_ENABLE             (0)
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
-/* feature control */
-#define GPUFREQ_PDCv2_ENABLE            (0)
+/* misc setting control */
+#define GPUFREQ_BUCK_ALWAYS_ON          (0)
+#define GPUFREQ_MTCMOS_ALWAYS_ON        (0)
+#define GPUFREQ_CG_ALWAYS_ON            (0)
 #define GPUFREQ_VCORE_DVFS_ENABLE       (0)
-#define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (0)
 #define GPUFREQ_FORCE_4_CORES           (1)
 #define GPUFREQ_MFG1_CONTROL_ENABLE     (0)
 
@@ -52,13 +50,25 @@
 #define TO_MHZ_TAIL                     (10)
 #define ROUNDING_VALUE                  (5)
 #define MFGPLL_FIN                      (26)            /* MHz */
-#define MFGPLL_FH_PLL                   FH_PLL6
-#define MFGPLL_GPU_CON1                 (g_mfg_pll_base + 0x00C)
-#define MFGPLL_STACK_CON1               (g_mfgsc_pll_base + 0x00C)
+#define MFG_PLL_CON1                    (g_mfg_pll_base + 0x00C)
+#define MFGSC_PLL_CON1                  (g_mfgsc_pll_base + 0x00C)
 #define MFG_SEL_0_MASK                  (0x10000)       /* [16] */
 #define MFG_SEL_1_MASK                  (0x20000)       /* [17] */
 #define MFG_REF_SEL_MASK                (0x3000000)     /* [25:24] */
 #define MFGSC_REF_SEL_MASK              (0x3)           /* [1:0] */
+
+/**************************************************
+ * Frequency Hopping Setting
+ **************************************************/
+#define GPUFREQ_FHCTL_ENABLE            (0)
+#define MFG_PLL_NAME                    "mfgpll"
+#define MFGSC_PLL_NAME                  "mfgscpll"
+
+/**************************************************
+ * Power Domain Setting
+ **************************************************/
+#define GPUFREQ_PDCv2_ENABLE            (0)
+#define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (0)
 #define PWR_STATUS_OFS                  (0xF3C)
 #define PWR_STATUS_2ND_OFS              (0xF40)
 #define MFG_0_1_PWR_MASK                (0x6)           /* 0000 0000 0000 0000 0110 */
@@ -262,12 +272,12 @@ struct gpufreq_status {
 /**************************************************
  * GPU Platform OPP Table Definition
  **************************************************/
-#define GPUOP(_freq, _volt, _vsram, _postdiv, _vaging, _power) \
+#define GPUOP(_freq, _volt, _vsram, _posdiv, _vaging, _power) \
 	{                                  \
 		.freq = _freq,                 \
 		.volt = _volt,                 \
 		.vsram = _vsram,               \
-		.postdiv = _postdiv,           \
+		.posdiv = _posdiv,             \
 		.vaging = _vaging,             \
 		.power = _power                \
 	}
