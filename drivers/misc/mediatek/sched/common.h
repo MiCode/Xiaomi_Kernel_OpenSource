@@ -17,5 +17,8 @@ unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 				unsigned long max, enum schedutil_type type,
 				struct task_struct *p);
 #endif
+__always_inline
+unsigned long mtk_uclamp_rq_util_with(struct rq *rq, unsigned long util,
+				  struct task_struct *p);
 
 #endif /* _SCHED_COMMON_H */

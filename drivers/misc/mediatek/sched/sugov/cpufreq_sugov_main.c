@@ -288,7 +288,7 @@ unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 	util = util_cfs + cpu_util_rt(rq);
 
 	if (type == FREQUENCY_UTIL)
-		util = uclamp_rq_util_with(rq, util, p);
+		util = mtk_uclamp_rq_util_with(rq, util, p);
 
 	dl_util = cpu_util_dl(rq);
 

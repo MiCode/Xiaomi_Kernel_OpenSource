@@ -404,7 +404,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	}
 
 	for (; pd; pd = pd->next) {
-		unsigned long cur_delta;
+		long cur_delta;
 		long spare_cap, max_spare_cap = LONG_MIN;
 		unsigned long base_energy_pd;
 		unsigned long max_spare_cap_ls_idle = 0, max_spare_cap_ls_active = 0;
@@ -460,7 +460,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			 * much capacity we can get out of the CPU; this is
 			 * aligned with schedutil_cpu_util().
 			 */
-			util = uclamp_rq_util_with(cpu_rq(cpu), util, p);
+			util = mtk_uclamp_rq_util_with(cpu_rq(cpu), util, p);
 			if (!fits_capacity(util, cpu_cap))
 				continue;
 
