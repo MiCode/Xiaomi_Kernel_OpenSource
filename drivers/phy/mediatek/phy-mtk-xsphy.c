@@ -135,11 +135,11 @@
 
 #define SSPXTP_DIG_GLB_28		((SSPXTP_SIFSLV_DIG_GLB) + 0x028)
 #define RG_XTP_DAIF_GLB_TXPLL_IR		GENMASK(17, 13)
-#define RG_XTP_DAIF_GLB_TXPLL_IR_VAL(x)	((0x1f & (x)) << 5)
+#define RG_XTP_DAIF_GLB_TXPLL_IR_VAL(x)	((0x1f & (x)) << 13)
 
 #define SSPXTP_DIG_GLB_38		((SSPXTP_SIFSLV_DIG_GLB) + 0x038)
 #define RG_XTP_DAIF_GLB_SPLL_IR		GENMASK(17, 13)
-#define RG_XTP_DAIF_GLB_SPLL_IR_VAL(x)	((0x1f & (x)) << 5)
+#define RG_XTP_DAIF_GLB_SPLL_IR_VAL(x)	((0x1f & (x)) << 13)
 
 #define SSPXTP_PHYA_GLB_00		((SSPXTP_SIFSLV_PHYA_GLB) + 0x00)
 #define RG_XTP_GLB_BIAS_INTR_CTRL		GENMASK(21, 16)
@@ -180,13 +180,20 @@
 #define RG_XTP0_RX_PRBS_LOCK_THR_VAL(x)	((0xf & (x)) << 12)
 #define RG_XTP0_RX_PATCHK_EN			BIT(8)
 
+#define SSPXTP_DAIG_LN_DAIF_04	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x04)
+#define RG_XTP0_DAIF_FRC_LN_RX_AEQ_ATT		BIT(17)
+
+#define SSPXTP_DAIG_LN_DAIF_14	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x014)
+#define RG_XTP0_DAIF_LN_RX_AEQ_ATT		GENMASK(20, 18)
+#define RG_XTP0_DAIF_LN_RX_AEQ_ATT_VAL(x)	((0x7 & (x)) << 18)
+
 #define SSPXTP_DAIG_LN_DAIF_20	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x020)
 #define RG_XTP0_DAIF_LN_G1_RX_SGDT_HF		GENMASK(23, 22)
-#define RG_XTP0_DAIF_LN_G1_RX_SGDT_HF_VAL(x)	(0x3 & (x))
+#define RG_XTP0_DAIF_LN_G1_RX_SGDT_HF_VAL(x)	((0x3 & (x)) << 22)
 
 #define SSPXTP_DAIG_LN_DAIF_2C	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x02C)
 #define RG_XTP0_DAIF_LN_G2_RX_SGDT_HF		GENMASK(23, 22)
-#define RG_XTP0_DAIF_LN_G2_RX_SGDT_HF_VAL(x)	(0x3 & (x))
+#define RG_XTP0_DAIF_LN_G2_RX_SGDT_HF_VAL(x)	((0x3 & (x)) << 22)
 
 #define SSPXTP_PHYA_LN_04	((SSPXTP_SIFSLV_PHYA_LN) + 0x04)
 #define RG_XTP_LN0_TX_IMPSEL		GENMASK(4, 0)
@@ -195,6 +202,9 @@
 #define SSPXTP_PHYA_LN_14	((SSPXTP_SIFSLV_PHYA_LN) + 0x014)
 #define RG_XTP_LN0_RX_IMPSEL		GENMASK(4, 0)
 #define RG_XTP_LN0_RX_IMPSEL_VAL(x)	(0x1f & (x))
+
+#define SSPXTP_PHYA_LN_30	((SSPXTP_SIFSLV_PHYA_LN) + 0x030)
+#define RG_XTP_LN0_RX_AEQ_ATT			BIT(14)
 
 #define XSP_REF_CLK		26	/* MHZ */
 #define XSP_SLEW_RATE_COEF	17
@@ -792,6 +802,22 @@ static void u3_phy_instance_power_on(struct mtk_xsphy *xsphy,
 	tmp &= ~RG_XTP0_DAIF_LN_G2_RX_SGDT_HF;
 	tmp |= RG_XTP0_DAIF_LN_G2_RX_SGDT_HF_VAL(0x2);
 	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_2C);
+
+	/* DA_XTP_LN0_RX_AEQ_OFORCE[10], 1'b1 */
+	tmp = readl(pbase + SSPXTP_PHYA_LN_30);
+	tmp |= RG_XTP_LN0_RX_AEQ_ATT;
+	writel(tmp, pbase + SSPXTP_PHYA_LN_30);
+
+	/* rg_sspxtp0_datf_ln_rx_aeq_att[2:0], 3'b111 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_14);
+	tmp &= ~RG_XTP0_DAIF_LN_RX_AEQ_ATT;
+	tmp |= RG_XTP0_DAIF_LN_RX_AEQ_ATT_VAL(0x7);
+	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_14);
+
+	/* rg_sspxtp0_datf_frc_ln_rx_aeq_att, 1'b1 */
+	tmp = readl(pbase + SSPXTP_DAIG_LN_DAIF_04);
+	tmp |= RG_XTP0_DAIF_FRC_LN_RX_AEQ_ATT;
+	writel(tmp, pbase + SSPXTP_DAIG_LN_DAIF_04);
 
 	dev_info(xsphy->dev, "%s(%d)\n", __func__, inst->index);
 }
