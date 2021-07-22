@@ -434,6 +434,28 @@
 };
 
 &i2c4 {
+	camera_af_main_two@0d {
+		compatible = "mediatek,gt9772a";
+		reg = <0x0d>;
+		vin-supply = <&rt5133_ldo2>;
+		port {
+			main_af_cam2: endpoint {
+				remote-endpoint = <&main_af_cam2_endpoint>;
+			};
+		};
+	};
+
+	camera_af_main_two@0b {
+		compatible = "mediatek,ak7377b";
+		reg = <0x0b>;
+		vin-supply = <&rt5133_ldo2>;
+		port {
+			main_af_cam6: endpoint {
+				remote-endpoint = <&main_af_cam6_endpoint>;
+			};
+		};
+	};
+
 	sensor1: sensor1@10 {
 		compatible = "mediatek,imgsensor";
 		reg = <0x10>;
@@ -614,30 +636,6 @@
 		port {
 			sensor0_out: endpoint {
 				remote-endpoint = <&seninf_csi_port_3_in>;
-			};
-		};
-	};
-};
-
-&i2c9 {
-	camera_af_main_two@0d {
-		compatible = "mediatek,gt9772a";
-		reg = <0x0d>;
-		vin-supply = <&rt5133_ldo2>;
-		port {
-			main_af_cam2: endpoint {
-				remote-endpoint = <&main_af_cam2_endpoint>;
-			};
-		};
-	};
-
-	camera_af_main_two@0b {
-		compatible = "mediatek,ak7377b";
-		reg = <0x0b>;
-		vin-supply = <&rt5133_ldo2>;
-		port {
-			main_af_cam6: endpoint {
-				remote-endpoint = <&main_af_cam6_endpoint>;
 			};
 		};
 	};
