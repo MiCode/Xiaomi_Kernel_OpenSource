@@ -5449,10 +5449,6 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 	}
 
-	/* set DAL layer */
-	if (mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0)
-		drm_set_dal(&mtk_crtc->base, cmdq_handle);
-
 	if (mtk_crtc->sec_on) {
 	#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		u32 sec_disp_type, idx = drm_crtc_index(crtc);
