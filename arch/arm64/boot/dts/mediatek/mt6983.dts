@@ -5077,7 +5077,7 @@
 	dispsys_config: dispsys_config@14000000 {
 		compatible = "mediatek,mt6983-disp";
 		reg = <0 0x14000000 0 0x1000>;
-		//iommus = <&iommu0 M4U_PORT_L0_DISP_OVL0_2L_0>;
+		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_0>;
 		mediatek,larb = <&smi_larb0>;
 		fake-engine = <&smi_larb0 M4U_PORT_L0_DISP_FAKE0>,
 				<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
@@ -5138,7 +5138,9 @@
 			"disp_mutex2_eof",
 			"disp_wdma1_eof2",
 			"disp_dsi0_sof0",
-			"disp_token_vfp_period0";
+			"disp_token_vfp_period0",
+			"disp_token_disp_va_start0",
+			"disp_token_disp_va_end0";
 
 		gce-events = <&gce CMDQ_EVENT_MMSYS1_STREAM_DONE_ENG_EVENT_0>,
 			<&gce CMDQ_EVENT_MMSYS_DP_INTF0_FRAME_DONE>,
@@ -5154,9 +5156,12 @@
 			<&gce CMDQ_EVENT_MMSYS_DISP_WDMA0_FRAME_DONE>,
 			<&gce CMDQ_EVENT_MMSYS_DISP_DP_INTF0_SOF>,
 			<&gce CMDQ_EVENT_MMSYS_DP_INTF0_FRAME_DONE>,
+			<&gce CMDQ_EVENT_MMSYS_DP_INTF0_FRAME_DONE>,
 			<&gce CMDQ_EVENT_MMSYS_DISP_WDMA1_FRAME_DONE>,
 			<&gce CMDQ_EVENT_MMSYS_DISP_DSI0_SOF>,
-			<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>;
+			<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
+			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
+			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
@@ -5263,8 +5268,8 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-		//iommus = <&iommu0 M4U_PORT_L0_DISP_OVL0_0_DISP>,
-			 //<&iommu0 M4U_PORT_L0_DISP_OVL0_HDR>;
+		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_0_DISP>,
+			 <&disp_iommu M4U_PORT_L0_DISP_OVL0_HDR>;
 		//interconnects =
 			//<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_OVL0_0_DISP)
 					//&mmqos SLAVE_COMMON(0)>,
@@ -5285,8 +5290,8 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL1_2L>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-		//iommus = <&iommu0 M4U_PORT_L0_DISP_OVL0_2L_0>,
-			 //<&iommu0 M4U_PORT_L0_DISP_OVL0_2L_HDR>;
+		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_0>,
+			 <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_HDR>;
 		//interconnects =
 			//<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_OVL0_2L_0)
 					//&mmqos SLAVE_COMMON(0)>,
@@ -5317,7 +5322,7 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_RDMA0>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-		//iommus = <&iommu0 M4U_PORT_L0_DISP_RDMA0>;
+		iommus = <&disp_iommu M4U_PORT_L0_DISP_RDMA0>;
 		//interconnects =
 			//<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
 					//&mmqos SLAVE_COMMON(0)>,
