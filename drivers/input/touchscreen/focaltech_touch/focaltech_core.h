@@ -244,6 +244,7 @@ struct fts_ts_data {
 	spinlock_t irq_lock;
 	struct mutex report_mutex;
 	struct mutex bus_lock;
+	struct mutex suspend_lock;
 	int irq;
 	int log_level;
 	int fw_is_running;      /* confirm fw is running when using spi:default 0 */

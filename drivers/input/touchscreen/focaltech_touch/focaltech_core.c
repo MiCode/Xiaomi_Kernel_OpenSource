@@ -1071,11 +1071,20 @@ static int fts_ts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_data *fts_data)
 	struct trusted_touch_vm_info *vm_info = fts_data->vm_info;
 
 	atomic_set(&fts_data->trusted_touch_underway, 1);
+	mutex_lock(&fts_data->suspend_lock);
+
+	if (fts_data->suspended) {
+		FTS_ERROR("Invalid power state for operation\n");
+		atomic_set(&fts_data->trusted_touch_underway, 0);
+		rc =  -EPERM;
+		goto error;
+	}
+
 	/* i2c session start and resource acquire */
 	if (fts_ts_bus_get(fts_data) < 0) {
 		FTS_ERROR("fts_ts_bus_get failed\n");
 		rc = -EIO;
-		return rc;
+		goto error;
 	}
 
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data, PVM_I2C_RESOURCE_ACQUIRED);
@@ -1087,14 +1096,14 @@ static int fts_ts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_data *fts_data)
 	rc = fts_ts_vm_mem_lend(fts_data);
 	if (rc) {
 		pr_err("Failed to lend memory\n");
-		goto error;
+		goto abort_handler;
 	}
 	pr_debug("vm mem lend succeded\n");
 	rc = gh_irq_lend_v2(vm_info->irq_label, vm_info->vm_name,
 		fts_data->irq, &fts_ts_vm_irq_on_release_callback, fts_data);
 	if (rc) {
 		pr_err("Failed to lend irq\n");
-		goto error;
+		goto abort_handler;
 	}
 
 	pr_debug("vm irq lend succeded for irq:%d\n", fts_data->irq);
@@ -1103,15 +1112,20 @@ static int fts_ts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_data *fts_data)
 	rc = gh_irq_lend_notify(vm_info->irq_label);
 	if (rc) {
 		pr_err("Failed to notify irq\n");
-		goto error;
+		goto abort_handler;
 	}
 	fts_ts_trusted_touch_set_pvm_driver_state(fts_data, PVM_IRQ_LENT_NOTIFIED);
 
+	mutex_unlock(&fts_data->suspend_lock);
 	atomic_set(&fts_data->trusted_touch_enabled, 1);
 	pr_info("trusted touch enabled\n");
 	return rc;
-error:
+
+abort_handler:
 	fts_ts_trusted_touch_abort_handler(fts_data, TRUSTED_TOUCH_EVENT_LEND_FAILURE);
+
+error:
+	mutex_unlock(&fts_data->suspend_lock);
 	return rc;
 }
 
@@ -2797,6 +2811,7 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	spin_lock_init(&ts_data->irq_lock);
 	mutex_init(&ts_data->report_mutex);
 	mutex_init(&ts_data->bus_lock);
+	mutex_init(&ts_data->suspend_lock);
 
 	/* Init communication interface */
 	ret = fts_bus_init(ts_data);
@@ -2979,12 +2994,15 @@ static int fts_ts_suspend(struct device *dev)
 		FTS_INFO("fw upgrade in process, can't suspend");
 		return 0;
 	}
+
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
 	if (atomic_read(&fts_data->trusted_touch_underway)
 			|| atomic_read(&fts_data->trusted_touch_enabled))
 		wait_for_completion_interruptible(
 			&fts_data->trusted_touch_powerdown);
 #endif
+
+	mutex_lock(&ts_data->suspend_lock);
 
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_suspend();
@@ -3012,6 +3030,7 @@ static int fts_ts_suspend(struct device *dev)
 
 	fts_release_all_finger();
 	ts_data->suspended = true;
+	mutex_unlock(&ts_data->suspend_lock);
 	FTS_FUNC_EXIT();
 	return 0;
 }
@@ -3032,6 +3051,8 @@ static int fts_ts_resume(struct device *dev)
 		wait_for_completion_interruptible(
 			&ts_data->trusted_touch_powerdown);
 #endif
+
+	mutex_lock(&ts_data->suspend_lock);
 
 	fts_release_all_finger();
 
@@ -3056,6 +3077,7 @@ static int fts_ts_resume(struct device *dev)
 	}
 
 	ts_data->suspended = false;
+	mutex_unlock(&ts_data->suspend_lock);
 	FTS_FUNC_EXIT();
 	return 0;
 }
