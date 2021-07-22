@@ -3220,7 +3220,7 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 
 		/* Set HS gain to normal gain step by step */
 		regmap_write(priv->regmap, MT6338_ZCD_CON3,
-			0x9);
+			0x2);
 
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_2_PMU_CON9,
 			RG_ABIDEC_RSVD2_VAUDP18_MASK_SFT,
@@ -4866,8 +4866,8 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 			0x1 << RG_AUDADCRWIDECM_SFT);
 		/* Input resistor selection */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON46,
-			RG_AUDADCLRINOHM_MASK_SFT,
-			0x1 << RG_AUDADCLRINOHM_SFT);
+			RG_AUDADCRRINOHM_MASK_SFT,
+			0x1 << RG_AUDADCRRINOHM_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_2,
 			RG_VCMR_PGA_LPM_SEL_MASK_SFT,
 			0x9 << RG_VCMR_PGA_LPM_SEL_SFT);
@@ -5974,8 +5974,7 @@ static const struct snd_soc_dapm_widget mt6338_dapm_widgets[] = {
 	/* Todo: vow related */
 	/* set when vow13M*/
 	SND_SOC_DAPM_SUPPLY_S("PLL18 Vow", SUPPLY_SEQ_PLL_208M,
-			      MT6338_VPLL18_PMU_CON0,
-			      RG_VPLL18_LDO_VOWPLL_EN_VA18_SFT, 0, NULL, 0),
+			      SND_SOC_NOPM, 0, 0, NULL, 0),
 #endif
 	SND_SOC_DAPM_SUPPLY_S("PLL18 Audio", SUPPLY_SEQ_PLL_208M,
 			      SND_SOC_NOPM, 0, 0,
@@ -6024,8 +6023,8 @@ static const struct snd_soc_dapm_widget mt6338_dapm_widgets[] = {
 			      SND_SOC_NOPM,
 			      0, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("VOW_DIG_CFG", SUPPLY_SEQ_VOW_DIG_CFG,
-			      MT6338_AUD_TOP_CKPDN_CON0_H,
-			      4, 1,
+			      SND_SOC_NOPM,
+			      0, 1,
 			      mt_vow_digital_cfg_event,
 			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_SUPPLY_S("VOW_PERIODIC_CFG", SUPPLY_SEQ_VOW_PERIODIC_CFG,
@@ -6649,9 +6648,9 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"PGA_4", NULL, "PGA_4_EN"},
 
 	{"PGA_L", NULL, "DCC_CLK", mt_dcc_clk_connect},
-	{"PGA_R", NULL, "DCC_CLK", mt_dcc_clk_connect},
-	{"PGA_3", NULL, "DCC_CLK", mt_dcc_clk_connect},
-	{"PGA_4", NULL, "DCC_CLK", mt_dcc_clk_connect},
+	{"PGA_R", NULL, "DCC_r_CLK", mt_dcc_clk_connect},
+	{"PGA_3", NULL, "DCC_3_CLK", mt_dcc_clk_connect},
+	{"PGA_4", NULL, "DCC_4_CLK", mt_dcc_clk_connect},
 
 	{"PGA_L_Mux", "AIN0", "AIN0"},
 	{"PGA_L_Mux", "AIN1", "AIN1"},
@@ -8937,6 +8936,11 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 	/* this will trigger widget "DC trim" power down event */
 	enable_trim_buf(priv, true);
 
+	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 5;
+	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 5;
+	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3] = 5;
+	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP4] = 5;
+
 	/* Function bypass */
 	/* bypass GASRC3/4 */
 	regmap_update_bits(priv->regmap, MT6338_ETDM_0_3_COWORK_CON0_1,
@@ -9386,7 +9390,6 @@ n += scnprintf(buffer + n, size - n,
 	regmap_read(priv->regmap, MT6338_AUD_TOP_SRAM_CON, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "MT6338_AUD_TOP_SRAM_CON = 0x%x\n", value);
-#ifdef MT6338_DCCLK_DEBUG
 	regmap_read(priv->regmap, MT6338_AFE_DCCLK1_CFG0, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "MT6338_AFE_DCCLK1_CFG0 = 0x%x\n", value);
@@ -9423,7 +9426,6 @@ n += scnprintf(buffer + n, size - n,
 	regmap_read(priv->regmap, MT6338_AFE_DCCLK4_CFG2, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "MT6338_AFE_DCCLK4_CFG2 = 0x%x\n", value);
-#endif
 	regmap_read(priv->regmap, MT6338_AO_AFUNC_AUD_CON3_L, &value);
 	n += scnprintf(buffer + n, size - n,
 			   "MT6338_AO_AFUNC_AUD_CON3_L = 0x%x\n", value);
