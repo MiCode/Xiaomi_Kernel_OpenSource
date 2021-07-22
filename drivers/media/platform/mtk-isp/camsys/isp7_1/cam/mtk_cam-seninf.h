@@ -155,6 +155,7 @@ struct seninf_ctx {
 	/* flags */
 	unsigned int streaming:1;
 
+	int seninf_dphy_settle_delay_dt;
 
 	struct mtk_sensor_work sensor_work[MAX_VSYNC_WORK];
 	int work_number;

@@ -1138,6 +1138,9 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	settle_delay_dt = ctx->is_cphy ? ctx->core->cphy_settle_delay_dt :
 		ctx->core->dphy_settle_delay_dt;
 
+	if (ctx->seninf_dphy_settle_delay_dt)
+		settle_delay_dt = ctx->seninf_dphy_settle_delay_dt;
+
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_CDPHY_RX_LD0_TRIO0_HS_SETTLE_PARAMETER,
 		    settle_delay_dt);

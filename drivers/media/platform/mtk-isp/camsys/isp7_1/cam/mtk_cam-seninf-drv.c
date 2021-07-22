@@ -1360,6 +1360,15 @@ static int seninf_probe(struct platform_device *pdev)
 	mtk_cam_seninf_init_port(ctx, port);
 	init_fmt(ctx);
 
+	/* default platform properties */
+	ctx->seninf_dphy_settle_delay_dt = 0;
+
+	/* read platform properties from device tree */
+	of_property_read_u32(dev->of_node, "seninf_dphy_settle_delay_dt",
+		&ctx->seninf_dphy_settle_delay_dt);
+	dev_info(dev, "seninf dphy settle delay dt = %u\n",
+		 ctx->seninf_dphy_settle_delay_dt);
+
 #ifdef CSI_EFUSE_SET
 	ret = dev_read_csi_efuse(ctx);
 	if (ret < 0)
