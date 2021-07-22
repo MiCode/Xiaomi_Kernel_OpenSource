@@ -395,7 +395,7 @@ config S390_AP_IOMMU
 	  is not implemented as it is not necessary for VFIO.
 
 config MTK_IOMMU
-	bool "MTK IOMMU Support"
+	tristate "MediaTek IOMMU Support"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select ARM_DMA_USE_IOMMU
 	select IOMMU_API
@@ -410,7 +410,7 @@ config MTK_IOMMU
 	  If unsure, say N here.
 
 config MTK_IOMMU_V1
-	bool "MTK IOMMU Version 1 (M4U gen1) Support"
+	tristate "MediaTek IOMMU Version 1 (M4U gen1) Support"
 	depends on ARM
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select ARM_DMA_USE_IOMMU
@@ -464,5 +464,17 @@ config QCOM_IOMMU_UTIL
 	  groups and iova ranges.
 
 	  Say N here if unsure.
+
+config SPRD_IOMMU
+	tristate "Unisoc IOMMU Support"
+	depends on ARCH_SPRD || COMPILE_TEST
+	select IOMMU_API
+	help
+	  Support for IOMMU on Unisoc's SoCs, this IOMMU can be used by
+	  Unisoc's multimedia devices, such as display, Image codec(jpeg)
+	  and a few signal processors, including VSP(video), GSP(graphic),
+	  ISP(image), and CPP(camera pixel processor), etc.
+
+	  Say Y here if you want to use the multimedia devices listed above.
 
 endif # IOMMU_SUPPORT
