@@ -302,44 +302,31 @@ static struct mtk_smi_dbg	*gsmi;
 static void mtk_smi_dbg_print(
 	struct mtk_smi_dbg *smi, const bool larb, const u32 id)
 {
-#define PRINT_NR	(5)
 	struct mtk_smi_dbg_node	node = larb ? smi->larb[id] : smi->comm[id];
-	const char		*name = larb ? "larb" : "common";
+	const char		*name = larb ? "LARB" : "COMM";
 	const u32		regs_nr = node.regs_nr;
-	const u32		reg = larb ? SMI_LARB_STAT : SMI_DEBUG_MISC;
 
 	char	buf[LINK_MAX + 1] = {0};
-	u32	val[PRINT_NR], busy = 0;
-	s32	i, j, len, ret;
-	bool	diff;
+	u32	val;
+	s32	i, len, ret;
 
 	if (!node.dev || !node.va)
 		return;
 
 	ret = pm_runtime_get_if_in_use(node.dev);
-	dev_info(node.dev, "===== %pa.%s:%u rpm:%d =====\n",
-		&node.pa, name, id, ret);
+	dev_info(node.dev, "===== %s%u rpm:%d =====\n"
+		, name, id, ret);
 	if (ret <= 0)
 		return;
 
 	for (i = 0, len = 0; i < regs_nr; i++) {
-		for (j = 0, diff = false; j < PRINT_NR; j++) {
-			val[j] = readl_relaxed(node.va + node.regs[i]);
-			if (!diff && j && val[j] != val[j - 1])
-				diff = true;
-			if (node.regs[i] == reg)
-				busy += !(larb ^ val[j]) ? 1 : 0;
-		}
 
-		if (diff) {
-			dev_info(node.dev, " %#x=%#x %#x %#x %#x %#x\n",
-				node.regs[i],
-				val[0], val[1], val[2], val[3], val[4]);
+		val = readl_relaxed(node.va + node.regs[i]);
+		if (!val)
 			continue;
-		}
 
 		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
-			node.regs[i], val[0]);
+			node.regs[i], val);
 		if (ret < 0 || ret >= LINK_MAX - len) {
 			snprintf(buf + len, LINK_MAX - len, "%c", '\0');
 			dev_info(node.dev, "%s\n", buf);
@@ -347,13 +334,12 @@ static void mtk_smi_dbg_print(
 			len = 0;
 			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
 			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
-				node.regs[i], val[0]);
+				node.regs[i], val);
 		}
 		len += ret;
 	}
-	dev_info(node.dev, "===== %pa.%s:%u %s:%d/%d =====\n",
-		&node.pa, name, id,
-		busy == PRINT_NR ? "busy" : "idle", busy, PRINT_NR);
+	snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	dev_info(node.dev, "%s\n", buf);
 	pm_runtime_put_sync(node.dev);
 }
 
@@ -635,7 +621,9 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 s32 mtk_smi_dbg_hang_detect(const char *user)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
-	s32			i, ret;
+	struct mtk_smi_dbg_node	node;
+	s32			i, j, ret, busy = 0, time = 5, PRINT_NR = 1;
+	u32			val;
 
 	pr_info("%s: check caller:%s\n", __func__, user);
 
@@ -647,11 +635,56 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 		smi->probe = true;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(smi->larb); i++)
-		mtk_smi_dbg_print(smi, true, i);
+	//check LARB status
+	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
+		node = smi->larb[i];
+		if (!node.dev || !node.va)
+			continue;
+		if (pm_runtime_get_if_in_use(node.dev) <= 0)
+			continue;
+		busy = 0;
+		for (j = 0; j < time; j++) {
+			val = readl_relaxed(node.va + SMI_LARB_STAT);
+			busy += val ? 1 : 0;
+		}
+		if (busy == time) {
+			PRINT_NR = 5;
+			dev_info(node.dev, "===== %pa.%s:%u %s:%d/%d =====\n",
+				&node.pa, "LARB", i, "busy", busy, time);
+		}
+		pm_runtime_put_sync(node.dev);
+	}
 
-	for (i = 0; i < ARRAY_SIZE(smi->comm); i++)
-		mtk_smi_dbg_print(smi, false, i);
+	//check COMM status
+	for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
+		node = smi->comm[i];
+		if (!node.dev || !node.va)
+			continue;
+		if (pm_runtime_get_if_in_use(node.dev) <= 0)
+			continue;
+		busy = 0;
+		for (j = 0; j < time; j++) {
+			val = readl_relaxed(node.va + SMI_DEBUG_MISC);
+			busy += !val ? 1 : 0;
+		}
+		if (busy == time) {
+			PRINT_NR = 5;
+			dev_info(node.dev, "===== %pa.%s:%u %s:%d/%d =====\n",
+			&node.pa, "COMM", i, "busy", busy, time);
+		}
+		pm_runtime_put_sync(node.dev);
+	}
+
+	if (PRINT_NR == 1)
+		pr_info("%s: ===== SMI MM bus NOT hang =====:%s\n", __func__, user);
+
+	for (j = 0; j < PRINT_NR; j++) {
+		for (i = 0; i < ARRAY_SIZE(smi->larb); i++)
+			mtk_smi_dbg_print(smi, true, i);
+
+		for (i = 0; i < ARRAY_SIZE(smi->comm); i++)
+			mtk_smi_dbg_print(smi, false, i);
+	}
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);
