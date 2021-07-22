@@ -11,9 +11,6 @@
 #include <linux/device.h>
 #include <linux/compat.h>
 #include <linux/io.h>
-#include "scp_helper.h"
-#include "scp_ipi.h"
-#include "audio_ipi_platform.h"
 #include "mtk-sram-manager.h"
 #include "audio_ultra_msg_id.h"
 #include "scp.h"

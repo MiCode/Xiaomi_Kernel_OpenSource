@@ -11,6 +11,8 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <linux/module.h>
+#include <mt-plat/aee.h>
+
 
 #ifdef scp_ultra_debug
 #undef scp_ultra_debug
@@ -20,6 +22,17 @@
 #else
 #define scp_ultra_debug(x...)
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define AUDIO_AEE(message) \
+	(aee_kernel_exception_api(__FILE__, \
+				  __LINE__, \
+				  DB_OPT_FTRACE, message, \
+				  "audio assert"))
+#else
+#define AUDIO_AEE(message) WARN_ON(true)
+#endif
+
 
 #define aud_wake_lock_init(dev, name) wakeup_source_register(dev, name)
 #define aud_wake_lock_destroy(ws) wakeup_source_destroy(ws)
@@ -60,6 +73,7 @@ enum {
 	SCP_ULTRA_STATE_START,
 	SCP_ULTRA_STATE_STOP,
 	SCP_ULTRA_STATE_OFF,
+	SCP_ULTRA_STATE_RECOVERY,
 };
 
 #define DEFAULT_UL_PERIOD_SIZE (480)
@@ -81,10 +95,11 @@ void *get_ipi_recv_private(void);
 void set_ipi_recv_private(void *priv);
 void mtk_scp_ultra_dump_msg(struct mtk_base_scp_ultra_dump *ultra_dump);
 void mtk_scp_ultra_ipi_send(uint8_t data_type, /*audio_ipi_msg_data_t*/
-				     uint8_t ack_type, /*audio_ipi_msg_ack_t*/
-				     uint16_t msg_id,
-				     uint32_t param1, uint32_t param2,
-				     char *payload);
+			    uint8_t ack_type, /*audio_ipi_msg_ack_t*/
+			    uint16_t msg_id,
+			    uint32_t param1,
+			    uint32_t param2,
+			    char *payload);
 void set_afe_dl_irq_target(int scp_enable);
 void set_afe_ul_irq_target(int scp_enable);
 #endif

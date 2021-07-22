@@ -12,10 +12,7 @@
  *****************************************************************************/
 #include <linux/delay.h>
 #include "ultra_ipi.h"
-#include <mtk_tinysys_ipi.h>
-#include "scp_ipi_pin.h"
-#include "scp_mbox_layout.h"  /* for IPI mbox size */
-
+#include "scp.h"
 
 static int ultra_ipi_recv_handler(unsigned int id,
 				 void *prdata,

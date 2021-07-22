@@ -10,8 +10,6 @@
 #ifndef _MTK_SCP_ULTRA_BASE_H_
 #define _MTK_SCP_ULTRA_BASE_H_
 
-#include <audio_messenger_ipi.h>
-#include "audio_task.h"
 #include <sound/soc.h>
 
 
@@ -20,10 +18,6 @@ struct snd_pcm_substream;
 struct snd_dma_buffer;
 
 #define MAX_PAYLOAD_SIZE (32)
-
-struct scp_ultra_dump_ops {
-	void (*ultra_dump_callback)(struct ipi_msg_t *ipi_msg);
-};
 
 struct ultra_param_config {
 	unsigned int rate_in;

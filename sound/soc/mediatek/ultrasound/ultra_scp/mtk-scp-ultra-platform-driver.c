@@ -11,12 +11,9 @@
 #include <linux/spinlock.h>
 #include <asm/arch_timer.h>
 #include <sound/soc.h>
+#include <linux/pm_runtime.h>
 
-#include "audio_task_manager.h"
-#include "scp_helper.h"
-#include "scp_excep.h"
 #include "audio_ultra_msg_id.h"
-#include "audio_task_manager.h"
 #include "mtk-scp-ultra-mem-control.h"
 #include "mtk-scp-ultra-platform-driver.h"
 #include "mtk-base-scp-ultra.h"
@@ -24,9 +21,9 @@
 #include "mtk-base-afe.h"
 #include "ultra_ipi.h"
 #include "mtk-scp-ultra_dump.h"
-#include "scp_feature_define.h"
 #include <linux/pm_wakeup.h>
 #include "mtk-scp-ultra.h"
+#include "scp.h"
 
 //static DEFINE_SPINLOCK(scp_ultra_ringbuf_lock);
 
@@ -38,7 +35,7 @@
 #define ultra_IPIMSG_TIMEOUT (50)
 #define ultra_WAITCHECK_INTERVAL_MS (2)
 static bool ultra_ipi_wait;
-static struct wakeup_source ultra_suspend_lock;
+static struct wakeup_source *ultra_suspend_lock;
 static bool pcm_dump_switch;
 static bool pcm_dump_on;
 static const char *const mtk_scp_ultra_dump_str[] = {
@@ -299,9 +296,10 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 	int scp_ultra_memif_ul_id;
 	int val = ucontrol->value.integer.value[0];
 	int payload[7];
+	int old_usnd_state = scp_ultra->usnd_state;
 
-	if(val < SCP_ULTRA_STATE_IDLE || val > SCP_ULTRA_STATE_OFF) {
-		pr_info("%s() unexpected state, ignore\n", __func__);
+	if (val < SCP_ULTRA_STATE_IDLE || val > SCP_ULTRA_STATE_RECOVERY) {
+		pr_info("%s() unexpected state: %d, ignore\n", __func__, val);
 		return -1;
 	}
 	scp_ultra->usnd_state = val;
@@ -318,7 +316,7 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 	switch (scp_ultra->usnd_state) {
 	case SCP_ULTRA_STATE_ON:
 		scp_register_feature(ULTRA_FEATURE_ID);
-		__pm_stay_awake(&ultra_suspend_lock);
+		aud_wake_lock(ultra_suspend_lock);
 		afe->memif[scp_ultra_memif_dl_id].scp_ultra_enable = true;
 		afe->memif[scp_ultra_memif_ul_id].scp_ultra_enable = true;
 
@@ -345,7 +343,7 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 			       NULL,
 			       ULTRA_IPI_NEED_ACK);
 		scp_deregister_feature(ULTRA_FEATURE_ID);
-		__pm_relax(&ultra_suspend_lock);
+		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
 	case SCP_ULTRA_STATE_START:
 		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_START,
@@ -360,6 +358,27 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 					0,
 					NULL,
 					ULTRA_IPI_NEED_ACK);
+		return 0;
+	case SCP_ULTRA_STATE_RECOVERY:
+		pm_runtime_get_sync(afe->dev);
+		if (old_usnd_state == SCP_ULTRA_STATE_OFF ||
+		    old_usnd_state == SCP_ULTRA_STATE_IDLE ||
+		    old_usnd_state == SCP_ULTRA_STATE_RECOVERY)
+			return 0;
+		if (old_usnd_state == SCP_ULTRA_STATE_START)
+			ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_STOP,
+				       false,
+				       0,
+				       NULL,
+				       ULTRA_IPI_NEED_ACK);
+		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_OFF,
+			       false,
+			       0,
+			       NULL,
+			       ULTRA_IPI_NEED_ACK);
+		scp_deregister_feature(ULTRA_FEATURE_ID);
+		pm_runtime_put(afe->dev);
+		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
 	default:
 		pr_info("%s() err state,ignore\n", __func__);
@@ -571,9 +590,6 @@ static int mtk_scp_ultra_pcm_stop(struct snd_soc_component *component,
 	/* Set dl&ul irq to ap */
 	set_afe_dl_irq_target(false);
 	set_afe_ul_irq_target(false);
-	dev_info(scp_ultra->dev,"%s() completely\n",
-			__func__
-			);
 	return 0;
 }
 static int mtk_scp_ultra_pcm_close(struct snd_soc_component *component,
@@ -650,7 +666,7 @@ static int mtk_scp_ultra_pcm_new(struct snd_soc_component *component)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	scp_A_register_notify(&usnd_scp_recover_notifier);
 #endif
-	//wakeup_source_init(&ultra_suspend_lock, "ultra wakelock");
+	ultra_suspend_lock = aud_wake_lock_init(NULL, "ultra wakelock");
 	pcm_dump_switch = false;
 	scp_ultra->usnd_state = SCP_ULTRA_STATE_IDLE;
 

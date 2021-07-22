@@ -17,7 +17,6 @@ struct audio_ultra_dram {
 struct mtk_base_scp_ultra_dump {
 	bool dump_flag;
 	struct audio_ultra_dram dump_resv_mem;
-	struct scp_ultra_dump_ops *dump_ops;
 };
 
 struct mtk_base_scp_ultra_mem {

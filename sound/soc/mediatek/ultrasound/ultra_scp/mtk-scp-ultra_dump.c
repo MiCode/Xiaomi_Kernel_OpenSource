@@ -33,15 +33,10 @@
 
 #include <linux/wait.h>
 #include <linux/time.h>
-#include "audio_log.h"
-#include "audio_assert.h"
-//#include "audio_wakelock.h"
-//#include "audio_task_manager.h"
-#include <audio_ipi_dma.h>
 #include "audio_ultra_msg_id.h"
-#include <scp_helper.h>
 #include "mtk-scp-ultra_dump.h"
 #include "mtk-scp-ultra-common.h"
+#include "scp.h"
 
 
 #define DUMP_ULTRA_PCM_DATA_PATH "/data/vendor/audiohal/audio_dump"
@@ -445,17 +440,19 @@ void audio_ipi_client_ultra_init(void)
 	wakelock_ultra_dump_lock = aud_wake_lock_init(NULL, "ultradump lock");
 
 	dump_workqueue[DUMP_PCM_IN] = create_workqueue("dump_ultra_pcm_in");
-	if (dump_workqueue[DUMP_PCM_IN] == NULL)
+	if (dump_workqueue[DUMP_PCM_IN] == NULL) {
 		pr_notice("dump_workqueue[DUMP_PCM_IN] = %p\n",
 				dump_workqueue[DUMP_PCM_IN]);
-	AUD_ASSERT(dump_workqueue[DUMP_PCM_IN] != NULL);
+		AUDIO_AEE("dump_workqueue[DUMP_PCM_IN] == NULL");
+	}
 
 	dump_workqueue[DUMP_PCM_OUT] =
 			create_workqueue("dump_ultra_pcm_out");
-	if (dump_workqueue[DUMP_PCM_OUT] == NULL)
+	if (dump_workqueue[DUMP_PCM_OUT] == NULL) {
 		pr_notice("dump_workqueue[DUMP_PCM_OUT] = %p\n",
 				dump_workqueue[DUMP_PCM_OUT]);
-	AUD_ASSERT(dump_workqueue[DUMP_PCM_OUT] != NULL);
+		AUDIO_AEE("dump_workqueue[DUMP_PCM_OUT] == NULL");
+	}
 
 	INIT_WORK(&dump_work[DUMP_PCM_IN].work, ultra_dump_in_data_routine);
 	INIT_WORK(&dump_work[DUMP_PCM_OUT].work, ultra_dump_out_data_routine);

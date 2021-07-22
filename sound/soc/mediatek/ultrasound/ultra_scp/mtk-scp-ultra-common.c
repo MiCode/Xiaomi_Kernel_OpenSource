@@ -6,12 +6,8 @@
 #include <sound/soc.h>
 #include <linux/device.h>
 #include <linux/compat.h>
-#include "scp_helper.h"
-#include "scp_ipi.h"
-#include "audio_ipi_platform.h"
 //#include "audio_ultra_msg_id.h"
 #include "ultra_ipi.h"
-#include "audio_task_manager.h"
 #include "mtk-base-afe.h"
 #include "mtk-scp-ultra.h"
 
@@ -86,7 +82,7 @@ void set_afe_dl_irq_target(int scp_enable)
 	} else {
 		regmap_update_bits(afe->regmap,
 				irq_data->irq_scp_en_reg,
-				0x1 << irq_data->irq_ap_en_shift,
+				0x1 << irq_data->irq_scp_en_shift,
 				0);
 		regmap_update_bits(afe->regmap,
 				   irq_data->irq_ap_en_reg,

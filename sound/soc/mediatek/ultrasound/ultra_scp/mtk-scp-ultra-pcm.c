@@ -57,13 +57,6 @@ static int scp_ultra_pcm_dev_probe(struct platform_device *pdev)
 	if (!scp_ultra)
 		return -ENOMEM;
 
-	scp_ultra->ultra_dump.dump_ops =
-			devm_kzalloc(&pdev->dev,
-					sizeof(struct scp_ultra_dump_ops),
-					GFP_KERNEL);
-	if (!scp_ultra->ultra_dump.dump_ops)
-		return -ENOMEM;
-
 	ret = of_property_read_u32(pdev->dev.of_node,"scp_ultra_dl_memif_id",
 			&scp_ultra->scp_ultra_dl_memif_id);
 	if (ret != 0){
@@ -136,6 +129,6 @@ static struct platform_driver scp_ultra_pcm_driver = {
 module_platform_driver(scp_ultra_pcm_driver);
 
 MODULE_DESCRIPTION("Mediatek ALSA SoC scp ultrasound platform driver");
-MODULE_AUTHOR("Youwei Dong <Youwei.Dong@mediatek.com>");
+MODULE_AUTHOR("Ning Li <Ning.Li@mediatek.com>");
 MODULE_LICENSE("GPL v2");
 
