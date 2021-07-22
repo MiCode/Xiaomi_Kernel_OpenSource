@@ -1482,8 +1482,10 @@ skip_irq:
 out:
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_BCLK)) {
 		data->bclk = devm_clk_get(dev, "bclk");
-		if (IS_ERR(data->bclk))
+		if (IS_ERR(data->bclk)) {
+			dev_err(dev, "%s,get clk failed\n", __func__);
 			return PTR_ERR(data->bclk);
+		}
 	}
 
 	/* Only for mt6873 and mt6893 */
@@ -1935,7 +1937,7 @@ static const struct mtk_iommu_plat_data mt6983_data_disp = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_BK_EN | IOMMU_CLK_AO_EN |
-			  IOMMU_EN_PRE | SKIP_CFG_PORT | IOVA_34_EN,// | HAS_BCLK,
+			  IOMMU_EN_PRE | SKIP_CFG_PORT | IOVA_34_EN | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
@@ -1954,7 +1956,7 @@ static const struct mtk_iommu_plat_data mt6983_data_mdp = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_BK_EN | IOMMU_CLK_AO_EN |
-			  IOMMU_EN_PRE | SKIP_CFG_PORT | IOVA_34_EN,// | HAS_BCLK,
+			  IOMMU_EN_PRE | SKIP_CFG_PORT | IOVA_34_EN | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= MDP_IOMMU,
 	.iommu_type     = MM_IOMMU,
