@@ -73,6 +73,7 @@ struct cmdq_util_controller_fp *cmdq_util_controller;
 #define CMDQ_THR_SPR			0x60
 
 #define GCE_GCTL_VALUE			0x48
+#define GCE_OUTPIN_EVENT		0x4c
 #define GCE_GPR_R0_START		0x80
 #define GCE_DEBUG_START_ADDR		0x1104
 #define GCE_DEBUG_END_ADDR		0x1108
@@ -167,6 +168,7 @@ struct cmdq {
 	void			*init_cmds_base;
 	dma_addr_t		init_cmds;
 	bool			sw_ddr_en;
+	bool			outpin_en;
 	struct notifier_block	prebuilt_notifier;
 	struct cmdq_client	*prebuilt_clt;
 	u64			prebuilt_time[2];
@@ -304,6 +306,8 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 			writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
 			writel(0, cmdq->base + GCE_DEBUG_START_ADDR);
 		}
+		writel(cmdq->outpin_en ? 0x3 : 0x0,
+			cmdq->base + GCE_OUTPIN_EVENT);
 		/* make sure pm not suspend */
 		cmdq_lock_wake_lock(cmdq, true);
 		cmdq_init(cmdq);
@@ -2416,6 +2420,14 @@ void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util)
 }
 EXPORT_SYMBOL(cmdq_controller_set_fp);
 #endif
+
+void cmdq_set_outpin_event(struct cmdq_client *cl, bool ena)
+{
+	struct cmdq *cmdq = container_of(cl->chan->mbox, struct cmdq, mbox);
+
+	cmdq->outpin_en = ena;
+}
+EXPORT_SYMBOL(cmdq_set_outpin_event);
 
 module_init(cmdq_drv_init);
 

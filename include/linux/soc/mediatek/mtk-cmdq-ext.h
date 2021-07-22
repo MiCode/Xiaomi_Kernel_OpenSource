@@ -260,6 +260,8 @@ void *cmdq_mbox_buf_alloc(struct cmdq_client *cl, dma_addr_t *pa_out);
 
 void cmdq_mbox_buf_free(struct cmdq_client *cl, void *va, dma_addr_t pa);
 
+void cmdq_set_outpin_event(struct cmdq_client *cl, bool ena);
+
 s32 cmdq_dev_get_event(struct device *dev, const char *name);
 
 struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt);
