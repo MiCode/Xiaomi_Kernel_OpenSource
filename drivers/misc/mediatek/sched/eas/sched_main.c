@@ -14,6 +14,7 @@
 #include <linux/energy_model.h>
 #include <trace/events/sched.h>
 #include <trace/hooks/sched.h>
+#include <sched/sched.h>
 #include "eas_plus.h"
 #include "sched_sys_common.h"
 

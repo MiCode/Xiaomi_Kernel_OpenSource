@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 #include <linux/module.h>
+#include <sched/sched.h>
 #include "common.h"
 #include "eas_plus.h"
 #include "eas_trace.h"

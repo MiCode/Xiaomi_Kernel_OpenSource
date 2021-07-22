@@ -250,7 +250,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
  * based on the task model parameters and gives the minimal utilization
  * required to meet deadlines.
  */
-static unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
+unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 				 unsigned long max, enum schedutil_type type,
 				 struct task_struct *p)
 {
@@ -338,6 +338,7 @@ static unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 
 	return min(max, util);
 }
+EXPORT_SYMBOL(mtk_cpu_util);
 
 static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 {

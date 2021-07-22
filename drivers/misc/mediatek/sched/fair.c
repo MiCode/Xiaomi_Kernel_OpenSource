@@ -5,7 +5,9 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <trace/hooks/sched.h>
+#include <sched/sched.h>
 #include "eas/eas_plus.h"
+#include "common.h"
 #include <sched/pelt.h>
 #include <linux/stop_machine.h>
 #include <linux/kthread.h>
@@ -188,8 +190,13 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 * is already enough to scale the EM reported power
 		 * consumption at the (eventually clamped) cpu_capacity.
 		 */
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+		sum_util += mtk_cpu_util(cpu, util_cfs, cpu_cap,
+					       ENERGY_UTIL, NULL);
+#else
 		sum_util += schedutil_cpu_util(cpu, util_cfs, cpu_cap,
 					       ENERGY_UTIL, NULL);
+#endif
 
 		/*
 		 * Performance domain frequency: utilization clamping
@@ -198,8 +205,13 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 * NOTE: in case RT tasks are running, by default the
 		 * FREQUENCY_UTIL's utilization can be max OPP.
 		 */
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+		cpu_util = mtk_cpu_util(cpu, util_cfs, cpu_cap,
+					      FREQUENCY_UTIL, tsk);
+#else
 		cpu_util = schedutil_cpu_util(cpu, util_cfs, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
+#endif
 		max_util = max(max_util, cpu_util);
 
 		trace_sched_energy_util(dst_cpu, max_util, sum_util, cpu, util_cfs, cpu_util);

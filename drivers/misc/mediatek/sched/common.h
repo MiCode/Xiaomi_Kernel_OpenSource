@@ -12,4 +12,10 @@ extern void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq
 #define mtk_map_util_freq(data, util, freq, cap, next_freq)
 #endif /* CONFIG_NONLINEAR_FREQ_CTL */
 
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
+				unsigned long max, enum schedutil_type type,
+				struct task_struct *p);
+#endif
+
 #endif /* _SCHED_COMMON_H */

@@ -6,8 +6,6 @@
 #ifndef _EAS_PLUS_H
 #define _EAS_PLUS_H
 
-#include <sched/sched.h>
-
 #define MIGR_IDLE_BALANCE 1
 
 #ifdef CONFIG_SMP
