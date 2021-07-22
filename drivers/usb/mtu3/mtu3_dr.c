@@ -45,6 +45,10 @@ static void toggle_opstate(struct ssusb_mtk *ssusb)
 	if (!ssusb->otg_switch.is_u3_drd) {
 		mtu3_setbits(ssusb->mac_base, U3D_DEVICE_CONTROL, DC_SESSION);
 		mtu3_setbits(ssusb->mac_base, U3D_POWER_MANAGEMENT, SOFT_CONN);
+	} else {
+		/* automatically build U2 link when U3 detect fail */
+		mtu3_setbits(ssusb->mac_base, U3D_USB2_TEST_MODE,
+			U2U3_AUTO_SWITCH);
 	}
 }
 
