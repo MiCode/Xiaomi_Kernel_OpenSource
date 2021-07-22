@@ -416,24 +416,3 @@
 		};
 	};
 };
-
-/ {
-	mt6363_temp: mt6363_temp {
-		compatible = "mediatek,mt6363-pmic-temp";
-		status = "disabled";
-		io-channels =
-			<&pmic_adc AUXADC_CHIP_TEMP>,
-			<&pmic_adc AUXADC_VCORE_TEMP>,
-			<&pmic_adc AUXADC_VPROC_TEMP>,
-			<&pmic_adc AUXADC_VGPU_TEMP>;
-		io-channel-names =
-			"pmic6363_ts1",
-			"pmic6363_ts2",
-			"pmic6363_ts3",
-			"pmic6363_ts4";
-
-		#thermal-sensor-cells = <1>;
-		nvmem-cells = <&mt6363_thermal_efuse>;
-		nvmem-cell-names = "mt6363_e_data";
-	};
-};

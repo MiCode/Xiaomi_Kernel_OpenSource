@@ -4032,6 +4032,97 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tboard_thermistor4>;
 		};
+		pmic6363_vio18 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6363_temp 0>;
+		};
+		pmic6363_vs1_vs3 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6363_temp 1>;
+		};
+		pmic6363_bk3_bk7 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6363_temp 2>;
+		};
+		pmic6363_vs2 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6363_temp 3>;
+		};
+		pmic6373_bk0 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6373_temp 0>;
+		};
+		pmic6373_ldo {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6373_temp 1>;
+		};
+		pmic6373_bk3_bk7 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6373_temp 2>;
+		};
+		pmic6373_bk4_bk8 {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6373_temp 3>;
+		};
+		pmic6338_ts {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&mt6338_temp 0>;
+		};
+	};
+
+	mt6363_temp: mt6363_temp {
+		compatible = "mediatek,mt6363-pmic-temp";
+		io-channels =
+			<&pmic_adc AUXADC_CHIP_TEMP>,
+			<&pmic_adc AUXADC_VCORE_TEMP>,
+			<&pmic_adc AUXADC_VPROC_TEMP>,
+			<&pmic_adc AUXADC_VGPU_TEMP>;
+		io-channel-names =
+			"pmic6363_ts1",
+			"pmic6363_ts2",
+			"pmic6363_ts3",
+			"pmic6363_ts4";
+
+		#thermal-sensor-cells = <1>;
+		nvmem-cells = <&mt6363_thermal_efuse>;
+		nvmem-cell-names = "mt6363_e_data";
+	};
+
+	mt6373_temp: mt6373_temp {
+		compatible = "mediatek,mt6373-pmic-temp";
+		io-channels =
+			<&mt6373_adc AUXADC_CHIP_TEMP>,
+			<&mt6373_adc AUXADC_VCORE_TEMP>,
+			<&mt6373_adc AUXADC_VPROC_TEMP>,
+			<&mt6373_adc AUXADC_VGPU_TEMP>;
+		io-channel-names =
+			"pmic6373_ts1",
+			"pmic6373_ts2",
+			"pmic6373_ts3",
+			"pmic6373_ts4";
+
+		#thermal-sensor-cells = <1>;
+		nvmem-cells = <&mt6373_thermal_efuse>;
+		nvmem-cell-names = "mt6373_e_data";
+	};
+
+	mt6338_temp: mt6338_temp {
+		compatible = "mediatek,mt6338-pmic-temp";
+		#thermal-sensor-cells = <0>;
+		io-channels =
+			<&mt6338_auxadc AUXADC_CHIP_TEMP>;
+		io-channel-names = "pmic6338_ts";
+		nvmem = <&mt6338_efuse>;
+		nvmem-names = "mt6338_e_data";
 	};
 
 	lk_charger: lk_charger {
