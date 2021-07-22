@@ -680,8 +680,8 @@ int parse_lcm_params_dsi(struct device_node *np,
 		unsigned int fps = mode[i * MTK_LCM_MODE_UNIT + 3];
 
 		snprintf(mode_name, sizeof(mode_name),
-			 "mediatek,lcm-dsi-fps-%u-%u-%u",
-			 width, height, fps);
+			 "mediatek,lcm-dsi-fps-%u-%u-%u-%u",
+			 id, width, height, fps);
 		for_each_available_child_of_node(np, mode_np) {
 			if (of_device_is_compatible(mode_np, mode_name)) {
 				struct mtk_lcm_mode_dsi *mode_node = NULL;
@@ -1137,14 +1137,16 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				"mediatek,lcm-ops-dsi-fps-switch-before-powerdown")) {
 			list_for_each_entry(mode_node, &params->mode_list, list) {
 				snprintf(mode_name, sizeof(mode_name),
-					"fps-switch-%u-%u-%u_size", mode_node->width,
+					"fps-switch-%u-%u-%u-%u_size",
+					mode_node->id, mode_node->width,
 					mode_node->height, mode_node->fps);
 				mtk_lcm_dts_read_u32(mode_np, mode_name,
 						&mode_node->fps_switch_bfoff_size);
 
 				if (mode_node->fps_switch_bfoff_size > 0) {
 					snprintf(mode_name, sizeof(mode_name),
-						"fps-switch-%u-%u-%u_table", mode_node->width,
+						"fps-switch-%u-%u-%u-%u_table",
+						mode_node->id, mode_node->width,
 						mode_node->height, mode_node->fps);
 
 					LCM_KZALLOC(mode_node->fps_switch_bfoff,
@@ -1180,14 +1182,16 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				"mediatek,lcm-ops-dsi-fps-switch-after-poweron")) {
 			list_for_each_entry(mode_node, &params->mode_list, list) {
 				snprintf(mode_name, sizeof(mode_name),
-					"fps-switch-%u-%u-%u_size", mode_node->width,
+					"fps-switch-%u-%u-%u-%u_size",
+					mode_node->id, mode_node->width,
 					mode_node->height, mode_node->fps);
 				mtk_lcm_dts_read_u32(mode_np, mode_name,
 						&mode_node->fps_switch_afon_size);
 
 				if (mode_node->fps_switch_afon_size > 0) {
 					snprintf(mode_name, sizeof(mode_name),
-						"fps-switch-%u-%u-%u_table", mode_node->width,
+						"fps-switch-%u-%u-%u-%u_table",
+						mode_node->id, mode_node->width,
 						mode_node->height, mode_node->fps);
 					LCM_KZALLOC(mode_node->fps_switch_afon,
 						sizeof(struct mtk_lcm_ops_data) *
