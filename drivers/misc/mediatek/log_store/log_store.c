@@ -343,7 +343,7 @@ static void store_printk_buff(void)
 		return;
 	}
 	buff = log_buf_addr_get();
-	log_buf = __pa_symbol(buff);
+	log_buf = __virt_to_phys_nodebug(buff);
 	size = log_buf_len_get();
 	/* support 32/64 bits */
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
