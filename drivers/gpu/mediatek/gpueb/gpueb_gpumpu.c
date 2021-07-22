@@ -64,7 +64,7 @@ int gpueb_gpumpu_init(struct platform_device *pdev)
 	gpumpu_send_data.u.mpu_table.phys_base =
 			(u64)gpueb_get_reserve_mem_phys_by_name("MEM_ID_MPU");
 	gpumpu_send_data.u.mpu_table.size = (u64)gpueb_get_reserve_mem_size_by_name("MEM_ID_MPU");
-	gpueb_pr_debug("%s: cmd=%d, phys_base=0x%llx, size=0x%llx, sizeof(struct gpumpu_ipi_send_data)=%d\n",
+	gpueb_pr_debug("%s: cmd=%u, phys_base=%#llx, size=%#llx, sizeof(struct gpumpu_ipi_send_data)=%lu\n",
 			__func__,
 			gpumpu_send_data.cmd,
 			gpumpu_send_data.u.mpu_table.phys_base,
