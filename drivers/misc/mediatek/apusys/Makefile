@@ -36,41 +36,12 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/ap/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/rv/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/dummy/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/$(UTIL_DIR)/
 
-apusys-$(CONFIG_FTRACE) += $(UTIL_DIR)/apusys_trace.o
-apusys-objs += $(UTIL_DIR)/apu_bmap.o
-
-ifeq ($(APUSYS_VERSION_MIDWARE), 1.5)
-ccflags-y  += -DMTK_APU_AOSP_ION_SUPPORT
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_drv.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_usr.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_dbg.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_rsc.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_cmn.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_cmd.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_sched.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_queue.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_queue_norm.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_queue_deadline.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_dispr.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_sysfs.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_dmy.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_aosp.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_import.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_fence.o
-ifeq ($(CONFIG_MTK_APUSYS_DEBUG),y)
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_tag.o
-endif
-ifeq ($(CONFIG_MTK_ION), y)
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
-endif
-else
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_drv.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_rsc.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_drv.o
@@ -98,11 +69,10 @@ apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/ap/mdw_ap_tag.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/rv/mdw_rv.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/rv/mdw_rv_cmd.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/rv/mdw_rv_dev.o
-endif
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/dummy/mdw_dmy.o
 
-# sample driver makefile
-apusys-objs += sample/$(APUSYS_VERSION_SAMPLE)/sample_drv.o
-apusys-objs += sample/$(APUSYS_VERSION_SAMPLE)/sample_inf.o
+apusys-$(CONFIG_FTRACE) += $(UTIL_DIR)/apusys_trace.o
+apusys-objs += $(UTIL_DIR)/apu_bmap.o
 
 # edma driver makefile
 apusys-objs += edma/edma_driver.o

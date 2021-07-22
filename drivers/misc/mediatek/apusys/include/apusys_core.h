@@ -10,8 +10,6 @@ struct apusys_core_info {
 /* declare init/exit func at other module */
 int mdw_init(struct apusys_core_info *info);
 void mdw_exit(void);
-int sample_init(struct apusys_core_info *info);
-void sample_exit(void);
 int edma_init(struct apusys_core_info *info);
 void edma_exit(void);
 int mdla_init(struct apusys_core_info *info);
@@ -20,10 +18,6 @@ int vpu_init(struct apusys_core_info *info);
 void vpu_exit(void);
 int mnoc_init(struct apusys_core_info *info);
 void mnoc_exit(void);
-#ifdef MTK_APU_AOSP_ION_SUPPORT
-int mdw_mem_drv_init(struct apusys_core_info *info);
-void mdw_mem_drv_exit(void);
-#endif
 int apu_power_drv_init(struct apusys_core_info *info);
 void apu_power_drv_exit(void);
 int apupwr_init_tags(struct apusys_core_info *info);
@@ -59,12 +53,8 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 	devapc_init,
 	mnoc_init,
 	reviser_init,
-#ifdef MTK_APU_AOSP_ION_SUPPORT
-	mdw_mem_drv_init,
-#endif
 	apumem_init,
 	mdw_init,
-	sample_init,
 	edma_init,
 	mdla_init,
 #if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
@@ -88,12 +78,8 @@ static void (*apusys_exit_func[])(void) = {
 #endif
 	mdla_exit,
 	edma_exit,
-	sample_exit,
 	mdw_exit,
 	apumem_exit,
-#ifdef MTK_APU_AOSP_ION_SUPPORT
-	mdw_mem_drv_exit,
-#endif
 	reviser_exit,
 	mnoc_exit,
 	devapc_exit,

@@ -58,7 +58,7 @@ struct mdw_rv_cmd_v2 {
 	uint32_t num_subcmds;
 	uint32_t subcmds_offset;
 	uint32_t num_cmdbufs;
-	uint32_t cmdbufs_offset;
+	uint32_t cmdbuf_infos_offset;
 	uint32_t adj_matrix_offset;
 } __attribute__((__packed__));
 

@@ -253,7 +253,10 @@ int mdw_rv_dev_set_param(enum mdw_info_type type, uint32_t val)
 	msg.id = MDW_IPI_PARAM;
 	memcpy(&msg.p, &mrdev.param, sizeof(msg.p));
 	switch (type) {
-	case MDW_INFO_UPLOG:
+	case MDW_INFO_KLOG:
+		g_mdw_klog = val;
+		goto out;
+	case MDW_INFO_ULOG:
 		msg.p.uplog = val;
 		break;
 	case MDW_INFO_PREEMPT_POLICY:
@@ -263,13 +266,17 @@ int mdw_rv_dev_set_param(enum mdw_info_type type, uint32_t val)
 		msg.p.sched_policy = val;
 		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
+	mdw_drv_debug("set(%u) param(%u/%u/%u)\n",
+		type, msg.p.uplog, msg.p.preempt_policy, msg.p.sched_policy);
 	ret = mdw_rv_dev_send_sync(&msg);
 	if (!ret)
 		memcpy(&mrdev.param, &msg.p, sizeof(msg.p));
 
+out:
 	return ret;
 }
 
@@ -278,7 +285,10 @@ uint32_t mdw_rv_dev_get_param(enum mdw_info_type type)
 	uint32_t ret = 0;
 
 	switch (type) {
-	case MDW_INFO_UPLOG:
+	case MDW_INFO_KLOG:
+		ret = g_mdw_klog;
+		break;
+	case MDW_INFO_ULOG:
 		ret = (int)mrdev.param.uplog;
 		break;
 	case MDW_INFO_PREEMPT_POLICY:

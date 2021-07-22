@@ -21,7 +21,7 @@ static void mdw_rv_cmd_print(struct mdw_rv_cmd_v2 *rc)
 	mdw_cmd_debug(" num_subcmds = %u\n", rc->num_subcmds);
 	mdw_cmd_debug(" subcmds_offset = 0x%x\n", rc->subcmds_offset);
 	mdw_cmd_debug(" num_cmdbufs = %u\n", rc->num_cmdbufs);
-	mdw_cmd_debug(" cmdbufs_offset = 0x%x\n", rc->cmdbufs_offset);
+	mdw_cmd_debug(" cmdbuf_infos_offset = 0x%x\n", rc->cmdbuf_infos_offset);
 	mdw_cmd_debug(" adj_matrix_offset = 0x%x\n", rc->adj_matrix_offset);
 	mdw_cmd_debug(" exec_infos = 0x%llx\n", rc->exec_infos);
 	mdw_cmd_debug("-------------------------\n");
@@ -55,7 +55,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 {
 	struct mdw_rv_cmd *rc = NULL;
 	uint32_t cb_size = 0, acc_cb = 0, i = 0, j = 0;
-	uint32_t subcmds_offset = 0, cmdbufs_offset = 0, adj_matrix_offset = 0;
+	uint32_t subcmds_ofs = 0, cmdbuf_infos_ofs = 0, adj_matrix_ofs = 0;
 	struct mdw_rv_cmd_v2 *rc_v2 = NULL;
 	struct mdw_rv_subcmd_v2 *rsubcmds_v2 = NULL;
 	struct mdw_rv_cmdbuf_v2 *rcb_v2 = NULL;
@@ -70,13 +70,13 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rc->c = c;
 	cb_size += sizeof(struct mdw_rv_cmd_v2);
 	cb_size = MDW_ALIGN(cb_size, MDW_DEFAULT_ALIGN);
-	adj_matrix_offset = cb_size;
+	adj_matrix_ofs = cb_size;
 	cb_size += (c->num_subcmds * c->num_subcmds * sizeof(uint8_t));
 	cb_size = MDW_ALIGN(cb_size, MDW_DEFAULT_ALIGN);
-	subcmds_offset = cb_size;
+	subcmds_ofs = cb_size;
 	cb_size += (c->num_subcmds * sizeof(struct mdw_rv_subcmd_v2));
 	cb_size = MDW_ALIGN(cb_size, MDW_DEFAULT_ALIGN);
-	cmdbufs_offset = cb_size;
+	cmdbuf_infos_ofs = cb_size;
 	cb_size += (c->num_cmdbufs * sizeof(struct mdw_rv_cmdbuf_v2));
 
 	/* allocate communicate buffer */
@@ -103,9 +103,9 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rc_v2->app_type = c->app_type;
 	rc_v2->num_subcmds = c->num_subcmds;
 	rc_v2->num_cmdbufs = c->num_cmdbufs;
-	rc_v2->subcmds_offset = subcmds_offset;
-	rc_v2->cmdbufs_offset = cmdbufs_offset;
-	rc_v2->adj_matrix_offset = adj_matrix_offset;
+	rc_v2->subcmds_offset = subcmds_ofs;
+	rc_v2->cmdbuf_infos_offset = cmdbuf_infos_ofs;
+	rc_v2->adj_matrix_offset = adj_matrix_ofs;
 	mdw_rv_cmd_print(rc_v2);
 
 	/* copy adj matrix */
@@ -114,7 +114,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	/* assign subcmds info */
 	rsubcmds_v2 = (void *)rc_v2 + rc_v2->subcmds_offset;
-	rcb_v2 = (void *)rc_v2 + rc_v2->cmdbufs_offset;
+	rcb_v2 = (void *)rc_v2 + rc_v2->cmdbuf_infos_offset;
 	for (i = 0; i < c->num_subcmds; i++) {
 		rsubcmds_v2[i].type = c->subcmds[i].type;
 		rsubcmds_v2[i].suggest_time = c->subcmds[i].suggest_time;

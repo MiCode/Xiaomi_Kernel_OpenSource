@@ -32,10 +32,11 @@ static int mdw_rv_sw_init(struct mdw_device *mdev)
 
 		d->num = rdev->dev_num[i];
 		d->type = i;
+
+		/* meta data */
 		memcpy(d->meta, &rdev->meta_data[i][0], sizeof(d->meta));
 		mdw_drv_debug("dev(%u) support (%u)core\n", d->type, d->num);
 
-		/* TODO meta data */
 		mdev->dinfos[i] = d;
 		bitmap_set(mdev->dev_mask, i, 1);
 	}
@@ -97,9 +98,9 @@ static int mdw_rv_unlock(void)
 	return mdw_rv_dev_unlock();
 }
 
-static int mdw_rv_set_param(uint32_t idx, uint32_t val)
+static int mdw_rv_set_param(enum mdw_info_type type, uint32_t val)
 {
-	return mdw_rv_dev_set_param(idx, val);
+	return mdw_rv_dev_set_param(type, val);
 }
 
 static uint32_t mdw_rv_get_info(enum mdw_info_type type)

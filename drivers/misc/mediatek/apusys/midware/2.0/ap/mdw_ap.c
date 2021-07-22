@@ -6,6 +6,7 @@
 #include <linux/bitmap.h>
 #include "mdw_cmn.h"
 #include "mdw_ap.h"
+#include "mdw_dmy.h"
 
 static int mdw_ap_sw_init(struct mdw_device *mdev)
 {
@@ -61,13 +62,32 @@ static void mdw_ap_sw_deinit(struct mdw_device *mdev)
 
 static int mdw_ap_late_init(struct mdw_device *mdev)
 {
-	mdw_rvs_get_vlm_property(&mdev->vlm_start, &mdev->vlm_size);
+	int ret = 0;
 
-	return mdw_rsc_init();
+	mdw_rvs_get_vlm_property(&mdev->vlm_start, &mdev->vlm_size);
+	ret = mdw_rsc_init();
+	if (ret) {
+		mdw_drv_err("rsc init fail\n");
+		goto out;
+	}
+
+	ret = mdw_dmy_init();
+	if (ret) {
+		mdw_drv_err("init dmy dev fail\n");
+		goto rsc_deinit;
+	}
+
+	goto out;
+
+rsc_deinit:
+	mdw_rsc_deinit();
+out:
+	return ret;
 }
 
 static void mdw_ap_late_deinit(struct mdw_device *mdev)
 {
+	mdw_dmy_deinit();
 	mdw_rsc_deinit();
 }
 
@@ -110,10 +130,22 @@ static int mdw_ap_unlock(void)
 	return -EINVAL;
 }
 
-static int mdw_ap_set_param(uint32_t idx, uint32_t val)
+static int mdw_ap_set_param(enum mdw_info_type type, uint32_t val)
 {
-	mdw_drv_warn("not support\n");
-	return -EINVAL;
+	int ret = 0;
+
+	switch (type) {
+	case MDW_INFO_KLOG:
+		g_mdw_klog = val;
+		break;
+
+	default:
+		ret = -EINVAL;
+		mdw_drv_warn("unknown type(%u)\n", type);
+		break;
+	}
+
+	return ret;
 }
 
 static uint32_t mdw_ap_get_info(enum mdw_info_type type)
@@ -122,6 +154,10 @@ static uint32_t mdw_ap_get_info(enum mdw_info_type type)
 	uint32_t ret = 0;
 
 	switch (type) {
+	case MDW_INFO_KLOG:
+		ret = g_mdw_klog;
+		break;
+
 	case MDW_INFO_NORMAL_TASK_DLA:
 		mq = mdw_rsc_get_queue(APUSYS_DEVICE_MDLA);
 		if (!mq)

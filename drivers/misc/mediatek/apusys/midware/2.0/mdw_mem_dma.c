@@ -225,17 +225,20 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
 	mdw_mem_debug("alloc mem(%p)(%u/%u)\n",
 		mem, mem->size, mdbuf->dma_size);
 
-
 	if (mem->flags & (1ULL << MDW_MEM_IOCTL_ALLOC_32BIT)) {
 		dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
-		mdw_mem_debug("Code %x dev %s\n", mem->flags, dev_name(dev));
+		if (dev)
+			mdw_mem_debug("code %x dev %s\n",
+				mem->flags, dev_name(dev));
 	} else {
 		dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_DATA);
-		mdw_mem_debug("data %x dev %s\n", mem->flags, dev_name(dev));
+		if (dev)
+			mdw_mem_debug("data %x dev %s\n",
+				mem->flags, dev_name(dev));
 	}
 
 	if (!dev) {
-		mdw_drv_err("Dev Invalid\n");
+		mdw_drv_err("dev invalid\n");
 		ret = -ENOMEM;
 		goto free_mdw_dbuf;
 	}
@@ -251,7 +254,7 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem, bool need_handle)
 		__func__, mem->size, mdbuf->dma_size, mem->align);
 
 	if (!mdbuf->a.vaddr) {
-		mdw_drv_err("Alloc Fail\n");
+		mdw_drv_err("alloc Fail\n");
 		ret = -ENOMEM;
 		goto free_mdw_dbuf;
 	}
@@ -369,10 +372,10 @@ int mdw_mem_dma_import(struct mdw_mem *mem)
 
 	// Import Use 32 Bit Buffer
 	dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
-	mdw_mem_debug("Code %x dev %s\n", mem->flags, dev_name(dev));
-
-	if (!dev) {
-		mdw_drv_err("Dev Invalid\n");
+	if (dev) {
+		mdw_mem_debug("code %x dev %s\n", mem->flags, dev_name(dev));
+	} else {
+		mdw_drv_err("dev invalid\n");
 		ret = -ENOMEM;
 		goto put_dbuf;
 	}

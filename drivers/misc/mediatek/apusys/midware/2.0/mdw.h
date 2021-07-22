@@ -35,7 +35,8 @@
 #define MDW_ALIGN(x, align) ((x+align-1) & (~(align-1)))
 
 enum mdw_info_type {
-	MDW_INFO_UPLOG,
+	MDW_INFO_KLOG,
+	MDW_INFO_ULOG,
 	MDW_INFO_PREEMPT_POLICY,
 	MDW_INFO_SCHED_POLICY,
 
