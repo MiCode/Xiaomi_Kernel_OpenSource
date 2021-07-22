@@ -42,7 +42,7 @@ struct mkp_rb_node *mkp_rbtree_search(struct rb_root *root, phys_addr_t addr)
 		struct mkp_rb_node *cur = container_of(n, struct mkp_rb_node, rb_node);
 
 		if (addr > cur->addr && addr < cur->addr+cur->size) {
-			MKP_ERR("%s: fail node\n", __func__);
+			MKP_WARN("%s: fail node\n", __func__);
 			read_unlock_irqrestore(&mkp_rbtree_rwlock, flags);
 			return &fail_node;
 		}
@@ -99,7 +99,7 @@ int mkp_rbtree_erase(struct rb_root *root, phys_addr_t addr)
 		struct mkp_rb_node *cur = container_of(n, struct mkp_rb_node, rb_node);
 
 		if (addr > cur->addr && addr < cur->addr+cur->size) {
-			MKP_ERR("%s: fail node\n", __func__);
+			MKP_WARN("%s: fail node\n", __func__);
 			break;
 		}
 		if (addr < cur->addr)
