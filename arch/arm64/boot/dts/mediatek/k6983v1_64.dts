@@ -48,10 +48,8 @@
 };
 
 &connfem {
- /* Enable epa_elna node to support Wifi & BT ePA/eLNA FEM on customer load */
-#if 0
+#if 0 /* Enable epa_elna node to support Wifi & BT ePA/eLNA FEM on customer load */
 	epa_elna {
-
 		parts = <&wlan7207h &wlan7205c>;
 
 		bt {
@@ -62,7 +60,6 @@
 		};
 	};
 #endif
-
 
 	epa_elna_mtk {
 		parts = <&nofem &nofem>,
