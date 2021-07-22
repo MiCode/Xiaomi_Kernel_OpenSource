@@ -1,10 +1,9 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 MediaTek Inc.
- * Author: Dennis YC Hsieh <dennis-yc.hsieh@mediatek.com>
  */
 
-#include <dt-bindings/mml/mml-mt6893.h>
+#include <dt-bindings/mml/mml-mt6983.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -12,7 +11,7 @@
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 
-#define TOPOLOGY_PLATFORM	"mt6893"
+#define TOPOLOGY_PLATFORM	"mt6983"
 #define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
 #define MML_IR_MIN_FRAME	(2560 * 1440)
@@ -36,8 +35,6 @@ enum topology_scenario {
 	PATH_MML_NOPQ_P1,
 	PATH_MML_PQ_P0,
 	PATH_MML_PQ_P1,
-	PATH_MML_PQ2_P0,
-	PATH_MML_PQ2_P1,
 	PATH_MML_2OUT_P0,
 	PATH_MML_2OUT_P1,
 	PATH_MML_MAX
@@ -52,7 +49,8 @@ struct path_node {
 /* check if engine is output dma engine */
 static inline bool engine_wrot(u32 id)
 {
-	return id == MML_WROT0 || id == MML_WROT1;
+	return id == MML_WROT0 || id == MML_WROT1 ||
+		id == MML_WROT2 || id == MML_WROT3;
 }
 
 static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
@@ -72,89 +70,56 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 	[PATH_MML_PQ_P0] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
-		{MML_RDMA0, MML_FG0,},
-		{MML_FG0, MML_PQ0_SOUT,},
-		{MML_PQ0_SOUT, MML_RSZ0,},
+		{MML_RDMA0, MML_DLI0_SEL,},
+		{MML_DLI0_SEL, MML_HDR0,},
+		{MML_HDR0, MML_AAL0,},
+		{MML_AAL0, MML_RSZ0,},
 		{MML_RSZ0, MML_TDSHP0,},
 		{MML_TDSHP0, MML_COLOR0,},
-		{MML_COLOR0, MML_TCC0,},
-		{MML_TCC0, MML_WROT0,},
+		{MML_COLOR0, MML_DLO0_SOUT,},
+		{MML_DLO0_SOUT, MML_WROT0,},
 		{MML_WROT0,},
 	},
 	[PATH_MML_PQ_P1] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
-		{MML_RDMA1, MML_FG1,},
-		{MML_FG1, MML_PQ1_SOUT,},
-		{MML_PQ1_SOUT, MML_RSZ1,},
-		{MML_RSZ1, MML_TDSHP1,},
-		{MML_TDSHP1, MML_COLOR1,},
-		{MML_COLOR1, MML_TCC1,},
-		{MML_TCC1, MML_WROT1,},
-		{MML_WROT1,},
-	},
-
-	[PATH_MML_PQ2_P0] = {
-		{MML_MMLSYS,},
-		{MML_MUTEX,},
-		{MML_RDMA0, MML_FG0,},
-		{MML_FG0, MML_PQ0_SOUT,},
-		{MML_PQ0_SOUT, MML_HDR0,},
-		{MML_HDR0, MML_AAL0,},
-		{MML_AAL0, MML_RSZ0,},
-		{MML_RSZ0, MML_TDSHP0,},
-		{MML_TDSHP0, MML_COLOR0,},
-		{MML_COLOR0, MML_TCC0,},
-		{MML_TCC0, MML_WROT0,},
-		{MML_WROT0,},
-	},
-	[PATH_MML_PQ2_P1] = {
-		{MML_MMLSYS,},
-		{MML_MUTEX,},
-		{MML_RDMA1, MML_FG1,},
-		{MML_FG1, MML_PQ1_SOUT,},
-		{MML_PQ1_SOUT, MML_HDR1,},
+		{MML_RDMA1, MML_DLI1_SEL,},
+		{MML_DLI1_SEL, MML_HDR1,},
 		{MML_HDR1, MML_AAL1,},
 		{MML_AAL1, MML_RSZ1,},
 		{MML_RSZ1, MML_TDSHP1,},
 		{MML_TDSHP1, MML_COLOR1,},
-		{MML_COLOR1, MML_TCC1,},
-		{MML_TCC1, MML_WROT1,},
+		{MML_COLOR1, MML_DLO1_SOUT,},
+		{MML_DLO1_SOUT, MML_WROT1,},
 		{MML_WROT1,},
 	},
 	[PATH_MML_2OUT_P0] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
-		{MML_RDMA0, MML_FG0,},
-		{MML_FG0, MML_PQ0_SOUT,},
-		{MML_PQ0_SOUT, MML_HDR0,},
+		{MML_RDMA0, MML_DLI0_SEL,},
+		{MML_DLI0_SEL, MML_HDR0, MML_RSZ2},
 		{MML_HDR0, MML_AAL0,},
-		{MML_AAL0, MML_RSZ0, MML_RSZ2},
+		{MML_AAL0, MML_RSZ0,},
 		{MML_RSZ0, MML_TDSHP0,},
-		{MML_RSZ2, MML_TDSHP2,},
 		{MML_TDSHP0, MML_COLOR0,},
-		{MML_TDSHP2, MML_TCC2,},
-		{MML_COLOR0, MML_TCC0,},
-		{MML_TCC0, MML_WROT0,},
-		{MML_TCC2, MML_WROT2,},
+		{MML_COLOR0, MML_DLO0_SOUT,},
+		{MML_DLO0_SOUT, MML_WROT0,},
+		{MML_RSZ2, MML_WROT2,},
 		{MML_WROT0,},
 		{MML_WROT2,},
 	},
 	[PATH_MML_2OUT_P1] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
-		{MML_RDMA1, MML_FG1,},
-		{MML_FG1, MML_PQ1_SOUT,},
-		{MML_PQ1_SOUT, MML_HDR1,},
+		{MML_RDMA1, MML_DLI1_SEL,},
+		{MML_DLI1_SEL, MML_HDR1, MML_RSZ3},
 		{MML_HDR1, MML_AAL1,},
-		{MML_AAL1, MML_RSZ1, MML_RSZ3},
+		{MML_AAL1, MML_RSZ1,},
 		{MML_RSZ1, MML_TDSHP1,},
-		{MML_RSZ3, MML_TDSHP3,},
 		{MML_TDSHP1, MML_COLOR1,},
-		{MML_TDSHP3, MML_TCC3,},
-		{MML_COLOR1, MML_TCC1,},
-		{MML_TCC1, MML_WROT1,},
-		{MML_TCC3, MML_WROT3,},
+		{MML_COLOR1, MML_DLO1_SOUT,},
+		{MML_DLO1_SOUT, MML_WROT1,},
+		{MML_RSZ3, MML_WROT3,},
 		{MML_WROT1,},
 		{MML_WROT3,},
 	},
@@ -171,8 +136,6 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ_P0] = MML_CLT_PIPE0,
 	[PATH_MML_PQ_P1] = MML_CLT_PIPE1,
-	[PATH_MML_PQ2_P0] = MML_CLT_PIPE0,
-	[PATH_MML_PQ2_P1] = MML_CLT_PIPE1,
 	[PATH_MML_2OUT_P0] = MML_CLT_PIPE0,
 	[PATH_MML_2OUT_P1] = MML_CLT_PIPE1,
 };
@@ -181,40 +144,28 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
  * reverse of MMSYS_SW0_RST_B_REG and MMSYS_SW1_RST_B_REG
  */
 static u8 engine_reset_bit[MML_ENGINE_TOTAL] = {
-	[MML_RDMA0] = 0,
-	[MML_FG0] = 1,
-	[MML_HDR0] = 2,
-	[MML_AAL0] = 3,
-	[MML_RSZ0] = 4,
-	[MML_TDSHP0] = 5,
-	[MML_TCC0] = 6,
-	[MML_WROT0] = 7,
-	[MML_RDMA2] = 8,
-	[MML_AAL2] = 9,
-	[MML_RSZ2] = 10,
-	[MML_COLOR0] = 11,
-	[MML_TDSHP2] = 12,
-	[MML_TCC2] = 13,
-	[MML_WROT2] = 14,
-	[MML_RDMA1] = 16,
-	[MML_FG1] = 17,
-	[MML_HDR1] = 18,
-	[MML_AAL1] = 19,
-	[MML_RSZ1] = 20,
-	[MML_TDSHP1] = 21,
-	[MML_TCC1] = 22,
-	[MML_WROT1] = 23,
-	[MML_RDMA3] = 24,
-	[MML_AAL3] = 25,
-	[MML_RSZ3] = 26,
-	[MML_COLOR1] = 27,
-	[MML_TDSHP3] = 28,
-	[MML_TCC3] = 29,
-	[MML_WROT3] = 30,
-	[MML_CAMIN] = 37,
-	[MML_CAMIN2] = 38,
-	[MML_CAMIN3] = 39,
-	[MML_CAMIN4] = 41,
+	[MML_RDMA0] = 3,
+	[MML_HDR0] = 5,
+	[MML_AAL0] = 6,
+	[MML_RSZ0] = 7,
+	[MML_TDSHP0] = 8,
+	[MML_COLOR0] = 9,
+	[MML_WROT0] = 10,
+	[MML_DLI0] = 12,
+	[MML_DLI1] = 13,
+	[MML_RDMA1] = 15,
+	[MML_HDR1] = 17,
+	[MML_AAL1] = 18,
+	[MML_RSZ1] = 19,
+	[MML_TDSHP1] = 20,
+	[MML_COLOR1] = 21,
+	[MML_WROT1] = 22,
+	[MML_RSZ2] = 24,
+	[MML_WROT2] = 25,
+	[MML_DLO0] = 26,
+	[MML_RSZ3] = 28,
+	[MML_WROT3] = 29,
+	[MML_DLO1] = 30,
 };
 
 static void tp_dump_path(struct mml_topology_path *path)
@@ -267,7 +218,6 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 		path->nodes[i].comp = mml_dev_get_comp_by_id(mml, eng);
 		if (!path->nodes[i].comp)
 			mml_err("[topology]no comp idx:%hhu engine:%hhu", i, eng);
-
 
 		/* assign reset bits for this path */
 		path->reset_bits |= 1LL << engine_reset_bit[eng];
@@ -325,8 +275,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 				mml_err("[topology]%s wrong path index %hhu engine %hhu",
 					i, eng);
 		} else {
-			mml_err("[topology]connect fail idx:%hhu engine:%hhu"
-				" next0:%hhu next1:%hhu from:%hhu %hhu",
+			mml_err("[topology]connect fail idx:%hhu engine:%hhu next0:%hhu next1:%hhu from:%hhu %hhu",
 				i, eng, next0, next1,
 				connect_eng[0], connect_eng[1]);
 		}
@@ -383,7 +332,6 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 		}
 
 		/* now dispatch cmdq client (channel) to path */
-		cache->path[i].clt_id = clt_dispatch[i];
 		cache->path[i].clt = clts[clt_dispatch[i]];
 	}
 
@@ -429,15 +377,8 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		scene[1] = PATH_MML_NOPQ_P1;
 	} else if (en_rsz && cfg->info.dest_cnt == 1) {
 		/* 1 in 1 out with PQs */
-		if (cfg->info.dest[0].pq_config.en_dre ||
-			cfg->info.dest[0].pq_config.en_hdr) {
-			/* and with HDR/AAL */
-			scene[0] = PATH_MML_PQ2_P0;
-			scene[1] = PATH_MML_PQ2_P1;
-		} else {
-			scene[0] = PATH_MML_PQ_P0;
-			scene[1] = PATH_MML_PQ_P1;
-		}
+		scene[0] = PATH_MML_PQ_P0;
+		scene[1] = PATH_MML_PQ_P1;
 	} else if (cfg->info.dest_cnt == 2) {
 		scene[0] = PATH_MML_2OUT_P0;
 		scene[1] = PATH_MML_2OUT_P1;
@@ -532,7 +473,7 @@ decouple:
 	return MML_MODE_MML_DECOUPLE;
 }
 
-static const struct mml_topology_ops tp_ops_mt6893 = {
+static const struct mml_topology_ops tp_ops_mt6983 = {
 	.query_mode = tp_query_mode,
 	.init_cache = tp_init_cache,
 	.select = tp_select
@@ -540,7 +481,7 @@ static const struct mml_topology_ops tp_ops_mt6893 = {
 
 static __init int mml_topology_ip_init(void)
 {
-	return mml_topology_register_ip(TOPOLOGY_PLATFORM, &tp_ops_mt6893);
+	return mml_topology_register_ip(TOPOLOGY_PLATFORM, &tp_ops_mt6983);
 }
 module_init(mml_topology_ip_init);
 
@@ -550,6 +491,6 @@ static __exit void mml_topology_ip_exit(void)
 }
 module_exit(mml_topology_ip_exit);
 
-MODULE_AUTHOR("Dennis-YC Hsieh <dennis-yc.hsieh@mediatek.com>");
-MODULE_DESCRIPTION("MediaTek SoC display MML for MT6893");
+MODULE_AUTHOR("Ping-Hsun Wu <ping-hsun.wu@mediatek.com>");
+MODULE_DESCRIPTION("MediaTek SoC display MML for MT6983");
 MODULE_LICENSE("GPL v2");

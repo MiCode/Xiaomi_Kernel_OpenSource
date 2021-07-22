@@ -371,7 +371,7 @@ s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 	node = of_parse_phandle(dev->of_node, "mediatek,larb", 0);
 	if (!node) {
 		mml_err("%s fail to parse mediatek,larb", __func__);
-		return -ENOENT;
+		return 0; /* -ENOENT; for FPGA no smi_larb */
 	}
 
 	larb_pdev = of_find_device_by_node(node);
