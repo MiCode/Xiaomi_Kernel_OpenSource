@@ -5,12 +5,9 @@
  */
 
 #include "mkp_hvc.h"
+#include "debug.h"
 
-#ifdef DEBUG_MKP
-#define debug_mkp_dump(fmt, args...)  pr_info("MKP: "fmt, ##args)
-#else
-#define debug_mkp_dump(fmt, args...)
-#endif
+DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
 
 static void mkp_smccc_hvc(unsigned long a0, unsigned long a1,
 			  unsigned long a2, unsigned long a3,
@@ -28,7 +25,7 @@ int mkp_set_mapping_ro_hvc_call(uint32_t policy, uint32_t handle)
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_SET_MAPPING_RO);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 
 	return res.a0 ? -1 : 0;
@@ -41,7 +38,7 @@ int mkp_set_mapping_rw_hvc_call(uint32_t policy, uint32_t handle)
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_SET_MAPPING_RW);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 
 	return res.a0 ? -1 : 0;
@@ -54,7 +51,7 @@ int mkp_set_mapping_nx_hvc_call(uint32_t policy, uint32_t handle)
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_SET_MAPPING_NX);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 
 	return res.a0 ? -1 : 0;
@@ -67,7 +64,7 @@ int mkp_set_mapping_x_hvc_call(uint32_t policy, uint32_t handle)
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_SET_MAPPING_X);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 
 	return res.a0 ? -1 : 0;
@@ -80,7 +77,7 @@ int mkp_clear_mapping_hvc_call(uint32_t policy, uint32_t handle)
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_CLEAR_MAPPING);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 
 	return res.a0 ? -1 : 0;
@@ -94,7 +91,7 @@ int mkp_lookup_mapping_entry_hvc_call(uint32_t policy, uint32_t handle,
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_LOOKUP_MAPPING_ENTRY);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	if (res.a0)
 		return -1;
@@ -112,7 +109,7 @@ int mkp_req_new_policy_hvc_call(unsigned long policy_char)
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_NEW_POLICY);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, policy_char, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	policy = (uint32_t)res.a0;
 
@@ -130,9 +127,8 @@ int mkp_change_policy_action_hvc_call(uint32_t policy, unsigned long policy_char
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_POLICY_ACTION);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, policy_char_action, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n",
-		__func__, __LINE__, mkp_hvc_fast_call_id, policy,
-		res.a0, res.a1, res.a2, res.a3);
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	ret = (int)res.a0;
 
 	/* Success: 0, Fail: other */
@@ -148,7 +144,7 @@ uint32_t mkp_create_handle_hvc_call(uint32_t policy,
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_CREATE_HANDLE);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, ipa, size, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	handle = (uint32_t)(res.a0);
 
@@ -164,7 +160,7 @@ int mkp_destroy_handle_hvc_call(uint32_t policy, uint32_t handle)
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_DESTROY_HANDLE);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, 0, 0, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 
 	return res.a0 ? -1 : 0;
@@ -178,7 +174,7 @@ int mkp_configure_sharebuf_hvc_call(uint32_t policy, uint32_t handle, uint32_t t
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_CONFIGURE_SHAREBUF);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, type, nr_entries, size, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	return res.a0 ? -1 : 0;
 }
@@ -191,7 +187,7 @@ int mkp_update_sharebuf_1_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_UPDATE_SHAREBUF_1_ARGU);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	return res.a0 ? -1 : 0;
 }
@@ -204,7 +200,7 @@ int mkp_update_sharebuf_2_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_UPDATE_SHAREBUF_2_ARGU);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, a2, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	return res.a0 ? -1 : 0;
 }
@@ -217,7 +213,7 @@ int mkp_update_sharebuf_3_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_UPDATE_SHAREBUF_3_ARGU);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, a2, a3, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	return res.a0 ? -1 : 0;
 }
@@ -230,7 +226,7 @@ int mkp_update_sharebuf_4_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_UPDATE_SHAREBUF_4_ARGU);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, a2, a3, a4, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	return res.a0 ? -1 : 0;
 }
@@ -243,7 +239,7 @@ int mkp_update_sharebuf_5_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_UPDATE_SHAREBUF_5_ARGU);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, a1, a2, a3, a4, a5, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	return res.a0 ? -1 : 0;
 }
@@ -256,7 +252,7 @@ int mkp_update_sharebuf_hvc_call(uint32_t policy, uint32_t handle, unsigned long
 
 	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(policy, HVC_FUNC_UPDATE_SHAREBUF);
 	mkp_smccc_hvc(mkp_hvc_fast_call_id, handle, index, ipa, 0, 0, 0, 0, &res);
-	debug_mkp_dump("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
+	MKP_DEBUG("%s:%d hvc_id:0x%x, policy:%d res:0x%lx 0x%lx 0x%lx 0x%lx\n", __func__, __LINE__,
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	return res.a0 ? -1 : 0;
 }

@@ -6,6 +6,8 @@
 
 #include "ksym.h"
 
+DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
+
 static unsigned long *mkp_ka;
 static int *mkp_ko;
 static unsigned long *mkp_krb;
@@ -30,7 +32,7 @@ void *mkp_abt_addr(void *ssa)
 	}
 
 	if ((unsigned long)ssa >= KV + S_MAX) {
-		pr_info("out of range: 0xLx\n", ssa);
+		MKP_ERR("out of range: 0xLx\n", ssa);
 		return NULL;
 	}
 
@@ -40,7 +42,7 @@ void *mkp_abt_addr(void *ssa)
 		pos = memchr(pos, 'a', s_left);
 
 		if (!pos) {
-			pr_info("fail at: 0x%lx @ 0x%x\n", ssa, s_left);
+			MKP_ERR("fail at: 0x%lx @ 0x%x\n", ssa, s_left);
 			return NULL;
 		}
 		s_left = KV + S_MAX - (unsigned long)pos;
@@ -51,7 +53,7 @@ void *mkp_abt_addr(void *ssa)
 		pos += 1;
 	}
 
-	pr_info("fail at end: 0x%lx @ 0x%x\n", ssa, s_left);
+	MKP_ERR("fail at end: 0x%lx @ 0x%x\n", ssa, s_left);
 	return NULL;
 }
 
@@ -64,7 +66,7 @@ unsigned long *mkp_krb_addr(void)
 	while((u64)ssa < KV + S_MAX) {
 		abt_addr = mkp_abt_addr(ssa);
 		if (!abt_addr) {
-			pr_info("krb not found: 0x%lx\n", ssa);
+			MKP_ERR("krb not found: 0x%lx\n", ssa);
 			return NULL;
 		}
 
@@ -79,7 +81,7 @@ unsigned long *mkp_krb_addr(void)
 		ssa = abt_addr + 1;
 	}
 
-	pr_info("krb not found: 0x%lx\n", ssa);
+	MKP_ERR("krb not found: 0x%lx\n", ssa);
 	return NULL;
 }
 
@@ -202,14 +204,14 @@ void mkp_get_krn_code(void **p_stext, void **p_etext)
 	*p_etext = (void *)(mkp_addr_find("_etext"));
 
 	if (!(*p_etext)) {
-		pr_info("%s: _stext not found\n", __func__);
+		MKP_ERR("%s: _stext not found\n", __func__);
 		return;
 	}
 	if (!(*p_etext)) {
-		pr_info("%s: _etext not found\n", __func__);
+		MKP_ERR("%s: _etext not found\n", __func__);
 		return;
 	}
-	pr_info("_stext: %px, _etext: %px\n", *p_stext, *p_etext);
+	MKP_INFO("_stext: %px, _etext: %px\n", *p_stext, *p_etext);
 	return;
 }
 
@@ -222,13 +224,13 @@ void mkp_get_krn_rodata(void **p_etext, void **p__init_begin)
 	*p__init_begin = (void *)(mkp_addr_find("__init_begin"));
 
 	if (!(*p_etext)) {
-		pr_info("%s: _etext not found\n", __func__);
+		MKP_ERR("%s: _etext not found\n", __func__);
 		return;
 	}
 	if (!(*p__init_begin)) {
-		pr_info("%s: __init_begin not found\n", __func__);
+		MKP_ERR("%s: __init_begin not found\n", __func__);
 		return;
 	}
-	pr_info("_etext: %px, __init_begin: %px\n", *p_etext, *p__init_begin);
+	MKP_INFO("_etext: %px, __init_begin: %px\n", *p_etext, *p__init_begin);
 	return;
 }

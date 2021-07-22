@@ -8,6 +8,7 @@
 
 #include "mkp_api.h"
 #include "mkp.h"
+#include "debug.h"
 
 #define MKP_DEMO_MODULE_CASE (1)
 #define MKP_DEMO_BPF_CASE (2)

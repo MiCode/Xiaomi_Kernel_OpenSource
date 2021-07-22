@@ -37,6 +37,7 @@
 #include <linux/of_irq.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-direct.h>
+#include "debug.h"
 
 /*
  * Bit usage of HVC fast call for MKP:

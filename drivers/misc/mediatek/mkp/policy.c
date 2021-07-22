@@ -6,6 +6,8 @@
 
 #include "policy.h"
 
+DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
+
 int __ro_after_init policy_ctrl[MKP_POLICY_NR];
 uint32_t __ro_after_init mkp_policy_action[MKP_POLICY_NR] = {
 	/* Policy Table */
@@ -49,10 +51,10 @@ void __init set_policy(void)
 int __init set_ext_policy(uint32_t policy)
 {
 	if ((int)policy < 0 || policy >= MKP_POLICY_NR) {
-		pr_info("Warning: policy:%d is Out-of-bound\n", (int)policy);
+		MKP_WARN("policy:%d is Out-of-bound\n", (int)policy);
 		return -1;
 	} else if (policy <= MKP_POLICY_DEFAULT_MAX) {
-		pr_info("Warning: policy:%u is duplicated\n", policy);
+		MKP_WARN("policy:%u is duplicated\n", policy);
 		return -1;
 	}
 

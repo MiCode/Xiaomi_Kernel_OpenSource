@@ -38,6 +38,7 @@
 #include <linux/of_irq.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-direct.h>
+#include "debug.h"
 
 #define KV		kimage_vaddr
 #define S_MAX		SZ_128M

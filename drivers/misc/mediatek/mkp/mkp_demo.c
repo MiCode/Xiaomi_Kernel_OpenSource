@@ -29,6 +29,7 @@
 #include "trace_mtk_mkp.h"
 
 #define mkp_debug 0
+DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
 
 #ifdef DEMO_MKP
 static uint32_t g_ro_avc_handle;
@@ -65,7 +66,7 @@ static void mkp_trace_event_func(struct timer_list *unused) // do not use sleep
 	memset(test, 0, 1024);
 	memcpy(test, "hello world.", 13);
 	trace_mkp_trace_event_test(test);
-	pr_info("timer start\n");
+	MKP_DEBUG("timer start\n");
 	mod_timer(&mkp_trace_event_timer, jiffies
 		+ MKP_TRACE_EVENT_TIME * HZ);
 
@@ -197,7 +198,7 @@ static int protect_kernel(void)
 	phys_addr_t phys_addr;
 	int nr_pages;
 
-	pr_info("%s start\n", __func__);
+	MKP_DEBUG("%s start\n", __func__);
 	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] != 0) {
 		mkp_get_krn_code(&p_stext, &p_etext);
 		// round down addr before minus operation
@@ -210,8 +211,8 @@ static int protect_kernel(void)
 		policy = MKP_POLICY_KERNEL_CODE;
 		handle = mkp_create_handle(policy, (unsigned long)phys_addr, nr_pages<<12);
 		if (handle == 0) {
-			pr_info("%s:%d: Create handle fail\n", __func__, __LINE__);
-			pr_info("pa: %pa, nr_pages: %d\n", &phys_addr, nr_pages);
+			MKP_ERR("%s:%d: Create handle fail\n", __func__, __LINE__);
+			MKP_ERR("pa: %pa, nr_pages: %d\n", &phys_addr, nr_pages);
 		} else {
 			ret = mkp_set_mapping_x(policy, handle);
 			ret = mkp_set_mapping_ro(policy, handle);
@@ -230,13 +231,13 @@ static int protect_kernel(void)
 		policy = MKP_POLICY_KERNEL_RODATA;
 		handle = mkp_create_handle(policy, (unsigned long)phys_addr, nr_pages<<12);
 		if (handle == 0) {
-			pr_info("%s:%d: Create handle fail\n", __func__, __LINE__);
-			pr_info("pa: %pa, nr_pages: %d\n", &phys_addr, nr_pages);
+			MKP_ERR("%s:%d: Create handle fail\n", __func__, __LINE__);
+			MKP_ERR("pa: %pa, nr_pages: %d\n", &phys_addr, nr_pages);
 		} else
 			ret = mkp_set_mapping_ro(policy, handle);
 	}
 
-	pr_info("%s done\n", __func__);
+	MKP_DEBUG("%s done\n", __func__);
 	return 0;
 }
 #endif
@@ -477,7 +478,7 @@ static int protect_mkp_self(void)
 
 int mkp_reboot_notifier_event(struct notifier_block *nb, unsigned long event, void *v)
 {
-	pr_info("mkp reboot notifier\n");
+	MKP_DEBUG("mkp reboot notifier\n");
 	return NOTIFY_DONE;
 }
 static struct notifier_block mkp_reboot_notifier = {
@@ -490,9 +491,9 @@ int __init mkp_demo_init(void)
 	unsigned long size = 0x100000;
 #endif
 
-	pr_info("%s: start\n", __func__);
+	MKP_DEBUG("%s: start\n", __func__);
 	if (sizeof(phys_addr_t) != sizeof(unsigned long)) {
-		pr_info("init mkp failed, sizeof(phys_addr_t) != sizeof(unsigned long)\n");
+		MKP_ERR("init mkp failed, sizeof(phys_addr_t) != sizeof(unsigned long)\n");
 		return 0;
 	}
 
@@ -510,7 +511,7 @@ int __init mkp_demo_init(void)
 			rem = do_div(size, sizeof(struct avc_sbuf_content));
 			avc_array_sz = size;
 		} else {
-			pr_info("Create avc ro sharebuf fail\n");
+			MKP_ERR("Create avc ro sharebuf fail\n");
 		}
 		// register avc vendor hook
 		ret = register_trace_android_vh_selinux_avc_insert(
@@ -550,7 +551,7 @@ int __init mkp_demo_init(void)
 			rem = do_div(size, sizeof(struct cred_sbuf_content));
 			cred_array_sz = size;
 		} else {
-			pr_info("Create cred sharebuf fail\n");
+			MKP_ERR("Create cred sharebuf fail\n");
 		}
 		// register creds vendor hook
 		ret = register_trace_android_vh_commit_creds(
@@ -644,7 +645,7 @@ int __init mkp_demo_init(void)
 #if !defined(CONFIG_KASAN_GENERIC) && !defined(CONFIG_KASAN_SW_TAGS)
 		ret = mkp_ka_init();
 		if (ret) {
-			pr_info("mkp_ka_init failed: %d", ret);
+			MKP_ERR("mkp_ka_init failed: %d", ret);
 			return ret;
 		}
 		ret = protect_kernel();
@@ -660,8 +661,8 @@ int __init mkp_demo_init(void)
 
 failed:
 	if (ret)
-		pr_info("register hooks failed, ret %d line %d\n", ret, ret_erri_line);
-	pr_info("%s: Done\n", __func__);
+		MKP_ERR("register hooks failed, ret %d line %d\n", ret, ret_erri_line);
+	MKP_DEBUG("%s: Done\n", __func__);
 
 	return 0;
 }

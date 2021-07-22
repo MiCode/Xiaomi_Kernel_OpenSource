@@ -37,6 +37,7 @@
 #include <linux/of_irq.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-direct.h>
+#include "debug.h"
 
 struct mkp_rb_node {
 	struct rb_node rb_node;
@@ -45,20 +46,7 @@ struct mkp_rb_node {
 	uint32_t handle;
 };
 
-#ifdef DEBUG_MKP
-void traverse_rbtree(struct rb_root *root)
-{
-	struct rb_node *node;
-
-	for (node = rb_first(root); node; node=rb_next(node)) {
-		struct mkp_rb_node *data = rb_entry(node, struct mkp_rb_node, rb_node);
-
-		pr_info("%s: addr: 0x%pa, size: %pa\n", __func__, &data->addr, &data->size);
-	}
-	return;
-}
-#endif
-
+void traverse_rbtree(struct rb_root *root);
 struct mkp_rb_node *mkp_rbtree_search(struct rb_root *root, phys_addr_t addr);
 int mkp_rbtree_insert(struct rb_root *root, struct mkp_rb_node *ins);
 int mkp_rbtree_erase(struct rb_root *root, phys_addr_t addr);

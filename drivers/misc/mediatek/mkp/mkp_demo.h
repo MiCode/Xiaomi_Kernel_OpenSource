@@ -6,6 +6,7 @@
 #ifndef __MKP_DEMO_H
 #define __MKP_DEMO_H
 
+#include "debug.h"
 struct avc_sbuf_content {
 	unsigned long avc_node;
 	u32 ssid __aligned(8);

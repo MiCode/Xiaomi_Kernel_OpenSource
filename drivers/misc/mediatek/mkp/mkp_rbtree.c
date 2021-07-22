@@ -7,13 +7,8 @@
 #include "mkp_rbtree.h"
 #include <linux/rwlock.h>
 
-#ifdef DEBUG_MKP
-#define debug_mkp_dump(fmt, args...)  pr_info("MKP: "fmt, ##args)
-#else
-#define debug_mkp_dump(fmt, args...)
-#endif
-
 DEFINE_RWLOCK(mkp_rbtree_rwlock);
+DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
 
 static struct mkp_rb_node fail_node = {
 	.addr = 0,
@@ -21,7 +16,6 @@ static struct mkp_rb_node fail_node = {
 	.handle = 0,
 };
 
-#ifdef DEBUG_MKP
 void traverse_rbtree(struct rb_root *root)
 {
 	struct rb_node *node;
@@ -31,12 +25,11 @@ void traverse_rbtree(struct rb_root *root)
 	for (node = rb_first(root); node; node=rb_next(node)) {
 		struct mkp_rb_node *data = rb_entry(node, struct mkp_rb_node, rb_node);
 
-		debug_mkp_dump("%s: addr: 0x%pa, size: %pa\n", __func__, &data->addr, &data->size);
+		MKP_DEBUG("%s: addr: 0x%pa, size: %pa\n", __func__, &data->addr, &data->size);
 	}
 	read_unlock_irqrestore(&mkp_rbtree_rwlock, flags);
 	return;
 }
-#endif
 
 struct mkp_rb_node *mkp_rbtree_search(struct rb_root *root, phys_addr_t addr)
 {
@@ -49,7 +42,7 @@ struct mkp_rb_node *mkp_rbtree_search(struct rb_root *root, phys_addr_t addr)
 		struct mkp_rb_node *cur = container_of(n, struct mkp_rb_node, rb_node);
 
 		if (addr > cur->addr && addr < cur->addr+cur->size) {
-			debug_mkp_dump("%s: fail node\n", __func__);
+			MKP_ERR("%s: fail node\n", __func__);
 			read_unlock_irqrestore(&mkp_rbtree_rwlock, flags);
 			return &fail_node;
 		}
@@ -106,7 +99,7 @@ int mkp_rbtree_erase(struct rb_root *root, phys_addr_t addr)
 		struct mkp_rb_node *cur = container_of(n, struct mkp_rb_node, rb_node);
 
 		if (addr > cur->addr && addr < cur->addr+cur->size) {
-			debug_mkp_dump("%s: fail node\n", __func__);
+			MKP_ERR("%s: fail node\n", __func__);
 			break;
 		}
 		if (addr < cur->addr)
