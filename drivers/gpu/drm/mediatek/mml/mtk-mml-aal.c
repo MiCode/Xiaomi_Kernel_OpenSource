@@ -181,10 +181,9 @@ static s32 aal_prepare(struct mml_comp *comp, struct mml_task *task,
 
 static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg,
-			    void *ptr_func, void *tile_data)
+			    struct tile_func_block *func,
+			    union mml_tile_data *data)
 {
-	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_data *src = &cfg->info.src;
@@ -194,7 +193,7 @@ static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	data->aal_data.max_width = aal->data->tile_width;
 	data->aal_data.min_hist_width = aal->data->min_hist_width;
 	data->aal_data.min_width = aal->data->min_tile_width;
-	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(&data->aal_data);
+	func->func_data = data;
 
 	func->enable_flag = dest->pq_config.en_dre;
 

@@ -130,8 +130,8 @@ static s32 rsz_config_scale(struct mml_comp *comp, struct mml_task *task,
 }
 
 static bool rsz_relay(struct mml_frame_config *cfg,
-		      struct mml_frame_data *src,
-		      struct mml_frame_dest *dest)
+		      const struct mml_frame_data *src,
+		      const struct mml_frame_dest *dest)
 {
 	if (cfg->info.dest_cnt == 1) {
 		u32 out_width, out_height;
@@ -151,8 +151,9 @@ static bool rsz_relay(struct mml_frame_config *cfg,
 			return true;
 		else
 			return false;
-	} else
+	} else {
 		return false;
+	}
 }
 
 static struct mml_pq_tile_init_result *get_init_result(struct mml_task *task)
@@ -169,14 +170,13 @@ static struct mml_pq_tile_init_result *get_init_result(struct mml_task *task)
 
 static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg,
-			    void *ptr_func, void *tile_data)
+			    struct tile_func_block *func,
+			    union mml_tile_data *data)
 {
-	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_data *src = &cfg->info.src;
-	struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
+	const struct mml_frame_data *src = &cfg->info.src;
+	const struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
 	struct mml_comp_rsz *rsz = comp_to_rsz(comp);
 	struct mml_pq_tile_init_result *result;
 	struct mml_pq_rsz_tile_init_param *init_param;
@@ -190,8 +190,8 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		if (rsz_frm->out_idx < result->rsz_param_cnt) {
 			mml_log("read rsz param index: %d", rsz_frm->out_idx);
 			init_param = &(result->rsz_param[rsz_frm->out_idx]);
-			data->rsz_data.coef_step_x = init_param->coeff_step_x;
-			data->rsz_data.coef_step_y = init_param->coeff_step_y;
+			data->rsz_data.coeff_step_x = init_param->coeff_step_x;
+			data->rsz_data.coeff_step_y = init_param->coeff_step_y;
 			data->rsz_data.precision_x = init_param->precision_x;
 			data->rsz_data.precision_y = init_param->precision_y;
 			data->rsz_data.crop.r.left = init_param->crop_offset_x;
@@ -200,7 +200,7 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			data->rsz_data.crop.y_sub_px = init_param->crop_subpix_y;
 			data->rsz_data.hor_scale = init_param->hor_dir_scale;
 			data->rsz_data.hor_algo = init_param->hor_algorithm;
-			data->rsz_data.vir_scale = init_param->ver_dir_scale;
+			data->rsz_data.ver_scale = init_param->ver_dir_scale;
 			data->rsz_data.ver_algo = init_param->ver_algorithm;
 			data->rsz_data.ver_first = init_param->vertical_first;
 			data->rsz_data.ver_cubic_trunc = init_param->ver_cubic_trunc;
@@ -215,8 +215,7 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	data->rsz_data.max_width = rsz->data->tile_width;
-	func->func_data = (struct TILE_FUNC_DATA_STRUCT *)(&data->rsz_data);
-
+	func->func_data = data;
 
 	if (rsz_relay_mode)
 		func->enable_flag = false;
@@ -273,8 +272,8 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
-	struct mml_frame_data *src = &cfg->info.src;
-	struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
+	const struct mml_frame_data *src = &cfg->info.src;
+	const struct mml_frame_dest *dest = &cfg->info.dest[rsz_frm->out_idx];
 	struct mml_pq_tile_init_result *result;
 	bool rsz_relay_mode = rsz_relay(cfg, src, dest);
 
@@ -349,9 +348,8 @@ static s32 rsz_config_tile(struct mml_comp *comp, struct mml_task *task,
 	rsz_output_h = tile->out.ye - tile->out.ys + 1;
 
 	/* YUV422 to YUV444 upsampler */
-	if (dest->rotate == MML_ROT_90 ||
-	    dest->rotate == MML_ROT_270) {
-		if (tile->out.xe >= dest->data.height- 1)
+	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
+		if (tile->out.xe >= dest->data.height - 1)
 			urs_clip_en = 0;
 		else
 			urs_clip_en = 1;

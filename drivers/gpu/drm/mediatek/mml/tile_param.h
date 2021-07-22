@@ -8,31 +8,32 @@
 #include "mtk-mml-core.h"
 
 /* only refer by tile core, tile driver, & ut entry file only */
-typedef struct TILE_PARAM_STRUCT
-{
-    TILE_REG_MAP_STRUCT *ptr_tile_reg_map;
-    FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param;
-    DIRECT_LINK_DUMP_STRUCT *ptr_direct_link_dump_param;
-}TILE_PARAM_STRUCT;
+typedef struct tile_param {
+	struct tile_reg_map *ptr_tile_reg_map;
+	struct func_description *ptr_tile_func_param;
+} TILE_PARAM_STRUCT;
 
 /* prototype dp interface */
-extern ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-					       FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
-					       const struct mml_topology_path *path);
-extern ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-					      FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
-extern ISP_TILE_MESSAGE_ENUM tile_frame_mode_close(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-			FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
-extern ISP_TILE_MESSAGE_ENUM tile_mode_init(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-					    FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
-extern ISP_TILE_MESSAGE_ENUM tile_mode_close(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-					     FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
-extern ISP_TILE_MESSAGE_ENUM tile_frame_mode_init(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-						  FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
+enum isp_tile_message tile_convert_func(struct tile_reg_map *ptr_tile_reg_map,
+	struct func_description *ptr_tile_func_param,
+	const struct mml_topology_path *path);
+enum isp_tile_message tile_init_config(struct tile_reg_map *ptr_tile_reg_map,
+	struct func_description *ptr_tile_func_param);
+enum isp_tile_message tile_frame_mode_init(
+	struct tile_reg_map *ptr_tile_reg_map,
+	struct func_description *ptr_tile_func_param);
+enum isp_tile_message tile_frame_mode_close(
+	struct tile_reg_map *ptr_tile_reg_map,
+	struct func_description *ptr_tile_func_param);
+enum isp_tile_message tile_mode_init(struct tile_reg_map *ptr_tile_reg_map,
+	struct func_description *ptr_tile_func_param);
+enum isp_tile_message tile_mode_close(struct tile_reg_map *ptr_tile_reg_map,
+	struct func_description *ptr_tile_func_param);
 
-extern ISP_TILE_MESSAGE_ENUM tile_proc_main_single(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-                    FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
-                    int tile_no, bool *stop_flag, const char *fpt_log);
-extern ISP_TILE_MESSAGE_ENUM tile_fprint_reg_map(TILE_REG_MAP_STRUCT *ptr_tile_reg_map, const char *filename,
-                            const char *filename_d, const char *filename_wpe, const char *filename_wpe_d, const char *filename_eaf);
+enum isp_tile_message tile_proc_main_single(
+	struct tile_reg_map *ptr_tile_reg_map,
+	struct func_description *ptr_tile_func_param,
+	int tile_no, bool *stop_flag);
+const char *tile_print_error_message(enum isp_tile_message n);
+
 #endif

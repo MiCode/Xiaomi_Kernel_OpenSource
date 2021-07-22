@@ -176,19 +176,18 @@ static s32 hdr_prepare(struct mml_comp *comp, struct mml_task *task,
 
 static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg,
-			    void *ptr_func, void *tile_data)
+			    struct tile_func_block *func,
+			    union mml_tile_data *data)
 {
-	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_data *src = &cfg->info.src;
 	struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
 	struct mml_comp_hdr *hdr = comp_to_hdr(comp);
 
-	data->hdr_data.relay_mode = dest->pq_config.en_hdr? false: true;
+	data->hdr_data.relay_mode = dest->pq_config.en_hdr ? false : true;
 	data->hdr_data.min_width = hdr->data->min_tile_width;
-	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(&data->hdr_data);
+	func->func_data = data;
 
 	func->enable_flag = dest->pq_config.en_hdr;
 

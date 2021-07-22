@@ -223,10 +223,9 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 
 static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg,
-			     void *ptr_func, void *tile_data)
+			     struct tile_func_block *func,
+			     union mml_tile_data *data)
 {
-	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_data *src = &cfg->info.src;
 	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
@@ -238,9 +237,7 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		MML_FMT_BLOCK(src->format)? 5: 0;
 	data->rdma_data.alpharot = cfg->alpharot;
 	data->rdma_data.max_width = rdma->data->tile_width;
-	func->func_data =
-		(struct TILE_FUNC_DATA_STRUCT*)
-		(&data->rdma_data);
+	func->func_data = data;
 	func->enable_flag = true;
 
 	func->full_size_x_in = src->width;

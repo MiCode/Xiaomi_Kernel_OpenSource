@@ -297,11 +297,14 @@ struct mml_task {
 	struct mml_pq_task *pq_task;
 };
 
+struct tile_func_block;
+union mml_tile_data;
+
 struct mml_comp_tile_ops {
 	s32 (*prepare)(struct mml_comp *comp, struct mml_task *task,
-		       struct mml_comp_config *priv,
-		       void *ptr_func,
-		       void *tile_data);
+		       struct mml_comp_config *ccfg,
+		       struct tile_func_block *func,
+		       union mml_tile_data *data);
 };
 
 struct mml_comp_config_ops {

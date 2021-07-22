@@ -6,16 +6,11 @@
 #include "tile_driver.h"
 #include "tile_param.h"
 #include "tile_core.h"
-#include "tile_utility.h"
 
 /* lut function */
-static bool tile_init_func_property(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
-static ISP_TILE_MESSAGE_ENUM tile_lut_func_output_disable(int module_no, TILE_FUNC_ENABLE_STRUCT *ptr_func_en,
-                                              TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
 static ISP_TILE_MESSAGE_ENUM tile_init_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
 static ISP_TILE_MESSAGE_ENUM tile_for_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
 static ISP_TILE_MESSAGE_ENUM tile_back_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
-
 static ISP_TILE_MESSAGE_ENUM tile_schedule_backward(FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
 static ISP_TILE_MESSAGE_ENUM tile_backward_comp(TILE_REG_MAP_STRUCT *ptr_tile_reg_map, FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
 static ISP_TILE_MESSAGE_ENUM tile_backward_comp_min(TILE_REG_MAP_STRUCT *ptr_tile_reg_map, FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
@@ -78,6 +73,7 @@ static int tile_cal_lcm(int a, int b);
 /* diff view */
 static ISP_TILE_MESSAGE_ENUM tile_check_min_tile(TILE_REG_MAP_STRUCT *ptr_tile_reg_map, FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
 static ISP_TILE_MESSAGE_ENUM tile_check_valid_output(TILE_REG_MAP_STRUCT *ptr_tile_reg_map, FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
+static ISP_TILE_MESSAGE_ENUM tile_init_tdr_ctrl_flag(TILE_REG_MAP_STRUCT *ptr_tile_reg_map, FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param);
 static ISP_TILE_MESSAGE_ENUM tile_backward_min_tile_backup_input(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
 static ISP_TILE_MESSAGE_ENUM tile_backward_min_tile_init(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
 static ISP_TILE_MESSAGE_ENUM tile_backward_min_tile_restore(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
@@ -86,69 +82,31 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 													   bool *ptr_x_end_flag, int curr_tile_no);
 static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT *ptr_tile_reg_map, FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
 													   bool *ptr_y_end_flag);
-/* api with isp check */
-static bool tile_init_func_property(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
-{
-	bool found_flag = false;
-    found_flag = tile_init_mdp_func_property(ptr_func, ptr_tile_reg_map);
-    return found_flag;
-}
 
-static ISP_TILE_MESSAGE_ENUM tile_lut_func_output_disable(int module_no, TILE_FUNC_ENABLE_STRUCT *ptr_func_en,
-                                              TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
+const char *tile_print_error_message(ISP_TILE_MESSAGE_ENUM n)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-    /* group num un-initialized */
-	if (ISP_MESSAGE_TILE_OK == result)
-	{
-		result = tile_lut_mdp_func_output_disable(module_no, ptr_func_en, ptr_tile_reg_map);
-	}
-    return result;
+    GET_ERROR_NAME(n);
 }
 
 static ISP_TILE_MESSAGE_ENUM tile_init_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-    if (ptr_func->init_func_ptr)
-	{
-		result = ptr_func->init_func_ptr(ptr_func, ptr_tile_reg_map);
-	}
-	else
-	{
-        result = ISP_MESSAGE_UNMATCH_INIT_FUNC_PTR_ERROR;
-		tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-    }
-    return result;
+	return ptr_func->init_func_ptr ?
+		ptr_func->init_func_ptr(ptr_func, ptr_tile_reg_map) :
+		ISP_MESSAGE_TILE_OK;
 }
 
 static ISP_TILE_MESSAGE_ENUM tile_for_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-	if (ptr_func->for_func_ptr)
-	{
-		result = ptr_func->for_func_ptr(ptr_func, ptr_tile_reg_map);
-	}
-	else
-	{
-        result = ISP_MESSAGE_UNMATCH_FOR_FUNC_PTR_ERROR;
-		tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-    }
-    return result;
+	return ptr_func->for_func_ptr ?
+		ptr_func->for_func_ptr(ptr_func, ptr_tile_reg_map) :
+		ISP_MESSAGE_TILE_OK;
 }
 
 static ISP_TILE_MESSAGE_ENUM tile_back_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-	if (ptr_func->back_func_ptr)
-	{
-		result = ptr_func->back_func_ptr(ptr_func, ptr_tile_reg_map);
-	}
-	else
-	{
-        result = ISP_MESSAGE_UNMATCH_BACK_FUNC_PTR_ERROR;
-		tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-    }
-    return result;
+	return ptr_func->back_func_ptr ?
+		ptr_func->back_func_ptr(ptr_func, ptr_tile_reg_map) :
+		ISP_MESSAGE_TILE_OK;
 }
 
 /* core api */
@@ -158,6 +116,7 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 {
 	ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
 	int module_no, used_en_func_no, eng_cnt;
+	int start_count;
 	int i;
 
 	/* reset ptr_tile_func_param */
@@ -166,141 +125,137 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 	eng_cnt = path->tile_engine_cnt;
 	for (i = 0; i < eng_cnt; i++) {
 		const struct mml_path_node *node = &path->nodes[path->tile_engines[i]];
-		memset(&ptr_tile_func_param->func_list[i], 0x0, sizeof(TILE_FUNC_BLOCK_STRUCT));
-		ptr_tile_func_param->func_list[i].func_num = node->id;
-		sprintf(ptr_tile_func_param->func_list[i].func_name, "%d", node->id);
-		ptr_tile_func_param->func_list[i].tot_prev_num = 1;
-		ptr_tile_func_param->func_list[i].group_num = TILE_MDP_GROUP_NUM;
+		struct tile_func_block *ptr_func = &ptr_tile_func_param->func_list[i];
+
+		memset(ptr_func, 0x0, sizeof(*ptr_func));
+		ptr_func->func_num = node->id;
+		sprintf(ptr_func->func_name, "%d", node->id);
+		ptr_func->tot_prev_num = 1;
 
 		if (node->prev)
-			ptr_tile_func_param->func_list[i].last_func_num[0] = (node->prev)->id;
+			ptr_func->last_func_num[0] = node->prev->id;
 		else
-			ptr_tile_func_param->func_list[i].last_func_num[0] = LAST_MODULE_ID_OF_START;
+			ptr_func->last_func_num[0] = LAST_MODULE_ID_OF_START;
 	}
 	module_no = eng_cnt;
 	ptr_tile_func_param->used_func_no = eng_cnt;
 
-	/* enable table lut */
-	if (ISP_MESSAGE_TILE_OK == result) {
-		for (i = 0; i < eng_cnt; i++) {
-			const struct mml_path_node *node = &path->nodes[path->tile_engines[i]];
-			ptr_tile_func_param->func_en_list[i].enable_flag = true;
-			ptr_tile_func_param->func_en_list[i].func_num = node->id;
-		}
-		used_en_func_no = eng_cnt;
-		ptr_tile_func_param->used_en_func_no = eng_cnt;
-	}
-	/* output disable table lut */
-	if (ISP_MESSAGE_TILE_OK == result)
-		result = tile_lut_func_output_disable(used_en_func_no, &ptr_tile_func_param->func_en_list[0], ptr_tile_reg_map);
+	/* enable table lut, output disable table lut */
+	for (i = 0; i < eng_cnt; i++) {
+		const struct mml_path_node *node = &path->nodes[path->tile_engines[i]];
+		struct tile_func_enable *ptr_func_en = &ptr_tile_func_param->func_en_list[i];
 
-	if (ISP_MESSAGE_TILE_OK == result) {
-		int i;
-		int start_count = 0;
-		//int found_func_num = 0;
-		/* check valid module no */
-		if (module_no < MIN_TILE_FUNC_NO) {
-			result = ISP_MESSAGE_UNDER_MIN_TILE_FUNC_NO_ERROR;
-			tile_driver_printf("Error: %s\r\n", tile_print_error_message(result));
+		ptr_func_en->func_num = node->id;
+		ptr_func_en->enable_flag = true;
+		ptr_func_en->output_disable_flag = false;
+	}
+	used_en_func_no = eng_cnt;
+	ptr_tile_func_param->used_en_func_no = eng_cnt;
+
+	start_count = 0;
+	/* check valid module no */
+	if (module_no < MIN_TILE_FUNC_NO) {
+		result = ISP_MESSAGE_UNDER_MIN_TILE_FUNC_NO_ERROR;
+		tile_driver_printf("Error: %s\r\n", tile_print_error_message(result));
+		return result;
+	}
+	/* init function property */
+	for (i = 0; i < module_no; i++) {
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+		bool found_init_flag = tile_init_mdp_func_property(ptr_func, ptr_tile_reg_map);
+		int func_num = ptr_func->func_num;
+		/* error check */
+		if (false == found_init_flag) {
+			result = ISP_MESSAGE_NOT_FOUND_INIT_TILE_PROPERTY_ERROR;
+			tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 			return result;
-		}
-		/* init function property */
-		for (i = 0; i < module_no; i++) {
-			TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
-			bool found_init_flag = tile_init_func_property(ptr_func, ptr_tile_reg_map);
-			int func_num = ptr_func->func_num;
+		} else {
+			int j;
+			bool found_en_flag = false;
+			/* check enable for all groups by disable lut */
+			for (j = 0; j < ptr_tile_func_param->used_en_func_no; j++) {
+				TILE_FUNC_ENABLE_STRUCT *ptr_func_en_list = &ptr_tile_func_param->func_en_list[j];
+				if (func_num == ptr_func_en_list->func_num) {
+					ptr_func->output_disable_flag = ptr_func_en_list->output_disable_flag;
+					if (ptr_func_en_list->enable_flag)
+						ptr_func->enable_flag = true;
+					else
+						ptr_func->enable_flag = false;
+					found_en_flag = true;
+					break;
+				}
+			}
 			/* error check */
-			if (false == found_init_flag) {
-				result = ISP_MESSAGE_NOT_FOUND_INIT_TILE_PROPERTY_ERROR;
+			if (false == found_en_flag) {
+				result = ISP_MESSAGE_NOT_FOUND_ENABLE_TILE_FUNC_ERROR;
 				tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 				return result;
-			} else {
-				int j;
-				bool found_en_flag = false;
-				/* check enable for all groups by disable lut */
-				for (j = 0; j < ptr_tile_func_param->used_en_func_no; j++) {
-					TILE_FUNC_ENABLE_STRUCT *ptr_func_en_list = &ptr_tile_func_param->func_en_list[j];
-					if (func_num == ptr_func_en_list->func_num) {
-						ptr_func->output_disable_flag = ptr_func_en_list->output_disable_flag;
-						if (ptr_func_en_list->enable_flag)
-							ptr_func->enable_flag = true;
-						else
-							ptr_func->enable_flag = false;
-						found_en_flag = true;
-						break;
-					}
-				}
-				/* error check */
-				if (false == found_en_flag) {
-					result = ISP_MESSAGE_NOT_FOUND_ENABLE_TILE_FUNC_ERROR;
+			}
+		}
+	}
+	/* connect modules with error check */
+	for (i = 0; i < module_no; i++) {
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+		int j;
+		int tot_prev_num = ptr_func->tot_prev_num;
+		for (j = 0; j < tot_prev_num; j++) {
+			int last_func_num = ptr_func->last_func_num[j];
+			if (LAST_MODULE_ID_OF_START == last_func_num) {
+				/* skip start module */
+				ptr_func->prev_blk_num[j] = PREVIOUS_BLK_NO_OF_START;
+				start_count++;
+				/* valid input no */
+				if (start_count > MAX_INPUT_TILE_FUNC_NO) {
+					result = ISP_MESSAGE_OVER_MAX_INPUT_TILE_FUNC_NO_ERROR;
 					tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 					return result;
 				}
-			}
-		}
-		/* connect modules with error check */
-		for (i = 0; i < module_no; i++) {
-			TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
-			int j;
-			int tot_prev_num = ptr_func->tot_prev_num;
-			for (j = 0;j < tot_prev_num; j++) {
-				int last_func_num = ptr_func->last_func_num[j];
-				if (LAST_MODULE_ID_OF_START == last_func_num) {
- 					ptr_func->prev_blk_num[j] = PREVIOUS_BLK_NO_OF_START;
-					start_count++;
-					/* valid input no */
-					if (start_count > MAX_INPUT_TILE_FUNC_NO) {
-						result = ISP_MESSAGE_OVER_MAX_INPUT_TILE_FUNC_NO_ERROR;
-						tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-						return result;
-					}
-					if (j > 0) {
-						result = ISP_MESSAGE_TWO_START_PREV_ERROR;
-						tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-						return result;
-					}
-				} else {
-					int k;
-					bool found_flag = false;
-					/* check duplicated last func */
-					for (k = j+1; k < tot_prev_num; k++) {
-						if (last_func_num == ptr_func->last_func_num[k]) {
-							tile_driver_printf("Found duplicated func id: %d, %s, duplicated last func: %d, idx: %d, %d\r\n",
+				if (j > 0) {
+					result = ISP_MESSAGE_TWO_START_PREV_ERROR;
+					tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
+					return result;
+				}
+			} else {
+				int k;
+				bool found_flag = false;
+				/* check duplicated last func */
+				for (k = j+1; k < tot_prev_num; k++) {
+					if (last_func_num == ptr_func->last_func_num[k]) {
+						tile_driver_printf("Found duplicated func id: %d, %s, duplicated last func: %d, idx: %d, %d\r\n",
 							ptr_func->func_num, ptr_func->func_name, last_func_num, j, k);\
-							result = ISP_MESSAGE_DUPLICATED_SUPPORT_FUNC_ERROR;
-							tile_driver_printf("Error: %s\r\n", tile_print_error_message(result));
-							return result;
-						}
-					}
-					for (k = 0; k < module_no; k++){
-						if (i != k) {
-							TILE_FUNC_BLOCK_STRUCT *ptr_target = &ptr_tile_func_param->func_list[k];
-							/* find last */
-							if (last_func_num == ptr_target->func_num) {
-								found_flag = true;
-								ptr_func->prev_blk_num[j] = k;
-								/* valid branch no */
-								if (ptr_target->tot_branch_num < MAX_TILE_BRANCH_NO) {
-									ptr_target->next_blk_num[ptr_target->tot_branch_num] = i;
-									ptr_target->next_func_num[ptr_target->tot_branch_num] = ptr_func->func_num;
-									ptr_target->tot_branch_num++;
-								} else {
-									/* over max buffer size */
-									ptr_target->tot_branch_num++;
-									result = ISP_MESSAGE_OVER_MAX_BRANCH_NO_ERROR;
-									tile_driver_printf("Error [%s][%s] %s\r\n", ptr_func->func_name, ptr_target->func_name, tile_print_error_message(result));
-									return result;
-								}
-								break;
-							}
-						}
-					}
-					if (false == found_flag) {
-						tile_driver_printf("Cannot find func: %d, %s, prev ip no: %d, no lut func: %d\r\n", ptr_func->func_num, ptr_func->func_name, j, last_func_num);
-						result = ISP_MESSAGE_TILE_FUNC_CANNOT_FIND_LAST_FUNC_ERROR;
+						result = ISP_MESSAGE_DUPLICATED_SUPPORT_FUNC_ERROR;
 						tile_driver_printf("Error: %s\r\n", tile_print_error_message(result));
 						return result;
 					}
+				}
+				for (k = 0; k < module_no; k++) {
+					if (i != k) { /* skip self */
+						TILE_FUNC_BLOCK_STRUCT *ptr_target = &ptr_tile_func_param->func_list[k];
+						/* find last */
+						if (last_func_num == ptr_target->func_num) {
+							found_flag = true;
+							ptr_func->prev_blk_num[j] = k;
+							/* valid branch no */
+							if (ptr_target->tot_branch_num < MAX_TILE_BRANCH_NO) {
+								ptr_target->next_blk_num[ptr_target->tot_branch_num] = i;
+								ptr_target->next_func_num[ptr_target->tot_branch_num] = ptr_func->func_num;
+								ptr_target->tot_branch_num++;
+							} else {
+								/* over max buffer size */
+								ptr_target->tot_branch_num++;
+								result = ISP_MESSAGE_OVER_MAX_BRANCH_NO_ERROR;
+								tile_driver_printf("Error [%s][%s] %s\r\n", ptr_func->func_name, ptr_target->func_name, tile_print_error_message(result));
+								return result;
+							}
+							break;
+						}
+					}
+				}
+				if (false == found_flag) {
+					tile_driver_printf("Cannot find func: %d, %s, prev ip no: %d, no lut func: %d\r\n", ptr_func->func_num, ptr_func->func_name, j, last_func_num);
+					result = ISP_MESSAGE_TILE_FUNC_CANNOT_FIND_LAST_FUNC_ERROR;
+					tile_driver_printf("Error: %s\r\n", tile_print_error_message(result));
+					return result;
 				}
 			}
 		}
@@ -309,11 +264,12 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 }
 
 ISP_TILE_MESSAGE_ENUM tile_proc_main_single(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-                    FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
-                    int tile_no, bool *stop_flag, const char *fpt_log)
+	FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
+	int tile_no, bool *stop_flag)
 {
     ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
     int max_loop_count = MAX_TILE_TOT_NO;
+    /* update loop count */
     if (tile_no >= max_loop_count)
     {
         result = ISP_MESSAGE_OVER_MAX_TILE_TOT_NO_ERROR;
@@ -327,6 +283,7 @@ ISP_TILE_MESSAGE_ENUM tile_proc_main_single(TILE_REG_MAP_STRUCT *ptr_tile_reg_ma
 	/* diff view support */
     if (ISP_MESSAGE_TILE_OK == result)
     {
+		result = tile_init_tdr_ctrl_flag(ptr_tile_reg_map, ptr_tile_func_param);
 		if (ISP_MESSAGE_TILE_OK == result)
 		{
 			result = tile_backward_comp_min(ptr_tile_reg_map, ptr_tile_func_param);
@@ -468,7 +425,7 @@ static ISP_TILE_MESSAGE_ENUM tile_init_by_prev(TILE_FUNC_BLOCK_STRUCT *ptr_func,
                 /* force init size for disable func */
                 ptr_func->in_pos_xs = 0;
                 ptr_func->in_pos_ys = 0;
-                ptr_func->in_pos_xe = ptr_prev->full_size_x_out - 1;    
+                ptr_func->in_pos_xe = ptr_prev->full_size_x_out - 1;
                 ptr_func->in_pos_ye = ptr_prev->full_size_y_out - 1;
                 ptr_func->full_size_x_in = ptr_prev->full_size_x_out;
                 ptr_func->full_size_y_in = ptr_prev->full_size_y_out;
@@ -635,7 +592,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
     if (ISP_MESSAGE_TILE_OK == result)
     {
         int i;
-        /* init full size in & out at same time, tdr_group by forward */
+        /* init full size in & out at same time */
         for (i=0;i<module_no;i++)
         {
             if (ISP_MESSAGE_TILE_OK == result)
@@ -646,7 +603,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                 if (PREVIOUS_BLK_NO_OF_START == ptr_func->prev_blk_num[0])/* start func */
                 {
                     /* check init func is null */
-                    if (0x0 == (ptr_func->func_ptr_flag & TILE_INIT_FUNC_PTR_FLAG))
+                    if (!ptr_func->init_func_ptr)
                     {
                         /* error of non-init start func */
                         result = ISP_MESSAGE_NULL_INIT_PTR_FOR_START_FUNC_ERROR;
@@ -691,7 +648,6 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                         /* reset ptr_func property here */
 						ptr_func->valid_v_no = 0;
 						ptr_func->valid_h_no = 0;
-						ptr_func->valid_h_no_d = 0;
 						ptr_func->last_valid_tile_no = 0;
 						ptr_func->last_valid_v_no = 0;
 						ptr_func->tdr_h_disable_flag = false;
@@ -728,10 +684,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                                 /* check call order, copy src in to first func, before init */
                                 TILE_COPY_SRC_ORDER(ptr_func, ptr_tile_reg_map);
                                 /* run init func ptr for start func */
-                                if (ptr_func->func_ptr_flag & TILE_INIT_FUNC_PTR_FLAG)
-                                {
-                                    result = tile_init_func_run(ptr_func, ptr_tile_reg_map);
-                                }
+                                result = tile_init_func_run(ptr_func, ptr_tile_reg_map);
                                 /* set input x y size & pos of start func */
                                 if(ISP_MESSAGE_TILE_OK == result)
                                 {
@@ -757,13 +710,6 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                                     tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
                                     return result;
                                 }
-                                if ((TILE_RUN_MODE_MAIN == ptr_func->run_mode) &&
-                                    (TILE_TDR_EDGE_GROUP_DEFAULT == ptr_func->tdr_group))
-                                {
-                                    result = ISP_MESSAGE_INCORRECT_TDR_EDGE_GROUP_CONFIG_ERROR;
-                                    tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-                                    return result;
-                                }
                             }
                             else/* intermediate or end func */
                             {
@@ -773,10 +719,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 									return result;
 								}
                                 /* run init func ptr for intermediate or end func */
-                                if (ptr_func->func_ptr_flag & TILE_INIT_FUNC_PTR_FLAG)
-                                {
-                                    result = tile_init_func_run(ptr_func, ptr_tile_reg_map);
-                                }
+                                result = tile_init_func_run(ptr_func, ptr_tile_reg_map);
                                 if(ISP_MESSAGE_TILE_OK == result)
                                 {
                                     if (0 == ptr_func->tot_branch_num)
@@ -877,8 +820,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                     if (ISP_MESSAGE_TILE_OK == result)
                     {
                         /* set output size */
-                        if ((0x0 == (ptr_func->func_ptr_flag & TILE_INIT_FUNC_PTR_FLAG))
-                            || (false == ptr_func->enable_flag))
+                        if (!ptr_func->init_func_ptr
+                            || !ptr_func->enable_flag)
                         {
                             /* copy for null init func */
                             ptr_func->out_pos_xs = ptr_func->in_pos_xs;
@@ -998,7 +941,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
             }
         }
     }
-    /* find out run mode with main, sub in, sub out, & smt_enable */
+    /* find out run mode with main, sub in, sub out */
     if (ISP_MESSAGE_TILE_OK == result)
     {
         int i;
@@ -1033,7 +976,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                         bool found_main_input = false;
                         for (j=0;j<ptr_func->tot_prev_num;j++)
                         {
-                            TILE_FUNC_BLOCK_STRUCT *ptr_prev = &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];                   
+                            TILE_FUNC_BLOCK_STRUCT *ptr_prev = &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
                             if (false == ptr_prev->output_disable_flag)
                             {
                                 if (TILE_RUN_MODE_MAIN == ptr_prev->run_mode)
@@ -1045,13 +988,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                                         tile_driver_printf("Error [%s][%s] %s\r\n", ptr_func->func_name, ptr_prev->func_name, tile_print_error_message(result));
                                         return result;
                                     }
-                                    /* update tdr group only once */
                                     if (ptr_func->enable_flag)
                                     {
-                                        if (TILE_TDR_EDGE_GROUP_DEFAULT == ptr_func->tdr_group)
-                                        {
-                                            ptr_func->tdr_group = ptr_prev->tdr_group;
-                                        }
 										if (false == found_output_en)
 										{
 											/* only happen with enable */
@@ -1061,10 +999,6 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 												ptr_tile_reg_map->last_func_en_no = module_order;
 											}
 										}
-                                    }
-                                    else
-                                    {
-                                        ptr_func->tdr_group = ptr_prev->tdr_group;
                                     }
                                     found_main_input = true;
                                 }
@@ -1082,18 +1016,9 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                             }
                             else
                             {
-                                /* update tdr group */
 								ptr_func->run_mode = TILE_RUN_MODE_SUB_IN;
-								ptr_func->tdr_group = TILE_TDR_EDGE_GROUP_OTHER;
                             }
                         }
-						/* check tdr enable to update smt_enable_flag, diff view support */
-						if (ptr_func->smt_enable_flag)
-						{
-							ptr_func->smt_valid_h_no = 0;
-							ptr_func->smto_xs = 0;
-							ptr_func->smto_xe = 0;
-						}
                     }
                 }
                 else if (TILE_RUN_MODE_SUB_IN == ptr_func->run_mode)
@@ -1101,8 +1026,6 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 					/* multi-out support */
 					if (PREVIOUS_BLK_NO_OF_START == ptr_func->prev_blk_num[0])
 					{
-						/* update tdr group */
-						ptr_func->tdr_group = TILE_TDR_EDGE_GROUP_OTHER;
 		                ptr_tile_reg_map->found_sub_in = true;
 					}
 					else
@@ -1128,18 +1051,9 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 						if (ptr_tile_reg_map->tdr_ctrl_en)
 						{
 							ptr_func->run_mode = TILE_RUN_MODE_MAIN;
-							/* check tdr enable to update smt_enable_flag, diff view support */
-							if (ptr_func->smt_enable_flag)
-							{
-								ptr_func->smt_valid_h_no = 0;
-								ptr_func->smto_xs = 0;
-								ptr_func->smto_xe = 0;
-							}
 						}
 						else
 						{
-							/* update tdr group */
-							ptr_func->tdr_group = TILE_TDR_EDGE_GROUP_OTHER;
 							/* disable strict end check */
 							ptr_func->type |= TILE_TYPE_DONT_CARE_END;
 							ptr_tile_reg_map->found_sub_out = true;
@@ -1177,7 +1091,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 						int j;
 						for (j=0;j<ptr_func->tot_branch_num;j++)
 						{
-							TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[j]];                   
+							TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[j]];
 							if ((TILE_RUN_MODE_SUB_OUT != ptr_next->run_mode) && (false == ptr_next->output_disable_flag))
 							{
 								break;
@@ -1187,7 +1101,6 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 						{
 							/* multi-in support */
 							ptr_func->run_mode = TILE_RUN_MODE_SUB_OUT;
-							ptr_func->tdr_group = TILE_TDR_EDGE_GROUP_OTHER;
 						}
 					}
 				}
@@ -1197,7 +1110,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
     /* lcm in & out alignment by forward */
     if (ISP_MESSAGE_TILE_OK == result)
     {
-    		int i;
+		int i;
         for (i=0;i<module_no;i++)
         {
             unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
@@ -1205,16 +1118,6 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
             /* skip output disable func in following check */
             if (false == ptr_func->output_disable_flag)
             {
-				/* accumulate tile group */
-				if (ptr_func->enable_flag)
-				{
-					if (ptr_func->tdr_group >= TILE_TDR_EDGE_GROUP_NO)
-					{
-						result = ISP_MESSAGE_INCORRECT_TDR_EDGE_GROUP_CONFIG_ERROR;
-						tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-						return result;
-					}
-				}
 				/* start & end functions full size alignment has been checked before */
                 if (0 < ptr_func->tot_branch_num)/* not end func */
                 {
@@ -1361,7 +1264,7 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
     {
         if (ptr_tile_reg_map->found_sub_in)
         {
-        		int i;
+			int i;
             /* clear valid flag */
             for (i=0;i<module_no;i++)
             {
@@ -1620,7 +1523,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_comp_min(TILE_REG_MAP_STRUCT *ptr_til
 	/* init first_pass enable */
 	if (false == ptr_tile_reg_map->first_frame)
 	{
-		/* run min tile cal */		
+		/* run min tile cal */
 		if (ptr_tile_reg_map->tdr_ctrl_en)
 		{
 			ptr_tile_reg_map->first_pass = 1;
@@ -1722,7 +1625,7 @@ static ISP_TILE_MESSAGE_ENUM tile_schedule_backward(FUNC_DESCRIPTION_STRUCT *ptr
                     *ptr_order = j;
                     *ptr_valid |= 1<<(j & 0x1F);
                     found_flag = true;
-                    break;              
+                    break;
                 }
                 else/* non-branch to set valid if all branches valid */
                 {
@@ -1759,24 +1662,11 @@ static ISP_TILE_MESSAGE_ENUM tile_schedule_backward(FUNC_DESCRIPTION_STRUCT *ptr
 ISP_TILE_MESSAGE_ENUM tile_mode_init(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 									   FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
     /* reset necessary variables only */
     ptr_tile_reg_map->skip_x_cal = false;
     ptr_tile_reg_map->skip_y_cal = false;
 	ptr_tile_reg_map->backup_x_skip_y = false;
     ptr_tile_reg_map->used_tile_no = 0;
-    ptr_tile_reg_map->isp_used_word_no = 0;
-    ptr_tile_reg_map->isp_used_word_no_d = 0;
-    ptr_tile_reg_map->isp_used_word_no_wpe = 0;
-    ptr_tile_reg_map->isp_used_word_no_d_wpe = 0;
-    ptr_tile_reg_map->isp_used_word_no_mfb = 0;
-    ptr_tile_reg_map->isp_used_word_no_mss = 0;
-    ptr_tile_reg_map->isp_used_word_no_internal = 0;
-    ptr_tile_reg_map->isp_used_word_no_internal_d = 0;
-    ptr_tile_reg_map->isp_used_word_no_internal_wpe = 0;
-    ptr_tile_reg_map->isp_used_word_no_internal_d_wpe = 0;
-    ptr_tile_reg_map->isp_used_word_no_internal_mfb = 0;
-    ptr_tile_reg_map->isp_used_word_no_internal_mss = 0;
     ptr_tile_reg_map->horizontal_tile_no = 0;
     ptr_tile_reg_map->curr_horizontal_tile_no = 0;
     ptr_tile_reg_map->curr_vertical_tile_no = 0;
@@ -1802,8 +1692,7 @@ ISP_TILE_MESSAGE_ENUM tile_mode_init(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
             ptr_tile_reg_map->found_sub_out = false;
         }
     }
-    result = ISP_MESSAGE_TILE_OK;
-    return result;
+    return ISP_MESSAGE_TILE_OK;
 }
 
 static ISP_TILE_MESSAGE_ENUM tile_check_valid_output(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
@@ -2063,8 +1952,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_min_tile(TILE_REG_MAP_STRUCT *ptr_tile_r
 ISP_TILE_MESSAGE_ENUM tile_mode_close(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 									   FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-    return result;
+    return ISP_MESSAGE_TILE_OK;
 }
 
 ISP_TILE_MESSAGE_ENUM tile_frame_mode_init(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
@@ -2074,7 +1962,6 @@ ISP_TILE_MESSAGE_ENUM tile_frame_mode_init(TILE_REG_MAP_STRUCT *ptr_tile_reg_map
     ISP_TILE_MESSAGE_ENUM result;
     ptr_tile_reg_map->first_frame = 1;
 
-    
     result = tile_mode_init(ptr_tile_reg_map, ptr_tile_func_param);
     if (ISP_MESSAGE_TILE_OK == result)
     {
@@ -2187,13 +2074,9 @@ static ISP_TILE_MESSAGE_ENUM tile_check_input_config(TILE_FUNC_BLOCK_STRUCT *ptr
 					{
 						if (ptr_func->in_pos_xs < ptr_func->last_input_xs_pos)
 						{
-							if (ptr_func->valid_h_no_d || (0 == ptr_tile_reg_map->twin_tdr_start) ||
-								(ptr_tile_reg_map->twin_tdr_start != ptr_tile_reg_map->curr_horizontal_tile_no))
-							{
-								result = ISP_MESSAGE_TILE_LOSS_OVER_TILE_WIDTH_ERROR;
-								tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-								return result;
-							}
+							result = ISP_MESSAGE_TILE_LOSS_OVER_TILE_WIDTH_ERROR;
+							tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
+							return result;
 						}
 					}
 				}
@@ -2320,14 +2203,10 @@ static ISP_TILE_MESSAGE_ENUM tile_check_output_config_x(TILE_FUNC_BLOCK_STRUCT *
 					{
 						if (ptr_func->out_pos_xs < ptr_func->last_output_xs_pos)
 						{
-							if (ptr_func->valid_h_no_d || (0 == ptr_tile_reg_map->twin_tdr_start) ||
-								(ptr_tile_reg_map->twin_tdr_start != ptr_tile_reg_map->curr_horizontal_tile_no))
-							{
-								result = ISP_MESSAGE_TILE_LOSS_OVER_TILE_WIDTH_ERROR;
-								tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-								return result;
-							}
-						}               
+							result = ISP_MESSAGE_TILE_LOSS_OVER_TILE_WIDTH_ERROR;
+							tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
+							return result;
+						}
 					}
 				}
 			}
@@ -2499,7 +2378,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_skip(TILE_REG_MAP_STRUC
 	{
 		/* last is end of right but not end tile */
 		if (ptr_tile_reg_map->curr_horizontal_tile_no == 0) /* first tile */
-		{   
+		{
 			/* reset skip flag */
 			ptr_tile_reg_map->skip_x_cal = false;
 			ptr_tile_reg_map->skip_y_cal = false;
@@ -2575,7 +2454,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 				{
 					/* init output size of final module */
 					if (ptr_func->valid_h_no == 0)
-					{   
+					{
 						/* first tile */
 						ptr_func->out_pos_xs = ptr_func->min_out_pos_xs;
 						ptr_func->out_pos_xe = ptr_func->out_tile_width?
@@ -2643,7 +2522,6 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 				/* smart tile + ufd */
 				ptr_func->max_out_crop_xe = ptr_func->max_out_pos_xe;
 				ptr_func->min_tile_crop_out_pos_xe = ptr_func->min_tile_out_pos_xe;
-				ptr_func->smt_back_count = 0;
 			}
 			else if (1 == ptr_func->tot_branch_num)/* check non-branch */
 			{
@@ -2669,7 +2547,6 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 					ptr_func->out_tile_width_loss = ptr_next->in_tile_width_loss;
 					ptr_func->max_out_crop_xe = ptr_next->max_in_crop_xe;
 					ptr_func->min_tile_crop_out_pos_xe = ptr_next->min_tile_crop_in_pos_xe;
-					ptr_func->smt_back_count = ptr_next->smt_back_count;
 				}
 			}
 			else/* branch */
@@ -2694,7 +2571,6 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 				int out_tile_width_loss = 0;
 				int max_out_crop_xe = 0;
 				int min_tile_crop_out_pos_xe = 0;
-				int smt_back_count = 0;
 				/* min xs/ys & min xe/ye sorting for current support tile mode */
 				for (i=0;i<ptr_func->tot_branch_num;i++)
 				{
@@ -2725,7 +2601,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 						}
 						else if (ptr_next->in_tile_width_max)
 						{
-							out_tile_width_max = ptr_next->in_tile_width_max;					
+							out_tile_width_max = ptr_next->in_tile_width_max;
 						}
 						/* out_tile_width_max_str */
 						if (out_tile_width_max_str && ptr_next->in_tile_width_max_str)
@@ -2749,7 +2625,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 						}
 						else if (ptr_next->in_tile_width_max_end)
 						{
-							out_tile_width_max_end = ptr_next->in_tile_width_max_end;					
+							out_tile_width_max_end = ptr_next->in_tile_width_max_end;
 						}
 						/* smart tile + ufd */
 						if (out_tile_width_loss <= ptr_next->in_tile_width_loss)
@@ -2800,7 +2676,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 									if (last_full_range_flag)/* last full range */
 									{
 										if (ptr_next->in_pos_xe >= temp)/* full range input */
-										{							
+										{
 											/* select max xe pos */
 											if (out_pos_xe < ptr_next->in_pos_xe)
 											{
@@ -2838,7 +2714,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 								if (last_full_range_flag)/* last full range */
 								{
 									if (ptr_next->in_pos_xe >= temp)/* full range input */
-									{							
+									{
 										/* select max xe pos */
 										if (out_pos_xe < ptr_next->in_pos_xe)
 										{
@@ -2876,7 +2752,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 									result = ISP_MESSAGE_DIFF_NEXT_CONFIG_ERROR;
 									tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 									return result;
-								}	
+								}
 							}
 							else
 							{
@@ -2884,14 +2760,12 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 								out_pos_xe = ptr_next->in_pos_xe;
 							}
 						}
-						smt_back_count += ptr_next->smt_back_count;
 						count++;
 					}
 				}
 				/* update h_end_flag */
 				ptr_func->h_end_flag = h_end_flag;
 				ptr_func->crop_h_end_flag = crop_h_end_flag;
-				ptr_func->smt_back_count = smt_back_count;
 				if (count)
 				{
 					if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame) &&
@@ -2982,16 +2856,6 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 			}
 			if (false == ptr_func->tdr_h_disable_flag)
 			{
-				if ((false == ptr_tile_reg_map->first_frame) && (false == ptr_tile_reg_map->first_pass))
-				{
-					if (ptr_func->enable_flag)
-					{
-						if (ptr_func->smt_enable_flag)
-						{
-							ptr_func->smt_back_count++;
-						}
-					}
-				}
 				/* right edge */
 				if (ptr_func->out_pos_xe + 1 >= ptr_func->full_size_x_out)
 				{
@@ -3042,7 +2906,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 						{
 							if (ptr_func->out_tile_width > ptr_func->out_tile_width_max)
 							{
-								out_tile_width = ptr_func->out_tile_width_max;							
+								out_tile_width = ptr_func->out_tile_width_max;
 							}
 						}
 					}
@@ -3058,7 +2922,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 					}
 					/* tile size constraint check */
 					if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame) &&
-						(0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en &&
+						ptr_tile_reg_map->tdr_ctrl_en &&
 						(TILE_RUN_MODE_MAIN == ptr_func->run_mode) && ptr_func->out_max_width)
 					{
 						if (ptr_func->out_max_width < out_tile_width)
@@ -3092,7 +2956,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 				else if (ptr_func->out_max_width)
 				{
 					if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame) &&
-						(0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en &&
+						ptr_tile_reg_map->tdr_ctrl_en &&
 						(TILE_RUN_MODE_MAIN == ptr_func->run_mode))
 					{
 						int out_tile_width = ptr_func->out_max_width;
@@ -3147,7 +3011,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 				{
 					/* init output size of final module */
 					if (ptr_func->valid_h_no == 0)
-					{   
+					{
 						/* first tile */
 						ptr_func->out_pos_xs = ptr_func->out_tile_width?
 							(ptr_func->max_out_pos_xe - ptr_func->out_tile_width + 1):ptr_func->min_out_pos_xs;
@@ -3291,7 +3155,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 						}
 						else if (ptr_next->in_tile_width_max)
 						{
-							out_tile_width_max = ptr_next->in_tile_width_max;					
+							out_tile_width_max = ptr_next->in_tile_width_max;
 						}
 						/* out_tile_width_max_str */
 						if (out_tile_width_max_str && ptr_next->in_tile_width_max_str)
@@ -3303,7 +3167,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 						}
 						else if (ptr_next->in_tile_width_max_str)
 						{
-							out_tile_width_max_str = ptr_next->in_tile_width_max_str;					
+							out_tile_width_max_str = ptr_next->in_tile_width_max_str;
 						}
 						/* out_tile_width_max_end */
 						if (out_tile_width_max_end && ptr_next->in_tile_width_max_end)
@@ -3315,7 +3179,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 						}
 						else if (ptr_next->in_tile_width_max_end)
 						{
-							out_tile_width_max_end = ptr_next->in_tile_width_max_end;					
+							out_tile_width_max_end = ptr_next->in_tile_width_max_end;
 						}
 						/* smart tile + ufd */
 						if (out_tile_width_loss <= ptr_next->in_tile_width_loss)
@@ -3346,7 +3210,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 							if (last_full_range_flag)/* last full range */
 							{
 								if (ptr_next->in_pos_xs <= temp)/* full range input */
-								{							
+								{
 									/* select min xs pos */
 									if (out_pos_xs > ptr_next->in_pos_xs)
 									{
@@ -3383,7 +3247,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 									result = ISP_MESSAGE_DIFF_NEXT_CONFIG_ERROR;
 									tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 									return result;
-								}	
+								}
 							}
 							else
 							{
@@ -3480,7 +3344,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 						{
 							if (ptr_func->out_tile_width > ptr_func->out_tile_width_max)
 							{
-								out_tile_width = ptr_func->out_tile_width_max;							
+								out_tile_width = ptr_func->out_tile_width_max;
 							}
 						}
 					}
@@ -3496,7 +3360,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 					}
 					/* tile size constraint check */
 					if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame) &&
-						(0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en &&
+						ptr_tile_reg_map->tdr_ctrl_en &&
 						(TILE_RUN_MODE_MAIN == ptr_func->run_mode) && ptr_func->out_max_width)
 					{
 						if (ptr_func->out_max_width < out_tile_width)
@@ -3530,7 +3394,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 				else if (ptr_func->out_max_width)
 				{
 					if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame) &&
-						(0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en &&
+						ptr_tile_reg_map->tdr_ctrl_en &&
 						(TILE_RUN_MODE_MAIN == ptr_func->run_mode))
 					{
 						int out_tile_width = ptr_func->out_max_width;
@@ -3719,7 +3583,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 						}
 						else if (ptr_next->in_tile_height_max)
 						{
-							out_tile_height_max = ptr_next->in_tile_height_max;					
+							out_tile_height_max = ptr_next->in_tile_height_max;
 						}
 						/* out_tile_height_max_str */
 						if (out_tile_height_max_str && ptr_next->in_tile_height_max_str)
@@ -3743,7 +3607,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 						}
 						else if (ptr_next->in_tile_height_max_end)
 						{
-							out_tile_height_max_end = ptr_next->in_tile_height_max_end;					
+							out_tile_height_max_end = ptr_next->in_tile_height_max_end;
 						}
 						if (TILE_RUN_MODE_MAIN == tile_reg_map_run_mode)
 						{
@@ -3755,7 +3619,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 							if (last_full_range_flag)/* last full range */
 							{
 								if (ptr_next->in_pos_ye >= temp)/* full range input */
-								{							
+								{
 									/* select max ye pos */
 									if (out_pos_ye < ptr_next->in_pos_ye)
 									{
@@ -3792,7 +3656,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 									result = ISP_MESSAGE_DIFF_NEXT_CONFIG_ERROR;
 									tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 									return result;
-								}	
+								}
 							}
 							else
 							{
@@ -3882,7 +3746,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 						{
 							if (ptr_func->out_tile_height > ptr_func->out_tile_height_max)
 							{
-								out_tile_height = ptr_func->out_tile_height_max;							
+								out_tile_height = ptr_func->out_tile_height_max;
 							}
 						}
 					}
@@ -3897,7 +3761,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 					}
 					/* tile size constraint check */
 					if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame) &&
-						(0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en &&
+						ptr_tile_reg_map->tdr_ctrl_en &&
 						(TILE_RUN_MODE_MAIN == ptr_func->run_mode) && ptr_func->out_max_height)
 					{
 						if (ptr_func->out_max_height < out_tile_height)
@@ -3931,7 +3795,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 				else if (ptr_func->out_max_height)
 				{
 					if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame) &&
-						(0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en &&
+						ptr_tile_reg_map->tdr_ctrl_en &&
 						(TILE_RUN_MODE_MAIN == ptr_func->run_mode))
 					{
 						int out_tile_height = ptr_func->out_max_height;
@@ -4001,7 +3865,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_min_tile_backup_input(TILE_FUNC_BLOCK
 			ptr_func->min_tile_in_pos_xs = ptr_func->in_pos_xs;
 			ptr_func->min_tile_in_pos_xe = ptr_func->in_pos_xe;
 			ptr_func->min_tile_out_pos_xs = ptr_func->out_pos_xs;
-			ptr_func->min_tile_out_pos_xe = ptr_func->out_pos_xe;			
+			ptr_func->min_tile_out_pos_xe = ptr_func->out_pos_xe;
 			ptr_func->min_cal_max_h_edge_flag = ptr_func->max_h_edge_flag;
 		}
 	}
@@ -4014,7 +3878,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_min_tile_backup_input(TILE_FUNC_BLOCK
 			ptr_func->min_tile_in_pos_ys = ptr_func->in_pos_ys;
 			ptr_func->min_tile_in_pos_ye = ptr_func->in_pos_ye;
 			ptr_func->min_tile_out_pos_ys = ptr_func->out_pos_ys;
-			ptr_func->min_tile_out_pos_ye = ptr_func->out_pos_ye;			
+			ptr_func->min_tile_out_pos_ye = ptr_func->out_pos_ye;
 			ptr_func->min_cal_max_v_edge_flag = ptr_func->max_v_edge_flag;
 		}
 	}
@@ -4078,7 +3942,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_min_tile(TILE_FUNC_BL
 			{
 				/* init output size of final module */
 				if (ptr_func->valid_h_no == 0)
-				{   
+				{
 					/* first tile */
 					ptr_func->out_pos_xs = ptr_func->min_out_pos_xs;
 					ptr_func->out_pos_xe = ptr_func->min_out_pos_xs + ptr_func->out_const_x - 1;
@@ -4179,7 +4043,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_min_tile(TILE_FUNC_BL
 				if (tile_reg_map_run_mode == (tile_reg_map_run_mode & ptr_next->run_mode))
 				{
 					/* update h_end_flag for backward */
-					h_end_flag &= ptr_next->h_end_flag;					
+					h_end_flag &= ptr_next->h_end_flag;
 					/* skip tdr disabled */
 					if (ptr_next->tdr_h_disable_flag)
 					{
@@ -4252,7 +4116,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv_min_tile(TILE_FUN
 			{
 				/* init output size of final module */
 				if (ptr_func->valid_h_no == 0) /* first tile */
-				{   
+				{
 					/* top start */
 					ptr_func->out_pos_xs = ptr_func->max_out_pos_xe - ptr_func->out_const_x + 1;
 					ptr_func->out_pos_xe = ptr_func->max_out_pos_xe;
@@ -4425,7 +4289,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y_min_tile(TILE_FUNC_BL
 			if (0x0 == (ptr_func->type & TILE_TYPE_DONT_CARE_END))
 			{
 				/* init output size of final module */
-				if (ptr_func->valid_v_no == 0)  
+				if (ptr_func->valid_v_no == 0)
 				{
 					/* first tile row */
 					ptr_func->out_pos_ys = ptr_func->min_out_pos_ys;
@@ -4806,87 +4670,6 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_pre_x(TILE_FUNC_BLOCK_STRUCT 
 					ptr_func->in_pos_xe += in_const_x - val_e;
 				}
 			}
-			if ((false == ptr_tile_reg_map->first_frame) && (false == ptr_tile_reg_map->first_pass))
-			{
-				if (ptr_func->enable_flag)
-				{
-#if 0
-					if (ptr_tile_reg_map->tdr_ctrl_en && ((0 == ptr_tile_reg_map->twin_tdr_start) ||
-						(ptr_tile_reg_map->curr_horizontal_tile_no < ptr_tile_reg_map->twin_tdr_start)))
-					{
-						if (((1 == ptr_func->smt_back_count) && ptr_func->smt_enable_flag) ||
-							((0 == ptr_func->smt_back_count) && (TILE_RUN_MODE_MAIN == ptr_func->run_mode) &&
-							(PREVIOUS_BLK_NO_OF_START == ptr_func->prev_blk_num[0])))
-						{	
-							int out_pos_xe = ptr_func->out_pos_xe;
-							if (ptr_func->in_pos_xs > 0)
-							{
-								if (ptr_func->min_out_pos_xs + ptr_func->max_out_pos_xe + ptr_func->min_tile_out_pos_xe <
-									2*ptr_func->out_pos_xe + ptr_func->min_tile_out_pos_xs)
-								{
-									if (ptr_func->min_out_pos_xs + ptr_func->max_out_pos_xe > ptr_func->min_tile_out_pos_xe +
-										ptr_func->min_tile_out_pos_xs) 
-									{
-										out_pos_xe = (unsigned int)(ptr_func->min_out_pos_xs + ptr_func->max_out_pos_xe +
-												ptr_func->min_tile_out_pos_xe - ptr_func->out_pos_xs)>>1;
-										/* align position */
-										if (ptr_func->out_const_x > 1)
-										{
-											int val_e = TILE_MOD(out_pos_xe + 1, ptr_func->out_const_x);
-											if (0 != val_e)
-											{
-												out_pos_xe += ptr_func->out_const_x - val_e;
-											}
-										}
-										ptr_func->in_pos_xe = out_pos_xe;
-										/* align position */
-										if (ptr_func->in_const_x > 1)
-										{
-											int val_e = TILE_MOD(out_pos_xe + 1, ptr_func->in_const_x);
-											if (0 != val_e)
-											{
-												ptr_func->in_pos_xe += ptr_func->in_const_x - val_e;
-											}
-										}
-									}
-									else
-									{
-										ptr_func->in_pos_xe = ptr_func->min_tile_in_pos_xe;
-									}
-								}
-							}
-							else
-							{
-								/* xs left edge */
-								if (ptr_func->max_out_pos_xe + ptr_func->min_tile_out_pos_xe < 2*out_pos_xe) 
-								{
-									out_pos_xe = ((unsigned int)ptr_func->max_out_pos_xe + ptr_func->min_tile_out_pos_xe)>>1;
-									/* align position */
-									if (ptr_func->out_const_x > 1)
-									{
-										int val_e = TILE_MOD(out_pos_xe + 1, ptr_func->out_const_x);
-										if (0 != val_e)
-										{
-											out_pos_xe += ptr_func->out_const_x - val_e;
-										}
-									}
-									ptr_func->in_pos_xe = out_pos_xe;
-									/* align position */
-									if (ptr_func->in_const_x > 1)
-									{
-										int val_e = TILE_MOD(out_pos_xe + 1, ptr_func->in_const_x);
-										if (0 != val_e)
-										{
-											ptr_func->in_pos_xe += ptr_func->in_const_x - val_e;
-										}
-									}
-								}
-							}
-						}
-					}
-#endif
-				}
-			}
 		}
     }
     return ISP_MESSAGE_TILE_OK;
@@ -5147,7 +4930,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x(TILE_FUNC_BLOCK_STRUCT
 				}
 				else if (ptr_func->out_tile_width_max)
 				{
-					ptr_func->in_tile_width_max = ptr_func->out_tile_width_max;					
+					ptr_func->in_tile_width_max = ptr_func->out_tile_width_max;
 				}
 				else
 				{
@@ -5167,7 +4950,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x(TILE_FUNC_BLOCK_STRUCT
 				}
 				else if (ptr_func->out_tile_width_max_str)
 				{
-					ptr_func->in_tile_width_max_str = ptr_func->out_tile_width_max_str;					
+					ptr_func->in_tile_width_max_str = ptr_func->out_tile_width_max_str;
 				}
 				else
 				{
@@ -5187,7 +4970,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x(TILE_FUNC_BLOCK_STRUCT
 				}
 				else if (ptr_func->out_tile_width_max_end)
 				{
-					ptr_func->in_tile_width_max_end = ptr_func->out_tile_width_max_end;					
+					ptr_func->in_tile_width_max_end = ptr_func->out_tile_width_max_end;
 				}
 				else
 				{
@@ -5514,7 +5297,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x_inv(TILE_FUNC_BLOCK_ST
 					}
 					else if (ptr_func->out_tile_width_max)
 					{
-						ptr_func->in_tile_width_max = ptr_func->out_tile_width_max + ptr_func->l_tile_loss + ptr_func->r_tile_loss;		
+						ptr_func->in_tile_width_max = ptr_func->out_tile_width_max + ptr_func->l_tile_loss + ptr_func->r_tile_loss;
 					}
 					else
 					{
@@ -5534,7 +5317,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x_inv(TILE_FUNC_BLOCK_ST
 					}
 					else if (ptr_func->out_tile_width_max_str)
 					{
-						ptr_func->in_tile_width_max_str = ptr_func->out_tile_width_max_str + ptr_func->l_tile_loss;		
+						ptr_func->in_tile_width_max_str = ptr_func->out_tile_width_max_str + ptr_func->l_tile_loss;
 					}
 					else
 					{
@@ -5559,7 +5342,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x_inv(TILE_FUNC_BLOCK_ST
 					}
 					else if (ptr_func->out_tile_width_max_end)
 					{
-						ptr_func->in_tile_width_max_end = ptr_func->out_tile_width_max_end + ptr_func->r_tile_loss;		
+						ptr_func->in_tile_width_max_end = ptr_func->out_tile_width_max_end + ptr_func->r_tile_loss;
 					}
 					else
 					{
@@ -5611,7 +5394,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x_inv(TILE_FUNC_BLOCK_ST
 				}
 				else if (ptr_func->out_tile_width_max)
 				{
-					ptr_func->in_tile_width_max = ptr_func->out_tile_width_max;					
+					ptr_func->in_tile_width_max = ptr_func->out_tile_width_max;
 				}
 				else
 				{
@@ -5631,7 +5414,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x_inv(TILE_FUNC_BLOCK_ST
 				}
 				else if (ptr_func->out_tile_width_max_str)
 				{
-					ptr_func->in_tile_width_max_str = ptr_func->out_tile_width_max_str;					
+					ptr_func->in_tile_width_max_str = ptr_func->out_tile_width_max_str;
 				}
 				else
 				{
@@ -5651,7 +5434,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_x_inv(TILE_FUNC_BLOCK_ST
 				}
 				else if (ptr_func->out_tile_width_max_end)
 				{
-					ptr_func->in_tile_width_max_end = ptr_func->out_tile_width_max_end;					
+					ptr_func->in_tile_width_max_end = ptr_func->out_tile_width_max_end;
 				}
 				else
 				{
@@ -5979,7 +5762,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_y(TILE_FUNC_BLOCK_STRUCT
 					}
 					else if (ptr_func->out_tile_height_max)
 					{
-						ptr_func->in_tile_height_max = ptr_func->out_tile_height_max + ptr_func->t_tile_loss + ptr_func->b_tile_loss;	
+						ptr_func->in_tile_height_max = ptr_func->out_tile_height_max + ptr_func->t_tile_loss + ptr_func->b_tile_loss;
 					}
 					else
 					{
@@ -5999,7 +5782,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_y(TILE_FUNC_BLOCK_STRUCT
 					}
 					else if (ptr_func->out_tile_height_max_str)
 					{
-						ptr_func->in_tile_height_max_str = ptr_func->out_tile_height_max_str + ptr_func->b_tile_loss;	
+						ptr_func->in_tile_height_max_str = ptr_func->out_tile_height_max_str + ptr_func->b_tile_loss;
 					}
 					else
 					{
@@ -6024,7 +5807,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_y(TILE_FUNC_BLOCK_STRUCT
 					}
 					else if (ptr_func->out_tile_height_max_end)
 					{
-						ptr_func->in_tile_height_max_end = ptr_func->out_tile_height_max_end + ptr_func->t_tile_loss;	
+						ptr_func->in_tile_height_max_end = ptr_func->out_tile_height_max_end + ptr_func->t_tile_loss;
 					}
 					else
 					{
@@ -6054,7 +5837,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_y(TILE_FUNC_BLOCK_STRUCT
 				}
 				else if (ptr_func->out_tile_height_max)
 				{
-					ptr_func->in_tile_height_max = ptr_func->out_tile_height_max;					
+					ptr_func->in_tile_height_max = ptr_func->out_tile_height_max;
 				}
 				else
 				{
@@ -6074,7 +5857,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_y(TILE_FUNC_BLOCK_STRUCT
 				}
 				else if (ptr_func->out_tile_height_max_str)
 				{
-					ptr_func->in_tile_height_max_str = ptr_func->out_tile_height_max_str;					
+					ptr_func->in_tile_height_max_str = ptr_func->out_tile_height_max_str;
 				}
 				else
 				{
@@ -6094,7 +5877,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_y(TILE_FUNC_BLOCK_STRUCT
 				}
 				else if (ptr_func->out_tile_height_max_end)
 				{
-					ptr_func->in_tile_height_max_end = ptr_func->out_tile_height_max_end;					
+					ptr_func->in_tile_height_max_end = ptr_func->out_tile_height_max_end;
 				}
 				else
 				{
@@ -6242,7 +6025,7 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func_post_y(TILE_FUNC_BLOCK_STRUCT
 					if ((TILE_TYPE_CROP_EN & ptr_func->type) && (0x0 == (ptr_func->type & TILE_TYPE_LOSS)) &&
 						ptr_func->enable_flag)
 					{
-						ptr_func->tdr_edge |= TILE_EDGE_BOTTOM_MASK;    
+						ptr_func->tdr_edge |= TILE_EDGE_BOTTOM_MASK;
 					}
 					/* non-crop module */
 					else
@@ -6357,10 +6140,10 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_by_func(TILE_FUNC_BLOCK_STRUCT *ptr_f
     if (ISP_MESSAGE_TILE_OK == result)
     {
 		/* back comp by module, force tdr enable end function */
-		if ((ptr_func->func_ptr_flag & TILE_BACK_FUNC_PTR_FLAG) && ptr_func->enable_flag)
+		if (ptr_func->enable_flag)
 		{
-			if (((false == ptr_tile_reg_map->skip_x_cal) && (false == ptr_func->tdr_h_disable_flag)) ||
-				((false == ptr_tile_reg_map->skip_y_cal) && (false == ptr_func->tdr_v_disable_flag)) ||
+			if ((!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) ||
+				(!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag) ||
 				(0 == ptr_func->tot_branch_num))
 			{
 				/* back func should handle alignment by itself */
@@ -6678,7 +6461,7 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_by_func_post_x(TILE_FUNC_BLOCK_STRUCT 
 			}
 			if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame))
 			{
-				if ((0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en)
+				if (ptr_tile_reg_map->tdr_ctrl_en)
 				{
 					if (TILE_RUN_MODE_MAIN == ptr_func->run_mode)
 					{
@@ -6757,7 +6540,7 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_by_func_post_x_inv(TILE_FUNC_BLOCK_STR
 			}
 			if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame))
 			{
-				if ((0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en)
+				if (ptr_tile_reg_map->tdr_ctrl_en)
 				{
 					if (TILE_RUN_MODE_MAIN == ptr_func->run_mode)
 					{
@@ -6836,7 +6619,7 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_by_func_post_y(TILE_FUNC_BLOCK_STRUCT 
 			}
 			if ((false == ptr_tile_reg_map->first_pass) && (false == ptr_tile_reg_map->first_frame))
 			{
-				if ((0 == ptr_tile_reg_map->run_c_model_direct_link) && ptr_tile_reg_map->tdr_ctrl_en)
+				if (ptr_tile_reg_map->tdr_ctrl_en)
 				{
 					if (TILE_RUN_MODE_MAIN == ptr_func->run_mode)
 					{
@@ -6881,10 +6664,10 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_by_func(TILE_FUNC_BLOCK_STRUCT *ptr_fu
     if (ISP_MESSAGE_TILE_OK == result)
     {
 		/* forward comp */
-		if ((ptr_func->func_ptr_flag & TILE_FOR_FUNC_PTR_FLAG) && ptr_func->enable_flag)
+		if (ptr_func->enable_flag)
 		{
-			if (((false == ptr_tile_reg_map->skip_x_cal) && (false == ptr_func->tdr_h_disable_flag)) ||
-				((false == ptr_tile_reg_map->skip_y_cal) && (false == ptr_func->tdr_v_disable_flag)))
+			if ((!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) ||
+				(!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag))
 			{
 				result = tile_for_func_run(ptr_func, ptr_tile_reg_map);
 			}
@@ -7100,10 +6883,10 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_by_func_no_back(TILE_FUNC_BLOCK_STRUCT
     if (ISP_MESSAGE_TILE_OK == result)
     {
 		/* forward comp */
-		if ((ptr_func->func_ptr_flag & TILE_FOR_FUNC_PTR_FLAG) && ptr_func->enable_flag)
+		if (ptr_func->enable_flag)
 		{
-			if (((false == ptr_tile_reg_map->skip_x_cal) && (false == ptr_func->tdr_h_disable_flag)) ||
-				((false == ptr_tile_reg_map->skip_y_cal) && (false == ptr_func->tdr_v_disable_flag)))
+			if ((!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) ||
+				(!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag))
 			{
 				result = tile_for_func_run(ptr_func, ptr_tile_reg_map);
 			}
@@ -7586,131 +7369,74 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_input_config(TILE_FUNC_BLOCK_STRUCT *p
     return result;
 }
 
+static ISP_TILE_MESSAGE_ENUM tile_init_tdr_ctrl_flag(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
+												FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param)
+{
+	int i;
+	int tile_reg_map_skip_x_cal = ptr_tile_reg_map->skip_x_cal;
+	int tile_reg_map_skip_y_cal = ptr_tile_reg_map->skip_y_cal;
+    if (ptr_tile_reg_map->backup_x_skip_y)
+    {
+		return ISP_MESSAGE_TILE_OK;
+	}
+	if (ptr_tile_reg_map->first_frame)
+	{
+		return ISP_MESSAGE_TILE_OK;
+	}
+	if (false == ptr_tile_reg_map->tdr_ctrl_en)
+	{
+		return ISP_MESSAGE_TILE_OK;
+	}
+	for (i=0;i<ptr_tile_func_param->used_func_no;i++)
+	{
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+		if (false == ptr_func->output_disable_flag)
+		{
+			/* init end func */
+			if (0 == ptr_func->tot_branch_num)
+			{
+				/* init no direct link */
+				if (0x0 == (ptr_func->type & TILE_TYPE_DONT_CARE_END))
+				{
+					/* store horizontal tile parameters */
+					if (false == tile_reg_map_skip_x_cal)
+					{
+						ptr_func->tdr_h_disable_flag = false;/* clear flag */
+					}
+					if (false == tile_reg_map_skip_y_cal)
+					{
+						ptr_func->tdr_v_disable_flag = false;/* clear flag */
+					}
+				}
+			}
+			else
+			{
+				/* init sub-in */
+				if (TILE_RUN_MODE_SUB_IN == ptr_func->run_mode)
+				{
+					/* store horizontal tile parameters */
+					if (false == tile_reg_map_skip_x_cal)
+					{
+						ptr_func->tdr_h_disable_flag = false;/* clear flag */
+					}
+					if (false == tile_reg_map_skip_y_cal)
+					{
+						ptr_func->tdr_v_disable_flag = false;/* clear flag */
+					}
+				}
+			}
+		}
+	}
+    return ISP_MESSAGE_TILE_OK;
+}
+
 static ISP_TILE_MESSAGE_ENUM tile_update_last_x_y(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 										   FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param, bool x_end_flag, bool y_end_flag)
 {
 	int curr_vertical_tile_no = ptr_tile_reg_map->curr_vertical_tile_no;
 	int curr_horizontal_tile_no = ptr_tile_reg_map->curr_horizontal_tile_no;
 	int first_frame = ptr_tile_reg_map->first_frame;
-	int max_width = 0;
-	int in_width = 0;
-	int max_height = 0;
-	int in_height = 0;
 	int i;
-	
-	/* to backup func property before curr_horizontal_tile_no increase */
-	if ((0 == curr_horizontal_tile_no) && (0 == curr_vertical_tile_no))
-	{
-		ptr_tile_reg_map->input_width_sum = 0;
-		ptr_tile_reg_map->input_width_sum_d = 0;
-		ptr_tile_reg_map->input_height_sum = 0;
-		ptr_tile_reg_map->hw_input_width_sum = 0;
-		ptr_tile_reg_map->hw_input_width_sum_d = 0;
-		ptr_tile_reg_map->hw_input_height_sum = 0;
-	}
-	/* start func check change smt num */
-
-	for (i=0;i<ptr_tile_func_param->used_func_no;i++)
-	{
-		unsigned char module_order = ptr_tile_func_param->scheduling_backward_order[i];
-		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
-		if (false == ptr_func->output_disable_flag)
-		{
-			if (ptr_func->enable_flag)
-			{
-				if (false == ptr_func->tdr_h_disable_flag)
-				{
-					if (0 == curr_vertical_tile_no)
-					{
-						/* calculate twin_tdr_start once */
-						if (false == x_end_flag)
-						{
-#if 0
-							if (ptr_tile_reg_map->tdr_ctrl_en)
-							{
-								if (0 == ptr_tile_reg_map->twin_tdr_start)
-								{
-									if (((1 == ptr_func->smt_back_count) && ptr_func->smt_enable_flag) ||
-										((0 == ptr_func->smt_back_count) && (TILE_RUN_MODE_MAIN == ptr_func->run_mode) &&
-										(PREVIOUS_BLK_NO_OF_START == ptr_func->prev_blk_num[0])))
-									{
-										if (ptr_func->out_pos_xs > 0)
-										{
-											if (ptr_func->min_out_pos_xs + ptr_func->max_out_pos_xe + ptr_func->min_tile_out_pos_xe <=
-												2*ptr_func->out_pos_xe + ptr_func->min_tile_out_pos_xs)
-											{
-												ptr_tile_reg_map->twin_tdr_start = curr_horizontal_tile_no + 1;
-											}
-										}
-										else
-										{
-											if (ptr_func->max_out_pos_xe + ptr_func->min_tile_out_pos_xe <= 2*ptr_func->out_pos_xe) 
-											{
-												ptr_tile_reg_map->twin_tdr_start = curr_horizontal_tile_no + 1;
-											}
-										}
-									}
-								}
-							}
-#endif
-						}
-						/* update hw width */
-						if (max_width + ptr_func->in_pos_xs < ptr_func->in_pos_xe + 1)
-						{
-							max_width = ptr_func->in_pos_xe - ptr_func->in_pos_xs + 1;
-						}
-						/* update rdma in width */
-						if ((TILE_RUN_MODE_MAIN == ptr_func->run_mode) && (PREVIOUS_BLK_NO_OF_START == ptr_func->prev_blk_num[0]))
-						{
-							in_width = ptr_func->in_pos_xe - ptr_func->in_pos_xs + 1;
-						}
-					}
-				}
-				if (false == ptr_func->tdr_v_disable_flag)
-				{
-					if (0 == curr_horizontal_tile_no)
-					{
-						/* update hw height */
-						if (max_height + ptr_func->in_pos_ys < ptr_func->in_pos_ye + 1)
-						{
-							max_height = ptr_func->in_pos_ye - ptr_func->in_pos_ys + 1;
-						}
-						/* update rdma in width */
-						if ((TILE_RUN_MODE_MAIN == ptr_func->run_mode) && (PREVIOUS_BLK_NO_OF_START == ptr_func->prev_blk_num[0]))
-						{
-							in_height = ptr_func->in_pos_ye - ptr_func->in_pos_ys + 1;
-						}
-					}
-				}
-			}
-		}
-	}
-	/* update width */
-	if (0 == curr_vertical_tile_no)
-	{
-		if (max_width && in_width)
-		{
-			if (ptr_tile_reg_map->twin_tdr_start && (ptr_tile_reg_map->twin_tdr_start <= curr_horizontal_tile_no))
-			{
-				ptr_tile_reg_map->input_width_sum_d += in_width;
-				ptr_tile_reg_map->hw_input_width_sum_d += max_width;
-			}
-			else
-			{
-				ptr_tile_reg_map->input_width_sum += in_width;
-				ptr_tile_reg_map->hw_input_width_sum += max_width;
-			}
-		}
-	}
-	/* update height */
-	if (0 == curr_horizontal_tile_no)
-	{
-		if (max_height && in_height)
-		{
-			ptr_tile_reg_map->input_height_sum += in_height;
-			ptr_tile_reg_map->hw_input_height_sum += max_height;
-		}
-	}
     for (i=0;i<ptr_tile_func_param->used_func_no;i++)
     {
         TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
@@ -7770,32 +7496,6 @@ static ISP_TILE_MESSAGE_ENUM tile_update_last_x_y(TILE_REG_MAP_STRUCT *ptr_tile_
 					{
 						/* udpate valid_h_no by func */
 						ptr_func->valid_h_no++;
-						if (ptr_tile_reg_map->twin_tdr_start && (ptr_tile_reg_map->twin_tdr_start <= curr_horizontal_tile_no))
-						{
-							ptr_func->valid_h_no_d++;
-						}
-					}
-				}
-				/* skip update when frame mode */
-				if (false == first_frame)
-				{
-					/* udpate valid_h_no by func */
-					if (ptr_func->smt_enable_flag)
-					{
-						/* smt swap */
-						if (ptr_tile_reg_map->twin_tdr_start == curr_horizontal_tile_no + 1)
-						{
-							ptr_func->smt_valid_h_no = 0;
-							ptr_func->smto_xs = 0;
-							ptr_func->smto_xe = 0;
-						}
-						else
-						{
-							if (false == ptr_func->tdr_h_disable_flag)
-							{
-								ptr_func->smt_valid_h_no++;
-							}
-						}
 					}
 				}
 			}
@@ -7806,13 +7506,6 @@ static ISP_TILE_MESSAGE_ENUM tile_update_last_x_y(TILE_REG_MAP_STRUCT *ptr_tile_
 				{
 					/* reset valid_h_no */
 					ptr_func->valid_h_no = 0;
-					ptr_func->valid_h_no_d = 0;
-					if (ptr_func->smt_enable_flag)
-					{
-						ptr_func->smt_valid_h_no = 0;
-						ptr_func->smto_xs = 0;
-						ptr_func->smto_xe = 0;
-					}
 					if (false == ptr_func->tdr_v_disable_flag)
 					{
 						ptr_func->last_input_ys_pos = ptr_func->in_pos_ys;
@@ -7922,7 +7615,7 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_output_check(TILE_FUNC_BLOCK_STRUCT *p
 	{
 		if (false == ptr_func->tdr_v_disable_flag)
 		{
-			if (ptr_func->out_tile_height)       
+			if (ptr_func->out_tile_height)
 			{
 				if (ptr_func->out_pos_ye + 1 > ptr_func->out_pos_ys + ptr_func->out_tile_height)
 				{
@@ -8016,7 +7709,7 @@ static ISP_TILE_MESSAGE_ENUM tile_compare_forward_back(TILE_REG_MAP_STRUCT *ptr_
 				{
 					result = ISP_MESSAGE_FOR_BACK_COMP_X_ERROR;
 					tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-					return result;		
+					return result;
 				}
 			}
 		}
@@ -8032,7 +7725,7 @@ static ISP_TILE_MESSAGE_ENUM tile_compare_forward_back(TILE_REG_MAP_STRUCT *ptr_
 				{
 					result = ISP_MESSAGE_FOR_BACK_COMP_Y_ERROR;
 					tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-					return result;		
+					return result;
 				}
 			}
 		}
@@ -8071,7 +7764,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 							    {
 								    if ((ptr_func->min_out_pos_xs < ptr_func->out_pos_xs) ||
 									    (ptr_func->out_pos_xe < ptr_func->max_out_pos_xe))
-								    {   
+								    {
 									    result = ISP_MESSAGE_TILE_X_DIR_NOT_END_TOGETHER_ERROR;
 									    tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 									    break;
@@ -8100,7 +7793,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 									/* check input x size is end */
 									/* check cal order, output */
 									if (ptr_func->in_pos_xe < ptr_func->max_in_pos_xe)
-									{   
+									{
 										result = ISP_MESSAGE_TILE_X_DIR_NOT_END_TOGETHER_ERROR;
 										tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 										break;
@@ -8111,7 +7804,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 									/* check input x size is end */
 									/* check cal order, output */
 									if (ptr_func->min_in_pos_xs < ptr_func->in_pos_xs)
-									{   
+									{
 										/* diff view to check min last xs */
 										if (ptr_func->valid_h_no)
 										{
@@ -8138,7 +7831,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 									/* check input x size is end */
 									/* check cal order, output */
 									if (ptr_func->min_in_pos_xs < ptr_func->in_pos_xs)
-									{   
+									{
 										result = ISP_MESSAGE_TILE_X_DIR_NOT_END_TOGETHER_ERROR;
 										tile_driver_printf("Error: %s\r\n", tile_print_error_message(result));
 										break;
@@ -8149,7 +7842,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 									/* check input x size is end */
 									/* check cal order, output */
 									if (ptr_func->in_pos_xe < ptr_func->max_in_pos_xe)
-									{   
+									{
 										if (ptr_func->valid_h_no)
 										{
 											/* diff view to check max last xe */
@@ -8219,7 +7912,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 								    /* check cal order, not support */
 								    if ((ptr_func->out_pos_ye < ptr_func->max_out_pos_ye) ||
 									    (ptr_func->out_pos_ys > ptr_func->min_out_pos_ys))
-								    {   
+								    {
 									    result = ISP_MESSAGE_TILE_Y_DIR_NOT_END_TOGETHER_ERROR;
 									    tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 									    break;
@@ -8246,7 +7939,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 								/* check output y size is end */
 								/* check cal order, not support */
 								if (ptr_func->in_pos_ys > ptr_func->min_in_pos_ys)
-								{   
+								{
 									result = ISP_MESSAGE_TILE_Y_DIR_NOT_END_TOGETHER_ERROR;
 									tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
 									break;
@@ -8257,7 +7950,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 								/* check output y size is end */
 								/* check cal order, not support */
 								if (ptr_func->in_pos_ye < ptr_func->max_in_pos_ye)
-								{   
+								{
 									/* diff view to check min last ye */
 									if (ptr_func->valid_v_no)
 									{
@@ -8284,3 +7977,4 @@ static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 	}
     return result;
 }
+

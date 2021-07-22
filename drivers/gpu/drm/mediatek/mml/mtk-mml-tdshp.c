@@ -254,17 +254,16 @@ static s32 tdshp_prepare(struct mml_comp *comp, struct mml_task *task,
 
 static s32 tdshp_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			      struct mml_comp_config *ccfg,
-			      void *ptr_func, void *tile_data)
+			      struct tile_func_block *func,
+			      union mml_tile_data *data)
 {
-	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct tdshp_frame_data *tdshp_frm = tdshp_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_dest *dest = &cfg->info.dest[tdshp_frm->out_idx];
 	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
 
 	data->tdshp_data.max_width = tdshp->data->tile_width;
-	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(&data->tdshp_data);
+	func->func_data = data;
 
 	func->enable_flag = dest->pq_config.en_sharp;
 

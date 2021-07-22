@@ -9,7 +9,7 @@
 
 #include "mtk-mml-core.h"
 
-s32 calc_tile(struct mml_task *task, u8 pipe_idx);
+s32 calc_tile(struct mml_task *task, u32 pipe_idx);
 
 void destroy_tile_output(struct mml_tile_output *output);
 

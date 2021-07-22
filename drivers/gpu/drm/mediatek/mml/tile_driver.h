@@ -8,36 +8,19 @@
 #include "tile_mdp_reg.h"/* must */
 #include <dt-bindings/mml/mml-mt6893.h>
 
-#define tile_sprintf(dst_ptr, size_dst, ...)                     sprintf(dst_ptr, __VA_ARGS__)
-
 #include "mtk-mml-core.h"
-#define tile_driver_printf mml_err
+#define tile_driver_printf(fmt, ...) mml_err("[%s][%d] " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define MAX_TILE_HEIGHT_HW (65536)
-#define MAX_TILE_BRANCH_NO (6)
 #define MAX_TILE_PREV_NO (10)
 #define MAX_TILE_BRANCH_NO (6)
-#define MAX_TILE_FUNC_NO (128) /* smaller or equal to (PREVIOUS_BLK_NO_OF_START-1) */
 #define MIN_TILE_FUNC_NO (2)
+#define MAX_TILE_FUNC_NO (128) /* smaller or equal to (PREVIOUS_BLK_NO_OF_START-1) */
 #define MAX_INPUT_TILE_FUNC_NO (32)
 #define MAX_FORWARD_FUNC_CAL_LOOP_NO (16 * MAX_TILE_FUNC_NO)
-#define MAX_TILE_FUNC_NAME_SIZE (32)
 #define MAX_TILE_FUNC_EN_NO (192)
+#define MAX_TILE_FUNC_NAME_SIZE (32)
 #define MAX_TILE_TOT_NO (1200)
-
-/* common define */
-#ifndef __cplusplus
-#ifndef bool
-#define bool unsigned char
-#define HAVE_BOOL 1
-#endif
-#ifndef true
-#define true 1
-#endif
-#ifndef false
-#define false 0
-#endif
-#endif
 
 #define TILE_MOD(num, denom) (((denom) == 1) ? 0 : (((denom) == 2) ? ((num) & 0x1) : (((denom) == 4) ? \
 	((num) & 0x3) : (((denom) == 8) ? ((num) & 0x7) : ((num) % (denom))))))
@@ -48,22 +31,7 @@
 #define TILE_ORDER_RIGHT_TO_LEFT (0x2)
 #define TILE_ORDER_BOTTOM_TO_TOP (0x4)
 
-/* normalized offset up to 20 bits */
-#define REZ_OFFSET_SHIFT_VAL BIT(20)
-#define REZ_OFFSET_SHIFT_FACTOR (20)
-#define SRZ_OFFSET_SHIFT_VAL BIT(15)
-#define SRZ_OFFSET_SHIFT_FACTOR (15)
-#define VGEN_OFFSET_SHIFT_VAL BIT(24)
-#define VGEN_OFFSET_SHIFT_FACTOR (24)
-#define TILE_MAX_PATHNAME_LENGTH (256)
-#define TILE_MAX_FILENAME_LENGTH (128)
-#define TILE_MAX_COMMAND_LENGTH (512)
-#define MAX_DUMP_COLUMN_LENGTH (1024)
-#define MIN_MCU_BUFFER_NO (2)
 #define PREVIOUS_BLK_NO_OF_START (0xFF)
-
-/* debug log dump & parse */
-#define TILE_DEBUG_SPACE_EQUAL_SYMBOL_STR " = "
 
 /* MAX TILE WIDTH & HEIGHT */
 #define MAX_SIZE (65536)
@@ -78,79 +46,13 @@
 #define TILE_EDGE_LEFT_MASK (0x1)
 #define TILE_EDGE_HORZ_MASK (TILE_EDGE_RIGHT_MASK + TILE_EDGE_LEFT_MASK)
 
-typedef enum TILE_FUNC_ID_ENUM {
-	LAST_MODULE_ID_OF_START = (0xFFFFFFF),
-	NULL_TILE_ID  = (0xFFFFFFF),
-	TILE_FUNC_MDP_BASE = (0),
-	TILE_FUNC_CAMIN_ID = MML_CAMIN,
-	TILE_FUNC_CAMIN2_ID,
-	TILE_FUNC_CAMIN3_ID,
-	TILE_FUNC_CAMIN4_ID,
-	TILE_FUNC_RDMA0_ID,
-	TILE_FUNC_RDMA1_ID,
-	TILE_FUNC_RDMA2_ID,
-	TILE_FUNC_RDMA3_ID,
-	TILE_FUNC_FG0_ID,
-	TILE_FUNC_FG1_ID,
-	TILE_FUNC_PQ0_SOUT_ID,
-	TILE_FUNC_PQ1_SOUT_ID,
-	TILE_FUNC_HDR0_ID,
-	TILE_FUNC_HDR1_ID,
-	TILE_FUNC_COLOR0_ID,
-	TILE_FUNC_COLOR1_ID,
-	TILE_FUNC_AAL0_ID,
-	TILE_FUNC_AAL1_ID,
-	TILE_FUNC_AAL2_ID,
-	TILE_FUNC_AAL3_ID,
-	TILE_FUNC_PRZ0_ID,
-	TILE_FUNC_PRZ1_ID,
-	TILE_FUNC_PRZ2_ID,
-	TILE_FUNC_PRZ3_ID,
-	TILE_FUNC_TDSHP0_ID,
-	TILE_FUNC_TDSHP1_ID,
-	TILE_FUNC_TDSHP2_ID,
-	TILE_FUNC_TDSHP3_ID,
-	TILE_FUNC_TCC0_ID,
-	TILE_FUNC_TCC1_ID,
-	TILE_FUNC_TCC2_ID,
-	TILE_FUNC_TCC3_ID,
-	TILE_FUNC_WROT0_ID,
-	TILE_FUNC_WROT1_ID,
-	TILE_FUNC_WROT2_ID,
-	TILE_FUNC_WROT3_ID,
-} TILE_FUNC_ID_ENUM;
-
-typedef enum TILE_GROUP_NUM_ENUM {
-	TILE_DIP_GROUP_NUM = 0,
-	TILE_WPE_GROUP_NUM,
-	TILE_MFB_GROUP_NUM,
-	TILE_MDP_GROUP_NUM,
-	TILE_MSS_GROUP_NUM,
-} TILE_GROUP_NUM_ENUM;
+#define LAST_MODULE_ID_OF_START (0x0fffffff)
 
 typedef enum TILE_RUN_MODE_ENUM {
 	TILE_RUN_MODE_SUB_OUT = 0x1,
 	TILE_RUN_MODE_SUB_IN = TILE_RUN_MODE_SUB_OUT + 0x2,
 	TILE_RUN_MODE_MAIN = TILE_RUN_MODE_SUB_IN + 0x4
 } TILE_RUN_MODE_ENUM;
-
-/* resizer prec bits */
-#define TILE_RESIZER_N_TP_PREC_BITS (15)
-#define TILE_RESIZER_N_TP_PREC_VAL BIT(TILE_RESIZER_N_TP_PREC_BITS)
-#define TILE_RESIZER_ACC_PREC_BITS (20)
-#define TILE_RESIZER_ACC_PREC_VAL BIT(TILE_RESIZER_ACC_PREC_BITS)
-/* resizer direction flag */
-typedef enum CAM_DIR_ENUM {
-    CAM_DIR_X = 0,
-    CAM_DIR_Y,
-    CAM_DIR_MAX
-} CAM_DIR_ENUM;
-/* resizer align flag */
-typedef enum CAM_UV_ENUM {
-    CAM_UV_422_FLAG = 0,
-    CAM_UV_444_FLAG,
-    CAM_UV_MAX
-} CAM_UV_ENUM;
 
 /* error enum */
 #define ERROR_MESSAGE_DATA(n, CMD) \
@@ -162,12 +64,6 @@ typedef enum CAM_UV_ENUM {
     CMD(n, ISP_MESSAGE_OVER_MAX_TILE_WORD_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_OVER_MAX_TILE_TOT_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_UNDER_MIN_TILE_FUNC_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_OVER_MAX_TILE_FUNC_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_OVER_MAX_TILE_FUNC_NAME_SIZE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_OVER_MAX_TILE_FUNC_EN_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_OVER_MAX_TILE_FUNC_PREV_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_OVER_MAX_TILE_FUNC_SUBRDMA_LIST_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_OVER_MAX_TILE_FUNC_SUBRDMA_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_NOT_FOUND_INIT_TILE_PROPERTY_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_NOT_FOUND_ENABLE_TILE_FUNC_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_NOT_FOUND_SUB_RDMA_TDR_FUNC_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
@@ -176,8 +72,6 @@ typedef enum CAM_UV_ENUM {
     CMD(n, ISP_MESSAGE_INCONSISTENT_TDR_DUMP_MASK_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_DUPLICATED_TDR_DUMP_MASK_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_DUPLICATED_SUPPORT_FUNC_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_DUPLICATED_FUNC_EN_FOUND_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_DUPLICATED_FUNC_DISABLE_OUTPUT_FOUND_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_DUPLICATED_SUB_RDMA_FUNC_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_OVER_MAX_BRANCH_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_OVER_MAX_INPUT_TILE_FUNC_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
@@ -200,10 +94,8 @@ typedef enum CAM_UV_ENUM {
     CMD(n, ISP_MESSAGE_FORWARD_FUNC_CAL_LOOP_COUNT_OVER_MAX_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TILE_LOSS_OVER_TILE_HEIGHT_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TILE_LOSS_OVER_TILE_WIDTH_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_TP8_FOR_INVALID_OUT_XYS_XYE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TP6_FOR_INVALID_OUT_XYS_XYE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TP4_FOR_INVALID_OUT_XYS_XYE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_TP2_FOR_INVALID_OUT_XYS_XYE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_SRC_ACC_FOR_INVALID_OUT_XYS_XYE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_CUB_ACC_FOR_INVALID_OUT_XYS_XYE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_BACKWARD_START_LESS_THAN_FORWARD_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
@@ -239,9 +131,6 @@ typedef enum CAM_UV_ENUM {
     CMD(n, ISP_MESSAGE_OUTPUT_DISABLE_INPUT_FUNC_CHECK_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_RESIZER_SRC_ACC_SCALING_UP_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_RESIZER_CUBIC_ACC_SCALING_UP_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_TDR_ISP_EDGE_DIFFERENT_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_TDR_CDP_EDGE_DIFFERENT_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_TDR_WDMA_EDGE_DIFFERENT_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_INCORRECT_END_FUNC_TYPE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_INCORRECT_START_FUNC_TYPE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     /* verification */\
@@ -269,8 +158,6 @@ typedef enum CAM_UV_ENUM {
     CMD(n, ISP_MESSAGE_TILE_MODE_OUTPUT_FILE_COPY_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TILE_MODE_OUTPUT_FILE_CMP_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TILE_MODE_OUTPUT_FILE_DEL_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    /* tile debug purpose */\
-    CMD(n, ISP_MESSAGE_DEBUG_PRINT_FILE_OPEN_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     /* tile platform */\
     CMD(n, ISP_MESSAGE_TILE_PLATFORM_NULL_INPUT_CONFIG_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TILE_PLATFORM_NULL_WORKING_BUFFER_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
@@ -278,7 +165,6 @@ typedef enum CAM_UV_ENUM {
     CMD(n, ISP_MESSAGE_TILE_NULL_PTR_COMP_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TILE_REG_MAP_COMP_DIFF_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TILE_NULL_MEM_PTR_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_ISP_DESCRIPTOR_PTR_NON_4_BYTES_ALGIN_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_WORKING_BUFFER_PTR_NON_4_BYTES_ALGIN_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_WORKING_BUFFER_SIZE_NON_4_BYTES_ALGIN_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_INVALID_DIRECT_LINK_REG_FILE_WARNING, ISP_TPIPE_MESSAGE_FAIL)\
@@ -291,21 +177,10 @@ typedef enum CAM_UV_ENUM {
     CMD(n, ISP_MESSAGE_TDR_INV_NULL_PTR_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     /* tile ut */\
     CMD(n, ISP_MESSAGE_TILE_UT_FILE_OPEN_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    /* last irq check */\
-    CMD(n, ISP_MESSAGE_TDR_LAST_IRQ_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    /* func ptr check */\
-    CMD(n, ISP_MESSAGE_UNMATCH_INIT_FUNC_PTR_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_UNMATCH_FOR_FUNC_PTR_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_UNMATCH_BACK_FUNC_PTR_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_UNMATCH_TDR_FUNC_PTR_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_UNMATCH_SUBRDMA_FUNC_ENABLE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     /* tdr sort check */\
     CMD(n, ISP_MESSAGE_INCORRECT_ORDER_CONFIG_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_LAST_IRQ_NOT_SUPPORT_TDR_SORT_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TDR_SORT_OVER_MAX_H_TILE_NO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TDR_SORT_NON_4_BYTES_TILE_INFO_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    /* tdr edge group check */\
-    CMD(n, ISP_MESSAGE_INCORRECT_TDR_EDGE_GROUP_CONFIG_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     /* tile driver error check */\
     CMD(n, ISP_MESSAGE_MEM_DUMP_PARSE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
 	/* multi-input flow error check */\
@@ -345,15 +220,12 @@ typedef enum CAM_UV_ENUM {
     CMD(n, ISP_MESSAGE_DIFF_VIEW_TILE_HEIGHT_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
 	/* c model random gen */\
     CMD(n, ISP_MESSAGE_NULL_RAND_GEN_FUNC_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_READ_SDLK_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_RAND_GEN_FILE_OPEN_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_TEST_CONFIG_PARSE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_CONFIG_OVER_BUFFER_SIZE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
 	/* tile sel mode */\
     CMD(n, ISP_MESSAGE_TDR_DISPATCH_CONFIG_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_TILE_SEL_CHECK_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_INCONSISTENT_TDR_MASK_LSB_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
-    CMD(n, ISP_MESSAGE_TILE_DUAL_MODE_CONFIG_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     /* min size constraints */\
     CMD(n, ISP_MESSAGE_UNDER_MIN_XSIZE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
     CMD(n, ISP_MESSAGE_UNDER_MIN_YSIZE_ERROR, ISP_TPIPE_MESSAGE_FAIL)\
@@ -373,32 +245,11 @@ typedef enum CAM_UV_ENUM {
     return "";
 
 /* error enum */
-typedef enum ISP_TILE_MESSAGE_ENUM {
-    ISP_TILE_MESSAGE_UNKNOWN = 0,
-    ERROR_MESSAGE_DATA(n, ISP_ENUM_DECLARE)
+typedef enum isp_tile_message {
+	ISP_TILE_MESSAGE_UNKNOWN = 0,
+	ERROR_MESSAGE_DATA(n, ISP_ENUM_DECLARE)
 } ISP_TILE_MESSAGE_ENUM;
 
-/* error enum */
-typedef enum TILE_RESIZER_MODE_ENUM {
-    TILE_RESIZER_MODE_UNKNOWN = 0,//0
-    TILE_RESIZER_MODE_4_TAPES,
-    TILE_RESIZER_MODE_SRC_ACC,
-    TILE_RESIZER_MODE_CUBIC_ACC,
-    TILE_RESIZER_MODE_8_TAPES,
-    TILE_RESIZER_MODE_6_TAPES,
-    TILE_RESIZER_MODE_2_TAPES,
-    TILE_RESIZER_MODE_MDP_6_TAPES,
-    TILE_RESIZER_MODE_MDP_CUBIC_ACC,
-    TILE_RESIZER_MODE_5_TAPES,
-    TILE_RESIZER_MODE_MAX_NO
-} TILE_RESIZER_MODE_ENUM;
-
-/* Func ptr flag */
-#define TILE_INIT_FUNC_PTR_FLAG (0x1)
-#define TILE_FOR_FUNC_PTR_FLAG (0x2)
-#define TILE_BACK_FUNC_PTR_FLAG (0x4)
-#define TILE_TDR_FUNC_PTR_FLAG (0x8)
-#define TILE_SUBRDMA_FUNC_PTR_FLAG (0x10)
 /* a, b, c, d, e reserved */
 /* data type */
 /* register name of current c model */
@@ -409,7 +260,7 @@ typedef enum TILE_RESIZER_MODE_ENUM {
 /* be careful with init, must items to reset by TILE_MODULE_CHECK macro */
 /* output_disable = false function to reset by tile_init_config() */
 #define TILE_FUNC_BLOCK_LUT(CMD, a, b, c, d, e) \
-    CMD(a, b, c, d, e, TILE_FUNC_ID_ENUM, func_num, , ,, S, ,)\
+    CMD(a, b, c, d, e, int, func_num, , ,, S, ,)\
     CMD(a, b, c, d, e, char, func_name, ,, [MAX_TILE_FUNC_NAME_SIZE], S, ,)\
     CMD(a, b, c, d, e, TILE_RUN_MODE_ENUM, run_mode, , ,, S, ,)\
     CMD(a, b, c, d, e, bool, enable_flag, , ,, S, ,)\
@@ -487,16 +338,6 @@ typedef enum TILE_RESIZER_MODE_ENUM {
     CMD(a, b, c, d, e, int, valid_v_no, , ,, S, ,)/* diff view cal, to reset */\
     CMD(a, b, c, d, e, int, last_valid_tile_no, , ,, S, ,)/* diff view cal, to reset */\
     CMD(a, b, c, d, e, int, last_valid_v_no, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smt_tdr_offset_x, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smt_tdr_offset_y, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smt_enable_flag, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smt_valid_h_no, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, valid_h_no_d, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smto_xs, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smto_xe, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smtio_offset, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smt_left_en, , ,, S, ,)/* diff view cal, to reset */\
-    CMD(a, b, c, d, e, int, smt_back_count, , ,, S, ,)/* diff view cal, to reset */\
     CMD(a, b, c, d, e, int, bias_x, , ,, U, ,)\
     CMD(a, b, c, d, e, int, offset_x, , ,, U, ,)\
     CMD(a, b, c, d, e, int, bias_x_c, , ,, U, ,)\
@@ -571,12 +412,9 @@ typedef enum TILE_RESIZER_MODE_ENUM {
     CMD(a, b, c, d, e, int, min_last_input_xs_pos, , ,, S, ,)\
     CMD(a, b, c, d, e, int, max_last_input_xe_pos, , ,, S, ,)\
     CMD(a, b, c, d, e, int, max_last_input_ye_pos, , ,, S, ,)\
-    CMD(a, b, c, d, e, TILE_TDR_EDGE_GROUP_ENUM, tdr_group, , ,, S, ,)\
-    CMD(a, b, c, d, e, TILE_FUNC_ID_ENUM, last_func_num, ,, [MAX_TILE_PREV_NO], S, ,)\
-    CMD(a, b, c, d, e, TILE_FUNC_ID_ENUM, next_func_num, ,, [MAX_TILE_BRANCH_NO], S, ,)\
+    CMD(a, b, c, d, e, int, last_func_num, ,, [MAX_TILE_PREV_NO], S, ,)\
+    CMD(a, b, c, d, e, int, next_func_num, ,, [MAX_TILE_BRANCH_NO], S, ,)\
     CMD(a, b, c, d, e, TILE_HORZ_BACKUP_BUFFER, horz_para, ,, [MAX_TILE_BACKUP_HORZ_NO], S, ,)\
-    CMD(a, b, c, d, e, TILE_GROUP_NUM_ENUM, group_num, , ,, S, ,)\
-	CMD(a, b, c, d, e, unsigned int, func_ptr_flag, , ,, S, ,)\
 
 /* register table ( , , tile driver) for tile driver only parameters */
 /* a, b, c, d, e reserved */
@@ -600,46 +438,6 @@ typedef enum TILE_RESIZER_MODE_ENUM {
     CMD(a, b, c, d, e, int, ,, run_mode, , , ,, 2)\
 	/* frame mode flag */\
     CMD(a, b, c, d, e, int, ,, first_frame, , , ,, 2)/* first frame to run frame mode */\
-    /* used_word_no */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no, , , ,, 2)\
-    /* used_word_no_d */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_d, , , ,, 2)\
-    /* used_word_no */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_wpe, , , ,, 2)\
-    /* used_word_no_d */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_d_wpe, , , ,, 2)\
-    /* used_word_no */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_mfb, , , ,, 2)\
-    /* used_word_no */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_mss, , , ,, 2)\
-    /* used_word_no_internal */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_internal, , , ,, 2)\
-    /* used_word_no_internal_d */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_internal_d, , , ,, 2)\
-    /* used_word_no_internal */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_internal_wpe, , , ,, 2)\
-    /* used_word_no_internal_d */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_internal_d_wpe, , , ,, 2)\
-    /* used_word_no_internal */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_internal_mfb, , , ,, 2)\
-    /* used_word_no_internal */\
-    CMD(a, b, c, d, e, int, ,, isp_used_word_no_internal_mss, , , ,, 2)\
-    /* config_no_per_tile */\
-    CMD(a, b, c, d, e, int, ,, isp_config_no_per_tile, , , ,, 2)\
-    /* config_no_per_tile_internal */\
-    CMD(a, b, c, d, e, int, ,, isp_config_no_per_tile_internal, , , ,, 2)\
-    /* config_no_per_tile */\
-    CMD(a, b, c, d, e, int, ,, isp_config_no_per_tile_wpe, , , ,, 2)\
-    /* config_no_per_tile_internal */\
-    CMD(a, b, c, d, e, int, ,, isp_config_no_per_tile_internal_wpe, , , ,, 2)\
-    /* config_no_per_tile */\
-    CMD(a, b, c, d, e, int, ,, isp_config_no_per_tile_mfb, , , ,, 2)\
-    /* config_no_per_tile_internal */\
-    CMD(a, b, c, d, e, int, ,, isp_config_no_per_tile_internal_mfb, , , ,, 2)\
-    /* config_no_per_tile */\
-    CMD(a, b, c, d, e, int, ,, isp_config_no_per_tile_mss, , , ,, 2)\
-    /* config_no_per_tile_internal */\
-    CMD(a, b, c, d, e, int, ,, isp_config_no_per_tile_internal_mss, , , ,, 2)\
     /* vertical_tile_no */\
     CMD(a, b, c, d, e, int, ,, curr_vertical_tile_no, , , ,, 2)\
     /* horizontal_tile_no */\
@@ -649,14 +447,10 @@ typedef enum TILE_RESIZER_MODE_ENUM {
     /* used_tile_no */\
     CMD(a, b, c, d, e, int, ,, used_tile_no, , , ,, 2)\
     CMD(a, b, c, d, e, int, ,, valid_tile_no, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, valid_tile_no_d, , , ,, 2)\
-	/* tile dual count */\
-    CMD(a, b, c, d, e, int, ,, tile_sel_order, , , ,, 2)\
     /* tile cal & dump order flag */\
     CMD(a, b, c, d, e, unsigned int, ,, src_stream_order, , , ,, 0)/* keep isp src_stream_order */\
     CMD(a, b, c, d, e, unsigned int, ,, src_cal_order, , , ,, 1)/* copy RDMA in_cal_order */\
     CMD(a, b, c, d, e, unsigned int, ,, src_dump_order, , , ,, 1)/* copy RDMA in_dump_order */\
-    CMD(a, b, c, d, e, unsigned int, ,, dual_dispatch_mode, , , ,, 1)/* dispatch method */\
     /* skip tile mode by c model */\
     CMD(a, b, c, d, e, int, ,, skip_tile_mode, , , ,, 0)\
     /* sub mode */\
@@ -668,47 +462,13 @@ typedef enum TILE_RESIZER_MODE_ENUM {
     CMD(a, b, c, d, e, int, ,, first_func_en_no, , , ,, 2)\
     /* last func no */\
     CMD(a, b, c, d, e, int, ,, last_func_en_no, , , ,, 2)\
-    /* tdr skip flag */\
-    CMD(a, b, c, d, e, int, ,, tdr_dump_skip, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, tdr_skip_count, , , ,, 2)\
-	/* last irq count for sorting & skip tdr */\
-    CMD(a, b, c, d, e, int, ,, last_irq_en, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, irq_disable_count, , , ,, 2)\
-    /* skip tile mode by c model */\
-    CMD(a, b, c, d, e, int, ,, run_c_model_direct_link, , , ,, 1)\
     /* debug mode with invalid offset to enable recursive forward*/\
     CMD(a, b, c, d, e, int, ,, recursive_forward_en, , , ,, 2)\
     /* max input width */\
     CMD(a, b, c, d, e, int, ,, max_input_width, , , ,, 2)\
     /* max input height */\
     CMD(a, b, c, d, e, int, ,, max_input_height, , , ,, 2)\
-	/* max input width */\
-    CMD(a, b, c, d, e, int, ,, max_input_width_wpe, , , ,, 2)\
-    /* max input height */\
-    CMD(a, b, c, d, e, int, ,, max_input_height_wpe, , , ,, 2)\
-	/* max input width */\
-    CMD(a, b, c, d, e, int, ,, max_input_width_mfb, , , ,, 2)\
-    /* max input height */\
-    CMD(a, b, c, d, e, int, ,, max_input_height_mfb, , , ,, 2)\
-	/* max input width */\
-    CMD(a, b, c, d, e, int, ,, max_input_width_mss, , , ,, 2)\
-    /* max input height */\
-    CMD(a, b, c, d, e, int, ,, max_input_height_mss, , , ,, 2)\
-	/* smt config */\
-    CMD(a, b, c, d, e, int, ,, smt_tdr_found, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, smt_tdr_found_d, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, twin_tdr_start, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, input_width_sum, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, input_width_sum_d, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, hw_input_width_sum, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, hw_input_width_sum_d, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, input_height_sum, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, hw_input_height_sum, , , ,, 2)\
     /* Tile IRQ */\
-    CMD(a, b, c, d, e, int, ,, TDR_EDGE, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, CDP_TDR_EDGE, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, TILE_IRQ, , , ,, 2)\
-    CMD(a, b, c, d, e, int, ,, LAST_IRQ, , , ,, 2)\
     CMD(a, b, c, d, e, int, ,, CTRL_TILE_LOAD_SIZE, , , ,, 2)\
     CMD(a, b, c, d, e, int, ,, WPE_CTRL_TILE_LOAD_SIZE, , , ,, 2)\
     CMD(a, b, c, d, e, int, ,, MFB_CTRL_TILE_LOAD_SIZE, , , ,, 2)\
@@ -744,17 +504,6 @@ typedef enum TILE_RESIZER_MODE_ENUM {
 #define TILE_TYPE_CROP_EN (0x8)
 #define TILE_TYPE_DONT_CARE_END (0x10) /* used by dpframework & sub_out*/
 
-/* edge enum */
-typedef enum TILE_TDR_EDGE_GROUP_ENUM {
-    TILE_TDR_EDGE_GROUP_DEFAULT = 0,/* pass by last module */
-    TILE_TDR_EDGE_GROUP_ISP,
-    TILE_TDR_EDGE_GROUP_CDP,
-    TILE_TDR_EDGE_GROUP_MDP,
-    TILE_TDR_EDGE_GROUP_WDMA,/* wdma, end at same time */
-    TILE_TDR_EDGE_GROUP_OTHER,/* don't care */
-	TILE_TDR_EDGE_GROUP_NO
-} TILE_TDR_EDGE_GROUP_ENUM;
-
 #define TILE_WRAPPER_DATA_TYPE_DECLARE(a, b, c, d, e, f, g, h, i, j, k, m, n, ...) f g j;
 #define TILE_HW_REG_TYPE_DECLARE(a, b, c, d, e, f, g, h, i, j, ...) f i j;
 
@@ -771,37 +520,6 @@ typedef enum TILE_TDR_EDGE_GROUP_ENUM {
 #define TILE_WRAPPER_HORZ_PARA_RESTORE_U(a, b, g, i) (b)->g = (a)->g;
 #define TILE_WRAPPER_HORZ_PARA_RESTORE_M(a, b, g, i) (b)->g = (((b)->g) & (~(i) & 0xF)) | (((a)->g) & (i));
 
-/* register convert tile function */
-//a: current func no
-//b: ptr of func_en_id[0]
-//c: func id
-//d: name
-//e: valid condition
-/* list all functions enable or not */
-#define TILE_OUTPUT_DISABLE_CHECK(a, last_no, result, b, c, d, e) \
-	if (ISP_MESSAGE_TILE_OK == (result)) {\
-	if (c == (a)->func_num) {\
-			if ((last_no) != (int)(c)) {\
-				(last_no) = (c);\
-				if (e) {\
-					(a)->output_disable_flag = true;\
-				} \
-			} \
-			else {\
-				if (e) {\
-					if ((a)->output_disable_flag) {\
-						(result) = ISP_MESSAGE_DUPLICATED_FUNC_DISABLE_OUTPUT_FOUND_ERROR;\
-						tile_driver_printf("Error: %s\r\n", tile_print_error_message(result));\
-						tile_driver_printf("Duplicated func: %s, id: %d\r\n", #d, c);\
-					} \
-					else {\
-						(a)->output_disable_flag = true;\
-					} \
-				} \
-			} \
-		} \
-    } \
-
 /* init tile function */
 //a: ptr of current TILE_FUNC_BLOCK_STRUCT
 //b: ptr of current TILE_CAL_FUNC_STRUCT
@@ -815,70 +533,38 @@ typedef enum TILE_TDR_EDGE_GROUP_ENUM {
 //p1~p4: fun ptr
 #define INIT_TILE_FUNC(a, b, c, d, e, f, mx, my, g, h, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, p1, p2, p3, p4, r1, r2, m1, m2) \
 	if (false == (b)) {\
-	if ((g) == (a)->func_num) {\
-			ISP_TILE_MESSAGE_ENUM(*init_func_ptr)(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT * ptr_tile_reg_map) = p1;\
-			ISP_TILE_MESSAGE_ENUM(*for_func_ptr)(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT * ptr_tile_reg_map) = p2;\
-			ISP_TILE_MESSAGE_ENUM(*back_func_ptr)(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT * ptr_tile_reg_map) = p3;\
-			ISP_TILE_MESSAGE_ENUM(*tdr_func_ptr)(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT * ptr_tile_reg_map) = p4;\
+		if ((g) == (a)->func_num) {\
+			enum isp_tile_message (*init_func_ptr)(struct tile_func_block *ptr_func, struct tile_reg_map *ptr_tile_reg_map) = p1;\
+			enum isp_tile_message (*for_func_ptr)(struct tile_func_block *ptr_func, struct tile_reg_map *ptr_tile_reg_map) = p2;\
+			enum isp_tile_message (*back_func_ptr)(struct tile_func_block *ptr_func, struct tile_reg_map *ptr_tile_reg_map) = p3;\
 			(a)->run_mode = TILE_RUN_MODE_MAIN;\
 			(a)->type = (t1);\
-	    (a)->tdr_group = (TILE_TDR_EDGE_GROUP_ENUM)(t2);\
-	    (a)->l_tile_loss = (t3);\
-	    (a)->r_tile_loss = (t4);\
-	    (a)->t_tile_loss = (t5);\
-	    (a)->b_tile_loss = (t6);\
-	    (a)->in_const_x = (t7);\
-	    (a)->in_const_y = (t8);\
-	    (a)->out_const_x = (t9);\
-	    (a)->out_const_y = (t10);\
-			(a)->func_ptr_flag = 0x0;\
-			(a)->group_num = (d);\
+			(a)->l_tile_loss = (t3);\
+			(a)->r_tile_loss = (t4);\
+			(a)->t_tile_loss = (t5);\
+			(a)->b_tile_loss = (t6);\
+			(a)->in_const_x = (t7);\
+			(a)->in_const_y = (t8);\
+			(a)->out_const_x = (t9);\
+			(a)->out_const_y = (t10);\
 			(a)->in_min_width = (m1);\
 			(a)->in_min_height = (m2);\
-			if (init_func_ptr) {\
-				(a)->init_func_ptr = init_func_ptr;\
-				(a)->func_ptr_flag |= TILE_INIT_FUNC_PTR_FLAG;\
-			} \
-			else {\
-				(a)->init_func_ptr = NULL;\
-			} \
-			if (for_func_ptr) {\
-				(a)->for_func_ptr = for_func_ptr;\
-				(a)->func_ptr_flag |= TILE_FOR_FUNC_PTR_FLAG;\
-			} \
-			else {\
-				(a)->for_func_ptr = NULL;\
-			} \
-			if (back_func_ptr) {\
-				(a)->back_func_ptr = back_func_ptr;\
-				(a)->func_ptr_flag |= TILE_BACK_FUNC_PTR_FLAG;\
-			} \
-			else {\
-				(a)->back_func_ptr = NULL;\
-			} \
-			if (tdr_func_ptr) {\
-				(a)->tdr_func_ptr = tdr_func_ptr;\
-				(a)->func_ptr_flag |= TILE_TDR_FUNC_PTR_FLAG;\
-			} \
-			else {\
-				(a)->tdr_func_ptr = NULL;\
-			} \
+			(a)->init_func_ptr = init_func_ptr;\
+			(a)->for_func_ptr = for_func_ptr;\
+			(a)->back_func_ptr = back_func_ptr;\
 			if (r1) {\
 				if (e) {\
 					(a)->in_tile_width = (e);\
-				} \
-				else {\
+				} else {\
 					if (r1 == 1) {\
 						tile_driver_printf("Error [%s] wrong initial in tile width = 1, recover to %d\r\n", #h, f);\
 						(a)->in_tile_width = (f);\
-					} \
-					else {\
+					} else {\
 						(a)->in_tile_width = (r1);\
 					} \
 				} \
 				(a)->in_tile_height = MAX_TILE_HEIGHT_HW;\
-			} \
-			else {\
+			} else {\
 				(a)->in_tile_width = 0;\
 				(a)->in_tile_height = 0;\
 			} \
@@ -887,8 +573,7 @@ typedef enum TILE_TDR_EDGE_GROUP_ENUM {
 			if (r2) {\
 				if (e) {\
 					(a)->out_tile_width = (e);\
-				} \
-				else {\
+				} else {\
 					if (r2 == 1) {\
 						tile_driver_printf("Error [%s] wrong initial out tile width = 1, recover to %d\r\n", #h, f);\
 						(a)->out_tile_width = (f);\
@@ -897,8 +582,7 @@ typedef enum TILE_TDR_EDGE_GROUP_ENUM {
 					} \
 				} \
 				(a)->out_tile_height = MAX_TILE_HEIGHT_HW;\
-			} \
-			else {\
+			} else {\
 				(a)->out_tile_width = 0;\
 				(a)->out_tile_height = 0;\
 			} \
@@ -908,7 +592,6 @@ typedef enum TILE_TDR_EDGE_GROUP_ENUM {
 			(a)->in_log_height = 0;\
 			(a)->out_log_width = 0;\
 			(a)->out_log_height = 0;\
-			(a)->smt_enable_flag  = 0;\
 	    (b) = true;\
 	} \
     } \
@@ -940,174 +623,37 @@ typedef struct TILE_HORZ_BACKUP_BUFFER {
     TILE_FUNC_BLOCK_LUT(TILE_WRAPPER_HORZ_PARA_DECLARE, , , , ,)
 } TILE_HORZ_BACKUP_BUFFER;
 
-typedef struct TILE_RESIZER_FORWARD_CAL_ARG_STRUCT {
-    int mode;
-    int in_pos_start;
-    int in_pos_end;
-    int bias;
-    int offset;
-    int in_bias;
-    int in_offset;
-    int in_bias_c;
-    int in_offset_c;
-    int prec_bits;
-    int config_bits;
-    CAM_UV_ENUM align_flag;/* CAM_UV_444_FLAG (1), CAM_UV_422_FLAG (0) */
-    CAM_UV_ENUM uv_flag;/* CAM_UV_444_FLAG (1), CAM_UV_422_FLAG (0) */
-    int max_in_pos_end;
-    int max_out_pos_end;
-    int out_pos_start;/* output */
-    int out_pos_end;/* output */
-    CAM_DIR_ENUM dir_mode;/* CAM_DIR_X (0), CAM_DIR_Y (1) */
-    int coeff_step;
-    int offset_cal_start;
-} TILE_RESIZER_FORWARD_CAL_ARG_STRUCT;
-
-typedef struct TILE_RESIZER_BACKWARD_CAL_ARG_STRUCT {
-    int mode;
-    int out_pos_start;
-    int out_pos_end;
-    int bias;
-    int offset;
-    int prec_bits;
-    int config_bits;
-    CAM_UV_ENUM align_flag;/* CAM_UV_444_FLAG (1), CAM_UV_422_FLAG (0) */
-    CAM_UV_ENUM uv_flag;/* CAM_UV_444_FLAG (1), CAM_UV_422_FLAG (0) */
-    int max_in_pos_end;
-    int max_out_pos_end;
-    int in_pos_start;/* output */
-    int in_pos_end;/* output */
-    CAM_DIR_ENUM dir_mode;/* CAM_DIR_X (0), CAM_DIR_Y (1) */
-    int coeff_step;
-} TILE_RESIZER_BACKWARD_CAL_ARG_STRUCT;
-
 /* tile reg & variable */
-typedef struct _TILE_REG_MAP_STRUCT {
-    /* COMMON */
-    COMMON_TILE_INTERNAL_REG_LUT(TILE_HW_REG_TYPE_DECLARE, , , , ,)
-    /* MDP */
-    int CAMIN_EN;
-    int CAMIN2_EN;
-    int CAMIN3_EN;
-    int CAMIN4_EN;
-    int RDMA0_EN;
-    int RDMA1_EN;
-    int RDMA2_EN;
-    int RDMA3_EN;
-    int FG0_EN;
-    int FG1_EN;
-    int PQ0_SOUT_EN;
-    int PQ1_SOUT_EN;
-    int HDR0_EN;
-    int HDR1_EN;
-    int COLOR0_EN;
-    int COLOR1_EN;
-    int AAL0_EN;
-    int AAL1_EN;
-    int AAL2_EN;
-    int AAL3_EN;
-    int PRZ0_EN;
-    int PRZ1_EN;
-    int PRZ2_EN;
-    int PRZ3_EN;
-    int TDSHP0_EN;
-    int TDSHP1_EN;
-    int TDSHP2_EN;
-    int TDSHP3_EN;
-    int WROT0_EN;
-    int WROT1_EN;
-    int WROT2_EN;
-    int WROT3_EN;
-    int TCC0_EN;
-    int TCC1_EN;
-    int TCC2_EN;
-    int TCC3_EN;
-    /* MUX - mout */\
-    int CAMIN_OUT;
-    int CAMIN2_OUT;
-    int CAMIN3_OUT;
-    int CAMIN4_OUT;
-    int RDMA0_OUT;
-    int RDMA1_OUT;
-    int RDMA2_OUT;
-    int RDMA3_OUT;
-    int AAL0_OUT;
-    int AAL1_OUT;
-    /* MUX - sel in */\
-    int PQ0_SEL;
-    int PQ1_SEL;
-    int PQ2_SEL;
-    int PQ3_SEL;
-    int HDR0_SEL;
-    int HDR1_SEL;
-    int PRZ0_SEL;
-    int PRZ1_SEL;
-    int PRZ2_SEL;
-    int PRZ3_SEL;
-    int WROT0_SEL;
-    int WROT1_SEL;
-    int WROT2_SEL;
-    int WROT3_SEL;
-    /* MUX - sel out */\
-    int PQ0_SOUT;
-    int PQ1_SOUT;
-    int TCC0_SOUT;
-    int TCC1_SOUT;
-    TILE_RESIZER_BACKWARD_CAL_ARG_STRUCT back_arg;
-    TILE_RESIZER_FORWARD_CAL_ARG_STRUCT for_arg;
+typedef struct tile_reg_map {
+	/* COMMON */
+	COMMON_TILE_INTERNAL_REG_LUT(TILE_HW_REG_TYPE_DECLARE, , , , ,)
 } TILE_REG_MAP_STRUCT;
 
-struct TILE_FUNC_DATA_STRUCT;
 /* self reference type */
-typedef struct TILE_FUNC_BLOCK_STRUCT {
+typedef struct tile_func_block {
 	TILE_FUNC_BLOCK_LUT(TILE_WRAPPER_DATA_TYPE_DECLARE, , , , ,)
-	ISP_TILE_MESSAGE_ENUM(*init_func_ptr)(struct TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT * ptr_tile_reg_map);
-    ISP_TILE_MESSAGE_ENUM(*for_func_ptr)(struct TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT * ptr_tile_reg_map);
-    ISP_TILE_MESSAGE_ENUM(*back_func_ptr)(struct TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT * ptr_tile_reg_map);
-    ISP_TILE_MESSAGE_ENUM(*tdr_func_ptr)(struct TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT * ptr_tile_reg_map);
-    struct TILE_FUNC_DATA_STRUCT *func_data;
+	enum isp_tile_message (*init_func_ptr)(struct tile_func_block *ptr_func, struct tile_reg_map *ptr_tile_reg_map);
+	enum isp_tile_message (*for_func_ptr)(struct tile_func_block *ptr_func, struct tile_reg_map *ptr_tile_reg_map);
+	enum isp_tile_message (*back_func_ptr)(struct tile_func_block *ptr_func, struct tile_reg_map *ptr_tile_reg_map);
+	union mml_tile_data *func_data;
 } TILE_FUNC_BLOCK_STRUCT;
 
-typedef struct TILE_FUNC_ENABLE_STRUCT {
-    TILE_FUNC_ID_ENUM func_num;
-    bool enable_flag;
-    bool output_disable_flag;
+typedef struct tile_func_enable {
+	int func_num;
+	bool enable_flag;
+	bool output_disable_flag;
 } TILE_FUNC_ENABLE_STRUCT;
 
 /* tile function interface to be compatiable with new c model */
-typedef struct FUNC_DESCRIPTION_STRUCT {
-    unsigned char used_func_no;
-    unsigned char used_en_func_no;
-    unsigned char used_subrdma_func_no;
-    unsigned int  valid_flag[(MAX_TILE_FUNC_NO + 31) / 32];
-    unsigned int for_recursive_count;
-    unsigned char scheduling_forward_order[MAX_TILE_FUNC_NO];
-    unsigned char scheduling_backward_order[MAX_TILE_FUNC_NO];
-	TILE_FUNC_BLOCK_STRUCT func_list[MAX_TILE_FUNC_NO];
-    TILE_FUNC_ENABLE_STRUCT func_en_list[MAX_TILE_FUNC_EN_NO];
+typedef struct func_description {
+	unsigned char used_func_no;
+	unsigned char used_en_func_no;
+	unsigned int valid_flag[(MAX_TILE_FUNC_NO + 31) / 32];
+	unsigned int for_recursive_count;
+	unsigned char scheduling_forward_order[MAX_TILE_FUNC_NO];
+	unsigned char scheduling_backward_order[MAX_TILE_FUNC_NO];
+	struct tile_func_block func_list[MAX_TILE_FUNC_NO];
+	struct tile_func_enable func_en_list[MAX_TILE_FUNC_EN_NO];
 } FUNC_DESCRIPTION_STRUCT;
-
-typedef struct DIRECT_LINK_INFORMATION_STRUCT {
-    int out_pos_xs;/* tile start */
-    int out_pos_xe;/* tile end */
-    int out_pos_ys;/* tile start */
-    int out_pos_ye;/* tile end */
-    int h_end_flag;/* tile h_end_flag */
-    int v_end_flag;/* tile v_end_flag */
-	int min_tile_out_pos_xs;/* diff view min tile pos */
-	int min_tile_out_pos_xe;/* diff view min tile pos */
-	int min_tile_out_pos_ys;/* diff view min tile pos */
-	int min_tile_out_pos_ye;/* diff view min tile pos */
-	int tdr_h_disable_flag;/* diff view flag */
-	int tdr_v_disable_flag;/* diff view flag */
-} DIRECT_LINK_INFORMATION_STRUCT;
-
-typedef struct DIRECT_LINK_DUMP_STRUCT {
-    int used_tile_no;
-    int total_tile_no;
-	int func_num;
-	DIRECT_LINK_INFORMATION_STRUCT frame_info;
-	DIRECT_LINK_INFORMATION_STRUCT tile_info[MAX_TILE_TOT_NO];
-} DIRECT_LINK_DUMP_STRUCT;
 
 #endif

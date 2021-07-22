@@ -358,10 +358,9 @@ static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 
 static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg,
-			     void *ptr_func, void *tile_data)
+			     struct tile_func_block *func,
+			     union mml_tile_data *data)
 {
-	TILE_FUNC_BLOCK_STRUCT *func = (TILE_FUNC_BLOCK_STRUCT*)ptr_func;
-	union mml_tile_data *data = (union mml_tile_data *)tile_data;
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
@@ -371,7 +370,7 @@ static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	data->wrot_data.rotate = dest->rotate;
 	data->wrot_data.flip = dest->flip;
 	data->wrot_data.alpharot = cfg->alpharot;
-	data->wrot_data.enable_crop = cfg->dual? true: false;
+	data->wrot_data.enable_crop = cfg->dual ? true: false;
 
 	/* reuse wrot_frm data which processed with rotate and dual */
 	data->wrot_data.crop_left = wrot_frm->out_x_off;
@@ -382,7 +381,7 @@ static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	func->full_size_y_out = wrot_frm->out_h;
 
 	data->wrot_data.max_width = wrot->data->tile_width;
-	func->func_data = (struct TILE_FUNC_DATA_STRUCT*)(&data->wrot_data);
+	func->func_data = data;
 	func->enable_flag = true;
 
 	return 0;
@@ -391,7 +390,6 @@ static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 static const struct mml_comp_tile_ops wrot_tile_ops = {
 	.prepare = wrot_tile_prepare,
 };
-
 
 static u32 wrot_get_label_count(struct mml_comp *comp, struct mml_task *task)
 {
