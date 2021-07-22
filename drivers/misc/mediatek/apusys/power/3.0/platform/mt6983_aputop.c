@@ -402,6 +402,9 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump)
 		pr_info(
 		"%s RCX APU_RPC_INTF_PWR_RDY:0x%08x APU_VCORE_CG_CON:0x%08x APU_RCX_CG_CON:0x%08x\n",
 				__func__, status1, status2, status3);
+
+		print_hex_dump(KERN_ERR, "rpc: ", DUMP_PREFIX_OFFSET,
+				16, 4, apupw.regs[apu_rpc], 0x100, 1);
 	}
 
 	if (!IS_ERR_OR_NULL(dump)) {
@@ -811,6 +814,10 @@ static int mt6983_apu_top_off(struct device *dev)
 
 	pr_info("%s +\n", __func__);
 
+#ifdef APMCU_REQ_RPC_SLEEP
+	// backup solution : send request for RPC sleep from APMCU
+	__apu_sleep_rpc_rcx(dev);
+#endif
 	// blocking until sleep success or timeout
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
@@ -833,7 +840,7 @@ static void __apu_aoc_init(void)
 {
 	pr_info("AOC init %s %d ++\n", __func__, __LINE__);
 
-#if !CFG_FPGA
+//#if !CFG_FPGA
 	// Step1. Switch APU AOC control signal from SW register
 	//	  to HW path (RPC)
 	// rpc_sram_ctrl_mux_sel
@@ -847,7 +854,7 @@ static void __apu_aoc_init(void)
 	//	  (disable SW mode to manually control Buck on/off)
 	// vapu_ext_buck_iso
 	apu_clearl((0x1 << 4), apupw.regs[sys_spm] + 0xf30);
-#endif
+//#endif
 
 	// Step3. Roll back to APU Buck on stage
 	//	The following setting need to in order
@@ -988,7 +995,7 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	pr_info("%s fpga_type : %d\n", __func__, fpga_type);
+	pr_info("%s paul dbg fpga_type : %d\n", __func__, fpga_type);
 
 	init_reg_base(pdev);
 
@@ -1013,28 +1020,28 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 		pr_info("%s bypass pre-power-ON\n", __func__);
 		break;
 	case 1: // power on : RCX_TOP/ACX0_TOP/ACX1_TOP/ACX0_MVPU0/ACX1_MVPU0
-		mt6983_apu_top_on(&pdev->dev);
+		pm_runtime_get_sync(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, VPU0, 1);
 		break;
 	case 2: // power on : RCX_TOP/ACX0_TOP/ACX1_TOP/ACX0_MVPU0/ACX1_MDLA0
-		mt6983_apu_top_on(&pdev->dev);
+		pm_runtime_get_sync(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
 		break;
 	case 3: // power on : RCX_TOP/ACX0_TOP/ACX1_TOP/ACX0_MDLA0/ACX1_MDLA0
-		mt6983_apu_top_on(&pdev->dev);
+		pm_runtime_get_sync(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, DLA0, 1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX1, DLA0, 1);
 		break;
 	case 9: // power on : RCX_TOP/ACX0_TOP/ACX1_TOP/All_MVPU/ALL_MDLA
-		mt6983_apu_top_on(&pdev->dev);
+		pm_runtime_get_sync(&pdev->dev);
 		__apu_wake_rpc_acx(&pdev->dev, ACX0);
 		__apu_wake_rpc_acx(&pdev->dev, ACX1);
 		__apu_pwr_ctl_acx_engines(&pdev->dev, ACX0, VPU0, 1);
@@ -1056,6 +1063,9 @@ static int mt6983_apu_top_rm(struct platform_device *pdev)
 	int idx;
 
 	pr_info("%s +\n", __func__);
+
+	if (fpga_type != 0)
+		pm_runtime_put_sync(&pdev->dev);
 
 #if !CFG_FPGA
 	destroy_plat_pwr_res();

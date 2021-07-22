@@ -14,6 +14,7 @@
 #define ENABLE_SW_BUCK_CTL	(0)	// backup solution, default HW auto ctl
 #define ENABLE_SOC_CLK_MUX	(1)	// using soc clk for bringup usage
 #define DEBUG_DUMP_REG		(0)	// dump overall apu registers for debug
+#define APMCU_REQ_RPC_SLEEP	(1)
 
 #define VAPU_DEF_VOLT		(750000)	// 0.75v
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
