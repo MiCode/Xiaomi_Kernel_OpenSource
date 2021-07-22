@@ -13,6 +13,7 @@
 
 #include <linux/seq_file.h>
 #include <linux/sched/clock.h>
+#include <linux/iommu.h>
 #include "mtk_heap.h"
 
 #define DUMP_INFO_LEN_MAX    (400)
@@ -105,6 +106,7 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 	struct dma_buf_attachment *attach_obj;
 	int ret;
 	dma_addr_t iova = 0x0;
+
 	/*
 	 * if heap is NULL, dump all buffer
 	 * if heap is not NULL, dump matched buffer
@@ -125,8 +127,11 @@ int dma_heap_default_attach_dump_cb(const struct dma_buf *dmabuf,
 		    dmabuf->name?:"NULL");
 
 	list_for_each_entry(attach_obj, &dmabuf->attachments, node) {
+		iova = (dma_addr_t)-1;
+
 		if (attach_obj->sgt)
-			iova = sg_dma_address(attach_obj->sgt->sgl);
+			if (dev_iommu_fwspec_get(attach_obj->dev))
+				iova = sg_dma_address(attach_obj->sgt->sgl);
 
 		dmabuf_dump(s, "\tdev:%-16s, iova:0x%-16lx, sgt:0x%-8p, attr:%-4lu, dir:%-4d"
 #ifdef CONFIG_DMABUF_SYSFS_STATS
