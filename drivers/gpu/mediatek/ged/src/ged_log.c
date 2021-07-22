@@ -527,10 +527,20 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 			psGEDLogBuf->psLine[i].offset = -1;
 	}
 
-	if (pszName)
-		snprintf(psGEDLogBuf->acName,
-			GED_LOG_BUF_NAME_LENGTH, "%s", pszName);
+	if (pszName) {
+		int cx;
 
+		cx = snprintf(psGEDLogBuf->acName,
+			GED_LOG_BUF_NAME_LENGTH, "%s", pszName);
+		if (cx < 0 || cx >= GED_LOG_BUF_NAME_LENGTH) {
+			GED_LOGE("Failed to snprintf (%s)!\n",
+				pszName);
+			ged_free(psGEDLogBuf->pMemory,
+				psGEDLogBuf->i32MemorySize);
+			ged_free(psGEDLogBuf, sizeof(struct GED_LOG_BUF));
+			return (GED_LOG_BUF_HANDLE)0;
+		}
+	}
 
 	// Add into the global list
 	INIT_LIST_HEAD(&psGEDLogBuf->sList);
