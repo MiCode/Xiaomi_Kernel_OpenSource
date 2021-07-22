@@ -6,6 +6,8 @@
 #ifndef __GPUFREQ_V2_H__
 #define __GPUFREQ_V2_H__
 
+#include <uapi/asm-generic/errno-base.h>
+
 /**************************************************
  * Definition
  **************************************************/
@@ -49,9 +51,10 @@
 enum gpufreq_return {
 	GPUFREQ_HW_LIMIT = 1,
 	GPUFREQ_SUCCESS = 0,
-	GPUFREQ_EINVAL = -1,
-	GPUFREQ_ENOMEM = -2,
-	GPUFREQ_ENOENT = -3,
+	GPUFREQ_EINVAL = -EINVAL,  // -22
+	GPUFREQ_ENOMEM = -ENOMEM,  // -12
+	GPUFREQ_ENOENT = -ENOENT,  // -2
+	GPUFREQ_ENODEV = -ENODEV,  // -19
 };
 
 enum gpufreq_postdiv {

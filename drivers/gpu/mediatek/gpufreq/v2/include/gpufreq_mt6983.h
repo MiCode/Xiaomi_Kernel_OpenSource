@@ -31,7 +31,8 @@
 /* feature control */
 #define GPUFREQ_PDCv2_ENABLE            (0)
 #define GPUFREQ_VCORE_DVFS_ENABLE       (0)
-#define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (1)
+#define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (0)
+#define GPUFREQ_FORCE_4_CORES           (1)
 
 /**************************************************
  * Clock Setting

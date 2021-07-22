@@ -2601,64 +2601,57 @@ static int __gpufreq_init_mtcmos(struct platform_device *pdev)
 	}
 
 	g_mtcmos->mfg0_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg0");
-	if (IS_ERR(g_mtcmos->mfg0_dev)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get mfg0_dev (%ld)", PTR_ERR(g_mtcmos->mfg0_dev));
-		ret = PTR_ERR(g_mtcmos->mfg0_dev);
+	if (IS_ERR_OR_NULL(g_mtcmos->mfg0_dev)) {
+		ret = g_mtcmos->mfg0_dev ? PTR_ERR(g_mtcmos->mfg0_dev) : GPUFREQ_ENODEV;
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get mfg0_dev (%ld)", ret);
 		goto done;
 	}
 	dev_pm_syscore_device(g_mtcmos->mfg0_dev, true);
 
 	g_mtcmos->mfg1_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg1");
-	if (IS_ERR(g_mtcmos->mfg1_dev)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get mfg1_dev (%ld)", PTR_ERR(g_mtcmos->mfg1_dev));
-		ret = PTR_ERR(g_mtcmos->mfg1_dev);
+	if (IS_ERR_OR_NULL(g_mtcmos->mfg1_dev)) {
+		ret = g_mtcmos->mfg1_dev ? PTR_ERR(g_mtcmos->mfg1_dev) : GPUFREQ_ENODEV;
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get mfg1_dev (%ld)", ret);
 		goto done;
 	}
 	dev_pm_syscore_device(g_mtcmos->mfg1_dev, true);
 
 	g_mtcmos->mfg2_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg2");
-	if (IS_ERR(g_mtcmos->mfg2_dev)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get mfg2_dev (%ld)", PTR_ERR(g_mtcmos->mfg2_dev));
-		ret = PTR_ERR(g_mtcmos->mfg2_dev);
+	if (IS_ERR_OR_NULL(g_mtcmos->mfg2_dev)) {
+		ret = g_mtcmos->mfg2_dev ? PTR_ERR(g_mtcmos->mfg2_dev) : GPUFREQ_ENODEV;
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get mfg2_dev (%ld)", ret);
 		goto done;
 	}
 	dev_pm_syscore_device(g_mtcmos->mfg2_dev, true);
 
 	g_mtcmos->mfg3_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg3");
-	if (IS_ERR(g_mtcmos->mfg3_dev)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get mfg3_dev (%ld)", PTR_ERR(g_mtcmos->mfg3_dev));
-		ret = PTR_ERR(g_mtcmos->mfg3_dev);
+	if (IS_ERR_OR_NULL(g_mtcmos->mfg3_dev)) {
+		ret = g_mtcmos->mfg3_dev ? PTR_ERR(g_mtcmos->mfg3_dev) : GPUFREQ_ENODEV;
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get mfg3_dev (%ld)", ret);
 		goto done;
 	}
 	dev_pm_syscore_device(g_mtcmos->mfg3_dev, true);
 
 	g_mtcmos->mfg4_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg4");
-	if (IS_ERR(g_mtcmos->mfg4_dev)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get mfg4_dev (%ld)", PTR_ERR(g_mtcmos->mfg4_dev));
-		ret = PTR_ERR(g_mtcmos->mfg4_dev);
+	if (IS_ERR_OR_NULL(g_mtcmos->mfg4_dev)) {
+		ret = g_mtcmos->mfg4_dev ? PTR_ERR(g_mtcmos->mfg4_dev) : GPUFREQ_ENODEV;
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get mfg4_dev (%ld)", ret);
 		goto done;
 	}
 	dev_pm_syscore_device(g_mtcmos->mfg4_dev, true);
 
 	g_mtcmos->mfg5_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg5");
-	if (IS_ERR(g_mtcmos->mfg5_dev)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get mfg5_dev (%ld)", PTR_ERR(g_mtcmos->mfg5_dev));
-		ret = PTR_ERR(g_mtcmos->mfg5_dev);
+	if (IS_ERR_OR_NULL(g_mtcmos->mfg5_dev)) {
+		ret = g_mtcmos->mfg5_dev ? PTR_ERR(g_mtcmos->mfg5_dev) : GPUFREQ_ENODEV;
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get mfg5_dev (%ld)", ret);
 		goto done;
 	}
 	dev_pm_syscore_device(g_mtcmos->mfg5_dev, true);
 
 	g_mtcmos->mfg6_dev = dev_pm_domain_attach_by_name(dev, "pd_mfg6");
-	if (IS_ERR(g_mtcmos->mfg6_dev)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to get mfg6_dev (%ld)", PTR_ERR(g_mtcmos->mfg6_dev));
-		ret = PTR_ERR(g_mtcmos->mfg6_dev);
+	if (IS_ERR_OR_NULL(g_mtcmos->mfg6_dev)) {
+		ret = g_mtcmos->mfg6_dev ? PTR_ERR(g_mtcmos->mfg6_dev) : GPUFREQ_ENODEV;
+		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION, "fail to get mfg6_dev (%ld)", ret);
 		goto done;
 	}
 	dev_pm_syscore_device(g_mtcmos->mfg6_dev, true);
