@@ -486,8 +486,6 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type)
 		return 0;
 
 	if (src_buf_info->lastframe == EOS) {
-		src_buf_info->lastframe = NON_EOS;
-
 		clean_display_buffer(ctx, src_buf->planes[0].bytesused != 0U);
 		clean_free_fm_buffer(ctx);
 
@@ -649,6 +647,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		mtk_vdec_put_fb(ctx, -1);
 		v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		src_buf_info->lastframe = NON_EOS;
 		clean_free_bs_buffer(ctx, NULL);
 
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
@@ -759,9 +758,13 @@ static void mtk_vdec_worker(struct work_struct *work)
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		src_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
 		clean_free_bs_buffer(ctx, NULL);
-		ctx->dec_flush_buf->lastframe = EOS;
-		ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 1;
-		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
+		if (ctx->dec_flush_buf->lastframe == NON_EOS) {
+			ctx->dec_flush_buf->lastframe = EOS;
+			ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 1;
+			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
+		} else {
+			mtk_v4l2_debug(1, "Stopping no need to queue dec_flush_buf.");
+		}
 	} else if ((ret == 0) && ((fourcc == V4L2_PIX_FMT_RV40) ||
 		(fourcc == V4L2_PIX_FMT_RV30) ||
 		(res_chg == false && need_more_output == false))) {
@@ -884,10 +887,14 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 			mtk_v4l2_debug(1, "Capture stream is off. No need to flush.");
 			return 0;
 		}
-		ctx->dec_flush_buf->lastframe = EOS;
-		ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 0;
-		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
-		v4l2_m2m_try_schedule(ctx->m2m_ctx);
+		if (ctx->dec_flush_buf->lastframe == NON_EOS) {
+			ctx->dec_flush_buf->lastframe = EOS;
+			ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 0;
+			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
+			v4l2_m2m_try_schedule(ctx->m2m_ctx);
+		} else {
+			mtk_v4l2_debug(1, "Stopping no need to queue cmd dec_flush_buf.");
+		}
 		break;
 
 	case V4L2_DEC_CMD_START:

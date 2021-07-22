@@ -1484,9 +1484,14 @@ static int vidioc_encoder_cmd(struct file *file, void *priv,
 			mtk_v4l2_debug(1, "Capture stream is off. No need to flush.");
 			return 0;
 		}
-		ctx->enc_flush_buf->lastframe = EOS;
-		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
-		v4l2_m2m_try_schedule(ctx->m2m_ctx);
+		if (ctx->enc_flush_buf->lastframe == NON_EOS) {
+			ctx->enc_flush_buf->lastframe = EOS;
+			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
+			v4l2_m2m_try_schedule(ctx->m2m_ctx);
+		} else {
+			mtk_v4l2_debug(1, "Stopping no need to queue cmd enc_flush_buf.");
+			return 0;
+		}
 		break;
 
 	case V4L2_ENC_CMD_START:
@@ -2207,6 +2212,7 @@ static void mtk_venc_worker(struct work_struct *work)
 	pbs_buf->dmabuf = dst_buf->planes[0].dbuf;
 
 	if (src_buf_info->lastframe == EOS) {
+		src_buf_info->lastframe = NON_EOS;
 		if (ctx->oal_vcodec == 1) {
 			ret = venc_if_encode(ctx,
 					 VENC_START_OPT_ENCODE_FRAME_FINAL,
@@ -2290,10 +2296,14 @@ static void mtk_venc_worker(struct work_struct *work)
 		 */
 		mtk_v4l2_debug(0, "[%d] EarlyEos: encode last frame %d",
 			ctx->id, src_buf->planes[0].bytesused);
-		src_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
-		dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
-		ctx->enc_flush_buf->lastframe = EOS;
-		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
+		if (ctx->enc_flush_buf->lastframe == NON_EOS) {
+			ctx->enc_flush_buf->lastframe = EOS;
+			src_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
+			dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
+			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
+		} else {
+			mtk_v4l2_debug(1, "Stopping no need to queue enc_flush_buf.");
+		}
 	}
 
 	for (i = 0; i < src_buf->num_planes ; i++) {

@@ -1517,6 +1517,7 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 			src_vb = vcu_dev->curr_src_vb[VCU_VENC];
 			dst_vb = vcu_dev->curr_dst_vb[VCU_VENC];
 		}
+
 		ret = mtk_vcu_set_buffer(vcu_queue, &mem_buff_data,
 			src_vb, dst_vb);
 		if (!IS_ERR_OR_NULL(ret)) {
