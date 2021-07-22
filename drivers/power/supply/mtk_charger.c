@@ -1910,7 +1910,7 @@ static void mtk_chg_get_tchg(struct mtk_charger *info)
 	int ret;
 	int tchg_min = -127, tchg_max = -127;
 	struct charger_data *pdata;
-	bool en;
+	bool en = false;
 
 	pdata = &info->chg_data[CHG1_SETTING];
 	ret = charger_dev_get_temperature(info->chg1_dev, &tchg_min, &tchg_max);
