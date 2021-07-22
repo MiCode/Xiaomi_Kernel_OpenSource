@@ -141,6 +141,7 @@ enum {
 #define MT6360_PMU_CHG_CTRL2	(0x12)
 #define MT6360_MASK_HZ_EN	(0x04)
 #define MT6360_MASK_CFO_EN	(0x02)
+#define MT6360_FLED_CHG_VINOVP	(MT6360_PMU_CHG_MASK2)
 
 struct mt6360_led_platform_data {
 	u32 rgbon_sync;
@@ -437,8 +438,16 @@ static int mt6360_fled_strobe_set(
 	struct mt6360_fled_classdev *mtfled_cdev = (void *)fled_cdev;
 	int id = mtfled_cdev->index, ret, regval = 0;
 
-	dev_dbg(led_cdev->dev, "%s: id[%d], state %d\n", __func__, id, state);
+	/* Un-mask fled_chg_vinovp */
+	ret = regmap_update_bits(mli->regmap,
+				 MT6360_FLED_CHG_VINOVP, 0x08, 0);
+	if (ret < 0)
+		dev_err(led_cdev->dev, "Fail to set fled_chg_vinovp, %d\n", ret);
+
+	dev_notice(led_cdev->dev, "%s: id[%d], state %d\n", __func__, id, state);
 	if (!(state ^ test_bit(id, &mli->fl_strobe_flags))) {
+		regmap_update_bits(mli->regmap,
+				   MT6360_FLED_CHG_VINOVP, 0x08, 0xff);
 		dev_dbg(led_cdev->dev,
 			"no change for strobe [%lu]\n", mli->fl_strobe_flags);
 		return 0;
@@ -497,6 +506,8 @@ static int mt6360_fled_strobe_set(
 		if (!mt6360_fled_check_flags_if_any(&mli->fl_strobe_flags))
 			usleep_range(400, 500);
 	}
+	regmap_update_bits(mli->regmap,
+			   MT6360_FLED_CHG_VINOVP, 0x08, 0xff);
 out_strobe_set:
 	return ret;
 }
@@ -1240,6 +1251,11 @@ static int mt6360_led_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* Default mask fled_chg_vinovp*/
+	ret = regmap_update_bits(mli->regmap,
+			   MT6360_FLED_CHG_VINOVP, 0x08, 0xff);
+	if (ret < 0)
+		dev_err(&pdev->dev, "Fail to set fled_chg_vinovp, %d\n", ret);
 #if IS_ENABLED(CONFIG_MTK_FLASHLIGHT)
 	/* clear attributes */
 	fd_use_count = 0;
