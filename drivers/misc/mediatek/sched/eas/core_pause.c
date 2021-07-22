@@ -37,8 +37,8 @@ int sched_pause_cpu(int cpu)
 	mutex_lock(&sched_core_pause_mutex);
 	cpumask_complement(&cpu_inactive_mask, cpu_active_mask);
 	if (cpumask_test_cpu(cpu, &cpu_inactive_mask)) {
-		pr_info("[Core Pause]Already Pause: cpu=%d, pause_mask=0x%lx, active_mask=0x%lx\n",
-			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0]);
+		pr_info("[Core Pause]Already Pause: cpu=%d, active_mask=0x%lx\n",
+			cpu, cpu_active_mask->bits[0]);
 		mutex_unlock(&sched_core_pause_mutex);
 		return err;
 	}
