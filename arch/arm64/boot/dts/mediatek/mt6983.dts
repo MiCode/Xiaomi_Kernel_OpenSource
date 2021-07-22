@@ -8102,7 +8102,7 @@
 			boot_mode = <&chosen>;
 			phys = <&u2port0 PHY_TYPE_USB2>;
 			phy-names = "usb2-phy";
-			usb_killer_detect;
+			//usb_killer_detect;
 			mt6375_otg_vbus: otg {
 				regulator-compatible = "mt6375,otg-vbus";
 				regulator-name = "usb-otg-vbus";
