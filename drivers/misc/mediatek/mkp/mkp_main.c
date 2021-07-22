@@ -22,6 +22,9 @@ static int __init mkp_init(void)
 {
 	int ret = 0;
 
+	mkp_setup_essential_hvc_call(PHYS_OFFSET, FIXADDR_TOP,
+		__fix_to_virt(__end_of_fixed_addresses - 1));
+
 	pr_info("%s:%d start\n", __func__, __LINE__);
 #ifdef DEMO_MKP
 	ret = mkp_demo_init();

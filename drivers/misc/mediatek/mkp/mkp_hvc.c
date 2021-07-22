@@ -256,3 +256,19 @@ int mkp_update_sharebuf_hvc_call(uint32_t policy, uint32_t handle, unsigned long
 		mkp_hvc_fast_call_id, policy, res.a0, res.a1, res.a2, res.a3);
 	return res.a0 ? -1 : 0;
 }
+
+/* Pass some essential information to MKP service */
+void __init mkp_setup_essential_hvc_call(unsigned long phys_offset,
+		unsigned long fixaddr_top, unsigned long fixaddr_real_start)
+{
+	static int is_executed;
+	struct arm_smccc_res res;
+	int mkp_hvc_fast_call_id;
+
+	if (is_executed == 0) {
+		mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(0, HVC_FUNC_ESS_0);
+		mkp_smccc_hvc(mkp_hvc_fast_call_id, phys_offset, fixaddr_top,
+			      fixaddr_real_start, 0, 0, 0, 0, &res);
+		is_executed = 1;
+	}
+}

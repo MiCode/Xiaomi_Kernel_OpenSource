@@ -66,6 +66,9 @@ enum mkp_hvc_func_num {
 	HVC_FUNC_UPDATE_SHAREBUF_4_ARGU = 68,
 	HVC_FUNC_UPDATE_SHAREBUF_5_ARGU = 69,
 	HVC_FUNC_UPDATE_SHAREBUF = 70,
+
+	/* Essential for MKP service */
+	HVC_FUNC_ESS_0 = 96,
 };
 
 int mkp_set_mapping_ro_hvc_call(uint32_t policy, uint32_t handle);
@@ -96,4 +99,8 @@ int mkp_update_sharebuf_5_argu_hvc_call(uint32_t policy, uint32_t handle, unsign
 	unsigned long a1, unsigned long a2, unsigned long a3, unsigned long a4, unsigned long a5);
 int mkp_update_sharebuf_hvc_call(uint32_t policy, uint32_t handle, unsigned long index,
 	unsigned long ipa);
+
+void __init mkp_setup_essential_hvc_call(unsigned long phys_offset, unsigned long fixaddr_top,
+	unsigned long fixaddr_real_start);
+
 #endif /* _MKP_HVC_H */
