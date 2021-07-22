@@ -475,7 +475,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 					nano_second = do_div(second, 1000000000);
 
 					tmp = snprintf(warningStr + c_num, size_remain,
-						"pa(0x%lx);dmabuf(0x%lx);user(%s);ts(%llu.%llu) ",
+						"pa(0x%lx);dmabuf(0x%p);user(%s);ts(%llu.%llu) ",
 						entry->dmaAddr, entry->dmaBuf,
 						entry->username, second, nano_second);
 
@@ -532,13 +532,13 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			else
 				tmp->refCnt = refCnt;
 
-			strncpy(tmp->username, IonNode.username, strlen(IonNode.username));
-			tmp->username[strlen(IonNode.username)] = '\0';
+			strncpy(tmp->username, IonNode.username, sizeof(tmp->username));
+			tmp->username[sizeof(tmp->username) - 1] = '\0';
 
 			mutex_lock(&cam_mem_ion_mutex[bucketID]);
 			list_add(&(tmp->list),
 				&(g_ion_buf_list[bucketID].list));
-			LOG_DBG("Add: memID(%d); pa(0x%lx);dmaBuf(0x%lx);refCnt(%d); user(%s)\n",
+			LOG_DBG("Add: memID(%d); pa(0x%lx);dmaBuf(0x%p);refCnt(%d); user(%s)\n",
 				tmp->memID,
 				tmp->dmaAddr,
 				tmp->dmaBuf,
@@ -652,7 +652,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 					}
 
 					tmp = snprintf(warningStr + c_num, size_remain,
-						"pa(0x%lx)dmaBuf(0x%lx)user(%s); ",
+						"pa(0x%lx)dmaBuf(0x%p)user(%s); ",
 						entry->dmaAddr, entry->dmaBuf,
 						entry->username);
 
@@ -915,7 +915,7 @@ static int cam_mem_buf_list_read(struct seq_file *m, void *v)
 	struct list_head *pos;
 	int i = 0, j = 0;
 
-	seq_puts(m, " idx memID        pa     aligned-size   refCnt     user     timestamp\n");
+	seq_puts(m, " idx memID        pa     aligned-size   refCnt       user       timestamp\n");
 	seq_puts(m, "===================================================================\n");
 
 	for (j = 0; j < HASH_BUCKET_NUM; j++) {
@@ -936,7 +936,8 @@ static int cam_mem_buf_list_read(struct seq_file *m, void *v)
 			second = entry->timestamp;
 			nano_second = do_div(second, 1000000000);
 
-			seq_printf(m, "#%03d   %3d   0x%09lx  0x%06x      %2d   %s %llu.%llu\n", i,
+			seq_printf(m, "#%03d   %3d   0x%09lx  0x%07zx     %2d   %-20s %llu.%llu\n",
+				i,
 				entry->memID,
 				entry->dmaAddr, entry->dmaBuf->size,
 				entry->refCnt, entry->username, second, nano_second);
