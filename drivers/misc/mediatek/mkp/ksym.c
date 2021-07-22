@@ -195,6 +195,42 @@ unsigned long mkp_addr_find(const char *name)
 	return 0;
 }
 
+static void  mkp_addr_find_krn_info(unsigned long *stext,
+	unsigned long *etext, unsigned long *init_begin)
+{
+	char strbuf[NAME_LEN];
+	unsigned long i, j;
+	unsigned int off;
+	char name[3][NAME_LEN] = {"_stext", "_etext", "__init_begin"};
+
+	for (i = 0, j = 0, off = 0; (i < *mkp_kns) && (j < 3); i++) {
+		off = mkp_checking_names(off, strbuf, ARRAY_SIZE(strbuf));
+
+		if (strcmp(strbuf, name[j]) == 0) {
+			if (j == 0)
+				*stext = mkp_idx2addr(i);
+			else if (j == 1)
+				*etext = mkp_idx2addr(i);
+			else if (j == 2)
+				*init_begin = mkp_idx2addr(i);
+			j++;
+		}
+	}
+}
+
+void mkp_get_krn_info(void **p_stext, void **p_etext,
+	void **p__init_begin)
+{
+	unsigned long stext, etext, init_begin;
+
+	mkp_addr_find_krn_info(&stext, &etext, &init_begin);
+	*p_stext = (void *)stext;
+	*p_etext = (void *)etext;
+	*p__init_begin = (void *)init_begin;
+	MKP_INFO("_stext: %p, _etext: %p\n", *p_stext, *p_etext);
+	MKP_INFO(" __init_begin: %p\n", *p__init_begin);
+}
+
 void mkp_get_krn_code(void **p_stext, void **p_etext)
 {
 	if (*p_stext && *p_etext)

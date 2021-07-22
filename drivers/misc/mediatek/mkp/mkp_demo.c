@@ -187,10 +187,18 @@ static int protect_kernel(void)
 	unsigned long addr_end;
 	phys_addr_t phys_addr;
 	int nr_pages;
+	int init = 0;
 
 	MKP_DEBUG("%s start\n", __func__);
+	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] &&
+		policy_ctrl[MKP_POLICY_KERNEL_RODATA]) {
+		mkp_get_krn_info(&p_stext, &p_etext, &p__init_begin);
+		init = 1;
+	}
+
 	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] != 0) {
-		mkp_get_krn_code(&p_stext, &p_etext);
+		if (!init)
+			mkp_get_krn_code(&p_stext, &p_etext);
 		// round down addr before minus operation
 		addr_start = (unsigned long)p_stext;
 		addr_end = (unsigned long)p_etext;
@@ -210,7 +218,8 @@ static int protect_kernel(void)
 	}
 
 	if (policy_ctrl[MKP_POLICY_KERNEL_RODATA] != 0) {
-		mkp_get_krn_rodata(&p_etext, &p__init_begin);
+		if (!init)
+			mkp_get_krn_rodata(&p_etext, &p__init_begin);
 		// round down addr before minus operation
 		addr_start = (unsigned long)p_etext;
 		addr_end = (unsigned long)p__init_begin;

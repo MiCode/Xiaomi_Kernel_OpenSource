@@ -57,4 +57,5 @@ unsigned long mkp_idx2addr(int idx);
 unsigned long mkp_addr_find(const char *name);
 void mkp_get_krn_code(void **p_stext, void **p_etext);
 void mkp_get_krn_rodata(void **p_etext, void **p__init_begin);
+void mkp_get_krn_info(void **p_stext, void **p_etext, void **p__init_begin);
 #endif /* _KSYM_H */
