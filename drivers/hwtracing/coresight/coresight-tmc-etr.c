@@ -1228,7 +1228,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 	if (drvdata->reading || drvdata->mode == CS_MODE_PERF) {
 		ret = -EBUSY;
-		goto out;
+		goto unlock_out;
 	}
 
 	/*
@@ -1238,7 +1238,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 */
 	if (drvdata->mode == CS_MODE_SYSFS) {
 		atomic_inc(csdev->refcnt);
-		goto out;
+		goto unlock_out;
 	}
 
 	/*
@@ -1257,43 +1257,33 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
 		if (ret)
-			goto out;
+			goto unlock_out;
+	}
 
-		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
-			spin_unlock_irqrestore(&drvdata->spinlock, flags);
-			ret = tmc_usb_enable(drvdata->usb_data);
-			if (ret) {
-				spin_lock_irqsave(&drvdata->spinlock, flags);
-				goto out;
-			}
-			spin_lock_irqsave(&drvdata->spinlock, flags);
-		}
+	drvdata->mode = CS_MODE_SYSFS;
+	atomic_inc(csdev->refcnt);
 
-
-	} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
-		&& drvdata->usb_data->usb_mode == TMC_ETR_USB_BAM_TO_BAM) {
-		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 		ret = tmc_usb_enable(drvdata->usb_data);
 		if (ret) {
-			spin_lock_irqsave(&drvdata->spinlock, flags);
-			goto out;
+			atomic_dec(csdev->refcnt);
+			drvdata->mode = CS_MODE_DISABLED;
 		}
-		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
+	goto out;
 
-	if (!ret) {
-		drvdata->mode = CS_MODE_SYSFS;
-		atomic_inc(csdev->refcnt);
-	}
-out:
+unlock_out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
+out:
 	/* Free memory outside the spinlock if need be */
 	if (free_buf)
 		tmc_etr_free_sysfs_buf(free_buf);
 
 	if (!ret) {
-		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			tmc_etr_byte_cntr_start(drvdata->byte_cntr);
 		dev_dbg(&csdev->dev, "TMC-ETR enabled\n");
 	}
 
