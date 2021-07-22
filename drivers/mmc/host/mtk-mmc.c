@@ -723,6 +723,10 @@ static void msdc_request_done(struct msdc_host *host, struct mmc_request *mrq)
 		msdc_unprepare_data(host, mrq);
 	if (host->error)
 		msdc_reset_hw(host);
+	if (mrq->data) {
+		mmc_mtk_biolog_transfer_req_compl(mmc_from_priv(host), 0, 0);
+		mmc_mtk_biolog_check(mmc_from_priv(host), 0);
+	}
 	mmc_request_done(mmc_from_priv(host), mrq);
 	if (host->dev_comp->recheck_sdio_irq)
 		msdc_recheck_sdio_irq(host);
@@ -896,10 +900,17 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	host->error = 0;
 	WARN_ON(host->mrq);
 	host->mrq = mrq;
-	mrq->host = mmc;
 
 	if (mrq->data)
 		msdc_prepare_data(host, mrq);
+
+	if (!mrq->host)
+		mrq->host = mmc;
+
+	if (mrq->data) {
+		mmc_mtk_biolog_send_command(0, mrq);
+		mmc_mtk_biolog_check(mmc, 1);
+	}
 
 	/* if SBC is required, we have HW option and SW option.
 	 * if HW option is enabled, and SBC does not have "special" flags,
