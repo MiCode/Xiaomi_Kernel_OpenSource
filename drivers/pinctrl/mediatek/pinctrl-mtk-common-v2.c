@@ -66,6 +66,11 @@ static const struct mtk_drive_desc mtk_drive[] = {
 	[DRV_GRP4] = { 2, 16, 2, 1 },
 };
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
+#define mtk_w32(pctl, i, reg, val)
+#define mtk_r32(pctl, i, reg)	0
+
+#else
 static void mtk_w32(struct mtk_pinctrl *pctl, u8 i, u32 reg, u32 val)
 {
 	writel_relaxed(val, pctl->base[i] + reg);
@@ -75,6 +80,7 @@ static u32 mtk_r32(struct mtk_pinctrl *pctl, u8 i, u32 reg)
 {
 	return readl_relaxed(pctl->base[i] + reg);
 }
+#endif
 
 void mtk_rmw(struct mtk_pinctrl *pctl, u8 i, u32 reg, u32 mask, u32 set)
 {
