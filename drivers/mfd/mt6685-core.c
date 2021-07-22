@@ -23,11 +23,14 @@ static const struct mfd_cell mt6685_devs[] = {
 	{
 		.name = "mt6685-rtc",
 		.of_compatible = "mediatek,mt6685-rtc",
-	},{
+	}, {
 		.name = "mt6685-clk",
 		.num_resources = ARRAY_SIZE(mt6685_dcxo_resources),
 		.resources = mt6685_dcxo_resources,
 		.of_compatible = "mediatek,mt6685-clk",
+	}, {
+		.name = "mt6685-consys",
+		.of_compatible = "mediatek,mt6685-consys",
 	}
 };
 
