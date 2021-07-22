@@ -126,6 +126,31 @@ struct mt6373_regulator_info {
 	.lp_mode_mask = BIT(lp_bit),				\
 }
 
+#define MT6373_VMCH_EINT(_eint_pol, _volt_table)		\
+[MT6373_ID_VMCH_##_eint_pol] = {				\
+	.desc = {						\
+		.name = "VMCH_"#_eint_pol,			\
+		.of_match = of_match_ptr("VMCH_"#_eint_pol),	\
+		.of_parse_cb = mt6373_of_parse_cb,		\
+		.regulators_node = "regulators",		\
+		.ops = &mt6373_vmch_eint_ops,			\
+		.type = REGULATOR_VOLTAGE,			\
+		.id = MT6373_ID_VMCH_##_eint_pol,		\
+		.owner = THIS_MODULE,				\
+		.n_voltages = ARRAY_SIZE(_volt_table),		\
+		.volt_table = _volt_table,			\
+		.enable_reg = MT6373_PMIC_RG_LDO_VMCH_EN_ADDR,	\
+		.enable_mask = BIT(MT6373_PMIC_RG_LDO_VMCH_EN_SHIFT),	\
+		.vsel_reg = MT6373_PMIC_RG_VMCH_VOSEL_ADDR,	\
+		.vsel_mask = MT6373_PMIC_RG_VMCH_VOSEL_MASK,	\
+		.of_map_mode = mt6373_map_mode,			\
+	},							\
+	.vocal_reg = MT6373_PMIC_RG_VMCH_VOCAL_ADDR,		\
+	.vocal_mask = MT6373_PMIC_RG_VMCH_VOCAL_MASK,		\
+	.lp_mode_reg = MT6373_PMIC_RG_LDO_VMCH_LP_ADDR,		\
+	.lp_mode_mask = BIT(MT6373_PMIC_RG_LDO_VMCH_LP_SHIFT),	\
+}
+
 static const struct linear_range mt_volt_range0[] = {
 	REGULATOR_LINEAR_RANGE(0, 0, 191, 6250),
 };
@@ -252,6 +277,46 @@ static int mt6373_regulator_set_mode(struct regulator_dev *rdev,
 	return ret;
 }
 
+static int mt6373_vmch_eint_enable(struct regulator_dev *rdev)
+{
+	unsigned int val;
+	int ret;
+
+	if (rdev->desc->id == MT6373_ID_VMCH_EINT_HIGH)
+		val = MT6373_PMIC_RG_LDO_VMCH_EINT_POL_MASK;
+	else
+		val = 0;
+	ret = regmap_update_bits(rdev->regmap, MT6373_LDO_VMCH_EINT,
+				 MT6373_PMIC_RG_LDO_VMCH_EINT_POL_MASK, val);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				 rdev->desc->enable_mask, rdev->desc->enable_mask);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(rdev->regmap, MT6373_LDO_VMCH_EINT,
+				 MT6373_PMIC_RG_LDO_VMCH_EINT_EN_MASK,
+				 MT6373_PMIC_RG_LDO_VMCH_EINT_EN_MASK);
+	return ret;
+}
+
+static int mt6373_vmch_eint_disable(struct regulator_dev *rdev)
+{
+	int ret;
+
+	ret = regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				 rdev->desc->enable_mask, 0);
+	if (ret)
+		return ret;
+
+	udelay(1500); /* Must delay for VMCH discharging */
+	ret = regmap_update_bits(rdev->regmap, MT6373_LDO_VMCH_EINT,
+				 MT6373_PMIC_RG_LDO_VMCH_EINT_EN_MASK, 0);
+	return ret;
+}
+
 static const struct regulator_ops mt6373_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
@@ -273,6 +338,19 @@ static const struct regulator_ops mt6373_volt_table_ops = {
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
 	.disable = regulator_disable_regmap,
+	.is_enabled = regulator_is_enabled_regmap,
+	.set_mode = mt6373_regulator_set_mode,
+	.get_mode = mt6373_regulator_get_mode,
+};
+
+static const struct regulator_ops mt6373_vmch_eint_ops = {
+	.list_voltage = regulator_list_voltage_table,
+	.map_voltage = regulator_map_voltage_iterate,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = mt6373_vmch_eint_enable,
+	.disable = mt6373_vmch_eint_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.set_mode = mt6373_regulator_set_mode,
 	.get_mode = mt6373_regulator_get_mode,
@@ -541,6 +619,8 @@ static struct mt6373_regulator_info mt6373_regulators[] = {
 		   MT6373_PMIC_RG_VEFUSE_VOCAL_MASK,
 		   MT6373_PMIC_RG_LDO_VEFUSE_LP_ADDR,
 		   MT6373_PMIC_RG_LDO_VEFUSE_LP_SHIFT),
+	MT6373_VMCH_EINT(EINT_HIGH, ldo_volt_table4),
+	MT6373_VMCH_EINT(EINT_LOW, ldo_volt_table4),
 };
 
 static void mt6373_oc_irq_enable_work(struct work_struct *work)
