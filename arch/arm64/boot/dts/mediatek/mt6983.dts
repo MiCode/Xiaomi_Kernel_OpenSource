@@ -22,6 +22,7 @@
 #include <dt-bindings/power/mt6375-gauge.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/mt6983-pinfunc.h>
+#include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 
 / {
 	model = "MT6983";
@@ -1140,6 +1141,77 @@
 		compatible = "mediatek,mt6983-ccu_main", "syscon";
 		reg = <0 0x1b200000 0 0x1000>;
 		#clock-cells = <1>;
+	};
+
+	dvfsrc: dvfsrc@1c00f000 {
+		compatible = "mediatek,mt6983-dvfsrc";
+		reg = <0 0x1c00f000 0 0x1000>,
+			<0 0x1c001000 0 0x1000>;
+		reg-names = "dvfsrc", "spm";
+		dvfsrc,bringup = <0>;
+		dvfsrc_flag = <0x3>;
+		#interconnect-cells = <1>;
+
+		dvfsrc_vcore: dvfsrc-vcore {
+			regulator-name = "dvfsrc-vcore";
+			regulator-min-microvolt = <575000>;
+			regulator-max-microvolt = <750000>;
+			regulator-always-on;
+		};
+
+		dvfsrc_freq_opp8: opp8 {
+			opp-peak-KBps = <0>;
+		};
+		dvfsrc_freq_opp7: opp7 {
+			opp-peak-KBps = <4800000>;
+		};
+		dvfsrc_freq_opp6: opp6 {
+			opp-peak-KBps = <11900000>;
+		};
+		dvfsrc_freq_opp5: opp5 {
+			opp-peak-KBps = <13600000>;
+		};
+		dvfsrc_freq_opp4: opp4 {
+			opp-peak-KBps = <17000000>;
+		};
+		dvfsrc_freq_opp3: opp3 {
+			opp-peak-KBps = <19800000>;
+		};
+		dvfsrc_freq_opp2: opp2 {
+			opp-peak-KBps = <27300000>;
+		};
+		dvfsrc_freq_opp1: opp1 {
+			opp-peak-KBps = <35200000>;
+		};
+		dvfsrc_freq_opp0: opp0 {
+			opp-peak-KBps = <40800000>;
+		};
+
+		dvfsrc-helper {
+			compatible = "mediatek,dvfsrc-helper";
+			vcore-supply = <&mt6363_vbuck2>;
+			rc-vcore-supply = <&dvfsrc_vcore>;
+			interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_HRT_DBGIF &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+			interconnect-names = "icc-bw", "icc-perf-bw", "icc-hrt-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>,
+					<&dvfsrc_freq_opp2>,
+					<&dvfsrc_freq_opp3>,
+					<&dvfsrc_freq_opp4>,
+					<&dvfsrc_freq_opp5>,
+					<&dvfsrc_freq_opp6>,
+					<&dvfsrc_freq_opp7>;
+		};
+
+		dvfsrc-met {
+			rc-vcore-supply = <&dvfsrc_vcore>;
+			interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_HRT_DBGIF &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+			interconnect-names = "icc-bw", "icc-hrt-bw";
+			compatible = "mediatek,dvfsrc-met";
+		};
 	};
 
 	vlp_cksys_clk: syscon@1c013000 {
