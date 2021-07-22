@@ -223,25 +223,21 @@ static int get_vcinfo_by_pad_fmt(struct seninf_ctx *ctx)
 static void ptr_to_ptr(struct v4l2_ctrl *ctrl,
 		       union v4l2_ctrl_ptr from, union v4l2_ctrl_ptr to)
 {
-	pr_info("Baron %s start\n", __func__);
 	if (ctrl == NULL) {
-		pr_info("Baron %s ctrl == NULL\n", __func__);
+		pr_info("%s ctrl == NULL\n", __func__);
 		return;
 	}
 	memcpy(to.p, from.p, ctrl->elems * ctrl->elem_size);
-	pr_info("Baron %s end\n", __func__);
 }
 
 /* Copy the current value to the new value */
 static void cur_to_new(struct v4l2_ctrl *ctrl)
 {
-	pr_info("Baron %s start\n", __func__);
 	if (ctrl == NULL) {
-		pr_info("Baron %s ctrl == NULL\n", __func__);
+		pr_info("%s ctrl == NULL\n", __func__);
 		return;
 	}
 	ptr_to_ptr(ctrl, ctrl->p_cur, ctrl->p_new);
-	pr_info("Baron %s end\n", __func__);
 }
 
 /* Helper function to get a single control */
@@ -251,30 +247,23 @@ static int get_ctrl(struct v4l2_ctrl *ctrl)
 	int ret = 0;
 	int i;
 
-	pr_info("Baron %s start\n", __func__);
-
 	if (ctrl->flags & V4L2_CTRL_FLAG_WRITE_ONLY) {
-		pr_info("Baron ctrl->flags&V4L2_CTRL_FLAG_WRITE_ONLY\n");
+		pr_info("%s ctrl->flags&V4L2_CTRL_FLAG_WRITE_ONLY\n",
+			__func__);
 		return -EACCES;
 	}
 
 	v4l2_ctrl_lock(master);
-	// mutex_lock(ctrl->handler->lock);
-	/* g_volatile_ctrl will update the current control values */
 	if (ctrl->flags & V4L2_CTRL_FLAG_VOLATILE) {
-		pr_info("Baron ctrl->flags & V4L2_CTRL_FLAG_VOLATILE\n");
+		pr_info("%s master->ncontrols:%d",
+			__func__, master->ncontrols);
 		for (i = 0; i < master->ncontrols; i++) {
-			pr_info("Baron %s start cur_to_new\n", __func__);
 			cur_to_new(master->cluster[i]);
 		}
-		pr_info("Baron %s end cur_to_new\n", __func__);
-		pr_info("Baron %s start call_op\n", __func__);
 		ret = call_op(master, g_volatile_ctrl);
-		pr_info("Baron %s end call_op\n", __func__);
 	}
 	v4l2_ctrl_unlock(master);
-	// mutex_unlock(ctrl->handler->lock);
-	pr_info("Baron %s end\n", __func__);
+
 	return ret;
 }
 
@@ -302,7 +291,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	ctrl->p_new.p = &fd;
 
 	ret = get_ctrl(ctrl);
-	pr_info("get_ctrl ret:%d num_entries:%d type:%d\n",
+	dev_info(ctx->dev, "%s get_ctrl ret:%d num_entries:%d type:%d\n", __func__,
 		ret, fd.num_entries, fd.type);
 	if (ret || fd.type != MTK_MBUS_FRAME_DESC_TYPE_CSI2)
 		return get_vcinfo_by_pad_fmt(ctx);
