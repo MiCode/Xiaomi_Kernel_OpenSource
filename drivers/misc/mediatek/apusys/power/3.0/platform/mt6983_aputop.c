@@ -22,6 +22,8 @@
 #include "mt6983_apupwr.h"
 #include "mt6983_apupwr_prot.h"
 
+#define LOCAL_DBG	(1)
+
 /* Below reg_name has to 1-1 mapping DTS's name */
 static const char *reg_name[APUPW_MAX_REGS] = {
 	"sys_vlp", "sys_spm", "apu_rcx", "apu_vcore", "apu_md32_mbox",
@@ -34,11 +36,11 @@ static struct apu_power apupw;
 
 static void aputop_dump_pwr_res(void);
 
-#if !CFG_FPGA
 /* regulator id */
 static struct regulator *vapu_reg_id;
 static struct regulator *vcore_reg_id;
 static struct regulator *vsram_reg_id;
+
 /* apu_top preclk */
 static struct clk *clk_top_dsp_sel;		/* CONN */
 static struct clk *clk_top_dsp1_sel;
@@ -50,10 +52,27 @@ static struct clk *clk_top_dsp6_sel;
 static struct clk *clk_top_dsp7_sel;
 static struct clk *clk_top_ipu_if_sel;		/* VCORE */
 
+// WARNING: can not call this API after acc initial or you may cause bus hang !
+static void dump_rpc_lite_reg(int line)
+{
+	pr_info("%s ln_%d acx%d APU_RPC_TOP_SEL=0x%08x\n",
+			__func__, line, 0,
+			apu_readl(apupw.regs[apu_acx0_rpc_lite]
+				+ APU_RPC_TOP_SEL));
+
+	if (CLUSTER_NUM == 2) {
+		pr_info("%s ln_%d acx%d APU_RPC_TOP_SEL=0x%08x\n",
+			__func__, line, 1,
+			apu_readl(apupw.regs[apu_acx1_rpc_lite]
+				+ APU_RPC_TOP_SEL));
+	}
+}
+
 static int init_plat_pwr_res(struct platform_device *pdev)
 {
-	int ret = 0;
-	int ret_clk = 0;
+	int ret_clk = 0, ret = 0;
+
+	pr_info("%s %d ++\n", __func__, __LINE__);
 
 	// vapu Buck
 	vapu_reg_id = regulator_get(&pdev->dev, "vapu");
@@ -61,12 +80,6 @@ static int init_plat_pwr_res(struct platform_device *pdev)
 		pr_info("regulator_get vapu_reg_id failed\n");
 		return -ENOENT;
 	}
-
-	// enable vapu buck
-	regulator_enable(vapu_reg_id);
-
-	// set vapu to default voltage
-	regulator_set_voltage(vapu_reg_id, VAPU_DEF_VOLT, VAPU_DEF_VOLT);
 
 	// vcore
 	vcore_reg_id = regulator_get(&pdev->dev, "vcore");
@@ -95,6 +108,8 @@ static int init_plat_pwr_res(struct platform_device *pdev)
 	if (ret_clk < 0)
 		return ret_clk;
 
+	pr_info("%s %d --\n", __func__, __LINE__);
+
 	return 0;
 }
 
@@ -118,16 +133,22 @@ static void destroy_plat_pwr_res(void)
 	vsram_reg_id = NULL;
 }
 
+#if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 static void plt_pwr_res_ctl(int enable)
 {
+#if ENABLE_SW_BUCK_CTL
 	int ret;
+#endif
+#if ENABLE_SOC_CLK_MUX
 	int ret_clk = 0;
+#endif
+	pr_info("%s %d ++\n", __func__, __LINE__);
 
 	if (enable) {
 #if ENABLE_SW_BUCK_CTL
 		ret = regulator_enable(vapu_reg_id);
 		if (ret < 0)
-			return ret;
+			pr_info("%s fail enable vapu : %d\n", __func__, ret);
 
 		apu_writel(
 			apu_readl(apupw.regs[sys_spm] + APUSYS_BUCK_ISOLATION)
@@ -149,7 +170,7 @@ static void plt_pwr_res_ctl(int enable)
 		ENABLE_CLK(clk_top_dsp6_sel);
 		ENABLE_CLK(clk_top_dsp7_sel);
 		if (ret_clk < 0)
-			return ret_clk;
+			pr_info("%s fail enable clk : %d\n", __func__, ret_clk);
 #else
 		pr_info("%s skip enable soc PLL since HW auto\n", __func__);
 #endif
@@ -179,13 +200,17 @@ static void plt_pwr_res_ctl(int enable)
 
 		ret = regulator_disable(vapu_reg_id);
 		if (ret < 0)
-			return ret;
+			pr_info("%s fail disable vapu : %d\n", __func__, ret);
 #else
 		pr_info("%s skip disable regulator since HW auto\n", __func__);
 #endif
 	}
-}
 
+	pr_info("%s %d --\n", __func__, __LINE__);
+}
+#endif
+
+#if !APU_PWR_SOC_PATH
 static void get_pll_pcw(uint32_t clk_rate, uint32_t *r1, uint32_t *r2)
 {
 	unsigned int fvco = clk_rate;
@@ -236,16 +261,39 @@ static void __apu_pll_init(void)
 		// PCW value always from hopping function: ofs 0x100
 		apu_setl(0x1 << 0, apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_HP_EN);
+#if LOCAL_DBG
+		pr_info("%s dbg setl 0x%08x to 0x%08x\n", __func__,
+			0x1 << 0,
+			apupw.phy_addr[apu_pll] +
+			pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_HP_EN);
+#endif
 		// Hopping function reset release: ofs 0x10C
 		apu_setl(0x1 << 0, apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_RST_CON);
+#if LOCAL_DBG
+		pr_info("%s dbg setl 0x%08x to 0x%08x\n", __func__,
+			0x1 << 0,
+			apupw.phy_addr[apu_pll] +
+			pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_RST_CON);
+#endif
 		// Hopping function clock enable: ofs 0x108
 		apu_setl(0x1 << 0, apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_CLK_CON);
+#if LOCAL_DBG
+		pr_info("%s dbg setl 0x%08x to 0x%08x\n", __func__,
+			0x1 << 0,
+			apupw.phy_addr[apu_pll] +
+			pll_base_arr[pll_idx] + PLL1UPLL_FHCTL_CLK_CON);
+#endif
 		// Hopping function enable: ofs 0x114
 		apu_setl((0x1 << 0) | (0x1 << 2), apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL0_CFG);
-
+#if LOCAL_DBG
+		pr_info("%s dbg setl 0x%08x to 0x%08x\n", __func__,
+			(0x1 << 0) | (0x1 << 2),
+			apupw.phy_addr[apu_pll] +
+			pll_base_arr[pll_idx] + PLL1UPLL_FHCTL0_CFG);
+#endif
 		posdiv_val = 0;
 		pcw_val = 0;
 		get_pll_pcw(pll_freq_out[pll_idx], &posdiv_val, &pcw_val);
@@ -253,15 +301,29 @@ static void __apu_pll_init(void)
 		// POSTDIV: ofs 0x000C , [26:24] RG_PLL_POSDIV
 		// 3'b000: /1 , 3'b001: /2 , 3'b010: /4
 		// 3'b011: /8 , 3'b100: /16
-		apu_setl(((posdiv_val << 24) | pcw_val), apupw.regs[apu_pll]
-			+ pll_base_arr[pll_idx] + PLL1U_PLL1_CON1);
+		apu_clearl(((0x1 << 26) | (0x1 << 25) | (0x1 << 24)),
+			apupw.regs[apu_pll] + pll_base_arr[pll_idx] + PLL1U_PLL1_CON1);
 
+		apu_setl(((0x1 << 31) | (posdiv_val << 24) | pcw_val), apupw.regs[apu_pll]
+			+ pll_base_arr[pll_idx] + PLL1U_PLL1_CON1);
+#if LOCAL_DBG
+		pr_info("%s dbg setl 0x%08x to 0x%08x\n", __func__,
+			((0x1 << 31) | (posdiv_val << 24) | pcw_val),
+			apupw.phy_addr[apu_pll] +
+			pll_base_arr[pll_idx] + PLL1U_PLL1_CON1);
+#endif
 		// PCW register: ofs 0x011C
 		// [31] FHCTL0_PLL_TGL_ORG
 		// [21:0] FHCTL0_PLL_ORG set to PCW value
 		apu_writel(((0x1 << 31) | pcw_val),
 			apupw.regs[apu_pll]
 			+ pll_base_arr[pll_idx] + PLL1UPLL_FHCTL0_DDS);
+#if LOCAL_DBG
+		pr_info("%s dbg writel 0x%08x to 0x%08x\n", __func__,
+			((0x1 << 31) | pcw_val),
+			apupw.phy_addr[apu_pll] +
+			pll_base_arr[pll_idx] + PLL1UPLL_FHCTL0_DDS);
+#endif
 	}
 
 	pr_info("PLL init %s %d --\n", __func__, __LINE__);
@@ -321,37 +383,37 @@ static void __apu_acc_init(void)
 
 	pr_info("ACC init %s %d --\n", __func__, __LINE__);
 }
+#endif // end of not APU_PWR_SOC_PATH
 
-static int __apu_on_mdla_mvpu_clk(void)
+static void __apu_buck_off_cfg(void)
 {
-	int ret = 0, val = 0;
+	// Step11. Roll back to Buck off stage
 
-	/* turn on mvpu root clk src */
-	apu_writel(0x00000200, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET2);
-	ret = readl_relaxed_poll_timeout_atomic(
-			(apupw.regs[apu_acc] + APU_ACC_AUTO_STATUS2),
-			val, (val & 0x20UL) == 0x20UL, 50, 10000);
-	if (ret) {
-		pr_info("%s turn on mvpu root clk fail, ret %d\n",
-				__func__, ret);
-		goto out;
-	}
+	pr_info("%s %d ++\n", __func__, __LINE__);
 
-	/* turn on mdla root clk src */
-	apu_writel(0x00000200, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET3);
-	ret = readl_relaxed_poll_timeout_atomic(
-			(apupw.regs[apu_acc] + APU_ACC_AUTO_STATUS3),
-			val, (val & 0x20UL) == 0x20UL, 50, 10000);
-	if (ret) {
-		pr_info("%s turn on mdla root clk fail, ret %d\n",
-				__func__, ret);
-		goto out;
-	}
+	// a. Setup Buck control signal
+	//	The following setting need to in order,
+	//	and wait 1uS before setup next control signal
+	// APU_BUCK_PROT_REQ
+	apu_writel(0x00004000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
+	udelay(10);
+	// SRAM_AOC_LHENB
+	apu_writel(0x00000010, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
+	udelay(10);
+	// SRAM_AOC_ISO
+	apu_writel(0x00000040, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
+	udelay(10);
+	// APU_BUCK_ELS_EN
+	apu_writel(0x00000400, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
+	udelay(10);
+	// APU_BUCK_RST_B
+	apu_writel(0x00002000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
+	udelay(10);
 
-out:
-	return ret;
+	// b. Manually turn off Buck (by configuring register in PMIC)
+	// move to probe last line
+	pr_info("%s %d --\n", __func__, __LINE__);
 }
-#endif // !CFG_FPGA
 
 #if DEBUG_DUMP_REG
 static void aputop_dump_all_reg(void)
@@ -402,9 +464,10 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump)
 		pr_info(
 		"%s RCX APU_RPC_INTF_PWR_RDY:0x%08x APU_VCORE_CG_CON:0x%08x APU_RCX_CG_CON:0x%08x\n",
 				__func__, status1, status2, status3);
-
-		print_hex_dump(KERN_ERR, "rpc: ", DUMP_PREFIX_OFFSET,
-				16, 4, apupw.regs[apu_rpc], 0x100, 1);
+		/*
+		 * print_hex_dump(KERN_ERR, "rpc: ", DUMP_PREFIX_OFFSET,
+		 *		16, 4, apupw.regs[apu_rpc], 0x100, 1);
+		 */
 	}
 
 	if (!IS_ERR_OR_NULL(dump)) {
@@ -439,6 +502,9 @@ static void __apu_pcu_init(void)
 
 	pr_info("PCU init %s %d ++\n", __func__, __LINE__);
 
+	// auto buck enable
+	apu_writel((0x1 << 16), apupw.regs[apu_pcu] + APU_PCUTOP_CTRL_SET);
+
 	// Step1. enable auto buck on/off function of command0
 	// [0]: cmd0 enable auto ON, [4]: cmd0 enable auto OFF
 	apu_writel(0x11, apupw.regs[apu_pcu] + APU_PCU_BUCK_STEP_SEL);
@@ -449,11 +515,23 @@ static void __apu_pcu_init(void)
 	apu_writel((slave_id << 4) | (pmif_id << 3) | cmd_op_w,
 			apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_DAT0_H);
 
+	// APU_PCU_BUCK_ON_DAT0_L=0x02410040
+	// APU_PCU_BUCK_ON_DAT0_H=0x00000057
+
+	pr_info("%s APU_PCU_BUCK_ON_DAT0_L=0x%08x\n", __func__,
+		apu_readl(apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_DAT0_L));
+	pr_info("%s APU_PCU_BUCK_ON_DAT0_H=0x%08x\n", __func__,
+		apu_readl(apupw.regs[apu_pcu] + APU_PCU_BUCK_ON_DAT0_H));
+
 	// Step3. fill-in command0 for vapu auto buck OFF
 	apu_writel((en_clr_offset << 16) | (0x1 << en_shift),
 			apupw.regs[apu_pcu] + APU_PCU_BUCK_OFF_DAT0_L);
 	apu_writel((slave_id << 4) | (pmif_id << 3) | cmd_op_w,
 			apupw.regs[apu_pcu] + APU_PCU_BUCK_OFF_DAT0_H);
+	pr_info("%s APU_PCU_BUCK_OFF_DAT0_L=0x%08x\n", __func__,
+		apu_readl(apupw.regs[apu_pcu] + APU_PCU_BUCK_OFF_DAT0_L));
+	pr_info("%s APU_PCU_BUCK_OFF_DAT0_H=0x%08x\n", __func__,
+		apu_readl(apupw.regs[apu_pcu] + APU_PCU_BUCK_OFF_DAT0_H));
 
 	// Step4. update buck settle time for vapu by SEL0
 	apu_writel(VAPU_BUCK_ON_SETTLE_TIME,
@@ -489,6 +567,8 @@ static void __apu_rpclite_init(void)
 		apu_setl(0x0000009E, apupw.regs[rpc_lite_base[acx_idx]]
 					+ APU_RPC_TOP_SEL);
 	}
+
+	dump_rpc_lite_reg(__LINE__);
 
 	pr_info("RPC-Lite init %s %d --\n", __func__, __LINE__);
 }
@@ -605,7 +685,7 @@ static int __apu_sleep_rpc_rcx(struct device *dev)
 	regValue |= ((0x1 << 1) | (0x1 << 2));
 	apu_writel(regValue, apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
 	udelay(10);
-
+/*
 	// FIXME : remove thie after SB
 	// may need config this in FPGS environment
 	pr_info("%s step4. ignore slp prot\n", __func__);
@@ -614,7 +694,7 @@ static int __apu_sleep_rpc_rcx(struct device *dev)
 	regValue |= (0x1 << 13);
 	apu_writel(regValue, apupw.regs[apu_rpc] + 0x140);
 	udelay(10);
-
+*/
 	// sleep request enable
 	// CAUTION!! do NOT request sleep twice in succession
 	// or system may crash (comments from DE)
@@ -639,6 +719,9 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 {
 	int ret = 0, val = 0;
 
+	/* TINFO="Enable AFC enable" */
+	apu_setl((0x1 << 16), apupw.regs[apu_rpc] + APU_RPC_TOP_SEL_1);
+
 	/* wake up RPC */
 	apu_writel(0x00000100, apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
 	ret = readl_relaxed_poll_timeout_atomic(
@@ -654,6 +737,15 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 			(u32)(apupw.phy_addr[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
 
+	/* polling FSM @RPC-lite to ensure RPC is in on/off stage */
+	ret |= readl_relaxed_poll_timeout_atomic(
+			(apupw.regs[apu_rpc] + APU_RPC_STATUS),
+			val, (val & (0x1 << 29)), 50, 10000);
+	if (ret) {
+		pr_info("%s wake up rcx_rpc fail, ret %d\n", __func__, ret);
+		goto out;
+	}
+
 	/* clear vcore/rcx cgs */
 	pr_info("clear vcore/rcx cgs %s %d\n", __func__, __LINE__);
 	apu_writel(0xFFFFFFFF, apupw.regs[apu_vcore] + APUSYS_VCORE_CG_CLR);
@@ -668,10 +760,12 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 			__func__,
 			(u32)(apupw.phy_addr[apu_rcx] + APU_RCX_CG_CON),
 			readl(apupw.regs[apu_rcx] + APU_RCX_CG_CON));
+
 out:
 	return ret;
 }
 
+#if APU_POWER_BRING_UP
 static int __apu_wake_rpc_acx(struct device *dev, enum t_acx_id acx_id)
 {
 	int ret = 0, val = 0;
@@ -688,6 +782,9 @@ static int __apu_wake_rpc_acx(struct device *dev, enum t_acx_id acx_id)
 
 	dev_info(dev, "%s ctl p1:%d p2:%d\n",
 			__func__, rpc_lite_base, acx_base);
+
+	/* TINFO="Enable AFC enable" */
+	apu_setl((0x1 << 16), apupw.regs[rpc_lite_base] + APU_RPC_TOP_SEL_1);
 
 	/* wake acx rpc lite */
 	apu_writel(0x00000100, apupw.regs[rpc_lite_base] + APU_RPC_TOP_CON);
@@ -794,11 +891,44 @@ out:
 	return ret;
 }
 
+#if !APU_PWR_SOC_PATH
+static int __apu_on_mdla_mvpu_clk(void)
+{
+	int ret = 0, val = 0;
+
+	/* turn on mvpu root clk src */
+	apu_writel(0x00000200, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET2);
+	ret = readl_relaxed_poll_timeout_atomic(
+			(apupw.regs[apu_acc] + APU_ACC_AUTO_STATUS2),
+			val, (val & 0x20UL) == 0x20UL, 50, 10000);
+	if (ret) {
+		pr_info("%s turn on mvpu root clk fail, ret %d\n",
+				__func__, ret);
+		goto out;
+	}
+
+	/* turn on mdla root clk src */
+	apu_writel(0x00000200, apupw.regs[apu_acc] + APU_ACC_AUTO_CTRL_SET3);
+	ret = readl_relaxed_poll_timeout_atomic(
+			(apupw.regs[apu_acc] + APU_ACC_AUTO_STATUS3),
+			val, (val & 0x20UL) == 0x20UL, 50, 10000);
+	if (ret) {
+		pr_info("%s turn on mdla root clk fail, ret %d\n",
+				__func__, ret);
+		goto out;
+	}
+
+out:
+	return ret;
+}
+#endif // !APU_PWR_SOC_PATH
+#endif // APU_POWER_BRING_UP
+
 static int mt6983_apu_top_on(struct device *dev)
 {
 	pr_info("%s +\n", __func__);
 
-#if !CFG_FPGA
+#if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(1);
 #endif
@@ -828,7 +958,7 @@ static int mt6983_apu_top_off(struct device *dev)
 		return -1;
 	}
 
-#if !CFG_FPGA
+#if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(0);
 #endif
@@ -840,7 +970,6 @@ static void __apu_aoc_init(void)
 {
 	pr_info("AOC init %s %d ++\n", __func__, __LINE__);
 
-//#if !CFG_FPGA
 	// Step1. Switch APU AOC control signal from SW register
 	//	  to HW path (RPC)
 	// rpc_sram_ctrl_mux_sel
@@ -854,7 +983,6 @@ static void __apu_aoc_init(void)
 	//	  (disable SW mode to manually control Buck on/off)
 	// vapu_ext_buck_iso
 	apu_clearl((0x1 << 4), apupw.regs[sys_spm] + 0xf30);
-//#endif
 
 	// Step3. Roll back to APU Buck on stage
 	//	The following setting need to in order
@@ -878,38 +1006,6 @@ static void __apu_aoc_init(void)
 	pr_info("AOC init %s %d --\n", __func__, __LINE__);
 }
 
-#if !CFG_FPGA
-static void __apu_buck_off(void)
-{
-	// Step11. Roll back to Buck off stage
-	// a. Setup Buck control signal
-	//	The following setting need to in order,
-	//	and wait 1uS before setup next control signal
-	// APU_BUCK_PROT_REQ
-	apu_writel(0x00004000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
-	udelay(10);
-	// SRAM_AOC_LHENB
-	apu_writel(0x00000010, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
-	udelay(10);
-	// SRAM_AOC_ISO
-	apu_writel(0x00000040, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
-	udelay(10);
-	// APU_BUCK_ELS_EN
-	apu_writel(0x00000400, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
-	udelay(10);
-	// APU_BUCK_RST_B
-	apu_writel(0x00002000, apupw.regs[apu_rpc] + APU_RPC_HW_CON);
-	udelay(10);
-
-	// b. Manually turn off Buck (by configuring register in PMIC)
-	// set vapu to default voltage
-	regulator_set_voltage(vapu_reg_id, VAPU_DEF_VOLT, VAPU_DEF_VOLT);
-
-	// disable vapu buck
-	regulator_disable(vapu_reg_id);
-}
-#endif
-
 static int init_plat_chip_data(struct platform_device *pdev)
 {
 	struct plat_cfg_data plat_cfg;
@@ -932,20 +1028,11 @@ static int init_hw_setting(struct device *dev)
 	__apu_rpc_init();
 	__apu_rpclite_init();
 	__apu_are_init(dev);
-#if !CFG_FPGA
-// power bring up shall use soc PLL
-#if !APU_POWER_BRING_UP
+#if !APU_PWR_SOC_PATH
 	__apu_pll_init();
 	__apu_acc_init();
 #endif
-#endif
-#if !CFG_FPGA
-	__apu_buck_off();
-#endif
-	// Step12. After APUsys is finished, update the following register to 1,
-	//	   ARE will use this information to ensure the SRAM in ARE is
-	//	   trusted or not
-	apu_setl(0x1 << 0, apupw.regs[sys_vlp] + APUSYS_AO_CTRL_ADDR);
+	__apu_buck_off_cfg();
 
 	return 0;
 }
@@ -993,27 +1080,66 @@ static int init_reg_base(struct platform_device *pdev)
 
 static int mt6983_apu_top_pb(struct platform_device *pdev)
 {
-	int ret = 0;
+	int ret_clk = 0, ret = 0;
 
 	pr_info("%s paul dbg fpga_type : %d\n", __func__, fpga_type);
 
 	init_reg_base(pdev);
 
-#if !CFG_FPGA
 	init_plat_pwr_res(pdev);
-#endif
+
+	// enable vapu buck
+	regulator_enable(vapu_reg_id);
+
+	// set vapu to default voltage
+	regulator_set_voltage(vapu_reg_id, VAPU_DEF_VOLT, VAPU_DEF_VOLT);
+
+	pr_info("%s vapu:%d (en:%d)\n", __func__,
+			regulator_get_voltage(vapu_reg_id),
+			regulator_is_enabled(vapu_reg_id));
+
+	ENABLE_CLK(clk_top_ipu_if_sel);
+	ENABLE_CLK(clk_top_dsp_sel);
+	ENABLE_CLK(clk_top_dsp1_sel);
+	ENABLE_CLK(clk_top_dsp2_sel);
+	ENABLE_CLK(clk_top_dsp3_sel);
+	ENABLE_CLK(clk_top_dsp4_sel);
+	ENABLE_CLK(clk_top_dsp5_sel);
+	ENABLE_CLK(clk_top_dsp6_sel);
+	ENABLE_CLK(clk_top_dsp7_sel);
+
+	// before apu power init, we have to ensure soc regulator/clk is ready
 	init_hw_setting(&pdev->dev);
 	mt6983_init_remote_data_sync(apupw.regs[apu_md32_mbox]);
 	init_plat_chip_data(pdev);
 
-// power bring up shall use soc PLL
 #if !APU_POWER_BRING_UP
-#if !CFG_FPGA
-	__apu_on_mdla_mvpu_clk();
+	DISABLE_CLK(clk_top_dsp7_sel);
+	DISABLE_CLK(clk_top_dsp6_sel);
+	DISABLE_CLK(clk_top_dsp5_sel);
+	DISABLE_CLK(clk_top_dsp4_sel);
+	DISABLE_CLK(clk_top_dsp3_sel);
+	DISABLE_CLK(clk_top_dsp2_sel);
+	DISABLE_CLK(clk_top_dsp1_sel);
+	DISABLE_CLK(clk_top_dsp_sel);
+	DISABLE_CLK(clk_top_ipu_if_sel);
+
+	// set vapu to default voltage
+	regulator_set_voltage(vapu_reg_id, VAPU_DEF_VOLT, VAPU_DEF_VOLT);
+
+	// disable vapu buck
+	regulator_disable(vapu_reg_id);
 #endif
-#endif
+	// Step12. After APUsys is finished, update the following register to 1,
+	//	   ARE will use this information to ensure the SRAM in ARE is
+	//	   trusted or not
+	apu_setl(0x1 << 0, apupw.regs[sys_vlp] + APUSYS_AO_CTRL_ADDR);
 
 #if APU_POWER_BRING_UP
+#if !APU_PWR_SOC_PATH
+	// power bring up shall use soc PLL
+	__apu_on_mdla_mvpu_clk();
+#endif
 	switch (fpga_type) {
 	default:
 	case 0: // do not power on
@@ -1054,7 +1180,6 @@ static int mt6983_apu_top_pb(struct platform_device *pdev)
 	}
 #endif // APU_POWER_BRING_UP
 	aputop_dump_pwr_res();
-
 	return ret;
 }
 
@@ -1067,9 +1192,7 @@ static int mt6983_apu_top_rm(struct platform_device *pdev)
 	if (fpga_type != 0)
 		pm_runtime_put_sync(&pdev->dev);
 
-#if !CFG_FPGA
 	destroy_plat_pwr_res();
-#endif
 
 	for (idx = 0; idx < APUPW_MAX_REGS; idx++)
 		iounmap(apupw.regs[idx]);
@@ -1081,13 +1204,16 @@ static int mt6983_apu_top_rm(struct platform_device *pdev)
 
 static void aputop_dump_pwr_res(void)
 {
-#if !CFG_FPGA
+	int vapu_en = 0, vapu_mode = 0;
 	uint32_t vapu = 0;
 	uint32_t vcore = 0;
 	uint32_t vsram = 0;
 
-	if (vapu_reg_id)
+	if (vapu_reg_id) {
 		vapu = regulator_get_voltage(vapu_reg_id);
+		vapu_en = regulator_is_enabled(vapu_reg_id);
+		vapu_mode = regulator_get_mode(vapu_reg_id);
+	}
 
 	if (vcore_reg_id)
 		vcore = regulator_get_voltage(vcore_reg_id);
@@ -1095,17 +1221,22 @@ static void aputop_dump_pwr_res(void)
 	if (vsram_reg_id)
 		vsram = regulator_get_voltage(vsram_reg_id);
 
-	pr_info("%s dsp_freq:%d ipuif_freq:%d\n",
+	pr_info("%s vapu:%u(en:%d,mode:%d) vcore:%u vsram:%u\n",
+			__func__, vapu, vapu_en, vapu_mode, vcore, vsram);
+
+	pr_info("%s d:%d d1:%d d2:%d d3:%d d4:%d d5:%d d6:%d d7:%d i:%d\n",
 			__func__,
 			clk_get_rate(clk_top_dsp_sel),
+			clk_get_rate(clk_top_dsp1_sel),
+			clk_get_rate(clk_top_dsp2_sel),
+			clk_get_rate(clk_top_dsp3_sel),
+			clk_get_rate(clk_top_dsp4_sel),
+			clk_get_rate(clk_top_dsp5_sel),
+			clk_get_rate(clk_top_dsp6_sel),
+			clk_get_rate(clk_top_dsp7_sel),
 			clk_get_rate(clk_top_ipu_if_sel));
 
-	pr_info("%s vapu:%u vcore:%u vsram:%u\n",
-			__func__, vapu, vcore, vsram);
-#endif
-
 	mt6983_apu_dump_rpc_status(RCX, NULL);
-
 #if APU_POWER_BRING_UP
 	mt6983_apu_dump_rpc_status(ACX0, NULL);
 	mt6983_apu_dump_rpc_status(ACX1, NULL);

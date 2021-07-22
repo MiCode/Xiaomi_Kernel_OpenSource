@@ -9,10 +9,10 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 
-#define CFG_FPGA		(1)
 #define APU_POWER_BRING_UP	(1)
-#define ENABLE_SW_BUCK_CTL	(0)	// backup solution, default HW auto ctl
-#define ENABLE_SOC_CLK_MUX	(1)	// using soc clk for bringup usage
+#define APU_PWR_SOC_PATH	(0)	// 1: do not run apu pll/acc init
+#define ENABLE_SW_BUCK_CTL	(0)	// 1: enable regulator in rpm resume
+#define ENABLE_SOC_CLK_MUX	(0)	// 1: enable soc clk in rpm resume
 #define DEBUG_DUMP_REG		(0)	// dump overall apu registers for debug
 #define APMCU_REQ_RPC_SLEEP	(1)
 
@@ -199,6 +199,8 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 #define SPARE0_MBOX_DUMMY_4_ADDR	0x740	// mbox7_dummy0
 
 // PCU initial data
+#define APU_PCUTOP_CTRL_SET	0x0
+
 #define TOP_VRCTL_VR0_EN_SET	0x241
 #define TOP_VRCTL_VR0_EN_CLR	0x242
 #define MT6373_PMIC_RG_BUCK_VBUCK6_EN_ADDR_SET	TOP_VRCTL_VR0_EN_SET
