@@ -770,6 +770,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	struct platform_device *mml_pdev = NULL;// = mml_get_plat_device(pdev);
 	struct mml_drm_ctx *mml_ctx = NULL;// = mml_drm_get_context(mml_pdev);
 	struct mml_submit* submit_kernel;
+	struct mml_drm_param disp_param = {};
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY)) {
 		return -EINVAL;
@@ -812,7 +813,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		return ret;
 	}
 
-	mml_ctx = mml_drm_get_context(mml_pdev);
+	mml_ctx = mml_drm_get_context(mml_pdev, &disp_param);
 	if (mml_ctx <= 0) {
 		DDPMSG("mml_drm_get_context fail. mml_ctx:%p\n", mml_ctx);
 	}
