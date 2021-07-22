@@ -4089,13 +4089,6 @@
 		nvmem-names = "mt6338_e_data";
 	};
 
-	low_battery_throttling {
-		compatible = "mediatek,low_battery_throttling";
-		hv_thd_volt = <3400>;
-		lv1_thd_volt = <3250>;
-		lv2_thd_volt = <3100>;
-	};
-
 	lk_charger: lk_charger {
 		compatible = "mediatek,lk_charger";
 		enable_anime;
@@ -9349,22 +9342,6 @@
 };
 
 &spmi {
-	pmic@4 {
-		mt6363_dynamic_loading_throttling: mtk_dynamic_loading_throttling {
-			compatible = "mediatek,mt6363-dynamic_loading_throttling";
-			/* charger: mtk_charger_thread */
-			mediatek,charger = <&lk_charger>;
-			/* 2000~2900mV, one gear per 100mV */
-			uvlo-level = <2600>;
-			io-channels = <&mt6375_auxadc MT6375_AUXADC_IMP>,
-				      <&mt6375_auxadc MT6375_AUXADC_IMIX_R>,
-				      <&mt6375_auxadc MT6375_AUXADC_BATSNS>;
-			io-channel-names = "pmic_ptim",
-					   "pmic_imix_r",
-					   "pmic_batadc";
-		};
-	};
-
 	mt6319_6: mt6319@6 {
 		compatible = "mediatek,mt6319";
 		reg = <0x6 SPMI_USID>;
@@ -9702,6 +9679,7 @@
 			interrupt-names = "fg_cur_h", "fg_cur_l";
 			oc-thd-h = <6800>;
 			oc-thd-l = <8000>;
+			status = "disabled";
 		};
 	};
 };
