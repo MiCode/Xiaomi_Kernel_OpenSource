@@ -1997,6 +1997,11 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	if (IS_ERR(item))
 		return -ENOMEM;
 #endif
+	if (!client) {
+		cmdq_err("client is NULL");
+		dump_stack();
+		return -EINVAL;
+	}
 
 	err = cmdq_pkt_finalize(pkt);
 	if (err < 0)
