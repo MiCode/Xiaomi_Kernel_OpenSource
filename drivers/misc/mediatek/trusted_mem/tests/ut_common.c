@@ -154,7 +154,7 @@ enum UT_RET_STATE mem_alloc_simple_test(enum TRUSTED_MEM_TYPE mem_type,
 		(un_order_sz_cfg == MEM_UNORDER_SIZE_TEST_CFG_ENABLE);
 
 	/* out of memory check */
-	ret = tmem_core_alloc_chunk(mem_type, 0, SZ_256M * 2, &ref_count,
+	ret = tmem_core_alloc_chunk(mem_type, 0, SZ_1G + SZ_512M + SZ_16M, &ref_count,
 				    &handle, mem_owner, 0, 0);
 	ASSERT_NE(0, ret, "out of memory check");
 
@@ -185,7 +185,7 @@ enum UT_RET_STATE mem_alloc_page_test(enum TRUSTED_MEM_TYPE mem_type,
 	int ret;
 	u32 handle, ref_count;
 
-	ret = tmem_core_alloc_chunk(mem_type, 0, SZ_256M * 2, &ref_count,
+	ret = tmem_core_alloc_chunk(mem_type, 0, SZ_1G + SZ_512M + SZ_16M, &ref_count,
 				    &handle, mem_owner, 0, 0);
 	ASSERT_NE(0, ret, "alloc status check");
 
