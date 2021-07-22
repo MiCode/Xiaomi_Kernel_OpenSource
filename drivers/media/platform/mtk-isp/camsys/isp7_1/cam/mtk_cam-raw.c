@@ -692,21 +692,6 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	writel_relaxed(0x1, cam_dev->base + REG_PREULTRA_HALT6_EN);
 
 }
-void write_readcount(struct mtk_raw_device *dev)
-{
-	int val, val2;
-
-	/* raw-domain */
-	val = readl_relaxed(dev->base_inner + REG_CTL_RAW_DMA_EN);
-	writel_relaxed(val, dev->base + REG_CAMCTL_FBC_RCNT_INC);
-
-	/* yuv-domain */
-	val2 = readl_relaxed(dev->base_inner + REG_CTL_YUV_DMA_EN);
-	writel_relaxed(val2, dev->yuv_base + REG_CAMCTL_FBC_RCNT_INC);
-	wmb(); /* assure order */
-
-	dev_info(dev->dev, "[Write Rcnt] val:0x%x, 0x%x\n", val, val2);
-}
 
 int get_fps_ratio(struct mtk_raw_device *dev)
 {

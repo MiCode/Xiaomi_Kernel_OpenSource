@@ -2191,6 +2191,11 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		/* Change the input size information only */
 		config_param.flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
 	}
+
+	if (config_pipe && !mtk_cam_is_subsample(ctx) && !mtk_cam_is_stagger(ctx)
+		&& !mtk_cam_is_stagger_m2m(ctx) && !mtk_cam_is_time_shared(ctx))
+		config_param.flags |= MTK_CAM_IPI_CONFIG_TYPE_EXEC_TWICE;
+
 	dev_dbg(dev, "%s: config_param flag: 0x%x\n", __func__, config_param.flags);
 
 	config_param.n_maps = 1;

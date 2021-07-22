@@ -200,11 +200,8 @@
 #define CAMDMATOP_BASE						0x4000
 
 /* use spare register FH_SPARE_5 */
+
 #define REG_FRAME_SEQ_NUM					0x4994
-/* use spare register FH_SPARE_6 */
-#define REG_CTL_RAW_DMA_EN					0x4998
-/* use spare register FH_SPARE_7 */
-#define REG_CTL_YUV_DMA_EN					0x49A0
 
 #define REG_CAMCTL_FBC_RCNT_INC				0x00A4
 

@@ -266,7 +266,6 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
 bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev);
 
-void write_readcount(struct mtk_raw_device *dev);
 int mtk_cam_get_subsample_ratio(int raw_feature);
 void subsample_enable(struct mtk_raw_device *dev);
 void stagger_enable(struct mtk_raw_device *dev);

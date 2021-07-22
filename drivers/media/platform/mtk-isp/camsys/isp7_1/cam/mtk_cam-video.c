@@ -536,15 +536,15 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
 				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
 
-				img_out->buf[i][0].iova = daddr + addr_offset;
+				img_out->buf[0][i].iova = daddr + addr_offset;
 				img_out->fmt.stride[i] = info->bpp[i] *
 					DIV_ROUND_UP(aligned_width, hdiv);
-				img_out->buf[i][0].size = img_out->fmt.stride[i]
+				img_out->buf[0][i].size = img_out->fmt.stride[i]
 					* DIV_ROUND_UP(height, vdiv);
-				addr_offset += img_out->buf[i][0].size;
+				addr_offset += img_out->buf[0][i].size;
 				pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
-					i, img_out->fmt.stride[i], img_out->buf[i][0].size,
-					img_out->buf[i][0].iova);
+					i, img_out->fmt.stride[i], img_out->buf[0][i].size,
+					img_out->buf[0][i].iova);
 			}
 		} else {
 			pr_debug("do not support non contiguous mplane\n");
@@ -562,15 +562,15 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
 				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
 
-				img_out->buf[i][0].iova = daddr + addr_offset;
+				img_out->buf[0][i].iova = daddr + addr_offset;
 				img_out->fmt.stride[i] = info->bpp[i] *
 					DIV_ROUND_UP(aligned_width, hdiv);
-				img_out->buf[i][0].size = img_out->fmt.stride[i]
+				img_out->buf[0][i].size = img_out->fmt.stride[i]
 					* DIV_ROUND_UP(height, vdiv);
-				addr_offset += img_out->buf[i][0].size;
+				addr_offset += img_out->buf[0][i].size;
 				pr_debug("stride:%d plane_size:%d addr:0x%x\n",
-					img_out->fmt.stride[i], img_out->buf[i][0].size,
-					img_out->buf[i][0].iova);
+					img_out->fmt.stride[i], img_out->buf[0][i].size,
+					img_out->buf[0][i].iova);
 			}
 		} else {
 			pr_debug("do not support non contiguous mplane\n");
@@ -663,7 +663,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	unsigned int dma_port = node->desc.dma_port;
 	unsigned int width, height, stride;
 	void *vaddr;
-	int i, plane_i;
+	int i;
 	struct v4l2_format *f = &node->active_fmt;
 	struct mtkcam_ipi_img_output *img_out;
 	struct mtkcam_ipi_frame_param *frame_param;
@@ -723,7 +723,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			for (i = 0 ; i < vb->num_planes; i++) {
 				vb->planes[i].data_offset =
 					i * f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				frame_param->img_outs[desc_id].buf[0][i].iova =
+				frame_param->img_outs[desc_id].buf[i][0].iova =
 						buf->daddr + vb->planes[i].data_offset;
 			}
 		}
@@ -740,30 +740,36 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	case MTKCAM_IPI_RAW_DRZS4NO_2:
 	case MTKCAM_IPI_RAW_DRZS4NO_3:
 		/* TODO: support sub-sampling multi-plane buffer */
-		desc_id = node->desc.id-MTK_RAW_SOURCE_BEGIN;
+		desc_id = node->desc.id - MTK_RAW_SOURCE_BEGIN;
 		img_out = &frame_param->img_outs[desc_id];
 		mtk_cam_fill_img_buf(img_out, f, buf->daddr);
 		if (node->raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
-			for (i = 0 ; i < vb->num_planes; i++) {
-				const struct mtk_format_info *mtk_info;
-				const struct v4l2_format_info *v4l2_info;
-				int comp_planes = 1;
+			int comp_planes = 1;
 
-				if (is_mtk_format(f->fmt.pix_mp.pixelformat)) {
-					mtk_info = mtk_format_info(f->fmt.pix_mp.pixelformat);
-					comp_planes = mtk_info->comp_planes;
-				} else {
-					v4l2_info = v4l2_format_info(f->fmt.pix_mp.pixelformat);
-					comp_planes = v4l2_info->comp_planes;
-				}
-				vb->planes[i].data_offset =
+			if (is_mtk_format(f->fmt.pix_mp.pixelformat)) {
+				const struct mtk_format_info *mtk_info =
+					mtk_format_info(f->fmt.pix_mp.pixelformat);
+				comp_planes = mtk_info->comp_planes;
+			} else {
+				const struct v4l2_format_info *v4l2_info =
+					v4l2_format_info(f->fmt.pix_mp.pixelformat);
+				comp_planes = v4l2_info->comp_planes;
+			}
+
+			for (i = 1 ; i < vb->num_planes; i++) {
+				int plane;
+				unsigned int offset =
 					i * f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				frame_param->img_outs[desc_id].buf[0][i].iova =
-						buf->daddr + vb->planes[i].data_offset;
-				for (plane_i = 1 ; plane_i < comp_planes; plane_i++) {
-					frame_param->img_outs[desc_id].buf[plane_i][i].iova =
-						frame_param->img_outs[desc_id].buf[0][i].iova +
-						frame_param->img_outs[desc_id].buf[0][0].size;
+				vb->planes[i].data_offset = offset;
+
+				img_out->buf[i][0].iova = buf->daddr + offset;
+				img_out->buf[i][0].size = img_out->buf[0][0].size;
+				for (plane = 1 ; plane < comp_planes; plane++) {
+					img_out->buf[i][plane].iova =
+						img_out->buf[i][plane-1].iova +
+						img_out->buf[i][plane-1].size;
+					img_out->buf[i][plane].size =
+						img_out->buf[0][plane].size;
 				}
 			}
 		}

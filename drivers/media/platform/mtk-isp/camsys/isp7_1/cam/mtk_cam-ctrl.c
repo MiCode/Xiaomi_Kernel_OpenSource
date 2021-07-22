@@ -1009,7 +1009,6 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int stateidx;
 	int que_cnt = 0;
-	int raw_num = 0;
 	int write_cnt;
 	unsigned long flags;
 	u64 time_boot = ktime_get_boottime_ns();
@@ -1117,23 +1116,6 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			if (req_stream_data->frame_seq_no == 1)
 				state_transition(state_temp, E_STATE_SENSOR,
 					 E_STATE_OUTER);
-			/* Initial request readout will be delayed 1 frame*/
-			if (raw_dev->sof_count == 1 &&
-				(ctx->pipe->res_config.raw_feature == 0)) {
-				write_readcount(raw_dev);
-				raw_num = raw_dev->pipeline->res_config.raw_num_used;
-				if (raw_num != 1) {
-					struct mtk_raw_device *raw_dev_slave =
-						get_slave_raw_dev(ctx->cam, raw_dev->pipeline);
-					write_readcount(raw_dev_slave);
-					if (raw_num == 3) {
-						struct mtk_raw_device *raw_dev_slave2 =
-							get_slave2_raw_dev(ctx->cam,
-							raw_dev->pipeline);
-						write_readcount(raw_dev_slave2);
-					}
-				}
-			}
 		}
 		return STATE_RESULT_PASS_CQ_INIT;
 	}

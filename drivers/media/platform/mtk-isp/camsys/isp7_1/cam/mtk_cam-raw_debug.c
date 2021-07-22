@@ -57,18 +57,26 @@ static const char * const fbc_r2_list[] = {
 #define LOGGER_BUFSIZE 128
 struct buffered_logger {
 	struct device *dev;
+	void (*log_handler)(struct buffered_logger *log);
+
 	char prefix[LOGGER_PREFIX_SIZE];
 	char buf[LOGGER_BUFSIZE + 1];
 	int size;
 };
 
-#define INIT_LOGGER(logger, dev)		\
+#define _INIT_LOGGER(logger, _dev, _hdl)	\
 ({						\
-	(logger)->dev = dev;			\
+	(logger)->dev = _dev;			\
+	(logger)->log_handler = _hdl;		\
 	(logger)->prefix[0] = '\0';		\
 	(logger)->buf[LOGGER_BUFSIZE] = '\0';	\
 	(logger)->size = 0;			\
 })
+
+#define INIT_LOGGER_ALWAYS(logger, dev)		\
+	_INIT_LOGGER(logger, dev, mtk_cam_log_handle_info)
+#define INIT_LOGGER_LIMITED(logger, dev)	\
+	_INIT_LOGGER(logger, dev, mtk_cam_log_handle_limited)
 
 static __printf(2, 3)
 void mtk_cam_log_set_prefix(struct buffered_logger *log, const char *fmt, ...)
@@ -80,11 +88,23 @@ void mtk_cam_log_set_prefix(struct buffered_logger *log, const char *fmt, ...)
 	va_end(args);
 }
 
-static void mtk_cam_log_flush(struct buffered_logger *log)
+static void mtk_cam_log_handle_limited(struct buffered_logger *log)
 {
 	dev_info_ratelimited(log->dev, "%s: %.*s\n",
 			     log->prefix, log->size, log->buf);
 	log->size = 0;
+}
+
+static void mtk_cam_log_handle_info(struct buffered_logger *log)
+{
+	dev_info(log->dev, "%s: %.*s\n",
+		 log->prefix, log->size, log->buf);
+	log->size = 0;
+}
+
+static void mtk_cam_log_flush(struct buffered_logger *log)
+{
+	log->log_handler(log);
 }
 
 static __printf(2, 3)
@@ -131,7 +151,7 @@ void mtk_cam_raw_dump_fbc(struct device *dev,
 	for (i = 0; i < ARRAY_SIZE(fbc_r2_list); i++)
 		fbc_r2_ctl2[i] = readl(yuvbase + REG_FBC_CTL2(FBC_R2A_BASE, i));
 
-	INIT_LOGGER(&log, dev);
+	INIT_LOGGER_ALWAYS(&log, dev);
 
 	mtk_cam_log_set_prefix(&log, "%s", "RAW FBC");
 	for (i = 0; i < ARRAY_SIZE(fbc_r1_list); i++)
@@ -225,7 +245,7 @@ static void mtk_cam_dump_dma_err_st(struct device *dev, void __iomem *base,
 	int err_found = 0;
 	int err_st;
 
-	INIT_LOGGER(&log, dev);
+	INIT_LOGGER_LIMITED(&log, dev);
 	mtk_cam_log_set_prefix(&log, "%s", prefix);
 
 	while (from < to) {

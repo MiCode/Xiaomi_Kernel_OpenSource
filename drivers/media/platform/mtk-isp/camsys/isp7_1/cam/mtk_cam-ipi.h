@@ -144,7 +144,7 @@ struct mtkcam_ipi_img_input {
 struct mtkcam_ipi_img_output {
 	struct mtkcam_ipi_uid		uid;
 	struct mtkcam_ipi_pix_fmt	fmt;
-	struct mtkcam_ipi_sw_buffer	buf[CAM_MAX_PLANENUM][CAM_MAX_SUBSAMPLE];
+	struct mtkcam_ipi_sw_buffer	buf[CAM_MAX_SUBSAMPLE][CAM_MAX_PLANENUM];
 	struct mtkcam_ipi_crop		crop;
 } __attribute__ ((__packed__));
 
@@ -207,8 +207,9 @@ struct mtkcam_ipi_hw_mapping {
 } __attribute__ ((__packed__));
 
 /*  Control flags of CAM_CMD_CONFIG */
-#define MTK_CAM_IPI_CONFIG_TYPE_INIT		0x0001
-#define MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE	0x0002
+#define MTK_CAM_IPI_CONFIG_TYPE_INIT			0x0001
+#define MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE		0x0002
+#define MTK_CAM_IPI_CONFIG_TYPE_EXEC_TWICE		0x0004
 
 struct mtkcam_ipi_config_param {
 	__u8 flags;
