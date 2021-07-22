@@ -9232,9 +9232,9 @@
 };
 
 &i2c6 {
-	ps5170: ps5170@28 {
+	ps5170: ps5170@30 {
 		compatible = "parade,ps5170";
-		reg = <0x28>;
+		reg = <0x30>;
 		status = "okay";
 	};
 
