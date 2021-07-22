@@ -43,7 +43,7 @@
 #define PIN_OUT_SIZE_SENSOR_NOTIFY       7
 #define PIN_IN_SIZE_SENSOR_NOTIFY        7
 #define PIN_OUT_SIZE_SCP_CONNSYS         3
-#define PIN_OUT_SIZE_SCP_HWVOTER_DEBUG     4
+#define PIN_OUT_SIZE_SCP_HWVOTER_DEBUG   2
 
 /* scp Core ID definition */
 enum scp_core_id {
